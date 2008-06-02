@@ -88,6 +88,7 @@ private slots:
   void showConvergenceSlot();     // Solver -> Show convergence...
   void resultsSlot();             // Solver -> Post process
   void killresultsSlot();         // Solver -> Kill post process
+  void compileSolverSlot();       // Solver -> Compile...
   void showaboutSlot();           // Help -> About...
 
   // other public slots:
@@ -100,6 +101,9 @@ private slots:
   void solverStdoutSlot();            // solver's stdout redirection
   void solverStderrSlot();            // solver's stderr redirection
   void solverFinishedSlot(int);       // signal emitted by solver process
+  void compilerStdoutSlot();          // compiler's stdout redirection
+  void compilerStderrSlot();          // compiler's stderr redirection
+  void compilerFinishedSlot(int);     // signal emitted by compiler
 
   void pdeEditorFinishedSlot(int, int);  // signal emitted by pde editor
   void matEditorFinishedSlot(int, int);  // signal emitted by mat editor
@@ -218,6 +222,7 @@ private:
   QAction *showConvergenceAct;    // Solver -> Show convergence...
   QAction *resultsAct;            // Solver -> Post process
   QAction *killresultsAct;        // Solver -> Kill post process
+  QAction *compileSolverAct;      // Solver -> Compile...
   QAction *aboutAct;              // Help -> About...
 
   // property editors etc:
@@ -261,6 +266,7 @@ private:
   // solver and post processor:
   QProcess *solver;
   QProcess *post;
+  QProcess *compiler;
   
   // utility functions:
   void readInputFile(QString);

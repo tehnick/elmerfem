@@ -108,6 +108,7 @@ MainWindow::MainWindow()
   solverLogWindow = new SifWindow(this);
   solver = new QProcess(this);
   post = new QProcess(this);
+  compiler = new QProcess(this);
   generalSetup = new GeneralSetup;
   equationEditor = new DynamicEditor[MAX_EQUATIONS];
   materialEditor = new DynamicEditor[MAX_MATERIALS];
@@ -155,6 +156,18 @@ MainWindow::MainWindow()
   // solver emits (void) when there is something to read from stderr:
   connect(solver, SIGNAL(readyReadStandardError()), 
 	  this, SLOT(solverStderrSlot()));
+
+  // compiler emits (int) when finished:
+  connect(compiler, SIGNAL(finished(int)), 
+	  this, SLOT(compilerFinishedSlot(int))) ;
+
+  // compiler emits (void) when there is something to read from stdout:
+  connect(compiler, SIGNAL(readyReadStandardOutput()), 
+	  this, SLOT(compilerStdoutSlot()));
+
+  // compiler emits (void) when there is something to read from stderr:
+  connect(compiler, SIGNAL(readyReadStandardError()), 
+	  this, SLOT(compilerStderrSlot()));
 
   // post emits (int) when finished:
   connect(post, SIGNAL(finished(int)), 
@@ -510,6 +523,12 @@ void MainWindow::createActions()
   connect(killresultsAct, SIGNAL(triggered()), 
 	  this, SLOT(killresultsSlot()));
 
+  // Solver -> Compile...
+  compileSolverAct = new QAction(QIcon(""), tr("Compile..."), this);
+  compileSolverAct->setStatusTip(tr("Compile solver as a shared library"));
+  connect(compileSolverAct, SIGNAL(triggered()), 
+	  this, SLOT(compileSolverSlot()));
+
   // Help -> About
   aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
@@ -642,6 +661,8 @@ void MainWindow::createMenus()
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
+  solverMenu->addSeparator();
+  solverMenu->addAction(compileSolverAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -4909,6 +4930,76 @@ void MainWindow::killresultsSlot()
   logMessage("Post process killed");
   resultsAct->setIcon(QIcon(":/icons/Post.png"));
 }
+
+// Solver -> Compile...
+//-----------------------------------------------------------------------------
+void MainWindow::compileSolverSlot()
+{
+  QString fileName = QFileDialog::getOpenFileName(this,
+	tr("Open solver"), "", tr("F90 files (*.f90)"));
+
+  if (!fileName.isEmpty()) {
+    QFileInfo fi(fileName);
+    QString absolutePath = fi.absolutePath();
+    QDir::setCurrent(absolutePath);
+  } else {
+    logMessage("Unable to open file: file name is empty");
+    return;
+  }
+
+  if(compiler->state() == QProcess::Running) {
+    logMessage("Compiler is currently running");
+    return;
+  }
+
+  QStringList args;
+  args << fileName;
+
+  compiler->start("elmerf90.bat", args);
+  
+  if(!compiler->waitForStarted()) {
+    logMessage("Unable to start compiler");
+    return;
+  }
+
+  solverLogWindow->setWindowTitle(tr("Compiler log"));
+  solverLogWindow->textEdit->clear();
+  solverLogWindow->found = false;
+  solverLogWindow->show();
+  solverLogWindow->statusBar()->showMessage("Compiling...");
+
+  logMessage("Compiling...");
+}
+
+
+// compiler process emits (void) when there is something to read from stdout:
+//-----------------------------------------------------------------------------
+void MainWindow::compilerStdoutSlot()
+{
+  QString qs = compiler->readAllStandardOutput();
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  solverLogWindow->textEdit->append(qs);
+}
+
+
+// compiler process emits (void) when there is something to read from stderr:
+//-----------------------------------------------------------------------------
+void MainWindow::compilerStderrSlot()
+{
+  QString qs = compiler->readAllStandardError();
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  solverLogWindow->textEdit->append(qs);
+}
+
+// Signal (int) emitted by compiler when finished:
+//-----------------------------------------------------------------------------
+void MainWindow::compilerFinishedSlot(int)
+{
+  logMessage("Compiler finished");
+  solverLogWindow->statusBar()->showMessage("Ready");
+  solverLogWindow->textEdit->append("Ready");
+}
+
 
 
 //*****************************************************************************
