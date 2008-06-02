@@ -1788,18 +1788,19 @@ CONTAINS
      BUpd = .FALSE.
      IF ( PRESENT(BulkUpdate) ) THEN
        BUpd=BulkUpdate 
+       IF ( .NOT. BUpd ) RETURN
      ELSE
        IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
      END IF
      BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
 
      IF ( BUpd ) THEN
-        IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+       IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
           ALLOCATE( Solver % Matrix % BulkRHS(SIZE(A % RHS)) )
           A % BulkRHS = 0.0_dp
        END IF
 
-        IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+       IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
           ALLOCATE( Solver % Matrix % BulkValues(SIZE(A % Values)) )
           A % BulkValues = 0.0_dp
        END IF
@@ -1895,6 +1896,7 @@ CONTAINS
      BUpd = .FALSE.
      IF ( PRESENT(BulkUpdate) ) THEN
        BUpd=BulkUpdate 
+       IF ( .NOT. BUpd ) RETURN
      ELSE IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
        DEALLOCATE(G,F)
        RETURN
@@ -1977,8 +1979,9 @@ CONTAINS
     BUpd = .FALSE.
     IF ( PRESENT(BulkUpdate) ) THEN
       BUpd=BulkUpdate 
+      IF ( .NOT. BUpd ) RETURN
     ELSE
-       IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
+      IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
     END IF
     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
 
