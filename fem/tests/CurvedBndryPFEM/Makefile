@@ -3,7 +3,7 @@
 run:
 	$(F90) -c Poisson.f90
 	$(LD) -o Poisson$(SHL_EXT) Poisson$(OBJ_EXT) $(LIBS)
-	$(ELMER_GRID) 1 2 square -pelem 1 1 4
+	$(ELMER_GRID) 1 2 square
 	$(ELMER_SOLVER)
 
 
