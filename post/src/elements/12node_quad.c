@@ -491,21 +491,21 @@ int elm_12node_quad_isoline
     y[k] = elm_12node_quad_fvalue( Y,-1.0/3,-1.0/3 );
     z[k] = elm_12node_quad_fvalue( Z,-1.0/3,-1.0/3 );
 
-    k = terms[12];
+    k = terms[13];
     f[k] = elm_12node_quad_fvalue( F, 1.0/3,-1.0/3 );
     c[k] = elm_12node_quad_fvalue( C, 1.0/3,-1.0/3 );
     x[k] = elm_12node_quad_fvalue( X, 1.0/3,-1.0/3 );
     y[k] = elm_12node_quad_fvalue( Y, 1.0/3,-1.0/3 );
     z[k] = elm_12node_quad_fvalue( Z, 1.0/3,-1.0/3 );
 
-    k = terms[12];
+    k = terms[14];
     f[k] = elm_12node_quad_fvalue( F, 1.0/3, 1.0/3 );
     c[k] = elm_12node_quad_fvalue( C, 1.0/3, 1.0/3 );
     x[k] = elm_12node_quad_fvalue( X, 1.0/3, 1.0/3 );
     y[k] = elm_12node_quad_fvalue( Y, 1.0/3, 1.0/3 );
     z[k] = elm_12node_quad_fvalue( Z, 1.0/3, 1.0/3 );
 
-    k = terms[12];
+    k = terms[15];
     f[k] = elm_12node_quad_fvalue( F,-1.0/3, 1.0/3 );
     c[k] = elm_12node_quad_fvalue( C,-1.0/3, 1.0/3 );
     x[k] = elm_12node_quad_fvalue( X,-1.0/3, 1.0/3 );
