@@ -4936,7 +4936,7 @@ void MainWindow::killresultsSlot()
 void MainWindow::compileSolverSlot()
 {
   QString fileName = QFileDialog::getOpenFileName(this,
-	tr("Open solver"), "", tr("F90 files (*.f90)"));
+       tr("Open source file"), "", tr("F90 files (*.f90)"));
 
   if (!fileName.isEmpty()) {
     QFileInfo fi(fileName);
