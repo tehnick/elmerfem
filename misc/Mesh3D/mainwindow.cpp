@@ -1342,27 +1342,66 @@ void MainWindow::saveProjectSlot()
     return;
   }
 
+  //===========================================================================
+  //                               SAVE EQUATIONS
+  //===========================================================================
   QString equationFileName = projectDirName + "/equation.dat";
   logMessage("Saving equation data in " + equationFileName);
+  saveContents(equationFileName, equationEditor, MAX_EQUATIONS);
 
-  QFile equationFile(equationFileName);
-  if(!equationFile.open(QIODevice::WriteOnly)) {
-    logMessage("Unable to open " + equationFileName + " for writing");
+  //===========================================================================
+  //                               SAVE MATERIALS
+  //===========================================================================
+  QString materialFileName = projectDirName + "/material.dat";
+  logMessage("Saving material data in " + materialFileName);
+  saveContents(materialFileName, materialEditor, MAX_MATERIALS);
+
+  //===========================================================================
+  //                             SAVE BODY FORCES
+  //===========================================================================
+  QString bodyForceFileName = projectDirName + "/bodyforce.dat";
+  logMessage("Saving body force data in " + bodyForceFileName);
+  saveContents(bodyForceFileName, bodyForceEditor, MAX_BODYFORCES);
+
+  //===========================================================================
+  //                          SAVE INITIAL CONDITIONS
+  //===========================================================================
+  QString initialConditionFileName = projectDirName + "/initialcondition.dat";
+  logMessage("Saving initial condition data in " + initialConditionFileName);
+  saveContents(initialConditionFileName, initialConditionEditor, MAX_INITIALCONDITIONS);
+
+  //===========================================================================
+  //                          SAVE BOUNDARY CONDITIONS
+  //===========================================================================
+  QString boundaryConditionFileName = projectDirName + "/boundarycondition.dat";
+  logMessage("Saving boundary condition data in " + boundaryConditionFileName);
+  saveContents(boundaryConditionFileName, boundaryConditionEditor, MAX_BCS);
+
+  logMessage("Ready");
+}
+
+// Helper function for saveProject
+//-----------------------------------------------------------------------------
+void MainWindow::saveContents(QString fileName, DynamicEditor *editor, int Nmax)
+{
+  QFile file(fileName);
+  if(!file.open(QIODevice::WriteOnly)) {
+    logMessage("Unable to open " + fileName + " for writing");
     return;
   }
-
-  QTextStream equationStream(&equationFile);
-
-  for(int i = 0; i < MAX_EQUATIONS; i++) {
-    DynamicEditor *de = &equationEditor[i];
-
+  
+  QTextStream stream(&file);
+  
+  for(int i = 0; i < Nmax; i++) {
+    DynamicEditor *de = &editor[i];
+    
     // Menu item number and activation flag:
-    equationStream << i << "/" << (de->menuAction != NULL) << endl;
-
-    // Name of the equation:
+    stream << i << "/" << (de->menuAction != NULL) << endl;
+    
+    // Name:
     if(de->menuAction != NULL)
-      equationStream << de->nameEdit->text().trimmed() << "\n";
-
+      stream << de->nameEdit->text().trimmed() << "\n";
+    
     // Write all stuff in hash:
     for(int j = 0; j < de->hash.count(); j++) {
       QString key = de->hash.keys().at(j);
@@ -1370,38 +1409,31 @@ void MainWindow::saveProjectSlot()
       QDomElement elem = value.elem;
       QWidget *widget = value.widget;
       
-      equationStream << key.toAscii() << "\n";
+      stream << key.toAscii() << "\n";
       if(elem.attribute("Widget", "") == "CheckBox") {
 	QCheckBox *checkBox = (QCheckBox*)widget;
-	equationStream << "CheckBox: " << checkBox->isChecked() << "\n";
+	stream << "CheckBox: " << checkBox->isChecked() << "\n";
       } else if(elem.attribute("Widget", "") == "Edit") {
 	QLineEdit *lineEdit = (QLineEdit*)widget;
-	equationStream << "Edit: " << lineEdit->text().toAscii() << "\n";
+	stream << "Edit: " << lineEdit->text().toAscii() << "\n";
       } else if(elem.attribute("Widget", "") == "Combo") {
 	QComboBox *comboBox = (QComboBox*)widget;
-	equationStream << "Combo: " << comboBox->currentText().toAscii() << "\n";
+	stream << "Combo: " << comboBox->currentText().toAscii() << "\n";
       } else if(elem.attribute("Widget", "") == "Label") {
 	QLabel *label = (QLabel*)widget;
-	equationStream << "Label: " << label->text().toAscii() << "\n";
+	stream << "Label: " << label->text().toAscii() << "\n";
       }
     }
-    equationStream << "End\n";
+    stream << "End\n";
   }
-  equationFile.close();
-
+  file.close();
 }
+
 
 // File -> Load project...
 //-----------------------------------------------------------------------------
 void MainWindow::loadProjectSlot()
 {
-  QString line = "";
-  QString line1 = "";
-  QString line2 = "";
-  QStringList splittedLine;
-  QStringList splittedLine1;
-  QStringList splittedLine2;
-
   QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
 
   if (!projectDirName.isEmpty()) {
@@ -1411,68 +1443,136 @@ void MainWindow::loadProjectSlot()
     return;
   }
 
-  QString equationFileName = projectDirName + "/equation.dat";
-  logMessage("Loading equation data from " + equationFileName);
-
-  QFile equationFile(equationFileName);
-  if(!equationFile.open(QIODevice::ReadOnly)) {
-    logMessage("Unable to open " + equationFileName + " for reading");
-    return;
-  }
-
-  QTextStream equationStream(&equationFile);
-
   logMessage("Clearing model data");
   modelClearSlot();
 
-  for(int i = 0; i < MAX_EQUATIONS; i++) {
-    DynamicEditor *de = &equationEditor[i];
+  //===========================================================================
+  //                               LOAD EQUATIONS
+  //===========================================================================
+  QString equationFileName = projectDirName + "/equation.dat";
+  logMessage("Loading equation data in " + equationFileName);
+  loadContents(equationFileName, equationEditor, MAX_EQUATIONS, "Equation");
 
-    // Equation number and activation flag:
-    line = equationStream.readLine();
+  //===========================================================================
+  //                               LOAD MATERIALS
+  //===========================================================================
+  QString materialFileName = projectDirName + "/material.dat";
+  logMessage("Loading material data in " + materialFileName);
+  loadContents(materialFileName, materialEditor, MAX_MATERIALS, "Material");
+
+  //===========================================================================
+  //                             LOAD BODY FORCES
+  //===========================================================================
+  QString bodyForceFileName = projectDirName + "/bodyforce.dat";
+  logMessage("Loading body force data in " + bodyForceFileName);
+  loadContents(bodyForceFileName, bodyForceEditor, MAX_BODYFORCES, "BodyForce");
+
+  //===========================================================================
+  //                          LOAD INITIAL CONDITIONS
+  //===========================================================================
+  QString initialConditionFileName = projectDirName + "/initialcondition.dat";
+  logMessage("Loading initial condition data in " + initialConditionFileName);
+  loadContents(initialConditionFileName, initialConditionEditor, MAX_INITIALCONDITIONS, "InitialCondition");
+
+  //===========================================================================
+  //                          LOAD BOUNDARY CONDITIONS
+  //===========================================================================
+  QString boundaryConditionFileName = projectDirName + "/boundarycondition.dat";
+  logMessage("Loading boundary condition data in " + boundaryConditionFileName);
+  loadContents(boundaryConditionFileName, boundaryConditionEditor, MAX_BCS, "BoundaryCondition");
+
+  logMessage("Ready");
+}
+
+
+// Helper function for load project
+//--------------------------------------------------------------------------------------------
+void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax, QString Mname)
+{
+  QString line = "";
+  QString line1 = "";
+  QString line2 = "";
+  QStringList splittedLine;
+  QStringList splittedLine1;
+  QStringList splittedLine2;
+
+  QFile file(fileName);
+  if(!file.open(QIODevice::ReadOnly)) {
+    logMessage("Unable to open " + fileName + " for reading");
+    return;
+  }
+
+  QTextStream stream(&file);
+
+  for(int i = 0; i < Nmax; i++) {
+    DynamicEditor *de = &editor[i];
+
+    // Menu item number and activation flag:
+    line = stream.readLine();
     splittedLine = line.split("/");
 
     if(splittedLine.count() != 2) {
-      logMessage("Unexpected line in equation.dat - aborting");
+      logMessage("Unexpected line in dat-file - aborting");
       return;
     }
 
-    int equationNumber = splittedLine.at(0).toInt();
+    // int itemNumber = splittedLine.at(0).toInt();
     int menuActionDefined = splittedLine.at(1).toInt();
 
     // set up tabs and add to menu
     if(menuActionDefined > 0) {
 
-      // name of the equation
-      QString name = equationStream.readLine();
+      // name of the item
+      QString name = stream.readLine();
 
-      de->setupTabs(*elmerDefs, "Equation", i);
+      de->setupTabs(*elmerDefs, Mname, i);
       de->nameEdit->setText(name);
       de->applyButton->setText("Update");
       de->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       de->discardButton->setText("Remove");
       de->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
 
-      connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int)));
+      const QString &tmpName = name;
+      QAction *act = new QAction(tmpName, this);
 
-      de->spareButton->setText("Edit Solver Settings");
-      de->spareButton->show();
-      de->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));      
+      if(Mname == "Equation") {
+	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int)));
+	de->spareButton->setText("Edit Solver Settings");
+	de->spareButton->show();
+	de->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));      
+	connect(de, SIGNAL(dynamicEditorSpareButtonClicked(int, int)), this, SLOT(editNumericalMethods(int, int)));
+	equationMenu->addAction(act);
+      }
 
-      connect(de, SIGNAL(dynamicEditorSpareButtonClicked(int, int)), this, SLOT(editNumericalMethods(int, int)));
+      if(Mname == "Material") {
+	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(matEditorFinishedSlot(int,int)));
+	materialMenu->addAction(act);
+      }
 
-      const QString &equationName = name;
-      QAction *act = new QAction(equationName, this);
-      equationMenu->addAction(act);
+      if(Mname == "BodyForce") {
+	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(bodyForceEditorFinishedSlot(int,int)));
+	bodyForceMenu->addAction(act);
+      }
+
+      if(Mname == "InitialCondition") {
+	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(initialConditionEditorFinishedSlot(int,int)));
+	initialConditionMenu->addAction(act);
+      }
+
+      if(Mname == "BoundaryCondition") {
+	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(boundaryConditionEditorFinishedSlot(int,int)));
+	boundaryConditionMenu->addAction(act);
+      }
+
       de->menuAction = act;      
 
       createBodyCheckBoxes(BODY_EQUATION, de);
     }
 
     // set contents:
-    line1 = equationStream.readLine();
+    line1 = stream.readLine();
     while(line1.trimmed() != "End") {
-      line2 = equationStream.readLine();
+      line2 = stream.readLine();
       if(line2.trimmed() == "End")
 	break;
 
@@ -1516,11 +1616,12 @@ void MainWindow::loadProjectSlot()
 	  }
 	}
       }
-      line1 = equationStream.readLine();
+      line1 = stream.readLine();
     }
   }
-  equationFile.close();
+  file.close();
 }
+
 
 
 // Export mesh files in elmer-format:

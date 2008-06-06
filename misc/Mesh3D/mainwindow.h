@@ -151,6 +151,8 @@ private:
   void applyOperations();
   void populateBodyComboBoxes(BodyPropertyEditor *);
   void populateBoundaryComboBoxes(BoundaryPropertyEditor *);
+  void saveContents(QString, DynamicEditor *, int);
+  void loadContents(QString, DynamicEditor *, int, QString);
     
   QMenu *fileMenu;                // File menu
   QMenu *modelMenu;               // Model menu
