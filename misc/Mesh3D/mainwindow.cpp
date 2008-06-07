@@ -77,24 +77,24 @@ operation_t operation;
 
 QString saveDirName;
 
-
 // Construct main window...
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
 {
-  #ifdef __APPLE__
+#ifdef __APPLE__
   // find "Home directory"
-    char executablePath[600] = {0};
-    uint32_t len = 600;
-    this->homePath = "";
-    if(! _NSGetExecutablePath( (char*) executablePath, &len)){
-        *(strrchr(executablePath,'/'))='\0';// remove executable name from path
-        *(strrchr(executablePath,'/'))='\0';// remove last path component name from path
-        this->homePath = executablePath;
-    }
-  #else
-    this.homePath="";
-  #endif
+  char executablePath[600] = {0};
+  uint32_t len = 600;
+  this->homePath = "";
+  if(! _NSGetExecutablePath( (char*) executablePath, &len)){
+    *(strrchr(executablePath,'/'))='\0';// remove executable name from path
+    *(strrchr(executablePath,'/'))='\0';// remove last path component name from path
+    this->homePath = executablePath;
+  }
+#else
+  homePath="";
+#endif
+  
   // load images
   iconChecked = QIcon(":/icons/dialog-ok.png");
   iconEmpty = QIcon("");
@@ -5074,7 +5074,12 @@ void MainWindow::compileSolverSlot()
   QStringList args;
   args << fileName;
 
+#ifdef WIN32
   compiler->start("elmerf90.bat", args);
+#else
+  logMessage("Run compiler is currently not implemented on this platform");
+  return;
+#endif
   
   if(!compiler->waitForStarted()) {
     logMessage("Unable to start compiler");
@@ -5242,12 +5247,11 @@ void MainWindow::loadDefinitions()
   // load general definitions file:
   //-------------------------------
    
-  #ifdef __APPLE__
-    QString generalDefs = this->homePath +  "/edf/edf.xml";          
-  #else
-      QString generalDefs = "edf/edf.xml";
-  
-  #endif
+#ifdef __APPLE__
+  QString generalDefs = this->homePath +  "/edf/edf.xml";          
+#else
+  QString generalDefs = "edf/edf.xml";
+#endif
 
   cout << "Load " << string(generalDefs.toAscii()) << "...";
   cout.flush();
@@ -5295,9 +5299,6 @@ void MainWindow::loadDefinitions()
 
   // load additional definitions:
   //-----------------------------
-  
-  
-  
   QDirIterator iterator( homePath+"/edf", QDirIterator::Subdirectories);
 
   while (iterator.hasNext()) {
