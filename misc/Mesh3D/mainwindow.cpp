@@ -5299,10 +5299,15 @@ void MainWindow::loadDefinitions()
 
   // load additional definitions:
   //-----------------------------
+#ifdef __APPLE__
   QDirIterator iterator( homePath+"/edf", QDirIterator::Subdirectories);
+#else
+  QDirIterator iterator( "edf", QDirIterator::Subdirectories);
+#endif
 
   while (iterator.hasNext()) {
     QString fileName = iterator.next();
+
     QFileInfo fileInfo(fileName);
     QString fileSuffix = fileInfo.suffix();
 
