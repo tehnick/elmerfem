@@ -59,6 +59,8 @@ bool NglibAPI::loadNglib()
 
 #ifdef WIN32
   hNglib = LoadLibrary(TEXT("libng.dll"));
+#elif __APPLE__
+  hNglib = dlopen("@executable_path/../lib/libng.dylib", RTLD_LAZY);  
 #else
   hNglib = dlopen("libng.so", RTLD_LAZY);  
 #endif

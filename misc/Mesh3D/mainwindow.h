@@ -287,6 +287,12 @@ private:
   bool bcEditActive;
   bool bodyEditActive;
   bool showConvergence;
+  
+//  #ifdef __APPLE__
+//  This is only needed for Mac OS X, but it's easier to include in all
+//  architechtures and it's small so there's no marked adverse effects
+  QString homePath;
+//  #endif
 };
 
 #endif

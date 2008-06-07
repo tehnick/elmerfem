@@ -2871,11 +2871,13 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
     if(mode <= 1) {
       if(strstr(command,"INPUT FILE")) {
-	sscanf(params,"%s", &eg->filesin[0]);
+      // TODO this leaks if filename is longer than MAXFILESIZE (60)
+	sscanf(params,"%s", &(eg->filesin[0]));
       }
 
       else if(strstr(command,"OUTPUT FILE")) {
-	sscanf(params,"%s",&eg->filesout[0]);
+      // TODO this leaks if filename is longer than MAXFILESIZE (60)
+	sscanf(params,"%s",&(eg->filesout[0]));
       }
 
       else if(strstr(command,"INPUT MODE")) {

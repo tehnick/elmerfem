@@ -45,6 +45,11 @@
 #include <fstream>
 #include "mainwindow.h"
  
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
+ 
 using namespace std;
 
 
@@ -77,6 +82,19 @@ QString saveDirName;
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
 {
+  #ifdef __APPLE__
+  // find "Home directory"
+    char executablePath[600] = {0};
+    uint32_t len = 600;
+    this->homePath = "";
+    if(! _NSGetExecutablePath( (char*) executablePath, &len)){
+        *(strrchr(executablePath,'/'))='\0';// remove executable name from path
+        *(strrchr(executablePath,'/'))='\0';// remove last path component name from path
+        this->homePath = executablePath;
+    }
+  #else
+    this.homePath="";
+  #endif
   // load images
   iconChecked = QIcon(":/icons/dialog-ok.png");
   iconEmpty = QIcon("");
@@ -5223,7 +5241,13 @@ void MainWindow::loadDefinitions()
 {
   // load general definitions file:
   //-------------------------------
-  QString generalDefs = "edf/edf.xml";
+   
+  #ifdef __APPLE__
+    QString generalDefs = this->homePath +  "/edf/edf.xml";          
+  #else
+      QString generalDefs = "edf/edf.xml";
+  
+  #endif
 
   cout << "Load " << string(generalDefs.toAscii()) << "...";
   cout.flush();
@@ -5271,7 +5295,10 @@ void MainWindow::loadDefinitions()
 
   // load additional definitions:
   //-----------------------------
-  QDirIterator iterator("edf", QDirIterator::Subdirectories);
+  
+  
+  
+  QDirIterator iterator( homePath+"/edf", QDirIterator::Subdirectories);
 
   while (iterator.hasNext()) {
     QString fileName = iterator.next();

@@ -59,6 +59,8 @@ bool TetlibAPI::loadTetlib()
 
 #ifdef WIN32
   hTetlib = LoadLibrary(TEXT("libtet.dll"));
+#elif __APPLE__
+  hTetlib = dlopen("@executable_path/../lib/libtet.dylib",RTLD_LAZY);
 #else
   hTetlib = dlopen("libtet.so", RTLD_LAZY);  
 #endif
