@@ -1295,6 +1295,7 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
     if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
       FindPeriodicNodes(&data[k],eg.periodicdim,info);
   }
+  return 0;
 }
 
 

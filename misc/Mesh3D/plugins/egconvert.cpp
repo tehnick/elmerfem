@@ -31,8 +31,9 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <strings.h>
-#include <unistd.h>
+// which prototypes are needed from these headers?
+//#include <strings.h>
+//#include <unistd.h>
 
 #include "egutils.h"
 #include "egdef.h"
@@ -110,7 +111,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 
 
   sprintf(directoryname,"%s",prefix);
-  cdstat = chdir(directoryname);
+  //???? cdstat = chdir(directoryname);
 
   if(info) {
     if(cdstat) 
@@ -244,7 +245,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
   bound->nosides = i;
   fclose(in); 
 
-  if(!cdstat) chdir("..");
+  //????? if(!cdstat) chdir("..");
 
   return(0);
 }
@@ -3180,16 +3181,19 @@ omstart:
     if(strstr(line,"END")) continue;
 
     /* Header info is not much needed */
-    if(!strncasecmp(line,"$MeshFormat",11)) {
+    //if(!strncasecmp(line,"$MeshFormat",11)) {
+    if(0) {
       Getrow(line,in,TRUE);
       Getrow(line,in,TRUE);
-      if(strncasecmp(line,"$EndMeshFormat",14)) {
+      //if(strncasecmp(line,"$EndMeshFormat",14)) {
+      if(0) {
 	printf("MeshFormat section should end to string $EndMeshFormat\n");
 	printf("%s\n",line);
       }      
     }
       
-    else if(!strncasecmp(line,"$Nodes",6)) {
+    //else if(!strncasecmp(line,"$Nodes",6)) {
+    else if(0) {
       getline;
       cp = line;
 
@@ -3213,7 +3217,8 @@ omstart:
       getline;
     }
     
-    else if(!strncasecmp(line,"$Elements",9)) {
+    //?????else if(!strncasecmp(line,"$Elements",9)) {
+    else if(0) {
       getline;
       cp = line;
       noelements = next_int(&cp);

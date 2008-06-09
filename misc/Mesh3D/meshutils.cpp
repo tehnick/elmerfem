@@ -44,6 +44,33 @@
 #include "meshutils.h"
 using namespace std;
 
+template <typename T> 
+T **AllocateDynamicArray(int nRows, int nCols) {
+      T **dynamicArray;
+      dynamicArray = new T*[nRows];
+      for( int i = 0 ; i < nRows ; i++ )
+      dynamicArray[i] = new T [nCols];
+      return dynamicArray;
+}
+
+template <typename T>
+void FreeDynamicArray(T** dArray) {
+      delete [] *dArray;
+      delete [] dArray;
+}
+
+template <typename T> 
+T *AllocateDynamicVector(int nRows) {
+      T *dynamicArray;
+      dynamicArray = new T[nRows];
+      return dynamicArray;
+}
+
+template <typename T>
+void FreeDynamicVector(T* dArray) {
+      delete [] dArray;
+}
+
 Meshutils::Meshutils()
 {
 }
@@ -336,7 +363,8 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 
   // Create a index table such that all combinations of materials 
   // get different BC index  
-  int indextable[maxindex1+1][maxindex2+1];
+  //int indextable[maxindex1+1][maxindex2+1];
+  int **indextable = AllocateDynamicArray<int>(maxindex1+1, maxindex2+1);
   int index1,index2;
   for(int i=0;i<=maxindex1;i++)
     for(int j=0;j<=maxindex2;j++)
@@ -920,7 +948,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
  
     // Create a index table such that all combinations of materials 
     // get different BC index  
-    int indextable[maxindex1+2][maxindex2+2];
+    //int indextable[maxindex1+2][maxindex2+2];
+    int **indextable = AllocateDynamicArray<int>(maxindex1+2, maxindex2+2);
     int index1,index2;
     for(int i=-1;i<=maxindex1;i++)
       for(int j=-1;j<=maxindex2;j++)
@@ -1199,7 +1228,8 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   }
   index++;
 
-  int edge_index[index];
+  // int edge_index[index];
+  int *edge_index = new int[index];
 
   for( int i=0; i<index; i++ )
     edge_index[i] = UNKNOWN;
@@ -1242,10 +1272,24 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   // are given based on group bounding box corner distances from a given
   // point. Fails if two groups have same bbox, which should not happen 
   // often though (?)
-  double xmin[index], ymin[index], zmin[index];
-  double xmax[index], ymax[index], zmax[index];
-  double xc = 0, yc = 0, zc = 0, dist[index];
-  int cc[index], order[index], sorder[index];
+
+  //double xmin[index], ymin[index], zmin[index];
+  //double xmax[index], ymax[index], zmax[index];
+  //double xc = 0, yc = 0, zc = 0, dist[index];
+  //int cc[index], order[index], sorder[index];
+  //double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
+
+  double *xmin = new double[index];
+  double *ymin = new double[index];
+  double *zmin = new double[index];
+  double *xmax = new double[index];
+  double *ymax = new double[index];
+  double *zmax = new double[index];
+  double xc = 0, yc = 0, zc = 0;
+  double *dist = new double[index];
+  int *cc = new int[index];
+  int *order = new int[index];
+  int *sorder = new int[index];
   double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
 
   for( int i=0; i<index; i++ )
@@ -1426,7 +1470,8 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   }
   index++;
 
-  int surf_index[index];
+  // int surf_index[index];
+  int *surf_index = new int[index];
 
   for( int i=0; i<index; i++ )
     surf_index[i] = UNKNOWN;
@@ -1469,10 +1514,24 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   // are given based on group bounding box corner distances from a given
   // point. Fails if two groups have same bbox, which should not happen 
   // often though (?)
-  double xmin[index], ymin[index], zmin[index];
-  double xmax[index], ymax[index], zmax[index];
-  double xc = 0, yc = 0, zc = 0, dist[index];
-  int cc[index], order[index], sorder[index];
+
+  //double xmin[index], ymin[index], zmin[index];
+  //double xmax[index], ymax[index], zmax[index];
+  //double xc = 0, yc = 0, zc = 0, dist[index];
+  //int cc[index], order[index], sorder[index];
+  //double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
+
+  double *xmin = new double[index];
+  double *ymin = new double[index];
+  double *zmin = new double[index];
+  double *xmax = new double[index];
+  double *ymax = new double[index];
+  double *zmax = new double[index];
+  double xc = 0, yc = 0, zc = 0;
+  double *dist = new double[index];
+  int *cc = new int[index];
+  int *order = new int[index];
+  int *sorder = new int[index];
   double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
 
   for( int i=0; i<index; i++ )
@@ -1732,11 +1791,19 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 
 
   // List surfaces connected to nodes
+  //class n_s_t {
+  //public:
+  //int index;
+  //n_s_t *next;
+  //} n_s[mesh->nodes];
+
   class n_s_t {
   public:
     int index;
     n_s_t *next;
-  } n_s[mesh->nodes];
+  };
+
+  n_s_t *n_s = new n_s_t[mesh->nodes];
 
   for( int i=0; i<mesh->nodes; i++ )
   {
