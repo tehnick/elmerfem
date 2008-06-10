@@ -8,11 +8,13 @@ DEPENDPATH += . forms plugins tmp\rcc\debug_shared tmp\rcc\release_shared
 INCLUDEPATH += .
 
 INCLUDEPATH += c:/Qwt-5.1.1/include
-
 LIBPATH += c:/Qwt-5.1.1/lib
 LIBS += -lqwt5
 
 QT += opengl xml script
+
+CONFIG += release
+CONFIG -= debug
 
 # Input
 HEADERS += bodypropertyeditor.h \
