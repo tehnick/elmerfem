@@ -13,6 +13,7 @@
 #define MAXNAMESIZE 30      /* maximum size of the variablename */
 #define MAXPARAMS 30        /* maximum number of parameters */
 #define MAXVARS 20          /* maximum number of variables at the sides */
+#define MAXNODESD3 64       /* maximum number of 3D nodes */ 
 #define MAXNODESD2 27       /* maximum number of 2D nodes */ 
 #define MAXNODESD1 9        /* maximum number of 1D nodes */
 #define MAXMAPPINGS 10      /* maximum number of geometry mappings */

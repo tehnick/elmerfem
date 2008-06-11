@@ -187,7 +187,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
   int *noknots,*noelements,novctrs,elemcode,open;
   int totknots,totelements,sumknots,sumelements;
   int timesteps,i,j,k,l,step;
-  int ind[MAXNODESD1];
+  int ind[MAXNODESD3];
   int nofiles,activestep;
   Real r, *res, x, y, z;
   FILE *in[MAXPARTITIONS+1],*out;
