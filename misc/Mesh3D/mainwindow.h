@@ -25,12 +25,17 @@
 #include "convergenceview.h"
 
 #ifdef OCC62
-#include <BRep_Builder.hxx>
-#include <BRepTools.hxx>
 #include <TopoDS_Compound.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopTools_HSequenceOfShape.hxx>
+// stl:
 #include <StlAPI_Writer.hxx>
+// brep:
+#include <BRep_Builder.hxx>
+#include <BRepTools.hxx>
+// step:
+#include <Interface_DT.hxx>
+#include <STEPControl_Reader.hxx>
 #endif
 
 class QAction;

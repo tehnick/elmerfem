@@ -864,31 +864,71 @@ void MainWindow::readInputFile(QString fileName)
     tetlibInputOk = true;
 
 #ifdef OCC62
-  } else if((fileSuffix == "stl") || (fileSuffix == "brep")) {
+  } else if( (fileSuffix == "stl") || 
+			 (fileSuffix == "brep") ||
+			 (fileSuffix == "step") ||
+			 (fileSuffix == "stp") ) {
 #else
   } else if(fileSuffix == "stl") {
 #endif
 
 #ifdef OCC62
-	// Convert BREP to STL:
-	//----------------------
-	if(fileSuffix == "brep") {
+
+	// Convert to STL:
+	//------------------
+	if( (fileSuffix == "brep") ||
+		(fileSuffix == "step") ||
+		(fileSuffix == "stp") ) {
+
 		Handle_TopTools_HSequenceOfShape shapes;
 		TopoDS_Shape shape;
 		BRep_Builder builder;
 		TopoDS_Compound res;
 		Standard_Boolean result;
+		STEPControl_Reader stepReader;
+		IFSelect_ReturnStatus status;
+		bool failsonly, ok;
+		int nbs, nbr;
 
 		// Read in BREP:
 		//---------------
-		result = BRepTools::Read(shape, fileName.toAscii().data(), builder);
-		if(result) {
-			shapes = new TopTools_HSequenceOfShape();
-			shapes->Append(shape);
+		if(fileSuffix == "brep") {
+			result = BRepTools::Read(shape, fileName.toAscii().data(), builder);
+			if(result) {
+				shapes = new TopTools_HSequenceOfShape();
+				shapes->Append(shape);
+			}
+		}
+
+		// Read in STEP:
+		//---------------
+		if( (fileSuffix == "step") || 
+			(fileSuffix == "stp") ) {
+
+			status = stepReader.ReadFile(fileName.toAscii().data());
+			if(status == IFSelect_RetDone) {
+				Interface_TraceFile::SetDefault();
+				failsonly = false;
+				stepReader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity);
+
+				nbr = stepReader.NbRootsForTransfer();
+				stepReader.PrintCheckTransfer(failsonly, IFSelect_ItemsByEntity);
+				for(Standard_Integer n = 1; n <= nbr; n++) {
+					ok = stepReader.TransferRoot(n);
+					nbs = stepReader.NbShapes();
+					if(nbs > 0) {
+						shapes = new TopTools_HSequenceOfShape();
+						for(int i = 1; i <= nbs; i++) {
+							shape = stepReader.Shape(i);
+							shapes->Append(shape);
+						}
+					}
+				}
+			}
 		}
 		
 		if(shapes.IsNull() || shapes->IsEmpty()) {
-			logMessage("Failed to import brep-file");
+			logMessage("Failed to import cad file");
 			return;
 		}
 		
@@ -903,7 +943,7 @@ void MainWindow::readInputFile(QString fileName)
 		for(int i = 1; i <= shapes->Length(); i++) {
 			shape = shapes->Value(i);
 			if(shape.IsNull()) {
-				logMessage("Failed to import brep-file");
+				logMessage("Failed to import cad file");
 				return;
 			}
 			builder.Add(res, shape);
