@@ -24,6 +24,15 @@
 #include "dynamiceditor.h"
 #include "convergenceview.h"
 
+#ifdef OCC62
+#include <BRep_Builder.hxx>
+#include <BRepTools.hxx>
+#include <TopoDS_Compound.hxx>
+#include <TopoDS_Shape.hxx>
+#include <TopTools_HSequenceOfShape.hxx>
+#include <StlAPI_Writer.hxx>
+#endif
+
 class QAction;
 class QMenu;
 class GLWidget;

@@ -863,7 +863,56 @@ void MainWindow::readInputFile(QString fileName)
 
     tetlibInputOk = true;
 
+#ifdef OCC62
+  } else if((fileSuffix == "stl") || (fileSuffix == "brep")) {
+#else
   } else if(fileSuffix == "stl") {
+#endif
+
+#ifdef OCC62
+	// Convert BREP to STL:
+	//----------------------
+	if(fileSuffix == "brep") {
+		Handle_TopTools_HSequenceOfShape shapes;
+		TopoDS_Shape shape;
+		BRep_Builder builder;
+		TopoDS_Compound res;
+		Standard_Boolean result;
+
+		// Read in BREP:
+		//---------------
+		result = BRepTools::Read(shape, fileName.toAscii().data(), builder);
+		if(result) {
+			shapes = new TopTools_HSequenceOfShape();
+			shapes->Append(shape);
+		}
+		
+		if(shapes.IsNull() || shapes->IsEmpty()) {
+			logMessage("Failed to import brep-file");
+			return;
+		}
+		
+		// Write STL:
+		//------------
+		fileName += ".stl";
+		baseFileName += "." + fileSuffix;
+		sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
+
+		builder.MakeCompound(res);
+
+		for(int i = 1; i <= shapes->Length(); i++) {
+			shape = shapes->Value(i);
+			if(shape.IsNull()) {
+				logMessage("Failed to import brep-file");
+				return;
+			}
+			builder.Add(res, shape);
+		}
+
+		StlAPI_Writer writer;
+		writer.Write(res, fileName.toAscii().data());
+	}
+#endif
 
     // for stl there are two alternative generators:
     if(meshControl->generatorType == GEN_NGLIB) {
