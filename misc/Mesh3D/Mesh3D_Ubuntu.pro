@@ -19,7 +19,7 @@ LIBS += -lqwt-qt4
 # OPEN CASCADE (comment out the next line for not compiling against OCC62)
 #--------------------------------------------------------------------------
 #
-#DEFINES += OCC62
+DEFINES += OCC62
 #
 DEFINES +=  _OCC64 HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
 INCLUDEPATH += /usr/include/opencascade
