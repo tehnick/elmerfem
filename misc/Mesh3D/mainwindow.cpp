@@ -141,6 +141,9 @@ MainWindow::MainWindow()
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
   convergenceView = new ConvergenceView(this);
+#ifdef OCC62
+  cadView = new CadView(this);
+#endif
 
   createActions();
   createMenus();
@@ -881,6 +884,9 @@ void MainWindow::readInputFile(QString fileName)
 #endif
     
 #ifdef OCC62
+    cadView->show();
+    cadView->myVC->deleteAllObjects();
+
     Handle_TopTools_HSequenceOfShape shapes;
     TopoDS_Shape shape;
     BRep_Builder builder;
@@ -898,7 +904,7 @@ void MainWindow::readInputFile(QString fileName)
 	(fileSuffix == "step") ||
 	(fileSuffix == "stp") ) {
 
-      QApplication::setOverrideCursor( Qt::WaitCursor );
+      //QApplication::setOverrideCursor(Qt::WaitCursor);
       
       // Read in BREP:
       //---------------
@@ -949,6 +955,22 @@ void MainWindow::readInputFile(QString fileName)
 	return;
       }
       
+
+      // Draw:
+      //------
+      const Handle_AIS_InteractiveContext& ic = cadView->myOCC->getContext();
+      
+      for(int i = 1; i <= shapes->Length(); i++) {
+	Handle(AIS_Shape) anAISShape = new AIS_Shape(shapes->Value(i));
+	ic->SetMaterial(anAISShape, Graphic3d_NOM_GOLD);
+	ic->SetColor(anAISShape, Quantity_NOC_RED);
+	ic->SetDisplayMode(anAISShape, 1, Standard_False);
+	ic->Display(anAISShape, Standard_False);
+      }
+      ic->UpdateCurrentViewer();
+      cadView->myVC->gridOff();
+
+      
       // Write STL:
       //------------
       fileName += ".stl";
@@ -967,7 +989,12 @@ void MainWindow::readInputFile(QString fileName)
       }
       
       writer.Write(res, fileName.toAscii().data());
-      QApplication::restoreOverrideCursor();
+      //QApplication::restoreOverrideCursor();
+
+      // no affect here?????
+      cadView->myOCC->fitAll();
+      cadView->myOCC->rotation();
+
     }
 #endif
 
@@ -1501,6 +1528,20 @@ void MainWindow::saveProjectSlot()
   logMessage("Saving boundary condition data in " + boundaryConditionFileName);
   saveContents(boundaryConditionFileName, boundaryConditionEditor, MAX_BCS);
 
+
+  //===========================================================================
+  //                          SAVE BOUNDARY PROPERTIES
+  //===========================================================================
+  for(int i = 0; i < MAX_BOUNDARIES; i++) {
+    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[i];
+    if(bpe->touched) {
+      //cout << "Saving contents of the boundary property editor " << i << endl;
+      //cout.flush();
+      // todo
+    }
+  }
+
+
   logMessage("Ready");
 }
 
@@ -1703,6 +1744,8 @@ void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax,
       splittedLine1 = line1.split("/");
       splittedLine2 = line2.split(":");
 
+      bool match_found = false;
+
       for(int j = 0; j < de->hash.count(); j++) {
 	QString key = de->hash.keys().at(j);
 	QStringList splittedKey = key.split("/");
@@ -1715,6 +1758,8 @@ void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax,
 	   (splittedLine1.at(3) == splittedKey.at(3))) {
 
 	  // match:
+	  match_found = true;
+
 	  if(elem.attribute("Widget", "") == "CheckBox") {
 	    if(splittedLine2.at(0).trimmed() != "CheckBox")
 	      logMessage("Load project: type mismatch with checkBox");
@@ -1740,6 +1785,12 @@ void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax,
 	  }
 	}
       }
+
+      if(!match_found) {
+	cout << "Error: Unable to set menu entry" << endl;
+	cout.flush();
+      }
+
       line1 = stream.readLine();
     }
   }
@@ -4460,11 +4511,11 @@ void MainWindow::edgeUnifySlot()
 }
 
 
+// Mesh -> Clean up
+//-----------------------------------------------------------------------------
 void MainWindow::cleanHangingSharpEdgesSlot()
 {
   mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
 
   if(mesh == NULL)
     return;

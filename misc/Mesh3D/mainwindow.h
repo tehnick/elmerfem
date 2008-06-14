@@ -25,6 +25,8 @@
 #include "convergenceview.h"
 
 #ifdef OCC62
+#include "cad/cadview.h"
+
 #include <TopoDS_Compound.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopTools_HSequenceOfShape.hxx>
@@ -254,6 +256,9 @@ private:
   BodyPropertyEditor *bodyPropertyEditor;
   SolverParameterEditor *solverParameterEditor;
   SummaryEditor *summaryEditor;
+#ifdef OCC62
+  CadView *cadView;
+#endif
 
   // elmer definitions:
   QDomDocument *elmerDefs;

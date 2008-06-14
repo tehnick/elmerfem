@@ -2,7 +2,7 @@
 
 TEMPLATE = app
 TARGET = Mesh3D
-DEPENDPATH += . forms plugins tmp\rcc\debug_shared tmp\rcc\release_shared
+DEPENDPATH += . cad forms plugins tmp\rcc\debug_shared tmp\rcc\release_shared
 INCLUDEPATH += .
 
 # QT
@@ -119,6 +119,11 @@ HEADERS += bodypropertyeditor.h \
            ui_matpropertyeditor.h \
            ui_pdepropertyeditor.h \
            ui_propertyeditor.h \
+           cad/cadview.h \
+           cad/qocc.h \
+           cad/qoccinternal.h \
+           cad/qoccviewwidget.h \
+           cad/qoccviewercontext.h \
            plugins/egconvert.h \
            plugins/egdef.h \
            plugins/egmain.h \
@@ -156,6 +161,9 @@ SOURCES += bodypropertyeditor.cpp \
            sifwindow.cpp \
            solverparameters.cpp \
            summaryeditor.cpp \
+           cad/cadview.cpp \
+           cad/qoccviewWidget.cpp \
+           cad/qoccviewercontext.cpp \
            plugins/egconvert.cpp \
            plugins/egmain.cpp \
            plugins/egmesh.cpp \
