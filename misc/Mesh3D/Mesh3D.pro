@@ -6,94 +6,11 @@ DEPENDPATH += . forms plugins tmp\rcc\debug_shared tmp\rcc\release_shared
 INCLUDEPATH += .
 
 # QT
-#----
 QT += opengl xml script
-CONFIG += release 
-CONFIG -= debug
 
 # QWT
-#-----
 INCLUDEPATH += /usr/include/qwt-qt4
 LIBS += -lqwt-qt4
-
-# OPEN CASCADE (comment out the next line for not compiling against OCC62)
-#--------------------------------------------------------------------------
-#
-#DEFINES += OCC62
-#
-DEFINES +=  _OCC64 HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
-INCLUDEPATH += /usr/include/opencascade
-LIBS += -lBinLPlugin \
-	-lBinPlugin \
-	-lBinXCAFPlugin \
-	-lFWOSPlugin \
-	-lmscmd \
-	-lPTKernel \
-	-lStdLPlugin \
-	-lStdPlugin \
-	-lTKAdvTools \
-	-lTKBin \
-	-lTKBinL \
-	-lTKBinXCAF \
-	-lTKBO \
-	-lTKBool \
-	-lTKBRep \
-	-lTKCAF \
-	-lTKCDF \
-	-lTKCDLFront \
-	-lTKCPPClient \
-	-lTKCPPExt \
-	-lTKCPPIntExt \
-	-lTKCPPJini \
-	-lTKCSFDBSchema \
-	-lTKDraw \
-	-lTKernel \
-	-lTKFeat \
-	-lTKFillet \
-	-lTKG2d \
-	-lTKG3d \
-	-lTKGeomAlgo \
-	-lTKGeomBase \
-	-lTKHLR \
-	-lTKIDLFront \
-	-lTKIGES \
-	-lTKLCAF \
-	-lTKMath \
-	-lTKMesh \
-	-lTKMeshVS \
-	-lTKOffset \
-	-lTKOpenGl \
-	-lTKPCAF \
-	-lTKPLCAF \
-	-lTKPrim \
-	-lTKPShape \
-	-lTKService \
-	-lTKShapeSchema \
-	-lTKShHealing \
-	-lTKStdLSchema \
-	-lTKStdSchema \
-	-lTKSTEP \
-	-lTKSTEPAttr \
-	-lTKSTEPBase \
-	-lTKSTL \
-	-lTKTCPPExt \
-	-lTKTopAlgo \
-	-lTKV2d \
-	-lTKV3d \
-	-lTKVRML \
-	-lTKXCAF \
-	-lTKXCAFSchema \
-	-lTKXDEIGES \
-	-lTKXDESTEP \
-	-lTKXml \
-	-lTKXmlL \
-	-lTKXmlXCAF \
-	-lTKXSBase \
-	-lXCAFPlugin \
-	-lXmlLPlugin \
-	-lXmlPlugin \
-	-lXmlXCAFPlugin \
-	-lXmu
 
 # Input
 HEADERS += bodypropertyeditor.h \

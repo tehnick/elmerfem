@@ -16,8 +16,8 @@ CONFIG -= debug
 INCLUDEPATH += /usr/include/qwt-qt4
 LIBS += -lqwt-qt4
 
-# OPEN CASCADE (comment out the next line for not compiling against OCC62)
-#--------------------------------------------------------------------------
+# OPEN CASCADE (remove this section for not compiling against OCC62)
+#--------------------------------------------------------------------
 #
 DEFINES += OCC62
 #

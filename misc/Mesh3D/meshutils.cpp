@@ -2214,3 +2214,42 @@ void Meshutils::decreaseElementOrder(mesh_t *mesh)
   }
 }
 
+// Clean up hanging sharp edges (for visualization)...
+//----------------------------------------------------------------------------
+int Meshutils::cleanHangingSharpEdges(mesh_t *mesh)
+{
+  int count_total = 0;
+  int count_removed = 0;
+  
+  if(mesh->edges == 0)
+    return 0;
+
+  for(int i = 0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+    if(edge->sharp_edge) {
+      count_total++;
+      if(edge->surfaces == 2) {
+	// has two parents
+	int i0 = edge->surface[0];
+	int i1 = edge->surface[1];
+	surface_t *s0 = NULL;
+	surface_t *s1 = NULL;
+	if(i0 >= 0)
+	  s0 = &mesh->surface[i0];
+	if(i1 >= 0)
+	  s1 = &mesh->surface[i1];
+	if((s0 != NULL) && (s1 != NULL)) {
+	  int index0 = s0->index;
+	  int index1 = s1->index;
+	  if(index0 == index1) {
+	    // remove
+	    count_removed++;
+	    edge->sharp_edge = false;
+	  }
+	}
+      }
+    }
+  }
+
+  return count_removed;
+}

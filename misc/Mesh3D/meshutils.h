@@ -25,5 +25,6 @@ class Meshutils
   void sort_index(int n, double *a, int *b);
   void increaseElementOrder(mesh_t*);
   void decreaseElementOrder(mesh_t*);
+  int cleanHangingSharpEdges(mesh_t*);
 };
 #endif // #ifndef MESHUTILS_H

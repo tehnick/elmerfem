@@ -80,6 +80,7 @@ private slots:
   void surfaceUnifySlot();        // Mesh -> Unify surface
   void edgeUnifySlot();           // Mesh -> Unify edge
   void edgeDivideSlot();          // Mesh -> Divide edge...
+  void cleanHangingSharpEdgesSlot(); // Mesh -> Clean up
   void hidesurfacemeshSlot();     // View -> Surface mesh
   void hidesharpedgesSlot();      // View -> Sharp edges
   void viewCoordinatesSlot();     // View -> Coordinates
@@ -233,6 +234,7 @@ private:
   QAction *surfaceUnifyAct;       // Mesh -> Unify surface
   QAction *edgeDivideAct;         // Mesh -> Divide edges...
   QAction *edgeUnifyAct;          // Mesh -> Unify edge
+  QAction *cleanHangingSharpEdgesAct; // Mesh -> Clean up
   QAction *runsolverAct;          // Solver -> Run solver
   QAction *killsolverAct;         // Solver -> Kill solver
   QAction *showConvergenceAct;    // Solver -> Show convergence...

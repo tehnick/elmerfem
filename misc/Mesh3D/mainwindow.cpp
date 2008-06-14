@@ -404,6 +404,12 @@ void MainWindow::createActions()
   connect(edgeUnifyAct, SIGNAL(triggered()), 
 	  this, SLOT(edgeUnifySlot()));
 
+  // Mesh -> Clean up
+  cleanHangingSharpEdgesAct = new QAction(QIcon(""), tr("Clean up"), this);
+  cleanHangingSharpEdgesAct->setStatusTip(tr("Removes hanging/orphan sharp edges (for visualization)"));
+  connect(cleanHangingSharpEdgesAct, SIGNAL(triggered()), 
+	  this, SLOT(cleanHangingSharpEdgesSlot()));
+
   // View -> Show surface mesh
   hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
   hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh "
@@ -586,6 +592,8 @@ void MainWindow::createMenus()
   meshMenu->addSeparator();
   meshMenu->addAction(edgeDivideAct);
   meshMenu->addAction(edgeUnifyAct);
+  meshMenu->addSeparator();
+  meshMenu->addAction(cleanHangingSharpEdgesAct);
 
   // Model menu
   modelMenu = menuBar()->addMenu(tr("&Model"));
@@ -783,17 +791,6 @@ void MainWindow::openSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::readInputFile(QString fileName)
 {
-  Handle_TopTools_HSequenceOfShape shapes;
-  TopoDS_Shape shape;
-  BRep_Builder builder;
-  TopoDS_Compound res;
-  Standard_Boolean result;
-  STEPControl_Reader stepReader;
-  StlAPI_Writer writer;
-  IFSelect_ReturnStatus status;
-  bool failsonly, ok;
-  int nbs, nbr;
-
   char cs[1024];
 
   QFileInfo fi(fileName);
@@ -884,6 +881,16 @@ void MainWindow::readInputFile(QString fileName)
 #endif
     
 #ifdef OCC62
+    Handle_TopTools_HSequenceOfShape shapes;
+    TopoDS_Shape shape;
+    BRep_Builder builder;
+    TopoDS_Compound res;
+    Standard_Boolean result;
+    STEPControl_Reader stepReader;
+    StlAPI_Writer writer;
+    IFSelect_ReturnStatus status;
+    bool failsonly, ok;
+    int nbs, nbr;
     
     // Convert to STL:
     //------------------
@@ -4453,6 +4460,22 @@ void MainWindow::edgeUnifySlot()
 }
 
 
+void MainWindow::cleanHangingSharpEdgesSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL)
+    return;
+
+  int count = meshutils->cleanHangingSharpEdges(mesh);
+
+  cout << "Removed " << count << " hanging sharp edges" << endl;
+  cout.flush();
+
+  glWidget->rebuildLists();
+}
 
 
 //*****************************************************************************
