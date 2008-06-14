@@ -990,11 +990,6 @@ void MainWindow::readInputFile(QString fileName)
       
       writer.Write(res, fileName.toAscii().data());
       //QApplication::restoreOverrideCursor();
-
-      // no affect here?????
-      cadView->myOCC->fitAll();
-      cadView->myOCC->rotation();
-
     }
 #endif
 

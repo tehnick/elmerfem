@@ -48,7 +48,7 @@ using namespace std;
 CadView::CadView(QWidget *parent)
   : QMainWindow(parent)
 {
-  setWindowTitle("Cad model view");
+  setWindowTitle("ElmerGUI cad model view");
 
 #ifdef OCC62
   myVC  = new QoccViewerContext();
