@@ -23,21 +23,8 @@
 #include "edfeditor.h"
 #include "dynamiceditor.h"
 #include "convergenceview.h"
-
 #ifdef OCC62
 #include "cad/cadview.h"
-
-#include <TopoDS_Compound.hxx>
-#include <TopoDS_Shape.hxx>
-#include <TopTools_HSequenceOfShape.hxx>
-// stl:
-#include <StlAPI_Writer.hxx>
-// brep:
-#include <BRep_Builder.hxx>
-#include <BRepTools.hxx>
-// step:
-#include <Interface_DT.hxx>
-#include <STEPControl_Reader.hxx>
 #endif
 
 class QAction;
@@ -100,6 +87,7 @@ private slots:
   void resetSlot();               // View -> Reset model view
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
+  void showCadModelSlot();        // View -> Show cad model...
   void runsolverSlot();           // Solver -> Run solver
   void killsolverSlot();          // Solver -> Kill solver
   void showConvergenceSlot();     // Solver -> Show convergence...
@@ -229,6 +217,7 @@ private:
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
   QAction *showallAct;            // View -> Show all
   QAction *resetAct;              // View -> Reset model view
+  QAction *showCadModelAct;       // View -> Show cad model...
   QAction *meshcontrolAct;        // Mesh -> Control...
   QAction *remeshAct;             // Mesh -> Remesh
   QAction *stopMeshingAct;        // Mesh -> Kill generator

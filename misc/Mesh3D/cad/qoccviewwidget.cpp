@@ -22,8 +22,9 @@
 */
 #include <cmath>
 #include <iostream>
-#include <GL/gl.h>
-#include <GL/glu.h>
+// #include <GL/gl.h>
+// #include <GL/glu.h>
+#include <QtOpenGL>
 
 #include <QtGui/QApplication>
 #include <QtGui/QBitmap>

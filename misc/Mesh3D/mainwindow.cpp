@@ -521,6 +521,12 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), 
 	  this, SLOT(resetSlot()));
 
+  // View -> Reset model view
+  showCadModelAct = new QAction(QIcon(), tr("Cad model..."), this);
+  showCadModelAct->setStatusTip(tr("Displays the cad model in a separate window"));
+  connect(showCadModelAct, SIGNAL(triggered()), 
+	  this, SLOT(showCadModelSlot()));
+
   // Solver -> Run solver
   runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Run solver"), this);
   runsolverAct->setStatusTip(tr("Run ElmerSolver"));
@@ -675,6 +681,10 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
+#ifdef OCC62
+  viewMenu->addSeparator();
+  viewMenu->addAction(showCadModelAct);
+#endif
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Sif"));
@@ -884,10 +894,6 @@ void MainWindow::readInputFile(QString fileName)
 #endif
     
 #ifdef OCC62
-    cadView->show();
-    cadView->myVC->deleteAllObjects();
-
-    Handle_TopTools_HSequenceOfShape shapes;
     TopoDS_Shape shape;
     BRep_Builder builder;
     TopoDS_Compound res;
@@ -913,8 +919,8 @@ void MainWindow::readInputFile(QString fileName)
 	result = BRepTools::Read(shape, fileName.toAscii().data(), builder);
 	
 	if(result) {
-	  shapes = new TopTools_HSequenceOfShape();
-	  shapes->Append(shape);
+	  cadView->shapes = new TopTools_HSequenceOfShape();
+	  cadView->shapes->Append(shape);
 	}
       }
       
@@ -940,36 +946,21 @@ void MainWindow::readInputFile(QString fileName)
 	    nbs = stepReader.NbShapes();
 
 	    if(nbs > 0) {
-	      shapes = new TopTools_HSequenceOfShape();
+	      cadView->shapes = new TopTools_HSequenceOfShape();
 	      for(int i = 1; i <= nbs; i++) {
-		shape = stepReader.Shape(i);
-		shapes->Append(shape);
+			shape = stepReader.Shape(i);
+			cadView->shapes->Append(shape);
 	      }
 	    }
 	  }
 	}
       }
       
-      if(shapes.IsNull() || shapes->IsEmpty()) {
+      if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
 	logMessage("Failed to import cad file");
 	return;
       }
       
-
-      // Draw:
-      //------
-      const Handle_AIS_InteractiveContext& ic = cadView->myOCC->getContext();
-      
-      for(int i = 1; i <= shapes->Length(); i++) {
-	Handle(AIS_Shape) anAISShape = new AIS_Shape(shapes->Value(i));
-	ic->SetMaterial(anAISShape, Graphic3d_NOM_GOLD);
-	ic->SetColor(anAISShape, Quantity_NOC_RED);
-	ic->SetDisplayMode(anAISShape, 1, Standard_False);
-	ic->Display(anAISShape, Standard_False);
-      }
-      ic->UpdateCurrentViewer();
-      cadView->myVC->gridOff();
-
       
       // Write STL:
       //------------
@@ -979,8 +970,8 @@ void MainWindow::readInputFile(QString fileName)
       
       builder.MakeCompound(res);
       
-      for(int i = 1; i <= shapes->Length(); i++) {
-	shape = shapes->Value(i);
+      for(int i = 1; i <= cadView->shapes->Length(); i++) {
+	shape = cadView->shapes->Value(i);
 	if(shape.IsNull()) {
 	  logMessage("Failed to import cad file");
 	  return;
@@ -3974,6 +3965,21 @@ void MainWindow::showBodyIndexSlot()
     logMessage("Body indices hidden");    
 }
 
+
+// View -> Cad model...
+//-----------------------------------------------------------------------------
+void MainWindow::showCadModelSlot()
+{
+#ifdef OCC62
+    if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
+		logMessage("There are no shapes to show. Open a cad file first.");
+		return;
+    }
+
+	cadView->show();
+	cadView->drawModel();
+#endif
+}
 
 
 

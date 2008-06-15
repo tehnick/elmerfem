@@ -21,9 +21,12 @@ public:
   QSize sizeHint() const;
 
 #ifdef OCC62
+  Handle_TopTools_HSequenceOfShape shapes;
   QoccViewWidget *myOCC;
   QoccViewerContext *myVC;
 #endif
+
+  void drawModel();
 
 private slots:
 
