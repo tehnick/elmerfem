@@ -42,7 +42,8 @@ QoccViewerContext::QoccViewerContext()
 	myGridColor      = Quantity_NOC_RED4;
 	myGridTenthColor = Quantity_NOC_GRAY90;
 
-	myContext->SetHilightColor(Quantity_NOC_WHITE) ;
+	// myContext->SetHilightColor(Quantity_NOC_WHITE) ;
+	myContext->SetHilightColor(Quantity_NOC_BLACK) ;
 
 	setGridOffset (0.0);
 	gridXY();

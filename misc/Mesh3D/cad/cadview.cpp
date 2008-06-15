@@ -48,7 +48,7 @@ using namespace std;
 CadView::CadView(QWidget *parent)
   : QMainWindow(parent)
 {
-  setWindowTitle("ElmerGUI cad model view (qtocc)");
+  setWindowTitle("ElmerGUI cad model view");
 
 #ifdef OCC62
   myVC  = new QoccViewerContext();
@@ -112,6 +112,7 @@ void CadView::drawModel()
   for(int i = 1; i <= shapes->Length(); i++) {
     Handle(AIS_Shape) anAISShape = new AIS_Shape(shapes->Value(i));
     ic->SetMaterial(anAISShape, Graphic3d_NOM_GOLD);
+    //ic->SetMaterial(anAISShape, Graphic3d_NOM_DEFAULT);
     ic->SetColor(anAISShape, Quantity_NOC_RED);
     ic->SetDisplayMode(anAISShape, 1, Standard_False);
     ic->Display(anAISShape, Standard_False);

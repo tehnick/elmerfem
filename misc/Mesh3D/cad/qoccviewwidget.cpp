@@ -154,9 +154,11 @@ void QoccViewWidget::initializeOCC(const Handle_AIS_InteractiveContext& aContext
 
 		// Set up axes (Trihedron) in lower left corner.
 #ifdef OCC_PATCHED
-		myView->TriedronDisplay( Aspect_TOTP_LEFT_LOWER, Quantity_NOC_WHITE, 0.1, V3d_ZBUFFER );
+		// myView->TriedronDisplay( Aspect_TOTP_LEFT_LOWER, Quantity_NOC_WHITE, 0.1, V3d_ZBUFFER );
+		myView->TriedronDisplay( Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.1, V3d_ZBUFFER );
 #else
-		myView->TriedronDisplay( Aspect_TOTP_LEFT_LOWER, Quantity_NOC_WHITE, 0.1, V3d_WIREFRAME );
+		// myView->TriedronDisplay( Aspect_TOTP_LEFT_LOWER, Quantity_NOC_WHITE, 0.1, V3d_WIREFRAME );
+		myView->TriedronDisplay( Aspect_TOTP_LEFT_LOWER, Quantity_NOC_BLACK, 0.1, V3d_WIREFRAME );
 #endif
 		// For testing OCC patches
 		// myView->ColorScaleDisplay();	
@@ -611,6 +613,7 @@ void QoccViewWidget::background()
         R1 = aRetColor.red()/255.;
         G1 = aRetColor.green()/255.;
         B1 = aRetColor.blue()/255.;
+
         myView->SetBackgroundColor(Quantity_TOC_RGB,R1,G1,B1);
     }
     redraw();
@@ -1107,7 +1110,7 @@ void QoccViewWidget::paintOCC( void )
     glOrtho( left, right, bottom, top, 1.0, -1.0 );
 
 #ifndef OCC_PATCHED
-	glEnable(GL_BLEND);
+    glEnable(GL_BLEND);
 	if (myView->ColorScaleIsDisplayed())
 	{
 		// Not needed on patched OCC 6.2 versions, but is the lowest
@@ -1117,16 +1120,22 @@ void QoccViewWidget::paintOCC( void )
 	}
 #endif
 
+
+	// background color
+#if 1
     glBegin( GL_QUADS);
     {
-      glColor4f  (  0.1f, 0.1f, 0.1f, 1.0f );
+      //glColor4f  (  0.1f, 0.1f, 0.1f, 1.0f );
+      glColor4f  (  1, 1, 1, 1 );
       glVertex3d (  left, bottom, depth );
       glVertex3d ( right, bottom, depth );
-      glColor4f  (  0.8f, 0.8f, 0.9f, 1.0f );
+      // glColor4f  (  0.8f, 0.8f, 0.9f, 1.0f );
+      glColor4f  (  1, 1, 1, 1 );
       glVertex3d ( right,    top, depth );
       glVertex3d (  left,    top, depth );
     }
     glEnd();
+#endif
 
 	glPopMatrix();
 	glMatrixMode( GL_MODELVIEW );
