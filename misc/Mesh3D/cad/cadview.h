@@ -30,9 +30,17 @@ public:
   void drawModel();
 
 private slots:
+  void fitToWindowSlot();
 
 private:
+  QMenu *fileMenu;
+  QMenu *viewMenu;
 
+  QAction *exitAct;
+  QAction *fitToWindowAct;
+
+  void createActions();
+  void createMenus();
 };
 
 #endif // CADVIEW_H

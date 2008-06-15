@@ -59,6 +59,8 @@ CadView::CadView(QWidget *parent)
   cout.flush();
 #endif
 
+  createActions();
+  createMenus();
 }
 
 CadView::~CadView()
@@ -75,6 +77,29 @@ QSize CadView::minimumSizeHint() const
 QSize CadView::sizeHint() const
 {
   return QSize(720, 576);
+}
+
+void CadView::createActions()
+{
+  fitToWindowAct = new QAction(QIcon(""), tr("&Fit to window"), this);
+  connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
+
+  exitAct = new QAction(QIcon(":/icons/application-exit.png"), 
+			tr("&Quit"), this);
+  connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
+}
+
+void CadView::createMenus()
+{
+  fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(exitAct);
+  viewMenu = menuBar()->addMenu(tr("&View"));
+  viewMenu->addAction(fitToWindowAct);
+}
+
+void CadView::fitToWindowSlot()
+{
+  myOCC->fitAll();
 }
 
 
