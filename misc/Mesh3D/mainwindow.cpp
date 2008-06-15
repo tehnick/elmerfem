@@ -890,105 +890,26 @@ void MainWindow::readInputFile(QString fileName)
 	     (fileSuffix == "step") ||
 	     (fileSuffix == "stp") ) {
 #else
-  } else if(fileSuffix == "stl") {
+  } else if(  fileSuffix == "stl") {
 #endif
     
+
 #ifdef OCC62
-    TopoDS_Shape shape;
-    BRep_Builder builder;
-    TopoDS_Compound res;
-    Standard_Boolean result;
-    STEPControl_Reader stepReader;
-    StlAPI_Writer writer;
-    IFSelect_ReturnStatus status;
-    bool failsonly, ok;
-    int nbs, nbr;
-    
     // Convert to STL:
-    //------------------
-    if( (fileSuffix == "brep") ||
-	(fileSuffix == "step") ||
-	(fileSuffix == "stp") ) {
-
-      //QApplication::setOverrideCursor(Qt::WaitCursor);
-      
-      // Read in BREP:
-      //---------------
-      if(fileSuffix == "brep") {
-	
-	result = BRepTools::Read(shape, fileName.toAscii().data(), builder);
-	
-	if(result) {
-	  cadView->shapes = new TopTools_HSequenceOfShape();
-	  cadView->shapes->Append(shape);
-	}
-      }
-      
-      // Read in STEP:
-      //---------------
-      if( (fileSuffix == "step") || 
-	  (fileSuffix == "stp") ) {
-	
-	status = stepReader.ReadFile(fileName.toAscii().data());
-	
-	if(status == IFSelect_RetDone) {	  
-
-	  Interface_TraceFile::SetDefault();
-	  failsonly = false;
-	  stepReader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity);
-	  	  
-	  nbr = stepReader.NbRootsForTransfer();
-	  stepReader.PrintCheckTransfer(failsonly, IFSelect_ItemsByEntity);
-	  
-	  for(Standard_Integer n = 1; n <= nbr; n++) {
-
-	    ok = stepReader.TransferRoot(n);
-	    nbs = stepReader.NbShapes();
-
-	    if(nbs > 0) {
-	      cadView->shapes = new TopTools_HSequenceOfShape();
-	      for(int i = 1; i <= nbs; i++) {
-			shape = stepReader.Shape(i);
-			cadView->shapes->Append(shape);
-	      }
-	    }
-	  }
-	}
-      }
-      
-      if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
-	logMessage("Failed to import cad file");
-	return;
-      }
-      
-      
-      // Write STL:
-      //------------
+    //----------------
+    bool converted = cadView->convertToSTL(fileName, fileSuffix);
+    if(converted) {
       fileName += ".stl";
       baseFileName += "." + fileSuffix;
       sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
-      
-      builder.MakeCompound(res);
-      
-      for(int i = 1; i <= cadView->shapes->Length(); i++) {
-	shape = cadView->shapes->Value(i);
-	if(shape.IsNull()) {
-	  logMessage("Failed to import cad file");
-	  return;
-	}
-	builder.Add(res, shape);
-      }
-      
-      writer.Write(res, fileName.toAscii().data());
-      //QApplication::restoreOverrideCursor();
     }
 #endif
-
+    
     // for stl there are two alternative generators:
     if(meshControl->generatorType == GEN_NGLIB) {
       
       cout << "nglib" << endl;
-
+      
       if(!nglibPresent) {
 	logMessage("unable to mesh - nglib unavailable");
 	return;

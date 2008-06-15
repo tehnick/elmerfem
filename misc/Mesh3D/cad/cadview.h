@@ -26,6 +26,7 @@ public:
   QoccViewerContext *myVC;
 #endif
 
+  bool convertToSTL(QString, QString);
   void drawModel();
 
 private slots:
