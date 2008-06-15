@@ -5241,6 +5241,13 @@ void MainWindow::showaboutSlot()
 			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n\n"
+#ifdef OCC62
+			"This version of ElmerGUI has been compiled with the "
+			"OpenCascade solids modeling library using the "
+			"QtOpenCascade framework:\n\n"
+			"http://www.opencascade.org/\n"
+			"http://sourceforge.net/projects/qtocc/\n\n"
+#endif
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));
 }
