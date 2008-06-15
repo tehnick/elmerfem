@@ -5236,18 +5236,22 @@ void MainWindow::showaboutSlot()
 		     tr("ElmerGUI is a preprocessor for three dimensional "
 			"modeling with Elmer finite element software. "
 			"The program uses elmergrid, and optionally "
-			"tetlib or nglib, "
-			"as finite element mesh generators:\n\n"
+			"tetlib or nglib, as finite element mesh generators:\n\n"
 			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n\n"
+			"ElmerGUI is written in C++ using the Qt Cross-Platform "
+			"Application Framework:\n\n"
+			"http://trolltech.com/products/qt\n\n"
 #ifdef OCC62
 			"This version of ElmerGUI has been compiled with the "
 			"OpenCascade solids modeling library using the "
-			"QtOpenCascade framework:\n\n"
+			"QtOpenCascade integration framework:\n\n"
 			"http://www.opencascade.org/\n"
 			"http://sourceforge.net/projects/qtocc/\n\n"
 #endif
+			"The GPL-licensed source code of ElmerGUI is available from:\n\n"
+			"http://sourceforge.net/projects/elmerfem\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));
 }

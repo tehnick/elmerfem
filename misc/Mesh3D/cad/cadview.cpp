@@ -48,17 +48,17 @@ using namespace std;
 CadView::CadView(QWidget *parent)
   : QMainWindow(parent)
 {
-  setWindowTitle("ElmerGUI cad model view (qocc)");
+  setWindowTitle("ElmerGUI cad model view (qtocc)");
 
 #ifdef OCC62
   myVC  = new QoccViewerContext();
   myOCC = new QoccViewWidget(myVC->getContext(), this);
-
   this->setCentralWidget(myOCC);
+
+  cout << "Cad model view window (qtocc) set up" << endl;
+  cout.flush();
 #endif
 
-  cout << "Cad model view window set up" << endl;
-  cout.flush();
 }
 
 CadView::~CadView()
