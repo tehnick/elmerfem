@@ -7166,7 +7166,7 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 
   if(info) printf("Found all in all %d periodic nodes.\n",tothits);
 
-#if 0
+#if 1
   if(data->noknots < 200) {
     for(i=1;i<=data->noknots;i++)
       if(i!=indxper[i]) printf("i=%d per=%d\n",i,indxper[i]);

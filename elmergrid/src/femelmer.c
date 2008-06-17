@@ -936,7 +936,6 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
 
   sumsides = 0;
 
-  printf("normal bc\n");
 
   /* Save normal boundaries */
   for(j=0;j < MAXBOUNDARIES;j++) {
@@ -957,34 +956,6 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
       nodesd1 = sideelemtype%100;
       for(l=0;l<nodesd1;l++)
 	fprintf(out," %d",ind[l]);
-      fprintf(out,"\n");
-    }
-  }
-
-
-  /* Save Discontinuous boundaries: this is obsolite */
-  if(0) for(j=0;j < MAXBOUNDARIES;j++) {
-
-    if(bound[j].created == FALSE) continue;
-    if(bound[j].nosides == 0) continue;
-    if(!bound[j].ediscont) continue;
-    
-    for(i=1; i <= bound[j].nosides; i++) {
-      if(!bound[j].parent2[i] || !bound[j].discont[i]) continue;
-      
-      GetElementSide(bound[j].parent2[i],bound[j].side2[i],-bound[j].normal[i],data,ind2,&sideelemtype); 
-      sumsides++;
-      
-      fprintf(out,"%d %d %d %d ",
-	      sumsides,bound[j].discont[i],bound[j].parent2[i],bound[j].parent[i]);
-      fprintf(out,"%d ",sideelemtype);
-      sidetypes[sideelemtype] += 1;
-      
-      if(bound[j].discont[i] < MAXBCS) usedbc[bound[j].discont[i]] += 1;
-
-      nodesd1 = sideelemtype%100;
-      for(l=0;l<nodesd1;l++)
-	fprintf(out,"%d ",ind2[l]);
       fprintf(out,"\n");
     }
   }
@@ -2452,12 +2423,16 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
 
   if(info) printf("Using %d nodes of %d possible nodes in the Metis graph\n",nn,noknots);
 
-  if(dual) 
+  if(dual) {
+    if(info) printf("Starting graph partitioning METIS_PartMeshDual.\n");  
     METIS_PartMeshDual(&ne,&nn,metistopo,&etype,
 		       &numflag,&nparts,&edgecut,epart,npart);
-  else
+  }
+  else {
+    if(info) printf("Starting graph partitioning METIS_PartMeshNodal.\n");  
     METIS_PartMeshNodal(&ne,&nn,metistopo,&etype,
 			&numflag,&nparts,&edgecut,epart,npart);
+  }
 
   /* Set the partition given by Metis for each element. */
   for(i=1;i<=noelements;i++) {
@@ -2565,24 +2540,28 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
       for(k=xadj[i];k<xadj[i+1];k++) 
 	if(adjncy[k] == j) adjwgt[k] = maxcon;
     }
-    data->periodicexist = FALSE;
+    if(data->periodicexist && metisopt != 3) {
+      printf("For periodic BCs Metis subroutine METIS_PartGraphKway is enforced\n");
+      metisopt = 3;
+    }
     wgtflag = 1;
   }
-
-  if(data->periodicexist) metisopt = 3;
   
-  if(info) printf("Starting Metis graph partitioning call.\n");
-
-
-  if(metisopt == 2)
+  if(metisopt == 2) {
+    if(info) printf("Starting graph partitioning METIS_PartGraphRecursive.\n");  
     METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			     &numflag,&nparts,&options[0],&edgecut,npart);
-  else if(metisopt == 3) 
+  }
+  else if(metisopt == 3) {
+    if(info) printf("Starting graph partitioning METIS_PartGraphKway.\n");      
     METIS_PartGraphKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			&numflag,&nparts,&options[0],&edgecut,npart);
-  else if(metisopt == 4) 
+  }
+  else if(metisopt == 4) {
+    if(info) printf("Starting graph partitioning METIS_PartGraphVKway.\n");      
     METIS_PartGraphVKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			&numflag,&nparts,&options[0],&edgecut,npart);
+  }
   else 
     printf("Unknown Metis option\n",metisopt);
 
@@ -2783,7 +2762,7 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	}
       }
     }
-    if(info && boundaryelems) printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
+    if(info) printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
   } while(boundaryelems && k < 10);
 
  
@@ -2832,7 +2811,10 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   if(periodic) {
     for(i=1;i<=noknots;i++) {
       ind = indxper[i];
-      if(i != ind) nodepart[i] = nodepart[ind]; 
+      if(i != ind && nodepart[i] != nodepart[ind]) {
+	printf("This could be problem: i1 = %d i2 = %d p1=%d p2=%d\n",i,ind,nodepart[i],nodepart[ind]);
+	nodepart[i] = nodepart[ind]; 
+      }
     }
   }
 
