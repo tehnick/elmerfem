@@ -56,8 +56,8 @@ int main()
   TopoDS_Face faceB = BRepBuilderAPI_MakeFace(circleEdgeWireB);
 
   // make a wire path for sweep:
-  gp_Pnt p1B(0, 0.06 + y, -x);
-  gp_Pnt p2B(0, 0.06 + y,  x);
+  gp_Pnt p1B(0, 0.06 - y, -x);
+  gp_Pnt p2B(0, 0.06 - y,  x);
 
   Handle(Geom_TrimmedCurve) tcB = GC_MakeArcOfCircle(p1B, circleCenterB, p2B);
   TopoDS_Edge tcEdgeB = BRepBuilderAPI_MakeEdge(tcB);
