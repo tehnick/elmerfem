@@ -1162,6 +1162,7 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
       double *n0 = mesh->surface[s0].normal;
       double *n1 = mesh->surface[s1].normal;
       double cosofangle = n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2];
+	  cosofangle = abs(cosofangle);
       angle = acos(cosofangle) / PI * 180.0;
     } else {
       angle = 180.0;
@@ -1169,7 +1170,7 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
     
     edge->sharp_edge = false;
     if(sqrt(angle*angle) > limit) {
-      edge->sharp_edge = true;
+		edge->sharp_edge = true;
       count++;
     }
   }
