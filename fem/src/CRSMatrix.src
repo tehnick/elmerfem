@@ -134,7 +134,7 @@ CONTAINS
 !
 !  ARGUMENTS:
 !
-!  TYPE(Matrix_t) :: A
+
 !     INPUT: Structure holding matrix
 !
 !  INTEGER :: n
@@ -521,6 +521,10 @@ CONTAINS
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,k1,k2
     REAL(KIND=dp) :: t
+    LOGICAL :: isMass, isDamp
+
+    isMass = ASSOCIATED(A % MassValues)
+    isDamp = ASSOCIATED(A % DampValues)
 
     DO l=A % Rows(n),A % Rows(n+1)-1
        i = A % Cols(l)
@@ -540,6 +544,8 @@ CONTAINS
             IF ( A % Cols(j) == n ) THEN
                b(i) = b(i) - A % Values(j) * s
                A % Values(j) = 0.0_dp
+               IF ( isMass ) A % MassValues(j) = 0._dp
+               IF ( isDamp ) A % DampValues(j) = 0._dp
                EXIT
              ELSE IF ( A % Cols(j) > n ) THEN
                EXIT
@@ -551,6 +557,8 @@ CONTAINS
              j = j + k1 - 1
              b(i) = b(i) - A % Values(j) * s
              A % Values(j) = 0.0_dp
+             IF ( isMass ) A % MassValues(j) = 0._dp
+             IF ( isDamp ) A % DampValues(j) = 0._dp
           END IF
        END IF
     END DO
@@ -2116,19 +2124,20 @@ END FUNCTION CRS_RowSum
 !******************************************************************************
 !------------------------------------------------------------------------------
  
+use linearalgebra
     TYPE(Matrix_t) :: A
     INTEGER :: N
     DOUBLE PRECISION :: b(N)
 
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j
-    DOUBLE PRECISION :: s
+    INTEGER :: i,j,k,l,row,col,nn
+    DOUBLE PRECISION :: s, v(n)
 
     DOUBLE PRECISION, POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
-
 !------------------------------------------------------------------------------
+
 
     Diag => A % ILUDiag
     Rows => A % ILURows
