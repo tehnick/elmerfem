@@ -74,6 +74,11 @@ int main(int argc, char *argv[])
         asprintf(&newValue,"%s/..",executablePath);        
         setenv("ELMER_HOME",newValue,0);
         free(newValue);
+        
+        asprintf(&newValue,"%s/../share/elmerpost",executablePath);        
+        setenv("ELMER_POST_HOME",newValue,0);
+        free(newValue);
+
 
 #ifdef DEBUG
         printf("PATH = %s\nDYLD_LIBRARY_PATH=%s\nELMER_HOME=%s\n", getenv("PATH"), getenv("DYLD_LIBRARY_PATH"), getenv("ELMER_HOME"));
