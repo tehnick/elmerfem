@@ -135,9 +135,9 @@ MODULE DiffuseConvective
 !    Local variables
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: ddBasisddx(n,3,3)
+     REAL(KIND=dp) :: dBasisdx(2*n,3),detJ
      REAL(KIND=dp) :: Basis(2*n)
-     REAL(KIND=dp) :: dBasisdx(2*n,3),SqrtElementMetric
+     REAL(KIND=dp) :: ddBasisddx(n,3,3),dNodalBasisdx(n,n,3)
 
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force
 
@@ -200,6 +200,14 @@ MODULE DiffuseConvective
        ConvectAndStabilize = .TRUE.
        hK = element % hK
        mK = element % StabilizationMK
+       dNodalBasisdx = 0._dp
+       DO p=1,n
+         u = Element % Type % NodeU(p)
+         v = Element % Type % NodeV(p)
+         w = Element % Type % NodeW(p)
+         stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
+         dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
+       END DO
      END IF
 
 !------------------------------------------------------------------------------
@@ -214,10 +222,10 @@ MODULE DiffuseConvective
 !------------------------------------------------------------------------------
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-             Basis,dBasisdx,ddBasisddx,ConvectAndStabilize,Bubbles )
+       stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
+             Basis,dBasisdx, Bubbles=Bubbles )
 
-       s = SqrtElementMetric * S_Integ(t)
+       s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 !      Coefficient of the convection and time derivative terms
 !      at the integration point
@@ -341,8 +349,8 @@ MODULE DiffuseConvective
               DO i = 1,dim
                 SU(p) = SU(p) + C1 * dBasisdx(p,i) * Velo(i)
                 DO j=1,dim
-                  SU(p) = SU(p) - C2(i,j) * ddBasisddx(p,i,j)
                   SU(p) = SU(p) - dC2dx(i,j,j) * dBasisdx(p,i)
+                  SU(p) = SU(p) - C2(i,j) * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
                 END DO
               END DO
 
@@ -350,8 +358,8 @@ MODULE DiffuseConvective
               DO i = 1,dim
                 SW(p) = SW(p) + C1 * dBasisdx(p,i) * Velo(i)
                 DO j=1,dim
-                  SW(p) = SW(p) - C2(i,j) * ddBasisddx(p,i,j)
                   SW(p) = SW(p) - dC2dx(i,j,j) * dBasisdx(p,i)
+                  SW(p) = SW(p) - C2(i,j) * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
                 END DO
               END DO
             END DO
@@ -489,7 +497,7 @@ MODULE DiffuseConvective
 
      REAL(KIND=dp) :: ddBasisddx(n,3,3)
      REAL(KIND=dp) :: Basis(n)
-     REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+     REAL(KIND=dp) :: dBasisdx(n,3),detJ
 
      REAL(KIND=dp) :: U,V,W,S
      REAL(KIND=dp) :: Force,Alpha
@@ -524,10 +532,10 @@ MODULE DiffuseConvective
 !------------------------------------------------------------------------------
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
+       stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
                   Basis,dBasisdx )
 
-       S = SqrtElementMetric * S_Integ(t)
+       S = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
        Force = SUM( LoadVector(1:n)*Basis )
        Alpha = SUM( NodalAlpha(1:n)*Basis )

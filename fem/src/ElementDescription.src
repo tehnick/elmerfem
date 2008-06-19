@@ -720,14 +720,12 @@ ELMER_SOLVER_HOME,&
       REAL(KIND=dp), OPTIONAL :: hK
 !------------------------------------------------------------------------------
       INTEGER :: info,p,q,i,j,t,dim
-      REAL(KIND=dp) :: EIGR(n),EIGI(n),Beta(n),s,ddp(3),ddq(3)
+      REAL(KIND=dp) :: EIGR(n),EIGI(n),Beta(n),s,ddp(3),ddq(3),dNodalBasisdx(n,n,3)
       REAL(KIND=dp) :: u,v,w,L(n-1,n-1),G(n-1,n-1),Work(16*n)
       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),detJ
 
       LOGICAL :: stat
       Type(GaussIntegrationPoints_t) :: IntegStuff
-
-      IF ( Element % Type % ElementCode == 613 ) RETURN
 
       IF ( Element % Type % BasisFunctionDegree <= 1 ) THEN
          SELECT CASE( Element % Type % ElementCode ) 
@@ -740,6 +738,15 @@ ELMER_SOLVER_HOME,&
          RETURN
       END IF
 
+      dNodalBasisdx = 0._dp
+      DO p=1,n
+        u = Element % Type % NodeU(p)
+        v = Element % Type % NodeV(p)
+        w = Element % Type % NodeW(p)
+        stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
+        dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
+      END DO
+
       dim = CoordinateSystemDimension()
       IntegStuff = GaussPoints( Element )
       L = 0.0d0
@@ -750,7 +757,7 @@ ELMER_SOLVER_HOME,&
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis, &
-                dBasisdx, ddBasisddx, .TRUE. )
+                dBasisdx )
 
         s = detJ * IntegStuff % s(t)
 
@@ -759,9 +766,9 @@ ELMER_SOLVER_HOME,&
             ddp = 0.0d0
             ddq = 0.0d0
             DO i=1,dim
-              ddp(i) = ddp(i) + ddBasisddx(p,i,i)
-              ddq(i) = ddq(i) + ddBasisddx(q,i,i)
               G(p-1,q-1) = G(p-1,q-1) + s * dBasisdx(p,i) * dBasisdx(q,i)
+              ddp(i) = ddp(i) + SUM( dNodalBasisdx(p,1:n,i) * dBasisdx(1:n,i) )
+              ddq(i) = ddq(i) + SUM( dNodalBasisdx(q,1:n,i) * dBasisdx(1:n,i) )
             END DO
             L(p-1,q-1) = L(p-1,q-1) + s * SUM(ddp) * SUM(ddq)
           END DO
@@ -775,6 +782,7 @@ ELMER_SOLVER_HOME,&
         END IF
         RETURN
       END IF
+
 
       CALL DSYGV( 1,'N','U',n-1,L,n-1,G,n-1,EIGR,Work,12*n,info )
       mK = EIGR(n-1)

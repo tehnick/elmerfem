@@ -145,8 +145,8 @@ MODULE NavierStokesCylindrical
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4)
 
      REAL(KIND=dp) :: ddBasisddx(n,3,3)
+     REAL(KIND=dp) :: dBasisdx(2*n,3),detJ, dNodalBasisdx(n,n,3)
      REAL(KIND=dp) :: Basis(2*n), PBasis(n), PdBasisdx(n,3),BaseP
-     REAL(KIND=dp) :: dBasisdx(2*n,3),detJ
 
      REAL(KIND=dp) :: GMetric(3,3),Metric(3),SqrtMetric,&
                             Symb(3,3,3),dSymb(3,3,3,3), Drag(3)
@@ -237,6 +237,15 @@ MODULE NavierStokesCylindrical
      IF ( Stabilize ) THEN
        hK = element % hK
        mK = element % StabilizationMK
+
+       dNodalBasisdx = 0._dp
+       DO p=1,n
+         u = Element % Type % NodeU(p)
+         v = Element % Type % NodeV(p)
+         w = Element % Type % NodeW(p)
+         stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
+         dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
+       END DO
      END IF
 !
 !------------------------------------------------------------------------------
@@ -260,7 +269,7 @@ MODULE NavierStokesCylindrical
       END IF
 
       stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
-             Basis,dBasisdx,ddBasisddx,Stabilize,Bubbles )
+             Basis,dBasisdx, Bubbles=Bubbles )
 
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
@@ -427,7 +436,7 @@ MODULE NavierStokesCylindrical
 
          Delta = Density * Lambda * Re * hK * VNorm
        ELSE
-         Tau = mK * hK**2 / ( 4 * Viscosity )
+         Tau = mK * hK**2 / ( 8 * Viscosity )
          Delta = 2*Viscosity / mK
        END IF
 
@@ -438,7 +447,7 @@ MODULE NavierStokesCylindrical
        SU = 0.0D0
        SW = 0.0D0
        DO p=1,N
-         DO i=1,DIM
+         DO i=1,dim
            SU(p,i,c) = SU(p,i,c) + Metric(i) * dBasisdx(p,i)
 
            IF(Porous) THEN
@@ -446,38 +455,29 @@ MODULE NavierStokesCylindrical
            END IF
 
            IF ( Convect ) THEN
-           DO j=1,DIM
-!
-! convection
-!
-             SU(p,i,i) = SU(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
-
-             IF ( NewtonLinearization ) THEN
-               SU(p,i,j) = SU(p,i,j) + Density * dVelodx(i,j) * Basis(p)
-             END IF
-
-             DO k =1,dim,2
-               SU(p,i,k) = SU(p,i,k) + Density * Symb(k,j,i) * Basis(p) * Velo(j)
+             DO j=1,DIM
+               SU(p,i,i) = SU(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
                IF ( NewtonLinearization ) THEN
-                 SU(p,i,j) = SU(p,i,j) + Density * Symb(k,j,i) * Velo(k) * Basis(p)
+                 SU(p,i,j) = SU(p,i,j) + Density * dVelodx(i,j) * Basis(p)
                END IF
+               DO k =1,dim,2
+                 SU(p,i,k) = SU(p,i,k) + Density * Symb(k,j,i) * Basis(p) * Velo(j)
+                 IF ( NewtonLinearization ) THEN
+                   SU(p,i,j) = SU(p,i,j) + Density * Symb(k,j,i) * Velo(k) * Basis(p)
+                 END IF
+               END DO
              END DO
+           END IF
 
-!
-! diffusion
-!
-             SU(p,i,i) = SU(p,i,i) - Viscosity * Metric(j) * ddBasisddx(p,j,j)
-
+           !
+           ! diffusion
+           ! ----------
+           DO j=1,dim
              SU(p,i,i) = SU(p,i,i) - dViscositydx(j) * Metric(j) * dBasisdx(p,j)
-
-             SU(p,i,j) = SU(p,i,j) - Viscosity * Metric(i) * ddBasisddx(p,j,i)
-
              SU(p,i,j) = SU(p,i,j) - dViscositydx(j) * Metric(i) * dBasisdx(p,i)
-!------------------------------------------------------------------------------
+             SU(p,i,i) = SU(p,i,i) - Viscosity * Metric(j) * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
+             SU(p,i,j) = SU(p,i,j) - Viscosity * Metric(i) * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,i))
            END DO
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
 
            DO j=1,dim,2
              DO l=1,dim,2
@@ -501,69 +501,61 @@ MODULE NavierStokesCylindrical
                SU(p,i,l) = SU(p,i,l) - dViscositydx(j) * &
                  ( Metric(j) * Basis(p) * Symb(j,l,i) + Metric(i) * Basis(p) * Symb(i,l,j) )
              END DO
-             
            END DO
-           END IF
 
 !------------------------------------------------------------------------------
-!
-!  Pressure
-!
            IF ( Convect ) THEN
              SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
              DO j=1,DIM
-!
-!  Convection
-!
                SW(p,i,i) = SW(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
                DO k =1,DIM,2
                  SW(p,i,k) = SW(p,i,k) - Density * Symb(i,j,k) * Basis(p) * Velo(j)
-               END DO
-!
-!  Diffusion
-!
-               SW(p,i,i) = SW(p,i,i) + dViscositydx(j) * Metric(j) * dBasisdx(p,j)
-               SW(p,i,i) = SW(p,i,i) + Viscosity * Metric(j) * ddBasisddx(p,j,j)
-               SW(p,i,j) = SW(p,i,j) + Viscosity * Metric(j) * ddBasisddx(p,j,i)
-               SW(p,i,j) = SW(p,i,j) + dViscositydx(j) * Metric(j) * dBasisdx(p,i)
-!------------------------------------------------------------------------------
-             END DO
-
-             DO j=1,DIM,2
-               DO l=1,DIM,2
-                 SW(p,i,i) = SW(p,i,i) - Viscosity * Metric(j) * Symb(j,j,l) * dBasisdx(p,l)
-                 SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,j)
-                 SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,j)
-                 SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * dSymb(i,j,l,j) * Basis(p)
-                 SW(p,i,j) = SW(p,i,j) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,l)
-                 SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,j)
-                 SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(j,j,l) * dBasisdx(p,i)
-                 SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * dSymb(i,j,l,j) * Basis(p)
-
-                 DO m=1,DIM,2
-                   SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(i,j,m) * Symb(m,j,l) * Basis(p)
-                   SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(j,j,m) * Symb(m,i,l) * Basis(p)
-                   SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(j,j,m) * Symb(m,i,l) * Basis(p)
-                   SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(i,j,m) * Symb(m,j,l) * Basis(p)
-                 END DO
-               END DO
-! then -mu,_j g^{jk} (w_i,_k +  w_k,_i)
-               DO l=1,DIM,2
-                 SW(p,i,l) = SW(p,i,l) + dViscositydx(j) * &
-                   ( Metric(j) * Basis(p) * Symb(i,j,l) + Metric(i) * Basis(p) * Symb(j,i,l) )
                END DO
              END DO
            ELSE
              SW(p,i,c) = SW(p,i,c) + dBasisdx(p,i)
            END IF
 
+           !
+           !  Diffusion
+           !
+           DO j=1,dim
+             SW(p,i,i) = SW(p,i,i) + dViscositydx(j) * Metric(j) * dBasisdx(p,j)
+             SW(p,i,j) = SW(p,i,j) + dViscositydx(j) * Metric(j) * dBasisdx(p,i)
+             SW(p,i,i) = SW(p,i,i) - Viscosity * Metric(j) * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
+             SW(p,i,j) = SW(p,i,j) - Viscosity * Metric(j) * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,i))
+           END DO
+
+           DO j=1,dim,2
+              DO l=1,dim,2
+                SW(p,i,i) = SW(p,i,i) - Viscosity * Metric(j) * Symb(j,j,l) * dBasisdx(p,l)
+                SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,j)
+                SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,j)
+                SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * dSymb(i,j,l,j) * Basis(p)
+                SW(p,i,j) = SW(p,i,j) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,l)
+                SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(i,j,l) * dBasisdx(p,j)
+                SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * Symb(j,j,l) * dBasisdx(p,i)
+                SW(p,i,l) = SW(p,i,l) - Viscosity * Metric(j) * dSymb(i,j,l,j) * Basis(p)
+
+                DO m=1,dim,2
+                  SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(i,j,m) * Symb(m,j,l) * Basis(p)
+                  SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(j,j,m) * Symb(m,i,l) * Basis(p)
+                  SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(j,j,m) * Symb(m,i,l) * Basis(p)
+                  SW(p,i,l) = SW(p,i,l) + Viscosity * Metric(j) * Symb(i,j,m) * Symb(m,j,l) * Basis(p)
+                END DO
+              END DO
+! then -mu,_j g^{jk} (w_i,_k +  w_k,_i)
+              DO l=1,dim,2
+                SW(p,i,l) = SW(p,i,l) + dViscositydx(j) * &
+                  ( Metric(j) * Basis(p) * Symb(i,j,l) + Metric(i) * Basis(p) * Symb(j,i,l) )
+              END DO
+           END DO
+
            IF ( CurrentCoordinateSystem() == AxisSymmetric ) THEN
              SU(p,i,3) = 0.0_dp
              SW(p,i,3) = 0.0_dp
            END IF
-
          END DO
-!------------------------------------------------------------------------------
        END DO
      END IF
 

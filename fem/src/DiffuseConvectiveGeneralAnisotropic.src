@@ -131,9 +131,9 @@ MODULE DiffuseConvectiveGeneral
 !    Local variables
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: ddBasisddx(n,3,3)
+     REAL(KIND=dp) :: ddBasisddx(n,3,3),dNodalBasisdx(n,n,3)
      REAL(KIND=dp) :: Basis(2*n)
-     REAL(KIND=dp) :: dBasisdx(2*n,3),SqrtElementMetric
+     REAL(KIND=dp) :: dBasisdx(2*n,3),detJ
 
      REAL(KIND=dp) :: Velo(3),Force
 
@@ -205,6 +205,14 @@ MODULE DiffuseConvectiveGeneral
        ConvectAndStabilize = .TRUE.
        hK = element % hK
        mK = element % StabilizationMK
+       dNodalBasisdx = 0._dp
+       DO p=1,n
+         u = Element % Type % NodeU(p)
+         v = Element % Type % NodeV(p)
+         w = Element % Type % NodeW(p)
+         stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
+         dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
+       END DO
      END IF
 
 !------------------------------------------------------------------------------
@@ -218,8 +226,8 @@ MODULE DiffuseConvectiveGeneral
 !------------------------------------------------------------------------------
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-             Basis,dBasisdx,ddBasisddx,ConvectAndStabilize,Bubbles )
+      stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
+             Basis,dBasisdx, Bubbles=Bubbles )
 
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
@@ -232,7 +240,7 @@ MODULE DiffuseConvectiveGeneral
 
        CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,x,y,z )
 
-       s = SqrtMetric * SqrtElementMetric * S_Integ(t)
+       s = SqrtMetric * detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 !      Coefficient of the convection and time derivative terms at the
 !      integration point
@@ -380,8 +388,8 @@ MODULE DiffuseConvectiveGeneral
                IF ( Element % Type % BasisFunctionDegree <= 1 ) CYCLE
 
                DO j=1,dim
-                 SU(p) = SU(p) - C2(i,j) * ddBasisddx(p,i,j)
                  SU(p) = SU(p) - dC2dx(i,j,j) * dBasisdx(p,i)
+                 SU(p) = SU(p) - C2(i,j) * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
                  DO k=1,dim
                    SU(p) = SU(p) + C2(i,j) * Symb(i,j,k) * dBasisdx(p,k)
                    SU(p) = SU(p) - C2(i,k) * Symb(k,j,j) * dBasisdx(p,i)
@@ -397,8 +405,8 @@ MODULE DiffuseConvectiveGeneral
                IF ( Element % Type % BasisFunctionDegree <= 1 ) CYCLE
 
                DO j=1,dim
-                 SW(p) = SW(p) - C2(i,j) * ddBasisddx(p,i,j)
                  SW(p) = SW(p) - dC2dx(i,j,j) * dBasisdx(p,i)
+                 SW(p) = SW(p) - C2(i,j) * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
                  DO k=1,dim
                    SW(p) = SW(p) + C2(i,j) * Symb(i,j,k) * dBasisdx(p,k)
                    SW(p) = SW(p) - C2(i,k) * Symb(k,j,j) * dBasisdx(p,i)
@@ -542,7 +550,7 @@ MODULE DiffuseConvectiveGeneral
 
      REAL(KIND=dp) :: ddBasisddx(n,3,3)
      REAL(KIND=dp) :: Basis(n)
-     REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+     REAL(KIND=dp) :: dBasisdx(n,3),detJ
 
      REAL(KIND=dp) :: u,v,w,s,x,y,z
      REAL(KIND=dp) :: Force,Alpha
@@ -581,10 +589,10 @@ MODULE DiffuseConvectiveGeneral
 !------------------------------------------------------------------------------
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
+       stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
                   Basis,dBasisdx )
 
-       s =  S_Integ(t) * SqrtElementMetric
+       s =  S_Integ(t) * detJ
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------

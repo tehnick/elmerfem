@@ -209,8 +209,8 @@ MODULE NavierStokes
 !    Local variables
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3),ddBasisddx(n,3,3)
-     REAL(KIND=dp) :: PBasis(n), pdBasisdx(n,3),BaseP
      REAL(KIND=dp) :: detJ, NodalBasis(n), dLBasisdx(n,3)
+     REAL(KIND=dp) :: PBasis(n), pdBasisdx(n,3),BaseP, dNodalBasisdx(n,n,3)
 
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
 
@@ -311,6 +311,15 @@ MODULE NavierStokes
      IF ( Stabilize ) THEN
        hK = element % hK
        mK = element % StabilizationMK
+
+       dNodalBasisdx = 0._dp
+       DO p=1,n
+         u = Element % Type % NodeU(p)
+         v = Element % Type % NodeV(p)
+         w = Element % Type % NodeW(p)
+         stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
+         dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
+       END DO
      END IF
 !------------------------------------------------------------------------------
 !   Now we start integrating
@@ -330,7 +339,7 @@ MODULE NavierStokes
       END IF
 
       stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-              Basis, dBasisdx, ddBasisddx, Stabilize, Bubbles )
+              Basis, dBasisdx, Bubbles=Bubbles )
 
       s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
@@ -435,7 +444,7 @@ MODULE NavierStokes
           Delta = Density * Lambda * Re * hK * VNorm
        ELSE
           Delta = 2 * Viscosity / mK
-          Tau   = mK * hK**2  / ( 4 * Viscosity )
+          Tau   = mK * hK**2  / ( 8 * Viscosity )
        END IF
 
 !------------------------------------------------------------------------------
@@ -455,12 +464,15 @@ MODULE NavierStokes
            IF ( Convect ) THEN
              DO j=1,DIM
                SU(p,i,i) = SU(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
-               SU(p,i,i) = SU(p,i,i) - Viscosity * ddBasisddx(p,j,j)
-               SU(p,i,i) = SU(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
-               SU(p,i,j) = SU(p,i,j) - Viscosity * ddBasisddx(p,j,i)
-               SU(p,i,j) = SU(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
              END DO
            END IF
+
+           DO j=1,DIM
+             SU(p,i,i) = SU(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
+             SU(p,i,j) = SU(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
+             SU(p,i,i) = SU(p,i,i) - Viscosity * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
+             SU(p,i,j) = SU(p,i,j) - Viscosity * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
+           END DO
 
            IF ( Convect .AND. NewtonLinearization ) THEN
              DO j=1,DIM
@@ -470,20 +482,22 @@ MODULE NavierStokes
 !
 !------------------------------------------------------------------------------
 
-           IF ( Convect )  THEN
+           IF ( Convect ) THEN
              SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
              DO j=1,dim
                SW(p,i,i) = SW(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
-               SW(p,i,i) = SW(p,i,i) - Viscosity * ddBasisddx(p,j,j)
-               SW(p,i,j) = SW(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
-               SW(p,i,j) = SW(p,i,j) - Viscosity * ddBasisddx(p,i,j)
-               SW(p,i,i) = SW(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
              END DO
            ELSE
              SW(p,i,c) = SW(p,i,c) + dBasisdx(p,i)
            END IF
-         END DO
 
+           DO j=1,dim
+             SW(p,i,i) = SW(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
+             SW(p,i,j) = SW(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
+             SW(p,i,i) = SW(p,i,i) - Viscosity * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
+             SW(p,i,j) = SW(p,i,j) - Viscosity * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
+           END DO
+         END DO
        END DO
      END IF
 
@@ -621,7 +635,7 @@ MODULE NavierStokes
                 END DO
              END DO
 
-             DO j=1,DIM
+             DO j=1,dim
                A(j,i) = A(j,i) + s * Delta * dBasisdx(q,i) * dBasisdx(p,j)
              END DO
           END DO
