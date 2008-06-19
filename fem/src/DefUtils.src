@@ -2741,14 +2741,14 @@ CONTAINS
 
             ! Contribute this boundary to global system
             ! (i.e solve global boundary problem)
-            DO k=1,numEdgeDofs
+            DO k=n+1,numEdgeDofs
               nb = x % Perm( gInd(k) )
               IF ( nb <= 0 ) CYCLE
               nb = x % DOFs * (nb-1) + DOF
-              CALL CRS_SetSymmDirichlet( A, A % RHS, nb, 0._dp )
-              A % Values( A % Diag(nb) ) = 0._dp 
-!             CALL ZeroRow( A, nb )
-!             A % RHS(nb) = 0._dp
+!             CALL CRS_SetSymmDirichlet( A, A % RHS, nb, 0._dp )
+!             A % Values( A % Diag(nb) ) = 0._dp 
+              CALL ZeroRow( A, nb )
+              A % RHS(nb) = 0._dp
             END DO
         END DO
 
@@ -2798,7 +2798,7 @@ CONTAINS
 
               ! Contribute this boundary to global system
               ! (i.e solve global boundary problem)
-              DO k=1,numEdgeDofs
+              DO k=n+1,numEdgeDofs
                  nb = x % Perm( gInd(k) )
                  IF ( nb <= 0 ) CYCLE
                  nb = x % DOFs * (nb-1) + DOF
