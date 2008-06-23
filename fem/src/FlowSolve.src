@@ -241,7 +241,7 @@
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, &
          PseudoPressureExists, PseudoCompressible, Bubbles, &
          Porous =.FALSE., PotentialForce=.FALSE., Hydrostatic=.FALSE., &
-         MagneticForce =.FALSE., UseLocalCoords
+         MagneticForce =.FALSE., UseLocalCoords, PseudoPressureUpdate
 
 
      REAL(KIND=dp),ALLOCATABLE :: MASS(:,:),STIFF(:,:), LoadVector(:,:), &
@@ -484,6 +484,9 @@
           StabilizeFlag = 'stabilized'
        END IF
      END IF
+	
+     PRINT *, 'StabilizeFlag=', StabilizeFlag
+
      IF ( StabilizeFlag == 'bubbles' ) Bubbles = .TRUE.
 
      DivDiscretization = ListGetLogical( Solver % Values, &
@@ -543,6 +546,7 @@
      totat = 0.0d0
      totst = 0.0d0
 
+ 
      ! Initialize the pressure to be used in artificial compressibility 
      IF(PseudoPressureExists) THEN
        PseudoPressure = FlowSolution(NSDOFs:SIZE(FlowSolution):NSDOFs)
@@ -552,14 +556,21 @@
        CALL Info('FlowSolve',Message,Level=5)
 
        PseudoCompressibilityScale = ListGetConstReal( Model % Simulation, &
-           'Artificial Compressibility Scaling',GotIt)
+           'Artificial Compressibility Scaling',GotIt)      
+
        IF(.NOT.GotIt) PseudoCompressibilityScale = 1.0
        IF(TransientSimulation) THEN
          PseudoCompressibilityScale = PseudoCompressibilityScale / dt
        END IF
+       PseudoPressureUpdate = ListGetLogical( Model % Simulation, &
+           'Pseudo Pressure Update',GotIt)
+       IF (.NOT.GotIt) PseudoPressureUpdate = .FALSE.
      END IF
 
      DO iter=1,NonlinearIter
+
+       IF (PseudoPressureExists .AND. PseudoPressureUpdate) &
+          PseudoPressure = FlowSolution(NSDOFs:SIZE(FlowSolution):NSDOFs)
 
        at  = CPUTime()
        at0 = RealTime()
@@ -955,7 +966,7 @@
                    PotentialForce, PotentialField, PotentialCoefficient, &
                    MagneticForce, &
                    DivDiscretization, GradPDiscretization, NewtonLinearization, &
-                   Element,n,ElementNodes)
+                   Element,n,ElementNodes,Solver)
 !------------------------------------------------------------------------------
            END SELECT
 !------------------------------------------------------------------------------
