@@ -86,6 +86,15 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
    Norm = DefaultSolve()
    NEWX = Solver % Variable % Values(Solver % Variable % Perm)
 
+   CALL DefaultInitialize()
+   DO t=1,Active
+     Element => GetActiveElement(t)
+     nd = GetElementNOFDOFs(  Element )
+     n  = GetElementNOFNodes( Element )
+     CALL LocalMatrix(  STIFF, FORCE, LOAD, Element, n, nd )
+     CALL DefaultUpdateEquations( STIFF, FORCE )
+   END DO
+   CALL DefaultFinishAssembly()
    CALL ListAddConstReal( BC,'Potential',0.0d0,GetProcAddr("Poisson circy") )
    CALL DefaultDirichletBCs()
    Norm = DefaultSolve()
