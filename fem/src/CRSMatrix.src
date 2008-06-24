@@ -148,21 +148,21 @@ CONTAINS
     INTEGER :: i
 
     DO i=A % Rows(n),A % Rows(n+1)-1
-       A % Values(i) = 0.0D0
+      A % Values(i) = 0.0_dp
     END DO
 
     IF ( ASSOCIATED(A % MassValues) ) THEN
        IF ( SIZE(A % MassValues) == SIZE(A % Values) ) THEN
-          DO i=A % Rows(n),A % Rows(n+1)-1
-             A % MassValues(i) = 0.0d0
-          END DO
+         DO i=A % Rows(n),A % Rows(n+1)-1
+            A % MassValues(i) = 0.0_dp
+         END DO
        END IF
     END IF
 
     IF ( ASSOCIATED(A % DampValues) ) THEN
        IF ( SIZE(A % DampValues) == SIZE(A % Values) ) THEN
           DO i=A % Rows(n),A % Rows(n+1)-1
-             A % DampValues(i) = 0.0d0
+            A % DampValues(i) = 0.0_dp
           END DO
        END IF
     END IF
@@ -524,7 +524,11 @@ CONTAINS
     LOGICAL :: isMass, isDamp
 
     isMass = ASSOCIATED(A % MassValues)
+    IF ( isMass ) &
+      isMass = isMass .AND. SIZE(A % MassValues) == SIZE(A % Values)
     isDamp = ASSOCIATED(A % DampValues)
+    IF ( isDamp ) &
+      isDamp = isDamp .AND. SIZE(A % DampValues) == SIZE(A % Values)
 
     DO l=A % Rows(n),A % Rows(n+1)-1
        i = A % Cols(l)
@@ -540,33 +544,32 @@ CONTAINS
 
        k = k2 - k1 + 1
        IF ( k <= 30 ) THEN
-          DO j = k1, k2
-            IF ( A % Cols(j) == n ) THEN
-               b(i) = b(i) - A % Values(j) * s
-               A % Values(j) = 0.0_dp
-               IF ( isMass ) A % MassValues(j) = 0._dp
-               IF ( isDamp ) A % DampValues(j) = 0._dp
-               EXIT
-             ELSE IF ( A % Cols(j) > n ) THEN
-               EXIT
-             END IF
-          END DO
-       ELSE
-          j = CRS_Search( k,A % Cols(k1:k2),n )
-          IF ( j > 0 ) THEN
-             j = j + k1 - 1
+         DO j = k1, k2
+           IF ( A % Cols(j) == n ) THEN
              b(i) = b(i) - A % Values(j) * s
              A % Values(j) = 0.0_dp
              IF ( isMass ) A % MassValues(j) = 0._dp
              IF ( isDamp ) A % DampValues(j) = 0._dp
-          END IF
+             EXIT
+           ELSE IF ( A % Cols(j) > n ) THEN
+             EXIT
+           END IF
+         END DO
+       ELSE
+         j = CRS_Search( k,A % Cols(k1:k2),n )
+         IF ( j > 0 ) THEN
+           j = j + k1 - 1
+           b(i) = b(i) - A % Values(j) * s
+           A % Values(j) = 0.0_dp
+           IF ( isMass ) A % MassValues(j) = 0._dp
+           IF ( isDamp ) A % DampValues(j) = 0._dp
+         END IF
        END IF
     END DO
 
-    t = A % Values(A % Diag(n))
-    b(n) = s * t
     CALL CRS_ZeroRow( A,n )
-    CALL CRS_SetMatrixElement( A,n,n,t )
+    b(n) = s
+    A % Values(A % Diag(n)) = 1._dp
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_SetSymmDirichlet
 !------------------------------------------------------------------------------

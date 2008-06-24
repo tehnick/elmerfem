@@ -2664,10 +2664,11 @@ CONTAINS
      REAL(KIND=dp), ALLOCATABLE :: Work(:), STIFF(:,:)
 
      INTEGER, ALLOCATABLE :: lInd(:), gInd(:)
-     INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, DOF, local, numEdgeDofs,istat
+     INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, &
+          DOF, local, numEdgeDofs,istat, n_start
 
-     LOGICAL :: Flag,Found
-     TYPE(ValueList_t), POINTER :: BC
+     LOGICAL :: Flag,Found, ConstantValue
+     TYPE(ValueList_t), POINTER :: BC, ptr
      TYPE(Element_t), POINTER :: Element, Parent, Edge, Face, SaveElement
 
      CHARACTER(LEN=MAX_NAME_LEN) :: name
@@ -2703,6 +2704,57 @@ CONTAINS
      CALL Info('DefUtils::DefaultDirichletBCs', &
             'Setting Dirichlet boundary conditions', Level=5)
 
+     ! Set Dirichlet dofs for edges and faces
+   
+     ConstantValue = .FALSE.
+     DO DOF=1,x % DOFs
+        name = x % name
+        IF ( x % DOFs > 1 ) name = ComponentName(name,DOF)
+        
+        ! clear bc face & edge dofs
+        SaveElement => CurrentModel % CurrentElement
+        DO i=1,Solver % Mesh % NumberOfBoundaryElements
+           Element => GetBoundaryElement(i)
+           IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+
+           ! Get parent element:
+           ! -------------------
+           Parent => Element % BoundaryInfo % Left
+           IF ( .NOT. ASSOCIATED( Parent ) ) &
+             Parent => Element % BoundaryInfo % Right
+
+           IF ( .NOT. ASSOCIATED(Parent) )   CYCLE
+           IF ( .NOT. ASSOCIATED(Parent % pDefs) ) CYCLE
+
+           BC => GetBC()
+           IF ( .NOT. ASSOCIATED(BC) ) CYCLE
+
+           ptr => ListFind(BC, Name,Found )
+           IF ( .NOT. ASSOCIATED(ptr) ) CYCLE
+           ConstantValue =  ptr % Procedure == 0 .AND. &
+             ptr % type == LIST_TYPE_CONSTANT_SCALAR
+           
+           ! Get indexes for boundary and values for dofs associated to them
+           n = GetElementNOFNodes()
+           CALL getBoundaryIndexes( Solver % Mesh, Element, Parent, gInd, numEdgeDofs )
+
+           ! Contribute this boundary to global system
+           ! (i.e solve global boundary problem)
+           DO k=n+1,numEdgeDofs
+             nb = x % Perm( gInd(k) )
+             IF ( nb <= 0 ) CYCLE
+             nb = x % DOFs * (nb-1) + DOF
+             IF ( ConstantValue ) THEN
+               CALL CRS_SetSymmDirichlet(A, A % RHS, nb, 0._dp )
+             ELSE
+               CALL ZeroRow( A, nb )
+               A % RHS(nb) = 0._dp
+             END IF
+           END DO
+        END DO
+        CurrentModel % CurrentElement => SaveElement
+     END DO
+
 
    ! Set Dirichlet dofs for edges and faces
      DO DOF=1,x % DOFs
@@ -2715,8 +2767,10 @@ CONTAINS
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
                 Name, DOF, x % DOFs, x % Perm )
 
+        IF ( ConstantValue ) CYCLE
 
-        ! clear bc face & edge dofs
+!       Dirichlet BCs for face & edge DOFs:
+!       -----------------------------------
         SaveElement => CurrentModel % CurrentElement
         DO i=1,Solver % Mesh % NumberOfBoundaryElements
            Element => GetBoundaryElement(i)
@@ -2735,86 +2789,71 @@ CONTAINS
            IF ( .NOT. ASSOCIATED( Parent ) )   CYCLE
            IF ( .NOT. ASSOCIATED( Parent % pDefs ) ) CYCLE
 
-           ! Get indexes for boundary and values for dofs associated to them
-            n = GetElementNOFNodes()
-            CALL getBoundaryIndexes( Solver % Mesh, Element, Parent, gInd, numEdgeDofs )
-
-            ! Contribute this boundary to global system
-            ! (i.e solve global boundary problem)
-            DO k=n+1,numEdgeDofs
-              nb = x % Perm( gInd(k) )
-              IF ( nb <= 0 ) CYCLE
-              nb = x % DOFs * (nb-1) + DOF
-!             CALL CRS_SetSymmDirichlet( A, A % RHS, nb, 0._dp )
-!             A % Values( A % Diag(nb) ) = 0._dp 
-              CALL ZeroRow( A, nb )
-              A % RHS(nb) = 0._dp
-            END DO
-        END DO
-
-!       Dirichlet BCs for face & edge DOFs:
-!       -----------------------------------
-        DO i=1,Solver % Mesh % NumberOfBoundaryElements
-           Element => GetBoundaryElement(i)
-           IF ( .NOT. ActiveBoundaryElement() ) CYCLE
-
-           BC => GetBC()
-           IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
-           IF ( .NOT. ListCheckPresent(BC, Name) ) CYCLE
-
-           ! Get parent element:
-           ! -------------------
-           Parent => Element % BoundaryInfo % Left
-           IF ( .NOT. ASSOCIATED( Parent ) ) THEN
-               Parent => Element % BoundaryInfo % Right
-           END IF
-           IF ( .NOT. ASSOCIATED( Parent ) )   CYCLE
-           IF ( .NOT. ASSOCIATED( Parent % pDefs ) ) CYCLE
-
-           n = Element % Type % NumberOfNodes
-           DO j=1,n
-             l = Element % NodeIndexes(j)
-             Work(j)  = ListGetConstReal( BC, Name, Found, &
-               CurrentModel % Mesh % Nodes % x(l), &
-               CurrentModel % Mesh % Nodes % y(l), &
-               CurrentModel % Mesh % Nodes % z(l) )
-           END DO
-
            SELECT CASE(Parent % Type % Dimension)
            CASE(2)
               ! If no edges do not try to set boundary conditions
               ! @todo This should changed to EXIT
               IF ( .NOT. ASSOCIATED( Solver % Mesh % Edges ) ) CYCLE
 
-!             ! If boundary edge has no dofs move on to next edge
-!             IF (Element % BDOFs <= 0) CYCLE
+              ! If boundary edge has no dofs move on to next edge
+              IF (Element % BDOFs <= 0) CYCLE
 
               ! Number of nodes for this element
-              n = Element % TYPE % NumberOfNodes
+              n = Element % Type % NumberOfNodes
               
               ! Get indexes for boundary and values for dofs associated to them
               CALL getBoundaryIndexes( Solver % Mesh, Element, Parent, gInd, numEdgeDofs )
               CALL LocalBcBDOFs( BC, Element, numEdgeDofs, Name, STIFF, Work )
 
-              ! Contribute this boundary to global system
-              ! (i.e solve global boundary problem)
-              DO k=n+1,numEdgeDofs
-                 nb = x % Perm( gInd(k) )
-                 IF ( nb <= 0 ) CYCLE
-                 nb = x % DOFs * (nb-1) + DOF
-                 A % RHS(nb) = A % RHS(nb) + Work(k)
-                 DO l=1,numEdgeDofs
-                    mb = x % Perm( gInd(l) )
-                    IF ( mb <= 0 ) CYCLE
-                    mb = x % DOFs * (mb-1) + DOF
-                    DO kk=A % Rows(nb)+DOF-1,A % Rows(nb+1)-1,x % DOFs
-                       IF ( A % Cols(kk) == mb ) THEN
+              IF ( Solver % Matrix % Symmetric ) THEN
+                DO l=1,n
+                  nb = x % Perm( gInd(l) )
+                  IF ( nb <= 0 ) CYCLE
+                  nb = x % DOFs * (nb-1) + DOF
+                  DO k=n+1,numEdgeDOFs
+                    Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)
+                  END DO
+                END DO
+
+                DO k=n+1,numEdgeDOFs
+                  DO l=n+1,numEdgeDOFs
+                    STIFF(k-n,l-n) = STIFF(k,l)
+                  END DO
+                  Work(k-n) = Work(k)
+                END DO
+                l = numEdgeDOFs-n
+                IF ( l==1 ) THEN
+                  Work(1) = Work(1)/STIFF(1,1)
+                ELSE
+                  CALL SolveLinSys(STIFF(1:l,1:l),Work(1:l),l)
+                END IF
+                DO k=n+1,numEdgeDOFs
+                  nb = x % Perm( gInd(k) )
+                  IF ( nb <= 0 ) CYCLE
+                  nb = x % DOFs * (nb-1) + DOF
+                  CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(k-n))
+                END DO 
+              ELSE
+                ! Contribute this boundary to global system
+                ! (i.e solve global boundary problem)
+                DO k=n+1,numEdgeDofs
+                   nb = x % Perm( gInd(k) )
+                   IF ( nb <= 0 ) CYCLE
+                   nb = x % DOFs * (nb-1) + DOF
+                   A % RHS(nb) = A % RHS(nb) + Work(k)
+                   DO l=1,numEdgeDofs
+                      mb = x % Perm( gInd(l) )
+                      IF ( mb <= 0 ) CYCLE
+                      mb = x % DOFs * (mb-1) + DOF
+                      DO kk=A % Rows(nb)+DOF-1,A % Rows(nb+1)-1,x % DOFs
+                        IF ( A % Cols(kk) == mb ) THEN
                           A % Values(kk) = A % Values(kk) + STIFF(k,l)
                           EXIT
-                       END IF
-                    END DO
-                 END DO
-              END DO
+                        END IF
+                      END DO
+                   END DO
+                END DO
+              END IF
            CASE(3)
               ! If no faces present do not try to set boundary conditions
               ! @todo This should be changed to EXIT
@@ -2827,26 +2866,39 @@ CONTAINS
               CALL getBoundaryIndexes( Solver % Mesh, Element,  &
                           Parent, gInd, numEdgeDofs )
 
-!             ! If boundary face has no dofs skip to next boundary element
-!             IF (numEdgeDOFs == n) CYCLE
+              ! If boundary face has no dofs skip to next boundary element
+              IF (numEdgeDOFs == n) CYCLE
 
               ! Get local solution
               CALL LocalBcBDofs( BC, Element, numEdgeDofs, Name, STIFF, Work )
 
+              n_start = 1
+              IF ( Solver % Matrix % Symmetric ) THEN
+                DO l=1,n
+                  nb = x % Perm( gInd(l) )
+                  IF ( nb <= 0 ) CYCLE
+                  nb = x % DOFs * (nb-1) + DOF
+                  DO k=n+1,numEdgeDOFs
+                    Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)
+                  END DO
+                END DO
+                n_start=n+1
+              END IF
+
               ! Contribute this entry to global boundary problem
-              DO k=1,numEdgeDOFs
+              DO k=n+1,numEdgeDOFs
                 nb = x % Perm( gInd(k) )
                 IF ( nb <= 0 ) CYCLE
                 nb = x % DOFs * (nb-1) + DOF
                 A % RHS(nb) = A % RHS(nb) + Work(k)
-                DO l=1,numEdgeDOFs
+                DO l=n_start,numEdgeDOFs
                   mb = x % Perm( gInd(l) )
                   IF ( mb <= 0 ) CYCLE
                   mb = x % DOFs * (mb-1) + DOF
                   DO kk=A % Rows(nb)+DOF-1,A % Rows(nb+1)-1,x % DOFs
                     IF ( A % Cols(kk) == mb ) THEN
-                       A % Values(kk) = A % Values(kk) + STIFF(k,l)
-                       EXIT
+                      A % Values(kk) = A % Values(kk) + STIFF(k,l)
+                      EXIT
                     END IF
                   END DO
                 END DO
@@ -2857,9 +2909,39 @@ CONTAINS
      END DO
 
      CALL Info('DefUtils::DefaultDirichletBCs','Dirichlet boundary conditions set', Level=5)
-
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultDirichletBCs
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE SolveLinSys( A, x, n )
+!------------------------------------------------------------------------------
+     INTEGER :: n
+     REAL(KIND=dp) :: A(n,n), x(n), b(n)
+
+     INTERFACE
+       SUBROUTINE SolveLapack( N,A,x )
+         INTEGER  N
+         DOUBLE PRECISION  A(n*n),x(n)
+       END SUBROUTINE
+     END INTERFACE
+
+!------------------------------------------------------------------------------
+     SELECT CASE(n)
+     CASE(1)
+       x(1) = x(1) / A(1,1)
+     CASE(2)
+       b = x
+       CALL SolveLinSys2x2(A,x,b)
+     CASE(3)
+       b = x
+       CALL SolveLinSys3x3(A,x,b)
+     CASE DEFAULT
+       CALL SolveLapack(n,A,x)
+     END SELECT
+!------------------------------------------------------------------------------
+  END SUBROUTINE SolveLinSys
 !------------------------------------------------------------------------------
 
 
