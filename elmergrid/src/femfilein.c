@@ -44,9 +44,6 @@
 
 #define getline fgets(line,MAXLINESIZE,in) 
 
-
-char line[MAXLINESIZE];
-
 static int Getrow(char *line1,FILE *io,int upper) 
 {
   int i,isend;
