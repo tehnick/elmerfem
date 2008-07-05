@@ -271,7 +271,7 @@ CONTAINS
       DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
          CurrentElement => Solver % Mesh % Elements(i)
          IF ( CheckElementEquation( CurrentModel, CurrentElement, eq ) ) THEN
-           Maxdim = MAX( CurrentElement % Type % Dimension, Maxdim )
+           Maxdim = MAX( CurrentElement % TYPE % DIMENSION, Maxdim )
          END IF
       END DO
       CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
@@ -692,7 +692,7 @@ CONTAINS
       CASE DEFAULT
       !------------------------------------------------------------------------------
       str = ListGetString( Solver % Values, 'Procedure' )
-      Solver % Procedure = GetProcAddr(str)
+      Solver % PROCEDURE = GetProcAddr(str)
 
       NULLIFY( Solver % Matrix )
       NULLIFY( Solver % Variable )
@@ -884,6 +884,25 @@ CONTAINS
           END DO
         END IF
       END IF
+    END IF
+
+    !------------------------------------------------------------------------------
+    ! Add computation of the weights resulting from Galerkin integration
+
+    IF ( ListGetLogical( Solver % Values,'Calculate Weights', Found ) ) THEN
+      Var_name = GetVarName(Solver % Variable) // ' Weights'
+      Var => VariableGet( Solver % Mesh % Variables, var_name )
+      IF ( .NOT. ASSOCIATED(Var) ) THEN
+        Perm => Solver % Variable % Perm
+        ALLOCATE( Solution(SIZE(Solver % Variable % Perm)) )
+        Solution = 0.0d0
+
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+           var_name, 1, Solution, &
+           Solver % Variable % Perm, Output=VariableOutput )
+      END IF
+
+      CALL ComputeNodalWeights(Solver)
     END IF
     !------------------------------------------------------------------------------
 
@@ -1476,7 +1495,7 @@ CONTAINS
              IF ( CheckElementEquation( Model, CurrentElement, EquationName ) ) THEN
                 Solver % NumberOfActiveElements = Solver % NumberOFActiveElements + 1
                 Solver % ActiveElements( Solver % NumberOFActiveElements ) = i
-                Maxdim = MAX( CurrentElement % Type % Dimension, Maxdim )
+                Maxdim = MAX( CurrentElement % TYPE % DIMENSION, Maxdim )
              END IF
           END DO
           CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )

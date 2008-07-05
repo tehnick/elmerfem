@@ -2963,6 +2963,74 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+! Computing nodal weight may be good when one needs to transform nodal 
+! information back to continous fields by dividing with the nodal weight. 
+!------------------------------------------------------------------------------
+
+  SUBROUTINE ComputeNodalWeights(Solver)
+    TYPE(Solver_t) :: Solver
+
+    TYPE(Variable_t), POINTER :: WeightsVar
+    REAL(KIND=dp), POINTER :: Weights(:)    
+    TYPE(Nodes_t) :: ElementNodes
+    TYPE(Element_t),POINTER :: Element, Parent
+    TYPE(GaussIntegrationPoints_t) :: IntegStuff
+    INTEGER ::e, t, n, nd
+    INTEGER, POINTER :: Perm(:), Indexes(:)
+    REAL(KIND=dp) :: u,v,w,s,detJ
+    REAL(KIND=dp), POINTER :: Basis(:)
+    LOGICAL :: GotIt, stat
+
+    WeightsVar => VariableGet( Solver % Mesh % Variables, &
+        GetVarName(Solver % Variable) // ' Weights' )
+    IF ( .NOT. ASSOCIATED(WeightsVar) ) RETURN
+
+    Weights => WeightsVar % Values
+    IF ( .NOT. ASSOCIATED(Weights) ) RETURN
+
+    CALL Info('ComputeNodalWeights',&
+        'Computing weights for solver '//Solver % Variable % Name)
+
+    Perm => Solver % Variable % Perm
+    N = Solver % Mesh % MaxElementNodes
+    ALLOCATE(Basis(n), ElementNodes % x(n), ElementNodes % y(n), &
+        ElementNodes % z(n))
+    Weights = 0.0_dp
+
+    DO e=1,Solver % NumberOfActiveElements
+
+      Element => Solver % Mesh % Elements( Solver % ActiveElements( e ) )
+      n = Element % TYPE % NumberOfNodes
+      Indexes => Element % NodeIndexes
+
+      ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(Indexes)
+      ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(Indexes)
+      ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(Indexes)
+
+      IntegStuff = GaussPoints( Element )
+
+      DO t=1,IntegStuff % n        
+        U = IntegStuff % u(t)
+        V = IntegStuff % v(t)
+        W = IntegStuff % w(t)
+        S = IntegStuff % s(t)
+
+        stat = ElementInfo( Element, ElementNodes, U, V, W, detJ, Basis )
+        Weights( Perm(Element % NodeIndexes) ) = &
+            Weights( Perm(Element % NodeIndexes) ) + s * detJ * Basis(1:n)
+      END DO
+
+    END DO
+
+    DEALLOCATE(Basis, ElementNodes % x, ElementNodes % y, &
+        ElementNodes % z)
+
+    CALL Info('ComputeNodalWeights','All done')
+
+  END SUBROUTINE ComputeNodalWeights
+
+
 
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
@@ -3278,6 +3346,8 @@ CONTAINS
       DEALLOCATE( TempVector )
       CALL BackRotateNTSystem( NodalLoads % Values, NodalLoads % Perm, DOFs )
     END IF
+
+
 
     CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 
@@ -3634,7 +3704,7 @@ CONTAINS
       BMatrix => A
       A => A % EMatrix
       IF ( ASSOCIATED(A) ) THEN
-        IF ( A % Complex ) EXIT
+        IF ( A % COMPLEX ) EXIT
       END IF
     END DO
 
@@ -3642,7 +3712,7 @@ CONTAINS
       A => CreateMatrix( CurrentModel, Solver, Solver % Mesh,   &
         Solver % Variable % Perm, DOFs, MATRIX_CRS, OptimizeBW, &
            ListGetString( Solver % Values, 'Equation') )
-      A % Complex = .TRUE.
+      A % COMPLEX = .TRUE.
       BMatrix % EMatrix => A
     END IF
 
