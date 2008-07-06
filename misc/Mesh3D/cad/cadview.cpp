@@ -99,7 +99,9 @@ void CadView::createMenus()
 
 void CadView::fitToWindowSlot()
 {
+#ifdef OCC62
   myOCC->fitAll();
+#endif
 }
 
 
