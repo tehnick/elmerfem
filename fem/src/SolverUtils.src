@@ -2974,18 +2974,21 @@ CONTAINS
     TYPE(Variable_t), POINTER :: WeightsVar
     REAL(KIND=dp), POINTER :: Weights(:)    
     TYPE(Nodes_t) :: ElementNodes
-    TYPE(Element_t),POINTER :: Element, Parent
-    TYPE(GaussIntegrationPoints_t) :: IntegStuff
-    INTEGER ::e, t, n, nd
+    TYPE(Element_t), POINTER :: Element
+    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+    INTEGER ::e, t, n
     INTEGER, POINTER :: Perm(:), Indexes(:)
     REAL(KIND=dp) :: u,v,w,s,detJ
-    REAL(KIND=dp), POINTER :: Basis(:)
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:)
     LOGICAL :: GotIt, stat
 
+
+    NULLIFY(WeightsVar)
     WeightsVar => VariableGet( Solver % Mesh % Variables, &
         GetVarName(Solver % Variable) // ' Weights' )
     IF ( .NOT. ASSOCIATED(WeightsVar) ) RETURN
 
+    NULLIFY(Weights)
     Weights => WeightsVar % Values
     IF ( .NOT. ASSOCIATED(Weights) ) RETURN
 
@@ -2993,7 +2996,7 @@ CONTAINS
         'Computing weights for solver '//Solver % Variable % Name)
 
     Perm => Solver % Variable % Perm
-    N = Solver % Mesh % MaxElementNodes
+    n = Solver % Mesh % MaxElementNodes
     ALLOCATE(Basis(n), ElementNodes % x(n), ElementNodes % y(n), &
         ElementNodes % z(n))
     Weights = 0.0_dp
@@ -3017,8 +3020,9 @@ CONTAINS
         S = IntegStuff % s(t)
 
         stat = ElementInfo( Element, ElementNodes, U, V, W, detJ, Basis )
-        Weights( Perm(Element % NodeIndexes) ) = &
-            Weights( Perm(Element % NodeIndexes) ) + s * detJ * Basis(1:n)
+
+        Weights( Perm(Indexes) ) = &
+            Weights( Perm(Indexes) ) + s * detJ * Basis(1:n)
       END DO
 
     END DO
