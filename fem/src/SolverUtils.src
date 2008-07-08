@@ -2966,9 +2966,10 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Computing nodal weight may be good when one needs to transform nodal 
 ! information back to continous fields by dividing with the nodal weight. 
+! Only active if the variable with name Variable % Name // ' Weights' exist.
 !------------------------------------------------------------------------------
 
-  SUBROUTINE ComputeNodalWeights(Solver)
+  SUBROUTINE CalculateNodalWeights(Solver)
     TYPE(Solver_t) :: Solver
 
     TYPE(Variable_t), POINTER :: WeightsVar
@@ -3032,7 +3033,7 @@ CONTAINS
 
     CALL Info('ComputeNodalWeights','All done')
 
-  END SUBROUTINE ComputeNodalWeights
+  END SUBROUTINE CalculateNodalWeights
 
 
 

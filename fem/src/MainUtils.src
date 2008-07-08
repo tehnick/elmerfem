@@ -901,8 +901,6 @@ CONTAINS
            var_name, 1, Solution, &
            Solver % Variable % Perm, Output=VariableOutput )
       END IF
-
-      CALL ComputeNodalWeights(Solver)
     END IF
     !------------------------------------------------------------------------------
 
@@ -1467,6 +1465,8 @@ CONTAINS
      CALL SetCurrentMesh( Model, Solver % Mesh )
      Model % Solver => Solver
 
+
+
      st = ListGetConstReal( Solver % Values, 'Start Time', Found )
      IF ( Found ) THEN
        TimeVar => VariableGet( Model % Variables, 'Time' )
@@ -1500,6 +1500,8 @@ CONTAINS
           END DO
           CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
        END IF
+
+       CALL CalculateNodalWeights(Solver)
      END IF
 !------------------------------------------------------------------------------
      Solver % Mesh % OutputActive = .TRUE.
