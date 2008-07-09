@@ -153,7 +153,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
-      ComplexEigen, Parallel, LiveGraph
+      ComplexEigen, Parallel, LiveGraph, FileAppend
 
   CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
 
@@ -198,6 +198,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
   IF(.NOT.SubroutineVisited) THEN
     
+    FileAppend = ListGetLogical( Solver % Values,'File Append',GotIt)
+
     ScalarsFile = ListGetString(Solver % Values,'Filename',GotIt )
     IF(.NOT. GotIt) ScalarsFile = DefaultScalarsFile
 
@@ -733,13 +735,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           ParSolver % Matrix % ParMatrix % ParEnv % MyPE
     END IF
 
-    IF(SubroutineVisited) THEN 
+    IF(SubroutineVisited .OR. FileAppend) THEN 
       OPEN (10, FILE=ScalarParFile,POSITION='APPEND')
     ELSE 
       OPEN (10,FILE=ScalarParFile)
     END IF
   ELSE
-    IF(SubroutineVisited) THEN 
+    IF(SubroutineVisited .OR. FileAppend) THEN 
       OPEN (10, FILE=ScalarsFile,POSITION='APPEND')
     ELSE 
       OPEN (10,FILE=ScalarsFile)
@@ -760,7 +762,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
   IF(LiveGraph) THEN
   ! Save data as comma-separated-values (cvs-file)
-    IF(SubroutineVisited) THEN 
+    IF(SubroutineVisited .OR. FileAppend) THEN 
       OPEN (10, FILE=TRIM(ScalarsFile)//'.csv',POSITION='APPEND')      
     ELSE 
       OPEN (10, FILE=TRIM(ScalarsFile)//'.csv')
@@ -2296,14 +2298,14 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
           ParSolver % Matrix % ParMatrix % ParEnv % MyPE
     END IF
 
-    IF(SubroutineVisited) THEN 
+    IF(SubroutineVisited .OR. FileAppend) THEN 
       OPEN (10, FILE=SideParFile,POSITION='APPEND')
     ELSE 
       OPEN (10,FILE=SideParFile)
     END IF
   ELSE
-    IF(SubroutineVisited) THEN 
-      OPEN (10, FILE=SideFile,POSITION='APPEND')
+    IF(SubroutineVisited .OR. FileAppend) THEN 
+      OPEN (10, FILE=SideFile, POSITION='APPEND')
     ELSE 
       OPEN (10,FILE=SideFile)
     END IF
