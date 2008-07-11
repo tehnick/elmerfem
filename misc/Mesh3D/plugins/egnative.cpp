@@ -1927,7 +1927,7 @@ void SetElementDivisionCylinder(struct GridType *grid,int info)
 
 
 
-int Getline(char *line1,FILE *io) 
+static int Getline(char *line1,FILE *io) 
 {
   int i,isend;
   char line0[MAXLINESIZE],*charend;
@@ -1970,7 +1970,7 @@ int Getline(char *line1,FILE *io)
 }
 
 
-int GetCommand(char *line1,char *line2,FILE *io) 
+static int GetCommand(char *line1,char *line2,FILE *io) 
 {
   int i,j,isend,empty;
   char line0[MAXLINESIZE],*charend;
@@ -2707,7 +2707,7 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     }
 
     else {
-      if(0) printf("Unknown command: %s",command);
+      if(1) printf("Unknown command: %s",command);
     }
   }
 
@@ -2871,12 +2871,10 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
     if(mode <= 1) {
       if(strstr(command,"INPUT FILE")) {
-      // TODO this leaks if filename is longer than MAXFILESIZE (60)
 	sscanf(params,"%s", &(eg->filesin[0]));
       }
 
       else if(strstr(command,"OUTPUT FILE")) {
-      // TODO this leaks if filename is longer than MAXFILESIZE (60)
 	sscanf(params,"%s",&(eg->filesout[0]));
       }
 

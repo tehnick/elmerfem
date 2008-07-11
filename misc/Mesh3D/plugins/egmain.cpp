@@ -108,6 +108,8 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[],char *IOmeth
 
   /* Type of input file */
   if(first > 3) {
+    for(i=0;i<MAXLINESIZE;i++) command[i] = ' ';
+
     strcpy(command,argv[1]);
     for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
     for(i=0;i<=MAXFORMATS;i++) {
@@ -1066,6 +1068,7 @@ static int ImportMeshDefinition(int inmethod,int nofile,char *filename,int *nogr
     if(*nogrids) LoadCommands(eg.filesin[nofile],&eg,grids,2,IOmethods,info); 
     break;
     
+#if EXE_MODE
   case 2: 
     errorstat = LoadElmerInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info);
     break;
@@ -1073,6 +1076,7 @@ static int ImportMeshDefinition(int inmethod,int nofile,char *filename,int *nogr
   case 3: 
     errorstat = LoadSolutionElmer(&(data[nofile]),TRUE,eg.filesin[nofile],info);
     break;
+#endif
 
   case 4:
     errorstat = LoadAnsysInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info);

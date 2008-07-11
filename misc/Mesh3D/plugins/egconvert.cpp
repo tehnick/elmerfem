@@ -45,8 +45,6 @@
 #define getline fgets(line,MAXLINESIZE,in) 
 
 
-char line[MAXLINESIZE];
-
 static int Getrow(char *line1,FILE *io,int upper) 
 {
   int i,isend;
@@ -95,287 +93,6 @@ static int Comsolrow(char *line1,FILE *io)
 
   return(0);
 }
-
-
-
-int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
-		   char *prefix,int info)
-/* This procedure reads the mesh assuming ElmerSolver format.
-   */
-{
-  int noknots,noelements,nosides,maxelemtype;
-  int sideind[MAXNODESD1],tottypes,elementtype;
-  int i,j,k,dummyint,cdstat;
-  FILE *in;
-  char line[MAXLINESIZE],filename[MAXFILESIZE],directoryname[MAXFILESIZE];
-
-
-  sprintf(directoryname,"%s",prefix);
-  //???? cdstat = chdir(directoryname);
-
-  if(info) {
-    if(cdstat) 
-      printf("Loading mesh in ElmerSolver format from root directory.\n");
-    else
-      printf("Loading mesh in ElmerSolver format from directory %s.\n",directoryname);
-  }
-
-  InitializeKnots(data);
-
-
-  sprintf(filename,"%s","mesh.header");
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadElmerInput: The opening of the header-file %s failed!\n",
-	   filename);
-    return(1);
-  }
-  else 
-    printf("Loading Elmer header from %s\n",filename);
-
-  getline;
-  sscanf(line,"%d %d %d",&noknots,&noelements,&nosides);
-  getline;
-  sscanf(line,"%d",&tottypes);
-
-  maxelemtype = 0;
-  for(i=1;i<=tottypes;i++) {   
-    getline;
-    sscanf(line,"%d",&dummyint);
-    if(dummyint > maxelemtype) maxelemtype = dummyint;
-  }
-  fclose(in);
-
-  data->dim = GetElementDimension(maxelemtype);
-
-  data->maxnodes = maxelemtype % 100;
-  data->noknots = noknots;
-  data->noelements = noelements;
-
-
-  if(info) printf("Allocating for %d knots and %d elements.\n",
-		  noknots,noelements);
-  AllocateKnots(data);
-
-
-  sprintf(filename,"%s","mesh.nodes");
-  if ((in = fopen(filename,"r")) == NULL) {
-    if(info) printf("LoadElmerInput: The opening of the nodes-file %s failed!\n",
-		    filename);
-    return(2);
-  }
-  else 
-    printf("Loading %d Elmer nodes from %s\n",noknots,filename);
-
-  for(i=1; i <= noknots; i++) {
-    getline;
-    sscanf(line,"%d %d %le %le %le",
-	   &j, &dummyint, &(data->x[i]),&(data->y[i]),&(data->z[i]));
-    if(j != i) printf("LoadElmerInput: nodes i=%d j=%d\n",i,j);
-  }
-  fclose(in);
-
-
-  sprintf(filename,"%s","mesh.elements");
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadElmerInput: The opening of the element-file %s failed!\n",
-	   filename);
-    return(3);
-  }
-  else 
-    if(info) printf("Loading %d Elmer elements from %s\n",noelements,filename);
-
-  for(i=1; i <= noelements; i++) {
-    fscanf(in,"%d",&j);
-    if(0 && i != j) printf("LoadElmerInput: i=%d element=%d\n",i,dummyint);
-    fscanf(in,"%d",&(data->material[j]));
-    fscanf(in,"%d",&(data->elementtypes[j]));
-    for(k=0;k< data->elementtypes[j]%100 ;k++) 
-      fscanf(in,"%d",&(data->topology[j][k]));
-  }
-  fclose(in);
-
-
-  sprintf(filename,"%s","mesh.boundary");
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadElmerInput: The opening of the boundary-file %s failed!\n",
-	   filename);
-    return(4);
-  }
-  else {
-    if(info) printf("Loading %d Elmer boundaries from %s\n",nosides,filename);
-  }
-
-  AllocateBoundary(bound,nosides);
-  data->noboundaries = 1;
-
-  i = 0;
-  for(k=1; k <= nosides; k++) {
-    i++;
-    fscanf(in,"%d",&dummyint);
-
-#if 0
-    if(k != dummyint) printf("LoadElmerInput: k=%d side=%d\n",k,dummyint);
-#endif
-    fscanf(in,"%d",&(bound->types[i]));
-    fscanf(in,"%d",&(bound->parent[i]));
-    fscanf(in,"%d",&(bound->parent2[i]));
-    fscanf(in,"%d",&elementtype);
-    for(j=0;j< elementtype%100 ;j++) 
-      fscanf(in,"%d",&(sideind[j]));
-
-    if(bound->parent[i] == 0 && bound->parent2[i] != 0) {
-      bound->parent[i] = bound->parent2[i];
-      bound->parent2[i] = 0;
-    }
-
-    if(bound->parent[i] > 0) {
-      FindParentSide(data,bound,i,elementtype,sideind);
-    }
-    else {
-#if 0
-      printf("could not find parent for side %d with inds %d %d\n",
-	     dummyint,sideind[0],sideind[1]);
-      printf("eleminfo: parents %d %d type %d\n",
-	     bound->parent[i],bound->parent2[i],bound->types[i]);   
-#endif
-      i--;
-    }
-  }
-  
-  bound->nosides = i;
-  fclose(in); 
-
-  //????? if(!cdstat) chdir("..");
-
-  return(0);
-}
-
-
-
-int LoadSolutionElmer(struct FemType *data,int results,char *prefix,int info)
-/* This procedure reads the solution in a form that is understood 
-   by the programs Funcs and ElmerPost, created
-   by Juha Ruokolainen at Center for Scientific Computing. 
-   This procedure is not by far general.
-   */
-{
-  int noknots,noelements,novctrs,open;
-  int timesteps,i,j,k = 0,grp;
-  Real r;
-  FILE *in;
-  char line[MAXLINESIZE],filename[MAXFILESIZE],text[MAXNAMESIZE];
-
-  AddExtension(prefix,filename,"ep");
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadSolutionElmer: The opening of the Elmer-file %s wasn't succesfull!\n",
-	   filename);
-    return(1);
-  }
-  else 
-    printf("Loading Elmer data from %s\n",filename);
-
-  InitializeKnots(data);
-
-  getline;
-  sscanf(line,"%d %d %d %d",&noknots,&noelements,&novctrs,&timesteps);
-
-  data->dim = 3;
-  data->maxnodes = MAXNODESD2;
-  data->noknots = noknots;
-  data->noelements = noelements;
-  data->timesteps = timesteps;
-  
-  if(timesteps > 1) 
-    printf("LoadSolutionElmer: The subroutine may crash with %d timesteps\n",
-	   timesteps);
-  if(timesteps < 1) timesteps = 1;
-    
-  if(info) printf("Allocating for %d knots and %d elements.\n",
-		  noknots,noelements);
-  AllocateKnots(data);
-
-  if(results) {
-    if(timesteps > 1) 
-      data->times = Rvector(0,timesteps-1);
-    for(i=1;i<=novctrs;i++) {
-      sprintf(text,"var%d",i);
-      CreateVariable(data,i,timesteps,0.0,text,FALSE);    
-    }
-  }
-
-  if(info) printf("Reading %d coordinates.\n",noknots);
-  for(i=1; i <= noknots; i++) {
-    getline;
-    sscanf(line,"%le %le %le",
-	   &(data->x[i]),&(data->y[i]),&(data->z[i]));
-  }
-
-  if(info) printf("Reading %d element topologies.\n",noelements);
-
-  grp = 0;
-  open = FALSE;
-  for(i=1; i <= noelements; i++) {
-    fscanf(in,"%s",text);
-    if(strstr(text,"#group")) {
-      grp++;
-      printf("Starting a new element group\n");
-      fscanf(in,"%s",text);      
-      fscanf(in,"%s",text);
-      open = TRUE;
-    }
-    if(strstr(text,"#end")) {
-      printf("Ending an element group\n");
-      fscanf(in,"%s",text);      
-      open = FALSE;
-    }
-    fscanf(in,"%d",&(data->elementtypes[i]));
-    data->material[i] = grp;
-    for(j=0;j< data->elementtypes[i]%100 ;j++) {
-      k = fscanf(in,"%d",&(data->topology[i][j]));
-      data->topology[i][j] += 1;
-    }
-  }
-  if(open) {    
-    do {
-      fscanf(in,"%s",text);
-    } while (!strstr(text,"#end"));
-    fscanf(in,"%s",text);
-    printf("Ending an element group\n");   
-    open = FALSE;
-  }
-
-  if(results == 0) 
-    return(0);
-
-  if(info) printf("Reading %d degrees of freedom for %d knots.\n",
-		  novctrs,noknots);
-  if (timesteps<2) {
-    for(i=1; i <= noknots; i++) 
-      for(j=1;j <= novctrs;j++) 
-	fscanf(in,"%le",&(data->dofs[j][i]));
-  }
-  else for(k=0;k<timesteps;k++) {
-    i = fscanf(in,"%s",text);
-    if(i < 0) goto end;
-    fscanf(in,"%d",&i);
-    fscanf(in,"%d",&j);
-    fscanf(in,"%le",&r);
-
-    if(0) printf("Loading steps i=%d  j=%d  k=%d  r=%.3lg\n",i,j,k,r);
-
-    for(i=1; i <= noknots; i++) 
-      for(j=1;j <= novctrs;j++) 
-	fscanf(in,"%le",&(data->dofs[j][k*noknots+i]));
-  }
-
-end:
-  data->timesteps = k+1;
-
-  fclose(in);
-
-  return(0);
-}
-
 
 
 
@@ -3038,7 +2755,6 @@ allocate:
     if(Getrow(line,in,TRUE)) goto end;
     if(!line) goto end;
     if(strstr(line,"END")) goto end;
-
     if(strstr(line,"$NOD")) {
       
       getline;
@@ -3181,19 +2897,16 @@ omstart:
     if(strstr(line,"END")) continue;
 
     /* Header info is not much needed */
-    //if(!strncasecmp(line,"$MeshFormat",11)) {
-    if(0) {
+    if(strstr(line,"$MeshFormat")) {
       Getrow(line,in,TRUE);
       Getrow(line,in,TRUE);
-      //if(strncasecmp(line,"$EndMeshFormat",14)) {
-      if(0) {
+      if(strstr(line,"$EndMeshFormat")) {
 	printf("MeshFormat section should end to string $EndMeshFormat\n");
 	printf("%s\n",line);
       }      
     }
       
-    //else if(!strncasecmp(line,"$Nodes",6)) {
-    else if(0) {
+    if(strstr(line,"$Nodes")) {
       getline;
       cp = line;
 
@@ -3217,12 +2930,11 @@ omstart:
       getline;
     }
     
-    //?????else if(!strncasecmp(line,"$Elements",9)) {
-    else if(0) {
+    if(strstr(line,"$Elements")) {
       getline;
       cp = line;
       noelements = next_int(&cp);
-
+      
       for(i=1; i <= noelements; i++) {
 	getline;
 	
@@ -3692,8 +3404,6 @@ end:
     for(i=1;i<=data->noelements;i++) 
       if(data->material[i] == 0) data->material[i] = maxgroup + 1;
   }
-
-
     
   if(info) printf("The Universal mesh was loaded from file %s.\n\n",filename);
 
@@ -3708,7 +3418,7 @@ int LoadCGsimMesh(struct FemType *data,char *prefix,int info)
 {
   int noknots,noelements,maxnodes,material,allocated,dim,debug,thismat,thisknots,thiselems;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
-  int i,j,k,l,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1],savedofs;
+  int i,j,inds[MAXNODESD2],savedofs;
   Real dummyreal;
   FILE *in;
 

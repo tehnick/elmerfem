@@ -18,8 +18,6 @@ int GetSideInfo(struct CellType *cell,int cellno,int side,int element,
 void SetElementDivisionExtruded(struct GridType *grid,int info);
 void SetElementDivisionCylinder(struct GridType *grid,int info);
 
-int Getline(char *line1,FILE *io);
-int GetCommand(char *line1,char *line2,FILE *io);
 int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info);
 int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info);
 void InitParameters(struct ElmergridType *eg);

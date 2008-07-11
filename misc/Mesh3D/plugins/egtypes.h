@@ -9,7 +9,7 @@
 #define MAXMATERIALS  50    /* maximum index of materials */
 #define MAXCASES    12      /* maximum number of coexisting cases */ 
 #define MAXFILESIZE 600      /* maximum filenamesize for i/o files */
-#define MAXLINESIZE 1000    /* maximum length of line to be read */
+#define MAXLINESIZE 200     /* maximum length of line to be read */
 #define MAXNAMESIZE 30      /* maximum size of the variablename */
 #define MAXPARAMS 30        /* maximum number of parameters */
 #define MAXVARS 20          /* maximum number of variables at the sides */
