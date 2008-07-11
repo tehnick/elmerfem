@@ -134,7 +134,7 @@ static int Getline(char *line1,FILE *io)
 
 static int GetCommand(char *line1,char *line2,FILE *io) 
 {
-  int i,j,isend,empty;
+  int i,j,isend;
   char line0[MAXLINESIZE],*charend,*matcpntr0,*matcpntr;
 
  newline:
@@ -147,9 +147,7 @@ static int GetCommand(char *line1,char *line2,FILE *io)
 
   if(isend) return(1);
 
-  empty = TRUE;
-  for(i=1;i<20;i++) if(line0[0] != ' ') empty = FALSE;
-  if(empty) goto newline;
+  if(strlen(line0)<=strspn(line0," \t\r\n")) goto newline;
 
   if(line0[0] == '#' || line0[0] == '%' || line0[0] == '!' || line0[0] == '\n') goto newline;
   if(!matcactive && line0[0] == '*') goto newline;
