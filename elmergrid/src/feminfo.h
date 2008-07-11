@@ -3,8 +3,11 @@
    solution and calculation. Includes interfaces for input 
    and output files. */
 
-int Getline(char *line1,FILE *io);
-int GetCommand(char *line1,char *line2,FILE *io);
+void InitParameters(struct ElmergridType *eg);
+int InlineParameters(struct ElmergridType *eg,int argc,char *argv[]);
+int LoadCommands(char *prefix,struct ElmergridType *eg,
+		 struct GridType *grid, int mode,int info);
+
 int SaveSolutionDens(struct FemType *data,char *prefix,int info);
 int SaveCellInfo(struct GridType *grid,struct CellType *cell,
 		 char *prefix,int info);

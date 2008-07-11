@@ -8,8 +8,8 @@
 #define MAXBOUNDARIES 50    /* maximum number of boundaries for BCs */
 #define MAXMATERIALS  50    /* maximum index of materials */
 #define MAXCASES    12      /* maximum number of coexisting cases */ 
-#define MAXFILESIZE 40      /* maximum filenamesize for i/o files */
-#define MAXLINESIZE 1000    /* maximum length of line to be read */
+#define MAXFILESIZE 600      /* maximum filenamesize for i/o files */
+#define MAXLINESIZE 200     /* maximum length of line to be read */
 #define MAXNAMESIZE 30      /* maximum size of the variablename */
 #define MAXPARAMS 30        /* maximum number of parameters */
 #define MAXVARS 20          /* maximum number of variables at the sides */
@@ -21,6 +21,8 @@
 #define MAXBCS 1000         /* maximum number of BCs in naming */
 #define MAXBODIES 100       /* maximum number of bodies in naming */
 #define MAXPARTITIONS 512   /* maximum number of partitions */
+
+#define MAXMETHODS 17
 
 #define CONPLAIN 0
 #define CONDISCONT 1

@@ -51,15 +51,39 @@
 #include "femknot.h"
 #include "feminfo.h"
 
-char line[MAXLINESIZE];
-int matcactive;
+int matcactive=FALSE, iodebug=FALSE;
+
+
+char *IOmethods[] = {
+  /*0*/ "EG",
+  /*1*/ "ELMERGRID",
+  /*2*/ "ELMERSOLVER",
+  /*3*/ "ELMERPOST",
+  /*4*/ "ANSYS",
+  /*5*/ "IDEAS",
+  /*6*/ "ABAQUS",
+  /*7*/ "FIDAP",
+  /*8*/ "EASYMESH",
+  /*9*/ "COMSOL",
+  /*10*/ "FIELDVIEW",
+  /*11*/ "TRIANGLE",
+  /*12*/ "MEDIT",
+  /*13*/ "GID",
+  /*14*/ "GMSH",
+  /*15*/ "PARTITIONED",
+  /*16*/ "UNV",
+  /*17*/ "NASTRAN",
+  /*18*/ "FASTCAP"
+};
+
+
 
 #ifndef DISABLE_MATC
 char *mtc_domath(const char *);
 void mtc_init(FILE * input, FILE * output, FILE * error);
 #endif
 
-int Getline(char *line1,FILE *io) 
+static int Getline(char *line1,FILE *io) 
 {
   int i,isend;
   char line0[MAXLINESIZE],*charend,*matcpntr,*matcpntr0;
@@ -98,11 +122,17 @@ int Getline(char *line1,FILE *io)
   for(i=0;i<MAXLINESIZE;i++) 
     line1[i] = toupper(line0[i]);
 
+  if(iodebug) {
+    printf("line: ");
+    for(i=0;i<40;i++) printf("%c",line1[i]);
+    printf("\n");
+  }
+
   return(0);
 }
 
 
-int GetCommand(char *line1,char *line2,FILE *io) 
+static int GetCommand(char *line1,char *line2,FILE *io) 
 {
   int i,j,isend,empty;
   char line0[MAXLINESIZE],*charend,*matcpntr0,*matcpntr;
@@ -125,8 +155,6 @@ int GetCommand(char *line1,char *line2,FILE *io)
   if(!matcactive && line0[0] == '*') goto newline;
 
 #ifndef DISABLE_MATC
-
-
   if(matcactive) {
     matcpntr0 = strchr(line0,'$');
     if(matcpntr0) {
@@ -156,7 +184,6 @@ int GetCommand(char *line1,char *line2,FILE *io)
   if(strstr(line1,"END")) return(0);
   if(strstr(line1,"NEW MESH")) return(0);
 
-
   if(j) {
     for(i=j+1;i<MAXLINESIZE;i++) 
       line2[i-j-1] = line0[i];      
@@ -182,9 +209,1034 @@ int GetCommand(char *line1,char *line2,FILE *io)
     }
 #endif 
   }
+
+  if(iodebug) {
+    printf("command: ");
+    for(i=0;i<40;i++) printf("%c",line1[i]);
+    printf("\nparams: ");
+    for(i=0;i<40;i++) printf("%c",line2[i]);
+    printf("\n");
+  }
   
   return(0);
 }
+
+
+
+void InitParameters(struct ElmergridType *eg)
+{
+  int i;
+
+  eg->inmethod = 0;
+  eg->outmethod = 0;
+  eg->nofilesin = 1;
+  eg->unitemeshes = FALSE;
+  eg->triangles = FALSE;
+  eg->triangleangle = 0.0;
+  eg->rotate = FALSE;
+  eg->polar = FALSE;
+  eg->cylinder = FALSE;
+  eg->usenames = FALSE;
+  eg->layers = 0;
+  eg->layereps = 0.0;
+  eg->layermove = 0;
+  eg->partitions = 0;
+  eg->elements3d = 0;
+  eg->nodes3d = 0;
+  eg->metis = 0;
+  eg->partitionhalo = FALSE;
+  eg->partitionindirect = FALSE;
+  eg->reduce = FALSE;
+  eg->increase = FALSE;
+  eg->translate = FALSE;
+  eg->isoparam = FALSE;
+  eg->removelowdim = FALSE;
+  eg->removeunused = FALSE;
+  eg->dim = 3;
+  eg->center = FALSE;
+  eg->scale = FALSE;
+  eg->order = FALSE;
+  eg->boundbounds = 0;
+  eg->saveinterval[0] = eg->saveinterval[1] = eg->saveinterval[2] = 0;
+  eg->bulkbounds = 0;
+  eg->partorder = FALSE;
+  eg->findsides = FALSE;
+  eg->pelems = 0;
+  eg->belems = 0;
+  eg->saveboundaries = TRUE;
+  eg->merge = FALSE;
+  eg->bcoffset = FALSE;
+  eg->periodic = 0;
+  eg->periodicdim[0] = 0;
+  eg->periodicdim[1] = 0;
+  eg->periodicdim[2] = 0;
+  eg->bulkorder = FALSE;
+  eg->boundorder = FALSE;
+  eg->sidemappings = 0;
+  eg->bulkmappings = 0;
+  eg->clone[0] = eg->clone[1] = eg->clone[2] = 0;
+  eg->mirror[0] = eg->mirror[1] = eg->mirror[2] = 0;
+  eg->mirrorbc = 0;
+  eg->decimals = 12;
+  eg->discont = 0;
+  eg->connect = 0;
+  eg->advancedmat = 0;
+  
+  for(i=0;i<MAXSIDEBULK;i++) 
+    eg->sidebulk[i] = 0;
+}
+
+
+
+
+int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
+{
+  int arg,i,dim;
+  char command[MAXLINESIZE];
+  
+  dim = eg->dim;
+
+  printf("Elmergrid reading in-line arguments\n");
+
+  /* Type of input file */
+  strcpy(command,argv[1]);
+  for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
+  for(i=0;i<=MAXMETHODS;i++) {
+    if(strstr(command,IOmethods[i])) {
+      eg->inmethod = i;
+      break;
+    }
+  }
+  if(i>MAXMETHODS) eg->inmethod = atoi(argv[1]);
+
+
+  /* Type of output file (fewer options) */
+  strcpy(command,argv[2]);
+  for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
+  for(i=1;i<=MAXMETHODS;i++) {
+    if(strstr(command,IOmethods[i])) {
+      eg->outmethod = i;
+      break;
+    }
+  }
+  if(i>MAXMETHODS) eg->outmethod = atoi(argv[2]);
+ 
+
+  /* Name of output file */
+  strcpy(eg->filesin[0],argv[3]);
+  strcpy(eg->filesout[0],eg->filesin[0]);
+  strcpy(eg->mapfile,eg->filesin[0]);
+
+
+  /* The optional inline parameters */
+
+  for(arg=4;arg <argc; arg++) {
+
+    if(strcmp(argv[arg],"-in") ==0 ) {
+      if(arg+1 >= argc) {
+	printf("The secondary input file name is required as a paramater\n");
+	return(1);
+      }
+      else {
+	strcpy(eg->filesin[eg->nofilesin],argv[arg+1]);
+	printf("A secondary input file %s will be loaded.\n",eg->filesin[eg->nofilesin]);
+	eg->nofilesin++;
+      }
+    }
+
+    if(strcmp(argv[arg],"-out") == 0) {
+      if(arg+1 >= argc) {
+	printf("The output name is required as a paramater\n");
+	return(2);
+      }
+      else {
+	strcpy(eg->filesout[0],argv[arg+1]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-decimals") == 0) {
+      eg->decimals = atoi(argv[arg+1]);
+    }
+
+    if(strcmp(argv[arg],"-triangles") ==0) {
+      eg->triangles = TRUE;
+      printf("The rectangles will be split to triangles.\n");
+      if(arg+1 < argc) {
+	if(strcmp(argv[arg+1],"-")) {
+	  eg->triangleangle = atof(argv[arg+1]);
+	}
+      }
+    }
+
+    if(strcmp(argv[arg],"-merge") == 0) {
+      if(arg+1 >= argc) {
+	printf("Give a parameter for critical distance.\n");
+	return(3);
+      }
+      else {
+	eg->merge = TRUE;
+	eg->cmerge = atof(argv[arg+1]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-order") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give %d parameters for the order vector.\n",dim);
+ 	return(4);
+      }
+      else {
+	eg->order = TRUE;
+	eg->corder[0] = atof(argv[arg+1]);
+	eg->corder[1] = atof(argv[arg+2]);
+	if(dim==3) eg->corder[2] = atof(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-autoorder") == 0) {
+      eg->order = 2;
+    }
+
+    if(strcmp(argv[arg],"-halo") == 0) {
+      eg->partitionhalo = TRUE;
+    }
+    if(strcmp(argv[arg],"-indirect") == 0) {
+      eg->partitionindirect = TRUE;
+    }
+    if(strcmp(argv[arg],"-metisorder") == 0) {
+      eg->order = 3;
+    }
+    if(strcmp(argv[arg],"-centralize") == 0) {
+      eg->center = TRUE;
+    }
+    if(strcmp(argv[arg],"-scale") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give %d parameters for the scaling.\n",dim);
+ 	return(5);
+     }
+      else {
+	eg->scale = TRUE;
+	eg->cscale[0] = atof(argv[arg+1]);
+	eg->cscale[1] = atof(argv[arg+2]);
+	if(dim==3) eg->cscale[2] = atof(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-translate") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give %d parameters for the translate vector.\n",dim);
+	return(6);
+      }
+      else {
+	eg->translate = TRUE;
+	eg->ctranslate[0] = atof(argv[arg+1]);
+	eg->ctranslate[1] = atof(argv[arg+2]);
+	if(dim == 3) eg->ctranslate[2] = atof(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-saveinterval") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give min, max and step for the interval.\n");
+	return(7);
+      }
+      else {
+	eg->saveinterval[0] = atoi(argv[arg+1]);
+	eg->saveinterval[1] = atoi(argv[arg+2]);
+	eg->saveinterval[2] = atoi(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-rotate") == 0 || strcmp(argv[arg],"-rotate") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give three parameters for the rotation angles.\n");
+	return(8);
+      }
+      else {
+	eg->rotate = TRUE;
+	eg->crotate[0] = atof(argv[arg+1]);
+	eg->crotate[1] = atof(argv[arg+2]);
+	eg->crotate[2] = atof(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-clone") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give the number of clones in each %d directions.\n",dim);
+ 	return(9);
+     }
+      else {
+	eg->clone[0] = atoi(argv[arg+1]);
+	eg->clone[1] = atoi(argv[arg+2]);
+	if(dim == 3) eg->clone[2] = atoi(argv[arg+3]);
+      }
+    }
+    if(strcmp(argv[arg],"-clonesize") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give the clone size in each %d directions.\n",dim);
+ 	return(10);
+      }
+      else {
+	eg->clonesize[0] = atof(argv[arg+1]);
+	eg->clonesize[1] = atof(argv[arg+2]);
+	if(dim == 3) eg->clonesize[2] = atof(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-mirror") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give the symmetry of the coordinate directions, eg. 1 1 0\n");
+      }
+      else {
+	eg->mirror[0] = atoi(argv[arg+1]);
+	eg->mirror[1] = atoi(argv[arg+2]);
+	if(dim == 3) eg->mirror[2] = atoi(argv[arg+3]);
+      }
+    }
+    if(strcmp(argv[arg],"-mirrorbc") == 0) {
+      if(arg+1 >= argc) {
+	printf("Give the number of symmetry BC.\n");
+ 	return(11);
+      }
+      else {
+	eg->mirrorbc = atoi(argv[arg+1]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-unite") == 0) {
+      eg->unitemeshes = TRUE;
+      printf("The meshes will be united.\n");
+    }   
+
+    if(strcmp(argv[arg],"-names") == 0) {
+      eg->usenames = TRUE;
+      printf("Names will be conserved when possible\n");
+    }   
+
+    if(strcmp(argv[arg],"-removelowdim") == 0) {
+      eg->removelowdim = TRUE;
+      printf("Lower dimensional boundaries will be removed\n");
+    }   
+
+    if(strcmp(argv[arg],"-removeunused") == 0) {
+      eg->removeunused = TRUE;
+      printf("Nodes that do not appear in any element will be removed\n");
+    }   
+
+    if(strcmp(argv[arg],"-autoclean") == 0) {
+      eg->removelowdim = TRUE;
+      eg->bulkorder = TRUE;
+      eg->boundorder = TRUE;
+      eg->removeunused = TRUE;
+      printf("Lower dimensional boundaries will be removed\n");
+      printf("Materials and boundaries will be renumbered\n");
+      printf("Nodes that do not appear in any element will be removed\n");
+    }   
+
+    if(strcmp(argv[arg],"-polar") == 0) {
+      eg->polar = TRUE;
+      printf("Making transformation to polar coordinates.\n");
+      if(arg+1 >= argc) {
+	printf("The preferred radius is required as a parameter\n");
+	eg->polarradius = 1.0;
+      }
+      else {
+	eg->polarradius = atoi(argv[arg+1]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-cylinder") == 0) {
+      eg->cylinder = TRUE;
+      printf("Making transformation from cylindrical to cartesian coordinates.\n");
+    }
+
+    if(strcmp(argv[arg],"-reduce") == 0) {
+      if(arg+2 >= argc) {
+	printf("Give two material for the interval.\n");
+ 	return(12);
+      }
+      else {
+	eg->reduce = TRUE;      
+	eg->reducemat1 = atoi(argv[arg+1]);
+	eg->reducemat2 = atoi(argv[arg+2]);
+      }
+    }
+    if(strcmp(argv[arg],"-increase") == 0) {
+      eg->increase = TRUE;
+    }
+    if(strcmp(argv[arg],"-bulkorder") == 0) {
+      eg->bulkorder = TRUE;
+    }
+    if(strcmp(argv[arg],"-boundorder") == 0) {
+      eg->boundorder = TRUE;
+    }
+    if(strcmp(argv[arg],"-pelem") == 0) {
+      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
+	eg->pelemmap[3*eg->pelems+i-1-arg] = atoi(argv[i]);
+      eg->pelems++;
+    } 
+    if(strcmp(argv[arg],"-belem") == 0) {
+      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
+	eg->belemmap[3*eg->belems+i-1-arg] = atoi(argv[i]);
+      eg->belems++;
+    } 
+    if(strcmp(argv[arg],"-partition") == 0) {
+      if(arg+dim >= argc) {
+	printf("The number of partitions in %d dims is required as paramaters.\n",dim);
+	return(13);
+      }
+      else {
+	eg->partitions = 1;
+	eg->partdim[0] = atoi(argv[arg+1]);
+	eg->partdim[1] = atoi(argv[arg+2]);
+	if(dim == 3) eg->partdim[2] = atoi(argv[arg+3]);
+	eg->partitions = 1;
+	for(i=0;i<3;i++) {
+	  if(eg->partdim[i] == 0) eg->partdim[i] = 1;
+	  eg->partitions *= eg->partdim[i];
+	}
+	eg->partopt = 0;
+	if(arg+4 < argc) 
+	  if(argv[arg+4][0] != '-') eg->partopt = atoi(argv[arg+4]);
+
+	printf("The mesh will be partitioned with simple division to %d partitions.\n",
+	       eg->partitions);
+      }
+    }
+    if(strcmp(argv[arg],"-partorder") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give %d parameters for the order vector.\n",dim);
+ 	return(14);
+      }
+      else {
+	eg->partorder = 1;
+	eg->partcorder[0] = atof(argv[arg+1]);
+	eg->partcorder[1] = atof(argv[arg+2]);
+	if(dim==3) eg->partcorder[2] = atof(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-metis") == 0) {
+#if PARTMETIS
+      if(arg+1 >= argc) {
+	printf("The number of partitions is required as a parameter\n");
+	return(15);
+      }
+      else {
+	eg->metis = atoi(argv[arg+1]);
+	printf("The mesh will be partitioned with Metis to %d partitions.\n",eg->metis);
+	eg->partopt = 0;
+	if(arg+2 < argc) 
+	  if(argv[arg+2][0] != '-') eg->partopt = atoi(argv[arg+2]);
+      }
+#else
+      printf("This version of ElmerGrid was compiled without Metis library!\n");
+#endif     
+    }
+
+    if(strcmp(argv[arg],"-periodic") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give the periodic coordinate directions (e.g. 1 1 0)\n");
+ 	return(16);
+      }
+      else {
+	eg->periodicdim[0] = atoi(argv[arg+1]);
+	eg->periodicdim[1] = atoi(argv[arg+2]);
+	if(dim == 3) eg->periodicdim[2] = atoi(argv[arg+3]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-discont") == 0) {
+      if(arg+1 >= argc) {
+	printf("Give the discontinuous boundary conditions.\n");
+ 	return(17);
+      }
+      else {
+	eg->discontbounds[eg->discont] = atoi(argv[arg+1]);
+	eg->discont++;
+      }
+    }
+
+    if(strcmp(argv[arg],"-connect") == 0) {
+      if(arg+1 >= argc) {
+	printf("Give the connected boundary conditions.\n");
+ 	return(10);
+      }
+      else {
+	eg->connectbounds[eg->connect] = atoi(argv[arg+1]);
+	eg->connect++;
+      }
+    } 
+ 
+    if(strcmp(argv[arg],"-boundbound") == 0) {
+      for(i=arg+1;i<=arg+3 && i<argc; i++) {
+	eg->boundbound[3*eg->boundbounds+i-(1+arg)] = atoi(argv[i]);
+	if((i-arg)%3 == 0) eg->boundbounds++;
+      }
+    } 
+    if(strcmp(argv[arg],"-bulkbound") == 0) {
+      for(i=arg+1;i<=arg+3 && i<argc; i++) {
+	eg->bulkbound[3*eg->bulkbounds+i-(1+arg)] = atoi(argv[i]);
+	if((i-arg)%3 == 0) eg->bulkbounds++;
+      }
+    } 
+    if(strcmp(argv[arg],"-boundtype") == 0) {
+      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
+	eg->sidemap[3*eg->sidemappings+i-1-arg] = atoi(argv[i]);
+      eg->sidemappings++;
+    } 
+    if(strcmp(argv[arg],"-bulktype") == 0) {
+      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
+	eg->bulkmap[3*eg->bulkmappings+i-1-arg] = atoi(argv[i]);
+      eg->bulkmappings++;
+    } 
+
+    if(strcmp(argv[arg],"-layer") == 0) {
+      if(arg+4 >= argc) {
+	printf("Give four parameters for the layer: boundary, elements, thickness, ratio.\n");
+	return(18);
+      }
+      else if(eg->layers == MAXBOUNDARIES) {
+	printf("There can only be %d layers, sorry.\n",MAXBOUNDARIES);
+	return(19);
+      }
+      else {
+	eg->layerbounds[eg->layers] = atoi(argv[arg+1]);
+	eg->layernumber[eg->layers] = atoi(argv[arg+2]);
+	eg->layerthickness[eg->layers] = atof(argv[arg+3]);
+	eg->layerratios[eg->layers] = atof(argv[arg+4]);
+	eg->layerparents[eg->layers] = 0;
+	eg->layers++;
+      }
+    }
+    
+    if(strcmp(argv[arg],"-layermove") == 0) {
+      if(arg+1 >= argc) {
+	printf("Give maximum number of Jacobi filters.\n");
+ 	return(20);
+      }
+      else {
+	eg->layermove = atoi(argv[arg+1]);
+      }
+    }
+
+    /* This uses a very dirty trick where the variables related to argument -layer are used 
+       with a negative indexing */ 
+    if(strcmp(argv[arg],"-divlayer") == 0) {
+      if(arg+4 >= argc) {
+	printf("Give four parameters for the layer: boundary, elements, relative thickness, ratio.\n");
+	return(21);
+      }
+      else if(abs(eg->layers) == MAXBOUNDARIES) {
+	printf("There can only be %d layers, sorry.\n",MAXBOUNDARIES);
+	return(22);
+      }
+      else {
+	eg->layerbounds[abs(eg->layers)] = atoi(argv[arg+1]);
+	eg->layernumber[abs(eg->layers)] = atoi(argv[arg+2]);
+	eg->layerthickness[abs(eg->layers)] = atof(argv[arg+3]);
+	eg->layerratios[abs(eg->layers)] = atof(argv[arg+4]);
+	eg->layerparents[abs(eg->layers)] = 0;
+	eg->layers--;
+      }
+    }
+
+    if(strcmp(argv[arg],"-3d") == 0) {
+      eg->dim = dim = 3;
+    }
+    if(strcmp(argv[arg],"-2d") == 0) {
+      eg->dim = dim = 2;
+    }
+    if(strcmp(argv[arg],"-1d") == 0) {
+      eg->dim = dim = 1;
+    }
+
+    if(strcmp(argv[arg],"-isoparam") == 0) {
+      eg->isoparam = TRUE;
+    }
+    if(strcmp(argv[arg],"-nobound") == 0) {
+      eg->saveboundaries = FALSE;
+    }
+
+    /* The following keywords are not actively used */
+
+    if(strcmp(argv[arg],"-map") ==0) {
+      if(arg+1 >= argc) {
+	printf("Give the name of the mapping file\n");
+	return(23);
+      }
+      else {
+	strcpy(eg->mapfile,argv[arg+1]);
+	printf("Mapping file is %s\n",eg->mapfile);
+      }
+    }
+    if(strcmp(argv[arg],"-bcoffset") == 0) {
+      eg->bcoffset = atoi(argv[arg+1]);
+    }
+    if(strcmp(argv[arg],"-noelements") == 0) {
+      eg->elements3d = atoi(argv[arg+1]);
+    }
+    if(strcmp(argv[arg],"-nonodes") == 0) {
+      eg->nodes3d = atoi(argv[arg+1]);
+    }
+
+    if(strcmp(argv[arg],"-sidefind") == 0) {
+      eg->findsides = 0;
+      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) {
+	eg->sidebulk[i-1-arg] = atoi(argv[i]);
+	eg->findsides++;
+      }
+    } 
+    if(strcmp(argv[arg],"-findbound") == 0) {
+      eg->findsides = 0;
+      for(i=arg+1;i+1<argc && strncmp(argv[i],"-",1); i += 2) {
+	eg->sidebulk[i-1-arg] = atoi(argv[i]);
+	eg->sidebulk[i-arg] = atoi(argv[i+1]);
+	eg->findsides++;
+      }
+    } 
+  }
+
+  {
+    char *ptr1;
+    ptr1 = strchr(eg->filesout[0], '.');
+    if (ptr1) *ptr1 = '\0';
+    ptr1 = strchr(eg->mapfile, '.');
+    if (ptr1) *ptr1 = '\0';
+  }
+
+  printf("Output will be saved to file %s.\n",eg->filesout[0]);
+
+  return(0);
+}
+
+
+
+
+int LoadCommands(char *prefix,struct ElmergridType *eg,
+		 struct GridType *grid, int mode,int info) 
+{
+  char filename[MAXFILESIZE];
+  char command[MAXLINESIZE],params[MAXLINESIZE],*cp;
+
+  FILE *in;
+  int i,j,k,l,error=0;
+
+  iodebug = FALSE;
+
+  if( mode == 0) {  
+    if (in = fopen("ELMERGRID_STARTINFO","r")) {
+      fscanf(in,"%s",filename);
+      fclose(in);
+      printf("Using the file %s defined in ELMERGRID_STARTINFO\n",filename);
+      if ((in = fopen(filename,"r")) == NULL) {
+	printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
+	return(1);
+      }    
+      else printf("Loading ElmerGrid commands from file '%s'.\n",filename);    
+    }    
+    else 
+      return(2);
+  }
+  if(mode == 1) { 
+    AddExtension(prefix,filename,"eg");
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
+      return(3);
+    }    
+    if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);    
+  }
+  else if(mode == 2) {
+    AddExtension(prefix,filename,"grd");
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
+      return(4);
+    }    
+    if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);
+  }
+
+
+
+  for(;;) {
+
+    if(GetCommand(command,params,in)) {
+      printf("Reached the end of command file\n");
+      goto end;
+    }    
+
+    /* If the mode is the command file mode read also the file information from the command file. */
+
+    if(mode <= 1) {
+      if(strstr(command,"INPUT FILE")) {
+	sscanf(params,"%s",&eg->filesin[0]);
+      }
+
+      else if(strstr(command,"OUTPUT FILE")) {
+	sscanf(params,"%s",&eg->filesout[0]);
+      }
+
+      else if(strstr(command,"INPUT MODE")) {
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	
+	for(i=0;i<=MAXMETHODS;i++) {
+	  if(strstr(params,IOmethods[i])) {
+	    eg->inmethod = i;
+	    break;
+	  }
+	}
+	if(i>MAXMETHODS) sscanf(params,"%d",&eg->inmethod);
+      }
+
+      else if(strstr(command,"OUTPUT MODE")) {
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	
+	/* Type of output file (fewer options) */
+	for(i=1;i<=MAXMETHODS;i++) {
+	  if(strstr(params,IOmethods[i])) {
+	    eg->outmethod = i;
+	    break;
+	  }
+	}
+	if(i>MAXMETHODS) sscanf(params,"%d",&eg->outmethod);	
+      }
+    }    
+    /* End of command file specific part */
+
+
+    if(strstr(command,"DECIMALS")) {
+      sscanf(params,"%d",&eg->decimals);
+    }
+    else if(strstr(command,"TRIANGLES CRITICAL ANGLE")) {
+      sscanf(params,"%le",&eg->triangleangle);
+    }
+    else if(strstr(command,"TRIANGLES")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->triangles = TRUE;      
+    }
+    else if(strstr(command,"MERGE NODES")) {
+      eg->merge = TRUE;
+      sscanf(params,"%le",&eg->cmerge);
+    }
+    else if(strstr(command,"UNITE")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->unitemeshes = TRUE;      
+    }
+    else if(strstr(command,"ORDER NODES")) {
+      eg->order = TRUE;
+      if(eg->dim == 1) 
+	sscanf(params,"%le",&eg->corder[0]);
+      else if(eg->dim == 2) 
+	sscanf(params,"%le%le",&eg->corder[0],&eg->corder[1]);
+      else if(eg->dim == 3) 
+	sscanf(params,"%le%le%le",&eg->corder[0],&eg->corder[1],&eg->corder[2]);
+    }
+    else if(strstr(command,"SCALE")) {
+      eg->scale = TRUE;
+      if(eg->dim == 1) 
+	sscanf(params,"%le",&eg->cscale[0]);
+      else if(eg->dim == 2) 
+	sscanf(params,"%le%le",&eg->cscale[0],&eg->cscale[1]);
+      else if(eg->dim == 3) 
+	sscanf(params,"%le%le%le",&eg->cscale[0],&eg->cscale[1],&eg->cscale[2]);
+    }
+    else if(strstr(command,"CENTRALIZE")) {
+      eg->center = TRUE;
+    }
+    else if(strstr(command,"TRANSLATE")) {
+      eg->translate = TRUE;
+      if(eg->dim == 1) 
+	sscanf(params,"%le",&eg->ctranslate[0]);
+      else if(eg->dim == 2) 
+	sscanf(params,"%le%le",&eg->ctranslate[0],&eg->ctranslate[1]);
+      else if(eg->dim == 3) 
+	sscanf(params,"%le%le%le",&eg->ctranslate[0],&eg->ctranslate[1],&eg->ctranslate[2]);
+    }
+    else if(strstr(command,"ROTATE MESH")) {
+      eg->rotate = TRUE;
+      sscanf(params,"%le%le%le",&eg->crotate[0],&eg->crotate[1],&eg->crotate[2]);
+    }
+    else if(strstr(command,"CLONE")) {
+      if(strstr(command,"CLONE SIZE")) {
+	if(eg->dim == 1) 
+	  sscanf(params,"%le",&eg->clonesize[0]);
+	else if(eg->dim == 2) 
+	  sscanf(params,"%le%le",&eg->clonesize[0],&eg->clonesize[1]);
+	else if(eg->dim == 3) 
+	  sscanf(params,"%le%le%le",&eg->clonesize[0],&eg->clonesize[1],&eg->clonesize[2]);	
+      }
+      else {
+	if(eg->dim == 1) 
+	  sscanf(params,"%d",&eg->clone[0]);
+	else if(eg->dim == 2) 
+	  sscanf(params,"%d%d",&eg->clone[0],&eg->clone[1]);
+	else if(eg->dim == 3) 
+	  sscanf(params,"%d%d%d",&eg->clone[0],&eg->clone[1],&eg->clone[2]);
+      }
+    }
+    else if(strstr(command,"MIRROR")) {
+      if(eg->dim == 1) 
+	sscanf(params,"%d",&eg->mirror[0]);
+      else if(eg->dim == 2) 
+	sscanf(params,"%d%d",&eg->mirror[0],&eg->mirror[1]);
+      else if(eg->dim == 3) 
+	sscanf(params,"%d%d%d",&eg->mirror[0],&eg->mirror[1],&eg->mirror[2]);
+    }
+    else if(strstr(command,"POLAR RADIUS")) {
+      eg->polar = TRUE;
+      sscanf(params,"%le",&eg->polarradius);
+    }
+    else if(strstr(command,"CYLINDER")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->cylinder = TRUE;      
+    }
+    else if(strstr(command,"REDUCE DEGREE")) {
+      eg->reduce = TRUE;
+      sscanf(params,"%d%d",&eg->reducemat1,&eg->reducemat2);
+    }
+    else if(strstr(command,"INCREASE DEGREE")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->increase = TRUE;      
+    }
+    else if(strstr(command,"ADVANCED ELEMENTS")) {
+      printf("Loading advanced element definitions\n");
+      
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+		
+	sscanf(params,"%d%d%d%d%d%d%d",
+	       &eg->advancedelem[7*i],&eg->advancedelem[7*i+1],&eg->advancedelem[7*i+2],
+	       &eg->advancedelem[7*i+3],&eg->advancedelem[7*i+4],&eg->advancedelem[7*i+5],
+	       &eg->advancedelem[7*i+6]);
+      }  
+      eg->advancedmat = i;
+      printf("Found %d definitions for advanced elements.\n",i);
+    }
+    else if(strstr(command,"POWER ELEMENTS")) {
+      printf("Loading p-type element definitions\n");
+      
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	sscanf(params,"%d%d%d",
+	       &eg->pelemmap[3*i],&eg->pelemmap[3*i+1],&eg->pelemmap[3*i+2]);
+      }  
+      eg->pelems = i;
+      printf("Found %d definitions for p-elements.\n",i);
+    }
+    else if(strstr(command,"BUBBLE ELEMENTS")) {
+      printf("Loading bubble element definitions\n");
+      
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	sscanf(params,"%d%d%d",
+	       &eg->belemmap[3*i],&eg->belemmap[3*i+1],&eg->belemmap[3*i+2]);
+      }  
+      eg->belems = i;
+      printf("Found %d definitions for bubble elements.\n",i);
+    }
+    else if(strstr(command,"METIS OPTION")) {
+#if PARTMETIS
+      sscanf(params,"%d",&eg->partopt);
+#else
+      printf("This version of ElmerGrid was compiled without Metis library!\n");
+#endif
+    }
+    else if(strstr(command,"METIS")) {
+#if PARTMETIS
+      sscanf(params,"%d",&eg->metis);
+#else
+      printf("This version of ElmerGrid was compiled without Metis library!\n");
+#endif
+    }
+    else if(strstr(command,"PARTITION ORDER")) {
+      eg->partorder = 1;
+      if(eg->dim == 2) sscanf(params,"%le%le",&eg->partcorder[0],&eg->partcorder[1]);
+      if(eg->dim == 3) sscanf(params,"%le%le%le",&eg->partcorder[0],
+			      &eg->partcorder[1],&eg->partcorder[2]);      
+    }
+    else if(strstr(command,"PARTITION")) {
+      if(eg->dim == 2) sscanf(params,"%d%d",&eg->partdim[0],&eg->partdim[1]);
+      if(eg->dim == 3) sscanf(params,"%d%d%d",&eg->partdim[0],&eg->partdim[1],&eg->partdim[2]);
+      eg->partitions = 1;
+      for(i=0;i<eg->dim;i++) {
+	if(eg->partdim[i] < 1) eg->partdim[i] = 1;
+	eg->partitions *= eg->partdim[i];
+      }
+    }
+    else if(strstr(command,"PERIODIC")) {
+      if(eg->dim == 2) sscanf(params,"%d%d",&eg->periodicdim[0],&eg->periodicdim[1]);
+      if(eg->dim == 3) sscanf(params,"%d%d%d",&eg->periodicdim[0],
+			      &eg->periodicdim[1],&eg->periodicdim[2]);
+    }
+    else if(strstr(command,"HALO")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->partitionhalo = TRUE;      
+    }
+    else if(strstr(command,"INDIRECT")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->partitionindirect = TRUE;      
+    }
+    else if(strstr(command,"BOUNDARY TYPE MAPPINGS")) {
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->sidemap[3*i],&eg->sidemap[3*i+1],&eg->sidemap[3*i+2]);
+      }
+      printf("Found %d boundary type mappings\n",i);
+      eg->sidemappings = i;
+    }
+    else if(strstr(command,"BULK TYPE MAPPINGS")) {
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->bulkmap[3*i],&eg->bulkmap[3*i+1],&eg->bulkmap[3*i+2]);
+      }
+      printf("Found %d bulk type mappings\n",i);
+      eg->bulkmappings = i;
+    }
+    else if(strstr(command,"BOUNDARY BOUNDARY")) {
+      for(i=0;i<MAXBOUNDARIES;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->boundbound[3*i+2],&eg->boundbound[3*i],&eg->boundbound[3*i+1]);
+      }
+      printf("Found %d boundary boundary definitions\n",i);
+      eg->boundbounds = i;
+    }
+    else if(strstr(command,"MATERIAL BOUNDARY")) {
+      for(i=0;i<MAXBOUNDARIES;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->bulkbound[3*i+2],&eg->bulkbound[3*i],&eg->bulkbound[3*i+1]);
+      }
+      printf("Found %d material boundary definitions\n",i);
+      eg->bulkbounds = i;
+    }
+
+    else if(strstr(command,"RENUMBER BOUNDARY")) {
+      for(i=0;i<MAXBOUNDARIES;i++) {
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->sidemap[3*i],&eg->sidemap[3*i+1],&eg->sidemap[3*i+2]);
+      }
+      printf("Found %d boundary mappings\n",i);
+      eg->sidemappings = i;
+    }
+    else if(strstr(command,"RENUMBER MATERIAL")) {
+      for(i=0;i<MAXBOUNDARIES;i++) {
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->bulkmap[3*i],&eg->bulkmap[3*i+1],&eg->bulkmap[3*i+2]);
+      }
+      printf("Found %d material mappings\n",i);
+      eg->bulkmappings = i;
+    }
+
+    else if(strstr(command,"BOUNDARY LAYER")) {
+      if(strstr(command,"BOUNDARY LAYER MOVE")) {
+	sscanf(params,"%d",&eg->layermove);
+      }
+      else if(strstr(command,"BOUNDARY LAYER EPSILON")) {
+	sscanf(params,"%le",&eg->layereps);
+      }
+      else {
+	for(i=0;i<MAXBOUNDARIES;i++) {
+	  if(i>0) Getline(params,in);
+	  for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	  cp = params;      
+
+	  if(strstr(params,"END") || strstr(params,"End") ) break;
+	  eg->layerbounds[i] = next_int(&cp);
+	  eg->layernumber[i] = next_int(&cp);
+	  eg->layerthickness[i] = next_real(&cp);
+	  eg->layerratios[i] = next_real(&cp);
+	  eg->layerparents[i] = next_int(&cp);	  
+	}
+	printf("Found %d boundary layers\n",i);
+	eg->layers = i;
+      }
+    }
+    else if(strstr(command,"REMOVE LOWER DIMENSIONAL BOUNDARIES")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->removelowdim = TRUE; 
+    }
+    else if(strstr(command,"REMOVE UNUSED NODES")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->removeunused = TRUE; 
+    }
+    else if(strstr(command,"REORDER MATERIAL")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->bulkorder = TRUE; 
+    }
+    else if(strstr(command,"REORDER BOUNDARY")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->boundorder = TRUE; 
+    }
+    else if(strstr(command,"DIMENSION")) {
+      sscanf(params,"%d",&eg->dim);
+    }
+    else if(strstr(command,"ISOPARAMETRIC")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->isoparam = TRUE;
+    }
+    else if(strstr(command,"NO BOUNDARY")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->saveboundaries = FALSE;
+    }
+    else if(strstr(command,"EXTRUDED")) {
+      grid->dimension = 3;
+
+      if(strstr(command,"EXTRUDED DIVISIONS")) {
+	sscanf(params,"%d",&grid->zcells);		
+      }
+      else if(strstr(command,"EXTRUDED LIMITS")) {
+	cp = params;
+	for(i=0;i<=grid->zcells;i++) grid->z[i] = next_real(&cp);
+      }
+      else if(strstr(command,"EXTRUDED ELEMENTS")) {
+	cp = params;
+	for(i=1;i<=grid->zcells;i++) grid->zelems[i] = next_int(&cp);
+	grid->autoratio = FALSE;    
+      }
+      else if(strstr(command,"EXTRUDED RATIOS")) {
+	cp = params;
+	for(i=1;i<=grid->zcells;i++) grid->zexpand[i] = next_real(&cp);
+      }
+      else if(strstr(command,"EXTRUDED DENSITIES")) {
+	cp = params;
+	for(i=1;i<=grid->zcells;i++) grid->zdens[i] = next_real(&cp);
+      }
+      else if(strstr(command,"EXTRUDED STRUCTURE")) {
+	for(i=1;i<= grid->zcells;i++) {
+	  if(i>1) Getline(params,in);
+	  sscanf(params,"%d %d %d\n",
+		 &grid->zfirstmaterial[i],&grid->zlastmaterial[i],&grid->zmaterial[i]); 
+	}
+      }
+
+    }
+  }
+
+end:
+  printf("Read commands from a file\n");
+
+  return(0);
+}
+
 
 
 int SaveCellInfo(struct GridType *grid,struct CellType *cell,
@@ -572,6 +1624,7 @@ int LoadViewFactors(struct FemType *data,struct BoundaryType *bound,
   int i,j,sides,i1,i2,ind[MAXNODESD1],sidelemtype;
   FILE *in;
   char filename[MAXFILESIZE];
+  char line[MAXLINESIZE];
   Real x0,x1,y0,y1;
 
   if(!bound->created  ||  bound->nosides == 0) {
@@ -893,6 +1946,8 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
   int mode,noknots,noelements,dim,axisymmetric;
   int elemcode,maxnodes,totelems,nogrids0;
   int minmat,maxmat;
+  char line[MAXLINESIZE];
+
 
   AddExtension(prefix,filename,"grd");
   if ((in = fopen(filename,"r")) == NULL) {
@@ -1363,6 +2418,8 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
   k = *nogrids;
   nogrids0 = *nogrids;
 
+  iodebug = FALSE;
+
   noknots = 0;
   noelements = 0;
   dim = 0;
@@ -1398,6 +2455,16 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
       *nogrids += 1;
     }      
 
+    else if(strstr(command,"DEBUG IO")) {
+      for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
+      if(strstr(params,"FALSE")) 
+	iodebug = FALSE;
+      else {
+	iodebug = TRUE;
+	printf("IO debugging activated\n");
+      }
+    }
+ 
     else if(strstr(command,"MATC")) {
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
       if(strstr(params,"FALSE")) 
@@ -1410,7 +2477,6 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 	printf("MATC language activated with 12 digit accuracy.\n");	
       }
     }
-
     
     else if(strstr(command,"COORDINATE SYSTEM")) {
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
@@ -1442,10 +2508,11 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 	sscanf(params,"%d %d",&(*grid)[k].xcells,&(*grid)[k].ycells);
       else if(grid[k]->dimension == 3) 
 	sscanf(params,"%d %d %d",&(*grid)[k].xcells,&(*grid)[k].ycells,&(*grid)[k].zcells);      
+
       if(grid[k]->xcells >= MAXCELLS || grid[k]->ycells >= MAXCELLS || grid[k]->zcells >= MAXCELLS) {
 	printf("LoadElmergrid: Too many subcells [%d %d %d] vs. %d:\n",
 	       grid[k]->xcells,grid[k]->ycells,grid[k]->zcells,MAXCELLS);
-      }
+     }
 
       /* Initialize the default stucture with ones */
       for(j=grid[k]->ycells;j>=1;j--) 
@@ -1464,35 +2531,35 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     }      
     
     else if(strstr(command,"SUBCELL LIMITS 1")) {
-      printf("Loading [%d] subcell limits in X-direction\n",grid[k]->xcells+1);
+      printf("Loading %d subcell limits in X-direction\n",grid[k]->xcells+1);
       cp = params;
       for(i=0;i<=grid[k]->xcells;i++) grid[k]->x[i] = next_real(&cp);
     }    
     else if(strstr(command,"SUBCELL LIMITS 2")) {
-      printf("Loading [%d] subcell limits in Y-direction\n",grid[k]->ycells+1);
+      printf("Loading %d subcell limits in Y-direction\n",grid[k]->ycells+1);
       cp = params;
       for(i=0;i<=grid[k]->ycells;i++) grid[k]->y[i] = next_real(&cp);
     }      
     else if(strstr(command,"SUBCELL LIMITS 3")) {
-      printf("Loading [%d] subcell limits in Z-direction\n",grid[k]->zcells+1);
+      printf("Loading %d subcell limits in Z-direction\n",grid[k]->zcells+1);
       cp = params;
       for(i=0;i<=grid[k]->zcells;i++) grid[k]->z[i] = next_real(&cp);
     }
 
     else if(strstr(command,"SUBCELL SIZES 1")) {
-      printf("Loading [%d] subcell sizes in X-direction\n",grid[k]->xcells);
+      printf("Loading %d subcell sizes in X-direction\n",grid[k]->xcells);
       cp = params;
       for(i=1;i<=grid[k]->xcells;i++) grid[k]->x[i] = next_real(&cp);
       for(i=1;i<=grid[k]->xcells;i++) grid[k]->x[i] = grid[k]->x[i-1] + grid[k]->x[i];
     }      
     else if(strstr(command,"SUBCELL SIZES 2")) {
-      printf("Loading [%d] subcell sizes in Y-direction\n",grid[k]->ycells);
+      printf("Loading %d subcell sizes in Y-direction\n",grid[k]->ycells);
       cp = params;
       for(i=1;i<=grid[k]->ycells;i++) grid[k]->y[i] = next_real(&cp);
       for(i=1;i<=grid[k]->ycells;i++) grid[k]->y[i] = grid[k]->y[i-1] + grid[k]->y[i];
     }      
     else if(strstr(command,"SUBCELL SIZES 3")) {
-      printf("Loading [%d] subcell sizes in Z-direction\n",grid[k]->zcells);
+      printf("Loading %d subcell sizes in Z-direction\n",grid[k]->zcells);
       cp = params;
       for(i=1;i<=grid[k]->zcells;i++) grid[k]->z[i] = next_real(&cp);
       for(i=1;i<=grid[k]->zcells;i++) grid[k]->z[i] = grid[k]->z[i-1] + grid[k]->z[i];
