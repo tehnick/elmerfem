@@ -83,12 +83,9 @@ struct GridType {
     boundtype[MAXBOUNDARIES]; /* type of the boundary */
   int structure[MAXCELLS+2][MAXCELLS+2], /* material structure of subcells */
     numbered[MAXCELLS+2][MAXCELLS+2];    /* numbering order of the subcells */
-  Real dx0,    /* global mesh scale in x-direction */
-    dy0,
-    dz0,
-    limitdx, 
+  Real limitdx, 
     triangleangle,
-    xyratio, /* ratio between dx0 and dy0 */
+    xyratio, /* ratio between dx and dy */
     xzratio;
   Real rotateradius1,rotateradius2,rotateimprove;
   int rotate,rotateblocks,rotatecurve,rotatecartesian,mappings,

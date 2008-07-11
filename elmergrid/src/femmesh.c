@@ -671,6 +671,8 @@ void SetElementDivision(struct GridType *grid,int info)
 
       if(grid->wantedelems <= sumxyelems) break;
     }
+
+    grid->limitdx = dxlimit;
   }    
 
 
@@ -844,11 +846,8 @@ void SetElementDivision(struct GridType *grid,int info)
 #if DEBUG
   printf("dxmax=%.3lg  dymax=%.3lg\n",dxmax,dymax);
 #endif
-  if(info) printf("Created %d radial and %d axial divisions, total of %d elements.\n",
+  if(info) printf("Created %d x-divisions and %d y-divisions, total of %d elements.\n",
 		  sumxelems,sumyelems,sumxyelems);
-
-  grid->dx0 = dxmax;
-  grid->dy0 = dymax;
 }
 
 
@@ -1780,7 +1779,7 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
 	}
       }
 
-      if(grid->autoratio && grid->xzratio * grid->dx0 > dzmax) break;
+      if(grid->autoratio && grid->xzratio * grid->limitdx > dzmax) break;
 
       grid->zelems[nzmax] += 1;
       sumzelems++;
@@ -1821,7 +1820,6 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
 
   if(info) printf("Created %d extruded divisions.\n",
 		  grid->totzelems);
-  grid->dz0 = dzmax;
 }
 
 
@@ -1896,7 +1894,6 @@ void SetElementDivisionCylinder(struct GridType *grid,int info)
   if(info) printf("Created %d divisions in %d cells for rotation [%.2lg  %.2lg].\n",
 		  grid->totzelems,grid->zcells,
 		  grid->rotateradius1,grid->rotateradius2);
-  grid->dz0 = dzmax;
 }
 
 
