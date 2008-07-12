@@ -1,0 +1,26 @@
+ElmerSolver test case how-to
+
+This How-to describes the basic steps to create an ElmerSolver test case. These test cases are ran by the make check target in the main Makefile.
+
+1) create new directory in the "tests" directory under fem
+	The folders in this directory will be automatically scanned and tests run
+
+2) define your analysis
+	write your .sif file, mesh files etc. necessary to run the test analysis ELMERSOLVER.STARTINFO
+
+3) define how to run the test
+	write a Makefile (named Makefile), that details two targets:
+		run: how to run the test
+		clean: how to clean up if successfull
+	Note, that ElmerSolver should be referred to by variable $(ELMER_SOLVER) to allow the test runner to select the binary to test
+
+4) Define expected results
+	Add the following lines to your .sif file
+	
+	$fprintf( stderr, "TEST CASE 1\n");
+	RUN
+	$fprintf( stderr, "END TEST CASE 1: Target NRM=<target>,EPS=<eps>\n" );
+	
+	where you replace <target> with the target NRM value and <eps> with the desired tolerance. These lines will add lines to output and the test runner find these and compare actual values emitted by the solver with the specified target.
+	The NRM value is the norm of the result vector. Normal way to determine desired value is to examine the analysis results in detail the first time and if the results are OK, record the NRM value and use it as target value in the future.
+	 
