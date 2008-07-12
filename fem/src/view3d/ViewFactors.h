@@ -76,7 +76,7 @@ double ElementOfArea_4node( double *,double *,double *,double, double );
 EXT double U_Integ1d[32],S_Integ1d[32],U_Integ[128],V_Integ[128],S_Integ[128];
 EXT int N_Integ,N_Integ1d,N_Integ3;
 
-double ShapeFunctionMatrix[16][16],ShapeFunctionMatrix4[4][4],ShapeFunctionMatrix3[3][3];
+EXT double ShapeFunctionMatrix[16][16],ShapeFunctionMatrix4[4][4],ShapeFunctionMatrix3[3][3];
 
 EXT double U_Integ3[128],V_Integ3[128],S_Integ3[128];
 

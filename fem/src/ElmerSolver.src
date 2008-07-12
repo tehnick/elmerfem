@@ -710,6 +710,8 @@
 !------------------------------------------------------------------------------
      INTEGER :: interval, timestep, i, j, k, n
      REAL(KIND=dp) :: dt, ddt, dtfunc
+	INTEGER, SAVE :: prevcount=0, countspersec, stepcount=0, maxcounts, nowcounts
+	INTEGER :: timeleft
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
@@ -718,6 +720,10 @@
            CALL SolverActivate( CurrentModel,Solver,dt,Transient )
         END IF
      END DO
+
+	 DO interval = 1, TimeIntervals
+		stepcount = stepcount + Timesteps(interval)
+	 END DO 
 
      ddt = 0.0d0
      DO interval = 1,TimeIntervals
@@ -749,8 +755,23 @@
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
            IF ( Transient .OR. Scanning ) THEN
-             WRITE( Message, * ) 'Time: ',Time, sTime(1)
-             CALL Info( 'MAIN', Message, Level=3 )
+            WRITE( Message, * ) 'Time: ',Time,'/',(stepcount), sTime(1)
+            CALL Info( 'MAIN', Message, Level=3 )
+			call system_clock(nowcounts,countspersec,maxcounts)
+			timeleft = ((stepcount-Time)*(nowcounts-prevcount)/countspersec/60)
+			IF(timeleft >120) THEN
+			   WRITE( Message, *) 'Estimated time left: ',(timeleft/60),' hours.'
+			ELSE IF(timeleft >60) THEN
+			   WRITE( Message, *) 'Estimated time left: 1 hour ', (MOD(timeleft,60)), ' minutes.'
+			ELSE IF(timeleft >=1) THEN
+			   WRITE( Message, *) 'Estimated time left: ',timeleft,' minutes.'
+			ELSE IF (timeleft == 0) THEN
+			   ! do nothing, 
+			ELSE
+			   WRITE( Message, *) 'Estimated time left: less than a minute.'
+			END IF
+			CALL Info( 'MAIN', Message, Level=3 )
+			prevcount = nowcounts
            ELSE
              WRITE( Message, * ) 'Steady state iteration: ',Time
              CALL Info( 'MAIN', Message, Level=3 )
