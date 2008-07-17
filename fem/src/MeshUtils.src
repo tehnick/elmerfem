@@ -1387,7 +1387,7 @@ END SUBROUTINE CreateGlobalNumbering
     INTEGER :: i,j,k,l,m,n,n1,n2,k1,k2, Constraint, DIM
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element, Elements(:)
-    LOGICAL :: GotIt
+    LOGICAL :: GotIt, GotRotate
     INTEGER, POINTER :: NodeIndexes(:), Perm1(:), Perm2(:), &
                  InvPerm1(:), InvPerm2(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2
@@ -1497,6 +1497,49 @@ END SUBROUTINE CreateGlobalNumbering
     xmax_1 = -HUGE(dp); ymax_1 = -HUGE(dp); zmax_1 = -HUGE(dp)
     xmax_2 = -HUGE(dp); ymax_2 = -HUGE(dp); zmax_2 = -HUGE(dp)
 
+
+! Initialize the mapping matrices
+    x = 0.0d0
+    Identity = 0.0d0
+    DO i=1,4
+       Identity(i,i) = 1.0d0
+    END DO
+
+    TrsMatrix = Identity
+    RotMatrix = Identity
+    SclMatrix = Identity
+
+!
+!   Rotations:
+!   These are called first since they are not accounted for in the 
+!   automatic scaling and translations
+!   ---------
+    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
+                   'Periodic BC Rotate', GotRotate )
+
+    IF ( GotRotate ) THEN
+       Parray = Parray * PI / 180
+       DO i=1,SIZE(Parray,1)
+          SELECT CASE(i)
+            CASE(1)
+               RotMatrix(2,2) =  COS(Parray(i,1))
+               RotMatrix(2,3) = -SIN(Parray(i,1))
+               RotMatrix(3,2) =  SIN(Parray(i,1))
+               RotMatrix(3,3) =  COS(Parray(i,1))
+            CASE(2)
+               RotMatrix(1,1) =  COS(Parray(i,1))
+               RotMatrix(1,3) = -SIN(Parray(i,1))
+               RotMatrix(3,1) =  SIN(Parray(i,1))
+               RotMatrix(3,3) =  COS(Parray(i,1))
+            CASE(3)
+               RotMatrix(1,1) =  COS(Parray(i,1))
+               RotMatrix(1,2) = -SIN(Parray(i,1))
+               RotMatrix(2,1) =  SIN(Parray(i,1))
+               RotMatrix(2,2) =  COS(Parray(i,1))
+           END SELECT
+       END DO
+    END IF
+
     k1 = 0; k2 = 0
     DO i=1,Mesh % NumberOfNodes
        IF ( Perm1(i) > 0 ) THEN
@@ -1520,19 +1563,29 @@ END SUBROUTINE CreateGlobalNumbering
           k2 = k2 + 1
           Perm2(i) = k2
           InvPerm2(k2) = i
-          BMesh2 % Nodes % x(k2)  = Mesh % Nodes % x(i)
-          BMesh2 % Nodes % y(k2)  = Mesh % Nodes % y(i)
-          BMesh2 % Nodes % z(k2)  = Mesh % Nodes % z(i)
 
-          xmin_2 = MIN( xmin_2, Mesh % Nodes % x(i) )
-          ymin_2 = MIN( ymin_2, Mesh % Nodes % y(i) )
-          zmin_2 = MIN( zmin_2, Mesh % Nodes % z(i) )
+          x(1) = Mesh % Nodes % x(i)
+          x(2) = Mesh % Nodes % y(i)
+          x(3) = Mesh % Nodes % z(i)
+ 
+	  IF( GotRotate ) THEN
+            x = MATMUL( x, RotMatrix )
+          END IF 
 
-          xmax_2 = MAX( xmax_2, Mesh % Nodes % x(i) )
-          ymax_2 = MAX( ymax_2, Mesh % Nodes % y(i) )
-          zmax_2 = MAX( zmax_2, Mesh % Nodes % z(i) )
+          BMesh2 % Nodes % x(k2)  = x(1)
+          BMesh2 % Nodes % y(k2)  = x(2)
+          BMesh2 % Nodes % z(k2)  = x(3)
+
+          xmin_2 = MIN( xmin_2, x(1) )
+          ymin_2 = MIN( ymin_2, x(2) ) 
+          zmin_2 = MIN( zmin_2, x(3) )
+
+          xmax_2 = MAX( xmax_2, x(1) )
+          ymax_2 = MAX( ymax_2, x(2) )
+          zmax_2 = MAX( zmax_2, x(3) )
        END IF
     END DO
+
 
     scl_x = xmax_2 - xmin_2
     IF ( ABS(scl_x) > AEPS ) THEN
@@ -1573,14 +1626,6 @@ END SUBROUTINE CreateGlobalNumbering
 !   Transform the target boundary on top of this
 !   boundary (hopefully):
 !   --------------------------------------------
-    Identity = 0.0d0
-    DO i=1,4
-       Identity(i,i) = 1.0d0
-    END DO
-
-    TrsMatrix = Identity
-    RotMatrix = Identity
-    SclMatrix = Identity
 
 !   NULLIFY( PArray )
 !
@@ -1593,6 +1638,8 @@ END SUBROUTINE CreateGlobalNumbering
       TrsMatrix(4,1) = xmin_1 - scl_x*xmin_2
       TrsMatrix(4,2) = ymin_1 - scl_y*ymin_2
       TrsMatrix(4,3) = zmin_1 - scl_z*zmin_2
+      WRITE(Message,'(A,3ES10.3)') 'Translation: ',TrsMatrix(4,1:3)
+      CALL Info('PeriodicProjector',Message)
     ELSE
       DO i=1,SIZE(Parray,1)
          TrsMatrix(4,i) = Parray(i,1)
@@ -1612,42 +1659,13 @@ END SUBROUTINE CreateGlobalNumbering
       SclMatrix(1,1) = scl_x
       SclMatrix(2,2) = scl_y
       SclMatrix(3,3) = scl_z
+      WRITE(Message,'(A,3ES10.3)') 'Scaling: ',scl_x,scl_y,scl_z
+      CALL Info('PeriodicProjector',Message)
     END IF
 
-!
-!   Rotations:
-!   ---------
-    Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                   'Periodic BC Rotate', Gotit )
 
-    IF ( GotIt ) THEN
-       Parray = Parray * PI / 180
-       DO i=1,SIZE(Parray,1)
-          TrfMatrix = Identity
-          SELECT CASE(i)
-            CASE(1)
-               TrfMatrix(2,2) =  COS(Parray(i,1))
-               TrfMatrix(2,3) = -SIN(Parray(i,1))
-               TrfMatrix(3,2) =  SIN(Parray(i,1))
-               TrfMatrix(3,3) =  COS(Parray(i,1))
-            CASE(2)
-               TrfMatrix(1,1) =  COS(Parray(i,1))
-               TrfMatrix(1,3) = -SIN(Parray(i,1))
-               TrfMatrix(3,1) =  SIN(Parray(i,1))
-               TrfMatrix(3,3) =  COS(Parray(i,1))
-            CASE(3)
-               TrfMatrix(1,1) =  COS(Parray(i,1))
-               TrfMatrix(1,2) = -SIN(Parray(i,1))
-               TrfMatrix(2,1) =  SIN(Parray(i,1))
-               TrfMatrix(2,2) =  COS(Parray(i,1))
-           END SELECT
-           RotMatrix = MATMUL( RotMatrix, TrfMatrix )
-        END DO
-     END IF
+    TrfMatrix = MATMUL( SClMatrix, TrsMatrix )
 
-     TrfMatrix = MATMUL( MATMUL(RotMatrix,SClMatrix), TrsMatrix )
-
-!
 !    If whole transf. matrix given, it will override
 !    all the other settings:
 !    ------------------------------------------------
@@ -1673,7 +1691,7 @@ END SUBROUTINE CreateGlobalNumbering
         x(4) = 1.0d0
         x = MATMUL( x, TrfMatrix ) 
         BMesh2 % Nodes % x(i) = x(1) / x(4)
-        BMesh2 % Nodes % y(i) = x(2) / x(4)
+        BMesh2 % Nodes % y(i) = x(2) / x(4) 
         BMesh2 % Nodes % z(i) = x(3) / x(4)
      END DO
 !
