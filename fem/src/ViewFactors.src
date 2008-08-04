@@ -156,7 +156,7 @@
 !------------------------------------------------------------------------------
      eq = GetString( GetSimulation(), 'Coordinate System' )
 
-     IF ( eq(1:13) == 'cartesian 3d' ) THEN
+     IF ( eq(1:13) == 'cartesian' .AND. CoordinateSystemDimension() == 3) THEN
        Coordinates = Cartesian
      ELSE IF ( eq(1:13) == 'axi symmetric' ) THEN
        Coordinates = AxisSymmetric
@@ -170,8 +170,7 @@
          'Only Cartesian 3D or Axi/Cylindrical Symmetric coordinates allowed. Aborting' )
      END IF
 
-     CylindricSymmetry = Coordinates == AxisSymmetric
-     CylindricSymmetry = CylindricSymmetry .OR. (Coordinates==CylindricSymmetric)
+     CylindricSymmetry = (Coordinates == AxisSymmetric) .OR. (Coordinates==CylindricSymmetric)
 !------------------------------------------------------------------------------
 
      ALLOCATE( ElementNodes % x(Model % MaxElementNodes), &
