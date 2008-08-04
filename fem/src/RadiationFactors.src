@@ -104,7 +104,7 @@
 
      LOGICAL :: GotIt, SaveFactors, UpdateViewFactors, UpdateGebhardtFactors, &
          ComputeViewFactors, OptimizeBW, TopologyTest, TopologyFixed, &
-         FilesExist, FullMatrix, ImplicitLimitIs, Found
+         FilesExist, FullMatrix, ImplicitLimitIs, IterSolveGebhardt, Found
      LOGICAL, POINTER :: ActiveNodes(:)
 
      SAVE TimesVisited 
@@ -127,6 +127,9 @@
 
      FullMatrix =  ListGetLogical( TSolver % Values,  &
          'Gebhardt Factors Solver Full',GotIt) 
+     IterSolveGebhardt =  ListGetLogical( TSolver % Values,  &
+         'Gebhardt Factors Solver Iterative',GotIt) 
+     IF(.NOT. GotIt) IterSolveGebhardt = .FALSE.
 
      UpdateGebhardtFactors = ListGetLogical( TSolver % Values,  &
          'Update Gebhardt Factors',GotIt )
@@ -563,6 +566,7 @@
        CALL Info('RadiationFactors',Message,LEVEL=4)
      END IF
 
+
      MatrixEntries = 0
      ImplicitEntries = 0
 
@@ -608,7 +612,6 @@
        END DO
      END DO
 
-
      ALLOCATE( Solver )
      CALL InitFactorSolver(Solver)
      
@@ -620,7 +623,9 @@
           
      st = RealTime()
      
+
      DO t=1,RadiationSurfaces
+
        RHS    = 0.0D0
        RHS(t) = 1.0D0
 
@@ -635,7 +640,7 @@
        IF(FullMatrix) THEN
          CALL FIterSolver( RadiationSurfaces, SOL, RHS, Solver )
        ELSE
-         IF(ListGetLogical( TSolver % Values,'Gebhardt Factors Solver Iterative',GotIt)) THEN
+         IF(IterSolveGebhardt) THEN
            CALL IterSolver( GFactorSP, SOL, RHS, Solver )
          ELSE           
            IF(t == 1) THEN
@@ -693,6 +698,7 @@
            'Neglected Gebhardt Factor Fraction', GotIt) 
        IF(.NOT. GotIt) NeglectLimit = 1.0d-6
        
+
        IF(ImplicitLimitIs) THEN
          DO i=1,RadiationSurfaces
            FacPerm(i) = i
@@ -792,16 +798,14 @@
            ConsideredSum = ConsideredSum + Fac(j)
          END DO
        END IF
-       
+
        MaxOmittedFactor = MAX(MaxOmittedFactor,(FactorSum-ConsideredSum)/FactorSum) 
        
-       IF(t < 10 .OR. MOD(t,RadiationSurfaces/20) == 0) THEN
-         IF ( RealTime() - st > 1.0 ) THEN
-           WRITE(Message,'(a,i3,a)' ) '   Solution: ', &
-               INT((100.0*t)/RadiationSurfaces),' % done'
-           CALL Info( 'RadiationFactors', Message, Level=5 )
-           st = RealTime()
-         END IF
+       IF ( RealTime() - st > 10.0 ) THEN
+         WRITE(Message,'(a,i3,a)' ) '   Solution: ', &
+         INT((100.0*t)/RadiationSurfaces),' % done'
+         CALL Info( 'RadiationFactors', Message, Level=5 )
+         st = RealTime()
        END IF
 
      END DO
