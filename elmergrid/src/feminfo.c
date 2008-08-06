@@ -50,6 +50,7 @@
 #include "femmesh.h"
 #include "femknot.h"
 #include "feminfo.h"
+#include "femelmer.h"
 
 int matcactive=FALSE, iodebug=FALSE;
 
