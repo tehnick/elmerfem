@@ -167,10 +167,11 @@ static int vis_colscale( geometry_t *geometry, element_model_t *model,
          sprintf( str, fmt, (ColorData->max - ColorData->min)*i/(n-1.0) + ColorData->min );
          y = ColorScale->Length * i / (n-1.0) + ColorScale->YPosition;
 
-#ifdef WIN32
          xl = (ColorScale->Decimals + 9) * ColorScale->FontSize / (double)GraphicsXSize;
-#else
-         xl = ( XTextWidth( CurrentXFont, str, strlen(str) ) + 125.0 ) / (double)GraphicsXSize;
+#ifndef WIN32
+         if ( CurrentXFont ) {
+           xl = (XTextWidth( CurrentXFont, str, strlen(str) ) + 125.0 ) / (double)GraphicsXSize;
+         }
 #endif
          glRasterPos3f( ColorScale->XPosition - xl,y,0.0 );
          PrintString( str );
@@ -183,10 +184,11 @@ static int vis_colscale( geometry_t *geometry, element_model_t *model,
       }
 
       if ( ColorScale->ColorData->name ) {
-#ifdef WIN32
          xl =  strlen(ColorScale->ColorData-name) * ColorScale->FontSize / (double)GraphicsXSize;
-#else
-         xl = ( XTextWidth( CurrentXFont, str, strlen(ColorScale->ColorData->name) ) ) / (double)GraphicsXSize;
+#ifndef WIN32
+         if ( CurrentXFont ) {
+           xl = (XTextWidth( CurrentXFont, str, strlen(ColorScale->ColorData->name)))/(double)GraphicsXSize;
+         }
 #endif
          glRasterPos3f( ColorScale->XPosition - xl,
              ColorScale->YPosition-ColorScale->Thickness,0.0 );
