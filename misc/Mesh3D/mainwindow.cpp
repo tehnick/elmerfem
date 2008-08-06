@@ -5350,6 +5350,7 @@ void MainWindow::synchronizeMenuToState()
 //-----------------------------------------------------------------------------
 void MainWindow::loadDefinitions()
 {
+
   // load general definitions file:
   //-------------------------------
    
@@ -5357,6 +5358,10 @@ void MainWindow::loadDefinitions()
   QString generalDefs = this->homePath +  "/edf/edf.xml";          
 #else
   QString generalDefs = "edf/edf.xml";
+  char *elmerGuiHome = NULL;
+  elmerGuiHome = getenv("ELMERGUI_HOME");
+  if(elmerGuiHome != NULL) 
+    generalDefs = QString(elmerGuiHome) + "/edf/edf.xml";
 #endif
 
   cout << "Load " << string(generalDefs.toAscii()) << "...";
@@ -5408,7 +5413,10 @@ void MainWindow::loadDefinitions()
 #ifdef __APPLE__
   QDirIterator iterator( homePath+"/edf", QDirIterator::Subdirectories);
 #else
-  QDirIterator iterator( "edf", QDirIterator::Subdirectories);
+  QString additionalEdfs = "edf";
+  if(elmerGuiHome != NULL) 
+    additionalEdfs = QString(elmerGuiHome) + "/edf";
+  QDirIterator iterator( additionalEdfs, QDirIterator::Subdirectories);
 #endif
 
   while (iterator.hasNext()) {
