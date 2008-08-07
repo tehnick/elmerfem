@@ -519,7 +519,6 @@ CONTAINS
 !******************************************************************************
 !------------------------------------------------------------------------------
      TYPE(Solver_t) :: Solver
-
      REAL(KIND=dp) :: MassMatrix(:,:),StiffMatrix(:,:),Force(:),dt
      INTEGER :: n,DOFs
      INTEGER :: NodeIndexes(:)
@@ -529,7 +528,11 @@ CONTAINS
      REAL(KIND=dp) :: s, t
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
      REAL(KIND=dp) :: PrevSol(DOFs*n,Solver % Order), LForce(n*DOFs)
+     TYPE(Variable_t), POINTER :: DtVar
+     REAL(KIND=dp) :: Dts(Solver % Order)
+     LOGICAL :: ConstantDt
 !------------------------------------------------------------------------------
+
 
      IF ( Solver % Matrix % Lumped ) THEN
 #ifndef OLD_LUMPING
@@ -597,8 +600,24 @@ CONTAINS
        CALL FractionalStep( n*DOFs, dt, MassMatrix, StiffMatrix, Force, &
                    PrevSol(:,1), Solver % Beta, Solver )
      CASE('bdf')
-       CALL BDFLocal( n*DOFs, dt, MassMatrix, StiffMatrix, Force, PrevSol, &
+       Dts(1) = Dt
+       ConstantDt = .TRUE.
+       IF(Order > 1) THEN
+         DtVar => VariableGet( Solver % Mesh % Variables, 'Timestep size' )
+         DO i=2,Order
+           Dts(i) = DtVar % PrevValues(1,i-1)
+           IF(ABS(Dts(i)-Dts(1)) > 1.0d-6 * Dts(1)) ConstantDt = .FALSE.
+         END DO
+       END IF
+
+       IF(ConstantDt) THEN
+         CALL BDFLocal( n*DOFs, dt, MassMatrix, StiffMatrix, Force, PrevSol, &
+                          Order )
+       ELSE     
+         CALL VBDFLocal( n*DOFs, dts, MassMatrix, StiffMatrix, Force, PrevSol, &
                          Order )
+       END IF
+
      CASE DEFAULT
        CALL NewmarkBeta( n*DOFs, dt, MassMatrix, StiffMatrix, Force, &
                  PrevSol(:,1), Solver % Beta )
@@ -2863,6 +2882,7 @@ CONTAINS
     ELSE
       PrevNorm = Solver % Variable % Norm
     END IF
+
     Norm = ComputeNorm(Solver, n, x)
     Solver % Variable % Norm = Norm
 

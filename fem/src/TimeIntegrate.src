@@ -191,6 +191,64 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!  Variable timestep BDF 
+!------------------------------------------------------------------------------
+   SUBROUTINE VBDFLocal( N, dts, MassMatrix, StiffMatrix, &
+                   Force, PrevSolution, Order )
+!------------------------------------------------------------------------------
+
+     INTEGER :: N, Order
+     REAL(KIND=dp) :: Force(:),PrevSolution(:,:),dts(:)
+     REAL(KIND=dp) :: MassMatrix(:,:),StiffMatrix(:,:)
+     REAL(KIND=dp) :: a(4)
+
+!------------------------------------------------------------------------------
+     INTEGER :: i,j,k,NB1,NB2
+     REAL(KIND=dp) :: s
+!------------------------------------------------------------------------------
+     NB1 = SIZE(StiffMatrix,1)
+     NB2 = SIZE(StiffMatrix,2)
+
+     a = 0.0_dp
+
+     a(1) = 1.0_dp / Dts(1)
+     a(2) = -1.0_dp / Dts(1)
+     IF(Order >= 2) THEN
+       a(1) = a(1) + 1.0_dp / (Dts(1)+Dts(2)) 
+       a(2) = a(2) - (1.0_dp + Dts(1)/Dts(2)) / (Dts(1)+Dts(2)) 
+       a(3) = (Dts(1)/Dts(2)) / (Dts(1)+Dts(2)) 
+     END IF	
+     IF(Order >= 3) THEN
+       a(1) = a(1) + 1.0_dp / (Dts(1)+Dts(2)+Dts(3)) 
+       a(2) = a(2) - (1.0_dp + Dts(1)/Dts(2)*(1.0+(Dts(1)+Dts(2))/(Dts(2)+Dts(3)))) / (Dts(1)+Dts(2)+Dts(3)) 
+       a(3) = a(3) + (Dts(1)/Dts(2)*(1.0+(Dts(1)+Dts(2))/(Dts(2)+Dts(3))) + &
+	          Dts(1)/Dts(3)*(Dts(1)+Dts(2))/(Dts(2)+Dts(3)) ) / (Dts(1)+Dts(2)+Dts(3)) 
+       a(4) = -(Dts(1)/Dts(3))*(Dts(1)+Dts(2))/(Dts(2)+Dts(3)) / (Dts(1)+Dts(2)+Dts(3))
+     END IF	
+     IF(Order > 3) THEN
+       CALL Warn('VBDFLocal','Variable timestep BDF implemented only to order 3')
+     END IF	
+
+     DO i=1,NB1
+       s = 0.0_dp
+       DO k=1,Order
+         DO j=1,N
+           s = s - a(k+1)*MassMatrix(i,j) * PrevSolution(j,k)
+         END DO
+       END DO 
+       Force(i) = Force(i) + s
+
+       DO j=1,NB2
+         StiffMatrix(i,j) = a(1)*MassMatrix(i,j) + StiffMatrix(i,j)
+       END DO
+     END DO
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE VBDFLocal
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
    SUBROUTINE Bossak2ndOrder( N, dt, MassMatrix, DampMatrix, StiffMatrix, &
                         Force, X,V,A,Alpha )
 !------------------------------------------------------------------------------

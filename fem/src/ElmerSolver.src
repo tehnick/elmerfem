@@ -60,7 +60,7 @@
      REAL(KIND=dp) :: s,dt,dtfunc
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
      REAL(KIND=dp), POINTER :: sTime(:), sStep(:), sInterval(:), sSize(:), &
-                               steadyIt(:),nonlinIt(:)
+                               steadyIt(:),nonlinIt(:),sPrevSizes(:,:)
 
      TYPE(Element_t),POINTER :: CurrentElement
      REAL(KIND=dp), POINTER ::  TimeVariable(:)
@@ -411,6 +411,8 @@
 !------------------------------------------------------------------------------
   SUBROUTINE AddMeshCoordinatesAndTime
 !------------------------------------------------------------------------------
+     TYPE(Variable_t), POINTER :: DtVar
+
      NULLIFY( Solver )
 
      Mesh => CurrentModel % Meshes 
@@ -428,6 +430,12 @@
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep', 1, sStep )
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep size', 1, sSize )
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep interval', 1, sInterval )
+
+       ! Save some previous timesteps for variable timestep multistep methods
+       DtVar => VariableGet( Mesh % Variables, 'Timestep size' )
+       ALLOCATE( DtVar % PrevValues(1, 5) ) 	
+       DtVar % PrevValues = 0.0_dp	
+       sPrevSizes => DtVar % PrevValues
 
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                'nonlin iter', 1, nonlinIt )
@@ -746,7 +754,16 @@
          Time = Time + 1
          sTime(1) = sTime(1) + dt
          sStep(1) = Time
+
+         ! Move the old timesteps one step down the ladder
+	 IF(timestep > 1 .OR. interval > 1) THEN
+           DO i = SIZE(sPrevSizes,2),2,-1
+             sPrevSizes(1,i) = sPrevSizes(1,i-1)
+           END DO
+           sPrevSizes(1,1) = sSize(1)
+         END IF 
          sSize(1) = dt
+
          sInterval(1) = interval
          IF (.NOT. Transient ) steadyIt(1) = steadyIt(1) + 1
 !------------------------------------------------------------------------------
