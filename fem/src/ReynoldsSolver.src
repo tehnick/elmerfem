@@ -15,7 +15,7 @@
 !
 ! *****************************************************************************
 ! *
-! *                    Author: Peter Råback, Antti Pursula
+! *                   Author: Peter Råback, Antti Pursula
 ! *
 ! *                 Address:  CSC - Scientific Computing Ltd.
 ! *                           Keilaranta 14, P.O. BOX 405
@@ -70,18 +70,17 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       UseVelocity, SideCorrection, Bubbles, PartIntSliding, Cavitation, Converged
   REAL(KIND=dp), POINTER :: Pressure(:), CavitationValues(:), LoadValues(:)
   REAL(KIND=dp) :: Norm, ReferencePressure, NonlinearTol, HeatRatio, BulkModulus, &
-      ViscCorr, mfp0, Pres, Dens, CavitationPressure
+      mfp0, Pres, Dens, CavitationPressure
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:), TimeForce(:), &
-      Viscosity(:), GapHeight(:), NormalVelocity(:), TangentVelocity(:,:), Velocity(:,:), &
+      Viscosity(:), GapHeight(:), NormalVelocity(:), Velocity(:,:), &
       Admittance(:), Impedance(:), ElemPressure(:)
 
   CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityModel, CompressibilityModel
 
-  SAVE ElementNodes, Viscosity, GapHeight, Velocity, TangentVelocity, NormalVelocity, &
+  SAVE ElementNodes, Viscosity, GapHeight, Velocity, NormalVelocity, &
       Admittance, FORCE, STIFF, MASS, TimeForce, ElemPressure, AllocationsDone, &
       PeriodicNodes
 
- 
 
   CALL Info('ReynoldsSolver','---------------------------------------',Level=5)
   IF(TransientSimulation) THEN
@@ -96,9 +95,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   Bubbles = GetLogical( Solver % Values, 'Bubbles', GotIt )
-
   PartIntSliding = GetLogical(Solver % Values,'Partial Integrate Sliding',GotIt)
-
   CavitationPressure = GetCReal(Solver % Values,'Cavitation Pressure',Cavitation)
   
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
@@ -159,7 +156,6 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         Viscosity( N ),              &
         GapHeight(N),          &
         Velocity(3,N),         &
-        TangentVelocity(3,N),  &
         NormalVelocity(N),     &
         Admittance(N),         &
         FORCE( 2*N ),           &
@@ -237,9 +233,9 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       UseVelocity = UseVelocity .OR. GotIt
 
       IF(.NOT. UseVelocity) THEN
-        TangentVelocity(1,1:n) = GetReal(Equation,'Tangent Velocity 1',GotIt) 
-        TangentVelocity(2,1:n) = GetReal(Equation,'Tangent Velocity 2',GotIt)
-        TangentVelocity(3,1:n) = GetReal(Equation,'Tangent Velocity 3',GotIt)
+        Velocity(1,1:n) = GetReal(Equation,'Tangent Velocity 1',GotIt) 
+        Velocity(2,1:n) = GetReal(Equation,'Tangent Velocity 2',GotIt)
+        Velocity(3,1:n) = GetReal(Equation,'Tangent Velocity 3',GotIt)
         NormalVelocity(1:n) = GetReal(Equation,'Normal Velocity',GotIt)
       END IF     
 
@@ -523,7 +519,7 @@ CONTAINS
       ELSE
         NormalVelo = SUM( Basis(1:n) * NormalVelocity(1:n) )
         DO i=1,3
-          TangentVelo(i) = SUM( Basis(1:n) * TangentVelocity(i,1:n) )
+          TangentVelo(i) = SUM( Basis(1:n) * Velocity(i,1:n) )
         END DO
       END IF
 
@@ -595,12 +591,8 @@ CONTAINS
         SL = -0.5_dp * Density * Gap * TangentVelo 
       ELSE
         DO i=1,dim
-          IF( UseVelocity ) THEN
-            ! The plane element automatically omits the derivative in normal direction
-            SLR = SLR + 0.5_dp * Density * SUM( dBasisdx(1:n,i) * Velocity(i,1:n) * GapHeight(1:n)) 
-          ELSE
-            SLR = SLR + 0.5_dp * Density * SUM( dBasisdx(1:n,i) * TangentVelocity(i,1:n) * GapHeight(1:n)) 
-          END IF
+           ! The plane element automatically omits the derivative in normal direction
+           SLR = SLR + 0.5_dp * Density * SUM( dBasisdx(1:n,i) * Velocity(i,1:n) * GapHeight(1:n)) 
         END DO
          ! Implicit part: coefficient of the pressure gradient
         SLL = -0.5_dp* DensityDer * Gap * Velo 
@@ -736,6 +728,45 @@ END SUBROUTINE ReynoldsSolver
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+  SUBROUTINE ReynoldsHeatingSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: SolverParams
+    INTEGER :: dim
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
+      CALL ListAddString( SolverParams, 'Variable','Film Heating' )
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
+
+    ! Add linear system defaults: cg+diagonal
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
+      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
+      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
+      CALL ListAddString(SolverParams,'Linear System Preconditioning','diagonal')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
+      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Residual Output')) &
+      CALL ListAddInteger(SolverParams,'Linear System Residual Output',10)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE ReynoldsHeatingSolver_Init
+!------------------------------------------------------------------------------
 
 
 
@@ -776,11 +807,11 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Norm, ReferencePressure, mfp0, HeatSlide, HeatPres, HeatTotal, &
       Pforce(3), Vforce(3), TotForce
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), Viscosity(:), GapHeight(:), &
-      NormalVelocity(:), TangentVelocity(:,:), Velocity(:,:), ElemPressure(:)
+      Velocity(:,:), ElemPressure(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityModel, PressureName
 
 
-  SAVE ElementNodes, Viscosity, Velocity, TangentVelocity, NormalVelocity, &
+  SAVE ElementNodes, Viscosity, Velocity, &
       GapHeight, FORCE, STIFF, ElemPressure, AllocationsDone
 
  
@@ -826,8 +857,6 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
         Viscosity( N ),              &
         GapHeight(N),          &
         Velocity(3,N),         &
-        TangentVelocity(3,N),  &
-        NormalVelocity(N),     &
         FORCE( N ),           &
         STIFF( N, N ), &
         ElemPressure(N), &
@@ -862,8 +891,6 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
 
     NodeIndexes => Element % NodeIndexes         
     ElemPressure(1:n) = Pressure(PressurePerm(NodeIndexes(1:n)))
-
-!    CALL GetScalarLocalSolution( ElemPressure )
       
 !------------------------------------------------------------------------------
 !       Get material parameters
@@ -881,10 +908,9 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
     UseVelocity = UseVelocity .OR. GotIt
     
     IF(.NOT. UseVelocity) THEN
-      TangentVelocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
-      TangentVelocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt)
-      TangentVelocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt)
-      NormalVelocity(1:n) = GetReal(Material,'Normal Velocity',GotIt)
+      Velocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
+      Velocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt)
+      Velocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt)
     END IF
     
     IF(mat_id /= mat_idold) THEN                  
@@ -946,7 +972,6 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
 
   CALL ListAddConstReal( Model % Simulation,'res: Reynolds heating',HeatTotal)
   CALL ListAddConstReal( Model % Simulation,'res: Reynolds force',TotForce)
-
 
   CALL Info('ReynoldsHeatingSolver','-------------------------------------------------',Level=5)
   
@@ -1026,7 +1051,7 @@ CONTAINS
         TangentVelo = Velo - SUM(Normal * Velo) * Normal
       ELSE
          DO i=1,3
-          TangentVelo(i) = SUM( Basis(1:n) * TangentVelocity(i,1:n) )
+          TangentVelo(i) = SUM( Basis(1:n) * Velocity(i,1:n) )
         END DO
       END IF
 
@@ -1087,4 +1112,371 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE ReynoldsHeatingSolver
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ReynoldsFluxSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: SolverParams
+    INTEGER :: dim
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
+      CALL ListAddString( SolverParams, 'Variable','-nooutput flux_temp' )
+      CALL ListAddString(SolverParams, 'Flux Result Variable','F')
+      IF(dim == 2) THEN
+         CALL ListAddString(SolverParams, 'Exported Variable 1','F[Film Flux:2]')
+      ELSE IF(dim == 3) THEN
+         CALL ListAddString(SolverParams, 'Exported Variable 1','F[Film Flux:3]')
+      ELSE
+         CALL Fatal('VortictySolver_init','Flux computation makes sense only in 2D and 3D')
+      END IF
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
+
+    ! Add linear system defaults: cg+diagonal
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
+      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
+      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
+      CALL ListAddString(SolverParams,'Linear System Preconditioning','diagonal')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
+      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Residual Output')) &
+      CALL ListAddInteger(SolverParams,'Linear System Residual Output',10)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE ReynoldsFluxSolver_Init
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ReynoldsFluxSolver( Model,Solver,dt,Transient )
+    !DEC$ATTRIBUTES DLLEXPORT :: ReynoldsFluxSolver
+!------------------------------------------------------------------------------
+
+    USE CoordinateSystems
+    USE DefUtils
+    
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL ::  Transient
+    REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+    INTEGER, PARAMETER :: Viscosity_Newtonian = 1, Viscosity_Rarefied = 2
+    TYPE(ValueList_t),POINTER :: SolverParams
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+    INTEGER :: i,j,dim,DOFs, ViscosityType
+    LOGICAL :: ConstantBulkMatrix, ConstantBulkMatrixInUse, CSymmetry
+    LOGICAL :: GotIt
+    REAL(KIND=dp) :: Unorm, Totnorm
+    REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
+    REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
+    TYPE(Variable_t), POINTER :: FluxSol
+ 
+    CALL Info( 'ReynoldsFluxSolver', '-------------------------------------',Level=4 )
+    CALL Info( 'ReynoldsFluxSolver','Computing the flux',Level=4 )
+    CALL Info( 'ReynoldsFluxSolver', '-------------------------------------',Level=4 )
+    
+    dim = CoordinateSystemDimension()
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+    IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+    IF ( COUNT( Solver % Variable % Perm > 0 ) <= 0 ) RETURN
+    
+    SolverParams => GetSolverParams()
+    VarName = GetString(SolverParams,'Flux Result Variable',GotIt )
+    IF(.NOT. gotIt) VarName = 'Film Flux'
+    FluxSol => VariableGet( Solver % Mesh % Variables, VarName )
+    IF(ASSOCIATED(FluxSol)) THEN
+       Dofs = FluxSol % DOFs
+       IF(Dofs /= DIM) THEN
+          CALL Fatal('ReynoldsFluxSolver','The flux should have DOFs equal to DIM')
+       END IF
+    ELSE
+       CALL Fatal('ReynoldsFluxSolver','Flux Result Variable is missing: '//TRIM(VarName))      
+    END IF
+    
+    CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
+         CurrentCoordinateSystem() == CylindricSymmetric
+    
+    VarName = GetString(SolverParams,'Flux Variable',GotIt )
+    IF(.NOT. gotIt) VarName = TRIM('FilmPressure')
+    
+    at0 = RealTime()
+    
+    ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', GotIt )
+    ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
+         ASSOCIATED(Solver % Matrix % BulkValues)
+    
+    IF ( ConstantBulkMatrixInUse ) THEN
+       Solver % Matrix % Values = Solver % Matrix % BulkValues        
+       Solver % Matrix % rhs = 0.0_dp
+    ELSE
+       CALL DefaultInitialize()
+    END IF
+    
+    ALLOCATE(ForceVector(Dofs-1,SIZE(Solver % Matrix % RHS)))  
+    ForceVector = 0.0_dp
+    SaveRHS => Solver % Matrix % RHS
+    
+    CALL BulkAssembly()
+    CALL DefaultFinishAssembly()
+    
+    at1 = RealTime()
+    WRITE(Message,* ) 'Assembly Time: ',at1-at0
+    CALL Info( 'ReynoldsFluxSolver', Message, Level=5 )
+
+!------------------------------------------------------------------------------     
+
+    TotNorm = 0.0_dp
+    DO i=1,Dofs
+       IF(i==1) THEN
+          Solver % Matrix % RHS => SaveRHS
+       ELSE
+          Solver % Matrix % RHS => ForceVector(i-1,:)
+       END IF
+       
+       ! The solution of the linear equation
+       !------------------------------------
+       UNorm = DefaultSolve()
+       
+       TotNorm = TotNorm + Unorm ** 2
+       DO j=1,Solver % Matrix % NumberOfRows
+          FluxSol % Values(DOFs*(j-1)+i) = Solver % Variable % Values(j)
+       END DO
+    END DO
+
+    DEALLOCATE( ForceVector )  
+    Solver % Matrix % RHS => SaveRHS
+    TotNorm = SQRT(TotNorm)
+    Solver % Variable % Norm = Totnorm
+
+!------------------------------------------------------------------------------     
+
+    at2 = RealTime()
+    WRITE(Message,* ) 'Solution Time: ',at2-at1
+    CALL Info( 'ReynoldsFluxSolver', Message, Level=5 )
+    
+    WRITE( Message, * ) 'Result Norm: ',TotNorm
+    CALL Info( 'ReynoldsFluxSolver', Message, Level=4 )
+    
+    CALL Info('ReynoldsFluxSolver','-------------------------------------------------',Level=5)
+
+    
+  CONTAINS
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE BulkAssembly()
+!------------------------------------------------------------------------------
+       
+      INTEGER :: istat,elem,t,i,j,p,q,n,nd,mat_idold,mat_id
+      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:)
+      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+      TYPE(Nodes_t) :: Nodes
+      TYPE(Element_t), POINTER :: Element
+      REAL(KIND=dp) :: u,v,w,weight,detJ,Normal(3)
+      REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
+      REAL(KIND=dp), ALLOCATABLE :: Viscosity(:), GapHeight(:), Velocity(:,:), ElemPressure(:)
+      REAL(KIND=dp) :: ReferencePressure, HeatRatio, BulkModulus, Visc, &
+           mfp0, mfp, Pres, Dens, Kn, LS, LV, Gap, TotPres, TangentVelo(3), Velo(3), GradPres(3)
+      CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityModel, PressureName
+      LOGICAL :: Found, UseVelocity
+      TYPE(ValueList_t), POINTER :: Material
+      
+      SAVE Nodes, Viscosity, Velocity, &
+           GapHeight, FORCE, STIFF, ElemPressure
+
+      n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
+      ALLOCATE( STIFF(n,n), &
+           FORCE(dim,n), &
+           Viscosity( N ),              &
+           GapHeight(N),          &
+           Velocity(3,N),         &
+           ElemPressure(N), &
+           Basis(n), &
+           dBasisdx(n,3), &
+           STAT=istat )
+      
+      DO elem = 1,Solver % NumberOFActiveElements
+         
+         ! Element information
+         ! ---------------------
+         Element => GetActiveElement(elem)
+         CALL GetElementNodes( Nodes )
+         nd = GetElementNOFDOFs()
+         n  = GetElementNOFNodes()
+         
+         CALL GetScalarLocalSolution( ElemPressure, VarName )
+
+      !------------------------------------------------------------------------------
+      !       Get material parameters
+      !------------------------------------------------------------------------------        
+         mat_id = GetInteger( Model % Bodies( Element % Bodyid ) % Values, 'Material')
+         Material => Model % Materials(mat_id) % Values
+         
+         GapHeight(1:n) = GetReal(Material,'Gap Height')
+         Viscosity(1:n) = GetReal( Material, 'Viscosity')
+         
+         Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',UseVelocity)
+         Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt)
+         UseVelocity = UseVelocity .OR. GotIt
+         Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt)
+         UseVelocity = UseVelocity .OR. GotIt
+         
+         IF(.NOT. UseVelocity) THEN
+            Velocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
+            Velocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt)
+            Velocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt)
+         END IF
+         
+         IF(mat_id /= mat_idold) THEN                  
+            
+            mat_idold = mat_id
+            
+            ViscosityModel = GetString(Material,'Viscosity Model',GotIt)
+            IF(GotIt) THEN
+               IF( ViscosityModel == 'newtonian') THEN
+                  ViscosityType = Viscosity_Newtonian
+               ELSE IF( ViscosityModel == 'rarefied') THEN
+                  ViscosityType = Viscosity_Rarefied
+                  mfp0 = GetCReal(Material,'Mean Free Path')            
+                  ReferencePressure = GetCReal( Material,'Reference Pressure')           
+               ELSE
+                  CALL Warn('ReynoldsHeatingSolver','Unknown viscosity model')
+               END IF
+            ELSE
+               ViscosityType = Viscosity_Newtonian          
+            END IF
+         END IF
+         
+         ! Integrate local stresses:
+         ! -------------------------
+         IntegStuff = GaussPoints( Element )
+         STIFF  = 0.0_dp
+         FORCE  = 0.0_dp
+         
+         DO t=1,IntegStuff % n
+            Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
+                 IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
+            
+            Weight = IntegStuff % s(t) * detJ
+            IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
+            
+            IF(UseVelocity) THEN
+               IF( ASSOCIATED( Element % BoundaryInfo)) THEN
+                  Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
+               ELSE
+                  Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
+               END IF
+               DO i=1,3
+                  Velo(i) = SUM( Basis(1:n) * Velocity(i,1:n) )
+               END DO
+               TangentVelo = Velo - SUM(Normal * Velo) * Normal
+            ELSE
+               DO i=1,3
+                  TangentVelo(i) = SUM( Basis(1:n) * Velocity(i,1:n) )
+               END DO
+            END IF
+         
+            Pres = SUM(Basis(1:n) * ElemPressure(1:n))
+            TotPres = ReferencePressure + Pres
+            Gap = SUM(Basis(1:n) * GapHeight(1:n))
+            DO i=1,dim
+               GradPres(i) = SUM(dBasisdx(1:n,i) * ElemPressure(1:n))
+            END DO
+        
+!------------------------------------------------------------------------------
+!  Different viscosity models. Should be consistant with the main solver.
+!------------------------------------------------------------------------------
+
+            SELECT CASE (ViscosityType)
+               
+            CASE (Viscosity_Newtonian)
+               Visc = SUM(Basis(1:n) * Viscosity(1:n))
+               
+            CASE (Viscosity_Rarefied)
+               Visc = SUM(Basis(1:n) * Viscosity(1:n))
+               mfp = mfp0 * ReferencePressure / TotPres
+               Kn = mfp / ABS(Gap)
+               Visc = Visc / (1+9.638_dp*Kn**1.159_dp)
+               
+            END SELECT
+            
+!------------------------------------------------------------------------------
+!  Coefficients of the mass matrix
+!------------------------------------------------------------------------------
+
+            IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+               DO p=1,nd
+                  DO q=1,nd
+                     STIFF(p,q) = STIFF(p,q) + Weight * Basis(q) * Basis(p)
+                  END DO
+               END DO
+            END IF
+
+!------------------------------------------------------------------------------
+!  Coefficients of the flux
+!------------------------------------------------------------------------------
+          
+            DO i=1,dim	
+               ! heating effect of pressure flow
+               LV = -(Gap**3 / (12 * Visc) ) * GradPres(i)
+               
+               ! effect of sliding
+               LS = Gap * TangentVelo(i) / 2
+               
+               FORCE(i,1:nd) = FORCE(i,1:nd) + Basis(1:nd) * (LV + LS)
+            END DO
+            
+         END DO
+
+!------------------------------------------------------------------------------
+!      Update global matrices from local matrices 
+!------------------------------------------------------------------------------
+         IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+            Solver % Matrix % RHS => SaveRHS
+            CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
+                 BulkUpdate=ConstantBulkMatrix )
+         ELSE
+            CALL DefaultUpdateForce( FORCE(1,1:nd) )       
+         END IF
+     
+         DO i=2,Dofs
+            Solver % Matrix % RHS => ForceVector(i-1,:)
+            CALL DefaultUpdateForce( FORCE(i,1:nd) )
+         END DO
+      END DO
+
+      DEALLOCATE( Viscosity, Velocity, &
+           GapHeight, FORCE, STIFF, ElemPressure, Basis, dBasisdx  )
+      
+!------------------------------------------------------------------------------
+    END SUBROUTINE BulkAssembly
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+END SUBROUTINE ReynoldsFluxSolver
+!------------------------------------------------------------------------------
+
 
