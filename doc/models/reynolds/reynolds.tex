@@ -172,7 +172,13 @@ otherwise
 \subsection{Postprocessing}
 
 When the equation has been solved the solution may be used to compute some data
-for postprocessing purposes. The total force acting on the surface is 
+for postprocessing purposes. The local volume flux in the lateral direction may be obtained
+from 
+\begin{equation}
+ \Vec{q} = - \frac{h^{3}}{12\eta}\nabla{p} + h \Vec{v}_t .
+\end{equation}
+
+The total force acting on the surface is 
 \begin{equation}
   \Vec{F} = \int_A \left ( p \Vec{n} + \frac{\eta}{h} \Vec{v}_t \right) \, dA ,
 \end{equation}
@@ -182,11 +188,11 @@ pressure driven flow and sliding flow. The local form
 of this is 
 \begin{equation}
   \label{eq:heating}
-  q = \frac{h^3}{12 \eta} |\nabla p|^2 + \frac{\eta}{h}|\Vec{v}_t|^2 .
+  h = \frac{h^3}{12 \eta} |\nabla p|^2 + \frac{\eta}{h}|\Vec{v}_t|^2 .
 \end{equation}
 Therefore the total heating power of the system is 
 \begin{equation}
-  Q = \int_A q \,dA .
+  H = \int_A q \,dA .
 \end{equation}
 It should be noted that if the velocity field $\Vec{v}$ is 
 constant then the integral quantities should fulfill the condition $Q=\Vec{F}\cdot\Vec{v}$.
@@ -293,6 +299,27 @@ by setting this keyword \texttt{True}.
 \sifend
 
 
+
+\subsection*{Keywords for ReynoldsFluxSolver}
+
+This solver uses largely the same keywords that are already defined above. Only the Solver
+section has its own keyword settings. This solvers should be active in the same bodies than the 
+\texttt{ReynoldsSolver}. 
+
+\sifbegin
+%
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitem{Equation}{String ReynoldsFluxSolver}
+A describing name for the solver. This can be changes as long as it is 
+used consistently.
+%
+\sifitem{Reynolds Pressure Variable Name}{String}
+The name of the field that is assumed to provide the pressure field. The default is \texttt{FilmPressure}.
+\sifend
+\sifend
+
+
 \subsection*{Keywords for ReynoldsHeatingSolver}
 
 This solver uses largely the same keywords that are already defined above. Only the Solver
@@ -318,6 +345,10 @@ The name of the module and procedure. These are fixed.
 The name of the field that is assumed to provide the pressure field. The default is \texttt{FilmPressure}.
 \sifend
 \sifend
+
+
+
+
 
 
 \bibliography{elmerbib}
