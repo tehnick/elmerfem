@@ -1142,6 +1142,10 @@ END SUBROUTINE ReynoldsHeatingSolver
          CALL Fatal('VortictySolver_init','Flux computation makes sense only in 2D and 3D')
       END IF
     END IF
+
+    IF(.NOT. ListCheckPresent(SolverParams,'Flux Variable')) &
+      CALL ListAddString(SolverParams,'Flux Variable','FilmPressure')
+
     CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
 
     ! Add linear system defaults: cg+diagonal
@@ -1218,9 +1222,8 @@ END SUBROUTINE ReynoldsHeatingSolver
     
     CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
          CurrentCoordinateSystem() == CylindricSymmetric
-    
-    VarName = GetString(SolverParams,'Flux Variable',GotIt )
-    IF(.NOT. gotIt) VarName = TRIM('FilmPressure')
+ 
+    VarName = GetString(SolverParams,'Flux Variable')
     
     at0 = RealTime()
     
@@ -1307,7 +1310,9 @@ END SUBROUTINE ReynoldsHeatingSolver
       SAVE Nodes, Viscosity, Velocity, &
            GapHeight, FORCE, STIFF, ElemPressure
 
+
       n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
+
       ALLOCATE( STIFF(n,n), &
            FORCE(dim,n), &
            Viscosity( N ),              &
@@ -1377,8 +1382,11 @@ END SUBROUTINE ReynoldsHeatingSolver
          FORCE  = 0.0_dp
          
          DO t=1,IntegStuff % n
-            Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
-                 IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
+            u = IntegStuff % u(t)
+            v = IntegStuff % v(t)
+            w = IntegStuff % w(t)
+
+            Found = ElementInfo( Element, Nodes, u, v, w, detJ, Basis, dBasisdx )
             
             Weight = IntegStuff % s(t) * detJ
             IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
@@ -1441,12 +1449,12 @@ END SUBROUTINE ReynoldsHeatingSolver
           
             DO i=1,dim	
                ! heating effect of pressure flow
-               LV = -(Gap**3 / (12 * Visc) ) * GradPres(i)
+               LV = - (Gap**3 / (12 * Visc) ) * GradPres(i)
                
                ! effect of sliding
                LS = Gap * TangentVelo(i) / 2
                
-               FORCE(i,1:nd) = FORCE(i,1:nd) + Basis(1:nd) * (LV + LS)
+               FORCE(i,1:nd) = FORCE(i,1:nd) + Weight * Basis(1:nd) * (LV + LS)
             END DO
             
          END DO
@@ -1454,6 +1462,7 @@ END SUBROUTINE ReynoldsHeatingSolver
 !------------------------------------------------------------------------------
 !      Update global matrices from local matrices 
 !------------------------------------------------------------------------------
+
          IF ( .NOT. ConstantBulkMatrixInUse ) THEN
             Solver % Matrix % RHS => SaveRHS
             CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
