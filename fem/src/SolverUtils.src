@@ -3278,6 +3278,15 @@ CONTAINS
     END IF
 
 !------------------------------------------------------------------------------
+!  These definitions are needed if chanching the iterative solver on-the-fly
+
+    Solver % MultiGridSolver = ( ListGetString( Solver % Values, &
+                  'Linear System Solver', GotIt ) == 'multigrid' )
+    Solver % MultiGridTotal = MAX( Solver % MultiGridTotal, &
+        ListGetInteger( Solver % Values,'MG Levels', GotIt, minv=1 ) )
+    Solver % MultiGridLevel = Solver % MultigridTotal
+
+!------------------------------------------------------------------------------
 ! 
 !   Convert initial value to the scaled system:
 !   -------------------------------------------
