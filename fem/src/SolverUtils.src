@@ -3454,6 +3454,7 @@ CONTAINS
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp) :: Relaxation,Beta,Gamma
     REAL(KIND=dp), ALLOCATABLE :: Diag(:), TempVector(:)
+    REAL(KIND=dp) :: t0,st,ct,CPUTime
 
     INTERFACE ExecLinSolveProcs
       INTEGER FUNCTION ExecLinSolveProcs( Proc,Model,Solver,A,b,x,n,DOFs,Norm )
@@ -3468,6 +3469,11 @@ CONTAINS
     END INTERFACE
 
 !------------------------------------------------------------------------------
+
+    IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
+      t0 = CPUTime()
+    END IF
+
     n = A % NumberOfRows
 
     IF ( Solver % LinBeforeProc /= 0 ) THEN
@@ -3514,6 +3520,22 @@ CONTAINS
         END DO
       END IF
     END IF
+
+
+    IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
+      st = CPUTime() - t0
+      IF( ListGetLogical(Solver % Values,'Linear System Timing Cumulative',Found)) THEN
+        ct = ListGetConstReal(CurrentModel % Simulation,'res: solution time &
+	'//TRIM(Solver % Variable % Name))
+        st = st + ct
+      END IF 
+      CALL ListAddConstReal(CurrentModel % Simulation,'res: solution time '&
+         //TRIM(Solver % Variable % Name),st)
+      WRITE(Message,'(a,F8.2,a)') 'Solution time for '&
+         //TRIM(Solver % Variable % Name)//': ',st,' (s)'
+      CALL Info('SolveSystem',Message)	
+    END IF
+
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveSystem
 !------------------------------------------------------------------------------
