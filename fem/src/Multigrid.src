@@ -813,7 +813,7 @@ CONTAINS
    
     INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, DirectLimit, &
         MinLevel, InvLevel
-    LOGICAL :: Condition, Found, Parallel, EliminateDir, CoarseSave
+    LOGICAL :: Condition, Found, Parallel, EliminateDir, CoarseSave, RecomputeProjector
     CHARACTER(LEN=MAX_NAME_LEN) :: str,IterMethod,FileName
     INTEGER, POINTER :: CF(:), InvCF(:)
     
@@ -828,7 +828,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     IF(.FALSE.) THEN 
-      WRITE(Message,'(A,I2)') 'Starting level ',Level
+      WRITE(Message,*) 'Starting level ',Level,NewLinearSystem,NewSystem
       CALL Info('AMGSolve',Message)
     END IF
 
@@ -845,14 +845,12 @@ CONTAINS
     ! This is a counter that for the first full resursive round keeps the 
     ! flag NewLinearSystem true.
     IF ( Level == Solver % MultiGridLevel ) THEN
-      NewLinearSystem = .TRUE.
-      MinLevel = Solver % MultiGridLevel
-
-      IF ( PRESENT( NewSystem ) ) THEN
-        NewLinearSystem = NewLinearSystem .AND. NewSystem
+      IF( ListGetLogical(Solver % Values,'MG Recompute Projector',GotIt) ) THEN
+        NewLinearSystem = .TRUE.
+      ELSE 
+        NewLinearSystem = .NOT. ASSOCIATED(Matrix1 % Parent)
       END IF
-    ELSE IF ( Level <= 1 ) THEN
-      NewLinearSystem = .FALSE.
+      MinLevel = Solver % MultiGridLevel
     END IF
 
 !---------------------------------------------------------------------
@@ -865,6 +863,8 @@ CONTAINS
     IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
+      NewLinearSystem = .FALSE.
+      IF(PRESENT(NewSystem)) NewSystem = .FALSE.
       IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Unsolve',gotit ) ) THEN
         RETURN
       ELSE IF ( .NOT. Parallel ) THEN
@@ -916,10 +916,6 @@ CONTAINS
 !---------------------------------------------------------------------
 !      Create the Projectors between different levels
 !      ---------------------------------------------
-
-    IF( .NOT. ListGetLogical(Solver % Values,'MG Recompute Projector',GotIt) ) THEN
-      NewLinearSystem = .NOT. ASSOCIATED(Matrix1 % Parent)
-    END IF
 
     IF ( NewLinearSystem ) THEN
       ! If the projection matrix is made again deallocate the old projectors
@@ -4476,8 +4472,6 @@ CONTAINS
       IF ( PRESENT( NewSystem ) ) THEN
         NewLinearSystem = NewLinearSystem .AND. NewSystem
       END IF
-    ELSE IF ( Level <= 1 ) THEN
-      NewLinearSystem = .FALSE.
     END IF
 
 !---------------------------------------------------------------------
@@ -4489,8 +4483,13 @@ CONTAINS
     IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
-      IF ( .NOT. Parallel ) THEN
-        IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
+      NewLinearSystem = .FALSE.
+      IF(Level == 1 .AND. PRESENT(NewSystem)) NewSystem = .FALSE.
+
+      IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Unsolve',gotit ) ) THEN
+        RETURN
+      ELSE IF ( .NOT. Parallel ) THEN
+ 	IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
         ELSE
           CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
