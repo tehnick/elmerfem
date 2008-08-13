@@ -816,6 +816,7 @@ CONTAINS
     LOGICAL :: Condition, Found, Parallel, EliminateDir, CoarseSave, RecomputeProjector
     CHARACTER(LEN=MAX_NAME_LEN) :: str,IterMethod,FileName
     INTEGER, POINTER :: CF(:), InvCF(:)
+    LOGICAL, POINTER :: Fixed(:)
     
     REAL(KIND=dp), POINTER :: Residual(:), Work(:), Residual2(:), Work2(:),  Solution2(:)
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
@@ -833,7 +834,6 @@ CONTAINS
     END IF
 
     Mesh => Solver % Mesh    
-
 
     tt = CPUTime()
 !
@@ -1353,7 +1353,7 @@ CONTAINS
          
          IF(newcands > 0) THEN
            WRITE(Message,'(A,I8)') 'Number of new candidate nodes using CR ',newcands
-           CALL Info('ChooseCoarseNodes',Message)         
+           CALL Info('CompatibleRelaxation',Message)         
          END IF
        END IF
 
@@ -1404,10 +1404,10 @@ CONTAINS
     Rows => Amat % Rows
     Cols => Amat % Cols
     nods = Amat % NumberOfRows
-    ALLOCATE( Bonds(SIZE(Amat % Cols)), CandList(nods), CF(nods) )
-
+    ALLOCATE( Bonds(SIZE(Amat % Cols)), CandList(nods), CF(nods), Fixed(nods) )
 
     ! Make the candidate and strong bond list for determining the coarse nodes    
+    Fixed = .FALSE.
     CF = 0
     UseCR =  ListGetLogical(Solver % Values,'MG Compatible Relax Init',GotIt) 
     IF(UseCR .AND. Components > 1) THEN
@@ -1451,9 +1451,7 @@ CONTAINS
         ListGetLogical(Solver % Values,'MG Compatible Relax Merit',GotIt) ) THEN
       CRIter = CRiter + 1
       CandList = 0
-      PRINT *,'a1',Components
       CALL CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
-      PRINT *,'CR iteration',CRiter,newcands
       IF(newcands > 0) GOTO 100
     END IF
 
@@ -1480,6 +1478,8 @@ CONTAINS
     ELSE
       Projector => InterpolateF2C( Amat, CF, Components)
     END IF
+
+    DEALLOCATE(Fixed)
 
     IF(PRESENT(InvCF)) THEN
       ALLOCATE(InvCF(cnods))
@@ -1590,6 +1590,7 @@ CONTAINS
       ! Mark Dirichlet nodes with negative sign in order to favour boundaries in future
       IF( maxbond <= DirLim * ABS(Values (Amat % Diag(ind)) ) ) THEN
         IF(ElimDir) THEN
+          Fixed(ind) = .TRUE.
           Cands(ind) = -1
           elimnods = elimnods + 1
         END IF
@@ -1762,6 +1763,7 @@ CONTAINS
       ! Mark Dirichlet nodes with negative sign in order to favour boundaries in future
       IF( maxbond < DirLim * ABS(Values (Amat % Diag(ind)) ) ) THEN
         IF(ElimDir) THEN
+	  Fixed(ind) = .TRUE.
           Cands(ind) = -1
           elimnods = elimnods + 1
         END IF
@@ -2026,6 +2028,7 @@ CONTAINS
 
       IF( maxbond < DirLim * meas ) THEN
         IF(ElimDir) THEN
+          Fixed(ind) = .TRUE.
           Cands(ind) = 0
           elimnods = elimnods + 1
         END IF
@@ -2755,6 +2758,8 @@ CONTAINS
                ! We desire a block-diagonal projector
                IF(MOD(ci,Components) /= MOD(ind,Components)) CYCLE
 
+               IF(Fixed(ci)) CYCLE
+
                value = FValues(i)
                IF(ABS(value) < 1.0d-50) CYCLE
                no = no + 1
@@ -2783,6 +2788,8 @@ CONTAINS
 
                IF(MOD(ci,Components) /= MOD(ind,Components)) CYCLE
 
+               IF(Fixed(ci)) CYCLE
+
                IF(CF(ci) > 0 .OR. ci == ind) THEN
                  value = FValues(i)
                  IF(ABS(value) < 1.0d-50) CYCLE 
@@ -2802,12 +2809,16 @@ CONTAINS
                IF(MOD(ci,Components) /= MOD(ind,Components)) CYCLE
 
                IF(CF(ci) > 0 .OR. ci == ind) CYCLE
-               
+ 
+               IF(Fixed(ci)) CYCLE
+             
                DO j=FRows(ci),FRows(ci+1)-1
                  cj = Fcols(j)
                  IF(ci == cj) CYCLE
 
                  IF(MOD(cj,Components) /= MOD(ind,Components)) CYCLE
+
+                 IF(Fixed(cj)) CYCLE
 
                  value = Fvalues(i) * Fvalues(j) / Fvalues(Fmat % diag(ci))
                  IF(ABS(value) < 1.0d-50) CYCLE
