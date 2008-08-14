@@ -3075,20 +3075,22 @@ CONTAINS
     REAL(KIND=dp), POINTER :: SaveValues(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag
     REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:)
+    TYPE(Matrix_t), POINTER :: Aaid
+
 !------------------------------------------------------------------------------
     n = A % NumberOfRows
 
     IF ( Solver % Matrix % Lumped .AND. Solver % TimeOrder == 1 ) THEN
-      Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
-      IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
-        DO i=1,n
-          IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) &
-              x(i) = b(i) / A % Values(A % Diag(i))
-        END DO
-        CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-        Norm = ComputeNorm(Solver, n, x) 
-        RETURN
-      END IF
+       Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
+       IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
+          DO i=1,n
+             IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) &
+                  x(i) = b(i) / A % Values(A % Diag(i))
+          END DO
+          CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+          Norm = ComputeNorm(Solver, n, x) 
+          RETURN
+       END IF
     END IF
     
     ScaleSystem = ListGetLogical( Solver % Values, 'Linear System Scaling', GotIt )
@@ -3401,8 +3403,39 @@ CONTAINS
       NodalLoads % PrimaryMesh => Solver % Mesh
       CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
                    GetVarName(NodalLoads) )
-    END IF
+   END IF
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+! In order to be able to change the preconditoners or solvers the old matrix structures
+! must be deallocated on request.
+
+    IF( ListGetLogical( Solver % Values, 'Linear System Preconditioning Deallocate', GotIt) ) THEN
+
+       ! ILU preconditioning
+       IF( ASSOCIATED(A % ILUValues) ) THEN
+          IF(  SIZE( A % ILUValues) /= SIZE(A % Values) ) &
+             DEALLOCATE(A % ILUCols, A % ILURows, A % ILUDiag)
+          DEALLOCATE(A % ILUValues)
+       END IF
+          
+       ! Multigrid solver / preconditioner
+       IF( Solver % MultigridLevel > 0 ) THEN
+          Aaid => A 
+          IF(ASSOCIATED( Aaid % Parent) ) THEN
+             DO WHILE( ASSOCIATED( Aaid % Parent ) )
+                Aaid => Aaid % Parent
+             END DO
+             DO WHILE( ASSOCIATED( Aaid % Child) )
+                Aaid => Aaid % Child
+                IF(ASSOCIATED(Aaid % Parent)) DEALLOCATE(Aaid % Parent )
+                IF(ASSOCIATED(Aaid % Ematrix)) DEALLOCATE(Aaid % Ematrix )
+             END DO
+          END IF
+       END IF
+    END IF
+
 
   END SUBROUTINE SolveLinearSystem
 !------------------------------------------------------------------------------
