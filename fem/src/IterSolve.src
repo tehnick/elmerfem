@@ -337,6 +337,7 @@ END FUNCTION DotProduct
         IF ( .NOT. Gotit ) Refactorize = .TRUE.
 
         IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize .AND. MOD(A % SolveCount, n)==0) ) THEN
+
            IF ( A % FORMAT == MATRIX_CRS ) THEN
 
              IF ( A % COMPLEX ) THEN
@@ -512,6 +513,18 @@ END FUNCTION DotProduct
      END IF
 !------------------------------------------------------------------------------
      DEALLOCATE( work )
+
+!------------------------------------------------------------------------------
+! In order to be able to change the ILU preconditioning on-the-fly the old preconditining 
+! must be deallocated on request.
+    IF( ListGetLogical( SolverParam % Values, 'Linear System Preconditioning Reallocate', GotIt) ) THEN
+      IF( ASSOCIATED(A % ILUValues) ) THEN
+	DEALLOCATE(A % ILUValues)
+	IF( .NOT. (PCondType == PRECOND_ILUn .AND. ILUn == 0) ) &
+	   DEALLOCATE(A % ILUCols, A % ILURows, A % ILUDiag)
+      END IF
+    END IF
+
 !------------------------------------------------------------------------------
    END SUBROUTINE IterSolver
 !------------------------------------------------------------------------------
