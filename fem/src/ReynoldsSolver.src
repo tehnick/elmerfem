@@ -66,7 +66,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
   INTEGER, POINTER :: NodeIndexes(:), PressurePerm(:)
 
   LOGICAL, POINTER :: PeriodicNodes(:)
-  LOGICAL :: GotIt, stat, AllocationsDone = .FALSE., SubroutineVisited = .FALSE., &
+  LOGICAL :: GotIt, GotIt2, GotIt3, stat, AllocationsDone = .FALSE., SubroutineVisited = .FALSE., &
       UseVelocity, SideCorrection, Bubbles, PartIntSliding, Cavitation, Converged
   REAL(KIND=dp), POINTER :: Pressure(:), CavitationValues(:), LoadValues(:)
   REAL(KIND=dp) :: Norm, ReferencePressure, NonlinearTol, HeatRatio, BulkModulus, &
@@ -226,25 +226,42 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation')
       Equation => Model % Equations(eq_id) % Values
 
-      Velocity(1,1:n) = GetReal(Equation,'Surface Velocity 1',UseVelocity)
-      Velocity(2,1:n) = GetReal(Equation,'Surface Velocity 2',GotIt)
-      UseVelocity = UseVelocity .OR. GotIt
-      Velocity(3,1:n) = GetReal(Equation,'Surface Velocity 3',GotIt)
-      UseVelocity = UseVelocity .OR. GotIt
+      mat_id = GetInteger( Model % Bodies( body_id ) % Values, 'Material')
+      Material => Model % Materials(mat_id) % Values
+
+!------------------------------------------------------------------------------
+!       Get velocities
+!------------------------------------------------------------------------------        
+
+      Velocity(1,1:n) = GetReal(Equation,'Surface Velocity 1',GotIt)
+      Velocity(2,1:n) = GetReal(Equation,'Surface Velocity 2',GotIt2)
+      Velocity(3,1:n) = GetReal(Equation,'Surface Velocity 3',GotIt3)
+      UseVelocity = GotIt .OR. GotIt2 .OR. GotIt3
+      IF(.NOT. UseVelocity) THEN
+        Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',GotIt)
+        Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt2)
+        Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt3)
+        UseVelocity = GotIt .OR. GotIt2 .OR. GotIt3
+      END IF
 
       IF(.NOT. UseVelocity) THEN
         Velocity(1,1:n) = GetReal(Equation,'Tangent Velocity 1',GotIt) 
-        Velocity(2,1:n) = GetReal(Equation,'Tangent Velocity 2',GotIt)
-        Velocity(3,1:n) = GetReal(Equation,'Tangent Velocity 3',GotIt)
+        Velocity(2,1:n) = GetReal(Equation,'Tangent Velocity 2',GotIt2)
+        Velocity(3,1:n) = GetReal(Equation,'Tangent Velocity 3',GotIt3)
+	IF(.NOT. (GotIt .OR. GotIt2 .OR. GotIt3)) THEN
+	  Velocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
+          Velocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt2)
+          Velocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt3)
+        END IF
         NormalVelocity(1:n) = GetReal(Equation,'Normal Velocity',GotIt)
+        IF(.NOT. GotIt) NormalVelocity(1:n) = &
+	  GetReal(Material,'Normal Velocity',GotIt)
       END IF     
 
 !------------------------------------------------------------------------------
 !       Get material parameters
 !------------------------------------------------------------------------------        
-      mat_id = GetInteger( Model % Bodies( body_id ) % Values, 'Material')
-      Material => Model % Materials(mat_id) % Values
-      
+
       GapHeight(1:n) = GetReal( Material,'Gap Height')
       Viscosity(1:n) = GetReal( Material, 'Viscosity')
       Admittance(1:n) = GetReal( Material, 'Flow Admittance', GotIt)
@@ -794,14 +811,14 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: PressureVar
   TYPE(Nodes_t) :: ElementNodes
   TYPE(Element_t),POINTER :: Element, Parent
-  TYPE(ValueList_t), POINTER :: Material
+  TYPE(ValueList_t), POINTER :: Material, Equation
 
   INTEGER, PARAMETER :: Viscosity_Newtonian = 1, Viscosity_Rarefied = 2
 
-  INTEGER :: iter, i, j, k, l, n, nd, t, istat, mat_id, mat_idold, ViscosityType
+  INTEGER :: iter, i, j, k, l, n, nd, t, istat, eq_id, body_id, mat_id, mat_idold, ViscosityType
   INTEGER, POINTER :: NodeIndexes(:), PressurePerm(:)
 
-  LOGICAL :: GotIt, stat, UseVelocity, AllocationsDone = .FALSE.
+  LOGICAL :: GotIt, GotIt2, GotIt3, stat, UseVelocity, AllocationsDone = .FALSE.
 
   REAL(KIND=dp), POINTER :: Pressure(:)
   REAL(KIND=dp) :: Norm, ReferencePressure, mfp0, HeatSlide, HeatPres, HeatTotal, &
@@ -892,26 +909,47 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
     NodeIndexes => Element % NodeIndexes         
     ElemPressure(1:n) = Pressure(PressurePerm(NodeIndexes(1:n)))
       
+    body_id =  Element % Bodyid
+
+    eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation')
+    Equation => Model % Equations(eq_id) % Values
+
+    mat_id = GetInteger( Model % Bodies( body_id ) % Values, 'Material')
+    Material => Model % Materials(mat_id) % Values
+
+!------------------------------------------------------------------------------
+!       Get velocities
+!------------------------------------------------------------------------------        
+
+    Velocity(1,1:n) = GetReal(Equation,'Surface Velocity 1',GotIt)
+    Velocity(2,1:n) = GetReal(Equation,'Surface Velocity 2',GotIt2)
+    Velocity(3,1:n) = GetReal(Equation,'Surface Velocity 3',GotIt3)
+    UseVelocity = GotIt .OR. GotIt2 .OR. GotIt3
+    IF(.NOT. UseVelocity) THEN
+      Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',GotIt)
+      Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt2)
+      Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt3)
+      UseVelocity = GotIt .OR. GotIt2 .OR. GotIt3
+    END IF
+
+    IF(.NOT. UseVelocity) THEN
+      Velocity(1,1:n) = GetReal(Equation,'Tangent Velocity 1',GotIt) 
+      Velocity(2,1:n) = GetReal(Equation,'Tangent Velocity 2',GotIt2)
+      Velocity(3,1:n) = GetReal(Equation,'Tangent Velocity 3',GotIt3)
+      IF(.NOT. (GotIt .OR. GotIt2 .OR. GotIt3)) THEN
+	Velocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
+        Velocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt2)
+        Velocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt3)
+      END IF
+    END IF     
+
+
 !------------------------------------------------------------------------------
 !       Get material parameters
 !------------------------------------------------------------------------------        
-    mat_id = GetInteger( Model % Bodies( Element % Bodyid ) % Values, 'Material')
-    Material => Model % Materials(mat_id) % Values
     
     GapHeight(1:n) = GetReal(Material,'Gap Height')
     Viscosity(1:n) = GetReal( Material, 'Viscosity')
-
-    Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',UseVelocity)
-    Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt)
-    UseVelocity = UseVelocity .OR. GotIt
-    Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt)
-    UseVelocity = UseVelocity .OR. GotIt
-    
-    IF(.NOT. UseVelocity) THEN
-      Velocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
-      Velocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt)
-      Velocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt)
-    END IF
     
     IF(mat_id /= mat_idold) THEN                  
       
@@ -1190,7 +1228,7 @@ END SUBROUTINE ReynoldsHeatingSolver
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName
     INTEGER :: i,j,dim,DOFs, ViscosityType
     LOGICAL :: ConstantBulkMatrix, ConstantBulkMatrixInUse, CSymmetry
-    LOGICAL :: GotIt
+    LOGICAL :: GotIt, GotIt2, GotIt3
     REAL(KIND=dp) :: Unorm, Totnorm
     REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
     REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
@@ -1293,7 +1331,7 @@ END SUBROUTINE ReynoldsHeatingSolver
     SUBROUTINE BulkAssembly()
 !------------------------------------------------------------------------------
        
-      INTEGER :: istat,elem,t,i,j,p,q,n,nd,mat_idold,mat_id
+      INTEGER :: istat,elem,t,i,j,p,q,n,nd,body_id,mat_idold,mat_id,eq_id
       REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:)
       TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
       TYPE(Nodes_t) :: Nodes
@@ -1305,7 +1343,7 @@ END SUBROUTINE ReynoldsHeatingSolver
            mfp0, mfp, Pres, Dens, Kn, LS, LV, Gap, TotPres, TangentVelo(3), Velo(3), GradPres(3)
       CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityModel, PressureName
       LOGICAL :: Found, UseVelocity
-      TYPE(ValueList_t), POINTER :: Material
+      TYPE(ValueList_t), POINTER :: Material, Equation
       
       SAVE Nodes, Viscosity, Velocity, &
            GapHeight, FORCE, STIFF, ElemPressure
@@ -1334,26 +1372,46 @@ END SUBROUTINE ReynoldsHeatingSolver
          
          CALL GetScalarLocalSolution( ElemPressure, VarName )
 
+         body_id =  Element % Bodyid
+
+         eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation')
+         Equation => Model % Equations(eq_id) % Values
+
+         mat_id = GetInteger( Model % Bodies( body_id ) % Values, 'Material')
+         Material => Model % Materials(mat_id) % Values
+
+!------------------------------------------------------------------------------
+!       Get velocities
+!------------------------------------------------------------------------------        
+
+        Velocity(1,1:n) = GetReal(Equation,'Surface Velocity 1',GotIt)
+        Velocity(2,1:n) = GetReal(Equation,'Surface Velocity 2',GotIt2)
+        Velocity(3,1:n) = GetReal(Equation,'Surface Velocity 3',GotIt3)
+        UseVelocity = GotIt .OR. GotIt2 .OR. GotIt3
+        IF(.NOT. UseVelocity) THEN
+          Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',GotIt)
+          Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt2)
+          Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt3)
+          UseVelocity = GotIt .OR. GotIt2 .OR. GotIt3
+        END IF
+
+        IF(.NOT. UseVelocity) THEN
+          Velocity(1,1:n) = GetReal(Equation,'Tangent Velocity 1',GotIt) 
+          Velocity(2,1:n) = GetReal(Equation,'Tangent Velocity 2',GotIt2)
+          Velocity(3,1:n) = GetReal(Equation,'Tangent Velocity 3',GotIt3)
+	  IF(.NOT. (GotIt .OR. GotIt2 .OR. GotIt3)) THEN
+	    Velocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
+            Velocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt2)
+            Velocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt3)
+          END IF
+        END IF     
+
       !------------------------------------------------------------------------------
       !       Get material parameters
       !------------------------------------------------------------------------------        
-         mat_id = GetInteger( Model % Bodies( Element % Bodyid ) % Values, 'Material')
-         Material => Model % Materials(mat_id) % Values
-         
+
          GapHeight(1:n) = GetReal(Material,'Gap Height')
          Viscosity(1:n) = GetReal( Material, 'Viscosity')
-         
-         Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',UseVelocity)
-         Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt)
-         UseVelocity = UseVelocity .OR. GotIt
-         Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt)
-         UseVelocity = UseVelocity .OR. GotIt
-         
-         IF(.NOT. UseVelocity) THEN
-            Velocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
-            Velocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt)
-            Velocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt)
-         END IF
          
          IF(mat_id /= mat_idold) THEN                  
             
