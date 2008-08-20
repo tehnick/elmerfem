@@ -1437,6 +1437,50 @@ void MainWindow::saveProjectSlot()
 
 
   //===========================================================================
+  //                            SAVE BODY PROPERTIES
+  //===========================================================================
+  QString bodyPropertyFileName = projectDirName + "/bodyproperty.dat";
+
+  QFile bodyPropertyFile(bodyPropertyFileName);
+  if(!bodyPropertyFile.open(QIODevice::WriteOnly)) {
+    logMessage("Unable to open " + bodyPropertyFileName + " for writing");
+    return;
+  }
+  
+  QTextStream stream(&bodyPropertyFile);  
+
+  for(int i = 0; i < MAX_BODIES; i++ ) {
+    BodyPropertyEditor *body = &bodyPropertyEditor[i];
+
+    DynamicEditor *p = NULL;
+    
+    QString equationName = "";
+    if((p = body->equation) != NULL)
+      equationName = p->nameEdit->text().trimmed();
+    
+    QString materialName = "";      
+    if((p = body->material) != NULL)
+      materialName = p->nameEdit->text().trimmed();
+    
+    QString initialName = "";
+    if((p = body->initial) != NULL) 
+      initialName = p->nameEdit->text().trimmed();
+    
+    QString forceName = "";
+    if((p = body->force) != NULL) 
+      forceName = p->nameEdit->text().trimmed();
+    
+    stream << "/" << i << "/" 
+	   << equationName.toAscii() << "/" 
+	   << materialName.toAscii() << "/"
+	   << initialName.toAscii()  << "/"
+	   << forceName.toAscii()    << endl;
+  }
+
+  bodyPropertyFile.close();
+
+
+  //===========================================================================
   //                          SAVE BOUNDARY PROPERTIES
   //===========================================================================
   for(int i = 0; i < MAX_BOUNDARIES; i++) {
@@ -1447,7 +1491,6 @@ void MainWindow::saveProjectSlot()
       // todo
     }
   }
-
 
   logMessage("Ready");
 }
@@ -1474,7 +1517,7 @@ void MainWindow::saveContents(QString fileName, DynamicEditor *editor, int Nmax)
     if(de->menuAction != NULL)
       stream << de->nameEdit->text().trimmed() << "\n";
     
-    // Write all stuff in hash:
+    // Write all stuff from hash:
     for(int j = 0; j < de->hash.count(); j++) {
       QString key = de->hash.keys().at(j);
       hash_entry_t value = de->hash.values().at(j);
@@ -1552,6 +1595,72 @@ void MainWindow::loadProjectSlot()
   QString boundaryConditionFileName = projectDirName + "/boundarycondition.dat";
   logMessage("Loading boundary condition data in " + boundaryConditionFileName);
   loadContents(boundaryConditionFileName, boundaryConditionEditor, MAX_BCS, "BoundaryCondition");
+
+
+  //===========================================================================
+  //                            LOAD BODY PROPERTIES
+  //===========================================================================
+  QString bodyPropertyFileName = projectDirName + "/bodyproperty.dat";
+
+  QFile bodyPropertyFile(bodyPropertyFileName);
+  if(!bodyPropertyFile.open(QIODevice::ReadOnly)) {
+    logMessage("Unable to open " + bodyPropertyFileName + " for reading");
+    return;
+  }
+  
+  QTextStream stream(&bodyPropertyFile);  
+
+  for(int i = 0; i < MAX_BODIES; i++ ) {
+    QString line = stream.readLine();
+
+    if(line == "") {
+      cout << "Error: incompatible input file: boundaryproperty.dat" << endl;
+      cout.flush();
+      return;
+    }
+
+    QStringList splittedLine = line.split("/");
+    
+    if(splittedLine.count() != 6) {
+      cout << "Error: incompatible input file: boundaryproperty.dat" << endl;
+      cout.flush();
+      return;
+    }
+    
+    int bodyIndex = splittedLine.at(1).toInt();
+    QString equationName = splittedLine.at(2);
+    QString materialName = splittedLine.at(3);
+    QString initialName = splittedLine.at(4);
+    QString forceName = splittedLine.at(5);
+    
+    BodyPropertyEditor *p = &bodyPropertyEditor[i];
+    
+    for(int j = 0; j < p->ui.equationCombo->count(); j++) {
+      QString current = p->ui.equationCombo->itemText(j);
+      if(current == equationName)
+	p->ui.equationCombo->setCurrentIndex(j);
+    }
+    
+    for(int j = 0; j < p->ui.materialCombo->count(); j++) {
+      QString current = p->ui.materialCombo->itemText(j);
+      if(current == materialName)
+	p->ui.materialCombo->setCurrentIndex(j);
+    }
+    
+    for(int j = 0; j < p->ui.initialConditionCombo->count(); j++) {
+      QString current = p->ui.initialConditionCombo->itemText(j);
+      if(current == initialName)
+	p->ui.initialConditionCombo->setCurrentIndex(j);
+    }
+    
+    for(int j = 0; j < p->ui.bodyForceCombo->count(); j++) {
+      QString current = p->ui.bodyForceCombo->itemText(j);
+      if(current == forceName)
+	p->ui.bodyForceCombo->setCurrentIndex(j);
+    }
+  }
+
+  bodyPropertyFile.close();
 
   logMessage("Ready");
 }
@@ -1638,7 +1747,20 @@ void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax,
 
       de->menuAction = act;      
 
-      createBodyCheckBoxes(BODY_EQUATION, de);
+      if(Mname == "Equation") 
+	createBodyCheckBoxes(BODY_EQUATION, de);
+
+      if(Mname == "Material") 
+	createBodyCheckBoxes(BODY_MATERIAL, de);
+
+      if(Mname == "BodyForce") 
+	createBodyCheckBoxes(BODY_FORCE, de);
+
+      if(Mname == "InitialCondition") 
+	createBodyCheckBoxes(BODY_INITIAL, de);
+
+      //if(Mname == "BoundaryCondition") 
+      //createBodyCheckBoxes(BODY_EQUATION, de);
     }
 
     // set contents:
@@ -2077,7 +2199,7 @@ void MainWindow::modelSetupSlot()
 }
 
 //-----------------------------------------------------------------------------
-void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
+void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
 {
   if  (!glWidget->mesh ) return;
 
