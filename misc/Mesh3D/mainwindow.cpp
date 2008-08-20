@@ -1440,6 +1440,7 @@ void MainWindow::saveProjectSlot()
   //                            SAVE BODY PROPERTIES
   //===========================================================================
   QString bodyPropertyFileName = projectDirName + "/bodyproperty.dat";
+  logMessage("Saving body properties in " + bodyPropertyFileName);
 
   QFile bodyPropertyFile(bodyPropertyFileName);
   if(!bodyPropertyFile.open(QIODevice::WriteOnly)) {
@@ -1447,7 +1448,7 @@ void MainWindow::saveProjectSlot()
     return;
   }
   
-  QTextStream stream(&bodyPropertyFile);  
+  QTextStream bodyPropertyStream(&bodyPropertyFile);  
 
   for(int i = 0; i < MAX_BODIES; i++ ) {
     BodyPropertyEditor *body = &bodyPropertyEditor[i];
@@ -1470,27 +1471,44 @@ void MainWindow::saveProjectSlot()
     if((p = body->force) != NULL) 
       forceName = p->nameEdit->text().trimmed();
     
-    stream << "/" << i << "/" 
-	   << equationName.toAscii() << "/" 
-	   << materialName.toAscii() << "/"
-	   << initialName.toAscii()  << "/"
-	   << forceName.toAscii()    << endl;
+    bodyPropertyStream << "/" << i << "/" 
+		       << equationName.toAscii() << "/" 
+		       << materialName.toAscii() << "/"
+		       << initialName.toAscii()  << "/"
+		       << forceName.toAscii()    << endl;
   }
 
   bodyPropertyFile.close();
 
-
   //===========================================================================
   //                          SAVE BOUNDARY PROPERTIES
   //===========================================================================
-  for(int i = 0; i < MAX_BOUNDARIES; i++) {
-    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[i];
-    if(bpe->touched) {
-      //cout << "Saving contents of the boundary property editor " << i << endl;
-      //cout.flush();
-      // todo
-    }
+  QString boundaryPropertyFileName = projectDirName + "/boundaryproperty.dat";
+  logMessage("Saving boundary properties in " + boundaryPropertyFileName);
+
+  QFile boundaryPropertyFile(boundaryPropertyFileName);
+  if(!boundaryPropertyFile.open(QIODevice::WriteOnly)) {
+    logMessage("Unable to open " + boundaryPropertyFileName + " for writing");
+    return;
   }
+  
+  QTextStream boundaryPropertyStream(&boundaryPropertyFile);  
+
+  for(int i = 0; i < MAX_BOUNDARIES; i++ ) {
+    BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[i];
+
+    DynamicEditor *p = NULL;
+    
+    QString conditionName = "";
+    if((p = boundary->condition) != NULL)
+      conditionName = p->nameEdit->text().trimmed();
+    
+    boundaryPropertyStream << "/" << i << "/" 
+			   << conditionName.toAscii() << "/"
+			   << boundary->ui.boundaryAsABody->isChecked() << endl;
+  }
+
+  boundaryPropertyFile.close();
 
   logMessage("Ready");
 }
@@ -1552,9 +1570,9 @@ void MainWindow::loadProjectSlot()
   QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
 
   if (!projectDirName.isEmpty()) {
-    logMessage("Project directory " + projectDirName);
+    logMessage("Project directory: " + projectDirName);
   } else {
-    logMessage("Unable to save project: directory undefined");
+    logMessage("Unable to load project: directory undefined");
     return;
   }
 
@@ -1565,42 +1583,42 @@ void MainWindow::loadProjectSlot()
   //                               LOAD EQUATIONS
   //===========================================================================
   QString equationFileName = projectDirName + "/equation.dat";
-  logMessage("Loading equation data in " + equationFileName);
+  logMessage("Loading equation data from " + equationFileName);
   loadContents(equationFileName, equationEditor, MAX_EQUATIONS, "Equation");
 
   //===========================================================================
   //                               LOAD MATERIALS
   //===========================================================================
   QString materialFileName = projectDirName + "/material.dat";
-  logMessage("Loading material data in " + materialFileName);
+  logMessage("Loading material data from " + materialFileName);
   loadContents(materialFileName, materialEditor, MAX_MATERIALS, "Material");
 
   //===========================================================================
   //                             LOAD BODY FORCES
   //===========================================================================
   QString bodyForceFileName = projectDirName + "/bodyforce.dat";
-  logMessage("Loading body force data in " + bodyForceFileName);
+  logMessage("Loading body force data from " + bodyForceFileName);
   loadContents(bodyForceFileName, bodyForceEditor, MAX_BODYFORCES, "BodyForce");
 
   //===========================================================================
   //                          LOAD INITIAL CONDITIONS
   //===========================================================================
   QString initialConditionFileName = projectDirName + "/initialcondition.dat";
-  logMessage("Loading initial condition data in " + initialConditionFileName);
+  logMessage("Loading initial condition data from " + initialConditionFileName);
   loadContents(initialConditionFileName, initialConditionEditor, MAX_INITIALCONDITIONS, "InitialCondition");
 
   //===========================================================================
   //                          LOAD BOUNDARY CONDITIONS
   //===========================================================================
   QString boundaryConditionFileName = projectDirName + "/boundarycondition.dat";
-  logMessage("Loading boundary condition data in " + boundaryConditionFileName);
+  logMessage("Loading boundary condition data from " + boundaryConditionFileName);
   loadContents(boundaryConditionFileName, boundaryConditionEditor, MAX_BCS, "BoundaryCondition");
-
 
   //===========================================================================
   //                            LOAD BODY PROPERTIES
   //===========================================================================
   QString bodyPropertyFileName = projectDirName + "/bodyproperty.dat";
+  logMessage("Loading body properties from " + bodyPropertyFileName);
 
   QFile bodyPropertyFile(bodyPropertyFileName);
   if(!bodyPropertyFile.open(QIODevice::ReadOnly)) {
@@ -1608,13 +1626,13 @@ void MainWindow::loadProjectSlot()
     return;
   }
   
-  QTextStream stream(&bodyPropertyFile);  
+  QTextStream bodyPropertyStream(&bodyPropertyFile);  
 
   for(int i = 0; i < MAX_BODIES; i++ ) {
-    QString line = stream.readLine();
+    QString line = bodyPropertyStream.readLine();
 
     if(line == "") {
-      cout << "Error: incompatible input file: boundaryproperty.dat" << endl;
+      cout << "Error: bad or corrupted input file: bodyproperty.dat" << endl;
       cout.flush();
       return;
     }
@@ -1622,18 +1640,18 @@ void MainWindow::loadProjectSlot()
     QStringList splittedLine = line.split("/");
     
     if(splittedLine.count() != 6) {
-      cout << "Error: incompatible input file: boundaryproperty.dat" << endl;
+      cout << "Error: bad or corrupted input file: bodyproperty.dat" << endl;
       cout.flush();
       return;
     }
     
-    int bodyIndex = splittedLine.at(1).toInt();
     QString equationName = splittedLine.at(2);
     QString materialName = splittedLine.at(3);
     QString initialName = splittedLine.at(4);
     QString forceName = splittedLine.at(5);
     
     BodyPropertyEditor *p = &bodyPropertyEditor[i];
+    populateBodyComboBoxes(p);
     
     for(int j = 0; j < p->ui.equationCombo->count(); j++) {
       QString current = p->ui.equationCombo->itemText(j);
@@ -1661,6 +1679,54 @@ void MainWindow::loadProjectSlot()
   }
 
   bodyPropertyFile.close();
+
+  //===========================================================================
+  //                          LOAD BOUNDARY PROPERTIES
+  //===========================================================================
+  QString boundaryPropertyFileName = projectDirName + "/boundaryproperty.dat";
+  logMessage("Loading boundary properties from " + boundaryPropertyFileName);
+
+  QFile boundaryPropertyFile(boundaryPropertyFileName);
+  if(!boundaryPropertyFile.open(QIODevice::ReadOnly)) {
+    logMessage("Unable to open " + boundaryPropertyFileName + " for reading");
+    return;
+  }
+  
+  QTextStream boundaryPropertyStream(&boundaryPropertyFile);  
+
+  for(int i = 0; i < MAX_BOUNDARIES; i++ ) {
+    QString line = boundaryPropertyStream.readLine();
+
+    if(line == "") {
+      cout << "Error: bad or corrupted input file: boundaryproperty.dat" << endl;
+      cout.flush();
+      return;
+    }
+
+    QStringList splittedLine = line.split("/");
+    
+    if(splittedLine.count() != 4) {
+      cout << "Error: bad or corrupted input file: boundaryproperty.dat" << endl;
+      cout.flush();
+      return;
+    }
+    
+    QString boundaryConditionName = splittedLine.at(2);
+    bool useAsABody = (splittedLine.at(3).toInt() > 0);
+    
+    BoundaryPropertyEditor *p = &boundaryPropertyEditor[i];
+    populateBoundaryComboBoxes(p);
+    
+    for(int j = 0; j < p->ui.boundaryConditionCombo->count(); j++) {
+      QString current = p->ui.boundaryConditionCombo->itemText(j);
+      if(current == boundaryConditionName)
+	p->ui.boundaryConditionCombo->setCurrentIndex(j);
+    }
+
+    p->ui.boundaryAsABody->setChecked(useAsABody);
+  }
+
+  boundaryPropertyFile.close();
 
   logMessage("Ready");
 }
@@ -4597,7 +4663,7 @@ void MainWindow::generateSifSlot()
   mesh_t *mesh = glWidget->mesh;
 
   if(mesh == NULL) {
-    logMessage("Unable to create sif: no mesh");
+    logMessage("Unable to create SIF: no mesh");
     return;
   }
   
