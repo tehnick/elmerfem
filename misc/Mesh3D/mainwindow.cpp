@@ -1376,13 +1376,16 @@ void MainWindow::saveAsSlot()
     logMessage("Unable to save mesh: no data");
     return;
   }
+
   saveDirName = QFileDialog::getExistingDirectory(this);
+
   if (!saveDirName.isEmpty()) {
     logMessage("Output directory " + saveDirName);
   } else {
     logMessage("Unable to save: directory undefined");
     return;
   }
+
   saveElmerMesh(saveDirName);
 }
 
@@ -1391,6 +1394,11 @@ void MainWindow::saveAsSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::saveProjectSlot()
 {
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to save project: no mesh");
+    return;
+  }
+  
   QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
 
   if (!projectDirName.isEmpty()) {
@@ -1399,6 +1407,11 @@ void MainWindow::saveProjectSlot()
     logMessage("Unable to save project: directory undefined");
     return;
   }
+  
+  //===========================================================================
+  //                               SAVE MESH
+  //===========================================================================
+  saveElmerMesh(projectDirName);
 
   //===========================================================================
   //                               SAVE EQUATIONS
@@ -1578,6 +1591,11 @@ void MainWindow::loadProjectSlot()
 
   logMessage("Clearing model data");
   modelClearSlot();
+
+  //===========================================================================
+  //                                 LOAD MESH
+  //===========================================================================
+  loadElmerMesh(projectDirName);
 
   //===========================================================================
   //                               LOAD EQUATIONS
