@@ -1843,8 +1843,8 @@ void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax,
       if(Mname == "InitialCondition") 
 	createBodyCheckBoxes(BODY_INITIAL, de);
 
-      //if(Mname == "BoundaryCondition") 
-      //createBodyCheckBoxes(BODY_EQUATION, de);
+      if(Mname == "BoundaryCondition") 
+	createBoundaryCheckBoxes(de);
     }
 
     // set contents:
