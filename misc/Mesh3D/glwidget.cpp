@@ -88,6 +88,8 @@ GLWidget::GLWidget(QWidget *parent)
   altPressed = false;
 
   quadratic = gluNewQuadric();	// for coordinate axis
+
+  bcColors = false;
 }
 
 
@@ -1079,12 +1081,20 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   // Draw triangles:
   //-----------------
   glBegin(GL_TRIANGLES);
-  glColor3d(R, G, B);      
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
     if((surface->index == index) && ((int)(surface->code/100) == 3)) {
+
+      glColor3d(R, G, B);
+
+      if(bcColors) {
+	glColor3d(0.5 + 0.5 * sin(1 * index),
+		  0.5 + 0.5 * cos(2 * index),
+		  0.5 + 0.5 * cos(3 * index));
+      }
+	
       glNormal3dv(surface->normal); 
       
       int n0 = surface->node[0];
@@ -1122,6 +1132,15 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
     surface_t *surface = &mesh->surface[i];
 
     if((surface->index == index) && ((int)(surface->code/100) == 4)) {
+
+      glColor3d(R, G, B);
+
+      if(bcColors) {
+	glColor3d(0.5 + 0.5 * sin(1 * index),
+		  0.5 + 0.5 * cos(2 * index),
+		  0.5 + 0.5 * cos(3 * index));
+      }
+
       glNormal3dv(surface->normal); 
       
       int n0 = surface->node[0];

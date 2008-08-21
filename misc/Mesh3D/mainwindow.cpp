@@ -502,6 +502,12 @@ void MainWindow::createActions()
   showBodyIndexAct->setStatusTip(tr("Show body index"));
   connect(showBodyIndexAct, SIGNAL(triggered()), 
 	  this, SLOT(showBodyIndexSlot()));
+
+  // View -> Colorize -> Boundaries
+  showBoundaryColorAct = new QAction(QIcon(), tr("Boundaries"), this);
+  showBoundaryColorAct->setStatusTip(tr("Visualize boundary indices with colors"));
+  connect(showBoundaryColorAct, SIGNAL(triggered()), 
+	  this, SLOT(colorizeBoundarySlot()));
   
   // View -> Shade model -> Smooth
   smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
@@ -678,6 +684,9 @@ void MainWindow::createMenus()
   numberingMenu->addSeparator();
   numberingMenu->addAction(showBoundaryIndexAct);
   numberingMenu->addAction(showBodyIndexAct);
+  viewMenu->addSeparator();
+  colorizeMenu = viewMenu->addMenu(tr("Colorize"));
+  colorizeMenu->addAction(showBoundaryColorAct);
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
@@ -4090,6 +4099,7 @@ void MainWindow::showBodyIndexSlot()
     logMessage("Refusing to show body indices when mesh is empty");
     return;
   }
+
   glWidget->stateDrawBodyIndex = !glWidget->stateDrawBodyIndex;
   glWidget->updateGL();
   synchronizeMenuToState();
@@ -4099,6 +4109,21 @@ void MainWindow::showBodyIndexSlot()
   else 
     logMessage("Body indices hidden");    
 }
+
+// View -> Colorize -> Boundaries
+//-----------------------------------------------------------------------------
+void MainWindow::colorizeBoundarySlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("No mesh - unable to colorize boundaries");
+    return;
+  }
+
+  glWidget->bcColors = !glWidget->bcColors;
+  glWidget->rebuildLists();
+  synchronizeMenuToState();
+}
+
 
 
 // View -> Cad model...
@@ -5558,6 +5583,11 @@ void MainWindow::synchronizeMenuToState()
     showConvergenceAct->setIcon(iconChecked);
   else
     showConvergenceAct->setIcon(iconEmpty);
+
+  if(glWidget->bcColors)
+    showBoundaryColorAct->setIcon(iconChecked);
+  else
+    showBoundaryColorAct->setIcon(iconEmpty);
 }
 
 
