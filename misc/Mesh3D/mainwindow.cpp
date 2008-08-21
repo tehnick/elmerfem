@@ -509,6 +509,12 @@ void MainWindow::createActions()
   connect(showBoundaryColorAct, SIGNAL(triggered()), 
 	  this, SLOT(colorizeBoundarySlot()));
   
+  // View -> Colorize -> Bodies
+  showBodyColorAct = new QAction(QIcon(), tr("Bodies"), this);
+  showBodyColorAct->setStatusTip(tr("Visualize body indices with colors"));
+  connect(showBodyColorAct, SIGNAL(triggered()), 
+	  this, SLOT(colorizeBodySlot()));
+  
   // View -> Shade model -> Smooth
   smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
@@ -687,6 +693,7 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   colorizeMenu = viewMenu->addMenu(tr("Colorize"));
   colorizeMenu->addAction(showBoundaryColorAct);
+  colorizeMenu->addAction(showBodyColorAct);
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
@@ -3972,6 +3979,9 @@ void MainWindow::resetSlot()
     }
   }
 
+  glWidget->bcColors = false;
+  glWidget->bodyColors = false;
+
   glLoadIdentity();
   glWidget->rebuildLists();
   glWidget->updateGL();
@@ -4120,6 +4130,28 @@ void MainWindow::colorizeBoundarySlot()
   }
 
   glWidget->bcColors = !glWidget->bcColors;
+
+  if(glWidget->bcColors)
+    glWidget->bodyColors = false;
+
+  glWidget->rebuildLists();
+  synchronizeMenuToState();
+}
+
+// View -> Colorize -> Bodies
+//-----------------------------------------------------------------------------
+void MainWindow::colorizeBodySlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("No mesh - unable to colorize bodies");
+    return;
+  }
+
+  glWidget->bodyColors = !glWidget->bodyColors;
+
+  if(glWidget->bodyColors)
+    glWidget->bcColors = false;
+
   glWidget->rebuildLists();
   synchronizeMenuToState();
 }
@@ -5588,6 +5620,11 @@ void MainWindow::synchronizeMenuToState()
     showBoundaryColorAct->setIcon(iconChecked);
   else
     showBoundaryColorAct->setIcon(iconEmpty);
+
+  if(glWidget->bodyColors)
+    showBodyColorAct->setIcon(iconChecked);
+  else
+    showBodyColorAct->setIcon(iconEmpty);
 }
 
 

@@ -65,6 +65,7 @@ public:
   bool altPressed;
   bool bodyEditActive;
   bool bcColors;
+  bool bodyColors;
 
   QHash<int, int> boundaryMap;
   QHash<int, int> bodyMap;

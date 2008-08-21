@@ -90,6 +90,7 @@ GLWidget::GLWidget(QWidget *parent)
   quadratic = gluNewQuadric();	// for coordinate axis
 
   bcColors = false;
+  bodyColors = false;
 }
 
 
@@ -1089,11 +1090,23 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
       glColor3d(R, G, B);
 
-      if(bcColors) {
+      if(bcColors && (surface->nature == PDE_BOUNDARY)) {
 	glColor3d(0.5 + 0.5 * sin(1 * index),
 		  0.5 + 0.5 * cos(2 * index),
 		  0.5 + 0.5 * cos(3 * index));
-      }
+      } 
+	
+      if(bodyColors) {
+	int bodyIndex = surface->index;
+	if(surface->nature == PDE_BOUNDARY) {
+	  int parentIndex = surface->element[0];
+	  element_t *parent = &mesh->element[parentIndex];
+	  bodyIndex = parent->index;
+	}
+	glColor3d(0.5 + 0.5 * sin(1 * bodyIndex),
+		  0.5 + 0.5 * cos(2 * bodyIndex),
+		  0.5 + 0.5 * cos(3 * bodyIndex));
+      } 
 	
       glNormal3dv(surface->normal); 
       
@@ -1135,11 +1148,23 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
       glColor3d(R, G, B);
 
-      if(bcColors) {
+      if(bcColors && (surface->nature == PDE_BOUNDARY)) {
 	glColor3d(0.5 + 0.5 * sin(1 * index),
 		  0.5 + 0.5 * cos(2 * index),
 		  0.5 + 0.5 * cos(3 * index));
       }
+
+      if(bodyColors) {
+	int bodyIndex = surface->index;
+	if(surface->nature == PDE_BOUNDARY) {
+	  int parentIndex = surface->element[0];
+	  element_t *parent = &mesh->element[parentIndex];
+	  bodyIndex = parent->index;
+	}
+	glColor3d(0.5 + 0.5 * sin(1 * bodyIndex),
+		  0.5 + 0.5 * cos(2 * bodyIndex),
+		  0.5 + 0.5 * cos(3 * bodyIndex));
+      } 
 
       glNormal3dv(surface->normal); 
       

@@ -83,6 +83,7 @@ private slots:
   void showBoundaryIndexSlot();   // View -> Show numbering -> boundary index
   void showBodyIndexSlot();       // View -> Show numbering -> body index
   void colorizeBoundarySlot();    // View -> Colorize -> Boundaries
+  void colorizeBodySlot();        // View -> Colorize -> Bodies
   void selectDefinedSurfacesSlot();// View -> Select defined surfaces
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
@@ -216,6 +217,7 @@ private:
   QAction *showBoundaryIndexAct;  // View -> Show numbering -> boundary index
   QAction *showBodyIndexAct;      // View -> Show numbering -> body index
   QAction *showBoundaryColorAct;  // View -> Colorize -> Boundaries
+  QAction *showBodyColorAct;      // View -> Colorize -> Body
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
