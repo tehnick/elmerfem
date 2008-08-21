@@ -7,6 +7,7 @@ INCLUDEPATH += .
 
 # QT
 QT += opengl xml script
+CONFIG += uitools
 
 # QWT
 INCLUDEPATH += c:/qwt-5.1.1/include

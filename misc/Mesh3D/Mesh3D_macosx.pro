@@ -17,6 +17,7 @@ RC_FILE = M3Dicon.icns
 #LIBS += -L/c/Qwt-5.0.2/lib -lqwt5
 
 QT +=  xml script opengl
+CONFIG += uitools
 RC_FILE += Mesh3D.rc   
 
 # Input

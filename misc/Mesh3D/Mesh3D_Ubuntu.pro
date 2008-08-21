@@ -8,6 +8,7 @@ INCLUDEPATH += .
 # QT
 #----
 QT += opengl xml script
+CONFIG += uitools
 CONFIG += release 
 CONFIG -= debug
 
