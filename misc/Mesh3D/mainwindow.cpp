@@ -49,33 +49,17 @@
 #include <mach-o/dyld.h>
 #endif
 
- 
 using namespace std;
-
 
 #define OP_UNIFY_SURFACE  1
 #define OP_DIVIDE_SURFACE 2
 #define OP_UNIFY_EDGE     3
 #define OP_DIVIDE_EDGE    4
 
-#define BODY_MATERIAL 1
-#define BODY_INITIAL  2
-#define BODY_FORCE    3
-#define BODY_EQUATION 4
-
-class operation_t {
-public:
-  operation_t *next;
-  int type;
-  double angle;
-  int selected;
-  int *select_set;
-};
-
-int operations = 0;
-operation_t operation;
-
-QString saveDirName;
+#define BODY_MATERIAL     1
+#define BODY_INITIAL      2
+#define BODY_FORCE        3
+#define BODY_EQUATION     4
 
 // Construct main window...
 //-----------------------------------------------------------------------------
@@ -86,9 +70,11 @@ MainWindow::MainWindow()
   char executablePath[600] = {0};
   uint32_t len = 600;
   this->homePath = "";
-  if(! _NSGetExecutablePath( (char*) executablePath, &len)){
-    *(strrchr(executablePath,'/'))='\0';// remove executable name from path
-    *(strrchr(executablePath,'/'))='\0';// remove last path component name from path
+  if(! _NSGetExecutablePath( (char*) executablePath, &len)) {
+    // remove executable name from path:
+    *(strrchr(executablePath,'/'))='\0';
+    // remove last path component name from path:
+    *(strrchr(executablePath,'/'))='\0';
     this->homePath = executablePath;
   }
 #else
@@ -204,6 +190,7 @@ MainWindow::MainWindow()
   bcEditActive = false;
   bodyEditActive = false;
   showConvergence = true;
+  operations = 0;
 
   // set font for text editors:
   // QFont sansFont("Courier", 10);
@@ -224,7 +211,6 @@ MainWindow::MainWindow()
 MainWindow::~MainWindow()
 {
 }
-
 
 
 // Create actions...
@@ -1246,7 +1232,6 @@ void MainWindow::loadElmerMesh(QString dirName)
       exit(0);
       break;
     }
-
   }
 
   file.close();
@@ -1665,8 +1650,8 @@ void MainWindow::loadProjectSlot()
     
     QString equationName = splittedLine.at(2);
     QString materialName = splittedLine.at(3);
-    QString initialName = splittedLine.at(4);
-    QString forceName = splittedLine.at(5);
+    QString initialName  = splittedLine.at(4);
+    QString forceName    = splittedLine.at(5);
     
     BodyPropertyEditor *p = &bodyPropertyEditor[i];
     populateBodyComboBoxes(p);
@@ -5446,8 +5431,8 @@ void MainWindow::showaboutSlot()
 			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n\n"
-			"ElmerGUI is written in C++ using the Qt Cross-Platform "
-			"Application Framework:\n\n"
+			"ElmerGUI is based on the Qt4 Cross-Platform "
+			"Application Framework from Trolltech:\n\n"
 			"http://trolltech.com/products/qt\n\n"
 #ifdef OCC62
 			"This version of ElmerGUI has been compiled with the "
@@ -5456,7 +5441,8 @@ void MainWindow::showaboutSlot()
 			"http://www.opencascade.org/\n"
 			"http://sourceforge.net/projects/qtocc/\n\n"
 #endif
-			"The GPL-licensed source code of ElmerGUI is available from:\n\n"
+			"The GPL-licensed source code of ElmerGUI is available "
+			"from the subversion repository at:\n\n"
 			"http://sourceforge.net/projects/elmerfem\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));

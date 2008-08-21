@@ -31,6 +31,15 @@ class QAction;
 class QMenu;
 class GLWidget;
 
+class operation_t {
+ public:
+  operation_t *next;
+  int type;
+  double angle;
+  int selected;
+  int *select_set;
+};
+
 class MainWindow : public QMainWindow
 {
   Q_OBJECT
@@ -138,15 +147,15 @@ private slots:
 
 private:
   // widgets and helpers:
-  GLWidget *glWidget;             // central gl widget
-  SifWindow *sifWindow;           // sif text editor
-  MeshControl *meshControl;       // mesh generator control
-  BoundaryDivide *boundaryDivide; // boundary division control
-  Meshutils *meshutils;           // mesh manipulation utilities  
-  MeshingThread *meshingThread;   // meshing thread
-  SifWindow *solverLogWindow;     // Solver log
-  SifGenerator *sifGenerator;     // SIF generator
-  EdfEditor *edfEditor;           // Edf editor
+  GLWidget *glWidget;               // central gl widget
+  SifWindow *sifWindow;             // sif text editor
+  MeshControl *meshControl;         // mesh generator control
+  BoundaryDivide *boundaryDivide;   // boundary division control
+  Meshutils *meshutils;             // mesh manipulation utilities  
+  MeshingThread *meshingThread;     // meshing thread
+  SifWindow *solverLogWindow;       // Solver log
+  SifGenerator *sifGenerator;       // SIF generator
+  EdfEditor *edfEditor;             // Edf editor
   ConvergenceView *convergenceView; // Convergence plotter
 
   void createActions();
@@ -159,80 +168,80 @@ private:
   void saveContents(QString, DynamicEditor *, int);
   void loadContents(QString, DynamicEditor *, int, QString);
     
-  QMenu *fileMenu;                // File menu
-  QMenu *modelMenu;               // Model menu
-  QMenu *equationMenu;            // Model -> Equation menu
-  QMenu *materialMenu;            // Model -> Material menu
-  QMenu *bodyForceMenu;           // Model -> Body force...
-  QMenu *initialConditionMenu;    // Model -> Initial condition...
-  QMenu *boundaryConditionMenu;   // Model -> Boundary condition...
-  QMenu *editMenu;                // Edit menu
-  QMenu *viewMenu;                // View menu
-  QMenu *shadeMenu;               // View -> Shade model menu
-  QMenu *numberingMenu;           // View -> Show numbering menu
-  QMenu *meshMenu;                // Mesh menu
-  QMenu *solverMenu;              // Solver menu
-  QMenu *helpMenu;                // Help menu
+  QMenu *fileMenu;                  // File menu
+  QMenu *modelMenu;                 // Model menu
+  QMenu *equationMenu;              // Model -> Equation menu
+  QMenu *materialMenu;              // Model -> Material menu
+  QMenu *bodyForceMenu;             // Model -> Body force...
+  QMenu *initialConditionMenu;      // Model -> Initial condition...
+  QMenu *boundaryConditionMenu;     // Model -> Boundary condition...
+  QMenu *editMenu;                  // Edit menu
+  QMenu *viewMenu;                  // View menu
+  QMenu *shadeMenu;                 // View -> Shade model menu
+  QMenu *numberingMenu;             // View -> Show numbering menu
+  QMenu *meshMenu;                  // Mesh menu
+  QMenu *solverMenu;                // Solver menu
+  QMenu *helpMenu;                  // Help menu
 
-  QToolBar *fileToolBar;          // File toolbar
-  QToolBar *editToolBar;          // Edit toolbar
-  QToolBar *meshToolBar;          // Mesh toolbar
-  QToolBar *solverToolBar;        // Solver toolbar
+  QToolBar *fileToolBar;            // File toolbar
+  QToolBar *editToolBar;            // Edit toolbar
+  QToolBar *meshToolBar;            // Mesh toolbar
+  QToolBar *solverToolBar;          // Solver toolbar
 
-  QAction *openAct;               // File -> Open...
-  QAction *loadAct;               // File -> Load...
-  QAction *loadProjectAct;        // File -> Load project....
-  QAction *saveAct;               // File -> Save...
-  QAction *saveAsAct;             // File -> Save As...
-  QAction *saveProjectAct;        // File -> Save project...
-  QAction *savePictureAct;        // File -> Save picture as...
-  QAction *exitAct;               // File -> Exit
-  QAction *modelSetupAct;         // Model -> Setup...
-  QAction *addEquationAct;        // Model -> Equation...
-  QAction *addMaterialAct;        // Model -> Material...
-  QAction *addBodyForceAct;       // Model -> Body force...
+  QAction *openAct;                 // File -> Open...
+  QAction *loadAct;                 // File -> Load...
+  QAction *loadProjectAct;          // File -> Load project....
+  QAction *saveAct;                 // File -> Save...
+  QAction *saveAsAct;               // File -> Save As...
+  QAction *saveProjectAct;          // File -> Save project...
+  QAction *savePictureAct;          // File -> Save picture as...
+  QAction *exitAct;                 // File -> Exit
+  QAction *modelSetupAct;           // Model -> Setup...
+  QAction *addEquationAct;          // Model -> Equation...
+  QAction *addMaterialAct;          // Model -> Material...
+  QAction *addBodyForceAct;         // Model -> Body force...
   QAction *addInitialConditionAct;  // Model -> Initial condition...
   QAction *addBoundaryConditionAct; // Model -> Boundary condition...
-  QAction *bodyEditAct;           // Model -> Set body properties
-  QAction *bcEditAct;             // Model -> Set boundary conditions
-  QAction *modelSummaryAct;       // Model -> Summary...
-  QAction *modelClearAct;         // Model -> Clear
-  QAction *generateSifAct;        // Edit -> Generate sif
-  QAction *showsifAct;            // Edit -> Edit SIF...
-  QAction *editDefinitionsAct;    // Edit -> Edit SIF...
-  QAction *hidesurfacemeshAct;    // View -> Show surface mesh
-  QAction *hidesharpedgesAct;     // View -> Show sharp edges
-  QAction *viewCoordinatesAct;    // View -> Show sharp edges
-  QAction *selectAllSurfacesAct;  // View -> Select all surfaces
-  QAction *selectAllEdgesAct;     // View -> Select all edges
-  QAction *selectDefinedEdgesAct; // View -> Select defined edges
-  QAction *selectDefinedSurfacesAct; // View -> Select defined surfaces
-  QAction *showSurfaceNumbersAct; // View -> Show numbering -> element numbers
-  QAction *showEdgeNumbersAct;    // View -> Show numbering -> edge numbers
-  QAction *showNodeNumbersAct;    // View -> Show numbering -> node numbers
-  QAction *showBoundaryIndexAct;  // View -> Show numbering -> boundary index
-  QAction *showBodyIndexAct;      // View -> Show numbering -> body index
-  QAction *hideselectedAct;       // View -> Show selected
-  QAction *flatShadeAct;          // View -> Shade model -> Flat
-  QAction *smoothShadeAct;        // View -> Shade model -> Smooth
-  QAction *showallAct;            // View -> Show all
-  QAction *resetAct;              // View -> Reset model view
-  QAction *showCadModelAct;       // View -> Show cad model...
-  QAction *meshcontrolAct;        // Mesh -> Control...
-  QAction *remeshAct;             // Mesh -> Remesh
-  QAction *stopMeshingAct;        // Mesh -> Kill generator
-  QAction *surfaceDivideAct;      // Mesh -> Divide surface...
-  QAction *surfaceUnifyAct;       // Mesh -> Unify surface
-  QAction *edgeDivideAct;         // Mesh -> Divide edges...
-  QAction *edgeUnifyAct;          // Mesh -> Unify edge
+  QAction *bodyEditAct;             // Model -> Set body properties
+  QAction *bcEditAct;               // Model -> Set boundary conditions
+  QAction *modelSummaryAct;         // Model -> Summary...
+  QAction *modelClearAct;           // Model -> Clear
+  QAction *generateSifAct;          // Edit -> Generate sif
+  QAction *showsifAct;              // Edit -> Edit SIF...
+  QAction *editDefinitionsAct;      // Edit -> Edit SIF...
+  QAction *hidesurfacemeshAct;      // View -> Show surface mesh
+  QAction *hidesharpedgesAct;       // View -> Show sharp edges
+  QAction *viewCoordinatesAct;      // View -> Show sharp edges
+  QAction *selectAllSurfacesAct;    // View -> Select all surfaces
+  QAction *selectAllEdgesAct;       // View -> Select all edges
+  QAction *selectDefinedEdgesAct;   // View -> Select defined edges
+  QAction *selectDefinedSurfacesAct;// View -> Select defined surfaces
+  QAction *showSurfaceNumbersAct;   // View -> Show numbering -> element nmbrs
+  QAction *showEdgeNumbersAct;      // View -> Show numbering -> edge numbers
+  QAction *showNodeNumbersAct;      // View -> Show numbering -> node numbers
+  QAction *showBoundaryIndexAct;    // View -> Show numbering -> boundary index
+  QAction *showBodyIndexAct;        // View -> Show numbering -> body index
+  QAction *hideselectedAct;         // View -> Show selected
+  QAction *flatShadeAct;            // View -> Shade model -> Flat
+  QAction *smoothShadeAct;          // View -> Shade model -> Smooth
+  QAction *showallAct;              // View -> Show all
+  QAction *resetAct;                // View -> Reset model view
+  QAction *showCadModelAct;         // View -> Show cad model...
+  QAction *meshcontrolAct;          // Mesh -> Control...
+  QAction *remeshAct;               // Mesh -> Remesh
+  QAction *stopMeshingAct;          // Mesh -> Kill generator
+  QAction *surfaceDivideAct;        // Mesh -> Divide surface...
+  QAction *surfaceUnifyAct;         // Mesh -> Unify surface
+  QAction *edgeDivideAct;           // Mesh -> Divide edges...
+  QAction *edgeUnifyAct;            // Mesh -> Unify edge
   QAction *cleanHangingSharpEdgesAct; // Mesh -> Clean up
-  QAction *runsolverAct;          // Solver -> Run solver
-  QAction *killsolverAct;         // Solver -> Kill solver
-  QAction *showConvergenceAct;    // Solver -> Show convergence...
-  QAction *resultsAct;            // Solver -> Post process
-  QAction *killresultsAct;        // Solver -> Kill post process
-  QAction *compileSolverAct;      // Solver -> Compile...
-  QAction *aboutAct;              // Help -> About...
+  QAction *runsolverAct;            // Solver -> Run solver
+  QAction *killsolverAct;           // Solver -> Kill solver
+  QAction *showConvergenceAct;      // Solver -> Show convergence...
+  QAction *resultsAct;              // Solver -> Post process
+  QAction *killresultsAct;          // Solver -> Kill post process
+  QAction *compileSolverAct;        // Solver -> Compile...
+  QAction *aboutAct;                // Help -> About...
 
   // property editors etc:
   GeneralSetup *generalSetup;
@@ -292,11 +301,16 @@ private:
   void createBoundaryCheckBoxes(DynamicEditor *);
   void createBodyCheckBoxes(int,DynamicEditor *);
 
+  // operations
+  int operations;
+  operation_t operation;
+
   // state variables
   int activeGenerator;
   bool bcEditActive;
   bool bodyEditActive;
   bool showConvergence;
+  QString saveDirName;
   
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all
