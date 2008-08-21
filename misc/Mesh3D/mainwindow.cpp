@@ -1523,6 +1523,14 @@ void MainWindow::saveProjectSlot()
 
   boundaryPropertyFile.close();
 
+
+  //===========================================================================
+  //                              SAVE GENERAL SETUP
+  //===========================================================================
+  // todo
+
+  // All done:
+  saveDirName = projectDirName;
   logMessage("Ready");
 }
 
@@ -5446,8 +5454,8 @@ void MainWindow::showaboutSlot()
 			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n\n"
-			"ElmerGUI is written in C++ using the Qt Cross-Platform "
-			"Application Framework:\n\n"
+			"ElmerGUI is written for the Qt4 Cross-Platform "
+			"Application Framework by Trolltech:\n\n"
 			"http://trolltech.com/products/qt\n\n"
 #ifdef OCC62
 			"This version of ElmerGUI has been compiled with the "
@@ -5456,7 +5464,8 @@ void MainWindow::showaboutSlot()
 			"http://www.opencascade.org/\n"
 			"http://sourceforge.net/projects/qtocc/\n\n"
 #endif
-			"The GPL-licensed source code of ElmerGUI is available from:\n\n"
+			"The GPL-licensed source code of ElmerGUI is available "
+			"from the SVN repository at SF.net:\n\n"
 			"http://sourceforge.net/projects/elmerfem\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));

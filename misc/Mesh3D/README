@@ -10,6 +10,7 @@ Optional components:
 
    - tetlib 1.4.2 (or newer)
    - nglib 4.5 (or newer)
+   - Open Cascade 6.2
 
 Tetlib should be installed as described in ../tetgen_patches/REAEDME
 Nglib should be installed as described in ../netgen_patches/README
@@ -17,6 +18,13 @@ Nglib should be installed as described in ../netgen_patches/README
 Please read the file LICENSES before using any of these software components.
 
 To begin with, create a qt 4 project file for Mesh3D:
+
+a) Open Cascade 6.2 is not present:
+
+   $ rm -rf cad
+   $ qmake -project
+
+b) Open Cascade 6.2 is present:
 
    $ qmake -project
 
@@ -31,6 +39,7 @@ Note that libqtw5 may have a different name on different machines.
 You may also need to add:
 
    QT += opengl xml script
+   CONFIG += uitools
 
 If you are using Windows, you should also add:
 
@@ -43,6 +52,8 @@ Finally, type:
 
 This should produce the executable "./Mesh3D" or "./release/Mesh3D.exe". If the libs of tetgen and netgen are found in the path, their functionality will be available to the program. If the libs are not found, the program will run, but with some functionality disabled.
 
-Note:
+Finally:
 
-If you have OpenCascade 6.2 installed on your system, it is possible to link EmlerGUI against OCC62 and import brep and step file formats. You should then add -DOCC62 in the command line of the compiler, and link the executable against TKernel, TKMath, TKBRep, TKSTL, TKStdSchema, TKSTEP, TKXSBase. If OCC62 remains undefined, the pre-processor will filter out all OCC62-related lines.
+- set the environment variable ELMERGUI_HOME point to the directory containing the executable
+- copy the directory "edf" and its contents in ELMERGUI_HOME
+
