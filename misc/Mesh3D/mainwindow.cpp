@@ -5763,8 +5763,11 @@ void MainWindow::loadDefinitions()
   QFile qssFile(qssFileName);
   
   if(qssFile.exists()) {
+    cout << "Loading QSS style file...";
     qssFile.open(QFile::ReadOnly);
     QString styleSheet = QLatin1String(qssFile.readAll());
+    qssFile.close();
     qApp->setStyleSheet(styleSheet);    
+    cout << "done" << endl;
   }
 }
