@@ -238,7 +238,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
     // set up the scroll area:
     QScrollArea *src = new QScrollArea;
     src->setWidget(frmWidget);
-    src->setMinimumHeight(400);
+    src->setMinimumHeight(300);
     src->setWidgetResizable(true);
  
    // add the scroll area to tab:
