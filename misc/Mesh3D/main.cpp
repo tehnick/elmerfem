@@ -85,8 +85,15 @@ int main(int argc, char *argv[])
 #endif
     }    
 #endif
+
   QApplication app(argc, argv);
+  QPixmap pixmap(":/icons/splash.png");
+  pixmap.setMask(pixmap.mask());
+  QSplashScreen splash(pixmap);
+  splash.show();
+  app.processEvents();
   MainWindow mainWindow;
   mainWindow.show();
+  splash.finish(&mainWindow);
   return app.exec();
 }
