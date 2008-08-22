@@ -119,7 +119,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
     name = element.firstChildElement("Name");
 
     QGridLayout *grid = new QGridLayout;
-  
+
     int params = 0;
 
     for( int iter=0; iter<2; iter++ )
@@ -227,20 +227,21 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
         }
       }
     }
-    // add a dummy frame for stretching
-    QFrame *dummyFrame = new QFrame;
-    grid->addWidget(dummyFrame, params, 0);
-  
-    // put grid in a frame
-    QFrame *frm = new QFrame;
-    frm->setLayout(grid);
+    // add a dummy widget in the left bottom corner of grid for stretching:
+    QWidget *dummyWidget = new QWidget;
+    grid->addWidget(dummyWidget, params, 0);
 
+    // put the grid in a widget:
+    QWidget *frmWidget = new QWidget;
+    frmWidget->setLayout(grid);
+
+    // set up the scroll area:
     QScrollArea *src = new QScrollArea;
-    src->setWidget(frm);
+    src->setWidget(frmWidget);
     src->setMinimumHeight(400);
     src->setWidgetResizable(true);
  
-   // add frame to tab
+   // add the scroll area to tab:
    if (params>0) {
      tabWidget->addTab(src, name.text().trimmed());
    }
