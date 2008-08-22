@@ -81,7 +81,8 @@ int main(int argc, char *argv[])
 
 
 #ifdef DEBUG
-        printf("PATH = %s\nDYLD_LIBRARY_PATH=%s\nELMER_HOME=%s\n", getenv("PATH"), getenv("DYLD_LIBRARY_PATH"), getenv("ELMER_HOME"));
+        printf("PATH = %s\nDYLD_LIBRARY_PATH=%s\nELMER_HOME=%s\n", 
+	       getenv("PATH"), getenv("DYLD_LIBRARY_PATH"), getenv("ELMER_HOME"));
 #endif
     }    
 #endif
@@ -89,7 +90,7 @@ int main(int argc, char *argv[])
   QApplication app(argc, argv);
 
   bool showSplash = true;
-  if( (argc == 2) && (!strcmp(argv[1], "--nosplash") || !strcmp(argv[1], "-n")) )
+  if( (argc == 2) && (!strcmp(argv[1], "--nosplash") || !strcmp(argv[1], "-n")))
     showSplash = false;
 
   QPixmap pixmap(":/icons/splash.png");
@@ -98,6 +99,7 @@ int main(int argc, char *argv[])
 
   if(showSplash) {
     splash.show();
+    splash.showMessage("ElmerGUI loading...", Qt::AlignBottom);
     app.processEvents();
   }
 
