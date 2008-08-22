@@ -106,11 +106,11 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   root = elmerDefs.documentElement();
 
   tabWidget = new QTabWidget;
-  tabWidget->setTabShape(QTabWidget::Triangular);
+  //tabWidget->setTabShape(QTabWidget::Triangular);
   tabWidget->setUsesScrollButtons(true);
   tabWidget->setElideMode(Qt::ElideNone);
   all_stuff = root.firstChildElement("ALL");
-  element   = root.firstChildElement("PDE");
+  element = root.firstChildElement("PDE");
 
   tabs = 0;
 

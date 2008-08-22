@@ -5633,9 +5633,8 @@ void MainWindow::synchronizeMenuToState()
 void MainWindow::loadDefinitions()
 {
 
-  // load general definitions file:
+  // Determine edf-file location and name:
   //-------------------------------
-   
 #ifdef __APPLE__
   QString generalDefs = this->homePath +  "/edf/edf.xml";          
 #else
@@ -5646,6 +5645,8 @@ void MainWindow::loadDefinitions()
     generalDefs = QString(elmerGuiHome) + "/edf/edf.xml";
 #endif
 
+  // Load general definitions file:
+  //--------------------------------
   cout << "Load " << string(generalDefs.toAscii()) << "...";
   cout.flush();
 
@@ -5763,7 +5764,7 @@ void MainWindow::loadDefinitions()
   QFile qssFile(qssFileName);
   
   if(qssFile.exists()) {
-    cout << "Loading QSS style file...";
+    cout << "Loading QSS style sheet...";
     qssFile.open(QFile::ReadOnly);
     QString styleSheet = QLatin1String(qssFile.readAll());
     qssFile.close();
