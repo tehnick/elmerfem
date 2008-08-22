@@ -87,13 +87,25 @@ int main(int argc, char *argv[])
 #endif
 
   QApplication app(argc, argv);
+
+  bool showSplash = true;
+  if( (argc == 2) && (!strcmp(argv[1], "--nosplash") || !strcmp(argv[1], "-n")) )
+    showSplash = false;
+
   QPixmap pixmap(":/icons/splash.png");
   pixmap.setMask(pixmap.mask());
   QSplashScreen splash(pixmap);
-  splash.show();
-  app.processEvents();
+
+  if(showSplash) {
+    splash.show();
+    app.processEvents();
+  }
+
   MainWindow mainWindow;
   mainWindow.show();
-  splash.finish(&mainWindow);
+
+  if(showSplash)
+    splash.finish(&mainWindow);
+
   return app.exec();
 }
