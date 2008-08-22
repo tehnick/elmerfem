@@ -5753,4 +5753,18 @@ void MainWindow::loadDefinitions()
       cout.flush();
     }
   }
+
+  // Load qss:
+  //-----------
+  QString qssFileName = "elmergui.qss";
+  if(elmerGuiHome != NULL) 
+    qssFileName = QString(elmerGuiHome) + "/elmergui.qss";
+
+  QFile qssFile(qssFileName);
+  
+  if(qssFile.exists()) {
+    qssFile.open(QFile::ReadOnly);
+    QString styleSheet = QLatin1String(qssFile.readAll());
+    qApp->setStyleSheet(styleSheet);    
+  }
 }
