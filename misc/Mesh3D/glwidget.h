@@ -70,6 +70,8 @@ public:
   QColor backgroundColor;
   QColor surfaceColor;
   QColor edgeColor;
+  QColor surfaceMeshColor;
+  QColor sharpEdgeColor;
 
   QHash<int, int> boundaryMap;
   QHash<int, int> bodyMap;

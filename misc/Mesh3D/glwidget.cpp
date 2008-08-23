@@ -58,6 +58,8 @@ GLWidget::GLWidget(QWidget *parent)
   backgroundColor = Qt::white;
   surfaceColor = Qt::cyan;
   edgeColor = Qt::green;
+  surfaceMeshColor = Qt::black;
+  sharpEdgeColor = Qt::black;
 
   stateFlatShade = true;
   stateDrawSurfaceMesh = true;
@@ -1021,7 +1023,7 @@ GLuint GLWidget::makeLists()
       l->nature = PDE_UNKNOWN;
       l->type = SURFACEMESHLIST;
       l->index = i;
-      l->object = generateSurfaceMeshList(l->index, Qt::black); // black
+      l->object = generateSurfaceMeshList(l->index, surfaceMeshColor); // black
       l->child = -1;
       l->parent = current_index-2;
       l->selected = false;
@@ -1052,7 +1054,7 @@ GLuint GLWidget::makeLists()
   l->nature = PDE_UNKNOWN;
   l->type = SHARPEDGELIST;
   l->index = -1;
-  l->object = generateSharpEdgeList(Qt::black); // black
+  l->object = generateSharpEdgeList(sharpEdgeColor); // black
   l->child = -1;
   l->parent = -1;
   l->selected = false;

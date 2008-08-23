@@ -509,17 +509,29 @@ void MainWindow::createActions()
   connect(chooseBGColorAct, SIGNAL(triggered()), 
 	  this, SLOT(backgroundColorSlot()));
   
-  // View -> Colors -> Surfaces
-  chooseSurfaceColorAct = new QAction(QIcon(), tr("Surfaces"), this);
+  // View -> Colors -> Surface elements
+  chooseSurfaceColorAct = new QAction(QIcon(), tr("Surface elements"), this);
   chooseSurfaceColorAct->setStatusTip(tr("Set surface color"));
   connect(chooseSurfaceColorAct, SIGNAL(triggered()), 
 	  this, SLOT(surfaceColorSlot()));
   
-  // View -> Colors -> Edges
-  chooseEdgeColorAct = new QAction(QIcon(), tr("Edges"), this);
+  // View -> Colors -> Edge elements
+  chooseEdgeColorAct = new QAction(QIcon(), tr("Edge elements"), this);
   chooseEdgeColorAct->setStatusTip(tr("Set edge color"));
   connect(chooseEdgeColorAct, SIGNAL(triggered()), 
 	  this, SLOT(edgeColorSlot()));
+  
+  // View -> Colors -> Surface mesh
+  chooseSurfaceMeshColorAct = new QAction(QIcon(), tr("Surface mesh"), this);
+  chooseSurfaceMeshColorAct->setStatusTip(tr("Set surface mesh color"));
+  connect(chooseSurfaceMeshColorAct, SIGNAL(triggered()), 
+	  this, SLOT(surfaceMeshColorSlot()));
+  
+  // View -> Colors -> Sharp edges
+  chooseSharpEdgeColorAct = new QAction(QIcon(), tr("Sharp edges"), this);
+  chooseSharpEdgeColorAct->setStatusTip(tr("Set sharp edge color"));
+  connect(chooseSharpEdgeColorAct, SIGNAL(triggered()), 
+	  this, SLOT(sharpEdgeColorSlot()));
   
   // View -> Colors -> Boundaries
   showBoundaryColorAct = new QAction(QIcon(), tr("Boundaries"), this);
@@ -711,8 +723,12 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   colorizeMenu = viewMenu->addMenu(tr("Colors"));
   colorizeMenu->addAction(chooseBGColorAct);
+  colorizeMenu->addSeparator();
   colorizeMenu->addAction(chooseSurfaceColorAct);
   colorizeMenu->addAction(chooseEdgeColorAct);
+  colorizeMenu->addSeparator();
+  colorizeMenu->addAction(chooseSurfaceMeshColorAct);
+  colorizeMenu->addAction(chooseSharpEdgeColorAct);
   colorizeMenu->addSeparator();
   colorizeMenu->addAction(showBoundaryColorAct);
   colorizeMenu->addAction(showBodyColorAct);
@@ -4216,6 +4232,36 @@ void MainWindow::edgeColorSlot()
 
   QColor newColor = QColorDialog::getColor(glWidget->edgeColor);
   glWidget->edgeColor = newColor;
+  glWidget->rebuildLists();
+}
+
+
+// View -> Colors -> Surface mesh
+//-----------------------------------------------------------------------------
+void MainWindow::surfaceMeshColorSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to change surface mesh color when the mesh is empty");
+    return;
+  }
+
+  QColor newColor = QColorDialog::getColor(glWidget->surfaceMeshColor);
+  glWidget->surfaceMeshColor = newColor;
+  glWidget->rebuildLists();
+}
+
+
+// View -> Colors -> Sharp edges
+//-----------------------------------------------------------------------------
+void MainWindow::sharpEdgeColorSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to change sharp edge colors when the mesh is empty");
+    return;
+  }
+
+  QColor newColor = QColorDialog::getColor(glWidget->sharpEdgeColor);
+  glWidget->sharpEdgeColor = newColor;
   glWidget->rebuildLists();
 }
 
