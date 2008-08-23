@@ -69,6 +69,7 @@ public:
 
   QColor backgroundColor;
   QColor surfaceColor;
+  QColor edgeColor;
 
   QHash<int, int> boundaryMap;
   QHash<int, int> bodyMap;
@@ -101,12 +102,12 @@ private:
   
   QPoint lastPos;
   
-  GLuint generateSurfaceList(int, double, double, double);
-  GLuint generateSurfaceMeshList(int, double, double, double);
-  GLuint generateEdgeList(int, double, double, double);
-  GLuint generateSharpEdgeList(double, double, double);
+  GLuint generateSurfaceList(int, QColor);
+  GLuint generateSurfaceMeshList(int, QColor);
+  GLuint generateEdgeList(int, QColor);
+  GLuint generateSharpEdgeList(QColor);
   
-  GLUquadricObj *quadratic; 
+  GLUquadricObj *quadratic; // for coordinates
   void drawCoordinates();
 
 };

@@ -509,6 +509,18 @@ void MainWindow::createActions()
   connect(chooseBGColorAct, SIGNAL(triggered()), 
 	  this, SLOT(backgroundColorSlot()));
   
+  // View -> Colors -> Surfaces
+  chooseSurfaceColorAct = new QAction(QIcon(), tr("Surfaces"), this);
+  chooseSurfaceColorAct->setStatusTip(tr("Set surface color"));
+  connect(chooseSurfaceColorAct, SIGNAL(triggered()), 
+	  this, SLOT(surfaceColorSlot()));
+  
+  // View -> Colors -> Edges
+  chooseEdgeColorAct = new QAction(QIcon(), tr("Edges"), this);
+  chooseEdgeColorAct->setStatusTip(tr("Set edge color"));
+  connect(chooseEdgeColorAct, SIGNAL(triggered()), 
+	  this, SLOT(edgeColorSlot()));
+  
   // View -> Colors -> Boundaries
   showBoundaryColorAct = new QAction(QIcon(), tr("Boundaries"), this);
   showBoundaryColorAct->setStatusTip(tr("Visualize different boundary parts with color patches"));
@@ -699,6 +711,8 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   colorizeMenu = viewMenu->addMenu(tr("Colors"));
   colorizeMenu->addAction(chooseBGColorAct);
+  colorizeMenu->addAction(chooseSurfaceColorAct);
+  colorizeMenu->addAction(chooseEdgeColorAct);
   colorizeMenu->addSeparator();
   colorizeMenu->addAction(showBoundaryColorAct);
   colorizeMenu->addAction(showBodyColorAct);
@@ -4128,7 +4142,7 @@ void MainWindow::showBodyIndexSlot()
     logMessage("Body indices hidden");    
 }
 
-// View -> Colorize -> Boundaries
+// View -> Colors -> Boundaries
 //-----------------------------------------------------------------------------
 void MainWindow::colorizeBoundarySlot()
 {
@@ -4146,7 +4160,7 @@ void MainWindow::colorizeBoundarySlot()
   synchronizeMenuToState();
 }
 
-// View -> Colorize -> Bodies
+// View -> Colors -> Bodies
 //-----------------------------------------------------------------------------
 void MainWindow::colorizeBodySlot()
 {
@@ -4165,7 +4179,7 @@ void MainWindow::colorizeBodySlot()
 }
 
 
-// View -> Colorize -> Background
+// View -> Colors -> Background
 //-----------------------------------------------------------------------------
 void MainWindow::backgroundColorSlot()
 {
@@ -4173,6 +4187,38 @@ void MainWindow::backgroundColorSlot()
   glWidget->qglClearColor(newColor);
   glWidget->backgroundColor = newColor;
 }
+
+
+
+// View -> Colors -> Surface
+//-----------------------------------------------------------------------------
+void MainWindow::surfaceColorSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to change surface color when the mesh is empty");
+    return;
+  }
+
+  QColor newColor = QColorDialog::getColor(glWidget->surfaceColor);
+  glWidget->surfaceColor = newColor;
+  glWidget->rebuildLists();
+}
+
+
+// View -> Colors -> Edge
+//-----------------------------------------------------------------------------
+void MainWindow::edgeColorSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to change edge color when the mesh is empty");
+    return;
+  }
+
+  QColor newColor = QColorDialog::getColor(glWidget->edgeColor);
+  glWidget->edgeColor = newColor;
+  glWidget->rebuildLists();
+}
+
 
 // View -> Cad model...
 //-----------------------------------------------------------------------------

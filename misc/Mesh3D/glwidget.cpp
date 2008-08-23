@@ -55,8 +55,9 @@ using namespace std;
 GLWidget::GLWidget(QWidget *parent)
   : QGLWidget(parent)
 {
-  backgroundColor = QColor::fromRgb(255, 255, 255, 255);
-  surfaceColor = QColor::fromRgb(0, 255, 255, 255);
+  backgroundColor = Qt::white;
+  surfaceColor = Qt::cyan;
+  edgeColor = Qt::green;
 
   stateFlatShade = true;
   stateDrawSurfaceMesh = true;
@@ -632,14 +633,14 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
               if ( surf->index == l2->index )
                 surf->selected=l2->selected;
             }
-	    l2->object = generateSurfaceList(l2->index, 0, 1, 1); // cyan
+	    l2->object = generateSurfaceList(l2->index, surfaceColor); // cyan
 	  } else if(l2->type == EDGELIST) {
             for( int j=0; j<mesh->edges; j++ ) {
               edge_t *edge=&mesh->edge[j];
               if ( edge->index == l2->index )
                 edge->selected=l2->selected;
             }
-	    l2->object = generateEdgeList(l2->index, 0, 1, 0); // green
+	    l2->object = generateEdgeList(l2->index, edgeColor); // green
 	  }
 	}
       }
@@ -653,9 +654,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     // Highlight current selection:
     if(l->type == SURFACELIST) {
       if(l->selected) {
-	l->object = generateSurfaceList(l->index, 1, 0, 0); // red
+	l->object = generateSurfaceList(l->index, Qt::red); // red
       } else {
-	l->object = generateSurfaceList(l->index, 0, 1, 1); // cyan
+	l->object = generateSurfaceList(l->index, surfaceColor); // cyan
       }
 
       for( int i=0; i<mesh->surfaces; i++ ) {
@@ -665,9 +666,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
     } else if(l->type == EDGELIST) {
       if(l->selected) {
-	l->object = generateEdgeList(l->index, 1, 0, 0); // red
+	l->object = generateEdgeList(l->index, Qt::red); // red
       } else {
-	l->object = generateEdgeList(l->index, 0, 1, 0); // green
+	l->object = generateEdgeList(l->index, edgeColor); // green
       }
       for( int i=0; i<mesh->edges; i++ ) {
         edge_t *edge = &mesh->edge[i];
@@ -839,9 +840,9 @@ void GLWidget::rebuildSurfaceLists()
      {
        glDeleteLists( l->object,1 );
        if(l->selected) {
- 	 l->object = generateSurfaceList(l->index, 1, 0, 0); // red
+ 	 l->object = generateSurfaceList(l->index, Qt::red); // red
        } else {
- 	 l->object = generateSurfaceList(l->index, 0, 1, 1); // cyan
+ 	 l->object = generateSurfaceList(l->index, surfaceColor); // cyan
        }
      }
   }
@@ -858,9 +859,9 @@ void GLWidget::rebuildEdgeLists()
      {
        glDeleteLists( l->object,1 );
        if(l->selected) {
- 	 l->object = generateEdgeList(l->index, 1, 0, 0); // red
+ 	 l->object = generateEdgeList(l->index, Qt::red); // red
        } else {
- 	 l->object = generateEdgeList(l->index, 0, 1, 0); // green
+ 	 l->object = generateEdgeList(l->index, edgeColor); // green
        }
      }
   }
@@ -1009,7 +1010,7 @@ GLuint GLWidget::makeLists()
       l->nature = surface_nature[i];
       l->type = SURFACELIST;
       l->index = i;
-      l->object = generateSurfaceList(l->index, 0, 1, 1);
+      l->object = generateSurfaceList(l->index, surfaceColor); // cyan
       l->child = current_index;
       l->parent = -1;
       l->selected = false;
@@ -1020,7 +1021,7 @@ GLuint GLWidget::makeLists()
       l->nature = PDE_UNKNOWN;
       l->type = SURFACEMESHLIST;
       l->index = i;
-      l->object = generateSurfaceMeshList(l->index, 0, 0, 0);
+      l->object = generateSurfaceMeshList(l->index, Qt::black); // black
       l->child = -1;
       l->parent = current_index-2;
       l->selected = false;
@@ -1036,7 +1037,7 @@ GLuint GLWidget::makeLists()
       l->nature = edge_nature[i]; 
       l->type = EDGELIST;
       l->index = i;
-      l->object = generateEdgeList(l->index, 0, 1, 0);
+      l->object = generateEdgeList(l->index, edgeColor); // green
       l->child = -1;
       l->parent = -1;
       l->selected = false;
@@ -1051,7 +1052,7 @@ GLuint GLWidget::makeLists()
   l->nature = PDE_UNKNOWN;
   l->type = SHARPEDGELIST;
   l->index = -1;
-  l->object = generateSharpEdgeList(0, 0, 0); // black
+  l->object = generateSharpEdgeList(Qt::black); // black
   l->child = -1;
   l->parent = -1;
   l->selected = false;
@@ -1072,9 +1073,13 @@ GLuint GLWidget::makeLists()
 
 // Generate surface list...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
+GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
 {
   double x0[3], x1[3], x2[3], x3[3];
+
+  double R = qColor.red() / 255.0;
+  double G = qColor.green() / 255.0;
+  double B = qColor.blue() / 255.0;
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
@@ -1246,9 +1251,13 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
 // Generate surface edge list...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::generateSurfaceMeshList(int index, double R, double G, double B)
+GLuint GLWidget::generateSurfaceMeshList(int index, QColor qColor)
 {
   double x0[3], x1[3], x2[3], x3[3];
+
+  double R = qColor.red() / 255.0;
+  double G = qColor.green() / 255.0;
+  double B = qColor.blue() / 255.0;
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
@@ -1340,9 +1349,13 @@ GLuint GLWidget::generateSurfaceMeshList(int index, double R, double G, double B
 
 // Generate edge list...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
+GLuint GLWidget::generateEdgeList(int index, QColor qColor)
 {
   double x0[3], x1[3];
+
+  double R = qColor.red() / 255.0;
+  double G = qColor.green() / 255.0;
+  double B = qColor.blue() / 255.0;
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
@@ -1382,9 +1395,13 @@ GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
 
 // Generate sharp edge list...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::generateSharpEdgeList(double R, double G, double B)
+GLuint GLWidget::generateSharpEdgeList(QColor qColor)
 {
   double x0[3], x1[3];
+
+  double R = qColor.red() / 255.0;
+  double G = qColor.green() / 255.0;
+  double B = qColor.blue() / 255.0;
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);

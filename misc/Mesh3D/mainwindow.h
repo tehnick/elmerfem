@@ -83,9 +83,11 @@ private slots:
   void showNodeNumbersSlot();     // View -> Show numbering -> node numbering
   void showBoundaryIndexSlot();   // View -> Show numbering -> boundary index
   void showBodyIndexSlot();       // View -> Show numbering -> body index
-  void colorizeBoundarySlot();    // View -> Colorize -> Boundaries
-  void colorizeBodySlot();        // View -> Colorize -> Bodies
-  void backgroundColorSlot();     // View -> Colorize -> Background color
+  void backgroundColorSlot();     // View -> Colors -> Background
+  void surfaceColorSlot();        // View -> Colors -> Surfaces
+  void edgeColorSlot();           // View -> Colors -> Edges
+  void colorizeBoundarySlot();    // View -> Colors -> Boundaries
+  void colorizeBodySlot();        // View -> Colors -> Bodies
   void selectDefinedSurfacesSlot();// View -> Select defined surfaces
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
@@ -175,7 +177,7 @@ private:
   QMenu *viewMenu;                // View menu
   QMenu *shadeMenu;               // View -> Shade model menu
   QMenu *numberingMenu;           // View -> Show numbering menu
-  QMenu *colorizeMenu;            // View -> Colorize menu
+  QMenu *colorizeMenu;            // View -> Colors menu
   QMenu *meshMenu;                // Mesh menu
   QMenu *solverMenu;              // Solver menu
   QMenu *helpMenu;                // Help menu
@@ -218,9 +220,11 @@ private:
   QAction *showNodeNumbersAct;    // View -> Show numbering -> node numbers
   QAction *showBoundaryIndexAct;  // View -> Show numbering -> boundary index
   QAction *showBodyIndexAct;      // View -> Show numbering -> body index
-  QAction *showBoundaryColorAct;  // View -> Colorize -> Boundaries
-  QAction *showBodyColorAct;      // View -> Colorize -> Body
-  QAction *chooseBGColorAct;      // View -> Colorize -> Background color
+  QAction *chooseBGColorAct;      // View -> Colors -> Background color
+  QAction *chooseSurfaceColorAct; // View -> Colors -> Surface color
+  QAction *chooseEdgeColorAct;    // View -> Colors -> Edge color
+  QAction *showBoundaryColorAct;  // View -> Colors -> Boundaries
+  QAction *showBodyColorAct;      // View -> Colors -> Body
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
