@@ -56,6 +56,7 @@ GLWidget::GLWidget(QWidget *parent)
   : QGLWidget(parent)
 {
   backgroundColor = QColor::fromRgb(255, 255, 255, 255);
+  surfaceColor = QColor::fromRgb(0, 255, 255, 255);
 
   stateFlatShade = true;
   stateDrawSurfaceMesh = true;
@@ -68,6 +69,8 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawNodeNumbers = false;
   stateDrawBoundaryIndex = false;
   stateDrawBodyIndex = false;
+  stateBcColors = false;
+  stateBodyColors = false;
 
   currentlySelectedBody = -1;
 
@@ -88,9 +91,6 @@ GLWidget::GLWidget(QWidget *parent)
   altPressed = false;
 
   quadratic = gluNewQuadric();	// for coordinate axis
-
-  bcColors = false;
-  bodyColors = false;
 }
 
 
@@ -1090,13 +1090,13 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
       glColor3d(R, G, B);
 
-      if(bcColors && (surface->nature == PDE_BOUNDARY)) {
+      if(stateBcColors && (surface->nature == PDE_BOUNDARY)) {
 	glColor3d(0.5 + 0.5 * sin(1 * index),
 		  0.5 + 0.5 * cos(2 * index),
 		  0.5 + 0.5 * cos(3 * index));
       } 
 	
-      if(bodyColors) {
+      if(stateBodyColors) {
 	int bodyIndex = surface->index;
 	if(surface->nature == PDE_BOUNDARY) {
 	  int parentIndex = surface->element[0];
@@ -1148,13 +1148,13 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
       glColor3d(R, G, B);
 
-      if(bcColors && (surface->nature == PDE_BOUNDARY)) {
+      if(stateBcColors && (surface->nature == PDE_BOUNDARY)) {
 	glColor3d(0.5 + 0.5 * sin(1 * index),
 		  0.5 + 0.5 * cos(2 * index),
 		  0.5 + 0.5 * cos(3 * index));
       }
 
-      if(bodyColors) {
+      if(stateBodyColors) {
 	int bodyIndex = surface->index;
 	if(surface->nature == PDE_BOUNDARY) {
 	  int parentIndex = surface->element[0];

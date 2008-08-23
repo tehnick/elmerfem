@@ -59,13 +59,16 @@ public:
   bool stateDrawNodeNumbers;
   bool stateDrawBoundaryIndex;
   bool stateDrawBodyIndex;
+  bool stateBcColors;
+  bool stateBodyColors;
   int currentlySelectedBody;
   bool ctrlPressed;
   bool shiftPressed;
   bool altPressed;
   bool bodyEditActive;
-  bool bcColors;
-  bool bodyColors;
+
+  QColor backgroundColor;
+  QColor surfaceColor;
 
   QHash<int, int> boundaryMap;
   QHash<int, int> bodyMap;
@@ -97,7 +100,6 @@ private:
   void getMatrix();
   
   QPoint lastPos;
-  QColor backgroundColor;
   
   GLuint generateSurfaceList(int, double, double, double);
   GLuint generateSurfaceMeshList(int, double, double, double);

@@ -503,15 +503,21 @@ void MainWindow::createActions()
   connect(showBodyIndexAct, SIGNAL(triggered()), 
 	  this, SLOT(showBodyIndexSlot()));
 
-  // View -> Colorize -> Boundaries
+  // View -> Colors -> Background
+  chooseBGColorAct = new QAction(QIcon(), tr("Background"), this);
+  chooseBGColorAct->setStatusTip(tr("Set background color"));
+  connect(chooseBGColorAct, SIGNAL(triggered()), 
+	  this, SLOT(backgroundColorSlot()));
+  
+  // View -> Colors -> Boundaries
   showBoundaryColorAct = new QAction(QIcon(), tr("Boundaries"), this);
-  showBoundaryColorAct->setStatusTip(tr("Visualize boundary indices with colors"));
+  showBoundaryColorAct->setStatusTip(tr("Visualize different boundary parts with color patches"));
   connect(showBoundaryColorAct, SIGNAL(triggered()), 
 	  this, SLOT(colorizeBoundarySlot()));
   
-  // View -> Colorize -> Bodies
+  // View -> Colors -> Bodies
   showBodyColorAct = new QAction(QIcon(), tr("Bodies"), this);
-  showBodyColorAct->setStatusTip(tr("Visualize body indices with colors"));
+  showBodyColorAct->setStatusTip(tr("Visualize different body with color patches"));
   connect(showBodyColorAct, SIGNAL(triggered()), 
 	  this, SLOT(colorizeBodySlot()));
   
@@ -691,7 +697,9 @@ void MainWindow::createMenus()
   numberingMenu->addAction(showBoundaryIndexAct);
   numberingMenu->addAction(showBodyIndexAct);
   viewMenu->addSeparator();
-  colorizeMenu = viewMenu->addMenu(tr("Colorize"));
+  colorizeMenu = viewMenu->addMenu(tr("Colors"));
+  colorizeMenu->addAction(chooseBGColorAct);
+  colorizeMenu->addSeparator();
   colorizeMenu->addAction(showBoundaryColorAct);
   colorizeMenu->addAction(showBodyColorAct);
   viewMenu->addSeparator();
@@ -3979,8 +3987,8 @@ void MainWindow::resetSlot()
     }
   }
 
-  glWidget->bcColors = false;
-  glWidget->bodyColors = false;
+  glWidget->stateBcColors = false;
+  glWidget->stateBodyColors = false;
 
   glLoadIdentity();
   glWidget->rebuildLists();
@@ -4129,10 +4137,10 @@ void MainWindow::colorizeBoundarySlot()
     return;
   }
 
-  glWidget->bcColors = !glWidget->bcColors;
+  glWidget->stateBcColors = !glWidget->stateBcColors;
 
-  if(glWidget->bcColors)
-    glWidget->bodyColors = false;
+  if(glWidget->stateBcColors)
+    glWidget->stateBodyColors = false;
 
   glWidget->rebuildLists();
   synchronizeMenuToState();
@@ -4147,16 +4155,24 @@ void MainWindow::colorizeBodySlot()
     return;
   }
 
-  glWidget->bodyColors = !glWidget->bodyColors;
+  glWidget->stateBodyColors = !glWidget->stateBodyColors;
 
-  if(glWidget->bodyColors)
-    glWidget->bcColors = false;
+  if(glWidget->stateBodyColors)
+    glWidget->stateBcColors = false;
 
   glWidget->rebuildLists();
   synchronizeMenuToState();
 }
 
 
+// View -> Colorize -> Background
+//-----------------------------------------------------------------------------
+void MainWindow::backgroundColorSlot()
+{
+  QColor newColor = QColorDialog::getColor(glWidget->backgroundColor);
+  glWidget->qglClearColor(newColor);
+  glWidget->backgroundColor = newColor;
+}
 
 // View -> Cad model...
 //-----------------------------------------------------------------------------
@@ -5616,12 +5632,12 @@ void MainWindow::synchronizeMenuToState()
   else
     showConvergenceAct->setIcon(iconEmpty);
 
-  if(glWidget->bcColors)
+  if(glWidget->stateBcColors)
     showBoundaryColorAct->setIcon(iconChecked);
   else
     showBoundaryColorAct->setIcon(iconEmpty);
 
-  if(glWidget->bodyColors)
+  if(glWidget->stateBodyColors)
     showBodyColorAct->setIcon(iconChecked);
   else
     showBodyColorAct->setIcon(iconEmpty);

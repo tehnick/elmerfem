@@ -96,7 +96,7 @@ int main(int argc, char *argv[])
   QPixmap pixmap(":/icons/splash.png");
   pixmap.setMask(pixmap.mask());
   QSplashScreen splash(pixmap);
-
+  
   if(showSplash) {
     splash.show();
     splash.showMessage("ElmerGUI loading...", Qt::AlignBottom);

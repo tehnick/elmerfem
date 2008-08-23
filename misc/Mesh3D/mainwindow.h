@@ -5,7 +5,8 @@
 #include <QProcess>
 #include <QAction>
 #include <QDomDocument>
-#include <QtUiTools> 
+#include <QtUiTools>
+#include <QColorDialog>
 #include "maxlimits.h"
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
@@ -84,6 +85,7 @@ private slots:
   void showBodyIndexSlot();       // View -> Show numbering -> body index
   void colorizeBoundarySlot();    // View -> Colorize -> Boundaries
   void colorizeBodySlot();        // View -> Colorize -> Bodies
+  void backgroundColorSlot();     // View -> Colorize -> Background color
   void selectDefinedSurfacesSlot();// View -> Select defined surfaces
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
@@ -218,6 +220,7 @@ private:
   QAction *showBodyIndexAct;      // View -> Show numbering -> body index
   QAction *showBoundaryColorAct;  // View -> Colorize -> Boundaries
   QAction *showBodyColorAct;      // View -> Colorize -> Body
+  QAction *chooseBGColorAct;      // View -> Colorize -> Background color
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
