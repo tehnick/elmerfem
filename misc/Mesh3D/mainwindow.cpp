@@ -4465,6 +4465,11 @@ void MainWindow::surfaceDivideSlot()
 #define TARGET_SURFACES 1
 #define TARGET_EDGES    2
   
+  if(glWidget->mesh == NULL) {
+    logMessage("There is nothing to divide - mesh is empty");
+    return;
+  }
+
   boundaryDivide->target = TARGET_SURFACES;
   boundaryDivide->show();
 }
@@ -4693,6 +4698,11 @@ void MainWindow::edgeDivideSlot()
 #define TARGET_UNKNOWN  0
 #define TARGET_SURFACES 1
 #define TARGET_EDGES    2
+
+  if(glWidget->mesh == NULL) {
+    logMessage("There is nothing to divide - mesh is empty");
+    return;
+  }
 
   boundaryDivide->target = TARGET_EDGES;
   boundaryDivide->show();
