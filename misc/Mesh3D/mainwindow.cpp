@@ -4295,13 +4295,13 @@ void MainWindow::sharpEdgeColorSlot()
 void MainWindow::showCadModelSlot()
 {
 #ifdef OCC62
-    if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
+/*    if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
 		logMessage("There are no shapes to show. Open a cad file first.");
 		return;
     }
 
 	cadView->show();
-	cadView->drawModel();
+	cadView->drawModel();*/
 #endif
 }
 
@@ -5090,7 +5090,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
 {
   boundary->disconnect(SIGNAL(BoundaryComboChanged(BoundaryPropertyEditor *,QString)));
-  while(boundary->ui.boundaryConditionCombo->count() > 0) 
+  while(boundary && boundary->ui.boundaryConditionCombo && boundary->ui.boundaryConditionCombo->count() > 0) 
     boundary->ui.boundaryConditionCombo->removeItem(0);
     
   int takethis=-1;
@@ -5777,11 +5777,13 @@ void MainWindow::loadDefinitions()
 
   // Determine edf-file location and name:
   //-------------------------------
+
+  char *elmerGuiHome = NULL;
+
 #ifdef __APPLE__
   QString generalDefs = this->homePath +  "/edf/edf.xml";          
 #else
   QString generalDefs = "edf/edf.xml";
-  char *elmerGuiHome = NULL;
   elmerGuiHome = getenv("ELMERGUI_HOME");
   if(elmerGuiHome != NULL) 
     generalDefs = QString(elmerGuiHome) + "/edf/edf.xml";
@@ -5900,8 +5902,13 @@ void MainWindow::loadDefinitions()
   // Load qss:
   //-----------
   QString qssFileName = "elmergui.qss";
-  if(elmerGuiHome != NULL) 
-    qssFileName = QString(elmerGuiHome) + "/elmergui.qss";
+
+  #ifdef __APPLE__
+	qssFileName = homePath + "/elmergui.qss";
+  #else
+  	if(elmerGuiHome != NULL) 
+    	qssFileName = QString(elmerGuiHome) + "/elmergui.qss";
+  #endif
 
   QFile qssFile(qssFileName);
   
