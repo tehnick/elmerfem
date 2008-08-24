@@ -54,6 +54,24 @@ GLcontrol::GLcontrol(QWidget *parent)
 
   connect(ui.closeButton, SIGNAL(clicked()), 
 	  this, SLOT(close()));
+
+  connect(ui.ambientDial, SIGNAL(sliderReleased()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.diffuseDial, SIGNAL(sliderReleased()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.specularDial, SIGNAL(sliderReleased()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.posxSpinBox, SIGNAL(editingFinished()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.posySpinBox, SIGNAL(editingFinished()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.poszSpinBox, SIGNAL(editingFinished()),
+	  this, SLOT(okButtonClicked()));
 }
 
 GLcontrol::~GLcontrol()
@@ -107,11 +125,15 @@ void GLcontrol::okButtonClicked()
   light_position[2] = posz;
   light_position[3] = 0.0;
 
+  glPushMatrix();
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
   glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
   glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
   glLightfv(GL_LIGHT0, GL_POSITION, light_position);
   glEnable(GL_LIGHT0);  
+  glPopMatrix();
 
   glWidget->updateGL();
 }
