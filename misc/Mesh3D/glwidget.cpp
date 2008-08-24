@@ -122,14 +122,12 @@ QSize GLWidget::minimumSizeHint() const
 }
 
 
-
 // Default size...
 //-----------------------------------------------------------------------------
 QSize GLWidget::sizeHint() const
 {
   return QSize(720, 576);
 }
-
 
 // Init GL...
 //-----------------------------------------------------------------------------
@@ -155,16 +153,15 @@ void GLWidget::initializeGL()
   glLoadIdentity();
 
   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1);
-  glLightModelf( GL_LIGHT_MODEL_LOCAL_VIEWER,1.0 );
+  glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER, 1.0);
   glEnable(GL_LIGHTING);
 
   // glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER,1.0);
-
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
   glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
   glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
   glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-  glEnable(GL_LIGHT0);
+  glEnable(GL_LIGHT0);  
    
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse);

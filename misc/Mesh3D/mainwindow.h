@@ -22,6 +22,7 @@
 #include "summaryeditor.h"
 #include "sifgenerator.h"
 #include "generalsetup.h"
+#include "glcontrol.h"
 #include "edfeditor.h"
 #include "dynamiceditor.h"
 #include "convergenceview.h"
@@ -78,11 +79,12 @@ private slots:
   void selectAllSurfacesSlot();   // View -> Select all surfaces
   void selectAllEdgesSlot();      // View -> Select all edges
   void selectDefinedEdgesSlot();  // View -> Select defined edges
-  void showSurfaceNumbersSlot();  // View -> Show numbering -> surface numbering
+  void showSurfaceNumbersSlot();  // View -> Show numbering -> surface nmbring
   void showEdgeNumbersSlot();     // View -> Show numbering -> edge numbering
   void showNodeNumbersSlot();     // View -> Show numbering -> node numbering
   void showBoundaryIndexSlot();   // View -> Show numbering -> boundary index
   void showBodyIndexSlot();       // View -> Show numbering -> body index
+  void glControlSlot();           // View -> Colors -> GL controls
   void backgroundColorSlot();     // View -> Colors -> Background
   void surfaceColorSlot();        // View -> Colors -> Surfaces
   void edgeColorSlot();           // View -> Colors -> Edges
@@ -222,6 +224,7 @@ private:
   QAction *showNodeNumbersAct;    // View -> Show numbering -> node numbers
   QAction *showBoundaryIndexAct;  // View -> Show numbering -> boundary index
   QAction *showBodyIndexAct;      // View -> Show numbering -> body index
+  QAction *glControlAct;          // View -> Colors -> GL controls
   QAction *chooseBGColorAct;      // View -> Colors -> Background color
   QAction *chooseSurfaceColorAct; // View -> Colors -> Surface color
   QAction *chooseSurfaceMeshColorAct; // View -> Colors -> Surface mesh
@@ -262,6 +265,7 @@ private:
   BodyPropertyEditor *bodyPropertyEditor;
   SolverParameterEditor *solverParameterEditor;
   SummaryEditor *summaryEditor;
+  GLcontrol *glControl;
 #ifdef OCC62
   CadView *cadView;
 #endif

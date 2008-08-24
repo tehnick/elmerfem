@@ -141,6 +141,7 @@ MainWindow::MainWindow()
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
   convergenceView = new ConvergenceView(this);
+  glControl = new GLcontrol(this);
 #ifdef OCC62
   cadView = new CadView(this);
 #endif
@@ -503,6 +504,12 @@ void MainWindow::createActions()
   connect(showBodyIndexAct, SIGNAL(triggered()), 
 	  this, SLOT(showBodyIndexSlot()));
 
+  // View -> Colors -> GL controls
+  glControlAct = new QAction(QIcon(), tr("GL controls"), this);
+  glControlAct->setStatusTip(tr("Control GL parameters for lights and materials"));
+  connect(glControlAct, SIGNAL(triggered()), 
+	  this, SLOT(glControlSlot()));
+  
   // View -> Colors -> Background
   chooseBGColorAct = new QAction(QIcon(), tr("Background"), this);
   chooseBGColorAct->setStatusTip(tr("Set background color"));
@@ -721,7 +728,9 @@ void MainWindow::createMenus()
   numberingMenu->addAction(showBoundaryIndexAct);
   numberingMenu->addAction(showBodyIndexAct);
   viewMenu->addSeparator();
-  colorizeMenu = viewMenu->addMenu(tr("Colors"));
+  colorizeMenu = viewMenu->addMenu(tr("Lights and colors"));
+  colorizeMenu->addAction(glControlAct);
+  colorizeMenu->addSeparator();
   colorizeMenu->addAction(chooseBGColorAct);
   colorizeMenu->addSeparator();
   colorizeMenu->addAction(chooseSurfaceColorAct);
@@ -4157,6 +4166,21 @@ void MainWindow::showBodyIndexSlot()
   else 
     logMessage("Body indices hidden");    
 }
+
+
+// View -> Colors -> GL controls
+//-----------------------------------------------------------------------------
+void MainWindow::glControlSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("No mesh - unable to set GL parameters when the mesh is empty");
+    return;
+  }
+
+  glControl->glWidget = this->glWidget;
+  glControl->show();
+}
+
 
 // View -> Colors -> Boundaries
 //-----------------------------------------------------------------------------

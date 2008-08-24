@@ -28,6 +28,7 @@ HEADERS += bodypropertyeditor.h \
            dynamiceditor.h \
            edfeditor.h \
            generalsetup.h \
+           glcontrol.h \
            glwidget.h \
            helpers.h \
            mainwindow.h \
@@ -59,6 +60,7 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
          forms/boundarypropertyeditor.ui \
          forms/generalsetup.ui \
+         forms/glcontrol.ui \
          forms/meshcontrol.ui \
          forms/solverparameters.ui \
          forms/summaryeditor.ui
@@ -69,6 +71,7 @@ SOURCES += bodypropertyeditor.cpp \
            dynamiceditor.cpp \
            edfeditor.cpp \
            generalsetup.cpp \
+           glcontrol.cpp \
            glwidget.cpp \
            helpers.cpp \
            main.cpp \
