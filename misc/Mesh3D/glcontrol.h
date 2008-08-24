@@ -4,6 +4,7 @@
 #include <QWidget>
 #include "ui_glcontrol.h"
 #include "glwidget.h"
+#include "renderarea.h"
 
 class GLcontrol : public QDialog
 {
@@ -23,6 +24,10 @@ public:
   GLfloat posx;
   GLfloat posy;
   GLfloat posz;
+  GLfloat matAmbient;
+  GLfloat matDiffuse;
+  GLfloat matSpecular;
+  GLfloat matShininess;
 
 signals:
 

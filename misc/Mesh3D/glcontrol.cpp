@@ -72,6 +72,18 @@ GLcontrol::GLcontrol(QWidget *parent)
 
   connect(ui.poszSpinBox, SIGNAL(editingFinished()),
 	  this, SLOT(okButtonClicked()));
+
+  connect(ui.matAmbientDial, SIGNAL(sliderReleased()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.matDiffuseDial, SIGNAL(sliderReleased()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.matSpecularDial, SIGNAL(sliderReleased()),
+	  this, SLOT(okButtonClicked()));
+
+  connect(ui.matShininessDial, SIGNAL(sliderReleased()),
+	  this, SLOT(okButtonClicked()));
 }
 
 GLcontrol::~GLcontrol()
@@ -84,6 +96,10 @@ void GLcontrol::okButtonClicked()
   GLfloat light_diffuse[4];
   GLfloat light_specular[4];
   GLfloat light_position[4];
+  GLfloat mat_ambient[4];
+  GLfloat mat_diffuse[4];
+  GLfloat mat_specular[4];
+  GLfloat high_shininess[1];
 
   int ambientMaximum = ui.ambientDial->maximum();
   int diffuseMaximum = ui.diffuseDial->maximum();
@@ -97,6 +113,16 @@ void GLcontrol::okButtonClicked()
   int posyValue = ui.posySpinBox->value();
   int poszValue = ui.poszSpinBox->value();
 
+  int matAmbientMaximum = ui.matAmbientDial->maximum();
+  int matDiffuseMaximum = ui.matDiffuseDial->maximum();
+  int matSpecularMaximum = ui.matSpecularDial->maximum();
+  int matShininessMaximum = ui.matShininessDial->maximum();
+
+  int matAmbientValue = ui.matAmbientDial->value();
+  int matDiffuseValue = ui.matDiffuseDial->value();
+  int matSpecularValue = ui.matSpecularDial->value();
+  int matShininessValue = ui.matShininessDial->value();
+
   ambient = (GLfloat)ambientValue / (GLfloat)ambientMaximum;
   diffuse = (GLfloat)diffuseValue / (GLfloat)diffuseMaximum;
   specular = (GLfloat)specularValue / (GLfloat)specularMaximum;
@@ -104,6 +130,12 @@ void GLcontrol::okButtonClicked()
   posx = (GLfloat)posxValue;
   posy = (GLfloat)posyValue;
   posz = (GLfloat)poszValue;
+
+  matAmbient = (GLfloat)matAmbientValue / (GLfloat)matAmbientMaximum;
+  matDiffuse = (GLfloat)matDiffuseValue / (GLfloat)matDiffuseMaximum;
+  matSpecular = (GLfloat)matSpecularValue / (GLfloat)matSpecularMaximum;
+  matShininess = (GLfloat)matShininessValue / (GLfloat)matShininessMaximum;
+  matShininess *= 100.0;
 
   light_ambient[0] = ambient;
   light_ambient[1] = ambient;
@@ -125,14 +157,40 @@ void GLcontrol::okButtonClicked()
   light_position[2] = posz;
   light_position[3] = 0.0;
 
+  mat_ambient[0] = matAmbient;
+  mat_ambient[1] = matAmbient;
+  mat_ambient[2] = matAmbient;
+  mat_ambient[3] = 1.0;
+
+  mat_diffuse[0] = matDiffuse;
+  mat_diffuse[1] = matDiffuse;
+  mat_diffuse[2] = matDiffuse;
+  mat_diffuse[3] = 1.0;
+
+  mat_specular[0] = matSpecular;
+  mat_specular[1] = matSpecular;
+  mat_specular[2] = matSpecular;
+  mat_specular[3] = 1.0;
+
+  high_shininess[0] = matShininess;
+
   glPushMatrix();
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
+
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
   glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
   glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
   glLightfv(GL_LIGHT0, GL_POSITION, light_position);
   glEnable(GL_LIGHT0);  
+
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, high_shininess);
+  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+  glEnable(GL_COLOR_MATERIAL);
+
   glPopMatrix();
 
   glWidget->updateGL();
