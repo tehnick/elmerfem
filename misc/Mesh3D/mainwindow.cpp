@@ -224,6 +224,7 @@ MainWindow::MainWindow()
 //-----------------------------------------------------------------------------
 MainWindow::~MainWindow()
 {
+  glControl->close();
 }
 
 
