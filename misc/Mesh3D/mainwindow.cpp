@@ -196,6 +196,18 @@ MainWindow::MainWindow()
   // post emits (int) when finished:
   connect(post, SIGNAL(finished(int)), 
 	  this, SLOT(postProcessFinishedSlot(int))) ;
+
+  // meshSplitter emits (int) when finished:
+  connect(meshSplitter, SIGNAL(finished(int)),
+	  this, SLOT(meshSplitterFinishedSlot(int)));
+
+  // meshSplitter emits(void) when there is something to read from stdout:
+  connect(meshSplitter, SIGNAL(readyReadStandardOutput()),
+	  this, SLOT(meshSplitterStdoutSlot()));
+  
+  // meshSplitter emits(void) when there is something to read from stderr:
+  connect(meshSplitter, SIGNAL(readyReadStandardError()),
+	  this, SLOT(meshSplitterStderrSlot()));
   
   // set initial state:
   meshControl->nglibPresent = nglibPresent;
@@ -5349,48 +5361,58 @@ void MainWindow::runsolverSlot()
     return;
   }
 
-  // Parallel solution?
-  //--------------------
+  // Parallel solution:
+  //====================
   Ui::parallelDialog ui = parallel->ui;
   bool parallelActive = ui.parallelActiveCheckBox->isChecked();
   bool partitioningActive = !ui.skipPartitioningCheckBox->isChecked();
   int nofProcessors = ui.nofProcessorsSpinBox->value();
 
   if(parallelActive) {
+
+    // Set up log window:
+    solverLogWindow->setWindowTitle(tr("Solver log"));
+    solverLogWindow->textEdit->clear();
+    solverLogWindow->found = false;
+    solverLogWindow->show();
     
-    // Split mesh:
-    //------------
-    if(partitioningActive) {
-      logMessage("Mesh partitioning");
+    if(!partitioningActive) {
       
+      // skip splitting:
+      meshSplitterFinishedSlot(0);
+
+    } else {
+
+      // split mesh:
       if(meshSplitter->state() == QProcess::Running) {
 	logMessage("Mesh partitioner is already running - aborted");
 	return;
       }
-
+      
       if (saveDirName.isEmpty()) {
 	logMessage("Please save the mesh before running the parallel solver - aborted");
 	return;
       }
+      
+      QString partitioningCommand = "ElmerGrid 2 2 " 
+	+ saveDirName + " -metis " + QString::number(nofProcessors);
+      
+      logMessage("Executing: " + partitioningCommand);
+      
+      meshSplitter->start(partitioningCommand);
+      
+      if(!meshSplitter->waitForStarted()) {
+	logMessage("Unable to start ElmerGrid for mesh paritioning - aborted");
+	return;
+      }
     }
     
-    QString partitioningCommand = "ElmerGrid 2 2 " + saveDirName + " -metis " + QString::number(nofProcessors);
-
-    logMessage("Executing: " + partitioningCommand);
-
-    meshSplitter->start(partitioningCommand);
-
-    if(!meshSplitter->waitForStarted()) {
-      logMessage("Unable to start ElmerGrid for mesh paritioning - aborted");
-      return;
-    }
-
-    logMessage("Parallel solution currently unavailable");
+    // the rest is done in meshSplitterFinishedSlot:
     return;
   }
 
   // Scalar solution:
-  //-----------------
+  //==================
   solver->start("ElmerSolver");
 
   if(!solver->waitForStarted()) {
@@ -5412,6 +5434,65 @@ void MainWindow::runsolverSlot()
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 }
 
+
+// meshSplitter emits (int) when ready...
+//-----------------------------------------------------------------------------
+void MainWindow::meshSplitterFinishedSlot(int exitCode)
+{
+  if(exitCode != 0) {
+    logMessage("MeshSplitter failed - aborting");
+    return;
+  }
+
+  logMessage("MeshSplitter ready");
+
+  // Prepare for solution:
+  Ui::parallelDialog ui = parallel->ui;
+  int nofProcessors = ui.nofProcessorsSpinBox->value();
+  QString parallelCmd = ui.parallelCmdLineEdit->text().trimmed();
+
+  parallelCmd.replace(QString("%n"), QString::number(nofProcessors));
+
+  logMessage("Executing: " + parallelCmd);
+
+  // ????? todo: check this
+
+  solver->start(parallelCmd);
+
+  if(!solver->waitForStarted()) {
+    logMessage("Unable to start parallel solver");
+    return;
+  }
+  
+  // convergence plot:
+  convergenceView->removeData();
+  convergenceView->title = "Convergence history";
+
+  logMessage("Parallel solver started");
+
+  runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
+}
+
+
+// meshSplitter emits (void) when there is something to read from stdout:
+//-----------------------------------------------------------------------------
+void MainWindow::meshSplitterStdoutSlot()
+{
+  QString qs = meshSplitter->readAllStandardOutput();
+
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  solverLogWindow->textEdit->append(qs);
+}
+
+// meshSplitter emits (void) when there is something to read from stderr:
+//-----------------------------------------------------------------------------
+void MainWindow::meshSplitterStderrSlot()
+{
+  QString qs = meshSplitter->readAllStandardError();
+
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  solverLogWindow->textEdit->append(qs);
+}
 
 
 // solver process emits (void) when there is something to read from stdout:

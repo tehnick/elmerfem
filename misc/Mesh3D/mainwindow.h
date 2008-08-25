@@ -122,6 +122,9 @@ private slots:
   void compilerStdoutSlot();          // compiler's stdout redirection
   void compilerStderrSlot();          // compiler's stderr redirection
   void compilerFinishedSlot(int);     // signal emitted by compiler
+  void meshSplitterStdoutSlot();      // meshSplitter's stdout redirection
+  void meshSplitterStderrSlot();      // meshSplitter's stderr redirection
+  void meshSplitterFinishedSlot(int); // signal emitted by meshSplitter
 
   void pdeEditorFinishedSlot(int, int);  // signal emitted by pde editor
   void matEditorFinishedSlot(int, int);  // signal emitted by mat editor
