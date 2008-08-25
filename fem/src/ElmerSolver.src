@@ -83,7 +83,7 @@
 
      CHARACTER(LEN=MAX_NAME_LEN) :: ModelName, eq, ExecCommand
      CHARACTER(LEN=MAX_NAME_LEN) :: OutputFile, PostFile, RestartFile, &
-                OutputName=' ',PostName=' ', When
+                OutputName=' ',PostName=' ', When, OptionString
 
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Variable_t), POINTER :: Var
@@ -113,6 +113,11 @@
      CALL Info( 'MAIN', ' E L M E R  S O L V E R  S T A R T I N G',  Level=3  )
      CALL Info( 'MAIN', ' Library version: ' // VERSION, Level=3 )
      CALL Info( 'MAIN', '==========================================', Level=3 )
+
+     IF ( IARGC() > 0 ) THEN
+       CALL getarg( 1,OptionString )
+       IF ( OptionString=='-v' .OR. OptionString == '--version' ) RETURN
+     END IF
 
      !
      ! Read input file name:
