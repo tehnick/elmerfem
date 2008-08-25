@@ -128,6 +128,7 @@ MainWindow::MainWindow()
   post = new QProcess(this);
   compiler = new QProcess(this);
   meshSplitter = new QProcess(this);
+  meshUnifier = new QProcess(this);
   generalSetup = new GeneralSetup;
   equationEditor = new DynamicEditor[MAX_EQUATIONS];
   materialEditor = new DynamicEditor[MAX_MATERIALS];
@@ -208,6 +209,18 @@ MainWindow::MainWindow()
   // meshSplitter emits(void) when there is something to read from stderr:
   connect(meshSplitter, SIGNAL(readyReadStandardError()),
 	  this, SLOT(meshSplitterStderrSlot()));
+  
+  // meshUnifier emits (int) when finished:
+  connect(meshUnifier, SIGNAL(finished(int)),
+	  this, SLOT(meshUnifierFinishedSlot(int)));
+
+  // meshUnifier emits(void) when there is something to read from stdout:
+  connect(meshUnifier, SIGNAL(readyReadStandardOutput()),
+	  this, SLOT(meshUnifierStdoutSlot()));
+  
+  // meshUnifier emits(void) when there is something to read from stderr:
+  connect(meshUnifier, SIGNAL(readyReadStandardError()),
+	  this, SLOT(meshUnifierStderrSlot()));
   
   // set initial state:
   meshControl->nglibPresent = nglibPresent;
@@ -5383,6 +5396,8 @@ void MainWindow::runsolverSlot()
 
     } else {
 
+      // ?????
+
       // split mesh:
       if(meshSplitter->state() == QProcess::Running) {
 	logMessage("Mesh partitioner is already running - aborted");
@@ -5487,6 +5502,88 @@ void MainWindow::meshSplitterStdoutSlot()
 void MainWindow::meshSplitterStderrSlot()
 {
   QString qs = meshSplitter->readAllStandardError();
+
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  solverLogWindow->textEdit->append(qs);
+}
+
+// meshUnifier emits (int) when ready...
+//-----------------------------------------------------------------------------
+void MainWindow::meshUnifierFinishedSlot(int exitCode)
+{
+  QStringList args;
+
+  if(exitCode != 0) {
+    solverLogWindow->textEdit->append("MeshUnifier failed - aborting");
+    logMessage("MeshUnifier failed - aborting");
+    return;
+  }
+
+  logMessage("MeshUnifier ready");
+
+  // ?????
+
+  QFile file("case.ep");
+
+  if(!file.exists()) {
+    solverLogWindow->textEdit->append("Elmerpost input file does not exist.");
+    logMessage("Elmerpost input file does not exist.");
+    return;
+  }
+
+  file.open(QIODevice::ReadOnly);
+  QTextStream header(&file);
+
+  int nn, ne, nt, nf;
+  QString type, name;
+
+  header >> nn >> ne >> nf >> nt >> type >> name;
+  if ( type == "vector:" )
+    name = name + "_abs";
+
+  file.close();
+
+  args << "readfile case.ep; "
+    "set ColorScaleY -0.85; "
+    "set ColorScaleEntries  4;"
+    "set ColorScaleDecimals 2;"
+    "set ColorScaleColor " + name + ";"
+    "set DisplayStyle(ColorScale) 1; "
+    "set MeshStyle 1; "
+    "set MeshColor " + name + ";"
+    "set DisplayStyle(ColorMesh) 1; "
+    "translate -y 0.2; "
+    "UpdateObject; ";
+  
+  post->start("ElmerPost", args);
+  
+  if(!post->waitForStarted()) {
+    logMessage("Unable to start post processor");
+    return;
+  }
+  
+  resultsAct->setIcon(QIcon(":/icons/Post-red.png"));
+  
+  logMessage("Post processor started");
+
+}
+
+
+// meshUnifier emits (void) when there is something to read from stdout:
+//-----------------------------------------------------------------------------
+void MainWindow::meshUnifierStdoutSlot()
+{
+  QString qs = meshUnifier->readAllStandardOutput();
+
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  solverLogWindow->textEdit->append(qs);
+}
+
+// meshUnifier emits (void) when there is something to read from stderr:
+//-----------------------------------------------------------------------------
+void MainWindow::meshUnifierStderrSlot()
+{
+  QString qs = meshUnifier->readAllStandardError();
 
   while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
   solverLogWindow->textEdit->append(qs);
@@ -5638,6 +5735,52 @@ void MainWindow::resultsSlot()
     return;
   }
 
+  // Parallel solution:
+  //====================
+  Ui::parallelDialog ui = parallel->ui;
+  bool parallelActive = ui.parallelActiveCheckBox->isChecked();
+  int nofProcessors = ui.nofProcessorsSpinBox->value();
+
+  // ?????
+
+  if(parallelActive) {
+    
+    // unify mesh:
+    if(meshUnifier->state() == QProcess::Running) {
+      logMessage("Mesh unifier is already running - aborted");
+      return;
+    }
+    
+    if(saveDirName.isEmpty()) {
+      logMessage("saveDirName is empty - unable to locate result files");
+      return;
+    }
+
+    // Set up log window:
+    solverLogWindow->setWindowTitle(tr("ElmerGrid log"));
+    solverLogWindow->textEdit->clear();
+    solverLogWindow->found = false;
+    solverLogWindow->show();
+    
+    QString unifyingCommand = "ElmerGrid 15 3 case" ;
+    
+    logMessage("Executing: " + unifyingCommand);
+    
+    meshUnifier->start(unifyingCommand);
+    
+    if(!meshUnifier->waitForStarted()) {
+      solverLogWindow->textEdit->append("Unable to start ElmerGrid for mesh unification - aborted");
+      logMessage("Unable to start ElmerGrid for mesh unification - aborted");
+      return;
+    }
+
+    // the rest is done in meshUnifierFinishedSlot:
+    return;
+  }
+  
+ 
+  // Scalar solution:
+  //==================
   QFile file("case.ep");
   if(!file.exists()) {
     logMessage("Elmerpost input file does not exist.");

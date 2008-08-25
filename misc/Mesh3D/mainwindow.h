@@ -125,6 +125,9 @@ private slots:
   void meshSplitterStdoutSlot();      // meshSplitter's stdout redirection
   void meshSplitterStderrSlot();      // meshSplitter's stderr redirection
   void meshSplitterFinishedSlot(int); // signal emitted by meshSplitter
+  void meshUnifierStdoutSlot();       // meshUnifier's stdout redirection
+  void meshUnifierStderrSlot();       // meshUnifier's stderr redirection
+  void meshUnifierFinishedSlot(int);  // signal emitted by meshUnifier
 
   void pdeEditorFinishedSlot(int, int);  // signal emitted by pde editor
   void matEditorFinishedSlot(int, int);  // signal emitted by mat editor
@@ -308,6 +311,7 @@ private:
   QProcess *post;
   QProcess *compiler;
   QProcess *meshSplitter;
+  QProcess *meshUnifier;
   
   // utility functions:
   void readInputFile(QString);
