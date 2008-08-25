@@ -5440,13 +5440,14 @@ void MainWindow::runsolverSlot()
 void MainWindow::meshSplitterFinishedSlot(int exitCode)
 {
   if(exitCode != 0) {
+    solverLogWindow->textEdit->append("MeshSplitter failed - aborting");
     logMessage("MeshSplitter failed - aborting");
     return;
   }
 
   logMessage("MeshSplitter ready");
 
-  // Prepare for solution:
+  // Prepare for parallel solution:
   Ui::parallelDialog ui = parallel->ui;
   int nofProcessors = ui.nofProcessorsSpinBox->value();
   QString parallelCmd = ui.parallelCmdLineEdit->text().trimmed();
@@ -5455,21 +5456,18 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
 
   logMessage("Executing: " + parallelCmd);
 
-  // ????? todo: check this
-
   solver->start(parallelCmd);
 
   if(!solver->waitForStarted()) {
+    solverLogWindow->textEdit->append("Unable to start parallel solver");
     logMessage("Unable to start parallel solver");
     return;
   }
   
-  // convergence plot:
+  // Set up convergence plot:
   convergenceView->removeData();
   convergenceView->title = "Convergence history";
-
   logMessage("Parallel solver started");
-
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 }
 
