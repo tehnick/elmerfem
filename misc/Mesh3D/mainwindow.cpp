@@ -533,37 +533,37 @@ void MainWindow::createActions()
 	  this, SLOT(showBodyIndexSlot()));
 
   // View -> Colors -> GL controls
-  glControlAct = new QAction(QIcon(), tr("GL controls"), this);
+  glControlAct = new QAction(QIcon(), tr("GL controls..."), this);
   glControlAct->setStatusTip(tr("Control GL parameters for lights and materials"));
   connect(glControlAct, SIGNAL(triggered()), 
 	  this, SLOT(glControlSlot()));
   
   // View -> Colors -> Background
-  chooseBGColorAct = new QAction(QIcon(), tr("Background"), this);
+  chooseBGColorAct = new QAction(QIcon(), tr("Background..."), this);
   chooseBGColorAct->setStatusTip(tr("Set background color"));
   connect(chooseBGColorAct, SIGNAL(triggered()), 
 	  this, SLOT(backgroundColorSlot()));
   
   // View -> Colors -> Surface elements
-  chooseSurfaceColorAct = new QAction(QIcon(), tr("Surface elements"), this);
+  chooseSurfaceColorAct = new QAction(QIcon(), tr("Surface elements..."), this);
   chooseSurfaceColorAct->setStatusTip(tr("Set surface color"));
   connect(chooseSurfaceColorAct, SIGNAL(triggered()), 
 	  this, SLOT(surfaceColorSlot()));
   
   // View -> Colors -> Edge elements
-  chooseEdgeColorAct = new QAction(QIcon(), tr("Edge elements"), this);
+  chooseEdgeColorAct = new QAction(QIcon(), tr("Edge elements..."), this);
   chooseEdgeColorAct->setStatusTip(tr("Set edge color"));
   connect(chooseEdgeColorAct, SIGNAL(triggered()), 
 	  this, SLOT(edgeColorSlot()));
   
   // View -> Colors -> Surface mesh
-  chooseSurfaceMeshColorAct = new QAction(QIcon(), tr("Surface mesh"), this);
+  chooseSurfaceMeshColorAct = new QAction(QIcon(), tr("Surface mesh..."), this);
   chooseSurfaceMeshColorAct->setStatusTip(tr("Set surface mesh color"));
   connect(chooseSurfaceMeshColorAct, SIGNAL(triggered()), 
 	  this, SLOT(surfaceMeshColorSlot()));
   
   // View -> Colors -> Sharp edges
-  chooseSharpEdgeColorAct = new QAction(QIcon(), tr("Sharp edges"), this);
+  chooseSharpEdgeColorAct = new QAction(QIcon(), tr("Sharp edges..."), this);
   chooseSharpEdgeColorAct->setStatusTip(tr("Set sharp edge color"));
   connect(chooseSharpEdgeColorAct, SIGNAL(triggered()), 
 	  this, SLOT(sharpEdgeColorSlot()));
@@ -605,7 +605,7 @@ void MainWindow::createActions()
 	  this, SLOT(showCadModelSlot()));
 
   // Solver -> Parallel settings
-  parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings"), this);
+  parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings..."), this);
   parallelSettingsAct->setStatusTip(tr("Choose parametes and methods for parallel solution"));
   connect(parallelSettingsAct, SIGNAL(triggered()), 
 	  this, SLOT(parallelSettingsSlot()));
@@ -807,17 +807,18 @@ void MainWindow::createMenus()
   helpMenu->addAction(aboutAct);
 
   // Disable unavailable components from menu:
+  //------------------------------------------
   QProcess testProcess;
   QStringList args;
 
 #ifndef WIN32
-  logMessage("Disabling compiler features from menu");
+  logMessage("Disabling compiler features");
   compileSolverAct->setEnabled(false);
 #endif
 
   testProcess.start("ElmerGrid");
   if(!testProcess.waitForStarted()) {
-    logMessage("ElmerGrid unavailable - disabling parallel features from menu");
+    logMessage("ElmerGrid unavailable - disabling parallel features");
     parallelSettingsAct->setEnabled(false);
   }
   testProcess.waitForFinished(1000);
@@ -825,7 +826,7 @@ void MainWindow::createMenus()
   args << "-v";
   testProcess.start("ElmerSolver_mpi", args);
   if(!testProcess.waitForStarted()) {
-    logMessage("ElmerSolver_mpi unavailable - disabling parallel features from menu");
+    logMessage("ElmerSolver_mpi unavailable - disabling parallel features");
     parallelSettingsAct->setEnabled(false);
   }
   testProcess.waitForFinished(1000);
@@ -833,7 +834,7 @@ void MainWindow::createMenus()
   args << "-v";
   testProcess.start("ElmerSolver", args);
   if(!testProcess.waitForStarted()) {
-    logMessage("ElmerSolver unavailable - disabling solver features from menu");
+    logMessage("ElmerSolver unavailable - disabling solver features");
     runsolverAct->setEnabled(false);
     killsolverAct->setEnabled(false);
   }
@@ -1901,7 +1902,8 @@ void MainWindow::loadProjectSlot()
 
 
   // Finally, generate new sif:
-  generateSifSlot();
+  if(glWidget->mesh != NULL)
+    generateSifSlot();
 
   logMessage("Ready");
 }
