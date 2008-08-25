@@ -2285,7 +2285,8 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.close();
 
   // Sif:
-  file.setFileName("case.sif");
+  QString sifName = generalSetup->ui.solverInputFileEdit->text().trimmed();
+  file.setFileName(sifName);
   file.open(QIODevice::WriteOnly);
   QTextStream sif(&file);
 
@@ -2300,7 +2301,7 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.open(QIODevice::WriteOnly);
   QTextStream startinfo(&file);
 
-  startinfo << "case.sif\n1\n";
+  startinfo << sifName.toAscii() << "\n1\n";
 
   file.close();
 
@@ -5396,8 +5397,6 @@ void MainWindow::runsolverSlot()
 
     } else {
 
-      // ?????
-
       // split mesh:
       if(meshSplitter->state() == QProcess::Running) {
 	logMessage("Mesh partitioner is already running - aborted");
@@ -5521,9 +5520,8 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   logMessage("MeshUnifier ready");
 
-  // ?????
-
-  QFile file("case.ep");
+  QString postName = generalSetup->ui.postFileEdit->text().trimmed();
+  QFile file(postName);
 
   if(!file.exists()) {
     solverLogWindow->textEdit->append("Elmerpost input file does not exist.");
@@ -5543,7 +5541,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   file.close();
 
-  args << "readfile case.ep; "
+  args << "readfile " << postName << "; "
     "set ColorScaleY -0.85; "
     "set ColorScaleEntries  4;"
     "set ColorScaleDecimals 2;"
@@ -5739,9 +5737,6 @@ void MainWindow::resultsSlot()
   //====================
   Ui::parallelDialog ui = parallel->ui;
   bool parallelActive = ui.parallelActiveCheckBox->isChecked();
-  int nofProcessors = ui.nofProcessorsSpinBox->value();
-
-  // ?????
 
   if(parallelActive) {
     
@@ -5761,8 +5756,10 @@ void MainWindow::resultsSlot()
     solverLogWindow->textEdit->clear();
     solverLogWindow->found = false;
     solverLogWindow->show();
-    
-    QString unifyingCommand = "ElmerGrid 15 3 case" ;
+
+    QString postName = generalSetup->ui.postFileEdit->text().trimmed();
+    QStringList postNameSplitted = postName.split(".");
+    QString unifyingCommand = "ElmerGrid 15 3 " + postNameSplitted.at(0).trimmed();
     
     logMessage("Executing: " + unifyingCommand);
     
@@ -5773,15 +5770,15 @@ void MainWindow::resultsSlot()
       logMessage("Unable to start ElmerGrid for mesh unification - aborted");
       return;
     }
-
+    
     // the rest is done in meshUnifierFinishedSlot:
     return;
   }
-  
- 
+   
   // Scalar solution:
   //==================
-  QFile file("case.ep");
+  QString postName = generalSetup->ui.postFileEdit->text().trimmed();
+  QFile file(postName);
   if(!file.exists()) {
     logMessage("Elmerpost input file does not exist.");
     return;
@@ -5799,7 +5796,7 @@ void MainWindow::resultsSlot()
 
   file.close();
 
-  args << "readfile case.ep; "
+  args << "readfile " << postName << "; "
     "set ColorScaleY -0.85; "
     "set ColorScaleEntries  4;"
     "set ColorScaleDecimals 2;"
