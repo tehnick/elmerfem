@@ -2192,7 +2192,11 @@ int main(int argc,char **argv)
 {
     static char init[1024],initcommands[1024],tmp[1024],ephome[512];
     int i,size[4];
-
+    
+    if((argc > 1) && (!strcmp(argv[1], "-v"))) {
+      fprintf(stdout, "ElmerPost v.5.4\n");
+      return 0;
+    }
     
     if ( getenv("ELMER_POST_HOME") == NULL )
     {
