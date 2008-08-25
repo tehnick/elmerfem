@@ -300,10 +300,11 @@ private:
   // elmergrid:
   ElmergridAPI *elmergridAPI;
 
-  // solver and post processor:
+  // solver, post processor, and other processes:
   QProcess *solver;
   QProcess *post;
   QProcess *compiler;
+  QProcess *meshSplitter;
   
   // utility functions:
   void readInputFile(QString);

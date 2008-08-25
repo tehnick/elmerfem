@@ -127,6 +127,7 @@ MainWindow::MainWindow()
   solver = new QProcess(this);
   post = new QProcess(this);
   compiler = new QProcess(this);
+  meshSplitter = new QProcess(this);
   generalSetup = new GeneralSetup;
   equationEditor = new DynamicEditor[MAX_EQUATIONS];
   materialEditor = new DynamicEditor[MAX_MATERIALS];
@@ -1417,8 +1418,9 @@ void MainWindow::loadElmerMesh(QString dirName)
   meshutils->findSurfaceElementNormals(mesh);
 
   // Finalize:
+  saveDirName = dirName;
   logMessage("Ready");
-
+  
   glWidget->rebuildLists();
 }
 
@@ -1439,6 +1441,7 @@ void MainWindow::saveSlot()
     return;
   }
   saveElmerMesh(saveDirName);
+
 }
 
 // File -> Save as...
@@ -5342,10 +5345,52 @@ void MainWindow::runsolverSlot()
   }
   
   if(solver->state() == QProcess::Running) {
-    logMessage("Solver is currently running");
+    logMessage("Solver is already running - returning");
     return;
   }
 
+  // Parallel solution?
+  //--------------------
+  Ui::parallelDialog ui = parallel->ui;
+  bool parallelActive = ui.parallelActiveCheckBox->isChecked();
+  bool partitioningActive = !ui.skipPartitioningCheckBox->isChecked();
+  int nofProcessors = ui.nofProcessorsSpinBox->value();
+
+  if(parallelActive) {
+    
+    // Split mesh:
+    //------------
+    if(partitioningActive) {
+      logMessage("Mesh partitioning");
+      
+      if(meshSplitter->state() == QProcess::Running) {
+	logMessage("Mesh partitioner is already running - aborted");
+	return;
+      }
+
+      if (saveDirName.isEmpty()) {
+	logMessage("Please save the mesh before running the parallel solver - aborted");
+	return;
+      }
+    }
+    
+    QString partitioningCommand = "ElmerGrid 2 2 " + saveDirName + " -metis " + QString::number(nofProcessors);
+
+    logMessage("Executing: " + partitioningCommand);
+
+    meshSplitter->start(partitioningCommand);
+
+    if(!meshSplitter->waitForStarted()) {
+      logMessage("Unable to start ElmerGrid for mesh paritioning - aborted");
+      return;
+    }
+
+    logMessage("Parallel solution currently unavailable");
+    return;
+  }
+
+  // Scalar solution:
+  //-----------------
   solver->start("ElmerSolver");
 
   if(!solver->waitForStarted()) {

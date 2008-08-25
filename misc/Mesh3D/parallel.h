@@ -23,4 +23,4 @@ private:
  
 };
 
-#endif // GLCONTROL_H
+#endif // PARALLEL_H
