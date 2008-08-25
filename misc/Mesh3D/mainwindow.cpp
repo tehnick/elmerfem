@@ -840,16 +840,14 @@ void MainWindow::createMenus()
   }
   testProcess.waitForFinished(1000);
 
-#if 0
-  args << "quit";
+  args << "-v";
   testProcess.start("ElmerPost", args);
   if(!testProcess.waitForStarted()) {
-    logMessage("ElmerPost unavailable - disabling postprocessing features from menu");
+    logMessage("ElmerPost unavailable - disabling postprocessing features");
     resultsAct->setEnabled(false);
     killresultsAct->setEnabled(false);
   }
   testProcess.waitForFinished(1000);
-#endif
 }
 
 
