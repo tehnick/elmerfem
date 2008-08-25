@@ -805,6 +805,50 @@ void MainWindow::createMenus()
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
   helpMenu->addAction(aboutAct);
+
+  // Disable unavailable components from menu:
+  QProcess testProcess;
+  QStringList args;
+
+#ifndef WIN32
+  logMessage("Disabling compiler features from menu");
+  compileSolverAct->setEnabled(false);
+#endif
+
+  testProcess.start("ElmerGrid");
+  if(!testProcess.waitForStarted()) {
+    logMessage("ElmerGrid unavailable - disabling parallel features from menu");
+    parallelSettingsAct->setEnabled(false);
+  }
+  testProcess.waitForFinished(1000);
+  
+  args << "-v";
+  testProcess.start("ElmerSolver_mpi", args);
+  if(!testProcess.waitForStarted()) {
+    logMessage("ElmerSolver_mpi unavailable - disabling parallel features from menu");
+    parallelSettingsAct->setEnabled(false);
+  }
+  testProcess.waitForFinished(1000);
+
+  args << "-v";
+  testProcess.start("ElmerSolver", args);
+  if(!testProcess.waitForStarted()) {
+    logMessage("ElmerSolver unavailable - disabling solver features from menu");
+    runsolverAct->setEnabled(false);
+    killsolverAct->setEnabled(false);
+  }
+  testProcess.waitForFinished(1000);
+
+#if 0
+  args << "quit";
+  testProcess.start("ElmerPost", args);
+  if(!testProcess.waitForStarted()) {
+    logMessage("ElmerPost unavailable - disabling postprocessing features from menu");
+    resultsAct->setEnabled(false);
+    killresultsAct->setEnabled(false);
+  }
+  testProcess.waitForFinished(1000);
+#endif
 }
 
 
@@ -5520,6 +5564,8 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   logMessage("MeshUnifier ready");
 
+  // Prepare for post processing parallel reults:
+  //----------------------------------------------
   QString postName = generalSetup->ui.postFileEdit->text().trimmed();
   QFile file(postName);
 
@@ -5541,7 +5587,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   file.close();
 
-  args << "readfile " << postName << "; "
+  args << "readfile " + postName + "; "
     "set ColorScaleY -0.85; "
     "set ColorScaleEntries  4;"
     "set ColorScaleDecimals 2;"
@@ -5796,7 +5842,7 @@ void MainWindow::resultsSlot()
 
   file.close();
 
-  args << "readfile " << postName << "; "
+  args << "readfile " + postName + "; "
     "set ColorScaleY -0.85; "
     "set ColorScaleEntries  4;"
     "set ColorScaleDecimals 2;"
@@ -5867,7 +5913,7 @@ void MainWindow::compileSolverSlot()
 #ifdef WIN32
   compiler->start("elmerf90.bat", args);
 #else
-  logMessage("Run compiler is currently not implemented on this platform");
+  logMessage("Run->compiler is currently not implemented on this platform");
   return;
 #endif
   
