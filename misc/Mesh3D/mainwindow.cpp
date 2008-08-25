@@ -1899,6 +1899,10 @@ void MainWindow::loadProjectSlot()
 
   boundaryPropertyFile.close();
 
+
+  // Finally, generate new sif:
+  generateSifSlot();
+
   logMessage("Ready");
 }
 
