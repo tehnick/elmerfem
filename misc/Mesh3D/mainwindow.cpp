@@ -142,6 +142,7 @@ MainWindow::MainWindow()
   edfEditor = new EdfEditor;
   convergenceView = new ConvergenceView(this);
   glControl = new GLcontrol(this);
+  parallel = new Parallel(this);
 #ifdef OCC62
   cadView = new CadView(this);
 #endif
@@ -577,6 +578,12 @@ void MainWindow::createActions()
   connect(showCadModelAct, SIGNAL(triggered()), 
 	  this, SLOT(showCadModelSlot()));
 
+  // Solver -> Parallel settings
+  parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings"), this);
+  parallelSettingsAct->setStatusTip(tr("Choose parametes and methods for parallel solution"));
+  connect(parallelSettingsAct, SIGNAL(triggered()), 
+	  this, SLOT(parallelSettingsSlot()));
+
   // Solver -> Run solver
   runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Run solver"), this);
   runsolverAct->setStatusTip(tr("Run ElmerSolver"));
@@ -758,6 +765,8 @@ void MainWindow::createMenus()
 
   //  SolverMenu
   solverMenu = menuBar()->addMenu(tr("&Run"));
+  solverMenu->addAction(parallelSettingsAct);
+  solverMenu->addSeparator();
   solverMenu->addAction(runsolverAct);
   solverMenu->addAction(killsolverAct);
   solverMenu->addAction(showConvergenceAct);
@@ -5313,6 +5322,14 @@ void MainWindow::editDefinitionsSlot()
 //                                Solver MENU
 //
 //*****************************************************************************
+
+
+// Solver -> Parallel settings
+//-----------------------------------------------------------------------------
+void MainWindow::parallelSettingsSlot()
+{
+  parallel->show();
+}
 
 
 // Solver -> Run solver

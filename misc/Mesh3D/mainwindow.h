@@ -23,6 +23,7 @@
 #include "sifgenerator.h"
 #include "generalsetup.h"
 #include "glcontrol.h"
+#include "parallel.h"
 #include "edfeditor.h"
 #include "dynamiceditor.h"
 #include "convergenceview.h"
@@ -99,6 +100,7 @@ private slots:
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
   void showCadModelSlot();        // View -> Show cad model...
+  void parallelSettingsSlot();    // Solver -> Parallel settings
   void runsolverSlot();           // Solver -> Run solver
   void killsolverSlot();          // Solver -> Kill solver
   void showConvergenceSlot();     // Solver -> Show convergence...
@@ -246,6 +248,7 @@ private:
   QAction *edgeDivideAct;         // Mesh -> Divide edges...
   QAction *edgeUnifyAct;          // Mesh -> Unify edge
   QAction *cleanHangingSharpEdgesAct; // Mesh -> Clean up
+  QAction *parallelSettingsAct;   // Solver -> Parallel settings
   QAction *runsolverAct;          // Solver -> Run solver
   QAction *killsolverAct;         // Solver -> Kill solver
   QAction *showConvergenceAct;    // Solver -> Show convergence...
@@ -266,6 +269,7 @@ private:
   SolverParameterEditor *solverParameterEditor;
   SummaryEditor *summaryEditor;
   GLcontrol *glControl;
+  Parallel *parallel;
 #ifdef OCC62
   CadView *cadView;
 #endif

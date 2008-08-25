@@ -113,6 +113,7 @@ HEADERS += bodypropertyeditor.h \
            meshingthread.h \
            meshtype.h \
            meshutils.h \
+           parallel.h \
            sifgenerator.h \
            sifwindow.h \
            solverparameters.h \
@@ -144,6 +145,7 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/generalsetup.ui \
          forms/glcontrol.ui \
          forms/meshcontrol.ui \
+         forms/parallel.ui \
          forms/solverparameters.ui \
          forms/summaryeditor.ui
 SOURCES += bodypropertyeditor.cpp \
@@ -161,6 +163,7 @@ SOURCES += bodypropertyeditor.cpp \
            meshcontrol.cpp \
            meshingthread.cpp \
            meshutils.cpp \
+           parallel.cpp \
            sifgenerator.cpp \
            sifwindow.cpp \
            solverparameters.cpp \
