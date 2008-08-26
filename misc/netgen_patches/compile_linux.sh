@@ -1,4 +1,4 @@
-g++ -DWIN32 -I../libsrc/include -shared -O -o libng.dll \
+g++ -fPIC -I../libsrc/include -shared -O -o libng.so \
  ../libsrc/opti/linopt.cpp \
  ../libsrc/opti/bfgs.cpp \
  ../libsrc/opti/linsearch.cpp \
@@ -8,6 +8,8 @@ g++ -DWIN32 -I../libsrc/include -shared -O -o libng.dll \
  ../libsrc/meshing/refine.cpp \
  ../libsrc/meshing/ruler3.cpp \
  ../libsrc/meshing/improve3.cpp \
+ ../libsrc/meshing/validate.cpp \
+ ../libsrc/meshing/smoothing2.5.cpp \
  ../libsrc/meshing/smoothing3.cpp \
  ../libsrc/meshing/adfront3.cpp \
  ../libsrc/meshing/tetrarls.cpp \
@@ -100,4 +102,4 @@ g++ -DWIN32 -I../libsrc/include -shared -O -o libng.dll \
  ../libsrc/general/mystring.cpp \
  ../libsrc/general/profiler.cpp \
  ./COofMP.cpp \
--lpthreadGC2
+-lpthread

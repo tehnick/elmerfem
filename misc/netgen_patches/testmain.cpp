@@ -1,3 +1,4 @@
+#ifdef WIN32
 #include <windows.h>
 #include <iostream.h>
 #include <fstream.h>
@@ -150,3 +151,4 @@ int main (int argc, char ** argv)
 
   return 0;
 }
+#endif
