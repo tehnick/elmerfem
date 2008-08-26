@@ -744,9 +744,10 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(selectAllSurfacesAct);
   viewMenu->addAction(selectAllEdgesAct);
-  viewMenu->addSeparator();
-  viewMenu->addAction(selectDefinedEdgesAct);
-  viewMenu->addAction(selectDefinedSurfacesAct);
+  // Momentarily disabled (see comment *** TODO *** below):
+  // viewMenu->addSeparator();
+  // viewMenu->addAction(selectDefinedEdgesAct);
+  // viewMenu->addAction(selectDefinedSurfacesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(hideselectedAct);
   viewMenu->addSeparator();
@@ -3850,8 +3851,12 @@ void MainWindow::selectDefinedEdgesSlot()
     list_t *l = &list[i];
     if(l->type == EDGELIST) {
       int j = l->index;
-      if( j < 0) continue;
-      if( activeboundary[j]) l->selected = true;
+      if( j < 0 ) continue;
+      
+      // *** TODO ***
+      //
+      // This is wrong: Comparing body indices with boundary indoxes
+      if( activeboundary[j] ) l->selected = true;
     }
   }
 
@@ -3909,8 +3914,12 @@ void MainWindow::selectDefinedSurfacesSlot()
     list_t *l = &list[i];
     if(l->type == SURFACELIST) {
       int j = l->index;
-      if( j < 0) continue;
-      if( activebody[j]) l->selected = true;
+      if( j < 0 ) continue;
+
+      // *** TODO ***
+      //
+      // This is wrong: Comparing body indices with boundary indoxes
+      if( activebody[j] ) l->selected = true;
     }
   }
 
