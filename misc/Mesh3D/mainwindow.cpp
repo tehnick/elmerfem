@@ -5775,7 +5775,7 @@ void MainWindow::solverFinishedSlot(int)
 //-----------------------------------------------------------------------------
 void MainWindow::solverErrorSlot(QProcess::ProcessError error)
 {
-  logMessage("Solver emitted signal: QProcess::ProcessError: " + QString::number(error));
+  logMessage("Solver emitted error signal: " + QString::number(error));
   solver->kill();
   runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
 }
@@ -5784,9 +5784,9 @@ void MainWindow::solverErrorSlot(QProcess::ProcessError error)
 //-----------------------------------------------------------------------------
 void MainWindow::solverStateChangedSlot(QProcess::ProcessState state)
 {
-  logMessage("Solver emitted signal: QProcess::ProcessState: " + QString::number(state));
-  solver->kill();
-  runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
+  // logMessage("Solver emitted signal: QProcess::ProcessState: " + QString::number(state));
+  // solver->kill();
+  // runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
 }
 
 
