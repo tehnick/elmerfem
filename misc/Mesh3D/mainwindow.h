@@ -116,15 +116,21 @@ private slots:
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
 
   void postProcessFinishedSlot(int);  // signal emitted by postProcess
+
   void solverStdoutSlot();            // solver's stdout redirection
   void solverStderrSlot();            // solver's stderr redirection
   void solverFinishedSlot(int);       // signal emitted by solver process
+  void solverErrorSlot(QProcess::ProcessError); // solver error signal
+  void solverStateChangedSlot(QProcess::ProcessState); // state changed
+
   void compilerStdoutSlot();          // compiler's stdout redirection
   void compilerStderrSlot();          // compiler's stderr redirection
   void compilerFinishedSlot(int);     // signal emitted by compiler
+
   void meshSplitterStdoutSlot();      // meshSplitter's stdout redirection
   void meshSplitterStderrSlot();      // meshSplitter's stderr redirection
   void meshSplitterFinishedSlot(int); // signal emitted by meshSplitter
+
   void meshUnifierStdoutSlot();       // meshUnifier's stdout redirection
   void meshUnifierStderrSlot();       // meshUnifier's stderr redirection
   void meshUnifierFinishedSlot(int);  // signal emitted by meshUnifier

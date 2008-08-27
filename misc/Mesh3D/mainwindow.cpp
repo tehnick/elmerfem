@@ -182,6 +182,14 @@ MainWindow::MainWindow()
   connect(solver, SIGNAL(readyReadStandardError()), 
 	  this, SLOT(solverStderrSlot()));
 
+  // solver emits (QProcess::ProcessError) when error occurs:
+  connect(solver, SIGNAL(error(QProcess::ProcessError)), 
+	  this, SLOT(solverErrorSlot(QProcess::ProcessError)));
+
+  // solver emits (QProcess::ProcessState) when state changed:
+  connect(solver, SIGNAL(stateChanged(QProcess::ProcessState)), 
+	  this, SLOT(solverStateChangedSlot(QProcess::ProcessState)));
+
   // compiler emits (int) when finished:
   connect(compiler, SIGNAL(finished(int)), 
 	  this, SLOT(compilerFinishedSlot(int))) ;
@@ -811,7 +819,7 @@ void MainWindow::createMenus()
   QProcess testProcess;
   QStringList args;
 
-#ifndef WIN32
+#if 0
   logMessage("Disabling compiler features");
   compileSolverAct->setEnabled(false);
 #endif
@@ -821,7 +829,7 @@ void MainWindow::createMenus()
     logMessage("ElmerGrid unavailable - disabling parallel features");
     parallelSettingsAct->setEnabled(false);
   }
-  testProcess.waitForFinished(1000);
+  testProcess.waitForFinished(10000);
   
   args << "-v";
   testProcess.start("ElmerSolver_mpi", args);
@@ -829,7 +837,7 @@ void MainWindow::createMenus()
     logMessage("ElmerSolver_mpi unavailable - disabling parallel features");
     parallelSettingsAct->setEnabled(false);
   }
-  testProcess.waitForFinished(1000);
+  testProcess.waitForFinished(10000);
 
   args << "-v";
   testProcess.start("ElmerSolver", args);
@@ -838,7 +846,7 @@ void MainWindow::createMenus()
     runsolverAct->setEnabled(false);
     killsolverAct->setEnabled(false);
   }
-  testProcess.waitForFinished(1000);
+  testProcess.waitForFinished(10000);
 
   args << "-v";
   testProcess.start("ElmerPost", args);
@@ -847,7 +855,12 @@ void MainWindow::createMenus()
     resultsAct->setEnabled(false);
     killresultsAct->setEnabled(false);
   }
-  testProcess.waitForFinished(1000);
+  testProcess.waitForFinished(10000);
+
+#ifdef WIN32
+  // Cmd line for launching an MPICH2 job
+  parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
+#endif
 }
 
 
@@ -5610,7 +5623,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
     "set DisplayStyle(ColorMesh) 1; "
     "translate -y 0.2; "
     "UpdateObject; ";
-  
+
   post->start("ElmerPost", args);
   
   if(!post->waitForStarted()) {
@@ -5758,6 +5771,25 @@ void MainWindow::solverFinishedSlot(int)
 }
 
 
+// solver process emits (QProcess::ProcessError) when error occurs...
+//-----------------------------------------------------------------------------
+void MainWindow::solverErrorSlot(QProcess::ProcessError error)
+{
+  logMessage("Solver emitted signal: QProcess::ProcessError: " + QString::number(error));
+  solver->kill();
+  runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
+}
+
+// solver process emits (QProcess::ProcessState) when state changed...
+//-----------------------------------------------------------------------------
+void MainWindow::solverStateChangedSlot(QProcess::ProcessState state)
+{
+  logMessage("Solver emitted signal: QProcess::ProcessState: " + QString::number(state));
+  solver->kill();
+  runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
+}
+
+
 // Solver -> Kill solver
 //-----------------------------------------------------------------------------
 void MainWindow::killsolverSlot()
@@ -5865,7 +5897,7 @@ void MainWindow::resultsSlot()
     "set DisplayStyle(ColorMesh) 1; "
     "translate -y 0.2; "
     "UpdateObject; ";
-  
+
   post->start("ElmerPost", args);
   
   if(!post->waitForStarted()) {
