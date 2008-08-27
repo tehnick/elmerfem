@@ -90,6 +90,8 @@ const double *CurveData::y() const
 ConvergenceView::ConvergenceView(QWidget *parent)
   : QMainWindow(parent)
 {
+  iconChecked = QIcon(":/icons/dialog-ok.png");
+
   plot = new QwtPlot(this);
   plot->resize(200, 200);
 
@@ -238,15 +240,15 @@ void ConvergenceView::createActions()
   exitAct->setStatusTip("Quit convergence monitor");
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
-  showGridAct = new QAction(QIcon(":/icons/dialog-ok-apply.png"), tr("&Grid"), this);
+  showGridAct = new QAction(QIcon(iconChecked), tr("&Grid"), this);
   showGridAct->setStatusTip("Show grid");
   connect(showGridAct, SIGNAL(triggered()), this, SLOT(showGridSlot()));  
 
-  showLegendAct = new QAction(QIcon(":/icons/dialog-ok-apply.png"), tr("&Legend"), this);
+  showLegendAct = new QAction(QIcon(iconChecked), tr("&Legend"), this);
   showLegendAct->setStatusTip("Show legend");
   connect(showLegendAct, SIGNAL(triggered()), this, SLOT(showLegendSlot())); 
 
-  showNSHistoryAct = new QAction(QIcon(":/icons/dialog-ok-apply.png"), 
+  showNSHistoryAct = new QAction(QIcon(iconChecked), 
 				 tr("&Nonlinear system"), this);
   showNSHistoryAct->setStatusTip("Show nonlinear system convergence history");
   connect(showNSHistoryAct, SIGNAL(triggered()), this, SLOT(showNSHistorySlot())); 
@@ -319,7 +321,7 @@ void ConvergenceView::showGridSlot()
   
   if(showGrid) {
     grid->attach(plot);
-    showGridAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+    showGridAct->setIcon(QIcon(iconChecked));
   } else {
     grid->detach();
     showGridAct->setIcon(QIcon(""));
@@ -336,7 +338,7 @@ void ConvergenceView::showLegendSlot()
     legend = new QwtLegend;
     legend->setFrameStyle(QFrame::Box|QFrame::Sunken);
     plot->insertLegend(legend, QwtPlot::RightLegend);
-    showLegendAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+    showLegendAct->setIcon(QIcon(iconChecked));
   } else {
     delete legend;
     showLegendAct->setIcon(QIcon(""));
@@ -350,7 +352,7 @@ void ConvergenceView::showNSHistorySlot()
   showNSHistory = !showNSHistory;
   
   if(showNSHistory) {
-    showNSHistoryAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+    showNSHistoryAct->setIcon(QIcon(iconChecked));
   } else {
     showNSHistoryAct->setIcon(QIcon(""));
   }
@@ -376,7 +378,7 @@ void ConvergenceView::showSSHistorySlot()
   showSSHistory = !showSSHistory;
   
   if(showSSHistory) {
-    showSSHistoryAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+    showSSHistoryAct->setIcon(QIcon(iconChecked));
   } else {
     showSSHistoryAct->setIcon(QIcon(""));
   }

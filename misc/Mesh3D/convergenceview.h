@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QHash>
+#include <QIcon>
 #include "maxlimits.h"
 
 #include <qwt_plot.h>
@@ -96,6 +97,8 @@ private:
   bool showLegend;
   bool showNSHistory;
   bool showSSHistory;
+
+  QIcon iconChecked;
 };
 
 #endif // CONVERGENCEVIEW_H
