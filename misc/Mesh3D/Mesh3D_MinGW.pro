@@ -5,6 +5,8 @@ TARGET = Mesh3D
 DEPENDPATH += . forms plugins
 INCLUDEPATH += .
 
+LIBS += -lpsapi
+
 # QT
 QT += opengl xml script
 CONFIG += uitools
