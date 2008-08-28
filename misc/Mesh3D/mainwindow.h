@@ -24,6 +24,7 @@
 #include "generalsetup.h"
 #include "glcontrol.h"
 #include "parallel.h"
+#include "checkmpi.h"
 #include "edfeditor.h"
 #include "dynamiceditor.h"
 #include "convergenceview.h"
@@ -282,6 +283,7 @@ private:
   SummaryEditor *summaryEditor;
   GLcontrol *glControl;
   Parallel *parallel;
+  CheckMpi *checkMpi;
 #ifdef OCC62
   CadView *cadView;
 #endif

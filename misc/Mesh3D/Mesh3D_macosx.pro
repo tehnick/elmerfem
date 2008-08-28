@@ -24,6 +24,7 @@ RC_FILE += Mesh3D.rc
 HEADERS += bodypropertyeditor.h \
            boundarydivision.h \
            boundarypropertyeditor.h \
+           checkmpi.h \
            convergenceview.h \
            dynamiceditor.h \
            edfeditor.h \
@@ -69,6 +70,7 @@ FORMS += forms/bodypropertyeditor.ui \
 SOURCES += bodypropertyeditor.cpp \
            boundarydivision.cpp \
            boundarypropertyeditor.cpp \
+           checkmpi.cpp \
            convergenceview.cpp \
            dynamiceditor.cpp \
            edfeditor.cpp \

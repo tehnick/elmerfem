@@ -45,19 +45,11 @@
 #include <fstream>
 #include "mainwindow.h"
 
-// todo: eventually put this apart from here:
-#ifdef WIN32
-#include <windows.h>
-#include <psapi.h>
-#endif
-
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
-
  
 using namespace std;
-
 
 #define OP_UNIFY_SURFACE  1
 #define OP_DIVIDE_SURFACE 2
@@ -151,6 +143,7 @@ MainWindow::MainWindow()
   convergenceView = new ConvergenceView(this);
   glControl = new GLcontrol(this);
   parallel = new Parallel(this);
+  checkMpi = new CheckMpi;
 #ifdef OCC62
   cadView = new CadView(this);
 #endif
@@ -820,12 +813,12 @@ void MainWindow::createMenus()
   helpMenu = menuBar()->addMenu(tr("&Help"));
   helpMenu->addAction(aboutAct);
 
-  // Disable unavailable components from menu:
+  // Disable unavailable external components:
   //------------------------------------------
   QProcess testProcess;
   QStringList args;
 
-#if 0
+#if 1
   logMessage("Disabling compiler features");
   compileSolverAct->setEnabled(false);
 #endif
@@ -850,6 +843,7 @@ void MainWindow::createMenus()
   if(!testProcess.waitForStarted()) {
     logMessage("ElmerSolver unavailable - disabling solver features");
     runsolverAct->setEnabled(false);
+    showConvergenceAct->setEnabled(false);
     killsolverAct->setEnabled(false);
   }
   testProcess.waitForFinished(10000);
@@ -863,38 +857,12 @@ void MainWindow::createMenus()
   }
   testProcess.waitForFinished(10000);
 
-  // todo: eventually put this apart from here:
 #ifdef WIN32
-  // Cmd line for launching an MPICH2 job
+  // Default cmd line for launching an MPICH2 job through SMPD:
   parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
-
-  // Check if smpd is running:
-  DWORD ProcessesIDs[5000], cbNeeded, cProcesses;
-  unsigned int i;
-  TCHAR szProcessName[50] = TEXT("");
-  
-  if(!EnumProcesses(ProcessesIDs, sizeof(ProcessesIDs), &cbNeeded)) {
-    cout << "Unable to enumerate processes: assuming smpd is not running" << endl;
-    goto done;
-  }
-  
-  cProcesses = cbNeeded / sizeof(DWORD);
-
-  for(i = 0; i < cProcesses; i++) {
-    HANDLE hProcess = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, ProcessesIDs[i] );
-
-    if(hProcess != NULL)
-      GetModuleBaseName( hProcess, NULL, szProcessName, sizeof(szProcessName)/sizeof(TCHAR));
-
-    if(!wcscmp(szProcessName, TEXT("smpd.exe")))
-      cout << "Ok: smpd is running on PID=" << ProcessesIDs[i] << endl;
-
-    CloseHandle( hProcess );
-  }
-  
- done:
-  printf("");
 #endif
+
+  checkMpi->findSmpd();
 }
 
 
