@@ -880,19 +880,19 @@ void MainWindow::createMenus()
   testProcess.waitForFinished(2000);
 
   // First of all, we need SMPD running in order to launch parallel jobs:
-  if(checkMpi->findSmpd() < 0)
-    parallelSettingsAct->setEnabled(false);
+  //if(checkMpi->findSmpd() < 0)
+  //parallelSettingsAct->setEnabled(false);
 
   // Mpiexec must be working:
-  cout << "Checking whether mpiexec works... ";
-  testProcess.start("mpiexec -localonly 2 mpitest");
-  if(!testProcess.waitForStarted()) {
-    logMessage("no - disabling parallel features");
-    parallelSettingsAct->setEnabled(false);
-  } else {
-    cout << "yes" << endl;
-  }
-  testProcess.waitForFinished(2000);
+  //cout << "Checking whether mpiexec works... ";
+  //testProcess.start("mpiexec -localonly 2 mpitest");
+  //if(!testProcess.waitForStarted()) {
+  //logMessage("no - disabling parallel features");
+  //parallelSettingsAct->setEnabled(false);
+  //} else {
+  //cout << "yes" << endl;
+  //}
+  //testProcess.waitForFinished(2000);
 
   // Set the default cmd line for launching an MPICH2 job through SMPD:
   parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
