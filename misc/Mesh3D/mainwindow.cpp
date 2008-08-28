@@ -806,8 +806,9 @@ void MainWindow::createMenus()
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
-  solverMenu->addSeparator();
-  solverMenu->addAction(compileSolverAct);
+  // Momentarily disabled:
+  // solverMenu->addSeparator();
+  // solverMenu->addAction(compileSolverAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -817,11 +818,6 @@ void MainWindow::createMenus()
   //------------------------------------------
   QProcess testProcess;
   QStringList args;
-
-#if 1
-  logMessage("Disabling compiler features");
-  compileSolverAct->setEnabled(false);
-#endif
 
   testProcess.start("ElmerGrid");
   if(!testProcess.waitForStarted()) {
@@ -858,13 +854,31 @@ void MainWindow::createMenus()
   testProcess.waitForFinished(10000);
 
 #ifdef WIN32
+
   // Default cmd line for launching an MPICH2 job through SMPD:
   parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
 
-  // We need an Smpd daemon running:
+  // First of all, we need SMPD running in order to launch parallel jobs:
   if(checkMpi->findSmpd() < 0)
     parallelSettingsAct->setEnabled(false);
-#endif
+
+  // Then, we also need mpiexec:
+  testProcess.start("mpiexec");
+  if(!testProcess.waitForStarted()) {
+    logMessage("mpiexec not found - disabling parallel features");
+    parallelSettingsAct->setEnabled(false);
+  }
+  testProcess.waitForFinished(10000);
+
+  // Finally, mpiexec must be working:
+  testProcess.start("mpiexec -localonly 2 mpitest");
+  if(!testProcess.waitForStarted()) {
+    logMessage("Problems with mpiexec - disabling parallel features");
+    parallelSettingsAct->setEnabled(false);
+  }
+  testProcess.waitForFinished(10000);
+  
+#endif // WIN32
 
 }
 
