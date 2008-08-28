@@ -60,32 +60,40 @@ int CheckMpi::findSmpd()
   unsigned int i;
   TCHAR szProcessName[50] = TEXT("");
   DWORD ProcessesIDs[5000], cbNeeded, cProcesses;
-  
+  bool found = false;
+
   if(!EnumProcesses(ProcessesIDs, sizeof(ProcessesIDs), &cbNeeded)) {
-    cout << "Unable to enumerate processes: "
-	 << "assuming smpd is not running" << endl;
+    cout << "CheckMPI: Unable to enumerate processes - "
+	 << "assuming Smpd is not running - disabling MPI" << endl;
     return -1;
   }
   
   cProcesses = cbNeeded / sizeof(DWORD);
-
+  
   for(i = 0; i < cProcesses; i++) {
     HANDLE hProcess = OpenProcess( PROCESS_QUERY_INFORMATION | 
 				   PROCESS_VM_READ, FALSE, 
 				   ProcessesIDs[i] );
-
+    
     if(hProcess != NULL)
       GetModuleBaseName(hProcess, NULL, szProcessName, 
 			sizeof(szProcessName)/sizeof(TCHAR));
-
-    if(!wcscmp(szProcessName, TEXT("smpd.exe")))
-      cout << "CheckMPI: Ok: Smpd seems running on PID=" 
-	   << ProcessesIDs[i] << endl;
+    
+    if(!wcscmp(szProcessName, TEXT("smpd.exe"))) {
+      found = true;
+      cout << "CheckMPI: Smpd is running on PID " << ProcessesIDs[i]
+	   << " - MPI seems to be working"  << endl;
+    }
     
     CloseHandle(hProcess);
   }
-
+  
+  if(!found) {
+    cout << "CheckMPI: Unable to locate Smpd - disabling MPI" << endl;
+    return -1;
+  }
+  
 #endif
-
+  
   return 0;
 }

@@ -860,9 +860,12 @@ void MainWindow::createMenus()
 #ifdef WIN32
   // Default cmd line for launching an MPICH2 job through SMPD:
   parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
+
+  // We need an Smpd daemon running:
+  if(checkMpi->findSmpd() < 0)
+    parallelSettingsAct->setEnabled(false);
 #endif
 
-  checkMpi->findSmpd();
 }
 
 
