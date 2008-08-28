@@ -819,64 +819,83 @@ void MainWindow::createMenus()
   QProcess testProcess;
   QStringList args;
 
-  testProcess.start("ElmerGrid");
-  if(!testProcess.waitForStarted()) {
-    logMessage("ElmerGrid unavailable - disabling parallel features");
-    parallelSettingsAct->setEnabled(false);
-  }
-  testProcess.waitForFinished(10000);
-  
-  args << "-v";
-  testProcess.start("ElmerSolver_mpi", args);
-  if(!testProcess.waitForStarted()) {
-    logMessage("ElmerSolver_mpi unavailable - disabling parallel features");
-    parallelSettingsAct->setEnabled(false);
-  }
-  testProcess.waitForFinished(10000);
-
+  cout << "Checking for ElmerSolver... ";
   args << "-v";
   testProcess.start("ElmerSolver", args);
   if(!testProcess.waitForStarted()) {
-    logMessage("ElmerSolver unavailable - disabling solver features");
+    logMessage("no - disabling solver features");
     runsolverAct->setEnabled(false);
     showConvergenceAct->setEnabled(false);
     killsolverAct->setEnabled(false);
+  } else {
+    cout << "yes" << endl;
   }
-  testProcess.waitForFinished(10000);
+  testProcess.waitForFinished(2000);
 
+  cout << "Checking for ElmerPost... ";
   args << "-v";
   testProcess.start("ElmerPost", args);
   if(!testProcess.waitForStarted()) {
-    logMessage("ElmerPost unavailable - disabling postprocessing features");
+    logMessage("no - disabling postprocessing features");
     resultsAct->setEnabled(false);
     killresultsAct->setEnabled(false);
+  } else {
+    cout << "yes" << endl;
   }
-  testProcess.waitForFinished(10000);
+  testProcess.waitForFinished(2000);
+
+  cout << "Checking for ElmerGrid... ";
+  testProcess.start("ElmerGrid");
+  if(!testProcess.waitForStarted()) {
+    logMessage("no - disabling parallel features");
+    parallelSettingsAct->setEnabled(false);
+  } else {
+    cout << "yes" << endl;
+  }
+  testProcess.waitForFinished(2000);
+
+  cout << "Checking for ElmerSolver_mpi...";
+  args << "-v";
+  testProcess.start("ElmerSolver_mpi", args);
+  if(!testProcess.waitForStarted()) {
+    logMessage("no - disabling parallel features");
+    parallelSettingsAct->setEnabled(false);
+  } else {
+    cout << "yes" << endl;
+  }
+  testProcess.waitForFinished(2000);
+
 
 #ifdef WIN32
 
-  // Default cmd line for launching an MPICH2 job through SMPD:
-  parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
+  // Then, we also need mpiexec:
+  cout << "Checking for mpiexec... ";
+  testProcess.start("mpiexec");
+  if(!testProcess.waitForStarted()) {
+    logMessage("no - disabling parallel features");
+    parallelSettingsAct->setEnabled(false);
+  } else {
+    cout << "yes" << endl;
+  }
+  testProcess.waitForFinished(2000);
 
   // First of all, we need SMPD running in order to launch parallel jobs:
   if(checkMpi->findSmpd() < 0)
     parallelSettingsAct->setEnabled(false);
 
-  // Then, we also need mpiexec:
-  testProcess.start("mpiexec");
-  if(!testProcess.waitForStarted()) {
-    logMessage("mpiexec not found - disabling parallel features");
-    parallelSettingsAct->setEnabled(false);
-  }
-  testProcess.waitForFinished(10000);
-
-  // Finally, mpiexec must be working:
+  // Mpiexec must be working:
+  cout << "Checking whether mpiexec works... ";
   testProcess.start("mpiexec -localonly 2 mpitest");
   if(!testProcess.waitForStarted()) {
-    logMessage("Problems with mpiexec - disabling parallel features");
+    logMessage("no - disabling parallel features");
     parallelSettingsAct->setEnabled(false);
+  } else {
+    cout << "yes" << endl;
   }
-  testProcess.waitForFinished(10000);
+  testProcess.waitForFinished(2000);
+
+  // Set the default cmd line for launching an MPICH2 job through SMPD:
+  parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
   
 #endif // WIN32
 

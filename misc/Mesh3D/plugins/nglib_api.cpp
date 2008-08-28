@@ -55,7 +55,7 @@ NglibAPI::~NglibAPI()
 
 bool NglibAPI::loadNglib()
 {
-  cout << "Load nglib...";
+  cout << "Load nglib... ";
 
 #ifdef WIN32
   hNglib = LoadLibrary(TEXT("libng.dll"));

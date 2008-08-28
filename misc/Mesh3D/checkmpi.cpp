@@ -37,6 +37,7 @@
  *  Original Date: 15 Mar 2008                                               *
  *                                                                           *
  *****************************************************************************/
+#define MAX_PROCIDS 1000
 
 #include <iostream>
 #include "checkmpi.h"
@@ -59,12 +60,13 @@ int CheckMpi::findSmpd()
 
   unsigned int i;
   TCHAR szProcessName[50] = TEXT("");
-  DWORD ProcessesIDs[5000], cbNeeded, cProcesses;
+  DWORD ProcessesIDs[MAX_PROCIDS], cbNeeded, cProcesses;
   bool found = false;
 
+  cout << "Checking whether smpd is running... ";
+
   if(!EnumProcesses(ProcessesIDs, sizeof(ProcessesIDs), &cbNeeded)) {
-    cout << "CheckMPI: Unable to enumerate processes - "
-	 << "assuming Smpd is not running - disabling MPI" << endl;
+    cout << "unable to enumerate processes - disabling parallel features" << endl;
     return -1;
   }
   
@@ -81,15 +83,14 @@ int CheckMpi::findSmpd()
     
     if(!wcscmp(szProcessName, TEXT("smpd.exe"))) {
       found = true;
-      cout << "CheckMPI: Smpd is running on PID " << ProcessesIDs[i]
-	   << " - MPI seems to be working"  << endl;
+      cout << "yes (PID " << ProcessesIDs[i] << ")" << endl;
     }
     
     CloseHandle(hProcess);
   }
   
   if(!found) {
-    cout << "CheckMPI: Unable to locate Smpd - disabling MPI" << endl;
+    cout << "no - disabling parallel features" << endl;
     return -1;
   }
   

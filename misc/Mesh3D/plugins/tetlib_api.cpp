@@ -55,7 +55,7 @@ TetlibAPI::~TetlibAPI()
 
 bool TetlibAPI::loadTetlib()
 {
-  cout << "Load tetlib...";
+  cout << "Load tetlib... ";
 
 #ifdef WIN32
   hTetlib = LoadLibrary(TEXT("libtet.dll"));
