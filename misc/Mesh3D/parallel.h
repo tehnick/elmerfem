@@ -18,6 +18,7 @@ signals:
 
 private slots:
   void okButtonClicked();
+  void browseButtonClicked(); 
 
 private:
  

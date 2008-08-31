@@ -807,8 +807,8 @@ void MainWindow::createMenus()
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
   // Momentarily disabled:
-  // solverMenu->addSeparator();
-  // solverMenu->addAction(compileSolverAct);
+  solverMenu->addSeparator();
+  solverMenu->addAction(compileSolverAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -866,7 +866,7 @@ void MainWindow::createMenus()
   testProcess.waitForFinished(2000);
 
 
-#ifdef WIN32
+#if 0
 
   // Then, we also need mpiexec:
   cout << "Checking for mpiexec... ";
@@ -895,9 +895,14 @@ void MainWindow::createMenus()
   //testProcess.waitForFinished(2000);
 
   // Set the default cmd line for launching an MPICH2 job through SMPD:
-  parallel->ui.parallelCmdLineEdit->setText("mpiexec -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
+  parallel->ui.parallelCmdLineEdit->setText("C:\Program Files\mpiexec.exe -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
   
-#endif // WIN32
+#endif 
+
+#ifdef WIN32
+  parallel->ui.parallelExecLineEdit->setText("C:/Program Files/MPICH2/bin/mpiexec.exe");
+  parallel->ui.parallelArgsLineEdit->setText("-localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
+#endif
 
 }
 
@@ -5570,10 +5575,18 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
 
   // Prepare for parallel solution:
   Ui::parallelDialog ui = parallel->ui;
-  int nofProcessors = ui.nofProcessorsSpinBox->value();
-  QString parallelCmd = ui.parallelCmdLineEdit->text().trimmed();
 
-  parallelCmd.replace(QString("%n"), QString::number(nofProcessors));
+  int nofProcessors = ui.nofProcessorsSpinBox->value();
+
+  QString parallelExec = ui.parallelExecLineEdit->text().trimmed();
+#ifdef WIN32
+  parallelExec = "\"" + parallelExec + "\"";
+#endif
+
+  QString parallelArgs = ui.parallelArgsLineEdit->text().trimmed();
+  parallelArgs.replace(QString("%n"), QString::number(nofProcessors));
+
+  QString parallelCmd = parallelExec + " " + parallelArgs;
 
   logMessage("Executing: " + parallelCmd);
 

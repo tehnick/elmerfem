@@ -49,12 +49,25 @@ Parallel::Parallel(QWidget *parent)
 {
   ui.setupUi(this);
 
+  connect(ui.browseButton, SIGNAL(clicked()), 
+	  this, SLOT(browseButtonClicked()));
+
   connect(ui.okButton, SIGNAL(clicked()), 
 	  this, SLOT(okButtonClicked()));
 }
 
 Parallel::~Parallel()
 {
+}
+
+void Parallel::browseButtonClicked()
+{
+  QString fileName = QFileDialog::getOpenFileName(this);
+
+  if(fileName.isEmpty())
+    return;
+
+  ui.parallelExecLineEdit->setText(fileName);
 }
 
 void Parallel::okButtonClicked()
