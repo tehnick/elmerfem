@@ -397,6 +397,10 @@ void AddExtension(const char *fname1,char *fname2,const char *newext)
   char *ptr1;
 
   strcpy(fname2,fname1); 
+
+  //ML:
+  return;
+
   ptr1 = strchr(fname2, '.');
   if (ptr1) *ptr1 = '\0';
   strcat(fname2, ".");

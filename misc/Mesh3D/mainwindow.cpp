@@ -61,6 +61,8 @@ using namespace std;
 #define BODY_FORCE    3
 #define BODY_EQUATION 4
 
+#define MPICH2 0
+
 class operation_t {
 public:
   operation_t *next;
@@ -6085,6 +6087,16 @@ void MainWindow::showaboutSlot()
 			"QtOpenCascade integration framework:\n\n"
 			"http://www.opencascade.org/\n"
 			"http://sourceforge.net/projects/qtocc/\n\n"
+#endif
+
+#ifdef MPICH2
+			"The parallel solver of this package has been linked "
+			"against the MPICH2 library v. 1.0.7 from Argonne "
+			"national laboratory. In order to use the parallel "
+			"solver, the MPICH2 runtime environment should be "
+			"installed and configured on your system. For more "
+			"details, see:\n\n"
+			"http://www.mcs.anl.gov/research/projects/mpich2/\n\n"
 #endif
 			"The GPL-licensed source code of ElmerGUI is available "
 			"from the SVN repository at SF.net:\n\n"
