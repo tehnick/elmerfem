@@ -5522,6 +5522,7 @@ void MainWindow::runsolverSlot()
 	return;
       }
       
+
       QString partitioningCommand = "ElmerGrid 2 2 " 
 	+ saveDirName + " -metis " + QString::number(nofProcessors);
       
@@ -5900,9 +5901,13 @@ void MainWindow::resultsSlot()
     solverLogWindow->found = false;
     solverLogWindow->show();
 
+
+    // ?????
+
     QString postName = generalSetup->ui.postFileEdit->text().trimmed();
     QStringList postNameSplitted = postName.split(".");
-    QString unifyingCommand = "ElmerGrid 15 3 " + postNameSplitted.at(0).trimmed();
+    int nofProcessors = ui.nofProcessorsSpinBox->value();
+    QString unifyingCommand = "ElmerGrid 15 3 " + postNameSplitted.at(0).trimmed() + " -partjoin " + QString::number(nofProcessors);
     
     logMessage("Executing: " + unifyingCommand);
     
