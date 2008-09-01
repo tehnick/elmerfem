@@ -60,24 +60,26 @@ CONTAINS
 !-----------------------------------------------------------------
      INTEGER :: n, i, sz, ierr
      INTEGER*1, ALLOCATABLE :: SendBuffer(:)
-
+     INTEGER, PARAMETER :: sizeofint = 4
      LOGICAL :: isfine
 
      SAVE SendBuffer
 
-     sz = MAX( n, 2**20 )
+     sz = sizeofint * MAX( n, 2**20 )
 
-     isfine = ALLOCATED(SendBuffer)
-     IF ( isfine ) isfine = 4*sz <= SIZE(SendBuffer)
+     isfine = ALLOCATED( SendBuffer )
+     IF ( isfine ) isfine = (sz <= sizeofint * SIZE(SendBuffer))
      IF ( isfine ) RETURN
 
      IF ( ALLOCATED(SendBuffer) ) THEN
-        i = SIZE( SendBuffer )
+        i = sizeofint * SIZE( SendBuffer )
         CALL MPI_BUFFER_DETACH( SendBuffer, i, ierr )
         DEALLOCATE( SendBuffer )
      END IF
-     ALLOCATE( SendBuffer( 4*sz ) )
-     CALL MPI_BUFFER_ATTACH( SendBuffer, 4*sz, ierr )
+
+     ALLOCATE( SendBuffer( sz ) )
+     CALL MPI_BUFFER_ATTACH( SendBuffer, sz, ierr )
+
 !-----------------------------------------------------------------
    END SUBROUTINE CheckBuffer
 !-----------------------------------------------------------------
@@ -307,7 +309,8 @@ CONTAINS
               Active(j) = SourceMatrix % Perm(i)
             ELSE IF ( ParEnv % Active(k+1) ) THEN
               CALL MPI_BSEND( SourceMatrix % Perm(i), 1, MPI_INTEGER, k, &
-                ParallelInfo % GlobalDOFs(i), MPI_COMM_WORLD, ierr)
+                20000 + ParallelInfo % GlobalDOFs(i), MPI_COMM_WORLD, ierr)
+!                20000, MPI_COMM_WORLD, ierr)
             END IF
           END DO
 
@@ -317,7 +320,8 @@ CONTAINS
               Active(j) = 0
             ELSE IF ( ParEnv % Mype/=k ) THEN
               CALL MPI_RECV( Active(j), 1, MPI_INTEGER, k, &
-                ParallelInfo % GlobalDOFs(i),  MPI_COMM_WORLD, status, ierr)
+                20000 + ParallelInfo % GlobalDOFs(i),  MPI_COMM_WORLD, status, ierr)
+!                20000,  MPI_COMM_WORLD, status, ierr)
             END IF
           END DO
 
@@ -335,6 +339,7 @@ CONTAINS
     END IF
 
     DEALLOCATE( Active )
+
 !-----------------------------------------------------------------------
   END SUBROUTINE FindActivePEs
 !-----------------------------------------------------------------------
@@ -676,7 +681,8 @@ tstart = realtime()
         IF( i-1 == ParEnv % MyPE ) CYCLE
         IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
 
-        CALL MPI_SEND( tosend(i), 1, MPI_INTEGER, i-1, 100, MPI_COMM_WORLD, ierr)
+!        CALL MPI_SEND( tosend(i), 1, MPI_INTEGER, i-1, 100, MPI_COMM_WORLD, ierr)
+        CALL MPI_BSEND( tosend(i), 1, MPI_INTEGER, i-1, 100, MPI_COMM_WORLD, ierr)
         IF( tosend(i) < 1 ) CYCLE
 
         DataSize = 3*tosend(i)
@@ -800,7 +806,8 @@ tstart = realtime()
         IF( ASSOCIATED( Request2(i) % DATA ) ) DataSize = SIZE( Request2(i) % DATA )
 !ddd = ddd+DataSize
 
-        CALL MPI_SEND( DataSize, 1, MPI_INTEGER, i-1, 900, MPI_COMM_WORLD, ierr)
+        !CALL MPI_SEND( DataSize, 1, MPI_INTEGER, i-1, 900, MPI_COMM_WORLD, ierr)
+        CALL MPI_BSEND( DataSize, 1, MPI_INTEGER, i-1, 900, MPI_COMM_WORLD, ierr)
         IF( DataSize < 1 ) CYCLE
 
         CALL MPI_BSEND( Request2(i) % DATA, DataSize, MPI_INTEGER, i-1, 950, MPI_COMM_WORLD, ierr)
@@ -864,10 +871,11 @@ tstart = realtime()
         DataSize = 0
         IF( ASSOCIATED( Request1(i) % DATA ) ) DataSize = SIZE( Request1(i) % DATA )
 
-        CALL MPI_SEND( DataSize, 1, MPI_INTEGER, i-1, 700, MPI_COMM_WORLD, ierr)
+        !CALL MPI_SEND( DataSize, 1, MPI_INTEGER, i-1, 700, MPI_COMM_WORLD, ierr)
+        CALL MPI_BSEND( DataSize, 1, MPI_INTEGER, i-1, 700, MPI_COMM_WORLD, ierr)
         IF( DataSize < 1 ) CYCLE
 
-        CALL MPI_BSEND( Request1(i) % DATA, DataSize, MPI_INTEGER, i-1, 800, MPI_COMM_WORLD, ierr )
+        CALL MPI_BSEND( Request1(i) % DATA, DataSize, MPI_INTEGER, i-1, 1800, MPI_COMM_WORLD, ierr )
      END DO
      !
      ! Receive the removal requests and update the neighbour lists (CASE 1):
@@ -880,7 +888,7 @@ tstart = realtime()
         IF( DataSize < 1 ) CYCLE
         
         ALLOCATE( IntArray(DataSize) )
-        CALL MPI_RECV( IntArray, DataSize, MPI_INTEGER, i-1, 800, MPI_COMM_WORLD, status, ierr )
+        CALL MPI_RECV( IntArray, DataSize, MPI_INTEGER, i-1, 1800, MPI_COMM_WORLD, status, ierr )
         
         mm = DataSize/3
         DO nn = 1,mm
@@ -2199,7 +2207,7 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass, NeedDamp )
 
            IF ( NeedDamp ) &
               CALL MPI_BSEND( NbsIfMatrix(i) % DampValues, Cols, &
-                MPI_DOUBLE_PRECISION, destproc, 2006, MPI_COMM_WORLD, ierr )
+                MPI_DOUBLE_PRECISION, destproc, 2007, MPI_COMM_WORLD, ierr )
            END IF
      END IF
   END DO
@@ -2255,7 +2263,7 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass, NeedDamp )
 
         IF ( NeedDamp ) &
            CALL MPI_RECV( RecvdIfMatrix(sproc+1) % DampValues, Cols, &
-             MPI_DOUBLE_PRECISION, sproc, 2006, MPI_COMM_WORLD, status, ierr )
+             MPI_DOUBLE_PRECISION, sproc, 2007, MPI_COMM_WORLD, status, ierr )
      END IF
 
   END DO
@@ -2432,16 +2440,16 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
 
         IF ( DataLen <= 0 ) THEN
            CALL MPI_BSEND( 0, 1, MPI_INTEGER, &
-                destproc, 3000, MPI_COMM_WORLD, ierr )
+                destproc, 3100, MPI_COMM_WORLD, ierr )
         ELSE
            CALL MPI_BSEND( DataLen, 1, MPI_INTEGER, &
-                destproc, 3000, MPI_COMM_WORLD, ierr )
+                destproc, 3100, MPI_COMM_WORLD, ierr )
 
            CALL MPI_BSEND( SplittedMatrix % RHS(i) % RHSind, DataLen, &
-              MPI_INTEGER, destproc, 3001, MPI_COMM_WORLD, ierr )
+              MPI_INTEGER, destproc, 3101, MPI_COMM_WORLD, ierr )
 
            CALL MPI_BSEND( SplittedMatrix % RHS(i) % RHSVec, DataLen, &
-              MPI_DOUBLE_PRECISION, destproc, 3002, MPI_COMM_WORLD, ierr )
+              MPI_DOUBLE_PRECISION, destproc, 3102, MPI_COMM_WORLD, ierr )
         END IF
 
      END IF
@@ -2449,16 +2457,16 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
 
   DO i = 1, ParEnv % NumOfNeighbours
      CALL MPI_RECV( DataLen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-               3000, MPI_COMM_WORLD, status, ierr )
+               3100, MPI_COMM_WORLD, status, ierr )
      sproc = status(MPI_SOURCE)
 
      IF ( DataLen /= 0 ) THEN
         ALLOCATE( IndBuf(DataLen), ValBuf(DataLen) )
 
         CALL MPI_RECV( IndBuf, DataLen, MPI_INTEGER, sproc, &
-                3001, MPI_COMM_WORLD, status, ierr )
+                3101, MPI_COMM_WORLD, status, ierr )
         CALL MPI_RECV( ValBuf, DataLen, MPI_DOUBLE_PRECISION, &
-             sproc, 3002, MPI_COMM_WORLD, status, ierr )
+             sproc, 3102, MPI_COMM_WORLD, status, ierr )
         DO j = 1, DataLen
            Ind = SearchNode( ParallelInfo, IndBuf(j) )
            IF ( Ind /= -1 ) THEN
