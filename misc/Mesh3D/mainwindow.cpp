@@ -1772,6 +1772,9 @@ void MainWindow::loadProjectSlot()
     return;
   }
 
+  QDir::setCurrent(projectDirName);
+  saveDirName = projectDirName;
+
   logMessage("Clearing model data");
   modelClearSlot();
 
@@ -1930,9 +1933,28 @@ void MainWindow::loadProjectSlot()
   boundaryPropertyFile.close();
 
 
-  // Finally, generate new sif:
-  if(glWidget->mesh != NULL)
+  // Finally, regenerate && save new sif:
+  if(glWidget->mesh != NULL) {
+    logMessage("Regenerating and saving the solver input file...");
+
     generateSifSlot();
+
+    QFile file;
+    QString sifName = generalSetup->ui.solverInputFileEdit->text().trimmed();
+    file.setFileName(sifName);
+    file.open(QIODevice::WriteOnly);
+    QTextStream sif(&file);    
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    sif << sifWindow->textEdit->toPlainText();
+    QApplication::restoreOverrideCursor();
+    file.close();
+    
+    file.setFileName("ELMERSOLVER_STARTINFO");
+    file.open(QIODevice::WriteOnly);
+    QTextStream startinfo(&file);
+    startinfo << sifName.toAscii() << "\n1\n";    
+    file.close();
+  }
 
   logMessage("Ready");
 }
