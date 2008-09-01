@@ -60,19 +60,17 @@ CONTAINS
 !-----------------------------------------------------------------
      INTEGER :: n, i, sz, ierr
      INTEGER*1, ALLOCATABLE :: SendBuffer(:)
-     INTEGER, PARAMETER :: sizeofint = 4
      LOGICAL :: isfine
-
      SAVE SendBuffer
 
-     sz = sizeofint * MAX( n, 2**20 )
+     sz = MAX( n, 2**20 )
 
      isfine = ALLOCATED( SendBuffer )
-     IF ( isfine ) isfine = (sz <= sizeofint * SIZE(SendBuffer))
+     IF ( isfine ) isfine = (sz <= SIZE(SendBuffer))
      IF ( isfine ) RETURN
 
      IF ( ALLOCATED(SendBuffer) ) THEN
-        i = sizeofint * SIZE( SendBuffer )
+        i = SIZE( SendBuffer )
         CALL MPI_BUFFER_DETACH( SendBuffer, i, ierr )
         DEALLOCATE( SendBuffer )
      END IF
