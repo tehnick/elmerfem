@@ -181,7 +181,7 @@ end:
 
 
 
-int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
+int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int parts,
 				 int minstep, int maxstep, int dstep, int info)
 {
   int *noknots,*noelements,novctrs,elemcode,open;
@@ -214,6 +214,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
 	   filename);
     return(2);
   } else {
+    if(parts > 0) nofiles = MIN(parts,nofiles);
     if(info) printf("Loading Elmer results from %d partitions.\n",nofiles);
   }
 

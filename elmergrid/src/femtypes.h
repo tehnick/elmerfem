@@ -303,6 +303,7 @@ struct ElmergridType {
     partopt,    /* free parameter for optimization */
     partitions, /* number of simple geometric partitions */
     partdim[3],
+    partjoin,   /* number of parallel dimenions to be joined */
     inmethod,   /* method in which mesh is read in to ElmerGrid */
     outmethod,  /* method in which the mesh is written by ElmerGrid */
     sidemap[3*MAXBOUNDARIES],

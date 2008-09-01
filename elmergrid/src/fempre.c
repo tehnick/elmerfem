@@ -166,7 +166,9 @@ static void Instructions()
   printf("-halo                : create halo for the partitioning\n");
   printf("-indirect            : create indirect connections in the partitioning\n");
   printf("-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes\n");
+  printf("-partjoin int        : number of partitions in the data to be joined\n");
   printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
+  printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
 
   if(0) printf("-names               : conserve name information where applicable\n");
 #if 0
@@ -446,7 +448,7 @@ int main(int argc, char *argv[])
 
   case 15: 
     if(info) printf("Partitioned solution is fused on-the-fly therefore no other operations may be performed.\n");
-    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,
+    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,eg.partjoin,
 				 eg.saveinterval[0],eg.saveinterval[1],eg.saveinterval[2],info);
     if(info) printf("Finishing with the fusion of partitioned Elmer solutions\n");
     Goodbye();

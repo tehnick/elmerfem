@@ -243,6 +243,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->elements3d = 0;
   eg->nodes3d = 0;
   eg->metis = 0;
+  eg->partjoin = 0;
   eg->partitionhalo = FALSE;
   eg->partitionindirect = FALSE;
   eg->reduce = FALSE;
@@ -398,7 +399,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-halo") == 0) {
       eg->partitionhalo = TRUE;
     }
-    if(strcmp(argv[arg],"-indirect") == 0) {
+     if(strcmp(argv[arg],"-indirect") == 0) {
       eg->partitionindirect = TRUE;
     }
     if(strcmp(argv[arg],"-metisorder") == 0) {
@@ -630,6 +631,17 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 #else
       printf("This version of ElmerGrid was compiled without Metis library!\n");
 #endif     
+    }
+
+    if(strcmp(argv[arg],"-partjoin") == 0) {
+      if(arg+1 >= argc) {
+	printf("The number of partitions is required as a parameter\n");
+	return(15);
+      }
+      else {
+	eg->partjoin = atoi(argv[arg+1]);
+	printf("The results will joined using %d partitions.\n",eg->partjoin);
+      }
     }
 
     if(strcmp(argv[arg],"-periodic") == 0) {
@@ -1050,6 +1062,9 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 #else
       printf("This version of ElmerGrid was compiled without Metis library!\n");
 #endif
+    }
+    else if(strstr(command,"PARTJOIN")) {
+      sscanf(params,"%d",&eg->partjoin);
     }
     else if(strstr(command,"PARTITION ORDER")) {
       eg->partorder = 1;
