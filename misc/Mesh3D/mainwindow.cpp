@@ -869,41 +869,14 @@ void MainWindow::createMenus()
 
 
 #if 0
-
-  // Then, we also need mpiexec:
-  cout << "Checking for mpiexec... ";
-  testProcess.start("mpiexec");
-  if(!testProcess.waitForStarted()) {
-    logMessage("no - disabling parallel features");
-    parallelSettingsAct->setEnabled(false);
-  } else {
-    cout << "yes" << endl;
-  }
-  testProcess.waitForFinished(2000);
-
-  // First of all, we need SMPD running in order to launch parallel jobs:
+  // We need SMPD running in order to launch parallel jobs:
   //if(checkMpi->findSmpd() < 0)
   //parallelSettingsAct->setEnabled(false);
-
-  // Mpiexec must be working:
-  //cout << "Checking whether mpiexec works... ";
-  //testProcess.start("mpiexec -localonly 2 mpitest");
-  //if(!testProcess.waitForStarted()) {
-  //logMessage("no - disabling parallel features");
-  //parallelSettingsAct->setEnabled(false);
-  //} else {
-  //cout << "yes" << endl;
-  //}
-  //testProcess.waitForFinished(2000);
-
-  // Set the default cmd line for launching an MPICH2 job through SMPD:
-  parallel->ui.parallelCmdLineEdit->setText("C:\Program Files\mpiexec.exe -localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
-  
 #endif 
 
 #ifdef WIN32
   parallel->ui.parallelExecLineEdit->setText("C:/Program Files/MPICH2/bin/mpiexec.exe");
-  parallel->ui.parallelArgsLineEdit->setText("-localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi");
+  parallel->ui.parallelArgsLineEdit->setText("-localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi.exe");
 #endif
 
 }
@@ -5902,12 +5875,12 @@ void MainWindow::resultsSlot()
     solverLogWindow->show();
 
 
-    // ?????
-
     QString postName = generalSetup->ui.postFileEdit->text().trimmed();
     QStringList postNameSplitted = postName.split(".");
     int nofProcessors = ui.nofProcessorsSpinBox->value();
-    QString unifyingCommand = "ElmerGrid 15 3 " + postNameSplitted.at(0).trimmed() + " -partjoin " + QString::number(nofProcessors);
+    QString unifyingCommand = "ElmerGrid 15 3 " 
+      + postNameSplitted.at(0).trimmed() 
+      + " -partjoin " + QString::number(nofProcessors);
     
     logMessage("Executing: " + unifyingCommand);
     
@@ -5919,7 +5892,7 @@ void MainWindow::resultsSlot()
       return;
     }
     
-    // the rest is done in meshUnifierFinishedSlot:
+    // The rest is done in meshUnifierFinishedSlot:
     return;
   }
    
