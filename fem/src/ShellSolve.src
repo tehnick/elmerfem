@@ -144,8 +144,6 @@
           EpsxxElement(:), EpsyyElement(:), EpszzElement(:), &
           EpsxyElement(:), EpsxzElement(:), EpsyzElement(:)
 
-     INTEGER, ALLOCATABLE :: ElementIndex(:)
-
      REAL(KIND=dp) :: at,st,CPUTime,at0,RealTime
 
      REAL(KIND=dp) :: StabParam1, StabParam2, S(3,3), PlyThick, &
@@ -257,6 +255,8 @@
       IF( .NOT. LargeDeflection ) THEN
         NonLinMaxIt = 1
         StressComputation = GetLogical( SolverParams, 'Stress Computation', GotIt )
+        StressComputation = StressComputation .OR. &
+             GetLogical( SolverParams, 'Calculate Stresses', GotIt )
       ELSE
         CALL Info( 'ShellSolver',  'Using Von Karman strains for large deflections!' )
         StressComputation = .FALSE.
@@ -393,19 +393,18 @@
      WRITE(Message,'(a,2F8.3)') 'Relative Change = ',RelChange, RelUChange 
      CALL Info('ShellSolve',Message)
 
-     IF( RelChange < NonlinConvTol ) THEN
-       StressComputation = GetLogical( SolverParams, 'Stress Computation', GotIt )
-     ELSE
-       StressComputation = .FALSE.
-     END IF
-
-     IF( StressComputation .AND. Solver % NOFEigenValues <= 0  ) THEN
-      CALL Info('ShellSolve','Entering stress calculation routines...')
-      CALL CalculateStresses()
-     END IF ! If Stress Calculation
 
      IF( RelChange < NonlinConvTol ) EXIT
   END DO    ! NonLinIter
+
+  StressComputation = GetLogical( SolverParams, 'Stress Computation', GotIt )
+  StressComputation = StressComputation .OR. &
+            GetLogical( SolverParams, 'Calculate Stresses', GotIt )
+
+  IF( StressComputation .AND. Solver % NOFEigenValues <= 0  ) THEN
+    CALL Info('ShellSolve','Entering stress calculation routines...')
+    CALL CalculateStresses()
+  END IF ! If Stress Calculation
 !-----------------------------------------------------------------------------
   END SUBROUTINE SolveNonLinear
 !-----------------------------------------------------------------------------
@@ -696,7 +695,7 @@
 
 !         WRITE (98,'(3(F14.3))')  NtenMaterial(1,1), NtenMaterial(2,2), NtenMaterial(1,2)
 
-          IF( ListGetLogical( SolverParams, 'Compute Strains') ) THEN
+          IF( ListGetLogical( SolverParams, 'Compute Strains', GotIt) ) THEN
             SxxElement(t) = Nten(1,1)
             SyyElement(t) = Nten(2,2)
             SzzElement(t) = Nten(3,3)
@@ -712,7 +711,7 @@
             EpsyzElement(t) = Eps(2,3)
           END IF
 
-          IF( ListGetLogical( SolverParams, 'Compute Curvatures') ) THEN
+          IF( ListGetLogical( SolverParams, 'Compute Curvatures', GotIt) ) THEN
             SxxElement(t) = Mten(1,1)
             SyyElement(t) = Mten(2,2)
             SzzElement(t) = Mten(3,3)
@@ -871,7 +870,7 @@
         DEALLOCATE( SxxElement, SyyElement, SzzElement, SxyElement, &
              SxzElement, SyzElement, Weights, Referenced, &
              EpsxxElement, EpsyyElement, EpszzElement, EpsxyElement, &
-             EpsxzElement, EpsyzElement, ElementIndex )
+             EpsxzElement, EpsyzElement )
 !------------------------------------------------------------------------------
    END SUBROUTINE CalculateStresses
 !------------------------------------------------------------------------------
