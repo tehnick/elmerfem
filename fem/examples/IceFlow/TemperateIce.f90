@@ -96,6 +96,7 @@
           AllocationsDone = .FALSE.,  SubroutineVisited = .FALSE., FirstTime=.TRUE.,&
           LimitSolution, ApplyDirichlet, FlowSolutionFound
      LOGICAL, ALLOCATABLE ::  LimitedSolution(:), ActiveNode(:)
+     LOGICAL :: strainHeating
 
      REAL(KIND=dp) :: NonlinearTol, LinearTol, Relax, &
           SaveRelax,dt,CumulativeTime, RelativeChange, &
@@ -152,16 +153,9 @@
      SolverName = 'TemperateIceSolver ('// TRIM(Solver % Variable % Name) // ')'
      VariableName = TRIM(Solver % Variable % Name)
 
-     ! say hello
-     CALL INFO(SolverName, 'for variable '//Variablename, level=1 )
-
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
      SystemMatrix => Solver % Matrix
-     IF ( .NOT. ASSOCIATED( SystemMatrix ) ) &
-        CALL FATAL(Solvername,"SystemMatrix not associated")
      ForceVector => Solver % Matrix % RHS
-    IF ( .NOT. ASSOCIATED(ForceVector  ) ) &
-        CALL FATAL(Solvername,"ForceVector not associated")
 
      PointerToSolver => Solver
 
@@ -241,8 +235,8 @@
              STIFF( 2*N,2*N ),LOAD( N ),           &
              FORCE( 2*N ),                         &
              TimeForce( 2*N ),                     &
-             StiffVector( L ),                     &
-             ResidualVector(L),                    &
+             StiffVector( M ),                     &
+             ResidualVector(K),                    &
              UpperLimit( M ),                      &
              LimitedSolution( M ),                 &
              ActiveNode( M ),                      &
@@ -253,8 +247,6 @@
         ELSE
            CALL INFO(SolverName, 'Memory allocation done', level=1 )
         END IF
-
-        ActiveNode = .FALSE.
         
         AllocationsDone = .TRUE.
 
@@ -307,8 +299,8 @@
      SaveRelax = Relax
      dt = Timestep
      CumulativeTime = 0.0d0
+     ActiveNode = .FALSE.
 
-     ALLOCATE( PrevSolution(LocalNodes) )
 !------------------------------------------------------------------------------
 !   time stepping loop.
 !------------------------------------------------------------------------------
@@ -320,10 +312,11 @@
         IF ( TransientSimulation .AND. .NOT.FirstTime ) THEN
            CALL InitializeTimestep( Solver )
         END IF
-        FirstTime = .FALSE.       
+
 !------------------------------------------------------------------------------
 !       Save current solution
 !------------------------------------------------------------------------------
+        ALLOCATE( PrevSolution(LocalNodes) )
         PrevSolution = Temp(1:LocalNodes)
 
         totat = 0.0d0
@@ -352,7 +345,7 @@
 !       non-linear system iteration loop
 !------------------------------------------------------------------------------
         DO iter=1,NonlinearIter
-              
+           FirstTime = .FALSE.           
            !------------------------------------------------------------------------------
            ! print out some information
            !------------------------------------------------------------------------------
@@ -368,6 +361,8 @@
            CALL Info( SolverName, '-------------------------------------',Level=4 )
            CALL Info( SolverName, ' ', Level=4 )
            CALL Info( SolverName, 'Starting Assembly...', Level=4 )
+             
+            
            !------------------------------------------------------------------------------
            ! lets start
            !------------------------------------------------------------------------------
@@ -398,7 +393,7 @@
            WRITE(Message,'(a,e13.6,a,e13.6)') &
                 'Max/min values Temperature:', MAXVAL( Temp(:)),'/',MINVAL( Temp(:))
            CALL INFO(SolverName,Message,Level=4)
-           !------------------------------------------------------------------------------
+           !-----------------------------------------------------------------------------
            body_id = -1
            NULLIFY(Material)
            !------------------------------------------------------------------------------
@@ -419,10 +414,9 @@
               END IF
               !------------------------------------------------------------------------------
               ! Check if this element belongs to a body where scalar equation
-              ! should be calculated and (if parallel) it is part of the partition
+              ! should be calculated
               !------------------------------------------------------------------------------
               Element => GetActiveElement(t,Solver)
-              IF (ParEnv % myPe .NE. Element % partIndex) CYCLE
               IF (.NOT.ASSOCIATED(Element)) CYCLE
               IF ( Element % BodyId /= body_id ) THEN
                  Equation => GetEquation()
@@ -517,13 +511,31 @@
                  Density = 0.0D00
                  WRITE(Message,'(a,i5,a,i5,a)') 'Keyword >Density< not found for element ',&
                       t, ' material ', material_id
-                 CALL FATAL(SolverName,Message)
+                 CALL INFO(SolverName,Message,Level=4)
               END IF
+
               !------------------------------------------
               ! NB.: viscosity needed for strain heating
               !      but Newtonian flow is assumed
               !------------------------------------------
-              Viscosity = 0.0D00
+              !Viscosity = 0.0D00
+              BodyForce => GetBodyForce()
+              IF ( ASSOCIATED( BodyForce ) ) THEN
+                 strainHeating =  GetLogical( BodyForce, 'Friction Heat', Found)
+                 IF(.NOT. Found) strainHeating = .FALSE.
+              ELSE
+                  CALL FATAL( SolverName, 'Body Force not found in model.')
+              END IF
+              
+              IF (strainHeating) THEN
+                 CALL INFO(SolverName,'Strain heating included in temperature model', &
+                 Level=15)
+                 Viscosity(1:N) = GetReal( Material,'Viscosity', found)
+              ELSE
+                   Viscosity = 0.0D00
+              END IF
+              NULLIFY(BodyForce)              
+              
               !------------------------------------------------------------------------------
               ! Get mesh velocity
               !------------------------------------------------------------------------------
@@ -546,7 +558,7 @@
               ! constant (i.e., in section Material given) velocity
               !---------------------------------------------------
               IF ( ConvectionFlag == 'constant' ) THEN
-                 IceVeloU(1:N) = GetReal( Material, 'Convection Velocity 1', Found )
+                 IceVeloU(1:N)= GetReal( Material, 'Convection Velocity 1', Found )
                  IceVeloV(1:N) = GetReal( Material, 'Convection Velocity 2', Found )
                  IceVeloW(1:N) = GetReal( Material, 'Convection Velocity 3', Found )                 
               ! computed velocity
@@ -594,7 +606,6 @@
                  bf_id = GetBodyForceId()
                  LOAD(1:N) = LOAD(1:N) +   &
                       GetReal( BodyForce, TRIM(Solver % Variable % Name) // ' Volume Source', Found )
-                 IF (.NOT.Found) LOAD(1:N) = 0.0D00
               END IF
               !------------------------------------------------------------------------------
               ! dummy input array for faking   heat capacity, density, temperature, 
@@ -662,7 +673,6 @@
 
               ! get element information
               Element => GetBoundaryElement(t)
-              IF (ParEnv % myPe .NE. Element % partIndex) CYCLE
               IF ( .NOT.ActiveBoundaryElement() ) CYCLE
               n = GetElementNOFNodes()
               IF ( GetElementFamily() == 1 ) CYCLE
@@ -773,6 +783,7 @@
            ELSE
               RelativeChange = 0.0d0
            END IF
+
            WRITE( Message, * ) 'Result Norm   : ',Norm
            CALL Info( SolverName, Message, Level=4 )
            WRITE( Message, * ) 'Relative Change : ',RelativeChange
@@ -784,17 +795,14 @@
            !------------------------------------------------------------------------------
            ! compute residual
            !------------------------------------------------------------------------------ 
-           IF ( ApplyDirichlet .AND. (ParEnv % PEs > 1) ) THEN !!!!!!!!!!!!!!!!!!!!!! we have a parallel run
+           IF ( ParEnv % PEs > 1 ) THEN !!!!!!!!!!!!!!!!!!!!!! we have a parallel run
              CALL ParallelInitSolve( SystemMatrix, Temp, ForceVector, ResidualVector )
              CALL ParallelMatrixVector( SystemMatrix, Temp, StiffVector, .TRUE. )
              ResidualVector =  StiffVector - ForceVector
              CALL ParallelSumVector( SystemMatrix, ResidualVector )
-        
-           ELSE IF (ParEnv % PEs == 1) THEN!!!!!!!!!!!!!!!!!!!!!! serial run 
-              CALL CRS_MatrixVectorMultiply( SystemMatrix, Temp, StiffVector)
-              ResidualVector =  StiffVector - ForceVector
-           ELSE
-              ResidualVector =  0.0_dp
+           ELSE !!!!!!!!!!!!!!!!!!!!!! serial run 
+             CALL CRS_MatrixVectorMultiply( SystemMatrix, Temp, StiffVector)
+             ResidualVector =  StiffVector - ForceVector
            END IF
 
            !-----------------------------
@@ -802,10 +810,7 @@
            !-----------------------------
            IF (ASSOCIATED(VarTempHom)) THEN
               TempHomologous => VarTempHom % Values
-              DO i=1,Model % Mesh % NumberOfNodes ! <______________IS THIS OK IN PARALLEL????????
-
-
-
+              DO i=1,Model % Mesh % NumberOfNodes
                  k = VarTempHom % Perm(i)
                  l= TempPerm(i)
                  TempHomologous(k) = Temp(l) - UpperLimit(i)
@@ -831,40 +836,37 @@
               END DO
            ELSE
               WRITE(Message,'(A)') TRIM(Solver % Variable % Name) // ' Homologous not associated'
-              CALL WARN( SolverName, Message)
+              CALL FATAL( SolverName, Message)
            END IF
            !------------------------------------------
            ! special treatment for periodic boundaries
            !------------------------------------------
            k=0
-           IF ( ApplyDirichlet ) THEN
-              DO t=1, Solver % Mesh % NumberOfBoundaryElements
+           DO t=1, Solver % Mesh % NumberOfBoundaryElements
 
-                 ! get element information
-                 Element => GetBoundaryElement(t)
-                 IF (ParEnv % myPe .NE. Element % partIndex) CYCLE
-                 IF ( .NOT.ActiveBoundaryElement() ) CYCLE
-                 n = GetElementNOFNodes()
-                 IF ( GetElementFamily() == 1 ) CYCLE
-                 BC => GetBC()
-                 bc_id = GetBCId( Element )
-                 CALL GetElementNodes( ElementNodes )
+              ! get element information
+              Element => GetBoundaryElement(t)
+              IF ( .NOT.ActiveBoundaryElement() ) CYCLE
+              n = GetElementNOFNodes()
+              IF ( GetElementFamily() == 1 ) CYCLE
+              BC => GetBC()
+              bc_id = GetBCId( Element )
+              CALL GetElementNodes( ElementNodes )
 
 
-                 IF ( ASSOCIATED( BC ) ) THEN    
-                    IsPeriodicBC = GetLogical(BC,'Periodic BC ' // TRIM(Solver % Variable % Name),Found)
-                    IF (.NOT.Found) IsPeriodicBC = .FALSE.
-                    IF (IsPeriodicBC) THEN 
-                       DO i=1,N
-                          IF  (ActiveNode(Element % NodeIndexes(i))) THEN
-                             k = k + 1
-                             ActiveNode(Element % NodeIndexes(i)) = .FALSE.
-                          END IF
-                       END DO
-                    END IF
+              IF ( ASSOCIATED( BC ) ) THEN    
+                 IsPeriodicBC = GetLogical(BC,'Periodic BC ' // TRIM(Solver % Variable % Name),Found)
+                 IF (.NOT.Found) IsPeriodicBC = .FALSE.
+                 IF (IsPeriodicBC) THEN 
+                    DO i=1,N
+                       IF  (ActiveNode(Element % NodeIndexes(i))) THEN
+                          k = k + 1
+                          ActiveNode(Element % NodeIndexes(i)) = .FALSE.
+                       END IF
+                    END DO
                  END IF
-              END DO
-           END IF
+              END IF
+           END DO
            !----------------------
            ! check for convergence
            !----------------------
@@ -881,7 +883,6 @@
         END DO ! of the nonlinear iteration
         !------------------------------------------------------------------------------
 
-        
         !------------------------------------------------------------------------------
         !   Compute cumulative time done by now and time remaining
         !------------------------------------------------------------------------------
@@ -890,6 +891,7 @@
         dt = Timestep - CumulativeTime
      END DO ! time interval
      !------------------------------------------------------------------------------
+
      DEALLOCATE( PrevSolution )
 
      SubroutineVisited = .TRUE.
