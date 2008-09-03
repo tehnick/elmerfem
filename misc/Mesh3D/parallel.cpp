@@ -52,8 +52,13 @@ Parallel::Parallel(QWidget *parent)
   connect(ui.browseButton, SIGNAL(clicked()), 
 	  this, SLOT(browseButtonClicked()));
 
+  connect(ui.defaultsButton, SIGNAL(clicked()), 
+	  this, SLOT(defaultsButtonClicked()));
+
   connect(ui.okButton, SIGNAL(clicked()), 
 	  this, SLOT(okButtonClicked()));
+
+  defaultsButtonClicked();
 }
 
 Parallel::~Parallel()
@@ -68,6 +73,24 @@ void Parallel::browseButtonClicked()
     return;
 
   ui.parallelExecLineEdit->setText(fileName);
+}
+
+void Parallel::defaultsButtonClicked()
+{
+  ui.parallelActiveCheckBox->setChecked(false);
+  ui.skipPartitioningCheckBox->setChecked(false);
+  ui.nofProcessorsSpinBox->setValue(2);
+  
+#ifdef WIN32
+  ui.parallelExecLineEdit->setText("C:/Program Files/MPICH2/bin/mpiexec.exe");
+  ui.parallelArgsLineEdit->setText("-localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi.exe");
+#else
+  ui.parallelExecLineEdit->setText("mpirun");
+  ui.parallelArgsLineEdit->setText("-np %n ElmerSolver_mpi");
+#endif
+
+  ui.divideLineEdit->setText("ElmerGrid 2 2 %msh -metis %n");
+  ui.mergeLineEdit->setText("ElmerGrid 15 3 %ep -partjoin %n");
 }
 
 void Parallel::okButtonClicked()

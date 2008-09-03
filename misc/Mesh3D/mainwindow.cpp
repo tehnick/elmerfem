@@ -867,18 +867,6 @@ void MainWindow::createMenus()
   }
   testProcess.waitForFinished(2000);
 
-
-#if 0
-  // We need SMPD running in order to launch parallel jobs:
-  //if(checkMpi->findSmpd() < 0)
-  //parallelSettingsAct->setEnabled(false);
-#endif 
-
-#ifdef WIN32
-  parallel->ui.parallelExecLineEdit->setText("C:/Program Files/MPICH2/bin/mpiexec.exe");
-  parallel->ui.parallelArgsLineEdit->setText("-localonly %n -genvlist PATH,ELMER_HOME ElmerSolver_mpi.exe");
-#endif
-
 }
 
 
@@ -5517,10 +5505,10 @@ void MainWindow::runsolverSlot()
 	return;
       }
       
-
-      QString partitioningCommand = "ElmerGrid 2 2 " 
-	+ saveDirName + " -metis " + QString::number(nofProcessors);
-      
+      QString partitioningCommand = ui.divideLineEdit->text().trimmed();
+      partitioningCommand.replace(QString("%msh"), saveDirName);
+      partitioningCommand.replace(QString("%n"), QString::number(nofProcessors));
+ 
       logMessage("Executing: " + partitioningCommand);
       
       meshSplitter->start(partitioningCommand);
@@ -5900,9 +5888,10 @@ void MainWindow::resultsSlot()
     QString postName = generalSetup->ui.postFileEdit->text().trimmed();
     QStringList postNameSplitted = postName.split(".");
     int nofProcessors = ui.nofProcessorsSpinBox->value();
-    QString unifyingCommand = "ElmerGrid 15 3 " 
-      + postNameSplitted.at(0).trimmed() 
-      + " -partjoin " + QString::number(nofProcessors);
+
+    QString unifyingCommand = ui.mergeLineEdit->text().trimmed();
+    unifyingCommand.replace(QString("%ep"), postNameSplitted.at(0).trimmed());
+    unifyingCommand.replace(QString("%n"), QString::number(nofProcessors));
     
     logMessage("Executing: " + unifyingCommand);
     
