@@ -2897,16 +2897,16 @@ omstart:
     if(strstr(line,"END")) continue;
 
     /* Header info is not much needed */
-    if(strstr(line,"$MeshFormat")) {
+    if(strstr(line,"$MESHFORMAT")) {
       Getrow(line,in,TRUE);
       Getrow(line,in,TRUE);
-      if(strstr(line,"$EndMeshFormat")) {
+      if(strstr(line,"$ENDMESHFORMAT")) {
 	printf("MeshFormat section should end to string $EndMeshFormat\n");
 	printf("%s\n",line);
       }      
     }
       
-    if(strstr(line,"$Nodes")) {
+    if(strstr(line,"$NODES")) {
       getline;
       cp = line;
 
@@ -2930,7 +2930,7 @@ omstart:
       getline;
     }
     
-    if(strstr(line,"$Elements")) {
+    if(strstr(line,"$ELEMENTS")) {
       getline;
       cp = line;
       noelements = next_int(&cp);
