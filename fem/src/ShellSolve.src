@@ -131,8 +131,7 @@
           SxxNodal(:), SyyNodal(:), SzzNodal(:), &
           SxyNodal(:), SxzNodal(:), SyzNodal(:), &
           EpsxxNodal(:), EpsyyNodal(:), EpszzNodal(:), &
-          EpsxyNodal(:), EpsxzNodal(:), EpsyzNodal(:), &
-          RFNodal(:)
+          EpsxyNodal(:), EpsxzNodal(:), EpsyzNodal(:)
 
      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), &
           LoadX(:), LoadY(:), LoadZ(:), LoadN(:), FORCE(:), &
@@ -621,6 +620,8 @@
 !-----------------------------------------------------------------------------
    SUBROUTINE CalculateStresses()
 !-----------------------------------------------------------------------------
+      INTEGER, POINTER :: Perm(:)
+
       at  = CPUTime()
       at0 = RealTime()
 
@@ -754,48 +755,46 @@
           ALLOCATE( EpsxzNodal( Solver % Mesh % NumberOfNodes ) )
           ALLOCATE( EpsyzNodal( Solver % Mesh % NumberOfNodes ) )
 
-          ALLOCATE( RFNodal( Solver % Mesh % NumberOfNodes ) )
+          ALLOCATE(Perm(Solver % Mesh % NumberOfNodes))
+          Perm = (/ (i,i=1,Solver % Mesh % NumberOfNodes) /)
 
           PSolver => Solver
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.xx', 1, SxxNodal )
+               Solver % Mesh, PSolver, 'Stress.xx', 1, SxxNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.yy', 1, SyyNodal )
+               Solver % Mesh, PSolver, 'Stress.yy', 1, SyyNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.zz', 1, SzzNodal )
+               Solver % Mesh, PSolver, 'Stress.zz', 1, SzzNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.xy', 1, SxyNodal )
+               Solver % Mesh, PSolver, 'Stress.xy', 1, SxyNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.xz', 1, SxzNodal )
+               Solver % Mesh, PSolver, 'Stress.xz', 1, SxzNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Stress.yz', 1, SyzNodal )
+               Solver % Mesh, PSolver, 'Stress.yz', 1, SyzNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.xx', 1, EpsxxNodal )
+               Solver % Mesh, PSolver, 'Epsilon.tot.xx', 1, EpsxxNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.yy', 1, EpsyyNodal )
+               Solver % Mesh, PSolver, 'Epsilon.tot.yy', 1, EpsyyNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.zz', 1, EpszzNodal )
+               Solver % Mesh, PSolver, 'Epsilon.tot.zz', 1, EpszzNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.xy', 1, EpsxyNodal )
+               Solver % Mesh, PSolver, 'Epsilon.tot.xy', 1, EpsxyNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.xz', 1, EpsxzNodal )
+               Solver % Mesh, PSolver, 'Epsilon.tot.xz', 1, EpsxzNodal,Perm )
 
           CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'Epsilon.tot.yz', 1, EpsyzNodal )
-
-          CALL VariableAdd( Solver % Mesh % Variables, &
-               Solver % Mesh, PSolver, 'inv.RF', 1, RFNodal )
+               Solver % Mesh, PSolver, 'Epsilon.tot.yz', 1, EpsyzNodal,Perm )
         END IF
 
 
@@ -813,7 +812,6 @@
         EpsxyNodal = 0.0d0
         EpsxzNodal = 0.0d0
         EpsyzNodal = 0.0d0
-        RFNodal = 0.0d0
 
         ALLOCATE( Referenced( Solver % Mesh % NumberOfNodes ) )
         Referenced = 0.0d0

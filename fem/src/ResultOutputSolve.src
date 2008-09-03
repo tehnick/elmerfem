@@ -580,12 +580,21 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
        END IF
        
        DO j = 1, TensorComponents
-         IF(j<Dim) THEN
-           WRITE(Txt,'(A,A,A,I2,A)' ) &
-               TRIM(Txt), ' "', TRIM(TensorFieldName),j,'",'
+         WRITE(Txt3,'(A,I1,A,I1)') 'Tensor Field ',i,' component ',j
+         CompName = GetString( Solver % Values, TRIM(Txt3), Found )
+
+         IF( Found ) THEN
+           WRITE(Txt2,'(A)') TRIM(CompName)
          ELSE
-           WRITE(Txt,'(A,A,A,I2,A)' ) &
-               TRIM(Txt), ' "', TRIM(TensorFieldName),j,'"'
+           WRITE(Txt2,'(A,A,I1)') TRIM(TensorFieldName), ' ', j
+         END IF
+
+         IF(j<TensorComponents) THEN
+           WRITE(Txt,'(A,A,A,A)' ) &
+               TRIM(Txt), ' "', TRIM(Txt2), '",'
+         ELSE
+           WRITE(Txt,'(A,A,A,A)' ) &
+               TRIM(Txt), ' "', TRIM(txt2), '"'
          END IF
        END DO
        WRITE(10,'(A)') TRIM(Txt)
