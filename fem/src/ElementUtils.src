@@ -256,23 +256,27 @@ CONTAINS
          END DO
 
          IF ( ASSOCIATED(Mesh % Edges) ) THEN
-            DO j=1,CurrentElement % Type % NumberOFEdges
-               DO i=1, Mesh % Edges(CurrentElement % EdgeIndexes(j)) % BDOFs
-                  n = n + 1
-                  Indexes(n) = EDOFs * (CurrentElement % EdgeIndexes(j)-1) + i &
-                               + Mesh % NumberOfNodes
-               END DO
-            END DO
+            IF ( ASSOCIATED(CurrentElement % EdgeIndexes) ) THEN
+              DO j=1,CurrentElement % Type % NumberOFEdges
+                 DO i=1, Mesh % Edges(CurrentElement % EdgeIndexes(j)) % BDOFs
+                   n = n + 1
+                   Indexes(n) = EDOFs * (CurrentElement % EdgeIndexes(j)-1) + i &
+                                + Mesh % NumberOfNodes
+                END DO
+             END DO
+           END IF
          END IF
 
          IF ( ASSOCIATED( Mesh % Faces ) ) THEN
-           DO j=1,CurrentElement % Type % NumberOFFaces
-             DO i=1, Mesh % Faces(CurrentElement % FaceIndexes(j)) % BDOFs
-               n = n + 1
-               Indexes(n) = FDOFs*(CurrentElement % FaceIndexes(j)-1) + i + &
-                   Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges
+           IF ( ASSOCIATED(CurrentElement % FaceIndexes) ) THEN
+             DO j=1,CurrentElement % Type % NumberOFFaces
+               DO i=1, Mesh % Faces(CurrentElement % FaceIndexes(j)) % BDOFs
+                 n = n + 1
+                 Indexes(n) = FDOFs*(CurrentElement % FaceIndexes(j)-1) + i + &
+                     Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges
+               END DO
              END DO
-           END DO
+           END IF
          END IF
 
          IF ( GB .AND. ASSOCIATED(CurrentElement % BubbleIndexes) ) THEN
