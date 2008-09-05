@@ -1263,6 +1263,21 @@ void MainWindow::loadElmerMesh(QString dirName)
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
 
+  // Set mesh dimension:
+  mesh->dim = 0;
+
+  if(elements_one_d > 0)
+    mesh->dim = 1;
+
+  if(elements_two_d > 0)
+    mesh->dim = 2;
+
+  if(elements_three_d > 0)
+    mesh->dim = 3;
+
+  // ????? is this correct ?????
+  mesh->cdim = mesh->dim;
+
   mesh->nodes = nodes;
   mesh->node = new node_t[nodes];
 
