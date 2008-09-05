@@ -39,10 +39,6 @@ HEADERS += bodypropertyeditor.h \
            sifwindow.h \
            solverparameters.h \
            summaryeditor.h \
-           ui_bcpropertyeditor.h \
-           ui_matpropertyeditor.h \
-           ui_pdepropertyeditor.h \
-           ui_propertyeditor.h \
            plugins/egconvert.h \
            plugins/egdef.h \
            plugins/egmain.h \
