@@ -3456,13 +3456,15 @@ void MainWindow::modelSummarySlot()
   QTextEdit *te = summaryEditor->ui.summaryEdit;
   te->clear();
   summaryEditor->show();
-  
+
   if(mesh == NULL) {
     te->append("No mesh");
     return;
   }
   
   te->append("FINITE ELEMENT MESH");
+  te->append("Mesh dimension: " + QString::number(mesh->cdim));
+  te->append("Leading element dimension: " + QString::number(mesh->dim));
   te->append("Nodes: " + QString::number(mesh->nodes));
   te->append("Volume elements: " + QString::number(mesh->elements));
   te->append("Surface elements: " + QString::number(mesh->surfaces));
@@ -3487,6 +3489,22 @@ void MainWindow::modelSummarySlot()
     if(elementtypes[i])  te->append(QString::number(i) + ": " + QString::number(elementtypes[i]));
   te->append("");
   delete [] elementtypes;
+
+
+  te->append("BOUNDING BOX");
+  QString coordnames="XYZ";
+  for(int j=0;j<3;j++) {
+    double mincoord,maxcoord,coord;
+    mincoord = maxcoord = mesh->node[0].x[j];
+    for(int i=0;i<mesh->nodes;i++) {
+      coord = mesh->node[i].x[j];
+      if(mincoord > coord) mincoord = coord;
+      if(maxcoord < coord) maxcoord = coord;
+    }
+    te->append(coordnames[j]+"-coordinate: [ " + QString::number(mincoord) + " ,  " + QString::number(maxcoord)+" ]");
+  }
+  te->append("");
+
 
 
   // Check equations:
