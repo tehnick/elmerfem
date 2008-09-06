@@ -1263,7 +1263,7 @@ void MainWindow::loadElmerMesh(QString dirName)
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
 
-  // Set mesh dimension:
+  // Set mesh dimension (????? is this correct ?????):
   mesh->dim = 0;
 
   if(elements_one_d > 0)
@@ -1274,9 +1274,6 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   if(elements_three_d > 0)
     mesh->dim = 3;
-
-  // ????? is this correct ?????
-  mesh->cdim = mesh->dim;
 
   mesh->nodes = nodes;
   mesh->node = new node_t[nodes];
@@ -1514,6 +1511,9 @@ void MainWindow::loadElmerMesh(QString dirName)
   }
 
   file.close();
+
+  // Compute bounding box:
+  meshutils->boundingBox(mesh);
 
   // Todo: should we always do this?
   meshutils->findSurfaceElementEdges(mesh);
