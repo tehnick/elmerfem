@@ -97,29 +97,26 @@ MainWindow::MainWindow()
   homePath="";
 #endif
 
-  // show splash screen:
-  QPixmap pixmap(":/icons/splash.png");
-  QSplashScreen splash(pixmap);
+  // splash screen:
+  pixmap.load(":/icons/splash.png");
+  splash.setPixmap(pixmap);
   splash.show();
   qApp->processEvents();
 
   // load images for main window:
-  splash.showMessage("Loading images...", Qt::AlignBottom);
-  qApp->processEvents();
+  updateSplash("Loading images...");
   iconChecked = QIcon(":/icons/dialog-ok.png");
   iconEmpty = QIcon("");
   
   // load tetlib
-  splash.showMessage("Loading tetlib...", Qt::AlignBottom);
-  qApp->processEvents();
+  updateSplash("Loading tetlib...");
   tetlibAPI = new TetlibAPI;
   tetlibPresent = tetlibAPI->loadTetlib();
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
   
   // load nglib
-  splash.showMessage("Loading nglib...", Qt::AlignBottom);
-  qApp->processEvents();
+  updateSplash("Loading nglib...");
   nglibAPI = new NglibAPI;
   nglibPresent = nglibAPI->loadNglib();
   this->mp = nglibAPI->mp;
@@ -127,11 +124,10 @@ MainWindow::MainWindow()
   this->nggeom = nglibAPI->nggeom;
 
   // elmergrid
-  splash.showMessage("Initializing...", Qt::AlignBottom);
-  qApp->processEvents();
   elmergridAPI = new ElmergridAPI;
 
   // widgets and utilities
+  updateSplash("Constructing widgets...");
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
@@ -264,8 +260,7 @@ MainWindow::MainWindow()
   // solverLogWindow->textEdit->setCurrentFont(sansFont);
 
   // load definition files:
-  splash.showMessage("Loading definitions...", Qt::AlignBottom);
-  qApp->processEvents();
+  updateSplash("Loading definitions...");
   loadDefinitions();
 
   // initialization ready:
@@ -841,6 +836,7 @@ void MainWindow::createMenus()
   QStringList args;
 
   cout << "Checking for ElmerSolver... ";
+  updateSplash("Checking for ElmerSolver...");
   args << "-v";
   testProcess.start("ElmerSolver", args);
   if(!testProcess.waitForStarted()) {
@@ -854,6 +850,7 @@ void MainWindow::createMenus()
   testProcess.waitForFinished(2000);
 
   cout << "Checking for ElmerPost... ";
+  updateSplash("Checking for ElmerPost...");
   args << "-v";
   testProcess.start("ElmerPost", args);
   if(!testProcess.waitForStarted()) {
@@ -866,6 +863,7 @@ void MainWindow::createMenus()
   testProcess.waitForFinished(2000);
 
   cout << "Checking for ElmerGrid... ";
+  updateSplash("Checking for ElmerGrid...");
   testProcess.start("ElmerGrid");
   if(!testProcess.waitForStarted()) {
     logMessage("no - disabling parallel features");
@@ -876,6 +874,7 @@ void MainWindow::createMenus()
   testProcess.waitForFinished(2000);
 
   cout << "Checking for ElmerSolver_mpi...";
+  updateSplash("Checking for ElmerSolver_mpi...");
   args << "-v";
   testProcess.start("ElmerSolver_mpi", args);
   if(!testProcess.waitForStarted()) {
@@ -6269,6 +6268,7 @@ void MainWindow::loadDefinitions()
   //--------------------------------
   cout << "Load " << string(generalDefs.toAscii()) << "...";
   cout.flush();
+  updateSplash("Loading general definitions...");
 
   QFile file(generalDefs);
   
@@ -6333,6 +6333,8 @@ void MainWindow::loadDefinitions()
       cout << "Load " << string(fileName.toAscii()) << "...";
       cout.flush();
 
+      updateSplash("Loading " + fileName + "...");
+
       file.setFileName(fileName);
 
       QDomDocument tmpDoc;
@@ -6395,5 +6397,15 @@ void MainWindow::loadDefinitions()
     qssFile.close();
     qApp->setStyleSheet(styleSheet);    
     cout << "done" << endl;
+  }
+}
+
+// Update splash...
+//-----------------------------------------------------------------------------
+void MainWindow::updateSplash(QString text)
+{
+  if(splash.isVisible()) {
+    splash.showMessage(text, Qt::AlignBottom);
+    qApp->processEvents();
   }
 }

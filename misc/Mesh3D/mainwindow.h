@@ -338,6 +338,11 @@ private:
   bool bcEditActive;
   bool bodyEditActive;
   bool showConvergence;
+
+  // splash screen
+  QPixmap pixmap;
+  QSplashScreen splash;
+  void updateSplash(QString);
   
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all
