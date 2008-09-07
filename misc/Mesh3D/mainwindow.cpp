@@ -87,25 +87,39 @@ MainWindow::MainWindow()
   uint32_t len = 600;
   this->homePath = "";
   if(! _NSGetExecutablePath( (char*) executablePath, &len)){
-    *(strrchr(executablePath,'/'))='\0';// remove executable name from path
-    *(strrchr(executablePath,'/'))='\0';// remove last path component name from path
+    // remove executable name from path:
+    *(strrchr(executablePath,'/'))='\0';
+    // remove last path component name from path:
+    *(strrchr(executablePath,'/'))='\0';
     this->homePath = executablePath;
   }
 #else
   homePath="";
 #endif
-  
-  // load images
+
+  // show splash screen:
+  QPixmap pixmap(":/icons/splash.png");
+  QSplashScreen splash(pixmap);
+  splash.show();
+  qApp->processEvents();
+
+  // load images for main window:
+  splash.showMessage("Loading images...", Qt::AlignBottom);
+  qApp->processEvents();
   iconChecked = QIcon(":/icons/dialog-ok.png");
   iconEmpty = QIcon("");
-
+  
   // load tetlib
+  splash.showMessage("Loading tetlib...", Qt::AlignBottom);
+  qApp->processEvents();
   tetlibAPI = new TetlibAPI;
   tetlibPresent = tetlibAPI->loadTetlib();
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
   
   // load nglib
+  splash.showMessage("Loading nglib...", Qt::AlignBottom);
+  qApp->processEvents();
   nglibAPI = new NglibAPI;
   nglibPresent = nglibAPI->loadNglib();
   this->mp = nglibAPI->mp;
@@ -113,6 +127,8 @@ MainWindow::MainWindow()
   this->nggeom = nglibAPI->nggeom;
 
   // elmergrid
+  splash.showMessage("Initializing...", Qt::AlignBottom);
+  qApp->processEvents();
   elmergridAPI = new ElmergridAPI;
 
   // widgets and utilities
@@ -248,11 +264,14 @@ MainWindow::MainWindow()
   // solverLogWindow->textEdit->setCurrentFont(sansFont);
 
   // load definition files:
+  splash.showMessage("Loading definitions...", Qt::AlignBottom);
+  qApp->processEvents();
   loadDefinitions();
 
   // initialization ready:
   synchronizeMenuToState();
   setWindowTitle(tr("ElmerGUI"));
+  splash.finish(this);
 }
 
 
@@ -5854,7 +5873,7 @@ void MainWindow::solverErrorSlot(QProcess::ProcessError error)
 //-----------------------------------------------------------------------------
 void MainWindow::solverStateChangedSlot(QProcess::ProcessState state)
 {
-  // logMessage("Solver emitted signal: QProcess::ProcessState: " + QString::number(state));
+  logMessage("Solver emitted signal: QProcess::ProcessState: " + QString::number(state));
   // solver->kill();
   // runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
 }

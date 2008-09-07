@@ -55,59 +55,45 @@ int main(int argc, char *argv[])
 // we'll change ENVIRONMENT so that the Elmer binaries and libraries
 // hidden wihtin the application bundle will be correctly found
 
-    char executablePath[MAXPATHLENGTH] = {0};
-    uint32_t len = MAXPATHLENGTH;
-    if(! _NSGetExecutablePath( (char*) executablePath, &len)){
-        *(strrchr(executablePath,'/'))='\0';// remove executable name from path
-        char *oldValue = 0, *newValue = 0;
-
-        oldValue = getenv("PATH");
-        asprintf(&newValue, "%s/../bin:%s",executablePath,oldValue);
-        setenv("PATH",newValue,1);
-        free(newValue);
-
-        oldValue = getenv("DYLD_LIBRARY_PATH");
-        asprintf(&newValue,"%s/../lib:%s",executablePath,oldValue);
-        setenv("DYLD_LIBRARY_PATH",newValue,0);
-        free(newValue);
-
-        asprintf(&newValue,"%s/..",executablePath);        
-        setenv("ELMER_HOME",newValue,0);
-        free(newValue);
-        
-        asprintf(&newValue,"%s/../share/elmerpost",executablePath);        
-        setenv("ELMER_POST_HOME",newValue,0);
-        free(newValue);
-
-
+  char executablePath[MAXPATHLENGTH] = {0};
+  uint32_t len = MAXPATHLENGTH;
+  if(! _NSGetExecutablePath( (char*) executablePath, &len)){
+    // remove executable name from path:
+    *(strrchr(executablePath,'/'))='\0';
+    char *oldValue = 0, *newValue = 0;
+    
+    oldValue = getenv("PATH");
+    asprintf(&newValue, "%s/../bin:%s",executablePath,oldValue);
+    setenv("PATH",newValue,1);
+    free(newValue);
+    
+    oldValue = getenv("DYLD_LIBRARY_PATH");
+    asprintf(&newValue,"%s/../lib:%s",executablePath,oldValue);
+    setenv("DYLD_LIBRARY_PATH",newValue,0);
+    free(newValue);
+    
+    asprintf(&newValue,"%s/..",executablePath);        
+    setenv("ELMER_HOME",newValue,0);
+    free(newValue);
+    
+    asprintf(&newValue,"%s/../share/elmerpost",executablePath);        
+    setenv("ELMER_POST_HOME",newValue,0);
+    free(newValue);
+    
+    
 #ifdef DEBUG
-        printf("PATH = %s\nDYLD_LIBRARY_PATH=%s\nELMER_HOME=%s\n", 
-	       getenv("PATH"), getenv("DYLD_LIBRARY_PATH"), getenv("ELMER_HOME"));
+    printf("PATH = %s\nDYLD_LIBRARY_PATH=%s\nELMER_HOME=%s\n", 
+	   getenv("PATH"), 
+	   getenv("DYLD_LIBRARY_PATH"), 
+	   getenv("ELMER_HOME"));
 #endif
-    }    
+  }    
 #endif
+  
+  //========================================================================
 
   QApplication app(argc, argv);
-
-  bool showSplash = true;
-  if( (argc == 2) && (!strcmp(argv[1], "--nosplash") || !strcmp(argv[1], "-n")))
-    showSplash = false;
-
-  QPixmap pixmap(":/icons/splash.png");
-  pixmap.setMask(pixmap.mask());
-  QSplashScreen splash(pixmap);
-  
-  if(showSplash) {
-    splash.show();
-    splash.showMessage("ElmerGUI loading...", Qt::AlignBottom);
-    app.processEvents();
-  }
-
   MainWindow mainWindow;
   mainWindow.show();
-
-  if(showSplash)
-    splash.finish(&mainWindow);
-
   return app.exec();
 }
