@@ -2112,8 +2112,8 @@ proc DataField::checkNumber {value frmt message {range ""} {valueset ""} } {
 
     # Use scientific format for large real numbers
     #
-    if { (-1 != [string match -nocase $frmt "g"]) &&
-         10000 <= [expr abs($value)]
+    if { ([string match -nocase "*g" $frmt] != 0) &&
+         ([expr abs($value)] >= 10000)
      } {
       set frmt "% -12.4e"
     }
