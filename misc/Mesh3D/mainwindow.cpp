@@ -127,7 +127,7 @@ MainWindow::MainWindow()
   elmergridAPI = new ElmergridAPI;
 
   // widgets and utilities
-  updateSplash("Constructing widgets...");
+  updateSplash("ElmerGUI loading...");
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);

@@ -438,7 +438,7 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
   if(event->key() == Qt::Key_Shift)
     shiftPressed = true;
 
-  if(event->key() == Qt::Key_Alt)
+  if((event->key() == Qt::Key_Alt) || (event->key() == Qt::Key_AltGr))
     altPressed = true;
 }
 
