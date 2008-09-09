@@ -808,11 +808,22 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
   }
 
   {
-    char *ptr1;
-    ptr1 = strchr(eg->filesout[0], '.');
-    if (ptr1) *ptr1 = '\0';
-    ptr1 = strchr(eg->mapfile, '.');
-    if (ptr1) *ptr1 = '\0';
+    int badpoint;
+    char *ptr1,*ptr2;
+    ptr1 = strrchr(eg->filesout[0], '.');
+    if(ptr1) {
+      badpoint=FALSE;
+      ptr2 = strrchr(eg->filesout[0], '/');
+      if(ptr2 && ptr2 > ptr1) badpoint = TRUE;
+      if(!badpoint) *ptr1 = '\0';
+    }
+    ptr1 = strrchr(eg->mapfile, '.');
+    if (ptr1) {
+      badpoint=FALSE;
+      ptr2 = strrchr(eg->mapfile, '/');
+      if(ptr2 && ptr2 > ptr1) badpoint = TRUE;      
+      if(!badpoint) *ptr1 = '\0';
+    }
   }
 
   printf("Output will be saved to file %s.\n",eg->filesout[0]);

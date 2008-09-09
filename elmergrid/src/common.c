@@ -421,11 +421,17 @@ void AddExtension(const char *fname1,char *fname2,const char *newext)
    there has to be room for the extension. 
    */
 {
-  char *ptr1;
+  char *ptr1,*ptr2;
 
   strcpy(fname2,fname1); 
-  ptr1 = strchr(fname2, '.');
-  if (ptr1) *ptr1 = '\0';
+  ptr1 = strrchr(fname2, '.');
+
+  if (ptr1) {
+    int badpoint=FALSE;
+    ptr2 = strrchr(fname2, '/');
+    if(ptr2 && ptr2 > ptr1) badpoint = TRUE;
+    if(!badpoint) *ptr1 = '\0';
+  }
   strcat(fname2, ".");
   strcat(fname2,newext);
 }
