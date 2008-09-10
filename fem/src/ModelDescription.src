@@ -2730,15 +2730,17 @@ CONTAINS
     CHARACTER(LEN=*) :: PostFile,ResultFile
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: CurrentElement
-    TYPE(Variable_t), POINTER :: Var,Var1,Displacement,MeshUpdate
+    TYPE(Variable_t), POINTER :: Var,Var1,Displacement,MeshUpdate,MaskVar
 
     CHARACTER(LEN=512) :: Row
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr
 
-    LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved
+    LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists
 
     REAL(KIND=dp) :: Time,Dummy, MeshScale
-    INTEGER :: i,j,k,l,n,m,q,Node,idummy,DOFs,SavedCount,TimeStep
+    INTEGER :: ii,i,j,k,l,n,m,q,Node,idummy,DOFs,SavedCount,TimeStep, &
+         NumberOfNodes, NumberOfElements, ind
+    INTEGER, POINTER :: MaskPerm(:), MaskOrder(:)
 !------------------------------------------------------------------------------
 
     IF ( INDEX( PostFile, ':') == 0 .AND. PostFile(1:1) /= '/' .AND. &
@@ -2798,6 +2800,39 @@ CONTAINS
       IF ( FreeSurfaceFlag ) EXIT
     END DO
 
+!------------------------------------------------------------------------------
+! Initialize stuff for masked saving
+!------------------------------------------------------------------------------
+    Str = ListGetString( Model % Simulation,'Post File Mask Variable',MaskExists)
+    IF(.NOT. MaskExists) THEN
+       Str = ListGetString( Model % Simulation,'ElmerPost Mask Variable',MaskExists)      
+    END IF
+
+    IF( MaskExists ) THEN
+       MaskVar => VariableGet(Model % Variables,TRIM(Str))
+       IF( ASSOCIATED(MaskVar)) MaskPerm => MaskVar % Perm
+       MaskExists = ASSOCIATED(MaskPerm)
+    END IF
+    IF(MaskExists) THEN
+       CALL Info('WritePostFile','Using '// TRIM(Str) // ' as mask variable')
+       NumberOfNodes = MAXVAL(MaskPerm)
+       ALLOCATE(MaskOrder(NumberOfNodes))
+       DO i=1,SIZE(MaskPerm)
+          j = MaskPerm(i)
+          IF(j > 0) MaskOrder(j) = i
+       END DO
+       NumberOfElements = 0
+       DO i=1,Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+          CurrentElement => Model % Elements(i)
+          IF( ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) THEN
+             NumberOfElements = NumberOfElements + 1
+          END IF
+       END DO
+    ELSE
+       NumberOfNodes = Model % NumberOfNodes
+       NumberOfElements =  Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+    END IF
+ 
 !------------------------------------------------------------------------------
 !   Count degrees of freedom to be saved
 !------------------------------------------------------------------------------
@@ -2881,14 +2916,14 @@ CONTAINS
 
     IF ( .NOT.FreeSurfaceFlag ) DOFs = DOFs - 3
 
+
+
 !------------------------------------------------------------------------------
 ! Write header to output
 !------------------------------------------------------------------------------
     IF ( .NOT.AppendFlag .OR. Model % Mesh % SavesDone == 0 ) THEN
-      WRITE(PostFileUnit,'(i10,i10,i7,i7)',ADVANCE='NO' ) Model % NumberOfNodes, &
-       Model % NumberOfBulkElements+ Model % NumberOfBoundaryElements, &
-          DOFs,TimeCount
-
+      WRITE(PostFileUnit,'(i10,i10,i7,i7)',ADVANCE='NO' ) NumberOfNodes, &
+           NumberOfElements, DOFs, TimeCount
 
       Var => Model % Variables
       DO WHILE( ASSOCIATED( Var ) )
@@ -3021,7 +3056,11 @@ CONTAINS
       END DO
 
 
-      DO i=1,Model % NumberOfNodes
+      DO ii=1,NumberOfNodes
+
+         i = ii
+         IF(MaskExists) i = MaskOrder(i)
+
          IF ( ASSOCIATED(Displacement) ) THEN
             k = Displacement % Perm(i)
             l = 0
@@ -3030,50 +3069,51 @@ CONTAINS
             IF ( k > 0 ) THEN
                k = Displacement % DOFs * (k-1)
                SELECT CASE( Displacement % DOFs )
-                  CASE(1)
-                     WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
-                             Model % Nodes % y(i), Model % Nodes % z(i)
-
-                  CASE(2)
-                     WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
-                          Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
-                          Model % Nodes % z(i)
-
-                  CASE(3)
-                     WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
-                          Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
-                          Model % Nodes % z(i) - MeshScale*Displacement % Values(k+3)
+               CASE(1)
+                  WRITE(PostFileUnit,'(3E20.12E3)') &
+                       Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
+                       Model % Nodes % y(i), Model % Nodes % z(i)
+                  
+               CASE(2)
+                  WRITE(PostFileUnit,'(3E20.12E3)') &
+                       Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
+                       Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
+                       Model % Nodes % z(i)
+                  
+               CASE(3)
+                  WRITE(PostFileUnit,'(3E20.12E3)') &
+                       Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
+                       Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
+                       Model % Nodes % z(i) - MeshScale*Displacement % Values(k+3)
                END SELECT
+
             ELSE IF ( l > 0 ) THEN
                k = MeshUpdate % DOFs * (l-1)
                SELECT CASE( MeshUpdate % DOFs )
-                  CASE(1)
-                     WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
-                             Model % Nodes % y(i), Model % Nodes % z(i)
-
-                  CASE(2)
-                     WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
-                          Model % Nodes % y(i) - MeshUpdate % Values(k+2), &
-                          Model % Nodes % z(i)
-
-                  CASE(3)
-                     WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
-                          Model % Nodes % y(i) - MeshUpdate % Values(k+2), &
-                          Model % Nodes % z(i) - MeshUpdate % Values(k+3)
+               CASE(1)
+                  WRITE(PostFileUnit,'(3E20.12E3)') &
+                       Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
+                       Model % Nodes % y(i), Model % Nodes % z(i)
+                  
+               CASE(2)
+                  WRITE(PostFileUnit,'(3E20.12E3)') &
+                       Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
+                       Model % Nodes % y(i) - MeshUpdate % Values(k+2), &
+                       Model % Nodes % z(i)
+                  
+               CASE(3)
+                  WRITE(PostFileUnit,'(3E20.12E3)') &
+                       Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
+                       Model % Nodes % y(i) - MeshUpdate % Values(k+2), &
+                       Model % Nodes % z(i) - MeshUpdate % Values(k+3)
                END SELECT
             ELSE
-             WRITE(PostFileUnit,'(3E20.12E3)') Model % Nodes % x(i),Model % Nodes % y(i), &
-                               Model % Nodes % z(i)
+               WRITE(PostFileUnit,'(3E20.12E3)') Model % Nodes % x(i),Model % Nodes % y(i), &
+                    Model % Nodes % z(i)
             ENDIF
          ELSE
-             WRITE(PostFileUnit,'(3E20.12E3)') Model % Nodes % x(i),Model % Nodes % y(i), &
-                               Model % Nodes % z(i)
+            WRITE(PostFileUnit,'(3E20.12E3)') Model % Nodes % x(i),Model % Nodes % y(i), &
+                 Model % Nodes % z(i)
          END IF
       END DO
 
@@ -3082,76 +3122,88 @@ CONTAINS
 !------------------------------------------------------------------------------
       WRITE(PostFileUnit,'(a)') '#group all'
       DO i=1,Model % NumberOfBulkElements
-        CurrentElement => Model % Elements(i)
-        k = CurrentElement % BodyId
+         CurrentElement => Model % Elements(i)
 
-        gotIt = .FALSE.
-        IF ( k >= 1 .AND. k <= Model % NumberOfBodies ) THEN
-          Str = ListGetString( Model % Bodies(k) % Values,'Name',gotIt )
-        END IF
-
-        IF ( gotIt ) THEN
-          k = LEN_TRIM(Str)
-          DO j=1,k
-             IF ( Str(j:j) == ' ' ) Str(j:j) = '.'
-          END DO
-
-          WRITE( PostFileUnit,'(a)',ADVANCE='NO' )  Str(1:k)
-        ELSE
-          IF ( k > 0 .AND. k < 10 ) THEN
-            WRITE(PostFileUnit,'(a,i1,a)',ADVANCE='NO' ) 'body',k,' '
-          ELSE IF ( k >= 10 .AND. k < 100 ) THEN
-            WRITE(PostFileUnit,'(a,i2,a)',ADVANCE='NO' ) 'body',k,' '
-          ELSE
-            WRITE(PostFileUnit,'(a,i3,a)',ADVANCE='NO' ) 'body',k,' '
-          END IF
-        END IF
-
-        WRITE(PostFileUnit,'(i5)', ADVANCE='NO') CurrentElement % TYPE % ElementCode
-        n = 0
-        DO j=1,CurrentElement % TYPE % NumberOfNodes,4
-          DO k=1,MIN(4,CurrentElement % TYPE % NumberOfNodes-n)
-            n = n + 1
-            WRITE(PostFileUnit, '(i8)', ADVANCE='NO')  CurrentElement % NodeIndexes(n)-1
-          END DO
-          WRITE( PostFileUnit,'(a)' ) ''
-        END DO
+         IF(MaskExists) THEN
+            IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+         END IF
+         
+         k = CurrentElement % BodyId
+         gotIt = .FALSE.
+         IF ( k >= 1 .AND. k <= Model % NumberOfBodies ) THEN
+            Str = ListGetString( Model % Bodies(k) % Values,'Name',gotIt )
+         END IF
+         
+         IF ( gotIt ) THEN
+            k = LEN_TRIM(Str)
+            DO j=1,k
+               IF ( Str(j:j) == ' ' ) Str(j:j) = '.'
+            END DO
+            
+            WRITE( PostFileUnit,'(a)',ADVANCE='NO' )  Str(1:k)
+         ELSE
+            IF ( k > 0 .AND. k < 10 ) THEN
+               WRITE(PostFileUnit,'(a,i1,a)',ADVANCE='NO' ) 'body',k,' '
+            ELSE IF ( k >= 10 .AND. k < 100 ) THEN
+               WRITE(PostFileUnit,'(a,i2,a)',ADVANCE='NO' ) 'body',k,' '
+            ELSE
+               WRITE(PostFileUnit,'(a,i3,a)',ADVANCE='NO' ) 'body',k,' '
+            END IF
+         END IF
+         
+         WRITE(PostFileUnit,'(i5)', ADVANCE='NO') CurrentElement % TYPE % ElementCode
+         n = 0
+         DO j=1,CurrentElement % TYPE % NumberOfNodes,4
+            DO k=1,MIN(4,CurrentElement % TYPE % NumberOfNodes-n)
+               n = n + 1
+               ind = CurrentElement % NodeIndexes(n)
+               IF(MaskExists) ind = MaskPerm(ind)
+               WRITE(PostFileUnit, '(i8)', ADVANCE='NO')  ind - 1
+            END DO
+            WRITE( PostFileUnit,'(a)' ) ''
+         END DO
       END DO
-
+      
       DO i=Model % NumberOfBulkElements + 1,Model % NumberOfBulkElements + &
-                     Model % NumberOfBoundaryElements
-
-        CurrentElement => Model % Elements(i)
-
-        k = CurrentElement % BoundaryInfo % Constraint
-
-        gotIt = .FALSE.
-        IF ( k >= 1 .AND. k <= Model % NumberOfBCs ) THEN
-          Str = ListGetString( Model % BCs(k) % Values,'Name',gotIt )
-        END IF
-
-        IF ( gotIt ) THEN
-          k = LEN_TRIM(Str)
-          DO j=1,k
-             IF ( Str(j:j) == ' ' ) Str(j:j) = '.'
-          END DO
-
-          WRITE( PostFileUnit,'(a)',ADVANCE='NO' )  Str(1:k)
-        ELSE
-          IF ( k < 10 ) THEN
-            WRITE( PostFileUnit,'(a,i1,a)',ADVANCE='NO' ) 'Constraint', k, ' '
-          ELSE IF ( k < 100 ) THEN
-            WRITE( PostFileUnit,'(a,i2,a)',ADVANCE='NO' ) 'Constraint', k, ' '
-          ELSE
-            WRITE( PostFileUnit,'(a,i3,a)',ADVANCE='NO' ) 'Constraint', k, ' '
-          END IF
-        END IF
-
-        WRITE(PostFileUnit,'(i5)', ADVANCE='NO') CurrentElement % TYPE % ElementCode
-        DO k=1,CurrentElement % TYPE % NumberOfNodes
-          WRITE( PostFileUnit, '(i8)', ADVANCE='NO' )  CurrentElement % NodeIndexes(k)-1
-        END DO
-        WRITE( PostFileUnit,'(a)' ) ''
+           Model % NumberOfBoundaryElements
+         
+         CurrentElement => Model % Elements(i)
+         
+         IF(MaskExists) THEN
+            IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+         END IF
+         
+         k = CurrentElement % BoundaryInfo % Constraint
+         
+         gotIt = .FALSE.
+         IF ( k >= 1 .AND. k <= Model % NumberOfBCs ) THEN
+            Str = ListGetString( Model % BCs(k) % Values,'Name',gotIt )
+         END IF
+         
+         IF ( gotIt ) THEN
+            k = LEN_TRIM(Str)
+            DO j=1,k
+               IF ( Str(j:j) == ' ' ) Str(j:j) = '.'
+            END DO
+            
+            WRITE( PostFileUnit,'(a)',ADVANCE='NO' )  Str(1:k)
+         ELSE
+            IF ( k < 10 ) THEN
+               WRITE( PostFileUnit,'(a,i1,a)',ADVANCE='NO' ) 'Constraint', k, ' '
+            ELSE IF ( k < 100 ) THEN
+               WRITE( PostFileUnit,'(a,i2,a)',ADVANCE='NO' ) 'Constraint', k, ' '
+            ELSE
+               WRITE( PostFileUnit,'(a,i3,a)',ADVANCE='NO' ) 'Constraint', k, ' '
+            END IF
+         END IF
+         
+         WRITE(PostFileUnit,'(i5)', ADVANCE='NO') CurrentElement % TYPE % ElementCode
+         DO k=1,CurrentElement % TYPE % NumberOfNodes
+            ind = CurrentElement % NodeIndexes(k)
+            IF(MaskExists) ind = MaskPerm(ind)
+            WRITE( PostFileUnit, '(i8)', ADVANCE='NO' )  ind-1
+         END DO
+         WRITE( PostFileUnit,'(a)' ) ''
       END DO
       WRITE(PostFileUnit,'(a)') '#endgroup all'
 !------------------------------------------------------------------------------
@@ -3159,262 +3211,268 @@ CONTAINS
 !------------------------------------------------------------------------------
 
       REWIND(OutputUnit)
-    END IF ! .NOT.AppendFlag .OR. Model % Mesh % SavesDone == 0
-
-    IF ( AppendFlag .AND. Model % Mesh % SavesDone == 0 ) THEN
+   END IF ! .NOT.AppendFlag .OR. Model % Mesh % SavesDone == 0
+   
+   IF ( AppendFlag .AND. Model % Mesh % SavesDone == 0 ) THEN
       CLOSE(PostFileUnit)
       RETURN
-    END IF
+   END IF
 
 !------------------------------------------------------------------------------
-    DO WHILE( .TRUE. )
+   DO WHILE( .TRUE. )
       IF ( AppendFlag ) THEN
-        SavedCount = Model % Mesh % SavesDone
-        TimeStep   = SavedCount
-        Var => VariableGet( Model % Variables, 'Time' )        
-        Time = 1.0d0
-        IF ( ASSOCIATED(Var) ) Time = Var % Values(1)
+         SavedCount = Model % Mesh % SavesDone
+         TimeStep   = SavedCount
+         Var => VariableGet( Model % Variables, 'Time' )        
+         Time = 1.0d0
+         IF ( ASSOCIATED(Var) ) Time = Var % Values(1)
       ELSE
 !------------------------------------------------------------------------------
 !   ...read one timestep to memory (if not already there)...
 !------------------------------------------------------------------------------
-        Row = ' '
-        DO WHILE( ReadAndTrim(OutputUnit,Row) )
-          IF ( Row(1:11) == 'total dofs:' ) READ( Row(12:),* ) DOFs
-          IF ( Row(1:5)  == 'time:' ) EXIT
-        END DO
-
-        IF ( Row(1:5) /= 'time:' ) EXIT
-
-        READ( Row(7:),* ) SavedCount,Timestep,Time
+         Row = ' '
+         DO WHILE( ReadAndTrim(OutputUnit,Row) )
+            IF ( Row(1:11) == 'total dofs:' ) READ( Row(12:),* ) DOFs
+            IF ( Row(1:5)  == 'time:' ) EXIT
+         END DO
+         
+         IF ( Row(1:5) /= 'time:' ) EXIT
+         
+         READ( Row(7:),* ) SavedCount,Timestep,Time
       END IF
-
+      
       WRITE( PostFileUnit,'(a,i7,i7,E20.12E3)' ) '#time ',SavedCount,Timestep,Time
-
+      
       IF ( .NOT.AppendFlag ) THEN
-        DO i=1,DOFs
-          READ(OutputUnit,'(a)' ) Row
-          Var => VariableGet( Model % Variables,Row,.TRUE. )
-  
-          IF ( ASSOCIATED(Var) ) THEN
-            DO j=1,Model % NumberOfNodes
-              k = j
-              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-              IF ( k > 0 ) THEN
-                READ(OutputUnit,*) Node,idummy,Var % Values(k)
-              ELSE
-                READ(OutputUnit,*) Node,idummy,Dummy
-              END IF
-            END DO
-          END IF
+         DO i=1,DOFs
+            READ(OutputUnit,'(a)' ) Row
+            Var => VariableGet( Model % Variables,Row,.TRUE. )
+            
+            IF ( ASSOCIATED(Var) ) THEN
+               DO j=1,NumberOfNodes
+                  k = j
+                  IF( MaskExists ) k = MaskPerm(k)
+                  IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                  IF ( k > 0 ) THEN
+                     READ(OutputUnit,*) Node,idummy,Var % Values(k)
+                  ELSE
+                     READ(OutputUnit,*) Node,idummy,Dummy
+                  END IF
+               END DO
+            END IF
         END DO
-      END IF
+     END IF
 !-----------------------------------------------------------------------------
 !     ...then save it to post file.
 !------------------------------------------------------------------------------
-      DO i=1,Model % NumberOfNodes
+     DO ii=1,NumberOfNodes
+        
+        i = ii
+        IF(MaskExists) i = MaskOrder(i)
 
         Var => Model % Variables
         DO WHILE( ASSOCIATED( Var ) )
-          IF ( .NOT. Var % Output ) THEN
-             Var => Var % Next
-             CYCLE
-          END IF
-
-          SELECT CASE(Var % Name)
-            CASE('time', 'timestep', 'timestep size', 'timestep interval', &
-                 'coupled iter', 'nonlin iter')
-
-            CASE( 'mesh update' )
-               Var1 => Model % Variables
-               DO WHILE( ASSOCIATED( Var1 ) )
+           IF ( .NOT. Var % Output ) THEN
+              Var => Var % Next
+              CYCLE
+           END IF
+           
+           SELECT CASE(Var % Name)
+           CASE('time', 'timestep', 'timestep size', 'timestep interval', &
+                'coupled iter', 'nonlin iter')
+              
+           CASE( 'mesh update' )
+              Var1 => Model % Variables
+              DO WHILE( ASSOCIATED( Var1 ) )
                  IF ( TRIM(Var1 % Name) == 'displacement' ) EXIT
                  Var1 => Var1 % Next
-               END DO
-               IF ( .NOT. ASSOCIATED( Var1 ) ) THEN
-                  k = i
-                  IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-                  IF ( k > 0 ) THEN
-                     DO j=1,Var % DOFs
+              END DO
+              IF ( .NOT. ASSOCIATED( Var1 ) ) THEN
+                 k = i
+                 IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                 IF ( k > 0 ) THEN
+                    DO j=1,Var % DOFs
                        WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                     END DO
-                     IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-                  ELSE
-                    WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-                  END IF
-               END IF
-
-            CASE(  'mesh update 1','mesh update 2', 'mesh update 3' )
-
-            CASE( 'displacement' )
-              k = i
-              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-
-              IF ( k > 0 ) THEN
-                DO j=1,Var % DOFs
-                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                END DO
-                IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-              ELSE
-                Var1 => Model % Variables
-                DO WHILE( ASSOCIATED( Var1 ) )
-                  IF ( TRIM(Var1 % Name) == 'mesh update' ) EXIT
-                  Var1 => Var1 % Next
-                END DO
-                IF ( ASSOCIATED( Var1 ) ) THEN
-                  k = i
-                  IF ( ASSOCIATED(Var1 % Perm) ) k = Var1 % Perm(k)
-                  IF ( k > 0 ) THEN
-                    DO j=1,Var1 % DOFs
-                      WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO')  &
-                          Var1 % Values(Var1 % DOFs*(k-1)+j)
                     END DO
-                    IF ( Var1 % DOFs<3 ) &
-                      WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-                  ELSE
+                    IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+                 ELSE
                     WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-                  END IF
-                ELSE
-                  WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-                END IF
+                 END IF
               END IF
-
-            CASE( 'displacement 1','displacement 2','displacement 3')
-
-            CASE( 'flow solution' )
+              
+           CASE(  'mesh update 1','mesh update 2', 'mesh update 3' )
+              
+           CASE( 'displacement' )
               k = i
               IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+              
               IF ( k > 0 ) THEN
-                DO j=1,Var % DOFs-1
-                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                END DO
-                IF ( Var % DOFs < 4 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-
-                WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO')  &
-                           Var % Values(Var % DOFs*(k-1)+Var % DOFs)
-              ELSE
-                WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0,0.0D0
-              END IF
-
-            CASE( 'velocity 1','velocity 2','velocity 3','pressure' )
-
-            CASE( 'magnetic field' )
-              k = i
-              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-              IF ( k > 0 ) THEN
-                DO j=1,Var % DOFs
-                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                END DO
-                IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-              ELSE
-                WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-              END IF
-
-            CASE( 'magnetic field 1','magnetic field 2','magnetic field 3')
-
-            CASE( 'electric current' )
-               k = i
-               IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-               IF ( k > 0 ) THEN
                  DO j=1,Var % DOFs
-                   WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
                  END DO
                  IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-               ELSE
-                 WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-               END IF
-
-            CASE( 'electric current 1','electric current 2','electric current 3')
-
-            CASE( 'coordinate 1','coordinate 2','coordinate 3' )
-
-            CASE( 'magnetic flux density' )
+              ELSE
+                 Var1 => Model % Variables
+                 DO WHILE( ASSOCIATED( Var1 ) )
+                    IF ( TRIM(Var1 % Name) == 'mesh update' ) EXIT
+                    Var1 => Var1 % Next
+                 END DO
+                 IF ( ASSOCIATED( Var1 ) ) THEN
+                    k = i
+                    IF ( ASSOCIATED(Var1 % Perm) ) k = Var1 % Perm(k)
+                    IF ( k > 0 ) THEN
+                       DO j=1,Var1 % DOFs
+                          WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO')  &
+                               Var1 % Values(Var1 % DOFs*(k-1)+j)
+                       END DO
+                       IF ( Var1 % DOFs<3 ) &
+                            WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+                    ELSE
+                       WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
+                    END IF
+                 ELSE
+                    WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
+                 END IF
+              END IF
+              
+           CASE( 'displacement 1','displacement 2','displacement 3')
+              
+           CASE( 'flow solution' )
               k = i
               IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
               IF ( k > 0 ) THEN
-                DO j=1,Var % DOFs
-                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                END DO
-                IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-              ELSE
-                WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-              END IF
-
-            CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
-
-            CASE DEFAULT
-              IF ( Var % DOFs == 1 ) THEN
-                k = i
-                IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-                IF ( k > 0 ) THEN
-                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(k)
-                ELSE
-                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
-                END IF
-              ELSE
-               l = index( var % name, '[' )
-               IF ( l > 0 ) THEN
-                 DOFs = 0
-                 DO WHILE( .TRUE. )
-                   m = INDEX( Var % Name(l+1:), ':' ) + l
-                   IF ( m<=l ) EXIT
-                   READ( Var % Name(m+1:),'(i1)' ) q
-                   k = i
-                   IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-                   IF ( k > 0 ) THEN
-                     DO j=DOFs+1,DOFs+q
-                       WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                     END DO
-                     IF ( q==2 .OR. q==3 ) THEN
-                       DO j=q+1,3
-                         WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
-                       END DO
-                     END IF
-                   ELSE
-                     DO j=1,q
-                       WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
-                     END DO
-                     IF ( q==2 .OR. q==3 ) THEN
-                       DO j=q+1,3
-                         WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
-                       END DO
-                     END IF
-                   END IF
-                   l=m+1
-                   DOFs = DOFs+q
+                 DO j=1,Var % DOFs-1
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
                  END DO
+                 IF ( Var % DOFs < 4 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+                 
+                 WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO')  &
+                      Var % Values(Var % DOFs*(k-1)+Var % DOFs)
+              ELSE
+                 WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0,0.0D0
+              END IF
+              
+           CASE( 'velocity 1','velocity 2','velocity 3','pressure' )
+              
+           CASE( 'magnetic field' )
+              k = i
+              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+              IF ( k > 0 ) THEN
                  DO j=1,Var % DOFs
-                    Var => Var % Next
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
                  END DO
-               END IF
+                 IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+              ELSE
+                 WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
               END IF
-          END SELECT
-          Var => Var % Next
+              
+           CASE( 'magnetic field 1','magnetic field 2','magnetic field 3')
+              
+           CASE( 'electric current' )
+              k = i
+              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+              IF ( k > 0 ) THEN
+                 DO j=1,Var % DOFs
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
+                 END DO
+                 IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+              ELSE
+                 WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
+              END IF
+              
+           CASE( 'electric current 1','electric current 2','electric current 3')
+              
+           CASE( 'coordinate 1','coordinate 2','coordinate 3' )
+              
+           CASE( 'magnetic flux density' )
+              k = i
+              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+              IF ( k > 0 ) THEN
+                 DO j=1,Var % DOFs
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
+                 END DO
+                 IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+              ELSE
+                 WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
+              END IF
+              
+           CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
+              
+           CASE DEFAULT
+              IF ( Var % DOFs == 1 ) THEN
+                 k = i
+                 IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                 IF ( k > 0 ) THEN
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(k)
+                 ELSE
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+                 END IF
+              ELSE
+                 l = index( var % name, '[' )
+                 IF ( l > 0 ) THEN
+                    DOFs = 0
+                    DO WHILE( .TRUE. )
+                       m = INDEX( Var % Name(l+1:), ':' ) + l
+                       IF ( m<=l ) EXIT
+                       READ( Var % Name(m+1:),'(i1)' ) q
+                       k = i
+                       IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                       IF ( k > 0 ) THEN
+                          DO j=DOFs+1,DOFs+q
+                             WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
+                          END DO
+                          IF ( q==2 .OR. q==3 ) THEN
+                             DO j=q+1,3
+                                WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                             END DO
+                          END IF
+                       ELSE
+                          DO j=1,q
+                             WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                          END DO
+                          IF ( q==2 .OR. q==3 ) THEN
+                             DO j=q+1,3
+                                WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                             END DO
+                          END IF
+                       END IF
+                       l=m+1
+                       DOFs = DOFs+q
+                    END DO
+                    DO j=1,Var % DOFs
+                       Var => Var % Next
+                    END DO
+                 END IF
+              END IF
+           END SELECT
+           Var => Var % Next
         END DO
 
         IF ( FreeSurfaceFlag ) THEN
-          Var => VariableGet( Model % Variables,'Coordinate 1' )
-          WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(i)
-
-          Var => VariableGet( Model % Variables,'Coordinate 2' )
-          WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(i)
-
-          Var => VariableGet( Model % Variables,'Coordinate 3' )
-          WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(i)
+           Var => VariableGet( Model % Variables,'Coordinate 1' )
+           WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(i)
+           
+           Var => VariableGet( Model % Variables,'Coordinate 2' )
+           WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(i)
+           
+           Var => VariableGet( Model % Variables,'Coordinate 3' )
+           WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(i)
         END IF
-
+        
         WRITE(PostFileUnit,'()')
-      END DO
-      IF (  AppendFlag ) EXIT
+     END DO
+     IF (  AppendFlag ) EXIT
 !------------------------------------------------------------------------------
-    END DO
+  END DO
 !------------------------------------------------------------------------------
-!   We are done here close the files...
+!   We are done here close the files and deallocate
 !------------------------------------------------------------------------------
-    CLOSE(PostFileUnit)
-    IF ( .NOT. AppendFlag ) CLOSE(OutputUnit)
+  CLOSE(PostFileUnit)
+  IF ( .NOT. AppendFlag ) CLOSE(OutputUnit)
 
-  END SUBROUTINE WritePostFile
+  IF(MaskExists) DEALLOCATE(MaskOrder)
+  
+END SUBROUTINE WritePostFile
 !------------------------------------------------------------------------------
 
 END MODULE ModelDescription
