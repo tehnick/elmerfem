@@ -1100,6 +1100,11 @@ GLuint GLWidget::generateVolumeMeshList(QColor qColor)
   static int tetmap[6][2] = {{0, 1}, {0, 2}, {0, 3}, 
 			     {1, 2}, {1, 3}, {2, 3}};
 
+  static int wedgemap[9][2] = {{0, 1}, {1, 2}, {2, 0},
+			       {0, 3}, {1, 4}, {2, 5},
+			       {3, 4}, {4, 5}, {5, 3}};
+
+
   static int hexmap[12][2] = {{0, 1}, {1, 2}, {2, 3}, {3, 0},
 			      {0, 4}, {1, 5}, {2, 6}, {3, 7},
 			      {4, 5}, {5, 6}, {6, 7}, {7, 4}};
@@ -1118,58 +1123,45 @@ GLuint GLWidget::generateVolumeMeshList(QColor qColor)
 
     glColor3d(R, G, B);
 
-    // tets:
-    if((int)(element->code / 100) == 5) {
+    int nofEdges = 0;
+    int *edgeMap = 0;
 
-      // loop over edges:
-      for(int j = 0; j < 6; j++) {
-	int p0 = tetmap[j][0];
-	int p1 = tetmap[j][1];
-
-	int q0 = element->node[p0];
-	int q1 = element->node[p1];
-
-	node_t *n0 = &mesh->node[q0];
-	node_t *n1 = &mesh->node[q1];
-
-	double x0 = ( n0->x[0] - drawTranslate[0] ) / drawScale;
-	double y0 = ( n0->x[1] - drawTranslate[1] ) / drawScale;
-	double z0 = ( n0->x[2] - drawTranslate[2] ) / drawScale;
-
-	double x1 = ( n1->x[0] - drawTranslate[0] ) / drawScale;
-	double y1 = ( n1->x[1] - drawTranslate[1] ) / drawScale;
-	double z1 = ( n1->x[2] - drawTranslate[2] ) / drawScale;
-
-	glVertex3d(x0, y0, z0);
-	glVertex3d(x1, y1, z1);
-      }
+    switch((int)(element->code / 100)) {
+    case 5:
+      nofEdges = 6;
+      edgeMap = &tetmap[0][0];
+      break;
+    case 7:
+      nofEdges = 9;
+      edgeMap = &wedgemap[0][0];
+      break;
+    case 8:
+      nofEdges = 12;
+      edgeMap = &hexmap[0][0];
+      break;
     }
-
-    // hex:
-    if((int)(element->code / 100) == 8) {
-
-      // loop over edges:
-      for(int j = 0; j < 12; j++) {
-	int p0 = hexmap[j][0];
-	int p1 = hexmap[j][1];
-
-	int q0 = element->node[p0];
-	int q1 = element->node[p1];
-
-	node_t *n0 = &mesh->node[q0];
-	node_t *n1 = &mesh->node[q1];
-
-	double x0 = ( n0->x[0] - drawTranslate[0] ) / drawScale;
-	double y0 = ( n0->x[1] - drawTranslate[1] ) / drawScale;
-	double z0 = ( n0->x[2] - drawTranslate[2] ) / drawScale;
-
-	double x1 = ( n1->x[0] - drawTranslate[0] ) / drawScale;
-	double y1 = ( n1->x[1] - drawTranslate[1] ) / drawScale;
-	double z1 = ( n1->x[2] - drawTranslate[2] ) / drawScale;
-
-	glVertex3d(x0, y0, z0);
-	glVertex3d(x1, y1, z1);
-      }
+    
+    // draw edges:
+    for(int j = 0; j < nofEdges; j++) {
+      int p0 = *edgeMap++;
+      int p1 = *edgeMap++;
+      
+      int q0 = element->node[p0];
+      int q1 = element->node[p1];
+      
+      node_t *n0 = &mesh->node[q0];
+      node_t *n1 = &mesh->node[q1];
+      
+      double x0 = ( n0->x[0] - drawTranslate[0] ) / drawScale;
+      double y0 = ( n0->x[1] - drawTranslate[1] ) / drawScale;
+      double z0 = ( n0->x[2] - drawTranslate[2] ) / drawScale;
+      
+      double x1 = ( n1->x[0] - drawTranslate[0] ) / drawScale;
+      double y1 = ( n1->x[1] - drawTranslate[1] ) / drawScale;
+      double z1 = ( n1->x[2] - drawTranslate[2] ) / drawScale;
+      
+      glVertex3d(x0, y0, z0);
+      glVertex3d(x1, y1, z1);
     }
   }
 
