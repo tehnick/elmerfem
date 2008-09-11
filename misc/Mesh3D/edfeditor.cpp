@@ -556,7 +556,7 @@ void EdfEditor::openButtonClicked()
     }
   }
   
-//  setupEditor(*elmerDefs);
+  setupEditor(*elmerDefs);
 
   edfTree->setCurrentItem(NULL);
 }
