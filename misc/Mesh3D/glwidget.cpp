@@ -63,6 +63,7 @@ GLWidget::GLWidget(QWidget *parent)
 
   stateFlatShade = true;
   stateDrawSurfaceMesh = true;
+  stateDrawVolumeMesh = false;
   stateDrawSharpEdges = true;
   stateDrawSurfaceElements = true;
   stateDrawEdgeElements = true;
@@ -992,6 +993,7 @@ GLuint GLWidget::makeLists()
   lists += edge_bcs;      // edge elements
   lists += point_bcs;     // point elements
   lists += 1;             // sharp edges on surfaces
+  lists += 1;             // volume mesh (visual only)
   
   list = new list_t[lists];
   int current_index = 0;
@@ -1057,6 +1059,19 @@ GLuint GLWidget::makeLists()
   l->selected = false;
   l->visible = stateDrawSharpEdges;
 
+
+  // Volume mesh (visual only)
+  l = &list[current_index++];
+  l->nature = PDE_UNKNOWN;
+  l->type = VOLUMEMESHLIST;
+  l->index = -1;
+  l->object = generateVolumeMeshList(Qt::black); // black
+  l->child = -1;
+  l->parent = -1;
+  l->selected = false;
+  l->visible = stateDrawVolumeMesh;
+
+
   delete [] surface_nature;
   delete [] edge_nature;
   delete [] point_nature;
@@ -1067,6 +1082,74 @@ GLuint GLWidget::makeLists()
   return lists;
 }
 
+
+// Generate volume mesh list...
+//-----------------------------------------------------------------------------
+GLuint GLWidget::generateVolumeMeshList(QColor qColor)
+{
+  double R = qColor.red() / 255.0;
+  double G = qColor.green() / 255.0;
+  double B = qColor.blue() / 255.0;
+
+  GLuint current = glGenLists(1);
+  glNewList(current, GL_COMPILE);
+
+  glBegin(GL_LINES);
+
+  for(int i = 1; i < mesh->elements; i++) {
+    element_t *element = &mesh->element[i];    
+
+    glColor3d(R, G, B);
+
+    // only tetras at the moment:
+    if(element->code == 504) {
+      node_t *n0 = &mesh->node[ element->node[0] ];
+      node_t *n1 = &mesh->node[ element->node[1] ];
+      node_t *n2 = &mesh->node[ element->node[2] ];
+      node_t *n3 = &mesh->node[ element->node[3] ];
+
+      double x0 = ( n0->x[0] - drawTranslate[0] ) / drawScale;
+      double y0 = ( n0->x[1] - drawTranslate[1] ) / drawScale;
+      double z0 = ( n0->x[2] - drawTranslate[2] ) / drawScale;
+
+      double x1 = ( n1->x[0] - drawTranslate[0] ) / drawScale;
+      double y1 = ( n1->x[1] - drawTranslate[1] ) / drawScale;
+      double z1 = ( n1->x[2] - drawTranslate[2] ) / drawScale;
+
+      double x2 = ( n2->x[0] - drawTranslate[0] ) / drawScale;
+      double y2 = ( n2->x[1] - drawTranslate[1] ) / drawScale;
+      double z2 = ( n2->x[2] - drawTranslate[2] ) / drawScale;
+
+      double x3 = ( n3->x[0] - drawTranslate[0] ) / drawScale;
+      double y3 = ( n3->x[1] - drawTranslate[1] ) / drawScale;
+      double z3 = ( n3->x[2] - drawTranslate[2] ) / drawScale;
+
+      glVertex3d(x0, y0, z0);
+      glVertex3d(x1, y1, z1);
+
+      glVertex3d(x0, y0, z0);
+      glVertex3d(x2, y2, z2);
+
+      glVertex3d(x0, y0, z0);
+      glVertex3d(x3, y3, z3);
+
+      glVertex3d(x1, y1, z1);
+      glVertex3d(x2, y2, z2);
+
+      glVertex3d(x1, y1, z1);
+      glVertex3d(x3, y3, z3);
+
+      glVertex3d(x2, y2, z2);
+      glVertex3d(x3, y3, z3);
+    }
+  }
+
+  glEnd();
+
+  glEndList();
+
+  return current;
+}
 
 
 
@@ -1404,6 +1487,7 @@ GLuint GLWidget::generateSharpEdgeList(QColor qColor)
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
+
   glColor3d(R, G, B);  
   glLineWidth(1.0);
   glDisable(GL_LIGHTING);

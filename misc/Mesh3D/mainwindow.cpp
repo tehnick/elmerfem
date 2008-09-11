@@ -471,6 +471,13 @@ void MainWindow::createActions()
   connect(hidesurfacemeshAct, SIGNAL(triggered()), 
 	  this, SLOT(hidesurfacemeshSlot()));
 
+  // View -> Show volume mesh
+  hidevolumemeshAct = new QAction(QIcon(), tr("Volume mesh"), this);
+  hidevolumemeshAct->setStatusTip(tr("Show/hide volume mesh "
+				      "(do/do not outline volume mesh edges)"));
+  connect(hidevolumemeshAct, SIGNAL(triggered()), 
+	  this, SLOT(hidevolumemeshSlot()));
+
   // View -> Show sharp edges
   hidesharpedgesAct = new QAction(QIcon(), tr("Sharp edges"), this);
   hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
@@ -761,6 +768,7 @@ void MainWindow::createMenus()
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));  
   viewMenu->addAction(hidesurfacemeshAct);
+  viewMenu->addAction(hidevolumemeshAct);
   viewMenu->addAction(hidesharpedgesAct);
   viewMenu->addAction(viewCoordinatesAct);
   viewMenu->addSeparator();
@@ -3848,12 +3856,45 @@ void MainWindow::hidesurfacemeshSlot()
   }
 
   synchronizeMenuToState();  
+
   if(!glWidget->stateDrawSurfaceMesh) 
     logMessage("Surface mesh hidden");
   else
     logMessage("Surface mesh shown");
 }
 
+
+// View -> Volume mesh
+//-----------------------------------------------------------------------------
+void MainWindow::hidevolumemeshSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There is no volume mesh to hide/show");
+    return;
+  }
+
+  glWidget->stateDrawVolumeMesh = !glWidget->stateDrawVolumeMesh;
+
+
+  for(int i = 0; i < lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == VOLUMEMESHLIST)
+      l->visible = glWidget->stateDrawVolumeMesh;
+  }
+
+
+  synchronizeMenuToState();  
+
+  if(!glWidget->stateDrawVolumeMesh) 
+    logMessage("Volume mesh hidden");
+  else
+    logMessage("Volume mesh shown");
+
+}
 
 
 // View -> Sharp edges
@@ -6174,6 +6215,11 @@ void MainWindow::synchronizeMenuToState()
     hidesurfacemeshAct->setIcon(iconChecked);
   else
     hidesurfacemeshAct->setIcon(iconEmpty);
+  
+  if(glWidget->stateDrawVolumeMesh)
+    hidevolumemeshAct->setIcon(iconChecked);
+  else
+    hidevolumemeshAct->setIcon(iconEmpty);
   
   if(glWidget->stateDrawSharpEdges)
     hidesharpedgesAct->setIcon(iconChecked);

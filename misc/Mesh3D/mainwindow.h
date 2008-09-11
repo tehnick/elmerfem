@@ -76,6 +76,7 @@ private slots:
   void edgeDivideSlot();          // Mesh -> Divide edge...
   void cleanHangingSharpEdgesSlot(); // Mesh -> Clean up
   void hidesurfacemeshSlot();     // View -> Surface mesh
+  void hidevolumemeshSlot();      // View -> Volume mesh
   void hidesharpedgesSlot();      // View -> Sharp edges
   void viewCoordinatesSlot();     // View -> Coordinates
   void selectAllSurfacesSlot();   // View -> Select all surfaces
@@ -228,6 +229,7 @@ private:
   QAction *showsifAct;            // Edit -> Edit SIF...
   QAction *editDefinitionsAct;    // Edit -> Edit SIF...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
+  QAction *hidevolumemeshAct;     // View -> Show volume mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges
   QAction *viewCoordinatesAct;    // View -> Show sharp edges
   QAction *selectAllSurfacesAct;  // View -> Select all surfaces
@@ -333,13 +335,13 @@ private:
   void createBoundaryCheckBoxes(DynamicEditor *);
   void createBodyCheckBoxes(int,DynamicEditor *);
 
-  // state variables
+  // state variables:
   int activeGenerator;
   bool bcEditActive;
   bool bodyEditActive;
   bool showConvergence;
 
-  // splash screen
+  // splash screen:
   QPixmap pixmap;
   QSplashScreen splash;
   void updateSplash(QString);

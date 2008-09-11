@@ -6,6 +6,7 @@
 #define SURFACELIST     2002
 #define SURFACEMESHLIST 2003
 #define SHARPEDGELIST   2004
+#define VOLUMEMESHLIST  2005
 
 #include <QGLWidget>
 #include <QHash>
@@ -50,6 +51,7 @@ public:
 
   bool stateFlatShade;
   bool stateDrawSurfaceMesh;
+  bool stateDrawVolumeMesh;
   bool stateDrawSharpEdges;
   bool stateDrawSurfaceElements;
   bool stateDrawEdgeElements;
@@ -106,6 +108,7 @@ private:
   
   GLuint generateSurfaceList(int, QColor);
   GLuint generateSurfaceMeshList(int, QColor);
+  GLuint generateVolumeMeshList(QColor);
   GLuint generateEdgeList(int, QColor);
   GLuint generateSharpEdgeList(QColor);
   
