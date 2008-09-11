@@ -210,6 +210,16 @@ void GLWidget::paintGL()
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 	  
+	} else if((l->type == VOLUMEMESHLIST) && stateDrawVolumeMesh) {
+	  
+	  // translate slightly towards viewer
+	  glMatrixMode(GL_PROJECTION);
+	  glPushMatrix();
+	  glTranslated(0, 0, 0.01);
+	  glCallList(l->object); 
+	  glPopMatrix();
+	  glMatrixMode(GL_MODELVIEW);
+	  
 	} else if ((l->type == SHARPEDGELIST) && stateDrawSharpEdges) {
 
 	  // translate slightly towards viewer
