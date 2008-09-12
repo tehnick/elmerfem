@@ -777,11 +777,11 @@
            CALL Info( 'MAIN', ' ', Level=3 )
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
-           IF ( Transient .OR. Scanning ) THEN
+           IF ( (Transient .OR. Scanning) .AND. (Time > 0)) THEN
             WRITE( Message, * ) 'Time: ',Time,'/',(stepcount), sTime(1)
             CALL Info( 'MAIN', Message, Level=3 )
 			call system_clock(nowcounts,countspersec,maxcounts)
-			timeleft = ((stepcount-Time)*(nowcounts-prevcount)/countspersec/60)
+			timeleft = ((stepcount-(Time-1))*(nowcounts-prevcount)/countspersec/60)
 			IF(timeleft >120) THEN
 			   WRITE( Message, *) 'Estimated time left: ',(timeleft/60),' hours.'
 			ELSE IF(timeleft >60) THEN
