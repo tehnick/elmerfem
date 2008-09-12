@@ -5,7 +5,7 @@
 \newcommand{\menu}[2]{{\it \vskip2mm #1 $\rightarrow$ #2 \vskip2mm}}
 \newcommand{\dynmenu}[3]{{\it \vskip2mm #1 $\rightarrow$ #2 $\rightarrow$ #3 \vskip2mm}}
 
-\title{ElmerGUI manual}
+\title{ElmerGUI manual v. 0.1}
 \author{Mikko Lyly}
 
 \begin{document}
@@ -39,10 +39,11 @@ and ILU preconditioners), but it is far from complete in what comes to the full 
 of the solver. The best and most accurate control over ElmerSolver is still obtained
 by direct modification of the solver input files according to the reference manuals.
 
-One of the main features of ElmerGUI is the interface to the parallel version of the
+One of the main features of ElmerGUI is the interface to the parallel 
 solver, i.e., ElmerSolver\_mpi. The GUI hides from the user a number of operations that
 are normally performed from command line with various external tools (domain
-decomposition, launching the MPI-processes, and merging the results). The user is only
+decomposition, launching the MPI-processes, and merging the results). With
+ElmerGUI, the user is only
 expected to prescribe the number of processes and the rest is transparent. This makes
 it possible to use Elmer with multi-core processors even on an interactive desktop environment.
 
@@ -82,6 +83,14 @@ $ export ELMERGUI_HOME=$ELMER_HOME/bin
 $ export PATH=$PATH:$ELMERGUI_HOME
 $ cp -r ./ElmerGUI ./edf $ELMERGUI_HOME
 \end{verbatim}
+
+Later, it is possible to upgrade ElmerGUI by typing
+\begin{verbatim}
+$ svn update
+$ make
+\end{verbatim}
+and by copying the executable in {\tt ELMERGUI\_HOME}.
+
 
 \subsection{Windows}
 
@@ -163,13 +172,14 @@ The mesh generator is reactivated from the Mesh menu by choosing
 
 An Elmer mesh consists of the following four text files (detailed description of the file format can be found from Appendix B):
 
+\begin{footnotesize}
 \begin{verbatim}
 mesh.header 
 mesh.nodes 
 mesh.elements 
 mesh.boundary 
 \end{verbatim}
-
+\end{footnotesize}
 
 \noindent The files have to be located side by side in the same mesh directory.
 
@@ -194,6 +204,7 @@ in the project directory using the sif-name defined in
 
 The contents of a typical project directory is the following:
 
+\begin{footnotesize}
 \begin{verbatim}
 bodyforce.dat 
 bodyproperty.dat 
@@ -209,6 +220,7 @@ mesh.elements
 mesh.header 
 mesh.nodes
 \end{verbatim}
+\end{footnotesize}
 
 \section{Model definitions}
 
@@ -291,7 +303,7 @@ In order to define a material parameter set and attach it to bodies, choose
 \end{center}
 \end{figure}
 
-Again, it is possible to attach the material to a body also by holding down the SHIFT-key while double clicking one of its boundaries.
+Again, it is possible to attach the material to a body by holding down the SHIFT-key while double clicking one of its boundaries.
 
 \vskip2mm
 
@@ -365,14 +377,11 @@ solver input file.
 
 \subsection{Boundary condition menu}
 
-Next, there is a menu related to surfaces and edges:
+Finally, there is a menu entry for setting up the boundary conditions:
 \menu{Model}{Boundary condition}
-\noindent This menu is used to construct the ``Boundary condition'' blocks in a
-solver input file.
-
-Choose
+\noindent Choose
 \dynmenu{Model}{Boundary condition}{Add...}
-\noindent to define a set of boundary conditions and attach it to the boundaries.
+\noindent to define a set of boundary conditions and attach them to boundaries.
 
 \begin{figure}[ht]
 \begin{center}
