@@ -4685,7 +4685,8 @@ void MainWindow::remeshSlot()
 
   if(sysTrayIcon && sysTrayIcon->supportsMessages())
     sysTrayIcon->showMessage("Mesh generator started",
-			     "Select Mesh->Terminate to stop processing");
+			     "Select Mesh->Terminate to stop processing",
+			     QSystemTrayIcon::Information, 3000);
 }
 
 
@@ -4734,7 +4735,8 @@ void MainWindow::meshOkSlot()
 
   if(sysTrayIcon && sysTrayIcon->supportsMessages())
     sysTrayIcon->showMessage("Mesh generator has finished",
-			     "Select Model->Summary for statistics");
+			     "Select Model->Summary for statistics",
+			     QSystemTrayIcon::Information, 3000);
 }
 
 
@@ -5668,7 +5670,8 @@ void MainWindow::runsolverSlot()
 
   if(sysTrayIcon && sysTrayIcon->supportsMessages())
     sysTrayIcon->showMessage("ElmerSolver started",
-			     "Select Run->Kill solver to stop processing");
+			     "Select Run->Kill solver to stop processing",
+			     QSystemTrayIcon::Information, 3000);
 }
 
 
@@ -5717,7 +5720,8 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
 
   if(sysTrayIcon && sysTrayIcon->supportsMessages())
     sysTrayIcon->showMessage("ElmerSolver_mpi started",
-			     "Select Run->Kill solver to stop processing");
+			     "Select Run->Kill solver to stop processing",
+			     QSystemTrayIcon::Information, 3000);
 }
 
 
@@ -5803,7 +5807,8 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   if(sysTrayIcon && sysTrayIcon->supportsMessages())
     sysTrayIcon->showMessage("Postprocessor started",
-			     "Select Run->Kill Postprocessor to stop processing");
+			     "Select Run->Kill Postprocessor to stop processing",
+			     QSystemTrayIcon::Information, 3000);
 }
 
 
@@ -6085,7 +6090,8 @@ void MainWindow::resultsSlot()
 
   if(sysTrayIcon && sysTrayIcon->supportsMessages())
     sysTrayIcon->showMessage("Postprocessor started",
-			     "Select Run->Kill Postprocessor to stop processing");
+			     "Select Run->Kill Postprocessor to stop processing",
+			     QSystemTrayIcon::Information, 3000);
 }
 
 
