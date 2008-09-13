@@ -66,6 +66,7 @@ SifWindow::SifWindow(QWidget *parent)
   found = false;
 
   setWindowTitle(tr("Solver Input File"));
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 SifWindow::~SifWindow()

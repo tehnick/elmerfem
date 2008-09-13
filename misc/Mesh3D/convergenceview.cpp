@@ -148,6 +148,8 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   showGrid = true;
   showNSHistory = true;
   showSSHistory = false;
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 ConvergenceView::~ConvergenceView()

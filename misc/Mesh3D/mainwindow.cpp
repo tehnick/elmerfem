@@ -61,7 +61,8 @@ using namespace std;
 #define BODY_FORCE    3
 #define BODY_EQUATION 4
 
-#define MPICH2 0
+#undef MPICH2
+//#define MPICH2 0
 
 class operation_t {
 public:
@@ -128,12 +129,12 @@ MainWindow::MainWindow()
 
   // widgets and utilities
   updateSplash("ElmerGUI loading...");
-  glWidget = new GLWidget;
+  glWidget = new GLWidget(this);
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
   meshControl = new MeshControl(this);
   boundaryDivide = new BoundaryDivide(this);
-  meshingThread = new MeshingThread;
+  meshingThread = new MeshingThread(this);
   meshutils = new Meshutils;
   solverLogWindow = new SifWindow(this);
   solver = new QProcess(this);
@@ -141,7 +142,7 @@ MainWindow::MainWindow()
   compiler = new QProcess(this);
   meshSplitter = new QProcess(this);
   meshUnifier = new QProcess(this);
-  generalSetup = new GeneralSetup;
+  generalSetup = new GeneralSetup(this);
   equationEditor = new DynamicEditor[MAX_EQUATIONS];
   materialEditor = new DynamicEditor[MAX_MATERIALS];
   bodyForceEditor = new DynamicEditor[MAX_BODYFORCES];
@@ -150,10 +151,10 @@ MainWindow::MainWindow()
   initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
   solverParameterEditor = new SolverParameterEditor[MAX_SOLVERS];
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
-  summaryEditor = new SummaryEditor;
+  summaryEditor = new SummaryEditor(this);
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
-  edfEditor = new EdfEditor;
+  edfEditor = new EdfEditor(this);
   convergenceView = new ConvergenceView(this);
   glControl = new GLcontrol(this);
   parallel = new Parallel(this);
@@ -266,7 +267,17 @@ MainWindow::MainWindow()
   // initialization ready:
   synchronizeMenuToState();
   setWindowTitle(tr("ElmerGUI"));
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   splash.finish(this);
+
+  // set system tray icon:
+  sysTrayIcon = 0;
+  if(QSystemTrayIcon::isSystemTrayAvailable()) {
+    sysTrayIcon = new QSystemTrayIcon(this);
+    sysTrayIcon->setIcon(QIcon(":/icons/Mesh3D.png"));
+    sysTrayIcon->setVisible(true);
+    sysTrayIcon->setContextMenu(sysTrayMenu);
+  }
 }
 
 
@@ -275,7 +286,6 @@ MainWindow::MainWindow()
 MainWindow::~MainWindow()
 {
 }
-
 
 
 // Create actions...
@@ -679,6 +689,11 @@ void MainWindow::createActions()
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), 
 	  this, SLOT(showaboutSlot()));
+
+#if WIN32
+#else
+  compileSolverAct->setEnabled(false);
+#endif
 }
 
 
@@ -837,6 +852,12 @@ void MainWindow::createMenus()
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
   helpMenu->addAction(aboutAct);
+
+  // Sys tray context menu
+  sysTrayMenu = new QMenu;
+  sysTrayMenu->addAction(modelSummaryAct);
+  sysTrayMenu->addSeparator();
+  sysTrayMenu->addAction(aboutAct);
 
   // Disable unavailable external components:
   //------------------------------------------
@@ -4451,7 +4472,7 @@ void MainWindow::colorizeBodySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::backgroundColorSlot()
 {
-  QColor newColor = QColorDialog::getColor(glWidget->backgroundColor);
+  QColor newColor = QColorDialog::getColor(glWidget->backgroundColor, this);
   glWidget->qglClearColor(newColor);
   glWidget->backgroundColor = newColor;
 }
@@ -4467,7 +4488,7 @@ void MainWindow::surfaceColorSlot()
     return;
   }
 
-  QColor newColor = QColorDialog::getColor(glWidget->surfaceColor);
+  QColor newColor = QColorDialog::getColor(glWidget->surfaceColor, this);
   glWidget->surfaceColor = newColor;
   glWidget->rebuildLists();
 }
@@ -4482,7 +4503,7 @@ void MainWindow::edgeColorSlot()
     return;
   }
 
-  QColor newColor = QColorDialog::getColor(glWidget->edgeColor);
+  QColor newColor = QColorDialog::getColor(glWidget->edgeColor, this);
   glWidget->edgeColor = newColor;
   glWidget->rebuildLists();
 }
@@ -4497,7 +4518,7 @@ void MainWindow::surfaceMeshColorSlot()
     return;
   }
 
-  QColor newColor = QColorDialog::getColor(glWidget->surfaceMeshColor);
+  QColor newColor = QColorDialog::getColor(glWidget->surfaceMeshColor, this);
   glWidget->surfaceMeshColor = newColor;
   glWidget->rebuildLists();
 }
@@ -4512,7 +4533,7 @@ void MainWindow::sharpEdgeColorSlot()
     return;
   }
 
-  QColor newColor = QColorDialog::getColor(glWidget->sharpEdgeColor);
+  QColor newColor = QColorDialog::getColor(glWidget->sharpEdgeColor, this);
   glWidget->sharpEdgeColor = newColor;
   glWidget->rebuildLists();
 }
@@ -4661,6 +4682,10 @@ void MainWindow::remeshSlot()
 			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 
   logMessage("Mesh generation initiated");
+
+  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+    sysTrayIcon->showMessage("Mesh generator started",
+			     "Select Mesh->Terminate to stop processing");
 }
 
 
@@ -4706,6 +4731,10 @@ void MainWindow::meshOkSlot()
 
   applyOperations();
   statusBar()->showMessage(tr("Ready"));
+
+  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+    sysTrayIcon->showMessage("Mesh generator has finished",
+			     "Select Model->Summary for statistics");
 }
 
 
@@ -5636,6 +5665,10 @@ void MainWindow::runsolverSlot()
   logMessage("Solver started");
 
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
+
+  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+    sysTrayIcon->showMessage("ElmerSolver started",
+			     "Select Run->Kill solver to stop processing");
 }
 
 
@@ -5681,6 +5714,10 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   convergenceView->title = "Convergence history";
   logMessage("Parallel solver started");
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
+
+  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+    sysTrayIcon->showMessage("ElmerSolver_mpi started",
+			     "Select Run->Kill solver to stop processing");
 }
 
 
@@ -5764,6 +5801,9 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   
   logMessage("Post processor started");
 
+  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+    sysTrayIcon->showMessage("Postprocessor started",
+			     "Select Run->Kill Postprocessor to stop processing");
 }
 
 
@@ -6042,6 +6082,10 @@ void MainWindow::resultsSlot()
   resultsAct->setIcon(QIcon(":/icons/Post-red.png"));
   
   logMessage("Post processor started");
+
+  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+    sysTrayIcon->showMessage("Postprocessor started",
+			     "Select Run->Kill Postprocessor to stop processing");
 }
 
 
@@ -6159,7 +6203,7 @@ void MainWindow::showaboutSlot()
 			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n\n"
-			"ElmerGUI is written for the Qt4 Cross-Platform "
+			"ElmerGUI uses the Qt4 Cross-Platform "
 			"Application Framework by Trolltech:\n\n"
 			"http://trolltech.com/products/qt\n\n"
 #ifdef OCC62
@@ -6180,7 +6224,7 @@ void MainWindow::showaboutSlot()
 			"http://www.mcs.anl.gov/research/projects/mpich2/\n\n"
 #endif
 			"The GPL-licensed source code of ElmerGUI is available "
-			"from the SVN repository at SF.net:\n\n"
+			"from the SVN repository at\n\n"
 			"http://sourceforge.net/projects/elmerfem\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));

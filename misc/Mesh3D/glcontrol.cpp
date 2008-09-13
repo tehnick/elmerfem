@@ -84,6 +84,8 @@ GLcontrol::GLcontrol(QWidget *parent)
 
   connect(ui.matShininessDial, SIGNAL(sliderReleased()),
 	  this, SLOT(okButtonClicked()));
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 GLcontrol::~GLcontrol()

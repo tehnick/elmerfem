@@ -51,6 +51,8 @@ GeneralSetup::GeneralSetup(QWidget *parent)
 
   connect(ui.acceptButton, SIGNAL(clicked()), 
 	  this, SLOT(acceptButtonClicked()));
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 GeneralSetup::~GeneralSetup()

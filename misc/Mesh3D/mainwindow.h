@@ -7,6 +7,7 @@
 #include <QDomDocument>
 #include <QtUiTools>
 #include <QColorDialog>
+#include <QSystemTrayIcon>
 #include "maxlimits.h"
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
@@ -201,6 +202,7 @@ private:
   QMenu *meshMenu;                // Mesh menu
   QMenu *solverMenu;              // Solver menu
   QMenu *helpMenu;                // Help menu
+  QMenu *sysTrayMenu;             // System tray context menu
 
   QToolBar *fileToolBar;          // File toolbar
   QToolBar *editToolBar;          // Edit toolbar
@@ -345,6 +347,9 @@ private:
   QPixmap pixmap;
   QSplashScreen splash;
   void updateSplash(QString);
+
+  // sys tray icon:
+  QSystemTrayIcon *sysTrayIcon;
   
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all

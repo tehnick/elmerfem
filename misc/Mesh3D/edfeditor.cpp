@@ -155,6 +155,8 @@ EdfEditor::EdfEditor(QWidget *parent)
   dynamicEditorBodyForce = new DynamicEditor;
   dynamicEditorBC = new DynamicEditor;
   dynamicEditorIC = new DynamicEditor;
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 // dtor...

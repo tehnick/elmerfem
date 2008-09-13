@@ -73,6 +73,8 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   menuAction = NULL;
   ID = -1;
   touched = false;
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 //----------------------------------------------------------------------------

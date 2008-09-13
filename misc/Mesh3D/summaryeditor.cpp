@@ -50,6 +50,8 @@ SummaryEditor::SummaryEditor(QWidget *parent)
   ui.setupUi(this);
 
   connect(ui.closeButton, SIGNAL(clicked()), this, SLOT(close()));
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 SummaryEditor::~SummaryEditor()

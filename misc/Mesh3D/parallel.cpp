@@ -59,6 +59,8 @@ Parallel::Parallel(QWidget *parent)
 	  this, SLOT(okButtonClicked()));
 
   defaultsButtonClicked();
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 Parallel::~Parallel()
