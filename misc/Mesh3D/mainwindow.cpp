@@ -6542,13 +6542,16 @@ void MainWindow::setupSysTrayIcon()
 //-----------------------------------------------------------------------------
 void MainWindow::updateSysTrayIcon(QString label, QString msg)
 {
-  static int duration = 3000;
+  int duration = 3000;
 
   if(!sysTrayIcon)
     return;
 
   if(!egIni->isSet("systraymessages"))
     return;
+  
+  if(egIni->isPresent("systraymsgduration"))
+    duration = egIni->value("systraymsgduration").toInt();
 
   if(sysTrayIcon->supportsMessages())
     sysTrayIcon->showMessage(label, msg, QSystemTrayIcon::Information, duration);

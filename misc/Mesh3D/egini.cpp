@@ -68,6 +68,22 @@ EgIni::~EgIni()
 {
 }
 
+
+bool EgIni::isPresent(QString tag)
+{
+  if(!iniLoaded)
+    return false;
+
+  root = iniDoc.documentElement();
+  element = root.firstChildElement(tag);
+  
+  if(element.isNull())
+    return false;
+
+  return true;
+}
+
+
 bool EgIni::isSet(QString tag)
 {
   if(!iniLoaded)
@@ -83,4 +99,19 @@ bool EgIni::isSet(QString tag)
     return true;
   
   return false;
+}
+
+
+QString EgIni::value(QString tag)
+{
+  if(!iniLoaded)
+    return "";
+
+  root = iniDoc.documentElement();
+  element = root.firstChildElement(tag);
+  
+  if(element.isNull())
+    return "";
+
+  return element.text().trimmed();
 }
