@@ -95,8 +95,12 @@ GLWidget::GLWidget(QWidget *parent)
   altPressed = false;
 
   quadratic = gluNewQuadric();	// for coordinate axis
-}
 
+  // background image:
+  stateUseBgImage = false;
+  bgImageFileName = "";
+  bgTexture = 0;
+}
 
 
 // dtor...
@@ -157,20 +161,20 @@ void GLWidget::initializeGL()
   glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER, 1.0);
   glEnable(GL_LIGHTING);
 
-  // glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER,1.0);
+  glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER,1.0);
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
   glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
   glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
   glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-  glEnable(GL_LIGHT0);  
-   
+  glEnable(GL_LIGHT0);
+  
   glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient);
   glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse);
   glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
   glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, high_shininess);
   glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
   glEnable(GL_COLOR_MATERIAL);
-
+  
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
   glDepthRange(-10.0, 10.0);
@@ -181,6 +185,8 @@ void GLWidget::initializeGL()
   glEnable(GL_NORMALIZE);
 
   qglClearColor(backgroundColor);
+
+  glEnable(GL_TEXTURE_2D);
 }
 
 
@@ -1003,7 +1009,8 @@ GLuint GLWidget::makeLists()
   lists += edge_bcs;      // edge elements
   lists += point_bcs;     // point elements
   lists += 1;             // sharp edges on surfaces
-  lists += 1;             // volume mesh (visual only)
+  lists += 1;             // volume mesh (conditional, visual only)
+  lists += 1;             // background image (conditional, visual only)
   
   list = new list_t[lists];
   int current_index = 0;
@@ -1081,6 +1088,18 @@ GLuint GLWidget::makeLists()
   l->selected = false;
   l->visible = stateDrawVolumeMesh;
 
+  // Background image:
+  if(stateUseBgImage) {
+    l = &list[current_index++];
+    l->nature = PDE_UNKNOWN;
+    l->type = BACKGROUNDIMAGE;
+    l->index = -1;
+    l->object = generateBgImageList();
+    l->child = -1;
+    l->parent = -1;
+    l->selected = false;
+    l->visible = stateUseBgImage;
+  }
 
   delete [] surface_nature;
   delete [] edge_nature;
@@ -1308,13 +1327,10 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
     }
   }
 
-
   glEnd();
-
   glEndList();
 
 #if 0
-
   // Draw indexes:
   //------------
   
@@ -1342,7 +1358,6 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
     }
     renderText(0.0, 0.0, 0.0, "A");
   }
-  
 #endif
 
   return current;
@@ -1488,6 +1503,7 @@ GLuint GLWidget::generateEdgeList(int index, QColor qColor)
   }
   
   glEnd();
+
   glEnable(GL_LIGHTING);  
   glEndList();
   
@@ -1578,4 +1594,58 @@ void GLWidget::drawCoordinates()
   glMatrixMode(GL_MODELVIEW);
 
   return;
+}
+
+
+// Background image:
+//------------------------------------------------------------------------------
+GLuint GLWidget::generateBgImageList()
+{
+  if(!stateUseBgImage)
+    return 0;
+  
+  if(bgImageFileName.isEmpty())
+    return 0;
+  
+  bgTexture = bindTexture(QPixmap(bgImageFileName), GL_TEXTURE_2D);
+  
+  if(!bgTexture) {
+    cout << "Failed to bind texture" << endl;
+    return 0;
+  }
+  
+  GLuint current = glGenLists(1);
+  glNewList(current, GL_COMPILE);
+  
+  glPushMatrix();
+  glLoadIdentity();
+  
+  glColor3d(1, 1, 1);
+
+  glDisable(GL_LIGHTING);
+  
+  glBindTexture(GL_TEXTURE_2D, bgTexture);
+  glBegin(GL_QUADS);
+  
+  glTexCoord2d(0, 0);
+  glVertex3d(-1, -1, -1);
+  
+  glTexCoord2d(1, 0);
+  glVertex3d(+1, -1, -1);
+  
+  glTexCoord2d(1, 1);
+  glVertex3d(+1, +1, -1);
+  
+  glTexCoord2d(0, 1);
+  glVertex3d(-1, +1, -1);
+  
+  glEnd();  
+  
+  glEnable(GL_LIGHTING);
+  
+  glPopMatrix();
+  
+  glEndList();
+  
+  return current;
 }

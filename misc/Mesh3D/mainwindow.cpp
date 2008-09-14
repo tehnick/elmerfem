@@ -256,6 +256,11 @@ MainWindow::MainWindow()
   bodyEditActive = false;
   showConvergence = egIni->isSet("showconvergence");
 
+  // todo: background image:
+  glWidget->stateUseBgImage = egIni->isSet("bgimage");
+  if(egIni->isPresent("bgimagefile"))
+    glWidget->bgImageFileName = egIni->value("bgimagefile");
+
   // set font for text editors:
   // QFont sansFont("Courier", 10);
   // sifWindow->textEdit->setCurrentFont(sansFont);
@@ -4700,6 +4705,9 @@ void MainWindow::stopMeshingSlot()
   }
   
   logMessage("Mesh generator terminated");
+
+  updateSysTrayIcon("Mesh generator terminated", "");
+
 }
 
 
@@ -5662,7 +5670,7 @@ void MainWindow::runsolverSlot()
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 
   updateSysTrayIcon("ElmerSolver started",
-		    "Select Run->Kill solver to stop processing");
+		    "Use Run->Kill solver to stop processing");
 }
 
 
@@ -5709,8 +5717,8 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   logMessage("Parallel solver started");
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 
-  updateSysTrayIcon("ElmerSolver_mpi started",
-		    "Select Run->Kill solver to stop processing");
+  updateSysTrayIcon("ElmerSolver started",
+		    "Use Run->Kill solver to stop processing");
 }
 
 
@@ -5795,7 +5803,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   logMessage("Post processor started");
 
   updateSysTrayIcon("Postprocessor started",
-		    "Select Run->Kill Postprocessor to stop processing");
+		    "Use Run->Kill Postprocessor to stop processing");
 }
 
 
@@ -5929,6 +5937,7 @@ void MainWindow::solverFinishedSlot(int)
 {
   logMessage("Solver ready");
   runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
+  updateSysTrayIcon("ElmerSolver has finished", "Use Run->Postprocessor to view results");
 }
 
 
@@ -6076,7 +6085,7 @@ void MainWindow::resultsSlot()
   logMessage("Post processor started");
 
   updateSysTrayIcon("Postprocessor started",
-		    "Select Run->Kill Postprocessor to stop processing");
+		    "Use Run->Kill Postprocessor to stop processing");
 }
 
 
@@ -6086,6 +6095,7 @@ void MainWindow::postProcessFinishedSlot(int)
 {
   logMessage("Post processor finished");
   resultsAct->setIcon(QIcon(":/icons/Post.png"));
+  updateSysTrayIcon("Postprocessor has finished", "");
 }
 
 

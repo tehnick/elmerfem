@@ -7,9 +7,11 @@
 #define SURFACEMESHLIST 2003
 #define SHARPEDGELIST   2004
 #define VOLUMEMESHLIST  2005
+#define BACKGROUNDIMAGE 2006
 
 #include <QGLWidget>
 #include <QHash>
+#include <QGLPixelBuffer>
 
 #include "helpers.h"
 #include "meshutils.h"
@@ -77,6 +79,12 @@ public:
 
   QHash<int, int> boundaryMap;
   QHash<int, int> bodyMap;
+
+  // background image:
+  bool stateUseBgImage;
+  QString bgImageFileName;
+  GLuint bgTexture;
+  GLuint generateBgImageList();
 
 public slots:
 
