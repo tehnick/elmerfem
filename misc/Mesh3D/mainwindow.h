@@ -357,7 +357,7 @@ private:
   void updateSysTrayIcon(QString, QString);
   void finalizeSysTrayIcon();
   
-  // initialization file:
+  // initialization:
   EgIni *egIni;
 
 //  #ifdef __APPLE__

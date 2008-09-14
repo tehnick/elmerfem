@@ -254,7 +254,7 @@ MainWindow::MainWindow()
   activeGenerator = GEN_UNKNOWN;
   bcEditActive = false;
   bodyEditActive = false;
-  showConvergence = true;
+  showConvergence = egIni->isSet("showconvergence");
 
   // set font for text editors:
   // QFont sansFont("Courier", 10);
@@ -854,7 +854,7 @@ void MainWindow::createMenus()
 
   // Disable unavailable external components:
   //------------------------------------------
-  if(!egIni->isSet("checkexternal"))
+  if(!egIni->isSet("checkexternalcomponents"))
      return;
 
   QProcess testProcess;
