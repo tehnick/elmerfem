@@ -98,11 +98,16 @@ MainWindow::MainWindow()
   homePath="";
 #endif
 
+  // load ini file:
+  egIni = new EgIni(this);
+
   // splash screen:
-  pixmap.load(":/icons/splash.png");
-  splash.setPixmap(pixmap);
-  splash.show();
-  qApp->processEvents();
+  if(egIni->isSet("splashscreen")) {
+    pixmap.load(":/icons/splash.png");
+    splash.setPixmap(pixmap);
+    splash.show();
+    qApp->processEvents();
+  }
 
   // load images for main window:
   updateSplash("Loading images...");
@@ -268,11 +273,12 @@ MainWindow::MainWindow()
   synchronizeMenuToState();
   setWindowTitle(tr("ElmerGUI"));
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
-  splash.finish(this);
+  if(egIni->isSet("splashscreen"))
+    splash.finish(this);
 
   // set system tray icon:
-  sysTrayIcon = 0;
-  if(QSystemTrayIcon::isSystemTrayAvailable()) {
+  sysTrayIcon = NULL;
+  if(QSystemTrayIcon::isSystemTrayAvailable() && egIni->isSet("systrayicon")) {
     sysTrayIcon = new QSystemTrayIcon(this);
     sysTrayIcon->setIcon(QIcon(":/icons/Mesh3D.png"));
     sysTrayIcon->setVisible(true);
@@ -4683,7 +4689,7 @@ void MainWindow::remeshSlot()
 
   logMessage("Mesh generation initiated");
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
     sysTrayIcon->showMessage("Mesh generator started",
 			     "Select Mesh->Terminate to stop processing",
 			     QSystemTrayIcon::Information, 3000);
@@ -4733,7 +4739,7 @@ void MainWindow::meshOkSlot()
   applyOperations();
   statusBar()->showMessage(tr("Ready"));
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
     sysTrayIcon->showMessage("Mesh generator has finished",
 			     "Select Model->Summary for statistics",
 			     QSystemTrayIcon::Information, 3000);
@@ -5668,7 +5674,7 @@ void MainWindow::runsolverSlot()
 
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
     sysTrayIcon->showMessage("ElmerSolver started",
 			     "Select Run->Kill solver to stop processing",
 			     QSystemTrayIcon::Information, 3000);
@@ -5718,7 +5724,7 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   logMessage("Parallel solver started");
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
     sysTrayIcon->showMessage("ElmerSolver_mpi started",
 			     "Select Run->Kill solver to stop processing",
 			     QSystemTrayIcon::Information, 3000);
@@ -5805,7 +5811,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   
   logMessage("Post processor started");
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
     sysTrayIcon->showMessage("Postprocessor started",
 			     "Select Run->Kill Postprocessor to stop processing",
 			     QSystemTrayIcon::Information, 3000);
@@ -6088,7 +6094,7 @@ void MainWindow::resultsSlot()
   
   logMessage("Post processor started");
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages())
+  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
     sysTrayIcon->showMessage("Postprocessor started",
 			     "Select Run->Kill Postprocessor to stop processing",
 			     QSystemTrayIcon::Information, 3000);
@@ -6347,8 +6353,7 @@ void MainWindow::loadDefinitions()
 {
 
   // Determine edf-file location and name:
-  //-------------------------------
-
+  //--------------------------------------
   char *elmerGuiHome = NULL;
 
 #ifdef __APPLE__
@@ -6362,7 +6367,7 @@ void MainWindow::loadDefinitions()
 
   // Load general definitions file:
   //--------------------------------
-  cout << "Load " << string(generalDefs.toAscii()) << "...";
+  cout << "Load " << string(generalDefs.toAscii()) << "... ";
   cout.flush();
   updateSplash("Loading general definitions...");
 
@@ -6424,9 +6429,13 @@ void MainWindow::loadDefinitions()
     QFileInfo fileInfo(fileName);
     QString fileSuffix = fileInfo.suffix();
 
+    // The name "egini" is reserved for the ini file:
+    if(fileInfo.completeBaseName() == "egini")
+      continue;
+
     if((fileSuffix == "xml") && (fileName != generalDefs)) {
 
-      cout << "Load " << string(fileName.toAscii()) << "...";
+      cout << "Load " << string(fileName.toAscii()) << "... ";
       cout.flush();
 
       updateSplash("Loading " + fileName + "...");
@@ -6487,7 +6496,7 @@ void MainWindow::loadDefinitions()
   QFile qssFile(qssFileName);
   
   if(qssFile.exists()) {
-    cout << "Loading QSS style sheet...";
+    cout << "Loading QSS style sheet... ";
     qssFile.open(QFile::ReadOnly);
     QString styleSheet = QLatin1String(qssFile.readAll());
     qssFile.close();
@@ -6500,6 +6509,9 @@ void MainWindow::loadDefinitions()
 //-----------------------------------------------------------------------------
 void MainWindow::updateSplash(QString text)
 {
+  if(!egIni->isSet("splashscreen"))
+    return;
+
   if(splash.isVisible()) {
     splash.showMessage(text, Qt::AlignBottom);
     qApp->processEvents();

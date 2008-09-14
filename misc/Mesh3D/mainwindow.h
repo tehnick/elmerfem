@@ -29,6 +29,7 @@
 #include "edfeditor.h"
 #include "dynamiceditor.h"
 #include "convergenceview.h"
+#include "egini.h"
 #ifdef OCC62
 #include "cad/cadview.h"
 #endif
@@ -351,6 +352,9 @@ private:
   // sys tray icon:
   QSystemTrayIcon *sysTrayIcon;
   
+  // eginit:
+  EgIni *egIni;
+
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all
 //  architechtures and it's small so there's no marked adverse effects

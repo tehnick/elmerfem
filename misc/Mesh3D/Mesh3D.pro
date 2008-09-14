@@ -21,6 +21,7 @@ HEADERS += bodypropertyeditor.h \
            convergenceview.h \
            dynamiceditor.h \
            edfeditor.h \
+           egini.h \
            generalsetup.h \
            glcontrol.h \
            glwidget.h \
@@ -64,6 +65,7 @@ SOURCES += bodypropertyeditor.cpp \
            convergenceview.cpp \
            dynamiceditor.cpp \
            edfeditor.cpp \
+           egini.cpp \
            generalsetup.cpp \
            glcontrol.cpp \
            glwidget.cpp \
