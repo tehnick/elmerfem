@@ -102,12 +102,7 @@ MainWindow::MainWindow()
   egIni = new EgIni(this);
 
   // splash screen:
-  if(egIni->isSet("splashscreen")) {
-    pixmap.load(":/icons/splash.png");
-    splash.setPixmap(pixmap);
-    splash.show();
-    qApp->processEvents();
-  }
+  setupSplash();
 
   // load images for main window:
   updateSplash("Loading images...");
@@ -130,6 +125,7 @@ MainWindow::MainWindow()
   this->nggeom = nglibAPI->nggeom;
 
   // elmergrid
+  updateSplash("Constructing elmergrid...");
   elmergridAPI = new ElmergridAPI;
 
   // widgets and utilities
@@ -273,17 +269,8 @@ MainWindow::MainWindow()
   synchronizeMenuToState();
   setWindowTitle(tr("ElmerGUI"));
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
-  if(egIni->isSet("splashscreen"))
-    splash.finish(this);
-
-  // set system tray icon:
-  sysTrayIcon = NULL;
-  if(QSystemTrayIcon::isSystemTrayAvailable() && egIni->isSet("systrayicon")) {
-    sysTrayIcon = new QSystemTrayIcon(this);
-    sysTrayIcon->setIcon(QIcon(":/icons/Mesh3D.png"));
-    sysTrayIcon->setVisible(true);
-    sysTrayIcon->setContextMenu(sysTrayMenu);
-  }
+  finalizeSplash();
+  setupSysTrayIcon();
 }
 
 
@@ -867,6 +854,9 @@ void MainWindow::createMenus()
 
   // Disable unavailable external components:
   //------------------------------------------
+  if(!egIni->isSet("checkexternal"))
+     return;
+
   QProcess testProcess;
   QStringList args;
 
@@ -4689,10 +4679,8 @@ void MainWindow::remeshSlot()
 
   logMessage("Mesh generation initiated");
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
-    sysTrayIcon->showMessage("Mesh generator started",
-			     "Select Mesh->Terminate to stop processing",
-			     QSystemTrayIcon::Information, 3000);
+  updateSysTrayIcon("Mesh generator started",
+		    "Use Mesh->Terminate to stop processing");
 }
 
 
@@ -4737,12 +4725,11 @@ void MainWindow::meshOkSlot()
   }
 
   applyOperations();
-  statusBar()->showMessage(tr("Ready"));
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
-    sysTrayIcon->showMessage("Mesh generator has finished",
-			     "Select Model->Summary for statistics",
-			     QSystemTrayIcon::Information, 3000);
+  statusBar()->showMessage(tr("Ready"));
+  
+  updateSysTrayIcon("Mesh generator has finished",
+		    "Select Model->Summary for statistics");
 }
 
 
@@ -5674,10 +5661,8 @@ void MainWindow::runsolverSlot()
 
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
-    sysTrayIcon->showMessage("ElmerSolver started",
-			     "Select Run->Kill solver to stop processing",
-			     QSystemTrayIcon::Information, 3000);
+  updateSysTrayIcon("ElmerSolver started",
+		    "Select Run->Kill solver to stop processing");
 }
 
 
@@ -5724,10 +5709,8 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   logMessage("Parallel solver started");
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
-    sysTrayIcon->showMessage("ElmerSolver_mpi started",
-			     "Select Run->Kill solver to stop processing",
-			     QSystemTrayIcon::Information, 3000);
+  updateSysTrayIcon("ElmerSolver_mpi started",
+		    "Select Run->Kill solver to stop processing");
 }
 
 
@@ -5811,10 +5794,8 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   
   logMessage("Post processor started");
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
-    sysTrayIcon->showMessage("Postprocessor started",
-			     "Select Run->Kill Postprocessor to stop processing",
-			     QSystemTrayIcon::Information, 3000);
+  updateSysTrayIcon("Postprocessor started",
+		    "Select Run->Kill Postprocessor to stop processing");
 }
 
 
@@ -6094,10 +6075,8 @@ void MainWindow::resultsSlot()
   
   logMessage("Post processor started");
 
-  if(sysTrayIcon && sysTrayIcon->supportsMessages() && egIni->isSet("systraymessages"))
-    sysTrayIcon->showMessage("Postprocessor started",
-			     "Select Run->Kill Postprocessor to stop processing",
-			     QSystemTrayIcon::Information, 3000);
+  updateSysTrayIcon("Postprocessor started",
+		    "Select Run->Kill Postprocessor to stop processing");
 }
 
 
@@ -6505,6 +6484,19 @@ void MainWindow::loadDefinitions()
   }
 }
 
+// Setup splash...
+//-----------------------------------------------------------------------------
+void MainWindow::setupSplash()
+{
+  if(egIni->isSet("splashscreen")) {
+    pixmap.load(":/icons/splash.png");
+    splash.setPixmap(pixmap);
+    splash.show();
+    qApp->processEvents();
+  }
+}
+
+
 // Update splash...
 //-----------------------------------------------------------------------------
 void MainWindow::updateSplash(QString text)
@@ -6516,4 +6508,55 @@ void MainWindow::updateSplash(QString text)
     splash.showMessage(text, Qt::AlignBottom);
     qApp->processEvents();
   }
+}
+
+// Finalize splash...
+//-----------------------------------------------------------------------------
+void MainWindow::finalizeSplash()
+{
+  if(!egIni->isSet("splashscreen"))
+    return;
+
+  if(splash.isVisible())
+    splash.finish(this);
+}
+
+// Setup system tray icon...
+//-----------------------------------------------------------------------------
+void MainWindow::setupSysTrayIcon()
+{
+  sysTrayIcon = NULL;
+
+  if(!egIni->isSet("systrayicon"))
+    return;
+
+  if(QSystemTrayIcon::isSystemTrayAvailable()) {
+    sysTrayIcon = new QSystemTrayIcon(this);
+    sysTrayIcon->setIcon(QIcon(":/icons/Mesh3D.png"));
+    sysTrayIcon->setVisible(true);
+    sysTrayIcon->setContextMenu(sysTrayMenu);
+  }
+}
+
+// Update system tray icon...
+//-----------------------------------------------------------------------------
+void MainWindow::updateSysTrayIcon(QString label, QString msg)
+{
+  static int duration = 3000;
+
+  if(!sysTrayIcon)
+    return;
+
+  if(!egIni->isSet("systraymessages"))
+    return;
+
+  if(sysTrayIcon->supportsMessages())
+    sysTrayIcon->showMessage(label, msg, QSystemTrayIcon::Information, duration);
+
+}
+
+// Finalize system tray icon...
+//-----------------------------------------------------------------------------
+void MainWindow::finalizeSysTrayIcon()
+{
 }

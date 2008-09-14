@@ -347,12 +347,17 @@ private:
   // splash screen:
   QPixmap pixmap;
   QSplashScreen splash;
+  void setupSplash();
   void updateSplash(QString);
+  void finalizeSplash();
 
   // sys tray icon:
   QSystemTrayIcon *sysTrayIcon;
+  void setupSysTrayIcon();
+  void updateSysTrayIcon(QString, QString);
+  void finalizeSysTrayIcon();
   
-  // eginit:
+  // initialization file:
   EgIni *egIni;
 
 //  #ifdef __APPLE__
