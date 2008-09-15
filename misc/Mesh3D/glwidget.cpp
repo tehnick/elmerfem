@@ -1191,7 +1191,7 @@ GLuint GLWidget::generateVolumeMeshList(QColor qColor)
 //-----------------------------------------------------------------------------
 GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
 {
-  double x0[3], x1[3], x2[3], x3[3];
+  double x0[3], x1[3], x2[3], x3[3], u[3];
 
   double R = qColor.red() / 255.0;
   double G = qColor.green() / 255.0;
@@ -1230,11 +1230,8 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       } 
       
       // change normal direction:
-      surface->normal[0] = -surface->normal[0];
-      surface->normal[1] = -surface->normal[1];
-      surface->normal[2] = -surface->normal[2];
-
-      glNormal3dv(surface->normal); 
+      changeNormalDirection(u, surface->normal);
+      glNormal3dv(u); 
       
       int n0 = surface->node[0];
       int n1 = surface->node[1];
@@ -1251,12 +1248,17 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
       x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
       x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
-      
-      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[0]); 
+
+      changeNormalDirection(u, surface->vertex_normals[0]);
+      if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x0);
-      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[1]); 
+
+      changeNormalDirection(u, surface->vertex_normals[1]);
+      if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x1);
-      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[2]); 
+
+      changeNormalDirection(u, surface->vertex_normals[2]);
+      if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x2);
     }
   }
@@ -1293,11 +1295,8 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       } 
 
       // change normal direction:
-      surface->normal[0] = -surface->normal[0];
-      surface->normal[1] = -surface->normal[1];
-      surface->normal[2] = -surface->normal[2];
-
-      glNormal3dv(surface->normal); 
+      changeNormalDirection(u, surface->normal);
+      glNormal3dv(u); 
       
       int n0 = surface->node[0];
       int n1 = surface->node[1];
@@ -1320,13 +1319,20 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
       x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
       
-      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[0]); 
+      changeNormalDirection(u, surface->vertex_normals[0]);
+      if ( !stateFlatShade ) glNormal3dv(u); 
       glVertex3dv(x0);
-      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[1]); 
+
+      changeNormalDirection(u, surface->vertex_normals[1]);
+      if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x1);
-      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[2]); 
+
+      changeNormalDirection(u, surface->vertex_normals[2]);
+      if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x2);
-      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[3]); 
+
+      changeNormalDirection(u, surface->vertex_normals[3]);
+      if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x3);      
     }
   }
@@ -1653,4 +1659,11 @@ void GLWidget::drawBgImage()
   glEnable(GL_LIGHTING);
   glPopMatrix();
   glEndList();
+}
+
+void GLWidget::changeNormalDirection(double *u, double *v)
+{
+  u[0] = -v[0];
+  u[1] = -v[1];
+  u[2] = -v[2];
 }

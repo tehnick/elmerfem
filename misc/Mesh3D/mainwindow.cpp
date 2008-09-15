@@ -6499,7 +6499,7 @@ void MainWindow::loadDefinitions()
 void MainWindow::setupSplash()
 {
   if(egIni->isSet("splashscreen")) {
-    pixmap.load(":/icons/splash.png");
+    pixmap.load(":/images/splash.png");
     splash.setPixmap(pixmap);
     splash.show();
     qApp->processEvents();

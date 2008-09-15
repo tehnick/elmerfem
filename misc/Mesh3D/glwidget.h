@@ -124,6 +124,9 @@ private:
   GLUquadricObj *quadratic; // for coordinates
   void drawCoordinates();
 
+  void changeNormalDirection(double*, double*);
+
+
 };
 
 #endif
