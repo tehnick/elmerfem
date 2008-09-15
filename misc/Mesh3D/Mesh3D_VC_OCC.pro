@@ -2,8 +2,12 @@
 
 TEMPLATE = app
 TARGET = Mesh3D
-DEPENDPATH += . cad forms plugins
+DEPENDPATH += . src cad forms plugins
 INCLUDEPATH += .
+MOC_DIR = ./tmp
+OBJECTS_DIR = ./tmp
+RCC_DIR = ./tmp
+UI_DIR = ./tmp
 
 # QT
 QT += opengl xml script

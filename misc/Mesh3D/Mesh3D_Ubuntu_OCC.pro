@@ -1,9 +1,14 @@
-# Mesh3D.pro for 64bit Ubuntu
+# Mesh3D.pro for 64bit Ubuntu with OCC62
+# If you do not have OCC62 installed, use Mesh3D_Linux.pro instead
 
 TEMPLATE = app
 TARGET = Mesh3D
-DEPENDPATH += . cad forms plugins tmp\rcc\debug_shared tmp\rcc\release_shared
+DEPENDPATH += . src cad forms plugins
 INCLUDEPATH += .
+MOC_DIR = ./tmp
+OBJECTS_DIR = ./tmp
+RCC_DIR = ./tmp
+UI_DIR = ./tmp
 
 # QT
 #----

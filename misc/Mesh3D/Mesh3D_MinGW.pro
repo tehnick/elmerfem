@@ -2,8 +2,12 @@
 
 TEMPLATE = app
 TARGET = Mesh3D
-DEPENDPATH += . forms plugins
+DEPENDPATH += . src forms plugins
 INCLUDEPATH += .
+MOC_DIR = ./tmp
+OBJECTS_DIR = ./tmp
+RCC_DIR = ./tmp
+UI_DIR = ./tmp
 
 LIBS += -lpsapi
 
