@@ -81,10 +81,10 @@ public:
 
   // background image:
   bool stateUseBgImage;
+  bool stateStretchBgImage;
   QString bgImageFileName;
   GLuint bgTexture;
-  GLuint bgImageList;
-  GLuint generateBgImageList();
+  void drawBgImage();
 
 public slots:
 

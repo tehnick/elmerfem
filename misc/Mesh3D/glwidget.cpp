@@ -98,9 +98,9 @@ GLWidget::GLWidget(QWidget *parent)
 
   // background image:
   stateUseBgImage = false;
+  stateStretchBgImage = false;
   bgImageFileName = "";
   bgTexture = 0;
-  bgImageList = 0;
 }
 
 
@@ -188,10 +188,6 @@ void GLWidget::initializeGL()
   qglClearColor(backgroundColor);
 
   glEnable(GL_TEXTURE_2D);
-
-  // Background image:
-  if(stateUseBgImage)
-    bgImageList = generateBgImageList();
 }
 
 
@@ -205,8 +201,8 @@ void GLWidget::paintGL()
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   // Background image:
-  if(stateUseBgImage && bgImageList)
-    glCallList(bgImageList);
+  if(stateUseBgImage)
+    drawBgImage();
   
   // FE objects:
   if(lists) {
@@ -1602,58 +1598,47 @@ void GLWidget::drawCoordinates()
   return;
 }
 
+void GLWidget::drawBgImage()
+{ 
+  GLint viewport[4];
 
-// Background image:
-//------------------------------------------------------------------------------
-GLuint GLWidget::generateBgImageList()
-{
-  if(!stateUseBgImage)
-    return 0;
-  
-  if(bgImageFileName.isEmpty())
-    return 0;
-  
-  bgTexture = bindTexture(QPixmap(bgImageFileName), GL_TEXTURE_2D);
+  if(!bgTexture)
+    bgTexture = bindTexture(QPixmap(bgImageFileName), GL_TEXTURE_2D);
   
   if(!bgTexture) {
     cout << "Failed to bind texture" << endl;
-    return 0;
+    return;
   }
+  
+  double width = 1.0;
+  double height = 1.0;
+  double depth = 2.0;
 
-  GLuint current = glGenLists(1);
-  glNewList(current, GL_COMPILE);
+  if(stateStretchBgImage) {
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    width = (double)viewport[2] / (double)viewport[3];
+  }
   
   glPushMatrix();
-
   glLoadIdentity();  
   glColor3d(1, 1, 1);
-
   glDisable(GL_LIGHTING);
   glEnable(GL_TEXTURE_2D);
-  
   glBindTexture(GL_TEXTURE_2D, bgTexture);
-  glBegin(GL_QUADS);
   
+  glBegin(GL_QUADS);    
   glTexCoord2d(0, 0);
-  glVertex3d(-1, -1, -2);
-  
+  glVertex3d(-width, -height, -depth);
   glTexCoord2d(1, 0);
-  glVertex3d(+1, -1, -2);
-  
+  glVertex3d(+width, -height, -depth);
   glTexCoord2d(1, 1);
-  glVertex3d(+1, +1, -2);
-  
+  glVertex3d(+width, +height, -depth);
   glTexCoord2d(0, 1);
-  glVertex3d(-1, +1, -2);
-  
+  glVertex3d(-width, +height, -depth);
   glEnd();  
   
   glDisable(GL_TEXTURE_2D);
   glEnable(GL_LIGHTING);
-
   glPopMatrix();
-  
   glEndList();
-  
-  return current;
 }

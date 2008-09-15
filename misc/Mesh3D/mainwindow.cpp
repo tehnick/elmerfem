@@ -258,8 +258,8 @@ MainWindow::MainWindow()
 
   // background image:
   glWidget->stateUseBgImage = egIni->isSet("bgimage");
-  if(egIni->isPresent("bgimagefile"))
-    glWidget->bgImageFileName = egIni->value("bgimagefile");
+  glWidget->stateStretchBgImage = egIni->isSet("bgimagestretch");
+  glWidget->bgImageFileName = egIni->value("bgimagefile");
 
   // set font for text editors:
   // QFont sansFont("Courier", 10);
