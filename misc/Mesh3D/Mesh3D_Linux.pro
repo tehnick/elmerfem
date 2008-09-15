@@ -9,7 +9,7 @@ OBJECTS_DIR = ./tmp
 RCC_DIR = ./tmp
 UI_DIR = ./tmp
 
-QMAKE_CXXFLAGS = -O2 -Wno-deprecated 
+QMAKE_CXXFLAGS = -O2
 QMAKE_CXXFLAGS_WARN_ON = 
 
 # QT

@@ -103,6 +103,8 @@ GLWidget::GLWidget(QWidget *parent)
   stateAlignRightBgImage = false;
   bgImageFileName = "";
   bgTexture = 0;
+  bgSizeX = 0;
+  bgSizeY = 0;
 }
 
 
@@ -1375,8 +1377,6 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
 
 
 
-
-
 // Generate surface edge list...
 //-----------------------------------------------------------------------------
 GLuint GLWidget::generateSurfaceMeshList(int index, QColor qColor)
@@ -1606,33 +1606,48 @@ void GLWidget::drawCoordinates()
   return;
 }
 
+// Draw background image...
+//-----------------------------------------------------------------------------
 void GLWidget::drawBgImage()
 { 
   GLint viewport[4];
 
-  if(!bgTexture)
-    bgTexture = bindTexture(QPixmap(bgImageFileName), GL_TEXTURE_2D);
+  if(!bgTexture) {
+    QPixmap pixmap(bgImageFileName);
+    bgSizeX = pixmap.width();
+    bgSizeY = pixmap.height();
+    bgTexture = bindTexture(pixmap, GL_TEXTURE_2D);
+  }
   
   if(!bgTexture) {
     cout << "Failed to bind texture" << endl;
     return;
   }
+
+  glGetIntegerv(GL_VIEWPORT, viewport);
   
+  double relativeSizeX = (double)viewport[2] / (double)viewport[3];
+  double relativeSizeY = 1.0;
+
+  double bgRelativeSizeX = (double)bgSizeX / (double)viewport[3];
+  double bgRelativeSizeY = (double)bgSizeY / (double)viewport[3];
+
   double width = 1.0;
   double height = 1.0;
   double depth = 2.0;
   double xshift = 0.0;
   double yshift = 0.0;
 
-  glGetIntegerv(GL_VIEWPORT, viewport);
-
   if(stateAlignRightBgImage) {
-    width = 1.0;
-    xshift = (double)viewport[2] / (double)viewport[3] - 1.0;
+    width = bgRelativeSizeX;
+    height = bgRelativeSizeY;
+    xshift = relativeSizeX - bgRelativeSizeX;
+    yshift = bgRelativeSizeY - relativeSizeY;
   }
 
   if(stateStretchBgImage) {
     width = (double)viewport[2] / (double)viewport[3];
+    height = 1.0;
     xshift = 0.0;
     yshift = 0.0;
   }

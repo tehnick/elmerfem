@@ -84,6 +84,8 @@ public:
   bool stateStretchBgImage;
   bool stateAlignRightBgImage;
   QString bgImageFileName;
+  int bgSizeX;
+  int bgSizeY;
   GLuint bgTexture;
   void drawBgImage();
 
