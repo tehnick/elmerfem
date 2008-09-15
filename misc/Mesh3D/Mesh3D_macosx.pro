@@ -11,6 +11,9 @@ OBJECTS_DIR = ./tmp
 RCC_DIR = ./tmp
 UI_DIR = ./tmp
 
+QMAKE_CXXFLAGS = -O2 -Wno-deprecated
+QMAKE_CXXFLAGS_WARN_ON = 
+
 #CONFIG += debug
 =======
 INCLUDEPATH += /usr/local/qwt-5.0.2/include
