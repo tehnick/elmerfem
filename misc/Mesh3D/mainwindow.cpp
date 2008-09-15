@@ -256,7 +256,7 @@ MainWindow::MainWindow()
   bodyEditActive = false;
   showConvergence = egIni->isSet("showconvergence");
 
-  // todo: background image:
+  // background image:
   glWidget->stateUseBgImage = egIni->isSet("bgimage");
   if(egIni->isPresent("bgimagefile"))
     glWidget->bgImageFileName = egIni->value("bgimagefile");
@@ -1753,7 +1753,6 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                              SAVE GENERAL SETUP
   //===========================================================================
-  // todo
 
   // All done:
   saveDirName = projectDirName;
@@ -4009,7 +4008,7 @@ void MainWindow::selectDefinedEdgesSlot()
       
       // *** TODO ***
       //
-      // This is wrong: Comparing body indices with boundary indoxes
+      // This is wrong: Comparing body indices with boundary indexes
       if( activeboundary[j] ) l->selected = true;
     }
   }
@@ -4072,7 +4071,7 @@ void MainWindow::selectDefinedSurfacesSlot()
 
       // *** TODO ***
       //
-      // This is wrong: Comparing body indices with boundary indoxes
+      // This is wrong: Comparing body indices with boundary indexes
       if( activebody[j] ) l->selected = true;
     }
   }

@@ -85,6 +85,11 @@ Meshutils::~Meshutils()
 //-----------------------------------------------------------------------------
 double* Meshutils::boundingBox(mesh_t *mesh)
 {
+  double *result = new double[10];
+
+  if(mesh == NULL)
+    return result;
+
   double xmin = +9e9;
   double xmax = -9e9;
 
@@ -142,8 +147,6 @@ double* Meshutils::boundingBox(mesh_t *mesh)
     mesh->cdim=1;
   else if ( sz || sy || sx)
     mesh->cdim=2;
-
-  double *result = new double[10];
 
   result[0] = xmin;
   result[1] = xmax;

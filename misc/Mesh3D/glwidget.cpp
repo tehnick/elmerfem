@@ -100,6 +100,7 @@ GLWidget::GLWidget(QWidget *parent)
   stateUseBgImage = false;
   bgImageFileName = "";
   bgTexture = 0;
+  bgImageList = 0;
 }
 
 
@@ -147,7 +148,7 @@ void GLWidget::initializeGL()
   static GLfloat light_ambient[]  = {0.2, 0.2, 0.2, 1.0};
   static GLfloat light_diffuse[]  = {0.6, 0.6, 0.6, 1.0};
   static GLfloat light_specular[] = {1.0, 1.0, 1.0, 1.0};
-  static GLfloat light_position[] = {0.0, 0.0, -5.0, 0.0};
+  static GLfloat light_position[] = {0.0, 0.0, 5.0, 0.0};
 
   static GLfloat mat_ambient[]    = {0.2, 0.2, 0.2, 1.0};
   static GLfloat mat_diffuse[]    = {1.0, 1.0, 1.0, 1.0};
@@ -187,6 +188,10 @@ void GLWidget::initializeGL()
   qglClearColor(backgroundColor);
 
   glEnable(GL_TEXTURE_2D);
+
+  // Background image:
+  if(stateUseBgImage)
+    bgImageList = generateBgImageList();
 }
 
 
@@ -198,7 +203,12 @@ void GLWidget::paintGL()
   float xabs[3], xrel[3];
 
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+  // Background image:
+  if(stateUseBgImage && bgImageList)
+    glCallList(bgImageList);
   
+  // FE objects:
   if(lists) {
     for(int i=0; i<(int)lists; i++) {
       list_t *l = &list[i];
@@ -839,7 +849,7 @@ void GLWidget::rebuildLists()
     }
     lists = 0;
   }
-  
+
   lists = makeLists();
 
   updateGL();
@@ -1010,7 +1020,6 @@ GLuint GLWidget::makeLists()
   lists += point_bcs;     // point elements
   lists += 1;             // sharp edges on surfaces
   lists += 1;             // volume mesh (conditional, visual only)
-  lists += 1;             // background image (conditional, visual only)
   
   list = new list_t[lists];
   int current_index = 0;
@@ -1087,19 +1096,6 @@ GLuint GLWidget::makeLists()
   l->parent = -1;
   l->selected = false;
   l->visible = stateDrawVolumeMesh;
-
-  // Background image:
-  if(stateUseBgImage) {
-    l = &list[current_index++];
-    l->nature = PDE_UNKNOWN;
-    l->type = BACKGROUNDIMAGE;
-    l->index = -1;
-    l->object = generateBgImageList();
-    l->child = -1;
-    l->parent = -1;
-    l->selected = false;
-    l->visible = stateUseBgImage;
-  }
 
   delete [] surface_nature;
   delete [] edge_nature;
@@ -1234,7 +1230,12 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
 		  0.5 + 0.5 * cos(2 * bodyIndex),
 		  0.5 + 0.5 * cos(3 * bodyIndex));
       } 
-	
+      
+      // change normal direction:
+      surface->normal[0] = -surface->normal[0];
+      surface->normal[1] = -surface->normal[1];
+      surface->normal[2] = -surface->normal[2];
+
       glNormal3dv(surface->normal); 
       
       int n0 = surface->node[0];
@@ -1292,6 +1293,11 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
 		  0.5 + 0.5 * cos(2 * bodyIndex),
 		  0.5 + 0.5 * cos(3 * bodyIndex));
       } 
+
+      // change normal direction:
+      surface->normal[0] = -surface->normal[0];
+      surface->normal[1] = -surface->normal[1];
+      surface->normal[2] = -surface->normal[2];
 
       glNormal3dv(surface->normal); 
       
@@ -1613,36 +1619,38 @@ GLuint GLWidget::generateBgImageList()
     cout << "Failed to bind texture" << endl;
     return 0;
   }
-  
+
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
   
   glPushMatrix();
-  glLoadIdentity();
-  
+
+  glLoadIdentity();  
   glColor3d(1, 1, 1);
 
   glDisable(GL_LIGHTING);
+  glEnable(GL_TEXTURE_2D);
   
   glBindTexture(GL_TEXTURE_2D, bgTexture);
   glBegin(GL_QUADS);
   
   glTexCoord2d(0, 0);
-  glVertex3d(-1, -1, -1);
+  glVertex3d(-1, -1, -2);
   
   glTexCoord2d(1, 0);
-  glVertex3d(+1, -1, -1);
+  glVertex3d(+1, -1, -2);
   
   glTexCoord2d(1, 1);
-  glVertex3d(+1, +1, -1);
+  glVertex3d(+1, +1, -2);
   
   glTexCoord2d(0, 1);
-  glVertex3d(-1, +1, -1);
+  glVertex3d(-1, +1, -2);
   
   glEnd();  
   
+  glDisable(GL_TEXTURE_2D);
   glEnable(GL_LIGHTING);
-  
+
   glPopMatrix();
   
   glEndList();

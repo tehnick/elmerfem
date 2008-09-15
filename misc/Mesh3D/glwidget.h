@@ -7,7 +7,6 @@
 #define SURFACEMESHLIST 2003
 #define SHARPEDGELIST   2004
 #define VOLUMEMESHLIST  2005
-#define BACKGROUNDIMAGE 2006
 
 #include <QGLWidget>
 #include <QHash>
@@ -84,6 +83,7 @@ public:
   bool stateUseBgImage;
   QString bgImageFileName;
   GLuint bgTexture;
+  GLuint bgImageList;
   GLuint generateBgImageList();
 
 public slots:
