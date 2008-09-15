@@ -1,7 +1,7 @@
-# Mesh3D.pro for 64bit Ubuntu
+# ElmerGUI.pro for VC 2008 (no OCC)
 
 TEMPLATE = app
-TARGET = Mesh3D
+TARGET = ElmerGUI
 DEPENDPATH += . src forms plugins
 INCLUDEPATH += .
 MOC_DIR = ./tmp
@@ -9,16 +9,18 @@ OBJECTS_DIR = ./tmp
 RCC_DIR = ./tmp
 UI_DIR = ./tmp
 
-QMAKE_CXXFLAGS = -O2 -Wno-deprecated
-QMAKE_CXXFLAGS_WARN_ON = 
-
 # QT
 QT += opengl xml script
 CONFIG += uitools
 
 # QWT
-INCLUDEPATH += /usr/include/qwt-qt4
-LIBS += -lqwt-qt4
+INCLUDEPATH += c:/qwt-5.1.1/include
+LIBPATH += c:/qwt-5.1.1/lib
+LIBS += -lqwt5
+
+DEFINES += WNT
+
+CONFIG += qt opengl embed_manifest_dll windows
 
 # Input
 HEADERS += src/bodypropertyeditor.h \
@@ -95,5 +97,5 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/elmergrid_api.cpp \
            plugins/nglib_api.cpp \
            plugins/tetlib_api.cpp
-RESOURCES += Mesh3D.qrc
-RC_FILE += Mesh3D.rc   
+RESOURCES += ElmerGUI.qrc
+RC_FILE += ElmerGUI.rc   

@@ -1,8 +1,9 @@
-# Mesh3D.pro for 64bit Ubuntu
+# ElmerGUI.pro for 64bit Ubuntu with OCC62
+# If you do not have OCC62 installed, use ElmerGUI_Linux.pro instead
 
 TEMPLATE = app
-TARGET = Mesh3D
-DEPENDPATH += . src forms plugins
+TARGET = ElmerGUI
+DEPENDPATH += . src cad forms plugins
 INCLUDEPATH += .
 MOC_DIR = ./tmp
 OBJECTS_DIR = ./tmp
@@ -13,12 +14,95 @@ QMAKE_CXXFLAGS = -O2
 QMAKE_CXXFLAGS_WARN_ON = 
 
 # QT
+#----
 QT += opengl xml script
 CONFIG += uitools
+CONFIG += release 
+CONFIG -= debug
 
 # QWT
+#-----
 INCLUDEPATH += /usr/include/qwt-qt4
 LIBS += -lqwt-qt4
+
+# OPEN CASCADE (remove this section for not compiling against OCC62)
+#--------------------------------------------------------------------
+#
+DEFINES += OCC62
+#
+DEFINES +=  _OCC64 HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
+INCLUDEPATH += /usr/include/opencascade
+LIBS += -lBinLPlugin \
+	-lBinPlugin \
+	-lBinXCAFPlugin \
+	-lFWOSPlugin \
+	-lmscmd \
+	-lPTKernel \
+	-lStdLPlugin \
+	-lStdPlugin \
+	-lTKAdvTools \
+	-lTKBin \
+	-lTKBinL \
+	-lTKBinXCAF \
+	-lTKBO \
+	-lTKBool \
+	-lTKBRep \
+	-lTKCAF \
+	-lTKCDF \
+	-lTKCDLFront \
+	-lTKCPPClient \
+	-lTKCPPExt \
+	-lTKCPPIntExt \
+	-lTKCPPJini \
+	-lTKCSFDBSchema \
+	-lTKDraw \
+	-lTKernel \
+	-lTKFeat \
+	-lTKFillet \
+	-lTKG2d \
+	-lTKG3d \
+	-lTKGeomAlgo \
+	-lTKGeomBase \
+	-lTKHLR \
+	-lTKIDLFront \
+	-lTKIGES \
+	-lTKLCAF \
+	-lTKMath \
+	-lTKMesh \
+	-lTKMeshVS \
+	-lTKOffset \
+	-lTKOpenGl \
+	-lTKPCAF \
+	-lTKPLCAF \
+	-lTKPrim \
+	-lTKPShape \
+	-lTKService \
+	-lTKShapeSchema \
+	-lTKShHealing \
+	-lTKStdLSchema \
+	-lTKStdSchema \
+	-lTKSTEP \
+	-lTKSTEPAttr \
+	-lTKSTEPBase \
+	-lTKSTL \
+	-lTKTCPPExt \
+	-lTKTopAlgo \
+	-lTKV2d \
+	-lTKV3d \
+	-lTKVRML \
+	-lTKXCAF \
+	-lTKXCAFSchema \
+	-lTKXDEIGES \
+	-lTKXDESTEP \
+	-lTKXml \
+	-lTKXmlL \
+	-lTKXmlXCAF \
+	-lTKXSBase \
+	-lXCAFPlugin \
+	-lXmlLPlugin \
+	-lXmlPlugin \
+	-lXmlXCAFPlugin \
+	-lXmu
 
 # Input
 HEADERS += src/bodypropertyeditor.h \
@@ -44,6 +128,11 @@ HEADERS += src/bodypropertyeditor.h \
            src/sifwindow.h \
            src/solverparameters.h \
            src/summaryeditor.h \
+           cad/cadview.h \
+           cad/qocc.h \
+           cad/qoccinternal.h \
+           cad/qoccviewwidget.h \
+           cad/qoccviewercontext.h \
            plugins/egconvert.h \
            plugins/egdef.h \
            plugins/egmain.h \
@@ -87,6 +176,9 @@ SOURCES += src/bodypropertyeditor.cpp \
            src/sifwindow.cpp \
            src/solverparameters.cpp \
            src/summaryeditor.cpp \
+           cad/cadview.cpp \
+           cad/qoccviewWidget.cpp \
+           cad/qoccviewercontext.cpp \
            plugins/egconvert.cpp \
            plugins/egmain.cpp \
            plugins/egmesh.cpp \
@@ -95,5 +187,5 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/elmergrid_api.cpp \
            plugins/nglib_api.cpp \
            plugins/tetlib_api.cpp
-RESOURCES += Mesh3D.qrc
-RC_FILE += Mesh3D.rc   
+RESOURCES += ElmerGUI.qrc
+RC_FILE += ElmerGUI.rc   

@@ -1,7 +1,7 @@
-# Mesh3D.pro for VC 2008 (with OCC)
+# ElmerGUI.pro for VC 2008 (with OCC)
 
 TEMPLATE = app
-TARGET = Mesh3D
+TARGET = ElmerGUI
 DEPENDPATH += . src cad forms plugins
 INCLUDEPATH += .
 MOC_DIR = ./tmp
@@ -186,5 +186,5 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/elmergrid_api.cpp \
            plugins/nglib_api.cpp \
            plugins/tetlib_api.cpp
-RESOURCES += Mesh3D.qrc
-RC_FILE += Mesh3D.rc   
+RESOURCES += ElmerGUI.qrc
+RC_FILE += ElmerGUI.rc   
