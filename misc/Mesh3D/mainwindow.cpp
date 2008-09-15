@@ -693,6 +693,10 @@ void MainWindow::createActions()
 #else
   compileSolverAct->setEnabled(false);
 #endif
+
+  if(egIni->isSet("bgimage"))
+    chooseBGColorAct->setEnabled(false);
+    
 }
 
 
