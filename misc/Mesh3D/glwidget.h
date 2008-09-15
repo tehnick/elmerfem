@@ -82,6 +82,7 @@ public:
   // background image:
   bool stateUseBgImage;
   bool stateStretchBgImage;
+  bool stateAlignRightBgImage;
   QString bgImageFileName;
   GLuint bgTexture;
   void drawBgImage();

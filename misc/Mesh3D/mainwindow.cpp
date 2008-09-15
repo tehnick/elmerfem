@@ -259,6 +259,7 @@ MainWindow::MainWindow()
   // background image:
   glWidget->stateUseBgImage = egIni->isSet("bgimage");
   glWidget->stateStretchBgImage = egIni->isSet("bgimagestretch");
+  glWidget->stateAlignRightBgImage = egIni->isSet("bgimagealignright");
   glWidget->bgImageFileName = egIni->value("bgimagefile");
 
   // set font for text editors:

@@ -94,11 +94,13 @@ GLWidget::GLWidget(QWidget *parent)
   shiftPressed = false;
   altPressed = false;
 
-  quadratic = gluNewQuadric();	// for coordinate axis
+  // Coordinate axis:
+  quadratic = gluNewQuadric();	
 
-  // background image:
+  // Background image:
   stateUseBgImage = false;
   stateStretchBgImage = false;
+  stateAlignRightBgImage = false;
   bgImageFileName = "";
   bgTexture = 0;
 }
@@ -1613,10 +1615,20 @@ void GLWidget::drawBgImage()
   double width = 1.0;
   double height = 1.0;
   double depth = 2.0;
+  double xshift = 0.0;
+  double yshift = 0.0;
+
+  glGetIntegerv(GL_VIEWPORT, viewport);
+
+  if(stateAlignRightBgImage) {
+    width = 1.0;
+    xshift = (double)viewport[2] / (double)viewport[3] - 1.0;
+  }
 
   if(stateStretchBgImage) {
-    glGetIntegerv(GL_VIEWPORT, viewport);
     width = (double)viewport[2] / (double)viewport[3];
+    xshift = 0.0;
+    yshift = 0.0;
   }
   
   glPushMatrix();
@@ -1628,13 +1640,13 @@ void GLWidget::drawBgImage()
   
   glBegin(GL_QUADS);    
   glTexCoord2d(0, 0);
-  glVertex3d(-width, -height, -depth);
+  glVertex3d(-width+xshift, -height+yshift, -depth);
   glTexCoord2d(1, 0);
-  glVertex3d(+width, -height, -depth);
+  glVertex3d(+width+xshift, -height+yshift, -depth);
   glTexCoord2d(1, 1);
-  glVertex3d(+width, +height, -depth);
+  glVertex3d(+width+xshift, +height+yshift, -depth);
   glTexCoord2d(0, 1);
-  glVertex3d(-width, +height, -depth);
+  glVertex3d(-width+xshift, +height+yshift, -depth);
   glEnd();  
   
   glDisable(GL_TEXTURE_2D);
