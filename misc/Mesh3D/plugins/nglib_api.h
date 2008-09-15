@@ -11,8 +11,8 @@ namespace nglib {
 #include "nglib.h"
 }
 
-#include "helpers.h"
-#include "meshutils.h"
+#include "src/helpers.h"
+#include "src/meshutils.h"
 
 typedef nglib::Ng_Meshing_Parameters* (*Ng_Meshing_Parameters_t)();
 typedef nglib::Ng_STL_Geometry* (*Ng_STL_LoadGeometry_t)(const char*, int);

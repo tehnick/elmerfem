@@ -100,29 +100,29 @@ DEFINES += WNT OCC62 CSFDB QOCC_STATIC
 CONFIG += qt opengl embed_manifest_dll windows
 
 # Input
-HEADERS += bodypropertyeditor.h \
-           boundarydivision.h \
-           boundarypropertyeditor.h \
-           checkmpi.h \
-           convergenceview.h \
-           dynamiceditor.h \
-           edfeditor.h \
-           egini.h \
-           generalsetup.h \
-           glcontrol.h \
-           glwidget.h \
-           helpers.h \
-           mainwindow.h \
-           maxlimits.h \
-           meshcontrol.h \
-           meshingthread.h \
-           meshtype.h \
-           meshutils.h \
-           parallel.h \
-           sifgenerator.h \
-           sifwindow.h \
-           solverparameters.h \
-           summaryeditor.h \
+HEADERS += src/bodypropertyeditor.h \
+           src/boundarydivision.h \
+           src/boundarypropertyeditor.h \
+           src/checkmpi.h \
+           src/convergenceview.h \
+           src/dynamiceditor.h \
+           src/edfeditor.h \
+           src/egini.h \
+           src/generalsetup.h \
+           src/glcontrol.h \
+           src/glwidget.h \
+           src/helpers.h \
+           src/mainwindow.h \
+           src/maxlimits.h \
+           src/meshcontrol.h \
+           src/meshingthread.h \
+           src/meshtype.h \
+           src/meshutils.h \
+           src/parallel.h \
+           src/sifgenerator.h \
+           src/sifwindow.h \
+           src/solverparameters.h \
+           src/summaryeditor.h \
            cad/cadview.h  \
            cad/qoccinternal.h \
            cad/qoccviewwidget.h \
@@ -149,28 +149,28 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/parallel.ui \
          forms/solverparameters.ui \
          forms/summaryeditor.ui
-SOURCES += bodypropertyeditor.cpp \
-           boundarydivision.cpp \
-           boundarypropertyeditor.cpp \
-           checkmpi.cpp \
-           convergenceview.cpp \
-           dynamiceditor.cpp \
-           edfeditor.cpp \
-           egini.cpp \
-           generalsetup.cpp \
-           glcontrol.cpp \
-           glwidget.cpp \
-           helpers.cpp \
-           main.cpp \
-           mainwindow.cpp \
-           meshcontrol.cpp \
-           meshingthread.cpp \
-           meshutils.cpp \
-           parallel.cpp \
-           sifgenerator.cpp \
-           sifwindow.cpp \
-           solverparameters.cpp \
-           summaryeditor.cpp \
+SOURCES += src/bodypropertyeditor.cpp \
+           src/boundarydivision.cpp \
+           src/boundarypropertyeditor.cpp \
+           src/checkmpi.cpp \
+           src/convergenceview.cpp \
+           src/dynamiceditor.cpp \
+           src/edfeditor.cpp \
+           src/egini.cpp \
+           src/generalsetup.cpp \
+           src/glcontrol.cpp \
+           src/glwidget.cpp \
+           src/helpers.cpp \
+           src/main.cpp \
+           src/mainwindow.cpp \
+           src/meshcontrol.cpp \
+           src/meshingthread.cpp \
+           src/meshutils.cpp \
+           src/parallel.cpp \
+           src/sifgenerator.cpp \
+           src/sifwindow.cpp \
+           src/solverparameters.cpp \
+           src/summaryeditor.cpp \
            cad/cadview.cpp \
            cad/qoccviewWidget.cpp  \
            cad/qoccviewercontext.cpp \

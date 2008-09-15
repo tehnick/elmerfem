@@ -1,7 +1,7 @@
 #ifndef ELMERGRID_API_H
 #define ELMERGRID_API_H
 
-#include "meshtype.h"
+#include "src/meshtype.h"
 
 class ElmergridAPI
 {

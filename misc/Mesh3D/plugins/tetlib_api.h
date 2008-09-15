@@ -9,8 +9,8 @@
 
 #include "tetgen.h"
 
-#include "helpers.h"
-#include "meshutils.h"
+#include "src/helpers.h"
+#include "src/meshutils.h"
 
 typedef void (*delegate_tetrahedralize_t)(int, char*, char*, tetgenio*, tetgenio*, tetgenio*, tetgenio*);
 

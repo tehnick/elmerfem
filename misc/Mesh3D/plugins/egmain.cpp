@@ -67,7 +67,7 @@
 #if EXE_MODE
 #include "egoutput.h"
 #else
-#include "meshtype.h"
+#include "src/meshtype.h"
 #endif
 
 
