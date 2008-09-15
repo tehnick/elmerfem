@@ -6,6 +6,11 @@ for m in $modules; do
   cd $m && make manual && make install && make clean && cd ..
 done
 
+cd ../misc/doc/elmergui/
+pdflatex elmergui.tex
+cd ../../../doc
+cp ../misc/doc/elmergui/elmergui.pdf ElmerGUIManual.pdf
+
 /bin/rm Exclude
 find tutorials_files ! -type -print | grep .svn > Exclude
 tar cvfX ElmerTutorialsFiles.tar Exclude tutorials_files
@@ -17,5 +22,5 @@ tar cvfX ElmerGridFiles.tar Exclude elmergrid_files
 /bin/rm Exclude
 gzip ElmerGridFiles.tar 
 
-mkdir -p Documentation
-/bin/mv -f *.pdf *.tar.gz Documentation
+mkdir -p ElmerDocumentation
+/bin/mv -f *.pdf *.tar.gz ElmerDocumentation
