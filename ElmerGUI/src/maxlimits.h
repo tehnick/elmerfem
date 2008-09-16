@@ -1,28 +1,38 @@
 #ifndef MAXLIMITS_H
 #define MAXLIMITS_H
 
-#define MAX_EQUATIONS           10 // equations
-#define MAX_SOLVERS             10 // solvers/equation
-#define MAX_MATERIALS           10 // materials
-#define MAX_BODYFORCES          10 // body forces
-#define MAX_INITIALCONDITIONS   10 // initial conditions
-#define MAX_BODIES             100 // bodies (as in input file & sif)
-#define MAX_BOUNDARIES         500 // boundaries (as in input file)
-#define MAX_BCS                500 // boundary conditions (as in sif)
-
 class Limit {
  public:
   Limit();
   ~Limit();
 
-  int maxEquations;
-  int maxMaterials;
-  int maxBodyforces;
-  int maxInitialconditions;
-  int maxBcs;
-  int maxBodies;
-  int maxBoundaries;
-  int maxSolvers;
+  int maxEquations();
+  int maxMaterials();
+  int maxBodyforces();
+  int maxInitialconditions();
+  int maxBcs();
+  int maxBodies();
+  int maxBoundaries();
+  int maxSolvers();
+
+  void setMaxEquations(int);
+  void setMaxMaterials(int);
+  void setMaxBodyforces(int);
+  void setMaxInitialconditions(int);
+  void setMaxBcs(int);
+  void setMaxBodies(int);
+  void setMaxBoundaries(int);
+  void setMaxSolvers(int);
+
+ private:
+  int max_equations;
+  int max_materials;
+  int max_bodyforces;
+  int max_initialconditions;
+  int max_bcs;
+  int max_bodies;
+  int max_boundaries;
+  int max_solvers;
 };
 
 #endif // MAXLIMITS_H

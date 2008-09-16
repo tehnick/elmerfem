@@ -72,7 +72,7 @@ private:
   QwtLog10ScaleEngine *scaleEngine;
 
   QHash<QString, Curve*> curveList;
-  QPen pen[MAX_EQUATIONS];
+  QPen *pen;
 
   QAction *savePictureAct;
   QAction *exitAct;
@@ -99,8 +99,6 @@ private:
   bool showSSHistory;
 
   QIcon iconChecked;
-
-  int maxEquations;
 };
 
 #endif // CONVERGENCEVIEW_H
