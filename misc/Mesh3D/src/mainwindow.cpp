@@ -155,7 +155,7 @@ MainWindow::MainWindow()
   summaryEditor = new SummaryEditor(this);
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
-  edfEditor = new EdfEditor(this);
+  edfEditor = new EdfEditor;
   convergenceView = new ConvergenceView(this);
   glControl = new GLcontrol(this);
   parallel = new Parallel(this);
