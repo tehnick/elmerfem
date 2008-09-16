@@ -70,12 +70,11 @@ Make sure that you have the development packages of Qt4 and Qwt5 installed on yo
 
 Execute the following sequence of commands in a terminal window:
 \begin{verbatim}
-$ cd elmerfem/trunk/misc/Mesh3D
-$ qmake Mesh3D_Linux.pro
+$ cd elmerfem/trunk/ElmerGUI
+$ qmake ElmerGUI_Linux.pro
 $ make
-$ mv ./Mesh3D ./ElmerGUI
 \end{verbatim}
-It is possible that the project file ``Mesh3D\_Linux.pro'' needs to be edited depending on how and where Qwt5 has been installed.
+It is possible that the project file ``ElmerGUI\_Linux.pro'' needs to be edited depending on how and where Qwt5 has been installed.
 
 Finally, set up the environment variable {\tt ELMERGUI\_HOME}, add it to {\tt PATH}, and copy the file ``ElmerGUI'' as well as the directory ``edf'' in this location:
 \begin{verbatim}
@@ -98,12 +97,12 @@ The installation instructions for Windows are almost the same as for Linux. You 
 
 Once the prequisites are fulfilled, execute the following sequence of command in a MSYS shell:
 \begin{verbatim}
-$ cd elmerfem/trunk/misc/Mesh3D
-$ qmake Mesh3D_MinGW.pro
+$ cd elmerfem/trunk/ElmerGUI
+$ qmake ElmerGUI_MinGW.pro
 $ make
-$ mv ./release/Mesh3D.exe ./ElmerGUI.exe
+$ mv ./release/ElmerGUI.exe ./ElmerGUI.exe
 \end{verbatim}
-It is possible that the project file ``Mesh3D\_MinGW.pro'' needs to be edited depending on how and where Qwt5 has been installed.
+It is possible that the project file ``ElmerGUI\_MinGW.pro'' needs to be edited depending on how and where Qwt5 has been installed.
 
 Finally, set up the environment variable {\tt ELMERGUI\_HOME}, add it to {\tt PATH}, and copy the executable ``ElmerGUI.exe'' and the directory ``edf'' into this location:
 \begin{verbatim}
@@ -509,6 +508,52 @@ a contour plot representing the solution. If the results were prodoced by the pa
 \bibliography{elmergui}
 
 \appendix
+
+\section{ElmerGUI initialization file}
+
+The initialization file for ElmerGUI is located in {\tt ELMERGUI\_HOME/edf}. It is called {\tt egini.xml}:
+
+\begin{footnotesize}
+\begin{verbatim}
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE egini>
+<egini version="1.0">
+  
+  Show splash screen at startup:
+  <splashscreen> 1 </splashscreen>
+
+  Show system tray icon while running:
+  <systrayicon> 1 </systrayicon>
+
+  Show system tray messages:
+  <systraymessages> 1 </systraymessages>
+
+  System tray message duration in millisecons:
+  <systraymsgduration> 3000 </systraymsgduration>
+
+  Check the presence of external components:
+  <checkexternalcomponents> 1 </checkexternalcomponents>
+
+  Plot convergence view:
+  <showconvergence> 1 </showconvergence>
+
+  Draw background image:
+  <bgimage> 1 </bgimage>
+
+  Background image file:
+  <bgimagefile> :/images/bgimage.png </bgimagefile>
+
+  Align background image to the bottom right corner of the screen:
+  <bgimagealignright> 0 </bgimagealignright>
+
+  Stretch background image to fit the whole screen (overrides align):
+  <bgimagestretch> 1 </bgimagestretch>
+
+</egini>
+\end{verbatim}
+\end{footnotesize}
+
+You may change the default behaviour of ElmerGUI by editing this file. For example, to turn off the splash screen at start up, change the value of the tag {\tt <splshscreen>} from 1 to 0. To change the background image, enter a file name within the {\tt <bgimagefile>} tag.
 
 \section{ElmerGUI definition files}
 

@@ -6249,7 +6249,7 @@ void MainWindow::showaboutSlot()
 void MainWindow::logMessage(QString message)
 {
   cout << string(message.toAscii()) << endl;
-  statusBar()->showMessage(message);
+  statusBar()->showMessage(message, 0);
   cout.flush();
 }
 
