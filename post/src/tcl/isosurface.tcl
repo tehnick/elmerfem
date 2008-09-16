@@ -107,7 +107,7 @@ proc isosurface_set_values { win lines ColorMin ColorMax } {
 
 proc isosurface_edit { } {
     global IsosurfaceContours IsosurfaceLineStyle IsosurfaceQuality IsosurfaceRadius
-    global IsosurfaceContour IsosurfaceNormal IsosurfaceColor
+    global IsosurfaceContour IsosurfaceNormal IsosurfaceColor CurrentIsoContours
     global IsosurfaceColorMin IsosurfaceColorMax IsosurfaceColorSetMinMax
     global IsosurfaceContourMin IsosurfaceContourMax IsosurfaceContourSetMinMax
 
@@ -274,7 +274,10 @@ proc isosurface_edit { } {
 #
 #
     frame .isosurface.buttons
-    button .isosurface.buttons.apply -text "Apply" -command "set IsosurfaceRecompute 1; UpdateObject; play;"
+    button .isosurface.buttons.apply -text "Apply" -command {
+         if { $CurrentIsoContours != $IsosurfaceContours } { \
+            isosurface_set_values .isosurface.cont.values $IsosurfaceContours \
+            $IsosurfaceContourMin $IsosurfaceContourMax }; set IsosurfaceRecompute 1; UpdateObject; play;}
     button .isosurface.buttons.close -text "Close" -command "destroy .isosurface"
 
     pack .isosurface.buttons -side top
