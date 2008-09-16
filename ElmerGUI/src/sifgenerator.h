@@ -60,6 +60,9 @@ class SifGenerator  {
   QHash<int, int> bodyMap;
   QHash<int, int> boundaryMap;
 
+  // Dynamic limits:
+  Limit *limit;
+
  private:
   void parseSolverSpecificTab(DynamicEditor *, QString);
   void parseGeneralTab(Ui::solverParameterEditor);

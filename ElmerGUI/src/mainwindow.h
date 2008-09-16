@@ -364,6 +364,10 @@ private:
   // initialization:
   EgIni *egIni;
 
+  // limits:
+  void setDynamicLimits();
+  Limit *limit;
+
   // operations:
   int operations;
   operation_t operation;

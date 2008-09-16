@@ -45,7 +45,7 @@ class ConvergenceView : public QMainWindow
   Q_OBJECT
 
 public:
-  ConvergenceView(QWidget *parent = 0);
+  ConvergenceView(Limit *limit, QWidget *parent = 0);
   ~ConvergenceView();
 
   QSize minimumSizeHint() const;
@@ -99,6 +99,8 @@ private:
   bool showSSHistory;
 
   QIcon iconChecked;
+
+  int maxEquations;
 };
 
 #endif // CONVERGENCEVIEW_H

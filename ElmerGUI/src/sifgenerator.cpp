@@ -178,7 +178,7 @@ void SifGenerator::makeBodyBlocks()
     }
   }
 
-  for( int index=0; index < MAX_BOUNDARIES; index++ )
+  for( int index=0; index < limit->maxBoundaries; index++ )
   {
     BodyPropertyEditor *bodyEdit=boundaryPropertyEditor[index].bodyProperties;
 
@@ -225,7 +225,7 @@ void SifGenerator::makeEquationBlocks()
   int solverNumber = 0;
   QHash<QString, int> numberForSolver;
   numberForSolver.clear();
-  for(int index = 0; index < MAX_EQUATIONS; index++) {
+  for(int index = 0; index < limit->maxEquations; index++) {
     DynamicEditor *eqEditor = &equationEditor[index];
     if(eqEditor->menuAction != NULL) {
       for(int i = 0; i < eqEditor->hash.count(); i++) {
@@ -258,7 +258,7 @@ void SifGenerator::makeEquationBlocks()
   
   // generate equation blocks:
   int sifIndex = 0;
-  for(int index = 0; index < MAX_EQUATIONS; index++) {
+  for(int index = 0; index < limit->maxEquations; index++) {
     DynamicEditor *eqEditor = &equationEditor[index];
 
     if(eqEditor->menuAction != NULL) {
@@ -269,9 +269,9 @@ void SifGenerator::makeEquationBlocks()
 
       QString solverString = "";
       int nofSolvers = 0;
-      int solverActive[MAX_SOLVERS];
+      int solverActive[limit->maxSolvers];
 
-      for( int i=0; i<MAX_SOLVERS; i++ )
+      for( int i=0; i < limit->maxSolvers; i++ )
         solverActive[i] = false;
 
       for(int i = 0; i < eqEditor->hash.count(); i++) {
@@ -344,7 +344,7 @@ void SifGenerator::makeSolverBlocks(QString solverName)
   bool found = false;
   int current=-1;
 
-  for(int i = 0; i < MAX_SOLVERS; i++) {
+  for(int i = 0; i < limit->maxSolvers; i++) {
     spe = &solverParameterEditor[i];
     QString currentName = spe->solverName.trimmed();
     if(currentName == solverName) {
@@ -390,7 +390,7 @@ void SifGenerator::makeMaterialBlocks()
 {
   int sifIndex = 0;
 
-  for(int index = 0; index < MAX_MATERIALS; index++) {
+  for(int index = 0; index < limit->maxMaterials; index++) {
     DynamicEditor *matEditor = &materialEditor[index];
     
     if(matEditor->menuAction != NULL) {      
@@ -431,7 +431,7 @@ void SifGenerator::makeBodyForceBlocks()
 {
   int sifIndex = 0;
 
-  for(int index = 0; index < MAX_BODYFORCES; index++) {
+  for(int index = 0; index < limit->maxBodyforces; index++) {
     DynamicEditor *bfEdit = &bodyForceEditor[index];
     
     if(bfEdit->menuAction != NULL) { 
@@ -470,7 +470,7 @@ void SifGenerator::makeInitialConditionBlocks()
 {
   int sifIndex = 0;
   
-  for(int index = 0; index < MAX_INITIALCONDITIONS; index++) {
+  for(int index = 0; index < limit->maxInitialconditions; index++) {
     DynamicEditor *icEdit = &initialConditionEditor[index];
     
     if(icEdit->menuAction != NULL) { 
@@ -512,7 +512,7 @@ void SifGenerator::makeInitialConditionBlocks()
 void SifGenerator::makeBoundaryBlocks()
 {
   int sifIndex = 0;
-  int boundaryBC[MAX_BOUNDARIES];
+  int boundaryBC[limit->maxBoundaries];
 
   for(int index = 0; index < boundaryMap.count(); index++) {
     BoundaryPropertyEditor *bEdit = &boundaryPropertyEditor[index];
@@ -541,7 +541,7 @@ void SifGenerator::makeBoundaryBlocks()
 	te->append("  Name = " +  name);
 
       // check which one of the dynamic editors has "name" typed in nameEdit:
-      for(int j = 0; j < MAX_BCS; j++) {
+      for(int j = 0; j < limit->maxBcs; j++) {
 	DynamicEditor *bc = &boundaryConditionEditor[j];
 	if(bc->menuAction != NULL) {
 	  if(bc->nameEdit->text().trimmed() == name) {

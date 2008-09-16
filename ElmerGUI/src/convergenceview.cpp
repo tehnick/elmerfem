@@ -87,9 +87,11 @@ const double *CurveData::y() const
 }
 
 //-----------------------------------------------------------------------------
-ConvergenceView::ConvergenceView(QWidget *parent)
+ConvergenceView::ConvergenceView(Limit *limit, QWidget *parent)
   : QMainWindow(parent)
 {
+  this->maxEquations = limit->maxEquations;
+
   iconChecked = QIcon(":/icons/dialog-ok.png");
 
   plot = new QwtPlot(this);
@@ -125,7 +127,7 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
 
   // default pen
-  for(int i = 0; i < MAX_EQUATIONS; i++)
+  for(int i = 0; i < maxEquations; i++)
     pen[i] = QPen(Qt::black);
 
   // available colors

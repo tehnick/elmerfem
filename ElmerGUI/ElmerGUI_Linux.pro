@@ -81,6 +81,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            src/helpers.cpp \
            src/main.cpp \
            src/mainwindow.cpp \
+           src/maxlimits.cpp \
            src/meshcontrol.cpp \
            src/meshingthread.cpp \
            src/meshutils.cpp \
