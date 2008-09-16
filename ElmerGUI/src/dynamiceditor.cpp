@@ -497,10 +497,6 @@ QSize DynamicEditor::sizeHint() const
   return QSize(400, 300);
 }
 
-#define MAT_APPLY  0
-#define MAT_OK     1
-#define MAT_NEW    2
-#define MAT_DELETE 3
 //----------------------------------------------------------------------------
 void DynamicEditor::spareButtonClicked()
 {

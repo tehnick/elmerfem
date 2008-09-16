@@ -1613,14 +1613,17 @@ void GLWidget::drawBgImage()
   GLint viewport[4];
 
   if(!bgTexture) {
+    cout << "Load " << string(bgImageFileName.toAscii()) << "... ";
     QPixmap pixmap(bgImageFileName);
     bgSizeX = pixmap.width();
     bgSizeY = pixmap.height();
     bgTexture = bindTexture(pixmap, GL_TEXTURE_2D);
+    cout << "done" << endl;
   }
   
   if(!bgTexture) {
     cout << "Failed to bind texture" << endl;
+    stateUseBgImage = false;
     return;
   }
 

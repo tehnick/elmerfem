@@ -39,6 +39,8 @@ class QAction;
 class QMenu;
 class GLWidget;
 
+#define MAXPATHLENGTH 600
+
 class MainWindow : public QMainWindow
 {
   Q_OBJECT

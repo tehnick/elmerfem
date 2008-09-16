@@ -1,10 +1,19 @@
 #ifndef DYNAMICEDITOR_H
 #define DYNAMICEDITOR_H
 
-#define BODY_MATERIAL 1
-#define BODY_INITIAL  2
-#define BODY_FORCE    3
-#define BODY_EQUATION 4
+enum BodyTypes {
+  BODY_MATERIAL,
+  BODY_INITIAL,
+  BODY_FORCE,
+  BODY_EQUATION
+};
+
+enum MatTypes {
+  MAT_APPLY,
+  MAT_OK,
+  MAT_NEW,
+  MAT_DELETE
+};
 
 #include <QWidget>
 #include <QtGui>

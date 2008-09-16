@@ -14,11 +14,13 @@
 #include "meshcontrol.h"
 #include "dynamiceditor.h"
 
-#define HEAT_EQUATION       0
-#define LINEAR_ELASTICITY   1
-#define NAVIER_STOKES       2
-#define ADVECTION_DIFFUSION 3
-#define HELMHOLTZ_EQUATION  4
+enum EquationTypes {
+  HEAT_EQUATION,
+  LINEAR_ELASTICITY,
+  NAVIER_STOKES,
+  ADVECTION_DIFFUSION,
+  HELMHOLTZ_EQUATION 
+};
 
 class SifGenerator  {
  public:

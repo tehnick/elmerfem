@@ -37,8 +37,6 @@
  *  Original Date: 15 Mar 2008                                               *
  *                                                                           *
  *****************************************************************************/
-#define MAX_PROCIDS 1000
-
 #include <iostream>
 #include "checkmpi.h"
 

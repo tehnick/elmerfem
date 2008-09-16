@@ -1,12 +1,14 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
-#define POINTLIST       2000
-#define EDGELIST        2001
-#define SURFACELIST     2002
-#define SURFACEMESHLIST 2003
-#define SHARPEDGELIST   2004
-#define VOLUMEMESHLIST  2005
+enum ListTypes {
+  POINTLIST,
+  EDGELIST,
+  SURFACELIST,
+  SURFACEMESHLIST,
+  SHARPEDGELIST,
+  VOLUMEMESHLIST
+};
 
 #include <QGLWidget>
 #include <QHash>

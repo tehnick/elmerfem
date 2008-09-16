@@ -3,9 +3,11 @@
 
 #include "ui_boundarydivision.h"
 
-#define TARGET_UNKNOWN  0
-#define TARGET_SURFACES 1
-#define TARGET_EDGES    2
+enum TargetTypes {
+  TARGET_UNKNOWN,
+  TARGET_SURFACES,
+  TARGET_EDGES
+};
 
 class BoundaryDivide: public QDialog
 {

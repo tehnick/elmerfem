@@ -1,10 +1,12 @@
 #ifndef OPERATION_H
 #define OPERATION_H
 
-#define OP_UNIFY_SURFACE  1
-#define OP_DIVIDE_SURFACE 2
-#define OP_UNIFY_EDGE     3
-#define OP_DIVIDE_EDGE    4
+enum OpTypes {
+  OP_UNIFY_SURFACE,
+  OP_DIVIDE_SURFACE,
+  OP_UNIFY_EDGE,
+  OP_DIVIDE_EDGE
+};
 
 class operation_t {
  public:

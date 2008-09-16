@@ -59,8 +59,8 @@ MainWindow::MainWindow()
 {
 #ifdef __APPLE__
   // find "Home directory":
-  char executablePath[600] = {0};
-  uint32_t len = 600;
+  char executablePath[MAXPATHLENGTH] = {0};
+  uint32_t len = MAXPATHLENGTH;
   this->homePath = "";
   if(! _NSGetExecutablePath( (char*) executablePath, &len)){
     // remove executable name from path:
@@ -884,7 +884,7 @@ void MainWindow::createMenus()
   }
   testProcess.waitForFinished(2000);
 
-  cout << "Checking for ElmerSolver_mpi...";
+  cout << "Checking for ElmerSolver_mpi... ";
   updateSplash("Checking for ElmerSolver_mpi...");
   args << "-v";
   testProcess.start("ElmerSolver_mpi", args);
@@ -2763,11 +2763,6 @@ void MainWindow::editNumericalMethods(int current, int id)
   spe->raise();
 }
 
-
-#define MAT_APPLY  0
-#define MAT_OK     1
-#define MAT_NEW    2
-#define MAT_DELETE 3
 
 // signal (int,int) emitted by equation editor when ready:
 //-----------------------------------------------------------------------------
@@ -4732,10 +4727,6 @@ void MainWindow::meshOkSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::surfaceDivideSlot()
 {
-#define TARGET_UNKNOWN  0
-#define TARGET_SURFACES 1
-#define TARGET_EDGES    2
-  
   if(glWidget->mesh == NULL) {
     logMessage("There is nothing to divide - mesh is empty");
     return;
@@ -4960,16 +4951,10 @@ void MainWindow::applyOperations()
 
 
 
-
-
 // Mesh -> Divide edge...
 //-----------------------------------------------------------------------------
 void MainWindow::edgeDivideSlot()
 {
-#define TARGET_UNKNOWN  0
-#define TARGET_SURFACES 1
-#define TARGET_EDGES    2
-
   if(glWidget->mesh == NULL) {
     logMessage("There is nothing to divide - mesh is empty");
     return;

@@ -3,22 +3,26 @@
 #ifndef MESHTYPE_H
 #define MESHTYPE_H
 
-#define GEN_UNKNOWN      1000      // unknown
-#define GEN_TETLIB       1001      // tetgen
-#define GEN_NGLIB        1002      // netgen
-#define GEN_ELMERGRID    1003      // elmergrid
+enum GenTypes {
+  GEN_UNKNOWN,
+  GEN_TETLIB,
+  GEN_NGLIB,
+  GEN_ELMERGRID
+};
 
-#define PDE_UNKNOWN      3000      // pde uknown
-#define PDE_BOUNDARY     3001      // pde boundary
-#define PDE_BULK         3002      // pde bulk
+enum PdeTypes { 
+  PDE_UNKNOWN,
+  PDE_BOUNDARY,
+  PDE_BULK
+ };
 
 // node class
 class node_t {
  public:
   double x[3];                     // 3d-coordinates
   int index;                       // optional tag
-  int elements;
-  int *element;
+  int elements;                    // nof elements connected to the node
+  int *element;                    // list of element indices
 };
 
 // base element class

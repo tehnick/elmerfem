@@ -6,6 +6,8 @@
 #include <psapi.h>
 #endif
 
+#define MAX_PROCIDS 1000
+
 class CheckMpi
 {
 public:

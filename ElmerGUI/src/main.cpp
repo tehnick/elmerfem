@@ -42,11 +42,8 @@
 #include "mainwindow.h"
 
 #ifdef __APPLE__
-
 #include <mach-o/dyld.h>
 #include <stdlib.h>
-#define MAXPATHLENGTH 600
-
 #endif
 
 int main(int argc, char *argv[])

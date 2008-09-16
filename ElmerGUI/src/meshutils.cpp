@@ -225,8 +225,6 @@ void Meshutils::clearMesh(mesh_t *mesh)
 //----------------------------------------------------------------------------
 void Meshutils::findSurfaceElements(mesh_t *mesh)
 {
-#define UNKNOWN -1
-
 #define RESETENTRY1             \
   h->node[0] = UNKNOWN;		\
   h->node[1] = UNKNOWN;  	\
@@ -475,8 +473,6 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 //----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementParents(mesh_t *mesh)
 {
-#define UNKNOWN -1
-
 #define RESETENTRY0             \
   h->node[0] = UNKNOWN;		\
   h->node[1] = UNKNOWN;  	\
@@ -751,8 +747,6 @@ void Meshutils::findEdgeElementPoints(mesh_t *mesh)
 //-----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 {
-#define UNKNOWN -1
-
 #define RESETENTRY              \
     h->surfaces = 0;            \
     h->surface = NULL;          \
@@ -1079,9 +1073,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
 {
   double t0[3], t1[3];
-#define PI 3.14159
-#define UNKNOWN -1
-#define SHARP 0
+
   cout << "Limit: " << limit << " degrees" << endl;
   cout.flush();
   
@@ -1124,7 +1116,7 @@ void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
       helpers->normalize(t1);
 
       double cosofangle = t0[0]*t1[0] + t0[1]*t1[1] + t0[2]*t1[2];
-      angle = acos(cosofangle) / PI * 180.0;
+      angle = acos(cosofangle) / MYPI * 180.0;
     } else {
       angle = 0.0;
     }    
@@ -1146,10 +1138,7 @@ void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
 //-----------------------------------------------------------------------------
 void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 {
-#define PI 3.14159
-#define UNKNOWN -1
-#define SHARP 0
-  
+
   cout << "Limit: " << limit << " degrees" << endl;
   cout.flush();
 
@@ -1166,7 +1155,7 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
       double *n1 = mesh->surface[s1].normal;
       double cosofangle = n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2];
 	  cosofangle = std::abs(cosofangle);
-      angle = acos(cosofangle) / PI * 180.0;
+      angle = acos(cosofangle) / MYPI * 180.0;
     } else {
       angle = 180.0;
     }    
@@ -1187,9 +1176,6 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 //-----------------------------------------------------------------------------
 int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
 {
-#define UNKNOWN -1
-#define SHARP 0
-
   class Bc {
   public:
     void propagateIndex(mesh_t* mesh, int index, int i) {
@@ -1337,9 +1323,9 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   }
 
   double g_scale = max(max(g_xmax-g_xmin,g_ymax-g_ymin),g_zmax-g_zmin);
-  double g_xp = g_xmax + 32.1345 * g_scale;
-  double g_yp = g_ymin - 5.3*PI  * g_scale;
-  double g_zp = g_zmax + 8.1234  * g_scale;
+  double g_xp = g_xmax + 32.1345  * g_scale;
+  double g_yp = g_ymin - 5.3*MYPI * g_scale;
+  double g_zp = g_zmax + 8.1234   * g_scale;
 
   for( int i=0; i<index; i++ )
   {
@@ -1431,9 +1417,6 @@ void Meshutils::sort_index(int n, double *a, int *b)
 //-----------------------------------------------------------------------------
 int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
 {
-#define UNKNOWN -1
-#define SHARP 0
-
   class Bc {
   public:
     void propagateIndex(mesh_t* mesh, int index, int i) {
@@ -1579,9 +1562,9 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   }
 
   double g_scale = max(max(g_xmax-g_xmin,g_ymax-g_ymin),g_zmax-g_zmin);
-  double g_xp = g_xmax + 32.1345 * g_scale;
-  double g_yp = g_ymin - 5.3*PI  * g_scale;
-  double g_zp = g_zmax + 8.1234  * g_scale;
+  double g_xp = g_xmax + 32.1345  * g_scale;
+  double g_yp = g_ymin - 5.3*MYPI * g_scale;
+  double g_zp = g_zmax + 8.1234   * g_scale;
 
   for( int i=0; i<index; i++ )
   {
@@ -1914,8 +1897,6 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 //----------------------------------------------------------------------------
 void Meshutils::increaseElementOrder(mesh_t *mesh)
 {
-#define UNKNOWN -1
-
   class hashEntry {
   public:
     int node1;

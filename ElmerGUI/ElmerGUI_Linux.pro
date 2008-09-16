@@ -18,6 +18,7 @@ CONFIG += uitools
 
 # QWT (you may need to edit this)
 INCLUDEPATH += /usr/include/qwt-qt4
+LIBPATH += /usr/lib
 LIBS += -lqwt-qt4
 
 # Input
