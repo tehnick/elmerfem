@@ -1,0 +1,40 @@
+Brief build instructions for ElmerGUI:
+--------------------------------------
+
+Prequisites:
+
+   - qt 4                        (tested with 4.2.2 and newer)
+   - qwt 5                       (for qt 4)
+
+Optional components:
+
+   - tetlib 1.4.2 (or newer)
+   - nglib 4.5 (or newer)
+   - Open Cascade 6.2
+
+Tetlib should be installed as described in ../tetgen_patches/REAEDME
+Nglib should be installed as described in ../netgen_patches/README
+
+Please read the file LICENSES before using any of these software components.
+
+In order to compile ElmerGUI, type (use one of the existing .pro files):
+
+$ qmake ElmerGUI_Linux.pro
+$ make
+
+This should produce the executable "./ElmerGUI" or "./release/ElmerGUI.exe"
+
+If the above does not work, it is possible that you have to edit the project file and ajust the following lines according to your Qwt installation:
+
+   INCLUDEPATH += /path/to/qwt5/headers
+   LIBS += -L/path/to/qwt5/lib -lqwt5
+
+Note that libqtw5 may have a different name on different machines.
+
+If the libs of tetgen and netgen are found in the path, their functionality will be available to the program. If the libs are not found, the program will run, but with some functionality disabled.
+
+Finally:
+
+- set the environment variable ELMERGUI_HOME point to the directory containing the executable
+- copy the directory "edf" and its contents in ELMERGUI_HOME
+
