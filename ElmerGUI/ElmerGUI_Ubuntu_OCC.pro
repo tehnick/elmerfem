@@ -123,6 +123,7 @@ HEADERS += src/bodypropertyeditor.h \
            src/meshingthread.h \
            src/meshtype.h \
            src/meshutils.h \
+           src/operation.h \
            src/parallel.h \
            src/sifgenerator.h \
            src/sifwindow.h \
@@ -171,6 +172,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            src/meshcontrol.cpp \
            src/meshingthread.cpp \
            src/meshutils.cpp \
+           src/operation.cpp \
            src/parallel.cpp \
            src/sifgenerator.cpp \
            src/sifwindow.cpp \

@@ -30,6 +30,7 @@
 #include "dynamiceditor.h"
 #include "convergenceview.h"
 #include "egini.h"
+#include "operation.h"
 #ifdef OCC62
 #include "cad/cadview.h"
 #endif
@@ -343,6 +344,7 @@ private:
   bool bcEditActive;
   bool bodyEditActive;
   bool showConvergence;
+  QString saveDirName;
 
   // splash screen:
   QPixmap pixmap;
@@ -359,6 +361,10 @@ private:
   
   // initialization:
   EgIni *egIni;
+
+  // operations:
+  int operations;
+  operation_t operation;
 
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all

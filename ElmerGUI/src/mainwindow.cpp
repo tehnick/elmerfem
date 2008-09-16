@@ -51,39 +51,14 @@
  
 using namespace std;
 
-#define OP_UNIFY_SURFACE  1
-#define OP_DIVIDE_SURFACE 2
-#define OP_UNIFY_EDGE     3
-#define OP_DIVIDE_EDGE    4
-
-#define BODY_MATERIAL 1
-#define BODY_INITIAL  2
-#define BODY_FORCE    3
-#define BODY_EQUATION 4
-
 #undef MPICH2
-//#define MPICH2 0
-
-class operation_t {
-public:
-  operation_t *next;
-  int type;
-  double angle;
-  int selected;
-  int *select_set;
-};
-
-int operations = 0;
-operation_t operation;
-
-QString saveDirName;
 
 // Construct main window...
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
 {
 #ifdef __APPLE__
-  // find "Home directory"
+  // find "Home directory":
   char executablePath[600] = {0};
   uint32_t len = 600;
   this->homePath = "";
@@ -104,19 +79,19 @@ MainWindow::MainWindow()
   // splash screen:
   setupSplash();
 
-  // load images for main window:
+  // load images and icons for the main window:
   updateSplash("Loading images...");
   iconChecked = QIcon(":/icons/dialog-ok.png");
   iconEmpty = QIcon("");
   
-  // load tetlib
+  // load tetlib:
   updateSplash("Loading tetlib...");
   tetlibAPI = new TetlibAPI;
   tetlibPresent = tetlibAPI->loadTetlib();
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
   
-  // load nglib
+  // load nglib:
   updateSplash("Loading nglib...");
   nglibAPI = new NglibAPI;
   nglibPresent = nglibAPI->loadNglib();
@@ -124,11 +99,11 @@ MainWindow::MainWindow()
   this->ngmesh = nglibAPI->ngmesh;
   this->nggeom = nglibAPI->nggeom;
 
-  // elmergrid
+  // construct elmergrid:
   updateSplash("Constructing elmergrid...");
   elmergridAPI = new ElmergridAPI;
 
-  // widgets and utilities
+  // widgets and utilities:
   updateSplash("ElmerGUI loading...");
   glWidget = new GLWidget(this);
   setCentralWidget(glWidget);
@@ -246,6 +221,7 @@ MainWindow::MainWindow()
 	  this, SLOT(meshUnifierStderrSlot()));
   
   // set initial state:
+  operations = 0;
   meshControl->nglibPresent = nglibPresent;
   meshControl->tetlibPresent = tetlibPresent;
   meshControl->defaultControls();
@@ -996,14 +972,21 @@ void MainWindow::openSlot()
     return;
 
   }
-  
-  operation_t *p = operation.next,*q;
-  while(p) {
-    delete [] p->select_set;
+
+  operation_t *p = operation.next, *q;
+
+  while(p != NULL) {
+    if(p->select_set != NULL)
+      delete [] p->select_set;
+
     q = p->next;
-    delete p;
+
+    if(p != NULL)
+      delete p;
+
     p = q;
   }
+
   operations = 0;
   operation.next = NULL;
 
