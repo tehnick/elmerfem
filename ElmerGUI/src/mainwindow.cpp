@@ -4741,7 +4741,8 @@ void MainWindow::stopMeshingSlot()
   
   logMessage("Mesh generator terminated");
 
-  updateSysTrayIcon("Mesh generator terminated", "");
+  updateSysTrayIcon("Mesh generator terminated",
+		    "Use Mesh->Remesh to restart");
 
 }
 
@@ -4773,6 +4774,7 @@ void MainWindow::meshOkSlot()
   
   updateSysTrayIcon("Mesh generator has finished",
 		    "Select Model->Summary for statistics");
+
 }
 
 
@@ -5962,7 +5964,8 @@ void MainWindow::solverFinishedSlot(int)
 {
   logMessage("Solver ready");
   runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
-  updateSysTrayIcon("ElmerSolver has finished", "Use Run->Postprocessor to view results");
+  updateSysTrayIcon("ElmerSolver has finished",
+		    "Use Run->Postprocessor to view results");
 }
 
 
@@ -6120,7 +6123,8 @@ void MainWindow::postProcessFinishedSlot(int)
 {
   logMessage("Post processor finished");
   resultsAct->setIcon(QIcon(":/icons/Post.png"));
-  updateSysTrayIcon("Postprocessor has finished", "");
+  updateSysTrayIcon("Postprocessor has finished",
+		    "Use Run->Run Postprocessor to restart");
 }
 
 

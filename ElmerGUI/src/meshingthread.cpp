@@ -48,6 +48,7 @@ using namespace std;
 MeshingThread::MeshingThread(QObject *parent)
   : QThread(parent)
 {
+  setTerminationEnabled(true);
   restart = false;
   abort = false;
 }
@@ -63,7 +64,8 @@ MeshingThread::~MeshingThread()
 }
 
 
-void MeshingThread::generate(int generatorType, QString cs,
+void MeshingThread::generate(int generatorType,
+			     QString cs,
 			     TetlibAPI *tetlibAPI,
 			     nglib::Ng_Mesh *ngmesh,
 			     nglib::Ng_STL_Geometry *nggeom,
@@ -87,7 +89,7 @@ void MeshingThread::generate(int generatorType, QString cs,
   this->mp = mp;
 
   if (!isRunning()) {
-    cout << "Start meshing thread with low priority" << endl;
+    cout << "Starting meshing thread with low priority" << endl;
     cout.flush();
     start(LowPriority);
   } else {
@@ -101,17 +103,12 @@ void MeshingThread::generate(int generatorType, QString cs,
 
 void MeshingThread::stopMeshing()
 {
-  if(!isRunning()) {
-    cout << "Meshing thread is already not running" << endl;
-    cout.flush();
-    return;
-  } 
-
   cout << "Terminating meshing thread... ";
   cout.flush();
   
   terminate();
-  
+  wait();
+
   restart = false;
   abort = false;
 
@@ -129,7 +126,7 @@ void MeshingThread::run()
   forever {
     mutex.lock();
 
-    // Here, set values to variables that need mutex locked:
+    // Here, set values to variables that need the mutex locked:
     // .....
 
     mutex.unlock();
@@ -139,7 +136,8 @@ void MeshingThread::run()
 
     if(generatorType == GEN_TETLIB) {
       
-      cout << "tetlib: control string: " << string(tetgenControlString.toAscii()) << endl;
+      cout << "tetlib: control string: " 
+	   << string(tetgenControlString.toAscii()) << endl;
       cout << "tetlib: input points: " << in->numberofpoints << endl;
       cout.flush();
       
@@ -168,13 +166,13 @@ void MeshingThread::run()
       cout << "Generate Volume Mesh: Ng_result=" << rv << endl;
       
       int np = nglibAPI->Ng_GetNP(ngmesh);
-      cout << "Meshing thtread: nodes: " << np << endl;
+      cout << "Meshing thread: nodes: " << np << endl;
       
       int ne = nglibAPI->Ng_GetNE(ngmesh);
-      cout << "Meshing thtread: elements: " << ne << endl;
+      cout << "Meshing thread: elements: " << ne << endl;
 
       int nse = nglibAPI->Ng_GetNSE(ngmesh);
-      cout << "Meshing thtread: boundary elements: " << nse << endl;      
+      cout << "Meshing thread: boundary elements: " << nse << endl;      
       cout.flush();
       
     } else {
@@ -189,10 +187,8 @@ void MeshingThread::run()
       emit(signalMeshOk());
     
     mutex.lock();
-    
     if (!restart) 
-      condition.wait(&mutex);
-    
+      condition.wait(&mutex);    
     restart = false;
     mutex.unlock();    
   }
