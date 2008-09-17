@@ -107,7 +107,7 @@ void MeshingThread::stopMeshing()
   cout.flush();
   
   terminate();
-  wait();
+  // wait();
 
   restart = false;
   abort = false;
