@@ -8,19 +8,13 @@ void delegate_tetrahedralize(int bs, tetgenbehavior *b, char *switches,
 			     tetgenio *in, tetgenio *out, tetgenio *addin,
 			     tetgenio *bgmin)
 {
-  try 
-    {
-      if(bs==0)
-	tetrahedralize(b, in, out, addin, bgmin);
+  if(bs==0)
+    tetrahedralize(b, in, out, addin, bgmin);
       
-      if(bs==1)
-	tetrahedralize(switches, in, out, addin, bgmin);
-    }
-  catch(...)
-    {
-      cout << "libtet exception" << endl;
-      cout.flush();
-    }
+  if(bs==1)
+    tetrahedralize(switches, in, out, addin, bgmin);
+
+  return;
 }
 //
 // Create object of class 'tetgenio'
