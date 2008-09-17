@@ -13,7 +13,6 @@ enum ListTypes {
 #include <QGLWidget>
 #include <QHash>
 #include <QGLPixelBuffer>
-
 #include "helpers.h"
 #include "meshutils.h"
 
@@ -49,9 +48,6 @@ public:
   void rebuildSurfaceLists(void);
   void rebuildEdgeLists(void);
   
-  double drawTranslate[3];
-  double drawScale;
-
   bool stateFlatShade;
   bool stateDrawSurfaceMesh;
   bool stateDrawVolumeMesh;
@@ -81,15 +77,10 @@ public:
   QHash<int, int> boundaryMap;
   QHash<int, int> bodyMap;
 
-  // background image:
   bool stateUseBgImage;
   bool stateStretchBgImage;
   bool stateAlignRightBgImage;
   QString bgImageFileName;
-  int bgSizeX;
-  int bgSizeY;
-  GLuint bgTexture;
-  void drawBgImage();
 
 public slots:
 
@@ -130,6 +121,13 @@ private:
 
   void changeNormalDirection(double*, double*);
 
+  double drawTranslate[3];
+  double drawScale;
+
+  int bgSizeX;
+  int bgSizeY;
+  GLuint bgTexture;
+  void drawBgImage();
 
 };
 

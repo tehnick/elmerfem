@@ -170,6 +170,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            src/mainwindow.cpp \
            src/maxlimits.cpp \
            src/meshcontrol.cpp \
+           src/meshtype.cpp \
            src/meshingthread.cpp \
            src/meshutils.cpp \
            src/operation.cpp \

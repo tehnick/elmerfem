@@ -1235,6 +1235,7 @@ void MainWindow::readInputFile(QString fileName)
 void MainWindow::makeElmerMeshFromTetlib()
 {
   meshutils->clearMesh(glWidget->mesh);
+
   glWidget->mesh = tetlibAPI->createElmerMeshStructure();
 
   glWidget->rebuildLists();

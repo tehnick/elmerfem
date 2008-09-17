@@ -139,6 +139,7 @@ QSize GLWidget::sizeHint() const
   return QSize(720, 576);
 }
 
+
 // Init GL...
 //-----------------------------------------------------------------------------
 void GLWidget::initializeGL()
@@ -1613,7 +1614,7 @@ void GLWidget::drawBgImage()
   GLint viewport[4];
 
   if(!bgTexture) {
-    cout << "Load " << string(bgImageFileName.toAscii()) << "... ";
+    cout << "Bind texture " << string(bgImageFileName.toAscii()) << "... ";
     QPixmap pixmap(bgImageFileName);
     bgSizeX = pixmap.width();
     bgSizeY = pixmap.height();

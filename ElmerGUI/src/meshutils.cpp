@@ -170,52 +170,11 @@ void Meshutils::clearMesh(mesh_t *mesh)
 {
   if(mesh == NULL)
     return;
-    
-  if(mesh->elements > 0) {
-    for(int i=0; i < mesh->elements; i++)
-      if(mesh->element->nodes > 0)
-	delete [] mesh->element[i].node;
-    delete [] mesh->element;
-  }
-
-  if(mesh->surfaces > 0) {
-    for(int i=0; i < mesh->surfaces; i++) {
-      if(mesh->surface->nodes > 0)
-	delete [] mesh->surface[i].node;
-      if(mesh->surface->edges > 0)
-	delete [] mesh->surface[i].edge;
-      if(mesh->surface->elements > 0)
-	delete [] mesh->surface[i].element;
-    }
-    delete [] mesh->surface;
-  }
-
-  if(mesh->edges > 0) {
-    for(int i=0; i < mesh->edges; i++) {
-      if(mesh->edge->nodes > 0)
-	delete [] mesh->edge[i].node;
-      if(mesh->edge->surfaces > 0)
-	delete [] mesh->edge[i].surface;
-    }
-    delete [] mesh->edge;
-  }
-
-  if(mesh->points > 0) {
-    for(int i=0; i < mesh->points; i++) {
-      if(mesh->point->nodes > 0)
-	delete [] mesh->point[i].node;
-      if(mesh->point->edges > 0)
-	delete [] mesh->point[i].edge;
-    }
-    delete [] mesh->point;
-  }
   
-  if(mesh->nodes > 0)
-    delete [] mesh->node;
-  
+  mesh->clear();
   delete mesh;
 
-  cout << "Mesh cleared" << endl;
+  cout << "Old mesh cleared" << endl;
   cout.flush();
 }
 

@@ -68,6 +68,12 @@ class surface_t: public element_t {
 // mesh class
 class mesh_t {
  public:
+  mesh_t();
+  ~mesh_t();
+
+  bool isUndefined();
+  void clear();
+
   int cdim;                        // model  coordinate dimension
   int dim;                         // model max element dimension
   int nodes;                       // number of nodes
