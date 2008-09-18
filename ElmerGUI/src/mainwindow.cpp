@@ -2508,6 +2508,10 @@ void MainWindow::saveElmerMesh(QString dirName)
 //-----------------------------------------------------------------------------
 void MainWindow::closeMainWindowSlot()
 {
+  this->close();
+  return;
+
+#if 0
   sifWindow->close();
   solverLogWindow->close();
   meshControl->close();
@@ -2535,7 +2539,8 @@ void MainWindow::closeMainWindowSlot()
   delete [] bodyForceEditor;
   
   this->close();
-//  exit(0);
+  // exit(0);
+#endif
 }
 
 
@@ -5287,9 +5292,11 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     if(boundaryEdit->touched) {
       boundaryEdit->ui.applyButton->setText("Update");
-      boundaryEdit->ui.discardButton->setText("Remove");
+      // boundaryEdit->ui.discardButton->setText("Remove");
+      boundaryEdit->ui.discardButton->setText("Cancel");
       boundaryEdit->ui.applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-      boundaryEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      // boundaryEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      boundaryEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
     } else {
       boundaryEdit->ui.applyButton->setText("Add");
       boundaryEdit->ui.discardButton->setText("Cancel");
@@ -5357,9 +5364,11 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     if(bodyEdit->touched) {
       bodyEdit->ui.applyButton->setText("Update");
-      bodyEdit->ui.discardButton->setText("Remove");
+      // bodyEdit->ui.discardButton->setText("Remove");
+      bodyEdit->ui.discardButton->setText("Cancel");
       bodyEdit->ui.applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-      bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      // bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
     } else {
       bodyEdit->ui.applyButton->setText("Add");
       bodyEdit->ui.discardButton->setText("Cancel");
@@ -5380,8 +5389,10 @@ void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
   while(boundary && boundary->ui.boundaryConditionCombo && boundary->ui.boundaryConditionCombo->count() > 0) 
     boundary->ui.boundaryConditionCombo->removeItem(0);
     
-  int takethis=-1;
+  int takethis = 1; //-1;
   int count = 1;
+  boundary->ui.boundaryConditionCombo->insertItem(count++, "");
+
   for(int i = 0; i < limit->maxBcs(); i++) {
     DynamicEditor *bcEdit = &boundaryConditionEditor[i];
     if(bcEdit->menuAction != NULL) {
@@ -5400,6 +5411,9 @@ void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
 //-----------------------------------------------------------------------------
 void MainWindow::boundaryComboChanged(BoundaryPropertyEditor *b, QString text)
 {
+  b->condition = 0;
+  b->touched = false;
+
   for( int i=0; i < limit->maxBcs(); i++ )
   {
     DynamicEditor *bc = &boundaryConditionEditor[i];
@@ -5434,12 +5448,14 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
 {
   // Equation:
   // =========
-  int takethis=-1;
   bodyEdit->disconnect(SIGNAL(BodyEquationComboChanged(BodyPropertyEditor *,QString)));
   while(bodyEdit->ui.equationCombo->count() > 0) 
     bodyEdit->ui.equationCombo->removeItem(0);
 
   int count = 1;
+  int takethis = 1; // -1
+  bodyEdit->ui.equationCombo->insertItem(count++, "");
+
   for(int i = 0; i < limit->maxEquations(); i++) {
     DynamicEditor *eqEdit = &equationEditor[i];
     if(eqEdit->menuAction != NULL) {
@@ -5460,7 +5476,9 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
     bodyEdit->ui.materialCombo->removeItem(0);
 
   count = 1;
-  takethis = -1;
+  takethis = 1; // -1
+  bodyEdit->ui.materialCombo->insertItem(count++, "");
+
   for(int i = 0; i < limit->maxMaterials(); i++) {
     DynamicEditor *matEdit = &materialEditor[i];
     if(matEdit->menuAction != NULL) {
@@ -5482,7 +5500,9 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
     bodyEdit->ui.bodyForceCombo->removeItem(0);
 
   count = 1;
-  takethis = -1;
+  takethis = 1; // -1
+  bodyEdit->ui.bodyForceCombo->insertItem(count++, "");
+
   for(int i = 0; i < limit->maxBodyforces(); i++) {
     DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
     if(bodyForceEdit->menuAction != NULL) {
@@ -5503,7 +5523,9 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
     bodyEdit->ui.initialConditionCombo->removeItem(0);
 
   count = 1;
-  takethis = -1;
+  takethis = 1; // -1
+  bodyEdit->ui.initialConditionCombo->insertItem(count++, "");
+
   for(int i = 0; i < limit->maxInitialconditions(); i++) {
     DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
     if(initialConditionEdit->menuAction != NULL) {
@@ -5521,7 +5543,10 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
 //-----------------------------------------------------------------------------
 void MainWindow::materialComboChanged(BodyPropertyEditor *b, QString text)
 {
-  for( int i=0; i < limit->maxMaterials(); i++ )
+  b->material = 0;
+  b->touched = false;
+
+  for(int i=0; i < limit->maxMaterials(); i++)
   {
     DynamicEditor *mat = &materialEditor[i];
     if ( mat->ID >= 0 ) {
@@ -5537,6 +5562,9 @@ void MainWindow::materialComboChanged(BodyPropertyEditor *b, QString text)
 //-----------------------------------------------------------------------------
 void MainWindow::initialComboChanged(BodyPropertyEditor *b, QString text)
 {
+  b->initial = 0;
+  b->touched = false;
+
   for( int i=0; i < limit->maxInitialconditions(); i++ )
   {
     DynamicEditor *ic = &initialConditionEditor[i];
@@ -5553,6 +5581,9 @@ void MainWindow::initialComboChanged(BodyPropertyEditor *b, QString text)
 //-----------------------------------------------------------------------------
 void MainWindow::forceComboChanged(BodyPropertyEditor *b, QString text)
 {
+  b->force = 0;
+  b->touched = false;
+
   for( int i=0; i < limit->maxBodyforces(); i++ )
   {
     DynamicEditor *bf = &bodyForceEditor[i];
@@ -5569,11 +5600,14 @@ void MainWindow::forceComboChanged(BodyPropertyEditor *b, QString text)
 //-----------------------------------------------------------------------------
 void MainWindow::equationComboChanged(BodyPropertyEditor *b, QString text)
 {
+  b->equation = 0;
+  b->touched = false;
+
   for( int i=0; i < limit->maxEquations(); i++ )
   {
     DynamicEditor *equ = &equationEditor[i];
     if ( equ->ID >= 0 ) {
-       if ( equ->nameEdit->text().trimmed()==text ) {
+       if ( equ->nameEdit->text().trimmed() == text ) {
          b->equation = equ; 
          b->touched = true;
          break;

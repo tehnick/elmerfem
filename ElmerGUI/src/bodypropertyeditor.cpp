@@ -58,6 +58,7 @@ BodyPropertyEditor::BodyPropertyEditor(QWidget *parent)
   equation = NULL;
 
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applySlot()));
+
   connect(ui.discardButton, SIGNAL(clicked()), this, SLOT(discardSlot()));
 
   connect(ui.materialCombo, SIGNAL(currentIndexChanged(QString)), this, 
@@ -108,4 +109,3 @@ void BodyPropertyEditor::equationComboChanged(QString text)
 {
    emit( BodyEquationComboChanged(this,text) );
 }
-
