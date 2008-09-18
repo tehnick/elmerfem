@@ -1,9 +1,7 @@
 #ifndef MESHINGTHREAD_H
 #define MESHINGTHREAD_H
 
-#include <QMutex>
 #include <QThread>
-#include <QWaitCondition>
 
 #ifdef WIN32
 #include <windows.h>
@@ -32,19 +30,10 @@ public:
 
   void stopMeshing();
 
-signals:
-  void signalMeshOk();
-  
 protected:
   void run();
   
 private:
-  QMutex mutex;
-  QWaitCondition condition;
-  
-  bool restart;
-  bool abort;
-
   int generatorType;
 
   // tetlib:

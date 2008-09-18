@@ -153,9 +153,10 @@ MainWindow::MainWindow()
   connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), 
 	  this, SLOT(boundarySelectedSlot(list_t*)));
 
-  // meshingThread emits (void) when the mesh generation is completed:
-  connect(meshingThread, SIGNAL(signalMeshOk()), 
-	  this, SLOT(meshOkSlot()));
+  // meshingThread emits (void) when the mesh generation has finished or terminated:
+  connect(meshingThread, SIGNAL(started()), this, SLOT(meshingStartedSlot()));
+  connect(meshingThread, SIGNAL(finished()), this, SLOT(meshingFinishedSlot()));
+  connect(meshingThread, SIGNAL(terminated()), this, SLOT(meshingTerminatedSlot()));
 
   // boundaryDivide emits (double) when "divide button" has been clicked:
   connect(boundaryDivide, SIGNAL(signalDoDivideSurface(double)), 
@@ -236,6 +237,7 @@ MainWindow::MainWindow()
   bcEditActive = false;
   bodyEditActive = false;
   showConvergence = egIni->isSet("showconvergence");
+  meshingThreadLocked = false;
 
   // background image:
   glWidget->stateUseBgImage = egIni->isSet("bgimage");
@@ -462,8 +464,7 @@ void MainWindow::createActions()
   remeshAct = new QAction(QIcon(":/icons/edit-redo.png"), tr("&Remesh"), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
-  connect(remeshAct, SIGNAL(triggered()), 
-	  this, SLOT(remeshSlot()));
+  connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
 
   // Mesh -> Kill generator
   stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), tr("&Terminate"), this);
@@ -1352,7 +1353,7 @@ void MainWindow::loadElmerMesh(QString dirName)
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
 
-  // Set mesh dimension (????? is this correct ?????):
+  // Set mesh dimension (??? is this correct ???):
   mesh->dim = 0;
 
   if(elements_one_d > 0)
@@ -4644,6 +4645,45 @@ void MainWindow::remeshSlot()
     return;
   }
   
+    
+  // ***** ELMERGRID *****
+
+  if(activeGenerator == GEN_ELMERGRID) {
+    meshutils->clearMesh(glWidget->mesh);
+    glWidget->mesh = new mesh_t;
+    mesh_t *mesh = glWidget->mesh;
+    
+    elmergridAPI->createElmerMeshStructure(mesh, 
+             meshControl->elmerGridControlString.toAscii());
+    
+    if(mesh->surfaces == 0) meshutils->findSurfaceElements(mesh);
+    
+    for(int i=0; i<mesh->surfaces; i++ )
+      {
+	surface_t *surface = &mesh->surface[i];
+	
+	surface->edges = (int)(surface->code/100);
+	surface->edge = new int[surface->edges];
+	for(int j=0; j<surface->edges; j++)
+	  surface->edge[j] = -1;
+      }
+
+    meshutils->findSurfaceElementEdges(mesh);
+    meshutils->findSurfaceElementNormals(mesh);
+
+    glWidget->rebuildLists();
+    applyOperations();
+    
+    return;
+  }
+  
+  // ***** Threaded generators *****
+
+  if(meshingThreadLocked) {
+    logMessage("Meshing thread is already running - aborting");
+    return;
+  }
+
   if(activeGenerator == GEN_TETLIB) {
 
     if(!tetlibPresent) {
@@ -4682,36 +4722,6 @@ void MainWindow::remeshSlot()
     mp->secondorder = 0;
     mp->meshsize_filename = backgroundmesh;
 
-  } else if(activeGenerator == GEN_ELMERGRID) {
-
-    // ***** ELMERGRID *****
-    meshutils->clearMesh(glWidget->mesh);
-    glWidget->mesh = new mesh_t;
-    mesh_t *mesh = glWidget->mesh;
-    
-    elmergridAPI->createElmerMeshStructure(mesh, meshControl->elmerGridControlString.toAscii());
-
-    if(mesh->surfaces == 0) meshutils->findSurfaceElements(mesh);
-    
-    for(int i=0; i<mesh->surfaces; i++ )
-    {
-      surface_t *surface = &mesh->surface[i];
-
-      surface->edges = (int)(surface->code/100);
-      surface->edge = new int[surface->edges];
-      for(int j=0; j<surface->edges; j++)
-        surface->edge[j] = -1;
-    }
-    meshutils->findSurfaceElementEdges(mesh);
-
-    if(0) meshutils->findSurfaceElementParents(mesh);
- 
-    meshutils->findSurfaceElementNormals(mesh);
-    glWidget->rebuildLists();
-    applyOperations();
-
-    return;
-    
   } else {
 
     logMessage("Remesh: uknown generator type");
@@ -4719,13 +4729,16 @@ void MainWindow::remeshSlot()
 
   }
 
+  // ***** Start meshing thread *****
+
+  logMessage("Sending start request to mesh generator...");
+
+  // Unlock when finished() or terminated() signals are received:
+  meshingThreadLocked = true;
+
   meshingThread->generate(activeGenerator, tetlibControlString,
-			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
+		        tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 
-  logMessage("Mesh generation initiated");
-
-  updateSysTrayIcon("Mesh generator started",
-		    "Use Mesh->Terminate to stop processing");
 }
 
 
@@ -4734,8 +4747,43 @@ void MainWindow::remeshSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::stopMeshingSlot()
 {
-  meshingThread->stopMeshing();
+  if(!meshingThreadLocked) {
+    logMessage("Mesh generator is not running");
+    return;
+  }
 
+  logMessage("Sending termination request to mesh generator...");
+  meshingThread->stopMeshing();
+}
+
+
+
+// Meshing has started (signaled by meshingThread):
+//-----------------------------------------------------------------------------
+void MainWindow::meshingStartedSlot()
+{
+  logMessage("Mesh generator started");
+
+  updateSysTrayIcon("Mesh generator started",
+		    "Use Mesh->Terminate to stop processing");
+
+  statusBar()->showMessage(tr("Mesh generator started"));
+}
+
+
+// Meshing has been terminated (signaled by meshingThread):
+//-----------------------------------------------------------------------------
+void MainWindow::meshingTerminatedSlot()
+{
+  meshingThreadLocked = false;
+
+  logMessage("Mesh generator terminated");
+
+  updateSysTrayIcon("Mesh generator terminated",
+		    "Use Mesh->Remesh to restart");
+
+  statusBar()->showMessage(tr("Ready"));
+  
   // clean up:
   if(activeGenerator == GEN_TETLIB) {
     cout << "Cleaning up...";
@@ -4743,21 +4791,15 @@ void MainWindow::stopMeshingSlot()
     cout << "done" << endl;
     cout.flush();
   }
-  
-  logMessage("Mesh generator terminated");
-
-  updateSysTrayIcon("Mesh generator terminated",
-		    "Use Mesh->Remesh to restart");
-
 }
-
-
 
 // Mesh is ready (signaled by meshingThread):
 //-----------------------------------------------------------------------------
-void MainWindow::meshOkSlot()
+void MainWindow::meshingFinishedSlot()
 {
-  logMessage("Mesh generation completed");
+  meshingThreadLocked = false;
+
+  logMessage("Mesh generation ready");
 
   if(activeGenerator == GEN_TETLIB) {
 

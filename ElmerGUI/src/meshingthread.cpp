@@ -48,19 +48,12 @@ using namespace std;
 MeshingThread::MeshingThread(QObject *parent)
   : QThread(parent)
 {
-  setTerminationEnabled(true);
-  restart = false;
-  abort = false;
+  this->setTerminationEnabled(true);
 }
 
 
 MeshingThread::~MeshingThread()
 {
-  mutex.lock();
-  abort = true;
-  condition.wakeOne();
-  mutex.unlock();
-  wait();
 }
 
 
@@ -72,8 +65,6 @@ void MeshingThread::generate(int generatorType,
 			     nglib::Ng_Meshing_Parameters *mp,
 			     NglibAPI *nglibAPI)
 {
-  QMutexLocker locker(&mutex);
-
   this->generatorType = generatorType;
   
   this->tetgenControlString = cs;
@@ -93,10 +84,9 @@ void MeshingThread::generate(int generatorType,
     cout.flush();
     start(LowPriority);
   } else {
-    cout << "Meshing thread is already running - restarting" << endl;
+    cout << "Meshing thread is already running" << endl;
     cout.flush();
-    restart = true;
-    condition.wakeOne();
+    return;
   }
 }
 
@@ -109,9 +99,6 @@ void MeshingThread::stopMeshing()
   terminate();
   // wait();
 
-  restart = false;
-  abort = false;
-
   cout << "done" << endl;
   cout.flush();
 }
@@ -122,74 +109,51 @@ void MeshingThread::run()
   QString qs;
   char ss[1024];
 
-  // Thread event loop:
-  forever {
-    mutex.lock();
-
-    // Here, set values to variables that need the mutex locked:
-    // .....
-
-    mutex.unlock();
-
-    if(abort)
-      return;
-
-    if(generatorType == GEN_TETLIB) {
-      
-      cout << "tetlib: control string: " 
-	   << string(tetgenControlString.toAscii()) << endl;
-      cout << "tetlib: input points: " << in->numberofpoints << endl;
-      cout.flush();
-      
-      out->deinitialize();
-      out->initialize();
-      
-      sprintf(ss, "%s", (const char*)(tetgenControlString.toAscii()));
-
-      if(delegate_tetrahedralize) 
-	delegate_tetrahedralize(1, NULL, ss, in, out, NULL, NULL);      
-      
-      cout << "tetlib: nodes: " << out->numberofpoints << endl;
-      cout << "tetlib: elements: " << out->numberoftetrahedra << endl;
-      cout << "tetlib: boundary elements: " << out->numberoftrifaces << endl;
-      cout.flush();
-      
-    } else if(generatorType == GEN_NGLIB) {
-      
-      int rv = nglibAPI->Ng_STL_MakeEdges(nggeom, ngmesh, mp);
-      cout << "Make Edges: Ng_result=" << rv << endl;
-      
-      rv = nglibAPI->Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
-      cout << "Generate Surface Mesh: Ng_result=" << rv << endl;
-      
-      rv = nglibAPI->Ng_GenerateVolumeMesh(ngmesh, mp);
-      cout << "Generate Volume Mesh: Ng_result=" << rv << endl;
-      
-      int np = nglibAPI->Ng_GetNP(ngmesh);
-      cout << "Meshing thread: nodes: " << np << endl;
-      
-      int ne = nglibAPI->Ng_GetNE(ngmesh);
-      cout << "Meshing thread: elements: " << ne << endl;
-
-      int nse = nglibAPI->Ng_GetNSE(ngmesh);
-      cout << "Meshing thread: boundary elements: " << nse << endl;      
-      cout.flush();
-      
-    } else {
-      
-      cout << "Meshgen: unknown generator type\n";
-      cout.flush();
-      
-    }
-       
-    // emit "ok" to the main thread:
-    if(!restart)
-      emit(signalMeshOk());
+  if(generatorType == GEN_TETLIB) {
     
-    mutex.lock();
-    if (!restart) 
-      condition.wait(&mutex);    
-    restart = false;
-    mutex.unlock();    
+    cout << "tetlib: control string: " 
+	 << string(tetgenControlString.toAscii()) << endl;
+    cout << "tetlib: input points: " << in->numberofpoints << endl;
+    cout.flush();
+    
+    out->deinitialize();
+    out->initialize();
+    
+    sprintf(ss, "%s", (const char*)(tetgenControlString.toAscii()));
+    
+    if(delegate_tetrahedralize) 
+      delegate_tetrahedralize(1, NULL, ss, in, out, NULL, NULL);      
+    
+    cout << "tetlib: nodes: " << out->numberofpoints << endl;
+    cout << "tetlib: elements: " << out->numberoftetrahedra << endl;
+    cout << "tetlib: boundary elements: " << out->numberoftrifaces << endl;
+    cout.flush();
+    
+  } else if(generatorType == GEN_NGLIB) {
+    
+    int rv = nglibAPI->Ng_STL_MakeEdges(nggeom, ngmesh, mp);
+    cout << "Make Edges: Ng_result=" << rv << endl;
+    
+    rv = nglibAPI->Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
+    cout << "Generate Surface Mesh: Ng_result=" << rv << endl;
+    
+    rv = nglibAPI->Ng_GenerateVolumeMesh(ngmesh, mp);
+    cout << "Generate Volume Mesh: Ng_result=" << rv << endl;
+    
+    int np = nglibAPI->Ng_GetNP(ngmesh);
+    cout << "Meshing thread: nodes: " << np << endl;
+    
+    int ne = nglibAPI->Ng_GetNE(ngmesh);
+    cout << "Meshing thread: elements: " << ne << endl;
+    
+    int nse = nglibAPI->Ng_GetNSE(ngmesh);
+    cout << "Meshing thread: boundary elements: " << nse << endl;      
+    cout.flush();
+    
+  } else {
+    
+    cout << "Meshgen: unknown generator type\n";
+    cout.flush();
+    
   }
 }

@@ -116,8 +116,11 @@ private slots:
   void compileSolverSlot();       // Solver -> Compile...
   void showaboutSlot();           // Help -> About...
 
-  // other public slots:
-  void meshOkSlot();                  // signal emitted by meshingThread
+  // other private slots:
+  void meshingStartedSlot();          // signal emitted by meshingThread
+  void meshingTerminatedSlot();       // signal emitted by meshingThread
+  void meshingFinishedSlot();         // signal emitted by meshingThread
+
   void boundarySelectedSlot(list_t*); // signal emitted by glWidget
   void doDivideSurfaceSlot(double);   // signal emitted by boundaryDivide
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
@@ -347,6 +350,7 @@ private:
   bool bodyEditActive;
   bool showConvergence;
   QString saveDirName;
+  bool meshingThreadLocked;
 
   // splash screen:
   QPixmap pixmap;
