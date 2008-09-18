@@ -1180,38 +1180,56 @@
                          Solvers(i) % Values, 'Harmonic Analysis', GotIt )
 
                      IF ( EigAnal ) THEN
-                        Var => CurrentModel % Solvers(i) %  Variable
                         IF ( TotalTimesteps == 1 ) THEN
                            DO j=1,CurrentModel % Solvers(i) % NOFEigenValues
-                              IF ( CurrentModel % Solvers(i) % Matrix % Complex ) THEN
-                                 DO k=1,SIZE(Var % Values)/2
-                                    Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
-                                    Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
-                                 END DO
-                              ELSE
-                                 Var % Values = Var % EigenVectors(j,:)
-                              END IF
-
-                              IF ( Mesh % SavesDone /= 0 ) Mesh % SavesDone = j
-                              CALL WritePostFile( PostName,OutputName, CurrentModel, &
-                                 CurrentModel % Solvers(i) % NOFEigenValues, .TRUE. )
+                             Var => Mesh % Variables
+                             DO WHILE(ASSOCIATED(Var))
+                               IF ( .NOT. ASSOCIATED(Var % EigenValues) ) THEN
+                                 Var => Var % Next
+                                 CYCLE
+                               END IF
+                               IF ( CurrentModel % Solvers(i) % Matrix % Complex ) THEN
+                                  DO k=1,SIZE(Var % Values)/2
+                                     Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
+                                     Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
+                                  END DO
+                               ELSE
+                                  Var % Values = Var % EigenVectors(j,:)
+                               END IF
+                               Var => Var % Next
+                             END DO
+  
+                             IF ( Mesh % SavesDone /= 0 ) Mesh % SavesDone = j
+                             CALL WritePostFile( PostName,OutputName, CurrentModel, &
+                                CurrentModel % Solvers(i) % NOFEigenValues, .TRUE. )
                            END DO
                         ELSE
-                           j = MIN( CurrentStep, SIZE( Var % EigenVectors,1 ) )
-                           IF ( CurrentModel % Solvers(i) % Matrix % Complex ) THEN
-                              DO k=1,SIZE(Var % Values)/2
-                                 Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
-                                 Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
-                              END DO
-                           ELSE
-                              Var % Values = Var % EigenVectors(j,:)
-                           END IF
+                           DO WHILE(ASSOCIATED(Var))
+                             IF ( .NOT. ASSOCIATED(Var % EigenValues) ) THEN
+                               Var => Var % Next
+                               CYCLE
+                             END IF
+                             j = MIN( CurrentStep, SIZE( Var % EigenVectors,1 ) )
+                             IF ( CurrentModel % Solvers(i) % Matrix % Complex ) THEN
+                                DO k=1,SIZE(Var % Values)/2
+                                   Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
+                                   Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
+                                END DO
+                             ELSE
+                                Var % Values = Var % EigenVectors(j,:)
+                             END IF
+                             Var => Var % Next
+                           END DO
 
                            IF ( Mesh % SavesDone /= 0 ) Mesh % SavesDone = CurrentStep
                            CALL WritePostFile( PostName,OutputName, CurrentModel, &
                              CurrentModel % Solvers(i) % NOFEigenValues, .TRUE. )
                         END IF
-                        Var % Values = 0.0d0
+
+                        DO WHILE(ASSOCIATED(Var))
+                          IF ( ASSOCIATED(Var % EigenValues) ) Var % Values=0._dp
+                          Var => Var % Next
+                        END DO
                         EXIT
                      END IF
                   END IF

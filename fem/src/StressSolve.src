@@ -329,7 +329,7 @@
               NonlinearTol,s, UzawaParameter
 
      INTEGER ::  MaxIter, MinIter
-     TYPE(Variable_t), POINTER :: StressSol, Var, TimeVar
+     TYPE(Variable_t), POINTER :: StressSol, iVar, Var, TimeVar
 
      CHARACTER(LEN=MAX_NAME_LEN) :: eqname
 
@@ -886,6 +886,7 @@
              CALL ComputeStress( Displacement, NodalStress,  &
                     VonMises, DisplPerm, StressPerm, &
                     NodalStrain, PrincipalStress, PrincipalStrain, Tresca, PrincipalAngle )
+
              CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
              CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
              CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Strain' )
@@ -905,16 +906,146 @@
 
      IF ( CalcStress .OR. CalcStressAll ) THEN
         IF( .NOT. StabilityAnalysis ) THEN
-        CALL ComputeStress( Displacement, NodalStress,  &
-               VonMises, DisplPerm, StressPerm, &
-               NodalStrain, PrincipalStress, PrincipalStrain, Tresca, PrincipalAngle )
-        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
-        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
-        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Strain' )
-        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Principal Stress' )
-        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Principal Strain' )
-        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Tresca' )
-        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Principal Angle' )
+
+          IF ( EigenAnalysis ) THEN
+           Var => VariableGet( Solver % Mesh % Variables, 'Stress' )
+           IF ( .NOT. ASSOCIATED(Var % EigenVectors) ) THEN
+             ALLOCATE( Var % EigenVectors(Solver % NOFEigenValues, &
+              SIZE(Solver % Variable % EigenVectors,2)/STDOFs*6) )
+
+             ALLOCATE( Var % EigenValues(Solver % NOFEigenValues) )
+             Var % EigenValues = Solver % Variable % EigenValues
+
+             DO i=1,6
+              iVar => VariableGet( Solver % Mesh % Variables,ComponentName('Stress',i) )
+              iVar % EigenValues => Var % EigenValues
+              iVar % Eigenvectors(:,:) => Var % EigenVectors(:,i::6)
+             END DO
+           END IF
+
+           Var => VariableGet( Solver % Mesh % Variables, 'VonMises' )
+           IF ( .NOT. ASSOCIATED(Var % EigenVectors) ) THEN
+             ALLOCATE( Var % EigenVectors(Solver % NOFEigenValues, &
+              SIZE(Solver % Variable % EigenVectors,2)/STDOFs) )
+
+             ALLOCATE( Var % EigenValues(Solver % NOFEigenValues) )
+             Var % EigenValues = Solver % Variable % EigenValues
+           END IF
+
+           Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress')
+           IF ( ASSOCIATED(Var) ) THEN
+             IF ( .NOT. ASSOCIATED(Var % EigenVectors) ) THEN
+               ALLOCATE( Var % EigenVectors(Solver % NOFEigenValues, &
+                SIZE(Solver % Variable % EigenVectors,2)/STDOFs*6) )
+
+               ALLOCATE( Var % EigenValues(Solver % NOFEigenValues) )
+               Var % EigenValues = Solver % Variable % EigenValues
+  
+               DO i=1,6
+                iVar => VariableGet( Solver % Mesh % Variables,ComponentName('Principal Stress',i) )
+                iVar % EigenValues => Var % EigenValues
+                iVar % Eigenvectors(:,:) => Var % EigenVectors(:,i::6)
+               END DO
+             END IF
+           END IF
+
+           Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
+           IF ( ASSOCIATED(Var) ) THEN
+             IF ( .NOT. ASSOCIATED(Var % EigenVectors) ) THEN
+               ALLOCATE( Var % EigenVectors(Solver % NOFEigenValues, &
+                SIZE(Solver % Variable % EigenVectors,2)/STDOFs*6) )
+
+               ALLOCATE( Var % EigenValues(Solver % NOFEigenValues) )
+               Var % EigenValues = Solver % Variable % EigenValues
+  
+               DO i=1,6
+                iVar => VariableGet( Solver % Mesh % Variables,ComponentName('Strain',i) )
+                iVar % EigenValues => Var % EigenValues
+                iVar % Eigenvectors(:,:) => Var % EigenVectors(:,i::6)
+               END DO
+             END IF
+           END IF
+
+           Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
+           IF ( ASSOCIATED(Var) ) THEN
+             IF ( .NOT. ASSOCIATED(Var % EigenVectors) ) THEN
+               ALLOCATE( Var % EigenVectors(Solver % NOFEigenValues, &
+                SIZE(Solver % Variable % EigenVectors,2)/STDOFs*6) )
+
+               ALLOCATE( Var % EigenValues(Solver % NOFEigenValues) )
+               Var % EigenValues = Solver % Variable % EigenValues
+  
+               DO i=1,6
+                iVar => VariableGet( Solver % Mesh % Variables,ComponentName('Principal Strain',i) )
+                iVar % EigenValues => Var % EigenValues
+                iVar % Eigenvectors(:,:) => Var % EigenVectors(:,i::6)
+               END DO
+             END IF
+           END IF
+
+           Var => VariableGet( Solver % Mesh % Variables, 'Principal Angle' )
+           IF ( ASSOCIATED(Var) ) THEN
+             IF ( .NOT. ASSOCIATED(Var % EigenVectors) ) THEN
+               ALLOCATE( Var % EigenVectors(Solver % NOFEigenValues, &
+                SIZE(Solver % Variable % EigenVectors,2)/STDOFs*9) )
+
+               ALLOCATE( Var % EigenValues(Solver % NOFEigenValues) )
+               Var % EigenValues = Solver % Variable % EigenValues
+  
+               DO i=1,9
+                iVar => VariableGet( Solver % Mesh % Variables,ComponentName('Principal Angle',i) )
+                iVar % EigenValues => Var % EigenValues
+                iVar % Eigenvectors(:,:) => Var % EigenVectors(:,i::9)
+               END DO
+             END IF
+           END IF
+
+           Var => VariableGet( Solver % Mesh % Variables, 'Tresca' )
+           IF ( ASSOCIATED(Var) ) THEN
+             IF ( .NOT. ASSOCIATED(Var % EigenVectors) ) THEN
+               ALLOCATE( Var % EigenVectors(Solver % NOFEigenValues, &
+                SIZE(Solver % Variable % EigenVectors,2)/STDOFs) )
+
+               ALLOCATE( Var % EigenValues(Solver % NOFEigenValues) )
+               Var % EigenValues = Solver % Variable % EigenValues
+             END IF
+           END IF
+
+           DO i=1,Solver % NOFEigenValues
+             Displacement = Solver % Variable % EigenVectors(i,:)
+
+             CALL ComputeStress( Displacement, NodalStress,  &
+                   VonMises, DisplPerm, StressPerm, &
+                   NodalStrain, PrincipalStress, PrincipalStrain, Tresca, PrincipalAngle )
+
+              Var => VariableGet( Solver % Mesh % Variables, 'Stress' )
+              Var % EigenVectors(i,:) =  NodalStress
+              Var => VariableGet( Solver % Mesh % Variables, 'VonMises' )
+              Var % EigenVectors(i,:) =  VonMises
+              Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress')
+              IF ( ASSOCIATED(Var) ) Var % EigenVectors(i,:) =  PrincipalStress
+              Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
+              IF ( ASSOCIATED(Var) ) Var % EigenVectors(i,:) =  NodalStrain
+              Var => VariableGet( Solver % Mesh % Variables, 'Pricipal Strain' )
+              IF ( ASSOCIATED(Var) ) Var % EigenVectors(i,:) =  PrincipalStrain
+              Var => VariableGet( Solver % Mesh % Variables, 'Tresca' )
+              IF ( ASSOCIATED(Var) ) Var % EigenVectors(i,:) =  Tresca
+              Var => VariableGet( Solver % Mesh % Variables, 'Principal Angle' )
+              IF ( ASSOCIATED(Var) ) Var % EigenVectors(i,:) =  PrincipalAngle
+            END DO
+          ELSE
+            CALL ComputeStress( Displacement, NodalStress,  &
+                 VonMises, DisplPerm, StressPerm, &
+                 NodalStrain, PrincipalStress, PrincipalStrain, Tresca, PrincipalAngle )
+          END IF
+
+          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
+          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
+          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Strain' )
+          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Principal Stress' )
+          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Principal Strain' )
+          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Tresca' )
+          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Principal Angle' )
         END IF
      END IF
 
@@ -1535,6 +1666,8 @@ CONTAINS
      END IF
 
      Model % Solver => StSolver
+     IF ( EigenAnalysis ) &
+       CALL ListAddLogical( stSolver % Values, 'Eigen Analysis', .FALSE. )
 
      Ident = 0.0d0
      DO i=1,3
@@ -1834,6 +1967,8 @@ CONTAINS
 
       DEALLOCATE( Basis, dBasisdx )
       DEALLOCATE( Indexes, LocalDisplacement, MASS, FORCE )
+      IF ( EigenAnalysis ) &
+        CALL ListAddLogical( stSolver % Values, 'Eigen Analysis', .TRUE. )
       CALL ListAddConstReal( StSolver % Values,'Nonlinear System Relaxation Factor', Relax )
 
       Model % Solver => Solver
