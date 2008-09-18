@@ -148,7 +148,7 @@ MainWindow::MainWindow()
   createMenus();
   createToolBars();
   createStatusBar();
-  
+      
   // glWidget emits (list_t*) when a boundary is selected by double clicking:
   connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), 
 	  this, SLOT(boundarySelectedSlot(list_t*)));
@@ -470,6 +470,7 @@ void MainWindow::createActions()
   stopMeshingAct->setStatusTip(tr("Terminate mesh generator"));
   connect(stopMeshingAct, SIGNAL(triggered()), 
 	  this, SLOT(stopMeshingSlot()));
+  stopMeshingAct->setEnabled(false);
 
   // Mesh -> Divide surface
   surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide surface..."), this);
@@ -687,6 +688,7 @@ void MainWindow::createActions()
   killsolverAct->setStatusTip(tr("Kill ElmerSolver"));
   connect(killsolverAct, SIGNAL(triggered()), 
 	  this, SLOT(killsolverSlot()));
+  killsolverAct->setEnabled(false);
 
   // Solver -> Show convergence
   showConvergenceAct = new QAction(QIcon(iconChecked), tr("Show convergence"), this);
@@ -702,8 +704,8 @@ void MainWindow::createActions()
   // Solver -> Kill post process
   killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill postprocessor"), this);
   killresultsAct->setStatusTip(tr("Kill ElmerPost"));
-  connect(killresultsAct, SIGNAL(triggered()), 
-	  this, SLOT(killresultsSlot()));
+  connect(killresultsAct, SIGNAL(triggered()), this, SLOT(killresultsSlot()));
+  killresultsAct->setEnabled(false);
 
   // Solver -> Compiler...
   compileSolverAct = new QAction(QIcon(""), tr("Compiler..."), this);
@@ -988,6 +990,13 @@ void MainWindow::createToolBars()
   solverToolBar = addToolBar(tr("&Solver"));
   solverToolBar->addAction(runsolverAct);
   solverToolBar->addAction(resultsAct);
+
+  if(egIni->isSet("hidetoolbars")) {
+    fileToolBar->hide();
+    editToolBar->hide();
+    meshToolBar->hide();
+    solverToolBar->hide();
+  }
 }
 
 
@@ -4734,6 +4743,7 @@ void MainWindow::remeshSlot()
 
   // Re-enable when finished() or terminated() signal is received:
   remeshAct->setEnabled(false);
+  stopMeshingAct->setEnabled(true);
 
   meshingThread->generate(activeGenerator, tetlibControlString,
 		        tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
@@ -4790,6 +4800,7 @@ void MainWindow::meshingTerminatedSlot()
   }
 
   remeshAct->setEnabled(true);
+  stopMeshingAct->setEnabled(false);
 }
 
 // Mesh is ready (signaled by meshingThread):
@@ -4820,6 +4831,7 @@ void MainWindow::meshingFinishedSlot()
 		    "Select Model->Summary for statistics");
 
   remeshAct->setEnabled(true);
+  stopMeshingAct->setEnabled(false);
 }
 
 
@@ -5751,6 +5763,7 @@ void MainWindow::runsolverSlot()
   // Scalar solution:
   //==================
   solver->start("ElmerSolver");
+  killsolverAct->setEnabled(true);
 
   if(!solver->waitForStarted()) {
     logMessage("Unable to start solver");
@@ -5805,6 +5818,7 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   logMessage("Executing: " + parallelCmd);
 
   solver->start(parallelCmd);
+  killsolverAct->setEnabled(true);
 
   if(!solver->waitForStarted()) {
     solverLogWindow->textEdit->append("Unable to start parallel solver");
@@ -5893,6 +5907,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
     "UpdateObject; ";
 
   post->start("ElmerPost", args);
+  killresultsAct->setEnabled(true);
   
   if(!post->waitForStarted()) {
     logMessage("Unable to start post processor");
@@ -6040,6 +6055,7 @@ void MainWindow::solverFinishedSlot(int)
   runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
   updateSysTrayIcon("ElmerSolver has finished",
 		    "Use Run->Postprocessor to view results");
+  killsolverAct->setEnabled(false);
 }
 
 
@@ -6176,6 +6192,7 @@ void MainWindow::resultsSlot()
     "UpdateObject; ";
 
   post->start("ElmerPost", args);
+  killresultsAct->setEnabled(true);
   
   if(!post->waitForStarted()) {
     logMessage("Unable to start post processor");
@@ -6199,6 +6216,7 @@ void MainWindow::postProcessFinishedSlot(int)
   resultsAct->setIcon(QIcon(":/icons/Post.png"));
   updateSysTrayIcon("Postprocessor has finished",
 		    "Use Run->Run Postprocessor to restart");
+  killresultsAct->setEnabled(false);
 }
 
 
