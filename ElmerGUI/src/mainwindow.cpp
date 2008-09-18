@@ -237,7 +237,6 @@ MainWindow::MainWindow()
   bcEditActive = false;
   bodyEditActive = false;
   showConvergence = egIni->isSet("showconvergence");
-  meshingThreadLocked = false;
 
   // background image:
   glWidget->stateUseBgImage = egIni->isSet("bgimage");
@@ -4679,7 +4678,7 @@ void MainWindow::remeshSlot()
   
   // ***** Threaded generators *****
 
-  if(meshingThreadLocked) {
+  if(!remeshAct->isEnabled()) {
     logMessage("Meshing thread is already running - aborting");
     return;
   }
@@ -4733,8 +4732,8 @@ void MainWindow::remeshSlot()
 
   logMessage("Sending start request to mesh generator...");
 
-  // Unlock when finished() or terminated() signals are received:
-  meshingThreadLocked = true;
+  // Re-enable when finished() or terminated() signal is received:
+  remeshAct->setEnabled(false);
 
   meshingThread->generate(activeGenerator, tetlibControlString,
 		        tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
@@ -4747,7 +4746,7 @@ void MainWindow::remeshSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::stopMeshingSlot()
 {
-  if(!meshingThreadLocked) {
+  if(remeshAct->isEnabled()) {
     logMessage("Mesh generator is not running");
     return;
   }
@@ -4775,8 +4774,6 @@ void MainWindow::meshingStartedSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::meshingTerminatedSlot()
 {
-  meshingThreadLocked = false;
-
   logMessage("Mesh generator terminated");
 
   updateSysTrayIcon("Mesh generator terminated",
@@ -4791,14 +4788,14 @@ void MainWindow::meshingTerminatedSlot()
     cout << "done" << endl;
     cout.flush();
   }
+
+  remeshAct->setEnabled(true);
 }
 
 // Mesh is ready (signaled by meshingThread):
 //-----------------------------------------------------------------------------
 void MainWindow::meshingFinishedSlot()
 {
-  meshingThreadLocked = false;
-
   logMessage("Mesh generation ready");
 
   if(activeGenerator == GEN_TETLIB) {
@@ -4822,6 +4819,7 @@ void MainWindow::meshingFinishedSlot()
   updateSysTrayIcon("Mesh generator has finished",
 		    "Select Model->Summary for statistics");
 
+  remeshAct->setEnabled(true);
 }
 
 

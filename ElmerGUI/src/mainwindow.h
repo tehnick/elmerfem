@@ -350,7 +350,6 @@ private:
   bool bodyEditActive;
   bool showConvergence;
   QString saveDirName;
-  bool meshingThreadLocked;
 
   // splash screen:
   QPixmap pixmap;
