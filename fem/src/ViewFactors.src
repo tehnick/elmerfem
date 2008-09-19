@@ -82,9 +82,10 @@
 
      INTEGER :: divide
      REAL(KIND=dp) :: AreaEPS, RayEPS, FactEPS
+     REAL(KIND=dp) :: at0, CPUTime
 
      INTEGER, POINTER :: Timesteps(:)
-     INTEGER :: TimeIntervals,interval,timestep
+     INTEGER :: TimeIntervals,interval,timestep,combineInt
      
      LOGICAL :: CylindricSymmetry,GotIt, Found, Radiation
 
@@ -93,7 +94,7 @@
 
      TYPE(Element_t), POINTER :: RadElements(:)
      INTEGER :: RadiationBody, MaxRadiationBody
-     LOGICAL :: RadiationOpen
+     LOGICAL :: RadiationOpen, Combine
 
      EXTERNAL Matvec,DiagPrec
 
@@ -405,11 +406,23 @@
        END DO
        
        CALL Info( 'ViewFactors', 'Computing viewfactors...', Level=4 )
+
+       at0 = CPUTime()
        
        IF ( CylindricSymmetry ) THEN
          divide = GetInteger( GetSolverParams(), 'Viewfactor divide',GotIt)
          IF ( .NOT. GotIt ) Divide = 1
-         CALL ViewFactorsAxis( N, Surfaces, Coords, Factors, divide )
+
+         Combine = GetLogical( GetSolverParams(), 'Viewfactor combine elements',GotIt)
+         IF ( .NOT. GotIt ) Combine = .TRUE.
+	 
+         IF( Combine ) THEN
+           CombineInt = 1
+         ELSE
+           CombineInt = 0
+         END IF
+		
+         CALL ViewFactorsAxis( N, Surfaces, Coords, Factors, divide, CombineInt )
        ELSE
          AreaEPS = GetConstReal( GetSolverParams(), 'Viewfactor Area Tolerance',  GotIt )
          IF ( .NOT. GotIt ) AreaEPS = 1.0d-1
@@ -420,7 +433,9 @@
          CALL ViewFactors3D( N, Surfaces, TYPE, Coords, Normals, &
              Factors, AreaEPS, FactEPS, RayEPS, 4, 3 )
        END IF
-       CALL Info( 'ViewFactors', '...Done.', Level=4 )
+       
+       WRITE (Message,'(A,F8.2)') 'View factors computed in time (s):',CPUTime()-at0		
+       CALL Info( 'ViewFactors',Message, Level=3 )
        
        
        DO i=1,N
@@ -451,6 +466,8 @@
        
        
        IF(.NOT. RadiationOpen) THEN
+         at0 = CPUTime()
+
          CALL Info( 'ViewFactors', 'Normalizing Factors... ', Level=3 )
          CALL NormalizeFactors( Model )
          
@@ -467,8 +484,9 @@
              FMax = MAX( FMax,s )
            END IF
          END DO
-         CALL Info( 'ViewFactors', 'Done... ', Level=3 )
-         
+         WRITE (Message,'(A,F8.2)') 'View factors normalized in time (s):',CPUTime()-at0		
+         CALL Info( 'ViewFactors',Message, Level=3 )
+          
          CALL Info( 'ViewFactors', ' ', Level=3 )
          CALL info( 'ViewFactors', 'Viewfactors after normalizing: ', Level=3 )
          CALL Info( 'ViewFactors', ' ', Level=3 )
