@@ -902,7 +902,7 @@ GLuint GLWidget::makeLists()
 {
   int i;
 
-  if(mesh == NULL) {
+  if((mesh == NULL) || mesh->isUndefined()) {
     lists = 0;
     return 0;
   }
@@ -920,7 +920,7 @@ GLuint GLWidget::makeLists()
   // - A list of sharp edges will always be drawn (even if it is empty)
   //---------------------------------------------------------------------------
   
-  // Simultaneously, construct hash for mapping bosy & boundary incides:
+  // Simultaneously, construct hash for mapping body & boundary incides:
   boundaryMap.clear();
   bodyMap.clear();
   int boundaryCount = 0;

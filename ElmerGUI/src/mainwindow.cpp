@@ -466,14 +466,16 @@ void MainWindow::createActions()
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
 
   // Mesh -> Kill generator
-  stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), tr("&Terminate"), this);
+  stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), 
+			       tr("&Terminate meshing"), this);
   stopMeshingAct->setStatusTip(tr("Terminate mesh generator"));
   connect(stopMeshingAct, SIGNAL(triggered()), 
 	  this, SLOT(stopMeshingSlot()));
   stopMeshingAct->setEnabled(false);
 
   // Mesh -> Divide surface
-  surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide surface..."), this);
+  surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), 
+				 tr("&Divide surface..."), this);
   surfaceDivideAct->setStatusTip(tr("Divide surface by sharp edges"));
   connect(surfaceDivideAct, SIGNAL(triggered()), 
 	  this, SLOT(surfaceDivideSlot()));
@@ -678,7 +680,7 @@ void MainWindow::createActions()
 	  this, SLOT(parallelSettingsSlot()));
 
   // Solver -> Run solver
-  runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Run solver"), this);
+  runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Start solver"), this);
   runsolverAct->setStatusTip(tr("Run ElmerSolver"));
   connect(runsolverAct, SIGNAL(triggered()), 
 	  this, SLOT(runsolverSlot()));
@@ -696,7 +698,7 @@ void MainWindow::createActions()
   connect(showConvergenceAct, SIGNAL(triggered()), this, SLOT(showConvergenceSlot()));
 
   // Solver -> Post process
-  resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Run postprocessor"), this);
+  resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Start postprocessor"), this);
   resultsAct->setStatusTip(tr("Run ElmerPost for visualization"));
   connect(resultsAct, SIGNAL(triggered()), 
 	  this, SLOT(resultsSlot()));
@@ -890,7 +892,14 @@ void MainWindow::createMenus()
   sysTrayMenu = new QMenu;
   sysTrayMenu->addAction(modelSummaryAct);
   sysTrayMenu->addSeparator();
+  sysTrayMenu->addAction(stopMeshingAct);
+  sysTrayMenu->addSeparator();
+  sysTrayMenu->addAction(killsolverAct);
+  sysTrayMenu->addAction(killresultsAct);
+  sysTrayMenu->addSeparator();
   sysTrayMenu->addAction(aboutAct);
+  sysTrayMenu->addSeparator();
+  sysTrayMenu->addAction(exitAct);
 
   // Disable unavailable external components:
   //------------------------------------------
@@ -4740,6 +4749,10 @@ void MainWindow::remeshSlot()
   // ***** Start meshing thread *****
 
   logMessage("Sending start request to mesh generator...");
+
+  meshutils->clearMesh(glWidget->mesh);
+  glWidget->mesh = new mesh_t;
+  mesh_t *mesh = glWidget->mesh;
 
   // Re-enable when finished() or terminated() signal is received:
   remeshAct->setEnabled(false);

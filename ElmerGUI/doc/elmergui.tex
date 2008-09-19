@@ -88,7 +88,7 @@ Later, it is possible to upgrade ElmerGUI by typing
 $ svn update
 $ make
 \end{verbatim}
-and by copying the executable in {\tt ELMERGUI\_HOME}.
+and by copying the executable and the edf directory in {\tt ELMERGUI\_HOME}.
 
 
 \subsection{Windows}
@@ -165,7 +165,7 @@ The mesh generator is reactivated from the Mesh menu by choosing
 
 \menu{Mesh}{Remesh}
 \noindent In case of problems, the meshing thread may be terminated from
-\menu{Mesh}{Terminate}
+\menu{Mesh}{Terminate meshing}
 
 \subsection{Elmer mesh files}
 
@@ -468,7 +468,7 @@ same directory, avoiding possible inconsistencies later on.
 
 Once the solver input file has been generated and the project has been saved,
 it is possible to actualy solve the problem:
-\menu{Run}{Run solver}
+\menu{Run}{Start solver}
 \noindent This will launch either a single process for ElmerSolver (scalar solution)
 or multiple MPI-processes for ElmerSolver\_mpi (parallel solution) depending on the
 definitions in
@@ -499,7 +499,7 @@ The name of the ep-file is defined in
 \subsection{Post preocessor}
 
 The post processor is activated from
-\menu{Run}{Run postprocessor}
+\menu{Run}{Start postprocessor}
 \noindent This will launch ElmerPost, which will read in the results and displays
 a contour plot representing the solution. If the results were prodoced by the parallel solver, the domain decomposition used in the calculations will be shown.
 
@@ -518,6 +518,7 @@ The initialization file for ElmerGUI is located in {\tt ELMERGUI\_HOME/edf}. It 
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE egini>
 <egini version="1.0">
+
   Show splash screen at startup:
   <splashscreen> 1 </splashscreen>
 
@@ -531,7 +532,10 @@ The initialization file for ElmerGUI is located in {\tt ELMERGUI\_HOME/edf}. It 
   <systraymsgduration> 3000 </systraymsgduration>
 
   Check the presence of external components:
-  <checkexternalcomponents> 1 </checkexternalcomponents>
+  <checkexternalcomponents> 0 </checkexternalcomponents>
+
+  Hide toolbars:
+  <hidetoolbars> 0 </hidetoolbars>
 
   Plot convergence view:
   <showconvergence> 1 </showconvergence>
