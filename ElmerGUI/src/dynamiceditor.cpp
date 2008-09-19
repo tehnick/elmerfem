@@ -38,8 +38,6 @@
  *                                                                           *
  *****************************************************************************/
 
-
-
 #include <QtGui>
 #include <iostream>
 #include "dynamiceditor.h"
