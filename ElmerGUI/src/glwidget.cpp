@@ -1656,13 +1656,13 @@ void GLWidget::drawBgImage()
     yshift = 0.0;
   }
   
+  glDisable(GL_DEPTH_TEST);
   glPushMatrix();
   glLoadIdentity();  
   glColor3d(1, 1, 1);
   glDisable(GL_LIGHTING);
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, bgTexture);
-  glDisable(GL_DEPTH_TEST);
   
   glBegin(GL_QUADS);    
   glTexCoord2d(0, 0);
@@ -1675,10 +1675,10 @@ void GLWidget::drawBgImage()
   glVertex3d(-width+xshift, +height+yshift, -depth);
   glEnd();  
   
-  glEnable(GL_DEPTH_TEST);
   glDisable(GL_TEXTURE_2D);
   glEnable(GL_LIGHTING);
   glPopMatrix();
+  glEnable(GL_DEPTH_TEST);
   glEndList();
 }
 
