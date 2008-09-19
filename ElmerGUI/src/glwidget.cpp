@@ -1638,7 +1638,7 @@ void GLWidget::drawBgImage()
 
   double width = 1.0;
   double height = 1.0;
-  double depth = 5.0;
+  double depth = 0.0;
   double xshift = 0.0;
   double yshift = 0.0;
 
@@ -1662,6 +1662,7 @@ void GLWidget::drawBgImage()
   glDisable(GL_LIGHTING);
   glEnable(GL_TEXTURE_2D);
   glBindTexture(GL_TEXTURE_2D, bgTexture);
+  glDisable(GL_DEPTH_TEST);
   
   glBegin(GL_QUADS);    
   glTexCoord2d(0, 0);
@@ -1674,6 +1675,7 @@ void GLWidget::drawBgImage()
   glVertex3d(-width+xshift, +height+yshift, -depth);
   glEnd();  
   
+  glEnable(GL_DEPTH_TEST);
   glDisable(GL_TEXTURE_2D);
   glEnable(GL_LIGHTING);
   glPopMatrix();
