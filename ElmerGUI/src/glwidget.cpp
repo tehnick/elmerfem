@@ -1638,7 +1638,7 @@ void GLWidget::drawBgImage()
 
   double width = 1.0;
   double height = 1.0;
-  double depth = 10.0;
+  double depth = 9.9;
   double xshift = 0.0;
   double yshift = 0.0;
 
