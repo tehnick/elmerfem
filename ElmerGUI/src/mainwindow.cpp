@@ -3917,10 +3917,14 @@ void MainWindow::viewFullScreenSlot()
 {
   if(!isFullScreen()) {
     cout << "Switching to full screen mode" << endl;
-    showFullScreen();
+    fileToolBar->hide();
+    editToolBar->hide();
+    meshToolBar->hide();
+    solverToolBar->hide();
+    statusBar()->hide();
+    this->showFullScreen();
   } else {
-    cout << "Switching to normal window mode" << endl;
-    showNormal();
+    viewNormalModeSlot();
   }
   synchronizeMenuToState();
 }
@@ -3931,9 +3935,17 @@ void MainWindow::viewNormalModeSlot()
 {
   if(isFullScreen()) {
     cout << "Switching to normal window mode" << endl;
-    showNormal();
-    synchronizeMenuToState();
+    this->showNormal();
+    statusBar()->show();
+    if(!egIni->isSet("hidetoolbars")) {
+      fileToolBar->show();
+      editToolBar->show();
+      meshToolBar->show();
+      solverToolBar->show();
+    }
   }
+  synchronizeMenuToState();
+  statusBar()->showMessage(tr("Ready"));
 }
 
 
@@ -6728,6 +6740,9 @@ void MainWindow::updateSysTrayIcon(QString label, QString msg)
     return;
 
   if(!egIni->isSet("systraymessages"))
+    return;
+
+  if(isFullScreen())
     return;
   
   if(egIni->isPresent("systraymsgduration"))
