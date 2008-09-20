@@ -500,6 +500,9 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
 
   if((event->key() == Qt::Key_Alt) || (event->key() == Qt::Key_AltGr))
     altPressed = true;
+
+  if(event->key() == Qt::Key_Escape)
+    emit(escPressed());
 }
 
 

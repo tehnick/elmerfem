@@ -153,6 +153,9 @@ MainWindow::MainWindow()
   connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), 
 	  this, SLOT(boundarySelectedSlot(list_t*)));
 
+  // glWidget emits (void) when esc has been pressed:
+  connect(glWidget, SIGNAL(escPressed()), this, SLOT(viewNormalModeSlot()));
+
   // meshingThread emits (void) when the mesh generation has finished or terminated:
   connect(meshingThread, SIGNAL(started()), this, SLOT(meshingStartedSlot()));
   connect(meshingThread, SIGNAL(finished()), this, SLOT(meshingFinishedSlot()));
@@ -504,6 +507,12 @@ void MainWindow::createActions()
   connect(cleanHangingSharpEdgesAct, SIGNAL(triggered()), 
 	  this, SLOT(cleanHangingSharpEdgesSlot()));
 
+  // View -> Full screen
+  viewFullScreenAct = new QAction(QIcon(), tr("Full screen"), this);
+  viewFullScreenAct->setStatusTip(tr("Full screen mode"));
+  connect(viewFullScreenAct, SIGNAL(triggered()), 
+	  this, SLOT(viewFullScreenSlot()));
+
   // View -> Show surface mesh
   hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
   hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh "
@@ -817,6 +826,8 @@ void MainWindow::createMenus()
 
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));  
+  viewMenu->addAction(viewFullScreenAct);
+  viewMenu->addSeparator();
   viewMenu->addAction(hidesurfacemeshAct);
   viewMenu->addAction(hidevolumemeshAct);
   viewMenu->addAction(hidesharpedgesAct);
@@ -3516,10 +3527,6 @@ void MainWindow::bcBoundaryChanged(int state)
 }
 
 
-
-
-
-
 // Model -> Set body properties
 //-----------------------------------------------------------------------------
 void MainWindow::bodyEditSlot()
@@ -3902,6 +3909,32 @@ void MainWindow::modelClearSlot()
 //                                View MENU
 //
 //*****************************************************************************
+
+
+// View -> Full screen
+//-----------------------------------------------------------------------------
+void MainWindow::viewFullScreenSlot()
+{
+  if(!isFullScreen()) {
+    cout << "Switching to full screen mode" << endl;
+    showFullScreen();
+  } else {
+    cout << "Switching to normal window mode" << endl;
+    showNormal();
+  }
+  synchronizeMenuToState();
+}
+
+// Return to normal mode (GLWidget emits (void) when esc is pressed)...
+//-----------------------------------------------------------------------------
+void MainWindow::viewNormalModeSlot()
+{
+  if(isFullScreen()) {
+    cout << "Switching to normal window mode" << endl;
+    showNormal();
+    synchronizeMenuToState();
+  }
+}
 
 
 // View -> Surface mesh
@@ -6465,6 +6498,11 @@ void MainWindow::synchronizeMenuToState()
     showBodyColorAct->setIcon(iconChecked);
   else
     showBodyColorAct->setIcon(iconEmpty);
+
+  if(isFullScreen())
+    viewFullScreenAct->setIcon(iconChecked);
+  else
+    viewFullScreenAct->setIcon(iconEmpty);
 }
 
 

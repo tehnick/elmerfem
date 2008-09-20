@@ -120,6 +120,7 @@ private slots:
   void edgeUnifySlot();           // Mesh -> Unify edge
   void edgeDivideSlot();          // Mesh -> Divide edge...
   void cleanHangingSharpEdgesSlot(); // Mesh -> Clean up
+  void viewFullScreenSlot();      // View -> Full screen
   void hidesurfacemeshSlot();     // View -> Surface mesh
   void hidevolumemeshSlot();      // View -> Volume mesh
   void hidesharpedgesSlot();      // View -> Sharp edges
@@ -211,6 +212,8 @@ private slots:
   void bcBoundaryChanged(int);
   void equationBodyChanged(int);
 
+  void viewNormalModeSlot();
+
 private:
   // widgets and helpers:
   GLWidget *glWidget;             // central gl widget
@@ -277,6 +280,7 @@ private:
   QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
   QAction *editDefinitionsAct;    // Edit -> Edit SIF...
+  QAction *viewFullScreenAct;     // View -> Full screen
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
   QAction *hidevolumemeshAct;     // View -> Show volume mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges

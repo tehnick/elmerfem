@@ -136,6 +136,7 @@ public slots:
 
 signals:
   void signalBoundarySelected(list_t*);
+  void escPressed();
 
 protected:
   void initializeGL();
