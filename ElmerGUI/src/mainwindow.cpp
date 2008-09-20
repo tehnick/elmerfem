@@ -4012,16 +4012,12 @@ void MainWindow::hidesharpedgesSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::viewCoordinatesSlot()
 {
-  glWidget->stateDrawCoordinates = !glWidget->stateDrawCoordinates;
+  if( glWidget->toggleCoordinates() )
+    logMessage("Coordinates shown");
+  else 
+    logMessage("Cordinates hidden");
 
   synchronizeMenuToState();
-
-  if ( !glWidget->stateDrawCoordinates )
-    logMessage("Coordinates hidden");
-  else 
-    logMessage("Cordinates shown");
-
-  glWidget->updateGL();
 }
 
 
@@ -4757,10 +4753,10 @@ void MainWindow::remeshSlot()
   // Re-enable when finished() or terminated() signal is received:
   remeshAct->setEnabled(false);
   stopMeshingAct->setEnabled(true);
+  glWidget->enableIndicator(true);
 
   meshingThread->generate(activeGenerator, tetlibControlString,
-		        tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
-
+			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 }
 
 
@@ -4814,6 +4810,7 @@ void MainWindow::meshingTerminatedSlot()
 
   remeshAct->setEnabled(true);
   stopMeshingAct->setEnabled(false);
+  glWidget->enableIndicator(false);
 }
 
 // Mesh is ready (signaled by meshingThread):
@@ -4845,6 +4842,7 @@ void MainWindow::meshingFinishedSlot()
 
   remeshAct->setEnabled(true);
   stopMeshingAct->setEnabled(false);
+  glWidget->enableIndicator(false);
 }
 
 

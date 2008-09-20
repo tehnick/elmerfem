@@ -50,6 +50,22 @@
 
 using namespace std;
 
+list_t::list_t()
+{
+  nature = PDE_UNKNOWN;
+  type = UNKNOWNLIST;
+  index = -1;
+  object = 0;
+  child = -1;
+  parent = -1;
+  selected = false;
+  visible = false;
+}
+
+list_t::~list_t()
+{
+}
+
 // Construct glWidget...
 //-----------------------------------------------------------------------------
 GLWidget::GLWidget(QWidget *parent)
@@ -75,6 +91,7 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawBodyIndex = false;
   stateBcColors = false;
   stateBodyColors = false;
+  stateDrawIndicator = false;
 
   currentlySelectedBody = -1;
 
@@ -95,7 +112,14 @@ GLWidget::GLWidget(QWidget *parent)
   altPressed = false;
 
   // Coordinate axis:
-  quadratic = gluNewQuadric();	
+  quadric_axis = gluNewQuadric();
+
+  // Indicator for mesh generator:
+  quadric_indicator = gluNewQuadric();
+  indicatorTimer = new QTimer(this);
+  connect(indicatorTimer, SIGNAL(timeout()),
+	  this, SLOT(updateIndicator()));
+  indicatorColor = 0.0;
 
   // Background image:
   stateUseBgImage = false;
@@ -208,7 +232,13 @@ void GLWidget::paintGL()
   // Background image:
   if(stateUseBgImage)
     drawBgImage();
-  
+
+  // Draw an indicator when meshgen is running:
+  if(stateDrawIndicator) {
+    drawIndicator();
+    return;
+  }
+
   // FE objects:
   if(lists) {
     for(int i=0; i<(int)lists; i++) {
@@ -272,9 +302,10 @@ void GLWidget::paintGL()
     }
   }
 
+
   if(stateDrawCoordinates) {
     // push a dummy name
-    glPushName(0xffffffff);
+    glPushName(DUMMY_NAME);
     drawCoordinates();
     glPopName();
   }
@@ -425,6 +456,7 @@ void GLWidget::paintGL()
       glMatrixMode(GL_MODELVIEW);
     }
   }
+
 }
 
 
@@ -501,7 +533,7 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::wheelEvent(QWheelEvent *event)
 {
-  double s = exp(-(double)(event->delta())*0.001);
+  double s = exp((double)(event->delta())*0.001);
   glScaled(s, s, s);
   updateGL();
   lastPos = event->pos();
@@ -527,7 +559,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
        (event->buttons() & Qt::RightButton)) ) {
 
     // Scale:
-    double s = exp(-dy*0.01);
+    double s = exp(dy*0.01);
     glScaled(s, s, s);
     updateGL();
 
@@ -614,8 +646,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
   hits = glRenderMode(GL_RENDER);
   
-  GLuint smallestz = 0xffffffff;
-  GLuint nearest = 0xffffffff;
+  GLuint smallestz = DUMMY_NAME;
+  GLuint nearest = DUMMY_NAME;
 
   if(hits != 0) {
     for (i=0, j=0; i<hits; i++) {
@@ -636,7 +668,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glMatrixMode(GL_MODELVIEW);
 
   // highlight the selected boundary:
-  if(nearest != 0xffffffff) {
+  if(nearest != DUMMY_NAME) {
     list_t *l = &list[nearest];
 
     // skip sharp edge lists
@@ -1582,20 +1614,20 @@ void GLWidget::drawCoordinates()
 
   // z-axis
   glColor3d(0, 0, 1);
-  gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  gluCylinder(quadric_axis, 0.02, 0.0, 0.2, 8, 8);  
   renderText(0.0, 0.0, 0.25, "Z");
 
   // x-axis
   glColor3d(1, 0, 0);
   glRotated(90, 0, 1, 0);
-  gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  gluCylinder(quadric_axis, 0.02, 0.0, 0.2, 8, 8);  
   renderText(0.0, 0.0, 0.25, "X");
   glRotated(-90, 0, 1, 0);
 
   // y-axis
   glColor3d(0, 1, 0);
   glRotated(-90, 1, 0, 0);
-  gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  gluCylinder(quadric_axis, 0.02, 0.0, 0.2, 8, 8);  
   renderText(0.0, 0.0, 0.25, "Y");
   glRotated(90, 1, 0, 0);
   
@@ -1606,6 +1638,69 @@ void GLWidget::drawCoordinates()
 
   return;
 }
+
+bool GLWidget::toggleCoordinates()
+{
+  stateDrawCoordinates = !stateDrawCoordinates;
+  updateGL();
+  return stateDrawCoordinates;
+}
+
+// Draw a red spehere to indicate ongoing action...
+//-----------------------------------------------------------------------------
+void GLWidget::drawIndicator()
+{
+  GLint viewport[4];
+
+  glGetIntegerv(GL_VIEWPORT, viewport);  
+
+  double relX = (double)viewport[2] / (double)viewport[3] - 0.1;
+
+  glDisable(GL_DEPTH_TEST);
+  glPushMatrix();
+  glLoadIdentity();
+  glTranslated(relX, -0.9, 0.0);
+
+  glColor3d(indicatorColor, 0, 0);
+  drawSphere(16, 16, 0.05);
+  // glColor3d(1, 0, 0);
+  // gluSphere(quadric_indicator, 0.05, 16, 16);
+
+  glPopMatrix();
+  glEnable(GL_DEPTH_TEST);
+}
+
+// Enable/disable indicator...
+//-----------------------------------------------------------------------------
+void GLWidget::enableIndicator(bool set)
+{
+  stateDrawIndicator = set;
+  updateGL();
+
+  if(stateDrawIndicator) {
+    indicatorTimer->start(50);
+  } else {
+    indicatorTimer->stop();
+  }
+}
+
+// Slot for indicator timer timeout...
+//-----------------------------------------------------------------------------
+void GLWidget::updateIndicator()
+{
+  static float pos = 0.0;
+
+  pos += 0.2;
+
+  if(pos > 1000.0 * M_PI)
+    pos = 0.0;
+
+  indicatorColor = (1.0 + sin(pos)) / 2.0;
+
+  drawIndicator();
+  updateGL();
+}
+
 
 // Draw background image...
 //-----------------------------------------------------------------------------
@@ -1679,12 +1774,84 @@ void GLWidget::drawBgImage()
   glEnable(GL_LIGHTING);
   glPopMatrix();
   glEnable(GL_DEPTH_TEST);
-  glEndList();
 }
 
+
+// Auxiliary function for changing the direction of a vector...
+//---------------------------------------------------------------------------
 void GLWidget::changeNormalDirection(double *u, double *v)
 {
   u[0] = -v[0];
   u[1] = -v[1];
   u[2] = -v[2];
+}
+
+// Auxiliary function for drawing a sphere (equivalent to gluSphere):
+//---------------------------------------------------------------------------
+void GLWidget::drawSphere(int stacks, int slices, float radius) {
+  float off_H = M_PI / (float)stacks;
+  float off_R = M_PI * 2.0 / (float)slices;
+  float a, b, v[3];
+  int st, sl;
+  
+  glBegin(GL_TRIANGLE_FAN);
+
+  v[0] = 0.0;
+  v[1] = 1.0;
+  v[2] = 0.0;
+  glNormal3fv(v);
+  glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
+
+  for(sl = 0; sl < slices+1; sl++) {
+    a = (float)sl * off_R;
+    v[0] = sin(a) * sin(off_H);
+    v[2] = cos(a) * sin(off_H);
+    v[1] = cos(off_H);
+    glNormal3fv(v);
+    glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
+  }
+
+  glEnd();
+
+  glBegin(GL_TRIANGLE_FAN);
+
+  v[0] = 0.0;
+  v[2] = 0.0;
+  v[1] = -1.0;
+  glNormal3fv(v);
+  glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
+
+  for(sl = slices; sl >= 0; sl--) {
+    a = (float)sl * off_R;
+    v[0] = sin(a) * sin(M_PI-off_H);
+    v[2] = cos(a) * sin(M_PI-off_H);
+    v[1] = cos(M_PI-off_H);
+    glNormal3fv(v);
+    glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
+  }
+
+  glEnd();
+  
+  for(st = 1; st < stacks-1; st++) {
+    b = (float)st * off_H;
+
+    glBegin(GL_QUAD_STRIP);
+
+    for(sl = 0; sl < slices+1; sl++) {
+      a = (float)sl * off_R;
+      v[0] = sin(a) * sin(b);
+      v[2] = cos(a) * sin(b);
+      v[1] = cos(b);
+      glNormal3fv(v);
+      glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
+
+      v[0] = sin(a) * sin(b+off_H);
+      v[2] = cos(a) * sin(b+off_H);
+      v[1] = cos(b+off_H);
+      glNormal3fv(v);
+      glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
+    }
+
+    glEnd();
+  }
 }

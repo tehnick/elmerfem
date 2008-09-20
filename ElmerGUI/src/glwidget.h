@@ -47,17 +47,24 @@ enum ListTypes {
   SURFACELIST,
   SURFACEMESHLIST,
   SHARPEDGELIST,
-  VOLUMEMESHLIST
+  VOLUMEMESHLIST,
+  UNKNOWNLIST
 };
 
 #include <QGLWidget>
 #include <QHash>
 #include <QGLPixelBuffer>
+#include <QTimer>
 #include "helpers.h"
 #include "meshutils.h"
 
+#define DUMMY_NAME 0xffffffff
+
 class list_t {
  public:
+  list_t();
+  ~list_t();
+
   int nature;        // PDE_UNKNOWN, PDE_BOUNDARY, PDE_BULK, ...
   int type;          // POINTLIST, EDGELIST, SURFACELIST, ...
   int index;         // Boundary condition as defined in input file
@@ -84,11 +91,14 @@ public:
   int lists;
   list_t *list;
 
-  GLuint makeLists();
   void rebuildLists();
   void rebuildSurfaceLists(void);
   void rebuildEdgeLists(void);
+
+  bool toggleCoordinates();
+  void enableIndicator(bool);
   
+  // public state variables:
   bool stateFlatShade;
   bool stateDrawSurfaceMesh;
   bool stateDrawVolumeMesh;
@@ -110,9 +120,9 @@ public:
   bool stateUseBgImage;
   bool stateStretchBgImage;
   bool stateAlignRightBgImage;
+  bool stateDrawIndicator;
   QString bgImageFileName;
   int currentlySelectedBody;
-
   QColor backgroundColor;
   QColor surfaceColor;
   QColor edgeColor;
@@ -143,6 +153,8 @@ protected:
 private:
   Helpers *helpers;
   Meshutils *meshutils;
+
+  GLuint makeLists();
   
   GLdouble matrix[16];
   GLdouble invmatrix[16];
@@ -156,8 +168,11 @@ private:
   GLuint generateEdgeList(int, QColor);
   GLuint generateSharpEdgeList(QColor);
   
-  GLUquadricObj *quadratic;
+  GLUquadricObj *quadric_axis;
   void drawCoordinates();
+
+  GLUquadricObj *quadric_indicator;
+  void drawIndicator();
 
   double drawTranslate[3];
   double drawScale;
@@ -168,6 +183,13 @@ private:
   void drawBgImage();
 
   void changeNormalDirection(double*, double*);
+  void drawSphere(int, int, float);
+  QTimer *indicatorTimer;
+  float indicatorColor;
+
+private slots:
+  void updateIndicator();
+
 };
 
 #endif
