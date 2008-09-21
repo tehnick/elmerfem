@@ -149,6 +149,7 @@ MainWindow::MainWindow()
       
   // Always, when an action from the menu bar has been selected, synchronize menu to state:
   connect(menuBar(), SIGNAL(triggered(QAction*)), this, SLOT(menuBarTriggeredSlot(QAction*)));
+  connect(contextMenu, SIGNAL(triggered(QAction*)), this, SLOT(menuBarTriggeredSlot(QAction*)));
 
   // glWidget emits (list_t*) when a boundary is selected by double clicking:
   connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), 
@@ -3949,7 +3950,7 @@ void MainWindow::viewNormalModeSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
-  // if(isFullScreen())
+  if(isFullScreen())
     contextMenu->popup(event->pos());
 }
 
