@@ -48,6 +48,7 @@
 #include <QtUiTools>
 #include <QColorDialog>
 #include <QSystemTrayIcon>
+#include <QContextMenuEvent>
 #include "maxlimits.h"
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
@@ -88,6 +89,9 @@ class MainWindow : public QMainWindow
 public:
   MainWindow();
   ~MainWindow();
+
+protected:
+  void contextMenuEvent(QContextMenuEvent *event);
 
 private slots:
   // menu slots:
@@ -214,6 +218,8 @@ private slots:
 
   void viewNormalModeSlot();
 
+  void menuBarTriggeredSlot(QAction*);
+
 private:
   // widgets and helpers:
   GLWidget *glWidget;             // central gl widget
@@ -252,7 +258,8 @@ private:
   QMenu *meshMenu;                // Mesh menu
   QMenu *solverMenu;              // Solver menu
   QMenu *helpMenu;                // Help menu
-  QMenu *sysTrayMenu;             // System tray context menu
+  QMenu *sysTrayMenu;             // System tray menu
+  QMenu *contextMenu;             // Context menu
 
   QToolBar *fileToolBar;          // File toolbar
   QToolBar *editToolBar;          // Edit toolbar
@@ -346,10 +353,6 @@ private:
   // elmer definitions:
   QDomDocument *elmerDefs;
 
-  // images:
-  QIcon iconChecked;
-  QIcon iconEmpty;
-
   // tetlib:
   bool tetlibPresent;
   TetlibAPI *tetlibAPI;
@@ -383,10 +386,10 @@ private:
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
   void logMessage(QString);
-  void synchronizeMenuToState();
   void loadDefinitions();
   void createBoundaryCheckBoxes(DynamicEditor *);
   void createBodyCheckBoxes(int,DynamicEditor *);
+  void synchronizeMenuToState();
 
   // state variables:
   int activeGenerator;

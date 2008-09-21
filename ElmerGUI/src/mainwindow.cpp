@@ -79,10 +79,8 @@ MainWindow::MainWindow()
   // splash screen:
   setupSplash();
 
-  // load images and icons for the main window:
+  // load splash screen:
   updateSplash("Loading images...");
-  iconChecked = QIcon(":/icons/dialog-ok.png");
-  iconEmpty = QIcon("");
   
   // load tetlib:
   updateSplash("Loading tetlib...");
@@ -149,6 +147,9 @@ MainWindow::MainWindow()
   createToolBars();
   createStatusBar();
       
+  // Always, when an action from the menu bar has been selected, synchronize menu to state:
+  connect(menuBar(), SIGNAL(triggered(QAction*)), this, SLOT(menuBarTriggeredSlot(QAction*)));
+
   // glWidget emits (list_t*) when a boundary is selected by double clicking:
   connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), 
 	  this, SLOT(boundarySelectedSlot(list_t*)));
@@ -272,6 +273,7 @@ MainWindow::~MainWindow()
 }
 
 
+
 // Set limits for dynamic editors, materials, bcs, etc...
 //-----------------------------------------------------------------------------
 void MainWindow::setDynamicLimits()
@@ -319,6 +321,14 @@ void MainWindow::setDynamicLimits()
 }
 
 
+// Always synchronize menu to state when the menubar has been triggered...
+//-----------------------------------------------------------------------------
+void MainWindow::menuBarTriggeredSlot(QAction *act)
+{
+  synchronizeMenuToState();
+}
+
+
 // Create actions...
 //-----------------------------------------------------------------------------
 void MainWindow::createActions()
@@ -327,140 +337,119 @@ void MainWindow::createActions()
   openAct = new QAction(QIcon(":/icons/document-open.png"), tr("&Open..."), this);
   openAct->setShortcut(tr("Ctrl+O"));
   openAct->setStatusTip(tr("Open geometry input file"));
-  connect(openAct, SIGNAL(triggered()), 
-	  this, SLOT(openSlot()));
+  connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
   
   // File -> Load mesh...
   loadAct = new QAction(QIcon(":/icons/document-open-folder.png"), tr("&Load mesh..."), this);
-  loadAct->setShortcut(tr("Ctrl+L"));
   loadAct->setStatusTip(tr("Load Elmer mesh files"));
-  connect(loadAct, SIGNAL(triggered()), 
-	  this, SLOT(loadSlot()));
+  connect(loadAct, SIGNAL(triggered()), this, SLOT(loadSlot()));
   
   // File -> Load project...
   loadProjectAct = new QAction(QIcon(":/icons/document-import.png"), tr("Load &project..."), this);
   loadProjectAct->setStatusTip(tr("Load previously saved project"));
-  connect(loadProjectAct, SIGNAL(triggered()), 
-	  this, SLOT(loadProjectSlot()));
+  connect(loadProjectAct, SIGNAL(triggered()), this, SLOT(loadProjectSlot()));
 
   // File -> Definitions...
   editDefinitionsAct = new QAction(QIcon(":/icons/games-config-custom.png"), tr("&Definitions..."), this);
   editDefinitionsAct->setStatusTip(tr("Load and edit Elmer sif definitions file"));
-  connect(editDefinitionsAct, SIGNAL(triggered()), 
-	  this, SLOT(editDefinitionsSlot()));
+  connect(editDefinitionsAct, SIGNAL(triggered()), this, SLOT(editDefinitionsSlot()));
 
   // File -> Save...
   saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Save..."), this);
   saveAct->setShortcut(tr("Ctrl+S"));
   saveAct->setStatusTip(tr("Save Elmer mesh and sif-files"));
-  connect(saveAct, SIGNAL(triggered()), 
-	  this, SLOT(saveSlot()));
+  connect(saveAct, SIGNAL(triggered()), this, SLOT(saveSlot()));
 
   // File -> Save as...
   saveAsAct = new QAction(QIcon(":/icons/document-save-as.png"), tr("&Save as..."), this);
   saveAsAct->setStatusTip(tr("Save Elmer mesh and sif-files"));
-  connect(saveAsAct, SIGNAL(triggered()), 
-	  this, SLOT(saveAsSlot()));
+  connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsSlot()));
 
   // File -> Save project...
   saveProjectAct = new QAction(QIcon(":/icons/document-export.png"), tr("&Save project..."), this);
   saveProjectAct->setStatusTip(tr("Save current project"));
-  connect(saveProjectAct, SIGNAL(triggered()), 
-	  this, SLOT(saveProjectSlot()));
+  connect(saveProjectAct, SIGNAL(triggered()), this, SLOT(saveProjectSlot()));
 
   // File -> Save picture as...
   savePictureAct = new QAction(QIcon(":/icons/view-preview.png"), tr("&Save picture as..."), this);
   savePictureAct->setStatusTip(tr("Save picture in file"));
-  connect(savePictureAct, SIGNAL(triggered()), 
-	  this, SLOT(savePictureSlot()));
+  connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
 
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip(tr("Exit"));
-  connect(exitAct, SIGNAL(triggered()), 
-	  this, SLOT(closeMainWindowSlot()));
+  connect(exitAct, SIGNAL(triggered()), this, SLOT(closeMainWindowSlot()));
 
   // Model -> Setup...
   modelSetupAct = new QAction(QIcon(), tr("Setup..."), this);
   modelSetupAct->setStatusTip(tr("Setup simulation environment"));
-  connect(modelSetupAct, SIGNAL(triggered()), 
-	  this, SLOT(modelSetupSlot()));
+  connect(modelSetupAct, SIGNAL(triggered()), this, SLOT(modelSetupSlot()));
 
   // Model -> Equation...
   addEquationAct = new QAction(QIcon(), tr("Add..."), this);
   addEquationAct->setStatusTip(tr("Add a PDE-system to the equation list"));
-  connect(addEquationAct, SIGNAL(triggered()), 
-	  this, SLOT(addEquationSlot()));
+  connect(addEquationAct, SIGNAL(triggered()), this, SLOT(addEquationSlot()));
 
   // Model -> Material...
   addMaterialAct = new QAction(QIcon(), tr("Add..."), this);
   addMaterialAct->setStatusTip(tr("Add a material set to the material list"));
-  connect(addMaterialAct, SIGNAL(triggered()), 
-	  this, SLOT(addMaterialSlot()));
+  connect(addMaterialAct, SIGNAL(triggered()), this, SLOT(addMaterialSlot()));
 
   // Model -> Body force...
   addBodyForceAct = new QAction(QIcon(), tr("Add..."), this);
   addBodyForceAct->setStatusTip(tr("Add body forces..."));
-  connect(addBodyForceAct, SIGNAL(triggered()), 
-	  this, SLOT(addBodyForceSlot()));
+  connect(addBodyForceAct, SIGNAL(triggered()), this, SLOT(addBodyForceSlot()));
 
   // Model -> Initial condition...
   addInitialConditionAct = new QAction(QIcon(), tr("Add..."), this);
   addInitialConditionAct->setStatusTip(tr("Add initial conditions..."));
-  connect(addInitialConditionAct, SIGNAL(triggered()), 
-	  this, SLOT(addInitialConditionSlot()));
+  connect(addInitialConditionAct, SIGNAL(triggered()), this, SLOT(addInitialConditionSlot()));
 
   // Model -> Boundary condition...
   addBoundaryConditionAct = new QAction(QIcon(), tr("Add..."), this);
   addBoundaryConditionAct->setStatusTip(tr("Add boundary conditions..."));
-  connect(addBoundaryConditionAct, SIGNAL(triggered()), 
-	  this, SLOT(addBoundaryConditionSlot()));
+  connect(addBoundaryConditionAct, SIGNAL(triggered()), this, SLOT(addBoundaryConditionSlot()));
 
   // Model -> Set body properties
   bodyEditAct = new QAction(QIcon(), tr("Set body properties"), this);
   bodyEditAct->setStatusTip(tr("Set body properties (equivalent to holding down the SHIFT key)"));
-  connect(bodyEditAct, SIGNAL(triggered()), 
-	  this, SLOT(bodyEditSlot()));
+  connect(bodyEditAct, SIGNAL(triggered()), this, SLOT(bodyEditSlot()));
+  bodyEditAct->setCheckable(true);
 
   // Model -> Set boundary conditions
   bcEditAct = new QAction(QIcon(), tr("Set boundary properties"), this);
   bcEditAct->setStatusTip(tr("Set boundary properties (equivalent to holding down the ALT key)"));
-  connect(bcEditAct, SIGNAL(triggered()), 
-	  this, SLOT(bcEditSlot()));
+  connect(bcEditAct, SIGNAL(triggered()), this, SLOT(bcEditSlot()));
+  bcEditAct->setCheckable(true);
 
   // Model -> Summary...
   modelSummaryAct = new QAction(QIcon(), tr("Summary..."), this);
   modelSummaryAct->setStatusTip(tr("Model summary"));
-  connect(modelSummaryAct, SIGNAL(triggered()), 
-	  this, SLOT(modelSummarySlot()));
+  connect(modelSummaryAct, SIGNAL(triggered()), this, SLOT(modelSummarySlot()));
 
   // Model -> Clear
   modelClearAct = new QAction(QIcon(), tr("Clear all"), this);
   modelClearAct->setStatusTip(tr("Clear all model definitions"));
-  connect(modelClearAct, SIGNAL(triggered()), 
-	  this, SLOT(modelClearSlot()));
+  connect(modelClearAct, SIGNAL(triggered()), this, SLOT(modelClearSlot()));
 
   // Edit -> Generate sif
   generateSifAct = new QAction(QIcon(""), tr("&Generate"), this);
   generateSifAct->setShortcut(tr("Ctrl+G"));
   generateSifAct->setStatusTip(tr("Genarete solver input file"));
-  connect(generateSifAct, SIGNAL(triggered()), 
-	  this, SLOT(generateSifSlot()));
+  connect(generateSifAct, SIGNAL(triggered()), this, SLOT(generateSifSlot()));
 
   // Edit -> Solver input file...
   showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Edit..."), this);
   showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
-  connect(showsifAct, SIGNAL(triggered()), 
-	  this, SLOT(showsifSlot()));
+  connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
 
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
   meshcontrolAct->setShortcut(tr("Ctrl+C"));
   meshcontrolAct->setStatusTip(tr("Configure mesh generators"));
-  connect(meshcontrolAct, SIGNAL(triggered()), 
-	  this, SLOT(meshcontrolSlot()));
+  connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
 
   // Mesh -> Remesh
   remeshAct = new QAction(QIcon(":/icons/edit-redo.png"), tr("&Remesh"), this);
@@ -472,73 +461,68 @@ void MainWindow::createActions()
   stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), 
 			       tr("&Terminate meshing"), this);
   stopMeshingAct->setStatusTip(tr("Terminate mesh generator"));
-  connect(stopMeshingAct, SIGNAL(triggered()), 
-	  this, SLOT(stopMeshingSlot()));
+  connect(stopMeshingAct, SIGNAL(triggered()), this, SLOT(stopMeshingSlot()));
   stopMeshingAct->setEnabled(false);
 
   // Mesh -> Divide surface
   surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), 
 				 tr("&Divide surface..."), this);
   surfaceDivideAct->setStatusTip(tr("Divide surface by sharp edges"));
-  connect(surfaceDivideAct, SIGNAL(triggered()), 
-	  this, SLOT(surfaceDivideSlot()));
+  connect(surfaceDivideAct, SIGNAL(triggered()), this, SLOT(surfaceDivideSlot()));
 
   // Mesh -> Unify surface
   surfaceUnifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify surface"), this);
   surfaceUnifyAct->setStatusTip(tr("Unify surface (merge selected)"));
-  connect(surfaceUnifyAct, SIGNAL(triggered()), 
-	  this, SLOT(surfaceUnifySlot()));
+  connect(surfaceUnifyAct, SIGNAL(triggered()), this, SLOT(surfaceUnifySlot()));
 
   // Mesh -> Divide edge
   edgeDivideAct = new QAction(QIcon(":/icons/divide-edge.png"), tr("&Divide edge..."), this);
   edgeDivideAct->setStatusTip(tr("Divide edge by sharp points"));
-  connect(edgeDivideAct, SIGNAL(triggered()), 
-	  this, SLOT(edgeDivideSlot()));
+  connect(edgeDivideAct, SIGNAL(triggered()), this, SLOT(edgeDivideSlot()));
 
   // Mesh -> Unify edges
   edgeUnifyAct = new QAction(QIcon(":/icons/unify-edge.png"), tr("&Unify edge"), this);
   edgeUnifyAct->setStatusTip(tr("Unify edge (merge selected)"));
-  connect(edgeUnifyAct, SIGNAL(triggered()), 
-	  this, SLOT(edgeUnifySlot()));
+  connect(edgeUnifyAct, SIGNAL(triggered()), this, SLOT(edgeUnifySlot()));
 
   // Mesh -> Clean up
   cleanHangingSharpEdgesAct = new QAction(QIcon(""), tr("Clean up"), this);
   cleanHangingSharpEdgesAct->setStatusTip(tr("Removes hanging/orphan sharp edges (for visualization)"));
-  connect(cleanHangingSharpEdgesAct, SIGNAL(triggered()), 
-	  this, SLOT(cleanHangingSharpEdgesSlot()));
+  connect(cleanHangingSharpEdgesAct, SIGNAL(triggered()), this, SLOT(cleanHangingSharpEdgesSlot()));
 
   // View -> Full screen
   viewFullScreenAct = new QAction(QIcon(), tr("Full screen"), this);
+  viewFullScreenAct->setShortcut(tr("Ctrl+L"));
   viewFullScreenAct->setStatusTip(tr("Full screen mode"));
-  connect(viewFullScreenAct, SIGNAL(triggered()), 
-	  this, SLOT(viewFullScreenSlot()));
+  connect(viewFullScreenAct, SIGNAL(triggered()), this, SLOT(viewFullScreenSlot()));
+  viewFullScreenAct->setCheckable(true);
 
   // View -> Show surface mesh
   hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
   hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh "
 				      "(do/do not outline surface elements)"));
-  connect(hidesurfacemeshAct, SIGNAL(triggered()), 
-	  this, SLOT(hidesurfacemeshSlot()));
+  connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
+  hidesurfacemeshAct->setCheckable(true);
 
   // View -> Show volume mesh
   hidevolumemeshAct = new QAction(QIcon(), tr("Volume mesh"), this);
   hidevolumemeshAct->setStatusTip(tr("Show/hide volume mesh "
 				      "(do/do not outline volume mesh edges)"));
-  connect(hidevolumemeshAct, SIGNAL(triggered()), 
-	  this, SLOT(hidevolumemeshSlot()));
+  connect(hidevolumemeshAct, SIGNAL(triggered()), this, SLOT(hidevolumemeshSlot()));
+  hidevolumemeshAct->setCheckable(true);
 
   // View -> Show sharp edges
   hidesharpedgesAct = new QAction(QIcon(), tr("Sharp edges"), this);
   hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
-  connect(hidesharpedgesAct, SIGNAL(triggered()), 
-	  this, SLOT(hidesharpedgesSlot()));
+  connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
+  hidesharpedgesAct->setCheckable(true);
 
   // View -> Compass
   viewCoordinatesAct = new QAction(QIcon(), tr("Compass"), this);
   viewCoordinatesAct->setStatusTip(tr("View coordinates "
 				      "(RGB=XYZ modulo translation)"));
-  connect(viewCoordinatesAct, SIGNAL(triggered()), 
-	  this, SLOT(viewCoordinatesSlot()));
+  connect(viewCoordinatesAct, SIGNAL(triggered()), this, SLOT(viewCoordinatesSlot()));
+  viewCoordinatesAct->setCheckable(true);
 
   // View -> Select all surfaces
   selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
@@ -574,41 +558,41 @@ void MainWindow::createActions()
   // View -> Shade model -> Flat
   flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
   flatShadeAct->setStatusTip(tr("Set shade model to flat"));
-  connect(flatShadeAct, SIGNAL(triggered()), 
-	  this, SLOT(flatShadeSlot()));
+  connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
+  flatShadeAct->setCheckable(true);
 
   // View -> Show surface numbers
   showSurfaceNumbersAct = new QAction(QIcon(), tr("Surface element numbers"), this);
   showSurfaceNumbersAct->setStatusTip(tr("Show surface element numbers "
 				      "(Show the surface element numbering)"));
-  connect(showSurfaceNumbersAct, SIGNAL(triggered()), 
-	  this, SLOT(showSurfaceNumbersSlot()));
+  connect(showSurfaceNumbersAct, SIGNAL(triggered()), this, SLOT(showSurfaceNumbersSlot()));
+  showSurfaceNumbersAct->setCheckable(true);
 
   // View -> Show edge numbers
   showEdgeNumbersAct = new QAction(QIcon(), tr("Edge element numbers"), this);
   showEdgeNumbersAct->setStatusTip(tr("Show edge element numbers "
 				      "(Show the node element numbering)"));
-  connect(showEdgeNumbersAct, SIGNAL(triggered()), 
-	  this, SLOT(showEdgeNumbersSlot()));
+  connect(showEdgeNumbersAct, SIGNAL(triggered()), this, SLOT(showEdgeNumbersSlot()));
+  showEdgeNumbersAct->setCheckable(true);
 
   // View -> Show node numbers
   showNodeNumbersAct = new QAction(QIcon(), tr("Node numbers"), this);
   showNodeNumbersAct->setStatusTip(tr("Show node numbers "
 				      "(Show the node numbers)"));
-  connect(showNodeNumbersAct, SIGNAL(triggered()), 
-	  this, SLOT(showNodeNumbersSlot()));
+  connect(showNodeNumbersAct, SIGNAL(triggered()), this, SLOT(showNodeNumbersSlot()));
+  showNodeNumbersAct->setCheckable(true);
   
   // View -> Show boundray index
   showBoundaryIndexAct = new QAction(QIcon(), tr("Boundary index"), this);
   showBoundaryIndexAct->setStatusTip(tr("Show boundary index"));
-  connect(showBoundaryIndexAct, SIGNAL(triggered()), 
-	  this, SLOT(showBoundaryIndexSlot()));
+  connect(showBoundaryIndexAct, SIGNAL(triggered()), this, SLOT(showBoundaryIndexSlot()));
+  showBoundaryIndexAct->setCheckable(true);
   
   // View -> Show body index
   showBodyIndexAct = new QAction(QIcon(), tr("Body index"), this);
   showBodyIndexAct->setStatusTip(tr("Show body index"));
-  connect(showBodyIndexAct, SIGNAL(triggered()), 
-	  this, SLOT(showBodyIndexSlot()));
+  connect(showBodyIndexAct, SIGNAL(triggered()), this, SLOT(showBodyIndexSlot()));
+  showBodyIndexAct->setCheckable(true);
 
   // View -> Colors -> GL controls
   glControlAct = new QAction(QIcon(), tr("GL controls..."), this);
@@ -649,20 +633,20 @@ void MainWindow::createActions()
   // View -> Colors -> Boundaries
   showBoundaryColorAct = new QAction(QIcon(), tr("Boundaries"), this);
   showBoundaryColorAct->setStatusTip(tr("Visualize different boundary parts with color patches"));
-  connect(showBoundaryColorAct, SIGNAL(triggered()), 
-	  this, SLOT(colorizeBoundarySlot()));
+  connect(showBoundaryColorAct, SIGNAL(triggered()), this, SLOT(colorizeBoundarySlot()));
+  showBoundaryColorAct->setCheckable(true);
   
   // View -> Colors -> Bodies
   showBodyColorAct = new QAction(QIcon(), tr("Bodies"), this);
   showBodyColorAct->setStatusTip(tr("Visualize different body with color patches"));
-  connect(showBodyColorAct, SIGNAL(triggered()), 
-	  this, SLOT(colorizeBodySlot()));
+  connect(showBodyColorAct, SIGNAL(triggered()), this, SLOT(colorizeBodySlot()));
+  showBodyColorAct->setCheckable(true);
   
   // View -> Shade model -> Smooth
   smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
-  connect(smoothShadeAct, SIGNAL(triggered()), 
-	  this, SLOT(smoothShadeSlot()));
+  connect(smoothShadeAct, SIGNAL(triggered()), this, SLOT(smoothShadeSlot()));
+  smoothShadeAct->setCheckable(true);
 
   // View -> Show all
   showallAct = new QAction(QIcon(), tr("Show all"), this);
@@ -702,15 +686,15 @@ void MainWindow::createActions()
   killsolverAct->setEnabled(false);
 
   // Solver -> Show convergence
-  showConvergenceAct = new QAction(QIcon(iconChecked), tr("Show convergence"), this);
+  showConvergenceAct = new QAction(QIcon(), tr("Show convergence"), this);
   showConvergenceAct->setStatusTip(tr("Show/hide convergence plot"));
   connect(showConvergenceAct, SIGNAL(triggered()), this, SLOT(showConvergenceSlot()));
+  showConvergenceAct->setCheckable(true);
 
   // Solver -> Post process
   resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Start postprocessor"), this);
   resultsAct->setStatusTip(tr("Run ElmerPost for visualization"));
-  connect(resultsAct, SIGNAL(triggered()), 
-	  this, SLOT(resultsSlot()));
+  connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
 
   // Solver -> Kill post process
   killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill postprocessor"), this);
@@ -899,7 +883,7 @@ void MainWindow::createMenus()
   helpMenu = menuBar()->addMenu(tr("&Help"));
   helpMenu->addAction(aboutAct);
 
-  // Sys tray context menu
+  // Sys tray menu:
   sysTrayMenu = new QMenu;
   sysTrayMenu->addAction(modelSummaryAct);
   sysTrayMenu->addSeparator();
@@ -911,6 +895,16 @@ void MainWindow::createMenus()
   sysTrayMenu->addAction(aboutAct);
   sysTrayMenu->addSeparator();
   sysTrayMenu->addAction(exitAct);
+
+  // Context menu:
+  contextMenu = new QMenu;
+  contextMenu->addMenu(fileMenu);
+  contextMenu->addMenu(meshMenu);
+  contextMenu->addMenu(modelMenu);
+  contextMenu->addMenu(viewMenu);
+  contextMenu->addMenu(editMenu);
+  contextMenu->addMenu(solverMenu);
+  contextMenu->addMenu(helpMenu);
 
   // Disable unavailable external components:
   //------------------------------------------
@@ -3917,11 +3911,12 @@ void MainWindow::viewFullScreenSlot()
 {
   if(!isFullScreen()) {
     cout << "Switching to full screen mode" << endl;
+    menuBar()->hide();
+    statusBar()->hide();
     fileToolBar->hide();
     editToolBar->hide();
     meshToolBar->hide();
     solverToolBar->hide();
-    statusBar()->hide();
     this->showFullScreen();
   } else {
     viewNormalModeSlot();
@@ -3936,6 +3931,7 @@ void MainWindow::viewNormalModeSlot()
   if(isFullScreen()) {
     cout << "Switching to normal window mode" << endl;
     this->showNormal();
+    menuBar()->show();
     statusBar()->show();
     if(!egIni->isSet("hidetoolbars")) {
       fileToolBar->show();
@@ -3946,6 +3942,15 @@ void MainWindow::viewNormalModeSlot()
   }
   synchronizeMenuToState();
   statusBar()->showMessage(tr("Ready"));
+}
+
+
+// Context menu event (usually mouse has been right clicked)...
+//-----------------------------------------------------------------------------
+void MainWindow::contextMenuEvent(QContextMenuEvent *event)
+{
+  // if(isFullScreen())
+    contextMenu->popup(event->pos());
 }
 
 
@@ -6434,87 +6439,87 @@ void MainWindow::synchronizeMenuToState()
 {
   // glwidget state variables:
   if(glWidget->stateDrawSurfaceMesh)
-    hidesurfacemeshAct->setIcon(iconChecked);
+    hidesurfacemeshAct->setChecked(true);
   else
-    hidesurfacemeshAct->setIcon(iconEmpty);
+    hidesurfacemeshAct->setChecked(false);
   
   if(glWidget->stateDrawVolumeMesh)
-    hidevolumemeshAct->setIcon(iconChecked);
+    hidevolumemeshAct->setChecked(true);
   else
-    hidevolumemeshAct->setIcon(iconEmpty);
+    hidevolumemeshAct->setChecked(false);
   
   if(glWidget->stateDrawSharpEdges)
-    hidesharpedgesAct->setIcon(iconChecked);
+    hidesharpedgesAct->setChecked(true);
   else
-    hidesharpedgesAct->setIcon(iconEmpty);
+    hidesharpedgesAct->setChecked(false);
   
   if(glWidget->stateFlatShade) {
-    flatShadeAct->setIcon(iconChecked);
-    smoothShadeAct->setIcon(iconEmpty);
+    flatShadeAct->setChecked(true);
+    smoothShadeAct->setChecked(false);
   } else {
-    flatShadeAct->setIcon(iconEmpty);
-    smoothShadeAct->setIcon(iconChecked);
+    flatShadeAct->setChecked(false);
+    smoothShadeAct->setChecked(true);
   }
 
   if(glWidget->stateDrawSurfaceNumbers) 
-    showSurfaceNumbersAct->setIcon(iconChecked);
+    showSurfaceNumbersAct->setChecked(true);
   else 
-    showSurfaceNumbersAct->setIcon(iconEmpty);   
+    showSurfaceNumbersAct->setChecked(false);
 
   if(glWidget->stateDrawEdgeNumbers) 
-    showEdgeNumbersAct->setIcon(iconChecked);
+    showEdgeNumbersAct->setChecked(true);
   else 
-    showEdgeNumbersAct->setIcon(iconEmpty);   
+    showEdgeNumbersAct->setChecked(false);
 
   if(glWidget->stateDrawNodeNumbers) 
-    showNodeNumbersAct->setIcon(iconChecked);
+    showNodeNumbersAct->setChecked(true);
   else 
-    showNodeNumbersAct->setIcon(iconEmpty);   
+    showNodeNumbersAct->setChecked(false);
 
   if(glWidget->stateDrawBoundaryIndex)
-    showBoundaryIndexAct->setIcon(iconChecked);
+    showBoundaryIndexAct->setChecked(true);
   else 
-    showBoundaryIndexAct->setIcon(iconEmpty);   
+    showBoundaryIndexAct->setChecked(false);
 
   if(glWidget->stateDrawBodyIndex)
-    showBodyIndexAct->setIcon(iconChecked);
+    showBodyIndexAct->setChecked(true);
   else 
-    showBodyIndexAct->setIcon(iconEmpty);   
+    showBodyIndexAct->setChecked(false);
 
   if(glWidget->stateDrawCoordinates) 
-    viewCoordinatesAct->setIcon(iconChecked);
+    viewCoordinatesAct->setChecked(true);
   else 
-    viewCoordinatesAct->setIcon(iconEmpty);
+    viewCoordinatesAct->setChecked(false);
 
   if(bodyEditActive)
-    bodyEditAct->setIcon(iconChecked);
+    bodyEditAct->setChecked(true);
   else
-    bodyEditAct->setIcon(iconEmpty);
+    bodyEditAct->setChecked(false);
 
   if(bcEditActive)
-    bcEditAct->setIcon(iconChecked);
+    bcEditAct->setChecked(true);
   else
-    bcEditAct->setIcon(iconEmpty);
+    bcEditAct->setChecked(false);
 
   if(showConvergence)
-    showConvergenceAct->setIcon(iconChecked);
+    showConvergenceAct->setChecked(true);
   else
-    showConvergenceAct->setIcon(iconEmpty);
+    showConvergenceAct->setChecked(false);
 
   if(glWidget->stateBcColors)
-    showBoundaryColorAct->setIcon(iconChecked);
+    showBoundaryColorAct->setChecked(true);
   else
-    showBoundaryColorAct->setIcon(iconEmpty);
+    showBoundaryColorAct->setChecked(false);
 
   if(glWidget->stateBodyColors)
-    showBodyColorAct->setIcon(iconChecked);
+    showBodyColorAct->setChecked(true);
   else
-    showBodyColorAct->setIcon(iconEmpty);
+    showBodyColorAct->setChecked(false);
 
   if(isFullScreen())
-    viewFullScreenAct->setIcon(iconChecked);
+    viewFullScreenAct->setChecked(true);
   else
-    viewFullScreenAct->setIcon(iconEmpty);
+    viewFullScreenAct->setChecked(false);
 }
 
 

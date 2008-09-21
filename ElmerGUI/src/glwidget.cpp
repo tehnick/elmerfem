@@ -557,26 +557,27 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 
   dy = -dy;
   
-  if ((event->buttons() & Qt::MidButton) ||
-      ((event->buttons() & Qt::LeftButton) && 
-       (event->buttons() & Qt::RightButton)) ) {
+  if (((event->buttons() & Qt::LeftButton) && 
+       (event->buttons() & Qt::MidButton)) ) {
 
     // Scale:
     double s = exp(dy*0.01);
     glScaled(s, s, s);
     updateGL();
 
-  } else if (event->buttons() & Qt::LeftButton) {
+  } else if (event->buttons() & Qt::MidButton) {
     
     // Rotation:
     double ax = -(double)dy;
     double ay =  (double)dx;
     double az = 0.0;
 
+#if 0
     if ( event->buttons() & Qt::RightButton ) {
        az = ay;
        ay = 0;
     }
+#endif
 
     double s = 180.0*sqrt(ax*ax+ay*ay+az*az)/(double)(viewport[3]+1);
     double bx = invmatrix[0]*ax + invmatrix[4]*ay + invmatrix[8]*az;
@@ -585,7 +586,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     glRotated(s, bx, by, bz);
     updateGL();
 
-  } else if (event->buttons() & Qt::RightButton) {
+  } else if (event->buttons() & Qt::LeftButton) {
 
     // Translation:
     double s = 2.0/(double)(viewport[3]+1);
@@ -772,7 +773,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       
       MAX_BULK_INDEX++;
       if(MAX_BULK_INDEX == 0) {
-	cout << "Error in body selection: There are no legal body indiced from which to choose" << endl;
+	cout << "Error in body selection: "
+	  "There are no legal body indiced from which to choose" << endl;
 	cout.flush();
 	goto body_selection_finished;
       }
