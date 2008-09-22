@@ -6082,7 +6082,7 @@ void MainWindow::solverFinishedSlot(int)
   logMessage("Solver ready");
   runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
   updateSysTrayIcon("ElmerSolver has finished",
-		    "Use Run->Postprocessor to view results");
+		    "Use Run->Start postprocessor to view results");
   killsolverAct->setEnabled(false);
 }
 
@@ -6243,7 +6243,7 @@ void MainWindow::postProcessFinishedSlot(int)
   logMessage("Post processor finished");
   resultsAct->setIcon(QIcon(":/icons/Post.png"));
   updateSysTrayIcon("Postprocessor has finished",
-		    "Use Run->Run Postprocessor to restart");
+		    "Use Run->Start postprocessor to restart");
   killresultsAct->setEnabled(false);
 }
 
