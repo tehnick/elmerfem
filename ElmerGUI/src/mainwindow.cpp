@@ -152,8 +152,7 @@ MainWindow::MainWindow()
   connect(contextMenu, SIGNAL(triggered(QAction*)), this, SLOT(menuBarTriggeredSlot(QAction*)));
 
   // glWidget emits (list_t*) when a boundary is selected by double clicking:
-  connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), 
-	  this, SLOT(boundarySelectedSlot(list_t*)));
+  connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), this, SLOT(boundarySelectedSlot(list_t*)));
 
   // glWidget emits (void) when esc has been pressed:
   connect(glWidget, SIGNAL(escPressed()), this, SLOT(viewNormalModeSlot()));
@@ -164,72 +163,55 @@ MainWindow::MainWindow()
   connect(meshingThread, SIGNAL(terminated()), this, SLOT(meshingTerminatedSlot()));
 
   // boundaryDivide emits (double) when "divide button" has been clicked:
-  connect(boundaryDivide, SIGNAL(signalDoDivideSurface(double)), 
-	  this, SLOT(doDivideSurfaceSlot(double)));
+  connect(boundaryDivide, SIGNAL(signalDoDivideSurface(double)), this, SLOT(doDivideSurfaceSlot(double)));
 
   // boundaryDivide emits (double) when "divide button" has been clicked:
-  connect(boundaryDivide, SIGNAL(signalDoDivideEdge(double)), 
-	  this, SLOT(doDivideEdgeSlot(double)));
+  connect(boundaryDivide, SIGNAL(signalDoDivideEdge(double)), this, SLOT(doDivideEdgeSlot(double)));
 
   // solver emits (int) when finished:
-  connect(solver, SIGNAL(finished(int)), 
-	  this, SLOT(solverFinishedSlot(int))) ;
+  connect(solver, SIGNAL(finished(int)), this, SLOT(solverFinishedSlot(int))) ;
 
   // solver emits (void) when there is something to read from stdout:
-  connect(solver, SIGNAL(readyReadStandardOutput()), 
-	  this, SLOT(solverStdoutSlot()));
+  connect(solver, SIGNAL(readyReadStandardOutput()), this, SLOT(solverStdoutSlot()));
 
   // solver emits (void) when there is something to read from stderr:
-  connect(solver, SIGNAL(readyReadStandardError()), 
-	  this, SLOT(solverStderrSlot()));
+  connect(solver, SIGNAL(readyReadStandardError()), this, SLOT(solverStderrSlot()));
 
   // solver emits (QProcess::ProcessError) when error occurs:
-  connect(solver, SIGNAL(error(QProcess::ProcessError)), 
-	  this, SLOT(solverErrorSlot(QProcess::ProcessError)));
+  connect(solver, SIGNAL(error(QProcess::ProcessError)), this, SLOT(solverErrorSlot(QProcess::ProcessError)));
 
   // solver emits (QProcess::ProcessState) when state changed:
-  connect(solver, SIGNAL(stateChanged(QProcess::ProcessState)), 
-	  this, SLOT(solverStateChangedSlot(QProcess::ProcessState)));
+  connect(solver, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(solverStateChangedSlot(QProcess::ProcessState)));
 
   // compiler emits (int) when finished:
-  connect(compiler, SIGNAL(finished(int)), 
-	  this, SLOT(compilerFinishedSlot(int))) ;
+  connect(compiler, SIGNAL(finished(int)), this, SLOT(compilerFinishedSlot(int))) ;
 
   // compiler emits (void) when there is something to read from stdout:
-  connect(compiler, SIGNAL(readyReadStandardOutput()), 
-	  this, SLOT(compilerStdoutSlot()));
+  connect(compiler, SIGNAL(readyReadStandardOutput()), this, SLOT(compilerStdoutSlot()));
 
   // compiler emits (void) when there is something to read from stderr:
-  connect(compiler, SIGNAL(readyReadStandardError()), 
-	  this, SLOT(compilerStderrSlot()));
+  connect(compiler, SIGNAL(readyReadStandardError()), this, SLOT(compilerStderrSlot()));
 
   // post emits (int) when finished:
-  connect(post, SIGNAL(finished(int)), 
-	  this, SLOT(postProcessFinishedSlot(int))) ;
+  connect(post, SIGNAL(finished(int)), this, SLOT(postProcessFinishedSlot(int))) ;
 
   // meshSplitter emits (int) when finished:
-  connect(meshSplitter, SIGNAL(finished(int)),
-	  this, SLOT(meshSplitterFinishedSlot(int)));
+  connect(meshSplitter, SIGNAL(finished(int)), this, SLOT(meshSplitterFinishedSlot(int)));
 
   // meshSplitter emits(void) when there is something to read from stdout:
-  connect(meshSplitter, SIGNAL(readyReadStandardOutput()),
-	  this, SLOT(meshSplitterStdoutSlot()));
+  connect(meshSplitter, SIGNAL(readyReadStandardOutput()), this, SLOT(meshSplitterStdoutSlot()));
   
   // meshSplitter emits(void) when there is something to read from stderr:
-  connect(meshSplitter, SIGNAL(readyReadStandardError()),
-	  this, SLOT(meshSplitterStderrSlot()));
+  connect(meshSplitter, SIGNAL(readyReadStandardError()), this, SLOT(meshSplitterStderrSlot()));
   
   // meshUnifier emits (int) when finished:
-  connect(meshUnifier, SIGNAL(finished(int)),
-	  this, SLOT(meshUnifierFinishedSlot(int)));
+  connect(meshUnifier, SIGNAL(finished(int)), this, SLOT(meshUnifierFinishedSlot(int)));
 
   // meshUnifier emits(void) when there is something to read from stdout:
-  connect(meshUnifier, SIGNAL(readyReadStandardOutput()),
-	  this, SLOT(meshUnifierStdoutSlot()));
+  connect(meshUnifier, SIGNAL(readyReadStandardOutput()), this, SLOT(meshUnifierStdoutSlot()));
   
   // meshUnifier emits(void) when there is something to read from stderr:
-  connect(meshUnifier, SIGNAL(readyReadStandardError()),
-	  this, SLOT(meshUnifierStderrSlot()));
+  connect(meshUnifier, SIGNAL(readyReadStandardError()), this, SLOT(meshUnifierStderrSlot()));
   
   // set initial state:
   operations = 0;
@@ -528,33 +510,28 @@ void MainWindow::createActions()
   // View -> Select all surfaces
   selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
   selectAllSurfacesAct->setStatusTip(tr("Select all surfaces"));
-  connect(selectAllSurfacesAct, SIGNAL(triggered()), 
-	  this, SLOT(selectAllSurfacesSlot()));
+  connect(selectAllSurfacesAct, SIGNAL(triggered()), this, SLOT(selectAllSurfacesSlot()));
 
   // View -> Select all edges
   selectAllEdgesAct = new QAction(QIcon(), tr("Select all edges"), this);
   selectAllEdgesAct->setStatusTip(tr("Select all edges"));
-  connect(selectAllEdgesAct, SIGNAL(triggered()), 
-	  this, SLOT(selectAllEdgesSlot()));
+  connect(selectAllEdgesAct, SIGNAL(triggered()), this, SLOT(selectAllEdgesSlot()));
 
   // View -> Select defined edges
   selectDefinedEdgesAct = new QAction(QIcon(), tr("Select defined edges"), this);
   selectDefinedEdgesAct->setStatusTip(tr("Select defined edges"));
-  connect(selectDefinedEdgesAct, SIGNAL(triggered()), 
-	  this, SLOT(selectDefinedEdgesSlot()));
+  connect(selectDefinedEdgesAct, SIGNAL(triggered()), this, SLOT(selectDefinedEdgesSlot()));
 
   // View -> Select defined surfaces
   selectDefinedSurfacesAct = new QAction(QIcon(), tr("Select defined surfaces"), this);
   selectDefinedSurfacesAct->setStatusTip(tr("Select defined surfaces"));
-  connect(selectDefinedSurfacesAct, SIGNAL(triggered()), 
-	  this, SLOT(selectDefinedSurfacesSlot()));
+  connect(selectDefinedSurfacesAct, SIGNAL(triggered()), this, SLOT(selectDefinedSurfacesSlot()));
 
   // View -> Hide/show selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
   hideselectedAct->setShortcut(tr("Ctrl+H"));
   hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
-  connect(hideselectedAct, SIGNAL(triggered()), 
-	  this, SLOT(hideselectedSlot()));
+  connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
 
   // View -> Shade model -> Flat
   flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
@@ -598,38 +575,32 @@ void MainWindow::createActions()
   // View -> Colors -> GL controls
   glControlAct = new QAction(QIcon(), tr("GL controls..."), this);
   glControlAct->setStatusTip(tr("Control GL parameters for lights and materials"));
-  connect(glControlAct, SIGNAL(triggered()), 
-	  this, SLOT(glControlSlot()));
+  connect(glControlAct, SIGNAL(triggered()), this, SLOT(glControlSlot()));
   
   // View -> Colors -> Background
   chooseBGColorAct = new QAction(QIcon(), tr("Background..."), this);
   chooseBGColorAct->setStatusTip(tr("Set background color"));
-  connect(chooseBGColorAct, SIGNAL(triggered()), 
-	  this, SLOT(backgroundColorSlot()));
+  connect(chooseBGColorAct, SIGNAL(triggered()), this, SLOT(backgroundColorSlot()));
   
   // View -> Colors -> Surface elements
   chooseSurfaceColorAct = new QAction(QIcon(), tr("Surface elements..."), this);
   chooseSurfaceColorAct->setStatusTip(tr("Set surface color"));
-  connect(chooseSurfaceColorAct, SIGNAL(triggered()), 
-	  this, SLOT(surfaceColorSlot()));
+  connect(chooseSurfaceColorAct, SIGNAL(triggered()), this, SLOT(surfaceColorSlot()));
   
   // View -> Colors -> Edge elements
   chooseEdgeColorAct = new QAction(QIcon(), tr("Edge elements..."), this);
   chooseEdgeColorAct->setStatusTip(tr("Set edge color"));
-  connect(chooseEdgeColorAct, SIGNAL(triggered()), 
-	  this, SLOT(edgeColorSlot()));
+  connect(chooseEdgeColorAct, SIGNAL(triggered()), this, SLOT(edgeColorSlot()));
   
   // View -> Colors -> Surface mesh
   chooseSurfaceMeshColorAct = new QAction(QIcon(), tr("Surface mesh..."), this);
   chooseSurfaceMeshColorAct->setStatusTip(tr("Set surface mesh color"));
-  connect(chooseSurfaceMeshColorAct, SIGNAL(triggered()), 
-	  this, SLOT(surfaceMeshColorSlot()));
+  connect(chooseSurfaceMeshColorAct, SIGNAL(triggered()), this, SLOT(surfaceMeshColorSlot()));
   
   // View -> Colors -> Sharp edges
   chooseSharpEdgeColorAct = new QAction(QIcon(), tr("Sharp edges..."), this);
   chooseSharpEdgeColorAct->setStatusTip(tr("Set sharp edge color"));
-  connect(chooseSharpEdgeColorAct, SIGNAL(triggered()), 
-	  this, SLOT(sharpEdgeColorSlot()));
+  connect(chooseSharpEdgeColorAct, SIGNAL(triggered()), this, SLOT(sharpEdgeColorSlot()));
   
   // View -> Colors -> Boundaries
   showBoundaryColorAct = new QAction(QIcon(), tr("Boundaries"), this);
@@ -652,38 +623,32 @@ void MainWindow::createActions()
   // View -> Show all
   showallAct = new QAction(QIcon(), tr("Show all"), this);
   showallAct->setStatusTip(tr("Show all objects"));
-  connect(showallAct, SIGNAL(triggered()), 
-	  this, SLOT(showallSlot()));
+  connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
   // View -> Reset model view
   resetAct = new QAction(QIcon(), tr("Reset model view"), this);
   resetAct->setStatusTip(tr("Reset model view"));
-  connect(resetAct, SIGNAL(triggered()), 
-	  this, SLOT(resetSlot()));
+  connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // View -> Reset model view
   showCadModelAct = new QAction(QIcon(), tr("Cad model..."), this);
   showCadModelAct->setStatusTip(tr("Displays the cad model in a separate window"));
-  connect(showCadModelAct, SIGNAL(triggered()), 
-	  this, SLOT(showCadModelSlot()));
+  connect(showCadModelAct, SIGNAL(triggered()), this, SLOT(showCadModelSlot()));
 
   // Solver -> Parallel settings
   parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings..."), this);
   parallelSettingsAct->setStatusTip(tr("Choose parametes and methods for parallel solution"));
-  connect(parallelSettingsAct, SIGNAL(triggered()), 
-	  this, SLOT(parallelSettingsSlot()));
+  connect(parallelSettingsAct, SIGNAL(triggered()), this, SLOT(parallelSettingsSlot()));
 
   // Solver -> Run solver
   runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Start solver"), this);
   runsolverAct->setStatusTip(tr("Run ElmerSolver"));
-  connect(runsolverAct, SIGNAL(triggered()), 
-	  this, SLOT(runsolverSlot()));
+  connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
   // Solver -> Kill solver
   killsolverAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill solver"), this);
   killsolverAct->setStatusTip(tr("Kill ElmerSolver"));
-  connect(killsolverAct, SIGNAL(triggered()), 
-	  this, SLOT(killsolverSlot()));
+  connect(killsolverAct, SIGNAL(triggered()), this, SLOT(killsolverSlot()));
   killsolverAct->setEnabled(false);
 
   // Solver -> Show convergence
@@ -712,8 +677,7 @@ void MainWindow::createActions()
   // Help -> About
   aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
-  connect(aboutAct, SIGNAL(triggered()), 
-	  this, SLOT(showaboutSlot()));
+  connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 
 #if WIN32
 #else
@@ -3950,8 +3914,8 @@ void MainWindow::viewNormalModeSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
-  if(isFullScreen())
-    contextMenu->popup(event->pos());
+  // if(isFullScreen())
+  contextMenu->popup(event->pos());
 }
 
 
@@ -4894,6 +4858,8 @@ void MainWindow::meshingFinishedSlot()
   remeshAct->setEnabled(true);
   stopMeshingAct->setEnabled(false);
   glWidget->enableIndicator(false);
+
+  resetSlot();
 }
 
 
