@@ -3915,7 +3915,7 @@ void MainWindow::viewNormalModeSlot()
 void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 {
   // if(isFullScreen())
-  contextMenu->popup(event->pos());
+  contextMenu->popup(event->globalPos());
 }
 
 
