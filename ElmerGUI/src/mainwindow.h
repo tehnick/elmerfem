@@ -242,6 +242,7 @@ private:
   void populateBoundaryComboBoxes(BoundaryPropertyEditor *);
   void saveContents(QString, DynamicEditor *, int);
   void loadContents(QString, DynamicEditor *, int, QString);
+  void saveProjectContents(QDomDocument, QString, DynamicEditor *, int);
     
   QMenu *fileMenu;                // File menu
   QMenu *modelMenu;               // Model menu

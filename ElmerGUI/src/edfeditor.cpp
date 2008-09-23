@@ -496,7 +496,6 @@ void EdfEditor::saveAsButtonClicked()
   file.setFileName(fileName);
   file.open(QIODevice::WriteOnly);
   QTextStream out(&file);
-
   elmerDefs->save(out, indent);
 }
 

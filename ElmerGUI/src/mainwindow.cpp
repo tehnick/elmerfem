@@ -1662,6 +1662,9 @@ void MainWindow::saveProjectSlot()
     logMessage("Unable to save project: directory undefined");
     return;
   }
+
+  QDomDocument projectDoc("egproject");
+
   
   //===========================================================================
   //                               SAVE MESH
@@ -1674,6 +1677,7 @@ void MainWindow::saveProjectSlot()
   QString equationFileName = projectDirName + "/equation.dat";
   logMessage("Saving equation data in " + equationFileName);
   saveContents(equationFileName, equationEditor, limit->maxEquations());
+  saveProjectContents(projectDoc, "equation", equationEditor, limit->maxEquations());
 
   //===========================================================================
   //                               SAVE MATERIALS
@@ -1681,6 +1685,7 @@ void MainWindow::saveProjectSlot()
   QString materialFileName = projectDirName + "/material.dat";
   logMessage("Saving material data in " + materialFileName);
   saveContents(materialFileName, materialEditor, limit->maxMaterials());
+  saveProjectContents(projectDoc, "material", materialEditor, limit->maxMaterials());
 
   //===========================================================================
   //                             SAVE BODY FORCES
@@ -1688,6 +1693,7 @@ void MainWindow::saveProjectSlot()
   QString bodyForceFileName = projectDirName + "/bodyforce.dat";
   logMessage("Saving body force data in " + bodyForceFileName);
   saveContents(bodyForceFileName, bodyForceEditor, limit->maxBodyforces());
+  saveProjectContents(projectDoc, "bodyforce", bodyForceEditor, limit->maxBodyforces());
 
   //===========================================================================
   //                          SAVE INITIAL CONDITIONS
@@ -1695,6 +1701,7 @@ void MainWindow::saveProjectSlot()
   QString initialConditionFileName = projectDirName + "/initialcondition.dat";
   logMessage("Saving initial condition data in " + initialConditionFileName);
   saveContents(initialConditionFileName, initialConditionEditor, limit->maxInitialconditions());
+  saveProjectContents(projectDoc, "initialcondition", initialConditionEditor, limit->maxInitialconditions());
 
   //===========================================================================
   //                          SAVE BOUNDARY CONDITIONS
@@ -1702,7 +1709,7 @@ void MainWindow::saveProjectSlot()
   QString boundaryConditionFileName = projectDirName + "/boundarycondition.dat";
   logMessage("Saving boundary condition data in " + boundaryConditionFileName);
   saveContents(boundaryConditionFileName, boundaryConditionEditor, limit->maxBcs());
-
+  saveProjectContents(projectDoc, "boundarycondition", boundaryConditionEditor, limit->maxBcs());
 
   //===========================================================================
   //                            SAVE BODY PROPERTIES
@@ -1717,6 +1724,10 @@ void MainWindow::saveProjectSlot()
   }
   
   QTextStream bodyPropertyStream(&bodyPropertyFile);  
+
+  // ?????
+  QDomElement bodyProperty = projectDoc.createElement("bodyproperty");
+  projectDoc.appendChild(bodyProperty);
 
   for(int i = 0; i < limit->maxBodies(); i++ ) {
     BodyPropertyEditor *body = &bodyPropertyEditor[i];
@@ -1744,6 +1755,30 @@ void MainWindow::saveProjectSlot()
 		       << materialName.toAscii() << "/"
 		       << initialName.toAscii()  << "/"
 		       << forceName.toAscii()    << endl;
+
+    QDomElement item = projectDoc.createElement("item");
+    item.setAttribute("index", QString::number(i));
+    bodyProperty.appendChild(item);
+
+    QDomElement itemEquation = projectDoc.createElement("equation");
+    QDomText itemEquationName = projectDoc.createTextNode(equationName);
+    itemEquation.appendChild(itemEquationName);
+    item.appendChild(itemEquation);
+
+    QDomElement itemMaterial = projectDoc.createElement("material");
+    QDomText itemMaterialName = projectDoc.createTextNode(materialName);
+    itemMaterial.appendChild(itemMaterialName);
+    item.appendChild(itemMaterial);
+
+    QDomElement itemInitial = projectDoc.createElement("initialcondition");
+    QDomText itemInitialName = projectDoc.createTextNode(initialName);
+    itemInitial.appendChild(itemInitialName);
+    item.appendChild(itemInitial);
+
+    QDomElement itemForce = projectDoc.createElement("bodyforce");
+    QDomText itemForceName = projectDoc.createTextNode(forceName);
+    itemForce.appendChild(itemForceName);
+    item.appendChild(itemForce);
   }
 
   bodyPropertyFile.close();
@@ -1762,6 +1797,10 @@ void MainWindow::saveProjectSlot()
   
   QTextStream boundaryPropertyStream(&boundaryPropertyFile);  
 
+  // ?????
+  QDomElement boundaryProperty = projectDoc.createElement("boundaryproperty");
+  projectDoc.appendChild(boundaryProperty);
+
   for(int i = 0; i < limit->maxBoundaries(); i++ ) {
     BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[i];
 
@@ -1774,6 +1813,20 @@ void MainWindow::saveProjectSlot()
     boundaryPropertyStream << "/" << i << "/" 
 			   << conditionName.toAscii() << "/"
 			   << boundary->ui.boundaryAsABody->isChecked() << endl;
+
+    QDomElement item = projectDoc.createElement("item");
+    item.setAttribute("index", QString::number(i));
+    boundaryProperty.appendChild(item);
+
+    QDomElement itemName = projectDoc.createElement("name");
+    QDomText itemNameValue = projectDoc.createTextNode(conditionName);
+    itemName.appendChild(itemNameValue);
+    item.appendChild(itemName);
+
+    QDomElement itemAsBody = projectDoc.createElement("asbody");
+    QDomText itemAsBodyValue = projectDoc.createTextNode(QString::number(boundary->ui.boundaryAsABody->isChecked()));
+    itemAsBody.appendChild(itemAsBodyValue);
+    item.appendChild(itemAsBody);
   }
 
   boundaryPropertyFile.close();
@@ -1783,10 +1836,105 @@ void MainWindow::saveProjectSlot()
   //                              SAVE GENERAL SETUP
   //===========================================================================
 
+
+  //===========================================================================
+  //                             SAVE PROJECT DOCUMENT
+  //===========================================================================
+  QFile testFile("project.xml");
+  testFile.open(QIODevice::WriteOnly);
+  QTextStream testTextStream(&testFile);
+  projectDoc.save(testTextStream, 3);
+
   // All done:
   saveDirName = projectDirName;
   logMessage("Ready");
 }
+
+
+
+// Helper function for saveProject
+//-----------------------------------------------------------------------------
+void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName, 
+				     DynamicEditor *editor, int Nmax)
+{
+  QDomElement editorBlock = projectDoc.createElement(blockName);
+  projectDoc.appendChild(editorBlock);
+
+  for(int i = 0; i < Nmax; i++) {
+    DynamicEditor *de = &editor[i];
+    
+    // Menu item number:
+    QDomElement item = projectDoc.createElement("item");
+    item.setAttribute("index", QString::number(i));
+    editorBlock.appendChild(item);
+
+    // Is active?
+    QDomElement itemActive = projectDoc.createElement("active");
+    QDomText itemActiveValue = projectDoc.createTextNode(QString::number(de->menuAction != NULL));
+    itemActive.appendChild(itemActiveValue);
+    item.appendChild(itemActive);
+    
+    // Name:
+    if(de->menuAction != NULL) {
+      QDomElement itemName = projectDoc.createElement("name");
+      QDomText itemNameValue = projectDoc.createTextNode(de->nameEdit->text().trimmed());
+      itemName.appendChild(itemNameValue);
+      item.appendChild(itemName);
+    }
+    
+    // Write all stuff from hash:
+    for(int j = 0; j < de->hash.count(); j++) {
+      QString key = de->hash.keys().at(j);
+      hash_entry_t value = de->hash.values().at(j);
+      QDomElement elem = value.elem;
+      QWidget *widget = value.widget;
+      
+      QDomElement itemWidget = projectDoc.createElement("widget");
+      item.appendChild(itemWidget);
+
+      // hash key:
+      QDomElement itemKey = projectDoc.createElement("key");
+      QDomText itemKeyValue = projectDoc.createTextNode(key); //ta
+      itemKey.appendChild(itemKeyValue);
+      itemWidget.appendChild(itemKey);
+      
+      if(elem.attribute("Widget", "") == "CheckBox") {
+	QCheckBox *checkBox = (QCheckBox*)widget;
+	QDomElement itemCheckBox = projectDoc.createElement("value");
+	QDomText itemCheckBoxValue = projectDoc.createTextNode(QString::number(checkBox->isChecked()));
+	itemCheckBox.appendChild(itemCheckBoxValue);
+	itemWidget.appendChild(itemCheckBox);
+	itemWidget.setAttribute("type", "CheckBox");
+
+      } else if(elem.attribute("Widget", "") == "Edit") {
+	QLineEdit *lineEdit = (QLineEdit*)widget;
+	QDomElement itemLineEdit = projectDoc.createElement("value");
+	QDomText itemLineEditValue = projectDoc.createTextNode(lineEdit->text().trimmed());
+	itemLineEdit.appendChild(itemLineEditValue);
+	itemWidget.appendChild(itemLineEdit);
+	itemWidget.setAttribute("type", "Edit");
+
+      } else if(elem.attribute("Widget", "") == "Combo") {
+	QComboBox *comboBox = (QComboBox*)widget;
+	QDomElement itemComboBox = projectDoc.createElement("value");
+	QDomText itemComboBoxValue = projectDoc.createTextNode(comboBox->currentText().trimmed());
+	itemComboBox.appendChild(itemComboBoxValue);
+	itemWidget.appendChild(itemComboBox);
+	itemWidget.setAttribute("type", "Combo");
+
+      } else if(elem.attribute("Widget", "") == "Label") {
+	QLabel *label = (QLabel*)widget;
+	QDomElement itemLabel = projectDoc.createElement("value");
+	QDomText itemLabelValue = projectDoc.createTextNode(label->text().trimmed());
+	itemLabel.appendChild(itemLabelValue);
+	itemWidget.appendChild(itemLabel);
+	itemWidget.setAttribute("type", "Label");
+      }
+    }
+  }
+}
+
+
 
 // Helper function for saveProject
 //-----------------------------------------------------------------------------
