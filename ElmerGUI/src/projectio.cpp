@@ -62,8 +62,15 @@ void ProjectIO::appendToProject(QDomDocument *projectDoc, QDomElement *item)
   
   for(int i = 0; i < allRadioButtons.size(); i++) {
     QRadioButton *rb = allRadioButtons.at(i);
+
+    if(!rb)
+      continue;
+
     QString rbObjectName = rb->objectName();
     QString rbValue = QString::number(rb->isChecked());
+
+    if(rbObjectName.isEmpty())
+      continue;
 
     QDomElement widget = projectDoc->createElement("widget");
     widget.setAttribute("type", "RadioButton");
@@ -86,8 +93,15 @@ void ProjectIO::appendToProject(QDomDocument *projectDoc, QDomElement *item)
   
   for(int i = 0; i < allCheckBoxes.size(); i++) {
     QCheckBox *cb = allCheckBoxes.at(i);
+    
+    if(!cb)
+      continue;
+
     QString cbObjectName = cb->objectName();
     QString cbValue = QString::number(cb->isChecked());
+
+    if(cbObjectName.isEmpty())
+      continue;
 
     QDomElement widget = projectDoc->createElement("widget");
     widget.setAttribute("type", "CheckBox");
@@ -110,8 +124,15 @@ void ProjectIO::appendToProject(QDomDocument *projectDoc, QDomElement *item)
   
   for(int i = 0; i < allLineEdits.size(); i++) {
     QLineEdit *le = allLineEdits.at(i);
+
+    if(!le)
+      continue;
+
     QString leObjectName = le->objectName();
     QString leValue = le->text().trimmed();
+
+    if(leObjectName.isEmpty())
+      continue;
 
     QDomElement widget = projectDoc->createElement("widget");
     widget.setAttribute("type", "LineEdit");
@@ -133,21 +154,28 @@ void ProjectIO::appendToProject(QDomDocument *projectDoc, QDomElement *item)
   QList<QComboBox *> allComboBoxes = parentWidget->findChildren<QComboBox *>(); 
   
   for(int i = 0; i < allComboBoxes.size(); i++) {
-    QComboBox *cb = allComboBoxes.at(i);
-    QString cbObjectName = cb->objectName();
-    QString cbValue = QString::number(cb->currentIndex());
+    QComboBox *cx = allComboBoxes.at(i);
+
+    if(!cx)
+      continue;
+
+    QString cxObjectName = cx->objectName();
+    QString cxValue = QString::number(cx->currentIndex());
+
+    if(cxObjectName.isEmpty())
+      continue;
 
     QDomElement widget = projectDoc->createElement("widget");
     widget.setAttribute("type", "ComboBox");
     item->appendChild(widget);
     
     QDomElement objectName = projectDoc->createElement("objectName");
-    QDomText objectNameValue = projectDoc->createTextNode(cbObjectName);
+    QDomText objectNameValue = projectDoc->createTextNode(cxObjectName);
     objectName.appendChild(objectNameValue);
     widget.appendChild(objectName);
 
     QDomElement currentIndex = projectDoc->createElement("currentIndex");
-    QDomText currentIndexValue = projectDoc->createTextNode(cbValue);
+    QDomText currentIndexValue = projectDoc->createTextNode(cxValue);
     currentIndex.appendChild(currentIndexValue);
     widget.appendChild(currentIndex);
   }
@@ -155,4 +183,135 @@ void ProjectIO::appendToProject(QDomDocument *projectDoc, QDomElement *item)
 
 void ProjectIO::readFromProject(QDomDocument *projectDoc, QDomElement *item)
 {
+  // Radio buttons:
+  //----------------
+  QList<QRadioButton *> allRadioButtons = parentWidget->findChildren<QRadioButton *>(); 
+
+  QList<QString> rbObjectNames;
+  for(int i = 0; i < allRadioButtons.size(); i++) 
+    rbObjectNames.append(allRadioButtons.at(i)->objectName());
+
+  QDomElement widget = item->firstChildElement("widget");
+  for( ; !widget.isNull(); widget = widget.nextSiblingElement()) {
+
+    QString type = widget.attribute("type").trimmed();
+
+    if(type != "RadioButton")
+      continue;
+
+    QString objectName = widget.firstChildElement("objectName").text().trimmed();
+    bool isChecked = (widget.firstChildElement("isChecked").text().toInt() > 0);
+
+    if(objectName.isEmpty())
+      continue;
+
+    int index = rbObjectNames.indexOf(objectName);
+    
+    if(index < 0) {
+      cout << "Load project: RadioButton: mismatch with object names" << endl;
+      return;
+    }
+
+    QRadioButton *rb = allRadioButtons.at(index);
+    rb->setChecked(isChecked);
+  }
+
+  // Check boxes:
+  //--------------
+  QList<QCheckBox *> allCheckBoxes = parentWidget->findChildren<QCheckBox *>(); 
+
+  QList<QString> cbObjectNames;
+  for(int i = 0; i < allCheckBoxes.size(); i++)
+    cbObjectNames.append(allCheckBoxes.at(i)->objectName());
+
+  widget = item->firstChildElement("widget");
+  for( ; !widget.isNull(); widget = widget.nextSiblingElement()) {
+
+    QString type = widget.attribute("type").trimmed();
+
+    if(type != "CheckBox")
+      continue;
+
+    QString objectName = widget.firstChildElement("objectName").text().trimmed();
+    bool isChecked = (widget.firstChildElement("isChecked").text().toInt() > 0);
+
+    if(objectName.isEmpty())
+      continue;
+
+    int index = cbObjectNames.indexOf(objectName);
+    
+    if(index < 0) {
+      cout << "Load project: CheckBox: mismatch with object names" << endl;
+      return;
+    }
+
+    QCheckBox *cb = allCheckBoxes.at(index);
+    cb->setChecked(isChecked);
+  }
+
+  // Line edits:
+  //-------------
+  QList<QLineEdit *> allLineEdits = parentWidget->findChildren<QLineEdit *>(); 
+
+  QList<QString> leObjectNames;
+  for(int i = 0; i < allLineEdits.size(); i++)
+    leObjectNames.append(allLineEdits.at(i)->objectName());
+
+  widget = item->firstChildElement("widget");
+  for( ; !widget.isNull(); widget = widget.nextSiblingElement()) {
+
+    QString type = widget.attribute("type").trimmed();
+
+    if(type != "LineEdit")
+      continue;
+
+    QString objectName = widget.firstChildElement("objectName").text().trimmed();
+    QString text = widget.firstChildElement("text").text().trimmed();
+
+    if(objectName.isEmpty())
+      continue;
+
+    int index = leObjectNames.indexOf(objectName);
+    
+    if(index < 0) {
+      cout << "Load project: LineEdit: mismatch with object names" << endl;
+      return;
+    }
+
+    QLineEdit *le = allLineEdits.at(index);
+    le->setText(text);
+  }
+
+  // Combo boxes:
+  //--------------
+  QList<QComboBox *> allComboBoxes = parentWidget->findChildren<QComboBox *>(); 
+
+  QList<QString> cxObjectNames;
+  for(int i = 0; i < allComboBoxes.size(); i++)
+    cxObjectNames.append(allComboBoxes.at(i)->objectName());
+
+  widget = item->firstChildElement("widget");
+  for( ; !widget.isNull(); widget = widget.nextSiblingElement()) {
+
+    QString type = widget.attribute("type").trimmed();
+
+    if(type != "ComboBox")
+      continue;
+
+    QString objectName = widget.firstChildElement("objectName").text().trimmed();
+    int currentIndex = widget.firstChildElement("currentIndex").text().toInt();
+
+    if(objectName.isEmpty())
+      continue;
+
+    int index = cxObjectNames.indexOf(objectName);
+    
+    if(index < 0) {
+      cout << "Load project: ComboBox: mismatch with object names" << endl;
+      return;
+    }
+
+    QComboBox *cx = allComboBoxes.at(index);
+    cx->setCurrentIndex(currentIndex);
+  }
 }

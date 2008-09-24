@@ -66,4 +66,6 @@ void SolverParameterEditor::appendToProject(QDomDocument *projectDoc, QDomElemen
 
 void SolverParameterEditor::readFromProject(QDomDocument *projectDoc, QDomElement *item)
 {
+  projectIO.parentWidget = this;
+  projectIO.readFromProject(projectDoc, item);
 }

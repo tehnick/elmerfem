@@ -1681,6 +1681,7 @@ void MainWindow::saveProjectSlot()
   logMessage("Saving menu contents... ");
   generalSetup->appendToProjectDoc(&projectDoc);
 
+  // Solver parameters:
   QDomElement speBlock = projectDoc.createElement("solverparameters");
   projectDoc.documentElement().appendChild(speBlock);
   for(int index = 0; index < limit->maxSolvers(); index++) {
@@ -1944,6 +1945,22 @@ void MainWindow::loadProjectSlot()
   logMessage("Constructing menus...");
   generalSetup->readFromProjectDoc(&projectDoc);
 
+  // Solver parameters:
+  QDomElement contents = projectDoc.documentElement();
+  QDomElement speBlock = contents.firstChildElement("solverparameters");
+  QDomElement item = speBlock.firstChildElement("item");
+  for( ; !item.isNull(); item = item.nextSiblingElement()) {
+    int index = item.attribute("index").toInt();
+    
+    if((index < 0) || (index >= limit->maxSolvers())) {
+      logMessage("Load project: solver parameters: index out of bounds");
+      return;
+    }
+
+    SolverParameterEditor *spe = &solverParameterEditor[index];
+    spe->readFromProject(&projectDoc, &item);
+  }
+    
   //===========================================================================
   //                        LOAD DYNAMIC EDITOR CONTENTS
   //===========================================================================
@@ -1962,9 +1979,9 @@ void MainWindow::loadProjectSlot()
   //                              BODY PROPERTIES
   //===========================================================================
   element = projectDoc.documentElement().firstChildElement("bodyproperty");
-  QDomElement item = element.firstChildElement("item");
+  item = element.firstChildElement("item");
 
-  for(; !item.isNull(); item = item.nextSiblingElement()) {  
+  for( ; !item.isNull(); item = item.nextSiblingElement()) {  
     int index = item.attribute("index").toInt();
 
     if((index < 0) || (index >= limit->maxBodies())) {
