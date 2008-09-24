@@ -23,11 +23,11 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI solverparameters                                                *
+ *  ElmerGUI projectio                                                       *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter RÃ¥back                  *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - Scientific Computing Ltd.                                 *
@@ -38,32 +38,26 @@
  *                                                                           *
  *****************************************************************************/
 
-#include <QtGui>
-#include <iostream>
-#include "solverparameters.h"
+#ifndef PROJECTIO_H
+#define PROJECTIO_H
 
-using namespace std;
+#include <QWidget>
+#include <QDialog>
+#include <QDomDocument>
 
-SolverParameterEditor::SolverParameterEditor(QWidget *parent)
-  : QDialog(parent)
+class ProjectIO : public QDialog
 {
-  ui.setupUi(this);
-  generalOptions = NULL;
-  solverName = "";
+  Q_OBJECT
 
-  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(close()));
-}
+public:
+  ProjectIO(QWidget *parent = 0);
+  ~ProjectIO();
 
-SolverParameterEditor::~SolverParameterEditor()
-{
-}
+  QWidget *parentWidget;
 
-void SolverParameterEditor::appendToProject(QDomDocument *projectDoc, QDomElement *item)
-{
-  projectIO.parentWidget = this;
-  projectIO.appendToProject(projectDoc, item);
-}
+  void appendToProject(QDomDocument*, QDomElement*);
+  void readFromProject(QDomDocument*, QDomElement*);
 
-void SolverParameterEditor::readFromProject(QDomDocument *projectDoc, QDomElement *item)
-{
-}
+};
+
+#endif // PROJECTIO_H

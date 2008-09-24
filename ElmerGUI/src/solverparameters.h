@@ -42,7 +42,9 @@
 #define SOLVERPARAMETERS_H
 
 #include <QWidget>
+#include <QDomDocument>
 #include "dynamiceditor.h"
+#include "projectio.h"
 #include "ui_solverparameters.h"
 
 class SolverParameterEditor : public QDialog
@@ -58,11 +60,15 @@ public:
 
   QString solverName;
 
+  void appendToProject(QDomDocument*, QDomElement*);
+  void readFromProject(QDomDocument*, QDomElement*);
+
 signals:
 
 private slots:
 
 private:
+   ProjectIO projectIO; 
 
 };
 

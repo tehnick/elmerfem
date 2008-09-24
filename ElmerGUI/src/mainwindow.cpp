@@ -1681,6 +1681,16 @@ void MainWindow::saveProjectSlot()
   logMessage("Saving menu contents... ");
   generalSetup->appendToProjectDoc(&projectDoc);
 
+  QDomElement speBlock = projectDoc.createElement("solverparameters");
+  projectDoc.documentElement().appendChild(speBlock);
+  for(int index = 0; index < limit->maxSolvers(); index++) {
+    QDomElement item = projectDoc.createElement("item");
+    item.setAttribute("index", QString::number(index));
+    speBlock.appendChild(item);
+    SolverParameterEditor *spe = &solverParameterEditor[index];
+    spe->appendToProject(&projectDoc, &item);
+  }
+
   //===========================================================================
   //                          SAVE DYNAMIC MENU CONTENTS
   //===========================================================================
@@ -1776,7 +1786,7 @@ void MainWindow::saveProjectSlot()
   //                             SAVE PROJECT DOCUMENT
   //===========================================================================
   const int indent = 3;
-  QFile projectFile("project.xml");
+  QFile projectFile("egproject.xml");
   projectFile.open(QIODevice::WriteOnly);
   QTextStream projectTextStream(&projectFile);
   projectDoc.save(projectTextStream, indent);
@@ -1894,7 +1904,7 @@ void MainWindow::loadProjectSlot()
   QString errStr;
   int errRow;
   int errCol;
-  QFile projectFile("project.xml");
+  QFile projectFile("egproject.xml");
 
   if(!projectFile.exists()) {
     QMessageBox::information(window(), tr("Project loader"),

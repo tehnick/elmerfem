@@ -43,6 +43,7 @@ HEADERS += src/bodypropertyeditor.h \
            src/meshutils.h \
            src/operation.h \
            src/parallel.h \
+           src/projectio.h \
            src/sifgenerator.h \
            src/sifwindow.h \
            src/solverparameters.h \
@@ -89,6 +90,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            src/meshutils.cpp \
            src/operation.cpp \
            src/parallel.cpp \
+           src/projectio.cpp \
            src/sifgenerator.cpp \
            src/sifwindow.cpp \
            src/solverparameters.cpp \
