@@ -334,7 +334,7 @@
 
      DensitySol => VariableGet( Solver % Mesh % Variables, 'Density' )
 
-     /* Check whether we have some heater controls. This will affect initialization stuff. */
+     ! Check whether we have some heater controls. This will affect initialization stuff. 
      SmartHeaterControl = .FALSE.
      IntegralHeaterControl = .FALSE.
      IF ( Model % NumberOfBodyForces > 0 ) THEN
@@ -487,15 +487,15 @@
      TransientHeaterControl = .FALSE.
      IF(SmartHeaterControl) THEN
 
-        /* Mark the smart heaters */
+        ! Mark the smart heaters 
         SmartHeaters = .FALSE.
         DO i = 1,Model % NumberOfBodyForces
            IF( ListGetLogical( Model % BodyForces(i) % Values, &
                   'Smart Heater Control', Found ) ) SmartHeaters(i) = .TRUE.
         END DO
         
-        /* Find the BC that controls the heater */
-        /* If not found assume that smart heater is related to phase change */
+        ! Find the BC that controls the heater 
+        ! If not found assume that smart heater is related to phase change 
         DO i=1,Model % NumberOfBCs
            GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
            IF(GotIt) THEN
@@ -516,7 +516,7 @@
            END DO
         END IF
         
-        /* Find the node related to temperature control */
+        ! Find the node related to temperature control 
         SmartHeaterNode = 0
         SmartHeaterAverage = ListGetLogical(Solver % Values,'Smart Heater Average', Found)
         IF(.NOT. SmartHeaterAverage) THEN
