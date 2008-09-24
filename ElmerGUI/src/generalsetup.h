@@ -42,6 +42,7 @@
 #define GENERALSETUP_H
 
 #include <QWidget>
+#include <QDomDocument>
 #include "ui_generalsetup.h"
 
 class GeneralSetup : public QDialog
@@ -53,6 +54,8 @@ public:
   ~GeneralSetup();
 
   Ui::setupDialog ui;
+
+  void appendToProjectDoc(QDomDocument*);
 
 signals:
 

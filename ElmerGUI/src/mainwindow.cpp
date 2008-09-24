@@ -1670,35 +1670,24 @@ void MainWindow::saveProjectSlot()
   projectDoc.appendChild(contents);
 
   //===========================================================================
-  //                               SAVE MESH
+  //                                  SAVE MESH
   //===========================================================================
   logMessage("Saving mesh files...");
   saveElmerMesh(projectDirName);
 
   //===========================================================================
-  //                               SAVE EQUATIONS
+  //                              SAVE GENERAL SETUP
   //===========================================================================
   logMessage("Saving menu contents... ");
+  generalSetup->appendToProjectDoc(&projectDoc);
+
+  //===========================================================================
+  //                          SAVE DYNAMIC MENU CONTENTS
+  //===========================================================================
   saveProjectContents(projectDoc, "equation", equationEditor, limit->maxEquations());
-
-  //===========================================================================
-  //                               SAVE MATERIALS
-  //===========================================================================
   saveProjectContents(projectDoc, "material", materialEditor, limit->maxMaterials());
-
-  //===========================================================================
-  //                             SAVE BODY FORCES
-  //===========================================================================
   saveProjectContents(projectDoc, "bodyforce", bodyForceEditor, limit->maxBodyforces());
-
-  //===========================================================================
-  //                          SAVE INITIAL CONDITIONS
-  //===========================================================================
   saveProjectContents(projectDoc, "initialcondition", initialConditionEditor, limit->maxInitialconditions());
-
-  //===========================================================================
-  //                          SAVE BOUNDARY CONDITIONS
-  //===========================================================================
   saveProjectContents(projectDoc, "boundarycondition", boundaryConditionEditor, limit->maxBcs());
 
   //===========================================================================
@@ -1784,11 +1773,6 @@ void MainWindow::saveProjectSlot()
   }
 
   //===========================================================================
-  //                              SAVE GENERAL SETUP
-  //===========================================================================
-  // TODO
-
-  //===========================================================================
   //                             SAVE PROJECT DOCUMENT
   //===========================================================================
   const int indent = 3;
@@ -1849,7 +1833,7 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
       itemKey.appendChild(itemKeyValue);
       itemWidget.appendChild(itemKey);
       
-      if(elem.attribute("Widget", "") == "CheckBox") {
+      if(elem.attribute("Widget") == "CheckBox") {
 	QCheckBox *checkBox = (QCheckBox*)widget;
 	QDomElement itemCheckBox = projectDoc.createElement("value");
 	QDomText itemCheckBoxValue = projectDoc.createTextNode(QString::number(checkBox->isChecked()));
@@ -1857,7 +1841,7 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 	itemWidget.appendChild(itemCheckBox);
 	itemWidget.setAttribute("type", "CheckBox");
 
-      } else if(elem.attribute("Widget", "") == "Edit") {
+      } else if(elem.attribute("Widget") == "Edit") {
 	QLineEdit *lineEdit = (QLineEdit*)widget;
 	QDomElement itemLineEdit = projectDoc.createElement("value");
 	QDomText itemLineEditValue = projectDoc.createTextNode(lineEdit->text().trimmed());
@@ -1865,7 +1849,7 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 	itemWidget.appendChild(itemLineEdit);
 	itemWidget.setAttribute("type", "Edit");
 
-      } else if(elem.attribute("Widget", "") == "Combo") {
+      } else if(elem.attribute("Widget") == "Combo") {
 	QComboBox *comboBox = (QComboBox*)widget;
 	QDomElement itemComboBox = projectDoc.createElement("value");
 	QDomText itemComboBoxValue = projectDoc.createTextNode(comboBox->currentText().trimmed());
@@ -1873,7 +1857,7 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 	itemWidget.appendChild(itemComboBox);
 	itemWidget.setAttribute("type", "Combo");
 
-      } else if(elem.attribute("Widget", "") == "Label") {
+      } else if(elem.attribute("Widget") == "Label") {
 	QLabel *label = (QLabel*)widget;
 	QDomElement itemLabel = projectDoc.createElement("value");
 	QDomText itemLabelValue = projectDoc.createTextNode(label->text().trimmed());
@@ -2165,16 +2149,18 @@ void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *
     QDomElement widget = item.firstChildElement("widget");
     
     for(; !widget.isNull(); widget = widget.nextSiblingElement()) {  
-      QString type = widget.attribute("type");
+      QString type = widget.attribute("type").trimmed();
       QString key = widget.firstChildElement("key").text().trimmed();
       QString value = widget.firstChildElement("value").text().trimmed();
 
-      QStringList splittedKey = key.split("/");
+      if(value.isEmpty())
+	continue;
 
-      bool match_found = false;
+      QStringList splittedKey = key.split("/");
 
       // Compare with current hash:
       //----------------------------
+      bool match_found = false;
       for(int j = 0; j < de->hash.count(); j++) {
 	QString hashkey = de->hash.keys().at(j);
 	QStringList splittedHashKey = hashkey.split("/");
@@ -2188,7 +2174,7 @@ void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *
 
 	  match_found = true;
 
-	  if(elem.attribute("Widget", "") == "CheckBox") {
+	  if(elem.attribute("Widget") == "CheckBox") {
 	    if(type != "CheckBox")
 	      logMessage("Load project: type mismatch with checkBox");
 	    QCheckBox *checkBox = (QCheckBox*)widget;
@@ -2197,13 +2183,13 @@ void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *
 	    else
 	      checkBox->setChecked(false);
 
-	  } else if(elem.attribute("Widget", "") == "Edit") {
+	  } else if(elem.attribute("Widget") == "Edit") {
 	    if(type != "Edit")
 	      logMessage("Load project: type mismatch with lineEdit");
 	    QLineEdit *lineEdit = (QLineEdit*)widget;
 	    lineEdit->setText(value);
 
-	  } else if(elem.attribute("Widget", "") == "Combo") {
+	  } else if(elem.attribute("Widget") == "Combo") {
 	    if(type != "Combo")
 	      logMessage("Load project: type mismatch with comboBox");
 	    QComboBox *comboBox = (QComboBox*)widget;
