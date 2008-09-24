@@ -205,20 +205,34 @@
 
      CALL AllocateVector( RadElements, Model % NumberOfBoundaryElements, 'ViewFactors' )
 
+
+     IF( Model % NumberOfBoundaryElements == 0) THEN
+       CALL Warn('ViewFactors','There are no boundary elements at all!')
+       RETURN
+     END IF
+
 ! Check the maximum radiation body
      MaxRadiationBody = 0
+
      DO t= 1, Model % NumberOfBoundaryElements
+
        Element => GetBoundaryElement(t)
        IF ( GetElementFamily() == 1 ) CYCLE
        BC => GetBC()
        IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
-
+ 
        RadiationFlag = GetString( BC, 'Radiation',GotIt )
+
        IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
-         i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
+         i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ) )
          MaxRadiationBody = MAX(i, MaxRadiationBody)
        END IF
      END DO
+
+     IF( Model % NumberOfBoundaryElements == 0) THEN
+       CALL Warn('ViewFactors','There are no radiation boundary elements!')
+       RETURN
+     END IF
 
      RadiationBody = 0
      DO RadiationBody = 1, MaxRadiationBody
