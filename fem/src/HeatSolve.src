@@ -219,15 +219,16 @@
 
      LOGICAL :: AllocationsDone = .FALSE.,PhaseSpatial=.FALSE., &
         PhaseChange=.FALSE., CheckLatentHeatRelease=.FALSE., FirstTime, &
-        HeaterControl, HeaterControlLocal, SmartTolReached=.FALSE., &
+        SmartHeaterControl, IntegralHeaterControl, HeaterControlLocal, SmartTolReached=.FALSE., &
         TransientHeaterControl, SmartHeaterAverage, ConstantBulk, SaveBulk
+     LOGICAL, POINTER :: SmartHeaters(:), IntegralHeaters(:)
 
      TYPE(Variable_t), POINTER :: TempSol,FlowSol,HeatSol,CurrentSol, MeshSol, DensitySol
      TYPE(ValueList_t), POINTER :: Equation,Material,SolverParams,BodyForce,BC,Constants
 
-     INTEGER, POINTER :: TempPerm(:),FlowPerm(:),CurrentPerm(:),MeshPerm(:), ControlHeaters(:)
+     INTEGER, POINTER :: TempPerm(:),FlowPerm(:),CurrentPerm(:),MeshPerm(:)
 
-     INTEGER :: NSDOFs,NewtonIter,NonlinearIter,MDOFs, NOFControlHeaters, &
+     INTEGER :: NSDOFs,NewtonIter,NonlinearIter,MDOFs, &
          SmartHeaterBC, SmartHeaterNode, DoneTime=0
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,SmartTol,Relax, &
             SaveRelax,dt,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling, &
@@ -238,7 +239,7 @@
        PrevSolution(:), HC(:), Hwrk(:,:,:),MeshVelocity(:), XX(:), YY(:),ForceHeater(:)
 
      REAL(KIND=dp), ALLOCATABLE :: TSolution(:),TSolution1(:), vals(:)
-     REAL(KIND=dp) :: Jx,Jy,Jz,JAbs, Power, MeltPoint
+     REAL(KIND=dp) :: Jx,Jy,Jz,JAbs, Power, MeltPoint, IntHeatSource
 
      INTEGER, ALLOCATABLE, SAVE :: Indexes(:), SaveIndexes(:)
 
@@ -249,16 +250,16 @@
        HeatCapacity(:), Enthalpy(:), Viscosity(:), LocalTemperature(:), &
        ElectricConductivity(:), Permeability(:), Work(:), C0(:), &
        Pressure(:), dPressuredt(:), GasConstant(:),AText(:), HeaterArea(:), &
-       HeaterDensity(:), HeaterSource(:), HeatExpansionCoeff(:), &
-       ReferenceTemperature(:), PressureCoeff(:)
+       HeaterTarget(:), HeaterScaling(:), HeaterDensity(:), HeaterSource(:), &
+       HeatExpansionCoeff(:), ReferenceTemperature(:), PressureCoeff(:)
 
      SAVE U, V, W, MU, MASS, STIFF, LOAD, PressureCoeff, &
        FORCE, ElementNodes, HeatConductivity, HeatCapacity, HeatTransferCoeff, &
        Enthalpy, Density, AllocationsDone, Viscosity, TimeForce, &
        LocalNodes, LocalTemperature, Work, ElectricConductivity, &
        Permeability, TSolution, TSolution1, C0, dPressuredt, Pressure, &
-       GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea,  &
-       HeaterDensity, HeaterSource, ControlHeaters, SmartTolReached,    &
+       GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea, HeaterTarget, &
+       HeaterScaling, HeaterDensity, HeaterSource, SmartHeaters, IntegralHeaters, SmartTolReached,    &
        ReferenceTemperature, HeatExpansionCoeff, PrevPowerScaling, PowerScaling, &
        MeltPoint, DoneTime, SmartHeaterNode, SmartHeaterBC, SmartHeaterAverage
 
@@ -333,72 +334,28 @@
 
      DensitySol => VariableGet( Solver % Mesh % Variables, 'Density' )
 
-     HeaterControl = .FALSE.
-     NOFControlHeaters = 0
+     /* Check whether we have some heater controls. This will affect initialization stuff. */
+     SmartHeaterControl = .FALSE.
+     IntegralHeaterControl = .FALSE.
      IF ( Model % NumberOfBodyForces > 0 ) THEN
-        IF ( .NOT. AllocationsDone ) ALLOCATE( ControlHeaters(Model % NumberOfBodyForces) )
-
         DO i = 1,Model % NumberOfBodyForces
-          IF( ListGetLogical( Model % BodyForces(i) % Values, &
-              'Smart Heater Control', Found ) ) THEN
-            HeaterControl = .TRUE.
-            NOFControlHeaters = NOFControlHeaters + 1
-            ControlHeaters(i) = NOFControlHeaters
-          END IF
+           IF( ListGetLogical( Model % BodyForces(i) % Values, &
+                'Smart Heater Control', Found ) ) THEN
+              SmartHeaterControl = .TRUE.
+           ELSE IF( ListCheckPresent( Model % BodyForces(i) % Values, &
+                   'Integral Heat Source' ) ) THEN
+              IntegralHeaterControl = .TRUE.
+           END IF
         END DO
-
-        IF(HeaterControl) THEN
-          DO i=1,Model % NumberOfBCs
-            GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
-            IF(GotIt) THEN
-              SmartHeaterBC = i
-              MeltPoint = ListGetConstReal( Model % BCs(i) % Values,'Smart Heater Temperature')
-              EXIT
-            END IF
-          END DO
-        
-          IF(.NOT. GotIt) THEN
-            DO i=1,Model % NumberOfBCs
-              GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
-              IF(GotIt) SmartHeaterBC = i
-            END DO
-            DO k=1, Model % NumberOfMaterials
-              MeltPoint = ListGetConstReal( Model % Materials(k) % Values, &
-                  'Melting Point', Found )
-              IF(Found) EXIT
-            END DO
-          END IF
-        END IF
-
-        SmartHeaterNode = 0
-        SmartHeaterAverage = ListGetLogical(Solver % Values,'Smart Heater Average', Found)
-        IF(.NOT. SmartHeaterAverage) THEN
-          jx = -1.0d20
-          DO k = Model % Mesh % NumberOfBulkElements + 1, &
-              Model % Mesh % NumberOfBulkElements + Model % Mesh % NumberOfBoundaryElements
-            
-            Element => Model % Mesh % Elements(k)
-            
-            IF ( Element % BoundaryInfo % Constraint == SmartHeaterBC ) THEN
-              DO l=1,Element % TYPE % NumberOfNodes
-                IF ( Model % Mesh % Nodes % x(Element % NodeIndexes(l)) >= jx ) THEN
-                  j = Element % NodeIndexes(l) 
-                  jx = Model % Mesh % Nodes % x(Element % NodeIndexes(l))
-                END IF
-              END DO
-            END IF
-          END DO
-          SmartHeaterNode = j
-        END IF
-        
      END IF
+     
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed ) THEN
-       N = Solver % Mesh % MaxElementNodes
+        N = Solver % Mesh % MaxElementNodes
 
-       IF ( AllocationsDone ) THEN
+        IF ( AllocationsDone ) THEN
           DEALLOCATE(  &
                  U, V, W, MU,           &
                  Pressure,              &
@@ -453,26 +410,36 @@
          CALL Fatal( 'HeatSolve', 'Memory allocation error' )
        END IF
 
-       NULLIFY( ForceHeater )
-       IF ( HeaterControl ) THEN
-          IF ( AllocationsDone ) DEALLOCATE( XX, YY, ForceHeater, HeaterArea, &
-                          HeaterDensity, HeaterSource )
 
+       IF ( SmartHeaterControl .OR. IntegralHeaterControl) THEN          
+          n = Model % NumberOfBodyForces
+          IF ( AllocationsDone ) DEALLOCATE( HeaterArea, HeaterDensity, HeaterSource, &
+               HeaterScaling, HeaterTarget, SmartHeaters, IntegralHeaters )
+          ALLOCATE( HeaterArea(n), HeaterDensity(n), HeaterSource(n), &
+               HeaterScaling(n), HeaterTarget(n), SmartHeaters(n), &
+               IntegralHeaters(n) )
+          IF ( istat /= 0 ) THEN
+             CALL Fatal( 'HeatSolve', 'Memory allocation error' )
+          END IF
+          SmartHeaters = .FALSE.
+          IntegralHeaters = .FALSE.
+       END IF
+       
+       IF( SmartHeaterControl ) THEN
+          IF ( AllocationsDone ) DEALLOCATE( XX, YY, ForceHeater  )
           n = SIZE( Temperature )
           ALLOCATE( XX( n ), YY(n), ForceHeater( n ), STAT=istat )
+          IF ( istat /= 0 ) THEN
+             CALL Fatal( 'HeatSolve', 'Memory allocation error' )
+          END IF
           XX = 0.0d0 
           YY = 0.0d0
-          ALLOCATE( HeaterArea(NOFControlHeaters), HeaterDensity(NOFControlHeaters), &
-                              HeaterSource(NOFControlHeaters) )
-          IF ( istat /= 0 ) THEN
-            CALL Fatal( 'HeatSolve', 'Memory allocation error' )
-          END IF
-          
+          ForceHeater = 0.0d0
        END IF
-
+       
        NULLIFY( Hwrk )
        AllocationsDone = .TRUE.
-     END IF
+    END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -515,29 +482,92 @@
                'Nonlinear System Relaxation Factor',Found )
      IF ( .NOT.Found ) Relax = 1
 
-     IF(HeaterControl) THEN
-       SmartTol  = GetConstReal( SolverParams, &
-           'Smart Heater Control After Tolerance',  Found )
-       IF(.NOT. Found) SmartTol = 1.0
-       
-       PowerTimeScale = ListGetConstReal(Solver % Values, &
-             'Smart Heater Time Scale',Found)
-       IF(TransientSimulation .AND. dt < PowerTimeScale) THEN
-         TransientHeaterControl = .TRUE.
-         CALL Info( 'HeatSolve', 'Using Transient Heater Control')
-        ELSE
-         TransientHeaterControl = .FALSE.
-         CALL Info( 'HeatSolve', 'Using Steady-state Heater Control')
-       END IF
+!------------------------------------------------------------------------------
 
-       IF(Solver % DoneTime /= DoneTime) THEN
-         PrevPowerScaling = PowerScaling
-         DoneTime = Solver % DoneTime
-       END IF
-     ELSE
-       TransientHeaterControl = .FALSE.
+     TransientHeaterControl = .FALSE.
+     IF(SmartHeaterControl) THEN
+
+        /* Mark the smart heaters */
+        SmartHeaters = .FALSE.
+        DO i = 1,Model % NumberOfBodyForces
+           IF( ListGetLogical( Model % BodyForces(i) % Values, &
+                  'Smart Heater Control', Found ) ) SmartHeaters(i) = .TRUE.
+        END DO
+        
+        /* Find the BC that controls the heater */
+        /* If not found assume that smart heater is related to phase change */
+        DO i=1,Model % NumberOfBCs
+           GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
+           IF(GotIt) THEN
+              SmartHeaterBC = i
+              MeltPoint = GetCReal( Model % BCs(i) % Values,'Smart Heater Temperature')
+              EXIT
+           END IF
+        END DO
+        IF(.NOT. GotIt) THEN
+           DO i=1,Model % NumberOfBCs
+              GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
+              IF(GotIt) SmartHeaterBC = i
+           END DO
+           DO k=1, Model % NumberOfMaterials
+              MeltPoint = GetCReal( Model % Materials(k) % Values, &
+                   'Melting Point', Found )
+              IF(Found) EXIT
+           END DO
+        END IF
+        
+        /* Find the node related to temperature control */
+        SmartHeaterNode = 0
+        SmartHeaterAverage = ListGetLogical(Solver % Values,'Smart Heater Average', Found)
+        IF(.NOT. SmartHeaterAverage) THEN
+           jx = -HUGE(jx)
+           DO k = Model % Mesh % NumberOfBulkElements + 1, &
+                Model % Mesh % NumberOfBulkElements + Model % Mesh % NumberOfBoundaryElements
+              
+              Element => Model % Mesh % Elements(k)
+              
+              IF ( Element % BoundaryInfo % Constraint == SmartHeaterBC ) THEN
+                 DO l=1,Element % TYPE % NumberOfNodes
+                    IF ( Model % Mesh % Nodes % x(Element % NodeIndexes(l)) >= jx ) THEN
+                       j = Element % NodeIndexes(l) 
+                       jx = Model % Mesh % Nodes % x(Element % NodeIndexes(l))
+                    END IF
+                 END DO
+              END IF
+           END DO
+           SmartHeaterNode = j
+        END IF
+
+        SmartTol  = GetConstReal( SolverParams, &
+             'Smart Heater Control After Tolerance',  Found )
+        IF(.NOT. Found) SmartTol = 1.0
+        
+        PowerTimeScale = ListGetConstReal(Solver % Values, &
+             'Smart Heater Time Scale',Found)
+        IF(TransientSimulation .AND. dt < PowerTimeScale) THEN
+           TransientHeaterControl = .TRUE.
+           CALL Info( 'HeatSolve', 'Using Transient Heater Control')
+        ELSE
+           TransientHeaterControl = .FALSE.
+           CALL Info( 'HeatSolve', 'Using Steady-state Heater Control')
+        END IF
+        
+        IF(Solver % DoneTime /= DoneTime) THEN
+           PrevPowerScaling = PowerScaling
+           DoneTime = Solver % DoneTime
+        END IF
+     END IF
+     
+     IF( IntegralHeaterControl) THEN
+        CALL Info( 'HeatSolve', 'Using Integral Heater Control')       
+        IntegralHeaters = .FALSE.
+        DO i = 1,Model % NumberOfBodyForces
+           IntegralHeaters(i) = ListCheckPresent( Model % BodyForces(i) % Values, &
+                'Integral Heat Source')
+        END DO
      END IF
 
+!------------------------------------------------------------------------------
 
      ConstantBulk = GetLogical( SolverParams, 'Constant Bulk System', Found )
      SaveBulk = ConstantBulk .OR. GetLogical( SolverParams, 'Save Bulk System', Found )
@@ -590,13 +620,56 @@
 !------------------------------------------------------------------------------
        CALL DefaultInitialize()
 !------------------------------------------------------------------------------
+ 
+       IF ( SmartHeaterControl .OR. IntegralHeaterControl ) THEN
+          IF( SmartHeaterControl) ForceHeater = 0.0d0
+          HeaterArea = 0.0d0
+          HeaterSource = 0.0d0
+          HeaterScaling = 1.0d0
+          HeaterDensity = 0.0d0
+          HeaterTarget = 0.0d0
+          HeaterControlLocal = .FALSE.
 
-       IF ( HeaterControl ) THEN
-         ForceHeater = 0.0d0
-         HeaterArea = 0.0d0
-         HeaterSource = 0.0d0
-         HeaterControlLocal = .FALSE.
+          DO t=1,Solver % NumberOfActiveElements             
+             Element => GetActiveElement(t)             
+             BodyForce => GetBodyForce()
+             
+             IF ( .NOT. ASSOCIATED( BodyForce ) ) CYCLE
+             bf_id = GetBodyForceId()
+             
+             IF( .NOT. (SmartHeaters(bf_id) .OR. IntegralHeaters(bf_id) ) ) CYCLE
+
+             n = GetElementNOFNodes()
+
+             Material => GetMaterial()
+
+             Density(1:n) = GetReal( Material, 'Density' )
+             Load(1:n) = GetReal( BodyForce, 'Heat Source' )
+
+             s = ElementArea( Solver % Mesh, Element, n )
+
+             IF( CurrentCoordinateSystem() == AxisSymmetric .OR. &
+                  CurrentCoordinateSystem() == CylindricSymmetric ) s = 2 * PI * s
+
+             HeaterSource(bf_id) = HeaterSource(bf_id) + s * SUM(Density(1:n) * Load(1:n)) / n
+             HeaterArea(bf_id) = HeaterArea(bf_id) + s
+             HeaterDensity(bf_id) = HeaterDensity(bf_id) + s * SUM( Density(1:n) ) / n
+          END DO
+
+          DO i = 1,Model % NumberOfBodyForces
+             IF( IntegralHeaters(i) .OR. SmartHeaters(i) ) THEN
+                HeaterDensity(i) = HeaterDensity(i) / HeaterArea(i)
+             END IF
+             IF(IntegralHeaters(i)) THEN
+                HeaterTarget(i) = GetCReal(  Model % BodyForces(i) % Values, &
+                     'Integral Heat Source', Found )
+                HeaterScaling(i) = HeaterTarget(i) / HeaterSource(i)
+             END IF
+          END DO
+
+
        END IF
+
 !------------------------------------------------------------------------------
        body_id = -1
        NULLIFY(Material)
@@ -739,7 +812,7 @@
 !------------------------------------------------------------------------------
 
          HeaterControlLocal = .FALSE.
-         LOAD = 0.0D0
+         Load = 0.0D0
          Pressure = 0.0d0
          dPressuredt = 0.0d0
 !------------------------------------------------------------------------------
@@ -823,24 +896,23 @@
 !------------------------------------------------------------------------------
 !          Given heat source
 !------------------------------------------------------------------------------
-           LOAD(1:n) = LOAD(1:n) + Density(1:n) *  &
-              GetReal( BodyForce, 'Heat Source', Found )
+           Load(1:n) = Density(1:n) *  GetReal( BodyForce, 'Heat Source', Found )
            
-           IF ( HeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
-
-             IF( GetLogical( BodyForce, 'Smart Heater Control', Found ) ) THEN
+           IF ( SmartHeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
+              IF(  SmartHeaters(bf_id) ) THEN
                HeaterControlLocal = .TRUE.
-               k = ControlHeaters(bf_id)
-               s = ElementArea( Solver % Mesh, Element, n )
-               HeaterDensity(k) = SUM( Density(1:n) ) / n
-               HeaterArea(k) = HeaterArea(k) + s
-               HeaterSource(k) = HeaterSource(k) + s * SUM(LOAD(1:n))/n
                IF( TransientHeaterControl ) THEN
                  Load(1:n) = PrevPowerScaling * Load(1:n)
+                 HeaterScaling(bf_id) = PrevPowerScaling
                END IF
              END IF
            END IF
-             
+
+           IF ( IntegralHeaterControl ) THEN
+              IF( IntegralHeaters(bf_id) ) THEN
+                 Load(1:n) = Load(1:n) * HeaterScaling(bf_id) 
+              END IF
+           END IF
          END IF
 
 !------------------------------------------------------------------------------
@@ -959,7 +1031,7 @@
 
       PrevNorm = Norm
 
-      IF(HeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
+      IF(SmartHeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
       
         IF(.NOT. TransientHeaterControl) THEN
           Relax = GetCReal( SolverParams, &
@@ -1011,37 +1083,9 @@
           PowerScaling = (MeltPoint - yave) / xave 
           Temperature = YY + PowerScaling * XX
         END IF
+     END IF
 
-        Power = PowerScaling * SUM( HeaterSource(1:NOFControlHeaters) ) &
-            / SUM( HeaterArea(1:NOFControlHeaters ) )
-
-        SELECT CASE( CurrentCoordinateSystem() )
-          CASE( AxisSymmetric, CylindricSymmetric )         
-          HeaterArea(1:NOFControlHeaters) = 2*PI*HeaterArea(1:NOFControlHeaters)
-        END SELECT 
-
-        CALL Info( 'HeaterControl', ' ', Level=4 )
-        WRITE( Message, * ) 'Heater power scaling:     ', PowerScaling
-        CALL Info( 'HeaterControl', Message, Level=4 )
-        DO i=1,NOFControlHeaters
-          s = PowerScaling * HeaterSource(i) 
-          WRITE( Message, * ) 'Controlled Heater: ', i
-          CALL Info( 'HeaterControl', Message, Level=4 )
-          WRITE( Message, * ) 'Heater Volume (m^3):     ', HeaterArea(i)
-          CALL Info( 'HeaterControl', Message, Level=4 )
-          WRITE( Message, * ) 'Heater Power (W):      ', s
-          CALL Info( 'HeaterControl', Message, Level=4 )
-          WRITE( Message, * ) 'Heater Power Density (W/kg): ', s/(HeaterDensity(i) * HeaterArea(i))
-          CALL Info( 'HeaterControl', Message, Level=4 )
-          CALL Info( 'HeaterControl', ' ', Level=4 )
-        END DO
-         
-        CALL ListAddConstReal(Model % Simulation,'res: Heater Power Scaling',PowerScaling)
-        IF(NOFControlHeaters == 1) THEN
-          CALL ListAddConstReal(Model % Simulation,'res: Heater Power Density',&
-              s/(HeaterDensity(1) * HeaterArea(1)))
-        END IF
-
+     IF( SmartHeaterControl) THEN       
         Norm = SQRT( SUM( Temperature**2 ) / LocalNodes )
         Solver % Variable % Norm = Norm
 
@@ -1054,6 +1098,39 @@
       ELSE
         Norm = DefaultSolve()
       END IF
+
+
+      IF( SmartHeaterControl .OR. IntegralHeaterControl) THEN
+         
+         CALL ListAddConstReal(Model % Simulation,'res: Heater Power Scaling',PowerScaling)
+         
+         CALL Info( 'HeatSolve', 'Heater Control Information', Level=4 )
+         DO i=1,Model % NumberOfBodyForces
+            IF( .NOT. (SmartHeaters(i) .OR. IntegralHeaters(i))) CYCLE
+            IF( SmartHeaters(i) )  HeaterScaling(i) = PowerScaling
+
+            WRITE( Message, '(A,T35,I15)' ) 'Heater for body: ', i
+            CALL Info( 'HeatSolve', Message, Level=4 )
+            IF(SmartHeaters(i)) WRITE( Message, '(A,T35,A)' ) 'Heater type:','Smart heater'
+            IF(IntegralHeaters(i)) WRITE( Message, '(A,T35,A)' ) 'Heater type:','Integral heater'
+            CALL Info( 'HeatSolve', Message, Level=4 )
+
+            WRITE( Message,'(A,T35,ES15.4)' ) 'Heater Volume (m^3): ', HeaterArea(i)
+            CALL Info( 'HeatSolve', Message, Level=4 )
+            s = HeaterSource(i) * HeaterScaling(i)
+            WRITE( Message,'(A,T35,ES15.4)' ) 'Heater Power (W): ', s
+            CALL Info( 'HeatSolve', Message, Level=4 )
+
+            WRITE( Message,'(A,T35,ES15.4)' ) 'Heater scaling: ', HeaterScaling(i)
+            CALL Info( 'HeatSolve', Message, Level=4 )
+            WRITE( Message, '(A,T35,ES15.4)' ) 'Heater Power Density (W/kg): ', s/(HeaterDensity(i) * HeaterArea(i))
+            CALL Info( 'HeatSolve', Message, Level=4 )
+            
+            IF( SmartHeaters(i)) CALL ListAddConstReal(Model % Simulation,'res: Heater Power Density',&
+                 s/(HeaterDensity(i) * HeaterArea(i)))
+         END DO
+      END IF
+
 
       st = CPUTIme()-st
       totat = totat + at
@@ -1108,9 +1185,9 @@
       IF ( RelativeChange < NewtonTol .OR. iter >= NewtonIter ) &
                NewtonLinearization = .TRUE.
       IF ( RelativeChange < NonlinearTol .AND. &
-          (.NOT. HeaterControl .OR. SmartTolReached)) EXIT
+          (.NOT. SmartHeaterControl .OR. SmartTolReached)) EXIT
 
-      IF(HeaterControl) THEN
+      IF(SmartHeaterControl) THEN
         IF ( RelativeChange < SmartTol ) THEN
           SmartTolReached = .TRUE.
           YY = Temperature
