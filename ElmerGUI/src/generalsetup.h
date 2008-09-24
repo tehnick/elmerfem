@@ -56,6 +56,7 @@ public:
   Ui::setupDialog ui;
 
   void appendToProjectDoc(QDomDocument*);
+  void readFromProjectDoc(QDomDocument*);
 
 signals:
 

@@ -1927,34 +1927,24 @@ void MainWindow::loadProjectSlot()
   loadElmerMesh(projectDirName);
   resetSlot();
 
+
   //===========================================================================
-  //                                 EQUATIONS
+  //                            LOAD GENERAL SETUP
   //===========================================================================
   logMessage("Constructing menus...");
+  generalSetup->readFromProjectDoc(&projectDoc);
+
+  //===========================================================================
+  //                        LOAD DYNAMIC EDITOR CONTENTS
+  //===========================================================================
   QDomElement element = projectDoc.documentElement().firstChildElement("equation");
   loadProjectContents(element, equationEditor, limit->maxEquations(), "Equation");
-
-  //===========================================================================
-  //                                MATERIALS
-  //===========================================================================
   element = projectDoc.documentElement().firstChildElement("material");
   loadProjectContents(element, materialEditor, limit->maxMaterials(), "Material");
-
-  //===========================================================================
-  //                               BODY FORCES
-  //===========================================================================
   element = projectDoc.documentElement().firstChildElement("bodyforce");
   loadProjectContents(element, bodyForceEditor, limit->maxBodyforces(), "BodyForce");
-
-  //===========================================================================
-  //                            INITIAL CONDITIONS
-  //===========================================================================
   element = projectDoc.documentElement().firstChildElement("initialcondition");
   loadProjectContents(element, initialConditionEditor, limit->maxInitialconditions(), "InitialCondition");
-
-  //===========================================================================
-  //                            BOUNDARY CONDITIONS
-  //===========================================================================
   element = projectDoc.documentElement().firstChildElement("boundarycondition");
   loadProjectContents(element, boundaryConditionEditor, limit->maxBcs(), "BoundaryCondition");
 

@@ -108,12 +108,12 @@ void GeneralSetup::appendToProjectDoc(QDomDocument *projectDoc)
   gs.appendChild(simulation);
 
   QDomElement maxOutLevel = projectDoc->createElement("maxoutputlevel");
-  QDomText maxOutLevelValue = projectDoc->createTextNode(ui.maxOutputLevelCombo->currentText().trimmed());
+  QDomText maxOutLevelValue = projectDoc->createTextNode(QString::number(ui.maxOutputLevelCombo->currentIndex()));
   maxOutLevel.appendChild(maxOutLevelValue);
   simulation.appendChild(maxOutLevel);
 
   QDomElement coordinateSystem = projectDoc->createElement("coordinatesystem");
-  QDomText coordinateSystemValue = projectDoc->createTextNode(ui.coordinateSystemCombo->currentText().trimmed());
+  QDomText coordinateSystemValue = projectDoc->createTextNode(QString::number(ui.coordinateSystemCombo->currentIndex()));
   coordinateSystem.appendChild(coordinateSystemValue);
   simulation.appendChild(coordinateSystem);
 
@@ -123,7 +123,7 @@ void GeneralSetup::appendToProjectDoc(QDomDocument *projectDoc)
   simulation.appendChild(coordinateMapping);
 
   QDomElement simulationType = projectDoc->createElement("simulationtype");
-  QDomText simulationTypeValue = projectDoc->createTextNode(ui.simulationTypeCombo->currentText().trimmed());
+  QDomText simulationTypeValue = projectDoc->createTextNode(QString::number(ui.simulationTypeCombo->currentIndex()));
   simulationType.appendChild(simulationTypeValue);
   simulation.appendChild(simulationType);
 
@@ -138,12 +138,12 @@ void GeneralSetup::appendToProjectDoc(QDomDocument *projectDoc)
   simulation.appendChild(ssMaxIter);
 
   QDomElement tsMethod = projectDoc->createElement("timesteppipngmethod");
-  QDomText tsMethodValue = projectDoc->createTextNode(ui.timesteppingMethodCombo->currentText().trimmed());
+  QDomText tsMethodValue = projectDoc->createTextNode(QString::number(ui.timesteppingMethodCombo->currentIndex()));
   tsMethod.appendChild(tsMethodValue);
   simulation.appendChild(tsMethod);
 
   QDomElement bdfOrder = projectDoc->createElement("bdforder");
-  QDomText bdfOrderValue = projectDoc->createTextNode(ui.bdfOrderCombo->currentText().trimmed());
+  QDomText bdfOrderValue = projectDoc->createTextNode(QString::number(ui.bdfOrderCombo->currentIndex()));
   bdfOrder.appendChild(bdfOrderValue);
   simulation.appendChild(bdfOrder);
 
@@ -196,4 +196,88 @@ void GeneralSetup::appendToProjectDoc(QDomDocument *projectDoc)
   QDomText ucValue = projectDoc->createTextNode(ui.unitChargeEdit->text().trimmed());
   uc.appendChild(ucValue);
   constants.appendChild(uc);
+}
+
+void GeneralSetup::readFromProjectDoc(QDomDocument *projectDoc)
+{
+  QDomElement gs = projectDoc->documentElement().firstChildElement("generalsetup");
+
+  // Header block:
+  //---------------
+  QDomElement header = gs.firstChildElement("header");
+
+  QDomElement checkKeywordsWarn = header.firstChildElement("checkkeywordswarn");
+  bool checkKeywordsWarnValue = (checkKeywordsWarn.text().toInt() > 0);
+  ui.checkKeywordsWarn->setChecked(checkKeywordsWarnValue);
+
+  QDomElement meshDB1 = header.firstChildElement("meshdb1");
+  ui.meshDBEdit1->setText(meshDB1.text().trimmed());
+
+  QDomElement meshDB2 = header.firstChildElement("meshdb2");
+  ui.meshDBEdit2->setText(meshDB2.text().trimmed());
+
+  QDomElement incPath = header.firstChildElement("includepath");
+  ui.includePathEdit->setText(incPath.text().trimmed());
+
+  QDomElement resDir = header.firstChildElement("resultsdirectory");
+  ui.resultsDirectoryEdit->setText(resDir.text().trimmed());
+
+  // Simulation block:
+  //------------------
+  QDomElement simulation = gs.firstChildElement("simulation");
+
+  QDomElement maxOutLevel = simulation.firstChildElement("maxoutputlevel");
+  ui.maxOutputLevelCombo->setCurrentIndex(maxOutLevel.text().trimmed().toInt());
+
+  QDomElement coordinateSystem = simulation.firstChildElement("coordinatesystem");
+  ui.coordinateSystemCombo->setCurrentIndex(coordinateSystem.text().trimmed().toInt());
+
+  QDomElement coordinateMapping = simulation.firstChildElement("coordinatemapping");
+  ui.coordinateMappingEdit->setText(coordinateMapping.text().trimmed());
+
+  QDomElement simulationType = simulation.firstChildElement("simulationtype");
+  ui.simulationTypeCombo->setCurrentIndex(simulationType.text().trimmed().toInt());
+
+  QDomElement outputIntervals = simulation.firstChildElement("outputintervals");
+  ui.outputIntervalsEdit->setText(outputIntervals.text().trimmed());
+
+  QDomElement ssMaxIter = simulation.firstChildElement("steadystatemaxiter");
+  ui.steadyStateMaxIterEdit->setText(ssMaxIter.text().trimmed());
+
+  QDomElement tsMethod = simulation.firstChildElement("timesteppipngmethod");
+  ui.timesteppingMethodCombo->setCurrentIndex(tsMethod.text().trimmed().toInt());
+
+  QDomElement bdfOrder = simulation.firstChildElement("bdforder");
+  ui.bdfOrderCombo->setCurrentIndex(bdfOrder.text().trimmed().toInt());
+
+  QDomElement tsIntervals = simulation.firstChildElement("timestepintervals");
+  ui.timeStepIntervalsEdit->setText(tsIntervals.text().trimmed());
+
+  QDomElement tsSizes = simulation.firstChildElement("timestepsizes");
+  ui.timestepSizesEdit->setText(tsSizes.text().trimmed());
+
+  QDomElement sif = simulation.firstChildElement("solverinputfile");
+  ui.solverInputFileEdit->setText(sif.text().trimmed());
+
+  QDomElement ep = simulation.firstChildElement("postfile");
+  ui.postFileEdit->setText(ep.text().trimmed());
+
+  // Constants block:
+  //------------------
+  QDomElement constants = gs.firstChildElement("constants");
+
+  QDomElement gravity = constants.firstChildElement("gravity");
+  ui.gravityEdit->setText(gravity.text().trimmed());
+  
+  QDomElement sb = constants.firstChildElement("stefanboltzmann");
+  ui.stefanBoltzmannEdit->setText(sb.text().trimmed());
+  
+  QDomElement vc = constants.firstChildElement("vacuumpermittivity");
+  ui.vacuumPermittivityEdit->setText(vc.text().trimmed());
+  
+  QDomElement b = constants.firstChildElement("boltzmann");
+  ui.boltzmannEdit->setText(b.text().trimmed());
+  
+  QDomElement uc = constants.firstChildElement("unitcharge");
+  ui.unitChargeEdit->setText(uc.text().trimmed());
 }
