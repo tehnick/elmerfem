@@ -238,11 +238,10 @@ private:
   void createToolBars();
   void createStatusBar();
   void applyOperations();
-  void populateBodyComboBoxes(BodyPropertyEditor *);
-  void populateBoundaryComboBoxes(BoundaryPropertyEditor *);
-  void saveContents(QString, DynamicEditor *, int);
-  void loadContents(QString, DynamicEditor *, int, QString);
-  void saveProjectContents(QDomDocument, QString, DynamicEditor *, int);
+  void populateBodyComboBoxes(BodyPropertyEditor*);
+  void populateBoundaryComboBoxes(BoundaryPropertyEditor*);
+  void saveProjectContents(QDomDocument, QString, DynamicEditor*, int);
+  void loadProjectContents(QDomElement, DynamicEditor*, int, QString);
     
   QMenu *fileMenu;                // File menu
   QMenu *modelMenu;               // Model menu

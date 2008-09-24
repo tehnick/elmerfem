@@ -1663,71 +1663,49 @@ void MainWindow::saveProjectSlot()
     return;
   }
 
+  // Create project document:
+  //-------------------------
   QDomDocument projectDoc("egproject");
+  QDomElement contents = projectDoc.createElement("contents");
+  projectDoc.appendChild(contents);
 
-  
   //===========================================================================
   //                               SAVE MESH
   //===========================================================================
+  logMessage("Saving mesh files...");
   saveElmerMesh(projectDirName);
 
   //===========================================================================
   //                               SAVE EQUATIONS
   //===========================================================================
-  QString equationFileName = projectDirName + "/equation.dat";
-  logMessage("Saving equation data in " + equationFileName);
-  saveContents(equationFileName, equationEditor, limit->maxEquations());
+  logMessage("Saving menu contents... ");
   saveProjectContents(projectDoc, "equation", equationEditor, limit->maxEquations());
 
   //===========================================================================
   //                               SAVE MATERIALS
   //===========================================================================
-  QString materialFileName = projectDirName + "/material.dat";
-  logMessage("Saving material data in " + materialFileName);
-  saveContents(materialFileName, materialEditor, limit->maxMaterials());
   saveProjectContents(projectDoc, "material", materialEditor, limit->maxMaterials());
 
   //===========================================================================
   //                             SAVE BODY FORCES
   //===========================================================================
-  QString bodyForceFileName = projectDirName + "/bodyforce.dat";
-  logMessage("Saving body force data in " + bodyForceFileName);
-  saveContents(bodyForceFileName, bodyForceEditor, limit->maxBodyforces());
   saveProjectContents(projectDoc, "bodyforce", bodyForceEditor, limit->maxBodyforces());
 
   //===========================================================================
   //                          SAVE INITIAL CONDITIONS
   //===========================================================================
-  QString initialConditionFileName = projectDirName + "/initialcondition.dat";
-  logMessage("Saving initial condition data in " + initialConditionFileName);
-  saveContents(initialConditionFileName, initialConditionEditor, limit->maxInitialconditions());
   saveProjectContents(projectDoc, "initialcondition", initialConditionEditor, limit->maxInitialconditions());
 
   //===========================================================================
   //                          SAVE BOUNDARY CONDITIONS
   //===========================================================================
-  QString boundaryConditionFileName = projectDirName + "/boundarycondition.dat";
-  logMessage("Saving boundary condition data in " + boundaryConditionFileName);
-  saveContents(boundaryConditionFileName, boundaryConditionEditor, limit->maxBcs());
   saveProjectContents(projectDoc, "boundarycondition", boundaryConditionEditor, limit->maxBcs());
 
   //===========================================================================
   //                            SAVE BODY PROPERTIES
   //===========================================================================
-  QString bodyPropertyFileName = projectDirName + "/bodyproperty.dat";
-  logMessage("Saving body properties in " + bodyPropertyFileName);
-
-  QFile bodyPropertyFile(bodyPropertyFileName);
-  if(!bodyPropertyFile.open(QIODevice::WriteOnly)) {
-    logMessage("Unable to open " + bodyPropertyFileName + " for writing");
-    return;
-  }
-  
-  QTextStream bodyPropertyStream(&bodyPropertyFile);  
-
-  // ?????
   QDomElement bodyProperty = projectDoc.createElement("bodyproperty");
-  projectDoc.appendChild(bodyProperty);
+  projectDoc.documentElement().appendChild(bodyProperty);
 
   for(int i = 0; i < limit->maxBodies(); i++ ) {
     BodyPropertyEditor *body = &bodyPropertyEditor[i];
@@ -1750,12 +1728,6 @@ void MainWindow::saveProjectSlot()
     if((p = body->force) != NULL) 
       forceName = p->nameEdit->text().trimmed();
     
-    bodyPropertyStream << "/" << i << "/" 
-		       << equationName.toAscii() << "/" 
-		       << materialName.toAscii() << "/"
-		       << initialName.toAscii()  << "/"
-		       << forceName.toAscii()    << endl;
-
     QDomElement item = projectDoc.createElement("item");
     item.setAttribute("index", QString::number(i));
     bodyProperty.appendChild(item);
@@ -1781,25 +1753,11 @@ void MainWindow::saveProjectSlot()
     item.appendChild(itemForce);
   }
 
-  bodyPropertyFile.close();
-
   //===========================================================================
   //                          SAVE BOUNDARY PROPERTIES
   //===========================================================================
-  QString boundaryPropertyFileName = projectDirName + "/boundaryproperty.dat";
-  logMessage("Saving boundary properties in " + boundaryPropertyFileName);
-
-  QFile boundaryPropertyFile(boundaryPropertyFileName);
-  if(!boundaryPropertyFile.open(QIODevice::WriteOnly)) {
-    logMessage("Unable to open " + boundaryPropertyFileName + " for writing");
-    return;
-  }
-  
-  QTextStream boundaryPropertyStream(&boundaryPropertyFile);  
-
-  // ?????
   QDomElement boundaryProperty = projectDoc.createElement("boundaryproperty");
-  projectDoc.appendChild(boundaryProperty);
+  projectDoc.documentElement().appendChild(boundaryProperty);
 
   for(int i = 0; i < limit->maxBoundaries(); i++ ) {
     BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[i];
@@ -1809,10 +1767,6 @@ void MainWindow::saveProjectSlot()
     QString conditionName = "";
     if((p = boundary->condition) != NULL)
       conditionName = p->nameEdit->text().trimmed();
-    
-    boundaryPropertyStream << "/" << i << "/" 
-			   << conditionName.toAscii() << "/"
-			   << boundary->ui.boundaryAsABody->isChecked() << endl;
 
     QDomElement item = projectDoc.createElement("item");
     item.setAttribute("index", QString::number(i));
@@ -1823,29 +1777,26 @@ void MainWindow::saveProjectSlot()
     itemName.appendChild(itemNameValue);
     item.appendChild(itemName);
 
-    QDomElement itemAsBody = projectDoc.createElement("asbody");
+    QDomElement itemAsBody = projectDoc.createElement("useasbody");
     QDomText itemAsBodyValue = projectDoc.createTextNode(QString::number(boundary->ui.boundaryAsABody->isChecked()));
     itemAsBody.appendChild(itemAsBodyValue);
     item.appendChild(itemAsBody);
   }
 
-  boundaryPropertyFile.close();
-
-
   //===========================================================================
   //                              SAVE GENERAL SETUP
   //===========================================================================
-
+  // TODO
 
   //===========================================================================
   //                             SAVE PROJECT DOCUMENT
   //===========================================================================
-  QFile testFile("project.xml");
-  testFile.open(QIODevice::WriteOnly);
-  QTextStream testTextStream(&testFile);
-  projectDoc.save(testTextStream, 3);
+  const int indent = 3;
+  QFile projectFile("project.xml");
+  projectFile.open(QIODevice::WriteOnly);
+  QTextStream projectTextStream(&projectFile);
+  projectDoc.save(projectTextStream, indent);
 
-  // All done:
   saveDirName = projectDirName;
   logMessage("Ready");
 }
@@ -1858,7 +1809,7 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 				     DynamicEditor *editor, int Nmax)
 {
   QDomElement editorBlock = projectDoc.createElement(blockName);
-  projectDoc.appendChild(editorBlock);
+  projectDoc.documentElement().appendChild(editorBlock);
 
   for(int i = 0; i < Nmax; i++) {
     DynamicEditor *de = &editor[i];
@@ -1935,57 +1886,6 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 }
 
 
-
-// Helper function for saveProject
-//-----------------------------------------------------------------------------
-void MainWindow::saveContents(QString fileName, DynamicEditor *editor, int Nmax)
-{
-  QFile file(fileName);
-  if(!file.open(QIODevice::WriteOnly)) {
-    logMessage("Unable to open " + fileName + " for writing");
-    return;
-  }
-  
-  QTextStream stream(&file);
-  
-  for(int i = 0; i < Nmax; i++) {
-    DynamicEditor *de = &editor[i];
-    
-    // Menu item number and activation flag:
-    stream << i << "/" << (de->menuAction != NULL) << endl;
-    
-    // Name:
-    if(de->menuAction != NULL)
-      stream << de->nameEdit->text().trimmed() << "\n";
-    
-    // Write all stuff from hash:
-    for(int j = 0; j < de->hash.count(); j++) {
-      QString key = de->hash.keys().at(j);
-      hash_entry_t value = de->hash.values().at(j);
-      QDomElement elem = value.elem;
-      QWidget *widget = value.widget;
-      
-      stream << key.toAscii() << "\n";
-      if(elem.attribute("Widget", "") == "CheckBox") {
-	QCheckBox *checkBox = (QCheckBox*)widget;
-	stream << "CheckBox: " << checkBox->isChecked() << "\n";
-      } else if(elem.attribute("Widget", "") == "Edit") {
-	QLineEdit *lineEdit = (QLineEdit*)widget;
-	stream << "Edit: " << lineEdit->text().toAscii() << "\n";
-      } else if(elem.attribute("Widget", "") == "Combo") {
-	QComboBox *comboBox = (QComboBox*)widget;
-	stream << "Combo: " << comboBox->currentText().toAscii() << "\n";
-      } else if(elem.attribute("Widget", "") == "Label") {
-	QLabel *label = (QLabel*)widget;
-	stream << "Label: " << label->text().toAscii() << "\n";
-      }
-    }
-    stream << "End\n";
-  }
-  file.close();
-}
-
-
 // File -> Load project...
 //-----------------------------------------------------------------------------
 void MainWindow::loadProjectSlot()
@@ -2005,83 +1905,95 @@ void MainWindow::loadProjectSlot()
   logMessage("Clearing model data");
   modelClearSlot();
 
+  logMessage("Loading project document...");
+  QDomDocument projectDoc;
+  QString errStr;
+  int errRow;
+  int errCol;
+  QFile projectFile("project.xml");
+
+  if(!projectFile.exists()) {
+    QMessageBox::information(window(), tr("Project loader"),
+			     tr("Project file does not exist"));
+    return;
+
+  } else {  
+
+    if(!projectDoc.setContent(&projectFile, true, &errStr, &errRow, &errCol)) {
+      QMessageBox::information(window(), tr("Project loader"),
+			       tr("Parse error at line %1, col %2:\n%3")
+			       .arg(errRow).arg(errCol).arg(errStr));
+      projectFile.close();
+      return;
+    }
+  }
+
+  projectFile.close();	
+  
+  if(projectDoc.documentElement().tagName() != "contents") {
+    QMessageBox::information(window(), tr("Project loader"),
+			     tr("This is not a project file"));
+    return;
+  }
+
   //===========================================================================
   //                                 LOAD MESH
   //===========================================================================
+  logMessage("Loading mesh files...");
   loadElmerMesh(projectDirName);
+  resetSlot();
 
   //===========================================================================
-  //                               LOAD EQUATIONS
+  //                                 EQUATIONS
   //===========================================================================
-  QString equationFileName = projectDirName + "/equation.dat";
-  logMessage("Loading equation data from " + equationFileName);
-  loadContents(equationFileName, equationEditor, limit->maxEquations(), "Equation");
+  logMessage("Constructing menus...");
+  QDomElement element = projectDoc.documentElement().firstChildElement("equation");
+  loadProjectContents(element, equationEditor, limit->maxEquations(), "Equation");
 
   //===========================================================================
-  //                               LOAD MATERIALS
+  //                                MATERIALS
   //===========================================================================
-  QString materialFileName = projectDirName + "/material.dat";
-  logMessage("Loading material data from " + materialFileName);
-  loadContents(materialFileName, materialEditor, limit->maxMaterials(), "Material");
+  element = projectDoc.documentElement().firstChildElement("material");
+  loadProjectContents(element, materialEditor, limit->maxMaterials(), "Material");
 
   //===========================================================================
-  //                             LOAD BODY FORCES
+  //                               BODY FORCES
   //===========================================================================
-  QString bodyForceFileName = projectDirName + "/bodyforce.dat";
-  logMessage("Loading body force data from " + bodyForceFileName);
-  loadContents(bodyForceFileName, bodyForceEditor, limit->maxBodyforces(), "BodyForce");
+  element = projectDoc.documentElement().firstChildElement("bodyforce");
+  loadProjectContents(element, bodyForceEditor, limit->maxBodyforces(), "BodyForce");
 
   //===========================================================================
-  //                          LOAD INITIAL CONDITIONS
+  //                            INITIAL CONDITIONS
   //===========================================================================
-  QString initialConditionFileName = projectDirName + "/initialcondition.dat";
-  logMessage("Loading initial condition data from " + initialConditionFileName);
-  loadContents(initialConditionFileName, initialConditionEditor, limit->maxInitialconditions(), "InitialCondition");
+  element = projectDoc.documentElement().firstChildElement("initialcondition");
+  loadProjectContents(element, initialConditionEditor, limit->maxInitialconditions(), "InitialCondition");
 
   //===========================================================================
-  //                          LOAD BOUNDARY CONDITIONS
+  //                            BOUNDARY CONDITIONS
   //===========================================================================
-  QString boundaryConditionFileName = projectDirName + "/boundarycondition.dat";
-  logMessage("Loading boundary condition data from " + boundaryConditionFileName);
-  loadContents(boundaryConditionFileName, boundaryConditionEditor, limit->maxBcs(), "BoundaryCondition");
+  element = projectDoc.documentElement().firstChildElement("boundarycondition");
+  loadProjectContents(element, boundaryConditionEditor, limit->maxBcs(), "BoundaryCondition");
 
   //===========================================================================
-  //                            LOAD BODY PROPERTIES
+  //                              BODY PROPERTIES
   //===========================================================================
-  QString bodyPropertyFileName = projectDirName + "/bodyproperty.dat";
-  logMessage("Loading body properties from " + bodyPropertyFileName);
+  element = projectDoc.documentElement().firstChildElement("bodyproperty");
+  QDomElement item = element.firstChildElement("item");
 
-  QFile bodyPropertyFile(bodyPropertyFileName);
-  if(!bodyPropertyFile.open(QIODevice::ReadOnly)) {
-    logMessage("Unable to open " + bodyPropertyFileName + " for reading");
-    return;
-  }
-  
-  QTextStream bodyPropertyStream(&bodyPropertyFile);  
+  for(; !item.isNull(); item = item.nextSiblingElement()) {  
+    int index = item.attribute("index").toInt();
 
-  for(int i = 0; i < limit->maxBodies(); i++ ) {
-    QString line = bodyPropertyStream.readLine();
-
-    if(line == "") {
-      cout << "Error: bad or corrupted input file: bodyproperty.dat" << endl;
-      cout.flush();
+    if((index < 0) || (index >= limit->maxBodies())) {
+      logMessage("Project loader: index out of bounds (bodyproperty)");
       return;
     }
 
-    QStringList splittedLine = line.split("/");
+    QString equationName = item.firstChildElement("equation").text().trimmed();
+    QString materialName = item.firstChildElement("material").text().trimmed();
+    QString initialName = item.firstChildElement("initialcondition").text().trimmed();
+    QString forceName = item.firstChildElement("bodyforce").text().trimmed();
     
-    if(splittedLine.count() != 6) {
-      cout << "Error: bad or corrupted input file: bodyproperty.dat" << endl;
-      cout.flush();
-      return;
-    }
-    
-    QString equationName = splittedLine.at(2);
-    QString materialName = splittedLine.at(3);
-    QString initialName = splittedLine.at(4);
-    QString forceName = splittedLine.at(5);
-    
-    BodyPropertyEditor *p = &bodyPropertyEditor[i];
+    BodyPropertyEditor *p = &bodyPropertyEditor[index];
     populateBodyComboBoxes(p);
     
     for(int j = 0; j < p->ui.equationCombo->count(); j++) {
@@ -2109,43 +2021,24 @@ void MainWindow::loadProjectSlot()
     }
   }
 
-  bodyPropertyFile.close();
-
   //===========================================================================
-  //                          LOAD BOUNDARY PROPERTIES
+  //                             BOUNDARY PROPERTIES
   //===========================================================================
-  QString boundaryPropertyFileName = projectDirName + "/boundaryproperty.dat";
-  logMessage("Loading boundary properties from " + boundaryPropertyFileName);
+  element = projectDoc.documentElement().firstChildElement("boundaryproperty");
+  item = element.firstChildElement("item");
 
-  QFile boundaryPropertyFile(boundaryPropertyFileName);
-  if(!boundaryPropertyFile.open(QIODevice::ReadOnly)) {
-    logMessage("Unable to open " + boundaryPropertyFileName + " for reading");
-    return;
-  }
-  
-  QTextStream boundaryPropertyStream(&boundaryPropertyFile);  
- 
-  for(int i = 0; i < limit->maxBoundaries(); i++ ) {
-    QString line = boundaryPropertyStream.readLine();
+  for(; !item.isNull(); item = item.nextSiblingElement()) {  
+    int index = item.attribute("index").toInt();
 
-    if(line == "") {
-      cout << "Error: bad or corrupted input file: boundaryproperty.dat" << endl;
-      cout.flush();
+    if((index < 0) || (index >= limit->maxBoundaries())) {
+      logMessage("Project loader: index out of bounds (boundaryproperty)");
       return;
     }
 
-    QStringList splittedLine = line.split("/");
+    QString boundaryConditionName = item.firstChildElement("name").text().trimmed();
+    bool useAsABody = (item.firstChildElement("useasbody").text().toInt() > 0);
     
-    if(splittedLine.count() != 4) {
-      cout << "Error: bad or corrupted input file: boundaryproperty.dat" << endl;
-      cout.flush();
-      return;
-    }
-    
-    QString boundaryConditionName = splittedLine.at(2);
-    bool useAsABody = (splittedLine.at(3).toInt() > 0);
-    
-    BoundaryPropertyEditor *p = &boundaryPropertyEditor[i];
+    BoundaryPropertyEditor *p = &boundaryPropertyEditor[index];
     populateBoundaryComboBoxes(p);
     
     for(int j = 0; j < p->ui.boundaryConditionCombo->count(); j++) {
@@ -2157,10 +2050,9 @@ void MainWindow::loadProjectSlot()
     p->ui.boundaryAsABody->setChecked(useAsABody);
   }
 
-  boundaryPropertyFile.close();
-
-
-  // Finally, regenerate && save new sif:
+  //===========================================================================
+  //                              REGENERATE SIF
+  //===========================================================================
   if(glWidget->mesh != NULL) {
     logMessage("Regenerating and saving the solver input file...");
 
@@ -2189,147 +2081,135 @@ void MainWindow::loadProjectSlot()
 
 // Helper function for load project
 //--------------------------------------------------------------------------------------------
-void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax, QString Mname)
+void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *editor, int Nmax, QString Mname)
 {
-  QString line = "";
-  QString line1 = "";
-  QString line2 = "";
-  QStringList splittedLine;
-  QStringList splittedLine1;
-  QStringList splittedLine2;
+  QDomElement item = projectElement.firstChildElement("item");
 
-  QFile file(fileName);
-  if(!file.open(QIODevice::ReadOnly)) {
-    logMessage("Unable to open " + fileName + " for reading");
-    return;
-  }
+  for(; !item.isNull(); item = item.nextSiblingElement()) {  
+    int index = item.attribute("index").toInt();
 
-  QTextStream stream(&file);
-
-  for(int i = 0; i < Nmax; i++) {
-    DynamicEditor *de = &editor[i];
-
-    // Menu item number and activation flag:
-    line = stream.readLine();
-    splittedLine = line.split("/");
-
-    if(splittedLine.count() != 2) {
-      logMessage("Unexpected line in dat-file - aborting");
+    if((index < 0) || (index >= Nmax)) {
+      logMessage("Project loader: index out of bounds (dynamic edit)");
       return;
     }
 
-    // int itemNumber = splittedLine.at(0).toInt();
-    int menuActionDefined = splittedLine.at(1).toInt();
+    DynamicEditor *de = &editor[index];
 
-    // set up tabs and add to menu
-    if(menuActionDefined > 0) {
+    bool active = (item.firstChildElement("active").text().toInt() == 1);
 
-      // name of the item
-      QString name = stream.readLine();
+    if(!active)
+      continue;
 
-      de->setupTabs(*elmerDefs, Mname, i);
-      de->nameEdit->setText(name);
-      de->applyButton->setText("Update");
-      de->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-      de->discardButton->setText("Remove");
-      de->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+    // Set up dynamic editor and connect:
+    //------------------------------------
+    QString itemName = item.firstChildElement("name").text().trimmed();
 
-      const QString &tmpName = name;
-      QAction *act = new QAction(tmpName, this);
+    de->setupTabs(*elmerDefs, Mname, index);
+    de->nameEdit->setText(itemName);
+    de->applyButton->setText("Update");
+    de->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+    de->discardButton->setText("Remove");
+    de->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      
+    const QString &tmpName = itemName;
+    QAction *act = new QAction(tmpName, this);
 
-      if(Mname == "Equation") {
-	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int)));
-	de->spareButton->setText("Edit Solver Settings");
-	de->spareButton->show();
-	de->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));      
-	connect(de, SIGNAL(dynamicEditorSpareButtonClicked(int, int)), this, SLOT(editNumericalMethods(int, int)));
-	equationMenu->addAction(act);
-      }
-
-      if(Mname == "Material") {
-	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(matEditorFinishedSlot(int,int)));
-	materialMenu->addAction(act);
-      }
-
-      if(Mname == "BodyForce") {
-	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(bodyForceEditorFinishedSlot(int,int)));
-	bodyForceMenu->addAction(act);
-      }
-
-      if(Mname == "InitialCondition") {
-	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(initialConditionEditorFinishedSlot(int,int)));
-	initialConditionMenu->addAction(act);
-      }
-
-      if(Mname == "BoundaryCondition") {
-	connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(boundaryConditionEditorFinishedSlot(int,int)));
-	boundaryConditionMenu->addAction(act);
-      }
-
-      de->menuAction = act;      
-
-      if(Mname == "Equation") 
-	createBodyCheckBoxes(BODY_EQUATION, de);
-
-      if(Mname == "Material") 
-	createBodyCheckBoxes(BODY_MATERIAL, de);
-
-      if(Mname == "BodyForce") 
-	createBodyCheckBoxes(BODY_FORCE, de);
-
-      if(Mname == "InitialCondition") 
-	createBodyCheckBoxes(BODY_INITIAL, de);
-
-      if(Mname == "BoundaryCondition") 
-	createBoundaryCheckBoxes(de);
+    if(Mname == "Equation") {
+      connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int)));
+      de->spareButton->setText("Edit Solver Settings");
+      de->spareButton->show();
+      de->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));      
+      connect(de, SIGNAL(dynamicEditorSpareButtonClicked(int,int)), this, SLOT(editNumericalMethods(int,int)));
+      equationMenu->addAction(act);
     }
 
-    // set contents:
-    line1 = stream.readLine();
-    while(line1.trimmed() != "End") {
-      line2 = stream.readLine();
-      if(line2.trimmed() == "End")
-	break;
+    if(Mname == "Material") {
+      connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(matEditorFinishedSlot(int,int)));
+      materialMenu->addAction(act);
+    }
 
-      splittedLine1 = line1.split("/");
-      splittedLine2 = line2.split(":");
+    if(Mname == "BodyForce") {
+      connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(bodyForceEditorFinishedSlot(int,int)));
+      bodyForceMenu->addAction(act);
+    }
+    
+    if(Mname == "InitialCondition") {
+      connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(initialConditionEditorFinishedSlot(int,int)));
+      initialConditionMenu->addAction(act);
+    }
+    
+    if(Mname == "BoundaryCondition") {
+      connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(boundaryConditionEditorFinishedSlot(int,int)));
+      boundaryConditionMenu->addAction(act);
+    }
+    
+    de->menuAction = act;      
+    
+    if(Mname == "Equation") 
+      createBodyCheckBoxes(BODY_EQUATION, de);
+    
+    if(Mname == "Material") 
+      createBodyCheckBoxes(BODY_MATERIAL, de);
+    
+    if(Mname == "BodyForce") 
+      createBodyCheckBoxes(BODY_FORCE, de);
+    
+    if(Mname == "InitialCondition") 
+      createBodyCheckBoxes(BODY_INITIAL, de);
+    
+    if(Mname == "BoundaryCondition") 
+      createBoundaryCheckBoxes(de);
+    
+    // Set up widgets:
+    //-----------------
+    QDomElement widget = item.firstChildElement("widget");
+    
+    for(; !widget.isNull(); widget = widget.nextSiblingElement()) {  
+      QString type = widget.attribute("type");
+      QString key = widget.firstChildElement("key").text().trimmed();
+      QString value = widget.firstChildElement("value").text().trimmed();
+
+      QStringList splittedKey = key.split("/");
 
       bool match_found = false;
 
+      // Compare with current hash:
+      //----------------------------
       for(int j = 0; j < de->hash.count(); j++) {
-	QString key = de->hash.keys().at(j);
-	QStringList splittedKey = key.split("/");
-	hash_entry_t value = de->hash.values().at(j);
-	QWidget *widget = value.widget;
-	QDomElement elem = value.elem;
+	QString hashkey = de->hash.keys().at(j);
+	QStringList splittedHashKey = hashkey.split("/");
+	hash_entry_t hashvalue = de->hash.values().at(j);
+	QWidget *widget = hashvalue.widget;
+	QDomElement elem = hashvalue.elem;
 	
-	if((splittedLine1.at(1) == splittedKey.at(1)) &&
-	   (splittedLine1.at(2) == splittedKey.at(2)) &&
-	   (splittedLine1.at(3) == splittedKey.at(3))) {
+	if((splittedKey.at(1) == splittedHashKey.at(1)) &&
+	   (splittedKey.at(2) == splittedHashKey.at(2)) &&
+	   (splittedKey.at(3) == splittedHashKey.at(3))) {
 
-	  // match:
 	  match_found = true;
 
 	  if(elem.attribute("Widget", "") == "CheckBox") {
-	    if(splittedLine2.at(0).trimmed() != "CheckBox")
+	    if(type != "CheckBox")
 	      logMessage("Load project: type mismatch with checkBox");
 	    QCheckBox *checkBox = (QCheckBox*)widget;
-	    if(splittedLine2.at(1).toInt() == 1)
+	    if(value.toInt() == 1)
 	      checkBox->setChecked(true);
 	    else
 	      checkBox->setChecked(false);
+
 	  } else if(elem.attribute("Widget", "") == "Edit") {
-	    if(splittedLine2.at(0).trimmed() != "Edit")
+	    if(type != "Edit")
 	      logMessage("Load project: type mismatch with lineEdit");
 	    QLineEdit *lineEdit = (QLineEdit*)widget;
-	    lineEdit->setText(splittedLine2.at(1));
+	    lineEdit->setText(value);
+
 	  } else if(elem.attribute("Widget", "") == "Combo") {
-	    if(splittedLine2.at(0).trimmed() != "Combo")
+	    if(type != "Combo")
 	      logMessage("Load project: type mismatch with comboBox");
 	    QComboBox *comboBox = (QComboBox*)widget;
 	    for(int k = 0; k < comboBox->count(); k++) {
 	      QString current = comboBox->itemText(k).trimmed();
-	      if(current == splittedLine2.at(1).trimmed())
+	      if(current == value.trimmed())
 		comboBox->setCurrentIndex(k);
 	    }
 	  }
@@ -2340,13 +2220,9 @@ void MainWindow::loadContents(QString fileName, DynamicEditor *editor, int Nmax,
 	cout << "Error: Unable to set menu entry" << endl;
 	cout.flush();
       }
-
-      line1 = stream.readLine();
     }
   }
-  file.close();
 }
-
 
 
 // Export mesh files in elmer-format:
