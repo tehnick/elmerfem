@@ -1999,12 +1999,13 @@ void MainWindow::loadProjectSlot()
   operations = 0;
   operation.next = NULL;
 
-  QDomElement ops = contents.firstChildElement("operations");
-
   p = &operation;
+  QDomElement ops = contents.firstChildElement("operations");
   QDomElement op = ops.firstChildElement("operation");
   for( ; !op.isNull(); op = op.nextSiblingElement()) {
     int index = op.attribute("index").toInt();
+
+    cout << "index: " << index << endl;
 
     p->type = op.firstChildElement("type").text().toInt();
     p->angle = op.firstChildElement("angle").text().toDouble();
@@ -2014,15 +2015,18 @@ void MainWindow::loadProjectSlot()
 
     p->select_set = new int[p->selected];
 
-    for(int list = 0; list < p->selected; list++) {
-      QDomElement selection = selected.firstChildElement("list");
+    QDomElement selection = selected.firstChildElement("list");
+    for(int list = 0; !selection.isNull(); selection = selection.nextSiblingElement(), list++) {
       p->select_set[list] = selection.text().toInt();
+      cout << "list: " << p->select_set[list] << endl;
     }
     
     p->next = new operation_t;
     p = p->next;
+    operations++;
   }
 
+  
   //===========================================================================
   //                            LOAD GENERAL SETUP
   //===========================================================================
