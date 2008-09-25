@@ -397,6 +397,7 @@ private:
   bool bodyEditActive;
   bool showConvergence;
   QString saveDirName;
+  QString geometryInputFileName;
 
   // splash screen:
   QPixmap pixmap;

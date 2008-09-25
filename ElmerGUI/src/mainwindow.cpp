@@ -224,6 +224,7 @@ MainWindow::MainWindow()
   bcEditActive = false;
   bodyEditActive = false;
   showConvergence = egIni->isSet("showconvergence");
+  geometryInputFileName = "";
 
   // background image:
   glWidget->stateUseBgImage = egIni->isSet("bgimage");
@@ -1013,6 +1014,8 @@ void MainWindow::openSlot()
 
   }
 
+  geometryInputFileName = fileName;
+
   operation_t *p = operation.next, *q;
 
   while(p != NULL) {
@@ -1676,6 +1679,29 @@ void MainWindow::saveProjectSlot()
   saveElmerMesh(projectDirName);
 
   //===========================================================================
+  //                          SAVE GEOMETRY INPUT FILE
+  //===========================================================================
+  QFileInfo fi(geometryInputFileName);
+
+  QFile src(geometryInputFileName);
+  src.open(QIODevice::ReadOnly);
+  QTextStream srcStream(&src);
+
+  QFile dst(fi.fileName());
+  dst.open(QIODevice::WriteOnly);
+  QTextStream dstStream(&dst);
+
+  dstStream << srcStream.readAll();
+
+  dst.close();
+  src.close();
+
+  QDomElement geomInput = projectDoc.createElement("geometryinputfile");
+  QDomText geomInputValue = projectDoc.createTextNode(fi.fileName());
+  geomInput.appendChild(geomInputValue);
+  contents.appendChild(geomInput);
+  
+  //===========================================================================
   //                              SAVE GENERAL SETUP
   //===========================================================================
   logMessage("Saving menu contents... ");
@@ -1901,6 +1927,8 @@ void MainWindow::loadProjectSlot()
     return;
   }
 
+  QDomElement contents = projectDoc.documentElement();
+
   //===========================================================================
   //                                 LOAD MESH
   //===========================================================================
@@ -1908,13 +1936,17 @@ void MainWindow::loadProjectSlot()
   loadElmerMesh(projectDirName);
   resetSlot();
 
+  //===========================================================================
+  //                          LOAD GEOMETRY INPUT FILE
+  //===========================================================================
+  QDomElement geomInput = contents.firstChildElement("geometryinputfile");
+  geometryInputFileName = geomInput.text().trimmed();
+  readInputFile(geometryInputFileName);
 
   //===========================================================================
   //                            LOAD GENERAL SETUP
   //===========================================================================
   logMessage("Constructing menus...");
-
-  QDomElement contents = projectDoc.documentElement();
   QDomElement gsBlock = contents.firstChildElement("generalsetup");
   generalSetup->readFromProject(&projectDoc, &gsBlock);
 
