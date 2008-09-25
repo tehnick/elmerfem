@@ -1997,12 +1997,17 @@ void MainWindow::loadProjectSlot()
     p = q;
   }
   operations = 0;
+  q = &operation;
   operation.next = NULL;
 
-  p = &operation;
   QDomElement ops = contents.firstChildElement("operations");
   QDomElement op = ops.firstChildElement("operation");
   for( ; !op.isNull(); op = op.nextSiblingElement()) {
+    operations++;
+    p = new operation_t;
+    p->next = NULL;
+    q->next = p;
+    q = p;
     int index = op.attribute("index").toInt();
 
     cout << "index: " << index << endl;
@@ -2020,10 +2025,6 @@ void MainWindow::loadProjectSlot()
       p->select_set[list] = selection.text().toInt();
       cout << "list: " << p->select_set[list] << endl;
     }
-    
-    p->next = new operation_t;
-    p = p->next;
-    operations++;
   }
 
   
