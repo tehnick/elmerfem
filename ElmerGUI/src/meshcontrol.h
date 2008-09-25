@@ -41,6 +41,8 @@
 #ifndef MESHCONTROL_H
 #define MESHCONTROL_H
 
+#include <QDomDocument>
+#include "projectio.h"
 #include "meshtype.h"
 #include "ui_meshcontrol.h"
 
@@ -65,6 +67,9 @@ public:
   bool tetlibPresent;
   bool nglibPresent;
 
+  void appendToProject(QDomDocument*, QDomElement*);
+  void readFromProject(QDomDocument*, QDomElement*);
+
 public slots:
   void defaultControls();
 
@@ -79,6 +84,8 @@ private slots:
   void defineNglibBackgroundmesh(const QString &qs);
   void defineElmerGridControlString(const QString &qs);
 
+private:
+  ProjectIO projectIO;
 };
 
 #endif

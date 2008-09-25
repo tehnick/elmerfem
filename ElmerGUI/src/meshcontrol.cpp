@@ -147,3 +147,15 @@ void MeshControl::defaultControls()
   ui.elmerGridStringEdit->setText("-relh 1.0");
   ui.elementCodesStringEdit->setText("");
 }
+
+void MeshControl::appendToProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.appendToProject(projectDoc, item);
+}
+
+void MeshControl::readFromProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.readFromProject(projectDoc, item);
+}

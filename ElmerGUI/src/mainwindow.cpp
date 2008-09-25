@@ -1682,32 +1682,41 @@ void MainWindow::saveProjectSlot()
   //                          SAVE GEOMETRY INPUT FILE
   //===========================================================================
   QFileInfo fi(geometryInputFileName);
+  QString baseName = fi.baseName();
 
   // Avoid copying file into it self:
   if(!(fi.path() == projectDirName)) {
-    QFile src(geometryInputFileName);
-    src.open(QIODevice::ReadOnly);
-    QTextStream srcStream(&src);
-    
-    QFile dst(fi.fileName());
-    dst.open(QIODevice::WriteOnly);
-    QTextStream dstStream(&dst);
-    
-    dstStream << srcStream.readAll();
-    
-    dst.close();
-    src.close();
+    QDirIterator iterator(fi.path());
+    while (iterator.hasNext()) {
+      QString fileName = iterator.next();
+      QFileInfo fileInfo(fileName);
+      if(fileInfo.baseName() == baseName) {
+	cout << "Copying: " << string(fileName.toAscii()) << endl;
+	QFile src(fileName);
+	src.open(QIODevice::ReadOnly);
+	QTextStream srcStream(&src);
+	
+	QFile dst(fileInfo.fileName());
+	dst.open(QIODevice::WriteOnly);
+	QTextStream dstStream(&dst);
+	
+	dstStream << srcStream.readAll();
+	
+	dst.close();
+	src.close();
+      }
+    }
   } else {
-    logMessage("Geometry input file not copied");
+    logMessage("Geometry input file(s) not copied");
   }
 
   QDomElement geomInput = projectDoc.createElement("geometryinputfile");
   QDomText geomInputValue = projectDoc.createTextNode(fi.fileName());
   geomInput.appendChild(geomInputValue);
   contents.appendChild(geomInput);
-    
+
   //===========================================================================
-  //                               SAVE OPERATIONS
+  //                             SAVE OPERATIONS
   //===========================================================================
   QDomElement ops = projectDoc.createElement("operations");
   contents.appendChild(ops);
@@ -1754,6 +1763,13 @@ void MainWindow::saveProjectSlot()
   QDomElement paraBlock = projectDoc.createElement("parallelsettings");
   projectDoc.documentElement().appendChild(paraBlock);
   parallel->appendToProject(&projectDoc, &paraBlock);
+
+  //===========================================================================
+  //                            SAVE MESH PARAMETERS
+  //===========================================================================
+  QDomElement meshParams = projectDoc.createElement("meshparameters");
+  projectDoc.documentElement().appendChild(meshParams);
+  meshControl->appendToProject(&projectDoc, &meshParams);
 
   //===========================================================================
   //                            SAVE SOLVER PARAMETERS
@@ -2030,7 +2046,6 @@ void MainWindow::loadProjectSlot()
     }
   }
 
-  
   //===========================================================================
   //                            LOAD GENERAL SETUP
   //===========================================================================
@@ -2043,6 +2058,12 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   QDomElement paraBlock = contents.firstChildElement("parallelsettings");
   parallel->readFromProject(&projectDoc, &paraBlock);
+
+  //===========================================================================
+  //                            LOAD MESH PARAMETERS
+  //===========================================================================
+  QDomElement meshParams = contents.firstChildElement("meshparameters");
+  meshControl->readFromProject(&projectDoc, &meshParams);
 
   //===========================================================================
   //                          LOAD SOLVER PARAMETERS
