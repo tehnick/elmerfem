@@ -2008,9 +2008,9 @@ void MainWindow::loadProjectSlot()
     p->next = NULL;
     q->next = p;
     q = p;
-    int index = op.attribute("index").toInt();
 
-    cout << "index: " << index << endl;
+    // int index = op.attribute("index").toInt();
+    // cout << "index: " << index << endl;
 
     p->type = op.firstChildElement("type").text().toInt();
     p->angle = op.firstChildElement("angle").text().toDouble();
@@ -2022,8 +2022,11 @@ void MainWindow::loadProjectSlot()
 
     QDomElement selection = selected.firstChildElement("list");
     for(int list = 0; !selection.isNull(); selection = selection.nextSiblingElement(), list++) {
+      if(list >= p->selected) {
+	logMessage("Project loader: load operations: index out of bounds");
+	return;
+      }
       p->select_set[list] = selection.text().toInt();
-      cout << "list: " << p->select_set[list] << endl;
     }
   }
 
