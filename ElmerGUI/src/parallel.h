@@ -42,6 +42,8 @@
 #define PARALLEL_H
 
 #include <QWidget>
+#include <QDomDocument>
+#include "projectio.h"
 #include "ui_parallel.h"
 
 class Parallel : public QDialog
@@ -54,6 +56,9 @@ public:
 
   Ui::parallelDialog ui;
 
+  void appendToProject(QDomDocument*, QDomElement*);
+  void readFromProject(QDomDocument*, QDomElement*);
+
 signals:
 
 private slots:
@@ -62,7 +67,8 @@ private slots:
   void browseButtonClicked(); 
 
 private:
- 
+  ProjectIO projectIO;
+
 };
 
 #endif // PARALLEL_H

@@ -64,13 +64,13 @@ void GeneralSetup::acceptButtonClicked()
   this->close();
 }
 
-void GeneralSetup::appendToProjectDoc(QDomDocument *projectDoc, QDomElement *item)
+void GeneralSetup::appendToProject(QDomDocument *projectDoc, QDomElement *item)
 {
   projectIO.parentWidget = this;
   projectIO.appendToProject(projectDoc, item);
 }
 
-void GeneralSetup::readFromProjectDoc(QDomDocument *projectDoc, QDomElement *item)
+void GeneralSetup::readFromProject(QDomDocument *projectDoc, QDomElement *item)
 {
   projectIO.parentWidget = this;
   projectIO.readFromProject(projectDoc, item);

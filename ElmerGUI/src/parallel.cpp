@@ -99,3 +99,15 @@ void Parallel::okButtonClicked()
 {
   this->close();
 }
+
+void Parallel::appendToProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.appendToProject(projectDoc, item);
+}
+
+void Parallel::readFromProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.readFromProject(projectDoc, item);
+}

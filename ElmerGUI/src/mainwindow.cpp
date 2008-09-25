@@ -1681,7 +1681,14 @@ void MainWindow::saveProjectSlot()
   logMessage("Saving menu contents... ");
   QDomElement gsBlock = projectDoc.createElement("generalsetup");
   projectDoc.documentElement().appendChild(gsBlock);
-  generalSetup->appendToProjectDoc(&projectDoc, &gsBlock);
+  generalSetup->appendToProject(&projectDoc, &gsBlock);
+
+  //===========================================================================
+  //                            SAVE PARALLEL SETTINGS
+  //===========================================================================
+  QDomElement paraBlock = projectDoc.createElement("parallelsettings");
+  projectDoc.documentElement().appendChild(paraBlock);
+  parallel->appendToProject(&projectDoc, &paraBlock);
 
   //===========================================================================
   //                            SAVE SOLVER PARAMETERS
@@ -1689,10 +1696,14 @@ void MainWindow::saveProjectSlot()
   QDomElement speBlock = projectDoc.createElement("solverparameters");
   projectDoc.documentElement().appendChild(speBlock);
   for(int index = 0; index < limit->maxSolvers(); index++) {
+    SolverParameterEditor *spe = &solverParameterEditor[index];
+
+    if(!spe)
+      continue;
+
     QDomElement item = projectDoc.createElement("item");
     item.setAttribute("index", QString::number(index));
     speBlock.appendChild(item);
-    SolverParameterEditor *spe = &solverParameterEditor[index];
     spe->appendToProject(&projectDoc, &item);
   }
 
@@ -1711,10 +1722,14 @@ void MainWindow::saveProjectSlot()
   QDomElement bodyBlock = projectDoc.createElement("bodyproperties");
   projectDoc.documentElement().appendChild(bodyBlock);
   for(int index = 0; index < limit->maxBodies(); index++) {
+    BodyPropertyEditor *bpe = &bodyPropertyEditor[index];
+
+    if(!bpe)
+      continue;
+
     QDomElement item = projectDoc.createElement("item");
     item.setAttribute("index", QString::number(index));
     bodyBlock.appendChild(item);
-    BodyPropertyEditor *bpe = &bodyPropertyEditor[index];
     bpe->appendToProject(&projectDoc, &item);
   }
 
@@ -1724,10 +1739,14 @@ void MainWindow::saveProjectSlot()
   QDomElement boundaryBlock = projectDoc.createElement("boundaryproperties");
   projectDoc.documentElement().appendChild(boundaryBlock);
   for(int index = 0; index < limit->maxBoundaries(); index++) {
+    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
+
+    if(!bpe)
+      continue;
+
     QDomElement item = projectDoc.createElement("item");
     item.setAttribute("index", QString::number(index));
     boundaryBlock.appendChild(item);
-    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
     bpe->appendToProject(&projectDoc, &item);
   }
 
@@ -1757,6 +1776,9 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
   for(int i = 0; i < Nmax; i++) {
     DynamicEditor *de = &editor[i];
     
+    if(de->menuAction == NULL)
+      continue;
+
     // Menu item number:
     QDomElement item = projectDoc.createElement("item");
     item.setAttribute("index", QString::number(i));
@@ -1894,7 +1916,13 @@ void MainWindow::loadProjectSlot()
 
   QDomElement contents = projectDoc.documentElement();
   QDomElement gsBlock = contents.firstChildElement("generalsetup");
-  generalSetup->readFromProjectDoc(&projectDoc, &gsBlock);
+  generalSetup->readFromProject(&projectDoc, &gsBlock);
+
+  //===========================================================================
+  //                          LOAD PARALLEL SETTINGS
+  //===========================================================================
+  QDomElement paraBlock = contents.firstChildElement("parallelsettings");
+  parallel->readFromProject(&projectDoc, &paraBlock);
 
   //===========================================================================
   //                          LOAD SOLVER PARAMETERS
@@ -2004,13 +2032,13 @@ void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *
     int index = item.attribute("index").toInt();
 
     if((index < 0) || (index >= Nmax)) {
-      logMessage("Project loader: index out of bounds (dynamic edit)");
+      logMessage("Project loader: index out of bounds (dynamic editor)");
       return;
     }
 
     DynamicEditor *de = &editor[index];
 
-    bool active = (item.firstChildElement("active").text().toInt() == 1);
+    bool active = (item.firstChildElement("active").text().toInt() > 0);
 
     if(!active)
       continue;
