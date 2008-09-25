@@ -43,6 +43,7 @@
 
 #include <QWidget>
 #include <QDomDocument>
+#include "projectio.h"
 #include "ui_generalsetup.h"
 
 class GeneralSetup : public QDialog
@@ -55,8 +56,8 @@ public:
 
   Ui::setupDialog ui;
 
-  void appendToProjectDoc(QDomDocument*);
-  void readFromProjectDoc(QDomDocument*);
+  void appendToProjectDoc(QDomDocument*, QDomElement*);
+  void readFromProjectDoc(QDomDocument*, QDomElement*);
 
 signals:
 
@@ -64,6 +65,7 @@ private slots:
   void acceptButtonClicked();
 
 private:
+  ProjectIO projectIO;
 };
 
 #endif // GENERALSETUP_H

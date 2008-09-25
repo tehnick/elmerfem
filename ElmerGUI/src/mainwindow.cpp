@@ -1679,9 +1679,13 @@ void MainWindow::saveProjectSlot()
   //                              SAVE GENERAL SETUP
   //===========================================================================
   logMessage("Saving menu contents... ");
-  generalSetup->appendToProjectDoc(&projectDoc);
+  QDomElement gsBlock = projectDoc.createElement("generalsetup");
+  projectDoc.documentElement().appendChild(gsBlock);
+  generalSetup->appendToProjectDoc(&projectDoc, &gsBlock);
 
-  // Solver parameters:
+  //===========================================================================
+  //                            SAVE SOLVER PARAMETERS
+  //===========================================================================
   QDomElement speBlock = projectDoc.createElement("solverparameters");
   projectDoc.documentElement().appendChild(speBlock);
   for(int index = 0; index < limit->maxSolvers(); index++) {
@@ -1943,10 +1947,13 @@ void MainWindow::loadProjectSlot()
   //                            LOAD GENERAL SETUP
   //===========================================================================
   logMessage("Constructing menus...");
-  generalSetup->readFromProjectDoc(&projectDoc);
-
-  // Solver parameters:
   QDomElement contents = projectDoc.documentElement();
+  QDomElement gsBlock = contents.firstChildElement("generalsetup");
+  generalSetup->readFromProjectDoc(&projectDoc, &gsBlock);
+
+  //===========================================================================
+  //                          LOAD SOLVER PARAMETERS
+  //===========================================================================
   QDomElement speBlock = contents.firstChildElement("solverparameters");
   QDomElement item = speBlock.firstChildElement("item");
   for( ; !item.isNull(); item = item.nextSiblingElement()) {

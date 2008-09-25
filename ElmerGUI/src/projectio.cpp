@@ -208,7 +208,8 @@ void ProjectIO::readFromProject(QDomDocument *projectDoc, QDomElement *item)
     int index = rbObjectNames.indexOf(objectName);
     
     if(index < 0) {
-      cout << "Load project: RadioButton: mismatch with object names" << endl;
+      cout << "Load project: RadioButton: mismatch with object name" << endl;
+      cout << "*** " << string(objectName.toAscii()) << " ***" << endl;
       return;
     }
 
@@ -241,7 +242,8 @@ void ProjectIO::readFromProject(QDomDocument *projectDoc, QDomElement *item)
     int index = cbObjectNames.indexOf(objectName);
     
     if(index < 0) {
-      cout << "Load project: CheckBox: mismatch with object names" << endl;
+      cout << "Load project: Check box: mismatch with object name" << endl;
+      cout << "*** " << string(objectName.toAscii()) << " ***" << endl;
       return;
     }
 
@@ -274,7 +276,8 @@ void ProjectIO::readFromProject(QDomDocument *projectDoc, QDomElement *item)
     int index = leObjectNames.indexOf(objectName);
     
     if(index < 0) {
-      cout << "Load project: LineEdit: mismatch with object names" << endl;
+      cout << "Load project: Line edit: mismatch with object name" << endl;
+      cout << "*** " << string(objectName.toAscii()) << " ***" << endl;
       return;
     }
 
@@ -307,7 +310,8 @@ void ProjectIO::readFromProject(QDomDocument *projectDoc, QDomElement *item)
     int index = cxObjectNames.indexOf(objectName);
     
     if(index < 0) {
-      cout << "Load project: ComboBox: mismatch with object names" << endl;
+      cout << "Load project: Combo box: mismatch with object name" << endl;
+      cout << "*** " << string(objectName.toAscii()) << " ***" << endl;
       return;
     }
 
