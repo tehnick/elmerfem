@@ -1708,83 +1708,27 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                            SAVE BODY PROPERTIES
   //===========================================================================
-  QDomElement bodyProperty = projectDoc.createElement("bodyproperty");
-  projectDoc.documentElement().appendChild(bodyProperty);
-
-  for(int i = 0; i < limit->maxBodies(); i++ ) {
-    BodyPropertyEditor *body = &bodyPropertyEditor[i];
-
-    DynamicEditor *p = NULL;
-    
-    QString equationName = "";
-    if((p = body->equation) != NULL)
-      equationName = p->nameEdit->text().trimmed();
-    
-    QString materialName = "";      
-    if((p = body->material) != NULL)
-      materialName = p->nameEdit->text().trimmed();
-    
-    QString initialName = "";
-    if((p = body->initial) != NULL) 
-      initialName = p->nameEdit->text().trimmed();
-    
-    QString forceName = "";
-    if((p = body->force) != NULL) 
-      forceName = p->nameEdit->text().trimmed();
-    
+  QDomElement bodyBlock = projectDoc.createElement("bodyproperties");
+  projectDoc.documentElement().appendChild(bodyBlock);
+  for(int index = 0; index < limit->maxBodies(); index++) {
     QDomElement item = projectDoc.createElement("item");
-    item.setAttribute("index", QString::number(i));
-    bodyProperty.appendChild(item);
-
-    QDomElement itemEquation = projectDoc.createElement("equation");
-    QDomText itemEquationName = projectDoc.createTextNode(equationName);
-    itemEquation.appendChild(itemEquationName);
-    item.appendChild(itemEquation);
-
-    QDomElement itemMaterial = projectDoc.createElement("material");
-    QDomText itemMaterialName = projectDoc.createTextNode(materialName);
-    itemMaterial.appendChild(itemMaterialName);
-    item.appendChild(itemMaterial);
-
-    QDomElement itemInitial = projectDoc.createElement("initialcondition");
-    QDomText itemInitialName = projectDoc.createTextNode(initialName);
-    itemInitial.appendChild(itemInitialName);
-    item.appendChild(itemInitial);
-
-    QDomElement itemForce = projectDoc.createElement("bodyforce");
-    QDomText itemForceName = projectDoc.createTextNode(forceName);
-    itemForce.appendChild(itemForceName);
-    item.appendChild(itemForce);
+    item.setAttribute("index", QString::number(index));
+    bodyBlock.appendChild(item);
+    BodyPropertyEditor *bpe = &bodyPropertyEditor[index];
+    bpe->appendToProject(&projectDoc, &item);
   }
 
   //===========================================================================
   //                          SAVE BOUNDARY PROPERTIES
   //===========================================================================
-  QDomElement boundaryProperty = projectDoc.createElement("boundaryproperty");
-  projectDoc.documentElement().appendChild(boundaryProperty);
-
-  for(int i = 0; i < limit->maxBoundaries(); i++ ) {
-    BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[i];
-
-    DynamicEditor *p = NULL;
-    
-    QString conditionName = "";
-    if((p = boundary->condition) != NULL)
-      conditionName = p->nameEdit->text().trimmed();
-
+  QDomElement boundaryBlock = projectDoc.createElement("boundaryproperties");
+  projectDoc.documentElement().appendChild(boundaryBlock);
+  for(int index = 0; index < limit->maxBoundaries(); index++) {
     QDomElement item = projectDoc.createElement("item");
-    item.setAttribute("index", QString::number(i));
-    boundaryProperty.appendChild(item);
-
-    QDomElement itemName = projectDoc.createElement("name");
-    QDomText itemNameValue = projectDoc.createTextNode(conditionName);
-    itemName.appendChild(itemNameValue);
-    item.appendChild(itemName);
-
-    QDomElement itemAsBody = projectDoc.createElement("useasbody");
-    QDomText itemAsBodyValue = projectDoc.createTextNode(QString::number(boundary->ui.boundaryAsABody->isChecked()));
-    itemAsBody.appendChild(itemAsBodyValue);
-    item.appendChild(itemAsBody);
+    item.setAttribute("index", QString::number(index));
+    boundaryBlock.appendChild(item);
+    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
+    bpe->appendToProject(&projectDoc, &item);
   }
 
   //===========================================================================
@@ -1947,6 +1891,7 @@ void MainWindow::loadProjectSlot()
   //                            LOAD GENERAL SETUP
   //===========================================================================
   logMessage("Constructing menus...");
+
   QDomElement contents = projectDoc.documentElement();
   QDomElement gsBlock = contents.firstChildElement("generalsetup");
   generalSetup->readFromProjectDoc(&projectDoc, &gsBlock);
@@ -1955,6 +1900,7 @@ void MainWindow::loadProjectSlot()
   //                          LOAD SOLVER PARAMETERS
   //===========================================================================
   QDomElement speBlock = contents.firstChildElement("solverparameters");
+
   QDomElement item = speBlock.firstChildElement("item");
   for( ; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
@@ -1983,79 +1929,40 @@ void MainWindow::loadProjectSlot()
   loadProjectContents(element, boundaryConditionEditor, limit->maxBcs(), "BoundaryCondition");
 
   //===========================================================================
-  //                              BODY PROPERTIES
+  //                           LOAD BODY PROPERTIES
   //===========================================================================
-  element = projectDoc.documentElement().firstChildElement("bodyproperty");
-  item = element.firstChildElement("item");
+  QDomElement bodyBlock = contents.firstChildElement("bodyproperties");
 
-  for( ; !item.isNull(); item = item.nextSiblingElement()) {  
+  item = bodyBlock.firstChildElement("item");
+  for( ; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
 
     if((index < 0) || (index >= limit->maxBodies())) {
-      logMessage("Project loader: index out of bounds (bodyproperty)");
+      logMessage("Load project: body properties: index out of bounds");
       return;
     }
 
-    QString equationName = item.firstChildElement("equation").text().trimmed();
-    QString materialName = item.firstChildElement("material").text().trimmed();
-    QString initialName = item.firstChildElement("initialcondition").text().trimmed();
-    QString forceName = item.firstChildElement("bodyforce").text().trimmed();
-    
-    BodyPropertyEditor *p = &bodyPropertyEditor[index];
-    populateBodyComboBoxes(p);
-    
-    for(int j = 0; j < p->ui.equationCombo->count(); j++) {
-      QString current = p->ui.equationCombo->itemText(j);
-      if(current == equationName)
-	p->ui.equationCombo->setCurrentIndex(j);
-    }
-    
-    for(int j = 0; j < p->ui.materialCombo->count(); j++) {
-      QString current = p->ui.materialCombo->itemText(j);
-      if(current == materialName)
-	p->ui.materialCombo->setCurrentIndex(j);
-    }
-    
-    for(int j = 0; j < p->ui.initialConditionCombo->count(); j++) {
-      QString current = p->ui.initialConditionCombo->itemText(j);
-      if(current == initialName)
-	p->ui.initialConditionCombo->setCurrentIndex(j);
-    }
-    
-    for(int j = 0; j < p->ui.bodyForceCombo->count(); j++) {
-      QString current = p->ui.bodyForceCombo->itemText(j);
-      if(current == forceName)
-	p->ui.bodyForceCombo->setCurrentIndex(j);
-    }
+    BodyPropertyEditor *bpe = &bodyPropertyEditor[index];
+    bpe->readFromProject(&projectDoc, &item);
   }
 
-  //===========================================================================
-  //                             BOUNDARY PROPERTIES
-  //===========================================================================
-  element = projectDoc.documentElement().firstChildElement("boundaryproperty");
-  item = element.firstChildElement("item");
 
-  for(; !item.isNull(); item = item.nextSiblingElement()) {  
+  //===========================================================================
+  //                          LOAD BOUNDARY PROPERTIES
+  //===========================================================================
+  QDomElement boundaryBlock = contents.firstChildElement("boundaryproperties");
+
+  item = boundaryBlock.firstChildElement("item");
+  for( ; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
 
     if((index < 0) || (index >= limit->maxBoundaries())) {
-      logMessage("Project loader: index out of bounds (boundaryproperty)");
+      logMessage("Load project: boundary properties: index out of bounds");
       return;
     }
 
-    QString boundaryConditionName = item.firstChildElement("name").text().trimmed();
-    bool useAsABody = (item.firstChildElement("useasbody").text().toInt() > 0);
-    
-    BoundaryPropertyEditor *p = &boundaryPropertyEditor[index];
-    populateBoundaryComboBoxes(p);
-    
-    for(int j = 0; j < p->ui.boundaryConditionCombo->count(); j++) {
-      QString current = p->ui.boundaryConditionCombo->itemText(j);
-      if(current == boundaryConditionName)
-	p->ui.boundaryConditionCombo->setCurrentIndex(j);
-    }
-
-    p->ui.boundaryAsABody->setChecked(useAsABody);
+    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
+    bpe->readFromProject(&projectDoc, &item);
   }
 
   //===========================================================================

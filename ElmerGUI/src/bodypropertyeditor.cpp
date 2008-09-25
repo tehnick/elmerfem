@@ -109,3 +109,15 @@ void BodyPropertyEditor::equationComboChanged(QString text)
 {
    emit( BodyEquationComboChanged(this,text) );
 }
+
+void BodyPropertyEditor::appendToProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.appendToProject(projectDoc, item);
+}
+
+void BodyPropertyEditor::readFromProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.readFromProject(projectDoc, item);
+}

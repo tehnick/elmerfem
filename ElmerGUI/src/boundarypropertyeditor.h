@@ -42,6 +42,8 @@
 #define BOUNDARYPROPERTYEDITOR_H
 
 #include <QWidget>
+#include <QDomDocument>
+#include "projectio.h"
 #include "dynamiceditor.h"
 #include "bodypropertyeditor.h"
 #include "ui_boundarypropertyeditor.h"
@@ -58,6 +60,8 @@ public:
   BoundaryPropertyEditor(QWidget *parent = 0);
   ~BoundaryPropertyEditor();
 
+  void appendToProject(QDomDocument*, QDomElement*);
+  void readFromProject(QDomDocument*, QDomElement*);
 
   Ui::boundaryPropertyDialog ui;
   DynamicEditor *condition;
@@ -76,6 +80,7 @@ private slots:
   void discardSlot();
 
 private:
+  ProjectIO projectIO;
 
 };
 

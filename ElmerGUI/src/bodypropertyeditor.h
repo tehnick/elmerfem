@@ -42,6 +42,8 @@
 #define BODYPROPERTYEDITOR_H
 
 #include <QWidget>
+#include <QDomDocument>
+#include "projectio.h"
 #include "dynamiceditor.h"
 #include "ui_bodypropertyeditor.h"
 
@@ -65,6 +67,9 @@ public:
   DynamicEditor *force;
   DynamicEditor *equation;
 
+  void appendToProject(QDomDocument*, QDomElement*);
+  void readFromProject(QDomDocument*, QDomElement*);
+
   bool touched;
 
 public slots:
@@ -78,7 +83,7 @@ private slots:
   void discardSlot();
 
 private:
-
+  ProjectIO projectIO;
 };
 
 #endif // BODYPROPERTYEDITOR_H

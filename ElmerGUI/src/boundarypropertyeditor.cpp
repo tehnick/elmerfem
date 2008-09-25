@@ -88,3 +88,15 @@ void BoundaryPropertyEditor::boundaryAsABodyChanged(int status)
 {
    emit( BoundaryAsABodyChanged(this,status) );
 }
+
+void BoundaryPropertyEditor::appendToProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.appendToProject(projectDoc, item);
+}
+
+void BoundaryPropertyEditor::readFromProject(QDomDocument *projectDoc, QDomElement *item)
+{
+  projectIO.parentWidget = this;
+  projectIO.readFromProject(projectDoc, item);
+}
