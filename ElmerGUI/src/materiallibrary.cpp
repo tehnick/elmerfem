@@ -110,10 +110,12 @@ void MaterialLibrary::okButtonClicked()
     
     if(materialName != item->text())
       continue;
+
+    editor->nameEdit->setText(materialName);
     
     QDomElement property = material.firstChildElement();
     for( ; !property.isNull(); property = property.nextSiblingElement()) {
-      QString propertyName = property.tagName().trimmed().toLower();
+      QString propertyName = property.attribute("name").trimmed();
       QString propertyValue = property.text().trimmed();
 
       cout << string(materialName.toAscii()) << ": " 
@@ -127,8 +129,7 @@ void MaterialLibrary::okButtonClicked()
 	QDomElement elem = value.elem;
 	QWidget *widget = value.widget;
 
-	QString widgetName = elem.firstChildElement("Name").text();
-	widgetName = widgetName.trimmed().replace(" ", "").toLower();
+	QString widgetName = elem.firstChildElement("Name").text().trimmed();
 	
 	if(elem.attribute("Widget") == "Edit") {
 	  QLineEdit *lineEdit = (QLineEdit*)widget;
