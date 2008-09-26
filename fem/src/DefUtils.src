@@ -677,6 +677,64 @@ CONTAINS
 
 
 
+  RECURSIVE FUNCTION GetParentMatProp( Name, UElement, Found ) RESULT(x)
+    CHARACTER(LEN=*) :: Name
+    TYPE(Element_t), OPTIONAL, TARGET :: UElement
+    LOGICAL, OPTIONAL :: Found
+    REAL(KIND=dp), POINTER :: x(:)
+    
+    INTEGER, POINTER :: NodeIndexes(:)
+    LOGICAL :: GotIt
+     TYPE(Element_t), POINTER :: Element
+    TYPE(ValueList_t), POINTER :: Material
+    INTEGER :: n, body_id, mat_id, leftright
+    INTEGER :: nthreads, thread, istat
+    
+    IF ( PRESENT( UElement ) ) THEN
+       Element => UElement
+    ELSE	
+       Element => CurrentModel % CurrentElement
+    END IF
+    
+    GotIt = .FALSE.
+    DO leftright = 1, 2
+       body_id = 0
+       IF( leftright == 1) THEN
+          IF( ASSOCIATED(Element % BoundaryInfo % Left) ) &
+               body_id = Element % BoundaryInfo % Left % BodyId
+       ELSE 
+          IF( ASSOCIATED(Element % BoundaryInfo % Right) ) &
+               body_id = Element % BoundaryInfo % Right % BodyId
+       END IF
+       IF( body_id == 0) CYCLE
+       
+       mat_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
+            'Material', minv=1,maxv=CurrentModel % NumberOfMaterials )
+       NULLIFY( Material )
+       Material => CurrentModel % Materials(mat_id) % Values
+       GotIt = ListCheckPresent( Material, Name )
+       IF( .NOT. GotIt ) CYCLE
+
+       n = Element % TYPE % NumberOfNodes
+       NodeIndexes => Element % NodeIndexes
+       x => GetStore(n)
+       x = 0.0d0
+       x(1:n) = ListGetReal( Material, Name, n, NodeIndexes )
+
+       IF( GotIt ) EXIT
+    END DO
+    
+    IF( Present( Found ) ) THEN
+       Found = GotIt
+    ELSE IF(.NOT. GotIt) THEN
+       CALL Warn('GetParentMatProp','Property '//Name//' not in either parents!')
+    END IF
+     
+  END FUNCTION GetParentMatProp
+
+
+
+
   RECURSIVE SUBROUTINE GetConstRealArray( List, x, Name, Found, UElement )
      TYPE(ValueList_t), POINTER :: List
      REAL(KIND=dp), POINTER :: x(:,:)
