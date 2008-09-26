@@ -138,6 +138,7 @@ MainWindow::MainWindow()
   glControl = new GLcontrol(this);
   parallel = new Parallel(this);
   checkMpi = new CheckMpi;
+  materialLibrary = new MaterialLibrary(this);
 #ifdef OCC62
   cadView = new CadView(this);
 #endif
@@ -1681,17 +1682,17 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                          SAVE GEOMETRY INPUT FILE
   //===========================================================================
-  QFileInfo fi(geometryInputFileName);
-  QString baseName = fi.baseName();
+  QFileInfo geometryInputFileInfo(geometryInputFileName);
+  QString baseName = geometryInputFileInfo.baseName();
 
-  // Avoid copying file into it self:
-  if(!(fi.path() == projectDirName)) {
-    QDirIterator iterator(fi.path());
+  // Avoid copying file(s) into it self:
+  if(!(geometryInputFileInfo.path() == projectDirName)) {
+    QDirIterator iterator(geometryInputFileInfo.path());
     while(iterator.hasNext()) {
       QString fileName = iterator.next();
       QFileInfo fileInfo(fileName);
       if(fileInfo.baseName() == baseName) {
-	cout << "Copying: " << string(fileName.toAscii()) << endl;
+	logMessage("Copying: " + fileName);
 
 	QFile src(fileName);
 	src.open(QIODevice::ReadOnly);
@@ -1712,7 +1713,7 @@ void MainWindow::saveProjectSlot()
   }
 
   QDomElement geomInput = projectDoc.createElement("geometryinputfile");
-  QDomText geomInputValue = projectDoc.createTextNode(fi.fileName());
+  QDomText geomInputValue = projectDoc.createTextNode(geometryInputFileInfo.fileName());
   geomInput.appendChild(geomInputValue);
   contents.appendChild(geomInput);
 
@@ -1968,6 +1969,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                          LOAD GEOMETRY INPUT FILE
   //===========================================================================
+  cout << "Loading geometry input file" << endl;
   QDomElement geomInput = contents.firstChildElement("geometryinputfile");
   geometryInputFileName = projectDirName + "/" + geomInput.text().trimmed();
   logMessage("Geometry input file: " + geometryInputFileName);
@@ -1982,7 +1984,6 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                            LOAD GENERAL SETUP
   //===========================================================================
-  logMessage("Constructing menus...");
   QDomElement gsBlock = contents.firstChildElement("generalsetup");
   generalSetup->readFromProject(&projectDoc, &gsBlock);
 
@@ -2142,6 +2143,10 @@ void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *
 
     if(Mname == "Material") {
       connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(matEditorFinishedSlot(int,int)));
+      de->spareButton->setText("Material library");
+      de->spareButton->show();
+      de->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));      
+      connect(de, SIGNAL(dynamicEditorSpareButtonClicked(int,int)), this, SLOT(showMaterialLibrary(int,int)));
       materialMenu->addAction(act);
     }
 
@@ -2784,17 +2789,13 @@ void MainWindow::addEquationSlot()
   pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
   pe->show();
   
-  connect(pe, SIGNAL(dynamicEditorReady(int,int)),
-	  this, SLOT(pdeEditorFinishedSlot(int,int)));
+  connect(pe, SIGNAL(dynamicEditorReady(int,int)),this, SLOT(pdeEditorFinishedSlot(int,int)));
 
+  // Use "spareButton" to invoke solver parameter editor:
   pe->spareButton->setText("Edit Solver Settings");
   pe->spareButton->show();
   pe->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));
-
-  // connect( pe->spareButton, SIGNAL(clicked()), this, SLOT(editNumericalMethods()) );
-
-  connect(pe, SIGNAL(dynamicEditorSpareButtonClicked(int, int)),
-	  this, SLOT(editNumericalMethods(int, int)));
+  connect(pe, SIGNAL(dynamicEditorSpareButtonClicked(int, int)), this, SLOT(editNumericalMethods(int, int)));
 
   // Equation is new - add to menu:
   const QString &equationName = pe->nameEdit->text().trimmed();
@@ -2972,8 +2973,13 @@ void MainWindow::addMaterialSlot()
   pe->discardButton->setText("Cancel");
   pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
 
-  connect(pe, SIGNAL(dynamicEditorReady(int,int)),
-	  this, SLOT(matEditorFinishedSlot(int,int)));
+  connect(pe, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(matEditorFinishedSlot(int,int)));
+
+  // Use "spareButton" to invoke material library:
+  pe->spareButton->setText("Material library");
+  pe->spareButton->show();
+  pe->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));
+  connect(pe, SIGNAL(dynamicEditorSpareButtonClicked(int,int)), this, SLOT(showMaterialLibrary(int,int)));
 
   // Material is new - add to menu:
   const QString &materialName = pe->nameEdit->text().trimmed();
@@ -2983,6 +2989,12 @@ void MainWindow::addMaterialSlot()
 
   createBodyCheckBoxes(BODY_MATERIAL,pe);
   pe->show(); pe->raise();
+}
+
+
+void MainWindow::showMaterialLibrary(int,int)
+{
+  materialLibrary->show();
 }
 
 // signal (int,int) emitted by material editor when ready:

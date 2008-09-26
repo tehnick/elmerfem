@@ -35,6 +35,7 @@ HEADERS += src/bodypropertyeditor.h \
            src/glwidget.h \
            src/helpers.h \
            src/mainwindow.h \
+           src/materiallibrary.h \
            src/maxlimits.h \
            src/meshcontrol.h \
            src/meshingthread.h \
@@ -64,6 +65,7 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/boundarypropertyeditor.ui \
          forms/generalsetup.ui \
          forms/glcontrol.ui \
+         forms/materiallibrary.ui \
          forms/meshcontrol.ui \
          forms/parallel.ui \
          forms/solverparameters.ui \
@@ -82,6 +84,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            src/helpers.cpp \
            src/main.cpp \
            src/mainwindow.cpp \
+           src/materiallibrary.cpp \
            src/maxlimits.cpp \
            src/meshcontrol.cpp \
            src/meshingthread.cpp \

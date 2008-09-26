@@ -90,7 +90,7 @@ void operation_t::appendToProject(QDomDocument *projectDoc, QDomElement *ops)
 
 int operation_t::readFromProject(QDomDocument *projectDoc, QDomElement *ops)
 {
-  operation_t *p = this;
+  operation_t *p = this->next;
   operation_t *q = NULL;
 
   while(p != NULL) {
@@ -125,6 +125,9 @@ int operation_t::readFromProject(QDomDocument *projectDoc, QDomElement *ops)
     p->select_set = new int[p->selected];
 
     QDomElement selection = selected.firstChildElement("list");
+
+    cout << "ok2" << endl;
+    cout.flush();
 
     for(int list = 0; !selection.isNull(); selection = selection.nextSiblingElement(), list++) {
       if(list >= p->selected) {

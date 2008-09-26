@@ -72,6 +72,7 @@
 #include "convergenceview.h"
 #include "egini.h"
 #include "operation.h"
+#include "materiallibrary.h"
 #ifdef OCC62
 #include "cad/cadview.h"
 #endif
@@ -209,7 +210,8 @@ private slots:
   void boundaryAsABodyChanged(BoundaryPropertyEditor *,int);
   void boundaryComboChanged(BoundaryPropertyEditor *,QString);
 
-  void editNumericalMethods(int, int);   // signal emitted by dynamic editor
+  void editNumericalMethods(int,int);   // signal emitted by dynamic editor
+  void showMaterialLibrary(int, int);   // signal emitted by dynamic edirtor
   void materialBodyChanged(int);
   void initialBodyChanged(int);
   void forceBodyChanged(int);
@@ -346,6 +348,7 @@ private:
   GLcontrol *glControl;
   Parallel *parallel;
   CheckMpi *checkMpi;
+  MaterialLibrary *materialLibrary;
 #ifdef OCC62
   CadView *cadView;
 #endif
