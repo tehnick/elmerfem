@@ -63,6 +63,7 @@ signals:
 
 private slots:
   void okButtonClicked();
+  void itemDoubleClicked(QListWidgetItem*); 
 
 private:
   QDomDocument materialDoc;

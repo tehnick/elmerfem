@@ -92,6 +92,11 @@ MaterialLibrary::MaterialLibrary(QWidget *parent)
     QString materialName = material.attribute("name");
     QListWidgetItem *item = new QListWidgetItem(materialName, list);
   }
+  list->sortItems();
+
+  // Enable selection by double clicking:
+  //--------------------------------------
+  connect(list, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(itemDoubleClicked(QListWidgetItem*)));
 }
 
 MaterialLibrary::~MaterialLibrary()
@@ -105,7 +110,21 @@ void MaterialLibrary::okButtonClicked()
 
   if(item == NULL)
     return;
+  
+  // Clear all line edits:
+  //-----------------------
+  for(int i = 0; i < editor->hash.count(); i++) {
+    hash_entry_t value = editor->hash.values().at(i);
+    QDomElement elem = value.elem;
+    QWidget *widget = value.widget;
+    if(elem.attribute("Widget") == "Edit") {
+      QLineEdit *lineEdit = (QLineEdit*)widget;
+      lineEdit->setText("");
+    }
+  }
 
+  // Update line edits with library properties:
+  //--------------------------------------------
   QDomElement contents = materialDoc.documentElement();
   QDomElement material = contents.firstChildElement("material");
   for( ; !material.isNull(); material = material.nextSiblingElement()) {
@@ -146,4 +165,11 @@ void MaterialLibrary::okButtonClicked()
 
   this->close();
   editor->raise();
+}
+
+void MaterialLibrary::itemDoubleClicked(QListWidgetItem *item)
+{
+  QListWidget *list = ui.materialListWidget;
+  list->setCurrentItem(item);
+  okButtonClicked();
 }
