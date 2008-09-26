@@ -683,12 +683,11 @@ CONTAINS
     LOGICAL, OPTIONAL :: Found
     REAL(KIND=dp), POINTER :: x(:)
     
-    INTEGER, POINTER :: NodeIndexes(:)
+    INTEGER, POINTER :: Indexes(:)
     LOGICAL :: GotIt
-     TYPE(Element_t), POINTER :: Element
+    INTEGER :: n, leftright
     TYPE(ValueList_t), POINTER :: Material
-    INTEGER :: n, body_id, mat_id, leftright
-    INTEGER :: nthreads, thread, istat
+    TYPE(Element_t), POINTER :: Element, Parent
     
     IF ( PRESENT( UElement ) ) THEN
        Element => UElement
@@ -696,38 +695,34 @@ CONTAINS
        Element => CurrentModel % CurrentElement
     END IF
     
-    GotIt = .FALSE.
+    n = GetElementNOFNodes(Element)
+    Indexes => Element % NodeIndexes
+
+    x => GetStore(n)
+    x = 0._dp
+
+    Gotit = .FALSE.
     DO leftright = 1, 2
-       body_id = 0
        IF( leftright == 1) THEN
-          IF( ASSOCIATED(Element % BoundaryInfo % Left) ) &
-               body_id = Element % BoundaryInfo % Left % BodyId
+         Parent => Element % BoundaryInfo % Left
        ELSE 
-          IF( ASSOCIATED(Element % BoundaryInfo % Right) ) &
-               body_id = Element % BoundaryInfo % Right % BodyId
+         Parent => Element % BoundaryInfo % Right
        END IF
-       IF( body_id == 0) CYCLE
-       
-       mat_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
-            'Material', minv=1,maxv=CurrentModel % NumberOfMaterials )
-       NULLIFY( Material )
-       Material => CurrentModel % Materials(mat_id) % Values
-       GotIt = ListCheckPresent( Material, Name )
-       IF( .NOT. GotIt ) CYCLE
 
-       n = Element % TYPE % NumberOfNodes
-       NodeIndexes => Element % NodeIndexes
-       x => GetStore(n)
-       x = 0.0d0
-       x(1:n) = ListGetReal( Material, Name, n, NodeIndexes )
-
-       IF( GotIt ) EXIT
+       IF( ASSOCIATED(Parent) ) THEN
+         Material => GetMaterial(Parent)
+         IF ( ListCheckPresent( Material,Name) ) THEN
+           x(1:n) = ListGetReal(Material, Name, n, Indexes)
+           Gotit = .TRUE.
+           EXIT
+         END IF
+       END IF
     END DO
     
     IF( Present( Found ) ) THEN
        Found = GotIt
     ELSE IF(.NOT. GotIt) THEN
-       CALL Warn('GetParentMatProp','Property '//Name//' not in either parents!')
+       CALL Warn('GetParentMatProp','Property '//TRIM(Name)//' not in either parents!')
     END IF
      
   END FUNCTION GetParentMatProp
