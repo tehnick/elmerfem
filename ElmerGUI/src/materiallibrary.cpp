@@ -103,6 +103,9 @@ void MaterialLibrary::okButtonClicked()
   QListWidget *list = ui.materialListWidget;
   QListWidgetItem *item = list->currentItem();
 
+  if(item == NULL)
+    return;
+
   QDomElement contents = materialDoc.documentElement();
   QDomElement material = contents.firstChildElement("material");
   for( ; !material.isNull(); material = material.nextSiblingElement()) {
@@ -115,21 +118,22 @@ void MaterialLibrary::okButtonClicked()
     
     QDomElement property = material.firstChildElement();
     for( ; !property.isNull(); property = property.nextSiblingElement()) {
-      QString propertyName = property.attribute("name").trimmed();
+      QString propertyName = property.attribute("name").trimmed().toLower();
       QString propertyValue = property.text().trimmed();
 
+#if 0
       cout << string(materialName.toAscii()) << ": " 
 	   << string(propertyName.toAscii()) << ": " 
 	   << string(propertyValue.toAscii()) << endl;
+#endif
 
-      // Copy the value in material editor:
-      //------------------------------------
+      // Copy the parameter value into material editor:
+      //------------------------------------------------
       for(int i = 0; i < editor->hash.count(); i++) {
 	hash_entry_t value = editor->hash.values().at(i);
 	QDomElement elem = value.elem;
 	QWidget *widget = value.widget;
-
-	QString widgetName = elem.firstChildElement("Name").text().trimmed();
+	QString widgetName = elem.firstChildElement("Name").text().trimmed().toLower();
 	
 	if(elem.attribute("Widget") == "Edit") {
 	  QLineEdit *lineEdit = (QLineEdit*)widget;
@@ -141,4 +145,5 @@ void MaterialLibrary::okButtonClicked()
   }
 
   this->close();
+  editor->raise();
 }
