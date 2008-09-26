@@ -153,9 +153,9 @@ void SifGenerator::makeBodyBlocks()
       te->append("  Target Bodies(1) = " + QString::number(originalIndex));
 
       if ( bodyEdit->ui.nameEdit->text().trimmed() == "" )
-        te->append("  Name = Body " + QString::number(sifIndex) );
+        te->append("  Name = \"Body " + QString::number(sifIndex) + "\"");
       else
-        te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
+        te->append("  Name = \"" + bodyEdit->ui.nameEdit->text().trimmed() + "\"");
 
       i = bodyEdit->ui.equationCombo->currentIndex();
       if(i > 0)
@@ -192,9 +192,9 @@ void SifGenerator::makeBodyBlocks()
       te->append("  Target Bodies(1) = " + QString::number(maxOriginalIndex));
 
       if ( bodyEdit->ui.nameEdit->text().trimmed() == "" )
-        te->append("  Name = Body " + QString::number(sifIndex) );
+        te->append("  Name = \"Body " + QString::number(sifIndex) + "\"");
       else
-        te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
+        te->append("  Name = \"" + bodyEdit->ui.nameEdit->text().trimmed() + "\"");
 
       i = bodyEdit->ui.equationCombo->currentIndex();
       if(i > 0)
@@ -272,7 +272,8 @@ void SifGenerator::makeEquationBlocks()
       te->append("Equation " + QString::number(++sifIndex));
       
       QString name = eqEditor->nameEdit->text().trimmed();
-      addSifLine("  Name = ", name);
+      te->append("  Name = \"" + name + "\"");
+      // addSifLine("  Name = ", name);
 
       QString solverString = "";
       int nofSolvers = 0;
@@ -404,7 +405,7 @@ void SifGenerator::makeMaterialBlocks()
       te->append("Material " + QString::number(++sifIndex));
       
       QString name = matEditor->nameEdit->text().trimmed();
-      addSifLine("  Name = ", name);
+      te->append("  Name = \"" + name + "\"");
       
       for(int i = 0; i < matEditor->hash.count(); i++) {
 	hash_entry_t entry = matEditor->hash.values().at(i); 
@@ -445,7 +446,8 @@ void SifGenerator::makeBodyForceBlocks()
       te->append("Body Force " + QString::number(++sifIndex));
       
       QString name = bfEdit->nameEdit->text().trimmed();
-      addSifLine("  Name = ", name);
+      te->append("  Name = \"" + name + "\"");
+      // addSifLine("  Name = ", name);
       
       for(int i = 0; i < bfEdit->hash.count(); i++) {
 	hash_entry_t entry = bfEdit->hash.values().at(i); 
@@ -484,7 +486,8 @@ void SifGenerator::makeInitialConditionBlocks()
       te->append("Initial Condition " + QString::number(++sifIndex));
       
       QString name = icEdit->nameEdit->text().trimmed();
-      addSifLine("  Name = ", name);
+      te->append("  Name = \"" + name + "\"");
+      // addSifLine("  Name = ", name);
       
       for(int i = 0; i < icEdit->hash.count(); i++) {
 	hash_entry_t entry = icEdit->hash.values().at(i); 
@@ -545,7 +548,8 @@ void SifGenerator::makeBoundaryBlocks()
       int i = bEdit->ui.boundaryConditionCombo->currentIndex();
       const QString &name = bEdit->ui.boundaryConditionCombo->currentText().trimmed();
       if(i > -1) 
-	te->append("  Name = " +  name);
+	te->append("  Name = \"" +  name + "\"");
+      // te->append("  Name = " +  name);
 
       // check which one of the dynamic editors has "name" typed in nameEdit:
       for(int j = 0; j < limit->maxBcs(); j++) {
