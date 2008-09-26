@@ -41,6 +41,8 @@
 #ifndef OPERATION_H
 #define OPERATION_H
 
+#include <QDomDocument>
+
 enum OpTypes {
   OP_UNIFY_SURFACE,
   OP_DIVIDE_SURFACE,
@@ -58,6 +60,9 @@ class operation_t {
   double angle;
   int selected;
   int *select_set;
+
+  void appendToProject(QDomDocument*, QDomElement*);
+  int readFromProject(QDomDocument*, QDomElement*);
 };
 
 #endif // OPERATION_H

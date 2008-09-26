@@ -38,7 +38,10 @@
  *                                                                           *
  *****************************************************************************/
 
+#include <iostream>
 #include "operation.h"
+
+using namespace std;
 
 operation_t::operation_t()
 {
@@ -51,4 +54,86 @@ operation_t::operation_t()
 
 operation_t::~operation_t()
 {
+}
+
+void operation_t::appendToProject(QDomDocument *projectDoc, QDomElement *ops)
+{
+  operation_t *p = this->next;
+  for(int index = 0; p; p = p->next, index++) {
+    QDomElement op = projectDoc->createElement("operation");
+    op.setAttribute("index", QString::number(index));
+    ops->appendChild(op);
+    
+    QDomElement type = projectDoc->createElement("type");
+    QDomText typeValue = projectDoc->createTextNode(QString::number(p->type));
+    type.appendChild(typeValue);
+    op.appendChild(type);
+
+    QDomElement angle = projectDoc->createElement("angle");
+    QDomText angleValue = projectDoc->createTextNode(QString::number(p->angle));
+    angle.appendChild(angleValue);
+    op.appendChild(angle);
+
+    QDomElement selected = projectDoc->createElement("selected");
+    selected.setAttribute("lists", QString::number(p->selected));
+    op.appendChild(selected);
+
+    for(int list = 0; list < p->selected; list++) {
+      QDomElement selection = projectDoc->createElement("list");
+      QDomText selectionValue = projectDoc->createTextNode(QString::number(p->select_set[list]));
+      selection.appendChild(selectionValue);
+      selected.appendChild(selection);
+    }    
+  }
+}
+
+
+int operation_t::readFromProject(QDomDocument *projectDoc, QDomElement *ops)
+{
+  operation_t *p = this;
+  operation_t *q = NULL;
+
+  while(p != NULL) {
+    if(p->select_set != NULL)
+      delete [] p->select_set;
+    q = p->next;
+    if(p != NULL)
+      delete p;
+    p = q;
+  }
+
+  int operations = 0;
+  q = this;
+  q->next = NULL;
+
+  QDomElement op = ops->firstChildElement("operation");
+
+  for( ; !op.isNull(); op = op.nextSiblingElement()) {
+    operations++;
+
+    p = new operation_t;
+    p->next = NULL;
+    q->next = p;
+    q = p;
+
+    p->type = op.firstChildElement("type").text().toInt();
+    p->angle = op.firstChildElement("angle").text().toDouble();
+
+    QDomElement selected = op.firstChildElement("selected");
+    p->selected = selected.attribute("lists").toInt();
+
+    p->select_set = new int[p->selected];
+
+    QDomElement selection = selected.firstChildElement("list");
+
+    for(int list = 0; !selection.isNull(); selection = selection.nextSiblingElement(), list++) {
+      if(list >= p->selected) {
+	cout << "Project loader: load operations: index out of bounds" << endl;
+	return 0;
+      }
+      p->select_set[list] = selection.text().toInt();
+    }
+  }
+
+  return operations;
 }

@@ -1687,11 +1687,12 @@ void MainWindow::saveProjectSlot()
   // Avoid copying file into it self:
   if(!(fi.path() == projectDirName)) {
     QDirIterator iterator(fi.path());
-    while (iterator.hasNext()) {
+    while(iterator.hasNext()) {
       QString fileName = iterator.next();
       QFileInfo fileInfo(fileName);
       if(fileInfo.baseName() == baseName) {
 	cout << "Copying: " << string(fileName.toAscii()) << endl;
+
 	QFile src(fileName);
 	src.open(QIODevice::ReadOnly);
 	QTextStream srcStream(&src);
@@ -1716,38 +1717,11 @@ void MainWindow::saveProjectSlot()
   contents.appendChild(geomInput);
 
   //===========================================================================
-  //                             SAVE OPERATIONS
+  //                               SAVE OPERATIONS
   //===========================================================================
   QDomElement ops = projectDoc.createElement("operations");
   contents.appendChild(ops);
-
-  operation_t *p = operation.next;
-  for(int index = 0; p; p = p->next, index++) {
-    QDomElement op = projectDoc.createElement("operation");
-    op.setAttribute("index", QString::number(index));
-    ops.appendChild(op);
-    
-    QDomElement type = projectDoc.createElement("type");
-    QDomText typeValue = projectDoc.createTextNode(QString::number(p->type));
-    type.appendChild(typeValue);
-    op.appendChild(type);
-
-    QDomElement angle = projectDoc.createElement("angle");
-    QDomText angleValue = projectDoc.createTextNode(QString::number(p->angle));
-    angle.appendChild(angleValue);
-    op.appendChild(angle);
-
-    QDomElement selected = projectDoc.createElement("selected");
-    selected.setAttribute("lists", QString::number(p->selected));
-    op.appendChild(selected);
-
-    for(int list = 0; list < p->selected; list++) {
-      QDomElement selection = projectDoc.createElement("list");
-      QDomText selectionValue = projectDoc.createTextNode(QString::number(p->select_set[list]));
-      selection.appendChild(selectionValue);
-      selected.appendChild(selection);
-    }    
-  }
+  operation.appendToProject(&projectDoc, &ops);
   
   //===========================================================================
   //                              SAVE GENERAL SETUP
@@ -1996,55 +1970,14 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   QDomElement geomInput = contents.firstChildElement("geometryinputfile");
   geometryInputFileName = projectDirName + "/" + geomInput.text().trimmed();
-  cout << "Geometry input file: " << string(geometryInputFileName.toAscii()) << endl;
+  logMessage("Geometry input file: " + geometryInputFileName);
   readInputFile(geometryInputFileName);
 
   //===========================================================================
   //                               LOAD OPERATIONS
   //===========================================================================
-  operation_t *p = operation.next;
-  operation_t *q;
-  while(p != NULL) {
-    if(p->select_set != NULL)
-      delete [] p->select_set;
-    q = p->next;
-    if(p != NULL)
-      delete p;
-    p = q;
-  }
-  operations = 0;
-  q = &operation;
-  operation.next = NULL;
-
   QDomElement ops = contents.firstChildElement("operations");
-  QDomElement op = ops.firstChildElement("operation");
-  for( ; !op.isNull(); op = op.nextSiblingElement()) {
-    operations++;
-    p = new operation_t;
-    p->next = NULL;
-    q->next = p;
-    q = p;
-
-    // int index = op.attribute("index").toInt();
-    // cout << "index: " << index << endl;
-
-    p->type = op.firstChildElement("type").text().toInt();
-    p->angle = op.firstChildElement("angle").text().toDouble();
-
-    QDomElement selected = op.firstChildElement("selected");
-    p->selected = selected.attribute("lists").toInt();
-
-    p->select_set = new int[p->selected];
-
-    QDomElement selection = selected.firstChildElement("list");
-    for(int list = 0; !selection.isNull(); selection = selection.nextSiblingElement(), list++) {
-      if(list >= p->selected) {
-	logMessage("Project loader: load operations: index out of bounds");
-	return;
-      }
-      p->select_set[list] = selection.text().toInt();
-    }
-  }
+  operations = operation.readFromProject(&projectDoc, &ops);
 
   //===========================================================================
   //                            LOAD GENERAL SETUP
