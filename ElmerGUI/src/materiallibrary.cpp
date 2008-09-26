@@ -50,6 +50,48 @@ MaterialLibrary::MaterialLibrary(QWidget *parent)
   ui.setupUi(this);
 
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+
+  // Load library:
+  //--------------
+  QString errStr;
+  int errRow;
+  int errCol;
+  QFile materialFile("edf/egmaterials.xml");
+  
+  if(!materialFile.exists()) {
+    QMessageBox::information(window(), tr("material loader"),
+			     tr("Material library does not exist"));
+    return;
+
+  } else {  
+
+    if(!materialDoc.setContent(&materialFile, true, &errStr, &errRow, &errCol)) {
+      QMessageBox::information(window(), tr("Material loader"),
+			       tr("Parse error at line %1, col %2:\n%3")
+			       .arg(errRow).arg(errCol).arg(errStr));
+      materialFile.close();
+      return;
+    }
+  }
+
+  materialFile.close();	
+  
+  if(materialDoc.documentElement().tagName() != "materiallibrary") {
+    QMessageBox::information(window(), tr("Material loader"),
+			     tr("This is not a material library file"));
+    return;
+  }
+
+  // Update list widget:
+  //---------------------
+  QListWidget *list = ui.materialListWidget;
+  list->clear();  
+  QDomElement contents = materialDoc.documentElement();
+  QDomElement material = contents.firstChildElement("material");
+  for( ; !material.isNull(); material = material.nextSiblingElement()) {
+    QString materialName = material.attribute("name");
+    QListWidgetItem *item = new QListWidgetItem(materialName, list);
+  }
 }
 
 MaterialLibrary::~MaterialLibrary()
@@ -58,6 +100,44 @@ MaterialLibrary::~MaterialLibrary()
 
 void MaterialLibrary::okButtonClicked()
 {
-  cout << "MaterialLibrary: Ok-button clicked" << endl;
-  cout.flush();
+  QListWidget *list = ui.materialListWidget;
+  QListWidgetItem *item = list->currentItem();
+
+  QDomElement contents = materialDoc.documentElement();
+  QDomElement material = contents.firstChildElement("material");
+  for( ; !material.isNull(); material = material.nextSiblingElement()) {
+    QString materialName = material.attribute("name");
+    
+    if(materialName != item->text())
+      continue;
+    
+    QDomElement property = material.firstChildElement();
+    for( ; !property.isNull(); property = property.nextSiblingElement()) {
+      QString propertyName = property.tagName().trimmed().toLower();
+      QString propertyValue = property.text().trimmed();
+
+      cout << string(materialName.toAscii()) << ": " 
+	   << string(propertyName.toAscii()) << ": " 
+	   << string(propertyValue.toAscii()) << endl;
+
+      // Copy the value in material editor:
+      //------------------------------------
+      for(int i = 0; i < editor->hash.count(); i++) {
+	hash_entry_t value = editor->hash.values().at(i);
+	QDomElement elem = value.elem;
+	QWidget *widget = value.widget;
+
+	QString widgetName = elem.firstChildElement("Name").text();
+	widgetName = widgetName.trimmed().replace(" ", "").toLower();
+	
+	if(elem.attribute("Widget") == "Edit") {
+	  QLineEdit *lineEdit = (QLineEdit*)widget;
+	  if(propertyName == widgetName) 
+	    lineEdit->setText(propertyValue);
+	}
+      }
+    }
+  }
+
+  this->close();
 }

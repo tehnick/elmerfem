@@ -44,7 +44,6 @@
 #include <QWidget>
 #include <QDomDocument>
 #include "dynamiceditor.h"
-#include "projectio.h"
 #include "ui_materiallibrary.h"
 
 class MaterialLibrary : public QDialog
@@ -57,12 +56,16 @@ public:
 
   Ui::MaterialLibrary ui;
 
+  DynamicEditor *editor;
+  QDomDocument *elmerDefs;
+
 signals:
 
 private slots:
   void okButtonClicked();
 
 private:
+  QDomDocument materialDoc;
 
 };
 

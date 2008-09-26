@@ -1866,7 +1866,7 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 
       // hash key:
       QDomElement itemKey = projectDoc.createElement("key");
-      QDomText itemKeyValue = projectDoc.createTextNode(key); //ta
+      QDomText itemKeyValue = projectDoc.createTextNode(key);
       itemKey.appendChild(itemKeyValue);
       itemWidget.appendChild(itemKey);
       
@@ -2992,8 +2992,10 @@ void MainWindow::addMaterialSlot()
 }
 
 
-void MainWindow::showMaterialLibrary(int,int)
+void MainWindow::showMaterialLibrary(int tab, int ID)
 {
+  materialLibrary->editor = &materialEditor[ID];
+  materialLibrary->elmerDefs = this->elmerDefs;
   materialLibrary->show();
 }
 
@@ -6626,8 +6628,11 @@ void MainWindow::loadDefinitions()
     QFileInfo fileInfo(fileName);
     QString fileSuffix = fileInfo.suffix();
 
-    // The name "egini" is reserved for the ini file:
+    // The names "egini" and "egmaterials" are reserved, skip them:
     if(fileInfo.completeBaseName() == "egini")
+      continue;
+
+    if(fileInfo.completeBaseName() == "egmaterials")
       continue;
 
     if((fileSuffix == "xml") && (fileName != generalDefs)) {
