@@ -97,6 +97,8 @@ MaterialLibrary::MaterialLibrary(QWidget *parent)
   // Enable selection by double clicking:
   //--------------------------------------
   connect(list, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(itemDoubleClicked(QListWidgetItem*)));
+
+  // list->setAlternatingRowColors(true);
 }
 
 MaterialLibrary::~MaterialLibrary()
