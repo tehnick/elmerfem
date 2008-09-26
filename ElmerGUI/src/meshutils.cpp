@@ -1332,7 +1332,7 @@ void Meshutils::sort_index(int n, double *a, int *b)
 
    if ( n <= 1 ) return;
 
-   l = n / 2;
+   l = n / 2 +1;
    ir = n-1;
    while( true ) {
      if ( l >= 1 ) {
