@@ -53,10 +53,21 @@ MaterialLibrary::MaterialLibrary(QWidget *parent)
 
   // Load library:
   //--------------
+  char *elmerGuiHome = NULL;
+  
+#ifdef __APPLE__
+  QString matFileName = this->homePath +  "/edf/egmaterials.xml";          
+#else
+  QString matFileName = "edf/egmaterials.xml";
+  elmerGuiHome = getenv("ELMERGUI_HOME");
+  if(elmerGuiHome != NULL) 
+    matFileName = QString(elmerGuiHome) + "/edf/egmaterials.xml";
+#endif
+
   QString errStr;
   int errRow;
   int errCol;
-  QFile materialFile("edf/egmaterials.xml");
+  QFile materialFile(matFileName);
   
   if(!materialFile.exists()) {
     QMessageBox::information(window(), tr("material loader"),
