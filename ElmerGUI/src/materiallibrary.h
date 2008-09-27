@@ -63,6 +63,9 @@ signals:
 
 private slots:
   void okButtonClicked();
+  void appendButtonClicked();
+  void clearButtonClicked();
+  void closeButtonClicked();
   void itemDoubleClicked(QListWidgetItem*); 
 
 private:

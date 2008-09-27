@@ -50,6 +50,9 @@ MaterialLibrary::MaterialLibrary(QWidget *parent)
   ui.setupUi(this);
 
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+  connect(ui.appendButton, SIGNAL(clicked()), this, SLOT(appendButtonClicked()));
+  connect(ui.clearButton, SIGNAL(clicked()), this, SLOT(clearButtonClicked()));
+  connect(ui.closeButton, SIGNAL(clicked()), this, SLOT(closeButtonClicked()));
 
   // Load library:
   //--------------
@@ -187,4 +190,66 @@ void MaterialLibrary::itemDoubleClicked(QListWidgetItem *item)
   QListWidget *list = ui.materialListWidget;
   list->setCurrentItem(item);
   okButtonClicked();
+}
+
+void MaterialLibrary::appendButtonClicked()
+{
+  QString matFileName = QFileDialog::getOpenFileName(this);
+
+  if(matFileName.isEmpty())
+    return;
+
+  QString errStr;
+  int errRow;
+  int errCol;
+  QFile materialFile(matFileName);
+  
+  materialDoc.clear();
+
+  if(!materialFile.exists()) {
+    QMessageBox::information(window(), tr("material loader"),
+			     tr("Material library does not exist"));
+    return;
+
+  } else {  
+
+    if(!materialDoc.setContent(&materialFile, true, &errStr, &errRow, &errCol)) {
+      QMessageBox::information(window(), tr("Material loader"),
+			       tr("Parse error at line %1, col %2:\n%3")
+			       .arg(errRow).arg(errCol).arg(errStr));
+      materialFile.close();
+      return;
+    }
+  }
+
+  materialFile.close();	
+  
+  if(materialDoc.documentElement().tagName() != "materiallibrary") {
+    QMessageBox::information(window(), tr("Material loader"),
+			     tr("This is not a material library file"));
+    return;
+  }
+
+  // Update list widget:
+  //---------------------
+  QListWidget *list = ui.materialListWidget;
+  QDomElement contents = materialDoc.documentElement();
+  QDomElement material = contents.firstChildElement("material");
+  for( ; !material.isNull(); material = material.nextSiblingElement()) {
+    QString materialName = material.attribute("name");
+    QListWidgetItem *item = new QListWidgetItem(materialName, list);
+  }
+  list->sortItems();
+}
+
+void MaterialLibrary::clearButtonClicked()
+{
+  QListWidget *list = ui.materialListWidget;
+  list->clear();
+}
+
+void MaterialLibrary::closeButtonClicked()
+{
+  this->close();
+  editor->raise();
 }
