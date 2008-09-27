@@ -67,52 +67,14 @@ MaterialLibrary::MaterialLibrary(QWidget *parent)
     matFileName = QString(elmerGuiHome) + "/edf/egmaterials.xml";
 #endif
 
-  QString errStr;
-  int errRow;
-  int errCol;
-  QFile materialFile(matFileName);
-  
-  if(!materialFile.exists()) {
-    QMessageBox::information(window(), tr("material loader"),
-			     tr("Material library does not exist"));
-    return;
-
-  } else {  
-
-    if(!materialDoc.setContent(&materialFile, true, &errStr, &errRow, &errCol)) {
-      QMessageBox::information(window(), tr("Material loader"),
-			       tr("Parse error at line %1, col %2:\n%3")
-			       .arg(errRow).arg(errCol).arg(errStr));
-      materialFile.close();
-      return;
-    }
-  }
-
-  materialFile.close();	
-  
-  if(materialDoc.documentElement().tagName() != "materiallibrary") {
-    QMessageBox::information(window(), tr("Material loader"),
-			     tr("This is not a material library file"));
-    return;
-  }
-
-  // Update list widget:
-  //---------------------
   QListWidget *list = ui.materialListWidget;
-  list->clear();  
-  QDomElement contents = materialDoc.documentElement();
-  QDomElement material = contents.firstChildElement("material");
-  for( ; !material.isNull(); material = material.nextSiblingElement()) {
-    QString materialName = material.attribute("name");
-    QListWidgetItem *item = new QListWidgetItem(materialName, list);
-  }
-  list->sortItems();
+  list->clear();
+  materialDoc.clear();
+  appendDocument(matFileName);
 
   // Enable selection by double clicking:
   //--------------------------------------
   connect(list, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(itemDoubleClicked(QListWidgetItem*)));
-
-  // list->setAlternatingRowColors(true);
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -166,6 +128,7 @@ void MaterialLibrary::okButtonClicked()
 
       // Copy the parameter value into material editor:
       //------------------------------------------------
+      bool match = false;
       for(int i = 0; i < editor->hash.count(); i++) {
 	hash_entry_t value = editor->hash.values().at(i);
 	QDomElement elem = value.elem;
@@ -174,10 +137,18 @@ void MaterialLibrary::okButtonClicked()
 	
 	if(elem.attribute("Widget") == "Edit") {
 	  QLineEdit *lineEdit = (QLineEdit*)widget;
-	  if(propertyName == widgetName) 
+	  if(propertyName == widgetName) {
+	    match = true;
 	    lineEdit->setText(propertyValue);
+	  }
 	}
       }
+
+#if 0
+      if(!match) 
+	cout << "Material loader: no match for parameter: "
+	     << string(propertyName.toAscii()) << endl;
+#endif
     }
   }
 
@@ -199,15 +170,32 @@ void MaterialLibrary::appendButtonClicked()
   if(matFileName.isEmpty())
     return;
 
+  materialDoc.clear();
+  appendDocument(matFileName);
+}
+
+void MaterialLibrary::clearButtonClicked()
+{
+  QListWidget *list = ui.materialListWidget;
+  list->clear();
+}
+
+void MaterialLibrary::closeButtonClicked()
+{
+  this->close();
+  editor->raise();
+}
+
+
+void MaterialLibrary::appendDocument(QString matFileName)
+{
   QString errStr;
   int errRow;
   int errCol;
   QFile materialFile(matFileName);
   
-  materialDoc.clear();
-
   if(!materialFile.exists()) {
-    QMessageBox::information(window(), tr("material loader"),
+    QMessageBox::information(window(), tr("Material loader"),
 			     tr("Material library does not exist"));
     return;
 
@@ -240,16 +228,4 @@ void MaterialLibrary::appendButtonClicked()
     QListWidgetItem *item = new QListWidgetItem(materialName, list);
   }
   list->sortItems();
-}
-
-void MaterialLibrary::clearButtonClicked()
-{
-  QListWidget *list = ui.materialListWidget;
-  list->clear();
-}
-
-void MaterialLibrary::closeButtonClicked()
-{
-  this->close();
-  editor->raise();
 }

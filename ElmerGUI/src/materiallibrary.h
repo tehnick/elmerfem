@@ -70,6 +70,7 @@ private slots:
 
 private:
   QDomDocument materialDoc;
+  void appendDocument(QString);
 
 };
 
