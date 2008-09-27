@@ -110,6 +110,8 @@ MaterialLibrary::MaterialLibrary(QWidget *parent)
   connect(list, SIGNAL(itemDoubleClicked(QListWidgetItem*)), this, SLOT(itemDoubleClicked(QListWidgetItem*)));
 
   // list->setAlternatingRowColors(true);
+
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
 MaterialLibrary::~MaterialLibrary()
