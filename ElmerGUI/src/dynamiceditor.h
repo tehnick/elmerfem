@@ -126,6 +126,9 @@ public:
 
   QHash<QString, hash_entry_t> hash;
 
+  void dumpHash(QDomDocument*, QDomElement*);
+  void populateHash(QDomElement*);
+
 signals:
   void dynamicEditorReady(int, int);
   void dynamicEditorSpareButtonClicked(int, int);

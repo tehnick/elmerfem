@@ -548,3 +548,120 @@ void DynamicEditor::newButtonClicked()
 
   emit(dynamicEditorReady(MAT_NEW, ID));
 }
+
+//----------------------------------------------------------------------------
+void DynamicEditor::dumpHash(QDomDocument *projectDoc, QDomElement *item)
+{
+  for(int j = 0; j < this->hash.count(); j++) {
+    QString key = this->hash.keys().at(j);
+    hash_entry_t value = this->hash.values().at(j);
+    QDomElement elem = value.elem;
+    QWidget *widget = value.widget;
+    
+    QDomElement itemWidget = projectDoc->createElement("widget");
+    item->appendChild(itemWidget);
+    
+    QDomElement itemKey = projectDoc->createElement("key");
+    QDomText itemKeyValue = projectDoc->createTextNode(key);
+    itemKey.appendChild(itemKeyValue);
+    itemWidget.appendChild(itemKey);
+    
+    if(elem.attribute("Widget") == "CheckBox") {
+      QCheckBox *checkBox = (QCheckBox*)widget;
+      QDomElement itemCheckBox = projectDoc->createElement("value");
+      QDomText itemCheckBoxValue = projectDoc->createTextNode(QString::number(checkBox->isChecked()));
+      itemCheckBox.appendChild(itemCheckBoxValue);
+      itemWidget.appendChild(itemCheckBox);
+      itemWidget.setAttribute("type", "CheckBox");
+      
+    } else if(elem.attribute("Widget") == "Edit") {
+      QLineEdit *lineEdit = (QLineEdit*)widget;
+      QDomElement itemLineEdit = projectDoc->createElement("value");
+      QDomText itemLineEditValue = projectDoc->createTextNode(lineEdit->text().trimmed());
+      itemLineEdit.appendChild(itemLineEditValue);
+      itemWidget.appendChild(itemLineEdit);
+      itemWidget.setAttribute("type", "Edit");
+      
+    } else if(elem.attribute("Widget") == "Combo") {
+      QComboBox *comboBox = (QComboBox*)widget;
+      QDomElement itemComboBox = projectDoc->createElement("value");
+      QDomText itemComboBoxValue = projectDoc->createTextNode(comboBox->currentText().trimmed());
+      itemComboBox.appendChild(itemComboBoxValue);
+      itemWidget.appendChild(itemComboBox);
+      itemWidget.setAttribute("type", "Combo");
+      
+    } else if(elem.attribute("Widget") == "Label") {
+      QLabel *label = (QLabel*)widget;
+      QDomElement itemLabel = projectDoc->createElement("value");
+      QDomText itemLabelValue = projectDoc->createTextNode(label->text().trimmed());
+      itemLabel.appendChild(itemLabelValue);
+      itemWidget.appendChild(itemLabel);
+      itemWidget.setAttribute("type", "Label");
+    }
+  }
+}
+
+void DynamicEditor::populateHash(QDomElement *item)
+{
+  QDomElement widget = item->firstChildElement("widget");
+  
+  for(; !widget.isNull(); widget = widget.nextSiblingElement()) {  
+    QString type = widget.attribute("type").trimmed();
+    QString key = widget.firstChildElement("key").text().trimmed();
+    QString value = widget.firstChildElement("value").text().trimmed();
+    
+    if(value.isEmpty())
+      continue;
+    
+    QStringList splittedKey = key.split("/");
+    
+    // Compare with current hash:
+    //----------------------------
+    bool match_found = false;
+    for(int j = 0; j < this->hash.count(); j++) {
+      QString hashkey = this->hash.keys().at(j);
+      QStringList splittedHashKey = hashkey.split("/");
+      hash_entry_t hashvalue = this->hash.values().at(j);
+      QWidget *widget = hashvalue.widget;
+      QDomElement elem = hashvalue.elem;
+      
+      if((splittedKey.at(1) == splittedHashKey.at(1)) &&
+	 (splittedKey.at(2) == splittedHashKey.at(2)) &&
+	 (splittedKey.at(3) == splittedHashKey.at(3))) {
+	
+	match_found = true;
+	
+	if(elem.attribute("Widget") == "CheckBox") {
+	  if(type != "CheckBox")
+	    cout << "Load project: type mismatch with checkBox" << endl;
+	  QCheckBox *checkBox = (QCheckBox*)widget;
+	  if(value.toInt() == 1)
+	    checkBox->setChecked(true);
+	  else
+	    checkBox->setChecked(false);
+	  
+	} else if(elem.attribute("Widget") == "Edit") {
+	  if(type != "Edit")
+	    cout << "Load project: type mismatch with lineEdit" << endl;
+	  QLineEdit *lineEdit = (QLineEdit*)widget;
+	  lineEdit->setText(value);
+	  
+	} else if(elem.attribute("Widget") == "Combo") {
+	  if(type != "Combo")
+	    cout << "Load project: type mismatch with comboBox" << endl;
+	  QComboBox *comboBox = (QComboBox*)widget;
+	  for(int k = 0; k < comboBox->count(); k++) {
+	    QString current = comboBox->itemText(k).trimmed();
+	    if(current == value.trimmed())
+	      comboBox->setCurrentIndex(k);
+	  }
+	}
+      }
+    }
+    
+    if(!match_found) {
+      cout << "Error: Unable to set menu entry" << endl;
+      cout.flush();
+    }
+  }
+}

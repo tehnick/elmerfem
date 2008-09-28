@@ -120,7 +120,7 @@ void ProjectIO::appendToProject(QDomDocument *projectDoc, QDomElement *item)
 
   // Line edits:
   //-------------
-  QList<QLineEdit *> allLineEdits = parentWidget->findChildren<QLineEdit *>(); 
+  QList<QLineEdit *> allLineEdits = parentWidget->findChildren<QLineEdit *>();
   
   for(int i = 0; i < allLineEdits.size(); i++) {
     QLineEdit *le = allLineEdits.at(i);

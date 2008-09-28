@@ -1773,6 +1773,25 @@ void MainWindow::saveProjectSlot()
   saveProjectContents(projectDoc, "boundarycondition", boundaryConditionEditor, limit->maxBcs());
 
   //===========================================================================
+  //                          SAVE SOLVER SPECIFIC OPTIONS
+  //===========================================================================
+  QDomElement solverOptionsBlock = projectDoc.createElement("solverspecificoptions");
+  projectDoc.documentElement().appendChild(solverOptionsBlock);
+  for(int index = 0; index < limit->maxSolvers(); index++) {
+    SolverParameterEditor *spe = &solverParameterEditor[index];
+    DynamicEditor *dynEdit = spe->generalOptions;
+    
+    if(!dynEdit)
+      continue;
+
+    QDomElement item = projectDoc.createElement("item");
+    item.setAttribute("item", QString::number(index));
+    item.setAttribute("name", spe->solverName);
+    solverOptionsBlock.appendChild(item);
+    dynEdit->dumpHash(&projectDoc, &item);
+  }
+
+  //===========================================================================
   //                            SAVE BODY PROPERTIES
   //===========================================================================
   QDomElement bodyBlock = projectDoc.createElement("bodyproperties");
@@ -1853,58 +1872,11 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
       itemName.appendChild(itemNameValue);
       item.appendChild(itemName);
     }
-    
-    // Write all stuff from hash:
-    for(int j = 0; j < de->hash.count(); j++) {
-      QString key = de->hash.keys().at(j);
-      hash_entry_t value = de->hash.values().at(j);
-      QDomElement elem = value.elem;
-      QWidget *widget = value.widget;
-      
-      QDomElement itemWidget = projectDoc.createElement("widget");
-      item.appendChild(itemWidget);
 
-      // hash key:
-      QDomElement itemKey = projectDoc.createElement("key");
-      QDomText itemKeyValue = projectDoc.createTextNode(key);
-      itemKey.appendChild(itemKeyValue);
-      itemWidget.appendChild(itemKey);
-      
-      if(elem.attribute("Widget") == "CheckBox") {
-	QCheckBox *checkBox = (QCheckBox*)widget;
-	QDomElement itemCheckBox = projectDoc.createElement("value");
-	QDomText itemCheckBoxValue = projectDoc.createTextNode(QString::number(checkBox->isChecked()));
-	itemCheckBox.appendChild(itemCheckBoxValue);
-	itemWidget.appendChild(itemCheckBox);
-	itemWidget.setAttribute("type", "CheckBox");
-
-      } else if(elem.attribute("Widget") == "Edit") {
-	QLineEdit *lineEdit = (QLineEdit*)widget;
-	QDomElement itemLineEdit = projectDoc.createElement("value");
-	QDomText itemLineEditValue = projectDoc.createTextNode(lineEdit->text().trimmed());
-	itemLineEdit.appendChild(itemLineEditValue);
-	itemWidget.appendChild(itemLineEdit);
-	itemWidget.setAttribute("type", "Edit");
-
-      } else if(elem.attribute("Widget") == "Combo") {
-	QComboBox *comboBox = (QComboBox*)widget;
-	QDomElement itemComboBox = projectDoc.createElement("value");
-	QDomText itemComboBoxValue = projectDoc.createTextNode(comboBox->currentText().trimmed());
-	itemComboBox.appendChild(itemComboBoxValue);
-	itemWidget.appendChild(itemComboBox);
-	itemWidget.setAttribute("type", "Combo");
-
-      } else if(elem.attribute("Widget") == "Label") {
-	QLabel *label = (QLabel*)widget;
-	QDomElement itemLabel = projectDoc.createElement("value");
-	QDomText itemLabelValue = projectDoc.createTextNode(label->text().trimmed());
-	itemLabel.appendChild(itemLabelValue);
-	itemWidget.appendChild(itemLabel);
-	itemWidget.setAttribute("type", "Label");
-      }
-    }
+    de->dumpHash(&projectDoc, &item);
   }
 }
+
 
 
 // File -> Load project...
@@ -2031,13 +2003,20 @@ void MainWindow::loadProjectSlot()
   element = projectDoc.documentElement().firstChildElement("boundarycondition");
   loadProjectContents(element, boundaryConditionEditor, limit->maxBcs(), "BoundaryCondition");
 
+
+  //===========================================================================
+  //                          LOAD SOLVER SPECIFIC OPTIONS
+  //===========================================================================
+  // TODO
+
+
   //===========================================================================
   //                           LOAD BODY PROPERTIES
   //===========================================================================
   QDomElement bodyBlock = contents.firstChildElement("bodyproperties");
 
   item = bodyBlock.firstChildElement("item");
-  for( ; !item.isNull(); item = item.nextSiblingElement()) {
+  for(; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
 
     if((index < 0) || (index >= limit->maxBodies())) {
@@ -2165,7 +2144,7 @@ void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *
       boundaryConditionMenu->addAction(act);
     }
     
-    de->menuAction = act;      
+    de->menuAction = act;
     
     if(Mname == "Equation") 
       createBodyCheckBoxes(BODY_EQUATION, de);
@@ -2182,69 +2161,7 @@ void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *
     if(Mname == "BoundaryCondition") 
       createBoundaryCheckBoxes(de);
     
-    // Set up widgets:
-    //-----------------
-    QDomElement widget = item.firstChildElement("widget");
-    
-    for(; !widget.isNull(); widget = widget.nextSiblingElement()) {  
-      QString type = widget.attribute("type").trimmed();
-      QString key = widget.firstChildElement("key").text().trimmed();
-      QString value = widget.firstChildElement("value").text().trimmed();
-
-      if(value.isEmpty())
-	continue;
-
-      QStringList splittedKey = key.split("/");
-
-      // Compare with current hash:
-      //----------------------------
-      bool match_found = false;
-      for(int j = 0; j < de->hash.count(); j++) {
-	QString hashkey = de->hash.keys().at(j);
-	QStringList splittedHashKey = hashkey.split("/");
-	hash_entry_t hashvalue = de->hash.values().at(j);
-	QWidget *widget = hashvalue.widget;
-	QDomElement elem = hashvalue.elem;
-	
-	if((splittedKey.at(1) == splittedHashKey.at(1)) &&
-	   (splittedKey.at(2) == splittedHashKey.at(2)) &&
-	   (splittedKey.at(3) == splittedHashKey.at(3))) {
-
-	  match_found = true;
-
-	  if(elem.attribute("Widget") == "CheckBox") {
-	    if(type != "CheckBox")
-	      logMessage("Load project: type mismatch with checkBox");
-	    QCheckBox *checkBox = (QCheckBox*)widget;
-	    if(value.toInt() == 1)
-	      checkBox->setChecked(true);
-	    else
-	      checkBox->setChecked(false);
-
-	  } else if(elem.attribute("Widget") == "Edit") {
-	    if(type != "Edit")
-	      logMessage("Load project: type mismatch with lineEdit");
-	    QLineEdit *lineEdit = (QLineEdit*)widget;
-	    lineEdit->setText(value);
-
-	  } else if(elem.attribute("Widget") == "Combo") {
-	    if(type != "Combo")
-	      logMessage("Load project: type mismatch with comboBox");
-	    QComboBox *comboBox = (QComboBox*)widget;
-	    for(int k = 0; k < comboBox->count(); k++) {
-	      QString current = comboBox->itemText(k).trimmed();
-	      if(current == value.trimmed())
-		comboBox->setCurrentIndex(k);
-	    }
-	  }
-	}
-      }
-
-      if(!match_found) {
-	cout << "Error: Unable to set menu entry" << endl;
-	cout.flush();
-      }
-    }
+    de->populateHash(&item);
   }
 }
 
@@ -2837,7 +2754,7 @@ void MainWindow::editNumericalMethods(int current, int id)
     spe->generalOptions = new DynamicEditor;
     spe->generalOptions->setupTabs(*elmerDefs, "Solver", current );
 
-    for( int i=0; i<spe->generalOptions->tabWidget->count(); i++ )
+    for( int i=0; i < spe->generalOptions->tabWidget->count(); i++ )
     {
       if ( spe->generalOptions->tabWidget->tabText(i) == title )
       {

@@ -126,9 +126,6 @@ int operation_t::readFromProject(QDomDocument *projectDoc, QDomElement *ops)
 
     QDomElement selection = selected.firstChildElement("list");
 
-    cout << "ok2" << endl;
-    cout.flush();
-
     for(int list = 0; !selection.isNull(); selection = selection.nextSiblingElement(), list++) {
       if(list >= p->selected) {
 	cout << "Project loader: load operations: index out of bounds" << endl;
