@@ -1779,15 +1779,21 @@ void MainWindow::saveProjectSlot()
   projectDoc.documentElement().appendChild(solverOptionsBlock);
   for(int index = 0; index < limit->maxSolvers(); index++) {
     SolverParameterEditor *spe = &solverParameterEditor[index];
+
+    if(!spe)
+      continue;
+
     DynamicEditor *dynEdit = spe->generalOptions;
     
     if(!dynEdit)
       continue;
 
     QDomElement item = projectDoc.createElement("item");
-    item.setAttribute("item", QString::number(index));
+    item.setAttribute("index", QString::number(index));
     item.setAttribute("name", spe->solverName);
+    item.setAttribute("id", QString::number(dynEdit->ID));
     solverOptionsBlock.appendChild(item);
+
     dynEdit->dumpHash(&projectDoc, &item);
   }
 
@@ -2007,8 +2013,30 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                          LOAD SOLVER SPECIFIC OPTIONS
   //===========================================================================
-  // TODO
+  QDomElement solverOptionsBlock = contents.firstChildElement("solverspecificoptions");
 
+  for(item = solverOptionsBlock.firstChildElement("item"); 
+      !item.isNull(); item = item.nextSiblingElement()) {
+    
+    int index = item.attribute("index").toInt();
+    QString name = item.attribute("name");
+    int id = item.attribute("id").toInt();
+    
+    if((index < 0) || (index >= limit->maxSolvers())) {
+      logMessage("Load project: solver specific options: index out of bounds");
+      return;
+    }
+
+    SolverParameterEditor *spe = &solverParameterEditor[index];
+    spe->solverName = name;
+
+    if(spe->generalOptions == NULL) 
+      spe->generalOptions = new DynamicEditor;
+
+    spe->generalOptions->setupTabs(*elmerDefs, "Solver", id);
+    spe->generalOptions->populateHash(&item);
+    spe->ui.solverControlTabs->insertTab(0, spe->generalOptions->tabWidget->widget(id), "Solver specific options");	
+  }
 
   //===========================================================================
   //                           LOAD BODY PROPERTIES
@@ -2728,44 +2756,44 @@ void MainWindow::addEquationSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::editNumericalMethods(int current, int id)
 {
-
   QString title="";
 
-  for( int i=0; i < limit->maxEquations(); i++ ) {
-    if ( equationEditor[i].ID == id ) {
+  for(int i = 0; i < limit->maxEquations(); i++) {
+    if(equationEditor[i].ID == id) {
       title = equationEditor[i].tabWidget->tabText(current);
       break;
     }
   }
 
-  if ( title == "General" ) {
-    logMessage( "No solver controls for 'General' equation options" );
+  if(title == "General") {
+    logMessage("No solver controls for 'General' equation options");
     return;
   }
 
   SolverParameterEditor *spe = &solverParameterEditor[current];
 
-  spe->setWindowTitle("Solver control for " + title );
+  spe->setWindowTitle("Solver control for " + title);
 
   spe->solverName = title;
 
-  if ( spe->generalOptions == NULL )
-  {
-    spe->generalOptions = new DynamicEditor;
+  if(spe->generalOptions == NULL) {
+    spe->generalOptions = new DynamicEditor(spe);
     spe->generalOptions->setupTabs(*elmerDefs, "Solver", current );
-
+    spe->ui.solverControlTabs->insertTab(0, spe->generalOptions->tabWidget->widget(current), "Solver specific options");
+    
+#if 0
     for( int i=0; i < spe->generalOptions->tabWidget->count(); i++ )
-    {
-      if ( spe->generalOptions->tabWidget->tabText(i) == title )
       {
-//      spe->ui.solverControlTabs->removeTab(0);
-        spe->ui.solverControlTabs->insertTab(0,spe->generalOptions->tabWidget->widget(i),
-                     "Solver specific options");
-        break;
+	if ( spe->generalOptions->tabWidget->tabText(i) == title )
+	  {
+	    spe->ui.solverControlTabs->insertTab(0, spe->generalOptions->tabWidget->widget(i),
+						 "Solver specific options");
+	    break;
+	  }
       }
-    }
+#endif
   }
-
+  
   spe->show();
   spe->raise();
 }

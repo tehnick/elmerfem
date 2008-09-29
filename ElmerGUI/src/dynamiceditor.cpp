@@ -133,7 +133,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
       param = section.firstChildElement("Parameter");
       
-      for( ;!param.isNull(); param=param.nextSiblingElement(), params++ ) {
+      for( ; !param.isNull(); param=param.nextSiblingElement(), params++ ) {
 
         // label
         QString widget_type = param.attribute("Widget","Edit");
@@ -530,8 +530,8 @@ void DynamicEditor::discardButtonClicked()
 void DynamicEditor::okButtonClicked()
 {
 
-  cout << "Dynamic editor: ok-button clicked" << endl;
-  cout.flush();
+  // cout << "Dynamic editor: ok-button clicked" << endl;
+  // cout.flush();
 
   touched = false;
 
