@@ -166,7 +166,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           QComboBox *combo = new QComboBox;
           h.widget = combo;
 
-          combo->setObjectName(labelName);
+          // combo->setObjectName(labelName);  // removed 30. sept. 2008, ML
           int count = 0, active=0;
 
           QDomElement item = param.firstChildElement("Item");
@@ -479,7 +479,7 @@ void DynamicEditor::comboSlot(QString select)
       }
     }
   }
-  this->show();
+  // this->show();  // Removed 30. sept. 2008, ML
 }
 
 
