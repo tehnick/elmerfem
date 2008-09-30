@@ -327,7 +327,7 @@
       ComputeMeshVelocity = ListGetLogical( Solver % Values, 'Compute Mesh Velocity', Found )
       IF ( .NOT. Found ) ComputeMeshVelocity = .TRUE.
 
-      IF ( ComputeMeshVelocity ) THEN
+      IF ( ComputeMeshVelocity .AND. ASSOCIATED(Solver % Variable % PrevValues) ) THEN
          k = MIN( SIZE(Solver % Variable % PrevValues,2), Solver % DoneTime )
          SELECT CASE(k)
          CASE(1)
