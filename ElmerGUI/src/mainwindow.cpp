@@ -4992,7 +4992,7 @@ void MainWindow::surfaceUnifySlot()
 
 void MainWindow::applyOperations()
 {
-  mesh_t *mesh = glWidget->mesh;
+ mesh_t *mesh = glWidget->mesh;
 
   cout << "Apply " << operations << " operations" << endl;
   cout.flush();
@@ -5003,8 +5003,18 @@ void MainWindow::applyOperations()
     int lists = glWidget->lists;
     list_t *list = glWidget->list;
 
+    for( int i=0; i<lists; i++ )
+       list[i].selected = false;
+
+    for( int j=0; j<mesh->surfaces; j++ )
+       mesh->surface[j].selected = false;
+
+    for( int j=0; j<mesh->edges; j++ )
+       mesh->edge[j].selected = false;
+
     for(int i=0; i<p->selected; i++) {
       list_t *l = &list[p->select_set[i]];
+fprintf( stderr, "%d %d %d\n",lists, i, p->select_set[i] );
 
       l->selected = true;
       if ( p->type < OP_UNIFY_EDGE ) {
@@ -5915,7 +5925,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   QTextStream header(&file);
 
   int nn, ne, nt, nf;
-  QString type, name;
+  QString type, name, tstep;
 
   header >> nn >> ne >> nf >> nt >> type >> name;
   if ( type == "vector:" )
@@ -5923,7 +5933,15 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   file.close();
 
-  args << "readfile " + postName + "; "
+  QString  simtype=generalSetup->ui.simulationTypeCombo->currentText().trimmed();
+  if ( simtype.toLower() == "transient" ) {
+    tstep = QString::number(1);
+  } else {
+    tstep = QString::number(nt);
+  }
+
+  args << "readfile " + postName + " " + tstep + 
+      " " + tstep + "1; "
     "set ColorScaleY -0.85; "
     "set ColorScaleEntries  4;"
     "set ColorScaleDecimals 2;"
@@ -6200,7 +6218,7 @@ void MainWindow::resultsSlot()
   QTextStream header(&file);
 
   int nn, ne, nt, nf;
-  QString type, name;
+  QString type, name, tstep;
 
   header >> nn >> ne >> nf >> nt >> type >> name;
   if ( type == "vector:" )
@@ -6208,7 +6226,15 @@ void MainWindow::resultsSlot()
 
   file.close();
 
-  args << "readfile " + postName + "; "
+  QString  simtype=generalSetup->ui.simulationTypeCombo->currentText().trimmed();
+  if ( simtype.toLower() == "transient" ) {
+    tstep = QString::number(1);
+  } else {
+    tstep = QString::number(nt);
+  }
+
+  args << "readfile " + postName + " " + tstep + 
+    " " + tstep + " 1; "
     "set ColorScaleY -0.85; "
     "set ColorScaleEntries  4;"
     "set ColorScaleDecimals 2;"
