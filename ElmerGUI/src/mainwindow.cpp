@@ -5014,7 +5014,6 @@ void MainWindow::applyOperations()
 
     for(int i=0; i<p->selected; i++) {
       list_t *l = &list[p->select_set[i]];
-fprintf( stderr, "%d %d %d\n",lists, i, p->select_set[i] );
 
       l->selected = true;
       if ( p->type < OP_UNIFY_EDGE ) {
