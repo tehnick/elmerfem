@@ -2400,33 +2400,19 @@ CONTAINS
       END DO
     END DO
 
-    DO t=Model % NumberOfBulkElements + 1, Model % NumberOfBulkElements + &
-                  Model % NumberOfBoundaryElements
+    DO iBC=1,Model % NumberOfBCs
+       Projector => Model % BCs(iBC) % PMatrix
+       IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
 
-      CurrentElement => Model % Elements(t)
-      IF ( CurrentElement % TYPE % ElementCode >= 200 ) CYCLE
-
-      DO i=1,Model % NumberOfBCs
-        IF ( CurrentElement % BoundaryInfo % Constraint == &
-              Model % BCs(i) % Tag ) THEN
-
-          IF ( ListGetLogical( Model % BCs(i) % Values, &
-                 VariableName, gotIt) ) THEN
-            SetNormal => ListGetConstRealArray( Model % BCs(i) % Values, &
-                   'Normal Vector', gotit )
-            IF ( GotIt .AND. ASSOCIATED(SetNormal) ) THEN
-               DO k=1,CurrentElement % TYPE % NumberOfNodes
-                 n = BoundaryReorder( CurrentElement %  NodeIndexes(k) )
-                 IF ( n <= 0 ) CYCLE
-                 BoundaryNormals(n,:) = 0.0d0
-                 DO j=1,SIZE(SetNormal,1)
-                    BoundaryNormals(n,j) = SetNormal(j,1)
-                 END DO
-               END DO
-            END IF
-          END IF
-        END IF
-      END DO
+       DO i=1,Projector % NumberOfRows
+          k = BoundaryReorder(Projector % InvPerm(i))
+          IF ( k <= 0 ) CYCLE
+          DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+            IF ( Projector % Cols(l) <= 0 ) CYCLE
+            m = BoundaryReorder(Projector % Cols(l))
+            IF ( m>0 ) BoundaryNormals(m,:) = 0._dp
+          END DO
+       END DO
     END DO
 
     DO iBC=1,Model % NumberOfBCs
@@ -2439,15 +2425,12 @@ CONTAINS
           DO l=Projector % Rows(i),Projector % Rows(i+1)-1
             IF ( Projector % Cols(l) <= 0 ) CYCLE
             m = BoundaryReorder(Projector % Cols(l))
-            IF ( m > 0 ) THEN
+            IF ( m > 0 ) &
                BoundaryNormals(m,:) = BoundaryNormals(m,:) + &
                  Projector % Values(l) * BoundaryNormals(k,:)
-               BoundaryNormals(k,:) = BoundaryNormals(m,:)
-            END IF
           END DO
        END DO
     END DO
-
 
 !------------------------------------------------------------------------------
 !   normalize 
@@ -2456,10 +2439,8 @@ CONTAINS
       k = BoundaryReorder(i) 
       IF ( k > 0 ) THEN
         s = SQRT( SUM( BoundaryNormals(k,:)**2 ) )
-
-        IF ( s /= 0.0d0 ) THEN
+        IF ( s /= 0.0d0 ) &
           BoundaryNormals(k,:) = BoundaryNormals(k,:) / s
-        END IF
 
         IF ( CoordinateSystemDimension() > 2 ) THEN
           CALL TangentDirections( BoundaryNormals(k,:),  &
