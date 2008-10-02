@@ -109,6 +109,7 @@ class SifGenerator  {
   void parseSteadyStateTab(Ui::solverParameterEditor);
   void parseNonlinearSystemTab(Ui::solverParameterEditor);
   void parseLinearSystemTab(Ui::solverParameterEditor);
+  void parseParallelTab(Ui::solverParameterEditor);
 
   void addSifLine(const QString&, const QString&);
   void addSifLineBool(const QString&, bool);

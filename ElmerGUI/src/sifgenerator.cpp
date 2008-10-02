@@ -381,6 +381,7 @@ void SifGenerator::makeSolverBlocks(QString solverName)
   parseSteadyStateTab(ui);
   parseNonlinearSystemTab(ui);
   parseLinearSystemTab(ui);
+  parseParallelTab(ui);
   // todo: add adaptivity & multigrid
 
   if(!found)
@@ -752,6 +753,16 @@ void SifGenerator::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
     addSifLine("  Nonlinear System Convergence Measure = ",
 	       ui.nonlinSystemConvergenceMeasureCombo->currentText().trimmed());
 
+}
+
+
+// Parse "Parallel" tab from ui to sif:
+//-----------------------------------------------------------------------------
+void SifGenerator::parseParallelTab(Ui::solverParameterEditor ui)
+{
+  if(ui.useHypre->isChecked()) {
+    addSifLine("  Linear System Use HYPRE = ", "True");
+  }
 }
 
 
