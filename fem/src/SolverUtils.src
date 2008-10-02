@@ -253,7 +253,8 @@ MODULE SolverUtils
 
    CHARACTER(LEN=MAX_NAME_LEN), PRIVATE :: NormalTangentialName
    INTEGER, PRIVATE :: NormalTangentialNOFNodes
-   LOGICAL, POINTER, PRIVATE :: NTfirst_time(:),NTzeroing_done(:,:)
+   INTEGER, POINTER, PRIVATE :: NTelement(:,:)
+   LOGICAL, POINTER, PRIVATE :: NTzeroing_done(:,:)
    INTEGER, POINTER, PRIVATE :: BoundaryReorder(:)
    REAL(KIND=dp), POINTER, PRIVATE :: BoundaryNormals(:,:),  &
                                       BoundaryTangent1(:,:), &
@@ -1171,31 +1172,17 @@ CONTAINS
       ActiveCond(BC) = ListCheckPresent( Model % BCs(bc) % Values, CondName )      
     END DO
 
+    OrderByBCNumbering = ListGetLogical( Model % Simulation, &
+       'Set Dirichlet BCs by BC Numbering', gotIt)
+
     bndry_start = Model % NumberOfBulkElements+1
     bndry_end   = bndry_start+Model % NumberOfBoundaryElements-1
 
-
     !
-    ! ... for nodes belonging to n-t boundary getting set by other bcs.
-    ! -------------------------------------------------------------------
-    IF ( NormalTangentialNOFNodes>0 .AND. DOF <= 0 ) THEN
-      DO t = bndry_start, bndry_end
-        Element => Model % Elements(t)
-        n = Element % Type % NumberOfNodes
-        DO j=1,n
-          k = BoundaryReorder(Element % NodeIndexes(j))
-          IF (k>0) THEN
-            NTfirst_time(k) = .TRUE.
-            NTzeroing_done(k,:) = .FALSE.
-          END IF
-        END DO
-      END DO
-    END IF
-
-
-    IF( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN    
-      OrderByBCNumbering = ListGetLogical( Model % Simulation, &
-          'Set Dirichlet BCs by BC Numbering', gotIt)
+    ! check and set some flags for nodes belonging to n-t boundaries
+    ! getting set by other bcs:
+    ! --------------------------------------------------------------
+    IF ( NormalTangentialNOFNodes>0 ) THEN
       IF ( OrderByBCNumbering ) THEN
         DO BC=1,Model % NumberOfBCs
           IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
@@ -1203,8 +1190,68 @@ CONTAINS
 
           DO t = bndry_start, bndry_end
             Element => Model % Elements(t)
-            IF ( Element % BoundaryInfo % Constraint /= Model % BCs(BC) % Tag ) CYCLE
-            
+            IF ( Element % BoundaryInfo % Constraint /= &
+                   Model % BCs(BC) % Tag ) CYCLE
+
+            ValueList => Model % BCs(BC) % Values
+            Model % CurrentElement => Element
+
+            IF ( ActivePart(BC) ) THEN
+              n = Element % Type % NumberOfNodes
+              Indexes(1:n) = Element % NodeIndexes
+            ELSE
+              n = SgetElementDOFs( Indexes )
+            END IF
+            CALL CheckNTelement(n,t)
+          END DO
+        END DO
+      ELSE
+        DO t = bndry_start, bndry_end
+          DO BC=1,Model % NumberOfBCs
+            IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
+            Conditional = ActiveCond(BC)
+          
+            Element => Model % Elements(t)
+            IF ( Element % BoundaryInfo % Constraint /= &
+                 Model % BCs(BC) % Tag ) CYCLE
+          
+            ValueList => Model % BCs(BC) % Values
+            Model % CurrentElement => Element
+            IF ( ActivePart(BC) ) THEN
+              n = Element % TYPE % NumberOfNodes
+              Indexes(1:n) = Element % NodeIndexes
+            ELSE
+              n = SgetElementDOFs( Indexes )
+            END IF
+            CALL CheckNTelement(n,t)
+          END DO
+        END DO
+      END IF
+
+      IF ( DOF<= 0 ) THEN
+        DO t=bndry_start,bndry_end
+          Element => Model % Elements(t)
+          n = Element % Type % NumberOfNodes
+          DO j=1,n
+            k = BoundaryReorder(Element % NodeIndexes(j))
+            IF (k>0) NTzeroing_done(k,:) = .FALSE.
+          END DO
+        END DO
+      END IF
+    END IF
+
+    ! Set the Dirichlet BCs from active boundary elements, if any...:
+    !----------------------------------------------------------------
+    IF( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN    
+      IF ( OrderByBCNumbering ) THEN
+        DO BC=1,Model % NumberOfBCs
+          IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
+          Conditional = ActiveCond(BC)
+
+          DO t = bndry_start, bndry_end
+            Element => Model % Elements(t)
+            IF ( Element % BoundaryInfo % Constraint /= &
+                Model % BCs(BC) % Tag ) CYCLE
             Model % CurrentElement => Element
             IF ( ActivePart(BC) ) THEN
               n = Element % Type % NumberOfNodes
@@ -1212,9 +1259,8 @@ CONTAINS
             ELSE
               n = SgetElementDOFs( Indexes )
             END IF
-
             ValueList => Model % BCs(BC) % Values
-            CALL SetElementValues( n )
+            CALL SetElementValues(n,t)
           END DO
         END DO
       ELSE
@@ -1224,7 +1270,8 @@ CONTAINS
             Conditional = ActiveCond(BC)
             
             Element => Model % Elements(t)
-            IF ( Element % BoundaryInfo % Constraint /= Model % BCs(BC) % Tag ) CYCLE
+            IF ( Element % BoundaryInfo % Constraint /= &
+                 Model % BCs(BC) % Tag ) CYCLE
             
             Model % CurrentElement => Element
             IF ( ActivePart(BC) ) THEN
@@ -1234,7 +1281,7 @@ CONTAINS
               n = SgetElementDOFs( Indexes )
             END IF
             ValueList => Model % BCs(BC) % Values
-            CALL SetElementValues( n )
+            CALL SetElementValues(n,t)
           END DO
         END DO
       END IF
@@ -1275,7 +1322,7 @@ CONTAINS
           n = SgetElementDOFs( Indexes )
         END IF
         ValueList => Model % BodyForces(bf_id) % Values
-        CALL SetElementValues( n )
+        CALL SetElementValues( n,t )
       END DO
     END IF
     DEALLOCATE(ActivePart, ActiveCond, Indexes)
@@ -1374,12 +1421,54 @@ CONTAINS
 
   CONTAINS
 
+     ! Check n-t node setting element
+     !-------------------------------
+    SUBROUTINE CheckNTElement(n,elno)
+      INTEGER :: n,elno
+      INTEGER :: i,j,k,l,m,dim
+      REAL(KIND=dp) :: Condition(n), RotVec(3)
+      
+      dim = CoordinateSystemDimension()
+
+      IF ( DOF <= 0 ) RETURN
+      IF ( .NOT. ListCheckPresent(ValueList, Name) ) RETURN
+
+      IF ( Conditional ) THEN
+        Condition(1:n) = ListGetReal( ValueList, CondName, n, Indexes, gotIt )
+        Conditional = Conditional .AND. GotIt
+      END IF
+
+      !
+      ! Check for nodes belonging to n-t boundary getting set by other bcs.
+      ! -------------------------------------------------------------------
+      IF ( ALL(BoundaryReorder(Indexes(1:n))>0) ) RETURN
+      IF ( ALL(BoundaryReorder(Indexes(1:n))<1) ) RETURN
+
+      DO j=1,n
+        IF ( Conditional .AND. Condition(j)<0.0_dp ) CYCLE
+        k = Perm(Indexes(j))
+        IF ( k > 0 ) THEN
+          m = BoundaryReorder(Indexes(j))
+          IF ( m>0 ) THEN
+            RotVec = 0._dp
+            RotVec(DOF) = 1._dp
+            CALL RotateNTSystem( RotVec, Indexes(j) )
+            DO k=1,dim
+              IF ( ABS(RotVec(k)) > 1.d-8 ) NTelement(m,k)=elno
+            END DO
+          END IF
+        END IF
+      END DO
+!------------------------------------------------------------------------------
+    END SUBROUTINE CheckNTElement
+!------------------------------------------------------------------------------
+
+ 
 !------------------------------------------------------------------------------
 ! Set values related to a specific boundary or bulk element
 !------------------------------------------------------------------------------
-
-    SUBROUTINE SetElementValues(n)
-      INTEGER :: n
+    SUBROUTINE SetElementValues(n,elno)
+      INTEGER :: n,elno
       INTEGER :: i,j,k,l,m,dim
       LOGICAL :: CheckNT
       REAL(KIND=dp) :: Condition(n), Work(n), RotVec(3)
@@ -1419,24 +1508,21 @@ CONTAINS
               IF ( CheckNT ) THEN
                 m = BoundaryReorder(Indexes(j))
                 IF ( m>0 ) THEN
-                  IF ( NTfirst_time(m) ) THEN
-                    NTfirst_time(m) = .FALSE.
-                    NTzeroing_done(m,:) = .FALSE.
-                  END IF
-
                   RotVec = 0._dp
                   RotVec(DOF) = 1._dp
                   CALL RotateNTSystem( RotVec, Indexes(j) )
                   DO k=1,dim
                     IF ( ABS(RotVec(k)) > 1.d-8 ) THEN
-                      l = NDOFs * (Perm(Indexes(j))-1) + k
-                      IF ( .NOT. NTZeroing_done(m,k) ) THEN
-                        b(l) = 0._dp
-                        CALL ZeroRow( A,l )
-                        CALL SetMatrixElement( A,l,l,1.0_dp)
-                        NTZeroing_done(m,k) = .TRUE.
+                      IF ( NTelement(m,k)==elno ) THEN
+                        l = NDOFs * (Perm(Indexes(j))-1) + k
+                        IF ( .NOT. NTZeroing_done(m,k) ) THEN
+                          b(l) = 0._dp
+                          CALL ZeroRow( A,l )
+                          CALL SetMatrixElement( A,l,l,1.0_dp)
+                          NTZeroing_done(m,k) = .TRUE.
+                        END IF
+                        b(l) = b(l) + RotVec(k) * Work(j)
                       END IF
-                      b(l) = b(l) + RotVec(k) * Work(j)
                     END IF
                   END DO
                 END IF
@@ -2211,10 +2297,10 @@ CONTAINS
     ELSE
       IF ( ASSOCIATED(BoundaryNormals) ) THEN
         DEALLOCATE( BoundaryNormals, BoundaryTangent1, &
-                    BoundaryTangent2, NTfirst_time, NTzeroing_done)
+                    BoundaryTangent2, NTelement, NTzeroing_done)
       END IF
 
-      ALLOCATE( NTfirst_time(NumberOfBoundaryNodes) )
+      ALLOCATE( NTelement(NumberOfBoundaryNodes,3) )
       ALLOCATE( NTzeroing_done(NumberOfBoundaryNodes,3) )
       ALLOCATE( BoundaryNormals(NumberOfBoundaryNodes,3)  )
       ALLOCATE( BoundaryTangent1(NumberOfBoundaryNodes,3) )
