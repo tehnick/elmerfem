@@ -64,6 +64,7 @@
      USE ElementDescription
      USE ElementUtils
      USE GeneralUtils
+     USE DefUtils
 
      IMPLICIT NONE
 
@@ -583,7 +584,10 @@
          IF ( Model % BCs(i) % Tag  == k ) THEN
 
            Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
-                    'Emissivity', n, NodeIndexes ) ) / n
+                    'Emissivity', n, NodeIndexes, Found) ) / n
+	   IF( .NOT. Found ) THEN
+              Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n	
+           END IF 
 
            Vals => ViewFactors(t) % Factors
            Cols => ViewFactors(t) % Elements
@@ -666,7 +670,10 @@
        DO j=1,Model % NumberOfBCs
          IF ( Model % BCs(j) % Tag == k ) THEN
            Emissivity = SUM(ListGetReal( Model % BCs(j) % Values, &
-               'Emissivity', n, NodeIndexes)) / n
+               'Emissivity', n, NodeIndexes, Found)) / n
+	   IF( .NOT. Found ) THEN
+	      Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n	
+           END IF 
            EXIT
          END IF
        END DO

@@ -45,6 +45,7 @@ MODULE Radiation
 
    USE ElementUtils
    USE CoordinateSystems
+   USE DefUtils
 
    IMPLICIT NONE
 
@@ -63,15 +64,14 @@ CONTAINS
      REAL(KIND=dp) :: T
 
      REAL(KIND=dp) :: Asum
-
      TYPE(Element_t),POINTER  :: CurrentElement
      INTEGER :: i,j,n
-
      REAL(KIND=dp), POINTER :: Vals(:)
      INTEGER, POINTER :: Cols(:)
-
      REAL(KIND=dp) :: A1,A2,Emissivity1
+     LOGICAL :: Found
 !------------------------------------------------------------------------------
+
      A1 = Emissivity * ElementArea(Mesh,Element,Element % TYPE % NumberOfNodes)
 
      Cols => Element % BoundaryInfo % GebhardtFactors % Elements
@@ -85,7 +85,10 @@ CONTAINS
 
        Emissivity1 = SUM(ListGetReal( Model % BCs(CurrentElement % &
             BoundaryInfo % Constraint) % Values, 'Emissivity', &
-            n, CurrentElement % NodeIndexes)) / n
+            n, CurrentElement % NodeIndexes, Found) ) / n
+       IF(.NOT. Found) THEN
+          Emissivity1 = SUM(GetParentMatProp('Emissivity',CurrentElement)) / n 
+       END IF
 
        A2 = Emissivity1 * ElementArea( Mesh,CurrentElement, &
               CurrentElement % TYPE % NumberOfNodes )
@@ -120,6 +123,7 @@ CONTAINS
 
      TYPE(Element_t),POINTER  :: CurrentElement
      INTEGER :: i,j,n
+     LOGICAL :: Found
 
      REAL(KIND=dp) :: Area,Emissivity
 !------------------------------------------------------------------------------
@@ -130,7 +134,10 @@ CONTAINS
 
      Emissivity = SUM(ListGetReal(Model % BCs(CurrentElement % &
         BoundaryInfo % Constraint) % Values, 'Emissivity', &
-        n, CurrentElement % NodeIndexes)) / n
+        n, CurrentElement % NodeIndexes, Found)) / n
+     IF(.NOT. Found) THEN
+        Emissivity = SUM(GetParentMatProp('Emissivity',CurrentElement)) / n 
+     END IF
 
      Area = Emissivity * ElementArea( Mesh,CurrentElement, n)
 

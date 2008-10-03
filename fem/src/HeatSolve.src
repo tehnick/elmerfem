@@ -231,7 +231,7 @@
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter,MDOFs, &
          SmartHeaterBC, SmartHeaterNode, DoneTime=0
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,SmartTol,Relax, &
-            SaveRelax,dt,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling, &
+            SaveRelax,dt,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling=1.0, &
             PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave
 
      REAL(KIND=dp), POINTER :: Temperature(:),FlowSolution(:), &
@@ -248,7 +248,7 @@
        FORCE(:), U(:), V(:), W(:), MU(:,:),TimeForce(:), &
        Density(:), HeatTransferCoeff(:), &
        HeatCapacity(:), Enthalpy(:), Viscosity(:), LocalTemperature(:), &
-       ElectricConductivity(:), Permeability(:), Work(:), C0(:), &
+       NodalEmissivity(:), ElectricConductivity(:), Permeability(:), Work(:), C0(:), &
        Pressure(:), dPressuredt(:), GasConstant(:),AText(:), HeaterArea(:), &
        HeaterTarget(:), HeaterScaling(:), HeaterDensity(:), HeaterSource(:), &
        HeatExpansionCoeff(:), ReferenceTemperature(:), PressureCoeff(:)
@@ -257,7 +257,7 @@
        FORCE, ElementNodes, HeatConductivity, HeatCapacity, HeatTransferCoeff, &
        Enthalpy, Density, AllocationsDone, Viscosity, TimeForce, &
        LocalNodes, LocalTemperature, Work, ElectricConductivity, &
-       Permeability, TSolution, TSolution1, C0, dPressuredt, Pressure, &
+       NodalEmissivity, Permeability, TSolution, TSolution1, C0, dPressuredt, Pressure, &
        GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea, HeaterTarget, &
        HeaterScaling, HeaterDensity, HeaterSource, SmartHeaters, IntegralHeaters, SmartTolReached,    &
        ReferenceTemperature, HeatExpansionCoeff, PrevPowerScaling, PowerScaling, &
@@ -294,7 +294,6 @@
      END INTERFACE
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
-
 
 !------------------------------------------------------------------------------
 !    The View and Gebhardt factors may change. If this is necessary, this is 
@@ -374,6 +373,7 @@
                  MASS,       &
                  LocalTemperature,      &
                  HeatCapacity,Enthalpy, &
+                 NodalEmissivity,       &
                  GasConstant, AText,    &
                  HeatConductivity,      &
                  STIFF,LOAD,            &
@@ -401,6 +401,7 @@
                  MASS(  2*N,2*N ),                     &
                  LocalTemperature( N ),                &
                  HeatCapacity( N ),Enthalpy( N ),      &
+                 NodalEmissivity( N ),                 &
                  GasConstant( N ),AText( N ),          &
                  HeatConductivity( 3,3,N ),            &
                  STIFF( 2*N,2*N ),LOAD( N ), &
@@ -1083,6 +1084,7 @@
           PowerScaling = (MeltPoint - yave) / xave 
           Temperature = YY + PowerScaling * XX
         END IF
+
      END IF
 
      IF( SmartHeaterControl) THEN       
@@ -1242,6 +1244,7 @@
 CONTAINS
 
 
+
 !------------------------------------------------------------------------------
    SUBROUTINE AddHeatFluxBC()
 !------------------------------------------------------------------------------
@@ -1255,7 +1258,12 @@ CONTAINS
       RadiationFlag = GetString( BC, 'Radiation', Found )
 
       IF ( Found .AND. RadiationFlag(1:4) /= 'none' ) THEN
-        Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
+        NodalEmissivity(1:n) = GetReal(BC, 'Emissivity', Found)
+        IF(.NOT. Found) THEN
+           NodalEmissivity(1:n) = GetParentMatProp( 'Emissivity' )
+        END IF
+        Emissivity = SUM( NodalEmissivity(1:n) ) / n
+
 !------------------------------------------------------------------------------
         IF (  RadiationFlag(1:9) == 'idealized' ) THEN
           AText(1:n) = GetReal( BC, 'External Temperature' )
@@ -1310,6 +1318,7 @@ CONTAINS
 !     BC: -k@T/@n = g
 !------------------------------------------------------------------------------
       LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
+
 !------------------------------------------------------------------------------
 !     Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
@@ -1816,6 +1825,8 @@ CONTAINS
 !------------------------------------------------------------------------------
      USE Radiation
      USE ElementDescription
+     USE DefUtils
+
      IMPLICIT NONE
 !------------------------------------------------------------------------------
      TYPE(Model_t) :: Model
@@ -1837,7 +1848,7 @@ CONTAINS
 
      REAL(KIND=dp), ALLOCATABLE :: NodalConductivity(:), ExtTemperature(:), &
        TransferCoeff(:), EdgeBasis(:), Basis(:), x(:), y(:), z(:), &
-       dBasisdx(:,:), Temperature(:), Flux(:)
+       dBasisdx(:,:), Temperature(:), Flux(:), NodalEmissivity(:)
 
      REAL(KIND=dp) :: Conductivity, Emissivity, StefanBoltzmann
 
@@ -1905,7 +1916,8 @@ CONTAINS
 
      ALLOCATE( Temperature(Pn), Basis(Pn), ExtTemperature(En), &
         TransferCoeff(En), x(En), y(En), z(En), EdgeBasis(En), &
-        dBasisdx(Pn,3), NodalConductivity(En), Flux(En) ) 
+        dBasisdx(Pn,3), NodalConductivity(En), Flux(En), &
+        NodalEmissivity(En) ) 
 
      DO l = 1,En
        DO k = 1,Pn
@@ -1962,8 +1974,12 @@ CONTAINS
            CASE( 'idealized' )
            !------------------
 
-              Emissivity = SUM(ListGetReal( Model % BCs(j) % Values, &
-                   'Emissivity', En, Edge % NodeIndexes)) / En 
+              NodalEmissivity(1:En) = ListGetReal( Model % BCs(j) % Values, &
+                   'Emissivity', En, Edge % NodeIndexes, Found)
+              IF(.NOT. Found) THEN
+                 NodalEmissivity(1:En) = GetParentMatProp( 'Emissivity', Edge)
+              END IF
+              Emissivity = SUM( NodalEmissivity(1:En)) / En
 
               StefanBoltzMann = &
                     ListGetConstReal( Model % Constants,'Stefan Boltzmann' )
@@ -1972,8 +1988,12 @@ CONTAINS
            CASE( 'diffuse gray' )
            !---------------------
 
-              Emissivity = SUM(ListGetReal( Model % BCs(j) % Values, &
-                  'Emissivity', En, Edge % NodeIndexes)) / En
+              NodalEmissivity(1:En) = ListGetReal( Model % BCs(j) % Values, &
+                   'Emissivity', En, Edge % NodeIndexes, Found)
+              IF(.NOT. Found) THEN
+                 NodalEmissivity(1:En) = GetParentMatProp( 'Emissivity', Edge)
+              END IF
+              Emissivity = SUM( NodalEmissivity(1:En)) / En
 
               StefanBoltzMann = &
                     ListGetConstReal( Model % Constants,'Stefan Boltzmann' )
@@ -2100,7 +2120,8 @@ CONTAINS
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
 
      DEALLOCATE( Temperature, Basis, ExtTemperature, TransferCoeff,  &
-        x, y, z, EdgeBasis, dBasisdx, NodalConductivity, Flux ) 
+        x, y, z, EdgeBasis, dBasisdx, NodalConductivity, Flux, &
+        NodalEmissivity ) 
 !------------------------------------------------------------------------------
   END FUNCTION HeatBoundaryResidual
 !------------------------------------------------------------------------------

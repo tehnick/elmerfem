@@ -5159,6 +5159,172 @@ CONTAINS
   END FUNCTION getElementMaxDOFs
 
 
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE MakePermUsingMask( Model,Solver,Mesh,MaskName, &
+       OptimizeBW, Perm, LocalNodes )
+!------------------------------------------------------------------------------
+! Creates a permutation table for bodies or boundaries using a free chosen string
+! as mask. The resulting permutation is optimized in order, if requested. The
+! subroutine is intended to help in saving boundary data in an ordered manner,
+! but it can find other uses as well. Currently the implementation is limited
+! to normal Lagrangian elements.
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Mesh_t)   :: Mesh
+    TYPE(SOlver_t) :: Solver
+    INTEGER :: LocalNodes
+    LOGICAL :: OptimizeBW
+    INTEGER, OPTIONAL :: Perm(:)
+    CHARACTER(LEN=*), OPTIONAL :: MaskName
+!------------------------------------------------------------------------------
+    INTEGER, POINTER :: InvPerm(:)
+ !   TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
+    TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
+    INTEGER :: t,i,j,k,l,m,k1,k2,n,p,q,e1,e2,f1,f2,This    
+    LOGICAL :: Flag, Found, FirstRound
+    INTEGER :: Indexes(30), ElemStart, ElemFin, Width
+    TYPE(ListMatrix_t), POINTER :: CList
+    TYPE(Element_t), POINTER :: CurrentElement,Elm
+    REAL(KIND=dp) :: MinDist, Dist
+!------------------------------------------------------------------------------
+    
+    ! First check if there are active elements for this mask
+    ElemStart = HUGE(ElemStart) 
+    ElemFin = 0     
+    DO l = 1, Model % NumberOfBodies
+       IF(ListCheckPresent( Model % Bodies(l) % Values,MaskName) ) THEN
+          ElemStart = 1	
+          ElemFin = Mesh % NumberOfBulkElements
+	  EXIT
+       END IF
+    END DO
+    DO l = 1, Model % NumberOfBCs
+       IF( ListCheckPresent(Model % BCs(l) % Values,MaskName ) ) THEN
+          ElemStart = MIN( ElemStart, Mesh % NumberOfBulkElements + 1)
+          ElemFin = Mesh % NumberOfBulkElements + Mesh % NumberOFBoundaryElements
+          EXIT
+       END IF
+    END DO
+    
+    IF( ElemFin - ElemStart <= 0) THEN
+       LocalNodes = 0
+       RETURN
+    END IF
+
+
+    k = 0
+    Perm = 0
+    FirstRound = .TRUE.
+
+    ! Loop over the active elements
+    ! 1st round initial numbering is given
+    ! 2nd round a list matrix giving all the connections is created
+
+100 DO t=ElemStart, ElemFin
+       
+       CurrentElement => Mesh % Elements(t)
+       
+       Found = .FALSE.
+       IF(t <= Mesh % NumberOfBulkElements) THEN
+          l = CurrentElement % BodyId
+          IF(ListCheckPresent( Model % Bodies(l) % Values, MaskName )) Found = .TRUE.
+       ELSE
+          DO l=1, Model % NumberOfBCs
+             IF ( Model % BCs(l) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
+             IF( ListCheckPresent(Model % BCs(l) % Values,MaskName ) ) Found = .TRUE.
+          END DO
+       END IF       
+       IF( .NOT. Found ) CYCLE       
+       
+       n = CurrentElement % NDOFs               
+       Indexes(1:n) = CurrentElement % NodeIndexes(1:n)
+       
+       IF( FirstRound ) THEN
+          DO i=1,n
+             j = Indexes(i)
+             IF ( Perm(j) == 0 ) THEN
+                k = k + 1
+                Perm(j) = k
+             END IF
+          END DO
+       ELSE
+          DO i=1,n
+             k1 = Perm(Indexes(i))
+             IF ( k1 <= 0 ) CYCLE
+             DO j=1,n
+                k2 = Perm(Indexes(j))
+                IF ( k2 <= 0 ) CYCLE
+                CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
+             END DO
+          END DO
+       END IF
+    END DO
+    LocalNodes = k
+
+    IF( .NOT. OptimizeBW ) RETURN
+
+    IF(FirstRound) THEN
+       ! Allocate space 
+       NULLIFY( ListMatrix )
+       ALLOCATE( ListMatrix(LocalNodes) )
+       DO i=1,LocalNodes
+          ListMatrix(i) % Degree = 0
+          NULLIFY( ListMatrix(i) % Head )
+       END DO
+       FirstRound = .FALSE.
+
+       ! Find the node in the lower left corner at give it the 1st index
+       ! since it will probably determine the 1st index
+       MinDist = HUGE(MinDist)
+       DO i=1,SIZE(Perm)
+          IF( Perm(i) <= 0) CYCLE
+          Dist = Mesh % Nodes % x(i) + Mesh % Nodes % y(i) + Mesh % Nodes % z(i)
+          IF(Dist < MinDist) THEN
+             MinDist = Dist
+             j = i
+          END IF
+       END DO
+
+       ! Find the 1st node and swap it with the lower corner
+       DO i=1,SIZE(Perm)
+          IF( Perm(i) == 1) EXIT
+       END DO       
+       Perm(i) = Perm(j)
+       Perm(j) = 1
+
+       GOTO 100
+    END IF
+
+!------------------------------------------------------------------------------
+
+    ALLOCATE( InvPerm(LocalNodes) )
+    InvPerm = 0
+    DO i=1,SIZE(Perm)
+       IF (Perm(i)>0) InvPerm(Perm(i)) = i
+    END DO
+
+    ! The bandwidth optimization for lines results to perfectly ordered 
+    ! permutations. If there is only one line the 1st node should be the 
+    ! lower left corner.
+
+    Flag = .TRUE.
+    Width = OptimizeBandwidth( ListMatrix, Perm, InvPerm, &
+
+         LocalNodes, Flag, Flag, MaskName )
+
+    ! We really only need the permutation, as there will be no matrix equation
+    ! associated with it.
+    DEALLOCATE( InvPerm )
+    CALL FreeListMatrix( LocalNodes, ListMatrix )
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE MakePermUsingMask
+!------------------------------------------------------------------------------
+
+
+
 !------------------------------------------------------------------------------
 END MODULE MeshUtils
 !------------------------------------------------------------------------------
