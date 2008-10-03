@@ -767,24 +767,45 @@ void SifGenerator::parseParallelTab(Ui::solverParameterEditor ui)
     addSifLine("  Linear System Use HYPRE = ", "True");
     
     if(ui.useParasails->isChecked()) {
-      addSifLine("  Linear System Preconditioning = ", "Parasails");
+      addSifLine("  Linear System Preconditioning = ", "ParaSails");
       
-      addSifLine("  Parasails Threshold = ",
+      addSifLine("  ParaSails Threshold = ",
 		 ui.thresholdEdit->text().trimmed());
       
-      addSifLine("  Parasails Filter = ",
+      addSifLine("  ParaSails Filter = ",
 		 ui.filterEdit->text().trimmed());
       
-      addSifLine("  Parasails MaxLevel = ",
+      addSifLine("  ParaSails MaxLevel = ",
 		 ui.maxLevelEdit->text().trimmed());
       
-      addSifLine("  Parasails Symmetry = ",
+      addSifLine("  ParaSails Symmetry = ",
 		 ui.symmetryEdit->text().trimmed());
-      
     }
     
     if(ui.useBoomerAMG->isChecked()) {
       addSifLine("  Linear System Preconditioning = ", "BoomerAMG");
+
+      addSifLine("  BoomerAMG Relax Type = ",
+		 QString::number(ui.boomerRelaxation->currentIndex()));
+
+      addSifLine("  BoomerAMG Coarsen Type = ",
+		 QString::number(ui.boomerCoarsening->currentIndex()));
+
+      addSifLine("  BoomerAMG Num Sweeps = ",
+		 ui.boomerSweeps->text().trimmed());
+
+      addSifLine("  BoomerAMG Max Levels = ",
+		 ui.boomerMaxLevels->text().trimmed());
+
+      addSifLine("  BoomerAMG Interpolation = ",
+		 QString::number(ui.boomerInterpolation->currentIndex()));
+
+      addSifLine("  BoomerAMG Smooth Type = ",
+		 QString::number(ui.boomerSmoother->currentIndex()));
+
+      addSifLine("  BoomerAMG Cycle Type = ",
+		 QString::number(ui.boomerCycle->currentIndex()));
+
     }
   }
 }
