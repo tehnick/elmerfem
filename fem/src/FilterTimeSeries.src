@@ -43,7 +43,7 @@
 ! *****************************************************************************
 
 !------------------------------------------------------------------------------
-SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
+SUBROUTINE FilterTimeSeries( Model,Solver,dtime,TransientSimulation )
 !DEC$ATTRIBUTES DLLEXPORT :: FilterTimeSeries
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -58,7 +58,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
 !  TYPE(Solver_t) :: Solver
 !     INPUT: Linear & nonlinear equation solver options
 !
-!  REAL(KIND=dp) :: dt,
+!  REAL(KIND=dp) :: dtime,
 !     INPUT: Timestep size for time dependent simulations
 !
 !  LOGICAL :: TransientSimulation
@@ -71,7 +71,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
+  REAL(KIND=dp) :: dtime
   LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
 ! Local variables
@@ -80,14 +80,17 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: Var, MeanVar, OldVar
   LOGICAL :: SubroutineVisited=.FALSE., GotCoeff, GotOper, GotVar, GotStuff, Found
   INTEGER :: i, j, k, n, InstDofs, MeanDofs, NoVar, Nsize, LoopSize, Nsine, Ncosine, &
-      Nseries
+      Nseries, TimesVisited=0, n0, n1
   INTEGER, POINTER :: Perm(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: Oper, OldOper, OperName, VarName, MeanVarName, Name, &
       FilterName, OldVarName, tmpname
   REAL(KIND=dp) :: st, t0, t1, time, Phase, Ratio, Weight, Relax, val, cnew, cold, &
-      freq, fcoeff
+      freq, fcoeff, dt
   REAL(KIND=dp) :: CumWeight(99)
   REAL(KIND=dp), POINTER :: MeanField(:), InstField(:), Component(:)
+
+
+  SAVE SubroutineVisited, TimesVisited
 
 
 !------------------------------------------------------------------------------
@@ -97,9 +100,10 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
   CALL Info( 'FilterTimeSeries', '-----------------------------------------', Level=4 )
 
   IF(.NOT. SubroutineVisited) THEN
-    CumWeight = 0.0_dp
+    CumWeight = 0.0_dp    
     SubroutineVisited = .TRUE.
   END IF
+  TimesVisited = TimesVisited + 1
 
   Var => VariableGet( Model % Variables, 'Time' )
   IF( ASSOCIATED(Var) ) time = Var % Values(1)
@@ -138,8 +142,10 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     IF(.NOT. Found) Oper = 'none'
     GotStuff = GotStuff .OR. Found
 
-    ! Start watch time
+    dt = dtime
     ratio = 1.0_dp
+
+    ! Start watch time
     Name = ParameterName('Start Time',NoVar)
     t0 = GetCReal(Solver % Values,TRIM(Name), Found )
     IF ( Found ) THEN
@@ -148,8 +154,8 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
       ELSE IF( time - dt < t0 ) THEN
         ratio = (time - t0) / dt
       END IF
+      GotStuff = .TRUE.
     END IF
-    GotStuff = GotStuff .OR. Found
 
     ! Stop watch time
     Name = ParameterName('Stop Time',NoVar)
@@ -160,8 +166,26 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
       ELSE IF( time > t1 ) THEN
         ratio = (t1+dt-time) / dt
       END IF
+      GotStuff = .TRUE.
     END IF
-    GotStuff = GotStuff .OR. Found
+
+    ! Start timestep number
+    Name = ParameterName('Start Timestep',NoVar)
+    n0 = GetInteger(Solver % Values,TRIM(Name), Found )
+    IF ( Found ) THEN
+       IF( TimesVisited < n0 ) ratio = 0.0_dp
+       dt = 1.0_dp
+       GotStuff = .TRUE.
+    END IF
+
+    ! Stop timestep number
+    Name = ParameterName('Stop Timestep',NoVar)
+    n1 = GetInteger(Solver % Values,TRIM(Name), Found )
+    IF ( Found ) THEN
+      IF( TimesVisited > n1 ) ratio = 0.0_dp
+      dt = 1.0_dp
+      GotStuff = .TRUE.
+    END IF
 
     ! Reset mean after elapsed time
     Name = ParameterName('Reset Interval',NoVar)
@@ -172,22 +196,37 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
         MeanField = 0.0_dp
         CumWeight(NoVar) = 0.0_dp
       END IF
+      GotStuff = .TRUE.
     END IF
-    GotStuff = GotStuff .OR. Found
 
     ! Relax by giving time scale
     Relax = 1.0_dp
     Name = ParameterName('Decay Time',NoVar)
     st = GetCReal(Solver % Values,TRIM(Name), Found )
-    IF ( Found ) Relax = EXP(-dt/st)
-    GotStuff = GotStuff .OR. Found
+    IF ( Found ) THEN
+       Relax = EXP(-dt/st)
+       GotStuff = .TRUE.
+    END IF
+
+    ! Relax by giving time scale
+    Relax = 1.0_dp
+    Name = ParameterName('Decay Timesteps',NoVar)
+    n0 = GetInteger(Solver % Values,TRIM(Name), Found )
+    IF ( Found ) THEN
+       Relax = EXP(-1.0_dp/n0)
+       dt = 1.0_dp
+       GotStuff = .TRUE.
+    END IF
+
 
     ! Filter with externally provided function (sin, cos, ...)
     Phase = 1.0_dp
     Name = ParameterName('Time Filter',NoVar)
     st = GetCReal(Solver % Values,TRIM(Name), Found )
-    IF(Found) Phase = st
-    GotStuff = GotStuff .OR. Found
+    IF(Found) THEN
+       Phase = st
+       GotStuff = .TRUE.
+    END IF
 
     ! Explicitly perform sine and cosine series of given degree
     Name = ParameterName('Sine Series',NoVar)
@@ -196,7 +235,6 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     Ncosine = GetInteger(Solver % Values,TRIM(Name), Found )
     Nseries = MAX(Nsine,Ncosine)
     GotStuff = GotStuff .OR. (Nseries > 0)
-
 
     ! If no new control  parameters were obtained exit the loop
     IF(.NOT. GotStuff) EXIT
