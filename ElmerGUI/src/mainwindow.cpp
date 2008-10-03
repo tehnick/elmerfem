@@ -5995,6 +5995,7 @@ void MainWindow::meshUnifierStderrSlot()
 void MainWindow::solverStdoutSlot()
 {
   QString qs = solver->readAllStandardOutput();
+
   static QString qs_save="";
 
   if ( qs_save != "" ) qs = qs_save + qs;
@@ -6012,6 +6013,8 @@ void MainWindow::solverStdoutSlot()
   if ( qs=="" ) return;
 
   solverLogWindow->textEdit->append(qs);
+
+  cout << string(qs.toAscii()) << endl;
 
   if(!showConvergence) {
 
@@ -6088,7 +6091,10 @@ void MainWindow::solverStderrSlot()
   QString qs = solver->readAllStandardError();
 
   while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+
   solverLogWindow->textEdit->append(qs);
+
+  cerr << string(qs.toAscii());
 }
 
 

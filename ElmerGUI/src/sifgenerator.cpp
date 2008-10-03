@@ -760,8 +760,32 @@ void SifGenerator::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
 //-----------------------------------------------------------------------------
 void SifGenerator::parseParallelTab(Ui::solverParameterEditor ui)
 {
+  // cout << ui.useParasails->isChecked() << endl;
+  // cout << ui.useBoomerAMG->isChecked() << endl;
+
   if(ui.useHypre->isChecked()) {
     addSifLine("  Linear System Use HYPRE = ", "True");
+    
+    if(ui.useParasails->isChecked()) {
+      addSifLine("  Linear System Preconditioning = ", "Parasails");
+      
+      addSifLine("  Parasails Threshold = ",
+		 ui.thresholdEdit->text().trimmed());
+      
+      addSifLine("  Parasails Filter = ",
+		 ui.filterEdit->text().trimmed());
+      
+      addSifLine("  Parasails MaxLevel = ",
+		 ui.maxLevelEdit->text().trimmed());
+      
+      addSifLine("  Parasails Symmetry = ",
+		 ui.symmetryEdit->text().trimmed());
+      
+    }
+    
+    if(ui.useBoomerAMG->isChecked()) {
+      addSifLine("  Linear System Preconditioning = ", "BoomerAMG");
+    }
   }
 }
 
@@ -770,6 +794,10 @@ void SifGenerator::parseParallelTab(Ui::solverParameterEditor ui)
 //-----------------------------------------------------------------------------
 void SifGenerator::parseLinearSystemTab(Ui::solverParameterEditor ui)
 {
+  bool hyprePreconditioning 
+    = ui.useParasails->isChecked() 
+    | ui.useBoomerAMG->isChecked();
+
   if(ui.linearSystemSolverDirect->isChecked()) {
     
     addSifLine("  Linear System Solver = ", "Direct");
@@ -790,8 +818,9 @@ void SifGenerator::parseLinearSystemTab(Ui::solverParameterEditor ui)
     addSifLine("  Linear System Convergence Tolerance = ",
 		ui.linearSystemConvergenceToleranceEdit->text());
     
-    addSifLine("  Linear System Preconditioning = ",
-		ui.linearSystemPreconditioning->currentText());
+    if(!hyprePreconditioning)
+      addSifLine("  Linear System Preconditioning = ",
+		 ui.linearSystemPreconditioning->currentText());
     
     addSifLine("  Linear System ILUT Tolerance = ",
 		ui.linearSystemILUTToleranceEdit->text());

@@ -66,6 +66,9 @@ public:
 signals:
 
 private slots:
+  void hypreStateChanged(int);
+  void parasailsStateChanged(int);
+  void boomerAMGStateChanged(int);
 
 private:
    ProjectIO projectIO; 

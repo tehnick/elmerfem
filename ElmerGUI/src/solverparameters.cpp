@@ -52,6 +52,12 @@ SolverParameterEditor::SolverParameterEditor(QWidget *parent)
   solverName = "";
 
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(close()));
+
+  connect(ui.useHypre, SIGNAL(stateChanged(int)), this, SLOT(hypreStateChanged(int)));
+  connect(ui.useParasails, SIGNAL(stateChanged(int)), this, SLOT(parasailsStateChanged(int)));
+  connect(ui.useBoomerAMG, SIGNAL(stateChanged(int)), this, SLOT(boomerAMGStateChanged(int)));
+
+  hypreStateChanged(0);
 }
 
 SolverParameterEditor::~SolverParameterEditor()
@@ -68,4 +74,34 @@ void SolverParameterEditor::readFromProject(QDomDocument *projectDoc, QDomElemen
 {
   projectIO.parentWidget = this;
   projectIO.readFromProject(projectDoc, item);
+}
+
+void SolverParameterEditor::hypreStateChanged(int)
+{
+  if(ui.useHypre->isChecked()) {
+    ui.parasailsGroup->setEnabled(true);
+    ui.boomerAMGGroup->setEnabled(true);
+  } else {
+    ui.parasailsGroup->setEnabled(false);
+    ui.boomerAMGGroup->setEnabled(false);
+  }
+
+}
+
+void SolverParameterEditor::parasailsStateChanged(int)
+{
+  if(ui.useParasails->isChecked()) {
+    ui.boomerAMGGroup->setEnabled(false);
+  } else {
+    ui.boomerAMGGroup->setEnabled(true);
+  }
+}
+
+void SolverParameterEditor::boomerAMGStateChanged(int)
+{
+  if(ui.useBoomerAMG->isChecked()) {
+    ui.parasailsGroup->setEnabled(false);
+  } else {
+    ui.parasailsGroup->setEnabled(true);
+  }
 }
