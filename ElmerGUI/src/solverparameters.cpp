@@ -51,6 +51,8 @@ SolverParameterEditor::SolverParameterEditor(QWidget *parent)
   generalOptions = NULL;
   solverName = "";
 
+  this->setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(close()));
 
   connect(ui.useHypre, SIGNAL(stateChanged(int)), this, SLOT(hypreStateChanged(int)));
