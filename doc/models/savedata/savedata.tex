@@ -244,6 +244,14 @@ Save the line consisting of line sections defined by two points.
 There can be more than one set of points but as a line segment is 
 defined by two points there must be an even number of points.
 %
+\sifitem{Variable i}{String} 
+By default \texttt{SaveLine} saves all the active variables. However, it is possible to
+save only a specified list of variables given by this keyword where {tt i}=1,2,3,\ldots
+This may be particularly useful if one wants to save a table of linear dependece, for example 
+Temperature along $x$-direction, to be used as a boundary condition in consecutive Elmer runs
+with a different mesh.
+
+
 \sifitem{Save Flux}{Logical}
 Saves a flux resulting from a gradient of a field by the model
 $h=-\kappa \partial T/\partial n$. This may only be applied 
@@ -253,6 +261,15 @@ to existing boundaries, not lines defined by points.
 The name of the field variable (default $T$ is {\tt Temperature}).
 \sifitem{Flux Coefficient}{String}
 The diffusion constant (by default $\kappa$ is {\tt Heat Conductivity})
+
+\sifitem{Save Mask}{String}a
+By default SaveLine saves only the values that are on boundary marked with 
+\texttt{Save Line} flag. If the user wants several instances of the SaveLine subroutine,
+for saving different buondaries to different files, the mask name may be defined by this keyword.
+The correspondingly one should use the same flag in the \texttt{Boundary Condition} and 
+{Body} section.
+
+
 \sifend
 
 \sifitemnt{Boundary Condition}{bc id}
