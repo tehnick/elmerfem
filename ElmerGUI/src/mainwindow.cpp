@@ -5881,7 +5881,9 @@ void MainWindow::meshSplitterStdoutSlot()
 {
   QString qs = meshSplitter->readAllStandardOutput();
 
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
   solverLogWindow->textEdit->append(qs);
 }
 
@@ -5891,7 +5893,9 @@ void MainWindow::meshSplitterStderrSlot()
 {
   QString qs = meshSplitter->readAllStandardError();
 
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
   solverLogWindow->textEdit->append(qs);
 }
 
@@ -5975,7 +5979,9 @@ void MainWindow::meshUnifierStdoutSlot()
 {
   QString qs = meshUnifier->readAllStandardOutput();
 
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
   solverLogWindow->textEdit->append(qs);
 }
 
@@ -5985,7 +5991,9 @@ void MainWindow::meshUnifierStderrSlot()
 {
   QString qs = meshUnifier->readAllStandardError();
 
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
   solverLogWindow->textEdit->append(qs);
 }
 
@@ -5994,27 +6002,37 @@ void MainWindow::meshUnifierStderrSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::solverStdoutSlot()
 {
-  QString qs = solver->readAllStandardOutput();
+  static QString qs_save = "";
 
-  static QString qs_save="";
-
-  if ( qs_save != "" ) qs = qs_save + qs;
+  QString qs = qs_save + solver->readAllStandardOutput();
 
   int n = qs.lastIndexOf('\n');
-  if ( n>=0 && n<qs.size()-1 ) {
-    qs_save = qs.mid(n+1);
-    qs = qs.mid(0,n);
-  } else if ( n<0 ) {
-      qs_save=qs;
-      return;
-  } else qs_save="";
 
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
-  if ( qs=="" ) return;
+  if((n > 0) && (n < qs.size()-1)) {
+    qs_save = qs.mid(n+1);
+    qs = qs.mid(0, n);
+
+  } else if(n == 0) {
+    if(qs.size() == 1) {
+      qs_save = "";
+      return;
+    }
+    qs_save = qs.mid(1);
+    return;
+
+  } else if(n < 0) {
+      qs_save = qs;
+      return;
+
+  } else qs_save = "";
+
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
+  if(qs.isEmpty())
+    return;
 
   solverLogWindow->textEdit->append(qs);
-
-  cout << string(qs.toAscii()) << endl;
 
   if(!showConvergence) {
 
@@ -6090,11 +6108,10 @@ void MainWindow::solverStderrSlot()
 {
   QString qs = solver->readAllStandardError();
 
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
 
   solverLogWindow->textEdit->append(qs);
-
-  cerr << string(qs.toAscii());
 }
 
 
@@ -6341,7 +6358,10 @@ void MainWindow::compileSolverSlot()
 void MainWindow::compilerStdoutSlot()
 {
   QString qs = compiler->readAllStandardOutput();
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
   solverLogWindow->textEdit->append(qs);
 }
 
@@ -6351,7 +6371,10 @@ void MainWindow::compilerStdoutSlot()
 void MainWindow::compilerStderrSlot()
 {
   QString qs = compiler->readAllStandardError();
-  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
   solverLogWindow->textEdit->append(qs);
 }
 
