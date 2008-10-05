@@ -348,7 +348,7 @@ void SifGenerator::makeSolverBlocks(QString solverName)
 {
   SolverParameterEditor *spe, *tmp;
   Ui::solverParameterEditor ui;
-
+  
   bool found = false;
   int current=-1;
 

@@ -111,6 +111,8 @@ class mesh_t {
 
   bool isUndefined();
   void clear();
+  bool load(char*);
+  bool save(char*);
 
   int cdim;                        // model  coordinate dimension
   int dim;                         // model max element dimension

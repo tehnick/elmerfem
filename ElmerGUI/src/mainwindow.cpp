@@ -1279,334 +1279,33 @@ void MainWindow::loadElmerMesh(QString dirName)
 {
   logMessage("Loading elmer mesh files");
 
-  QFile file;
-  QDir::setCurrent(dirName);
-
-  // Header:
-  file.setFileName("mesh.header");
-  if(!file.exists()) {
-    logMessage("mesh.header does not exist");
-    return;
+  if(glWidget->mesh != NULL) {
+    glWidget->mesh->clear();
+    delete glWidget->mesh;
   }
 
-  file.open(QIODevice::ReadOnly);
-  QTextStream mesh_header(&file);
-
-  int nodes, elements, surfaces, types, type, ntype;
-
-  mesh_header >> nodes >> elements >> surfaces;
-  mesh_header >> types;
-
-  int elements_zero_d = 0;
-  int elements_one_d = 0;
-  int elements_two_d = 0;
-  int elements_three_d = 0;
-  
-  for(int i=0; i<types; i++) {
-    mesh_header >> type >> ntype;
-    
-    switch(type/100) {
-    case 1:
-      elements_zero_d += ntype;
-      break;
-    case 2:
-      elements_one_d += ntype;
-      break;
-    case 3:
-    case 4:
-      elements_two_d += ntype;
-      break;
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-      elements_three_d += ntype;
-      break;
-    default:
-      cout << "Unknown element family (possibly not implamented)" << endl;
-      cout.flush();
-      exit(0);
-    }
-  }
-  
-  file.close();
-
-  cout << "Summary:" << endl;
-  cout << "Nodes: " << nodes << endl;
-  cout << "point elements: " << elements_zero_d << endl;
-  cout << "edge elements: " << elements_one_d << endl;
-  cout << "surface elements: " << elements_two_d << endl;
-  cout << "volume elements: " << elements_three_d << endl;
-  cout.flush();
-
-  // Allocate the new mesh:
-  meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = new mesh_t;
-  mesh_t *mesh = glWidget->mesh;
 
-  // Set mesh dimension (??? is this correct ???):
-  mesh->dim = 0;
+  bool success = glWidget->mesh->load(dirName.toAscii().data());
 
-  if(elements_one_d > 0)
-    mesh->dim = 1;
-
-  if(elements_two_d > 0)
-    mesh->dim = 2;
-
-  if(elements_three_d > 0)
-    mesh->dim = 3;
-
-  mesh->nodes = nodes;
-  mesh->node = new node_t[nodes];
-
-  mesh->points = elements_zero_d;
-  mesh->point = new point_t[mesh->points];
-
-  mesh->edges = elements_one_d;
-  mesh->edge = new edge_t[mesh->edges];
-
-  mesh->surfaces = elements_two_d;
-  mesh->surface = new surface_t[mesh->surfaces];
-
-  mesh->elements = elements_three_d;
-  mesh->element = new element_t[mesh->elements];
-
-  // Nodes:
-  file.setFileName("mesh.nodes");
-  if(!file.exists()) {
-    logMessage("mesh.nodes does not exist");
+  if(!success) {
+    glWidget->mesh->clear();
+    delete glWidget->mesh;
+    logMessage("Failed loading mesh files");
     return;
   }
 
-  file.open(QIODevice::ReadOnly);
-  QTextStream mesh_node(&file);
-  
-  int number, index;
-  double x, y, z;
-
-  for(int i=0; i<nodes; i++) {
-    node_t *node = &mesh->node[i];
-    mesh_node >> number >> index >> x >> y >> z;
-    node->x[0] = x;
-    node->x[1] = y;
-    node->x[2] = z;
-    node->index = index;
-  }
-
-  file.close();  
-
-  // Elements:
-  file.setFileName("mesh.elements");
-  if(!file.exists()) {
-    logMessage("mesh.elements does not exist");
-    meshutils->clearMesh(mesh);
-    return;
-  }
-
-  file.open(QIODevice::ReadOnly);
-  QTextStream mesh_elements(&file);
-
-  int current_point = 0;
-  int current_edge = 0;
-  int current_surface = 0;
-  int current_element = 0;
-
-  point_t *point = NULL;
-  edge_t *edge = NULL;
-  surface_t *surface = NULL;
-  element_t *element = NULL;
-
-  for(int i=0; i<elements; i++) {
-    mesh_elements >> number >> index >> type;
-
-    switch(type/100) {
-    case 1:
-      point = &mesh->point[current_point++];
-      point->nature = PDE_BULK;
-      point->index = index;
-      point->code = type;
-      point->nodes = point->code % 100;
-      point->node = new int[point->nodes];
-      for(int j=0; j < point->nodes; j++) {
-	mesh_elements >> point->node[j];
-	point->node[j] -= 1;
-      }
-      point->edges = 2;
-      point->edge = new int[point->edges];
-      point->edge[0] = -1;
-      point->edge[1] = -1;
-      break;
-
-    case 2:
-      edge = &mesh->edge[current_edge++];
-      edge->nature = PDE_BULK;
-      edge->index = index;
-      edge->code = type;
-      edge->nodes = edge->code % 100;
-      edge->node = new int[edge->nodes];
-      for(int j=0; j < edge->nodes; j++) {
-	mesh_elements >> edge->node[j];
-	edge->node[j] -= 1;
-      }
-      edge->surfaces = 0;
-      edge->surface = new int[edge->surfaces];
-      edge->surface[0] = -1;
-      edge->surface[1] = -1;
-
-      break;
-
-    case 3:
-    case 4:
-      surface = &mesh->surface[current_surface++];
-      surface->nature = PDE_BULK;
-      surface->index = index;
-      surface->code = type;
-      surface->nodes = surface->code % 100;
-      surface->node = new int[surface->nodes];
-      for(int j=0; j < surface->nodes; j++) {
-	mesh_elements >> surface->node[j];
-	surface->node[j] -= 1;
-      }      
-      surface->edges = (int)(surface->code/100);
-      surface->edge = new int[surface->edges];
-      for(int j=0; j<surface->edges; j++)
-	surface->edge[j] = -1;
-      surface->elements = 2;
-      surface->element = new int[surface->elements];
-      surface->element[0] = -1;
-      surface->element[1] = -1;
-
-      break;
-
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-      element = &mesh->element[current_element++];
-      element->nature = PDE_BULK;
-      element->index = index;
-      element->code = type;
-      element->nodes = element->code % 100;
-      element->node = new int[element->nodes];
-      for(int j=0; j < element->nodes; j++) {
-	mesh_elements >> element->node[j];
-	element->node[j] -= 1;
-      }
-      break;
-
-    default:
-      cout << "Unknown element type (possibly not implemented" << endl;
-      cout.flush();
-      exit(0);
-      break;
-    }
-
-  }
-
-  file.close();
-
-  // Boundary elements:
-  file.setFileName("mesh.boundary");
-  if(!file.exists()) {
-    logMessage("mesh.boundary does not exist");
-    meshutils->clearMesh(mesh);
-    return;
-  }
-
-  file.open(QIODevice::ReadOnly);
-  QTextStream mesh_boundary(&file);
-
-  int parent0, parent1;
-  for(int i=0; i<surfaces; i++) {
-    mesh_boundary >> number >> index >> parent0 >> parent1 >> type;
-
-    switch(type/100) {
-    case 1:
-      point = &mesh->point[current_point++];
-      point->nature = PDE_BOUNDARY;
-      point->index = index;
-      point->edges = 2;
-      point->edge = new int[point->edges];
-      point->edge[0] = parent0-1;
-      point->edge[1] = parent0-1;
-      point->code = type;
-      point->nodes = point->code % 100;
-      point->node = new int[point->nodes];
-      for(int j=0; j < point->nodes; j++) {
-	mesh_elements >> point->node[j];
-	point->node[j] -= 1;
-      }
-      break;
-
-    case 2:
-      edge = &mesh->edge[current_edge++];
-      edge->nature = PDE_BOUNDARY;
-      edge->index = index;
-      edge->surfaces = 2;
-      edge->surface = new int[edge->surfaces];
-      edge->surface[0] = parent0-1;
-      edge->surface[1] = parent1-1;
-      edge->code = type;
-      edge->nodes = edge->code % 100;
-      edge->node = new int[edge->nodes];      
-      for(int j=0; j < edge->nodes; j++) {
-	mesh_boundary >> edge->node[j];
-	edge->node[j] -= 1;
-      }
-
-      break;
-
-    case 3:
-    case 4:
-      surface = &mesh->surface[current_surface++];
-      surface->nature = PDE_BOUNDARY;
-      surface->index = index;
-      surface->elements = 2;
-      surface->element = new int[surface->elements];
-      surface->element[0] = parent0-1;
-      surface->element[1] = parent1-1;
-      surface->code = type;
-      surface->nodes = surface->code % 100;
-      surface->node = new int[surface->nodes];
-      for(int j=0; j < surface->nodes; j++) {
-	mesh_boundary >> surface->node[j];
-	surface->node[j] -= 1;
-      }
-      surface->edges = (int)(surface->code/100);
-      surface->edge = new int[surface->edges];
-      for(int j=0; j<surface->edges; j++)
-	surface->edge[j] = -1;      
-      
-      break;
-
-    case 5:
-    case 6:
-    case 7:
-    case 8:
-      // can't be boundary elements
-      break;
-
-    default:
-      break;
-    }
-  }
-
-  file.close();
-
-  // Compute bounding box:
-  meshutils->boundingBox(mesh);
-
-  // Todo: should we always do this?
-  meshutils->findSurfaceElementEdges(mesh);
-  meshutils->findSurfaceElementNormals(mesh);
-
-  // Finalize:
-  saveDirName = dirName;
-  logMessage("Ready");
+  meshutils->boundingBox(glWidget->mesh);
+  meshutils->findSurfaceElementEdges(glWidget->mesh);
+  meshutils->findSurfaceElementNormals(glWidget->mesh);
   
   glWidget->rebuildLists();
-}
 
+  QDir::setCurrent(dirName);
+  saveDirName = dirName;
+  
+  logMessage("Ready");
+}
 
 
 // File -> Save...
@@ -1623,8 +1322,8 @@ void MainWindow::saveSlot()
     saveAsSlot();
     return;
   }
-  saveElmerMesh(saveDirName);
 
+  saveElmerMesh(saveDirName);
 }
 
 // File -> Save as...
@@ -2200,264 +1899,20 @@ void MainWindow::saveElmerMesh(QString dirName)
 {
   logMessage("Saving elmer mesh files");
 
-  statusBar()->showMessage(tr("Saving..."));
-
   QDir dir(dirName);
-  if ( !dir.exists() ) dir.mkdir(dirName);
+
+  if(!dir.exists())
+    dir.mkdir(dirName);
+
   dir.setCurrent(dirName);
 
+  // Save mesh files:
+  //------------------
+  glWidget->mesh->save(dirName.toAscii().data());
+
+  // Save solver input file:
+  //-------------------------
   QFile file;
-  mesh_t *mesh = glWidget->mesh;
-  
-  // Elmer's elements codes are smaller than 1000
-  int maxcode = 1000;
-  int *bulk_by_type = new int[maxcode];
-  int *boundary_by_type = new int[maxcode];
-
-  for(int i=0; i<maxcode; i++) {
-    bulk_by_type[i] = 0;
-    boundary_by_type[i] = 0;
-  }
-
-  for(int i=0; i < mesh->elements; i++) {
-    element_t *e = &mesh->element[i];
-
-    if(e->nature == PDE_BULK) 
-      bulk_by_type[e->code]++;
-
-    if(e->nature == PDE_BOUNDARY)
-      boundary_by_type[e->code]++;
-  }
-
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
-
-    if(s->nature == PDE_BULK)
-      bulk_by_type[s->code]++;
-
-    if(s->nature == PDE_BOUNDARY)
-      boundary_by_type[s->code]++;
-  }
-
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
-
-    if(e->nature == PDE_BULK)
-      bulk_by_type[e->code]++;
-
-    if(e->nature == PDE_BOUNDARY)
-      boundary_by_type[e->code]++;
-  }
-
-  for(int i=0; i < mesh->points; i++) {
-    point_t *p = &mesh->point[i];
-
-    if(p->nature == PDE_BULK)
-      bulk_by_type[p->code]++;
-
-    if(p->nature == PDE_BOUNDARY)
-      boundary_by_type[p->code]++;
-  }
-
-  int bulk_elements = 0;
-  int boundary_elements = 0;
-  int element_types = 0;
-
-  for(int i=0; i<maxcode; i++) {
-    bulk_elements += bulk_by_type[i];
-    boundary_elements += boundary_by_type[i];
-
-    if((bulk_by_type[i]>0) || (boundary_by_type[i]>0))
-      element_types++;
-  }
-
-  // Header:
-  file.setFileName("mesh.header");
-  file.open(QIODevice::WriteOnly);
-  QTextStream mesh_header(&file);
-
-  cout << "Saving " << mesh->nodes << " nodes\n";
-  cout << "Saving " << bulk_elements << " elements\n";
-  cout << "Saving " << boundary_elements << " boundary elements\n";
-  cout.flush();
-
-  mesh_header << mesh->nodes << " ";
-  mesh_header << bulk_elements << " ";
-  mesh_header << boundary_elements << "\n";
-
-  mesh_header << element_types << "\n";
-
-  for(int i=0; i<maxcode; i++) {
-    int j = bulk_by_type[i] + boundary_by_type[i];
-    if(j > 0) 
-      mesh_header << i << " " << j << "\n";
-  }
-
-  file.close();
-
-  // Nodes:
-  file.setFileName("mesh.nodes");
-  file.open(QIODevice::WriteOnly);
-  QTextStream nodes(&file);
-  
-  for(int i=0; i < mesh->nodes; i++) {
-    node_t *node = &mesh->node[i];
-
-    int index = node->index;
-
-    nodes << i+1 << " " << index << " ";
-    nodes << node->x[0] << " ";
-    nodes << node->x[1] << " ";
-    nodes << node->x[2] << "\n";
-  }
-
-  file.close();
-
-  // Elements:
-  file.setFileName("mesh.elements");
-  file.open(QIODevice::WriteOnly);
-  QTextStream mesh_element(&file);
-
-  int current = 0;
-
-  for(int i=0; i < mesh->elements; i++) {
-    element_t *e = &mesh->element[i];
-    int index = e->index;
-    if(index < 1)
-      index = 1;
-    if(e->nature == PDE_BULK) {
-      mesh_element << ++current << " ";
-      mesh_element << index << " ";
-      mesh_element << e->code << " ";
-      for(int j=0; j < e->nodes; j++) 
-	mesh_element << e->node[j]+1 << " ";
-      mesh_element << "\n";
-    }
-  }
-
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
-    int index = s->index;
-    if(index < 1)
-      index = 1;
-    if(s->nature == PDE_BULK) {
-      mesh_element << ++current << " ";
-      mesh_element << index << " ";
-      mesh_element << s->code << " ";
-      for(int j=0; j < s->nodes; j++) 
-	mesh_element << s->node[j]+1 << " ";
-      mesh_element << "\n";
-    }
-  }
-
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
-    int index = e->index;
-    if(index < 1)
-      index = 1;
-    if(e->nature == PDE_BULK) {
-      mesh_element << ++current << " ";
-      mesh_element << index << " ";
-      mesh_element << e->code << " ";
-      for(int j=0; j<e->nodes; j++)
-	mesh_element << e->node[j]+1 << " ";
-      mesh_element << "\n";
-    }
-  }
-
-  for(int i=0; i < mesh->points; i++) {
-    point_t *p = &mesh->point[i];
-    int index = p->index;
-    if(index < 1)
-      index = 1;
-    if(p->nature == PDE_BULK) {
-      mesh_element << ++current << " ";
-      mesh_element << index << " ";
-      mesh_element << p->code << " ";
-      for(int j=0; j < p->nodes; j++)
-	mesh_element << p->node[j]+1 << " ";
-      mesh_element << "\n";
-    }
-  }
-
-  file.close();
-  
-  // Boundary elements:
-  file.setFileName("mesh.boundary");
-  file.open(QIODevice::WriteOnly);
-  QTextStream mesh_boundary(&file);
-
-  current = 0;
-
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
-    int e0 = s->element[0] + 1;
-    int e1 = s->element[1] + 1;
-    if(e0 < 0)
-      e0 = 0;
-    if(e1 < 0)
-      e1 = 0;
-    int index = s->index;
-    if(index < 1)
-      index = 1;
-    if(s->nature == PDE_BOUNDARY) {
-      mesh_boundary << ++current << " ";
-      mesh_boundary << index << " ";
-      mesh_boundary << e0 << " " << e1 << " ";
-      mesh_boundary << s->code << " ";
-      for(int j=0; j < s->nodes; j++) 
-	mesh_boundary << s->node[j]+1 << " ";
-      mesh_boundary << "\n";
-    }
-  }
-
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
-    int s0 = e->surface[0] + 1;
-    int s1 = e->surface[1] + 1;
-    if(s0 < 0)
-      s0 = 0;
-    if(s1 < 0)
-      s1 = 0;
-    int index = e->index;
-    if(index < 1)
-      index = 1;
-    if(e->nature == PDE_BOUNDARY) {
-      mesh_boundary << ++current << " ";
-      mesh_boundary << index << " ";
-      mesh_boundary << s0 << " " << s1 << " ";
-      mesh_boundary << e->code << " ";
-      for(int j=0; j < e->nodes; j++) 
-	mesh_boundary << e->node[j]+1 << " ";
-      mesh_boundary << "\n";
-    }
-  }
-
-  for(int i=0; i < mesh->points; i++) {
-    point_t *p = &mesh->point[i];
-    int e0 = p->edge[0] + 1;
-    int e1 = p->edge[1] + 1;
-    if(e0 < 0)
-      e0 = 0;
-    if(e1 < 0)
-      e1 = 0;
-    int index = p->index;
-    if(index < 1)
-      index = 1;
-    if(p->nature == PDE_BOUNDARY) {
-      mesh_boundary << ++current << " ";
-      mesh_boundary << index << " ";
-      mesh_boundary << e0 << " " << e1 << " ";
-      mesh_boundary << p->code << " ";
-      for(int j=0; j < p->nodes; j++) 
-	mesh_boundary << p->node[j]+1 << " ";
-      mesh_boundary << "\n";
-    }
-  }
-
-  file.close();
-
-  // Sif:
   QString sifName = generalSetup->ui.solverInputFileEdit->text().trimmed();
   file.setFileName(sifName);
   file.open(QIODevice::WriteOnly);
@@ -2469,19 +1924,17 @@ void MainWindow::saveElmerMesh(QString dirName)
 
   file.close();
 
-  // ELMERSOLVER_STARTINFO:
+  // Save ELMERSOLVER_STARTINFO:
+  //-----------------------------
   file.setFileName("ELMERSOLVER_STARTINFO");
   file.open(QIODevice::WriteOnly);
   QTextStream startinfo(&file);
 
-  startinfo << sifName.toAscii() << "\n1\n";
+  startinfo << sifName.toAscii() << endl << "1" << endl;
 
   file.close();
 
-  delete [] bulk_by_type;
-  delete [] boundary_by_type;
-
-  statusBar()->showMessage(tr("Ready"));
+  logMessage("Ready");
 }
 
 
@@ -2490,38 +1943,6 @@ void MainWindow::saveElmerMesh(QString dirName)
 void MainWindow::closeMainWindowSlot()
 {
   this->close();
-  return;
-
-#if 0
-  sifWindow->close();
-  solverLogWindow->close();
-  meshControl->close();
-  boundaryDivide->close();
-
-  for(int i = 0; i < limit->maxBcs(); i++)
-    boundaryConditionEditor[i].close();
-
-  for(int i = 0; i < limit->maxMaterials(); i++)
-    materialEditor[i].close();
-
-  for(int i = 0; i < limit->maxEquations(); i++)
-    equationEditor[i].close();
-
-  for(int i = 0; i < limit->maxBodyforces(); i++)
-    bodyForceEditor[i].close();
-
-  for(int i = 0; i < limit->maxInitialconditions(); i++)
-    initialConditionEditor[i].close();
-
-  delete [] boundaryConditionEditor;
-  delete [] initialConditionEditor;
-  delete [] materialEditor;
-  delete [] equationEditor;
-  delete [] bodyForceEditor;
-  
-  this->close();
-  // exit(0);
-#endif
 }
 
 
@@ -2538,7 +1959,7 @@ void MainWindow::savePictureSlot()
   QString fileName = QFileDialog::getSaveFileName(this,
 	tr("Save picture"), "", tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
   
-  if(fileName == "") {
+  if(fileName.isEmpty()) {
     logMessage("File name is empty");
     return;
   }
@@ -2547,12 +1968,10 @@ void MainWindow::savePictureSlot()
   QString suffix = fi.suffix();
   suffix.toUpper();
   
-  bool ok = image.save(fileName, suffix.toAscii(), 95); // fixed quality
+  bool success = image.save(fileName, suffix.toAscii(), 95); // fixed quality
   
-  if(!ok) {
-    cout << "Failed writing picture" << endl;
-    cout.flush();
-  }
+  if(!success)
+    logMessage("Failed writing picture file");
 }
 
 
