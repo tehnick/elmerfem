@@ -99,7 +99,7 @@ bool mesh_t::load(char* dirName)
 
   // Header:
   //--------
-  sprintf(fileName, "%smesh.header", dirName);
+  sprintf(fileName, "%s/mesh.header", dirName);
   mesh_header.open(fileName);
 
   if(!mesh_header.is_open()) {
@@ -184,7 +184,7 @@ bool mesh_t::load(char* dirName)
 
   // Nodes:
   //-------
-  sprintf(fileName, "%smesh.nodes", dirName);
+  sprintf(fileName, "%s/mesh.nodes", dirName);
   mesh_nodes.open(fileName);
 
   if(!mesh_nodes.is_open()) {
@@ -208,7 +208,7 @@ bool mesh_t::load(char* dirName)
 
   // Elements:
   //----------
-  sprintf(fileName, "%smesh.elements", dirName);
+  sprintf(fileName, "%s/mesh.elements", dirName);
   mesh_elements.open(fileName);
 
   if(!mesh_elements.is_open()) {
@@ -316,7 +316,7 @@ bool mesh_t::load(char* dirName)
 
   // Boundary elements:
   //-------------------
-  sprintf(fileName, "%smesh.boundary", dirName);
+  sprintf(fileName, "%s/mesh.boundary", dirName);
   mesh_boundary.open(fileName);
 
   if(!mesh_boundary.is_open()) {
@@ -479,7 +479,7 @@ bool mesh_t::save(char *dirName)
   
   // Header:
   //---------
-  sprintf(fileName, "%smesh.header", dirName);
+  sprintf(fileName, "%s/mesh.header", dirName);
   
   mesh_header.open(fileName);
   
@@ -508,7 +508,7 @@ bool mesh_t::save(char *dirName)
 
   // Nodes:
   //--------
-  sprintf(fileName, "%smesh.nodes", dirName);
+  sprintf(fileName, "%s/mesh.nodes", dirName);
 
   mesh_nodes.open(fileName);
   
@@ -533,7 +533,7 @@ bool mesh_t::save(char *dirName)
   
   // Elements:
   //----------
-  sprintf(fileName, "%smesh.elements", dirName);
+  sprintf(fileName, "%s/mesh.elements", dirName);
 
   mesh_elements.open(fileName);
 
@@ -628,7 +628,7 @@ bool mesh_t::save(char *dirName)
 
   // Boundary elements:
   //-------------------
-  sprintf(fileName, "%smesh.boundary", dirName);
+  sprintf(fileName, "%s/mesh.boundary", dirName);
 
   mesh_boundary.open(fileName);
 
