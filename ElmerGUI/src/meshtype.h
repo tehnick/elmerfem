@@ -113,6 +113,7 @@ class mesh_t {
   void clear();
   bool load(char*);
   bool save(char*);
+  double* boundingBox();
 
   int cdim;                        // model  coordinate dimension
   int dim;                         // model max element dimension

@@ -688,7 +688,6 @@ void MainWindow::createActions()
 
   if(egIni->isSet("bgimage"))
     chooseBGColorAct->setEnabled(false);
-    
 }
 
 
@@ -842,7 +841,6 @@ void MainWindow::createMenus()
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
-  // Momentarily disabled:
   solverMenu->addSeparator();
   solverMenu->addAction(compileSolverAct);
 
@@ -934,7 +932,6 @@ void MainWindow::createMenus()
 }
 
 
-
 // Create tool bars...
 //-----------------------------------------------------------------------------
 void MainWindow::createToolBars()
@@ -959,7 +956,6 @@ void MainWindow::createToolBars()
   meshToolBar = addToolBar(tr("&Mesh"));
   meshToolBar->addAction(meshcontrolAct);
   meshToolBar->addAction(remeshAct);
-  // meshToolBar->addAction(stopMeshingAct);
   meshToolBar->addSeparator();
   meshToolBar->addAction(surfaceDivideAct);
   meshToolBar->addAction(surfaceUnifyAct);
@@ -1017,7 +1013,8 @@ void MainWindow::openSlot()
 
   geometryInputFileName = fileName;
 
-  operation_t *p = operation.next, *q;
+  operation_t *p = operation.next;
+  operation_t *q = NULL;
 
   while(p != NULL) {
     if(p->select_set != NULL)
@@ -1052,7 +1049,7 @@ void MainWindow::readInputFile(QString fileName)
   QString baseName = fi.baseName();
   QString fileSuffix = fi.suffix();
   QString baseFileName = absolutePath + "/" + baseName;
-  sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
+  sprintf(cs, "%s", baseFileName.toAscii().data());
 
   activeGenerator = GEN_UNKNOWN;
   tetlibInputOk = false;
@@ -1142,7 +1139,7 @@ void MainWindow::readInputFile(QString fileName)
     if(converted) {
       fileName += ".stl";
       baseFileName += "." + fileSuffix;
-      sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
+      sprintf(cs, "%s", baseFileName.toAscii().data());
     }
 #endif
     
@@ -1295,7 +1292,6 @@ void MainWindow::loadElmerMesh(QString dirName)
     return;
   }
 
-  meshutils->boundingBox(glWidget->mesh);
   meshutils->findSurfaceElementEdges(glWidget->mesh);
   meshutils->findSurfaceElementNormals(glWidget->mesh);
   
@@ -4161,8 +4157,7 @@ void MainWindow::remeshSlot()
     }
 
     char backgroundmesh[1024];
-    sprintf(backgroundmesh, "%s",
-	    (const char*)(meshControl->nglibBackgroundmesh.toAscii()));
+    sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());
     
     ngmesh = nglibAPI->Ng_NewMesh();
     
@@ -4313,18 +4308,20 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   }
   
   operations++;
-  operation_t *p = new operation_t, *q;
+  operation_t *p = new operation_t;
+  operation_t *q = NULL;
+
   for( q=&operation; q->next; q=q->next );
   q->next = p;
   p->next = NULL;
-
+  
   p->type = OP_DIVIDE_SURFACE;
   p->angle = angle;
 
   int selected=0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected && l->type==SURFACELIST && l->nature==PDE_BOUNDARY)
+    if(l->selected && (l->type==SURFACELIST) && (l->nature==PDE_BOUNDARY))
       selected++;
   }
   p->selected = selected;
@@ -4332,7 +4329,7 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   selected = 0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected && l->type == SURFACELIST && l->nature==PDE_BOUNDARY)
+    if(l->selected && (l->type == SURFACELIST) && (l->nature==PDE_BOUNDARY))
       p->select_set[selected++] = i;
   }
   
@@ -4738,7 +4735,6 @@ void MainWindow::generateSifSlot()
   sifGenerator->makeConstantsBlock();
   sifGenerator->makeBodyBlocks();
   sifGenerator->makeEquationBlocks();
-  // sifGenerator->makeSolverBlocks();
   sifGenerator->makeMaterialBlocks();
   sifGenerator->makeBodyForceBlocks();
   sifGenerator->makeInitialConditionBlocks();

@@ -402,6 +402,8 @@ bool mesh_t::load(char* dirName)
 
   mesh_boundary.close();
 
+  this->boundingBox();
+
   return true;
 }
 
@@ -736,4 +738,87 @@ bool mesh_t::save(char *dirName)
   delete [] boundary_by_type;
 
   return true;
+}
+
+// Bounding box...
+//-----------------------------------------------------------------------------
+double* mesh_t::boundingBox()
+{
+  double *result = new double[10];
+
+  double xmin = +9e9;
+  double xmax = -9e9;
+
+  double ymin = +9e9;
+  double ymax = -9e9;
+
+  double zmin = +9e9;
+  double zmax = -9e9;
+
+  for(int i=0; i < this->nodes; i++) {
+    node_t *node = &this->node[i];
+    
+    if(node->x[0] > xmax) 
+      xmax = node->x[0];
+    
+    if(node->x[0] < xmin) 
+      xmin = node->x[0];
+    
+    if(node->x[1] > ymax) 
+      ymax = node->x[1];
+
+    if(node->x[1] < ymin) 
+      ymin = node->x[1];
+
+    if(node->x[2] > zmax) 
+      zmax = node->x[2];
+
+    if(node->x[2] < zmin) 
+      zmin = node->x[2];
+  }
+  
+  double xmid = (xmin + xmax)/2.0;
+  double ymid = (ymin + ymax)/2.0;
+  double zmid = (zmin + zmax)/2.0;
+
+  double xlen = (xmax - xmin)/2.0;
+  double ylen = (ymax - ymin)/2.0;
+  double zlen = (zmax - zmin)/2.0;
+
+  double s = xlen;
+
+  if(ylen > s)
+    s = ylen;
+  
+  if(zlen > s)
+    s = zlen;
+  
+  s *= 1.1;
+
+  bool sx = xmin==xmax;
+  bool sy = ymin==ymax;
+  bool sz = zmin==zmax;
+
+  this->cdim = 3;
+
+  if((sz && sy) || (sz && sx) || (sx && sy))
+    this->cdim = 1;
+
+  else if(sz || sy || sx)
+    this->cdim = 2;
+
+  result[0] = xmin;
+  result[1] = xmax;
+  result[2] = ymin;
+  result[3] = ymax;
+  result[4] = zmin;
+  result[5] = zmax;
+
+  result[6] = xmid;
+  result[7] = ymid;
+  result[8] = zmid;
+
+  result[9] = s;
+
+  return result;
 }

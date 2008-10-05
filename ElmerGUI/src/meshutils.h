@@ -55,7 +55,6 @@ class Meshutils
   Meshutils();
   ~Meshutils();
 
-  double* boundingBox(mesh_t*);
   void clearMesh(mesh_t*);
   void findEdgeElementPoints(mesh_t*);
   void findSurfaceElements(mesh_t*);

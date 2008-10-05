@@ -871,7 +871,7 @@ void GLWidget::getMatrix()
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildLists()
 {
-  double *bb = meshutils->boundingBox(mesh);
+  double *bb = mesh->boundingBox();
   
   drawTranslate[0] = bb[6]; // x-center
   drawTranslate[1] = bb[7]; // y-center
