@@ -136,6 +136,7 @@ GLWidget::GLWidget(QWidget *parent)
 //-----------------------------------------------------------------------------
 GLWidget::~GLWidget()
 {
+#if 0
   makeCurrent();
   for(int i=0; i < (int)lists; i++) {
     list_t *l = &list[i];
@@ -144,6 +145,7 @@ GLWidget::~GLWidget()
 
   delete helpers;
   delete meshutils;
+#endif
 }
 
 

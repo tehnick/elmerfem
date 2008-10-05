@@ -155,8 +155,10 @@ ConvergenceView::ConvergenceView(Limit *limit, QWidget *parent)
 
 ConvergenceView::~ConvergenceView()
 {
+#if 0
   curveList.clear();
   delete plot;
+#endif
 }
 
 

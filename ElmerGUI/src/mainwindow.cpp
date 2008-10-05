@@ -139,8 +139,13 @@ MainWindow::MainWindow()
   parallel = new Parallel(this);
   checkMpi = new CheckMpi;
   materialLibrary = new MaterialLibrary(this);
+
 #ifdef OCC62
   cadView = new CadView(this);
+#endif
+
+#ifdef VTKPOST
+  vtkPost = new VtkPost(this);
 #endif
 
   createActions();
@@ -632,10 +637,15 @@ void MainWindow::createActions()
   resetAct->setStatusTip(tr("Reset model view"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
-  // View -> Reset model view
+  // View -> Show cad model
   showCadModelAct = new QAction(QIcon(), tr("Cad model..."), this);
   showCadModelAct->setStatusTip(tr("Displays the cad model in a separate window"));
   connect(showCadModelAct, SIGNAL(triggered()), this, SLOT(showCadModelSlot()));
+
+  // View -> Show Vtk widget
+  showVtkPostAct = new QAction(QIcon(), tr("VTK widget..."), this);
+  showVtkPostAct->setStatusTip(tr("Displays the VTK widget in a separate window"));
+  connect(showVtkPostAct, SIGNAL(triggered()), this, SLOT(showVtkPostSlot()));
 
   // Solver -> Parallel settings
   parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings..."), this);
@@ -820,9 +830,15 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
+
 #ifdef OCC62
   viewMenu->addSeparator();
   viewMenu->addAction(showCadModelAct);
+#endif
+
+#ifdef VTKPOST
+  viewMenu->addSeparator();
+  viewMenu->addAction(showVtkPostAct);
 #endif
 
   // Edit menu
@@ -4038,6 +4054,17 @@ void MainWindow::showCadModelSlot()
 
 	cadView->show();
 	cadView->drawModel();*/
+#endif
+}
+
+
+// View -> VTK post...
+//-----------------------------------------------------------------------------
+void MainWindow::showVtkPostSlot()
+{
+#ifdef VTKPOST
+  vtkPost->show();
+  vtkPost->drawSomething();
 #endif
 }
 

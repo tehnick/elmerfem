@@ -73,8 +73,13 @@
 #include "egini.h"
 #include "operation.h"
 #include "materiallibrary.h"
+
 #ifdef OCC62
 #include "cad/cadview.h"
+#endif
+
+#ifdef VTKPOST
+#include "vtkpost/vtkpost.h"
 #endif
 
 class QAction;
@@ -153,6 +158,7 @@ private slots:
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
   void showCadModelSlot();        // View -> Show cad model...
+  void showVtkPostSlot();         // View -> Show VTK post processor...
   void parallelSettingsSlot();    // Solver -> Parallel settings
   void runsolverSlot();           // Solver -> Run solver
   void killsolverSlot();          // Solver -> Kill solver
@@ -317,6 +323,7 @@ private:
   QAction *showallAct;            // View -> Show all
   QAction *resetAct;              // View -> Reset model view
   QAction *showCadModelAct;       // View -> Show cad model...
+  QAction *showVtkPostAct;        // View -> Show VTK post processor...
   QAction *meshcontrolAct;        // Mesh -> Control...
   QAction *remeshAct;             // Mesh -> Remesh
   QAction *stopMeshingAct;        // Mesh -> Kill generator
@@ -349,8 +356,13 @@ private:
   Parallel *parallel;
   CheckMpi *checkMpi;
   MaterialLibrary *materialLibrary;
+
 #ifdef OCC62
   CadView *cadView;
+#endif
+
+#ifdef VTKPOST
+  VtkPost *vtkPost;
 #endif
 
   // elmer definitions:
