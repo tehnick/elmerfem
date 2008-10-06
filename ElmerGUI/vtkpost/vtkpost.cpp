@@ -42,13 +42,26 @@
 #include <iostream>
 #include "vtkpost.h"
 
+#include <vtkActor.h>
+#include <vtkRenderer.h>
+#include <vtkRenderWindow.h>
+#include <vtkCylinderSource.h>
+#include <vtkPolyDataMapper.h>
+
 using namespace std;
+
+// The following is from the SimpleView example of VTK examples:
 
 VtkPost::VtkPost(QWidget *parent)
   : QDialog(parent)
 {
   ui.setupUi(this);
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+  setWindowTitle("VTK widget...");
+
+  // QT/VTK interact
+  ren = vtkRenderer::New();
+  ui.qvtkWidget->GetRenderWindow()->AddRenderer(ren);
 }
 
 VtkPost::~VtkPost()
@@ -57,5 +70,23 @@ VtkPost::~VtkPost()
 
 void VtkPost::drawSomething()
 {
-  // Check the vtk-examples to draw something
+  // Geometry
+  source = vtkCylinderSource::New();
+
+  // Mapper
+  mapper = vtkPolyDataMapper::New();
+  mapper->ImmediateModeRenderingOn();
+  mapper->SetInputConnection(source->GetOutputPort());
+
+  // Actor in scene
+  actor = vtkActor::New();
+  actor->SetMapper(mapper);
+
+  // Add Actor to renderer
+  ren->AddActor(actor);
+
+  // Reset camera
+  ren->ResetCamera();
+
+  ren->GetRenderWindow()->Render();
 }

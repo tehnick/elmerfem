@@ -44,6 +44,12 @@
 #include <QWidget>
 #include "ui_vtkpost.h"
 
+// Forward declarations:
+class vtkCylinderSource;
+class vtkPolyDataMapper;
+class vtkActor;
+class vtkRenderer;
+
 class VtkPost : public QDialog
 {
   Q_OBJECT
@@ -61,7 +67,11 @@ signals:
 private slots:
 
 private:
-
+  vtkCylinderSource* source;
+  vtkPolyDataMapper* mapper;
+  vtkActor* actor;
+  vtkRenderer* ren;
+   
 };
 
 #endif // VTKPOST_H
