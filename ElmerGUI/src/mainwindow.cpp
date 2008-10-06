@@ -4063,6 +4063,8 @@ void MainWindow::showCadModelSlot()
 void MainWindow::showVtkPostSlot()
 {
 #ifdef VTKPOST
+  mesh_t *mesh = glWidget->mesh;
+  vtkPost->setMesh(mesh);
   vtkPost->show();
 #endif
 }

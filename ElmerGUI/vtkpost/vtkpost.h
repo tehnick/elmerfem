@@ -43,11 +43,8 @@
 
 #include <QMainWindow>
 #include "QVTKWidget.h"
+#include "src/meshtype.h"
 
-// Forward declarations:
-class vtkCylinderSource;
-class vtkPolyDataMapper;
-class vtkActor;
 class vtkRenderer;
 
 class VtkPost : public QMainWindow
@@ -61,20 +58,20 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
+  void setMesh(mesh_t*);
+
 signals:
 
 private slots:
   void exitSlot();
-  void drawCylinderSlot();
-  void drawCubeSlot();
+  void drawSurfaceMeshSlot();
 
 private:
   QMenu *fileMenu;
   QMenu *viewMenu;
 
   QAction *exitAct;
-  QAction *drawCylinderAct;
-  QAction *drawCubeAct;
+  QAction *drawSurfaceMeshAct;
 
   void createActions();
   void createMenus();
@@ -83,6 +80,8 @@ private:
 
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
+
+  mesh_t *mesh;
 };
 
 #endif // VTKPOST_H
