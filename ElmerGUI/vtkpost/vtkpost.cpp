@@ -138,6 +138,7 @@ VtkPost::VtkPost(QWidget *parent)
   postFileName = "";
   scalarFields = 0;
   scalarField = new ScalarField[100]; // fixed max.
+  currentScalarFieldAction = NULL;
 
   // Central widget:
   //----------------
@@ -146,9 +147,9 @@ VtkPost::VtkPost(QWidget *parent)
 
   // VTK interaction:
   //------------------
-  scalarRenderer = vtkRenderer::New();
-  scalarRenderer->SetBackground(1, 1, 1);
-  qvtkWidget->GetRenderWindow()->AddRenderer(scalarRenderer);
+  renderer = vtkRenderer::New();
+  renderer->SetBackground(1, 1, 1);
+  qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
 }
 
 VtkPost::~VtkPost()
@@ -174,6 +175,13 @@ void VtkPost::createActions()
   exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip("Quit VTK widget");
   connect(exitAct, SIGNAL(triggered()), this, SLOT(exitSlot()));
+
+  // View menu:
+  //------------
+  redrawAct = new QAction(QIcon(""), tr("Redraw"), this);
+  redrawAct->setShortcut(tr("Ctrl+R"));
+  redrawAct->setStatusTip("Redraw");
+  connect(redrawAct, SIGNAL(triggered()), this, SLOT(redrawSlot()));
 }
 
 void VtkPost::createMenus()
@@ -183,12 +191,21 @@ void VtkPost::createMenus()
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(exitAct);
 
+  // Edit menu:
+  //-----------
+  editMenu = menuBar()->addMenu(tr("&Edit"));
+  editGroupsMenu = new QMenu(tr("Groups"));
+  editMenu->addMenu(editGroupsMenu);
+  connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
+
   // View menu:
   //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewScalarMenu = new QMenu(tr("Scalar"));
   viewMenu->addMenu(viewScalarMenu);
   connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarSlot(QAction*)));
+  viewMenu->addSeparator();
+  viewMenu->addAction(redrawAct);
 }
 
 void VtkPost::createToolbars()
@@ -202,7 +219,7 @@ void VtkPost::createStatusBar()
 void VtkPost::setPostFileName(QString qString)
 {
   this->postFileName = qString;
-  cout << "Post file set to: " << qString.toAscii().data() << endl;
+  cout << "Ep-file: " << qString.toAscii().data() << endl;
 }
 
 
@@ -238,8 +255,8 @@ bool VtkPost::readPostFile()
   cout << "Post: components: " << components << endl;
   cout << "Post: timesteps: " << timesteps << endl;
 
-  // Read field names & set up menu entries:
-  //----------------------------------------
+  // Read field names & set up menu actions:
+  //=========================================
   ScalarField *sf = NULL;
 
   for(int i = 0; i < components; i++) {
@@ -346,6 +363,31 @@ bool VtkPost::readPostFile()
   }
   
   postFile.close();
+
+
+  // Set up the group edit menu:
+  //=============================
+  groupActionHash.clear();
+
+  for(int i = 0; i < elements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+
+    QString groupName = epe->groupName;
+    
+    if(groupActionHash.contains(groupName))
+      continue;
+
+    QAction *groupAction = new QAction(groupName, this);
+    groupAction->setCheckable(true);
+    groupAction->setChecked(true);
+    editGroupsMenu->addAction(groupAction);
+    groupActionHash.insert(groupName, groupAction);
+
+    // Disable bodies for rendering speed:
+    if(groupName.toLower().indexOf("body") >= 0)
+      groupAction->setChecked(false);
+  }
+  
   return true;
 }
 
@@ -355,6 +397,26 @@ bool VtkPost::readPostFile()
 void VtkPost::exitSlot()
 {
   close();
+}
+
+// Group selection changed:
+//----------------------------------------------------------------------
+void VtkPost::groupChangedSlot(QAction *qAction)
+{
+  redrawSlot();
+}
+
+// Redraw:
+//----------------------------------------------------------------------
+void VtkPost::redrawSlot()
+{
+  // Redraw scalar field:
+  //---------------------
+  qvtkWidget->GetRenderWindow()->RemoveRenderer(renderer);
+  renderer = vtkRenderer::New();
+  renderer->SetBackground(1, 1, 1);
+  qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
+  drawScalarSlot(currentScalarFieldAction);
 }
 
 // Draw surface mesh:
@@ -376,6 +438,8 @@ void VtkPost::drawScalarSlot(QAction *qAction)
 
   ScalarField *sf = NULL;
 
+  bool shouldReturn = false;
+
   for(int i = 0; i < scalarFields; i++) {
     sf = &scalarField[i];
     
@@ -385,19 +449,25 @@ void VtkPost::drawScalarSlot(QAction *qAction)
       // Toggle rendering (Clear the scalar renderer and return):
       //---------------------------------------------------------
       if(!sf->menuAction->isChecked()) {
-	qvtkWidget->GetRenderWindow()->RemoveRenderer(scalarRenderer);
-	scalarRenderer = vtkRenderer::New();
-	scalarRenderer->SetBackground(1, 1, 1);
-	qvtkWidget->GetRenderWindow()->AddRenderer(scalarRenderer);
-	return;
+	qvtkWidget->GetRenderWindow()->RemoveRenderer(renderer);
+	renderer = vtkRenderer::New();
+	renderer->SetBackground(1, 1, 1);
+	qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
+	shouldReturn = true;
       }
-    }
 
-    sf->menuAction->setChecked(false);
+    } else {
+      sf->menuAction->setChecked(false);
+    }
   }
+
+  if(shouldReturn)
+    return;
 
   if(index < 0)
     return;
+
+  currentScalarFieldAction = qAction;
 
   sf = &scalarField[index];
   sf->menuAction->setChecked(true);
@@ -425,7 +495,10 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   vtkCellArray *polys = vtkCellArray::New();
   for(int i = 0; i < epMesh->epElements; i++) {
     EpElement *epe = &epMesh->epElement[i];
-    polys->InsertNextCell(epe->indexes, epe->index);
+    QString groupName = epe->groupName;
+    QAction *groupAction = groupActionHash.value(groupName);
+    if(groupAction->isChecked() && qAction->isChecked())
+      polys->InsertNextCell(epe->indexes, epe->index);
   }
   surf->SetPolys(polys);
   polys->Delete();
@@ -453,9 +526,9 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   
   // Renderer:
   //----------
-  scalarRenderer->AddActor(surfActor);
-  scalarRenderer->ResetCamera();
-  scalarRenderer->GetRenderWindow()->Render();
+  renderer->AddActor(surfActor);
+  renderer->ResetCamera();
+  renderer->GetRenderWindow()->Render();
 
   // Clean up:
   //-----------

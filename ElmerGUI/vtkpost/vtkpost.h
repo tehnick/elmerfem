@@ -42,6 +42,7 @@
 #define VTKPOST_H
 
 #include <QMainWindow>
+#include <QHash>
 #include "QVTKWidget.h"
 #include "src/meshtype.h"
 
@@ -124,13 +125,18 @@ signals:
 private slots:
   void exitSlot();
   void drawScalarSlot(QAction*);
+  void redrawSlot();
+  void groupChangedSlot(QAction*);
 
 private:
   QMenu *fileMenu;
+  QMenu *editMenu;
+  QMenu *editGroupsMenu;
   QMenu *viewMenu;
   QMenu *viewScalarMenu;
 
   QAction *exitAct;
+  QAction *redrawAct;
 
   void createActions();
   void createMenus();
@@ -142,9 +148,12 @@ private:
   QString postFileName;
   int scalarFields;
   ScalarField *scalarField;
+  QAction *currentScalarFieldAction;
+
+  QHash<QString, QAction*> groupActionHash;
 
   QVTKWidget *qvtkWidget;
-  vtkRenderer *scalarRenderer;
+  vtkRenderer *renderer;
 };
 
 #endif // VTKPOST_H
