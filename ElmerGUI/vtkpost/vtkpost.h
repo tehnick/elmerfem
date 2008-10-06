@@ -47,6 +47,24 @@
 
 class vtkRenderer;
 
+// Class ScalarField:
+//====================
+class ScalarField
+{
+ public:
+  ScalarField();
+  ~ScalarField();
+
+  QAction *menuAction;
+  QString name;
+  int values;
+  double *value;
+  double minVal;
+  double maxVal;
+};
+
+// Class VtkPost:
+//================
 class VtkPost : public QMainWindow
 {
   Q_OBJECT
@@ -59,29 +77,34 @@ public:
   QSize sizeHint() const;
 
   void setMesh(mesh_t*);
+  void setPostFileName(QString);
+  bool readPostFile();
 
 signals:
 
 private slots:
   void exitSlot();
-  void drawSurfaceMeshSlot();
+  void drawScalarSlot(QAction*);
 
 private:
   QMenu *fileMenu;
   QMenu *viewMenu;
+  QMenu *viewScalarMenu;
 
   QAction *exitAct;
-  QAction *drawSurfaceMeshAct;
 
   void createActions();
   void createMenus();
   void createToolbars();
   void createStatusBar();
 
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
   mesh_t *mesh;
+  QString postFileName;
+  int scalarFields;
+  ScalarField *scalarField;
+
+  QVTKWidget *qvtkWidget;
+  vtkRenderer *scalarRenderer;
 };
 
 #endif // VTKPOST_H

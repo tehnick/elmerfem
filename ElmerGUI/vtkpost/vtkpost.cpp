@@ -56,6 +56,25 @@
 
 using namespace std;
 
+// Class ScalarField:
+//====================
+ScalarField::ScalarField()
+{
+  menuAction = NULL;
+  name = "";
+  values = 0;
+  value = NULL;
+  minVal = +9.9e99;
+  maxVal = -9.9e99;
+}
+
+ScalarField::~ScalarField()
+{
+  delete [] value;
+}
+
+// Class VtkPost:
+//================
 VtkPost::VtkPost(QWidget *parent)
   : QMainWindow(parent)
 {
@@ -70,6 +89,9 @@ VtkPost::VtkPost(QWidget *parent)
   createStatusBar();
 
   mesh = NULL;
+  postFileName = "";
+  scalarFields = 0;
+  scalarField = new ScalarField[100]; // fixed max.
 
   // Central widget:
   //----------------
@@ -78,9 +100,9 @@ VtkPost::VtkPost(QWidget *parent)
 
   // VTK interaction:
   //------------------
-  renderer = vtkRenderer::New();
-  renderer->SetBackground(1, 1, 1);
-  qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
+  scalarRenderer = vtkRenderer::New();
+  scalarRenderer->SetBackground(1, 1, 1);
+  qvtkWidget->GetRenderWindow()->AddRenderer(scalarRenderer);
 }
 
 VtkPost::~VtkPost()
@@ -105,11 +127,6 @@ void VtkPost::createActions()
   exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip("Quit VTK widget");
   connect(exitAct, SIGNAL(triggered()), this, SLOT(exitSlot()));
-
-  // View menu
-  drawSurfaceMeshAct = new QAction(QIcon(""), tr("Surface mesh"), this);
-  drawSurfaceMeshAct->setStatusTip("Draw surface mesh");
-  connect(drawSurfaceMeshAct, SIGNAL(triggered()), this, SLOT(drawSurfaceMeshSlot()));
 }
 
 void VtkPost::createMenus()
@@ -120,7 +137,9 @@ void VtkPost::createMenus()
 
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));
-  viewMenu->addAction(drawSurfaceMeshAct);
+  viewScalarMenu = new QMenu(tr("Scalar"));
+  viewMenu->addMenu(viewScalarMenu);
+  connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarSlot(QAction*)));
 }
 
 void VtkPost::createToolbars()
@@ -136,6 +155,139 @@ void VtkPost::setMesh(mesh_t *mesh)
   this->mesh = mesh;
 }
 
+void VtkPost::setPostFileName(QString qString)
+{
+  this->postFileName = qString;
+
+  cout << "Post file set to: " << qString.toAscii().data() << endl;
+}
+
+
+// Read in results:
+//----------------------------------------------------------------------
+bool VtkPost::readPostFile()
+{
+  QFile postFile(postFileName);
+
+  if(!postFile.open(QIODevice::ReadOnly | QIODevice::Text))
+    return false;
+
+  cout << "Reading in post file" << endl;
+  
+  QTextStream post(&postFile);
+
+  int nodes, elements, timesteps, components;
+
+  post >> nodes >> elements >> components >> timesteps;
+
+  cout << "Post: nodes: " << nodes << endl;
+  cout << "Post: elements: " << elements << endl;
+  cout << "Post: components: " << components << endl;
+  cout << "Post: timesteps: " << timesteps << endl;
+
+  // Read field names & set up menu entries:
+  //----------------------------------------
+  ScalarField *sf = NULL;
+
+  for(int i = 0; i < components; i++) {
+    QString fieldType, fieldName;
+    post >> fieldType >> fieldName;
+
+    fieldType.replace(":", "");
+    fieldType = fieldType.trimmed();
+    fieldName = fieldName.trimmed();
+
+    cout << " Field type: " << fieldType.toAscii().data();
+    cout << " / Field name: " << fieldName.toAscii().data() << endl;
+
+    if(fieldType == "scalar") {
+      sf = &scalarField[scalarFields++];
+      sf->menuAction = new QAction(fieldName, this);
+      sf->menuAction->setCheckable(true);
+      sf->name = fieldName;
+      sf->values = nodes;
+      sf->value = new double[nodes];
+      viewScalarMenu->addAction(sf->menuAction);
+    }
+
+    if(fieldType == "vector") {
+      sf = &scalarField[scalarFields++];
+      sf->menuAction = new QAction(fieldName + ".1", this);
+      sf->menuAction->setCheckable(true);
+      sf->name = fieldName + ".1";    
+      sf->values = nodes;
+      sf->value = new double[nodes];
+      viewScalarMenu->addAction(sf->menuAction);
+
+      sf = &scalarField[scalarFields++];
+      sf->menuAction = new QAction(fieldName + ".2", this);
+      sf->menuAction->setCheckable(true);
+      sf->name = fieldName + ".2";    
+      sf->values = nodes;
+      sf->value = new double[nodes];
+      viewScalarMenu->addAction(sf->menuAction);
+
+      sf = &scalarField[scalarFields++];
+      sf->menuAction = new QAction(fieldName + ".3", this);
+      sf->menuAction->setCheckable(true);
+      sf->name = fieldName + ".3";    
+      sf->values = nodes;
+      sf->value = new double[nodes];
+      viewScalarMenu->addAction(sf->menuAction);
+
+      i += 2;
+    }
+  }
+
+  // Parse rest of the file:
+  //------------------------
+  while(1) {
+    QString tmpLine = post.readLine();
+
+    if(tmpLine.indexOf("#File") >= 0) {
+      cout << tmpLine.toAscii().data() << endl;
+    }
+
+    if(tmpLine.indexOf("#group") >= 0) {
+      cout << tmpLine.toAscii().data() << endl;
+
+      while(1) {
+	tmpLine = post.readLine();
+	if(tmpLine.indexOf("#endgroup") >= 0) {
+	  cout << tmpLine.toAscii().data() << endl;
+	  break;
+        }
+      }
+    }
+
+    if(tmpLine.indexOf("#time") >= 0) {
+      cout << tmpLine.toAscii().data() << endl;
+
+      for(int i = 0; i < nodes; i++) {
+	QString tmpLine = post.readLine();
+
+	for(int j = 0; j < scalarFields; j++) {
+	  sf = &scalarField[j];
+	  
+	  sf->value[i] = tmpLine.mid(20*j, 20).toDouble();
+	  
+	  if(sf->value[i] > sf->maxVal)
+	    sf->maxVal = sf->value[i];
+	  
+	  if(sf->value[i] < sf->minVal)
+	    sf->minVal = sf->value[i];
+	}
+      }
+
+      break;
+    }
+  }
+  
+  postFile.close();
+  return true;
+}
+
+
 // Exit VTK widget:
 //----------------------------------------------------------------------
 void VtkPost::exitSlot()
@@ -145,11 +297,48 @@ void VtkPost::exitSlot()
 
 // Draw surface mesh:
 //----------------------------------------------------------------------
-void VtkPost::drawSurfaceMeshSlot()
+void VtkPost::drawScalarSlot(QAction *qAction)
 {
   if(!mesh)
     return;
 
+  // Check which action triggred drawing:
+  //-------------------------------------
+  int index = -1;
+
+  ScalarField *sf = NULL;
+
+  for(int i = 0; i < scalarFields; i++) {
+    sf = &scalarField[i];
+    
+    if(sf->menuAction == qAction) {
+      index = i;
+
+      // Clear the scalar renderer and return
+      if(!sf->menuAction->isChecked()) {
+	qvtkWidget->GetRenderWindow()->RemoveRenderer(scalarRenderer);
+	scalarRenderer = vtkRenderer::New();
+	scalarRenderer->SetBackground(1, 1, 1);
+	qvtkWidget->GetRenderWindow()->AddRenderer(scalarRenderer);
+	return;
+      }
+    }
+
+    sf->menuAction->setChecked(false);
+  }
+
+  if(index < 0)
+    return;
+
+  sf = &scalarField[index];
+  sf->menuAction->setChecked(true);
+
+  cout << "Displaying: " << sf->name.toAscii().data() << endl;
+  cout << "Min.: " << sf->minVal << endl;
+  cout << "Max: " << sf->maxVal << endl;
+
+  // Draw:
+  //------
   vtkPolyData *surf = vtkPolyData::New();
 
   // Points:
@@ -165,10 +354,13 @@ void VtkPost::drawSurfaceMeshSlot()
   // Polygons:
   //----------
   vtkCellArray *polys = vtkCellArray::New();
+
   for(int i = 0; i < mesh->surfaces; i++) {
     surface_t *s = &mesh->surface[i];
+
     if(s->nature == PDE_BOUNDARY)
       polys->InsertNextCell(s->nodes, s->node);
+
   }
   surf->SetPolys(polys);
   polys->Delete();
@@ -176,9 +368,12 @@ void VtkPost::drawSurfaceMeshSlot()
   // Scalars:
   //---------
   vtkFloatArray *scalars = vtkFloatArray::New();
+
   for(int i = 0; i < mesh->nodes; i++) {
-    scalars->InsertTuple1(i, i); // random color
+    double fieldValue = sf->value[i];
+    scalars->InsertTuple1(i, fieldValue);
   }
+
   surf->GetPointData()->SetScalars(scalars);
   scalars->Delete();
 
@@ -186,7 +381,7 @@ void VtkPost::drawSurfaceMeshSlot()
   //--------
   vtkPolyDataMapper *surfMapper = vtkPolyDataMapper::New();
   surfMapper->SetInput(surf);
-  surfMapper->SetScalarRange(0, mesh->nodes - 1);
+  surfMapper->SetScalarRange(sf->minVal, sf->maxVal);
 
   // Actor:
   //--------
@@ -195,9 +390,9 @@ void VtkPost::drawSurfaceMeshSlot()
   
   // Renderer:
   //----------
-  renderer->AddActor(surfActor);
-  renderer->ResetCamera();
-  renderer->GetRenderWindow()->Render();
+  scalarRenderer->AddActor(surfActor);
+  scalarRenderer->ResetCamera();
+  scalarRenderer->GetRenderWindow()->Render();
 
   // Clean up:
   //-----------
