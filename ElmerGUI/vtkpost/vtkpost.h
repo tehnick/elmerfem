@@ -47,6 +47,7 @@
 #include "src/meshtype.h"
 
 class vtkRenderer;
+class vtkActor;
 
 // EpNode:
 //========
@@ -154,6 +155,8 @@ private:
 
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
+
+  vtkActor *scalarFieldActor;
 };
 
 #endif // VTKPOST_H

@@ -126,7 +126,7 @@ VtkPost::VtkPost(QWidget *parent)
   // Initialize:
   //------------
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
-  setWindowTitle("VTK widget...");
+  setWindowTitle("VTK widget");
 
   createActions();
   createMenus();
@@ -178,9 +178,9 @@ void VtkPost::createActions()
 
   // View menu:
   //------------
-  redrawAct = new QAction(QIcon(""), tr("Redraw"), this);
+  redrawAct = new QAction(QIcon(""), tr("Reset"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
-  redrawAct->setStatusTip("Redraw");
+  redrawAct->setStatusTip("Reset view");
   connect(redrawAct, SIGNAL(triggered()), this, SLOT(redrawSlot()));
 }
 
@@ -321,7 +321,6 @@ bool VtkPost::readPostFile()
 
     for(int j = 0; j < 3; j++) 
       txtStream >> epn->x[j];
-    
   }
 
   // Elements:
@@ -410,16 +409,13 @@ void VtkPost::groupChangedSlot(QAction *qAction)
 //----------------------------------------------------------------------
 void VtkPost::redrawSlot()
 {
-  // Redraw scalar field:
-  //---------------------
-  qvtkWidget->GetRenderWindow()->RemoveRenderer(renderer);
-  renderer = vtkRenderer::New();
-  renderer->SetBackground(1, 1, 1);
-  qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
+  // Redraw scalar fields:
+  //----------------------
+  renderer->RemoveActor(scalarFieldActor);
   drawScalarSlot(currentScalarFieldAction);
 }
 
-// Draw surface mesh:
+// Draw scalar field:
 //----------------------------------------------------------------------
 void VtkPost::drawScalarSlot(QAction *qAction)
 {
@@ -432,8 +428,8 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   if(epMesh->epElements == 0)
     return;
 
-  // Check which action triggred drawing:
-  //-------------------------------------
+  // Check which scalar menu action (qAction) triggred drawing:
+  //-----------------------------------------------------------
   int index = -1;
 
   ScalarField *sf = NULL;
@@ -446,18 +442,19 @@ void VtkPost::drawScalarSlot(QAction *qAction)
     if(sf->menuAction == qAction) {
       index = i;
 
-      // Toggle rendering (Clear the scalar renderer and return):
-      //---------------------------------------------------------
+      // Clear the scalar field (remove actor and return):
+      //---------------------------------------------------
       if(!sf->menuAction->isChecked()) {
-	qvtkWidget->GetRenderWindow()->RemoveRenderer(renderer);
-	renderer = vtkRenderer::New();
-	renderer->SetBackground(1, 1, 1);
-	qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
+	renderer->RemoveActor(scalarFieldActor);
 	shouldReturn = true;
       }
 
     } else {
+
+      // Set all other scalar menu actions unchecked:
+      //---------------------------------------------
       sf->menuAction->setChecked(false);
+
     }
   }
 
@@ -467,21 +464,16 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   if(index < 0)
     return;
 
+  // Draw the scalar field:
+  //------------------------
   currentScalarFieldAction = qAction;
-
   sf = &scalarField[index];
   sf->menuAction->setChecked(true);
 
-  cout << "Displaying: " << sf->name.toAscii().data() << endl;
-  cout << "      Min.: " << sf->minVal << endl;
-  cout << "      Max.: " << sf->maxVal << endl;
-
-  // Draw:
-  //------
   vtkPolyData *surf = vtkPolyData::New();
 
   // Points:
-  //------------
+  //--------
   vtkPoints *points = vtkPoints::New();
   for(int i = 0; i < epMesh->epNodes; i++) {
     EpNode *epn = &epMesh->epNode[i];
@@ -519,20 +511,18 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   surfMapper->SetInput(surf);
   surfMapper->SetScalarRange(sf->minVal, sf->maxVal);
 
-  // Actor:
-  //--------
-  vtkActor *surfActor = vtkActor::New();
-  surfActor->SetMapper(surfMapper);
-  
-  // Renderer:
-  //----------
-  renderer->AddActor(surfActor);
+  // Actor and renderer:
+  //--------------------
+  renderer->RemoveActor(scalarFieldActor);
+  scalarFieldActor = vtkActor::New();
+  scalarFieldActor->SetMapper(surfMapper);
+  renderer->AddActor(scalarFieldActor);
   renderer->ResetCamera();
   renderer->GetRenderWindow()->Render();
 
   // Clean up:
   //-----------
-  surfActor->Delete();
+  scalarFieldActor->Delete();
   surfMapper->Delete();
   surf->Delete();
 }
