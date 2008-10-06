@@ -56,8 +56,53 @@
 
 using namespace std;
 
-// Class ScalarField:
-//====================
+// EpNode:
+//========
+EpNode::EpNode()
+{
+  x[0] = 0.0;
+  x[1] = 0.0;
+  x[2] = 0.0;
+}
+
+EpNode::~EpNode()
+{
+}
+
+// EpElement:
+//===========
+EpElement::EpElement()
+{
+  groupName = "";
+  code = 0;
+  indexes = 0;
+  index = NULL;
+}
+
+EpElement::~EpElement()
+{
+  delete [] index;
+}
+
+// EpMesh:
+//=========
+EpMesh::EpMesh()
+{
+  epNodes = 0;
+  epNode = NULL;
+
+  epElements = 0;
+  epElement = NULL;
+}
+
+EpMesh::~EpMesh()
+{
+  delete [] epNode;
+  delete [] epElement;
+}
+
+// ScalarField:
+//==============
 ScalarField::ScalarField()
 {
   menuAction = NULL;
@@ -73,8 +118,8 @@ ScalarField::~ScalarField()
   delete [] value;
 }
 
-// Class VtkPost:
-//================
+// VtkPost:
+//==========
 VtkPost::VtkPost(QWidget *parent)
   : QMainWindow(parent)
 {
@@ -87,8 +132,9 @@ VtkPost::VtkPost(QWidget *parent)
   createMenus();
   createToolbars();
   createStatusBar();
+  
+  epMesh = new EpMesh;
 
-  mesh = NULL;
   postFileName = "";
   scalarFields = 0;
   scalarField = new ScalarField[100]; // fixed max.
@@ -122,7 +168,8 @@ QSize VtkPost::sizeHint() const
 
 void VtkPost::createActions()
 {
-  // File menu
+  // File menu:
+  //-----------
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("&Quit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip("Quit VTK widget");
@@ -131,11 +178,13 @@ void VtkPost::createActions()
 
 void VtkPost::createMenus()
 {
-  // File menu
+  // File menu:
+  //-----------
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(exitAct);
 
-  // View menu
+  // View menu:
+  //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewScalarMenu = new QMenu(tr("Scalar"));
   viewMenu->addMenu(viewScalarMenu);
@@ -150,15 +199,9 @@ void VtkPost::createStatusBar()
 {
 }
 
-void VtkPost::setMesh(mesh_t *mesh)
-{
-  this->mesh = mesh;
-}
-
 void VtkPost::setPostFileName(QString qString)
 {
   this->postFileName = qString;
-
   cout << "Post file set to: " << qString.toAscii().data() << endl;
 }
 
@@ -167,6 +210,12 @@ void VtkPost::setPostFileName(QString qString)
 //----------------------------------------------------------------------
 bool VtkPost::readPostFile()
 {
+#define GET_TXT_STREAM                               \
+  QString tmpLine = post.readLine().trimmed();       \
+  while(tmpLine.isEmpty() || (tmpLine.at(0) == '#')) \
+    tmpLine = post.readLine();                       \
+    QTextStream txtStream(&tmpLine);
+
   QFile postFile(postFileName);
 
   if(!postFile.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -176,9 +225,13 @@ bool VtkPost::readPostFile()
   
   QTextStream post(&postFile);
 
+  // Read nodes, elements, timesteps, and components:
+  //--------------------------------------------------
+  GET_TXT_STREAM
+
   int nodes, elements, timesteps, components;
 
-  post >> nodes >> elements >> components >> timesteps;
+  txtStream >> nodes >> elements >> components >> timesteps;
 
   cout << "Post: nodes: " << nodes << endl;
   cout << "Post: elements: " << elements << endl;
@@ -191,14 +244,14 @@ bool VtkPost::readPostFile()
 
   for(int i = 0; i < components; i++) {
     QString fieldType, fieldName;
-    post >> fieldType >> fieldName;
+    txtStream >> fieldType >> fieldName;
 
     fieldType.replace(":", "");
     fieldType = fieldType.trimmed();
     fieldName = fieldName.trimmed();
 
-    cout << " Field type: " << fieldType.toAscii().data();
-    cout << " / Field name: " << fieldName.toAscii().data() << endl;
+    cout << "Field type: " << fieldType.toAscii().data() << endl;
+    cout << "      name: " << fieldName.toAscii().data() << endl;
 
     if(fieldType == "scalar") {
       sf = &scalarField[scalarFields++];
@@ -239,47 +292,56 @@ bool VtkPost::readPostFile()
     }
   }
 
-  // Parse rest of the file:
-  //------------------------
-  while(1) {
-    QString tmpLine = post.readLine();
+  // Nodes:
+  //========
+  epMesh->epNodes = nodes;
+  epMesh->epNode = new EpNode[nodes];
+  
+  for(int i = 0; i < nodes; i++) {
+    EpNode *epn = &epMesh->epNode[i];
+    
+    GET_TXT_STREAM
 
-    if(tmpLine.indexOf("#File") >= 0) {
-      cout << tmpLine.toAscii().data() << endl;
-    }
+    for(int j = 0; j < 3; j++) 
+      txtStream >> epn->x[j];
+    
+  }
 
-    if(tmpLine.indexOf("#group") >= 0) {
-      cout << tmpLine.toAscii().data() << endl;
+  // Elements:
+  //==========
+  epMesh->epElements = elements;
+  epMesh->epElement = new EpElement[elements];
 
-      while(1) {
-	tmpLine = post.readLine();
-	if(tmpLine.indexOf("#endgroup") >= 0) {
-	  cout << tmpLine.toAscii().data() << endl;
-	  break;
-        }
-      }
-    }
+  for(int i = 0; i < elements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+    
+    GET_TXT_STREAM
+    
+    txtStream >> epe->groupName >> epe->code;
+    
+    epe->indexes = epe->code % 100;
+    epe->index = new int[epe->indexes];
+    
+    for(int j = 0; j < epe->indexes; j++)
+      txtStream >> epe->index[j];
+  }
 
-    if(tmpLine.indexOf("#time") >= 0) {
-      cout << tmpLine.toAscii().data() << endl;
+  // Data:
+  //=======
+  for(int i = 0; i < nodes; i++) {
+    
+    GET_TXT_STREAM
 
-      for(int i = 0; i < nodes; i++) {
-	QString tmpLine = post.readLine();
-
-	for(int j = 0; j < scalarFields; j++) {
-	  sf = &scalarField[j];
-	  
-	  sf->value[i] = tmpLine.mid(20*j, 20).toDouble();
-	  
-	  if(sf->value[i] > sf->maxVal)
-	    sf->maxVal = sf->value[i];
-	  
-	  if(sf->value[i] < sf->minVal)
-	    sf->minVal = sf->value[i];
-	}
-      }
-
-      break;
+    for(int j = 0; j < scalarFields; j++) {
+      sf = &scalarField[j];
+      
+      txtStream >> sf->value[i];
+      
+      if(sf->value[i] > sf->maxVal)
+	sf->maxVal = sf->value[i];
+      
+      if(sf->value[i] < sf->minVal)
+	sf->minVal = sf->value[i];
     }
   }
   
@@ -299,7 +361,13 @@ void VtkPost::exitSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawScalarSlot(QAction *qAction)
 {
-  if(!mesh)
+  if(epMesh == NULL)
+    return;
+
+  if(epMesh->epNodes == 0)
+    return;
+
+  if(epMesh->epElements == 0)
     return;
 
   // Check which action triggred drawing:
@@ -314,7 +382,8 @@ void VtkPost::drawScalarSlot(QAction *qAction)
     if(sf->menuAction == qAction) {
       index = i;
 
-      // Clear the scalar renderer and return
+      // Toggle rendering (Clear the scalar renderer and return):
+      //---------------------------------------------------------
       if(!sf->menuAction->isChecked()) {
 	qvtkWidget->GetRenderWindow()->RemoveRenderer(scalarRenderer);
 	scalarRenderer = vtkRenderer::New();
@@ -334,8 +403,8 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   sf->menuAction->setChecked(true);
 
   cout << "Displaying: " << sf->name.toAscii().data() << endl;
-  cout << "Min.: " << sf->minVal << endl;
-  cout << "Max: " << sf->maxVal << endl;
+  cout << "      Min.: " << sf->minVal << endl;
+  cout << "      Max.: " << sf->maxVal << endl;
 
   // Draw:
   //------
@@ -344,9 +413,9 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   // Points:
   //------------
   vtkPoints *points = vtkPoints::New();
-  for(int i = 0; i < mesh->nodes; i++) {
-    node_t *n = &mesh->node[i];
-    points->InsertPoint(i, n->x);
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    EpNode *epn = &epMesh->epNode[i];
+    points->InsertPoint(i, epn->x);
   }
   surf->SetPoints(points);
   points->Delete();
@@ -354,13 +423,9 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   // Polygons:
   //----------
   vtkCellArray *polys = vtkCellArray::New();
-
-  for(int i = 0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
-
-    if(s->nature == PDE_BOUNDARY)
-      polys->InsertNextCell(s->nodes, s->node);
-
+  for(int i = 0; i < epMesh->epElements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+    polys->InsertNextCell(epe->indexes, epe->index);
   }
   surf->SetPolys(polys);
   polys->Delete();
@@ -368,12 +433,10 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   // Scalars:
   //---------
   vtkFloatArray *scalars = vtkFloatArray::New();
-
-  for(int i = 0; i < mesh->nodes; i++) {
+  for(int i = 0; i < epMesh->epNodes; i++) {
     double fieldValue = sf->value[i];
     scalars->InsertTuple1(i, fieldValue);
   }
-
   surf->GetPointData()->SetScalars(scalars);
   scalars->Delete();
 

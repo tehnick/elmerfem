@@ -4063,10 +4063,8 @@ void MainWindow::showCadModelSlot()
 void MainWindow::showVtkPostSlot()
 {
 #ifdef VTKPOST
-  mesh_t *mesh = glWidget->mesh;
-  QString postFileName = saveDirName + "/" + generalSetup->ui.postFileEdit->text().trimmed();
-
-  vtkPost->setMesh(mesh);
+  QString postFileName = saveDirName + "/" 
+    + generalSetup->ui.postFileEdit->text().trimmed();
 
   vtkPost->setPostFileName(postFileName);
 

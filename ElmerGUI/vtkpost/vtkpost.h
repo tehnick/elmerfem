@@ -47,8 +47,48 @@
 
 class vtkRenderer;
 
-// Class ScalarField:
-//====================
+// EpNode:
+//========
+class EpNode
+{
+ public:
+  EpNode();
+  ~EpNode();
+
+  double x[3];
+};
+
+// EpElement:
+//===========
+class EpElement
+{
+ public:
+  EpElement();
+  ~EpElement();
+
+  QString groupName;
+  int code;
+  int indexes;
+  int *index;
+};
+
+// EpMesh:
+//=========
+class EpMesh
+{
+ public:
+  EpMesh();
+  ~EpMesh();
+
+  int epNodes;
+  EpNode *epNode;
+
+  int epElements;
+  EpElement *epElement;
+};
+
+// ScalarField:
+//=============
 class ScalarField
 {
  public:
@@ -63,8 +103,8 @@ class ScalarField
   double maxVal;
 };
 
-// Class VtkPost:
-//================
+// VtkPost:
+//==========
 class VtkPost : public QMainWindow
 {
   Q_OBJECT
@@ -76,7 +116,6 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  void setMesh(mesh_t*);
   void setPostFileName(QString);
   bool readPostFile();
 
@@ -98,7 +137,8 @@ private:
   void createToolbars();
   void createStatusBar();
 
-  mesh_t *mesh;
+  EpMesh *epMesh;
+
   QString postFileName;
   int scalarFields;
   ScalarField *scalarField;
