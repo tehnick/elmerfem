@@ -246,6 +246,8 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     at1 = CPUTime()  
     WRITE(Message,* ) 'Top and bottom pointer init rounds: ',Rounds
     CALL Info('StructuredProjectToPlane',Message)
+    WRITE(Message,* ) 'Number of nodes at the surface: ',TopNodes
+    CALL Info('StructuredProjectToPlane',Message)
     WRITE(Message,* ) 'Top and bottom pointer init time: ',at1-at0
     CALL Info('StructuredProjectToPlane',Message)
 
@@ -399,11 +401,10 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
            DO k=1,layer
               l = DownPointer(l)
            END DO
+	   IF(ASSOCIATED(Perm3d)) l = Perm3d(l)
            Field2d(Perm2d(i)) = Field3d(l)
         END IF
       END DO
-
-
       
     CASE ('isosurface')
       DO i=1,nsize
