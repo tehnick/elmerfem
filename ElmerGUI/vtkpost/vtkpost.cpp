@@ -50,7 +50,7 @@
 
 using namespace std;
 
-// The following is from the SimpleView example of VTK examples:
+// The following is from the SimpleView example of VTK documents:
 
 VtkPost::VtkPost(QWidget *parent)
   : QDialog(parent)
