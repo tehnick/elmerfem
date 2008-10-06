@@ -4064,7 +4064,6 @@ void MainWindow::showVtkPostSlot()
 {
 #ifdef VTKPOST
   vtkPost->show();
-  vtkPost->drawSomething();
 #endif
 }
 

@@ -41,7 +41,6 @@
 #include <QtGui>
 #include <iostream>
 #include "vtkpost.h"
-
 #include <vtkActor.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
@@ -50,25 +49,83 @@
 
 using namespace std;
 
-// The following is from the SimpleView example of VTK documents:
-
 VtkPost::VtkPost(QWidget *parent)
-  : QDialog(parent)
+  : QMainWindow(parent)
 {
-  ui.setupUi(this);
+  // Initialize
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   setWindowTitle("VTK widget...");
 
-  // QT/VTK interact
+  createActions();
+  createMenus();
+  createToolbars();
+  createStatusBar();
+
+  // Central widget
+  qvtkWidget = new QVTKWidget;
+  setCentralWidget(qvtkWidget);
+
+  // VTK interaction
   ren = vtkRenderer::New();
-  ui.qvtkWidget->GetRenderWindow()->AddRenderer(ren);
+  qvtkWidget->GetRenderWindow()->AddRenderer(ren);
 }
 
 VtkPost::~VtkPost()
 {
 }
 
-void VtkPost::drawSomething()
+QSize VtkPost::minimumSizeHint() const
+{
+  return QSize(64, 64);
+}
+
+
+QSize VtkPost::sizeHint() const
+{
+  return QSize(480, 640);
+}
+
+void VtkPost::createActions()
+{
+  // File menu
+  exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("&Quit"), this);
+  exitAct->setShortcut(tr("Ctrl+Q"));
+  exitAct->setStatusTip("Quit VTK widget");
+  connect(exitAct, SIGNAL(triggered()), this, SLOT(exitSlot()));
+
+  // View menu
+  drawCylinderAct = new QAction(QIcon(""), tr("Cylinder"), this);
+  drawCylinderAct->setStatusTip("Draw cylinder");
+  connect(drawCylinderAct, SIGNAL(triggered()), this, SLOT(drawCylinderSlot()));
+}
+
+void VtkPost::createMenus()
+{
+  // File menu
+  fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(exitAct);
+
+  // View menu
+  viewMenu = menuBar()->addMenu(tr("&View"));
+  viewMenu->addAction(drawCylinderAct);
+}
+
+void VtkPost::createToolbars()
+{
+}
+
+void VtkPost::createStatusBar()
+{
+}
+
+void VtkPost::exitSlot()
+{
+  close();
+}
+
+// The following is modified from the SimpleView example of VTK documentation:
+
+void VtkPost::drawCylinderSlot()
 {
   // Geometry
   source = vtkCylinderSource::New();
@@ -88,5 +145,6 @@ void VtkPost::drawSomething()
   // Reset camera
   ren->ResetCamera();
 
+  // Render
   ren->GetRenderWindow()->Render();
 }

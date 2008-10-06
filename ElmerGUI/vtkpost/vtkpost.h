@@ -41,8 +41,8 @@
 #ifndef VTKPOST_H
 #define VTKPOST_H
 
-#include <QWidget>
-#include "ui_vtkpost.h"
+#include <QMainWindow>
+#include "QVTKWidget.h"
 
 // Forward declarations:
 class vtkCylinderSource;
@@ -50,7 +50,7 @@ class vtkPolyDataMapper;
 class vtkActor;
 class vtkRenderer;
 
-class VtkPost : public QDialog
+class VtkPost : public QMainWindow
 {
   Q_OBJECT
 
@@ -58,19 +58,33 @@ public:
   VtkPost(QWidget *parent = 0);
   ~VtkPost();
 
-  Ui::VtkPostDialog ui;
-
-  void drawSomething();
+  QSize minimumSizeHint() const;
+  QSize sizeHint() const;
 
 signals:
 
 private slots:
+  void exitSlot();
+  void drawCylinderSlot();
 
 private:
-  vtkCylinderSource* source;
-  vtkPolyDataMapper* mapper;
-  vtkActor* actor;
-  vtkRenderer* ren;
+  QMenu *fileMenu;
+  QMenu *viewMenu;
+
+  QAction *exitAct;
+  QAction *drawCylinderAct;
+
+  void createActions();
+  void createMenus();
+  void createToolbars();
+  void createStatusBar();
+
+  QVTKWidget *qvtkWidget;
+
+  vtkCylinderSource *source;
+  vtkPolyDataMapper *mapper;
+  vtkActor *actor;
+  vtkRenderer *ren;
    
 };
 
