@@ -41,11 +41,19 @@
 #include <QtGui>
 #include <iostream>
 #include "vtkpost.h"
+
 #include <vtkActor.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
+#include <vtkRenderWindowInteractor.h>
 #include <vtkCylinderSource.h>
+#include <vtkPolyData.h>
 #include <vtkPolyDataMapper.h>
+#include <vtkCamera.h>
+#include <vtkCellArray.h>
+#include <vtkFloatArray.h>
+#include <vtkPointData.h>
+#include <vtkPoints.h>
 
 using namespace std;
 
@@ -66,8 +74,9 @@ VtkPost::VtkPost(QWidget *parent)
   setCentralWidget(qvtkWidget);
 
   // VTK interaction
-  ren = vtkRenderer::New();
-  qvtkWidget->GetRenderWindow()->AddRenderer(ren);
+  renderer = vtkRenderer::New();
+  renderer->SetBackground(1, 1, 1);
+  qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
 }
 
 VtkPost::~VtkPost()
@@ -97,6 +106,10 @@ void VtkPost::createActions()
   drawCylinderAct = new QAction(QIcon(""), tr("Cylinder"), this);
   drawCylinderAct->setStatusTip("Draw cylinder");
   connect(drawCylinderAct, SIGNAL(triggered()), this, SLOT(drawCylinderSlot()));
+
+  drawCubeAct = new QAction(QIcon(""), tr("Cube"), this);
+  drawCubeAct->setStatusTip("Draw cube");
+  connect(drawCubeAct, SIGNAL(triggered()), this, SLOT(drawCubeSlot()));
 }
 
 void VtkPost::createMenus()
@@ -108,6 +121,7 @@ void VtkPost::createMenus()
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(drawCylinderAct);
+  viewMenu->addAction(drawCubeAct);
 }
 
 void VtkPost::createToolbars()
@@ -123,28 +137,85 @@ void VtkPost::exitSlot()
   close();
 }
 
-// The following is modified from the SimpleView example of VTK documentation:
+// The following is modified from the VTK documentation:
 
 void VtkPost::drawCylinderSlot()
 {
   // Geometry
-  source = vtkCylinderSource::New();
+  vtkCylinderSource *source = vtkCylinderSource::New();
 
   // Mapper
-  mapper = vtkPolyDataMapper::New();
+  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
   mapper->ImmediateModeRenderingOn();
   mapper->SetInputConnection(source->GetOutputPort());
 
   // Actor in scene
-  actor = vtkActor::New();
+  vtkActor *actor = vtkActor::New();
   actor->SetMapper(mapper);
 
   // Add Actor to renderer
-  ren->AddActor(actor);
+  renderer->AddActor(actor);
 
   // Reset camera
-  ren->ResetCamera();
+  renderer->ResetCamera();
 
   // Render
-  ren->GetRenderWindow()->Render();
+  renderer->GetRenderWindow()->Render();
+
+  // Clean up
+  actor->Delete();
+  mapper->Delete();
+  source->Delete();
+}
+
+void VtkPost::drawCubeSlot()
+{
+  int i;
+
+  static float x[8][3]={{0,0,0}, {1,0,0}, {1,1,0}, {0,1,0},
+                        {0,0,1}, {1,0,1}, {1,1,1}, {0,1,1}};
+
+  static vtkIdType pts[6][4]={{0,1,2,3}, {4,5,6,7}, {0,1,5,4},
+			      {1,2,6,5}, {2,3,7,6}, {3,0,4,7}};
+  
+  // We'll create the building blocks of polydata including data attributes.
+  vtkPolyData *cube = vtkPolyData::New();
+  vtkPoints *points = vtkPoints::New();
+  vtkCellArray *polys = vtkCellArray::New();
+  vtkFloatArray *scalars = vtkFloatArray::New();
+
+  // Load the point, cell, and data attributes.
+  for(i=0; i<8; i++)
+    points->InsertPoint(i, x[i]);
+
+  for(i=0; i<6; i++)
+    polys->InsertNextCell(4, pts[i]);
+
+  for(i=0; i<8; i++)
+    scalars->InsertTuple1(i, i);
+
+  // We now assign the pieces to the vtkPolyData.
+  cube->SetPoints(points);
+  points->Delete();
+  cube->SetPolys(polys);
+  polys->Delete();
+  cube->GetPointData()->SetScalars(scalars);
+  scalars->Delete();
+
+  // Now we'll look at it.
+  vtkPolyDataMapper *cubeMapper = vtkPolyDataMapper::New();
+  cubeMapper->SetInput(cube);
+  cubeMapper->SetScalarRange(0, 7);
+  vtkActor *cubeActor = vtkActor::New();
+  cubeActor->SetMapper(cubeMapper);
+  
+  // The usual rendering stuff.
+  renderer->AddActor(cubeActor);
+  renderer->ResetCamera();
+  renderer->GetRenderWindow()->Render();
+
+  // Clean up
+  cube->Delete();
+  cubeMapper->Delete();
+  cubeActor->Delete();
 }

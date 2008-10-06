@@ -66,6 +66,7 @@ signals:
 private slots:
   void exitSlot();
   void drawCylinderSlot();
+  void drawCubeSlot();
 
 private:
   QMenu *fileMenu;
@@ -73,6 +74,7 @@ private:
 
   QAction *exitAct;
   QAction *drawCylinderAct;
+  QAction *drawCubeAct;
 
   void createActions();
   void createMenus();
@@ -80,12 +82,7 @@ private:
   void createStatusBar();
 
   QVTKWidget *qvtkWidget;
-
-  vtkCylinderSource *source;
-  vtkPolyDataMapper *mapper;
-  vtkActor *actor;
-  vtkRenderer *ren;
-   
+  vtkRenderer *renderer;
 };
 
 #endif // VTKPOST_H
