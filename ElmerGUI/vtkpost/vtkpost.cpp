@@ -53,6 +53,9 @@
 #include <vtkFloatArray.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
+#include <vtkPolyDataMapper2D.h>
+#include <vtkScalarBarActor.h>
+#include <vtkTextMapper.h>
 
 using namespace std;
 
@@ -445,6 +448,7 @@ void VtkPost::drawScalarSlot(QAction *qAction)
       // Clear the scalar field (remove actor and return):
       //---------------------------------------------------
       if(!sf->menuAction->isChecked()) {
+	renderer->RemoveActor(colorBarActor);
 	renderer->RemoveActor(scalarFieldActor);
 	shouldReturn = true;
       }
@@ -514,15 +518,27 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   // Actor and renderer:
   //--------------------
   renderer->RemoveActor(scalarFieldActor);
+  renderer->RemoveActor(colorBarActor);
+
   scalarFieldActor = vtkActor::New();
   scalarFieldActor->SetMapper(surfMapper);
   renderer->AddActor(scalarFieldActor);
+
+  vtkTextMapper *tMapper = vtkTextMapper::New();
+
+  colorBarActor = vtkScalarBarActor::New();
+  colorBarActor->SetMapper(tMapper);
+  colorBarActor->SetLookupTable(surfMapper->GetLookupTable());
+  renderer->AddActor(colorBarActor);
+
   renderer->ResetCamera();
   renderer->GetRenderWindow()->Render();
 
-  // Clean up:
+
   //-----------
   scalarFieldActor->Delete();
+  colorBarActor->Delete();
+  tMapper->Delete();
   surfMapper->Delete();
   surf->Delete();
 }

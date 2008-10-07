@@ -44,6 +44,7 @@
 #include <QMainWindow>
 #include <QHash>
 #include "QVTKWidget.h"
+#include <vtkScalarBarActor.h>
 #include "src/meshtype.h"
 
 class vtkRenderer;
@@ -157,6 +158,7 @@ private:
   vtkRenderer *renderer;
 
   vtkActor *scalarFieldActor;
+  vtkScalarBarActor *colorBarActor;
 };
 
 #endif // VTKPOST_H
