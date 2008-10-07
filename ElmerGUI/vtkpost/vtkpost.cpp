@@ -121,6 +121,7 @@ ScalarField::ScalarField()
 
 ScalarField::~ScalarField()
 {
+  delete menuAction;
   delete [] value;
 }
 
@@ -254,7 +255,7 @@ bool VtkPost::readPostFile(QString postFileName)
   QString tmpLine = post.readLine().trimmed();       \
   while(tmpLine.isEmpty() || (tmpLine.at(0) == '#')) \
     tmpLine = post.readLine();                       \
-    QTextStream txtStream(&tmpLine);
+  QTextStream txtStream(&tmpLine);
 
   // Check if the file has already been read in:
   //--------------------------------------------
@@ -473,8 +474,6 @@ void VtkPost::drawColorBarSlot()
   if(epMesh->epElements == 0)
     return;
 
-  // Hide the color bar:
-  //--------------------
   if(!drawColorBarAct->isChecked())
     return;
 
@@ -490,8 +489,6 @@ void VtkPost::drawColorBarSlot()
   renderer->ResetCamera();
   renderer->GetRenderWindow()->Render();
   
-  // Clean up:
-  //----------
   colorBarActor->Delete();
   tMapper->Delete();
 }
@@ -512,8 +509,6 @@ void VtkPost::drawWireframeSlot()
   if(epMesh->epElements == 0)
     return;
 
-  // Hide the wireframe mesh:
-  //-------------------------
   if(!drawWireframeAct->isChecked())
     return;
 
@@ -657,7 +652,6 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
       if(!sf->menuAction->isChecked())
 	shouldReturn = true;
       
-
     } else {
 
       // Set all other scalar menu actions unchecked:
@@ -720,6 +714,7 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   scalarFieldMapper = vtkPolyDataMapper::New();
   scalarFieldMapper->SetInput(surf);
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
+  scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
 
   // Actor:
   //-------
