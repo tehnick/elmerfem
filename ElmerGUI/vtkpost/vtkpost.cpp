@@ -168,6 +168,7 @@ VtkPost::VtkPost(QWidget *parent)
   renderer = vtkRenderer::New();
   renderer->SetBackground(1, 1, 1);
   qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
+  renderer->GetRenderWindow()->Render();
 }
 
 VtkPost::~VtkPost()
@@ -471,6 +472,7 @@ void VtkPost::redrawSlot()
   drawWireframeSlot();
   drawScalarSlot(currentScalarFieldAction);
   drawColorBarSlot();
+  drawFieldNameSlot();
   renderer->ResetCamera();
 }
 
@@ -506,7 +508,7 @@ void VtkPost::drawFieldNameSlot()
   fieldNameActor->SetDisplayPosition(10, 10);
   fieldNameActor->SetInput(fieldName.toAscii().data());
 
-  fieldNameActor->GetTextProperty()->SetFontSize(16);
+  fieldNameActor->GetTextProperty()->SetFontSize(20);
   fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
   fieldNameActor->GetTextProperty()->BoldOn();
   fieldNameActor->GetTextProperty()->ItalicOn();
@@ -678,7 +680,7 @@ void VtkPost::drawWireframeSlot()
   //----------
   renderer->AddActor(wireframeActor);
   renderer->ResetCamera();
-  renderer->GetRenderWindow()->Render();
+  // renderer->GetRenderWindow()->Render();
 
   // wireframeActor->GetProperty()->SetLineWidth(1.5);
 
@@ -796,7 +798,7 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   //-----------
   renderer->AddActor(scalarFieldActor);
   renderer->ResetCamera();
-  renderer->GetRenderWindow()->Render();
+  // renderer->GetRenderWindow()->Render();
 
   // Update color bar && field name:
   //---------------------------------
