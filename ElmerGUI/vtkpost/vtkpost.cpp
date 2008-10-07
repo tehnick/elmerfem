@@ -503,22 +503,19 @@ void VtkPost::drawFieldNameSlot()
     return;
   
   fieldNameActor = vtkTextActor::New();
-  // fieldNameActor->ScaledTextOn();
   fieldNameActor->SetDisplayPosition(10, 10);
   fieldNameActor->SetInput(fieldName.toAscii().data());
 
-  // fieldNameActor->GetPosition2Coordinate()->SetCoordinateSystemToNormalizedViewport();
-  // fieldNameActor->GetPosition2Coordinate()->SetValue(1.0, 0.1);
-
   fieldNameActor->GetTextProperty()->SetFontSize(16);
   fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
-  // fieldNameActor->GetTextProperty()->SetJustificationToCentered();
   fieldNameActor->GetTextProperty()->BoldOn();
   fieldNameActor->GetTextProperty()->ItalicOn();
   fieldNameActor->GetTextProperty()->ShadowOn();
   fieldNameActor->GetTextProperty()->SetColor(0, 0, 1);
 
   renderer->AddActor2D(fieldNameActor);
+
+  fieldNameActor->Delete();
 }
 
 // Draw color bar:
@@ -549,12 +546,19 @@ void VtkPost::drawColorBarSlot()
   vtkTextMapper *tMapper = vtkTextMapper::New();
 
   colorBarActor = vtkScalarBarActor::New();
+
+  // is this ok?
+  colorBarActor->GetLabelTextProperty()->SetFontSize(16);
+  colorBarActor->GetLabelTextProperty()->SetFontFamilyToArial();
+  colorBarActor->GetLabelTextProperty()->BoldOn();
+  colorBarActor->GetLabelTextProperty()->ItalicOn();
+  colorBarActor->GetLabelTextProperty()->ShadowOn();
+  colorBarActor->GetLabelTextProperty()->SetColor(0, 0, 1);
+
   colorBarActor->SetMapper(tMapper);
   colorBarActor->SetLookupTable(scalarFieldMapper->GetLookupTable());
 
   renderer->AddActor(colorBarActor);
-  renderer->ResetCamera();
-  renderer->GetRenderWindow()->Render();
   
   colorBarActor->Delete();
   tMapper->Delete();
