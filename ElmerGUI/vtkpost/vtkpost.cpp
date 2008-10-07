@@ -59,6 +59,8 @@
 #include <vtkScalarBarActor.h>
 #include <vtkTextMapper.h>
 #include <vtkScalarBarActor.h>
+#include <vtkTextActor.h>
+#include <vtkTextProperty.h>
 
 using namespace std;
 
@@ -152,6 +154,7 @@ VtkPost::VtkPost(QWidget *parent)
   scalarFieldActor = NULL;
   wireframeActor = NULL;
   colorBarActor = NULL;
+  fieldNameActor = NULL;
 
   scalarFieldMapper = NULL;
 
@@ -205,6 +208,12 @@ void VtkPost::createActions()
   drawColorBarAct->setChecked(false);
   connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(drawColorBarSlot()));
 
+  drawFieldNameAct = new QAction(QIcon(""), tr("Field name"), this);
+  drawFieldNameAct->setStatusTip("Draw field name");
+  drawFieldNameAct->setCheckable(true);
+  drawFieldNameAct->setChecked(false);
+  connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
+
   redrawAct = new QAction(QIcon(""), tr("Reset"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
   redrawAct->setStatusTip("Reset view");
@@ -235,6 +244,8 @@ void VtkPost::createMenus()
   connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarSlot(QAction*)));
   viewMenu->addSeparator();
   viewMenu->addAction(drawColorBarAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(drawFieldNameAct);
   viewMenu->addSeparator();
   viewMenu->addAction(redrawAct);
 }
@@ -463,6 +474,52 @@ void VtkPost::redrawSlot()
   renderer->ResetCamera();
 }
 
+// Draw field name:
+//----------------------------------------------------------------------
+void VtkPost::drawFieldNameSlot()
+{
+  renderer->RemoveActor(fieldNameActor);
+
+  if(epMesh == NULL)
+    return;
+
+  if(epMesh->epNodes == 0)
+    return;
+
+  if(epMesh->epElements == 0)
+    return;
+
+  if(!drawFieldNameAct->isChecked())
+    return;
+
+  if(currentScalarFieldAction == NULL)
+    return;
+
+  // Draw field name (scalar field):
+  //--------------------------------
+  QString fieldName = currentScalarFieldAction->text();
+
+  if(fieldName.isEmpty())
+    return;
+  
+  fieldNameActor = vtkTextActor::New();
+  // fieldNameActor->ScaledTextOn();
+  fieldNameActor->SetDisplayPosition(10, 10);
+  fieldNameActor->SetInput(fieldName.toAscii().data());
+
+  // fieldNameActor->GetPosition2Coordinate()->SetCoordinateSystemToNormalizedViewport();
+  // fieldNameActor->GetPosition2Coordinate()->SetValue(1.0, 0.1);
+
+  fieldNameActor->GetTextProperty()->SetFontSize(16);
+  fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
+  // fieldNameActor->GetTextProperty()->SetJustificationToCentered();
+  fieldNameActor->GetTextProperty()->BoldOn();
+  fieldNameActor->GetTextProperty()->ItalicOn();
+  fieldNameActor->GetTextProperty()->ShadowOn();
+  fieldNameActor->GetTextProperty()->SetColor(0, 0, 1);
+
+  renderer->AddActor2D(fieldNameActor);
+}
 
 // Draw color bar:
 //----------------------------------------------------------------------
@@ -737,9 +794,10 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   renderer->ResetCamera();
   renderer->GetRenderWindow()->Render();
 
-  // Update color bar:
-  //------------------
+  // Update color bar && field name:
+  //---------------------------------
   drawColorBarSlot();
+  drawFieldNameSlot();
 
   // Clean up:
   //-----------

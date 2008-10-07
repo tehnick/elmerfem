@@ -50,6 +50,7 @@ class vtkRenderer;
 class vtkActor;
 class vtkScalarBarActor;
 class vtkPolyDataMapper;
+class vtkTextActor;
 
 // EpNode:
 //========
@@ -131,6 +132,7 @@ private slots:
   void groupChangedSlot(QAction*);
   void drawWireframeSlot();
   void drawColorBarSlot();
+  void drawFieldNameSlot();
 
 private:
   QMenu *fileMenu;
@@ -143,6 +145,7 @@ private:
   QAction *redrawAct;
   QAction *drawWireframeAct;
   QAction *drawColorBarAct;
+  QAction *drawFieldNameAct;
 
   void createActions();
   void createMenus();
@@ -168,6 +171,7 @@ private:
   vtkActor *scalarFieldActor;
   vtkActor *wireframeActor;
   vtkScalarBarActor *colorBarActor;
+  vtkTextActor *fieldNameActor;
 
   vtkPolyDataMapper *scalarFieldMapper;
 };
