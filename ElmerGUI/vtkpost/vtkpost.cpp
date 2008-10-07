@@ -247,6 +247,21 @@ void VtkPost::createStatusBar()
 {
 }
 
+// Add scalar field:
+//----------------------------------------------------------------------
+ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
+{
+  ScalarField *sf = &scalarField[scalarFields++];
+  sf->menuAction = new QAction(fieldName, this);
+  sf->menuAction->setCheckable(true);
+  sf->menuAction->setChecked(false);
+  sf->name = fieldName;
+  sf->values = nodes;
+  sf->value = new double[nodes];
+  viewScalarMenu->addAction(sf->menuAction);
+  return sf;
+}
+
 // Read in results:
 //----------------------------------------------------------------------
 bool VtkPost::readPostFile(QString postFileName)
@@ -293,8 +308,6 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Read field names & set up menu actions:
   //=========================================
-  ScalarField *sf = NULL;
-
   for(int i = 0; i < components; i++) {
     QString fieldType, fieldName;
     txtStream >> fieldType >> fieldName;
@@ -306,41 +319,13 @@ bool VtkPost::readPostFile(QString postFileName)
     cout << "Field type: " << fieldType.toAscii().data() << endl;
     cout << "Field name: " << fieldName.toAscii().data() << endl;
 
-    if(fieldType == "scalar") {
-      sf = &scalarField[scalarFields++];
-      sf->menuAction = new QAction(fieldName, this);
-      sf->menuAction->setCheckable(true);
-      sf->name = fieldName;
-      sf->values = nodes;
-      sf->value = new double[nodes];
-      viewScalarMenu->addAction(sf->menuAction);
-    }
+    if(fieldType == "scalar")
+      addScalarField(fieldName, nodes);
 
     if(fieldType == "vector") {
-      sf = &scalarField[scalarFields++];
-      sf->menuAction = new QAction(fieldName + ".1", this);
-      sf->menuAction->setCheckable(true);
-      sf->name = fieldName + ".1";    
-      sf->values = nodes;
-      sf->value = new double[nodes];
-      viewScalarMenu->addAction(sf->menuAction);
-
-      sf = &scalarField[scalarFields++];
-      sf->menuAction = new QAction(fieldName + ".2", this);
-      sf->menuAction->setCheckable(true);
-      sf->name = fieldName + ".2";    
-      sf->values = nodes;
-      sf->value = new double[nodes];
-      viewScalarMenu->addAction(sf->menuAction);
-
-      sf = &scalarField[scalarFields++];
-      sf->menuAction = new QAction(fieldName + ".3", this);
-      sf->menuAction->setCheckable(true);
-      sf->name = fieldName + ".3";    
-      sf->values = nodes;
-      sf->value = new double[nodes];
-      viewScalarMenu->addAction(sf->menuAction);
-
+      addScalarField(fieldName + "_x", nodes);
+      addScalarField(fieldName + "_y", nodes);
+      addScalarField(fieldName + "_z", nodes);
       i += 2;
     }
   }
@@ -357,6 +342,30 @@ bool VtkPost::readPostFile(QString postFileName)
 
     for(int j = 0; j < 3; j++) 
       txtStream >> epn->x[j];
+  }
+
+  // Add nodes to scalar field variables:
+  //-------------------------------------
+  ScalarField *sf = NULL;
+  sf = addScalarField("Nodes_x", nodes);
+  for(int i = 0; i < nodes; i++) {
+    sf->value[i] = epMesh->epNode[i].x[0];
+    if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
+    if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
+  }
+
+  sf = addScalarField("Nodes_y", nodes);
+  for(int i = 0; i < nodes; i++) {
+    sf->value[i] = epMesh->epNode[i].x[1];
+    if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
+    if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
+  }
+
+  sf = addScalarField("Nodes_z", nodes);
+  for(int i = 0; i < nodes; i++) {
+    sf->value[i] = epMesh->epNode[i].x[2];
+    if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
+    if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
   }
 
   // Elements:
@@ -384,7 +393,7 @@ bool VtkPost::readPostFile(QString postFileName)
     
     GET_TXT_STREAM
 
-    for(int j = 0; j < scalarFields; j++) {
+    for(int j = 0; j < scalarFields - 3; j++) { // - 3 = no nodes
       sf = &scalarField[j];
       
       txtStream >> sf->value[i];
@@ -451,6 +460,7 @@ void VtkPost::redrawSlot()
   drawWireframeSlot();
   drawScalarSlot(currentScalarFieldAction);
   drawColorBarSlot();
+  renderer->ResetCamera();
 }
 
 
@@ -647,8 +657,8 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
     if(sf->menuAction == triggeredAction) {
       index = i;
 
-      // Clear the scalar field (remove actor and return):
-      //---------------------------------------------------
+      // Check if we simply want to clear the view:
+      //--------------------------------------------
       if(!sf->menuAction->isChecked())
 	shouldReturn = true;
       

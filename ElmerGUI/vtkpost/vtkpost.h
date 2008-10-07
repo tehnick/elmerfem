@@ -149,6 +149,8 @@ private:
   void createToolbars();
   void createStatusBar();
 
+  ScalarField* addScalarField(QString, int);
+
   EpMesh *epMesh;
 
   QString postFileName;
