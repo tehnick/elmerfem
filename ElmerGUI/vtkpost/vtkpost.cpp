@@ -447,21 +447,9 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 //----------------------------------------------------------------------
 void VtkPost::redrawSlot()
 {  
-  // Redraw surface wireframe:
-  //---------------------------
-  renderer->RemoveActor(wireframeActor);
   drawWireframeSlot();
-
-  // Redraw scalar fields:
-  //----------------------
-  renderer->RemoveActor(scalarFieldActor);
   drawScalarSlot(currentScalarFieldAction);
-
-  // Redraw color bar:
-  //------------------
-  renderer->RemoveActor(colorBarActor);
   drawColorBarSlot();
-
 }
 
 
@@ -469,6 +457,13 @@ void VtkPost::redrawSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawColorBarSlot()
 {
+  renderer->RemoveActor(colorBarActor);
+
+  if(scalarFieldMapper == NULL) {
+    drawColorBarAct->setChecked(false);
+    return;
+  }
+
   if(epMesh == NULL)
     return;
 
@@ -480,15 +475,11 @@ void VtkPost::drawColorBarSlot()
 
   // Hide the color bar:
   //--------------------
-  if(!drawColorBarAct->isChecked()) {
-    renderer->RemoveActor(colorBarActor);
+  if(!drawColorBarAct->isChecked())
     return;
-  }
 
   // Draw color bar:
   //----------------
-  renderer->RemoveActor(colorBarActor);
-
   vtkTextMapper *tMapper = vtkTextMapper::New();
 
   colorBarActor = vtkScalarBarActor::New();
@@ -510,7 +501,7 @@ void VtkPost::drawColorBarSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawWireframeSlot()
 {
-  cout << "Draw surface wireframe" << endl;
+  renderer->RemoveActor(wireframeActor);
 
   if(epMesh == NULL)
     return;
@@ -523,10 +514,8 @@ void VtkPost::drawWireframeSlot()
 
   // Hide the wireframe mesh:
   //-------------------------
-  if(!drawWireframeAct->isChecked()) {
-    renderer->RemoveActor(wireframeActor);
+  if(!drawWireframeAct->isChecked())
     return;
-  }
 
   // Draw the wireframe mesh:
   //-------------------------
@@ -616,7 +605,6 @@ void VtkPost::drawWireframeSlot()
 
   // Actor:
   //-------
-  renderer->RemoveActor(wireframeActor);
   wireframeActor = vtkActor::New();
   wireframeActor->SetMapper(wireframeMapper);
 
@@ -641,6 +629,8 @@ void VtkPost::drawWireframeSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawScalarSlot(QAction *triggeredAction)
 {
+  renderer->RemoveActor(scalarFieldActor);
+
   if(epMesh == NULL)
     return;
 
@@ -664,10 +654,9 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
       // Clear the scalar field (remove actor and return):
       //---------------------------------------------------
-      if(!sf->menuAction->isChecked()) {
-	renderer->RemoveActor(scalarFieldActor);
+      if(!sf->menuAction->isChecked())
 	shouldReturn = true;
-      }
+      
 
     } else {
 
@@ -734,7 +723,6 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
   // Actor:
   //-------
-  renderer->RemoveActor(scalarFieldActor);
   scalarFieldActor = vtkActor::New();
   scalarFieldActor->SetMapper(scalarFieldMapper);
 
@@ -746,12 +734,11 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
   // Update color bar:
   //------------------
-  renderer->RemoveActor(colorBarActor);
   drawColorBarSlot();
 
   // Clean up:
   //-----------
   scalarFieldActor->Delete();
-  // scalarFieldMapper->Delete();
+  scalarFieldMapper->Delete();
   surf->Delete();
 }
