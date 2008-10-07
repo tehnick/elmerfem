@@ -155,8 +155,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, Parallel, LiveGraph, FileAppend
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
-
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
       Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
@@ -168,7 +166,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   INTEGER, POINTER :: PointIndex(:), CoordinateIndex(:), CoordinatesElemNo(:), &
       NodeIndexes(:)
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: ScalarsFile, ScalarNamesFile, &
+  CHARACTER(LEN=MAX_NAME_LEN) :: ScalarsFile, ScalarNamesFile, DateStr, &
       VariableName, ResultPrefix, Oper, Name, CoefficientName, ScalarParFile
   INTEGER :: i,j,k,l,q,n,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
@@ -323,8 +321,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         END DO       
         
         IF ( k > Mesh % NumberOfBulkElements ) THEN
-          WRITE( MessageL, * ) 'Coordinate was not found in any of the elements!',j
-          CALL Warn( 'SaveScalars', MessageL )
+          WRITE( Message, * ) 'Coordinate was not found in any of the elements!',j
+          CALL Warn( 'SaveScalars', Message )
           CoordinatesElemNo(j) = 1          
           CoordinatesBasis(j,:) = 0.0d0
         ELSE
@@ -344,8 +342,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     
 
   CALL Info( 'SaveScalars', '-----------------------------------------', Level=4 )
-  WRITE( MessageL, * ) 'Saving scalar values to file ', TRIM(ScalarsFile)
-  CALL Info( 'SaveScalars', MessageL, Level=4 )
+  WRITE( Message, * ) 'Saving scalar values to file ', TRIM(ScalarsFile)
+  CALL Info( 'SaveScalars', Message, Level=4 )
   CALL Info( 'SaveScalars', '-----------------------------------------', Level=4 )
 
   NoValues = 0
@@ -556,8 +554,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         
       CASE DEFAULT 
         
-        WRITE (MessageL,'(A,A)') 'Unknown operator: ',TRIM(Oper)
-        CALL WARN('SaveScalars',MessageL)
+        WRITE (Message,'(A,A)') 'Unknown operator: ',TRIM(Oper)
+        CALL WARN('SaveScalars',Message)
         
       END SELECT
       
@@ -707,6 +705,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     IF(ListCheckPresent( Solver % Values,'Comment' )) THEN
       WRITE(10,*) ListGetString(Solver % Values,'Comment')
     END IF 		
+    DateStr = FormatDate()
+    WRITE( 10,'(A,A)') 'File started at: ',TRIM(DateStr)
     WRITE(10,*) 'Variables in columns of matrix: '//TRIM(ScalarsFile)
     DO No=1,NoValues 
       WRITE(10,'(I4,": ",A)') No,TRIM(ValueNames(No))
@@ -1344,9 +1344,9 @@ CONTAINS
             ELSEIF ( Rbody == FluxBody ) THEN
               Parent => Element % BoundaryInfo % Right
             ELSE
-              WRITE( MessageL, * ) 'No such flux integrate body on bc ', &
+              WRITE( Message, * ) 'No such flux integrate body on bc ', &
                   Element % BoundaryInfo % Constraint
-              CALL Fatal( 'SaveScalars', MessageL )
+              CALL Fatal( 'SaveScalars', Message )
             END IF
           ELSE        
             Parent => ELement % BoundaryInfo % Left
@@ -1419,9 +1419,9 @@ CONTAINS
             ELSEIF ( Rbody == FluxBody ) THEN
               Parent => Element % BoundaryInfo % Right
             ELSE
-              WRITE( MessageL, * ) 'No such flux integrate body on bc ', &
+              WRITE( Message, * ) 'No such flux integrate body on bc ', &
                   Element % BoundaryInfo % Constraint
-              CALL Fatal( 'SaveScalars', MessageL )
+              CALL Fatal( 'SaveScalars', Message )
             END IF
           ELSE        
             Parent => ELement % BoundaryInfo % Left
@@ -2130,8 +2130,6 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   CHARACTER(LEN=MAX_NAME_LEN), PARAMETER :: DefaultSideFile = 'sides.dat'
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
-
   REAL (KIND=DP), ALLOCATABLE ::  Values(:), Basis(:)
   REAL (KIND=dp) :: daxisx, daxisy, daxisz, x, y, z, eps, IntersectEpsilon, f1, f2, fn, weight
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), PointFluxes(:,:), PointWeight(:)
@@ -2149,15 +2147,16 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes, LineNodes
   TYPE(Element_t), POINTER   :: CurrentElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, Name, CondName, &
-       MaskName, SideParFile
+       MaskName, PrevMaskName, SideParFile, DateStr
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
 
 
-  LOGICAL :: cand, Parallel
+  LOGICAL, POINTER :: LineTag(:)
+  LOGICAL :: cand, Parallel, InitializePerm
 
-  SAVE SubroutineVisited, TimesVisited, SavePerm, ElementNodes, LineNodes, &
+  SAVE SubroutineVisited, TimesVisited, SavePerm, SaveNodes, ElementNodes, LineNodes, &
       Basis, NoResults, NoEigenValues, Values, PrevDoneTime, Parallel, &
-      ParSolver, SideParFile
+      ParSolver, SideParFile, PrevMaskName
 
 !------------------------------------------------------------------------------
 
@@ -2197,9 +2196,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
   TimesVisited = TimesVisited + 1
   
-  MaskName = ListGetString(Solver % Values,'Save Mask',GotIt) 
-  IF(.NOT. GotIt) MaskName = 'Save Line'
-  
+
   SideFile = ListGetString(Solver % Values,'Filename',GotIt )
   IF(.NOT. GotIt) SideFile = DefaultSideFile
   
@@ -2248,8 +2245,6 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      NoLines = 0
   END IF
   
-  OptimizeOrder = ListGetLogical(Solver % Values,'Optimize Node Ordering',GotIt)
-  IF(.NOT. GotIt) OptimizeOrder = .TRUE.
 
 !----------------------------------------------
 ! Calculate the number of given entries, if any
@@ -2311,10 +2306,10 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      
   ALLOCATE( Values(NoResults) )
  
-  CALL Info( 'SaveLine', '-------------------------------------', Level=4 )
-  WRITE( MessageL, * ) 'Saving line data to file ', TRIM(SideFile)
-  CALL Info( 'SaveLine', MessageL, Level=4 )
-  CALL Info( 'SaveLine', '-------------------------------------', Level=4 )
+  CALL Info( 'SaveLine', '------------------------------------------', Level=4 )
+  WRITE( Message, * ) 'Saving line data to file ', TRIM(SideFile)
+  CALL Info( 'SaveLine', Message, Level=4 )
+  CALL Info( 'SaveLine', '------------------------------------------', Level=4 )
 
 !------------------------------------------------------------------------------
 ! Open files for saving
@@ -2354,13 +2349,31 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Find out which nodes should be saved and optimize their order 
 !------------------------------------------------------------------------------
-  SavePerm = 0
-  SaveNodes = 0
-  SaveNodes2 = 0
-  maxboundary = 0
-  
-  CALL MakePermUsingMask( Model,Solver,Mesh,MaskName, &
-       OptimizeOrder, SavePerm, SaveNodes )
+
+  MaskName = ListGetString(Solver % Values,'Save Mask',GotIt) 
+  IF(.NOT. GotIt) MaskName = 'Save Line'
+
+  IF( SubroutineVisited ) THEN
+     InitializePerm = ( MaskName /= PrevMaskName ) 
+     InitializePerm = InitializePerm .OR. Solver % Mesh % Changed
+  ELSE
+     InitializePerm = .TRUE.
+  END IF
+
+  IF( InitializePerm ) THEN
+     SavePerm = 0
+     SaveNodes = 0
+
+     OptimizeOrder = ListGetLogical(Solver % Values,'Optimize Node Ordering',GotIt)
+     IF(.NOT. GotIt) OptimizeOrder = .TRUE.
+
+     CALL MakePermUsingMask( Model,Solver,Mesh,MaskName, &
+          OptimizeOrder, SavePerm, SaveNodes )
+
+     WRITE( Message, * ) 'Number of nodes in specified boundary ', SaveNodes
+     CALL Info('SaveLine',Message)
+  END IF
+  PrevMaskName = MaskName
 
 !------------------------------------------------------------------------------
 ! If nodes found, then go through the sides and compute the fluxes if requested 
@@ -2368,12 +2381,18 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
   maxboundary = 0
   IF( SaveNodes > 0 ) THEN
-     
      ALLOCATE( InvPerm(SaveNodes), BoundaryIndex(SaveNodes) )
      BoundaryIndex = 0
      InvPerm = 0
      DO i=1,SIZE(SavePerm)
-        IF (SavePerm(i)>0) InvPerm(SavePerm(i)) = i
+        IF (SavePerm(i)>0) THEN
+           ! Error check for something that should never happen
+           IF( InvPerm( SavePerm(i)) > 0) THEN
+              WRITE( Message, *) 'Node multiple times in permutation',i,SavePerm(i)
+              CALL Warn('SaveLine',Message)
+           END IF
+           InvPerm(SavePerm(i)) = i
+        END IF
      END DO
      
      IF(CalculateFlux) THEN
@@ -2532,9 +2551,10 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   ! Save data in the intersections of line segments defined by two coordinates
   ! and element faces, or save any of the principal axis.
   !---------------------------------------------------------------------------
+  SaveNodes2 = 0
   IF(NoLines > 0  .OR. ANY(SaveAxis(1:DIM)) ) THEN
      
-     SavePerm = 0
+     ALLOCATE( LineTag(Mesh % NumberOfNodes) )
      
      IF(.NOT. SubroutineVisited) THEN 
         CALL FindMeshEdges( Mesh, .FALSE.)
@@ -2548,6 +2568,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      
      DO Line = 1,NoLines + NoAxis
         
+        LineTag = .FALSE.
+
         IF(Line <= NoLines) THEN
            LineNodes % x(1:2) = PointCoordinates(2*Line-1:2*Line,1) 
            LineNodes % y(1:2) = PointCoordinates(2*Line-1:2*Line,2) 
@@ -2605,8 +2627,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
            ! When the line goes through a node it might be saved several times 
            ! without this checking
            IF(1.0d0-MAXVAL(Basis(1:n)) < 1.0d-3) THEN
-              IF(SavePerm(NodeIndexes(i)) == Line) CYCLE
-              SavePerm(NodeIndexes(i)) = Line 
+              IF( LineTag(NodeIndexes(i)) ) CYCLE
+              LineTag(NodeIndexes(i)) = .TRUE.
            END IF
            
            SaveNodes2 = SaveNodes2 + 1
@@ -2686,6 +2708,11 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
            
         END DO
      END DO
+
+     DEALLOCATE( LineTag )
+
+     WRITE( Message, * ) 'Number of nodes in specified lines ', SaveNodes2
+     CALL Info('SaveLine',Message)
   END IF
   CLOSE(10)
   DEALLOCATE( Values )
@@ -2761,8 +2788,13 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
         WRITE(10,*) ListGetString(Solver % Values,'Comment')
      END IF
      WRITE(10,'(A,A)') 'Variables in file: ',TRIM(SideFile)
+
+     DateStr = FormatDate()
+     WRITE( 10,'(A,A)') 'File started at: ',TRIM(DateStr)
+
      WRITE(10,'(I7,A)') SaveNodes,' boundary nodes for each step'
      WRITE(10,'(I7,A)') SaveNodes2,' polyline nodes for each step'
+     j = 0
      IF( NoVar == 0 ) THEN
         IF(TransientSimulation) THEN
            WRITE(10,'(I3,": ",A)') 1,'Time step'
@@ -2781,6 +2813,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   END IF
 
   SubroutineVisited = .TRUE.
+
+  CALL Info('SaveLine','All done')
 
 CONTAINS
 
@@ -3038,9 +3072,9 @@ CONTAINS
       ELSEIF ( RBody == FluxBody ) THEN
         Parent => Element % BoundaryInfo % Right
       ELSE
-        WRITE( MessageL, * ) 'No such flux integrate body on bc ', &
+        WRITE( Message, * ) 'No such flux integrate body on bc ', &
             Element % BoundaryInfo % Constraint
-        CALL Fatal( 'SaveLine', MessageL )
+        CALL Fatal( 'SaveLine', Message )
       END IF
     ELSE        
       Parent => Element % BoundaryInfo % Left
@@ -3205,8 +3239,6 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., MovingMesh, GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
-
   SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
 
   !-----------------------------------
@@ -3303,10 +3335,10 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      material_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Material' )
      Material => Model % Materials(material_id) % Values
      IF (.NOT. ASSOCIATED(Material)) THEN
-        WRITE( MessageL,'(a,I4,a,I4,a)')&
+        WRITE( Message,'(a,I4,a,I4,a)')&
              'No Material for material-id ', material_id, ' for body-id ', body_id, &
              'associated'
-        CALL FATAL('SaveMaterials', MessageL)
+        CALL FATAL('SaveMaterials', Message)
      END IF     
      n = CurrentElement % TYPE % NumberOfNodes
      NodeIndexes => CurrentElement % NodeIndexes
@@ -3319,9 +3351,9 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
        PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = &
             ListGetReal(Material, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
        IF (.NOT. GotIt) THEN ! post a warning if parameter not found in material section
-         WRITE( MessageL,'(A,I3,A,A,A,I3)') 'No entry for Parameter ', i, ': ',&
+         WRITE( Message,'(A,I3,A,A,A,I3)') 'No entry for Parameter ', i, ': ',&
              TRIM(ParamName(i)),' found in material no. ', material_id
-         CALL WARN('SaveMaterials', MessageL)
+         CALL WARN('SaveMaterials', Message)
          PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = 0.0D00
        END IF
      END DO! end loop over parameters
@@ -3380,8 +3412,6 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(99), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., MovingMesh, GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
-
-  CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
 
   SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
 
@@ -3495,9 +3525,9 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
         PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = &
              ListGetReal(BC, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
         IF (.NOT.GotIt) THEN
-           WRITE(MessageL,'(a,a,a,i3,a,i10)') 'Boundary property ',TRIM(ParamName(i)),&
+           WRITE(Message,'(a,a,a,i3,a,i10)') 'Boundary property ',TRIM(ParamName(i)),&
                 ' not found on boundary no. ',bc_id,' for element no. ', t
-           CALL INFO('SaveBoundaryValues', MessageL, Level=9)
+           CALL INFO('SaveBoundaryValues', Message, Level=9)
            PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = 0.0D00
         END IF
      END DO! end loop over parameters
