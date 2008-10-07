@@ -44,11 +44,12 @@
 #include <QMainWindow>
 #include <QHash>
 #include "QVTKWidget.h"
-#include <vtkScalarBarActor.h>
 #include "src/meshtype.h"
 
 class vtkRenderer;
 class vtkActor;
+class vtkScalarBarActor;
+class vtkPolyDataMapper;
 
 // EpNode:
 //========
@@ -119,8 +120,7 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  void setPostFileName(QString);
-  bool readPostFile();
+  bool readPostFile(QString);
 
 signals:
 
@@ -129,6 +129,8 @@ private slots:
   void drawScalarSlot(QAction*);
   void redrawSlot();
   void groupChangedSlot(QAction*);
+  void drawWireframeSlot();
+  void drawColorBarSlot();
 
 private:
   QMenu *fileMenu;
@@ -139,6 +141,8 @@ private:
 
   QAction *exitAct;
   QAction *redrawAct;
+  QAction *drawWireframeAct;
+  QAction *drawColorBarAct;
 
   void createActions();
   void createMenus();
@@ -148,6 +152,8 @@ private:
   EpMesh *epMesh;
 
   QString postFileName;
+  bool postFileRead;
+
   int scalarFields;
   ScalarField *scalarField;
   QAction *currentScalarFieldAction;
@@ -158,7 +164,10 @@ private:
   vtkRenderer *renderer;
 
   vtkActor *scalarFieldActor;
+  vtkActor *wireframeActor;
   vtkScalarBarActor *colorBarActor;
+
+  vtkPolyDataMapper *scalarFieldMapper;
 };
 
 #endif // VTKPOST_H

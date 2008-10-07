@@ -53,9 +53,12 @@
 #include <vtkFloatArray.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
+#include <vtkLookupTable.h>
+#include <vtkProperty.h>
 #include <vtkPolyDataMapper2D.h>
 #include <vtkScalarBarActor.h>
 #include <vtkTextMapper.h>
+#include <vtkScalarBarActor.h>
 
 using namespace std;
 
@@ -139,9 +142,17 @@ VtkPost::VtkPost(QWidget *parent)
   epMesh = new EpMesh;
 
   postFileName = "";
+  postFileRead = false;
+
   scalarFields = 0;
   scalarField = new ScalarField[100]; // fixed max.
   currentScalarFieldAction = NULL;
+
+  scalarFieldActor = NULL;
+  wireframeActor = NULL;
+  colorBarActor = NULL;
+
+  scalarFieldMapper = NULL;
 
   // Central widget:
   //----------------
@@ -181,6 +192,18 @@ void VtkPost::createActions()
 
   // View menu:
   //------------
+  drawWireframeAct = new QAction(QIcon(""), tr("Wireframe"), this);
+  drawWireframeAct->setStatusTip("Draw wireframe");
+  drawWireframeAct->setCheckable(true);
+  drawWireframeAct->setChecked(false);
+  connect(drawWireframeAct, SIGNAL(triggered()), this, SLOT(drawWireframeSlot()));
+
+  drawColorBarAct = new QAction(QIcon(""), tr("Color bar"), this);
+  drawColorBarAct->setStatusTip("Draw color bar");
+  drawColorBarAct->setCheckable(true);
+  drawColorBarAct->setChecked(false);
+  connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(drawColorBarSlot()));
+
   redrawAct = new QAction(QIcon(""), tr("Reset"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
   redrawAct->setStatusTip("Reset view");
@@ -204,9 +227,13 @@ void VtkPost::createMenus()
   // View menu:
   //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
+  viewMenu->addAction(drawWireframeAct);
+  viewMenu->addSeparator();
   viewScalarMenu = new QMenu(tr("Scalar"));
   viewMenu->addMenu(viewScalarMenu);
   connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarSlot(QAction*)));
+  viewMenu->addSeparator();
+  viewMenu->addAction(drawColorBarAct);
   viewMenu->addSeparator();
   viewMenu->addAction(redrawAct);
 }
@@ -219,16 +246,9 @@ void VtkPost::createStatusBar()
 {
 }
 
-void VtkPost::setPostFileName(QString qString)
-{
-  this->postFileName = qString;
-  cout << "Ep-file: " << qString.toAscii().data() << endl;
-}
-
-
 // Read in results:
 //----------------------------------------------------------------------
-bool VtkPost::readPostFile()
+bool VtkPost::readPostFile(QString postFileName)
 {
 #define GET_TXT_STREAM                               \
   QString tmpLine = post.readLine().trimmed();       \
@@ -236,27 +256,39 @@ bool VtkPost::readPostFile()
     tmpLine = post.readLine();                       \
     QTextStream txtStream(&tmpLine);
 
+  // Check if the file has already been read in:
+  //--------------------------------------------
+  if((postFileName == this->postFileName) && postFileRead) {
+    cout << "Ep-file already processed" << endl;
+    return true;
+  }
+
+  // If not, open it:
+  //-----------------
+  this->postFileName = postFileName;
+  this->postFileRead = false;
+
   QFile postFile(postFileName);
 
   if(!postFile.open(QIODevice::ReadOnly | QIODevice::Text))
     return false;
 
-  cout << "Reading in post file" << endl;
+  cout << "Loading ep-file" << endl;
   
   QTextStream post(&postFile);
 
-  // Read nodes, elements, timesteps, and components:
-  //--------------------------------------------------
+  // Read in nodes, elements, timesteps, and scalar components:
+  //-----------------------------------------------------------
   GET_TXT_STREAM
 
   int nodes, elements, timesteps, components;
 
   txtStream >> nodes >> elements >> components >> timesteps;
 
-  cout << "Post: nodes: " << nodes << endl;
-  cout << "Post: elements: " << elements << endl;
-  cout << "Post: components: " << components << endl;
-  cout << "Post: timesteps: " << timesteps << endl;
+  cout << "Nodes: " << nodes << endl;
+  cout << "Elements: " << elements << endl;
+  cout << "Scalar components: " << components << endl;
+  cout << "Timesteps: " << timesteps << endl;
 
   // Read field names & set up menu actions:
   //=========================================
@@ -271,7 +303,7 @@ bool VtkPost::readPostFile()
     fieldName = fieldName.trimmed();
 
     cout << "Field type: " << fieldType.toAscii().data() << endl;
-    cout << "      name: " << fieldName.toAscii().data() << endl;
+    cout << "Field name: " << fieldName.toAscii().data() << endl;
 
     if(fieldType == "scalar") {
       sf = &scalarField[scalarFields++];
@@ -366,7 +398,6 @@ bool VtkPost::readPostFile()
   
   postFile.close();
 
-
   // Set up the group edit menu:
   //=============================
   groupActionHash.clear();
@@ -389,7 +420,9 @@ bool VtkPost::readPostFile()
     if(groupName.toLower().indexOf("body") >= 0)
       groupAction->setChecked(false);
   }
-  
+
+  this->postFileRead = true;
+
   return true;
 }
 
@@ -403,24 +436,38 @@ void VtkPost::exitSlot()
 
 // Group selection changed:
 //----------------------------------------------------------------------
-void VtkPost::groupChangedSlot(QAction *qAction)
+void VtkPost::groupChangedSlot(QAction *groupAction)
 {
+  // Status of groupAction has changed
+
   redrawSlot();
 }
 
 // Redraw:
 //----------------------------------------------------------------------
 void VtkPost::redrawSlot()
-{
+{  
+  // Redraw surface wireframe:
+  //---------------------------
+  renderer->RemoveActor(wireframeActor);
+  drawWireframeSlot();
+
   // Redraw scalar fields:
   //----------------------
   renderer->RemoveActor(scalarFieldActor);
   drawScalarSlot(currentScalarFieldAction);
+
+  // Redraw color bar:
+  //------------------
+  renderer->RemoveActor(colorBarActor);
+  drawColorBarSlot();
+
 }
 
-// Draw scalar field:
+
+// Draw color bar:
 //----------------------------------------------------------------------
-void VtkPost::drawScalarSlot(QAction *qAction)
+void VtkPost::drawColorBarSlot()
 {
   if(epMesh == NULL)
     return;
@@ -431,24 +478,193 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   if(epMesh->epElements == 0)
     return;
 
-  // Check which scalar menu action (qAction) triggred drawing:
-  //-----------------------------------------------------------
+  // Hide the color bar:
+  //--------------------
+  if(!drawColorBarAct->isChecked()) {
+    renderer->RemoveActor(colorBarActor);
+    return;
+  }
+
+  // Draw color bar:
+  //----------------
+  renderer->RemoveActor(colorBarActor);
+
+  vtkTextMapper *tMapper = vtkTextMapper::New();
+
+  colorBarActor = vtkScalarBarActor::New();
+  colorBarActor->SetMapper(tMapper);
+  colorBarActor->SetLookupTable(scalarFieldMapper->GetLookupTable());
+
+  renderer->AddActor(colorBarActor);
+  renderer->ResetCamera();
+  renderer->GetRenderWindow()->Render();
+  
+  // Clean up:
+  //----------
+  colorBarActor->Delete();
+  tMapper->Delete();
+}
+
+
+// Draw surface wireframe:
+//----------------------------------------------------------------------
+void VtkPost::drawWireframeSlot()
+{
+  cout << "Draw surface wireframe" << endl;
+
+  if(epMesh == NULL)
+    return;
+
+  if(epMesh->epNodes == 0)
+    return;
+
+  if(epMesh->epElements == 0)
+    return;
+
+  // Hide the wireframe mesh:
+  //-------------------------
+  if(!drawWireframeAct->isChecked()) {
+    renderer->RemoveActor(wireframeActor);
+    return;
+  }
+
+  // Draw the wireframe mesh:
+  //-------------------------
+  vtkPolyData *wireframe = vtkPolyData::New();
+
+  // Points:
+  //--------
+  vtkPoints *points = vtkPoints::New();
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    EpNode *epn = &epMesh->epNode[i];
+    points->InsertPoint(i, epn->x);
+  }
+  wireframe->SetPoints(points);
+  points->Delete();
+
+  // Line segments:
+  //---------------
+  int n[2];
+  vtkCellArray *segments = vtkCellArray::New();
+  for(int i = 0; i < epMesh->epElements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+    QString groupName = epe->groupName;
+    QAction *groupAction = groupActionHash.value(groupName);
+
+    if(epe->code == 303) {
+      if(groupAction->isChecked()) {
+	n[0] = epe->index[0];
+	n[1] = epe->index[1];
+	segments->InsertNextCell(2, n);
+	
+	n[0] = epe->index[1];
+	n[1] = epe->index[2];
+	segments->InsertNextCell(2, n);
+	
+	n[0] = epe->index[2];
+	n[1] = epe->index[0];
+	segments->InsertNextCell(2, n);
+      }
+    }
+
+    if(epe->code == 404) {
+      if(groupAction->isChecked()) {
+	n[0] = epe->index[0];
+	n[1] = epe->index[1];
+	segments->InsertNextCell(2, n);
+	
+	n[0] = epe->index[1];
+	n[1] = epe->index[2];
+	segments->InsertNextCell(2, n);
+	
+	n[0] = epe->index[2];
+	n[1] = epe->index[3];
+	segments->InsertNextCell(2, n);
+
+	n[0] = epe->index[3];
+	n[1] = epe->index[1];
+	segments->InsertNextCell(2, n);
+      }
+    }
+
+  }
+  wireframe->SetLines(segments);
+  segments->Delete();
+
+  // Scalars:
+  //---------
+  vtkFloatArray *scalars = vtkFloatArray::New();
+  for(int i = 0; i < epMesh->epNodes; i++)
+    scalars->InsertTuple1(i, 0.0);
+  wireframe->GetPointData()->SetScalars(scalars);
+  scalars->Delete();
+
+  // Lookuptable for black-and-white colors:
+  //----------------------------------------
+  vtkLookupTable *lut = vtkLookupTable::New();
+  lut->SetNumberOfTableValues(3);
+  lut->SetTableRange(0.0, 1.0);
+  lut->SetTableValue(0.0, 0.0, 0.0, 0.0);
+  lut->SetTableValue(1.0, 1.0, 1.0, 1.0);
+  lut->Build();
+
+  // Mapper:
+  //--------
+  vtkPolyDataMapper *wireframeMapper = vtkPolyDataMapper::New();
+  wireframeMapper->SetInput(wireframe);
+  wireframeMapper->SetLookupTable(lut);
+
+  // Actor:
+  //-------
+  renderer->RemoveActor(wireframeActor);
+  wireframeActor = vtkActor::New();
+  wireframeActor->SetMapper(wireframeMapper);
+
+  // Renderer:
+  //----------
+  renderer->AddActor(wireframeActor);
+  renderer->ResetCamera();
+  renderer->GetRenderWindow()->Render();
+
+  // wireframeActor->GetProperty()->SetLineWidth(1.5);
+
+  // Clean up:
+  //-----------
+  lut->Delete();
+  wireframeActor->Delete();
+  wireframeMapper->Delete();
+  wireframe->Delete();
+}
+
+
+// Draw scalar field:
+//----------------------------------------------------------------------
+void VtkPost::drawScalarSlot(QAction *triggeredAction)
+{
+  if(epMesh == NULL)
+    return;
+
+  if(epMesh->epNodes == 0)
+    return;
+
+  if(epMesh->epElements == 0)
+    return;
+
+  // Check which scalar menu action triggred drawing:
+  //--------------------------------------------------
   int index = -1;
-
   ScalarField *sf = NULL;
-
   bool shouldReturn = false;
 
   for(int i = 0; i < scalarFields; i++) {
     sf = &scalarField[i];
     
-    if(sf->menuAction == qAction) {
+    if(sf->menuAction == triggeredAction) {
       index = i;
 
       // Clear the scalar field (remove actor and return):
       //---------------------------------------------------
       if(!sf->menuAction->isChecked()) {
-	renderer->RemoveActor(colorBarActor);
 	renderer->RemoveActor(scalarFieldActor);
 	shouldReturn = true;
       }
@@ -458,7 +674,6 @@ void VtkPost::drawScalarSlot(QAction *qAction)
       // Set all other scalar menu actions unchecked:
       //---------------------------------------------
       sf->menuAction->setChecked(false);
-
     }
   }
 
@@ -470,7 +685,7 @@ void VtkPost::drawScalarSlot(QAction *qAction)
 
   // Draw the scalar field:
   //------------------------
-  currentScalarFieldAction = qAction;
+  currentScalarFieldAction = triggeredAction;
   sf = &scalarField[index];
   sf->menuAction->setChecked(true);
 
@@ -491,10 +706,12 @@ void VtkPost::drawScalarSlot(QAction *qAction)
   vtkCellArray *polys = vtkCellArray::New();
   for(int i = 0; i < epMesh->epElements; i++) {
     EpElement *epe = &epMesh->epElement[i];
-    QString groupName = epe->groupName;
-    QAction *groupAction = groupActionHash.value(groupName);
-    if(groupAction->isChecked() && qAction->isChecked())
-      polys->InsertNextCell(epe->indexes, epe->index);
+    if((epe->code == 303) || (epe->code == 404)) {
+      QString groupName = epe->groupName;
+      QAction *groupAction = groupActionHash.value(groupName);
+      if(groupAction->isChecked())
+	polys->InsertNextCell(epe->indexes, epe->index);
+    }
   }
   surf->SetPolys(polys);
   polys->Delete();
@@ -511,34 +728,30 @@ void VtkPost::drawScalarSlot(QAction *qAction)
 
   // Mapper:
   //--------
-  vtkPolyDataMapper *surfMapper = vtkPolyDataMapper::New();
-  surfMapper->SetInput(surf);
-  surfMapper->SetScalarRange(sf->minVal, sf->maxVal);
+  scalarFieldMapper = vtkPolyDataMapper::New();
+  scalarFieldMapper->SetInput(surf);
+  scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
 
-  // Actor and renderer:
-  //--------------------
+  // Actor:
+  //-------
   renderer->RemoveActor(scalarFieldActor);
-  renderer->RemoveActor(colorBarActor);
-
   scalarFieldActor = vtkActor::New();
-  scalarFieldActor->SetMapper(surfMapper);
+  scalarFieldActor->SetMapper(scalarFieldMapper);
+
+  // Renderer:
+  //-----------
   renderer->AddActor(scalarFieldActor);
-
-  vtkTextMapper *tMapper = vtkTextMapper::New();
-
-  colorBarActor = vtkScalarBarActor::New();
-  colorBarActor->SetMapper(tMapper);
-  colorBarActor->SetLookupTable(surfMapper->GetLookupTable());
-  renderer->AddActor(colorBarActor);
-
   renderer->ResetCamera();
   renderer->GetRenderWindow()->Render();
 
+  // Update color bar:
+  //------------------
+  renderer->RemoveActor(colorBarActor);
+  drawColorBarSlot();
 
+  // Clean up:
   //-----------
   scalarFieldActor->Delete();
-  colorBarActor->Delete();
-  tMapper->Delete();
-  surfMapper->Delete();
+  // scalarFieldMapper->Delete();
   surf->Delete();
 }

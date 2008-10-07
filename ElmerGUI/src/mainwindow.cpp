@@ -4066,9 +4066,7 @@ void MainWindow::showVtkPostSlot()
   QString postFileName = saveDirName + "/" 
     + generalSetup->ui.postFileEdit->text().trimmed();
 
-  vtkPost->setPostFileName(postFileName);
-
-  if(!vtkPost->readPostFile()) {
+  if(!vtkPost->readPostFile(postFileName)) {
     logMessage("Unable to read result file");
     return;
   }
