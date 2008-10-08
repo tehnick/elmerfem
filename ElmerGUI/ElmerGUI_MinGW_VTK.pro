@@ -28,7 +28,7 @@ LIBS += -lqwt5
 DEFINES += VTKPOST
 INCLUDEPATH += /c/VTK/include/vtk-5.2
 LIBPATH += /c/VTK/lib/vtk-5.2
-LIBS += -lvtkCommon -lvtkRendering -lvtkFiltering -lQVTK
+LIBS += -lvtkCommon -lvtkRendering -lvtkFiltering -lvtkGraphics -lQVTK
 
 # Input
 HEADERS += src/bodypropertyeditor.h \
