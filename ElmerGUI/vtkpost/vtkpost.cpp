@@ -270,7 +270,6 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->menuAction->setCheckable(true);
   sf->name = fieldName;
   sf->values = nodes;
-  if ( sf->value ) delete [] sf->value;
   sf->value = new double[nodes];
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
