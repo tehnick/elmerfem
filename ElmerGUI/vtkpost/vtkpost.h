@@ -171,6 +171,7 @@ private:
   QAction *currentScalarFieldAction;
 
   QHash<QString, QAction*> groupActionHash;
+  QHash<QString, QAction*> scalarFieldActionHash;
 
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;

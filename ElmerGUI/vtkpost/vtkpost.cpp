@@ -292,6 +292,7 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
   viewScalarMenu->addAction(sf->menuAction);
+  scalarFieldActionHash.insert(sf->name, sf->menuAction);
   if ( scalarFields==1 ) {
     sf->menuAction->setChecked(true);
     currentScalarFieldAction = sf->menuAction;
@@ -313,6 +314,8 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Open the post file:
   //=====================
+  scalarFieldActionHash.clear();
+
   this->postFileName = postFileName;
   this->postFileRead = false;
 
@@ -953,6 +956,7 @@ void VtkPost::drawIsoContourSlot()
   // Renderer:
   //-----------
   renderer->AddActor(isoContourActor);
+  renderer->ResetCamera();
 
 #if 0
   // Add outline:
@@ -971,7 +975,10 @@ void VtkPost::drawIsoContourSlot()
 
   // Update color bar && field name:
   //---------------------------------
-  renderer->ResetCamera();
+  QString name = isoContours->ui.variableCombo->currentText();
+  currentScalarFieldAction = scalarFieldActionHash.value(name);
+
+  // (fix) wrong mapper for color bars...
   drawColorBarSlot();
   drawFieldNameSlot();
 
