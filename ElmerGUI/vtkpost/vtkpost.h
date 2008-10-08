@@ -119,7 +119,6 @@ public:
 
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
-
   bool readPostFile(QString);
 
 signals:
@@ -132,6 +131,7 @@ private slots:
   void drawWireframeSlot();
   void drawColorBarSlot();
   void drawFieldNameSlot();
+  void drawIsoContourSlot();
 
 private:
   QMenu *fileMenu;
@@ -145,6 +145,7 @@ private:
   QAction *drawWireframeAct;
   QAction *drawColorBarAct;
   QAction *drawFieldNameAct;
+  QAction *drawIsoContourAct;
 
   void createActions();
   void createMenus();
@@ -154,6 +155,7 @@ private:
   ScalarField* addScalarField(QString, int);
 
   EpMesh *epMesh;
+  EpMesh *sharpEdges;
 
   QString postFileName;
   bool postFileRead;
@@ -167,6 +169,7 @@ private:
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
 
+  vtkActor *isoContourActor;
   vtkActor *scalarFieldActor;
   vtkActor *wireframeActor;
   vtkScalarBarActor *colorBarActor;

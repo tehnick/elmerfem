@@ -61,6 +61,11 @@
 #include <vtkScalarBarActor.h>
 #include <vtkTextActor.h>
 #include <vtkTextProperty.h>
+#include <vtkTetra.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkDataSetMapper.h>
+#include <vtkContourFilter.h>
+#include <vtkPolyDataNormals.h>
 
 using namespace std;
 
@@ -143,6 +148,7 @@ VtkPost::VtkPost(QWidget *parent)
   createStatusBar();
   
   epMesh = new EpMesh;
+  sharpEdges = NULL;
 
   postFileName = "";
   postFileRead = false;
@@ -151,6 +157,7 @@ VtkPost::VtkPost(QWidget *parent)
   scalarField = new ScalarField[100]; // fixed max.
   currentScalarFieldAction = NULL;
 
+  isoContourActor = NULL;
   scalarFieldActor = NULL;
   wireframeActor = NULL;
   colorBarActor = NULL;
@@ -215,6 +222,12 @@ void VtkPost::createActions()
   drawFieldNameAct->setChecked(true);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
+  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours (test average)"), this);
+  drawIsoContourAct->setStatusTip("Draw isocontours");
+  drawIsoContourAct->setCheckable(true);
+  drawIsoContourAct->setChecked(false);
+  connect(drawIsoContourAct, SIGNAL(triggered()), this, SLOT(drawIsoContourSlot()));
+
   redrawAct = new QAction(QIcon(""), tr("Reset"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
   redrawAct->setStatusTip("Reset view");
@@ -243,6 +256,8 @@ void VtkPost::createMenus()
   viewScalarMenu = new QMenu(tr("Scalar"));
   viewMenu->addMenu(viewScalarMenu);
   connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarSlot(QAction*)));
+  viewMenu->addSeparator();
+  viewMenu->addAction(drawIsoContourAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawColorBarAct);
   viewMenu->addSeparator();
@@ -456,7 +471,6 @@ bool VtkPost::readPostFile(QString postFileName)
 
   return true;
 }
-
 
 // Exit VTK widget:
 //----------------------------------------------------------------------
@@ -833,4 +847,115 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   scalarFieldActor->Delete();
   // scalarFieldMapper->Delete();
   surf->Delete();
+}
+
+// Draw isocontours:
+//----------------------------------------------------------------------
+void VtkPost::drawIsoContourSlot()
+{
+  renderer->RemoveActor(isoContourActor);
+
+  if(epMesh == NULL)
+    return;
+
+  if(epMesh->epNodes < 1)
+    return;
+
+  if(epMesh->epElements < 1)
+    return;
+
+  if(!drawIsoContourAct->isChecked())
+    return;
+
+  // New grid:
+  //----------
+  vtkUnstructuredGrid *grid = vtkUnstructuredGrid::New();
+
+  // Points to grid:
+  //-----------------
+  vtkPoints *points = vtkPoints::New();
+  points->SetNumberOfPoints(epMesh->epNodes);
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    EpNode *epn = &epMesh->epNode[i];
+    points->InsertPoint(i, epn->x);
+  }
+  grid->SetPoints(points);
+
+  // Tetras to grid:
+  //-----------------
+  vtkTetra *tetra = vtkTetra::New();
+  for(int i = 0; i < epMesh->epElements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+    if(epe->code == 504) {
+      QString groupName = epe->groupName;
+
+      if(groupName.isEmpty())
+	continue;
+
+      QAction *groupAction = groupActionHash.value(groupName);
+
+      if(groupAction == NULL)
+	continue;
+      
+      for(int j = 0; j < 4; j++)
+	tetra->GetPointIds()->SetId(j, epe->index[j]);
+      
+      if(groupAction->isChecked())
+	grid->InsertNextCell(tetra->GetCellType(), tetra->GetPointIds());
+    }
+  }
+
+  // Scalars to grid:
+  //-----------------
+  ScalarField *sf = &scalarField[0]; // test
+  vtkFloatArray *scalars = vtkFloatArray::New();
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    double fieldValue = sf->value[i];
+    scalars->InsertTuple1(i, fieldValue);
+  }
+  grid->GetPointData()->SetScalars(scalars);
+
+  // Isosourface (average):
+  //------------------------
+  vtkContourFilter *iso = vtkContourFilter::New();
+  iso->SetInput(grid);
+  double average = (sf->maxVal + sf->minVal)/2.0;
+  iso->SetValue(0, average);
+
+  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
+  normals->SetInputConnection(iso->GetOutputPort());
+  normals->SetFeatureAngle(45);
+
+  // Mapper:
+  //--------
+  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
+  mapper->SetInputConnection(normals->GetOutputPort());
+  mapper->ScalarVisibilityOn();
+  mapper->SetScalarRange(sf->minVal, sf->maxVal);
+
+  // Actor:
+  //-------
+  isoContourActor = vtkActor::New();
+  isoContourActor->SetMapper(mapper);
+
+  // Renderer:
+  //-----------
+  renderer->AddActor(isoContourActor);
+  renderer->ResetCamera();
+
+  // renderer->GetRenderWindow()->Render();
+
+  // Update color bar && field name:
+  //---------------------------------
+  drawColorBarSlot();
+  drawFieldNameSlot();
+
+  points->Delete();
+  tetra->Delete();
+  scalars->Delete();
+  grid->Delete();
+  iso->Delete();
+  normals->Delete();
+  mapper->Delete();
+  isoContourActor->Delete();
 }
