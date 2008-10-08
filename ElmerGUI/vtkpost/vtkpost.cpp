@@ -615,7 +615,14 @@ void VtkPost::drawWireframeSlot()
   for(int i = 0; i < epMesh->epElements; i++) {
     EpElement *epe = &epMesh->epElement[i];
     QString groupName = epe->groupName;
+
+    if(groupName.isEmpty())
+      continue;
+
     QAction *groupAction = groupActionHash.value(groupName);
+
+    if(groupAction == NULL)
+      continue;
 
     if(epe->code == 303) {
       if(groupAction->isChecked()) {
@@ -648,11 +655,10 @@ void VtkPost::drawWireframeSlot()
 	segments->InsertNextCell(2, n);
 
 	n[0] = epe->index[3];
-	n[1] = epe->index[1];
+	n[1] = epe->index[0];
 	segments->InsertNextCell(2, n);
       }
     }
-
   }
   wireframe->SetLines(segments);
   segments->Delete();
@@ -773,7 +779,15 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
     EpElement *epe = &epMesh->epElement[i];
     if((epe->code == 303) || (epe->code == 404)) {
       QString groupName = epe->groupName;
+
+      if(groupName.isEmpty())
+	continue;
+
       QAction *groupAction = groupActionHash.value(groupName);
+
+      if(groupAction == NULL)
+	continue;
+
       if(groupAction->isChecked())
 	polys->InsertNextCell(epe->indexes, epe->index);
     }
