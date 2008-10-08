@@ -268,13 +268,18 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
 
   sf->menuAction = new QAction(fieldName, this);
   sf->menuAction->setCheckable(true);
-  sf->menuAction->setChecked(false);
   sf->name = fieldName;
   sf->values = nodes;
   sf->value = new double[nodes];
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
   viewScalarMenu->addAction(sf->menuAction);
+  if ( scalarFields==1 ) {
+    sf->menuAction->setChecked(true);
+    currentScalarFieldAction = sf->menuAction;
+  } else {
+    sf->menuAction->setChecked(false);
+  } 
   return sf;
 }
 
@@ -453,6 +458,7 @@ bool VtkPost::readPostFile(QString postFileName)
   }
 
   this->postFileRead = true;
+  redrawSlot();
 
   return true;
 }
