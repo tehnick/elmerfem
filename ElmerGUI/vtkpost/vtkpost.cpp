@@ -66,6 +66,7 @@
 #include <vtkDataSetMapper.h>
 #include <vtkContourFilter.h>
 #include <vtkPolyDataNormals.h>
+#include <vtkOutlineFilter.h>
 
 using namespace std;
 
@@ -222,7 +223,7 @@ void VtkPost::createActions()
   drawFieldNameAct->setChecked(true);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
-  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours (test average)"), this);
+  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours (test 20)"), this);
   drawIsoContourAct->setStatusTip("Draw isocontours");
   drawIsoContourAct->setCheckable(true);
   drawIsoContourAct->setChecked(false);
@@ -888,14 +889,10 @@ void VtkPost::drawIsoContourSlot()
     EpElement *epe = &epMesh->epElement[i];
     if(epe->code == 504) {
       QString groupName = epe->groupName;
-
-      if(groupName.isEmpty())
-	continue;
+      if(groupName.isEmpty()) continue;
 
       QAction *groupAction = groupActionHash.value(groupName);
-
-      if(groupAction == NULL)
-	continue;
+      if(groupAction == NULL) continue;
       
       for(int j = 0; j < 4; j++)
 	tetra->GetPointIds()->SetId(j, epe->index[j]);
@@ -915,12 +912,11 @@ void VtkPost::drawIsoContourSlot()
   }
   grid->GetPointData()->SetScalars(scalars);
 
-  // Isosourface (average):
-  //------------------------
+  // Isosourface (20):
+  //------------------
   vtkContourFilter *iso = vtkContourFilter::New();
   iso->SetInput(grid);
-  double average = (sf->maxVal + sf->minVal)/2.0;
-  iso->SetValue(0, average);
+  iso->GenerateValues(20, sf->minVal, sf->maxVal);
 
   vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
   normals->SetInputConnection(iso->GetOutputPort());
@@ -941,15 +937,30 @@ void VtkPost::drawIsoContourSlot()
   // Renderer:
   //-----------
   renderer->AddActor(isoContourActor);
-  renderer->ResetCamera();
 
-  // renderer->GetRenderWindow()->Render();
+#if 0
+  // Add outline:
+  //-------------
+  vtkOutlineFilter *outline = vtkOutlineFilter::New();
+  outline->SetInput(grid);
+  vtkPolyDataMapper *outlineMapper = vtkPolyDataMapper::New();
+  outlineMapper->SetInputConnection(outline->GetOutputPort());
+  vtkActor *outlineActor = vtkActor::New();
+  outlineActor->SetMapper(outlineMapper);
+  renderer->AddActor(outlineActor);
+  outline->Delete();
+  outlineMapper->Delete();
+  outlineActor->Delete();
+#endif
 
   // Update color bar && field name:
   //---------------------------------
+  renderer->ResetCamera();
   drawColorBarSlot();
   drawFieldNameSlot();
 
+  // Clean up:
+  //----------
   points->Delete();
   tetra->Delete();
   scalars->Delete();
