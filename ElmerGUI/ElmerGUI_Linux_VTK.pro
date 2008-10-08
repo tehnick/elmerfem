@@ -74,8 +74,7 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/meshcontrol.ui \
          forms/parallel.ui \
          forms/solverparameters.ui \
-         forms/summaryeditor.ui \
-         vtkpost/vtkpost.ui 
+         forms/summaryeditor.ui
 SOURCES += src/bodypropertyeditor.cpp \
            src/boundarydivision.cpp \
            src/boundarypropertyeditor.cpp \
