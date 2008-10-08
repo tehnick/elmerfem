@@ -321,13 +321,12 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Read field names & set up menu actions:
   //=========================================
-  if ( postFileRead ) {
-     delete [] epMesh->epNode;
-     delete [] epMesh->epElement;
-     for( int i=0;i<scalarFields; i++ ) {
-        ScalarField *sf = &scalarField[i];
-        if ( sf->value ) delete [] sf->value;
-     }
+  if ( epMesh->epNode ) delete [] epMesh->epNode;
+  if ( epMesh->epElement ) delete [] epMesh->epElement;
+
+  for( int i=0;i<scalarFields; i++ ) {
+     ScalarField *sf = &scalarField[i];
+     if ( sf->value ) delete [] sf->value;
   }
 
   scalarFields = 0;
