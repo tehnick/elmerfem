@@ -270,6 +270,7 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->menuAction->setCheckable(true);
   sf->name = fieldName;
   sf->values = nodes;
+  if ( sf->value ) delete [] sf->value;
   sf->value = new double[nodes];
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
@@ -295,10 +296,11 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Check if the file has already been read in:
   //--------------------------------------------
-  if((postFileName == this->postFileName) && postFileRead) {
-    cout << "Ep-file already processed" << endl;
-    return true;
-  }
+// Comment out for now, not generally useful, as content might have changed? Juha
+//  if((postFileName == this->postFileName) && postFileRead) {
+//    cout << "Ep-file already processed" << endl;
+//    return true;
+//  }
 
   // If not, open it:
   //-----------------
@@ -330,8 +332,17 @@ bool VtkPost::readPostFile(QString postFileName)
   // Read field names & set up menu actions:
   //=========================================
 
-   scalarFields = 0;
-   viewScalarMenu->clear();
+  if ( postFileRead ) {
+     delete [] epMesh->epNode;
+     delete [] epMesh->epElement;
+     for( int i=0;i<scalarFields; i++ ) {
+        ScalarField *sf = &scalarField[i];
+        if ( sf->value ) delete [] sf->value;
+     }
+  }
+
+  scalarFields = 0;
+  viewScalarMenu->clear();
   for(int i = 0; i < components; i++) {
     QString fieldType, fieldName;
     txtStream >> fieldType >> fieldName;
