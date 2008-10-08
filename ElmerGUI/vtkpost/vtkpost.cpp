@@ -166,6 +166,9 @@ VtkPost::VtkPost(QWidget *parent)
 
   scalarFieldMapper = NULL;
 
+  isoContours = new IsoContours;
+  connect(isoContours, SIGNAL(drawIsoContourSignal()), this, SLOT(drawIsoContourSlot()));
+
   // Central widget:
   //----------------
   qvtkWidget = new QVTKWidget;
@@ -223,11 +226,11 @@ void VtkPost::createActions()
   drawFieldNameAct->setChecked(true);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
-  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours (test 20)"), this);
+  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours (test)"), this);
   drawIsoContourAct->setStatusTip("Draw isocontours");
   drawIsoContourAct->setCheckable(true);
   drawIsoContourAct->setChecked(false);
-  connect(drawIsoContourAct, SIGNAL(triggered()), this, SLOT(drawIsoContourSlot()));
+  connect(drawIsoContourAct, SIGNAL(triggered()), this, SLOT(showIsoContourDialogSlot()));
 
   redrawAct = new QAction(QIcon(""), tr("Reset"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
@@ -850,8 +853,16 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   surf->Delete();
 }
 
+
+
 // Draw isocontours:
 //----------------------------------------------------------------------
+void VtkPost::showIsoContourDialogSlot()
+{
+  isoContours->populateWidgets(scalarField, scalarFields);
+  isoContours->show();
+}
+
 void VtkPost::drawIsoContourSlot()
 {
   renderer->RemoveActor(isoContourActor);
@@ -904,7 +915,12 @@ void VtkPost::drawIsoContourSlot()
 
   // Scalars to grid:
   //-----------------
-  ScalarField *sf = &scalarField[0]; // test
+  int index = isoContours->ui.variableCombo->currentIndex();
+  int contours = isoContours->ui.contoursSpin->value() + 1;
+  double minVal = isoContours->ui.contoursMinEdit->text().toDouble();
+  double maxVal = isoContours->ui.contoursMaxEdit->text().toDouble();
+
+  ScalarField *sf = &scalarField[index];
   vtkFloatArray *scalars = vtkFloatArray::New();
   for(int i = 0; i < epMesh->epNodes; i++) {
     double fieldValue = sf->value[i];
@@ -912,11 +928,11 @@ void VtkPost::drawIsoContourSlot()
   }
   grid->GetPointData()->SetScalars(scalars);
 
-  // Isosourface (20):
-  //------------------
+  // Isosourface:
+  //--------------
   vtkContourFilter *iso = vtkContourFilter::New();
   iso->SetInput(grid);
-  iso->GenerateValues(20, sf->minVal, sf->maxVal);
+  iso->GenerateValues(contours, minVal, maxVal);
 
   vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
   normals->SetInputConnection(iso->GetOutputPort());
