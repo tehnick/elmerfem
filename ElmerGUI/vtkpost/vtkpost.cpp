@@ -264,12 +264,16 @@ void VtkPost::createStatusBar()
 ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
 {
   ScalarField *sf = &scalarField[scalarFields++];
+
+
   sf->menuAction = new QAction(fieldName, this);
   sf->menuAction->setCheckable(true);
   sf->menuAction->setChecked(false);
   sf->name = fieldName;
   sf->values = nodes;
   sf->value = new double[nodes];
+  sf->minVal = +9.9e99;
+  sf->maxVal = -9.9e99;
   viewScalarMenu->addAction(sf->menuAction);
   return sf;
 }
@@ -320,6 +324,9 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Read field names & set up menu actions:
   //=========================================
+
+   scalarFields = 0;
+   viewScalarMenu->clear();
   for(int i = 0; i < components; i++) {
     QString fieldType, fieldName;
     txtStream >> fieldType >> fieldName;
@@ -423,6 +430,7 @@ bool VtkPost::readPostFile(QString postFileName)
   // Set up the group edit menu:
   //=============================
   groupActionHash.clear();
+  editGroupsMenu->clear();
 
   for(int i = 0; i < elements; i++) {
     EpElement *epe = &epMesh->epElement[i];
@@ -439,8 +447,9 @@ bool VtkPost::readPostFile(QString postFileName)
     groupActionHash.insert(groupName, groupAction);
 
     // Disable bodies for rendering speed:
-    if(groupName.toLower().indexOf("body") >= 0)
-      groupAction->setChecked(false);
+    // comment out for now, not useful in 2D, Juha
+//    if(groupName.toLower().indexOf("body") >= 0)
+//      groupAction->setChecked(false);
   }
 
   this->postFileRead = true;
