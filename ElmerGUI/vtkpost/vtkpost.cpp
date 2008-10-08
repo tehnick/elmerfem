@@ -200,19 +200,19 @@ void VtkPost::createActions()
   drawWireframeAct = new QAction(QIcon(""), tr("Wireframe"), this);
   drawWireframeAct->setStatusTip("Draw wireframe");
   drawWireframeAct->setCheckable(true);
-  drawWireframeAct->setChecked(false);
+  drawWireframeAct->setChecked(true);
   connect(drawWireframeAct, SIGNAL(triggered()), this, SLOT(drawWireframeSlot()));
 
   drawColorBarAct = new QAction(QIcon(""), tr("Color bar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
-  drawColorBarAct->setChecked(false);
+  drawColorBarAct->setChecked(true);
   connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(drawColorBarSlot()));
 
   drawFieldNameAct = new QAction(QIcon(""), tr("Field name"), this);
   drawFieldNameAct->setStatusTip("Draw field name");
   drawFieldNameAct->setCheckable(true);
-  drawFieldNameAct->setChecked(false);
+  drawFieldNameAct->setChecked(true);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
   redrawAct = new QAction(QIcon(""), tr("Reset"), this);
@@ -521,7 +521,7 @@ void VtkPost::drawFieldNameSlot()
   fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
   fieldNameActor->GetTextProperty()->BoldOn();
   fieldNameActor->GetTextProperty()->ItalicOn();
-  fieldNameActor->GetTextProperty()->ShadowOn();
+  // fieldNameActor->GetTextProperty()->ShadowOn();
   fieldNameActor->GetTextProperty()->SetColor(0, 0, 1);
 
   renderer->AddActor2D(fieldNameActor);
@@ -563,7 +563,7 @@ void VtkPost::drawColorBarSlot()
   colorBarActor->GetLabelTextProperty()->SetFontFamilyToArial();
   colorBarActor->GetLabelTextProperty()->BoldOn();
   colorBarActor->GetLabelTextProperty()->ItalicOn();
-  colorBarActor->GetLabelTextProperty()->ShadowOn();
+  // colorBarActor->GetLabelTextProperty()->ShadowOn();
   colorBarActor->GetLabelTextProperty()->SetColor(0, 0, 1);
 
   colorBarActor->SetMapper(tMapper);
