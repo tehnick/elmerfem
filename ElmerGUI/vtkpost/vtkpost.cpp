@@ -494,10 +494,10 @@ void VtkPost::drawFieldNameSlot()
   if(epMesh == NULL)
     return;
 
-  if(epMesh->epNodes == 0)
+  if(epMesh->epNodes < 1)
     return;
 
-  if(epMesh->epElements == 0)
+  if(epMesh->epElements < 1)
     return;
 
   if(!drawFieldNameAct->isChecked())
@@ -543,10 +543,10 @@ void VtkPost::drawColorBarSlot()
   if(epMesh == NULL)
     return;
 
-  if(epMesh->epNodes == 0)
+  if(epMesh->epNodes < 1)
     return;
 
-  if(epMesh->epElements == 0)
+  if(epMesh->epElements < 1)
     return;
 
   if(!drawColorBarAct->isChecked())
@@ -585,10 +585,10 @@ void VtkPost::drawWireframeSlot()
   if(epMesh == NULL)
     return;
 
-  if(epMesh->epNodes == 0)
+  if(epMesh->epNodes < 1)
     return;
 
-  if(epMesh->epElements == 0)
+  if(epMesh->epElements < 1)
     return;
 
   if(!drawWireframeAct->isChecked())
@@ -717,10 +717,10 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   if(epMesh == NULL)
     return;
 
-  if(epMesh->epNodes == 0)
+  if(epMesh->epNodes < 1)
     return;
 
-  if(epMesh->epElements == 0)
+  if(epMesh->epElements < 1)
     return;
 
   // Check which scalar menu action triggred drawing:
@@ -807,7 +807,7 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
   // Mapper:
   //--------
-  scalarFieldMapper = vtkPolyDataMapper::New();
+  if(!scalarFieldMapper) scalarFieldMapper = vtkPolyDataMapper::New();
   scalarFieldMapper->SetInput(surf);
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
@@ -831,6 +831,6 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   // Clean up:
   //-----------
   scalarFieldActor->Delete();
-  scalarFieldMapper->Delete();
+  // scalarFieldMapper->Delete();
   surf->Delete();
 }
