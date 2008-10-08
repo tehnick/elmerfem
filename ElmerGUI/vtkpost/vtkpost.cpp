@@ -183,7 +183,7 @@ QSize VtkPost::minimumSizeHint() const
 
 QSize VtkPost::sizeHint() const
 {
-  return QSize(480, 640);
+  return QSize(640, 480);
 }
 
 void VtkPost::createActions()
@@ -265,7 +265,6 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
 {
   ScalarField *sf = &scalarField[scalarFields++];
 
-
   sf->menuAction = new QAction(fieldName, this);
   sf->menuAction->setCheckable(true);
   sf->name = fieldName;
@@ -293,16 +292,8 @@ bool VtkPost::readPostFile(QString postFileName)
     tmpLine = post.readLine();                       \
   QTextStream txtStream(&tmpLine);
 
-  // Check if the file has already been read in:
-  //--------------------------------------------
-// Comment out for now, not generally useful, as content might have changed? Juha
-//  if((postFileName == this->postFileName) && postFileRead) {
-//    cout << "Ep-file already processed" << endl;
-//    return true;
-//  }
-
-  // If not, open it:
-  //-----------------
+  // Open the post file:
+  //=====================
   this->postFileName = postFileName;
   this->postFileRead = false;
 
@@ -330,7 +321,6 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Read field names & set up menu actions:
   //=========================================
-
   if ( postFileRead ) {
      delete [] epMesh->epNode;
      delete [] epMesh->epElement;
@@ -460,11 +450,6 @@ bool VtkPost::readPostFile(QString postFileName)
     groupAction->setChecked(true);
     editGroupsMenu->addAction(groupAction);
     groupActionHash.insert(groupName, groupAction);
-
-    // Disable bodies for rendering speed:
-    // comment out for now, not useful in 2D, Juha
-//    if(groupName.toLower().indexOf("body") >= 0)
-//      groupAction->setChecked(false);
   }
 
   this->postFileRead = true;
@@ -530,10 +515,10 @@ void VtkPost::drawFieldNameSlot()
     return;
   
   fieldNameActor = vtkTextActor::New();
-  fieldNameActor->SetDisplayPosition(10, 10);
+  fieldNameActor->SetDisplayPosition(15, 15);
   fieldNameActor->SetInput(fieldName.toAscii().data());
 
-  fieldNameActor->GetTextProperty()->SetFontSize(20);
+  fieldNameActor->GetTextProperty()->SetFontSize(24);
   fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
   fieldNameActor->GetTextProperty()->BoldOn();
   fieldNameActor->GetTextProperty()->ItalicOn();
@@ -686,8 +671,8 @@ void VtkPost::drawWireframeSlot()
   vtkLookupTable *lut = vtkLookupTable::New();
   lut->SetNumberOfTableValues(3);
   lut->SetTableRange(0.0, 1.0);
-  lut->SetTableValue(0.0, 0.0, 0.0, 0.0);
-  lut->SetTableValue(1.0, 1.0, 1.0, 1.0);
+  lut->SetTableValue(0, 0.0, 0.0, 0.0);
+  lut->SetTableValue(1, 1.0, 1.0, 1.0);
   lut->Build();
 
   // Mapper:

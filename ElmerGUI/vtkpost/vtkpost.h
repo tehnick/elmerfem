@@ -44,7 +44,6 @@
 #include <QMainWindow>
 #include <QHash>
 #include "QVTKWidget.h"
-#include "src/meshtype.h"
 
 class vtkRenderer;
 class vtkActor;
