@@ -76,7 +76,9 @@ void IsoContours::populateWidgets(ScalarField *scalarField, int n)
     ScalarField *sf = &scalarField[i];
     ui.variableCombo->addItem(sf->name);
   }
-  this->selectionChanged(0);
+
+  ui.contoursMinEdit->setText(QString::number(scalarField->minVal));
+  ui.contoursMaxEdit->setText(QString::number(scalarField->maxVal));
 
   // todo: the rest...
 }
