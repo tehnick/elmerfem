@@ -63,13 +63,12 @@ signals:
 
 private slots:
   void okButtonClicked();
-  void selectionChanged(int);
+  void contoursSelectionChanged(int);
+  void colorSelectionChanged(int);
 
 private:
   ScalarField *scalarField;
   int scalarFields;
-
-  void currentIndexChanged();
 
 };
 

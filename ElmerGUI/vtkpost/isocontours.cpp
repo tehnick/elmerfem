@@ -52,7 +52,8 @@ IsoContours::IsoContours(QWidget *parent)
 
   connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(close()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
-  connect(ui.variableCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(selectionChanged(int)));
+  connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
+  connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -71,21 +72,31 @@ void IsoContours::populateWidgets(ScalarField *scalarField, int n)
   this->scalarField = scalarField;
   this->scalarFields = n;
 
-  ui.variableCombo->clear();
+  ui.contoursCombo->clear();
+  ui.colorCombo->clear();
+
   for(int i = 0; i < n; i++) {
     ScalarField *sf = &scalarField[i];
-    ui.variableCombo->addItem(sf->name);
+    ui.contoursCombo->addItem(sf->name);
+    ui.colorCombo->addItem(sf->name);
   }
 
   ui.contoursMinEdit->setText(QString::number(scalarField->minVal));
   ui.contoursMaxEdit->setText(QString::number(scalarField->maxVal));
-
-  // todo: the rest...
+  ui.colorMinEdit->setText(QString::number(scalarField->minVal));
+  ui.colorMaxEdit->setText(QString::number(scalarField->maxVal));
 }
 
-void IsoContours::selectionChanged(int newIndex)
+void IsoContours::contoursSelectionChanged(int newIndex)
 {
   ScalarField *sf = &this->scalarField[newIndex];
   ui.contoursMinEdit->setText(QString::number(sf->minVal));
   ui.contoursMaxEdit->setText(QString::number(sf->maxVal));
+}
+
+void IsoContours::colorSelectionChanged(int newIndex)
+{
+  ScalarField *sf = &this->scalarField[newIndex];
+  ui.colorMinEdit->setText(QString::number(sf->minVal));
+  ui.colorMaxEdit->setText(QString::number(sf->maxVal));
 }

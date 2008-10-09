@@ -906,25 +906,33 @@ void VtkPost::drawIsoContourSlot()
 
   // Scalars:
   //----------
-  int index = isoContours->ui.variableCombo->currentIndex();
-  QString name = isoContours->ui.variableCombo->currentText();
+  int contourIndex = isoContours->ui.contoursCombo->currentIndex();
+  QString contourName = isoContours->ui.contoursCombo->currentText();
   int contours = isoContours->ui.contoursSpin->value() + 1;
-  double minVal = isoContours->ui.contoursMinEdit->text().toDouble();
-  double maxVal = isoContours->ui.contoursMaxEdit->text().toDouble();
+  double contourMinVal = isoContours->ui.contoursMinEdit->text().toDouble();
+  double contourMaxVal = isoContours->ui.contoursMaxEdit->text().toDouble();
+  int colorIndex = isoContours->ui.colorCombo->currentIndex();
+  QString colorName = isoContours->ui.colorCombo->currentText();
+  double colorMinVal = isoContours->ui.colorMinEdit->text().toDouble();
+  double colorMaxVal = isoContours->ui.colorMaxEdit->text().toDouble();
 
-  ScalarField *sf = &scalarField[index];
-  vtkFloatArray *scalars = vtkFloatArray::New();
+  ScalarField *sfContour = &scalarField[contourIndex];
+  ScalarField *sfColor = &scalarField[colorIndex];
+  vtkFloatArray *contourScalars = vtkFloatArray::New();
+  vtkFloatArray *colorScalars = vtkFloatArray::New(); 
+  contourScalars->SetName("Contour");
+  colorScalars->SetName("Color");
   for(int i = 0; i < epMesh->epNodes; i++) {
-    double fieldValue = sf->value[i];
-    scalars->InsertTuple1(i, fieldValue);
+    contourScalars->InsertTuple1(i, sfContour->value[i]);
+    colorScalars->InsertTuple1(i, sfColor->value[i]);
   }
-  volumeGrid->GetPointData()->SetScalars(scalars);
 
-  // Isosourface:
-  //--------------
+  // Isosourfaces && normals:
+  //--------------------------
   vtkContourFilter *iso = vtkContourFilter::New();
+  volumeGrid->GetPointData()->SetScalars(contourScalars);
   iso->SetInput(volumeGrid);
-  iso->GenerateValues(contours, minVal, maxVal);
+  iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
   vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
   normals->SetInputConnection(iso->GetOutputPort());
@@ -935,7 +943,9 @@ void VtkPost::drawIsoContourSlot()
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(normals->GetOutputPort());
   mapper->ScalarVisibilityOn();
-  mapper->SetScalarRange(sf->minVal, sf->maxVal);
+  mapper->SetScalarModeToUsePointData();
+  mapper->ColorByArrayComponent("Color", 0);
+  mapper->SetScalarRange(colorMinVal, colorMaxVal);
   colorBarActor->SetLookupTable(mapper->GetLookupTable());
 
   // Actor:
@@ -948,14 +958,15 @@ void VtkPost::drawIsoContourSlot()
 
   // Redraw text && colorbar:
   //--------------------------
-  currentScalarFieldIndex = index;
-  currentScalarFieldName = name;
+  currentScalarFieldIndex = contourIndex;
+  currentScalarFieldName = contourName;
   drawColorBarSlot();
   drawFieldNameSlot();  
 
   // Clean up:
   //----------
-  scalars->Delete();
+  contourScalars->Delete();
+  colorScalars->Delete();
   iso->Delete();
   normals->Delete();
   mapper->Delete();
