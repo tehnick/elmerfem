@@ -159,34 +159,28 @@ private:
   void createToolbars();
   void createStatusBar();
 
-  ScalarField* addScalarField(QString, int);
-
   EpMesh *epMesh;
-
   QString postFileName;
   bool postFileRead;
-
   int scalarFields;
   ScalarField *scalarField;
-  QAction *currentScalarFieldAction;
+  int currentScalarFieldIndex;
+  QString currentScalarFieldName;
+
+  ScalarField* addScalarField(QString, int);
 
   QHash<QString, QAction*> groupActionHash;
-  QHash<QString, QAction*> scalarFieldActionHash;
 
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
-
   vtkUnstructuredGrid *volumeGrid;
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
-
   vtkActor *isoContourActor;
   vtkActor *scalarFieldActor;
   vtkActor *wireframeActor;
   vtkScalarBarActor *colorBarActor;
   vtkTextActor *fieldNameActor;
-
-  vtkDataSetMapper *scalarFieldMapper;
 
   IsoContours *isoContours; // ui
 };

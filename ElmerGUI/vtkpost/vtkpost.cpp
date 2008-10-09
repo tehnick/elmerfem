@@ -149,30 +149,32 @@ VtkPost::VtkPost(QWidget *parent)
   createMenus();
   createToolbars();
   createStatusBar();
-  
-  epMesh = new EpMesh;
 
+  // VTK:
+  //-----
   volumeGrid = vtkUnstructuredGrid::New();
   surfaceGrid = vtkUnstructuredGrid::New();
   lineGrid = vtkUnstructuredGrid::New();
-
-  postFileName = "";
-  postFileRead = false;
-
-  scalarFields = 0;
-  scalarField = new ScalarField[100]; // fixed max.
-  currentScalarFieldAction = NULL;
-
-  isoContourActor = NULL;
-  scalarFieldActor = NULL;
-  wireframeActor = NULL;
-  colorBarActor = NULL;
-  fieldNameActor = NULL;
-
-  scalarFieldMapper = vtkDataSetMapper::New();
-
+  isoContourActor = vtkActor::New();
+  scalarFieldActor = vtkActor::New();
+  wireframeActor = vtkActor::New();
+  colorBarActor = vtkScalarBarActor::New();
+  fieldNameActor = vtkTextActor::New();
+  
+  // User interfaces:
+  //-----------------
   isoContours = new IsoContours;
   connect(isoContours, SIGNAL(drawIsoContourSignal()), this, SLOT(drawIsoContourSlot()));
+
+  // Ep-data:
+  //----------
+  epMesh = new EpMesh;
+  postFileName = "";
+  postFileRead = false;
+  scalarFields = 0;
+  scalarField = new ScalarField[100]; // fixed max.
+  currentScalarFieldIndex = 0;
+  currentScalarFieldName = "";
 
   // Central widget:
   //----------------
@@ -296,8 +298,6 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Open the post file:
   //=====================
-  scalarFieldActionHash.clear();
-
   this->postFileName = postFileName;
   this->postFileRead = false;
 
@@ -479,10 +479,10 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
   viewScalarMenu->addAction(sf->menuAction);
-  scalarFieldActionHash.insert(sf->name, sf->menuAction);
   if ( scalarFields==1 ) {
     sf->menuAction->setChecked(true);
-    currentScalarFieldAction = sf->menuAction;
+    currentScalarFieldIndex = 0;
+    currentScalarFieldName = sf->name;
   } else {
     sf->menuAction->setChecked(false);
   } 
@@ -602,7 +602,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 void VtkPost::redrawSlot()
 {  
   drawWireframeSlot();
-  drawScalarSlot(currentScalarFieldAction);
+  drawScalarSlot(NULL);
   drawColorBarSlot();
   drawFieldNameSlot();
   renderer->ResetCamera();
@@ -620,19 +620,16 @@ void VtkPost::drawFieldNameSlot()
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
   if(!drawFieldNameAct->isChecked()) return;
-  if(currentScalarFieldAction == NULL) return;
+  if(currentScalarFieldName.isEmpty()) return;
 
   // Draw field name (scalar field):
   //--------------------------------
-  QString fieldName = currentScalarFieldAction->text();
+  QString fieldName = currentScalarFieldName;
 
-  if(fieldName.isEmpty())
-    return;
+  if(fieldName.isEmpty()) return;
   
-  fieldNameActor = vtkTextActor::New();
   fieldNameActor->SetDisplayPosition(15, 15);
   fieldNameActor->SetInput(fieldName.toAscii().data());
-
   fieldNameActor->GetTextProperty()->SetFontSize(24);
   fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
   fieldNameActor->GetTextProperty()->BoldOn();
@@ -641,8 +638,6 @@ void VtkPost::drawFieldNameSlot()
   fieldNameActor->GetTextProperty()->SetColor(0, 0, 1);
 
   renderer->AddActor2D(fieldNameActor);
-
-  fieldNameActor->Delete();
 }
 
 
@@ -662,8 +657,6 @@ void VtkPost::drawColorBarSlot()
   //----------------
   vtkTextMapper *tMapper = vtkTextMapper::New();
 
-  colorBarActor = vtkScalarBarActor::New();
-
   // is this ok?
   colorBarActor->GetLabelTextProperty()->SetFontSize(16);
   colorBarActor->GetLabelTextProperty()->SetFontFamilyToArial();
@@ -671,13 +664,10 @@ void VtkPost::drawColorBarSlot()
   colorBarActor->GetLabelTextProperty()->ItalicOn();
   // colorBarActor->GetLabelTextProperty()->ShadowOn();
   colorBarActor->GetLabelTextProperty()->SetColor(0, 0, 1);
-
   colorBarActor->SetMapper(tMapper);
-  colorBarActor->SetLookupTable(scalarFieldMapper->GetLookupTable());
 
   renderer->AddActor(colorBarActor);
   
-  colorBarActor->Delete();
   tMapper->Delete();
 }
 
@@ -696,12 +686,14 @@ void VtkPost::drawWireframeSlot()
 
 
   // ?????
-  vtkIdType nofCells = surfaceGrid->GetNumberOfCells();
-
+  // Now all this should be replaced by displaying the edges
+  // from the surfaceGrid. No need to regenerate new structures.
 
   // Draw the wireframe mesh:
   //-------------------------
   vtkPolyData *wireframe = vtkPolyData::New();
+
+
 
   // Points:
   //--------
@@ -793,21 +785,17 @@ void VtkPost::drawWireframeSlot()
 
   // Actor:
   //-------
-  wireframeActor = vtkActor::New();
   wireframeActor->SetMapper(wireframeMapper);
 
   // Renderer:
   //----------
   renderer->AddActor(wireframeActor);
-  renderer->ResetCamera();
-  // renderer->GetRenderWindow()->Render();
 
   // wireframeActor->GetProperty()->SetLineWidth(1.5);
 
   // Clean up:
   //-----------
   lut->Delete();
-  wireframeActor->Delete();
   wireframeMapper->Delete();
   wireframe->Delete();
 }
@@ -852,9 +840,8 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   }
 
   if(shouldReturn) return;
-  if(index < 0) return;
+  if(index < 0) index = currentScalarFieldIndex;
 
-  currentScalarFieldAction = triggeredAction;
   sf = &scalarField[index];
   sf->menuAction->setChecked(true);
 
@@ -869,29 +856,31 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
   // Mapper:
   //--------
+  vtkDataSetMapper *scalarFieldMapper = vtkDataSetMapper::New();
   scalarFieldMapper->SetInput(surfaceGrid);
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
+  colorBarActor->SetLookupTable(scalarFieldMapper->GetLookupTable());
 
   // Actor:
   //-------
-  scalarFieldActor = vtkActor::New();
   scalarFieldActor->SetMapper(scalarFieldMapper);
 
   // Renderer:
   //-----------
   renderer->AddActor(scalarFieldActor);
-  renderer->ResetCamera();
 
   // Update color bar && field name:
   //---------------------------------
+  currentScalarFieldIndex = index;
+  currentScalarFieldName = sf->name;
   drawColorBarSlot();
-  drawFieldNameSlot();
+  drawFieldNameSlot();  
 
   // Clean up:
   //-----------
   scalars->Delete();
-  scalarFieldActor->Delete();
+  scalarFieldMapper->Delete();
 }
 
 
@@ -918,6 +907,7 @@ void VtkPost::drawIsoContourSlot()
   // Scalars:
   //----------
   int index = isoContours->ui.variableCombo->currentIndex();
+  QString name = isoContours->ui.variableCombo->currentText();
   int contours = isoContours->ui.contoursSpin->value() + 1;
   double minVal = isoContours->ui.contoursMinEdit->text().toDouble();
   double maxVal = isoContours->ui.contoursMaxEdit->text().toDouble();
@@ -946,16 +936,22 @@ void VtkPost::drawIsoContourSlot()
   mapper->SetInputConnection(normals->GetOutputPort());
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(sf->minVal, sf->maxVal);
+  colorBarActor->SetLookupTable(mapper->GetLookupTable());
 
   // Actor:
   //-------
-  isoContourActor = vtkActor::New();
   isoContourActor->SetMapper(mapper);
 
   // Renderer:
   //-----------
   renderer->AddActor(isoContourActor);
-  renderer->ResetCamera();
+
+  // Redraw text && colorbar:
+  //--------------------------
+  currentScalarFieldIndex = index;
+  currentScalarFieldName = name;
+  drawColorBarSlot();
+  drawFieldNameSlot();  
 
   // Clean up:
   //----------
@@ -963,5 +959,4 @@ void VtkPost::drawIsoContourSlot()
   iso->Delete();
   normals->Delete();
   mapper->Delete();
-  isoContourActor->Delete();
 }
