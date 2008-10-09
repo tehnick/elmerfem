@@ -49,8 +49,10 @@
 class vtkRenderer;
 class vtkActor;
 class vtkScalarBarActor;
-class vtkPolyDataMapper;
+class vtkDataSetMapper;
+// class vtkPolyDataMapper;
 class vtkTextActor;
+class vtkUnstructuredGrid;
 
 // EpNode:
 //========
@@ -161,7 +163,6 @@ private:
   ScalarField* addScalarField(QString, int);
 
   EpMesh *epMesh;
-  EpMesh *sharpEdges;
 
   QString postFileName;
   bool postFileRead;
@@ -176,15 +177,20 @@ private:
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
 
+  vtkUnstructuredGrid *volumeGrid;
+  vtkUnstructuredGrid *surfaceGrid;
+  vtkUnstructuredGrid *lineGrid;
+
   vtkActor *isoContourActor;
   vtkActor *scalarFieldActor;
   vtkActor *wireframeActor;
   vtkScalarBarActor *colorBarActor;
   vtkTextActor *fieldNameActor;
 
-  vtkPolyDataMapper *scalarFieldMapper;
+  // vtkPolyDataMapper *scalarFieldMapper;
+  vtkDataSetMapper *scalarFieldMapper;
 
-  IsoContours *isoContours;
+  IsoContours *isoContours; // ui
 };
 
 #endif // VTKPOST_H

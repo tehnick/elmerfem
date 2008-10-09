@@ -62,6 +62,8 @@
 #include <vtkTextActor.h>
 #include <vtkTextProperty.h>
 #include <vtkTetra.h>
+#include <vtkTriangle.h>
+#include <vtkLine.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkDataSetMapper.h>
 #include <vtkContourFilter.h>
@@ -149,7 +151,10 @@ VtkPost::VtkPost(QWidget *parent)
   createStatusBar();
   
   epMesh = new EpMesh;
-  sharpEdges = NULL;
+
+  volumeGrid = vtkUnstructuredGrid::New();
+  surfaceGrid = vtkUnstructuredGrid::New();
+  lineGrid = vtkUnstructuredGrid::New();
 
   postFileName = "";
   postFileRead = false;
@@ -250,7 +255,6 @@ void VtkPost::createMenus()
   editMenu = menuBar()->addMenu(tr("&Edit"));
   editGroupsMenu = new QMenu(tr("Groups"));
   editMenu->addMenu(editGroupsMenu);
-  connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
 
   // View menu:
   //-----------
@@ -474,6 +478,11 @@ bool VtkPost::readPostFile(QString postFileName)
   }
 
   this->postFileRead = true;
+
+  groupChangedSlot(NULL);
+
+  connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
+
   redrawSlot();
 
   return true;
@@ -486,14 +495,104 @@ void VtkPost::exitSlot()
   close();
 }
 
+
+
 // Group selection changed:
 //----------------------------------------------------------------------
 void VtkPost::groupChangedSlot(QAction *groupAction)
 {
-  // Status of groupAction has changed
+  // Status of groupAction has changed: regenerate grids
+  //-----------------------------------------------------
+  volumeGrid->Reset();
+  surfaceGrid->Reset();
+  lineGrid->Reset();
+
+  // Points:
+  //---------
+  vtkPoints *points = vtkPoints::New();
+  points->SetNumberOfPoints(epMesh->epNodes);
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    EpNode *epn = &epMesh->epNode[i];
+    points->InsertPoint(i, epn->x);
+  }
+  volumeGrid->SetPoints(points);
+  surfaceGrid->SetPoints(points);
+  lineGrid->SetPoints(points);
+  points->Delete();
+
+  // Volume grid:
+  //---------------
+  vtkTetra *tetra = vtkTetra::New();
+  for(int i = 0; i < epMesh->epElements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+
+    if(epe->code == 504) {
+      QString groupName = epe->groupName;
+      if(groupName.isEmpty()) continue;
+
+      QAction *groupAction = groupActionHash.value(groupName);
+      if(groupAction == NULL) continue;
+      
+      for(int j = 0; j < 4; j++)
+	tetra->GetPointIds()->SetId(j, epe->index[j]);
+      
+      if(groupAction->isChecked())
+	volumeGrid->InsertNextCell(tetra->GetCellType(), tetra->GetPointIds());
+    }
+
+  }
+  tetra->Delete();
+
+  // Surface grid:
+  //---------------
+  vtkTriangle *tria = vtkTriangle::New();
+  for(int i = 0; i < epMesh->epElements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+
+    if(epe->code == 303) {
+      QString groupName = epe->groupName;
+      if(groupName.isEmpty()) continue;
+
+      QAction *groupAction = groupActionHash.value(groupName);
+      if(groupAction == NULL) continue;
+      
+      for(int j = 0; j < 3; j++)
+	tria->GetPointIds()->SetId(j, epe->index[j]);
+      
+      if(groupAction->isChecked())
+	surfaceGrid->InsertNextCell(tria->GetCellType(), tria->GetPointIds());
+    }
+
+  }
+  tria->Delete();
+
+  // Line grid:
+  //---------------
+  vtkLine *line = vtkLine::New();
+  for(int i = 0; i < epMesh->epElements; i++) {
+    EpElement *epe = &epMesh->epElement[i];
+
+    if(epe->code == 202) {
+      QString groupName = epe->groupName;
+      if(groupName.isEmpty()) continue;
+
+      QAction *groupAction = groupActionHash.value(groupName);
+      if(groupAction == NULL) continue;
+      
+      for(int j = 0; j < 3; j++)
+	line->GetPointIds()->SetId(j, epe->index[j]);
+      
+      if(groupAction->isChecked())
+	lineGrid->InsertNextCell(line->GetCellType(), line->GetPointIds());
+    }
+
+  }
+  line->Delete();
 
   redrawSlot();
 }
+
+
 
 // Redraw:
 //----------------------------------------------------------------------
@@ -506,26 +605,19 @@ void VtkPost::redrawSlot()
   renderer->ResetCamera();
 }
 
+
+
 // Draw field name:
 //----------------------------------------------------------------------
 void VtkPost::drawFieldNameSlot()
 {
   renderer->RemoveActor(fieldNameActor);
 
-  if(epMesh == NULL)
-    return;
-
-  if(epMesh->epNodes < 1)
-    return;
-
-  if(epMesh->epElements < 1)
-    return;
-
-  if(!drawFieldNameAct->isChecked())
-    return;
-
-  if(currentScalarFieldAction == NULL)
-    return;
+  if(epMesh == NULL) return;
+  if(epMesh->epNodes < 1) return;
+  if(epMesh->epElements < 1) return;
+  if(!drawFieldNameAct->isChecked()) return;
+  if(currentScalarFieldAction == NULL) return;
 
   // Draw field name (scalar field):
   //--------------------------------
@@ -550,6 +642,8 @@ void VtkPost::drawFieldNameSlot()
   fieldNameActor->Delete();
 }
 
+
+
 // Draw color bar:
 //----------------------------------------------------------------------
 void VtkPost::drawColorBarSlot()
@@ -561,17 +655,10 @@ void VtkPost::drawColorBarSlot()
     return;
   }
 
-  if(epMesh == NULL)
-    return;
-
-  if(epMesh->epNodes < 1)
-    return;
-
-  if(epMesh->epElements < 1)
-    return;
-
-  if(!drawColorBarAct->isChecked())
-    return;
+  if(epMesh == NULL) return;
+  if(epMesh->epNodes < 1) return;
+  if(epMesh->epElements < 1) return;
+  if(!drawColorBarAct->isChecked()) return;
 
   // Draw color bar:
   //----------------
@@ -597,23 +684,17 @@ void VtkPost::drawColorBarSlot()
 }
 
 
+
 // Draw surface wireframe:
 //----------------------------------------------------------------------
 void VtkPost::drawWireframeSlot()
 {
   renderer->RemoveActor(wireframeActor);
 
-  if(epMesh == NULL)
-    return;
-
-  if(epMesh->epNodes < 1)
-    return;
-
-  if(epMesh->epElements < 1)
-    return;
-
-  if(!drawWireframeAct->isChecked())
-    return;
+  if(epMesh == NULL) return;
+  if(epMesh->epNodes < 1) return;
+  if(epMesh->epElements < 1) return;
+  if(!drawWireframeAct->isChecked()) return;
 
   // Draw the wireframe mesh:
   //-------------------------
@@ -729,23 +810,21 @@ void VtkPost::drawWireframeSlot()
 }
 
 
+
+
+
 // Draw scalar field:
 //----------------------------------------------------------------------
 void VtkPost::drawScalarSlot(QAction *triggeredAction)
 {
   renderer->RemoveActor(scalarFieldActor);
 
-  if(epMesh == NULL)
-    return;
-
-  if(epMesh->epNodes < 1)
-    return;
-
-  if(epMesh->epElements < 1)
-    return;
+  if(epMesh == NULL) return;
+  if(epMesh->epNodes < 1) return;
+  if(epMesh->epElements < 1) return;
 
   // Check which scalar menu action triggred drawing:
-  //--------------------------------------------------
+  //-------------------------------------------------
   int index = -1;
   ScalarField *sf = NULL;
   bool shouldReturn = false;
@@ -757,7 +836,7 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
       index = i;
 
       // Check if we simply want to clear the view:
-      //--------------------------------------------
+      //-------------------------------------------
       if(!sf->menuAction->isChecked())
 	shouldReturn = true;
       
@@ -769,52 +848,12 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
     }
   }
 
-  if(shouldReturn)
-    return;
+  if(shouldReturn) return;
+  if(index < 0) return;
 
-  if(index < 0)
-    return;
-
-  // Draw the scalar field:
-  //------------------------
   currentScalarFieldAction = triggeredAction;
   sf = &scalarField[index];
   sf->menuAction->setChecked(true);
-
-  vtkPolyData *surf = vtkPolyData::New();
-
-  // Points:
-  //--------
-  vtkPoints *points = vtkPoints::New();
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    EpNode *epn = &epMesh->epNode[i];
-    points->InsertPoint(i, epn->x);
-  }
-  surf->SetPoints(points);
-  points->Delete();
-
-  // Polygons:
-  //----------
-  vtkCellArray *polys = vtkCellArray::New();
-  for(int i = 0; i < epMesh->epElements; i++) {
-    EpElement *epe = &epMesh->epElement[i];
-    if((epe->code == 303) || (epe->code == 404)) {
-      QString groupName = epe->groupName;
-
-      if(groupName.isEmpty())
-	continue;
-
-      QAction *groupAction = groupActionHash.value(groupName);
-
-      if(groupAction == NULL)
-	continue;
-
-      if(groupAction->isChecked())
-	polys->InsertNextCell(epe->indexes, epe->index);
-    }
-  }
-  surf->SetPolys(polys);
-  polys->Delete();
 
   // Scalars:
   //---------
@@ -823,13 +862,13 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
     double fieldValue = sf->value[i];
     scalars->InsertTuple1(i, fieldValue);
   }
-  surf->GetPointData()->SetScalars(scalars);
-  scalars->Delete();
+  surfaceGrid->GetPointData()->SetScalars(scalars);
 
   // Mapper:
   //--------
-  if(!scalarFieldMapper) scalarFieldMapper = vtkPolyDataMapper::New();
-  scalarFieldMapper->SetInput(surf);
+  // if(!scalarFieldMapper) scalarFieldMapper = vtkPolyDataMapper::New();
+  if(!scalarFieldMapper) scalarFieldMapper = vtkDataSetMapper::New();
+  scalarFieldMapper->SetInput(surfaceGrid);
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
 
@@ -842,7 +881,6 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
   //-----------
   renderer->AddActor(scalarFieldActor);
   renderer->ResetCamera();
-  // renderer->GetRenderWindow()->Render();
 
   // Update color bar && field name:
   //---------------------------------
@@ -851,10 +889,11 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
   // Clean up:
   //-----------
+  scalars->Delete();
   scalarFieldActor->Delete();
-  // scalarFieldMapper->Delete();
-  surf->Delete();
 }
+
+
 
 
 
@@ -870,54 +909,13 @@ void VtkPost::drawIsoContourSlot()
 {
   renderer->RemoveActor(isoContourActor);
 
-  if(epMesh == NULL)
-    return;
+  if(epMesh == NULL) return;
+  if(epMesh->epNodes < 1) return;
+  if(epMesh->epElements < 1) return;
+  if(!drawIsoContourAct->isChecked()) return;
 
-  if(epMesh->epNodes < 1)
-    return;
-
-  if(epMesh->epElements < 1)
-    return;
-
-  if(!drawIsoContourAct->isChecked())
-    return;
-
-  // New grid:
+  // Scalars:
   //----------
-  vtkUnstructuredGrid *grid = vtkUnstructuredGrid::New();
-
-  // Points to grid:
-  //-----------------
-  vtkPoints *points = vtkPoints::New();
-  points->SetNumberOfPoints(epMesh->epNodes);
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    EpNode *epn = &epMesh->epNode[i];
-    points->InsertPoint(i, epn->x);
-  }
-  grid->SetPoints(points);
-
-  // Tetras to grid:
-  //-----------------
-  vtkTetra *tetra = vtkTetra::New();
-  for(int i = 0; i < epMesh->epElements; i++) {
-    EpElement *epe = &epMesh->epElement[i];
-    if(epe->code == 504) {
-      QString groupName = epe->groupName;
-      if(groupName.isEmpty()) continue;
-
-      QAction *groupAction = groupActionHash.value(groupName);
-      if(groupAction == NULL) continue;
-      
-      for(int j = 0; j < 4; j++)
-	tetra->GetPointIds()->SetId(j, epe->index[j]);
-      
-      if(groupAction->isChecked())
-	grid->InsertNextCell(tetra->GetCellType(), tetra->GetPointIds());
-    }
-  }
-
-  // Scalars to grid:
-  //-----------------
   int index = isoContours->ui.variableCombo->currentIndex();
   int contours = isoContours->ui.contoursSpin->value() + 1;
   double minVal = isoContours->ui.contoursMinEdit->text().toDouble();
@@ -929,12 +927,12 @@ void VtkPost::drawIsoContourSlot()
     double fieldValue = sf->value[i];
     scalars->InsertTuple1(i, fieldValue);
   }
-  grid->GetPointData()->SetScalars(scalars);
+  volumeGrid->GetPointData()->SetScalars(scalars);
 
   // Isosourface:
   //--------------
   vtkContourFilter *iso = vtkContourFilter::New();
-  iso->SetInput(grid);
+  iso->SetInput(volumeGrid);
   iso->GenerateValues(contours, minVal, maxVal);
 
   vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
@@ -958,36 +956,9 @@ void VtkPost::drawIsoContourSlot()
   renderer->AddActor(isoContourActor);
   renderer->ResetCamera();
 
-#if 0
-  // Add outline:
-  //-------------
-  vtkOutlineFilter *outline = vtkOutlineFilter::New();
-  outline->SetInput(grid);
-  vtkPolyDataMapper *outlineMapper = vtkPolyDataMapper::New();
-  outlineMapper->SetInputConnection(outline->GetOutputPort());
-  vtkActor *outlineActor = vtkActor::New();
-  outlineActor->SetMapper(outlineMapper);
-  renderer->AddActor(outlineActor);
-  outline->Delete();
-  outlineMapper->Delete();
-  outlineActor->Delete();
-#endif
-
-  // Update color bar && field name:
-  //---------------------------------
-  QString name = isoContours->ui.variableCombo->currentText();
-  currentScalarFieldAction = scalarFieldActionHash.value(name);
-
-  // (fix) wrong mapper for color bars...
-  drawColorBarSlot();
-  drawFieldNameSlot();
-
   // Clean up:
   //----------
-  points->Delete();
-  tetra->Delete();
   scalars->Delete();
-  grid->Delete();
   iso->Delete();
   normals->Delete();
   mapper->Delete();
