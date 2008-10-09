@@ -50,7 +50,6 @@ class vtkRenderer;
 class vtkActor;
 class vtkScalarBarActor;
 class vtkDataSetMapper;
-// class vtkPolyDataMapper;
 class vtkTextActor;
 class vtkUnstructuredGrid;
 
@@ -187,7 +186,6 @@ private:
   vtkScalarBarActor *colorBarActor;
   vtkTextActor *fieldNameActor;
 
-  // vtkPolyDataMapper *scalarFieldMapper;
   vtkDataSetMapper *scalarFieldMapper;
 
   IsoContours *isoContours; // ui

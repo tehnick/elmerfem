@@ -169,7 +169,7 @@ VtkPost::VtkPost(QWidget *parent)
   colorBarActor = NULL;
   fieldNameActor = NULL;
 
-  scalarFieldMapper = NULL;
+  scalarFieldMapper = vtkDataSetMapper::New();
 
   isoContours = new IsoContours;
   connect(isoContours, SIGNAL(drawIsoContourSignal()), this, SLOT(drawIsoContourSlot()));
@@ -282,31 +282,9 @@ void VtkPost::createStatusBar()
 {
 }
 
-// Add scalar field:
-//----------------------------------------------------------------------
-ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
-{
-  ScalarField *sf = &scalarField[scalarFields++];
 
-  sf->menuAction = new QAction(fieldName, this);
-  sf->menuAction->setCheckable(true);
-  sf->name = fieldName;
-  sf->values = nodes;
-  sf->value = new double[nodes];
-  sf->minVal = +9.9e99;
-  sf->maxVal = -9.9e99;
-  viewScalarMenu->addAction(sf->menuAction);
-  scalarFieldActionHash.insert(sf->name, sf->menuAction);
-  if ( scalarFields==1 ) {
-    sf->menuAction->setChecked(true);
-    currentScalarFieldAction = sf->menuAction;
-  } else {
-    sf->menuAction->setChecked(false);
-  } 
-  return sf;
-}
 
-// Read in results:
+// Read in ep-results:
 //----------------------------------------------------------------------
 bool VtkPost::readPostFile(QString postFileName)
 {
@@ -478,17 +456,42 @@ bool VtkPost::readPostFile(QString postFileName)
   }
 
   this->postFileRead = true;
-
   groupChangedSlot(NULL);
 
   connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
 
   redrawSlot();
-
   return true;
 }
 
-// Exit VTK widget:
+
+// Add a scalar field:
+//----------------------------------------------------------------------
+ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
+{
+  ScalarField *sf = &scalarField[scalarFields++];
+
+  sf->menuAction = new QAction(fieldName, this);
+  sf->menuAction->setCheckable(true);
+  sf->name = fieldName;
+  sf->values = nodes;
+  sf->value = new double[nodes];
+  sf->minVal = +9.9e99;
+  sf->maxVal = -9.9e99;
+  viewScalarMenu->addAction(sf->menuAction);
+  scalarFieldActionHash.insert(sf->name, sf->menuAction);
+  if ( scalarFields==1 ) {
+    sf->menuAction->setChecked(true);
+    currentScalarFieldAction = sf->menuAction;
+  } else {
+    sf->menuAction->setChecked(false);
+  } 
+  return sf;
+}
+
+
+
+// Close the widget:
 //----------------------------------------------------------------------
 void VtkPost::exitSlot()
 {
@@ -650,11 +653,6 @@ void VtkPost::drawColorBarSlot()
 {
   renderer->RemoveActor(colorBarActor);
 
-  if(scalarFieldMapper == NULL) {
-    drawColorBarAct->setChecked(false);
-    return;
-  }
-
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
@@ -695,6 +693,11 @@ void VtkPost::drawWireframeSlot()
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
   if(!drawWireframeAct->isChecked()) return;
+
+
+  // ?????
+  vtkIdType nofCells = surfaceGrid->GetNumberOfCells();
+
 
   // Draw the wireframe mesh:
   //-------------------------
@@ -866,8 +869,6 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
   // Mapper:
   //--------
-  // if(!scalarFieldMapper) scalarFieldMapper = vtkPolyDataMapper::New();
-  if(!scalarFieldMapper) scalarFieldMapper = vtkDataSetMapper::New();
   scalarFieldMapper->SetInput(surfaceGrid);
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
