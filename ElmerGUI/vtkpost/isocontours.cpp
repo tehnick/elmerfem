@@ -55,8 +55,6 @@ IsoContours::IsoContours(QWidget *parent)
   connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
 
-  ui.colorsGroup->setEnabled(true);
-
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 

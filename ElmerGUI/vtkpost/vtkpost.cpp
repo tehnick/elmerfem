@@ -70,6 +70,7 @@
 #include <vtkPolyDataNormals.h>
 #include <vtkOutlineFilter.h>
 #include <vtkCleanPolyData.h>
+#include <vtkExtractEdges.h>
 
 using namespace std;
 
@@ -162,6 +163,13 @@ VtkPost::VtkPost(QWidget *parent)
   colorBarActor = vtkScalarBarActor::New();
   fieldNameActor = vtkTextActor::New();
   
+  bwLookupTable = vtkLookupTable::New();
+  bwLookupTable->SetNumberOfTableValues(3);
+  bwLookupTable->SetTableRange(0.0, 1.0);
+  bwLookupTable->SetTableValue(0, 0.0, 0.0, 0.0);
+  bwLookupTable->SetTableValue(1, 1.0, 1.0, 1.0);
+  bwLookupTable->Build();
+
   // User interfaces:
   //-----------------
   isoContours = new IsoContours;
@@ -234,7 +242,7 @@ void VtkPost::createActions()
   drawFieldNameAct->setChecked(true);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
-  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours (test)"), this);
+  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours)"), this);
   drawIsoContourAct->setStatusTip("Draw isocontours");
   drawIsoContourAct->setCheckable(true);
   drawIsoContourAct->setChecked(false);
@@ -480,13 +488,15 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
   viewScalarMenu->addAction(sf->menuAction);
-  if ( scalarFields==1 ) {
+
+  if(scalarFields == 1) {
     sf->menuAction->setChecked(true);
     currentScalarFieldIndex = 0;
     currentScalarFieldName = sf->name;
   } else {
     sf->menuAction->setChecked(false);
   } 
+
   return sf;
 }
 
@@ -685,125 +695,23 @@ void VtkPost::drawWireframeSlot()
   if(epMesh->epElements < 1) return;
   if(!drawWireframeAct->isChecked()) return;
 
+  vtkExtractEdges *edges = vtkExtractEdges::New();
+  edges->SetInput(surfaceGrid);
 
-  // ?????
-  // Now all this should be replaced by displaying the edges
-  // from the surfaceGrid. No need to regenerate new structures.
+  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
+  mapper->SetInputConnection(edges->GetOutputPort());
+  mapper->SetLookupTable(bwLookupTable);
 
-  // Draw the wireframe mesh:
-  //-------------------------
-  vtkPolyData *wireframe = vtkPolyData::New();
-
-
-
-  // Points:
-  //--------
-  vtkPoints *points = vtkPoints::New();
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    EpNode *epn = &epMesh->epNode[i];
-    points->InsertPoint(i, epn->x);
-  }
-  wireframe->SetPoints(points);
-  points->Delete();
-
-  // Line segments:
-  //---------------
-  int n[2];
-  vtkCellArray *segments = vtkCellArray::New();
-  for(int i = 0; i < epMesh->epElements; i++) {
-    EpElement *epe = &epMesh->epElement[i];
-    QString groupName = epe->groupName;
-
-    if(groupName.isEmpty())
-      continue;
-
-    QAction *groupAction = groupActionHash.value(groupName);
-
-    if(groupAction == NULL)
-      continue;
-
-    if(epe->code == 303) {
-      if(groupAction->isChecked()) {
-	n[0] = epe->index[0];
-	n[1] = epe->index[1];
-	segments->InsertNextCell(2, n);
-	
-	n[0] = epe->index[1];
-	n[1] = epe->index[2];
-	segments->InsertNextCell(2, n);
-	
-	n[0] = epe->index[2];
-	n[1] = epe->index[0];
-	segments->InsertNextCell(2, n);
-      }
-    }
-
-    if(epe->code == 404) {
-      if(groupAction->isChecked()) {
-	n[0] = epe->index[0];
-	n[1] = epe->index[1];
-	segments->InsertNextCell(2, n);
-	
-	n[0] = epe->index[1];
-	n[1] = epe->index[2];
-	segments->InsertNextCell(2, n);
-	
-	n[0] = epe->index[2];
-	n[1] = epe->index[3];
-	segments->InsertNextCell(2, n);
-
-	n[0] = epe->index[3];
-	n[1] = epe->index[0];
-	segments->InsertNextCell(2, n);
-      }
-    }
-  }
-  wireframe->SetLines(segments);
-  segments->Delete();
-
-  // Scalars:
-  //---------
-  vtkFloatArray *scalars = vtkFloatArray::New();
-  for(int i = 0; i < epMesh->epNodes; i++)
-    scalars->InsertTuple1(i, 0.0);
-  wireframe->GetPointData()->SetScalars(scalars);
-  scalars->Delete();
-
-  // Lookuptable for black-and-white colors:
-  //----------------------------------------
-  vtkLookupTable *lut = vtkLookupTable::New();
-  lut->SetNumberOfTableValues(3);
-  lut->SetTableRange(0.0, 1.0);
-  lut->SetTableValue(0, 0.0, 0.0, 0.0);
-  lut->SetTableValue(1, 1.0, 1.0, 1.0);
-  lut->Build();
-
-  // Mapper:
-  //--------
-  vtkPolyDataMapper *wireframeMapper = vtkPolyDataMapper::New();
-  wireframeMapper->SetInput(wireframe);
-  wireframeMapper->SetLookupTable(lut);
-
-  // Actor:
-  //-------
-  wireframeActor->SetMapper(wireframeMapper);
-
-  // Renderer:
-  //----------
+  wireframeActor->SetMapper(mapper);
   renderer->AddActor(wireframeActor);
 
-  // wireframeActor->GetProperty()->SetLineWidth(1.5);
-
-  // Clean up:
-  //-----------
-  lut->Delete();
-  wireframeMapper->Delete();
-  wireframe->Delete();
+  mapper->Delete();
+  edges->Delete();
 }
 
 
 
-// Draw scalar field:
+// Draw scalar field on surface:
 //----------------------------------------------------------------------
 void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
 {
@@ -908,9 +816,7 @@ void VtkPost::drawIsoContourSlot()
   int contours = isoContours->ui.contoursSpin->value() + 1;
   double contourMinVal = isoContours->ui.contoursMinEdit->text().toDouble();
   double contourMaxVal = isoContours->ui.contoursMaxEdit->text().toDouble();
-
   bool useNormals = isoContours->ui.normalsCheck->isChecked();
-
   int colorIndex = isoContours->ui.colorCombo->currentIndex();
   QString colorName = isoContours->ui.colorCombo->currentText();
   double colorMinVal = isoContours->ui.colorMinEdit->text().toDouble();
@@ -921,16 +827,19 @@ void VtkPost::drawIsoContourSlot()
   ScalarField *sfContour = &scalarField[contourIndex];
   ScalarField *sfColor = &scalarField[colorIndex];
 
+  vtkFloatArray *colorScalars = vtkFloatArray::New();
   vtkFloatArray *contourScalars = vtkFloatArray::New();
-  vtkFloatArray *colorScalars = vtkFloatArray::New(); 
+  colorScalars->SetNumberOfComponents(1);
+  colorScalars->SetNumberOfTuples(epMesh->epNodes);
   colorScalars->SetName("Color");
+  contourScalars->SetNumberOfComponents(1);
+  contourScalars->SetNumberOfTuples(epMesh->epNodes);
   contourScalars->SetName("Contour");
 
   for(int i = 0; i < epMesh->epNodes; i++) {
-    colorScalars->InsertTuple1(i, sfColor->value[i]);
-    contourScalars->InsertTuple1(i, sfContour->value[i]);
+    colorScalars->SetComponent( i, 0, sfColor->value[i] );
+    contourScalars->SetComponent( i, 0, sfContour->value[i] );
   }
-
   volumeGrid->GetPointData()->SetScalars(contourScalars);
   volumeGrid->GetPointData()->AddArray(colorScalars);
 
@@ -941,16 +850,16 @@ void VtkPost::drawIsoContourSlot()
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
-
   vtkPolyDataNormals *normals;
   if(useNormals) {
     normals = vtkPolyDataNormals::New();
     normals->SetInputConnection(iso->GetOutputPort());
     normals->SetFeatureAngle(45);
   }
+
   // Mapper:
   //--------
-  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
 
   if(useNormals) {
     mapper->SetInputConnection(normals->GetOutputPort());
