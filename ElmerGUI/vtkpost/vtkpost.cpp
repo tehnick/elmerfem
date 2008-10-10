@@ -1002,7 +1002,7 @@ void VtkPost::drawIsoSurfaceSlot()
 
 
 
-// Draw iso surfaces (3D):
+// Draw iso contours (2D):
 //----------------------------------------------------------------------
 void VtkPost::showIsoContourDialogSlot()
 {
@@ -1031,6 +1031,7 @@ void VtkPost::drawIsoContourSlot()
   int contourIndex = isoContour->ui.contoursCombo->currentIndex();
   QString contourName = isoContour->ui.contoursCombo->currentText();
   int contours = isoContour->ui.contoursSpin->value() + 1;
+  int lineWidth = isoContour->ui.lineWidthSpin->value();
   double contourMinVal = isoContour->ui.contoursMinEdit->text().toDouble();
   double contourMaxVal = isoContour->ui.contoursMaxEdit->text().toDouble();
   int colorIndex = isoContour->ui.colorCombo->currentIndex();
@@ -1080,6 +1081,7 @@ void VtkPost::drawIsoContourSlot()
   // Actor:
   //-------
   isoContourActor->SetMapper(mapper);
+  isoContourActor->GetProperty()->SetLineWidth(lineWidth);
 
   // Renderer:
   //-----------
