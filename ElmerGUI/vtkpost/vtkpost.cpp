@@ -239,10 +239,10 @@ void VtkPost::createActions()
   drawFieldNameAct = new QAction(QIcon(""), tr("Field name"), this);
   drawFieldNameAct->setStatusTip("Draw field name");
   drawFieldNameAct->setCheckable(true);
-  drawFieldNameAct->setChecked(true);
+  drawFieldNameAct->setChecked(false);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
-  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours)"), this);
+  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours"), this);
   drawIsoContourAct->setStatusTip("Draw isocontours");
   drawIsoContourAct->setCheckable(true);
   drawIsoContourAct->setChecked(false);
@@ -617,6 +617,7 @@ void VtkPost::redrawSlot()
   drawColorBarSlot();
   drawFieldNameSlot();
   renderer->ResetCamera();
+  qvtkWidget->GetRenderWindow()->Render();
 }
 
 
@@ -649,6 +650,8 @@ void VtkPost::drawFieldNameSlot()
   fieldNameActor->GetTextProperty()->SetColor(0, 0, 1);
 
   renderer->AddActor2D(fieldNameActor);
+
+  qvtkWidget->GetRenderWindow()->Render();
 }
 
 
@@ -667,6 +670,7 @@ void VtkPost::drawColorBarSlot()
   // Draw color bar:
   //----------------
   vtkTextMapper *tMapper = vtkTextMapper::New();
+  colorBarActor->SetMapper(tMapper);
 
   // is this ok?
   colorBarActor->GetLabelTextProperty()->SetFontSize(16);
@@ -675,10 +679,20 @@ void VtkPost::drawColorBarSlot()
   colorBarActor->GetLabelTextProperty()->ItalicOn();
   // colorBarActor->GetLabelTextProperty()->ShadowOn();
   colorBarActor->GetLabelTextProperty()->SetColor(0, 0, 1);
-  colorBarActor->SetMapper(tMapper);
+  
+  colorBarActor->GetTitleTextProperty()->SetFontSize(16);
+  colorBarActor->GetTitleTextProperty()->SetFontFamilyToArial();
+  colorBarActor->GetTitleTextProperty()->BoldOn();
+  colorBarActor->GetTitleTextProperty()->ItalicOn();
+  // colorBarActor->GetTitleTextProperty()->ShadowOn();
+  colorBarActor->GetTitleTextProperty()->SetColor(0, 0, 1);
+  
+  colorBarActor->SetTitle(currentScalarFieldName.toAscii().data());
 
   renderer->AddActor(colorBarActor);
   
+  qvtkWidget->GetRenderWindow()->Render();
+
   tMapper->Delete();
 }
 
@@ -704,6 +718,8 @@ void VtkPost::drawWireframeSlot()
 
   wireframeActor->SetMapper(mapper);
   renderer->AddActor(wireframeActor);
+
+  qvtkWidget->GetRenderWindow()->Render();
 
   mapper->Delete();
   edges->Delete();
@@ -784,6 +800,8 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
   drawColorBarSlot();
   drawFieldNameSlot();  
 
+  qvtkWidget->GetRenderWindow()->Render();
+
   // Clean up:
   //-----------
   scalars->Delete();
@@ -796,8 +814,15 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
 //----------------------------------------------------------------------
 void VtkPost::showIsoContourDialogSlot()
 {
-  isoContours->populateWidgets(scalarField, scalarFields);
-  isoContours->show();
+  if(drawIsoContourAct->isChecked()) {
+    // setup
+    isoContours->populateWidgets(scalarField, scalarFields);
+    isoContours->show();
+  } else {
+    // remove
+    isoContours->close();
+    drawIsoContourSlot();
+  }
 }
 
 void VtkPost::drawIsoContourSlot()
@@ -883,10 +908,12 @@ void VtkPost::drawIsoContourSlot()
 
   // Redraw text && colorbar:
   //--------------------------
-  currentScalarFieldIndex = contourIndex;
-  currentScalarFieldName = contourName;
+  currentScalarFieldIndex = colorIndex;
+  currentScalarFieldName = colorName;
   drawColorBarSlot();
   drawFieldNameSlot();  
+
+  qvtkWidget->GetRenderWindow()->Render();
 
   // Clean up:
   //----------
