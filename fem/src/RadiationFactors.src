@@ -111,9 +111,23 @@
      SAVE TimesVisited 
 
      EXTERNAL RMatvec
-       
 
      Model => CurrentModel
+
+     Found = .FALSE.
+     DO i=1,Model % NumberOfBCs
+	RadiationFlag = ListGetString( Model % BCs(i) % Values, &
+             'Radiation', GotIt )
+        IF (GotIt) THEN
+          IF ( RadiationFlag(1:12) == 'diffuse gray' ) Found = .TRUE.
+        END IF
+     END DO
+     IF(.NOT. Found) RETURN
+
+     CALL Info('RadiationFactors','----------------------------------------------------',LEVEL=4)
+     CALL Info('RadiationFactors','Computing radiation factors as needed',LEVEL=4)
+     CALL Info('RadiationFactors','----------------------------------------------------',LEVEL=4)
+
      Mesh => TSolver % Mesh
      CALL SetCurrentMesh( Model, Mesh )
 
@@ -149,10 +163,6 @@
      IF(.NOT. (FirstTime .OR. UpdateViewFactors .OR. UpdateGebhardtFactors)) THEN
        RETURN
      END IF
-
-     CALL Info('RadiationFactors','----------------------------------------------------',LEVEL=4)
-     CALL Info('RadiationFactors','Computing radiation factors as needed',LEVEL=4)
-     CALL Info('RadiationFactors','----------------------------------------------------',LEVEL=4)
 
      IF(GeometryFixedAfter == TimesVisited) THEN
        x0(1) = 0.0
