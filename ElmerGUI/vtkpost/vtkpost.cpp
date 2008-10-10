@@ -167,13 +167,6 @@ VtkPost::VtkPost(QWidget *parent)
   fieldNameActor = vtkTextActor::New();
   featureEdgeActor = vtkActor::New();
 
-  bwLookupTable = vtkLookupTable::New();
-  bwLookupTable->SetNumberOfTableValues(3);
-  bwLookupTable->SetTableRange(0.0, 1.0);
-  bwLookupTable->SetTableValue(0, 0.0, 0.0, 0.0);
-  bwLookupTable->SetTableValue(1, 1.0, 1.0, 1.0);
-  bwLookupTable->Build();
-
   // User interfaces:
   //-----------------
   isoContours = new IsoContours;
@@ -726,9 +719,12 @@ void VtkPost::drawWireframeSlot()
 
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(edges->GetOutputPort());
-  mapper->SetLookupTable(bwLookupTable);
+  mapper->ScalarVisibilityOff();
+  mapper->SetResolveCoincidentTopologyToPolygonOffset();
 
+  wireframeActor->GetProperty()->SetColor(0, 0, 0);
   wireframeActor->SetMapper(mapper);
+
   renderer->AddActor(wireframeActor);
 
   qvtkWidget->GetRenderWindow()->Render();
@@ -769,21 +765,21 @@ void VtkPost::drawFeatureEdgesSlot()
 
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
   mapper->SetInputConnection(edges->GetOutputPort());
-  mapper->SetLookupTable(bwLookupTable);
+  mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
 
+  featureEdgeActor->GetProperty()->SetColor(0, 0, 0);
   featureEdgeActor->SetMapper(mapper);
 
   renderer->AddActor(featureEdgeActor);
   qvtkWidget->GetRenderWindow()->Render();
   
   filter->Delete();
-  triangle->Delete();
   normals->Delete();
-  mapper->Delete();
+  triangle->Delete();
   edges->Delete();
+  mapper->Delete();
 }
-
 
 
 // Draw scalar field on surface:

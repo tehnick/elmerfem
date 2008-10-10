@@ -52,7 +52,6 @@ class vtkScalarBarActor;
 class vtkDataSetMapper;
 class vtkTextActor;
 class vtkUnstructuredGrid;
-class vtkLookupTable;
 
 // EpNode:
 //========
@@ -187,8 +186,6 @@ private:
   vtkScalarBarActor *colorBarActor;
   vtkTextActor *fieldNameActor;
   vtkActor *featureEdgeActor;
-
-  vtkLookupTable *bwLookupTable;
 
   IsoContours *isoContours; // ui
 };
