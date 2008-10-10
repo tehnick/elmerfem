@@ -942,7 +942,7 @@ void VtkPost::showIsoSurfaceDialogSlot()
 void VtkPost::drawIsoSurfaceSlot()
 {
   renderer->RemoveActor(isoSurfaceActor);
-
+  
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
@@ -961,8 +961,7 @@ void VtkPost::drawIsoSurfaceSlot()
   double colorMinVal = isoSurface->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoSurface->ui.colorMaxEdit->text().toDouble();
 
-  if(contourName == "Null")
-    return;
+  if(contourName == "Null") return;
 
   // Scalars:
   //----------
@@ -998,6 +997,7 @@ void VtkPost::drawIsoSurfaceSlot()
   mapper->SelectColorArray(colorName.toAscii().data());
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
+
   colorBarActor->SetLookupTable(mapper->GetLookupTable());
   
   // Actor:
@@ -1012,14 +1012,13 @@ void VtkPost::drawIsoSurfaceSlot()
   //--------------------------
   currentScalarFieldIndex = colorIndex;
   currentScalarFieldName = colorName;
-  drawColorBarSlot();
-  drawFieldNameSlot();  
+  // drawColorBarSlot();
+  // drawFieldNameSlot();  
 
   qvtkWidget->GetRenderWindow()->Render();
 
   // Clean up:
   //----------
-  contourScalars->Delete();
   iso->Delete();
   if(useNormals) normals->Delete();
   mapper->Delete();
@@ -1104,14 +1103,13 @@ void VtkPost::drawIsoContourSlot()
   //--------------------------
   currentScalarFieldIndex = colorIndex;
   currentScalarFieldName = colorName;
-  drawColorBarSlot();
-  drawFieldNameSlot();  
+  // drawColorBarSlot();
+  // drawFieldNameSlot();  
   
   qvtkWidget->GetRenderWindow()->Render();
 
   // Clean up:
   //----------
-  contourScalars->Delete();
   iso->Delete();
   mapper->Delete();
 }
