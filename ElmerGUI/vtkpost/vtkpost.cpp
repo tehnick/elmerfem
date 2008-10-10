@@ -240,7 +240,7 @@ void VtkPost::createActions()
   drawColorBarAct = new QAction(QIcon(""), tr("Color bar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
-  drawColorBarAct->setChecked(true);
+  drawColorBarAct->setChecked(false);
   connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(drawColorBarSlot()));
 
   drawFieldNameAct = new QAction(QIcon(""), tr("Field name"), this);
@@ -349,12 +349,12 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Read field names & set up menu actions:
   //=========================================
-  if ( epMesh->epNode ) delete [] epMesh->epNode;
-  if ( epMesh->epElement ) delete [] epMesh->epElement;
+  if(epMesh->epNode) delete [] epMesh->epNode;
+  if(epMesh->epElement) delete [] epMesh->epElement;
 
-  for( int i=0;i<scalarFields; i++ ) {
+  for(int i = 0; i < scalarFields; i++ ) {
      ScalarField *sf = &scalarField[i];
-     if ( sf->value ) delete [] sf->value;
+     if(sf->value) delete [] sf->value;
   }
 
   scalarFields = 0;
@@ -366,6 +366,8 @@ bool VtkPost::readPostFile(QString postFileName)
   nullField->minVal = 0.0;
   nullField->maxVal = 0.0;
 
+  // Add the scalar fields:
+  //-----------------------
   for(int i = 0; i < components; i++) {
     QString fieldType, fieldName;
     txtStream >> fieldType >> fieldName;
@@ -405,6 +407,7 @@ bool VtkPost::readPostFile(QString postFileName)
   // Add nodes to scalar field variables:
   //-------------------------------------
   ScalarField *sf = NULL;
+
   sf = addScalarField("Nodes_x", nodes);
   for(int i = 0; i < nodes; i++) {
     sf->value[i] = epMesh->epNode[i].x[0];
@@ -451,8 +454,8 @@ bool VtkPost::readPostFile(QString postFileName)
     
     GET_TXT_STREAM
 
-    for(int j = 0; j < scalarFields - 3; j++) { // - 3 = no nodes
-      sf = &scalarField[j + 1];                 // + 1 = skip null
+    for(int j = 0; j < scalarFields - 4; j++) { // - 4 = no nodes, no null field
+      sf = &scalarField[j + 1];                 // + 1 = skip null field
       
       txtStream >> sf->value[i];
       
@@ -511,8 +514,8 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   for(int i = 0; i < nodes; i++) 
     sf->value[i] = 0.0;
 
-  sf->minVal = +9.9e99;
-  sf->maxVal = -9.9e99;
+  sf->minVal = +9.9e30;
+  sf->maxVal = -9.9e30;
 
   viewScalarMenu->addAction(sf->menuAction);
 
@@ -645,6 +648,27 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
   }
   line->Delete();
+
+  // Add scalar fields to the grids (memory consuming deep copy - optimize later):
+  //------------------------------------------------------------------------------
+  for(int i = 0; i < scalarFields; i++) {
+    ScalarField *sf = &scalarField[i];
+
+    vtkFloatArray *floatArray = vtkFloatArray::New();
+    floatArray->SetNumberOfComponents(1);
+    floatArray->SetNumberOfTuples(sf->values);
+
+    floatArray->SetName(sf->name.toAscii().data());
+
+    for(int j = 0; j < sf->values; j++)
+      floatArray->SetComponent(j, 0, sf->value[j]);
+
+    volumeGrid->GetPointData()->AddArray(floatArray);
+    surfaceGrid->GetPointData()->AddArray(floatArray);
+    lineGrid->GetPointData()->AddArray(floatArray);
+
+    floatArray->Delete();
+  }
 
   redrawSlot();
 }
@@ -859,10 +883,12 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
   // Scalars:
   //---------
   vtkFloatArray *scalars = vtkFloatArray::New();
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    double fieldValue = sf->value[i];
-    scalars->InsertTuple1(i, fieldValue);
-  }
+  scalars->SetNumberOfComponents(1);
+  scalars->SetNumberOfTuples(sf->values);
+
+  for(int i = 0; i < sf->values; i++)
+    scalars->SetComponent(i, 0, sf->value[i]);
+
   surfaceGrid->GetPointData()->SetScalars(scalars);
 
   // Mapper:
@@ -935,26 +961,14 @@ void VtkPost::drawIsoSurfaceSlot()
   double colorMinVal = isoSurface->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoSurface->ui.colorMaxEdit->text().toDouble();
 
+  if(contourName == "Null")
+    return;
+
   // Scalars:
   //----------
-  ScalarField *sfContour = &scalarField[contourIndex];
-  ScalarField *sfColor = &scalarField[colorIndex];
-
-  vtkFloatArray *colorScalars = vtkFloatArray::New();
-  vtkFloatArray *contourScalars = vtkFloatArray::New();
-  colorScalars->SetNumberOfComponents(1);
-  colorScalars->SetNumberOfTuples(epMesh->epNodes);
-  colorScalars->SetName("Color");
-  contourScalars->SetNumberOfComponents(1);
-  contourScalars->SetNumberOfTuples(epMesh->epNodes);
-  contourScalars->SetName("Contour");
-
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    colorScalars->SetComponent( i, 0, sfColor->value[i] );
-    contourScalars->SetComponent( i, 0, sfContour->value[i] );
-  }
-  volumeGrid->GetPointData()->SetScalars(contourScalars);
-  volumeGrid->GetPointData()->AddArray(colorScalars);
+  vtkPointData *volumePointData = volumeGrid->GetPointData();
+  vtkDataArray *contourScalars = volumePointData->GetArray(contourName.toAscii().data());
+  volumePointData->SetScalars(contourScalars);
 
   // Isosourfaces && normals:
   //--------------------------
@@ -981,7 +995,7 @@ void VtkPost::drawIsoSurfaceSlot()
   }
 
   mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray("Color");
+  mapper->SelectColorArray(colorName.toAscii().data());
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
   colorBarActor->SetLookupTable(mapper->GetLookupTable());
@@ -1006,7 +1020,6 @@ void VtkPost::drawIsoSurfaceSlot()
   // Clean up:
   //----------
   contourScalars->Delete();
-  colorScalars->Delete();
   iso->Delete();
   if(useNormals) normals->Delete();
   mapper->Delete();
@@ -1051,26 +1064,14 @@ void VtkPost::drawIsoContourSlot()
   double colorMinVal = isoContour->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoContour->ui.colorMaxEdit->text().toDouble();
 
+  if(contourName == "Null")
+    return;
+
   // Scalars:
   //----------
-  ScalarField *sfContour = &scalarField[contourIndex];
-  ScalarField *sfColor = &scalarField[colorIndex];
-
-  vtkFloatArray *colorScalars = vtkFloatArray::New();
-  vtkFloatArray *contourScalars = vtkFloatArray::New();
-  colorScalars->SetNumberOfComponents(1);
-  colorScalars->SetNumberOfTuples(epMesh->epNodes);
-  colorScalars->SetName("Color");
-  contourScalars->SetNumberOfComponents(1);
-  contourScalars->SetNumberOfTuples(epMesh->epNodes);
-  contourScalars->SetName("Contour");
-
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    colorScalars->SetComponent( i, 0, sfColor->value[i] );
-    contourScalars->SetComponent( i, 0, sfContour->value[i] );
-  }
-  surfaceGrid->GetPointData()->SetScalars(contourScalars);
-  surfaceGrid->GetPointData()->AddArray(colorScalars);
+  vtkPointData *surfacePointData = surfaceGrid->GetPointData();
+  vtkDataArray *contourScalars = surfacePointData->GetArray(contourName.toAscii().data());
+  surfacePointData->SetScalars(contourScalars);
 
   // Isosourfaces && normals:
   //--------------------------
@@ -1083,11 +1084,11 @@ void VtkPost::drawIsoContourSlot()
   //--------
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(iso->GetOutputPort());
-
   mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray("Color");
+  mapper->SelectColorArray(colorName.toAscii().data());
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
+
   colorBarActor->SetLookupTable(mapper->GetLookupTable());
   
   // Actor:
@@ -1111,7 +1112,6 @@ void VtkPost::drawIsoContourSlot()
   // Clean up:
   //----------
   contourScalars->Delete();
-  colorScalars->Delete();
   iso->Delete();
   mapper->Delete();
 }
