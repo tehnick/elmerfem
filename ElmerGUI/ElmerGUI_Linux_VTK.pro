@@ -65,7 +65,8 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/tetgen.h \
            plugins/tetlib_api.h \
            vtkpost/vtkpost.h \
-           vtkpost/isosurface.h
+           vtkpost/isosurface.h \
+           vtkpost/isocontour.h
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
          forms/boundarypropertyeditor.ui \
@@ -76,7 +77,8 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/parallel.ui \
          forms/solverparameters.ui \
          forms/summaryeditor.ui \
-         vtkpost/isosurface.ui
+         vtkpost/isosurface.ui \
+         vtkpost/isocontour.ui
 SOURCES += src/bodypropertyeditor.cpp \
            src/boundarydivision.cpp \
            src/boundarypropertyeditor.cpp \
@@ -113,6 +115,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/nglib_api.cpp \
            plugins/tetlib_api.cpp \
            vtkpost/vtkpost.cpp \
-           vtkpost/isosurface.cpp
+           vtkpost/isosurface.cpp \
+           vtkpost/isocontour.cpp
 RESOURCES += ElmerGUI.qrc
 RC_FILE += ElmerGUI.rc   

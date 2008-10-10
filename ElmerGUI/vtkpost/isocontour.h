@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI vtkpost                                                         *
+ *  ElmerGUI isocontour                                                      *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -38,162 +38,38 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef VTKPOST_H
-#define VTKPOST_H
+#ifndef ISOCONTOUR_H
+#define ISOCONTOUR_H
 
-#include <QMainWindow>
-#include <QHash>
-#include "QVTKWidget.h"
-#include "isosurface.h"
-#include "isocontour.h"
+#include <QWidget>
+#include "ui_isocontour.h"
 
-class vtkRenderer;
-class vtkActor;
-class vtkScalarBarActor;
-class vtkDataSetMapper;
-class vtkTextActor;
-class vtkUnstructuredGrid;
+class ScalarField;
 
-// EpNode:
-//========
-class EpNode
-{
- public:
-  EpNode();
-  ~EpNode();
-
-  double x[3];
-};
-
-// EpElement:
-//===========
-class EpElement
-{
- public:
-  EpElement();
-  ~EpElement();
-
-  QString groupName;
-  int code;
-  int indexes;
-  int *index;
-};
-
-// EpMesh:
-//=========
-class EpMesh
-{
- public:
-  EpMesh();
-  ~EpMesh();
-
-  int epNodes;
-  EpNode *epNode;
-
-  int epElements;
-  EpElement *epElement;
-};
-
-// ScalarField:
-//=============
-class ScalarField
-{
- public:
-  ScalarField();
-  ~ScalarField();
-
-  QAction *menuAction;
-  QString name;
-  int values;
-  double *value;
-  double minVal;
-  double maxVal;
-};
-
-// VtkPost:
-//==========
-class VtkPost : public QMainWindow
+class IsoContour : public QDialog
 {
   Q_OBJECT
 
 public:
-  VtkPost(QWidget *parent = 0);
-  ~VtkPost();
+  IsoContour(QWidget *parent = 0);
+  ~IsoContour();
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-  bool readPostFile(QString);
+  Ui::isoContourDialog ui;
+
+  void populateWidgets(ScalarField*, int);
 
 signals:
-
-public slots:
-
-public slots:
-  void drawIsoContourSlot();
-  void drawIsoSurfaceSlot();
+  void drawIsoContourSignal();
 
 private slots:
-  void exitSlot();
-  void drawScalarOnSurfaceSlot(QAction*);
-  void redrawSlot();
-  void groupChangedSlot(QAction*);
-  void drawWireframeSlot();
-  void drawColorBarSlot();
-  void drawFieldNameSlot();
-  void showIsoContourDialogSlot();
-  void showIsoSurfaceDialogSlot();
-  void drawFeatureEdgesSlot();
+  void okButtonClicked();
+  void contoursSelectionChanged(int);
+  void colorSelectionChanged(int);
 
 private:
-  QMenu *fileMenu;
-  QMenu *editMenu;
-  QMenu *editGroupsMenu;
-  QMenu *viewMenu;
-  QMenu *viewScalarMenu;
-
-  QAction *exitAct;
-  QAction *redrawAct;
-  QAction *drawWireframeAct;
-  QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
-  QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-
-  void createActions();
-  void createMenus();
-  void createToolbars();
-  void createStatusBar();
-
-  EpMesh *epMesh;
-  QString postFileName;
-  bool postFileRead;
-  int scalarFields;
   ScalarField *scalarField;
-  int currentScalarFieldIndex;
-  QString currentScalarFieldName;
+  int scalarFields;
 
-  ScalarField* addScalarField(QString, int);
-
-  QHash<QString, QAction*> groupActionHash;
-
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
-
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *scalarFieldActor;
-  vtkActor *wireframeActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
-  vtkActor *featureEdgeActor;
-
-  IsoContour *isoContour; // ui
-  IsoSurface *isoSurface; // ui
 };
 
-#endif // VTKPOST_H
+#endif // ISOCONTOUR_H
