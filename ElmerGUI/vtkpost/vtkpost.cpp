@@ -72,7 +72,6 @@
 #include <vtkCleanPolyData.h>
 #include <vtkExtractEdges.h>
 #include <vtkFeatureEdges.h>
-#include <vtkTriangleFilter.h>
 #include <vtkGeometryFilter.h>
 
 using namespace std;
@@ -160,7 +159,7 @@ VtkPost::VtkPost(QWidget *parent)
   volumeGrid = vtkUnstructuredGrid::New();
   surfaceGrid = vtkUnstructuredGrid::New();
   lineGrid = vtkUnstructuredGrid::New();
-  isoContourActor = vtkActor::New();
+  isoSurfaceActor = vtkActor::New();
   scalarFieldActor = vtkActor::New();
   wireframeActor = vtkActor::New();
   colorBarActor = vtkScalarBarActor::New();
@@ -169,8 +168,8 @@ VtkPost::VtkPost(QWidget *parent)
 
   // User interfaces:
   //-----------------
-  isoContours = new IsoContours;
-  connect(isoContours, SIGNAL(drawIsoContourSignal()), this, SLOT(drawIsoContourSlot()));
+  isoSurface = new IsoSurface;
+  connect(isoSurface, SIGNAL(drawIsoSurfaceSignal()), this, SLOT(drawIsoSurfaceSlot()));
 
   // Ep-data:
   //----------
@@ -245,11 +244,11 @@ void VtkPost::createActions()
   drawFieldNameAct->setChecked(false);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
-  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours"), this);
-  drawIsoContourAct->setStatusTip("Draw isocontours");
-  drawIsoContourAct->setCheckable(true);
-  drawIsoContourAct->setChecked(false);
-  connect(drawIsoContourAct, SIGNAL(triggered()), this, SLOT(showIsoContourDialogSlot()));
+  drawIsoSurfaceAct = new QAction(QIcon(""), tr("Iso surfaces"), this);
+  drawIsoSurfaceAct->setStatusTip("Draw iso surfaces");
+  drawIsoSurfaceAct->setCheckable(true);
+  drawIsoSurfaceAct->setChecked(false);
+  connect(drawIsoSurfaceAct, SIGNAL(triggered()), this, SLOT(showIsoSurfaceDialogSlot()));
 
   redrawAct = new QAction(QIcon(""), tr("Reset"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
@@ -280,7 +279,7 @@ void VtkPost::createMenus()
   viewMenu->addMenu(viewScalarMenu);
   connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarOnSurfaceSlot(QAction*)));
   viewMenu->addSeparator();
-  viewMenu->addAction(drawIsoContourAct);
+  viewMenu->addAction(drawIsoSurfaceAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawColorBarAct);
   viewMenu->addSeparator();
@@ -750,14 +749,8 @@ void VtkPost::drawFeatureEdgesSlot()
   filter->SetInput(surfaceGrid);
   filter->GetOutput()->ReleaseDataFlagOn();
 
-  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
-  normals->SetInputConnection(filter->GetOutputPort());
-  
-  vtkTriangleFilter *triangle = vtkTriangleFilter::New();
-  triangle->SetInputConnection(normals->GetOutputPort());
-
   vtkFeatureEdges *edges = vtkFeatureEdges::New();
-  edges->SetInputConnection(triangle->GetOutputPort());
+  edges->SetInputConnection(filter->GetOutputPort());
   edges->SetFeatureAngle(20.0);
   edges->BoundaryEdgesOn();
   edges->ManifoldEdgesOn();
@@ -775,8 +768,6 @@ void VtkPost::drawFeatureEdgesSlot()
   qvtkWidget->GetRenderWindow()->Render();
   
   filter->Delete();
-  normals->Delete();
-  triangle->Delete();
   edges->Delete();
   mapper->Delete();
 }
@@ -865,42 +856,42 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
 
 
 
-// Draw isocontours:
+// Draw iso surfaces:
 //----------------------------------------------------------------------
-void VtkPost::showIsoContourDialogSlot()
+void VtkPost::showIsoSurfaceDialogSlot()
 {
-  if(drawIsoContourAct->isChecked()) {
+  if(drawIsoSurfaceAct->isChecked()) {
     // setup
-    isoContours->populateWidgets(scalarField, scalarFields);
-    isoContours->show();
+    isoSurface->populateWidgets(scalarField, scalarFields);
+    isoSurface->show();
   } else {
     // remove
-    isoContours->close();
-    drawIsoContourSlot();
+    isoSurface->close();
+    drawIsoSurfaceSlot();
   }
 }
 
-void VtkPost::drawIsoContourSlot()
+void VtkPost::drawIsoSurfaceSlot()
 {
-  renderer->RemoveActor(isoContourActor);
+  renderer->RemoveActor(isoSurfaceActor);
 
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
-  if(!drawIsoContourAct->isChecked()) return;
+  if(!drawIsoSurfaceAct->isChecked()) return;
 
   // Data from UI:
   //--------------
-  int contourIndex = isoContours->ui.contoursCombo->currentIndex();
-  QString contourName = isoContours->ui.contoursCombo->currentText();
-  int contours = isoContours->ui.contoursSpin->value() + 1;
-  double contourMinVal = isoContours->ui.contoursMinEdit->text().toDouble();
-  double contourMaxVal = isoContours->ui.contoursMaxEdit->text().toDouble();
-  bool useNormals = isoContours->ui.normalsCheck->isChecked();
-  int colorIndex = isoContours->ui.colorCombo->currentIndex();
-  QString colorName = isoContours->ui.colorCombo->currentText();
-  double colorMinVal = isoContours->ui.colorMinEdit->text().toDouble();
-  double colorMaxVal = isoContours->ui.colorMaxEdit->text().toDouble();
+  int contourIndex = isoSurface->ui.contoursCombo->currentIndex();
+  QString contourName = isoSurface->ui.contoursCombo->currentText();
+  int contours = isoSurface->ui.contoursSpin->value() + 1;
+  double contourMinVal = isoSurface->ui.contoursMinEdit->text().toDouble();
+  double contourMaxVal = isoSurface->ui.contoursMaxEdit->text().toDouble();
+  bool useNormals = isoSurface->ui.normalsCheck->isChecked();
+  int colorIndex = isoSurface->ui.colorCombo->currentIndex();
+  QString colorName = isoSurface->ui.colorCombo->currentText();
+  double colorMinVal = isoSurface->ui.colorMinEdit->text().toDouble();
+  double colorMaxVal = isoSurface->ui.colorMaxEdit->text().toDouble();
 
   // Scalars:
   //----------
@@ -955,11 +946,11 @@ void VtkPost::drawIsoContourSlot()
   
   // Actor:
   //-------
-  isoContourActor->SetMapper(mapper);
+  isoSurfaceActor->SetMapper(mapper);
 
   // Renderer:
   //-----------
-  renderer->AddActor(isoContourActor);
+  renderer->AddActor(isoSurfaceActor);
 
   // Redraw text && colorbar:
   //--------------------------

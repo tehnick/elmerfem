@@ -44,7 +44,7 @@
 #include <QMainWindow>
 #include <QHash>
 #include "QVTKWidget.h"
-#include "isocontours.h"
+#include "isosurface.h"
 
 class vtkRenderer;
 class vtkActor;
@@ -128,7 +128,7 @@ signals:
 public slots:
 
 public slots:
-  void drawIsoContourSlot();
+  void drawIsoSurfaceSlot();
 
 private slots:
   void exitSlot();
@@ -138,7 +138,7 @@ private slots:
   void drawWireframeSlot();
   void drawColorBarSlot();
   void drawFieldNameSlot();
-  void showIsoContourDialogSlot();
+  void showIsoSurfaceDialogSlot();
   void drawFeatureEdgesSlot();
 
 private:
@@ -153,7 +153,7 @@ private:
   QAction *drawWireframeAct;
   QAction *drawColorBarAct;
   QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
+  QAction *drawIsoSurfaceAct;
   QAction *drawFeatureEdgesAct;
 
   void createActions();
@@ -180,14 +180,14 @@ private:
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
 
-  vtkActor *isoContourActor;
+  vtkActor *isoSurfaceActor;
   vtkActor *scalarFieldActor;
   vtkActor *wireframeActor;
   vtkScalarBarActor *colorBarActor;
   vtkTextActor *fieldNameActor;
   vtkActor *featureEdgeActor;
 
-  IsoContours *isoContours; // ui
+  IsoSurface *isoSurface; // ui
 };
 
 #endif // VTKPOST_H

@@ -23,11 +23,11 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI isocontours                                                     *
+ *  ElmerGUI isosurface                                                      *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter RÃ¥back                   *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - Scientific Computing Ltd.                                 *
@@ -38,38 +38,70 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef ISOCONTOURS_H
-#define ISOCONTOURS_H
+#include <QtGui>
+#include <iostream>
+#include "isosurface.h"
+#include "vtkpost.h"
 
-#include <QWidget>
-#include "ui_isocontours.h"
+using namespace std;
 
-class ScalarField;
-
-class IsoContours : public QDialog
+IsoSurface::IsoSurface(QWidget *parent)
+  : QDialog(parent)
 {
-  Q_OBJECT
+  ui.setupUi(this);
 
-public:
-  IsoContours(QWidget *parent = 0);
-  ~IsoContours();
+  connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(close()));
+  connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+  connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
+  connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
 
-  Ui::isoContourDialog ui;
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+}
 
-  void populateWidgets(ScalarField*, int);
+IsoSurface::~IsoSurface()
+{
+}
 
-signals:
-  void drawIsoContourSignal();
+void IsoSurface::okButtonClicked()
+{
+  emit(drawIsoSurfaceSignal());
+}
 
-private slots:
-  void okButtonClicked();
-  void contoursSelectionChanged(int);
-  void colorSelectionChanged(int);
+void IsoSurface::populateWidgets(ScalarField *scalarField, int n)
+{
+  this->scalarField = scalarField;
+  this->scalarFields = n;
 
-private:
-  ScalarField *scalarField;
-  int scalarFields;
+  ui.contoursCombo->clear();
+  ui.colorCombo->clear();
 
-};
+  for(int i = 0; i < n; i++) {
+    ScalarField *sf = &scalarField[i];
+    ui.contoursCombo->addItem(sf->name);
+    ui.colorCombo->addItem(sf->name);
+  }
 
-#endif // ISOCONTOURS_H
+  ui.contoursMinEdit->setText(QString::number(scalarField->minVal));
+  ui.contoursMaxEdit->setText(QString::number(scalarField->maxVal));
+  ui.colorMinEdit->setText(QString::number(scalarField->minVal));
+  ui.colorMaxEdit->setText(QString::number(scalarField->maxVal));
+  ui.colorCombo->clear();
+  for(int i = 0; i < n; i++) {
+    ScalarField *sf = &scalarField[i];
+    ui.colorCombo->addItem(sf->name);
+  }
+}
+
+void IsoSurface::contoursSelectionChanged(int newIndex)
+{
+  ScalarField *sf = &this->scalarField[newIndex];
+  ui.contoursMinEdit->setText(QString::number(sf->minVal));
+  ui.contoursMaxEdit->setText(QString::number(sf->maxVal));
+}
+
+void IsoSurface::colorSelectionChanged(int newIndex)
+{
+  ScalarField *sf = &this->scalarField[newIndex];
+  ui.colorMinEdit->setText(QString::number(sf->minVal));
+  ui.colorMaxEdit->setText(QString::number(sf->maxVal));
+}
