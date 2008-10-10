@@ -69,6 +69,7 @@
 #include <vtkContourFilter.h>
 #include <vtkPolyDataNormals.h>
 #include <vtkOutlineFilter.h>
+#include <vtkCleanPolyData.h>
 
 using namespace std;
 
@@ -885,8 +886,6 @@ void VtkPost::drawScalarSlot(QAction *triggeredAction)
 
 
 
-
-
 // Draw isocontours:
 //----------------------------------------------------------------------
 void VtkPost::showIsoContourDialogSlot()
@@ -918,19 +917,21 @@ void VtkPost::drawIsoContourSlot()
 
   ScalarField *sfContour = &scalarField[contourIndex];
   ScalarField *sfColor = &scalarField[colorIndex];
-  vtkFloatArray *contourScalars = vtkFloatArray::New();
-  vtkFloatArray *colorScalars = vtkFloatArray::New(); 
-  contourScalars->SetName("Contour");
-  colorScalars->SetName("Color");
+
+  vtkFloatArray *scalars = vtkFloatArray::New();
+  scalars->SetName("isosurf");
+  scalars->SetNumberOfComponents(1);
+  // scalars->SetNumberOfComponents(2);
+  scalars->SetNumberOfTuples(epMesh->epNodes);
   for(int i = 0; i < epMesh->epNodes; i++) {
-    contourScalars->InsertTuple1(i, sfContour->value[i]);
-    colorScalars->InsertTuple1(i, sfColor->value[i]);
+    scalars->SetComponent(i, 0, sfContour->value[i] );
+    // scalars->SetComponent(i, 1, sfColor->value[i] );
   }
+  volumeGrid->GetPointData()->SetScalars(scalars);
 
   // Isosourfaces && normals:
   //--------------------------
   vtkContourFilter *iso = vtkContourFilter::New();
-  volumeGrid->GetPointData()->SetScalars(contourScalars);
   iso->SetInput(volumeGrid);
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
@@ -943,11 +944,11 @@ void VtkPost::drawIsoContourSlot()
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(normals->GetOutputPort());
   mapper->ScalarVisibilityOn();
-  mapper->SetScalarModeToUsePointData();
-  mapper->ColorByArrayComponent("Color", 0);
+  mapper->ColorByArrayComponent("isosurf", 0);
+  // mapper->ColorByArrayComponent("isosurf", 1);
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
   colorBarActor->SetLookupTable(mapper->GetLookupTable());
-
+  
   // Actor:
   //-------
   isoContourActor->SetMapper(mapper);
@@ -965,8 +966,7 @@ void VtkPost::drawIsoContourSlot()
 
   // Clean up:
   //----------
-  contourScalars->Delete();
-  colorScalars->Delete();
+  scalars->Delete();
   iso->Delete();
   normals->Delete();
   mapper->Delete();
