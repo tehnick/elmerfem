@@ -71,6 +71,9 @@
 #include <vtkOutlineFilter.h>
 #include <vtkCleanPolyData.h>
 #include <vtkExtractEdges.h>
+#include <vtkFeatureEdges.h>
+#include <vtkTriangleFilter.h>
+#include <vtkGeometryFilter.h>
 
 using namespace std;
 
@@ -162,7 +165,8 @@ VtkPost::VtkPost(QWidget *parent)
   wireframeActor = vtkActor::New();
   colorBarActor = vtkScalarBarActor::New();
   fieldNameActor = vtkTextActor::New();
-  
+  featureEdgeActor = vtkActor::New();
+
   bwLookupTable = vtkLookupTable::New();
   bwLookupTable->SetNumberOfTableValues(3);
   bwLookupTable->SetTableRange(0.0, 1.0);
@@ -224,11 +228,17 @@ void VtkPost::createActions()
 
   // View menu:
   //------------
-  drawWireframeAct = new QAction(QIcon(""), tr("Wireframe"), this);
-  drawWireframeAct->setStatusTip("Draw wireframe");
+  drawWireframeAct = new QAction(QIcon(""), tr("Surface wireframe"), this);
+  drawWireframeAct->setStatusTip("Draw surface wireframe");
   drawWireframeAct->setCheckable(true);
-  drawWireframeAct->setChecked(true);
+  drawWireframeAct->setChecked(false);
   connect(drawWireframeAct, SIGNAL(triggered()), this, SLOT(drawWireframeSlot()));
+
+  drawFeatureEdgesAct = new QAction(QIcon(""), tr("Feature edges"), this);
+  drawFeatureEdgesAct->setStatusTip("Draw feature edges");
+  drawFeatureEdgesAct->setCheckable(true);
+  drawFeatureEdgesAct->setChecked(true);
+  connect(drawFeatureEdgesAct, SIGNAL(triggered()), this, SLOT(drawFeatureEdgesSlot()));
 
   drawColorBarAct = new QAction(QIcon(""), tr("Color bar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
@@ -271,6 +281,7 @@ void VtkPost::createMenus()
   //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(drawWireframeAct);
+  viewMenu->addAction(drawFeatureEdgesAct);
   viewMenu->addSeparator();
   viewScalarMenu = new QMenu(tr("Scalar"));
   viewMenu->addMenu(viewScalarMenu);
@@ -613,6 +624,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 void VtkPost::redrawSlot()
 {  
   drawWireframeSlot();
+  drawFeatureEdgesSlot();
   drawScalarOnSurfaceSlot(NULL);
   drawColorBarSlot();
   drawFieldNameSlot();
@@ -721,6 +733,53 @@ void VtkPost::drawWireframeSlot()
 
   qvtkWidget->GetRenderWindow()->Render();
 
+  mapper->Delete();
+  edges->Delete();
+}
+
+
+// Draw feature edges:
+//----------------------------------------------------------------------
+void VtkPost::drawFeatureEdgesSlot()
+{
+  renderer->RemoveActor(featureEdgeActor);
+
+  if(epMesh == NULL) return;
+  if(epMesh->epNodes < 1) return;
+  if(epMesh->epElements < 1) return;
+  if(!drawFeatureEdgesAct->isChecked()) return;
+  
+  // Convert from vtkUnstructuredGrid to vtkPolyData:
+  vtkGeometryFilter *filter = vtkGeometryFilter::New();
+  filter->SetInput(surfaceGrid);
+  filter->GetOutput()->ReleaseDataFlagOn();
+
+  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
+  normals->SetInputConnection(filter->GetOutputPort());
+  
+  vtkTriangleFilter *triangle = vtkTriangleFilter::New();
+  triangle->SetInputConnection(normals->GetOutputPort());
+
+  vtkFeatureEdges *edges = vtkFeatureEdges::New();
+  edges->SetInputConnection(triangle->GetOutputPort());
+  edges->SetFeatureAngle(20.0);
+  edges->BoundaryEdgesOn();
+  edges->ManifoldEdgesOn();
+  edges->NonManifoldEdgesOn();
+
+  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+  mapper->SetInputConnection(edges->GetOutputPort());
+  mapper->SetLookupTable(bwLookupTable);
+  mapper->SetResolveCoincidentTopologyToPolygonOffset();
+
+  featureEdgeActor->SetMapper(mapper);
+
+  renderer->AddActor(featureEdgeActor);
+  qvtkWidget->GetRenderWindow()->Render();
+  
+  filter->Delete();
+  triangle->Delete();
+  normals->Delete();
   mapper->Delete();
   edges->Delete();
 }

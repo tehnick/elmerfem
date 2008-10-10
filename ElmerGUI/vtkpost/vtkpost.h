@@ -140,6 +140,7 @@ private slots:
   void drawColorBarSlot();
   void drawFieldNameSlot();
   void showIsoContourDialogSlot();
+  void drawFeatureEdgesSlot();
 
 private:
   QMenu *fileMenu;
@@ -154,6 +155,7 @@ private:
   QAction *drawColorBarAct;
   QAction *drawFieldNameAct;
   QAction *drawIsoContourAct;
+  QAction *drawFeatureEdgesAct;
 
   void createActions();
   void createMenus();
@@ -184,6 +186,7 @@ private:
   vtkActor *wireframeActor;
   vtkScalarBarActor *colorBarActor;
   vtkTextActor *fieldNameActor;
+  vtkActor *featureEdgeActor;
 
   vtkLookupTable *bwLookupTable;
 
