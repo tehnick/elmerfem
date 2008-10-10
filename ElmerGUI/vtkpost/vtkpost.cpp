@@ -266,7 +266,7 @@ void VtkPost::createMenus()
   viewMenu->addSeparator();
   viewScalarMenu = new QMenu(tr("Scalar"));
   viewMenu->addMenu(viewScalarMenu);
-  connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarSlot(QAction*)));
+  connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarOnSurfaceSlot(QAction*)));
   viewMenu->addSeparator();
   viewMenu->addAction(drawIsoContourAct);
   viewMenu->addSeparator();
@@ -603,7 +603,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 void VtkPost::redrawSlot()
 {  
   drawWireframeSlot();
-  drawScalarSlot(NULL);
+  drawScalarOnSurfaceSlot(NULL);
   drawColorBarSlot();
   drawFieldNameSlot();
   renderer->ResetCamera();
@@ -803,11 +803,9 @@ void VtkPost::drawWireframeSlot()
 
 
 
-
-
 // Draw scalar field:
 //----------------------------------------------------------------------
-void VtkPost::drawScalarSlot(QAction *triggeredAction)
+void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
 {
   renderer->RemoveActor(scalarFieldActor);
 
@@ -903,18 +901,21 @@ void VtkPost::drawIsoContourSlot()
   if(epMesh->epElements < 1) return;
   if(!drawIsoContourAct->isChecked()) return;
 
-  // Scalars:
-  //----------
+  // Data from UI:
+  //--------------
   int contourIndex = isoContours->ui.contoursCombo->currentIndex();
   QString contourName = isoContours->ui.contoursCombo->currentText();
   int contours = isoContours->ui.contoursSpin->value() + 1;
   double contourMinVal = isoContours->ui.contoursMinEdit->text().toDouble();
   double contourMaxVal = isoContours->ui.contoursMaxEdit->text().toDouble();
+  bool useNormals = isoContours->ui.normalsCheck->isChecked();
   int colorIndex = isoContours->ui.colorCombo->currentIndex();
   QString colorName = isoContours->ui.colorCombo->currentText();
   double colorMinVal = isoContours->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoContours->ui.colorMaxEdit->text().toDouble();
 
+  // Scalars:
+  //----------
   ScalarField *sfContour = &scalarField[contourIndex];
   ScalarField *sfColor = &scalarField[colorIndex];
 
@@ -935,18 +936,27 @@ void VtkPost::drawIsoContourSlot()
   iso->SetInput(volumeGrid);
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
-  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
-  normals->SetInputConnection(iso->GetOutputPort());
-  normals->SetFeatureAngle(45);
-
+  vtkPolyDataNormals *normals;
+  if(useNormals) {
+    normals = vtkPolyDataNormals::New();
+    normals->SetInputConnection(iso->GetOutputPort());
+    normals->SetFeatureAngle(45);
+  }
   // Mapper:
   //--------
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
-  mapper->SetInputConnection(normals->GetOutputPort());
+
+  if(useNormals) {
+    mapper->SetInputConnection(normals->GetOutputPort());
+  } else {
+    mapper->SetInputConnection(iso->GetOutputPort());
+  }
+
   mapper->ScalarVisibilityOn();
   mapper->ColorByArrayComponent("isosurf", 0);
+  mapper->SetScalarRange(contourMinVal, contourMaxVal);
   // mapper->ColorByArrayComponent("isosurf", 1);
-  mapper->SetScalarRange(colorMinVal, colorMaxVal);
+  // mapper->SetScalarRange(colorMinVal, colorMaxVal);
   colorBarActor->SetLookupTable(mapper->GetLookupTable());
   
   // Actor:
@@ -968,6 +978,6 @@ void VtkPost::drawIsoContourSlot()
   //----------
   scalars->Delete();
   iso->Delete();
-  normals->Delete();
+  if(useNormals) normals->Delete();
   mapper->Delete();
 }

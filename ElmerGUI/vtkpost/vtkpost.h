@@ -132,7 +132,7 @@ public slots:
 
 private slots:
   void exitSlot();
-  void drawScalarSlot(QAction*);
+  void drawScalarOnSurfaceSlot(QAction*);
   void redrawSlot();
   void groupChangedSlot(QAction*);
   void drawWireframeSlot();
@@ -173,9 +173,11 @@ private:
 
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
+
   vtkUnstructuredGrid *volumeGrid;
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
+
   vtkActor *isoContourActor;
   vtkActor *scalarFieldActor;
   vtkActor *wireframeActor;
