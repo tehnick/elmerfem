@@ -359,6 +359,13 @@ bool VtkPost::readPostFile(QString postFileName)
 
   scalarFields = 0;
   viewScalarMenu->clear();
+
+  // Add the null field:
+  //--------------------
+  ScalarField *nullField = addScalarField("Null", nodes);
+  nullField->minVal = 0.0;
+  nullField->maxVal = 0.0;
+
   for(int i = 0; i < components; i++) {
     QString fieldType, fieldName;
     txtStream >> fieldType >> fieldName;
@@ -445,7 +452,7 @@ bool VtkPost::readPostFile(QString postFileName)
     GET_TXT_STREAM
 
     for(int j = 0; j < scalarFields - 3; j++) { // - 3 = no nodes
-      sf = &scalarField[j];
+      sf = &scalarField[j + 1];                 // + 1 = skip null
       
       txtStream >> sf->value[i];
       
@@ -500,8 +507,13 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->name = fieldName;
   sf->values = nodes;
   sf->value = new double[nodes];
+
+  for(int i = 0; i < nodes; i++) 
+    sf->value[i] = 0.0;
+
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
+
   viewScalarMenu->addAction(sf->menuAction);
 
   if(scalarFields == 1) {
