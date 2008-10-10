@@ -55,7 +55,7 @@ IsoContours::IsoContours(QWidget *parent)
   connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
 
-  ui.colorsGroup->setEnabled(false);
+  ui.colorsGroup->setEnabled(true);
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -87,6 +87,11 @@ void IsoContours::populateWidgets(ScalarField *scalarField, int n)
   ui.contoursMaxEdit->setText(QString::number(scalarField->maxVal));
   ui.colorMinEdit->setText(QString::number(scalarField->minVal));
   ui.colorMaxEdit->setText(QString::number(scalarField->maxVal));
+  ui.colorCombo->clear();
+  for(int i = 0; i < n; i++) {
+    ScalarField *sf = &scalarField[i];
+    ui.colorCombo->addItem(sf->name);
+  }
 }
 
 void IsoContours::contoursSelectionChanged(int newIndex)
