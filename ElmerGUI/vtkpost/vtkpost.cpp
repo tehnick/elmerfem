@@ -262,6 +262,8 @@ bool VtkPost::readPostFile(QString postFileName)
     tmpLine = post.readLine();                       \
   QTextStream txtStream(&tmpLine);
 
+  scalarActionHash.clear();
+
   // Open the post file:
   //=====================
   this->postFileName = postFileName;
@@ -436,12 +438,12 @@ bool VtkPost::readPostFile(QString postFileName)
 
   connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
 
-  redrawSlot();
-
-  // Draw the null field:
+  // Set the null field active:
   sf = &scalarField[0];
+  currentScalarFieldName = sf->name;
   sf->menuAction->setChecked(true);
-  drawScalarOnSurfaceSlot(sf->menuAction);
+
+  redrawSlot();
   
   return true;
 }
@@ -466,6 +468,8 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->maxVal = -9.9e30;
 
   viewScalarMenu->addAction(sf->menuAction);
+
+  scalarActionHash.insert(sf->name, sf->menuAction);
 
   return sf;
 }
@@ -600,7 +604,8 @@ void VtkPost::redrawSlot()
 {  
   drawWireframeSlot();
   drawFeatureEdgesSlot();
-  drawScalarOnSurfaceSlot(NULL);
+  QAction *active = scalarActionHash.value(currentScalarFieldName);
+  drawScalarOnSurfaceSlot(active);
   drawColorBarSlot();
   drawFieldNameSlot();
   drawIsoContourSlot();
@@ -637,7 +642,6 @@ void VtkPost::drawFieldNameSlot()
   fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
   fieldNameActor->GetTextProperty()->BoldOn();
   fieldNameActor->GetTextProperty()->ItalicOn();
-  // fieldNameActor->GetTextProperty()->ShadowOn();
   fieldNameActor->GetTextProperty()->SetColor(0, 0, 1);
 
   renderer->AddActor2D(fieldNameActor);
@@ -852,17 +856,16 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
   scalars->SetNumberOfComponents(1);
   scalars->SetNumberOfTuples(sf->values);
   scalars->SetName("ScalarSurface");
-
   for(int i = 0; i < sf->values; i++)
-    scalars->SetComponent(i, 0, sf->value[i]);
-
-  surfaceGrid->GetPointData()->SetScalars(scalars);
+    scalars->SetComponent(i, 0, sf->value[i]);  
+  surfaceGrid->GetPointData()->AddArray(scalars);
 
   // Mapper:
   //--------
   vtkDataSetMapper *scalarFieldMapper = vtkDataSetMapper::New();
-
   scalarFieldMapper->SetInput(surfaceGrid);
+  scalarFieldMapper->SetScalarModeToUsePointFieldData();
+  scalarFieldMapper->SelectColorArray("ScalarSurface");
   scalarFieldMapper->ScalarVisibilityOn();
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
@@ -939,7 +942,7 @@ void VtkPost::drawIsoSurfaceSlot()
   contourArray->SetName("IsoSurface");
   for(int i = 0; i < sf->values; i++)
     contourArray->SetComponent(i, 0, sf->value[i]);
-  volumeGrid->GetPointData()->SetScalars(contourArray);
+  volumeGrid->GetPointData()->AddArray(contourArray);
 
   vtkFloatArray *colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
@@ -953,6 +956,7 @@ void VtkPost::drawIsoSurfaceSlot()
   // Isosurfaces && normals:
   //--------------------------
   vtkContourFilter *iso = vtkContourFilter::New();
+  volumeGrid->GetPointData()->SetActiveScalars("IsoSurface");
   iso->SetInput(volumeGrid);
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
@@ -1056,7 +1060,7 @@ void VtkPost::drawIsoContourSlot()
   contourArray->SetName("IsoContour");
   for(int i = 0; i < sf->values; i++)
     contourArray->SetComponent(i, 0, sf->value[i]);
-  surfaceGrid->GetPointData()->SetScalars(contourArray);
+  surfaceGrid->GetPointData()->AddArray(contourArray);
 
   vtkFloatArray *colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
@@ -1070,6 +1074,7 @@ void VtkPost::drawIsoContourSlot()
   // Isocontours:
   //--------------
   vtkContourFilter *iso = vtkContourFilter::New();
+  surfaceGrid->GetPointData()->SetActiveScalars("IsoContour");
   iso->SetInput(surfaceGrid);
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);

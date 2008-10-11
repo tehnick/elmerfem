@@ -123,6 +123,7 @@ private:
   ScalarField* addScalarField(QString, int);
 
   QHash<QString, QAction*> groupActionHash;
+  QHash<QString, QAction*> scalarActionHash;
 
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
