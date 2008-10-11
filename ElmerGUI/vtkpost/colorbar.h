@@ -61,6 +61,7 @@ signals:
 
 private slots:
   void okButtonClicked();
+  void applyButtonClicked();
   void colorSelectionChanged(int);
 
 private:

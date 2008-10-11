@@ -43,6 +43,7 @@
 
 #include "epmesh.h"
 #include "vtkpost.h"
+#include "surface.h"
 #include "isocontour.h"
 #include "isosurface.h"
 #include "colorbar.h"
@@ -112,6 +113,9 @@ VtkPost::VtkPost(QWidget *parent)
 
   // User interfaces:
   //-----------------
+  surface = new Surface;
+  connect(surface, SIGNAL(drawSurfaceSignal()), this, SLOT(drawScalarOnSurfaceSlot()));
+
   isoContour = new IsoContour;
   connect(isoContour, SIGNAL(drawIsoContourSignal()), this, SLOT(drawIsoContourSlot()));
 
@@ -173,36 +177,49 @@ void VtkPost::createActions()
   drawWireframeAct->setCheckable(true);
   drawWireframeAct->setChecked(false);
   connect(drawWireframeAct, SIGNAL(triggered()), this, SLOT(drawWireframeSlot()));
+  connect(drawWireframeAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawFeatureEdgesAct = new QAction(QIcon(""), tr("Feature edges"), this);
   drawFeatureEdgesAct->setStatusTip("Draw feature edges");
   drawFeatureEdgesAct->setCheckable(true);
   drawFeatureEdgesAct->setChecked(true);
   connect(drawFeatureEdgesAct, SIGNAL(triggered()), this, SLOT(drawFeatureEdgesSlot()));
+  connect(drawFeatureEdgesAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawColorBarAct = new QAction(QIcon(""), tr("Colorbar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
   drawColorBarAct->setChecked(false);
   connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(showColorBarDialogSlot()));
+  connect(drawColorBarAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawFieldNameAct = new QAction(QIcon(""), tr("Field name"), this);
   drawFieldNameAct->setStatusTip("Draw field name");
   drawFieldNameAct->setCheckable(true);
   drawFieldNameAct->setChecked(false);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
+  connect(drawFieldNameAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
+
+  drawSurfaceAct = new QAction(QIcon(""), tr("Surfaces"), this);
+  drawSurfaceAct->setStatusTip("Draw scalars on surfaces");
+  drawSurfaceAct->setCheckable(true);
+  drawSurfaceAct->setChecked(false);
+  connect(drawSurfaceAct, SIGNAL(triggered()), this, SLOT(drawScalarOnSurfaceDialogSlot()));
+  connect(drawSurfaceAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours"), this);
-  drawIsoContourAct->setStatusTip("Draw iso contours (2d)");
+  drawIsoContourAct->setStatusTip("Draw isocontours (2d)");
   drawIsoContourAct->setCheckable(true);
   drawIsoContourAct->setChecked(false);
   connect(drawIsoContourAct, SIGNAL(triggered()), this, SLOT(showIsoContourDialogSlot()));
+  connect(drawIsoContourAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawIsoSurfaceAct = new QAction(QIcon(""), tr("Isosurfaces"), this);
-  drawIsoSurfaceAct->setStatusTip("Draw iso surfaces (3d)");
+  drawIsoSurfaceAct->setStatusTip("Draw isosurfaces (3d)");
   drawIsoSurfaceAct->setCheckable(true);
   drawIsoSurfaceAct->setChecked(false);
   connect(drawIsoSurfaceAct, SIGNAL(triggered()), this, SLOT(showIsoSurfaceDialogSlot()));
+  connect(drawIsoSurfaceAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   redrawAct = new QAction(QIcon(""), tr("Reset"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
@@ -229,9 +246,7 @@ void VtkPost::createMenus()
   viewMenu->addAction(drawWireframeAct);
   viewMenu->addAction(drawFeatureEdgesAct);
   viewMenu->addSeparator();
-  viewScalarMenu = new QMenu(tr("Scalar"));
-  viewMenu->addMenu(viewScalarMenu);
-  connect(viewScalarMenu, SIGNAL(triggered(QAction*)), this, SLOT(drawScalarOnSurfaceSlot(QAction*)));
+  viewMenu->addAction(drawSurfaceAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawIsoContourAct);
   viewMenu->addAction(drawIsoSurfaceAct);
@@ -246,6 +261,7 @@ void VtkPost::createMenus()
 void VtkPost::createToolbars()
 {
   viewToolBar = addToolBar(tr("View"));
+  viewToolBar->addAction(drawSurfaceAct);
   viewToolBar->addAction(drawIsoContourAct);
   viewToolBar->addAction(drawIsoSurfaceAct);
   viewToolBar->addAction(drawColorBarAct);
@@ -267,7 +283,7 @@ bool VtkPost::readPostFile(QString postFileName)
     tmpLine = post.readLine();                       \
   QTextStream txtStream(&tmpLine);
 
-  scalarActionHash.clear();
+  // scalarActionHash.clear();
 
   // Open the post file:
   //=====================
@@ -307,7 +323,6 @@ bool VtkPost::readPostFile(QString postFileName)
   }
 
   scalarFields = 0;
-  viewScalarMenu->clear();
 
   // Add the null field:
   //--------------------
@@ -438,16 +453,24 @@ bool VtkPost::readPostFile(QString postFileName)
     groupActionHash.insert(groupName, groupAction);
   }
 
+  // Populate the user interface widgets:
+  //-------------------------------------
+  surface->populateWidgets(scalarField, scalarFields);
+  isoSurface->populateWidgets(scalarField, scalarFields);
+  isoContour->populateWidgets(scalarField, scalarFields);
+  surface->populateWidgets(scalarField, scalarFields);
+  colorBar->ui.colorCombo->clear();
+  colorBar->ui.colorCombo->addItem("Surface");
+  colorBar->ui.colorCombo->addItem("Isocontour");
+  colorBar->ui.colorCombo->addItem("Isosurface");
+
   this->postFileRead = true;
   groupChangedSlot(NULL);
-
   connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
 
   // Set the null field active:
-  sf = &scalarField[0];
-  currentScalarFieldName = sf->name;
-  sf->menuAction->setChecked(true);
-
+  //---------------------------
+  drawSurfaceAct->setChecked(true);
   redrawSlot();
   
   return true;
@@ -459,9 +482,6 @@ bool VtkPost::readPostFile(QString postFileName)
 ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
 {
   ScalarField *sf = &scalarField[scalarFields++];
-
-  sf->menuAction = new QAction(fieldName, this);
-  sf->menuAction->setCheckable(true);
   sf->name = fieldName;
   sf->values = nodes;
   sf->value = new double[nodes];
@@ -469,12 +489,8 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   for(int i = 0; i < nodes; i++) 
     sf->value[i] = 0.0;
 
-  sf->minVal = +9.9e30;
-  sf->maxVal = -9.9e30;
-
-  viewScalarMenu->addAction(sf->menuAction);
-
-  scalarActionHash.insert(sf->name, sf->menuAction);
+  sf->minVal = +9.9e99;
+  sf->maxVal = -9.9e99;
 
   return sf;
 }
@@ -597,10 +613,15 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
   }
   line->Delete();
-
-  redrawSlot();
 }
 
+
+// Maybe redraw:
+//----------------------------------------------------------------------
+void VtkPost::maybeRedrawSlot(bool value)
+{
+  if(!value) redrawSlot();
+}
 
 
 // Redraw:
@@ -609,8 +630,7 @@ void VtkPost::redrawSlot()
 {  
   drawWireframeSlot();
   drawFeatureEdgesSlot();
-  QAction *active = scalarActionHash.value(currentScalarFieldName);
-  drawScalarOnSurfaceSlot(active);
+  drawScalarOnSurfaceSlot();
   drawColorBarSlot();
   drawFieldNameSlot();
   drawIsoContourSlot();
@@ -626,6 +646,8 @@ void VtkPost::redrawSlot()
 void VtkPost::drawFieldNameSlot()
 {
   renderer->RemoveActor(fieldNameActor);
+
+  if(!drawFieldNameAct->isChecked()) return;
 
   return;
 
@@ -661,12 +683,9 @@ void VtkPost::drawFieldNameSlot()
 //----------------------------------------------------------------------
 void VtkPost::showColorBarDialogSlot()
 {
-  if(drawColorBarAct->isChecked()) {
+  qvtkWidget->GetRenderWindow()->Render();
 
-    colorBar->ui.colorCombo->clear();
-    colorBar->ui.colorCombo->addItem("Surface");
-    colorBar->ui.colorCombo->addItem("Iso contour");
-    colorBar->ui.colorCombo->addItem("Iso surface");
+  if(drawColorBarAct->isChecked()) {
 
     colorBar->show();
 
@@ -680,6 +699,7 @@ void VtkPost::showColorBarDialogSlot()
 void VtkPost::drawColorBarSlot()
 {
   renderer->RemoveActor(colorBarActor);
+
   if(!drawColorBarAct->isChecked()) return;
 
   // Draw color bar:
@@ -696,18 +716,18 @@ void VtkPost::drawColorBarSlot()
   vtkScalarsToColors *lut = NULL;
 
   if(actorName == "Surface") {
-    fieldName = currentScalarFieldName;
+    fieldName = currentSurfaceName;
     if(fieldName.isEmpty()) return;
     lut = scalarFieldActor->GetMapper()->GetLookupTable();
   }
 
-  if(actorName == "Iso contour") {
+  if(actorName == "Isocontour") {
     fieldName = currentIsoContourName;
     if(fieldName.isEmpty()) return;
     lut = isoContourActor->GetMapper()->GetLookupTable();
   }
 
-  if(actorName == "Iso surface") {
+  if(actorName == "Isosurface") {
     fieldName = currentIsoSurfaceName;
     if(fieldName.isEmpty()) return;
     lut = isoSurfaceActor->GetMapper()->GetLookupTable();
@@ -774,6 +794,7 @@ void VtkPost::drawWireframeSlot()
 {
   renderer->RemoveActor(wireframeActor);
 
+  if(!drawWireframeAct->isChecked()) return;
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
@@ -804,6 +825,8 @@ void VtkPost::drawWireframeSlot()
 void VtkPost::drawFeatureEdgesSlot()
 {
   renderer->RemoveActor(featureEdgeActor);
+
+  if(!drawFeatureEdgesAct->isChecked()) return;
 
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
@@ -838,51 +861,46 @@ void VtkPost::drawFeatureEdgesSlot()
   mapper->Delete();
 }
 
+// Draw isosurfaces (3D):
+//----------------------------------------------------------------------
+void VtkPost::drawScalarOnSurfaceDialogSlot()
+{
+  qvtkWidget->GetRenderWindow()->Render();
+
+  if(drawSurfaceAct->isChecked()) {
+    // setup
+    surface->show();
+  } else {
+    // remove
+    surface->close();
+    drawScalarOnSurfaceSlot();
+  }
+}
+
 
 // Draw scalar field on surface:
 //----------------------------------------------------------------------
-void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
+void VtkPost::drawScalarOnSurfaceSlot()
 {
   renderer->RemoveActor(scalarFieldActor);
+
+  if(!drawSurfaceAct->isChecked()) return;
 
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
 
-  // Check which scalar menu action triggred drawing:
-  //-------------------------------------------------
-  int index = -1;
-  ScalarField *sf = NULL;
-  bool shouldReturn = false;
-
-  for(int i = 0; i < scalarFields; i++) {
-    sf = &scalarField[i];
-    
-    if(sf->menuAction == triggeredAction) {
-      index = i;
-
-      // Check if we simply want to clear the view:
-      //-------------------------------------------
-      if(!sf->menuAction->isChecked())
-	shouldReturn = true;
-      
-    } else {
-
-      // Set all other scalar menu actions unchecked:
-      //---------------------------------------------
-      sf->menuAction->setChecked(false);
-    }
-  }
-
-  if(shouldReturn) return;
-  if(index < 0) return;
-
-  sf = &scalarField[index];
-  sf->menuAction->setChecked(true);
+  // Data from UI:
+  //--------------
+  int surfaceIndex = surface->ui.surfaceCombo->currentIndex();
+  QString surfaceName = surface->ui.surfaceCombo->currentText();
+  double minVal = surface->ui.minEdit->text().toDouble();
+  double maxVal = surface->ui.maxEdit->text().toDouble();
 
   // Scalars:
   //---------
   vtkFloatArray *scalars = vtkFloatArray::New();
+  ScalarField *sf = &scalarField[surfaceIndex];
   scalars->SetNumberOfComponents(1);
   scalars->SetNumberOfTuples(sf->values);
   scalars->SetName("ScalarSurface");
@@ -910,7 +928,7 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
 
   // Update color bar && field name:
   //---------------------------------
-  currentScalarFieldName = sf->name;
+  currentSurfaceName = sf->name;
   drawColorBarSlot();
   drawFieldNameSlot();  
 
@@ -924,13 +942,14 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
 
 
 
-// Draw iso surfaces (3D):
+// Draw isosurfaces (3D):
 //----------------------------------------------------------------------
 void VtkPost::showIsoSurfaceDialogSlot()
 {
+  qvtkWidget->GetRenderWindow()->Render();
+
   if(drawIsoSurfaceAct->isChecked()) {
     // setup
-    isoSurface->populateWidgets(scalarField, scalarFields);
     isoSurface->show();
   } else {
     // remove
@@ -943,6 +962,8 @@ void VtkPost::drawIsoSurfaceSlot()
 {
   renderer->RemoveActor(isoSurfaceActor);
   
+  if(!drawIsoSurfaceAct->isChecked()) return;
+
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
@@ -1045,9 +1066,10 @@ void VtkPost::drawIsoSurfaceSlot()
 //----------------------------------------------------------------------
 void VtkPost::showIsoContourDialogSlot()
 {
+  qvtkWidget->GetRenderWindow()->Render();
+
   if(drawIsoContourAct->isChecked()) {
     // setup
-    isoContour->populateWidgets(scalarField, scalarFields);
     isoContour->show();
   } else {
     // remove
@@ -1059,6 +1081,8 @@ void VtkPost::showIsoContourDialogSlot()
 void VtkPost::drawIsoContourSlot()
 {
   renderer->RemoveActor(isoContourActor);
+
+  if(!drawIsoContourAct->isChecked()) return;
 
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;

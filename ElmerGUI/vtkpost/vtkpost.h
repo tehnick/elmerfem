@@ -56,6 +56,7 @@ class vtkUnstructuredGrid;
 class IsoSurface;
 class IsoContour;
 class ColorBar;
+class Surface;
 
 class VtkPost : public QMainWindow
 {
@@ -76,18 +77,20 @@ public slots:
 public slots:
   void drawIsoContourSlot();
   void drawIsoSurfaceSlot();
+  void drawScalarOnSurfaceSlot();
 
 private slots:
   void exitSlot();
-  void drawScalarOnSurfaceSlot(QAction*);
-  void redrawSlot();
-  void groupChangedSlot(QAction*);
-  void drawWireframeSlot();
+  void drawScalarOnSurfaceDialogSlot();
   void showColorBarDialogSlot();
-  void drawColorBarSlot();
-  void drawFieldNameSlot();
   void showIsoContourDialogSlot();
   void showIsoSurfaceDialogSlot();
+  void drawColorBarSlot();
+  void redrawSlot();
+  void maybeRedrawSlot(bool);
+  void groupChangedSlot(QAction*);
+  void drawWireframeSlot();
+  void drawFieldNameSlot();
   void drawFeatureEdgesSlot();
 
 private:
@@ -95,7 +98,6 @@ private:
   QMenu *editMenu;
   QMenu *editGroupsMenu;
   QMenu *viewMenu;
-  QMenu *viewScalarMenu;
 
   QToolBar *viewToolBar;
 
@@ -105,6 +107,7 @@ private:
   QAction *drawColorBarAct;
   QAction *drawFieldNameAct;
   QAction *drawIsoContourAct;
+  QAction *drawSurfaceAct;
   QAction *drawIsoSurfaceAct;
   QAction *drawFeatureEdgesAct;
 
@@ -119,13 +122,9 @@ private:
   int scalarFields;
   ScalarField *scalarField;
 
-  // int currentScalarFieldIndex;
-  // QString currentScalarFieldName;
-
   ScalarField* addScalarField(QString, int);
 
   QHash<QString, QAction*> groupActionHash;
-  QHash<QString, QAction*> scalarActionHash;
 
   QVTKWidget *qvtkWidget;
   vtkRenderer *renderer;
@@ -145,10 +144,11 @@ private:
   IsoContour *isoContour; // ui
   IsoSurface *isoSurface; // ui
   ColorBar *colorBar;     // ui
+  Surface *surface;       // ui
 
-  QString currentScalarFieldName;
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
+  QString currentSurfaceName;
 };
 
 #endif // VTKPOST_H

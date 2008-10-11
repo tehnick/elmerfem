@@ -51,7 +51,7 @@ ColorBar::ColorBar(QWidget *parent)
 {
   ui.setupUi(this);
 
-  connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(close()));
+  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
 
@@ -63,6 +63,12 @@ ColorBar::~ColorBar()
 }
 
 void ColorBar::okButtonClicked()
+{
+  emit(drawColorBarSignal());
+  close();
+}
+
+void ColorBar::applyButtonClicked()
 {
   emit(drawColorBarSignal());
 }

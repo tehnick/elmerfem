@@ -51,7 +51,7 @@ IsoContour::IsoContour(QWidget *parent)
 {
   ui.setupUi(this);
 
-  connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(close()));
+  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
@@ -63,9 +63,15 @@ IsoContour::~IsoContour()
 {
 }
 
+void IsoContour::applyButtonClicked()
+{
+  emit(drawIsoContourSignal());
+}
+
 void IsoContour::okButtonClicked()
 {
   emit(drawIsoContourSignal());
+  close();
 }
 
 void IsoContour::populateWidgets(ScalarField *scalarField, int n)
@@ -86,11 +92,6 @@ void IsoContour::populateWidgets(ScalarField *scalarField, int n)
   ui.contoursMaxEdit->setText(QString::number(scalarField->maxVal));
   ui.colorMinEdit->setText(QString::number(scalarField->minVal));
   ui.colorMaxEdit->setText(QString::number(scalarField->maxVal));
-  ui.colorCombo->clear();
-  for(int i = 0; i < n; i++) {
-    ScalarField *sf = &scalarField[i];
-    ui.colorCombo->addItem(sf->name);
-  }
 }
 
 void IsoContour::contoursSelectionChanged(int newIndex)

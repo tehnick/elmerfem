@@ -68,7 +68,8 @@ HEADERS += src/bodypropertyeditor.h \
            vtkpost/isosurface.h \
            vtkpost/isocontour.h \
            vtkpost/epmesh.h \
-           vtkpost/colorbar.h
+           vtkpost/colorbar.h \
+           vtkpost/surface.h
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
          forms/boundarypropertyeditor.ui \
@@ -81,7 +82,8 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/summaryeditor.ui \
          vtkpost/isosurface.ui \
          vtkpost/isocontour.ui \
-         vtkpost/colorbar.ui
+         vtkpost/colorbar.ui \
+         vtkpost/surface.ui
 SOURCES += src/bodypropertyeditor.cpp \
            src/boundarydivision.cpp \
            src/boundarypropertyeditor.cpp \
@@ -121,6 +123,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            vtkpost/isosurface.cpp \
            vtkpost/isocontour.cpp \
            vtkpost/epmesh.cpp \
-           vtkpost/colorbar.cpp
+           vtkpost/colorbar.cpp \
+           vtkpost/surface.cpp
 RESOURCES += ElmerGUI.qrc
 RC_FILE += ElmerGUI.rc   
