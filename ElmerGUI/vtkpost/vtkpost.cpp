@@ -675,10 +675,6 @@ void VtkPost::showColorBarDialogSlot()
 void VtkPost::drawColorBarSlot()
 {
   renderer->RemoveActor(colorBarActor);
-  
-  if(epMesh == NULL) return;
-  if(epMesh->epNodes < 1) return;
-  if(epMesh->epElements < 1) return;
   if(!drawColorBarAct->isChecked()) return;
 
   // Draw color bar:
@@ -716,6 +712,20 @@ void VtkPost::drawColorBarSlot()
 
   colorBarActor->SetLookupTable(lut);
 
+  bool horizontal = colorBar->ui.horizontalRButton->isChecked();
+  bool annotate = colorBar->ui.annotateBox->isChecked();
+  int labels = colorBar->ui.labelsSpin->value();
+
+  // colorBarActor->DragableOn();
+
+  if(horizontal) {
+    colorBarActor->SetOrientationToHorizontal();
+  } else {
+    colorBarActor->SetOrientationToVertical();
+  }
+  
+  colorBarActor->SetNumberOfLabels(labels);
+
   colorBarActor->GetLabelTextProperty()->SetFontSize(16);
   colorBarActor->GetLabelTextProperty()->SetFontFamilyToArial();
   colorBarActor->GetLabelTextProperty()->BoldOn();
@@ -728,7 +738,11 @@ void VtkPost::drawColorBarSlot()
   colorBarActor->GetTitleTextProperty()->ItalicOn();
   colorBarActor->GetTitleTextProperty()->SetColor(0, 0, 1);
   
-  colorBarActor->SetTitle(fieldName.toAscii().data());
+  if(annotate) {
+    colorBarActor->SetTitle(fieldName.toAscii().data());
+  } else {
+    colorBarActor->SetTitle("");
+  }
 
   renderer->AddActor(colorBarActor);
   qvtkWidget->GetRenderWindow()->Render();
