@@ -649,27 +649,6 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   }
   line->Delete();
 
-  // Add scalar fields to the grids (memory consuming deep copy - optimize later):
-  //------------------------------------------------------------------------------
-  for(int i = 0; i < scalarFields; i++) {
-    ScalarField *sf = &scalarField[i];
-
-    vtkFloatArray *floatArray = vtkFloatArray::New();
-    floatArray->SetNumberOfComponents(1);
-    floatArray->SetNumberOfTuples(sf->values);
-
-    floatArray->SetName(sf->name.toAscii().data());
-
-    for(int j = 0; j < sf->values; j++)
-      floatArray->SetComponent(j, 0, sf->value[j]);
-
-    volumeGrid->GetPointData()->AddArray(floatArray);
-    surfaceGrid->GetPointData()->AddArray(floatArray);
-    lineGrid->GetPointData()->AddArray(floatArray);
-
-    floatArray->Delete();
-  }
-
   redrawSlot();
 }
 
@@ -965,11 +944,16 @@ void VtkPost::drawIsoSurfaceSlot()
 
   // Scalars:
   //----------
-  vtkPointData *volumePointData = volumeGrid->GetPointData();
-  vtkDataArray *contourScalars = volumePointData->GetArray(contourName.toAscii().data());
-  volumePointData->SetScalars(contourScalars);
+  vtkFloatArray *contourArray = vtkFloatArray::New();
+  ScalarField *sf = &scalarField[contourIndex];
+  contourArray->SetNumberOfComponents(1);
+  contourArray->SetNumberOfTuples(sf->values);
+  contourArray->SetName("Contour");
+  for(int i = 0; i < sf->values; i++)
+    contourArray->SetComponent(i, 0, sf->value[i]);
+  volumeGrid->GetPointData()->SetScalars(contourArray);
 
-  // Isosourfaces && normals:
+  // Isosurfaces && normals:
   //--------------------------
   vtkContourFilter *iso = vtkContourFilter::New();
   iso->SetInput(volumeGrid);
@@ -993,8 +977,17 @@ void VtkPost::drawIsoSurfaceSlot()
     mapper->SetInputConnection(iso->GetOutputPort());
   }
 
+  vtkFloatArray *colorArray = vtkFloatArray::New();
+  sf = &scalarField[colorIndex];
+  colorArray->SetName("Color");
+  colorArray->SetNumberOfComponents(1);
+  colorArray->SetNumberOfTuples(sf->values);
+  for(int i = 0; i < sf->values; i++)
+    colorArray->SetComponent(i, 0, sf->value[i]);
+  volumeGrid->GetPointData()->AddArray(colorArray);
+
   mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray(colorName.toAscii().data());
+  mapper->SelectColorArray("Color");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
 
@@ -1012,13 +1005,16 @@ void VtkPost::drawIsoSurfaceSlot()
   //--------------------------
   currentScalarFieldIndex = colorIndex;
   currentScalarFieldName = colorName;
-  // drawColorBarSlot();
-  // drawFieldNameSlot();  
+  drawColorBarSlot();
+  drawFieldNameSlot();  
 
   qvtkWidget->GetRenderWindow()->Render();
 
   // Clean up:
   //----------
+  contourArray->Delete();
+  colorArray->Delete();
+  // remove colorArray from volume grid?
   iso->Delete();
   if(useNormals) normals->Delete();
   mapper->Delete();
@@ -1068,11 +1064,16 @@ void VtkPost::drawIsoContourSlot()
 
   // Scalars:
   //----------
-  vtkPointData *surfacePointData = surfaceGrid->GetPointData();
-  vtkDataArray *contourScalars = surfacePointData->GetArray(contourName.toAscii().data());
-  surfacePointData->SetScalars(contourScalars);
+  vtkFloatArray *contourArray = vtkFloatArray::New();
+  ScalarField *sf = &scalarField[contourIndex];
+  contourArray->SetNumberOfComponents(1);
+  contourArray->SetNumberOfTuples(sf->values);
+  contourArray->SetName("Contour");
+  for(int i = 0; i < sf->values; i++)
+    contourArray->SetComponent(i, 0, sf->value[i]);
+  surfaceGrid->GetPointData()->SetScalars(contourArray);
 
-  // Isosourfaces && normals:
+  // Isosurfaces && normals:
   //--------------------------
   vtkContourFilter *iso = vtkContourFilter::New();
   iso->SetInput(surfaceGrid);
@@ -1084,7 +1085,17 @@ void VtkPost::drawIsoContourSlot()
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(iso->GetOutputPort());
   mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray(colorName.toAscii().data());
+
+  vtkFloatArray *colorArray = vtkFloatArray::New();
+  sf = &scalarField[colorIndex];
+  colorArray->SetName("Color");
+  colorArray->SetNumberOfComponents(1);
+  colorArray->SetNumberOfTuples(sf->values);
+  for(int i = 0; i < sf->values; i++)
+    colorArray->SetComponent(i, 0, sf->value[i]);
+  surfaceGrid->GetPointData()->AddArray(colorArray);
+
+  mapper->SelectColorArray("Color");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
 
@@ -1103,13 +1114,16 @@ void VtkPost::drawIsoContourSlot()
   //--------------------------
   currentScalarFieldIndex = colorIndex;
   currentScalarFieldName = colorName;
-  // drawColorBarSlot();
-  // drawFieldNameSlot();  
+  drawColorBarSlot();
+  drawFieldNameSlot();  
   
   qvtkWidget->GetRenderWindow()->Render();
 
   // Clean up:
   //----------
+  contourArray->Delete();
+  colorArray->Delete();
+  // remove colorArray from volume grid?
   iso->Delete();
   mapper->Delete();
 }
