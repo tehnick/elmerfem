@@ -180,7 +180,7 @@ void VtkPost::createActions()
   drawFeatureEdgesAct->setChecked(true);
   connect(drawFeatureEdgesAct, SIGNAL(triggered()), this, SLOT(drawFeatureEdgesSlot()));
 
-  drawColorBarAct = new QAction(QIcon(""), tr("Color bar"), this);
+  drawColorBarAct = new QAction(QIcon(""), tr("Colorbar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
   drawColorBarAct->setChecked(false);
@@ -192,13 +192,13 @@ void VtkPost::createActions()
   drawFieldNameAct->setChecked(false);
   connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
 
-  drawIsoContourAct = new QAction(QIcon(""), tr("Iso contours"), this);
+  drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours"), this);
   drawIsoContourAct->setStatusTip("Draw iso contours (2d)");
   drawIsoContourAct->setCheckable(true);
   drawIsoContourAct->setChecked(false);
   connect(drawIsoContourAct, SIGNAL(triggered()), this, SLOT(showIsoContourDialogSlot()));
 
-  drawIsoSurfaceAct = new QAction(QIcon(""), tr("Iso surfaces"), this);
+  drawIsoSurfaceAct = new QAction(QIcon(""), tr("Isosurfaces"), this);
   drawIsoSurfaceAct->setStatusTip("Draw iso surfaces (3d)");
   drawIsoSurfaceAct->setCheckable(true);
   drawIsoSurfaceAct->setChecked(false);
@@ -245,6 +245,11 @@ void VtkPost::createMenus()
 
 void VtkPost::createToolbars()
 {
+  viewToolBar = addToolBar(tr("View"));
+  viewToolBar->addAction(drawIsoContourAct);
+  viewToolBar->addAction(drawIsoSurfaceAct);
+  viewToolBar->addAction(drawColorBarAct);
+
 }
 
 void VtkPost::createStatusBar()

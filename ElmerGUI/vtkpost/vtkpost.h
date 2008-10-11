@@ -97,6 +97,8 @@ private:
   QMenu *viewMenu;
   QMenu *viewScalarMenu;
 
+  QToolBar *viewToolBar;
+
   QAction *exitAct;
   QAction *redrawAct;
   QAction *drawWireframeAct;
