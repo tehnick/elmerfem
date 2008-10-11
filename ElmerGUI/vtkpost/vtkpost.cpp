@@ -40,7 +40,13 @@
 
 #include <QtGui>
 #include <iostream>
+
+#include "epmesh.h"
 #include "vtkpost.h"
+#include "isocontour.h"
+#include "isosurface.h"
+
+#include <QVTKWidget.h>
 
 #include <vtkActor.h>
 #include <vtkRenderer.h>
@@ -77,71 +83,6 @@
 
 using namespace std;
 
-// EpNode:
-//========
-EpNode::EpNode()
-{
-  x[0] = 0.0;
-  x[1] = 0.0;
-  x[2] = 0.0;
-}
-
-EpNode::~EpNode()
-{
-}
-
-// EpElement:
-//===========
-EpElement::EpElement()
-{
-  groupName = "";
-  code = 0;
-  indexes = 0;
-  index = NULL;
-}
-
-EpElement::~EpElement()
-{
-  delete [] index;
-}
-
-// EpMesh:
-//=========
-EpMesh::EpMesh()
-{
-  epNodes = 0;
-  epNode = NULL;
-
-  epElements = 0;
-  epElement = NULL;
-}
-
-EpMesh::~EpMesh()
-{
-  delete [] epNode;
-  delete [] epElement;
-}
-
-// ScalarField:
-//==============
-ScalarField::ScalarField()
-{
-  menuAction = NULL;
-  name = "";
-  values = 0;
-  value = NULL;
-  minVal = +9.9e99;
-  maxVal = -9.9e99;
-}
-
-ScalarField::~ScalarField()
-{
-  delete menuAction;
-  delete [] value;
-}
-
-// VtkPost:
-//==========
 VtkPost::VtkPost(QWidget *parent)
   : QMainWindow(parent)
 {
@@ -953,6 +894,15 @@ void VtkPost::drawIsoSurfaceSlot()
     contourArray->SetComponent(i, 0, sf->value[i]);
   volumeGrid->GetPointData()->SetScalars(contourArray);
 
+  vtkFloatArray *colorArray = vtkFloatArray::New();
+  sf = &scalarField[colorIndex];
+  colorArray->SetName("Color");
+  colorArray->SetNumberOfComponents(1);
+  colorArray->SetNumberOfTuples(sf->values);
+  for(int i = 0; i < sf->values; i++)
+    colorArray->SetComponent(i, 0, sf->value[i]);
+  volumeGrid->GetPointData()->AddArray(colorArray);
+
   // Isosurfaces && normals:
   //--------------------------
   vtkContourFilter *iso = vtkContourFilter::New();
@@ -976,15 +926,6 @@ void VtkPost::drawIsoSurfaceSlot()
   } else {
     mapper->SetInputConnection(iso->GetOutputPort());
   }
-
-  vtkFloatArray *colorArray = vtkFloatArray::New();
-  sf = &scalarField[colorIndex];
-  colorArray->SetName("Color");
-  colorArray->SetNumberOfComponents(1);
-  colorArray->SetNumberOfTuples(sf->values);
-  for(int i = 0; i < sf->values; i++)
-    colorArray->SetComponent(i, 0, sf->value[i]);
-  volumeGrid->GetPointData()->AddArray(colorArray);
 
   mapper->ScalarVisibilityOn();
   mapper->SelectColorArray("Color");
@@ -1073,8 +1014,17 @@ void VtkPost::drawIsoContourSlot()
     contourArray->SetComponent(i, 0, sf->value[i]);
   surfaceGrid->GetPointData()->SetScalars(contourArray);
 
-  // Isosurfaces && normals:
-  //--------------------------
+  vtkFloatArray *colorArray = vtkFloatArray::New();
+  sf = &scalarField[colorIndex];
+  colorArray->SetName("Color");
+  colorArray->SetNumberOfComponents(1);
+  colorArray->SetNumberOfTuples(sf->values);
+  for(int i = 0; i < sf->values; i++)
+    colorArray->SetComponent(i, 0, sf->value[i]);
+  surfaceGrid->GetPointData()->AddArray(colorArray);
+
+  // Isocontours:
+  //--------------
   vtkContourFilter *iso = vtkContourFilter::New();
   iso->SetInput(surfaceGrid);
   iso->ComputeScalarsOn();
@@ -1085,16 +1035,6 @@ void VtkPost::drawIsoContourSlot()
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(iso->GetOutputPort());
   mapper->ScalarVisibilityOn();
-
-  vtkFloatArray *colorArray = vtkFloatArray::New();
-  sf = &scalarField[colorIndex];
-  colorArray->SetName("Color");
-  colorArray->SetNumberOfComponents(1);
-  colorArray->SetNumberOfTuples(sf->values);
-  for(int i = 0; i < sf->values; i++)
-    colorArray->SetComponent(i, 0, sf->value[i]);
-  surfaceGrid->GetPointData()->AddArray(colorArray);
-
   mapper->SelectColorArray("Color");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);

@@ -23,11 +23,11 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI vtkpost                                                         *
+ *  ElmerGUI epmesh                                                          *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter RÃ¥back                   *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - Scientific Computing Ltd.                                 *
@@ -38,106 +38,69 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef VTKPOST_H
-#define VTKPOST_H
+#include <QAction>
+#include <QString>
+#include "epmesh.h"
 
-#include <QMainWindow>
-#include <QHash>
-
-class EpMesh;
-class ScalarField;
-class QVTKWidget;
-class vtkRenderer;
-class vtkActor;
-class vtkScalarBarActor;
-class vtkDataSetMapper;
-class vtkTextActor;
-class vtkUnstructuredGrid;
-class IsoSurface;
-class IsoContour;
-
-class VtkPost : public QMainWindow
+// EpNode:
+//========
+EpNode::EpNode()
 {
-  Q_OBJECT
+  x[0] = 0.0;
+  x[1] = 0.0;
+  x[2] = 0.0;
+}
 
-public:
-  VtkPost(QWidget *parent = 0);
-  ~VtkPost();
+EpNode::~EpNode()
+{
+}
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-  bool readPostFile(QString);
+// EpElement:
+//===========
+EpElement::EpElement()
+{
+  groupName = "";
+  code = 0;
+  indexes = 0;
+  index = NULL;
+}
 
-signals:
+EpElement::~EpElement()
+{
+  delete [] index;
+}
 
-public slots:
+// EpMesh:
+//=========
+EpMesh::EpMesh()
+{
+  epNodes = 0;
+  epNode = NULL;
 
-public slots:
-  void drawIsoContourSlot();
-  void drawIsoSurfaceSlot();
+  epElements = 0;
+  epElement = NULL;
+}
 
-private slots:
-  void exitSlot();
-  void drawScalarOnSurfaceSlot(QAction*);
-  void redrawSlot();
-  void groupChangedSlot(QAction*);
-  void drawWireframeSlot();
-  void drawColorBarSlot();
-  void drawFieldNameSlot();
-  void showIsoContourDialogSlot();
-  void showIsoSurfaceDialogSlot();
-  void drawFeatureEdgesSlot();
+EpMesh::~EpMesh()
+{
+  delete [] epNode;
+  delete [] epElement;
+}
 
-private:
-  QMenu *fileMenu;
-  QMenu *editMenu;
-  QMenu *editGroupsMenu;
-  QMenu *viewMenu;
-  QMenu *viewScalarMenu;
+// ScalarField:
+//==============
+ScalarField::ScalarField()
+{
+  menuAction = NULL;
+  name = "";
+  values = 0;
+  value = NULL;
+  minVal = +9.9e99;
+  maxVal = -9.9e99;
+}
 
-  QAction *exitAct;
-  QAction *redrawAct;
-  QAction *drawWireframeAct;
-  QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
-  QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-
-  void createActions();
-  void createMenus();
-  void createToolbars();
-  void createStatusBar();
-
-  EpMesh *epMesh;
-  QString postFileName;
-  bool postFileRead;
-  int scalarFields;
-  ScalarField *scalarField;
-  int currentScalarFieldIndex;
-  QString currentScalarFieldName;
-
-  ScalarField* addScalarField(QString, int);
-
-  QHash<QString, QAction*> groupActionHash;
-
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
-
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *scalarFieldActor;
-  vtkActor *wireframeActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
-  vtkActor *featureEdgeActor;
-
-  IsoContour *isoContour; // ui
-  IsoSurface *isoSurface; // ui
-};
-
-#endif // VTKPOST_H
+ScalarField::~ScalarField()
+{
+  delete menuAction;
+  delete [] value;
+}

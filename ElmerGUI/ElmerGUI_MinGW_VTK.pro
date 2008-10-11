@@ -1,4 +1,4 @@
-# ElmerGUI.pro for MinGW
+# ElmerGUI.pro for MinGW with VTK
 
 TEMPLATE = app
 TARGET = ElmerGUI
@@ -71,7 +71,8 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/tetlib_api.h \
            vtkpost/vtkpost.h \
            vtkpost/isosurface.h \
-           vtkpost/isocontour.h
+           vtkpost/isocontour.h \
+           vtkpost/epmesh.h
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
          forms/boundarypropertyeditor.ui \
@@ -121,6 +122,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/tetlib_api.cpp \
            vtkpost/vtkpost.cpp \
            vtkpost/isosurface.cpp \
-           vtkpost/isocontour.cpp
+           vtkpost/isocontour.cpp \
+           vtkpost/epmesh.cpp
 RESOURCES += ElmerGUI.qrc
 RC_FILE += ElmerGUI.rc   

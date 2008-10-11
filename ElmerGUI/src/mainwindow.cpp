@@ -45,6 +45,10 @@
 #include <fstream>
 #include "mainwindow.h"
 
+#ifdef VTKPOST
+#include "vtkpost/vtkpost.h"
+#endif
+
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif

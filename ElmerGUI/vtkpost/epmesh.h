@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI vtkpost                                                         *
+ *  ElmerGUI epmesh                                                          *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -38,106 +38,66 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef VTKPOST_H
-#define VTKPOST_H
+#ifndef EPMESH_H
+#define EPMESH_H
 
-#include <QMainWindow>
-#include <QHash>
+class QAction;
+class QString;
 
-class EpMesh;
-class ScalarField;
-class QVTKWidget;
-class vtkRenderer;
-class vtkActor;
-class vtkScalarBarActor;
-class vtkDataSetMapper;
-class vtkTextActor;
-class vtkUnstructuredGrid;
-class IsoSurface;
-class IsoContour;
-
-class VtkPost : public QMainWindow
+// EpNode:
+//========
+class EpNode
 {
-  Q_OBJECT
+ public:
+  EpNode();
+  ~EpNode();
 
-public:
-  VtkPost(QWidget *parent = 0);
-  ~VtkPost();
-
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-  bool readPostFile(QString);
-
-signals:
-
-public slots:
-
-public slots:
-  void drawIsoContourSlot();
-  void drawIsoSurfaceSlot();
-
-private slots:
-  void exitSlot();
-  void drawScalarOnSurfaceSlot(QAction*);
-  void redrawSlot();
-  void groupChangedSlot(QAction*);
-  void drawWireframeSlot();
-  void drawColorBarSlot();
-  void drawFieldNameSlot();
-  void showIsoContourDialogSlot();
-  void showIsoSurfaceDialogSlot();
-  void drawFeatureEdgesSlot();
-
-private:
-  QMenu *fileMenu;
-  QMenu *editMenu;
-  QMenu *editGroupsMenu;
-  QMenu *viewMenu;
-  QMenu *viewScalarMenu;
-
-  QAction *exitAct;
-  QAction *redrawAct;
-  QAction *drawWireframeAct;
-  QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
-  QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-
-  void createActions();
-  void createMenus();
-  void createToolbars();
-  void createStatusBar();
-
-  EpMesh *epMesh;
-  QString postFileName;
-  bool postFileRead;
-  int scalarFields;
-  ScalarField *scalarField;
-  int currentScalarFieldIndex;
-  QString currentScalarFieldName;
-
-  ScalarField* addScalarField(QString, int);
-
-  QHash<QString, QAction*> groupActionHash;
-
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
-
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *scalarFieldActor;
-  vtkActor *wireframeActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
-  vtkActor *featureEdgeActor;
-
-  IsoContour *isoContour; // ui
-  IsoSurface *isoSurface; // ui
+  double x[3];
 };
 
-#endif // VTKPOST_H
+// EpElement:
+//===========
+class EpElement
+{
+ public:
+  EpElement();
+  ~EpElement();
+
+  QString groupName;
+  int code;
+  int indexes;
+  int *index;
+};
+
+// EpMesh:
+//=========
+class EpMesh
+{
+ public:
+  EpMesh();
+  ~EpMesh();
+
+  int epNodes;
+  EpNode *epNode;
+
+  int epElements;
+  EpElement *epElement;
+};
+
+// ScalarField:
+//=============
+class ScalarField
+{
+ public:
+  ScalarField();
+  ~ScalarField();
+
+  QAction *menuAction;
+  QString name;
+  int values;
+  double *value;
+  double minVal;
+  double maxVal;
+};
+
+#endif // EPMESH_H

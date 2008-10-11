@@ -78,13 +78,13 @@
 #include "cad/cadview.h"
 #endif
 
-#ifdef VTKPOST
-#include "vtkpost/vtkpost.h"
-#endif
-
 class QAction;
 class QMenu;
 class GLWidget;
+
+#ifdef VTKPOST
+class VtkPost;
+#endif
 
 #define MAXPATHLENGTH 600
 
