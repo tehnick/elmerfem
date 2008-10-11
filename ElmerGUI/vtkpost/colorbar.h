@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI vtkpost                                                         *
+ *  ElmerGUI colorbar                                                        *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -38,114 +38,33 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef VTKPOST_H
-#define VTKPOST_H
+#ifndef COLORBAR_H
+#define COLORBAR_H
 
-#include <QMainWindow>
-#include <QHash>
+#include <QWidget>
+#include "ui_colorbar.h"
 
-class EpMesh;
 class ScalarField;
-class QVTKWidget;
-class vtkRenderer;
-class vtkActor;
-class vtkScalarBarActor;
-class vtkDataSetMapper;
-class vtkTextActor;
-class vtkUnstructuredGrid;
-class IsoSurface;
-class IsoContour;
-class ColorBar;
 
-class VtkPost : public QMainWindow
+class ColorBar : public QDialog
 {
   Q_OBJECT
 
 public:
-  VtkPost(QWidget *parent = 0);
-  ~VtkPost();
+  ColorBar(QWidget *parent = 0);
+  ~ColorBar();
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-  bool readPostFile(QString);
+  Ui::colorBarDialog ui;
 
 signals:
-
-public slots:
-
-public slots:
-  void drawIsoContourSlot();
-  void drawIsoSurfaceSlot();
+  void drawColorBarSignal();
 
 private slots:
-  void exitSlot();
-  void drawScalarOnSurfaceSlot(QAction*);
-  void redrawSlot();
-  void groupChangedSlot(QAction*);
-  void drawWireframeSlot();
-  void showColorBarDialogSlot();
-  void drawColorBarSlot();
-  void drawFieldNameSlot();
-  void showIsoContourDialogSlot();
-  void showIsoSurfaceDialogSlot();
-  void drawFeatureEdgesSlot();
+  void okButtonClicked();
+  void colorSelectionChanged(int);
 
 private:
-  QMenu *fileMenu;
-  QMenu *editMenu;
-  QMenu *editGroupsMenu;
-  QMenu *viewMenu;
-  QMenu *viewScalarMenu;
 
-  QAction *exitAct;
-  QAction *redrawAct;
-  QAction *drawWireframeAct;
-  QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
-  QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-
-  void createActions();
-  void createMenus();
-  void createToolbars();
-  void createStatusBar();
-
-  EpMesh *epMesh;
-  QString postFileName;
-  bool postFileRead;
-  int scalarFields;
-  ScalarField *scalarField;
-
-  // int currentScalarFieldIndex;
-  // QString currentScalarFieldName;
-
-  ScalarField* addScalarField(QString, int);
-
-  QHash<QString, QAction*> groupActionHash;
-
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
-
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *scalarFieldActor;
-  vtkActor *wireframeActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
-  vtkActor *featureEdgeActor;
-
-  IsoContour *isoContour; // ui
-  IsoSurface *isoSurface; // ui
-  ColorBar *colorBar;     // ui
-
-  QString currentScalarFieldName;
-  QString currentIsoContourName;
-  QString currentIsoSurfaceName;
 };
 
-#endif // VTKPOST_H
+#endif // COLORBAR_H

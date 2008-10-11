@@ -45,6 +45,7 @@
 #include "vtkpost.h"
 #include "isocontour.h"
 #include "isosurface.h"
+#include "colorbar.h"
 
 #include <QVTKWidget.h>
 
@@ -117,6 +118,9 @@ VtkPost::VtkPost(QWidget *parent)
   isoSurface = new IsoSurface;
   connect(isoSurface, SIGNAL(drawIsoSurfaceSignal()), this, SLOT(drawIsoSurfaceSlot()));
 
+  colorBar = new ColorBar;
+  connect(colorBar, SIGNAL(drawColorBarSignal()), this, SLOT(drawColorBarSlot()));
+
   // Ep-data:
   //----------
   epMesh = new EpMesh;
@@ -124,8 +128,6 @@ VtkPost::VtkPost(QWidget *parent)
   postFileRead = false;
   scalarFields = 0;
   scalarField = new ScalarField[100]; // fixed max.
-  currentScalarFieldIndex = 0;
-  currentScalarFieldName = "";
 
   // Central widget:
   //----------------
@@ -166,8 +168,8 @@ void VtkPost::createActions()
 
   // View menu:
   //------------
-  drawWireframeAct = new QAction(QIcon(""), tr("Surface wireframe"), this);
-  drawWireframeAct->setStatusTip("Draw surface wireframe");
+  drawWireframeAct = new QAction(QIcon(""), tr("Surface mesh"), this);
+  drawWireframeAct->setStatusTip("Draw surface mesh lines");
   drawWireframeAct->setCheckable(true);
   drawWireframeAct->setChecked(false);
   connect(drawWireframeAct, SIGNAL(triggered()), this, SLOT(drawWireframeSlot()));
@@ -182,7 +184,7 @@ void VtkPost::createActions()
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
   drawColorBarAct->setChecked(false);
-  connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(drawColorBarSlot()));
+  connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(showColorBarDialogSlot()));
 
   drawFieldNameAct = new QAction(QIcon(""), tr("Field name"), this);
   drawFieldNameAct->setStatusTip("Draw field name");
@@ -236,8 +238,8 @@ void VtkPost::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(drawColorBarAct);
   viewMenu->addSeparator();
-  viewMenu->addAction(drawFieldNameAct);
-  viewMenu->addSeparator();
+  // viewMenu->addAction(drawFieldNameAct);
+  // viewMenu->addSeparator();
   viewMenu->addAction(redrawAct);
 }
 
@@ -248,7 +250,6 @@ void VtkPost::createToolbars()
 void VtkPost::createStatusBar()
 {
 }
-
 
 
 // Read in ep-results:
@@ -436,6 +437,12 @@ bool VtkPost::readPostFile(QString postFileName)
   connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
 
   redrawSlot();
+
+  // Draw the null field:
+  sf = &scalarField[0];
+  sf->menuAction->setChecked(true);
+  drawScalarOnSurfaceSlot(sf->menuAction);
+  
   return true;
 }
 
@@ -459,14 +466,6 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   sf->maxVal = -9.9e30;
 
   viewScalarMenu->addAction(sf->menuAction);
-
-  if(scalarFields == 1) {
-    sf->menuAction->setChecked(true);
-    currentScalarFieldIndex = 0;
-    currentScalarFieldName = sf->name;
-  } else {
-    sf->menuAction->setChecked(false);
-  } 
 
   return sf;
 }
@@ -618,17 +617,19 @@ void VtkPost::drawFieldNameSlot()
 {
   renderer->RemoveActor(fieldNameActor);
 
+  return;
+
+#if 0
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
   if(!drawFieldNameAct->isChecked()) return;
-  if(currentScalarFieldName.isEmpty()) return;
+  // if(currentScalarFieldName.isEmpty()) return;
 
   // Draw field name (scalar field):
   //--------------------------------
-  QString fieldName = currentScalarFieldName;
-
-  if(fieldName.isEmpty()) return;
+  // QString fieldName = currentScalarFieldName;
+  // if(fieldName.isEmpty()) return;
   
   fieldNameActor->SetDisplayPosition(15, 15);
   fieldNameActor->SetInput(fieldName.toAscii().data());
@@ -642,16 +643,35 @@ void VtkPost::drawFieldNameSlot()
   renderer->AddActor2D(fieldNameActor);
 
   qvtkWidget->GetRenderWindow()->Render();
+#endif
 }
 
 
 
 // Draw color bar:
 //----------------------------------------------------------------------
+void VtkPost::showColorBarDialogSlot()
+{
+  if(drawColorBarAct->isChecked()) {
+
+    colorBar->ui.colorCombo->clear();
+    colorBar->ui.colorCombo->addItem("Surface");
+    colorBar->ui.colorCombo->addItem("Iso contour");
+    colorBar->ui.colorCombo->addItem("Iso surface");
+
+    colorBar->show();
+
+  } else {
+
+    colorBar->close();
+    drawColorBarSlot();
+  }
+}
+
 void VtkPost::drawColorBarSlot()
 {
   renderer->RemoveActor(colorBarActor);
-
+  
   if(epMesh == NULL) return;
   if(epMesh->epNodes < 1) return;
   if(epMesh->epElements < 1) return;
@@ -662,25 +682,51 @@ void VtkPost::drawColorBarSlot()
   vtkTextMapper *tMapper = vtkTextMapper::New();
   colorBarActor->SetMapper(tMapper);
 
-  // is this ok?
+  QString actorName = colorBar->ui.colorCombo->currentText().trimmed();
+
+  if(actorName.isEmpty()) return;
+
+  QString fieldName = "";
+
+  vtkScalarsToColors *lut = NULL;
+
+  if(actorName == "Surface") {
+    fieldName = currentScalarFieldName;
+    if(fieldName.isEmpty()) return;
+    lut = scalarFieldActor->GetMapper()->GetLookupTable();
+  }
+
+  if(actorName == "Iso contour") {
+    fieldName = currentIsoContourName;
+    if(fieldName.isEmpty()) return;
+    lut = isoContourActor->GetMapper()->GetLookupTable();
+  }
+
+  if(actorName == "Iso surface") {
+    fieldName = currentIsoSurfaceName;
+    if(fieldName.isEmpty()) return;
+    lut = isoSurfaceActor->GetMapper()->GetLookupTable();
+  }
+
+  if(!lut) return;
+
+  colorBarActor->SetLookupTable(lut);
+
   colorBarActor->GetLabelTextProperty()->SetFontSize(16);
   colorBarActor->GetLabelTextProperty()->SetFontFamilyToArial();
   colorBarActor->GetLabelTextProperty()->BoldOn();
   colorBarActor->GetLabelTextProperty()->ItalicOn();
-  // colorBarActor->GetLabelTextProperty()->ShadowOn();
   colorBarActor->GetLabelTextProperty()->SetColor(0, 0, 1);
   
   colorBarActor->GetTitleTextProperty()->SetFontSize(16);
   colorBarActor->GetTitleTextProperty()->SetFontFamilyToArial();
   colorBarActor->GetTitleTextProperty()->BoldOn();
   colorBarActor->GetTitleTextProperty()->ItalicOn();
-  // colorBarActor->GetTitleTextProperty()->ShadowOn();
   colorBarActor->GetTitleTextProperty()->SetColor(0, 0, 1);
   
-  colorBarActor->SetTitle(currentScalarFieldName.toAscii().data());
+  colorBarActor->SetTitle(fieldName.toAscii().data());
 
   renderer->AddActor(colorBarActor);
-  
   qvtkWidget->GetRenderWindow()->Render();
 
   tMapper->Delete();
@@ -795,7 +841,7 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
   }
 
   if(shouldReturn) return;
-  if(index < 0) index = currentScalarFieldIndex;
+  if(index < 0) return;
 
   sf = &scalarField[index];
   sf->menuAction->setChecked(true);
@@ -805,6 +851,7 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
   vtkFloatArray *scalars = vtkFloatArray::New();
   scalars->SetNumberOfComponents(1);
   scalars->SetNumberOfTuples(sf->values);
+  scalars->SetName("ScalarSurface");
 
   for(int i = 0; i < sf->values; i++)
     scalars->SetComponent(i, 0, sf->value[i]);
@@ -814,10 +861,11 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
   // Mapper:
   //--------
   vtkDataSetMapper *scalarFieldMapper = vtkDataSetMapper::New();
+
   scalarFieldMapper->SetInput(surfaceGrid);
+  scalarFieldMapper->ScalarVisibilityOn();
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
-  colorBarActor->SetLookupTable(scalarFieldMapper->GetLookupTable());
 
   // Actor:
   //-------
@@ -829,7 +877,6 @@ void VtkPost::drawScalarOnSurfaceSlot(QAction *triggeredAction)
 
   // Update color bar && field name:
   //---------------------------------
-  currentScalarFieldIndex = index;
   currentScalarFieldName = sf->name;
   drawColorBarSlot();
   drawFieldNameSlot();  
@@ -889,14 +936,14 @@ void VtkPost::drawIsoSurfaceSlot()
   ScalarField *sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
   contourArray->SetNumberOfTuples(sf->values);
-  contourArray->SetName("Contour");
+  contourArray->SetName("IsoSurface");
   for(int i = 0; i < sf->values; i++)
     contourArray->SetComponent(i, 0, sf->value[i]);
   volumeGrid->GetPointData()->SetScalars(contourArray);
 
   vtkFloatArray *colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
-  colorArray->SetName("Color");
+  colorArray->SetName("IsoSurfaceColor");
   colorArray->SetNumberOfComponents(1);
   colorArray->SetNumberOfTuples(sf->values);
   for(int i = 0; i < sf->values; i++)
@@ -928,12 +975,10 @@ void VtkPost::drawIsoSurfaceSlot()
   }
 
   mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray("Color");
+  mapper->SelectColorArray("IsoSurfaceColor");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
 
-  colorBarActor->SetLookupTable(mapper->GetLookupTable());
-  
   // Actor:
   //-------
   isoSurfaceActor->SetMapper(mapper);
@@ -944,8 +989,7 @@ void VtkPost::drawIsoSurfaceSlot()
 
   // Redraw text && colorbar:
   //--------------------------
-  currentScalarFieldIndex = colorIndex;
-  currentScalarFieldName = colorName;
+  currentIsoSurfaceName = colorName;
   drawColorBarSlot();
   drawFieldNameSlot();  
 
@@ -1009,14 +1053,14 @@ void VtkPost::drawIsoContourSlot()
   ScalarField *sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
   contourArray->SetNumberOfTuples(sf->values);
-  contourArray->SetName("Contour");
+  contourArray->SetName("IsoContour");
   for(int i = 0; i < sf->values; i++)
     contourArray->SetComponent(i, 0, sf->value[i]);
   surfaceGrid->GetPointData()->SetScalars(contourArray);
 
   vtkFloatArray *colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
-  colorArray->SetName("Color");
+  colorArray->SetName("IsoContourColor");
   colorArray->SetNumberOfComponents(1);
   colorArray->SetNumberOfTuples(sf->values);
   for(int i = 0; i < sf->values; i++)
@@ -1035,12 +1079,10 @@ void VtkPost::drawIsoContourSlot()
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(iso->GetOutputPort());
   mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray("Color");
+  mapper->SelectColorArray("IsoContourColor");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
 
-  colorBarActor->SetLookupTable(mapper->GetLookupTable());
-  
   // Actor:
   //-------
   isoContourActor->SetMapper(mapper);
@@ -1052,8 +1094,7 @@ void VtkPost::drawIsoContourSlot()
 
   // Redraw text && colorbar:
   //--------------------------
-  currentScalarFieldIndex = colorIndex;
-  currentScalarFieldName = colorName;
+  currentIsoContourName = colorName;
   drawColorBarSlot();
   drawFieldNameSlot();  
   

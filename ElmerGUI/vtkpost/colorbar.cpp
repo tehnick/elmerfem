@@ -23,11 +23,11 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI vtkpost                                                         *
+ *  ElmerGUI colorbar                                                        *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter RÃ¥back                   *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - Scientific Computing Ltd.                                 *
@@ -38,114 +38,35 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef VTKPOST_H
-#define VTKPOST_H
+#include <QtGui>
+#include <iostream>
+#include "epmesh.h"
+#include "vtkpost.h"
+#include "colorbar.h"
 
-#include <QMainWindow>
-#include <QHash>
+using namespace std;
 
-class EpMesh;
-class ScalarField;
-class QVTKWidget;
-class vtkRenderer;
-class vtkActor;
-class vtkScalarBarActor;
-class vtkDataSetMapper;
-class vtkTextActor;
-class vtkUnstructuredGrid;
-class IsoSurface;
-class IsoContour;
-class ColorBar;
-
-class VtkPost : public QMainWindow
+ColorBar::ColorBar(QWidget *parent)
+  : QDialog(parent)
 {
-  Q_OBJECT
+  ui.setupUi(this);
 
-public:
-  VtkPost(QWidget *parent = 0);
-  ~VtkPost();
+  connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(close()));
+  connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+  connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-  bool readPostFile(QString);
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+}
 
-signals:
+ColorBar::~ColorBar()
+{
+}
 
-public slots:
+void ColorBar::okButtonClicked()
+{
+  emit(drawColorBarSignal());
+}
 
-public slots:
-  void drawIsoContourSlot();
-  void drawIsoSurfaceSlot();
-
-private slots:
-  void exitSlot();
-  void drawScalarOnSurfaceSlot(QAction*);
-  void redrawSlot();
-  void groupChangedSlot(QAction*);
-  void drawWireframeSlot();
-  void showColorBarDialogSlot();
-  void drawColorBarSlot();
-  void drawFieldNameSlot();
-  void showIsoContourDialogSlot();
-  void showIsoSurfaceDialogSlot();
-  void drawFeatureEdgesSlot();
-
-private:
-  QMenu *fileMenu;
-  QMenu *editMenu;
-  QMenu *editGroupsMenu;
-  QMenu *viewMenu;
-  QMenu *viewScalarMenu;
-
-  QAction *exitAct;
-  QAction *redrawAct;
-  QAction *drawWireframeAct;
-  QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
-  QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-
-  void createActions();
-  void createMenus();
-  void createToolbars();
-  void createStatusBar();
-
-  EpMesh *epMesh;
-  QString postFileName;
-  bool postFileRead;
-  int scalarFields;
-  ScalarField *scalarField;
-
-  // int currentScalarFieldIndex;
-  // QString currentScalarFieldName;
-
-  ScalarField* addScalarField(QString, int);
-
-  QHash<QString, QAction*> groupActionHash;
-
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
-
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *scalarFieldActor;
-  vtkActor *wireframeActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
-  vtkActor *featureEdgeActor;
-
-  IsoContour *isoContour; // ui
-  IsoSurface *isoSurface; // ui
-  ColorBar *colorBar;     // ui
-
-  QString currentScalarFieldName;
-  QString currentIsoContourName;
-  QString currentIsoSurfaceName;
-};
-
-#endif // VTKPOST_H
+void ColorBar::colorSelectionChanged(int newIndex)
+{
+}
