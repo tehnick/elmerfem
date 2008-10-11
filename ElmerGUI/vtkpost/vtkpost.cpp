@@ -715,13 +715,24 @@ void VtkPost::drawColorBarSlot()
   bool horizontal = colorBar->ui.horizontalRButton->isChecked();
   bool annotate = colorBar->ui.annotateBox->isChecked();
   int labels = colorBar->ui.labelsSpin->value();
+  double width = colorBar->ui.widthEdit->text().toDouble();
+  double height = colorBar->ui.heightEdit->text().toDouble();
 
-  // colorBarActor->DragableOn();
+  if(width < 0.01) width = 0.01;
+  if(width > 0.99) width = 0.99;
+  if(height < 0.01) height = 0.01;
+  if(height > 0.99) height = 0.99;
+
+  colorBarActor->SetPosition(0.05, 0.05);
 
   if(horizontal) {
     colorBarActor->SetOrientationToHorizontal();
+    colorBarActor->SetWidth(height);
+    colorBarActor->SetHeight(width);
   } else {
     colorBarActor->SetOrientationToVertical();
+    colorBarActor->SetWidth(width);
+    colorBarActor->SetHeight(height);
   }
   
   colorBarActor->SetNumberOfLabels(labels);
