@@ -1026,6 +1026,7 @@ void VtkPost::drawSurfaceSlot()
   double maxVal = surface->ui.maxEdit->text().toDouble();
   bool useNormals = surface->ui.useNormals->isChecked();
   int featureAngle = surface->ui.featureAngle->value();
+  double opacity = surface->ui.opacitySpin->value() / 100.0;
 
   // Scalars:
   //---------
@@ -1072,6 +1073,7 @@ void VtkPost::drawSurfaceSlot()
   // Actor & renderer:
   //------------------
   surfaceActor->SetMapper(mapper);
+  surfaceActor->GetProperty()->SetOpacity(opacity);
   renderer->AddActor(surfaceActor);
 
   // Update color bar && field name:
@@ -1123,6 +1125,7 @@ void VtkPost::drawIsoSurfaceSlot()
   double colorMinVal = isoSurface->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoSurface->ui.colorMaxEdit->text().toDouble();
   int featureAngle = isoSurface->ui.featureAngle->value();
+  double opacity = isoSurface->ui.opacitySpin->value() / 100.0;
 
   if(contourName == "Null") return;
 
@@ -1181,6 +1184,7 @@ void VtkPost::drawIsoSurfaceSlot()
   // Actor && renderer:
   //-------------------
   isoSurfaceActor->SetMapper(mapper);
+  isoSurfaceActor->GetProperty()->SetOpacity(opacity);
   renderer->AddActor(isoSurfaceActor);
 
   // Redraw colorbar:
