@@ -931,6 +931,7 @@ void VtkPost::drawVectorSlot()
   if(!drawVectorAct->isChecked()) return;
 
   QString vectorName = vector->ui.vectorCombo->currentText();
+
   if(vectorName.isEmpty()) return;
 
   int i, j, index = -1;
@@ -947,10 +948,18 @@ void VtkPost::drawVectorSlot()
 
   if(index < 0) return;
 
+  // UI data:
+  //----------
+  int colorIndex = vector->ui.colorCombo->currentIndex();
+  QString colorName = vector->ui.colorCombo->currentText();
+  double minVal = vector->ui.minVal->text().toDouble();
+  double maxVal = vector->ui.maxVal->text().toDouble();
+  int quality = vector->ui.qualitySpin->value();
+  int scaleMultiplier = vector->ui.scaleSpin->value();
+
   // Vector data:
   //-------------
   volumeGrid->GetPointData()->RemoveArray("VectorData");
-  int scaleMultiplier = vector->ui.scaleSpin->value();
   vtkFloatArray *vectorData = vtkFloatArray::New();
   ScalarField *sf_x = &scalarField[index + 0];
   ScalarField *sf_y = &scalarField[index + 1];
@@ -973,8 +982,6 @@ void VtkPost::drawVectorSlot()
 
   // Color data:
   //-------------
-  int colorIndex = vector->ui.colorCombo->currentIndex();
-  QString colorName = vector->ui.colorCombo->currentText();
   ScalarField *sf = &scalarField[colorIndex];
   volumeGrid->GetPointData()->RemoveArray("VectorColor");
   vtkFloatArray *vectorColor = vtkFloatArray::New();
@@ -990,8 +997,8 @@ void VtkPost::drawVectorSlot()
   volumeGrid->GetPointData()->SetActiveVectors("VectorData");
   vtkGlyph3D *glyph = vtkGlyph3D::New();
   vtkArrowSource *arrow = vtkArrowSource::New();
-  arrow->SetTipResolution(16);
-  arrow->SetShaftResolution(16);
+  arrow->SetTipResolution(quality);
+  arrow->SetShaftResolution(quality);
   glyph->SetInput(volumeGrid);
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
@@ -1004,7 +1011,7 @@ void VtkPost::drawVectorSlot()
   mapper->SetInputConnection(glyph->GetOutputPort());
   mapper->SetScalarModeToUsePointFieldData();
   mapper->ScalarVisibilityOn();
-  mapper->SetScalarRange(sf->minVal, sf->maxVal);
+  mapper->SetScalarRange(minVal, maxVal);
   mapper->SelectColorArray("VectorColor");
   // mapper->ImmediateModeRenderingOn();
 

@@ -64,7 +64,7 @@ signals:
 private slots:
   void okButtonClicked();
   void applyButtonClicked();
-  void vectorSelectionChanged(int);
+  void colorSelectionChanged(int);
 
 private:
   ScalarField *scalarField;
