@@ -930,7 +930,7 @@ void VtkPost::drawSurfaceSlot()
   scalarFieldMapper->SetScalarModeToUsePointFieldData();
   scalarFieldMapper->SelectColorArray("Surface");
   scalarFieldMapper->ScalarVisibilityOn();
-  scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
+  scalarFieldMapper->SetScalarRange(minVal, maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
 
   // Actor:
