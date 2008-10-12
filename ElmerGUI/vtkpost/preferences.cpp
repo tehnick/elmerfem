@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI colorbar                                                        *
+ *  ElmerGUI preferences                                                     *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -40,47 +40,39 @@
 
 #include <QtGui>
 #include <iostream>
-#include "epmesh.h"
 #include "vtkpost.h"
-#include "colorbar.h"
+#include "preferences.h"
 
 using namespace std;
 
-ColorBar::ColorBar(QWidget *parent)
+Preferences::Preferences(QWidget *parent)
   : QDialog(parent)
 {
   ui.setupUi(this);
 
-  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
+  connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(cancelButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
-  connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
+  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
-ColorBar::~ColorBar()
+Preferences::~Preferences()
 {
 }
 
-void ColorBar::okButtonClicked()
+void Preferences::okButtonClicked()
 {
-  emit(drawColorBarSignal());
+  emit(redrawSignal());
   close();
 }
 
-void ColorBar::applyButtonClicked()
+void Preferences::applyButtonClicked()
 {
-  emit(drawColorBarSignal());
+  emit(redrawSignal());  
 }
 
-void ColorBar::colorSelectionChanged(int newIndex)
+void Preferences::cancelButtonClicked()
 {
-}
-
-void ColorBar::populateWidgets()
-{
-  ui.colorCombo->clear();
-  ui.colorCombo->addItem("Surface");
-  ui.colorCombo->addItem("Isocontour");
-  ui.colorCombo->addItem("Isosurface");
+  close();
 }

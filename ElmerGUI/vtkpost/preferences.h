@@ -23,11 +23,11 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI colorbar                                                        *
+ *  ElmerGUI preferences                                                     *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter RÃ¥back                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - Scientific Computing Ltd.                                 *
@@ -38,49 +38,32 @@
  *                                                                           *
  *****************************************************************************/
 
-#include <QtGui>
-#include <iostream>
-#include "epmesh.h"
-#include "vtkpost.h"
-#include "colorbar.h"
+#ifndef PREFERENCES_H
+#define PREFERENCES_H
 
-using namespace std;
+#include <QWidget>
+#include "ui_preferences.h"
 
-ColorBar::ColorBar(QWidget *parent)
-  : QDialog(parent)
+class Preferences : public QDialog
 {
-  ui.setupUi(this);
+  Q_OBJECT
 
-  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
-  connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
-  connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
+public:
+  Preferences(QWidget *parent = 0);
+  ~Preferences();
 
-  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
-}
+  Ui::preferencesDialog ui;
 
-ColorBar::~ColorBar()
-{
-}
+signals:
+  void redrawSignal();
 
-void ColorBar::okButtonClicked()
-{
-  emit(drawColorBarSignal());
-  close();
-}
+private slots:
+  void okButtonClicked();
+  void cancelButtonClicked();
+  void applyButtonClicked();
 
-void ColorBar::applyButtonClicked()
-{
-  emit(drawColorBarSignal());
-}
+private:
 
-void ColorBar::colorSelectionChanged(int newIndex)
-{
-}
+};
 
-void ColorBar::populateWidgets()
-{
-  ui.colorCombo->clear();
-  ui.colorCombo->addItem("Surface");
-  ui.colorCombo->addItem("Isocontour");
-  ui.colorCombo->addItem("Isosurface");
-}
+#endif // PREFERENCES_H

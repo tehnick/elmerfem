@@ -56,6 +56,8 @@ public:
 
   Ui::colorBarDialog ui;
 
+  void populateWidgets();
+
 signals:
   void drawColorBarSignal();
 

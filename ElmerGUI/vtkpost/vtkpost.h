@@ -57,6 +57,7 @@ class IsoSurface;
 class IsoContour;
 class ColorBar;
 class Surface;
+class Preferences;
 
 class VtkPost : public QMainWindow
 {
@@ -77,16 +78,17 @@ public slots:
 public slots:
   void drawIsoContourSlot();
   void drawIsoSurfaceSlot();
-  void drawScalarOnSurfaceSlot();
+  void drawSurfaceSlot();
 
 private slots:
   void exitSlot();
-  void drawScalarOnSurfaceDialogSlot();
+  void drawSurfaceDialogSlot();
   void showColorBarDialogSlot();
   void showIsoContourDialogSlot();
   void showIsoSurfaceDialogSlot();
   void drawColorBarSlot();
   void redrawSlot();
+  void preferencesSlot();
   void maybeRedrawSlot(bool);
   void groupChangedSlot(QAction*);
   void drawWireframeSlot();
@@ -103,6 +105,7 @@ private:
 
   QAction *exitAct;
   QAction *redrawAct;
+  QAction *preferencesAct;
   QAction *drawWireframeAct;
   QAction *drawColorBarAct;
   QAction *drawFieldNameAct;
@@ -141,10 +144,11 @@ private:
   vtkTextActor *fieldNameActor;
   vtkActor *featureEdgeActor;
 
-  IsoContour *isoContour; // ui
-  IsoSurface *isoSurface; // ui
-  ColorBar *colorBar;     // ui
-  Surface *surface;       // ui
+  IsoContour *isoContour;   // ui
+  IsoSurface *isoSurface;   // ui
+  ColorBar *colorBar;       // ui
+  Surface *surface;         // ui
+  Preferences *preferences; // ui
 
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
