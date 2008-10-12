@@ -85,7 +85,7 @@
 #include <vtkFeatureEdges.h>
 #include <vtkGeometryFilter.h>
 #include <vtkGlyph3D.h>
-#include <vtkConeSource.h>
+#include <vtkArrowSource.h>
 
 using namespace std;
 
@@ -939,8 +939,8 @@ void VtkPost::drawVectorSlot()
 
   if(index < 0) return;
 
-  // Vectors:
-  //---------
+  // Vector data:
+  //-------------
   volumeGrid->GetPointData()->RemoveArray("VectorData");
   vtkFloatArray *vectorData = vtkFloatArray::New();
   ScalarField *sf_x = &scalarField[index + 0];
@@ -959,10 +959,14 @@ void VtkPost::drawVectorSlot()
   // Glyphs:
   //--------
   volumeGrid->GetPointData()->SetActiveVectors("VectorData");
-  vtkConeSource *cone = vtkConeSource::New();
+  vtkArrowSource *arrow = vtkArrowSource::New();
   vtkGlyph3D *glyph = vtkGlyph3D::New();
   glyph->SetInput(volumeGrid);
-  glyph->SetSourceConnection(cone->GetOutputPort());
+  glyph->SetSourceConnection(arrow->GetOutputPort());
+  glyph->SetVectorModeToUseVector();
+  glyph->SetScaleFactor(5.0);
+  // glyph->SetScaleModeToScaleByVector();
+  // glyph->SetColorModeToColorByVector();
 
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
   mapper->SetInputConnection(glyph->GetOutputPort());
@@ -973,8 +977,9 @@ void VtkPost::drawVectorSlot()
   qvtkWidget->GetRenderWindow()->Render();
 
   mapper->Delete();
-  cone->Delete();
+  arrow->Delete();
   glyph->Delete();
+  vectorData->Delete();
 }
 
 
@@ -1158,7 +1163,6 @@ void VtkPost::drawIsoSurfaceSlot()
   //----------
   contourArray->Delete();
   colorArray->Delete();
-  // remove colorArray from volume grid?
   iso->Delete();
   if(useNormals) normals->Delete();
   mapper->Delete();
@@ -1260,7 +1264,6 @@ void VtkPost::drawIsoContourSlot()
   //----------
   contourArray->Delete();
   colorArray->Delete();
-  // remove colorArray from volume grid?
   iso->Delete();
   mapper->Delete();
 }
