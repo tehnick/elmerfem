@@ -41,6 +41,8 @@
 #ifndef VTKPOST_H
 #define VTKPOST_H
 
+#define MAX_SCALARS 100
+
 #include <QMainWindow>
 #include <QHash>
 
@@ -91,7 +93,6 @@ private slots:
   void maybeRedrawSlot(bool);
   void groupChangedSlot(QAction*);
   void drawMeshEdgeSlot();
-  void drawFieldNameSlot();
   void drawFeatureEdgesSlot();
   void drawVectorSlot();
   void drawIsoContourSlot();
@@ -111,7 +112,6 @@ private:
   QAction *preferencesAct;
   QAction *drawMeshEdgeAct;
   QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
   QAction *drawIsoContourAct;
   QAction *drawSurfaceAct;
   QAction *drawIsoSurfaceAct;
@@ -145,7 +145,6 @@ private:
   vtkActor *surfaceActor;
   vtkActor *meshEdgeActor;
   vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
   vtkActor *featureEdgeActor;
   vtkActor *vectorActor;
 

@@ -112,7 +112,6 @@ VtkPost::VtkPost(QWidget *parent)
   surfaceActor = vtkActor::New();
   meshEdgeActor = vtkActor::New();
   colorBarActor = vtkScalarBarActor::New();
-  fieldNameActor = vtkTextActor::New();
   featureEdgeActor = vtkActor::New();
   vectorActor = vtkActor::New();
 
@@ -142,7 +141,7 @@ VtkPost::VtkPost(QWidget *parent)
   postFileName = "";
   postFileRead = false;
   scalarFields = 0;
-  scalarField = new ScalarField[100]; // fixed max.
+  scalarField = new ScalarField[MAX_SCALARS];
 
   // Central widget:
   //----------------
@@ -203,13 +202,6 @@ void VtkPost::createActions()
   drawColorBarAct->setChecked(false);
   connect(drawColorBarAct, SIGNAL(triggered()), this, SLOT(showColorBarDialogSlot()));
   connect(drawColorBarAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
-
-  drawFieldNameAct = new QAction(QIcon(""), tr("Field name"), this);
-  drawFieldNameAct->setStatusTip("Draw field name");
-  drawFieldNameAct->setCheckable(true);
-  drawFieldNameAct->setChecked(false);
-  connect(drawFieldNameAct, SIGNAL(triggered()), this, SLOT(drawFieldNameSlot()));
-  connect(drawFieldNameAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawSurfaceAct = new QAction(QIcon(""), tr("Surfaces"), this);
   drawSurfaceAct->setStatusTip("Draw scalar fields on surfaces");
@@ -277,8 +269,6 @@ void VtkPost::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(drawColorBarAct);
   viewMenu->addSeparator();
-  // viewMenu->addAction(drawFieldNameAct);
-  // viewMenu->addSeparator();
   viewMenu->addAction(preferencesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(redrawAct);
@@ -491,6 +481,7 @@ bool VtkPost::readPostFile(QString postFileName)
   colorBar->populateWidgets();
 
   this->postFileRead = true;
+
   groupChangedSlot(NULL);
   connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
 
@@ -507,6 +498,11 @@ bool VtkPost::readPostFile(QString postFileName)
 //----------------------------------------------------------------------
 ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
 {
+  if(scalarFields >= MAX_SCALARS) {
+    cout << "Max. scalar limit exceeded!" << endl;
+    return NULL;
+  }
+
   ScalarField *sf = &scalarField[scalarFields++];
   sf->name = fieldName;
   sf->values = nodes;
@@ -652,12 +648,15 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 }
 
 
+
 // Show preferences dialog:
 //----------------------------------------------------------------------
 void VtkPost::preferencesSlot()
 {
   preferences->show();
 }
+
+
 
 // Maybe redraw:
 //----------------------------------------------------------------------
@@ -675,46 +674,12 @@ void VtkPost::redrawSlot()
   drawFeatureEdgesSlot();
   drawSurfaceSlot();
   drawVectorSlot();
-  drawColorBarSlot();
-  drawFieldNameSlot();
   drawIsoContourSlot();
   drawIsoSurfaceSlot();
+  drawColorBarSlot();
   renderer->ResetCamera();
   qvtkWidget->GetRenderWindow()->Render();
 }
-
-
-
-// Draw field name:
-//----------------------------------------------------------------------
-void VtkPost::drawFieldNameSlot()
-{
-  renderer->RemoveActor(fieldNameActor);
-  if(!drawFieldNameAct->isChecked()) return;
-
-  return;
-
-#if 0
-
-  // Draw field name (scalar field):
-  //--------------------------------
-  // QString fieldName = currentScalarFieldName;
-  // if(fieldName.isEmpty()) return;
-  
-  fieldNameActor->SetDisplayPosition(15, 15);
-  fieldNameActor->SetInput(fieldName.toAscii().data());
-  fieldNameActor->GetTextProperty()->SetFontSize(24);
-  fieldNameActor->GetTextProperty()->SetFontFamilyToArial();
-  fieldNameActor->GetTextProperty()->BoldOn();
-  fieldNameActor->GetTextProperty()->ItalicOn();
-  fieldNameActor->GetTextProperty()->SetColor(0, 0, 1);
-
-  renderer->AddActor2D(fieldNameActor);
-
-  qvtkWidget->GetRenderWindow()->Render();
-#endif
-}
-
 
 
 // Draw color bar:
@@ -993,7 +958,7 @@ void VtkPost::drawVectorSlot()
   volumeGrid->GetPointData()->AddArray(vectorColor);
 
   // Glyphs:
-  //--------
+  //---------
   volumeGrid->GetPointData()->SetActiveVectors("VectorData");
   vtkGlyph3D *glyph = vtkGlyph3D::New();
   vtkArrowSource *arrow = vtkArrowSource::New();
@@ -1022,7 +987,6 @@ void VtkPost::drawVectorSlot()
   //---------------------------------
   currentVectorName = colorName;
   drawColorBarSlot();
-  // drawFieldNameSlot();  
 
   qvtkWidget->GetRenderWindow()->Render();
 
@@ -1032,7 +996,6 @@ void VtkPost::drawVectorSlot()
   vectorData->Delete();
   vectorColor->Delete();
 }
-
 
 
 
@@ -1061,6 +1024,8 @@ void VtkPost::drawSurfaceSlot()
   QString surfaceName = surface->ui.surfaceCombo->currentText();
   double minVal = surface->ui.minEdit->text().toDouble();
   double maxVal = surface->ui.maxEdit->text().toDouble();
+  bool useNormals = surface->ui.useNormals->isChecked();
+  int featureAngle = surface->ui.featureAngle->value();
 
   // Scalars:
   //---------
@@ -1074,37 +1039,54 @@ void VtkPost::drawSurfaceSlot()
     scalars->SetComponent(i, 0, sf->value[i]);  
   surfaceGrid->GetPointData()->AddArray(scalars);
 
+  // Normals:
+  //---------
+  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
+  vtkGeometryFilter *filter = vtkGeometryFilter::New();
+
+  if(useNormals) {
+    // Convert from vtkUnstructuredGrid to vtkPolyData
+    filter->SetInput(surfaceGrid);
+    filter->GetOutput()->ReleaseDataFlagOn();
+    normals->SetInputConnection(filter->GetOutputPort());
+    normals->SetFeatureAngle(featureAngle);
+  }
+
   // Mapper:
   //--------
-  vtkDataSetMapper *scalarFieldMapper = vtkDataSetMapper::New();
-  scalarFieldMapper->SetInput(surfaceGrid);
-  scalarFieldMapper->SetScalarModeToUsePointFieldData();
-  scalarFieldMapper->SelectColorArray("Surface");
-  scalarFieldMapper->ScalarVisibilityOn();
-  scalarFieldMapper->SetScalarRange(minVal, maxVal);
-  scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
-  // scalarFieldMapper->ImmediateModeRenderingOn();
+  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
 
-  // Actor:
-  //-------
-  surfaceActor->SetMapper(scalarFieldMapper);
+  if(useNormals) {
+    mapper->SetInputConnection(normals->GetOutputPort());
+  } else {
+    mapper->SetInput(surfaceGrid);
+  }
 
-  // Renderer:
-  //-----------
+  mapper->SetScalarModeToUsePointFieldData();
+  mapper->SelectColorArray("Surface");
+  mapper->ScalarVisibilityOn();
+  mapper->SetScalarRange(minVal, maxVal);
+  mapper->SetResolveCoincidentTopologyToPolygonOffset();
+  // mapper->ImmediateModeRenderingOn();
+
+  // Actor & renderer:
+  //------------------
+  surfaceActor->SetMapper(mapper);
   renderer->AddActor(surfaceActor);
 
   // Update color bar && field name:
   //---------------------------------
   currentSurfaceName = sf->name;
   drawColorBarSlot();
-  drawFieldNameSlot();  
 
   qvtkWidget->GetRenderWindow()->Render();
 
   // Clean up:
   //-----------
+  normals->Delete();
+  filter->Delete();
   scalars->Delete();
-  scalarFieldMapper->Delete();
+  mapper->Delete();
 }
 
 
@@ -1140,6 +1122,7 @@ void VtkPost::drawIsoSurfaceSlot()
   QString colorName = isoSurface->ui.colorCombo->currentText();
   double colorMinVal = isoSurface->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoSurface->ui.colorMaxEdit->text().toDouble();
+  int featureAngle = isoSurface->ui.featureAngle->value();
 
   if(contourName == "Null") return;
 
@@ -1173,11 +1156,10 @@ void VtkPost::drawIsoSurfaceSlot()
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
-  vtkPolyDataNormals *normals;
+  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
   if(useNormals) {
-    normals = vtkPolyDataNormals::New();
     normals->SetInputConnection(iso->GetOutputPort());
-    normals->SetFeatureAngle(45);
+    normals->SetFeatureAngle(featureAngle);
   }
 
   // Mapper:
@@ -1196,19 +1178,15 @@ void VtkPost::drawIsoSurfaceSlot()
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
   // mapper->ImmediateModeRenderingOn();
 
-  // Actor:
-  //-------
+  // Actor && renderer:
+  //-------------------
   isoSurfaceActor->SetMapper(mapper);
-
-  // Renderer:
-  //-----------
   renderer->AddActor(isoSurfaceActor);
 
-  // Redraw text && colorbar:
-  //--------------------------
+  // Redraw colorbar:
+  //------------------
   currentIsoSurfaceName = colorName;
   drawColorBarSlot();
-  drawFieldNameSlot();  
 
   qvtkWidget->GetRenderWindow()->Render();
 
@@ -1217,7 +1195,7 @@ void VtkPost::drawIsoSurfaceSlot()
   contourArray->Delete();
   colorArray->Delete();
   iso->Delete();
-  if(useNormals) normals->Delete();
+  normals->Delete();
   mapper->Delete();
 }
 
@@ -1297,20 +1275,16 @@ void VtkPost::drawIsoContourSlot()
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
   // mapper->ImmediateModeRenderingOn();
 
-  // Actor:
-  //-------
+  // Actor & renderer:
+  //-------------------
   isoContourActor->SetMapper(mapper);
   isoContourActor->GetProperty()->SetLineWidth(lineWidth);
-
-  // Renderer:
-  //-----------
   renderer->AddActor(isoContourActor);
 
-  // Redraw text && colorbar:
-  //--------------------------
+  // Redraw colorbar:
+  //------------------
   currentIsoContourName = colorName;
   drawColorBarSlot();
-  drawFieldNameSlot();  
   
   qvtkWidget->GetRenderWindow()->Render();
 
