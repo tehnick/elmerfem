@@ -755,6 +755,12 @@ void VtkPost::drawColorBarSlot()
     lut = surfaceActor->GetMapper()->GetLookupTable();
   }
 
+  if(actorName == "Vector") {
+    fieldName = currentVectorName;
+    if(fieldName.isEmpty()) return;
+    lut = vectorActor->GetMapper()->GetLookupTable();
+  }
+
   if(actorName == "Isocontour") {
     fieldName = currentIsoContourName;
     if(fieldName.isEmpty()) return;
@@ -843,6 +849,7 @@ void VtkPost::drawMeshEdgeSlot()
   mapper->SetInputConnection(edges->GetOutputPort());
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
+  // mapper->ImmediateModeRenderingOn();
 
   meshEdgeActor->GetProperty()->SetLineWidth(lineWidth);
   meshEdgeActor->GetProperty()->SetColor(0, 0, 0);
@@ -888,6 +895,7 @@ void VtkPost::drawFeatureEdgesSlot()
   mapper->SetInputConnection(edges->GetOutputPort());
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
+  // mapper->ImmediateModeRenderingOn();
 
   featureEdgeActor->GetProperty()->SetLineWidth(lineWidth);
   featureEdgeActor->GetProperty()->SetColor(0, 0, 0);
@@ -942,6 +950,7 @@ void VtkPost::drawVectorSlot()
   // Vector data:
   //-------------
   volumeGrid->GetPointData()->RemoveArray("VectorData");
+  int scaleMultiplier = vector->ui.scaleSpin->value();
   vtkFloatArray *vectorData = vtkFloatArray::New();
   ScalarField *sf_x = &scalarField[index + 0];
   ScalarField *sf_y = &scalarField[index + 1];
@@ -965,6 +974,7 @@ void VtkPost::drawVectorSlot()
   // Color data:
   //-------------
   int colorIndex = vector->ui.colorCombo->currentIndex();
+  QString colorName = vector->ui.colorCombo->currentText();
   ScalarField *sf = &scalarField[colorIndex];
   volumeGrid->GetPointData()->RemoveArray("VectorColor");
   vtkFloatArray *vectorColor = vtkFloatArray::New();
@@ -978,23 +988,34 @@ void VtkPost::drawVectorSlot()
   // Glyphs:
   //--------
   volumeGrid->GetPointData()->SetActiveVectors("VectorData");
-  
-  vtkArrowSource *arrow = vtkArrowSource::New();
   vtkGlyph3D *glyph = vtkGlyph3D::New();
+  vtkArrowSource *arrow = vtkArrowSource::New();
+  arrow->SetTipResolution(16);
+  arrow->SetShaftResolution(16);
   glyph->SetInput(volumeGrid);
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
 
-  glyph->SetScaleFactor(5.0 / scaleFactor);
-  glyph->SetScaleModeToScaleByVectorComponents();
+  glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
+  glyph->SetScaleModeToScaleByVector();
   glyph->SetColorModeToColorByScale();
   
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
   mapper->SetInputConnection(glyph->GetOutputPort());
+  mapper->SetScalarModeToUsePointFieldData();
+  mapper->ScalarVisibilityOn();
+  mapper->SetScalarRange(sf->minVal, sf->maxVal);
   mapper->SelectColorArray("VectorColor");
+  // mapper->ImmediateModeRenderingOn();
 
   vectorActor->SetMapper(mapper);
   renderer->AddActor(vectorActor);
+
+  // Update color bar && field name:
+  //---------------------------------
+  currentVectorName = colorName;
+  drawColorBarSlot();
+  // drawFieldNameSlot();  
 
   qvtkWidget->GetRenderWindow()->Render();
 
@@ -1055,6 +1076,7 @@ void VtkPost::drawSurfaceSlot()
   scalarFieldMapper->ScalarVisibilityOn();
   scalarFieldMapper->SetScalarRange(minVal, maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
+  // scalarFieldMapper->ImmediateModeRenderingOn();
 
   // Actor:
   //-------
@@ -1165,6 +1187,7 @@ void VtkPost::drawIsoSurfaceSlot()
   mapper->SelectColorArray("IsoSurfaceColor");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
+  // mapper->ImmediateModeRenderingOn();
 
   // Actor:
   //-------
@@ -1265,6 +1288,7 @@ void VtkPost::drawIsoContourSlot()
   mapper->SelectColorArray("IsoContourColor");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
+  // mapper->ImmediateModeRenderingOn();
 
   // Actor:
   //-------

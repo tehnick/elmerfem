@@ -159,6 +159,7 @@ private:
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
   QString currentSurfaceName;
+  QString currentVectorName;
 };
 
 #endif // VTKPOST_H

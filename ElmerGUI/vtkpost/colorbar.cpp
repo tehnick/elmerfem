@@ -81,6 +81,7 @@ void ColorBar::populateWidgets()
 {
   ui.colorCombo->clear();
   ui.colorCombo->addItem("Surface");
+  ui.colorCombo->addItem("Vector");
   ui.colorCombo->addItem("Isocontour");
   ui.colorCombo->addItem("Isosurface");
 }
