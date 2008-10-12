@@ -41,7 +41,6 @@
 #ifndef EPMESH_H
 #define EPMESH_H
 
-class QAction;
 class QString;
 
 // EpNode:
@@ -92,7 +91,6 @@ class ScalarField
   ScalarField();
   ~ScalarField();
 
-  QAction *menuAction;
   QString name;
   int values;
   double *value;

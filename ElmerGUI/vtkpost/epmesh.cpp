@@ -38,7 +38,6 @@
  *                                                                           *
  *****************************************************************************/
 
-#include <QAction>
 #include <QString>
 #include "epmesh.h"
 
@@ -91,7 +90,6 @@ EpMesh::~EpMesh()
 //==============
 ScalarField::ScalarField()
 {
-  menuAction = NULL;
   name = "";
   values = 0;
   value = NULL;
@@ -101,6 +99,5 @@ ScalarField::ScalarField()
 
 ScalarField::~ScalarField()
 {
-  delete menuAction;
   delete [] value;
 }

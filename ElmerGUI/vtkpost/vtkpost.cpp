@@ -176,8 +176,8 @@ void VtkPost::createActions()
 
   // View menu:
   //------------
-  drawWireframeAct = new QAction(QIcon(""), tr("Surface mesh"), this);
-  drawWireframeAct->setStatusTip("Draw surface mesh lines");
+  drawWireframeAct = new QAction(QIcon(""), tr("Mesh edges"), this);
+  drawWireframeAct->setStatusTip("Draw mesh edges");
   drawWireframeAct->setCheckable(true);
   drawWireframeAct->setChecked(false);
   connect(drawWireframeAct, SIGNAL(triggered()), this, SLOT(drawWireframeSlot()));
@@ -295,8 +295,6 @@ bool VtkPost::readPostFile(QString postFileName)
   while(tmpLine.isEmpty() || (tmpLine.at(0) == '#')) \
     tmpLine = post.readLine();                       \
   QTextStream txtStream(&tmpLine);
-
-  // scalarActionHash.clear();
 
   // Open the post file:
   //=====================
@@ -522,9 +520,13 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 {
   // Status of groupAction has changed: regenerate grids
   //-----------------------------------------------------
-  volumeGrid->Reset();
-  surfaceGrid->Reset();
-  lineGrid->Reset();
+  volumeGrid->Delete();
+  surfaceGrid->Delete();
+  lineGrid->Delete();
+
+  volumeGrid = vtkUnstructuredGrid::New();
+  surfaceGrid = vtkUnstructuredGrid::New();
+  lineGrid = vtkUnstructuredGrid::New();
 
   // Points:
   //---------
@@ -627,6 +629,8 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
   }
   line->Delete();
+
+  redrawSlot();
 }
 
 
@@ -806,8 +810,15 @@ void VtkPost::drawWireframeSlot()
   renderer->RemoveActor(wireframeActor);
   if(!drawWireframeAct->isChecked()) return;
 
+  bool useSurfaceMesh = preferences->ui.meshEdgesSurface->isChecked();
+  int lineWidth = preferences->ui.meshLineWidth->value();
+
   vtkExtractEdges *edges = vtkExtractEdges::New();
-  edges->SetInput(surfaceGrid);
+  if(useSurfaceMesh) {
+    edges->SetInput(surfaceGrid);
+  } else {
+    edges->SetInput(volumeGrid);
+  }
 
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(edges->GetOutputPort());
@@ -816,6 +827,7 @@ void VtkPost::drawWireframeSlot()
 
   wireframeActor->GetProperty()->SetColor(0, 0, 0);
   wireframeActor->SetMapper(mapper);
+  wireframeActor->GetProperty()->SetLineWidth(lineWidth);
 
   renderer->AddActor(wireframeActor);
 
@@ -901,11 +913,12 @@ void VtkPost::drawSurfaceSlot()
 
   // Scalars:
   //---------
+  surfaceGrid->GetPointData()->RemoveArray("Surface");
   vtkFloatArray *scalars = vtkFloatArray::New();
   ScalarField *sf = &scalarField[surfaceIndex];
   scalars->SetNumberOfComponents(1);
   scalars->SetNumberOfTuples(sf->values);
-  scalars->SetName("ScalarSurface");
+  scalars->SetName("Surface");
   for(int i = 0; i < sf->values; i++)
     scalars->SetComponent(i, 0, sf->value[i]);  
   surfaceGrid->GetPointData()->AddArray(scalars);
@@ -915,7 +928,7 @@ void VtkPost::drawSurfaceSlot()
   vtkDataSetMapper *scalarFieldMapper = vtkDataSetMapper::New();
   scalarFieldMapper->SetInput(surfaceGrid);
   scalarFieldMapper->SetScalarModeToUsePointFieldData();
-  scalarFieldMapper->SelectColorArray("ScalarSurface");
+  scalarFieldMapper->SelectColorArray("Surface");
   scalarFieldMapper->ScalarVisibilityOn();
   scalarFieldMapper->SetScalarRange(sf->minVal, sf->maxVal);
   scalarFieldMapper->SetResolveCoincidentTopologyToPolygonOffset();
@@ -980,6 +993,7 @@ void VtkPost::drawIsoSurfaceSlot()
 
   // Scalars:
   //----------
+  volumeGrid->GetPointData()->RemoveArray("IsoSurface");
   vtkFloatArray *contourArray = vtkFloatArray::New();
   ScalarField *sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
@@ -989,6 +1003,7 @@ void VtkPost::drawIsoSurfaceSlot()
     contourArray->SetComponent(i, 0, sf->value[i]);
   volumeGrid->GetPointData()->AddArray(contourArray);
 
+  volumeGrid->GetPointData()->RemoveArray("IsoSurfaceColor");
   vtkFloatArray *colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
   colorArray->SetName("IsoSurfaceColor");
@@ -1092,6 +1107,7 @@ void VtkPost::drawIsoContourSlot()
 
   // Scalars:
   //----------
+  surfaceGrid->GetPointData()->RemoveArray("IsoContour");
   vtkFloatArray *contourArray = vtkFloatArray::New();
   ScalarField *sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
@@ -1101,6 +1117,7 @@ void VtkPost::drawIsoContourSlot()
     contourArray->SetComponent(i, 0, sf->value[i]);
   surfaceGrid->GetPointData()->AddArray(contourArray);
 
+  surfaceGrid->GetPointData()->RemoveArray("IsoContourColor");
   vtkFloatArray *colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
   colorArray->SetName("IsoContourColor");
