@@ -825,9 +825,9 @@ void VtkPost::drawWireframeSlot()
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
 
+  wireframeActor->GetProperty()->SetLineWidth(lineWidth);
   wireframeActor->GetProperty()->SetColor(0, 0, 0);
   wireframeActor->SetMapper(mapper);
-  wireframeActor->GetProperty()->SetLineWidth(lineWidth);
 
   renderer->AddActor(wireframeActor);
 
@@ -870,8 +870,8 @@ void VtkPost::drawFeatureEdgesSlot()
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
 
-  featureEdgeActor->GetProperty()->SetColor(0, 0, 0);
   featureEdgeActor->GetProperty()->SetLineWidth(lineWidth);
+  featureEdgeActor->GetProperty()->SetColor(0, 0, 0);
   featureEdgeActor->SetMapper(mapper);
 
   renderer->AddActor(featureEdgeActor);
