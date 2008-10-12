@@ -949,27 +949,49 @@ void VtkPost::drawVectorSlot()
   vectorData->SetNumberOfComponents(3);
   vectorData->SetNumberOfTuples(sf_x->values);
   vectorData->SetName("VectorData");
+  double scaleFactor = 0.0;
   for(int i = 0; i < sf_x->values; i++) {
-    vectorData->SetComponent(i, 0, sf_x->value[i]); 
-    vectorData->SetComponent(i, 1, sf_y->value[i]); 
-    vectorData->SetComponent(i, 2, sf_z->value[i]); 
+    double val_x  = sf_x->value[i];
+    double val_y  = sf_y->value[i];
+    double val_z  = sf_z->value[i];
+    double absval = sqrt(val_x*val_x + val_y*val_y + val_z*val_z);
+    if(absval > scaleFactor) scaleFactor = absval;
+    vectorData->SetComponent(i, 0, val_x); 
+    vectorData->SetComponent(i, 1, val_y); 
+    vectorData->SetComponent(i, 2, val_z); 
   }
   volumeGrid->GetPointData()->AddArray(vectorData);
+
+  // Color data:
+  //-------------
+  int colorIndex = vector->ui.colorCombo->currentIndex();
+  ScalarField *sf = &scalarField[colorIndex];
+  volumeGrid->GetPointData()->RemoveArray("VectorColor");
+  vtkFloatArray *vectorColor = vtkFloatArray::New();
+  vectorColor->SetNumberOfComponents(1);
+  vectorColor->SetNumberOfTuples(sf->values);
+  vectorColor->SetName("VectorColor");
+  for(int i = 0; i < sf->values; i++) 
+    vectorColor->SetComponent(i, 0, sf->value[i]); 
+  volumeGrid->GetPointData()->AddArray(vectorColor);
 
   // Glyphs:
   //--------
   volumeGrid->GetPointData()->SetActiveVectors("VectorData");
+  
   vtkArrowSource *arrow = vtkArrowSource::New();
   vtkGlyph3D *glyph = vtkGlyph3D::New();
   glyph->SetInput(volumeGrid);
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
-  glyph->SetScaleFactor(5.0);
-  // glyph->SetScaleModeToScaleByVector();
-  // glyph->SetColorModeToColorByVector();
 
+  glyph->SetScaleFactor(5.0 / scaleFactor);
+  glyph->SetScaleModeToScaleByVectorComponents();
+  glyph->SetColorModeToColorByScale();
+  
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
   mapper->SetInputConnection(glyph->GetOutputPort());
+  mapper->SelectColorArray("VectorColor");
 
   vectorActor->SetMapper(mapper);
   renderer->AddActor(vectorActor);
@@ -980,6 +1002,7 @@ void VtkPost::drawVectorSlot()
   arrow->Delete();
   glyph->Delete();
   vectorData->Delete();
+  vectorColor->Delete();
 }
 
 

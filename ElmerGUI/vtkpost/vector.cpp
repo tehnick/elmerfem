@@ -88,6 +88,13 @@ void Vector::populateWidgets(ScalarField *scalarField, int n)
       ui.vectorCombo->addItem(name.mid(0, index));
     }
   }
+
+  ui.colorCombo->clear();
+  for(int i = 0; i < n; i++) {
+    ScalarField *sf = &scalarField[i];
+    ui.colorCombo->addItem(sf->name);
+  }
+  
 }
 
 void Vector::vectorSelectionChanged(int newIndex)
