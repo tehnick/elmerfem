@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI vtkpost                                                         *
+ *  ElmerGUI vector                                                          *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -38,127 +38,38 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef VTKPOST_H
-#define VTKPOST_H
+#ifndef VECTOR_H
+#define VECTOR_H
 
-#include <QMainWindow>
-#include <QHash>
+#include <QWidget>
+#include "ui_vector.h"
 
-class EpMesh;
 class ScalarField;
-class QVTKWidget;
-class vtkRenderer;
-class vtkActor;
-class vtkScalarBarActor;
-class vtkDataSetMapper;
-class vtkTextActor;
-class vtkUnstructuredGrid;
-class IsoSurface;
-class IsoContour;
-class ColorBar;
-class Surface;
-class Preferences;
-class Vector;
 
-class VtkPost : public QMainWindow
+class Vector : public QDialog
 {
   Q_OBJECT
 
 public:
-  VtkPost(QWidget *parent = 0);
-  ~VtkPost();
+  Vector(QWidget *parent = 0);
+  ~Vector();
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-  bool readPostFile(QString);
+  Ui::vectorDialog ui;
+
+  void populateWidgets(ScalarField*, int);
 
 signals:
-
-public slots:
-
-public slots:
+  void drawVectorSignal();
 
 private slots:
-  void exitSlot();
-  void showSurfaceDialogSlot();
-  void showColorBarDialogSlot();
-  void showIsoContourDialogSlot();
-  void showIsoSurfaceDialogSlot();
-  void showVectorDialogSlot();
-  void drawColorBarSlot();
-  void redrawSlot();
-  void preferencesSlot();
-  void maybeRedrawSlot(bool);
-  void groupChangedSlot(QAction*);
-  void drawMeshEdgeSlot();
-  void drawFieldNameSlot();
-  void drawFeatureEdgesSlot();
-  void drawVectorSlot();
-  void drawIsoContourSlot();
-  void drawIsoSurfaceSlot();
-  void drawSurfaceSlot();
+  void okButtonClicked();
+  void applyButtonClicked();
+  void vectorSelectionChanged(int);
 
 private:
-  QMenu *fileMenu;
-  QMenu *editMenu;
-  QMenu *editGroupsMenu;
-  QMenu *viewMenu;
-
-  QToolBar *viewToolBar;
-
-  QAction *exitAct;
-  QAction *redrawAct;
-  QAction *preferencesAct;
-  QAction *drawMeshEdgeAct;
-  QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
-  QAction *drawSurfaceAct;
-  QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-  QAction *drawVectorAct;
-
-  void createActions();
-  void createMenus();
-  void createToolbars();
-  void createStatusBar();
-
-  EpMesh *epMesh;
-  QString postFileName;
-  bool postFileRead;
-  int scalarFields;
   ScalarField *scalarField;
+  int scalarFields;
 
-  ScalarField* addScalarField(QString, int);
-
-  QHash<QString, QAction*> groupActionHash;
-
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
-
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *surfaceActor;
-  vtkActor *meshEdgeActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
-  vtkActor *featureEdgeActor;
-  vtkActor *vectorActor;
-
-  IsoContour *isoContour;   // ui
-  IsoSurface *isoSurface;   // ui
-  ColorBar *colorBar;       // ui
-  Surface *surface;         // ui
-  Preferences *preferences; // ui
-  Vector *vector;           // ui
-
-  QString currentIsoContourName;
-  QString currentIsoSurfaceName;
-  QString currentSurfaceName;
 };
 
-#endif // VTKPOST_H
+#endif // VECTOR_H

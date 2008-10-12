@@ -48,6 +48,7 @@
 #include "isosurface.h"
 #include "colorbar.h"
 #include "preferences.h"
+#include "vector.h"
 
 #include <QVTKWidget.h>
 
@@ -83,6 +84,8 @@
 #include <vtkExtractEdges.h>
 #include <vtkFeatureEdges.h>
 #include <vtkGeometryFilter.h>
+#include <vtkGlyph3D.h>
+#include <vtkConeSource.h>
 
 using namespace std;
 
@@ -106,11 +109,12 @@ VtkPost::VtkPost(QWidget *parent)
   lineGrid = vtkUnstructuredGrid::New();
   isoContourActor = vtkActor::New();
   isoSurfaceActor = vtkActor::New();
-  scalarFieldActor = vtkActor::New();
-  wireframeActor = vtkActor::New();
+  surfaceActor = vtkActor::New();
+  meshEdgeActor = vtkActor::New();
   colorBarActor = vtkScalarBarActor::New();
   fieldNameActor = vtkTextActor::New();
   featureEdgeActor = vtkActor::New();
+  vectorActor = vtkActor::New();
 
   // User interfaces:
   //-----------------
@@ -128,6 +132,9 @@ VtkPost::VtkPost(QWidget *parent)
 
   preferences = new Preferences(this);
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
+
+  vector = new Vector(this);
+  connect(vector, SIGNAL(drawVectorSignal()), this, SLOT(drawVectorSlot()));
 
   // Ep-data:
   //----------
@@ -176,12 +183,12 @@ void VtkPost::createActions()
 
   // View menu:
   //------------
-  drawWireframeAct = new QAction(QIcon(""), tr("Mesh edges"), this);
-  drawWireframeAct->setStatusTip("Draw mesh edges");
-  drawWireframeAct->setCheckable(true);
-  drawWireframeAct->setChecked(false);
-  connect(drawWireframeAct, SIGNAL(triggered()), this, SLOT(drawWireframeSlot()));
-  connect(drawWireframeAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
+  drawMeshEdgeAct = new QAction(QIcon(""), tr("Mesh edges"), this);
+  drawMeshEdgeAct->setStatusTip("Draw mesh edges");
+  drawMeshEdgeAct->setCheckable(true);
+  drawMeshEdgeAct->setChecked(false);
+  connect(drawMeshEdgeAct, SIGNAL(triggered()), this, SLOT(drawMeshEdgeSlot()));
+  connect(drawMeshEdgeAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawFeatureEdgesAct = new QAction(QIcon(""), tr("Feature edges"), this);
   drawFeatureEdgesAct->setStatusTip("Draw feature edges");
@@ -205,11 +212,18 @@ void VtkPost::createActions()
   connect(drawFieldNameAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawSurfaceAct = new QAction(QIcon(""), tr("Surfaces"), this);
-  drawSurfaceAct->setStatusTip("Draw scalars on surfaces");
+  drawSurfaceAct->setStatusTip("Draw scalar fields on surfaces");
   drawSurfaceAct->setCheckable(true);
   drawSurfaceAct->setChecked(false);
-  connect(drawSurfaceAct, SIGNAL(triggered()), this, SLOT(drawSurfaceDialogSlot()));
+  connect(drawSurfaceAct, SIGNAL(triggered()), this, SLOT(showSurfaceDialogSlot()));
   connect(drawSurfaceAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
+
+  drawVectorAct = new QAction(QIcon(""), tr("Vectors"), this);
+  drawVectorAct->setStatusTip("Visualize vector fields by arrows");
+  drawVectorAct->setCheckable(true);
+  drawVectorAct->setChecked(false);
+  connect(drawVectorAct, SIGNAL(triggered()), this, SLOT(showVectorDialogSlot()));
+  connect(drawVectorAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawIsoContourAct = new QAction(QIcon(""), tr("Isocontours"), this);
   drawIsoContourAct->setStatusTip("Draw isocontours (2d)");
@@ -251,13 +265,15 @@ void VtkPost::createMenus()
   // View menu:
   //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
-  viewMenu->addAction(drawWireframeAct);
+  viewMenu->addAction(drawMeshEdgeAct);
   viewMenu->addAction(drawFeatureEdgesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawSurfaceAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawIsoContourAct);
   viewMenu->addAction(drawIsoSurfaceAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(drawVectorAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawColorBarAct);
   viewMenu->addSeparator();
@@ -272,6 +288,7 @@ void VtkPost::createToolbars()
 {
   viewToolBar = addToolBar(tr("View"));
   viewToolBar->addAction(drawSurfaceAct);
+  viewToolBar->addAction(drawVectorAct);
   viewToolBar->addAction(drawIsoContourAct);
   viewToolBar->addAction(drawIsoSurfaceAct);
   viewToolBar->addAction(drawColorBarAct);
@@ -466,6 +483,7 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Populate the widgets in user interface dialogs:
   //-------------------------------------------------
+  vector->populateWidgets(scalarField, scalarFields);
   surface->populateWidgets(scalarField, scalarFields);
   isoSurface->populateWidgets(scalarField, scalarFields);
   isoContour->populateWidgets(scalarField, scalarFields);
@@ -653,9 +671,10 @@ void VtkPost::maybeRedrawSlot(bool value)
 //----------------------------------------------------------------------
 void VtkPost::redrawSlot()
 {  
-  drawWireframeSlot();
+  drawMeshEdgeSlot();
   drawFeatureEdgesSlot();
   drawSurfaceSlot();
+  drawVectorSlot();
   drawColorBarSlot();
   drawFieldNameSlot();
   drawIsoContourSlot();
@@ -733,7 +752,7 @@ void VtkPost::drawColorBarSlot()
   if(actorName == "Surface") {
     fieldName = currentSurfaceName;
     if(fieldName.isEmpty()) return;
-    lut = scalarFieldActor->GetMapper()->GetLookupTable();
+    lut = surfaceActor->GetMapper()->GetLookupTable();
   }
 
   if(actorName == "Isocontour") {
@@ -759,9 +778,9 @@ void VtkPost::drawColorBarSlot()
   double height = colorBar->ui.heightEdit->text().toDouble();
 
   if(width < 0.01) width = 0.01;
-  if(width > 0.99) width = 0.99;
+  if(width > 1.00) width = 1.00;
   if(height < 0.01) height = 0.01;
-  if(height > 0.99) height = 0.99;
+  if(height > 1.00) height = 1.00;
 
   colorBarActor->SetPosition(0.05, 0.05);
 
@@ -803,12 +822,12 @@ void VtkPost::drawColorBarSlot()
 
 
 
-// Draw surface wireframe:
+// Draw mesh edges:
 //----------------------------------------------------------------------
-void VtkPost::drawWireframeSlot()
+void VtkPost::drawMeshEdgeSlot()
 {
-  renderer->RemoveActor(wireframeActor);
-  if(!drawWireframeAct->isChecked()) return;
+  renderer->RemoveActor(meshEdgeActor);
+  if(!drawMeshEdgeAct->isChecked()) return;
 
   bool useSurfaceMesh = preferences->ui.meshEdgesSurface->isChecked();
   int lineWidth = preferences->ui.meshLineWidth->value();
@@ -825,11 +844,11 @@ void VtkPost::drawWireframeSlot()
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
 
-  wireframeActor->GetProperty()->SetLineWidth(lineWidth);
-  wireframeActor->GetProperty()->SetColor(0, 0, 0);
-  wireframeActor->SetMapper(mapper);
+  meshEdgeActor->GetProperty()->SetLineWidth(lineWidth);
+  meshEdgeActor->GetProperty()->SetColor(0, 0, 0);
+  meshEdgeActor->SetMapper(mapper);
 
-  renderer->AddActor(wireframeActor);
+  renderer->AddActor(meshEdgeActor);
 
   qvtkWidget->GetRenderWindow()->Render();
 
@@ -882,9 +901,88 @@ void VtkPost::drawFeatureEdgesSlot()
   mapper->Delete();
 }
 
+
+// Draw vectors:
+//----------------------------------------------------------------------
+void VtkPost::showVectorDialogSlot()
+{
+  qvtkWidget->GetRenderWindow()->Render();
+
+  if(drawVectorAct->isChecked()) {
+    vector->show();
+  } else {
+    vector->close();
+    drawVectorSlot();
+  }
+}
+
+
+void VtkPost::drawVectorSlot()
+{
+  renderer->RemoveActor(vectorActor);
+  if(!drawVectorAct->isChecked()) return;
+
+  QString vectorName = vector->ui.vectorCombo->currentText();
+  if(vectorName.isEmpty()) return;
+
+  int i, j, index = -1;
+  for(i = 0; i < scalarFields; i++) {
+    ScalarField *sf = &scalarField[i];
+    QString name = sf->name;
+    if((j = name.indexOf("_x")) >= 0) {
+      if(vectorName == name.mid(0, j)) {
+	index = i;
+	break;
+      }
+    }
+  }
+
+  if(index < 0) return;
+
+  // Vectors:
+  //---------
+  volumeGrid->GetPointData()->RemoveArray("VectorData");
+  vtkFloatArray *vectorData = vtkFloatArray::New();
+  ScalarField *sf_x = &scalarField[index + 0];
+  ScalarField *sf_y = &scalarField[index + 1];
+  ScalarField *sf_z = &scalarField[index + 2];
+  vectorData->SetNumberOfComponents(3);
+  vectorData->SetNumberOfTuples(sf_x->values);
+  vectorData->SetName("VectorData");
+  for(int i = 0; i < sf_x->values; i++) {
+    vectorData->SetComponent(i, 0, sf_x->value[i]); 
+    vectorData->SetComponent(i, 1, sf_y->value[i]); 
+    vectorData->SetComponent(i, 2, sf_z->value[i]); 
+  }
+  volumeGrid->GetPointData()->AddArray(vectorData);
+
+  // Glyphs:
+  //--------
+  volumeGrid->GetPointData()->SetActiveVectors("VectorData");
+  vtkConeSource *cone = vtkConeSource::New();
+  vtkGlyph3D *glyph = vtkGlyph3D::New();
+  glyph->SetInput(volumeGrid);
+  glyph->SetSourceConnection(cone->GetOutputPort());
+
+  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+  mapper->SetInputConnection(glyph->GetOutputPort());
+
+  vectorActor->SetMapper(mapper);
+  renderer->AddActor(vectorActor);
+
+  qvtkWidget->GetRenderWindow()->Render();
+
+  mapper->Delete();
+  cone->Delete();
+  glyph->Delete();
+}
+
+
+
+
 // Draw surfaces:
 //----------------------------------------------------------------------
-void VtkPost::drawSurfaceDialogSlot()
+void VtkPost::showSurfaceDialogSlot()
 {
   qvtkWidget->GetRenderWindow()->Render();
 
@@ -896,12 +994,9 @@ void VtkPost::drawSurfaceDialogSlot()
   }
 }
 
-
-// Draw surfaces:
-//----------------------------------------------------------------------
 void VtkPost::drawSurfaceSlot()
 {
-  renderer->RemoveActor(scalarFieldActor);
+  renderer->RemoveActor(surfaceActor);
   if(!drawSurfaceAct->isChecked()) return;
 
   // Data from UI:
@@ -935,11 +1030,11 @@ void VtkPost::drawSurfaceSlot()
 
   // Actor:
   //-------
-  scalarFieldActor->SetMapper(scalarFieldMapper);
+  surfaceActor->SetMapper(scalarFieldMapper);
 
   // Renderer:
   //-----------
-  renderer->AddActor(scalarFieldActor);
+  renderer->AddActor(surfaceActor);
 
   // Update color bar && field name:
   //---------------------------------

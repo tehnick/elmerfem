@@ -23,11 +23,11 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI vtkpost                                                         *
+ *  ElmerGUI vector                                                          *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter RÃ¥back                   *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - Scientific Computing Ltd.                                 *
@@ -38,127 +38,59 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef VTKPOST_H
-#define VTKPOST_H
+#include <QtGui>
+#include <iostream>
+#include "epmesh.h"
+#include "vtkpost.h"
+#include "vector.h"
 
-#include <QMainWindow>
-#include <QHash>
+using namespace std;
 
-class EpMesh;
-class ScalarField;
-class QVTKWidget;
-class vtkRenderer;
-class vtkActor;
-class vtkScalarBarActor;
-class vtkDataSetMapper;
-class vtkTextActor;
-class vtkUnstructuredGrid;
-class IsoSurface;
-class IsoContour;
-class ColorBar;
-class Surface;
-class Preferences;
-class Vector;
-
-class VtkPost : public QMainWindow
+Vector::Vector(QWidget *parent)
+  : QDialog(parent)
 {
-  Q_OBJECT
+  ui.setupUi(this);
 
-public:
-  VtkPost(QWidget *parent = 0);
-  ~VtkPost();
+  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
+  connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+  connect(ui.vectorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(vectorSelectionChanged(int)));
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-  bool readPostFile(QString);
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+}
 
-signals:
+Vector::~Vector()
+{
+}
 
-public slots:
+void Vector::applyButtonClicked()
+{
+  emit(drawVectorSignal());
+}
 
-public slots:
+void Vector::okButtonClicked()
+{
+  emit(drawVectorSignal());
+  close();
+}
 
-private slots:
-  void exitSlot();
-  void showSurfaceDialogSlot();
-  void showColorBarDialogSlot();
-  void showIsoContourDialogSlot();
-  void showIsoSurfaceDialogSlot();
-  void showVectorDialogSlot();
-  void drawColorBarSlot();
-  void redrawSlot();
-  void preferencesSlot();
-  void maybeRedrawSlot(bool);
-  void groupChangedSlot(QAction*);
-  void drawMeshEdgeSlot();
-  void drawFieldNameSlot();
-  void drawFeatureEdgesSlot();
-  void drawVectorSlot();
-  void drawIsoContourSlot();
-  void drawIsoSurfaceSlot();
-  void drawSurfaceSlot();
+void Vector::populateWidgets(ScalarField *scalarField, int n)
+{
+  this->scalarField = scalarField;
+  this->scalarFields = n;
 
-private:
-  QMenu *fileMenu;
-  QMenu *editMenu;
-  QMenu *editGroupsMenu;
-  QMenu *viewMenu;
+  ui.vectorCombo->clear();
 
-  QToolBar *viewToolBar;
+  int index = -1;
+  for(int i = 0; i < n; i++) {
+    ScalarField *sf = &scalarField[i];
+    QString name = sf->name;
+    if((index = name.indexOf("_x")) >= 0) {
+      ui.vectorCombo->addItem(name.mid(0, index));
+    }
+  }
+}
 
-  QAction *exitAct;
-  QAction *redrawAct;
-  QAction *preferencesAct;
-  QAction *drawMeshEdgeAct;
-  QAction *drawColorBarAct;
-  QAction *drawFieldNameAct;
-  QAction *drawIsoContourAct;
-  QAction *drawSurfaceAct;
-  QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-  QAction *drawVectorAct;
-
-  void createActions();
-  void createMenus();
-  void createToolbars();
-  void createStatusBar();
-
-  EpMesh *epMesh;
-  QString postFileName;
-  bool postFileRead;
-  int scalarFields;
-  ScalarField *scalarField;
-
-  ScalarField* addScalarField(QString, int);
-
-  QHash<QString, QAction*> groupActionHash;
-
-  QVTKWidget *qvtkWidget;
-  vtkRenderer *renderer;
-
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
-
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *surfaceActor;
-  vtkActor *meshEdgeActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkTextActor *fieldNameActor;
-  vtkActor *featureEdgeActor;
-  vtkActor *vectorActor;
-
-  IsoContour *isoContour;   // ui
-  IsoSurface *isoSurface;   // ui
-  ColorBar *colorBar;       // ui
-  Surface *surface;         // ui
-  Preferences *preferences; // ui
-  Vector *vector;           // ui
-
-  QString currentIsoContourName;
-  QString currentIsoSurfaceName;
-  QString currentSurfaceName;
-};
-
-#endif // VTKPOST_H
+void Vector::vectorSelectionChanged(int newIndex)
+{
+  ScalarField *sf = &this->scalarField[newIndex];
+}
