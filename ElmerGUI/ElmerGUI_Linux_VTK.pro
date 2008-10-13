@@ -17,13 +17,16 @@ QT += opengl xml script
 CONFIG += uitools
 
 # QWT (you may need to edit this)
-INCLUDEPATH += /usr/include/qwt-qt4
-LIBS += -lqwt-qt4
+INCLUDEPATH += /wrk/jpr/qwt-5.0.2/include
+LIBS += -L/wrk/jpr/qwt-5.0.2/lib -lqwt
 
 # QVTK (you may need to edit this)
 DEFINES += VTKPOST
-INCLUDEPATH += /usr/include/vtk-5.0
-LIBS += -lQVTK
+INCLUDEPATH += /wrk/jpr/VV/include/vtk-5.1
+LIBS += -L/wrk/jpr/VV/lib -lQVTK
+
+#DEFINES += MATC
+#LIBS += -L/wrk/jpr/bb/lib -lmatc
 
 # Input
 HEADERS += src/bodypropertyeditor.h \
@@ -71,7 +74,8 @@ HEADERS += src/bodypropertyeditor.h \
            vtkpost/colorbar.h \
            vtkpost/surface.h \
            vtkpost/preferences.h \
-           vtkpost/vector.h
+           vtkpost/vector.h \
+           vtkpost/matc.h
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
          forms/boundarypropertyeditor.ui \
@@ -87,7 +91,8 @@ FORMS += forms/bodypropertyeditor.ui \
          vtkpost/colorbar.ui \
          vtkpost/surface.ui \
          vtkpost/preferences.ui \
-         vtkpost/vector.ui
+         vtkpost/vector.ui \
+         vtkpost/matc.ui
 SOURCES += src/bodypropertyeditor.cpp \
            src/boundarydivision.cpp \
            src/boundarypropertyeditor.cpp \
@@ -130,6 +135,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            vtkpost/colorbar.cpp \
            vtkpost/surface.cpp \
            vtkpost/preferences.cpp \
-           vtkpost/vector.cpp
+           vtkpost/vector.cpp \
+           vtkpost/matc.cpp
 RESOURCES += ElmerGUI.qrc
 RC_FILE += ElmerGUI.rc   
