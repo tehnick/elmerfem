@@ -89,6 +89,16 @@
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 
+#ifdef MATC
+#include "matc.h"
+#include <mc.h>
+extern "C" VARIABLE *var_new(char *,int,int,int);
+extern "C" void var_create_vector(char *,int,int,double *);
+extern "C" VARIABLE *var_check(char *);
+extern "C" char *mtc_domath(const char *);
+extern "C" void mtc_init(FILE *,FILE *,FILE *);
+#endif
+
 using namespace std;
 
 VtkPost::VtkPost(QWidget *parent)
@@ -162,6 +172,13 @@ VtkPost::VtkPost(QWidget *parent)
   renderer->SetBackground(1, 1, 1);
   qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
   renderer->GetRenderWindow()->Render();
+
+  // Initialize MATC...
+#ifdef MATC
+  matc = new Matc;
+  connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
+  mtc_init( NULL, stdout, stderr ); 
+#endif
 }
 
 VtkPost::~VtkPost()
@@ -251,6 +268,15 @@ void VtkPost::createActions()
   preferencesAct = new QAction(QIcon(""), tr("Preferences"), this);
   preferencesAct->setStatusTip("Show preferences");
   connect(preferencesAct, SIGNAL(triggered()), this, SLOT(preferencesSlot()));
+
+  // Edit menu:
+  //------------
+#ifdef MATC
+  matcAct = new QAction(QIcon(""), tr("Matc.."), this);
+  savePictureAct->setStatusTip("Matc window");
+  connect(matcAct, SIGNAL(triggered()), this, SLOT(matcOpenSlot()));
+#endif
+
 }
 
 void VtkPost::createMenus()
@@ -267,6 +293,10 @@ void VtkPost::createMenus()
   editMenu = menuBar()->addMenu(tr("&Edit"));
   editGroupsMenu = new QMenu(tr("Groups"));
   editMenu->addMenu(editGroupsMenu);
+  editMenu->addSeparator();
+#ifdef MATC
+  editMenu->addAction( matcAct );
+#endif
 
   // View menu:
   //-----------
@@ -306,6 +336,79 @@ void VtkPost::createStatusBar()
 {
 }
 
+#ifdef MATC
+void VtkPost::matcOpenSlot()
+{
+  matc->show();
+}
+
+void VtkPost::domatcSlot()
+{
+   char *ptr;
+   LIST *lst;
+   int i;
+   VARIABLE *var;
+   QString cmd=matc->ui.mcEdit->text().trimmed();
+
+   ptr=mtc_domath(cmd.toAscii().data());
+   matc->ui.mcHistory->append(cmd);
+   if ( ptr ) matc->ui.mcOutput->append(ptr);
+
+   int newfields = false;
+   for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
+   {
+     var = (VARIABLE *)lst;
+     if ( !NAME(var) || NCOL(var) != epMesh->epNodes ) continue;
+
+     int found = false;
+     for( int i=0; i<scalarFields; i++ )
+     {
+        ScalarField *sf = &scalarField[i]; 
+        if ( sf->name == NAME(var) )
+        {
+           found = true;
+           if ( sf->value != &M(var,0,0) ) 
+           {
+             free(sf->value);
+             sf->value = &M(var,0,0);
+           }
+           sf->minVal =  1e99;
+           sf->maxVal = -1e99;
+           for(int j=0; j<epMesh->epNodes; j++) {
+             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+           }
+           break;
+        }
+     }
+
+     if ( !found ) 
+     {
+       newfields = true;
+       ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes );
+       sf->minVal =  1e99;
+       sf->maxVal = -1e99;
+       for(int j = 0; j<epMesh->epNodes; j++) {
+          if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+          if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+        }
+      }
+   }
+
+   if ( newfields ) {
+     // Populate the widgets in user interface dialogs:
+     //-------------------------------------------------
+     vector->populateWidgets(scalarField, scalarFields);
+     surface->populateWidgets(scalarField, scalarFields);
+     isoSurface->populateWidgets(scalarField, scalarFields);
+     isoContour->populateWidgets(scalarField, scalarFields);
+     surface->populateWidgets(scalarField, scalarFields);
+     colorBar->populateWidgets();
+   }
+}
+#endif
+
+
 // Save picture:
 //----------------------------------------------------------------------
 void VtkPost::savePictureSlot()
@@ -319,7 +422,6 @@ void VtkPost::savePictureSlot()
   }
   vtkWindowToImageFilter *image = vtkWindowToImageFilter::New();
   vtkPNGWriter *writer = vtkPNGWriter::New();
-
   image->SetInput(qvtkWidget->GetRenderWindow());
   image->Update();
 
@@ -377,14 +479,15 @@ bool VtkPost::readPostFile(QString postFileName)
 
   for(int i = 0; i < scalarFields; i++ ) {
      ScalarField *sf = &scalarField[i];
-     if(sf->value) delete [] sf->value;
+     if(sf->value) free(sf->value);
   }
 
   scalarFields = 0;
 
   // Add the null field:
   //--------------------
-  ScalarField *nullField = addScalarField("Null", nodes);
+  QString fieldName = "Null";
+  ScalarField *nullField = addScalarField(fieldName, nodes);
   nullField->minVal = 0.0;
   nullField->maxVal = 0.0;
 
@@ -430,21 +533,24 @@ bool VtkPost::readPostFile(QString postFileName)
   //-------------------------------------
   ScalarField *sf = NULL;
 
-  sf = addScalarField("Nodes_x", nodes);
+  fieldName = "Nodes_x";
+  sf = addScalarField(fieldName, nodes);
   for(int i = 0; i < nodes; i++) {
     sf->value[i] = epMesh->epNode[i].x[0];
     if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
     if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
   }
 
-  sf = addScalarField("Nodes_y", nodes);
+  fieldName = "Nodes_y";
+  sf = addScalarField(fieldName, nodes);
   for(int i = 0; i < nodes; i++) {
     sf->value[i] = epMesh->epNode[i].x[1];
     if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
     if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
   }
 
-  sf = addScalarField("Nodes_z", nodes);
+  fieldName = "Nodes_z";
+  sf = addScalarField(fieldName, nodes);
   for(int i = 0; i < nodes; i++) {
     sf->value[i] = epMesh->epNode[i].x[2];
     if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
@@ -546,17 +652,27 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   ScalarField *sf = &scalarField[scalarFields++];
   sf->name = fieldName;
   sf->values = nodes;
-  sf->value = new double[nodes];
 
-  for(int i = 0; i < nodes; i++) 
-    sf->value[i] = 0.0;
+#ifdef MATC
+  QByteArray nm=fieldName.trimmed().toAscii();
+
+  char *name = (char *)malloc( nm.count()+1 );
+  strcpy(name,nm.data());
+  VARIABLE *var = var_check(name);
+  if ( !var || NCOL(var) != nodes )
+    var = var_new( name, TYPE_DOUBLE, 1, nodes );
+
+  sf->value = &M(var,0,0);
+  free(name);
+#else
+  sf->value = (double *)malloc(sizeof(double)*nodes);
+#endif
 
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
 
   return sf;
 }
-
 
 
 // Close the widget:
