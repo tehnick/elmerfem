@@ -30,6 +30,11 @@ INCLUDEPATH += /c/VTK/include/vtk-5.2
 LIBPATH += /c/VTK/lib/vtk-5.2
 LIBS += -lvtkCommon -lvtkRendering -lvtkFiltering -lvtkGraphics -lvtkIO -lQVTK
 
+# MATC (you may need to edit this)
+DEFINES += MATC
+LIBPATH += /c/Elmer5.4/lib
+LIBS += -lmatc
+
 # Input
 HEADERS += src/bodypropertyeditor.h \
            src/boundarydivision.h \
@@ -76,7 +81,8 @@ HEADERS += src/bodypropertyeditor.h \
            vtkpost/colorbar.h \
            vtkpost/surface.h \
            vtkpost/preferences.h \
-           vtkpost/vector.h
+           vtkpost/vector.h \
+           vtkpost/matc.h
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
          forms/boundarypropertyeditor.ui \
@@ -92,7 +98,8 @@ FORMS += forms/bodypropertyeditor.ui \
          vtkpost/colorbar.ui \
          vtkpost/surface.ui \
          vtkpost/preferences.ui \
-         vtkpost/vector.ui
+         vtkpost/vector.ui \
+         vtkpost/matc.ui
 SOURCES += src/bodypropertyeditor.cpp \
            src/boundarydivision.cpp \
            src/boundarypropertyeditor.cpp \
@@ -135,6 +142,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            vtkpost/colorbar.cpp \
            vtkpost/surface.cpp \
            vtkpost/preferences.cpp \
-           vtkpost/vector.cpp
+           vtkpost/vector.cpp \
+           vtkpost/matc.cpp
 RESOURCES += ElmerGUI.qrc
 RC_FILE += ElmerGUI.rc   
