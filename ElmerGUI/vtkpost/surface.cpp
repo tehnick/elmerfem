@@ -55,6 +55,7 @@ Surface::Surface(QWidget *parent)
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.surfaceCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(surfaceSelectionChanged(int)));
+  connect(ui.keepLimits, SIGNAL(stateChanged(int)), this, SLOT(keepLimitsSlot(int)));
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -92,13 +93,20 @@ void Surface::populateWidgets(ScalarField *scalarField, int n)
     ui.surfaceCombo->addItem(sf->name);
   }
 
-  ui.minEdit->setText(QString::number(scalarField->minVal));
-  ui.maxEdit->setText(QString::number(scalarField->maxVal));
+  surfaceSelectionChanged(ui.surfaceCombo->currentIndex());
 }
 
 void Surface::surfaceSelectionChanged(int newIndex)
 {
   ScalarField *sf = &this->scalarField[newIndex];
-  ui.minEdit->setText(QString::number(sf->minVal));
-  ui.maxEdit->setText(QString::number(sf->maxVal));
+  if(!ui.keepLimits->isChecked()) {
+    ui.minEdit->setText(QString::number(sf->minVal));
+    ui.maxEdit->setText(QString::number(sf->maxVal));
+  }
+}
+
+void Surface::keepLimitsSlot(int state)
+{
+  if(state == 0)
+    surfaceSelectionChanged(ui.surfaceCombo->currentIndex());
 }

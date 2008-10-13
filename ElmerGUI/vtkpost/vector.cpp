@@ -55,6 +55,7 @@ Vector::Vector(QWidget *parent)
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
+  connect(ui.keepLimits, SIGNAL(stateChanged(int)), this, SLOT(keepLimitsSlot(int)));
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -102,15 +103,20 @@ void Vector::populateWidgets(ScalarField *scalarField, int n)
     ui.colorCombo->addItem(sf->name);
   }
   
-  ScalarField *sf = &scalarField[0];
-  ui.minVal->setText(QString::number(sf->minVal));
-  ui.maxVal->setText(QString::number(sf->maxVal));
-
+  colorSelectionChanged(ui.colorCombo->currentIndex());
 }
 
 void Vector::colorSelectionChanged(int newIndex)
 {
   ScalarField *sf = &this->scalarField[newIndex];
-  ui.minVal->setText(QString::number(sf->minVal));
-  ui.maxVal->setText(QString::number(sf->maxVal));
+  if(!ui.keepLimits->isChecked()) {
+    ui.minVal->setText(QString::number(sf->minVal));
+    ui.maxVal->setText(QString::number(sf->maxVal));
+  }
+}
+
+void Vector::keepLimitsSlot(int state)
+{
+  if(state == 0)
+    colorSelectionChanged(ui.colorCombo->currentIndex());
 }

@@ -68,6 +68,8 @@ private slots:
   void applyButtonClicked();
   void contoursSelectionChanged(int);
   void colorSelectionChanged(int);
+  void keepContourLimitsSlot(int);
+  void keepColorLimitsSlot(int);
 
 private:
   ScalarField *scalarField;

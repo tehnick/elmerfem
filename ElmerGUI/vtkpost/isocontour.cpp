@@ -56,6 +56,8 @@ IsoContour::IsoContour(QWidget *parent)
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
+  connect(ui.keepContourLimits, SIGNAL(stateChanged(int)), this, SLOT(keepContourLimitsSlot(int)));
+  connect(ui.keepColorLimits, SIGNAL(stateChanged(int)), this, SLOT(keepColorLimitsSlot(int)));
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -95,22 +97,36 @@ void IsoContour::populateWidgets(ScalarField *scalarField, int n)
     ui.colorCombo->addItem(sf->name);
   }
 
-  ui.contoursMinEdit->setText(QString::number(scalarField->minVal));
-  ui.contoursMaxEdit->setText(QString::number(scalarField->maxVal));
-  ui.colorMinEdit->setText(QString::number(scalarField->minVal));
-  ui.colorMaxEdit->setText(QString::number(scalarField->maxVal));
+  contoursSelectionChanged(ui.contoursCombo->currentIndex());
+  colorSelectionChanged(ui.colorCombo->currentIndex());
 }
 
 void IsoContour::contoursSelectionChanged(int newIndex)
 {
   ScalarField *sf = &this->scalarField[newIndex];
-  ui.contoursMinEdit->setText(QString::number(sf->minVal));
-  ui.contoursMaxEdit->setText(QString::number(sf->maxVal));
+  if(!ui.keepContourLimits->isChecked()) {
+    ui.contoursMinEdit->setText(QString::number(sf->minVal));
+    ui.contoursMaxEdit->setText(QString::number(sf->maxVal));
+  }
 }
 
 void IsoContour::colorSelectionChanged(int newIndex)
 {
   ScalarField *sf = &this->scalarField[newIndex];
-  ui.colorMinEdit->setText(QString::number(sf->minVal));
-  ui.colorMaxEdit->setText(QString::number(sf->maxVal));
+  if(!ui.keepColorLimits->isChecked()) {
+    ui.colorMinEdit->setText(QString::number(sf->minVal));
+    ui.colorMaxEdit->setText(QString::number(sf->maxVal));
+  }
+}
+
+void IsoContour::keepContourLimitsSlot(int state)
+{
+  if(state == 0)
+    contoursSelectionChanged(ui.contoursCombo->currentIndex());
+}
+
+void IsoContour::keepColorLimitsSlot(int state)
+{
+  if(state == 0)
+    colorSelectionChanged(ui.colorCombo->currentIndex());
 }

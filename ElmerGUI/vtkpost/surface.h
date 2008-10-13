@@ -67,6 +67,7 @@ private slots:
   void okButtonClicked();
   void applyButtonClicked();
   void surfaceSelectionChanged(int);
+  void keepLimitsSlot(int);
 
 private:
   ScalarField *scalarField;
