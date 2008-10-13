@@ -101,6 +101,7 @@ private slots:
   void hideVectorSlot();
   void hideIsoContourSlot();
   void hideIsoSurfaceSlot();
+  void hideColorBarSlot();
 
   void groupChangedSlot(QAction*);
   void maybeRedrawSlot(bool);

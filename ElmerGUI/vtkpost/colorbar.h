@@ -60,8 +60,10 @@ public:
 
 signals:
   void drawColorBarSignal();
+  void hideColorBarSignal();
 
 private slots:
+  void cancelButtonClicked();
   void okButtonClicked();
   void applyButtonClicked();
   void colorSelectionChanged(int);

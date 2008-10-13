@@ -135,6 +135,7 @@ VtkPost::VtkPost(QWidget *parent)
 
   colorBar = new ColorBar(this);
   connect(colorBar, SIGNAL(drawColorBarSignal()), this, SLOT(drawColorBarSlot()));
+  connect(colorBar, SIGNAL(hideColorBarSignal()), this, SLOT(hideColorBarSlot()));
 
   preferences = new Preferences(this);
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
@@ -699,6 +700,12 @@ void VtkPost::showColorBarDialogSlot()
     colorBar->close();
     drawColorBarSlot();
   }
+}
+
+void VtkPost::hideColorBarSlot()
+{
+  drawColorBarAct->setChecked(false);
+  drawColorBarSlot();
 }
 
 void VtkPost::drawColorBarSlot()
