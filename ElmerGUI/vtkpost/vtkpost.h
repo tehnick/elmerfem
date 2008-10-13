@@ -83,21 +83,28 @@ public slots:
 private slots:
   void exitSlot();
   void showSurfaceDialogSlot();
-  void showColorBarDialogSlot();
+  void showVectorDialogSlot();
   void showIsoContourDialogSlot();
   void showIsoSurfaceDialogSlot();
-  void showVectorDialogSlot();
-  void drawColorBarSlot();
-  void redrawSlot();
+  void showColorBarDialogSlot();
   void preferencesSlot();
-  void maybeRedrawSlot(bool);
-  void groupChangedSlot(QAction*);
+
   void drawMeshEdgeSlot();
   void drawFeatureEdgesSlot();
+  void drawSurfaceSlot();
   void drawVectorSlot();
   void drawIsoContourSlot();
   void drawIsoSurfaceSlot();
-  void drawSurfaceSlot();
+  void drawColorBarSlot();
+
+  void hideSurfaceSlot();
+  void hideVectorSlot();
+  void hideIsoContourSlot();
+  void hideIsoSurfaceSlot();
+
+  void groupChangedSlot(QAction*);
+  void maybeRedrawSlot(bool);
+  void redrawSlot();
 
 private:
   QMenu *fileMenu;
@@ -114,9 +121,9 @@ private:
   QAction *drawColorBarAct;
   QAction *drawIsoContourAct;
   QAction *drawSurfaceAct;
+  QAction *drawVectorAct;
   QAction *drawIsoSurfaceAct;
   QAction *drawFeatureEdgesAct;
-  QAction *drawVectorAct;
 
   void createActions();
   void createMenus();
@@ -140,25 +147,25 @@ private:
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
 
+  vtkActor *surfaceActor;
+  vtkActor *vectorActor;
   vtkActor *isoContourActor;
   vtkActor *isoSurfaceActor;
-  vtkActor *surfaceActor;
   vtkActor *meshEdgeActor;
   vtkScalarBarActor *colorBarActor;
   vtkActor *featureEdgeActor;
-  vtkActor *vectorActor;
 
+  Surface *surface;         // ui
+  Vector *vector;           // ui
   IsoContour *isoContour;   // ui
   IsoSurface *isoSurface;   // ui
   ColorBar *colorBar;       // ui
-  Surface *surface;         // ui
   Preferences *preferences; // ui
-  Vector *vector;           // ui
 
-  QString currentIsoContourName;
-  QString currentIsoSurfaceName;
   QString currentSurfaceName;
   QString currentVectorName;
+  QString currentIsoContourName;
+  QString currentIsoSurfaceName;
 };
 
 #endif // VTKPOST_H

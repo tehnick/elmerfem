@@ -51,6 +51,7 @@ Vector::Vector(QWidget *parent)
 {
   ui.setupUi(this);
 
+  connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(cancelButtonClicked()));
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
@@ -65,6 +66,12 @@ Vector::~Vector()
 void Vector::applyButtonClicked()
 {
   emit(drawVectorSignal());
+}
+
+void Vector::cancelButtonClicked()
+{
+  emit(hideVectorSignal());
+  close();
 }
 
 void Vector::okButtonClicked()

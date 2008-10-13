@@ -119,12 +119,19 @@ VtkPost::VtkPost(QWidget *parent)
   //-----------------
   surface = new Surface(this);
   connect(surface, SIGNAL(drawSurfaceSignal()), this, SLOT(drawSurfaceSlot()));
+  connect(surface, SIGNAL(hideSurfaceSignal()), this, SLOT(hideSurfaceSlot()));
 
+  vector = new Vector(this);
+  connect(vector, SIGNAL(drawVectorSignal()), this, SLOT(drawVectorSlot()));
+  connect(vector, SIGNAL(hideVectorSignal()), this, SLOT(hideVectorSlot()));
+  
   isoContour = new IsoContour(this);
   connect(isoContour, SIGNAL(drawIsoContourSignal()), this, SLOT(drawIsoContourSlot()));
+  connect(isoContour, SIGNAL(hideIsoContourSignal()), this, SLOT(hideIsoContourSlot()));
 
   isoSurface = new IsoSurface(this);
   connect(isoSurface, SIGNAL(drawIsoSurfaceSignal()), this, SLOT(drawIsoSurfaceSlot()));
+  connect(isoSurface, SIGNAL(hideIsoSurfaceSignal()), this, SLOT(hideIsoSurfaceSlot()));
 
   colorBar = new ColorBar(this);
   connect(colorBar, SIGNAL(drawColorBarSignal()), this, SLOT(drawColorBarSlot()));
@@ -132,8 +139,6 @@ VtkPost::VtkPost(QWidget *parent)
   preferences = new Preferences(this);
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
 
-  vector = new Vector(this);
-  connect(vector, SIGNAL(drawVectorSignal()), this, SLOT(drawVectorSlot()));
 
   // Ep-data:
   //----------
@@ -889,6 +894,11 @@ void VtkPost::showVectorDialogSlot()
   }
 }
 
+void VtkPost::hideVectorSlot()
+{
+  drawVectorAct->setChecked(false);
+  drawVectorSlot();
+}
 
 void VtkPost::drawVectorSlot()
 {
@@ -1018,6 +1028,12 @@ void VtkPost::showSurfaceDialogSlot()
   }
 }
 
+void VtkPost::hideSurfaceSlot()
+{
+  drawSurfaceAct->setChecked(false);
+  drawSurfaceSlot();
+}
+
 void VtkPost::drawSurfaceSlot()
 {
   renderer->RemoveActor(surfaceActor);
@@ -1110,6 +1126,12 @@ void VtkPost::showIsoSurfaceDialogSlot()
     isoSurface->close();
     drawIsoSurfaceSlot();
   }
+}
+
+void VtkPost::hideIsoSurfaceSlot()
+{
+  drawIsoSurfaceAct->setChecked(false);
+  drawIsoSurfaceSlot();
 }
 
 void VtkPost::drawIsoSurfaceSlot()
@@ -1222,6 +1244,12 @@ void VtkPost::showIsoContourDialogSlot()
     isoContour->close();
     drawIsoContourSlot();
   }
+}
+
+void VtkPost::hideIsoContourSlot()
+{
+  drawIsoContourAct->setChecked(false);
+  drawIsoContourSlot();
 }
 
 void VtkPost::drawIsoContourSlot()

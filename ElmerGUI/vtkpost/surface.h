@@ -60,8 +60,10 @@ public:
 
 signals:
   void drawSurfaceSignal();
+  void hideSurfaceSignal();
 
 private slots:
+  void cancelButtonClicked();
   void okButtonClicked();
   void applyButtonClicked();
   void surfaceSelectionChanged(int);

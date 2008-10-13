@@ -51,6 +51,7 @@ IsoContour::IsoContour(QWidget *parent)
 {
   ui.setupUi(this);
 
+  connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(cancelButtonClicked()));
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
@@ -66,6 +67,12 @@ IsoContour::~IsoContour()
 void IsoContour::applyButtonClicked()
 {
   emit(drawIsoContourSignal());
+}
+
+void IsoContour::cancelButtonClicked()
+{
+  emit(hideIsoContourSignal());
+  close();
 }
 
 void IsoContour::okButtonClicked()

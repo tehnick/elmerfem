@@ -60,8 +60,10 @@ public:
 
 signals:
   void drawVectorSignal();
+  void hideVectorSignal();
 
 private slots:
+  void cancelButtonClicked();
   void okButtonClicked();
   void applyButtonClicked();
   void colorSelectionChanged(int);

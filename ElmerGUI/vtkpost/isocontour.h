@@ -60,8 +60,10 @@ public:
 
 signals:
   void drawIsoContourSignal();
+  void hideIsoContourSignal();
 
 private slots:
+  void cancelButtonClicked();
   void okButtonClicked();
   void applyButtonClicked();
   void contoursSelectionChanged(int);
