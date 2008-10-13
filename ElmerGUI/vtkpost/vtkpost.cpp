@@ -86,6 +86,8 @@
 #include <vtkGeometryFilter.h>
 #include <vtkGlyph3D.h>
 #include <vtkArrowSource.h>
+#include <vtkWindowToImageFilter.h>
+#include <vtkPNGWriter.h>
 
 using namespace std;
 
@@ -186,6 +188,10 @@ void VtkPost::createActions()
   exitAct->setStatusTip("Quit VTK widget");
   connect(exitAct, SIGNAL(triggered()), this, SLOT(exitSlot()));
 
+  savePictureAct = new QAction(QIcon(""), tr("Save picture as..."), this);
+  savePictureAct->setStatusTip("Save picture in file");
+  connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
+
   // View menu:
   //------------
   drawMeshEdgeAct = new QAction(QIcon(""), tr("Mesh edges"), this);
@@ -252,6 +258,8 @@ void VtkPost::createMenus()
   // File menu:
   //-----------
   fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(savePictureAct);
+  fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
   // Edit menu:
@@ -298,6 +306,32 @@ void VtkPost::createStatusBar()
 {
 }
 
+// Save picture:
+//----------------------------------------------------------------------
+void VtkPost::savePictureSlot()
+{
+  QString fileName = QFileDialog::getSaveFileName(this,
+	 tr("Save picture"), "", tr("Picture files (*.png)"));
+  
+  if(fileName.isEmpty()) {
+    cout << "File name is empty" << endl;
+    return;
+  }
+  vtkWindowToImageFilter *image = vtkWindowToImageFilter::New();
+  vtkPNGWriter *writer = vtkPNGWriter::New();
+
+  image->SetInput(qvtkWidget->GetRenderWindow());
+  image->Update();
+
+  writer->SetInputConnection(image->GetOutputPort());
+  writer->SetFileName(fileName.toAscii().data());
+
+  qvtkWidget->GetRenderWindow()->Render();
+  writer->Write();
+
+  image->Delete();
+  writer->Delete();
+}
 
 // Read in ep-results:
 //----------------------------------------------------------------------

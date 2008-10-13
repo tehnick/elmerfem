@@ -107,6 +107,8 @@ private slots:
   void maybeRedrawSlot(bool);
   void redrawSlot();
 
+  void savePictureSlot();
+
 private:
   QMenu *fileMenu;
   QMenu *editMenu;
@@ -117,6 +119,7 @@ private:
 
   QAction *exitAct;
   QAction *redrawAct;
+  QAction *savePictureAct;
   QAction *preferencesAct;
   QAction *drawMeshEdgeAct;
   QAction *drawColorBarAct;
