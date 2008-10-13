@@ -945,6 +945,11 @@ void VtkPost::drawVectorSlot()
   }
   volumeGrid->GetPointData()->AddArray(vectorData);
 
+  // Size of volume grid:
+  //---------------------
+  double length = volumeGrid->GetLength();
+  scaleFactor = scaleFactor * 100.0 / length;
+
   // Color data:
   //-------------
   ScalarField *sf = &scalarField[colorIndex];
