@@ -4873,7 +4873,6 @@ END IF
        RightElement => Boundary % BoundaryInfo % Right
 
        IF ( ASSOCIATED( RightElement ) ) THEN
-
          IF ( k > 0 ) THEN
             IF ( LeftElement % BodyId == k ) THEN
                Element => RightElement
@@ -4881,36 +4880,11 @@ END IF
                Element => LeftElement
             END IF
          ELSE
-#if 0
-            CALL Warn( 'CheckNormalDirection', 'Depreceated use of "Density" to orient normals,' )
-            CALL Warn( 'CheckNormalDirection', 'please use the keyword "Normal Target Body".' )
-            CALL Warn( 'CheckNormalDirection', ' ' )
-            LMat = ListGetInteger( CurrentModel % Bodies( &
-                   LeftElement % BodyId)  % Values, 'Material', &
-                    minv=1, maxv=CurrentModel % NumberOfMaterials )
-
-            RMat = ListGetInteger( CurrentModel % Bodies( &
-                   RightElement % BodyId) % Values, 'Material', &
-                    minv=1, maxv=CurrentModel % NumberOfMaterials )
-
-            LDens = ListGetConstReal( CurrentModel % &
-                           Materials(LMat) % Values, 'Density' )
-  
-            RDens = ListGetConstReal( CurrentModel % &
-                           Materials(RMat) % Values, 'Density' )
-
-            IF ( LDens > RDens ) THEN
-              Element => LeftElement
-            ELSE
-              Element => RightElement
-            END IF
-#else
             IF (LeftElement % BodyId > RightElement % BodyId) THEN
               Element => LeftElement
             ELSE
               Element => RightElement
             END IF
-#endif
          END IF
        ELSE
           Element => LeftElement
@@ -4998,18 +4972,19 @@ END IF
     ny => BoundaryNodes % y
     nz => BoundaryNodes % z
 
-    IF ( Boundary % Type % DIMENSION == 1 ) THEN
-
+    IF ( Boundary % Type % Dimension == 1 ) THEN
       dxdu = FirstDerivative1D( Boundary,nx,u )
       dydu = FirstDerivative1D( Boundary,ny,u )
  
       detA = dxdu*dxdu + dydu*dydu
-      detA = 1.0d0 / SQRT(detA)
-
+      IF ( detA<=0._dp ) THEN
+        Normal = 0._dp
+        RETURN
+      END IF
+      detA = 1.0_dp / SQRT(detA)
       Normal(1) = -dydu * detA
       Normal(2) =  dxdu * detA
       Normal(3) =  0.0d0
-
     ELSE
 
       dxdu = FirstDerivativeInU2D( Boundary,nx,u,v )

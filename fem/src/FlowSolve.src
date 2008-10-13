@@ -1060,18 +1060,21 @@
         NodeIndexes => Element % NodeIndexes
 
         BC => GetBC()
+        IF ( .NOT. ASSOCIATED(BC) ) CYCLE
 
 !------------------------------------------------------------------------------
         GotForceBC = GetLogical( BC, 'Flow Force BC',gotIt )
         IF ( .NOT. gotIt ) GotForceBC = .TRUE.
 
         IF ( GotForceBC ) THEN
-          FORCE  = 0.0d0
           LoadVector  = 0.0d0
           Alpha       = 0.0d0
           ExtPressure = 0.0d0
           Beta        = 0.0d0
+          SlipCoeff   = 0.0d0
           STIFF = 0.0d0
+          FORCE = 0.0d0
+
 !------------------------------------------------------------------------------
 !         (at the moment the following is done...)
 !         BC: \tau \cdot n = \alpha n +  @\beta/@t + R_k u_k + F
@@ -1121,6 +1124,7 @@
           SlipCoeff(1,1:n) =  GetReal( BC, 'Slip Coefficient 1',GotIt )
           SlipCoeff(2,1:n) =  GetReal( BC, 'Slip Coefficient 2',GotIt )
           SlipCoeff(3,1:n) =  GetReal( BC, 'Slip Coefficient 3',GotIt )
+
           NormalTangential = GetLogical( BC, &
                  'Normal-Tangential Velocity', GotIt )
            

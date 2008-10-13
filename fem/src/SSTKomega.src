@@ -228,6 +228,7 @@
         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
         n = GetElementNOFNodes()
         BC => GetBC()
+        IF ( .NOT. ASSOCIATED(BC) ) CYCLE
         IF (GetLogical(BC, 'Omega Wall BC', gotIt ) .OR. &
             GetLogical(BC, 'Noslip Wall BC',  gotIt)) CALL OmegaWall(Element,n)
       END DO
