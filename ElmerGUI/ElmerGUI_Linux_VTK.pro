@@ -17,16 +17,18 @@ QT += opengl xml script
 CONFIG += uitools
 
 # QWT (you may need to edit this)
-INCLUDEPATH += /wrk/jpr/qwt-5.0.2/include
-LIBS += -L/wrk/jpr/qwt-5.0.2/lib -lqwt
+INCLUDEPATH += /usr/include/qwt-qt4
+LIBS += -lqwt-qt4
 
 # QVTK (you may need to edit this)
 DEFINES += VTKPOST
-INCLUDEPATH += /wrk/jpr/VV/include/vtk-5.1
-LIBS += -L/wrk/jpr/VV/lib -lQVTK
+INCLUDEPATH += /usr/include/vtk-5.0
+LIBS += -lQVTK
 
-#DEFINES += MATC
-#LIBS += -L/wrk/jpr/bb/lib -lmatc
+# MATC (you may need to edit this)
+DEFINES += MATC
+LIBPATH += /usr/local/lib
+LIBS += -lmatc
 
 # Input
 HEADERS += src/bodypropertyeditor.h \

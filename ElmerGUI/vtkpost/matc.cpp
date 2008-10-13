@@ -50,9 +50,7 @@ Matc::Matc(QWidget *parent)
 {
   ui.setupUi(this);
 
-  //   connect(ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(blaaSlot()));
-
-//  connect(ui.mcOK, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+  connect(ui.mcOK, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
@@ -63,11 +61,5 @@ Matc::~Matc()
 
 void Matc::okButtonClicked()
 {
-fprintf( stdout, "sadasd\n" );
-//  close();
-}
-
-void Matc::blaaSlot()
-{
-  cout << "blaa" << endl;
+  close();
 }

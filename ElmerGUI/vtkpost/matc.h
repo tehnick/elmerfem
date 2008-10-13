@@ -56,7 +56,6 @@ public:
 
 private slots:
   void okButtonClicked();
- void blaaSlot(); 
 
 private:
 };

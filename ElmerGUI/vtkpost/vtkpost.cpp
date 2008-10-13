@@ -152,6 +152,11 @@ VtkPost::VtkPost(QWidget *parent)
   preferences = new Preferences(this);
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
 
+#ifdef MATC
+  matc = new Matc;
+  connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
+  mtc_init( NULL, stdout, stderr ); 
+#endif
 
   // Ep-data:
   //----------
@@ -172,13 +177,6 @@ VtkPost::VtkPost(QWidget *parent)
   renderer->SetBackground(1, 1, 1);
   qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
   renderer->GetRenderWindow()->Render();
-
-  // Initialize MATC...
-#ifdef MATC
-  matc = new Matc;
-  connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
-  mtc_init( NULL, stdout, stderr ); 
-#endif
 }
 
 VtkPost::~VtkPost()
@@ -272,8 +270,8 @@ void VtkPost::createActions()
   // Edit menu:
   //------------
 #ifdef MATC
-  matcAct = new QAction(QIcon(""), tr("Matc.."), this);
-  savePictureAct->setStatusTip("Matc window");
+  matcAct = new QAction(QIcon(""), tr("Matc..."), this);
+  matcAct->setStatusTip("Matc window");
   connect(matcAct, SIGNAL(triggered()), this, SLOT(matcOpenSlot()));
 #endif
 
@@ -348,7 +346,10 @@ void VtkPost::domatcSlot()
    LIST *lst;
    int i;
    VARIABLE *var;
+
    QString cmd=matc->ui.mcEdit->text().trimmed();
+
+   matc->ui.mcEdit->clear();
 
    ptr=mtc_domath(cmd.toAscii().data());
    matc->ui.mcHistory->append(cmd);
@@ -396,6 +397,7 @@ void VtkPost::domatcSlot()
    }
 
    if ( newfields ) {
+
      // Populate the widgets in user interface dialogs:
      //-------------------------------------------------
      vector->populateWidgets(scalarField, scalarFields);
@@ -420,8 +422,10 @@ void VtkPost::savePictureSlot()
     cout << "File name is empty" << endl;
     return;
   }
+
   vtkWindowToImageFilter *image = vtkWindowToImageFilter::New();
   vtkPNGWriter *writer = vtkPNGWriter::New();
+
   image->SetInput(qvtkWidget->GetRenderWindow());
   image->Update();
 

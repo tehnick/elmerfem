@@ -169,13 +169,13 @@ private:
   IsoSurface *isoSurface;   // ui
   ColorBar *colorBar;       // ui
   Preferences *preferences; // ui
+  Matc *matc;               // ui
 
   QString currentSurfaceName;
   QString currentVectorName;
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
 
-  Matc *matc;
 };
 
 #endif // VTKPOST_H
