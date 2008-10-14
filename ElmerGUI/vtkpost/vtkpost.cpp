@@ -155,6 +155,7 @@ VtkPost::VtkPost(QWidget *parent)
 #ifdef MATC
   matc = new Matc;
   connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
+  connect(matc->ui.mcHistory, SIGNAL(selectionChanged()),this,SLOT(matcCutPasteSlot()));
   mtc_init( NULL, stdout, stderr ); 
 #endif
 
@@ -340,6 +341,13 @@ void VtkPost::matcOpenSlot()
   matc->show();
 }
 
+void VtkPost::matcCutPasteSlot()
+{
+  matc->ui.mcHistory->copy();
+  matc->ui.mcEdit->clear();
+  matc->ui.mcEdit->paste();
+}
+
 void VtkPost::domatcSlot()
 {
    char *ptr;
@@ -385,15 +393,15 @@ void VtkPost::domatcSlot()
 
      if ( !found ) 
      {
-       needs_update = true;
-       ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes );
-       sf->minVal =  1e99;
-       sf->maxVal = -1e99;
-       for(int j = 0; j<epMesh->epNodes; j++) {
-          if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-          if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+        ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes );
+        sf->minVal =  1e99;
+        sf->maxVal = -1e99;
+        for(int j = 0; j<epMesh->epNodes; j++) {
+           if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+           if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
         }
-      }
+        needs_update = true;
+     }
    }
 
 
@@ -418,7 +426,7 @@ void VtkPost::domatcSlot()
      scalarFields = count;
    }
 
-   if ( needs_update ) {
+//   if ( needs_update ) {
 
      // Populate the widgets in user interface dialogs:
      //-------------------------------------------------
@@ -428,7 +436,7 @@ void VtkPost::domatcSlot()
      isoContour->populateWidgets(scalarField, scalarFields);
      surface->populateWidgets(scalarField, scalarFields);
      colorBar->populateWidgets();
-   }
+//   }
 }
 #endif
 

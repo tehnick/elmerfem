@@ -81,6 +81,7 @@ public slots:
 #ifdef MATC
   void domatcSlot();
   void matcOpenSlot();
+  void matcCutPasteSlot();
 #endif
 
 private slots:
