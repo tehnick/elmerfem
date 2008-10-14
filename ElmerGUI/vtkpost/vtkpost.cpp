@@ -89,9 +89,7 @@
 #include <vtkArrowSource.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
-#include <vtkIdFilter.h>
-#include <vtkSelectVisiblePoints.h>
-#include <vtkLabeledDataMapper.h>
+#include <vtkSphereSource.h>
 
 #ifdef MATC
 #include "matc.h"
@@ -127,7 +125,7 @@ VtkPost::VtkPost(QWidget *parent)
   isoSurfaceActor = vtkActor::New();
   surfaceActor = vtkActor::New();
   meshEdgeActor = vtkActor::New();
-  meshPointActor = vtkActor2D::New();
+  meshPointActor = vtkActor::New();
   colorBarActor = vtkScalarBarActor::New();
   featureEdgeActor = vtkActor::New();
   vectorActor = vtkActor::New();
@@ -876,6 +874,7 @@ void VtkPost::maybeRedrawSlot(bool value)
 //----------------------------------------------------------------------
 void VtkPost::redrawSlot()
 {  
+  drawMeshPointSlot();
   drawMeshEdgeSlot();
   drawFeatureEdgesSlot();
   drawSurfaceSlot();
@@ -1011,26 +1010,37 @@ void VtkPost::drawMeshPointSlot()
   renderer->RemoveActor(meshPointActor);
   if(!drawMeshPointAct->isChecked()) return;
   
-  vtkIdFilter *ids = vtkIdFilter::New();
-  ids->SetInput(surfaceGrid);
-  ids->PointIdsOn();
+  double length = surfaceGrid->GetLength();
+  int pointQuality = preferences->ui.pointQuality->value();
+  int pointSize = preferences->ui.pointSize->value();
+  bool useSurfaceGrid = preferences->ui.meshPointsSurface->isChecked();
 
-  vtkSelectVisiblePoints *visible = vtkSelectVisiblePoints::New();
-  visible->SetInputConnection(ids->GetOutputPort());
-  visible->SetRenderer(renderer);
+  vtkSphereSource *sphere = vtkSphereSource::New();
+  sphere->SetRadius((double)pointSize * length / 2000.0);
+  sphere->SetThetaResolution(pointQuality);
+  sphere->SetPhiResolution(pointQuality);
 
-  vtkLabeledDataMapper *mapper = vtkLabeledDataMapper::New();
-  mapper->SetInputConnection(visible->GetOutputPort());
-  mapper->SetLabelFormat("%d");
+  vtkGlyph3D *glyph = vtkGlyph3D::New();
+
+  if(useSurfaceGrid) {
+    glyph->SetInput(surfaceGrid);
+  } else {
+    glyph->SetInput(volumeGrid);
+  }
+
+  glyph->SetSourceConnection(sphere->GetOutputPort());
+
+  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+  mapper->SetInputConnection(glyph->GetOutputPort());
 
   meshPointActor->SetMapper(mapper);
-  renderer->AddActor2D(meshPointActor);
+  renderer->AddActor(meshPointActor);
 
   qvtkWidget->GetRenderWindow()->Render();
 
+  glyph->Delete();
+  sphere->Delete();
   mapper->Delete();
-  visible->Delete();
-  ids->Delete();
 }
 
 

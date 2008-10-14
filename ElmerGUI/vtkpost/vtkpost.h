@@ -159,7 +159,7 @@ private:
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
   
-  vtkActor2D *meshPointActor;
+  vtkActor *meshPointActor;
   vtkActor *meshEdgeActor;
   vtkActor *featureEdgeActor;
   vtkActor *surfaceActor;
