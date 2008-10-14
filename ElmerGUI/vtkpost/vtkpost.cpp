@@ -1166,6 +1166,7 @@ void VtkPost::drawFeatureEdgesSlot()
 }
 
 
+
 // Draw stream lines:
 //----------------------------------------------------------------------
 void VtkPost::showStreamLineDialogSlot()
@@ -1224,6 +1225,8 @@ void VtkPost::drawStreamLineSlot()
   double propagationTime = streamLine->ui.propagationTime->text().toDouble();
   double stepLength = streamLine->ui.stepLength->text().toDouble();
   double integStepLength = streamLine->ui.integStepLength->text().toDouble();
+  bool stripes = streamLine->ui.stripes->isChecked();
+  int lineWidth = streamLine->ui.lineWidth->text().toInt();
 
   // Vector data:
   //-------------
@@ -1248,11 +1251,11 @@ void VtkPost::drawStreamLineSlot()
   // Color data:
   //-------------
   ScalarField *sf = &scalarField[colorIndex];
-  volumeGrid->GetPointData()->RemoveArray("VectorColor");
+  volumeGrid->GetPointData()->RemoveArray("StreamLineColor");
   vtkFloatArray *vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
   vectorColor->SetNumberOfTuples(sf->values);
-  vectorColor->SetName("VectorColor");
+  vectorColor->SetName("StreamLineColor");
   for(int i = 0; i < sf->values; i++) 
     vectorColor->SetComponent(i, 0, sf->value[i]); 
   volumeGrid->GetPointData()->AddArray(vectorColor);
@@ -1264,7 +1267,8 @@ void VtkPost::drawStreamLineSlot()
   vtkLineSource *rake = vtkLineSource::New();
   rake->SetPoint1(startX, startY, startZ);
   rake->SetPoint2(endX, endY, endZ);
-  rake->SetResolution(2 * points + 1);
+  if(stripes) points = 2 * points + 1;
+  rake->SetResolution(points);
 
   vtkStreamLine *streamer = vtkStreamLine::New();
   vtkRungeKutta4 *integrator = vtkRungeKutta4::New();
@@ -1277,34 +1281,46 @@ void VtkPost::drawStreamLineSlot()
   streamer->SetStepLength(stepLength);
 
   vtkRuledSurfaceFilter *scalarSurface = vtkRuledSurfaceFilter::New();
-  scalarSurface->SetInputConnection(streamer->GetOutputPort());
-  scalarSurface->SetOffset(0);
-  scalarSurface->SetOnRatio(2);
-  scalarSurface->PassLinesOn();
-  scalarSurface->SetRuledModeToPointWalk();
-  scalarSurface->SetDistanceFactor(30);
+  if(stripes) {
+    scalarSurface->SetInputConnection(streamer->GetOutputPort());
+    scalarSurface->SetOffset(0);
+    scalarSurface->SetOnRatio(2);
+    scalarSurface->PassLinesOn();
+    scalarSurface->SetRuledModeToPointWalk();
+    scalarSurface->SetDistanceFactor(30);
+  }
 
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-  mapper->SetInputConnection(scalarSurface->GetOutputPort());
-  // mapper->SetScalarModeToUsePointFieldData();
-  // mapper->ScalarVisibilityOn();
-  // mapper->SetScalarRange(minVal, maxVal);
-  // mapper->SelectColorArray("VectorColor");
-  
-  // mapper->SetInputConnection(streamer->GetOutputPort());
-  mapper->ScalarVisibilityOff();
+  mapper->SelectColorArray("StreamLineColor");
+  // mapper->SetScalarModeToUsePointData();
+  mapper->SetScalarModeToUsePointFieldData();
+  mapper->ScalarVisibilityOn();
+  mapper->SetScalarRange(minVal, maxVal);
 
+  if(stripes) {
+    mapper->SetInputConnection(scalarSurface->GetOutputPort());
+  } else {
+    mapper->SetInputConnection(streamer->GetOutputPort());
+  }
+
+  mapper->SetColorModeToDefault();
+  // mapper->SetColorModeToMapScalars();
+
+  mapper->ScalarVisibilityOff();
   streamLineActor->SetMapper(mapper);
+
   streamLineActor->GetProperty()->SetColor(1, 0, 0);
+  if(!stripes)
+    streamLineActor->GetProperty()->SetLineWidth(lineWidth);
 
   renderer->AddActor(streamLineActor);
 
-  mapper->Delete();
-  scalarSurface->Delete();
-  streamer->Delete();
-  integrator->Delete();
   vectorData->Delete();
   vectorColor->Delete();
+  integrator->Delete();
+  streamer->Delete();
+  scalarSurface->Delete();
+  mapper->Delete();
 }
 
 
