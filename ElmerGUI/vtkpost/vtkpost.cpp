@@ -53,6 +53,7 @@
 #include <QVTKWidget.h>
 
 #include <vtkActor.h>
+#include <vtkActor2D.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
@@ -88,6 +89,9 @@
 #include <vtkArrowSource.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
+#include <vtkIdFilter.h>
+#include <vtkSelectVisiblePoints.h>
+#include <vtkLabeledDataMapper.h>
 
 #ifdef MATC
 #include "matc.h"
@@ -123,6 +127,7 @@ VtkPost::VtkPost(QWidget *parent)
   isoSurfaceActor = vtkActor::New();
   surfaceActor = vtkActor::New();
   meshEdgeActor = vtkActor::New();
+  meshPointActor = vtkActor2D::New();
   colorBarActor = vtkScalarBarActor::New();
   featureEdgeActor = vtkActor::New();
   vectorActor = vtkActor::New();
@@ -210,6 +215,13 @@ void VtkPost::createActions()
 
   // View menu:
   //------------
+  drawMeshPointAct = new QAction(QIcon(""), tr("Mesh points"), this);
+  drawMeshPointAct->setStatusTip("Draw mesh points");
+  drawMeshPointAct->setCheckable(true);
+  drawMeshPointAct->setChecked(false);
+  connect(drawMeshPointAct, SIGNAL(triggered()), this, SLOT(drawMeshPointSlot()));
+  connect(drawMeshPointAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
+
   drawMeshEdgeAct = new QAction(QIcon(""), tr("Mesh edges"), this);
   drawMeshEdgeAct->setStatusTip("Draw mesh edges");
   drawMeshEdgeAct->setCheckable(true);
@@ -300,6 +312,7 @@ void VtkPost::createMenus()
   // View menu:
   //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
+  viewMenu->addAction(drawMeshPointAct);
   viewMenu->addAction(drawMeshEdgeAct);
   viewMenu->addAction(drawFeatureEdgesAct);
   viewMenu->addSeparator();
@@ -363,7 +376,7 @@ void VtkPost::domatcSlot()
    matc->ui.mcHistory->append(cmd);
    if ( ptr ) matc->ui.mcOutput->append(ptr);
 
-   int needs_update = false;
+   // int needs_update = false;
    for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
    {
      var = (VARIABLE *)lst;
@@ -400,7 +413,7 @@ void VtkPost::domatcSlot()
            if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
            if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
         }
-        needs_update = true;
+        // needs_update = true;
      }
    }
 
@@ -422,20 +435,18 @@ void VtkPost::domatcSlot()
       }
    }
    if ( count<scalarFields ) {
-     needs_update = true;
+     // needs_update = true;
      scalarFields = count;
    }
-
-//   if ( needs_update ) {
-     // Populate the widgets in user interface dialogs:
-     //-------------------------------------------------
-     vector->populateWidgets(scalarField, scalarFields);
-     surface->populateWidgets(scalarField, scalarFields);
-     isoSurface->populateWidgets(scalarField, scalarFields);
-     isoContour->populateWidgets(scalarField, scalarFields);
-     surface->populateWidgets(scalarField, scalarFields);
-     colorBar->populateWidgets();
-//   }
+   
+   // Populate widgets in user interface dialogs:
+   //---------------------------------------------
+   vector->populateWidgets(scalarField, scalarFields);
+   surface->populateWidgets(scalarField, scalarFields);
+   isoSurface->populateWidgets(scalarField, scalarFields);
+   isoContour->populateWidgets(scalarField, scalarFields);
+   surface->populateWidgets(scalarField, scalarFields);
+   colorBar->populateWidgets();
 }
 #endif
 
@@ -467,6 +478,7 @@ void VtkPost::savePictureSlot()
   image->Delete();
   writer->Delete();
 }
+
 
 // Read in ep-results:
 //----------------------------------------------------------------------
@@ -992,6 +1004,35 @@ void VtkPost::drawColorBarSlot()
 }
 
 
+// Draw node points (labeled with node index):
+//----------------------------------------------------------------------
+void VtkPost::drawMeshPointSlot()
+{
+  renderer->RemoveActor(meshPointActor);
+  if(!drawMeshPointAct->isChecked()) return;
+  
+  vtkIdFilter *ids = vtkIdFilter::New();
+  ids->SetInput(surfaceGrid);
+  ids->PointIdsOn();
+
+  vtkSelectVisiblePoints *visible = vtkSelectVisiblePoints::New();
+  visible->SetInputConnection(ids->GetOutputPort());
+  visible->SetRenderer(renderer);
+
+  vtkLabeledDataMapper *mapper = vtkLabeledDataMapper::New();
+  mapper->SetInputConnection(visible->GetOutputPort());
+  mapper->SetLabelFormat("%d");
+
+  meshPointActor->SetMapper(mapper);
+  renderer->AddActor2D(meshPointActor);
+
+  qvtkWidget->GetRenderWindow()->Render();
+
+  mapper->Delete();
+  visible->Delete();
+  ids->Delete();
+}
+
 
 // Draw mesh edges:
 //----------------------------------------------------------------------
@@ -1004,6 +1045,7 @@ void VtkPost::drawMeshEdgeSlot()
   int lineWidth = preferences->ui.meshLineWidth->value();
 
   vtkExtractEdges *edges = vtkExtractEdges::New();
+
   if(useSurfaceMesh) {
     edges->SetInput(surfaceGrid);
   } else {

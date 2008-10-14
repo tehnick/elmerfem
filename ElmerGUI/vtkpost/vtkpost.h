@@ -51,6 +51,7 @@ class ScalarField;
 class QVTKWidget;
 class vtkRenderer;
 class vtkActor;
+class vtkActor2D;
 class vtkScalarBarActor;
 class vtkDataSetMapper;
 class vtkTextActor;
@@ -100,6 +101,7 @@ private slots:
   void drawIsoContourSlot();
   void drawIsoSurfaceSlot();
   void drawColorBarSlot();
+  void drawMeshPointSlot();
 
   void hideSurfaceSlot();
   void hideVectorSlot();
@@ -133,6 +135,7 @@ private:
   QAction *drawVectorAct;
   QAction *drawIsoSurfaceAct;
   QAction *drawFeatureEdgesAct;
+  QAction *drawMeshPointAct;
 
   void createActions();
   void createMenus();
@@ -155,14 +158,15 @@ private:
   vtkUnstructuredGrid *volumeGrid;
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
-
+  
+  vtkActor2D *meshPointActor;
+  vtkActor *meshEdgeActor;
+  vtkActor *featureEdgeActor;
   vtkActor *surfaceActor;
   vtkActor *vectorActor;
   vtkActor *isoContourActor;
   vtkActor *isoSurfaceActor;
-  vtkActor *meshEdgeActor;
   vtkScalarBarActor *colorBarActor;
-  vtkActor *featureEdgeActor;
 
   Surface *surface;         // ui
   Vector *vector;           // ui
