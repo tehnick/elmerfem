@@ -397,25 +397,25 @@ void VtkPost::domatcSlot()
    }
 
 
-   int new_count=0;
+   int count=0;
    for( int i=0; i<scalarFields; i++ )
    {
       ScalarField *sf = &scalarField[i]; 
-      int found = false;
       for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
       {
         var = (VARIABLE *)lst;
         if ( !NAME(var) || NCOL(var) != epMesh->epNodes ) continue;
-        if ( sf->name == NAME(var) ) found=true;
-      }
-      if ( found ) {
-        if ( new_count != i ) scalarField[new_count]=*sf;
-        new_count++;
+        if ( sf->name == NAME(var) )
+        {
+          if ( count != i ) scalarField[count]=*sf;
+          count++;
+          break;
+        }
       }
    }
-   if ( new_count < scalarFields ) {
+   if ( count<scalarFields ) {
      needs_update = true;
-     scalarFields = new_count;
+     scalarFields = count;
    }
 
    if ( needs_update ) {
