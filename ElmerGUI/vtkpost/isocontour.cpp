@@ -88,6 +88,9 @@ void IsoContour::populateWidgets(ScalarField *scalarField, int n)
   this->scalarField = scalarField;
   this->scalarFields = n;
 
+  QString contoursName = ui.contoursCombo->currentText();
+  QString colorName = ui.colorCombo->currentText();
+
   ui.contoursCombo->clear();
   ui.colorCombo->clear();
 
@@ -95,6 +98,16 @@ void IsoContour::populateWidgets(ScalarField *scalarField, int n)
     ScalarField *sf = &scalarField[i];
     ui.contoursCombo->addItem(sf->name);
     ui.colorCombo->addItem(sf->name);
+  }
+
+  for(int i = 0; i < ui.contoursCombo->count(); i++) {
+    if(ui.contoursCombo->itemText(i) == contoursName)
+      ui.contoursCombo->setCurrentIndex(i);
+  }
+
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == colorName)
+      ui.colorCombo->setCurrentIndex(i);
   }
 
   contoursSelectionChanged(ui.contoursCombo->currentIndex());

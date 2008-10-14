@@ -427,7 +427,6 @@ void VtkPost::domatcSlot()
    }
 
 //   if ( needs_update ) {
-
      // Populate the widgets in user interface dialogs:
      //-------------------------------------------------
      vector->populateWidgets(scalarField, scalarFields);

@@ -86,11 +86,19 @@ void Surface::populateWidgets(ScalarField *scalarField, int n)
   this->scalarField = scalarField;
   this->scalarFields = n;
 
+  QString name = ui.surfaceCombo->currentText();
+
   ui.surfaceCombo->clear();
 
   for(int i = 0; i < n; i++) {
     ScalarField *sf = &scalarField[i];
+    QString name = sf->name;
     ui.surfaceCombo->addItem(sf->name);
+  }
+
+  for(int i = 0; i < ui.surfaceCombo->count(); i++) {
+    if(ui.surfaceCombo->itemText(i) == name)
+      ui.surfaceCombo->setCurrentIndex(i);
   }
 
   surfaceSelectionChanged(ui.surfaceCombo->currentIndex());
