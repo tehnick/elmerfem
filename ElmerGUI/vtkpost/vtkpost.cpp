@@ -93,8 +93,8 @@
 #include "matc.h"
 #include <mc.h>
 extern "C" VARIABLE *var_new(char *,int,int,int);
-extern "C" void var_create_vector(char *,int,int,double *);
 extern "C" VARIABLE *var_check(char *);
+extern "C" void var_delete(char *);
 extern "C" char *mtc_domath(const char *);
 extern "C" void mtc_init(FILE *,FILE *,FILE *);
 #endif
@@ -355,7 +355,7 @@ void VtkPost::domatcSlot()
    matc->ui.mcHistory->append(cmd);
    if ( ptr ) matc->ui.mcOutput->append(ptr);
 
-   int newfields = false;
+   int needs_update = false;
    for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
    {
      var = (VARIABLE *)lst;
@@ -368,10 +368,10 @@ void VtkPost::domatcSlot()
         if ( sf->name == NAME(var) )
         {
            found = true;
-           if ( sf->value != &M(var,0,0) ) 
+           if ( sf->value != MATR(var) )
            {
              free(sf->value);
-             sf->value = &M(var,0,0);
+             sf->value = MATR(var);
            }
            sf->minVal =  1e99;
            sf->maxVal = -1e99;
@@ -385,7 +385,7 @@ void VtkPost::domatcSlot()
 
      if ( !found ) 
      {
-       newfields = true;
+       needs_update = true;
        ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes );
        sf->minVal =  1e99;
        sf->maxVal = -1e99;
@@ -396,7 +396,29 @@ void VtkPost::domatcSlot()
       }
    }
 
-   if ( newfields ) {
+
+   int new_count=0;
+   for( int i=0; i<scalarFields; i++ )
+   {
+      ScalarField *sf = &scalarField[i]; 
+      int found = false;
+      for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
+      {
+        var = (VARIABLE *)lst;
+        if ( !NAME(var) || NCOL(var) != epMesh->epNodes ) continue;
+        if ( sf->name == NAME(var) ) found=true;
+      }
+      if ( found ) {
+        if ( new_count != i ) scalarField[new_count]=*sf;
+        new_count++;
+      }
+   }
+   if ( new_count < scalarFields ) {
+     needs_update = true;
+     scalarFields = new_count;
+   }
+
+   if ( needs_update ) {
 
      // Populate the widgets in user interface dialogs:
      //-------------------------------------------------
@@ -483,7 +505,12 @@ bool VtkPost::readPostFile(QString postFileName)
 
   for(int i = 0; i < scalarFields; i++ ) {
      ScalarField *sf = &scalarField[i];
+#ifdef MATC
+     QByteArray nm = sf->name.trimmed().toAscii();
+     var_delete( nm.data() );
+#else
      if(sf->value) free(sf->value);
+#endif
   }
 
   scalarFields = 0;
@@ -666,10 +693,10 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   if ( !var || NCOL(var) != nodes )
     var = var_new( name, TYPE_DOUBLE, 1, nodes );
 
-  sf->value = &M(var,0,0);
+  sf->value = MATR(var);
   free(name);
 #else
-  sf->value = (double *)malloc(sizeof(double)*nodes);
+  sf->value = (double *)calloc(nodes,sizeof(double));
 #endif
 
   sf->minVal = +9.9e99;
