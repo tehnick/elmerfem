@@ -49,6 +49,7 @@
 #include "colorbar.h"
 #include "preferences.h"
 #include "vector.h"
+#include "streamline.h"
 
 #include <QVTKWidget.h>
 
@@ -73,6 +74,7 @@
 #include <vtkTextActor.h>
 #include <vtkTextProperty.h>
 #include <vtkTetra.h>
+#include <vtkHexahedron.h>
 #include <vtkTriangle.h>
 #include <vtkQuad.h>
 #include <vtkLine.h>
@@ -90,6 +92,10 @@
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 #include <vtkSphereSource.h>
+#include <vtkStreamLine.h>
+#include <vtkRungeKutta4.h>
+#include <vtkRuledSurfaceFilter.h>
+#include <vtkLineSource.h>
 
 #ifdef MATC
 #include "matc.h"
@@ -129,6 +135,7 @@ VtkPost::VtkPost(QWidget *parent)
   colorBarActor = vtkScalarBarActor::New();
   featureEdgeActor = vtkActor::New();
   vectorActor = vtkActor::New();
+  streamLineActor = vtkActor::New();
 
   // User interfaces:
   //-----------------
@@ -151,6 +158,10 @@ VtkPost::VtkPost(QWidget *parent)
   colorBar = new ColorBar(this);
   connect(colorBar, SIGNAL(drawColorBarSignal()), this, SLOT(drawColorBarSlot()));
   connect(colorBar, SIGNAL(hideColorBarSignal()), this, SLOT(hideColorBarSlot()));
+
+  streamLine = new StreamLine(this);
+  connect(streamLine, SIGNAL(drawStreamLineSignal()), this, SLOT(drawStreamLineSlot()));
+  connect(streamLine, SIGNAL(hideStreamLineSignal()), this, SLOT(hideStreamLineSlot()));
 
   preferences = new Preferences(this);
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
@@ -269,6 +280,13 @@ void VtkPost::createActions()
   connect(drawIsoSurfaceAct, SIGNAL(triggered()), this, SLOT(showIsoSurfaceDialogSlot()));
   connect(drawIsoSurfaceAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
+  drawStreamLineAct = new QAction(QIcon(""), tr("Streamlines"), this);
+  drawStreamLineAct->setStatusTip("Draw stream lines");
+  drawStreamLineAct->setCheckable(true);
+  drawStreamLineAct->setChecked(false);
+  connect(drawStreamLineAct, SIGNAL(triggered()), this, SLOT(showStreamLineDialogSlot()));
+  connect(drawStreamLineAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
+
   redrawAct = new QAction(QIcon(""), tr("Redraw"), this);
   redrawAct->setShortcut(tr("Ctrl+R"));
   redrawAct->setStatusTip("Redraw");
@@ -323,6 +341,8 @@ void VtkPost::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(drawColorBarAct);
   viewMenu->addSeparator();
+  viewMenu->addAction(drawStreamLineAct);
+  viewMenu->addSeparator();
   viewMenu->addAction(preferencesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(redrawAct);
@@ -335,6 +355,8 @@ void VtkPost::createToolbars()
   viewToolBar->addAction(drawVectorAct);
   viewToolBar->addAction(drawIsoContourAct);
   viewToolBar->addAction(drawIsoSurfaceAct);
+  viewToolBar->addAction(drawStreamLineAct);
+  viewToolBar->addSeparator();
   viewToolBar->addAction(drawColorBarAct);
   viewToolBar->addSeparator();
   viewToolBar->addAction(preferencesAct);
@@ -444,6 +466,7 @@ void VtkPost::domatcSlot()
    isoSurface->populateWidgets(scalarField, scalarFields);
    isoContour->populateWidgets(scalarField, scalarFields);
    surface->populateWidgets(scalarField, scalarFields);
+   streamLine->populateWidgets(scalarField, scalarFields);
    colorBar->populateWidgets();
 }
 #endif
@@ -672,6 +695,7 @@ bool VtkPost::readPostFile(QString postFileName)
   isoSurface->populateWidgets(scalarField, scalarFields);
   isoContour->populateWidgets(scalarField, scalarFields);
   surface->populateWidgets(scalarField, scalarFields);
+  streamLine->populateWidgets(scalarField, scalarFields);
   colorBar->populateWidgets();
 
   this->postFileRead = true;
@@ -762,6 +786,8 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   // Volume grid:
   //---------------
   vtkTetra *tetra = vtkTetra::New();
+  vtkHexahedron *hexa = vtkHexahedron::New();
+
   for(int i = 0; i < epMesh->epElements; i++) {
     EpElement *epe = &epMesh->epElement[i];
 
@@ -775,13 +801,26 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
       for(int j = 0; j < 4; j++)
 	tetra->GetPointIds()->SetId(j, epe->index[j]);
       
-      if(groupAction->isChecked()) {
+      if(groupAction->isChecked())
 	volumeGrid->InsertNextCell(tetra->GetCellType(), tetra->GetPointIds());
-      }
     }
-
+    
+    if(epe->code == 808) {
+      QString groupName = epe->groupName;
+      if(groupName.isEmpty()) continue;
+      
+      QAction *groupAction = groupActionHash.value(groupName);
+      if(groupAction == NULL) continue;
+      
+      for(int j = 0; j < 8; j++)
+	hexa->GetPointIds()->SetId(j, epe->index[j]);
+      
+      if(groupAction->isChecked())
+	volumeGrid->InsertNextCell(hexa->GetCellType(), hexa->GetPointIds());
+    }
   }
   tetra->Delete();
+  hexa->Delete();
 
   // Surface grid:
   //---------------
@@ -800,9 +839,8 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
       for(int j = 0; j < 3; j++)
 	tria->GetPointIds()->SetId(j, epe->index[j]);
       
-      if(groupAction->isChecked()) {
+      if(groupAction->isChecked())
 	surfaceGrid->InsertNextCell(tria->GetCellType(), tria->GetPointIds());
-      }
     }
 
     if(epe->code == 404) {
@@ -815,9 +853,8 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
       for(int j = 0; j < 4; j++)
 	quad->GetPointIds()->SetId(j, epe->index[j]);
       
-      if(groupAction->isChecked()) {
+      if(groupAction->isChecked())
 	surfaceGrid->InsertNextCell(quad->GetCellType(), quad->GetPointIds());
-      }
     }
 
   }
@@ -840,9 +877,8 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
       for(int j = 0; j < 3; j++)
 	line->GetPointIds()->SetId(j, epe->index[j]);
       
-      if(groupAction->isChecked()) {
+      if(groupAction->isChecked())
 	lineGrid->InsertNextCell(line->GetCellType(), line->GetPointIds());
-      }
     }
 
   }
@@ -881,8 +917,11 @@ void VtkPost::redrawSlot()
   drawVectorSlot();
   drawIsoContourSlot();
   drawIsoSurfaceSlot();
+  drawStreamLineSlot();
   drawColorBarSlot();
+
   renderer->ResetCamera();
+
   qvtkWidget->GetRenderWindow()->Render();
 }
 
@@ -1127,6 +1166,149 @@ void VtkPost::drawFeatureEdgesSlot()
 }
 
 
+// Draw stream lines:
+//----------------------------------------------------------------------
+void VtkPost::showStreamLineDialogSlot()
+{
+  qvtkWidget->GetRenderWindow()->Render();
+  
+  if(drawStreamLineAct->isChecked()) {
+    streamLine->show();
+  } else {
+    streamLine->close();
+    drawVectorSlot();
+  }
+}
+
+void VtkPost::hideStreamLineSlot()
+{
+  drawStreamLineAct->setChecked(false);
+  drawStreamLineSlot();
+}
+
+void VtkPost::drawStreamLineSlot()
+{
+  renderer->RemoveActor(streamLineActor);
+  if(!drawStreamLineAct->isChecked()) return;
+
+  QString vectorName = streamLine->ui.vectorCombo->currentText();
+
+  if(vectorName.isEmpty()) return;
+
+  int i, j, index = -1;
+  for(i = 0; i < scalarFields; i++) {
+    ScalarField *sf = &scalarField[i];
+    QString name = sf->name;
+    if((j = name.indexOf("_x")) >= 0) {
+      if(vectorName == name.mid(0, j)) {
+	index = i;
+	break;
+      }
+    }
+  }
+
+  if(index < 0) return;
+
+  // UI data:
+  //----------
+  int colorIndex = streamLine->ui.colorCombo->currentIndex();
+  double minVal = streamLine->ui.minVal->text().toDouble();
+  double maxVal = streamLine->ui.maxVal->text().toDouble();
+  double startX = streamLine->ui.startX->text().toDouble();
+  double startY = streamLine->ui.startY->text().toDouble();
+  double startZ = streamLine->ui.startZ->text().toDouble();
+  double endX = streamLine->ui.endX->text().toDouble();
+  double endY = streamLine->ui.endY->text().toDouble();
+  double endZ = streamLine->ui.endZ->text().toDouble();
+  int points = streamLine->ui.points->value();
+  double propagationTime = streamLine->ui.propagationTime->text().toDouble();
+  double stepLength = streamLine->ui.stepLength->text().toDouble();
+  double integStepLength = streamLine->ui.integStepLength->text().toDouble();
+
+  // Vector data:
+  //-------------
+  volumeGrid->GetPointData()->RemoveArray("VectorData");
+  vtkFloatArray *vectorData = vtkFloatArray::New();
+  ScalarField *sf_x = &scalarField[index + 0];
+  ScalarField *sf_y = &scalarField[index + 1];
+  ScalarField *sf_z = &scalarField[index + 2];
+  vectorData->SetNumberOfComponents(3);
+  vectorData->SetNumberOfTuples(sf_x->values);
+  vectorData->SetName("VectorData");
+  for(int i = 0; i < sf_x->values; i++) {
+    double val_x  = sf_x->value[i];
+    double val_y  = sf_y->value[i];
+    double val_z  = sf_z->value[i];
+    vectorData->SetComponent(i, 0, val_x); 
+    vectorData->SetComponent(i, 1, val_y); 
+    vectorData->SetComponent(i, 2, val_z); 
+  }
+  volumeGrid->GetPointData()->AddArray(vectorData);
+
+  // Color data:
+  //-------------
+  ScalarField *sf = &scalarField[colorIndex];
+  volumeGrid->GetPointData()->RemoveArray("VectorColor");
+  vtkFloatArray *vectorColor = vtkFloatArray::New();
+  vectorColor->SetNumberOfComponents(1);
+  vectorColor->SetNumberOfTuples(sf->values);
+  vectorColor->SetName("VectorColor");
+  for(int i = 0; i < sf->values; i++) 
+    vectorColor->SetComponent(i, 0, sf->value[i]); 
+  volumeGrid->GetPointData()->AddArray(vectorColor);
+
+  // Stream line:
+  //-------------
+  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
+
+  vtkLineSource *rake = vtkLineSource::New();
+  rake->SetPoint1(startX, startY, startZ);
+  rake->SetPoint2(endX, endY, endZ);
+  rake->SetResolution(2 * points + 1);
+
+  vtkStreamLine *streamer = vtkStreamLine::New();
+  vtkRungeKutta4 *integrator = vtkRungeKutta4::New();
+  streamer->SetInput(volumeGrid);
+  streamer->SetSource(rake->GetOutput());
+  streamer->SetIntegrator(integrator);
+  streamer->SetMaximumPropagationTime(propagationTime);
+  streamer->SetIntegrationStepLength(integStepLength);
+  streamer->SetIntegrationDirectionToForward();
+  streamer->SetStepLength(stepLength);
+
+  vtkRuledSurfaceFilter *scalarSurface = vtkRuledSurfaceFilter::New();
+  scalarSurface->SetInputConnection(streamer->GetOutputPort());
+  scalarSurface->SetOffset(0);
+  scalarSurface->SetOnRatio(2);
+  scalarSurface->PassLinesOn();
+  scalarSurface->SetRuledModeToPointWalk();
+  scalarSurface->SetDistanceFactor(30);
+
+  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+  mapper->SetInputConnection(scalarSurface->GetOutputPort());
+  // mapper->SetScalarModeToUsePointFieldData();
+  // mapper->ScalarVisibilityOn();
+  // mapper->SetScalarRange(minVal, maxVal);
+  // mapper->SelectColorArray("VectorColor");
+  
+  // mapper->SetInputConnection(streamer->GetOutputPort());
+  mapper->ScalarVisibilityOff();
+
+  streamLineActor->SetMapper(mapper);
+  streamLineActor->GetProperty()->SetColor(1, 0, 0);
+
+  renderer->AddActor(streamLineActor);
+
+  mapper->Delete();
+  scalarSurface->Delete();
+  streamer->Delete();
+  integrator->Delete();
+  vectorData->Delete();
+  vectorColor->Delete();
+}
+
+
+
 // Draw vectors:
 //----------------------------------------------------------------------
 void VtkPost::showVectorDialogSlot()
@@ -1221,7 +1403,7 @@ void VtkPost::drawVectorSlot()
 
   // Glyphs:
   //---------
-  volumeGrid->GetPointData()->SetActiveVectors("VectorData");
+  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
   vtkGlyph3D *glyph = vtkGlyph3D::New();
   vtkArrowSource *arrow = vtkArrowSource::New();
   arrow->SetTipResolution(quality);

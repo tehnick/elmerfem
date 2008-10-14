@@ -62,6 +62,7 @@ class ColorBar;
 class Surface;
 class Preferences;
 class Vector;
+class StreamLine;
 class Matc;
 
 class VtkPost : public QMainWindow
@@ -92,8 +93,10 @@ private slots:
   void showIsoContourDialogSlot();
   void showIsoSurfaceDialogSlot();
   void showColorBarDialogSlot();
+  void showStreamLineDialogSlot();
   void preferencesSlot();
 
+  void drawMeshPointSlot();
   void drawMeshEdgeSlot();
   void drawFeatureEdgesSlot();
   void drawSurfaceSlot();
@@ -101,13 +104,14 @@ private slots:
   void drawIsoContourSlot();
   void drawIsoSurfaceSlot();
   void drawColorBarSlot();
-  void drawMeshPointSlot();
+  void drawStreamLineSlot();
 
   void hideSurfaceSlot();
   void hideVectorSlot();
   void hideIsoContourSlot();
   void hideIsoSurfaceSlot();
   void hideColorBarSlot();
+  void hideStreamLineSlot();
 
   void groupChangedSlot(QAction*);
   void maybeRedrawSlot(bool);
@@ -128,14 +132,15 @@ private:
   QAction *redrawAct;
   QAction *savePictureAct;
   QAction *preferencesAct;
+  QAction *drawMeshPointAct;
   QAction *drawMeshEdgeAct;
-  QAction *drawColorBarAct;
-  QAction *drawIsoContourAct;
+  QAction *drawFeatureEdgesAct;
   QAction *drawSurfaceAct;
   QAction *drawVectorAct;
+  QAction *drawIsoContourAct;
   QAction *drawIsoSurfaceAct;
-  QAction *drawFeatureEdgesAct;
-  QAction *drawMeshPointAct;
+  QAction *drawColorBarAct;
+  QAction *drawStreamLineAct;
 
   void createActions();
   void createMenus();
@@ -167,11 +172,13 @@ private:
   vtkActor *isoContourActor;
   vtkActor *isoSurfaceActor;
   vtkScalarBarActor *colorBarActor;
+  vtkActor *streamLineActor;
 
   Surface *surface;         // ui
   Vector *vector;           // ui
   IsoContour *isoContour;   // ui
   IsoSurface *isoSurface;   // ui
+  StreamLine *streamLine;   // ui
   ColorBar *colorBar;       // ui
   Preferences *preferences; // ui
   Matc *matc;               // ui

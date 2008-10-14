@@ -77,6 +77,7 @@ HEADERS += src/bodypropertyeditor.h \
            vtkpost/surface.h \
            vtkpost/preferences.h \
            vtkpost/vector.h \
+           vtkpost/streamline.h \
            vtkpost/matc.h
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
@@ -94,6 +95,7 @@ FORMS += forms/bodypropertyeditor.ui \
          vtkpost/surface.ui \
          vtkpost/preferences.ui \
          vtkpost/vector.ui \
+         vtkpost/streamline.ui \
          vtkpost/matc.ui
 SOURCES += src/bodypropertyeditor.cpp \
            src/boundarydivision.cpp \
@@ -138,6 +140,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            vtkpost/surface.cpp \
            vtkpost/preferences.cpp \
            vtkpost/vector.cpp \
+           vtkpost/streamline.cpp \
            vtkpost/matc.cpp
 RESOURCES += ElmerGUI.qrc
 RC_FILE += ElmerGUI.rc   
