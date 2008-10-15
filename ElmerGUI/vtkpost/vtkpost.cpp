@@ -466,7 +466,7 @@ void VtkPost::div(double *in, double *out)
    ncomp = da->GetNumberOfComponents();
    for( int i=0; i<epMesh->epNodes; i++ )
    {
-      out[i] += da->GetComponent(i,0);
+      out[i]  = da->GetComponent(i,0);
       out[i] += da->GetComponent(i,4);
       out[i] += da->GetComponent(i,8);
    }
