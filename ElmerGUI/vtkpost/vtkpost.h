@@ -65,6 +65,7 @@ class Vector;
 class StreamLine;
 class Matc;
 
+
 class VtkPost : public QMainWindow
 {
   Q_OBJECT
@@ -76,6 +77,7 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
   bool readPostFile(QString);
+  virtual void grad(double *,double *);
 
 signals:
 
@@ -153,7 +155,7 @@ private:
   int scalarFields;
   ScalarField *scalarField;
 
-  ScalarField* addScalarField(QString, int);
+  ScalarField* addScalarField(QString, int, double *);
 
   QHash<QString, QAction*> groupActionHash;
 
@@ -187,7 +189,6 @@ private:
   QString currentVectorName;
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
-
 };
 
 #endif // VTKPOST_H

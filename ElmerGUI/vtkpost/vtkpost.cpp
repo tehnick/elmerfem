@@ -91,6 +91,8 @@
 #include <vtkArrowSource.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
+#include <vtkCellDerivatives.h>
+#include <vtkCellDataToPointData.h>
 #include <vtkSphereSource.h>
 #include <vtkCylinderSource.h>
 #include <vtkStreamLine.h>
@@ -101,11 +103,15 @@
 #ifdef MATC
 #include "matc.h"
 #include <mc.h>
+extern "C" void matc_commands();
+extern "C" VARIABLE *com_grad(VARIABLE *);
 extern "C" VARIABLE *var_new(char *,int,int,int);
 extern "C" VARIABLE *var_check(char *);
+extern "C" VARIABLE *var_temp_new(int,int,int);
 extern "C" void var_delete(char *);
 extern "C" char *mtc_domath(const char *);
 extern "C" void mtc_init(FILE *,FILE *,FILE *);
+extern "C" void com_init(char *,int,int,VARIABLE *(*)(VARIABLE *),int,int,char*);
 #endif
 
 using namespace std;
@@ -172,6 +178,9 @@ VtkPost::VtkPost(QWidget *parent)
   connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
   connect(matc->ui.mcHistory, SIGNAL(selectionChanged()),this,SLOT(matcCutPasteSlot()));
   mtc_init( NULL, stdout, stderr ); 
+
+  com_init( "grad", FALSE, FALSE, com_grad, 1, 1,
+            "r = grad(f): compute gradient of a scalar variable f.\n") ;
 #endif
 
   // Ep-data:
@@ -382,6 +391,40 @@ void VtkPost::matcCutPasteSlot()
   matc->ui.mcEdit->paste();
 }
 
+void VtkPost::grad(double *in, double *out)
+{
+   vtkFloatArray *s = vtkFloatArray::New();
+   s->SetNumberOfComponents(1);
+   s->SetNumberOfTuples(epMesh->epNodes);
+   for( int i=0;i<epMesh->epNodes; i++ )
+      s->SetValue(i,in[i] );
+
+   vtkCellDerivatives *cd = vtkCellDerivatives::New();
+   if ( volumeGrid->GetNumberOfCells() >0 ) {
+     volumeGrid->GetPointData()->SetScalars(s);
+     cd->SetInput(volumeGrid);
+   } else {
+     surfaceGrid->GetPointData()->SetScalars(s);
+     cd->SetInput(surfaceGrid);
+   }
+   cd->SetVectorModeToComputeGradient();
+   cd->Update();
+
+   vtkCellDataToPointData *nd = vtkCellDataToPointData::New();
+   nd->SetInput(cd->GetOutput());
+   nd->Update();
+
+   vtkDataArray *da = nd->GetOutput()->GetPointData()->GetVectors();
+   int ncomp = da->GetNumberOfComponents();
+   for( int i=0; i<epMesh->epNodes; i++ )
+     for( int j=0; j<ncomp; j++ )
+        out[epMesh->epNodes*j+i] = da->GetComponent(i,j);
+
+   cd->Delete();
+   nd->Delete();
+   s->Delete(); 
+}
+
 void VtkPost::domatcSlot()
 {
    char *ptr;
@@ -401,9 +444,9 @@ void VtkPost::domatcSlot()
    for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
    {
      var = (VARIABLE *)lst;
-     if ( !NAME(var) || NCOL(var) != epMesh->epNodes ) continue;
+     if ( !NAME(var) || NCOL(var)!=epMesh->epNodes ) continue;
 
-     int found = false;
+     int found = false,n;
      for( int i=0; i<scalarFields; i++ )
      {
         ScalarField *sf = &scalarField[i]; 
@@ -422,24 +465,97 @@ void VtkPost::domatcSlot()
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
            }
            break;
+        } else if ( n=sf->name.indexOf("_x")>0 ) {
+           if ( sf->name.left(n)==NAME(var) ) {
+             found = true;
+             if ( sf->value != &M(var,0,0) )
+             {
+               free(sf->value);
+               sf->value = &M(var,0,0);
+             }
+             sf->minVal =  1e99;
+             sf->maxVal = -1e99;
+             for(int j=0; j<epMesh->epNodes; j++) {
+               if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+               if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+             }
+             break;
+           }
+        } else if ( n=sf->name.indexOf("_y")>0 ) {
+           if ( sf->name.left(n)==NAME(var) ) {
+             found = true;
+             if ( sf->value != &M(var,1,0) )
+             {
+               free(sf->value);
+               sf->value = &M(var,1,0);
+             }
+             sf->minVal =  1e99;
+             sf->maxVal = -1e99;
+             for(int j=0; j<epMesh->epNodes; j++) {
+               if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+               if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+             }
+             break;
+           }
+        } else if ( n=sf->name.indexOf("_z")>0 ) {
+           if ( sf->name.left(n)==NAME(var) ) {
+             found = true;
+             if ( sf->value != &M(var,2,0) )
+             {
+               free(sf->value);
+               sf->value = &M(var,2,0);
+             }
+             sf->minVal =  1e99;
+             sf->maxVal = -1e99;
+             for(int j=0; j<epMesh->epNodes; j++) {
+               if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+               if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+             }
+             break;
+           }
         }
      }
 
      if ( !found ) 
      {
-        ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes );
-        sf->minVal =  1e99;
-        sf->maxVal = -1e99;
-        for(int j = 0; j<epMesh->epNodes; j++) {
-           if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-           if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+        if ( NROW(var) == 1 ) {
+          ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes,NULL );
+          sf->minVal =  1e99;
+          sf->maxVal = -1e99;
+          for(int j = 0; j<epMesh->epNodes; j++) {
+             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+          }
+        } else if ( NROW(var) == 3 ) {
+          QString qs = NAME(var);
+          ScalarField *sf = addScalarField( qs+"_x",epMesh->epNodes, &M(var,0,0) );
+          sf->minVal =  1e99;
+          sf->maxVal = -1e99;
+          for(int j = 0; j<epMesh->epNodes; j++) {
+             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+          }
+          sf = addScalarField( qs+"_y",epMesh->epNodes, &M(var,1,0) );
+          sf->minVal =  1e99;
+          sf->maxVal = -1e99;
+          for(int j = 0; j<epMesh->epNodes; j++) {
+             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+          }
+          sf = addScalarField( qs+"_z",epMesh->epNodes, &M(var,2,0) );
+          sf->minVal =  1e99;
+          sf->maxVal = -1e99;
+          for(int j = 0; j<epMesh->epNodes; j++) {
+             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+          }
         }
         // needs_update = true;
      }
    }
 
 
-   int count=0;
+   int count=0,n;
    for( int i=0; i<scalarFields; i++ )
    {
       ScalarField *sf = &scalarField[i]; 
@@ -447,11 +563,31 @@ void VtkPost::domatcSlot()
       {
         var = (VARIABLE *)lst;
         if ( !NAME(var) || NCOL(var) != epMesh->epNodes ) continue;
+
         if ( sf->name == NAME(var) )
         {
           if ( count != i ) scalarField[count]=*sf;
           count++;
           break;
+        } else if ( n=sf->name.indexOf("_x")>0 ) {
+          if ( sf->name.left(n) == NAME(var) )
+          {
+            if ( count != i ) scalarField[count]=*sf;
+            count++;
+          }
+        } else if ( n=sf->name.indexOf("_y")>0 ) {
+          if ( sf->name.left(n) == NAME(var) )
+          {
+            if ( count != i ) scalarField[count]=*sf;
+            count++;
+          }
+        } else if ( n=sf->name.indexOf("_z")>0 ) {
+          if ( sf->name.left(n) == NAME(var) )
+          {
+            if ( count != i ) scalarField[count]=*sf;
+            count++;
+            break;
+          }
         }
       }
    }
@@ -559,7 +695,7 @@ bool VtkPost::readPostFile(QString postFileName)
   // Add the null field:
   //--------------------
   QString fieldName = "Null";
-  ScalarField *nullField = addScalarField(fieldName, nodes);
+  ScalarField *nullField = addScalarField(fieldName, nodes, NULL);
   nullField->minVal = 0.0;
   nullField->maxVal = 0.0;
 
@@ -577,12 +713,12 @@ bool VtkPost::readPostFile(QString postFileName)
     cout << "Field name: " << fieldName.toAscii().data() << endl;
 
     if(fieldType == "scalar")
-      addScalarField(fieldName, nodes);
+      addScalarField(fieldName, nodes, NULL);
 
     if(fieldType == "vector") {
-      addScalarField(fieldName + "_x", nodes);
-      addScalarField(fieldName + "_y", nodes);
-      addScalarField(fieldName + "_z", nodes);
+      addScalarField(fieldName + "_x", nodes, NULL);
+      addScalarField(fieldName + "_y", nodes, NULL);
+      addScalarField(fieldName + "_z", nodes, NULL);
       i += 2;
     }
   }
@@ -606,7 +742,7 @@ bool VtkPost::readPostFile(QString postFileName)
   ScalarField *sf = NULL;
 
   fieldName = "Nodes_x";
-  sf = addScalarField(fieldName, nodes);
+  sf = addScalarField(fieldName, nodes, NULL);
   for(int i = 0; i < nodes; i++) {
     sf->value[i] = epMesh->epNode[i].x[0];
     if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
@@ -614,7 +750,7 @@ bool VtkPost::readPostFile(QString postFileName)
   }
 
   fieldName = "Nodes_y";
-  sf = addScalarField(fieldName, nodes);
+  sf = addScalarField(fieldName, nodes, NULL);
   for(int i = 0; i < nodes; i++) {
     sf->value[i] = epMesh->epNode[i].x[1];
     if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
@@ -622,7 +758,7 @@ bool VtkPost::readPostFile(QString postFileName)
   }
 
   fieldName = "Nodes_z";
-  sf = addScalarField(fieldName, nodes);
+  sf = addScalarField(fieldName, nodes,NULL);
   for(int i = 0; i < nodes; i++) {
     sf->value[i] = epMesh->epNode[i].x[2];
     if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
@@ -715,7 +851,7 @@ bool VtkPost::readPostFile(QString postFileName)
 
 // Add a scalar field:
 //----------------------------------------------------------------------
-ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
+ScalarField* VtkPost::addScalarField(QString fieldName, int nodes, double *value)
 {
   if(scalarFields >= MAX_SCALARS) {
     cout << "Max. scalar limit exceeded!" << endl;
@@ -725,21 +861,23 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes)
   ScalarField *sf = &scalarField[scalarFields++];
   sf->name = fieldName;
   sf->values = nodes;
-
+  sf->value = value;
+ 
+  if ( !sf->value ) {
 #ifdef MATC
-  QByteArray nm=fieldName.trimmed().toAscii();
+    QByteArray nm=fieldName.trimmed().toAscii();
 
-  char *name = (char *)malloc( nm.count()+1 );
-  strcpy(name,nm.data());
-  VARIABLE *var = var_check(name);
-  if ( !var || NCOL(var) != nodes )
-    var = var_new( name, TYPE_DOUBLE, 1, nodes );
-
-  sf->value = MATR(var);
-  free(name);
+    char *name = (char *)malloc( nm.count()+1 );
+    strcpy(name,nm.data());
+    VARIABLE *var = var_check(name);
+    if ( !var || NCOL(var) != nodes )
+      var = var_new( name, TYPE_DOUBLE, 1, nodes );
+    sf->value = MATR(var);
+    free(name);
 #else
-  sf->value = (double *)calloc(nodes,sizeof(double));
+    sf->value = (double *)calloc(nodes,sizeof(double));
 #endif
+  }
 
   sf->minVal = +9.9e99;
   sf->maxVal = -9.9e99;
