@@ -2187,8 +2187,8 @@ CONTAINS
 !   Open restart file and search for the right position
 !------------------------------------------------------------------------------
     CALL Info( 'LoadRestartFile',' ', Level = 3)
-    CALL Info( 'LoadRestartFile','---------------------', Level=3 )
-    CALL Info( 'LoadRestartFile','Start', Level = 3 )
+    CALL Info( 'LoadRestartFile','--------------------------------------------', Level=3 )
+    CALL Info( 'LoadRestartFile','Reading data from file: '//TRIM(RestartFile), Level = 3 )
 
     Cont = .FALSE.
     IF ( PRESENT( Continuous ) ) Cont = Continuous
@@ -2378,9 +2378,9 @@ CONTAINS
          IF ( PRESENT( EOF ) ) THEN
             EOF = .TRUE.
          ELSE IF ( TimeCount /= 0 ) THEN
-            CALL Warn( 'LoadRestartFile','Did not find the the requested' )
-            CALL Warn( 'LoadRestartFile','restart position from the restart file, using the last' )
-            CALL Warn( 'LoadRestartFile','data found.' )
+            CALL Warn( 'LoadRestartFile','Did not find data at the requested point' )
+	    WRITE( Message,'(A,I6)') 'Reading from the last existing point: ',nt-1
+            CALL Warn( 'LoadRestartFile',Message)
          END IF
          EXIT
       END IF
@@ -2450,12 +2450,15 @@ CONTAINS
        END IF
        RestartFileOpen = .FALSE.
     END IF
-    CALL Info( 'LoadRestartFile', 'Done', Level=3 )
-    CALL Info( 'LoadRestartFile', '---------------------', Level = 3)
-    CALL Info( 'LoadRestartFile', ' ', Level = 3 )
 
     CALL CPU_TIME(tstop)
-    WRITE( 0, * ) 'Restart time = ', tstop - tstart
+    
+    WRITE( Message,* ) 'Restart time = ', tstop - tstart
+    CALL Info( 'LoadRestartFile',Message)
+    CALL Info( 'LoadRestartFile', 'All done', Level=3 )
+    CALL Info( 'LoadRestartFile','--------------------------------------------', Level=3 )
+    CALL Info( 'LoadRestartFile', ' ', Level = 3 )
+
 
 CONTAINS
 
