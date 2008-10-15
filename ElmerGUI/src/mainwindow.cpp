@@ -47,12 +47,13 @@
 
 #ifdef VTKPOST
 #include "vtkpost/vtkpost.h"
+VtkPost *vtkp;
 #endif
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
- 
+
 using namespace std;
 
 #undef MPICH2
@@ -149,7 +150,7 @@ MainWindow::MainWindow()
 #endif
 
 #ifdef VTKPOST
-  vtkPost = new VtkPost(this);
+  vtkp = vtkPost = new VtkPost(this);
 #endif
 
   createActions();
