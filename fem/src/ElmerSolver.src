@@ -561,8 +561,10 @@
                      END DO
                    END IF
                  END IF
+
                  CALL ListSetNamespace('')
                  Var => Var % Next
+
                END DO
              END IF
            END DO
@@ -688,7 +690,8 @@
      LOGICAL :: Gotit
 !------------------------------------------------------------------------------
 
-     RestartFile = ListGetString( CurrentModel % Simulation, &
+
+	  RestartFile = ListGetString( CurrentModel % Simulation, &
                  'Restart File', GotIt )
 
      IF ( GotIt ) THEN
@@ -697,6 +700,7 @@
 
        Mesh => CurrentModel % Meshes
        DO WHILE( ASSOCIATED(Mesh) ) 
+
          IF ( LEN_TRIM(Mesh % Name) > 0 ) THEN
            OutputName = TRIM(Mesh % Name) // '/' // TRIM(RestartFile)
          ELSE
@@ -716,6 +720,7 @@
          END IF
 
          CALL SetCurrentMesh( CurrentModel, Mesh )
+
          CALL LoadRestartFile( OutputName,k,Mesh )
          Mesh => Mesh % Next
        END DO
@@ -783,7 +788,7 @@
            CALL Info( 'MAIN', ' ', Level=3 )
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
-           IF ( (Transient .OR. Scanning) .AND. (Time > 0)) THEN
+           IF ( (Transient .OR. Scanning) .AND. (Time > 1)) THEN
             WRITE( Message, * ) 'Time: ',Time,'/',(stepcount), sTime(1)
             CALL Info( 'MAIN', Message, Level=3 )
 			call system_clock(nowcounts,countspersec,maxcounts)
