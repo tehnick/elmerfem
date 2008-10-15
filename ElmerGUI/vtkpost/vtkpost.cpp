@@ -179,10 +179,8 @@ VtkPost::VtkPost(QWidget *parent)
   connect(matc->ui.mcHistory, SIGNAL(selectionChanged()),this,SLOT(matcCutPasteSlot()));
   mtc_init( NULL, stdout, stderr ); 
   QString elmerGuiHome = getenv("ELMERGUI_HOME");
-  elmerGuiHome = elmerGuiHome.replace("\\", "/");
-  char mcIniLoad[2048];
-  sprintf(mcIniLoad, "source(\"%s/edf/mc.ini\")", elmerGuiHome.toAscii().data());
-  mtc_domath( mcIniLoad );
+  QString mcIniLoad = "source(\"" + elmerGuiHome.replace("\\", "/") + "/edf/mc.ini\")";
+  mtc_domath( mcIniLoad.toAscii().data() );
   com_init( "grad", FALSE, FALSE, com_grad, 1, 1,
             "r = grad(f): compute gradient of a scalar variable f.\n") ;
 #endif
@@ -1375,14 +1373,18 @@ void VtkPost::drawStreamLineSlot()
   int rakeWidth = streamLine->ui.rakeWidth->value();
   bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
   int threads = streamLine->ui.threads->value();
+  
+  // Choose the grid:
+  //------------------
+  vtkUnstructuredGrid *grid = NULL;
+  if(useSurfaceGrid)
+    grid = surfaceGrid;
+  else
+    grid = volumeGrid;
 
   // Vector data:
   //-------------
-  if(useSurfaceGrid) {
-    surfaceGrid->GetPointData()->RemoveArray("VectorData");
-  } else {
-    volumeGrid->GetPointData()->RemoveArray("VectorData");
-  }
+  grid->GetPointData()->RemoveArray("VectorData");
   vtkFloatArray *vectorData = vtkFloatArray::New();
   ScalarField *sf_x = &scalarField[index + 0];
   ScalarField *sf_y = &scalarField[index + 1];
@@ -1398,41 +1400,24 @@ void VtkPost::drawStreamLineSlot()
     vectorData->SetComponent(i, 1, val_y); 
     vectorData->SetComponent(i, 2, val_z); 
   }
-  if(useSurfaceGrid) {
-    surfaceGrid->GetPointData()->AddArray(vectorData);
-  } else {
-    volumeGrid->GetPointData()->AddArray(vectorData);
-  }
+  grid->GetPointData()->AddArray(vectorData);
 
   // Color data:
   //-------------
+  grid->GetPointData()->RemoveArray("StreamLineColor");
   ScalarField *sf = &scalarField[colorIndex];
-  if(useSurfaceGrid) {
-    surfaceGrid->GetPointData()->RemoveArray("StreamLineColor");
-  } else {
-    volumeGrid->GetPointData()->RemoveArray("StreamLineColor");
-  }
   vtkFloatArray *vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
   vectorColor->SetNumberOfTuples(sf->values);
   vectorColor->SetName("StreamLineColor");
   for(int i = 0; i < sf->values; i++) 
     vectorColor->SetComponent(i, 0, sf->value[i]); 
-  if(useSurfaceGrid) {
-    surfaceGrid->GetPointData()->AddArray(vectorColor);
-  } else {
-    volumeGrid->GetPointData()->AddArray(vectorColor);
-  }
+  grid->GetPointData()->AddArray(vectorColor);
 
   // Stream line:
   //-------------
-  if(useSurfaceGrid) {
-    surfaceGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
-    surfaceGrid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
-  } else {
-    volumeGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
-    volumeGrid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
-  }
+  grid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
+  grid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
 
   vtkLineSource *rake = vtkLineSource::New();
   rake->SetPoint1(startX, startY, startZ);
@@ -1441,26 +1426,18 @@ void VtkPost::drawStreamLineSlot()
 
   vtkStreamLine *streamer = vtkStreamLine::New();
   vtkRungeKutta4 *integrator = vtkRungeKutta4::New();
-  if(useSurfaceGrid) {
-    streamer->SetInput(surfaceGrid);
-  } else {
-    streamer->SetInput(volumeGrid);
-  }
+  streamer->SetInput(grid);
   streamer->SetSource(rake->GetOutput());
   streamer->SetIntegrator(integrator);
   streamer->SetMaximumPropagationTime(propagationTime);
   streamer->SetIntegrationStepLength(integStepLength);
   streamer->SetIntegrationDirectionToForward();
   streamer->SetStepLength(stepLength);
+  streamer->SetNumberOfThreads(threads);
 
   vtkRibbonFilter *ribbon = vtkRibbonFilter::New();
   if(drawRibbon) {
-    double length = 0.0;
-    if(useSurfaceGrid) {
-      length = surfaceGrid->GetLength();
-    } else {
-      length = volumeGrid->GetLength();
-    }
+    double length = grid->GetLength();
     ribbon->SetInputConnection(streamer->GetOutputPort());
     ribbon->SetWidth(ribbonWidth * length / 1000.0);
     ribbon->SetWidthFactor(5);
@@ -1586,8 +1563,8 @@ void VtkPost::drawVectorSlot()
 
   // Color data:
   //-------------
-  ScalarField *sf = &scalarField[colorIndex];
   volumeGrid->GetPointData()->RemoveArray("VectorColor");
+  ScalarField *sf = &scalarField[colorIndex];
   vtkFloatArray *vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
   vectorColor->SetNumberOfTuples(sf->values);
