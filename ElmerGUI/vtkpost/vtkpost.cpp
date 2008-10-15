@@ -1559,7 +1559,8 @@ void VtkPost::drawVectorSlot()
   // Size of volume grid:
   //---------------------
   double length = volumeGrid->GetLength();
-  scaleFactor = scaleFactor * 100.0 / length;
+  if(scaleByMagnitude)
+    scaleFactor = scaleFactor * 100.0 / length;
 
   // Color data:
   //-------------
@@ -1575,7 +1576,7 @@ void VtkPost::drawVectorSlot()
 
   // Glyphs:
   //---------
-  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
+  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); 
   vtkGlyph3D *glyph = vtkGlyph3D::New();
   vtkArrowSource *arrow = vtkArrowSource::New();
   arrow->SetTipResolution(quality);
@@ -1588,7 +1589,8 @@ void VtkPost::drawVectorSlot()
     glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
     glyph->SetScaleModeToScaleByVector();
   } else {
-    glyph->SetScaleFactor(scaleMultiplier);
+    glyph->SetScaleFactor(scaleMultiplier * length  / 100.0);
+    glyph->ScalingOn();
   }
   glyph->SetColorModeToColorByScale();
   
