@@ -1429,32 +1429,43 @@ void VtkPost::drawStreamLineSlot()
 
   // UI data:
   //----------
+
+  // Controls:
+  double propagationTime = streamLine->ui.propagationTime->text().toDouble();
+  double stepLength = streamLine->ui.stepLength->text().toDouble();
+  double integStepLength = streamLine->ui.integStepLength->text().toDouble();
+  int threads = streamLine->ui.threads->value();
+  bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
+  bool lineSource = streamLine->ui.lineSource->isChecked();
+
+  // Color:
   int colorIndex = streamLine->ui.colorCombo->currentIndex();
   double minVal = streamLine->ui.minVal->text().toDouble();
   double maxVal = streamLine->ui.maxVal->text().toDouble();
+
+  // Appearance:
+  bool drawRibbon = streamLine->ui.drawRibbon->isChecked();
+  int ribbonWidth = streamLine->ui.ribbonWidth->value();
+  int lineWidth = streamLine->ui.lineWidth->text().toInt();
+
+  // Line source:
   double startX = streamLine->ui.startX->text().toDouble();
   double startY = streamLine->ui.startY->text().toDouble();
   double startZ = streamLine->ui.startZ->text().toDouble();
   double endX = streamLine->ui.endX->text().toDouble();
   double endY = streamLine->ui.endY->text().toDouble();
   double endZ = streamLine->ui.endZ->text().toDouble();
+  int lines = streamLine->ui.lines->value();
+  bool drawRake = streamLine->ui.rake->isChecked();
+  int rakeWidth = streamLine->ui.rakeWidth->value();
+
+  // Point source:
   double centerX = streamLine->ui.centerX->text().toDouble();
   double centerY = streamLine->ui.centerY->text().toDouble();
   double centerZ = streamLine->ui.centerZ->text().toDouble();
   double radius = streamLine->ui.radius->text().toDouble();
-  int lines = streamLine->ui.lines->value();
   int points = streamLine->ui.points->value();
-  double propagationTime = streamLine->ui.propagationTime->text().toDouble();
-  double stepLength = streamLine->ui.stepLength->text().toDouble();
-  double integStepLength = streamLine->ui.integStepLength->text().toDouble();
-  bool drawRibbon = streamLine->ui.drawRibbon->isChecked();
-  int ribbonWidth = streamLine->ui.ribbonWidth->value();
-  int lineWidth = streamLine->ui.lineWidth->text().toInt();
-  bool drawRake = streamLine->ui.rake->isChecked();
-  int rakeWidth = streamLine->ui.rakeWidth->value();
-  bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
-  int threads = streamLine->ui.threads->value();
-  bool rakeSource = streamLine->ui.rakeSource->isChecked();
+
   
   // Choose the grid:
   //------------------
@@ -1463,6 +1474,9 @@ void VtkPost::drawStreamLineSlot()
     grid = surfaceGrid;
   else
     grid = volumeGrid;
+
+  if(grid->GetNumberOfCells() < 1)
+    return;
 
   // Vector data:
   //-------------
@@ -1496,28 +1510,29 @@ void VtkPost::drawStreamLineSlot()
     vectorColor->SetComponent(i, 0, sf->value[i]); 
   grid->GetPointData()->AddArray(vectorColor);
 
-  // Stream line:
-  //-------------
+  // Generate stream lines:
+  //-----------------------
   grid->GetPointData()->SetActiveVectors("VectorData");
   grid->GetPointData()->SetActiveScalars("StreamLineColor");
 
   vtkPointSource *point = vtkPointSource::New();
-  vtkLineSource *rake = vtkLineSource::New();
-  if(rakeSource) {
-    rake->SetPoint1(startX, startY, startZ);
-    rake->SetPoint2(endX, endY, endZ);
-    rake->SetResolution(lines);
+  vtkLineSource *line = vtkLineSource::New();
+  if(lineSource) {
+    line->SetPoint1(startX, startY, startZ);
+    line->SetPoint2(endX, endY, endZ);
+    line->SetResolution(lines);
   } else {
     point->SetCenter(centerX, centerY, centerZ);
     point->SetRadius(radius);
     point->SetNumberOfPoints(points);
+    point->SetDistributionToUniform();
   }
 
   vtkStreamLine *streamer = vtkStreamLine::New();
   vtkRungeKutta4 *integrator = vtkRungeKutta4::New();
   streamer->SetInput(grid);
-  if(rakeSource) {
-    streamer->SetSource(rake->GetOutput());
+  if(lineSource) {
+    streamer->SetSource(line->GetOutput());
   } else {
     streamer->SetSource(point->GetOutput());
   }
@@ -1554,7 +1569,7 @@ void VtkPost::drawStreamLineSlot()
 
   renderer->AddActor(streamLineActor);
 
-  rake->Delete();
+  line->Delete();
   point->Delete();
   vectorData->Delete();
   vectorColor->Delete();
