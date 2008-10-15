@@ -77,6 +77,8 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
   bool readPostFile(QString);
+  virtual void div(double *,double *);
+  virtual void curl(double *,double *);
   virtual void grad(double *,double *);
 
 signals:

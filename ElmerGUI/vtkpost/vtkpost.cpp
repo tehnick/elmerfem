@@ -105,6 +105,8 @@
 #include "matc.h"
 #include <mc.h>
 extern "C" void matc_commands();
+extern "C" VARIABLE *com_curl(VARIABLE *);
+extern "C" VARIABLE *com_div(VARIABLE *);
 extern "C" VARIABLE *com_grad(VARIABLE *);
 extern "C" VARIABLE *var_new(char *,int,int,int);
 extern "C" VARIABLE *var_check(char *);
@@ -182,8 +184,12 @@ VtkPost::VtkPost(QWidget *parent)
   QString elmerGuiHome = getenv("ELMERGUI_HOME");
   QString mcIniLoad = "source(\"" + elmerGuiHome.replace("\\", "/") + "/edf/mc.ini\")";
   mtc_domath( mcIniLoad.toAscii().data() );
-  com_init( "grad", FALSE, FALSE, com_grad, 1, 1,
-            "r = grad(f): compute gradient of a scalar variable f.\n") ;
+  com_init( (char *)"grad", FALSE, FALSE, com_grad, 1, 1,
+            (char *)"r = grad(f): compute gradient of a scalar variable f.\n") ;
+  com_init( (char *)"div", FALSE, FALSE, com_div, 1, 1,
+            (char *)"r = div(f): compute divergence of a vector variable f.\n") ;
+  com_init( (char *)"curl", FALSE, FALSE, com_curl, 1, 1,
+            (char *)"r = curl(f): compute curl of a vector variable f.\n") ;
 #endif
 
   // Ep-data:
@@ -428,6 +434,99 @@ void VtkPost::grad(double *in, double *out)
    s->Delete(); 
 }
 
+void VtkPost::div(double *in, double *out)
+{
+   int n=volumeGrid->GetNumberOfCells();
+   int ncomp = 3;
+
+   vtkFloatArray *s = vtkFloatArray::New();
+   s->SetNumberOfComponents(ncomp);
+   s->SetNumberOfTuples(epMesh->epNodes);
+
+   for( int j=0;j<ncomp; j++ )
+     for( int i=0;i<epMesh->epNodes; i++ )
+      s->SetComponent(i,j,in[j*epMesh->epNodes+i] );
+
+   vtkCellDerivatives *cd = vtkCellDerivatives::New();
+   if ( n>0 ) {
+     volumeGrid->GetPointData()->SetVectors(s);
+     cd->SetInput(volumeGrid);
+   } else {
+     surfaceGrid->GetPointData()->SetVectors(s);
+     cd->SetInput(surfaceGrid);
+   }
+   cd->SetTensorModeToComputeGradient();
+   cd->Update();
+
+   vtkCellDataToPointData *nd = vtkCellDataToPointData::New();
+   nd->SetInput(cd->GetOutput());
+   nd->Update();
+
+   vtkDataArray *da = nd->GetOutput()->GetPointData()->GetTensors();
+   ncomp = da->GetNumberOfComponents();
+   for( int i=0; i<epMesh->epNodes; i++ )
+   {
+      out[i] += da->GetComponent(i,0);
+      out[i] += da->GetComponent(i,4);
+      out[i] += da->GetComponent(i,8);
+   }
+   cd->Delete();
+   nd->Delete();
+   s->Delete(); 
+}
+
+void VtkPost::curl(double *in, double *out)
+{
+   int n=volumeGrid->GetNumberOfCells();
+   int ncomp = 3;
+
+   vtkFloatArray *s = vtkFloatArray::New();
+   s->SetNumberOfComponents(ncomp);
+   s->SetNumberOfTuples(epMesh->epNodes);
+
+   for( int j=0;j<ncomp; j++ )
+     for( int i=0;i<epMesh->epNodes; i++ )
+      s->SetComponent(i,j,in[j*epMesh->epNodes+i] );
+
+   vtkCellDerivatives *cd = vtkCellDerivatives::New();
+   if ( n>0 ) {
+     volumeGrid->GetPointData()->SetVectors(s);
+     cd->SetInput(volumeGrid);
+   } else {
+     surfaceGrid->GetPointData()->SetVectors(s);
+     cd->SetInput(surfaceGrid);
+   }
+   cd->SetTensorModeToComputeGradient();
+   cd->Update();
+
+   vtkCellDataToPointData *nd = vtkCellDataToPointData::New();
+   nd->SetInput(cd->GetOutput());
+   nd->Update();
+
+   vtkDataArray *da = nd->GetOutput()->GetPointData()->GetTensors();
+   ncomp = da->GetNumberOfComponents();
+   for( int i=0; i<epMesh->epNodes; i++ )
+     for( int j=0; j<ncomp; j++ )
+     {
+        double gx_x = da->GetComponent(i,0);
+        double gx_y = da->GetComponent(i,3);
+        double gx_z = da->GetComponent(i,6);
+        double gy_x = da->GetComponent(i,1);
+        double gy_y = da->GetComponent(i,4);
+        double gy_z = da->GetComponent(i,7);
+        double gz_x = da->GetComponent(i,2);
+        double gz_y = da->GetComponent(i,5);
+        double gz_z = da->GetComponent(i,8);
+        out[i] = gz_y-gy_z;
+        out[epMesh->epNodes+i] = gx_z-gz_x;
+        out[2*epMesh->epNodes+i] = gy_x-gx_y;
+     }
+
+   cd->Delete();
+   nd->Delete();
+   s->Delete(); 
+}
+
 void VtkPost::domatcSlot()
 {
    char *ptr;
@@ -443,7 +542,7 @@ void VtkPost::domatcSlot()
    matc->ui.mcHistory->append(cmd);
    if ( ptr ) matc->ui.mcOutput->append(ptr);
 
-   // int needs_update = false;
+   QString vectorname;
    for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
    {
      var = (VARIABLE *)lst;
@@ -453,6 +552,7 @@ void VtkPost::domatcSlot()
      for( int i=0; i<scalarFields; i++ )
      {
         ScalarField *sf = &scalarField[i]; 
+
         if ( sf->name == NAME(var) )
         {
            found = true;
@@ -468,54 +568,41 @@ void VtkPost::domatcSlot()
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
            }
            break;
-        } else if ( n=sf->name.indexOf("_x")>0 ) {
-           if ( sf->name.left(n)==NAME(var) ) {
-             found = true;
-             if ( sf->value != &M(var,0,0) )
-             {
-               free(sf->value);
-               sf->value = &M(var,0,0);
-             }
-             sf->minVal =  1e99;
-             sf->maxVal = -1e99;
-             for(int j=0; j<epMesh->epNodes; j++) {
-               if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-               if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-             }
-             break;
-           }
-        } else if ( n=sf->name.indexOf("_y")>0 ) {
-           if ( sf->name.left(n)==NAME(var) ) {
-             found = true;
+        }
+
+        vectorname = "";
+        n=sf->name.indexOf("_x");
+        if ( n<=0 ) n=sf->name.indexOf("_y");
+        if ( n<=0 ) n=sf->name.indexOf("_z");
+        if ( n>0 ) vectorname=sf->name.mid(0,n);
+
+        if ( vectorname==NAME(var) ) {
+          found = true;
+          if ( sf->name.indexOf("_x")>0 ) {
+            if ( sf->value != &M(var,0,0) )
+            {
+              free(sf->value);
+              sf->value = &M(var,0,0);
+            }
+          } else if ( sf->name.indexOf("_y")>0 ) {
              if ( sf->value != &M(var,1,0) )
              {
                free(sf->value);
                sf->value = &M(var,1,0);
              }
-             sf->minVal =  1e99;
-             sf->maxVal = -1e99;
-             for(int j=0; j<epMesh->epNodes; j++) {
-               if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-               if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-             }
-             break;
-           }
-        } else if ( n=sf->name.indexOf("_z")>0 ) {
-           if ( sf->name.left(n)==NAME(var) ) {
-             found = true;
+          } else if ( sf->name.indexOf("_z")>0 ) {
              if ( sf->value != &M(var,2,0) )
              {
                free(sf->value);
                sf->value = &M(var,2,0);
              }
-             sf->minVal =  1e99;
-             sf->maxVal = -1e99;
-             for(int j=0; j<epMesh->epNodes; j++) {
-               if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-               if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-             }
-             break;
-           }
+          }
+          sf->minVal =  1e99;
+          sf->maxVal = -1e99;
+          for(int j=0; j<epMesh->epNodes; j++) {
+            if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+            if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+          }
         }
      }
 
@@ -553,15 +640,21 @@ void VtkPost::domatcSlot()
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
         }
-        // needs_update = true;
      }
    }
 
-
    int count=0,n;
+
    for( int i=0; i<scalarFields; i++ )
    {
       ScalarField *sf = &scalarField[i]; 
+
+      vectorname = "";
+      n=sf->name.indexOf("_x");
+      if ( n<=0 ) n=sf->name.indexOf("_y");
+      if ( n<=0 ) n=sf->name.indexOf("_z");
+      if ( n>0 ) vectorname=sf->name.mid(0,n);
+
       for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
       {
         var = (VARIABLE *)lst;
@@ -572,32 +665,16 @@ void VtkPost::domatcSlot()
           if ( count != i ) scalarField[count]=*sf;
           count++;
           break;
-        } else if ( n=sf->name.indexOf("_x")>0 ) {
-          if ( sf->name.left(n) == NAME(var) )
+        } else if ( vectorname == NAME(var) ) {
+          if ( sf->name.mid(0,n) == NAME(var) )
           {
             if ( count != i ) scalarField[count]=*sf;
             count++;
-          }
-        } else if ( n=sf->name.indexOf("_y")>0 ) {
-          if ( sf->name.left(n) == NAME(var) )
-          {
-            if ( count != i ) scalarField[count]=*sf;
-            count++;
-          }
-        } else if ( n=sf->name.indexOf("_z")>0 ) {
-          if ( sf->name.left(n) == NAME(var) )
-          {
-            if ( count != i ) scalarField[count]=*sf;
-            count++;
-            break;
           }
         }
       }
    }
-   if ( count<scalarFields ) {
-     // needs_update = true;
-     scalarFields = count;
-   }
+   if ( count<scalarFields ) scalarFields = count;
    
    // Populate widgets in user interface dialogs:
    //---------------------------------------------
