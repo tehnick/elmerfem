@@ -5,8 +5,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>380</width>
-    <height>548</height>
+    <width>756</width>
+    <height>400</height>
    </rect>
   </property>
   <property name="windowTitle" >
@@ -15,8 +15,8 @@
   <property name="windowIcon" >
    <iconset resource="../ElmerGUI.qrc" >:/icons/Mesh3D.png</iconset>
   </property>
-  <layout class="QVBoxLayout" >
-   <item>
+  <layout class="QGridLayout" >
+   <item rowspan="2" row="0" column="0" >
     <widget class="QGroupBox" name="controlGroup" >
      <property name="title" >
       <string>Controls</string>
@@ -64,6 +64,335 @@
       <item>
        <layout class="QGridLayout" >
         <item row="0" column="0" >
+         <widget class="QLabel" name="propagLabel" >
+          <property name="text" >
+           <string>Max. time:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1" >
+         <widget class="QLineEdit" name="propagationTime" >
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>24</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>1</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3" >
+         <widget class="QLabel" name="stepLabel" >
+          <property name="text" >
+           <string>Step length:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="4" >
+         <widget class="QLineEdit" name="stepLength" >
+          <property name="minimumSize" >
+           <size>
+            <width>90</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>24</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>0.05</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" >
+         <widget class="QLabel" name="threadsLabel" >
+          <property name="text" >
+           <string>Threads:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1" >
+         <widget class="QSpinBox" name="threads" >
+          <property name="minimum" >
+           <number>1</number>
+          </property>
+          <property name="maximum" >
+           <number>9999</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2" >
+         <spacer>
+          <property name="orientation" >
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" >
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="1" column="3" >
+         <widget class="QLabel" name="integStepLabel" >
+          <property name="maximumSize" >
+           <size>
+            <width>70</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>Integ. length:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="4" >
+         <widget class="QLineEdit" name="integStepLength" >
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>24</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>0.005</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="2" >
+         <widget class="QFrame" name="meshFrame" >
+          <property name="frameShape" >
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow" >
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QVBoxLayout" >
+           <item>
+            <widget class="QRadioButton" name="useSurfaceGrid" >
+             <property name="text" >
+              <string>Use surface mesh</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="useVolumeGrid" >
+             <property name="text" >
+              <string>Use volume mesh</string>
+             </property>
+             <property name="checked" >
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="2" column="3" colspan="2" >
+         <widget class="QFrame" name="sourceFrame" >
+          <property name="frameShape" >
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow" >
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QVBoxLayout" >
+           <item>
+            <widget class="QRadioButton" name="pointSource" >
+             <property name="text" >
+              <string>Point source</string>
+             </property>
+             <property name="checked" >
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="rakeSource" >
+             <property name="text" >
+              <string>Line source</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="1" >
+    <widget class="QGroupBox" name="pointSourceGroup" >
+     <property name="title" >
+      <string>Point source</string>
+     </property>
+     <layout class="QVBoxLayout" >
+      <item>
+       <layout class="QGridLayout" >
+        <item row="0" column="0" >
+         <widget class="QLabel" name="xPointStartLabel" >
+          <property name="minimumSize" >
+           <size>
+            <width>50</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize" >
+           <size>
+            <width>50</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>Center X:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1" >
+         <widget class="QLineEdit" name="centerX" >
+          <property name="minimumSize" >
+           <size>
+            <width>90</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>24</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>0.0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3" >
+         <widget class="QLabel" name="pointsLabel" >
+          <property name="minimumSize" >
+           <size>
+            <width>50</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>Points:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="4" >
+         <widget class="QSpinBox" name="points" >
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>16777215</height>
+           </size>
+          </property>
+          <property name="minimum" >
+           <number>1</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" >
+         <widget class="QLabel" name="yPointStartLabel" >
+          <property name="text" >
+           <string>Center Y:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1" >
+         <widget class="QLineEdit" name="centerY" >
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>24</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>0.0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="3" >
+         <widget class="QLabel" name="radiusLabel" >
+          <property name="text" >
+           <string>Radius:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="4" >
+         <widget class="QLineEdit" name="radius" >
+          <property name="minimumSize" >
+           <size>
+            <width>90</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>24</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>1.0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" >
+         <widget class="QLabel" name="zPointStartLabel" >
+          <property name="text" >
+           <string>Center Z:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1" >
+         <widget class="QLineEdit" name="centerZ" >
+          <property name="maximumSize" >
+           <size>
+            <width>90</width>
+            <height>24</height>
+           </size>
+          </property>
+          <property name="text" >
+           <string>0.0</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2" >
+         <spacer>
+          <property name="orientation" >
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" >
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item rowspan="2" row="1" column="1" >
+    <widget class="QGroupBox" name="rakeSourceGroup" >
+     <property name="title" >
+      <string>Line source</string>
+     </property>
+     <layout class="QVBoxLayout" >
+      <item>
+       <layout class="QGridLayout" >
+        <item row="0" column="0" >
          <widget class="QLabel" name="xStartLabel" >
           <property name="minimumSize" >
            <size>
@@ -84,6 +413,12 @@
         </item>
         <item row="0" column="1" >
          <widget class="QLineEdit" name="startX" >
+          <property name="minimumSize" >
+           <size>
+            <width>90</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="maximumSize" >
            <size>
             <width>90</width>
@@ -114,8 +449,14 @@
           </property>
          </widget>
         </item>
-        <item row="0" column="4" >
+        <item row="0" column="4" colspan="2" >
          <widget class="QLineEdit" name="endX" >
+          <property name="minimumSize" >
+           <size>
+            <width>90</width>
+            <height>0</height>
+           </size>
+          </property>
           <property name="maximumSize" >
            <size>
             <width>90</width>
@@ -154,7 +495,7 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="4" >
+        <item row="1" column="4" colspan="2" >
          <widget class="QLineEdit" name="endY" >
           <property name="maximumSize" >
            <size>
@@ -187,19 +528,6 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="2" >
-         <spacer>
-          <property name="orientation" >
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" >
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
         <item row="2" column="3" >
          <widget class="QLabel" name="yEndLabel_2" >
           <property name="text" >
@@ -207,7 +535,7 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="4" >
+        <item row="2" column="4" colspan="2" >
          <widget class="QLineEdit" name="endZ" >
           <property name="maximumSize" >
            <size>
@@ -221,54 +549,14 @@
          </widget>
         </item>
         <item row="3" column="0" >
-         <widget class="QLabel" name="propagLabel" >
-          <property name="text" >
-           <string>Time:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="1" >
-         <widget class="QLineEdit" name="propagationTime" >
-          <property name="maximumSize" >
-           <size>
-            <width>90</width>
-            <height>24</height>
-           </size>
-          </property>
-          <property name="text" >
-           <string>1</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3" >
-         <widget class="QLabel" name="stepLabel" >
-          <property name="text" >
-           <string>Step length:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="4" >
-         <widget class="QLineEdit" name="stepLength" >
-          <property name="maximumSize" >
-           <size>
-            <width>90</width>
-            <height>24</height>
-           </size>
-          </property>
-          <property name="text" >
-           <string>0.05</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="0" >
-         <widget class="QLabel" name="pointsLabel" >
+         <widget class="QLabel" name="linesLabel" >
           <property name="text" >
            <string>Lines:</string>
           </property>
          </widget>
         </item>
-        <item row="4" column="1" >
-         <widget class="QSpinBox" name="points" >
+        <item row="3" column="1" >
+         <widget class="QSpinBox" name="lines" >
           <property name="maximumSize" >
            <size>
             <width>90</width>
@@ -283,71 +571,31 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="3" >
-         <widget class="QLabel" name="integStepLabel" >
-          <property name="maximumSize" >
-           <size>
-            <width>70</width>
-            <height>16777215</height>
-           </size>
-          </property>
+        <item row="4" column="0" colspan="2" >
+         <widget class="QCheckBox" name="rake" >
           <property name="text" >
-           <string>Integ. length:</string>
+           <string>Draw source line </string>
           </property>
          </widget>
         </item>
-        <item row="4" column="4" >
-         <widget class="QLineEdit" name="integStepLength" >
-          <property name="maximumSize" >
-           <size>
-            <width>90</width>
-            <height>24</height>
-           </size>
-          </property>
+        <item row="4" column="3" colspan="2" >
+         <widget class="QLabel" name="rakeWidthLabel" >
           <property name="text" >
-           <string>0.005</string>
+           <string>Source line width:</string>
           </property>
          </widget>
         </item>
-       </layout>
-      </item>
-      <item>
-       <layout class="QGridLayout" >
-        <item row="0" column="0" >
-         <widget class="QRadioButton" name="useSurfaceGrid" >
-          <property name="text" >
-           <string>Use surface mesh</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0" >
-         <widget class="QRadioButton" name="useVolumeGrid" >
-          <property name="text" >
-           <string>Use volume mesh</string>
-          </property>
-          <property name="checked" >
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="2" >
-         <widget class="QLabel" name="threadsLabel" >
-          <property name="text" >
-           <string>Number of threads:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="3" >
-         <widget class="QSpinBox" name="threads" >
+        <item row="4" column="5" >
+         <widget class="QSpinBox" name="rakeWidth" >
           <property name="minimum" >
            <number>1</number>
           </property>
-          <property name="maximum" >
-           <number>9999</number>
+          <property name="value" >
+           <number>5</number>
           </property>
          </widget>
         </item>
-        <item row="1" column="1" >
+        <item row="0" column="2" >
          <spacer>
           <property name="orientation" >
            <enum>Qt::Horizontal</enum>
@@ -365,7 +613,7 @@
      </layout>
     </widget>
    </item>
-   <item>
+   <item row="2" column="0" >
     <widget class="QGroupBox" name="colorGroup" >
      <property name="title" >
       <string>Color</string>
@@ -495,7 +743,7 @@
      </layout>
     </widget>
    </item>
-   <item>
+   <item row="3" column="0" >
     <widget class="QGroupBox" name="appearanceGroup" >
      <property name="title" >
       <string>Appearance</string>
@@ -540,6 +788,19 @@
           </property>
          </widget>
         </item>
+        <item row="1" column="1" >
+         <spacer>
+          <property name="orientation" >
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" >
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
         <item row="1" column="2" >
          <widget class="QLabel" name="ribbonWidthLabel" >
           <property name="text" >
@@ -557,64 +818,14 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0" >
-         <widget class="QCheckBox" name="rake" >
-          <property name="text" >
-           <string>Draw rake</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="2" >
-         <widget class="QLabel" name="rakeWidthLabel" >
-          <property name="text" >
-           <string>Rake width:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="3" >
-         <widget class="QSpinBox" name="rakeWidth" >
-          <property name="minimum" >
-           <number>1</number>
-          </property>
-          <property name="value" >
-           <number>5</number>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1" >
-         <spacer>
-          <property name="orientation" >
-           <enum>Qt::Horizontal</enum>
-          </property>
-          <property name="sizeHint" >
-           <size>
-            <width>40</width>
-            <height>20</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
        </layout>
       </item>
      </layout>
     </widget>
    </item>
-   <item>
-    <spacer>
-     <property name="orientation" >
-      <enum>Qt::Vertical</enum>
-     </property>
-     <property name="sizeHint" >
-      <size>
-       <width>20</width>
-       <height>40</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item>
-    <layout class="QHBoxLayout" >
-     <item>
+   <item row="3" column="1" >
+    <layout class="QGridLayout" >
+     <item row="1" column="0" >
       <spacer>
        <property name="orientation" >
         <enum>Qt::Horizontal</enum>
@@ -627,14 +838,14 @@
        </property>
       </spacer>
      </item>
-     <item>
+     <item row="1" column="1" >
       <widget class="QPushButton" name="applyButton" >
        <property name="text" >
         <string>Apply</string>
        </property>
       </widget>
      </item>
-     <item>
+     <item row="1" column="2" >
       <widget class="QPushButton" name="cancelButton" >
        <property name="text" >
         <string>Cancel</string>
@@ -644,7 +855,7 @@
        </property>
       </widget>
      </item>
-     <item>
+     <item row="1" column="3" >
       <widget class="QPushButton" name="okButton" >
        <property name="text" >
         <string>Ok</string>
@@ -653,6 +864,19 @@
         <iconset resource="../ElmerGUI.qrc" >:/icons/dialog-ok-apply.png</iconset>
        </property>
       </widget>
+     </item>
+     <item row="0" column="1" >
+      <spacer>
+       <property name="orientation" >
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" >
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
      </item>
     </layout>
    </item>

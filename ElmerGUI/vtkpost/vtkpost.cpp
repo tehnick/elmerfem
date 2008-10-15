@@ -97,6 +97,7 @@
 #include <vtkCylinderSource.h>
 #include <vtkStreamLine.h>
 #include <vtkRungeKutta4.h>
+#include <vtkPointSource.h>
 #include <vtkLineSource.h>
 #include <vtkRibbonFilter.h>
 
@@ -1362,6 +1363,11 @@ void VtkPost::drawStreamLineSlot()
   double endX = streamLine->ui.endX->text().toDouble();
   double endY = streamLine->ui.endY->text().toDouble();
   double endZ = streamLine->ui.endZ->text().toDouble();
+  double centerX = streamLine->ui.centerX->text().toDouble();
+  double centerY = streamLine->ui.centerY->text().toDouble();
+  double centerZ = streamLine->ui.centerZ->text().toDouble();
+  double radius = streamLine->ui.radius->text().toDouble();
+  int lines = streamLine->ui.lines->value();
   int points = streamLine->ui.points->value();
   double propagationTime = streamLine->ui.propagationTime->text().toDouble();
   double stepLength = streamLine->ui.stepLength->text().toDouble();
@@ -1373,6 +1379,7 @@ void VtkPost::drawStreamLineSlot()
   int rakeWidth = streamLine->ui.rakeWidth->value();
   bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
   int threads = streamLine->ui.threads->value();
+  bool rakeSource = streamLine->ui.rakeSource->isChecked();
   
   // Choose the grid:
   //------------------
@@ -1416,25 +1423,36 @@ void VtkPost::drawStreamLineSlot()
 
   // Stream line:
   //-------------
-  grid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
-  grid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
+  grid->GetPointData()->SetActiveVectors("VectorData");
+  grid->GetPointData()->SetActiveScalars("StreamLineColor");
 
+  vtkPointSource *point = vtkPointSource::New();
   vtkLineSource *rake = vtkLineSource::New();
-  rake->SetPoint1(startX, startY, startZ);
-  rake->SetPoint2(endX, endY, endZ);
-  rake->SetResolution(points);
+  if(rakeSource) {
+    rake->SetPoint1(startX, startY, startZ);
+    rake->SetPoint2(endX, endY, endZ);
+    rake->SetResolution(lines);
+  } else {
+    point->SetCenter(centerX, centerY, centerZ);
+    point->SetRadius(radius);
+    point->SetNumberOfPoints(points);
+  }
 
   vtkStreamLine *streamer = vtkStreamLine::New();
   vtkRungeKutta4 *integrator = vtkRungeKutta4::New();
   streamer->SetInput(grid);
-  streamer->SetSource(rake->GetOutput());
+  if(rakeSource) {
+    streamer->SetSource(rake->GetOutput());
+  } else {
+    streamer->SetSource(point->GetOutput());
+  }
   streamer->SetIntegrator(integrator);
   streamer->SetMaximumPropagationTime(propagationTime);
   streamer->SetIntegrationStepLength(integStepLength);
   streamer->SetIntegrationDirectionToForward();
   streamer->SetStepLength(stepLength);
   streamer->SetNumberOfThreads(threads);
-
+  
   vtkRibbonFilter *ribbon = vtkRibbonFilter::New();
   if(drawRibbon) {
     double length = grid->GetLength();
@@ -1444,8 +1462,6 @@ void VtkPost::drawStreamLineSlot()
   }
 
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-  // mapper->SelectColorArray("StreamLineColor");
-  // mapper->SetScalarModeToUsePointFieldData();
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(minVal, maxVal);
 
@@ -1463,6 +1479,8 @@ void VtkPost::drawStreamLineSlot()
 
   renderer->AddActor(streamLineActor);
 
+  rake->Delete();
+  point->Delete();
   vectorData->Delete();
   vectorColor->Delete();
   integrator->Delete();
