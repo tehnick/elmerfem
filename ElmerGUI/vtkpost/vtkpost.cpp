@@ -92,10 +92,11 @@
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 #include <vtkSphereSource.h>
+#include <vtkCylinderSource.h>
 #include <vtkStreamLine.h>
 #include <vtkRungeKutta4.h>
-#include <vtkRuledSurfaceFilter.h>
 #include <vtkLineSource.h>
+#include <vtkRibbonFilter.h>
 
 #ifdef MATC
 #include "matc.h"
@@ -1225,8 +1226,11 @@ void VtkPost::drawStreamLineSlot()
   double propagationTime = streamLine->ui.propagationTime->text().toDouble();
   double stepLength = streamLine->ui.stepLength->text().toDouble();
   double integStepLength = streamLine->ui.integStepLength->text().toDouble();
-  bool stripes = streamLine->ui.stripes->isChecked();
+  bool drawRibbon = streamLine->ui.drawRibbon->isChecked();
+  int ribbonWidth = streamLine->ui.ribbonWidth->value();
   int lineWidth = streamLine->ui.lineWidth->text().toInt();
+  bool drawRake = streamLine->ui.rake->isChecked();
+  int rakeWidth = streamLine->ui.rakeWidth->value();
 
   // Vector data:
   //-------------
@@ -1263,11 +1267,11 @@ void VtkPost::drawStreamLineSlot()
   // Stream line:
   //-------------
   volumeGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
+  volumeGrid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
 
   vtkLineSource *rake = vtkLineSource::New();
   rake->SetPoint1(startX, startY, startZ);
   rake->SetPoint2(endX, endY, endZ);
-  if(stripes) points = 2 * points + 1;
   rake->SetResolution(points);
 
   vtkStreamLine *streamer = vtkStreamLine::New();
@@ -1280,37 +1284,30 @@ void VtkPost::drawStreamLineSlot()
   streamer->SetIntegrationDirectionToForward();
   streamer->SetStepLength(stepLength);
 
-  vtkRuledSurfaceFilter *scalarSurface = vtkRuledSurfaceFilter::New();
-  if(stripes) {
-    scalarSurface->SetInputConnection(streamer->GetOutputPort());
-    scalarSurface->SetOffset(0);
-    scalarSurface->SetOnRatio(2);
-    scalarSurface->PassLinesOn();
-    scalarSurface->SetRuledModeToPointWalk();
-    scalarSurface->SetDistanceFactor(30);
+  vtkRibbonFilter *ribbon = vtkRibbonFilter::New();
+  if(drawRibbon) {
+    double length = volumeGrid->GetLength();
+    ribbon->SetInputConnection(streamer->GetOutputPort());
+    ribbon->SetWidth(ribbonWidth * length / 1000.0);
+    ribbon->SetWidthFactor(5);
   }
 
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-  mapper->SelectColorArray("StreamLineColor");
-  // mapper->SetScalarModeToUsePointData();
-  mapper->SetScalarModeToUsePointFieldData();
+  // mapper->SelectColorArray("StreamLineColor");
+  // mapper->SetScalarModeToUsePointFieldData();
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(minVal, maxVal);
 
-  if(stripes) {
-    mapper->SetInputConnection(scalarSurface->GetOutputPort());
+  if(drawRibbon) {
+    mapper->SetInputConnection(ribbon->GetOutputPort());
   } else {
     mapper->SetInputConnection(streamer->GetOutputPort());
   }
 
-  mapper->SetColorModeToDefault();
-  // mapper->SetColorModeToMapScalars();
-
-  mapper->ScalarVisibilityOff();
+  mapper->SetColorModeToMapScalars();
   streamLineActor->SetMapper(mapper);
 
-  streamLineActor->GetProperty()->SetColor(1, 0, 0);
-  if(!stripes)
+  if(!drawRibbon)
     streamLineActor->GetProperty()->SetLineWidth(lineWidth);
 
   renderer->AddActor(streamLineActor);
@@ -1319,8 +1316,15 @@ void VtkPost::drawStreamLineSlot()
   vectorColor->Delete();
   integrator->Delete();
   streamer->Delete();
-  scalarSurface->Delete();
+  ribbon->Delete();
   mapper->Delete();
+
+  // Draw rake
+  //-----------
+  if(drawRake) {
+    // todo
+  }
+
 }
 
 
