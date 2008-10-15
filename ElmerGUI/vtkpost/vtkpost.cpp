@@ -174,11 +174,15 @@ VtkPost::VtkPost(QWidget *parent)
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
 
 #ifdef MATC
-  matc = new Matc;
+  matc = new Matc(this);
   connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
   connect(matc->ui.mcHistory, SIGNAL(selectionChanged()),this,SLOT(matcCutPasteSlot()));
   mtc_init( NULL, stdout, stderr ); 
-
+  QString elmerGuiHome = getenv("ELMERGUI_HOME");
+  elmerGuiHome = elmerGuiHome.replace("\\", "/");
+  char mcIniLoad[2048];
+  sprintf(mcIniLoad, "source(\"%s/edf/mc.ini\")", elmerGuiHome.toAscii().data());
+  mtc_domath( mcIniLoad );
   com_init( "grad", FALSE, FALSE, com_grad, 1, 1,
             "r = grad(f): compute gradient of a scalar variable f.\n") ;
 #endif
@@ -1369,10 +1373,16 @@ void VtkPost::drawStreamLineSlot()
   int lineWidth = streamLine->ui.lineWidth->text().toInt();
   bool drawRake = streamLine->ui.rake->isChecked();
   int rakeWidth = streamLine->ui.rakeWidth->value();
+  bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
+  int threads = streamLine->ui.threads->value();
 
   // Vector data:
   //-------------
-  volumeGrid->GetPointData()->RemoveArray("VectorData");
+  if(useSurfaceGrid) {
+    surfaceGrid->GetPointData()->RemoveArray("VectorData");
+  } else {
+    volumeGrid->GetPointData()->RemoveArray("VectorData");
+  }
   vtkFloatArray *vectorData = vtkFloatArray::New();
   ScalarField *sf_x = &scalarField[index + 0];
   ScalarField *sf_y = &scalarField[index + 1];
@@ -1388,24 +1398,41 @@ void VtkPost::drawStreamLineSlot()
     vectorData->SetComponent(i, 1, val_y); 
     vectorData->SetComponent(i, 2, val_z); 
   }
-  volumeGrid->GetPointData()->AddArray(vectorData);
+  if(useSurfaceGrid) {
+    surfaceGrid->GetPointData()->AddArray(vectorData);
+  } else {
+    volumeGrid->GetPointData()->AddArray(vectorData);
+  }
 
   // Color data:
   //-------------
   ScalarField *sf = &scalarField[colorIndex];
-  volumeGrid->GetPointData()->RemoveArray("StreamLineColor");
+  if(useSurfaceGrid) {
+    surfaceGrid->GetPointData()->RemoveArray("StreamLineColor");
+  } else {
+    volumeGrid->GetPointData()->RemoveArray("StreamLineColor");
+  }
   vtkFloatArray *vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
   vectorColor->SetNumberOfTuples(sf->values);
   vectorColor->SetName("StreamLineColor");
   for(int i = 0; i < sf->values; i++) 
     vectorColor->SetComponent(i, 0, sf->value[i]); 
-  volumeGrid->GetPointData()->AddArray(vectorColor);
+  if(useSurfaceGrid) {
+    surfaceGrid->GetPointData()->AddArray(vectorColor);
+  } else {
+    volumeGrid->GetPointData()->AddArray(vectorColor);
+  }
 
   // Stream line:
   //-------------
-  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
-  volumeGrid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
+  if(useSurfaceGrid) {
+    surfaceGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
+    surfaceGrid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
+  } else {
+    volumeGrid->GetPointData()->SetActiveVectors("VectorData"); // try to avoid this
+    volumeGrid->GetPointData()->SetActiveScalars("StreamLineColor"); // try to avoid this
+  }
 
   vtkLineSource *rake = vtkLineSource::New();
   rake->SetPoint1(startX, startY, startZ);
@@ -1414,7 +1441,11 @@ void VtkPost::drawStreamLineSlot()
 
   vtkStreamLine *streamer = vtkStreamLine::New();
   vtkRungeKutta4 *integrator = vtkRungeKutta4::New();
-  streamer->SetInput(volumeGrid);
+  if(useSurfaceGrid) {
+    streamer->SetInput(surfaceGrid);
+  } else {
+    streamer->SetInput(volumeGrid);
+  }
   streamer->SetSource(rake->GetOutput());
   streamer->SetIntegrator(integrator);
   streamer->SetMaximumPropagationTime(propagationTime);
@@ -1424,7 +1455,12 @@ void VtkPost::drawStreamLineSlot()
 
   vtkRibbonFilter *ribbon = vtkRibbonFilter::New();
   if(drawRibbon) {
-    double length = volumeGrid->GetLength();
+    double length = 0.0;
+    if(useSurfaceGrid) {
+      length = surfaceGrid->GetLength();
+    } else {
+      length = volumeGrid->GetLength();
+    }
     ribbon->SetInputConnection(streamer->GetOutputPort());
     ribbon->SetWidth(ribbonWidth * length / 1000.0);
     ribbon->SetWidthFactor(5);

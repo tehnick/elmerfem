@@ -146,6 +146,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            vtkpost/preferences.cpp \
            vtkpost/vector.cpp \
            vtkpost/streamline.cpp \
-           vtkpost/matc.cpp
+           vtkpost/matc.cpp \
+           vtkpost/matc_commands.cpp
 RESOURCES += ElmerGUI.qrc
 RC_FILE += ElmerGUI.rc   
