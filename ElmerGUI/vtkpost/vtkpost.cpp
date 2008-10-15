@@ -409,7 +409,7 @@ void VtkPost::grad(double *in, double *out)
       s->SetValue(i,in[i] );
 
    vtkCellDerivatives *cd = vtkCellDerivatives::New();
-   if ( volumeGrid->GetNumberOfCells() >0 ) {
+   if ( volumeGrid->GetNumberOfCells()>0 ) {
      volumeGrid->GetPointData()->SetScalars(s);
      cd->SetInput(volumeGrid);
    } else {
@@ -504,23 +504,21 @@ void VtkPost::curl(double *in, double *out)
    nd->Update();
 
    vtkDataArray *da = nd->GetOutput()->GetPointData()->GetTensors();
-   ncomp = da->GetNumberOfComponents();
    for( int i=0; i<epMesh->epNodes; i++ )
-     for( int j=0; j<ncomp; j++ )
-     {
-        double gx_x = da->GetComponent(i,0);
-        double gx_y = da->GetComponent(i,3);
-        double gx_z = da->GetComponent(i,6);
-        double gy_x = da->GetComponent(i,1);
-        double gy_y = da->GetComponent(i,4);
-        double gy_z = da->GetComponent(i,7);
-        double gz_x = da->GetComponent(i,2);
-        double gz_y = da->GetComponent(i,5);
-        double gz_z = da->GetComponent(i,8);
-        out[i] = gz_y-gy_z;
-        out[epMesh->epNodes+i] = gx_z-gz_x;
-        out[2*epMesh->epNodes+i] = gy_x-gx_y;
-     }
+   {
+      double gx_x = da->GetComponent(i,0);
+      double gx_y = da->GetComponent(i,3);
+      double gx_z = da->GetComponent(i,6);
+      double gy_x = da->GetComponent(i,1);
+      double gy_y = da->GetComponent(i,4);
+      double gy_z = da->GetComponent(i,7);
+      double gz_x = da->GetComponent(i,2);
+      double gz_y = da->GetComponent(i,5);
+      double gz_z = da->GetComponent(i,8);
+      out[i] = gz_y-gy_z;
+      out[epMesh->epNodes+i] = gx_z-gz_x;
+      out[2*epMesh->epNodes+i] = gy_x-gx_y;
+   }
 
    cd->Delete();
    nd->Delete();
