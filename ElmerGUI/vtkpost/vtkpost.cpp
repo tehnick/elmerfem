@@ -1380,6 +1380,7 @@ void VtkPost::drawVectorSlot()
   double maxVal = vector->ui.maxVal->text().toDouble();
   int quality = vector->ui.qualitySpin->value();
   int scaleMultiplier = vector->ui.scaleSpin->value();
+  bool scaleByMagnitude = vector->ui.scaleByMagnitude->isChecked();
 
   // Vector data:
   //-------------
@@ -1432,8 +1433,12 @@ void VtkPost::drawVectorSlot()
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
 
-  glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
-  glyph->SetScaleModeToScaleByVector();
+  if(scaleByMagnitude) {
+    glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
+    glyph->SetScaleModeToScaleByVector();
+  } else {
+    glyph->SetScaleFactor(scaleMultiplier);
+  }
   glyph->SetColorModeToColorByScale();
   
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
