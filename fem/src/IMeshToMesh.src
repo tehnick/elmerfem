@@ -264,7 +264,7 @@
 !
 !         Go through all variables to be interpolated:
 !         --------------------------------------------
-          Var => NewVariables
+          Var => OldVariables
           DO WHILE( ASSOCIATED( Var ) )
 
              IF ( Var % DOFs == 1 .AND. &
@@ -281,22 +281,17 @@
 !               Interpolate variable at Point in CurrentElement:
 !               ------------------------------------------------
 
-                OldSol => VariableGet( OldVariables, Var % Name, .TRUE. )
-                IF ( .NOT. ASSOCIATED( OldSol ) ) THEN 
-                   WRITE( Message, * ) Var % Name, ' not found in old mesh!'
-                   CALL Fatal( 'InterpolateMeshToMesh', Message )
-                END IF
-                OldPerm  => OldSol % Perm
-                OldValue => OldSol % Values
-
-                NewSol => VariableGet( NewVariables, Var % Name, .TRUE. )
+                NewSol => VariableGet( NewMesh % Variables, TRIM(Var % Name), .TRUE. )
                 IF ( .NOT. ASSOCIATED( NewSol ) ) THEN
-                   WRITE( Message, * ) Var % Name, ' not found in new mesh!'
-                   CALL Fatal( 'InterpolateMeshToMesh', Message )
                    Var => Var % Next
                    CYCLE
                 END IF
                 NewValue => NewSol % Values
+
+                OldSol => VariableGet( OldMesh % Variables, TRIM(Var % Name), .TRUE. )
+                OldPerm  => OldSol % Perm
+                OldValue => OldSol % Values
+
 
 ! Check that the node was found in the old mesh
                 IF ( ASSOCIATED ( CurrentElement ) ) THEN
@@ -455,7 +450,7 @@ CONTAINS
  
               OldSol => VariableGet( OldMesh % Variables, Var % Name, .TRUE. )
               NewSol => VariableGet( NewMesh % Variables, Var % Name, .TRUE. )
-              IF ( .NOT. (ASSOCIATED ( NewSol ) ) ) THEN
+              IF ( .NOT. (ASSOCIATED (NewSol) ) ) THEN
                  Var => Var % Next
                  CYCLE
               END IF
