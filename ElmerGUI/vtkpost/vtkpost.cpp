@@ -276,12 +276,6 @@ void VtkPost::createActions()
   connect(drawFeatureEdgesAct, SIGNAL(triggered()), this, SLOT(drawFeatureEdgesSlot()));
   connect(drawFeatureEdgesAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
-  clipPlaneAct = new QAction(QIcon(""), tr("Clip plane"), this);
-  clipPlaneAct->setStatusTip("Apply the clip plane");
-  clipPlaneAct->setCheckable(true);
-  clipPlaneAct->setChecked(false);
-  connect(clipPlaneAct, SIGNAL(triggered()), this, SLOT(clipPlaneSlot()));
-
   drawColorBarAct = new QAction(QIcon(""), tr("Colorbar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
@@ -371,8 +365,6 @@ void VtkPost::createMenus()
   viewMenu->addAction(drawMeshPointAct);
   viewMenu->addAction(drawMeshEdgeAct);
   viewMenu->addAction(drawFeatureEdgesAct);
-  viewMenu->addSeparator();
-  viewMenu->addAction(clipPlaneAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawSurfaceAct);
   viewMenu->addSeparator();
@@ -704,7 +696,7 @@ void VtkPost::domatcSlot()
 #endif
 
 
-// Populate widgets:
+// Populate widgets in user interface dialogs:
 //----------------------------------------------------------------------
 void VtkPost::populateWidgetsSlot()
 {
@@ -747,15 +739,16 @@ void VtkPost::savePictureSlot()
 }
 
 
-// Read in ep-results:
-//----------------------------------------------------------------------
 bool VtkPost::readPostFile(QString postFileName)
 {
+  QString tmpLine;
+  QTextStream txtStream;
+
 #define GET_TXT_STREAM                               \
-  QString tmpLine = post.readLine().trimmed();       \
+  tmpLine = post.readLine().trimmed();               \
   while(tmpLine.isEmpty() || (tmpLine.at(0) == '#')) \
     tmpLine = post.readLine();                       \
-  QTextStream txtStream(&tmpLine);
+  txtStream.setString(&tmpLine);
 
   // Open the post file:
   //=====================
@@ -1834,6 +1827,7 @@ void VtkPost::drawSurfaceSlot()
   bool useNormals = surface->ui.useNormals->isChecked();
   int featureAngle = surface->ui.featureAngle->value();
   double opacity = surface->ui.opacitySpin->value() / 100.0;
+  bool useClip = surface->ui.clipPlane->isChecked();
 
   // Scalars:
   //---------
@@ -1858,7 +1852,7 @@ void VtkPost::drawSurfaceSlot()
   //-----------------------
   vtkClipPolyData *clipper = vtkClipPolyData::New();
 
-  if(clipPlaneAct->isChecked()) {
+  if(useClip) {
     setupClipPlane();
     clipper->SetInputConnection(filter->GetOutputPort());
     clipper->SetClipFunction(clipPlane);
@@ -1871,7 +1865,7 @@ void VtkPost::drawSurfaceSlot()
   vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
   
   if(useNormals) {
-    if(clipPlaneAct->isChecked()) {
+    if(useClip) {
       normals->SetInputConnection(clipper->GetOutputPort());
     } else {
       normals->SetInputConnection(filter->GetOutputPort());
@@ -1886,7 +1880,7 @@ void VtkPost::drawSurfaceSlot()
   if(useNormals) {
     mapper->SetInputConnection(normals->GetOutputPort());
   } else {
-    if(clipPlaneAct->isChecked()) {
+    if(useClip) {
       mapper->SetInputConnection(clipper->GetOutputPort());
     } else {
       mapper->SetInputConnection(filter->GetOutputPort());

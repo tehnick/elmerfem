@@ -145,7 +145,6 @@ private:
   QAction *drawMeshPointAct;
   QAction *drawMeshEdgeAct;
   QAction *drawFeatureEdgesAct;
-  QAction *clipPlaneAct;
   QAction *drawSurfaceAct;
   QAction *drawVectorAct;
   QAction *drawIsoContourAct;
