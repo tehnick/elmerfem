@@ -1,6 +1,5 @@
 #ifdef MATC
 #include <stdio.h>
-#include "../src/mainwindow.h"
 #include "mc.h"
 #include "vtkpost.h"
 
