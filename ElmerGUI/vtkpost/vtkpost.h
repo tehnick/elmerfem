@@ -56,6 +56,7 @@ class vtkScalarBarActor;
 class vtkDataSetMapper;
 class vtkTextActor;
 class vtkUnstructuredGrid;
+class vtkLookupTable;
 class IsoSurface;
 class IsoContour;
 class ColorBar;
@@ -170,6 +171,8 @@ private:
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
   
+  vtkLookupTable *currentLut;
+
   vtkActor *meshPointActor;
   vtkActor *meshEdgeActor;
   vtkActor *featureEdgeActor;
@@ -193,6 +196,7 @@ private:
   QString currentVectorName;
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
+  QString currentStreamLineName;
 };
 
 #endif // VTKPOST_H

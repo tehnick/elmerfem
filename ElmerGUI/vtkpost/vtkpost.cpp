@@ -53,6 +53,7 @@
 
 #include <QVTKWidget.h>
 
+#include <vtkLookupTable.h>
 #include <vtkActor.h>
 #include <vtkActor2D.h>
 #include <vtkRenderer.h>
@@ -146,6 +147,11 @@ VtkPost::VtkPost(QWidget *parent)
   featureEdgeActor = vtkActor::New();
   vectorActor = vtkActor::New();
   streamLineActor = vtkActor::New();
+
+  currentLut = vtkLookupTable::New();
+  currentLut->SetHueRange(0.6667, 0); // from blue to red
+  currentLut->SetNumberOfColors(256);
+  currentLut->Build();
 
   // User interfaces:
   //-----------------
@@ -1235,6 +1241,12 @@ void VtkPost::drawColorBarSlot()
     lut = isoSurfaceActor->GetMapper()->GetLookupTable();
   }
 
+  if(actorName == "Streamline") {
+    fieldName = currentStreamLineName;
+    if(fieldName.isEmpty()) return;
+    lut = streamLineActor->GetMapper()->GetLookupTable();
+  }
+
   if(!lut) return;
 
   colorBarActor->SetLookupTable(lut);
@@ -1470,6 +1482,7 @@ void VtkPost::drawStreamLineSlot()
 
   // Color:
   int colorIndex = streamLine->ui.colorCombo->currentIndex();
+  QString colorName = streamLine->ui.colorCombo->currentText();
   double minVal = streamLine->ui.minVal->text().toDouble();
   double maxVal = streamLine->ui.maxVal->text().toDouble();
 
@@ -1495,7 +1508,6 @@ void VtkPost::drawStreamLineSlot()
   double centerZ = streamLine->ui.centerZ->text().toDouble();
   double radius = streamLine->ui.radius->text().toDouble();
   int points = streamLine->ui.points->value();
-
   
   // Choose the grid:
   //------------------
@@ -1592,12 +1604,21 @@ void VtkPost::drawStreamLineSlot()
   }
 
   mapper->SetColorModeToMapScalars();
+  mapper->SetLookupTable(currentLut);
+
   streamLineActor->SetMapper(mapper);
 
   if(!drawRibbon)
     streamLineActor->GetProperty()->SetLineWidth(lineWidth);
 
   renderer->AddActor(streamLineActor);
+
+  // Redraw colorbar:
+  //------------------
+  currentStreamLineName = colorName;
+  drawColorBarSlot();
+
+  qvtkWidget->GetRenderWindow()->Render();  
 
   line->Delete();
   point->Delete();
@@ -1738,6 +1759,7 @@ void VtkPost::drawVectorSlot()
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(minVal, maxVal);
   mapper->SelectColorArray("VectorColor");
+  mapper->SetLookupTable(currentLut);
   // mapper->ImmediateModeRenderingOn();
 
   vectorActor->SetMapper(mapper);
@@ -1834,6 +1856,7 @@ void VtkPost::drawSurfaceSlot()
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(minVal, maxVal);
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
+  mapper->SetLookupTable(currentLut);
   // mapper->ImmediateModeRenderingOn();
 
   // Actor & renderer:
@@ -1951,6 +1974,7 @@ void VtkPost::drawIsoSurfaceSlot()
   mapper->SelectColorArray("IsoSurfaceColor");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
+  mapper->SetLookupTable(currentLut);
   // mapper->ImmediateModeRenderingOn();
 
   // Actor && renderer:
@@ -2055,6 +2079,7 @@ void VtkPost::drawIsoContourSlot()
   mapper->SelectColorArray("IsoContourColor");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
+  mapper->SetLookupTable(currentLut);
   // mapper->ImmediateModeRenderingOn();
 
   // Actor & renderer:
