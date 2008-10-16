@@ -163,6 +163,7 @@ private:
   int scalarFields;
   ScalarField *scalarField;
 
+  void addVectorField(QString, int);
   ScalarField* addScalarField(QString, int, double *);
 
   QHash<QString, QAction*> groupActionHash;

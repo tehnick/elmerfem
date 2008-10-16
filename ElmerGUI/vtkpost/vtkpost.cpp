@@ -107,7 +107,6 @@
 #ifdef MATC
 #include "matc.h"
 #include "mc.h"
-extern "C" void matc_commands();
 extern "C" VARIABLE *com_curl(VARIABLE *);
 extern "C" VARIABLE *com_div(VARIABLE *);
 extern "C" VARIABLE *com_grad(VARIABLE *);
@@ -565,8 +564,7 @@ void VtkPost::domatcSlot()
      for( int i=0; i<scalarFields; i++ )
      {
         ScalarField *sf = &scalarField[i]; 
-
-        if ( sf->name == NAME(var) )
+        if ( NROW(var)==1 && sf->name == NAME(var) )
         {
            found = true;
            if ( sf->value != MATR(var) )
@@ -581,40 +579,40 @@ void VtkPost::domatcSlot()
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
            }
            break;
-        }
+        } else if ( NROW(var)==3 ) {
+          vectorname = "";
+          n=sf->name.indexOf("_x");
+          if ( n<=0 ) n=sf->name.indexOf("_y");
+          if ( n<=0 ) n=sf->name.indexOf("_z");
+          if ( n>0 ) vectorname=sf->name.mid(0,n);
 
-        vectorname = "";
-        n=sf->name.indexOf("_x");
-        if ( n<=0 ) n=sf->name.indexOf("_y");
-        if ( n<=0 ) n=sf->name.indexOf("_z");
-        if ( n>0 ) vectorname=sf->name.mid(0,n);
-
-        if ( vectorname==NAME(var) ) {
-          found = true;
-          if ( sf->name.indexOf("_x")>0 ) {
-            if ( sf->value != &M(var,0,0) )
-            {
-              free(sf->value);
-              sf->value = &M(var,0,0);
+          if ( vectorname==NAME(var) ) {
+            found = true;
+            if ( sf->name.indexOf("_x")>0 ) {
+              if ( sf->value != &M(var,0,0) )
+              {
+                free(sf->value);
+                sf->value = &M(var,0,0);
+              }
+            } else if ( sf->name.indexOf("_y")>0 ) {
+               if ( sf->value != &M(var,1,0) )
+               {
+                 free(sf->value);
+                 sf->value = &M(var,1,0);
+               }
+            } else if ( sf->name.indexOf("_z")>0 ) {
+               if ( sf->value != &M(var,2,0) )
+               {
+                 free(sf->value);
+                 sf->value = &M(var,2,0);
+               }
             }
-          } else if ( sf->name.indexOf("_y")>0 ) {
-             if ( sf->value != &M(var,1,0) )
-             {
-               free(sf->value);
-               sf->value = &M(var,1,0);
-             }
-          } else if ( sf->name.indexOf("_z")>0 ) {
-             if ( sf->value != &M(var,2,0) )
-             {
-               free(sf->value);
-               sf->value = &M(var,2,0);
-             }
-          }
-          sf->minVal =  1e99;
-          sf->maxVal = -1e99;
-          for(int j=0; j<epMesh->epNodes; j++) {
-            if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-            if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+            sf->minVal =  1e99;
+            sf->maxVal = -1e99;
+            for(int j=0; j<epMesh->epNodes; j++) {
+              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
+              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
+            }
           }
         }
      }
@@ -623,31 +621,24 @@ void VtkPost::domatcSlot()
      {
         if ( NROW(var) == 1 ) {
           ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes,NULL );
-          sf->minVal =  1e99;
-          sf->maxVal = -1e99;
           for(int j = 0; j<epMesh->epNodes; j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
         } else if ( NROW(var) == 3 ) {
           QString qs = NAME(var);
-          ScalarField *sf = addScalarField( qs+"_x",epMesh->epNodes, &M(var,0,0) );
-          sf->minVal =  1e99;
-          sf->maxVal = -1e99;
+          ScalarField *sf;
+          sf = addScalarField( qs+"_x",epMesh->epNodes, &M(var,0,0) );
           for(int j = 0; j<epMesh->epNodes; j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
           sf = addScalarField( qs+"_y",epMesh->epNodes, &M(var,1,0) );
-          sf->minVal =  1e99;
-          sf->maxVal = -1e99;
           for(int j = 0; j<epMesh->epNodes; j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
           sf = addScalarField( qs+"_z",epMesh->epNodes, &M(var,2,0) );
-          sf->minVal =  1e99;
-          sf->maxVal = -1e99;
           for(int j = 0; j<epMesh->epNodes; j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
@@ -673,17 +664,14 @@ void VtkPost::domatcSlot()
         var = (VARIABLE *)lst;
         if ( !NAME(var) || NCOL(var) != epMesh->epNodes ) continue;
 
-        if ( sf->name == NAME(var) )
+        if ( NROW(var)==1 && sf->name == NAME(var) )
         {
           if ( count != i ) scalarField[count]=*sf;
           count++;
           break;
-        } else if ( vectorname == NAME(var) ) {
-          if ( sf->name.mid(0,n) == NAME(var) )
-          {
-            if ( count != i ) scalarField[count]=*sf;
-            count++;
-          }
+        } else if ( NROW(var)==3 && vectorname==NAME(var) ) {
+          if ( count != i ) scalarField[count]=*sf;
+          count++;
         }
       }
    }
@@ -815,12 +803,10 @@ bool VtkPost::readPostFile(QString postFileName)
     cout << "Field name: " << fieldName.toAscii().data() << endl;
 
     if(fieldType == "scalar")
-      addScalarField(fieldName, nodes, NULL);
+      addScalarField(fieldName,nodes,NULL);
 
     if(fieldType == "vector") {
-      addScalarField(fieldName + "_x", nodes, NULL);
-      addScalarField(fieldName + "_y", nodes, NULL);
-      addScalarField(fieldName + "_z", nodes, NULL);
+      addVectorField(fieldName,nodes);
       i += 2;
     }
   }
@@ -839,33 +825,9 @@ bool VtkPost::readPostFile(QString postFileName)
       txtStream >> epn->x[j];
   }
 
-  // Add nodes to scalar field variables:
-  //-------------------------------------
-  ScalarField *sf = NULL;
-
-  fieldName = "Nodes_x";
-  sf = addScalarField(fieldName, nodes, NULL);
-  for(int i = 0; i < nodes; i++) {
-    sf->value[i] = epMesh->epNode[i].x[0];
-    if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
-    if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
-  }
-
-  fieldName = "Nodes_y";
-  sf = addScalarField(fieldName, nodes, NULL);
-  for(int i = 0; i < nodes; i++) {
-    sf->value[i] = epMesh->epNode[i].x[1];
-    if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
-    if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
-  }
-
-  fieldName = "Nodes_z";
-  sf = addScalarField(fieldName, nodes,NULL);
-  for(int i = 0; i < nodes; i++) {
-    sf->value[i] = epMesh->epNode[i].x[2];
-    if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
-    if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
-  }
+  // Add nodes to field variables:
+  //-------------------------------
+  addVectorField("Nodes", nodes);
 
   // Elements:
   //==========
@@ -888,22 +850,29 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Data:
   //=======
+  ScalarField *sf;
   for(int i = 0; i < nodes; i++) {
-    
     GET_TXT_STREAM
 
-    for(int j = 0; j < scalarFields - 4; j++) { // - 4 = no nodes, no null field
-      sf = &scalarField[j + 1];                 // + 1 = skip null field
-      
+    for(int j = 0; j<scalarFields-4; j++) { // - 4 = no nodes, no null field
+      sf = &scalarField[j+1];               // + 1 = skip null field
       txtStream >> sf->value[i];
-      
-      if(sf->value[i] > sf->maxVal)
-	sf->maxVal = sf->value[i];
-      
-      if(sf->value[i] < sf->minVal)
-	sf->minVal = sf->value[i];
     }
   }
+
+  // initial min & max values:
+  //============================
+  for( int f=0; f<scalarFields; f++  )
+  {
+     sf = &scalarField[f];
+     for( int i=0; i<nodes; i++ )
+     {
+       if(sf->value[i] > sf->maxVal)
+         sf->maxVal = sf->value[i];
+       if(sf->value[i] < sf->minVal)
+         sf->minVal = sf->value[i];
+     }
+   }
   
   postFile.close();
 
@@ -945,6 +914,30 @@ bool VtkPost::readPostFile(QString postFileName)
   redrawSlot();
   
   return true;
+}
+
+void VtkPost::addVectorField(QString fieldName, int nodes)
+{
+   
+#ifdef MATC
+    QByteArray nm=fieldName.trimmed().toAscii();
+
+    char *name = (char *)malloc( nm.count()+1 );
+    strcpy(name,nm.data());
+
+    VARIABLE *var = var_check(name);
+    if ( !var || NCOL(var) != nodes )
+      var = var_new( name, TYPE_DOUBLE, 3, nodes );
+    free(name);
+
+   addScalarField(fieldName+"_x", nodes, &M(var,0,0));
+   addScalarField(fieldName+"_y", nodes, &M(var,1,0));
+   addScalarField(fieldName+"_z", nodes, &M(var,2,0));
+#else
+   addScalarField(fieldName+"_x", nodes, NULL);
+   addScalarField(fieldName+"_y", nodes, NULL);
+   addScalarField(fieldName+"_z", nodes, NULL);
+#endif
 }
 
 
