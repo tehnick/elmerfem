@@ -57,6 +57,7 @@ class vtkDataSetMapper;
 class vtkTextActor;
 class vtkUnstructuredGrid;
 class vtkLookupTable;
+class vtkPlane;
 class IsoSurface;
 class IsoContour;
 class ColorBar;
@@ -65,7 +66,6 @@ class Preferences;
 class Vector;
 class StreamLine;
 class Matc;
-
 
 class VtkPost : public QMainWindow
 {
@@ -118,10 +118,13 @@ private slots:
   void hideColorBarSlot();
   void hideStreamLineSlot();
 
+  void setupClipPlane();
+
   void groupChangedSlot(QAction*);
   void regenerateGridsSlot();
   void maybeRedrawSlot(bool);
   void redrawSlot();
+  void populateWidgetsSlot();
 
   void savePictureSlot();
 
@@ -142,6 +145,7 @@ private:
   QAction *drawMeshPointAct;
   QAction *drawMeshEdgeAct;
   QAction *drawFeatureEdgesAct;
+  QAction *clipPlaneAct;
   QAction *drawSurfaceAct;
   QAction *drawVectorAct;
   QAction *drawIsoContourAct;
@@ -172,6 +176,8 @@ private:
   vtkUnstructuredGrid *lineGrid;
   
   vtkLookupTable *currentLut;
+
+  vtkPlane *clipPlane;
 
   vtkActor *meshPointActor;
   vtkActor *meshEdgeActor;

@@ -4068,8 +4068,7 @@ void MainWindow::showCadModelSlot()
 void MainWindow::showVtkPostSlot()
 {
 #ifdef VTKPOST
-  QString postFileName = saveDirName + "/" 
-    + generalSetup->ui.postFileEdit->text().trimmed();
+  QString postFileName = saveDirName + "/"  + generalSetup->ui.postFileEdit->text().trimmed();
 
   if(!vtkPost->readPostFile(postFileName)) {
     logMessage("Unable to read result file");
@@ -5657,7 +5656,6 @@ void MainWindow::resultsSlot()
     solverLogWindow->textEdit->clear();
     solverLogWindow->found = false;
     solverLogWindow->show();
-
 
     QString postName = generalSetup->ui.postFileEdit->text().trimmed();
     QStringList postNameSplitted = postName.split(".");

@@ -101,6 +101,8 @@
 #include <vtkPointSource.h>
 #include <vtkLineSource.h>
 #include <vtkRibbonFilter.h>
+#include <vtkPlane.h>
+#include <vtkClipPolyData.h>
 
 #ifdef MATC
 #include "matc.h"
@@ -148,10 +150,14 @@ VtkPost::VtkPost(QWidget *parent)
   vectorActor = vtkActor::New();
   streamLineActor = vtkActor::New();
 
+  // Default color map (from blue to red):
+  //--------------------------------------
   currentLut = vtkLookupTable::New();
-  currentLut->SetHueRange(0.6667, 0); // from blue to red
+  currentLut->SetHueRange(0.6667, 0);
   currentLut->SetNumberOfColors(256);
   currentLut->Build();
+
+  clipPlane = vtkPlane::New();
 
   // User interfaces:
   //-----------------
@@ -270,6 +276,12 @@ void VtkPost::createActions()
   connect(drawFeatureEdgesAct, SIGNAL(triggered()), this, SLOT(drawFeatureEdgesSlot()));
   connect(drawFeatureEdgesAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
+  clipPlaneAct = new QAction(QIcon(""), tr("Clip plane"), this);
+  clipPlaneAct->setStatusTip("Apply the clip plane");
+  clipPlaneAct->setCheckable(true);
+  clipPlaneAct->setChecked(false);
+  connect(clipPlaneAct, SIGNAL(triggered()), this, SLOT(clipPlaneSlot()));
+
   drawColorBarAct = new QAction(QIcon(""), tr("Colorbar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
@@ -359,6 +371,8 @@ void VtkPost::createMenus()
   viewMenu->addAction(drawMeshPointAct);
   viewMenu->addAction(drawMeshEdgeAct);
   viewMenu->addAction(drawFeatureEdgesAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(clipPlaneAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawSurfaceAct);
   viewMenu->addSeparator();
@@ -685,15 +699,23 @@ void VtkPost::domatcSlot()
    
    // Populate widgets in user interface dialogs:
    //---------------------------------------------
-   vector->populateWidgets(scalarField, scalarFields);
-   surface->populateWidgets(scalarField, scalarFields);
-   isoSurface->populateWidgets(scalarField, scalarFields);
-   isoContour->populateWidgets(scalarField, scalarFields);
-   surface->populateWidgets(scalarField, scalarFields);
-   streamLine->populateWidgets(scalarField, scalarFields);
-   colorBar->populateWidgets();
+   populateWidgetsSlot();
 }
 #endif
+
+
+// Populate widgets:
+//----------------------------------------------------------------------
+void VtkPost::populateWidgetsSlot()
+{
+  vector->populateWidgets(scalarField, scalarFields);
+  surface->populateWidgets(scalarField, scalarFields);
+  isoSurface->populateWidgets(scalarField, scalarFields);
+  isoContour->populateWidgets(scalarField, scalarFields);
+  surface->populateWidgets(scalarField, scalarFields);
+  streamLine->populateWidgets(scalarField, scalarFields);
+  colorBar->populateWidgets();
+}
 
 
 // Save picture:
@@ -914,13 +936,7 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Populate the widgets in user interface dialogs:
   //-------------------------------------------------
-  vector->populateWidgets(scalarField, scalarFields);
-  surface->populateWidgets(scalarField, scalarFields);
-  isoSurface->populateWidgets(scalarField, scalarFields);
-  isoContour->populateWidgets(scalarField, scalarFields);
-  surface->populateWidgets(scalarField, scalarFields);
-  streamLine->populateWidgets(scalarField, scalarFields);
-  colorBar->populateWidgets();
+  populateWidgetsSlot();
 
   this->postFileRead = true;
 
@@ -1330,8 +1346,11 @@ void VtkPost::drawMeshPointSlot()
 
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
   mapper->SetInputConnection(glyph->GetOutputPort());
+  mapper->ScalarVisibilityOff();
 
   meshPointActor->SetMapper(mapper);
+  meshPointActor->GetProperty()->SetColor(0.5, 0.5, 0.5);
+  
   renderer->AddActor(meshPointActor);
 
   qvtkWidget->GetRenderWindow()->Render();
@@ -1828,16 +1847,35 @@ void VtkPost::drawSurfaceSlot()
     scalars->SetComponent(i, 0, sf->value[i]);  
   surfaceGrid->GetPointData()->AddArray(scalars);
 
+  // Convert from vtkUnstructuredGrid to vtkPolyData:
+  //-------------------------------------------------
+  vtkGeometryFilter *filter = vtkGeometryFilter::New();
+
+  filter->SetInput(surfaceGrid);
+  filter->GetOutput()->ReleaseDataFlagOn();
+
+  // Apply the clip plane:
+  //-----------------------
+  vtkClipPolyData *clipper = vtkClipPolyData::New();
+
+  if(clipPlaneAct->isChecked()) {
+    setupClipPlane();
+    clipper->SetInputConnection(filter->GetOutputPort());
+    clipper->SetClipFunction(clipPlane);
+    clipper->GenerateClipScalarsOn();
+    clipper->GenerateClippedOutputOn();
+  }
+
   // Normals:
   //---------
   vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
-  vtkGeometryFilter *filter = vtkGeometryFilter::New();
-
+  
   if(useNormals) {
-    // Convert from vtkUnstructuredGrid to vtkPolyData
-    filter->SetInput(surfaceGrid);
-    filter->GetOutput()->ReleaseDataFlagOn();
-    normals->SetInputConnection(filter->GetOutputPort());
+    if(clipPlaneAct->isChecked()) {
+      normals->SetInputConnection(clipper->GetOutputPort());
+    } else {
+      normals->SetInputConnection(filter->GetOutputPort());
+    }
     normals->SetFeatureAngle(featureAngle);
   }
 
@@ -1848,7 +1886,11 @@ void VtkPost::drawSurfaceSlot()
   if(useNormals) {
     mapper->SetInputConnection(normals->GetOutputPort());
   } else {
-    mapper->SetInput(surfaceGrid);
+    if(clipPlaneAct->isChecked()) {
+      mapper->SetInputConnection(clipper->GetOutputPort());
+    } else {
+      mapper->SetInputConnection(filter->GetOutputPort());
+    }
   }
 
   mapper->SetScalarModeToUsePointFieldData();
@@ -1874,6 +1916,7 @@ void VtkPost::drawSurfaceSlot()
 
   // Clean up:
   //-----------
+  clipper->Delete();
   normals->Delete();
   filter->Delete();
   scalars->Delete();
@@ -2101,4 +2144,20 @@ void VtkPost::drawIsoContourSlot()
   colorArray->Delete();
   iso->Delete();
   mapper->Delete();
+}
+
+
+// Set up the clip plane:
+//----------------------------------------------------------------------
+void VtkPost::setupClipPlane()
+{ 
+  double px = preferences->ui.clipPointX->text().toDouble();
+  double py = preferences->ui.clipPointY->text().toDouble();
+  double pz = preferences->ui.clipPointZ->text().toDouble();
+  double nx = preferences->ui.clipNormalX->text().toDouble();
+  double ny = preferences->ui.clipNormalY->text().toDouble();
+  double nz = preferences->ui.clipNormalZ->text().toDouble();
+
+  clipPlane->SetOrigin(px, py, pz);
+  clipPlane->SetNormal(nx, ny, nz);
 }
