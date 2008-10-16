@@ -926,7 +926,7 @@ void VtkPost::addVectorField(QString fieldName, int nodes)
     strcpy(name,nm.data());
 
     VARIABLE *var = var_check(name);
-    if ( !var || NCOL(var) != nodes )
+    if ( !var || NROW(var) != 3 || NCOL(var) != nodes )
       var = var_new( name, TYPE_DOUBLE, 3, nodes );
     free(name);
 
@@ -962,7 +962,7 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes, double *value
     char *name = (char *)malloc( nm.count()+1 );
     strcpy(name,nm.data());
     VARIABLE *var = var_check(name);
-    if ( !var || NCOL(var) != nodes )
+    if ( !var || NROW(var)!=1 || NCOL(var) != nodes )
       var = var_new( name, TYPE_DOUBLE, 1, nodes );
     sf->value = MATR(var);
     free(name);
