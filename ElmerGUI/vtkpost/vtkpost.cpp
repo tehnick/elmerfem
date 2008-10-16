@@ -1019,19 +1019,25 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   
   if(index < 0) return;
 
-  double x[3];
-  ScalarField *sfx = &scalarField[index + 0];
-  ScalarField *sfy = &scalarField[index + 1];
-  ScalarField *sfz = &scalarField[index + 2];
+  // TODO: Make a MATC inquiry for the points
+
+  // double x[3];
+  // ScalarField *sfx = &scalarField[index + 0];
+  // ScalarField *sfy = &scalarField[index + 1];
+  // ScalarField *sfz = &scalarField[index + 2];
+  
   vtkPoints *points = vtkPoints::New();
-      // points->SetNumberOfPoints(epMesh->epNodes);
-      // for(int i = 0; i < epMesh->epNodes; i++) {
-  points->SetNumberOfPoints(sfx->values);
-  for(int i = 0; i < sfx->values; i++) {
-    x[0] = sfx->value[i];
-    x[1] = sfy->value[i];
-    x[2] = sfz->value[i];
-    points->InsertPoint(i, x);
+  points->SetNumberOfPoints(epMesh->epNodes);
+
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    // points->SetNumberOfPoints(sfx->values);
+    // for(int i = 0; i < sfx->values; i++) {
+    // x[0] = sfx->value[i];
+    // x[1] = sfy->value[i];
+    // x[2] = sfz->value[i];
+    // points->InsertPoint(i, x);
+    EpNode *epn = &epMesh->epNode[i];
+    points->InsertPoint(i, epn->x);
   }
   volumeGrid->SetPoints(points);
   surfaceGrid->SetPoints(points);
@@ -1951,6 +1957,7 @@ void VtkPost::drawIsoSurfaceSlot()
   double colorMaxVal = isoSurface->ui.colorMaxEdit->text().toDouble();
   int featureAngle = isoSurface->ui.featureAngle->value();
   double opacity = isoSurface->ui.opacitySpin->value() / 100.0;
+  bool useClip = isoSurface->ui.clipPlane->isChecked();
 
   if(contourName == "Null") return;
 
@@ -1976,28 +1983,51 @@ void VtkPost::drawIsoSurfaceSlot()
     colorArray->SetComponent(i, 0, sf->value[i]);
   volumeGrid->GetPointData()->AddArray(colorArray);
 
-  // Isosurfaces && normals:
-  //--------------------------
+  // Isosurfaces:
+  //--------------
   vtkContourFilter *iso = vtkContourFilter::New();
   volumeGrid->GetPointData()->SetActiveScalars("IsoSurface");
   iso->SetInput(volumeGrid);
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
+  // Apply the clip plane:
+  //-----------------------
+  vtkClipPolyData *clipper = vtkClipPolyData::New();
+
+  if(useClip) {
+    setupClipPlane();
+    clipper->SetInputConnection(iso->GetOutputPort());
+    clipper->SetClipFunction(clipPlane);
+    clipper->GenerateClipScalarsOn();
+    clipper->GenerateClippedOutputOn();
+  }
+
+  // Normals:
+  //---------
   vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
+
   if(useNormals) {
-    normals->SetInputConnection(iso->GetOutputPort());
+    if(useClip) {
+      normals->SetInputConnection(clipper->GetOutputPort());
+    } else {
+      normals->SetInputConnection(iso->GetOutputPort());
+    }
     normals->SetFeatureAngle(featureAngle);
   }
 
   // Mapper:
   //--------
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
-
+  
   if(useNormals) {
     mapper->SetInputConnection(normals->GetOutputPort());
   } else {
-    mapper->SetInputConnection(iso->GetOutputPort());
+    if(useClip) {
+      mapper->SetInputConnection(clipper->GetOutputPort());      
+    } else {
+      mapper->SetInputConnection(iso->GetOutputPort());
+    }
   }
 
   mapper->ScalarVisibilityOn();
@@ -2022,6 +2052,7 @@ void VtkPost::drawIsoSurfaceSlot()
 
   // Clean up:
   //----------
+  clipper->Delete();
   contourArray->Delete();
   colorArray->Delete();
   iso->Delete();
