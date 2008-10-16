@@ -1882,7 +1882,7 @@ void VtkPost::drawSurfaceSlot()
     if(useClip) {
       mapper->SetInputConnection(clipper->GetOutputPort());
     } else {
-      mapper->SetInputConnection(filter->GetOutputPort());
+      mapper->SetInput(surfaceGrid);
     }
   }
 
