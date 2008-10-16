@@ -83,7 +83,8 @@ HEADERS += src/bodypropertyeditor.h \
            vtkpost/preferences.h \
            vtkpost/vector.h \
            vtkpost/streamline.h \
-           vtkpost/matc.h
+           vtkpost/matc.h \
+           vtkpost/mc.h
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
          forms/boundarypropertyeditor.ui \

@@ -1,7 +1,7 @@
 #ifdef MATC
 #include <stdio.h>
 #include "../src/mainwindow.h"
-#include <mc.h>
+#include "mc.h"
 #include "vtkpost.h"
 
 extern "C" VARIABLE *var_temp_new(int,int,int);
