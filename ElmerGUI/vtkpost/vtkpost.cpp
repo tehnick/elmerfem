@@ -323,6 +323,9 @@ void VtkPost::createActions()
   connect(matcAct, SIGNAL(triggered()), this, SLOT(matcOpenSlot()));
 #endif
 
+  regenerateGridsAct = new QAction(QIcon(""), tr("Regenerate all..."), this);
+  regenerateGridsAct->setStatusTip("Regerate all meshes");
+  connect(regenerateGridsAct, SIGNAL(triggered()), this, SLOT(regenerateGridsSlot()));
 }
 
 void VtkPost::createMenus()
@@ -917,6 +920,9 @@ bool VtkPost::readPostFile(QString postFileName)
 
   groupChangedSlot(NULL);
   connect(editGroupsMenu, SIGNAL(triggered(QAction*)), this, SLOT(groupChangedSlot(QAction*)));
+  
+  editGroupsMenu->addSeparator();
+  editGroupsMenu->addAction(regenerateGridsAct);
 
   // Set the null field active:
   //---------------------------
@@ -975,6 +981,11 @@ void VtkPost::exitSlot()
 
 // Group selection changed:
 //----------------------------------------------------------------------
+void VtkPost::regenerateGridsSlot()
+{
+  groupChangedSlot(NULL);
+}
+
 void VtkPost::groupChangedSlot(QAction *groupAction)
 {
   // Status of groupAction has changed: regenerate grids
@@ -989,11 +1000,30 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
   // Points:
   //---------
+  int index = -1;
+  for(int i = 0; i < scalarFields; i++) {
+    ScalarField *sf = &scalarField[i];
+    if(sf->name == "Nodes_x") {
+      index = i;
+      break;
+    }
+  }
+  
+  if(index < 0) return;
+
+  double x[3];
+  ScalarField *sfx = &scalarField[index + 0];
+  ScalarField *sfy = &scalarField[index + 1];
+  ScalarField *sfz = &scalarField[index + 2];
   vtkPoints *points = vtkPoints::New();
-  points->SetNumberOfPoints(epMesh->epNodes);
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    EpNode *epn = &epMesh->epNode[i];
-    points->InsertPoint(i, epn->x);
+      // points->SetNumberOfPoints(epMesh->epNodes);
+      // for(int i = 0; i < epMesh->epNodes; i++) {
+  points->SetNumberOfPoints(sfx->values);
+  for(int i = 0; i < sfx->values; i++) {
+    x[0] = sfx->value[i];
+    x[1] = sfy->value[i];
+    x[2] = sfz->value[i];
+    points->InsertPoint(i, x);
   }
   volumeGrid->SetPoints(points);
   surfaceGrid->SetPoints(points);

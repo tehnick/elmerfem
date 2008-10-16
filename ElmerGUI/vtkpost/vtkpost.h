@@ -118,6 +118,7 @@ private slots:
   void hideStreamLineSlot();
 
   void groupChangedSlot(QAction*);
+  void regenerateGridsSlot();
   void maybeRedrawSlot(bool);
   void redrawSlot();
 
@@ -131,6 +132,7 @@ private:
 
   QToolBar *viewToolBar;
 
+  QAction *regenerateGridsAct;
   QAction *matcAct;
   QAction *exitAct;
   QAction *redrawAct;
