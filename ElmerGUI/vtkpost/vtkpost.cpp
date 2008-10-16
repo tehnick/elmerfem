@@ -104,7 +104,7 @@
 
 #ifdef MATC
 #include "matc.h"
-#include <mc.h>
+#include "mc.h"
 extern "C" void matc_commands();
 extern "C" VARIABLE *com_curl(VARIABLE *);
 extern "C" VARIABLE *com_div(VARIABLE *);
