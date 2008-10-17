@@ -645,12 +645,12 @@ void VtkPost::domatcSlot()
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
           sf = addScalarField( qs+"_y",NCOL(var), &M(var,1,0) );
-	      for(int j = 0; j<NCOL(var); j++) {
+	  for(int j = 0; j<NCOL(var); j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
           sf = addScalarField( qs+"_z",NCOL(var), &M(var,2,0) );
-		  for(int j = 0; j<NCOL(var); j++) {
+	  for(int j = 0; j<NCOL(var); j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
@@ -1605,9 +1605,9 @@ void VtkPost::drawStreamLineSlot()
     double val_x  = sf_x->value[i + offset];
     double val_y  = sf_y->value[i + offset];
     double val_z  = sf_z->value[i + offset];
-    vectorData->SetComponent(i, 0, val_x); 
-    vectorData->SetComponent(i, 1, val_y); 
-    vectorData->SetComponent(i, 2, val_z); 
+    vectorData->SetComponent(i,0,val_x); 
+    vectorData->SetComponent(i,1,val_y); 
+    vectorData->SetComponent(i,2,val_z); 
   }
   grid->GetPointData()->AddArray(vectorData);
 
