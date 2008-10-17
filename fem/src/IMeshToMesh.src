@@ -85,7 +85,7 @@
        INTEGER, POINTER :: OldPerm(:)
        REAL(KIND=dp), POINTER :: OldValue(:), NewValue(:), ElementValues(:)
        TYPE(Quadrant_t), POINTER :: LeafQuadrant
-       TYPE(Element_t),POINTER :: CurrentElement
+       TYPE(Element_t),POINTER :: Element
 
        REAL(KIND=dp) :: BoundingBox(6), detJ, u,v,w,s
        REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:)
@@ -101,7 +101,7 @@
 
        TYPE(Epntr_t), ALLOCATABLE :: ElemPtrs(:)
 
-       INTEGER, POINTER :: RInd(:)
+       INTEGER, ALLOCATABLE:: RInd(:)
        LOGICAL :: Found
        REAL(KIND=dp) :: eps1 = 0.1, eps2
        REAL(KIND=dp), POINTER :: Values(:), LocalU(:), LocalV(:), LocalW(:)
@@ -126,7 +126,7 @@
           n = NewMesh % NumberOfNodes
           ALLOCATE( LocalU(n), LocalV(n), LocalW(n), ElemPtrs(n) )
           DO i=1,n
-             NULLIFY( ElemPtrs(i) % Element )
+            NULLIFY( ElemPtrs(i) % Element )
           END DO
        END IF
 !
@@ -179,50 +179,35 @@
 !------------------------------------------------------------------------------
 ! Find the last existing quadrant that the point belongs to
 !------------------------------------------------------------------------------
+             NULLIFY(Element)
              CALL FindLeafElements(Point, dim, RootQuadrant, LeafQuadrant)
-             IF ( .NOT. ASSOCIATED( LeafQuadrant ) ) THEN
-                NULLIFY ( CurrentElement )
-                CYCLE
-             END IF
-!------------------------------------------------------------------------------
- 
-             ! Go through the bulk elements in the last ChildQuadrant
-             ! only.  Try to find matching element with progressively
-             ! sloppier tests. Allow at most 100 % of slack:
-             ! -------------------------------------------------------
-             Found = .FALSE.
-             Eps2 = 1.0d-12
-             DO j=1,12
-                DO k=1, LeafQuadrant % NElemsInQuadrant
-                   CurrentElement => OldMesh % Elements( &
-                       LeafQuadrant % Elements(k) )
+             IF ( ASSOCIATED(LeafQuadrant) ) THEN
+               ! Go through the bulk elements in the last ChildQuadrant
+               ! only.  Try to find matching element with progressively
+               ! sloppier tests. Allow at most 100 % of slack:
+               ! -------------------------------------------------------
+               Found = .FALSE.
+               Eps2 = 1.0d-12
+               DO j=1,12
+                 DO k=1, LeafQuadrant % NElemsInQuadrant
+                    Element => OldMesh % Elements( &
+                        LeafQuadrant % Elements(k) )
 
-                   NodeIndexes => CurrentElement % NodeIndexes
-                   n = CurrentElement % Type % NumberOfNodes
+                    NodeIndexes => Element % NodeIndexes
+                    n = Element % Type % NumberOfNodes
 
-                   ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
-                   ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
-                   ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
+                    ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
+                    ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
+                    ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
 
-                   Found = PointInElement( CurrentElement, ElementNodes, &
-                              Point, LocalCoordinates, Eps2 )
-                   IF ( Found ) EXIT
-                END DO
-                IF ( Found ) EXIT
-                Eps2  = 10 * Eps2
-             END DO
- 
-             IF ( k > LeafQuadrant % NElemsInQuadrant ) THEN
-!               WRITE( Message, * ) 'Point was not found in any of the elements!',i
-!               CALL Warn( 'InterpolateMeshToMesh', Message )
-!               CYCLE
-                CurrentElement => OldMesh % Elements(1)
-                NodeIndexes => CurrentElement % NodeIndexes
-                n = CurrentElement % Type % NumberOfNodes
-                LocalCoordinates = 0.0d0
-                ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
-                ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
-                ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
+                    Found = PointInElement( Element, ElementNodes, &
+                               Point, LocalCoordinates, Eps2 )
+                    IF ( Found ) EXIT
+                 END DO
+                 IF ( Found ) EXIT
+                 Eps2  = 10*Eps2
+               END DO
+               IF (.NOT.Found) NULLIFY(Element)
              END IF
 !------------------------------------------------------------------------------
           ELSE
@@ -230,16 +215,16 @@
 ! Go through all old mesh bulk elements
 !------------------------------------------------------------------------------
              DO k=1,OldMesh % NumberOfBulkElements
-                CurrentElement => OldMesh % Elements(k)
+                Element => OldMesh % Elements(k)
 
-                n = CurrentElement % Type % NumberOfNodes
-                NodeIndexes => CurrentElement % NodeIndexes
+                n = Element % Type % NumberOfNodes
+                NodeIndexes => Element % NodeIndexes
 
                 ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
                 ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
                 ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
 
-                IF ( PointInElement( CurrentElement, ElementNodes, &
+                IF ( PointInElement( Element, ElementNodes, &
                         Point, LocalCoordinates ) ) EXIT
              END DO
              IF ( k == OldMesh % NumberOfBulkElements + 1 ) THEN
@@ -250,16 +235,16 @@
           END IF
 !------------------------------------------------------------------------------
 !
-!         Found CurrentElement in OldModel:
+!         Found Element in OldModel:
 !         ---------------------------------
           IF ( PRESENT(Projector) ) THEN
-             ElemPtrs(i) % Element => CurrentElement
+             ElemPtrs(i) % Element => Element
              LocalU(i) = LocalCoordinates(1)
              LocalV(i) = LocalCoordinates(2)
              LocalW(i) = LocalCoordinates(3)
           END IF
 
-          IF ( .NOT.PRESENT(OldVariables) .OR. PRESENT(Projector) ) CYCLE
+          IF ( .NOT.PRESENT(OldVariables).OR.PRESENT(Projector) ) CYCLE
 !------------------------------------------------------------------------------
 !
 !         Go through all variables to be interpolated:
@@ -278,7 +263,7 @@
 
 !------------------------------------------------------------------------------
 !
-!               Interpolate variable at Point in CurrentElement:
+!               Interpolate variable at Point in Element:
 !               ------------------------------------------------
 
                 NewSol => VariableGet( NewMesh % Variables, TRIM(Var % Name), .TRUE. )
@@ -294,12 +279,12 @@
 
 
 ! Check that the node was found in the old mesh
-                IF ( ASSOCIATED ( CurrentElement ) ) THEN
+                IF ( ASSOCIATED (Element) ) THEN
 !------------------------------------------------------------------------------
 !
 !                  Check for rounding errors:
 !                  --------------------------
-                   WHERE( OldPerm( NodeIndexes ) > 0 )
+                   WHERE( OldPerm(NodeIndexes)>0 )
                       ElementValues(1:n) = OldValue(OldPerm(NodeIndexes))
                    ELSEWHERE
                       ElementValues(1:n) = 0.0d0
@@ -311,11 +296,11 @@
 !                  ---------------------------------------------------
                    IF ( NewSol % Perm(i) /= 0 ) THEN
                       NewValue(NewSol % Perm(i)) = InterpolateInElement( &
-                           CurrentElement, ElementValues, LocalCoordinates(1), &
+                           Element, ElementValues, LocalCoordinates(1), &
                            LocalCoordinates(2), LocalCoordinates(3) )
                    END IF
                 ELSE
-                   IF ( NewSol % Perm(i) /= 0 ) NewValue(NewSol % Perm(i)) = 0.0d0
+                   IF ( NewSol % Perm(i)/=0 ) NewValue(NewSol % Perm(i))=0.0_dp
                 END IF
 
 !------------------------------------------------------------------------------
@@ -336,10 +321,10 @@
           Rows(1) = 1
           DO i=2,n+1
              IF ( ASSOCIATED( ElemPtrs(i-1) % Element ) ) THEN
-                Rows(i) = Rows(i-1) + &
-                    ElemPtrs(i-1) % Element % Type % NumberOfNodes
+               Rows(i) = Rows(i-1) + &
+                   ElemPtrs(i-1) % Element % Type % NumberOfNodes
              ELSE
-                Rows(i) = Rows(i-1) + 1
+               Rows(i) = Rows(i-1)+1
              END IF
           END DO
 
@@ -362,18 +347,17 @@
           RInd = 0
 
           DO i=1,n
-             CurrentElement => ElemPtrs(i) % Element
-
-             IF ( .NOT. ASSOCIATED( CurrentElement ) ) THEN
-                Cols( Rows(i) ) = i
-                RInd(i) = RInd(i) + 1
-                CYCLE
+             Element => ElemPtrs(i) % Element
+             IF ( .NOT. ASSOCIATED( Element ) ) THEN
+               RInd(1)=RInd(1)+1
+               Cols(Rows(i))=1
+               Values(Rows(i))=0._dp
+               CYCLE
              END IF
 
-             k = CurrentElement % Type % NumberOfNodes
-             NodeIndexes => CurrentElement % NodeIndexes
-
-             RInd(NodeIndexes) = RInd(NodeIndexes) + 1
+             k = Element % Type % NumberOfNodes
+             NodeIndexes => Element % NodeIndexes
+             RInd(NodeIndexes) = RInd(NodeIndexes)+1
 
              u = LocalU(i)
              v = LocalV(i)
@@ -385,22 +369,19 @@
                 Cols(l)   = NodeIndexes(j)
                 Basis(j)  = 1.0d0
                 Values(l) = &
-                   InterpolateInElement( CurrentElement, Basis, u, v, w )
+                   InterpolateInElement(Element,Basis,u,v,w)
                 Basis(j)  = 0.0d0
              END DO
           END DO
-
           DEALLOCATE( Basis, ElemPtrs, LocalU, LocalV, LocalW )
-
 !
 !         Store also the transpose of the projector:
 !         ------------------------------------------ 
           n = OldMesh % NumberOfNodes
-
           ALLOCATE( Rows(n+1) )
           Rows(1) = 1
           DO i=2,n+1
-             Rows(i) = Rows(i-1) + RInd(i-1)
+             Rows(i) = Rows(i-1)+RInd(i-1)
           END DO
 
           ALLOCATE( Cols(Rows(n+1)-1), Values(Rows(n+1)-1) )
@@ -414,15 +395,14 @@
           DO i=1,Projector % Matrix % NumberOfRows
              DO j=Projector % Matrix % Rows(i), Projector % Matrix % Rows(i+1)-1
                 k = Projector % Matrix % Cols(j)
-                l = Rows(k) + RInd(k)
-                RInd(k) = RInd(k) + 1
+                l = Rows(k)+RInd(k)
+                RInd(k) = RInd(k)+1
                 Cols(l) = i
                 Values(l) = Projector % Matrix % Values(j)
              END DO
           END DO
 
-          DEALLOCATE( RInd )
-
+          DEALLOCATE(RInd)
           IF ( PRESENT(OldVariables) ) CALL ApplyProjector
        END IF
 
