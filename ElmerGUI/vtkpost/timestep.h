@@ -56,7 +56,7 @@ public:
 
   Ui::timeStepDialog ui;
 
-  int timeSteps;
+  int maxSteps;
 
 signals:
   void timeStepChangedSignal();

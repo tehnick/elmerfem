@@ -209,8 +209,6 @@ private:
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
   QString currentStreamLineName;
-
-  int timeSteps;
 };
 
 #endif // VTKPOST_H

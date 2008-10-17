@@ -55,7 +55,7 @@ TimeStep::TimeStep(QWidget *parent)
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
 
-  timeSteps = 0;
+  maxSteps = 0;
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }

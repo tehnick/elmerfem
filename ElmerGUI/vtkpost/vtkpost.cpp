@@ -782,7 +782,7 @@ bool VtkPost::readPostFile(QString postFileName)
   cout << "Scalar components: " << components << endl;
   cout << "Timesteps: " << timesteps << endl;
 
-  this->timeSteps = timesteps;
+  timeStep->maxSteps = timesteps;
 
   // Read field names & set up menu actions:
   //=========================================
@@ -1570,7 +1570,7 @@ void VtkPost::drawStreamLineSlot()
   int rakeWidth = streamLine->ui.rakeWidth->value();
 
   int step = timeStep->ui.timeStep->value();
-  if(step > timeSteps) step = timeSteps;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int offset = epMesh->epNodes * (step - 1);
 
   // Point source:
@@ -1764,7 +1764,7 @@ void VtkPost::drawVectorSlot()
   bool scaleByMagnitude = vector->ui.scaleByMagnitude->isChecked();
 
   int step = timeStep->ui.timeStep->value();
-  if(step > timeSteps) step = timeSteps;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int offset = epMesh->epNodes * (step - 1);
 
   // Vector data:
@@ -1893,7 +1893,7 @@ void VtkPost::drawSurfaceSlot()
   bool useClip = surface->ui.clipPlane->isChecked();
 
   int step = timeStep->ui.timeStep->value();
-  if(step > timeSteps) step = timeSteps;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int offset = epMesh->epNodes * (step - 1);
 
   // Scalars:
@@ -2028,7 +2028,7 @@ void VtkPost::drawIsoSurfaceSlot()
   bool useClip = isoSurface->ui.clipPlane->isChecked();
 
   int step = timeStep->ui.timeStep->value();
-  if(step > timeSteps) step = timeSteps;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int offset = epMesh->epNodes * (step - 1);
 
   if(contourName == "Null") return;
@@ -2173,7 +2173,7 @@ void VtkPost::drawIsoContourSlot()
   double colorMaxVal = isoContour->ui.colorMaxEdit->text().toDouble();
 
   int step = timeStep->ui.timeStep->value();
-  if(step > timeSteps) step = timeSteps;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int offset = epMesh->epNodes * (step - 1);
 
   if(contourName == "Null") return;
