@@ -683,6 +683,11 @@ void VtkPost::domatcSlot()
 }
 #endif
 
+int VtkPost::NofNodes()
+{
+   return epMesh->epNodes;
+}
+
 
 // Populate widgets in user interface dialogs:
 //----------------------------------------------------------------------
@@ -830,11 +835,11 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Add nodes to field variables:
   //-------------------------------
-  addVectorField("Nodes", nodes);
+  addVectorField("nodes", nodes);
   int index = -1;
   for(int i = 0; i < scalarFields; i++) {
     ScalarField *sf = &scalarField[i];
-    if(sf->name == "Nodes_x") {
+    if(sf->name == "nodes_x") {
       index = i;
       break;
     }
@@ -1038,7 +1043,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   int index = -1;
   for(int i = 0; i < scalarFields; i++) {
     ScalarField *sf = &scalarField[i];
-    if(sf->name == "Nodes_x") {
+    if(sf->name == "nodes_x") {
       index = i;
       break;
     }
