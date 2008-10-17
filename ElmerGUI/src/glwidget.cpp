@@ -567,7 +567,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     glScaled(s, s, s);
     updateGL();
 
-  } else if (event->buttons() & Qt::MidButton) {
+  } else if (event->buttons() & Qt::LeftButton) {
     
     // Rotation:
     double ax = -(double)dy;
@@ -588,7 +588,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     glRotated(s, bx, by, bz);
     updateGL();
 
-  } else if (event->buttons() & Qt::LeftButton) {
+  } else if (event->buttons() & Qt::MidButton) {
 
     // Translation:
     double s = 2.0/(double)(viewport[3]+1);
