@@ -648,8 +648,8 @@ void MainWindow::createActions()
   connect(showCadModelAct, SIGNAL(triggered()), this, SLOT(showCadModelSlot()));
 
   // View -> Show Vtk widget
-  showVtkPostAct = new QAction(QIcon(), tr("VTK widget..."), this);
-  showVtkPostAct->setStatusTip(tr("Displays the VTK widget in a separate window"));
+  showVtkPostAct = new QAction(QIcon(), tr("Postprocessor..."), this);
+  showVtkPostAct->setStatusTip(tr("Invokes the ElmerGUI postprocessor"));
   connect(showVtkPostAct, SIGNAL(triggered()), this, SLOT(showVtkPostSlot()));
 
   // Solver -> Parallel settings
@@ -790,7 +790,11 @@ void MainWindow::createMenus()
   modelMenu->addSeparator();
 
   // View menu
-  viewMenu = menuBar()->addMenu(tr("&View"));  
+  viewMenu = menuBar()->addMenu(tr("&View"));
+#ifdef VTKPOST
+  viewMenu->addAction(showVtkPostAct);
+  viewMenu->addSeparator();
+#endif
   viewMenu->addAction(viewFullScreenAct);
   viewMenu->addSeparator();
   viewMenu->addAction(hidesurfacemeshAct);
@@ -839,11 +843,6 @@ void MainWindow::createMenus()
 #ifdef OCC62
   viewMenu->addSeparator();
   viewMenu->addAction(showCadModelAct);
-#endif
-
-#ifdef VTKPOST
-  viewMenu->addSeparator();
-  viewMenu->addAction(showVtkPostAct);
 #endif
 
   // Edit menu

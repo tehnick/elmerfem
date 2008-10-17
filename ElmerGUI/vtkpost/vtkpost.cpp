@@ -127,7 +127,7 @@ VtkPost::VtkPost(QWidget *parent)
   // Initialize:
   //------------
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
-  setWindowTitle("VTK widget");
+  setWindowTitle("ElmerGUI postprocessor");
 
   createActions();
   createMenus();
@@ -861,8 +861,15 @@ bool VtkPost::readPostFile(QString postFileName)
     epe->indexes = epe->code % 100;
     epe->index = new int[epe->indexes];
     
-    for(int j = 0; j < epe->indexes; j++)
-      txtStream >> epe->index[j];
+    for(int j = 0; j < epe->indexes; j++) {
+      QString tmpString = "";
+      txtStream >> tmpString;
+      if(tmpString.isEmpty()) {
+	GET_TXT_STREAM
+        txtStream >> tmpString;
+      }
+      epe->index[j] = tmpString.toInt();
+    }
   }
 
   // Data:
@@ -1034,9 +1041,8 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
     }
   }
   
-  if(index < 0) return;
+  if((index < 0) || (index + 2 > scalarFields - 1)) return;
 
-  // TODO: Make a MATC inquiry for the points
   double x[3];
   ScalarField *sfx = &scalarField[index+0];
   ScalarField *sfy = &scalarField[index+1];
@@ -1046,14 +1052,10 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   points->SetNumberOfPoints(epMesh->epNodes);
 
   for(int i = 0; i < epMesh->epNodes; i++) {
-    // points->SetNumberOfPoints(sfx->values);
-    // for(int i = 0; i < sfx->values; i++) {
     x[0] = sfx->value[i];
     x[1] = sfy->value[i];
     x[2] = sfz->value[i];
     points->InsertPoint(i, x);
-//    EpNode *epn = &epMesh->epNode[i];
-//    points->InsertPoint(i, epn->x);
   }
   volumeGrid->SetPoints(points);
   surfaceGrid->SetPoints(points);
