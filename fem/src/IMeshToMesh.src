@@ -346,10 +346,11 @@
           ALLOCATE( RInd(OldMesh % NumberOfNodes), Basis(OldMesh % MaxElementNodes) )
           RInd = 0
 
+          Found = .TRUE.
           DO i=1,n
              Element => ElemPtrs(i) % Element
              IF ( .NOT. ASSOCIATED( Element ) ) THEN
-               RInd(1)=RInd(1)+1
+               Found = .FALSE.
                Cols(Rows(i))=1
                Values(Rows(i))=0._dp
                CYCLE
@@ -377,30 +378,32 @@
 !
 !         Store also the transpose of the projector:
 !         ------------------------------------------ 
-          n = OldMesh % NumberOfNodes
-          ALLOCATE( Rows(n+1) )
-          Rows(1) = 1
-          DO i=2,n+1
-             Rows(i) = Rows(i-1)+RInd(i-1)
-          END DO
+          IF ( Found ) THEN
+            n = OldMesh % NumberOfNodes
+            ALLOCATE( Rows(n+1) )
+            Rows(1) = 1
+            DO i=2,n+1
+               Rows(i) = Rows(i-1)+RInd(i-1)
+            END DO
 
-          ALLOCATE( Cols(Rows(n+1)-1), Values(Rows(n+1)-1) )
-          Projector % TMatrix => AllocateMatrix()
-          Projector % TMatrix % NumberOfRows = n
-          Projector % TMatrix % Rows   => Rows
-          Projector % TMatrix % Cols   => Cols 
-          Projector % TMatrix % Values => Values
+            ALLOCATE( Cols(Rows(n+1)-1), Values(Rows(n+1)-1) )
+            Projector % TMatrix => AllocateMatrix()
+            Projector % TMatrix % NumberOfRows = n
+            Projector % TMatrix % Rows   => Rows
+            Projector % TMatrix % Cols   => Cols 
+            Projector % TMatrix % Values => Values
 
-          RInd = 0
-          DO i=1,Projector % Matrix % NumberOfRows
-             DO j=Projector % Matrix % Rows(i), Projector % Matrix % Rows(i+1)-1
-                k = Projector % Matrix % Cols(j)
-                l = Rows(k)+RInd(k)
-                RInd(k) = RInd(k)+1
-                Cols(l) = i
-                Values(l) = Projector % Matrix % Values(j)
-             END DO
-          END DO
+            RInd = 0
+            DO i=1,Projector % Matrix % NumberOfRows
+               DO j=Projector % Matrix % Rows(i), Projector % Matrix % Rows(i+1)-1
+                  k = Projector % Matrix % Cols(j)
+                  l = Rows(k)+RInd(k)
+                  RInd(k) = RInd(k)+1
+                  Cols(l) = i
+                  Values(l) = Projector % Matrix % Values(j)
+               END DO
+            END DO
+         END IF
 
           DEALLOCATE(RInd)
           IF ( PRESENT(OldVariables) ) CALL ApplyProjector
