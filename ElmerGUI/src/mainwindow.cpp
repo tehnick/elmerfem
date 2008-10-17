@@ -4123,7 +4123,7 @@ void MainWindow::meshcontrolSlot()
 void MainWindow::remeshSlot()
 {
   if(activeGenerator == GEN_UNKNOWN) {
-    logMessage("Unable to (re)mesh: no input data or mesh generator");
+    logMessage("Unable to (re)mesh: no input data or mesh generator (please make sure that your input file suffix is in lower case)");
     return;
   }
   
