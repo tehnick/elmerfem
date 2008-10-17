@@ -65,6 +65,7 @@ class Surface;
 class Preferences;
 class Vector;
 class StreamLine;
+class TimeStep;
 class Matc;
 
 class VtkPost : public QMainWindow
@@ -100,6 +101,7 @@ private slots:
   void showIsoSurfaceDialogSlot();
   void showColorBarDialogSlot();
   void showStreamLineDialogSlot();
+  void showTimeStepDialogSlot();
   void preferencesSlot();
 
   void drawMeshPointSlot();
@@ -152,6 +154,7 @@ private:
   QAction *drawIsoSurfaceAct;
   QAction *drawColorBarAct;
   QAction *drawStreamLineAct;
+  QAction *timeStepAct;
 
   void createActions();
   void createMenus();
@@ -198,6 +201,7 @@ private:
   ColorBar *colorBar;       // ui
   Preferences *preferences; // ui
   Matc *matc;               // ui
+  TimeStep *timeStep;       // ui
 
   QString currentSurfaceName;
   QString currentVectorName;

@@ -50,6 +50,7 @@
 #include "preferences.h"
 #include "vector.h"
 #include "streamline.h"
+#include "timestep.h"
 
 #include <QVTKWidget.h>
 
@@ -186,6 +187,8 @@ VtkPost::VtkPost(QWidget *parent)
 
   preferences = new Preferences(this);
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
+
+  timeStep = new TimeStep(this);
 
 #ifdef MATC
   matc = new Matc(this);
@@ -337,6 +340,11 @@ void VtkPost::createActions()
   regenerateGridsAct = new QAction(QIcon(""), tr("Regenerate all..."), this);
   regenerateGridsAct->setStatusTip("Regerate all meshes");
   connect(regenerateGridsAct, SIGNAL(triggered()), this, SLOT(regenerateGridsSlot()));
+
+  timeStepAct = new QAction(QIcon(""), tr("Time steps"), this);
+  timeStepAct->setStatusTip("Time step control");
+  connect(timeStepAct, SIGNAL(triggered()), this, SLOT(showTimeStepDialogSlot()));
+
 }
 
 void VtkPost::createMenus()
@@ -354,7 +362,9 @@ void VtkPost::createMenus()
   editGroupsMenu = new QMenu(tr("Groups"));
   editMenu->addMenu(editGroupsMenu);
   editMenu->addSeparator();
+  editMenu->addAction(timeStepAct);
 #ifdef MATC
+  editMenu->addSeparator();
   editMenu->addAction( matcAct );
 #endif
 
@@ -1558,9 +1568,9 @@ void VtkPost::drawStreamLineSlot()
   bool drawRake = streamLine->ui.rake->isChecked();
   int rakeWidth = streamLine->ui.rakeWidth->value();
 
-  int timeStep = preferences->ui.timeStep->value();
-  if(timeStep > timeSteps) timeStep = timeSteps;
-  int offset = epMesh->epNodes * (timeStep - 1);
+  int step = timeStep->ui.timeStep->value();
+  if(step > timeSteps) step = timeSteps;
+  int offset = epMesh->epNodes * (step - 1);
 
   // Point source:
   double centerX = streamLine->ui.centerX->text().toDouble();
@@ -1752,9 +1762,9 @@ void VtkPost::drawVectorSlot()
   int scaleMultiplier = vector->ui.scaleSpin->value();
   bool scaleByMagnitude = vector->ui.scaleByMagnitude->isChecked();
 
-  int timeStep = preferences->ui.timeStep->value();
-  if(timeStep > timeSteps) timeStep = timeSteps;
-  int offset = epMesh->epNodes * (timeStep - 1);
+  int step = timeStep->ui.timeStep->value();
+  if(step > timeSteps) step = timeSteps;
+  int offset = epMesh->epNodes * (step - 1);
 
   // Vector data:
   //-------------
@@ -1881,9 +1891,9 @@ void VtkPost::drawSurfaceSlot()
   double opacity = surface->ui.opacitySpin->value() / 100.0;
   bool useClip = surface->ui.clipPlane->isChecked();
 
-  int timeStep = preferences->ui.timeStep->value();
-  if(timeStep > timeSteps) timeStep = timeSteps;
-  int offset = epMesh->epNodes * (timeStep - 1);
+  int step = timeStep->ui.timeStep->value();
+  if(step > timeSteps) step = timeSteps;
+  int offset = epMesh->epNodes * (step - 1);
 
   // Scalars:
   //---------
@@ -2016,9 +2026,9 @@ void VtkPost::drawIsoSurfaceSlot()
   double opacity = isoSurface->ui.opacitySpin->value() / 100.0;
   bool useClip = isoSurface->ui.clipPlane->isChecked();
 
-  int timeStep = preferences->ui.timeStep->value();
-  if(timeStep > timeSteps) timeStep = timeSteps;
-  int offset = epMesh->epNodes * (timeStep - 1);
+  int step = timeStep->ui.timeStep->value();
+  if(step > timeSteps) step = timeSteps;
+  int offset = epMesh->epNodes * (step - 1);
 
   if(contourName == "Null") return;
 
@@ -2161,9 +2171,9 @@ void VtkPost::drawIsoContourSlot()
   double colorMinVal = isoContour->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoContour->ui.colorMaxEdit->text().toDouble();
 
-  int timeStep = preferences->ui.timeStep->value();
-  if(timeStep > timeSteps) timeStep = timeSteps;
-  int offset = epMesh->epNodes * (timeStep - 1);
+  int step = timeStep->ui.timeStep->value();
+  if(step > timeSteps) step = timeSteps;
+  int offset = epMesh->epNodes * (step - 1);
 
   if(contourName == "Null") return;
 
@@ -2243,4 +2253,11 @@ void VtkPost::setupClipPlane()
 
   clipPlane->SetOrigin(px, py, pz);
   clipPlane->SetNormal(nx, ny, nz);
+}
+
+// Time step control:
+//----------------------------------------------------------------------
+void VtkPost::showTimeStepDialogSlot()
+{
+  timeStep->show();
 }
