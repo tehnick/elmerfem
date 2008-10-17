@@ -342,7 +342,7 @@ void VtkPost::createActions()
   regenerateGridsAct->setStatusTip("Regerate all meshes");
   connect(regenerateGridsAct, SIGNAL(triggered()), this, SLOT(regenerateGridsSlot()));
 
-  timeStepAct = new QAction(QIcon(""), tr("Time steps"), this);
+  timeStepAct = new QAction(QIcon(""), tr("Time step control"), this);
   timeStepAct->setStatusTip("Time step control");
   connect(timeStepAct, SIGNAL(triggered()), this, SLOT(showTimeStepDialogSlot()));
 
@@ -783,6 +783,8 @@ bool VtkPost::readPostFile(QString postFileName)
   cout << "Timesteps: " << timesteps << endl;
 
   timeStep->maxSteps = timesteps;
+  timeStep->ui.start->setValue(1);
+  timeStep->ui.stop->setValue(timesteps);
 
   // Read field names & set up menu actions:
   //=========================================

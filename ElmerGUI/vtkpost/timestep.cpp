@@ -86,15 +86,32 @@ void TimeStep::canProceedWithNext()
 {
   if(!loopOn) return;
 
-  int i = ui.timeStep->value();
+  int current = ui.timeStep->value();
+  int stop = ui.stop->value();
+  int increment = ui.increment->value();
+  if(increment < 1) {
+    increment = 1;
+    ui.increment->setValue(increment);
+  }
+  if(stop > maxSteps) {
+    stop = maxSteps;
+    ui.stop->setValue(stop);
+  }
 
-  if(i >= maxSteps) {
+  if(current > stop) {
     loopOn = false;
     ui.loopButton->setText("Loop");
     this->repaint();
   } else {
     ui.loopButton->setText("Stop");
-    ui.timeStep->setValue(i+1);
+    current += increment;
+    if(current > stop) {
+      loopOn = false;
+      ui.loopButton->setText("Loop");
+      this->repaint();
+      return;
+    }
+    ui.timeStep->setValue(current);
     this->repaint();
     applyButtonClicked();
   }
@@ -109,7 +126,34 @@ void TimeStep::loopButtonClicked()
   } else {
     loopOn = true;
     ui.loopButton->setText("Stop");
-    ui.timeStep->setValue(1);
+    int start = ui.start->value();
+    int stop = ui.stop->value();
+    int increment = ui.increment->value();
+    if(start < 1) {
+      start = 1;
+      ui.start->setValue(start);
+    }
+    if(start > maxSteps) {
+      start = maxSteps;
+      ui.start->setValue(start);
+    }
+    if(stop < 1) {
+      stop = 1;
+      ui.stop->setValue(stop);
+    }
+    if(stop > maxSteps) {
+      stop = maxSteps;
+      ui.stop->setValue(stop);
+    }
+    if(stop < start) {
+      stop = start;
+      ui.stop->setValue(stop);
+    }
+    if(increment < 1) {
+      increment = 1;
+      ui.increment->setValue(increment);
+    }
+    ui.timeStep->setValue(start);
     this->repaint();
     applyButtonClicked();
   }
