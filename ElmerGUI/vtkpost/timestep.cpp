@@ -73,12 +73,21 @@ void TimeStep::cancelButtonClicked()
 
 void TimeStep::okButtonClicked()
 {
-  emit(timeStepChangedSignal());
+  applyButtonClicked();
   close();
 }
 
 void TimeStep::applyButtonClicked()
 {
+  int current = ui.timeStep->value();
+  if(current < 1) {
+    current = 1;
+    ui.timeStep->setValue(current);
+  }
+  if(current > maxSteps) {
+    current = maxSteps;
+    ui.timeStep->setValue(current);
+  }
   emit(timeStepChangedSignal());
 }
 
