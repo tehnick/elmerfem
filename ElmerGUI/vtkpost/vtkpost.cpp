@@ -190,7 +190,7 @@ VtkPost::VtkPost(QWidget *parent)
 #ifdef MATC
   matc = new Matc(this);
   connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
-  connect(matc->ui.mcHistory, SIGNAL(selectionChanged()),this,SLOT(matcCutPasteSlot()));
+  connect(matc->ui.mcHistory, SIGNAL(selectionChanged()), this, SLOT(matcCutPasteSlot()));
   mtc_init( NULL, stdout, stderr ); 
   QString elmerGuiHome = getenv("ELMERGUI_HOME");
   QString mcIniLoad = "source(\"" + elmerGuiHome.replace("\\", "/") + "/edf/mc.ini\")";
@@ -711,10 +711,11 @@ void VtkPost::savePictureSlot()
   }
 
   vtkWindowToImageFilter *image = vtkWindowToImageFilter::New();
-  vtkPNGWriter *writer = vtkPNGWriter::New();
 
   image->SetInput(qvtkWidget->GetRenderWindow());
   image->Update();
+
+  vtkPNGWriter *writer = vtkPNGWriter::New();
 
   writer->SetInputConnection(image->GetOutputPort());
   writer->SetFileName(fileName.toAscii().data());
@@ -722,8 +723,8 @@ void VtkPost::savePictureSlot()
   qvtkWidget->GetRenderWindow()->Render();
   writer->Write();
 
-  image->Delete();
   writer->Delete();
+  image->Delete();
 }
 
 
@@ -1344,14 +1345,20 @@ void VtkPost::drawMeshPointSlot()
   sphere->SetThetaResolution(pointQuality);
   sphere->SetPhiResolution(pointQuality);
 
-  vtkGlyph3D *glyph = vtkGlyph3D::New();
+  vtkUnstructuredGrid *grid = NULL;
 
   if(useSurfaceGrid) {
-    glyph->SetInput(surfaceGrid);
+    grid = surfaceGrid;
   } else {
-    glyph->SetInput(volumeGrid);
+    grid = volumeGrid;
   }
 
+  if(!grid) return;
+  if(grid->GetNumberOfPoints() < 1) return;
+
+  vtkGlyph3D *glyph = vtkGlyph3D::New();
+
+  glyph->SetInput(grid);
   glyph->SetSourceConnection(sphere->GetOutputPort());
 
   vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
@@ -1378,16 +1385,22 @@ void VtkPost::drawMeshEdgeSlot()
   renderer->RemoveActor(meshEdgeActor);
   if(!drawMeshEdgeAct->isChecked()) return;
 
-  bool useSurfaceMesh = preferences->ui.meshEdgesSurface->isChecked();
+  bool useSurfaceGrid = preferences->ui.meshEdgesSurface->isChecked();
   int lineWidth = preferences->ui.meshLineWidth->value();
 
-  vtkExtractEdges *edges = vtkExtractEdges::New();
+  vtkUnstructuredGrid *grid = NULL;
 
-  if(useSurfaceMesh) {
-    edges->SetInput(surfaceGrid);
+  if(useSurfaceGrid) {
+    grid = surfaceGrid;
   } else {
-    edges->SetInput(volumeGrid);
+    grid = volumeGrid;
   }
+
+  if(!grid) return;
+  if(grid->GetNumberOfCells() < 1) return;
+
+  vtkExtractEdges *edges = vtkExtractEdges::New();
+  edges->SetInput(grid);
 
   vtkDataSetMapper *mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(edges->GetOutputPort());
@@ -1419,13 +1432,20 @@ void VtkPost::drawFeatureEdgesSlot()
   int featureAngle = preferences->ui.angleSpin->value();
   int lineWidth = preferences->ui.lineWidthSpin->value();
   
+  vtkUnstructuredGrid *grid = NULL;
+
+  if(useSurfaceGrid) {
+    grid = surfaceGrid;
+  } else {
+    grid = volumeGrid;
+  }
+
+  if(!grid) return;
+  if(grid->GetNumberOfCells() < 1) return;
+
   // Convert from vtkUnstructuredGrid to vtkPolyData:
   vtkGeometryFilter *filter = vtkGeometryFilter::New();
-  if(useSurfaceGrid) {
-    filter->SetInput(surfaceGrid);
-  } else {
-    filter->SetInput(volumeGrid);
-  }
+  filter->SetInput(grid);
   filter->GetOutput()->ReleaseDataFlagOn();
 
   vtkFeatureEdges *edges = vtkFeatureEdges::New();
@@ -1546,8 +1566,8 @@ void VtkPost::drawStreamLineSlot()
   else
     grid = volumeGrid;
 
-  if(grid->GetNumberOfCells() < 1)
-    return;
+  if(!grid) return;
+  if(grid->GetNumberOfCells() < 1) return;
 
   // Vector data:
   //-------------
