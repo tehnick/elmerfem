@@ -828,6 +828,23 @@ bool VtkPost::readPostFile(QString postFileName)
   // Add nodes to field variables:
   //-------------------------------
   addVectorField("Nodes", nodes);
+  int index = -1;
+  for(int i = 0; i < scalarFields; i++) {
+    ScalarField *sf = &scalarField[i];
+    if(sf->name == "Nodes_x") {
+      index = i;
+      break;
+    }
+  }
+  ScalarField *sfx = &scalarField[index+0];
+  ScalarField *sfy = &scalarField[index+1];
+  ScalarField *sfz = &scalarField[index+2];
+  for( int i=0; i<nodes; i++ )
+  {
+    sfx->value[i] = epMesh->epNode[i].x[0];
+    sfy->value[i] = epMesh->epNode[i].x[1];
+    sfz->value[i] = epMesh->epNode[i].x[2];
+  }
 
   // Elements:
   //==========
@@ -1020,11 +1037,10 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   if(index < 0) return;
 
   // TODO: Make a MATC inquiry for the points
-
-  // double x[3];
-  // ScalarField *sfx = &scalarField[index + 0];
-  // ScalarField *sfy = &scalarField[index + 1];
-  // ScalarField *sfz = &scalarField[index + 2];
+  double x[3];
+  ScalarField *sfx = &scalarField[index+0];
+  ScalarField *sfy = &scalarField[index+1];
+  ScalarField *sfz = &scalarField[index+2];
   
   vtkPoints *points = vtkPoints::New();
   points->SetNumberOfPoints(epMesh->epNodes);
@@ -1032,12 +1048,12 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   for(int i = 0; i < epMesh->epNodes; i++) {
     // points->SetNumberOfPoints(sfx->values);
     // for(int i = 0; i < sfx->values; i++) {
-    // x[0] = sfx->value[i];
-    // x[1] = sfy->value[i];
-    // x[2] = sfz->value[i];
-    // points->InsertPoint(i, x);
-    EpNode *epn = &epMesh->epNode[i];
-    points->InsertPoint(i, epn->x);
+    x[0] = sfx->value[i];
+    x[1] = sfy->value[i];
+    x[2] = sfz->value[i];
+    points->InsertPoint(i, x);
+//    EpNode *epn = &epMesh->epNode[i];
+//    points->InsertPoint(i, epn->x);
   }
   volumeGrid->SetPoints(points);
   surfaceGrid->SetPoints(points);
