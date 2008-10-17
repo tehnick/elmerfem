@@ -130,6 +130,7 @@ private slots:
   void populateWidgetsSlot();
 
   void savePictureSlot();
+  void timeStepChangedSlot();
 
 private:
   QMenu *fileMenu;

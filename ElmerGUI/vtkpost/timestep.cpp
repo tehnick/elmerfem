@@ -71,9 +71,11 @@ void TimeStep::cancelButtonClicked()
 
 void TimeStep::okButtonClicked()
 {
+  emit(timeStepChangedSignal());
   close();
 }
 
 void TimeStep::applyButtonClicked()
 {
+  emit(timeStepChangedSignal());
 }

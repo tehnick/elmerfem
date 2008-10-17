@@ -189,6 +189,7 @@ VtkPost::VtkPost(QWidget *parent)
   connect(preferences, SIGNAL(redrawSignal()), this, SLOT(redrawSlot()));
 
   timeStep = new TimeStep(this);
+  connect(timeStep, SIGNAL(timeStepChangedSignal()), this, SLOT(timeStepChangedSlot()));
 
 #ifdef MATC
   matc = new Matc(this);
@@ -2260,4 +2261,9 @@ void VtkPost::setupClipPlane()
 void VtkPost::showTimeStepDialogSlot()
 {
   timeStep->show();
+}
+
+void VtkPost::timeStepChangedSlot()
+{
+  redrawSlot();
 }

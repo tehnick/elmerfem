@@ -59,6 +59,7 @@ public:
   int timeSteps;
 
 signals:
+  void timeStepChangedSignal();
 
 private slots:
   void cancelButtonClicked();
