@@ -61,12 +61,17 @@ public:
 signals:
   void timeStepChangedSignal();
 
+public slots:
+  void canProceedWithNext();
+
 private slots:
   void cancelButtonClicked();
   void applyButtonClicked();
   void okButtonClicked();
+  void loopButtonClicked();
 
 private:
+  bool loopOn;
 
 };
 

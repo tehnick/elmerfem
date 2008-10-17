@@ -54,8 +54,10 @@ TimeStep::TimeStep(QWidget *parent)
   connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(cancelButtonClicked()));
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+  connect(ui.loopButton, SIGNAL(clicked()), this, SLOT(loopButtonClicked()));
 
   maxSteps = 0;
+  loopOn = false;
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -78,4 +80,37 @@ void TimeStep::okButtonClicked()
 void TimeStep::applyButtonClicked()
 {
   emit(timeStepChangedSignal());
+}
+
+void TimeStep::canProceedWithNext()
+{
+  if(!loopOn) return;
+
+  int i = ui.timeStep->value();
+
+  if(i >= maxSteps) {
+    loopOn = false;
+    ui.loopButton->setText("Loop");
+    this->repaint();
+  } else {
+    ui.loopButton->setText("Stop");
+    ui.timeStep->setValue(i+1);
+    this->repaint();
+    applyButtonClicked();
+  }
+}
+
+void TimeStep::loopButtonClicked()
+{
+  if(loopOn) {
+    loopOn = false;
+    ui.loopButton->setText("Loop");
+    this->repaint();
+  } else {
+    loopOn = true;
+    ui.loopButton->setText("Stop");
+    ui.timeStep->setValue(1);
+    this->repaint();
+    applyButtonClicked();
+  }
 }

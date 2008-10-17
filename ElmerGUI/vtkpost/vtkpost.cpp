@@ -217,7 +217,7 @@ VtkPost::VtkPost(QWidget *parent)
 
   // Central widget:
   //----------------
-  qvtkWidget = new QVTKWidget;
+  qvtkWidget = new QVTKWidget(this);
   setCentralWidget(qvtkWidget);
 
   // VTK interaction:
@@ -1221,6 +1221,8 @@ void VtkPost::redrawSlot()
   renderer->ResetCamera();
 
   qvtkWidget->GetRenderWindow()->Render();
+
+  timeStep->canProceedWithNext();
 }
 
 
