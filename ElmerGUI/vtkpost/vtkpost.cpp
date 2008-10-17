@@ -558,7 +558,7 @@ void VtkPost::domatcSlot()
    for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
    {
      var = (VARIABLE *)lst;
-     if ( !NAME(var) || NCOL(var)!=epMesh->epNodes ) continue;
+     if ( !NAME(var) || (NCOL(var) % epMesh->epNodes != 0) ) continue;
 
      int found = false,n;
      for( int i=0; i<scalarFields; i++ )
@@ -574,7 +574,7 @@ void VtkPost::domatcSlot()
            }
            sf->minVal =  1e99;
            sf->maxVal = -1e99;
-           for(int j=0; j<epMesh->epNodes; j++) {
+           for(int j=0; j < sf->values; j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
            }
@@ -609,7 +609,7 @@ void VtkPost::domatcSlot()
             }
             sf->minVal =  1e99;
             sf->maxVal = -1e99;
-            for(int j=0; j<epMesh->epNodes; j++) {
+            for(int j=0; j<sf->values; j++) {
               if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
               if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
             }
@@ -620,26 +620,26 @@ void VtkPost::domatcSlot()
      if ( !found ) 
      {
         if ( NROW(var) == 1 ) {
-          ScalarField *sf = addScalarField( NAME(var),epMesh->epNodes,NULL );
-          for(int j = 0; j<epMesh->epNodes; j++) {
+          ScalarField *sf = addScalarField( NAME(var),NCOL(var),NULL );
+          for(int j = 0; j<NCOL(var); j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
         } else if ( NROW(var) == 3 ) {
           QString qs = NAME(var);
           ScalarField *sf;
-          sf = addScalarField( qs+"_x",epMesh->epNodes, &M(var,0,0) );
-          for(int j = 0; j<epMesh->epNodes; j++) {
+          sf = addScalarField( qs+"_x",NCOL(var), &M(var,0,0) );
+          for(int j = 0; j<NCOL(var); j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
-          sf = addScalarField( qs+"_y",epMesh->epNodes, &M(var,1,0) );
-          for(int j = 0; j<epMesh->epNodes; j++) {
+          sf = addScalarField( qs+"_y",NCOL(var), &M(var,1,0) );
+	      for(int j = 0; j<NCOL(var); j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
-          sf = addScalarField( qs+"_z",epMesh->epNodes, &M(var,2,0) );
-          for(int j = 0; j<epMesh->epNodes; j++) {
+          sf = addScalarField( qs+"_z",NCOL(var), &M(var,2,0) );
+		  for(int j = 0; j<NCOL(var); j++) {
              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
           }
@@ -662,7 +662,7 @@ void VtkPost::domatcSlot()
       for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
       {
         var = (VARIABLE *)lst;
-        if ( !NAME(var) || NCOL(var) != epMesh->epNodes ) continue;
+        if ( !NAME(var) || (NCOL(var) % epMesh->epNodes != 0) ) continue;
 
         if ( NROW(var)==1 && sf->name == NAME(var) )
         {
@@ -766,6 +766,8 @@ bool VtkPost::readPostFile(QString postFileName)
   cout << "Scalar components: " << components << endl;
   cout << "Timesteps: " << timesteps << endl;
 
+  this->timeSteps = timesteps;
+
   // Read field names & set up menu actions:
   //=========================================
   if(epMesh->epNode) delete [] epMesh->epNode;
@@ -786,7 +788,7 @@ bool VtkPost::readPostFile(QString postFileName)
   // Add the null field:
   //--------------------
   QString fieldName = "Null";
-  ScalarField *nullField = addScalarField(fieldName, nodes, NULL);
+  ScalarField *nullField = addScalarField(fieldName, nodes * timesteps, NULL);
   nullField->minVal = 0.0;
   nullField->maxVal = 0.0;
 
@@ -804,10 +806,10 @@ bool VtkPost::readPostFile(QString postFileName)
     cout << "Field name: " << fieldName.toAscii().data() << endl;
 
     if(fieldType == "scalar")
-      addScalarField(fieldName,nodes,NULL);
+      addScalarField(fieldName, nodes * timesteps, NULL);
 
     if(fieldType == "vector") {
-      addVectorField(fieldName,nodes);
+      addVectorField(fieldName, nodes * timesteps);
       i += 2;
     }
   }
@@ -840,7 +842,7 @@ bool VtkPost::readPostFile(QString postFileName)
   ScalarField *sfx = &scalarField[index+0];
   ScalarField *sfy = &scalarField[index+1];
   ScalarField *sfz = &scalarField[index+2];
-  for( int i=0; i<nodes; i++ )
+  for( int i=0; i < nodes; i++ )
   {
     sfx->value[i] = epMesh->epNode[i].x[0];
     sfy->value[i] = epMesh->epNode[i].x[1];
@@ -876,21 +878,21 @@ bool VtkPost::readPostFile(QString postFileName)
   // Data:
   //=======
   ScalarField *sf;
-  for(int i = 0; i < nodes; i++) {
+  for(int i = 0; i < nodes * timesteps; i++) {
     GET_TXT_STREAM
 
-    for(int j = 0; j<scalarFields-4; j++) { // - 4 = no nodes, no null field
-      sf = &scalarField[j+1];               // + 1 = skip null field
+    for(int j = 0; j < scalarFields-4; j++) { // - 4 = no nodes, no null field
+      sf = &scalarField[j+1];                 // + 1 = skip null field
       txtStream >> sf->value[i];
     }
   }
 
-  // initial min & max values:
+  // Initial min & max values:
   //============================
   for( int f=0; f<scalarFields; f++  )
   {
      sf = &scalarField[f];
-     for( int i=0; i<nodes; i++ )
+     for( int i=0; i < nodes * timesteps; i++ )
      {
        if(sf->value[i] > sf->maxVal)
          sf->maxVal = sf->value[i];
@@ -1551,6 +1553,10 @@ void VtkPost::drawStreamLineSlot()
   bool drawRake = streamLine->ui.rake->isChecked();
   int rakeWidth = streamLine->ui.rakeWidth->value();
 
+  int timeStep = preferences->ui.timeStep->value();
+  if(timeStep > timeSteps) timeStep = timeSteps;
+  int offset = epMesh->epNodes * (timeStep - 1);
+
   // Point source:
   double centerX = streamLine->ui.centerX->text().toDouble();
   double centerY = streamLine->ui.centerY->text().toDouble();
@@ -1577,12 +1583,12 @@ void VtkPost::drawStreamLineSlot()
   ScalarField *sf_y = &scalarField[index + 1];
   ScalarField *sf_z = &scalarField[index + 2];
   vectorData->SetNumberOfComponents(3);
-  vectorData->SetNumberOfTuples(sf_x->values);
+  vectorData->SetNumberOfTuples(epMesh->epNodes);
   vectorData->SetName("VectorData");
-  for(int i = 0; i < sf_x->values; i++) {
-    double val_x  = sf_x->value[i];
-    double val_y  = sf_y->value[i];
-    double val_z  = sf_z->value[i];
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    double val_x  = sf_x->value[i + offset];
+    double val_y  = sf_y->value[i + offset];
+    double val_z  = sf_z->value[i + offset];
     vectorData->SetComponent(i, 0, val_x); 
     vectorData->SetComponent(i, 1, val_y); 
     vectorData->SetComponent(i, 2, val_z); 
@@ -1595,10 +1601,10 @@ void VtkPost::drawStreamLineSlot()
   ScalarField *sf = &scalarField[colorIndex];
   vtkFloatArray *vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
-  vectorColor->SetNumberOfTuples(sf->values);
+  vectorColor->SetNumberOfTuples(epMesh->epNodes);
   vectorColor->SetName("StreamLineColor");
-  for(int i = 0; i < sf->values; i++) 
-    vectorColor->SetComponent(i, 0, sf->value[i]); 
+  for(int i = 0; i < epMesh->epNodes; i++) 
+    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
   grid->GetPointData()->AddArray(vectorColor);
 
   // Generate stream lines:
@@ -1741,6 +1747,10 @@ void VtkPost::drawVectorSlot()
   int scaleMultiplier = vector->ui.scaleSpin->value();
   bool scaleByMagnitude = vector->ui.scaleByMagnitude->isChecked();
 
+  int timeStep = preferences->ui.timeStep->value();
+  if(timeStep > timeSteps) timeStep = timeSteps;
+  int offset = epMesh->epNodes * (timeStep - 1);
+
   // Vector data:
   //-------------
   volumeGrid->GetPointData()->RemoveArray("VectorData");
@@ -1749,13 +1759,13 @@ void VtkPost::drawVectorSlot()
   ScalarField *sf_y = &scalarField[index + 1];
   ScalarField *sf_z = &scalarField[index + 2];
   vectorData->SetNumberOfComponents(3);
-  vectorData->SetNumberOfTuples(sf_x->values);
+  vectorData->SetNumberOfTuples(epMesh->epNodes);
   vectorData->SetName("VectorData");
   double scaleFactor = 0.0;
-  for(int i = 0; i < sf_x->values; i++) {
-    double val_x  = sf_x->value[i];
-    double val_y  = sf_y->value[i];
-    double val_z  = sf_z->value[i];
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    double val_x  = sf_x->value[i + offset];
+    double val_y  = sf_y->value[i + offset];
+    double val_z  = sf_z->value[i + offset];
     double absval = sqrt(val_x*val_x + val_y*val_y + val_z*val_z);
     if(absval > scaleFactor) scaleFactor = absval;
     vectorData->SetComponent(i, 0, val_x); 
@@ -1776,10 +1786,10 @@ void VtkPost::drawVectorSlot()
   ScalarField *sf = &scalarField[colorIndex];
   vtkFloatArray *vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
-  vectorColor->SetNumberOfTuples(sf->values);
+  vectorColor->SetNumberOfTuples(epMesh->epNodes);
   vectorColor->SetName("VectorColor");
-  for(int i = 0; i < sf->values; i++) 
-    vectorColor->SetComponent(i, 0, sf->value[i]); 
+  for(int i = 0; i < epMesh->epNodes; i++) 
+    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
   volumeGrid->GetPointData()->AddArray(vectorColor);
 
   // Glyphs:
@@ -1866,16 +1876,20 @@ void VtkPost::drawSurfaceSlot()
   double opacity = surface->ui.opacitySpin->value() / 100.0;
   bool useClip = surface->ui.clipPlane->isChecked();
 
+  int timeStep = preferences->ui.timeStep->value();
+  if(timeStep > timeSteps) timeStep = timeSteps;
+  int offset = epMesh->epNodes * (timeStep - 1);
+
   // Scalars:
   //---------
   surfaceGrid->GetPointData()->RemoveArray("Surface");
   vtkFloatArray *scalars = vtkFloatArray::New();
   ScalarField *sf = &scalarField[surfaceIndex];
   scalars->SetNumberOfComponents(1);
-  scalars->SetNumberOfTuples(sf->values);
+  scalars->SetNumberOfTuples(epMesh->epNodes);
   scalars->SetName("Surface");
-  for(int i = 0; i < sf->values; i++)
-    scalars->SetComponent(i, 0, sf->value[i]);  
+  for(int i = 0; i < epMesh->epNodes; i++)
+    scalars->SetComponent(i, 0, sf->value[i + offset]);  
   surfaceGrid->GetPointData()->AddArray(scalars);
 
   // Convert from vtkUnstructuredGrid to vtkPolyData:
@@ -1997,6 +2011,10 @@ void VtkPost::drawIsoSurfaceSlot()
   double opacity = isoSurface->ui.opacitySpin->value() / 100.0;
   bool useClip = isoSurface->ui.clipPlane->isChecked();
 
+  int timeStep = preferences->ui.timeStep->value();
+  if(timeStep > timeSteps) timeStep = timeSteps;
+  int offset = epMesh->epNodes * (timeStep - 1);
+
   if(contourName == "Null") return;
 
   // Scalars:
@@ -2005,10 +2023,10 @@ void VtkPost::drawIsoSurfaceSlot()
   vtkFloatArray *contourArray = vtkFloatArray::New();
   ScalarField *sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
-  contourArray->SetNumberOfTuples(sf->values);
+  contourArray->SetNumberOfTuples(epMesh->epNodes);
   contourArray->SetName("IsoSurface");
-  for(int i = 0; i < sf->values; i++)
-    contourArray->SetComponent(i, 0, sf->value[i]);
+  for(int i = 0; i < epMesh->epNodes; i++)
+    contourArray->SetComponent(i, 0, sf->value[i + offset]);
   volumeGrid->GetPointData()->AddArray(contourArray);
 
   volumeGrid->GetPointData()->RemoveArray("IsoSurfaceColor");
@@ -2016,9 +2034,9 @@ void VtkPost::drawIsoSurfaceSlot()
   sf = &scalarField[colorIndex];
   colorArray->SetName("IsoSurfaceColor");
   colorArray->SetNumberOfComponents(1);
-  colorArray->SetNumberOfTuples(sf->values);
-  for(int i = 0; i < sf->values; i++)
-    colorArray->SetComponent(i, 0, sf->value[i]);
+  colorArray->SetNumberOfTuples(epMesh->epNodes);
+  for(int i = 0; i < epMesh->epNodes; i++)
+    colorArray->SetComponent(i, 0, sf->value[i + offset]);
   volumeGrid->GetPointData()->AddArray(colorArray);
 
   // Isosurfaces:
@@ -2138,6 +2156,10 @@ void VtkPost::drawIsoContourSlot()
   double colorMinVal = isoContour->ui.colorMinEdit->text().toDouble();
   double colorMaxVal = isoContour->ui.colorMaxEdit->text().toDouble();
 
+  int timeStep = preferences->ui.timeStep->value();
+  if(timeStep > timeSteps) timeStep = timeSteps;
+  int offset = epMesh->epNodes * (timeStep - 1);
+
   if(contourName == "Null") return;
 
   // Scalars:
@@ -2146,10 +2168,10 @@ void VtkPost::drawIsoContourSlot()
   vtkFloatArray *contourArray = vtkFloatArray::New();
   ScalarField *sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
-  contourArray->SetNumberOfTuples(sf->values);
+  contourArray->SetNumberOfTuples(epMesh->epNodes);
   contourArray->SetName("IsoContour");
-  for(int i = 0; i < sf->values; i++)
-    contourArray->SetComponent(i, 0, sf->value[i]);
+  for(int i = 0; i < epMesh->epNodes; i++)
+    contourArray->SetComponent(i, 0, sf->value[i + offset]);
   surfaceGrid->GetPointData()->AddArray(contourArray);
 
   surfaceGrid->GetPointData()->RemoveArray("IsoContourColor");
@@ -2157,9 +2179,9 @@ void VtkPost::drawIsoContourSlot()
   sf = &scalarField[colorIndex];
   colorArray->SetName("IsoContourColor");
   colorArray->SetNumberOfComponents(1);
-  colorArray->SetNumberOfTuples(sf->values);
-  for(int i = 0; i < sf->values; i++)
-    colorArray->SetComponent(i, 0, sf->value[i]);
+  colorArray->SetNumberOfTuples(epMesh->epNodes);
+  for(int i = 0; i < epMesh->epNodes; i++)
+    colorArray->SetComponent(i, 0, sf->value[i + offset]);
   surfaceGrid->GetPointData()->AddArray(colorArray);
 
   // Isocontours:
