@@ -117,9 +117,10 @@ void TimeStep::canProceedWithNext(vtkRenderWindow *renderWindow)
   int increment = ui.increment->value();
 
   if(saveFrames) {
-    QString saveDir = ui.saveDirectory->text().trimmed() + "/";
+    QString saveDir = ui.saveDirectory->text().trimmed();
+    if(saveDir.isEmpty()) saveDir = ".";
     QString frameName = "frame" + QString::number(current) + ".png";
-    QString fileName = saveDir + frameName;
+    QString fileName = saveDir + "/" + frameName;
 
     vtkWindowToImageFilter *image = vtkWindowToImageFilter::New();
     image->SetInput(renderWindow);
