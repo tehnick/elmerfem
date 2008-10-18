@@ -1227,9 +1227,11 @@ void VtkPost::redrawSlot()
   drawStreamLineSlot();
   drawColorBarSlot();
 
-  qvtkWidget->GetRenderWindow()->Render();
+  vtkRenderWindow *renderWindow = qvtkWidget->GetRenderWindow();
 
-  timeStep->canProceedWithNext();
+  renderWindow->Render();
+
+  timeStep->canProceedWithNext(renderWindow);
 }
 
 

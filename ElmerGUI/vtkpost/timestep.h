@@ -44,7 +44,7 @@
 #include <QWidget>
 #include "ui_timestep.h"
 
-class ScalarField;
+class vtkRenderWindow;
 
 class TimeStep : public QDialog
 {
@@ -62,17 +62,18 @@ signals:
   void timeStepChangedSignal();
 
 public slots:
-  void canProceedWithNext();
+  void canProceedWithNext(vtkRenderWindow*);
 
 private slots:
   void cancelButtonClicked();
   void applyButtonClicked();
   void okButtonClicked();
   void loopButtonClicked();
+  void browseButtonClicked();
 
 private:
   bool loopOn;
-
+  QString saveDir;
 };
 
 #endif // TIMESTEP_H

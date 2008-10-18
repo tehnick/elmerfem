@@ -40,6 +40,9 @@
 
 #include <QtGui>
 #include <iostream>
+#include <vtkRenderWindow.h>
+#include <vtkWindowToImageFilter.h>
+#include <vtkPNGWriter.h>
 #include "timestep.h"
 
 using namespace std;
@@ -53,9 +56,11 @@ TimeStep::TimeStep(QWidget *parent)
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.loopButton, SIGNAL(clicked()), this, SLOT(loopButtonClicked()));
+  connect(ui.browseButton, SIGNAL(clicked()), this, SLOT(browseButtonClicked()));
 
   maxSteps = 0;
   loopOn = false;
+  saveDir = "";
 
   setWindowTitle("Time step control");
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
@@ -63,6 +68,15 @@ TimeStep::TimeStep(QWidget *parent)
 
 TimeStep::~TimeStep()
 {
+}
+
+void TimeStep::browseButtonClicked()
+{
+  QString saveDir = QFileDialog::getExistingDirectory(this,
+	 tr("Save directory"), "", QFileDialog::ShowDirsOnly
+	       | QFileDialog::DontResolveSymlinks);
+
+  ui.saveDirectory->setText(saveDir);
 }
 
 void TimeStep::cancelButtonClicked()
@@ -93,13 +107,34 @@ void TimeStep::applyButtonClicked()
   emit(timeStepChangedSignal());
 }
 
-void TimeStep::canProceedWithNext()
+void TimeStep::canProceedWithNext(vtkRenderWindow *renderWindow)
 {
   if(!loopOn) return;
 
+  bool saveFrames = ui.saveFrames->isChecked();
   int current = ui.timeStep->value();
   int stop = ui.stop->value();
   int increment = ui.increment->value();
+
+  if(saveFrames) {
+    QString saveDir = ui.saveDirectory->text().trimmed() + "/";
+    QString frameName = "frame" + QString::number(current) + ".png";
+    QString fileName = saveDir + frameName;
+
+    vtkWindowToImageFilter *image = vtkWindowToImageFilter::New();
+    image->SetInput(renderWindow);
+    image->Update();
+    
+    vtkPNGWriter *writer =  vtkPNGWriter::New();
+    writer->SetInputConnection(image->GetOutputPort());
+    writer->SetFileName(fileName.toAscii().data());
+
+    renderWindow->Render();
+    writer->Write();
+
+    image->Delete();
+    writer->Delete();
+  }
 
   if(increment < 1) {
     increment = 1;
