@@ -647,11 +647,6 @@ void MainWindow::createActions()
   showCadModelAct->setStatusTip(tr("Displays the cad model in a separate window"));
   connect(showCadModelAct, SIGNAL(triggered()), this, SLOT(showCadModelSlot()));
 
-  // View -> Show Vtk widget
-  showVtkPostAct = new QAction(QIcon(), tr("Postprocessor..."), this);
-  showVtkPostAct->setStatusTip(tr("Invokes the ElmerGUI postprocessor"));
-  connect(showVtkPostAct, SIGNAL(triggered()), this, SLOT(showVtkPostSlot()));
-
   // Solver -> Parallel settings
   parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings..."), this);
   parallelSettingsAct->setStatusTip(tr("Choose parametes and methods for parallel solution"));
@@ -684,6 +679,11 @@ void MainWindow::createActions()
   killresultsAct->setStatusTip(tr("Kill ElmerPost"));
   connect(killresultsAct, SIGNAL(triggered()), this, SLOT(killresultsSlot()));
   killresultsAct->setEnabled(false);
+
+  // Solver -> Show Vtk postprocessor
+  showVtkPostAct = new QAction(QIcon(), tr("Postprocessor (VTK)..."), this);
+  showVtkPostAct->setStatusTip(tr("Invokes the ElmerGUI postprocessor"));
+  connect(showVtkPostAct, SIGNAL(triggered()), this, SLOT(showVtkPostSlot()));
 
   // Solver -> Compiler...
   compileSolverAct = new QAction(QIcon(""), tr("Compiler..."), this);
@@ -791,10 +791,6 @@ void MainWindow::createMenus()
 
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));
-#ifdef VTKPOST
-  viewMenu->addAction(showVtkPostAct);
-  viewMenu->addSeparator();
-#endif
   viewMenu->addAction(viewFullScreenAct);
   viewMenu->addSeparator();
   viewMenu->addAction(hidesurfacemeshAct);
@@ -839,7 +835,6 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
-
 #ifdef OCC62
   viewMenu->addSeparator();
   viewMenu->addAction(showCadModelAct);
@@ -861,6 +856,10 @@ void MainWindow::createMenus()
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
+#ifdef VTKPOST
+  solverMenu->addSeparator();
+  solverMenu->addAction(showVtkPostAct);
+#endif
   solverMenu->addSeparator();
   solverMenu->addAction(compileSolverAct);
 
