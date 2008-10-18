@@ -40,8 +40,6 @@
 
 #include <QtGui>
 #include <iostream>
-#include "epmesh.h"
-#include "vtkpost.h"
 #include "timestep.h"
 
 using namespace std;
@@ -59,6 +57,7 @@ TimeStep::TimeStep(QWidget *parent)
   maxSteps = 0;
   loopOn = false;
 
+  setWindowTitle("Time step control");
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
@@ -74,20 +73,23 @@ void TimeStep::cancelButtonClicked()
 void TimeStep::okButtonClicked()
 {
   applyButtonClicked();
-  close();
+  cancelButtonClicked();
 }
 
 void TimeStep::applyButtonClicked()
 {
   int current = ui.timeStep->value();
+
   if(current < 1) {
     current = 1;
     ui.timeStep->setValue(current);
   }
+
   if(current > maxSteps) {
     current = maxSteps;
     ui.timeStep->setValue(current);
   }
+
   emit(timeStepChangedSignal());
 }
 
@@ -98,10 +100,12 @@ void TimeStep::canProceedWithNext()
   int current = ui.timeStep->value();
   int stop = ui.stop->value();
   int increment = ui.increment->value();
+
   if(increment < 1) {
     increment = 1;
     ui.increment->setValue(increment);
   }
+
   if(stop > maxSteps) {
     stop = maxSteps;
     ui.stop->setValue(stop);
@@ -111,15 +115,18 @@ void TimeStep::canProceedWithNext()
     loopOn = false;
     ui.loopButton->setText("Loop");
     this->repaint();
+
   } else {
     ui.loopButton->setText("Stop");
     current += increment;
+
     if(current > stop) {
       loopOn = false;
       ui.loopButton->setText("Loop");
       this->repaint();
       return;
     }
+
     ui.timeStep->setValue(current);
     this->repaint();
     applyButtonClicked();
@@ -132,36 +139,44 @@ void TimeStep::loopButtonClicked()
     loopOn = false;
     ui.loopButton->setText("Loop");
     this->repaint();
+ 
   } else {
     loopOn = true;
     ui.loopButton->setText("Stop");
     int start = ui.start->value();
     int stop = ui.stop->value();
     int increment = ui.increment->value();
+
     if(start < 1) {
       start = 1;
       ui.start->setValue(start);
     }
+
     if(start > maxSteps) {
       start = maxSteps;
       ui.start->setValue(start);
     }
+
     if(stop < 1) {
       stop = 1;
       ui.stop->setValue(stop);
     }
+
     if(stop > maxSteps) {
       stop = maxSteps;
       ui.stop->setValue(stop);
     }
+
     if(stop < start) {
       stop = start;
       ui.stop->setValue(stop);
     }
+
     if(increment < 1) {
       increment = 1;
       ui.increment->setValue(increment);
     }
+
     ui.timeStep->setValue(start);
     this->repaint();
     applyButtonClicked();

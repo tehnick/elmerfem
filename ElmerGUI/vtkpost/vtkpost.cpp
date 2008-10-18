@@ -326,9 +326,13 @@ void VtkPost::createActions()
   redrawAct->setStatusTip("Redraw");
   connect(redrawAct, SIGNAL(triggered()), this, SLOT(redrawSlot()));
 
+  fitToWindowAct = new QAction(QIcon(""), tr("Fit to window"), this);
+  fitToWindowAct->setStatusTip("Fit model to window");
+  connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
+
   preferencesAct = new QAction(QIcon(""), tr("Preferences"), this);
   preferencesAct->setStatusTip("Show preferences");
-  connect(preferencesAct, SIGNAL(triggered()), this, SLOT(preferencesSlot()));
+  connect(preferencesAct, SIGNAL(triggered()), this, SLOT(showPreferencesDialogSlot()));
 
   // Edit menu:
   //------------
@@ -389,6 +393,7 @@ void VtkPost::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(preferencesAct);
   viewMenu->addSeparator();
+  viewMenu->addAction(fitToWindowAct);
   viewMenu->addAction(redrawAct);
 }
 
@@ -957,6 +962,8 @@ bool VtkPost::readPostFile(QString postFileName)
   //---------------------------
   drawSurfaceAct->setChecked(true);
   redrawSlot();
+
+  renderer->ResetCamera();
   
   return true;
 }
@@ -1191,7 +1198,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
 // Show preferences dialog:
 //----------------------------------------------------------------------
-void VtkPost::preferencesSlot()
+void VtkPost::showPreferencesDialogSlot()
 {
   preferences->show();
 }
@@ -1219,8 +1226,6 @@ void VtkPost::redrawSlot()
   drawIsoSurfaceSlot();
   drawStreamLineSlot();
   drawColorBarSlot();
-
-  renderer->ResetCamera();
 
   qvtkWidget->GetRenderWindow()->Render();
 
@@ -2270,4 +2275,11 @@ void VtkPost::showTimeStepDialogSlot()
 void VtkPost::timeStepChangedSlot()
 {
   redrawSlot();
+}
+
+// Fit to windows:
+//----------------------------------------------------------------------
+void VtkPost::fitToWindowSlot()
+{
+  renderer->ResetCamera();  
 }

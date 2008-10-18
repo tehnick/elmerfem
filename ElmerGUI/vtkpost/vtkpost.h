@@ -102,7 +102,7 @@ private slots:
   void showColorBarDialogSlot();
   void showStreamLineDialogSlot();
   void showTimeStepDialogSlot();
-  void preferencesSlot();
+  void showPreferencesDialogSlot();
 
   void drawMeshPointSlot();
   void drawMeshEdgeSlot();
@@ -121,13 +121,12 @@ private slots:
   void hideColorBarSlot();
   void hideStreamLineSlot();
 
-  void setupClipPlane();
-
   void groupChangedSlot(QAction*);
   void regenerateGridsSlot();
   void maybeRedrawSlot(bool);
   void redrawSlot();
   void populateWidgetsSlot();
+  void fitToWindowSlot();
 
   void savePictureSlot();
   void timeStepChangedSlot();
@@ -156,6 +155,7 @@ private:
   QAction *drawColorBarAct;
   QAction *drawStreamLineAct;
   QAction *timeStepAct;
+  QAction *fitToWindowAct;
 
   void createActions();
   void createMenus();
@@ -170,6 +170,7 @@ private:
 
   void addVectorField(QString, int);
   ScalarField* addScalarField(QString, int, double *);
+  void setupClipPlane();
 
   QHash<QString, QAction*> groupActionHash;
 
