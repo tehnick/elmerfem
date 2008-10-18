@@ -1557,6 +1557,13 @@ void VtkPost::drawStreamLineSlot()
   int threads = streamLine->ui.threads->value();
   bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
   bool lineSource = streamLine->ui.lineSource->isChecked();
+  bool forward = streamLine->ui.forward->isChecked();
+  bool backward = streamLine->ui.backward->isChecked();
+
+  if(!(forward || backward)) {
+    qvtkWidget->GetRenderWindow()->Render();
+    return;
+  }
 
   // Color:
   int colorIndex = streamLine->ui.colorCombo->currentIndex();
@@ -1663,7 +1670,13 @@ void VtkPost::drawStreamLineSlot()
   streamer->SetIntegrator(integrator);
   streamer->SetMaximumPropagationTime(propagationTime);
   streamer->SetIntegrationStepLength(integStepLength);
-  streamer->SetIntegrationDirectionToForward();
+  if(forward && backward) {
+    streamer->SetIntegrationDirectionToIntegrateBothDirections();
+  } else if(forward) {
+    streamer->SetIntegrationDirectionToForward();    
+  } else {
+    streamer->SetIntegrationDirectionToBackward();
+  }
   streamer->SetStepLength(stepLength);
   streamer->SetNumberOfThreads(threads);
   
@@ -1700,7 +1713,7 @@ void VtkPost::drawStreamLineSlot()
   currentStreamLineName = colorName;
   drawColorBarSlot();
 
-  qvtkWidget->GetRenderWindow()->Render();  
+  qvtkWidget->GetRenderWindow()->Render();
 
   line->Delete();
   point->Delete();
