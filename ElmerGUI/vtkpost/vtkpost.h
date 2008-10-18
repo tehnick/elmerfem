@@ -84,6 +84,8 @@ public:
   virtual void curl(double *,double *);
   virtual void grad(double *,double *);
 
+  QVTKWidget* GetQVTKWidget();
+
 signals:
 
 public slots:
@@ -175,6 +177,7 @@ private:
   QHash<QString, QAction*> groupActionHash;
 
   QVTKWidget *qvtkWidget;
+
   vtkRenderer *renderer;
 
   vtkUnstructuredGrid *volumeGrid;

@@ -104,6 +104,11 @@
 #include <vtkRibbonFilter.h>
 #include <vtkPlane.h>
 #include <vtkClipPolyData.h>
+#include <vtkCellPicker.h>
+#include <vtkCallbackCommand.h>
+#include <vtkAbstractPicker.h>
+#include <vtkObject.h>
+#include <vtkCommand.h>
 
 #ifdef MATC
 #include "matc.h"
@@ -122,6 +127,20 @@ extern "C" void com_init(char *,int,int,VARIABLE *(*)(VARIABLE *),int,int,char*)
 
 using namespace std;
 
+// Pick event handler (place cursor on cell && press 'p' to pick):
+//-----------------------------------------------------------------
+static void pickEventHandler(vtkObject *caller, unsigned long eid, 
+			     void* clientdata, void *calldata)
+{
+  VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
+  QVTKWidget* qvtkWidget = vtkPost->GetQVTKWidget();
+  vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
+  vtkCellPicker* cellPicker = vtkCellPicker::SafeDownCast(picker);
+  cout << "pick event handler: cell=" << cellPicker->GetCellId() << endl;
+}
+
+// Class VtkPost:
+//-----------------------------------------------------------------
 VtkPost::VtkPost(QWidget *parent)
   : QMainWindow(parent)
 {
@@ -226,17 +245,34 @@ VtkPost::VtkPost(QWidget *parent)
   renderer->SetBackground(1, 1, 1);
   qvtkWidget->GetRenderWindow()->AddRenderer(renderer);
   renderer->GetRenderWindow()->Render();
+
+  // Create a cell picker and set the callback & observer:
+  //------------------------------------------------------
+  vtkCellPicker *cellPicker = vtkCellPicker::New();
+  qvtkWidget->GetInteractor()->SetPicker(cellPicker);
+  cellPicker->Delete();
+
+  vtkCallbackCommand *cbc = vtkCallbackCommand::New();
+  cbc->SetClientData(this);
+  cbc->SetCallback(pickEventHandler);
+  vtkAbstractPicker *picker = qvtkWidget->GetInteractor()->GetPicker();
+  picker->AddObserver(vtkCommand::EndPickEvent, cbc);
+  cbc->Delete();
 }
 
 VtkPost::~VtkPost()
 {
 }
 
+QVTKWidget* VtkPost::GetQVTKWidget()
+{
+  return qvtkWidget;
+}
+
 QSize VtkPost::minimumSizeHint() const
 {
   return QSize(64, 64);
 }
-
 
 QSize VtkPost::sizeHint() const
 {
