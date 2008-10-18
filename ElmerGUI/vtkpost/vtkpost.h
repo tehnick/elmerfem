@@ -85,8 +85,7 @@ public:
   virtual void grad(double *,double *);
 
   QVTKWidget* GetQVTKWidget();
-  void SetCurrentCellId(int);
-  void SetCurrentPCoords(double*);
+  void SetCurrentPickPosition(double*);
 
 signals:
 
@@ -181,15 +180,11 @@ private:
   QVTKWidget *qvtkWidget;
 
   vtkRenderer *renderer;
-
   vtkUnstructuredGrid *volumeGrid;
   vtkUnstructuredGrid *surfaceGrid;
   vtkUnstructuredGrid *lineGrid;
-  
   vtkLookupTable *currentLut;
-
   vtkPlane *clipPlane;
-
   vtkActor *meshPointActor;
   vtkActor *meshEdgeActor;
   vtkActor *featureEdgeActor;
@@ -197,8 +192,8 @@ private:
   vtkActor *vectorActor;
   vtkActor *isoContourActor;
   vtkActor *isoSurfaceActor;
-  vtkScalarBarActor *colorBarActor;
   vtkActor *streamLineActor;
+  vtkScalarBarActor *colorBarActor;
 
   Surface *surface;         // ui
   Vector *vector;           // ui
@@ -215,8 +210,7 @@ private:
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
   QString currentStreamLineName;
-  int currentCellId;
-  double currentPCoords[3];
+  double currentPickPosition[3];
 };
 
 #endif // VTKPOST_H

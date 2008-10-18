@@ -132,19 +132,14 @@ using namespace std;
 static void pickEventHandler(vtkObject *caller, unsigned long eid, 
 			     void* clientdata, void *calldata)
 {
-  vtkIdType cellId;
-  double pCoords[3];
-
   VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
   QVTKWidget* qvtkWidget = vtkPost->GetQVTKWidget();
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
   vtkCellPicker* cellPicker = vtkCellPicker::SafeDownCast(picker);
 
-  cellId = cellPicker->GetCellId();
-  vtkPost->SetCurrentCellId(cellId);
-
-  cellPicker->GetPCoords(pCoords);
-  vtkPost->SetCurrentPCoords(pCoords);
+  double pickPosition[3];
+  cellPicker->GetPickPosition(pickPosition);
+  vtkPost->SetCurrentPickPosition(pickPosition);
 }
 
 // Class VtkPost:
@@ -277,16 +272,11 @@ QVTKWidget* VtkPost::GetQVTKWidget()
   return qvtkWidget;
 }
 
-void VtkPost::SetCurrentCellId(int CellId)
+void VtkPost::SetCurrentPickPosition(double *p)
 {
-  currentCellId = CellId;
-}
-
-void VtkPost::SetCurrentPCoords(double *PCoords)
-{
-  currentPCoords[0] = PCoords[0];
-  currentPCoords[1] = PCoords[1];
-  currentPCoords[2] = PCoords[2];
+  currentPickPosition[0] = p[0];
+  currentPickPosition[1] = p[1];
+  currentPickPosition[2] = p[2];
 }
 
 QSize VtkPost::minimumSizeHint() const
@@ -1613,6 +1603,8 @@ void VtkPost::drawStreamLineSlot()
   int threads = streamLine->ui.threads->value();
   bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
   bool lineSource = streamLine->ui.lineSource->isChecked();
+  bool sphereSource = streamLine->ui.sphereSource->isChecked();
+  bool pickSource = streamLine->ui.pickSource->isChecked();
   bool forward = streamLine->ui.forward->isChecked();
   bool backward = streamLine->ui.backward->isChecked();
 
@@ -1647,12 +1639,17 @@ void VtkPost::drawStreamLineSlot()
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int offset = epMesh->epNodes * (step - 1);
 
-  // Point source:
+  // Sphere source:
   double centerX = streamLine->ui.centerX->text().toDouble();
   double centerY = streamLine->ui.centerY->text().toDouble();
   double centerZ = streamLine->ui.centerZ->text().toDouble();
   double radius = streamLine->ui.radius->text().toDouble();
   int points = streamLine->ui.points->value();
+
+  // Pick source:
+  double pickX = currentPickPosition[0];
+  double pickY = currentPickPosition[1];
+  double pickZ = currentPickPosition[2];
   
   // Choose the grid:
   //------------------
@@ -1709,10 +1706,16 @@ void VtkPost::drawStreamLineSlot()
     line->SetPoint2(endX, endY, endZ);
     line->SetResolution(lines);
   } else {
-    point->SetCenter(centerX, centerY, centerZ);
-    point->SetRadius(radius);
-    point->SetNumberOfPoints(points);
-    point->SetDistributionToUniform();
+    if(sphereSource) {
+      point->SetCenter(centerX, centerY, centerZ);
+      point->SetRadius(radius);
+      point->SetNumberOfPoints(points);
+      point->SetDistributionToUniform();
+    } else {
+      point->SetCenter(pickX, pickY, pickZ);
+      point->SetRadius(0.0);
+      point->SetNumberOfPoints(1);
+    }
   }
 
   vtkStreamLine *streamer = vtkStreamLine::New();
