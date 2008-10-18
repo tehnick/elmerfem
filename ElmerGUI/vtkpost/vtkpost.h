@@ -85,6 +85,8 @@ public:
   virtual void grad(double *,double *);
 
   QVTKWidget* GetQVTKWidget();
+  void SetCurrentCellId(int);
+  void SetCurrentPCoords(double*);
 
 signals:
 
@@ -213,6 +215,8 @@ private:
   QString currentIsoContourName;
   QString currentIsoSurfaceName;
   QString currentStreamLineName;
+  int currentCellId;
+  double currentPCoords[3];
 };
 
 #endif // VTKPOST_H

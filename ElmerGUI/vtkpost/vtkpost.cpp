@@ -132,11 +132,19 @@ using namespace std;
 static void pickEventHandler(vtkObject *caller, unsigned long eid, 
 			     void* clientdata, void *calldata)
 {
+  vtkIdType cellId;
+  double pCoords[3];
+
   VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
   QVTKWidget* qvtkWidget = vtkPost->GetQVTKWidget();
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
   vtkCellPicker* cellPicker = vtkCellPicker::SafeDownCast(picker);
-  cout << "pick event handler: cell=" << cellPicker->GetCellId() << endl;
+
+  cellId = cellPicker->GetCellId();
+  vtkPost->SetCurrentCellId(cellId);
+
+  cellPicker->GetPCoords(pCoords);
+  vtkPost->SetCurrentPCoords(pCoords);
 }
 
 // Class VtkPost:
@@ -267,6 +275,18 @@ VtkPost::~VtkPost()
 QVTKWidget* VtkPost::GetQVTKWidget()
 {
   return qvtkWidget;
+}
+
+void VtkPost::SetCurrentCellId(int CellId)
+{
+  currentCellId = CellId;
+}
+
+void VtkPost::SetCurrentPCoords(double *PCoords)
+{
+  currentPCoords[0] = PCoords[0];
+  currentPCoords[1] = PCoords[1];
+  currentPCoords[2] = PCoords[2];
 }
 
 QSize VtkPost::minimumSizeHint() const
