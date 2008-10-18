@@ -2009,9 +2009,8 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
 {
   if  (!glWidget->mesh ) return;
 
-  if ( pe->spareScroll->widget() ) {
+  if ( pe->spareScroll->widget() )
     delete pe->spareScroll->widget();
-  }
 
   QGridLayout *slayout = new QGridLayout;
   QLabel *l = new QLabel(tr("Apply to bodies:"));
@@ -2033,7 +2032,7 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
         QString title = body->ui.nameEdit->text().trimmed();
         QCheckBox *a;
 
-        if ( title == "" )
+        if ( title.isEmpty() )
           a = new QCheckBox("Body " + QString::number(n));
         else
           a = new QCheckBox(title);
@@ -2083,7 +2082,7 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
         QString title = body->ui.nameEdit->text().trimmed();
         QCheckBox *a;
 
-        if ( title == "" )
+        if ( title.isEmpty() )
           a = new QCheckBox("Body{Boundary " + QString::number(i)+ "}");
         else
           a = new QCheckBox(title);
@@ -2244,7 +2243,7 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
 
   bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
 
-  if((equationName == "") && signalOK ) {
+  if((equationName.isEmpty()) && signalOK ) {
     logMessage("Refusing to add/update equation without name");
     return;
   }
@@ -2388,7 +2387,7 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
   const QString &materialName = pe->nameEdit->text().trimmed();
 
   bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
-  if((materialName == "") && signalOK ) {
+  if( materialName.isEmpty() && signalOK ) {
     logMessage("Refusing to add/update material with no name");
     return;
   }
@@ -2397,10 +2396,12 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
     if(pe->menuAction != NULL) {
       pe->menuAction->setText(materialName);
       logMessage("Material updated");
+
       if ( signal == MAT_OK ) pe->close();
       return;
     }
   } else if ( signal==MAT_NEW ) {
+    
     addMaterialSlot();
 
   } else if(signal == MAT_DELETE) {
@@ -2422,6 +2423,10 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
     pe->menuAction = NULL;
     pe->close();
     logMessage("Material deleted");
+
+  } else {
+
+    cout << "Matedit: unknown signal" << endl;
   }
 }
 
@@ -2521,7 +2526,7 @@ void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
 
   bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
   
-  if((bodyForceName == "") && signalOK ) {
+  if((bodyForceName.isEmpty()) && signalOK ) {
     logMessage("Refusing to add/update body force with no name");
     return;
   }
@@ -2650,7 +2655,7 @@ void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
   const QString &initialConditionName = pe->nameEdit->text().trimmed();
   
   bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
-  if((initialConditionName == "") && signalOK ) {
+  if((initialConditionName.isEmpty()) && signalOK ) {
     logMessage("Refusing to add/update initial condition with no name");
     return;
   }
@@ -2753,10 +2758,11 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
         BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[m];
         populateBoundaryComboBoxes(boundary);
 
+	// TODO: check this
         QString title =  ""; // boundary->ui.nameEdit->text().trimmed();
         QCheckBox *a;
 
-        if ( title == "" )
+        if ( title.isEmpty() )
           a = new QCheckBox("Boundary " + QString::number(n));
         else
           a = new QCheckBox(title);
@@ -2844,7 +2850,7 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
   
   bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
 
-  if((boundaryConditionName == "") && signalOK ) {
+  if((boundaryConditionName.isEmpty()) && signalOK ) {
     logMessage("Refusing to add/update boundary condition with no name");
     return;
   }
@@ -5532,7 +5538,8 @@ void MainWindow::solverStdoutSlot()
 	  QString qs1 = tmp2Splitted.at(0).trimmed();
 	  res1 = qs1.toDouble();
 	  int pos = 1;
-	  while(tmp2Splitted.at(pos).trimmed() == "") {
+	  // while(tmp2Splitted.at(pos).trimmed() == "") {
+	  while(tmp2Splitted.at(pos).trimmed().isEmpty()) {
 	    pos++;
 	    if(pos > tmp2Splitted.count())
 	      break;
