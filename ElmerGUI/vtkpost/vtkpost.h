@@ -87,6 +87,9 @@ public:
 
   QVTKWidget* GetQVTKWidget();
   void SetCurrentPickPosition(double*);
+  vtkRenderer* GetRenderer();
+  vtkActor* GetPickedPointActor();
+  double GetLength();
 
 signals:
 
@@ -201,6 +204,7 @@ private:
   vtkFollower *axesYTextActor;
   vtkFollower *axesZTextActor;
   vtkScalarBarActor *colorBarActor;
+  vtkActor *pickedPointActor;
 
   Surface *surface;         // ui
   Vector *vector;           // ui

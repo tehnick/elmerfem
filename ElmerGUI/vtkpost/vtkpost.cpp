@@ -138,13 +138,61 @@ static void pickEventHandler(vtkObject *caller, unsigned long eid,
 			     void* clientdata, void *calldata)
 {
   VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
+  vtkRenderer* renderer = vtkPost->GetRenderer();
+  vtkActor* pickedPointActor = vtkPost->GetPickedPointActor();
   QVTKWidget* qvtkWidget = vtkPost->GetQVTKWidget();
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
   vtkCellPicker* cellPicker = vtkCellPicker::SafeDownCast(picker);
 
-  double pickPosition[3];
-  cellPicker->GetPickPosition(pickPosition);
-  vtkPost->SetCurrentPickPosition(pickPosition);
+  double pickPos[3];
+  int cellId = cellPicker->GetCellId();
+  cellPicker->GetPickPosition(pickPos);
+  vtkPost->SetCurrentPickPosition(pickPos);
+
+  if(cellId < 0) {
+    renderer->RemoveActor(pickedPointActor);
+
+  } else {
+    vtkDataSetMapper* mapper = vtkDataSetMapper::New();
+    vtkUnstructuredGrid *cross = vtkUnstructuredGrid::New();
+    vtkPoints* points = vtkPoints::New();
+    vtkLine* line = vtkLine::New();
+    double l = vtkPost->GetLength() / 10.0;
+
+    points->SetNumberOfPoints(6);
+    points->InsertPoint(0, +l,  0,  0);
+    points->InsertPoint(1,  0, +l,  0);
+    points->InsertPoint(2,  0,  0, +l);
+    points->InsertPoint(3, -l,  0,  0);    
+    points->InsertPoint(4,  0, -l,  0);    
+    points->InsertPoint(5,  0,  0, -l);
+    cross->SetPoints(points);
+
+    line->GetPointIds()->SetId(0, 0);
+    line->GetPointIds()->SetId(1, 3);    
+    cross->InsertNextCell(line->GetCellType(), line->GetPointIds());
+
+    line->GetPointIds()->SetId(0, 1);
+    line->GetPointIds()->SetId(1, 4);    
+    cross->InsertNextCell(line->GetCellType(), line->GetPointIds());
+
+    line->GetPointIds()->SetId(0, 2);
+    line->GetPointIds()->SetId(1, 5);    
+    cross->InsertNextCell(line->GetCellType(), line->GetPointIds());
+
+    mapper->SetInput(cross);
+
+    pickedPointActor->SetMapper(mapper);
+    pickedPointActor->SetPosition(pickPos[0], pickPos[1], pickPos[2]);
+    pickedPointActor->GetProperty()->SetColor(1, 0, 0);
+
+    renderer->AddActor(pickedPointActor);
+
+    mapper->Delete();
+    cross->Delete();
+    points->Delete();
+    line->Delete();
+  }
 }
 
 // Class VtkPost:
@@ -180,6 +228,7 @@ VtkPost::VtkPost(QWidget *parent)
   axesXTextActor = vtkFollower::New();
   axesYTextActor = vtkFollower::New();
   axesZTextActor = vtkFollower::New();
+  pickedPointActor = vtkActor::New();
 
   // Default color map (from blue to red):
   //--------------------------------------
@@ -279,6 +328,21 @@ VtkPost::~VtkPost()
 QVTKWidget* VtkPost::GetQVTKWidget()
 {
   return qvtkWidget;
+}
+
+vtkRenderer* VtkPost::GetRenderer()
+{
+  return renderer;
+}
+
+vtkActor* VtkPost::GetPickedPointActor()
+{
+  return pickedPointActor;
+}
+
+double VtkPost::GetLength()
+{
+  return volumeGrid->GetLength();
 }
 
 void VtkPost::SetCurrentPickPosition(double *p)
