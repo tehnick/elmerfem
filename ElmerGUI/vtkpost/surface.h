@@ -45,6 +45,8 @@
 #include "ui_surface.h"
 
 class ScalarField;
+class VtkPost;
+class TimeStep;
 
 class Surface : public QDialog
 {
@@ -56,7 +58,8 @@ public:
 
   Ui::surfaceDialog ui;
 
-  void populateWidgets(ScalarField*, int);
+  void populateWidgets(VtkPost*);
+  void draw(VtkPost*, TimeStep*);
 
 signals:
   void drawSurfaceSignal();

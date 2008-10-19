@@ -40,7 +40,6 @@
 
 #include <QtGui>
 #include <iostream>
-
 #include "epmesh.h"
 #include "vtkpost.h"
 #include "surface.h"
@@ -51,9 +50,7 @@
 #include "vector.h"
 #include "streamline.h"
 #include "timestep.h"
-
 #include <QVTKWidget.h>
-
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
 #include <vtkRenderer.h>
@@ -375,9 +372,40 @@ double VtkPost::GetLength()
   return volumeGrid->GetLength();
 }
 
+vtkUnstructuredGrid* VtkPost::GetLineGrid()
+{
+  return lineGrid;
+}
+
+vtkUnstructuredGrid* VtkPost::GetSurfaceGrid()
+{
+  return surfaceGrid;
+}
+
+vtkUnstructuredGrid* VtkPost::GetVolumeGrid()
+{
+  return volumeGrid;
+}
+
+vtkPlane* VtkPost::GetClipPlane()
+{
+  return clipPlane;
+}
+
+vtkLookupTable* VtkPost::GetCurrentLut()
+{
+  return currentLut;
+}
+
+
 QString VtkPost::GetCurrentSurfaceName()
 {
   return currentSurfaceName;
+}
+
+void VtkPost::SetCurrentSurfaceName(QString name)
+{
+  currentSurfaceName = name;
 }
 
 QString VtkPost::GetCurrentVectorName()
@@ -398,6 +426,21 @@ QString VtkPost::GetCurrentIsoSurfaceName()
 QString VtkPost::GetCurrentStreamLineName()
 {
   return currentStreamLineName;
+}
+
+int VtkPost::GetScalarFields()
+{
+  return scalarFields;
+}
+
+ScalarField* VtkPost::GetScalarField()
+{
+  return scalarField;
+}
+
+EpMesh* VtkPost::GetEpMesh()
+{
+  return epMesh;
 }
 
 void VtkPost::SetCurrentPickPosition(double *p)
@@ -890,11 +933,10 @@ int VtkPost::NofNodes()
 //----------------------------------------------------------------------
 void VtkPost::populateWidgetsSlot()
 {
+  surface->populateWidgets(this);
   vector->populateWidgets(scalarField, scalarFields);
-  surface->populateWidgets(scalarField, scalarFields);
   isoSurface->populateWidgets(scalarField, scalarFields);
   isoContour->populateWidgets(scalarField, scalarFields);
-  surface->populateWidgets(scalarField, scalarFields);
   streamLine->populateWidgets(scalarField, scalarFields);
   colorBar->populateWidgets();
 }
@@ -2008,108 +2050,10 @@ void VtkPost::drawSurfaceSlot()
 {
   renderer->RemoveActor(surfaceActor);
   if(!drawSurfaceAct->isChecked()) return;
-
-  // Data from UI:
-  //--------------
-  int surfaceIndex = surface->ui.surfaceCombo->currentIndex();
-  QString surfaceName = surface->ui.surfaceCombo->currentText();
-  double minVal = surface->ui.minEdit->text().toDouble();
-  double maxVal = surface->ui.maxEdit->text().toDouble();
-  bool useNormals = surface->ui.useNormals->isChecked();
-  int featureAngle = surface->ui.featureAngle->value();
-  double opacity = surface->ui.opacitySpin->value() / 100.0;
-  bool useClip = surface->ui.clipPlane->isChecked();
-
-  int step = timeStep->ui.timeStep->value();
-  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
-
-  // Scalars:
-  //---------
-  surfaceGrid->GetPointData()->RemoveArray("Surface");
-  vtkFloatArray *scalars = vtkFloatArray::New();
-  ScalarField *sf = &scalarField[surfaceIndex];
-  scalars->SetNumberOfComponents(1);
-  scalars->SetNumberOfTuples(epMesh->epNodes);
-  scalars->SetName("Surface");
-  for(int i = 0; i < epMesh->epNodes; i++)
-    scalars->SetComponent(i, 0, sf->value[i + offset]);  
-  surfaceGrid->GetPointData()->AddArray(scalars);
-
-  // Convert from vtkUnstructuredGrid to vtkPolyData:
-  //-------------------------------------------------
-  vtkGeometryFilter *filter = vtkGeometryFilter::New();
-
-  filter->SetInput(surfaceGrid);
-  filter->GetOutput()->ReleaseDataFlagOn();
-
-  // Apply the clip plane:
-  //-----------------------
-  vtkClipPolyData *clipper = vtkClipPolyData::New();
-
-  if(useClip) {
-    setupClipPlane();
-    clipper->SetInputConnection(filter->GetOutputPort());
-    clipper->SetClipFunction(clipPlane);
-    clipper->GenerateClipScalarsOn();
-    clipper->GenerateClippedOutputOn();
-  }
-
-  // Normals:
-  //---------
-  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
-  
-  if(useNormals) {
-    if(useClip) {
-      normals->SetInputConnection(clipper->GetOutputPort());
-    } else {
-      normals->SetInputConnection(filter->GetOutputPort());
-    }
-    normals->SetFeatureAngle(featureAngle);
-  }
-
-  // Mapper:
-  //--------
-  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
-
-  if(useNormals) {
-    mapper->SetInputConnection(normals->GetOutputPort());
-  } else {
-    if(useClip) {
-      mapper->SetInputConnection(clipper->GetOutputPort());
-    } else {
-      mapper->SetInput(surfaceGrid);
-    }
-  }
-
-  mapper->SetScalarModeToUsePointFieldData();
-  mapper->SelectColorArray("Surface");
-  mapper->ScalarVisibilityOn();
-  mapper->SetScalarRange(minVal, maxVal);
-  mapper->SetResolveCoincidentTopologyToPolygonOffset();
-  mapper->SetLookupTable(currentLut);
-  // mapper->ImmediateModeRenderingOn();
-
-  // Actor & renderer:
-  //------------------
-  surfaceActor->SetMapper(mapper);
-  surfaceActor->GetProperty()->SetOpacity(opacity);
-  renderer->AddActor(surfaceActor);
-
-  // Update color bar && field name:
-  //---------------------------------
-  currentSurfaceName = sf->name;
+  setupClipPlane();
+  surface->draw(this, timeStep);
   drawColorBarSlot();
-
   qvtkWidget->GetRenderWindow()->Render();
-
-  // Clean up:
-  //-----------
-  clipper->Delete();
-  normals->Delete();
-  filter->Delete();
-  scalars->Delete();
-  mapper->Delete();
 }
 
 

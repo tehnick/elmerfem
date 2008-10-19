@@ -92,13 +92,21 @@ public:
   vtkScalarBarActor* GetColorBarActor();
   vtkActor* GetPickedPointActor();
   double GetLength();
+  vtkUnstructuredGrid* GetLineGrid();
+  vtkUnstructuredGrid* GetSurfaceGrid();
+  vtkUnstructuredGrid* GetVolumeGrid();
+  vtkPlane* GetClipPlane();
+  vtkLookupTable* GetCurrentLut();
   int NofNodes();
   QString GetCurrentSurfaceName();
+  void SetCurrentSurfaceName(QString);
   QString GetCurrentVectorName();
   QString GetCurrentIsoContourName();
   QString GetCurrentIsoSurfaceName();
   QString GetCurrentStreamLineName();
-
+  int GetScalarFields();
+  ScalarField* GetScalarField();
+  EpMesh* GetEpMesh();
   void SetCurrentPickPosition(double*);
 
   virtual void div(double *,double *);
@@ -185,11 +193,11 @@ private:
   void createToolbars();
   void createStatusBar();
 
-  EpMesh *epMesh;
+  EpMesh* epMesh;
   QString postFileName;
   bool postFileRead;
   int scalarFields;
-  ScalarField *scalarField;
+  ScalarField* scalarField;
 
   void addVectorField(QString, int);
   ScalarField* addScalarField(QString, int, double *);
