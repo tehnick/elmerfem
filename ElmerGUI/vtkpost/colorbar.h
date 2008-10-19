@@ -44,7 +44,7 @@
 #include <QWidget>
 #include "ui_colorbar.h"
 
-class ScalarField;
+class VtkPost;
 
 class ColorBar : public QDialog
 {
@@ -57,6 +57,7 @@ public:
   Ui::colorBarDialog ui;
 
   void populateWidgets();
+  void draw(VtkPost*);
 
 signals:
   void drawColorBarSignal();

@@ -335,6 +335,36 @@ vtkRenderer* VtkPost::GetRenderer()
   return renderer;
 }
 
+vtkActor* VtkPost::GetSurfaceActor()
+{
+  return surfaceActor;
+}
+
+vtkActor* VtkPost::GetVectorActor()
+{
+  return vectorActor;
+}
+
+vtkActor* VtkPost::GetIsoContourActor()
+{
+  return isoContourActor;
+}
+
+vtkActor* VtkPost::GetIsoSurfaceActor()
+{
+  return isoSurfaceActor;
+}
+
+vtkActor* VtkPost::GetStreamLineActor()
+{
+  return streamLineActor;
+}
+
+vtkScalarBarActor* VtkPost::GetColorBarActor()
+{
+  return colorBarActor;
+}
+
 vtkActor* VtkPost::GetPickedPointActor()
 {
   return pickedPointActor;
@@ -343,6 +373,31 @@ vtkActor* VtkPost::GetPickedPointActor()
 double VtkPost::GetLength()
 {
   return volumeGrid->GetLength();
+}
+
+QString VtkPost::GetCurrentSurfaceName()
+{
+  return currentSurfaceName;
+}
+
+QString VtkPost::GetCurrentVectorName()
+{
+  return currentVectorName;
+}
+
+QString VtkPost::GetCurrentIsoContourName()
+{
+  return currentIsoContourName;
+}
+
+QString VtkPost::GetCurrentIsoSurfaceName()
+{
+  return currentIsoSurfaceName;
+}
+
+QString VtkPost::GetCurrentStreamLineName()
+{
+  return currentStreamLineName;
 }
 
 void VtkPost::SetCurrentPickPosition(double *p)
@@ -1387,100 +1442,9 @@ void VtkPost::drawColorBarSlot()
   renderer->RemoveActor(colorBarActor);
   if(!drawColorBarAct->isChecked()) return;
 
-  // Draw color bar:
-  //----------------
-  vtkTextMapper *tMapper = vtkTextMapper::New();
-  colorBarActor->SetMapper(tMapper);
+  colorBar->draw(this);
 
-  QString actorName = colorBar->ui.colorCombo->currentText().trimmed();
-
-  if(actorName.isEmpty()) return;
-
-  QString fieldName = "";
-
-  vtkScalarsToColors *lut = NULL;
-
-  if(actorName == "Surface") {
-    fieldName = currentSurfaceName;
-    if(fieldName.isEmpty()) return;
-    lut = surfaceActor->GetMapper()->GetLookupTable();
-  }
-
-  if(actorName == "Vector") {
-    fieldName = currentVectorName;
-    if(fieldName.isEmpty()) return;
-    lut = vectorActor->GetMapper()->GetLookupTable();
-  }
-
-  if(actorName == "Isocontour") {
-    fieldName = currentIsoContourName;
-    if(fieldName.isEmpty()) return;
-    lut = isoContourActor->GetMapper()->GetLookupTable();
-  }
-
-  if(actorName == "Isosurface") {
-    fieldName = currentIsoSurfaceName;
-    if(fieldName.isEmpty()) return;
-    lut = isoSurfaceActor->GetMapper()->GetLookupTable();
-  }
-
-  if(actorName == "Streamline") {
-    fieldName = currentStreamLineName;
-    if(fieldName.isEmpty()) return;
-    lut = streamLineActor->GetMapper()->GetLookupTable();
-  }
-
-  if(!lut) return;
-
-  colorBarActor->SetLookupTable(lut);
-
-  bool horizontal = colorBar->ui.horizontalRButton->isChecked();
-  bool annotate = colorBar->ui.annotateBox->isChecked();
-  int labels = colorBar->ui.labelsSpin->value();
-  double width = colorBar->ui.widthEdit->text().toDouble();
-  double height = colorBar->ui.heightEdit->text().toDouble();
-
-  if(width < 0.01) width = 0.01;
-  if(width > 1.00) width = 1.00;
-  if(height < 0.01) height = 0.01;
-  if(height > 1.00) height = 1.00;
-
-  colorBarActor->SetPosition(0.05, 0.05);
-
-  if(horizontal) {
-    colorBarActor->SetOrientationToHorizontal();
-    colorBarActor->SetWidth(height);
-    colorBarActor->SetHeight(width);
-  } else {
-    colorBarActor->SetOrientationToVertical();
-    colorBarActor->SetWidth(width);
-    colorBarActor->SetHeight(height);
-  }
-  
-  colorBarActor->SetNumberOfLabels(labels);
-
-  colorBarActor->GetLabelTextProperty()->SetFontSize(16);
-  colorBarActor->GetLabelTextProperty()->SetFontFamilyToArial();
-  colorBarActor->GetLabelTextProperty()->BoldOn();
-  colorBarActor->GetLabelTextProperty()->ItalicOn();
-  colorBarActor->GetLabelTextProperty()->SetColor(0, 0, 1);
-  
-  colorBarActor->GetTitleTextProperty()->SetFontSize(16);
-  colorBarActor->GetTitleTextProperty()->SetFontFamilyToArial();
-  colorBarActor->GetTitleTextProperty()->BoldOn();
-  colorBarActor->GetTitleTextProperty()->ItalicOn();
-  colorBarActor->GetTitleTextProperty()->SetColor(0, 0, 1);
-  
-  if(annotate) {
-    colorBarActor->SetTitle(fieldName.toAscii().data());
-  } else {
-    colorBarActor->SetTitle("");
-  }
-
-  renderer->AddActor(colorBarActor);
   qvtkWidget->GetRenderWindow()->Render();
-
-  tMapper->Delete();
 }
 
 

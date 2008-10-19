@@ -79,17 +79,31 @@ public:
 
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
+
   bool readPostFile(QString);
+
+  QVTKWidget* GetQVTKWidget();
+  vtkRenderer* GetRenderer();
+  vtkActor* GetSurfaceActor();
+  vtkActor* GetVectorActor();
+  vtkActor* GetIsoContourActor();
+  vtkActor* GetIsoSurfaceActor();
+  vtkActor* GetStreamLineActor();
+  vtkScalarBarActor* GetColorBarActor();
+  vtkActor* GetPickedPointActor();
+  double GetLength();
   int NofNodes();
+  QString GetCurrentSurfaceName();
+  QString GetCurrentVectorName();
+  QString GetCurrentIsoContourName();
+  QString GetCurrentIsoSurfaceName();
+  QString GetCurrentStreamLineName();
+
+  void SetCurrentPickPosition(double*);
+
   virtual void div(double *,double *);
   virtual void curl(double *,double *);
   virtual void grad(double *,double *);
-
-  QVTKWidget* GetQVTKWidget();
-  void SetCurrentPickPosition(double*);
-  vtkRenderer* GetRenderer();
-  vtkActor* GetPickedPointActor();
-  double GetLength();
 
 signals:
 

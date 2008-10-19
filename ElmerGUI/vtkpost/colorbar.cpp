@@ -40,9 +40,15 @@
 
 #include <QtGui>
 #include <iostream>
-#include "epmesh.h"
 #include "vtkpost.h"
 #include "colorbar.h"
+
+#include <vtkActor.h>
+#include <vtkMapper.h>
+#include <vtkScalarBarActor.h>
+#include <vtkTextMapper.h>
+#include <vtkTextProperty.h>
+#include <vtkRenderer.h>
 
 using namespace std;
 
@@ -56,6 +62,7 @@ ColorBar::ColorBar(QWidget *parent)
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
 
+  setWindowTitle("Colorbar");
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
@@ -71,7 +78,7 @@ void ColorBar::cancelButtonClicked()
 
 void ColorBar::okButtonClicked()
 {
-  emit(drawColorBarSignal());
+  applyButtonClicked();
   close();
 }
 
@@ -92,4 +99,112 @@ void ColorBar::populateWidgets()
   ui.colorCombo->addItem("Isocontour");
   ui.colorCombo->addItem("Isosurface");
   ui.colorCombo->addItem("Streamline");
+}
+
+void ColorBar::draw(VtkPost* vtkPost)
+{
+  vtkRenderer* renderer = vtkPost->GetRenderer();
+  vtkScalarBarActor* colorBarActor = vtkPost->GetColorBarActor();
+
+  vtkTextMapper* tMapper = vtkTextMapper::New();
+  colorBarActor->SetMapper(tMapper);
+
+  QString actorName = ui.colorCombo->currentText().trimmed();
+
+  if(actorName.isEmpty()) return;
+
+  QString fieldName = "";
+
+  vtkScalarsToColors *lut = NULL;
+
+  vtkActor* surfaceActor = vtkPost->GetSurfaceActor();
+  QString currentSurfaceName = vtkPost->GetCurrentSurfaceName();
+  if(actorName == "Surface") {
+    fieldName = currentSurfaceName;
+    if(fieldName.isEmpty()) return;
+    lut = surfaceActor->GetMapper()->GetLookupTable();
+  }
+
+  vtkActor* vectorActor = vtkPost->GetVectorActor();
+  QString currentVectorName = vtkPost->GetCurrentVectorName();
+  if(actorName == "Vector") {
+    fieldName = currentVectorName;
+    if(fieldName.isEmpty()) return;
+    lut = vectorActor->GetMapper()->GetLookupTable();
+  }
+
+  vtkActor* isoContourActor = vtkPost->GetIsoContourActor();
+  QString currentIsoContourName = vtkPost->GetCurrentIsoContourName();
+  if(actorName == "Isocontour") {
+    fieldName = currentIsoContourName;
+    if(fieldName.isEmpty()) return;
+    lut = isoContourActor->GetMapper()->GetLookupTable();
+  }
+
+  vtkActor *isoSurfaceActor = vtkPost->GetIsoSurfaceActor();
+  QString currentIsoSurfaceName = vtkPost->GetCurrentIsoSurfaceName();
+  if(actorName == "Isosurface") {
+    fieldName = currentIsoSurfaceName;
+    if(fieldName.isEmpty()) return;
+    lut = isoSurfaceActor->GetMapper()->GetLookupTable();
+  }
+  
+  vtkActor* streamLineActor = vtkPost->GetStreamLineActor();
+  QString currentStreamLineName = vtkPost->GetCurrentStreamLineName();
+  if(actorName == "Streamline") {
+    fieldName = currentStreamLineName;
+    if(fieldName.isEmpty()) return;
+    lut = streamLineActor->GetMapper()->GetLookupTable();
+  }
+
+  if(!lut) return;
+
+  colorBarActor->SetLookupTable(lut);
+
+  bool horizontal = ui.horizontalRButton->isChecked();
+  bool annotate = ui.annotateBox->isChecked();
+  int labels = ui.labelsSpin->value();
+  double width = ui.widthEdit->text().toDouble();
+  double height = ui.heightEdit->text().toDouble();
+
+  if(width < 0.01) width = 0.01;
+  if(width > 1.00) width = 1.00;
+  if(height < 0.01) height = 0.01;
+  if(height > 1.00) height = 1.00;
+
+  colorBarActor->SetPosition(0.05, 0.05);
+
+  if(horizontal) {
+    colorBarActor->SetOrientationToHorizontal();
+    colorBarActor->SetWidth(height);
+    colorBarActor->SetHeight(width);
+  } else {
+    colorBarActor->SetOrientationToVertical();
+    colorBarActor->SetWidth(width);
+    colorBarActor->SetHeight(height);
+  }
+  
+  colorBarActor->SetNumberOfLabels(labels);
+
+  colorBarActor->GetLabelTextProperty()->SetFontSize(16);
+  colorBarActor->GetLabelTextProperty()->SetFontFamilyToArial();
+  colorBarActor->GetLabelTextProperty()->BoldOn();
+  colorBarActor->GetLabelTextProperty()->ItalicOn();
+  colorBarActor->GetLabelTextProperty()->SetColor(0, 0, 1);
+  
+  colorBarActor->GetTitleTextProperty()->SetFontSize(16);
+  colorBarActor->GetTitleTextProperty()->SetFontFamilyToArial();
+  colorBarActor->GetTitleTextProperty()->BoldOn();
+  colorBarActor->GetTitleTextProperty()->ItalicOn();
+  colorBarActor->GetTitleTextProperty()->SetColor(0, 0, 1);
+  
+  if(annotate) {
+    colorBarActor->SetTitle(fieldName.toAscii().data());
+  } else {
+    colorBarActor->SetTitle("");
+  }
+
+  renderer->AddActor(colorBarActor);
+
+  tMapper->Delete();
 }
