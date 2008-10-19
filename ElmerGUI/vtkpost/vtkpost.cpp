@@ -56,7 +56,6 @@
 
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
-#include <vtkActor2D.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
@@ -109,7 +108,13 @@
 #include <vtkAbstractPicker.h>
 #include <vtkObject.h>
 #include <vtkCommand.h>
+#include <vtkAxes.h>
+#include <vtkTubeFilter.h>
+#include <vtkFollower.h>
+#include <vtkVectorText.h>
 
+// MATC interface:
+//-----------------------------------------------------------------
 #ifdef MATC
 #include "matc.h"
 #include "mc.h"
@@ -171,12 +176,16 @@ VtkPost::VtkPost(QWidget *parent)
   featureEdgeActor = vtkActor::New();
   vectorActor = vtkActor::New();
   streamLineActor = vtkActor::New();
+  axesActor = vtkActor::New();
+  axesXTextActor = vtkFollower::New();
+  axesYTextActor = vtkFollower::New();
+  axesZTextActor = vtkFollower::New();
 
   // Default color map (from blue to red):
   //--------------------------------------
   currentLut = vtkLookupTable::New();
   currentLut->SetHueRange(0.6667, 0);
-  currentLut->SetNumberOfColors(256);
+  currentLut->SetNumberOfColors(128);
   currentLut->Build();
 
   clipPlane = vtkPlane::New();
@@ -325,6 +334,12 @@ void VtkPost::createActions()
   connect(drawFeatureEdgesAct, SIGNAL(triggered()), this, SLOT(drawFeatureEdgesSlot()));
   connect(drawFeatureEdgesAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
+  drawAxesAct = new QAction(QIcon(""), tr("Coordinate axes"), this);
+  drawAxesAct->setStatusTip("Draw cordinate axes");
+  drawAxesAct->setCheckable(true);
+  drawAxesAct->setChecked(false);
+  connect(drawAxesAct, SIGNAL(triggered()), this, SLOT(drawAxesSlot()));
+
   drawColorBarAct = new QAction(QIcon(""), tr("Colorbar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
   drawColorBarAct->setCheckable(true);
@@ -425,6 +440,7 @@ void VtkPost::createMenus()
   viewMenu->addAction(drawMeshPointAct);
   viewMenu->addAction(drawMeshEdgeAct);
   viewMenu->addAction(drawFeatureEdgesAct);
+  viewMenu->addAction(drawAxesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawSurfaceAct);
   viewMenu->addSeparator();
@@ -1272,6 +1288,7 @@ void VtkPost::redrawSlot()
   drawIsoSurfaceSlot();
   drawStreamLineSlot();
   drawColorBarSlot();
+  drawAxesSlot();
 
   vtkRenderWindow *renderWindow = qvtkWidget->GetRenderWindow();
 
@@ -2356,4 +2373,87 @@ void VtkPost::timeStepChangedSlot()
 void VtkPost::fitToWindowSlot()
 {
   renderer->ResetCamera();  
+}
+
+// Draw axes:
+//----------------------------------------------------------------------
+void VtkPost::drawAxesSlot()
+{
+  renderer->RemoveActor(axesActor);
+  renderer->RemoveActor(axesXTextActor);
+  renderer->RemoveActor(axesYTextActor);
+  renderer->RemoveActor(axesZTextActor);
+  if(!drawAxesAct->isChecked()) return;
+
+  double scl = volumeGrid->GetLength() / 8.0;
+
+  vtkAxes *axes = vtkAxes::New();
+  axes->SetOrigin(0, 0, 0);
+  axes->SetScaleFactor(scl);
+
+  vtkTubeFilter *axesTubes = vtkTubeFilter::New();
+  axesTubes->SetInputConnection(axes->GetOutputPort());
+  axesTubes->SetRadius(axes->GetScaleFactor() / 33.0);
+  axesTubes->SetNumberOfSides(20);
+
+  vtkPolyDataMapper *axesMapper = vtkPolyDataMapper::New();
+  axesMapper->SetInputConnection(axesTubes->GetOutputPort());
+
+  axesActor->SetMapper(axesMapper);
+  renderer->AddActor(axesActor);
+
+  // Axes text:
+  vtkVectorText *XText = vtkVectorText::New();
+  vtkVectorText *YText = vtkVectorText::New();
+  vtkVectorText *ZText = vtkVectorText::New();
+
+  XText->SetText("X");
+  YText->SetText("Y");
+  ZText->SetText("Z");
+  
+  vtkPolyDataMapper *XTextPolyDataMapper = vtkPolyDataMapper::New();
+  vtkPolyDataMapper *YTextPolyDataMapper = vtkPolyDataMapper::New();
+  vtkPolyDataMapper *ZTextPolyDataMapper = vtkPolyDataMapper::New();
+
+  XTextPolyDataMapper->SetInputConnection(XText->GetOutputPort());
+  YTextPolyDataMapper->SetInputConnection(YText->GetOutputPort());
+  ZTextPolyDataMapper->SetInputConnection(ZText->GetOutputPort());
+
+  axesXTextActor->SetMapper(XTextPolyDataMapper);
+  axesYTextActor->SetMapper(YTextPolyDataMapper);
+  axesZTextActor->SetMapper(ZTextPolyDataMapper);
+
+  scl = axes->GetScaleFactor() / 5.0;
+
+  axesXTextActor->SetScale(scl, scl, scl);
+  axesYTextActor->SetScale(scl, scl, scl);
+  axesZTextActor->SetScale(scl, scl, scl);
+
+  scl = axes->GetScaleFactor();
+
+  axesXTextActor->SetPosition(scl, 0.0, 0.0);
+  axesYTextActor->SetPosition(0.0, scl, 0.0);
+  axesZTextActor->SetPosition(0.0, 0.0, scl);
+
+  axesXTextActor->GetProperty()->SetColor(0, 0, 0);
+  axesYTextActor->GetProperty()->SetColor(0, 0, 0);
+  axesZTextActor->GetProperty()->SetColor(0, 0, 0);
+
+  renderer->AddActor(axesXTextActor);
+  renderer->AddActor(axesYTextActor);
+  renderer->AddActor(axesZTextActor);
+
+  qvtkWidget->GetRenderWindow()->Render();
+  
+  // Clean up:
+  //----------
+  XTextPolyDataMapper->Delete();
+  YTextPolyDataMapper->Delete();
+  ZTextPolyDataMapper->Delete();
+  XText->Delete();
+  YText->Delete();
+  ZText->Delete();
+  axesTubes->Delete();
+  axesMapper->Delete();
+  axes->Delete();
 }

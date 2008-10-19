@@ -51,13 +51,14 @@ class ScalarField;
 class QVTKWidget;
 class vtkRenderer;
 class vtkActor;
-class vtkActor2D;
+class vtkFollower;
 class vtkScalarBarActor;
 class vtkDataSetMapper;
 class vtkTextActor;
 class vtkUnstructuredGrid;
 class vtkLookupTable;
 class vtkPlane;
+class vtkAxes;
 class IsoSurface;
 class IsoContour;
 class ColorBar;
@@ -116,6 +117,7 @@ private slots:
   void drawIsoSurfaceSlot();
   void drawColorBarSlot();
   void drawStreamLineSlot();
+  void drawAxesSlot();
 
   void hideSurfaceSlot();
   void hideVectorSlot();
@@ -159,6 +161,7 @@ private:
   QAction *drawStreamLineAct;
   QAction *timeStepAct;
   QAction *fitToWindowAct;
+  QAction *drawAxesAct;
 
   void createActions();
   void createMenus();
@@ -193,6 +196,10 @@ private:
   vtkActor *isoContourActor;
   vtkActor *isoSurfaceActor;
   vtkActor *streamLineActor;
+  vtkActor *axesActor;
+  vtkFollower *axesXTextActor;
+  vtkFollower *axesYTextActor;
+  vtkFollower *axesZTextActor;
   vtkScalarBarActor *colorBarActor;
 
   Surface *surface;         // ui

@@ -23,7 +23,7 @@ LIBS += -lqwt-qt4
 # QVTK (you may need to edit this)
 DEFINES += VTKPOST
 INCLUDEPATH += /usr/include/vtk-5.0
-LIBS += -lQVTK
+LIBS += -lQVTK -lvtkHybrid
 
 # MATC (you may need to edit this)
 DEFINES += MATC
