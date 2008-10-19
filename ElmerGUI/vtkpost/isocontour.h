@@ -45,6 +45,8 @@
 #include "ui_isocontour.h"
 
 class ScalarField;
+class VtkPost;
+class TimeStep;
 
 class IsoContour : public QDialog
 {
@@ -56,7 +58,8 @@ public:
 
   Ui::isoContourDialog ui;
 
-  void populateWidgets(ScalarField*, int);
+  void populateWidgets(VtkPost*);
+  void draw(VtkPost*, TimeStep*);
 
 signals:
   void drawIsoContourSignal();

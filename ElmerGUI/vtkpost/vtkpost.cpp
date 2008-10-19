@@ -797,8 +797,8 @@ void VtkPost::populateWidgetsSlot()
 {
   surface->populateWidgets(this);
   vector->populateWidgets(this);
+  isoContour->populateWidgets(this);
   isoSurface->populateWidgets(scalarField, scalarFields);
-  isoContour->populateWidgets(scalarField, scalarFields);
   streamLine->populateWidgets(scalarField, scalarFields);
   colorBar->populateWidgets();
 }
@@ -1974,86 +1974,9 @@ void VtkPost::drawIsoContourSlot()
 {
   renderer->RemoveActor(isoContourActor);
   if(!drawIsoContourAct->isChecked()) return;
-
-  // Data from UI:
-  //--------------
-  int contourIndex = isoContour->ui.contoursCombo->currentIndex();
-  QString contourName = isoContour->ui.contoursCombo->currentText();
-  int contours = isoContour->ui.contoursSpin->value() + 1;
-  int lineWidth = isoContour->ui.lineWidthSpin->value();
-  double contourMinVal = isoContour->ui.contoursMinEdit->text().toDouble();
-  double contourMaxVal = isoContour->ui.contoursMaxEdit->text().toDouble();
-  int colorIndex = isoContour->ui.colorCombo->currentIndex();
-  QString colorName = isoContour->ui.colorCombo->currentText();
-  double colorMinVal = isoContour->ui.colorMinEdit->text().toDouble();
-  double colorMaxVal = isoContour->ui.colorMaxEdit->text().toDouble();
-
-  int step = timeStep->ui.timeStep->value();
-  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
-
-  if(contourName == "Null") return;
-
-  // Scalars:
-  //----------
-  surfaceGrid->GetPointData()->RemoveArray("IsoContour");
-  vtkFloatArray *contourArray = vtkFloatArray::New();
-  ScalarField *sf = &scalarField[contourIndex];
-  contourArray->SetNumberOfComponents(1);
-  contourArray->SetNumberOfTuples(epMesh->epNodes);
-  contourArray->SetName("IsoContour");
-  for(int i = 0; i < epMesh->epNodes; i++)
-    contourArray->SetComponent(i, 0, sf->value[i + offset]);
-  surfaceGrid->GetPointData()->AddArray(contourArray);
-
-  surfaceGrid->GetPointData()->RemoveArray("IsoContourColor");
-  vtkFloatArray *colorArray = vtkFloatArray::New();
-  sf = &scalarField[colorIndex];
-  colorArray->SetName("IsoContourColor");
-  colorArray->SetNumberOfComponents(1);
-  colorArray->SetNumberOfTuples(epMesh->epNodes);
-  for(int i = 0; i < epMesh->epNodes; i++)
-    colorArray->SetComponent(i, 0, sf->value[i + offset]);
-  surfaceGrid->GetPointData()->AddArray(colorArray);
-
-  // Isocontours:
-  //--------------
-  vtkContourFilter *iso = vtkContourFilter::New();
-  surfaceGrid->GetPointData()->SetActiveScalars("IsoContour");
-  iso->SetInput(surfaceGrid);
-  iso->ComputeScalarsOn();
-  iso->GenerateValues(contours, contourMinVal, contourMaxVal);
-
-  // Mapper:
-  //--------
-  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
-  mapper->SetInputConnection(iso->GetOutputPort());
-  mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray("IsoContourColor");
-  mapper->SetScalarModeToUsePointFieldData();
-  mapper->SetScalarRange(colorMinVal, colorMaxVal);
-  mapper->SetLookupTable(currentLut);
-  // mapper->ImmediateModeRenderingOn();
-
-  // Actor & renderer:
-  //-------------------
-  isoContourActor->SetMapper(mapper);
-  isoContourActor->GetProperty()->SetLineWidth(lineWidth);
-  renderer->AddActor(isoContourActor);
-
-  // Redraw colorbar:
-  //------------------
-  currentIsoContourName = colorName;
-  drawColorBarSlot();
-  
+  isoContour->draw(this, timeStep);
+  drawColorBarSlot();  
   qvtkWidget->GetRenderWindow()->Render();
-
-  // Clean up:
-  //----------
-  contourArray->Delete();
-  colorArray->Delete();
-  iso->Delete();
-  mapper->Delete();
 }
 
 
@@ -2256,16 +2179,6 @@ QString VtkPost::GetCurrentSurfaceName()
   return currentSurfaceName;
 }
 
-void VtkPost::SetCurrentSurfaceName(QString name)
-{
-  currentSurfaceName = name;
-}
-
-void VtkPost::SetCurrentVectorName(QString name)
-{
-  currentVectorName = name;
-}
-
 QString VtkPost::GetCurrentVectorName()
 {
   return currentVectorName;
@@ -2284,6 +2197,31 @@ QString VtkPost::GetCurrentIsoSurfaceName()
 QString VtkPost::GetCurrentStreamLineName()
 {
   return currentStreamLineName;
+}
+
+void VtkPost::SetCurrentSurfaceName(QString name)
+{
+  currentSurfaceName = name;
+}
+
+void VtkPost::SetCurrentVectorName(QString name)
+{
+  currentVectorName = name;
+}
+
+void VtkPost::SetCurrentIsoContourName(QString name)
+{
+  currentIsoContourName = name;
+}
+
+void VtkPost::SetCurrentIsoSurfaceName(QString name)
+{
+  currentIsoSurfaceName = name;
+}
+
+void VtkPost::SetCurrentStreamLineName(QString name)
+{
+  currentStreamLineName = name;
 }
 
 int VtkPost::GetScalarFields()

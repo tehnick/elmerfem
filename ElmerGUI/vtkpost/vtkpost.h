@@ -105,6 +105,9 @@ public:
   QString GetCurrentStreamLineName();
   void SetCurrentSurfaceName(QString);
   void SetCurrentVectorName(QString);
+  void SetCurrentIsoContourName(QString);
+  void SetCurrentIsoSurfaceName(QString);
+  void SetCurrentStreamLineName(QString);
   int GetScalarFields();
   ScalarField* GetScalarField();
   EpMesh* GetEpMesh();
