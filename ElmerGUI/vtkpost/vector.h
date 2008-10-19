@@ -44,6 +44,8 @@
 #include <QWidget>
 #include "ui_vector.h"
 
+class VtkPost;
+class TimeStep;
 class ScalarField;
 
 class Vector : public QDialog
@@ -56,7 +58,8 @@ public:
 
   Ui::vectorDialog ui;
 
-  void populateWidgets(ScalarField*, int);
+  void populateWidgets(VtkPost*);
+  void draw(VtkPost*, TimeStep*);
 
 signals:
   void drawVectorSignal();

@@ -322,144 +322,6 @@ VtkPost::~VtkPost()
 {
 }
 
-QVTKWidget* VtkPost::GetQVTKWidget()
-{
-  return qvtkWidget;
-}
-
-vtkRenderer* VtkPost::GetRenderer()
-{
-  return renderer;
-}
-
-vtkActor* VtkPost::GetSurfaceActor()
-{
-  return surfaceActor;
-}
-
-vtkActor* VtkPost::GetVectorActor()
-{
-  return vectorActor;
-}
-
-vtkActor* VtkPost::GetIsoContourActor()
-{
-  return isoContourActor;
-}
-
-vtkActor* VtkPost::GetIsoSurfaceActor()
-{
-  return isoSurfaceActor;
-}
-
-vtkActor* VtkPost::GetStreamLineActor()
-{
-  return streamLineActor;
-}
-
-vtkScalarBarActor* VtkPost::GetColorBarActor()
-{
-  return colorBarActor;
-}
-
-vtkActor* VtkPost::GetPickedPointActor()
-{
-  return pickedPointActor;
-}
-
-double VtkPost::GetLength()
-{
-  return volumeGrid->GetLength();
-}
-
-vtkUnstructuredGrid* VtkPost::GetLineGrid()
-{
-  return lineGrid;
-}
-
-vtkUnstructuredGrid* VtkPost::GetSurfaceGrid()
-{
-  return surfaceGrid;
-}
-
-vtkUnstructuredGrid* VtkPost::GetVolumeGrid()
-{
-  return volumeGrid;
-}
-
-vtkPlane* VtkPost::GetClipPlane()
-{
-  return clipPlane;
-}
-
-vtkLookupTable* VtkPost::GetCurrentLut()
-{
-  return currentLut;
-}
-
-
-QString VtkPost::GetCurrentSurfaceName()
-{
-  return currentSurfaceName;
-}
-
-void VtkPost::SetCurrentSurfaceName(QString name)
-{
-  currentSurfaceName = name;
-}
-
-QString VtkPost::GetCurrentVectorName()
-{
-  return currentVectorName;
-}
-
-QString VtkPost::GetCurrentIsoContourName()
-{
-  return currentIsoContourName;
-}
-
-QString VtkPost::GetCurrentIsoSurfaceName()
-{
-  return currentIsoSurfaceName;
-}
-
-QString VtkPost::GetCurrentStreamLineName()
-{
-  return currentStreamLineName;
-}
-
-int VtkPost::GetScalarFields()
-{
-  return scalarFields;
-}
-
-ScalarField* VtkPost::GetScalarField()
-{
-  return scalarField;
-}
-
-EpMesh* VtkPost::GetEpMesh()
-{
-  return epMesh;
-}
-
-void VtkPost::SetCurrentPickPosition(double *p)
-{
-  currentPickPosition[0] = p[0];
-  currentPickPosition[1] = p[1];
-  currentPickPosition[2] = p[2];
-}
-
-QSize VtkPost::minimumSizeHint() const
-{
-  return QSize(64, 64);
-}
-
-QSize VtkPost::sizeHint() const
-{
-  return QSize(640, 480);
-}
-
 void VtkPost::createActions()
 {
   // File menu:
@@ -934,7 +796,7 @@ int VtkPost::NofNodes()
 void VtkPost::populateWidgetsSlot()
 {
   surface->populateWidgets(this);
-  vector->populateWidgets(scalarField, scalarFields);
+  vector->populateWidgets(this);
   isoSurface->populateWidgets(scalarField, scalarFields);
   isoContour->populateWidgets(scalarField, scalarFields);
   streamLine->populateWidgets(scalarField, scalarFields);
@@ -1483,9 +1345,7 @@ void VtkPost::drawColorBarSlot()
 {
   renderer->RemoveActor(colorBarActor);
   if(!drawColorBarAct->isChecked()) return;
-
   colorBar->draw(this);
-
   qvtkWidget->GetRenderWindow()->Render();
 }
 
@@ -1904,126 +1764,10 @@ void VtkPost::drawVectorSlot()
 {
   renderer->RemoveActor(vectorActor);
   if(!drawVectorAct->isChecked()) return;
-
-  QString vectorName = vector->ui.vectorCombo->currentText();
-
-  if(vectorName.isEmpty()) return;
-
-  int i, j, index = -1;
-  for(i = 0; i < scalarFields; i++) {
-    ScalarField *sf = &scalarField[i];
-    QString name = sf->name;
-    if((j = name.indexOf("_x")) >= 0) {
-      if(vectorName == name.mid(0, j)) {
-	index = i;
-	break;
-      }
-    }
-  }
-
-  if(index < 0) return;
-
-  // UI data:
-  //----------
-  int colorIndex = vector->ui.colorCombo->currentIndex();
-  QString colorName = vector->ui.colorCombo->currentText();
-  double minVal = vector->ui.minVal->text().toDouble();
-  double maxVal = vector->ui.maxVal->text().toDouble();
-  int quality = vector->ui.qualitySpin->value();
-  int scaleMultiplier = vector->ui.scaleSpin->value();
-  bool scaleByMagnitude = vector->ui.scaleByMagnitude->isChecked();
-
-  int step = timeStep->ui.timeStep->value();
-  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
-
-  // Vector data:
-  //-------------
-  volumeGrid->GetPointData()->RemoveArray("VectorData");
-  vtkFloatArray *vectorData = vtkFloatArray::New();
-  ScalarField *sf_x = &scalarField[index + 0];
-  ScalarField *sf_y = &scalarField[index + 1];
-  ScalarField *sf_z = &scalarField[index + 2];
-  vectorData->SetNumberOfComponents(3);
-  vectorData->SetNumberOfTuples(epMesh->epNodes);
-  vectorData->SetName("VectorData");
-  double scaleFactor = 0.0;
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    double val_x  = sf_x->value[i + offset];
-    double val_y  = sf_y->value[i + offset];
-    double val_z  = sf_z->value[i + offset];
-    double absval = sqrt(val_x*val_x + val_y*val_y + val_z*val_z);
-    if(absval > scaleFactor) scaleFactor = absval;
-    vectorData->SetComponent(i, 0, val_x); 
-    vectorData->SetComponent(i, 1, val_y); 
-    vectorData->SetComponent(i, 2, val_z); 
-  }
-  volumeGrid->GetPointData()->AddArray(vectorData);
-
-  // Size of volume grid:
-  //---------------------
-  double length = volumeGrid->GetLength();
-  if(scaleByMagnitude)
-    scaleFactor = scaleFactor * 100.0 / length;
-
-  // Color data:
-  //-------------
-  volumeGrid->GetPointData()->RemoveArray("VectorColor");
-  ScalarField *sf = &scalarField[colorIndex];
-  vtkFloatArray *vectorColor = vtkFloatArray::New();
-  vectorColor->SetNumberOfComponents(1);
-  vectorColor->SetNumberOfTuples(epMesh->epNodes);
-  vectorColor->SetName("VectorColor");
-  for(int i = 0; i < epMesh->epNodes; i++) 
-    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
-  volumeGrid->GetPointData()->AddArray(vectorColor);
-
-  // Glyphs:
-  //---------
-  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); 
-  vtkGlyph3D *glyph = vtkGlyph3D::New();
-  vtkArrowSource *arrow = vtkArrowSource::New();
-  arrow->SetTipResolution(quality);
-  arrow->SetShaftResolution(quality);
-  glyph->SetInput(volumeGrid);
-  glyph->SetSourceConnection(arrow->GetOutputPort());
-  glyph->SetVectorModeToUseVector();
-
-  if(scaleByMagnitude) {
-    glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
-    glyph->SetScaleModeToScaleByVector();
-  } else {
-    glyph->SetScaleFactor(scaleMultiplier * length  / 100.0);
-    glyph->ScalingOn();
-  }
-  glyph->SetColorModeToColorByScale();
-  
-  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-  mapper->SetInputConnection(glyph->GetOutputPort());
-  mapper->SetScalarModeToUsePointFieldData();
-  mapper->ScalarVisibilityOn();
-  mapper->SetScalarRange(minVal, maxVal);
-  mapper->SelectColorArray("VectorColor");
-  mapper->SetLookupTable(currentLut);
-  // mapper->ImmediateModeRenderingOn();
-
-  vectorActor->SetMapper(mapper);
-  renderer->AddActor(vectorActor);
-
-  // Update color bar && field name:
-  //---------------------------------
-  currentVectorName = colorName;
+  vector->draw(this, timeStep);
   drawColorBarSlot();
-
   qvtkWidget->GetRenderWindow()->Render();
-
-  mapper->Delete();
-  arrow->Delete();
-  glyph->Delete();
-  vectorData->Delete();
-  vectorColor->Delete();
 }
-
 
 
 // Draw surfaces:
@@ -2428,4 +2172,148 @@ void VtkPost::drawAxesSlot()
   axesTubes->Delete();
   axesMapper->Delete();
   axes->Delete();
+}
+
+
+QVTKWidget* VtkPost::GetQVTKWidget()
+{
+  return qvtkWidget;
+}
+
+vtkRenderer* VtkPost::GetRenderer()
+{
+  return renderer;
+}
+
+vtkActor* VtkPost::GetSurfaceActor()
+{
+  return surfaceActor;
+}
+
+vtkActor* VtkPost::GetVectorActor()
+{
+  return vectorActor;
+}
+
+vtkActor* VtkPost::GetIsoContourActor()
+{
+  return isoContourActor;
+}
+
+vtkActor* VtkPost::GetIsoSurfaceActor()
+{
+  return isoSurfaceActor;
+}
+
+vtkActor* VtkPost::GetStreamLineActor()
+{
+  return streamLineActor;
+}
+
+vtkScalarBarActor* VtkPost::GetColorBarActor()
+{
+  return colorBarActor;
+}
+
+vtkActor* VtkPost::GetPickedPointActor()
+{
+  return pickedPointActor;
+}
+
+double VtkPost::GetLength()
+{
+  return volumeGrid->GetLength();
+}
+
+vtkUnstructuredGrid* VtkPost::GetLineGrid()
+{
+  return lineGrid;
+}
+
+vtkUnstructuredGrid* VtkPost::GetSurfaceGrid()
+{
+  return surfaceGrid;
+}
+
+vtkUnstructuredGrid* VtkPost::GetVolumeGrid()
+{
+  return volumeGrid;
+}
+
+vtkPlane* VtkPost::GetClipPlane()
+{
+  return clipPlane;
+}
+
+vtkLookupTable* VtkPost::GetCurrentLut()
+{
+  return currentLut;
+}
+
+
+QString VtkPost::GetCurrentSurfaceName()
+{
+  return currentSurfaceName;
+}
+
+void VtkPost::SetCurrentSurfaceName(QString name)
+{
+  currentSurfaceName = name;
+}
+
+void VtkPost::SetCurrentVectorName(QString name)
+{
+  currentVectorName = name;
+}
+
+QString VtkPost::GetCurrentVectorName()
+{
+  return currentVectorName;
+}
+
+QString VtkPost::GetCurrentIsoContourName()
+{
+  return currentIsoContourName;
+}
+
+QString VtkPost::GetCurrentIsoSurfaceName()
+{
+  return currentIsoSurfaceName;
+}
+
+QString VtkPost::GetCurrentStreamLineName()
+{
+  return currentStreamLineName;
+}
+
+int VtkPost::GetScalarFields()
+{
+  return scalarFields;
+}
+
+ScalarField* VtkPost::GetScalarField()
+{
+  return scalarField;
+}
+
+EpMesh* VtkPost::GetEpMesh()
+{
+  return epMesh;
+}
+
+void VtkPost::SetCurrentPickPosition(double *p)
+{
+  currentPickPosition[0] = p[0];
+  currentPickPosition[1] = p[1];
+  currentPickPosition[2] = p[2];
+}
+
+QSize VtkPost::minimumSizeHint() const
+{
+  return QSize(64, 64);
+}
+
+QSize VtkPost::sizeHint() const
+{
+  return QSize(640, 480);
 }

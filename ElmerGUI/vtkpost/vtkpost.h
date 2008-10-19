@@ -99,11 +99,12 @@ public:
   vtkLookupTable* GetCurrentLut();
   int NofNodes();
   QString GetCurrentSurfaceName();
-  void SetCurrentSurfaceName(QString);
   QString GetCurrentVectorName();
   QString GetCurrentIsoContourName();
   QString GetCurrentIsoSurfaceName();
   QString GetCurrentStreamLineName();
+  void SetCurrentSurfaceName(QString);
+  void SetCurrentVectorName(QString);
   int GetScalarFields();
   ScalarField* GetScalarField();
   EpMesh* GetEpMesh();

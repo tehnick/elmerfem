@@ -43,6 +43,17 @@
 #include "epmesh.h"
 #include "vtkpost.h"
 #include "vector.h"
+#include "timestep.h"
+
+#include <vtkUnstructuredGrid.h>
+#include <vtkPointData.h>
+#include <vtkFloatArray.h>
+#include <vtkGlyph3D.h>
+#include <vtkArrowSource.h>
+#include <vtkPolyDataMapper.h>
+#include <vtkLookupTable.h>
+#include <vtkActor.h>
+#include <vtkRenderer.h>
 
 using namespace std;
 
@@ -81,15 +92,15 @@ void Vector::okButtonClicked()
   close();
 }
 
-void Vector::populateWidgets(ScalarField *scalarField, int n)
+void Vector::populateWidgets(VtkPost *vtkPost)
 {
-  this->scalarField = scalarField;
-  this->scalarFields = n;
+  this->scalarField = vtkPost->GetScalarField();
+  this->scalarFields = vtkPost->GetScalarFields();
 
   ui.vectorCombo->clear();
 
   int index = -1;
-  for(int i = 0; i < n; i++) {
+  for(int i = 0; i < scalarFields; i++) {
     ScalarField *sf = &scalarField[i];
     QString name = sf->name;
     if((index = name.indexOf("_x")) >= 0) {
@@ -101,7 +112,7 @@ void Vector::populateWidgets(ScalarField *scalarField, int n)
 
   ui.colorCombo->clear();
 
-  for(int i = 0; i < n; i++) {
+  for(int i = 0; i < scalarFields; i++) {
     ScalarField *sf = &scalarField[i];
     ui.colorCombo->addItem(sf->name);
   }
@@ -127,4 +138,125 @@ void Vector::keepLimitsSlot(int state)
 {
   if(state == 0)
     colorSelectionChanged(ui.colorCombo->currentIndex());
+}
+
+void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
+{
+  QString vectorName = ui.vectorCombo->currentText();
+
+  if(vectorName.isEmpty()) return;
+
+  int i, j, index = -1;
+  for(i = 0; i < scalarFields; i++) {
+    ScalarField *sf = &scalarField[i];
+    QString name = sf->name;
+    if((j = name.indexOf("_x")) >= 0) {
+      if(vectorName == name.mid(0, j)) {
+	index = i;
+	break;
+      }
+    }
+  }
+
+  if(index < 0) return;
+
+  int colorIndex = ui.colorCombo->currentIndex();
+  QString colorName = ui.colorCombo->currentText();
+  double minVal = ui.minVal->text().toDouble();
+  double maxVal = ui.maxVal->text().toDouble();
+  int quality = ui.qualitySpin->value();
+  int scaleMultiplier = ui.scaleSpin->value();
+  bool scaleByMagnitude = ui.scaleByMagnitude->isChecked();
+
+  EpMesh* epMesh = vtkPost->GetEpMesh();
+  int step = timeStep->ui.timeStep->value();
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
+  int offset = epMesh->epNodes * (step - 1);
+
+  // Vector data:
+  //-------------
+  vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
+  volumeGrid->GetPointData()->RemoveArray("VectorData");
+  vtkFloatArray *vectorData = vtkFloatArray::New();
+  ScalarField *sf_x = &scalarField[index + 0];
+  ScalarField *sf_y = &scalarField[index + 1];
+  ScalarField *sf_z = &scalarField[index + 2];
+  vectorData->SetNumberOfComponents(3);
+  vectorData->SetNumberOfTuples(epMesh->epNodes);
+  vectorData->SetName("VectorData");
+  double scaleFactor = 0.0;
+  for(int i = 0; i < epMesh->epNodes; i++) {
+    double val_x  = sf_x->value[i + offset];
+    double val_y  = sf_y->value[i + offset];
+    double val_z  = sf_z->value[i + offset];
+    double absval = sqrt(val_x*val_x + val_y*val_y + val_z*val_z);
+    if(absval > scaleFactor) scaleFactor = absval;
+    vectorData->SetComponent(i, 0, val_x); 
+    vectorData->SetComponent(i, 1, val_y); 
+    vectorData->SetComponent(i, 2, val_z); 
+  }
+  volumeGrid->GetPointData()->AddArray(vectorData);
+
+  // Size of volume grid:
+  //---------------------
+  double length = volumeGrid->GetLength();
+  if(scaleByMagnitude)
+    scaleFactor = scaleFactor * 100.0 / length;
+
+  // Color data:
+  //-------------
+  volumeGrid->GetPointData()->RemoveArray("VectorColor");
+  ScalarField *sf = &scalarField[colorIndex];
+  vtkFloatArray *vectorColor = vtkFloatArray::New();
+  vectorColor->SetNumberOfComponents(1);
+  vectorColor->SetNumberOfTuples(epMesh->epNodes);
+  vectorColor->SetName("VectorColor");
+  for(int i = 0; i < epMesh->epNodes; i++) 
+    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
+  volumeGrid->GetPointData()->AddArray(vectorColor);
+
+  // Glyphs:
+  //---------
+  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); 
+  vtkGlyph3D *glyph = vtkGlyph3D::New();
+  vtkArrowSource *arrow = vtkArrowSource::New();
+  arrow->SetTipResolution(quality);
+  arrow->SetShaftResolution(quality);
+  glyph->SetInput(volumeGrid);
+  glyph->SetSourceConnection(arrow->GetOutputPort());
+  glyph->SetVectorModeToUseVector();
+
+  if(scaleByMagnitude) {
+    glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
+    glyph->SetScaleModeToScaleByVector();
+  } else {
+    glyph->SetScaleFactor(scaleMultiplier * length  / 100.0);
+    glyph->ScalingOn();
+  }
+  glyph->SetColorModeToColorByScale();
+  
+  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+  mapper->SetInputConnection(glyph->GetOutputPort());
+  mapper->SetScalarModeToUsePointFieldData();
+  mapper->ScalarVisibilityOn();
+  mapper->SetScalarRange(minVal, maxVal);
+  mapper->SelectColorArray("VectorColor");
+
+  vtkLookupTable* currentLut = vtkPost->GetCurrentLut();
+  mapper->SetLookupTable(currentLut);
+  // mapper->ImmediateModeRenderingOn();
+
+  vtkActor* vectorActor = vtkPost->GetVectorActor();
+  vectorActor->SetMapper(mapper);
+
+  vtkRenderer* renderer = vtkPost->GetRenderer();
+  renderer->AddActor(vectorActor);
+
+  vtkPost->SetCurrentVectorName(colorName);
+
+  mapper->Delete();
+  arrow->Delete();
+  glyph->Delete();
+  vectorData->Delete();
+  vectorColor->Delete();
 }
