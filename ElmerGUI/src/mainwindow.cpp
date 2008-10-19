@@ -2007,7 +2007,7 @@ void MainWindow::modelSetupSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
 {
-  if  (!glWidget->mesh ) return;
+  if ( !glWidget->mesh ) return;
 
   if ( pe->spareScroll->widget() )
     delete pe->spareScroll->widget();
@@ -2452,7 +2452,7 @@ void MainWindow::materialSelectedSlot(QAction* act)
 void MainWindow::materialBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
-  if  (glWidget->mesh ) {
+  if( glWidget->mesh ) {
      DynamicEditor *mat  = (DynamicEditor *)a->property("editor").toULongLong();
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
  
@@ -2460,7 +2460,8 @@ void MainWindow::materialBodyChanged(int state)
      int ind = body->ui.materialCombo->findText(mat_name);
 
      body->material = NULL;
-     if ( state ) {
+
+     if ( state > 0 ) {
        body->touched = true;
        body->material = mat;
        body->ui.materialCombo->setCurrentIndex(ind);
@@ -5868,6 +5869,12 @@ void MainWindow::showaboutSlot()
 			"ElmerGUI uses the Qt4 Cross-Platform "
 			"Application Framework by Trolltech:\n\n"
 			"http://trolltech.com/products/qt\n\n"
+#ifdef VTKPOST
+			"This version of ElmerGUI contains a built-in postprocessor "
+			"based on the Visualization Toolkit (VTK):\n\n"
+			"http://www.vtk.org\n\n"
+#endif
+
 #ifdef OCC62
 			"This version of ElmerGUI has been compiled with the "
 			"OpenCascade solids modeling library using the "
@@ -5886,7 +5893,7 @@ void MainWindow::showaboutSlot()
 			"http://www.mcs.anl.gov/research/projects/mpich2/\n\n"
 #endif
 			"The GPL-licensed source code of ElmerGUI is available "
-			"from the SVN repository at\n\n"
+			"from the SVN repository at Sourceforge.net\n\n"
 			"http://sourceforge.net/projects/elmerfem\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));
