@@ -107,8 +107,8 @@ extern "C" void com_init(char *,int,int,VARIABLE *(*)(VARIABLE *),int,int,char*)
 
 using namespace std;
 
-// Pick event handler (place cursor && press 'p' to pick):
-//---------------------------------------------------------
+// Pick event handler (place cursor on screen && press 'p' to pick):
+//-------------------------------------------------------------------
 static void pickEventHandler(vtkObject* caller, unsigned long eid, 
 			     void* clientdata, void* calldata)
 {
@@ -144,21 +144,21 @@ static void pickEventHandler(vtkObject* caller, unsigned long eid,
     cross->SetPoints(points);
 
     line->GetPointIds()->SetId(0, 0);
-    line->GetPointIds()->SetId(1, 3);    
+    line->GetPointIds()->SetId(1, 3);
     cross->InsertNextCell(line->GetCellType(), line->GetPointIds());
 
     line->GetPointIds()->SetId(0, 1);
-    line->GetPointIds()->SetId(1, 4);    
+    line->GetPointIds()->SetId(1, 4);
     cross->InsertNextCell(line->GetCellType(), line->GetPointIds());
 
     line->GetPointIds()->SetId(0, 2);
-    line->GetPointIds()->SetId(1, 5);    
+    line->GetPointIds()->SetId(1, 5);
     cross->InsertNextCell(line->GetCellType(), line->GetPointIds());
 
     mapper->SetInput(cross);
 
     pickedPointActor->SetMapper(mapper);
-    pickedPointActor->SetPosition(pickPos[0], pickPos[1], pickPos[2]);
+    pickedPointActor->SetPosition(pickPos);
     pickedPointActor->GetProperty()->SetColor(1, 0, 0);
 
     renderer->AddActor(pickedPointActor);
@@ -291,7 +291,7 @@ VtkPost::VtkPost(QWidget *parent)
 
   // Create a cell picker and set the callback & observer:
   //------------------------------------------------------
-  vtkCellPicker *cellPicker = vtkCellPicker::New();
+  vtkCellPicker* cellPicker = vtkCellPicker::New();
   qvtkWidget->GetInteractor()->SetPicker(cellPicker);
   cellPicker->Delete();
 
@@ -1206,6 +1206,7 @@ void VtkPost::drawColorBarSlot()
   renderer->RemoveActor(colorBarActor);
   if(!drawColorBarAct->isChecked()) return;
   colorBar->draw(this);
+  renderer->AddActor(colorBarActor);
   qvtkWidget->GetRenderWindow()->Render();
 }
 

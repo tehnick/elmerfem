@@ -48,7 +48,7 @@
 #include <vtkScalarBarActor.h>
 #include <vtkTextMapper.h>
 #include <vtkTextProperty.h>
-#include <vtkRenderer.h>
+#include <vtkActor.h>
 
 using namespace std;
 
@@ -103,11 +103,11 @@ void ColorBar::populateWidgets(VtkPost* vtkPost)
 
 void ColorBar::draw(VtkPost* vtkPost)
 {
-  vtkRenderer* renderer = vtkPost->GetRenderer();
   vtkScalarBarActor* colorBarActor = vtkPost->GetColorBarActor();
 
   vtkTextMapper* tMapper = vtkTextMapper::New();
   colorBarActor->SetMapper(tMapper);
+  tMapper->Delete();
 
   QString actorName = ui.colorCombo->currentText().trimmed();
 
@@ -115,46 +115,36 @@ void ColorBar::draw(VtkPost* vtkPost)
 
   QString fieldName = "";
 
-  vtkScalarsToColors *lut = NULL;
+  vtkScalarsToColors* lut = NULL;
 
-  vtkActor* surfaceActor = vtkPost->GetSurfaceActor();
-  QString currentSurfaceName = vtkPost->GetCurrentSurfaceName();
   if(actorName == "Surface") {
-    fieldName = currentSurfaceName;
+    fieldName = vtkPost->GetCurrentSurfaceName();
     if(fieldName.isEmpty()) return;
-    lut = surfaceActor->GetMapper()->GetLookupTable();
+    lut = vtkPost->GetSurfaceActor()->GetMapper()->GetLookupTable();
   }
 
-  vtkActor* vectorActor = vtkPost->GetVectorActor();
-  QString currentVectorName = vtkPost->GetCurrentVectorName();
   if(actorName == "Vector") {
-    fieldName = currentVectorName;
+    fieldName = vtkPost->GetCurrentVectorName();
     if(fieldName.isEmpty()) return;
-    lut = vectorActor->GetMapper()->GetLookupTable();
+    lut = vtkPost->GetVectorActor()->GetMapper()->GetLookupTable();
   }
 
-  vtkActor* isoContourActor = vtkPost->GetIsoContourActor();
-  QString currentIsoContourName = vtkPost->GetCurrentIsoContourName();
   if(actorName == "Isocontour") {
-    fieldName = currentIsoContourName;
+    fieldName = vtkPost->GetCurrentIsoContourName();
     if(fieldName.isEmpty()) return;
-    lut = isoContourActor->GetMapper()->GetLookupTable();
+    lut = vtkPost->GetIsoContourActor()->GetMapper()->GetLookupTable();
   }
 
-  vtkActor *isoSurfaceActor = vtkPost->GetIsoSurfaceActor();
-  QString currentIsoSurfaceName = vtkPost->GetCurrentIsoSurfaceName();
   if(actorName == "Isosurface") {
-    fieldName = currentIsoSurfaceName;
+    fieldName = vtkPost->GetCurrentIsoSurfaceName();
     if(fieldName.isEmpty()) return;
-    lut = isoSurfaceActor->GetMapper()->GetLookupTable();
+    lut = vtkPost->GetIsoSurfaceActor()->GetMapper()->GetLookupTable();
   }
   
-  vtkActor* streamLineActor = vtkPost->GetStreamLineActor();
-  QString currentStreamLineName = vtkPost->GetCurrentStreamLineName();
   if(actorName == "Streamline") {
-    fieldName = currentStreamLineName;
+    fieldName = vtkPost->GetCurrentStreamLineName();
     if(fieldName.isEmpty()) return;
-    lut = streamLineActor->GetMapper()->GetLookupTable();
+    lut = vtkPost->GetStreamLineActor()->GetMapper()->GetLookupTable();
   }
 
   if(!lut) return;
@@ -203,8 +193,4 @@ void ColorBar::draw(VtkPost* vtkPost)
   } else {
     colorBarActor->SetTitle("");
   }
-
-  renderer->AddActor(colorBarActor);
-
-  tMapper->Delete();
 }
