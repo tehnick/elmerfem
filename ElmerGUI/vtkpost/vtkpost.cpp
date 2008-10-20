@@ -141,8 +141,8 @@ static void pickEventHandler(vtkObject *caller, unsigned long eid,
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
   vtkCellPicker* cellPicker = vtkCellPicker::SafeDownCast(picker);
 
-  double pickPos[3];
   int cellId = cellPicker->GetCellId();
+  double* pickPos = vtkPost->GetCurrentPickPosition();
   cellPicker->GetPickPosition(pickPos);
   vtkPost->SetCurrentPickPosition(pickPos);
 
@@ -154,7 +154,7 @@ static void pickEventHandler(vtkObject *caller, unsigned long eid,
     vtkUnstructuredGrid *cross = vtkUnstructuredGrid::New();
     vtkPoints* points = vtkPoints::New();
     vtkLine* line = vtkLine::New();
-    double l = vtkPost->GetLength() / 10.0;
+    double l = vtkPost->GetLength() / 15.0;
 
     points->SetNumberOfPoints(6);
     points->InsertPoint(0, +l,  0,  0);
@@ -1623,6 +1623,7 @@ void VtkPost::drawIsoSurfaceSlot()
   setupClipPlane();
   isoSurface->draw(this, timeStep);
   renderer->AddActor(isoSurfaceActor);
+  drawColorBarSlot();
   qvtkWidget->GetRenderWindow()->Render();
 }
 
