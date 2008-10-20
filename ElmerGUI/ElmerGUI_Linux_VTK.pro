@@ -70,6 +70,7 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/tetgen.h \
            plugins/tetlib_api.h \
            vtkpost/axes.h \
+           vtkpost/featureedge.h \
            vtkpost/vtkpost.h \
            vtkpost/isosurface.h \
            vtkpost/isocontour.h \
@@ -93,6 +94,7 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/solverparameters.ui \
          forms/summaryeditor.ui \
          vtkpost/axes.ui \
+         vtkpost/featureedge.ui \
          vtkpost/isosurface.ui \
          vtkpost/isocontour.ui \
          vtkpost/colorbar.ui \
@@ -138,6 +140,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/nglib_api.cpp \
            plugins/tetlib_api.cpp \
            vtkpost/axes.cpp \
+           vtkpost/featureedge.cpp \
            vtkpost/vtkpost.cpp \
            vtkpost/isosurface.cpp \
            vtkpost/isocontour.cpp \

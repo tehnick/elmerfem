@@ -40,6 +40,7 @@
 
 #include <QtGui>
 #include <iostream>
+
 #include "epmesh.h"
 #include "vtkpost.h"
 #include "surface.h"
@@ -51,6 +52,8 @@
 #include "streamline.h"
 #include "timestep.h"
 #include "axes.h"
+#include "featureedge.h"
+
 #include <QVTKWidget.h>
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
@@ -74,8 +77,6 @@
 #include <vtkUnstructuredGrid.h>
 #include <vtkDataSetMapper.h>
 #include <vtkExtractEdges.h>
-#include <vtkFeatureEdges.h>
-#include <vtkGeometryFilter.h>
 #include <vtkGlyph3D.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
@@ -251,6 +252,8 @@ VtkPost::VtkPost(QWidget *parent)
   connect(timeStep, SIGNAL(timeStepChangedSignal()), this, SLOT(timeStepChangedSlot()));
 
   axes = new Axes(this);
+
+  featureEdge = new FeatureEdge(this);
 
 #ifdef MATC
   matc = new Matc(this);
@@ -1415,50 +1418,10 @@ void VtkPost::drawFeatureEdgesSlot()
 {
   renderer->RemoveActor(featureEdgeActor);
   if(!drawFeatureEdgesAct->isChecked()) return;
-
-  bool useSurfaceGrid = preferences->ui.surfaceRButton->isChecked();
-  int featureAngle = preferences->ui.angleSpin->value();
-  int lineWidth = preferences->ui.lineWidthSpin->value();
-  
-  vtkUnstructuredGrid *grid = NULL;
-
-  if(useSurfaceGrid) {
-    grid = surfaceGrid;
-  } else {
-    grid = volumeGrid;
-  }
-
-  if(!grid) return;
-  if(grid->GetNumberOfCells() < 1) return;
-
-  // Convert from vtkUnstructuredGrid to vtkPolyData:
-  vtkGeometryFilter *filter = vtkGeometryFilter::New();
-  filter->SetInput(grid);
-  filter->GetOutput()->ReleaseDataFlagOn();
-
-  vtkFeatureEdges *edges = vtkFeatureEdges::New();
-  edges->SetInputConnection(filter->GetOutputPort());
-  edges->SetFeatureAngle(featureAngle);
-  edges->BoundaryEdgesOn();
-  edges->ManifoldEdgesOn();
-  edges->NonManifoldEdgesOn();
-
-  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-  mapper->SetInputConnection(edges->GetOutputPort());
-  mapper->ScalarVisibilityOff();
-  mapper->SetResolveCoincidentTopologyToPolygonOffset();
-  // mapper->ImmediateModeRenderingOn();
-
-  featureEdgeActor->GetProperty()->SetLineWidth(lineWidth);
-  featureEdgeActor->GetProperty()->SetColor(0, 0, 0);
-  featureEdgeActor->SetMapper(mapper);
-
+  setupClipPlane();
+  featureEdge->draw(this, preferences);
   renderer->AddActor(featureEdgeActor);
   qvtkWidget->GetRenderWindow()->Render();
-  
-  filter->Delete();
-  edges->Delete();
-  mapper->Delete();
 }
 
 // Draw stream lines:
@@ -1719,6 +1682,11 @@ vtkActor* VtkPost::GetPickedPointActor()
 vtkActor* VtkPost::GetAxesActor()
 {
   return axesActor;
+}
+
+vtkActor* VtkPost::GetFeatureEdgeActor()
+{
+  return featureEdgeActor;
 }
 
 vtkFollower* VtkPost::GetAxesXTextActor()

@@ -68,6 +68,7 @@ class Vector;
 class StreamLine;
 class TimeStep;
 class Axes;
+class FeatureEdge;
 class Matc;
 
 class VtkPost : public QMainWindow
@@ -95,6 +96,7 @@ public:
   vtkFollower* GetAxesYTextActor();
   vtkFollower* GetAxesZTextActor();
   vtkScalarBarActor* GetColorBarActor();
+  vtkActor* GetFeatureEdgeActor();
   vtkActor* GetPickedPointActor();
   double GetLength();
   vtkUnstructuredGrid* GetLineGrid();
@@ -248,6 +250,7 @@ private:
   Matc* matc;               // ui
   TimeStep* timeStep;       // ui
   Axes* axes;               // ui
+  FeatureEdge* featureEdge; // ui
 
   QString currentSurfaceName;
   QString currentVectorName;
