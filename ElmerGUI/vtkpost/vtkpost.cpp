@@ -249,11 +249,8 @@ VtkPost::VtkPost(QWidget *parent)
   connect(timeStep, SIGNAL(timeStepChangedSignal()), this, SLOT(timeStepChangedSlot()));
 
   axes = new Axes(this);
-
   featureEdge = new FeatureEdge(this);
-
   meshPoint = new MeshPoint(this);
-
   meshEdge = new MeshEdge(this);
 
 #ifdef MATC
@@ -797,12 +794,12 @@ void VtkPost::savePictureSlot()
     return;
   }
 
-  vtkWindowToImageFilter *image = vtkWindowToImageFilter::New();
+  vtkWindowToImageFilter* image = vtkWindowToImageFilter::New();
 
   image->SetInput(qvtkWidget->GetRenderWindow());
   image->Update();
 
-  vtkPNGWriter *writer = vtkPNGWriter::New();
+  vtkPNGWriter* writer = vtkPNGWriter::New();
 
   writer->SetInputConnection(image->GetOutputPort());
   writer->SetFileName(fileName.toAscii().data());
@@ -1315,7 +1312,6 @@ void VtkPost::drawColorBarSlot()
 {
   renderer->RemoveActor(colorBarActor);
   if(!drawColorBarAct->isChecked()) return;
-  setupClipPlane();
   colorBar->draw(this);
   qvtkWidget->GetRenderWindow()->Render();
 }
@@ -1326,7 +1322,6 @@ void VtkPost::drawMeshPointSlot()
 {
   renderer->RemoveActor(meshPointActor);
   if(!drawMeshPointAct->isChecked()) return;
-  setupClipPlane();
   meshPoint->draw(this, preferences);
   renderer->AddActor(meshPointActor);
   qvtkWidget->GetRenderWindow()->Render();
@@ -1338,7 +1333,6 @@ void VtkPost::drawMeshEdgeSlot()
 {
   renderer->RemoveActor(meshEdgeActor);
   if(!drawMeshEdgeAct->isChecked()) return;
-  setupClipPlane();
   meshEdge->draw(this, preferences);
   renderer->AddActor(meshEdgeActor);
   qvtkWidget->GetRenderWindow()->Render();
@@ -1350,7 +1344,6 @@ void VtkPost::drawFeatureEdgesSlot()
 {
   renderer->RemoveActor(featureEdgeActor);
   if(!drawFeatureEdgesAct->isChecked()) return;
-  setupClipPlane();
   featureEdge->draw(this, preferences);
   renderer->AddActor(featureEdgeActor);
   qvtkWidget->GetRenderWindow()->Render();
@@ -1366,7 +1359,7 @@ void VtkPost::showStreamLineDialogSlot()
     streamLine->show();
   } else {
     streamLine->close();
-    drawVectorSlot();
+    drawStreamLineSlot();
   }
 }
 
@@ -1380,7 +1373,6 @@ void VtkPost::drawStreamLineSlot()
 {
   renderer->RemoveActor(streamLineActor);
   if(!drawStreamLineAct->isChecked()) return;
-  setupClipPlane();
   streamLine->draw(this, timeStep);
   renderer->AddActor(streamLineActor);
   drawColorBarSlot();
@@ -1397,7 +1389,6 @@ void VtkPost::showVectorDialogSlot()
     vector->show();
   } else {
     vector->close();
-
     drawVectorSlot();
   }
 }
@@ -1412,7 +1403,6 @@ void VtkPost::drawVectorSlot()
 {
   renderer->RemoveActor(vectorActor);
   if(!drawVectorAct->isChecked()) return;
-  setupClipPlane();
   vector->draw(this, timeStep);
   renderer->AddActor(vectorActor);
   drawColorBarSlot();
@@ -1443,7 +1433,6 @@ void VtkPost::drawSurfaceSlot()
 {
   renderer->RemoveActor(surfaceActor);
   if(!drawSurfaceAct->isChecked()) return;
-  setupClipPlane();
   surface->draw(this, timeStep);
   renderer->AddActor(surfaceActor);
   drawColorBarSlot();
@@ -1474,7 +1463,6 @@ void VtkPost::drawIsoContourSlot()
 {
   renderer->RemoveActor(isoContourActor);
   if(!drawIsoContourAct->isChecked()) return;
-  setupClipPlane();
   isoContour->draw(this, timeStep);
   renderer->AddActor(isoContourActor);
   drawColorBarSlot();  
@@ -1505,7 +1493,6 @@ void VtkPost::drawIsoSurfaceSlot()
 {
   renderer->RemoveActor(isoSurfaceActor);
   if(!drawIsoSurfaceAct->isChecked()) return;
-  setupClipPlane();
   isoSurface->draw(this, timeStep);
   renderer->AddActor(isoSurfaceActor);
   drawColorBarSlot();
@@ -1530,21 +1517,6 @@ void VtkPost::drawAxesSlot()
 }
 
 
-// Set up the clip plane:
-//----------------------------------------------------------------------
-void VtkPost::setupClipPlane()
-{ 
-  double px = preferences->ui.clipPointX->text().toDouble();
-  double py = preferences->ui.clipPointY->text().toDouble();
-  double pz = preferences->ui.clipPointZ->text().toDouble();
-  double nx = preferences->ui.clipNormalX->text().toDouble();
-  double ny = preferences->ui.clipNormalY->text().toDouble();
-  double nz = preferences->ui.clipNormalZ->text().toDouble();
-
-  this->clipPlane->SetOrigin(px, py, pz);
-  this->clipPlane->SetNormal(nx, ny, nz);
-}
-
 // Time step control:
 //----------------------------------------------------------------------
 void VtkPost::showTimeStepDialogSlot()
@@ -1565,7 +1537,7 @@ void VtkPost::fitToWindowSlot()
 }
 
 // Other public methods:
-//-----------------------
+//----------------------------------------------------------------------
 QVTKWidget* VtkPost::GetQVTKWidget()
 {
   return qvtkWidget;
@@ -1676,6 +1648,16 @@ vtkUnstructuredGrid* VtkPost::GetVolumeGrid()
 
 vtkPlane* VtkPost::GetClipPlane()
 {
+  double px = preferences->ui.clipPointX->text().toDouble();
+  double py = preferences->ui.clipPointY->text().toDouble();
+  double pz = preferences->ui.clipPointZ->text().toDouble();
+  double nx = preferences->ui.clipNormalX->text().toDouble();
+  double ny = preferences->ui.clipNormalY->text().toDouble();
+  double nz = preferences->ui.clipNormalZ->text().toDouble();
+
+  this->clipPlane->SetOrigin(px, py, pz);
+  this->clipPlane->SetNormal(nx, ny, nz);
+
   return clipPlane;
 }
 

@@ -217,11 +217,10 @@ private:
 
   void addVectorField(QString, int);
   ScalarField* addScalarField(QString, int, double *);
-  void setupClipPlane();
 
   QHash<QString, QAction*> groupActionHash;
 
-  QVTKWidget *qvtkWidget;
+  QVTKWidget* qvtkWidget;
 
   vtkRenderer* renderer;
   vtkUnstructuredGrid* volumeGrid;
