@@ -370,9 +370,12 @@ this ise not in USE
                CALL Fatal( 'Viscosity Model', 'The kinetic dissipation rate variable not defined?' )
            KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
          
-           Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
-           Cmu = SUM( Basis(1:n) * Vals(1:n) )
-         
+           Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes,gotIt )
+           IF ( .NOT. GotIt ) THEN
+             Cmu = SUM( Basis(1:n) * Vals(1:n) )
+           ELSE
+             Cmu = 0.09_dp 
+           END IF
            PVisc = Viscosity + Cmu*Density*KE_K**2 / KE_E
          ELSE
            Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
