@@ -53,6 +53,7 @@
 #include "timestep.h"
 #include "axes.h"
 #include "featureedge.h"
+#include "meshpoint.h"
 
 #include <QVTKWidget.h>
 #include <vtkLookupTable.h>
@@ -77,12 +78,10 @@
 #include <vtkUnstructuredGrid.h>
 #include <vtkDataSetMapper.h>
 #include <vtkExtractEdges.h>
-#include <vtkGlyph3D.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 #include <vtkCellDerivatives.h>
 #include <vtkCellDataToPointData.h>
-#include <vtkSphereSource.h>
 #include <vtkPlane.h>
 #include <vtkCellPicker.h>
 #include <vtkCallbackCommand.h>
@@ -254,6 +253,8 @@ VtkPost::VtkPost(QWidget *parent)
   axes = new Axes(this);
 
   featureEdge = new FeatureEdge(this);
+
+  meshPoint = new MeshPoint(this);
 
 #ifdef MATC
   matc = new Matc(this);
@@ -781,7 +782,7 @@ void VtkPost::populateWidgetsSlot()
   isoContour->populateWidgets(this);
   isoSurface->populateWidgets(this);
   streamLine->populateWidgets(this);
-  colorBar->populateWidgets();
+  colorBar->populateWidgets(this);
 }
 
 // Save picture:
@@ -1327,47 +1328,10 @@ void VtkPost::drawMeshPointSlot()
 {
   renderer->RemoveActor(meshPointActor);
   if(!drawMeshPointAct->isChecked()) return;
-  
-  double length = surfaceGrid->GetLength();
-  int pointQuality = preferences->ui.pointQuality->value();
-  int pointSize = preferences->ui.pointSize->value();
-  bool useSurfaceGrid = preferences->ui.meshPointsSurface->isChecked();
-
-  vtkSphereSource *sphere = vtkSphereSource::New();
-  sphere->SetRadius((double)pointSize * length / 2000.0);
-  sphere->SetThetaResolution(pointQuality);
-  sphere->SetPhiResolution(pointQuality);
-
-  vtkUnstructuredGrid *grid = NULL;
-
-  if(useSurfaceGrid) {
-    grid = surfaceGrid;
-  } else {
-    grid = volumeGrid;
-  }
-
-  if(!grid) return;
-  if(grid->GetNumberOfPoints() < 1) return;
-
-  vtkGlyph3D *glyph = vtkGlyph3D::New();
-
-  glyph->SetInput(grid);
-  glyph->SetSourceConnection(sphere->GetOutputPort());
-
-  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-  mapper->SetInputConnection(glyph->GetOutputPort());
-  mapper->ScalarVisibilityOff();
-
-  meshPointActor->SetMapper(mapper);
-  meshPointActor->GetProperty()->SetColor(0.5, 0.5, 0.5);
-  
+  setupClipPlane();
+  meshPoint->draw(this, preferences);
   renderer->AddActor(meshPointActor);
-
   qvtkWidget->GetRenderWindow()->Render();
-
-  glyph->Delete();
-  sphere->Delete();
-  mapper->Delete();
 }
 
 // Draw mesh edges:
@@ -1687,6 +1651,11 @@ vtkActor* VtkPost::GetAxesActor()
 vtkActor* VtkPost::GetFeatureEdgeActor()
 {
   return featureEdgeActor;
+}
+
+vtkActor* VtkPost::GetMeshPointActor()
+{
+  return meshPointActor;
 }
 
 vtkFollower* VtkPost::GetAxesXTextActor()

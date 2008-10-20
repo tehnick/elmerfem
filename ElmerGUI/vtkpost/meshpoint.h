@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI colorbar                                                        *
+ *  ElmerGUI meshpoint                                                       *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -38,39 +38,33 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef COLORBAR_H
-#define COLORBAR_H
+#ifndef MESHPOINT_H
+#define MESHPOINT_H
 
 #include <QWidget>
-#include "ui_colorbar.h"
+#include "ui_meshpoint.h"
 
 class VtkPost;
+class Preferences;
 
-class ColorBar : public QDialog
+class MeshPoint : public QDialog
 {
   Q_OBJECT
 
 public:
-  ColorBar(QWidget *parent = 0);
-  ~ColorBar();
+  MeshPoint(QWidget *parent = 0);
+  ~MeshPoint();
 
-  Ui::colorBarDialog ui;
+  Ui::meshPointDialog ui;
 
-  void populateWidgets(VtkPost*);
-  void draw(VtkPost*);
+  void draw(VtkPost*, Preferences*);
 
 signals:
-  void drawColorBarSignal();
-  void hideColorBarSignal();
 
 private slots:
-  void cancelButtonClicked();
-  void okButtonClicked();
-  void applyButtonClicked();
-  void colorSelectionChanged(int);
 
 private:
 
 };
 
-#endif // COLORBAR_H
+#endif // MESHPOINT_H

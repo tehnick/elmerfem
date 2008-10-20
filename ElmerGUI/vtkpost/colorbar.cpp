@@ -91,7 +91,7 @@ void ColorBar::colorSelectionChanged(int newIndex)
 {
 }
 
-void ColorBar::populateWidgets()
+void ColorBar::populateWidgets(VtkPost* vtkPost)
 {
   ui.colorCombo->clear();
   ui.colorCombo->addItem("Surface");

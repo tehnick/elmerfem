@@ -71,6 +71,7 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/tetlib_api.h \
            vtkpost/axes.h \
            vtkpost/featureedge.h \
+           vtkpost/meshpoint.h \
            vtkpost/vtkpost.h \
            vtkpost/isosurface.h \
            vtkpost/isocontour.h \
@@ -98,6 +99,7 @@ FORMS += forms/bodypropertyeditor.ui \
          vtkpost/isosurface.ui \
          vtkpost/isocontour.ui \
          vtkpost/colorbar.ui \
+         vtkpost/meshpoint.ui \
          vtkpost/surface.ui \
          vtkpost/preferences.ui \
          vtkpost/vector.ui \
@@ -146,6 +148,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            vtkpost/isocontour.cpp \
            vtkpost/epmesh.cpp \
            vtkpost/colorbar.cpp \
+           vtkpost/meshpoint.cpp \
            vtkpost/surface.cpp \
            vtkpost/preferences.cpp \
            vtkpost/vector.cpp \

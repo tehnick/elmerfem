@@ -23,11 +23,11 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI colorbar                                                        *
+ *  ElmerGUI meshpoint                                                       *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter RÃ¥back                   *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - Scientific Computing Ltd.                                 *
@@ -38,39 +38,71 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef COLORBAR_H
-#define COLORBAR_H
+#include <QtGui>
+#include <iostream>
+#include "vtkpost.h"
+#include "meshpoint.h"
+#include "preferences.h"
 
-#include <QWidget>
-#include "ui_colorbar.h"
+#include <vtkUnstructuredGrid.h>
+#include <vtkSphereSource.h>
+#include <vtkGlyph3D.h>
+#include <vtkPolyDataMapper.h>
+#include <vtkProperty.h>
+#include <vtkActor.h>
 
-class VtkPost;
+using namespace std;
 
-class ColorBar : public QDialog
+MeshPoint::MeshPoint(QWidget *parent)
+  : QDialog(parent)
 {
-  Q_OBJECT
+  ui.setupUi(this);
 
-public:
-  ColorBar(QWidget *parent = 0);
-  ~ColorBar();
+  setWindowTitle("Mesh points");
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+}
 
-  Ui::colorBarDialog ui;
+MeshPoint::~MeshPoint()
+{
+}
 
-  void populateWidgets(VtkPost*);
-  void draw(VtkPost*);
+void MeshPoint::draw(VtkPost* vtkPost, Preferences* preferences)
+{
+  double length = vtkPost->GetLength();
+  int pointQuality = preferences->ui.pointQuality->value();
+  int pointSize = preferences->ui.pointSize->value();
+  bool useSurfaceGrid = preferences->ui.meshPointsSurface->isChecked();
 
-signals:
-  void drawColorBarSignal();
-  void hideColorBarSignal();
+  vtkSphereSource* sphere = vtkSphereSource::New();
+  sphere->SetRadius((double)pointSize * length / 2000.0);
+  sphere->SetThetaResolution(pointQuality);
+  sphere->SetPhiResolution(pointQuality);
 
-private slots:
-  void cancelButtonClicked();
-  void okButtonClicked();
-  void applyButtonClicked();
-  void colorSelectionChanged(int);
+  vtkUnstructuredGrid* grid = NULL;
 
-private:
+  if(useSurfaceGrid) {
+    grid = vtkPost->GetSurfaceGrid();
+  } else {
+    grid = vtkPost->GetVolumeGrid();
+  }
 
-};
+  if(!grid) return;
 
-#endif // COLORBAR_H
+  if(grid->GetNumberOfPoints() < 1) return;
+
+  vtkGlyph3D* glyph = vtkGlyph3D::New();
+
+  glyph->SetInput(grid);
+  glyph->SetSourceConnection(sphere->GetOutputPort());
+
+  vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
+  mapper->SetInputConnection(glyph->GetOutputPort());
+  mapper->ScalarVisibilityOff();
+
+  vtkPost->GetMeshPointActor()->SetMapper(mapper);
+  vtkPost->GetMeshPointActor()->GetProperty()->SetColor(0.5, 0.5, 0.5);
+
+  glyph->Delete();
+  sphere->Delete();
+  mapper->Delete();
+}
