@@ -798,8 +798,8 @@ void VtkPost::populateWidgetsSlot()
   surface->populateWidgets(this);
   vector->populateWidgets(this);
   isoContour->populateWidgets(this);
-  isoSurface->populateWidgets(scalarField, scalarFields);
-  streamLine->populateWidgets(scalarField, scalarFields);
+  isoSurface->populateWidgets(this);
+  streamLine->populateWidgets(this);
   colorBar->populateWidgets();
 }
 
@@ -1345,6 +1345,7 @@ void VtkPost::drawColorBarSlot()
 {
   renderer->RemoveActor(colorBarActor);
   if(!drawColorBarAct->isChecked()) return;
+  setupClipPlane();
   colorBar->draw(this);
   qvtkWidget->GetRenderWindow()->Render();
 }
@@ -1521,221 +1522,11 @@ void VtkPost::drawStreamLineSlot()
 {
   renderer->RemoveActor(streamLineActor);
   if(!drawStreamLineAct->isChecked()) return;
-
-  QString vectorName = streamLine->ui.vectorCombo->currentText();
-
-  if(vectorName.isEmpty()) return;
-
-  int i, j, index = -1;
-  for(i = 0; i < scalarFields; i++) {
-    ScalarField *sf = &scalarField[i];
-    QString name = sf->name;
-    if((j = name.indexOf("_x")) >= 0) {
-      if(vectorName == name.mid(0, j)) {
-	index = i;
-	break;
-      }
-    }
-  }
-
-  if(index < 0) return;
-
-  // UI data:
-  //----------
-
-  // Controls:
-  double propagationTime = streamLine->ui.propagationTime->text().toDouble();
-  double stepLength = streamLine->ui.stepLength->text().toDouble();
-  double integStepLength = streamLine->ui.integStepLength->text().toDouble();
-  int threads = streamLine->ui.threads->value();
-  bool useSurfaceGrid = streamLine->ui.useSurfaceGrid->isChecked();
-  bool lineSource = streamLine->ui.lineSource->isChecked();
-  bool sphereSource = streamLine->ui.sphereSource->isChecked();
-  bool pickSource = streamLine->ui.pickSource->isChecked();
-  bool forward = streamLine->ui.forward->isChecked();
-  bool backward = streamLine->ui.backward->isChecked();
-
-  if(!(forward || backward)) {
-    qvtkWidget->GetRenderWindow()->Render();
-    return;
-  }
-
-  // Color:
-  int colorIndex = streamLine->ui.colorCombo->currentIndex();
-  QString colorName = streamLine->ui.colorCombo->currentText();
-  double minVal = streamLine->ui.minVal->text().toDouble();
-  double maxVal = streamLine->ui.maxVal->text().toDouble();
-
-  // Appearance:
-  bool drawRibbon = streamLine->ui.drawRibbon->isChecked();
-  int ribbonWidth = streamLine->ui.ribbonWidth->value();
-  int lineWidth = streamLine->ui.lineWidth->text().toInt();
-
-  // Line source:
-  double startX = streamLine->ui.startX->text().toDouble();
-  double startY = streamLine->ui.startY->text().toDouble();
-  double startZ = streamLine->ui.startZ->text().toDouble();
-  double endX = streamLine->ui.endX->text().toDouble();
-  double endY = streamLine->ui.endY->text().toDouble();
-  double endZ = streamLine->ui.endZ->text().toDouble();
-  int lines = streamLine->ui.lines->value();
-  bool drawRake = streamLine->ui.rake->isChecked();
-  int rakeWidth = streamLine->ui.rakeWidth->value();
-
-  int step = timeStep->ui.timeStep->value();
-  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
-
-  // Sphere source:
-  double centerX = streamLine->ui.centerX->text().toDouble();
-  double centerY = streamLine->ui.centerY->text().toDouble();
-  double centerZ = streamLine->ui.centerZ->text().toDouble();
-  double radius = streamLine->ui.radius->text().toDouble();
-  int points = streamLine->ui.points->value();
-
-  // Pick source:
-  double pickX = currentPickPosition[0];
-  double pickY = currentPickPosition[1];
-  double pickZ = currentPickPosition[2];
-  
-  // Choose the grid:
-  //------------------
-  vtkUnstructuredGrid *grid = NULL;
-  if(useSurfaceGrid)
-    grid = surfaceGrid;
-  else
-    grid = volumeGrid;
-
-  if(!grid) return;
-  if(grid->GetNumberOfCells() < 1) return;
-
-  // Vector data:
-  //-------------
-  grid->GetPointData()->RemoveArray("VectorData");
-  vtkFloatArray *vectorData = vtkFloatArray::New();
-  ScalarField *sf_x = &scalarField[index + 0];
-  ScalarField *sf_y = &scalarField[index + 1];
-  ScalarField *sf_z = &scalarField[index + 2];
-  vectorData->SetNumberOfComponents(3);
-  vectorData->SetNumberOfTuples(epMesh->epNodes);
-  vectorData->SetName("VectorData");
-  for(int i = 0; i < epMesh->epNodes; i++) {
-    double val_x  = sf_x->value[i + offset];
-    double val_y  = sf_y->value[i + offset];
-    double val_z  = sf_z->value[i + offset];
-    vectorData->SetComponent(i,0,val_x); 
-    vectorData->SetComponent(i,1,val_y); 
-    vectorData->SetComponent(i,2,val_z); 
-  }
-  grid->GetPointData()->AddArray(vectorData);
-
-  // Color data:
-  //-------------
-  grid->GetPointData()->RemoveArray("StreamLineColor");
-  ScalarField *sf = &scalarField[colorIndex];
-  vtkFloatArray *vectorColor = vtkFloatArray::New();
-  vectorColor->SetNumberOfComponents(1);
-  vectorColor->SetNumberOfTuples(epMesh->epNodes);
-  vectorColor->SetName("StreamLineColor");
-  for(int i = 0; i < epMesh->epNodes; i++) 
-    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
-  grid->GetPointData()->AddArray(vectorColor);
-
-  // Generate stream lines:
-  //-----------------------
-  grid->GetPointData()->SetActiveVectors("VectorData");
-  grid->GetPointData()->SetActiveScalars("StreamLineColor");
-
-  vtkPointSource *point = vtkPointSource::New();
-  vtkLineSource *line = vtkLineSource::New();
-  if(lineSource) {
-    line->SetPoint1(startX, startY, startZ);
-    line->SetPoint2(endX, endY, endZ);
-    line->SetResolution(lines);
-  } else {
-    if(sphereSource) {
-      point->SetCenter(centerX, centerY, centerZ);
-      point->SetRadius(radius);
-      point->SetNumberOfPoints(points);
-      point->SetDistributionToUniform();
-    } else {
-      point->SetCenter(pickX, pickY, pickZ);
-      point->SetRadius(0.0);
-      point->SetNumberOfPoints(1);
-    }
-  }
-
-  vtkStreamLine *streamer = vtkStreamLine::New();
-  vtkRungeKutta4 *integrator = vtkRungeKutta4::New();
-  streamer->SetInput(grid);
-  if(lineSource) {
-    streamer->SetSource(line->GetOutput());
-  } else {
-    streamer->SetSource(point->GetOutput());
-  }
-  streamer->SetIntegrator(integrator);
-  streamer->SetMaximumPropagationTime(propagationTime);
-  streamer->SetIntegrationStepLength(integStepLength);
-  if(forward && backward) {
-    streamer->SetIntegrationDirectionToIntegrateBothDirections();
-  } else if(forward) {
-    streamer->SetIntegrationDirectionToForward();    
-  } else {
-    streamer->SetIntegrationDirectionToBackward();
-  }
-  streamer->SetStepLength(stepLength);
-  streamer->SetNumberOfThreads(threads);
-  
-  vtkRibbonFilter *ribbon = vtkRibbonFilter::New();
-  if(drawRibbon) {
-    double length = grid->GetLength();
-    ribbon->SetInputConnection(streamer->GetOutputPort());
-    ribbon->SetWidth(ribbonWidth * length / 1000.0);
-    ribbon->SetWidthFactor(5);
-  }
-
-  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
-  mapper->ScalarVisibilityOn();
-  mapper->SetScalarRange(minVal, maxVal);
-
-  if(drawRibbon) {
-    mapper->SetInputConnection(ribbon->GetOutputPort());
-  } else {
-    mapper->SetInputConnection(streamer->GetOutputPort());
-  }
-
-  mapper->SetColorModeToMapScalars();
-  mapper->SetLookupTable(currentLut);
-
-  streamLineActor->SetMapper(mapper);
-
-  if(!drawRibbon)
-    streamLineActor->GetProperty()->SetLineWidth(lineWidth);
-
+  setupClipPlane();
+  streamLine->draw(this, timeStep);
   renderer->AddActor(streamLineActor);
-
-  // Redraw colorbar:
-  //------------------
-  currentStreamLineName = colorName;
   drawColorBarSlot();
-
   qvtkWidget->GetRenderWindow()->Render();
-
-  line->Delete();
-  point->Delete();
-  vectorData->Delete();
-  vectorColor->Delete();
-  integrator->Delete();
-  streamer->Delete();
-  ribbon->Delete();
-  mapper->Delete();
-
-  // Draw rake
-  //-----------
-  if(drawRake) {
-    // todo
-  }
-
 }
 
 
@@ -1750,6 +1541,7 @@ void VtkPost::showVectorDialogSlot()
     vector->show();
   } else {
     vector->close();
+
     drawVectorSlot();
   }
 }
@@ -1764,7 +1556,9 @@ void VtkPost::drawVectorSlot()
 {
   renderer->RemoveActor(vectorActor);
   if(!drawVectorAct->isChecked()) return;
+  setupClipPlane();
   vector->draw(this, timeStep);
+  renderer->AddActor(vectorActor);
   drawColorBarSlot();
   qvtkWidget->GetRenderWindow()->Render();
 }
@@ -1796,10 +1590,10 @@ void VtkPost::drawSurfaceSlot()
   if(!drawSurfaceAct->isChecked()) return;
   setupClipPlane();
   surface->draw(this, timeStep);
+  renderer->AddActor(surfaceActor);
   drawColorBarSlot();
   qvtkWidget->GetRenderWindow()->Render();
 }
-
 
 
 // Draw isosurfaces (3D):
@@ -1826,128 +1620,11 @@ void VtkPost::drawIsoSurfaceSlot()
 {
   renderer->RemoveActor(isoSurfaceActor);
   if(!drawIsoSurfaceAct->isChecked()) return;
-
-  // Data from UI:
-  //--------------
-  int contourIndex = isoSurface->ui.contoursCombo->currentIndex();
-  QString contourName = isoSurface->ui.contoursCombo->currentText();
-  int contours = isoSurface->ui.contoursSpin->value() + 1;
-  double contourMinVal = isoSurface->ui.contoursMinEdit->text().toDouble();
-  double contourMaxVal = isoSurface->ui.contoursMaxEdit->text().toDouble();
-  bool useNormals = isoSurface->ui.normalsCheck->isChecked();
-  int colorIndex = isoSurface->ui.colorCombo->currentIndex();
-  QString colorName = isoSurface->ui.colorCombo->currentText();
-  double colorMinVal = isoSurface->ui.colorMinEdit->text().toDouble();
-  double colorMaxVal = isoSurface->ui.colorMaxEdit->text().toDouble();
-  int featureAngle = isoSurface->ui.featureAngle->value();
-  double opacity = isoSurface->ui.opacitySpin->value() / 100.0;
-  bool useClip = isoSurface->ui.clipPlane->isChecked();
-
-  int step = timeStep->ui.timeStep->value();
-  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
-
-  if(contourName == "Null") return;
-
-  // Scalars:
-  //----------
-  volumeGrid->GetPointData()->RemoveArray("IsoSurface");
-  vtkFloatArray *contourArray = vtkFloatArray::New();
-  ScalarField *sf = &scalarField[contourIndex];
-  contourArray->SetNumberOfComponents(1);
-  contourArray->SetNumberOfTuples(epMesh->epNodes);
-  contourArray->SetName("IsoSurface");
-  for(int i = 0; i < epMesh->epNodes; i++)
-    contourArray->SetComponent(i, 0, sf->value[i + offset]);
-  volumeGrid->GetPointData()->AddArray(contourArray);
-
-  volumeGrid->GetPointData()->RemoveArray("IsoSurfaceColor");
-  vtkFloatArray *colorArray = vtkFloatArray::New();
-  sf = &scalarField[colorIndex];
-  colorArray->SetName("IsoSurfaceColor");
-  colorArray->SetNumberOfComponents(1);
-  colorArray->SetNumberOfTuples(epMesh->epNodes);
-  for(int i = 0; i < epMesh->epNodes; i++)
-    colorArray->SetComponent(i, 0, sf->value[i + offset]);
-  volumeGrid->GetPointData()->AddArray(colorArray);
-
-  // Isosurfaces:
-  //--------------
-  vtkContourFilter *iso = vtkContourFilter::New();
-  volumeGrid->GetPointData()->SetActiveScalars("IsoSurface");
-  iso->SetInput(volumeGrid);
-  iso->ComputeScalarsOn();
-  iso->GenerateValues(contours, contourMinVal, contourMaxVal);
-
-  // Apply the clip plane:
-  //-----------------------
-  vtkClipPolyData *clipper = vtkClipPolyData::New();
-
-  if(useClip) {
-    setupClipPlane();
-    clipper->SetInputConnection(iso->GetOutputPort());
-    clipper->SetClipFunction(clipPlane);
-    clipper->GenerateClipScalarsOn();
-    clipper->GenerateClippedOutputOn();
-  }
-
-  // Normals:
-  //---------
-  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
-
-  if(useNormals) {
-    if(useClip) {
-      normals->SetInputConnection(clipper->GetOutputPort());
-    } else {
-      normals->SetInputConnection(iso->GetOutputPort());
-    }
-    normals->SetFeatureAngle(featureAngle);
-  }
-
-  // Mapper:
-  //--------
-  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
-  
-  if(useNormals) {
-    mapper->SetInputConnection(normals->GetOutputPort());
-  } else {
-    if(useClip) {
-      mapper->SetInputConnection(clipper->GetOutputPort());      
-    } else {
-      mapper->SetInputConnection(iso->GetOutputPort());
-    }
-  }
-
-  mapper->ScalarVisibilityOn();
-  mapper->SelectColorArray("IsoSurfaceColor");
-  mapper->SetScalarModeToUsePointFieldData();
-  mapper->SetScalarRange(colorMinVal, colorMaxVal);
-  mapper->SetLookupTable(currentLut);
-  // mapper->ImmediateModeRenderingOn();
-
-  // Actor && renderer:
-  //-------------------
-  isoSurfaceActor->SetMapper(mapper);
-  isoSurfaceActor->GetProperty()->SetOpacity(opacity);
+  setupClipPlane();
+  isoSurface->draw(this, timeStep);
   renderer->AddActor(isoSurfaceActor);
-
-  // Redraw colorbar:
-  //------------------
-  currentIsoSurfaceName = colorName;
-  drawColorBarSlot();
-
   qvtkWidget->GetRenderWindow()->Render();
-
-  // Clean up:
-  //----------
-  clipper->Delete();
-  contourArray->Delete();
-  colorArray->Delete();
-  iso->Delete();
-  normals->Delete();
-  mapper->Delete();
 }
-
 
 
 // Draw iso contours (2D):
@@ -1974,7 +1651,9 @@ void VtkPost::drawIsoContourSlot()
 {
   renderer->RemoveActor(isoContourActor);
   if(!drawIsoContourAct->isChecked()) return;
+  setupClipPlane();
   isoContour->draw(this, timeStep);
+  renderer->AddActor(isoContourActor);
   drawColorBarSlot();  
   qvtkWidget->GetRenderWindow()->Render();
 }
@@ -1991,8 +1670,8 @@ void VtkPost::setupClipPlane()
   double ny = preferences->ui.clipNormalY->text().toDouble();
   double nz = preferences->ui.clipNormalZ->text().toDouble();
 
-  clipPlane->SetOrigin(px, py, pz);
-  clipPlane->SetNormal(nx, ny, nz);
+  this->clipPlane->SetOrigin(px, py, pz);
+  this->clipPlane->SetNormal(nx, ny, nz);
 }
 
 // Time step control:
@@ -2007,7 +1686,7 @@ void VtkPost::timeStepChangedSlot()
   redrawSlot();
 }
 
-// Fit to windows:
+// Fit to window:
 //----------------------------------------------------------------------
 void VtkPost::fitToWindowSlot()
 {
@@ -2237,6 +1916,11 @@ ScalarField* VtkPost::GetScalarField()
 EpMesh* VtkPost::GetEpMesh()
 {
   return epMesh;
+}
+
+double* VtkPost::GetCurrentPickPosition()
+{
+  return &currentPickPosition[0];
 }
 
 void VtkPost::SetCurrentPickPosition(double *p)

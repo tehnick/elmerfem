@@ -45,6 +45,8 @@
 #include "ui_isosurface.h"
 
 class ScalarField;
+class VtkPost;
+class TimeStep;
 
 class IsoSurface : public QDialog
 {
@@ -56,7 +58,8 @@ public:
 
   Ui::isoSurfaceDialog ui;
 
-  void populateWidgets(ScalarField*, int);
+  void populateWidgets(VtkPost*);
+  void draw(VtkPost*, TimeStep*);
 
 signals:
   void drawIsoSurfaceSignal();

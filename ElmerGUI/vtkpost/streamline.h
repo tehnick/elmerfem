@@ -45,6 +45,8 @@
 #include "ui_streamline.h"
 
 class ScalarField;
+class VtkPost;
+class TimeStep;
 
 class StreamLine : public QDialog
 {
@@ -56,7 +58,8 @@ public:
 
   Ui::streamLineDialog ui;
 
-  void populateWidgets(ScalarField*, int);
+  void populateWidgets(VtkPost*);
+  void draw(VtkPost*, TimeStep*);
 
 signals:
   void drawStreamLineSignal();

@@ -43,6 +43,20 @@
 #include "epmesh.h"
 #include "vtkpost.h"
 #include "streamline.h"
+#include "timestep.h"
+
+#include <vtkUnstructuredGrid.h>
+#include <vtkFloatArray.h>
+#include <vtkPointData.h>
+#include <vtkPointSource.h>
+#include <vtkLineSource.h>
+#include <vtkStreamLine.h>
+#include <vtkRungeKutta4.h>
+#include <vtkRibbonFilter.h>
+#include <vtkPolyDataMapper.h>
+#include <vtkProperty.h>
+#include <vtkLookupTable.h>
+#include <vtkActor.h>
 
 using namespace std;
 
@@ -81,15 +95,15 @@ void StreamLine::okButtonClicked()
   close();
 }
 
-void StreamLine::populateWidgets(ScalarField *scalarField, int n)
+void StreamLine::populateWidgets(VtkPost* vtkPost)
 {
-  this->scalarField = scalarField;
-  this->scalarFields = n;
+  this->scalarField = vtkPost->GetScalarField();
+  this->scalarFields = vtkPost->GetScalarFields();
 
   ui.vectorCombo->clear();
 
   int index = -1;
-  for(int i = 0; i < n; i++) {
+  for(int i = 0; i < scalarFields; i++) {
     ScalarField *sf = &scalarField[i];
     QString name = sf->name;
     if((index = name.indexOf("_x")) >= 0) {
@@ -101,7 +115,7 @@ void StreamLine::populateWidgets(ScalarField *scalarField, int n)
 
   ui.colorCombo->clear();
 
-  for(int i = 0; i < n; i++) {
+  for(int i = 0; i < scalarFields; i++) {
     ScalarField *sf = &scalarField[i];
     ui.colorCombo->addItem(sf->name);
   }
@@ -127,4 +141,211 @@ void StreamLine::keepLimitsSlot(int state)
 {
   if(state == 0)
     colorSelectionChanged(ui.colorCombo->currentIndex());
+}
+
+void StreamLine::draw(VtkPost* vtkPost, TimeStep* timeStep)
+{
+
+  QString vectorName = ui.vectorCombo->currentText();
+
+  if(vectorName.isEmpty()) return;
+
+  int i, j, index = -1;
+  for(i = 0; i < scalarFields; i++) {
+    ScalarField* sf = &scalarField[i];
+    QString name = sf->name;
+    if((j = name.indexOf("_x")) >= 0) {
+      if(vectorName == name.mid(0, j)) {
+	index = i;
+	break;
+      }
+    }
+  }
+
+  if(index < 0) return;
+
+  // Controls:
+  double propagationTime = ui.propagationTime->text().toDouble();
+  double stepLength = ui.stepLength->text().toDouble();
+  double integStepLength = ui.integStepLength->text().toDouble();
+  int threads = ui.threads->value();
+  bool useSurfaceGrid = ui.useSurfaceGrid->isChecked();
+  bool lineSource = ui.lineSource->isChecked();
+  bool sphereSource = ui.sphereSource->isChecked();
+  bool pickSource = ui.pickSource->isChecked();
+  bool forward = ui.forward->isChecked();
+  bool backward = ui.backward->isChecked();
+
+  if(!(forward || backward)) return;
+
+  // Color:
+  int colorIndex = ui.colorCombo->currentIndex();
+  QString colorName = ui.colorCombo->currentText();
+  double minVal = ui.minVal->text().toDouble();
+  double maxVal = ui.maxVal->text().toDouble();
+
+  // Appearance:
+  bool drawRibbon = ui.drawRibbon->isChecked();
+  int ribbonWidth = ui.ribbonWidth->value();
+  int lineWidth = ui.lineWidth->text().toInt();
+
+  // Line source:
+  double startX = ui.startX->text().toDouble();
+  double startY = ui.startY->text().toDouble();
+  double startZ = ui.startZ->text().toDouble();
+  double endX = ui.endX->text().toDouble();
+  double endY = ui.endY->text().toDouble();
+  double endZ = ui.endZ->text().toDouble();
+  int lines = ui.lines->value();
+  bool drawRake = ui.rake->isChecked();
+  int rakeWidth = ui.rakeWidth->value();
+
+  int step = timeStep->ui.timeStep->value();
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
+  int offset = vtkPost->NofNodes() * (step - 1);
+
+  // Sphere source:
+  double centerX = ui.centerX->text().toDouble();
+  double centerY = ui.centerY->text().toDouble();
+  double centerZ = ui.centerZ->text().toDouble();
+  double radius = ui.radius->text().toDouble();
+  int points = ui.points->value();
+
+  // Pick source:
+  double* currentPickPosition = vtkPost->GetCurrentPickPosition();
+  double pickX = currentPickPosition[0];
+  double pickY = currentPickPosition[1];
+  double pickZ = currentPickPosition[2];
+
+  // Choose the grid:
+  //------------------
+  vtkUnstructuredGrid* grid = NULL;
+  if(useSurfaceGrid)
+    grid = vtkPost->GetSurfaceGrid();
+  else
+    grid = vtkPost->GetVolumeGrid();
+
+  if(!grid) return;
+
+  if(grid->GetNumberOfCells() < 1) return;
+
+  // Vector data:
+  //-------------
+  grid->GetPointData()->RemoveArray("VectorData");
+  vtkFloatArray* vectorData = vtkFloatArray::New();
+  ScalarField* sf_x = &scalarField[index + 0];
+  ScalarField* sf_y = &scalarField[index + 1];
+  ScalarField* sf_z = &scalarField[index + 2];
+  vectorData->SetNumberOfComponents(3);
+  vectorData->SetNumberOfTuples(vtkPost->NofNodes());
+  vectorData->SetName("VectorData");
+  for(int i = 0; i < vtkPost->NofNodes(); i++) {
+    double val_x  = sf_x->value[i + offset];
+    double val_y  = sf_y->value[i + offset];
+    double val_z  = sf_z->value[i + offset];
+    vectorData->SetComponent(i,0,val_x); 
+    vectorData->SetComponent(i,1,val_y); 
+    vectorData->SetComponent(i,2,val_z); 
+  }
+  grid->GetPointData()->AddArray(vectorData);
+
+  // Color data:
+  //-------------
+  grid->GetPointData()->RemoveArray("StreamLineColor");
+  ScalarField* sf = &scalarField[colorIndex];
+  vtkFloatArray* vectorColor = vtkFloatArray::New();
+  vectorColor->SetNumberOfComponents(1);
+  vectorColor->SetNumberOfTuples(vtkPost->NofNodes());
+  vectorColor->SetName("StreamLineColor");
+  for(int i = 0; i < vtkPost->NofNodes(); i++) 
+    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
+  grid->GetPointData()->AddArray(vectorColor);
+
+  // Generate stream lines:
+  //-----------------------
+  grid->GetPointData()->SetActiveVectors("VectorData");
+  grid->GetPointData()->SetActiveScalars("StreamLineColor");
+  vtkPointSource* point = vtkPointSource::New();
+  vtkLineSource* line = vtkLineSource::New();
+  if(lineSource) {
+    line->SetPoint1(startX, startY, startZ);
+    line->SetPoint2(endX, endY, endZ);
+    line->SetResolution(lines);
+  } else {
+    if(sphereSource) {
+      point->SetCenter(centerX, centerY, centerZ);
+      point->SetRadius(radius);
+      point->SetNumberOfPoints(points);
+      point->SetDistributionToUniform();
+    } else {
+      point->SetCenter(pickX, pickY, pickZ);
+      point->SetRadius(0.0);
+      point->SetNumberOfPoints(1);
+    }
+  }
+
+  vtkStreamLine* streamer = vtkStreamLine::New();
+  vtkRungeKutta4* integrator = vtkRungeKutta4::New();
+
+  streamer->SetInput(grid);
+
+  if(lineSource) {
+    streamer->SetSource(line->GetOutput());
+  } else {
+    streamer->SetSource(point->GetOutput());
+  }
+
+  streamer->SetIntegrator(integrator);
+  streamer->SetMaximumPropagationTime(propagationTime);
+  streamer->SetIntegrationStepLength(integStepLength);
+  if(forward && backward) {
+    streamer->SetIntegrationDirectionToIntegrateBothDirections();
+  } else if(forward) {
+    streamer->SetIntegrationDirectionToForward();    
+  } else {
+    streamer->SetIntegrationDirectionToBackward();
+  }
+  streamer->SetStepLength(stepLength);
+  streamer->SetNumberOfThreads(threads);
+  
+  vtkRibbonFilter* ribbon = vtkRibbonFilter::New();
+
+  if(drawRibbon) {
+    double length = grid->GetLength();
+    ribbon->SetInputConnection(streamer->GetOutputPort());
+    ribbon->SetWidth(ribbonWidth * length / 1000.0);
+    ribbon->SetWidthFactor(5);
+  }
+
+  vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
+
+  mapper->ScalarVisibilityOn();
+  mapper->SetScalarRange(minVal, maxVal);
+
+  if(drawRibbon) {
+    mapper->SetInputConnection(ribbon->GetOutputPort());
+  } else {
+    mapper->SetInputConnection(streamer->GetOutputPort());
+  }
+
+  mapper->SetColorModeToMapScalars();
+  mapper->SetLookupTable(vtkPost->GetCurrentLut());
+
+  vtkPost->GetStreamLineActor()->SetMapper(mapper);
+
+  if(!drawRibbon)
+    vtkPost->GetStreamLineActor()->GetProperty()->SetLineWidth(lineWidth);
+
+  vtkPost->SetCurrentStreamLineName(colorName);
+
+  // Clean up:
+  //----------
+  line->Delete();
+  point->Delete();
+  vectorData->Delete();
+  vectorColor->Delete();
+  integrator->Delete();
+  streamer->Delete();
+  ribbon->Delete();
+  mapper->Delete();
 }

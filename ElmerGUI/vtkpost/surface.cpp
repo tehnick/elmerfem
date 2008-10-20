@@ -54,9 +54,8 @@
 #include <vtkPolyDataNormals.h>
 #include <vtkDataSetMapper.h>
 #include <vtkLookupTable.h>
-#include <vtkActor.h>
 #include <vtkProperty.h>
-#include <vtkRenderer.h>
+#include <vtkActor.h>
 
 using namespace std;
 
@@ -144,39 +143,36 @@ void Surface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   double opacity = ui.opacitySpin->value() / 100.0;
   bool useClip = ui.clipPlane->isChecked();
 
-  EpMesh* epMesh = vtkPost->GetEpMesh();
   int step = timeStep->ui.timeStep->value();
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
+  int offset = vtkPost->NofNodes() * (step - 1);
 
   // Scalars:
   //---------
-  vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();
-  surfaceGrid->GetPointData()->RemoveArray("Surface");
+  vtkPost->GetSurfaceGrid()->GetPointData()->RemoveArray("Surface");
   vtkFloatArray* scalars = vtkFloatArray::New();
   ScalarField* sf = &scalarField[surfaceIndex];
   scalars->SetNumberOfComponents(1);
-  scalars->SetNumberOfTuples(epMesh->epNodes);
+  scalars->SetNumberOfTuples(vtkPost->NofNodes());
   scalars->SetName("Surface");
-  for(int i = 0; i < epMesh->epNodes; i++)
+  for(int i = 0; i < vtkPost->NofNodes(); i++)
     scalars->SetComponent(i, 0, sf->value[i + offset]);  
-  surfaceGrid->GetPointData()->AddArray(scalars);
+  vtkPost->GetSurfaceGrid()->GetPointData()->AddArray(scalars);
 
   // Convert from vtkUnstructuredGrid to vtkPolyData:
   //-------------------------------------------------
   vtkGeometryFilter* filter = vtkGeometryFilter::New();
 
-  filter->SetInput(surfaceGrid);
+  filter->SetInput(vtkPost->GetSurfaceGrid());
   filter->GetOutput()->ReleaseDataFlagOn();
 
   // Apply the clip plane:
   //-----------------------
   vtkClipPolyData *clipper = vtkClipPolyData::New();
-  vtkPlane* clipPlane = vtkPost->GetClipPlane();
 
   if(useClip) {
     clipper->SetInputConnection(filter->GetOutputPort());
-    clipper->SetClipFunction(clipPlane);
+    clipper->SetClipFunction(vtkPost->GetClipPlane());
     clipper->GenerateClipScalarsOn();
     clipper->GenerateClippedOutputOn();
   }
@@ -204,7 +200,7 @@ void Surface::draw(VtkPost* vtkPost, TimeStep* timeStep)
     if(useClip) {
       mapper->SetInputConnection(clipper->GetOutputPort());
     } else {
-      mapper->SetInput(surfaceGrid);
+      mapper->SetInput(vtkPost->GetSurfaceGrid());
     }
   }
 
@@ -213,28 +209,20 @@ void Surface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(minVal, maxVal);
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
-
-  vtkLookupTable* currentLut = vtkPost->GetCurrentLut();
-  mapper->SetLookupTable(currentLut);
+  mapper->SetLookupTable(vtkPost->GetCurrentLut());
   // mapper->ImmediateModeRenderingOn();
 
-  // Actor & renderer:
-  //------------------
-  vtkActor* surfaceActor = vtkPost->GetSurfaceActor();
-  surfaceActor->SetMapper(mapper);
-  surfaceActor->GetProperty()->SetOpacity(opacity);
-
-  vtkRenderer* renderer = vtkPost->GetRenderer();
-  renderer->AddActor(surfaceActor);
-
+  // Actor:
+  //--------
+  vtkPost->GetSurfaceActor()->SetMapper(mapper);
+  vtkPost->GetSurfaceActor()->GetProperty()->SetOpacity(opacity);
   vtkPost->SetCurrentSurfaceName(sf->name);
 
   // Clean up:
   //-----------
-  clipper->Delete();
+  mapper->Delete();
   normals->Delete();
+  clipper->Delete();
   filter->Delete();
   scalars->Delete();
-  mapper->Delete();
-
 }

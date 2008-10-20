@@ -53,7 +53,6 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
-#include <vtkRenderer.h>
 
 using namespace std;
 
@@ -168,24 +167,22 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   int scaleMultiplier = ui.scaleSpin->value();
   bool scaleByMagnitude = ui.scaleByMagnitude->isChecked();
 
-  EpMesh* epMesh = vtkPost->GetEpMesh();
   int step = timeStep->ui.timeStep->value();
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
+  int offset = vtkPost->NofNodes() * (step - 1);
 
   // Vector data:
   //-------------
-  vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
-  volumeGrid->GetPointData()->RemoveArray("VectorData");
+  vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("VectorData");
   vtkFloatArray *vectorData = vtkFloatArray::New();
-  ScalarField *sf_x = &scalarField[index + 0];
-  ScalarField *sf_y = &scalarField[index + 1];
-  ScalarField *sf_z = &scalarField[index + 2];
+  ScalarField* sf_x = &scalarField[index + 0];
+  ScalarField* sf_y = &scalarField[index + 1];
+  ScalarField* sf_z = &scalarField[index + 2];
   vectorData->SetNumberOfComponents(3);
-  vectorData->SetNumberOfTuples(epMesh->epNodes);
+  vectorData->SetNumberOfTuples(vtkPost->NofNodes());
   vectorData->SetName("VectorData");
   double scaleFactor = 0.0;
-  for(int i = 0; i < epMesh->epNodes; i++) {
+  for(int i = 0; i < vtkPost->NofNodes(); i++) {
     double val_x  = sf_x->value[i + offset];
     double val_y  = sf_y->value[i + offset];
     double val_z  = sf_z->value[i + offset];
@@ -195,34 +192,34 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
     vectorData->SetComponent(i, 1, val_y); 
     vectorData->SetComponent(i, 2, val_z); 
   }
-  volumeGrid->GetPointData()->AddArray(vectorData);
+  vtkPost->GetVolumeGrid()->GetPointData()->AddArray(vectorData);
 
   // Size of volume grid:
   //---------------------
-  double length = volumeGrid->GetLength();
+  double length = vtkPost->GetVolumeGrid()->GetLength();
   if(scaleByMagnitude)
     scaleFactor = scaleFactor * 100.0 / length;
 
   // Color data:
   //-------------
-  volumeGrid->GetPointData()->RemoveArray("VectorColor");
-  ScalarField *sf = &scalarField[colorIndex];
+  vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("VectorColor");
+  ScalarField* sf = &scalarField[colorIndex];
   vtkFloatArray *vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
-  vectorColor->SetNumberOfTuples(epMesh->epNodes);
+  vectorColor->SetNumberOfTuples(vtkPost->NofNodes());
   vectorColor->SetName("VectorColor");
-  for(int i = 0; i < epMesh->epNodes; i++) 
+  for(int i = 0; i < vtkPost->NofNodes(); i++) 
     vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
-  volumeGrid->GetPointData()->AddArray(vectorColor);
+  vtkPost->GetVolumeGrid()->GetPointData()->AddArray(vectorColor);
 
   // Glyphs:
   //---------
-  volumeGrid->GetPointData()->SetActiveVectors("VectorData"); 
-  vtkGlyph3D *glyph = vtkGlyph3D::New();
-  vtkArrowSource *arrow = vtkArrowSource::New();
+  vtkPost->GetVolumeGrid()->GetPointData()->SetActiveVectors("VectorData"); 
+  vtkGlyph3D* glyph = vtkGlyph3D::New();
+  vtkArrowSource* arrow = vtkArrowSource::New();
   arrow->SetTipResolution(quality);
   arrow->SetShaftResolution(quality);
-  glyph->SetInput(volumeGrid);
+  glyph->SetInput(vtkPost->GetVolumeGrid());
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
 
@@ -235,28 +232,21 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   }
   glyph->SetColorModeToColorByScale();
   
-  vtkPolyDataMapper *mapper = vtkPolyDataMapper::New();
+  vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
   mapper->SetInputConnection(glyph->GetOutputPort());
   mapper->SetScalarModeToUsePointFieldData();
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(minVal, maxVal);
   mapper->SelectColorArray("VectorColor");
-
-  vtkLookupTable* currentLut = vtkPost->GetCurrentLut();
-  mapper->SetLookupTable(currentLut);
+  mapper->SetLookupTable(vtkPost->GetCurrentLut());
   // mapper->ImmediateModeRenderingOn();
 
-  vtkActor* vectorActor = vtkPost->GetVectorActor();
-  vectorActor->SetMapper(mapper);
-
-  vtkRenderer* renderer = vtkPost->GetRenderer();
-  renderer->AddActor(vectorActor);
-
+  vtkPost->GetVectorActor()->SetMapper(mapper);
   vtkPost->SetCurrentVectorName(colorName);
 
   mapper->Delete();
   arrow->Delete();
   glyph->Delete();
-  vectorData->Delete();
   vectorColor->Delete();
+  vectorData->Delete();
 }

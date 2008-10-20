@@ -53,7 +53,6 @@
 #include <vtkLookupTable.h>
 #include <vtkProperty.h>
 #include <vtkActor.h>
-#include <vtkRenderer.h>
 
 using namespace std;
 
@@ -168,70 +167,63 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   double colorMinVal = ui.colorMinEdit->text().toDouble();
   double colorMaxVal = ui.colorMaxEdit->text().toDouble();
 
-  EpMesh* epMesh = vtkPost->GetEpMesh();
   int step = timeStep->ui.timeStep->value();
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = epMesh->epNodes * (step - 1);
+  int offset = vtkPost->NofNodes() * (step - 1);
 
   if(contourName == "Null") return;
 
   // Scalars:
   //----------
-  vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();
-  surfaceGrid->GetPointData()->RemoveArray("IsoContour");
-  vtkFloatArray *contourArray = vtkFloatArray::New();
-  ScalarField *sf = &scalarField[contourIndex];
+  vtkPost->GetSurfaceGrid()->GetPointData()->RemoveArray("IsoContour");
+  vtkFloatArray* contourArray = vtkFloatArray::New();
+  ScalarField* sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
-  contourArray->SetNumberOfTuples(epMesh->epNodes);
+  contourArray->SetNumberOfTuples(vtkPost->NofNodes());
   contourArray->SetName("IsoContour");
-  for(int i = 0; i < epMesh->epNodes; i++)
+  for(int i = 0; i < vtkPost->NofNodes(); i++)
     contourArray->SetComponent(i, 0, sf->value[i + offset]);
-  surfaceGrid->GetPointData()->AddArray(contourArray);
+  vtkPost->GetSurfaceGrid()->GetPointData()->AddArray(contourArray);
 
-  surfaceGrid->GetPointData()->RemoveArray("IsoContourColor");
-  vtkFloatArray *colorArray = vtkFloatArray::New();
+  vtkPost->GetSurfaceGrid()->GetPointData()->RemoveArray("IsoContourColor");
+  vtkFloatArray* colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
   colorArray->SetName("IsoContourColor");
   colorArray->SetNumberOfComponents(1);
-  colorArray->SetNumberOfTuples(epMesh->epNodes);
-  for(int i = 0; i < epMesh->epNodes; i++)
+  colorArray->SetNumberOfTuples(vtkPost->NofNodes());
+  for(int i = 0; i < vtkPost->NofNodes(); i++)
     colorArray->SetComponent(i, 0, sf->value[i + offset]);
-  surfaceGrid->GetPointData()->AddArray(colorArray);
+  vtkPost->GetSurfaceGrid()->GetPointData()->AddArray(colorArray);
 
   // Isocontours:
   //--------------
-  vtkContourFilter *iso = vtkContourFilter::New();
-  surfaceGrid->GetPointData()->SetActiveScalars("IsoContour");
-  iso->SetInput(surfaceGrid);
+  vtkContourFilter* iso = vtkContourFilter::New();
+  vtkPost->GetSurfaceGrid()->GetPointData()->SetActiveScalars("IsoContour");
+  iso->SetInput(vtkPost->GetSurfaceGrid());
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
   // Mapper:
   //--------
-  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
+  vtkDataSetMapper* mapper = vtkDataSetMapper::New();
   mapper->SetInputConnection(iso->GetOutputPort());
   mapper->ScalarVisibilityOn();
   mapper->SelectColorArray("IsoContourColor");
   mapper->SetScalarModeToUsePointFieldData();
   mapper->SetScalarRange(colorMinVal, colorMaxVal);
-
-  vtkLookupTable *currentLut = vtkPost->GetCurrentLut();
-  mapper->SetLookupTable(currentLut);
+  mapper->SetLookupTable(vtkPost->GetCurrentLut());
   // mapper->ImmediateModeRenderingOn();
 
   // Actor & renderer:
   //-------------------
-  vtkActor* isoContourActor = vtkPost->GetIsoContourActor();
-  isoContourActor->SetMapper(mapper);
-  isoContourActor->GetProperty()->SetLineWidth(lineWidth);
-
-  vtkRenderer* renderer = vtkPost->GetRenderer();
-  renderer->AddActor(isoContourActor);
-
+  vtkPost->GetIsoContourActor()->SetMapper(mapper);
+  vtkPost->GetIsoContourActor()->GetProperty()->SetLineWidth(lineWidth);
   vtkPost->SetCurrentIsoContourName(colorName);
 
-  contourArray->Delete();
-  colorArray->Delete();
-  iso->Delete();
+  // Clean up:
+  //----------
   mapper->Delete();
+  iso->Delete();
+  colorArray->Delete();
+  contourArray->Delete();
 }

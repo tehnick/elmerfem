@@ -111,6 +111,7 @@ public:
   int GetScalarFields();
   ScalarField* GetScalarField();
   EpMesh* GetEpMesh();
+  double* GetCurrentPickPosition();
   void SetCurrentPickPosition(double*);
 
   virtual void div(double *,double *);
