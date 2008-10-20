@@ -1,5 +1,4 @@
 #ifdef MATC
-#include <stdio.h>
 #include "mc.h"
 #include "vtkpost.h"
 
@@ -15,16 +14,15 @@ extern "C" VARIABLE *com_grad(VARIABLE *in)
    if ( nsteps==1 ) {
      vtkp->grad(MATR(in), MATR(out) );
    } else {
-     double *outf = (double *)malloc(3*n*sizeof(double) );
+     int nsize=n*sizeof(double);
+     double *outf = (double *)malloc(3*nsize);
      for( int i=0; i<nsteps; i++ )
      {
        vtkp->grad( &M(in,0,i*n),outf );
-       for( int j=0; j<n; j++ )
-       {
-         M(out,0,i*n+j) = outf[j];
-         M(out,1,i*n+j) = outf[j+n];
-         M(out,2,i*n+j) = outf[j+2*n];
-       }
+
+       memcpy( &M(out,0,i*n), &outf[0], nsize );
+       memcpy( &M(out,1,i*n), &outf[n], nsize );
+       memcpy( &M(out,2,i*n), &outf[2*n], nsize );
      }
      free(outf);
    }
@@ -40,15 +38,14 @@ extern "C" VARIABLE *com_div(VARIABLE *in)
    if ( nsteps==1 ) {
      vtkp->div(MATR(in), MATR(out) );
    } else {
-     double *inf = (double *)malloc(3*n*sizeof(double) );
+     int nsize=n*sizeof(double);
+     double *inf = (double *)malloc(3*nsize);
      for( int i=0; i<nsteps; i++ )
      {
-       for( int j=0; j<n; j++ )
-       {
-         inf[j]=M(in,0,i*n+j);
-         inf[j+n]=M(in,1,i*n+j);
-         inf[j+2*n]=M(in,2,i*n+j);
-       }
+       memcpy( &inf[0], &M(in,0,i*n), nsize );
+       memcpy( &inf[n], &M(in,1,i*n), nsize );
+       memcpy( &inf[2*n], &M(in,2,i*n), nsize );
+
        vtkp->div(inf,&M(out,0,i*n));
      }
      free(inf);
@@ -65,30 +62,23 @@ extern "C" VARIABLE *com_curl(VARIABLE *in)
    if ( nsteps==1 ) {
      vtkp->div(MATR(in), MATR(out) );
    } else {
-     double *inf  = (double *)malloc(3*n*sizeof(double));
-     double *outf = (double *)malloc(3*n*sizeof(double));
+     int nsize=n*sizeof(double);
+     double *inf  = (double *)malloc(3*nsize);
+     double *outf = (double *)malloc(3*nsize);
      for( int i=0; i<nsteps; i++ )
      {
-       for( int j=0; j<n; j++ )
-       {
-         inf[j]=M(in,0,i*n+j);
-         inf[j+n]=M(in,1,i*n+j);
-         inf[j+2*n]=M(in,2,i*n+j);
-       }
+       memcpy( &inf[0], &M(in,0,i*n), nsize);
+       memcpy( &inf[n], &M(in,1,i*n), nsize);
+       memcpy( &inf[2*n], &M(in,2,i*n), nsize);
+
        vtkp->curl(inf,outf);
-       for( int j=0; j<n; j++ )
-       {
-         M(out,0,i*n+j) = outf[j];
-         M(out,1,i*n+j) = outf[j+n];
-         M(out,2,i*n+j) = outf[j+2*n];
-       }
+
+       memcpy( &M(out,0,i*n), &outf[0], nsize );
+       memcpy( &M(out,1,i*n), &outf[n], nsize );
+       memcpy( &M(out,2,i*n), &outf[2*n], nsize );
      }
      free(inf); free(outf);
    }
    return out;
 }
 #endif
-
-
-
-
