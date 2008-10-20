@@ -64,14 +64,8 @@
 #include <vtkFloatArray.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
-#include <vtkLookupTable.h>
 #include <vtkProperty.h>
-#include <vtkPolyDataMapper2D.h>
 #include <vtkScalarBarActor.h>
-#include <vtkTextMapper.h>
-#include <vtkScalarBarActor.h>
-#include <vtkTextActor.h>
-#include <vtkTextProperty.h>
 #include <vtkTetra.h>
 #include <vtkHexahedron.h>
 #include <vtkTriangle.h>
@@ -79,37 +73,22 @@
 #include <vtkLine.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkDataSetMapper.h>
-#include <vtkContourFilter.h>
-#include <vtkPolyDataNormals.h>
-#include <vtkOutlineFilter.h>
-#include <vtkCleanPolyData.h>
 #include <vtkExtractEdges.h>
 #include <vtkFeatureEdges.h>
 #include <vtkGeometryFilter.h>
 #include <vtkGlyph3D.h>
-#include <vtkArrowSource.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 #include <vtkCellDerivatives.h>
 #include <vtkCellDataToPointData.h>
 #include <vtkSphereSource.h>
-#include <vtkCylinderSource.h>
-#include <vtkStreamLine.h>
-#include <vtkRungeKutta4.h>
-#include <vtkPointSource.h>
-#include <vtkLineSource.h>
-#include <vtkRibbonFilter.h>
 #include <vtkPlane.h>
-#include <vtkClipPolyData.h>
 #include <vtkCellPicker.h>
 #include <vtkCallbackCommand.h>
 #include <vtkAbstractPicker.h>
 #include <vtkObject.h>
 #include <vtkCommand.h>
-#include <vtkAxes.h>
-#include <vtkTubeFilter.h>
 #include <vtkFollower.h>
-#include <vtkVectorText.h>
 
 // MATC interface:
 //-----------------------------------------------------------------
@@ -235,6 +214,8 @@ VtkPost::VtkPost(QWidget *parent)
   currentLut->SetNumberOfColors(128);
   currentLut->Build();
 
+  // Clip plane:
+  //-------------
   clipPlane = vtkPlane::New();
 
   // User interfaces, widgets, and draw routines:
@@ -788,12 +769,6 @@ void VtkPost::domatcSlot()
 }
 #endif
 
-int VtkPost::NofNodes()
-{
-   return epMesh->epNodes;
-}
-
-
 // Populate widgets in user interface dialogs:
 //----------------------------------------------------------------------
 void VtkPost::populateWidgetsSlot()
@@ -805,7 +780,6 @@ void VtkPost::populateWidgetsSlot()
   streamLine->populateWidgets(this);
   colorBar->populateWidgets();
 }
-
 
 // Save picture:
 //----------------------------------------------------------------------
@@ -836,7 +810,8 @@ void VtkPost::savePictureSlot()
   image->Delete();
 }
 
-
+// Read in data:
+//----------------------------------------------------------------------
 bool VtkPost::readPostFile(QString postFileName)
 {
   QString tmpLine;
@@ -1080,7 +1055,6 @@ void VtkPost::addVectorField(QString fieldName, int nodes)
 #endif
 }
 
-
 // Add a scalar field:
 //----------------------------------------------------------------------
 ScalarField* VtkPost::addScalarField(QString fieldName, int nodes, double *value)
@@ -1117,15 +1091,12 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes, double *value
   return sf;
 }
 
-
 // Close the widget:
 //----------------------------------------------------------------------
 void VtkPost::exitSlot()
 {
   close();
 }
-
-
 
 // Group selection changed:
 //----------------------------------------------------------------------
@@ -1282,8 +1253,6 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   redrawSlot();
 }
 
-
-
 // Show preferences dialog:
 //----------------------------------------------------------------------
 void VtkPost::showPreferencesDialogSlot()
@@ -1291,15 +1260,12 @@ void VtkPost::showPreferencesDialogSlot()
   preferences->show();
 }
 
-
-
 // Maybe redraw:
 //----------------------------------------------------------------------
 void VtkPost::maybeRedrawSlot(bool value)
 {
   if(!value) redrawSlot();
 }
-
 
 // Redraw:
 //----------------------------------------------------------------------
@@ -1322,7 +1288,6 @@ void VtkPost::redrawSlot()
 
   timeStep->canProceedWithNext(renderWindow);
 }
-
 
 // Draw color bar:
 //----------------------------------------------------------------------
@@ -1352,7 +1317,6 @@ void VtkPost::drawColorBarSlot()
   colorBar->draw(this);
   qvtkWidget->GetRenderWindow()->Render();
 }
-
 
 // Draw node points (labeled with node index):
 //----------------------------------------------------------------------
@@ -1403,7 +1367,6 @@ void VtkPost::drawMeshPointSlot()
   mapper->Delete();
 }
 
-
 // Draw mesh edges:
 //----------------------------------------------------------------------
 void VtkPost::drawMeshEdgeSlot()
@@ -1445,7 +1408,6 @@ void VtkPost::drawMeshEdgeSlot()
   mapper->Delete();
   edges->Delete();
 }
-
 
 // Draw feature edges:
 //----------------------------------------------------------------------
@@ -1499,8 +1461,6 @@ void VtkPost::drawFeatureEdgesSlot()
   mapper->Delete();
 }
 
-
-
 // Draw stream lines:
 //----------------------------------------------------------------------
 void VtkPost::showStreamLineDialogSlot()
@@ -1531,8 +1491,6 @@ void VtkPost::drawStreamLineSlot()
   drawColorBarSlot();
   qvtkWidget->GetRenderWindow()->Render();
 }
-
-
 
 // Draw vectors:
 //----------------------------------------------------------------------
@@ -1566,7 +1524,6 @@ void VtkPost::drawVectorSlot()
   qvtkWidget->GetRenderWindow()->Render();
 }
 
-
 // Draw surfaces:
 //----------------------------------------------------------------------
 void VtkPost::showSurfaceDialogSlot()
@@ -1598,6 +1555,36 @@ void VtkPost::drawSurfaceSlot()
   qvtkWidget->GetRenderWindow()->Render();
 }
 
+// Draw iso contours (2D):
+//----------------------------------------------------------------------
+void VtkPost::showIsoContourDialogSlot()
+{
+  qvtkWidget->GetRenderWindow()->Render();
+
+  if(drawIsoContourAct->isChecked()) {
+    isoContour->show();
+  } else {
+    isoContour->close();
+    drawIsoContourSlot();
+  }
+}
+
+void VtkPost::hideIsoContourSlot()
+{
+  drawIsoContourAct->setChecked(false);
+  drawIsoContourSlot();
+}
+
+void VtkPost::drawIsoContourSlot()
+{
+  renderer->RemoveActor(isoContourActor);
+  if(!drawIsoContourAct->isChecked()) return;
+  setupClipPlane();
+  isoContour->draw(this, timeStep);
+  renderer->AddActor(isoContourActor);
+  drawColorBarSlot();  
+  qvtkWidget->GetRenderWindow()->Render();
+}
 
 // Draw isosurfaces (3D):
 //----------------------------------------------------------------------
@@ -1630,35 +1617,20 @@ void VtkPost::drawIsoSurfaceSlot()
   qvtkWidget->GetRenderWindow()->Render();
 }
 
-
-// Draw iso contours (2D):
+// Draw axes:
 //----------------------------------------------------------------------
-void VtkPost::showIsoContourDialogSlot()
+void VtkPost::drawAxesSlot()
 {
-  qvtkWidget->GetRenderWindow()->Render();
-
-  if(drawIsoContourAct->isChecked()) {
-    isoContour->show();
-  } else {
-    isoContour->close();
-    drawIsoContourSlot();
-  }
-}
-
-void VtkPost::hideIsoContourSlot()
-{
-  drawIsoContourAct->setChecked(false);
-  drawIsoContourSlot();
-}
-
-void VtkPost::drawIsoContourSlot()
-{
-  renderer->RemoveActor(isoContourActor);
-  if(!drawIsoContourAct->isChecked()) return;
-  setupClipPlane();
-  isoContour->draw(this, timeStep);
-  renderer->AddActor(isoContourActor);
-  drawColorBarSlot();  
+  renderer->RemoveActor(axesActor);
+  renderer->RemoveActor(axesXTextActor);
+  renderer->RemoveActor(axesYTextActor);
+  renderer->RemoveActor(axesZTextActor);
+  if(!drawAxesAct->isChecked()) return;
+  axes->draw(this);
+  renderer->AddActor(axesActor);
+  renderer->AddActor(axesXTextActor);
+  renderer->AddActor(axesYTextActor);
+  renderer->AddActor(axesZTextActor);
   qvtkWidget->GetRenderWindow()->Render();
 }
 
@@ -1697,24 +1669,8 @@ void VtkPost::fitToWindowSlot()
   renderer->ResetCamera();  
 }
 
-// Draw axes:
-//----------------------------------------------------------------------
-void VtkPost::drawAxesSlot()
-{
-  renderer->RemoveActor(axesActor);
-  renderer->RemoveActor(axesXTextActor);
-  renderer->RemoveActor(axesYTextActor);
-  renderer->RemoveActor(axesZTextActor);
-  if(!drawAxesAct->isChecked()) return;
-  axes->draw(this);
-  renderer->AddActor(axesActor);
-  renderer->AddActor(axesXTextActor);
-  renderer->AddActor(axesYTextActor);
-  renderer->AddActor(axesZTextActor);
-  qvtkWidget->GetRenderWindow()->Render();
-}
-
-
+// Other public methods:
+//-----------------------
 QVTKWidget* VtkPost::GetQVTKWidget()
 {
   return qvtkWidget;
@@ -1818,7 +1774,6 @@ vtkLookupTable* VtkPost::GetCurrentLut()
   return currentLut;
 }
 
-
 QString VtkPost::GetCurrentSurfaceName()
 {
   return currentSurfaceName;
@@ -1894,6 +1849,11 @@ void VtkPost::SetCurrentPickPosition(double *p)
   currentPickPosition[0] = p[0];
   currentPickPosition[1] = p[1];
   currentPickPosition[2] = p[2];
+}
+
+int VtkPost::NofNodes()
+{
+   return epMesh->epNodes;
 }
 
 QSize VtkPost::minimumSizeHint() const
