@@ -179,7 +179,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   ScalarField* sf = &scalarField[colorIndex];
   int maxDataStepsColor = sf->values / vtkPost->NofNodes();
   step = timeStep->ui.timeStep->value();
-  if(step > maxDataStepsColor) step = maxDataStepsVector;
+  if(step > maxDataStepsColor) step = maxDataStepsColor;
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int colorOffset = vtkPost->NofNodes() * (step-1);
 
