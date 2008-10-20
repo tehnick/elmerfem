@@ -74,6 +74,7 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/nglib_api.h \
            plugins/tetgen.h \
            plugins/tetlib_api.h \
+           vtkpost/axes.h \
            vtkpost/vtkpost.h \
            vtkpost/isosurface.h \
            vtkpost/isocontour.h \
@@ -96,6 +97,7 @@ FORMS += forms/bodypropertyeditor.ui \
          forms/parallel.ui \
          forms/solverparameters.ui \
          forms/summaryeditor.ui \
+         vtkpost/axes.ui \
          vtkpost/isosurface.ui \
          vtkpost/isocontour.ui \
          vtkpost/colorbar.ui \
@@ -140,6 +142,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/elmergrid_api.cpp \
            plugins/nglib_api.cpp \
            plugins/tetlib_api.cpp \
+           vtkpost/axes.cpp \
            vtkpost/vtkpost.cpp \
            vtkpost/isosurface.cpp \
            vtkpost/isocontour.cpp \

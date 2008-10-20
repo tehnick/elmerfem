@@ -67,6 +67,7 @@ class Preferences;
 class Vector;
 class StreamLine;
 class TimeStep;
+class Axes;
 class Matc;
 
 class VtkPost : public QMainWindow
@@ -89,6 +90,10 @@ public:
   vtkActor* GetIsoContourActor();
   vtkActor* GetIsoSurfaceActor();
   vtkActor* GetStreamLineActor();
+  vtkActor* GetAxesActor();
+  vtkFollower* GetAxesXTextActor();
+  vtkFollower* GetAxesYTextActor();
+  vtkFollower* GetAxesZTextActor();
   vtkScalarBarActor* GetColorBarActor();
   vtkActor* GetPickedPointActor();
   double GetLength();
@@ -114,9 +119,9 @@ public:
   double* GetCurrentPickPosition();
   void SetCurrentPickPosition(double*);
 
-  virtual void div(double *,double *);
-  virtual void curl(double *,double *);
-  virtual void grad(double *,double *);
+  virtual void div(double*, double*);
+  virtual void curl(double*, double*);
+  virtual void grad(double*, double*);
 
 signals:
 
@@ -212,36 +217,37 @@ private:
 
   QVTKWidget *qvtkWidget;
 
-  vtkRenderer *renderer;
-  vtkUnstructuredGrid *volumeGrid;
-  vtkUnstructuredGrid *surfaceGrid;
-  vtkUnstructuredGrid *lineGrid;
+  vtkRenderer* renderer;
+  vtkUnstructuredGrid* volumeGrid;
+  vtkUnstructuredGrid* surfaceGrid;
+  vtkUnstructuredGrid* lineGrid;
   vtkLookupTable *currentLut;
-  vtkPlane *clipPlane;
-  vtkActor *meshPointActor;
-  vtkActor *meshEdgeActor;
-  vtkActor *featureEdgeActor;
-  vtkActor *surfaceActor;
-  vtkActor *vectorActor;
-  vtkActor *isoContourActor;
-  vtkActor *isoSurfaceActor;
-  vtkActor *streamLineActor;
-  vtkActor *axesActor;
-  vtkFollower *axesXTextActor;
-  vtkFollower *axesYTextActor;
-  vtkFollower *axesZTextActor;
-  vtkScalarBarActor *colorBarActor;
-  vtkActor *pickedPointActor;
+  vtkPlane* clipPlane;
+  vtkActor* meshPointActor;
+  vtkActor* meshEdgeActor;
+  vtkActor* featureEdgeActor;
+  vtkActor* surfaceActor;
+  vtkActor* vectorActor;
+  vtkActor* isoContourActor;
+  vtkActor* isoSurfaceActor;
+  vtkActor* streamLineActor;
+  vtkActor* axesActor;
+  vtkFollower* axesXTextActor;
+  vtkFollower* axesYTextActor;
+  vtkFollower* axesZTextActor;
+  vtkScalarBarActor* colorBarActor;
+  vtkActor* pickedPointActor;
 
-  Surface *surface;         // ui
-  Vector *vector;           // ui
-  IsoContour *isoContour;   // ui
-  IsoSurface *isoSurface;   // ui
-  StreamLine *streamLine;   // ui
-  ColorBar *colorBar;       // ui
-  Preferences *preferences; // ui
-  Matc *matc;               // ui
-  TimeStep *timeStep;       // ui
+  Surface* surface;         // ui
+  Vector* vector;           // ui
+  IsoContour* isoContour;   // ui
+  IsoSurface* isoSurface;   // ui
+  StreamLine* streamLine;   // ui
+  ColorBar* colorBar;       // ui
+  Preferences* preferences; // ui
+  Matc* matc;               // ui
+  TimeStep* timeStep;       // ui
+  Axes* axes;               // ui
 
   QString currentSurfaceName;
   QString currentVectorName;

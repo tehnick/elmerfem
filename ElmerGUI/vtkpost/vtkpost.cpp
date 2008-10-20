@@ -50,6 +50,7 @@
 #include "vector.h"
 #include "streamline.h"
 #include "timestep.h"
+#include "axes.h"
 #include <QVTKWidget.h>
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
@@ -236,8 +237,8 @@ VtkPost::VtkPost(QWidget *parent)
 
   clipPlane = vtkPlane::New();
 
-  // User interfaces:
-  //-----------------
+  // User interfaces, widgets, and draw routines:
+  //---------------------------------------------
   surface = new Surface(this);
   connect(surface, SIGNAL(drawSurfaceSignal()), this, SLOT(drawSurfaceSlot()));
   connect(surface, SIGNAL(hideSurfaceSignal()), this, SLOT(hideSurfaceSlot()));
@@ -267,6 +268,8 @@ VtkPost::VtkPost(QWidget *parent)
 
   timeStep = new TimeStep(this);
   connect(timeStep, SIGNAL(timeStepChangedSignal()), this, SLOT(timeStepChangedSlot()));
+
+  axes = new Axes(this);
 
 #ifdef MATC
   matc = new Matc(this);
@@ -1703,78 +1706,12 @@ void VtkPost::drawAxesSlot()
   renderer->RemoveActor(axesYTextActor);
   renderer->RemoveActor(axesZTextActor);
   if(!drawAxesAct->isChecked()) return;
-
-  double scl = volumeGrid->GetLength() / 8.0;
-
-  vtkAxes *axes = vtkAxes::New();
-  axes->SetOrigin(0, 0, 0);
-  axes->SetScaleFactor(scl);
-
-  vtkTubeFilter *axesTubes = vtkTubeFilter::New();
-  axesTubes->SetInputConnection(axes->GetOutputPort());
-  axesTubes->SetRadius(axes->GetScaleFactor() / 33.0);
-  axesTubes->SetNumberOfSides(20);
-
-  vtkPolyDataMapper *axesMapper = vtkPolyDataMapper::New();
-  axesMapper->SetInputConnection(axesTubes->GetOutputPort());
-
-  axesActor->SetMapper(axesMapper);
+  axes->draw(this);
   renderer->AddActor(axesActor);
-
-  // Axes text:
-  vtkVectorText *XText = vtkVectorText::New();
-  vtkVectorText *YText = vtkVectorText::New();
-  vtkVectorText *ZText = vtkVectorText::New();
-
-  XText->SetText("X");
-  YText->SetText("Y");
-  ZText->SetText("Z");
-  
-  vtkPolyDataMapper *XTextPolyDataMapper = vtkPolyDataMapper::New();
-  vtkPolyDataMapper *YTextPolyDataMapper = vtkPolyDataMapper::New();
-  vtkPolyDataMapper *ZTextPolyDataMapper = vtkPolyDataMapper::New();
-
-  XTextPolyDataMapper->SetInputConnection(XText->GetOutputPort());
-  YTextPolyDataMapper->SetInputConnection(YText->GetOutputPort());
-  ZTextPolyDataMapper->SetInputConnection(ZText->GetOutputPort());
-
-  axesXTextActor->SetMapper(XTextPolyDataMapper);
-  axesYTextActor->SetMapper(YTextPolyDataMapper);
-  axesZTextActor->SetMapper(ZTextPolyDataMapper);
-
-  scl = axes->GetScaleFactor() / 5.0;
-
-  axesXTextActor->SetScale(scl, scl, scl);
-  axesYTextActor->SetScale(scl, scl, scl);
-  axesZTextActor->SetScale(scl, scl, scl);
-
-  scl = axes->GetScaleFactor();
-
-  axesXTextActor->SetPosition(scl, 0.0, 0.0);
-  axesYTextActor->SetPosition(0.0, scl, 0.0);
-  axesZTextActor->SetPosition(0.0, 0.0, scl);
-
-  axesXTextActor->GetProperty()->SetColor(0, 0, 0);
-  axesYTextActor->GetProperty()->SetColor(0, 0, 0);
-  axesZTextActor->GetProperty()->SetColor(0, 0, 0);
-
   renderer->AddActor(axesXTextActor);
   renderer->AddActor(axesYTextActor);
   renderer->AddActor(axesZTextActor);
-
   qvtkWidget->GetRenderWindow()->Render();
-  
-  // Clean up:
-  //----------
-  XTextPolyDataMapper->Delete();
-  YTextPolyDataMapper->Delete();
-  ZTextPolyDataMapper->Delete();
-  XText->Delete();
-  YText->Delete();
-  ZText->Delete();
-  axesTubes->Delete();
-  axesMapper->Delete();
-  axes->Delete();
 }
 
 
@@ -1823,9 +1760,37 @@ vtkActor* VtkPost::GetPickedPointActor()
   return pickedPointActor;
 }
 
+vtkActor* VtkPost::GetAxesActor()
+{
+  return axesActor;
+}
+
+vtkFollower* VtkPost::GetAxesXTextActor()
+{
+  return axesXTextActor;
+}
+
+vtkFollower* VtkPost::GetAxesYTextActor()
+{
+  return axesYTextActor;
+}
+
+vtkFollower* VtkPost::GetAxesZTextActor()
+{
+  return axesZTextActor;
+}
+
 double VtkPost::GetLength()
 {
-  return volumeGrid->GetLength();
+  double volumeLength = volumeGrid->GetLength();
+  double surfaceLength = surfaceGrid->GetLength();
+  double lineLength = lineGrid->GetLength();
+
+  double length = volumeLength;
+  if(surfaceLength > length) length = surfaceLength;
+  if(lineLength > length) length = lineLength;
+
+  return length;
 }
 
 vtkUnstructuredGrid* VtkPost::GetLineGrid()
