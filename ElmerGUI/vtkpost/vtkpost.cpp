@@ -107,10 +107,10 @@ extern "C" void com_init(char *,int,int,VARIABLE *(*)(VARIABLE *),int,int,char*)
 
 using namespace std;
 
-// Pick event handler (place cursor on cell && press 'p' to pick):
-//-----------------------------------------------------------------
-static void pickEventHandler(vtkObject *caller, unsigned long eid, 
-			     void* clientdata, void *calldata)
+// Pick event handler (place cursor && press 'p' to pick):
+//---------------------------------------------------------
+static void pickEventHandler(vtkObject* caller, unsigned long eid, 
+			     void* clientdata, void* calldata)
 {
   VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
   vtkRenderer* renderer = vtkPost->GetRenderer();
@@ -129,7 +129,7 @@ static void pickEventHandler(vtkObject *caller, unsigned long eid,
 
   } else {
     vtkDataSetMapper* mapper = vtkDataSetMapper::New();
-    vtkUnstructuredGrid *cross = vtkUnstructuredGrid::New();
+    vtkUnstructuredGrid* cross = vtkUnstructuredGrid::New();
     vtkPoints* points = vtkPoints::New();
     vtkLine* line = vtkLine::New();
     double l = vtkPost->GetLength() / 15.0;
@@ -295,10 +295,10 @@ VtkPost::VtkPost(QWidget *parent)
   qvtkWidget->GetInteractor()->SetPicker(cellPicker);
   cellPicker->Delete();
 
-  vtkCallbackCommand *cbc = vtkCallbackCommand::New();
+  vtkCallbackCommand* cbc = vtkCallbackCommand::New();
   cbc->SetClientData(this);
   cbc->SetCallback(pickEventHandler);
-  vtkAbstractPicker *picker = qvtkWidget->GetInteractor()->GetPicker();
+  vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
   picker->AddObserver(vtkCommand::EndPickEvent, cbc);
   cbc->Delete();
 }
@@ -503,127 +503,17 @@ void VtkPost::matcCutPasteSlot()
 
 void VtkPost::grad(double *in, double *out)
 {
-   vtkFloatArray *s = vtkFloatArray::New();
-   s->SetNumberOfComponents(1);
-   s->SetNumberOfTuples(epMesh->epNodes);
-   for( int i=0;i<epMesh->epNodes; i++ )
-      s->SetValue(i,in[i] );
-
-   vtkCellDerivatives *cd = vtkCellDerivatives::New();
-   if ( volumeGrid->GetNumberOfCells()>0 ) {
-     volumeGrid->GetPointData()->SetScalars(s);
-     cd->SetInput(volumeGrid);
-   } else {
-     surfaceGrid->GetPointData()->SetScalars(s);
-     cd->SetInput(surfaceGrid);
-   }
-   cd->SetVectorModeToComputeGradient();
-   cd->Update();
-
-   vtkCellDataToPointData *nd = vtkCellDataToPointData::New();
-   nd->SetInput(cd->GetOutput());
-   nd->Update();
-
-   vtkDataArray *da = nd->GetOutput()->GetPointData()->GetVectors();
-   int ncomp = da->GetNumberOfComponents();
-   for( int i=0; i<epMesh->epNodes; i++ )
-     for( int j=0; j<ncomp; j++ )
-        out[epMesh->epNodes*j+i] = da->GetComponent(i,j);
-
-   cd->Delete();
-   nd->Delete();
-   s->Delete(); 
+  matc->grad(this, in, out);
 }
 
 void VtkPost::div(double *in, double *out)
 {
-   int n=volumeGrid->GetNumberOfCells();
-   int ncomp = 3;
-
-   vtkFloatArray *s = vtkFloatArray::New();
-   s->SetNumberOfComponents(ncomp);
-   s->SetNumberOfTuples(epMesh->epNodes);
-
-   for( int j=0;j<ncomp; j++ )
-     for( int i=0;i<epMesh->epNodes; i++ )
-      s->SetComponent(i,j,in[j*epMesh->epNodes+i] );
-
-   vtkCellDerivatives *cd = vtkCellDerivatives::New();
-   if ( n>0 ) {
-     volumeGrid->GetPointData()->SetVectors(s);
-     cd->SetInput(volumeGrid);
-   } else {
-     surfaceGrid->GetPointData()->SetVectors(s);
-     cd->SetInput(surfaceGrid);
-   }
-   cd->SetTensorModeToComputeGradient();
-   cd->Update();
-
-   vtkCellDataToPointData *nd = vtkCellDataToPointData::New();
-   nd->SetInput(cd->GetOutput());
-   nd->Update();
-
-   vtkDataArray *da = nd->GetOutput()->GetPointData()->GetTensors();
-   ncomp = da->GetNumberOfComponents();
-   for( int i=0; i<epMesh->epNodes; i++ )
-   {
-      out[i]  = da->GetComponent(i,0);
-      out[i] += da->GetComponent(i,4);
-      out[i] += da->GetComponent(i,8);
-   }
-   cd->Delete();
-   nd->Delete();
-   s->Delete(); 
+  matc->div(this, in, out);
 }
 
 void VtkPost::curl(double *in, double *out)
 {
-   int n=volumeGrid->GetNumberOfCells();
-   int ncomp = 3;
-
-   vtkFloatArray *s = vtkFloatArray::New();
-   s->SetNumberOfComponents(ncomp);
-   s->SetNumberOfTuples(epMesh->epNodes);
-
-   for( int j=0;j<ncomp; j++ )
-     for( int i=0;i<epMesh->epNodes; i++ )
-      s->SetComponent(i,j,in[j*epMesh->epNodes+i] );
-
-   vtkCellDerivatives *cd = vtkCellDerivatives::New();
-   if ( n>0 ) {
-     volumeGrid->GetPointData()->SetVectors(s);
-     cd->SetInput(volumeGrid);
-   } else {
-     surfaceGrid->GetPointData()->SetVectors(s);
-     cd->SetInput(surfaceGrid);
-   }
-   cd->SetTensorModeToComputeGradient();
-   cd->Update();
-
-   vtkCellDataToPointData *nd = vtkCellDataToPointData::New();
-   nd->SetInput(cd->GetOutput());
-   nd->Update();
-
-   vtkDataArray *da = nd->GetOutput()->GetPointData()->GetTensors();
-   for( int i=0; i<epMesh->epNodes; i++ )
-   {
-      double gx_x = da->GetComponent(i,0);
-      double gx_y = da->GetComponent(i,3);
-      double gx_z = da->GetComponent(i,6);
-      double gy_x = da->GetComponent(i,1);
-      double gy_y = da->GetComponent(i,4);
-      double gy_z = da->GetComponent(i,7);
-      double gz_x = da->GetComponent(i,2);
-      double gz_y = da->GetComponent(i,5);
-      double gz_z = da->GetComponent(i,8);
-      out[i] = gz_y-gy_z;
-      out[epMesh->epNodes+i] = gx_z-gz_x;
-      out[2*epMesh->epNodes+i] = gy_x-gx_y;
-   }
-
-   cd->Delete();
-   nd->Delete();
-   s->Delete(); 
+  matc->curl(this, in, out);
 }
 
 void VtkPost::domatcSlot()
@@ -875,7 +765,7 @@ bool VtkPost::readPostFile(QString postFileName)
   // Add the null field:
   //--------------------
   QString fieldName = "Null";
-  ScalarField *nullField = addScalarField(fieldName, nodes * timesteps, NULL);
+  ScalarField* nullField = addScalarField(fieldName, nodes * timesteps, NULL);
   nullField->minVal = 0.0;
   nullField->maxVal = 0.0;
 
@@ -955,7 +845,9 @@ bool VtkPost::readPostFile(QString postFileName)
       QString tmpString = "";
       txtStream >> tmpString;
       if(tmpString.isEmpty()) {
+
 	GET_TXT_STREAM
+
         txtStream >> tmpString;
       }
       epe->index[j] = tmpString.toInt();
@@ -966,6 +858,7 @@ bool VtkPost::readPostFile(QString postFileName)
   //=======
   ScalarField *sf;
   for(int i = 0; i < nodes * timesteps; i++) {
+
     GET_TXT_STREAM
 
     for(int j = 0; j < scalarFields-4; j++) { // - 4 = no nodes, no null field
@@ -994,14 +887,14 @@ bool VtkPost::readPostFile(QString postFileName)
   editGroupsMenu->clear();
 
   for(int i = 0; i < elements; i++) {
-    EpElement *epe = &epMesh->epElement[i];
+    EpElement* epe = &epMesh->epElement[i];
 
     QString groupName = epe->groupName;
     
     if(groupActionHash.contains(groupName))
       continue;
 
-    QAction *groupAction = new QAction(groupName, this);
+    QAction* groupAction = new QAction(groupName, this);
     groupAction->setCheckable(true);
     groupAction->setChecked(true);
     editGroupsMenu->addAction(groupAction);

@@ -44,6 +44,8 @@
 #include <QWidget>
 #include "ui_matc.h"
 
+class VtkPost;
+
 class Matc : public QDialog
 {
   Q_OBJECT
@@ -53,6 +55,10 @@ public:
   ~Matc();
 
   Ui::mcDialog ui;
+
+  void grad(VtkPost*, double*, double*);
+  void div(VtkPost*, double*, double*);
+  void curl(VtkPost*, double*, double*);
 
 private slots:
   void okButtonClicked();
