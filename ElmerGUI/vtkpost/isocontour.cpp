@@ -167,9 +167,19 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   double colorMinVal = ui.colorMinEdit->text().toDouble();
   double colorMaxVal = ui.colorMaxEdit->text().toDouble();
 
+  ScalarField* sf = &scalarField[contourIndex];
+  int maxDataStepsContour = sf->values / vtkPost->NofNodes();
   int step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepsContour) step = maxDataStepsContour;
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = vtkPost->NofNodes() * (step - 1);
+  int contourOffset = vtkPost->NofNodes() * (step-1);
+
+  sf = &scalarField[colorIndex];
+  int maxDataStepsColor = sf->values / vtkPost->NofNodes();
+  step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepsColor) step = maxDataStepsColor;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
+  int colorOffset = vtkPost->NofNodes() * (step-1);
 
   if(contourName == "Null") return;
 
@@ -177,12 +187,12 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   //----------
   vtkPost->GetSurfaceGrid()->GetPointData()->RemoveArray("IsoContour");
   vtkFloatArray* contourArray = vtkFloatArray::New();
-  ScalarField* sf = &scalarField[contourIndex];
+  sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
   contourArray->SetNumberOfTuples(vtkPost->NofNodes());
   contourArray->SetName("IsoContour");
   for(int i = 0; i < vtkPost->NofNodes(); i++)
-    contourArray->SetComponent(i, 0, sf->value[i + offset]);
+    contourArray->SetComponent(i, 0, sf->value[i + contourOffset]);
   vtkPost->GetSurfaceGrid()->GetPointData()->AddArray(contourArray);
 
   vtkPost->GetSurfaceGrid()->GetPointData()->RemoveArray("IsoContourColor");
@@ -192,7 +202,7 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   colorArray->SetNumberOfComponents(1);
   colorArray->SetNumberOfTuples(vtkPost->NofNodes());
   for(int i = 0; i < vtkPost->NofNodes(); i++)
-    colorArray->SetComponent(i, 0, sf->value[i + offset]);
+    colorArray->SetComponent(i, 0, sf->value[i + colorOffset]);
   vtkPost->GetSurfaceGrid()->GetPointData()->AddArray(colorArray);
 
   // Isocontours:

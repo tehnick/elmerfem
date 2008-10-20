@@ -982,12 +982,10 @@ bool VtkPost::readPostFile(QString postFileName)
   for( int f=0; f<scalarFields; f++  )
   {
      sf = &scalarField[f];
-     for( int i=0; i < nodes * timesteps; i++ )
+     for( int i=0; i < sf->values; i++ )
      {
-       if(sf->value[i] > sf->maxVal)
-         sf->maxVal = sf->value[i];
-       if(sf->value[i] < sf->minVal)
-         sf->minVal = sf->value[i];
+       if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
+       if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
      }
    }
   

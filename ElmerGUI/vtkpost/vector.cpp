@@ -167,25 +167,34 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   int scaleMultiplier = ui.scaleSpin->value();
   bool scaleByMagnitude = ui.scaleByMagnitude->isChecked();
 
+  ScalarField* sf_x = &scalarField[index + 0];
+  ScalarField* sf_y = &scalarField[index + 1];
+  ScalarField* sf_z = &scalarField[index + 2];
+  int maxDataStepsVector = sf_x->values / vtkPost->NofNodes();
   int step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepsVector) step = maxDataStepsVector;
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = vtkPost->NofNodes() * (step - 1);
+  int vectorOffset = vtkPost->NofNodes() * (step-1);
+
+  ScalarField* sf = &scalarField[colorIndex];
+  int maxDataStepsColor = sf->values / vtkPost->NofNodes();
+  step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepsColor) step = maxDataStepsVector;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
+  int colorOffset = vtkPost->NofNodes() * (step-1);
 
   // Vector data:
   //-------------
   vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("VectorData");
-  vtkFloatArray *vectorData = vtkFloatArray::New();
-  ScalarField* sf_x = &scalarField[index + 0];
-  ScalarField* sf_y = &scalarField[index + 1];
-  ScalarField* sf_z = &scalarField[index + 2];
+  vtkFloatArray* vectorData = vtkFloatArray::New();
   vectorData->SetNumberOfComponents(3);
   vectorData->SetNumberOfTuples(vtkPost->NofNodes());
   vectorData->SetName("VectorData");
   double scaleFactor = 0.0;
   for(int i = 0; i < vtkPost->NofNodes(); i++) {
-    double val_x  = sf_x->value[i + offset];
-    double val_y  = sf_y->value[i + offset];
-    double val_z  = sf_z->value[i + offset];
+    double val_x  = sf_x->value[i + vectorOffset];
+    double val_y  = sf_y->value[i + vectorOffset];
+    double val_z  = sf_z->value[i + vectorOffset];
     double absval = sqrt(val_x*val_x + val_y*val_y + val_z*val_z);
     if(absval > scaleFactor) scaleFactor = absval;
     vectorData->SetComponent(i, 0, val_x); 
@@ -203,13 +212,12 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   // Color data:
   //-------------
   vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("VectorColor");
-  ScalarField* sf = &scalarField[colorIndex];
-  vtkFloatArray *vectorColor = vtkFloatArray::New();
+  vtkFloatArray* vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
   vectorColor->SetNumberOfTuples(vtkPost->NofNodes());
   vectorColor->SetName("VectorColor");
   for(int i = 0; i < vtkPost->NofNodes(); i++) 
-    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
+    vectorColor->SetComponent(i, 0, sf->value[i + colorOffset]); 
   vtkPost->GetVolumeGrid()->GetPointData()->AddArray(vectorColor);
 
   // Glyphs:

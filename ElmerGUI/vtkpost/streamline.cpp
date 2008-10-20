@@ -200,9 +200,21 @@ void StreamLine::draw(VtkPost* vtkPost, TimeStep* timeStep)
   bool drawRake = ui.rake->isChecked();
   int rakeWidth = ui.rakeWidth->value();
 
+  ScalarField* sf_x = &scalarField[index + 0];
+  ScalarField* sf_y = &scalarField[index + 1];
+  ScalarField* sf_z = &scalarField[index + 2];
+  int maxDataStepVector = sf_x->values / vtkPost->NofNodes();
   int step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepVector) step = maxDataStepVector;
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = vtkPost->NofNodes() * (step - 1);
+  int vectorOffset = vtkPost->NofNodes() * (step-1);
+
+  ScalarField* sf = &scalarField[colorIndex];
+  int maxDataStepColor = sf->values / vtkPost->NofNodes();
+  step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepColor) step = maxDataStepColor;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
+  int colorOffset = vtkPost->NofNodes() * (step-1);
 
   // Sphere source:
   double centerX = ui.centerX->text().toDouble();
@@ -233,16 +245,13 @@ void StreamLine::draw(VtkPost* vtkPost, TimeStep* timeStep)
   //-------------
   grid->GetPointData()->RemoveArray("VectorData");
   vtkFloatArray* vectorData = vtkFloatArray::New();
-  ScalarField* sf_x = &scalarField[index + 0];
-  ScalarField* sf_y = &scalarField[index + 1];
-  ScalarField* sf_z = &scalarField[index + 2];
   vectorData->SetNumberOfComponents(3);
   vectorData->SetNumberOfTuples(vtkPost->NofNodes());
   vectorData->SetName("VectorData");
   for(int i = 0; i < vtkPost->NofNodes(); i++) {
-    double val_x  = sf_x->value[i + offset];
-    double val_y  = sf_y->value[i + offset];
-    double val_z  = sf_z->value[i + offset];
+    double val_x  = sf_x->value[i + vectorOffset];
+    double val_y  = sf_y->value[i + vectorOffset];
+    double val_z  = sf_z->value[i + vectorOffset];
     vectorData->SetComponent(i,0,val_x); 
     vectorData->SetComponent(i,1,val_y); 
     vectorData->SetComponent(i,2,val_z); 
@@ -252,13 +261,12 @@ void StreamLine::draw(VtkPost* vtkPost, TimeStep* timeStep)
   // Color data:
   //-------------
   grid->GetPointData()->RemoveArray("StreamLineColor");
-  ScalarField* sf = &scalarField[colorIndex];
   vtkFloatArray* vectorColor = vtkFloatArray::New();
   vectorColor->SetNumberOfComponents(1);
   vectorColor->SetNumberOfTuples(vtkPost->NofNodes());
   vectorColor->SetName("StreamLineColor");
   for(int i = 0; i < vtkPost->NofNodes(); i++) 
-    vectorColor->SetComponent(i, 0, sf->value[i + offset]); 
+    vectorColor->SetComponent(i, 0, sf->value[i + colorOffset]); 
   grid->GetPointData()->AddArray(vectorColor);
 
   // Generate stream lines:

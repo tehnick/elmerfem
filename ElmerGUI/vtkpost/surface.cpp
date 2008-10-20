@@ -143,15 +143,17 @@ void Surface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   double opacity = ui.opacitySpin->value() / 100.0;
   bool useClip = ui.clipPlane->isChecked();
 
+  ScalarField* sf = &scalarField[surfaceIndex];
+  int maxDataSteps = sf->values / vtkPost->NofNodes();
   int step = timeStep->ui.timeStep->value();
+  if(step > maxDataSteps) step = maxDataSteps;
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = vtkPost->NofNodes() * (step - 1);
+  int offset = vtkPost->NofNodes() * (step-1);
 
   // Scalars:
   //---------
   vtkPost->GetSurfaceGrid()->GetPointData()->RemoveArray("Surface");
   vtkFloatArray* scalars = vtkFloatArray::New();
-  ScalarField* sf = &scalarField[surfaceIndex];
   scalars->SetNumberOfComponents(1);
   scalars->SetNumberOfTuples(vtkPost->NofNodes());
   scalars->SetName("Surface");

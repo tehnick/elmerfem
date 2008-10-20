@@ -174,9 +174,19 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   double opacity = ui.opacitySpin->value() / 100.0;
   bool useClip = ui.clipPlane->isChecked();
 
+  ScalarField* sf = &scalarField[contourIndex];
+  int maxDataStepContour = sf->values / vtkPost->NofNodes();
   int step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepContour) step = maxDataStepContour;
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
-  int offset = vtkPost->NofNodes() * (step - 1);
+  int contourOffset = vtkPost->NofNodes() * (step-1);
+
+  sf = &scalarField[colorIndex];
+  int maxDataStepColor = sf->values / vtkPost->NofNodes();
+  step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepColor) step = maxDataStepColor;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
+  int colorOffset = vtkPost->NofNodes() * (step-1);
 
   if(contourName == "Null") return;
 
@@ -184,12 +194,12 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   //----------
   vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("IsoSurface");
   vtkFloatArray* contourArray = vtkFloatArray::New();
-  ScalarField* sf = &scalarField[contourIndex];
+  sf = &scalarField[contourIndex];
   contourArray->SetNumberOfComponents(1);
   contourArray->SetNumberOfTuples(vtkPost->NofNodes());
   contourArray->SetName("IsoSurface");
   for(int i = 0; i < vtkPost->NofNodes(); i++)
-    contourArray->SetComponent(i, 0, sf->value[i + offset]);
+    contourArray->SetComponent(i, 0, sf->value[i + contourOffset]);
   vtkPost->GetVolumeGrid()->GetPointData()->AddArray(contourArray);
 
   vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("IsoSurfaceColor");
@@ -199,7 +209,7 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   colorArray->SetNumberOfComponents(1);
   colorArray->SetNumberOfTuples(vtkPost->NofNodes());
   for(int i = 0; i < vtkPost->NofNodes(); i++)
-    colorArray->SetComponent(i, 0, sf->value[i + offset]);
+    colorArray->SetComponent(i, 0, sf->value[i + colorOffset]);
   vtkPost->GetVolumeGrid()->GetPointData()->AddArray(colorArray);
 
   // Isosurfaces:
