@@ -86,9 +86,10 @@ Model
   Equation
     Add 
       Name = Heat Equation
-      Apply to Bodies = 1
+      Apply to bodies = 1
       Heat Equation
         Active = on
+  Update   
   OK
 \ttend        
 
@@ -106,6 +107,7 @@ Model
         Density = 1.0
       Heat Equation
         Heat Conductivity = 1.0
+    Update
     OK
 \ttend
 
@@ -118,6 +120,7 @@ Model
       Name = Heating
       Heat Source = 1.0
       Apply to bodies = 1
+    Update
     OK
 \ttend    
 
@@ -132,6 +135,7 @@ Model
         Temperature = 0.0
       Name = Zero
       Apply to boundaries = 1
+    Update
     OK
 \ttend   
 
@@ -146,17 +150,18 @@ Sif
   Edit -> look how your command file came out  
 \ttend
 
-Before we can execute the solver we should save the files in a directory. Both the command file and
-the mesh file will be saved simultaneously to the destination directory.
+Before we can execute the solver we should save the files in a directory. In saving the project all the
+necessary files for restarting the case will be saved to the 
+destination directory.
 \ttbegin
 File 
-  Save As
+  Save Project
 \ttend
 
 After we have successfully saved the files we may start the solver
 \ttbegin
 Run
-  Run solver
+  Start solver
 \ttend
 A convergence view automatically pops up showing relative changes of each iteration.
 As the case is linear only one iteration was required for the solution and the second one
@@ -170,11 +175,15 @@ The resulting output log is shown in figure~\ref{fg:log1}.
 \end{center}
 \end{figure}
 
+Note: if you face problems in the solution phase and need to edit the setting, always remember to save
+the project before execution.
 
-The results to view we may start the postprocessor 
+To view the results we may start the the internal VTK widget, 
+or use ElmerPost for postprocessing as is done
+here
 \ttbegin
 Run
-  Run postprocessor
+  Start postprocessor
 \ttend
 The default configuration shows the surface mesh colored with temperature as in picture~\ref{fg:post1}. You may test 
 the different options. For example, choosing in the \texttt{Color Mesh Edit} window the 
