@@ -70,6 +70,7 @@ class TimeStep;
 class Axes;
 class FeatureEdge;
 class MeshPoint;
+class MeshEdge;
 class Matc;
 
 class VtkPost : public QMainWindow
@@ -100,6 +101,7 @@ public:
   vtkActor* GetFeatureEdgeActor();
   vtkActor* GetPickedPointActor();
   vtkActor* GetMeshPointActor();
+  vtkActor* GetMeshEdgeActor();
   double GetLength();
   vtkUnstructuredGrid* GetLineGrid();
   vtkUnstructuredGrid* GetSurfaceGrid();
@@ -254,6 +256,7 @@ private:
   Axes* axes;               // ui
   FeatureEdge* featureEdge; // ui
   MeshPoint* meshPoint;     // ui
+  MeshEdge* meshEdge;       // ui
 
   QString currentSurfaceName;
   QString currentVectorName;

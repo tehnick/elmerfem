@@ -54,6 +54,7 @@
 #include "axes.h"
 #include "featureedge.h"
 #include "meshpoint.h"
+#include "meshedge.h"
 
 #include <QVTKWidget.h>
 #include <vtkLookupTable.h>
@@ -62,8 +63,6 @@
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
 #include <vtkCamera.h>
-#include <vtkPolyData.h>
-#include <vtkPolyDataMapper.h>
 #include <vtkCellArray.h>
 #include <vtkFloatArray.h>
 #include <vtkPointData.h>
@@ -77,7 +76,6 @@
 #include <vtkLine.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkDataSetMapper.h>
-#include <vtkExtractEdges.h>
 #include <vtkWindowToImageFilter.h>
 #include <vtkPNGWriter.h>
 #include <vtkCellDerivatives.h>
@@ -255,6 +253,8 @@ VtkPost::VtkPost(QWidget *parent)
   featureEdge = new FeatureEdge(this);
 
   meshPoint = new MeshPoint(this);
+
+  meshEdge = new MeshEdge(this);
 
 #ifdef MATC
   matc = new Matc(this);
@@ -1322,7 +1322,7 @@ void VtkPost::drawColorBarSlot()
   qvtkWidget->GetRenderWindow()->Render();
 }
 
-// Draw node points (labeled with node index):
+// Draw mesh points:
 //----------------------------------------------------------------------
 void VtkPost::drawMeshPointSlot()
 {
@@ -1340,40 +1340,10 @@ void VtkPost::drawMeshEdgeSlot()
 {
   renderer->RemoveActor(meshEdgeActor);
   if(!drawMeshEdgeAct->isChecked()) return;
-
-  bool useSurfaceGrid = preferences->ui.meshEdgesSurface->isChecked();
-  int lineWidth = preferences->ui.meshLineWidth->value();
-
-  vtkUnstructuredGrid *grid = NULL;
-
-  if(useSurfaceGrid) {
-    grid = surfaceGrid;
-  } else {
-    grid = volumeGrid;
-  }
-
-  if(!grid) return;
-  if(grid->GetNumberOfCells() < 1) return;
-
-  vtkExtractEdges *edges = vtkExtractEdges::New();
-  edges->SetInput(grid);
-
-  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
-  mapper->SetInputConnection(edges->GetOutputPort());
-  mapper->ScalarVisibilityOff();
-  mapper->SetResolveCoincidentTopologyToPolygonOffset();
-  // mapper->ImmediateModeRenderingOn();
-
-  meshEdgeActor->GetProperty()->SetLineWidth(lineWidth);
-  meshEdgeActor->GetProperty()->SetColor(0, 0, 0);
-  meshEdgeActor->SetMapper(mapper);
-
+  setupClipPlane();
+  meshEdge->draw(this, preferences);
   renderer->AddActor(meshEdgeActor);
-
   qvtkWidget->GetRenderWindow()->Render();
-
-  mapper->Delete();
-  edges->Delete();
 }
 
 // Draw feature edges:
@@ -1656,6 +1626,11 @@ vtkActor* VtkPost::GetFeatureEdgeActor()
 vtkActor* VtkPost::GetMeshPointActor()
 {
   return meshPointActor;
+}
+
+vtkActor* VtkPost::GetMeshEdgeActor()
+{
+  return meshEdgeActor;
 }
 
 vtkFollower* VtkPost::GetAxesXTextActor()
