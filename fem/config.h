@@ -32,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/wrk/jpr/bb//share/elmersolver"
+#define ELMER_SOLVER_HOME "/usr/local/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -109,7 +109,7 @@
 #define HAVE_HUTI 1
 
 /* Define if you have a HYPRE library. */
-/* #undef HAVE_HYPRE */
+#define HAVE_HYPRE 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -133,10 +133,10 @@
 #define HAVE_MEMORY_H 1
 
 /* ... */
-/* #undef HAVE_MPI */
+#define HAVE_MPI 1
 
 /* Define if you have a PARPACK library. */
-/* #undef HAVE_PARPACK */
+#define HAVE_PARPACK 1
 
 /* Define to 1 if you have the `shl_findsym' function. */
 /* #undef HAVE_SHL_FINDSYM */

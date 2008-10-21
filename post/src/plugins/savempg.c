@@ -44,7 +44,7 @@
 #include <math.h>
 #include <GL/gl.h>
 #include <tcl.h>
-#include <ffmpeg/avcodec.h>
+#include <avcodec.h>
 
 #define INBUF_SIZE 4096
 #define STATE_READY 0
