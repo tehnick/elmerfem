@@ -571,14 +571,12 @@ bool VtkPost::readPostFile(QString postFileName)
 
   txtStream >> nodes >> elements >> components >> timesteps;
 
+  cout << "Ep file header says:" << endl;
   cout << "Nodes: " << nodes << endl;
   cout << "Elements: " << elements << endl;
   cout << "Scalar components: " << components << endl;
   cout << "Timesteps: " << timesteps << endl;
 
-  timeStep->maxSteps = timesteps;
-  timeStep->ui.start->setValue(1);
-  timeStep->ui.stop->setValue(timesteps);
 
   // Read field names & set up menu actions:
   //=========================================
@@ -600,7 +598,7 @@ bool VtkPost::readPostFile(QString postFileName)
   // Add the null field:
   //--------------------
   QString fieldName = "Null";
-  ScalarField* nullField = addScalarField(fieldName, nodes * timesteps, NULL);
+  ScalarField* nullField = addScalarField(fieldName, nodes*timesteps, NULL);
   nullField->minVal = 0.0;
   nullField->maxVal = 0.0;
 
@@ -618,10 +616,10 @@ bool VtkPost::readPostFile(QString postFileName)
     cout << "Field name: " << fieldName.toAscii().data() << endl;
 
     if(fieldType == "scalar")
-      addScalarField(fieldName, nodes * timesteps, NULL);
+      addScalarField(fieldName, nodes*timesteps, NULL);
 
     if(fieldType == "vector") {
-      addVectorField(fieldName, nodes * timesteps);
+      addVectorField(fieldName, nodes*timesteps);
       i += 2;
     }
   }
@@ -692,8 +690,10 @@ bool VtkPost::readPostFile(QString postFileName)
   // Data:
   //=======
   ScalarField *sf;
-  for(int i = 0; i < nodes * timesteps; i++) {
+  int i;
+  for(i = 0; i < nodes * timesteps; i++) {
 
+    if ( post.atEnd() ) break;
     GET_TXT_STREAM
 
     for(int j = 0; j < scalarFields-4; j++) { // - 4 = no nodes, no null field
@@ -701,6 +701,12 @@ bool VtkPost::readPostFile(QString postFileName)
       txtStream >> sf->value[i];
     }
   }
+  timesteps = i/nodes;
+  cout << timesteps << " timesteps read in." << endl;
+  
+  timeStep->maxSteps = timesteps;
+  timeStep->ui.start->setValue(1);
+  timeStep->ui.stop->setValue(timesteps);
 
   // Initial min & max values:
   //============================
