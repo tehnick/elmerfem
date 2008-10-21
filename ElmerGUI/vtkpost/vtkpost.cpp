@@ -478,27 +478,6 @@ void VtkPost::matcCutPasteSlot()
   matc->ui.mcEdit->paste();
 }
 
-void VtkPost::grad(double *in, double *out)
-{
-  matc->setInput(in);
-  matc->setOutput(out);
-  matc->grad(this);
-}
-
-void VtkPost::div(double *in, double *out)
-{
-  matc->setInput(in);
-  matc->setOutput(out);
-  matc->div(this);
-}
-
-void VtkPost::curl(double *in, double *out)
-{
-  matc->setInput(in);
-  matc->setOutput(out);
-  matc->curl(this);
-}
-
 void VtkPost::domatcSlot()
 {
   matc->domatc(this);

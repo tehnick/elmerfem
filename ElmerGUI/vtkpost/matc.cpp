@@ -74,8 +74,6 @@ Matc::Matc(QWidget *parent)
   com_init( (char *)"curl", FALSE, FALSE, com_curl, 1, 1,
             (char *)"r = curl(f): compute curl of a vector variable f.\n") ;
 
-  in = NULL;
-  out = NULL;
 }
 
 Matc::~Matc()
@@ -88,17 +86,7 @@ void Matc::okButtonClicked()
   close();
 }
 
-void Matc::setInput(double* ptr)
-{
-  in = ptr;
-}
-
-void Matc::setOutput(double* ptr)
-{
-  out = ptr;
-}
-
-void Matc::grad(VtkPost* vtkPost)
+void Matc::grad(VtkPost* vtkPost, double *in, double *out)
 {
   vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
   vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();
@@ -135,7 +123,7 @@ void Matc::grad(VtkPost* vtkPost)
   s->Delete(); 
 }
 
-void Matc::div(VtkPost* vtkPost)
+void Matc::div(VtkPost* vtkPost, double *in, double *out)
 {
   vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
   vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();
@@ -180,7 +168,7 @@ void Matc::div(VtkPost* vtkPost)
 }
 
 
-void Matc::curl(VtkPost* vtkPost)
+void Matc::curl(VtkPost* vtkPost, double *in, double *out)
 {
   vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
   vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();
@@ -242,9 +230,8 @@ void Matc::domatc(VtkPost* vtkPost)
   char *ptr;
   LIST *lst;
   VARIABLE *var;
-  
-  QString cmd=ui.mcEdit->text().trimmed();
 
+  QString cmd=ui.mcEdit->text().trimmed();
   ui.mcEdit->clear();
   
   ptr=mtc_domath(cmd.toAscii().data());
@@ -294,12 +281,16 @@ void Matc::domatc(VtkPost* vtkPost)
 	{
           ScalarField *sf;
 	  if ( NROW(var) == 1 ) {
-            sf = vtkPost->addScalarField( NAME(var),NCOL(var),NULL ); vtkPost->minMax(sf);
+            sf = vtkPost->addScalarField( NAME(var),NCOL(var),MATR(var) );
+            vtkPost->minMax(sf);
 	  } else if ( NROW(var) == 3 ) {
 	    QString qs = NAME(var);
-	    sf=vtkPost->addScalarField(qs+"_x",NCOL(var),&M(var,0,0)); vtkPost->minMax(sf);
-	    sf=vtkPost->addScalarField(qs+"_y",NCOL(var),&M(var,1,0)); vtkPost->minMax(sf);
-	    sf=vtkPost->addScalarField(qs+"_z",NCOL(var),&M(var,2,0)); vtkPost->minMax(sf);
+	    sf=vtkPost->addScalarField(qs+"_x",NCOL(var),&M(var,0,0));
+            vtkPost->minMax(sf);
+	    sf=vtkPost->addScalarField(qs+"_y",NCOL(var),&M(var,1,0));
+            vtkPost->minMax(sf);
+	    sf=vtkPost->addScalarField(qs+"_z",NCOL(var),&M(var,2,0));
+            vtkPost->minMax(sf);
 	  }
 	}
     }
@@ -344,13 +335,13 @@ VARIABLE *Matc::com_grad(VARIABLE *in)
 
    out = var_temp_new(TYPE_DOUBLE,3,NCOL(in));
    if ( nsteps==1 ) {
-     vtkp->grad(MATR(in), MATR(out) );
+     grad( vtkp, MATR(in), MATR(out) );
    } else {
      int nsize=n*sizeof(double);
      double *outf = (double *)malloc(3*nsize);
      for( int i=0; i<nsteps; i++ )
      {
-       vtkp->grad( &M(in,0,i*n),outf );
+       grad( vtkp, &M(in,0,i*n),outf );
 
        memcpy( &M(out,0,i*n), &outf[0], nsize );
        memcpy( &M(out,1,i*n), &outf[n], nsize );
@@ -368,7 +359,7 @@ VARIABLE *Matc::com_div(VARIABLE *in)
 
    out = var_temp_new(TYPE_DOUBLE,1,NCOL(in));
    if ( nsteps==1 ) {
-     vtkp->div(MATR(in), MATR(out) );
+     div( vtkp, MATR(in), MATR(out) );
    } else {
      int nsize=n*sizeof(double);
      double *inf = (double *)malloc(3*nsize);
@@ -378,7 +369,7 @@ VARIABLE *Matc::com_div(VARIABLE *in)
        memcpy( &inf[n], &M(in,1,i*n), nsize );
        memcpy( &inf[2*n], &M(in,2,i*n), nsize );
 
-       vtkp->div(inf,&M(out,0,i*n));
+       div( vtkp, inf,&M(out,0,i*n));
      }
      free(inf);
    }
@@ -392,7 +383,7 @@ VARIABLE *Matc::com_curl(VARIABLE *in)
 
    out = var_temp_new(TYPE_DOUBLE,3,NCOL(in));
    if ( nsteps==1 ) {
-     vtkp->curl(MATR(in), MATR(out) );
+     curl( vtkp, MATR(in), MATR(out) );
    } else {
      int nsize=n*sizeof(double);
      double *inf  = (double *)malloc(3*nsize);
@@ -403,7 +394,7 @@ VARIABLE *Matc::com_curl(VARIABLE *in)
        memcpy( &inf[n], &M(in,1,i*n), nsize);
        memcpy( &inf[2*n], &M(in,2,i*n), nsize);
 
-       vtkp->curl(inf,outf);
+       curl( vtkp, inf,outf);
 
        memcpy( &M(out,0,i*n), &outf[0], nsize );
        memcpy( &M(out,1,i*n), &outf[n], nsize );
