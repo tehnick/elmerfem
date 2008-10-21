@@ -506,6 +506,16 @@ void VtkPost::domatcSlot()
 }
 #endif
 
+void VtkPost::minMax(ScalarField *sf)
+{
+   sf->minVal =  9e99;
+   sf->maxVal = -9e99;
+   for( int i=0; i<sf->values; i++ ) {
+     if ( sf->minVal>sf->value[i] ) sf->minVal=sf->value[i];
+     if ( sf->maxVal<sf->value[i] ) sf->maxVal=sf->value[i];
+   }
+}
+
 // Populate widgets in user interface dialogs:
 //----------------------------------------------------------------------
 void VtkPost::populateWidgetsSlot()
@@ -715,15 +725,8 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Initial min & max values:
   //============================
-  for( int f=0; f<scalarFields; f++  )
-  {
-     sf = &scalarField[f];
-     for( int i=0; i < sf->values; i++ )
-     {
-       if(sf->value[i] > sf->maxVal) sf->maxVal = sf->value[i];
-       if(sf->value[i] < sf->minVal) sf->minVal = sf->value[i];
-     }
-   }
+  for( int i=0; i<scalarFields; i++  )
+    minMax(&scalarField[i]);
   
   postFile.close();
 

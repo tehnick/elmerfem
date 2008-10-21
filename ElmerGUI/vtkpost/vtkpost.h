@@ -126,6 +126,8 @@ public:
   double* GetCurrentPickPosition();
   void SetCurrentPickPosition(double*);
 
+  void minMax(ScalarField *);
+
   virtual void div(double*, double*);
   virtual void curl(double*, double*);
   virtual void grad(double*, double*);
