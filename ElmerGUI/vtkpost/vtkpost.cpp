@@ -56,6 +56,10 @@
 #include "meshpoint.h"
 #include "meshedge.h"
 
+#ifdef MATC
+#include "matc.h"
+#endif
+
 #include <QVTKWidget.h>
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
@@ -87,23 +91,6 @@
 #include <vtkObject.h>
 #include <vtkCommand.h>
 #include <vtkFollower.h>
-
-// MATC interface:
-//-----------------------------------------------------------------
-#ifdef MATC
-#include "matc.h"
-#include "mc.h"
-extern "C" VARIABLE *com_curl(VARIABLE *);
-extern "C" VARIABLE *com_div(VARIABLE *);
-extern "C" VARIABLE *com_grad(VARIABLE *);
-extern "C" VARIABLE *var_new(char *,int,int,int);
-extern "C" VARIABLE *var_check(char *);
-extern "C" VARIABLE *var_temp_new(int,int,int);
-extern "C" void var_delete(char *);
-extern "C" char *mtc_domath(const char *);
-extern "C" void mtc_init(FILE *,FILE *,FILE *);
-extern "C" void com_init(char *,int,int,VARIABLE *(*)(VARIABLE *),int,int,char*);
-#endif
 
 using namespace std;
 
@@ -257,16 +244,6 @@ VtkPost::VtkPost(QWidget *parent)
   matc = new Matc(this);
   connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
   connect(matc->ui.mcHistory, SIGNAL(selectionChanged()), this, SLOT(matcCutPasteSlot()));
-  mtc_init( NULL, stdout, stderr ); 
-  QString elmerGuiHome = getenv("ELMERGUI_HOME");
-  QString mcIniLoad = "source(\"" + elmerGuiHome.replace("\\", "/") + "/edf/mc.ini\")";
-  mtc_domath( mcIniLoad.toAscii().data() );
-  com_init( (char *)"grad", FALSE, FALSE, com_grad, 1, 1,
-            (char *)"r = grad(f): compute gradient of a scalar variable f.\n") ;
-  com_init( (char *)"div", FALSE, FALSE, com_div, 1, 1,
-            (char *)"r = div(f): compute divergence of a vector variable f.\n") ;
-  com_init( (char *)"curl", FALSE, FALSE, com_curl, 1, 1,
-            (char *)"r = curl(f): compute curl of a vector variable f.\n") ;
 #endif
 
   // Ep-data:
@@ -518,145 +495,8 @@ void VtkPost::curl(double *in, double *out)
 
 void VtkPost::domatcSlot()
 {
-   char *ptr;
-   LIST *lst;
-   int i;
-   VARIABLE *var;
-
-   QString cmd=matc->ui.mcEdit->text().trimmed();
-
-   matc->ui.mcEdit->clear();
-
-   ptr=mtc_domath(cmd.toAscii().data());
-   matc->ui.mcHistory->append(cmd);
-   if ( ptr ) matc->ui.mcOutput->append(ptr);
-
-   QString vectorname;
-   for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
-   {
-     var = (VARIABLE *)lst;
-     if ( !NAME(var) || (NCOL(var) % epMesh->epNodes != 0) ) continue;
-
-     int found = false,n;
-     for( int i=0; i<scalarFields; i++ )
-     {
-        ScalarField *sf = &scalarField[i]; 
-        if ( NROW(var)==1 && sf->name == NAME(var) )
-        {
-           found = true;
-           if ( sf->value != MATR(var) )
-           {
-             free(sf->value);
-             sf->value = MATR(var);
-           }
-           sf->minVal =  1e99;
-           sf->maxVal = -1e99;
-           for(int j=0; j < sf->values; j++) {
-             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-           }
-           break;
-        } else if ( NROW(var)==3 ) {
-          vectorname = "";
-          n=sf->name.indexOf("_x");
-          if ( n<=0 ) n=sf->name.indexOf("_y");
-          if ( n<=0 ) n=sf->name.indexOf("_z");
-          if ( n>0 ) vectorname=sf->name.mid(0,n);
-
-          if ( vectorname==NAME(var) ) {
-            found = true;
-            if ( sf->name.indexOf("_x")>0 ) {
-              if ( sf->value != &M(var,0,0) )
-              {
-                free(sf->value);
-                sf->value = &M(var,0,0);
-              }
-            } else if ( sf->name.indexOf("_y")>0 ) {
-               if ( sf->value != &M(var,1,0) )
-               {
-                 free(sf->value);
-                 sf->value = &M(var,1,0);
-               }
-            } else if ( sf->name.indexOf("_z")>0 ) {
-               if ( sf->value != &M(var,2,0) )
-               {
-                 free(sf->value);
-                 sf->value = &M(var,2,0);
-               }
-            }
-            sf->minVal =  1e99;
-            sf->maxVal = -1e99;
-            for(int j=0; j<sf->values; j++) {
-              if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-              if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-            }
-          }
-        }
-     }
-
-     if ( !found ) 
-     {
-        if ( NROW(var) == 1 ) {
-          ScalarField *sf = addScalarField( NAME(var),NCOL(var),NULL );
-          for(int j = 0; j<NCOL(var); j++) {
-             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-          }
-        } else if ( NROW(var) == 3 ) {
-          QString qs = NAME(var);
-          ScalarField *sf;
-          sf = addScalarField( qs+"_x",NCOL(var), &M(var,0,0) );
-          for(int j = 0; j<NCOL(var); j++) {
-             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-          }
-          sf = addScalarField( qs+"_y",NCOL(var), &M(var,1,0) );
-	  for(int j = 0; j<NCOL(var); j++) {
-             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-          }
-          sf = addScalarField( qs+"_z",NCOL(var), &M(var,2,0) );
-	  for(int j = 0; j<NCOL(var); j++) {
-             if(sf->value[j] > sf->maxVal) sf->maxVal = sf->value[j];
-             if(sf->value[j] < sf->minVal) sf->minVal = sf->value[j];
-          }
-        }
-     }
-   }
-
-   int count=0,n;
-
-   for( int i=0; i<scalarFields; i++ )
-   {
-      ScalarField *sf = &scalarField[i]; 
-
-      vectorname = "";
-      n=sf->name.indexOf("_x");
-      if ( n<=0 ) n=sf->name.indexOf("_y");
-      if ( n<=0 ) n=sf->name.indexOf("_z");
-      if ( n>0 ) vectorname=sf->name.mid(0,n);
-
-      for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
-      {
-        var = (VARIABLE *)lst;
-        if ( !NAME(var) || (NCOL(var) % epMesh->epNodes != 0) ) continue;
-
-        if ( NROW(var)==1 && sf->name == NAME(var) )
-        {
-          if ( count != i ) scalarField[count]=*sf;
-          count++;
-          break;
-        } else if ( NROW(var)==3 && vectorname==NAME(var) ) {
-          if ( count != i ) scalarField[count]=*sf;
-          count++;
-        }
-      }
-   }
-   if ( count<scalarFields ) scalarFields = count;
-   
-   // Populate widgets in user interface dialogs:
-   //---------------------------------------------
-   populateWidgetsSlot();
+  matc->domatc(this);
+  populateWidgetsSlot();
 }
 #endif
 
@@ -1613,6 +1453,11 @@ void VtkPost::SetCurrentStreamLineName(QString name)
 int VtkPost::GetScalarFields()
 {
   return scalarFields;
+}
+
+void VtkPost::SetScalarFields(int n)
+{
+  scalarFields = n;
 }
 
 ScalarField* VtkPost::GetScalarField()

@@ -1,3 +1,6 @@
+#ifndef MC_H
+#define MC_H
+
 extern "C" {
 typedef struct list {
   struct list *next;              /* pointer to next item in list */
@@ -132,3 +135,5 @@ typedef struct function
 #define FUNCSIZE sizeof(FUNCTION)
 
 }
+
+#endif // MC_H

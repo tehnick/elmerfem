@@ -2058,8 +2058,8 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
           break;
         }
 
-        a->setProperty( "body", (unsigned long long)body );
-        a->setProperty( "editor", (unsigned long long)pe );
+        a->setProperty( "body", (qulonglong)body );
+        a->setProperty( "editor", (qulonglong)pe );
 
         if ( p==pe )
           a->setChecked(true);
@@ -2108,8 +2108,8 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
           break;
         }
 
-        a->setProperty( "body", (unsigned long long)body );
-        a->setProperty( "editor", (unsigned long long)pe );
+        a->setProperty( "body", (qulonglong)body );
+        a->setProperty( "editor", (qulonglong)pe );
 
         if ( p==pe )
           a->setChecked(true);
@@ -2773,8 +2773,8 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
         p=boundary->condition;
         connect(a, SIGNAL(stateChanged(int)), this, SLOT(bcBoundaryChanged(int)));
 
-        a->setProperty( "boundary", (unsigned long long)boundary );
-        a->setProperty( "condition", (unsigned long long)pe );
+        a->setProperty( "boundary", (qulonglong)boundary );
+        a->setProperty( "condition", (qulonglong)pe );
 
         if ( p==pe )
           a->setChecked(true);

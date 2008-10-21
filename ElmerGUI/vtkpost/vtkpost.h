@@ -120,6 +120,7 @@ public:
   void SetCurrentIsoSurfaceName(QString);
   void SetCurrentStreamLineName(QString);
   int GetScalarFields();
+  void SetScalarFields(int);
   ScalarField* GetScalarField();
   EpMesh* GetEpMesh();
   double* GetCurrentPickPosition();
@@ -128,6 +129,8 @@ public:
   virtual void div(double*, double*);
   virtual void curl(double*, double*);
   virtual void grad(double*, double*);
+
+  ScalarField* addScalarField(QString, int, double *);
 
 signals:
 
@@ -216,7 +219,6 @@ private:
   ScalarField* scalarField;
 
   void addVectorField(QString, int);
-  ScalarField* addScalarField(QString, int, double *);
 
   QHash<QString, QAction*> groupActionHash;
 
