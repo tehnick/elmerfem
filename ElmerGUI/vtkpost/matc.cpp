@@ -64,10 +64,13 @@ Matc::Matc(QWidget *parent)
   QString elmerGuiHome = getenv("ELMERGUI_HOME");
   QString mcIniLoad = "source(\"" + elmerGuiHome.replace("\\", "/") + "/edf/mc.ini\")";
   mtc_domath( mcIniLoad.toAscii().data() );
+
   com_init( (char *)"grad", FALSE, FALSE, com_grad, 1, 1,
             (char *)"r = grad(f): compute gradient of a scalar variable f.\n") ;
+
   com_init( (char *)"div", FALSE, FALSE, com_div, 1, 1,
             (char *)"r = div(f): compute divergence of a vector variable f.\n") ;
+
   com_init( (char *)"curl", FALSE, FALSE, com_curl, 1, 1,
             (char *)"r = curl(f): compute curl of a vector variable f.\n") ;
 
@@ -241,7 +244,7 @@ void Matc::domatc(VtkPost* vtkPost)
   VARIABLE *var;
   
   QString cmd=ui.mcEdit->text().trimmed();
-  
+
   ui.mcEdit->clear();
   
   ptr=mtc_domath(cmd.toAscii().data());
@@ -332,4 +335,81 @@ void Matc::domatc(VtkPost* vtkPost)
 	}
     }
   if ( count<scalarFields ) vtkPost->SetScalarFields(count);
+}
+
+VARIABLE *Matc::com_grad(VARIABLE *in)
+{
+   VARIABLE *out; 
+   int n=vtkp->NofNodes(),nsteps=NCOL(in)/n;
+
+   out = var_temp_new(TYPE_DOUBLE,3,NCOL(in));
+   if ( nsteps==1 ) {
+     vtkp->grad(MATR(in), MATR(out) );
+   } else {
+     int nsize=n*sizeof(double);
+     double *outf = (double *)malloc(3*nsize);
+     for( int i=0; i<nsteps; i++ )
+     {
+       vtkp->grad( &M(in,0,i*n),outf );
+
+       memcpy( &M(out,0,i*n), &outf[0], nsize );
+       memcpy( &M(out,1,i*n), &outf[n], nsize );
+       memcpy( &M(out,2,i*n), &outf[2*n], nsize );
+     }
+     free(outf);
+   }
+   return out;
+}
+
+VARIABLE *Matc::com_div(VARIABLE *in)
+{
+   VARIABLE *out; 
+   int n=vtkp->NofNodes(),nsteps=NCOL(in)/n;
+
+   out = var_temp_new(TYPE_DOUBLE,1,NCOL(in));
+   if ( nsteps==1 ) {
+     vtkp->div(MATR(in), MATR(out) );
+   } else {
+     int nsize=n*sizeof(double);
+     double *inf = (double *)malloc(3*nsize);
+     for( int i=0; i<nsteps; i++ )
+     {
+       memcpy( &inf[0], &M(in,0,i*n), nsize );
+       memcpy( &inf[n], &M(in,1,i*n), nsize );
+       memcpy( &inf[2*n], &M(in,2,i*n), nsize );
+
+       vtkp->div(inf,&M(out,0,i*n));
+     }
+     free(inf);
+   }
+   return out;
+}
+
+VARIABLE *Matc::com_curl(VARIABLE *in)
+{
+   VARIABLE *out; 
+   int n=vtkp->NofNodes(),nsteps=NCOL(in)/n;
+
+   out = var_temp_new(TYPE_DOUBLE,3,NCOL(in));
+   if ( nsteps==1 ) {
+     vtkp->curl(MATR(in), MATR(out) );
+   } else {
+     int nsize=n*sizeof(double);
+     double *inf  = (double *)malloc(3*nsize);
+     double *outf = (double *)malloc(3*nsize);
+     for( int i=0; i<nsteps; i++ )
+     {
+       memcpy( &inf[0], &M(in,0,i*n), nsize);
+       memcpy( &inf[n], &M(in,1,i*n), nsize);
+       memcpy( &inf[2*n], &M(in,2,i*n), nsize);
+
+       vtkp->curl(inf,outf);
+
+       memcpy( &M(out,0,i*n), &outf[0], nsize );
+       memcpy( &M(out,1,i*n), &outf[n], nsize );
+       memcpy( &M(out,2,i*n), &outf[2*n], nsize );
+     }
+     free(inf); free(outf);
+   }
+   return out;
 }

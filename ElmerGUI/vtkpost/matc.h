@@ -46,9 +46,7 @@
 
 #include "mc.h"
 
-extern "C" VARIABLE *com_curl(VARIABLE *);
-extern "C" VARIABLE *com_div(VARIABLE *);
-extern "C" VARIABLE *com_grad(VARIABLE *);
+extern "C" VARIABLE *var_temp_new(int,int,int);
 extern "C" VARIABLE *var_new(char *,int,int,int);
 extern "C" VARIABLE *var_check(char *);
 extern "C" VARIABLE *var_temp_new(int,int,int);
@@ -57,7 +55,10 @@ extern "C" char *mtc_domath(const char *);
 extern "C" void mtc_init(FILE *,FILE *,FILE *);
 extern "C" void com_init(char *,int,int,VARIABLE *(*)(VARIABLE *),int,int,char*);
 
+
 class VtkPost;
+
+extern VtkPost *vtkp;
 
 class Matc : public QDialog
 {
@@ -82,6 +83,9 @@ private slots:
 private:
   double* in;
   double* out;
+  static VARIABLE *com_curl(VARIABLE *);
+  static VARIABLE *com_div(VARIABLE *);
+  static VARIABLE *com_grad(VARIABLE *);
 };
 
 #endif // MATC_H
