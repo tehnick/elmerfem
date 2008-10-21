@@ -70,6 +70,9 @@ Matc::Matc(QWidget *parent)
             (char *)"r = div(f): compute divergence of a vector variable f.\n") ;
   com_init( (char *)"curl", FALSE, FALSE, com_curl, 1, 1,
             (char *)"r = curl(f): compute curl of a vector variable f.\n") ;
+
+  in = NULL;
+  out = NULL;
 }
 
 Matc::~Matc()
@@ -82,7 +85,17 @@ void Matc::okButtonClicked()
   close();
 }
 
-void Matc::grad(VtkPost* vtkPost, double* in, double* out)
+void Matc::setInput(double* ptr)
+{
+  in = ptr;
+}
+
+void Matc::setOutput(double* ptr)
+{
+  out = ptr;
+}
+
+void Matc::grad(VtkPost* vtkPost)
 {
   vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
   vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();
@@ -119,7 +132,7 @@ void Matc::grad(VtkPost* vtkPost, double* in, double* out)
   s->Delete(); 
 }
 
-void Matc::div(VtkPost* vtkPost, double* in, double* out)
+void Matc::div(VtkPost* vtkPost)
 {
   vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
   vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();
@@ -164,7 +177,7 @@ void Matc::div(VtkPost* vtkPost, double* in, double* out)
 }
 
 
-void Matc::curl(VtkPost* vtkPost, double* in, double* out)
+void Matc::curl(VtkPost* vtkPost)
 {
   vtkUnstructuredGrid* volumeGrid = vtkPost->GetVolumeGrid();
   vtkUnstructuredGrid* surfaceGrid = vtkPost->GetSurfaceGrid();

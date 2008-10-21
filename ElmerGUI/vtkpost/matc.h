@@ -69,15 +69,19 @@ public:
 
   Ui::mcDialog ui;
 
-  void grad(VtkPost*, double*, double*);
-  void div(VtkPost*, double*, double*);
-  void curl(VtkPost*, double*, double*);
+  void grad(VtkPost*);
+  void div(VtkPost*);
+  void curl(VtkPost*);
   void domatc(VtkPost*);
+  void setInput(double*);
+  void setOutput(double*);
 
 private slots:
   void okButtonClicked();
 
 private:
+  double* in;
+  double* out;
 };
 
 #endif // MATC_H
