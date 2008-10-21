@@ -751,7 +751,7 @@ bool VtkPost::readPostFile(QString postFileName)
   return true;
 }
 
-void VtkPost::addVectorField(QString fieldName, int nodes)
+void VtkPost::addVectorField(QString fieldName, int values)
 {
    
 #ifdef MATC
@@ -761,23 +761,23 @@ void VtkPost::addVectorField(QString fieldName, int nodes)
     strcpy(name,nm.data());
 
     VARIABLE *var = var_check(name);
-    if ( !var || NROW(var) != 3 || NCOL(var) != nodes )
-      var = var_new( name, TYPE_DOUBLE, 3, nodes );
+    if ( !var || NROW(var) != 3 || NCOL(var) != values )
+      var = var_new( name, TYPE_DOUBLE, 3, values );
     free(name);
 
-   addScalarField(fieldName+"_x", nodes, &M(var,0,0));
-   addScalarField(fieldName+"_y", nodes, &M(var,1,0));
-   addScalarField(fieldName+"_z", nodes, &M(var,2,0));
+   addScalarField(fieldName+"_x", values, &M(var,0,0));
+   addScalarField(fieldName+"_y", values, &M(var,1,0));
+   addScalarField(fieldName+"_z", values, &M(var,2,0));
 #else
-   addScalarField(fieldName+"_x", nodes, NULL);
-   addScalarField(fieldName+"_y", nodes, NULL);
-   addScalarField(fieldName+"_z", nodes, NULL);
+   addScalarField(fieldName+"_x", values, NULL);
+   addScalarField(fieldName+"_y", values, NULL);
+   addScalarField(fieldName+"_z", values, NULL);
 #endif
 }
 
 // Add a scalar field:
 //----------------------------------------------------------------------
-ScalarField* VtkPost::addScalarField(QString fieldName, int nodes, double *value)
+ScalarField* VtkPost::addScalarField(QString fieldName, int values, double *value)
 {
   if(scalarFields >= MAX_SCALARS) {
     cout << "Max. scalar limit exceeded!" << endl;
@@ -786,7 +786,7 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes, double *value
 
   ScalarField *sf = &scalarField[scalarFields++];
   sf->name = fieldName;
-  sf->values = nodes;
+  sf->values = values;
   sf->value = value;
  
   if ( !sf->value ) {
@@ -796,12 +796,12 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int nodes, double *value
     char *name = (char *)malloc( nm.count()+1 );
     strcpy(name,nm.data());
     VARIABLE *var = var_check(name);
-    if ( !var || NROW(var)!=1 || NCOL(var) != nodes )
-      var = var_new( name, TYPE_DOUBLE, 1, nodes );
+    if ( !var || NROW(var)!=1 || NCOL(var) != values )
+      var = var_new( name, TYPE_DOUBLE, 1, values );
     sf->value = MATR(var);
     free(name);
 #else
-    sf->value = (double *)calloc(nodes,sizeof(double));
+    sf->value = (double *)calloc(values,sizeof(double));
 #endif
   }
 

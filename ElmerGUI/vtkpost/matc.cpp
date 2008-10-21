@@ -369,7 +369,7 @@ VARIABLE *Matc::com_div(VARIABLE *in)
        memcpy( &inf[n], &M(in,1,i*n), nsize );
        memcpy( &inf[2*n], &M(in,2,i*n), nsize );
 
-       div( vtkp, inf,&M(out,0,i*n));
+       div( vtkp, inf, &M(out,0,i*n));
      }
      free(inf);
    }
@@ -394,7 +394,7 @@ VARIABLE *Matc::com_curl(VARIABLE *in)
        memcpy( &inf[n], &M(in,1,i*n), nsize);
        memcpy( &inf[2*n], &M(in,2,i*n), nsize);
 
-       curl( vtkp, inf,outf);
+       curl( vtkp, inf, outf);
 
        memcpy( &M(out,0,i*n), &outf[0], nsize );
        memcpy( &M(out,1,i*n), &outf[n], nsize );
