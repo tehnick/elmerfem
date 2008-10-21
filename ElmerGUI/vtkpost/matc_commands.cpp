@@ -60,7 +60,7 @@ extern "C" VARIABLE *com_curl(VARIABLE *in)
 
    out = var_temp_new(TYPE_DOUBLE,3,NCOL(in));
    if ( nsteps==1 ) {
-     vtkp->div(MATR(in), MATR(out) );
+     vtkp->curl(MATR(in), MATR(out) );
    } else {
      int nsize=n*sizeof(double);
      double *inf  = (double *)malloc(3*nsize);
