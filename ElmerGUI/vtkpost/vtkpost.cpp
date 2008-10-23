@@ -701,17 +701,23 @@ bool VtkPost::readPostFile(QString postFileName)
       txtStream >> sf->value[i];
     }
   }
-  timesteps = i/nodes;
-  cout << timesteps << " timesteps read in." << endl;
-  
-  timeStep->maxSteps = timesteps;
-  timeStep->ui.start->setValue(1);
-  timeStep->ui.stop->setValue(timesteps);
+
+  int real_timesteps = i/nodes;
+  cout << real_timesteps << " timesteps read in." << endl;
 
   // Initial min & max values:
   //============================
   for( int i=0; i<scalarFields; i++  )
-    minMax(&scalarField[i]);
+  {
+    ScalarField *sf = &scalarField[i];
+    sf->values = real_timesteps*nodes;
+    minMax(sf);
+  }
+
+  timesteps = real_timesteps;
+  timeStep->maxSteps = timesteps;
+  timeStep->ui.start->setValue(1);
+  timeStep->ui.stop->setValue(timesteps);
   
   postFile.close();
 
@@ -997,6 +1003,19 @@ void VtkPost::maybeRedrawSlot(bool value)
 //----------------------------------------------------------------------
 void VtkPost::redrawSlot()
 {  
+#ifdef MATC
+   VARIABLE *tvar = var_check((char *)"t");
+   if (!tvar) tvar=var_new((char *)"t", TYPE_DOUBLE,1,1 );
+   M(tvar,0,0) = (double)timeStep->ui.timeStep->value();
+
+#if 0
+   QString dosome = timeStep->ui.doBefore->text();
+   matc->ui.mcEdit->clear();
+   matc->ui.mcEdit->insert(dosome);
+   matc->domatc(this);
+#endif
+#endif
+
   drawMeshPointSlot();
   drawMeshEdgeSlot();
   drawFeatureEdgesSlot();
@@ -1009,9 +1028,7 @@ void VtkPost::redrawSlot()
   drawAxesSlot();
 
   vtkRenderWindow *renderWindow = qvtkWidget->GetRenderWindow();
-
   renderWindow->Render();
-
   timeStep->canProceedWithNext(renderWindow);
 }
 
