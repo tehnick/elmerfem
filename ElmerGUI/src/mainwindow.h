@@ -216,6 +216,8 @@ private slots:
   void boundaryAsABodyChanged(BoundaryPropertyEditor *,int);
   void boundaryComboChanged(BoundaryPropertyEditor *,QString);
 
+  void dynamicEditorNameChange(QString);
+
   void editNumericalMethods(int,int);   // signal emitted by dynamic editor
   void showMaterialLibrary(int, int);   // signal emitted by dynamic edirtor
   void materialBodyChanged(int);

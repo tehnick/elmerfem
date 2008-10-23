@@ -2183,6 +2183,9 @@ void MainWindow::addEquationSlot()
   equationMenu->addAction(act);
   pe->menuAction = act;
 
+  connect( pe->nameEdit, SIGNAL(textChanged(QString)), this,
+        SLOT(dynamicEditorNameChange(QString)) );
+
   createBodyCheckBoxes(BODY_EQUATION,pe);
 }
 
@@ -2233,6 +2236,21 @@ void MainWindow::editNumericalMethods(int current, int id)
   spe->raise();
 }
 
+
+void MainWindow::dynamicEditorNameChange(QString t)
+{
+   for( int i=0; i<limit->maxBodies(); i++ )
+   {
+     if ( bodyPropertyEditor[i].touched )
+       populateBodyComboBoxes( &bodyPropertyEditor[i] );
+   }
+
+   for( int i=0; i<limit->maxBoundaries(); i++ )
+   {
+     if ( boundaryPropertyEditor[i].touched )
+       populateBoundaryComboBoxes( &boundaryPropertyEditor[i] );
+   }
+}
 
 // signal (int,int) emitted by equation editor when ready:
 //-----------------------------------------------------------------------------
@@ -2360,6 +2378,9 @@ void MainWindow::addMaterialSlot()
   pe->spareButton->show();
   pe->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));
   connect(pe, SIGNAL(dynamicEditorSpareButtonClicked(int,int)), this, SLOT(showMaterialLibrary(int,int)));
+
+  connect( pe->nameEdit, SIGNAL(textChanged(QString)), this,
+        SLOT(dynamicEditorNameChange(QString)) );
 
   // Material is new - add to menu:
   const QString &materialName = pe->nameEdit->text().trimmed();
@@ -2513,6 +2534,9 @@ void MainWindow::addBodyForceSlot()
   bodyForceMenu->addAction(act);
   pe->menuAction = act;
 
+  connect( pe->nameEdit, SIGNAL(textChanged(QString)), this,
+        SLOT(dynamicEditorNameChange(QString)) );
+
   createBodyCheckBoxes( BODY_FORCE, pe );
   pe->show(); pe->raise();
 }
@@ -2644,6 +2668,9 @@ void MainWindow::addInitialConditionSlot()
   QAction *act = new QAction(initialConditionName, this);
   initialConditionMenu->addAction(act);
   pe->menuAction = act;
+
+  connect( pe->nameEdit, SIGNAL(textChanged(QString)), this,
+        SLOT(dynamicEditorNameChange(QString)) );
 
   createBodyCheckBoxes( BODY_INITIAL, pe );
   pe->show(); pe->raise();
@@ -2841,6 +2868,9 @@ void MainWindow::addBoundaryConditionSlot()
   boundaryConditionMenu->addAction(act);
   pe->menuAction = act;
 
+  connect( pe->nameEdit, SIGNAL(textChanged(QString)), this,
+        SLOT(dynamicEditorNameChange(QString)) );
+
   createBoundaryCheckBoxes(pe);
 }
 
@@ -2914,18 +2944,19 @@ void MainWindow::bcBoundaryChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
   if  (glWidget->mesh ) {
-     DynamicEditor *mat  = (DynamicEditor *)a->property("condition").toULongLong();
      BoundaryPropertyEditor *boundary = 
            (BoundaryPropertyEditor *)a->property("boundary").toULongLong();
+     populateBoundaryComboBoxes(boundary);
  
-     QString mat_name = mat->nameEdit->text().trimmed();
-     int ind = boundary->ui.boundaryConditionCombo->findText(mat_name);
-     boundary->condition = NULL;
      if ( state ) {
+       DynamicEditor *mat  = (DynamicEditor *)a->property("condition").toULongLong();
+       QString mat_name = mat->nameEdit->text().trimmed();
+       int ind = boundary->ui.boundaryConditionCombo->findText(mat_name);
        boundary->touched = true;
        boundary->condition = mat;
        boundary->ui.boundaryConditionCombo->setCurrentIndex(ind);
      } else {
+       boundary->condition = NULL;
        boundary->ui.boundaryConditionCombo->setCurrentIndex(-1);
      }
   }
