@@ -50,6 +50,7 @@ class EpMesh;
 class ScalarField;
 class QVTKWidget;
 class vtkRenderer;
+class vtkRenderWindow;
 class vtkActor;
 class vtkFollower;
 class vtkScalarBarActor;
@@ -131,6 +132,7 @@ public:
   ScalarField* addScalarField(QString, int, double *);
 
 signals:
+  void canProceedWithNextSignal(vtkRenderWindow*);
 
 public slots:
 #ifdef MATC

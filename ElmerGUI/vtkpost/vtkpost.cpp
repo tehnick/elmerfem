@@ -234,6 +234,7 @@ VtkPost::VtkPost(QWidget *parent)
 
   timeStep = new TimeStep(this);
   connect(timeStep, SIGNAL(timeStepChangedSignal()), this, SLOT(timeStepChangedSlot()));
+  connect(this, SIGNAL(canProceedWithNextSignal(vtkRenderWindow*)), timeStep, SLOT(canProceedWithNextSlot(vtkRenderWindow*)));
 
   axes = new Axes(this);
   featureEdge = new FeatureEdge(this);
@@ -1081,7 +1082,11 @@ void VtkPost::redrawSlot()
 
   vtkRenderWindow *renderWindow = qvtkWidget->GetRenderWindow();
   renderWindow->Render();
-  timeStep->canProceedWithNext(renderWindow);
+
+  // Check if the "Stop" button of time stepping loop has been pressed:
+  QCoreApplication::processEvents();
+
+  emit(canProceedWithNextSignal(renderWindow));
 }
 
 // Draw color bar:

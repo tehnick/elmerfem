@@ -52,10 +52,10 @@ TimeStep::TimeStep(QWidget *parent)
 {
   ui.setupUi(this);
 
+  connect(ui.loopButton, SIGNAL(clicked()), this, SLOT(loopButtonClicked()));
   connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(cancelButtonClicked()));
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
-  connect(ui.loopButton, SIGNAL(clicked()), this, SLOT(loopButtonClicked()));
   connect(ui.browseButton, SIGNAL(clicked()), this, SLOT(browseButtonClicked()));
 
   maxSteps = 0;
@@ -107,7 +107,7 @@ void TimeStep::applyButtonClicked()
   emit(timeStepChangedSignal());
 }
 
-void TimeStep::canProceedWithNext(vtkRenderWindow *renderWindow)
+void TimeStep::canProceedWithNextSlot(vtkRenderWindow *renderWindow)
 {
   if(!loopOn) return;
 
@@ -154,6 +154,7 @@ void TimeStep::canProceedWithNext(vtkRenderWindow *renderWindow)
 
   } else {
     ui.loopButton->setText("Stop");
+    this->repaint();
     current += increment;
 
     if(current > stop) {
@@ -179,6 +180,7 @@ void TimeStep::loopButtonClicked()
   } else {
     loopOn = true;
     ui.loopButton->setText("Stop");
+    this->repaint();
     int start = ui.start->value();
     int stop = ui.stop->value();
     int increment = ui.increment->value();

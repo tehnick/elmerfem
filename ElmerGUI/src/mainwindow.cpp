@@ -1957,7 +1957,8 @@ void MainWindow::saveElmerMesh(QString dirName)
 //-----------------------------------------------------------------------------
 void MainWindow::closeMainWindowSlot()
 {
-  this->close();
+  QApplication::closeAllWindows();
+  // close();
 }
 
 

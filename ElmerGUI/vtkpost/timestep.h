@@ -62,7 +62,7 @@ signals:
   void timeStepChangedSignal();
 
 public slots:
-  void canProceedWithNext(vtkRenderWindow*);
+  void canProceedWithNextSlot(vtkRenderWindow*);
 
 private slots:
   void cancelButtonClicked();
