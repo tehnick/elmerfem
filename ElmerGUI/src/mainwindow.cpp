@@ -5534,62 +5534,63 @@ void MainWindow::solverStdoutSlot()
 
   } else {
 
-    // draw convergence plot
+    // show convergence plot
     //----------------------
     if(!convergenceView->isVisible())
       convergenceView->show();
+
+  }
     
-    QStringList qsl = qs.split("\n");
-    for(int i = 0; i < qsl.count(); i++) {
-      QString tmp = qsl.at(i).trimmed();
-
-      if(tmp.contains("Time:")) {
-	QStringList tmpSplitted = tmp.split(" ");
-	int last = tmpSplitted.count() - 1;
-	QString timeString = tmpSplitted.at(last);
-	double timeDouble = timeString.toDouble();
-	convergenceView->title = "Convergence history (time="
-	  + QString::number(timeDouble) + ")";
-      }   
-
-      if(tmp.contains("ComputeChange")) { // && tmp.contains("NS")) {
-	QString copyOfTmp = tmp;
-
-	// check solver name:
-	QStringList tmpSplitted = tmp.split(":");
-	int last = tmpSplitted.count() - 1;
-	QString name = tmpSplitted.at(last).trimmed();
-
-	// parse rest of the line:
-	double res1 = 0.0;
-	double res2 = 0.0;
-        int n = tmp.indexOf("NRM,RELC");
-        tmp = tmp.mid(n);
-	tmpSplitted = tmp.split("(");
-
-	if(tmpSplitted.count() >= 2) {
-	  QString tmp2 = tmpSplitted.at(1).trimmed();
-	  QStringList tmp2Splitted = tmp2.split(" ");
-	  QString qs1 = tmp2Splitted.at(0).trimmed();
-	  res1 = qs1.toDouble();
-	  int pos = 1;
-	  // while(tmp2Splitted.at(pos).trimmed() == "") {
-	  while(tmp2Splitted.at(pos).trimmed().isEmpty()) {
-	    pos++;
-	    if(pos > tmp2Splitted.count())
-	      break;
-	  }
-	  QString qs2 = tmp2Splitted.at(pos).trimmed();
-	  res2 = max( qs2.toDouble(), 1.0e-16 );
+  QStringList qsl = qs.split("\n");
+  for(int i = 0; i < qsl.count(); i++) {
+    QString tmp = qsl.at(i).trimmed();
+    
+    if(tmp.contains("Time:")) {
+      QStringList tmpSplitted = tmp.split(" ");
+      int last = tmpSplitted.count() - 1;
+      QString timeString = tmpSplitted.at(last);
+      double timeDouble = timeString.toDouble();
+      convergenceView->title = "Convergence history (time="
+	+ QString::number(timeDouble) + ")";
+    }   
+    
+    if(tmp.contains("ComputeChange")) { // && tmp.contains("NS")) {
+      QString copyOfTmp = tmp;
+      
+      // check solver name:
+      QStringList tmpSplitted = tmp.split(":");
+      int last = tmpSplitted.count() - 1;
+      QString name = tmpSplitted.at(last).trimmed();
+      
+      // parse rest of the line:
+      double res1 = 0.0;
+      double res2 = 0.0;
+      int n = tmp.indexOf("NRM,RELC");
+      tmp = tmp.mid(n);
+      tmpSplitted = tmp.split("(");
+      
+      if(tmpSplitted.count() >= 2) {
+	QString tmp2 = tmpSplitted.at(1).trimmed();
+	QStringList tmp2Splitted = tmp2.split(" ");
+	QString qs1 = tmp2Splitted.at(0).trimmed();
+	res1 = qs1.toDouble();
+	int pos = 1;
+	// while(tmp2Splitted.at(pos).trimmed() == "") {
+	while(tmp2Splitted.at(pos).trimmed().isEmpty()) {
+	  pos++;
+	  if(pos > tmp2Splitted.count())
+	    break;
 	}
-
-	// res1 = norm, res2 = relative change
-	if(copyOfTmp.contains("NS"))	
-	  convergenceView->appendData(res2, "NS/" + name);
-
-	if(copyOfTmp.contains("SS"))
-	  convergenceView->appendData(res2, "SS/" + name);
+	QString qs2 = tmp2Splitted.at(pos).trimmed();
+	res2 = max( qs2.toDouble(), 1.0e-16 );
       }
+      
+      // res1 = norm, res2 = relative change
+      if(copyOfTmp.contains("NS"))	
+	convergenceView->appendData(res2, "NS/" + name);
+      
+      if(copyOfTmp.contains("SS"))
+	convergenceView->appendData(res2, "SS/" + name);
     }
   }
 }
@@ -5654,8 +5655,6 @@ void MainWindow::killsolverSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showConvergenceSlot()
 {
-  solver->kill();
-
   showConvergence = !showConvergence;
   synchronizeMenuToState();
 }
