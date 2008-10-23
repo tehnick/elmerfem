@@ -707,11 +707,63 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Initial min & max values:
   //============================
-  for( int i=0; i<scalarFields; i++  )
+  int ifield=0, size;
+  while( ifield<scalarFields )
   {
-    ScalarField *sf = &scalarField[i];
-    sf->values = real_timesteps*nodes;
-    minMax(sf);
+    ScalarField *sf = &scalarField[ifield];
+
+    int sf_timesteps = sf->values/nodes;
+    if ( real_timesteps < sf_timesteps )
+    {
+      sf->values = real_timesteps*nodes;
+#ifdef MATC
+      QString name=sf->name;
+      int n = sf->name.indexOf("_x");
+      if ( n>0 ) 
+      {
+        name = sf->name.mid(0,n);
+        size=3*sf->values*sizeof(double);
+
+        VARIABLE *var = var_check(name.toAscii().data());
+        sf->value = (double *)ALLOC_PTR(realloc(
+              ALLOC_LST(sf->value), ALLOC_SIZE(size)) );
+        MATR(var) = sf->value;
+        NCOL(var) = sf->values;
+
+        sf = &scalarField[ifield];
+        sf->value = &M(var,0,0);
+        minMax(sf);
+
+        ifield++;
+        sf = &scalarField[ifield];
+        sf->value = &M(var,1,0);
+        sf->values = real_timesteps*nodes;
+        minMax(sf);
+
+        ifield++;
+        sf = &scalarField[ifield];
+        sf->value = &M(var,2,0);
+        sf->values = real_timesteps*nodes;
+        minMax(sf);
+      } else {
+        size=sf->values*sizeof(double);
+
+        VARIABLE *var = var_check(name.toAscii().data());
+        sf->value = (double *)ALLOC_PTR(realloc(
+              ALLOC_LST(sf->value), ALLOC_SIZE(size)) );
+        MATR(var) = sf->value;
+        NCOL(var) = sf->values;
+        minMax(sf);
+      }
+#else
+      size = sf->values*sizeof(double);
+      sf->value = (double *)realloc(sf->value,size);
+      minMax(sf);
+#endif
+    } else {
+      minMax(sf);
+    }
+    ifield++;
   }
 
   timesteps = real_timesteps;

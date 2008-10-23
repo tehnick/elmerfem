@@ -47,6 +47,7 @@ typedef struct alloc_list {
 } ALLOC_LIST;
 
 #define ALLOC_LST(mem) (ALLOC_LIST *)((char *)mem-sizeof(ALLOC_LIST))
+#define ALLOC_SIZE(size) (size+sizeof(ALLOC_LIST))
 #define ALLOC_PTR(lst) (char *)((char *)lst+sizeof(ALLOC_LIST))
 
 /*******************************************************************
