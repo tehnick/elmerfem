@@ -66,6 +66,7 @@ class ColorBar;
 class Surface;
 class Preferences;
 class Vector;
+class ReadFile;
 class StreamLine;
 class TimeStep;
 class Axes;
@@ -84,8 +85,6 @@ public:
 
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
-
-  bool readPostFile(QString);
 
   QVTKWidget* GetQVTKWidget();
   vtkRenderer* GetRenderer();
@@ -135,6 +134,8 @@ signals:
   void canProceedWithNextSignal(vtkRenderWindow*);
 
 public slots:
+  bool readPostFile(QString);
+
 #ifdef MATC
   void domatcSlot();
   void matcOpenSlot();
@@ -180,6 +181,7 @@ private slots:
   void savePictureSlot();
   void timeStepChangedSlot();
   void reloadPostSlot();
+  void readFileSlot();
 
 private:
   QMenu *fileMenu;
@@ -208,6 +210,7 @@ private:
   QAction *fitToWindowAct;
   QAction *drawAxesAct;
   QAction *reloadPostAct;
+  QAction *readFileAct;
 
   void createActions();
   void createMenus();
@@ -260,6 +263,7 @@ private:
   FeatureEdge* featureEdge; // ui
   MeshPoint* meshPoint;     // ui
   MeshEdge* meshEdge;       // ui
+  ReadFile* readFile;       // ui
 
   QString currentSurfaceName;
   QString currentVectorName;

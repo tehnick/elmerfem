@@ -49,6 +49,7 @@
 #include "colorbar.h"
 #include "preferences.h"
 #include "vector.h"
+#include "readfile.h"
 #include "streamline.h"
 #include "timestep.h"
 #include "axes.h"
@@ -236,6 +237,9 @@ VtkPost::VtkPost(QWidget *parent)
   connect(timeStep, SIGNAL(timeStepChangedSignal()), this, SLOT(timeStepChangedSlot()));
   connect(this, SIGNAL(canProceedWithNextSignal(vtkRenderWindow*)), timeStep, SLOT(canProceedWithNextSlot(vtkRenderWindow*)));
 
+  readFile = new ReadFile(this);
+  connect(readFile, SIGNAL(readPostFileSignal(QString)), this, SLOT(readPostFile(QString)));
+
   axes = new Axes(this);
   featureEdge = new FeatureEdge(this);
   meshPoint = new MeshPoint(this);
@@ -298,9 +302,13 @@ void VtkPost::createActions()
   savePictureAct->setStatusTip("Save picture in file");
   connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
 
-  reloadPostAct = new QAction(QIcon(""), tr("Reload results"), this);
-  reloadPostAct->setStatusTip("Reloads results from ep-file");
+  reloadPostAct = new QAction(QIcon(""), tr("Reload"), this);
+  reloadPostAct->setStatusTip("Reloads input file");
   connect(reloadPostAct, SIGNAL(triggered()), this, SLOT(reloadPostSlot()));
+
+  readFileAct = new QAction(QIcon(""), tr("Open..."), this);
+  readFileAct->setStatusTip("Read input file");
+  connect(readFileAct, SIGNAL(triggered()), this, SLOT(readFileSlot()));
 
   // View menu:
   //------------
@@ -409,6 +417,7 @@ void VtkPost::createMenus()
   // File menu:
   //-----------
   fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(readFileAct);
   fileMenu->addAction(reloadPostAct);
   fileMenu->addSeparator();
   fileMenu->addAction(savePictureAct);
@@ -541,6 +550,13 @@ void VtkPost::savePictureSlot()
 
   writer->Delete();
   image->Delete();
+}
+
+// Read input file (dialog):
+//----------------------------------------------------------------------
+void VtkPost::readFileSlot()
+{
+  readFile->show();
 }
 
 // Reload results:
