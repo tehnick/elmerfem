@@ -184,6 +184,7 @@ end:
 int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int parts,
 				 int minstep, int maxstep, int dstep, int info)
 {
+#define LONGLINE 1024
   int *noknots,*noelements,novctrs,elemcode,open;
   int totknots,totelements,sumknots,sumelements;
   int timesteps,i,j,k,l,step;
@@ -191,7 +192,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
   int nofiles,activestep;
   Real r, *res, x, y, z;
   FILE *in[MAXPARTITIONS+1],*out;
-  char line[MAXLINESIZE],filename[MAXFILESIZE],text[MAXNAMESIZE],outstyle[MAXFILESIZE];
+  char line[LONGLINE],filename[MAXFILESIZE],text[MAXNAMESIZE],outstyle[MAXFILESIZE];
   char *cp;
 
   if(minstep || maxstep || dstep) {
@@ -229,7 +230,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
   sumelements = 0;
 
   for(i=0;i<nofiles;i++) {
-    fgets(line,MAXLINESIZE,in[i]);
+    fgets(line,LONGLINE,in[i]);
     if(i==0) {
       cp = line;
       noknots[i] = next_int(&cp);
@@ -274,7 +275,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
   for(j=0; j < nofiles; j++) {
     for(i=1; i <= noknots[j]; i++) {
       do {
-	fgets(line,MAXLINESIZE,in[j]);
+	fgets(line,LONGLINE,in[j]);
       } while(line[0] == '#');
 
       sscanf(line,"%le %le %le",&x,&y,&z);
@@ -289,7 +290,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
     open = FALSE;
     for(i=1; i <= noelements[j]; i++) {
       do {
-	fgets(line,MAXLINESIZE,in[j]);
+	fgets(line,LONGLINE,in[j]);
       } while (line[0] == '#');
 
       sscanf(line,"%s",text);
@@ -301,7 +302,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
 	/* Dirty trick for long lines */
 	l = strspn(cp," ");
 	if( l == 0) {
-	  fgets(line,MAXLINESIZE,in[j]);
+	  fgets(line,LONGLINE,in[j]);
 	  cp = line;
 	}
 	ind[k] = next_int(&cp);
@@ -333,7 +334,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
     for(k=0;k<nofiles;k++) 
       for(i=1; i <= noknots[k]; i++) {
 	do {
-	  fgets(line,MAXLINESIZE,in[k]);
+	  fgets(line,LONGLINE,in[k]);
           if (activestep) {
             if(k==0 && strstr(line,"#time")) {
 	      fprintf(out,"%s",line);
