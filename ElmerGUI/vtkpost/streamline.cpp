@@ -91,7 +91,7 @@ void StreamLine::cancelButtonClicked()
 
 void StreamLine::okButtonClicked()
 {
-  emit(drawStreamLineSignal());
+  applyButtonClicked();
   close();
 }
 
