@@ -45,6 +45,7 @@
 #include "ui_timestep.h"
 
 class vtkRenderWindow;
+class QIcon;
 
 class TimeStep : public QDialog
 {

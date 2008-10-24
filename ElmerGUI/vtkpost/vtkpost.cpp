@@ -638,8 +638,8 @@ bool VtkPost::readPostFile(QString postFileName)
     fieldType = fieldType.trimmed();
     fieldName = fieldName.trimmed();
 
-    cout << "Field type: " << fieldType.toAscii().data() << endl;
-    cout << "Field name: " << fieldName.toAscii().data() << endl;
+    cout << fieldType.toAscii().data() << ": ";
+    cout << fieldName.toAscii().data() << endl;
 
     if(fieldType == "scalar")
       addScalarField(fieldName, nodes*timesteps, NULL);
