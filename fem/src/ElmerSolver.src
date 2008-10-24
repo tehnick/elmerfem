@@ -787,15 +787,15 @@
            CALL Info( 'MAIN', ' ', Level=3 )
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
-           IF ( (Transient .OR. Scanning) ) THEN
+           IF ( Transient.OR.Scanning ) THEN
              WRITE( Message, * ) 'Time: ',TRIM(IntegerToString(Time)),'/', &
                    TRIM(IntegerToString(stepcount)), sTime(1)
+             CALL Info( 'MAIN', Message, Level=3 )
 
              CALL SYSTEM_CLOCK(nowcounts,countspersec,maxcounts)
              IF ( Time>1 ) THEN
-               CALL Info( 'MAIN', Message, Level=3 )
                timeleft = ((stepcount-(Time-1))*(nowcounts-prevcount)/countspersec/60)
-               IF (timeleft >120) THEN
+               IF (timeleft>120) THEN
                  WRITE( Message, *) 'Estimated time left: ', &
                    TRIM(IntegerToString(timeleft/60)),' hours.'
                ELSE IF(timeleft >60) THEN
@@ -805,7 +805,7 @@
                  WRITE( Message, *) 'Estimated time left: ', &
                    TRIM(IntegerToString(timeleft)),' minutes.'
                ELSE
-                  WRITE( Message, *) 'Estimated time left: less than a minute.'
+                 WRITE( Message, *) 'Estimated time left: less than a minute.'
                END IF
                CALL Info( 'MAIN', Message, Level=3 )
              END IF
