@@ -298,6 +298,10 @@ void VtkPost::createActions()
   savePictureAct->setStatusTip("Save picture in file");
   connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
 
+  reloadPostAct = new QAction(QIcon(""), tr("Reload results"), this);
+  reloadPostAct->setStatusTip("Reloads results from ep-file");
+  connect(reloadPostAct, SIGNAL(triggered()), this, SLOT(reloadPostSlot()));
+
   // View menu:
   //------------
   drawMeshPointAct = new QAction(QIcon(""), tr("Mesh points"), this);
@@ -405,6 +409,8 @@ void VtkPost::createMenus()
   // File menu:
   //-----------
   fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(reloadPostAct);
+  fileMenu->addSeparator();
   fileMenu->addAction(savePictureAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
@@ -535,6 +541,25 @@ void VtkPost::savePictureSlot()
 
   writer->Delete();
   image->Delete();
+}
+
+// Reload results:
+//----------------------------------------------------------------------
+void VtkPost::reloadPostSlot()
+{
+  if(postFileName.isEmpty()) {
+    cout << "Unable to open ep-file. File name is empty." << endl;
+    return;
+  }
+
+  bool surfaceVisible = drawSurfaceAct->isChecked();
+
+  if(!readPostFile(postFileName))
+    cout << "Reloading results from current ep-file failed." << endl;
+
+  drawSurfaceAct->setChecked(surfaceVisible);
+  
+  redrawSlot();
 }
 
 // Read in data:

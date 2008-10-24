@@ -179,6 +179,7 @@ private slots:
 
   void savePictureSlot();
   void timeStepChangedSlot();
+  void reloadPostSlot();
 
 private:
   QMenu *fileMenu;
@@ -206,6 +207,7 @@ private:
   QAction *timeStepAct;
   QAction *fitToWindowAct;
   QAction *drawAxesAct;
+  QAction *reloadPostAct;
 
   void createActions();
   void createMenus();
