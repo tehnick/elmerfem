@@ -734,8 +734,10 @@
 !------------------------------------------------------------------------------
      INTEGER :: interval, timestep, i, j, k, n
      REAL(KIND=dp) :: dt, ddt, dtfunc
-      INTEGER, SAVE :: prevcount=0, countspersec, stepcount=0, maxcounts, nowcounts
-      INTEGER :: timeleft
+     INTEGER :: timeleft
+     INTEGER, SAVE ::  stepcount=0
+
+     REAL(KIND=dp) :: RealTime, newtime, prevtime=0
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
@@ -792,16 +794,16 @@
                    TRIM(IntegerToString(stepcount)), sTime(1)
              CALL Info( 'MAIN', Message, Level=3 )
 
-             CALL SYSTEM_CLOCK(nowcounts,countspersec,maxcounts)
+             newtime= RealTime()
              IF ( Time>1 ) THEN
-               timeleft = ((stepcount-(Time-1))*(nowcounts-prevcount)/countspersec/60)
+               timeleft = NINT((stepcount-(Time-1))*(newtime-prevtime)/60._dp);
                IF (timeleft>120) THEN
                  WRITE( Message, *) 'Estimated time left: ', &
                    TRIM(IntegerToString(timeleft/60)),' hours.'
                ELSE IF(timeleft >60) THEN
                  WRITE( Message, *) 'Estimated time left: 1 hour ', &
                    TRIM(IntegerToSTring(MOD(timeleft,60))), ' minutes.'
-               ELSE IF(timeleft >=1) THEN
+               ELSE IF(timeleft>=1) THEN
                  WRITE( Message, *) 'Estimated time left: ', &
                    TRIM(IntegerToString(timeleft)),' minutes.'
                ELSE
@@ -809,7 +811,7 @@
                END IF
                CALL Info( 'MAIN', Message, Level=3 )
              END IF
-             prevcount = nowcounts
+             prevtime = newtime
            ELSE
              WRITE( Message, * ) 'Steady state iteration: ',Time
              CALL Info( 'MAIN', Message, Level=3 )
