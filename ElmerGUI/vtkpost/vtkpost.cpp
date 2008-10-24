@@ -729,13 +729,25 @@ bool VtkPost::readPostFile(QString postFileName)
     }
   }
 
+
   // Data:
   //=======
+  int start = readFile->ui.start->value() - 1;
+  int end = readFile->ui.end->value() - 1;
+
+  // skip values before start:
+  for(int i = 0; i < nodes * start; i++) {
+    if(post.atEnd()) break;
+    GET_TXT_STREAM
+  }
+
   ScalarField *sf;
   int i;
-  for(i = 0; i < nodes * timesteps; i++) {
+  // for(i = 0; i < nodes * timesteps; i++) {
+  for(i = 0; i < nodes * (end - start + 1); i++) {
 
-    if ( post.atEnd() ) break;
+    if(post.atEnd()) break;
+
     GET_TXT_STREAM
 
     for(int j = 0; j < scalarFields-4; j++) { // - 4 = no nodes, no null field
@@ -851,6 +863,9 @@ bool VtkPost::readPostFile(QString postFileName)
 
   renderer->ResetCamera();
   
+  readFile->ui.fileName->setText(postFileName);
+  readFile->readHeader();
+
   return true;
 }
 

@@ -54,6 +54,8 @@ public:
 
   Ui::readFileDialog ui;
 
+  void readHeader();
+
 signals:
   void readPostFileSignal(QString);
 
@@ -62,9 +64,9 @@ private slots:
   void applyButtonClickedSlot();
   void cancelButtonClickedSlot();
   void okButtonClickedSlot();
+  void allButtonClickedSlot();
 
 private:
-  void readHeader();
 
 };
 

@@ -53,6 +53,12 @@ ReadFile::ReadFile(QWidget *parent)
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClickedSlot()));
   connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(cancelButtonClickedSlot()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClickedSlot()));
+  connect(ui.allButton, SIGNAL(clicked()), this, SLOT(allButtonClickedSlot()));
+
+  ui.nodesEdit->setEnabled(false);
+  ui.elementsEdit->setEnabled(false);
+  ui.timestepsEdit->setEnabled(false);
+  ui.dofsEdit->setEnabled(false);
 
   setWindowTitle("Read input file");
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
@@ -76,6 +82,22 @@ void ReadFile::applyButtonClickedSlot()
   QString fileName = ui.fileName->text().trimmed();
   
   if(fileName.isEmpty()) return;
+
+  int start = ui.start->value();
+  int end = ui.end->value();
+  int maxSteps = ui.timestepsEdit->text().toInt();
+
+  if(end > maxSteps) {
+    end = maxSteps;
+    ui.end->setValue(maxSteps);
+  }
+
+  if(start > end) {
+    start = end;
+    ui.start->setValue(start);
+  }
+  
+  repaint();
 
   emit(readPostFileSignal(fileName));
 }
@@ -119,4 +141,12 @@ void ReadFile::readHeader()
   ui.elementsEdit->setText(QString::number(elements));
   ui.timestepsEdit->setText(QString::number(timesteps));
   ui.dofsEdit->setText(QString::number(components));
+}
+
+void ReadFile::allButtonClickedSlot()
+{
+  ui.start->setValue(1);
+  ui.end->setValue(ui.timestepsEdit->text().toInt());
+
+  repaint();
 }
