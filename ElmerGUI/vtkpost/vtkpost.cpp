@@ -723,9 +723,8 @@ bool VtkPost::readPostFile(QString postFileName)
       if ( n>0 ) 
       {
         name = sf->name.mid(0,n);
-        size=3*sf->values;
 
-        QString cmd = name+"="+name+"(0:2,0:"+QString::number(size-1)+")";
+        QString cmd = name+"="+name+"(0:2,0:"+QString::number(sf->values-1)+")";
         mtc_domath(cmd.toAscii().data());
         VARIABLE *var = var_check(name.toAscii().data());
 
