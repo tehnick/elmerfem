@@ -206,8 +206,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   // Size of volume grid:
   //---------------------
   double length = vtkPost->GetVolumeGrid()->GetLength();
-  if(scaleByMagnitude)
-    scaleFactor = scaleFactor * 100.0 / length;
+  scaleFactor = scaleFactor * 100.0 / length;
 
   // Color data:
   //-------------
@@ -231,13 +230,14 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
 
+  glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
+
   if(scaleByMagnitude) {
-    glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
     glyph->SetScaleModeToScaleByVector();
   } else {
-    glyph->SetScaleFactor(scaleMultiplier * length  / 100.0);
     glyph->ScalingOn();
   }
+
   glyph->SetColorModeToColorByScale();
   
   vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
