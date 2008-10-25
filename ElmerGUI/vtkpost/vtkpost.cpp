@@ -578,19 +578,21 @@ void VtkPost::reloadPostSlot()
   redrawSlot();
 }
 
+// Get one line from post text stream:
+//----------------------------------------------------------------------
+void VtkPost::getPostLineStream(QTextStream* postStream)
+{
+  // postLine and postLineStream are private for VtkPost
+  postLine = postStream->readLine().trimmed();
+  while(postLine.isEmpty() || (postLine.at(0) == '#'))
+    postLine = postStream->readLine().trimmed();
+  postLineStream.setString(&postLine);
+}
+
 // Read in data:
 //----------------------------------------------------------------------
 bool VtkPost::readPostFile(QString postFileName)
 {
-  QString tmpLine;
-  QTextStream txtStream;
-
-#define GET_TXT_STREAM                               \
-  tmpLine = post.readLine().trimmed();               \
-  while(tmpLine.isEmpty() || (tmpLine.at(0) == '#')) \
-    tmpLine = post.readLine().trimmed();             \
-  txtStream.setString(&tmpLine);
-
   // Open the post file:
   //=====================
   this->postFileName = postFileName;
@@ -603,15 +605,15 @@ bool VtkPost::readPostFile(QString postFileName)
 
   cout << "Loading ep-file" << endl;
   
-  QTextStream post(&postFile);
+  QTextStream postStream(&postFile);
 
   // Read in nodes, elements, timesteps, and scalar components:
   //-----------------------------------------------------------
-  GET_TXT_STREAM
-
   int nodes, elements, timesteps, components;
 
-  txtStream >> nodes >> elements >> components >> timesteps;
+  getPostLineStream(&postStream);
+
+  postLineStream >> nodes >> elements >> components >> timesteps;
 
   cout << "Ep file header says:" << endl;
   cout << "Nodes: " << nodes << endl;
@@ -648,7 +650,7 @@ bool VtkPost::readPostFile(QString postFileName)
   //-----------------------
   for(int i = 0; i < components; i++) {
     QString fieldType, fieldName;
-    txtStream >> fieldType >> fieldName;
+    postLineStream >> fieldType >> fieldName;
 
     fieldType.replace(":", "");
     fieldType = fieldType.trimmed();
@@ -673,11 +675,11 @@ bool VtkPost::readPostFile(QString postFileName)
   
   for(int i = 0; i < nodes; i++) {
     EpNode *epn = &epMesh->epNode[i];
-    
-    GET_TXT_STREAM
+
+    getPostLineStream(&postStream);
 
     for(int j = 0; j < 3; j++) 
-      txtStream >> epn->x[j];
+      postLineStream >> epn->x[j];
   }
 
   // Add nodes to field variables:
@@ -708,27 +710,24 @@ bool VtkPost::readPostFile(QString postFileName)
 
   for(int i = 0; i < elements; i++) {
     EpElement *epe = &epMesh->epElement[i];
-    
-    GET_TXT_STREAM
-    
-    txtStream >> epe->groupName >> epe->code;
+
+    getPostLineStream(&postStream);    
+
+    postLineStream >> epe->groupName >> epe->code;
     
     epe->indexes = epe->code % 100;
     epe->index = new int[epe->indexes];
     
     for(int j = 0; j < epe->indexes; j++) {
       QString tmpString = "";
-      txtStream >> tmpString;
+      postLineStream >> tmpString;
       if(tmpString.isEmpty()) {
-
-	GET_TXT_STREAM
-
-        txtStream >> tmpString;
+	getPostLineStream(&postStream);
+        postLineStream >> tmpString;
       }
       epe->index[j] = tmpString.toInt();
     }
   }
-
 
   // Data:
   //=======
@@ -737,22 +736,19 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // skip values before start:
   for(int i = 0; i < nodes * start; i++) {
-    if(post.atEnd()) break;
-    GET_TXT_STREAM
+    if(postStream.atEnd()) break;
+    getPostLineStream(&postStream);
   }
 
   ScalarField *sf;
   int i;
-  // for(i = 0; i < nodes * timesteps; i++) {
   for(i = 0; i < nodes * (end - start + 1); i++) {
-
-    if(post.atEnd()) break;
-
-    GET_TXT_STREAM
+    if(postStream.atEnd()) break;
+    getPostLineStream(&postStream);
 
     for(int j = 0; j < scalarFields-4; j++) { // - 4 = no nodes, no null field
       sf = &scalarField[j+1];                 // + 1 = skip null field
-      txtStream >> sf->value[i];
+      postLineStream >> sf->value[i];
     }
   }
 

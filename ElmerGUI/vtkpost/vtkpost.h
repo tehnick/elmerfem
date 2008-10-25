@@ -45,6 +45,7 @@
 
 #include <QMainWindow>
 #include <QHash>
+#include <QTextStream>
 
 class EpMesh;
 class ScalarField;
@@ -224,6 +225,7 @@ private:
   ScalarField* scalarField;
 
   void addVectorField(QString, int);
+  void getPostLineStream(QTextStream*);
 
   QHash<QString, QAction*> groupActionHash;
 
@@ -271,6 +273,10 @@ private:
   QString currentIsoSurfaceName;
   QString currentStreamLineName;
   double currentPickPosition[3];
+
+  // Post file input:
+  QString postLine;
+  QTextStream postLineStream;
 };
 
 #endif // VTKPOST_H
