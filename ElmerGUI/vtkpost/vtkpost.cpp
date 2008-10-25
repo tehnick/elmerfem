@@ -49,7 +49,7 @@
 #include "colorbar.h"
 #include "preferences.h"
 #include "vector.h"
-#include "readfile.h"
+#include "readepfile.h"
 #include "streamline.h"
 #include "timestep.h"
 #include "axes.h"
@@ -237,8 +237,8 @@ VtkPost::VtkPost(QWidget *parent)
   connect(timeStep, SIGNAL(timeStepChangedSignal()), this, SLOT(timeStepChangedSlot()));
   connect(this, SIGNAL(canProceedWithNextSignal(vtkRenderWindow*)), timeStep, SLOT(canProceedWithNextSlot(vtkRenderWindow*)));
 
-  readFile = new ReadFile(this);
-  connect(readFile, SIGNAL(readPostFileSignal(QString)), this, SLOT(readPostFile(QString)));
+  readEpFile = new ReadEpFile(this);
+  connect(readEpFile, SIGNAL(readPostFileSignal(QString)), this, SLOT(readPostFile(QString)));
 
   axes = new Axes(this);
   featureEdge = new FeatureEdge(this);
@@ -306,9 +306,9 @@ void VtkPost::createActions()
   reloadPostAct->setStatusTip("Reloads input file");
   connect(reloadPostAct, SIGNAL(triggered()), this, SLOT(reloadPostSlot()));
 
-  readFileAct = new QAction(QIcon(""), tr("Open..."), this);
-  readFileAct->setStatusTip("Read input file");
-  connect(readFileAct, SIGNAL(triggered()), this, SLOT(readFileSlot()));
+  readEpFileAct = new QAction(QIcon(""), tr("Open..."), this);
+  readEpFileAct->setStatusTip("Read input file");
+  connect(readEpFileAct, SIGNAL(triggered()), this, SLOT(readEpFileSlot()));
 
   // View menu:
   //------------
@@ -417,7 +417,7 @@ void VtkPost::createMenus()
   // File menu:
   //-----------
   fileMenu = menuBar()->addMenu(tr("&File"));
-  fileMenu->addAction(readFileAct);
+  fileMenu->addAction(readEpFileAct);
   fileMenu->addAction(reloadPostAct);
   fileMenu->addSeparator();
   fileMenu->addAction(savePictureAct);
@@ -554,9 +554,9 @@ void VtkPost::savePictureSlot()
 
 // Read input file (dialog):
 //----------------------------------------------------------------------
-void VtkPost::readFileSlot()
+void VtkPost::readEpFileSlot()
 {
-  readFile->show();
+  readEpFile->show();
 }
 
 // Reload results:
@@ -731,8 +731,8 @@ bool VtkPost::readPostFile(QString postFileName)
 
   // Data:
   //=======
-  int start = readFile->ui.start->value() - 1;
-  int end = readFile->ui.end->value() - 1;
+  int start = readEpFile->ui.start->value() - 1;
+  int end = readEpFile->ui.end->value() - 1;
 
   // skip values before start:
   for(int i = 0; i < nodes * start; i++) {
@@ -859,8 +859,8 @@ bool VtkPost::readPostFile(QString postFileName)
 
   renderer->ResetCamera();
   
-  readFile->ui.fileName->setText(postFileName);
-  readFile->readHeader();
+  readEpFile->ui.fileName->setText(postFileName);
+  readEpFile->readHeader();
 
   return true;
 }

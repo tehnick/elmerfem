@@ -81,7 +81,7 @@ HEADERS += src/bodypropertyeditor.h \
            vtkpost/surface.h \
            vtkpost/preferences.h \
            vtkpost/vector.h \
-           vtkpost/readfile.h \
+           vtkpost/readepfile.h \
            vtkpost/streamline.h \
            vtkpost/timestep.h \
            vtkpost/matc.h \
@@ -106,7 +106,7 @@ FORMS += forms/bodypropertyeditor.ui \
          vtkpost/surface.ui \
          vtkpost/preferences.ui \
          vtkpost/vector.ui \
-         vtkpost/readfile.ui \
+         vtkpost/readepfile.ui \
          vtkpost/streamline.ui \
          vtkpost/timestep.ui \
          vtkpost/matc.ui
@@ -157,7 +157,7 @@ SOURCES += src/bodypropertyeditor.cpp \
            vtkpost/surface.cpp \
            vtkpost/preferences.cpp \
            vtkpost/vector.cpp \
-           vtkpost/readfile.cpp \
+           vtkpost/readepfile.cpp \
            vtkpost/streamline.cpp \
            vtkpost/matc.cpp \
            vtkpost/timestep.cpp

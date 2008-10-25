@@ -67,7 +67,7 @@ class ColorBar;
 class Surface;
 class Preferences;
 class Vector;
-class ReadFile;
+class ReadEpFile;
 class StreamLine;
 class TimeStep;
 class Axes;
@@ -182,7 +182,7 @@ private slots:
   void savePictureSlot();
   void timeStepChangedSlot();
   void reloadPostSlot();
-  void readFileSlot();
+  void readEpFileSlot();
 
 private:
   QMenu *fileMenu;
@@ -211,7 +211,7 @@ private:
   QAction *fitToWindowAct;
   QAction *drawAxesAct;
   QAction *reloadPostAct;
-  QAction *readFileAct;
+  QAction *readEpFileAct;
 
   void createActions();
   void createMenus();
@@ -265,7 +265,7 @@ private:
   FeatureEdge* featureEdge; // ui
   MeshPoint* meshPoint;     // ui
   MeshEdge* meshEdge;       // ui
-  ReadFile* readFile;       // ui
+  ReadEpFile* readEpFile;   // ui
 
   QString currentSurfaceName;
   QString currentVectorName;

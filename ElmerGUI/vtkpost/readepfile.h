@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI readfile                                                        *
+ *  ElmerGUI readepfile                                                      *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -38,21 +38,21 @@
  *                                                                           *
  *****************************************************************************/
 
-#ifndef READFILE_H
-#define READFILE_H
+#ifndef READEPFILE_H
+#define READEPFILE_H
 
 #include <QWidget>
-#include "ui_readfile.h"
+#include "ui_readepfile.h"
 
-class ReadFile : public QDialog
+class ReadEpFile : public QDialog
 {
   Q_OBJECT
 
 public:
-  ReadFile(QWidget *parent = 0);
-  ~ReadFile();
+  ReadEpFile(QWidget *parent = 0);
+  ~ReadEpFile();
 
-  Ui::readFileDialog ui;
+  Ui::readEpFileDialog ui;
 
   void readHeader();
 
@@ -70,4 +70,4 @@ private:
 
 };
 
-#endif // READFILE_H
+#endif // READEPFILE_H

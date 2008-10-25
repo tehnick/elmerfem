@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI readfile                                                        *
+ *  ElmerGUI readepfile                                                      *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -40,11 +40,11 @@
 
 #include <QtGui>
 #include <iostream>
-#include "readfile.h"
+#include "readepfile.h"
 
 using namespace std;
 
-ReadFile::ReadFile(QWidget *parent)
+ReadEpFile::ReadEpFile(QWidget *parent)
   : QDialog(parent)
 {
   ui.setupUi(this);
@@ -64,11 +64,11 @@ ReadFile::ReadFile(QWidget *parent)
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
 
-ReadFile::~ReadFile()
+ReadEpFile::~ReadEpFile()
 {
 }
 
-void ReadFile::browseButtonClickedSlot()
+void ReadEpFile::browseButtonClickedSlot()
 {
   QString fileName = QFileDialog::getOpenFileName(this, tr("Select input file"), "", tr("Ep files (*.ep)"));
 
@@ -77,7 +77,7 @@ void ReadFile::browseButtonClickedSlot()
   readHeader();
 }
 
-void ReadFile::applyButtonClickedSlot()
+void ReadEpFile::applyButtonClickedSlot()
 {
   QString fileName = ui.fileName->text().trimmed();
   
@@ -102,18 +102,18 @@ void ReadFile::applyButtonClickedSlot()
   emit(readPostFileSignal(fileName));
 }
 
-void ReadFile::cancelButtonClickedSlot()
+void ReadEpFile::cancelButtonClickedSlot()
 {
   close();
 }
 
-void ReadFile::okButtonClickedSlot()
+void ReadEpFile::okButtonClickedSlot()
 {
   applyButtonClickedSlot();
   cancelButtonClickedSlot();
 }
 
-void ReadFile::readHeader()
+void ReadEpFile::readHeader()
 { 
   QString fileName = ui.fileName->text().trimmed();
 
@@ -143,7 +143,7 @@ void ReadFile::readHeader()
   ui.dofsEdit->setText(QString::number(components));
 }
 
-void ReadFile::allButtonClickedSlot()
+void ReadEpFile::allButtonClickedSlot()
 {
   ui.start->setValue(1);
   ui.end->setValue(ui.timestepsEdit->text().toInt());
