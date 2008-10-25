@@ -230,11 +230,11 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
 
-  glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
-
   if(scaleByMagnitude) {
+    glyph->SetScaleFactor(scaleMultiplier / scaleFactor);
     glyph->SetScaleModeToScaleByVector();
   } else {
+    glyph->SetScaleFactor(scaleMultiplier / 100.0 * length);
     glyph->ScalingOn();
   }
 
