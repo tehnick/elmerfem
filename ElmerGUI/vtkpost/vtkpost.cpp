@@ -855,12 +855,13 @@ bool VtkPost::readPostFile(QString postFileName)
   // Set the null field active:
   //---------------------------
   drawSurfaceAct->setChecked(true);
-  redrawSlot();
 
   renderer->ResetCamera();
   
   readEpFile->ui.fileName->setText(postFileName);
   readEpFile->readHeader();
+
+  redrawSlot();
 
   return true;
 }
@@ -1091,6 +1092,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 //----------------------------------------------------------------------
 void VtkPost::showPreferencesDialogSlot()
 {
+  if(!postFileRead) return;
   preferences->show();
 }
 
@@ -1104,7 +1106,9 @@ void VtkPost::maybeRedrawSlot(bool value)
 // Redraw:
 //----------------------------------------------------------------------
 void VtkPost::redrawSlot()
-{  
+{
+  if(!postFileRead) return;
+
 #ifdef MATC
    VARIABLE *tvar = var_check((char *)"t");
    if (!tvar) tvar=var_new((char *)"t", TYPE_DOUBLE,1,1 );
@@ -1140,6 +1144,7 @@ void VtkPost::redrawSlot()
 //----------------------------------------------------------------------
 void VtkPost::showColorBarDialogSlot()
 {
+  if(!postFileRead) return;
   qvtkWidget->GetRenderWindow()->Render();
 
   if(drawColorBarAct->isChecked()) {
@@ -1158,6 +1163,7 @@ void VtkPost::hideColorBarSlot()
 
 void VtkPost::drawColorBarSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(colorBarActor);
   if(!drawColorBarAct->isChecked()) return;
   colorBar->draw(this);
@@ -1169,6 +1175,7 @@ void VtkPost::drawColorBarSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawMeshPointSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(meshPointActor);
   if(!drawMeshPointAct->isChecked()) return;
   meshPoint->draw(this, preferences);
@@ -1180,6 +1187,7 @@ void VtkPost::drawMeshPointSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawMeshEdgeSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(meshEdgeActor);
   if(!drawMeshEdgeAct->isChecked()) return;
   meshEdge->draw(this, preferences);
@@ -1191,6 +1199,7 @@ void VtkPost::drawMeshEdgeSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawFeatureEdgesSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(featureEdgeActor);
   if(!drawFeatureEdgesAct->isChecked()) return;
   featureEdge->draw(this, preferences);
@@ -1202,6 +1211,7 @@ void VtkPost::drawFeatureEdgesSlot()
 //----------------------------------------------------------------------
 void VtkPost::showStreamLineDialogSlot()
 {
+  if(!postFileRead) return;
   qvtkWidget->GetRenderWindow()->Render();
   
   if(drawStreamLineAct->isChecked()) {
@@ -1220,6 +1230,7 @@ void VtkPost::hideStreamLineSlot()
 
 void VtkPost::drawStreamLineSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(streamLineActor);
   if(!drawStreamLineAct->isChecked()) return;
   streamLine->draw(this, timeStep);
@@ -1232,6 +1243,7 @@ void VtkPost::drawStreamLineSlot()
 //----------------------------------------------------------------------
 void VtkPost::showVectorDialogSlot()
 {
+  if(!postFileRead) return;
   qvtkWidget->GetRenderWindow()->Render();
 
   if(drawVectorAct->isChecked()) {
@@ -1250,6 +1262,7 @@ void VtkPost::hideVectorSlot()
 
 void VtkPost::drawVectorSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(vectorActor);
   if(!drawVectorAct->isChecked()) return;
   vector->draw(this, timeStep);
@@ -1262,6 +1275,7 @@ void VtkPost::drawVectorSlot()
 //----------------------------------------------------------------------
 void VtkPost::showSurfaceDialogSlot()
 {
+  if(!postFileRead) return;
   qvtkWidget->GetRenderWindow()->Render();
 
   if(drawSurfaceAct->isChecked()) {
@@ -1280,6 +1294,7 @@ void VtkPost::hideSurfaceSlot()
 
 void VtkPost::drawSurfaceSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(surfaceActor);
   if(!drawSurfaceAct->isChecked()) return;
   surface->draw(this, timeStep);
@@ -1292,6 +1307,7 @@ void VtkPost::drawSurfaceSlot()
 //----------------------------------------------------------------------
 void VtkPost::showIsoContourDialogSlot()
 {
+  if(!postFileRead) return;
   qvtkWidget->GetRenderWindow()->Render();
 
   if(drawIsoContourAct->isChecked()) {
@@ -1310,6 +1326,7 @@ void VtkPost::hideIsoContourSlot()
 
 void VtkPost::drawIsoContourSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(isoContourActor);
   if(!drawIsoContourAct->isChecked()) return;
   isoContour->draw(this, timeStep);
@@ -1322,6 +1339,7 @@ void VtkPost::drawIsoContourSlot()
 //----------------------------------------------------------------------
 void VtkPost::showIsoSurfaceDialogSlot()
 {
+  if(!postFileRead) return;
   qvtkWidget->GetRenderWindow()->Render();
 
   if(drawIsoSurfaceAct->isChecked()) {
@@ -1340,6 +1358,7 @@ void VtkPost::hideIsoSurfaceSlot()
 
 void VtkPost::drawIsoSurfaceSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(isoSurfaceActor);
   if(!drawIsoSurfaceAct->isChecked()) return;
   isoSurface->draw(this, timeStep);
@@ -1352,6 +1371,7 @@ void VtkPost::drawIsoSurfaceSlot()
 //----------------------------------------------------------------------
 void VtkPost::drawAxesSlot()
 {
+  if(!postFileRead) return;
   renderer->RemoveActor(axesActor);
   renderer->RemoveActor(axesXTextActor);
   renderer->RemoveActor(axesYTextActor);
@@ -1370,6 +1390,7 @@ void VtkPost::drawAxesSlot()
 //----------------------------------------------------------------------
 void VtkPost::showTimeStepDialogSlot()
 {
+  if(!postFileRead) return;
   timeStep->show();
 }
 
@@ -1382,6 +1403,7 @@ void VtkPost::timeStepChangedSlot()
 //----------------------------------------------------------------------
 void VtkPost::fitToWindowSlot()
 {
+  if(!postFileRead) return;
   renderer->ResetCamera();  
 }
 

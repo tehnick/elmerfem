@@ -136,6 +136,7 @@ signals:
 
 public slots:
   bool readPostFile(QString);
+  void readEpFileSlot();
 
 #ifdef MATC
   void domatcSlot();
@@ -182,7 +183,6 @@ private slots:
   void savePictureSlot();
   void timeStepChangedSlot();
   void reloadPostSlot();
-  void readEpFileSlot();
 
 private:
   QMenu *fileMenu;

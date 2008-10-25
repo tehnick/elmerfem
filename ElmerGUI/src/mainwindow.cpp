@@ -4110,12 +4110,10 @@ void MainWindow::showVtkPostSlot()
 #ifdef VTKPOST
   QString postFileName = saveDirName + "/"  + generalSetup->ui.postFileEdit->text().trimmed();
 
-  if(!vtkPost->readPostFile(postFileName)) {
-    logMessage("Unable to read result file");
-    return;
-  }
-
   vtkPost->show();
+
+  if(!vtkPost->readPostFile(postFileName))
+    vtkPost->readEpFileSlot();
 #endif
 }
 
