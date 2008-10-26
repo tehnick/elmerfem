@@ -390,6 +390,10 @@ void VtkPost::createActions()
   fitToWindowAct->setStatusTip("Fit model to window");
   connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
 
+  resetModelViewAct = new QAction(QIcon(""), tr("Reset model view"), this);
+  resetModelViewAct->setStatusTip("Reset model view");
+  connect(resetModelViewAct, SIGNAL(triggered()), this, SLOT(resetModelViewSlot()));
+
   preferencesAct = new QAction(QIcon(""), tr("Preferences"), this);
   preferencesAct->setStatusTip("Show preferences");
   connect(preferencesAct, SIGNAL(triggered()), this, SLOT(showPreferencesDialogSlot()));
@@ -458,6 +462,7 @@ void VtkPost::createMenus()
   viewMenu->addAction(preferencesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(fitToWindowAct);
+  viewMenu->addAction(resetModelViewAct);
   viewMenu->addAction(redrawAct);
 }
 
@@ -604,6 +609,12 @@ bool VtkPost::readPostFile(QString postFileName)
     return false;
 
   cout << "Loading ep-file" << endl;
+
+  readEpFile->ui.applyButton->setEnabled(false);
+  readEpFile->ui.cancelButton->setEnabled(false);
+  readEpFile->ui.okButton->setEnabled(false);
+  readEpFile->setWindowTitle("Reading...");
+  readEpFile->repaint();
   
   QTextStream postStream(&postFile);
 
@@ -860,6 +871,11 @@ bool VtkPost::readPostFile(QString postFileName)
   
   readEpFile->ui.fileName->setText(postFileName);
   readEpFile->readHeader();
+  readEpFile->ui.applyButton->setEnabled(true);
+  readEpFile->ui.cancelButton->setEnabled(true);
+  readEpFile->ui.okButton->setEnabled(true);
+  readEpFile->setWindowTitle("Read input file");
+  readEpFile->repaint();
 
   redrawSlot();
 
@@ -1405,6 +1421,16 @@ void VtkPost::fitToWindowSlot()
 {
   if(!postFileRead) return;
   renderer->ResetCamera();  
+}
+
+// Reset model view:
+//----------------------------------------------------------------------
+void VtkPost::resetModelViewSlot()
+{
+  if(!postFileRead) return;
+  renderer->ResetCamera();
+  renderer->GetActiveCamera()->SetViewUp(0, 1, 0);
+  // todo
 }
 
 // Other public methods:

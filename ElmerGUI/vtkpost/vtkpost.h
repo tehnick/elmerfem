@@ -179,6 +179,7 @@ private slots:
   void redrawSlot();
   void populateWidgetsSlot();
   void fitToWindowSlot();
+  void resetModelViewSlot();
 
   void savePictureSlot();
   void timeStepChangedSlot();
@@ -209,6 +210,7 @@ private:
   QAction *drawStreamLineAct;
   QAction *timeStepAct;
   QAction *fitToWindowAct;
+  QAction *resetModelViewAct;
   QAction *drawAxesAct;
   QAction *reloadPostAct;
   QAction *readEpFileAct;
