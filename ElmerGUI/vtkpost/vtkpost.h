@@ -132,6 +132,7 @@ public:
   double* GetCurrentPickPosition();
   void SetCurrentPickPosition(double*);
   Preferences* GetPreferences();
+  bool GetClipAll();
 
   void minMax(ScalarField *);
 
@@ -186,6 +187,7 @@ private slots:
   void populateWidgetsSlot();
   void fitToWindowSlot();
   void resetModelViewSlot();
+  void clipAllToggledSlot(bool);
 
   void savePictureSlot();
   void timeStepChangedSlot();
@@ -220,6 +222,7 @@ private:
   QAction *drawAxesAct;
   QAction *reloadPostAct;
   QAction *readEpFileAct;
+  QAction *clipAllAct;
 
   void createActions();
   void createMenus();

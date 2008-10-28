@@ -76,6 +76,7 @@ void MeshEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   int quality = preferences->ui.meshEdgeTubeQuality->value();
   int radius = preferences->ui.meshEdgeTubeRadius->value();
   bool useClip = preferences->ui.meshEdgesClip->isChecked();
+  useClip |= vtkPost->GetClipAll();
 
   vtkUnstructuredGrid* grid = NULL;
 

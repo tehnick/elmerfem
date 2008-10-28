@@ -294,8 +294,8 @@ VtkPost::VtkPost(QWidget *parent)
   picker->AddObserver(vtkCommand::EndPickEvent, cbcPick);
   cbcPick->Delete();
 
-  // Clip plane & implicit plane widget (placed in groupSelectionChanged):
-  //----------------------------------------------------------------------
+  // Create the clip plane & implicit plane widget:
+  //------------------------------------------------
   clipPlane = vtkPlane::New();
 
   vtkCallbackCommand* cbcPlane = vtkCallbackCommand::New();
@@ -416,6 +416,12 @@ void VtkPost::createActions()
   fitToWindowAct->setStatusTip("Fit model to window");
   connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
 
+  clipAllAct = new QAction(QIcon(""), tr("Clip all"), this);
+  clipAllAct->setStatusTip("Apply clip plane to all actors");
+  clipAllAct->setCheckable(true);
+  clipAllAct->setChecked(false);
+  connect(clipAllAct, SIGNAL(toggled(bool)), this, SLOT(clipAllToggledSlot(bool)));
+
   resetModelViewAct = new QAction(QIcon(""), tr("Reset model view"), this);
   resetModelViewAct->setStatusTip("Reset model view");
   connect(resetModelViewAct, SIGNAL(triggered()), this, SLOT(resetModelViewSlot()));
@@ -486,6 +492,8 @@ void VtkPost::createMenus()
   viewMenu->addAction(drawStreamLineAct);
   viewMenu->addSeparator();
   viewMenu->addAction(preferencesAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(clipAllAct);
   viewMenu->addSeparator();
   viewMenu->addAction(fitToWindowAct);
   viewMenu->addAction(resetModelViewAct);
@@ -1142,6 +1150,7 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
   planeWidget->PlaceWidget(bounds);
   planeWidget->SetOrigin(origin);
   planeWidget->GetEdgesProperty()->SetColor(0, 0, 0);
+  planeWidget->GetPlaneProperty()->SetColor(0.5, 0.5, 0.5);
 
   SetClipPlaneOrigin(planeWidget->GetOrigin());
   SetClipPlaneNormal(planeWidget->GetNormal());
@@ -1480,6 +1489,13 @@ void VtkPost::resetModelViewSlot()
   // todo
 }
 
+// Clip all -action toggled:
+//----------------------------------------------------------------------
+void VtkPost::clipAllToggledSlot(bool)
+{
+  redrawSlot();
+}
+
 // Other public methods:
 //----------------------------------------------------------------------
 QVTKWidget* VtkPost::GetQVTKWidget()
@@ -1630,6 +1646,11 @@ void VtkPost::SetClipPlaneNormal(double* normal)
   preferences->ui.clipNormalX->setText(QString::number(normal[0]));
   preferences->ui.clipNormalY->setText(QString::number(normal[1]));
   preferences->ui.clipNormalZ->setText(QString::number(normal[2]));
+}
+
+bool VtkPost::GetClipAll()
+{
+  return clipAllAct->isChecked();
 }
 
 vtkLookupTable* VtkPost::GetCurrentLut()

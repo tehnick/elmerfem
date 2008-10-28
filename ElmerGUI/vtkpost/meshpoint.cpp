@@ -75,6 +75,7 @@ void MeshPoint::draw(VtkPost* vtkPost, Preferences* preferences)
   int pointSize = preferences->ui.pointSize->value();
   bool useSurfaceGrid = preferences->ui.meshPointsSurface->isChecked();
   bool useClip = preferences->ui.meshPointsClip->isChecked();
+  useClip |= vtkPost->GetClipAll();
 
   vtkSphereSource* sphere = vtkSphereSource::New();
   sphere->SetRadius((double)pointSize * length / 2000.0);

@@ -173,6 +173,7 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   int featureAngle = ui.featureAngle->value();
   double opacity = ui.opacitySpin->value() / 100.0;
   bool useClip = ui.clipPlane->isChecked();
+  useClip |= vtkPost->GetClipAll();
 
   ScalarField* sf = &scalarField[contourIndex];
   int maxDataStepContour = sf->values / vtkPost->NofNodes();

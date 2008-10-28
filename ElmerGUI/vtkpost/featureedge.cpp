@@ -78,6 +78,7 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   int tubeQuality = preferences->ui.featureEdgeTubeQuality->value();
   int radius = preferences->ui.featureEdgeTubeRadius->value();  
   bool useClip = preferences->ui.featureEdgesClip->isChecked();
+  useClip |= vtkPost->GetClipAll();
 
   vtkUnstructuredGrid* grid = NULL;
 
