@@ -1980,13 +1980,16 @@ CONTAINS
 
 
     SUBROUTINE WriteGrid ( IOUnit, Model, SubtractDisp )
+        USE DefUtils
         INTEGER, INTENT(IN) :: IOUnit
         TYPE(Model_t), INTENT(IN) :: Model
         LOGICAL, INTENT(IN) :: SubtractDisp ! Subtract Displacement from Coords.
         TYPE(Variable_t), POINTER :: Displacement, MeshUpdate, Var1, Var2
         INTEGER :: i, k, l, nVtkCells, nVtkCellNum
         ! FIXME: POINTER -> ALLOCATABLE when more compilers support it
+        LOGICAL :: Found
         TYPE(VtkCell_t), POINTER :: VtkCells(:)
+
 
         WRITE ( IOUnit, '("# vtk DataFile Version 3.0")' ) 
         WRITE ( IOUnit, '("ElmerSolver output; started at ", A)' ) TRIM( FormatDate() )
@@ -2123,6 +2126,19 @@ CONTAINS
         END DO
 
         WRITE( IOUnit, * )
+
+        WRITE( IOUnit, * ) 'CELL_DATA', Model % NumberOfBulkElements+ &
+                   Model % NumberOfBoundaryElements
+
+        WRITE( IOUnit, '(A)' ) 'SCALARS group int32'
+        WRITE( IOUnit, '(A)' ) 'LOOKUP_TABLE default'
+        DO i=1,Model % NumberOfBulkElements
+          WRITE( IOUnit, * ) Model % Elements(i) % BodyId
+        END DO
+        DO i=Model % NumberOfBulkElements+1, &
+            Model % NumberOFBulkElements+Model % NumberOfBoundaryElements
+          WRITE( IOUnit, * ) 100+GetBCId( Model % Elements(i) )
+        END DO
 
     CONTAINS
 
