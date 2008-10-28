@@ -1150,7 +1150,10 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
   planeWidget->PlaceWidget(bounds);
   planeWidget->SetOrigin(origin);
   planeWidget->GetEdgesProperty()->SetColor(0, 0, 0);
-  planeWidget->GetPlaneProperty()->SetColor(0.5, 0.5, 0.5);
+  planeWidget->GetPlaneProperty()->SetColor(0, 0, 0);
+  planeWidget->GetPlaneProperty()->SetOpacity(0.5);
+  planeWidget->GetSelectedPlaneProperty()->SetColor(0, 1, 0);
+  planeWidget->GetSelectedPlaneProperty()->SetOpacity(0.2);
 
   SetClipPlaneOrigin(planeWidget->GetOrigin());
   SetClipPlaneNormal(planeWidget->GetNormal());
