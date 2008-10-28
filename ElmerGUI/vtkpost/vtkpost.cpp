@@ -956,7 +956,7 @@ void VtkPost::regenerateGridsSlot()
   groupChangedSlot(NULL);
 }
 
-void VtkPost::groupChangedSlot(QAction *groupAction)
+void VtkPost::groupChangedSlot(QAction* groupAction)
 {
   // Status of groupAction has changed: regenerate grids
   //-----------------------------------------------------
@@ -972,7 +972,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   //---------
   int index = -1;
   for(int i = 0; i < scalarFields; i++) {
-    ScalarField *sf = &scalarField[i];
+    ScalarField* sf = &scalarField[i];
     if(sf->name == "nodes_x") {
       index = i;
       break;
@@ -982,11 +982,11 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
   if((index < 0) || (index + 2 > scalarFields - 1)) return;
 
   double x[3];
-  ScalarField *sfx = &scalarField[index+0];
-  ScalarField *sfy = &scalarField[index+1];
-  ScalarField *sfz = &scalarField[index+2];
+  ScalarField* sfx = &scalarField[index+0];
+  ScalarField* sfy = &scalarField[index+1];
+  ScalarField* sfz = &scalarField[index+2];
   
-  vtkPoints *points = vtkPoints::New();
+  vtkPoints* points = vtkPoints::New();
   points->SetNumberOfPoints(epMesh->epNodes);
 
   for(int i = 0; i < epMesh->epNodes; i++) {
@@ -1002,17 +1002,17 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
   // Volume grid:
   //---------------
-  vtkTetra *tetra = vtkTetra::New();
-  vtkHexahedron *hexa = vtkHexahedron::New();
+  vtkTetra* tetra = vtkTetra::New();
+  vtkHexahedron* hexa = vtkHexahedron::New();
 
   for(int i = 0; i < epMesh->epElements; i++) {
-    EpElement *epe = &epMesh->epElement[i];
+    EpElement* epe = &epMesh->epElement[i];
 
     if(epe->code == 504) {
       QString groupName = epe->groupName;
       if(groupName.isEmpty()) continue;
 
-      QAction *groupAction = groupActionHash.value(groupName);
+      QAction* groupAction = groupActionHash.value(groupName);
       if(groupAction == NULL) continue;
       
       for(int j = 0; j < 4; j++)
@@ -1026,7 +1026,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
       QString groupName = epe->groupName;
       if(groupName.isEmpty()) continue;
       
-      QAction *groupAction = groupActionHash.value(groupName);
+      QAction* groupAction = groupActionHash.value(groupName);
       if(groupAction == NULL) continue;
       
       for(int j = 0; j < 8; j++)
@@ -1041,16 +1041,16 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
   // Surface grid:
   //---------------
-  vtkTriangle *tria = vtkTriangle::New();
-  vtkQuad *quad = vtkQuad::New();
+  vtkTriangle* tria = vtkTriangle::New();
+  vtkQuad* quad = vtkQuad::New();
   for(int i = 0; i < epMesh->epElements; i++) {
-    EpElement *epe = &epMesh->epElement[i];
+    EpElement* epe = &epMesh->epElement[i];
 
     if(epe->code == 303) {
       QString groupName = epe->groupName;
       if(groupName.isEmpty()) continue;
 
-      QAction *groupAction = groupActionHash.value(groupName);
+      QAction* groupAction = groupActionHash.value(groupName);
       if(groupAction == NULL) continue;
       
       for(int j = 0; j < 3; j++)
@@ -1064,7 +1064,7 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
       QString groupName = epe->groupName;
       if(groupName.isEmpty()) continue;
 
-      QAction *groupAction = groupActionHash.value(groupName);
+      QAction* groupAction = groupActionHash.value(groupName);
       if(groupAction == NULL) continue;
       
       for(int j = 0; j < 4; j++)
@@ -1080,15 +1080,15 @@ void VtkPost::groupChangedSlot(QAction *groupAction)
 
   // Line grid:
   //---------------
-  vtkLine *line = vtkLine::New();
+  vtkLine* line = vtkLine::New();
   for(int i = 0; i < epMesh->epElements; i++) {
-    EpElement *epe = &epMesh->epElement[i];
+    EpElement* epe = &epMesh->epElement[i];
 
     if(epe->code == 202) {
       QString groupName = epe->groupName;
       if(groupName.isEmpty()) continue;
 
-      QAction *groupAction = groupActionHash.value(groupName);
+      QAction* groupAction = groupActionHash.value(groupName);
       if(groupAction == NULL) continue;
       
       for(int j = 0; j < 3; j++)

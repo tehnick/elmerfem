@@ -50,6 +50,7 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 #include <vtkActor.h>
+#include <vtkTubeFilter.h>
 
 using namespace std;
 
@@ -71,6 +72,9 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   bool useSurfaceGrid = preferences->ui.surfaceRButton->isChecked();
   int featureAngle = preferences->ui.angleSpin->value();
   int lineWidth = preferences->ui.lineWidthSpin->value();
+  bool useTubeFilter = preferences->ui.featureEdgeTubes->isChecked();
+  int tubeQuality = preferences->ui.featureEdgeTubeQuality->value();
+  int radius = preferences->ui.featureEdgeTubeRadius->value();  
   
   vtkUnstructuredGrid* grid = NULL;
 
@@ -87,7 +91,7 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   // Convert from vtkUnstructuredGrid to vtkPolyData:
   vtkGeometryFilter* filter = vtkGeometryFilter::New();
   filter->SetInput(grid);
-  filter->GetOutput()->ReleaseDataFlagOn();
+  // filter->GetOutput()->ReleaseDataFlagOn();
 
   vtkFeatureEdges* edges = vtkFeatureEdges::New();
   edges->SetInputConnection(filter->GetOutputPort());
@@ -96,8 +100,20 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   edges->ManifoldEdgesOn();
   edges->NonManifoldEdgesOn();
 
+  vtkTubeFilter* tubes = vtkTubeFilter::New();
+  if(useTubeFilter) {
+    double r = vtkPost->GetLength() * radius / 2000.0;
+    tubes->SetInputConnection(edges->GetOutputPort());
+    tubes->SetNumberOfSides(tubeQuality);
+    tubes->SetRadius(r);
+  }
+
   vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
-  mapper->SetInputConnection(edges->GetOutputPort());
+  if(useTubeFilter) {
+    mapper->SetInputConnection(tubes->GetOutputPort());
+  } else {
+    mapper->SetInputConnection(edges->GetOutputPort());
+  }
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
   // mapper->ImmediateModeRenderingOn();
@@ -106,6 +122,7 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkPost->GetFeatureEdgeActor()->GetProperty()->SetColor(0, 0, 0);
   vtkPost->GetFeatureEdgeActor()->SetMapper(mapper);
 
+  tubes->Delete();
   filter->Delete();
   edges->Delete();
   mapper->Delete();

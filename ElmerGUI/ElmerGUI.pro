@@ -67,18 +67,26 @@ contains(DEFINES, QWT) {
 contains(DEFINES, VTKPOST) {
    unix {
       INCLUDEPATH += /usr/include/vtk-5.0
-      LIBS += -lvtkHybrid -lQVTK
+      LIBS += -lvtkHybrid \
+              -lQVTK
    }
 
    win32 {
       INCLUDEPATH += /c/VTK/include/vtk-5.2
       LIBPATH += /c/VTK/lib/vtk-5.2
-      LIBS += -lvtkCommon -lvtkRendering -lvtkFiltering -lvtkGraphics -lvtkIO  -lvtkHybrid -lQVTK
+      LIBS += -lvtkCommon \
+              -lvtkRendering \
+              -lvtkFiltering \
+              -lvtkGraphics \
+              -lvtkIO  \
+              -lvtkHybrid \
+              -lQVTK
    }
 
    macx {
       INCLUDEPATH += /usr/local/include/vtk-5.0
-      LIBS += -lvtkHybrid -lQVTK
+      LIBS += -lvtkHybrid \
+              -lQVTK
    }
 }
 
