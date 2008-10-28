@@ -1123,7 +1123,6 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
       if(groupAction->isChecked())
 	lineGrid->InsertNextCell(line->GetCellType(), line->GetPointIds());
     }
-
   }
   line->Delete();
 
@@ -1133,8 +1132,15 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
   //---------------------------------
   double bounds[6];
   GetBounds(bounds);
-  planeWidget->SetPlaceFactor(1.25);
+
+  double origin[3];
+  origin[0] = (bounds[0] + bounds[1]) / 2.0;
+  origin[1] = (bounds[2] + bounds[3]) / 2.0;
+  origin[2] = (bounds[4] + bounds[5]) / 2.0;
+
+  planeWidget->SetPlaceFactor(1.5);
   planeWidget->PlaceWidget(bounds);
+  planeWidget->SetOrigin(origin);
   planeWidget->GetEdgesProperty()->SetColor(0, 0, 0);
 }
 
