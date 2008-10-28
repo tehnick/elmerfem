@@ -120,7 +120,8 @@
      REAL (KIND=DP), ALLOCATABLE ::  Conductivity(:,:,:), &
        LocalStiffMatrix(:,:), Load(:), LocalForce(:)
 
-     REAL (KIND=DP) :: Norm, Heatingtot
+     REAL (KIND=DP) :: Norm, Heatingtot, ControlTarget, ControlScaling = 1.0
+     REAL (KIND=DP) :: MinPotential, MaxPotential, Resistance
      REAL (KIND=DP) :: at, st, at0, CPUTime, RealTime
 
      INTEGER, POINTER :: NodeIndexes(:)
@@ -130,6 +131,7 @@
      LOGICAL :: AllocationsDone = .FALSE., gotIt, FluxBC
      LOGICAL :: CalculateField = .FALSE., ConstantWeights
      LOGICAL :: CalculateCurrent, CalculateHeating, CalculateConductivity
+     LOGICAL :: ControlPower, ControlCurrent, Control
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
 
@@ -138,7 +140,7 @@
           ElementNodes, CalculateCurrent, CalculateHeating, &
           AllocationsDone, VolCurrent, Heating, Conductivity, &
           CalculateField, ConstantWeights, CalculateConductivity, &
-          ElectricCond, Cwrk
+          ElectricCond, Cwrk, ControlScaling
      
  
 !------------------------------------------------------------------------------
@@ -153,6 +155,14 @@
 
      Norm = Solver % Variable % Norm
      DIM = CoordinateSystemDimension()
+
+     ControlTarget = GetCReal( Solver % Values,'Power Control',ControlPower)
+     IF(.NOT. ControlPower) &
+       ControlTarget = GetCReal( Solver % Values,'Power Control',ControlCurrent)
+     Control = ControlPower .OR. ControlCurrent
+
+     ! To obtain convergence rescale the potential to the original BCs
+     IF(Control) Potential = Potential / ControlScaling
 
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
@@ -338,10 +348,7 @@
 !------------------------------------------------------------------------------
 
        CALL ListGetRealArray( Model % Materials(k) % Values, &
-            'Electric Conductivity', Cwrk, n, NodeIndexes, gotIt )
-
-       IF ( .NOT. gotIt ) CALL Fatal( 'StatCurrentSolve', &
-            'No conductivity found' )
+              'Electric Conductivity', Cwrk, n, NodeIndexes )
        
        Conductivity = 0.0d0
        IF ( SIZE(Cwrk,1) == 1 ) THEN
@@ -373,6 +380,9 @@
 !------------------------------------------------------------------------------
     END DO
 
+    MinPotential = HUGE(MinPotential)
+    MaxPotential = -HUGE(MaxPotential)
+
 !------------------------------------------------------------------------------
 !     Neumann boundary conditions
 !------------------------------------------------------------------------------
@@ -381,6 +391,17 @@
          Solver % Mesh % NumberOfBoundaryElements
 
         CurrentElement => Solver % Mesh % Elements(t)
+
+!------------------------------------------------------------------------------
+!         Memorize the min and max potential as given by Dirichtlet BCs
+!------------------------------------------------------------------------------          
+        Load(1:n) = ListGetReal(Model % BCs(i) % Values, &
+             ComponentName(Solver % Variable), n, NodeIndexes, gotIt)
+        IF(GotIt) THEN
+          MinPotential = MIN(MinPotential, MINVAL(Load(1:n)))
+          MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
+        END IF
+
 !------------------------------------------------------------------------------
 !       the element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip em.
@@ -470,17 +491,49 @@
 !    Compute the Joule heating: H,tot = Integral (E . D)dV
 !------------------------------------------------------------------------------
 
-     IF ( CalculateCurrent .OR. CalculateHeating ) THEN 
-        CALL GeneralCurrent( Model, Potential, PotentialPerm )
-     END IF
+     IF ( Control .OR. CalculateCurrent .OR. CalculateHeating ) THEN 
+       CALL GeneralCurrent( Model, Potential, PotentialPerm )
 
-!------------------------------------------------------------------------------
-
-     IF ( Heatingtot > 0.0D0 ) THEN
        WRITE( Message, * ) 'Total Heating Power   :', Heatingtot
        CALL Info( 'StatCurrentSolve', Message, Level=4 )
        CALL ListAddConstReal( Model % Simulation, &
            'RES: Total Joule Heating', Heatingtot )
+
+       IF( MaxPotential > MinPotential) THEN
+         Resistance = Heatingtot / (MaxPotential - MinPotential)**2
+         WRITE( Message, * ) 'Effective Resistance   :', Resistance
+         CALL Info( 'StatCurrentSolve', Message, Level=4 )
+         CALL ListAddConstReal( Model % Simulation, &
+             'RES: Effective Resistance', Heatingtot )
+       END IF
+     END IF
+
+     IF(Control ) THEN
+	CALL Info('StatCurrentSolve','Applying scaling to the system')
+        ControlScaling = 1.0_dp
+	IF( ControlPower ) THEN
+	  ControlScaling = SQRT( ControlTarget / HeatingTot )
+        ELSE IF( ControlCurrent ) THEN
+	  IF( MaxPotential - MinPotential > 0.0d0 ) THEN
+            ControlScaling = ControlTarget / ( HeatingTot / (MaxPotential - MinPotential))
+          ELSE
+            CALL Warn('StatCurrentSolver','Current cannot be determined without pot. difference')
+          END IF
+        END IF
+
+        IF ( CalculateHeating )  Heating = ControlScaling**2 * Heating
+        IF ( CalculateCurrent )  VolCurrent = ControlScaling * VolCurrent
+
+        WRITE( Message, * ) 'Control Scaling   :', ControlScaling
+        CALL Info( 'StatCurrentSolve', Message, Level=4 )
+        CALL ListAddConstReal( Model % Simulation, &
+           'RES: CurrentSolver Scaling', Heatingtot )
+      END IF
+
+!------------------------------------------------------------------------------
+
+     IF ( Heatingtot > 0.0D0 ) THEN
+
     END IF
 
 !------------------------------------------------------------------------------

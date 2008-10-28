@@ -286,7 +286,12 @@
          Material => GetMaterial()
 
          Permeability(1:n) = GetReal(Material, 'Magnetic Permeability'   )
-         Conductivity(1:n) = GetReal(Material, 'Electrical Conductivity' )
+         Conductivity(1:n) = GetReal(Material, 'Electrical Conductivity',GotIt )
+         IF( GotIt ) THEN
+           CALL Warn('MagneticSolve','Use electric conductivity instead of electrical')
+         ELSE
+           Conductivity(1:n) = GetReal(Material, 'Electric Conductivity' )
+         END IF
 
          Mx = GetReal( Material, 'Applied Magnetic Field 1', Gotit )
          My = GetReal( Material, 'Applied Magnetic Field 2', Gotit )
@@ -623,6 +628,13 @@
            Material => GetMaterial( Element )
            EConductivity(1:n) = GetReal( Material, 'Electrical Conductivity', &
                 gotit, Element )
+           IF( GotIt ) THEN 
+             CALL Warn('MagenticSolve','Use electric conductivity instead of electrical')
+           ELSE
+             EConductivity(1:n) = GetReal( Material, 'Electric Conductivity', &
+                gotit, Element )
+           END IF
+
            MPermeability(1:n) = GetReal( Material, 'Magnetic Permeability', &
                 gotit, Element )
 

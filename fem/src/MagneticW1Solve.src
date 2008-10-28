@@ -352,7 +352,13 @@
          Material => Model % Materials(k) % Values
 
          Conductivity(1:n) = ListGetReal(Material, &
-                 'Electrical Conductivity',n,NodeIndexes)
+                 'Electrical Conductivity',n,NodeIndexes,GotIt)
+	 IF( GotIt ) THEN
+           CALL Warn('MagenticW1Solve','Use electric conductivity instead of electrical')
+         ELSE
+           Conductivity(1:n) = ListGetReal(Material, &
+                  'Electric Conductivity',n,NodeIndexes)
+         END IF
 
          Permeability(1:n) = ListGetReal(Material, &
                  'Magnetic Permeability',n,NodeIndexes)
@@ -546,7 +552,8 @@
                         'Current Density 3',n,NodeIndexes,GotIt )
 
 !              Conductivity(1:n) = ListGetReal(Model % BCs(i) % Values, &
-!                  'Electrical Conductivity',n,NodeIndexes,GotIt)
+!                  'Electric Conductivity',n,NodeIndexes,GotIt)
+!
 !              IF (.NOT.(GotIt)) Conductivity = 1._dp
 !
 !              Permeability(1:n) = ListGetReal(Model % BCs(i) % Values, &
@@ -708,7 +715,7 @@
 !     INPUT:
 !
 !  REAL(KIND=dp) :: NodalConductivity(:)
-!     INPUT: Nodal values of electrical conductivity (times the magnetic
+!     INPUT: Nodal values of electric conductivity (times the magnetic
 !            permeability)
 !
 !  REAL(KIND=dp) :: Bx(:),By(:),Bz(:)

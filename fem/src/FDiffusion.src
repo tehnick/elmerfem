@@ -319,8 +319,14 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 
         Material => Model % Materials(k) % Values
 
-        Conductivity(1:n) = ListGetReal(Material, &
-             'Electrical Conductivity',n,NodeIndexes)
+         Conductivity(1:n) = ListGetReal(Material, &
+             'Electrical Conductivity',n,NodeIndexes,GotIt)
+         IF( GotIt ) THEN
+	   CALL Warn('Fdiffusion','Use electric conductivity instead of electrical')
+         ELSE
+          Conductivity(1:n) = ListGetReal(Material, &
+             'Electric Conductivity',n,NodeIndexes)
+         END IF
 
         Permeability(1:n) = ListGetReal(Material, &
              'Magnetic Permeability',n,NodeIndexes)

@@ -329,7 +329,13 @@
          
          IF(HarmonicSimulation) THEN
            Conductivity(1:n) = ListGetReal(Material, &
-               'Electrical Conductivity',n,NodeIndexes)
+               'Electrical Conductivity',n,NodeIndexes,GotIt)
+           IF( GotIt ) THEN
+             CALL Warn('StatMagSolve','Use electric conductivity instead of electrial')
+           ELSE
+             Conductivity(1:n) = ListGetReal(Material, &
+                 'Electric Conductivity',n,NodeIndexes)
+           END IF
          END IF
          
 !------------------------------------------------------------------------------
@@ -580,8 +586,14 @@
        Material => Model % Materials(k) % Values
        
        Conductivity(1:n) = ListGetReal(Material, &
-           'Electrical Conductivity',n,NodeIndexes)
-       
+           'Electrical Conductivity',n,NodeIndexes,GotIt)
+	IF( GotIt ) THEN
+	   CALL Warn('StatMagSolve','Use electric conductivity instead of electrical')
+        ELSE
+          Conductivity(1:n) = ListGetReal(Material, &
+             'Electric Conductivity',n,NodeIndexes)
+        END IF       
+
        Ae(1:n) = absJoule(MagneticPerm(NodeIndexes(1:n)))
        CALL JouleIntegrate(Ae,Conductivity,TotalHeating,TotalVolume,&
            CurrentElement,n,ElementNodes )

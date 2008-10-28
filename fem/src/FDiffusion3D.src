@@ -320,7 +320,13 @@ SUBROUTINE FourierDiffusion3DSolver( Model,Solver,dt,TransientSimulation )
         Material => Model % Materials(k) % Values
 
         Conductivity(1:n) = ListGetReal(Material, &
-             'Electrical Conductivity',n,NodeIndexes)
+             'Electrical Conductivity',n,NodeIndexes,GotIt)
+        IF(GotIt) THEN
+          CALL Warn('Fdiffusion3D','Use electric conductivity instead of electrical')
+        END IF
+ 
+        Conductivity(1:n) = ListGetReal(Material, &
+             'Electric Conductivity',n,NodeIndexes)
 
         Permeability(1:n) = ListGetReal(Material, &
              'Magnetic Permeability',n,NodeIndexes)
