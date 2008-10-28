@@ -49,6 +49,7 @@
 #include <vtkDataSetMapper.h>
 #include <vtkProperty.h>
 #include <vtkActor.h>
+#include <vtkTubeFilter.h>
 
 using namespace std;
 
@@ -69,8 +70,11 @@ void MeshEdge::draw(VtkPost* vtkPost, Preferences* preferences)
 {
   bool useSurfaceGrid = preferences->ui.meshEdgesSurface->isChecked();
   int lineWidth = preferences->ui.meshLineWidth->value();
+  bool useTubeFilter = preferences->ui.meshEdgeTubes->isChecked();
+  int quality = preferences->ui.meshEdgeTubeQuality->value();
+  int radius = preferences->ui.meshEdgeTubeRadius->value();
 
-  vtkUnstructuredGrid *grid = NULL;
+  vtkUnstructuredGrid* grid = NULL;
 
   if(useSurfaceGrid) {
     grid = vtkPost->GetSurfaceGrid();
@@ -82,11 +86,23 @@ void MeshEdge::draw(VtkPost* vtkPost, Preferences* preferences)
 
   if(grid->GetNumberOfCells() < 1) return;
 
-  vtkExtractEdges *edges = vtkExtractEdges::New();
+  vtkExtractEdges* edges = vtkExtractEdges::New();
   edges->SetInput(grid);
 
-  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
-  mapper->SetInputConnection(edges->GetOutputPort());
+  vtkTubeFilter* tubes = vtkTubeFilter::New();
+  if(useTubeFilter) {
+    double r =  vtkPost->GetLength() * radius / 2000.0;
+    tubes->SetInputConnection(edges->GetOutputPort());
+    tubes->SetNumberOfSides(quality);
+    tubes->SetRadius(r);
+  }
+
+  vtkDataSetMapper* mapper = vtkDataSetMapper::New();
+  if(useTubeFilter) {
+    mapper->SetInputConnection(tubes->GetOutputPort());
+  } else {
+    mapper->SetInputConnection(edges->GetOutputPort());
+  }
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
   // mapper->ImmediateModeRenderingOn();
@@ -96,5 +112,6 @@ void MeshEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkPost->GetMeshEdgeActor()->SetMapper(mapper);
 
   mapper->Delete();
+  tubes->Delete();
   edges->Delete();
 }

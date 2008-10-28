@@ -122,8 +122,8 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkPost->GetFeatureEdgeActor()->GetProperty()->SetColor(0, 0, 0);
   vtkPost->GetFeatureEdgeActor()->SetMapper(mapper);
 
-  tubes->Delete();
-  filter->Delete();
-  edges->Delete();
   mapper->Delete();
+  tubes->Delete();
+  edges->Delete();
+  filter->Delete();
 }
