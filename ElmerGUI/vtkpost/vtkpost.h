@@ -133,6 +133,7 @@ public:
   void SetCurrentPickPosition(double*);
   Preferences* GetPreferences();
   bool GetClipAll();
+  void SetClipAll(bool);
 
   void minMax(ScalarField *);
 

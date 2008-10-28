@@ -98,8 +98,8 @@ using namespace std;
 
 // Interaction event handler (press 'i' to interact):
 //-------------------------------------------------------------------
-static void planeEventHandler(vtkObject* caller, unsigned long eid, 
-			      void* clientdata, void* calldata)
+static void iEventHandler(vtkObject* caller, unsigned long eid, 
+			  void* clientdata, void* calldata)
 {
   VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
   vtkImplicitPlaneWidget* planeWidget = vtkPost->GetPlaneWidget();
@@ -110,8 +110,8 @@ static void planeEventHandler(vtkObject* caller, unsigned long eid,
 
 // Pick event handler (press 'p' to pick):
 //-------------------------------------------------------------------
-static void pickEventHandler(vtkObject* caller, unsigned long eid, 
-			     void* clientdata, void* calldata)
+static void pEventHandler(vtkObject* caller, unsigned long eid, 
+			  void* clientdata, void* calldata)
 {
   VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
   vtkRenderer* renderer = vtkPost->GetRenderer();
@@ -288,7 +288,7 @@ VtkPost::VtkPost(QWidget *parent)
 
   vtkCallbackCommand* cbcPick = vtkCallbackCommand::New();
   cbcPick->SetClientData(this);
-  cbcPick->SetCallback(pickEventHandler);
+  cbcPick->SetCallback(pEventHandler);
 
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
   picker->AddObserver(vtkCommand::EndPickEvent, cbcPick);
@@ -300,7 +300,7 @@ VtkPost::VtkPost(QWidget *parent)
 
   vtkCallbackCommand* cbcPlane = vtkCallbackCommand::New();
   cbcPlane->SetClientData(this);
-  cbcPlane->SetCallback(planeEventHandler);
+  cbcPlane->SetCallback(iEventHandler);
 
   planeWidget = vtkImplicitPlaneWidget::New();
   planeWidget->SetInteractor(qvtkWidget->GetInteractor());
@@ -1150,10 +1150,10 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
   planeWidget->PlaceWidget(bounds);
   planeWidget->SetOrigin(origin);
   planeWidget->GetEdgesProperty()->SetColor(0, 0, 0);
-  planeWidget->GetPlaneProperty()->SetColor(0, 0, 0);
-  planeWidget->GetPlaneProperty()->SetOpacity(0.5);
+  planeWidget->GetPlaneProperty()->SetColor(1, 0, 0);
+  planeWidget->GetPlaneProperty()->SetOpacity(0.2);
   planeWidget->GetSelectedPlaneProperty()->SetColor(0, 1, 0);
-  planeWidget->GetSelectedPlaneProperty()->SetOpacity(0.2);
+  planeWidget->GetSelectedPlaneProperty()->SetOpacity(0.1);
 
   SetClipPlaneOrigin(planeWidget->GetOrigin());
   SetClipPlaneNormal(planeWidget->GetNormal());
@@ -1654,6 +1654,11 @@ void VtkPost::SetClipPlaneNormal(double* normal)
 bool VtkPost::GetClipAll()
 {
   return clipAllAct->isChecked();
+}
+
+void VtkPost::SetClipAll(bool clip)
+{
+  clipAllAct->setChecked(clip);
 }
 
 vtkLookupTable* VtkPost::GetCurrentLut()
