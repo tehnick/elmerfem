@@ -102,7 +102,10 @@ static void planeEventHandler(vtkObject* caller, unsigned long eid,
 			      void* clientdata, void* calldata)
 {
   VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
-  // TODO: Update the clip plane and preferences dialog
+  vtkImplicitPlaneWidget* planeWidget = vtkPost->GetPlaneWidget();
+
+  vtkPost->SetClipPlaneOrigin(planeWidget->GetOrigin());
+  vtkPost->SetClipPlaneNormal(planeWidget->GetNormal());
 }
 
 // Pick event handler (press 'p' to pick):
@@ -303,6 +306,9 @@ VtkPost::VtkPost(QWidget *parent)
   planeWidget->SetInteractor(qvtkWidget->GetInteractor());
   planeWidget->AddObserver(vtkCommand::InteractionEvent, cbcPlane);
   cbcPlane->Delete();
+
+  SetClipPlaneOrigin(planeWidget->GetOrigin());
+  SetClipPlaneNormal(planeWidget->GetNormal());
 }
 
 VtkPost::~VtkPost()
@@ -1580,6 +1586,11 @@ vtkUnstructuredGrid* VtkPost::GetVolumeGrid()
   return volumeGrid;
 }
 
+vtkImplicitPlaneWidget* VtkPost::GetPlaneWidget()
+{
+  return planeWidget;
+}
+
 vtkPlane* VtkPost::GetClipPlane()
 {
   double px = preferences->ui.clipPointX->text().toDouble();
@@ -1593,6 +1604,24 @@ vtkPlane* VtkPost::GetClipPlane()
   this->clipPlane->SetNormal(nx, ny, nz);
 
   return clipPlane;
+}
+
+void VtkPost::SetClipPlaneOrigin(double* origin)
+{
+  clipPlane->SetOrigin(origin);
+
+  preferences->ui.clipPointX->setText(QString::number(origin[0]));
+  preferences->ui.clipPointY->setText(QString::number(origin[1]));
+  preferences->ui.clipPointZ->setText(QString::number(origin[2]));
+}
+
+void VtkPost::SetClipPlaneNormal(double* normal)
+{
+  clipPlane->SetNormal(normal);
+
+  preferences->ui.clipNormalX->setText(QString::number(normal[0]));
+  preferences->ui.clipNormalY->setText(QString::number(normal[1]));
+  preferences->ui.clipNormalZ->setText(QString::number(normal[2]));
 }
 
 vtkLookupTable* VtkPost::GetCurrentLut()
@@ -1685,6 +1714,11 @@ void VtkPost::SetCurrentPickPosition(double *p)
 int VtkPost::NofNodes()
 {
    return epMesh->epNodes;
+}
+
+Preferences* VtkPost::GetPreferences()
+{
+  return preferences;
 }
 
 QSize VtkPost::minimumSizeHint() const

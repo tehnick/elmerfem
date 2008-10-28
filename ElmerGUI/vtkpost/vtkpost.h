@@ -110,6 +110,9 @@ public:
   vtkUnstructuredGrid* GetSurfaceGrid();
   vtkUnstructuredGrid* GetVolumeGrid();
   vtkPlane* GetClipPlane();
+  void SetClipPlaneOrigin(double*);
+  void SetClipPlaneNormal(double*);
+  vtkImplicitPlaneWidget* GetPlaneWidget();
   vtkLookupTable* GetCurrentLut();
   int NofNodes();
   QString GetCurrentSurfaceName();
@@ -128,6 +131,7 @@ public:
   EpMesh* GetEpMesh();
   double* GetCurrentPickPosition();
   void SetCurrentPickPosition(double*);
+  Preferences* GetPreferences();
 
   void minMax(ScalarField *);
 
