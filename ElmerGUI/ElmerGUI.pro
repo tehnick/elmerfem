@@ -80,7 +80,7 @@ contains(DEFINES, MATC) {
       LIBS += -lmatc
    }
 
-   win 32 {
+   win32 {
       LIBPATH += /c/Elmer5.4/lib
       LIBS += -lmatc
    }
