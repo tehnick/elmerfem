@@ -21,6 +21,7 @@ TARGET = ElmerGUI
 # Directories:
 #------------------------------------------------------------------------------
 DEPENDPATH += . src forms plugins vtkpost
+INCLUDEPATH += .
 MOC_DIR = ./tmp
 OBJECTS_DIR = ./tmp
 RCC_DIR = ./tmp
