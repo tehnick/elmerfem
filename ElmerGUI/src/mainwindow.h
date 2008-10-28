@@ -69,10 +69,13 @@
 #include "checkmpi.h"
 #include "edfeditor.h"
 #include "dynamiceditor.h"
-#include "convergenceview.h"
 #include "egini.h"
 #include "operation.h"
 #include "materiallibrary.h"
+
+#ifdef QWT
+#include "convergenceview.h"
+#endif
 
 #ifdef OCC62
 #include "cad/cadview.h"
@@ -241,7 +244,9 @@ private:
   SifWindow *solverLogWindow;     // Solver log
   SifGenerator *sifGenerator;     // SIF generator
   EdfEditor *edfEditor;           // Edf editor
+#ifdef QWT
   ConvergenceView *convergenceView; // Convergence plotter
+#endif
 
   void createActions();
   void createMenus();

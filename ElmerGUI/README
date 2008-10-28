@@ -3,38 +3,68 @@ Brief build instructions for ElmerGUI:
 
 Prequisites:
 
-   - qt 4                        (tested with 4.2.2 and newer)
-   - qwt 5                       (for qt 4)
+   - Qt 4                        (tested with 4.2.2 and newer)
 
 Optional components:
 
-   - tetlib 1.4.2 (or newer)
-   - nglib 4.5 (or newer)
-   - Open Cascade 6.2
+   - Qwt 5                       (for qt 4)
+   - Vtk 5                       (compiled with qt 4)
+   - Matc                        (part of elmer)
+   - Tetgen                      (1.4.2 or newer)
+   - Netgen                      (4.5 or newer)
+   - Open Cascade                (6.2)
+
+Please read the file LICENSES before using any of these software components.
 
 Tetlib should be installed as described in ../misc/tetgen_patches/REAEDME
 Nglib should be installed as described in ../misc/netgen_patches/README
 
-Please read the file LICENSES before using any of these software components.
+In order to compile ElmerGUI, edit the file ElmerGUI.pro to select the
+optional components, and define the location of the external libraries.
 
-In order to compile ElmerGUI, type (use one of the existing .pro files):
+If this is the first time you compile ElmerGUI, it is recommended to
+comment out the following lines, and add them gradually later:
 
-$ qmake ElmerGUI_Linux.pro
+#------------------------------------------------------------------------------
+# Optional components:
+#------------------------------------------------------------------------------
+# DEFINES += QWT       # Use QWT for convergence monitor?
+# DEFINES += VTKPOST   # Use VTK for postprocessing?
+# DEFINES += MATC      # Use MATC for internal operations in postprocessing?
+
+Then type:
+
+$ qmake
 $ make
+
+If you want to specify a platform dependendent project file, type:
+
+$ qmake ElmerGUI_macosx.pro
+$ make 
 
 This should produce the executable "./ElmerGUI" or "./release/ElmerGUI.exe"
 
-If the above does not work, it is possible that you have to edit the project file and ajust the following lines according to your Qwt installation:
+If the above does not work, it is possible that you have to edit the project
+file more carefully and ajust the following lines according to your Qwt, Vtk,
+and Matc installations:
 
-   INCLUDEPATH += /path/to/qwt5/headers
-   LIBS += -L/path/to/qwt5/lib -lqwt5
+      INCLUDEPATH += /usr/include/qwt-qt4
+      LIBS += -lqwt-qt4
 
-Note that libqtw5 may have a different name on different machines.
+      INCLUDEPATH += /usr/include/vtk-5.0
+      LIBS += -lvtkHybrid -lQVTK
 
-If the libs of tetgen and netgen are found in the path, their functionality will be available to the program. If the libs are not found, the program will run, but with some functionality disabled.
+      LIBPATH += /usr/local/lib
+      LIBS += -lmatc
+
+Note that libqtw5 may have different names on different platforms.
+
+If the libs of tetgen and netgen are found in the path, their functionality
+will be available to the program at start up. If the libs are not found, the
+program will run, but with some functionality disabled.
 
 Finally:
 
-- set the environment variable ELMERGUI_HOME point to the directory containing the executable
+- set the environment variable ELMERGUI_HOME point to the directory
+  containing the executable
 - copy the directory "edf" and its contents in ELMERGUI_HOME
-

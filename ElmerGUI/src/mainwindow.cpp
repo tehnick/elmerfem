@@ -139,18 +139,21 @@ MainWindow::MainWindow()
   sifGenerator->limit = this->limit;
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
-  convergenceView = new ConvergenceView(limit, this);
   glControl = new GLcontrol(this);
   parallel = new Parallel(this);
   checkMpi = new CheckMpi;
   materialLibrary = new MaterialLibrary(this);
 
-#ifdef OCC62
-  cadView = new CadView(this);
+#ifdef QWT
+  convergenceView = new ConvergenceView(limit, this);
 #endif
 
 #ifdef VTKPOST
   vtkp = vtkPost = new VtkPost(this);
+#endif
+
+#ifdef OCC62
+  cadView = new CadView(this);
 #endif
 
   createActions();
@@ -852,7 +855,9 @@ void MainWindow::createMenus()
   solverMenu->addSeparator();
   solverMenu->addAction(runsolverAct);
   solverMenu->addAction(killsolverAct);
+#ifdef QWT
   solverMenu->addAction(showConvergenceAct);
+#endif
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
@@ -5304,8 +5309,10 @@ void MainWindow::runsolverSlot()
   solverLogWindow->show();
 
   // convergence plot:
+#ifdef QWT
   convergenceView->removeData();
   convergenceView->title = "Convergence history";
+#endif
 
   logMessage("Solver started");
 
@@ -5355,8 +5362,10 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   }
   
   // Set up convergence plot:
+#ifdef QWT
   convergenceView->removeData();
   convergenceView->title = "Convergence history";
+#endif
   logMessage("Parallel solver started");
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 
@@ -5524,6 +5533,7 @@ void MainWindow::solverStdoutSlot()
 
   solverLogWindow->textEdit->append(qs);
 
+#ifdef QWT
   if(!showConvergence) {
 
     // hide convergence plot
@@ -5536,8 +5546,8 @@ void MainWindow::solverStdoutSlot()
     //----------------------
     if(!convergenceView->isVisible())
       convergenceView->show();
-
   }
+#endif
     
   QStringList qsl = qs.split("\n");
   for(int i = 0; i < qsl.count(); i++) {
@@ -5548,8 +5558,10 @@ void MainWindow::solverStdoutSlot()
       int last = tmpSplitted.count() - 1;
       QString timeString = tmpSplitted.at(last);
       double timeDouble = timeString.toDouble();
+#ifdef QWT
       convergenceView->title = "Convergence history (time="
 	+ QString::number(timeDouble) + ")";
+#endif
     }   
     
     if(tmp.contains("ComputeChange")) { // && tmp.contains("NS")) {
@@ -5584,11 +5596,13 @@ void MainWindow::solverStdoutSlot()
       }
       
       // res1 = norm, res2 = relative change
+#ifdef QWT
       if(copyOfTmp.contains("NS"))	
 	convergenceView->appendData(res2, "NS/" + name);
       
       if(copyOfTmp.contains("SS"))
 	convergenceView->appendData(res2, "SS/" + name);
+#endif
     }
   }
 }
