@@ -53,6 +53,12 @@ contains(DEFINES, QWT) {
       LIBPATH += /c/QWT/lib
       LIBS += -lqwt5
    }
+
+   macx {
+      INCLUDEPATH += /usr/local/qwt-5.0.2/include
+      LIBPATH += /usr/local/qwt-5.0.2/lib
+      LIBS += -lqwt5
+   }
 }
 
 #------------------------------------------------------------------------------
@@ -69,6 +75,11 @@ contains(DEFINES, VTKPOST) {
       LIBPATH += /c/VTK/lib/vtk-5.2
       LIBS += -lvtkCommon -lvtkRendering -lvtkFiltering -lvtkGraphics -lvtkIO  -lvtkHybrid -lQVTK
    }
+
+   macx {
+      INCLUDEPATH += /usr/local/include/vtk-5.0
+      LIBS += -lvtkHybrid -lQVTK
+   }
 }
 
 #------------------------------------------------------------------------------
@@ -82,6 +93,11 @@ contains(DEFINES, MATC) {
 
    win32 {
       LIBPATH += /c/Elmer5.4/lib
+      LIBS += -lmatc
+   }
+
+   macx {
+      LIBPATH += /usr/local/lib
       LIBS += -lmatc
    }
 }
@@ -249,6 +265,11 @@ contains(DEFINES, VTKPOST) {
 # Resource files:
 #------------------------------------------------------------------------------
 RESOURCES += ElmerGUI.qrc
+
+macx {
+   RC_FILE = M3Dicon.icns
+}
+
 RC_FILE += ElmerGUI.rc   
 
 #------------------------------------------------------------------------------
