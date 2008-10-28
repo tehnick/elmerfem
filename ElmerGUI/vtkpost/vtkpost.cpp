@@ -92,10 +92,20 @@
 #include <vtkObject.h>
 #include <vtkCommand.h>
 #include <vtkFollower.h>
+#include <vtkImplicitPlaneWidget.h>
 
 using namespace std;
 
-// Pick event handler (place cursor on screen && press 'p' to pick):
+// Interaction event handler (press 'i' to interact):
+//-------------------------------------------------------------------
+static void planeEventHandler(vtkObject* caller, unsigned long eid, 
+			      void* clientdata, void* calldata)
+{
+  VtkPost* vtkPost = reinterpret_cast<VtkPost*>(clientdata);
+  // TODO: Update the clip plane and preferences dialog
+}
+
+// Pick event handler (press 'p' to pick):
 //-------------------------------------------------------------------
 static void pickEventHandler(vtkObject* caller, unsigned long eid, 
 			     void* clientdata, void* calldata)
@@ -200,10 +210,6 @@ VtkPost::VtkPost(QWidget *parent)
   currentLut->SetNumberOfColors(128);
   currentLut->Build();
 
-  // Clip plane:
-  //-------------
-  clipPlane = vtkPlane::New();
-
   // User interfaces, widgets, and draw routines:
   //---------------------------------------------
   surface = new Surface(this);
@@ -277,12 +283,26 @@ VtkPost::VtkPost(QWidget *parent)
   qvtkWidget->GetInteractor()->SetPicker(cellPicker);
   cellPicker->Delete();
 
-  vtkCallbackCommand* cbc = vtkCallbackCommand::New();
-  cbc->SetClientData(this);
-  cbc->SetCallback(pickEventHandler);
+  vtkCallbackCommand* cbcPick = vtkCallbackCommand::New();
+  cbcPick->SetClientData(this);
+  cbcPick->SetCallback(pickEventHandler);
+
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
-  picker->AddObserver(vtkCommand::EndPickEvent, cbc);
-  cbc->Delete();
+  picker->AddObserver(vtkCommand::EndPickEvent, cbcPick);
+  cbcPick->Delete();
+
+  // Clip plane & implicit plane widget (placed in groupSelectionChanged):
+  //----------------------------------------------------------------------
+  clipPlane = vtkPlane::New();
+
+  vtkCallbackCommand* cbcPlane = vtkCallbackCommand::New();
+  cbcPlane->SetClientData(this);
+  cbcPlane->SetCallback(planeEventHandler);
+
+  planeWidget = vtkImplicitPlaneWidget::New();
+  planeWidget->SetInteractor(qvtkWidget->GetInteractor());
+  planeWidget->AddObserver(vtkCommand::InteractionEvent, cbcPlane);
+  cbcPlane->Delete();
 }
 
 VtkPost::~VtkPost()
@@ -1102,6 +1122,14 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
   line->Delete();
 
   redrawSlot();
+
+  // Place the implicit plane widget:
+  //---------------------------------
+  double bounds[6];
+  GetBounds(bounds);
+  planeWidget->SetPlaceFactor(1.25);
+  planeWidget->PlaceWidget(bounds);
+  planeWidget->GetEdgesProperty()->SetColor(0, 0, 0);
 }
 
 // Show preferences dialog:
@@ -1154,6 +1182,10 @@ void VtkPost::redrawSlot()
   QCoreApplication::processEvents();
 
   emit(canProceedWithNextSignal(renderWindow));
+
+  planeWidget->GetEdgesProperty()->SetColor(0, 0, 0);
+  planeWidget->GetOutlineProperty()->SetColor(0, 0, 0);
+  planeWidget->GetNormalProperty()->SetColor(1, 0, 0);  
 }
 
 // Draw color bar:
@@ -1526,6 +1558,11 @@ double VtkPost::GetLength()
   if(lineLength > length) length = lineLength;
 
   return length;
+}
+
+void VtkPost::GetBounds(double* bounds)
+{
+  volumeGrid->GetBounds(bounds);
 }
 
 vtkUnstructuredGrid* VtkPost::GetLineGrid()

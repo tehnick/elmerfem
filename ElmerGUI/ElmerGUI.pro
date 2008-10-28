@@ -1,6 +1,6 @@
 #==============================================================================
 #
-#                      ElmerGUI.pro for Linux and MinGW
+#      ElmerGUI: qmake project file for Linux, MinGW, and MacOSX
 #
 #==============================================================================
 
@@ -12,7 +12,7 @@ DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
 
 #------------------------------------------------------------------------------
-# Application:
+# Target:
 #------------------------------------------------------------------------------
 TEMPLATE = app
 TARGET = ElmerGUI
@@ -68,6 +68,7 @@ contains(DEFINES, VTKPOST) {
    unix {
       INCLUDEPATH += /usr/include/vtk-5.0
       LIBS += -lvtkHybrid \
+              -lvtkWidgets \
               -lQVTK
    }
 
@@ -80,12 +81,14 @@ contains(DEFINES, VTKPOST) {
               -lvtkGraphics \
               -lvtkIO  \
               -lvtkHybrid \
+              -lvtkWidgets \
               -lQVTK
    }
 
    macx {
       INCLUDEPATH += /usr/local/include/vtk-5.0
       LIBS += -lvtkHybrid \
+              -lvtkWidgets \
               -lQVTK
    }
 }

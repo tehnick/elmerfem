@@ -61,6 +61,7 @@ class vtkUnstructuredGrid;
 class vtkLookupTable;
 class vtkPlane;
 class vtkAxes;
+class vtkImplicitPlaneWidget;
 class IsoSurface;
 class IsoContour;
 class ColorBar;
@@ -104,6 +105,7 @@ public:
   vtkActor* GetMeshPointActor();
   vtkActor* GetMeshEdgeActor();
   double GetLength();
+  void GetBounds(double*);
   vtkUnstructuredGrid* GetLineGrid();
   vtkUnstructuredGrid* GetSurfaceGrid();
   vtkUnstructuredGrid* GetVolumeGrid();
@@ -253,6 +255,7 @@ private:
   vtkFollower* axesZTextActor;
   vtkScalarBarActor* colorBarActor;
   vtkActor* pickedPointActor;
+  vtkImplicitPlaneWidget* planeWidget;
 
   Surface* surface;         // ui
   Vector* vector;           // ui
