@@ -115,12 +115,12 @@
      REAL (KIND=DP), POINTER :: ElField(:), VolCurrent(:)
      REAL (KIND=DP), POINTER :: Ex(:), Ey(:), Ez(:), Cx(:), Cy(:), Cz(:)
      REAL (KIND=DP), POINTER :: Heating(:), JouleH(:)
-     REAL (KIND=DP), POINTER :: ElectricCond(:), EleC(:)
+     REAL (KIND=DP), POINTER :: EleC(:)
      REAL (KIND=DP), POINTER :: Cwrk(:,:,:)
      REAL (KIND=DP), ALLOCATABLE ::  Conductivity(:,:,:), &
        LocalStiffMatrix(:,:), Load(:), LocalForce(:)
 
-     REAL (KIND=DP) :: Norm, Heatingtot, ControlTarget, ControlScaling = 1.0
+     REAL (KIND=DP) :: Norm, HeatingTot, CurrentTot, ControlTarget, ControlScaling = 1.0
      REAL (KIND=DP) :: MinPotential, MaxPotential, Resistance
      REAL (KIND=DP) :: at, st, at0, CPUTime, RealTime
 
@@ -130,7 +130,7 @@
  
      LOGICAL :: AllocationsDone = .FALSE., gotIt, FluxBC
      LOGICAL :: CalculateField = .FALSE., ConstantWeights
-     LOGICAL :: CalculateCurrent, CalculateHeating, CalculateConductivity
+     LOGICAL :: CalculateCurrent, CalculateHeating
      LOGICAL :: ControlPower, ControlCurrent, Control
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
@@ -139,8 +139,8 @@
      SAVE LocalStiffMatrix, Load, LocalForce, Density, &
           ElementNodes, CalculateCurrent, CalculateHeating, &
           AllocationsDone, VolCurrent, Heating, Conductivity, &
-          CalculateField, ConstantWeights, CalculateConductivity, &
-          ElectricCond, Cwrk, ControlScaling
+          CalculateField, ConstantWeights, &
+          Cwrk, ControlScaling
      
  
 !------------------------------------------------------------------------------
@@ -157,8 +157,11 @@
      DIM = CoordinateSystemDimension()
 
      ControlTarget = GetCReal( Solver % Values,'Power Control',ControlPower)
-     IF(.NOT. ControlPower) &
-       ControlTarget = GetCReal( Solver % Values,'Power Control',ControlCurrent)
+     IF(ControlPower) THEN
+	ControlCurrent = .FALSE.
+     ELSE
+       ControlTarget = GetCReal( Solver % Values,'Current Control',ControlCurrent)
+     END IF
      Control = ControlPower .OR. ControlCurrent
 
      ! To obtain convergence rescale the potential to the original BCs
@@ -188,18 +191,8 @@
  
        CalculateCurrent = ListGetLogical( Solver % Values, &
            'Calculate Volume Current', GotIt )
-       IF ( .NOT. GotIt )  CalculateCurrent = .TRUE.
        IF ( CalculateCurrent )  &
            ALLOCATE( VolCurrent( DIM*Model%NumberOfNodes ), STAT=istat )
-       IF ( istat /= 0 ) THEN
-          CALL Fatal( 'StatCurrentSolve', 'Memory allocation error.' )
-       END IF
-
-       CalculateConductivity = ListGetLogical( Solver % Values, &
-           'Calculate Electric Conductivity', GotIt )
-       IF ( .NOT. GotIt )  CalculateConductivity = .FALSE.
-       IF ( CalculateConductivity )  &
-           ALLOCATE( ElectricCond( Model%NumberOfNodes ), STAT=istat )
        IF ( istat /= 0 ) THEN
           CALL Fatal( 'StatCurrentSolve', 'Memory allocation error.' )
        END IF
@@ -212,7 +205,6 @@
        IF ( .NOT. GotIt )  &
             CalculateHeating = ListGetLogical( Solver % Values, &
             'Calculate Joule Heating', GotIt )
-       IF ( .NOT. GotIt )  CalculateHeating = .TRUE.
        IF ( CalculateHeating )  &
            ALLOCATE( Heating( Model%NumberOfNodes ), STAT=istat )
        IF ( istat /= 0 ) THEN
@@ -266,13 +258,6 @@
              CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
                   Solver, 'Volume Current 3', 1, Cz, PotentialPerm)
           END IF
-       END IF
-
-       IF ( CalculateConductivity ) THEN
-          ElectricCond = 0.0d0
-          EleC => ElectricCond(:)
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               Solver, 'Electric Conductivity', 1, EleC, PotentialPerm )
        END IF
 
        IF ( CalculateHeating ) THEN
@@ -392,15 +377,6 @@
 
         CurrentElement => Solver % Mesh % Elements(t)
 
-!------------------------------------------------------------------------------
-!         Memorize the min and max potential as given by Dirichtlet BCs
-!------------------------------------------------------------------------------          
-        Load(1:n) = ListGetReal(Model % BCs(i) % Values, &
-             ComponentName(Solver % Variable), n, NodeIndexes, gotIt)
-        IF(GotIt) THEN
-          MinPotential = MIN(MinPotential, MINVAL(Load(1:n)))
-          MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
-        END IF
 
 !------------------------------------------------------------------------------
 !       the element type 101 (point element) can only be used
@@ -411,10 +387,6 @@
           IF ( CurrentElement % BoundaryInfo % Constraint == &
                  Model % BCs(i) % Tag ) THEN
 
-            FluxBC = ListGetLogical(Model % BCs(i) % Values, &
-                 'Current Density BC',gotIt) 
-            IF(GotIt .AND. .NOT. FluxBC) CYCLE
-
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
@@ -424,6 +396,20 @@
             n = CurrentElement % TYPE % NumberOfNodes
             NodeIndexes => CurrentElement % NodeIndexes
             IF ( ANY( PotentialPerm(NodeIndexes) <= 0 ) ) CYCLE
+
+!------------------------------------------------------------------------------
+!         Memorize the min and max potential as given by Dirichtlet BCs
+!------------------------------------------------------------------------------          
+            Load(1:n) = ListGetReal(Model % BCs(i) % Values, &
+                ComponentName(Solver % Variable), n, NodeIndexes, gotIt)
+            IF(GotIt) THEN
+              MinPotential = MIN(MinPotential, MINVAL(Load(1:n)))
+              MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
+            END IF
+
+            FluxBC = ListGetLogical(Model % BCs(i) % Values, &
+                 'Current Density BC',gotIt) 
+            IF(GotIt .AND. .NOT. FluxBC) CYCLE
 
 !------------------------------------------------------------------------------
 !             BC: cond@Phi/@n = g
@@ -501,7 +487,7 @@
 
        IF( MaxPotential > MinPotential) THEN
          Resistance = Heatingtot / (MaxPotential - MinPotential)**2
-         WRITE( Message, * ) 'Effective Resistance   :', Resistance
+         WRITE( Message, * ) 'Effective Resistance  :', Resistance
          CALL Info( 'StatCurrentSolve', Message, Level=4 )
          CALL ListAddConstReal( Model % Simulation, &
              'RES: Effective Resistance', Heatingtot )
@@ -509,32 +495,31 @@
      END IF
 
      IF(Control ) THEN
-	CALL Info('StatCurrentSolve','Applying scaling to the system')
         ControlScaling = 1.0_dp
 	IF( ControlPower ) THEN
-	  ControlScaling = SQRT( ControlTarget / HeatingTot )
+           ControlScaling = SQRT( ControlTarget / HeatingTot )
         ELSE IF( ControlCurrent ) THEN
-	  IF( MaxPotential - MinPotential > 0.0d0 ) THEN
-            ControlScaling = ControlTarget / ( HeatingTot / (MaxPotential - MinPotential))
-          ELSE
-            CALL Warn('StatCurrentSolver','Current cannot be determined without pot. difference')
-          END IF
+           IF( MaxPotential - MinPotential > 0.0d0 ) THEN
+              CurrentTot = HeatingTot / (MaxPotential - MinPotential)
+              ControlScaling = ControlTarget / CurrentTot
+              WRITE( Message, * ) 'Total Current         :', CurrentTot
+             CALL Info( 'StatCurrentSolve', Message, Level=4 )
+              CALL ListAddConstReal( Model % Simulation, &
+                   'RES: TotalCurrent', CurrentTot )
+           ELSE
+              CALL Warn('StatCurrentSolver','Current cannot be determined without pot. difference')
+           END IF
         END IF
 
-        IF ( CalculateHeating )  Heating = ControlScaling**2 * Heating
-        IF ( CalculateCurrent )  VolCurrent = ControlScaling * VolCurrent
-
-        WRITE( Message, * ) 'Control Scaling   :', ControlScaling
+        WRITE( Message, * ) 'Control Scaling       :', ControlScaling
         CALL Info( 'StatCurrentSolve', Message, Level=4 )
         CALL ListAddConstReal( Model % Simulation, &
-           'RES: CurrentSolver Scaling', Heatingtot )
-      END IF
+             'RES: CurrentSolver Scaling', ControlScaling )
 
-!------------------------------------------------------------------------------
-
-     IF ( Heatingtot > 0.0D0 ) THEN
-
-    END IF
+        Potential = ControlScaling * Potential
+        IF ( CalculateHeating )  Heating = ControlScaling**2 * Heating
+        IF ( CalculateCurrent )  VolCurrent = ControlScaling * VolCurrent
+     END IF
 
 !------------------------------------------------------------------------------
 
@@ -550,9 +535,6 @@
      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Joule Heating')
    END IF
 
-   IF ( CalculateConductivity ) THEN
-      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Conductivity' )
-   END IF
 
 !------------------------------------------------------------------------------
  
@@ -597,7 +579,6 @@
     HeatingTot = 0.0d0
     IF ( CalculateHeating )  Heating = 0.0d0
     IF ( CalculateCurrent )  VolCurrent = 0.0d0
-    IF ( CalculateConductivity )  ElectricCond = 0.0d0
 
 !------------------------------------------------------------------------------
 !   Go through model elements, we will compute on average of elementwise
@@ -648,14 +629,12 @@
           DO i=1,MIN(3,SIZE(Cwrk,1))
              Conductivity(i,i,1:n) = Cwrk(i,1,1:n)
           END DO
-          CalculateConductivity = .FALSE.
        ELSE
           DO i=1,MIN(3,SIZE(Cwrk,1))
              DO j=1,MIN(3,SIZE(Cwrk,2))
                 Conductivity( i,j,1:n ) = Cwrk(i,j,1:n)
              END DO
           END DO
-          CalculateConductivity = .FALSE.
        END IF
 
 !------------------------------------------------------------------------------
@@ -752,11 +731,6 @@
                Heating( Reorder(NodeIndexes(1:n)) ) + HeatingDensity
        END IF
 
-       IF ( CalculateConductivity ) THEN
-          ElectricCond( Reorder(NodeIndexes(1:n)) ) = &
-               ElectricCond( Reorder(NodeIndexes(1:n)) ) + ECond
-       END IF
-        
        IF ( CalculateCurrent ) THEN
           DO j=1,DIM 
              VolCurrent(DIM*(Reorder(NodeIndexes(1:n))-1)+j) = &
@@ -774,8 +748,6 @@
     DO i = 1, Model % NumberOfNodes
        IF ( ABS( SumOfWeights(i) ) > 0.0D0 ) THEN
           IF ( CalculateHeating )  Heating(i) = Heating(i) / SumOfWeights(i)
-          IF ( CalculateConductivity )  ElectricCond(i) = &
-               ElectricCond(i) / SumOfWeights(i)
           DO j = 1, DIM
              IF ( CalculateCurrent )  VolCurrent(DIM*(i-1)+j) = &
                   VolCurrent(DIM*(i-1)+j) /  SumOfWeights(i)

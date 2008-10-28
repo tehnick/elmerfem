@@ -311,19 +311,20 @@ CONTAINS
       IF ( ALL(Mx % Perm(NodeIndexes) > 0) ) JouleMode = 1
     END IF	
 
-    IF( JouleMode == 0 ) THEN
-       Mx => VariableGet( CurrentModel % Variables, 'Potential' )
+     IF( JouleMode == 0 ) THEN
+       Mx => VariableGet( CurrentModel % Variables, 'Joule Field' )
        IF ( ASSOCIATED( Mx ) ) THEN
           IF ( ALL(Mx % Perm(NodeIndexes) > 0) ) JouleMode = 2
        END IF
     END IF
 
     IF( JouleMode == 0 ) THEN
-       Mx => VariableGet( CurrentModel % Variables, 'Joule Field' )
+       Mx => VariableGet( CurrentModel % Variables, 'Potential' )
        IF ( ASSOCIATED( Mx ) ) THEN
           IF ( ALL(Mx % Perm(NodeIndexes) > 0) ) JouleMode = 3
        END IF
     END IF
+
 
     IF( JouleMode == 0) RETURN
     
@@ -409,10 +410,17 @@ CONTAINS
             elcond            
     END IF
 
-    !------------------------------------------------------------------------------
-    !  Static current condution
+     !------------------------------------------------------------------------------
+    !  Axisymmetric vector potential
     !------------------------------------------------------------------------------
     IF( JouleMode == 2) THEN
+       JouleH = elcond * SUM( Basis(1:n)*Mx % Values(Mx % Perm(NodeIndexes)) )
+    END IF
+
+   !------------------------------------------------------------------------------
+    !  Static current condution
+    !------------------------------------------------------------------------------
+    IF( JouleMode == 3) THEN
        ! The electric field at IP
        B(1) = SUM( dBasisdx(1:n,1)*Mx % Values(Mx % Perm(NodeIndexes)) )
        B(2) = SUM( dBasisdx(1:n,2)*Mx % Values(Mx % Perm(NodeIndexes)) )
@@ -420,12 +428,6 @@ CONTAINS
        JouleH = elcond * SUM( B * B )
     END IF
 
-    !------------------------------------------------------------------------------
-    !  Axisymmetric vector potential
-    !------------------------------------------------------------------------------
-    IF( JouleMode == 3) THEN
-       JouleH = elcond * SUM( Basis(1:n)*Mx % Values(Mx % Perm(NodeIndexes)) )
-    END IF
 
 CONTAINS
 
