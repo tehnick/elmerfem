@@ -51,6 +51,8 @@
 #include <vtkProperty.h>
 #include <vtkActor.h>
 #include <vtkTubeFilter.h>
+#include <vtkClipPolyData.h>
+#include <vtkPlane.h>
 
 using namespace std;
 
@@ -75,7 +77,8 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   bool useTubeFilter = preferences->ui.featureEdgeTubes->isChecked();
   int tubeQuality = preferences->ui.featureEdgeTubeQuality->value();
   int radius = preferences->ui.featureEdgeTubeRadius->value();  
-  
+  bool useClip = preferences->ui.featureEdgesClip->isChecked();
+
   vtkUnstructuredGrid* grid = NULL;
 
   if(useSurfaceGrid) {
@@ -103,16 +106,30 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkTubeFilter* tubes = vtkTubeFilter::New();
   if(useTubeFilter) {
     double r = vtkPost->GetLength() * radius / 2000.0;
-    tubes->SetInputConnection(edges->GetOutputPort());
     tubes->SetNumberOfSides(tubeQuality);
     tubes->SetRadius(r);
   }
 
+  vtkClipPolyData* clipper = vtkClipPolyData::New();
+  if(useClip) {
+    if(useTubeFilter) {
+      clipper->SetInputConnection(tubes->GetOutputPort());
+    } else {
+      clipper->SetInputConnection(edges->GetOutputPort());
+    }
+    clipper->SetClipFunction(vtkPost->GetClipPlane());
+    clipper->GenerateClippedOutputOn();    
+  }
+
   vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
-  if(useTubeFilter) {
-    mapper->SetInputConnection(tubes->GetOutputPort());
+  if(useClip) {
+    mapper->SetInputConnection(clipper->GetOutputPort());
   } else {
-    mapper->SetInputConnection(edges->GetOutputPort());
+    if(useTubeFilter) {
+      mapper->SetInputConnection(tubes->GetOutputPort());
+    } else {
+      mapper->SetInputConnection(edges->GetOutputPort());
+    }
   }
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
@@ -123,6 +140,7 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkPost->GetFeatureEdgeActor()->SetMapper(mapper);
 
   mapper->Delete();
+  clipper->Delete();
   tubes->Delete();
   edges->Delete();
   filter->Delete();

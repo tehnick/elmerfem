@@ -1142,6 +1142,9 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
   planeWidget->PlaceWidget(bounds);
   planeWidget->SetOrigin(origin);
   planeWidget->GetEdgesProperty()->SetColor(0, 0, 0);
+
+  SetClipPlaneOrigin(planeWidget->GetOrigin());
+  SetClipPlaneNormal(planeWidget->GetNormal());
 }
 
 // Show preferences dialog:
@@ -1615,7 +1618,6 @@ vtkPlane* VtkPost::GetClipPlane()
 void VtkPost::SetClipPlaneOrigin(double* origin)
 {
   clipPlane->SetOrigin(origin);
-
   preferences->ui.clipPointX->setText(QString::number(origin[0]));
   preferences->ui.clipPointY->setText(QString::number(origin[1]));
   preferences->ui.clipPointZ->setText(QString::number(origin[2]));

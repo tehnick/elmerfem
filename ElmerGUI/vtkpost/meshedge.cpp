@@ -50,6 +50,8 @@
 #include <vtkProperty.h>
 #include <vtkActor.h>
 #include <vtkTubeFilter.h>
+#include <vtkClipPolyData.h>
+#include <vtkPlane.h>
 
 using namespace std;
 
@@ -73,6 +75,7 @@ void MeshEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   bool useTubeFilter = preferences->ui.meshEdgeTubes->isChecked();
   int quality = preferences->ui.meshEdgeTubeQuality->value();
   int radius = preferences->ui.meshEdgeTubeRadius->value();
+  bool useClip = preferences->ui.meshEdgesClip->isChecked();
 
   vtkUnstructuredGrid* grid = NULL;
 
@@ -97,11 +100,26 @@ void MeshEdge::draw(VtkPost* vtkPost, Preferences* preferences)
     tubes->SetRadius(r);
   }
 
+  vtkClipPolyData* clipper = vtkClipPolyData::New();
+  if(useClip) {
+    if(useTubeFilter) {
+      clipper->SetInputConnection(tubes->GetOutputPort());
+    } else {
+      clipper->SetInputConnection(edges->GetOutputPort());
+    }
+    clipper->SetClipFunction(vtkPost->GetClipPlane());
+    clipper->GenerateClippedOutputOn();
+  }
+
   vtkDataSetMapper* mapper = vtkDataSetMapper::New();
-  if(useTubeFilter) {
-    mapper->SetInputConnection(tubes->GetOutputPort());
+  if(useClip) {
+    mapper->SetInputConnection(clipper->GetOutputPort());    
   } else {
-    mapper->SetInputConnection(edges->GetOutputPort());
+    if(useTubeFilter) {
+      mapper->SetInputConnection(tubes->GetOutputPort());
+    } else {
+      mapper->SetInputConnection(edges->GetOutputPort());
+    }
   }
   mapper->ScalarVisibilityOff();
   mapper->SetResolveCoincidentTopologyToPolygonOffset();
@@ -112,6 +130,7 @@ void MeshEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkPost->GetMeshEdgeActor()->SetMapper(mapper);
 
   mapper->Delete();
+  clipper->Delete();
   tubes->Delete();
   edges->Delete();
 }

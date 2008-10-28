@@ -50,6 +50,8 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 #include <vtkActor.h>
+#include <vtkClipPolyData.h>
+#include <vtkPlane.h>
 
 using namespace std;
 
@@ -72,6 +74,7 @@ void MeshPoint::draw(VtkPost* vtkPost, Preferences* preferences)
   int pointQuality = preferences->ui.pointQuality->value();
   int pointSize = preferences->ui.pointSize->value();
   bool useSurfaceGrid = preferences->ui.meshPointsSurface->isChecked();
+  bool useClip = preferences->ui.meshPointsClip->isChecked();
 
   vtkSphereSource* sphere = vtkSphereSource::New();
   sphere->SetRadius((double)pointSize * length / 2000.0);
@@ -91,18 +94,29 @@ void MeshPoint::draw(VtkPost* vtkPost, Preferences* preferences)
   if(grid->GetNumberOfPoints() < 1) return;
 
   vtkGlyph3D* glyph = vtkGlyph3D::New();
-
   glyph->SetInput(grid);
   glyph->SetSourceConnection(sphere->GetOutputPort());
 
+  vtkClipPolyData* clipper = vtkClipPolyData::New();
+  if(useClip) {
+    clipper->SetInputConnection(glyph->GetOutputPort());
+    clipper->SetClipFunction(vtkPost->GetClipPlane());
+    clipper->GenerateClippedOutputOn();
+  }
+
   vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
-  mapper->SetInputConnection(glyph->GetOutputPort());
+  if(useClip) {
+    mapper->SetInputConnection(clipper->GetOutputPort());
+  } else {
+    mapper->SetInputConnection(glyph->GetOutputPort());
+  }
   mapper->ScalarVisibilityOff();
 
   vtkPost->GetMeshPointActor()->SetMapper(mapper);
   vtkPost->GetMeshPointActor()->GetProperty()->SetColor(0.5, 0.5, 0.5);
 
+  mapper->Delete();
+  clipper->Delete();
   glyph->Delete();
   sphere->Delete();
-  mapper->Delete();
 }
