@@ -106,6 +106,7 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkTubeFilter* tubes = vtkTubeFilter::New();
   if(useTubeFilter) {
     double r = vtkPost->GetLength() * radius / 2000.0;
+    tubes->SetInputConnection(edges->GetOutputPort());
     tubes->SetNumberOfSides(tubeQuality);
     tubes->SetRadius(r);
   }
