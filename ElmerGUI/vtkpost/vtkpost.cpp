@@ -333,6 +333,7 @@ void VtkPost::createActions()
   connect(reloadPostAct, SIGNAL(triggered()), this, SLOT(reloadPostSlot()));
 
   readEpFileAct = new QAction(QIcon(""), tr("Open..."), this);
+  readEpFileAct->setShortcut(tr("Ctrl+O"));
   readEpFileAct->setStatusTip("Read input file");
   connect(readEpFileAct, SIGNAL(triggered()), this, SLOT(readEpFileSlot()));
 
@@ -417,6 +418,7 @@ void VtkPost::createActions()
   connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
 
   clipAllAct = new QAction(QIcon(""), tr("Clip all"), this);
+  clipAllAct->setShortcut(tr("Ctrl+C"));
   clipAllAct->setStatusTip("Apply clip plane to all actors");
   clipAllAct->setCheckable(true);
   clipAllAct->setChecked(false);
