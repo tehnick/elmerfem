@@ -53,6 +53,7 @@
 #include <vtkLookupTable.h>
 #include <vtkProperty.h>
 #include <vtkActor.h>
+#include <vtkTubeFilter.h>
 #include <vtkClipPolyData.h>
 #include <vtkPlane.h>
 
@@ -168,6 +169,9 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   QString colorName = ui.colorCombo->currentText();
   double colorMinVal = ui.colorMinEdit->text().toDouble();
   double colorMaxVal = ui.colorMaxEdit->text().toDouble();
+  bool useTubeFilter = ui.useTubeFilter->isChecked();
+  int tubeRadius = ui.tubeRadius->value();
+  int tubeQuality = ui.tubeQuality->value();
   bool useClip = ui.useClip->isChecked();
   useClip |= vtkPost->GetClipAll();
 
@@ -217,11 +221,25 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
+  // Tube filter:
+  //-------------
+  vtkTubeFilter* tubes = vtkTubeFilter::New();
+  if(useTubeFilter) {
+    double r = vtkPost->GetLength() * tubeRadius / 2000.0;
+    tubes->SetInputConnection(iso->GetOutputPort());
+    tubes->SetNumberOfSides(tubeQuality);
+    tubes->SetRadius(r);
+  }
+
   // Apply clip plane:
   //-------------------
   vtkClipPolyData* clipper = vtkClipPolyData::New();
   if(useClip) {
-    clipper->SetInputConnection(iso->GetOutputPort());
+    if(useTubeFilter) {
+      clipper->SetInputConnection(tubes->GetOutputPort());
+    } else {
+      clipper->SetInputConnection(iso->GetOutputPort());
+    }
     clipper->SetClipFunction(vtkPost->GetClipPlane());
     clipper->GenerateClipScalarsOn();
     clipper->GenerateClippedOutputOn();
@@ -233,7 +251,11 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   if(useClip) {
     mapper->SetInputConnection(clipper->GetOutputPort());
   } else {
-    mapper->SetInputConnection(iso->GetOutputPort());
+    if(useTubeFilter) {
+      mapper->SetInputConnection(tubes->GetOutputPort());
+    } else {
+      mapper->SetInputConnection(iso->GetOutputPort());
+    }
   }
   mapper->ScalarVisibilityOn();
   mapper->SelectColorArray("IsoContourColor");
@@ -252,6 +274,7 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   //----------
   mapper->Delete();
   clipper->Delete();
+  tubes->Delete();
   iso->Delete();
   colorArray->Delete();
   contourArray->Delete();
