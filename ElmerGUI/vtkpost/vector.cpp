@@ -53,6 +53,8 @@
 #include <vtkPolyDataMapper.h>
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
+#include <vtkClipPolyData.h>
+#include <vtkPlane.h>
 
 using namespace std;
 
@@ -166,6 +168,8 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   int quality = ui.qualitySpin->value();
   int scaleMultiplier = ui.scaleSpin->value();
   bool scaleByMagnitude = ui.scaleByMagnitude->isChecked();
+  bool useClip = ui.useClip->isChecked();
+  useClip |= vtkPost->GetClipAll();
 
   ScalarField* sf_x = &scalarField[index + 0];
   ScalarField* sf_y = &scalarField[index + 1];
@@ -240,8 +244,22 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
 
   glyph->SetColorModeToColorByScale();
   
+  vtkClipPolyData* clipper = vtkClipPolyData::New();
+
+  if(useClip) {
+    clipper->SetInputConnection(glyph->GetOutputPort());
+    clipper->SetClipFunction(vtkPost->GetClipPlane());
+    clipper->GenerateClipScalarsOn();
+    clipper->GenerateClippedOutputOn();
+  }
+
   vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
-  mapper->SetInputConnection(glyph->GetOutputPort());
+
+  if(useClip) {
+    mapper->SetInputConnection(clipper->GetOutputPort());    
+  } else {
+    mapper->SetInputConnection(glyph->GetOutputPort());
+  }
   mapper->SetScalarModeToUsePointFieldData();
   mapper->ScalarVisibilityOn();
   mapper->SetScalarRange(minVal, maxVal);
@@ -253,6 +271,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   vtkPost->SetCurrentVectorName(colorName);
 
   mapper->Delete();
+  clipper->Delete();
   arrow->Delete();
   glyph->Delete();
   vectorColor->Delete();
