@@ -53,6 +53,8 @@
 #include <vtkLookupTable.h>
 #include <vtkProperty.h>
 #include <vtkActor.h>
+#include <vtkClipPolyData.h>
+#include <vtkPlane.h>
 
 using namespace std;
 
@@ -166,6 +168,8 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   QString colorName = ui.colorCombo->currentText();
   double colorMinVal = ui.colorMinEdit->text().toDouble();
   double colorMaxVal = ui.colorMaxEdit->text().toDouble();
+  bool useClip = ui.useClip->isChecked();
+  useClip |= vtkPost->GetClipAll();
 
   ScalarField* sf = &scalarField[contourIndex];
   int maxDataStepsContour = sf->values / vtkPost->NofNodes();
@@ -213,10 +217,24 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   iso->ComputeScalarsOn();
   iso->GenerateValues(contours, contourMinVal, contourMaxVal);
 
+  // Apply clip plane:
+  //-------------------
+  vtkClipPolyData* clipper = vtkClipPolyData::New();
+  if(useClip) {
+    clipper->SetInputConnection(iso->GetOutputPort());
+    clipper->SetClipFunction(vtkPost->GetClipPlane());
+    clipper->GenerateClipScalarsOn();
+    clipper->GenerateClippedOutputOn();
+  }
+
   // Mapper:
-  //--------
+  //---------
   vtkDataSetMapper* mapper = vtkDataSetMapper::New();
-  mapper->SetInputConnection(iso->GetOutputPort());
+  if(useClip) {
+    mapper->SetInputConnection(clipper->GetOutputPort());
+  } else {
+    mapper->SetInputConnection(iso->GetOutputPort());
+  }
   mapper->ScalarVisibilityOn();
   mapper->SelectColorArray("IsoContourColor");
   mapper->SetScalarModeToUsePointFieldData();
@@ -233,6 +251,7 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   // Clean up:
   //----------
   mapper->Delete();
+  clipper->Delete();
   iso->Delete();
   colorArray->Delete();
   contourArray->Delete();
