@@ -45,6 +45,7 @@
 #include "vector.h"
 #include "timestep.h"
 
+#include <vtkPolyDataNormals.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkPointData.h>
 #include <vtkFloatArray.h>
@@ -170,6 +171,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   bool scaleByMagnitude = ui.scaleByMagnitude->isChecked();
   bool useClip = ui.useClip->isChecked();
   useClip |= vtkPost->GetClipAll();
+  bool useNormals = ui.useNormals->isChecked();
 
   ScalarField* sf_x = &scalarField[index + 0];
   ScalarField* sf_y = &scalarField[index + 1];
@@ -254,12 +256,28 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
     clipper->GenerateClippedOutputOn();
   }
 
+  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
+
+  if(useNormals) {
+    if(useClip) {
+      normals->SetInputConnection(clipper->GetOutputPort());
+    } else {
+      normals->SetInputConnection(glyph->GetOutputPort());
+    }
+    normals->SetFeatureAngle(180.0);
+  }
+
+
   vtkPolyDataMapper* mapper = vtkPolyDataMapper::New();
 
-  if(useClip) {
-    mapper->SetInputConnection(clipper->GetOutputPort());    
+  if ( useNormals ) {
+      mapper->SetInputConnection(normals->GetOutputPort());    
   } else {
-    mapper->SetInputConnection(glyph->GetOutputPort());
+    if(useClip) {
+      mapper->SetInputConnection(clipper->GetOutputPort());    
+    } else {
+      mapper->SetInputConnection(glyph->GetOutputPort());
+    }
   }
   mapper->SetScalarModeToUsePointFieldData();
   mapper->ScalarVisibilityOn();
@@ -271,6 +289,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   vtkPost->GetVectorActor()->SetMapper(mapper);
   vtkPost->SetCurrentVectorName(colorName);
 
+  normals->Delete();
   mapper->Delete();
   clipper->Delete();
   arrow->Delete();
