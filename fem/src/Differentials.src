@@ -306,16 +306,18 @@ CONTAINS
     NodeIndexes => Element % NodeIndexes
 
     JouleMode = 0
-    Mx => VariableGet( CurrentModel % Variables, 'Magnetic Field 1' )
-    IF ( ASSOCIATED( Mx ) ) THEN
-      IF ( ALL(Mx % Perm(NodeIndexes) > 0) ) JouleMode = 1
-    END IF	
-
-     IF( JouleMode == 0 ) THEN
+    IF( JouleMode == 0 ) THEN
        Mx => VariableGet( CurrentModel % Variables, 'Joule Field' )
        IF ( ASSOCIATED( Mx ) ) THEN
           IF ( ALL(Mx % Perm(NodeIndexes) > 0) ) JouleMode = 2
        END IF
+    END IF
+
+    IF( JouleMode == 0 ) THEN
+      Mx => VariableGet( CurrentModel % Variables, 'Magnetic Field 1' )
+      IF ( ASSOCIATED( Mx ) ) THEN
+        IF ( ALL(Mx % Perm(NodeIndexes) > 0) ) JouleMode = 1
+      END IF	
     END IF
 
     IF( JouleMode == 0 ) THEN
@@ -345,8 +347,7 @@ CONTAINS
     !  All modelds need electric conductivity
     !------------------------------------------------------------------------------
     k = ListGetInteger( CurrentModel % Bodies &
-         (Element % BodyId) % Values, 'Material', &
-         minv=1, maxv=CurrentModel % NumberOfMaterials )
+         (Element % BodyId) % Values, 'Material')
     Material => CurrentModel % Materials(k) % Values
     
     ElectricConductivity(1:n) = ListGetReal( Material, &
@@ -355,10 +356,14 @@ CONTAINS
        CALL Warn('JouleHeat','Use electric conductivity instead of electrical')
     ELSE
        ElectricConductivity(1:n) = ListGetReal( Material, &
-            'Electric Conductivity',n,NodeIndexes )
+            'Electric Conductivity',n,NodeIndexes,GotIt )
     END IF
     elcond = SUM( ElectricConductivity(1:n) * Basis(1:n) )
- 
+
+
+    ! Joule heating takes place only when there is ohmic resistance
+    IF( elcond < TINY(elcond) ) RETURN
+
     !------------------------------------------------------------------------------
     !  Magnetic induction equation
     !------------------------------------------------------------------------------
@@ -427,7 +432,6 @@ CONTAINS
        B(3) = SUM( dBasisdx(1:n,3)*Mx % Values(Mx % Perm(NodeIndexes)) )     
        JouleH = elcond * SUM( B * B )
     END IF
-
 
 CONTAINS
 
