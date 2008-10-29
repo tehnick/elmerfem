@@ -5,7 +5,7 @@
 \newcommand{\menu}[2]{{\it \vskip2mm #1 $\rightarrow$ #2 \vskip2mm}}
 \newcommand{\dynmenu}[3]{{\it \vskip2mm #1 $\rightarrow$ #2 $\rightarrow$ #3 \vskip2mm}}
 
-\title{ElmerGUI manual v. 0.1}
+\title{ElmerGUI manual v. 0.2}
 \author{Mikko Lyly}
 
 \begin{document}
@@ -22,8 +22,9 @@
 ElmerGUI is a graphical user interface for the Elmer software suite
 \cite{ElmerHome}. The program is capable of importing finite element mesh files in
 various formats, generating finite element partitionings for models with piecewise linear
-boundaries, setting up PDE-systems to solve, and exporting model data and result files
-for ElmerSolver and ElmerPost.
+boundaries, setting up PDE-systems to solve, and exporting model data and results
+for ElmerSolver and ElmerPost. There is also an internal postprocessor, which can be
+used to plot color surfaces, contours, vector fields, and visualize time dependent data.
 
 \begin{figure}[ht]
 \begin{center}
@@ -32,51 +33,40 @@ for ElmerSolver and ElmerPost.
 \end{center}
 \end{figure}
 
-ElmerGUI has been written to facilitate the usage of ElmerSolver. It provides interfaces
-to the most common solver modules (such as heat transfer, linear elasticity, and
-Navier-Stokes equations) and to some generic numerical methods (such as iterative solvers
-and ILU preconditioners), but it is far from complete in what comes to the full potential
-of the solver. The best and most accurate control over ElmerSolver is still obtained
-by direct modification of the solver input files according to the reference manuals.
-
-One of the main features of ElmerGUI is the interface to the parallel 
-solver, i.e., ElmerSolver\_mpi. The GUI hides from the user a number of operations that
-are normally performed from command line with various external tools (domain
-decomposition, launching the MPI-processes, and merging the results). With
-ElmerGUI, the user is only
-expected to prescribe the number of processes and the rest is transparent. This makes
-it possible to use Elmer with multi-core processors even on an interactive desktop environment.
+One of the main features of ElmerGUI is the interface to the parallel solver engine.
+The GUI hides from the user a number of operations that are normally performed from command line with various external tools related to domain decomposition, launching the paralle processes, and merging the results. This makes it possible to use ElmerSolver with multi-core processors even on interactive desktop
+environments.
 
 The menus of ElmerGUI are programmable and it should be relatively easy to strip and
-customize the interface for any specific application. An example of customizing the
-menus is provided in appendix A. 
+customize the interface for an proprietary application. An example of customizing the
+menus is provided in appendix A.
 
-ElmerGUI relies on the Qt4 cross platform framework \cite{QtHome} and it uses the Qwt5 libray \cite{QwtHome} for technical applications. The program is capable of linking against certain external finite element and cad libraries, such as libtet \cite{TetgenHome} and libng \cite{NetgenHome}. If you are planning to use libtet as a module with ElmerGUI, please consult the web site of Tetgen for licensing.
+ElmerGUI relies on the Qt4 cross platform framework \cite{QtHome} and it uses the Qwt5 libray
+\cite{QwtHome} for technical applications to monitor the solution. The internal postprocessor is based on VTK (Visualization Toolkit) \cite{VTKHome}. The program is capable of using Tetgen \cite{TetgenHome} and Netgen \cite{NetgenHome} as external finite element mesh generators.
 
 \section{Installation from source}
 
-The source code of ElmerGUI is available at the subversion repository of SourceForge.Net. The GPL licenced source may be downloaded by executing the following command with a SVN client program (on Windows the Tortoise SVN client is recommended):
+The source code of ElmerGUI is available from the subversion repository of SourceForge.Net. The GPL licenced source may be downloaded by executing the following command with a SVN client program (on Windows the Tortoise SVN client is recommended):
 
 \begin{footnotesize}
 \begin{verbatim}
 svn co https://elmerfem.svn.sourceforge.net/svnroot/elmerfem/trunk trunk
 \end{verbatim}
 \end{footnotesize}
-\noindent This will retrieve the current development version of the whole Elmer-suite.
+\noindent This will retrieve the current development version of the Elmer-suite.
 
-\subsection{Linux}
+Bofore staring to compile, please make sure that you have the development packages of Qt4 and Qwt5 installed on your system (i.e., libraries, headers, and program development tools). Qt version 4.2 or higher is recommended. If you want to compile the internal postprocessor, then the development packages of VTK version 5 or higher are also required.
 
-Make sure that you have the development packages of Qt4 and Qwt5 installed on your system (i.e., libraries, headers, and program development tools). Qt version 4.2 or higher is recommended.
-
-Execute the following sequence of commands in a terminal window:
+The program is compiled by executing the following sequence of commands in a terminal window:
 \begin{verbatim}
 $ cd elmerfem/trunk/ElmerGUI
-$ qmake ElmerGUI_Linux.pro
+$ qmake
 $ make
 \end{verbatim}
-It is possible that the project file ``ElmerGUI\_Linux.pro'' needs to be edited depending on how and where Qwt5 has been installed.
 
-Finally, set up the environment variable {\tt ELMERGUI\_HOME}, add it to {\tt PATH}, and copy the file ``ElmerGUI'' as well as the directory ``edf'' in this location:
+It is possible that the project file ``ElmerGUI.pro'' needs to be edited depending on how and where the external libraries have been installed. The lines that need attention can be found from the beginning of the file.
+
+Finally, once the build process has finished, it suffices to set up the environment variable {\tt ELMERGUI\_HOME}, add it to {\tt PATH}, and copy the file ``ElmerGUI'' and the directory ``edf'' in this location:
 \begin{verbatim}
 $ export ELMERGUI_HOME=$ELMER_HOME/bin
 $ export PATH=$PATH:$ELMERGUI_HOME
@@ -88,28 +78,7 @@ Later, it is possible to upgrade ElmerGUI by typing
 $ svn update
 $ make
 \end{verbatim}
-and by copying the executable and the edf directory in {\tt ELMERGUI\_HOME}.
-
-
-\subsection{Windows}
-
-The installation instructions for Windows are almost the same as for Linux. You will need  MinGW and MSYS and the open source version of Qt4 installed on your system \cite{QtHome}.  Qwt5 has to be compiled from source \cite{QwtHome}.
-
-Once the prequisites are fulfilled, execute the following sequence of command in a MSYS shell:
-\begin{verbatim}
-$ cd elmerfem/trunk/ElmerGUI
-$ qmake ElmerGUI_MinGW.pro
-$ make
-$ mv ./release/ElmerGUI.exe ./ElmerGUI.exe
-\end{verbatim}
-It is possible that the project file ``ElmerGUI\_MinGW.pro'' needs to be edited depending on how and where Qwt5 has been installed.
-
-Finally, set up the environment variable {\tt ELMERGUI\_HOME}, add it to {\tt PATH}, and copy the executable ``ElmerGUI.exe'' and the directory ``edf'' into this location:
-\begin{verbatim}
-$ export ELMERGUI_HOME=$ELMER_HOME/bin
-$ export PATH=$PATH:$ELMERGUI_HOME
-$ cp -r ./ElmerGUI.exe ./edf $ELMERGUI_HOME
-\end{verbatim}
+and by copying the new executable as well as the updated edf directory in {\tt ELMERGUI\_HOME}.
 
 \section{Input files}
 
@@ -124,7 +93,7 @@ boundaries. It is possible to use one of the following mesh generators:
  \item Netgen (optional)
 \end{itemize}
 The default import filter and mesh generator is ElmerGrid. Tetgen and Netgen are optional
-modules, which may or may not be available.
+modules, which may or may not be available depending on the installation.
 
 An import filter or a mesh generator is selected automatically by ElmerGUI when a geometry
 input file is opened from the File menu:
@@ -182,16 +151,15 @@ mesh.boundary
 
 \noindent The files have to be located side by side in the same mesh directory.
 
-Elmer mesh files may be loaded and/or saved by opening the mesh directory fro the File menu:
+Elmer mesh files may be loaded and/or saved by opening the mesh directory from the File menu:
 \menu{File}{Load mesh...}
 \noindent and/or
 \menu{File}{Save as...}
 
 \subsection{Project files}
 
-An ElmerGUI project consists of a project directory with Elmer mesh files and a set of
-.dat files defining the contents of the menus. Projects may be loaded and/or saved from
-the File menu as
+An ElmerGUI project consists of a project directory containing Elmer mesh files and an xml-formatted 
+document {\tt egproject.xml} describing the current state and settings. Projects may be loaded and/or saved from the File menu as
 \menu{File}{Load project...}
 \noindent and/or
 \menu{File}{Save project...}
@@ -205,15 +173,9 @@ The contents of a typical project directory is the following:
 
 \begin{footnotesize}
 \begin{verbatim}
-bodyforce.dat 
-bodyproperty.dat 
-boundarycondition.dat 
-boundaryproperty.dat 
 case.sif 
+egproject.xml
 ELMERSOLVER_STARTINFO 
-equation.dat 
-initialcondition.dat 
-material.dat 
 mesh.boundary 
 mesh.elements 
 mesh.header 
