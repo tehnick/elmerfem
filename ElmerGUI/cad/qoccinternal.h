@@ -1,18 +1,18 @@
 /****************************************************************************
-**
-** This file is part of the QtOpenCascade Toolkit.
-**
-** This file may be used under the terms of the GNU General Public
-** License version 2.0 as published by the Free Software Foundation
-** and appearing in the file LICENSE.GPL included in the packaging of
-** this file.
-**
-** Copyright (C) Peter Dolbey 2006-7. All rights reserved.
-**
-** This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
-** WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
-**
-****************************************************************************/
+ **
+ ** This file is part of the QtOpenCascade Toolkit.
+ **
+ ** This file may be used under the terms of the GNU General Public
+ ** License version 2.0 as published by the Free Software Foundation
+ ** and appearing in the file LICENSE.GPL included in the packaging of
+ ** this file.
+ **
+ ** Copyright (C) Peter Dolbey 2006-7. All rights reserved.
+ **
+ ** This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
+ ** WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ **
+ ****************************************************************************/
 
 #ifndef QOCCINTERNAL_H
 #define QOCCINTERNAL_H
@@ -180,7 +180,7 @@
 #include <IFSelect_ReturnStatus.hxx>
 
 // specific IGES STEP
-#include <Interface_DT.hxx>
+// OCC62: #include <Interface_DT.hxx>
 // specific IGES, STEP or DXF
 #include <Interface_Static.hxx>
 

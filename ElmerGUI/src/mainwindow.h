@@ -77,7 +77,7 @@
 #include "convergenceview.h"
 #endif
 
-#ifdef OCC62
+#ifdef OCC_63
 #include "cad/cadview.h"
 #endif
 
@@ -364,7 +364,7 @@ private:
   CheckMpi *checkMpi;
   MaterialLibrary *materialLibrary;
 
-#ifdef OCC62
+#ifdef OCC_63
   CadView *cadView;
 #endif
 

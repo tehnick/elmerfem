@@ -2,12 +2,10 @@
 #define CADVIEW_H
 
 #include <QMainWindow>
-#ifdef OCC62
 #include "qocc.h"
 #include "qoccinternal.h"
 #include "qoccviewercontext.h"
 #include "qoccviewwidget.h"
-#endif
 
 class CadView : public QMainWindow
 {
@@ -20,11 +18,9 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-#ifdef OCC62
   Handle_TopTools_HSequenceOfShape shapes;
   QoccViewWidget *myOCC;
   QoccViewerContext *myVC;
-#endif
 
   bool convertToSTL(QString, QString);
   void drawModel();

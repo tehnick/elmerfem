@@ -49,16 +49,14 @@ CadView::CadView(QWidget *parent)
   : QMainWindow(parent)
 {
   setWindowTitle("ElmerGUI cad model view");
-
-#ifdef OCC62
+  
   myVC  = new QoccViewerContext();
   myOCC = new QoccViewWidget(myVC->getContext(), this);
   this->setCentralWidget(myOCC);
-
+  
   cout << "Cad model view window (qtocc) set up" << endl;
   cout.flush();
-#endif
-
+  
   createActions();
   createMenus();
 }
@@ -99,7 +97,7 @@ void CadView::createMenus()
 
 void CadView::fitToWindowSlot()
 {
-#ifdef OCC62
+#ifdef OCC_63
   myOCC->fitAll();
 #endif
 }
@@ -107,7 +105,7 @@ void CadView::fitToWindowSlot()
 
 void CadView::drawModel()
 {
-#ifdef OCC62
+#ifdef OCC_63
   myVC->deleteAllObjects();
   const Handle_AIS_InteractiveContext& ic = myOCC->getContext();
   
@@ -126,7 +124,7 @@ void CadView::drawModel()
 
 bool CadView::convertToSTL(QString fileName, QString fileSuffix)
 {
-#ifdef OCC62
+#ifdef OCC_63
   TopoDS_Shape shape;
   BRep_Builder builder;
   TopoDS_Compound res;
@@ -164,7 +162,7 @@ bool CadView::convertToSTL(QString fileName, QString fileSuffix)
       
       if(status == IFSelect_RetDone) {	  
 	
-	Interface_TraceFile::SetDefault();
+	// OCC62: Interface_TraceFile::SetDefault();
 	failsonly = false;
 	stepReader.PrintCheckLoad(failsonly, IFSelect_ItemsByEntity);
 	

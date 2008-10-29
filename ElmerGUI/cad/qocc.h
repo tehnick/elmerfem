@@ -15,29 +15,29 @@
 ****************************************************************************/
 
 /*!
-\mainpage
-
-			This is part of the the QtOpenCascade Toolkit.
-
-			This may be used under the terms of the GNU General Public
-			License version 2.0 as published by the Free Software Foundation
-			and appearing in the file LICENSE.GPL included in the packaging of
-			this file.
-
-			Copyright (C) Peter Dolbey 2006-7. All rights reserved.
-
-			This is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
-			WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
-
-\section	install Installation
-
-			To install and compile the library, unzip the source file into a folder
-			of your choice and open a command prompt there.
-			<pre>
-				qmake
-				make / nmake
-			</pre>
-			to build the package.
+  \mainpage
+  
+  This is part of the the QtOpenCascade Toolkit.
+  
+  This may be used under the terms of the GNU General Public
+  License version 2.0 as published by the Free Software Foundation
+  and appearing in the file LICENSE.GPL included in the packaging of
+  this file.
+  
+  Copyright (C) Peter Dolbey 2006-7. All rights reserved.
+  
+  This is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
+  WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+  
+  \section	install Installation
+  
+  To install and compile the library, unzip the source file into a folder
+  of your choice and open a command prompt there.
+  <pre>
+  qmake
+  make / nmake
+  </pre>
+  to build the package.
 */
 
 
@@ -79,4 +79,3 @@
 #define SIGN(X) ((X) < 0. ? -1 : ((X) > 0. ? 1 : 0.))
 
 #endif // Qocc_H
-

@@ -152,7 +152,7 @@ MainWindow::MainWindow()
   vtkp = vtkPost = new VtkPost(this);
 #endif
 
-#ifdef OCC62
+#ifdef OCC_63
   cadView = new CadView(this);
 #endif
 
@@ -838,7 +838,7 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
-#ifdef OCC62
+#ifdef OCC_63
   viewMenu->addSeparator();
   viewMenu->addAction(showCadModelAct);
 #endif
@@ -1146,7 +1146,7 @@ void MainWindow::readInputFile(QString fileName)
     
     tetlibInputOk = true;
     
-#ifdef OCC62
+#ifdef OCC_63
   } else if( (fileSuffix == "stl") || 
 	     (fileSuffix == "brep") ||
 	     (fileSuffix == "step") ||
@@ -1156,7 +1156,7 @@ void MainWindow::readInputFile(QString fileName)
 #endif
     
 
-#ifdef OCC62
+#ifdef OCC_63
     // Convert to STL:
     //----------------
     bool converted = cadView->convertToSTL(fileName, fileSuffix);
@@ -4096,14 +4096,14 @@ void MainWindow::sharpEdgeColorSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showCadModelSlot()
 {
-#ifdef OCC62
-/*    if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
-		logMessage("There are no shapes to show. Open a cad file first.");
-		return;
-    }
-
-	cadView->show();
-	cadView->drawModel();*/
+#ifdef OCC_63
+  if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
+    logMessage("There are no shapes to show. Open a cad file first.");
+    return;
+  }
+  
+  cadView->show();
+  cadView->drawModel();
 #endif
 }
 
@@ -5920,7 +5920,7 @@ void MainWindow::showaboutSlot()
 			"http://www.vtk.org\n\n"
 #endif
 
-#ifdef OCC62
+#ifdef OCC_63
 			"This version of ElmerGUI has been compiled with the "
 			"OpenCascade solids modeling library using the "
 			"QtOpenCascade integration framework:\n\n"

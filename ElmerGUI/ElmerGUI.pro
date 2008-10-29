@@ -1,6 +1,6 @@
 #==============================================================================
 #
-#      ElmerGUI: qmake project file for Linux, MinGW, and MacOSX
+#      ElmerGUI: qmake project file for Linux, MinGW, and Mac OS X
 #
 #==============================================================================
 
@@ -10,6 +10,7 @@
 DEFINES += QWT       # Use QWT for convergence monitor?
 DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
+DEFINES -= OCC_63    # Use OpenCASCADE 6.3 for importing CAD files?
 
 #------------------------------------------------------------------------------
 # Target:
@@ -110,6 +111,99 @@ contains(DEFINES, MATC) {
    macx {
       LIBPATH += /usr/local/lib
       LIBS += -lmatc
+   }
+}
+
+#------------------------------------------------------------------------------
+# OpenCASCADE (you may need to edit this):
+#------------------------------------------------------------------------------
+contains(DEFINES, OCC_63) {
+   unix {
+      DEFINES -= _OCC64     # Add when compiling on 64-bit platforms
+      DEFINES +=  HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
+      INCLUDEPATH += /usr/local/OpenCASCADE/inc
+      LIBPATH += /usr/local/OpenCASCADE/lib
+      LIBS += -lBinLPlugin \
+              -lBinPlugin \
+              -lBinXCAFPlugin \
+              -lFWOSPlugin \
+              -lmscmd \
+              -lPTKernel \
+              -lStdLPlugin \
+              -lStdPlugin \
+              -lTKAdvTools \
+              -lTKBin \
+              -lTKBinL \
+              -lTKBinXCAF \
+              -lTKBO \
+              -lTKBool \
+              -lTKBRep \
+              -lTKCAF \
+              -lTKCDF \
+              -lTKCDLFront \
+              -lTKCPPClient \
+              -lTKCPPExt \
+              -lTKCPPIntExt \
+              -lTKCPPJini \
+              -lTKCSFDBSchema \
+              -lTKDraw \
+              -lTKernel \
+              -lTKFeat \
+              -lTKFillet \
+              -lTKG2d \
+              -lTKG3d \
+              -lTKGeomAlgo \
+              -lTKGeomBase \
+              -lTKHLR \
+              -lTKIDLFront \
+              -lTKIGES \
+              -lTKLCAF \
+              -lTKMath \
+              -lTKMesh \
+              -lTKMeshVS \
+              -lTKOffset \
+              -lTKOpenGl \
+              -lTKPCAF \
+              -lTKPLCAF \
+              -lTKPrim \
+              -lTKPShape \
+              -lTKService \
+              -lTKShapeSchema \
+              -lTKShHealing \
+              -lTKStdLSchema \
+              -lTKStdSchema \
+              -lTKSTEP \
+              -lTKSTEPAttr \
+              -lTKSTEPBase \
+              -lTKSTL \
+              -lTKTCPPExt \
+              -lTKTopAlgo \
+              -lTKV2d \
+              -lTKV3d \
+              -lTKVRML \
+              -lTKXCAF \
+              -lTKXCAFSchema \
+              -lTKXDEIGES \
+              -lTKXDESTEP \
+              -lTKXml \
+              -lTKXmlL \
+              -lTKXmlXCAF \
+              -lTKXSBase \
+              -lXCAFPlugin \
+              -lXmlLPlugin \
+              -lXmlPlugin \
+              -lXmlXCAFPlugin \
+              -lXmu
+   }
+              
+   win32 {
+      # Unsupprted (yet):
+      DEFINES -= OCC_63
+   }
+
+   macx {
+      # Unsupported (yet):
+      DEFINES -= OCC_63
    }
 }
 
@@ -270,6 +364,18 @@ contains(DEFINES, VTKPOST) {
 
       SOURCES += vtkpost/matc.cpp
    }
+}
+
+contains(DEFINES, OCC_63) {
+   HEADERS += cad/cadview.h \
+              cad/qocc.h \
+              cad/qoccinternal.h \
+              cad/qoccviewwidget.h \
+              cad/qoccviewercontext.h
+
+   SOURCES += cad/cadview.cpp \
+              cad/qoccviewWidget.cpp \
+              cad/qoccviewercontext.cpp
 }
 
 #------------------------------------------------------------------------------
