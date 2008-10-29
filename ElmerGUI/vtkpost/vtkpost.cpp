@@ -448,6 +448,11 @@ void VtkPost::createActions()
   timeStepAct->setStatusTip("Time step control");
   connect(timeStepAct, SIGNAL(triggered()), this, SLOT(showTimeStepDialogSlot()));
 
+  // Help menu:
+  //-----------
+  showHelpAct = new QAction(QIcon(""), tr("Help..."), this);
+  showHelpAct->setStatusTip("Show help dialog");
+  connect(showHelpAct, SIGNAL(triggered()), this, SLOT(showHelpSlot()));
 }
 
 void VtkPost::createMenus()
@@ -500,6 +505,11 @@ void VtkPost::createMenus()
   viewMenu->addAction(fitToWindowAct);
   viewMenu->addAction(resetModelViewAct);
   viewMenu->addAction(redrawAct);
+
+  // Help menu:
+  //-----------
+  helpMenu = menuBar()->addMenu(tr("&Help"));
+  helpMenu->addAction(showHelpAct);
 }
 
 void VtkPost::createToolbars()
@@ -1768,4 +1778,11 @@ QSize VtkPost::minimumSizeHint() const
 QSize VtkPost::sizeHint() const
 {
   return QSize(640, 480);
+}
+
+void VtkPost::showHelpSlot()
+{
+  QMessageBox::about(this, tr("ElmerGUI postprocessor"),
+		     tr("Press 'p' to select a point\n"
+                        "Press 'i' to show/hide the plane widget"));
 }

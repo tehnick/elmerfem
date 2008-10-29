@@ -264,7 +264,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
     } else {
       normals->SetInputConnection(glyph->GetOutputPort());
     }
-    normals->SetFeatureAngle(180.0);
+    normals->SetFeatureAngle(80.0);
   }
 
 

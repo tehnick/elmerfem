@@ -194,11 +194,14 @@ private slots:
   void timeStepChangedSlot();
   void reloadPostSlot();
 
+  void showHelpSlot();
+
 private:
   QMenu *fileMenu;
   QMenu *editMenu;
   QMenu *editGroupsMenu;
   QMenu *viewMenu;
+  QMenu *helpMenu;
 
   QToolBar *viewToolBar;
 
@@ -224,6 +227,7 @@ private:
   QAction *reloadPostAct;
   QAction *readEpFileAct;
   QAction *clipAllAct;
+  QAction *showHelpAct;
 
   void createActions();
   void createMenus();
