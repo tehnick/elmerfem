@@ -1404,8 +1404,17 @@ void MainWindow::saveProjectSlot()
   QFileInfo geometryInputFileInfo(geometryInputFileName);
   QString baseName = geometryInputFileInfo.baseName();
 
+  QString p_path = projectDirName;
+  QString g_path = geometryInputFileInfo.path();
+
+  while(p_path.at(p_path.size()-1) == '/')  p_path.chop(1);
+  while(p_path.at(p_path.size()-1) == '\\') p_path.chop(1);
+  while(g_path.at(g_path.size()-1) == '/')  g_path.chop(1);
+  while(g_path.at(g_path.size()-1) == '\\') g_path.chop(1);
+
   // Avoid copying file(s) into it self:
-  if(!(geometryInputFileInfo.path() == projectDirName)) {
+
+  if( g_path  != p_path ) {
     QDirIterator iterator(geometryInputFileInfo.path());
     while(iterator.hasNext()) {
       QString fileName = iterator.next();
