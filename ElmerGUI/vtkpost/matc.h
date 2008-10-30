@@ -79,6 +79,7 @@ private:
   static VARIABLE *com_curl(VARIABLE *);
   static VARIABLE *com_div(VARIABLE *);
   static VARIABLE *com_grad(VARIABLE *);
+  static VARIABLE *com_display(VARIABLE *);
   static void grad(VtkPost*, double *, double *);
   static void div(VtkPost*, double *, double *);
   static void curl(VtkPost*, double *, double *);

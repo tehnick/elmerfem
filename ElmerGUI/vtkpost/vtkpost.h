@@ -144,6 +144,7 @@ signals:
 
 public slots:
   bool readPostFile(QString);
+  void redrawSlot();
   void readEpFileSlot();
 
 #ifdef MATC
@@ -184,7 +185,6 @@ private slots:
   void groupChangedSlot(QAction*);
   void regenerateGridsSlot();
   void maybeRedrawSlot(bool);
-  void redrawSlot();
   void populateWidgetsSlot();
   void fitToWindowSlot();
   void resetModelViewSlot();

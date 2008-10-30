@@ -74,6 +74,8 @@ Matc::Matc(QWidget *parent)
   com_init( (char *)"curl", FALSE, FALSE, com_curl, 1, 1,
             (char *)"r = curl(f): compute curl of a vector variable f.\n") ;
 
+  com_init( (char *)"display", FALSE, FALSE, com_display, 0, 0, (char *)"display\n" );
+
 }
 
 Matc::~Matc()
@@ -374,6 +376,12 @@ VARIABLE *Matc::com_div(VARIABLE *in)
      free(inf);
    }
    return out;
+}
+
+VARIABLE *Matc::com_display(VARIABLE *)
+{
+   vtkp->redrawSlot();
+   return NULL;
 }
 
 VARIABLE *Matc::com_curl(VARIABLE *in)
