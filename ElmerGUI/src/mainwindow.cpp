@@ -4104,6 +4104,7 @@ void MainWindow::showCadModelSlot()
   
   cadView->show();
   cadView->drawModel();
+  cadView->fitToWindow();
 #endif
 }
 

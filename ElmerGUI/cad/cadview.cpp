@@ -48,17 +48,18 @@ using namespace std;
 CadView::CadView(QWidget *parent)
   : QMainWindow(parent)
 {
-  setWindowTitle("ElmerGUI cad model view");
+  setWindowTitle("ElmerGUI cad model viewer");
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   
-  myVC  = new QoccViewerContext();
-  myOCC = new QoccViewWidget(myVC->getContext(), this);
-  this->setCentralWidget(myOCC);
-  
-  cout << "Cad model view window (qtocc) set up" << endl;
-  cout.flush();
+  qoccViewerContext  = new QoccViewerContext();
+  qoccViewWidget = new QoccViewWidget(qoccViewerContext->getContext(), this);
+  this->setCentralWidget(qoccViewWidget);
   
   createActions();
   createMenus();
+
+  cout << "Cad model view window (qocc) set up" << endl;
+  cout.flush();  
 }
 
 CadView::~CadView()
@@ -77,54 +78,69 @@ QSize CadView::sizeHint() const
   return QSize(720, 576);
 }
 
+
 void CadView::createActions()
 {
-  fitToWindowAct = new QAction(QIcon(""), tr("&Fit to window"), this);
-  connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
-
-  exitAct = new QAction(QIcon(":/icons/application-exit.png"), 
-			tr("&Quit"), this);
+  // File menu:
+  //-----------
+  exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("&Quit"), this);
+  exitAct->setShortcut(tr("Ctrl+Q"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
+
+  // View menu:
+  //-----------
+  fitToWindowAct = new QAction(QIcon(""), tr("&Fit to window"), this);
+  fitToWindowAct->setShortcut(tr("Ctrl+F"));
+  connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
 }
+
 
 void CadView::createMenus()
 {
+  // File menu:
+  //------------
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(exitAct);
+
+  // View menu:
+  //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(fitToWindowAct);
 }
 
+
+void CadView::fitToWindow()
+{
+  qoccViewWidget->fitAll();
+}
+
+
 void CadView::fitToWindowSlot()
 {
-#ifdef OCC_63
-  myOCC->fitAll();
-#endif
+  this->fitToWindow();
 }
 
 
 void CadView::drawModel()
 {
-#ifdef OCC_63
-  myVC->deleteAllObjects();
-  const Handle_AIS_InteractiveContext& ic = myOCC->getContext();
+  qoccViewerContext->deleteAllObjects();
+  const Handle_AIS_InteractiveContext& ic = qoccViewWidget->getContext();
   
   for(int i = 1; i <= shapes->Length(); i++) {
     Handle(AIS_Shape) anAISShape = new AIS_Shape(shapes->Value(i));
     ic->SetMaterial(anAISShape, Graphic3d_NOM_GOLD);
-    //ic->SetMaterial(anAISShape, Graphic3d_NOM_DEFAULT);
+    // ic->SetMaterial(anAISShape, Graphic3d_NOM_DEFAULT);
     ic->SetColor(anAISShape, Quantity_NOC_RED);
     ic->SetDisplayMode(anAISShape, 1, Standard_False);
     ic->Display(anAISShape, Standard_False);
   }
   ic->UpdateCurrentViewer();
-  myVC->gridOff();
-#endif
+  qoccViewerContext->gridOff();
 }
+
 
 bool CadView::convertToSTL(QString fileName, QString fileSuffix)
 {
-#ifdef OCC_63
   TopoDS_Shape shape;
   BRep_Builder builder;
   TopoDS_Compound res;
@@ -139,7 +155,7 @@ bool CadView::convertToSTL(QString fileName, QString fileSuffix)
       (fileSuffix == "step") ||
       (fileSuffix == "stp") ) {
     
-    //QApplication::setOverrideCursor(Qt::WaitCursor);
+    // QApplication::setOverrideCursor(Qt::WaitCursor);
     
     // Read in BREP:
     //---------------
@@ -191,7 +207,6 @@ bool CadView::convertToSTL(QString fileName, QString fileSuffix)
       return false;
     }
     
-    
     // Write STL:
     //------------
     QString fileNameSTL = fileName + ".stl";
@@ -210,7 +225,7 @@ bool CadView::convertToSTL(QString fileName, QString fileSuffix)
     
     writer.Write(res, fileNameSTL.toAscii().data());
 
-    //QApplication::restoreOverrideCursor();
+    // QApplication::restoreOverrideCursor();
 
   } else {
     
@@ -218,11 +233,4 @@ bool CadView::convertToSTL(QString fileName, QString fileSuffix)
   }
 
   return true;
-
-#else
-
-  return false;
-
-#endif
-
 }
