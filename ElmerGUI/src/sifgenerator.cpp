@@ -264,6 +264,8 @@ void SifGenerator::makeEquationBlocks()
   }
   
   // generate equation blocks:
+  int* solverActive = new int[limit->maxSolvers()];
+
   int sifIndex = 0;
   for(int index = 0; index < limit->maxEquations(); index++) {
     DynamicEditor *eqEditor = &equationEditor[index];
@@ -277,7 +279,6 @@ void SifGenerator::makeEquationBlocks()
 
       QString solverString = "";
       int nofSolvers = 0;
-      int solverActive[limit->maxSolvers()];
 
       for( int i=0; i < limit->maxSolvers(); i++ )
         solverActive[i] = false;
@@ -341,6 +342,8 @@ void SifGenerator::makeEquationBlocks()
     }
 
   }
+
+  delete [] solverActive;
 }
 
 //-------------------------------------------------------------------------
@@ -523,7 +526,7 @@ void SifGenerator::makeInitialConditionBlocks()
 void SifGenerator::makeBoundaryBlocks()
 {
   int sifIndex = 0;
-  int boundaryBC[limit->maxBoundaries()];
+  int* boundaryBC = new int[limit->maxBoundaries()];
 
   for(int index = 0; index < boundaryMap.count(); index++) {
     BoundaryPropertyEditor *bEdit = &boundaryPropertyEditor[index];
@@ -585,6 +588,8 @@ void SifGenerator::makeBoundaryBlocks()
       te->append("End\n");      
     }
   }
+
+  delete [] boundaryBC;
 }
 
 

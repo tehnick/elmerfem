@@ -50,6 +50,8 @@
 
 using namespace std;
 
+#define MY_PI 3.14159
+
 list_t::list_t()
 {
   nature = PDE_UNKNOWN;
@@ -1254,9 +1256,9 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       glColor3d(R, G, B);
 
       if(stateBcColors && (surface->nature == PDE_BOUNDARY)) {
-	glColor3d(0.5 + 0.5 * sin(1 * index),
-		  0.5 + 0.5 * cos(2 * index),
-		  0.5 + 0.5 * cos(3 * index));
+	glColor3d(0.5 + 0.5 * sin(1.0 * index),
+		  0.5 + 0.5 * cos(2.0 * index),
+		  0.5 + 0.5 * cos(3.0 * index));
       } 
 	
       if(stateBodyColors) {
@@ -1266,9 +1268,9 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
 	  element_t *parent = &mesh->element[parentIndex];
 	  bodyIndex = parent->index;
 	}
-	glColor3d(0.5 + 0.5 * sin(1 * bodyIndex),
-		  0.5 + 0.5 * cos(2 * bodyIndex),
-		  0.5 + 0.5 * cos(3 * bodyIndex));
+	glColor3d(0.5 + 0.5 * sin(1.0 * bodyIndex),
+		  0.5 + 0.5 * cos(2.0 * bodyIndex),
+		  0.5 + 0.5 * cos(3.0 * bodyIndex));
       } 
       
       // change normal direction:
@@ -1319,9 +1321,9 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       glColor3d(R, G, B);
 
       if(stateBcColors && (surface->nature == PDE_BOUNDARY)) {
-	glColor3d(0.5 + 0.5 * sin(1 * index),
-		  0.5 + 0.5 * cos(2 * index),
-		  0.5 + 0.5 * cos(3 * index));
+	glColor3d(0.5 + 0.5 * sin(1.0 * index),
+		  0.5 + 0.5 * cos(2.0 * index),
+		  0.5 + 0.5 * cos(3.0 * index));
       }
 
       if(stateBodyColors) {
@@ -1331,9 +1333,9 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
 	  element_t *parent = &mesh->element[parentIndex];
 	  bodyIndex = parent->index;
 	}
-	glColor3d(0.5 + 0.5 * sin(1 * bodyIndex),
-		  0.5 + 0.5 * cos(2 * bodyIndex),
-		  0.5 + 0.5 * cos(3 * bodyIndex));
+	glColor3d(0.5 + 0.5 * sin(1.0 * bodyIndex),
+		  0.5 + 0.5 * cos(2.0 * bodyIndex),
+		  0.5 + 0.5 * cos(3.0 * bodyIndex));
       } 
 
       // change normal direction:
@@ -1699,7 +1701,7 @@ void GLWidget::updateIndicator()
 
   pos += 0.2;
 
-  if(pos > 1000.0 * M_PI)
+  if(pos > 1000.0 * MY_PI)
     pos = 0.0;
 
   indicatorColor = (1.0 + sin(pos)) / 2.0;
@@ -1796,8 +1798,8 @@ void GLWidget::changeNormalDirection(double *u, double *v)
 // Auxiliary function for drawing a sphere (equivalent to gluSphere):
 //---------------------------------------------------------------------------
 void GLWidget::drawSphere(int stacks, int slices, float radius) {
-  float off_H = M_PI / (float)stacks;
-  float off_R = M_PI * 2.0 / (float)slices;
+  float off_H = MY_PI / (float)stacks;
+  float off_R = MY_PI * 2.0 / (float)slices;
   float a, b, v[3];
   int st, sl;
   
@@ -1830,9 +1832,9 @@ void GLWidget::drawSphere(int stacks, int slices, float radius) {
 
   for(sl = slices; sl >= 0; sl--) {
     a = (float)sl * off_R;
-    v[0] = sin(a) * sin(M_PI-off_H);
-    v[2] = cos(a) * sin(M_PI-off_H);
-    v[1] = cos(M_PI-off_H);
+    v[0] = sin(a) * sin(MY_PI-off_H);
+    v[2] = cos(a) * sin(MY_PI-off_H);
+    v[1] = cos(MY_PI-off_H);
     glNormal3fv(v);
     glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
   }
