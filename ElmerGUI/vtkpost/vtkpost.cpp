@@ -332,7 +332,7 @@ void VtkPost::createActions()
   reloadPostAct->setStatusTip("Reloads input file");
   connect(reloadPostAct, SIGNAL(triggered()), this, SLOT(reloadPostSlot()));
 
-  readEpFileAct = new QAction(QIcon(""), tr("Open..."), this);
+  readEpFileAct = new QAction(QIcon(":/icons/document-open.png"), tr("Open..."), this);
   readEpFileAct->setShortcut(tr("Ctrl+O"));
   readEpFileAct->setStatusTip("Read input file");
   connect(readEpFileAct, SIGNAL(triggered()), this, SLOT(readEpFileSlot()));
@@ -450,7 +450,7 @@ void VtkPost::createActions()
 
   // Help menu:
   //-----------
-  showHelpAct = new QAction(QIcon(""), tr("Help..."), this);
+  showHelpAct = new QAction(QIcon(":/icons/help-about.png"), tr("Help..."), this);
   showHelpAct->setStatusTip("Show help dialog");
   connect(showHelpAct, SIGNAL(triggered()), this, SLOT(showHelpSlot()));
 }
