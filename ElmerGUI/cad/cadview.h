@@ -68,13 +68,16 @@ public:
 
 private slots:
   void fitToWindowSlot();
+  void helpSlot(); 
 
 private:
   QMenu *fileMenu;
   QMenu *viewMenu;
+  QMenu *helpMenu;
 
   QAction *exitAct;
   QAction *fitToWindowAct;
+  QAction *helpAct;
 
   void createActions();
   void createMenus();

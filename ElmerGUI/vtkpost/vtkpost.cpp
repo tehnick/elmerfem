@@ -1782,7 +1782,7 @@ QSize VtkPost::sizeHint() const
 
 void VtkPost::showHelpSlot()
 {
-  QMessageBox::about(this, tr("ElmerGUI postprocessor"),
+  QMessageBox::about(this, tr("ElmerGUI postprocessor (beta)"),
 		     tr("Press 'p' to select a point\n"
                         "Press 'i' to show/hide the plane widget"));
 }

@@ -92,6 +92,12 @@ void CadView::createActions()
   fitToWindowAct = new QAction(QIcon(""), tr("&Fit to window"), this);
   fitToWindowAct->setShortcut(tr("Ctrl+F"));
   connect(fitToWindowAct, SIGNAL(triggered()), this, SLOT(fitToWindowSlot()));
+
+  // Help menu:
+  //-----------
+  helpAct = new QAction(QIcon(""), tr("&Help"), this);
+  helpAct->setShortcut(tr("Ctrl+H"));
+  connect(helpAct, SIGNAL(triggered()), this, SLOT(helpSlot()));
 }
 
 
@@ -106,8 +112,19 @@ void CadView::createMenus()
   //-----------
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(fitToWindowAct);
+
+  // Help menu:
+  //------------
+  helpMenu = menuBar()->addMenu(tr("&Help"));
+  helpMenu->addAction(helpAct);
 }
 
+void CadView::helpSlot()
+{
+  QMessageBox::about(this,tr("ElmerGUI cad model viewer (beta)"),
+		     tr("Use View->Fit to window to show the model using the whole screen\n"
+			"Hold down crtl and use mouse to rotate/pan/zoom"));
+}
 
 void CadView::fitToWindow()
 {
