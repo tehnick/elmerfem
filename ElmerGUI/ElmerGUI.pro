@@ -1,6 +1,6 @@
 #==============================================================================
 #
-#      ElmerGUI: qmake project file for Linux, MinGW, and Mac OS X
+#      ElmerGUI: qmake project file for Unix, Win32, and MacX
 #
 #==============================================================================
 
@@ -17,6 +17,7 @@ DEFINES -= OCC_63    # Use OpenCASCADE 6.3 for importing CAD files?
 #------------------------------------------------------------------------------
 TEMPLATE = app
 TARGET = ElmerGUI
+CONFIG += release
 
 #------------------------------------------------------------------------------
 # Directories:
@@ -31,8 +32,10 @@ UI_DIR = ./tmp
 #------------------------------------------------------------------------------
 # Compiler flags:
 #------------------------------------------------------------------------------
-QMAKE_CXXFLAGS = -O2 -Wno-deprecated
-QMAKE_CXXFLAGS_WARN_ON = 
+unix {
+   QMAKE_CXXFLAGS = -O2 -Wno-deprecated
+   QMAKE_CXXFLAGS_WARN_ON = 
+}
 
 #------------------------------------------------------------------------------
 # QT:
@@ -50,8 +53,8 @@ contains(DEFINES, QWT) {
    }
 
    win32 {
-      INCLUDEPATH += /c/QWT/include
-      LIBPATH += /c/QWT/lib
+      INCLUDEPATH += c:\qwt\5.1.1\vc\include
+      LIBPATH += c:\qwt\5.1.1\vc\lib
       LIBS += -lqwt5
    }
 
@@ -74,17 +77,37 @@ contains(DEFINES, VTKPOST) {
    }
 
    win32 {
-      INCLUDEPATH += /c/VTK/include/vtk-5.2
-      LIBPATH += /c/VTK/lib/vtk-5.2
-      LIBS += -lvtkCommon \
-              -lvtkRendering \
+      INCLUDEPATH += c:\VTK\VC\include\vtk-5.2
+      LIBPATH += c:\VTK\VC\lib\vtk-5.2
+      LIBS += -lQVTK \
+              -lvtkCommon \
+              -lvtkDICOMParser \
               -lvtkFiltering \
+              -lvtkGenericFiltering \
               -lvtkGraphics \
-              -lvtkIO  \
               -lvtkHybrid \
+              -lvtkIO \
+              -lvtkImaging \
+              -lvtkInfovis \
+              -lvtkNetCDF \
+              -lvtkRendering \
+              -lvtkViews \
+              -lvtkVolumeRendering \
               -lvtkWidgets \
-              -lQVTK
-   }
+              -lvtkexoIIc \
+              -lvtkexpat \
+              -lvtkfreetype \
+              -lvtkftgl \
+              -lvtkjpeg \
+              -lvtklibxml2 \
+              -lvtkmetaio \
+              -lvtkpng \
+              -lvtksys \
+              -lvtktiff \
+              -lvtkverdict \
+              -lvtkzlib \
+              -ladvapi32
+      }
 
    macx {
       INCLUDEPATH += /usr/local/include/vtk-5.0
@@ -104,7 +127,7 @@ contains(DEFINES, MATC) {
    }
 
    win32 {
-      LIBPATH += /c/Elmer5.4/lib
+      LIBPATH += .\matc
       LIBS += -lmatc
    }
 
