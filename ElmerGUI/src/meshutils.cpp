@@ -721,8 +721,9 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       } else if((int)(s->code/100) == 4) {
 	n0 = s->node[quadedgemap[e][0]];
 	n1 = s->node[quadedgemap[e][1]];
-	if ( s->code>=408) nrest[0] = s->node[triedgemap[e][2]];
-	if ( s->code>=412) nrest[1] = s->node[triedgemap[e][3]];
+	// corrected 4.11.2008:
+	if ( s->code>=408) nrest[0] = s->node[quadedgemap[e][2]];
+	if ( s->code>=412) nrest[1] = s->node[quadedgemap[e][3]];
       } else {
 	cout << "findBoundaryElementEdges: error: unknown element code" << endl;
 	exit(0);
