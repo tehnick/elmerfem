@@ -1032,7 +1032,7 @@ void MainWindow::openSlot()
 #if WIN32  
   defaultDirName = "c:\\";
 #else
-  defaultDirName = "~/";
+  defaultDirName = "";
 #endif
 
   if(!saveDirName.isEmpty())
@@ -1299,7 +1299,7 @@ void MainWindow::loadSlot()
 #if WIN32  
   defaultDirName = "c:\\";
 #else
-  defaultDirName = "~/";
+  defaultDirName = "";
 #endif
   
   if(!saveDirName.isEmpty())
@@ -1389,7 +1389,7 @@ void MainWindow::saveAsSlot()
 #if WIN32  
   defaultDirName = "c:\\";
 #else
-  defaultDirName = "~/";
+  defaultDirName = "";
 #endif
   
   if(!saveDirName.isEmpty())
@@ -1422,7 +1422,7 @@ void MainWindow::saveProjectSlot()
 #if WIN32  
   defaultDirName = "c:\\";
 #else
-  defaultDirName = "~/";
+  defaultDirName = "";
 #endif
   
   if(!saveDirName.isEmpty())
@@ -1673,7 +1673,7 @@ void MainWindow::loadProjectSlot()
 #if WIN32  
   defaultDirName = "c:\\";
 #else
-  defaultDirName = "~/";
+  defaultDirName = "";
 #endif
   
   if(!saveDirName.isEmpty())
@@ -2047,7 +2047,7 @@ void MainWindow::savePictureSlot()
 #if WIN32  
   defaultDirName = "c:\\";
 #else
-  defaultDirName = "~/";
+  defaultDirName = "";
 #endif
   
   if(!saveDirName.isEmpty())
@@ -5903,7 +5903,7 @@ void MainWindow::compileSolverSlot()
 #if WIN32  
   defaultDirName = "c:\\";
 #else
-  defaultDirName = "~/";
+  defaultDirName = "";
 #endif
   
   if(!saveDirName.isEmpty())
