@@ -1027,16 +1027,7 @@ void MainWindow::createStatusBar()
 //-----------------------------------------------------------------------------
 void MainWindow::openSlot()
 {
-  QString defaultDirName = "";
-
-#if WIN32  
-  defaultDirName = "c:\\";
-#else
-  defaultDirName = "";
-#endif
-
-  if(!saveDirName.isEmpty())
-    defaultDirName = saveDirName;
+  QString defaultDirName = getDefaultDirName();
 
   QString fileName = QFileDialog::getOpenFileName(this, tr("Open geometry input file"), defaultDirName);
 
@@ -1294,16 +1285,7 @@ void MainWindow::makeElmerMeshFromNglib()
 //-----------------------------------------------------------------------------
 void MainWindow::loadSlot()
 {
-  QString defaultDirName = "";
-
-#if WIN32  
-  defaultDirName = "c:\\";
-#else
-  defaultDirName = "";
-#endif
-  
-  if(!saveDirName.isEmpty())
-    defaultDirName = saveDirName;
+  QString defaultDirName = getDefaultDirName();
 
   QString dirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
@@ -1384,16 +1366,7 @@ void MainWindow::saveAsSlot()
     return;
   }
 
-  QString defaultDirName = "";
-
-#if WIN32  
-  defaultDirName = "c:\\";
-#else
-  defaultDirName = "";
-#endif
-  
-  if(!saveDirName.isEmpty())
-    defaultDirName = saveDirName;
+  QString defaultDirName = getDefaultDirName();
 
   saveDirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
@@ -1417,17 +1390,8 @@ void MainWindow::saveProjectSlot()
     return;
   }
 
-  QString defaultDirName = "";
+  QString defaultDirName = getDefaultDirName();
 
-#if WIN32  
-  defaultDirName = "c:\\";
-#else
-  defaultDirName = "";
-#endif
-  
-  if(!saveDirName.isEmpty())
-    defaultDirName = saveDirName;
-  
   QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
   if (!projectDirName.isEmpty()) {
@@ -1668,16 +1632,7 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 //-----------------------------------------------------------------------------
 void MainWindow::loadProjectSlot()
 {
-  QString defaultDirName = "";
-
-#if WIN32  
-  defaultDirName = "c:\\";
-#else
-  defaultDirName = "";
-#endif
-  
-  if(!saveDirName.isEmpty())
-    defaultDirName = saveDirName;
+  QString defaultDirName = getDefaultDirName();
 
   QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
@@ -2042,20 +1997,11 @@ void MainWindow::closeMainWindowSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::savePictureSlot()
 {
-  QString defaultDirName = "";
-
-#if WIN32  
-  defaultDirName = "c:\\";
-#else
-  defaultDirName = "";
-#endif
-  
-  if(!saveDirName.isEmpty())
-    defaultDirName = saveDirName;
-
   bool withAlpha = false;
 
   QImage image = glWidget->grabFrameBuffer(withAlpha);
+
+  QString defaultDirName = getDefaultDirName();
 
   QString fileName = QFileDialog::getSaveFileName(this,	tr("Save picture"), defaultDirName, tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
   
@@ -5898,16 +5844,7 @@ void MainWindow::killresultsSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::compileSolverSlot()
 {
-  QString defaultDirName = "";
-
-#if WIN32  
-  defaultDirName = "c:\\";
-#else
-  defaultDirName = "";
-#endif
-  
-  if(!saveDirName.isEmpty())
-    defaultDirName = saveDirName;
+  QString defaultDirName = getDefaultDirName();
 
   QString fileName = QFileDialog::getOpenFileName(this,
        tr("Open source file"), defaultDirName, tr("F90 files (*.f90)"));
@@ -6391,4 +6328,26 @@ void MainWindow::updateSysTrayIcon(QString label, QString msg)
 //-----------------------------------------------------------------------------
 void MainWindow::finalizeSysTrayIcon()
 {
+}
+
+// Get default open/save directory
+//-----------------------------------------------------------------------------
+QString MainWindow::getDefaultDirName()
+{
+  QString defaultDirName = "";
+
+#ifdef WIN32
+  defaultDirName = egIni->value("win32defaultdir");
+#else
+#ifdef __APPLE__
+  defaultDirName = egIni->value("macxdefaultdir");
+#else
+  defaultDirName = egIni->value("unixdefaultdir");
+#endif
+#endif
+
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+
+  return defaultDirName;
 }

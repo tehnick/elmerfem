@@ -257,7 +257,8 @@ private:
   void populateBoundaryComboBoxes(BoundaryPropertyEditor*);
   void saveProjectContents(QDomDocument, QString, DynamicEditor*, int);
   void loadProjectContents(QDomElement, DynamicEditor*, int, QString);
-    
+  QString getDefaultDirName();
+
   QMenu *fileMenu;                // File menu
   QMenu *modelMenu;               // Model menu
   QMenu *equationMenu;            // Model -> Equation menu
