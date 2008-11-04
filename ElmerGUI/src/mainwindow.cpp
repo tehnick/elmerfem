@@ -261,6 +261,13 @@ MainWindow::MainWindow()
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   finalizeSplash();
   setupSysTrayIcon();
+
+  // default size:
+  int defW = egIni->value("width").toInt();
+  int defH = egIni->value("height").toInt();
+  if(defW <= 200) defW = 200;
+  if(defH <= 200) defH = 200;
+  this->resize(defW, defH);
 }
 
 
@@ -1020,7 +1027,18 @@ void MainWindow::createStatusBar()
 //-----------------------------------------------------------------------------
 void MainWindow::openSlot()
 {
-  QString fileName = QFileDialog::getOpenFileName(this);
+  QString defaultDirName = "";
+
+#if WIN32  
+  defaultDirName = "c:\\";
+#else
+  defaultDirName = "~/";
+#endif
+
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+
+  QString fileName = QFileDialog::getOpenFileName(this, tr("Open geometry input file"), defaultDirName);
 
   if (!fileName.isEmpty()) {
     
@@ -1276,7 +1294,18 @@ void MainWindow::makeElmerMeshFromNglib()
 //-----------------------------------------------------------------------------
 void MainWindow::loadSlot()
 {
-  QString dirName = QFileDialog::getExistingDirectory(this);
+  QString defaultDirName = "";
+
+#if WIN32  
+  defaultDirName = "c:\\";
+#else
+  defaultDirName = "~/";
+#endif
+  
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+
+  QString dirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
   if (!dirName.isEmpty()) {
 
@@ -1355,7 +1384,18 @@ void MainWindow::saveAsSlot()
     return;
   }
 
-  saveDirName = QFileDialog::getExistingDirectory(this);
+  QString defaultDirName = "";
+
+#if WIN32  
+  defaultDirName = "c:\\";
+#else
+  defaultDirName = "~/";
+#endif
+  
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+
+  saveDirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
   if (!saveDirName.isEmpty()) {
     logMessage("Output directory " + saveDirName);
@@ -1376,8 +1416,19 @@ void MainWindow::saveProjectSlot()
     logMessage("Unable to save project: no mesh");
     return;
   }
+
+  QString defaultDirName = "";
+
+#if WIN32  
+  defaultDirName = "c:\\";
+#else
+  defaultDirName = "~/";
+#endif
   
-  QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+  
+  QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
   if (!projectDirName.isEmpty()) {
     logMessage("Project directory " + projectDirName);
@@ -1617,7 +1668,18 @@ void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName,
 //-----------------------------------------------------------------------------
 void MainWindow::loadProjectSlot()
 {
-  QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
+  QString defaultDirName = "";
+
+#if WIN32  
+  defaultDirName = "c:\\";
+#else
+  defaultDirName = "~/";
+#endif
+  
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+
+  QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Open directory"), defaultDirName);
 
   if (!projectDirName.isEmpty()) {
     logMessage("Project directory: " + projectDirName);
@@ -1980,19 +2042,31 @@ void MainWindow::closeMainWindowSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::savePictureSlot()
 {
-  bool withAlpha = false;
+  QString defaultDirName = "";
 
-  glReadBuffer(GL_FRONT);
+#if WIN32  
+  defaultDirName = "c:\\";
+#else
+  defaultDirName = "~/";
+#endif
+  
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+
+  bool withAlpha = false;
 
   QImage image = glWidget->grabFrameBuffer(withAlpha);
 
-  QString fileName = QFileDialog::getSaveFileName(this,
-	tr("Save picture"), "", tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
+  QString fileName = QFileDialog::getSaveFileName(this,	tr("Save picture"), defaultDirName, tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
   
   if(fileName.isEmpty()) {
     logMessage("File name is empty");
     return;
   }
+
+  glWidget->updateGL();
+  glWidget->updateGL();
+  glReadBuffer(GL_FRONT);
 
   QFileInfo fi(fileName);
   QString suffix = fi.suffix();
@@ -5824,8 +5898,19 @@ void MainWindow::killresultsSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::compileSolverSlot()
 {
+  QString defaultDirName = "";
+
+#if WIN32  
+  defaultDirName = "c:\\";
+#else
+  defaultDirName = "~/";
+#endif
+  
+  if(!saveDirName.isEmpty())
+    defaultDirName = saveDirName;
+
   QString fileName = QFileDialog::getOpenFileName(this,
-       tr("Open source file"), "", tr("F90 files (*.f90)"));
+       tr("Open source file"), defaultDirName, tr("F90 files (*.f90)"));
 
   if (!fileName.isEmpty()) {
     QFileInfo fi(fileName);
