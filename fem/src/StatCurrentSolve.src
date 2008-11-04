@@ -120,7 +120,7 @@
      REAL (KIND=DP), ALLOCATABLE ::  Conductivity(:,:,:), &
        LocalStiffMatrix(:,:), Load(:), LocalForce(:)
 
-     REAL (KIND=DP) :: Norm, HeatingTot, CurrentTot, ControlTarget, ControlScaling = 1.0
+     REAL (KIND=DP) :: Norm, HeatingTot, VolTot, CurrentTot, ControlTarget, ControlScaling = 1.0
      REAL (KIND=DP) :: MinPotential, MaxPotential, Resistance
      REAL (KIND=DP) :: at, st, at0, CPUTime, RealTime
 
@@ -486,7 +486,7 @@
            'RES: Total Joule Heating', Heatingtot )
 
        IF( MaxPotential > MinPotential) THEN
-         Resistance = Heatingtot / (MaxPotential - MinPotential)**2
+         Resistance = (MaxPotential - MinPotential)**2 / HeatingTot
          WRITE( Message, * ) 'Effective Resistance  :', Resistance
          CALL Info( 'StatCurrentSolve', Message, Level=4 )
          CALL ListAddConstReal( Model % Simulation, &
@@ -495,6 +495,9 @@
      END IF
 
      IF(Control ) THEN
+        WRITE( Message, * ) 'Total Volume          :', VolTot
+        CALL Info( 'StatCurrentSolve', Message, Level=4 )
+
         ControlScaling = 1.0_dp
 	IF( ControlPower ) THEN
            ControlScaling = SQRT( ControlTarget / HeatingTot )
@@ -577,6 +580,7 @@
 
     SumOfWeights = 0.0d0
     HeatingTot = 0.0d0
+    VolTot = 0.0d0
     IF ( CalculateHeating )  Heating = 0.0d0
     IF ( CalculateCurrent )  VolCurrent = 0.0d0
 
@@ -693,6 +697,8 @@
                      Basis(1:n) ) * SUM( dBasisdx(1:n,i) * ElementPot(1:n) )
              END DO
           END DO
+
+	  VolTot = VolTot + s
 
           HeatingTot = HeatingTot + &
                s * SUM( Grad(1:DIM) * EpsGrad(1:DIM) )
