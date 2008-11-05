@@ -543,6 +543,41 @@ int RayHitBiLinear(
 
     return FALSE;
 }
+/*******************************************************************************
+
+Solve for linear line element and ray segment intersection. Return value is if
+there is a hit or not.
+
+LAST Modified: 23 Aug 1995
+
+*******************************************************************************/
+int RayHitLine(
+      Geometry_t *Geometry,double FX,double FY,double FZ,
+          double DX,double DY,double DZ,double L
+       )
+{
+    double A11,A12,A21,A22,U,V,T,*X,*Y,*Z,detA;
+    double EPS=REPS*L,TF,TD,*TX;
+
+    X = Geometry->Linear->PolyFactors[0];
+    Y = Geometry->Linear->PolyFactors[1];
+
+    A11 = DX;
+    A21 = DY;
+    A12 = -X[1];
+    A22 = -Y[1];
+    detA = A11*A22 - A12*A21;
+
+    if ( ABS(detA) < 1e-9 ) return FALSE;
+
+    U = ( A22 * (X[0]-FX) - A12*(Y[0]-FY)) / detA;
+    if ( U<EPS || U>1-EPS ) return FALSE;
+
+    U = (-A21 * (X[0]-FX) + A11*(Y[0]-FY)) / detA;
+    if ( U<EPS || U>1-EPS ) return FALSE;
+
+    return TRUE;
+}
 
 /*******************************************************************************
 
@@ -1069,9 +1104,8 @@ int RayHitVolumeBounds( VolumeBounds_t *Volume,double FX,double FY,double FZ,
   for( i=0; i<Volume->n; i++ )
   {
      j = Volume->Elements[i];
-
      n = Elements[j].GeometryType;
-     if ( (*RayHit[n] )( &Elements[j],FX,FY,FZ,DX,DY,DZ,L ) ) return TRUE;
+     if ( (*RayHit[n] )( &Elements[j],FX,FY,FZ,DX,DY,DZ,L) ) return TRUE;
   }
 
   return FALSE;
@@ -1382,6 +1416,7 @@ void InitRayTracer(double eps)
 {
      REPS = eps;
 
+     RayHit[GEOMETRY_LINE]       = RayHitLine;
      RayHit[GEOMETRY_TRIANGLE]   = RayHitTriangle;
      RayHit[GEOMETRY_BILINEAR]   = RayHitBiLinear;
      RayHit[GEOMETRY_BICUBIC]    = RayHitBiCubic;

@@ -36,8 +36,6 @@
 
 #include <ViewFactors.h>
 
-#define NRays 1
-
 /*******************************************************************************
 
 Utilities for triangle elements.
@@ -450,8 +448,8 @@ void TriangleComputeViewFactors(Geometry_t *GA,Geometry_t *GB,
     {
         GeometryList_t *Link;
 
-        Hit = NRays;
-        for( i=0; i<NRays; i++ )
+        Hit = Nrays;
+        for( i=0; i<Nrays; i++ )
         {
             U = drand48(); V=drand48();
             while( U+V>1.0 ) { U = drand48(); V = drand48(); }
@@ -473,10 +471,10 @@ void TriangleComputeViewFactors(Geometry_t *GA,Geometry_t *GB,
 
         if ( Hit == 0 ) return;
 
-        if ( Hit == NRays || ((Fa<FactorEPS/2 || GB->Area < AreaEPS/2) &&
+        if ( Hit == Nrays || ((Fa<FactorEPS/2 || GB->Area < AreaEPS/2) &&
                  (Fb<FactorEPS/2 || GA->Area < AreaEPS/2) ))
         {
-            Hit /= NRays;
+            Hit /= Nrays;
 
             F = 0.0;
             for( i=0; i<N_Integ3; i++ )

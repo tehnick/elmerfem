@@ -36,8 +36,6 @@
 
 #include <ViewFactors.h>
 
-#define NRays 1
-
 static int same;
 /*******************************************************************************
 
@@ -331,6 +329,7 @@ double BiLinearIntegrateDiffToArea( Geometry_t *GB,
        DZ  = BiLinearValue(U,V,BZ) - FZ;
 
        cosA = DX*NFX + DY*NFY + DZ*NFZ;
+
        if ( cosA < 1.0E-8 ) continue;
 
        NTX = BiLinearValue(U,V,NBX);
@@ -429,8 +428,8 @@ void BiLinearComputeViewFactors(Geometry_t *GA,Geometry_t *GB,int LevelA,int Lev
     {
         GeometryList_t *Link;
 
-        Hit = NRays;
-        for( i=0; i<NRays; i++ )
+        Hit = Nrays;
+        for( i=0; i<Nrays; i++ )
         {
             U = drand48(); V = drand48();
 
@@ -451,7 +450,7 @@ void BiLinearComputeViewFactors(Geometry_t *GA,Geometry_t *GB,int LevelA,int Lev
 
         if ( Hit == 0 ) return;
 
-        if ( Hit == NRays || ((Fa<FactorEPS/2 || GB->Area < AreaEPS/2) &&
+        if ( Hit == Nrays || ((Fa<FactorEPS/2 || GB->Area < AreaEPS/2) &&
                  (Fb<FactorEPS/2 || GA->Area < AreaEPS/2) ))
         {
             F = 0.0;
@@ -473,7 +472,7 @@ void BiLinearComputeViewFactors(Geometry_t *GA,Geometry_t *GB,int LevelA,int Lev
                     (*IntegrateDiffToArea[GB->GeometryType])( GB,FX,FY,FZ,DX,DY,DZ );
             }
 
-            F = Hit*F / (PI*NRays);
+            F = Hit*F / (PI*Nrays);
             Fb = F / GB->Area;
             Fa = F / GA->Area;
 

@@ -76,7 +76,8 @@ double ElementOfArea_4node( double *,double *,double *,double, double );
 EXT double U_Integ1d[32],S_Integ1d[32],U_Integ[128],V_Integ[128],S_Integ[128];
 EXT int N_Integ,N_Integ1d,N_Integ3;
 
-EXT double ShapeFunctionMatrix[16][16],ShapeFunctionMatrix4[4][4],ShapeFunctionMatrix3[3][3];
+EXT double ShapeFunctionMatrix[16][16],ShapeFunctionMatrix4[4][4],
+           ShapeFunctionMatrix3[3][3], ShapeFunctionMatrix2[2][2];
 
 EXT double U_Integ3[128],V_Integ3[128],S_Integ3[128];
 
@@ -180,16 +181,23 @@ typedef struct
     double  PolyFactors[6][3];
 } Triangle_t;
 
-#define MAX_GEOMETRY_TYPES   8
+typedef struct
+{
+    double  PolyFactors[6][2];
+} Linear_t;
 
-#define GEOMETRY_TRIANGLE    0
-#define GEOMETRY_BILINEAR    1
-#define GEOMETRY_BICUBIC     2
-#define GEOMETRY_BIQUADRATIC 3
-#define GEOMETRY_SPHERE      4
-#define GEOMETRY_CYLINDER    5
-#define GEOMETRY_CIRCLE      6
-#define GEOMETRY_ROTQUADRIC  7
+
+#define MAX_GEOMETRY_TYPES   9
+
+#define GEOMETRY_LINE        0
+#define GEOMETRY_TRIANGLE    1
+#define GEOMETRY_BILINEAR    2
+#define GEOMETRY_BICUBIC     3
+#define GEOMETRY_BIQUADRATIC 4
+#define GEOMETRY_SPHERE      5
+#define GEOMETRY_CYLINDER    6
+#define GEOMETRY_CIRCLE      7
+#define GEOMETRY_ROTQUADRIC  8
 
 typedef struct GeometryList
 {
@@ -213,6 +221,7 @@ typedef struct Geometry
          Triangle_t *Triangle;
          BiQuadratic_t *BiQuadratic;
          BiLinear_t *BiLinear;
+         Linear_t *Linear;
          BiCubic_t *BiCubic;
          Polygon_t *Polygon;
          Sphere_t *Sphere;
@@ -232,6 +241,7 @@ typedef struct Geometry
 #define Triangle    GeometryEntry.Triangle
 #define BiQuadratic GeometryEntry.BiQuadratic
 #define BiLinear    GeometryEntry.BiLinear
+#define Linear      GeometryEntry.Linear
 #define BiCubic     GeometryEntry.BiCubic
 #define Polygon     GeometryEntry.Polygon
 #define Sphere      GeometryEntry.Sphere
@@ -323,11 +333,24 @@ double TriangleIntegrateDiffToArea(Geometry_t *,double,double,double,double,doub
 void TriangleSubdivide(Geometry_t *,int,int);
 void TriangleComputeViewFactors(Geometry_t *GA,Geometry_t *GB,int,int );
 
+#define LinearValue(u,N) (N[1]*u+N[0])
+#define LinearPartialU(u,N) (N[1])
+
+double LinearEofA(double,double, double *,double *, double *);
+double LinearArea(Geometry_t *);
+double LinearLength(Geometry_t *,int);
+double LinearIntegrateDiffToArea(Geometry_t *,double,double,double,double,double,double);
+void LinearSubdivide(Geometry_t *,int,int);
+void LinearComputeViewFactors(Geometry_t *GA,Geometry_t *GB,int,int );
+
 
 static double FunctionValue( Geometry_t *Geom,double U,double V,int N )
 {
 	switch( Geom->GeometryType )
     {
+  	   case GEOMETRY_LINE:
+		   return LinearValue(U,Geom->Linear->PolyFactors[N]);
+
   	   case GEOMETRY_TRIANGLE:
 		   return TriangleValue(U,V,Geom->Triangle->PolyFactors[N]);
 
@@ -354,8 +377,7 @@ void OutputGeometry( Geometry_t *,int );
 void LinearSolveGaussSeidel( Geometry_t *,int,double *);
 
 EXT double AreaEPS,FactorEPS,RayEPS;
-
-EXT int hits;
+EXT int hits, Nrays;
 
 typedef struct CRSRows
 {

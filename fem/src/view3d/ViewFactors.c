@@ -72,6 +72,7 @@ static double ComputeViewFactorValue( Geometry_t *Geom,int Level )
 
      GeometryList_t *Link = Geom->Link;
 
+     Link = Geom->Link;
      while( Link )
      {
         S += Area * Link->ViewFactor;
@@ -216,10 +217,11 @@ static void IntegrateFromGeometry(int N,double *Factors)
     k = 0;
     for( i=0; i<N; i++ )
     {
+         for( j=i; j<N; j++ ) Factors[i*N+j] = 0.0;
          if ( Elements[i].Area<1.0e-10 ) continue;
 
-         fprintf( stderr, "row = % 4d of %d: ",i+1,N );
-         for( j=i; j<N; j++ )
+         fprintf( stdout, "row = % 4d of %d: ",i+1,N );
+         for( j=i+1; j<N; j++ )
          { 
             if ( Elements[j].Area<1.0e-10 ) continue;
 
@@ -234,30 +236,21 @@ static void IntegrateFromGeometry(int N,double *Factors)
             Fact = ComputeViewFactorValue( &Elements[i],0 );
             Factors[i*N+j] = Fact / Elements[i].Area;
             Factors[j*N+i] = Fact / Elements[j].Area;
-  
-#if 0
-            if ( Factors[j] != 0.0 ) fprintf( stdout, "%d %d %g\n", i+1,j+1, Factors[j]);
-#endif
          }
 
          fflush( stdout );
 
-#if 0
-         PrintMesh( &Elements[i] );
-#endif
          FreeChilds( Elements[i].Left );
          Elements[i].Left = NULL;
 
          FreeChilds( Elements[i].Right );
          Elements[i].Right = NULL;
 
-         RowSums[i] += Factors[i*N+i];
-         for( j=i+1; j<N; j++ )
+         RowSums[i] = 0.0;
+         for( j=0; j<N; j++ )
          {
            if ( Elements[j].Area < 1.0e-10 ) continue;
-
            RowSums[i] += Factors[i*N+j];
-           RowSums[j] += Factors[j*N+i];
          }
          s = RowSums[i];
          if ( s < Fmin )
@@ -278,40 +271,6 @@ static void IntegrateFromGeometry(int N,double *Factors)
     }
 
     free( RowSums );
-
-#if 0
-    for( i=0;i<N; i++ )
-    {
-      fprintf( stdout, "%g %g %g\n",
-         BiLinearValue(0.0,0.0,Elements[i].BiLinear->PolyFactors[0]),
-            BiLinearValue(0.0,0.0,Elements[i].BiLinear->PolyFactors[1]),
-                BiLinearValue(0.0,0.0,Elements[i].BiLinear->PolyFactors[2]));      
-
-            fprintf( stdout, "%g %g %g\n",
-         BiLinearValue(1.0,0.0,Elements[i].BiLinear->PolyFactors[0]),
-            BiLinearValue(1.0,0.0,Elements[i].BiLinear->PolyFactors[1]),
-                BiLinearValue(1.0,0.0,Elements[i].BiLinear->PolyFactors[2]));
-
-                        fprintf( stdout, "%g %g %g\n",
-         BiLinearValue(1.0,1.0,Elements[i].BiLinear->PolyFactors[0]),
-            BiLinearValue(1.0,1.0,Elements[i].BiLinear->PolyFactors[1]),
-            BiLinearValue(1.0,1.0,Elements[i].BiLinear->PolyFactors[2]));
-                        
-                  fprintf( stdout, "%g %g %g\n",
-         BiLinearValue(0.0,1.0,Elements[i].BiLinear->PolyFactors[0]),
-            BiLinearValue(0.0,1.0,Elements[i].BiLinear->PolyFactors[1]),
-                BiLinearValue(0.0,1.0,Elements[i].BiLinear->PolyFactors[2]));
-
-    }
-
-   for( i=0; i<N; i++ )
-       fprintf( stdout, "1 404 %d %d %d %d\n", 4*i+0,4*i+1,4*i+2,4*i+3 );
-          i=123;
-
-    for( j=0; j<N; j++ )
-      for( k=0; k<4; k++ )
-        fprintf( stdout, "%g\n", Factors[i*N+j] );
-#endif
 }
 
 void MakeViewFactorMatrix(int N,double *Factors,int NInteg,int NInteg3)
@@ -380,18 +339,18 @@ void MakeViewFactorMatrix(int N,double *Factors,int NInteg,int NInteg3)
      {
         for( j=0; j<N_Integ; j++,k++ )
         {
-/* FOR -1,1 */
+           /* FOR -1,1 */
            U_Integ[k] = T[i];
            V_Integ[k] = T[j];
            S_Integ[k] = S[i]*S[j];
 
-/* FOR 0-1 */
+           /* FOR 0-1 */
            U_Integ[k] = 0.5*(T[i]+1.0);
            V_Integ[k] = 0.5*(T[j]+1.0);
            S_Integ[k] = S[i]*S[j]/4.0;
        }
        U_Integ1d[i] = 0.5*(T[i]+1.0);
-       S_Integ1d[i] = 0.5*(S[i]+1.0);
+       S_Integ1d[i] = 0.5*S[i];
     }
     N_Integ1d = N_Integ;
     N_Integ = k;
@@ -456,21 +415,25 @@ void InitGeometryTypes()
 {
     InitRayTracer( RayEPS );
 
+    IntegrateDiffToArea[GEOMETRY_LINE]        = LinearIntegrateDiffToArea;
     IntegrateDiffToArea[GEOMETRY_TRIANGLE]    = TriangleIntegrateDiffToArea;
     IntegrateDiffToArea[GEOMETRY_BILINEAR]    = BiLinearIntegrateDiffToArea;
     IntegrateDiffToArea[GEOMETRY_BICUBIC]     = BiCubicIntegrateDiffToArea;
     IntegrateDiffToArea[GEOMETRY_BIQUADRATIC] = BiQuadraticIntegrateDiffToArea;
 
+    Subdivide[GEOMETRY_LINE]                  = LinearSubdivide;
     Subdivide[GEOMETRY_TRIANGLE]              = TriangleSubdivide;
     Subdivide[GEOMETRY_BILINEAR]              = BiLinearSubdivide;
     Subdivide[GEOMETRY_BICUBIC]               = BiCubicSubdivide;
     Subdivide[GEOMETRY_BIQUADRATIC]           = BiQuadraticSubdivide;
 
+    AreaCompute[GEOMETRY_LINE]                = LinearArea;
     AreaCompute[GEOMETRY_TRIANGLE]            = TriangleArea;
     AreaCompute[GEOMETRY_BILINEAR]            = BiLinearArea;
     AreaCompute[GEOMETRY_BICUBIC]             = BiCubicArea;
     AreaCompute[GEOMETRY_BIQUADRATIC]         = BiQuadraticArea;
 
+    ViewFactorCompute[GEOMETRY_LINE]          = LinearComputeViewFactors;
     ViewFactorCompute[GEOMETRY_TRIANGLE]      = TriangleComputeViewFactors;
     ViewFactorCompute[GEOMETRY_BILINEAR]      = BiLinearComputeViewFactors;
     ViewFactorCompute[GEOMETRY_BICUBIC]       = BiCubicComputeViewFactors;
@@ -480,34 +443,55 @@ void InitGeometryTypes()
 
 void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
   ( int *N, int *Topo, int *Type, double *Coord, double *Normals, double *Factors,
-    double *Feps, double *Aeps, double *Reps,int *NInteg,int *NInteg3 )
+    double *Feps, double *Aeps, double *Reps, int *Nr, int *NInteg,int *NInteg3 )
 {
    int i,j,k,l,n;
 
    AreaEPS   = *Aeps; 
    RayEPS    = *Reps; 
    FactorEPS = *Feps; 
+   Nrays     = *Nr;
 
-   elm_4node_quad_shape_functions(  ShapeFunctionMatrix4 );
-                                                                                                                                     
+   ShapeFunctionMatrix2[0][0] =  1.0;
+   ShapeFunctionMatrix2[0][1] = -1.0;
+
+   ShapeFunctionMatrix2[1][0] =  0.0;
+   ShapeFunctionMatrix2[1][1] =  1.0;
+
    ShapeFunctionMatrix3[0][0] =  1.0;
    ShapeFunctionMatrix3[0][1] = -1.0;
    ShapeFunctionMatrix3[0][2] = -1.0;
-                                                                                                                                     
+
    ShapeFunctionMatrix3[1][0] =  0.0;
    ShapeFunctionMatrix3[1][1] =  1.0;
    ShapeFunctionMatrix3[1][2] =  0.0;
-                                                                                                                                     
+
    ShapeFunctionMatrix3[2][0] =  0.0;
    ShapeFunctionMatrix3[2][1] =  0.0;
    ShapeFunctionMatrix3[2][2] =  1.0;
 
+   elm_4node_quad_shape_functions(  ShapeFunctionMatrix4 );
 
    Elements = (Geometry_t *)calloc( *N,sizeof(Geometry_t) );
 
    for( i=0; i<*N; i++ )
    {
-     if ( Type[i] == 404 )
+     if ( Type[i] == 202 )
+     {
+        Elements[i].GeometryType = GEOMETRY_LINE;
+        Elements[i].Linear = (Linear_t *)calloc( sizeof(Linear_t),1 );
+
+        for( j=0; j<2; j++ )
+        {
+           for( k=0; k<2; k++ )
+           for( n=0; n<3; n++ )
+           {
+              l = 3*Topo[4*i+k]+n;
+              Elements[i].Linear->PolyFactors[n][j]   += ShapeFunctionMatrix2[k][j]*Coord[l];
+              Elements[i].Linear->PolyFactors[n+3][j] += ShapeFunctionMatrix2[k][j]*Normals[3*i+n];
+            }
+        }
+     } else if ( Type[i] == 404 )
      {
         Elements[i].GeometryType = GEOMETRY_BILINEAR;
         Elements[i].BiLinear = (BiLinear_t *)calloc( sizeof(BiLinear_t),1 );

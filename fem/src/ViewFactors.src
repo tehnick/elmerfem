@@ -72,7 +72,7 @@
      INTEGER :: BandSize,SubbandSize,RadiationSurfaces,Row,Col
      INTEGER, DIMENSION(:), POINTER :: Perm
 
-     REAL(KIND=dp) :: Norm,PrevNorm,MinFactor
+     REAL(KIND=dp) :: Norm,PrevNorm,MinFactor, Normal_in
 
      TYPE(Nodes_t) :: ElementNodes
      TYPE(ValueList_t), POINTER :: BC, Material
@@ -93,7 +93,7 @@
            ViewFactorsFile,OutputName,ModelName,LMessage, TempString
 
      TYPE(Element_t), POINTER :: RadElements(:)
-     INTEGER :: RadiationBody, MaxRadiationBody
+     INTEGER :: RadiationBody, MaxRadiationBody, Nrays
      LOGICAL :: RadiationOpen, Combine
 
      EXTERNAL Matvec,DiagPrec
@@ -157,7 +157,7 @@
 !------------------------------------------------------------------------------
      eq = GetString( GetSimulation(), 'Coordinate System' )
 
-     IF ( eq(1:9) == 'cartesian' .AND. CoordinateSystemDimension() == 3) THEN
+     IF ( eq(1:9) == 'cartesian' ) THEN
        Coordinates = Cartesian
      ELSE IF ( eq(1:13) == 'axi symmetric' ) THEN
        Coordinates = AxisSymmetric
@@ -295,8 +295,9 @@
        END IF
        
        DO t=1,N
+
          Element => RadElements(t)
-         k = Element % TYPE % NumberOfNodes
+         k = Element % Type % NumberOfNodes
          ElementNodes % x(1:k) = Model % Nodes % x(Element % NodeIndexes)
          ElementNodes % y(1:k) = Model % Nodes % y(Element % NodeIndexes)
          ElementNodes % z(1:k) = Model % Nodes % z(Element % NodeIndexes)
@@ -355,10 +356,11 @@
          RadBody = ListGetInteger( Model % BCs( Element %  &
              BoundaryInfo % Constraint) % Values, 'Radiation Target Body',GotIt )
          
-         IF ( .NOT. GotIt ) THEN
+         IF ( .NOT. GotIt ) &
            RadBody = ListGetInteger( Model % BCs( Element %  &
                BoundaryInfo % Constraint) % Values, 'Normal Target Body',GotIt )
-         END IF
+
+         IF ( RadBody < 0 ) RadBody = 0
          
          IF ( RadBody > 0 .AND. (RadBody /= RightBody .AND. RadBody /= LeftBody) ) THEN
            CALL Error( 'ViewFactors', 'Inconsistent direction information (Radiation Target Body)' )
@@ -366,36 +368,17 @@
            CALL Fatal( 'ViewFactors', LMessage )
          END IF
          
-         IF ( .NOT.GotIt ) THEN
-           IF ( LeftBody >= 1 .AND. RightBody >= 1 ) THEN
-             MatId = ListGetInteger(Model % Bodies(LeftBody) % Values,'Material')
-             DensL = ListGetConstReal( Model % Materials(MatId) % Values,'Density' )
-             
-             MatId = ListGetInteger(Model % Bodies(RightBody) % Values,'Material')
-             DensR = ListGetConstReal( Model % Materials(MatId) % Values,'Density' )
-             IF ( DensL < DensR ) LeftNode = RightNode
-           ELSE
-             IF ( LeftNode <= 0 ) LeftNode = RightNode
-           END IF
-         ELSE
-           IF ( LeftNode <= 0 ) THEN
-             LeftNode = RightNode
-             LeftBody = RightBody
-           END IF
-           IF ( RadBody == LeftBody ) Nrm = -Nrm
-         END IF
+         IF ( LeftNode <= 0 .OR. (RadBody>0 .AND. RadBody==RightBody) ) &
+           LeftNode = RightNode
+         Normal_in = -1.0
+         IF ( RadBody <= 0 ) Normal_in = 1.0
          
-         nx = SUM(Model % Nodes % x(Element % NodeIndexes))/k - &
-             Model % Nodes % x(LeftNode)
-         
-         ny = SUM(Model % Nodes % y(Element % NodeIndexes))/k - &
-             Model % Nodes % y(LeftNode)
-         
-         nz = SUM(Model % Nodes % z(Element % NodeIndexes))/k - &
-             Model % Nodes % z(LeftNode)
+         nx = SUM(Model % Nodes % x(Element % NodeIndexes))/k-Model % Nodes % x(LeftNode)
+         ny = SUM(Model % Nodes % y(Element % NodeIndexes))/k-Model % Nodes % y(LeftNode)
+         nz = SUM(Model % Nodes % z(Element % NodeIndexes))/k-Model % Nodes % z(LeftNode)
          
          IF ( CylindricSymmetry ) THEN
-           IF ( Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
+           IF ( Normal_in*(Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz) > 0 ) THEN
              Surfaces(2*(t-1)+1) = Element % NodeIndexes(2) - 1
              Surfaces(2*(t-1)+2) = Element % NodeIndexes(1) - 1
            ELSE
@@ -407,10 +390,11 @@
              Surfaces(4*(t-1)+i) = Element % NodeIndexes(i) - 1
            END DO
            
-           TYPE(t) = 404
-           IF ( Element % TYPE % ElementCode / 100 == 3 ) TYPE(t) = 303
+           IF ( Element % Type % ElementCode/100==2 ) TYPE(t) = 202
+           IF ( Element % Type % ElementCode/100==3 ) TYPE(t) = 303
+           IF ( Element % Type % ElementCode/100==4 ) TYPE(t) = 404
            
-           IF ( Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
+           IF ( Normal_in*(Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz) > 0 ) THEN
              Normals(3*(t-1)+1:3*(t-1)+3) =  Nrm
            ELSE
              Normals(3*(t-1)+1:3*(t-1)+3) = -Nrm
@@ -444,8 +428,10 @@
          IF ( .NOT. GotIt ) FactEPS = 1.0d-2
          RayEPS = GetConstReal( GetSolverParams(), 'Viewfactor Raytrace Tolerace',  GotIt )
          IF ( .NOT. GotIt ) RayEPS = 1.0d-5
+         Nrays = GetInteger( GetSolverParams(), 'Viewfactor Number of Rays ',  GotIt )
+         IF ( .NOT. GotIt ) Nrays = 1
          CALL ViewFactors3D( N, Surfaces, TYPE, Coords, Normals, &
-             Factors, AreaEPS, FactEPS, RayEPS, 4, 3 )
+             Factors, AreaEPS, FactEPS, RayEPS, Nrays, 16, 3 )
        END IF
        
        WRITE (Message,'(A,F8.2)') 'View factors computed in time (s):',CPUTime()-at0		
@@ -584,7 +570,7 @@
 !------------------------------------------------------------------------------
         DO i=1,N
           Areas(i) = ElementArea( Model % Mesh, RadElements(i), &
-               RadElements(i) % TYPE % NumberOfNodes )
+               RadElements(i) % Type % NumberOfNodes )
         END DO
 
         DO i=1,N
