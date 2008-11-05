@@ -44,7 +44,7 @@ Juha Ruokolainen/CSC - 23 Aug 1995
 
 #include <ViewFactors.h>
 
-static double REPS = 3.0E-3;
+static double REPS = 1.0E-4;
 #define MAX_LEVEL 16
 
 /*******************************************************************************
@@ -148,7 +148,7 @@ int SolveRayBiCubicNewton(
                             double *X,double *Y,double *Z
                          )
 {
-    double Xdu,Xdv,Ydu,Ydv,Zdu,Zdv,VX,VY,VZ,J0,J1,J2,J3,EPS=REPS*L;
+    double Xdu,Xdv,Ydu,Ydv,Zdu,Zdv,VX,VY,VZ,J0,J1,J2,J3,EPS=REPS;
     double A0,B0,C0,D0,A1,B1,C1,D1,det,F0,F1,NORM,T,U=0.5,V=0.5;
 
     int iter,ITMAX=30;
@@ -370,7 +370,7 @@ int RayHitBiLinear(
        )
 {
     double A0,B0,C0,D0,A1,B1,C1,D1,A,B,C,D,E,AC4,U,V,T,*X,*Y,*Z;
-    double EPS=REPS*L,TF,TD,*TX;
+    double EPS=REPS,TF,TD,*TX;
 
     X = Geometry->BiLinear->PolyFactors[0];
     Y = Geometry->BiLinear->PolyFactors[1];
@@ -557,7 +557,7 @@ int RayHitLine(
        )
 {
     double A11,A12,A21,A22,U,V,T,*X,*Y,*Z,detA;
-    double EPS=REPS*L,TF,TD,*TX;
+    double EPS=REPS,TF,TD,*TX;
 
     X = Geometry->Linear->PolyFactors[0];
     Y = Geometry->Linear->PolyFactors[1];
@@ -593,7 +593,7 @@ int RayHitTriangle(
 {
     double A11,A12,A13,A21,A22,A23,A31,A32,A33,U,V,T,*X,*Y,*Z;
     double B11,B12,B13,B21,B22,B23,B31,B32,B33,PX,PY,PZ,detA;
-    double EPS=REPS*L;
+    double EPS=REPS;
 
 /*
  * if ( !RayHitBBox(&Geometry->BBox,FX,FY,FZ,DX,DY,DZ) ) return FALSE;
@@ -666,7 +666,7 @@ int RayHitSphere(
 {
      Sphere_t *Sph = Geometry->Sphere;
 
-     double A,B,C,D,E,AC4,T,R=Sph->Radius,EPS=R*REPS*L;
+     double A,B,C,D,E,AC4,T,R=Sph->Radius,EPS=REPS;
 
      FX -= Sph->CenterPoint.x;
      FY -= Sph->CenterPoint.y;
@@ -720,7 +720,7 @@ int RayHitCylinder(
 {
      Cylinder_t *Cyl = Geometry->Cylinder;
 
-     double A,B,C,D,E,T,X,Y,Z,R=Cyl->Radius,CL=Cyl->Length/2,EPS=R*REPS*L;
+     double A,B,C,D,E,T,X,Y,Z,R=Cyl->Radius,CL=Cyl->Length/2,EPS=REPS;
 
      FX -= Cyl->CenterPoint.x;
      FY -= Cyl->CenterPoint.y;
@@ -797,7 +797,7 @@ int RayHitCircle(
 {
      Circle_t *Cir = Geometry->Circle;
 
-     double T,X,Y,Z,R,R0=Cir->RMin,R1=Cir->RMax,EPS = REPS*L;
+     double T,X,Y,Z,R,R0=Cir->RMin,R1=Cir->RMax,EPS = REPS;
 
      FX -= Cir->CenterPoint.x;
      FY -= Cir->CenterPoint.y;
@@ -837,7 +837,7 @@ int RayHitRotationalQuadric(
 {
      RotQuadric_t *RQd = Geometry->RotQuadric;
 
-     double A,B,C,D,E,T,X,Y,Z,R,R0,R1,EPS = REPS*L;
+     double A,B,C,D,E,T,X,Y,Z,R,R0,R1,EPS = REPS;
 
      FX -= RQd->CenterPoint.x;
      FY -= RQd->CenterPoint.y;
@@ -938,7 +938,7 @@ int RayHitRotationalQuadric1(
 {
      RotQuadric_t *RQd = Geometry->RotQuadric;
 
-     double Az=RQd->REqn[2],Bz=RQd->REqn[1],Cz=RQd->REqn[0],EPS = REPS*L;
+     double Az=RQd->REqn[2],Bz=RQd->REqn[1],Cz=RQd->REqn[0],EPS = REPS;
      double A,B,C,D,E,T,X,Y,Z,R,R0=RQd->RMin*RQd->RMin,R1=RQd->RMax*RQd->RMax;
 
      FX -= RQd->CenterPoint.x;
