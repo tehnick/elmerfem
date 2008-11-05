@@ -281,7 +281,6 @@ double LinearViewFactor( Geometry_t *GA, Geometry_t *GB )
 
   double fact,d, NTX, NTY, NFX, NFY, cosA, cosB, DX, DY, FX, FY, eps=1e-8;
 
-#if 0
   FX = LinearValue(0.5,AX);
   FY = LinearValue(0.5,AY);
 
@@ -307,7 +306,6 @@ double LinearViewFactor( Geometry_t *GA, Geometry_t *GB )
   cosA =  NFX*DX + NFY*DY;
   cosB = -NTX*DX - NTY*DY;
   if ( cosA < eps || cosB < eps ) return 0.0;
-#endif
 
   DX = LinearValue(0.0,BX)-LinearValue(0.0,AX);
   DY = LinearValue(0.0,BY)-LinearValue(0.0,AY);
