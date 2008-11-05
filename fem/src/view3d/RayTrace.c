@@ -1193,6 +1193,9 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     double L2 = Volume->BBox.YMax - Volume->BBox.YMin;
     double L3 = Volume->BBox.ZMax - Volume->BBox.ZMin;
 
+    int NC;
+    Geometry_t *Geom;
+
     double U[] = { 0.0,1.0,0.0,1.0 }, V[] = { 0.0,0.0,1.0,1.0 }, x,y,z;
 
     VolumeBounds_t *LeftVolume,*RightVolume;
@@ -1228,37 +1231,29 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         k = Volume->Elements[i];
         left = right = FALSE;
 
-        if ( Elements[k].GeometryType == GEOMETRY_TRIANGLE )
+        switch(Elements[k].GeometryType)
         {
-          for( j=0; j<3; j++ )
-          {
-             x = TriangleValue( U[j],V[j],Elements[k].Triangle->PolyFactors[0] );
-             y = TriangleValue( U[j],V[j],Elements[k].Triangle->PolyFactors[1] );
-             z = TriangleValue( U[j],V[j],Elements[k].Triangle->PolyFactors[2] );
+          case GEOMETRY_LINE:
+              NC = 2; break;
+          case GEOMETRY_TRIANGLE:
+              NC = 3; break;
+          case GEOMETRY_BILINEAR:
+              NC = 4; break;
+        }
 
-             if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
-             if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
-             if ( (z >= LeftVolume->BBox.ZMin) && (z <= LeftVolume->BBox.ZMax) )  left = TRUE;
+        for( j=0; j<NC; j++ )
+        {
+           x = FunctionValue( &Elements[k], U[j],V[j], 0);
+           y = FunctionValue( &Elements[k], U[j],V[j], 1);
+           z = FunctionValue( &Elements[k], U[j],V[j], 2);
 
-             if ( (x >= RightVolume->BBox.XMin) && (x <= RightVolume->BBox.XMax) )
-             if ( (y >= RightVolume->BBox.YMin) && (y <= RightVolume->BBox.YMax) )
-             if ( (z >= RightVolume->BBox.ZMin) && (z <= RightVolume->BBox.ZMax) ) right = TRUE;
-          }
-        } else {
-          for( j=0; j<4; j++ )
-          {
-             x = BiLinearValue( U[j],V[j],Elements[k].BiLinear->PolyFactors[0] );
-             y = BiLinearValue( U[j],V[j],Elements[k].BiLinear->PolyFactors[1] );
-             z = BiLinearValue( U[j],V[j],Elements[k].BiLinear->PolyFactors[2] );
+           if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
+           if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
+           if ( (z >= LeftVolume->BBox.ZMin) && (z <= LeftVolume->BBox.ZMax) )  left = TRUE;
 
-             if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
-             if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
-             if ( (z >= LeftVolume->BBox.ZMin) && (z <= LeftVolume->BBox.ZMax) ) left = TRUE;
-
-             if ( (x >= RightVolume->BBox.XMin) && (x <= RightVolume->BBox.XMax) )
-             if ( (y >= RightVolume->BBox.YMin) && (y <= RightVolume->BBox.YMax) )
-             if ( (z >= RightVolume->BBox.ZMin) && (z <= RightVolume->BBox.ZMax) ) right = TRUE;
-          }
+           if ( (x >= RightVolume->BBox.XMin) && (x <= RightVolume->BBox.XMax) )
+           if ( (y >= RightVolume->BBox.YMin) && (y <= RightVolume->BBox.YMax) )
+           if ( (z >= RightVolume->BBox.ZMin) && (z <= RightVolume->BBox.ZMax) ) right = TRUE;
         }
         if ( left )  LeftVolume->n++; else if ( right ) RightVolume->n++;
     }
@@ -1273,37 +1268,29 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     {
         k = Volume->Elements[i];
         left = right = FALSE;
-        if ( Elements[k].GeometryType == GEOMETRY_TRIANGLE )
+
+        switch(Elements[k].GeometryType)
         {
-          for( j=0; j<3; j++ )
-          {
-             x = TriangleValue( U[j], V[j], Elements[k].Triangle->PolyFactors[0] );
-             y = TriangleValue( U[j], V[j], Elements[k].Triangle->PolyFactors[1] );
-             z = TriangleValue( U[j], V[j], Elements[k].Triangle->PolyFactors[2] );
+          case GEOMETRY_LINE:
+            NC = 2; break;
+          case GEOMETRY_TRIANGLE:
+            NC = 3; break;
+          case GEOMETRY_BILINEAR:
+            NC = 4; break;
+        }
+        for( j=0; j<NC; j++ )
+        {
+           x = FunctionValue( &Elements[k], U[j],V[j], 0);
+           y = FunctionValue( &Elements[k], U[j],V[j], 1);
+           z = FunctionValue( &Elements[k], U[j],V[j], 2);
 
-             if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
-             if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
-             if ( (z >= LeftVolume->BBox.ZMin) && (z <= LeftVolume->BBox.ZMax) )  left = TRUE;
+           if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
+           if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
+           if ( (z >= LeftVolume->BBox.ZMin) && (z <= LeftVolume->BBox.ZMax) )  left = TRUE;
 
-             if ( (x >= RightVolume->BBox.XMin) && (x <= RightVolume->BBox.XMax) )
-             if ( (y >= RightVolume->BBox.YMin) && (y <= RightVolume->BBox.YMax) )
-             if ( (z >= RightVolume->BBox.ZMin) && (z <= RightVolume->BBox.ZMax) ) right = TRUE;
-          }
-        } else {
-          for( j=0; j<4; j++ )
-          {
-             x = BiLinearValue( U[j], V[j], Elements[k].BiLinear->PolyFactors[0] );
-             y = BiLinearValue( U[j], V[j], Elements[k].BiLinear->PolyFactors[1] );
-             z = BiLinearValue( U[j], V[j], Elements[k].BiLinear->PolyFactors[2] );
-
-             if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
-             if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
-             if ( (z >= LeftVolume->BBox.ZMin) && (z <= LeftVolume->BBox.ZMax) )  left = TRUE;
-
-             if ( (x >= RightVolume->BBox.XMin) && (x <= RightVolume->BBox.XMax) )
-             if ( (y >= RightVolume->BBox.YMin) && (y <= RightVolume->BBox.YMax) )
-             if ( (z >= RightVolume->BBox.ZMin) && (z <= RightVolume->BBox.ZMax) ) right = TRUE;
-          }
+           if ( (x >= RightVolume->BBox.XMin) && (x <= RightVolume->BBox.XMax) )
+           if ( (y >= RightVolume->BBox.YMin) && (y <= RightVolume->BBox.YMax) )
+           if ( (z >= RightVolume->BBox.ZMin) && (z <= RightVolume->BBox.ZMax) ) right = TRUE;
         }
         if ( left )  LeftVolume->Elements[LeftVolume->n++] = k;
         else if ( right ) RightVolume->Elements[RightVolume->n++] = k;
