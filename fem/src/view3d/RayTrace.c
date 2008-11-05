@@ -1130,7 +1130,7 @@ int RayHitGeometry( double FX,double FY,double FZ, double DX,double DY,double DZ
 void VolumeBBox( VolumeBounds_t *Volume,Geometry_t *Elements )
 {
     double xMin,yMin,zMin,xMax,yMax,zMax,x,y,z;
-    int i,j,k,N;
+    int i,j,k,N, NC;
 
     double U[] = {0.0,1.0,0.0,1.0}, V[] = {0.0,0.0,1.0,1.0};
  
@@ -1141,13 +1141,20 @@ void VolumeBBox( VolumeBounds_t *Volume,Geometry_t *Elements )
     for( i=0; i<N; i++ )
     {
          k = Volume->Elements[i];
-         if ( Elements[k].GeometryType == GEOMETRY_TRIANGLE )
-       {
-          for( j=0; j<3; j++ )
+         switch(Elements[k].GeometryType)
+         {
+            case GEOMETRY_LINE:
+              NC = 2; break;
+            case GEOMETRY_TRIANGLE:
+              NC = 3; break;
+            case GEOMETRY_BILINEAR:
+              NC = 4; break;
+        }
+        for( j=0; j<NC; j++ )
           {
-            x = TriangleValue( U[j],V[j],Elements[k].Triangle->PolyFactors[0] );
-            y = TriangleValue( U[j],V[j],Elements[k].Triangle->PolyFactors[1] );
-            z = TriangleValue( U[j],V[j],Elements[k].Triangle->PolyFactors[2] );
+            x = FunctionValue( &Elements[k], U[j],V[j], 0);
+            y = FunctionValue( &Elements[k], U[j],V[j], 1);
+            z = FunctionValue( &Elements[k], U[j],V[j], 2);
 
             xMin = MIN( x,xMin );
             yMin = MIN( y,yMin );
@@ -1157,22 +1164,6 @@ void VolumeBBox( VolumeBounds_t *Volume,Geometry_t *Elements )
             yMax = MAX( y,yMax );
             zMax = MAX( z,zMax );
           }
-       } else {
-          for( j=0; j<4; j++ )
-          {
-            x = BiLinearValue( U[j],V[j],Elements[k].BiLinear->PolyFactors[0] );
-            y = BiLinearValue( U[j],V[j],Elements[k].BiLinear->PolyFactors[1] );
-            z = BiLinearValue( U[j],V[j],Elements[k].BiLinear->PolyFactors[2] );
-
-            xMin = MIN( x,xMin );
-            yMin = MIN( y,yMin );
-            zMin = MIN( z,zMin );
-
-            xMax = MAX( x,xMax );
-            yMax = MAX( y,yMax );
-            zMax = MAX( z,zMax );
-          }
-       }
     }
 
     Volume->BBox.XMin = xMin;
@@ -1326,8 +1317,10 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         Volume->Left = Volume->Right = NULL;
 
         count -= 2;
+/*
         fprintf( stderr, "canceled: remain=%d,total=%d,max dim=%g\n",
                         Volume->n,count,VolV );
+*/
         return;
     }
 
