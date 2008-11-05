@@ -153,7 +153,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
-      ComplexEigen, Parallel, LiveGraph, FileAppend
+      ComplexEigen, Parallel, LiveGraph, FileAppend, SaveEigenValue, SaveEigenFreq
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
       Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
@@ -362,7 +362,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   !   Add eigenvalues on the list if told to
   !------------------------------------------------------------------------------
-  IF ( ListGetLogical( Solver % Values, 'Save Eigenvalues', GotIt ) ) THEN
+
+  SaveEigenValue = ListGetLogical( Solver % Values, 'Save Eigenvalues', GotIt )
+  SaveEigenFreq = ListGetLogical( Solver % Values, 'Save Eigenfrequencies', GotIt )
+  IF(.NOT. GotIt) &
+    SaveEigenFreq = ListGetLogical( Solver % Values, 'Save Eigen Frequencies', GotIt 
+
+  IF ( SaveEigenValue .OR. SaveEigenFreq ) THEN
     DO i = 1, Model % NumberOfSolvers       
       IF ( Model % Solvers(i) % NOFEigenValues > 0 ) THEN
         DO j = 1, Model % Solvers(i) % NOFEigenValues
@@ -370,18 +376,21 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           k = Model % Solvers(i) % NOFEigenValues - j + 1
           Value = Model % Solvers(i) % Variable % EigenValues(k)
           
-          IF ( ListGetLogical( Solver % Values, &
-              'Save Eigen Frequencies', GotIt ) ) THEN
+          IF ( SaveEigenValue ) THEN
+            WRITE( Name, '("eigen: value ", I2)' ) k
+            CALL AddToSaveList(TRIM(Name), Value)
+          END IF 
+
+          IF ( SaveEigenFreq ) THEN
             WRITE( Name, '("eigen: frequency ", I2, " [Hz]")' ) k
             IF ( REAL( Model % Solvers(i) % Variable % EigenValues(k)) > 0 ) THEN
               Value = SQRT(REAL(Value)) / (2*PI)
             ELSE
               Value = -1.0d0
             END IF
-          ELSE
-            WRITE( Name, '("eigen: value ", I2)' ) k
-          END IF          
-          CALL AddToSaveList(TRIM(Name), Value)
+            CALL AddToSaveList(TRIM(Name), Value)
+          END IF
+
         END DO
       END IF
     END DO
