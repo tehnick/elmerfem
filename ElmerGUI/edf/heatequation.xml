@@ -127,11 +127,14 @@
            <Name> View Factors Geometry Tolerance</Name>
            <Whatis> The view factors take a lot of time to compute. Therefore during the iteration a test is performed to check whether the geometry has changed. If the relative maximum change in the coordinate values is less than the value given by this parameter, the view factors are not recomputed and the old values are used. </Whatis>
          </Parameter>
+
          <Parameter Widget="Edit">
            <Name> View Factors Fixed After Iterations </Name>
            <Type> Integer </Type>
            <Whatis> Sometimes the iteration changes the geometry of the radiation boundaries as an unwanted sideeffect. Then the geometry on the radiation boundary may be set fixed after some iterations. In practice this is done by adding suitable Dirichlet conditions in the boundary conditions. </Whatis>
+
          </Parameter>
+
          <Parameter Widget="CheckBox">
             <Name>Gebhardt Factors Solver Full</Name>
             <Type> Logical </Type>
@@ -142,6 +145,27 @@
            <Type> Logical </Type>
            <Whatis> If the Gebhardt factors are solved from a sparse matrix equation, also the type of solver may be selected. The default is direct umfpack solver. Sometimes the memory usage may be a problem, or the direct strategy is simply not efficient enough. Then an iterative cgs solver may be used instead. </Whatis>
          </Parameter>
+
+         <Parameter Widget="Label">
+           <Name> Parameters for 2- and 3D viewfactor computation </Name>
+         </Parameter>
+
+         <Parameter Widget="Edit">
+            <Name> Viewfactor area tolerance </Name>
+            <Whatis> (2D and 3D) Split input elements until areas are under given tolerance.  </Whatis>
+         </Parameter>
+
+         <Parameter Widget="Edit">
+            <Name> Viewfactor factor tolerance </Name>
+            <Whatis> (2D and 3D) Split input elements until respective viewfactor is under given tolerance.  </Whatis>
+         </Parameter>
+
+         <Parameter Widget="Edit">
+            <Name> Viewfactor number of rays </Name>
+            <Type> Integer </Type>
+            <Whatis> (2D and 3D) The viewfactor computation resolves shading by ray casting. Give number of rays sent for each pair of (possible subdivided) elements when trying to determine if the view is blocked. If all rays pass between the pair of elements and area and factor tolerances pass the viewfactor is computed. Otherwise the elements are further subdivided until all rays pass or the area and factor tolerances divided by two pass. The computed factor is then multiplied by "rays passed/rays sent".  </Whatis>
+         </Parameter>
+
       </Solver>
 
       <BodyForce>
