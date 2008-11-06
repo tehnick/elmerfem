@@ -56,17 +56,21 @@ MainWindow::MainWindow()
 {
   setWindowTitle("ElmerGUI log window");
   setWindowIcon(QIcon(":/icons/ElmerGUI.png"));
-  resize(400, 200);
+  resize(400, 240);
 
   textEdit = new QTextEdit(this);
   setCentralWidget(textEdit);
-  textEdit->setTextColor(Qt::green);
+  textEdit->setTextColor(Qt::darkGreen);
 
   createActions();
   createMenus();
 
+  QString ELMER_HOME = getenv("ELMER_HOME");
   QString ELMERGUI_HOME = getenv("ELMERGUI_HOME");
-  textEdit->append("ELMERGUI_HOME = " + ELMERGUI_HOME);
+  QString ELMER_POST_HOME = getenv("ELMER_POST_HOME");
+  textEdit->append("ELMER_HOME: " + ELMER_HOME);
+  textEdit->append("ELMERGUI_HOME: " + ELMERGUI_HOME);
+  textEdit->append("ELMER_POST_HOME: " + ELMER_POST_HOME);
 
   textEdit->append("Starting ElmerGUI...");
 
@@ -82,8 +86,11 @@ MainWindow::MainWindow()
   elmerGUI->start("ElmerGUI");
 
   if(!elmerGUI->waitForStarted()) {
-    textEdit->append("Failed starting the process - aborting");
-    return;
+    textEdit->setTextColor(Qt::darkGreen);
+    textEdit->append("Probably the executable ElmerGUI(.exe) is either missing, or "
+		     "then there is no path to it (at least ELMER_HOME/bin and "
+		     "ELMERGUI_HOME should be found from path). Please check your Elmer "
+		     "installation.");
   }
 }
 
@@ -118,7 +125,7 @@ void MainWindow::createMenus()
 
 void MainWindow::saveAsSlot()
 {
-  textEdit->setTextColor(Qt::green);
+  textEdit->setTextColor(Qt::darkGreen);
 
   QString fileName = QFileDialog::getSaveFileName(this, tr("Save text file"));
   
@@ -147,7 +154,7 @@ void MainWindow::saveAsSlot()
 
 void MainWindow::printSlot()
 {
-  textEdit->setTextColor(Qt::green);
+  textEdit->setTextColor(Qt::darkGreen);
 
   QTextDocument* document = textEdit->document();
 
@@ -170,7 +177,7 @@ void MainWindow::exitSlot()
     elmerGUI->kill();
 
     if(!elmerGUI->waitForFinished())
-      textEdit->append("Failed killing the process - closing anyways");
+      textEdit->append("Failed killing process - closing anyways");
   }
   
   close();
