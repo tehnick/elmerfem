@@ -302,7 +302,7 @@
          ElementNodes % y(1:k) = Model % Nodes % y(Element % NodeIndexes)
          ElementNodes % z(1:k) = Model % Nodes % z(Element % NodeIndexes)
          
-         IF ( Element % TYPE % ElementCode / 100 == 3 ) THEN
+         IF ( Element % Type % ElementCode / 100 == 3 ) THEN
            nrm = NormalVector( Element,ElementNodes, &
                1.0d0 / 3.0d0, 1.0d0 / 3.0d0 )
          ELSE
@@ -373,28 +373,38 @@
          Normal_in = -1.0
          IF ( RadBody <= 0 ) Normal_in = 1.0
          
-         nx = SUM(Model % Nodes % x(Element % NodeIndexes))/k-Model % Nodes % x(LeftNode)
-         ny = SUM(Model % Nodes % y(Element % NodeIndexes))/k-Model % Nodes % y(LeftNode)
-         nz = SUM(Model % Nodes % z(Element % NodeIndexes))/k-Model % Nodes % z(LeftNode)
+         nx = SUM(Model % Nodes % x(Element % NodeIndexes)) / k - &
+                     Model % Nodes % x(LeftNode)
+
+         ny = SUM(Model % Nodes % y(Element % NodeIndexes)) / k - &
+                     Model % Nodes % y(LeftNode)
+
+         nz = SUM(Model % Nodes % z(Element % NodeIndexes)) / k - &
+                     Model % Nodes % z(LeftNode)
          
          IF ( CylindricSymmetry ) THEN
-           IF ( Normal_in*(Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz) > 0 ) THEN
-             Surfaces(2*(t-1)+1) = Element % NodeIndexes(2) - 1
-             Surfaces(2*(t-1)+2) = Element % NodeIndexes(1) - 1
+           IF ( Normal_in*(Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz)>0 ) THEN
+             Surfaces(2*(t-1)+1) = Element % NodeIndexes(2)-1
+             Surfaces(2*(t-1)+2) = Element % NodeIndexes(1)-1
            ELSE
-             Surfaces(2*(t-1)+1) = Element % NodeIndexes(1) - 1
-             Surfaces(2*(t-1)+2) = Element % NodeIndexes(2) - 1
+             Surfaces(2*(t-1)+1) = Element % NodeIndexes(1)-1
+             Surfaces(2*(t-1)+2) = Element % NodeIndexes(2)-1
            END IF
          ELSE
-           DO i = 1,MIN(k,4)
-             Surfaces(4*(t-1)+i) = Element % NodeIndexes(i) - 1
+           j = Element % Type % ElementCode/100
+           SELECT CASE(j)
+             CASE(2)
+                Type(t) = 202
+             CASE(3)
+                Type(t) = 303
+             CASE(4)
+                Type(t) = 404
+           END SELECT
+           DO i=1,j
+             Surfaces(j*(t-1)+i) = Element % NodeIndexes(i) - 1
            END DO
            
-           IF ( Element % Type % ElementCode/100==2 ) TYPE(t) = 202
-           IF ( Element % Type % ElementCode/100==3 ) TYPE(t) = 303
-           IF ( Element % Type % ElementCode/100==4 ) TYPE(t) = 404
-           
-           IF ( Normal_in*(Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz) > 0 ) THEN
+           IF (Normal_in*(Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz)>0) THEN
              Normals(3*(t-1)+1:3*(t-1)+3) =  Nrm
            ELSE
              Normals(3*(t-1)+1:3*(t-1)+3) = -Nrm
@@ -430,7 +440,10 @@
          IF ( .NOT. GotIt ) RayEPS = 1.0d-5
          Nrays = GetInteger( GetSolverParams(), 'Viewfactor Number of Rays ',  GotIt )
          IF ( .NOT. GotIt ) Nrays = 1
-         CALL ViewFactors3D( N, Surfaces, TYPE, Coords, Normals, &
+
+         CALL ViewFactors3D( &
+             N, Surfaces, Type, Coords, Normals, &
+             0, Surfaces, Type, Coords, Normals, &
              Factors, AreaEPS, FactEPS, RayEPS, Nrays, 4, 3 )
        END IF
        

@@ -84,14 +84,14 @@ int RayHitBBox( BBox_t *BBox,double Fx,double Fy,double Fz,double Tx,double Ty,d
      Ty -= Fy;
      Tz -= Fz;
 
-     if ( ABS(Tx)<1.0E-12 && (Fx<BBox->XMin || Fx>BBox->XMax) ) return FALSE;
-     if ( ABS(Ty)<1.0E-12 && (Fy<BBox->YMin || Fy>BBox->YMax) ) return FALSE;
-     if ( ABS(Tz)<1.0E-12 && (Fz<BBox->ZMin || Fz>BBox->ZMax) ) return FALSE;
+     if ( ABS(Tx)<1.0e-12 && (Fx<BBox->XMin || Fx>BBox->XMax) ) return FALSE;
+     if ( ABS(Ty)<1.0e-12 && (Fy<BBox->YMin || Fy>BBox->YMax) ) return FALSE;
+     if ( ABS(Tz)<1.0e-12 && (Fz<BBox->ZMin || Fz>BBox->ZMax) ) return FALSE;
 
      XMin = -DBL_MAX;
      XMax =  DBL_MAX;
 
-     if ( ABS(Tx)>=1.0E-12 )
+     if ( ABS(Tx)>=1.0e-12 )
      {
          Tx = 1.0 / Tx;
          TMax = (BBox->XMax-Fx)*Tx;
@@ -103,7 +103,7 @@ int RayHitBBox( BBox_t *BBox,double Fx,double Fy,double Fz,double Tx,double Ty,d
          XMin = TMin;
      }
 
-     if ( ABS(Ty)>=1.0E-12 )
+     if ( ABS(Ty)>=1.0e-12 )
      {
          Ty = 1.0 / Ty;
          TMax = (BBox->YMax - Fy)*Ty;
@@ -117,7 +117,7 @@ int RayHitBBox( BBox_t *BBox,double Fx,double Fy,double Fz,double Tx,double Ty,d
          if ( XMin>XMax ) return FALSE;
      }
 
-     if ( ABS(Tz)>=1.0E-12 )
+     if ( ABS(Tz)>=1.0e-12 )
      {
          Tz = 1.0/Tz;
          TMin = (BBox->ZMin-Fz)*Tz;
@@ -1022,63 +1022,6 @@ int RayHitRotationalQuadric1(
 }
 
 
-
-/*******************************************************************************
-
-Solve for ray segment and geometry model intersection, return value is if
-there is hit or not.
-
-LAST Modified: 23 Aug 1995
-
-*******************************************************************************/
-int RayHitGeometryOld( double FX,double FY,double FZ, double DX,double DY,double DZ )
-{
-    int i,j,k,n,t=FALSE; 
-    static int cb=0,ce=0;
-
-    double L = sqrt(DX*DX + DY*DY + DZ*DZ);
-
-    if ( NVolumeBounds <= 0 )
-    {
-      for( i=0; i<NGeomElem; i++ )
-      {
-         if ( ce >= NGeomElem ) ce = 0;
-         n = Elements[ce].GeometryType;
-         if ( t = (*RayHit[n])(&Elements[i],FX,FY,FZ,DX,DY,DZ,L) ) break;
-         ce++;
-      }
-    } else {
-      for( k=0; k<NVolumeBounds; k++ )
-      {
-         if ( cb >= NVolumeBounds ) cb = 0;
-         if ( RayHitBBox( &VolumeBounds[cb].BBox,FX,FY,FZ,DX,DY,DZ ) )
-         {
-            for( i=0; i<VolumeBounds[cb].n; i++ )
-            {
-               if ( ce >= VolumeBounds[cb].n ) ce = 0;
-               j = VolumeBounds[cb].Elements[ce];
-
-               if ( !VolumeTested[j] )
-               {
-                  n = Elements[j].GeometryType;
-
-                  if ( t = (*RayHit[n])( &Elements[j],FX,FY,FZ,DX,DY,DZ,L ) ) break;
-
-                  VolumeTested[j] = TRUE;
-               }
-               ce++;
-            }
-         }
-         if ( t ) break;
-         cb++;
-      }
-      for( i=0; i<NGeomElem; i++ ) VolumeTested[i] = FALSE;
-    }
-
-    return t;
-}
-
-
 /*******************************************************************************
 
 Solve for ray segment and hierarchy of bounding volumes of elements, return
@@ -1104,8 +1047,8 @@ int RayHitVolumeBounds( VolumeBounds_t *Volume,double FX,double FY,double FZ,
   for( i=0; i<Volume->n; i++ )
   {
      j = Volume->Elements[i];
-     n = Elements[j].GeometryType;
-     if ( (*RayHit[n] )( &Elements[j],FX,FY,FZ,DX,DY,DZ,L) ) return TRUE;
+     n = RTElements[j].GeometryType;
+     if ( (*RayHit[n] )( &RTElements[j],FX,FY,FZ,DX,DY,DZ,L) ) return TRUE;
   }
 
   return FALSE;
@@ -1127,7 +1070,7 @@ int RayHitGeometry( double FX,double FY,double FZ, double DX,double DY,double DZ
 
 }
 
-void VolumeBBox( VolumeBounds_t *Volume,Geometry_t *Elements )
+void VolumeBBox( VolumeBounds_t *Volume,Geometry_t *RTElements )
 {
     double xMin,yMin,zMin,xMax,yMax,zMax,x,y,z;
     int i,j,k,N, NC;
@@ -1141,20 +1084,20 @@ void VolumeBBox( VolumeBounds_t *Volume,Geometry_t *Elements )
     for( i=0; i<N; i++ )
     {
          k = Volume->Elements[i];
-         switch(Elements[k].GeometryType)
+         switch(RTElements[k].GeometryType)
          {
             case GEOMETRY_LINE:
               NC = 2; break;
             case GEOMETRY_TRIANGLE:
               NC = 3; break;
-            case GEOMETRY_BILINEAR:
+            default:
               NC = 4; break;
         }
         for( j=0; j<NC; j++ )
           {
-            x = FunctionValue( &Elements[k], U[j],V[j], 0);
-            y = FunctionValue( &Elements[k], U[j],V[j], 1);
-            z = FunctionValue( &Elements[k], U[j],V[j], 2);
+            x = FunctionValue( &RTElements[k], U[j],V[j], 0);
+            y = FunctionValue( &RTElements[k], U[j],V[j], 1);
+            z = FunctionValue( &RTElements[k], U[j],V[j], 2);
 
             xMin = MIN( x,xMin );
             yMin = MIN( y,yMin );
@@ -1178,7 +1121,7 @@ void VolumeBBox( VolumeBounds_t *Volume,Geometry_t *Elements )
 
 
 
-void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int Level )
+void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *RT_Elements,int Level )
 {
     double L1 = Volume->BBox.XMax - Volume->BBox.XMin;
     double L2 = Volume->BBox.YMax - Volume->BBox.YMin;
@@ -1222,21 +1165,21 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         k = Volume->Elements[i];
         left = right = FALSE;
 
-        switch(Elements[k].GeometryType)
+        switch(RTElements[k].GeometryType)
         {
           case GEOMETRY_LINE:
               NC = 2; break;
           case GEOMETRY_TRIANGLE:
               NC = 3; break;
-          case GEOMETRY_BILINEAR:
+          default:
               NC = 4; break;
         }
 
         for( j=0; j<NC; j++ )
         {
-           x = FunctionValue( &Elements[k], U[j],V[j], 0);
-           y = FunctionValue( &Elements[k], U[j],V[j], 1);
-           z = FunctionValue( &Elements[k], U[j],V[j], 2);
+           x = FunctionValue( &RTElements[k], U[j],V[j], 0);
+           y = FunctionValue( &RTElements[k], U[j],V[j], 1);
+           z = FunctionValue( &RTElements[k], U[j],V[j], 2);
 
            if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
            if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
@@ -1260,20 +1203,20 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         k = Volume->Elements[i];
         left = right = FALSE;
 
-        switch(Elements[k].GeometryType)
+        switch(RTElements[k].GeometryType)
         {
           case GEOMETRY_LINE:
             NC = 2; break;
           case GEOMETRY_TRIANGLE:
             NC = 3; break;
-          case GEOMETRY_BILINEAR:
+          default:
             NC = 4; break;
         }
         for( j=0; j<NC; j++ )
         {
-           x = FunctionValue( &Elements[k], U[j],V[j], 0);
-           y = FunctionValue( &Elements[k], U[j],V[j], 1);
-           z = FunctionValue( &Elements[k], U[j],V[j], 2);
+           x = FunctionValue( &RTElements[k], U[j],V[j], 0);
+           y = FunctionValue( &RTElements[k], U[j],V[j], 1);
+           z = FunctionValue( &RTElements[k], U[j],V[j], 2);
 
            if ( (x >= LeftVolume->BBox.XMin) && (x <= LeftVolume->BBox.XMax) )
            if ( (y >= LeftVolume->BBox.YMin) && (y <= LeftVolume->BBox.YMax) )
@@ -1287,8 +1230,8 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         else if ( right ) RightVolume->Elements[RightVolume->n++] = k;
     }
 
-    VolumeBBox( LeftVolume, Elements );
-    VolumeBBox( RightVolume,Elements );
+    VolumeBBox( LeftVolume,  RTElements );
+    VolumeBBox( RightVolume, RTElements );
 
     if ( L1 > L2 && L1 > L3 )
     {
@@ -1306,7 +1249,7 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     }
 
     count += 2;
-    if ( VolL-VolV>-1.0e-12 || VolR-VolV>-1.0e-12 )
+    if ( VolL-VolV > -1.0e-12 || VolR-VolV > -1.0e-12 )
     {
         free( LeftVolume->Elements );
         free( LeftVolume );
@@ -1315,17 +1258,16 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         free( RightVolume);
 
         Volume->Left = Volume->Right = NULL;
-
         count -= 2;
-/*
-        fprintf( stderr, "canceled: remain=%d,total=%d,max dim=%g\n",
-                        Volume->n,count,VolV );
-*/
+
         return;
     }
 
-    if ( LeftVolume->n >NBounds && Level<MAX_LEVEL ) VolumeDivide( LeftVolume,NBounds,Elements, Level+1 );
-    if ( RightVolume->n>NBounds && Level<MAX_LEVEL ) VolumeDivide( RightVolume,NBounds,Elements,Level+1 );
+    if ( LeftVolume->n >NBounds && Level<MAX_LEVEL )
+      VolumeDivide( LeftVolume,NBounds,RTElements, Level+1 );
+
+    if ( RightVolume->n>NBounds && Level<MAX_LEVEL )
+      VolumeDivide( RightVolume,NBounds,RTElements,Level+1 );
 
     LeftVolume->BBox.XMin = LeftVolume->BBox.XMin - 
         0.001*(LeftVolume->BBox.XMax-LeftVolume->BBox.XMin);
@@ -1363,22 +1305,10 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
 
     RightVolume->BBox.ZMax = RightVolume->BBox.ZMax + 
         0.001*(RightVolume->BBox.ZMax-RightVolume->BBox.ZMin);
-
-#if 0
-    fprintf( stdout, "1 %d %g %g %g %g %g %g\n", Level,
-      LeftVolume->BBox.XMin,LeftVolume->BBox.YMin,
-      LeftVolume->BBox.ZMin,LeftVolume->BBox.XMax,
-      LeftVolume->BBox.YMax,LeftVolume->BBox.ZMax );
-
-    fprintf( stdout, "1 %d %g %g %g %g %g %g\n", Level,
-      RightVolume->BBox.XMin,RightVolume->BBox.YMin,
-      RightVolume->BBox.ZMin,RightVolume->BBox.XMax,
-      RightVolume->BBox.YMax,RightVolume->BBox.ZMax );
-#endif
 }
 
 
-void InitVolumeBounds( int NBounds,int N,Geometry_t *Elements )
+void InitVolumeBounds( int NBounds,int N,Geometry_t *RTElements )
 {
     int i;
 
@@ -1388,8 +1318,8 @@ void InitVolumeBounds( int NBounds,int N,Geometry_t *Elements )
     VolumeBounds->Elements = (int *)malloc( N*sizeof(int) );
     for( i=0;i<N; i++ ) VolumeBounds->Elements[i] = i;
 
-    VolumeBBox( VolumeBounds,Elements );
-    VolumeDivide( VolumeBounds,NBounds,Elements,0 );
+    VolumeBBox( VolumeBounds,RTElements );
+    VolumeDivide( VolumeBounds,NBounds,RTElements,0 );
 }
 
 void InitRayTracer(double eps)

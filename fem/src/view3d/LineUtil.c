@@ -246,7 +246,7 @@ double LinearIntegrateDiffToArea( Geometry_t *GB,
 
        R = sqrt(DX*DX + DY*DY);
        cosA = (DX*NFX + DY*NFY)/R;
-       if ( cosA < 1.0e-8 ) continue;
+       if ( cosA < 1.0e-9 ) continue;
 
        NTX = LinearValue(U,NBX);
        NTY = LinearValue(U,NBY);
@@ -258,7 +258,7 @@ double LinearIntegrateDiffToArea( Geometry_t *GB,
        }
 
        cosB = (-DX*NTX - DY*NTY)/R;
-       if ( cosB < 1.0e-8 ) continue;
+       if ( cosB < 1.0e-9 ) continue;
 
        EA = LinearEofA( U,V,BX,BY,BZ );
        F += EA*S_Integ1d[i]*cosA*cosB/(2*R);

@@ -442,10 +442,11 @@ void InitGeometryTypes()
 
 
 void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
-  ( int *N, int *Topo, int *Type, double *Coord, double *Normals, double *Factors,
-    double *Feps, double *Aeps, double *Reps, int *Nr, int *NInteg,int *NInteg3 )
+  ( int *EL_N, int *EL_Topo, int *EL_Type, double *EL_Coord, double *EL_Normals,
+    int *RT_N, int *RT_Topo, int *RT_Type, double *RT_Coord, double *RT_Normals,
+    double *Factors, double *Feps, double *Aeps, double *Reps, int *Nr, int *NInteg,int *NInteg3 )
 {
-   int i,j,k,l,n;
+   int i,j,k,l,n,NOFRayElements;
 
    AreaEPS   = *Aeps; 
    RayEPS    = *Reps; 
@@ -472,12 +473,11 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
 
    elm_4node_quad_shape_functions(  ShapeFunctionMatrix4 );
 
-   Elements = (Geometry_t *)calloc( *N,sizeof(Geometry_t) );
-
-   for( i=0; i<*N; i++ )
+   Elements = (Geometry_t *)calloc( *EL_N,sizeof(Geometry_t) );
+   for( i=0; i<*EL_N; i++ )
    {
-     if ( Type[i] == 202 )
-     {
+     switch( EL_Type[i] ) {
+     case 202:
         Elements[i].GeometryType = GEOMETRY_LINE;
         Elements[i].Linear = (Linear_t *)calloc( sizeof(Linear_t),1 );
 
@@ -486,13 +486,13 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
            for( k=0; k<2; k++ )
            for( n=0; n<3; n++ )
            {
-              l = 3*Topo[4*i+k]+n;
-              Elements[i].Linear->PolyFactors[n][j]   += ShapeFunctionMatrix2[k][j]*Coord[l];
-              Elements[i].Linear->PolyFactors[n+3][j] += ShapeFunctionMatrix2[k][j]*Normals[3*i+n];
-            }
+              l = 3*EL_Topo[2*i+k]+n;
+              Elements[i].Linear->PolyFactors[n][j]   += ShapeFunctionMatrix2[k][j]*EL_Coord[l];
+              Elements[i].Linear->PolyFactors[n+3][j] += ShapeFunctionMatrix2[k][j]*EL_Normals[3*i+n];
+           }
         }
-     } else if ( Type[i] == 404 )
-     {
+     break;
+     case 404:
         Elements[i].GeometryType = GEOMETRY_BILINEAR;
         Elements[i].BiLinear = (BiLinear_t *)calloc( sizeof(BiLinear_t),1 );
 
@@ -501,13 +501,13 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
            for( k=0; k<4; k++ )
            for( n=0; n<3; n++ )
            {
-              l = 3*Topo[4*i+k]+n;
-              Elements[i].BiLinear->PolyFactors[n][j]   += ShapeFunctionMatrix4[k][j]*Coord[l];
-              Elements[i].BiLinear->PolyFactors[n+3][j] += ShapeFunctionMatrix4[k][j]*Normals[3*i+n];
-            }
-         }
-      } else if ( Type[i] == 303 )
-      {
+              l = 3*EL_Topo[4*i+k]+n;
+              Elements[i].BiLinear->PolyFactors[n][j]   += ShapeFunctionMatrix4[k][j]*EL_Coord[l];
+              Elements[i].BiLinear->PolyFactors[n+3][j] += ShapeFunctionMatrix4[k][j]*EL_Normals[3*i+n];
+           }
+        }
+     break;
+     case 303:
         Elements[i].GeometryType = GEOMETRY_TRIANGLE;
         Elements[i].Triangle = (Triangle_t *)calloc( sizeof(Triangle_t),1 );
 
@@ -516,43 +516,78 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
            for( k=0; k<3; k++ )
            for( n=0; n<3; n++ )
            {
-              l = 3*Topo[4*i+k] + n;
-              Elements[i].Triangle->PolyFactors[n][j]   += ShapeFunctionMatrix3[k][j]*Coord[l];
-              Elements[i].Triangle->PolyFactors[n+3][j] += ShapeFunctionMatrix3[k][j]*Normals[3*i+n];
-            }
+              l = 3*EL_Topo[3*i+k] + n;
+              Elements[i].Triangle->PolyFactors[n][j]   += ShapeFunctionMatrix3[k][j]*EL_Coord[l];
+              Elements[i].Triangle->PolyFactors[n+3][j] += ShapeFunctionMatrix3[k][j]*EL_Normals[3*i+n];
+           }
         }
-      }
+     break;
+     }
+   }
+
+
+   /*
+    * check if different geometry elements given for shadowing ...
+    */
+   if ( *RT_N > 0 ) {
+     RTElements = (Geometry_t *)calloc( *RT_N,sizeof(Geometry_t) );
+     for( i=0; i<*RT_N; i++ )
+     {
+       switch( RT_Type[i] ) {
+       case 202:
+          RTElements[i].GeometryType = GEOMETRY_LINE;
+          RTElements[i].Linear = (Linear_t *)calloc( sizeof(Linear_t),1 );
+
+          for( j=0; j<2; j++ )
+          {
+             for( k=0; k<2; k++ )
+             for( n=0; n<3; n++ )
+             {
+                l = 3*RT_Topo[2*i+k]+n;
+                RTElements[i].Linear->PolyFactors[n][j]   += ShapeFunctionMatrix2[k][j]*RT_Coord[l];
+                RTElements[i].Linear->PolyFactors[n+3][j] += ShapeFunctionMatrix2[k][j]*RT_Normals[3*i+n];
+              }
+          }
+       break;
+       case 404:
+          RTElements[i].GeometryType = GEOMETRY_BILINEAR;
+          RTElements[i].BiLinear = (BiLinear_t *)calloc( sizeof(BiLinear_t),1 );
+
+          for( j=0; j<4; j++ )
+          {
+             for( k=0; k<4; k++ )
+             for( n=0; n<3; n++ )
+             {
+                l = 3*RT_Topo[4*i+k]+n;
+                RTElements[i].BiLinear->PolyFactors[n][j]   += ShapeFunctionMatrix4[k][j]*RT_Coord[l];
+                RTElements[i].BiLinear->PolyFactors[n+3][j] += ShapeFunctionMatrix4[k][j]*RT_Normals[3*i+n];
+             }
+          }
+       break;
+       case 303:
+          RTElements[i].GeometryType = GEOMETRY_TRIANGLE;
+          RTElements[i].Triangle = (Triangle_t *)calloc( sizeof(Triangle_t),1 );
+
+          for( j=0; j<3; j++ )
+          {
+             for( k=0; k<3; k++ )
+             for( n=0; n<3; n++ )
+             {
+                l = 3*RT_Topo[3*i+k] + n;
+                RTElements[i].Triangle->PolyFactors[n][j]   += ShapeFunctionMatrix3[k][j]*RT_Coord[l];
+                RTElements[i].Triangle->PolyFactors[n+3][j] += ShapeFunctionMatrix3[k][j]*RT_Normals[3*i+n];
+             }
+          }
+       break;
+       }
+     }
+     NOFRayElements = *RT_N;
+   } else {
+     NOFRayElements = *EL_N;
+     RTElements = Elements;
    }
 
    InitGeometryTypes();
-   InitVolumeBounds( 1, *N, Elements );
-   MakeViewFactorMatrix( *N,Factors,*NInteg,*NInteg3 );
+   InitVolumeBounds( 2, NOFRayElements, RTElements );
+   MakeViewFactorMatrix( *EL_N,Factors,*NInteg,*NInteg3 );
 }
-
-
-#if 0
-void ReadParams()
-{
-    FILE *fp = fopen( "params.dat","r" );
-
-    fscanf( fp, "%lf %lf %lf", &FactorEPS, &AreaEPS, &RayEPS );
-
-    fclose( fp );
-}
-
-void main( int argc,char **argv)
-{
-    double *Factors;
-    int i,j,N;
-
-    ReadParams();
-
-    InitGeometryTypes();
-    MakeTestModelLinear();
-
-    InitVolumeBounds( 1,NElements,Elements );
-
-    Factors = calloc( NElements,sizeof(double) );
-    MakeViewFactorMatrix( NElements,Factors,4,3 );
-}
-#endif

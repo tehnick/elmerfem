@@ -271,7 +271,7 @@ void InitVolumeBounds( int,int,Geometry_t * );
 void GetMatrixToRotateVectorToZAxis(double x,double y,double z,Matrix_t Matrix,int *Ident);
 void RotateVector(double *x,double *y,double *z,Matrix_t Matrix);
 
-EXT Geometry_t *Geometry,*Elements;
+EXT Geometry_t *Geometry,*Elements,*RTElements;
 
 void BiCubicMonomialToBezier(double *MonomialFactors,double *BezierFactors);
 void BiCubicBezierToMonomial(double *MonomialFactors,double *BezierFactors);
