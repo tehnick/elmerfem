@@ -534,8 +534,8 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
      int maxind = 0, maxnodehits=0, tablesize;
      int *nodehits,*nodetable,i,j;
      int ind0,ind1,ind2;
-     double _r0, _z0,  _r1, _r2, _z1, _z2, dr1, dr2,
-       dz1, dz2, dp1, dp2, ds1,ds2, eps=1e-16;
+     double x0, y0,  x1, y1, x2, y2, dx1, dx2,
+       dy1, dy2, dp1, dp2, ds1,ds2, eps=1e-16;
 
      printf("Combining original boundary elements for shading\n");
 
@@ -545,21 +545,22 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
      nodehits = (int*) malloc((maxind+1)*sizeof(int));
      for(i=0;i<=maxind;i++)
        nodehits[i] = 0;
-     for (i=0; i<2**EL_N; i++)  
+     for(i=0; i<2**EL_N; i++)  
        nodehits[EL_Topo[i]]++;
 
      maxnodehits = 0;
-     for (i=0; i<=maxind; i++) 
+     for(i=0; i<=maxind; i++) 
        if(nodehits[i] > maxnodehits) maxnodehits = nodehits[i];
     
      tablesize = (maxind+1)*maxnodehits;
      nodetable = (int*) malloc(tablesize*sizeof(int));
-     for (i=0; i< tablesize; i++) 
+     for(i=0; i< tablesize; i++) 
        nodetable[i] = 0;
 
      for(i=0;i<=maxind;i++)
        nodehits[i] = 0;
-     for (i=0; i<*EL_N; i++) {
+
+     for(i=0; i<*EL_N; i++) {
        ind1 = EL_Topo[2*i+1];
        ind2 = EL_Topo[2*i+0];
        nodetable[maxnodehits*ind1 + nodehits[ind1]] = i;
@@ -590,39 +591,39 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
        else 
  	ind2 = RT_Topo[2*elem2+1];
 
-       _r0 = EL_Coord[3*ind0];
-       _r1 = EL_Coord[3*ind1];
-       _r2 = EL_Coord[3*ind2];
+       x0 = EL_Coord[3*ind0];
+       x1 = EL_Coord[3*ind1];
+       x2 = EL_Coord[3*ind2];
       
-       _z0 = EL_Coord[3*ind0+1];
-       _z1 = EL_Coord[3*ind1+1];
-       _z2 = EL_Coord[3*ind2+1];
+       y0 = EL_Coord[3*ind0+1];
+       y1 = EL_Coord[3*ind1+1];
+       y2 = EL_Coord[3*ind2+1];
 
-       dr1 = _r1 - _r0;
-       dr2 = _r2 - _r0;
-       dz1 = _z1 - _z0;
-       dz2 = _z2 - _z0;
+       dx1 = x1-x0;
+       dx2 = x2-x0;
+       dy1 = y1-y0;
+       dy2 = y2-y0;
       
-       dp1 = dr1 * dr2 + dz1 * dz2;
-       ds1 = sqrt(dr1*dr1+dz1*dz1);
-       ds2 = sqrt(dr2*dr2+dz2*dz2);
+       dp1 = dx1*dx2+dy1*dy2;
+       ds1 = sqrt(dx1*dx1+dy1*dy1);
+       ds2 = sqrt(dx2*dx2+dy2*dy2);
       
        dp1 /= (ds1*ds2);
 
-       // Boundary elements mush be aligned
+       /* Boundary elements must be aligned */
        if( dp1 > eps - 1. ) continue;
 
-       // Make the 1st element bigger 
+       /* Make the 1st element bigger  */
        if( RT_Topo[2*elem1] == ind0 ) 
  	 RT_Topo[2*elem1] = ind2;
        else 
 	 RT_Topo[2*elem1+1] = ind2;
       
-       // Destroy the 2nd element 
+       /* Destroy the 2nd element */
        RT_Topo[2*elem2] = 0;
        RT_Topo[2*elem2+1] = 0;
 
-       // Update the node information 
+       /* Update the node information */
        nodehits[ind0] = 0;
        if( nodetable[maxnodehits*ind2] == elem2) 
  	nodetable[maxnodehits*ind2] = elem1;
@@ -630,9 +631,8 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
  	nodetable[maxnodehits*ind2+1] = elem1;
      }
 
-     // Free, not needed anymore
+     /* Free, not needed anymore */
      free((char*)(nodetable));
-     // Cannibalism of already used vector which does not need to be used again!
 
      j = 0;
      for (i=0; i<*EL_N; i++) {
