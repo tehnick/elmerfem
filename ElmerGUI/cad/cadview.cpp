@@ -122,7 +122,7 @@ void CadView::createMenus()
 void CadView::helpSlot()
 {
   QMessageBox::about(this,tr("ElmerGUI cad model viewer (beta)"),
-		     tr("Use View->Fit to window to show the model using the whole screen\n"
+		     tr("Use \"View->Fit to window\" to show the model using the whole screen\n"
 			"Hold down crtl and use mouse to rotate/pan/zoom"));
 }
 
