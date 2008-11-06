@@ -266,7 +266,7 @@ static void IntegrateFromGeometry(int N,double *Factors)
          Favg += s;
          k++;
 
-         fprintf( stderr, "sum=%-4.2f, (min(%d)=%-4.2f, max(%d)=%-4.2f, avg=%-4.2f)\n", 
+         fprintf( stdout, "sum=%-4.2f, (min(%d)=%-4.2f, max(%d)=%-4.2f, avg=%-4.2f)\n", 
                         s,Imin,Fmin,Imax,Fmax,Favg/k );
     }
 
@@ -444,7 +444,8 @@ void InitGeometryTypes()
 void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
   ( int *EL_N,  int *EL_Topo, int *EL_Type, double *EL_Coord, double *EL_Normals,
     int *RT_N0, int *RT_Topo0, int *RT_Type, double *RT_Coord, double *RT_Normals,
-    double *Factors, double *Feps, double *Aeps, double *Reps, int *Nr, int *NInteg,int *NInteg3 )
+    double *Factors, double *Feps, double *Aeps, double *Reps, int *Nr, 
+    int *NInteg,int *NInteg3, int  *Combine )
 {
    int i,j,k,l,n,NOFRayElements;
    int RT_N=0, *RT_Topo=NULL;
@@ -529,7 +530,7 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
    RT_N = *RT_N0;
    RT_Topo = RT_Topo0;
 
-   if ( *RT_N0 == 0 && EL_Type[0] == 202)
+   if ( RT_N == 0 && EL_Type[0] == 202 && *Combine )
    {
      int maxind = 0, maxnodehits=0, tablesize;
      int *nodehits,*nodetable,i,j;
@@ -708,4 +709,3 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
    InitVolumeBounds( 2, NOFRayElements, RTElements );
    MakeViewFactorMatrix( *EL_N,Factors,*NInteg,*NInteg3 );
 }
-
