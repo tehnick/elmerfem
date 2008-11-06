@@ -49,6 +49,7 @@
 #include <QTextStream>
 #include <QPrintDialog>
 #include <QPrinter>
+#include <QByteArray>
 #include "mainwindow.h"
 
 MainWindow::MainWindow()
@@ -225,24 +226,24 @@ void MainWindow::finishedSlot(int exitCode, QProcess::ExitStatus status)
 
 void MainWindow::stdoutSlot()
 {
-  QString stdout = elmerGUI->readAllStandardOutput();
+  QString out = elmerGUI->readAllStandardOutput();
 
-  while((stdout.size() > 0) && (stdout.at(stdout.size()-1).unicode() == '\n'))
-    stdout.chop(1);
+  while((out.size() > 0) && (out.at(out.size()-1).unicode() == '\n'))
+    out.chop(1);
 
   textEdit->setTextColor(Qt::black);
-  textEdit->append(stdout);
+  textEdit->append(out);
 }
 
 void MainWindow::stderrSlot()
 {
-  QString stderr = elmerGUI->readAllStandardError();
+  QString err = elmerGUI->readAllStandardError();
 
-  while((stderr.size() > 0) && (stderr.at(stderr.size()-1).unicode() == '\n'))
-    stderr.chop(1);
+  while((err.size() > 0) && (err.at(err.size()-1).unicode() == '\n'))
+    err.chop(1);
 
   textEdit->setTextColor(Qt::red);
-  textEdit->append(stderr);
+  textEdit->append(err);
 }
 
 void MainWindow::startedSlot()
