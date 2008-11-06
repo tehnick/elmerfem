@@ -534,7 +534,7 @@ The initialization file for ElmerGUI is located in {\tt ELMERGUI\_HOME/edf}. It 
   Show splash screen at startup:
   <splashscreen> 1 </splashscreen>
 
-  Show system tray icon while running:
+  Show system tray icon:
   <systrayicon> 1 </systrayicon>
 
   Show system tray messages:
@@ -569,7 +569,7 @@ The initialization file for ElmerGUI is located in {\tt ELMERGUI\_HOME/edf}. It 
 
   Maximum number of equations:
   <max_equations> 10 </max_equations>
-  
+
   Maximum number of materials:
   <max_materials> 10 </max_materials>
 
@@ -592,7 +592,54 @@ The initialization file for ElmerGUI is located in {\tt ELMERGUI\_HOME/edf}. It 
 \end{verbatim}
 \end{footnotesize}
 
-You may change the default behaviour of ElmerGUI by editing this file. For example, to turn off the splash screen at start up, change the value of the tag {\tt <splshscreen>} from 1 to 0. To change the background image, enter a picture file name in the {\tt <bgimagefile>} tag. You might also want to increase the default values for solvers, equations, etc., in case of very complex models. This will slightly increase the memory usage of ElmerGUI.
+You may change the default behaviour of ElmerGUI by editing this file. For example, to turn off the splash screen at start up, change the value of the tag {\tt <splshscreen>} from 1 to 0. To change the background image, enter a picture file name in the {\tt <bgimagefile>} tag. You might also want to increase the default values for solvers, equations, etc., in case of very complex models.
+
+\section{ElmerGUI material database}
+
+The file {\tt ELMERGUI\_HOME/edf/egmaterials.xml} defines the material database for ElmerGUI. The
+format of this file is the following:
+
+\begin{footnotesize}
+\begin{verbatim}
+ 
+<!DOCTYPE egmaterials>
+<materiallibrary>
+  
+  <material name="Air (room temperature)" >
+    <parameter name="Density" >1.205</parameter>
+    <parameter name="Heat conductivity" >0.0257</parameter>
+    <parameter name="Heat capacity" >1005.0</parameter>
+    <parameter name="Heat expansion coeff." >3.43e-3</parameter>
+    <parameter name="Viscosity" >1.983e-5</parameter>
+    <parameter name="Turbulent Prandtl number" >0.713</parameter>
+    <parameter name="Sound speed" >343.0</parameter>
+  </material>
+
+  <material name="Water (room temperature)" >
+    <parameter name="Density" >998.3</parameter>
+    <parameter name="Heat conductivity" >0.58</parameter>
+    <parameter name="Heat capacity" >4183.0</parameter>
+    <parameter name="Heat expansion coeff." >0.207e-3</parameter>
+    <parameter name="Viscosity" >1.002e-3</parameter>
+    <parameter name="Turbulent Prandtl number" >7.01</parameter>
+    <parameter name="Sound speed" >1497.0</parameter>
+  </material>
+  ...
+</materiallibrary>
+
+\end{verbatim}
+\end{footnotesize}
+
+The values of the parameters may be either constant, or functions of time, temperature, etc.
+A temperature dependent parameter may be defined e.g. as
+
+\begin{footnotesize}
+\begin{verbatim}
+<parameter name="A" >Variable Temperature; Real; 2 3; 4 5; End</parameter>
+\end{verbatim}
+\end{footnotesize}
+In this case, $A(2)=3$ and $A(4)=5$. Values between the points are interpolated linearly. The number
+of points defining the interpolant may be arbitrary. 
 
 \section{ElmerGUI definition files}
 
