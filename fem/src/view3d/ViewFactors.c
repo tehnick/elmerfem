@@ -442,11 +442,12 @@ void InitGeometryTypes()
 
 
 void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
-  ( int *EL_N, int *EL_Topo, int *EL_Type, double *EL_Coord, double *EL_Normals,
-    int *RT_N, int *RT_Topo, int *RT_Type, double *RT_Coord, double *RT_Normals,
+  ( int *EL_N,  int *EL_Topo, int *EL_Type, double *EL_Coord, double *EL_Normals,
+    int *RT_N0, int *RT_Topo0, int *RT_Type, double *RT_Coord, double *RT_Normals,
     double *Factors, double *Feps, double *Aeps, double *Reps, int *Nr, int *NInteg,int *NInteg3 )
 {
    int i,j,k,l,n,NOFRayElements;
+   int RT_N=0, *RT_Topo=NULL;
 
    AreaEPS   = *Aeps; 
    RayEPS    = *Reps; 
@@ -525,13 +526,132 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
      }
    }
 
+   RT_N = *RT_N0;
+   RT_Topo = RT_Topo0;
+
+   if ( *RT_N0 == 0 && EL_Type[0] == 202)
+   {
+     int maxind = 0, maxnodehits=0, tablesize;
+     int *nodehits,*nodetable,i,j;
+     int ind0,ind1,ind2;
+     double _r0, _z0,  _r1, _r2, _z1, _z2, dr1, dr2,
+       dz1, dz2, dp1, dp2, ds1,ds2, eps=1e-16;
+
+     printf("Combining original boundary elements for shading\n");
+
+     for (i=0; i<2**EL_N; i++) 
+       if(maxind < EL_Topo[i]) maxind = EL_Topo[i];
+
+     nodehits = (int*) malloc((maxind+1)*sizeof(int));
+     for(i=0;i<=maxind;i++)
+       nodehits[i] = 0;
+     for (i=0; i<2**EL_N; i++)  
+       nodehits[EL_Topo[i]]++;
+
+     maxnodehits = 0;
+     for (i=0; i<=maxind; i++) 
+       if(nodehits[i] > maxnodehits) maxnodehits = nodehits[i];
+    
+     tablesize = (maxind+1)*maxnodehits;
+     nodetable = (int*) malloc(tablesize*sizeof(int));
+     for (i=0; i< tablesize; i++) 
+       nodetable[i] = 0;
+
+     for(i=0;i<=maxind;i++)
+       nodehits[i] = 0;
+     for (i=0; i<*EL_N; i++) {
+       ind1 = EL_Topo[2*i+1];
+       ind2 = EL_Topo[2*i+0];
+       nodetable[maxnodehits*ind1 + nodehits[ind1]] = i;
+       nodetable[maxnodehits*ind2 + nodehits[ind2]] = i;
+       nodehits[ind1] += 1;
+       nodehits[ind2] += 1;
+     }
+ 
+     RT_Topo = (int*) malloc(2**EL_N*sizeof(int));
+     for(i=0;i<2**EL_N;i++)
+       RT_Topo[i] = EL_Topo[i];
+ 
+     for (i=0; i<=maxind; i++) {
+       int elem1,elem2;
+       ind0 = i;
+      
+       if( nodehits[ind0] != 2) continue;
+
+       elem1 = nodetable[maxnodehits*ind0+0];
+       if( RT_Topo[2*elem1+1] == ind0 ) 
+ 	ind1 = RT_Topo[2*elem1];
+       else 
+ 	ind1 = RT_Topo[2*elem1+1];
+
+       elem2 = nodetable[maxnodehits*ind0+1];
+       if( RT_Topo[2*elem2+1] == ind0 ) 
+ 	ind2 = RT_Topo[2*elem2];
+       else 
+ 	ind2 = RT_Topo[2*elem2+1];
+
+       _r0 = EL_Coord[3*ind0];
+       _r1 = EL_Coord[3*ind1];
+       _r2 = EL_Coord[3*ind2];
+      
+       _z0 = EL_Coord[3*ind0+1];
+       _z1 = EL_Coord[3*ind1+1];
+       _z2 = EL_Coord[3*ind2+1];
+
+       dr1 = _r1 - _r0;
+       dr2 = _r2 - _r0;
+       dz1 = _z1 - _z0;
+       dz2 = _z2 - _z0;
+      
+       dp1 = dr1 * dr2 + dz1 * dz2;
+       ds1 = sqrt(dr1*dr1+dz1*dz1);
+       ds2 = sqrt(dr2*dr2+dz2*dz2);
+      
+       dp1 /= (ds1*ds2);
+
+       // Boundary elements mush be aligned
+       if( dp1 > eps - 1. ) continue;
+
+       // Make the 1st element bigger 
+       if( RT_Topo[2*elem1] == ind0 ) 
+ 	 RT_Topo[2*elem1] = ind2;
+       else 
+	 RT_Topo[2*elem1+1] = ind2;
+      
+       // Destroy the 2nd element 
+       RT_Topo[2*elem2] = 0;
+       RT_Topo[2*elem2+1] = 0;
+
+       // Update the node information 
+       nodehits[ind0] = 0;
+       if( nodetable[maxnodehits*ind2] == elem2) 
+ 	nodetable[maxnodehits*ind2] = elem1;
+       else 
+ 	nodetable[maxnodehits*ind2+1] = elem1;
+     }
+
+     // Free, not needed anymore
+     free((char*)(nodetable));
+     // Cannibalism of already used vector which does not need to be used again!
+
+     j = 0;
+     for (i=0; i<*EL_N; i++) {
+       if(RT_Topo[2*i+1] || RT_Topo[2*i+0]) {
+          RT_Topo[2*j+1] = RT_Topo[2*i+1];
+          RT_Topo[2*j+0] = RT_Topo[2*i+0];
+          j++;
+       }
+     }
+     RT_N = j;
+     printf("The combined set includes %d line segments (vs. %d)\n",RT_N,*EL_N);
+   }
 
    /*
     * check if different geometry elements given for shadowing ...
     */
-   if ( *RT_N > 0 ) {
-     RTElements = (Geometry_t *)calloc( *RT_N,sizeof(Geometry_t) );
-     for( i=0; i<*RT_N; i++ )
+   if ( RT_N > 0 ) {
+     RTElements = (Geometry_t *)calloc( RT_N,sizeof(Geometry_t) );
+     for( i=0; i<RT_N; i++ )
      {
        switch( RT_Type[i] ) {
        case 202:
@@ -545,7 +665,6 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
              {
                 l = 3*RT_Topo[2*i+k]+n;
                 RTElements[i].Linear->PolyFactors[n][j]   += ShapeFunctionMatrix2[k][j]*RT_Coord[l];
-                RTElements[i].Linear->PolyFactors[n+3][j] += ShapeFunctionMatrix2[k][j]*RT_Normals[3*i+n];
               }
           }
        break;
@@ -560,7 +679,6 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
              {
                 l = 3*RT_Topo[4*i+k]+n;
                 RTElements[i].BiLinear->PolyFactors[n][j]   += ShapeFunctionMatrix4[k][j]*RT_Coord[l];
-                RTElements[i].BiLinear->PolyFactors[n+3][j] += ShapeFunctionMatrix4[k][j]*RT_Normals[3*i+n];
              }
           }
        break;
@@ -575,13 +693,12 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
              {
                 l = 3*RT_Topo[3*i+k] + n;
                 RTElements[i].Triangle->PolyFactors[n][j]   += ShapeFunctionMatrix3[k][j]*RT_Coord[l];
-                RTElements[i].Triangle->PolyFactors[n+3][j] += ShapeFunctionMatrix3[k][j]*RT_Normals[3*i+n];
              }
           }
        break;
        }
      }
-     NOFRayElements = *RT_N;
+     NOFRayElements = RT_N;
    } else {
      NOFRayElements = *EL_N;
      RTElements = Elements;
@@ -591,3 +708,4 @@ void STDCALLBULL FC_FUNC(viewfactors3d,VIEWFACTORS3D)
    InitVolumeBounds( 2, NOFRayElements, RTElements );
    MakeViewFactorMatrix( *EL_N,Factors,*NInteg,*NInteg3 );
 }
+
