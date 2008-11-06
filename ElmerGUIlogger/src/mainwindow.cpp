@@ -233,36 +233,76 @@ void MainWindow::finishedSlot(int exitCode, QProcess::ExitStatus status)
 
 void MainWindow::stdoutSlot()
 {
-  QString out = elmerGUI->readAllStandardOutput();
+  static QString qs_save = "";
 
-  if(out.size() == 0)
+  QString out = elmerGUI->readAllStandardOutput().replace("\r", "");
+  QString qs = qs_save + out;
+
+  int n = qs.lastIndexOf('\n');
+
+  if((n > 0) && (n < qs.size()-1)) {
+    qs_save = qs.mid(n+1);
+    qs = qs.mid(0, n);
+
+  } else if(n == 0) {
+    if(qs.size() == 1) {
+      qs_save = "";
+      return;
+    }
+    qs_save = qs.mid(1);
     return;
 
-  while((out.size() > 0) && (out.at(out.size()-1).unicode() == '\n'))
-    out.chop(1);
+  } else if(n < 0) {
+      qs_save = qs;
+      return;
 
-  while((out.size() > 0) && (out.at(out.size()-1).unicode() == '\r'))
-    out.chop(1);
+  } else qs_save = "";
+
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
+  if(qs.isEmpty())
+    return;
 
   textEdit->setTextColor(Qt::black);
-  textEdit->append(out);
+  textEdit->append(qs);
 }
 
 void MainWindow::stderrSlot()
 {
-  QString err = elmerGUI->readAllStandardError();
+  static QString qs_save = "";
 
-  if(err.size() == 0)
+  QString err = elmerGUI->readAllStandardError().replace("\r", "");
+  QString qs = qs_save + err;
+
+  int n = qs.lastIndexOf('\n');
+
+  if((n > 0) && (n < qs.size()-1)) {
+    qs_save = qs.mid(n+1);
+    qs = qs.mid(0, n);
+
+  } else if(n == 0) {
+    if(qs.size() == 1) {
+      qs_save = "";
+      return;
+    }
+    qs_save = qs.mid(1);
     return;
 
-  while((err.size() > 0) && (err.at(err.size()-1).unicode() == '\n'))
-    err.chop(1);
+  } else if(n < 0) {
+      qs_save = qs;
+      return;
 
-  while((err.size() > 0) && (err.at(err.size()-1).unicode() == '\r'))
-    err.chop(1);
+  } else qs_save = "";
+
+  while(qs.at(qs.size()-1).unicode() == '\n')
+    qs.chop(1);
+
+  if(qs.isEmpty())
+    return;
 
   textEdit->setTextColor(Qt::red);
-  textEdit->append(err);
+  textEdit->append(qs);
 }
 
 void MainWindow::startedSlot()
