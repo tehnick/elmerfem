@@ -57,6 +57,8 @@ class MainWindow : public QMainWindow
   ~MainWindow();
 
  private slots:
+  void saveAsSlot();
+  void printSlot();
   void exitSlot();
   void errorSlot(QProcess::ProcessError);
   void finishedSlot(int, QProcess::ExitStatus);
@@ -70,6 +72,8 @@ class MainWindow : public QMainWindow
   void createMenus();
   
   QMenu* fileMenu;
+  QAction* saveAsAct;
+  QAction* printAct;
   QAction* exitAct;
   QTextEdit* textEdit;
   QProcess* elmerGUI;

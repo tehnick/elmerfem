@@ -44,16 +44,22 @@
 #include <QTextEdit>
 #include <QIcon>
 #include <QColor>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QPrintDialog>
+#include <QPrinter>
 #include "mainwindow.h"
 
 MainWindow::MainWindow()
 {
-  setWindowTitle("ElmerGUI logger");
+  setWindowTitle("ElmerGUI log window");
   setWindowIcon(QIcon(":/icons/ElmerGUI.png"));
   resize(400, 200);
 
   textEdit = new QTextEdit(this);
   setCentralWidget(textEdit);
+  textEdit->setTextColor(Qt::green);
 
   createActions();
   createMenus();
@@ -84,6 +90,78 @@ MainWindow::~MainWindow()
 {
 }
 
+void MainWindow::createActions()
+{
+  saveAsAct = new QAction(QIcon(), tr("Save as..."), this);
+  saveAsAct->setShortcut(tr("Ctrl+S"));
+  connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsSlot()));
+
+  printAct = new QAction(QIcon(), tr("Print..."), this);
+  printAct->setShortcut(tr("Ctrl+P"));
+  connect(printAct, SIGNAL(triggered()), this, SLOT(printSlot()));
+
+  exitAct = new QAction(QIcon(), tr("Exit"), this);
+  exitAct->setShortcut(tr("Ctrl+Q"));
+  connect(exitAct, SIGNAL(triggered()), this, SLOT(exitSlot()));
+}
+
+void MainWindow::createMenus()
+{
+  fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(saveAsAct);
+  fileMenu->addSeparator();
+  fileMenu->addAction(printAct);
+  fileMenu->addSeparator();
+  fileMenu->addAction(exitAct);
+}
+
+void MainWindow::saveAsSlot()
+{
+  textEdit->setTextColor(Qt::green);
+
+  QString fileName = QFileDialog::getSaveFileName(this, tr("Save text file"));
+  
+  if(fileName.isEmpty()) {
+    textEdit->append("File name is empty");
+    return;
+  }
+
+  QFile file;
+
+  file.setFileName(fileName);
+
+  if(!file.open(QIODevice::WriteOnly)) {
+    textEdit->append("Unable to open file");
+    return;
+  }
+
+  QTextStream outputStream(&file);
+
+  outputStream << textEdit->toPlainText();
+
+  file.close();
+
+  textEdit->append("File saved");
+}
+
+void MainWindow::printSlot()
+{
+  textEdit->setTextColor(Qt::green);
+
+  QTextDocument* document = textEdit->document();
+
+  QPrinter printer;
+
+  QPrintDialog *printDialog = new QPrintDialog(&printer, this);
+
+  if(printDialog->exec() != QDialog::Accepted)
+    return;
+
+  document->print(&printer);
+
+  textEdit->append("Printed");
+}
+
 void MainWindow::exitSlot()
 {
   if(elmerGUI->state() == QProcess::Running) {
@@ -95,19 +173,6 @@ void MainWindow::exitSlot()
   }
   
   close();
-}
-
-void MainWindow::createActions()
-{
-  exitAct = new QAction(QIcon(), tr("Exit"), this);
-  exitAct->setShortcut(tr("Ctrl+Q"));
-  connect(exitAct, SIGNAL(triggered()), this, SLOT(exitSlot()));
-}
-
-void MainWindow::createMenus()
-{
-  fileMenu = menuBar()->addMenu(tr("&File"));
-  fileMenu->addAction(exitAct);
 }
 
 void MainWindow::errorSlot(QProcess::ProcessError error)
@@ -162,7 +227,7 @@ void MainWindow::stdoutSlot()
 {
   QString stdout = elmerGUI->readAllStandardOutput();
 
-  while(stdout.at(stdout.size()-1).unicode() == '\n')
+  while((stdout.size() > 0) && (stdout.at(stdout.size()-1).unicode() == '\n'))
     stdout.chop(1);
 
   textEdit->setTextColor(Qt::black);
@@ -173,7 +238,7 @@ void MainWindow::stderrSlot()
 {
   QString stderr = elmerGUI->readAllStandardError();
 
-  while(stderr.at(stderr.size()-1).unicode() == '\n')
+  while((stderr.size() > 0) && (stderr.at(stderr.size()-1).unicode() == '\n'))
     stderr.chop(1);
 
   textEdit->setTextColor(Qt::red);
