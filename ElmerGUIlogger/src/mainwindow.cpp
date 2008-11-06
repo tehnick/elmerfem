@@ -228,7 +228,13 @@ void MainWindow::stdoutSlot()
 {
   QString out = elmerGUI->readAllStandardOutput();
 
+  if(out.size() == 0)
+    return;
+
   while((out.size() > 0) && (out.at(out.size()-1).unicode() == '\n'))
+    out.chop(1);
+
+  while((out.size() > 0) && (out.at(out.size()-1).unicode() == '\r'))
     out.chop(1);
 
   textEdit->setTextColor(Qt::black);
@@ -239,7 +245,13 @@ void MainWindow::stderrSlot()
 {
   QString err = elmerGUI->readAllStandardError();
 
+  if(err.size() == 0)
+    return;
+
   while((err.size() > 0) && (err.at(err.size()-1).unicode() == '\n'))
+    err.chop(1);
+
+  while((err.size() > 0) && (err.at(err.size()-1).unicode() == '\r'))
     err.chop(1);
 
   textEdit->setTextColor(Qt::red);
