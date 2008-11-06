@@ -417,19 +417,17 @@
 
        at0 = CPUTime()
        
+       Combine = GetLogical( GetSolverParams(), 'Viewfactor combine elements',GotIt)
+       IF ( .NOT. GotIt ) Combine = .TRUE.
+       IF( Combine ) THEN
+         CombineInt = 1
+       ELSE
+         CombineInt = 0
+       END IF
+
        IF ( CylindricSymmetry ) THEN
          divide = GetInteger( GetSolverParams(), 'Viewfactor divide',GotIt)
          IF ( .NOT. GotIt ) Divide = 1
-
-         Combine = GetLogical( GetSolverParams(), 'Viewfactor combine elements',GotIt)
-         IF ( .NOT. GotIt ) Combine = .TRUE.
-	 
-         IF( Combine ) THEN
-           CombineInt = 1
-         ELSE
-           CombineInt = 0
-         END IF
-		
          CALL ViewFactorsAxis( N, Surfaces, Coords, Factors, divide, CombineInt )
        ELSE
          AreaEPS = GetConstReal( GetSolverParams(), 'Viewfactor Area Tolerance',  GotIt )
@@ -444,7 +442,7 @@
          CALL ViewFactors3D( &
              N, Surfaces, Type, Coords, Normals, &
              0, Surfaces, Type, Coords, Normals, &
-             Factors, AreaEPS, FactEPS, RayEPS, Nrays, 4, 3 )
+             Factors, AreaEPS, FactEPS, RayEPS, Nrays, 4, 3, CombineInt )
        END IF
        
        WRITE (Message,'(A,F8.2)') 'View factors computed in time (s):',CPUTime()-at0		
