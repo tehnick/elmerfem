@@ -92,15 +92,15 @@ MainWindow::~MainWindow()
 
 void MainWindow::createActions()
 {
-  saveAsAct = new QAction(QIcon(), tr("Save as..."), this);
+  saveAsAct = new QAction(QIcon(":/document-save-as.png"), tr("Save as..."), this);
   saveAsAct->setShortcut(tr("Ctrl+S"));
   connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsSlot()));
 
-  printAct = new QAction(QIcon(), tr("Print..."), this);
+  printAct = new QAction(QIcon(":/icons/document-print.png"), tr("Print..."), this);
   printAct->setShortcut(tr("Ctrl+P"));
   connect(printAct, SIGNAL(triggered()), this, SLOT(printSlot()));
 
-  exitAct = new QAction(QIcon(), tr("Exit"), this);
+  exitAct = new QAction(QIcon(";/icons/application-exit.png"), tr("Exit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(exitSlot()));
 }
