@@ -30,42 +30,44 @@ which determines the scale of the turbulence.
 
 The case under study is the canonical step flow of viscous fluid. 
 A fluid, flowing past a step has the density
-1~kg/m$^3$ and viscosity $1/19000$~kg/ms. The velocity profile at the inlet is
+1~kg/m$^3$ and viscosity $1.0e-4$~kg/ms. The velocity profile at the inlet is
 defined by a parabolic profile with mean velocity 
 $v_x=1.0$~m/s and $v_y=0.0$~m/s. 
-This way the Reynolds number will be 19000.
+This way the Reynolds number will be 10000.
 At the outlet only 
 the vertical component is defined, $v_y=0.0$~m/s. At all other
 walls the no-slip boundary condition, $\vec{v}=0$, is applied. 
 
 Also the new turbulent variables require boundary conditions. 
 In the inflow the condition could reflect the values for developed turbulent
-profile. However, here we use very small initial values and let the turbulent quantities 
-develop. This also means that we have to elongate the distance before the step 
+profile. Here we roughly estimate the turbulent kinetic energy and 
+elongate the distance before the step 
 to have a fully developed turbulent profile. 
-Note that the kinetic energy must 
-never be quite zero since the equations involve divisions with it.  
+From the literature it is the the turbulent intensity i.e. the 
+kinetic energy of turbulence vs. the kinetic energy of mean flow 
+scalas as $0.16$Re$^{-1/8}$. For our current configuration a estimate for the 
+turbulent kinetic energy is 0.00457. 
 For the walls a no-slip condition is applied which also set the values of the
 turbulent parameters accordingly. Also boundary layer model could be used but here
 our mesh should be able to capture even the boundary phenomena quite well. 
 
-\begin{figure}[h]
-\centering
-\includegraphics[width=100mm,viewport=0 30 800 270,clip]{geom}
-\caption{Geometry of the step flow problem}\label{fg:struct2b}
-\end{figure}
+%\begin{figure}[h]
+%\centering
+%\includegraphics[width=100mm,viewport=0 30 800 270,clip]{geom}
+%\caption{Geometry of the step flow problem}\label{fg:struct2b}
+%\end{figure}
 %
 
 
 \subsection*{Solution procedure}
 
-The mesh is given in ElmerGrid format in file \texttt{step\_long.grd}, load this file.
+The mesh is given in ElmerGrid format in file \texttt{steplong.grd}, load this file.
 \ttbegin
 File 
-  Open -> step.grd
+  Open -> steplong.grd
 \ttend
-You should obtain your mesh and may check that it consists of 9696 nodes and of 
-9442 bilinear elements.
+You should obtain your mesh and may check that it consists of 14584 nodes and of 
+14175 bilinear elements.
 \ttbegin
 Model 
   Summary...
@@ -105,7 +107,7 @@ Model
       Edit Solver Setting
         Nonlinear System
           Max. iterations = 1
-          Relaxation factor = 0.6
+          Relaxation factor = 0.5
           Newton after tolerance = 0.0
         Steady state
           Convergence tol. = 1.0e-4
@@ -114,7 +116,7 @@ Model
       Edit Solver Setting
         Nonlinear System
           Max. iterations = 1
-          Relaxation factor = 0.6
+          Relaxation factor = 0.5
         Steady state
           Convergence tol. = 1.0e-4
     Add 
@@ -133,7 +135,7 @@ Model
     General 
       Density = 1.0
     Navier-Stokes 
-      Viscosity = $ 1/19000.0
+      Viscosity = 1.0e-4
       Viscosity Model = K-Epsilon
     Apply to Bodies = Body 1 
     Add
@@ -150,7 +152,7 @@ Model
       Velocity 1 = 0.0
       Velocity 2 = 0.0
     K-Epsilon
-      Kinetic Energy = 1.0e-4
+      Kinetic Energy = 0.00457
       Kinetic Dissipation = 1.0e-4
 \ttend
 
@@ -171,7 +173,7 @@ Model
       Velocity 1 = Variable Coordinate 2; Real MATC ``6*(tx-1)*(2-tx)''
       Velocity 2 = 0.0
     K-Epsilon
-      Kinetic Energy = 1.0e-4
+      Kinetic Energy = 0.00457
       Kinetic Dissipation = 1.0e-4
     Add
     New
@@ -223,7 +225,7 @@ Run
 \ttend
 A convergence view automatically pops up showing relative changes of each iteration.
 The convergence if far from monotonic but computation should terminate 
-after when sufficient convergence is reached after 29 iterations.
+when sufficient convergence is reached after 30 iterations.
 
 
 \subsection*{Results}
@@ -238,11 +240,11 @@ Run
 The results may be viewed using the postprocessor as shown in 
 Figures~\ref{fg:step_ns} and~\ref{fg:step_ke}.
 One may also register specific values,
-for example the pressure difference is 0.264~Pa, the minimum horizontal and vertical velocities
-are -0.207~m/s and -0.0870~m/s, respectively.
+for example the pressure difference is 0.302~Pa, the minimum horizontal and vertical velocities
+are -0.213~m/s and -0.0834~m/s, respectively.
 One special result of interest 
 is the point, on the x-axis, at which the direction of the flow changes. 
-In this case its position is about 6.2~m after the step. 
+In this case its position is about 5.1~m after the step. 
 
 \begin{figure}[h]
 \centering
