@@ -4,6 +4,7 @@ noinst_LIBRARIES = libview3d.a
 libview3d_a_SOURCES =  \
 	ViewFactors.c \
 	TestModel.c \
+	LineUtil.c \
 	TriangleUtil.c \
 	BiLinearUtil.c \
 	BiQuadraticUtil.c \
