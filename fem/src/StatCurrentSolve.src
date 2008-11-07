@@ -111,7 +111,7 @@
      TYPE(Element_t), POINTER :: CurrentElement
      TYPE(Nodes_t) :: ElementNodes
 
-     REAL (KIND=DP), POINTER :: ForceVector(:), Potential(:), Density(:)
+     REAL (KIND=DP), POINTER :: ForceVector(:), Potential(:)
      REAL (KIND=DP), POINTER :: ElField(:), VolCurrent(:)
      REAL (KIND=DP), POINTER :: Ex(:), Ey(:), Ez(:), Cx(:), Cy(:), Cz(:)
      REAL (KIND=DP), POINTER :: Heating(:), JouleH(:)
@@ -136,7 +136,7 @@
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
 
 
-     SAVE LocalStiffMatrix, Load, LocalForce, Density, &
+     SAVE LocalStiffMatrix, Load, LocalForce, &
           ElementNodes, CalculateCurrent, CalculateHeating, &
           AllocationsDone, VolCurrent, Heating, Conductivity, &
           CalculateField, ConstantWeights, &
@@ -177,7 +177,6 @@
                  ElementNodes % y(N),   &
                  ElementNodes % z(N),   &
                  Conductivity(3,3,N),   &
-                 Density(N),            &
                  LocalForce(N),         &
                  LocalStiffMatrix(N,N), &
                  Load(N),               &
@@ -642,24 +641,15 @@
        END IF
 
 !------------------------------------------------------------------------------
-! Need density for changing joule heating unit from W/m3 to W/kg
+! Loop over Gauss integration points
 !------------------------------------------------------------------------------
-
-       Density(1:n) =  ListGetReal( Model % Materials(k) % Values, &
-            'Density', n, NodeIndexes, gotIt, minv=0.0d0 )
-!------------------------------------------------------------------------------
-! If density is not given, use W/m3
-!------------------------------------------------------------------------------
-       IF ( .NOT. GotIt )  Density = 1.0d0
 
        HeatingDensity = 0.0d0
        Current = 0.0d0
        ECond = 0.0d0
        ElemVol = 0.0d0
 
-!------------------------------------------------------------------------------
-! Loop over Gauss integration points
-!------------------------------------------------------------------------------
+
        DO tg=1,N_Integ
 
           ug = U_Integ(tg)
@@ -704,8 +694,7 @@
                s * SUM( Grad(1:DIM) * EpsGrad(1:DIM) )
 
           HeatingDensity = HeatingDensity + &
-               s * SUM( Grad(1:DIM) * EpsGrad(1:DIM) ) / &
-               SUM( Density(1:n) * Basis(1:n) )
+	     s * SUM( Grad(1:DIM) * EpsGrad(1:DIM) ) 
           DO j = 1,DIM
              Current(j) = Current(j) - EpsGrad(j) * s
           END DO
