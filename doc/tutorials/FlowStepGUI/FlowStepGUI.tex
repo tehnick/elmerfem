@@ -12,7 +12,7 @@
 This tutorial represents the canonical step flow of viscous fluid. 
 A fluid, flowing past a step (see figure~\ref{fg:struct2}), has the density
 1~kg/m$³$ and viscosity 0.01~kg/ms. The velocity profile at the inlet is
-defined so that $v_x=1.0$~m/s and $v_y=0.0$~m/s. At the outlet only 
+parabolic with a mean velocity $<v_x>=1.0$~m/s and $v_y=0.0$~m/s. At the outlet only 
 the vertical component is defined, $v_y=0.0$~m/s. At all other
 walls the no-slip boundary condition, $\vec{v}=0$, is applied. 
 Thus the Reynolds number for the case is around 100. 
@@ -123,12 +123,18 @@ Hence no setting for initial condition are needed.
 Only one boundary condition may be applied to each boundary and therefore all the 
 different physical BCs for a boundary should be grouped together. In this case the
 Temperature and Velocity. The side walls are assumed to be adiabatic.
+
+The parabolic inlet-profile is achieved using the 
+MATC environment. To be able to edit the content of the inlet profile 
+click \texttt{Enter} to open an edit box for the \texttt{Velocity 1}. The given expression will be 
+interpreted at run-time so that $v_x=6(y-1)(2-y)$. As $y\in[1,2]$ thereby
+creating a parabolic velocity profile with a mean velocity of unity. 
 \ttbegin
 Model
   BoundaryCondition
     Name = Inlet
     Navier-Stokes 
-      Velocity 1 = 1.0
+      Velocity 1 = Variable Coordinate 2; Real MATC ``6*(tx-1)*(2-tx)''
       Velocity 2 = 0.0
     Add
     New
@@ -212,40 +218,7 @@ In this case its position is about 6.6~m after the step.
 
    
 
-\subsection*{Extra task: Modifying the inlet profile}
 
-The constant inlet-profile is not very attractable. Using a analytical parabolic inlet profile 
-yields better results. ElmerSolver includes MATC environment that may used to avaluate mathematical 
-expressions. For that aim revisit the Boundary condition for Inlet
-\ttbegin
-Model
-  BoundaryCondition
-    Name = Inlet
-    Navier-Stokes 
-      Velocity 1 
-\ttend
-Click \texttt{Enter} to open an edit box for the \texttt{Velocity 1}. In there type the following
-\ttbegin
-  Variable Coordinate 2; Real MATC ``6*(tx-1)*(2-tx)''
-\ttend
-This expression will be interpreted at run-time so that $v_x=6(y-1)(2-y)$. As $y\in[1,2]$ this
-expression creates a parabolic velocity profile with a mean velocity of unity. 
-\ttbegin
-    Update
-    OK
-\ttend
-%
-Remember to re-perform the following phases in order to get the updated results
-\ttbegin
-Sif 
-  Generate
-File 
-  Save Project
-Run
-  Start solver
-\ttend
-You may just reload the results in ElmerPost rather than closing and opening the program.
-It may be noted that the results have considerably changed. 
 
 
 \subsection*{Extra task: Decreasing the viscosity}
@@ -258,6 +231,19 @@ Convergence may be difficult to obtain. Some tricks that may be tested include
 \item Favoring Picard iteration over Newton 
 \item Increasing mesh density (and length of domain)
 \end{itemize}
+Don't be worried if you fail to find convergence. This task will mainly act as a 
+motivator in using turbulence models for higher Reynolds numbers.
+
+Remember to re-perform the following phases in order to get the updated results
+\ttbegin
+Sif 
+  Generate
+File 
+  Save Project
+Run
+  Start solver
+\ttend
+You may just reload the results in the postprocessor rather than closing and opening the program.
 
 
 \hfill
