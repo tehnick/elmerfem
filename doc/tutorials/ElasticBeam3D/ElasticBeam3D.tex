@@ -8,15 +8,16 @@
 \subsection*{Case definition}
 
 Assume a homogenous, elastic beam being rigidly supported on one 
-end. On the other end its subjected with a load of 2000~N
+end. On the other end it is subjected with a load of 2000~N
 resulting from an attached object in the gravitational field. The gravity affects also the beam itself.
 The length of the beam is 1~m and the thickness is 0.05~m, and the width 
 0.1~m.
-Material properties of the beam are those of dry pine timber, 
+Material properties of the beam are those of dry pine timber:
 Poisson 
 ratio 0.37, Young's modulus $10\cdot 10^9$N/m$^2$, and density 550~kg/m$^3$. 
-Problem is to solve the displacement and stress field of the beam.  
-Problem is solved according to the linear theory of elasticity assuming linear isotropic material law. 
+The problem is to solve the displacement and stress field of the beam.  
+Here the \texttt{StressSolve} routine based on the 
+linear theory of elasticity is applied.
 
 
 \subsection*{Solution procedure}
@@ -98,13 +99,13 @@ Model
   BodyForce
     Name = Gravity
     Linear Elasticity 
-      Force 2 = -9.81
+      Force 2 = $ -9.81 * 550
     Apply to Bodies = Body 1 
     Add
     OK
 \ttend
-Note that the body force is automatically multiplied by the density hence only acceleration of
-gravity needs to be given.
+Here we use a \texttt{MATC} expression for computing the volume force. This
+expression is constant and is computed when the command file is interpreted.
 
 Convergence should be obtained with the default 
 initial condition i.e. zero for all fields, hence no initial condition is applied.
@@ -172,7 +173,7 @@ Run
   Start postprocessor
 \ttend
 As a result the absolute value of maximum displacement is shown. 
-The maximum displacement is $6.33$~cm 
+The maximum displacement is $6.36$~cm 
 To visualize the displacement in the geometry using ElmerPost can be done with the following
 command in the \texttt{Elmer-Post} command line.
 \ttbegin
@@ -203,7 +204,7 @@ Change the body force
 Model
   BodyForce
     Linear Elasticity 
-      Force 1 = -9.81
+      Force 1 = $ -9.81*550
     Update
     OK
 \ttend
