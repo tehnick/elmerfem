@@ -268,8 +268,7 @@ am__objects_2 = umf_i_analyze.$(OBJEXT) umf_i_apply_order.$(OBJEXT) \
 	umfpack_zl_save_numeric.$(OBJEXT) \
 	umfpack_zl_load_symbolic.$(OBJEXT) \
 	umfpack_zl_save_symbolic.$(OBJEXT)
-nodist_libumfpack_a_OBJECTS = $(am__objects_2) \
-	umf4_f_f77wrapper.$(OBJEXT) umf4_f_f77zwrapper.$(OBJEXT)
+nodist_libumfpack_a_OBJECTS = $(am__objects_2)
 libumfpack_a_OBJECTS = $(am_libumfpack_a_OBJECTS) \
 	$(nodist_libumfpack_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
@@ -805,7 +804,7 @@ UMFPACK_ORIG_SOURCES = \
 #-------------------------------------------------------------------------------
 # source files
 #-------------------------------------------------------------------------------
-EXTRA_DIST = $(UMFPACK_ORIG_SOURCES) umf4_f77wrapper.c umf4_f77zwrapper.c
+EXTRA_DIST = $(UMFPACK_ORIG_SOURCES)
 UMFPACK_SOURCES = umfpack_timer.c umfpack_tictoc.c
 INCLUDES = \
 	-I./include       \
@@ -815,7 +814,7 @@ INCLUDES = \
 
 lib_LIBRARIES = libumfpack.a
 libumfpack_a_SOURCES = $(UMFPACK_SOURCES)
-nodist_libumfpack_a_SOURCES = $(UMFPACK_CPP_SOURCES) umf4_f_f77wrapper.c umf4_f_f77zwrapper.c
+nodist_libumfpack_a_SOURCES = $(UMFPACK_CPP_SOURCES)
 all: all-recursive
 
 .SUFFIXES:
@@ -889,8 +888,6 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/umf4_f_f77wrapper.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/umf4_f_f77zwrapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/umf_di_2by2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/umf_di_assemble.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/umf_di_assemble_fixq.Po@am__quote@
@@ -2140,22 +2137,6 @@ umfpack_zl_save_symbolic.c:
 
 clean-local:
 	-rm -f $(UMFPACK_CPP_SOURCES)
-
-#
-# umfpack fortran wrappers
-#
-
-@USE_64BIT_ARCH_TRUE@umf4_f_f77wrapper.c: umf4_f77wrapper.c
-@USE_64BIT_ARCH_TRUE@	$(CPP) $(INCLUDES) umf4_f77wrapper.c > umf4_f_f77wrapper.c
-
-@USE_64BIT_ARCH_TRUE@umf4_f_f77zwrapper.c: umf4_f77zwrapper.c
-@USE_64BIT_ARCH_TRUE@	$(CPP) $(INCLUDES) umf4_f77zwrapper.c > umf4_f_f77zwrapper.c
-
-@USE_64BIT_ARCH_FALSE@umf4_f_f77wrapper.c: umf4_f77wrapper.c
-@USE_64BIT_ARCH_FALSE@	$(CPP) $(INCLUDES) -DLONG umf4_f77wrapper.c > umf4_f_f77wrapper.c
-
-@USE_64BIT_ARCH_FALSE@umf4_f_f77zwrapper.c: umf4_f77zwrapper.c
-@USE_64BIT_ARCH_FALSE@	$(CPP) $(INCLUDES) -DLONG umf4_f77zwrapper.c > umf4_f_f77zwrapper.c
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
