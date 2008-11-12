@@ -391,12 +391,14 @@ SOLVEROBJS = \
 		ExchangeCorrelations$(OBJ_EXT)			\
 		SolveHypre$(OBJ_EXT)				\
 		iso_varying_string$(OBJ_EXT)			\
+		umf4_f77wrapper$(OBJ_EXT)			\
 		ElmerSolver$(OBJ_EXT)
 
 NORMAL_TARGETS = mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 MPI_TARGETS = ElmerSolver_mpi$(EXE_EXT)
 @USE_MPI_FALSE@ELMER_TARGETS = $(NORMAL_TARGETS)
 @USE_MPI_TRUE@ELMER_TARGETS = $(NORMAL_TARGETS) $(MPI_TARGETS)
+@USE_MPI_TRUE@INCLUDES = -I$(MPI_INCLUDE_DIR)
 ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
 @HAVE_WINDRES_FALSE@SC2Elmer_SOURCES = SC2Elmer.c
 @HAVE_WINDRES_TRUE@SC2Elmer_SOURCES = SC2Elmer.c Sico2Elmer-res.rc
@@ -539,6 +541,7 @@ EXTRA_DIST = \
 	elmerld.in  \
 	elmerf90-nosh.in  \
 	_muldc3.oo   \
+	umf4_f77wrapper.c \
 	SOLVER.KEYWORDS
 
 all: all-recursive
@@ -1151,24 +1154,24 @@ $(SOLVEROBJS): mpif
 install-data-local:
 	@echo "Installing solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
-	mkdir -p $(ELMER_SOLVER_DATADIR)/lib
-	$(CP) *$(SHL_EXT) $(ELMER_SOLVER_DATADIR)/lib
-	$(CP) elements.def $(ELMER_SOLVER_DATADIR)/lib
-	$(CP) SOLVER.KEYWORDS $(ELMER_SOLVER_DATADIR)/lib
+	mkdir -p $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
+	$(CP) *$(SHL_EXT) $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
+	$(CP) elements.def $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
+	$(CP) SOLVER.KEYWORDS $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 
 	@echo "Installing *.mod to ${ELMER_SOLVER_DATADIR}/include"
-	mkdir -p $(ELMER_SOLVER_DATADIR)/include
-	$(CP) *.mod $(ELMER_SOLVER_DATADIR)/include
+	mkdir -p $(DESTDIR)$(ELMER_SOLVER_DATADIR)/include
+	$(CP) *.mod $(DESTDIR)$(ELMER_SOLVER_DATADIR)/include
 
 install-exec-local:
 	@echo "Installing stuff to ${prefix}/bin"
-	$(MKDIR) $(prefix)/bin
-	$(CP) ElmerSolver$(EXEEXT) $(prefix)/bin
-	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
-	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
-	$(CP) libelmersolver$(SHL_EXT) $(prefix)/lib
-	$(CP) elmerf90 elmerf90-nosh elmerld $(prefix)/bin
-@USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
+	$(MKDIR) $(DESTDIR)$(prefix)/bin
+	$(CP) ElmerSolver$(EXEEXT) $(DESTDIR)$(prefix)/bin
+	$(CP) ViewFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
+	$(CP) GebhardtFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
+	$(CP) libelmersolver$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(CP) elmerf90 elmerf90-nosh elmerld $(DESTDIR)$(prefix)/bin
+@USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi

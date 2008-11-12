@@ -14,6 +14,7 @@ MPI_TARGETS=ElmerSolver_mpi$(EXE_EXT)
 
 if USE_MPI
 ELMER_TARGETS=$(NORMAL_TARGETS) $(MPI_TARGETS)
+INCLUDES=-I$(MPI_INCLUDE_DIR)
 else
 ELMER_TARGETS=$(NORMAL_TARGETS)
 endif
@@ -176,26 +177,26 @@ ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
 install-data-local:
 	@echo "Installing solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
-	mkdir -p $(ELMER_SOLVER_DATADIR)/lib
-	$(CP) *$(SHL_EXT) $(ELMER_SOLVER_DATADIR)/lib
-	$(CP) elements.def $(ELMER_SOLVER_DATADIR)/lib
-	$(CP) SOLVER.KEYWORDS $(ELMER_SOLVER_DATADIR)/lib
+	mkdir -p $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
+	$(CP) *$(SHL_EXT) $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
+	$(CP) elements.def $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
+	$(CP) SOLVER.KEYWORDS $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 
 	@echo "Installing *.mod to ${ELMER_SOLVER_DATADIR}/include"
-	mkdir -p $(ELMER_SOLVER_DATADIR)/include
-	$(CP) *.mod $(ELMER_SOLVER_DATADIR)/include
+	mkdir -p $(DESTDIR)$(ELMER_SOLVER_DATADIR)/include
+	$(CP) *.mod $(DESTDIR)$(ELMER_SOLVER_DATADIR)/include
 
 
 install-exec-local:
 	@echo "Installing stuff to ${prefix}/bin"
-	$(MKDIR) $(prefix)/bin
-	$(CP) ElmerSolver$(EXEEXT) $(prefix)/bin
-	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
-	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
-	$(CP) libelmersolver$(SHL_EXT) $(prefix)/lib
-	$(CP) elmerf90 elmerf90-nosh elmerld $(prefix)/bin
+	$(MKDIR) $(DESTDIR)$(prefix)/bin
+	$(CP) ElmerSolver$(EXEEXT) $(DESTDIR)$(prefix)/bin
+	$(CP) ViewFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
+	$(CP) GebhardtFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
+	$(CP) libelmersolver$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(CP) elmerf90 elmerf90-nosh elmerld $(DESTDIR)$(prefix)/bin
 if USE_MPI
-	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
+	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin
 endif
 
 clean-local:
@@ -359,4 +360,5 @@ EXTRA_DIST = \
 	elmerld.in  \
 	elmerf90-nosh.in  \
 	_muldc3.oo   \
+	umf4_f77wrapper.c \
 	SOLVER.KEYWORDS
