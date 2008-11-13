@@ -20,8 +20,8 @@ ACX_DEBUG
 
 AC_PROG_CC([xlc pathcc icc cc gcc])
 AC_PROG_CXX([xlC pathCC icc CC g++])
-AC_PROG_FC([xlf90 pathf90 ifort ifc f90 g95])
-AC_PROG_F77([xlf pathf90 ifort ifc f77 g95 g77])
+AC_PROG_FC([gfortran xlf90 pathf90 ifort ifc f90 g95])
+AC_PROG_F77([gfortran xlf pathf90 ifort ifc f77 g95 g77])
 
 ACX_BOURNE_SHELL
 
@@ -70,7 +70,7 @@ CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. ${INCLUDE_MODULE_FLAG}binio"
 FFLAGS="$FFLAGS -I."
 ELMER_HOME="$prefix"
-FCPPFLAGS="-P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DFULL_INDUCTION -DUSE_ARPACK"
+FCPPFLAGS="$FCPPFLAGS -P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DFULL_INDUCTION -DUSE_ARPACK"
 TESTS_FCFLAGS=""
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."

@@ -10,5 +10,5 @@ biniomod.f90: kinds.o
 
 ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
 install-exec-local:
-	mkdir -p $(ELMER_SOLVER_DATADIR)/include
-	$(INSTALL) *.mod $(ELMER_SOLVER_DATADIR)/include
+	mkdir -p $(DESTDIR)$(ELMER_SOLVER_DATADIR)/include
+	$(INSTALL) *.mod $(DESTDIR)$(ELMER_SOLVER_DATADIR)/include
