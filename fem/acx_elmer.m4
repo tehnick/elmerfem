@@ -559,8 +559,9 @@ case $with_umfpack in
 esac
 
 # Get fortran linker names of UMFPACK functions to check for.
-AC_FC_FUNC(umf4def)
+#AC_FC_FUNC(umfpack_di_defaults)
 
+umfdef="umfpack_di_defaults";
 acx_umfpack_save_LIBS="$LIBS"
 
 LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
@@ -569,7 +570,7 @@ LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
-	AC_MSG_CHECKING([for $umf4def in $UMFPACK_LIBS])
+	AC_MSG_CHECKING([for $umfdef in $UMFPACK_LIBS])
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
 		# windose shite	
@@ -578,7 +579,7 @@ if test "x$UMFPACK_LIBS" != x; then
 		AC_LINK_IFELSE(
 		[int main ()
 		 {
-		   $umf4def(1);
+		   $umfdef();
 		   return 0;
 		 }
 		],
@@ -590,7 +591,7 @@ if test "x$UMFPACK_LIBS" != x; then
 		])
 		CFLAGS="$save_CFLAGS"
 	else
-		AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
+		AC_TRY_LINK_FUNC($umfdef, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
 	fi
 
 	AC_MSG_RESULT($acx_umfpack_ok)
@@ -600,7 +601,7 @@ fi
 
 # Generic UMFPACK library?
 if test $acx_umfpack_ok = no; then
-	AC_CHECK_LIB(umfpack, $umf4def, [acx_umfpack_ok=yes; UMFPACK_LIBS="-lumfpack -lamd"],,[-lamd])
+	AC_CHECK_LIB(umfpack, $umfdef, [acx_umfpack_ok=yes; UMFPACK_LIBS="-lumfpack -lamd"],,[-lamd])
 fi
 
 AC_SUBST(UMFPACK_LIBS)

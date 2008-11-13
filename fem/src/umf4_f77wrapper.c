@@ -79,13 +79,11 @@
  */
 
 #include "../config.h"
-#include <ctype.h>
-#include <stdio.h>
+
 #ifdef NULL
 #undef NULL
 #endif
 #define NULL 0
-#define LEN 200
 
 /* -------------------------------------------------------------------------- */
 /* integer type: int or long */
@@ -118,7 +116,9 @@
 
 void STDCALLBULL FC_FUNC(umf4def,UMF4DEF) (double Control[])
 {
+#ifdef HAVE_UMFPACK
     UMFPACK_defaults (Control) ;
+#endif
 }
 
 
@@ -132,7 +132,9 @@ void STDCALLBULL FC_FUNC(umf4sym,UMF4SYM) (Int *m, Int *n, Int Ap [ ], Int Ai [ 
     double Ax [ ], void **Symbolic,
     double Control[], double Info[])
 {
+#ifdef HAVE_UMFPACK
     (void) UMFPACK_symbolic (*m, *n, Ap, Ai, Ax, Symbolic, Control, Info) ;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -145,7 +147,9 @@ void STDCALLBULL FC_FUNC(umf4num,UMF4NUM) (Int Ap [ ], Int Ai [ ], double Ax [ ]
     void **Symbolic, void **Numeric,
     double Control[], double Info[])
 {
+#ifdef HAVE_UMFPACK
     (void) UMFPACK_numeric (Ap, Ai, Ax, *Symbolic, Numeric, Control, Info);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -158,7 +162,9 @@ void STDCALLBULL FC_FUNC(umf4solr,UMF4SOLR) (Int *sys, Int Ap [ ], Int Ai [ ], d
     double x [ ], double b [ ], void **Numeric,
     double Control[], double Info[])
 {
+#ifdef HAVE_UMFPACK
     (void) UMFPACK_solve (*sys, Ap, Ai, Ax, x, b, *Numeric, Control, Info) ;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -170,9 +176,11 @@ void STDCALLBULL FC_FUNC(umf4solr,UMF4SOLR) (Int *sys, Int Ap [ ], Int Ai [ ], d
 void STDCALLBULL FC_FUNC(umf4sol,UMF4SOL) (Int *sys, double x [ ], double b [ ], void **Numeric,
     double Control[], double Info[])
 {
+#ifdef HAVE_UMFPACK
     Control [UMFPACK_IRSTEP] = 0 ;
     (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
 	x, b, *Numeric, Control, Info) ;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -183,7 +191,9 @@ void STDCALLBULL FC_FUNC(umf4sol,UMF4SOL) (Int *sys, double x [ ], double b [ ],
 
 void STDCALLBULL FC_FUNC(umf4fnum,UMF4FNUM) (void **Numeric)
 {
+#ifdef HAVE_UMFPACK
     UMFPACK_free_numeric (Numeric) ;
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -194,5 +204,7 @@ void STDCALLBULL FC_FUNC(umf4fnum,UMF4FNUM) (void **Numeric)
 
 void STDCALLBULL FC_FUNC(umf4fsym,UMF4FSYM) (void **Symbolic)
 {
+#ifdef HAVE_UMFPACK
     UMFPACK_free_symbolic (Symbolic) ;
+#endif
 }

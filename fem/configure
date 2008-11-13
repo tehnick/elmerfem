@@ -5037,7 +5037,7 @@ ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 if test -n "$ac_tool_prefix"; then
-  for ac_prog in xlf90 pathf90 ifort ifc f90 g95
+  for ac_prog in gfortran xlf90 pathf90 ifort ifc f90 g95
   do
     # Extract the first word of "$ac_tool_prefix$ac_prog", so it can be a program name with args.
 set dummy $ac_tool_prefix$ac_prog; ac_word=$2
@@ -5081,7 +5081,7 @@ fi
 fi
 if test -z "$FC"; then
   ac_ct_FC=$FC
-  for ac_prog in xlf90 pathf90 ifort ifc f90 g95
+  for ac_prog in gfortran xlf90 pathf90 ifort ifc f90 g95
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -5296,7 +5296,7 @@ ac_compile='$F77 -c $FFLAGS conftest.$ac_ext >&5'
 ac_link='$F77 -o conftest$ac_exeext $FFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_f77_compiler_gnu
 if test -n "$ac_tool_prefix"; then
-  for ac_prog in xlf pathf90 ifort ifc f77 g95 g77
+  for ac_prog in gfortran xlf pathf90 ifort ifc f77 g95 g77
   do
     # Extract the first word of "$ac_tool_prefix$ac_prog", so it can be a program name with args.
 set dummy $ac_tool_prefix$ac_prog; ac_word=$2
@@ -5340,7 +5340,7 @@ fi
 fi
 if test -z "$F77"; then
   ac_ct_F77=$F77
-  for ac_prog in xlf pathf90 ifort ifc f77 g95 g77
+  for ac_prog in gfortran xlf pathf90 ifort ifc f77 g95 g77
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -10140,7 +10140,7 @@ CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. ${INCLUDE_MODULE_FLAG}binio"
 FFLAGS="$FFLAGS -I."
 ELMER_HOME="$prefix"
-FCPPFLAGS="-P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DFULL_INDUCTION -DUSE_ARPACK"
+FCPPFLAGS="$FCPPFLAGS -P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DFULL_INDUCTION -DUSE_ARPACK"
 TESTS_FCFLAGS=""
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
@@ -14178,26 +14178,9 @@ case $with_umfpack in
 esac
 
 # Get fortran linker names of UMFPACK functions to check for.
-ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-case $ac_cv_fc_mangling in
-  upper*) ac_val="UMF4DEF" ;;
-  lower*) ac_val="umf4def" ;;
-  *)      ac_val="unknown" ;;
-esac
-case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
+#AC_FC_FUNC(umfpack_di_defaults)
 
-umf4def="$ac_val"
-
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-
+umfdef="umfpack_di_defaults";
 acx_umfpack_save_LIBS="$LIBS"
 
 LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
@@ -14206,8 +14189,8 @@ LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
-	{ echo "$as_me:$LINENO: checking for $umf4def in $UMFPACK_LIBS" >&5
-echo $ECHO_N "checking for $umf4def in $UMFPACK_LIBS... $ECHO_C" >&6; }
+	{ echo "$as_me:$LINENO: checking for $umfdef in $UMFPACK_LIBS" >&5
+echo $ECHO_N "checking for $umfdef in $UMFPACK_LIBS... $ECHO_C" >&6; }
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
 		# windose shite
@@ -14216,7 +14199,7 @@ echo $ECHO_N "checking for $umf4def in $UMFPACK_LIBS... $ECHO_C" >&6; }
 		cat >conftest.$ac_ext <<_ACEOF
 int main ()
 		 {
-		   $umf4def(1);
+		   $umfdef();
 		   return 0;
 		 }
 
@@ -14268,7 +14251,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $umf4def ();
+char $umfdef ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -14288,7 +14271,7 @@ char $umf4def ();
 int
 main ()
 {
-return $umf4def ();
+return $umfdef ();
   ;
   return 0;
 }
@@ -14331,9 +14314,9 @@ fi
 
 # Generic UMFPACK library?
 if test $acx_umfpack_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_umfpack_$umf4def" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $umf4def in -lumfpack" >&5
-echo $ECHO_N "checking for $umf4def in -lumfpack... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_umfpack_$umfdef" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $umfdef in -lumfpack" >&5
+echo $ECHO_N "checking for $umfdef in -lumfpack... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -14352,7 +14335,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $umf4def ();
+char $umfdef ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -14372,7 +14355,7 @@ char $umf4def ();
 int
 main ()
 {
-return $umf4def ();
+return $umfdef ();
   ;
   return 0;
 }
