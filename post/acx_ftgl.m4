@@ -67,15 +67,15 @@ fi
 AC_LANG_PUSH(C++)
 
 acx_ftgl_h_ok=no
-AC_CHECK_HEADER( [FTGL.h], [acx_ftgl_h_ok=yes] )
+AC_CHECK_HEADER( [FTGL/ftgl.h], [acx_ftgl_h_ok=yes] )
 
 if test "$acx_ftgl_h_ok" = no; then
    AC_MSG_RESULT([
    ***************************************
-   ***    WARNING: FTGL.h not found    ***
+   *** WARNING: FTGL/ftgl.h not found  ***
    ***  FreeType2 rendering disabled   ***
    ***          Try adding:            ***
-   ***  -I/path/to FTGL.h in CXXFLAGS  ***
+   *** -I/path/to FTGL/ftgl.h in CXXFLAGS ***
    ***         and reconfigure         ***
    ***************************************
   ])
