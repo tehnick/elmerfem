@@ -38,7 +38,7 @@ subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_elmer.m4 \
-	$(top_srcdir)/configure.in
+	$(top_srcdir)/acx_metis.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -61,7 +61,7 @@ am__objects_1 = common.$(OBJEXT) femelmer.$(OBJEXT) femfact.$(OBJEXT) \
 @HAVE_WINDRES_TRUE@am_ElmerGrid_OBJECTS = $(am__objects_1) \
 @HAVE_WINDRES_TRUE@	ElmerGrid-res.$(OBJEXT)
 ElmerGrid_OBJECTS = $(am_ElmerGrid_OBJECTS)
-ElmerGrid_DEPENDENCIES = metis/libmetis.a
+ElmerGrid_DEPENDENCIES =
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -82,7 +82,7 @@ RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = $(SUBDIRS)
+DIST_SUBDIRS = metis
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMTAR = @AMTAR@
@@ -187,7 +187,7 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-SUBDIRS = metis
+@USE_EXTERNAL_METIS_FALSE@SUBDIRS = metis
 COMMON_SRCS = \
 	common.h \
 	femdef.h \
@@ -218,7 +218,7 @@ COMMON_SRCS = \
 @HAVE_WINDRES_FALSE@ElmerGrid_SOURCES = $(COMMON_SRCS) 
 @HAVE_WINDRES_TRUE@ElmerGrid_SOURCES = $(COMMON_SRCS) ElmerGrid-res.rc
 ElmerGrid_LDADD = \
-	metis/libmetis.a
+	-Lmetis/ -lmetis
 
 all: all-recursive
 

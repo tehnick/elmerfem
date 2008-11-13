@@ -1,4 +1,6 @@
+if !USE_EXTERNAL_METIS
 SUBDIRS=metis
+endif
 
 bin_PROGRAMS = ElmerGrid
 
@@ -45,4 +47,4 @@ ElmerGrid_SOURCES = $(COMMON_SRCS)
 endif
 
 ElmerGrid_LDADD = \
-	metis/libmetis.a
+	-Lmetis/ -lmetis
