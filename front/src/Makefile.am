@@ -87,14 +87,14 @@ endif
 install-data-local:
 	@echo "Installing tcl scripts to ${prefix}/share/elmerfront/tcl"
 
-	mkdir -p "${prefix}/share/elmerfront/tcl"
-	cp -r ./tcl/* "${prefix}/share/elmerfront/tcl"
-	rm -rf `find $(prefix)/share/elmerfront/tcl -name .svn`
+	mkdir -p "$(DESTDIR)${prefix}/share/elmerfront/tcl"
+	cp -r ./tcl/* "$(DESTDIR)${prefix}/share/elmerfront/tcl"
+	rm -rf `find $(DESTDIR)$(prefix)/share/elmerfront/tcl -name .svn`
 
 	@echo "Installing *.edf *.rgb to ${prefix}/share/elmerfront/lib"
-	mkdir -p "${prefix}/share/elmerfront/lib"
-	cp -r ./lib/* "${prefix}/share/elmerfront/lib"
-	rm -rf `find $(prefix)/share/elmerfront/lib -name .svn`
+	mkdir -p "$(DESTDIR)${prefix}/share/elmerfront/lib"
+	cp -r ./lib/* "$(DESTDIR)${prefix}/share/elmerfront/lib"
+	rm -rf `find $(DESTDIR)$(prefix)/share/elmerfront/lib -name .svn`
 
 
 
