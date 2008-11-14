@@ -389,8 +389,11 @@ private:
   NglibAPI *nglibAPI;
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
-  nglib::Ng_Meshing_Parameters *mp;
+  nglib::Ng_Meshing_Parameters mp;
   bool nglibInputOk;
+
+  // occ:
+  bool occInputOk;
 
   // elmergrid:
   ElmergridAPI *elmergridAPI;

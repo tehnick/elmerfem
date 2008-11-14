@@ -66,7 +66,7 @@ public:
 
   void generate(int generatorType, QString cs, TetlibAPI *tetlibAPI, 
 		nglib::Ng_Mesh *ngmesh, nglib::Ng_STL_Geometry *nggeom, 
-		nglib::Ng_Meshing_Parameters *mp);
+		nglib::Ng_Meshing_Parameters *mp, bool occInputOk);
 
   void stopMeshing();
 
@@ -88,6 +88,7 @@ private:
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
   nglib::Ng_Meshing_Parameters *mp;
+  bool occInputOk;
 
 };
 

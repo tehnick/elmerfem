@@ -78,9 +78,7 @@ contains(DEFINES, QWT) {
 contains(DEFINES, VTKPOST) {
    unix {
       INCLUDEPATH += /usr/include/vtk-5.0
-      LIBS += -lvtkHybrid \
-              -lvtkWidgets \
-              -lQVTK
+      LIBS += -lvtkHybrid -lvtkWidgets -lQVTK
    }
 
    win32 {
@@ -118,9 +116,7 @@ contains(DEFINES, VTKPOST) {
 
    macx {
       INCLUDEPATH += /usr/local/include/vtk-5.0
-      LIBS += -lvtkHybrid \
-              -lvtkWidgets \
-              -lQVTK
+      LIBS += -lvtkHybrid -lvtkWidgets -lQVTK
    }
 }
 
@@ -153,77 +149,7 @@ contains(DEFINES, OCC_63) {
       DEFINES +=  HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
       INCLUDEPATH += /usr/local/OpenCASCADE/inc
       LIBPATH += /usr/local/OpenCASCADE/lib
-      LIBS += -lBinLPlugin \
-         -lBinPlugin \
-         -lBinXCAFPlugin \
-         -lFWOSPlugin \
-         -lmscmd \
-         -lPTKernel \
-         -lStdLPlugin \
-         -lStdPlugin \
-         -lTKAdvTools \
-         -lTKBin \
-         -lTKBinL \
-         -lTKBinXCAF \
-         -lTKBO \
-         -lTKBool \
-         -lTKBRep \
-         -lTKCAF \
-         -lTKCDF \
-         -lTKCDLFront \
-         -lTKCPPClient \
-         -lTKCPPExt \
-         -lTKCPPIntExt \
-         -lTKCPPJini \
-         -lTKCSFDBSchema \
-         -lTKDraw \
-         -lTKernel \
-         -lTKFeat \
-         -lTKFillet \
-         -lTKG2d \
-         -lTKG3d \
-         -lTKGeomAlgo \
-         -lTKGeomBase \
-         -lTKHLR \
-         -lTKIDLFront \
-         -lTKIGES \
-         -lTKLCAF \
-         -lTKMath \
-         -lTKMesh \
-         -lTKMeshVS \
-         -lTKOffset \
-         -lTKOpenGl \
-         -lTKPCAF \
-         -lTKPLCAF \
-         -lTKPrim \
-         -lTKPShape \
-         -lTKService \
-         -lTKShapeSchema \
-         -lTKShHealing \
-         -lTKStdLSchema \
-         -lTKStdSchema \
-         -lTKSTEP \
-         -lTKSTEPAttr \
-         -lTKSTEPBase \
-         -lTKSTL \
-         -lTKTCPPExt \
-         -lTKTopAlgo \
-         -lTKV2d \
-         -lTKV3d \
-         -lTKVRML \
-         -lTKXCAF \
-         -lTKXCAFSchema \
-         -lTKXDEIGES \
-         -lTKXDESTEP \
-         -lTKXml \
-         -lTKXmlL \
-         -lTKXmlXCAF \
-         -lTKXSBase \
-         -lXCAFPlugin \
-         -lXmlLPlugin \
-         -lXmlPlugin \
-         -lXmlXCAFPlugin \
-         -lXmu
+      LIBS += -lTKBRep -lTKSTL -lTKSTEP
    }
               
    win32 {
@@ -475,15 +401,8 @@ contains(DEFINES, VTKPOST) {
 }
 
 contains(DEFINES, OCC_63) {
-   HEADERS += cad/cadview.h \
-              cad/qocc.h \
-              cad/qoccinternal.h \
-              cad/qoccviewwidget.h \
-              cad/qoccviewercontext.h
-
-   SOURCES += cad/cadview.cpp \
-              cad/qoccviewWidget.cpp \
-              cad/qoccviewercontext.cpp
+   HEADERS += cad/cadview.h
+   SOURCES += cad/cadview.cpp 
 }
 
 #------------------------------------------------------------------------------

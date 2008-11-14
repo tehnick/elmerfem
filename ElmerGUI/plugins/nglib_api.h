@@ -53,12 +53,12 @@ class NglibAPI
  public:
   NglibAPI();
   ~NglibAPI();
-  
+
   nglib::Ng_Mesh* ngmesh;
-  nglib::Ng_STL_Geometry* nggeom;
-  nglib::Ng_Meshing_Parameters mp;
 
   mesh_t* createElmerMeshStructure();
+
+  
 };
 
 #endif // #ifndef NGLIB_API_H

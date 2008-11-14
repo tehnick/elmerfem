@@ -98,9 +98,6 @@ MainWindow::MainWindow()
   updateSplash("Loading nglib...");
   nglibAPI = new NglibAPI;
   nglibPresent = true;
-  this->mp = &nglibAPI->mp;
-  this->ngmesh = nglibAPI->ngmesh;
-  this->nggeom = nglibAPI->nggeom;
 
   // construct elmergrid:
   updateSplash("Constructing elmergrid...");
@@ -239,6 +236,7 @@ MainWindow::MainWindow()
   bodyEditActive = false;
   showConvergence = egIni->isSet("showconvergence");
   geometryInputFileName = "";
+  occInputOk = false;
 
   // background image:
   glWidget->stateUseBgImage = egIni->isSet("bgimage");
@@ -1075,6 +1073,8 @@ void MainWindow::openSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::readInputFile(QString fileName)
 {
+  occInputOk = false;
+
   char cs[1024];
 
   QFileInfo fi(fileName);
@@ -1155,27 +1155,8 @@ void MainWindow::readInputFile(QString fileName)
     
     tetlibInputOk = true;
     
-#ifdef OCC_63
-  } else if( (fileSuffix == "stl") || 
-	     (fileSuffix == "brep") ||
-	     (fileSuffix == "step") ||
-	     (fileSuffix == "stp") ) {
-#else
-  } else if(  fileSuffix == "stl") {
-#endif
-    
+  } else if(fileSuffix == "stl") {
 
-#ifdef OCC_63
-    // Convert to STL:
-    //----------------
-    bool converted = cadView->convertToSTL(fileName, fileSuffix);
-    if(converted) {
-      fileName += ".stl";
-      baseFileName += "." + fileSuffix;
-      sprintf(cs, "%s", baseFileName.toAscii().data());
-    }
-#endif
-    
     // for stl there are two alternative generators:
     if(meshControl->generatorType == GEN_NGLIB) {
       
@@ -1240,12 +1221,50 @@ void MainWindow::readInputFile(QString fileName)
 
     return;
 
+#ifdef OCC_63
+
+  } else if( (fileSuffix == "brep") ||
+	     (fileSuffix == "step") ||
+	     (fileSuffix == "stp") ) {
+
+    activeGenerator = GEN_NGLIB;
+
+    cadView->show();
+    occInputOk = cadView->readFile(fileName);
+
+    if(occInputOk) {
+      nglibInputOk = true;
+    } else {
+      logMessage("Cad input: error: Unable to read input file");
+      return;
+    }
+
+    char backgroundmesh[1024];
+    sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());
+
+    mp.maxh = meshControl->nglibMaxH.toDouble();
+    mp.fineness = meshControl->nglibFineness.toDouble();
+    mp.secondorder = 0;
+    mp.meshsize_filename = backgroundmesh;
+
+    nglib::Ng_Init();
+    nggeom = nglib::Ng_STL_NewGeometry();
+    ngmesh = nglib::Ng_NewMesh();
+
+    cadView->setMesh(ngmesh);
+    cadView->setGeom(nggeom);
+    cadView->setMp(&mp);
+    
+    cadView->generateMesh();
+
+#endif
+
   } else {
 
     logMessage("Unable to open file: file type unknown");
     activeGenerator = GEN_UNKNOWN;
-    return;
 
+    return;
   }
 }
   
@@ -4125,14 +4144,7 @@ void MainWindow::sharpEdgeColorSlot()
 void MainWindow::showCadModelSlot()
 {
 #ifdef OCC_63
-  if(cadView->shapes.IsNull() || cadView->shapes->IsEmpty()) {
-    logMessage("There are no shapes to show. Open a cad file first.");
-    return;
-  }
-  
   cadView->show();
-  cadView->drawModel();
-  cadView->fitToWindow();
 #endif
 }
 
@@ -4266,17 +4278,16 @@ void MainWindow::remeshSlot()
       return;
     }
 
-    char backgroundmesh[1024];
-    sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());
-    
-    ngmesh = nglib::Ng_NewMesh();
-    
-    mp->maxh = meshControl->nglibMaxH.toDouble();
-    mp->fineness = meshControl->nglibFineness.toDouble();
-    mp->secondorder = 0;
-    mp->meshsize_filename = backgroundmesh;
-
-    cout << "ok 3" << endl;
+    // for cad files, the parameters have already been set up:
+    if(!occInputOk) {
+      char backgroundmesh[1024];
+      sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());      
+      ngmesh = nglib::Ng_NewMesh();
+      mp.maxh = meshControl->nglibMaxH.toDouble();
+      mp.fineness = meshControl->nglibFineness.toDouble();
+      mp.secondorder = 0;
+      mp.meshsize_filename = backgroundmesh;
+    }
 
   } else {
 
@@ -4300,7 +4311,7 @@ void MainWindow::remeshSlot()
 
   meshingThread->generate(activeGenerator,
 			  tetlibControlString, tetlibAPI,
-			  ngmesh, nggeom, mp);
+			  ngmesh, nggeom, &mp, occInputOk);
 }
 
 

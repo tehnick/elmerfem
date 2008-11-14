@@ -49,6 +49,7 @@ MeshingThread::MeshingThread(QObject *parent)
   : QThread(parent)
 {
   this->setTerminationEnabled(true);
+  occInputOk = false;
 }
 
 
@@ -62,7 +63,8 @@ void MeshingThread::generate(int generatorType,
 			     TetlibAPI *tetlibAPI,
 			     nglib::Ng_Mesh *ngmesh,
 			     nglib::Ng_STL_Geometry *nggeom,
-			     nglib::Ng_Meshing_Parameters *mp)
+			     nglib::Ng_Meshing_Parameters *mp,
+			     bool occInputOk)
 {
   this->generatorType = generatorType;
   
@@ -70,6 +72,7 @@ void MeshingThread::generate(int generatorType,
   this->tetlibAPI = tetlibAPI;
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
+  this->occInputOk = occInputOk;
 
   this->delegate_tetrahedralize = tetlibAPI->delegate_tetrahedralize;
 
@@ -129,8 +132,13 @@ void MeshingThread::run()
     
   } else if(generatorType == GEN_NGLIB) {
     
-    int rv = nglib::Ng_STL_MakeEdges(nggeom, ngmesh, mp);
-    cout << "Make Edges: Ng_result=" << rv << endl;
+    int rv = 0;
+    
+    // for cad files, the edges have already been generated:
+    if(!occInputOk) {
+      rv = nglib::Ng_STL_MakeEdges(nggeom, ngmesh, mp);
+      cout << "Make Edges: Ng_result=" << rv << endl;
+    }
     
     rv = nglib::Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
     cout << "Generate Surface Mesh: Ng_result=" << rv << endl;

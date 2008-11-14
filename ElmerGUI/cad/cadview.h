@@ -42,10 +42,21 @@
 #define CADVIEW_H
 
 #include <QMainWindow>
-#include "qocc.h"
-#include "qoccinternal.h"
-#include "qoccviewercontext.h"
-#include "qoccviewwidget.h"
+
+namespace nglib {
+#include "nglib.h"
+}
+
+#include <TopoDS_Shape.hxx>
+
+class QMenu;
+class QAction;
+
+class QVTKWidget;
+class vtkRenderer;
+class vtkActor;
+class vtkPolyData;
+class vtkAppendPolyData;
 
 class CadView : public QMainWindow
 {
@@ -58,29 +69,47 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  Handle_TopTools_HSequenceOfShape shapes;
-  QoccViewWidget *qoccViewWidget;
-  QoccViewerContext *qoccViewerContext;
+  QVTKWidget* GetQVTKWidget();
 
-  bool convertToSTL(QString, QString);
-  void drawModel();
-  void fitToWindow();
+  bool readFile(QString);
+  void generateMesh();
 
-private slots:
-  void fitToWindowSlot();
-  void helpSlot(); 
+  void setMesh(nglib::Ng_Mesh*);
+  void setGeom(nglib::Ng_STL_Geometry*);
+  void setMp(nglib::Ng_Meshing_Parameters*);
 
-private:
-  QMenu *fileMenu;
-  QMenu *viewMenu;
-  QMenu *helpMenu;
+ private slots:
+  void closeSlot();
+  void generateMeshSlot();
 
-  QAction *exitAct;
-  QAction *fitToWindowAct;
-  QAction *helpAct;
-
+ private:
   void createActions();
   void createMenus();
+  void clearScreen();
+  TopoDS_Shape readBrep(QString);
+  TopoDS_Shape readStep(QString);
+  void restrictMeshSizeLocal(nglib::Ng_Mesh*, vtkPolyData*, double, double);
+
+  QMenu* fileMenu;
+  QMenu* meshMenu;
+
+  QAction* exitAct;
+  QAction* generateMeshAct;
+
+  QVTKWidget* qVTKWidget;
+  vtkRenderer* renderer;
+
+  vtkAppendPolyData* stlSurfaceData;
+  vtkAppendPolyData* stlEdgeData;
+
+  int numberOfFaces;
+  double modelLength;
+
+  TopoDS_Shape inputShape;
+
+  nglib::Ng_Mesh* mesh;
+  nglib::Ng_STL_Geometry* geom;
+  nglib::Ng_Meshing_Parameters* mp;
 };
 
 #endif // CADVIEW_H
