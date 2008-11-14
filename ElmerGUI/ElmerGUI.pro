@@ -44,6 +44,13 @@ QT += opengl xml script
 CONFIG += uitools
 
 #------------------------------------------------------------------------------
+# NETGEN:
+#------------------------------------------------------------------------------
+INCLUDEPATH += ./netgen/libsrc/interface
+LIBPATH += ./netgen/ngcore
+LIBS += -lng
+
+#------------------------------------------------------------------------------
 # QWT (you may need to edit this):
 #------------------------------------------------------------------------------
 contains(DEFINES, QWT) {
@@ -352,7 +359,6 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/egtypes.h \
            plugins/egutils.h \
            plugins/elmergrid_api.h \
-           plugins/nglib.h \
            plugins/nglib_api.h \
            plugins/tetgen.h \
            plugins/tetlib_api.h

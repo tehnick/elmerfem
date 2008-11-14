@@ -53,7 +53,7 @@
 #include "plugins/nglib_api.h"
 
 namespace nglib {
-#include "plugins/nglib.h"
+#include "nglib.h"
 }
 
 class MeshingThread : public QThread
@@ -66,7 +66,7 @@ public:
 
   void generate(int generatorType, QString cs, TetlibAPI *tetlibAPI, 
 		nglib::Ng_Mesh *ngmesh, nglib::Ng_STL_Geometry *nggeom, 
-		nglib::Ng_Meshing_Parameters *mp, NglibAPI *nglibAPI);
+		nglib::Ng_Meshing_Parameters *mp);
 
   void stopMeshing();
 

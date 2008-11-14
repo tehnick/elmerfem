@@ -97,8 +97,8 @@ MainWindow::MainWindow()
   // load nglib:
   updateSplash("Loading nglib...");
   nglibAPI = new NglibAPI;
-  nglibPresent = nglibAPI->loadNglib();
-  this->mp = nglibAPI->mp;
+  nglibPresent = true;
+  this->mp = &nglibAPI->mp;
   this->ngmesh = nglibAPI->ngmesh;
   this->nggeom = nglibAPI->nggeom;
 
@@ -1189,17 +1189,16 @@ void MainWindow::readInputFile(QString fileName)
       activeGenerator = GEN_NGLIB;
       cout << "Selected nglib for stl-format" << endl;
 
-      nglibAPI->Ng_Init();
+      nglib::Ng_Init();
       
-      nggeom 
-	= nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
+      nggeom = nglib::Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
       
       if(!nggeom) {
 	logMessage("Ng_STL_LoadGeometry failed");
 	return;
       }
       
-      int rv = nglibAPI->Ng_STL_InitSTLGeometry(nggeom);
+      int rv = nglib::Ng_STL_InitSTLGeometry(nggeom);
       cout << "InitSTLGeometry: NG_result=" << rv << endl;
       cout.flush();
       
@@ -4270,12 +4269,14 @@ void MainWindow::remeshSlot()
     char backgroundmesh[1024];
     sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());
     
-    ngmesh = nglibAPI->Ng_NewMesh();
+    ngmesh = nglib::Ng_NewMesh();
     
     mp->maxh = meshControl->nglibMaxH.toDouble();
     mp->fineness = meshControl->nglibFineness.toDouble();
     mp->secondorder = 0;
     mp->meshsize_filename = backgroundmesh;
+
+    cout << "ok 3" << endl;
 
   } else {
 
@@ -4297,8 +4298,9 @@ void MainWindow::remeshSlot()
   stopMeshingAct->setEnabled(true);
   glWidget->enableIndicator(true);
 
-  meshingThread->generate(activeGenerator, tetlibControlString,
-			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
+  meshingThread->generate(activeGenerator,
+			  tetlibControlString, tetlibAPI,
+			  ngmesh, nggeom, mp);
 }
 
 
