@@ -345,9 +345,12 @@ bool CadView::readFile(QString fileName)
 void CadView::generateSTLSlot()
 {
   double meshMinSize = 0.005 * modelLength;
-  double meshMaxSize = 0.1 * modelLength;
+  double meshMaxSize = mp->maxh;
   double meshFineness = 0.5;
   bool restrictBySTL = true;
+
+  if(meshMaxSize > 0.1 * modelLength)
+    meshMaxSize = 0.1 * modelLength;
 
   // Add STL triangles to geometry:
   //--------------------------------
@@ -399,7 +402,7 @@ void CadView::generateSTLSlot()
   
   // Global mesh size restrictions:
   //--------------------------------
-  // nglib::Ng_RestrictMeshSizeGlobal(mesh, meshMaxSize);
+  nglib::Ng_RestrictMeshSizeGlobal(mesh, meshMaxSize);
   
   // Local mesh size restrictions:
   //-------------------------------

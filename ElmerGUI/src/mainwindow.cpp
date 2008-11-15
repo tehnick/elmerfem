@@ -1257,7 +1257,7 @@ void MainWindow::readInputFile(QString fileName)
     cadView->setMp(&mp);
     cadView->generateSTL();
 
-    nglib::Ng_RestrictMeshSizeGlobal(ngmesh, mp.maxh);
+    // nglib::Ng_RestrictMeshSizeGlobal(ngmesh, mp.maxh);
 
     nglibInputOk = true;
 
@@ -4290,9 +4290,10 @@ void MainWindow::remeshSlot()
       mp.fineness = meshControl->nglibFineness.toDouble();
       mp.secondorder = 0;
       mp.meshsize_filename = backgroundmesh;
-    
+
       nglib::Ng_RestrictMeshSizeGlobal(ngmesh, mp.maxh);
     }
+
 
   } else {
 
