@@ -1227,14 +1227,15 @@ void MainWindow::readInputFile(QString fileName)
 	     (fileSuffix == "step") ||
 	     (fileSuffix == "stp") ) {
 
-    activeGenerator = GEN_NGLIB;
+    meshControl->ui.nglibRadioButton->setChecked(true);
+    meshControl->generatorType = GEN_NGLIB;
+    activeGenerator = meshControl->generatorType;
 
     cadView->show();
+
     occInputOk = cadView->readFile(fileName);
 
-    if(occInputOk) {
-      nglibInputOk = true;
-    } else {
+    if(!occInputOk) {
       logMessage("Cad input: error: Unable to read input file");
       return;
     }
@@ -1255,7 +1256,9 @@ void MainWindow::readInputFile(QString fileName)
     cadView->setGeom(nggeom);
     cadView->setMp(&mp);
     
-    cadView->generateMesh();
+    cadView->generateSTL();
+
+    nglibInputOk = true;
 
 #endif
 

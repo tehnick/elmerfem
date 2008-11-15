@@ -60,6 +60,7 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   Meshutils meshutils;
   
   // Create new mesh structure:
+  //----------------------------
   mesh_t *mesh = new mesh_t;
 
   mesh->nodes = 0;
@@ -69,6 +70,7 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   mesh->elements = 0;
 
   // Nodes:
+  //--------
   mesh->nodes = nglib::Ng_GetNP(ngmesh);
   mesh->node = new node_t[mesh->nodes];
 
@@ -80,7 +82,8 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     node->index = -1; // default
   }
 
-  // Boundary elements:				       
+  // Boundary elements:
+  //--------------------
   mesh->surfaces = nglib::Ng_GetNSE(ngmesh);
   mesh->surface = new surface_t[mesh->surfaces];
 
@@ -97,7 +100,8 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     surface->edges = 3;
     surface->edge = new int[3];
 
-    surface->index = 1; // default
+    int face = nglib::EG_GetSurfaceElementBCProperty(ngmesh, i+1);
+    surface->index = face;
 
     surface->edge[0] = -1;
     surface->edge[1] = -1;
@@ -112,16 +116,16 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     surface->node[2]--;
 
     // swap orientation:
+    //------------------
     int tmp = surface->node[1];
     surface->node[1] = surface->node[2];
     surface->node[2] = tmp;
   }
 
-
   // Elements:
+  //-----------
   mesh->elements = nglib::Ng_GetNE(ngmesh);
   mesh->element = new element_t[mesh->elements];
-
 
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
@@ -144,12 +148,15 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   }
 
   // Find parents for surface elements:
+  //------------------------------------
   meshutils.findSurfaceElementParents(mesh);
 
   // Find edges for surface elements:
+  //----------------------------------
   meshutils.findSurfaceElementEdges(mesh);
 
   // Compute normals for boundary elements:
+  //---------------------------------------
   meshutils.findSurfaceElementNormals(mesh);
 
   mesh->dim = 3;

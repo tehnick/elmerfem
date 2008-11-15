@@ -51,7 +51,6 @@ namespace nglib {
 
 class QMenu;
 class QAction;
-
 class QVTKWidget;
 class vtkRenderer;
 class vtkActor;
@@ -72,7 +71,7 @@ public:
   QVTKWidget* GetQVTKWidget();
 
   bool readFile(QString);
-  void generateMesh();
+  void generateSTL();
 
   void setMesh(nglib::Ng_Mesh*);
   void setGeom(nglib::Ng_STL_Geometry*);
@@ -80,7 +79,7 @@ public:
 
  private slots:
   void closeSlot();
-  void generateMeshSlot();
+  void generateSTLSlot();
 
  private:
   void createActions();
@@ -91,10 +90,8 @@ public:
   void restrictMeshSizeLocal(nglib::Ng_Mesh*, vtkPolyData*, double, double);
 
   QMenu* fileMenu;
-  QMenu* meshMenu;
 
   QAction* exitAct;
-  QAction* generateMeshAct;
 
   QVTKWidget* qVTKWidget;
   vtkRenderer* renderer;
@@ -104,8 +101,6 @@ public:
 
   int numberOfFaces;
   double modelLength;
-
-  TopoDS_Shape inputShape;
 
   nglib::Ng_Mesh* mesh;
   nglib::Ng_STL_Geometry* geom;

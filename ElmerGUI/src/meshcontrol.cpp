@@ -127,18 +127,21 @@ void MeshControl::defineElmerGridControlString(const QString &qs)
 
 void MeshControl::defaultControls()
 {
-  generatorType = GEN_TETLIB;
-  ui.tetlibRadioButton->setChecked(true);
+  // generatorType = GEN_TETLIB;
+  // ui.tetlibRadioButton->setChecked(true);
 
-  if(!tetlibPresent) {
-    generatorType = GEN_NGLIB;
-    ui.nglibRadioButton->setChecked(true);
-  }
+  generatorType = GEN_NGLIB;
+  ui.nglibRadioButton->setChecked(true);
 
-  if(!tetlibPresent && !nglibPresent) {
-    generatorType = GEN_ELMERGRID;
-    ui.elmerGridRadioButton->setChecked(true);
-  }
+  // if(!tetlibPresent) {
+  // generatorType = GEN_NGLIB;
+  // ui.nglibRadioButton->setChecked(true);
+  // }
+
+  // if(!tetlibPresent && !nglibPresent) {
+  // generatorType = GEN_ELMERGRID;
+  // ui.elmerGridRadioButton->setChecked(true);
+  // }
 
   ui.tetlibStringEdit->setText("nnJApq1.414V");
   ui.nglibMaxHEdit->setText("1000000");

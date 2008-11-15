@@ -56,13 +56,8 @@
 #include <vtkPropPicker.h>
 #include <vtkCallbackCommand.h>
 #include <vtkPolyDataMapper.h>
-#include <vtkExtractEdges.h>
-#include <vtkCellArray.h>
 #include <vtkAppendPolyData.h>
 #include <vtkFloatArray.h>
-#include <vtkCellData.h>
-#include <vtkDataArray.h>
-#include <vtkGeometryFilter.h>
 #include <vtkCleanPolyData.h>
 
 #include <BRep_Builder.hxx>
@@ -95,6 +90,8 @@ static void pickEventHandler(vtkObject* caller, unsigned long eid,
     double color[3];
     p->GetColor(color);
 
+    // Toggle color:
+    //--------------
     if(color[0] < 0.5) {
       p->SetColor(1, 0, 0);
     } else {
@@ -106,9 +103,9 @@ static void pickEventHandler(vtkObject* caller, unsigned long eid,
 CadView::CadView(QWidget *parent)
   : QMainWindow(parent)
 {
-  setWindowTitle("ElmerGUI CAD import module");
-  setWindowIcon(QIcon(":/icons/ElmerGUI.png"));
-  resize(600, 600);
+  setWindowTitle("ElmerGUI geometry viewer");
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+  resize(800, 600);
 
   createActions();
   createMenus();
@@ -156,31 +153,23 @@ void CadView::createActions()
   exitAct = new QAction(QIcon(""), tr("&Quit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(closeSlot()));
-
-  generateMeshAct = new QAction(QIcon(""), tr("Generate mesh"), this);
-  generateMeshAct->setShortcut(tr("Ctrl+G"));
-  connect(generateMeshAct, SIGNAL(triggered()), this, SLOT(generateMeshSlot()));
 }
 
 void CadView::createMenus()
 {
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(exitAct);
-
-  meshMenu = menuBar()->addMenu(tr("&Mesh"));
-  meshMenu->addAction(generateMeshAct);
 }
 
 void CadView::closeSlot()
 {
-  // QApplication::closeAllWindows();
   close();
 }
 
 bool CadView::readFile(QString fileName)
 {
-  double deflection = 0.05; // preferences->ui.deflection->text().toDouble();
-  double featureAngle = 30.0; //preferences->ui.featureAngle->text().toDouble();
+  double deflection = 0.01;
+  double featureAngle = 30.0;
 
   if(stlSurfaceData->GetOutput()->GetNumberOfPoints() > 0)
     stlSurfaceData->Delete();
@@ -215,15 +204,21 @@ bool CadView::readFile(QString fileName)
   // Construct model data and draw surfaces:
   //-----------------------------------------
   BRepMesh::Mesh(shape, deflection);
+
   numberOfFaces = 0;
-  TopExp_Explorer explorer(shape, TopAbs_FACE);
-  for(explorer; explorer.More(); explorer.Next()) {
-    numberOfFaces++;
-    TopoDS_Face Face = TopoDS::Face(explorer.Current());
+  TopExp_Explorer expFace(shape, TopAbs_FACE);
+  for(expFace; expFace.More(); expFace.Next()) {
+    TopoDS_Face Face = TopoDS::Face(expFace.Current());
+
     TopLoc_Location Location;
     Handle(Poly_Triangulation) Triangulation = BRep_Tool::Triangulation(Face, Location);
+    if(Triangulation.IsNull()) continue;
+
+    numberOfFaces++;
+
     const Poly_Array1OfTriangle& Triangles = Triangulation->Triangles();
     const TColgp_Array1OfPnt& Nodes = Triangulation->Nodes();
+
     int nofTriangles = Triangulation->NbTriangles();
     int nofNodes = Triangulation->NbNodes();
 
@@ -231,25 +226,27 @@ bool CadView::readFile(QString fileName)
     vtkPolyData* partGrid = vtkPolyData::New();
     vtkTriangle* triangle = vtkTriangle::New();
     partGrid->Allocate(nofTriangles, nofTriangles);
-    for(int i = 1; i <= nofTriangles; i++) {
+
+    for(int i = Triangles.Lower(); i <= Triangles.Upper(); i++) {
       Triangles(i).Get(n0, n1, n2);
 
-      if(Face.Orientation() == TopAbs_REVERSED) {
+      if(Face.Orientation() != TopAbs_FORWARD) {
 	int tmp = n2; n2 = n1; n1 = tmp;
       }
 
-      triangle->GetPointIds()->SetId(0, n0 - 1);
-      triangle->GetPointIds()->SetId(1, n1 - 1);
-      triangle->GetPointIds()->SetId(2, n2 - 1);
+      triangle->GetPointIds()->SetId(0, n0 - Nodes.Lower());
+      triangle->GetPointIds()->SetId(1, n1 - Nodes.Lower());
+      triangle->GetPointIds()->SetId(2, n2 - Nodes.Lower());
 
-      partGrid->InsertNextCell(triangle->GetCellType(), triangle->GetPointIds());
+      partGrid->InsertNextCell(triangle->GetCellType(),
+			       triangle->GetPointIds());
     }
 
     double x[3];
     vtkPoints* partPoints = vtkPoints::New();
-    for(int i = 1; i <= nofNodes; i++) {
+    for(int i = Nodes.Lower(); i <= Nodes.Upper(); i++) {
       x[0] = Nodes(i).X(); x[1] = Nodes(i).Y(); x[2] = Nodes(i).Z();
-      partPoints->InsertPoint(i - 1, x);
+      partPoints->InsertPoint(i - Nodes.Lower(), x);
     }
 
     partGrid->SetPoints(partPoints);
@@ -289,8 +286,8 @@ bool CadView::readFile(QString fileName)
     partFeatureActor->SetMapper(partFeatureMapper);
     renderer->AddActor(partFeatureActor);
 
-    // Add part to STL structures:
-    //----------------------------
+    // Add triangles and edges to STL structures:
+    //--------------------------------------------
     stlSurfaceData->AddInput(partGrid);
     stlEdgeData->AddInput(partFeature->GetOutput());
 
@@ -325,18 +322,12 @@ bool CadView::readFile(QString fileName)
   return true;
 }
 
-void CadView::generateMeshSlot()
+void CadView::generateSTLSlot()
 {
-  double featureAngle = 30.0; // preferences->ui.featureAngle->text().toDouble();
-  double meshMinSize = 0.005 * modelLength; // preferences->ui.minh->text().toDouble() * modelLength;
-  double meshMaxSize = 0.1 * modelLength; // preferences->ui.maxh->text().toDouble() * modelLength;
-  double meshFineness = 0.5; // preferences->ui.fineness->text().toDouble();
-  bool restrictBySTL = true; // preferences->ui.restrictBySTL->isChecked();
-  
-  // nglib::Ng_Init();
-  // geom = nglib::Ng_STL_NewGeometry();
-  // mesh = nglib::Ng_NewMesh();
-  // nglib::Ng_Meshing_Parameters mp;
+  double meshMinSize = 0.005 * modelLength;
+  double meshMaxSize = 0.1 * modelLength;
+  double meshFineness = 0.5;
+  bool restrictBySTL = true;
 
   // Add STL triangles to geometry:
   //--------------------------------
@@ -381,6 +372,9 @@ void CadView::generateMeshSlot()
   // Init STL geometry:
   //--------------------
   nglib::Ng_STL_InitSTLGeometry(geom);
+
+  // Generate edges:
+  //-----------------
   nglib::Ng_STL_MakeEdges(geom, mesh, mp);
   
   // Global mesh size restrictions:
@@ -391,107 +385,6 @@ void CadView::generateMeshSlot()
   //-------------------------------
   if(restrictBySTL)    
     restrictMeshSizeLocal(mesh, stlSurface->GetOutput(), meshMaxSize, meshMinSize);
-
-#if 0  
-  // Generate:
-  //----------
-  nglib::Ng_STL_GenerateSurfaceMesh(geom, mesh, mp);
-  nglib::Ng_GenerateVolumeMesh(mesh, mp);
-
-  // Draw surface mesh:
-  //--------------------
-  int NP = nglib::Ng_GetNP(mesh);
-  int NSE = nglib::Ng_GetNSE(mesh);
-  int NE = nglib::Ng_GetNE(mesh);
-
-  cout << "Mesh summary:" << endl;
-  cout << "Node points: " << NP << endl;
-  cout << "Surface elements: " << NSE << endl;
-  cout << "Volume elements: " << NE << endl;
-
-  // Draw mesh:
-  //------------
-  clearScreen();
-
-  for(int face = 0; face < numberOfFaces; face++) {
-    vtkPolyData* grid = vtkPolyData::New();
-
-    // Insert points (should insert points only for the current face):
-    //----------------------------------------------------------------
-    double x[3];
-    vtkPoints* points = vtkPoints::New();    
-    for(int i = 0; i < NP; i++) {
-      nglib::Ng_GetPoint(mesh, i+1, x);
-      points->InsertPoint(i, x);
-    }
-    grid->SetPoints(points);
-    points->Delete();
-    
-    int stlNum[3];
-    vtkTriangle* triangle = vtkTriangle::New();
-    int pi[NG_SURFACE_ELEMENT_MAXPOINTS];
-    grid->Allocate(NSE, NSE);
-    for(int i = 0; i < NSE; i++) {
-      nglib::Ng_Surface_Element_Type se = nglib::EG_GetSurfaceElement(mesh, i+1, pi, stlNum);
-      if(se != nglib::NG_TRIG) continue;
-
-      int f = nglib::EG_GetSurfaceElementBCProperty(mesh, i+1);
-      
-      if(face == (f-1)) {
-	triangle->GetPointIds()->SetId(0, pi[0] - 1);
-	triangle->GetPointIds()->SetId(1, pi[1] - 1);
-	triangle->GetPointIds()->SetId(2, pi[2] - 1);
-	grid->InsertNextCell(triangle->GetCellType(), triangle->GetPointIds());
-      }
-    }
-    
-    vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
-    normals->SetInput(grid);
-    normals->SetFeatureAngle(featureAngle);
-    
-    vtkDataSetMapper* mapper = vtkDataSetMapper::New();
-    mapper->SetInputConnection(normals->GetOutputPort());
-    mapper->ScalarVisibilityOff();
-    
-    vtkActor* actor = vtkActor::New();
-    actor->SetPickable(1);
-    actor->GetProperty()->SetColor(0, 1, 1);
-    actor->SetMapper(mapper);
-    renderer->AddActor(actor);
-    
-    vtkExtractEdges* edges = vtkExtractEdges::New();
-    edges->SetInput(grid);
-    
-    vtkDataSetMapper* edgesMapper = vtkDataSetMapper::New();
-    edgesMapper->SetInputConnection(edges->GetOutputPort());
-    edgesMapper->ScalarVisibilityOff();
-    edgesMapper->SetResolveCoincidentTopologyToPolygonOffset();
-    
-    vtkActor* edgesActor = vtkActor::New();
-    edgesActor->SetPickable(0);
-    edgesActor->GetProperty()->SetColor(0, 0, 0);
-    edgesActor->SetMapper(edgesMapper);
-    renderer->AddActor(edgesActor);
-    
-    // Clean up:
-    //----------
-    edgesActor->Delete();
-    edgesMapper->Delete();
-    edges->Delete();
-    actor->Delete();
-    mapper->Delete();
-    normals->Delete();
-    grid->Delete();
-    triangle->Delete();
-  }
-
-  nglib::Ng_DeleteMesh(mesh);
-  nglib::Ng_Exit();
-
-  // Render:
-  //---------
-  qVTKWidget->GetRenderWindow()->Render();
-#endif
 }
 
 QVTKWidget* CadView::GetQVTKWidget()
@@ -620,9 +513,9 @@ void CadView::restrictMeshSizeLocal(nglib::Ng_Mesh* mesh, vtkPolyData* stlData,
   mshSize->Delete();
 }
 
-void CadView::generateMesh()
+void CadView::generateSTL()
 {
-  this->generateMeshSlot();
+  this->generateSTLSlot();
 }
 
 void CadView::setMesh(nglib::Ng_Mesh* mesh)
