@@ -170,6 +170,7 @@ void CadView::closeSlot()
 
 bool CadView::readFile(QString fileName)
 {
+  // double deflection = 0.00025;
   double deflection = 0.0005;
   double featureAngle = 30.0;
 
@@ -290,7 +291,7 @@ bool CadView::readFile(QString fileName)
     vtkFeatureEdges* partFeature = vtkFeatureEdges::New();
     partFeature->SetInput(partGrid);
     partFeature->SetFeatureAngle(featureAngle);
-    partFeature->FeatureEdgesOn();
+    partFeature->FeatureEdgesOff();
     partFeature->BoundaryEdgesOn();
     partFeature->NonManifoldEdgesOn();
     partFeature->ManifoldEdgesOff();
