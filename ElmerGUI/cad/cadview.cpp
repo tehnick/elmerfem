@@ -72,6 +72,8 @@
 #include <Poly_Triangulation.hxx>
 #include <GeomLProp_SLProps.hxx>
 #include <STEPControl_Reader.hxx>
+#include <Bnd_Box.hxx>
+#include <BRepBndLib.hxx>
 
 using namespace std;
 
@@ -168,7 +170,7 @@ void CadView::closeSlot()
 
 bool CadView::readFile(QString fileName)
 {
-  double deflection = 0.01;
+  double deflection = 0.0005;
   double featureAngle = 30.0;
 
   if(stlSurfaceData->GetOutput()->GetNumberOfPoints() > 0)
@@ -201,6 +203,24 @@ bool CadView::readFile(QString fileName)
 
   clearScreen();
 
+  // Compute bounding box:
+  //----------------------
+  Bnd_Box boundingBox;
+  double min[3], max[3];
+  
+  BRepBndLib::Add(shape, boundingBox);
+  boundingBox.Get(min[0], min[1], min[2], max[0], max[1], max[2]);
+
+  cout << "Bounding box: "
+       << "[ " << min[0] << ", " << min[1] << ", " << min[2] << "] x "
+       << "[ " << max[0] << ", " << max[1] << ", " << max[2] << "]" << endl;
+
+  double length = sqrt((max[2]-min[2])*(max[2]-min[2])
+		       +(max[1]-min[1])*(max[1]-min[1]) 
+		       +(max[0]-min[0])*(max[0]-min[0]));
+
+  deflection *= length; // use relative deflection
+  
   // Construct model data and draw surfaces:
   //-----------------------------------------
   BRepMesh::Mesh(shape, deflection);
@@ -379,7 +399,7 @@ void CadView::generateSTLSlot()
   
   // Global mesh size restrictions:
   //--------------------------------
-  nglib::Ng_RestrictMeshSizeGlobal(mesh, meshMaxSize);
+  // nglib::Ng_RestrictMeshSizeGlobal(mesh, meshMaxSize);
   
   // Local mesh size restrictions:
   //-------------------------------

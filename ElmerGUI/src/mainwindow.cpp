@@ -1242,21 +1242,22 @@ void MainWindow::readInputFile(QString fileName)
 
     char backgroundmesh[1024];
     sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());
-
+    
     mp.maxh = meshControl->nglibMaxH.toDouble();
     mp.fineness = meshControl->nglibFineness.toDouble();
     mp.secondorder = 0;
     mp.meshsize_filename = backgroundmesh;
-
+    
     nglib::Ng_Init();
     nggeom = nglib::Ng_STL_NewGeometry();
     ngmesh = nglib::Ng_NewMesh();
-
+    
     cadView->setMesh(ngmesh);
     cadView->setGeom(nggeom);
     cadView->setMp(&mp);
-    
     cadView->generateSTL();
+
+    nglib::Ng_RestrictMeshSizeGlobal(ngmesh, mp.maxh);
 
     nglibInputOk = true;
 
@@ -3852,7 +3853,7 @@ void MainWindow::resetSlot()
     return;
   }
 
-  glWidget->stateFlatShade = true;
+  glWidget->stateFlatShade = false;
   glWidget->stateDrawSurfaceMesh = true;
   glWidget->stateDrawSharpEdges = true;
   glWidget->stateDrawSurfaceElements = true;
@@ -4281,7 +4282,6 @@ void MainWindow::remeshSlot()
       return;
     }
 
-    // for cad files, the parameters have already been set up:
     if(!occInputOk) {
       char backgroundmesh[1024];
       sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());      
@@ -4290,6 +4290,8 @@ void MainWindow::remeshSlot()
       mp.fineness = meshControl->nglibFineness.toDouble();
       mp.secondorder = 0;
       mp.meshsize_filename = backgroundmesh;
+    
+      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, mp.maxh);
     }
 
   } else {
@@ -4311,6 +4313,9 @@ void MainWindow::remeshSlot()
   remeshAct->setEnabled(false);
   stopMeshingAct->setEnabled(true);
   glWidget->enableIndicator(true);
+
+  if(activeGenerator == GEN_NGLIB) 
+    stopMeshingAct->setEnabled(false);
 
   meshingThread->generate(activeGenerator,
 			  tetlibControlString, tetlibAPI,
@@ -4352,6 +4357,8 @@ void MainWindow::meshingStartedSlot()
 void MainWindow::meshingTerminatedSlot()
 {
   logMessage("Mesh generator terminated");
+
+  stopMeshingAct->setEnabled(true);
 
   updateSysTrayIcon("Mesh generator terminated",
 		    "Use Mesh->Remesh to restart");
