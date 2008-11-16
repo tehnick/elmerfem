@@ -86,7 +86,7 @@
 #include <vtkCellDerivatives.h>
 #include <vtkCellDataToPointData.h>
 #include <vtkPlane.h>
-#include <vtkCellPicker.h>
+#include <vtkPropPicker.h>
 #include <vtkCallbackCommand.h>
 #include <vtkAbstractPicker.h>
 #include <vtkObject.h>
@@ -118,14 +118,14 @@ static void pEventHandler(vtkObject* caller, unsigned long eid,
   vtkActor* pickedPointActor = vtkPost->GetPickedPointActor();
   QVTKWidget* qvtkWidget = vtkPost->GetQVTKWidget();
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
-  vtkCellPicker* cellPicker = vtkCellPicker::SafeDownCast(picker);
+  vtkPropPicker* propPicker = vtkPropPicker::SafeDownCast(picker);
 
-  int cellId = cellPicker->GetCellId();
+  vtkActor* actor = propPicker->GetActor();
   double* pickPos = vtkPost->GetCurrentPickPosition();
-  cellPicker->GetPickPosition(pickPos);
+  propPicker->GetPickPosition(pickPos);
   vtkPost->SetCurrentPickPosition(pickPos);
 
-  if(cellId < 0) {
+  if(!actor) {
     renderer->RemoveActor(pickedPointActor);
 
   } else {
@@ -282,9 +282,9 @@ VtkPost::VtkPost(QWidget *parent)
 
   // Create a cell picker and set the callback & observer:
   //------------------------------------------------------
-  vtkCellPicker* cellPicker = vtkCellPicker::New();
-  qvtkWidget->GetInteractor()->SetPicker(cellPicker);
-  cellPicker->Delete();
+  vtkPropPicker* propPicker = vtkPropPicker::New();
+  qvtkWidget->GetInteractor()->SetPicker(propPicker);
+  propPicker->Delete();
 
   vtkCallbackCommand* cbcPick = vtkCallbackCommand::New();
   cbcPick->SetClientData(this);

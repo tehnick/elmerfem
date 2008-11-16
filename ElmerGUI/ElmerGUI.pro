@@ -154,7 +154,7 @@ contains(DEFINES, OCC_63) {
               
    win32 {
       # CONFIG += embed_manifest_dll windows
-      DEFINES += OCC_63 WNT CSFDB QOCC_STATIC
+      DEFINES += OCC_63 WNT CSFDB
       INCLUDEPATH += $(CASROOT)/inc
       LIBPATH += $(CASROOT)/win32/lib
       LIBS += $(CASROOT)/win32/lib/BinLPlugin.lib \
@@ -237,7 +237,7 @@ contains(DEFINES, OCC_63) {
    }
 
    macx {
-      # Unsupported (yet):
+      # Unsupported at the moment:
       DEFINES -= OCC_63
    }
 }

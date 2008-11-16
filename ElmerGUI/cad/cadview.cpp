@@ -107,7 +107,7 @@ CadView::CadView(QWidget *parent)
 {
   setWindowTitle("ElmerGUI geometry viewer");
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
-  resize(800, 600);
+  // resize(800, 600);
 
   createActions();
   createMenus();
