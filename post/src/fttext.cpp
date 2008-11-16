@@ -20,7 +20,8 @@
 #include <GL/gl.h>
 #include <tcl.h>
 
-#include "FTGL/ftgl.h"
+#include "FTGL/FTGL.h"
+#include "FTGL/FTGLPixmapFont.h"
 
 #if defined(WIN32) || defined(win32)
 #include <windows.h>
