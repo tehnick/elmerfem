@@ -1223,9 +1223,11 @@ void MainWindow::readInputFile(QString fileName)
 
 #ifdef OCC_63
 
-  } else if( (fileSuffix == "brep") ||
-	     (fileSuffix == "step") ||
-	     (fileSuffix == "stp") ) {
+  } else if( (fileSuffix.toLower() == "brep") ||
+	     (fileSuffix.toLower() == "step") ||
+	     (fileSuffix.toLower() == "stp")  || 
+	     (fileSuffix.toLower() == "iges")  || 
+	     (fileSuffix.toLower() == "igs") ) {
 
     meshControl->ui.nglibRadioButton->setChecked(true);
     meshControl->generatorType = GEN_NGLIB;

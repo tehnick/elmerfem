@@ -149,7 +149,7 @@ contains(DEFINES, OCC_63) {
       DEFINES +=  HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
       INCLUDEPATH += /usr/local/OpenCASCADE/inc
       LIBPATH += /usr/local/OpenCASCADE/lib
-      LIBS += -lTKBRep -lTKSTL -lTKSTEP
+      LIBS += -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
    }
               
    win32 {
@@ -170,6 +170,7 @@ contains(DEFINES, OCC_63) {
               $(CASROOT)/win32/lib/TKSTEP209.lib \
               $(CASROOT)/win32/lib/TKSTEPAttr.lib \
               $(CASROOT)/win32/lib/TKSTEPBase.lib \
+              $(CASROOT)/win32/lib/TKIGES.lib \
               $(CASROOT)/win32/lib/TKTopAlgo.lib \
               $(CASROOT)/win32/lib/TKXSBase.lib
    }

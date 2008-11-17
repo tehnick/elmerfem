@@ -72,6 +72,7 @@
 #include <Poly_Triangulation.hxx>
 #include <GeomLProp_SLProps.hxx>
 #include <STEPControl_Reader.hxx>
+#include <IGESControl_Reader.hxx>
 #include <Bnd_Box.hxx>
 #include <BRepBndLib.hxx>
 
@@ -198,6 +199,9 @@ bool CadView::readFile(QString fileName)
 
   if((fileSuffix == "step") || (fileSuffix == "stp"))
     shape = readStep(fileName);
+  
+  if((fileSuffix == "iges") || (fileSuffix == "igs"))
+    shape = readIges(fileName);
   
   if(shape.IsNull())
     return false;
@@ -470,6 +474,22 @@ TopoDS_Shape CadView::readStep(QString fileName)
 	}
       }
     }
+  }
+
+  return shape;
+}
+
+TopoDS_Shape CadView::readIges(QString fileName)
+{
+  TopoDS_Shape shape;
+  IGESControl_Reader igesReader;
+  IFSelect_ReturnStatus status;
+
+  status = igesReader.ReadFile(fileName.toAscii().data());
+  
+  if(status == IFSelect_RetDone) {
+    igesReader.TransferRoots();
+    shape = igesReader.OneShape();
   }
 
   return shape;

@@ -87,6 +87,7 @@ public:
   void clearScreen();
   TopoDS_Shape readBrep(QString);
   TopoDS_Shape readStep(QString);
+  TopoDS_Shape readIges(QString);
   void restrictMeshSizeLocal(nglib::Ng_Mesh*, vtkPolyData*, double, double);
 
   QMenu* fileMenu;
