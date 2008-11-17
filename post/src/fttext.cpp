@@ -13,19 +13,25 @@
 #include "../config.h"
 #endif
 
-#if HAVE_FTGL
+#if defined(HAVE_FTGL_NEW) || defined(HAVE_FTGL_OLD)
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <GL/gl.h>
 #include <tcl.h>
 
-#include "FTGL/FTGL.h"
-#include "FTGL/FTGLPixmapFont.h"
-
 #if defined(WIN32) || defined(win32)
 #include <windows.h>
-#endif
+#include "FTGL/FTGL.h"
+#include "FTGL/FTGLPixmapFont.h"
+#else
+#if defined(HAVE_FTGL_NEW)
+#include "FTGL/ftgl.h"
+#else
+#include "FTGL/FTGL.h"
+#include "FTGL/FTGLPixmapFont.h"
+#endif // HAVE_FTGL_NEW
+#endif // WIN32 || win32
 
 #define FTGLSTRLEN 4096
 
@@ -185,4 +191,4 @@ extern "C" int FtText(ClientData cl, Tcl_Interp *interp,
   return TCL_OK;
 }
 
-#endif
+#endif // HAVE_FTGL_NEW || HAVE_FTGL_OLD

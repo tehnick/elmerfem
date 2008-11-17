@@ -670,7 +670,6 @@ IBM_IS_PIECE_OF_SHIT_FALSE
 INSTALL_PROGRAM
 INSTALL_SCRIPT
 INSTALL_DATA
-am__isrc
 CYGPATH_W
 PACKAGE
 VERSION
@@ -2234,7 +2233,9 @@ _ACEOF
   ;;
 esac
 
- if test "$acx_platform_def" = "AIX"; then
+ 
+
+if test "$acx_platform_def" = "AIX"; then
   IBM_IS_PIECE_OF_SHIT_TRUE=
   IBM_IS_PIECE_OF_SHIT_FALSE='#'
 else
@@ -2244,8 +2245,7 @@ fi
 
 
 
-am__api_version='1.10'
-
+am__api_version="1.9"
 # Find a good install program.  We prefer a C program (faster),
 # so one script is as good as another.  But avoid the broken or
 # incompatible versions:
@@ -2397,53 +2397,38 @@ else
 echo "$as_me: WARNING: \`missing' script is too old or missing" >&2;}
 fi
 
-{ echo "$as_me:$LINENO: checking for a thread-safe mkdir -p" >&5
-echo $ECHO_N "checking for a thread-safe mkdir -p... $ECHO_C" >&6; }
-if test -z "$MKDIR_P"; then
-  if test "${ac_cv_path_mkdir+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
+if mkdir -p --version . >/dev/null 2>&1 && test ! -d ./--version; then
+  # We used to keeping the `.' as first argument, in order to
+  # allow $(mkdir_p) to be used without argument.  As in
+  #   $(mkdir_p) $(somedir)
+  # where $(somedir) is conditionally defined.  However this is wrong
+  # for two reasons:
+  #  1. if the package is installed by a user who cannot write `.'
+  #     make install will fail,
+  #  2. the above comment should most certainly read
+  #     $(mkdir_p) $(DESTDIR)$(somedir)
+  #     so it does not work when $(somedir) is undefined and
+  #     $(DESTDIR) is not.
+  #  To support the latter case, we have to write
+  #     test -z "$(somedir)" || $(mkdir_p) $(DESTDIR)$(somedir),
+  #  so the `.' trick is pointless.
+  mkdir_p='mkdir -p --'
 else
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH$PATH_SEPARATOR/opt/sfw/bin
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_prog in mkdir gmkdir; do
-	 for ac_exec_ext in '' $ac_executable_extensions; do
-	   { test -f "$as_dir/$ac_prog$ac_exec_ext" && $as_test_x "$as_dir/$ac_prog$ac_exec_ext"; } || continue
-	   case `"$as_dir/$ac_prog$ac_exec_ext" --version 2>&1` in #(
-	     'mkdir (GNU coreutils) '* | \
-	     'mkdir (coreutils) '* | \
-	     'mkdir (fileutils) '4.1*)
-	       ac_cv_path_mkdir=$as_dir/$ac_prog$ac_exec_ext
-	       break 3;;
-	   esac
-	 done
-       done
-done
-IFS=$as_save_IFS
-
-fi
-
-  if test "${ac_cv_path_mkdir+set}" = set; then
-    MKDIR_P="$ac_cv_path_mkdir -p"
+  # On NextStep and OpenStep, the `mkdir' command does not
+  # recognize any option.  It will interpret all options as
+  # directories to create, and then abort because `.' already
+  # exists.
+  for d in ./-p ./--version;
+  do
+    test -d $d && rmdir $d
+  done
+  # $(mkinstalldirs) is defined by Automake if mkinstalldirs exists.
+  if test -f "$ac_aux_dir/mkinstalldirs"; then
+    mkdir_p='$(mkinstalldirs)'
   else
-    # As a last resort, use the slow shell script.  Don't cache a
-    # value for MKDIR_P within a source directory, because that will
-    # break other packages using the cache if that directory is
-    # removed, or if the value is a relative name.
-    test -d ./--version && rmdir ./--version
-    MKDIR_P="$ac_install_sh -d"
+    mkdir_p='$(install_sh) -d'
   fi
 fi
-{ echo "$as_me:$LINENO: result: $MKDIR_P" >&5
-echo "${ECHO_T}$MKDIR_P" >&6; }
-
-mkdir_p="$MKDIR_P"
-case $mkdir_p in
-  [\\/$]* | ?:[\\/]*) ;;
-  */*) mkdir_p="\$(top_builddir)/$mkdir_p" ;;
-esac
 
 for ac_prog in gawk mawk nawk awk
 do
@@ -2526,16 +2511,12 @@ else
 fi
 rmdir .tst 2>/dev/null
 
-if test "`cd $srcdir && pwd`" != "`pwd`"; then
-  # Use -I$(srcdir) only when $(srcdir) != ., so that make's output
-  # is not polluted with repeated "-I."
-  am__isrc=' -I$(srcdir)'
-  # test to see if srcdir already configured
-  if test -f $srcdir/config.status; then
-    { { echo "$as_me:$LINENO: error: source directory already configured; run \"make distclean\" there first" >&5
+# test to see if srcdir already configured
+if test "`cd $srcdir && pwd`" != "`pwd`" &&
+   test -f $srcdir/config.status; then
+  { { echo "$as_me:$LINENO: error: source directory already configured; run \"make distclean\" there first" >&5
 echo "$as_me: error: source directory already configured; run \"make distclean\" there first" >&2;}
    { (exit 1); exit 1; }; }
-  fi
 fi
 
 # test whether we have cygpath
@@ -2578,7 +2559,7 @@ AUTOHEADER=${AUTOHEADER-"${am_missing_run}autoheader"}
 
 MAKEINFO=${MAKEINFO-"${am_missing_run}makeinfo"}
 
-install_sh=${install_sh-"\$(SHELL) $am_aux_dir/install-sh"}
+install_sh=${install_sh-"$am_aux_dir/install-sh"}
 
 # Installed binaries are usually stripped using `strip' when the user
 # run `make install-strip'.  However `strip' might not be the right
@@ -2682,7 +2663,7 @@ else
 fi
 
 fi
-INSTALL_STRIP_PROGRAM="\$(install_sh) -c -s"
+INSTALL_STRIP_PROGRAM="\${SHELL} \$(install_sh) -c -s"
 
 # We need awk for the "check" target.  The system "awk" is bad on
 # some platforms.
@@ -2707,7 +2688,9 @@ fi
 
   { echo "$as_me:$LINENO: result: $USE_MAINTAINER_MODE" >&5
 echo "${ECHO_T}$USE_MAINTAINER_MODE" >&6; }
-   if test $USE_MAINTAINER_MODE = yes; then
+   
+
+if test $USE_MAINTAINER_MODE = yes; then
   MAINTAINER_MODE_TRUE=
   MAINTAINER_MODE_FALSE='#'
 else
@@ -3496,13 +3479,16 @@ if test "x$enable_dependency_tracking" != xno; then
   am_depcomp="$ac_aux_dir/depcomp"
   AMDEPBACKSLASH='\'
 fi
- if test "x$enable_dependency_tracking" != xno; then
+ 
+
+if test "x$enable_dependency_tracking" != xno; then
   AMDEP_TRUE=
   AMDEP_FALSE='#'
 else
   AMDEP_TRUE='#'
   AMDEP_FALSE=
 fi
+
 
 
 
@@ -3573,7 +3559,6 @@ else
        depfile=sub/conftest.Po tmpdepfile=sub/conftest.TPo \
        $SHELL ./depcomp $depcc -c -o sub/conftest.${OBJEXT-o} sub/conftest.c \
          >/dev/null 2>conftest.err &&
-       grep sub/conftst1.h sub/conftest.Po > /dev/null 2>&1 &&
        grep sub/conftst6.h sub/conftest.Po > /dev/null 2>&1 &&
        grep sub/conftest.${OBJEXT-o} sub/conftest.Po > /dev/null 2>&1 &&
        ${MAKE-make} -s -f confmf > /dev/null 2>&1; then
@@ -3603,7 +3588,9 @@ fi
 echo "${ECHO_T}$am_cv_CC_dependencies_compiler_type" >&6; }
 CCDEPMODE=depmode=$am_cv_CC_dependencies_compiler_type
 
- if 
+ 
+
+if 
   test "x$enable_dependency_tracking" != xno \
   && test "$am_cv_CC_dependencies_compiler_type" = gcc3; then
   am__fastdepCC_TRUE=
@@ -4045,7 +4032,6 @@ else
        depfile=sub/conftest.Po tmpdepfile=sub/conftest.TPo \
        $SHELL ./depcomp $depcc -c -o sub/conftest.${OBJEXT-o} sub/conftest.c \
          >/dev/null 2>conftest.err &&
-       grep sub/conftst1.h sub/conftest.Po > /dev/null 2>&1 &&
        grep sub/conftst6.h sub/conftest.Po > /dev/null 2>&1 &&
        grep sub/conftest.${OBJEXT-o} sub/conftest.Po > /dev/null 2>&1 &&
        ${MAKE-make} -s -f confmf > /dev/null 2>&1; then
@@ -4075,7 +4061,9 @@ fi
 echo "${ECHO_T}$am_cv_CXX_dependencies_compiler_type" >&6; }
 CXXDEPMODE=depmode=$am_cv_CXX_dependencies_compiler_type
 
- if 
+ 
+
+if 
   test "x$enable_dependency_tracking" != xno \
   && test "$am_cv_CXX_dependencies_compiler_type" = gcc3; then
   am__fastdepCXX_TRUE=
@@ -5806,7 +5794,9 @@ _ACEOF
   ;;
 esac
 
- if test "$ac_cv_sizeof_voidp" -eq "8"; then
+ 
+
+if test "$ac_cv_sizeof_voidp" -eq "8"; then
   USE_64BIT_ARCH_TRUE=
   USE_64BIT_ARCH_FALSE='#'
 else
@@ -6750,7 +6740,9 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 fi
- if test "$acx_cv_c_compiler_ms" = "yes"; then
+ 
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
   USE_WINDOWS_COMPILER_TRUE=
   USE_WINDOWS_COMPILER_FALSE='#'
 else
@@ -9558,6 +9550,7 @@ fi
 # Hence, we make a brutal hack and test with printf):
 #
 acx_lftgl_ok=no
+
 { echo "$as_me:$LINENO: checking for printf in -lftgl" >&5
 echo $ECHO_N "checking for printf in -lftgl... $ECHO_C" >&6; }
 if test "${ac_cv_lib_ftgl_printf+set}" = set; then
@@ -9662,7 +9655,9 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 
-acx_ftgl_h_ok=no
+acx_ftgl_new_h_ok=no
+acx_ftgl_old_h_ok=no
+
 if test "${ac_cv_header_FTGL_ftgl_h+set}" = set; then
   { echo "$as_me:$LINENO: checking for FTGL/ftgl.h" >&5
 echo $ECHO_N "checking for FTGL/ftgl.h... $ECHO_C" >&6; }
@@ -9794,54 +9789,229 @@ echo "${ECHO_T}$ac_cv_header_FTGL_ftgl_h" >&6; }
 
 fi
 if test $ac_cv_header_FTGL_ftgl_h = yes; then
-  acx_ftgl_h_ok=yes 
+  acx_ftgl_new_h_ok=yes 
 fi
 
 
 
-if test "$acx_ftgl_h_ok" = no; then
+if test "$acx_ftgl_new_h_ok" = no; then
    { echo "$as_me:$LINENO: result: 
-   ***************************************
-   *** WARNING: FTGL/ftgl.h not found  ***
-   ***  FreeType2 rendering disabled   ***
-   ***          Try adding:            ***
-   *** -I/path/to FTGL/ftgl.h in CXXFLAGS ***
-   ***         and reconfigure         ***
-   ***************************************
+   ********************************************
+   ***    WARNING: FTGL/ftgl.h not found    ***
+   ***    Trying to locate the old style    ***
+   ***         FTGL/FTGL.h instead          ***
+   ********************************************
   " >&5
 echo "${ECHO_T}
-   ***************************************
-   *** WARNING: FTGL/ftgl.h not found  ***
-   ***  FreeType2 rendering disabled   ***
-   ***          Try adding:            ***
-   *** -I/path/to FTGL/ftgl.h in CXXFLAGS ***
-   ***         and reconfigure         ***
-   ***************************************
+   ********************************************
+   ***    WARNING: FTGL/ftgl.h not found    ***
+   ***    Trying to locate the old style    ***
+   ***         FTGL/FTGL.h instead          ***
+   ********************************************
   " >&6; }
+
+  if test "${ac_cv_header_FTGL_FTGL_h+set}" = set; then
+  { echo "$as_me:$LINENO: checking for FTGL/FTGL.h" >&5
+echo $ECHO_N "checking for FTGL/FTGL.h... $ECHO_C" >&6; }
+if test "${ac_cv_header_FTGL_FTGL_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
 fi
+{ echo "$as_me:$LINENO: result: $ac_cv_header_FTGL_FTGL_h" >&5
+echo "${ECHO_T}$ac_cv_header_FTGL_FTGL_h" >&6; }
+else
+  # Is the header compilable?
+{ echo "$as_me:$LINENO: checking FTGL/FTGL.h usability" >&5
+echo $ECHO_N "checking FTGL/FTGL.h usability... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+@%:@include <FTGL/FTGL.h>
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_cxx_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_header_compiler=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_header_compiler=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6; }
+
+# Is the header present?
+{ echo "$as_me:$LINENO: checking FTGL/FTGL.h presence" >&5
+echo $ECHO_N "checking FTGL/FTGL.h presence... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+@%:@include <FTGL/FTGL.h>
+_ACEOF
+if { (ac_try="$ac_cpp conftest.$ac_ext"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null && {
+	 test -z "$ac_cxx_preproc_warn_flag$ac_cxx_werror_flag" ||
+	 test ! -s conftest.err
+       }; then
+  ac_header_preproc=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  ac_header_preproc=no
+fi
+
+rm -f conftest.err conftest.$ac_ext
+{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6; }
+
+# So?  What about this header?
+case $ac_header_compiler:$ac_header_preproc:$ac_cxx_preproc_warn_flag in
+  yes:no: )
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h: accepted by the compiler, rejected by the preprocessor!" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h: proceeding with the compiler's result" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h: proceeding with the compiler's result" >&2;}
+    ac_header_preproc=yes
+    ;;
+  no:yes:* )
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h: present but cannot be compiled" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h: present but cannot be compiled" >&2;}
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h:     check for missing prerequisite headers?" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h:     check for missing prerequisite headers?" >&2;}
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h: see the Autoconf documentation" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h: see the Autoconf documentation" >&2;}
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h:     section \"Present But Cannot Be Compiled\"" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h:     section \"Present But Cannot Be Compiled\"" >&2;}
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h: proceeding with the preprocessor's result" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h: proceeding with the preprocessor's result" >&2;}
+    { echo "$as_me:$LINENO: WARNING: FTGL/FTGL.h: in the future, the compiler will take precedence" >&5
+echo "$as_me: WARNING: FTGL/FTGL.h: in the future, the compiler will take precedence" >&2;}
+    ( cat <<\_ASBOX
+@%:@@%:@ ------------------------- @%:@@%:@
+@%:@@%:@ Report this to jpr@csc.fi @%:@@%:@
+@%:@@%:@ ------------------------- @%:@@%:@
+_ASBOX
+     ) | sed "s/^/$as_me: WARNING:     /" >&2
+    ;;
+esac
+{ echo "$as_me:$LINENO: checking for FTGL/FTGL.h" >&5
+echo $ECHO_N "checking for FTGL/FTGL.h... $ECHO_C" >&6; }
+if test "${ac_cv_header_FTGL_FTGL_h+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_cv_header_FTGL_FTGL_h=$ac_header_preproc
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_header_FTGL_FTGL_h" >&5
+echo "${ECHO_T}$ac_cv_header_FTGL_FTGL_h" >&6; }
+
+fi
+if test $ac_cv_header_FTGL_FTGL_h = yes; then
+  acx_ftgl_old_h_ok=yes 
+fi
+
+
+
+  if test "$acx_FTGL_old_h_ok" = no; then
+    { echo "$as_me:$LINENO: result: 
+    ********************************************
+    ***    WARNING: FTGL/FTGL.h not found    ***
+    ***       FTGL rendering disabled        ***
+    ***             Try adding:              ***
+    *** -I/path/to FTGL/ftgl.h in CXXFLAGS   ***
+    ***          and reconfigure             ***
+    ********************************************
+    " >&5
+echo "${ECHO_T}
+    ********************************************
+    ***    WARNING: FTGL/FTGL.h not found    ***
+    ***       FTGL rendering disabled        ***
+    ***             Try adding:              ***
+    *** -I/path/to FTGL/ftgl.h in CXXFLAGS   ***
+    ***          and reconfigure             ***
+    ********************************************
+    " >&6; }
+  fi
+fi
+
 #
 # Final verdict:
 #
 acx_ftgl_ok=yes
+acx_ftgl_new_ok=yes
+acx_ftgl_old_ok=yes
 
 if test "$acx_ft_ok" = no; then
    acx_ftgl_ok=no;
+   acx_ftgl_new_ok=no;
+   acx_ftgl_old_ok=no;
 fi
 
 if test "$acx_lftgl_ok" = no; then
    acx_ftgl_ok=no;
+   acx_ftgl_new_ok=no;
+   acx_ftgl_old_ok=no;
 fi
 
-if test "$acx_ftgl_h_ok" = no; then
-   acx_ftgl_ok=no;
+if test "$acx_ftgl_new_h_ok" = no; then
+   acx_ftgl_new_ok=no;
 fi
+
+if test "$acx_ftgl_old_h_ok" = no; then
+   acx_ftgl_ok=no;
+   acx_ftgl_old_ok=no;
+fi
+
 #
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 #
-if test x"$acx_ftgl_ok" = xyes; then
+if test x"$acx_ftgl_new_ok" = xyes; then
         
 cat >>confdefs.h <<\_ACEOF
-@%:@define HAVE_FTGL 1
+@%:@define HAVE_FTGL_NEW 1
+_ACEOF
+
+        :
+fi
+
+if test x"$acx_ftgl_old_ok" = xyes; then
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define HAVE_FTGL_OLD 1
 _ACEOF
 
         :
@@ -11725,7 +11895,9 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
- if test "$acx_platform_def" != "WIN32"; then
+ 
+
+if test "$acx_platform_def" != "WIN32"; then
   NOTWINDOWS_TRUE=
   NOTWINDOWS_FALSE='#'
 else
@@ -11733,7 +11905,9 @@ else
   NOTWINDOWS_FALSE=
 fi
 
- if test "$acx_platform_mgw" != "TRUE" ; then
+ 
+
+if test "$acx_platform_mgw" != "TRUE" ; then
   NOTMINGW32_TRUE=
   NOTMINGW32_FALSE='#'
 else
@@ -12271,7 +12445,6 @@ gives unlimited permission to copy, distribute and modify it."
 ac_pwd='$ac_pwd'
 srcdir='$srcdir'
 INSTALL='$INSTALL'
-MKDIR_P='$MKDIR_P'
 _ACEOF
 
 cat >>$CONFIG_STATUS <<\_ACEOF
@@ -12505,7 +12678,6 @@ IBM_IS_PIECE_OF_SHIT_FALSE!$IBM_IS_PIECE_OF_SHIT_FALSE$ac_delim
 INSTALL_PROGRAM!$INSTALL_PROGRAM$ac_delim
 INSTALL_SCRIPT!$INSTALL_SCRIPT$ac_delim
 INSTALL_DATA!$INSTALL_DATA$ac_delim
-am__isrc!$am__isrc$ac_delim
 CYGPATH_W!$CYGPATH_W$ac_delim
 PACKAGE!$PACKAGE$ac_delim
 VERSION!$VERSION$ac_delim
@@ -12547,6 +12719,7 @@ CXX!$CXX$ac_delim
 CXXFLAGS!$CXXFLAGS$ac_delim
 ac_ct_CXX!$ac_ct_CXX$ac_delim
 CXXDEPMODE!$CXXDEPMODE$ac_delim
+am__fastdepCXX_TRUE!$am__fastdepCXX_TRUE$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -12588,7 +12761,6 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
-am__fastdepCXX_TRUE!$am__fastdepCXX_TRUE$ac_delim
 am__fastdepCXX_FALSE!$am__fastdepCXX_FALSE$ac_delim
 CPP!$CPP$ac_delim
 FC!$FC$ac_delim
@@ -12630,7 +12802,7 @@ NOTMINGW32_FALSE!$NOTMINGW32_FALSE$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 40; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 39; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
@@ -12857,11 +13029,6 @@ ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
   [\\/$]* | ?:[\\/]* ) ac_INSTALL=$INSTALL ;;
   *) ac_INSTALL=$ac_top_build_prefix$INSTALL ;;
   esac
-  ac_MKDIR_P=$MKDIR_P
-  case $MKDIR_P in
-  [\\/$]* | ?:[\\/]* ) ;;
-  */*) ac_MKDIR_P=$ac_top_build_prefix$MKDIR_P ;;
-  esac
 _ACEOF
 
 cat >>$CONFIG_STATUS <<\_ACEOF
@@ -12915,7 +13082,6 @@ s&@builddir@&$ac_builddir&;t t
 s&@abs_builddir@&$ac_abs_builddir&;t t
 s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
 s&@INSTALL@&$ac_INSTALL&;t t
-s&@MKDIR_P@&$ac_MKDIR_P&;t t
 $ac_datarootdir_hack
 " $ac_file_inputs | sed -f "$tmp/subs-1.sed" | sed -f "$tmp/subs-2.sed" >$tmp/out
 
@@ -13080,9 +13246,8 @@ echo "$as_me: executing $ac_file commands" >&6;}
   # some people rename them; so instead we look at the file content.
   # Grep'ing the first line is not enough: some people post-process
   # each Makefile.in and add a new line on top of each file to say so.
-  # Grep'ing the whole file is not good either: AIX grep has a line
-  # limit of 2048, but all sed's we know have understand at least 4000.
-  if sed 10q "$mf" | grep '^#.*generated by automake' > /dev/null 2>&1; then
+  # So let's grep whole file.
+  if grep '^#.*generated by automake' $mf > /dev/null 2>&1; then
     dirpart=`$as_dirname -- "$mf" ||
 $as_expr X"$mf" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
 	 X"$mf" : 'X\(//\)[^/]' \| \

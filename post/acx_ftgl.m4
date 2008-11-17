@@ -49,6 +49,7 @@ fi
 # Hence, we make a brutal hack and test with printf):
 #
 acx_lftgl_ok=no
+
 AC_CHECK_LIB( [ftgl], [printf], 
               [acx_lftgl_ok=yes; FTGL_LIBS="-lftgl"], [FTGL_LIBS=""] )
 
@@ -66,41 +67,73 @@ fi
 
 AC_LANG_PUSH(C++)
 
-acx_ftgl_h_ok=no
-AC_CHECK_HEADER( [FTGL/ftgl.h], [acx_ftgl_h_ok=yes] )
+acx_ftgl_new_h_ok=no
+acx_ftgl_old_h_ok=no
 
-if test "$acx_ftgl_h_ok" = no; then
+AC_CHECK_HEADER( [FTGL/ftgl.h], [acx_ftgl_new_h_ok=yes] )
+
+if test "$acx_ftgl_new_h_ok" = no; then
    AC_MSG_RESULT([
-   ***************************************
-   *** WARNING: FTGL/ftgl.h not found  ***
-   ***  FreeType2 rendering disabled   ***
-   ***          Try adding:            ***
-   *** -I/path/to FTGL/ftgl.h in CXXFLAGS ***
-   ***         and reconfigure         ***
-   ***************************************
+   ********************************************
+   ***    WARNING: FTGL/ftgl.h not found    ***
+   ***    Trying to locate the old style    ***
+   ***         FTGL/FTGL.h instead          ***
+   ********************************************
   ])
+
+  AC_CHECK_HEADER( [FTGL/FTGL.h], [acx_ftgl_old_h_ok=yes] )
+
+  if test "$acx_FTGL_old_h_ok" = no; then
+    AC_MSG_RESULT([
+    ********************************************
+    ***    WARNING: FTGL/FTGL.h not found    ***
+    ***       FTGL rendering disabled        ***
+    ***             Try adding:              ***
+    *** -I/path/to FTGL/ftgl.h in CXXFLAGS   ***
+    ***          and reconfigure             ***
+    ********************************************
+    ])
+  fi
 fi
+
 #
 # Final verdict:
 #
 acx_ftgl_ok=yes
+acx_ftgl_new_ok=yes
+acx_ftgl_old_ok=yes
 
 if test "$acx_ft_ok" = no; then
    acx_ftgl_ok=no;
+   acx_ftgl_new_ok=no;
+   acx_ftgl_old_ok=no;
 fi
 
 if test "$acx_lftgl_ok" = no; then
    acx_ftgl_ok=no;
+   acx_ftgl_new_ok=no;
+   acx_ftgl_old_ok=no;
 fi
 
-if test "$acx_ftgl_h_ok" = no; then
-   acx_ftgl_ok=no;
+if test "$acx_ftgl_new_h_ok" = no; then
+   acx_ftgl_new_ok=no;
 fi
+
+if test "$acx_ftgl_old_h_ok" = no; then
+   acx_ftgl_ok=no;
+   acx_ftgl_old_ok=no;
+fi
+
 #
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 #
-if test x"$acx_ftgl_ok" = xyes; then
-        ifelse([$1],,AC_DEFINE(HAVE_FTGL,1,[Define if you have a FTGL library.]),[$1])
+if test x"$acx_ftgl_new_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_FTGL_NEW,1,[Define if you have a FTGL library (new style).]),[$1])
+        :
+fi
+
+if test x"$acx_ftgl_old_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_FTGL_OLD,1,[Define if you have a FTGL library (old style).]),[$1])
         :
 else
         acx_ftgl_ok=no

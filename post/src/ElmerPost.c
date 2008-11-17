@@ -108,7 +108,7 @@ double xmin,xmax,ymin,ymax,zmin,zmax;
 
 // Optional FTGL-text rendering functionality:
 //=============================================
-#if HAVE_FTGL
+#if defined(HAVE_FTGL_NEW) || defined(HAVE_FTGL_OLD)
 int FtFont(ClientData,Tcl_Interp*,int,char**);
 int FtText(ClientData,Tcl_Interp*,int,char**);
 #endif
@@ -2331,7 +2331,7 @@ int main(int argc,char **argv)
     Tcl_CreateCommand( TCLInterp, "winpos", (Tcl_CmdProc *)WindowPosition, 
 		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
-#if HAVE_FTGL
+#if defined(HAVE_FTGL_NEW) || defined(HAVE_FTGL_OLD)
     Tcl_CreateCommand( TCLInterp, "fttext", (Tcl_CmdProc *)FtText, 
 		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
