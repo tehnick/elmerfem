@@ -498,12 +498,14 @@ CONTAINS
      TYPE(Matrix_t),POINTER :: Matrix
 !------------------------------------------------------------------------------
      TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
+     TYPE(Matrix_t), POINTER :: A
+     TYPE(Element_t), POINTER :: Element
      TYPE(ListMatrix_t), POINTER :: CList
-     CHARACTER(LEN=MAX_NAME_LEN) :: Eq
-     LOGICAL :: GotIt, DG, GB, UseOptimized
-     INTEGER i,j,k,t,n, EDOFs, FDOFs, BDOFs
-     TYPE(Element_t),POINTER :: CurrentElement
+     CHARACTER(LEN=MAX_NAME_LEN) :: Eq, str
+     LOGICAL :: GotIt, DG, GB, UseOptimized, Found
+     INTEGER i,j,k,l,k1,t,n, p,m, EDOFs, FDOFs, BDOFs, cols
      INTEGER, ALLOCATABLE :: InvInitialReorder(:)
+
 !------------------------------------------------------------------------------
 
      NULLIFY( Matrix )
@@ -605,6 +607,88 @@ CONTAINS
      Matrix % COMPLEX = .FALSE.
      Matrix % FORMAT  = MatrixFormat
 !------------------------------------------------------------------------------
+
+     n = ListGetInteger( Solver % Values, 'Constraint DOFs', Found )
+     IF ( n>0 ) THEN
+       Matrix % ConstraintMatrix => AllocateMatrix()
+       A => Matrix % ConstraintMatrix
+       A % NumberOfRows = n
+       ALLOCATE( A % Rows(n+1), A % Diag(n), A % RHS(n) )
+       Cols = 0
+       A % Rows(1) = 1
+       DO i=1,n
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Body' 
+         j = ListGetInteger( Solver % Values, str, Found )
+         IF ( j>0 ) THEN
+           InvInitialReorder=0
+           DO k=1,Solver % Mesh % NumberOfBulkElements
+             Element => Solver % Mesh % Elements(k)
+             IF ( Element % Bodyid /= j ) CYCLE
+             IF ( ALL( Perm(Element % NodeIndexes) > 0 ) ) &
+               InvInitialReorder(Element % NodeIndexes)=1
+           END DO
+           Cols = Cols+DOFs*COUNT(InvInitialReorder==1)
+         END IF
+
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' BC'
+         j = ListGetInteger( Solver % Values, str, Found )
+         IF ( j>0 ) THEN
+           InvInitialReorder=0
+           DO k=Solver % Mesh % NumberOfBulkElements+1, &
+                Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOfBoundaryElements
+             Element => Solver % Mesh % Elements(k)
+             IF ( Element % Boundaryinfo % Constraint /= j ) CYCLE
+             IF ( ALL( Perm(Element % NodeIndexes) > 0 ) ) &
+               InvInitialReorder(Element % NodeIndexes)=1
+           END DO
+           Cols = Cols+DOFs*COUNT(InvInitialReorder==1)
+         END IF
+         A % Rows(i+1) = A % Rows(i)+Cols
+       END DO
+
+       ALLOCATE( A % Cols(cols), A % Values(cols) )
+       A % Cols = 0
+       A % Values = 0
+
+       DO i=1,n
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Body' 
+         j = ListGetInteger( Solver % Values, str, Found )
+         IF ( j>0 ) THEN
+           DO k=1,Solver % Mesh % NumberOfBulkElements
+             Element => Solver % Mesh % Elements(k)
+             IF ( Element % Bodyid /= j ) CYCLE
+             IF ( ALL( Perm(Element % NodeIndexes) > 0 ) ) THEN
+               DO p=1,Element % Type % NumberOfNodes
+                 l = Perm(Element % NodeIndexes(p))
+                 DO m=1,DOFs 
+                   k1 = DOFs*(l-1)+m
+                   CALL CRS_MakeMatrixIndex( A,i,k1 )
+                 END DO
+               END DO
+             END IF
+           END DO
+         END IF
+
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' BC'
+         j = ListGetInteger( Solver % Values, str, Found )
+         IF ( j>0 ) THEN
+           DO k=Solver % Mesh % NumberOfBulkElements+1, &
+                Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOfBoundaryElements
+             Element => Solver % Mesh % Elements(k)
+             IF ( Element % Boundaryinfo % Constraint /= j ) CYCLE
+             IF ( ALL(Perm(Element % NodeIndexes) > 0) ) THEN
+               DO p=1,Element % Type % NumberOfNodes
+                 l = Perm(Element % NodeIndexes(p))
+                 DO m=1,DOFs 
+                   k1 = DOFs*(l-1)+m
+                   CALL CRS_MakeMatrixIndex( A,i,k1 )
+                 END DO
+               END DO
+             END IF
+           END DO
+         END IF
+       END DO
+     END IF
 
      DEALLOCATE( Model % RowNonZeros, InvInitialReorder )
 !------------------------------------------------------------------------------

@@ -3607,7 +3607,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
-    LOGICAL :: Relax, Found
+    LOGICAL :: Relax, Found, ConstrainedSolve
     INTEGER :: n,i,j,k,l,istat
     TYPE(Matrix_t), POINTER :: SaveMatrix
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
@@ -3650,7 +3650,16 @@ CONTAINS
     END IF
 !------------------------------------------------------------------------------
 
-    CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
+    ConstrainedSolve = .FALSE.
+    IF ( ASSOCIATED(A % ConstraintMatrix) )  THEN
+      IF ( A % ConstraintMatrix % NumberOFRows>=1 ) ConstrainedSolve = .TRUE.
+    END IF
+
+    IF ( ConstrainedSolve ) THEN
+      CALL SolveWithLinearRestriction( A, b, x, Norm, DOFs, Solver )
+    ELSE
+      CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
+    END IF
 
 !------------------------------------------------------------------------------
 
@@ -4004,7 +4013,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 !------------------------------------------------------------------------------  
 !******************************************************************************
 !  This subroutine will solve the system with some linear restriction.
-!  The restriction matrix is assumed to be in the EMatrix-field of 
+!  The restriction matrix is assumed to be in the ConstraintMatrix-field of 
 !  the StiffMatrix. The restriction vector is the RHS-field of the
 !  EMatrix.
 !  NOTE: Only serial solver implemented so far ...
@@ -4054,7 +4063,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   SolverPointer => Solver
   CALL Info( 'SolveWithLinearRestriction ', ' ' )
 
-  RestMatrix => StiffMatrix % EMatrix
+  RestMatrix => StiffMatrix % ConstraintMatrix
   IF ( .NOT. ASSOCIATED( RestMatrix ) ) CALL Fatal( 'AddMassFlow', 'RestMatrix not associated' ) 
 
   RestVector => RestMatrix % RHS
