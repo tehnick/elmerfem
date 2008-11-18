@@ -203,8 +203,10 @@ bool CadView::readFile(QString fileName)
   if((fileSuffix == "iges") || (fileSuffix == "igs"))
     shape = readIges(fileName);
   
-  if(shape.IsNull())
+  if(shape.IsNull()) {
+    cout << "Cad import: No shapes. Aborting" << endl;
     return false;
+  }
 
   clearScreen();
 
@@ -225,6 +227,16 @@ bool CadView::readFile(QString fileName)
 		       +(max[0]-min[0])*(max[0]-min[0]));
 
   deflection *= length; // use relative deflection
+
+  double t0 = sqrt((max[0] - min[0])*(max[0] - min[0]));
+  double t1 = sqrt((max[1] - min[1])*(max[1] - min[1]));
+  double t2 = sqrt((max[2] - min[2])*(max[2] - min[2]));
+
+  double tol = 1.0e-7 * length;
+  if((t0 < tol) || (t1 < tol) || (t2 < tol)) {
+    cout << "Cad import: Shape seems to be 2D. Unable to proceed. Aborting." << endl;
+    return false;
+  }
   
   // Construct model data and draw surfaces:
   //-----------------------------------------

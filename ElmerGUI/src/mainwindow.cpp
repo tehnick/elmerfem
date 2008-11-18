@@ -1238,7 +1238,8 @@ void MainWindow::readInputFile(QString fileName)
     occInputOk = cadView->readFile(fileName);
 
     if(!occInputOk) {
-      logMessage("Cad input: error: Unable to read input file");
+      logMessage("Cad import: error: Unable to proceed with input file");
+      cadView->close();
       return;
     }
 

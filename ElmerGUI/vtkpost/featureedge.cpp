@@ -78,6 +78,7 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   int tubeQuality = preferences->ui.featureEdgeTubeQuality->value();
   int radius = preferences->ui.featureEdgeTubeRadius->value();  
   bool useClip = preferences->ui.featureEdgesClip->isChecked();
+  bool boundaryEdges = preferences->ui.drawBoundaryEdges->isChecked();
   useClip |= vtkPost->GetClipAll();
 
   vtkUnstructuredGrid* grid = NULL;
@@ -100,9 +101,13 @@ void FeatureEdge::draw(VtkPost* vtkPost, Preferences* preferences)
   vtkFeatureEdges* edges = vtkFeatureEdges::New();
   edges->SetInputConnection(filter->GetOutputPort());
   edges->SetFeatureAngle(featureAngle);
-  edges->BoundaryEdgesOn();
-  edges->ManifoldEdgesOn();
   edges->NonManifoldEdgesOn();
+  edges->ManifoldEdgesOn();
+  if(boundaryEdges) {
+    edges->BoundaryEdgesOn();
+  } else {
+    edges->BoundaryEdgesOff();
+  }
 
   vtkTubeFilter* tubes = vtkTubeFilter::New();
   if(useTubeFilter) {
