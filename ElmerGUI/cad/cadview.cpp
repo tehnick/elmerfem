@@ -108,7 +108,6 @@ CadView::CadView(QWidget *parent)
 {
   setWindowTitle("ElmerGUI geometry viewer");
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
-  // resize(800, 600);
 
   createActions();
   createMenus();
@@ -171,7 +170,6 @@ void CadView::closeSlot()
 
 bool CadView::readFile(QString fileName)
 {
-  // double deflection = 0.00025;
   double deflection = 0.0005;
   double featureAngle = 30.0;
 
@@ -232,7 +230,7 @@ bool CadView::readFile(QString fileName)
   double t1 = sqrt((max[1] - min[1])*(max[1] - min[1]));
   double t2 = sqrt((max[2] - min[2])*(max[2] - min[2]));
 
-  double tol = 1.0e-7 * length;
+  double tol = 1.0e-6 * length;
   if((t0 < tol) || (t1 < tol) || (t2 < tol)) {
     cout << "Cad import: Shape seems to be 2D. Unable to proceed. Aborting." << endl;
     return false;
@@ -251,13 +249,16 @@ bool CadView::readFile(QString fileName)
     Handle(Poly_Triangulation) Triangulation = BRep_Tool::Triangulation(Face, Location);
     if(Triangulation.IsNull()) continue;
 
-    numberOfFaces++;
-
     const Poly_Array1OfTriangle& Triangles = Triangulation->Triangles();
     const TColgp_Array1OfPnt& Nodes = Triangulation->Nodes();
 
     int nofTriangles = Triangulation->NbTriangles();
     int nofNodes = Triangulation->NbNodes();
+
+    if(nofTriangles < 1) continue;
+    if(nofNodes < 1) continue;
+    
+    numberOfFaces++;
 
     int n0, n1, n2;
     vtkPolyData* partGrid = vtkPolyData::New();
@@ -339,6 +340,11 @@ bool CadView::readFile(QString fileName)
     partGrid->Delete();
     partPoints->Delete();
     triangle->Delete();
+  }
+
+  if(numberOfFaces < 1) {
+    cout << "Cad import: error: no surface triangulation was generated. Aborting." << endl;
+    return false;
   }
 
   stlSurfaceData->Update();
