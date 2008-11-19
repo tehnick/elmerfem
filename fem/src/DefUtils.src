@@ -1731,10 +1731,14 @@ CONTAINS
     TYPE(Variable_t), POINTER :: x
     REAL(KIND=dp), POINTER    :: b(:)
 
+    LOGICAL :: Found
+
     TYPE(Solver_t), POINTER :: Solver
 
     Solver => CurrentModel % Solver
     IF ( PRESENT( USolver ) ) Solver => USolver
+
+    IF ( GetLogical(Solver % Values,'Linear System Solver Disabled',Found) ) RETURN
 
     A => Solver % Matrix
     b => A % RHS
