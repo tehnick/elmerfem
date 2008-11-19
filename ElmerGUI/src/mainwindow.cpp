@@ -4284,6 +4284,7 @@ void MainWindow::remeshSlot()
       if(maxMeshSize <= 0) maxMeshSize = 10000000;
       nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);      
 
+#ifdef OCC_63
     } else {
       
       // OCC: (re)generate STL for nglib:
@@ -4292,6 +4293,7 @@ void MainWindow::remeshSlot()
       cadView->setGeom(nggeom);
       cadView->setMp(&mp);
       cadView->generateSTL();
+#endif
     }
 
   } else {
