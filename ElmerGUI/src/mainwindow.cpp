@@ -1064,9 +1064,10 @@ void MainWindow::openSlot()
 
   saveDirName = "";
   readInputFile(fileName);
-  remeshSlot();
-}
 
+  if(egIni->isSet("automesh"))
+    remeshSlot();
+}
 
 
 // Read input file and populate mesh generator's input structures:
