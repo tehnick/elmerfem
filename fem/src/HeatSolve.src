@@ -199,7 +199,7 @@
      INTEGER :: i,j,k,l,m,n,t,tt,iter,k1,k2,body_id,eq_id,istat,LocalNodes,bf_id
 
      TYPE(Nodes_t)   :: ElementNodes
-     TYPE(Element_t),POINTER :: Element,RadiationElement
+     TYPE(Element_t),POINTER :: Element,Parent,RadiationElement
 
      REAL(KIND=dp) :: RelativeChange, &
            Norm,PrevNorm,Text,S,C,C1,Emissivity,StefanBoltzmann, &
@@ -232,7 +232,7 @@
          SmartHeaterBC, SmartHeaterNode, DoneTime=0
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,SmartTol,Relax, &
             SaveRelax,dt,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling=1.0, &
-            PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave
+            PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave, Normal(3)
 
      REAL(KIND=dp), POINTER :: Temperature(:),FlowSolution(:), &
        ElectricCurrent(:), PhaseChangeIntervals(:,:),ForceVector(:), &
@@ -246,16 +246,17 @@
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), &
        STIFF(:,:), LOAD(:), HeatConductivity(:,:,:), &
        FORCE(:), U(:), V(:), W(:), MU(:,:),TimeForce(:), &
-       Density(:), HeatTransferCoeff(:), &
+       Density(:), LatentHeat(:), HeatTransferCoeff(:), &
        HeatCapacity(:), Enthalpy(:), Viscosity(:), LocalTemperature(:), &
        NodalEmissivity(:), ElectricConductivity(:), Permeability(:), Work(:), C0(:), &
        Pressure(:), dPressuredt(:), GasConstant(:),AText(:), HeaterArea(:), &
        HeaterTarget(:), HeaterScaling(:), HeaterDensity(:), HeaterSource(:), &
-       HeatExpansionCoeff(:), ReferenceTemperature(:), PressureCoeff(:)
+       HeatExpansionCoeff(:), ReferenceTemperature(:), PressureCoeff(:), &
+       PhaseVelocity(:,:)
 
      SAVE U, V, W, MU, MASS, STIFF, LOAD, PressureCoeff, &
        FORCE, ElementNodes, HeatConductivity, HeatCapacity, HeatTransferCoeff, &
-       Enthalpy, Density, AllocationsDone, Viscosity, TimeForce, &
+       Enthalpy, Density, LatentHeat, PhaseVelocity, AllocationsDone, Viscosity, TimeForce, &
        LocalNodes, LocalTemperature, Work, ElectricConductivity, &
        NodalEmissivity, Permeability, TSolution, TSolution1, C0, dPressuredt, Pressure, &
        GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea, HeaterTarget, &
@@ -366,6 +367,8 @@
                  ElementNodes % y,      &
                  ElementNodes % z,      &
                  Density,Work,          &
+                 LatentHeat,            &
+                 PhaseVelocity,         &
                  ElectricConductivity,  &
                  Permeability,          &
                  Viscosity,C0,          &
@@ -394,6 +397,8 @@
                  ElementNodes % y( N ),                &
                  ElementNodes % z( N ),                &
                  Density( N ),Work( N ),               &
+                 LatentHeat( N ),                      &
+                 PhaseVelocity(3, N),                  &
                  ElectricConductivity(N),              &
                  Permeability(N),                      &
                  Viscosity(N),C0(N),                   &
@@ -875,7 +880,7 @@
          MU = 0.0d0
          CALL GetVectorLocalSolution( MU, 'Mesh Velocity' )
 !------------------------------------------------------------------------------
-!        Check if modelling Phase Change 
+!        Check if modelling Phase Change with Eulerian approach 
 !------------------------------------------------------------------------------
          PhaseSpatial = .FALSE.
          IF (  PhaseChange ) THEN
@@ -1315,6 +1320,44 @@ CONTAINS
           HeatTransferCoeff(j) = HeatTransferCoeff(j) + Work(j)
         END DO
       END IF
+
+!------------------------------------------------------------------------------
+!     BC: -k@T/@n = (rho*L)*v.n 
+!     Heating related to pulling is possible only in ss cases where pull velocity
+!     is desrcibed.
+!------------------------------------------------------------------------------
+
+      IF( GetLogical( BC, 'Phase Change',Found ) ) THEN
+         LatentHeat(1:n) = GetReal( BC,'Latent Heat' )
+         
+         PhaseVelocity(1,1:n) = GetReal( BC,'Phase Velocity 1', Found  )
+         PhaseVelocity(2,1:n) = GetReal( BC,'Phase Velocity 2', Found  )
+         PhaseVelocity(3,1:n) = GetReal( BC,'Phase Velocity 3', Found  )
+  
+         ! By default get boundary from left unless right is known to be solid
+         Parent => Element % BoundaryInfo % Right
+         GotIt = ASSOCIATED(Parent)
+         IF( Found ) THEN
+            k = GetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
+            IF (.NOT. GetLogical(Model % Materials(k) % Values, 'Solid', Found) ) &
+                 GotIt = .FALSE.
+         END IF
+         IF(.NOT. GotIt) Parent => Element % BoundaryInfo % Left
+
+         k = GetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
+         Density(1:n) = GetReal( Model % Materials(k) % Values, 'Density' )
+
+         ! This could be rather put as a new type of BC into the assembly routine and 
+         ! then the Normal could be taken at the proper Gaussian integration points. 
+         Normal = NormalVector( Element, ElementNodes, 0.0_dp, 0.0_dp, .TRUE. )
+
+         DO i=1,n
+            LOAD(i) = LOAD(i) + &
+                 LatentHeat(i) * Density(i) * SUM( Normal(1:3) * PhaseVelocity(1:3,i))
+         END DO
+      END IF
+
+
 !------------------------------------------------------------------------------
 !     BC: -k@T/@n = g
 !------------------------------------------------------------------------------
