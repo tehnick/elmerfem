@@ -298,7 +298,7 @@ void derivates_to_global_4node( double *X,double *Y,double *Z,
         {
             for( i=0; i<4; i++ ) fprintf( stderr, " %8g %8g\n", X[i],Y[i] );
 
-            fprintf( stderr, "deriv: Element Jacobian singular at: %g %g\n",u,v);
+            fprintf( stderr, "deriv: Element Jacobian singular at: %g %g\n",u[i],v[i]);
             return;
         }
 
