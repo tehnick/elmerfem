@@ -77,29 +77,29 @@ static struct BoundaryType *boundaries[MAXCASES];
 static struct ElmergridType eg;
 int info=TRUE,nogrids=0,nomeshes=0,activemesh=0;
 
-  char *IOmethods[] = {
-    /*0*/ "EG",
-    /*1*/ "ELMERGRID",
-    /*2*/ "ELMERSOLVER",
-    /*3*/ "ELMERPOST",
-    /*4*/ "ANSYS",
-    /*5*/ "IDEAS",
-    /*6*/ "NASTRAN",
-    /*7*/ "FIDAP",
-    /*8*/ "UNV",
-    /*9*/ "COMSOL",
-    /*10*/ "FIELDVIEW",
-    /*11*/ "TRIANGLE",
-    /*12*/ "MEDIT",
-    /*13*/ "GID",
-    /*14*/ "GMSH",
-    /*15*/ "PARTITIONED",
-    /*16*/ "CGSIM",
-  };
+const char *IOmethods[] = {
+  /*0*/ "EG",
+  /*1*/ "ELMERGRID",
+  /*2*/ "ELMERSOLVER",
+  /*3*/ "ELMERPOST",
+  /*4*/ "ANSYS",
+  /*5*/ "IDEAS",
+  /*6*/ "NASTRAN",
+  /*7*/ "FIDAP",
+  /*8*/ "UNV",
+  /*9*/ "COMSOL",
+  /*10*/ "FIELDVIEW",
+  /*11*/ "TRIANGLE",
+  /*12*/ "MEDIT",
+  /*13*/ "GID",
+  /*14*/ "GMSH",
+  /*15*/ "PARTITIONED",
+  /*16*/ "CGSIM",
+};
 
 
 
-int InlineParameters(struct ElmergridType *eg,int argc,char *argv[],char *IOmethods[],int first,int info)
+int InlineParameters(struct ElmergridType *eg,int argc,char *argv[],const char *IOmethods[],int first,int info)
 {
   int arg,i,dim;
   char command[MAXLINESIZE];

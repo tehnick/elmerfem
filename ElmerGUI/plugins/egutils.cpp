@@ -52,7 +52,7 @@ int MemoryUsage()
 #endif
 
 
-void nrerror(char error_text[])
+void nrerror(const char error_text[])
 /* standerd error handler */
 {
   fprintf(stderr,"run-time error...\n");
@@ -295,7 +295,7 @@ void free_imatrix(int **m,int nrl,int nrh,int ncl,int nch)
 }
 
 
-void bigerror(char error_text[])
+void bigerror(const char error_text[])
 {
   fprintf(stderr,"The program encountered a major error...\n");
   fprintf(stderr,"%s\n",error_text);
@@ -304,7 +304,7 @@ void bigerror(char error_text[])
 }
 
 
-void smallerror(char error_text[])
+void smallerror(const char error_text[])
 {
   fprintf(stderr,"The program encountered a minor error...\n");
   fprintf(stderr,"%s\n",error_text);

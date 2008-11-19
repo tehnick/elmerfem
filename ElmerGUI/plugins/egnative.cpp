@@ -2820,7 +2820,8 @@ void InitParameters(struct ElmergridType *eg)
 
 
 int LoadCommands(char *prefix,struct ElmergridType *eg,
-		 struct GridType *grid, int mode,char *IOmethods[],int info) 
+		 struct GridType *grid, int mode,const char *IOmethods[],
+		 int info) 
 {
   char filename[MAXFILESIZE],command[MAXLINESIZE],params[MAXLINESIZE],*cp;
 

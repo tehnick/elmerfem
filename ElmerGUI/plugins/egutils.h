@@ -23,7 +23,7 @@ typedef double Real;
 /* Numerical Recipes' uncopyrighted vector and matrix allocation 
    and deallocation routines. */
 int MemoryUsage();
-void nrerror(char error_text[]);
+void nrerror(const char error_text[]);
 
 float *vector(int,int);
 int  *ivector(int,int);
@@ -45,8 +45,8 @@ void free_matrix(float **,int,int,int,int);
 void free_dmatrix(double **,int,int,int,int);
 void free_imatrix(int **,int,int,int,int);
 
-void bigerror(char error_text[]);
-void smallerror(char error_text[]);
+void bigerror(const char error_text[]);
+void smallerror(const char error_text[]);
 int  FileExists(char *filename);
 Real Minimum(Real *vector,int first,int last);
 int  Minimi(Real *vector,int first,int last);

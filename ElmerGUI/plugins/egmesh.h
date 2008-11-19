@@ -22,7 +22,7 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
 		 struct FemType *data,int noknots,int info);
 
 int CreateVariable(struct FemType *data,int variable,int unknowns,
-		   Real value,char *variablename,int eorder);
+		   Real value,const char *variablename,int eorder);
 void DestroyKnots(struct FemType *data);
 int FindParentSide(struct FemType *data,struct BoundaryType *bound,
 		   int sideelem,int sideelemtype,int *sideind);

@@ -1200,7 +1200,7 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
 
 
 int CreateVariable(struct FemType *data,int variable,int unknowns,
-		   Real value,char *dofname,int eorder)
+		   Real value, const char *dofname,int eorder)
 /* Create variables for the given data structure */
 {
   int i,info=FALSE;
