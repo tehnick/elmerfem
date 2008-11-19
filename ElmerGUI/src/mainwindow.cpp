@@ -5985,10 +5985,8 @@ void MainWindow::showaboutSlot()
 
 #ifdef OCC_63
 			"This version of ElmerGUI has been compiled with the "
-			"OpenCascade solids modeling library using the "
-			"QtOpenCascade integration framework:\n\n"
+			"OpenCascade solids modeling library:\n\n"
 			"http://www.opencascade.org/\n"
-			"http://sourceforge.net/projects/qtocc/\n\n"
 #endif
 
 #ifdef MPICH2

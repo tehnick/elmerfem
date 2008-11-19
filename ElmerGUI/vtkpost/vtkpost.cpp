@@ -1785,6 +1785,6 @@ void VtkPost::showHelpSlot()
   QMessageBox::about(this, tr("ElmerGUI postprocessor (beta)"),
 		     tr("Press 'p' to pick a point\n"
                         "Press 'i' to show/hide the interactive plane widget\n"
-			"Press 'w' to show the results in wireframe mode"
+			"Press 'w' to show the results in wireframe mode\n"
 			"Press 's' to show the results in surface mode"));
 }
