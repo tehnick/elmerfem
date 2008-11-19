@@ -42,6 +42,7 @@
 #define CADVIEW_H
 
 #include <QMainWindow>
+#include "cadpreferences.h"
 
 namespace nglib {
 #include "nglib.h"
@@ -80,6 +81,8 @@ public:
  private slots:
   void closeSlot();
   void generateSTLSlot();
+  void cadPreferencesSlot();
+  void reloadSlot();
 
  private:
   void createActions();
@@ -91,8 +94,11 @@ public:
   void restrictMeshSizeLocal(nglib::Ng_Mesh*, vtkPolyData*, double, double);
 
   QMenu* fileMenu;
+  QMenu* modelMenu;
 
   QAction* exitAct;
+  QAction* reloadAct;
+  QAction* cadPreferencesAct;
 
   QVTKWidget* qVTKWidget;
   vtkRenderer* renderer;
@@ -106,6 +112,10 @@ public:
   nglib::Ng_Mesh* mesh;
   nglib::Ng_STL_Geometry* geom;
   nglib::Ng_Meshing_Parameters* mp;
+
+  CadPreferences* cadPreferences;
+
+  QString fileName;
 };
 
 #endif // CADVIEW_H

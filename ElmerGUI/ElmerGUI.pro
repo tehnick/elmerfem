@@ -340,8 +340,13 @@ contains(DEFINES, VTKPOST) {
 }
 
 contains(DEFINES, OCC_63) {
-   HEADERS += cad/cadview.h
-   SOURCES += cad/cadview.cpp 
+   HEADERS += cad/cadview.h \
+              cad/cadpreferences.h
+
+   FORMS += cad/cadpreferences.ui
+
+   SOURCES += cad/cadview.cpp \
+              cad/cadpreferences.cpp
 }
 
 #------------------------------------------------------------------------------

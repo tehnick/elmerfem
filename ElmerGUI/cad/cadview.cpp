@@ -132,8 +132,11 @@ CadView::CadView(QWidget *parent)
   stlSurfaceData = vtkAppendPolyData::New();
   stlEdgeData = vtkAppendPolyData::New();
 
+  cadPreferences = new CadPreferences(this);
+
   modelLength = 0.0;
   numberOfFaces = 0;
+  fileName = "";
 }
 
 CadView::~CadView()
@@ -155,12 +158,24 @@ void CadView::createActions()
   exitAct = new QAction(QIcon(""), tr("&Quit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(closeSlot()));
+
+  cadPreferencesAct = new QAction(QIcon(""), tr("Preferences..."), this);
+  cadPreferencesAct->setShortcut(tr("Ctrl+P"));
+  connect(cadPreferencesAct, SIGNAL(triggered()), this, SLOT(cadPreferencesSlot()));
+
+  reloadAct = new QAction(QIcon(""), tr("Reload geometry"), this);
+  connect(reloadAct, SIGNAL(triggered()), this, SLOT(reloadSlot()));  
 }
 
 void CadView::createMenus()
 {
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(exitAct);
+
+  modelMenu = menuBar()->addMenu(tr("&Model"));
+  modelMenu->addAction(cadPreferencesAct);
+  modelMenu->addSeparator();
+  modelMenu->addAction(reloadAct);
 }
 
 void CadView::closeSlot()
@@ -168,10 +183,21 @@ void CadView::closeSlot()
   close();
 }
 
+void CadView::cadPreferencesSlot()
+{
+  cadPreferences->show();
+}
+
+void CadView::reloadSlot()
+{
+  if(this->fileName.isEmpty()) return;
+  readFile(this->fileName);
+}
+
 bool CadView::readFile(QString fileName)
 {
-  double deflection = 0.0005;
-  double featureAngle = 30.0;
+  double deflection = cadPreferences->ui.deflection->text().toDouble();     // 0.0005
+  double featureAngle = cadPreferences->ui.featureAngle->text().toDouble();  // 30.0
 
   if(stlSurfaceData->GetOutput()->GetNumberOfPoints() > 0)
     stlSurfaceData->Delete();
@@ -205,6 +231,8 @@ bool CadView::readFile(QString fileName)
     cout << "Cad import: No shapes. Aborting" << endl;
     return false;
   }
+
+  this->fileName = fileName;
 
   clearScreen();
 
@@ -367,11 +395,14 @@ bool CadView::readFile(QString fileName)
 
 void CadView::generateSTLSlot()
 {
-  double meshMinSize = 0.005 * modelLength;
-  double meshMaxSize = mp->maxh;
-  double meshFineness = mp->fineness;
-  bool restrictBySTL = true;
+  double meshMinSize = modelLength * cadPreferences->ui.minh->text().toDouble();
+  double meshMaxSize = modelLength * cadPreferences->ui.maxh->text().toDouble();
+  bool restrictBySTL = cadPreferences->ui.restrictBySTL->isChecked();
 
+  // Check also the MainWindow meshing preferences:
+  if(mp->maxh < meshMaxSize) meshMaxSize = mp->maxh;
+  double meshFineness = mp->fineness;
+  
   if(meshMaxSize > 0.1 * modelLength)
     meshMaxSize = 0.1 * modelLength;
 
