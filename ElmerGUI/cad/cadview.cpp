@@ -170,12 +170,12 @@ void CadView::createActions()
 void CadView::createMenus()
 {
   fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(reloadAct);
+  fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
   modelMenu = menuBar()->addMenu(tr("&Model"));
   modelMenu->addAction(cadPreferencesAct);
-  modelMenu->addSeparator();
-  modelMenu->addAction(reloadAct);
 }
 
 void CadView::closeSlot()
@@ -196,8 +196,14 @@ void CadView::reloadSlot()
 
 bool CadView::readFile(QString fileName)
 {
-  double deflection = cadPreferences->ui.deflection->text().toDouble();     // 0.0005
-  double featureAngle = cadPreferences->ui.featureAngle->text().toDouble();  // 30.0
+  double deflection = cadPreferences->ui.deflection->text().toDouble();
+  double featureAngle = cadPreferences->ui.featureAngle->text().toDouble();
+
+  if(deflection < 0)
+    deflection = 0.0005;
+
+  if(featureAngle < 0)
+    featureAngle = 30.0;
 
   if(stlSurfaceData->GetOutput()->GetNumberOfPoints() > 0)
     stlSurfaceData->Delete();
@@ -408,6 +414,12 @@ void CadView::generateSTLSlot()
 
   if(meshMinSize > meshMaxSize)
     meshMinSize = meshMaxSize;
+
+  if(meshMinSize < 0)
+    meshMinSize = modelLength * 0.005;
+
+  if(meshMaxSize < 0)
+    meshMaxSize = modelLength * 0.1;
 
   cout << "Cad import: max mesh size: " << meshMaxSize << endl;
   cout << "Cad import: mesh fineness: " << meshFineness << endl;

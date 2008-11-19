@@ -1783,6 +1783,8 @@ QSize VtkPost::sizeHint() const
 void VtkPost::showHelpSlot()
 {
   QMessageBox::about(this, tr("ElmerGUI postprocessor (beta)"),
-		     tr("Press 'p' to select a point\n"
-                        "Press 'i' to show/hide the plane widget"));
+		     tr("Press 'p' to pick a point\n"
+                        "Press 'i' to show/hide the interactive plane widget\n"
+			"Press 'w' to show the results in wireframe mode"
+			"Press 's' to show the results in surface mode"));
 }
