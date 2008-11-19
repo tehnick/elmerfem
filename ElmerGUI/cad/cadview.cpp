@@ -369,11 +369,17 @@ void CadView::generateSTLSlot()
 {
   double meshMinSize = 0.005 * modelLength;
   double meshMaxSize = mp->maxh;
-  double meshFineness = 0.5;
+  double meshFineness = mp->fineness;
   bool restrictBySTL = true;
 
   if(meshMaxSize > 0.1 * modelLength)
     meshMaxSize = 0.1 * modelLength;
+
+  if(meshMinSize > meshMaxSize)
+    meshMinSize = meshMaxSize;
+
+  cout << "Cad import: max mesh size: " << meshMaxSize << endl;
+  cout << "Cad import: mesh fineness: " << meshFineness << endl;
 
   // Add STL triangles to geometry:
   //--------------------------------
@@ -381,6 +387,11 @@ void CadView::generateSTLSlot()
   stlSurface->PointMergingOn();
   stlSurface->SetInput(stlSurfaceData->GetOutput());
   stlSurface->Update();
+
+  if(stlSurface->GetOutput()->GetNumberOfCells() < 1) {
+    cout << "Cad import: error: geometry undefined - no STL available" << endl;
+    return;
+  }
 
   double p0[3], p1[3], p2[3];
   for(int i = 0; i < stlSurface->GetOutput()->GetNumberOfCells(); i++) {
@@ -429,7 +440,7 @@ void CadView::generateSTLSlot()
   
   // Local mesh size restrictions:
   //-------------------------------
-  if(restrictBySTL)    
+  if(restrictBySTL)
     restrictMeshSizeLocal(mesh, stlSurface->GetOutput(), meshMaxSize, meshMinSize);
 }
 

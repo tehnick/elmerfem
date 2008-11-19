@@ -1160,8 +1160,6 @@ void MainWindow::readInputFile(QString fileName)
     // for stl there are two alternative generators:
     if(meshControl->generatorType == GEN_NGLIB) {
       
-      cout << "nglib" << endl;
-      
       if(!nglibPresent) {
 	logMessage("unable to mesh - nglib unavailable");
 	return;
@@ -1170,18 +1168,7 @@ void MainWindow::readInputFile(QString fileName)
       activeGenerator = GEN_NGLIB;
       cout << "Selected nglib for stl-format" << endl;
 
-      nglib::Ng_Init();
-      
-      nggeom = nglib::Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
-      
-      if(!nggeom) {
-	logMessage("Ng_STL_LoadGeometry failed");
-	return;
-      }
-      
-      int rv = nglib::Ng_STL_InitSTLGeometry(nggeom);
-      cout << "InitSTLGeometry: NG_result=" << rv << endl;
-      cout.flush();
+      stlFileName = fileName;
       
       nglibInputOk = true;
       
@@ -1242,25 +1229,6 @@ void MainWindow::readInputFile(QString fileName)
       cadView->close();
       return;
     }
-
-    char backgroundmesh[1024];
-    sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());
-    
-    mp.maxh = meshControl->nglibMaxH.toDouble();
-    mp.fineness = meshControl->nglibFineness.toDouble();
-    mp.secondorder = 0;
-    mp.meshsize_filename = backgroundmesh;
-    
-    nglib::Ng_Init();
-    nggeom = nglib::Ng_STL_NewGeometry();
-    ngmesh = nglib::Ng_NewMesh();
-    
-    cadView->setMesh(ngmesh);
-    cadView->setGeom(nggeom);
-    cadView->setMp(&mp);
-    cadView->generateSTL();
-
-    // nglib::Ng_RestrictMeshSizeGlobal(ngmesh, mp.maxh);
 
     nglibInputOk = true;
 
@@ -4217,8 +4185,7 @@ void MainWindow::remeshSlot()
   if(activeGenerator == GEN_UNKNOWN) {
     logMessage("Unable to (re)mesh: no input data or mesh generator (please make sure that your input file suffix is in lower case)");
     return;
-  }
-  
+  }  
     
   // ***** ELMERGRID *****
 
@@ -4270,7 +4237,7 @@ void MainWindow::remeshSlot()
       return;
     }
 
-    // must have "J" in control string:
+    // Usually "J" should be included in the control string: 
     tetlibControlString = meshControl->tetlibControlString;
 
   } else if(activeGenerator == GEN_NGLIB) {
@@ -4285,18 +4252,48 @@ void MainWindow::remeshSlot()
       return;
     }
 
+    // Init & set mesh params.:
+    //--------------------------
+    nglib::Ng_Init();
+
+    char backgroundmesh[1024];
+    sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());      
+    mp.maxh = meshControl->nglibMaxH.toDouble();
+    mp.fineness = meshControl->nglibFineness.toDouble();
+    mp.secondorder = 0;
+    mp.meshsize_filename = backgroundmesh;
+
     if(!occInputOk) {
-      char backgroundmesh[1024];
-      sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());      
+
+      // In case of pure STL input, load the geometry here:
+      //----------------------------------------------------
+      nggeom = nglib::Ng_STL_NewGeometry();
       ngmesh = nglib::Ng_NewMesh();
-      mp.maxh = meshControl->nglibMaxH.toDouble();
-      mp.fineness = meshControl->nglibFineness.toDouble();
-      mp.secondorder = 0;
-      mp.meshsize_filename = backgroundmesh;
 
-      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, mp.maxh);
+      nggeom = nglib::Ng_STL_LoadGeometry(stlFileName.toAscii().data(), 0);
+      
+      if(!nggeom) {
+	logMessage("Ng_STL_LoadGeometry failed");
+	return;
+      }
+      
+      int rv = nglib::Ng_STL_InitSTLGeometry(nggeom);
+      cout << "InitSTLGeometry: NG_result=" << rv << endl;
+      cout.flush();
+
+    } else {
+      
+      // In case of OCC, (re)generate STL for nglib:
+      //---------------------------------------------
+      nggeom = nglib::Ng_STL_NewGeometry();
+      ngmesh = nglib::Ng_NewMesh();
+      
+      cadView->setMesh(ngmesh);
+      cadView->setGeom(nggeom);
+      cadView->setMp(&mp);
+
+      cadView->generateSTL();
     }
-
 
   } else {
 
@@ -4377,6 +4374,11 @@ void MainWindow::meshingTerminatedSlot()
     cout.flush();
   }
 
+  if(activeGenerator == GEN_NGLIB) {
+    nglib::Ng_DeleteMesh(ngmesh);
+    nglib::Ng_Exit();
+  }
+
   remeshAct->setEnabled(true);
   stopMeshingAct->setEnabled(false);
   glWidget->enableIndicator(false);
@@ -4395,6 +4397,9 @@ void MainWindow::meshingFinishedSlot()
   } else if(activeGenerator == GEN_NGLIB) {
 
     makeElmerMeshFromNglib();
+
+    nglib::Ng_DeleteMesh(ngmesh);
+    nglib::Ng_Exit();
 
   } else {
     

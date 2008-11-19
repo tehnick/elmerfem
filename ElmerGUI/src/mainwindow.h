@@ -390,6 +390,7 @@ private:
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
   nglib::Ng_Meshing_Parameters mp;
+  QString stlFileName;
   bool nglibInputOk;
 
   // occ:

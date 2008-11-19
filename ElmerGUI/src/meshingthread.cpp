@@ -134,10 +134,18 @@ void MeshingThread::run()
     
     int rv = 0;
     
-    // for cad files, the edges have already been generated:
+    // for cad files, the edges have already been generated.
+    // here, we will gerenare edges for pure STL file input:
     if(!occInputOk) {
       rv = nglib::Ng_STL_MakeEdges(nggeom, ngmesh, mp);
       cout << "Make Edges: Ng_result=" << rv << endl;
+
+      double maxMeshSize = mp->maxh;
+
+      if(maxMeshSize <= 0)
+	maxMeshSize = 10000000;
+
+      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);
     }
     
     rv = nglib::Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
