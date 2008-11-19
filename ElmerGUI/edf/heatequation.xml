@@ -172,7 +172,18 @@
          <Parameter Widget="Label" > <Name> Volume sources </Name> </Parameter>
         <Parameter Widget="Edit">
            <Name> Heat Source </Name>
+           <Activate> /Heat Equation/BodyForce/Integral Heat Source</Activate>
+           <Activate> /Heat Equation/BodyForce/Smart Heater Control</Activate>
            <Whatis> An additional heat source h for the heat equation may be given with this keyword. </Whatis>
+        </Parameter>
+
+        <Parameter Widget="Edit" Enabled="False" Visible="False">
+           <Name> Integral Heat Source </Name>
+           <Whatis> By this keyword the user activates a rescaling of the given Heat Source such that the total power is the one given.</Whatis>
+        </Parameter>
+        <Parameter Widget="CheckBox" Enabled="False" Visible="False">
+           <Name> Smart Heater Control </Name>
+           <Whatis> Activates the smart heat control in conjunction with the phase change solver. </Whatis>
         </Parameter>
 
         <Parameter Widget="CheckBox">
@@ -277,8 +288,46 @@
 
          <Parameter  Widget="Edit">
            <Name> External Temperature </Name>
-           <Whatis> Give external temprature. </Whatis>
+           <Whatis> Give external temperature. </Whatis>
            <StatusTip> Give external temperature. </StatusTip>
+         </Parameter>
+
+         <Parameter Widget="Label"> <Name> Latent heat of phase change </Name> </Parameter>
+
+         <Parameter  Widget="CheckBox">
+           <Name> Phase Change </Name>
+           <Type> Logical </Type>
+           <Activate> /Heat Equation/BoundaryCondition/Latent Heat </Activate>
+           <Activate> /Heat Equation/BoundaryCondition/Phase Velocity 1 </Activate>
+           <Activate> /Heat Equation/BoundaryCondition/Phase Velocity 2 </Activate>
+           <Activate> /Heat Equation/BoundaryCondition/Phase Velocity 3 </Activate>
+           <Whatis> If the phase change is active the user may prescribe a flux condition given the 
+	   latent heat and velocity of the phase change interface.</Whatis>
+           <StatusTip> Switch latent heat from phase change on. </StatusTip>
+         </Parameter>
+
+         <Parameter Widget="Edit" Enabled="False" Visible="False">
+           <Name> Latent Heat </Name>
+           <Whatis> Give latent heat of phase change (e.g. melting or solidification). </Whatis>
+           <StatusTip> Give latent heat. </StatusTip>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False" Visible="False">
+            <Name> Phase Velocity 1</Name>
+            <Whatis> Phase velocity for moving interface. If pulling occurs the interface position may still stay fixed,
+	    or the interface may move in the material.</Whatis>  
+            <StatusTip> Give velocity of the interface </StatusTip>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False" Visible="False">
+            <Name> Phase Velocity 2</Name>
+            <Whatis> Phase velocity for moving interface. If pulling occurs the interface position may still stay fixed,
+	    or the interface may move in the material.</Whatis>  
+            <StatusTip> Give velocity of the interface </StatusTip>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False" Visible="False">
+            <Name> Phase Velocity 3</Name>
+            <Whatis> Phase velocity for moving interface. If pulling occurs the interface position may still stay fixed,
+	    or the interface may move in the material.</Whatis>  
+           <StatusTip> Give velocity of the interface </StatusTip>
          </Parameter>
 
          <Parameter Widget="Label"> <Name> Heat Gap </Name> </Parameter>
