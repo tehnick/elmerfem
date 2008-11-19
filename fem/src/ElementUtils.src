@@ -51,17 +51,96 @@ MODULE ElementUtils
 
     IMPLICIT NONE
 
-INTEGER :: lnodes
+    INTEGER, PARAMETER :: LISTMATRIX_GROWTH = 1000
 
 CONTAINS
 
 !-------------------------------------------------------------------------------
+  FUNCTION AllocateListMatrix(N) RESULT(Matrix)
+!-------------------------------------------------------------------------------
+    INTEGER :: i,n
+    TYPE(ListMatrix_t), POINTER :: Matrix(:)
+
+    ALLOCATE( Matrix(n) ) 
+    DO i=1,n
+      Matrix(i) % Head => NULL()
+    END DO
+    Matrix(:) % Level  = 0
+    Matrix(:) % Degree = 0
+!-------------------------------------------------------------------------------
+  END FUNCTION AllocateListMatrix
+!-------------------------------------------------------------------------------
+ 
+
+!-------------------------------------------------------------------------------
+  FUNCTION EnlargeListMatrix(Matrix,N) RESULT(NewMatrix)
+!-------------------------------------------------------------------------------
+    INTEGER :: n
+    TYPE(ListMatrix_t), POINTER :: Matrix(:), NewMatrix(:)
+
+    NewMatrix => AllocateListMatrix(n)
+    IF ( ASSOCIATED(Matrix) ) THEN
+      NewMatrix(1:SIZE(Matrix))=Matrix
+      DEALLOCATE(Matrix)
+    END IF
+!-------------------------------------------------------------------------------
+  END FUNCTION EnlargeListMatrix
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+  SUBROUTINE ListMatrixToCRS(L,Rows,Cols,Diag)
+!-------------------------------------------------------------------------------
+    TYPE(ListMatrix_t) :: L(:)
+    INTEGER :: i,j,n
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(ListMatrixEntry_t), POINTER :: P
+    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
+
+    DO n=SIZE(L),1,-1
+      IF ( L(n) % Degree>0 ) EXIT
+    END DO
+
+    ALLOCATE( Rows(n+1), Diag(n) )
+    Rows(1) = 1
+    DO i=1,n
+      Rows(i+1) = Rows(i) + L(i) % Degree
+    END DO
+    ALLOCATE( Cols(Rows(i+1)-1) )
+    DO i=1,n
+      P => L(i) % Head
+      DO WHILE(ASSOCIATED(P))
+        Cols(j) = P % Index
+        P => P % Next
+      END DO
+    END DO
+
+    A => AllocateMatrix()
+    A % NumberOfRows = n
+    A % Rows => Rows
+    A % Diag => Diag
+    A % Cols => Cols
+    CALL CRS_SortMatrix(A)
+    DEALLOCATE(A)
+!-------------------------------------------------------------------------------
+  END SUBROUTINE ListMatrixToCRS
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
    SUBROUTINE MakeListMatrixIndex( ListMatrix,k1,k2 )
 !-------------------------------------------------------------------------------
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
      INTEGER :: k1,k2
-     TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
-     TYPE(ListMatrix_t), POINTER :: CList,Prev, ENTRY
+     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
 !-------------------------------------------------------------------------------
+
+     IF ( .NOT. ASSOCIATED(ListMatrix) ) ListMatrix=>AllocateListMatrix(k1)
+
+     IF ( k1>SIZE(ListMatrix) ) THEN
+       ListMatrix => EnlargeListMatrix(ListMatrix,MAX(k1, &
+             SIZE(ListMatrix)+LISTMATRIX_GROWTH) )
+     END IF
+
      Clist => ListMatrix(k1) % Head
 
      IF ( .NOT. ASSOCIATED(Clist) ) THEN
@@ -112,8 +191,8 @@ CONTAINS
     TYPE(Mesh_t)   :: Mesh
     TYPE(Matrix_t) :: Matrix
     TYPE(SOlver_t) :: Solver
+    TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
     INTEGER :: LocalNodes, InvPerm(LocalNodes)
-    TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
     INTEGER, OPTIONAL ::Reorder(:)
     LOGICAL, OPTIONAL :: DGSolver
     LOGICAL, OPTIONAL :: GlobalBubbles
@@ -128,7 +207,7 @@ CONTAINS
     INTEGER :: IndexSize, NumberOfFactors
     INTEGER, ALLOCATABLE :: Indexes(:)
 
-    TYPE(ListMatrix_t), POINTER :: CList
+    TYPE(ListMatrixEntry_t), POINTER :: CList
 
     TYPE(Matrix_t),POINTER :: PMatrix
     TYPE(Element_t), POINTER :: CurrentElement,Elm, Edge1, Edge2, Face1, Face2
@@ -137,15 +216,11 @@ CONTAINS
    GB = .FALSE.
    IF ( PRESENT(GlobalBubbles) ) GB = GlobalBubbles
 
-    ALLOCATE( ListMatrix(LocalNodes) )
-    DO i=1,LocalNodes
-       ListMatrix(i) % Degree = 0
-       NULLIFY( ListMatrix(i) % Head )
-    END DO 
+    ListMatrix => AllocateListMatrix(LocalNodes)
 
+    BDOFs = Mesh % MaxBDOFs
     EDOFs = Mesh % MaxEdgeDOFs
     FDOFs = Mesh % MaxFaceDOFs
-    BDOFs = Mesh % MaxBDOFs
 
     IndexSize = 128
     ALLOCATE( Indexes(IndexSize) )
@@ -415,11 +490,11 @@ CONTAINS
 !-------------------------------------------------------------------------------
    SUBROUTINE FreeListMatrix( N, ListMatrix )
 !-------------------------------------------------------------------------------
-     TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
      INTEGER :: N
 !-------------------------------------------------------------------------------
 
-     TYPE(ListMatrix_t), POINTER :: p,p1
+     TYPE(ListMatrixEntry_t), POINTER :: p,p1
      INTEGER :: i
 !-------------------------------------------------------------------------------
      IF ( .NOT. ASSOCIATED(ListMatrix) ) RETURN
@@ -454,9 +529,9 @@ CONTAINS
     INTEGER :: Reorder(:), InvInitialReorder(:)
     INTEGER :: DOFs, n
     TYPE(Matrix_t),POINTER :: Matrix
-    TYPE(ListMatrixPointer_t) :: List(:)
+    TYPE(ListMatrix_t) :: List(:)
 !------------------------------------------------------------------------------
-    TYPE(ListMatrix_t), POINTER :: Clist
+    TYPE(ListMatrixEntry_t), POINTER :: Clist
     INTEGER :: i,j,k,l,m,k1,k2
 !------------------------------------------------------------------------------
 
@@ -497,10 +572,10 @@ CONTAINS
 
      TYPE(Matrix_t),POINTER :: Matrix
 !------------------------------------------------------------------------------
-     TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
      TYPE(Matrix_t), POINTER :: A
      TYPE(Element_t), POINTER :: Element
-     TYPE(ListMatrix_t), POINTER :: CList
+     TYPE(ListMatrixEntry_t), POINTER :: CList
      CHARACTER(LEN=MAX_NAME_LEN) :: Eq, str
      LOGICAL :: GotIt, DG, GB, UseOptimized, Found
      INTEGER i,j,k,l,k1,t,n, p,m, EDOFs, FDOFs, BDOFs, cols
