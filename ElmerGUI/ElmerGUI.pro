@@ -10,7 +10,7 @@
 DEFINES += QWT       # Use QWT for convergence monitor?
 DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
-DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files?
+DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
 
 #------------------------------------------------------------------------------
 # Target:
@@ -22,7 +22,7 @@ CONFIG += release
 #------------------------------------------------------------------------------
 # Directories:
 #------------------------------------------------------------------------------
-DEPENDPATH += . src forms plugins vtkpost
+DEPENDPATH += . src forms plugins vtkpost cad
 INCLUDEPATH += .
 MOC_DIR = ./tmp
 OBJECTS_DIR = ./tmp
@@ -44,7 +44,7 @@ QT += opengl xml script
 CONFIG += uitools
 
 #------------------------------------------------------------------------------
-# NETGEN:
+# NETGEN (see ./netgen/README for more details):
 #------------------------------------------------------------------------------
 INCLUDEPATH += ./netgen/libsrc/interface
 LIBPATH += ./netgen/ngcore
