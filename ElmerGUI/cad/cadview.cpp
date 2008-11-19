@@ -441,7 +441,8 @@ void CadView::generateSTLSlot()
   // Local mesh size restrictions:
   //-------------------------------
   if(restrictBySTL)
-    restrictMeshSizeLocal(mesh, stlSurface->GetOutput(), meshMaxSize, meshMinSize);
+    restrictMeshSizeLocal(mesh, stlSurface->GetOutput(),
+			  meshMaxSize, meshMinSize);
 }
 
 QVTKWidget* CadView::GetQVTKWidget()

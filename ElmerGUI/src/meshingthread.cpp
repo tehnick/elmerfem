@@ -49,7 +49,6 @@ MeshingThread::MeshingThread(QObject *parent)
   : QThread(parent)
 {
   this->setTerminationEnabled(true);
-  occInputOk = false;
 }
 
 
@@ -63,8 +62,7 @@ void MeshingThread::generate(int generatorType,
 			     TetlibAPI *tetlibAPI,
 			     nglib::Ng_Mesh *ngmesh,
 			     nglib::Ng_STL_Geometry *nggeom,
-			     nglib::Ng_Meshing_Parameters *mp,
-			     bool occInputOk)
+			     nglib::Ng_Meshing_Parameters *mp)
 {
   this->generatorType = generatorType;
   
@@ -72,7 +70,6 @@ void MeshingThread::generate(int generatorType,
   this->tetlibAPI = tetlibAPI;
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
-  this->occInputOk = occInputOk;
 
   this->delegate_tetrahedralize = tetlibAPI->delegate_tetrahedralize;
 
@@ -91,7 +88,6 @@ void MeshingThread::generate(int generatorType,
   }
 }
 
-
 void MeshingThread::stopMeshing()
 {
   cout << "Terminating meshing thread... ";
@@ -103,7 +99,6 @@ void MeshingThread::stopMeshing()
   cout << "done" << endl;
   cout.flush();
 }
-
 
 void MeshingThread::run()
 {
@@ -133,20 +128,6 @@ void MeshingThread::run()
   } else if(generatorType == GEN_NGLIB) {
     
     int rv = 0;
-    
-    // for cad files, the edges have already been generated.
-    // here, we will gerenare edges for pure STL file input:
-    if(!occInputOk) {
-      rv = nglib::Ng_STL_MakeEdges(nggeom, ngmesh, mp);
-      cout << "Make Edges: Ng_result=" << rv << endl;
-
-      double maxMeshSize = mp->maxh;
-
-      if(maxMeshSize <= 0)
-	maxMeshSize = 10000000;
-
-      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);
-    }
     
     rv = nglib::Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
     cout << "Generate Surface Mesh: Ng_result=" << rv << endl;

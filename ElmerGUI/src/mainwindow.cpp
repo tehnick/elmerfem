@@ -4263,13 +4263,13 @@ void MainWindow::remeshSlot()
     mp.secondorder = 0;
     mp.meshsize_filename = backgroundmesh;
 
+    nggeom = nglib::Ng_STL_NewGeometry();
+    ngmesh = nglib::Ng_NewMesh();
+
     if(!occInputOk) {
 
-      // In case of pure STL input, load the geometry here:
-      //----------------------------------------------------
-      nggeom = nglib::Ng_STL_NewGeometry();
-      ngmesh = nglib::Ng_NewMesh();
-
+      // STL: regenerate structures for nglib:
+      //--------------------------------------
       nggeom = nglib::Ng_STL_LoadGeometry(stlFileName.toAscii().data(), 0);
       
       if(!nggeom) {
@@ -4277,21 +4277,20 @@ void MainWindow::remeshSlot()
 	return;
       }
       
-      int rv = nglib::Ng_STL_InitSTLGeometry(nggeom);
-      cout << "InitSTLGeometry: NG_result=" << rv << endl;
-      cout.flush();
+      nglib::Ng_STL_InitSTLGeometry(nggeom);
+      nglib::Ng_STL_MakeEdges(nggeom, ngmesh, &mp);
+
+      double maxMeshSize = mp.maxh;
+      if(maxMeshSize <= 0) maxMeshSize = 10000000;
+      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);      
 
     } else {
       
-      // In case of OCC, (re)generate STL for nglib:
-      //---------------------------------------------
-      nggeom = nglib::Ng_STL_NewGeometry();
-      ngmesh = nglib::Ng_NewMesh();
-      
+      // OCC: (re)generate STL for nglib:
+      //----------------------------------
       cadView->setMesh(ngmesh);
       cadView->setGeom(nggeom);
       cadView->setMp(&mp);
-
       cadView->generateSTL();
     }
 
@@ -4320,7 +4319,7 @@ void MainWindow::remeshSlot()
 
   meshingThread->generate(activeGenerator,
 			  tetlibControlString, tetlibAPI,
-			  ngmesh, nggeom, &mp, occInputOk);
+			  ngmesh, nggeom, &mp);
 }
 
 
