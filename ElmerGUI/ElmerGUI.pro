@@ -146,6 +146,7 @@ contains(DEFINES, MATC) {
    }
 
    win32 {
+      QMAKE_PRE_LINK += & cd matc & nmake & cd ..
       LIBPATH += .\matc
       LIBS += -lmatc
    }

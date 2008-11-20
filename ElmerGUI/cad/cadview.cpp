@@ -198,6 +198,7 @@ bool CadView::readFile(QString fileName)
 {
   double deflection = cadPreferences->ui.deflection->text().toDouble();
   double featureAngle = cadPreferences->ui.featureAngle->text().toDouble();
+  bool mergePoints = cadPreferences->ui.mergePoints->isChecked();
 
   if(deflection < 0)
     deflection = 0.0005;
@@ -325,8 +326,16 @@ bool CadView::readFile(QString fileName)
 
     // Draw part:
     //-----------
+    vtkCleanPolyData* partCleaner = vtkCleanPolyData::New();
+    partCleaner->SetInput(partGrid);
+    if(mergePoints) {
+      partCleaner->PointMergingOn();
+    } else {
+      partCleaner->PointMergingOff();
+    }
+
     vtkPolyDataNormals* partNormals = vtkPolyDataNormals::New();
-    partNormals->SetInput(partGrid);
+    partNormals->SetInputConnection(partCleaner->GetOutputPort());
     partNormals->SetFeatureAngle(featureAngle);
     
     vtkDataSetMapper* partMapper = vtkDataSetMapper::New();
@@ -340,7 +349,7 @@ bool CadView::readFile(QString fileName)
     renderer->AddActor(partActor);
 
     vtkFeatureEdges* partFeature = vtkFeatureEdges::New();
-    partFeature->SetInput(partGrid);
+    partFeature->SetInputConnection(partCleaner->GetOutputPort());
     partFeature->SetFeatureAngle(featureAngle);
     partFeature->FeatureEdgesOff();
     partFeature->BoundaryEdgesOn();
@@ -360,11 +369,12 @@ bool CadView::readFile(QString fileName)
 
     // Add triangles and edges to STL structures:
     //--------------------------------------------
-    stlSurfaceData->AddInput(partGrid);
+    stlSurfaceData->AddInput(partCleaner->GetOutput());
     stlEdgeData->AddInput(partFeature->GetOutput());
 
     // Clean up:
     //----------
+    partCleaner->Delete();
     partFeatureActor->Delete();
     partFeatureMapper->Delete();
     partFeature->Delete();
