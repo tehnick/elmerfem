@@ -50,6 +50,18 @@ CONFIG += uitools
 #------------------------------------------------------------------------------
 # NETGEN (see ./netgen/README for more details):
 #------------------------------------------------------------------------------
+unix {
+   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../..
+}
+
+win32 {
+   QMAKE_PRE_LINK = cd netgen/ngcore & nmake -f Makefile.win32 & cd ../..
+}
+
+macx {
+   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../..
+}
+
 INCLUDEPATH += ./netgen/libsrc/interface
 LIBPATH += ./netgen/ngcore
 LIBS += -lng
