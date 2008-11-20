@@ -396,6 +396,9 @@ private:
   // occ:
   bool occInputOk;
 
+  // vtkPost:
+  bool vtkPostMeshUnifierRunning;
+
   // elmergrid:
   ElmergridAPI *elmergridAPI;
 

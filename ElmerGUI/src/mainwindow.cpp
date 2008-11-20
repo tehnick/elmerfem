@@ -147,6 +147,7 @@ MainWindow::MainWindow()
 
 #ifdef VTKPOST
   vtkp = vtkPost = new VtkPost(this);
+  vtkPostMeshUnifierRunning = false;
 #endif
 
 #ifdef OCC_63
@@ -4134,6 +4135,56 @@ void MainWindow::showVtkPostSlot()
 #ifdef VTKPOST
   QString postFileName = saveDirName + "/"  + generalSetup->ui.postFileEdit->text().trimmed();
 
+  // Parallel solution:
+  //====================
+  Ui::parallelDialog ui = parallel->ui;
+  bool parallelActive = ui.parallelActiveCheckBox->isChecked();
+
+  if(parallelActive) {
+    
+    // unify mesh:
+    if(meshUnifier->state() == QProcess::Running) {
+      logMessage("Mesh unifier is already running - aborted");
+      return;
+    }
+    
+    if(saveDirName.isEmpty()) {
+      logMessage("saveDirName is empty - unable to locate result files");
+      return;
+    }
+
+    // Set up log window:
+    solverLogWindow->setWindowTitle(tr("ElmerGrid log"));
+    solverLogWindow->textEdit->clear();
+    solverLogWindow->found = false;
+    solverLogWindow->show();
+
+    QString postName = generalSetup->ui.postFileEdit->text().trimmed();
+    QStringList postNameSplitted = postName.split(".");
+    int nofProcessors = ui.nofProcessorsSpinBox->value();
+
+    QString unifyingCommand = ui.mergeLineEdit->text().trimmed();
+    unifyingCommand.replace(QString("%ep"), postNameSplitted.at(0).trimmed());
+    unifyingCommand.replace(QString("%n"), QString::number(nofProcessors));
+    
+    logMessage("Executing: " + unifyingCommand);
+    
+    meshUnifier->start(unifyingCommand);
+    
+    if(!meshUnifier->waitForStarted()) {
+      solverLogWindow->textEdit->append("Unable to start ElmerGrid for mesh unification - aborted");
+      logMessage("Unable to start ElmerGrid for mesh unification - aborted");
+      vtkPostMeshUnifierRunning = false;
+      return;
+    }
+    
+    // The rest is done in meshUnifierFinishedSlot:
+    vtkPostMeshUnifierRunning = true;
+    return;
+  }
+
+  // Scalar solution:
+  //-----------------
   vtkPost->show();
 
   if(!vtkPost->readPostFile(postFileName))
@@ -5473,6 +5524,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   if(exitCode != 0) {
     solverLogWindow->textEdit->append("MeshUnifier failed - aborting");
     logMessage("MeshUnifier failed - aborting");
+    vtkPostMeshUnifierRunning = false;
     return;
   }
 
@@ -5481,11 +5533,26 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   // Prepare for post processing parallel reults:
   //----------------------------------------------
   QString postName = generalSetup->ui.postFileEdit->text().trimmed();
-  QFile file(postName);
 
+  // VtkPost:
+  //---------
+#ifdef VTKPOST
+  if(vtkPostMeshUnifierRunning) {
+    vtkPost->show();
+    
+    if(!vtkPost->readPostFile(postName))
+      vtkPost->readEpFileSlot();
+    
+    vtkPostMeshUnifierRunning = false;
+    return;
+  }
+#endif
+
+  QFile file(postName);
   if(!file.exists()) {
     solverLogWindow->textEdit->append("Elmerpost input file does not exist.");
     logMessage("Elmerpost input file does not exist.");
+    vtkPostMeshUnifierRunning = false;
     return;
   }
 
