@@ -56,6 +56,7 @@
 #include <vtkActor.h>
 #include <vtkClipPolyData.h>
 #include <vtkPlane.h>
+#include <vtkMaskPoints.h>
 
 using namespace std;
 
@@ -172,6 +173,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   bool useClip = ui.useClip->isChecked();
   useClip |= vtkPost->GetClipAll();
   bool useNormals = ui.useNormals->isChecked();
+  int everyNth = ui.everyNth->value();
 
   ScalarField* sf_x = &scalarField[index + 0];
   ScalarField* sf_y = &scalarField[index + 1];
@@ -228,6 +230,13 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
     vectorColor->SetComponent(i, 0, sf->value[i + colorOffset]); 
   vtkPost->GetVolumeGrid()->GetPointData()->AddArray(vectorColor);
 
+  // Mask points:
+  //-------------
+  vtkMaskPoints* maskPoints = vtkMaskPoints::New();
+  maskPoints->SetInput(vtkPost->GetVolumeGrid());
+  maskPoints->RandomModeOn();
+  maskPoints->SetOnRatio(everyNth);
+
   // Glyphs:
   //---------
   vtkPost->GetVolumeGrid()->GetPointData()->SetActiveVectors("VectorData"); 
@@ -235,7 +244,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   vtkArrowSource* arrow = vtkArrowSource::New();
   arrow->SetTipResolution(quality);
   arrow->SetShaftResolution(quality);
-  glyph->SetInput(vtkPost->GetVolumeGrid());
+  glyph->SetInputConnection(maskPoints->GetOutputPort());
   glyph->SetSourceConnection(arrow->GetOutputPort());
   glyph->SetVectorModeToUseVector();
 
@@ -289,6 +298,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   vtkPost->GetVectorActor()->SetMapper(mapper);
   vtkPost->SetCurrentVectorName(colorName);
 
+  maskPoints->Delete();
   normals->Delete();
   mapper->Delete();
   clipper->Delete();
