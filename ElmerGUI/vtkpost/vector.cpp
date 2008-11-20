@@ -174,6 +174,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   useClip |= vtkPost->GetClipAll();
   bool useNormals = ui.useNormals->isChecked();
   int everyNth = ui.everyNth->value();
+  bool randomMode = ui.randomMode->isChecked();
 
   ScalarField* sf_x = &scalarField[index + 0];
   ScalarField* sf_y = &scalarField[index + 1];
@@ -234,7 +235,11 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   //-------------
   vtkMaskPoints* maskPoints = vtkMaskPoints::New();
   maskPoints->SetInput(vtkPost->GetVolumeGrid());
-  maskPoints->RandomModeOn();
+  if(randomMode) {
+    maskPoints->RandomModeOn();
+  } else {
+    maskPoints->RandomModeOff();
+  }
   maskPoints->SetOnRatio(everyNth);
 
   // Glyphs:
