@@ -77,6 +77,7 @@ public:
   void setMesh(nglib::Ng_Mesh*);
   void setGeom(nglib::Ng_STL_Geometry*);
   void setMp(nglib::Ng_Meshing_Parameters*);
+  void setDeflection(double);
 
  private slots:
   void closeSlot();

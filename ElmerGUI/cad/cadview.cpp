@@ -649,3 +649,10 @@ void CadView::setMp(nglib::Ng_Meshing_Parameters* mp)
 {
   this->mp = mp;
 }
+
+void CadView::setDeflection(double deflection)
+{
+  if(deflection < 0) return;
+
+  this->cadPreferences->ui.deflection->setText(QString::number(deflection));
+}

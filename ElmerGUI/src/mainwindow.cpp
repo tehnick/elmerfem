@@ -151,6 +151,8 @@ MainWindow::MainWindow()
 
 #ifdef OCC_63
   cadView = new CadView(this);
+  if(egIni->isPresent("deflection"))
+    cadView->setDeflection(egIni->value("deflection").toDouble());
 #endif
 
   createActions();
