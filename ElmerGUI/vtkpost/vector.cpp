@@ -69,7 +69,9 @@ Vector::Vector(QWidget *parent)
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
+  connect(ui.thresholdCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(thresholdSelectionChanged(int)));
   connect(ui.keepLimits, SIGNAL(stateChanged(int)), this, SLOT(keepLimitsSlot(int)));
+  connect(ui.keepThresholdLimits, SIGNAL(stateChanged(int)), this, SLOT(keepThresholdLimitsSlot(int)));
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
 }
@@ -100,6 +102,8 @@ void Vector::populateWidgets(VtkPost *vtkPost)
   this->scalarField = vtkPost->GetScalarField();
   this->scalarFields = vtkPost->GetScalarFields();
 
+  // Arrow:
+  //-------
   ui.vectorCombo->clear();
 
   int index = -1;
@@ -111,6 +115,8 @@ void Vector::populateWidgets(VtkPost *vtkPost)
     }
   }
 
+  // Color:
+  //-------
   QString name = ui.colorCombo->currentText();
 
   ui.colorCombo->clear();
@@ -124,8 +130,26 @@ void Vector::populateWidgets(VtkPost *vtkPost)
     if(ui.colorCombo->itemText(i) == name)
       ui.colorCombo->setCurrentIndex(i);
   }
-
+ 
   colorSelectionChanged(ui.colorCombo->currentIndex());
+
+  // Threshold:
+  //-----------
+  name = ui.thresholdCombo->currentText();
+
+  ui.thresholdCombo->clear();
+  
+  for(int i = 0; i < scalarFields; i++) {
+    ScalarField *sf = &scalarField[i];
+    ui.thresholdCombo->addItem(sf->name);
+  }
+
+  for(int i = 0; i < ui.thresholdCombo->count(); i++) {
+    if(ui.thresholdCombo->itemText(i) == name)
+      ui.thresholdCombo->setCurrentIndex(i);
+  }
+
+  thresholdSelectionChanged(ui.thresholdCombo->currentIndex());
 }
 
 void Vector::colorSelectionChanged(int newIndex)
@@ -137,10 +161,25 @@ void Vector::colorSelectionChanged(int newIndex)
   }
 }
 
+void Vector::thresholdSelectionChanged(int newIndex)
+{
+  ScalarField *sf = &this->scalarField[newIndex];
+  if(!ui.keepThresholdLimits->isChecked()) {
+    ui.thresholdMin->setText(QString::number(sf->minVal));
+    ui.thresholdMax->setText(QString::number(sf->maxVal));
+  }
+}
+
 void Vector::keepLimitsSlot(int state)
 {
   if(state == 0)
     colorSelectionChanged(ui.colorCombo->currentIndex());
+}
+
+void Vector::keepThresholdLimitsSlot(int state)
+{
+  if(state == 0)
+    thresholdSelectionChanged(ui.thresholdCombo->currentIndex());
 }
 
 void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
@@ -175,6 +214,10 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   bool useNormals = ui.useNormals->isChecked();
   int everyNth = ui.everyNth->value();
   bool randomMode = ui.randomMode->isChecked();
+  bool useThreshold = ui.useThreshold->isChecked();
+  int thresholdIndex = ui.thresholdCombo->currentIndex();
+  double thresholdMin = ui.thresholdMin->text().toDouble();
+  double thresholdMax = ui.thresholdMax->text().toDouble();
 
   ScalarField* sf_x = &scalarField[index + 0];
   ScalarField* sf_y = &scalarField[index + 1];
@@ -192,6 +235,13 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   if(step > timeStep->maxSteps) step = timeStep->maxSteps;
   int colorOffset = vtkPost->NofNodes() * (step-1);
 
+  ScalarField* sf_threshold = &scalarField[thresholdIndex];
+  int maxDataStepsThreshold = sf_threshold->values / vtkPost->NofNodes();
+  step = timeStep->ui.timeStep->value();
+  if(step > maxDataStepsThreshold) step = maxDataStepsThreshold;
+  if(step > timeStep->maxSteps) step = timeStep->maxSteps;
+  int thresholdOffset = vtkPost->NofNodes() * (step-1);
+
   // Vector data:
   //-------------
   vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("VectorData");
@@ -204,9 +254,18 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
     double val_x  = sf_x->value[i + vectorOffset];
     double val_y  = sf_y->value[i + vectorOffset];
     double val_z  = sf_z->value[i + vectorOffset];
+
+    if(useThreshold) {
+      double thresholdVal = sf_threshold->value[i + thresholdOffset];
+      if((thresholdVal < thresholdMin) || (thresholdVal > thresholdMax)) {
+	val_x = 0; val_y = 0; val_z = 0;
+      }
+    }
+
     double absval = sqrt(val_x*val_x + val_y*val_y + val_z*val_z);
     if(absval > scaleFactor) scaleFactor = absval;
-    vectorData->SetComponent(i, 0, val_x); 
+
+    vectorData->SetComponent(i, 0, val_x);
     vectorData->SetComponent(i, 1, val_y); 
     vectorData->SetComponent(i, 2, val_z); 
   }

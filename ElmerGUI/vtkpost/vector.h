@@ -70,7 +70,9 @@ private slots:
   void okButtonClicked();
   void applyButtonClicked();
   void colorSelectionChanged(int);
+  void thresholdSelectionChanged(int);
   void keepLimitsSlot(int);
+  void keepThresholdLimitsSlot(int);
 
 private:
   ScalarField *scalarField;
