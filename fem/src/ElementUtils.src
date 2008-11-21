@@ -127,6 +127,45 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
+  SUBROUTINE ListMatrixToCRSMatrix(L,A)
+!-------------------------------------------------------------------------------
+    TYPE(ListMatrix_t) :: L(:)
+    TYPE(Matrix_t), POINTER :: A
+
+    INTEGER :: i,j,n
+    TYPE(ListMatrixEntry_t), POINTER :: P
+    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
+
+    DO n=SIZE(L),1,-1
+      IF ( L(n) % Degree > 0 ) EXIT
+    END DO
+
+    ALLOCATE( Rows(n+1), Diag(n) )
+    Rows(1) = 1
+    DO i=1,n
+      Rows(i+1) = Rows(i) + L(i) % Degree
+    END DO
+    ALLOCATE( Cols(Rows(i+1)-1) )
+    DO i=1,n
+      P => L(i) % Head
+      DO WHILE(ASSOCIATED(P))
+        Cols(j) = P % Index
+        P => P % Next
+      END DO
+    END DO
+
+    A => AllocateMatrix()
+    A % NumberOfRows = n
+    A % Rows => Rows
+    A % Diag => Diag
+    A % Cols => Cols
+    CALL CRS_SortMatrix(A)
+!-------------------------------------------------------------------------------
+  END SUBROUTINE ListMatrixToCRSMatrix
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
    SUBROUTINE MakeListMatrixIndex( ListMatrix,k1,k2 )
 !-------------------------------------------------------------------------------
      TYPE(ListMatrix_t), POINTER :: ListMatrix(:)

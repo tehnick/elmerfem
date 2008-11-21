@@ -75,7 +75,8 @@
 
      INTEGER(KIND=AddrInt) :: ControlProcedure
 
-     LOGICAL :: KEModelSolved = .FALSE., SteadyStateReached = .FALSE., InitDirichlet
+     LOGICAL :: KEModelSolved = .FALSE., SteadyStateReached = .FALSE., InitDirichlet, &
+          ExecThis
 
      TYPE(ElementType_t),POINTER :: elmt
 
@@ -354,6 +355,16 @@
 !    Always save the last step to output
 !------------------------------------------------------------------------------
        IF ( .NOT.LastSaved ) CALL SaveCurrent( Timestep )
+
+       DO i=1,CurrentModel % NumberOfSolvers
+          Solver => CurrentModel % Solvers(i)
+          IF ( Solver % Procedure == 0 ) CYCLE
+          ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_SAVE)
+          When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
+          IF ( GotIt ) ExecThis = ( When == 'after saving') 
+          IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
+       END DO
+       
      END DO
 !------------------------------------------------------------------------------
 !    THIS IS THE END (...,at last, the end, my friend,...)
@@ -736,6 +747,7 @@
      REAL(KIND=dp) :: dt, ddt, dtfunc
      INTEGER :: timeleft
      INTEGER, SAVE ::  stepcount=0
+     LOGICAL :: ExecThis
 
      REAL(KIND=dp) :: RealTime, newtime, prevtime=0
 
@@ -977,8 +989,27 @@
          k = MOD( Timestep-1, OutputIntervals(Interval) )
          LastSaved = .FALSE.
          IF ( k == 0 .OR. SteadyStateReached ) THEN
-           CALL SaveCurrent( Timestep )
-           LastSaved = .TRUE.
+            
+           DO i=1,CurrentModel % NumberOfSolvers
+               Solver => CurrentModel % Solvers(i)
+               IF ( Solver % Procedure == 0 ) CYCLE
+               ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_SAVE)
+               When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
+               IF ( GotIt ) ExecThis = ( When == 'before saving') 
+               IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
+            END DO 
+
+            CALL SaveCurrent( Timestep )
+            LastSaved = .TRUE.
+
+            DO i=1,CurrentModel % NumberOfSolvers
+               Solver => CurrentModel % Solvers(i)
+               IF ( Solver % Procedure == 0 ) CYCLE
+               ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_SAVE)
+               When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
+               IF ( GotIt ) ExecThis = ( When == 'after saving') 
+               IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
+            END DO 
          END IF
 !------------------------------------------------------------------------------
          IF ( SteadyStateReached .AND. .NOT. (Transient .OR. Scanning) ) THEN
@@ -992,7 +1023,7 @@
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
-        IF ( Solver % Procedure==0 ) CYCLE
+        IF ( Solver % Procedure == 0 ) CYCLE
         When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
         IF ( GotIt ) THEN
            IF ( When == 'after simulation' .OR. When == 'after all' ) THEN
@@ -1006,6 +1037,18 @@
            END IF
         END IF
      END DO
+
+     IF( .NOT. LastSaved ) THEN
+        DO i=1,CurrentModel % NumberOfSolvers
+           Solver => CurrentModel % Solvers(i)
+           IF ( Solver % Procedure == 0 ) CYCLE
+           ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_SAVE)
+           When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
+           IF ( GotIt ) ExecThis = ( When == 'before saving') 
+           IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
+        END DO
+     END IF
+
 !------------------------------------------------------------------------------
    END SUBROUTINE ExecSimulation
 !------------------------------------------------------------------------------

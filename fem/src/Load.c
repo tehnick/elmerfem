@@ -596,3 +596,26 @@ void STDCALLBULL FC_FUNC(execlocalproc, EXECLOCALPROC )
    DoLocalCall( (void (STDCALLBULL *)())*localProc,Model,Solver,G,F,Element,n,nd );
 }
 
+
+
+/*--------------------------------------------------------------------------
+  INTERNAL: execute complete localmatrix call
+  -------------------------------------------------------------------------*/
+static void DoLocalAssembly( void (STDCALLBULL *LocalAssembly)(),
+  void *Model,void *Solver,void *dt,void *transient,void *M, void *D, void *S,void *F, void *Element,void *n,void *nd )
+{ 
+  (*LocalAssembly)( Model, Solver, dt, transient, M, D, S, F, Element, n, nd );
+}
+
+/*--------------------------------------------------------------------------
+  This routine will call complete local matrix add-on
+  -------------------------------------------------------------------------*/
+void STDCALLBULL FC_FUNC(execlocalassembly, EXECLOCALASSEMBLY )
+     ( f_ptr LocalAssembly, void *Model,void *Solver,void *dt,void *transient,void *M, void *D, void *S,void *F,void *Element,void *n,void *nd )
+{
+   DoLocalAssembly( (void (STDCALLBULL *)())*LocalAssembly,Model,Solver,dt,transient,M,D,S,F,Element,n,nd );
+}
+
+
+
+
