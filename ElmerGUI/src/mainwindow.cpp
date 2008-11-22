@@ -1500,6 +1500,7 @@ void MainWindow::saveProjectSlot()
 
     QDomElement item = projectDoc.createElement("item");
     item.setAttribute("index", QString::number(index));
+    item.setAttribute("name", spe->solverName);
     speBlock.appendChild(item);
     spe->appendToProject(&projectDoc, &item);
   }
@@ -1728,7 +1729,28 @@ void MainWindow::loadProjectSlot()
   QDomElement item = speBlock.firstChildElement("item");
   for( ; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
-    
+    QString name = item.attribute("name");
+
+    if(name.trimmed().isEmpty()) continue;
+
+    // Find the real index for the current edf setup:
+    int count = 0, realIndex = -1;
+    QDomElement root = elmerDefs->documentElement();
+    QDomElement elem = root.firstChildElement("PDE");
+    while(!elem.isNull()) {
+      QDomElement pdeName = elem.firstChildElement("Name");
+      if(pdeName.text().trimmed() == name.trimmed()) realIndex = count;
+      elem = elem.nextSiblingElement();
+      count++;
+    }
+
+    if(realIndex < 0) {
+      cout << "ERROR: The current edf setup conflicts with the project. Aborting." << endl;
+      return;
+    }
+
+    index = realIndex - 1;
+
     if((index < 0) || (index >= limit->maxSolvers())) {
       logMessage("Load project: solver parameters: index out of bounds");
       return;
@@ -1764,7 +1786,27 @@ void MainWindow::loadProjectSlot()
     int index = item.attribute("index").toInt();
     QString name = item.attribute("name");
     int id = item.attribute("id").toInt();
-    
+
+    if(name.trimmed().isEmpty()) continue;
+
+    // Find the real index for the current edf setup:
+    int count = 0, realIndex = -1;
+    QDomElement root = elmerDefs->documentElement();
+    QDomElement elem = root.firstChildElement("PDE");
+    while(!elem.isNull()) {
+      QDomElement pdeName = elem.firstChildElement("Name");
+      if(pdeName.text().trimmed() == name.trimmed()) realIndex = count;
+      elem = elem.nextSiblingElement();
+      count++;
+    }
+
+    if(realIndex < 0) {
+      cout << "ERROR: The current edf setup conflicts with the project. Aborting." << endl;
+      return;
+    }
+
+    index = realIndex - 1;
+
     if((index < 0) || (index >= limit->maxSolvers())) {
       logMessage("Load project: solver specific options: index out of bounds");
       return;

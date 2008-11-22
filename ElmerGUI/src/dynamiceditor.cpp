@@ -660,7 +660,7 @@ void DynamicEditor::populateHash(QDomElement *item)
     }
     
     if(!match_found) {
-      cout << "Error: Unable to set menu entry" << endl;
+      cout << "Error: Unable to set menu entry: key: " << key.toAscii().data() << endl;
       cout.flush();
     }
   }
