@@ -1224,7 +1224,8 @@ void MainWindow::readInputFile(QString fileName)
     meshControl->generatorType = GEN_NGLIB;
     activeGenerator = meshControl->generatorType;
 
-    cadView->show();
+    if(egIni->isSet("autoview"))
+       cadView->show();
 
     occInputOk = cadView->readFile(fileName);
 

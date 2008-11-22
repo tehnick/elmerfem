@@ -78,6 +78,8 @@ public:
   void setGeom(nglib::Ng_STL_Geometry*);
   void setMp(nglib::Ng_Meshing_Parameters*);
   void setDeflection(double);
+  double lengthOf(double*);
+  void differenceOf(double*, double*, double*);
 
  private slots:
   void closeSlot();

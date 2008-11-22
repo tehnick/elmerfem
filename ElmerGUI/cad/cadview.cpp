@@ -164,6 +164,7 @@ void CadView::createActions()
   connect(cadPreferencesAct, SIGNAL(triggered()), this, SLOT(cadPreferencesSlot()));
 
   reloadAct = new QAction(QIcon(""), tr("Reload geometry"), this);
+  reloadAct->setShortcut(tr("Ctrl+R"));
   connect(reloadAct, SIGNAL(triggered()), this, SLOT(reloadSlot()));  
 }
 
@@ -200,11 +201,15 @@ bool CadView::readFile(QString fileName)
   double featureAngle = cadPreferences->ui.featureAngle->text().toDouble();
   bool mergePoints = cadPreferences->ui.mergePoints->isChecked();
 
-  if(deflection < 0)
+  if(deflection < 0.0) {
     deflection = 0.0005;
+    cout << "Bad value for deflection. Using: " << deflection << endl;
+  }
 
-  if(featureAngle < 0)
+  if(featureAngle < 0.0) {
     featureAngle = 30.0;
+    cout << "Bad value for feature angle. Using: " << featureAngle << endl;
+  }
 
   if(stlSurfaceData->GetOutput()->GetNumberOfPoints() > 0)
     stlSurfaceData->Delete();
@@ -216,7 +221,7 @@ bool CadView::readFile(QString fileName)
   stlEdgeData = vtkAppendPolyData::New();
 
   if(fileName.isEmpty()) {
-    cout << "File name is empty" << endl;
+    cout << "File name is empty. Aborting." << endl;
     return false;
   }
 
@@ -238,6 +243,8 @@ bool CadView::readFile(QString fileName)
     cout << "Cad import: No shapes. Aborting" << endl;
     return false;
   }
+
+  BRepTools::Clean(shape);
 
   this->fileName = fileName;
 
@@ -276,13 +283,17 @@ bool CadView::readFile(QString fileName)
   BRepMesh::Mesh(shape, deflection);
 
   numberOfFaces = 0;
-  TopExp_Explorer expFace(shape, TopAbs_FACE);
-  for(expFace; expFace.More(); expFace.Next()) {
+  TopExp_Explorer expFace;
+  for(expFace.Init(shape, TopAbs_FACE); expFace.More(); expFace.Next()) {
     TopoDS_Face Face = TopoDS::Face(expFace.Current());
 
     TopLoc_Location Location;
     Handle(Poly_Triangulation) Triangulation = BRep_Tool::Triangulation(Face, Location);
-    if(Triangulation.IsNull()) continue;
+
+    if(Triangulation.IsNull()) {
+      cout << "Encountered empty triangulation after face: " << numberOfFaces+1 << endl;
+      continue;
+    }
 
     const Poly_Array1OfTriangle& Triangles = Triangulation->Triangles();
     const TColgp_Array1OfPnt& Nodes = Triangulation->Nodes();
@@ -290,8 +301,15 @@ bool CadView::readFile(QString fileName)
     int nofTriangles = Triangulation->NbTriangles();
     int nofNodes = Triangulation->NbNodes();
 
-    if(nofTriangles < 1) continue;
-    if(nofNodes < 1) continue;
+    if(nofTriangles < 1) {
+      cout << "No triangles for mesh on face: " << numberOfFaces+1 << endl;
+      continue;
+    }
+
+    if(nofNodes < 1) {
+      cout << "No nodes for mesh on face: " << numberOfFaces+1 << endl;
+      continue;
+    }
     
     numberOfFaces++;
 
@@ -311,8 +329,7 @@ bool CadView::readFile(QString fileName)
       triangle->GetPointIds()->SetId(1, n1 - Nodes.Lower());
       triangle->GetPointIds()->SetId(2, n2 - Nodes.Lower());
 
-      partGrid->InsertNextCell(triangle->GetCellType(),
-			       triangle->GetPointIds());
+      partGrid->InsertNextCell(triangle->GetCellType(), triangle->GetPointIds());
     }
 
     double x[3];
@@ -374,13 +391,13 @@ bool CadView::readFile(QString fileName)
 
     // Clean up:
     //----------
-    partCleaner->Delete();
     partFeatureActor->Delete();
     partFeatureMapper->Delete();
     partFeature->Delete();
     partActor->Delete();
     partNormals->Delete();
     partMapper->Delete();
+    partCleaner->Delete();
     partGrid->Delete();
     partPoints->Delete();
     triangle->Delete();
@@ -583,7 +600,7 @@ void CadView::restrictMeshSizeLocal(nglib::Ng_Mesh* mesh, vtkPolyData* stlData,
 {
   int n0, n1, n2;
   double h, h0, h1, h2;
-  double p0[3], p1[3], p2[3], t[3];
+  double t[3], p0[3], p1[3], p2[3];
   vtkFloatArray* mshSize = vtkFloatArray::New();
   mshSize->SetNumberOfComponents(1);
   mshSize->SetNumberOfTuples(stlData->GetNumberOfPoints());
@@ -609,20 +626,20 @@ void CadView::restrictMeshSizeLocal(nglib::Ng_Mesh* mesh, vtkPolyData* stlData,
       cellPoints->GetPoint(1, p1);
       cellPoints->GetPoint(2, p2);
       
-      t[0] = p1[0]-p0[0]; t[1] = p1[1]-p0[1]; t[2] = p1[2]-p0[2];
-      h = sqrt(t[0]*t[0] + t[1]*t[1] + t[2]*t[2]);
+      differenceOf(t, p0, p1);
+      h = lengthOf(t);
       if(h < meshMinSize) h = meshMinSize;
       if(h < h1) mshSize->SetComponent(n1, 0, h);
       if(h < h0) mshSize->SetComponent(n0, 0, h);
       
-      t[0] = p2[0]-p0[0]; t[1] = p2[1]-p0[1]; t[2] = p2[2]-p0[2];
-      h = sqrt(t[0]*t[0] + t[1]*t[1] + t[2]*t[2]);
+      differenceOf(t, p2, p0);
+      h = lengthOf(t);
       if(h < meshMinSize) h = meshMinSize;
       if(h < h2) mshSize->SetComponent(n2, 0, h);
       if(h < h0) mshSize->SetComponent(n0, 0, h);
       
-      t[0] = p2[0]-p1[0]; t[1] = p2[1]-p1[1]; t[2] = p2[2]-p1[2];
-      h = sqrt(t[0]*t[0] + t[1]*t[1] + t[2]*t[2]);
+      differenceOf(t, p2, p1);
+      h = lengthOf(t);
       if(h < meshMinSize) h = meshMinSize;
       if(h < h2) mshSize->SetComponent(n2, 0, h);
       if(h < h1) mshSize->SetComponent(n1, 0, h);
@@ -665,4 +682,16 @@ void CadView::setDeflection(double deflection)
   if(deflection < 0) return;
 
   this->cadPreferences->ui.deflection->setText(QString::number(deflection));
+}
+
+double CadView::lengthOf(double* v)
+{
+  return sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+}
+
+void CadView::differenceOf(double* u, double* v, double* w)
+{
+  u[0] = v[0] - w[0];
+  u[1] = v[1] - w[1];
+  u[2] = v[2] - w[2];
 }
