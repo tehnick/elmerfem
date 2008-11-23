@@ -167,6 +167,33 @@ QSize GLWidget::sizeHint() const
   return QSize(720, 576);
 }
 
+void GLWidget::setMesh(mesh_t* m)
+{
+  this->mesh = m;
+}
+
+mesh_t* GLWidget::getMesh(void)
+{
+  return this->mesh;
+}
+
+void GLWidget::newMesh(void)
+{
+  this->mesh = new mesh_t;
+}
+
+void GLWidget::deleteMesh(void)
+{
+  delete this->mesh;
+}
+
+bool GLWidget::hasMesh(void)
+{
+  if(this->mesh)
+    return true;
+
+  return false;
+}
 
 // Init GL...
 //-----------------------------------------------------------------------------

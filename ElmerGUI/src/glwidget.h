@@ -85,11 +85,12 @@ public:
   
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
-  
-  mesh_t *mesh;
-  
-  int lists;
-  list_t *list;
+
+  void setMesh(mesh_t*);
+  mesh_t* getMesh(void);
+  void newMesh(void);
+  void deleteMesh(void);
+  bool hasMesh(void);
 
   void rebuildLists();
   void rebuildSurfaceLists(void);
@@ -97,6 +98,9 @@ public:
 
   bool toggleCoordinates();
   void enableIndicator(bool);
+
+  int lists;
+  list_t *list;
   
   // public state variables:
   bool stateFlatShade;
@@ -128,7 +132,8 @@ public:
   QColor edgeColor;
   QColor surfaceMeshColor;
   QColor sharpEdgeColor;
-
+  
+  // public hash tables:
   QHash<int, int> boundaryMap;
   QHash<int, int> bodyMap;
 
@@ -152,6 +157,8 @@ protected:
   void keyReleaseEvent(QKeyEvent*);
   
 private:
+  mesh_t *mesh;
+  
   Helpers *helpers;
   Meshutils *meshutils;
 

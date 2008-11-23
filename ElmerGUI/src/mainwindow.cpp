@@ -1254,9 +1254,9 @@ void MainWindow::readInputFile(QString fileName)
 //-----------------------------------------------------------------------------
 void MainWindow::makeElmerMeshFromTetlib()
 {
-  meshutils->clearMesh(glWidget->mesh);
+  meshutils->clearMesh(glWidget->getMesh());
 
-  glWidget->mesh = tetlibAPI->createElmerMeshStructure();
+  glWidget->setMesh(tetlibAPI->createElmerMeshStructure());
 
   glWidget->rebuildLists();
 
@@ -1269,9 +1269,9 @@ void MainWindow::makeElmerMeshFromTetlib()
 //-----------------------------------------------------------------------------
 void MainWindow::makeElmerMeshFromNglib()
 {
-  meshutils->clearMesh(glWidget->mesh);
+  meshutils->clearMesh(glWidget->getMesh());
   nglibAPI->ngmesh = this->ngmesh;
-  glWidget->mesh = nglibAPI->createElmerMeshStructure();
+  glWidget->setMesh(nglibAPI->createElmerMeshStructure());
 
   glWidget->rebuildLists();
 
@@ -1309,24 +1309,24 @@ void MainWindow::loadElmerMesh(QString dirName)
 {
   logMessage("Loading elmer mesh files");
 
-  if(glWidget->mesh != NULL) {
-    glWidget->mesh->clear();
-    delete glWidget->mesh;
+  if(glWidget->hasMesh()) {
+    glWidget->getMesh()->clear();
+    glWidget->deleteMesh();
   }
 
-  glWidget->mesh = new mesh_t;
+  glWidget->newMesh();
 
-  bool success = glWidget->mesh->load(dirName.toAscii().data());
+  bool success = glWidget->getMesh()->load(dirName.toAscii().data());
 
   if(!success) {
-    glWidget->mesh->clear();
-    delete glWidget->mesh;
+    glWidget->getMesh()->clear();
+    glWidget->deleteMesh();
     logMessage("Failed loading mesh files");
     return;
   }
 
-  meshutils->findSurfaceElementEdges(glWidget->mesh);
-  meshutils->findSurfaceElementNormals(glWidget->mesh);
+  meshutils->findSurfaceElementEdges(glWidget->getMesh());
+  meshutils->findSurfaceElementNormals(glWidget->getMesh());
   
   glWidget->rebuildLists();
 
@@ -1341,11 +1341,12 @@ void MainWindow::loadElmerMesh(QString dirName)
 //-----------------------------------------------------------------------------
 void MainWindow::saveSlot()
 {
-  if(glWidget->mesh==NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Unable to save mesh: no data");
     return;
   }
-  if (!saveDirName.isEmpty()) {
+
+  if(!saveDirName.isEmpty()) {
     logMessage("Output directory " + saveDirName);
   } else {
     saveAsSlot();
@@ -1359,7 +1360,7 @@ void MainWindow::saveSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::saveAsSlot()
 {
-  if(glWidget->mesh==NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Unable to save mesh: no data");
     return;
   }
@@ -1383,7 +1384,7 @@ void MainWindow::saveAsSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::saveProjectSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Unable to save project: no mesh");
     return;
   }
@@ -1863,7 +1864,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                              REGENERATE SIF
   //===========================================================================
-  if(glWidget->mesh != NULL) {
+  if(glWidget->hasMesh()) {
     logMessage("Regenerating and saving the solver input file...");
 
     generateSifSlot();
@@ -1994,7 +1995,7 @@ void MainWindow::saveElmerMesh(QString dirName)
 
   // Save mesh files:
   //------------------
-  glWidget->mesh->save(dirName.toAscii().data());
+  glWidget->getMesh()->save(dirName.toAscii().data());
 
   // Save solver input file:
   //-------------------------
@@ -2082,7 +2083,7 @@ void MainWindow::modelSetupSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
 {
-  if ( !glWidget->mesh ) return;
+  if(!glWidget->hasMesh()) return;
 
   if ( pe->spareScroll->widget() )
     delete pe->spareScroll->widget();
@@ -2396,7 +2397,7 @@ void MainWindow::equationSelectedSlot(QAction* act)
 void MainWindow::equationBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
-  if  (glWidget->mesh ) {
+  if(glWidget->getMesh()) {
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
      populateBodyComboBoxes(body);
      if ( state ) {
@@ -2548,7 +2549,7 @@ void MainWindow::materialSelectedSlot(QAction* act)
 void MainWindow::materialBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
-  if( glWidget->mesh ) {
+  if(glWidget->hasMesh()) {
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
      populateBodyComboBoxes( body);
  
@@ -2683,7 +2684,7 @@ void MainWindow::bodyForceSelectedSlot(QAction* act)
 void MainWindow::forceBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
-  if  (glWidget->mesh ) {
+  if(glWidget->hasMesh()) {
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
      populateBodyComboBoxes(body);
  
@@ -2818,7 +2819,7 @@ void MainWindow::initialConditionSelectedSlot(QAction* act)
 void MainWindow::initialBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
-  if  (glWidget->mesh ) {
+  if(glWidget->hasMesh()) {
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
      populateBodyComboBoxes( body);
  
@@ -2841,7 +2842,7 @@ void MainWindow::initialBodyChanged(int state)
 //-----------------------------------------------------------------------------
 void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
 {
-  if  (!glWidget->mesh ) return;
+  if(!glWidget->hasMesh()) return;
 
   if ( pe->spareScroll->widget() ) {
     delete pe->spareScroll->widget();
@@ -3018,7 +3019,7 @@ void MainWindow::boundaryConditionSelectedSlot(QAction* act)
 void MainWindow::bcBoundaryChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
-  if  (glWidget->mesh ) {
+  if(glWidget->hasMesh()) {
      BoundaryPropertyEditor *boundary = 
            (BoundaryPropertyEditor *)a->property("boundary").toULongLong();
      populateBoundaryComboBoxes(boundary);
@@ -3042,8 +3043,8 @@ void MainWindow::bcBoundaryChanged(int state)
 //-----------------------------------------------------------------------------
 void MainWindow::bodyEditSlot()
 {
-  if(glWidget->mesh == NULL) {
-    logMessage("Unable to open body editor - there is no mesh");
+  if(!glWidget->hasMesh()) {
+    logMessage("Unable to open body editor - no mesh");
     bodyEditActive = false;
     synchronizeMenuToState();
     return;
@@ -3067,8 +3068,8 @@ void MainWindow::bodyEditSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::bcEditSlot()
 {
-  if(glWidget->mesh == NULL) {
-    logMessage("Unable to open BC editor - there is no mesh");
+  if(!glWidget->hasMesh()) {
+    logMessage("Unable to open BC editor - no mesh");
     bcEditActive = false;
     synchronizeMenuToState();
     return;
@@ -3091,7 +3092,7 @@ void MainWindow::bcEditSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::modelSummarySlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   QTextEdit *te = summaryEditor->ui.summaryEdit;
   te->clear();
   summaryEditor->show();
@@ -3475,7 +3476,7 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 //-----------------------------------------------------------------------------
 void MainWindow::hidesurfacemeshSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3515,7 +3516,7 @@ void MainWindow::hidesurfacemeshSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::hidevolumemeshSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3548,7 +3549,7 @@ void MainWindow::hidevolumemeshSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::hidesharpedgesSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3593,7 +3594,7 @@ void MainWindow::viewCoordinatesSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::selectDefinedEdgesSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3656,7 +3657,7 @@ void MainWindow::selectDefinedEdgesSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::selectDefinedSurfacesSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3720,7 +3721,7 @@ void MainWindow::selectDefinedSurfacesSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::selectAllSurfacesSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3754,7 +3755,7 @@ void MainWindow::selectAllSurfacesSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::selectAllEdgesSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3788,7 +3789,7 @@ void MainWindow::selectAllEdgesSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::hideselectedSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -3864,7 +3865,7 @@ void MainWindow::showallSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::resetSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
   
@@ -3916,7 +3917,7 @@ void MainWindow::resetSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::flatShadeSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Refusing to change shade model when mesh is empty");
     return;
   }
@@ -3934,7 +3935,7 @@ void MainWindow::flatShadeSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::smoothShadeSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Refusing to change shade model when mesh is empty");
     return;
   }
@@ -3952,7 +3953,7 @@ void MainWindow::smoothShadeSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showSurfaceNumbersSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Refusing to show surface element numbering when mesh is empty");
     return;
   }
@@ -3970,7 +3971,7 @@ void MainWindow::showSurfaceNumbersSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showEdgeNumbersSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Refusing to show edge element numbering when mesh is empty");
     return;
   }
@@ -3988,7 +3989,7 @@ void MainWindow::showEdgeNumbersSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showNodeNumbersSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Refusing to show node numbering when mesh is empty");
     return;
   }
@@ -4006,7 +4007,7 @@ void MainWindow::showNodeNumbersSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showBoundaryIndexSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Refusing to show boundary indices when mesh is empty");
     return;
   }
@@ -4025,7 +4026,7 @@ void MainWindow::showBoundaryIndexSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showBodyIndexSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Refusing to show body indices when mesh is empty");
     return;
   }
@@ -4045,7 +4046,7 @@ void MainWindow::showBodyIndexSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::glControlSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("No mesh - unable to set GL parameters when the mesh is empty");
     return;
   }
@@ -4059,7 +4060,7 @@ void MainWindow::glControlSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::colorizeBoundarySlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("No mesh - unable to colorize boundaries");
     return;
   }
@@ -4077,7 +4078,7 @@ void MainWindow::colorizeBoundarySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::colorizeBodySlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("No mesh - unable to colorize bodies");
     return;
   }
@@ -4107,7 +4108,7 @@ void MainWindow::backgroundColorSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::surfaceColorSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Unable to change surface color when the mesh is empty");
     return;
   }
@@ -4122,7 +4123,7 @@ void MainWindow::surfaceColorSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::edgeColorSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Unable to change edge color when the mesh is empty");
     return;
   }
@@ -4137,7 +4138,7 @@ void MainWindow::edgeColorSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::surfaceMeshColorSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Unable to change surface mesh color when the mesh is empty");
     return;
   }
@@ -4152,7 +4153,7 @@ void MainWindow::surfaceMeshColorSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::sharpEdgeColorSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("Unable to change sharp edge colors when the mesh is empty");
     return;
   }
@@ -4289,12 +4290,12 @@ void MainWindow::remeshSlot()
   // ***** ELMERGRID *****
 
   if(activeGenerator == GEN_ELMERGRID) {
-    meshutils->clearMesh(glWidget->mesh);
-    glWidget->mesh = new mesh_t;
-    mesh_t *mesh = glWidget->mesh;
+    meshutils->clearMesh(glWidget->getMesh());
+    glWidget->newMesh();
+    mesh_t *mesh = glWidget->getMesh();
     
     elmergridAPI->createElmerMeshStructure(mesh, 
-             meshControl->elmerGridControlString.toAscii());
+		  meshControl->elmerGridControlString.toAscii());
     
     if(mesh->getSurfaces() == 0) meshutils->findSurfaceElements(mesh);
     
@@ -4406,9 +4407,9 @@ void MainWindow::remeshSlot()
 
   logMessage("Sending start request to mesh generator...");
 
-  meshutils->clearMesh(glWidget->mesh);
-  glWidget->mesh = new mesh_t;
-  mesh_t *mesh = glWidget->mesh;
+  meshutils->clearMesh(glWidget->getMesh());
+  glWidget->newMesh();
+  mesh_t *mesh = glWidget->getMesh();
 
   // Re-enable when finished() or terminated() signal is received:
   remeshAct->setEnabled(false);
@@ -4526,7 +4527,7 @@ void MainWindow::meshingFinishedSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::surfaceDivideSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("There is nothing to divide - mesh is empty");
     return;
   }
@@ -4541,7 +4542,7 @@ void MainWindow::surfaceDivideSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::doDivideSurfaceSlot(double angle)
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -4594,7 +4595,7 @@ void MainWindow::doDivideSurfaceSlot(double angle)
 //-----------------------------------------------------------------------------
 void MainWindow::surfaceUnifySlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -4651,7 +4652,7 @@ void MainWindow::surfaceUnifySlot()
 
 void MainWindow::applyOperations()
 {
- mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
 
   cout << "Apply " << operations << " operations" << endl;
   cout.flush();
@@ -4764,7 +4765,7 @@ void MainWindow::applyOperations()
 //-----------------------------------------------------------------------------
 void MainWindow::edgeDivideSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("There is nothing to divide - mesh is empty");
     return;
   }
@@ -4779,7 +4780,7 @@ void MainWindow::edgeDivideSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::doDivideEdgeSlot(double angle)
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -4832,7 +4833,7 @@ void MainWindow::doDivideEdgeSlot(double angle)
 //-----------------------------------------------------------------------------
 void MainWindow::edgeUnifySlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
@@ -4891,7 +4892,7 @@ void MainWindow::edgeUnifySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::cleanHangingSharpEdgesSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
 
   if(mesh == NULL)
     return;
@@ -4926,7 +4927,7 @@ void MainWindow::showsifSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::generateSifSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+  mesh_t *mesh = glWidget->getMesh();
 
   if(mesh == NULL) {
     logMessage("Unable to create SIF: no mesh");
@@ -5394,7 +5395,7 @@ void MainWindow::parallelSettingsSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::runsolverSlot()
 {
-  if(glWidget->mesh == NULL) {
+  if(!glWidget->hasMesh()) {
     logMessage("No mesh - unable to start solver");
     return;
   }
