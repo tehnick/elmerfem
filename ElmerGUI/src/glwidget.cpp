@@ -321,17 +321,17 @@ void GLWidget::paintGL()
       glTranslated(0, 0, 0.1);
       glColor3d(0.5, 0, 0);
       
-      for(int i=0; i < mesh->surfaces; i++) {
-	surface_t *surface = &mesh->surface[i];
-	int nodes = surface->code / 100;
+      for(int i=0; i < mesh->getSurfaces(); i++) {
+	surface_t *surface = mesh->getSurface(i);
+	int nodes = surface->getCode() / 100;
 
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
 
 	for(int j=0; j < nodes;j++) {
-	  int ind = surface->node[j];
-	  xabs[0] = xabs[0] + mesh->node[ind].x[0];
-	  xabs[1] = xabs[1] + mesh->node[ind].x[1];
-	  xabs[2] = xabs[2] + mesh->node[ind].x[2];
+	  int ind = surface->getNodeIndex(j);
+	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
+	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
+	  xabs[2] = xabs[2] + mesh->getNode(ind)->getX(2);
 	}
 	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
@@ -349,17 +349,17 @@ void GLWidget::paintGL()
       glTranslated(0, 0, 0.1);
       glColor3d(0.0, 0.5, 0);
       
-      for(int i=0; i < mesh->edges; i++) {
-	edge_t *edge = &mesh->edge[i];
-	int nodes = edge->code / 100;
+      for(int i=0; i < mesh->getEdges(); i++) {
+	edge_t *edge = mesh->getEdge(i);
+	int nodes = edge->getCode() / 100;
 	
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
 	
 	for(int j=0; j < nodes;j++) {
-	  int ind = edge->node[j];
-	  xabs[0] = xabs[0] + mesh->node[ind].x[0];
-	  xabs[1] = xabs[1] + mesh->node[ind].x[1];
-	  xabs[2] = xabs[2] + mesh->node[ind].x[2];
+	  int ind = edge->getNodeIndex(j);
+	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
+	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
+	  xabs[2] = xabs[2] + mesh->getNode(ind)->getX(2);
 	}
 	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
@@ -377,19 +377,19 @@ void GLWidget::paintGL()
       glTranslated(0, 0, 0.1);
       glColor3d(0, 0, 0.5);
 
-       for(int i=0; i < mesh->nodes; i++) {
-	 xabs[0] = mesh->node[i].x[0];
-	 xabs[1] = mesh->node[i].x[1];
-	 xabs[2] = mesh->node[i].x[2];
-	 
-	 xrel[0] = (xabs[0] - drawTranslate[0]) / drawScale;
-	 xrel[1] = (xabs[1] - drawTranslate[1]) / drawScale;
-	 xrel[2] = (xabs[2] - drawTranslate[2]) / drawScale;
-	 
-	 renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
-       }
-       glPopMatrix();
-       glMatrixMode(GL_MODELVIEW);
+      for(int i=0; i < mesh->getNodes(); i++) {
+	xabs[0] = mesh->getNode(i)->getX(0);
+	xabs[1] = mesh->getNode(i)->getX(1);
+	xabs[2] = mesh->getNode(i)->getX(2);
+	
+	xrel[0] = (xabs[0] - drawTranslate[0]) / drawScale;
+	xrel[1] = (xabs[1] - drawTranslate[1]) / drawScale;
+	xrel[2] = (xabs[2] - drawTranslate[2]) / drawScale;
+	
+	renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
+      }
+      glPopMatrix();
+      glMatrixMode(GL_MODELVIEW);
     }
 
     if(stateDrawBoundaryIndex || stateDrawBodyIndex) {
@@ -398,58 +398,58 @@ void GLWidget::paintGL()
       glTranslated(0, 0, 0.1);
       glColor3d(0.5, 0, 0);
 
-      for(int i=0; i < mesh->edges; i++) {
-	edge_t *edge = &mesh->edge[i];
-	int nodes = edge->code / 100;
+      for(int i=0; i < mesh->getEdges(); i++) {
+	edge_t *edge = mesh->getEdge(i);
+	int nodes = edge->getCode() / 100;
 	
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
 	
 	for(int j=0; j < nodes;j++) {
-	  int ind = edge->node[j];
-	  xabs[0] = xabs[0] + mesh->node[ind].x[0];
-	  xabs[1] = xabs[1] + mesh->node[ind].x[1];
-	  xabs[2] = xabs[2] + mesh->node[ind].x[2];
+	  int ind = edge->getNodeIndex(j);
+	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
+	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
+	  xabs[2] = xabs[2] + mesh->getNode(ind)->getX(2);
 	}
 	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
 	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
 	
-	if(stateDrawBoundaryIndex && (edge->nature == PDE_BOUNDARY))
-	  renderText(xrel[0], xrel[1], xrel[2], QString::number(edge->index) );
+	if(stateDrawBoundaryIndex && (edge->getNature() == PDE_BOUNDARY))
+	  renderText(xrel[0], xrel[1], xrel[2], QString::number(edge->getIndex()));
 
-	if(stateDrawBodyIndex && (edge->nature == PDE_BULK))
-	  renderText(xrel[0], xrel[1], xrel[2], QString::number(edge->index) );
+	if(stateDrawBodyIndex && (edge->getNature() == PDE_BULK))
+	  renderText(xrel[0], xrel[1], xrel[2], QString::number(edge->getIndex()));
       }
       
-      for(int i=0; i < mesh->surfaces; i++) {
-	surface_t *surface = &mesh->surface[i];
-	int nodes = surface->code / 100;
+      for(int i=0; i < mesh->getSurfaces(); i++) {
+	surface_t *surface = mesh->getSurface(i);
+	int nodes = surface->getCode() / 100;
 
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
 	
 	for(int j=0; j < nodes; j++) {
-	  int ind = surface->node[j];
-	  xabs[0] = xabs[0] + mesh->node[ind].x[0];
-	  xabs[1] = xabs[1] + mesh->node[ind].x[1];
-	  xabs[2] = xabs[2] + mesh->node[ind].x[2];
+	  int ind = surface->getNodeIndex(j);
+	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
+	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
+	  xabs[2] = xabs[2] + mesh->getNode(ind)->getX(2);
 	}
 	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
 	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
 	
-	if(stateDrawBoundaryIndex && (surface->nature == PDE_BOUNDARY))
-	  renderText(xrel[0], xrel[1], xrel[2], QString::number(surface->index) );
+	if(stateDrawBoundaryIndex && (surface->getNature() == PDE_BOUNDARY))
+	  renderText(xrel[0], xrel[1], xrel[2], QString::number(surface->getIndex()));
 
-	if(stateDrawBodyIndex && (surface->nature == PDE_BULK))
-	  renderText(xrel[0], xrel[1], xrel[2], QString::number(surface->index) );
+	if(stateDrawBodyIndex && (surface->getNature() == PDE_BULK))
+	  renderText(xrel[0], xrel[1], xrel[2], QString::number(surface->getIndex()));
 
 	// case 3d:
-	if(stateDrawBodyIndex && (surface->nature == PDE_BOUNDARY)) {
-	  for(int i = 0; i < surface->elements; i++) {
-	    int j = surface->element[i];
+	if(stateDrawBodyIndex && (surface->getNature() == PDE_BOUNDARY)) {
+	  for(int i = 0; i < surface->getElements(); i++) {
+	    int j = surface->getElementIndex(i);
 	    if(j >= 0) {
-	      element_t *element = &mesh->element[j];
-	      renderText(xrel[0], xrel[1], xrel[2], QString::number(element->index) );
+	      element_t *element = mesh->getElement(j);
+	      renderText(xrel[0], xrel[1], xrel[2], QString::number(element->getIndex()));
 	    }
 	  }
 	}
@@ -695,17 +695,17 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	  glDeleteLists(l2->object, 1);
 	  l2->selected = false;	  
 	  if(l2->type == SURFACELIST) {
-            for( int j=0; j<mesh->surfaces; j++ ) {
-              surface_t *surf=&mesh->surface[j];
-              if ( surf->index == l2->index )
-                surf->selected=l2->selected;
+            for( int j = 0; j < mesh->getSurfaces(); j++ ) {
+              surface_t *surf = mesh->getSurface(j);
+              if ( surf->getIndex() == l2->index )
+                surf->setSelected(l2->selected);
             }
 	    l2->object = generateSurfaceList(l2->index, surfaceColor); // cyan
 	  } else if(l2->type == EDGELIST) {
-            for( int j=0; j<mesh->edges; j++ ) {
-              edge_t *edge=&mesh->edge[j];
-              if ( edge->index == l2->index )
-                edge->selected=l2->selected;
+            for( int j=0; j < mesh->getEdges(); j++ ) {
+              edge_t *edge = mesh->getEdge(j);
+              if ( edge->getIndex() == l2->index )
+                edge->setSelected(l2->selected);
             }
 	    l2->object = generateEdgeList(l2->index, edgeColor); // green
 	  }
@@ -726,9 +726,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	l->object = generateSurfaceList(l->index, surfaceColor); // cyan
       }
 
-      for( int i=0; i<mesh->surfaces; i++ ) {
-        surface_t *surf = &mesh->surface[i];
-        if ( surf->index == l->index ) surf->selected=l->selected;
+      for( int i=0; i<mesh->getSurfaces(); i++ ) {
+        surface_t *surf = mesh->getSurface(i);
+        if ( surf->getIndex() == l->index ) surf->setSelected(l->selected);
       }
 
     } else if(l->type == EDGELIST) {
@@ -737,9 +737,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       } else {
 	l->object = generateEdgeList(l->index, edgeColor); // green
       }
-      for( int i=0; i<mesh->edges; i++ ) {
-        edge_t *edge = &mesh->edge[i];
-        if ( edge->index == l->index ) edge->selected=l->selected;
+      for( int i=0; i < mesh->getEdges(); i++ ) {
+        edge_t *edge = mesh->getEdge(i);
+        if ( edge->getIndex() == l->index ) edge->setSelected(l->selected);
       }
     }
 
@@ -751,28 +751,28 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       // determine the max bulk index
       int MAX_BULK_INDEX = -1;
 
-      for(int i = 0; i < mesh->elements; i++) {
-	element_t *elem = &mesh->element[i];
-	if(elem->nature != PDE_BULK)
+      for(int i = 0; i < mesh->getElements(); i++) {
+	element_t *elem = mesh->getElement(i);
+	if(elem->getNature() != PDE_BULK)
 	  break;
-	if(elem->index > MAX_BULK_INDEX)
-	  MAX_BULK_INDEX = elem->index;
+	if(elem->getIndex() > MAX_BULK_INDEX)
+	  MAX_BULK_INDEX = elem->getIndex();
       }
 
-      for(int i = 0; i < mesh->surfaces; i++) {
-	surface_t *surf = &mesh->surface[i];
-	if(surf->nature != PDE_BULK)
+      for(int i = 0; i < mesh->getSurfaces(); i++) {
+	surface_t *surf = mesh->getSurface(i);
+	if(surf->getNature() != PDE_BULK)
 	  break;
-	if(surf->index > MAX_BULK_INDEX)
-	  MAX_BULK_INDEX = surf->index;
+	if(surf->getIndex() > MAX_BULK_INDEX)
+	  MAX_BULK_INDEX = surf->getIndex();
       }
 
-      for(int i = 0; i < mesh->edges; i++) {
-	edge_t *edge = &mesh->edge[i];
-	if(edge->nature != PDE_BULK)
+      for(int i = 0; i < mesh->getEdges(); i++) {
+	edge_t *edge = mesh->getEdge(i);
+	if(edge->getNature() != PDE_BULK)
 	  break;
-	if(edge->index > MAX_BULK_INDEX)
-	  MAX_BULK_INDEX = edge->index;
+	if(edge->getIndex() > MAX_BULK_INDEX)
+	  MAX_BULK_INDEX = edge->getIndex();
       }
       
       MAX_BULK_INDEX++;
@@ -804,17 +804,17 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	
 	if(l2->selected && (l2->nature == PDE_BOUNDARY) && 
 	   (l2->type == SURFACELIST)) {	  
-	  for(int j = 0; j < mesh->surfaces; j++) {
-	    surface_t *surf = &mesh->surface[j];	    
-	    if(surf->index == l2->index) {
-	      for(int k = 0; k < surf->elements; k++) {
-		int l = surf->element[k];
+	  for(int j = 0; j < mesh->getSurfaces(); j++) {
+	    surface_t *surf = mesh->getSurface(j);
+	    if(surf->getIndex() == l2->index) {
+	      for(int k = 0; k < surf->getElements(); k++) {
+		int l = surf->getElementIndex(k);
 		if(l < 0) 
 		  break;
-		element_t *elem = &mesh->element[l];
-		if((elem->index < 0) || (elem->index >= MAX_BULK_INDEX))
+		element_t *elem = mesh->getElement(l);
+		if((elem->getIndex() < 0) || (elem->getIndex() >= MAX_BULK_INDEX))
 		  break;
-		tmp2[elem->index] = true;
+		tmp2[elem->getIndex()] = true;
 	      }
 	      for(int k = 0; k < MAX_BULK_INDEX; k++) {
 		tmp1[k] &= tmp2[k];
@@ -969,18 +969,18 @@ GLuint GLWidget::makeLists()
 
   // Scan volume elements to determine the number of mat. ind. (just for hash):
   //---------------------------------------------------------------------------
-  int *element_nature = new int[mesh->elements];
+  int *element_nature = new int[mesh->getElements()];
 
-  for(i=0; i < mesh->elements; i++)
+  for(i=0; i < mesh->getElements(); i++)
     element_nature[i] = 0;
   
-  for(i=0; i < mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
-    if(element->index >= 0)  // accept also index 0
-      element_nature[element->index] = element->nature;
+  for(i=0; i < mesh->getElements(); i++) {
+    element_t *element = mesh->getElement(i);
+    if(element->getIndex() >= 0)  // accept also index 0
+      element_nature[element->getIndex()] = element->getNature();
   }    
   
-  for(i=0; i < mesh->elements; i++) {
+  for(i=0; i < mesh->getElements(); i++) {
     if(element_nature[i] == PDE_BULK) {
       bodyMap.insert(i, bodyCount);
       bodyCount++;
@@ -992,18 +992,18 @@ GLuint GLWidget::makeLists()
   // Scan surface elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int surface_bcs = 0;
-  int *surface_nature = new int[mesh->surfaces];
+  int *surface_nature = new int[mesh->getSurfaces()];
   
-  for(i=0; i < mesh->surfaces; i++)
+  for(i=0; i < mesh->getSurfaces(); i++)
     surface_nature[i] = 0;
   
-  for(i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
-    if(surface->index > 0)
-      surface_nature[surface->index] = surface->nature;
+  for(i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
+    if(surface->getIndex() > 0)
+      surface_nature[surface->getIndex()] = surface->getNature();
   }    
   
-  for(i=0; i < mesh->surfaces; i++) {
+  for(i=0; i < mesh->getSurfaces(); i++) {
     if(surface_nature[i] > 0) {
       surface_bcs++;
       if(surface_nature[i] == PDE_BULK)
@@ -1019,18 +1019,18 @@ GLuint GLWidget::makeLists()
   // Scan edge elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int edge_bcs = 0;
-  int *edge_nature = new int[mesh->edges];
+  int *edge_nature = new int[mesh->getEdges()];
   
-  for(i=0; i < mesh->edges; i++)
+  for(i=0; i < mesh->getEdges(); i++)
     edge_nature[i] = 0;
   
-  for(i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if(edge->index > 0)
-      edge_nature[edge->index] = edge->nature;
+  for(i=0; i < mesh->getEdges(); i++) {
+    edge_t *edge = mesh->getEdge(i);
+    if(edge->getIndex() > 0)
+      edge_nature[edge->getIndex()] = edge->getNature();
   }    
   
-  for(i=0; i < mesh->edges; i++) {
+  for(i=0; i < mesh->getEdges(); i++) {
     if(edge_nature[i] > 0) {
       edge_bcs++;
       if(edge_nature[i] == PDE_BULK)
@@ -1046,7 +1046,7 @@ GLuint GLWidget::makeLists()
   // Scan point elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int point_bcs = 0;
-  int *point_nature = new int[mesh->points];
+  int *point_nature = new int[mesh->getPoints()];
 
   // TODO
 
@@ -1070,8 +1070,8 @@ GLuint GLWidget::makeLists()
   cout.flush();
 
   // Surface lists:
-  for(i=0; i < mesh->surfaces; i++) {
-    mesh->surface[i].selected = false;
+  for(i=0; i < mesh->getSurfaces(); i++) {
+    mesh->getSurface(i)->setSelected(false);
     if(surface_nature[i] > 0) {
 
       // triangles & quads:
@@ -1099,8 +1099,8 @@ GLuint GLWidget::makeLists()
   }
   
   // Edge lists (only PDE_BOUNDARY):
-  for(i=0; i < mesh->edges; i++) {
-    mesh->edge[i].selected = false;
+  for(i=0; i < mesh->getEdges(); i++) {
+    mesh->getEdge(i)->setSelected(false);
     if(edge_nature[i] == PDE_BOUNDARY) {
       list_t *l = &list[current_index++];
       l->nature = edge_nature[i]; 
@@ -1175,15 +1175,15 @@ GLuint GLWidget::generateVolumeMeshList(QColor qColor)
 
   glBegin(GL_LINES);
 
-  for(int i = 0; i < mesh->elements; i++) {
-    element_t *element = &mesh->element[i];    
+  for(int i = 0; i < mesh->getElements(); i++) {
+    element_t *element = mesh->getElement(i);
 
     glColor3d(R, G, B);
 
     int nofEdges = 0;
     int *edgeMap = 0;
 
-    switch((int)(element->code / 100)) {
+    switch((int)(element->getCode() / 100)) {
     case 5:
       nofEdges = 6;
       edgeMap = &tetmap[0][0];
@@ -1203,19 +1203,19 @@ GLuint GLWidget::generateVolumeMeshList(QColor qColor)
       int p0 = *edgeMap++;
       int p1 = *edgeMap++;
       
-      int q0 = element->node[p0];
-      int q1 = element->node[p1];
+      int q0 = element->getNodeIndex(p0);
+      int q1 = element->getNodeIndex(p1);
       
-      node_t *n0 = &mesh->node[q0];
-      node_t *n1 = &mesh->node[q1];
+      node_t *n0 = mesh->getNode(q0);
+      node_t *n1 = mesh->getNode(q1);
       
-      double x0 = ( n0->x[0] - drawTranslate[0] ) / drawScale;
-      double y0 = ( n0->x[1] - drawTranslate[1] ) / drawScale;
-      double z0 = ( n0->x[2] - drawTranslate[2] ) / drawScale;
+      double x0 = ( n0->getX(0) - drawTranslate[0] ) / drawScale;
+      double y0 = ( n0->getX(1) - drawTranslate[1] ) / drawScale;
+      double z0 = ( n0->getX(2) - drawTranslate[2] ) / drawScale;
       
-      double x1 = ( n1->x[0] - drawTranslate[0] ) / drawScale;
-      double y1 = ( n1->x[1] - drawTranslate[1] ) / drawScale;
-      double z1 = ( n1->x[2] - drawTranslate[2] ) / drawScale;
+      double x1 = ( n1->getX(0) - drawTranslate[0] ) / drawScale;
+      double y1 = ( n1->getX(1) - drawTranslate[1] ) / drawScale;
+      double z1 = ( n1->getX(2) - drawTranslate[2] ) / drawScale;
       
       glVertex3d(x0, y0, z0);
       glVertex3d(x1, y1, z1);
@@ -1248,25 +1248,25 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
   //-----------------
   glBegin(GL_TRIANGLES);
 
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
 
-    if((surface->index == index) && ((int)(surface->code/100) == 3)) {
+    if((surface->getIndex() == index) && ((int)(surface->getCode() / 100) == 3)) {
 
       glColor3d(R, G, B);
 
-      if(stateBcColors && (surface->nature == PDE_BOUNDARY)) {
+      if(stateBcColors && (surface->getNature() == PDE_BOUNDARY)) {
 	glColor3d(0.5 + 0.5 * sin(1.0 * index),
 		  0.5 + 0.5 * cos(2.0 * index),
 		  0.5 + 0.5 * cos(3.0 * index));
       } 
 	
       if(stateBodyColors) {
-	int bodyIndex = surface->index;
-	if(surface->nature == PDE_BOUNDARY) {
-	  int parentIndex = surface->element[0];
-	  element_t *parent = &mesh->element[parentIndex];
-	  bodyIndex = parent->index;
+	int bodyIndex = surface->getIndex();
+	if(surface->getNature() == PDE_BOUNDARY) {
+	  int parentIndex = surface->getElementIndex(0);
+	  element_t *parent = mesh->getElement(parentIndex);
+	  bodyIndex = parent->getIndex();
 	}
 	glColor3d(0.5 + 0.5 * sin(1.0 * bodyIndex),
 		  0.5 + 0.5 * cos(2.0 * bodyIndex),
@@ -1277,21 +1277,21 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       changeNormalDirection(u, surface->normal);
       glNormal3dv(u); 
       
-      int n0 = surface->node[0];
-      int n1 = surface->node[1];
-      int n2 = surface->node[2];
+      int n0 = surface->getNodeIndex(0);
+      int n1 = surface->getNodeIndex(1);
+      int n2 = surface->getNodeIndex(2);
       
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      x0[0] = (mesh->getNode(n0)->getX(0) - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->getNode(n0)->getX(1) - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->getNode(n0)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      x1[0] = (mesh->getNode(n1)->getX(0) - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->getNode(n1)->getX(1) - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->getNode(n1)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      x2[0] = (mesh->getNode(n2)->getX(0) - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->getNode(n2)->getX(1) - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->getNode(n2)->getX(2) - drawTranslate[2]) / drawScale;
 
       changeNormalDirection(u, surface->vertex_normals[0]);
       if ( !stateFlatShade ) glNormal3dv(u);
@@ -1313,25 +1313,25 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
   //------------
   glBegin(GL_QUADS);
   
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
 
-    if((surface->index == index) && ((int)(surface->code/100) == 4)) {
+    if((surface->getIndex() == index) && ((int)(surface->getCode() / 100) == 4)) {
 
       glColor3d(R, G, B);
 
-      if(stateBcColors && (surface->nature == PDE_BOUNDARY)) {
+      if(stateBcColors && (surface->getNature() == PDE_BOUNDARY)) {
 	glColor3d(0.5 + 0.5 * sin(1.0 * index),
 		  0.5 + 0.5 * cos(2.0 * index),
 		  0.5 + 0.5 * cos(3.0 * index));
       }
 
       if(stateBodyColors) {
-	int bodyIndex = surface->index;
-	if(surface->nature == PDE_BOUNDARY) {
-	  int parentIndex = surface->element[0];
-	  element_t *parent = &mesh->element[parentIndex];
-	  bodyIndex = parent->index;
+	int bodyIndex = surface->getIndex();
+	if(surface->getNature() == PDE_BOUNDARY) {
+	  int parentIndex = surface->getElementIndex(0);
+	  element_t *parent = mesh->getElement(parentIndex);
+	  bodyIndex = parent->getIndex();
 	}
 	glColor3d(0.5 + 0.5 * sin(1.0 * bodyIndex),
 		  0.5 + 0.5 * cos(2.0 * bodyIndex),
@@ -1342,26 +1342,26 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       changeNormalDirection(u, surface->normal);
       glNormal3dv(u); 
       
-      int n0 = surface->node[0];
-      int n1 = surface->node[1];
-      int n2 = surface->node[2];
-      int n3 = surface->node[3];
+      int n0 = surface->getNodeIndex(0);
+      int n1 = surface->getNodeIndex(1);
+      int n2 = surface->getNodeIndex(2);
+      int n3 = surface->getNodeIndex(3);
       
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      x0[0] = (mesh->getNode(n0)->getX(0) - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->getNode(n0)->getX(1) - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->getNode(n0)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      x1[0] = (mesh->getNode(n1)->getX(0) - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->getNode(n1)->getX(1) - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->getNode(n1)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      x2[0] = (mesh->getNode(n2)->getX(0) - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->getNode(n2)->getX(1) - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->getNode(n2)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x3[0] = (mesh->node[n3].x[0] - drawTranslate[0]) / drawScale;
-      x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
-      x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
+      x3[0] = (mesh->getNode(n3)->getX(0) - drawTranslate[0]) / drawScale;
+      x3[1] = (mesh->getNode(n3)->getX(1) - drawTranslate[1]) / drawScale;
+      x3[2] = (mesh->getNode(n3)->getX(2) - drawTranslate[2]) / drawScale;
       
       changeNormalDirection(u, surface->vertex_normals[0]);
       if ( !stateFlatShade ) glNormal3dv(u); 
@@ -1390,11 +1390,11 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
   
   cout << "draw indexes" << endl; 
 
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
 
-    if((surface->index == index)) {
-      int nodes = surface->code/100;
+    if((surface->getIndex() == index)) {
+      int nodes = surface->getCode() / 100;
 
       x0[0] = x0[1] = x0[2] = 0.0;
       for(int j=0;j<nodes;j++) {
@@ -1439,25 +1439,25 @@ GLuint GLWidget::generateSurfaceMeshList(int index, QColor qColor)
   glColor3d(R, G, B);
   glBegin(GL_LINES);
   
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
     
-    if((surface->index == index) && ((int)(surface->code/100) == 3)) {
-      int n0 = surface->node[0];
-      int n1 = surface->node[1];
-      int n2 = surface->node[2];
+    if((surface->getIndex() == index) && ((int)(surface->getCode() / 100) == 3)) {
+      int n0 = surface->getNodeIndex(0);
+      int n1 = surface->getNodeIndex(1);
+      int n2 = surface->getNodeIndex(2);
       
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      x0[0] = (mesh->getNode(n0)->getX(0) - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->getNode(n0)->getX(1) - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->getNode(n0)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      x1[0] = (mesh->getNode(n1)->getX(0) - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->getNode(n1)->getX(1) - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->getNode(n1)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      x2[0] = (mesh->getNode(n2)->getX(0) - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->getNode(n2)->getX(1) - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->getNode(n2)->getX(2) - drawTranslate[2]) / drawScale;
       
       glVertex3dv(x0);
       glVertex3dv(x1);
@@ -1470,30 +1470,30 @@ GLuint GLWidget::generateSurfaceMeshList(int index, QColor qColor)
     }
   }
   
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
 
-    if((surface->index == index) && ((int)(surface->code/100) == 4)) {
-      int n0 = surface->node[0];
-      int n1 = surface->node[1];
-      int n2 = surface->node[2];
-      int n3 = surface->node[3];
+    if((surface->getIndex() == index) && ((int)(surface->getCode() / 100) == 4)) {
+      int n0 = surface->getNodeIndex(0);
+      int n1 = surface->getNodeIndex(1);
+      int n2 = surface->getNodeIndex(2);
+      int n3 = surface->getNodeIndex(3);
       
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      x0[0] = (mesh->getNode(n0)->getX(0) - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->getNode(n0)->getX(1) - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->getNode(n0)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      x1[0] = (mesh->getNode(n1)->getX(0) - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->getNode(n1)->getX(1) - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->getNode(n1)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      x2[0] = (mesh->getNode(n2)->getX(0) - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->getNode(n2)->getX(1) - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->getNode(n2)->getX(2) - drawTranslate[2]) / drawScale;
       
-      x3[0] = (mesh->node[n3].x[0] - drawTranslate[0]) / drawScale;
-      x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
-      x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
+      x3[0] = (mesh->getNode(n3)->getX(0) - drawTranslate[0]) / drawScale;
+      x3[1] = (mesh->getNode(n3)->getX(1) - drawTranslate[1]) / drawScale;
+      x3[2] = (mesh->getNode(n3)->getX(2) - drawTranslate[2]) / drawScale;
       
       glVertex3dv(x0);
       glVertex3dv(x1);
@@ -1534,20 +1534,20 @@ GLuint GLWidget::generateEdgeList(int index, QColor qColor)
   glDisable(GL_LIGHTING);
   glBegin(GL_LINES);
 
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
+  for(int i=0; i < mesh->getEdges(); i++) {
+    edge_t *edge = mesh->getEdge(i);
 
-    if(edge->index == index) {
-      int n0 = edge->node[0];
-      int n1 = edge->node[1];
+    if(edge->getIndex() == index) {
+      int n0 = edge->getNodeIndex(0);
+      int n1 = edge->getNodeIndex(1);
 	
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      x0[0] = (mesh->getNode(n0)->getX(0) - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->getNode(n0)->getX(1) - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->getNode(n0)->getX(2) - drawTranslate[2]) / drawScale;
 	
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      x1[0] = (mesh->getNode(n1)->getX(0) - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->getNode(n1)->getX(1) - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->getNode(n1)->getX(2) - drawTranslate[2]) / drawScale;
 	
       glVertex3dv(x0);
       glVertex3dv(x1);
@@ -1582,20 +1582,20 @@ GLuint GLWidget::generateSharpEdgeList(QColor qColor)
   glDisable(GL_LIGHTING);
   glBegin(GL_LINES);
   
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
+  for(int i=0; i < mesh->getEdges(); i++) {
+    edge_t *edge = mesh->getEdge(i);
 
-    if(edge->sharp_edge) {
-      int n0 = edge->node[0];
-      int n1 = edge->node[1];
+    if(edge->isSharp()) {
+      int n0 = edge->getNodeIndex(0);
+      int n1 = edge->getNodeIndex(1);
 	
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      x0[0] = (mesh->getNode(n0)->getX(0) - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->getNode(n0)->getX(1) - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->getNode(n0)->getX(2) - drawTranslate[2]) / drawScale;
 	
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      x1[0] = (mesh->getNode(n1)->getX(0) - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->getNode(n1)->getX(1) - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->getNode(n1)->getX(2) - drawTranslate[2]) / drawScale;
 	
       glVertex3dv(x0);
       glVertex3dv(x1);

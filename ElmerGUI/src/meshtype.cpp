@@ -42,11 +42,288 @@
 #include "meshtype.h"
 using namespace std;
 
-mesh_t::mesh_t()
+void node_t::setXvec(double* y)
 {
-  setDefaults();
+  this->x[0] = y[0];
+  this->x[1] = y[1];
+  this->x[2] = y[2];
 }
 
+double* node_t::getXvec(void)
+{
+  return &this->x[0];
+}
+
+void node_t::setX(int n, double y)
+{
+  this->x[n] = y;
+}
+
+double node_t::getX(int n)
+{
+  return this->x[n];
+}
+
+void node_t::setIndex(int n)
+{
+  this->index = n;
+
+}
+
+int node_t::getIndex(void)
+{
+  return this->index;
+}
+
+void element_t::setNature(int n)
+{
+  this->nature = n;
+}
+
+int element_t::getNature(void)
+{
+  return this->nature;
+}
+
+void element_t::setCode(int n)
+{
+  this->code = n;
+}
+
+int element_t::getCode(void)
+{
+  return this->code;
+}
+
+void element_t::setNodes(int n)
+{
+  this->nodes = n;
+}
+
+int element_t::getNodes(void)
+{
+  return this->nodes;
+}
+
+void element_t::setIndex(int n)
+{
+  this->index = n;
+}
+
+int element_t::getIndex(void)
+{
+  return this->index;
+}
+
+void element_t::setSelected(int n)
+{
+  this->selected = n;
+}
+
+int element_t::getSelected(void)
+{
+  return this->selected;
+}
+
+int element_t::getNodeIndex(int n)
+{
+  return this->node[n];
+}
+
+void element_t::setNodeIndex(int m, int n)
+{
+  this->node[m] = n;
+}
+
+void element_t::newNodeIndexes(int n)
+{
+  this->node = new int[n];
+}
+
+void element_t::deleteNodeIndexes(void)
+{
+  delete [] this->node;
+}
+
+int* element_t::getNodeIndexes()
+{
+  return this->node;
+}
+
+void point_t::setSharp(bool b)
+{
+  this->sharp_point = b;
+}
+
+bool point_t::isSharp(void)
+{
+  return this->sharp_point;
+}
+
+void point_t::setEdges(int n)
+{
+  this->edges = n;
+}
+
+int point_t::getEdges(void)
+{
+  return this->edges;
+}
+
+int point_t::getEdgeIndex(int n)
+{
+  return this->edge[n];
+}
+
+void point_t::setEdgeIndex(int m, int n)
+{
+  this->edge[m] = n;
+}
+
+void point_t::newEdgeIndexes(int n)
+{
+  this->edge = new int[n];
+}
+
+void point_t::deleteEdgeIndexes(void)
+{
+  delete [] this->edge;
+}
+
+void edge_t::setSharp(bool b)
+{
+  this->sharp_edge = b;
+}
+
+bool edge_t::isSharp(void)
+{
+  return this->sharp_edge;
+}
+
+void edge_t::setPoints(int n)
+{
+  this->points = n;
+}
+
+int edge_t::getPoints(void)
+{
+  return this->points;
+}
+
+void edge_t::setPointIndex(int m, int n)
+{
+  this->point[m] = n;
+}
+
+int edge_t::getPointIndex(int n)
+{
+  return this->point[n];
+}
+
+void edge_t::newPointIndexes(int n)
+{
+  this->point = new int[n];
+}
+
+void edge_t::deletePointIndexes(void)
+{
+  delete [] this->point;
+}
+
+void edge_t::setSurfaces(int n)
+{
+  this->surfaces = n;
+}
+
+int edge_t::getSurfaces(void)
+{
+  return this->surfaces;
+}
+
+void edge_t::setSurfaceIndex(int m, int n)
+{
+  this->surface[m] = n;
+}
+
+int edge_t::getSurfaceIndex(int n)
+{
+  return this->surface[n];
+}
+
+void edge_t::newSurfaceIndexes(int n)
+{
+  this->surface = new int[n];
+}
+
+void edge_t::deleteSurfaceIndexes(void)
+{
+  delete [] this->surface;
+}
+
+void surface_t::setEdges(int n)
+{
+  this->edges = n;
+}
+
+int surface_t::getEdges(void)
+{
+  return this->edges;
+}
+
+void surface_t::setEdgeIndex(int m, int n)
+{
+  this->edge[m] = n;
+}
+
+int surface_t::getEdgeIndex(int n)
+{
+  return this->edge[n];
+}
+
+void surface_t::newEdgeIndexes(int n)
+{
+  this->edge = new int[n];
+}
+
+void surface_t::deleteEdgeIndexes(void)
+{
+  delete [] this->edge;
+}
+
+void surface_t::setElements(int n)
+{
+  this->elements = n;
+}
+
+int surface_t::getElements(void)
+{
+  return this->elements;
+}
+
+void surface_t::setElementIndex(int m, int n)
+{
+  this->element[m] = n;
+}
+
+int surface_t::getElementIndex(int n)
+{
+  return this->element[n];
+}
+
+void surface_t::newElementIndexes(int n)
+{
+  this->element = new int[n];
+}
+
+void surface_t::deleteElementIndexes(void)
+{
+  delete [] this->element;
+}
+
+mesh_t::mesh_t()
+{
+  this->setDefaults();
+}
 
 mesh_t::~mesh_t()
 {
@@ -198,10 +475,10 @@ bool mesh_t::load(char* dirName)
   for(int i = 0; i < nodes; i++) {
     node_t *node = &this->node[i];
     mesh_nodes >> number >> index >> x >> y >> z;
-    node->x[0] = x;
-    node->x[1] = y;
-    node->x[2] = z;
-    node->index = index;
+    node->setX(0, x);
+    node->setX(1, y);
+    node->setX(2, z);
+    node->setIndex(index);
   }
 
   mesh_nodes.close();  
@@ -232,59 +509,62 @@ bool mesh_t::load(char* dirName)
     switch(type/100) {
     case 1:
       point = &this->point[current_point++];
-      point->nature = PDE_BULK;
-      point->index = index;
-      point->code = type;
-      point->nodes = point->code % 100;
-      point->node = new int[point->nodes];
-      for(int j = 0; j < point->nodes; j++) {
-	mesh_elements >> point->node[j];
-	point->node[j] -= 1;
+      point->setNature(PDE_BULK);
+      point->setIndex(index);
+      point->setCode(type);
+      point->setNodes(point->getCode() % 100);
+      point->newNodeIndexes(point->getNodes());
+      for(int j = 0; j < point->getNodes(); j++) {
+	int k;
+	mesh_elements >> k;
+	point->setNodeIndex(j, k-1);
       }
-      point->edges = 2;
-      point->edge = new int[point->edges];
-      point->edge[0] = -1;
-      point->edge[1] = -1;
+      point->setEdges(2);
+      point->newEdgeIndexes(point->getEdges());
+      point->setEdgeIndex(0, -1);
+      point->setEdgeIndex(1, -1);
       break;
 
     case 2:
       edge = &this->edge[current_edge++];
-      edge->nature = PDE_BULK;
-      edge->index = index;
-      edge->code = type;
-      edge->nodes = edge->code % 100;
-      edge->node = new int[edge->nodes];
-      for(int j = 0; j < edge->nodes; j++) {
-	mesh_elements >> edge->node[j];
-	edge->node[j] -= 1;
+      edge->setNature(PDE_BULK);
+      edge->setIndex(index);
+      edge->setCode(type);
+      edge->setNodes(edge->getCode() % 100);
+      edge->newNodeIndexes(edge->getNodes());
+      for(int j = 0; j < edge->getNodes(); j++) {
+	int k;	
+	mesh_elements >> k;
+	edge->setNodeIndex(j, k-1);
       }
-      edge->surfaces = 0;
-      edge->surface = new int[edge->surfaces];
-      edge->surface[0] = -1;
-      edge->surface[1] = -1;
+      edge->setSurfaces(0);
+      edge->newSurfaceIndexes(edge->getSurfaces());
+      edge->setSurfaceIndex(0, -1);
+      edge->setSurfaceIndex(1, -1);
 
       break;
 
     case 3:
     case 4:
       surface = &this->surface[current_surface++];
-      surface->nature = PDE_BULK;
-      surface->index = index;
-      surface->code = type;
-      surface->nodes = surface->code % 100;
-      surface->node = new int[surface->nodes];
-      for(int j = 0; j < surface->nodes; j++) {
-	mesh_elements >> surface->node[j];
-	surface->node[j] -= 1;
+      surface->setNature(PDE_BULK);
+      surface->setIndex(index);
+      surface->setCode(type);
+      surface->setNodes(surface->getCode() % 100);
+      surface->newNodeIndexes(surface->getNodes());
+      for(int j = 0; j < surface->getNodes(); j++) {
+	int k;
+	mesh_elements >> k;
+	surface->setNodeIndex(j, k-1);
       }      
-      surface->edges = (int)(surface->code/100);
-      surface->edge = new int[surface->edges];
-      for(int j = 0; j < surface->edges; j++)
-	surface->edge[j] = -1;
-      surface->elements = 2;
-      surface->element = new int[surface->elements];
-      surface->element[0] = -1;
-      surface->element[1] = -1;
+      surface->setEdges((int)(surface->getCode() / 100));
+      surface->newEdgeIndexes(surface->getEdges());
+      for(int j = 0; j < surface->getEdges(); j++)
+	surface->setEdgeIndex(j, -1);
+      surface->setElements(2);
+      surface->newElementIndexes(surface->getElements());
+      surface->setElementIndex(0, -1);
+      surface->setElementIndex(1, -1);
 
       break;
 
@@ -293,14 +573,15 @@ bool mesh_t::load(char* dirName)
     case 7:
     case 8:
       element = &this->element[current_element++];
-      element->nature = PDE_BULK;
-      element->index = index;
-      element->code = type;
-      element->nodes = element->code % 100;
-      element->node = new int[element->nodes];
-      for(int j = 0; j < element->nodes; j++) {
-	mesh_elements >> element->node[j];
-	element->node[j] -= 1;
+      element->setNature(PDE_BULK);
+      element->setIndex(index);
+      element->setCode(type);
+      element->setNodes(element->getCode() % 100);
+      element->newNodeIndexes(element->getNodes());
+      for(int j = 0; j < element->getNodes(); j++) {
+	int k;
+	mesh_elements >> k;
+	element->setNodeIndex(j, k-1);
       }
       break;
 
@@ -332,35 +613,37 @@ bool mesh_t::load(char* dirName)
     switch(type/100) {
     case 1:
       point = &this->point[current_point++];
-      point->nature = PDE_BOUNDARY;
-      point->index = index;
-      point->edges = 2;
-      point->edge = new int[point->edges];
-      point->edge[0] = parent0 - 1;
-      point->edge[1] = parent0 - 1;
-      point->code = type;
-      point->nodes = point->code % 100;
-      point->node = new int[point->nodes];
-      for(int j = 0; j < point->nodes; j++) {
-	mesh_elements >> point->node[j];
-	point->node[j] -= 1;
+      point->setNature(PDE_BOUNDARY);
+      point->setIndex(index);
+      point->setEdges(2);
+      point->newEdgeIndexes(point->getEdges());
+      point->setEdgeIndex(0, parent0 - 1);
+      point->setEdgeIndex(1, parent0 - 1);
+      point->setCode(type);
+      point->setNodes(point->getCode() % 100);
+      point->newNodeIndexes(point->getNodes());
+      for(int j = 0; j < point->getNodes(); j++) {
+	int k;
+	mesh_elements >> k;
+	point->setNodeIndex(j, k-1);
       }
       break;
 
     case 2:
       edge = &this->edge[current_edge++];
-      edge->nature = PDE_BOUNDARY;
-      edge->index = index;
-      edge->surfaces = 2;
-      edge->surface = new int[edge->surfaces];
-      edge->surface[0] = parent0 - 1;
-      edge->surface[1] = parent1 - 1;
-      edge->code = type;
-      edge->nodes = edge->code % 100;
-      edge->node = new int[edge->nodes];      
-      for(int j = 0; j < edge->nodes; j++) {
-	mesh_boundary >> edge->node[j];
-	edge->node[j] -= 1;
+      edge->setNature(PDE_BOUNDARY);
+      edge->setIndex(index);
+      edge->setSurfaces(2);
+      edge->newSurfaceIndexes(edge->getSurfaces());
+      edge->setSurfaceIndex(0, parent0 - 1);
+      edge->setSurfaceIndex(1, parent1 - 1);
+      edge->setCode(type);
+      edge->setNodes(edge->getCode() % 100);
+      edge->newNodeIndexes(edge->getNodes());
+      for(int j = 0; j < edge->getNodes(); j++) {
+	int k;
+	mesh_boundary >> k;
+	edge->setNodeIndex(j, k-1);
       }
 
       break;
@@ -368,23 +651,24 @@ bool mesh_t::load(char* dirName)
     case 3:
     case 4:
       surface = &this->surface[current_surface++];
-      surface->nature = PDE_BOUNDARY;
-      surface->index = index;
-      surface->elements = 2;
-      surface->element = new int[surface->elements];
-      surface->element[0] = parent0 - 1;
-      surface->element[1] = parent1 - 1;
-      surface->code = type;
-      surface->nodes = surface->code % 100;
-      surface->node = new int[surface->nodes];
-      for(int j = 0; j < surface->nodes; j++) {
-	mesh_boundary >> surface->node[j];
-	surface->node[j] -= 1;
+      surface->setNature(PDE_BOUNDARY);
+      surface->setIndex(index);
+      surface->setElements(2);
+      surface->newElementIndexes(surface->getElements());
+      surface->setElementIndex(0, parent0 - 1);
+      surface->setElementIndex(1, parent1 - 1);
+      surface->setCode(type);
+      surface->setNodes(surface->getCode() % 100);
+      surface->newNodeIndexes(surface->getNodes());
+      for(int j = 0; j < surface->getNodes(); j++) {
+	int k;
+	mesh_boundary >> k;
+	surface->setNodeIndex(j, k-1);
       }
-      surface->edges = (int)(surface->code/100);
-      surface->edge = new int[surface->edges];
-      for(int j = 0; j < surface->edges; j++)
-	surface->edge[j] = -1;      
+      surface->setEdges((int)(surface->getCode() / 100));
+      surface->newEdgeIndexes(surface->getEdges());
+      for(int j = 0; j < surface->getEdges(); j++)
+	surface->setEdgeIndex(j, -1);
       
       break;
 
@@ -430,41 +714,41 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < elements; i++) {
     element_t *e = &element[i];
       
-    if(e->nature == PDE_BULK) 
-      bulk_by_type[e->code]++;
+    if(e->getNature() == PDE_BULK) 
+      bulk_by_type[e->getCode()]++;
     
-    if(e->nature == PDE_BOUNDARY)
-      boundary_by_type[e->code]++;
+    if(e->getNature() == PDE_BOUNDARY)
+      boundary_by_type[e->getCode()]++;
   }
 	
   for(int i = 0; i < surfaces; i++) {
     surface_t *s = &surface[i];
 
-    if(s->nature == PDE_BULK)
-      bulk_by_type[s->code]++;
+    if(s->getNature() == PDE_BULK)
+      bulk_by_type[s->getCode()]++;
 
-    if(s->nature == PDE_BOUNDARY)
-      boundary_by_type[s->code]++;
+    if(s->getNature() == PDE_BOUNDARY)
+      boundary_by_type[s->getCode()]++;
   }
 
   for(int i = 0; i < edges; i++) {
     edge_t *e = &edge[i];
 
-    if(e->nature == PDE_BULK)
-      bulk_by_type[e->code]++;
+    if(e->getNature() == PDE_BULK)
+      bulk_by_type[e->getCode()]++;
 
-    if(e->nature == PDE_BOUNDARY)
-      boundary_by_type[e->code]++;
+    if(e->getNature() == PDE_BOUNDARY)
+      boundary_by_type[e->getCode()]++;
   }
 
   for(int i = 0; i < points; i++) {
     point_t *p = &point[i];
 
-    if(p->nature == PDE_BULK)
-      bulk_by_type[p->code]++;
+    if(p->getNature() == PDE_BULK)
+      bulk_by_type[p->getCode()]++;
 
-    if(p->nature == PDE_BOUNDARY)
-      boundary_by_type[p->code]++;
+    if(p->getNature() == PDE_BOUNDARY)
+      boundary_by_type[p->getCode()]++;
   }
 
   int bulk_elements = 0;
@@ -522,12 +806,12 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->nodes; i++) {
     node_t *node = &this->node[i];
 
-    int ind = node->index;
+    int ind = node->getIndex();
 
     mesh_nodes << i+1 << " " << ind << " ";
-    mesh_nodes << node->x[0] << " ";
-    mesh_nodes << node->x[1] << " ";
-    mesh_nodes << node->x[2] << endl;
+    mesh_nodes << node->getX(0) << " ";
+    mesh_nodes << node->getX(1) << " ";
+    mesh_nodes << node->getX(2) << endl;
   }
 
   mesh_nodes.close();
@@ -549,18 +833,18 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->elements; i++) {
     element_t *e = &this->element[i];
 
-    int ind = e->index;
+    int ind = e->getIndex();
 
     if(ind < 1)
       ind = 1;
 
-    if(e->nature == PDE_BULK) {
+    if(e->getNature() == PDE_BULK) {
       mesh_elements << ++current << " ";
       mesh_elements << ind << " ";
-      mesh_elements << e->code << " ";
+      mesh_elements << e->getCode() << " ";
 
-      for(int j = 0; j < e->nodes; j++) 
-	mesh_elements << e->node[j] + 1 << " ";
+      for(int j = 0; j < e->getNodes(); j++) 
+	mesh_elements << e->getNodeIndex(j) + 1 << " ";
 
       mesh_elements << endl;
     }
@@ -569,18 +853,18 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->surfaces; i++) {
     surface_t *s = &this->surface[i];
 
-    int ind = s->index;
+    int ind = s->getIndex();
 
     if(ind < 1)
       ind = 1;
 
-    if(s->nature == PDE_BULK) {
+    if(s->getNature() == PDE_BULK) {
       mesh_elements << ++current << " ";
       mesh_elements << ind << " ";
-      mesh_elements << s->code << " ";
+      mesh_elements << s->getCode() << " ";
 
-      for(int j = 0; j < s->nodes; j++) 
-	mesh_elements << s->node[j]+1 << " ";
+      for(int j = 0; j < s->getNodes(); j++) 
+	mesh_elements << s->getNodeIndex(j) + 1 << " ";
 
       mesh_elements << endl;
     }
@@ -589,18 +873,18 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->edges; i++) {
     edge_t *e = &this->edge[i];
 
-    int ind = e->index;
+    int ind = e->getIndex();
 
     if(ind < 1)
       ind = 1;
 
-    if(e->nature == PDE_BULK) {
+    if(e->getNature() == PDE_BULK) {
       mesh_elements << ++current << " ";
       mesh_elements << ind << " ";
-      mesh_elements << e->code << " ";
+      mesh_elements << e->getCode() << " ";
 
-      for(int j = 0; j < e->nodes; j++)
-	mesh_elements << e->node[j]+1 << " ";
+      for(int j = 0; j < e->getNodes(); j++)
+	mesh_elements << e->getNodeIndex(j) + 1 << " ";
 
       mesh_elements << endl;
     }
@@ -609,18 +893,18 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->points; i++) {
     point_t *p = &this->point[i];
 
-    int ind = p->index;
+    int ind = p->getIndex();
 
     if(ind < 1)
       ind = 1;
 
-    if(p->nature == PDE_BULK) {
+    if(p->getNature() == PDE_BULK) {
       mesh_elements << ++current << " ";
       mesh_elements << ind << " ";
-      mesh_elements << p->code << " ";
+      mesh_elements << p->getCode() << " ";
 
-      for(int j = 0; j < p->nodes; j++)
-	mesh_elements << p->node[j]+1 << " ";
+      for(int j = 0; j < p->getNodes(); j++)
+	mesh_elements << p->getNodeIndex(j) + 1 << " ";
 
       mesh_elements << endl;
     }
@@ -644,8 +928,8 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->surfaces; i++) {
     surface_t *s = &this->surface[i];
 
-    int e0 = s->element[0] + 1;
-    int e1 = s->element[1] + 1;
+    int e0 = s->getElementIndex(0) + 1;
+    int e1 = s->getElementIndex(1) + 1;
 
     if(e0 < 0)
       e0 = 0;
@@ -653,19 +937,19 @@ bool mesh_t::save(char *dirName)
     if(e1 < 0)
       e1 = 0;
 
-    int ind = s->index;
+    int ind = s->getIndex();
 
     if(ind < 1)
       ind = 1;
 
-    if(s->nature == PDE_BOUNDARY) {
+    if(s->getNature() == PDE_BOUNDARY) {
       mesh_boundary << ++current << " ";
       mesh_boundary << ind << " ";
       mesh_boundary << e0 << " " << e1 << " ";
-      mesh_boundary << s->code << " ";
+      mesh_boundary << s->getCode() << " ";
 
-      for(int j = 0; j < s->nodes; j++) 
-	mesh_boundary << s->node[j]+1 << " ";
+      for(int j = 0; j < s->getNodes(); j++) 
+	mesh_boundary << s->getNodeIndex(j) + 1 << " ";
 
       mesh_boundary << endl;
     }
@@ -675,8 +959,8 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->edges; i++) {
     edge_t *e = &this->edge[i];
 
-    int s0 = e->surface[0] + 1;
-    int s1 = e->surface[1] + 1;
+    int s0 = e->getSurfaceIndex(0) + 1;
+    int s1 = e->getSurfaceIndex(1) + 1;
 
     if(s0 < 0)
       s0 = 0;
@@ -684,19 +968,19 @@ bool mesh_t::save(char *dirName)
     if(s1 < 0)
       s1 = 0;
 
-    int ind = e->index;
+    int ind = e->getIndex();
 
     if(ind < 1)
       ind = 1;
 
-    if(e->nature == PDE_BOUNDARY) {
+    if(e->getNature() == PDE_BOUNDARY) {
       mesh_boundary << ++current << " ";
       mesh_boundary << ind << " ";
       mesh_boundary << s0 << " " << s1 << " ";
-      mesh_boundary << e->code << " ";
+      mesh_boundary << e->getCode() << " ";
 
-      for(int j = 0; j < e->nodes; j++) 
-	mesh_boundary << e->node[j]+1 << " ";
+      for(int j = 0; j < e->getNodes(); j++) 
+	mesh_boundary << e->getNodeIndex(j) + 1 << " ";
 
       mesh_boundary << endl;
     }
@@ -705,8 +989,8 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->points; i++) {
     point_t *p = &this->point[i];
 
-    int e0 = p->edge[0] + 1;
-    int e1 = p->edge[1] + 1;
+    int e0 = p->getEdgeIndex(0) + 1;
+    int e1 = p->getEdgeIndex(1) + 1;
 
     if(e0 < 0)
       e0 = 0;
@@ -714,19 +998,19 @@ bool mesh_t::save(char *dirName)
     if(e1 < 0)
       e1 = 0;
 
-    int ind = p->index;
+    int ind = p->getIndex();
 
     if(ind < 1)
       ind = 1;
 
-    if(p->nature == PDE_BOUNDARY) {
+    if(p->getNature() == PDE_BOUNDARY) {
       mesh_boundary << ++current << " ";
       mesh_boundary << ind << " ";
       mesh_boundary << e0 << " " << e1 << " ";
-      mesh_boundary << p->code << " ";
+      mesh_boundary << p->getCode() << " ";
 
-      for(int j = 0; j < p->nodes; j++) 
-	mesh_boundary << p->node[j]+1 << " ";
+      for(int j = 0; j < p->getNodes(); j++) 
+	mesh_boundary << p->getNodeIndex(j) + 1 << " ";
 
       mesh_boundary << endl;
     }
@@ -758,23 +1042,23 @@ double* mesh_t::boundingBox()
   for(int i=0; i < this->nodes; i++) {
     node_t *node = &this->node[i];
     
-    if(node->x[0] > xmax) 
-      xmax = node->x[0];
+    if(node->getX(0) > xmax) 
+      xmax = node->getX(0);
     
-    if(node->x[0] < xmin) 
-      xmin = node->x[0];
+    if(node->getX(0) < xmin) 
+      xmin = node->getX(0);
     
-    if(node->x[1] > ymax) 
-      ymax = node->x[1];
+    if(node->getX(1) > ymax) 
+      ymax = node->getX(1);
 
-    if(node->x[1] < ymin) 
-      ymin = node->x[1];
+    if(node->getX(1) < ymin) 
+      ymin = node->getX(1);
 
-    if(node->x[2] > zmax) 
-      zmax = node->x[2];
+    if(node->getX(2) > zmax) 
+      zmax = node->getX(2);
 
-    if(node->x[2] < zmin) 
-      zmin = node->x[2];
+    if(node->getX(2) < zmin) 
+      zmin = node->getX(2);
   }
   
   double xmid = (xmin + xmax)/2.0;
@@ -821,4 +1105,174 @@ double* mesh_t::boundingBox()
   result[9] = s;
 
   return result;
+}
+
+void mesh_t::setCdim(int n)
+{
+  this->cdim = n;
+}
+
+int mesh_t::getCdim(void)
+{
+  return this->cdim;
+}
+
+void mesh_t::setDim(int n)
+{
+  this->dim = n;
+}
+
+int mesh_t::getDim(void)
+{
+  return this->dim;
+}
+
+void mesh_t::setNodes(int n)
+{
+  this->nodes = n;
+}
+
+int mesh_t::getNodes(void)
+{
+  return this->nodes;
+}
+
+void mesh_t::setPoints(int n)
+{
+  this->points = n;
+}
+
+int mesh_t::getPoints(void)
+{
+  return this->points;
+}
+
+void mesh_t::setEdges(int n)
+{
+  this->edges = n;
+}
+
+int mesh_t::getEdges(void)
+{
+  return this->edges;
+}
+
+void mesh_t::setSurfaces(int n)
+{
+  this->surfaces = n;
+}
+
+int mesh_t::getSurfaces(void)
+{
+  return this->surfaces;
+}
+
+void mesh_t::setElements(int n)
+{
+  this->elements = n;
+}
+
+int mesh_t::getElements(void)
+{
+  return this->elements;
+}
+
+node_t* mesh_t::getNode(int n)
+{
+  return &this->node[n];
+}
+
+void mesh_t::setNodeArray(node_t* n)
+{
+  this->node = n;
+}
+
+void mesh_t::newNodeArray(int n)
+{
+  this->node = new node_t[n];
+}
+
+void mesh_t::deleteNodeArray(void)
+{
+  delete [] this->node;
+}
+
+point_t* mesh_t::getPoint(int n)
+{
+  return &this->point[n];
+}
+
+void mesh_t::setPointArray(point_t* p)
+{
+  this->point = p;
+}
+
+void mesh_t::newPointArray(int n)
+{
+  this->point = new point_t[n];
+}
+
+void mesh_t::deletePointArray(void)
+{
+  delete [] this->point;
+}
+
+edge_t* mesh_t::getEdge(int n)
+{
+  return &this->edge[n];
+}
+
+void mesh_t::setEdgeArray(edge_t* e)
+{
+  this->edge = e;
+}
+
+void mesh_t::newEdgeArray(int n)
+{
+  this->edge = new edge_t[n];
+}
+
+void mesh_t::deleteEdgeArray(void)
+{
+  delete [] this->edge;
+}
+
+surface_t* mesh_t::getSurface(int n)
+{
+  return &this->surface[n];
+}
+
+void mesh_t::setSurfaceArray(surface_t* s)
+{
+  this->surface = s;
+}
+
+void mesh_t::newSurfaceArray(int n)
+{
+  this->surface = new surface_t[n];
+}
+
+void mesh_t::deleteSurfaceArray(void)
+{
+  delete [] this->surface;
+}
+
+element_t* mesh_t::getElement(int n)
+{
+  return &this->element[n];
+}
+
+void mesh_t::setElementArray(element_t* e)
+{
+  this->element = e;
+}
+
+void mesh_t::newElementArray(int n)
+{
+  this->element = new element_t[n];
+}
+
+void mesh_t::deleteElementArray(void)
+{
+  delete [] this->element;
 }

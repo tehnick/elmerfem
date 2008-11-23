@@ -63,88 +63,84 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   //----------------------------
   mesh_t *mesh = new mesh_t;
 
-  mesh->nodes = 0;
-  mesh->points = 0;
-  mesh->edges = 0;
-  mesh->surfaces = 0;
-  mesh->elements = 0;
+  mesh->setNodes(0);
+  mesh->setPoints(0);
+  mesh->setEdges(0);
+  mesh->setSurfaces(0);
+  mesh->setElements(0);
 
   // Nodes:
   //--------
-  mesh->nodes = nglib::Ng_GetNP(ngmesh);
-  mesh->node = new node_t[mesh->nodes];
+  mesh->setNodes(nglib::Ng_GetNP(ngmesh));
+  mesh->newNodeArray(mesh->getNodes());
 
-  for(int i=0; i < mesh->nodes; i++) {
-    node_t *node = &mesh->node[i];
+  for(int i=0; i < mesh->getNodes(); i++) {
+    node_t *node = mesh->getNode(i);
 
-    nglib::Ng_GetPoint(ngmesh, i+1, node->x);
+    nglib::Ng_GetPoint(ngmesh, i+1, node->getXvec());
 
-    node->index = -1; // default
+    node->setIndex(-1); // default
   }
 
   // Boundary elements:
   //--------------------
-  mesh->surfaces = nglib::Ng_GetNSE(ngmesh);
-  mesh->surface = new surface_t[mesh->surfaces];
+  mesh->setSurfaces(nglib::Ng_GetNSE(ngmesh));
+  mesh->newSurfaceArray(mesh->getSurfaces());
 
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
 
-    surface->nature = PDE_BOUNDARY;
-
-    surface->code = 303;
-
-    surface->nodes = 3;
-    surface->node = new int[3];
-    
-    surface->edges = 3;
-    surface->edge = new int[3];
+    surface->setNature(PDE_BOUNDARY);
+    surface->setCode(303);
+    surface->setNodes(3);
+    surface->newNodeIndexes(3);
+    surface->setEdges(3);
+    surface->newEdgeIndexes(3);
 
     int face = nglib::EG_GetSurfaceElementBCProperty(ngmesh, i+1);
-    surface->index = face;
 
-    surface->edge[0] = -1;
-    surface->edge[1] = -1;
-    surface->edge[2] = -1;
+    surface->setIndex(face);
+
+    surface->setEdgeIndex(0, -1);
+    surface->setEdgeIndex(1, -1);
+    surface->setEdgeIndex(2, -1);
 
     // data for surface->element is not available
 
-    nglib::Ng_GetSurfaceElement(ngmesh, i+1, surface->node);
+    nglib::Ng_GetSurfaceElement(ngmesh, i+1, surface->getNodeIndexes());
     
-    surface->node[0]--;
-    surface->node[1]--;
-    surface->node[2]--;
+    surface->setNodeIndex(0, surface->getNodeIndex(0) - 1);
+    surface->setNodeIndex(1, surface->getNodeIndex(1) - 1);
+    surface->setNodeIndex(2, surface->getNodeIndex(2) - 1);
 
     // swap orientation:
     //------------------
-    int tmp = surface->node[1];
-    surface->node[1] = surface->node[2];
-    surface->node[2] = tmp;
+    int tmp = surface->getNodeIndex(1);
+    surface->setNodeIndex(1, surface->getNodeIndex(2));
+    surface->setNodeIndex(2, tmp);
   }
 
   // Elements:
   //-----------
-  mesh->elements = nglib::Ng_GetNE(ngmesh);
-  mesh->element = new element_t[mesh->elements];
+  mesh->setElements(nglib::Ng_GetNE(ngmesh));
+  mesh->newElementArray(mesh->getElements()); 
 
-  for(int i=0; i< mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
+  for(int i=0; i< mesh->getElements(); i++) {
+    element_t *element = mesh->getElement(i);
 
-    element->nature = PDE_BULK;
+    element->setNature(PDE_BULK);
+    element->setCode(504);
+    element->setNodes(4);
+    element->newNodeIndexes(4);
 
-    element->code = 504;
+    nglib::Ng_GetVolumeElement(ngmesh, i+1, element->getNodeIndexes());
+    
+    element->setNodeIndex(0, element->getNodeIndex(0) - 1);
+    element->setNodeIndex(1, element->getNodeIndex(1) - 1);
+    element->setNodeIndex(2, element->getNodeIndex(2) - 1);
+    element->setNodeIndex(3, element->getNodeIndex(3) - 1);
 
-    element->nodes = 4;
-    element->node = new int[4];
-
-    nglib::Ng_GetVolumeElement(ngmesh, i+1, element->node);
-        
-    element->node[0]--;
-    element->node[1]--;
-    element->node[2]--;
-    element->node[3]--;
-
-    element->index = 1; // default
+    element->setIndex(1); // default
   }
 
   // Find parents for surface elements:
@@ -159,8 +155,8 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   //---------------------------------------
   meshutils.findSurfaceElementNormals(mesh);
 
-  mesh->dim = 3;
-  mesh->cdim = 3;
+  mesh->setDim(3);
+  mesh->setCdim(3);
 
   return mesh;
 }

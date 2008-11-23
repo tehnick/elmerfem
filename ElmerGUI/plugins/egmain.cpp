@@ -814,34 +814,34 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
   printf("Setting elements of %ddim\n",elemdim); 
 
   /* for mapped surfaces elemdim and space dimension may differ! */
-  mesh->dim = MAX(data->dim,elemdim);
-  mesh->nodes = dat->noknots;
-  mesh->node = new node_t[mesh->nodes];
+  mesh->setDim(MAX(data->dim, elemdim));
+  mesh->setNodes(dat->noknots);
+  mesh->newNodeArray(mesh->getNodes());
   
-  for(i=0;i<mesh->nodes;i++) {
-    n = &mesh->node[i];
-    n->x[0] = dat->x[i+1];
-    n->x[1] = dat->y[i+1];
-    n->x[2] = dat->z[i+1];
-    n->index = -1;
+  for(i=0; i < mesh->getNodes(); i++) {
+    n = mesh->getNode(i);
+    n->setX(0, dat->x[i+1]);
+    n->setX(1, dat->y[i+1]);
+    n->setX(2, dat->z[i+1]);
+    n->setIndex(-1);
   }
   
   /* For 3D save bulk elements & boundary elements */
   if(elemdim == 3) {
 
-    mesh->elements = dat->noelements;
-    mesh->element = new element_t[mesh->elements];
+    mesh->setElements(dat->noelements);
+    mesh->newElementArray(mesh->getElements());
     
-    for(i=0;i<mesh->elements;i++) {
-      e = &mesh->element[i];
-      e->code = dat->elementtypes[i+1];
-      e->nodes = e->code % 100;
-      e->node = new int[e->nodes];
-      e->nature = PDE_BULK;
+    for(i = 0; i < mesh->getElements(); i++) {
+      e = mesh->getElement(i);
+      e->setCode(dat->elementtypes[i+1]);
+      e->setNodes(e->getCode() % 100);
+      e->newNodeIndexes(e->getNodes());
+      e->setNature(PDE_BULK);
 
-      for(j=0;j<e->nodes;j++)
-	e->node[j] = dat->topology[i+1][j]-1;
-      e->index = dat->material[i+1];
+      for(j = 0; j < e->getNodes(); j++)
+	e->setNodeIndex(j, dat->topology[i+1][j]-1);
+      e->setIndex(dat->material[i+1]);
     }
 
 
@@ -861,49 +861,49 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	  surfaces += 1;
 	  
 	  if(allocated) {
-	    b = &mesh->surface[surfaces-1];
-	    b->elements = 0;
-	    b->element = new int[2]; 
+	    b = mesh->getSurface(surfaces-1);
+	    b->setElements(0);
+	    b->newElementIndexes(2);
 	    
 	    if(bound[j].parent[i]) {
-	      b->elements += 1;
-	      b->element[0] = bound[j].parent[i]-1;
+	      b->setElements(b->getElements() + 1);
+	      b->setElementIndex(0, bound[j].parent[i]-1);
 	    }
 	    else {
-	      b->element[0] = -1;
+	      b->setElementIndex(0, -1);
 	    }
 	    
 	    if(bound[j].parent2[i]) {
-	      b->elements += 1;	
-	      b->element[1] = bound[j].parent2[i]-1;
+	      b->setElements(b->getElements() + 1);
+	      b->setElementIndex(1, bound[j].parent2[i]-1);
 	    } 
 	    else {
-	      b->element[1] = -1;
+	      b->setElementIndex(1, -1);
 	    }
 	    
 	    b->normal[0] = 0.0;
 	    b->normal[1] = 0.0;
 	    b->normal[2] = -1.0;
 	    
-	    b->nature = PDE_BOUNDARY;
-	    b->code = sideelemtype;
-	    b->nodes = b->code % 100;
-	    b->node = new int[b->nodes];
-	    for(k=0;k<b->nodes;k++) 
-	      b->node[k] = ind[k]-1;
-	    b->index = bound[j].types[i];
+	    b->setNature(PDE_BOUNDARY);
+	    b->setCode(sideelemtype);
+	    b->setNodes(b->getCode() % 100);
+	    b->newNodeIndexes(b->getNodes());
+	    for(k = 0; k < b->getNodes(); k++) 
+	      b->setNodeIndex(k, ind[k]-1);
+	    b->setIndex(bound[j].types[i]);
 	    
-	    b->edges = b->nodes;
-	    b->edge = new int[b->edges];
-	    for(k=0;k<b->edges;k++)
-	      b->edge[k] = -1;	    
+	    b->setEdges(b->getNodes());
+	    b->newEdgeIndexes(b->getEdges());
+	    for(k=0; k < b->getEdges(); k++)
+	      b->setEdgeIndex(k, -1);
 	  }
 	}
       }
       
       if(!allocated) {
-	mesh->surfaces = surfaces;
-	mesh->surface = new surface_t[mesh->surfaces];      
+	mesh->setSurfaces(surfaces);
+	mesh->newSurfaceArray(mesh->getSurfaces());
 	allocated = TRUE;
 	goto do_b;
       }
@@ -911,36 +911,36 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
   }
 
   else if(elemdim == 2) {
-    mesh->elements = 0;
+    mesh->setElements(0);
     
-    mesh->surfaces = dat->noelements;
-    mesh->surface = new surface_t[mesh->surfaces];
+    mesh->setSurfaces(dat->noelements);
+    mesh->newSurfaceArray(mesh->getSurfaces());
     
-    for(i=0;i<mesh->surfaces;i++) {
-      b = &mesh->surface[i];
+    for(i = 0; i < mesh->getSurfaces(); i++) {
+      b = mesh->getSurface(i);
       
-      b->elements = 0;
-      b->element = new int[2]; 
-      b->element[0] = -1;
-      b->element[1] = -1;
+      b->setElements(0);
+      b->newElementIndexes(2);
+      b->setElementIndex(0, -1);
+      b->setElementIndex(1, -1);
       
       b->normal[0] = 0.0;
       b->normal[1] = 0.0;
       b->normal[2] = -1.0;
       
-      b->code = dat->elementtypes[i+1];
-      b->nodes = b->code % 100;
-      b->node = new int[b->nodes];
-      b->nature = PDE_BULK;
+      b->setCode(dat->elementtypes[i+1]);
+      b->setNodes(b->getCode() % 100);
+      b->newNodeIndexes(b->getNodes());
+      b->setNature(PDE_BULK);
 
-      for(j=0;j<b->nodes;j++) 
-	b->node[j] = dat->topology[i+1][j]-1;
-      b->index = dat->material[i+1];
+      for(j = 0; j < b->getNodes(); j++) 
+	b->setNodeIndex(j, dat->topology[i+1][j]-1);
+      b->setIndex(dat->material[i+1]);
 
-      b->edges = b->nodes;
-      b->edge = new int[b->edges];
-      for(k=0;k<b->edges;k++)
-	b->edge[k] = -1;	
+      b->setEdges(b->getNodes());
+      b->newEdgeIndexes(b->getEdges());
+      for(k=0; k < b->getEdges(); k++)
+	b->setEdgeIndex(k, -1);
     }
 
     allocated = FALSE;
@@ -956,39 +956,39 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	surfaces += 1;
 	
 	if(allocated) {
-	  s = &mesh->edge[surfaces-1];
-	  s->surfaces = 0;
-	  s->surface = new int[2]; 
+	  s = mesh->getEdge(surfaces-1);
+	  s->setSurfaces(0);
+	  s->newSurfaceIndexes(2);
 	  
 	  if(bound[j].parent[i]) {
-	    s->surfaces += 1;
-	    s->surface[0] = bound[j].parent[i]-1;
+	    s->setSurfaces(s->getSurfaces() + 1);
+	    s->setSurfaceIndex(0, bound[j].parent[i]-1);
 	  }
 	  else {
-	    s->surface[0] = -1;
+	    s->setSurfaceIndex(0, -1);
 	  }
 	  if(bound[j].parent2[i]) {
-	    s->surfaces += 1;
-	    s->surface[1] = bound[j].parent2[i]-1;
+	    s->setSurfaces(s->getSurfaces() + 1);
+	    s->setSurfaceIndex(1, bound[j].parent2[i]-1);
 	  }
 	  else {
-	    s->surface[1] = -1;
+	    s->setSurfaceIndex(1, -1);
 	  }
-	  s->code = sideelemtype;
-	  s->nodes = s->code % 100;
-	  s->node = new int[s->nodes];
-	  s->nature = PDE_BOUNDARY;
+	  s->setCode(sideelemtype);
+	  s->setNodes(s->getCode() % 100);
+	  s->newNodeIndexes(s->getNodes());
+	  s->setNature(PDE_BOUNDARY);
 
-	  for(k=0;k<s->nodes;k++) 
-	    s->node[k] = ind[k]-1;
-	  s->index = bound[j].types[i];
+	  for(k = 0; k < s->getNodes(); k++) 
+	    s->setNodeIndex(k, ind[k]-1);
+	  s->setIndex(bound[j].types[i]);
 	}
       }
    }
 
     if(!allocated) {
-      mesh->edges = surfaces;
-      mesh->edge = new edge_t[mesh->edges];
+      mesh->setEdges(surfaces);
+      mesh->newEdgeArray(mesh->getEdges());
       allocated = TRUE;
       goto do_s;
     }
@@ -1376,11 +1376,11 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
   
   if(info) printf("\nElmerGrid manipulating and importing data\n");
 
-  mesh->nodes  = 0;
-  mesh->points = 0;
-  mesh->edges  = 0;
-  mesh->surfaces = 0;
-  mesh->elements = 0;
+  mesh->setNodes(0);
+  mesh->setPoints(0);
+  mesh->setEdges(0);
+  mesh->setSurfaces(0);
+  mesh->setElements(0);
 
   if(nomeshes == 0) {
     printf("No mesh to work with!\n");

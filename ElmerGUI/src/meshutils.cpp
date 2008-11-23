@@ -120,9 +120,9 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
   };
 
 
-  if(mesh->elements == 0) return;
+  if(mesh->getElements() == 0) return;
 
-  int keys = mesh->nodes;  
+  int keys = mesh->getNodes();  
   hashEntry *hash = new hashEntry[keys];
 
   bool found;
@@ -150,14 +150,14 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
   static int facemap5[][6] = {{0,1,2,4,5,6}, {0,1,3,4,8,7}, {1,2,3,5,9,8}, {2,0,3,6,7,9}};
 
 
-  for(int i=0; i < mesh->elements; i++) {
-    element_t *e = &mesh->element[i];
+  for(int i=0; i < mesh->getElements(); i++) {
+    element_t *e = mesh->getElement(i);
 
     int facenodes = 0;
     int *facemap = NULL;
     int n[4];
 
-    int family = e->code / 100;
+    int family = e->getCode() / 100;
     int faces = familyfaces[family];
 
     for(int f=0; f<faces; f++) {
@@ -179,7 +179,7 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
       }
 
       for(int j=0; j < facenodes; j++) 
-	n[j] = e->node[facemap[j]];
+	n[j] = e->getNodeIndex(facemap[j]);
 
       // Order indexes in an increasing order 
       for(int k=facenodes-1;k>0;k--) {
@@ -207,14 +207,14 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 	h->node[0] = n[1];
 	h->node[1] = n[2];
 	h->element[0] = i;
-	h->index[0] = e->index;
+	h->index[0] = e->getIndex();
 	h->face = f;
 	
 	h->next = new hashEntry;
 	h = h->next;
 	RESETENTRY1;
       } else {
-	h->index[1] = e->index;
+	h->index[1] = e->getIndex();
 	h->element[1] = i;
       }
     }
@@ -267,8 +267,8 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
   cout << "Boundaries were numbered up to index " << index1 << endl;
 
   // Finally set the surfaces:
-  mesh->surfaces = surfaces;
-  mesh->surface = new surface_t[mesh->surfaces]; 
+  mesh->setSurfaces(surfaces);
+  mesh->newSurfaceArray(mesh->getSurfaces());
 
   surfaces = 0;
   for(int i=0; i<keys; i++) {
@@ -276,16 +276,16 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 
     while(h->next) {
       if(h->index[0] != h->index[1]) {
-	surface_t *s = &mesh->surface[surfaces];
+	surface_t *s = mesh->getSurface(surfaces);
 
-	s->elements = 1;
-	s->element = new int[2]; 
-	s->element[0] = h->element[0];
-	s->element[1] = h->element[1];
-	if(s->element[1] >= 0) s->elements = 2;
+	s->setElements(1);
+	s->newElementIndexes(2); 
+	s->setElementIndex(0, h->element[0]);
+	s->setElementIndex(1, h->element[1]);
+	if(s->getElementIndex(1) >= 0) s->setElements(2); // ?????
 	
-	element_t *e = &mesh->element[h->element[0]];
-	int code = e->code;
+	element_t *e = mesh->getElement(h->element[0]);
+	int code = e->getCode();
 	int family = code / 100;
 	int f = h->face;
 
@@ -316,24 +316,24 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 	
 	int facenodes = degree * faceedges;
 
-	s->nodes = facenodes;
-	s->code = 100 * faceedges + facenodes;
-	s->node = new int[s->nodes];
-	for(int j=0; j < s->nodes; j++) 
-	  s->node[j] = e->node[facemap[j]];
+	s->setNodes(facenodes);
+	s->setCode(100 * faceedges + facenodes);
+	s->newNodeIndexes(s->getNodes());
+	for(int j=0; j < s->getNodes(); j++) 
+	  s->setNodeIndex(j, e->getNodeIndex(facemap[j]));
 
 	index1 = h->index[0];
 	index2 = h->index[1];
 	if(index2 < 0) index2 = 0;
 	
-	s->index = indextable[index1][index2];
+	s->setIndex(indextable[index1][index2]);
 
-	s->edges = s->nodes;
-	s->edge = new int[s->edges];
-	for(int j=0; j < s->edges; j++)
-	  s->edge[j] = UNKNOWN;
+	s->setEdges(s->getNodes());
+	s->newEdgeIndexes(s->getEdges());
+	for(int j=0; j < s->getEdges(); j++)
+	  s->setEdgeIndex(j, UNKNOWN);
 
-	s->nature = PDE_BOUNDARY;
+	s->setNature(PDE_BOUNDARY);
 	surfaces++;
       }
       h = h->next;
@@ -363,7 +363,7 @@ void Meshutils::findSurfaceElementParents(mesh_t *mesh)
     hashEntry *next;
   };
 
-  int keys = mesh->nodes;
+  int keys = mesh->getNodes();
   hashEntry *hash = new hashEntry[keys];
 
   bool found;
@@ -378,13 +378,13 @@ void Meshutils::findSurfaceElementParents(mesh_t *mesh)
 
   static int facemap[][3] = {{0,1,2}, {0,1,3}, {0,2,3}, {1,2,3}};
   
-  for(int i=0; i < mesh->elements; i++) {
-    element_t *e = &mesh->element[i];
+  for(int i=0; i < mesh->getElements(); i++) {
+    element_t *e = mesh->getElement(i);
 
     for(int f=0; f<4; f++) {
-      int n0 = e->node[facemap[f][0]];
-      int n1 = e->node[facemap[f][1]];
-      int n2 = e->node[facemap[f][2]];
+      int n0 = e->getNodeIndex(facemap[f][0]);
+      int n1 = e->getNodeIndex(facemap[f][1]);
+      int n2 = e->getNodeIndex(facemap[f][2]);
 
       if(n2 < n1) {
 	int tmp = n2;
@@ -438,12 +438,12 @@ void Meshutils::findSurfaceElementParents(mesh_t *mesh)
   cout << "Found total of " << faces << " faces" << endl;
 
   // Finally find parents:
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *s = mesh->getSurface(i);
     
-    int n0 = s->node[0];
-    int n1 = s->node[1];
-    int n2 = s->node[2];
+    int n0 = s->getNodeIndex(0);
+    int n1 = s->getNodeIndex(1);
+    int n2 = s->getNodeIndex(2);
     
     if(n2 < n1) {
       int tmp = n2;
@@ -468,11 +468,11 @@ void Meshutils::findSurfaceElementParents(mesh_t *mesh)
       if((h->node[0] == n1) && (h->node[1] == n2)) {
 
 	// should we deallocate s->element if it exists?
-	s->elements = 2;
-	s->element = new int[2];
+	s->setElements(2);
+	s->newElementIndexes(2);
 
-	s->element[0] = h->element[0];
-	s->element[1] = h->element[1];
+	s->setElementIndex(0, h->element[0]);
+	s->setElementIndex(1, h->element[1]);
       }
       h = h->next;
     }
@@ -493,7 +493,7 @@ void Meshutils::findEdgeElementPoints(mesh_t *mesh)
     int *edge;
   };
 
-  int keys = mesh->nodes;
+  int keys = mesh->getNodes();
   
   hashEntry *hash = new hashEntry[keys];
 
@@ -503,12 +503,12 @@ void Meshutils::findEdgeElementPoints(mesh_t *mesh)
     h->edge = NULL;
   }
 
-  for(int i = 0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
+  for(int i = 0; i < mesh->getEdges(); i++) {
+    edge_t *e = mesh->getEdge(i);
 
-    if(e->nature == PDE_BOUNDARY) {      
+    if(e->getNature() == PDE_BOUNDARY) {      
       for(int k = 0; k < 2; k++) {
-	int n = e->node[k];
+	int n = e->getNodeIndex(k);
 	
 	hashEntry *h = &hash[n];
 	
@@ -546,34 +546,34 @@ void Meshutils::findEdgeElementPoints(mesh_t *mesh)
   cout.flush();
 
   // delete old points, if any:
-  if(mesh->points > 0) {
+  if(mesh->getPoints() > 0) {
     cout << "Deleteing old points and creating new" << endl;
     cout.flush();
-    for(int i = 0; i < mesh->points; i++) {
-      delete [] mesh->point[i].node;
-      delete [] mesh->point[i].edge;
+    for(int i = 0; i < mesh->getPoints(); i++) {
+      mesh->getPoint(i)->deleteNodeIndexes();
+      mesh->getPoint(i)->deleteEdgeIndexes();
     }
-    delete [] mesh->point;
+    mesh->deletePointArray();
   }
 
-  mesh->points = count;
-  mesh->point = new point_t[mesh->points];
+  mesh->setPoints(count);
+  mesh->newPointArray(mesh->getPoints());
 
   count = 0;
   for(int i = 0; i < keys; i++) {
     hashEntry *h = &hash[i];
     
     if(h->edges > 0) {
-      point_t *p = &mesh->point[count++];
-      p->nodes = 1;
-      p->node = new int[1];
-      p->node[0] = i;
-      p->edges = h->edges;
-      p->edge = new int[p->edges];
-      for(int j = 0; j < p->edges; j++) {
-	p->edge[j] = h->edge[j];
+      point_t *p = mesh->getPoint(count++);
+      p->setNodes(1);
+      p->newNodeIndexes(1);
+      p->setNodeIndex(0, i);
+      p->setEdges(h->edges);
+      p->newEdgeIndexes(p->getEdges());
+      for(int j = 0; j < p->getEdges(); j++) {
+	p->setEdgeIndex(j, h->edge[j]);
       }
-      p->sharp_point = false;
+      p->setSharp(false);
     }
   }
 
@@ -590,26 +590,26 @@ void Meshutils::findEdgeElementPoints(mesh_t *mesh)
   cout << "Constructing inverse map from edges to points" << endl;
   cout.flush();
 
-  for(int i=0; i < mesh->points; i++) {
-    point_t *p = &mesh->point[i];
+  for(int i=0; i < mesh->getPoints(); i++) {
+    point_t *p = mesh->getPoint(i);
 
-    for(int j=0; j < p->edges; j++) {
-      int k = p->edge[j];
-      if ( k<0 ) continue; // ????
+    for(int j=0; j < p->getEdges(); j++) {
+      int k = p->getEdgeIndex(j);
+      if ( k<0 ) continue;
 
-      edge_t *e = &mesh->edge[k];
+      edge_t *e = mesh->getEdge(k);
 
       // allocate space for two points, if not yet done:
-      if(e->points < 2) {
-	e->points = 2;
-	e->point = new int[2];
-	e->point[0] = -1;
-	e->point[1] = -1;
+      if(e->getPoints() < 2) {
+	e->setPoints(2);
+	e->newPointIndexes(2);
+	e->setPointIndex(0, -1);
+	e->setPointIndex(1, -1);
       }
             
-      for(int r=0; r < e->points; r++) {
-	if(e->point[r] < 0) {
-	  e->point[r] = i;
+      for(int r=0; r < e->getPoints(); r++) {
+	if(e->getPointIndex(r) < 0) {
+	  e->setPointIndex(r, i); 
 	  break;
 	}
       }
@@ -630,7 +630,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
     h->parentindex[1] = UNKNOWN; \
     h->next = NULL;
 
-  int keys = mesh->nodes;
+  int keys = mesh->getNodes();
 
   class hashEntry {
   public:
@@ -654,15 +654,17 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
     RESETENTRY;
   }
 
-  bool createindexes = (!mesh->edges && !mesh->elements);
+  bool createindexes = ((!mesh->getEdges()) && (!mesh->getElements()));
 
-  if ( mesh->edge && mesh->edges>0 ) {  
+  // ????? should we test for mesh->edges ?????
+  // if ( mesh->edge && (mesh->getEdges() > 0) ) {  
+  if ( mesh->getEdges() > 0 ) {  
     // add existing edges first:
-    for( int i=0; i<mesh->edges; i++ )
+    for( int i=0; i<mesh->getEdges(); i++ )
     {
-      edge_t *edge=&mesh->edge[i];
-      int n0 = edge->node[0];
-      int n1 = edge->node[1];
+      edge_t *edge = mesh->getEdge(i);
+      int n0 = edge->getNodeIndex(0);
+      int n1 = edge->getNodeIndex(1);
 
       int m = (n0<n1) ? n0 : n1;
       int n = (n0<n1) ? n1 : n0;
@@ -678,28 +680,28 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       }                                                      
       
       if(!found) {
-        h->nodes = edge->nodes-1;
+        h->nodes = edge->getNodes() - 1;
         h->node = new int[h->nodes];
         h->node[0] = n;
         for( int j=1; j<h->nodes; j++ )
         {
-          h->node[j] = edge->node[j+1];
+          h->node[j] = edge->getNodeIndex(j+1);
         }
-        h->surfaces = edge->surfaces;
-        h->surface = new int[edge->surfaces];
-        for( int j=0; j<edge->surfaces; j++ ) {
-          h->surface[j] = edge->surface[j];
+        h->surfaces = edge->getSurfaces();
+        h->surface = new int[edge->getSurfaces()];
+        for( int j=0; j < edge->getSurfaces(); j++ ) {
+          h->surface[j] = edge->getSurfaceIndex(j);
         }
-        h->index  = edge->index;
-        h->nature = edge->nature;
+        h->index  = edge->getIndex();
+        h->nature = edge->getNature();
         h->next = new hashEntry;
         h = h->next;
         RESETENTRY;
       }
     }
 
-    mesh->edges = 0;
-    delete [] mesh->edge;
+    mesh->setEdges(0);
+    mesh->deleteEdgeArray(); // delete [] mesh->edge;
   }
 
 
@@ -707,23 +709,23 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
   static int quadedgemap[][4] = {{0,1,4,8}, {1,2,5,9}, {2,3,6,10}, {3,0,7,11}};
 
   
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *s = mesh->getSurface(i);
     
     // loop over edges
-    for(int e=0; e < s->edges; e++) {
+    for(int e=0; e < s->getEdges(); e++) {
       int n0, n1,nrest[2] = { -1,-1 };
-      if((int)(s->code/100) == 3) {
-	n0 = s->node[triedgemap[e][0]];
-	n1 = s->node[triedgemap[e][1]];
-	if ( s->code>=306) nrest[0] = s->node[triedgemap[e][2]];
-	if ( s->code>=309) nrest[1] = s->node[triedgemap[e][3]];
-      } else if((int)(s->code/100) == 4) {
-	n0 = s->node[quadedgemap[e][0]];
-	n1 = s->node[quadedgemap[e][1]];
+      if((int)(s->getCode() / 100) == 3) {
+	n0 = s->getNodeIndex(triedgemap[e][0]);
+	n1 = s->getNodeIndex(triedgemap[e][1]);
+	if ( s->getCode() >= 306) nrest[0] = s->getNodeIndex(triedgemap[e][2]);
+	if ( s->getCode() >= 309) nrest[1] = s->getNodeIndex(triedgemap[e][3]);
+      } else if((int)(s->getCode() / 100) == 4) {
+	n0 = s->getNodeIndex(quadedgemap[e][0]);
+	n1 = s->getNodeIndex(quadedgemap[e][1]);
 	// corrected 4.11.2008:
-	if ( s->code>=408) nrest[0] = s->node[quadedgemap[e][2]];
-	if ( s->code>=412) nrest[1] = s->node[quadedgemap[e][3]];
+	if ( s->getCode() >= 408) nrest[0] = s->getNodeIndex(quadedgemap[e][2]);
+	if ( s->getCode() >= 412) nrest[1] = s->getNodeIndex(quadedgemap[e][3]);
       } else {
 	cout << "findBoundaryElementEdges: error: unknown element code" << endl;
 	exit(0);
@@ -754,7 +756,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 	h->surfaces = 1;
 	h->surface = new int[1];
 	h->surface[0] = i;
-	h->parentindex[0] = s->index;
+	h->parentindex[0] = s->getIndex();
         h->index = UNKNOWN;
         h->nature = PDE_UNKNOWN;
 	h->next = new hashEntry;
@@ -777,12 +779,12 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
           for(int j=0; j<h->surfaces; j++)
              h->surface[j] = tmp[j];
           h->surface[h->surfaces++] = i;
-	  if( s->index < h->parentindex[0]) {	    
+	  if( s->getIndex() < h->parentindex[0]) {	    
 	    h->parentindex[1] = h->parentindex[0];
-	    h->parentindex[0] = s->index;
+	    h->parentindex[0] = s->getIndex();
 	  }
 	  else {
-	    h->parentindex[1] = s->index;
+	    h->parentindex[1] = s->getIndex();
 	  }	    
           delete [] tmp;
         }
@@ -802,8 +804,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 
   cout << "Found " << edges << " edges on boundary" << endl;
 
-  mesh->edges = edges;
-  mesh->edge = new edge_t[edges];
+  mesh->setEdges(edges);
+  mesh->newEdgeArray(edges); // edge = new edge_t[edges];
 
   if(createindexes) {
     cout << "Creating edge indexes " << endl;
@@ -870,29 +872,29 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
   for(int i=0; i<keys; i++) {
     h = &hash[i];
     while(h->next) {
-      edge_t *e = &mesh->edge[edges++];
+      edge_t *e = mesh->getEdge(edges++);
       
-      e->nature = h->nature;
-      e->nodes = h->nodes+1;
-      e->node = new int[e->nodes];
-      e->node[0] = i;
-      for( int j=1; j<e->nodes; j++ )
-        e->node[j] = h->node[j-1];
+      e->setNature(h->nature);
+      e->setNodes(h->nodes + 1);
+      e->newNodeIndexes(e->getNodes());
+      e->setNodeIndex(0, i); // ?????
+      for( int j=1; j < e->getNodes(); j++ )
+        e->setNodeIndex(j, h->node[j-1]);
 
-      e->code = 200 + e->nodes;
+      e->setCode(200 + e->getNodes());
 
-      e->surfaces = h->surfaces;
-      e->surface = new int[max(e->surfaces,2)];
-      e->surface[0] = -1;
-      e->surface[1] = -1;
+      e->setSurfaces(h->surfaces);
+      e->newSurfaceIndexes(max(e->getSurfaces(), 2));
+      e->setSurfaceIndex(0, -1);
+      e->setSurfaceIndex(1, -1);
 
-      for(int j=0; j < e->surfaces; j++)
-	e->surface[j] = h->surface[j];
+      for(int j=0; j < e->getSurfaces(); j++)
+	e->setSurfaceIndex(j, h->surface[j]);
 
-      e->sharp_edge = false;
+      e->setSharp(false);
 
-      e->index = h->index;
-      e->points = 0;
+      e->setIndex(h->index);
+      e->setPoints(0);
       h = h->next;
     }
   }
@@ -900,18 +902,18 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
   delete [] hash;
 
   // Inverse map
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
+  for(int i=0; i < mesh->getEdges(); i++) {
+    edge_t *e = mesh->getEdge(i);
 
-    for(int j=0; j < e->surfaces; j++) {
-      int k = e->surface[j];
+    for(int j=0; j < e->getSurfaces(); j++) {
+      int k = e->getSurfaceIndex(j);
       if ( k< 0 ) continue;
 
-      surface_t *s = &mesh->surface[k];
+      surface_t *s = mesh->getSurface(k);
       
-      for(int r=0; r < s->edges; r++) {
-	if(s->edge[r] < 0) {
-	  s->edge[r] = i;
+      for(int r=0; r < s->getEdges(); r++) {
+	if(s->getEdgeIndex(r) < 0) {
+	  s->setEdgeIndex(r, i);
 	  break;
 	}
       }
@@ -920,10 +922,10 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 
 #if 0
   cout << "*********************" << endl;
-  for(int i=0; i<mesh->edges; i++)
+  for(int i=0; i<mesh->getEdges(); i++)
     cout << "Edge " << i << " nodes " << mesh->edge[i].node[0] << " "<< mesh->edge[i].node[0] << endl;
 
-  for(int i=0; i<mesh->surfaces; i++)
+  for(int i=0; i < mesh->getSurfaces(); i++)
     cout << "Surface " << i << " nodes " 
 	 << mesh->surface[i].node[0] << " " 
 	 << mesh->surface[i].node[1] << " "
@@ -960,34 +962,34 @@ void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
   edge_t *edge = NULL;
   Helpers *helpers = new Helpers;
   
-  for(int i=0; i<mesh->points; i++) {
-    point = &mesh->point[i];
+  for(int i=0; i < mesh->getPoints(); i++) {
+    point = mesh->getPoint(i);
 
-    if(point->edges == 2) {
-      int n = point->node[0];
+    if(point->getEdges() == 2) {
+      int n = point->getNodeIndex(0);
 
-      int e0 = point->edge[0];
-      int e1 = point->edge[1];
+      int e0 = point->getEdgeIndex(0);
+      int e1 = point->getEdgeIndex(1);
 
-      edge = &mesh->edge[e0];
-      int n0 = edge->node[0];
-      if(edge->node[1] != n)
-	n0 = edge->node[1];
+      edge = mesh->getEdge(e0);
+      int n0 = edge->getNodeIndex(0);
+      if(edge->getNodeIndex(1) != n)
+	n0 = edge->getNodeIndex(1);
 
-      edge = &mesh->edge[e1];
-      int n1 = edge->node[0];
-      if(edge->node[1] != n)
-	n1 = edge->node[1];
+      edge = mesh->getEdge(e1);
+      int n1 = edge->getNodeIndex(0);
+      if(edge->getNodeIndex(1) != n)
+	n1 = edge->getNodeIndex(1);
 
       // unit tangent from node to node0
-      t0[0] = mesh->node[n0].x[0] - mesh->node[n].x[0];
-      t0[1] = mesh->node[n0].x[1] - mesh->node[n].x[1];
-      t0[2] = mesh->node[n0].x[2] - mesh->node[n].x[2];
+      t0[0] = mesh->getNode(n0)->getX(0) - mesh->getNode(n)->getX(0);
+      t0[1] = mesh->getNode(n0)->getX(1) - mesh->getNode(n)->getX(1);
+      t0[2] = mesh->getNode(n0)->getX(2) - mesh->getNode(n)->getX(2);
       
       // unit tangent from node to node1
-      t1[0] = mesh->node[n1].x[0] - mesh->node[n].x[0];
-      t1[1] = mesh->node[n1].x[1] - mesh->node[n].x[1];
-      t1[2] = mesh->node[n1].x[2] - mesh->node[n].x[2];
+      t1[0] = mesh->getNode(n1)->getX(0) - mesh->getNode(n)->getX(0);
+      t1[1] = mesh->getNode(n1)->getX(1) - mesh->getNode(n)->getX(1);
+      t1[2] = mesh->getNode(n1)->getX(2) - mesh->getNode(n)->getX(2);
       
       helpers->normalize(t0);
       helpers->normalize(t1);
@@ -998,9 +1000,9 @@ void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
       angle = 0.0;
     }    
     
-    point->sharp_point = false;
+    point->setSharp(false);
     if(sqrt(angle*angle) < (180.0-limit) ) {
-      point->sharp_point = true;
+      point->setSharp(true);
       count++;
     }
   }
@@ -1022,14 +1024,14 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
   double angle;
   int count = 0;
   
-  for(int i=0; i<mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
+  for(int i=0; i<mesh->getEdges(); i++) {
+    edge_t *edge = mesh->getEdge(i);
 
-    if(edge->surfaces == 2) {
-      int s0 = edge->surface[0];
-      int s1 = edge->surface[1];    
-      double *n0 = mesh->surface[s0].normal;
-      double *n1 = mesh->surface[s1].normal;
+    if(edge->getSurfaces() == 2) {
+      int s0 = edge->getSurfaceIndex(0);
+      int s1 = edge->getSurfaceIndex(1);
+      double *n0 = mesh->getSurface(s0)->normal;
+      double *n1 = mesh->getSurface(s1)->normal;
       double cosofangle = n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2];
 	  cosofangle = std::abs(cosofangle);
       angle = acos(cosofangle) / MYPI * 180.0;
@@ -1037,9 +1039,9 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
       angle = 180.0;
     }    
     
-    edge->sharp_edge = false;
+    edge->setSharp(false);
     if(sqrt(angle*angle) > limit) {
-		edge->sharp_edge = true;
+      edge->setSharp(true);
       count++;
     }
   }
@@ -1056,24 +1058,24 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   class Bc {
   public:
     void propagateIndex(mesh_t* mesh, int index, int i) {
-      edge_t *edge = &mesh->edge[i];
+      edge_t *edge = mesh->getEdge(i);
 
       // index is ok
-      if(!edge->selected || (edge->index != UNKNOWN)
-        || (edge->nature != PDE_BOUNDARY)) return;
+      if(!edge->getSelected() || (edge->getIndex() != UNKNOWN)
+	 || (edge->getNature() != PDE_BOUNDARY)) return;
       
       // set index
-      edge->index = index;
+      edge->setIndex(index);
 
       // propagate index
-      for(int j=0; j < edge->points; j++) {
-	int k = edge->point[j];
-	point_t *point = &mesh->point[k];
+      for(int j=0; j < edge->getPoints(); j++) {
+	int k = edge->getPointIndex(j);
+	point_t *point = mesh->getPoint(k);
 
 	// skip sharp points
-	if(!point->sharp_point) {
-	  for(int m = 0; m < point->edges; m++) {
-	    int n = point->edge[m];
+	if(!point->isSharp()) {
+	  for(int m = 0; m < point->getEdges(); m++) {
+	    int n = point->getEdgeIndex(m);
 	    propagateIndex(mesh, index, n);
 	  }
 	}
@@ -1087,11 +1089,11 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   int index = 0;
   int count = 0;
 
-  for(int i=0; i < mesh->edges; i++)
+  for(int i=0; i < mesh->getEdges(); i++)
   {
-    edge_t *edge=&mesh->edge[i];
-    if(edge->nature == PDE_BOUNDARY && !edge->selected)
-      index = max(index,edge->index);
+    edge_t *edge = mesh->getEdge(i);
+    if((edge->getNature() == PDE_BOUNDARY) && !edge->getSelected())
+      index = max(index, edge->getIndex());
   }
   index++;
 
@@ -1102,18 +1104,18 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
     edge_index[i] = UNKNOWN;
 
   index = 0;
-  for(int i=0; i < mesh->edges; i++)
+  for(int i=0; i < mesh->getEdges(); i++)
   {
-    edge_t *edge=&mesh->edge[i];
-    if (edge->nature==PDE_BOUNDARY)
+    edge_t *edge = mesh->getEdge(i);
+    if (edge->getNature() == PDE_BOUNDARY)
     {
-      if ( edge->selected ) {
+      if ( edge->getSelected() ) {
         count++;
-        edge->index = UNKNOWN;
+        edge->setIndex(UNKNOWN);
       } else {
-        if ( edge_index[edge->index] == UNKNOWN )
-          edge_index[edge->index] = ++index;
-        edge->index = edge_index[edge->index];
+        if ( edge_index[edge->getIndex()] == UNKNOWN )
+          edge_index[edge->getIndex()] = ++index;
+        edge->setIndex(edge_index[edge->getIndex()]);
       }
     }
   }
@@ -1126,10 +1128,10 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   Bc *bc = new Bc;
 
   // recursively determine boundary parts:
-  for(int i=0; i < mesh->edges; i++)
+  for(int i=0; i < mesh->getEdges(); i++)
   {
-    edge_t *edge=&mesh->edge[i];
-    if(edge->selected && edge->index==UNKNOWN && edge->nature==PDE_BOUNDARY)
+    edge_t *edge = mesh->getEdge(i);
+    if(edge->getSelected() && (edge->getIndex() == UNKNOWN) && (edge->getNature() == PDE_BOUNDARY))
       bc->propagateIndex(mesh, ++index, i);
   }
   index++;
@@ -1167,21 +1169,21 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
     xmax[i] = ymax[i] = zmax[i] = -1e20;
   }
 
-  for( int i=0; i<mesh->edges; i++ )
+  for( int i=0; i<mesh->getEdges(); i++ )
   {
-    edge_t *edge=&mesh->edge[i];
-    if (edge->nature==PDE_BOUNDARY) {
-      int k = edge->index;
-      for( int j=0; j<edge->nodes; j++ ) {
-        int n = edge->node[j];
+    edge_t *edge = mesh->getEdge(i);
+    if (edge->getNature() == PDE_BOUNDARY) {
+      int k = edge->getIndex();
+      for( int j=0; j < edge->getNodes(); j++ ) {
+        int n = edge->getNodeIndex(j);
         cc[k]++;
-        xmin[k] = min(xmin[k], mesh->node[n].x[0]);
-        ymin[k] = min(ymin[k], mesh->node[n].x[1]);
-        zmin[k] = min(zmin[k], mesh->node[n].x[2]);
+        xmin[k] = min(xmin[k], mesh->getNode(n)->getX(0));
+        ymin[k] = min(ymin[k], mesh->getNode(n)->getX(1));
+        zmin[k] = min(zmin[k], mesh->getNode(n)->getX(2));
  
-        xmax[k] = max(xmax[k], mesh->node[n].x[0]);
-        ymax[k] = max(ymax[k], mesh->node[n].x[1]);
-        zmax[k] = max(zmax[k], mesh->node[n].x[2]);
+        xmax[k] = max(xmax[k], mesh->getNode(n)->getX(0));
+        ymax[k] = max(ymax[k], mesh->getNode(n)->getX(1));
+        zmax[k] = max(zmax[k], mesh->getNode(n)->getX(2));
        }
     }
   }
@@ -1230,9 +1232,9 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   for( int i=0; i<index; i++ )
     sorder[order[i]] = i;
 
-  for( int i=0; i<mesh->edges; i++ )
-    if ( mesh->edge[i].nature == PDE_BOUNDARY )
-      mesh->edge[i].index = sorder[mesh->edge[i].index];
+  for( int i=0; i<mesh->getEdges(); i++ )
+    if ( mesh->getEdge(i)->getNature() == PDE_BOUNDARY )
+      mesh->getEdge(i)->setIndex(sorder[mesh->getEdge(i)->getIndex()]);
 
   --index;
   cout << "Edge divided into " << index << " parts" << endl;
@@ -1297,24 +1299,24 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   class Bc {
   public:
     void propagateIndex(mesh_t* mesh, int index, int i) {
-      surface_t *surf = &mesh->surface[i];
+      surface_t *surf = mesh->getSurface(i);
 
       // index is ok
-      if(!surf->selected || (surf->index != UNKNOWN) 
-        || (surf->nature != PDE_BOUNDARY) ) return;
+      if(!surf->getSelected() || (surf->getIndex() != UNKNOWN) 
+	 || (surf->getNature() != PDE_BOUNDARY) ) return;
 
       // set index
-      surf->index = index;
+      surf->setIndex(index);
 
       // propagate index
-      for(int j=0; j<surf->edges; j++) {
-	int k = surf->edge[j];
-	edge_t *edge = &mesh->edge[k];
+      for(int j=0; j < surf->getEdges(); j++) {
+	int k = surf->getEdgeIndex(j);
+	edge_t *edge = mesh->getEdge(k);
 
 	// skip sharp edges
-	if(!edge->sharp_edge) {
-	  for(int m=0; m < edge->surfaces; m++) {
-	    int n = edge->surface[m];
+	if(!edge->isSharp()) {
+	  for(int m=0; m < edge->getSurfaces(); m++) {
+	    int n = edge->getSurfaceIndex(m);
 	    propagateIndex(mesh, index, n);
 	  }
 	}
@@ -1326,11 +1328,11 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   int count = 0;
   int index = 0;
 
-  for( int i=0; i<mesh->surfaces; i++ )
+  for( int i=0; i<mesh->getSurfaces(); i++ )
   {
-    surface_t *surf=&mesh->surface[i];
-    if( surf->nature == PDE_BOUNDARY && !surf->selected )
-      index = max(index,surf->index);
+    surface_t *surf = mesh->getSurface(i);
+    if( (surf->getNature() == PDE_BOUNDARY) && !surf->getSelected() )
+      index = max(index, surf->getIndex());
   }
   index++;
 
@@ -1341,17 +1343,17 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
     surf_index[i] = UNKNOWN;
 
   index = 0;
-  for(int i=0; i < mesh->surfaces; i++)
+  for(int i=0; i < mesh->getSurfaces(); i++)
   {
-    surface_t *surf=&mesh->surface[i];
-    if (surf->nature == PDE_BOUNDARY) {
-      if ( surf->selected ) {
+    surface_t *surf = mesh->getSurface(i);
+    if (surf->getNature() == PDE_BOUNDARY) {
+      if ( surf->getSelected() ) {
         count++;
-        surf->index = UNKNOWN;
+        surf->setIndex(UNKNOWN);
       } else {
-        if ( surf_index[surf->index] == UNKNOWN )
-          surf_index[surf->index] = ++index;
-        surf->index = surf_index[surf->index];
+        if ( surf_index[surf->getIndex()] == UNKNOWN )
+          surf_index[surf->getIndex()] = ++index;
+        surf->setIndex(surf_index[surf->getIndex()]);
       }
     }
   }
@@ -1365,10 +1367,10 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   // recursively determine boundary parts:
   Bc *bc = new Bc;
 
-  for(int i=0; i < mesh->surfaces; i++)
+  for(int i=0; i < mesh->getSurfaces(); i++)
   {
-    surface_t *surf = &mesh->surface[i];
-    if(surf->selected && surf->index==UNKNOWN && surf->nature==PDE_BOUNDARY)
+    surface_t *surf = mesh->getSurface(i);
+    if(surf->getSelected() && (surf->getIndex() == UNKNOWN) && (surf->getNature() == PDE_BOUNDARY))
       bc->propagateIndex(mesh, ++index, i);
   }
   index++;
@@ -1406,21 +1408,21 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
     xmax[i] = ymax[i] = zmax[i] = -1e20;
   }
 
-  for( int i=0; i<mesh->surfaces; i++ )
+  for( int i=0; i < mesh->getSurfaces(); i++ )
   {
-    surface_t *surf=&mesh->surface[i];
-    if ( mesh->surface[i].nature == PDE_BOUNDARY ) {
-      int k = surf->index;
-      for( int j=0; j<surf->nodes; j++ ) {
-        int n = surf->node[j];
+    surface_t *surf = mesh->getSurface(i);
+    if ( mesh->getSurface(i)->getNature() == PDE_BOUNDARY ) {
+      int k = surf->getIndex();
+      for( int j=0; j < surf->getNodes(); j++ ) {
+        int n = surf->getNodeIndex(j);
         cc[k]++;
-        xmin[k] = min( xmin[k], mesh->node[n].x[0] );
-        ymin[k] = min( ymin[k], mesh->node[n].x[1] );
-        zmin[k] = min( zmin[k], mesh->node[n].x[2] );
+        xmin[k] = min( xmin[k], mesh->getNode(n)->getX(0) );
+        ymin[k] = min( ymin[k], mesh->getNode(n)->getX(1) );
+        zmin[k] = min( zmin[k], mesh->getNode(n)->getX(2) );
  
-        xmax[k] = max( xmax[k], mesh->node[n].x[0] );
-        ymax[k] = max( ymax[k], mesh->node[n].x[1] );
-        zmax[k] = max( zmax[k], mesh->node[n].x[2] );
+        xmax[k] = max( xmax[k], mesh->getNode(n)->getX(0) );
+        ymax[k] = max( ymax[k], mesh->getNode(n)->getX(1) );
+        zmax[k] = max( zmax[k], mesh->getNode(n)->getX(2) );
       }
     }
   }
@@ -1469,9 +1471,9 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   for( int i=0; i<index; i++ )
     sorder[order[i]] = i;
 
-  for( int i=0; i<mesh->surfaces; i++ )
-    if ( mesh->surface[i].nature == PDE_BOUNDARY )
-      mesh->surface[i].index = sorder[mesh->surface[i].index];
+  for( int i=0; i < mesh->getSurfaces(); i++ )
+    if ( mesh->getSurface(i)->getNature() == PDE_BOUNDARY )
+      mesh->getSurface(i)->setIndex(sorder[mesh->getSurface(i)->getIndex()]);
   --index;
 
   cout << "Surface divided into " << index << " parts" << endl;
@@ -1492,16 +1494,16 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
   Helpers *helpers = new Helpers;
   int u, v, w, e0, e1, i0, i1, bigger;
 
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
     
-    u = surface->node[0];
-    v = surface->node[1];
+    u = surface->getNodeIndex(0);
+    v = surface->getNodeIndex(1);
 
-    if((int)(surface->code/100) == 3) {
-      w = surface->node[2];
-    } else if((int)(surface->code/100) == 4) {
-      w = surface->node[3];
+    if((int)(surface->getCode() / 100) == 3) {
+      w = surface->getNodeIndex(2);
+    } else if((int)(surface->getCode() / 100) == 4) {
+      w = surface->getNodeIndex(3);
     } else {
       cout << "findBoundaryElementNormals: error: unknown code" << endl;
       cout.flush();
@@ -1509,13 +1511,13 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     }
 
     // Calculate normal (modulo sign):
-    a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
-    a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];
-    a[2] = mesh->node[v].x[2] - mesh->node[u].x[2];
+    a[0] = mesh->getNode(v)->getX(0) - mesh->getNode(u)->getX(0);
+    a[1] = mesh->getNode(v)->getX(1) - mesh->getNode(u)->getX(1);
+    a[2] = mesh->getNode(v)->getX(2) - mesh->getNode(u)->getX(2);
     
-    b[0] = mesh->node[w].x[0] - mesh->node[u].x[0];
-    b[1] = mesh->node[w].x[1] - mesh->node[u].x[1];
-    b[2] = mesh->node[w].x[2] - mesh->node[u].x[2];
+    b[0] = mesh->getNode(w)->getX(0) - mesh->getNode(u)->getX(0);
+    b[1] = mesh->getNode(w)->getX(1) - mesh->getNode(u)->getX(1);
+    b[2] = mesh->getNode(w)->getX(2) - mesh->getNode(u)->getX(2);
     
     helpers->crossProduct(a,b,c);
     helpers->normalize(c);
@@ -1529,8 +1531,8 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 
     // a) which parent element has bigger index?
 
-    e0 = surface->element[0];
-    e1 = surface->element[1];
+    e0 = surface->getElementIndex(0);
+    e1 = surface->getElementIndex(1);
     
     if( (e0<0) && (e1<0) ) {
       // both parents unknown
@@ -1541,8 +1543,8 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     } else {
       // both parents known
       bigger = e0;
-      i0 = mesh->element[e0].index;
-      i1 = mesh->element[e1].index;
+      i0 = mesh->getElement(e0)->getIndex();
+      i1 = mesh->getElement(e1)->getIndex();
       if(i1 > i0)
 	bigger = e1;
     }
@@ -1556,36 +1558,36 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
       center_surface[1] = 0.0;
       center_surface[2] = 0.0;
 
-      for(int i=0; i < surface->nodes; i++) {
-	int j = surface->node[i];
-	node_t *n = &mesh->node[j];
-	center_surface[0] += n->x[0];
-	center_surface[1] += n->x[1];
-	center_surface[2] += n->x[2];
+      for(int i=0; i < surface->getNodes(); i++) {
+	int j = surface->getNodeIndex(i);
+	node_t *n = mesh->getNode(j);
+	center_surface[0] += n->getX(0);
+	center_surface[1] += n->getX(1);
+	center_surface[2] += n->getX(2);
       }
 
-      center_surface[0] /= (double)(surface->nodes);
-      center_surface[1] /= (double)(surface->nodes);
-      center_surface[2] /= (double)(surface->nodes);
+      center_surface[0] /= (double)(surface->getNodes());
+      center_surface[1] /= (double)(surface->getNodes());
+      center_surface[2] /= (double)(surface->getNodes());
       
-      element_t *e = &mesh->element[bigger];
+      element_t *e = mesh->getElement(bigger);
 
       // compute center point of the parent element:
       center_element[0] = 0.0;
       center_element[1] = 0.0;
       center_element[2] = 0.0;
 
-      for(int i=0; i < e->nodes; i++) {
-	int j = e->node[i];
-	node_t *n = &mesh->node[j];
-	center_element[0] += n->x[0];
-	center_element[1] += n->x[1];
-	center_element[2] += n->x[2];
+      for(int i=0; i < e->getNodes(); i++) {
+	int j = e->getNodeIndex(i);
+	node_t *n = mesh->getNode(j);
+	center_element[0] += n->getX(0);
+	center_element[1] += n->getX(1);
+	center_element[2] += n->getX(2);
       }
 
-      center_element[0] /= (double)(e->nodes);
-      center_element[1] /= (double)(e->nodes);
-      center_element[2] /= (double)(e->nodes);
+      center_element[0] /= (double)(e->getNodes());
+      center_element[1] /= (double)(e->getNodes());
+      center_element[2] /= (double)(e->getNodes());
 
       // difference of the centers:
       center_difference[0] = center_element[0] - center_surface[0];
@@ -1603,34 +1605,34 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 	surface->normal[2] = -surface->normal[2];
 
 	// change orientation of the surface element:
-	if(surface->code == 303) {
-	  int tmp = surface->node[1];
-	  surface->node[1] = surface->node[2];
-	  surface->node[2] = tmp;
+	if(surface->getCode() == 303) {
+	  int tmp = surface->getNodeIndex(1);
+	  surface->setNodeIndex(1, surface->getNodeIndex(2));
+	  surface->setNodeIndex(2, tmp);
 
-	} else if(surface->code == 404) {
-	  int tmp = surface->node[1];
-	  surface->node[1] = surface->node[3];
-	  surface->node[3] = tmp;
+	} else if(surface->getCode() == 404) {
+	  int tmp = surface->getNodeIndex(1);
+	  surface->setNodeIndex(1, surface->getNodeIndex(3));
+	  surface->setNodeIndex(3, tmp);
 
-	} else if(surface->code == 306) {
-	  int tmp = surface->node[1];
-	  surface->node[1] = surface->node[2];
-	  surface->node[2] = tmp;
-	  tmp = surface->node[3];
-	  surface->node[3] = surface->node[5];
-	  surface->node[5] = tmp;
+	} else if(surface->getCode() == 306) {
+	  int tmp = surface->getNodeIndex(1);
+	  surface->setNodeIndex(1, surface->getNodeIndex(2));
+	  surface->setNodeIndex(2, tmp);
+	  tmp = surface->getNodeIndex(3);
+	  surface->setNodeIndex(3, surface->getNodeIndex(5));
+	  surface->setNodeIndex(5, tmp);
 
-	} else if(surface->code == 408) {
-	  int tmp = surface->node[1];
-	  surface->node[1] = surface->node[3];
-	  surface->node[3] = tmp;
-	  tmp = surface->node[4];
-	  surface->node[4] = surface->node[7];
-	  surface->node[7] = tmp;
-	  tmp = surface->node[5];
-	  surface->node[5] = surface->node[6];
-	  surface->node[6] = tmp;
+	} else if(surface->getCode() == 408) {
+	  int tmp = surface->getNodeIndex(1);
+	  surface->setNodeIndex(1, surface->getNodeIndex(3));
+	  surface->setNodeIndex(3, tmp);
+	  tmp = surface->getNodeIndex(4);
+	  surface->setNodeIndex(4, surface->getNodeIndex(7));
+	  surface->setNodeIndex(7, tmp);
+	  tmp = surface->getNodeIndex(5);
+	  surface->setNodeIndex(5, surface->getNodeIndex(6));
+	  surface->setNodeIndex(6, tmp);
 
 	} else {
 	  cout << "findSurfaceElementNormals: error: unable to change element orientation" << endl;
@@ -1641,10 +1643,10 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     }
   }
 
-  for( int i=0; i<mesh->surfaces; i++ )
+  for( int i=0; i < mesh->getSurfaces(); i++ )
   {
-    surface_t *surface = &mesh->surface[i];
-    int n = surface->code / 100;
+    surface_t *surface = mesh->getSurface(i);
+    int n = surface->getCode() / 100;
     for(int j=0; j<n; j++ )
     {
        surface->vertex_normals[j][0] = surface->normal[0];
@@ -1659,7 +1661,7 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
   //public:
   //int index;
   //n_s_t *next;
-  //} n_s[mesh->nodes];
+  //} n_s[mesh->getNodes()];
 
   class n_s_t {
   public:
@@ -1667,48 +1669,48 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     n_s_t *next;
   };
 
-  n_s_t *n_s = new n_s_t[mesh->nodes];
+  n_s_t *n_s = new n_s_t[mesh->getNodes()];
 
-  for( int i=0; i<mesh->nodes; i++ )
+  for( int i=0; i<mesh->getNodes(); i++ )
   {
-     n_s[i].index = -1;
+    n_s[i].index = -1;
      n_s[i].next = NULL;
   }
 
-  for( int i=0; i<mesh->surfaces; i++ ) 
+  for( int i=0; i < mesh->getSurfaces(); i++ ) 
   {
-     surface_t *surface = &mesh->surface[i];
-     int n=surface->code/100;
+    surface_t *surface = mesh->getSurface(i);
+    int n = surface->getCode() / 100;
 
-     for( int j=0; j<n; j++ )
-     {
-        n_s_t *p = &n_s[surface->node[j]];
+    for( int j=0; j<n; j++ )
+      {
+	n_s_t *p = &n_s[surface->getNodeIndex(j)];
         if ( p->index >= 0 ) {
           n_s_t *q = new n_s_t;
           q->next = p->next;
           p->next = q;
           q->index = i;
         } else p->index = i;
-     }
+      }
   }
 
   // avarage normals over surfaces connected to vertices if
   // normals within the limit_angle:
   double limit_angle = cos(50.*3.14159/180.);
 
-  for( int i=0; i<mesh->surfaces; i++ )
+  for( int i=0; i < mesh->getSurfaces(); i++ )
   {
-    surface_t *surf1 = &mesh->surface[i];
-    int n=surf1->code/100;
+    surface_t *surf1 = mesh->getSurface(i);
+    int n = surf1->getCode() / 100;
 
     for( int j=0; j<n; j++ )
     {
-      n_s_t *p = &n_s[surf1->node[j]];
+      n_s_t *p = &n_s[surf1->getNodeIndex(j)];
       for( ; p && p->index>=0; p=p->next )
       {
         if ( p->index == i ) continue;
 
-        surface_t *surf2 = &mesh->surface[p->index];
+        surface_t *surf2 = mesh->getSurface(p->index);
         double s = 0.;
 
         s += surf1->normal[0]*surf2->normal[0];
@@ -1731,7 +1733,7 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
   }
 
   // delete lists:
-  for( int i=0; i<mesh->nodes; i++ )
+  for( int i=0; i<mesh->getNodes(); i++ )
   {
      n_s_t *p=&n_s[i], *q;
      p = p->next;
@@ -1744,10 +1746,10 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
   }
 
   // And finally normalize:
-  for( int i=0; i<mesh->surfaces; i++ )
+  for( int i=0; i < mesh->getSurfaces(); i++ )
   {
-    surface_t *surface = &mesh->surface[i];
-    int n = surface->code / 100;
+    surface_t *surface = mesh->getSurface(i);
+    int n = surface->getCode() / 100;
 
     for(int j=0; j<n; j++ )
     {
@@ -1781,9 +1783,9 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
     hashEntry *next;
   };
 
-  if(mesh->elements == 0 && mesh->surfaces == 0) return;
+  if((mesh->getElements() == 0) && (mesh->getSurfaces() == 0)) return;
 
-  int keys = mesh->nodes;  
+  int keys = mesh->getNodes();  
   hashEntry *hash = new hashEntry[keys];
   hashEntry *h;
 
@@ -1808,20 +1810,20 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
 
   // First go through elements and find all new edges introduced by the 2nd order 
   int noedges = 0;
-  for(int i=0; i < mesh->elements + mesh->surfaces; i++) {
+  for(int i=0; i < mesh->getElements() + mesh->getSurfaces(); i++) {
 
     element_t *e;
-    if(i < mesh->elements) 
-      e = &mesh->element[i];
+    if(i < mesh->getElements()) 
+      e = mesh->getElement(i);
     else 
-      e = &mesh->surface[i - mesh->elements];
+      e = mesh->getSurface(i - mesh->getElements());
 
     int *edgemap = NULL;
-    int family = e->code / 100;
+    int family = e->getCode() / 100;
     int edges = familyedges[family];
 
     // Skip undtermined and nonlinear element 
-    if(e->nodes < 2 || e->nodes > familylinnodes[family]) continue;
+    if((e->getNodes() < 2) || (e->getNodes() > familylinnodes[family])) continue;
 
     for(int f=0; f<edges; f++) {
       if(family == 3) 
@@ -1837,8 +1839,8 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
       else if(family == 8) 
 	edgemap = &edgemap8[f][0];
 
-      int n0 = e->node[edgemap[0]];
-      int n1 = e->node[edgemap[1]];
+      int n0 = e->getNodeIndex(edgemap[0]);
+      int n1 = e->getNodeIndex(edgemap[1]);
 
       if(n0 < 0 || n1 < 0) continue;
 
@@ -1881,15 +1883,15 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
   }
 
   // Then redifine the mesh using the additional nodes
-  int quadnodes = mesh->nodes + noedges;  
+  int quadnodes = mesh->getNodes() + noedges;  
   node_t *quadnode = new node_t[quadnodes];
   
   // Copy linear nodes
-  for(int i=0;i<mesh->nodes;i++) {
-    quadnode[i].x[0] = mesh->node[i].x[0];  
-    quadnode[i].x[1] = mesh->node[i].x[1];  
-    quadnode[i].x[2] = mesh->node[i].x[2];  
-    quadnode[i].index = mesh->node[i].index;
+  for(int i = 0; i < mesh->getNodes(); i++) {
+    quadnode[i].setX(0, mesh->getNode(i)->getX(0));
+    quadnode[i].setX(1, mesh->getNode(i)->getX(1));
+    quadnode[i].setX(2, mesh->getNode(i)->getX(2));
+    quadnode[i].setIndex(mesh->getNode(i)->getIndex());
   }
 
   // Quadratic nodes are taken to be means of the linear nodes
@@ -1901,50 +1903,50 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
 	j++;
 	int n0 = i;
 	int n1 = h->node1;
-	int j = mesh->nodes + h->noedge;
-	quadnode[j].x[0] = 0.5*(quadnode[n0].x[0] + quadnode[n1].x[0]); 
-	quadnode[j].x[1] = 0.5*(quadnode[n0].x[1] + quadnode[n1].x[1]); 
-	quadnode[j].x[2] = 0.5*(quadnode[n0].x[2] + quadnode[n1].x[2]); 
-	quadnode[j].index = UNKNOWN;
+	int j = mesh->getNodes() + h->noedge;
+	quadnode[j].setX(0, 0.5*(quadnode[n0].getX(0) + quadnode[n1].getX(0)));
+	quadnode[j].setX(1, 0.5*(quadnode[n0].getX(1) + quadnode[n1].getX(1)));
+	quadnode[j].setX(2, 0.5*(quadnode[n0].getX(2) + quadnode[n1].getX(2)));
+	quadnode[j].setIndex(UNKNOWN);
       }
       h = h->next;     
     }
   }
-  delete [] mesh->node;
-  mesh->node = quadnode;
+  mesh->deleteNodeArray();
+  mesh->setNodeArray(quadnode);
 
   cout << "Set " << quadnodes << " additional nodes" << endl;
 
 
   int tmpnode[27];
 
-  for(int i=0; i < mesh->elements + mesh->surfaces + mesh->edges; i++) {
+  for(int i=0; i < mesh->getElements() + mesh->getSurfaces() + mesh->getEdges(); i++) {
     
     element_t *e;
-    if(i < mesh->elements) 
-      e = &mesh->element[i];
-    else if (i < mesh->elements + mesh->surfaces) 
-      e = &mesh->surface[i - mesh->elements];
+    if(i < mesh->getElements()) 
+      e = mesh->getElement(i);
+    else if (i < mesh->getElements() + mesh->getSurfaces()) 
+      e = mesh->getSurface(i - mesh->getElements());
     else 
-      e = &mesh->edge[i - mesh->elements - mesh->surfaces];
+      e = mesh->getEdge(i - mesh->getElements() - mesh->getSurfaces());
 
     int *edgemap = NULL;
-    int family = e->code / 100;
+    int family = e->getCode() / 100;
     int edges = familyedges[family];
 
     /* Not a linear element */
-    if(e->nodes < 2 || e->nodes > familylinnodes[family]) continue;
+    if((e->getNodes() < 2) || (e->getNodes() > familylinnodes[family])) continue;
 
-    int linnodes = e->nodes;
+    int linnodes = e->getNodes();
     for(int j=0;j<linnodes;j++)
-      tmpnode[j] = e->node[j];
+      tmpnode[j] = e->getNodeIndex(j);
 
-    delete e->node;
-    e->code += edges;
-    e->nodes += edges;
-    e->node = new int[e->nodes];
+    e->deleteNodeIndexes();
+    e->setCode(e->getCode() + edges);
+    e->setNodes(e->getNodes() + edges);
+    e->newNodeIndexes(e->getNodes());
     for(int j=0;j<linnodes;j++)
-      e->node[j] = tmpnode[j];
+      e->setNodeIndex(j, tmpnode[j]);
 
 
     for(int f=0; f<edges; f++) {
@@ -1964,9 +1966,9 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
       else if(family == 8) 
 	edgemap = &edgemap8[f][0];
       
-      int n0 = e->node[edgemap[0]];
-      int n1 = e->node[edgemap[1]];
-      if(n0 < 0 || n1 < 0) continue;
+      int n0 = e->getNodeIndex(edgemap[0]);
+      int n1 = e->getNodeIndex(edgemap[1]);
+      if((n0 < 0) || (n1 < 0)) continue;
 
       // Order indexes in an increasing order 
       if(n0 > n1) {
@@ -1980,7 +1982,7 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
       while(h->next) {                                       
 	if(h->node1 == n1) {
 	  found = true;
-	  e->node[linnodes+f] = h->noedge + mesh->nodes;
+	  e->setNodeIndex(linnodes+f, h->noedge + mesh->getNodes());
 	  break;
 	}
 	h = h->next;
@@ -1990,7 +1992,7 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
       }
     }    
   }
-  mesh->nodes = quadnodes;
+  mesh->setNodes(quadnodes);
 
   delete [] hash;
 }
@@ -2001,78 +2003,77 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
 //----------------------------------------------------------------------------
 void Meshutils::decreaseElementOrder(mesh_t *mesh)
 {
-  if(mesh->elements == 0 && mesh->surfaces == 0) return;
+  if((mesh->getElements() == 0) && (mesh->getSurfaces() == 0)) return;
 
   static int familylinnodes[9] = {0, 1, 2, 3, 4, 4, 5, 6, 8};
 
-  int *activenodes = new int[mesh->nodes];
-  for(int i=0;i<mesh->nodes;i++)
+  int *activenodes = new int[mesh->getNodes()];
+  for(int i=0; i < mesh->getNodes(); i++)
     activenodes[i] = -1;
 
   // int noedges = 0;
-  for(int i=0; i < mesh->elements + mesh->surfaces; i++) {
+  for(int i=0; i < mesh->getElements() + mesh->getSurfaces(); i++) {
 
     element_t *e;
-    if(i < mesh->elements) 
-      e = &mesh->element[i];
+    if(i < mesh->getElements()) 
+      e = mesh->getElement(i);
     else 
-      e = &mesh->surface[i - mesh->elements];
+      e = mesh->getSurface(i - mesh->getElements());
 
-    int family = e->code / 100;
+    int family = e->getCode() / 100;
     int linnodes = familylinnodes[family];
 
     for(int j=0;j<linnodes;j++)
-      activenodes[e->node[j]] = 0;
+      activenodes[e->getNodeIndex(j)] = 0;
   }
 
   int linnodes = 0;
-  for(int i=0;i<mesh->nodes;i++)
+  for(int i=0; i < mesh->getNodes(); i++)
     if(activenodes[i] > -1) activenodes[i] = linnodes++;
 
-  cout << "Setting " << linnodes << " linear nodes of the total " << mesh->nodes << " nodes" << endl;
-  if(linnodes == mesh->nodes) return;
+  cout << "Setting " << linnodes << " linear nodes of the total " << mesh->getNodes() << " nodes" << endl;
+  if(linnodes == mesh->getNodes()) return;
 
 
   // Copy linear nodes
   node_t *linnode = new node_t[linnodes];
-  for(int i=0;i<mesh->nodes;i++) {
+  for(int i=0; i < mesh->getNodes(); i++) {
     int j = activenodes[i];
     if(j > -1) {   
-      linnode[j].x[0] = mesh->node[i].x[0];  
-      linnode[j].x[1] = mesh->node[i].x[1];  
-      linnode[j].x[2] = mesh->node[i].x[2];
+      linnode[j].setX(0, mesh->getNode(i)->getX(0));
+      linnode[j].setX(1, mesh->getNode(i)->getX(1));
+      linnode[j].setX(2, mesh->getNode(i)->getX(2));
     }
   }
-  delete [] mesh->node;
-  mesh->node = linnode;
-  mesh->nodes = linnodes;
-
+  mesh->deleteNodeArray();
+  mesh->setNodeArray(linnode);
+  mesh->setNodes(linnodes);
 
   int tmpnode[8];
 
-  for(int i=0; i < mesh->elements + mesh->surfaces + mesh->edges; i++) {
+  for(int i=0; i < mesh->getElements() + mesh->getSurfaces() + mesh->getEdges(); i++) {
     
     element_t *e;
-    if(i < mesh->elements) 
-      e = &mesh->element[i];
-    else if (i < mesh->elements + mesh->surfaces) 
-      e = &mesh->surface[i - mesh->elements];
+    if(i < mesh->getElements()) 
+      e = mesh->getElement(i);
+    else if (i < mesh->getElements() + mesh->getSurfaces()) 
+      e = mesh->getSurface(i - mesh->getElements());
     else 
-      e = &mesh->edge[i - mesh->elements - mesh->surfaces];
+      e = mesh->getEdge(i - mesh->getElements() - mesh->getSurfaces());
 
-    int family = e->code / 100;
+    int family = e->getCode() / 100;
     int linnodes = familylinnodes[family];
 
     for(int j=0;j<linnodes;j++)
-      tmpnode[j] = e->node[j];
+      tmpnode[j] = e->getNodeIndex(j);
 
-    delete e->node;
-    e->code = 100*family + linnodes;
-    e->nodes = linnodes;
-    e->node = new int[e->nodes];
+    e->deleteNodeIndexes();
+    e->setCode(100*family + linnodes);
+    e->setNodes(linnodes);
+    e->newNodeIndexes(e->getNodes());
 
     for(int j=0;j<linnodes;j++)
-      e->node[j] = activenodes[tmpnode[j]];
+      e->setNodeIndex(j, activenodes[tmpnode[j]]);
   }
 }
 
@@ -2083,30 +2084,30 @@ int Meshutils::cleanHangingSharpEdges(mesh_t *mesh)
   int count_total = 0;
   int count_removed = 0;
   
-  if(mesh->edges == 0)
+  if(mesh->getEdges() == 0)
     return 0;
 
-  for(int i = 0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if(edge->sharp_edge) {
+  for(int i = 0; i < mesh->getEdges(); i++) {
+    edge_t *edge = mesh->getEdge(i);
+    if(edge->isSharp()) {
       count_total++;
-      if(edge->surfaces == 2) {
+      if(edge->getSurfaces() == 2) {
 	// has two parents
-	int i0 = edge->surface[0];
-	int i1 = edge->surface[1];
+	int i0 = edge->getSurfaceIndex(0);
+	int i1 = edge->getSurfaceIndex(1);
 	surface_t *s0 = NULL;
 	surface_t *s1 = NULL;
 	if(i0 >= 0)
-	  s0 = &mesh->surface[i0];
+	  s0 = mesh->getSurface(i0);
 	if(i1 >= 0)
-	  s1 = &mesh->surface[i1];
+	  s1 = mesh->getSurface(i1);
 	if((s0 != NULL) && (s1 != NULL)) {
-	  int index0 = s0->index;
-	  int index1 = s1->index;
+	  int index0 = s0->getIndex();
+	  int index1 = s1->getIndex();
 	  if(index0 == index1) {
 	    // remove
 	    count_removed++;
-	    edge->sharp_edge = false;
+	    edge->setSharp(false);
 	  }
 	}
       }

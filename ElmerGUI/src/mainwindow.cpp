@@ -3102,13 +3102,13 @@ void MainWindow::modelSummarySlot()
   }
   
   te->append("FINITE ELEMENT MESH");
-  te->append("Mesh dimension: " + QString::number(mesh->cdim));
-  te->append("Leading element dimension: " + QString::number(mesh->dim));
-  te->append("Nodes: " + QString::number(mesh->nodes));
-  te->append("Volume elements: " + QString::number(mesh->elements));
-  te->append("Surface elements: " + QString::number(mesh->surfaces));
-  te->append("Edge elements: " + QString::number(mesh->edges));
-  te->append("Point elements: " + QString::number(mesh->points));
+  te->append("Mesh dimension: " + QString::number(mesh->getCdim()));
+  te->append("Leading element dimension: " + QString::number(mesh->getDim()));
+  te->append("Nodes: " + QString::number(mesh->getNodes()));
+  te->append("Volume elements: " + QString::number(mesh->getElements()));
+  te->append("Surface elements: " + QString::number(mesh->getSurfaces()));
+  te->append("Edge elements: " + QString::number(mesh->getEdges()));
+  te->append("Point elements: " + QString::number(mesh->getPoints()));
   te->append("");
 
   // This is almost duplicate info with the above, they might be fused in some way...
@@ -3116,14 +3116,14 @@ void MainWindow::modelSummarySlot()
   int *elementtypes = new int[828];
   for(int i=0;i<=827;i++)
     elementtypes[i] = 0;
-  for(int i=0;i<mesh->elements;i++)
-    elementtypes[mesh->element[i].code] += 1;
-  for(int i=0;i<mesh->surfaces;i++)
-    elementtypes[mesh->surface[i].code] += 1;
-  for(int i=0;i<mesh->edges;i++)
-    elementtypes[mesh->edge[i].code] += 1;
-  for(int i=0;i<mesh->points;i++)
-    elementtypes[mesh->point[i].code] += 1;
+  for(int i = 0; i < mesh->getElements(); i++)
+    elementtypes[mesh->getElement(i)->getCode()] += 1;
+  for(int i = 0; i < mesh->getSurfaces(); i++)
+    elementtypes[mesh->getSurface(i)->getCode()] += 1;
+  for(int i = 0; i < mesh->getEdges(); i++)
+    elementtypes[mesh->getEdge(i)->getCode()] += 1;
+  for(int i = 0; i < mesh->getPoints(); i++)
+    elementtypes[mesh->getPoint(i)->getCode()] += 1;
   for(int i=827;i>0;i--)
     if(elementtypes[i])  te->append(QString::number(i) + ": " + QString::number(elementtypes[i]));
   te->append("");
@@ -3134,9 +3134,9 @@ void MainWindow::modelSummarySlot()
   QString coordnames="XYZ";
   for(int j=0;j<3;j++) {
     double mincoord, maxcoord, coord;
-    mincoord = maxcoord = mesh->node[0].x[j];
-    for(int i=0;i<mesh->nodes;i++) {
-      coord = mesh->node[i].x[j];
+    mincoord = maxcoord = mesh->getNode(0)->getX(j);
+    for(int i = 0; i < mesh->getNodes(); i++) {
+      coord = mesh->getNode(i)->getX(j);
       if(mincoord > coord) mincoord = coord;
       if(maxcoord < coord) maxcoord = coord;
     }
@@ -3182,15 +3182,15 @@ void MainWindow::modelSummarySlot()
   // Count volume bodies:
   //---------------------
   int undetermined = 0;
-  int *tmp = new int[mesh->elements];
-  for(int i = 0; i < mesh->elements; i++)
+  int *tmp = new int[mesh->getElements()];
+  for(int i = 0; i < mesh->getElements(); i++)
     tmp[i] = 0;
 
-  for(int i = 0; i < mesh->elements; i++) {
-    element_t *e = &mesh->element[i];
-    if(e->nature == PDE_BULK) {
-      if(e->index >= 0)
-	tmp[e->index]++;
+  for(int i = 0; i < mesh->getElements(); i++) {
+    element_t *e = mesh->getElement(i);
+    if(e->getNature() == PDE_BULK) {
+      if(e->getIndex() >= 0)
+	tmp[e->getIndex()]++;
       else
 	undetermined++;
     }
@@ -3198,7 +3198,7 @@ void MainWindow::modelSummarySlot()
 
   te->append("VOLUME BODIES");
   count = 0;
-  for(int i = 0; i<mesh->elements; i++) {
+  for(int i = 0; i<mesh->getElements(); i++) {
     if( tmp[i]>0 ) {
       count++;
       QString qs = "Body " + QString::number(i) + ": " 
@@ -3217,15 +3217,15 @@ void MainWindow::modelSummarySlot()
   // Count surface bodies:
   //---------------------
   undetermined = 0;
-  tmp = new int[mesh->surfaces];
-  for(int i = 0; i < mesh->surfaces; i++)
+  tmp = new int[mesh->getSurfaces()];
+  for(int i = 0; i < mesh->getSurfaces(); i++)
     tmp[i] = 0;
 
-  for(int i = 0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
-    if(s->nature == PDE_BULK) {
-      if(s->index >= 0)
-	tmp[s->index]++;
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
+    surface_t *s = mesh->getSurface(i);
+    if(s->getNature() == PDE_BULK) {
+      if(s->getIndex() >= 0)
+	tmp[s->getIndex()]++;
       else
 	undetermined++;
     }
@@ -3233,7 +3233,7 @@ void MainWindow::modelSummarySlot()
 
   te->append("SURFACE BODIES");
   count = 0;
-  for(int i = 0; i<mesh->surfaces; i++) {
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
     if( tmp[i]>0 ) {
       count++;
       QString qs = "Body " + QString::number(i) + ": " 
@@ -3253,15 +3253,15 @@ void MainWindow::modelSummarySlot()
   // Count surface boundaries:
   //--------------------------
   undetermined = 0;
-  tmp = new int[mesh->surfaces];
-  for(int i = 0; i < mesh->surfaces; i++)
+  tmp = new int[mesh->getSurfaces()];
+  for(int i = 0; i < mesh->getSurfaces(); i++)
     tmp[i] = 0;
   
-  for(int i = 0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
-    if(s->nature == PDE_BOUNDARY) {
-      if(s->index >= 0)
-	tmp[s->index]++;
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
+    surface_t *s = mesh->getSurface(i);
+    if(s->getNature() == PDE_BOUNDARY) {
+      if(s->getIndex() >= 0)
+	tmp[s->getIndex()]++;
       else
 	undetermined++;
     }
@@ -3269,7 +3269,7 @@ void MainWindow::modelSummarySlot()
 
   te->append("SURFACE BOUNDARIES");
   count = 0;
-  for(int i = 0; i<mesh->surfaces; i++) {
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
     if( tmp[i]>0 ) {
       count++;
       QString qs = "Boundary " + QString::number(i) + ": " 
@@ -3288,15 +3288,15 @@ void MainWindow::modelSummarySlot()
   // Count edge bodies:
   //---------------------
   undetermined = 0;
-  tmp = new int[mesh->edges];
-  for(int i = 0; i < mesh->edges; i++)
+  tmp = new int[mesh->getEdges()];
+  for(int i = 0; i < mesh->getEdges(); i++)
     tmp[i] = 0;
 
-  for(int i = 0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
-    if(e->nature == PDE_BULK) {
-      if(e->index >= 0)
-	tmp[e->index]++;
+  for(int i = 0; i < mesh->getEdges(); i++) {
+    edge_t *e = mesh->getEdge(i);
+    if(e->getNature() == PDE_BULK) {
+      if(e->getIndex() >= 0)
+	tmp[e->getIndex()]++;
       else
 	undetermined++;
     }
@@ -3304,7 +3304,7 @@ void MainWindow::modelSummarySlot()
 
   te->append("EDGE BODIES");
   count = 0;
-  for(int i = 0; i<mesh->edges; i++) {
+  for(int i = 0; i < mesh->getEdges(); i++) {
     if( tmp[i]>0 ) {
       count++;
       QString qs = "Body " + QString::number(i) + ": " 
@@ -3323,15 +3323,15 @@ void MainWindow::modelSummarySlot()
   // Count edge boundaries:
   //--------------------------
   undetermined = 0;
-  tmp = new int[mesh->edges];
-  for(int i = 0; i < mesh->edges; i++)
+  tmp = new int[mesh->getEdges()];
+  for(int i = 0; i < mesh->getEdges(); i++)
     tmp[i] = 0;
   
-  for(int i = 0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
-    if(e->nature == PDE_BOUNDARY) {
-      if(e->index >= 0)
-	tmp[e->index]++;
+  for(int i = 0; i < mesh->getEdges(); i++) {
+    edge_t *e = mesh->getEdge(i);
+    if(e->getNature() == PDE_BOUNDARY) {
+      if(e->getIndex() >= 0)
+	tmp[e->getIndex()]++;
       else
 	undetermined++;
     }
@@ -3339,7 +3339,7 @@ void MainWindow::modelSummarySlot()
 
   te->append("EDGE BOUNDARIES");
   count = 0;
-  for(int i = 0; i<mesh->edges; i++) {
+  for(int i = 0; i < mesh->getEdges(); i++) {
     if( tmp[i]>0 ) {
       count++;
       QString qs = "Boundary " + QString::number(i) + ": " 
@@ -3635,12 +3635,12 @@ void MainWindow::selectDefinedEdgesSlot()
     }
   }
 
-  for( int i = 0; i < mesh->edges; i++ ) {
-    edge_t *edge = &mesh->edge[i];
-    if( edge->nature == PDE_BOUNDARY ) { 
-      int j = edge->index;
+  for( int i = 0; i < mesh->getEdges(); i++ ) {
+    edge_t *edge = mesh->getEdge(i);
+    if( edge->getNature() == PDE_BOUNDARY ) { 
+      int j = edge->getIndex();
       if( j < 0) continue;
-      if( activeboundary[j] ) edge->selected = true;
+      if( activeboundary[j] ) edge->setSelected(true);
     }
   }
   delete [] activeboundary;
@@ -3698,12 +3698,12 @@ void MainWindow::selectDefinedSurfacesSlot()
     }
   }
 
-  for( int i = 0; i < mesh->surfaces; i++ ) {
-    surface_t *surface = &mesh->surface[i];
-    if( surface->nature == PDE_BULK ) { 
-      int j = surface->index;
+  for( int i = 0; i < mesh->getSurfaces(); i++ ) {
+    surface_t *surface = mesh->getSurface(i);
+    if( surface->getNature() == PDE_BULK ) { 
+      int j = surface->getIndex();
       if( j < 0) continue;
-      if( activebody[j] ) surface->selected = true;
+      if( activebody[j] ) surface->setSelected(true);
     }
   }
   delete [] activebody;
@@ -3734,10 +3734,10 @@ void MainWindow::selectAllSurfacesSlot()
     if(l->type == SURFACELIST)
     {
       l->selected = true;
-      for( int j=0; j<mesh->surfaces; j++ ) {
-        surface_t *surf = &mesh->surface[j];
-        if( l->index == surf->index )
-          surf->selected=l->selected;
+      for( int j=0; j < mesh->getSurfaces(); j++ ) {
+        surface_t *surf = mesh->getSurface(j);
+        if( l->index == surf->getIndex() )
+          surf->setSelected(l->selected);
       }
     }
   }
@@ -3765,13 +3765,15 @@ void MainWindow::selectAllEdgesSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
+
     if(l->type == EDGELIST)
       l->selected = true;
-      for( int j=0; j<mesh->edges; j++ ) {
-        edge_t *edge = &mesh->edge[j];
-        if( l->index == edge->index )
-          edge->selected = l->selected;
-      }
+
+    for(int j = 0; j < mesh->getEdges(); j++ ) {
+      edge_t *edge = mesh->getEdge(j);
+      if( l->index == edge->getIndex() )
+	edge->setSelected(l->selected);
+    }
   }
 
   glWidget->rebuildEdgeLists();
@@ -3885,15 +3887,15 @@ void MainWindow::resetSlot()
     l->visible = true;
     l->selected = false;
 
-    for( int j=0; j<mesh->surfaces; j++ ) {
-      surface_t *surf = &mesh->surface[j];
-      if( l->index == surf->index )
-        surf->selected=l->selected;
+    for( int j=0; j < mesh->getSurfaces(); j++ ) {
+      surface_t *surf = mesh->getSurface(j);
+      if( l->index == surf->getIndex() )
+        surf->setSelected(l->selected);
     }
-    for( int j=0; j<mesh->edges; j++ ) {
-      edge_t *edge = &mesh->edge[j];
-      if( l->index == edge->index )
-        edge->selected=l->selected;
+    for( int j=0; j<mesh->getEdges(); j++ ) {
+      edge_t *edge = mesh->getEdge(j);
+      if( l->index == edge->getIndex() )
+        edge->setSelected(l->selected);
     }
   }
 
@@ -4294,16 +4296,16 @@ void MainWindow::remeshSlot()
     elmergridAPI->createElmerMeshStructure(mesh, 
              meshControl->elmerGridControlString.toAscii());
     
-    if(mesh->surfaces == 0) meshutils->findSurfaceElements(mesh);
+    if(mesh->getSurfaces() == 0) meshutils->findSurfaceElements(mesh);
     
-    for(int i=0; i<mesh->surfaces; i++ )
+    for(int i=0; i<mesh->getSurfaces(); i++ )
       {
-	surface_t *surface = &mesh->surface[i];
+	surface_t *surface = mesh->getSurface(i);
 	
-	surface->edges = (int)(surface->code/100);
-	surface->edge = new int[surface->edges];
-	for(int j=0; j<surface->edges; j++)
-	  surface->edge[j] = -1;
+	surface->setEdges((int)(surface->getCode() / 100));
+	surface->newEdgeIndexes(surface->getEdges());
+	for(int j=0; j<surface->getEdges(); j++)
+	  surface->setEdgeIndex(j, -1);
       }
 
     meshutils->findSurfaceElementEdges(mesh);
@@ -4630,10 +4632,10 @@ void MainWindow::surfaceUnifySlot()
     list_t *l = &list[i];    
     if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
       p->select_set[selected++] = i;
-      for(int j=0; j < mesh->surfaces; j++) {
-	surface_t *s = &mesh->surface[j];
-	if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
-	  s->index = targetindex;
+      for(int j=0; j < mesh->getSurfaces(); j++) {
+	surface_t *s = mesh->getSurface(j);
+	if((s->getIndex() == l->index) && (s->getNature() == PDE_BOUNDARY)) 
+	  s->setIndex(targetindex);
       }
     }
   }
@@ -4663,27 +4665,27 @@ void MainWindow::applyOperations()
     for( int i=0; i<lists; i++ )
        list[i].selected = false;
 
-    for( int j=0; j<mesh->surfaces; j++ )
-       mesh->surface[j].selected = false;
+    for( int j=0; j<mesh->getSurfaces(); j++ )
+      mesh->getSurface(j)->setSelected(false);
 
-    for( int j=0; j<mesh->edges; j++ )
-       mesh->edge[j].selected = false;
+    for( int j=0; j<mesh->getEdges(); j++ )
+      mesh->getEdge(j)->setSelected(false);
 
     for(int i=0; i<p->selected; i++) {
       list_t *l = &list[p->select_set[i]];
 
       l->selected = true;
       if ( p->type < OP_UNIFY_EDGE ) {
-        for( int j=0; j<mesh->surfaces; j++ ) {
-          surface_t *surf = &mesh->surface[j];
-          if( l->index == surf->index )
-            surf->selected=l->selected;
+        for( int j=0; j<mesh->getSurfaces(); j++ ) {
+          surface_t *surf = mesh->getSurface(j);
+          if( l->index == surf->getIndex() )
+            surf->setSelected(l->selected);
         }
       } else {
-        for( int j=0; j<mesh->edges; j++ ) {
-          edge_t *edge = &mesh->edge[j];
-          if( l->index == edge->index )
-            edge->selected=l->selected;
+        for( int j=0; j<mesh->getEdges(); j++ ) {
+          edge_t *edge = mesh->getEdge(j);
+          if( l->index == edge->getIndex() )
+            edge->setSelected(l->selected);
         }
       }
     }
@@ -4715,10 +4717,10 @@ void MainWindow::applyOperations()
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];    
         if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
-          for(int j=0; j < mesh->surfaces; j++) {
-            surface_t *s = &mesh->surface[j];
-            if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
-              s->index = targetindex;
+          for(int j=0; j < mesh->getSurfaces(); j++) {
+            surface_t *s = mesh->getSurface(j);
+            if((s->getIndex() == l->index) && (s->getNature() == PDE_BOUNDARY)) 
+              s->setIndex(targetindex);
           }
         }
       }
@@ -4739,10 +4741,10 @@ void MainWindow::applyOperations()
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];    
         if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
-          for(int j=0; j < mesh->edges; j++) {
-            edge_t *e = &mesh->edge[j];
-            if(e->index == l->index && e->nature == PDE_BOUNDARY)
-              e->index = targetindex;
+          for(int j=0; j < mesh->getEdges(); j++) {
+            edge_t *e = mesh->getEdge(j);
+            if(e->getIndex() == l->index && e->getNature() == PDE_BOUNDARY)
+              e->setIndex(targetindex);
           }
         }
       }
@@ -4868,10 +4870,10 @@ void MainWindow::edgeUnifySlot()
     list_t *l = &list[i];    
     if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
       p->select_set[selected++] = i;
-      for(int j=0; j < mesh->edges; j++) {
-	edge_t *e = &mesh->edge[j];
-	if(e->index == l->index && e->nature == PDE_BOUNDARY) 
-	  e->index = targetindex;
+      for(int j=0; j < mesh->getEdges(); j++) {
+	edge_t *e = mesh->getEdge(j);
+	if(e->getIndex() == l->index && e->getNature() == PDE_BOUNDARY) 
+	  e->setIndex(targetindex);
       }
     }
   }
@@ -4931,7 +4933,7 @@ void MainWindow::generateSifSlot()
     return;
   }
   
-  if((mesh->dim < 1) || (mesh->cdim < 1)) {
+  if((mesh->getDim() < 1) || (mesh->getCdim() < 1)) {
     logMessage("Model dimension inconsistent with SIF syntax");
     return;
   }
@@ -4948,8 +4950,8 @@ void MainWindow::generateSifSlot()
   //-----------------------
   sifGenerator->mesh = mesh;
   sifGenerator->te = sifWindow->textEdit;
-  sifGenerator->dim = mesh->dim;
-  sifGenerator->cdim = mesh->cdim;
+  sifGenerator->dim = mesh->getDim();
+  sifGenerator->cdim = mesh->getCdim();
 
   sifGenerator->generalSetup = generalSetup;
   sifGenerator->equationEditor = equationEditor;

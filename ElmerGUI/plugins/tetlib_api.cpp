@@ -119,103 +119,99 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
   // Create new mesh structure:
   mesh_t *mesh = new mesh_t;
 
-  mesh->nodes = 0;
-  mesh->points = 0;
-  mesh->edges = 0;
-  mesh->surfaces = 0;
-  mesh->elements = 0;
+  mesh->setNodes(0);
+  mesh->setPoints(0);
+  mesh->setEdges(0);
+  mesh->setSurfaces(0);
+  mesh->setElements(0);
   
   // Nodes:
-  mesh->nodes = out->numberofpoints;
-  mesh->node = new node_t[mesh->nodes];
+  mesh->setNodes(out->numberofpoints);
+  mesh->newNodeArray(mesh->getNodes());
 
   REAL *pointlist = out->pointlist;
 
-  for(int i=0; i < mesh->nodes; i++) {
-    node_t *node = &mesh->node[i];
+  for(int i=0; i < mesh->getNodes(); i++) {
+    node_t *node = mesh->getNode(i);
     
-    node->x[0] = *pointlist++;
-    node->x[1] = *pointlist++;
-    node->x[2] = *pointlist++;
+    node->setX(0, *pointlist++);
+    node->setX(1, *pointlist++);
+    node->setX(2, *pointlist++);
 
-    node->index = -1; // default
+    node->setIndex(-1); // default
   }
 
   // Elements:
-  mesh->elements = out->numberoftetrahedra;
-  mesh->element = new element_t[mesh->elements];
+  mesh->setElements(out->numberoftetrahedra);
+  mesh->newElementArray(mesh->getElements());
 
   int *tetrahedronlist = out->tetrahedronlist;
   REAL *attribute = out->tetrahedronattributelist;
-  int na =  out->numberoftetrahedronattributes;
+  int na = out->numberoftetrahedronattributes;
   
-  for(int i=0; i< mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
+  for(int i=0; i< mesh->getElements(); i++) {
+    element_t *element = mesh->getElement(i);
 
-    element->nature = PDE_BULK;
-
-    element->code = 504;
-
-    element->nodes = 4;
-    element->node = new int[4];
+    element->setNature(PDE_BULK);
+    element->setCode(504);
+    element->setNodes(4);
+    element->newNodeIndexes(4);
     
-    element->node[0] = (*tetrahedronlist++) - out->firstnumber;
-    element->node[1] = (*tetrahedronlist++) - out->firstnumber;
-    element->node[2] = (*tetrahedronlist++) - out->firstnumber;
-    element->node[3] = (*tetrahedronlist++) - out->firstnumber;
+    element->setNodeIndex(0, (*tetrahedronlist++) - out->firstnumber);
+    element->setNodeIndex(1, (*tetrahedronlist++) - out->firstnumber);
+    element->setNodeIndex(2, (*tetrahedronlist++) - out->firstnumber);
+    element->setNodeIndex(3, (*tetrahedronlist++) - out->firstnumber);
     
-    element->index = 1; // default
+    element->setIndex(1); // default
     // must have "A" in control string:
     if(out->tetrahedronattributelist != (REAL*)NULL) 
-      element->index = (int)attribute[na*(i+1)-1];
+      element->setIndex((int)attribute[na*(i+1)-1]);
   }
   
   // Boundary elements:
-  mesh->surfaces = out->numberoftrifaces;
-  mesh->surface = new surface_t[mesh->surfaces];
+  mesh->setSurfaces(out->numberoftrifaces);
+  mesh->newSurfaceArray(mesh->getSurfaces());
 
   int *trifacelist = out->trifacelist;
   int *adjtetlist = out->adjtetlist;
 
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
+  for(int i=0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
 
-    surface->nature = PDE_BOUNDARY;
+    surface->setNature(PDE_BOUNDARY);
+    surface->setCode(303);
+    surface->setNodes(3);
+    surface->newNodeIndexes(3);
+    surface->setEdges(3);
+    surface->newEdgeIndexes(3);
 
-    surface->code = 303;
+    surface->setElements(2);
+    surface->newElementIndexes(2);
 
-    surface->nodes = 3;
-    surface->node = new int[3];
-
-    surface->edges = 3;
-    surface->edge = new int[3];
-
-    surface->elements = 2;
-    surface->element = new int[2];
-
-    surface->index = 1; // default
+    surface->setIndex(1); // default
     if(out->trifacemarkerlist != (int*)NULL)
-      surface->index = out->trifacemarkerlist[i];
+      surface->setIndex(out->trifacemarkerlist[i]);
 
-    surface->edge[0] = -1;
-    surface->edge[1] = -1;
-    surface->edge[2] = -1;
+    surface->setEdgeIndex(0, -1);
+    surface->setEdgeIndex(1, -1);
+    surface->setEdgeIndex(2, -1);
     
-    surface->element[0] = -1; // default
-    surface->element[1] = -1;
+    surface->setElementIndex(0, -1);
+    surface->setElementIndex(1, -1);
+
     // must have "nn" in control string:
     if(out->adjtetlist != (int*)NULL) {
-      surface->element[0] = (*adjtetlist++) - out->firstnumber;
-      surface->element[1] = (*adjtetlist++) - out->firstnumber;
+      surface->setElementIndex(0, (*adjtetlist++) - out->firstnumber);
+      surface->setElementIndex(1, (*adjtetlist++) - out->firstnumber);
     }
 
     int u = (*trifacelist++) - out->firstnumber;
     int v = (*trifacelist++) - out->firstnumber;
     int w = (*trifacelist++) - out->firstnumber;
 
-    surface->node[0] = u;
-    surface->node[1] = v;
-    surface->node[2] = w;
+    surface->setNodeIndex(0, u);
+    surface->setNodeIndex(1, v);
+    surface->setNodeIndex(2, w);
   }
 
   // Edges:
@@ -223,11 +219,11 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
   meshutils.findSurfaceElementNormals(mesh);
 
   // Points:
-  mesh->points = 0;
+  mesh->setPoints(0);
   // mesh->point == NULL;
   
-  mesh->dim = 3;
-  mesh->cdim = 3;
+  mesh->setDim(3);
+  mesh->setCdim(3);
 
   return mesh;
 }
