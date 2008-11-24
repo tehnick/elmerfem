@@ -112,9 +112,6 @@ might also be the natural choice for users that prefer Unix-like operating envir
 The easiest way to compile ElmerGUI with VC++ is to invoke ``Visual Studio 2008 Command Prompt''
 and execute the following sequence commands within ElmerGUI's source directory:
 \begin{verbatim}
-> cd matc
-> nmake
-> cd ..
 > qmake
 > nmake
 \end{verbatim}
@@ -123,9 +120,9 @@ Again, it is necessary to verify that the paths to all external components have 
 defined in ``ElmerGUI.pro''. The build process is performed in release mode, producing the
 executable ``ElmerGUI.exe''.
 
-The final task is to choose an installation directory, {\tt ELMERGUI\_HOME}, add it to
-environment variables, and copy the executable ``ElmerGUI.exe'' and the directory ``edf''
-there. Finally, {\tt ELMERGUI\_HOME} should be added to {\tt PATH}.
+The final task is to introduce the environment variable {\tt ELMERGUI\_HOME}, add it to
+path, and copy the executable ``ElmerGUI.exe'' as well as the directory ``edf'' in
+{\tt ELMERGUI\_HOME}.
 
 \section{Input files}
 
@@ -268,13 +265,11 @@ A PDE-system (a.k.a ``Equation'') is defined by choosing
 \end{center}
 \end{figure}
 
-Go through the tabs and check the ``Active'' boxes of all individual equations that
-constitute your model. The numerical methods and parameters can be
-selected and tuned by pressing the ``Edit Solver Settings'' button. Finally, name the
-PDE-system in the ``Name'' line edit box, and apply the system to a set of bodies.
-Once the PDE-system has been defined, press the Ok-button. The equation remains
-visible and editable under the Model menu.
-
+Go through the tabs and check ``Active'' all individual equations that constitute your
+system. The numerical methods and parameters can be selected and tuned by pressing the
+``Edit Solver Settings'' button. Finally, name the PDE-system in the ``Name'' line edit
+box, and apply the system to appropriate bodies. Once the PDE-system has been defined,
+press the Ok-button. The equation remains visible and editable under the Model menu.
 
 \begin{figure}[ht]
 \begin{center}
@@ -283,7 +278,7 @@ visible and editable under the Model menu.
 \end{center}
 \end{figure}
 
-{\bf Tip}: It is possible to attach an equation to a body by holding down the SHIFT-key
+It is also possible to attach an equation to a body by holding down the SHIFT-key
 while double clicking one of its surfaces. A pop up menu will then appear,
 listing all possible attributes that can be attached to the selection. Choose the
 attributes and press Ok.
@@ -323,7 +318,7 @@ field should never be left undefined.
 
 \vskip2mm
 
-{\bf Tip}: If you set focus in a line edit box of a dynamical menu and press Enter, a small
+If you set focus in a line edit box of a dynamical menu and press Enter, a small
 text edit dialog will pop up. This allows the input of more complicated expressions
 than just constants. As an example, go to {\it Model $\rightarrow$ Material} and choose
 {\it Add...} Place the cursor in the ``Heat conductivity'' line edit box of ``Heat
@@ -340,7 +335,7 @@ remains constant 20 above 373 degrees.
 \end{center}
 \end{figure}
 
-{\bf Tip}: If the user presses SHIFT and F1, a tooltip for the active widget will be displayed.
+If the user presses SHIFT and F1, a tooltip for the active widget will be displayed.
 
 \begin{figure}[ht]
 \begin{center}
@@ -401,7 +396,7 @@ Finally, there is a menu entry for setting up the boundary conditions:
 \end{center}
 \end{figure}
 
-{\bf Tip}: It is possible to attach a boundary condition to a boundary by holding down 
+It is possible to attach a boundary condition to a boundary by holding down 
 the ALT or ALTGR-key while double clicking a surface or edge. A pop up menu will appear, listing all possible conditions that can be attached to the selection. 
 Choose a condition from the combo box and finally press Ok.
 
@@ -417,12 +412,11 @@ clicking a surface.}
 
 \subsection{Boundary division and unification}
 
-Some of the input file formats listed in Table 1 are not necessarily best suited for
-FE-calculations. The .stl format (stereo litography format), for example, is unable
-to distinguish between different boundary parts with different attributes. Moreover, it
-approximates the boundary by disconnected triangles. The file format would
-be rather useless in this context, unless there were other ways to identify the
-boundary parts and methods for dealing with the possible discontinuities.
+Some of the input file formats listed in Table 1 are not perhaps best suited for
+FE-calculations, eventhough widely used. The .stl format (stereo litography format),
+for example, is by definition unable to distinguish between different boundary parts
+with different attributes. Moreover, the format approximates the boundary by disconnected
+triangles that do not fulfill normal FE-compatibility conditions.
 
 ElmerGUI provides a minimal set of tools for boundary division and unification. The
 division is based on ``sharp edge detection''. An edge between two boundary elements
@@ -435,9 +429,9 @@ the Mesh menu by choosing
 \menu{Mesh}{Divide edge...}
 \noindent The resulting parts are enumerated starting from the first free index.
 
-Sometimes, the above process produces too many distinct parts, which eventually need to
-be (re)unified. This can be done by selecting a group of surfaces by holding down the
-CTRL-key while double clicking the surfaces and choosing
+Sometimes, the above process produces far too many distinct parts, which eventually
+need to be (re)unified. This can be done by selecting a group of surfaces by holding
+down the CTRL-key while double clicking the surfaces and choosing
 \menu{Mesh}{Unify surface...}
 \noindent The same operation in 2D is
 \menu{Mesh}{Unify edge...}
@@ -638,8 +632,9 @@ A temperature dependent parameter may be defined e.g. as
 <parameter name="A" >Variable Temperature; Real; 2 3; 4 5; End</parameter>
 \end{verbatim}
 \end{footnotesize}
-In this case, $A(2)=3$ and $A(4)=5$. Values between the points are interpolated linearly. The number
-of points defining the interpolant may be arbitrary. 
+In this case, $A(2)=3$ and $A(4)=5$. Values between the points are interpolated linearly,
+and extrapolated in the tangent direction outside the domain. The number of points defining 
+he interpolant may be arbitrary. 
 
 \section{ElmerGUI definition files}
 
@@ -824,6 +819,261 @@ element2 boundary2 parent21 parent22 n21 ... n2M
 elementN boundaryN parentN1 parentN2 nN1 ... nNM
 \end{verbatim}
 
+\newpage
+
+\section{Adding menu entries to ElmerGUI}
+
+As ElmerGUI is based on Qt4, it is relatively easy to customize the menus
+of the main window. A new menu item, for example, is added as follows.
+
+First, we declare the menu action and a private slot in {\tt src/mainwindow.h}:
+\begin{verbatim}
+private slots:
+   ...
+   void mySlot();
+   ...
+
+private:
+   ...
+   QAction *myAct;
+   ...
+\end{verbatim}
+
+Then, in {\tt src/mainwindow.cpp}, we actually create the action, connect
+an appropriate signal from the action to the slot, and add the action in
+a menu:
+\begin{verbatim}
+void MainWindow::createActions()
+{
+   ...
+   myAct = new QAction(tr("*** My menu entry ***"), this);
+   connect(myAct, SIGNAL(triggered()), this, SLOT(mySlot()));
+   ...
+}
+\end{verbatim}
+and
+\begin{verbatim}
+void MainWindow::createMenus()
+{
+   ...
+   meshMenu->addSeparator();
+   meshMenu->addAction(myAct);
+   ...
+}
+\end{verbatim}
+
+It finally remains to define the slot to which the action is connected
+when triggered. All processing related to the action should be done here:
+\begin{verbatim}
+void MainWindow::mySlot()
+{
+   cout << "Here we go!" << endl;
+}
+\end{verbatim}
+
+\newpage
+
+\section{ElmerGUI mesh structure}
+
+The finite element mesh generated by ElmerGUI is of class {\tt mesh\_t}
+(declared in {\tt src/meshtype.h}). It is private to the class {\tt GLWidget}
+(declared in {\tt src/glwidget.h}) which is responsible of drawing and
+rendering the model.
+
+The class {\tt GLWidget} provides the following public methods for accessing the mesh:
+\begin{verbatim}
+mesh_t* GLWidget::getMesh()
+\end{verbatim}
+Get the active mesh.
+\begin{verbatim}
+void GLWidget::newMesh()
+\end{verbatim}
+Allocate space for a new mesh.
+\begin{verbatim}
+void GLWidget::deleteMesh()
+\end{verbatim}
+Delete the current mesh.
+\begin{verbatim}
+bool GLWidget::hasMesh()
+\end{verbatim}
+Returns true if there is a mesh. Otherwise returns false.
+\begin{verbatim}
+void GLWidget::setMesh(mesh_t* myMesh)
+\end{verbatim}
+Set active mesh to myMesh.
+
+The mesh can be accessed in {\tt MainWindow} for example as follows
+(see previous section for more details):
+\begin{verbatim}
+void MainWindow::mySlot()
+{
+   if(!glWidget->hasMesh()) return;
+   mesh_t* mesh = glWidget->getMesh();
+   cout << "Nodes: " << mesh->getNodes() << endl;
+   cout << "Edges: " << mesh->getEdges() << endl;
+   cout << "Trias: " << mesh->getSurfaces() << endl;
+   cout << "Tetras: " << mesh->getElements() << endl;
+}
+\end{verbatim}
+
+The class {\tt mesh\_t} provides the following public methods for accessing
+and manipulating mesh data:
+\begin{verbatim}
+bool mesh_t::isUndefined()
+\end{verbatim}
+Returns true if the mesh is undefined. Otherwise returns false.
+\begin{verbatim}
+void mesh_t::clear()
+\end{verbatim}
+Clears the current mesh.
+\begin{verbatim} 
+bool mesh_t::load(char* dir)
+\end{verbatim}
+Loads Elmer mesh files from directory dir. Returns false if loading failed. Otherwise returns true.
+\begin{verbatim} 
+bool mesh_t::save(char* dir)
+\end{verbatim}
+Saves the mesh in Elmer format in directory dir. Returns false if saving failed. Otherwise returns true.
+\begin{verbatim} 
+double* mesh_t::boundingBox()
+\end{verbatim}
+Returns bounding box for the current mesh (xmin, xmax, ymin, ymax, zmin, zmax, xmid, ymid, zmid, size).
+\begin{verbatim} 
+void mesh_t::setCdim(int cdim)
+\end{verbatim}
+Set coordinate dimension to cdim.
+\begin{verbatim}  
+int mesh_t::getCdim()
+\end{verbatim}
+Get coordinate dimension for the current mesh.
+\begin{verbatim}  
+void mesh_t::setDim(int dim)
+\end{verbatim}
+Set mesh dimension to dim.
+\begin{verbatim}
+int mesh_t::getDim()
+\end{verbatim}
+Get mesh dimension.
+\begin{verbatim}  
+void mesh_t::setNodes(int n)
+\end{verbatim}
+Set the number of nodes to n.
+\begin{verbatim} 
+int mesh_t::getNodes()
+\end{verbatim}
+Get the number of nodes.
+\begin{verbatim} 
+void mesh_t::setPoints(int n)
+\end{verbatim}
+Set the number of point elements to n.
+\begin{verbatim} 
+int mesh_t::getPoints()
+\end{verbatim}
+Get the number of point elements.
+\begin{verbatim} 
+void mesh_t::setEdges(int n)
+\end{verbatim}
+Set the number of edge elements to n.
+\begin{verbatim}   
+int mesh_t::getEdges()
+\end{verbatim}
+Get the number of edge elements.
+\begin{verbatim} 
+void mesh_t::setSurfaces(int n)
+\end{verbatim}
+Set the number of surface elements to n.
+\begin{verbatim} 
+int mesh_t::getSurfaces()
+\end{verbatim}
+Get the number of surface elements.
+\begin{verbatim} 
+void mesh_t::setElements(int n)
+\end{verbatim}
+Set the number of volume elements to n.
+\begin{verbatim} 
+int mesh_t::getElements()
+\end{verbatim}
+Get the number of volume elements.
+\begin{verbatim} 
+node_t* mesh_t::getNode(int n)
+\end{verbatim}
+Get node n.
+\begin{verbatim} 
+void mesh_t::setNodeArray(node_t* nodeArray)
+\end{verbatim}
+Set node array point to nodeArray. Useful, if the user wants to take care of memory allocation by him/her self.
+\begin{verbatim} 
+void mesh_t::newNodeArray(int n)
+\end{verbatim}
+Allocate memory for n nodes.
+\begin{verbatim}
+void mesh:t::deleteNodeArray()
+\end{verbatim}
+Delete current node array.
+\begin{verbatim}
+point_t* mesh_t::getPoint(int n)
+\end{verbatim}
+Get point element n.
+\begin{verbatim}
+void mesh_t::setPointArray(point_t* pointArray)
+\end{verbatim}
+Set point element array point to pointArray. Useful, if the user wants to take care of memory allocation by him/her self.
+\begin{verbatim} 
+void mesh_t::newPointArray(int n)
+\end{verbatim}
+Allocate memory for n point elements.
+\begin{verbatim}
+void mesh_t::deletePointArray()
+\end{verbatim}
+Delete current point element array.
+\begin{verbatim}
+edge_t* mesh_t::getEdge(int n)
+\end{verbatim}
+Get edge element n.
+\begin{verbatim}
+void mesh_t::setEdgeArray(edge_t* edgeArray)
+\end{verbatim}
+Set edge element array point to edgeArray. Useful, if the user wants to take care of memory allocation by him/her self.
+\begin{verbatim} 
+void mesh_t::newEdgeArray(int n)
+\end{verbatim}
+Allocate memory for n edge elements.
+\begin{verbatim}
+void mesh_t::deleteEdgeArray()
+\end{verbatim}
+Delete current edge elemet array.
+\begin{verbatim}
+surface_t* mesh_t::getSurface(int n)
+\end{verbatim}
+Get surface element n.
+\begin{verbatim}
+void mesh_t::setSurfaceArray(surface_t* surfaceArray)
+\end{verbatim}
+Set surface element array point to surfaceArray. Useful, if the user wants to take care of memory allocation by him/her self.
+\begin{verbatim} 
+void mesh_t::newSurfaceArray(int n);
+\end{verbatim}
+Allocate memory for n surface elements.
+\begin{verbatim}
+void mesh_t::deleteSurfaceArray()
+\end{verbatim}
+Delete surface element array.
+\begin{verbatim}
+element_t* mesh_t::getElement(int n)
+\end{verbatim}
+Get volume element n.
+\begin{verbatim}
+void mesh_t::setElementArray(element_t* elementArray)
+\end{verbatim}
+Set volume element array point to elementArray. Useful, if the user wants to take care of memory allocation by him/her self.
+\begin{verbatim} 
+void mesh_t::newElementArray(int n)
+\end{verbatim}
+Allocate memory for n volume elements.
+\begin{verbatim} 
+void mesh_t::deleteElementArray()
+\end{verbatim}
+Delete current volume element array.
 
 \end{document}
 
