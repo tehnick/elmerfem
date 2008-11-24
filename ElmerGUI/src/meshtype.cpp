@@ -320,6 +320,54 @@ void surface_t::deleteElementIndexes(void)
   delete [] this->element;
 }
 
+double* surface_t::getNormalVec(void)
+{
+  return &this->normal[0];
+}
+
+void surface_t::setNormalVec(double* d)
+{
+  this->normal[0] = d[0];
+  this->normal[1] = d[1];
+  this->normal[2] = d[2];
+}
+
+double surface_t::getNormal(int n)
+{
+  return this->normal[n];
+}
+
+void surface_t::setNormal(int n, double d)
+{
+  this->normal[n] = d;
+}
+
+void surface_t::setVertexNormalVec(int n, double* d)
+{
+  this->vertex_normals[n][0] = d[0];
+  this->vertex_normals[n][1] = d[1];
+  this->vertex_normals[n][2] = d[2];
+}
+
+void surface_t::addVertexNormalVec(int n, double* d)
+{
+  this->vertex_normals[n][0] += d[0];
+  this->vertex_normals[n][1] += d[1];
+  this->vertex_normals[n][2] += d[2];
+}
+
+void surface_t::subVertexNormalVec(int n, double* d)
+{
+  this->vertex_normals[n][0] -= d[0];
+  this->vertex_normals[n][1] -= d[1];
+  this->vertex_normals[n][2] -= d[2];
+}
+
+double* surface_t::getVertexNormalVec(int n)
+{
+  return &this->vertex_normals[n][0];
+}
+
 mesh_t::mesh_t()
 {
   this->setDefaults();

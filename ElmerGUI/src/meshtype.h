@@ -156,15 +156,22 @@ class surface_t: public element_t {
   int getElementIndex(int);
   void newElementIndexes(int);
   void deleteElementIndexes(void);
-
-  double normal[3];                // unit (outward) normal
-  double vertex_normals[4][3];     // unit (outward) normal on corner points
+  void setNormalVec(double*);
+  double* getNormalVec(void);
+  double getNormal(int);
+  void setNormal(int, double);
+  void setVertexNormalVec(int, double*);
+  void addVertexNormalVec(int, double*);
+  void subVertexNormalVec(int, double*);
+  double* getVertexNormalVec(int);
 
  private:
   int edges;                       // number of child edges  
   int* edge;                       // list of child edges
   int elements;                    // number of parent elements
   int* element;                    // list of parent elements
+  double normal[3];                // unit (outward) normal
+  double vertex_normals[4][3];     // unit (outward) normal on corner points
 };
 
 // mesh class

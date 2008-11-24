@@ -65,6 +65,24 @@ class list_t {
   list_t();
   ~list_t();
 
+  void setNature(int);
+  int getNature(void);
+  void setType(int);
+  int getType(void);
+  void setIndex(int);
+  int getIndex(void);
+  void setObject(GLuint);
+  GLuint getObject(void);
+  void setChild(int);
+  int getChild(void);
+  void setParent(int);
+  int getParent(void);
+  void setSelected(bool);
+  bool isSelected(void);
+  void setVisible(bool);
+  bool isVisible(void);
+
+ private:
   int nature;        // PDE_UNKNOWN, PDE_BOUNDARY, PDE_BULK, ...
   int type;          // POINTLIST, EDGELIST, SURFACELIST, ...
   int index;         // Boundary condition as defined in input file

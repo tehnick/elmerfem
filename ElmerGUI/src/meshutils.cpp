@@ -1030,8 +1030,8 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
     if(edge->getSurfaces() == 2) {
       int s0 = edge->getSurfaceIndex(0);
       int s1 = edge->getSurfaceIndex(1);
-      double *n0 = mesh->getSurface(s0)->normal;
-      double *n1 = mesh->getSurface(s1)->normal;
+      double *n0 = mesh->getSurface(s0)->getNormalVec();
+      double *n1 = mesh->getSurface(s1)->getNormalVec();
       double cosofangle = n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2];
 	  cosofangle = std::abs(cosofangle);
       angle = acos(cosofangle) / MYPI * 180.0;
@@ -1522,9 +1522,9 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     helpers->crossProduct(a,b,c);
     helpers->normalize(c);
     
-    surface->normal[0] = -c[0];
-    surface->normal[1] = -c[1];
-    surface->normal[2] = -c[2];
+    surface->setNormal(0, -c[0]);
+    surface->setNormal(1, -c[1]);
+    surface->setNormal(2, -c[2]);
     
     // Determine sign:
     //----------------
@@ -1600,9 +1600,9 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
                 + center_difference[2]*c[2];
       
       if(dp > 0.0) {
-	surface->normal[0] = -surface->normal[0];
-	surface->normal[1] = -surface->normal[1];
-	surface->normal[2] = -surface->normal[2];
+	surface->setNormal(0, -surface->getNormal(0));
+	surface->setNormal(1, -surface->getNormal(1));
+	surface->setNormal(2, -surface->getNormal(2));
 
 	// change orientation of the surface element:
 	if(surface->getCode() == 303) {
@@ -1649,9 +1649,7 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     int n = surface->getCode() / 100;
     for(int j=0; j<n; j++ )
     {
-       surface->vertex_normals[j][0] = surface->normal[0];
-       surface->vertex_normals[j][1] = surface->normal[1];
-       surface->vertex_normals[j][2] = surface->normal[2];
+      surface->setVertexNormalVec(j, surface->getNormalVec());
     }
   }
 
@@ -1713,19 +1711,15 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
         surface_t *surf2 = mesh->getSurface(p->index);
         double s = 0.;
 
-        s += surf1->normal[0]*surf2->normal[0];
-        s += surf1->normal[1]*surf2->normal[1];
-        s += surf1->normal[2]*surf2->normal[2];
+        s += surf1->getNormal(0) * surf2->getNormal(0);
+        s += surf1->getNormal(1) * surf2->getNormal(1);
+        s += surf1->getNormal(2) * surf2->getNormal(2);
         if ( fabs(s) > limit_angle )
         {
            if ( s > 0 ) {
-             surf1->vertex_normals[j][0] += surf2->normal[0];
-             surf1->vertex_normals[j][1] += surf2->normal[1];
-             surf1->vertex_normals[j][2] += surf2->normal[2];
+	     surf1->addVertexNormalVec(j, surf2->getNormalVec());
            } else {
-             surf1->vertex_normals[j][0] -= surf2->normal[0];
-             surf1->vertex_normals[j][1] -= surf2->normal[1];
-             surf1->vertex_normals[j][2] -= surf2->normal[2];
+	     surf1->subVertexNormalVec(j, surf2->getNormalVec());
            }
         }
       }
@@ -1753,15 +1747,13 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 
     for(int j=0; j<n; j++ )
     {
-       double s=0;
-       s += surface->vertex_normals[j][0]*surface->vertex_normals[j][0];
-       s += surface->vertex_normals[j][1]*surface->vertex_normals[j][1];
-       s += surface->vertex_normals[j][2]*surface->vertex_normals[j][2];
+       double* v = surface->getVertexNormalVec(j);
+       double s = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
        if ( s != 0 ) {
          s = sqrt(s);
-         surface->vertex_normals[j][0] /= s;
-         surface->vertex_normals[j][1] /= s;
-         surface->vertex_normals[j][2] /= s;
+	 v[0] /= s;
+	 v[1] /= s;
+	 v[2] /= s;
        }
     }
   }

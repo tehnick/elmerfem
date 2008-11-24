@@ -68,6 +68,86 @@ list_t::~list_t()
 {
 }
 
+void list_t::setNature(int n)
+{
+  this->nature = n;
+}
+
+int list_t::getNature(void)
+{
+  return this->nature;
+}
+
+void list_t::setType(int n)
+{
+  this->type = n;
+}
+
+int list_t::getType(void)
+{
+  return this->type;
+}
+
+void list_t::setIndex(int n)
+{
+  this->index = n;
+}
+
+int list_t::getIndex(void)
+{
+  return this->index;
+}
+
+void list_t::setObject(GLuint n)
+{
+  this->object = n;
+}
+
+GLuint list_t::getObject(void)
+{
+  return this->object;
+}
+
+void list_t::setChild(int n)
+{
+  this->child = n;
+}
+
+int list_t::getChild(void)
+{
+  return this->child;
+}
+
+void list_t::setParent(int n)
+{
+  this->parent = n;
+}
+
+int list_t::getParent(void)
+{
+  return this->parent;
+}
+
+void list_t::setSelected(bool b)
+{
+  this->selected = b;
+}
+
+bool list_t::isSelected(void)
+{
+  return this->selected;
+}
+
+void list_t::setVisible(bool b)
+{
+  this->visible = b;
+}
+
+bool list_t::isVisible(void)
+{
+  return this->visible;
+}
+
 // Construct glWidget...
 //-----------------------------------------------------------------------------
 GLWidget::GLWidget(QWidget *parent)
@@ -142,7 +222,7 @@ GLWidget::~GLWidget()
   makeCurrent();
   for(int i=0; i < (int)lists; i++) {
     list_t *l = &list[i];
-    glDeleteLists(l->object, 1);
+    glDeleteLists(l->getObject(), 1);
   }
 
   delete helpers;
@@ -275,56 +355,56 @@ void GLWidget::paintGL()
     for(int i=0; i<(int)lists; i++) {
       list_t *l = &list[i];
 
-      if(l->visible) {
+      if(l->isVisible()) {
 	glPushName(i);
 
-	if((l->type == SURFACEMESHLIST) && stateDrawSurfaceMesh) {
+	if((l->getType() == SURFACEMESHLIST) && stateDrawSurfaceMesh) {
 	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.01);
-	  glCallList(l->object); 
+	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 	  
-	} else if((l->type == VOLUMEMESHLIST) && stateDrawVolumeMesh) {
+	} else if((l->getType() == VOLUMEMESHLIST) && stateDrawVolumeMesh) {
 	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.01);
-	  glCallList(l->object); 
+	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 	  
-	} else if ((l->type == SHARPEDGELIST) && stateDrawSharpEdges) {
+	} else if ((l->getType() == SHARPEDGELIST) && stateDrawSharpEdges) {
 
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.01);
-	  glCallList(l->object); 
+	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 
-	} else if((l->type == EDGELIST) && stateDrawEdgeElements ) {
+	} else if((l->getType() == EDGELIST) && stateDrawEdgeElements ) {
 	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.02);
-	  glCallList(l->object); 
+	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 
-	} else if((l->type == SURFACELIST) && stateDrawSurfaceElements ) {
+	} else if((l->getType() == SURFACELIST) && stateDrawSurfaceElements ) {
 
-	  glCallList(l->object); 
+	  glCallList(l->getObject());
 
 	} else {
 	  
-	  glCallList(l->object); 
+	  glCallList(l->getObject()); 
 	  
 	}
 
@@ -707,66 +787,66 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     list_t *l = &list[nearest];
 
     // skip sharp edge lists
-    if(l->type == SHARPEDGELIST) 
+    if(l->getType() == SHARPEDGELIST) 
       return;
     
     // substitute surfacemeshlist with the parent surfacelist:
-    if(l->type == SURFACEMESHLIST)
-      l = &list[l->parent];
+    if(l->getType() == SURFACEMESHLIST)
+      l = &list[l->getParent()];
 
     // if not ctrl pressed, rebuild all selected lists except this one:
     if(!ctrlPressed) {
       for(i=0; i < lists; i++) {
 	list_t *l2 = &list[i];
-	if(l2->selected && (l2->index != l->index)) {
-	  glDeleteLists(l2->object, 1);
-	  l2->selected = false;	  
-	  if(l2->type == SURFACELIST) {
+	if(l2->isSelected() && (l2->getIndex() != l->getIndex())) {
+	  glDeleteLists(l2->getObject(), 1);
+	  l2->setSelected(false);
+	  if(l2->getType() == SURFACELIST) {
             for( int j = 0; j < mesh->getSurfaces(); j++ ) {
               surface_t *surf = mesh->getSurface(j);
-              if ( surf->getIndex() == l2->index )
-                surf->setSelected(l2->selected);
+              if ( surf->getIndex() == l2->getIndex() )
+                surf->setSelected(l2->isSelected());
             }
-	    l2->object = generateSurfaceList(l2->index, surfaceColor); // cyan
-	  } else if(l2->type == EDGELIST) {
+	    l2->setObject(generateSurfaceList(l2->getIndex(), surfaceColor)); // cyan
+	  } else if(l2->getType() == EDGELIST) {
             for( int j=0; j < mesh->getEdges(); j++ ) {
               edge_t *edge = mesh->getEdge(j);
-              if ( edge->getIndex() == l2->index )
-                edge->setSelected(l2->selected);
+              if ( edge->getIndex() == l2->getIndex() )
+                edge->setSelected(l2->isSelected());
             }
-	    l2->object = generateEdgeList(l2->index, edgeColor); // green
+	    l2->setObject(generateEdgeList(l2->getIndex(), edgeColor)); // green
 	  }
 	}
       }
     }
 
     // Toggle selection:
-    l->selected = !l->selected;
+    l->setSelected(!l->isSelected());
     
-    glDeleteLists(l->object, 1);
+    glDeleteLists(l->getObject(), 1);
 
     // Highlight current selection:
-    if(l->type == SURFACELIST) {
-      if(l->selected) {
-	l->object = generateSurfaceList(l->index, Qt::red); // red
+    if(l->getType() == SURFACELIST) {
+      if(l->isSelected()) {
+	l->setObject(generateSurfaceList(l->getIndex(), Qt::red)); // red
       } else {
-	l->object = generateSurfaceList(l->index, surfaceColor); // cyan
+	l->setObject(generateSurfaceList(l->getIndex(), surfaceColor)); // cyan
       }
 
       for( int i=0; i<mesh->getSurfaces(); i++ ) {
         surface_t *surf = mesh->getSurface(i);
-        if ( surf->getIndex() == l->index ) surf->setSelected(l->selected);
+        if ( surf->getIndex() == l->getIndex() ) surf->setSelected(l->isSelected());
       }
 
-    } else if(l->type == EDGELIST) {
-      if(l->selected) {
-	l->object = generateEdgeList(l->index, Qt::red); // red
+    } else if(l->getType() == EDGELIST) {
+      if(l->isSelected()) {
+	l->setObject(generateEdgeList(l->getIndex(), Qt::red)); // red
       } else {
-	l->object = generateEdgeList(l->index, edgeColor); // green
+	l->setObject(generateEdgeList(l->getIndex(), edgeColor)); // green
       }
       for( int i=0; i < mesh->getEdges(); i++ ) {
         edge_t *edge = mesh->getEdge(i);
-        if ( edge->getIndex() == l->index ) edge->setSelected(l->selected);
+        if ( edge->getIndex() == l->getIndex() ) edge->setSelected(l->isSelected());
       }
     }
 
@@ -822,18 +902,18 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       for(int i = 0; i < lists; i++) {
 	list_t *l2 = &list[i];
 
-	if(l2->selected && (l2->nature == PDE_BULK)) {
+	if(l2->isSelected() && (l2->getNature() == PDE_BULK)) {
 	  for(int j = 0; j < MAX_BULK_INDEX; j++) {
-	    if(j != l2->index)
+	    if(j != l2->getIndex())
 	      tmp1[j] = false;
 	  }
 	}
 	
-	if(l2->selected && (l2->nature == PDE_BOUNDARY) && 
-	   (l2->type == SURFACELIST)) {	  
+	if(l2->isSelected() && (l2->getNature() == PDE_BOUNDARY) && 
+	   (l2->getType() == SURFACELIST)) {	  
 	  for(int j = 0; j < mesh->getSurfaces(); j++) {
 	    surface_t *surf = mesh->getSurface(j);
-	    if(surf->getIndex() == l2->index) {
+	    if(surf->getIndex() == l2->getIndex()) {
 	      for(int k = 0; k < surf->getElements(); k++) {
 		int l = surf->getElementIndex(k);
 		if(l < 0) 
@@ -876,9 +956,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   } else {
 
     // Emit "nothing selected":
-    dummylist.nature = -1;
-    dummylist.type = -1;
-    dummylist.index = -1;
+    dummylist.setNature(-1);
+    dummylist.setType(-1);
+    dummylist.setIndex(-1);
     emit(signalBoundarySelected(&dummylist));
 
   }
@@ -914,7 +994,7 @@ void GLWidget::rebuildLists()
   if(lists) {
     for(int i=0; i < (int)lists; i++) {
       list_t *l = &list[i];
-      glDeleteLists(l->object, 1);
+      glDeleteLists(l->getObject(), 1);
     }
     lists = 0;
   }
@@ -931,13 +1011,13 @@ void GLWidget::rebuildSurfaceLists()
   for( int i=0; i<lists; i++ )
   {
      list_t *l = &list[i];
-     if ( l->type == SURFACELIST )
+     if( l->getType() == SURFACELIST )
      {
-       glDeleteLists( l->object,1 );
-       if(l->selected) {
- 	 l->object = generateSurfaceList(l->index, Qt::red); // red
+       glDeleteLists( l->getObject(), 1 );
+       if(l->isSelected()) {
+ 	 l->setObject(generateSurfaceList(l->getIndex(), Qt::red)); // red
        } else {
- 	 l->object = generateSurfaceList(l->index, surfaceColor); // cyan
+ 	 l->setObject(generateSurfaceList(l->getIndex(), surfaceColor)); // cyan
        }
      }
   }
@@ -950,13 +1030,13 @@ void GLWidget::rebuildEdgeLists()
   for( int i=0; i<lists; i++ )
   {
      list_t *l = &list[i];
-     if ( l->type == EDGELIST )
+     if ( l->getType() == EDGELIST )
      {
-       glDeleteLists( l->object,1 );
-       if(l->selected) {
- 	 l->object = generateEdgeList(l->index, Qt::red); // red
+       glDeleteLists( l->getObject(), 1 );
+       if(l->isSelected()) {
+ 	 l->setObject(generateEdgeList(l->getIndex(), Qt::red)); // red
        } else {
- 	 l->object = generateEdgeList(l->index, edgeColor); // green
+ 	 l->setObject(generateEdgeList(l->getIndex(), edgeColor)); // green
        }
      }
   }
@@ -1103,25 +1183,25 @@ GLuint GLWidget::makeLists()
 
       // triangles & quads:
       list_t *l = &list[current_index++];
-      l->nature = surface_nature[i];
-      l->type = SURFACELIST;
-      l->index = i;
-      l->object = generateSurfaceList(l->index, surfaceColor); // cyan
-      l->child = current_index;
-      l->parent = -1;
-      l->selected = false;
-      l->visible = stateDrawSurfaceElements;
+      l->setNature(surface_nature[i]);
+      l->setType(SURFACELIST);
+      l->setIndex(i);
+      l->setObject(generateSurfaceList(l->getIndex(), surfaceColor)); // cyan
+      l->setChild(current_index);
+      l->setParent(-1);
+      l->setSelected(false);
+      l->setVisible(stateDrawSurfaceElements);
 
       // edges of surface elements (just for visual):
       l = &list[current_index++];
-      l->nature = PDE_UNKNOWN;
-      l->type = SURFACEMESHLIST;
-      l->index = i;
-      l->object = generateSurfaceMeshList(l->index, surfaceMeshColor); // black
-      l->child = -1;
-      l->parent = current_index-2;
-      l->selected = false;
-      l->visible = stateDrawSurfaceMesh;
+      l->setNature(PDE_UNKNOWN);
+      l->setType(SURFACEMESHLIST);
+      l->setIndex(i);
+      l->setObject(generateSurfaceMeshList(l->getIndex(), surfaceMeshColor)); // black
+      l->setChild(-1);
+      l->setParent(current_index-2);
+      l->setSelected(false);
+      l->setVisible(stateDrawSurfaceMesh);
     }
   }
   
@@ -1130,14 +1210,14 @@ GLuint GLWidget::makeLists()
     mesh->getEdge(i)->setSelected(false);
     if(edge_nature[i] == PDE_BOUNDARY) {
       list_t *l = &list[current_index++];
-      l->nature = edge_nature[i]; 
-      l->type = EDGELIST;
-      l->index = i;
-      l->object = generateEdgeList(l->index, edgeColor); // green
-      l->child = -1;
-      l->parent = -1;
-      l->selected = false;
-      l->visible = stateDrawEdgeElements;
+      l->setNature(edge_nature[i]); 
+      l->setType(EDGELIST);
+      l->setIndex(i);
+      l->setObject(generateEdgeList(l->getIndex(), edgeColor)); // green
+      l->setChild(-1);
+      l->setParent(-1);
+      l->setSelected(false);
+      l->setVisible(stateDrawEdgeElements);
     }
   }
 
@@ -1145,26 +1225,26 @@ GLuint GLWidget::makeLists()
 
   // Sharp edges (just for visual):
   list_t *l = &list[current_index++];
-  l->nature = PDE_UNKNOWN;
-  l->type = SHARPEDGELIST;
-  l->index = -1;
-  l->object = generateSharpEdgeList(sharpEdgeColor); // black
-  l->child = -1;
-  l->parent = -1;
-  l->selected = false;
-  l->visible = stateDrawSharpEdges;
+  l->setNature(PDE_UNKNOWN);
+  l->setType(SHARPEDGELIST);
+  l->setIndex(-1);
+  l->setObject(generateSharpEdgeList(sharpEdgeColor)); // black
+  l->setChild(-1);
+  l->setParent(-1);
+  l->setSelected(false);
+  l->setVisible(stateDrawSharpEdges);
 
 
   // Volume mesh (visual only)
   l = &list[current_index++];
-  l->nature = PDE_UNKNOWN;
-  l->type = VOLUMEMESHLIST;
-  l->index = -1;
-  l->object = generateVolumeMeshList(Qt::black); // black
-  l->child = -1;
-  l->parent = -1;
-  l->selected = false;
-  l->visible = stateDrawVolumeMesh;
+  l->setNature(PDE_UNKNOWN);
+  l->setType(VOLUMEMESHLIST);
+  l->setIndex(-1);
+  l->setObject(generateVolumeMeshList(Qt::black)); // black
+  l->setChild(-1);
+  l->setParent(-1);
+  l->setSelected(false);
+  l->setVisible(stateDrawVolumeMesh);
 
   delete [] surface_nature;
   delete [] edge_nature;
@@ -1301,7 +1381,7 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       } 
       
       // change normal direction:
-      changeNormalDirection(u, surface->normal);
+      changeNormalDirection(u, surface->getNormalVec());
       glNormal3dv(u); 
       
       int n0 = surface->getNodeIndex(0);
@@ -1320,15 +1400,15 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       x2[1] = (mesh->getNode(n2)->getX(1) - drawTranslate[1]) / drawScale;
       x2[2] = (mesh->getNode(n2)->getX(2) - drawTranslate[2]) / drawScale;
 
-      changeNormalDirection(u, surface->vertex_normals[0]);
+      changeNormalDirection(u, surface->getVertexNormalVec(0));
       if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x0);
 
-      changeNormalDirection(u, surface->vertex_normals[1]);
+      changeNormalDirection(u, surface->getVertexNormalVec(1));
       if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x1);
 
-      changeNormalDirection(u, surface->vertex_normals[2]);
+      changeNormalDirection(u, surface->getVertexNormalVec(2));
       if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x2);
     }
@@ -1366,7 +1446,7 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       } 
 
       // change normal direction:
-      changeNormalDirection(u, surface->normal);
+      changeNormalDirection(u, surface->getNormalVec());
       glNormal3dv(u); 
       
       int n0 = surface->getNodeIndex(0);
@@ -1390,19 +1470,19 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
       x3[1] = (mesh->getNode(n3)->getX(1) - drawTranslate[1]) / drawScale;
       x3[2] = (mesh->getNode(n3)->getX(2) - drawTranslate[2]) / drawScale;
       
-      changeNormalDirection(u, surface->vertex_normals[0]);
+      changeNormalDirection(u, surface->getVertexNormalVec(0));
       if ( !stateFlatShade ) glNormal3dv(u); 
       glVertex3dv(x0);
 
-      changeNormalDirection(u, surface->vertex_normals[1]);
+      changeNormalDirection(u, surface->getVertexNormalVec(1));
       if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x1);
 
-      changeNormalDirection(u, surface->vertex_normals[2]);
+      changeNormalDirection(u, surface->getVertexNormalVec(2));
       if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x2);
 
-      changeNormalDirection(u, surface->vertex_normals[3]);
+      changeNormalDirection(u, surface->getVertexNormalVec(3));
       if ( !stateFlatShade ) glNormal3dv(u);
       glVertex3dv(x3);      
     }

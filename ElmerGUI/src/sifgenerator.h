@@ -67,24 +67,22 @@ class SifGenerator  {
   SifGenerator();
   ~SifGenerator();
 
-  mesh_t *mesh;
-  QTextEdit *te;
-
-  QDomDocument *elmerDefs;
-  GeneralSetup *generalSetup;
-  DynamicEditor *equationEditor;
-  DynamicEditor *materialEditor;
-  DynamicEditor *bodyForceEditor;
-  DynamicEditor *initialConditionEditor;
-  DynamicEditor *boundaryConditionEditor;
-  
-  SolverParameterEditor *solverParameterEditor;
-
-  BoundaryPropertyEditor *boundaryPropertyEditor;
-  BodyPropertyEditor *bodyPropertyEditor;
-
-  MeshControl *meshControl;
-  int dim,cdim;
+  void setMesh(mesh_t*);
+  void setTextEdit(QTextEdit*);
+  void setDim(int);
+  void setCdim(int);
+  void setElmerDefs(QDomDocument*);
+  void setGeneralSetup(GeneralSetup*);
+  void setEquationEditor(DynamicEditor*);
+  void setMaterialEditor(DynamicEditor*);
+  void setBodyForceEditor(DynamicEditor*);
+  void setInitialConditionEditor(DynamicEditor*);
+  void setBoundaryConditionEditor(DynamicEditor*);
+  void setSolverParameterEditor(SolverParameterEditor*);
+  void setBoundaryPropertyEditor(BoundaryPropertyEditor*);
+  void setBodyPropertyEditor(BodyPropertyEditor*);
+  void setMeshControl(MeshControl*);
+  void setLimit(Limit*);
 
   void makeHeaderBlock();
   void makeSimulationBlock();
@@ -100,10 +98,23 @@ class SifGenerator  {
   QHash<int, int> bodyMap;
   QHash<int, int> boundaryMap;
 
-  // Dynamic limits:
-  Limit *limit;
-
  private:
+  mesh_t* mesh;
+  QTextEdit* te;
+  int dim, cdim;
+  QDomDocument* elmerDefs;
+  GeneralSetup* generalSetup;
+  DynamicEditor* equationEditor;
+  DynamicEditor* materialEditor;
+  DynamicEditor* bodyForceEditor;
+  DynamicEditor* initialConditionEditor;
+  DynamicEditor* boundaryConditionEditor;
+  SolverParameterEditor* solverParameterEditor;
+  BoundaryPropertyEditor* boundaryPropertyEditor;
+  BodyPropertyEditor* bodyPropertyEditor;
+  MeshControl* meshControl;
+  Limit* limit;
+
   void parseSolverSpecificTab(DynamicEditor *, QString);
   void parseGeneralTab(Ui::solverParameterEditor);
   void parseSteadyStateTab(Ui::solverParameterEditor);

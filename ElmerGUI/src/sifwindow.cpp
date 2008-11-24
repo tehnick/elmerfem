@@ -73,6 +73,21 @@ SifWindow::~SifWindow()
 {
 }
 
+QTextEdit* SifWindow::getTextEdit(void)
+{
+  return this->textEdit;
+}
+
+void SifWindow::setFirstTime(bool b)
+{
+  this->firstTime = b;
+}
+
+void SifWindow::setFound(bool b)
+{
+  this->found = b;
+}
+
 QSize SifWindow::minimumSizeHint() const
 {
   return QSize(64, 64);

@@ -57,9 +57,9 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  QTextEdit *textEdit;
-  bool firstTime;
-  bool found;
+  QTextEdit* getTextEdit(void);
+  void setFirstTime(bool);
+  void setFound(bool);
 
 private slots:
   void newSlot();
@@ -69,6 +69,10 @@ private slots:
   void findSlot();
 
 private:
+  QTextEdit *textEdit;
+  bool firstTime;
+  bool found;
+
   QLineEdit *lineEdit;
 
   QAction *newAct;

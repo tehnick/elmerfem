@@ -133,7 +133,7 @@ MainWindow::MainWindow()
   bodyPropertyEditor = new BodyPropertyEditor[limit->maxBodies()];
   summaryEditor = new SummaryEditor(this);
   sifGenerator = new SifGenerator;
-  sifGenerator->limit = this->limit;
+  sifGenerator->setLimit(this->limit);
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
   glControl = new GLcontrol(this);
@@ -249,8 +249,8 @@ MainWindow::MainWindow()
 
   // set font for text editors:
   // QFont sansFont("Courier", 10);
-  // sifWindow->textEdit->setCurrentFont(sansFont);
-  // solverLogWindow->textEdit->setCurrentFont(sansFont);
+  // sifWindow->getTextEdit()->setCurrentFont(sansFont);
+  // solverLogWindow->getTextEdit()->setCurrentFont(sansFont);
 
   // load definition files:
   updateSplash("Loading definitions...");
@@ -1875,7 +1875,7 @@ void MainWindow::loadProjectSlot()
     file.open(QIODevice::WriteOnly);
     QTextStream sif(&file);    
     QApplication::setOverrideCursor(Qt::WaitCursor);
-    sif << sifWindow->textEdit->toPlainText();
+    sif << sifWindow->getTextEdit()->toPlainText();
     QApplication::restoreOverrideCursor();
     file.close();
     
@@ -2006,7 +2006,7 @@ void MainWindow::saveElmerMesh(QString dirName)
   QTextStream sif(&file);
 
   QApplication::setOverrideCursor(Qt::WaitCursor);
-  sif << sifWindow->textEdit->toPlainText();
+  sif << sifWindow->getTextEdit()->toPlainText();
   QApplication::restoreOverrideCursor();
 
   file.close();
@@ -3489,16 +3489,16 @@ void MainWindow::hidesurfacemeshSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == SURFACEMESHLIST) 
+    if(l->getType() == SURFACEMESHLIST) 
     {
-      l->visible = glWidget->stateDrawSurfaceMesh;
+      l->setVisible(glWidget->stateDrawSurfaceMesh);
 
       // do not set visible if the parent surface list is hidden
-      int p = l->parent;
+      int p = l->getParent();
       if(p >= 0) {
 	list_t *lp = &list[p];
-	if(!lp->visible)
-	  l->visible = false;
+	if(!lp->isVisible())
+	  l->setVisible(false);
       }
     }
   }
@@ -3530,8 +3530,8 @@ void MainWindow::hidevolumemeshSlot()
 
   for(int i = 0; i < lists; i++) {
     list_t *l = &list[i];
-    if(l->type == VOLUMEMESHLIST)
-      l->visible = glWidget->stateDrawVolumeMesh;
+    if(l->getType() == VOLUMEMESHLIST)
+      l->setVisible(glWidget->stateDrawVolumeMesh);
   }
 
 
@@ -3562,8 +3562,8 @@ void MainWindow::hidesharpedgesSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == SHARPEDGELIST)  
-      l->visible = glWidget->stateDrawSharpEdges;
+    if(l->getType() == SHARPEDGELIST)  
+      l->setVisible(glWidget->stateDrawSharpEdges);
   }
 
   
@@ -3625,14 +3625,14 @@ void MainWindow::selectDefinedEdgesSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == EDGELIST) {
-      int j = l->index;
+    if(l->getType() == EDGELIST) {
+      int j = l->getIndex();
       if( j < 0 ) continue;
       
       // *** TODO ***
       //
       // This is wrong: Comparing body indices with boundary indexes
-      if( activeboundary[j] ) l->selected = true;
+      if( activeboundary[j] ) l->setSelected(true);
     }
   }
 
@@ -3688,14 +3688,14 @@ void MainWindow::selectDefinedSurfacesSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == SURFACELIST) {
-      int j = l->index;
+    if(l->getType() == SURFACELIST) {
+      int j = l->getIndex();
       if( j < 0 ) continue;
 
       // *** TODO ***
       //
       // This is wrong: Comparing body indices with boundary indexes
-      if( activebody[j] ) l->selected = true;
+      if( activebody[j] ) l->setSelected(true);
     }
   }
 
@@ -3732,13 +3732,13 @@ void MainWindow::selectAllSurfacesSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == SURFACELIST)
+    if(l->getType() == SURFACELIST)
     {
-      l->selected = true;
+      l->setSelected(true);
       for( int j=0; j < mesh->getSurfaces(); j++ ) {
         surface_t *surf = mesh->getSurface(j);
-        if( l->index == surf->getIndex() )
-          surf->setSelected(l->selected);
+        if( l->getIndex() == surf->getIndex() )
+          surf->setSelected(l->isSelected());
       }
     }
   }
@@ -3767,13 +3767,13 @@ void MainWindow::selectAllEdgesSlot()
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
 
-    if(l->type == EDGELIST)
-      l->selected = true;
+    if(l->getType() == EDGELIST)
+      l->setSelected(true);
 
     for(int j = 0; j < mesh->getEdges(); j++ ) {
       edge_t *edge = mesh->getEdge(j);
-      if( l->index == edge->getIndex() )
-	edge->setSelected(l->selected);
+      if( l->getIndex() == edge->getIndex() )
+	edge->setSelected(l->isSelected());
     }
   }
 
@@ -3801,7 +3801,7 @@ void MainWindow::hideselectedSlot()
   bool something_selected = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    something_selected |= l->selected;
+    something_selected |= l->isSelected();
   }
 
   if(!something_selected) {
@@ -3812,18 +3812,18 @@ void MainWindow::hideselectedSlot()
   bool vis = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected) {
-      l->visible = !l->visible;
-      if(l->visible)
+    if(l->isSelected()) {
+      l->setVisible(!l->isVisible());
+      if(l->isVisible())
 	vis = true;
 
       // hide the child surface edge list if parent is hidden
-      int c = l->child;
+      int c = l->getChild();
       if(c >= 0) {
 	list_t *lc = &list[c];
-	lc->visible = l->visible;
+	lc->setVisible(l->isVisible());
 	if(!glWidget->stateDrawSurfaceMesh)
-	  lc->visible = false;
+	  lc->setVisible(false);
       }
     }
   }
@@ -3853,7 +3853,7 @@ void MainWindow::showallSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    l->visible = true;
+    l->setVisible(true);
   }
 
   logMessage("All objects visible");
@@ -3885,18 +3885,18 @@ void MainWindow::resetSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    l->visible = true;
-    l->selected = false;
+    l->setVisible(true);
+    l->setSelected(false);
 
     for( int j=0; j < mesh->getSurfaces(); j++ ) {
       surface_t *surf = mesh->getSurface(j);
-      if( l->index == surf->getIndex() )
-        surf->setSelected(l->selected);
+      if( l->getIndex() == surf->getIndex() )
+        surf->setSelected(l->isSelected());
     }
     for( int j=0; j<mesh->getEdges(); j++ ) {
       edge_t *edge = mesh->getEdge(j);
-      if( l->index == edge->getIndex() )
-        edge->setSelected(l->selected);
+      if( l->getIndex() == edge->getIndex() )
+        edge->setSelected(l->isSelected());
     }
   }
 
@@ -4201,8 +4201,8 @@ void MainWindow::showVtkPostSlot()
 
     // Set up log window:
     solverLogWindow->setWindowTitle(tr("ElmerGrid log"));
-    solverLogWindow->textEdit->clear();
-    solverLogWindow->found = false;
+    solverLogWindow->getTextEdit()->clear();
+    solverLogWindow->setFound(false);
     solverLogWindow->show();
 
     QString postName = generalSetup->ui.postFileEdit->text().trimmed();
@@ -4218,7 +4218,7 @@ void MainWindow::showVtkPostSlot()
     meshUnifier->start(unifyingCommand);
     
     if(!meshUnifier->waitForStarted()) {
-      solverLogWindow->textEdit->append("Unable to start ElmerGrid for mesh unification - aborted");
+      solverLogWindow->getTextEdit()->append("Unable to start ElmerGrid for mesh unification - aborted");
       logMessage("Unable to start ElmerGrid for mesh unification - aborted");
       vtkPostMeshUnifierRunning = false;
       return;
@@ -4565,7 +4565,7 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   int selected=0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected && (l->type==SURFACELIST) && (l->nature==PDE_BOUNDARY))
+    if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY))
       selected++;
   }
   p->selected = selected;
@@ -4573,7 +4573,7 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   selected = 0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected && (l->type == SURFACELIST) && (l->nature==PDE_BOUNDARY))
+    if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY))
       p->select_set[selected++] = i;
   }
   
@@ -4607,9 +4607,9 @@ void MainWindow::surfaceUnifySlot()
   int targetindex = -1, selected=0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+    if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
       selected++;
-      if(targetindex < 0) targetindex = l->index;
+      if(targetindex < 0) targetindex = l->getIndex();
     }
   }
   
@@ -4625,17 +4625,17 @@ void MainWindow::surfaceUnifySlot()
   q->next = p;
   p->next = NULL;
   p->type = OP_UNIFY_SURFACE;
-  p->selected=selected;
+  p->selected = selected;
   p->select_set = new int[selected]; 
   
   selected = 0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+    if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
       p->select_set[selected++] = i;
       for(int j=0; j < mesh->getSurfaces(); j++) {
 	surface_t *s = mesh->getSurface(j);
-	if((s->getIndex() == l->index) && (s->getNature() == PDE_BOUNDARY)) 
+	if((s->getIndex() == l->getIndex()) && (s->getNature() == PDE_BOUNDARY)) 
 	  s->setIndex(targetindex);
       }
     }
@@ -4664,7 +4664,7 @@ void MainWindow::applyOperations()
     list_t *list = glWidget->list;
 
     for( int i=0; i<lists; i++ )
-       list[i].selected = false;
+      list[i].setSelected(false);
 
     for( int j=0; j<mesh->getSurfaces(); j++ )
       mesh->getSurface(j)->setSelected(false);
@@ -4672,21 +4672,21 @@ void MainWindow::applyOperations()
     for( int j=0; j<mesh->getEdges(); j++ )
       mesh->getEdge(j)->setSelected(false);
 
-    for(int i=0; i<p->selected; i++) {
+    for(int i=0; i < p->selected; i++) {
       list_t *l = &list[p->select_set[i]];
 
-      l->selected = true;
+      l->setSelected(true);
       if ( p->type < OP_UNIFY_EDGE ) {
         for( int j=0; j<mesh->getSurfaces(); j++ ) {
           surface_t *surf = mesh->getSurface(j);
-          if( l->index == surf->getIndex() )
-            surf->setSelected(l->selected);
+          if( l->getIndex() == surf->getIndex() )
+            surf->setSelected(l->isSelected());
         }
       } else {
         for( int j=0; j<mesh->getEdges(); j++ ) {
           edge_t *edge = mesh->getEdge(j);
-          if( l->index == edge->getIndex() )
-            edge->setSelected(l->selected);
+          if( l->getIndex() == edge->getIndex() )
+            edge->setSelected(l->isSelected());
         }
       }
     }
@@ -4708,19 +4708,19 @@ void MainWindow::applyOperations()
       int targetindex = -1;
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];
-        if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+        if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
           if(targetindex < 0) {
-            targetindex = l->index;
+            targetindex = l->getIndex();
             break;
           }
         }
       }
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];    
-        if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+        if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
           for(int j=0; j < mesh->getSurfaces(); j++) {
             surface_t *s = mesh->getSurface(j);
-            if((s->getIndex() == l->index) && (s->getNature() == PDE_BOUNDARY)) 
+            if((s->getIndex() == l->getIndex()) && (s->getNature() == PDE_BOUNDARY)) 
               s->setIndex(targetindex);
           }
         }
@@ -4732,19 +4732,19 @@ void MainWindow::applyOperations()
       int targetindex = -1;
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];
-        if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+        if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
           if(targetindex < 0) {
-            targetindex = l->index;
+            targetindex = l->getIndex();
             break;
           }
         }
       }
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];    
-        if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+        if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
           for(int j=0; j < mesh->getEdges(); j++) {
             edge_t *e = mesh->getEdge(j);
-            if(e->getIndex() == l->index && e->getNature() == PDE_BOUNDARY)
+            if(e->getIndex() == l->getIndex() && e->getNature() == PDE_BOUNDARY)
               e->setIndex(targetindex);
           }
         }
@@ -4801,7 +4801,7 @@ void MainWindow::doDivideEdgeSlot(double angle)
   int selected=0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected && l->type==EDGELIST && l->nature==PDE_BOUNDARY)
+    if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY)
       selected++;
   }
   p->selected = selected;
@@ -4809,7 +4809,7 @@ void MainWindow::doDivideEdgeSlot(double angle)
   selected = 0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected && l->type == EDGELIST && l->nature==PDE_BOUNDARY)
+    if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY)
       p->select_set[selected++] = i;
   }
   
@@ -4845,9 +4845,9 @@ void MainWindow::edgeUnifySlot()
   int targetindex = -1, selected=0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+    if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
       selected++;
-      if(targetindex < 0) targetindex = l->index;
+      if(targetindex < 0) targetindex = l->getIndex();
     }
   }
   
@@ -4863,17 +4863,17 @@ void MainWindow::edgeUnifySlot()
   q->next = p;
   p->next = NULL;
   p->type = OP_UNIFY_EDGE;
-  p->selected=selected;
+  p->selected = selected;
   p->select_set = new int[selected]; 
   
   selected = 0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+    if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
       p->select_set[selected++] = i;
       for(int j=0; j < mesh->getEdges(); j++) {
 	edge_t *e = mesh->getEdge(j);
-	if(e->getIndex() == l->index && e->getNature() == PDE_BOUNDARY) 
+	if(e->getIndex() == l->getIndex() && e->getNature() == PDE_BOUNDARY) 
 	  e->setIndex(targetindex);
       }
     }
@@ -4918,7 +4918,7 @@ void MainWindow::cleanHangingSharpEdgesSlot()
 void MainWindow::showsifSlot()
 {
   // QFont sansFont("Courier", 10);
-  // sifWindow->textEdit->setCurrentFont(sansFont);
+  // sifWindow->getTextEdit()->setCurrentFont(sansFont);
   sifWindow->show();
 }
 
@@ -4941,34 +4941,29 @@ void MainWindow::generateSifSlot()
 
   // Clear SIF text editor:
   //------------------------
-  sifWindow->textEdit->clear();
-  sifWindow->firstTime = true;
-  sifWindow->found = false;
+  sifWindow->getTextEdit()->clear();
+  sifWindow->setFirstTime(true);
+  sifWindow->setFound(false);
   // QFont sansFont("Courier", 10);
-  // sifWindow->textEdit->setCurrentFont(sansFont);
+  // sifWindow->getTextEdit()->setCurrentFont(sansFont);
 
   // Set up SIF generator:
   //-----------------------
-  sifGenerator->mesh = mesh;
-  sifGenerator->te = sifWindow->textEdit;
-  sifGenerator->dim = mesh->getDim();
-  sifGenerator->cdim = mesh->getCdim();
-
-  sifGenerator->generalSetup = generalSetup;
-  sifGenerator->equationEditor = equationEditor;
-  sifGenerator->materialEditor = materialEditor;
-  sifGenerator->bodyForceEditor = bodyForceEditor;
-  sifGenerator->initialConditionEditor = initialConditionEditor;
-  sifGenerator->boundaryConditionEditor = boundaryConditionEditor;
-
-  sifGenerator->solverParameterEditor = solverParameterEditor;
-
-  sifGenerator->boundaryPropertyEditor = boundaryPropertyEditor;
-  sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
-
-  sifGenerator->meshControl = meshControl;
-
-  sifGenerator->elmerDefs = elmerDefs;
+  sifGenerator->setMesh(mesh);
+  sifGenerator->setTextEdit(sifWindow->getTextEdit());
+  sifGenerator->setDim(mesh->getDim());
+  sifGenerator->setCdim(mesh->getCdim());
+  sifGenerator->setGeneralSetup(generalSetup);
+  sifGenerator->setEquationEditor(equationEditor);
+  sifGenerator->setMaterialEditor(materialEditor);
+  sifGenerator->setBodyForceEditor(bodyForceEditor);
+  sifGenerator->setInitialConditionEditor(initialConditionEditor);
+  sifGenerator->setBoundaryConditionEditor(boundaryConditionEditor);
+  sifGenerator->setSolverParameterEditor(solverParameterEditor);
+  sifGenerator->setBoundaryPropertyEditor(boundaryPropertyEditor);
+  sifGenerator->setBodyPropertyEditor(bodyPropertyEditor);
+  sifGenerator->setMeshControl(meshControl);
+  sifGenerator->setElmerDefs(elmerDefs);
   sifGenerator->bodyMap = glWidget->bodyMap;
   sifGenerator->boundaryMap = glWidget->boundaryMap;
 
@@ -4993,26 +4988,26 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 {
   QString qs;
 
-  if(l->index < 0) {
+  if(l->getIndex() < 0) {
     statusBar()->showMessage("Ready");    
     return;
   }
 
-  if(l->selected) {
-    if(l->type == SURFACELIST) {
-      qs = "Selected surface " + QString::number(l->index);
-    } else if(l->type == EDGELIST) {
-      qs = "Selected edge " + QString::number(l->index);
+  if(l->isSelected()) {
+    if(l->getType() == SURFACELIST) {
+      qs = "Selected surface " + QString::number(l->getIndex());
+    } else if(l->getType() == EDGELIST) {
+      qs = "Selected edge " + QString::number(l->getIndex());
     } else {
-      qs = "Selected object " + QString::number(l->index) + " (type unknown)";
+      qs = "Selected object " + QString::number(l->getIndex()) + " (type unknown)";
     }
   } else {
-    if(l->type == SURFACELIST) {
-      qs = "Unselected surface " + QString::number(l->index);
-    } else if(l->type == EDGELIST) {
-      qs = "Unselected edge " + QString::number(l->index);
+    if(l->getType() == SURFACELIST) {
+      qs = "Unselected surface " + QString::number(l->getIndex());
+    } else if(l->getType() == EDGELIST) {
+      qs = "Unselected edge " + QString::number(l->getIndex());
     } else {
-      qs = "Unselected object " + QString::number(l->index) + " (type unknown)";
+      qs = "Unselected object " + QString::number(l->getIndex()) + " (type unknown)";
     }
   }
 
@@ -5021,13 +5016,13 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
   // Open bc property sheet for selected boundary:
   //-----------------------------------------------
-  if(l->selected && (glWidget->altPressed || bcEditActive)) {
+  if(l->isSelected() && (glWidget->altPressed || bcEditActive)) {
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
     glWidget->altPressed = false;
     
     // renumbering:
-    int n = glWidget->boundaryMap.value(l->index);
+    int n = glWidget->boundaryMap.value(l->getIndex());
     if(n >= limit->maxBcs()) {
       logMessage("Error: index exceeds MAX_BCS (increase it in egini.xml)");
       return;
@@ -5053,7 +5048,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       boundaryEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
     }
 
-    boundaryEdit->setWindowTitle("Properties for boundary " + QString::number(l->index));
+    boundaryEdit->setWindowTitle("Properties for boundary " + QString::number(l->getIndex()));
     boundaryEdit->show();
   }
 
@@ -5062,10 +5057,10 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
   // boundary as a body treatment
   // ----------------------------
-  if(l->selected && glWidget->ctrlPressed ) {
+  if(l->isSelected() && glWidget->ctrlPressed ) {
 
     // renumbering:
-    int n = glWidget->boundaryMap.value(l->index);
+    int n = glWidget->boundaryMap.value(l->getIndex());
     if(n >= limit->maxBcs()) {
       logMessage("Error: index exceeds MAX_BCS (increase it in egini.xml)");
       return;
@@ -5416,8 +5411,8 @@ void MainWindow::runsolverSlot()
 
     // Set up log window:
     solverLogWindow->setWindowTitle(tr("Solver log"));
-    solverLogWindow->textEdit->clear();
-    solverLogWindow->found = false;
+    solverLogWindow->getTextEdit()->clear();
+    solverLogWindow->setFound(false);
     solverLogWindow->show();
     
     if(!partitioningActive) {
@@ -5467,8 +5462,8 @@ void MainWindow::runsolverSlot()
   }
   
   solverLogWindow->setWindowTitle(tr("Solver log"));
-  solverLogWindow->textEdit->clear();
-  solverLogWindow->found = false;
+  solverLogWindow->getTextEdit()->clear();
+  solverLogWindow->setFound(false);
   solverLogWindow->show();
 
   // convergence plot:
@@ -5491,7 +5486,7 @@ void MainWindow::runsolverSlot()
 void MainWindow::meshSplitterFinishedSlot(int exitCode)
 {
   if(exitCode != 0) {
-    solverLogWindow->textEdit->append("MeshSplitter failed - aborting");
+    solverLogWindow->getTextEdit()->append("MeshSplitter failed - aborting");
     logMessage("MeshSplitter failed - aborting");
     return;
   }
@@ -5519,7 +5514,7 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   killsolverAct->setEnabled(true);
 
   if(!solver->waitForStarted()) {
-    solverLogWindow->textEdit->append("Unable to start parallel solver");
+    solverLogWindow->getTextEdit()->append("Unable to start parallel solver");
     logMessage("Unable to start parallel solver");
     return;
   }
@@ -5546,7 +5541,7 @@ void MainWindow::meshSplitterStdoutSlot()
   while(qs.at(qs.size()-1).unicode() == '\n')
     qs.chop(1);
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 }
 
 // meshSplitter emits (void) when there is something to read from stderr:
@@ -5558,7 +5553,7 @@ void MainWindow::meshSplitterStderrSlot()
   while(qs.at(qs.size()-1).unicode() == '\n')
     qs.chop(1);
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 }
 
 // meshUnifier emits (int) when ready...
@@ -5568,7 +5563,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   QStringList args;
 
   if(exitCode != 0) {
-    solverLogWindow->textEdit->append("MeshUnifier failed - aborting");
+    solverLogWindow->getTextEdit()->append("MeshUnifier failed - aborting");
     logMessage("MeshUnifier failed - aborting");
     vtkPostMeshUnifierRunning = false;
     return;
@@ -5596,7 +5591,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   QFile file(postName);
   if(!file.exists()) {
-    solverLogWindow->textEdit->append("Elmerpost input file does not exist.");
+    solverLogWindow->getTextEdit()->append("Elmerpost input file does not exist.");
     logMessage("Elmerpost input file does not exist.");
     vtkPostMeshUnifierRunning = false;
     return;
@@ -5660,7 +5655,7 @@ void MainWindow::meshUnifierStdoutSlot()
   while(qs.at(qs.size()-1).unicode() == '\n')
     qs.chop(1);
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 }
 
 // meshUnifier emits (void) when there is something to read from stderr:
@@ -5672,7 +5667,7 @@ void MainWindow::meshUnifierStderrSlot()
   while(qs.at(qs.size()-1).unicode() == '\n')
     qs.chop(1);
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 }
 
 
@@ -5710,7 +5705,7 @@ void MainWindow::solverStdoutSlot()
   if(qs.isEmpty())
     return;
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 
 #ifdef QWT
   if(!showConvergence) {
@@ -5796,7 +5791,7 @@ void MainWindow::solverStderrSlot()
   while(qs.at(qs.size()-1).unicode() == '\n')
     qs.chop(1);
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 }
 
 
@@ -5883,8 +5878,8 @@ void MainWindow::resultsSlot()
 
     // Set up log window:
     solverLogWindow->setWindowTitle(tr("ElmerGrid log"));
-    solverLogWindow->textEdit->clear();
-    solverLogWindow->found = false;
+    solverLogWindow->getTextEdit()->clear();
+    solverLogWindow->setFound(false);
     solverLogWindow->show();
 
     QString postName = generalSetup->ui.postFileEdit->text().trimmed();
@@ -5900,7 +5895,7 @@ void MainWindow::resultsSlot()
     meshUnifier->start(unifyingCommand);
     
     if(!meshUnifier->waitForStarted()) {
-      solverLogWindow->textEdit->append("Unable to start ElmerGrid for mesh unification - aborted");
+      solverLogWindow->getTextEdit()->append("Unable to start ElmerGrid for mesh unification - aborted");
       logMessage("Unable to start ElmerGrid for mesh unification - aborted");
       return;
     }
@@ -6028,8 +6023,8 @@ void MainWindow::compileSolverSlot()
   }
 
   solverLogWindow->setWindowTitle(tr("Compiler log"));
-  solverLogWindow->textEdit->clear();
-  solverLogWindow->found = false;
+  solverLogWindow->getTextEdit()->clear();
+  solverLogWindow->setFound(false);
   solverLogWindow->show();
   solverLogWindow->statusBar()->showMessage("Compiling...");
 
@@ -6046,7 +6041,7 @@ void MainWindow::compilerStdoutSlot()
   while(qs.at(qs.size()-1).unicode() == '\n')
     qs.chop(1);
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 }
 
 
@@ -6059,7 +6054,7 @@ void MainWindow::compilerStderrSlot()
   while(qs.at(qs.size()-1).unicode() == '\n')
     qs.chop(1);
 
-  solverLogWindow->textEdit->append(qs);
+  solverLogWindow->getTextEdit()->append(qs);
 }
 
 // Signal (int) emitted by compiler when finished:
@@ -6068,7 +6063,7 @@ void MainWindow::compilerFinishedSlot(int)
 {
   logMessage("Ready");
   solverLogWindow->statusBar()->showMessage("Ready");
-  solverLogWindow->textEdit->append("Ready");
+  solverLogWindow->getTextEdit()->append("Ready");
 }
 
 

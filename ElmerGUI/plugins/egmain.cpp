@@ -881,9 +881,9 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	      b->setElementIndex(1, -1);
 	    }
 	    
-	    b->normal[0] = 0.0;
-	    b->normal[1] = 0.0;
-	    b->normal[2] = -1.0;
+	    b->setNormal(0, 0.0);
+	    b->setNormal(1, 0.0);
+	    b->setNormal(2, -1.0);
 	    
 	    b->setNature(PDE_BOUNDARY);
 	    b->setCode(sideelemtype);
@@ -924,9 +924,9 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
       b->setElementIndex(0, -1);
       b->setElementIndex(1, -1);
       
-      b->normal[0] = 0.0;
-      b->normal[1] = 0.0;
-      b->normal[2] = -1.0;
+      b->setNormal(0, 0.0);
+      b->setNormal(1, 0.0);
+      b->setNormal(2, -1.0);
       
       b->setCode(dat->elementtypes[i+1]);
       b->setNodes(b->getCode() % 100);

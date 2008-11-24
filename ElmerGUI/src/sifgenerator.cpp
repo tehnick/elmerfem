@@ -51,6 +51,86 @@ SifGenerator::~SifGenerator()
 {
 }
 
+void SifGenerator::setMesh(mesh_t* m)
+{
+  this->mesh = m;
+}
+
+void SifGenerator::setTextEdit(QTextEdit* textEdit)
+{
+  this->te = textEdit;
+}
+
+void SifGenerator::setDim(int n)
+{
+  this->dim = n;
+}
+
+void SifGenerator::setCdim(int n)
+{
+  this->cdim = n;
+}
+
+void SifGenerator::setElmerDefs(QDomDocument* d)
+{
+  this->elmerDefs = d;
+}
+
+void SifGenerator::setGeneralSetup(GeneralSetup* g)
+{
+  this->generalSetup = g;
+}
+
+void SifGenerator::setEquationEditor(DynamicEditor* d)
+{
+  this->equationEditor = d;
+}
+
+void SifGenerator::setMaterialEditor(DynamicEditor* d)
+{
+  this->materialEditor = d;
+}
+
+void SifGenerator::setBodyForceEditor(DynamicEditor* d)
+{
+  this->bodyForceEditor = d;
+}
+
+void SifGenerator::setInitialConditionEditor(DynamicEditor* d)
+{
+  this->initialConditionEditor = d;
+}
+
+void SifGenerator::setBoundaryConditionEditor(DynamicEditor* d)
+{
+  this->boundaryConditionEditor = d;
+}
+
+void SifGenerator::setSolverParameterEditor(SolverParameterEditor* s)
+{
+  this->solverParameterEditor = s;
+}
+
+void SifGenerator::setBoundaryPropertyEditor(BoundaryPropertyEditor* b)
+{
+  this->boundaryPropertyEditor = b;
+}
+
+void SifGenerator::setBodyPropertyEditor(BodyPropertyEditor* b)
+{
+  this->bodyPropertyEditor = b;
+}
+
+void SifGenerator::setMeshControl(MeshControl* m)
+{
+  this->meshControl = m;
+}
+
+void SifGenerator::setLimit(Limit* l)
+{
+  this->limit = l;
+}
+
 // Make Header-block:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeHeaderBlock()
