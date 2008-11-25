@@ -1496,8 +1496,8 @@ CONTAINS
     INTEGER :: ElementsFirst, ElementsLast, body_id
     INTEGER, POINTER :: ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: Constraints(:)
-    REAL(KIND=dp) :: NonlinearTol, Norm, ConsTarget
-    CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
+    REAL(KIND=dp) :: NonlinearTol, Norm, ConsValue, ConsVolume
+    CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsTarget
     LOGICAL :: ConstraintType(20), Coupling
     INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
@@ -1656,6 +1656,7 @@ CONTAINS
           WRITE (str,'(A,I2)') 'Variable',RowVar
         ELSE
           WRITE (str,'(A,I2)') 'Constraint',RowVar-NoVar
+          ConsVolume = 0.0_dp
         END IF
         RowName = ListGetString( Solver % Values, TRIM(str), GotIt )
         Var => VariableGet( Model % Variables, TRIM(RowName) )
@@ -1665,6 +1666,8 @@ CONTAINS
         ELSE         
           Nrow = 1
           RowInds(1:Nrow) = 1
+          WRITE (str,'(A,I2,A)') 'Constraint',RowVar-NoVar,' Target'
+          ConsTarget = ListGetString( Solver % Values, TRIM(str) )
         END IF
         RowDofs = Var % Dofs
         RowInd0 = Offset(RowVar)
@@ -1675,6 +1678,13 @@ CONTAINS
           WRITE (str,'(A,I2)') 'Variable',ColVar
           ColName = ListGetString( Solver % Values, TRIM(str), GotIt )
           Var => VariableGet( Model % Variables, TRIM(ColName) )
+
+          ! Constrain only the target variable
+          !-----------------------------------------------
+          IF(RowVar > NoVar) THEN
+            IF( ColName /= ConsTarget ) CYCLE
+          END IF
+
 
           ColPerm => Var % Perm
           ColDofs = Var % Dofs
@@ -1692,7 +1702,7 @@ CONTAINS
           ProcName = ListGetString( Solver % Values, TRIM(str), GotProc )
           IF(.NOT. GotProc ) THEN
             IF( RowVar > NoVar) THEN
-              CALL Info('GenericSolver','Using integral constraint')
+              CALL Info('GenericSolver','Using built-in constraint')
             ELSE
               IF( BulkMode .AND. RowVar == ColVar ) THEN
                 CALL Fatal('GenericSolver','Diagonal bulk entries must be assembled!')
@@ -1855,12 +1865,13 @@ CONTAINS
           ! Set the target for the constraint
           !--------------------------------------------------------
           ELSE
-            WRITE (str,'(A,I2,A)') 'Constraint',RowVar-NoVar,' Target'
-            ConsTarget = ListGetConstReal(Solver % Values,TRIM(str))
+            WRITE (str,'(A,I2,A)') 'Constraint',RowVar-NoVar,' Value'
+            ConsValue = ListGetConstReal(Solver % Values,TRIM(str))
+            PRINT *,'Constraint Volume: ',ConsVolume
             DO i=1,Nrow
               DO j=1,RowDofs
                 Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
-                ForceVector(Row) = ConsTarget
+                ForceVector(Row) = ConsValue
               END DO
             END DO
           END IF
@@ -2012,8 +2023,10 @@ CONTAINS
         DO p=1,n
           STIFF(1,p) = STIFF(1,p) + Weight * Basis(p)
         END DO
+
+        ConsVolume = ConsVolume + Weight 
       END DO
-      
+
       Visited = .TRUE.
 
 !------------------------------------------------------------------------------
