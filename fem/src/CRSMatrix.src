@@ -166,6 +166,7 @@ CONTAINS
           END DO
        END IF
     END IF
+
   END SUBROUTINE CRS_ZeroRow
 !------------------------------------------------------------------------------
   
@@ -569,19 +570,31 @@ CONTAINS
         DO k=0,RowDofs-1
            IF ( RowInds(i) <= 0 ) CYCLE
            Row  = Row0 + RowDofs * RowInds(i) - k
+
            DO j=1,Ncol
               DO l=0,ColDofs-1
                  IF ( ColInds(j) <= 0 ) CYCLE
                  Col  = Col0 + ColDofs * ColInds(j) - l
-                 IF ( Col >= Row ) THEN
+
+! If Diag does not exist then one cannot separate the gluing into two parts
+                IF( .FALSE. ) THEN	
+                    DO c=Rows(Row),Rows(Row+1)-1
+                       IF ( Cols(c) == Col ) THEN
+                           Values(c) = Values(c) + LocalMatrix(RowDofs*i-k,ColDofs*j-l)
+                           EXIT
+                        END IF
+                     END DO
+                     IF( Cols(c) /= Col ) print *,'NO HIT 1',Row,Col
+                 ELSE IF ( Col >= Row ) THEN
                     DO c=Diag(Row),Rows(Row+1)-1
                        IF ( Cols(c) == Col ) THEN
 !$omp critical
                           Values(c) = Values(c) + LocalMatrix(RowDofs*i-k,ColDofs*j-l)
- !$omp end critical
+!$omp end critical
                           EXIT
                        END IF
                     END DO
+                    IF( Cols(c) /= Col ) print *,'NO HIT 2',Row,Col
                  ELSE
                     DO c=Rows(Row),Diag(Row)-1
                        IF ( Cols(c) == Col ) THEN
@@ -591,6 +604,7 @@ CONTAINS
                            EXIT
                         END IF
                      END DO
+                     IF( Cols(c) /= Col ) print *,'NO HIT 3',Row,Col
                   END IF
                END DO
             END DO

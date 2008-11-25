@@ -106,9 +106,11 @@ CONTAINS
       Rows(i+1) = Rows(i) + L(i) % Degree
     END DO
     ALLOCATE( Cols(Rows(i+1)-1) )
+    j = 0
     DO i=1,n
       P => L(i) % Head
       DO WHILE(ASSOCIATED(P))
+        j = j + 1
         Cols(j) = P % Index
         P => P % Next
       END DO
@@ -135,6 +137,7 @@ CONTAINS
     INTEGER :: i,j,n
     TYPE(ListMatrixEntry_t), POINTER :: P
     INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
+    REAL(KIND=dp), POINTER :: Values(:)
 
     DO n=SIZE(L),1,-1
       IF ( L(n) % Degree > 0 ) EXIT
@@ -145,10 +148,12 @@ CONTAINS
     DO i=1,n
       Rows(i+1) = Rows(i) + L(i) % Degree
     END DO
-    ALLOCATE( Cols(Rows(i+1)-1) )
+    ALLOCATE( Cols(Rows(n+1)-1))
+    j = 0
     DO i=1,n
       P => L(i) % Head
       DO WHILE(ASSOCIATED(P))
+        j = j + 1
         Cols(j) = P % Index
         P => P % Next
       END DO
@@ -160,6 +165,11 @@ CONTAINS
     A % Diag => Diag
     A % Cols => Cols
     CALL CRS_SortMatrix(A)
+
+    ALLOCATE( Values(Rows(n+1)-1) )
+    Values = 0.0_dp
+    A % Values => Values
+
 !-------------------------------------------------------------------------------
   END SUBROUTINE ListMatrixToCRSMatrix
 !-------------------------------------------------------------------------------

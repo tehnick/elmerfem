@@ -14,6 +14,7 @@
 ! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! *  GNU General Public License for more details.
 ! *
+
 ! *  You should have received a copy of the GNU General Public License
 ! *  along with this program (in file fem/GPL-2); if not, write to the 
 ! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
@@ -1473,7 +1474,7 @@ CONTAINS
     USE ElementDescription
     USE SolverUtils
     USE ElementUtils
-
+    
     IMPLICIT NONE
 !------------------------------------------------------------------------------
     TYPE(Solver_t), TARGET :: Solver
@@ -1488,15 +1489,15 @@ CONTAINS
     INTEGER :: i,j,k,l,t,n,nd,NoIterations,iter,istat
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: ProcName
-    LOGICAL :: GotIt, GotIt2, BulkMode, InitMatrix, Visited = .FALSE.
+    LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, InitMatrix, Visited = .FALSE.
     INTEGER(KIND=AddrInt) :: ProcPntr    
-    INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, TotDofs, MaxDofs, &
-         ColVar, RowVar, Nrow, Ncol, NoVar, TotSize, ConDofs, OffSet(20)
+    INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
+         ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20)
     INTEGER :: ElementsFirst, ElementsLast, body_id
     INTEGER, POINTER :: ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: Constraints(:)
-    REAL(KIND=dp) :: NonlinearTol, Norm
-    CHARACTER(LEN=max_name_len) :: str, VarName, ConName
+    REAL(KIND=dp) :: NonlinearTol, Norm, ConsTarget
+    CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
     LOGICAL :: ConstraintType(20), Coupling
     INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
@@ -1504,25 +1505,27 @@ CONTAINS
     TYPE (Matrix_t), POINTER :: Amat
 
     INTERFACE 
-       SUBROUTINE ExecLocalAssembly( Proc, Model, Solver, dt, Transient, &
-            M, D, S, F, Element, Nrow, Ncol )
-         USE Types
-         INTEGER(KIND=AddrInt) :: Proc
-         TYPE(Model_t)   :: Model
-         TYPE(Solver_t)  :: Solver
-         REAL(KIND=dp)   :: dt
-         LOGICAL :: Transient
-         REAL(KIND=dp) :: S(:,:), D(:,:), M(:,:), F(:)
-         TYPE(Element_t) :: Element
-         INTEGER :: Nrow, Ncol
-       END SUBROUTINE ExecLocalAssembly
+      SUBROUTINE ExecLocalAssembly( Proc, Model, Solver, dt, Transient, &
+          M, D, S, F, Element, Nrow, Ncol )
+        USE Types
+        INTEGER(KIND=AddrInt) :: Proc
+        TYPE(Model_t)   :: Model
+        TYPE(Solver_t)  :: Solver
+        REAL(KIND=dp)   :: dt
+        LOGICAL :: Transient
+        REAL(KIND=dp) :: S(:,:), D(:,:), M(:,:), F(:)
+        TYPE(Element_t) :: Element
+        INTEGER :: Nrow, Ncol
+      END SUBROUTINE ExecLocalAssembly
     END INTERFACE
-
+    
     SAVE Visited 
     
     CALL Info('GenericSolver','---------------------------------------',Level=5)
     CALL Info('GenericSolver','Solving a Generic equation',Level=5)
     CALL Info('GenericSolver','---------------------------------------',Level=5)
+
+    Model % Solver => Solver
     
 !------------------------------------------------------------------------------
 ! Check out which variables the coupled model includes
@@ -1533,65 +1536,67 @@ CONTAINS
 !!!!!!!!!!!!! provided using other solvers for initiazalition. This could be allocated 
 !!!!!!!!!!!!! internally using the Variable = AllDofs[VectorDof:3 ScalarDof:1] system
     Offset = 0
-    TotDofs = 0
     MaxDofs = 0
     TotSize = 0
-    NoVar = 0
     ConstraintType = .FALSE.
-
+    
+    NoVar = 0
     DO i = 1,9
-       WRITE (str,'(A,I2)') 'Variable',i
-       VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
-        print *,'VarName: ',TRIM(Varname)
-       call flush(6)
+      WRITE (str,'(A,I2)') 'Variable',i
+      VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
       IF(.NOT. GotIt) EXIT
-       Var => VariableGet( Model % Variables, TRIM(VarName) )
-       IF(.NOT. ASSOCIATED( Var )) EXIT 
+      Var => VariableGet( Model % Variables, TRIM(VarName) )
+      IF(.NOT. ASSOCIATED( Var )) EXIT 
+      
+      NoVar = NoVar + 1
+      TotSize = TotSize + Var % Dofs * SIZE(Var % Values)
+      MaxDofs = MAX( MaxDofs, Var % Dofs)
+      Offset(NoVar+1) = Offset(NoVar) + Var % Dofs * SIZE(Var % Values)
 
-       NoVar = NoVar + 1
-       TotDofs = TotDofs + Var % Dofs
-       TotSize = TotSize + Var % Dofs * SIZE(Var % Values)
-       MaxDofs = MAX( MaxDofs, Var % Dofs)
-       Offset(NoVar+1) = Offset(NoVar) + Var % Dofs * SIZE(Var % Values)
-       print *,'novar',NoVar,'offset',offset(NoVar+1)
-       call flush(6)
+      WRITE(Message,'(A,I2,A,I8)') 'Variable offset',NoVar,': ',OffSet(NoVar)
+      CALL Info('GenericSolver',Message)
     END DO
 
 !!!!!!!!!!!!! Here is a hack for taking constraints into account where dofs are created on-the-fly
 !!!!!!!!!!!!! might be better to create special solvers somewhere else
+!!!!!!!!!!!!! also the size of constraint might be directly deduced from its type.
 
+    NoCons = 0
     DO i = 1,9
-       WRITE (str,'(A,I2)') 'Constraint',i
-       VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
-       print *,'VarName: ',TRIM(Varname)
-       call flush(6)
-       IF(.NOT. GotIt) EXIT
-       
-       NoVar = NoVar + 1
-       ConstraintType(NoVar) = .TRUE.
-       
-       Var => VariableGet( Model % Variables, VarName )
-       IF( ASSOCIATED(Var) ) THEN
-          ConDofs = Var % Dofs
-          Constraints => Var % Values
-       ELSE
-          WRITE (str,'(A,I2,A)') 'Constraint',i,' DOFs'
-          ConDofs = ListGetInteger( Solver % Values, str)
-          ALLOCATE(Constraints(ConDofs))
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-               VarName, ConDofs, Constraints )          
-          Var => VariableGet( Model % Variables, VarName )         
-       END IF
-       
-       TotSize = TotSize + ConDofs
-       Offset(NoVar+1) = Offset(NoVar) + ConDofs
-       print *,'novar',NoVar,'offset',offset(NoVar+1)
-        call flush(6)        
+      WRITE (str,'(A,I2)') 'Constraint',i
+      VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
+      IF(.NOT. GotIt) EXIT
+      
+      NoCons = NoCons + 1      
+      Var => VariableGet( Model % Variables, VarName )
+      IF( ASSOCIATED(Var) ) THEN
+        ConDofs = Var % Dofs
+        Constraints => Var % Values
+      ELSE
+        WRITE (str,'(A,I2,A)') 'Constraint',i,' DOFs'
+        ConDofs = MAX(1, ListGetInteger( Solver % Values, str))
+        ALLOCATE(Constraints(ConDofs))
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+            VarName, ConDofs, Constraints, Output = .FALSE. )          
+        Var => VariableGet( Model % Variables, VarName )         
+      END IF
+      
+      TotSize = TotSize + ConDofs
+      j = NoVar + NoCons 
+      Offset(j+1) = Offset(j) + ConDofs
+
+      WRITE(Message,'(A,I2,A,I8)') 'Permutation offset',j,': ',OffSet(j)
+      CALL Info('GenericSolver',Message)
     END DO
 
-    print *,'number of variables',NoVar
-    print *,'size of new system',totsize
-    call flush(6)
+    WRITE(Message,'(A,I8)') 'Number of coupled variables: ',NoVar
+    CALL Info('GenericSolver',Message)
+  
+    WRITE(Message,'(A,I8)') 'Number of constraints: ',NoCons
+    CALL Info('GenericSolver',Message)
+  
+    WRITE(Message,'(A,I8)') 'Size of coupled system: ',TotSize
+    CALL Info('GenericSolver',Message)
 
 !------------------------------------------------------------------------------
 ! Do some initial stuff
@@ -1599,22 +1604,18 @@ CONTAINS
   
     N = Solver % Mesh % MaxElementNodes    
     ALLOCATE( FORCE( MaxDofs*N ),       &
-         STIFF( MaxDofs*N, MaxDofs*N ), &
-         DAMP( MaxDofs*N, MaxDofs*N ),  &
-         MASS(  MaxDofs*N, MaxDofs*N ), &
-         ColInds( N ),&
-         RowInds( N ), &
-         STAT=istat )
+        STIFF( MaxDofs*N, MaxDofs*N ), &
+        DAMP( MaxDofs*N, MaxDofs*N ),  &
+        MASS(  MaxDofs*N, MaxDofs*N ), &
+        ColInds( N ), RowInds( N ), &
+        STAT=istat )
     IF ( istat /= 0 ) CALL FATAL('GenericSolver','Memory allocation error')
     
     InitMatrix = .NOT. Visited
     NoIterations = GetInteger( Solver % Values,'Nonlinear System Max Iterations',GotIt)
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( Solver % Values,'Nonlinear System Convergence Tolerance',gotIt)
-
-    print *,'init matrix: ',initmatrix
-    call flush(6)
-
+    
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
@@ -1624,325 +1625,406 @@ CONTAINS
     
     DO iter = 1,NoIterations
        
-       WRITE(Message,'(A,T35,I5)') 'Generic iteration:',iter
-       CALL Info('GenericSolver',Message,Level=5)
-       
-       CALL DefaultInitialize()
-       
-       !    Do the bulk assembly:
-!------------------------------------------------------------------------------
-
-
-       ! Jump here to start over with the assembly
-100    BulkMode = .TRUE.
-
-       ! Jump here when starting over with BCs
-200    IF(BulkMode) THEN
-          print *,'bulk mode'
-          ElementsFirst = 1
-          ElementsLast = Solver % Mesh % NumberOfBulkElements 
-       ELSE
-          print *,'boundary mode'
-          call flush(6)
-          ElementsFirst = Solver % Mesh % NumberOfBulkElements + 1
-          ElementsLast = Solver % Mesh % NumberOfBulkElements + &
-               Solver % Mesh % NumberOfBoundaryElements
-       END IF
-
-       print *,'Interval',ElementsFirst,ElementsLast,NoVar
-       call flush(6)
-     
-       DO RowVar = 1,NoVar
-
+      WRITE(Message,'(A,T35,I5)') 'Generic iteration:',iter
+      CALL Info('GenericSolver',Message,Level=5)
+      
+      
+      ! Jump here to start over with the assembly
+      !------------------------------------------
+100   BulkMode = .TRUE.
+      IF( .NOT. InitMatrix ) THEN
+        CALL DefaultInitialize()
+      END IF
+      
+      ! Start of assemly process
+      !------------------------------------------
+200   IF(BulkMode) THEN
+        CALL Info('GenericSolver','Starting bulk assembly',Level=5)
+        ElementsFirst = 1
+        ElementsLast = Solver % Mesh % NumberOfBulkElements 
+      ELSE
+        CALL Info('GenericSolver','Starting boundary assembly',Level=5)
+        ElementsFirst = Solver % Mesh % NumberOfBulkElements + 1
+        ElementsLast = Solver % Mesh % NumberOfBulkElements + &
+            Solver % Mesh % NumberOfBoundaryElements
+      END IF
+      
+      ! Variables over rows
+      !-------------------------------------------
+      DO RowVar = 1,NoVar + NoCons        
+        IF( RowVar <= NoVar ) THEN
           WRITE (str,'(A,I2)') 'Variable',RowVar
-          VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
-          Var => VariableGet( Model % Variables, TRIM(VarName) )
-          IF(ConstraintType(RowVar)) THEN
-             ConName = VarName
-             Nrow = 1
-             RowInds(1:Nrow) = 1
-          ELSE             
-             RowPerm => Var % Perm
-          END IF
-          RowDofs = Var % Dofs
-          RowInd0 = Offset(RowVar)
+        ELSE
+          WRITE (str,'(A,I2)') 'Constraint',RowVar-NoVar
+        END IF
+        RowName = ListGetString( Solver % Values, TRIM(str), GotIt )
+        Var => VariableGet( Model % Variables, TRIM(RowName) )
 
-          print *,'Row',RowVar,NoVar,RowInd0
-          call flush(6)
+        IF( RowVar <= NoVar ) THEN
+          RowPerm => Var % Perm
+        ELSE         
+          Nrow = 1
+          RowInds(1:Nrow) = 1
+        END IF
+        RowDofs = Var % Dofs
+        RowInd0 = Offset(RowVar)
+                
+        ! Variables over columns
+        !------------------------------------------
+        DO ColVar = 1,NoVar          
+          WRITE (str,'(A,I2)') 'Variable',ColVar
+          ColName = ListGetString( Solver % Values, TRIM(str), GotIt )
+          Var => VariableGet( Model % Variables, TRIM(ColName) )
+
+          ColPerm => Var % Perm
+          ColDofs = Var % Dofs
+          ColInd0 = Offset(ColVar)
           
-          DO ColVar = 1,NoVar
+          ! Load the assembly procudure
+          ! If not found check for constraints
+          !-----------------------------------------
+          IF( BulkMode ) THEN
+            WRITE (str,'(A,I1,I1)') 'Bulk Assembly Procedure ',RowVar,ColVar
+          ELSE
+            WRITE (str,'(A,I1,I1)') 'Boundary Assembly Procedure ',RowVar,ColVar
+          END IF
 
-             WRITE (str,'(A,I2)') 'Variable',ColVar
-             VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
-             Var => VariableGet( Model % Variables, TRIM(VarName) )
-             IF(ConstraintType(ColVar)) THEN
-                ConName = VarName
-                Ncol = 1
-                ColInds(1:Ncol) = 1
-             ELSE
-                ColPerm => Var % Perm
-             END IF
-             ColDofs = Var % Dofs
-             ColInd0 = Offset(ColVar)
- 
-             print *,'Col',ColVar,NoVar,ColInd0
-             call flush(6)
- 
+          ProcName = ListGetString( Solver % Values, TRIM(str), GotProc )
+          IF(.NOT. GotProc ) THEN
+            IF( RowVar > NoVar) THEN
+              CALL Info('GenericSolver','Using integral constraint')
+            ELSE
+              IF( BulkMode .AND. RowVar == ColVar ) THEN
+                CALL Fatal('GenericSolver','Diagonal bulk entries must be assembled!')
+              END IF
+              CYCLE
+            END IF
+          END IF
+                    
+          IF(GotProc .AND. .NOT. InitMatrix ) THEN
+            ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.,quiet=.FALSE.)
+            IF ( ProcPntr == 0 ) THEN
+              CALL Fatal('GenericSolver','AssemblyRoutine not found: '//TRIM(ProcName))
+            ELSE
+              CALL Info('GenericSolver','AssemblyRoutine: '//TRIM(ProcName))
+            END IF
+          END IF
+          
+          
+          ! The assembly loop for a submatrix starts here
+          !------------------------------------------------------------------------------             
+          DO t=ElementsFirst,ElementsLast
+            
+            Element => Solver % Mesh % Elements(t)
+            Model % CurrentElement => Element
+            
+            n  = GetElementNOFNodes( Element )
+            
+!!!!!!!!!! How to treat non-nodal elements must be rethought 
+!!!!!!!!!!           nd = GetElementNOFDOFs( Element, Solver )                  
+            Indexes => Element % NodeIndexes
+            
+            ! Set the permutations unless for constraints
+            !----------------------------------------------------
+            IF( RowVar <= NoVar ) THEN
+              Nrow = n
+              RowInds(1:Nrow) = RowPerm( Indexes )
+              IF(.NOT. ALL(RowInds(1:Nrow) > 0)) CYCLE
+            END IF
+            
+            Ncol = n
+            ColInds(1:n) = ColPerm( Indexes )
+            IF(.NOT. ALL(ColInds(1:Ncol) > 0)) CYCLE                 
+            
+            ! For constrains check coupling to bodies and BCs
+            !----------------------------------------------------             
+            
+            IF( RowVar > NoVar ) THEN
+              Coupling = .FALSE.
 
-             IF( BulkMode ) THEN
-                WRITE (str,'(A,I1,I1)') 'Bulk Assembly Procedure ',RowVar,ColVar
-             ELSE
-                WRITE (str,'(A,I1,I1)') 'Boundary Assembly Procedure ',RowVar,ColVar
-             END IF
+              IF( BulkMode ) THEN
+                ! Check coupling to bodies using Body/Equation section
+                body_id = Element % BodyId               
+                Coupling = GetLogical(Model % Bodies(body_id) % Values, &
+                    RowName, gotIt)
+              ELSE 
+                DO i=1,Model % NumberOfBCs
+                  IF ( Element % BoundaryInfo % Constraint == &
+                      Model % BCs(i) % Tag ) THEN
+                    Coupling = GetLogical(Model % BCs(i) % Values, &
+                        RowName, gotIt)
+                    IF( Coupling ) EXIT
+                  END IF
+                END DO
+              END IF
 
-             
-             ProcName = ListGetString( Solver % Values, TRIM(str), GotIt )
-             IF(.NOT. GotIt) THEN
-                print *,'non assembling block: ',RowVar,ColVar
-                call flush(6)
-                IF( BulkMode .AND. RowVar == ColVar ) THEN
-                   CALL Warn('GenericSolver','Diagonal bulk entries must be assembled!')
-                END IF
-                CYCLE
-             END IF
-             
-             print *,'proc',InitMatrix,TRIM(ProcName)
-             call flush(6)
-
-             IF( .NOT. InitMatrix ) THEN
-                ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.,quiet=.FALSE.)
-                IF ( ProcPntr == 0 ) THEN
-                   CALL Fatal('GenericSolver','AssemblyRoutine not found: '//TRIM(ProcName))
-                ELSE
-                   CALL Info('GenericSolver','AssemblyRoutine: '//TRIM(ProcName))
-                END IF
-             END IF
-
-             print *,'start loop'
-             call flush(6)
-
-! The assembly loop for a submatrix starts here
-!------------------------------------------------------------------------------
-
-             DO t=ElementsFirst,ElementsLast
-                
-                print *,'t',t
-                call flush(6)
-
-                Element => Solver % Mesh % Elements(t)
-                Model % CurrentElement => Element
-                n  = GetElementNOFNodes( Element )
-                nd = GetElementNOFDOFs( Element, Solver )                  
-                Indexes => Element % NodeIndexes
-
-                ! Set the permutations unless for constraints
-                !----------------------------------------------------
-                IF(.NOT. ConstraintType(RowVar)) THEN
-                   Nrow = n
-                   RowInds(1:Nrow) = RowPerm( Indexes )
-                   IF(.NOT. ALL(RowInds(1:Nrow) > 0)) CYCLE
-                END IF
-
-                IF(.NOT. ConstraintType(ColVar)) THEN
-                   Ncol = n
-                   ColInds(1:n) = ColPerm( Indexes )
-                   IF(.NOT. ALL(ColInds(1:Ncol) > 0)) CYCLE                 
-                END IF
-
-                IF( BulkMode ) THEN
-                   body_id = Element % BodyId
-                END IF
-
-   
-                ! For constrains check coupling to bodies and BCs
-                ! Currenly its assumed that there is just one constraint as the 
-                ! conname is unique! 
-                !----------------------------------------------------             
-                
-                IF( ConstraintType( RowVar) .OR. ConstraintType(ColVar) ) THEN
-                   Coupling = .FALSE.
-                   IF( ConstraintType( RowVar) .AND. ConstraintType(ColVar) ) THEN
-                   ELSE
-                      IF( BulkMode ) THEN
-                         ! Check coupling to bodies using Body/Equation section
-                         Coupling = GetLogical(Model % Bodies(body_id) % Values, &
-                                    ConName, gotIt)
-                         IF( Coupling ) EXIT
-                      ELSE 
-                         DO i=1,Model % NumberOfBCs
-                            IF ( Element % BoundaryInfo % Constraint == &
-                                 Model % BCs(i) % Tag ) THEN
-                               Coupling = GetLogical(Model % BCs(i) % Values, &
-                                    ConName, gotIt)
-                               IF( Coupling ) EXIT
-                            END IF
-                         END DO
-                      END IF
-                   END IF
-                   IF( .NOT. Coupling ) CYCLE
-                END IF
-                
+              IF( .NOT. Coupling ) CYCLE
+            END IF
+            
 ! The matrix stucture is initalized here taken into account only the bulk-bulk couplings
 !---------------------------------------------------------------------------------------
-                IF( InitMatrix ) THEN
-                   DO i=1,Nrow
-                      DO j=1,Ncol                    
-                         DO k=0,RowDofs-1
-                            Row  = RowInd0 + RowDofs * RowInds(i) - k
-                            DO l=0,ColDofs-1
-                               Col  = ColInd0 + ColDofs * ColInds(j) - l
-                               CALL MakeListMatrixIndex(Alist,Row,Col)
-                            END DO
-                         END DO
-                      END DO
-                   END DO
+            IF( InitMatrix ) THEN
+              DO i=1,Nrow
+                DO j=1,Ncol                    
+                  DO k=0,RowDofs-1
+                    Row  = RowInd0 + RowDofs * RowInds(i) - k
+                    DO l=0,ColDofs-1
+                      Col  = ColInd0 + ColDofs * ColInds(j) - l
+                      CALL MakeListMatrixIndex(Alist,Row,Col)
+
+                      ! Add transpose in case of constraints
+                      IF( RowVar > NoVar ) THEN
+                        CALL MakeListMatrixIndex(Alist,Col,Row)
+                     END IF
+                    END DO
+                  END DO
+                END DO
+              END DO
+
+            ELSE
+              STIFF = 0.0_dp
+              DAMP = 0.0_dp
+              MASS = 0.0_dp
+              FORCE = 0.0_dp
+
+              IF( GotProc ) THEN
+                CALL ExecLocalAssembly( ProcPntr, CurrentModel, Solver, &
+                    dt, Transient, MASS, DAMP, STIFF, FORCE, Element, &
+                    Nrow, Ncol )
+              ELSE
+                WRITE (str,'(A,I2,A)') 'Constraint',RowVar-NoVar,' Type'
+                str = ListGetString(Solver % Values,TRIM(str))
+                IF( TRIM(str) == 'integral') THEN
+                  CALL IntegralConstraint( MASS, DAMP, STIFF, FORCE, Element, Ncol )
                 ELSE
-                   STIFF = 0.0_dp
-                   DAMP = 0.0_dp
-                   MASS = 0.0_dp
-                   FORCE = 0.0_dp
-                   
-                   CALL ExecLocalAssembly( ProcPntr, CurrentModel, Solver, &
-                        dt, Transient, MASS, DAMP, STIFF, FORCE, Element, &
-                        Nrow, Ncol )
-
-                   print *,'im back'
-                   call flush(6)
-                   
-                   IF ( Transient ) THEN
-                      IF( Solver % TimeOrder == 1 ) THEN
-                         CALL Default1stOrderTime( MASS,STIFF,FORCE)
-                      ELSE IF( Solver % TimeOrder == 2) THEN
-                         CALL Default2ndOrderTime( MASS,DAMP,STIFF,FORCE )
-                      END IF
-                   END IF
-                   
-                   print *,'before glue'
-                   call flush(6)
-
-
-                   ! Assemble the matrix with offset
-                   CALL CRS_GlueLocalSubMatrix( Solver % Matrix,&
-                        RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
-                        RowDofs,ColDofs,STIFF )
-                   
-                   print *,'end glue'
-                   call flush(6)
-
-                   ! Assemble the r.h.s with offset
-                   DO i=1,Nrow
-                      DO j=1,RowDofs
-                         Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
-                         ForceVector(Row) = ForceVector(Row) + &
-                              FORCE(RowDofs*(i-1)+j)
-                      END DO
-                   END DO
-
-                   print *,'rhs done'
-                   call flush(6)
-
+                  CALL Warn('GenericSolver','Unknown constraint type: '//TRIM(str))
                 END IF
+              END IF
 
-                ! do not loop over elements if there really is only loop 
-                ! over two constraints!
-                IF( ConstraintType(ColVar) .AND. ConstraintType(RowVar)) EXIT
-             END DO
+              IF ( Transient ) THEN
+                IF( Solver % TimeOrder == 1 ) THEN
+                  CALL Default1stOrderTime( MASS,STIFF,FORCE)
+                ELSE IF( Solver % TimeOrder == 2) THEN
+                  CALL Default2ndOrderTime( MASS,DAMP,STIFF,FORCE )
+                END IF
+              END IF
+                                        
+              ! Assemble the matrix with offset
+              !-----------------------------------------------
+              CALL CRS_GlueLocalSubMatrix( Solver % Matrix,&
+                  RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
+                  RowDofs,ColDofs,STIFF )
+
+              ! Assemble the r.h.s with offset
+              !-----------------------------------------------
+              DO i=1,Nrow
+                DO j=1,RowDofs
+                  Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
+                  ForceVector(Row) = ForceVector(Row) + &
+                      FORCE(RowDofs*(i-1)+j)
+                END DO
+              END DO
+
+              ! For constraints assemble also the transpose
+              !-----------------------------------------------
+              IF( RowVar > NoVar ) THEN
+                CALL CRS_GlueLocalSubMatrix( Solver % Matrix,&
+                    ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
+                    ColDofs,RowDofs,TRANSPOSE(STIFF) )               
+              END IF
+              
+            END IF
           END DO
-       END DO
+        END DO
 
-       IF(BulkMode) THEN
-          CALL Info( 'GenericSolver', 'Bulk assembly done', Level=4 )
-          BulkMode = .FALSE.
-          GOTO 200
-       ELSE
-          CALL Info( 'GenericSolver', 'Boundary assembly done', Level=4 )
-       END IF
+
+        ! For constraints do some special setting
+        !---------------------------------------------------
+        IF( BulkMode .AND. RowVar > NoVar ) THEN
+
+          ! Add the diagonal entry expected by some subroutines
+          !-------------------------------------------------------          
+          IF( InitMatrix ) THEN            
+            DO i=1,Nrow
+              DO j=1,RowDofs
+                Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
+                CALL MakeListMatrixIndex(Alist,Row,Row)
+              END DO
+            END DO
+
+          ! Set the target for the constraint
+          !--------------------------------------------------------
+          ELSE
+            WRITE (str,'(A,I2,A)') 'Constraint',RowVar-NoVar,' Target'
+            ConsTarget = ListGetConstReal(Solver % Values,TRIM(str))
+            DO i=1,Nrow
+              DO j=1,RowDofs
+                Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
+                ForceVector(Row) = ConsTarget
+              END DO
+            END DO
+          END IF
+        END IF
+
+      END DO
+      
+      IF(BulkMode) THEN
+        CALL Info( 'GenericSolver', 'Bulk assembly done', Level=4 )
+        BulkMode = .FALSE.
+        GOTO 200
+      ELSE
+        CALL Info( 'GenericSolver', 'Boundary assembly done', Level=4 )
+      END IF
+      
+      ! The CRS matrix may be created only when the matrix structure is known
+      !----------------------------------------------------------------------
+      IF( InitMatrix ) THEN
+        ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
+        DO i=1,TotSize
+          AllPerm(i) = i
+          AllValues(i) = 0.0_dp
+        END DO
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+            'AllDofs',1,AllValues,AllPerm,Output=.FALSE.)
+
+        Solver % Variable => VariableGet(Model % Variables, 'Alldofs')
+        CALL Info('GenericSolver','New coupled variable added', Level=5)
         
-       IF( InitMatrix ) THEN
-          ALLOCATE(AllPerm(TotSize),AllValues(TotSize))
-          DO i=1,TotSize
-             AllPerm(i) = 1
-             AllValues(i) = 0.0_dp
-          END DO
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-               'AllDofs',1,AllValues,AllPerm)
-          Solver % Variable => VariableGet(Model % Variables, 'Alldofs')
+        Amat => AllocateMatrix()
+        CALL ListMatrixToCRSMatrix(Alist,Amat)
 
-          Amat => AllocateMatrix()
-          CALL ListMatrixToCRSMatrix(Alist,Amat)
-          
-          CALL Info('GenericSolver','CRS Matrix created', Level=4)
+        WRITE(Message,'(A,I8)') 'Number of entries in coupled matrix: ',&
+            SIZE(Amat % Values)
+        CALL Info('GenericSolver',Message)
 
-!          CALL FreeListMatrix( TotSize, Alist )
-          print *,'list matrix free'
-          call flush(6)
-          CALL Info('GenericSolver','Matrix initialization done')
-
-          InitMatrix = .FALSE.
-          GOTO 100
-       END IF
-       CALL DefaultFinishAssembly()
-   
+        Solver % Matrix => Amat
+        Solver % Matrix % Rhs => ForceVector
+        CALL Info('GenericSolver','CRS Matrix created', Level=5)
+        
+        CALL FreeListMatrix( TotSize, Alist )
+        CALL Info('GenericSolver','Matrix initialization done', Level=5)
+        
+        InitMatrix = .FALSE.
+        GOTO 100
+      END IF
+      
+      CALL DefaultFinishAssembly()
+      
 !------------------------------------------------------------------------------
-!    Do the Dirichlet conditions
+!    Do the Dirichlet conditions using offset
 !------------------------------------------------------------------------------          
 
-!       CALL DefaultDirichletBCs()
-
-!!!!!!!!!! This hack should only work for one-component fields since then
-!!!!!!!!!! the permutation is correctly mapped. 
-
-       DO i = 1,9
-          WRITE (str,'(A,I2)') 'Variable',i
-          VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
-          print *,'VarName: ',TRIM(Varname)
-          call flush(6)
-          IF(.NOT. GotIt) EXIT
-          Var => VariableGet( Model % Variables, TRIM(VarName) )
-          IF(.NOT. ASSOCIATED( Var )) EXIT 
-           
-          DirPerm => Solver % Variable % Perm(Offset(i)+1:Offset(i)+SIZE(Var % Values))
+      DO i = 1,NoVar
+        WRITE (str,'(A,I2)') 'Variable',i
+        VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
+        IF(.NOT. GotIt) EXIT
+        
+        Var => VariableGet( Model % Variables, TRIM(VarName) )
+        IF(.NOT. ASSOCIATED( Var )) EXIT 
+        
+        IF( Var % Dofs == 1) THEN
           CALL SetDirichletBoundaries( CurrentModel, Amat, ForceVector, &
-               VarName, 1, 1, DirPerm )       
-       END DO
-       CALL Info( 'GenericSolver', 'Dirichlet conditions done', Level=4 )
-
+              VarName, 1, 1, Var % Perm, OffSet(i) )       
+        ELSE          
+          DO j=1,Var % Dofs
+            CALL SetDirichletBoundaries( CurrentModel, Amat, ForceVector, &
+                ComponentName(VarName,j), j, Var % Dofs, Var % Perm, OffSet(i) )       
+          END DO
+        END IF
+      END DO
+      CALL Info( 'GenericSolver', 'Dirichlet conditions done', Level=4 )
+      
 !------------------------------------------------------------------------------
 !   Finally solve the system
 !------------------------------------------------------------------------------          
     
-       Norm = DefaultSolve()     
-       CALL Info('GenericSolver','-------------------------------------------------',Level=5)
-       
-       IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
+      Norm = DefaultSolve()     
+      CALL Info('GenericSolver','-------------------------------------------------',Level=5)
+      
+      IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
     END DO
     
-    DO i = 1,9
-       WRITE (str,'(A,I2)') 'Variable',i
-       VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
-       print *,'VarName: ',TRIM(Varname)
-       call flush(6)
-       IF(.NOT. GotIt) EXIT
-       Var => VariableGet( Model % Variables, TRIM(VarName) )
-       IF(.NOT. ASSOCIATED( Var )) EXIT 
-       
-       Var % Values => Solver % Variable % Values(Offset(i)+1:&
-            Offset(i)+SIZE(Var % Values))
-       CALL SetDirichletBoundaries( CurrentModel, Amat, ForceVector, &
-            VarName, 1, 1, DirPerm )       
+!------------------------------------------------------------------------------          
+! Map the result back to the original vectors
+!----------------------------------------------------------------------------------
+    CALL Info('GenericSolver','Copying results into original variables',Level=5)
+     DO i = 1,NoVar + NoCons
+      IF( i <= NoVar ) THEN
+        WRITE (str,'(A,I2)') 'Variable',i
+      ELSE
+        WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
+      END IF
+      VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
+      IF(.NOT. GotIt) EXIT
+      Var => VariableGet( Model % Variables, TRIM(VarName) )
+      IF(.NOT. ASSOCIATED( Var )) EXIT 
+      
+      CALL Info('GenericSolver','Variable: '//TRIM(VarName),Level=5)
+      DO j=1,SIZE(Var % Values)
+        Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
+      END DO
     END DO
-    
     
 
-    
     DEALLOCATE( FORCE, STIFF, DAMP, MASS, ColInds, RowInds )
     Visited = .TRUE.
+
+    CALL Info('GenericSolver','All done')
+    CALL Info('GenericSolver','-------------------------------------------------',Level=5)
+
+
+  CONTAINS 
+
+
+    SUBROUTINE IntegralConstraint( Mass, Damp, Stiff, Force, Element, n )
+!------------------------------------------------------------------------------
+      
+      IMPLICIT NONE
+!------------------------------------------------------------------------------
+      REAL(KIND=dp) :: Stiff(:,:), Damp(:,:), Mass(:,:), Force(:)
+      TYPE(Element_t), POINTER :: Element
+      INTEGER :: n
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+
+      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+      TYPE(Nodes_t) :: Nodes
+      REAL(KIND=dp) :: Basis(n)
+      REAL(KIND=dp) :: Weight, DetJ
+      INTEGER :: i,j,t,p,q
+      LOGICAL :: Visited = .FALSE., Found
+      
+      SAVE Visited, Nodes
+      
+      IF( .NOT. Visited ) THEN
+        ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )     
+        CALL info('IntegralConstraint','1st time')
+      END IF
+      
+      CALL GetElementNodes( Nodes ) 
+      IntegStuff = GaussPoints( Element )
+      
+      DO t=1,IntegStuff % n
+        Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
+            IntegStuff % v(t), IntegStuff % w(t), detJ, Basis )     
+        Weight = IntegStuff % s(t) * detJ
+        DO p=1,n
+          STIFF(1,p) = STIFF(1,p) + Weight * Basis(p)
+        END DO
+      END DO
+      
+      Visited = .TRUE.
+
+!------------------------------------------------------------------------------
+    END SUBROUTINE IntegralConstraint
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
 END SUBROUTINE GenericSolver
 !------------------------------------------------------------------------------
-
-
-
+ 
 
 
 !------------------------------------------------------------------------------

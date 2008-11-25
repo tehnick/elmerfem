@@ -888,7 +888,7 @@ CONTAINS
      IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Indexes(1:Element % Type % NumberOfNodes) = &
+       Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -1065,10 +1065,11 @@ CONTAINS
 !------------------------------------------------------------------------------
    END SUBROUTINE UpdateMassMatrix
 !------------------------------------------------------------------------------
-
+ 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE SetDirichletBoundaries( Model, A, b, Name, DOF, NDOFs, Perm )
+   SUBROUTINE SetDirichletBoundaries( Model, A, b, Name, DOF, NDOFs, Perm, &
+       PermOffSet )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1093,21 +1094,25 @@ CONTAINS
 ! INTEGER :: Perm(:)
 !   INPUT: The node reordering info, this has been generated at the
 !          beginning of the simulation for bandwidth optimization
+!
+! INTEGER :: PermOffSet
+!   INPUT: If the matrix and permutation vectors are not in sync the offset may
+!          used as a remedy. Needed in fully coupled systems.
+!
 !******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     TYPE(Matrix_t), POINTER :: A
-
     REAL(KIND=dp) :: b(:)
-
     CHARACTER(LEN=*) :: Name 
     INTEGER :: DOF, NDOFs, Perm(:)
+    INTEGER, OPTIONAL :: PermOffSet
 !------------------------------------------------------------------------------
 
     TYPE(Element_t), POINTER :: Element
     INTEGER, POINTER :: NodeIndexes(:), IndNodes(:)
     INTEGER, ALLOCATABLE :: Indexes(:)
-    INTEGER :: BC,i,j,k,l,n,t,k1,k2
+    INTEGER :: BC,i,j,k,l,n,t,k1,k2,OffSet
     LOGICAL :: GotIt, periodic, OrderByBCNumbering
     REAL(KIND=dp), POINTER :: WorkA(:,:,:) => NULL()
     REAL(KIND=dp) ::  s
@@ -1132,7 +1137,9 @@ CONTAINS
     ALLOCATE( ActivePart(n), ActivePartAll(n), ActiveCond(n))
     CondName = Name(1:nlen) // ' Condition'
     PassName = Name(1:nlen) // ' Passive'
- 
+    OffSet = 0
+    IF( PRESENT( PermOffSet) ) OffSet = PermOffSet
+
     ALLOCATE( Indexes(Model % Mesh % MaxElementDOFs) )
 !------------------------------------------------------------------------------
 ! Go through the periodic BCs and set the linear dependence
@@ -1147,6 +1154,8 @@ CONTAINS
    END DO
 
    IF( ANY(ActivePart) ) THEN    
+     !!!!!!!!! Periodic BCs do not yet consider the offset
+
      ALLOCATE( DonePeriodic( Model % Mesh % NumberOFNodes ) )
      DonePeriodic = .FALSE.
      DO BC=1,Model % NumberOfBCs
@@ -1163,6 +1172,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Go through the normal Dirichlet BCs applied on the boundaries
 !------------------------------------------------------------------------------
+
     ActivePart = .FALSE.
     ActiveCond = .FALSE.
     ActivePartAll = .FALSE.
@@ -1179,7 +1189,6 @@ CONTAINS
     bndry_start = Model % NumberOfBulkElements+1
     bndry_end   = bndry_start+Model % NumberOfBoundaryElements-1
 
-    !
     ! check and set some flags for nodes belonging to n-t boundaries
     ! getting set by other bcs:
     ! --------------------------------------------------------------
@@ -1198,7 +1207,7 @@ CONTAINS
             Model % CurrentElement => Element
 
             IF ( ActivePart(BC) ) THEN
-              n = Element % Type % NumberOfNodes
+              n = Element % TYPE % NumberOfNodes
               Indexes(1:n) = Element % NodeIndexes
             ELSE
               n = SgetElementDOFs( Indexes )
@@ -1232,7 +1241,7 @@ CONTAINS
       IF ( DOF<= 0 ) THEN
         DO t=bndry_start,bndry_end
           Element => Model % Elements(t)
-          n = Element % Type % NumberOfNodes
+          n = Element % TYPE % NumberOfNodes
           DO j=1,n
             k = BoundaryReorder(Element % NodeIndexes(j))
             IF (k>0) NTzeroing_done(k,:) = .FALSE.
@@ -1241,6 +1250,7 @@ CONTAINS
       END IF
     END IF
 
+
     ! Set the Dirichlet BCs from active boundary elements, if any...:
     !----------------------------------------------------------------
     IF( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN    
@@ -1248,14 +1258,13 @@ CONTAINS
         DO BC=1,Model % NumberOfBCs
           IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
           Conditional = ActiveCond(BC)
-
           DO t = bndry_start, bndry_end
             Element => Model % Elements(t)
             IF ( Element % BoundaryInfo % Constraint /= &
                 Model % BCs(BC) % Tag ) CYCLE
             Model % CurrentElement => Element
             IF ( ActivePart(BC) ) THEN
-              n = Element % Type % NumberOfNodes
+              n = Element % TYPE % NumberOfNodes
               Indexes(1:n) = Element % NodeIndexes
             ELSE
               n = SgetElementDOFs( Indexes )
@@ -1272,7 +1281,7 @@ CONTAINS
             
             Element => Model % Elements(t)
             IF ( Element % BoundaryInfo % Constraint /= &
-                 Model % BCs(BC) % Tag ) CYCLE
+                Model % BCs(BC) % Tag ) CYCLE
             
             Model % CurrentElement => Element
             IF ( ActivePart(BC) ) THEN
@@ -1305,6 +1314,7 @@ CONTAINS
       Passive = Passive .OR. ListCheckPresent( Model % BodyForces(bf_id) % Values, &
            PassName )
     END DO
+
     
     IF ( ANY( ActivePart ) .OR. ANY(ActivePartAll) ) THEN
       DO t = 1, Model % NumberOfBulkElements 
@@ -1411,13 +1421,14 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     IF ( Passive ) THEN
-       DO i = 1, A % NumberOfRows
-          IF ( ABS(A % Values( A % Diag(i) ) ) < 1.0e-14 ) THEN
-             A % Values( A % Diag(i) ) = 1.0d0
-             b(i) = Model % Solver % Variable % Values(i)
-          END IF
-       END DO
+      DO i = 1, A % NumberOfRows
+        IF ( ABS(A % Values( A % Diag(i) ) ) < 1.0e-14 ) THEN
+          A % Values( A % Diag(i) ) = 1.0d0
+          b(i) = Model % Solver % Variable % Values(i)
+        END IF
+      END DO
     END IF
+    
 !------------------------------------------------------------------------------
 
   CONTAINS
@@ -1448,7 +1459,8 @@ CONTAINS
       DO j=1,n
         IF ( Conditional .AND. Condition(j)<0.0_dp ) CYCLE
         k = Perm(Indexes(j))
-        IF ( k > 0 ) THEN
+        IF ( k > 0 ) THEN          
+          k = k + OffSet
           m = BoundaryReorder(Indexes(j))
           IF ( m>0 ) THEN
             RotVec = 0._dp
@@ -1479,12 +1491,12 @@ CONTAINS
       IF ( DOF > 0 ) THEN
         Work(1:n)  = ListGetReal( ValueList, Name, n, Indexes, gotIt )
         IF ( .NOT. GotIt ) THEN
-           Work(1:n)  = ListGetReal( ValueList, Name(1:nlen) // ' DOFs', n, Indexes, gotIt )
+          Work(1:n)  = ListGetReal( ValueList, Name(1:nlen) // ' DOFs', n, Indexes, gotIt )
         END IF
       ELSE
         CALL ListGetRealArray( ValueList, Name, WorkA, n, Indexes, gotIt )
       END IF
-
+      
       IF ( gotIt ) THEN
         IF ( Conditional ) THEN
           Condition(1:n) = ListGetReal( ValueList, CondName, n, Indexes, gotIt )
@@ -1500,10 +1512,11 @@ CONTAINS
           IF ( ALL(BoundaryReorder(Indexes(1:n))>0) ) CheckNT = .FALSE.
           IF ( ALL(BoundaryReorder(Indexes(1:n))<1) ) CheckNT = .FALSE.
         END IF
-
+        
         DO j=1,n
           IF ( Conditional .AND. Condition(j) < 0.0d0 ) CYCLE
           k = Perm(Indexes(j))
+
           IF ( k > 0 ) THEN
             IF ( DOF>0 ) THEN
               IF ( CheckNT ) THEN
@@ -1528,9 +1541,9 @@ CONTAINS
                   END DO
                 END IF
               ELSE
-                k = NDOFs * (k-1) + DOF
+                k = OffSet + NDOFs * (k-1) + DOF
                 IF ( A % FORMAT == MATRIX_SBAND ) THEN
-                CALL SBand_SetDirichlet( A,b,k,Work(j) )
+                  CALL SBand_SetDirichlet( A,b,k,Work(j) )
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
                   CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
                 ELSE
@@ -1538,22 +1551,23 @@ CONTAINS
                   CALL ZeroRow( A,k )
                   CALL SetMatrixElement( A,k,k,1.0d0 )
                 END IF
-                END IF
-              ELSE
-                DO l=1,MIN( NDOFs, SIZE(Worka,1) )
-                  k1 = NDOFs * (k-1) + l
-                  IF ( A % FORMAT == MATRIX_SBAND ) THEN
-                    CALL SBand_SetDirichlet( A,b,k1,WorkA(l,1,j) )
-                  ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-                    CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
-                  ELSE
-                    b(k1) = WorkA(l,1,j)
-                    CALL ZeroRow( A,k1 )
-                    CALL SetMatrixElement( A,k1,k1,1.0d0 )
-                  END IF
-                END DO
               END IF
-           END IF
+            ELSE
+              DO l=1,MIN( NDOFs, SIZE(Worka,1) )
+                k1 = Offset + NDOFs * (k-1) + l
+                IF ( A % FORMAT == MATRIX_SBAND ) THEN
+                  CALL SBand_SetDirichlet( A,b,k1,WorkA(l,1,j) )
+                ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
+                  CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
+                ELSE
+                  b(k1) = WorkA(l,1,j)
+                  CALL ZeroRow( A,k1 )
+                  CALL SetMatrixElement( A,k1,k1,1.0d0 )
+                END IF
+              END DO
+            END IF
+          END IF
+
         END DO
       END IF
     END SUBROUTINE SetElementValues
@@ -1588,9 +1602,10 @@ CONTAINS
           END IF
 
           k = Perm(NodeIndexes(j))
+
           IF ( k > 0 ) THEN
             IF ( DOF>0 ) THEN
-              k = NDOFs * (k-1) + DOF
+              k = OffSet + NDOFs * (k-1) + DOF
               IF ( A % FORMAT == MATRIX_SBAND ) THEN
                 CALL SBand_SetDirichlet( A,b,k,Work(j) )
               ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
@@ -1602,7 +1617,7 @@ CONTAINS
               END IF
             ELSE
               DO l=1,MIN( NDOFs, SIZE(Worka,1) )
-                k1 = NDOFs * (k-1) + l
+                k1 = OffSet + NDOFs * (k-1) + l
                 IF ( A % FORMAT == MATRIX_SBAND ) THEN
                   CALL SBand_SetDirichlet( A,b,k1,WorkA(l,1,j) )
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
@@ -2968,6 +2983,7 @@ CONTAINS
     ELSE 
       x => Solver % Variable % Values      
     END IF
+
     IF ( .NOT. ASSOCIATED(x) ) THEN
       Solver % Variable % Norm = 0.0d0 
       IF(SteadyState) THEN
@@ -3304,6 +3320,7 @@ CONTAINS
       END IF
     END IF
 
+
     IF ( Solver % MultiGridLevel == -1  ) RETURN
 
 !------------------------------------------------------------------------------
@@ -3423,6 +3440,7 @@ CONTAINS
 
     IF ( ParEnv % PEs <= 1 ) THEN
        IF ( ALL( b(1:n) == 0.0d0 ) ) THEN
+          CALL Info('SolveSystem','Solution trivially zero!')
           x = 0.0d0
        ELSE
           IF ( Solver % MultiGridSolver ) THEN
@@ -3432,7 +3450,7 @@ CONTAINS
                   'Linear System Solver', GotIt ) == 'iterative' ) THEN
              CALL IterSolver( A, x, b, Solver )
           ELSE
-             CALL DirectSolver( A, x, b, Solver )
+              CALL DirectSolver( A, x, b, Solver )
           END IF
        END IF
     ELSE
@@ -3509,8 +3527,6 @@ CONTAINS
       DEALLOCATE( TempVector )
       CALL BackRotateNTSystem( NodalLoads % Values, NodalLoads % Perm, DOFs )
     END IF
-
-
 
     CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 
