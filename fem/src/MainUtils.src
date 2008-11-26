@@ -1489,7 +1489,7 @@ CONTAINS
     INTEGER :: i,j,k,l,t,n,nd,NoIterations,iter,istat
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: ProcName
-    LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, InitMatrix, Visited = .FALSE.
+    LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, Visited = .FALSE.
     INTEGER(KIND=AddrInt) :: ProcPntr    
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20)
@@ -1526,8 +1526,11 @@ CONTAINS
     CALL Info('GenericSolver','Solving a Generic equation',Level=5)
     CALL Info('GenericSolver','---------------------------------------',Level=5)
 
+
+!!!!!!!!!! This should be done externally when routine is taken into proper use
+
     Model % Solver => Solver
-    
+
 !------------------------------------------------------------------------------
 ! Check out which variables the coupled model includes
 ! and compure size information related to the new coupled dof.
@@ -1613,7 +1616,6 @@ CONTAINS
         STAT=istat )
     IF ( istat /= 0 ) CALL FATAL('GenericSolver','Memory allocation error')
     
-    InitMatrix = .NOT. Visited
     NoIterations = GetInteger( Solver % Values,'Nonlinear System Max Iterations',GotIt)
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( Solver % Values,'Nonlinear System Convergence Tolerance',gotIt)
@@ -1621,11 +1623,9 @@ CONTAINS
     IF(.NOT. Visited ) THEN
       Amat => AllocateMatrix()
       Amat % ListMatrix => Alist
-      Amat % FORMAT = MATRIX_LIST
-      
+      Amat % FORMAT = MATRIX_LIST      
       Solver % Matrix => Amat
-      Solver % Matrix % Rhs => ForceVector
-      
+
       ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
       DO i=1,TotSize
         AllPerm(i) = i
@@ -1634,18 +1634,15 @@ CONTAINS
       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
           'AllDofs',1,AllValues,AllPerm,Output=.FALSE.)
       CALL Info('GenericSolver','New coupled variable added', Level=5)
+
       Solver % Matrix % Rhs => ForceVector
       Solver % Variable => VariableGet(Model % Variables, 'Alldofs')
 
       ALLOCATE( AllDir(TotSize) ) 
       AllDir = .FALSE.
+      Visited = .TRUE.
     END IF
 
-    Solver % Variable => VariableGet(Model % Variables, 'Alldofs')
-
-
- 
-        
 
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source
@@ -1666,6 +1663,7 @@ CONTAINS
       
       ! Start of assemly process
       !------------------------------------------
+      BulkMode = .TRUE.
 100   IF(BulkMode) THEN
         CALL Info('GenericSolver','Starting bulk assembly',Level=5)
         ElementsFirst = 1
@@ -1733,6 +1731,7 @@ CONTAINS
           END IF
           
           ProcName = ListGetString( Solver % Values, TRIM(str), GotProc )
+          Equality = .FALSE.
           IF(.NOT. GotProc ) THEN
             IF( RowVar > NoVar) THEN
               CALL Info('GenericSolver','Using built-in constraint')
@@ -1751,7 +1750,7 @@ CONTAINS
             END IF
           END IF
           
-          IF(GotProc .AND. .NOT. InitMatrix ) THEN
+          IF( GotProc ) THEN
             ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.,quiet=.FALSE.)
             IF ( ProcPntr == 0 ) THEN
               CALL Fatal('GenericSolver','AssemblyRoutine not found: '//TRIM(ProcName))
@@ -1764,7 +1763,7 @@ CONTAINS
           ! The assembly loop for a submatrix starts here
           !------------------------------------------------------------------------------             
           DO t=ElementsFirst,ElementsLast
-            
+
             Element => Solver % Mesh % Elements(t)
             Model % CurrentElement => Element
             
@@ -1857,14 +1856,17 @@ CONTAINS
                 DO k=0,RowDofs-1
                   Row  = RowInd0 + RowDofs * RowInds(i) - k
                   Col  = ColInd0 + ColDofs * ColInds(i) - k
-
+                  
                   IF( AllDir(Row) ) CYCLE
+
+                  PRINT *,'Row',Row,'Col',Col
+
                   AllDir(Row) = .TRUE.
                   CALL MoveRow( Amat, Row, Col ) 
- 
+                  
                   ForceVector(Col) = ForceVector(Col) + ForceVector(Row)
                   ForceVector(Row) = 0.0_dp
- 
+                  
                   CALL SetMatrixElement( Amat,Row,Row,1.0_dp )
                   CALL SetMatrixElement( Amat,Row,Col,-1.0_dp )
                 END DO
@@ -1888,10 +1890,10 @@ CONTAINS
             
             ! Assemble the matrix with offset
             !-----------------------------------------------
-            CALL CRS_GlueLocalSubMatrix( Solver % Matrix,&
+            CALL GlueLocalSubMatrix( Solver % Matrix,&
                 RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
                 RowDofs,ColDofs,STIFF )
-            
+
             
             ! Assemble the r.h.s with offset
             !-----------------------------------------------
@@ -1902,44 +1904,42 @@ CONTAINS
                     FORCE(RowDofs*(i-1)+j)
               END DO
             END DO
-            
+           
+ 
             ! For constraints assemble also the transpose
             !-----------------------------------------------
             IF( RowVar > NoVar ) THEN
-              CALL CRS_GlueLocalSubMatrix( Solver % Matrix,&
+              CALL GlueLocalSubMatrix( Solver % Matrix,&
                   ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
                   ColDofs,RowDofs,TRANSPOSE(STIFF) )               
             END IF
-            
+
           END DO
         END DO
 
-
+        
         ! For constraints do some special setting
         !---------------------------------------------------
         IF( BulkMode .AND. RowVar > NoVar ) THEN
 
           ! Add the diagonal entry expected by some subroutines
           !-------------------------------------------------------          
-          IF( InitMatrix ) THEN            
-            DO i=1,Nrow
-              DO j=1,RowDofs
-                Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
-                CALL MakeListMatrixIndex(Alist,Row,Row)
-              END DO
+          DO i=1,Nrow
+            DO j=1,RowDofs
+              Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
+              CALL AddToMatrixElement( Solver % Matrix, Row, Row, 0.0_dp )
             END DO
+          END DO
 
           ! Set the target for the constraint
           !--------------------------------------------------------
-          ELSE
-            PRINT *,'Constraint Volume: ',ConsVolume
-            DO i=1,Nrow
-              DO j=1,RowDofs
-                Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
-                ForceVector(Row) = ConsValue
-              END DO
+          PRINT *,'Constraint Volume: ',ConsVolume
+          DO i=1,Nrow
+            DO j=1,RowDofs
+              Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
+              ForceVector(Row) = ConsValue
             END DO
-          END IF
+          END DO
         END IF
         
       END DO
@@ -1959,7 +1959,6 @@ CONTAINS
       END IF
       CALL DefaultFinishAssembly()
       
-
 !------------------------------------------------------------------------------
 !    Do the Dirichlet conditions using offset
 !------------------------------------------------------------------------------          
@@ -1987,7 +1986,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Finally solve the system
 !------------------------------------------------------------------------------          
-    
+   
       Norm = DefaultSolve()     
       CALL Info('GenericSolver','-------------------------------------------------',Level=5)
       

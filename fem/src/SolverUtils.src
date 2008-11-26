@@ -486,6 +486,9 @@ CONTAINS
      SELECT CASE( StiffMatrix % FORMAT )
        CASE( MATRIX_CRS )
          CALL CRS_MoveRow( StiffMatrix,n1,n2 )
+
+       CASE( MATRIX_LIST )
+         CALL List_MoveRow( StiffMatrix % ListMatrix,n1,n2 )
          
        CASE DEFAULT
          CALL Warn('MoveRow','Not implemented for this type')
@@ -1368,7 +1371,6 @@ CONTAINS
       END IF
     END IF
 
-
     ! Set the Dirichlet BCs from active boundary elements, if any...:
     !----------------------------------------------------------------
     IF( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN    
@@ -1376,6 +1378,7 @@ CONTAINS
         DO BC=1,Model % NumberOfBCs
           IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
           Conditional = ActiveCond(BC)
+
           DO t = bndry_start, bndry_end
             Element => Model % Elements(t)
             IF ( Element % BoundaryInfo % Constraint /= &
@@ -1414,6 +1417,7 @@ CONTAINS
         END DO
       END IF
     END IF
+
 
 !------------------------------------------------------------------------------
 ! Go through the Dirichlet conditions in the body force lists
