@@ -207,7 +207,7 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   double minVal = ui.minVal->text().toDouble();
   double maxVal = ui.maxVal->text().toDouble();
   int quality = ui.qualitySpin->value();
-  int scaleMultiplier = ui.scaleSpin->value();
+  double scaleMultiplier = ui.scaleSpin->value() / 100.0;
   bool scaleByMagnitude = ui.scaleByMagnitude->isChecked();
   bool useClip = ui.useClip->isChecked();
   useClip |= vtkPost->GetClipAll();
