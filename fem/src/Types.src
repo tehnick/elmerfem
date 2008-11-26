@@ -60,7 +60,10 @@ MODULE Types
    REAL(KIND=dp), PARAMETER :: AEPS = 10 * EPSILON(1.0_dp), &
          PI = 3.1415926535897932384626433832795_dp
 !------------------------------------------------------------------------------
-  INTEGER, PARAMETER :: MATRIX_CRS  = 1, MATRIX_BAND = 2, MATRIX_SBAND = 3
+  INTEGER, PARAMETER :: MATRIX_CRS  = 1, &
+	                MATRIX_BAND = 2, &
+	                MATRIX_SBAND = 3, & 
+                        MATRIX_LIST = 4
 !------------------------------------------------------------------------------
   INTEGER, PARAMETER :: SOLVER_EXEC_NEVER      = -1, &
                         SOLVER_EXEC_ALWAYS     =  0, &
@@ -78,10 +81,11 @@ MODULE Types
     TYPE(Matrix_t), POINTER :: Child, Parent, ConstraintMatrix, EMatrix
     INTEGER :: NumberOfRows
 
-    INTEGER :: Subband, FORMAT, SolveCount
+    INTEGER :: Subband, Format, SolveCount
     LOGICAL :: Ordered, Lumped, Symmetric, Complex, DGMatrix
 
     INTEGER(KIND=AddrInt) :: SPMatrix
+    TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => NULL()
 
     INTEGER, POINTER :: Perm(:),InvPerm(:),RowOwner(:)
     INTEGER, POINTER :: GRows(:), GOrder(:)
@@ -331,6 +335,7 @@ MODULE Types
 !------------------------------------------------------------------------------
    TYPE ListMatrixEntry_t
      INTEGER :: INDEX
+     REAL(KIND=dp) :: Value
      TYPE(ListMatrixEntry_t), POINTER :: Next
    END TYPE ListMatrixEntry_t
 

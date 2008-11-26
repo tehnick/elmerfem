@@ -129,25 +129,36 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-  SUBROUTINE ListMatrixToCRSMatrix(L,A)
+  SUBROUTINE ListToCRSMatrix(A)
 !-------------------------------------------------------------------------------
-    TYPE(ListMatrix_t) :: L(:)
     TYPE(Matrix_t), POINTER :: A
-
+    
+    TYPE(ListMatrix_t), POINTER :: L(:)   
     INTEGER :: i,j,n
     TYPE(ListMatrixEntry_t), POINTER :: P
     INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
     REAL(KIND=dp), POINTER :: Values(:)
 
+    IF( A % FORMAT /= MATRIX_LIST ) THEN
+      CALL Warn('ListToCRSMatrix','The initial matrix type is not List')
+      RETURN
+    END IF
+    
+    L => A % ListMatrix
+    
     DO n=SIZE(L),1,-1
       IF ( L(n) % Degree > 0 ) EXIT
     END DO
-
+    
     ALLOCATE( Rows(n+1), Diag(n) )
     Rows(1) = 1
     DO i=1,n
       Rows(i+1) = Rows(i) + L(i) % Degree
     END DO
+
+    WRITE(Message,'(A,I8)') 'Number of entries in coupled matrix: ',Rows(n+1)-1
+    CALL Info('ListToCRSMatrix',Message)
+
     ALLOCATE( Cols(Rows(n+1)-1))
     j = 0
     DO i=1,n
@@ -158,20 +169,25 @@ CONTAINS
         P => P % Next
       END DO
     END DO
-
+    
     A => AllocateMatrix()
     A % NumberOfRows = n
     A % Rows => Rows
     A % Diag => Diag
     A % Cols => Cols
+
+    PRINT *,'*****  Sort Also Values'
     CALL CRS_SortMatrix(A)
 
     ALLOCATE( Values(Rows(n+1)-1) )
     Values = 0.0_dp
     A % Values => Values
 
+    CALL FreeListMatrix( SIZE(L), L )
+    CALL Info('ListToCRSMatrix','Matrix format changed', Level=5)
+
 !-------------------------------------------------------------------------------
-  END SUBROUTINE ListMatrixToCRSMatrix
+  END SUBROUTINE ListToCRSMatrix
 !-------------------------------------------------------------------------------
 
 
@@ -225,6 +241,271 @@ CONTAINS
 !-------------------------------------------------------------------------------
    END SUBROUTINE MakeListMatrixIndex
 !-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+   SUBROUTINE List_AddToMatrixElement( ListMatrix,k1,k2,Value,SetValue )
+!-------------------------------------------------------------------------------
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
+     INTEGER :: k1,k2
+     REAL(KIND=dp) :: Value
+     LOGICAL, OPTIONAL :: SetValue 
+!-------------------------------------------------------------------------------
+     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
+     LOGICAL :: Set     
+
+     Set = .FALSE.
+     IF( PRESENT(SetValue)) Set = SetValue
+     
+     IF ( .NOT. ASSOCIATED(ListMatrix) ) ListMatrix=>AllocateListMatrix(k1)
+
+     IF ( k1>SIZE(ListMatrix) ) THEN
+       ListMatrix => EnlargeListMatrix(ListMatrix,MAX(k1, &
+           SIZE(ListMatrix)+LISTMATRIX_GROWTH) )
+     END IF
+     
+     Clist => ListMatrix(k1) % Head
+     
+     IF ( .NOT. ASSOCIATED(Clist) ) THEN
+       ALLOCATE( ENTRY )
+       ENTRY % INDEX = k2
+       NULLIFY( ENTRY % Next )
+       ListMatrix(k1) % Degree = 1
+       ListMatrix(k1) % Head => ENTRY
+       RETURN
+     END IF
+     
+     NULLIFY( Prev )
+     DO WHILE( ASSOCIATED(CList) )
+       IF ( Clist % INDEX == k2 ) EXIT
+       Prev  => Clist
+       CList => CList % Next
+     END DO
+     
+     IF ( ASSOCIATED( CList ) ) THEN
+       IF ( CList % INDEX == k2 ) THEN
+         IF( Set ) THEN
+           CList % Value = Value
+         ELSE
+           CList % Value = CList % Value + Value	
+         END IF
+         RETURN
+       END IF
+     END IF
+     
+     ALLOCATE( ENTRY )
+     ENTRY % INDEX = k2
+     ENTRY % Value = Value
+     ENTRY % Next => Clist
+     IF ( ASSOCIATED( Prev ) ) THEN
+       Prev % Next => ENTRY
+     ELSE
+       ListMatrix(k1) % Head => ENTRY
+     END IF
+ 
+     ListMatrix(k1) % Degree = ListMatrix(k1) % Degree + 1
+!-------------------------------------------------------------------------------
+   END SUBROUTINE List_AddToMatrixElement
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+   SUBROUTINE List_SetMatrixElement( ListMatrix,k1,k2,Value,SetValue )
+!-------------------------------------------------------------------------------
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
+     INTEGER :: k1,k2
+     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
+     REAL(KIND=dp) :: Value
+     LOGICAL, OPTIONAL :: SetValue 
+
+     CALL List_AddToMatrixElement( ListMatrix,k1,k2,Value,.TRUE.)
+
+!-------------------------------------------------------------------------------
+   END SUBROUTINE List_SetMatrixElement
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+   FUNCTION List_GetMatrixElement( ListMatrix,k1,k2 ) RESULT ( Value )
+!-------------------------------------------------------------------------------
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
+     INTEGER :: k1,k2
+     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
+     REAL(KIND=dp) :: Value
+!-------------------------------------------------------------------------------
+
+     Value = 0.0_dp
+
+     IF ( .NOT. ASSOCIATED(ListMatrix) ) RETURN
+
+     IF ( k1>SIZE(ListMatrix) ) RETURN
+
+     Clist => ListMatrix(k1) % Head
+
+     IF ( .NOT. ASSOCIATED(Clist) ) RETURN
+
+     NULLIFY( Prev )
+     DO WHILE( ASSOCIATED(CList) )
+        IF ( Clist % INDEX >= k2 ) EXIT
+        Prev  => Clist
+        CList => CList % Next
+     END DO
+
+     IF ( .NOT. ASSOCIATED( CList ) ) RETURN
+
+     IF ( CList % INDEX == k2 ) Value = CList % Value
+
+!-------------------------------------------------------------------------------
+   END FUNCTION List_GetMatrixElement
+!-------------------------------------------------------------------------------
+
+
+
+!-------------------------------------------------------------------------------
+   SUBROUTINE List_ZeroRow( ListMatrix,k1 )
+!-------------------------------------------------------------------------------
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
+     INTEGER :: k1
+!-------------------------------------------------------------------------------
+     INTEGER :: k2
+     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
+     
+     IF ( .NOT. ASSOCIATED(ListMatrix) ) THEN
+       CALL Warn('List_ZeroRow','No List matrix present!')
+       RETURN
+     END IF
+     
+     IF ( k1 > SIZE(ListMatrix) ) THEN
+       CALL Warn('List_ZeroRow','No such row!')
+       RETURN
+     END IF
+     
+     Clist => ListMatrix(k1) % Head
+     IF ( .NOT. ASSOCIATED(Clist) ) THEN
+       CALL Warn('List_ZeroRow','Row not associated!')
+       RETURN
+     END IF
+     
+     DO WHILE( ASSOCIATED(CList) )
+       k2 = Clist % Index
+       Clist % Value = 0.0_dp
+       CList => CList % Next
+     END DO
+
+!-------------------------------------------------------------------------------
+   END SUBROUTINE List_ZeroRow
+!-------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE List_GlueLocalSubMatrix( ListMatrix,row0,col0,Nrow,Ncol,RowInds,ColInds,&
+       RowDofs,ColDofs,LocalMatrix )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Add a set of values (.i.e. element stiffness matrix) to a CRS format
+!    matrix. For this matrix the entries are ordered so that 1st for one
+!    dof you got all nodes, and then for second etc. 
+!
+!  ARGUMENTS:
+!
+!  TYPE(Matrix_t) :: Lmat
+!     INOUT: Structure holding matrix, values are affected in the process
+!
+!  INTEGER :: Nrow, Ncol
+!     INPUT: Number of nodes in element, or other dofs
+!
+!  INTEGER :: row0, col0
+!     INPUT: Offset of the matrix resulting from other blocks
+!
+!  INTEGER :: row0, col0
+!     INPUT: Offset of the matrix resulting from other blocks
+!
+!  INTEGER :: RowInds, ColInds
+!     INPUT: Permutation of the rows and column dofs
+!
+!  REAL(KIND=dp) :: LocalMatrix(:,:)
+!     INPUT: A (Nrow x RowDofs) x ( Ncol x ColDofs) matrix holding the values to be
+!            added to the CRS format matrix
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+ 
+     REAL(KIND=dp) :: LocalMatrix(:,:)
+     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
+     INTEGER :: Nrow,Ncol,RowDofs,ColDofs,Col0,Row0,RowInds(:),ColInds(:)
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+
+     INTEGER :: i,j,k,l,c,Row,Col
+     REAL(KIND=dp) :: Value
+     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
+     
+     DO i=1,Nrow
+       DO k=0,RowDofs-1
+         IF ( RowInds(i) <= 0 ) CYCLE
+         Row = Row0 + RowDofs * RowInds(i) - k
+         
+         IF ( .NOT. ASSOCIATED(ListMatrix) ) ListMatrix => AllocateListMatrix(Row)
+         IF ( Row > SIZE(ListMatrix) ) THEN
+           ListMatrix => EnlargeListMatrix(ListMatrix,MAX(Row, &
+               SIZE(ListMatrix)+LISTMATRIX_GROWTH) )
+         END IF
+         
+         
+         DO j=1,Ncol
+           DO l=0,ColDofs-1
+             IF ( ColInds(j) <= 0 ) CYCLE
+             Col  = Col0 + ColDofs * ColInds(j) - l
+             
+             Value = LocalMatrix(RowDofs*i-k,ColDofs*j-l)
+             
+             Clist => ListMatrix(Row) % Head             
+             IF ( .NOT. ASSOCIATED(Clist) ) THEN
+               ALLOCATE( ENTRY )
+               ENTRY % INDEX = Col
+               ENTRY % Value = Value
+               NULLIFY( ENTRY % Next )
+               ListMatrix(Row) % Degree = 1
+               ListMatrix(Row) % Head => ENTRY
+               CYCLE
+             END IF
+             
+             NULLIFY( Prev )
+             DO WHILE( ASSOCIATED(CList) )
+               IF ( Clist % INDEX == Col ) EXIT
+               Prev  => Clist
+               CList => CList % Next
+             END DO
+             
+             IF ( ASSOCIATED( CList ) ) THEN
+               IF ( CList % INDEX == Col ) THEN
+                 CList % Value = CList % Value + Value	
+                 CYCLE
+               END IF
+             END IF
+             
+             ALLOCATE( ENTRY )
+             ENTRY % INDEX = Col
+             ENTRY % Value = Value
+             ENTRY % Next => Clist
+             IF ( ASSOCIATED( Prev ) ) THEN
+               Prev % Next => ENTRY
+             ELSE
+               ListMatrix(Row) % Head => ENTRY
+             END IF
+             
+             ListMatrix(Row) % Degree = ListMatrix(Row) % Degree + 1
+           END DO
+         END DO
+
+       END DO
+     END DO
+   END SUBROUTINE List_GlueLocalSubMatrix
+!------------------------------------------------------------------------------
+
 
 
 !------------------------------------------------------------------------------
@@ -362,8 +643,8 @@ CONTAINS
          END IF
 
          n = CurrentElement % NDOFs + &
-             CurrentElement % Type % NumberOfEdges * EDOFs + &
-             CurrentElement % Type % NumberOfFaces * FDOFs
+             CurrentElement % TYPE % NumberOfEdges * EDOFs + &
+             CurrentElement % TYPE % NumberOfFaces * FDOFs
 
          IF ( GB ) n = n + CurrentElement % BDOFs
 
@@ -381,7 +662,7 @@ CONTAINS
 
          IF ( ASSOCIATED(Mesh % Edges) ) THEN
             IF ( ASSOCIATED(CurrentElement % EdgeIndexes) ) THEN
-              DO j=1,CurrentElement % Type % NumberOFEdges
+              DO j=1,CurrentElement % TYPE % NumberOFEdges
                  DO i=1, Mesh % Edges(CurrentElement % EdgeIndexes(j)) % BDOFs
                    n = n + 1
                    Indexes(n) = EDOFs * (CurrentElement % EdgeIndexes(j)-1) + i &
@@ -393,7 +674,7 @@ CONTAINS
 
          IF ( ASSOCIATED( Mesh % Faces ) ) THEN
            IF ( ASSOCIATED(CurrentElement % FaceIndexes) ) THEN
-             DO j=1,CurrentElement % Type % NumberOFFaces
+             DO j=1,CurrentElement % TYPE % NumberOFFaces
                DO i=1, Mesh % Faces(CurrentElement % FaceIndexes(j)) % BDOFs
                  n = n + 1
                  Indexes(n) = FDOFs*(CurrentElement % FaceIndexes(j)-1) + i + &
@@ -451,7 +732,7 @@ CONTAINS
                   Elm => Mesh % Elements( CurrentElement % BoundaryInfo % &
                               GebhardtFactors % Elements(n) )
 
-                  DO k=1,Elm % Type % NumberOfNodes
+                  DO k=1,Elm % TYPE % NumberOfNodes
                      k2 = Reorder( Elm % NodeIndexes(k) )
                      CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
                   END DO
@@ -463,12 +744,12 @@ CONTAINS
 
       DO i=Mesh % NumberOfBulkElements+1, Mesh % NumberOfBulkElements+ &
                      Mesh % NumberOfBoundaryElements
-        IF ( Mesh % Elements(i) % Type % ElementCode <  102 .OR. &
-             Mesh % Elements(i) % Type % ElementCode >= 200 ) CYCLE
+        IF ( Mesh % Elements(i) % TYPE % ElementCode <  102 .OR. &
+             Mesh % Elements(i) % TYPE % ElementCode >= 200 ) CYCLE
 
         k1 = Reorder( Mesh % Elements(i) % NodeIndexes(1) )
         IF ( k1 > 0 ) THEN
-          DO k=1,Mesh % Elements(i) % Type % NumberOFNodes
+          DO k=1,Mesh % Elements(i) % TYPE % NumberOFNodes
             k2 = Reorder( Mesh % Elements(i) % NodeIndexes(k) )
             IF ( k2 > 0 ) THEN
               CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
@@ -477,7 +758,7 @@ CONTAINS
           END DO
         END IF
 
-        IF ( Mesh % Elements(i) % Type % ElementCode == 102 ) THEN
+        IF ( Mesh % Elements(i) % TYPE % ElementCode == 102 ) THEN
           k2 = Reorder( Mesh % Elements(i) % NodeIndexes(2) )
           IF ( k2 > 0 ) CALL MakeListMatrixIndex( ListMatrix,k2,k2 )
         END IF
@@ -782,7 +1063,7 @@ CONTAINS
              Element => Solver % Mesh % Elements(k)
              IF ( Element % Bodyid /= j ) CYCLE
              IF ( ALL( Perm(Element % NodeIndexes) > 0 ) ) THEN
-               DO p=1,Element % Type % NumberOfNodes
+               DO p=1,Element % TYPE % NumberOfNodes
                  l = Perm(Element % NodeIndexes(p))
                  DO m=1,DOFs 
                    k1 = DOFs*(l-1)+m
@@ -801,7 +1082,7 @@ CONTAINS
              Element => Solver % Mesh % Elements(k)
              IF ( Element % Boundaryinfo % Constraint /= j ) CYCLE
              IF ( ALL(Perm(Element % NodeIndexes) > 0) ) THEN
-               DO p=1,Element % Type % NumberOfNodes
+               DO p=1,Element % TYPE % NumberOfNodes
                  l = Perm(Element % NodeIndexes(p))
                  DO m=1,DOFs 
                    k1 = DOFs*(l-1)+m

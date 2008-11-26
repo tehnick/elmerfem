@@ -516,9 +516,9 @@ END IF
         
         Wbcnode = (Q2/A2) + 2 * SQRT(2.0/Density) * ( SQRT(psi + BetaCoeff * SQRT(Aref)) )
         
-        IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
+        IF ( StiffMatrix % Format == MATRIX_SBAND ) THEN
           CALL SBand_SetDirichlet( StiffMatrix, ForceVector, k, Wbcnode )
-        ELSE IF ( StiffMatrix % FORMAT == MATRIX_CRS .AND. StiffMatrix % Symmetric ) THEN
+        ELSE IF ( StiffMatrix % Format == MATRIX_CRS .AND. StiffMatrix % Symmetric ) THEN
           CALL CRS_SetSymmDirichlet( StiffMatrix, ForceVector, k, Wbcnode )
         ELSE
           ForceVector(k) = Wbcnode

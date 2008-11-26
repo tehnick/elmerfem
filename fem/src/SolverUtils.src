@@ -363,11 +363,56 @@ CONTAINS
        CASE( MATRIX_CRS )
          CALL CRS_SetMatrixElement( StiffMatrix, i, j, Value )
 
+       CASE( MATRIX_LIST )
+         CALL List_SetMatrixElement( StiffMatrix % ListMatrix, i, j, Value )
+
        CASE( MATRIX_BAND,MATRIX_SBAND )
          CALL Band_SetMatrixElement( StiffMatrix, i, j, Value )
      END SELECT
 !------------------------------------------------------------------------------
    END SUBROUTINE SetMatrixElement
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   FUNCTION GetMatrixElement( StiffMatrix, i, j ) RESULT ( Value )
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t), POINTER :: StiffMatrix
+     INTEGER :: i,j
+     REAL(KIND=dp) :: Value
+!------------------------------------------------------------------------------
+
+     SELECT CASE( StiffMatrix % FORMAT )
+       CASE( MATRIX_CRS )
+         Value = CRS_GetMatrixElement( StiffMatrix, i, j )
+
+      CASE( MATRIX_LIST )
+         Value = List_GetMatrixElement( StiffMatrix % ListMatrix, i, j )
+
+       CASE( MATRIX_BAND,MATRIX_SBAND )
+         Value = Band_GetMatrixElement( StiffMatrix, i, j )
+     END SELECT
+!------------------------------------------------------------------------------
+   END FUNCTION GetMatrixElement
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   FUNCTION ChangeMatrixElement( StiffMatrix, i, j, NewValue ) RESULT ( OldValue )
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t), POINTER :: StiffMatrix
+     INTEGER :: i,j
+     REAL(KIND=dp) :: NewValue, OldValue
+!------------------------------------------------------------------------------
+
+     SELECT CASE( StiffMatrix % FORMAT )
+       CASE( MATRIX_CRS )
+         OldValue = CRS_ChangeMatrixElement( StiffMatrix, i, j, NewValue )
+
+       CASE DEFAULT
+         CALL Warn('ChangeMatrixElement','Not implemented for this type')
+
+     END SELECT
+!------------------------------------------------------------------------------
+   END FUNCTION ChangeMatrixElement
 !------------------------------------------------------------------------------
 
 
@@ -383,11 +428,30 @@ CONTAINS
        CASE( MATRIX_CRS )
          CALL CRS_AddToMatrixElement( StiffMatrix, i, j, Value )
 
+      CASE( MATRIX_LIST )
+         CALL List_AddToMatrixElement( StiffMatrix % ListMatrix, i, j, Value )
+
        CASE( MATRIX_BAND,MATRIX_SBAND )
          CALL Band_AddToMatrixElement( StiffMatrix, i, j, Value )
      END SELECT
 !------------------------------------------------------------------------------
    END SUBROUTINE AddToMatrixElement
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE MoveMatrixElement( StiffMatrix, i1, j1, i2, j2 )
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t), POINTER :: StiffMatrix
+     INTEGER :: i1,j1,i2,j2
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: Value
+
+     Value = ChangeMatrixElement(StiffMatrix, i1, j1, 0.0_dp)
+     CALL AddToMatrixElement(StiffMatrix, i2, j2, Value )
+     
+!------------------------------------------------------------------------------
+   END SUBROUTINE MoveMatrixElement
 !------------------------------------------------------------------------------
 
 
@@ -402,6 +466,9 @@ CONTAINS
        CASE( MATRIX_CRS )
          CALL CRS_ZeroRow( StiffMatrix,n )
 
+       CASE( MATRIX_LIST )
+         CALL List_ZeroRow( StiffMatrix % ListMatrix, n )
+
        CASE( MATRIX_BAND,MATRIX_SBAND )
          CALL Band_ZeroRow( StiffMatrix,n )
      END SELECT
@@ -409,7 +476,54 @@ CONTAINS
    END SUBROUTINE ZeroRow
 !------------------------------------------------------------------------------
 
-   
+!------------------------------------------------------------------------------
+   SUBROUTINE MoveRow( StiffMatrix, n1, n2 )
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t), POINTER :: StiffMatrix
+      INTEGER :: n1, n2
+!------------------------------------------------------------------------------
+
+     SELECT CASE( StiffMatrix % FORMAT )
+       CASE( MATRIX_CRS )
+         CALL CRS_MoveRow( StiffMatrix,n1,n2 )
+         
+       CASE DEFAULT
+         CALL Warn('MoveRow','Not implemented for this type')
+         
+     END SELECT
+!------------------------------------------------------------------------------
+   END SUBROUTINE MoveRow
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE GlueLocalSubMatrix( StiffMatrix,row0,col0,Nrow,Ncol,RowInds,ColInds,&
+       RowDofs,ColDofs,LocalMatrix )
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: LocalMatrix(:,:)
+     TYPE(Matrix_t) :: StiffMatrix
+     INTEGER :: Nrow,Ncol,RowDofs,ColDofs,Col0,Row0,RowInds(:),ColInds(:)
+!------------------------------------------------------------------------------
+
+     SELECT CASE( StiffMatrix % FORMAT )
+
+       CASE( MATRIX_CRS )       
+         CALL CRS_GlueLocalSubMatrix( StiffMatrix,row0,col0,Nrow,Ncol,RowInds,ColInds,&
+             RowDofs,ColDofs,LocalMatrix )
+      
+       CASE( MATRIX_LIST )
+         CALL List_GlueLocalSubMatrix( StiffMatrix % ListMatrix,row0,col0,Nrow,Ncol,RowInds,ColInds,&
+             RowDofs,ColDofs,LocalMatrix )
+        
+       CASE DEFAULT
+         CALL Warn('GlueLocalSubMatrix','Not implemented for this type')
+
+     END SELECT
+!------------------------------------------------------------------------------
+   END SUBROUTINE GlueLocalSubMatrix
+!------------------------------------------------------------------------------
+
+
 
 !------------------------------------------------------------------------------
    SUBROUTINE MatrixVectorMultiply( StiffMatrix,u,v )
@@ -425,6 +539,10 @@ CONTAINS
 
      CASE( MATRIX_BAND,MATRIX_SBAND )
        CALL Band_MatrixVectorMultiply( StiffMatrix,u,v )
+
+     CASE( MATRIX_LIST )
+       CALL Warn('MatrixVectorMultiply','Not implemented for List matrix type')
+
      END SELECT
 !------------------------------------------------------------------------------
    END SUBROUTINE MatrixVectorMultiply

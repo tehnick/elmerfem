@@ -393,6 +393,161 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+  FUNCTION CRS_GetMatrixElement( A,i,j ) RESULT ( Value )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Get a given matrix entry from CRS format matrix
+!
+!  ARGUMENTS:
+!
+!  TYPE(Matrix_t) :: A
+!     INPUT: Structure holding matrix
+!
+!  INTEGER :: i,j
+!     INPUT: row and column numbers, respectively, of the matrix element
+!
+!  REAL(KIND=dp) :: value
+!     INPUT: Value to be gotten
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+    INTEGER :: i,j
+    REAL(KIND=dp) :: value
+
+!------------------------------------------------------------------------------
+!   Local variables
+!------------------------------------------------------------------------------
+ 
+    INTEGER :: k
+    REAL(KIND=dp), POINTER :: Values(:)
+    INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
+!------------------------------------------------------------------------------
+
+    Rows   => A % Rows
+    Cols   => A % Cols
+    Diag   => A % Diag
+    Values => A % Values
+
+    IF ( i /= j .OR. .NOT. A % Ordered ) THEN
+       k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
+      IF ( k==0 ) THEN
+         PRINT*,'Trying to get value to nonexistent matrix element: ', i,j
+         RETURN
+       END IF
+       k = k + Rows(i) - 1
+    ELSE
+       k = Diag(i)
+    END IF
+!$omp critical
+    value = Values(k)
+!$omp end critical
+
+  END FUNCTION CRS_GetMatrixElement
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  FUNCTION CRS_ChangeMatrixElement( A,i,j, NewValue ) RESULT ( OldValue )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Get a given matrix entry from CRS format matrix and replace it with a new value
+!
+!  ARGUMENTS:
+!
+!  TYPE(Matrix_t) :: A
+!     INPUT: Structure holding matrix
+!
+!  INTEGER :: i,j
+!     INPUT: row and column numbers, respectively, of the matrix element
+!
+!  REAL(KIND=dp) :: OldValue
+!     INPUT: Value to be gotten
+!
+!  REAL(KIND=dp) :: NewValue
+!     INPUT: Value to be set
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+    INTEGER :: i,j
+    REAL(KIND=dp) :: NewValue, OldValue
+
+!------------------------------------------------------------------------------
+!   Local variables
+!------------------------------------------------------------------------------
+ 
+    INTEGER :: k
+    REAL(KIND=dp), POINTER :: Values(:)
+    INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
+!------------------------------------------------------------------------------
+
+    Rows   => A % Rows
+    Cols   => A % Cols
+    Diag   => A % Diag
+    Values => A % Values
+
+    IF ( i /= j .OR. .NOT. A % Ordered ) THEN
+       k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
+      IF ( k==0 ) THEN
+         PRINT*,'Trying to change value of a nonexistent matrix element: ', i,j,NewValue
+         RETURN
+       END IF
+       k = k + Rows(i) - 1
+    ELSE
+       k = Diag(i)
+    END IF
+!$omp critical
+    OldValue = Values(k)
+    Values(k) = NewValue
+!$omp end critical
+
+  END FUNCTION CRS_ChangeMatrixElement
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_MoveRow( A,n1,n2 )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Zero given row from a CRS format matrix
+!
+!  ARGUMENTS:
+!
+
+!     INPUT: Structure holding matrix
+!
+!  INTEGER :: n1
+!     INPUT: Row number to be copied and zerod
+!
+!  INTEGER :: n2
+!     INPUT: Row number to added
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A
+    INTEGER :: n1,n2
+ 
+    REAL(KIND=dp) :: Value
+    INTEGER :: i,j
+
+    DO i=A % Rows(n1),A % Rows(n1+1)-1
+      j = A % Cols(i)
+      Value = A % Values(i) 
+      A % Values(i) = 0.0_dp
+      CALL CRS_AddToMatrixElement( A,n2,j,Value )      
+    END DO
+
+  END SUBROUTINE CRS_MoveRow
+!------------------------------------------------------------------------------
+  
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_GlueLocalMatrix( A,N,Dofs,Indeces,LocalMatrix )

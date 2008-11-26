@@ -1618,6 +1618,35 @@ CONTAINS
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( Solver % Values,'Nonlinear System Convergence Tolerance',gotIt)
     
+    IF(.NOT. Visited ) THEN
+      Amat => AllocateMatrix()
+      Amat % ListMatrix => Alist
+      Amat % FORMAT = MATRIX_LIST
+      
+      Solver % Matrix => Amat
+      Solver % Matrix % Rhs => ForceVector
+      
+      ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
+      DO i=1,TotSize
+        AllPerm(i) = i
+        AllValues(i) = 0.0_dp
+      END DO
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+          'AllDofs',1,AllValues,AllPerm,Output=.FALSE.)
+      CALL Info('GenericSolver','New coupled variable added', Level=5)
+      Solver % Matrix % Rhs => ForceVector
+      Solver % Variable => VariableGet(Model % Variables, 'Alldofs')
+
+      ALLOCATE( AllDir(TotSize) ) 
+      AllDir = .FALSE.
+    END IF
+
+    Solver % Variable => VariableGet(Model % Variables, 'Alldofs')
+
+
+ 
+        
+
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
@@ -1630,17 +1659,14 @@ CONTAINS
       WRITE(Message,'(A,T35,I5)') 'Generic iteration:',iter
       CALL Info('GenericSolver',Message,Level=5)
       
-      
-      ! Jump here to start over with the assembly
-      !------------------------------------------
-100   BulkMode = .TRUE.
-      IF( .NOT. InitMatrix ) THEN
+      IF( Solver % Matrix % FORMAT == MATRIX_CRS ) THEN
         CALL DefaultInitialize()
       END IF
+      AllDir = .FALSE.
       
       ! Start of assemly process
       !------------------------------------------
-200   IF(BulkMode) THEN
+100   IF(BulkMode) THEN
         CALL Info('GenericSolver','Starting bulk assembly',Level=5)
         ElementsFirst = 1
         ElementsLast = Solver % Mesh % NumberOfBulkElements 
@@ -1724,7 +1750,7 @@ CONTAINS
               END IF
             END IF
           END IF
-                    
+          
           IF(GotProc .AND. .NOT. InitMatrix ) THEN
             ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.,quiet=.FALSE.)
             IF ( ProcPntr == 0 ) THEN
@@ -1806,37 +1832,11 @@ CONTAINS
                   END IF
                 END DO
               END IF
-
+              
               IF( .NOT. Coupling ) CYCLE
               ! PRINT *,'we have equality',RowVar,ColVar,i
             END IF
    
-
-! The matrix stucture is initalized here taken into account bulk-bulk and 
-! boundary-boundary
-!---------------------------------------------------------------------------------------
-            IF( InitMatrix ) THEN
-              DO i=1,Nrow
-                DO j=1,Ncol                    
-                  DO k=0,RowDofs-1
-                    Row  = RowInd0 + RowDofs * RowInds(i) - k
-                    DO l=0,ColDofs-1
-                      Col  = ColInd0 + ColDofs * ColInds(j) - l
-                      CALL MakeListMatrixIndex(Alist,Row,Col)
-                      
-                      ! Add transpose in case of constraints
-                      !                      IF( RowVar > NoVar ) THEN
-                      IF( Nrow /= NCol ) THEN
-                        CALL MakeListMatrixIndex(Alist,Col,Row)
-                      END IF
-                    END DO
-                  END DO
-                END DO
-              END DO
-              CYCLE
-            END IF
-
-
 ! Do the assembly, now really
 !---------------------------------------------------------------------------------------
             
@@ -1857,11 +1857,16 @@ CONTAINS
                 DO k=0,RowDofs-1
                   Row  = RowInd0 + RowDofs * RowInds(i) - k
                   Col  = ColInd0 + ColDofs * ColInds(i) - k
-                  
-                  ! It is rather arbitrary which should depend on which
-                  CALL ZeroRow( Amat, Row )
-                  CALL SetMatrixElement( Amat,Row,Row,1.0_dp)
-                  CALL SetMatrixElement( Amat,Row,Col,-1.0_dp)
+
+                  IF( AllDir(Row) ) CYCLE
+                  AllDir(Row) = .TRUE.
+                  CALL MoveRow( Amat, Row, Col ) 
+ 
+                  ForceVector(Col) = ForceVector(Col) + ForceVector(Row)
+                  ForceVector(Row) = 0.0_dp
+ 
+                  CALL SetMatrixElement( Amat,Row,Row,1.0_dp )
+                  CALL SetMatrixElement( Amat,Row,Col,-1.0_dp )
                 END DO
               END DO
               CYCLE
@@ -1942,47 +1947,16 @@ CONTAINS
       IF(BulkMode) THEN
         CALL Info( 'GenericSolver', 'Bulk assembly done', Level=4 )
         BulkMode = .FALSE.
-        GOTO 200
+        GOTO 100
       ELSE 
         CALL Info( 'GenericSolver', 'Boundary assembly done', Level=4 )
       END IF
       
       ! The CRS matrix may be created only when the matrix structure is known
       !----------------------------------------------------------------------
-      IF( InitMatrix ) THEN
-        ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
-        DO i=1,TotSize
-          AllPerm(i) = i
-          AllValues(i) = 0.0_dp
-        END DO
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-            'AllDofs',1,AllValues,AllPerm,Output=.FALSE.)
-        
-        Solver % Variable => VariableGet(Model % Variables, 'Alldofs')
-        CALL Info('GenericSolver','New coupled variable added', Level=5)
-        
-        Amat => AllocateMatrix()
-        CALL ListMatrixToCRSMatrix(Alist,Amat)
-        
-        WRITE(Message,'(A,I8)') 'Number of entries in coupled matrix: ',&
-            SIZE(Amat % Values)
-        CALL Info('GenericSolver',Message)
-        
-        Solver % Matrix => Amat
-        Solver % Matrix % Rhs => ForceVector
-        CALL Info('GenericSolver','CRS Matrix created', Level=5)
-        
-        CALL FreeListMatrix( TotSize, Alist )
-        CALL Info('GenericSolver','Matrix initialization done', Level=5)
-        
-        ! Marker for Dirichlet nodes that have been set
-        ALLOCATE( AllDir(TotSize) ) 
-        AllDir = .FALSE.
-        
-        InitMatrix = .FALSE.
-        GOTO 100
+      IF( Solver % Matrix % FORMAT == MATRIX_LIST ) THEN
+        CALL ListToCRSMatrix(Amat)
       END IF
-      
       CALL DefaultFinishAssembly()
       
 
@@ -2100,7 +2074,6 @@ CONTAINS
 !------------------------------------------------------------------------------
     END SUBROUTINE IntegralConstraint
 !------------------------------------------------------------------------------
-
 
 !------------------------------------------------------------------------------
 END SUBROUTINE GenericSolver

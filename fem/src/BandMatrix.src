@@ -194,6 +194,41 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+  FUNCTION Band_GetMatrixElement( A,i,j ) RESULT ( value )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Set a given value to an element of a  Band format matrix
+!
+!  ARGUMENTS:
+!
+!  TYPE(Matrix_t) :: A
+!     INPUT: Structure holding matrix
+!
+!  INTEGER :: i,j
+!     INPUT: row and column numbers, respectively, of the matrix element
+!
+!  REAL(KIND=dp) :: value
+!     INPUT: Value to be gotten
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t), POINTER :: A
+    INTEGER :: i,j
+    REAL(KIND=dp) :: value
+!------------------------------------------------------------------------------
+
+    IF ( A % Format == MATRIX_BAND ) THEN
+      Value = A % Values(BAND_INDEX(i,j))  
+    ELSE
+      IF ( j <= i ) Value = A % Values(SBAND_INDEX(i,j)) 
+    END IF
+  END FUNCTION Band_GetMatrixElement
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
   SUBROUTINE Band_GlueLocalMatrix( A,N,Dofs,Indeces,LocalMatrix )
 !------------------------------------------------------------------------------
 !******************************************************************************
