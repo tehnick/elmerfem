@@ -3,7 +3,37 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-! Q1Q0 NS-solver
+! A Navier-Stokes solver with p-bubbles and/or p2/p1 elements
+!
+! feasible elements (these are just examples):
+! -------------------------------------------
+! 303b1    - triangle with one bubble
+! 303e1b1  - p2/p1 triangle
+!
+! 404b4    - quad with four bubbles
+! 404e1b1  - q2/q1 quad
+!
+!  etc....
+!
+!  Even for the unequal order elements, the matrix is assembled for
+!  pn/pn dofs, EliminateDirichlet may be used to get rid of the
+!  unused dofs. 
+!
+!  12/12/2003, Juha
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh, materials, BCs, etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear & nonlinear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations
+!
+!  LOGICAL :: TransientSimulation
+!     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
   USE DefUtils
@@ -21,12 +51,12 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Newton = .FALSE., Found, Convect
   TYPE(Element_t),POINTER :: Element
 
-  INTEGER :: i,j,k,n, nb, nd, t, istat, dim, BDOFs=1,Active, dofs
-  REAL(KIND=dp) :: Norm = 0, PrevNorm, RelC
+  INTEGER :: i,j,k,l,n, nb, nd, t, istat, dim, BDOFs=1,Active, dofs
+  REAL(KIND=dp) :: Norm = 0, PrevNorm, RelC, Pressure
 
   TYPE(ValueList_t), POINTER :: BodyForce, Material
   TYPE(Mesh_t), POINTER :: Mesh
-  REAL(KIND=dp), ALLOCATABLE, SAVE :: STIFF(:,:), LOAD(:,:), Pressure(:), &
+  REAL(KIND=dp), ALLOCATABLE, SAVE :: STIFF(:,:), LOAD(:,:), &
     FORCE(:), rho(:), mu(:), Velocity(:,:), MASS(:,:), Velo(:)
 
   TYPE(Variable_t), POINTER :: P
@@ -44,7 +74,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   !--------------------------------------------------------------
   IF ( .NOT. AllocationsDone ) THEN
      n = (dim+1)*(Mesh % MaxElementDOFs+BDOFs)  ! just big enough for elemental arrays
-     ALLOCATE( FORCE(n), LOAD(n,4), STIFF(n,n), MASS(n,n), Pressure(n), &
+     ALLOCATE( FORCE(n), LOAD(n,4), STIFF(n,n), MASS(n,n), &
          rho(n), mu(n), Velocity(dim+1,n), Velo(dim*n), Indexes(n),STAT=istat )
 
      IF ( istat /= 0 ) THEN
@@ -59,7 +89,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   Velocity = 0.0d0
 
   P => VariableGet( Mesh % Variables, 'aPressure' )
-  IF ( .NOT. ASSOCIATED(P) .OR. DOFs>dim ) P=>NULL()
+  IF ( .NOT. ASSOCIATED(P) .OR. DOFs>dim  ) P=>NULL()
 
   IF ( ASSOCIATED(P) ) THEN
     ALLOCATE( pCount(SIZE(P % Values)) )
@@ -95,7 +125,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 
      ! Get previous elementwise velocity iterate:
      !-------------------------------------------
-     IF ( Convect ) CALL GetVectorLocalSolution( Velocity )
+     CALL GetVectorLocalSolution( Velocity )
 
      ! Get element local matrix and rhs vector:
      !-----------------------------------------
@@ -105,41 +135,57 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
      IF ( TransientSimulation ) &
        CALL Default1stOrderTime( MASS, STIFF, FORCE )
 
-     IF (nb>0) CALL LCondensate( nd,nb,dim,STIFF,FORCE )
-
-     IF ( ASSOCIATED(P) ) THEN
-       DO i=1,dim
-         Velo(i:nd*dim:dim) = Velocity(i,1:nd)
-       END DO
-       CALL LCondensateP( nd, nd, dim, STIFF, FORCE, &
-                  Pressure, Velo )
-
-       P % Values(P % Perm(Indexes(1:nd))) = &
-         P % Values(P % Perm(Indexes(1:nd))) + Pressure(1:nd) 
-
-       pCount(P % Perm(Indexes(1:nd))) = &
-          pCount(P % Perm(Indexes(1:nd))) + 1
-     ELSE
-       CALL LCondensateP( nd, nd, dim, STIFF, FORCE )
+     IF (n==nd) THEN
+       IF ( ASSOCIATED(P) ) THEN
+         k = n*dim
+         Pressure = 0._dp
+         DO j=1,DOFs
+           DO i=1,n
+             l = DOFs*(i-1)+j
+             Pressure = Pressure - Velocity(j,i)*STIFF(k+1,l)
+           END DO
+         END DO
+         Pressure = Pressure / STIFF(k+1,k+1)
+         P % Values(P % Perm(Indexes(1:n))) = &
+           P % Values(P % Perm(Indexes(1:n))) + Pressure
+         pCount(P % Perm(Indexes(1:n))) = pCount(P % Perm(Indexes(1:n)))+1
+       END IF
+       CALL LCondensateP( n*DOFs,STIFF )
      END IF
 
      ! Update global matrix and rhs vector from local matrix & vector:
      !----------------------------------------------------------------
      CALL DefaultUpdateEquations( STIFF, FORCE )
   END DO
-
-  IF ( ASSOCIATED(P) ) THEN
-    WHERE( pCount>0 ) 
-      P % Values = P % Values / PCount
-    END WHERE
-    DEALLOCATE(pCount)
-  END IF
   
   CALL DefaultFinishAssembly()
   CALL DefaultDirichletBCs()
 
   PrevNorm = Norm
   Norm = DefaultSolve()
+
+  IF ( ASSOCIATED(P) ) THEN
+    IF ( nd>n ) THEN
+      DO t=1,GetNOFActive()
+        Element => GetActiveElement(t)
+        n  = GetElementNOFNodes()
+        nb = GetElementNOFBDOFs()
+        nd = GetElementDOFs(Indexes)
+
+        k=DOFs*(Solver % Variable % Perm(Indexes(nd))-1)+1
+        Pressure = Solver % Variable % Values(k)
+
+        P % Values(P % Perm(Indexes(1:n))) = &
+          P % Values(P % Perm(Indexes(1:n))) + Pressure
+        pCount(P % Perm(Indexes(1:n))) = pCount(P % Perm(Indexes(1:n)))+1
+     END DO
+    END IF
+
+    WHERE( pCount>0 ) 
+      P % Values = P % Values / PCount
+    END WHERE
+    DEALLOCATE( pCount )
+  END IF
 
   RELC = 2.0d0 * ABS(PrevNorm - Norm) / (PrevNorm + Norm)
   IF ( RELC < 1.0d-2 ) Newton = .TRUE.
@@ -179,7 +225,7 @@ CONTAINS
        ! Basis function values & derivatives at the integration point:
        !--------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-         IP % W(t),  detJ, Basis, dBasisdx )
+               IP % W(t),  detJ, Basis, dBasisdx )
 
        s = IP % s(t) * detJ
 
@@ -190,8 +236,8 @@ CONTAINS
 
        ! Previous velocity at the integration point:
        !--------------------------------------------
-       Velo = MATMUL( NodalVelo(1:dim,1:nd), Basis(1:nd) )
-       Grad = MATMUL( NodalVelo(1:dim,1:nd), dBasisdx(1:nd,1:dim) )
+       Velo = MATMUL( NodalVelo(1:dim,1:n), Basis(1:n) )
+       Grad = MATMUL( NodalVelo(1:dim,1:n), dBasisdx(1:n,1:dim) )
 
        ! The source term at the integration point:
        !------------------------------------------
@@ -202,12 +248,13 @@ CONTAINS
 
        ! Finally, the elemental matrix & vector:
        !----------------------------------------
-       DO p=1,ntot
-         DO q=1,ntot
-           i = (dim+1) * (p-1) + 1
-           j = (dim+1) * (q-1) + 1
-           A => STIFF(i:i+dim,j:j+dim)
-           M => MASS(i:i+dim,j:j+dim)
+       l = dim*n + 1
+       DO p=1,n
+         DO q=1,n
+           i = dim * (p-1)
+           j = dim * (q-1)
+           A => STIFF(i+1:i+dim,j+1:j+dim)
+           M => MASS(i+1:i+dim,j+1:j+dim)
            DO i=1,dim
              M(i,i) = M(i,i) + s * rho * Basis(q) * Basis(p)
              DO j = 1,dim
@@ -220,197 +267,66 @@ CONTAINS
                  END IF
                END IF
              END DO
-             A(i,dim+1) = A(i,dim+1) - s * dBasisdx(p,i)/ntot
-             A(dim+1,i) = A(dim+1,i) + s * rho * dBasisdx(q,i)/ntot
            END DO
-           IF ( p==q ) A(dim+1,dim+1) = A(dim+1,dim+1) + s * 1.d-7
          END DO
-         i = (dim+1) * (p-1) + 1
-         F => FORCE(i:i+dim)
-         F = F + s * LoadAtIP * Basis(p) 
+
+         j = dim*(p-1)
+         DO i=1,dim
+           STIFF(j+i,l) = STIFF(j+i,l) - s * dBasisdx(p,i)
+           STIFF(l,j+i) = STIFF(l,j+i) + s * rho * dBasisdx(p,i)
+         END DO
+         i = dim*(p-1)
+         F => FORCE(i+1:i+dim)
+         F = F + s * LoadAtIP(1:dim) * Basis(p) 
        END DO
+       STIFF(l,l) = STIFF(l,l) + s * 1.d-8
     END DO
 
-   ! for p2/p1 elements set Dirichlet constraint for unused dofs,
-   ! EliminateDirichlet will get rid of these:
-   !-------------------------------------------------------------
     DO p = n+1,ntot
-      i = (dim+1) * p
-      FORCE(i)   = 0.0d0
-      MASS(:,i)  = 0.0d0
-      MASS(i,:)  = 0.0d0
-      STIFF(i,:) = 0.0d0
-      STIFF(:,i) = 0.0d0
-      STIFF(i,i) = 1.0d0
+      DO j=2,DOFs
+        i = dim*(p-1)+j
+        FORCE(i)   = 0.0d0
+        MASS(:,i)  = 0.0d0
+        MASS(i,:)  = 0.0d0
+        STIFF(i,:) = 0.0d0
+        STIFF(:,i) = 0.0d0
+        STIFF(i,i) = 1.0d0
+      END DO
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-    SUBROUTINE LCondensate( N, nb, dim, K, F )
-!------------------------------------------------------------------------------
-      USE LinearAlgebra
-      INTEGER :: N, nb, dim
-      REAL(KIND=dp) :: K(:,:),F(:), Kbb(Nb*dim,Nb*dim), &
-       Kbl(nb*dim,n*(dim+1)),Klb(n*(dim+1),nb*dim),Fb(nb*dim)
-
-      INTEGER :: m, i, j, l, p, Cdofs((dim+1)*n), Bdofs(dim*nb)
-
-      m = 0
-      DO p = 1,n
-        DO i = 1,dim+1
-          m = m + 1
-          Cdofs(m) = (dim+1)*(p-1) + i
-        END DO
-      END DO
-      
-      m = 0
-      DO p = 1,nb
-        DO i = 1,dim
-          m = m + 1
-          Bdofs(m) = (dim+1)*(p-1) + i + n*(dim+1)
-        END DO
-      END DO
-
-      Kbb = K(Bdofs,Bdofs)
-      Kbl = K(Bdofs,Cdofs)
-      Klb = K(Cdofs,Bdofs)
-      Fb  = F(Bdofs)
-
-      CALL InvertMatrix( Kbb,Nb*dim )
-
-      F(1:(dim+1)*n) = F(1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb, Fb ) )
-      K(1:(dim+1)*n,1:(dim+1)*n) = &
-           K(1:(dim+1)*n,1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb,Kbl ) )
-!------------------------------------------------------------------------------
-    END SUBROUTINE LCondensate
-!------------------------------------------------------------------------------
-
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LCondensateP( N, Nb, dim, K, F, Pres, Velo )
+  SUBROUTINE LCondensateP( n,K )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
 !  DESCRIPTION:
-!     Subroutine for condensation of p element bubbles from linear problem.
-!     Modifies given stiffness matrix and force vector(s) 
+!     Subroutine for condensation of pressure dof,
+!     Modifies given stiffness matrix.
 !
 !  ARGUMENTS:
-!    INTEGER :: N
+!    INTEGER :: n
 !      INPUT: Sum of nodal, edge and face degrees of freedom 
-!
-!    INTEGER :: Nb
-!      INPUT: Sum of internal (bubble) degrees of freedom
 !
 !    REAL(Kind=dp) :: K(:,:)
 !      INOUT: Local stiffness matrix
 !
-!    REAL(Kind=dp) :: F(:)
-!      INOUT: Local force vector
-!
 !******************************************************************************
 !------------------------------------------------------------------------------
 
-    USE LinearAlgebra
-    INTEGER :: N, Nb, dim
-    REAL(KIND=dp) :: K(:,:),F(:),Kbb(Nb,Nb), &
-         Kbl(Nb,N*dim), Klb(N*dim,Nb), Fb(Nb)
-    REAL(KIND=dp), OPTIONAL :: Pres(:), Velo(:)
+    INTEGER :: n
+    REAL(KIND=dp) :: K(:,:), Kbl(1,n), Klb(n,1), Kbb
 
-    INTEGER :: m, i, j, l, p, Ldofs(N*dim), Bdofs(Nb)
-
-    m = 0
-    DO p = 1,n
-     DO i = 1,dim
-        m = m + 1
-        Ldofs(m) = (dim+1)*(p-1) + i
-      END DO
-    END DO
-      
-    m = 0
-    DO p = 1,nb
-      m = m + 1
-      Bdofs(m) = (dim+1)*(p-1) + dim+1
-    END DO
-
-    Kbb = K(Bdofs,Bdofs)
-    Kbl = K(Bdofs,Ldofs)
-    Klb = K(Ldofs,Bdofs)
-    Fb  = F(Bdofs)
-    CALL InvertMatrix( Kbb,nb )
-
-    IF ( PRESENT(Pres) ) THEN
-      Pres(1:nb) = -MATMUL(Kbb,MATMUL(Kbl,Velo(1:n*dim)))
-    END IF
-
-    F(1:n*dim) = F(1:n*dim) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
-    K(1:n*dim,1:n*dim) = &
-         K(Ldofs,Ldofs) - MATMUL( Klb, MATMUL( Kbb, Kbl ) )
+    Kbb = K(n+1,n+1)
+    Kbl(1,1:n) = K(n+1,1:n)
+    Klb(1:n,1) = K(1:n,n+1)
+    K(1:n,1:n) = K(1:n,1:n) - MATMUL(Klb,Kbl)/Kbb
 !------------------------------------------------------------------------------
   END SUBROUTINE LCondensateP
 !------------------------------------------------------------------------------
-
-
-
-!------------------------------------------------------------------------------
-  SUBROUTINE SolvePressure( N, Nb, dim, K, U, Pres )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Subroutine for condensation of p element bubbles from linear problem.
-!     Modifies given stiffness matrix and force vector(s) 
-!
-!  ARGUMENTS:
-!    INTEGER :: N
-!      INPUT: Sum of nodal, edge and face degrees of freedom 
-!
-!    INTEGER :: Nb
-!      INPUT: Sum of internal (bubble) degrees of freedom
-!
-!    REAL(Kind=dp) :: K(:,:)
-!      INOUT: Local stiffness matrix
-!
-!    REAL(Kind=dp) :: F(:)
-!      INOUT: Local force vector
-!
-!    REAL(Kind=dp), OPTIONAL :: F1(:)
-!      INOUT: Local second force vector 
-!    
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-    USE LinearAlgebra
-    INTEGER :: N, Nb, dim
-    REAL(KIND=dp) :: K(:,:), U(:),Pres(:), Kbb(Nb,Nb), &
-         Kbl(Nb,N*dim), Klb(N*dim,Nb), Fb(Nb)
-
-    INTEGER :: m, i, j, l, p, Ldofs(N*dim), Bdofs(Nb)
-
-    m = 0
-    DO p = 1,n
-     DO i = 1,dim
-        m = m + 1
-        Ldofs(m) = (dim+1)*(p-1) + i
-      END DO
-    END DO
-      
-    m = 0
-    DO p = 1,nb
-      m = m + 1
-      Bdofs(m) = (dim+1)*(p-1) + dim+1
-    END DO
-
-    Kbb = K(Bdofs,Bdofs)
-    Kbl = K(Bdofs,Ldofs)
-    CALL InvertMatrix( Kbb,nb )
-!------------------------------------------------------------------------------
-  END SUBROUTINE SolvePressure
-!------------------------------------------------------------------------------
-
-
 
 
 !------------------------------------------------------------------------------
