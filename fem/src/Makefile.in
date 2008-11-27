@@ -338,6 +338,7 @@ SOLVEROBJS = \
 		StressGeneral$(OBJ_EXT)				\
 		LinearAlgebra$(OBJ_EXT)		 	        \
 		CoordinateSystems$(OBJ_EXT)			\
+		ListMatrix$(OBJ_EXT)				\
 		CRSMatrix$(OBJ_EXT)				\
 		BandMatrix$(OBJ_EXT)				\
 		BandwidthOptimize$(OBJ_EXT)			\
@@ -456,6 +457,7 @@ EXTRA_DIST = \
 	KESolver.src \
 	LevelSet.src \
 	LinearAlgebra.src \
+	ListMatrix.src \
 	Lists.src \
 	Load.c \
 	LUDecomposition.src \
@@ -935,14 +937,14 @@ ElasticSolve.$(OBJEXT): ElasticSolve.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJ
 ElectricForce.$(OBJEXT): ElectricForce.f90 DefUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 Electrokinetics.$(OBJEXT): Electrokinetics.f90 DefUtils.$(OBJEXT) Lists.$(OBJEXT) Types.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 ElementDescription.$(OBJEXT): ElementDescription.f90 PElementBase.$(OBJEXT) GeneralUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) PElementMaps.$(OBJEXT) LinearAlgebra.$(OBJEXT) CoordinateSystems.$(OBJEXT)
-ElementUtils.$(OBJEXT): ElementUtils.f90 CRSMatrix.$(OBJEXT) BandwidthOptimize.$(OBJEXT) BandMatrix.$(OBJEXT) Integration.$(OBJEXT) Interpolation.$(OBJEXT)
+ElementUtils.$(OBJEXT): ElementUtils.f90 BandMatrix.$(OBJEXT) Integration.$(OBJEXT) BandwidthOptimize.$(OBJEXT) ListMatrix.$(OBJEXT) CRSMatrix.$(OBJEXT) Interpolation.$(OBJEXT)
 EliminateDirichlet.$(OBJEXT): EliminateDirichlet.f90 CRSMatrix.$(OBJEXT) GeneralUtils.$(OBJEXT) Lists.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 EliminatePeriodic.$(OBJEXT): EliminatePeriodic.f90 CRSMatrix.$(OBJEXT) GeneralUtils.$(OBJEXT) Lists.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 ElmerSolver.$(OBJEXT): ElmerSolver.f90 DefUtils.$(OBJEXT) MainUtils.$(OBJEXT)
 EnergyRelease.$(OBJEXT): EnergyRelease.f90 DefUtils.$(OBJEXT)
 ExchangeCorrelations.$(OBJEXT): ExchangeCorrelations.f90
-FDiffusion3D.$(OBJEXT): FDiffusion3D.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) LinearAlgebra.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
-FDiffusion.$(OBJEXT): FDiffusion.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) LinearAlgebra.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
+FDiffusion3D.$(OBJEXT): FDiffusion3D.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) LinearAlgebra.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
+FDiffusion.$(OBJEXT): FDiffusion.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) LinearAlgebra.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 FilterTimeSeries.$(OBJEXT): FilterTimeSeries.f90 DefUtils.$(OBJEXT)
 FindOptimum.$(OBJEXT): FindOptimum.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 FlowSolve.$(OBJEXT): FlowSolve.f90 NavierStokes.$(OBJEXT) NavierStokesCylindrical.$(OBJEXT) DefUtils.$(OBJEXT) Radiation.$(OBJEXT) NavierStokesGeneral.$(OBJEXT) FreeSurface.$(OBJEXT) CoordinateSystems.$(OBJEXT) ElementDescription.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT)
@@ -967,11 +969,12 @@ KESolver.$(OBJEXT): KESolver.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 Komega.$(OBJEXT): Komega.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 LevelSet.$(OBJEXT): LevelSet.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 LinearAlgebra.$(OBJEXT): LinearAlgebra.f90 Types.$(OBJEXT)
+ListMatrix.$(OBJEXT): ListMatrix.f90 CRSMatrix.$(OBJEXT) GeneralUtils.$(OBJEXT)
 Lists.$(OBJEXT): Lists.f90 PElementMaps.$(OBJEXT) GeneralUtils.$(OBJEXT) Messages.$(OBJEXT) Types.$(OBJEXT)
 LUDecomposition.$(OBJEXT): LUDecomposition.f90 Types.$(OBJEXT)
 MagneticSolve.$(OBJEXT): MagneticSolve.f90 MaxwellGeneral.$(OBJEXT) Maxwell.$(OBJEXT) Differentials.$(OBJEXT) DefUtils.$(OBJEXT) MaxwellAxiS.$(OBJEXT)
 MagneticW1Solve.$(OBJEXT): MagneticW1Solve.f90 Differentials.$(OBJEXT) DirectSolve.$(OBJEXT) ElementUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) BandwidthOptimize.$(OBJEXT) IterSolve.$(OBJEXT) FreeSurface.$(OBJEXT) ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) TimeIntegrate.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
-MainUtils.$(OBJEXT): MainUtils.f90 ModelDescription.$(OBJEXT) SolverUtils.$(OBJEXT)
+MainUtils.$(OBJEXT): MainUtils.f90 DefUtils.$(OBJEXT) ElementUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) ModelDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 MaterialModels.$(OBJEXT): MaterialModels.f90 DefUtils.$(OBJEXT) ModelDescription.$(OBJEXT) Types.$(OBJEXT)
 MaxwellAxiS.$(OBJEXT): MaxwellAxiS.f90 ElementDescription.$(OBJEXT) Integration.$(OBJEXT) Types.$(OBJEXT)
 MaxwellGeneral.$(OBJEXT): MaxwellGeneral.f90 ElementDescription.$(OBJEXT) Integration.$(OBJEXT)
@@ -1025,7 +1028,7 @@ SparseMatrix.$(OBJEXT): SparseMatrix.f90 GeneralUtils.$(OBJEXT)
 SSTKomega.$(OBJEXT): SSTKomega.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 StatCurrentSolve.$(OBJEXT): StatCurrentSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 StatElecSolve.$(OBJEXT): StatElecSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
-StatMagSolve.$(OBJEXT): StatMagSolve.f90 DefUtils.$(OBJEXT) Differentials.$(OBJEXT) ElementDescription.$(OBJEXT) Integration.$(OBJEXT) Types.$(OBJEXT)
+StatMagSolve.$(OBJEXT): StatMagSolve.f90 DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT)
 Stokes.$(OBJEXT): Stokes.f90 DefUtils.$(OBJEXT) ElementUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT) SolverUtils.$(OBJEXT)
 StreamSolver.$(OBJEXT): StreamSolver.f90 DefUtils.$(OBJEXT)
 StressGeneral.$(OBJEXT): StressGeneral.f90 ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Integration.$(OBJEXT)

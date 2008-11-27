@@ -275,6 +275,7 @@ EXTRA_DIST = \
 	KESolver.src \
 	LevelSet.src \
 	LinearAlgebra.src \
+	ListMatrix.src \
 	Lists.src \
 	Load.c \
 	LUDecomposition.src \
