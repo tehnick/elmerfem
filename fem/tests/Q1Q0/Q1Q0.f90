@@ -3,23 +3,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-! A Navier-Stokes solver with p-bubbles and/or p2/p1 elements
-!
-! feasible elements (these are just examples):
-! -------------------------------------------
-! 303b1    - triangle with one bubble
-! 303e1b1  - p2/p1 triangle
-!
-! 404b4    - quad with four bubbles
-! 404e1b1  - q2/q1 quad
-!
-!  etc....
-!
-!  Even for the unequal order elements, the matrix is assembled for
-!  pn/pn dofs, EliminateDirichlet may be used to get rid of the
-!  unused dofs. 
-!
-!  12/12/2003, Juha
+! A Navier-Stokes solver for Q1/Q0 eleemnt
 !
 !  ARGUMENTS:
 !
@@ -57,13 +41,13 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: BodyForce, Material
   TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp), ALLOCATABLE, SAVE :: STIFF(:,:), LOAD(:,:), &
-    FORCE(:), rho(:), mu(:), Velocity(:,:), MASS(:,:), Velo(:)
+    FORCE(:), rho(:), mu(:), Velocity(:,:), MASS(:,:)
 
   TYPE(Variable_t), POINTER :: P
 
   INTEGER, ALLOCATABLE, SAVE :: Indexes(:), pCount(:)
 
-  SAVE STIFF, MASS, LOAD, FORCE, rho, mu, Velo, Velocity, AllocationsDone
+  SAVE STIFF, MASS, LOAD, FORCE, rho, mu, Velocity, AllocationsDone
 !------------------------------------------------------------------------------
 
    dim = CoordinateSystemDimension()
@@ -75,7 +59,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   IF ( .NOT. AllocationsDone ) THEN
      n = (dim+1)*(Mesh % MaxElementDOFs+BDOFs)  ! just big enough for elemental arrays
      ALLOCATE( FORCE(n), LOAD(n,4), STIFF(n,n), MASS(n,n), &
-         rho(n), mu(n), Velocity(dim+1,n), Velo(dim*n), Indexes(n),STAT=istat )
+         rho(n), mu(n), Velocity(dim+1,n), Indexes(n),STAT=istat )
 
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'StokesSolve', 'Memory allocation error.' )
