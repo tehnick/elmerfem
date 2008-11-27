@@ -44,518 +44,16 @@
 MODULE ElementUtils
 
     USE Integration
+    USE ListMatrix
     USE BandMatrix
     USE CRSMatrix
     USE Interpolation
     USE BandwidthOptimize
 
-    IMPLICIT NONE
-
-    INTEGER, PARAMETER :: LISTMATRIX_GROWTH = 1000
-
 CONTAINS
 
-!-------------------------------------------------------------------------------
-  FUNCTION AllocateListMatrix(N) RESULT(Matrix)
-!-------------------------------------------------------------------------------
-    INTEGER :: i,n
-    TYPE(ListMatrix_t), POINTER :: Matrix(:)
-
-    ALLOCATE( Matrix(n) ) 
-    DO i=1,n
-      Matrix(i) % Head => NULL()
-    END DO
-    Matrix(:) % Level  = 0
-    Matrix(:) % Degree = 0
-!-------------------------------------------------------------------------------
-  END FUNCTION AllocateListMatrix
-!-------------------------------------------------------------------------------
- 
-
-!-------------------------------------------------------------------------------
-  FUNCTION EnlargeListMatrix(Matrix,N) RESULT(NewMatrix)
-!-------------------------------------------------------------------------------
-    INTEGER :: n
-    TYPE(ListMatrix_t), POINTER :: Matrix(:), NewMatrix(:)
-
-    NewMatrix => AllocateListMatrix(n)
-    IF ( ASSOCIATED(Matrix) ) THEN
-      NewMatrix(1:SIZE(Matrix))=Matrix
-      DEALLOCATE(Matrix)
-    END IF
-!-------------------------------------------------------------------------------
-  END FUNCTION EnlargeListMatrix
-!-------------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------------
-  SUBROUTINE ListMatrixToCRS(L,Rows,Cols,Diag)
-!-------------------------------------------------------------------------------
-    TYPE(ListMatrix_t) :: L(:)
-    INTEGER :: i,j,n
-    TYPE(Matrix_t), POINTER :: A
-    TYPE(ListMatrixEntry_t), POINTER :: P
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
-
-    DO n=SIZE(L),1,-1
-      IF ( L(n) % Degree>0 ) EXIT
-    END DO
-
-    ALLOCATE( Rows(n+1), Diag(n) )
-    Rows(1) = 1
-    DO i=1,n
-      Rows(i+1) = Rows(i) + L(i) % Degree
-    END DO
-    ALLOCATE( Cols(Rows(i+1)-1) )
-    j = 0
-    DO i=1,n
-      P => L(i) % Head
-      DO WHILE(ASSOCIATED(P))
-        j = j + 1
-        Cols(j) = P % Index
-        P => P % Next
-      END DO
-    END DO
-
-    WRITE(Message,'(A,I8)') 'Number of entries in coupled matrix: ',Rows(n+1)-1
-    CALL Info('ListMatrixToCRS',Message)
-
-    A => AllocateMatrix()
-    A % NumberOfRows = n
-    A % Rows => Rows
-    A % Diag => Diag
-    A % Cols => Cols
-    CALL CRS_SortMatrix(A)
-    DEALLOCATE(A)
-!-------------------------------------------------------------------------------
-  END SUBROUTINE ListMatrixToCRS
-!-------------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------------
-  SUBROUTINE ListToCRSMatrix(A)
-!-------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-    
-    TYPE(ListMatrix_t), POINTER :: L(:)   
-    INTEGER :: i,j,n
-    TYPE(ListMatrixEntry_t), POINTER :: P
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
-    REAL(KIND=dp), POINTER :: Values(:)
-
-    IF( A % FORMAT /= MATRIX_LIST ) THEN
-      CALL Warn('ListToCRSMatrix','The initial matrix type is not List')
-      RETURN
-    END IF
-    
-    L => A % ListMatrix
-    
-    DO n=SIZE(L),1,-1
-      IF ( L(n) % Degree > 0 ) EXIT
-    END DO
-    
-    ALLOCATE( Rows(n+1), Diag(n) )
-    Rows(1) = 1
-    DO i=1,n
-      Rows(i+1) = Rows(i) + L(i) % Degree
-    END DO
-
-    WRITE(Message,'(A,I8)') 'Number of entries in coupled matrix: ',Rows(n+1)-1
-    CALL Info('ListToCRSMatrix',Message)
-
-    ALLOCATE( Cols(Rows(n+1)-1)) 
-    ALLOCATE( Values(Rows(n+1)-1) )
-
-    j = 0
-    DO i=1,n
-      P => L(i) % Head
-      DO WHILE(ASSOCIATED(P))
-        j = j + 1
-        Cols(j) = P % Index
-        Values(j) = P % Value	
-        P => P % Next
-      END DO
-    END DO
-    
-    A % NumberOfRows = n
-    A % Rows => Rows
-    A % Diag => Diag
-    A % Cols => Cols
-    A % Values => Values  
-  
-    CALL CRS_SortMatrix( A )
-
-    CALL FreeListMatrix( SIZE(L), L )
-
-    A % FORMAT = MATRIX_CRS
-    CALL Info('ListToCRSMatrix','Matrix format changed from List to CRS', Level=5)
-
-!-------------------------------------------------------------------------------
-  END SUBROUTINE ListToCRSMatrix
-!-------------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------------
-   SUBROUTINE MakeListMatrixIndex( ListMatrix,k1,k2 )
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: k1,k2
-     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
-!-------------------------------------------------------------------------------
-
-     INTEGER :: i
-
-     IF ( .NOT. ASSOCIATED(ListMatrix) ) ListMatrix=>AllocateListMatrix(k1)
-
-     IF ( k1>SIZE(ListMatrix) ) THEN
-       ListMatrix => EnlargeListMatrix(ListMatrix,MAX(k1, &
-             SIZE(ListMatrix)+LISTMATRIX_GROWTH) )
-     END IF
-
-     Clist => ListMatrix(k1) % Head
-
-     IF ( .NOT. ASSOCIATED(Clist) ) THEN
-        ALLOCATE( ENTRY )
-        ENTRY % INDEX = k2
-        NULLIFY( ENTRY % Next )
-        ListMatrix(k1) % Degree = 1
-        ListMatrix(k1) % Head => ENTRY
-        RETURN
-     END IF
-
-     NULLIFY( Prev )
-     DO WHILE( ASSOCIATED(CList) )
-        IF ( Clist % INDEX >= k2 ) EXIT
-        Prev  => Clist
-        CList => CList % Next
-     END DO
-
-     IF ( ASSOCIATED( CList ) ) THEN
-        IF ( CList % INDEX == k2 ) THEN
-	  RETURN
-        END IF
-     END IF
-
-     ALLOCATE( ENTRY )
-     ENTRY % INDEX = k2
-     ENTRY % Next => Clist
-     IF ( ASSOCIATED( Prev ) ) THEN
-         Prev % Next => ENTRY
-     ELSE
-        ListMatrix(k1) % Head => ENTRY
-     END IF
- 
-     ListMatrix(k1) % Degree = ListMatrix(k1) % Degree + 1
-
-!-------------------------------------------------------------------------------
-   END SUBROUTINE MakeListMatrixIndex
-!-------------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------------
-   SUBROUTINE List_AddToMatrixElement( ListMatrix,k1,k2,Value,SetValue )
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: k1,k2
-     REAL(KIND=dp) :: Value
-     LOGICAL, OPTIONAL :: SetValue 
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
-     LOGICAL :: Set     
-
-     Set = .FALSE.
-     IF( PRESENT(SetValue)) Set = SetValue
-     
-     IF ( .NOT. ASSOCIATED(ListMatrix) ) ListMatrix=>AllocateListMatrix(k1)
-
-     IF ( k1>SIZE(ListMatrix) ) THEN
-       ListMatrix => EnlargeListMatrix(ListMatrix,MAX(k1, &
-           SIZE(ListMatrix)+LISTMATRIX_GROWTH) )
-     END IF
-     
-     Clist => ListMatrix(k1) % Head
-     
-     IF ( .NOT. ASSOCIATED(Clist) ) THEN
-       ALLOCATE( ENTRY )
-       ENTRY % INDEX = k2
-       ENTRY % Value = Value
-       NULLIFY( ENTRY % Next )
-       ListMatrix(k1) % Degree = 1
-       ListMatrix(k1) % Head => ENTRY
-       RETURN
-     END IF
-     
-     NULLIFY( Prev )
-     DO WHILE( ASSOCIATED(CList) )
-       IF ( Clist % INDEX >= k2 ) EXIT
-       Prev  => Clist
-       CList => CList % Next
-     END DO
-     
-     IF ( ASSOCIATED( CList ) ) THEN
-       IF ( CList % INDEX == k2 ) THEN
-         IF( Set ) THEN
-           CList % Value = Value
-         ELSE
-           CList % Value = CList % Value + Value	
-         END IF
-         RETURN
-       END IF
-     END IF
-     
-     ALLOCATE( ENTRY )
-     ENTRY % INDEX = k2
-     ENTRY % Value = Value
-     ENTRY % Next => Clist
-     IF ( ASSOCIATED( Prev ) ) THEN
-       Prev % Next => ENTRY
-     ELSE
-       ListMatrix(k1) % Head => ENTRY
-     END IF
- 
-     ListMatrix(k1) % Degree = ListMatrix(k1) % Degree + 1
-!-------------------------------------------------------------------------------
-   END SUBROUTINE List_AddToMatrixElement
-!-------------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------------
-   SUBROUTINE List_SetMatrixElement( ListMatrix,k1,k2,Value,SetValue )
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: k1,k2
-     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
-     REAL(KIND=dp) :: Value
-     LOGICAL, OPTIONAL :: SetValue 
-
-     CALL List_AddToMatrixElement( ListMatrix,k1,k2,Value,.TRUE.)
-
-!-------------------------------------------------------------------------------
-   END SUBROUTINE List_SetMatrixElement
-!-------------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------------
-   FUNCTION List_GetMatrixElement( ListMatrix,k1,k2 ) RESULT ( Value )
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: k1,k2
-     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
-     REAL(KIND=dp) :: Value
-!-------------------------------------------------------------------------------
-
-     Value = 0.0_dp
-
-     IF ( .NOT. ASSOCIATED(ListMatrix) ) RETURN
-
-     IF ( k1 > SIZE(ListMatrix) ) RETURN
-
-     Clist => ListMatrix(k1) % Head
-
-     IF ( .NOT. ASSOCIATED(Clist) ) RETURN
-
-     NULLIFY( Prev )
-     DO WHILE( ASSOCIATED(CList) )
-        IF ( Clist % INDEX == k2 ) Value = CList % Value
-        IF ( Clist % INDEX >= k2 ) RETURN
-        Prev  => Clist
-        CList => CList % Next
-     END DO
-
-!-------------------------------------------------------------------------------
-   END FUNCTION List_GetMatrixElement
-!-------------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------------
-   SUBROUTINE List_ZeroRow( ListMatrix,k1 )
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: k1
-!-------------------------------------------------------------------------------
-     INTEGER :: k2
-     TYPE(ListMatrixEntry_t), POINTER :: CList
-     
-     IF ( .NOT. ASSOCIATED(ListMatrix) ) THEN
-       CALL Warn('List_ZeroRow','No List matrix present!')
-       RETURN
-     END IF
-     
-     IF ( k1 > SIZE(ListMatrix) ) THEN
-       CALL Warn('List_ZeroRow','No such row!')
-       RETURN
-     END IF
-     
-     Clist => ListMatrix(k1) % Head
-     IF ( .NOT. ASSOCIATED(Clist) ) THEN
-       CALL Warn('List_ZeroRow','Row not associated!')
-       RETURN
-     END IF
-     
-     DO WHILE( ASSOCIATED(CList) )
-       k2 = Clist % Index
-       Clist % Value = 0.0_dp
-       CList => CList % Next
-     END DO
-
-!-------------------------------------------------------------------------------
-   END SUBROUTINE List_ZeroRow
-!-------------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------------
-   SUBROUTINE List_MoveRow( ListMatrix,n1,n2 )
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: n1, n2
-!-------------------------------------------------------------------------------
-     INTEGER :: k2
-     REAL(KIND=dp) :: Value
-     TYPE(ListMatrixEntry_t), POINTER :: CList
-     
-     IF ( .NOT. ASSOCIATED(ListMatrix) ) THEN
-       CALL Warn('List_MoveRow','No List matrix present!')
-       RETURN
-     END IF
-     
-     IF ( n1 > SIZE(ListMatrix) ) THEN
-       CALL Warn('List_MoveRow','No row to move!')
-       RETURN
-     END IF
-     
-     Clist => ListMatrix(n1) % Head
-     IF ( .NOT. ASSOCIATED(Clist) ) THEN
-       CALL Warn('List_MoveRow','Row not associated!')
-       RETURN
-     END IF
-     
-     DO WHILE( ASSOCIATED(CList) )
-       k2 = Clist % Index
-       Value = Clist % Value
-       Clist % Value = 0.0_dp
-
-       PRINT *,'add to elem',n1,n2,k2,Value
-       CALL List_AddToMatrixElement( ListMatrix,n2,k2,Value)
-
-       CList => CList % Next
-     END DO
-
-!-------------------------------------------------------------------------------
-   END SUBROUTINE List_MoveRow
-!-------------------------------------------------------------------------------
-
-
 !------------------------------------------------------------------------------
-   SUBROUTINE List_GlueLocalSubMatrix( ListMatrix,row0,col0,Nrow,Ncol,RowInds,ColInds,&
-       RowDofs,ColDofs,LocalMatrix )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Add a set of values (.i.e. element stiffness matrix) to a CRS format
-!    matrix. For this matrix the entries are ordered so that 1st for one
-!    dof you got all nodes, and then for second etc. 
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: Lmat
-!     INOUT: Structure holding matrix, values are affected in the process
-!
-!  INTEGER :: Nrow, Ncol
-!     INPUT: Number of nodes in element, or other dofs
-!
-!  INTEGER :: row0, col0
-!     INPUT: Offset of the matrix resulting from other blocks
-!
-!  INTEGER :: row0, col0
-!     INPUT: Offset of the matrix resulting from other blocks
-!
-!  INTEGER :: RowInds, ColInds
-!     INPUT: Permutation of the rows and column dofs
-!
-!  REAL(KIND=dp) :: LocalMatrix(:,:)
-!     INPUT: A (Nrow x RowDofs) x ( Ncol x ColDofs) matrix holding the values to be
-!            added to the CRS format matrix
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
- 
-     REAL(KIND=dp) :: LocalMatrix(:,:)
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: Nrow,Ncol,RowDofs,ColDofs,Col0,Row0,RowInds(:),ColInds(:)
-
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-
-     INTEGER :: i,j,k,l,c,Row,Col
-     REAL(KIND=dp) :: Value
-     TYPE(ListMatrixEntry_t), POINTER :: CList,Prev, ENTRY
-     
-     DO i=1,Nrow
-       DO k=0,RowDofs-1
-         IF ( RowInds(i) <= 0 ) CYCLE
-         Row = Row0 + RowDofs * RowInds(i) - k
-         
-         IF ( .NOT. ASSOCIATED(ListMatrix) ) ListMatrix => AllocateListMatrix(Row)
-         IF ( Row > SIZE(ListMatrix) ) THEN
-           ListMatrix => EnlargeListMatrix(ListMatrix,MAX(Row, &
-               SIZE(ListMatrix)+LISTMATRIX_GROWTH) )
-         END IF
-         
-         
-         DO j=1,Ncol
-           DO l=0,ColDofs-1
-             IF ( ColInds(j) <= 0 ) CYCLE
-             Col  = Col0 + ColDofs * ColInds(j) - l
-             
-             Value = LocalMatrix(RowDofs*i-k,ColDofs*j-l)
-             
-             Clist => ListMatrix(Row) % Head             
-             IF ( .NOT. ASSOCIATED(Clist) ) THEN
-               ALLOCATE( ENTRY )
-               ENTRY % INDEX = Col
-               ENTRY % Value = Value
-               NULLIFY( ENTRY % Next )
-               ListMatrix(Row) % Degree = 1
-               ListMatrix(Row) % Head => ENTRY
-               CYCLE
-             END IF
-             
-             NULLIFY( Prev )
-             DO WHILE( ASSOCIATED(CList) )
-               IF ( Clist % INDEX >= Col ) EXIT
-               Prev  => Clist
-               CList => CList % Next
-             END DO
-             
-             IF ( ASSOCIATED( CList ) ) THEN
-               IF ( CList % INDEX == Col ) THEN
-                 CList % Value = CList % Value + Value	
-                 CYCLE
-               END IF
-             END IF
-             
-             ALLOCATE( ENTRY )
-             ENTRY % INDEX = Col
-             ENTRY % Value = Value
-             ENTRY % Next => Clist
-             IF ( ASSOCIATED( Prev ) ) THEN
-               Prev % Next => ENTRY
-             ELSE
-               ListMatrix(Row) % Head => ENTRY
-             END IF
-             
-             ListMatrix(Row) % Degree = ListMatrix(Row) % Degree + 1
-           END DO
-         END DO
-
-       END DO
-     END DO
-   END SUBROUTINE List_GlueLocalSubMatrix
-!------------------------------------------------------------------------------
-
-
-
-!------------------------------------------------------------------------------
-  SUBROUTINE MakeListMatrix( Model,Solver,Mesh,ListMatrix,Reorder, &
+  SUBROUTINE MakeListMatrix( Model,Solver,Mesh,List,Reorder, &
         LocalNodes,Equation, DGSolver, GlobalBubbles )
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -567,7 +65,7 @@ CONTAINS
     TYPE(Mesh_t)   :: Mesh
     TYPE(Matrix_t) :: Matrix
     TYPE(SOlver_t) :: Solver
-    TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
+    TYPE(ListMatrix_t), POINTER :: List(:)
     INTEGER :: LocalNodes, InvPerm(LocalNodes)
     INTEGER, OPTIONAL ::Reorder(:)
     LOGICAL, OPTIONAL :: DGSolver
@@ -583,7 +81,7 @@ CONTAINS
     INTEGER :: IndexSize, NumberOfFactors
     INTEGER, ALLOCATABLE :: Indexes(:)
 
-    TYPE(ListMatrixEntry_t), POINTER :: CList
+    TYPE(ListMatrixEntry_t), POINTER :: CList, Lptr
 
     TYPE(Matrix_t),POINTER :: PMatrix
     TYPE(Element_t), POINTER :: CurrentElement,Elm, Edge1, Edge2, Face1, Face2
@@ -592,7 +90,7 @@ CONTAINS
    GB = .FALSE.
    IF ( PRESENT(GlobalBubbles) ) GB = GlobalBubbles
 
-    ListMatrix => AllocateListMatrix(LocalNodes)
+    List => List_AllocateMatrix(LocalNodes)
 
     BDOFs = Mesh % MaxBDOFs
     EDOFs = Mesh % MaxEdgeDOFs
@@ -633,7 +131,7 @@ CONTAINS
             DO j=1,n
               k2 = Reorder(Indexes(j))
               IF ( k2 <= 0 ) CYCLE
-              CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
+              Lptr => List_GetMatrixIndex( List,k1,k2 )
             END DO
          END DO
       END DO
@@ -668,7 +166,7 @@ CONTAINS
             DO j=1,n
               k2 = Reorder(Indexes(j))
               IF ( k2 <= 0 ) CYCLE
-              CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
+              Lptr => List_GetMatrixIndex( List,k1,k2 )
             END DO
          END DO
       END DO
@@ -745,7 +243,7 @@ CONTAINS
             DO j=1,n
                k2 =  Reorder(Indexes(j))
                IF ( k2 <= 0 ) CYCLE
-               CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
+               Lptr => List_GetMatrixIndex( List,k1,k2 )
             END DO
          END DO
          t = t + 1
@@ -780,7 +278,7 @@ CONTAINS
 
                   DO k=1,Elm % TYPE % NumberOfNodes
                      k2 = Reorder( Elm % NodeIndexes(k) )
-                     CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
+                     Lptr => List_GetMatrixIndex( List,k1,k2 )
                   END DO
                 END DO
              END DO
@@ -798,15 +296,15 @@ CONTAINS
           DO k=1,Mesh % Elements(i) % TYPE % NumberOFNodes
             k2 = Reorder( Mesh % Elements(i) % NodeIndexes(k) )
             IF ( k2 > 0 ) THEN
-              CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
-              CALL MakeListMatrixIndex( ListMatrix,k2,k1 )
+              Lptr => List_GetMatrixIndex( List,k1,k2 )
+              Lptr => List_GetMatrixIndex( List,k2,k1 )
             END IF
           END DO
         END IF
 
         IF ( Mesh % Elements(i) % TYPE % ElementCode == 102 ) THEN
           k2 = Reorder( Mesh % Elements(i) % NodeIndexes(2) )
-          IF ( k2 > 0 ) CALL MakeListMatrixIndex( ListMatrix,k2,k2 )
+          IF ( k2 > 0 ) Lptr => List_GetMatrixIndex( List,k2,k2 )
         END IF
       END DO
 
@@ -823,17 +321,17 @@ CONTAINS
               IF ( Projector % Cols(l) <= 0 ) CYCLE
               m = Reorder( Projector % Cols(l) )
               IF ( m > 0 ) THEN
-!               CALL MakeListMatrixIndex( ListMatrix,m,k )
-!               CList => ListMatrix( m ) % Head
+!               Lptr => List_GetMatrixIndex( List,m,k )
+!               CList => List(m) % Head
 !               DO WHILE( ASSOCIATED( CList ) )
-!                  CALL MakeListMatrixIndex( ListMatrix,k,CList % Index )
+!                  Lptr => List_GetMatrixIndex( List,k,CList % Index )
 !                  CList => CList % Next
 !               END DO
 
-                CALL MakeListMatrixIndex( ListMatrix,k,m )
-                CList => ListMatrix( k ) % Head
+                Lptr => List_GetMatrixIndex( List,k,m )
+                CList => List( k ) % Head
                 DO WHILE( ASSOCIATED( CList ) )
-                  CALL MakeListMatrixIndex( ListMatrix,m,CList % Index )
+                  Lptr => List_GetMatrixIndex( List,m,CList % Index )
                   CList => CList % Next
                 END DO
               END IF
@@ -854,39 +352,13 @@ CONTAINS
     Model % TotalMatrixElements = 0
     Model % Rownonzeros = 0
     DO i=1,LocalNodes
-       Model % RowNonzeros(InvPerm(i)) = ListMatrix(i) % Degree
+       Model % RowNonzeros(InvPerm(i)) = List(i) % Degree
        Model % TotalMatrixElements =  &
-           Model % TotalMatrixElements + ListMatrix(i) % Degree
+           Model % TotalMatrixElements + List(i) % Degree
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE MakeListMatrix
 !------------------------------------------------------------------------------
-
-
-!-------------------------------------------------------------------------------
-   SUBROUTINE FreeListMatrix( N, ListMatrix )
-!-------------------------------------------------------------------------------
-     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-     INTEGER :: N
-!-------------------------------------------------------------------------------
-
-     TYPE(ListMatrixEntry_t), POINTER :: p,p1
-     INTEGER :: i
-!-------------------------------------------------------------------------------
-     IF ( .NOT. ASSOCIATED(ListMatrix) ) RETURN
-
-     DO i=1,N
-       p => ListMatrix(i) % Head
-       DO WHILE( ASSOCIATED(p) )
-         p1 => p % Next
-         DEALLOCATE( p )
-         p => p1 
-       END DO
-     END DO
-     DEALLOCATE( ListMatrix )
-!-------------------------------------------------------------------------------
-   END SUBROUTINE FreeListMatrix
-!-------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -1049,7 +521,7 @@ CONTAINS
          Matrix => Band_CreateMatrix( DOFs*k, DOFs*n,.TRUE.,.TRUE. )
      END SELECT
 
-     CALL FreeListMatrix( k, ListMatrix )
+     CALL List_FreeMatrix( k, ListMatrix )
 
      NULLIFY( Matrix % MassValues, Matrix % DampValues, Matrix % Force, Matrix % RHS_im )
 !------------------------------------------------------------------------------
