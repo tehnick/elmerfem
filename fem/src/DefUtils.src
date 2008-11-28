@@ -2708,8 +2708,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE DefaultDirichletBCs( USolver )
+  SUBROUTINE DefaultDirichletBCs( USolver,Ux,UOffset )
 !------------------------------------------------------------------------------
+     INTEGER, OPTIONAL :: UOffset
+     TYPE(Variable_t), OPTIONAL, TARGET :: Ux
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
 
      TYPE(Matrix_t), POINTER   :: A
@@ -2722,7 +2724,7 @@ CONTAINS
 
      INTEGER, ALLOCATABLE :: lInd(:), gInd(:)
      INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, &
-          DOF, local, numEdgeDofs,istat, n_start
+          DOF, local, numEdgeDofs,istat, n_start, Offset
 
      LOGICAL :: Flag,Found, ConstantValue
      TYPE(ValueList_t), POINTER :: BC, ptr
@@ -2738,8 +2740,15 @@ CONTAINS
         Solver => CurrentModel % Solver
      END IF
      A => Solver % Matrix
-     x => Solver % Variable
      b => A % RHS
+     IF ( PRESENT(Ux) ) THEN
+       x => Ux
+     ELSE
+       x => Solver % Variable
+     END IF
+
+     Offset = 0
+     IF(PRESENT(UOffset)) Offset=UOffset
 
      n = Solver % Mesh % MaxElementDOFs
      IF ( .NOT. ALLOCATED( gInd ) ) THEN
@@ -2800,7 +2809,7 @@ CONTAINS
            DO k=n+1,numEdgeDofs
              nb = x % Perm( gInd(k) )
              IF ( nb <= 0 ) CYCLE
-             nb = x % DOFs * (nb-1) + DOF
+             nb = Offset + x % DOFs * (nb-1) + DOF
              IF ( ConstantValue ) THEN
                CALL CRS_SetSymmDirichlet(A, A % RHS, nb, 0._dp )
              ELSE
@@ -2819,10 +2828,10 @@ CONTAINS
         IF ( x % DOFs > 1 ) name = ComponentName(name,DOF)
         
         CALL SetNodalLoads( CurrentModel,A, b, &
-            Name,DOF,x % DOFs,x % Perm )
+            Name,DOF,x % DOFs,x % Perm ) ! , Offset ) not yet ?
 
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
-                Name, DOF, x % DOFs, x % Perm )
+             Name, DOF, x % DOFs, x % Perm, Offset )
 
         IF ( ConstantValue ) CYCLE
 
@@ -2866,7 +2875,7 @@ CONTAINS
                 DO l=1,n
                   nb = x % Perm( gInd(l) )
                   IF ( nb <= 0 ) CYCLE
-                  nb = x % DOFs * (nb-1) + DOF
+                  nb = Offset + x % DOFs * (nb-1) + DOF
                   DO k=n+1,numEdgeDOFs
                     Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)
                   END DO
@@ -2887,7 +2896,7 @@ CONTAINS
                 DO k=n+1,numEdgeDOFs
                   nb = x % Perm( gInd(k) )
                   IF ( nb <= 0 ) CYCLE
-                  nb = x % DOFs * (nb-1) + DOF
+                  nb = Offset + x % DOFs * (nb-1) + DOF
                   CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(k-n))
                 END DO 
               ELSE
@@ -2896,12 +2905,12 @@ CONTAINS
                 DO k=n+1,numEdgeDofs
                    nb = x % Perm( gInd(k) )
                    IF ( nb <= 0 ) CYCLE
-                   nb = x % DOFs * (nb-1) + DOF
+                   nb = Offset + x % DOFs * (nb-1) + DOF
                    A % RHS(nb) = A % RHS(nb) + Work(k)
                    DO l=1,numEdgeDofs
                       mb = x % Perm( gInd(l) )
                       IF ( mb <= 0 ) CYCLE
-                      mb = x % DOFs * (mb-1) + DOF
+                      mb = Offset + x % DOFs * (mb-1) + DOF
                       DO kk=A % Rows(nb)+DOF-1,A % Rows(nb+1)-1,x % DOFs
                         IF ( A % Cols(kk) == mb ) THEN
                           A % Values(kk) = A % Values(kk) + STIFF(k,l)
@@ -2934,7 +2943,7 @@ CONTAINS
                 DO l=1,n
                   nb = x % Perm( gInd(l) )
                   IF ( nb <= 0 ) CYCLE
-                  nb = x % DOFs * (nb-1) + DOF
+                  nb = Offset + x % DOFs * (nb-1) + DOF
                   DO k=n+1,numEdgeDOFs
                     Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)
                   END DO
@@ -2946,12 +2955,12 @@ CONTAINS
               DO k=n+1,numEdgeDOFs
                 nb = x % Perm( gInd(k) )
                 IF ( nb <= 0 ) CYCLE
-                nb = x % DOFs * (nb-1) + DOF
+                nb = Offset + x % DOFs * (nb-1) + DOF
                 A % RHS(nb) = A % RHS(nb) + Work(k)
                 DO l=n_start,numEdgeDOFs
                   mb = x % Perm( gInd(l) )
                   IF ( mb <= 0 ) CYCLE
-                  mb = x % DOFs * (mb-1) + DOF
+                  mb = Offset + x % DOFs * (mb-1) + DOF
                   DO kk=A % Rows(nb)+DOF-1,A % Rows(nb+1)-1,x % DOFs
                     IF ( A % Cols(kk) == mb ) THEN
                       A % Values(kk) = A % Values(kk) + STIFF(k,l)
