@@ -57,6 +57,9 @@ enum PdeTypes {
 // node class
 class node_t {
  public:
+  node_t();
+  ~node_t();
+
   void setX(int, double);
   double getX(int);
   void setXvec(double*);
@@ -72,6 +75,9 @@ class node_t {
 // base element class
 class element_t {
  public:
+  element_t();
+  ~element_t();
+
   void setNature(int);
   int getNature(void);
   void setCode(int);
@@ -100,6 +106,9 @@ class element_t {
 // zero dimensional elements
 class point_t: public element_t {
  public:
+  point_t();
+  ~point_t();
+
   void setSharp(bool);
   bool isSharp(void);
   void setEdges(int);
@@ -118,6 +127,9 @@ class point_t: public element_t {
 // one dimensional elements
 class edge_t: public element_t {
  public:
+  edge_t();
+  ~edge_t();
+
   void setSharp(bool);
   bool isSharp(void);
   void setPoints(int);
@@ -144,6 +156,9 @@ class edge_t: public element_t {
 // two dimensional elements
 class surface_t: public element_t {
  public:
+  surface_t();
+  ~surface_t();
+
   void setEdges(int);
   int getEdges(void);
   void setEdgeIndex(int, int);

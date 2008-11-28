@@ -42,6 +42,16 @@
 #include "meshtype.h"
 using namespace std;
 
+// node_t
+//-----------------------------------------------------------------------------
+node_t::node_t()
+{
+}
+
+node_t::~node_t()
+{
+}
+
 void node_t::setXvec(double* y)
 {
   this->x[0] = y[0];
@@ -73,6 +83,16 @@ void node_t::setIndex(int n)
 int node_t::getIndex(void)
 {
   return this->index;
+}
+
+// element_t
+//-----------------------------------------------------------------------------
+element_t::element_t()
+{
+}
+
+element_t::~element_t()
+{
 }
 
 void element_t::setNature(int n)
@@ -150,6 +170,16 @@ int* element_t::getNodeIndexes()
   return this->node;
 }
 
+// point_t
+//-----------------------------------------------------------------------------
+point_t::point_t()
+{
+}
+
+point_t::~point_t()
+{
+}
+
 void point_t::setSharp(bool b)
 {
   this->sharp_point = b;
@@ -190,6 +220,16 @@ void point_t::deleteEdgeIndexes(void)
   delete [] this->edge;
 }
 
+// edge_t
+//-----------------------------------------------------------------------------
+edge_t::edge_t()
+{
+}
+
+edge_t::~edge_t()
+{
+}
+
 void edge_t::setSharp(bool b)
 {
   this->sharp_edge = b;
@@ -228,6 +268,16 @@ void edge_t::newPointIndexes(int n)
 void edge_t::deletePointIndexes(void)
 {
   delete [] this->point;
+}
+
+// surface_t
+//-----------------------------------------------------------------------------
+surface_t::surface_t()
+{
+}
+
+surface_t::~surface_t()
+{
 }
 
 void edge_t::setSurfaces(int n)
@@ -368,6 +418,8 @@ double* surface_t::getVertexNormalVec(int n)
   return &this->vertex_normals[n][0];
 }
 
+// mesh_t
+//-----------------------------------------------------------------------------
 mesh_t::mesh_t()
 {
   this->setDefaults();

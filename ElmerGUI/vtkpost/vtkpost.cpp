@@ -1146,6 +1146,8 @@ void VtkPost::groupChangedSlot(QAction* groupAction)
   }
   line->Delete();
 
+  if(timeStep->ui.regenerateBeforeDrawing->isChecked()) return;
+
   redrawSlot();
 
   // Place the implicit plane widget:
@@ -1202,6 +1204,9 @@ void VtkPost::redrawSlot()
    matc->ui.mcEdit->insert(dosome);
    matc->domatc(this);
 #endif
+
+   if(timeStep->ui.regenerateBeforeDrawing->isChecked())
+     regenerateGridsSlot();
 
   drawMeshPointSlot();
   drawMeshEdgeSlot();
