@@ -42,7 +42,7 @@
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
-   SUBROUTINE ElmerSolver
+   SUBROUTINE ElmerSolver(initialize)
 !------------------------------------------------------------------------------
 
      USE MainUtils
@@ -50,6 +50,8 @@
 !------------------------------------------------------------------------------
      IMPLICIT NONE
 !------------------------------------------------------------------------------
+
+     INTEGER :: Initialize
 
 !------------------------------------------------------------------------------
 !    Local variables
@@ -59,7 +61,7 @@
 
      REAL(KIND=dp) :: s,dt,dtfunc
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
-     REAL(KIND=dp), POINTER :: sTime(:), sStep(:), sInterval(:), sSize(:), &
+     REAL(KIND=dp), POINTER, SAVE :: sTime(:), sStep(:), sInterval(:), sSize(:), &
                                steadyIt(:),nonlinIt(:),sPrevSizes(:,:)
 
      TYPE(Element_t),POINTER :: CurrentElement
@@ -70,8 +72,9 @@
      INTEGER :: TimeIntervals,interval,timestep, &
        TotalTimesteps,SavedSteps,CoupledMaxIter,CoupledMinIter
 
-     REAL(KIND=dp), POINTER :: TimestepSizes(:,:)
-     INTEGER, POINTER :: Timesteps(:),OutputIntervals(:),OutputMask(:),ActiveSolvers(:)
+     INTEGER, POINTER, SAVE :: Timesteps(:),OutputIntervals(:), &
+                 OutputMask(:),ActiveSolvers(:)
+     REAL(KIND=dp), POINTER, SAVE :: TimestepSizes(:,:)
 
      INTEGER(KIND=AddrInt) :: ControlProcedure
 
@@ -86,8 +89,8 @@
      CHARACTER(LEN=MAX_NAME_LEN) :: OutputFile, PostFile, RestartFile, &
                 OutputName=' ',PostName=' ', When, OptionString
 
-     TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Variable_t), POINTER :: Var
+     TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Solver_t), POINTER :: Solver
 
      REAL(KIND=dp) :: RealTime,tt
@@ -95,7 +98,7 @@
      REAL(KIND=dp) :: CumTime, ddt, MaxErr, AdaptiveLimit, &
            AdaptiveMinTimestep, AdaptiveMaxTimestep
      INTEGER :: SmallestCount, AdaptiveKeepSmallest, StepControl=-1
-     LOGICAL :: AdaptiveTime = .TRUE., FirstLoad = .TRUE.
+     LOGICAL :: AdaptiveTime = .TRUE., FirstLoad = .TRUE., FirstTime=.TRUE.
      REAL(KIND=dp), POINTER :: xx(:,:), xxnrm(:), yynrm(:), PrevXX(:,:,:)
 
      INTEGER :: iargc
@@ -105,25 +108,31 @@
      !------------------------------------------------------------------
      ParallelEnv => ParallelInit()
      OutputPE = ParEnv % MyPE
-     !
-     ! Print banner to output:
-#include "../config.h"
-     ! -----------------------
-     CALL Info( 'MAIN', ' ', Level=3 )
-     CALL Info( 'MAIN', '==========================================', Level=3 )
-     CALL Info( 'MAIN', ' E L M E R  S O L V E R  S T A R T I N G',  Level=3  )
-     CALL Info( 'MAIN', ' Library version: ' // VERSION, Level=3 )
-     IF ( ParEnv % PEs > 1 ) &
-       CALL Info( 'MAIN', ' Running in parallel using ' // &
-        TRIM(IntegerToString(ParEnv % PEs)) // ' tasks.', Level=3 )
-#ifdef HAVE_HYPRE
-     CALL Info( 'MAIN', ' HYPRE library linked in.', Level=3 )
-#endif
-     CALL Info( 'MAIN', '==========================================', Level=3 )
 
-     IF ( IARGC() > 0 ) THEN
-       CALL getarg( 1,OptionString )
-       IF ( OptionString=='-v' .OR. OptionString == '--version' ) RETURN
+     IF ( FirstTime ) THEN
+       !
+       ! Print banner to output:
+#include "../config.h"
+       ! -----------------------
+       CALL Info( 'MAIN', ' ', Level=3 )
+       CALL Info( 'MAIN', '==========================================', Level=3 )
+       CALL Info( 'MAIN', ' E L M E R  S O L V E R  S T A R T I N G',  Level=3  )
+       CALL Info( 'MAIN', ' Library version: ' // VERSION, Level=3 )
+       IF ( ParEnv % PEs > 1 ) &
+         CALL Info( 'MAIN', ' Running in parallel using ' // &
+          TRIM(IntegerToString(ParEnv % PEs)) // ' tasks.', Level=3 )
+#ifdef HAVE_HYPRE
+       CALL Info( 'MAIN', ' HYPRE library linked in.', Level=3 )
+#endif
+       CALL Info( 'MAIN', '==========================================', Level=3 )
+
+       IF ( IARGC() > 0 ) THEN
+         CALL getarg( 1,OptionString )
+         IF ( OptionString=='-v' .OR. OptionString == '--version' ) RETURN
+       END IF
+
+       CALL InitializeElementDescriptions
+       FirstTime = .FALSE.
      END IF
 
      !
@@ -147,12 +156,17 @@
 !------------------------------------------------------------------------------
 !    Read element definition file, and initialize element types
 !------------------------------------------------------------------------------
-     CALL InitializeElementDescriptions
+     IF ( Initialize<=1 ) THEN
+       CALL FreeModel(CurrentModel)
+       FirstLoad=.TRUE.
+     END IF
 
 !------------------------------------------------------------------------------
 !    Read Model and mesh from Elmer mesh data base
 !------------------------------------------------------------------------------
      DO WHILE( .TRUE. )
+
+       IF ( initialize==2 ) GOTO 1
 
        IF ( FirstLoad ) THEN
           CALL Info( 'MAIN', ' ', Level = 3 )
@@ -160,21 +174,33 @@
           CALL Info( 'MAIN', '-----------------------', Level = 3 )
           CALL Info( 'MAIN', 'Reading Model ... ', Level = 3 )
 
-!#ifndef WIN32
-          OPEN( Unit=InFileUnit, Action='Read', File=ModelName,Status='OLD', ERR=20 )
-!#endif
+          INQUIRE(Unit=InFileUnit, Opened=GotIt)
+          IF ( gotIt ) CLOSE(inFileUnit)
+
+          OPEN( Unit=InFileUnit, Action='Read',File=ModelName,Status='OLD',ERR=20 )
           CurrentModel => LoadModel( ModelName,.FALSE.,ParEnv % PEs,ParEnv % MyPE )
+
 
           CALL Info( 'MAIN', 'Done               ', Level = 3 )
           CALL Info( 'MAIN', '-----------------------', Level = 3 )
        ELSE
-          IF ( .NOT. ReloadInputFile( CurrentModel ) ) EXIT
-          Mesh => CurrentModel % Meshes
-          DO WHILE( ASSOCIATED(Mesh) )
-             Mesh % SavesDone = 0
-             Mesh => Mesh % Next
-          END DO
+         IF ( Initialize==3 ) THEN
+           INQUIRE(Unit=InFileUnit, Opened=GotIt)
+           IF ( gotIt ) CLOSE(inFileUnit)
+           OPEN( Unit=InFileUnit, Action='Read', & 
+                    File=ModelName,Status='OLD',ERR=20 )
+         END IF
+
+         IF ( .NOT.ReloadInputFile(CurrentModel) ) EXIT
+
+         Mesh => CurrentModel % Meshes
+         DO WHILE( ASSOCIATED(Mesh) )
+           Mesh % SavesDone = 0
+           Mesh => Mesh % Next
+         END DO
        END IF
+
+1      CONTINUE
 
        CALL ListAddLogical( CurrentModel % Simulation, &
              'Initialization Phase', .TRUE. )
@@ -257,17 +283,17 @@
 !------------------------------------------------------------------------------
 !        Steady state
 !------------------------------------------------------------------------------
-         ALLOCATE( Timesteps(1) )
+         ALLOCATE(Timesteps(1))
 
          Timesteps(1) = ListGetInteger( CurrentModel % Simulation, &
                'Steady State Max Iterations', GotIt,minv=1 )
          IF ( .NOT. GotIt ) Timesteps(1)=1
   
-         ALLOCATE( TimestepSizes(1,1) )
+         ALLOCATE(TimestepSizes(1,1))
          TimestepSizes(1,1) = 1.0D0
 
-         TimeIntervals   = 1
          CoupledMaxIter = 1
+         TimeIntervals  = 1
        END IF
 
        IF ( FirstLoad ) &
@@ -276,6 +302,7 @@
 
        Time = 0
        dt   = 0._dp
+
        sTime(1) = 0._dp
        sStep(1) = Time
        sSize(1) = dt
@@ -288,8 +315,9 @@
                   'Steady State Min Iterations', GotIt )
 
 !------------------------------------------------------------------------------
-!      Add coordinates and simulation time to list of variables so that coordinate dependent
-!      parameter computing routines can ask for them...
+!      Add coordinates and simulation time to list of variables so that
+!      coordinate dependent parameter computing routines can ask for
+!      them...
 !------------------------------------------------------------------------------
        IF ( FirstLoad ) CALL AddMeshCoordinatesAndTime
 
@@ -338,6 +366,10 @@
 
        CALL ListAddLogical( CurrentModel % Simulation,  &
             'Initialization Phase', .FALSE. )
+
+       FirstLoad = .FALSE.
+       IF ( Initialize==1 ) EXIT
+
 !------------------------------------------------------------------------------
 !      Here we actually start the simulation ....
 !      First go trough timeintervals
@@ -350,7 +382,6 @@
        ELSE
           CALL ExecSimulation
        END IF
-       FirstLoad = .FALSE.
 !------------------------------------------------------------------------------
 !    Always save the last step to output
 !------------------------------------------------------------------------------
@@ -364,18 +395,20 @@
           IF ( GotIt ) ExecThis = ( When == 'after saving') 
           IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
        END DO
-       
+
+       IF ( Initialize>=2 ) EXIT
      END DO
 !------------------------------------------------------------------------------
 !    THIS IS THE END (...,at last, the end, my friend,...)
 !------------------------------------------------------------------------------
-     CALL Info( '', '*** Elmer Solver: ALL DONE ***' )
-     IF ( ParEnv % PEs > 1 ) CALL ParallelFinalize()
+     IF ( Initialize /= 1 ) CALL Info( '', '*** Elmer Solver: ALL DONE ***' )
+     IF ( ParEnv % PEs>1 )  CALL ParallelFinalize()
 
      RETURN
 
 10   CONTINUE
      CALL Fatal( 'ElmerSolver', 'Unable to find ELMERSOLVER_STARTINFO, can not execute.' )
+
 20   CONTINUE
      CALL Fatal( 'ElmerSolver', 'Unable to find input file [' // &
               TRIM(Modelname) // '], can not execute.' )
@@ -419,11 +452,11 @@
         END IF
 
         IF ( Solver % Procedure == 0 .OR. InitSolver ) THEN
-           IF ( .NOT. ASSOCIATED( Solver % Mesh ) ) THEN
-              Solver % Mesh => CurrentModel % Meshes
-           END IF
-           CurrentModel % Solver => Solver
-           CALL AddEquation( Solver, eq, Transient )
+          IF ( .NOT. ASSOCIATED( Solver % Mesh ) ) THEN
+            Solver % Mesh => CurrentModel % Meshes
+          END IF
+          CurrentModel % Solver => Solver
+          CALL AddEquation( Solver, eq, Transient )
         END IF
      END DO
 !------------------------------------------------------------------------------
@@ -746,8 +779,8 @@
      INTEGER :: interval, timestep, i, j, k, n
      REAL(KIND=dp) :: dt, ddt, dtfunc
      INTEGER :: timeleft
-     INTEGER, SAVE ::  stepcount=0
      LOGICAL :: ExecThis
+     INTEGER, SAVE ::  stepcount=0
 
      REAL(KIND=dp) :: RealTime, newtime, prevtime=0
 
@@ -760,7 +793,7 @@
      END DO
 
        DO interval = 1, TimeIntervals
-            stepcount = stepcount + Timesteps(interval)
+        stepcount = stepcount + Timesteps(interval)
        END DO 
 
      ddt = 0.0d0
@@ -785,7 +818,7 @@
          sTime(1) = sTime(1) + dt
          sStep(1) = Time
 
-         ! Move the old timesteps one step down the ladder
+       ! Move the old timesteps one step down the ladder
        IF(timestep > 1 .OR. interval > 1) THEN
            DO i = SIZE(sPrevSizes,2),2,-1
              sPrevSizes(1,i) = sPrevSizes(1,i-1)
@@ -901,7 +934,6 @@
                CALL SolveEquations( CurrentModel, ddt, Transient, &
                  CoupledMinIter, CoupledMaxIter, SteadyStateReached )
 
-print *,'b1'
 
                MaxErr = ListGetConstReal( CurrentModel % Simulation, &
                           'Adaptive Error Measure', GotIt )
@@ -919,8 +951,6 @@ print *,'b1'
                      END IF
                   END IF
                END DO
-
-print *,'b2'
 
                sStep(1) = ddt / 2
                sTime(1) = s + CumTime + ddt/2
@@ -1309,6 +1339,16 @@ print *,'b2'
     END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE SaveToPost
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+ SUBROUTINE FreeModel(Model)
+!------------------------------------------------------------------------------
+   TYPE(Model_t), POINTER :: Model
+!------------------------------------------------------------------------------
+   Model=>NULL()
+!------------------------------------------------------------------------------
+ END SUBROUTINE FreeModel
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------

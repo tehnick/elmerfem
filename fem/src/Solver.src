@@ -29,6 +29,9 @@
 PROGRAM Solver
    USE Types
    USE GeneralUtils
+
+   INTEGER, PARAMETER :: Initialize=0
+
    CHARACTER(LEN=MAX_NAME_LEN) :: DateStr
    REAL(KIND=dp) :: CT, RT, CPUTime, RealTime
 
@@ -40,7 +43,7 @@ PROGRAM Solver
    RT = RealTime()
    DateStr = FormatDate()
    WRITE( *,'(A,A)' ) "ELMER SOLVER (v " // VERSION // ") STARTED AT: ", TRIM(DateStr)
-   CALL ElmerSolver
+   CALL ElmerSolver(Initialize)
    WRITE( *,'(a,F12.2,F12.2)' ) 'SOLVER TOTAL TIME(CPU,REAL): ', &
                CPUTime()-CT, RealTime()-RT
    DateStr = FormatDate()

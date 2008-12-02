@@ -1172,9 +1172,13 @@ CONTAINS
      Element => CurrentModel % CurrentElement
      IF ( PRESENT( UElement ) ) Element => UElement
 
+     n = MAX(Solver % Mesh % MaxElementNodes,Solver % Mesh % MaxElementDOFs)
+
      IF ( .NOT. ASSOCIATED( ElementNodes % x ) ) THEN
-        n = MAX(Solver % Mesh % MaxElementNodes,Solver % Mesh % MaxElementDOFs)
-        ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
+       ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
+     ELSE IF ( SIZE(ElementNodes % x)<n ) THEN
+       DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z)
+       ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
      END IF
 
      n = Element % Type % NumberOfNodes
