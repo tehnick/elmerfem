@@ -4489,7 +4489,7 @@ CONTAINS
     TYPE(Variable_t), POINTER :: VariableList
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: Ptr(:)
-    LOGICAL :: GotIt
+    LOGICAL :: GotValues
     INTEGER :: i
     TYPE(Variable_t), POINTER :: Var, Var1
 !------------------------------------------------------------------------------
@@ -4515,46 +4515,54 @@ CONTAINS
 !      Check that the variable is actually allocated,
 !      not pointer to some other variables memory:
 !      ----------------------------------------------
-       GotIt = .TRUE.
+       GotValues = .TRUE.
        Var1 => VariableList
        DO WHILE( ASSOCIATED( Var1 ) )
-          IF ( Var % Name /= Var1 % Name ) THEN
+          IF (.NOT.ASSOCIATED(Var,Var1)) THEN
              IF ( ASSOCIATED(Var1 % Values) ) THEN
                 DO i=1,Var1 % DOFs
                    ptr => Var1 % Values(i::Var1 % DOFs)
                    IF ( ASSOCIATED(Var % Values,ptr) ) THEN
-                      GotIt = .FALSE.
+                      GotValues = .FALSE.
                       EXIT
                    END IF
                 END DO
              END IF
           END IF
-
-          IF ( .NOT. GotIt ) EXIT
+          IF (.NOT. GotValues) EXIT
           Var1 => Var1 % Next
        END DO
 
-       IF ( GotIt ) THEN
-          IF ( ASSOCIATED( Var % Values ) ) &
-             DEALLOCATE( Var % Values )
+       IF ( GotValues ) THEN
+         IF ( ASSOCIATED( Var % Values ) ) &
+            DEALLOCATE( Var % Values )
 
-          IF ( ASSOCIATED( Var % Perm ) ) &
-             DEALLOCATE( Var % Perm )
+         IF (ASSOCIATED(Var % Perm)) THEN
+           Var1 => VariableList
+           DO WHILE(ASSOCIATED(Var1))
+             IF (.NOT.ASSOCIATED(Var,Var1)) THEN
+               IF (ASSOCIATED(Var % Perm,Var1 % Perm)) &
+                 Var1 % Perm => NULL()
+             END IF
+             Var1 => Var1 % Next
+           END DO
+           DEALLOCATE( Var % Perm)
+         END IF
 
-          IF ( ASSOCIATED( Var % PrevValues ) ) &
-             DEALLOCATE( Var % PrevValues )
+         IF ( ASSOCIATED( Var % PrevValues ) ) &
+            DEALLOCATE( Var % PrevValues )
 
-          IF ( ASSOCIATED( Var % EigenValues ) ) &
-             DEALLOCATE( Var % EigenValues )
+         IF ( ASSOCIATED( Var % EigenValues ) ) &
+            DEALLOCATE( Var % EigenValues )
 
-          IF ( ASSOCIATED( Var % EigenVectors ) ) &
-             DEALLOCATE( Var % EigenVectors )
+         IF ( ASSOCIATED( Var % EigenVectors ) ) &
+            DEALLOCATE( Var % EigenVectors )
 
-          IF ( ASSOCIATED( Var % SteadyValues ) ) &
-             DEALLOCATE( Var % SteadyValues )
+         IF ( ASSOCIATED( Var % SteadyValues ) ) &
+            DEALLOCATE( Var % SteadyValues )
 
-          IF ( ASSOCIATED( Var % NonlinValues ) ) &
-             DEALLOCATE( Var % NonlinValues )
+         IF ( ASSOCIATED( Var % NonlinValues ) ) &
+            DEALLOCATE( Var % NonlinValues )
        END IF
        NULLIFY( Var % EigenVectors, Var % EigenValues )
        NULLIFY( Var % Values, Var % PrevValues, Var % Perm )

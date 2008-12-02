@@ -404,6 +404,8 @@
      IF ( Initialize /= 1 ) CALL Info( '', '*** Elmer Solver: ALL DONE ***' )
      IF ( ParEnv % PEs>1 )  CALL ParallelFinalize()
 
+     IF ( Initialize<=0 ) CALL FreeModel(CurrentModel)
+
      RETURN
 
 10   CONTINUE
@@ -1341,11 +1343,128 @@
   END SUBROUTINE SaveToPost
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+  RECURSIVE SUBROUTINE FreeMesh(Mesh)
+!------------------------------------------------------------------------------
+    TYPE(Mesh_t), POINTER :: Mesh
+!------------------------------------------------------------------------------
+    IF (.NOT.ASSOCIATED(Mesh)) RETURN
+
+    CALL FreeMesh(Mesh % Next)
+    Mesh % Next => NULL()
+
+    CALL FreeMesh(Mesh % Child)
+    Mesh % Child => NULL()
+
+    IF (ASSOCIATED(Mesh % Parent)) THEN
+      Mesh % Parent % Child=>NULL()
+      CALL FreeMesh(Mesh % Parent)
+      Mesh % Parent => NULL()
+    END IF
+  
+    CALL ReleaseMesh(Mesh)
+    DEALLOCATE(Mesh)
+!------------------------------------------------------------------------------
+  END SUBROUTINE FreeMesh
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE FreeSolver(Solver)
+!------------------------------------------------------------------------------
+    TYPE(Solver_t) :: Solver
+!------------------------------------------------------------------------------
+    CALL FreeValueList(Solver % Values)
+    CALL FreeMatrix(Solver % Matrix)
+    IF (ASSOCIATED(Solver % Def_Dofs)) DEALLOCATE(Solver % Def_Dofs)
+    IF (ASSOCIATED(Solver % ActiveElements)) DEALLOCATE(Solver % ActiveElements)
+!------------------------------------------------------------------------------
+  END SUBROUTINE FreeSolver
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE FreeValueList(List)
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), TARGET :: List
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: ptr
+   
+    ptr => List
+    DO WHILE(ASSOCIATED(ptr))
+      IF (ASSOCIATED(ptr % TValues)) DEALLOCATE(ptr % TValues)
+      IF (ASSOCIATED(ptr % FValues)) DEALLOCATE(ptr % FValues)
+      IF (ASSOCIATED(ptr % IValues)) DEALLOCATE(ptr % IValues)
+      ptr => ptr % Next
+    END DO 
+!------------------------------------------------------------------------------
+  END SUBROUTINE FreeValueList
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
  SUBROUTINE FreeModel(Model)
 !------------------------------------------------------------------------------
    TYPE(Model_t), POINTER :: Model
 !------------------------------------------------------------------------------
+   INTEGER :: i
+   TYPE(Mesh_t), POINTER :: Mesh, PMesh
+
+   IF (.NOT.ASSOCIATED(Model)) RETURN
+
+   Mesh => Model % Meshes
+   DO WHILE(ASSOCIATED(Mesh))
+     PMesh => Mesh
+     CALL FreeMesh(Mesh)
+     Mesh => PMesh % Next
+   END DO
+
+   DO i=1,Model % NumberOfSolvers
+     CALL FreeSolver(Model % Solvers(i))
+   END DO
+   DEALLOCATE(Model % Solvers)
+
+   CALL FreeValueList(Model % Constants)
+   CALL FreeValueList(Model % Simulation)
+
+   IF (ASSOCIATED(Model % BCs)) THEN
+     DO i=1,Model % NumberOfBCs
+       IF (ASSOCIATED(Model % BCs(i) % PMatrix)) &
+         CALL FreeMatrix(Model % BCs(i) % PMatrix)
+       CALL FreeValueList( Model % BCs(i) % Values)
+     END DO
+     DEALLOCATE(Model % BCs)
+   END IF
+
+   IF (ASSOCIATED(Model % ICs)) THEN
+     DO i=1,Model % NumberOfICs
+       CALL FreeValueList( Model % ICs(i) % Values)
+     END DO
+     DEALLOCATE(Model % ICs)
+   END IF
+
+   IF (ASSOCIATED(Model % Bodies)) THEN
+     DO i=1,Model % NumberOfBodies
+       CALL FreeValueList( Model % Bodies(i) % Values)
+     END DO
+     DEALLOCATE(Model % Bodies)
+   END IF
+
+   IF (ASSOCIATED(Model % Equations)) THEN
+     DO i=1,Model % NumberOfEquations
+       CALL FreeValueList( Model % Equations(i) % Values)
+     END DO
+     DEALLOCATE(Model % Equations)
+   END IF
+
+   IF (ASSOCIATED(Model % BodyForces)) THEN
+     DO i=1,Model % NumberOfBodyForces
+       CALL FreeValueList( Model % BodyForces(i) % Values)
+     END DO
+     DEALLOCATE(Model % BodyForces)
+   END IF
+
    Model=>NULL()
 !------------------------------------------------------------------------------
  END SUBROUTINE FreeModel
