@@ -1202,9 +1202,9 @@
 !    Convert results file to post processing file, if requested
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var
-    LOGICAL :: EigAnal = .FALSE.
-    CHARACTER(LEN=MAX_NAME_LEN) :: Simul
+    LOGICAL :: EigAnal = .FALSE., Found
     INTEGER :: i, CurrentStep,nlen,timesteps
+    CHARACTER(LEN=MAX_NAME_LEN) :: Simul, SaveWhich
     
     Simul = ListGetString( CurrentModel % Simulation,  'Simulation Type' )
 
@@ -1276,6 +1276,11 @@
                          Solvers(i) % Values, 'Harmonic Analysis', GotIt )
 
                      IF ( EigAnal ) THEN
+
+                        SaveWhich = ListGetString( CurrentModel % Solvers(i) % Values, &
+                                   'Eigen System Save', Found )
+                        IF (.NOT.Found) SaveWhich='real part'
+
                         IF ( TotalTimesteps == 1 ) THEN
                            DO j=1,CurrentModel % Solvers(i) % NOFEigenValues
                              Var => Mesh % Variables
@@ -1290,7 +1295,16 @@
                                      Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
                                   END DO
                                ELSE
-                                  Var % Values = Var % EigenVectors(j,:)
+                                  SELECT CASE(SaveWhich)
+                                  CASE('real part')
+                                    Var % Values = Var % EigenVectors(j,:)
+                                  CASE('imag part')
+                                    Var % Values = AIMAG(Var % EigenVectors(j,:))
+                                  CASE('abs value')
+                                    Var % Values = ABS(Var % EigenVectors(j,:))
+                                  CASE DEFAULT
+                                    Var % Values = Var % EigenVectors(j,:)
+                                  END SELECT
                                END IF
                                Var => Var % Next
                              END DO
@@ -1312,7 +1326,16 @@
                                    Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
                                 END DO
                              ELSE
-                                Var % Values = Var % EigenVectors(j,:)
+                                SELECT CASE(SaveWhich)
+                                CASE('real part')
+                                  Var % Values = Var % EigenVectors(j,:)
+                                CASE('imag part')
+                                  Var % Values = AIMAG(Var % EigenVectors(j,:))
+                                CASE('abs value')
+                                  Var % Values = ABS(Var % EigenVectors(j,:))
+                                CASE DEFAULT
+                                  Var % Values = Var % EigenVectors(j,:)
+                                END SELECT
                              END IF
                              Var => Var % Next
                            END DO

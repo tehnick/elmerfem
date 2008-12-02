@@ -1089,7 +1089,8 @@ CONTAINS
                  Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
                  IF ( ASSOCIATED( Var ) ) THEN
                     Var % EigenValues => Solver % Variable % EigenValues
-                    Var % EigenVectors => Solver % Variable % EigenVectors
+                    Var % EigenVectors => &
+                        Solver % Variable % EigenVectors(:,k::Solver % Variable % DOFs)
                  END IF
                END DO
              END IF
