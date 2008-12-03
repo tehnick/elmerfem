@@ -1352,22 +1352,22 @@
                              CurrentModel % Solvers(i) % NOFEigenValues, .TRUE. )
                          END IF
                       END IF
-
-                      DO WHILE(ASSOCIATED(Var))
-                        IF ( ASSOCIATED(Var % EigenValues) ) THEN
-                          Var % Values=0._dp
-                          Var % CValues => NULL()
-                        END IF
-                        Var => Var % Next
-                      END DO
                       EXIT
                    END IF
                 END IF
              END DO
 
-             IF ( .NOT. EigAnal .OR. CurrentStep == 0 ) THEN
+             IF ( .NOT. EigAnal .OR. CurrentStep == 0 ) &
                CALL WritePostFile( PostName, OutputName, CurrentModel, timesteps, .TRUE. )
-             END IF
+
+             Var => Mesh % Variables
+             DO WHILE(ASSOCIATED(Var))
+               IF ( ASSOCIATED(Var % EigenValues) ) THEN
+                  Var % Values=0._dp
+                  Var % CValues => NULL()
+               END IF
+               Var => Var % Next
+             END DO
           END IF
           Mesh => Mesh % Next
        END DO
@@ -1442,16 +1442,9 @@
    TYPE(Model_t), POINTER :: Model
 !------------------------------------------------------------------------------
    INTEGER :: i
-   TYPE(Mesh_t), POINTER :: Mesh, PMesh
-
    IF (.NOT.ASSOCIATED(Model)) RETURN
 
-   Mesh => Model % Meshes
-   DO WHILE(ASSOCIATED(Mesh))
-     PMesh => Mesh
-     CALL FreeMesh(Mesh)
-     Mesh => PMesh % Next
-   END DO
+   CALL FreeMesh(Model % Meshes)
 
    DO i=1,Model % NumberOfSolvers
      CALL FreeSolver(Model % Solvers(i))
