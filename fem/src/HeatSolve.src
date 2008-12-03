@@ -504,26 +504,43 @@
         
         ! Find the BC that controls the heater 
         ! If not found assume that smart heater is related to phase change 
+	GotIt = .FALSE.
+	Found = .FALSE.
+	SmartHeaterBC = 0
+
         DO i=1,Model % NumberOfBCs
            GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
            IF(GotIt) THEN
               SmartHeaterBC = i
-              MeltPoint = GetCReal( Model % BCs(i) % Values,'Smart Heater Temperature')
               EXIT
            END IF
         END DO
         IF(.NOT. GotIt) THEN
            DO i=1,Model % NumberOfBCs
               GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
-              IF(GotIt) SmartHeaterBC = i
+              IF(GotIt) THEN
+	        SmartHeaterBC = i
+                EXIT
+              END IF
            END DO
+        END IF 
+        IF(SmartHeaterBC == 0) THEN
+           CALL Fatal('HeatSolve','Smart Heater Boundary / Phase Change is undefined')
+        END IF
+
+        MeltPoint = GetCReal( Model % BCs(SmartHeaterBC) % Values,&
+		'Smart Heater Temperature',Found)
+	IF(.NOT. Found) THEN
            DO k=1, Model % NumberOfMaterials
               MeltPoint = GetCReal( Model % Materials(k) % Values, &
                    'Melting Point', Found )
               IF(Found) EXIT
            END DO
+	   IF(.NOT. Found) THEN
+              CALL Fatal('HeatSolver','Smart Heater Temperature / Melting Point is undefined')
+           END IF
         END IF
-        
+
         ! Find the node related to temperature control 
         SmartHeaterNode = 0
         SmartHeaterAverage = ListGetLogical(Solver % Values,'Smart Heater Average', Found)
@@ -552,6 +569,7 @@
         
         PowerTimeScale = ListGetConstReal(Solver % Values, &
              'Smart Heater Time Scale',Found)
+	
         IF(TransientSimulation .AND. dt < PowerTimeScale) THEN
            TransientHeaterControl = .TRUE.
            CALL Info( 'HeatSolve', 'Using Transient Heater Control')
