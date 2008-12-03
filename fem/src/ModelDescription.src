@@ -2742,7 +2742,7 @@ CONTAINS
 
     REAL(KIND=dp) :: Time,Dummy, MeshScale
     INTEGER :: ii,i,j,k,l,n,m,q,Node,idummy,DOFs,SavedCount,TimeStep, &
-         NumberOfNodes, NumberOfElements, ind
+         NumberOfNodes, NumberOfElements, ind, nDOFs
     INTEGER, POINTER :: MaskPerm(:), MaskOrder(:)
 !------------------------------------------------------------------------------
 
@@ -2867,6 +2867,7 @@ CONTAINS
 
         CASE( 'displacement' )
           DOFs = DOFs + 3
+          IF (ASSOCIATED(Var % Cvalues)) DOFs=DOFs+3
 
         CASE( 'displacement 1','displacement 2','displacement 3')
 
@@ -2891,35 +2892,35 @@ CONTAINS
         CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
 
         CASE DEFAULT
+          nDOFs = 1
+          IF (ASSOCIATED(Var % Cvalues)) nDOFs=2
           IF ( Var % DOFs == 1 ) THEN
-             DOFs = DOFs + 1
+             DOFs = DOFs + nDOFs
           ELSE
-             j=index(Var % Name, '[')
-             IF ( j > 0 ) THEN
-               str =  ' '
-               DO i=1,LEN_TRIM(Var % Name)
-                 str(i:i) = Var % Name(i:i)
-               END DO
-               DO WHILE( .TRUE. )
-                 i = INDEX( str(j+1:), ':' ) + j
-                 IF ( i<=j ) EXIT
-                 READ( str(i+1:),'(i1)' ) k
-                 DOFs = DOFs+k
-                 IF ( k==2 ) DOFs=DOFs+1
-                 j = i + 1
-               END DO
-               DO k=1,Var % DOFs
-                  Var => Var % Next
-               END DO
-             END IF
-           END IF
+            j=index(Var % Name, '[')
+            IF ( j > 0 ) THEN
+              str =  ' '
+              DO i=1,LEN_TRIM(Var % Name)
+                str(i:i) = Var % Name(i:i)
+              END DO
+              DO WHILE( .TRUE. )
+                i = INDEX( str(j+1:), ':' ) + j
+                IF ( i<=j ) EXIT
+                READ( str(i+1:),'(i1)' ) k
+                DOFs = DOFs+nDOFs*k
+                IF (k==2) DOFs=DOFs+nDOFs
+                j = i + 1
+              END DO
+              DO k=1,Var % DOFs
+                Var => Var % Next
+              END DO
+            END IF
+          END IF
       END SELECT
       Var => Var % Next
     END DO
 
-    IF ( .NOT.FreeSurfaceFlag ) DOFs = DOFs - 3
-
-
+    IF ( .NOT.FreeSurfaceFlag ) DOFs=DOFs-3
 
 !------------------------------------------------------------------------------
 ! Write header to output
@@ -2959,6 +2960,8 @@ CONTAINS
 
           CASE( 'displacement' )
             WRITE(PostFileUnit,'(a)',ADVANCE='NO' ) ' vector: Displacement'
+            IF (ASSOCIATED(Var % Cvalues)) &
+              WRITE(PostFileUnit,'(a)',ADVANCE='NO' ) ' vector: Displacement.im'
             Displacement => Var
 
           CASE( 'displacement 1','displacement 2','displacement 3')
@@ -2994,6 +2997,8 @@ CONTAINS
               END DO
               str(1:1) = CHAR(ICHAR(str(1:1))-ICHAR('a')+ICHAR('A'))
               WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ',str(1:Var % NameLen)
+              IF (ASSOCIATED(Var % Cvalues)) &
+                WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ',str(1:Var % NameLen)//'.im'
             ELSE
                j=index(Var % Name, '[')
                IF ( j > 0 ) THEN
@@ -3016,12 +3021,19 @@ CONTAINS
                    END DO
                    IF ( k==1 ) THEN
                      WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ',str(j+1:i-1)
+                     IF (ASSOCIATED(Var % Cvalues)) &
+                      WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ',str(j+1:i-1)//'.im'
                    ELSE IF ( k<= 3 ) THEN
                      WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' vector: ',str(j+1:i-1)
+                     IF (ASSOCIATED(Var % Cvalues)) &
+                       WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' vector: ',str(j+1:i-1)//'.im'
                    ELSE
                      DO l=1,k
                        WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ', &
-                           str(j+1:i-1) // ' ' // CHAR(l+ICHAR('0'))
+                           str(j+1:i-1) // '.' // CHAR(l+ICHAR('0'))
+                       IF (ASSOCIATED(Var % Cvalues)) &
+                         WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ', &
+                             str(j+1:i-1) // '.' // CHAR(l+ICHAR('0')) // '.im'
                      END DO
                    END IF
                    j = i + 1
@@ -3310,10 +3322,24 @@ CONTAINS
               IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
               
               IF ( k > 0 ) THEN
-                 DO j=1,Var % DOFs
-                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                 END DO
-                 IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+                 IF (ASSOCIATED(Var % Cvalues)) THEN
+                   DO j=1,Var % DOFs
+                     WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                         REAL(Var % Cvalues(Var % DOFs*(k-1)+j))
+                   END DO
+                   IF (Var % DOFs<3) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                   DO j=1,Var % DOFs
+                     WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                         AIMAG(Var % Cvalues(Var % DOFs*(k-1)+j))
+                   END DO
+                   IF (Var % DOFs<3) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                 ELSE
+                   DO j=1,Var % DOFs
+                     WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                         Var % Values(Var % DOFs*(k-1)+j)
+                   END DO
+                   IF (Var % DOFs<3) WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                 END IF
               ELSE
                  Var1 => Model % Variables
                  DO WHILE( ASSOCIATED( Var1 ) )
@@ -3406,9 +3432,16 @@ CONTAINS
                  k = i
                  IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
                  IF ( k > 0 ) THEN
-                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(k)
+                    IF (ASSOCIATED(Var % Cvalues)) THEN
+                      WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                         REAL(Var % Cvalues(k))
+                      WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                         AIMAG(Var % Cvalues(k))
+                    ELSE
+                      WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(k)
+                    END IF
                  ELSE
-                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
                  END IF
               ELSE
                  l = index( var % name, '[' )
@@ -3421,13 +3454,43 @@ CONTAINS
                        k = i
                        IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
                        IF ( k > 0 ) THEN
-                          DO j=DOFs+1,DOFs+q
-                             WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                          END DO
                           IF ( q==2 .OR. q==3 ) THEN
-                             DO j=q+1,3
-                                WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
-                             END DO
+                            IF (ASSOCIATED(Var % Cvalues)) THEN
+                               DO j=DOFs+1,DOFs+q
+                                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                                     REAL(Var % Cvalues(Var % DOFs*(k-1)+j))
+                               END DO
+                               DO j=q+1,3
+                                 WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                               END DO
+                               DO j=DOFs+1,DOFs+q
+                                  WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                                     AIMAG(Var % Cvalues(Var % DOFs*(k-1)+j))
+                               END DO
+                               DO j=q+1,3
+                                 WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                               END DO
+                            ELSE
+                               DO j=DOFs+1,DOFs+q
+                                 WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                                     Var % Values(Var % DOFs*(k-1)+j)
+                               END DO
+                               DO j=q+1,3
+                                 WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                               END DO
+                            END IF
+                          ELSE
+                            DO j=DOFs+1,DOFs+q
+                              IF (ASSOCIATED(Var % Cvalues)) THEN
+                                WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                                   REAL(Var % Cvalues(Var % DOFs*(k-1)+j))
+                                WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                                   AIMAG(Var % Cvalues(Var % DOFs*(k-1)+j))
+                              ELSE
+                                WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') &
+                                   Var % Values(Var % DOFs*(k-1)+j)
+                              END IF
+                            END DO
                           END IF
                        ELSE
                           DO j=1,q
