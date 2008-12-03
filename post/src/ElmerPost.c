@@ -2517,7 +2517,6 @@ int main(int argc,char **argv)
     strncat( init,"tcl/init.tcl",511 );
     fprintf( stdout, "Initialization File: [%s]\n", init );
     fflush(stdout);
-    
     Tcl_EvalFile( TCLInterp,init );
 
     while( Tk_DoOneEvent(TCL_DONT_WAIT) );
@@ -2550,6 +2549,16 @@ int main(int argc,char **argv)
       buf = Tcl_ExternalToUtfDString( NULL, initcommands,strlen(initcommands),&dstring);
       Tcl_Eval( TCLInterp, buf );
       Tcl_DStringFree( &dstring );
+    }
+
+    if ( getenv("ELMER_POST_INIT") )
+    {
+        *init = '\0';
+        strncat( init,getenv("ELMER_POST_INIT"),511);
+        fprintf( stdout, "User initialization file: [%s]\n", init );
+        fflush(stdout);
+        Tcl_EvalFile( TCLInterp,init );
+        while( Tk_DoOneEvent(TCL_DONT_WAIT) );
     }
     
 #ifdef MINGW32
