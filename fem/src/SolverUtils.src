@@ -3655,8 +3655,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Compute the change of the solution with different methods 
 !------------------------------------------------------------------------------
-   CALL ComputeChange(Solver,.FALSE.,n, x)
-   Norm = Solver % Variable % Norm
+
+   IF( .NOT. ListGetLogical(Solver % Values,'Skip Compute Change',GotIt) ) THEN
+     CALL ComputeChange(Solver,.FALSE.,n, x)
+     Norm = Solver % Variable % Norm
+   END IF
 
 !------------------------------------------------------------------------------
 

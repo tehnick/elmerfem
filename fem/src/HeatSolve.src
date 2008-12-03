@@ -692,8 +692,6 @@
                 HeaterScaling(i) = HeaterTarget(i) / HeaterSource(i)
              END IF
           END DO
-
-
        END IF
 
 !------------------------------------------------------------------------------
@@ -980,7 +978,7 @@
            IF ( TransientSimulation .AND. .NOT. ConstantBulk ) THEN
              CALL Default1stOrderTime( MASS, STIFF, FORCE )
            END IF
-           
+
            CALL UpdateGlobalEquations( Solver % Matrix, STIFF, &
                ForceHeater, FORCE, n, 1, TempPerm(Element % NodeIndexes) )
          ELSE
@@ -1062,6 +1060,10 @@
       IF(SmartHeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
       
         IF(.NOT. TransientHeaterControl) THEN
+ 
+          CALL ListAddLogical(SolverParams, &
+              'Skip Compute Change',.TRUE.)
+
           Relax = GetCReal( SolverParams, &
               'Nonlinear System Relaxation Factor', Found )
           
@@ -1074,9 +1076,11 @@
 
           CALL SolveSystem( Solver % Matrix, ParMatrix, &
               ForceHeater, XX, Norm, 1, Solver )
-          
+         
           CALL SolveSystem( Solver % Matrix, ParMatrix, &
               Solver % Matrix % RHS, YY, Norm, 1, Solver )
+
+          CALL ListAddLogical(SolverParams,'Skip Compute Change',.FALSE.)
         ELSE          
           CALL SolveSystem( Solver % Matrix, ParMatrix, &
               Solver % Matrix % RHS, Temperature, Norm, 1, Solver )
@@ -1108,12 +1112,19 @@
         END IF
 
         IF(.NOT. TransientHeaterControl) THEN
+          IF ( ASSOCIATED(Solver % Variable % NonlinValues) ) THEN
+            Solver % Variable % NonlinValues = Temperature
+          END IF
+
           PowerScaling = (MeltPoint - yave) / xave 
           Temperature = YY + PowerScaling * XX
-        END IF
 
-	Norm = SQRT( SUM( Temperature**2 ) / LocalNodes )
-        Solver % Variable % Norm = Norm
+          ! The change is computed separately for the controlled temperature field
+          !-----------------------------------------------------------------------
+          CALL ComputeChange(Solver,.FALSE.,LocalNodes,Temperature)
+	  Norm = Solver % Variable % Norm
+
+        END IF
 
         IF(dt > PowerTimeScale) THEN
           IF ( Relax /= 1.0d0 ) THEN
@@ -1196,12 +1207,8 @@
         IF ( .NOT.TransientSimulation ) PrevSolution=Temperature(1:LocalNodes)
       END IF
 !------------------------------------------------------------------------------
-
-      IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-        RelativeChange = 2.0d0 * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
-      ELSE
-        RelativeChange = 0.0d0
-      END IF
+     
+      RelativeChange = Solver % Variable % NonlinChange
 
       WRITE( Message, * ) 'Result Norm   : ',Norm
       CALL Info( 'HeatSolve', Message, Level=4 )
