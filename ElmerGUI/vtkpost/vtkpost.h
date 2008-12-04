@@ -67,6 +67,7 @@ class vtkLookupTable;
 class vtkPlane;
 class vtkAxes;
 class vtkImplicitPlaneWidget;
+class vtkCamera;
 class IsoSurface;
 class IsoContour;
 class ColorBar;
@@ -120,9 +121,7 @@ public:
   Preferences* GetPreferences();
 
   void minMax(ScalarField *);
-
   ScalarField* addScalarField(QString, int, double *);
-
   void SetClipPlaneOrigin(double*);
   void SetClipPlaneNormal(double*);
   void GetBounds(double*);
@@ -188,6 +187,28 @@ public slots:
   void SetClipPlaneNy(double);
   void SetClipPlaneNz(double);
   void Render();
+  double GetCameraDistance();
+  void SetCameraDistance(double);
+  double GetCameraPositionX();
+  double GetCameraPositionY();
+  double GetCameraPositionZ();
+  void SetCameraPositionX(double);
+  void SetCameraPositionY(double);
+  void SetCameraPositionZ(double);
+  double GetCameraFocalPointX();
+  double GetCameraFocalPointY();
+  double GetCameraFocalPointZ();
+  void SetCameraFocalPointX(double);
+  void SetCameraFocalPointY(double);
+  void SetCameraFocalPointZ(double);
+  void SetCameraDolly(double);
+  void SetCameraRoll(double);
+  void SetCameraAzimuth(double);
+  void SetCameraYaw(double);
+  void SetCameraElevation(double);
+  void SetCameraPitch(double);
+  void SetCameraZoom(double);
+  void SetInitialCameraPosition();
 
 private slots:
   void exitSlot();
@@ -309,6 +330,8 @@ private:
   vtkScalarBarActor* colorBarActor;
   vtkActor* pickedPointActor;
   vtkImplicitPlaneWidget* planeWidget;
+  double initialCameraPosition[3];
+  double initialCameraRoll;
 
   Surface* surface;         // ui
   Vector* vector;           // ui

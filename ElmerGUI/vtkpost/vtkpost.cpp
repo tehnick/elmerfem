@@ -955,6 +955,9 @@ bool VtkPost::ReadPostFile(QString postFileName)
 
   redrawSlot();
 
+  renderer->GetActiveCamera()->GetPosition(initialCameraPosition);
+  initialCameraRoll = renderer->GetActiveCamera()->GetRoll();
+
   return true;
 }
 
@@ -2043,4 +2046,143 @@ void VtkPost::SetFeatureAngle(int angle)
 void VtkPost::Render()
 {
   qvtkWidget->GetRenderWindow()->Render();
+}
+
+double VtkPost::GetCameraDistance()
+{
+  return renderer->GetActiveCamera()->GetDistance();
+}
+
+void VtkPost::SetCameraDistance(double f)
+{
+  renderer->GetActiveCamera()->SetDistance(f);
+}
+
+double VtkPost::GetCameraPositionX()
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetPosition(x, y, z);
+  return x;
+}
+
+double VtkPost::GetCameraPositionY()
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetPosition(x, y, z);
+  return y;
+}
+
+double VtkPost::GetCameraPositionZ()
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetPosition(x, y, z);
+  return z;
+}
+
+void VtkPost::SetCameraPositionX(double f)
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetPosition(x, y, z);
+  renderer->GetActiveCamera()->SetPosition(f, y, z);
+}
+
+void VtkPost::SetCameraPositionY(double f)
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetPosition(x, y, z);
+  renderer->GetActiveCamera()->SetPosition(x, f, z);
+}
+
+void VtkPost::SetCameraPositionZ(double f)
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetPosition(x, y, z);
+  renderer->GetActiveCamera()->SetPosition(x, y, f);
+}
+
+double VtkPost::GetCameraFocalPointX()
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetFocalPoint(x, y, z);
+  return x;
+}
+
+double VtkPost::GetCameraFocalPointY()
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetFocalPoint(x, y, z);
+  return y;
+}
+
+double VtkPost::GetCameraFocalPointZ()
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetFocalPoint(x, y, z);
+  return z;
+}
+
+void VtkPost::SetCameraFocalPointX(double f)
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetFocalPoint(x, y, z);
+  renderer->GetActiveCamera()->SetFocalPoint(f, y, z);
+}
+
+void VtkPost::SetCameraFocalPointY(double f)
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetFocalPoint(x, y, z);
+  renderer->GetActiveCamera()->SetFocalPoint(x, f, z);
+}
+
+void VtkPost::SetCameraFocalPointZ(double f)
+{
+  double x, y, z;
+  renderer->GetActiveCamera()->GetFocalPoint(x, y, z);
+  renderer->GetActiveCamera()->SetFocalPoint(x, y, f);
+}
+
+void VtkPost::SetCameraDolly(double f)
+{
+  renderer->GetActiveCamera()->Dolly(f);
+}
+
+void VtkPost::SetCameraRoll(double f)
+{
+  renderer->GetActiveCamera()->Roll(f);
+}
+
+void VtkPost::SetCameraAzimuth(double f)
+{
+  renderer->GetActiveCamera()->Azimuth(f);
+}
+
+void VtkPost::SetCameraElevation(double f)
+{
+  renderer->GetActiveCamera()->Elevation(f);
+}
+
+void VtkPost::SetCameraPitch(double f)
+{
+  renderer->GetActiveCamera()->Pitch(f);
+}
+
+void VtkPost::SetCameraZoom(double f)
+{
+  renderer->GetActiveCamera()->Zoom(f);
+}
+
+void VtkPost::SetCameraYaw(double f)
+{
+  renderer->GetActiveCamera()->Yaw(f);
+}
+
+void VtkPost::SetInitialCameraPosition()
+{
+  renderer->ResetCamera();  
+  renderer->GetActiveCamera()->SetPosition(initialCameraPosition[0], 
+					   initialCameraPosition[1], 
+					   initialCameraPosition[2]);
+  renderer->GetActiveCamera()->SetRoll(initialCameraRoll);
+  renderer->GetRenderWindow()->Render();
 }
