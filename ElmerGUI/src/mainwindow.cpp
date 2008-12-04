@@ -4233,8 +4233,7 @@ void MainWindow::showVtkPostSlot()
   //-----------------
   vtkPost->show();
 
-  if(!vtkPost->readPostFile(postFileName))
-    vtkPost->readEpFileSlot();
+  // if(!vtkPost->readPostFile(postFileName)) vtkPost->readEpFileSlot();
 #endif
 }
 
@@ -5581,8 +5580,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
   if(vtkPostMeshUnifierRunning) {
     vtkPost->show();
     
-    if(!vtkPost->readPostFile(postName))
-      vtkPost->readEpFileSlot();
+    // if(!vtkPost->readPostFile(postName)) vtkPost->readEpFileSlot();
     
     vtkPostMeshUnifierRunning = false;
     return;

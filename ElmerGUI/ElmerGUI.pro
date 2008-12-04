@@ -11,6 +11,7 @@ DEFINES += QWT       # Use QWT for convergence monitor?
 DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
 DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
+DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
 
 #------------------------------------------------------------------------------
 # Target:
@@ -52,7 +53,7 @@ CONFIG += uitools
 # NETGEN (see ./netgen/README for more details):
 #------------------------------------------------------------------------------
 unix {
-   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../..
+   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../.. ; 
 }
 
 win32 {
@@ -60,12 +61,33 @@ win32 {
 }
 
 macx {
-   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../..
+   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../.. ; 
 }
 
 INCLUDEPATH += ./netgen/libsrc/interface
 LIBPATH += ./netgen/ngcore
 LIBS += -lng
+
+#------------------------------------------------------------------------------
+# PYTHONQT (see ./PythonQt/README for more details):
+#------------------------------------------------------------------------------
+contains(DEFINES, PYTHONQT) {
+   unix {
+      QMAKE_PRE_LINK += cd PythonQt; qmake; make; cd .. ; 
+      INCLUDEPATH += /usr/include/python2.5
+      INCLUDEPATH += ./PythonQt/src
+      LIBPATH += ./PythonQt/lib
+      LIBS += -lPythonQt
+   }
+
+   win32 {
+      DEFINES -= PYTHONQT
+   }
+
+   macx {
+      DEFINES -= PYTHONQT
+   }
+}
 
 #------------------------------------------------------------------------------
 # QWT (you may need to edit this):

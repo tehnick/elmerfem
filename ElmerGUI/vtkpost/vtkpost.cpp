@@ -247,7 +247,7 @@ VtkPost::VtkPost(QWidget *parent)
   connect(this, SIGNAL(canProceedWithNextSignal(vtkRenderWindow*)), timeStep, SLOT(canProceedWithNextSlot(vtkRenderWindow*)));
 
   readEpFile = new ReadEpFile(this);
-  connect(readEpFile, SIGNAL(readPostFileSignal(QString)), this, SLOT(readPostFile(QString)));
+  connect(readEpFile, SIGNAL(readPostFileSignal(QString)), this, SLOT(ReadPostFile(QString)));
 
   axes = new Axes(this);
   featureEdge = new FeatureEdge(this);
@@ -309,6 +309,18 @@ VtkPost::VtkPost(QWidget *parent)
 
   SetClipPlaneOrigin(planeWidget->GetOrigin());
   SetClipPlaneNormal(planeWidget->GetNormal());
+
+  // Python bindings:
+  //-----------------
+#ifdef PYTHONQT
+  PythonQt::init(PythonQt::IgnoreSiteModule | PythonQt::RedirectStdOut);
+  mainContext = PythonQt::self()->getMainModule();
+  mainContext.addObject("egp", this);
+  console = new PythonQtScriptingConsole(NULL, mainContext);
+  console->setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+  console->setWindowTitle("ElmerGUI PythonQt");
+  console->resize(400, 300);
+#endif
 }
 
 VtkPost::~VtkPost()
@@ -448,6 +460,12 @@ void VtkPost::createActions()
   timeStepAct->setStatusTip("Time step control");
   connect(timeStepAct, SIGNAL(triggered()), this, SLOT(showTimeStepDialogSlot()));
 
+#ifdef PYTHONQT
+  showPythonQtConsoleAct = new QAction(QIcon(""), tr("PythonQt console..."), this);
+  showPythonQtConsoleAct->setStatusTip("Show/hide PythonQt console");
+  connect(showPythonQtConsoleAct, SIGNAL(triggered()), this, SLOT(showPythonQtConsoleSlot()));
+#endif
+
   // Help menu:
   //-----------
   showHelpAct = new QAction(QIcon(":/icons/help-about.png"), tr("Help..."), this);
@@ -477,6 +495,11 @@ void VtkPost::createMenus()
 #ifdef MATC
   editMenu->addSeparator();
   editMenu->addAction( matcAct );
+#endif
+
+#ifdef PYTHONQT
+  editMenu->addSeparator();
+  editMenu->addAction(showPythonQtConsoleAct);
 #endif
 
   // View menu:
@@ -531,6 +554,13 @@ void VtkPost::createToolbars()
 void VtkPost::createStatusBar()
 {
 }
+
+#ifdef PYTHONQT
+void VtkPost::showPythonQtConsoleSlot()
+{
+  console->show();
+}
+#endif
 
 #ifdef MATC
 void VtkPost::matcOpenSlot()
@@ -621,7 +651,7 @@ void VtkPost::reloadPostSlot()
 
   bool surfaceVisible = drawSurfaceAct->isChecked();
 
-  if(!readPostFile(postFileName))
+  if(!ReadPostFile(postFileName))
     cout << "Reloading results from current ep-file failed." << endl;
 
   drawSurfaceAct->setChecked(surfaceVisible);
@@ -642,7 +672,7 @@ void VtkPost::getPostLineStream(QTextStream* postStream)
 
 // Read in data:
 //----------------------------------------------------------------------
-bool VtkPost::readPostFile(QString postFileName)
+bool VtkPost::ReadPostFile(QString postFileName)
 {
   // Open the post file:
   //=====================
@@ -1662,10 +1692,45 @@ void VtkPost::SetClipPlaneOrigin(double* origin)
 void VtkPost::SetClipPlaneNormal(double* normal)
 {
   clipPlane->SetNormal(normal);
-
   preferences->ui.clipNormalX->setText(QString::number(normal[0]));
   preferences->ui.clipNormalY->setText(QString::number(normal[1]));
   preferences->ui.clipNormalZ->setText(QString::number(normal[2]));
+}
+
+void VtkPost::SetClipPlaneOx(double x)
+{
+  preferences->ui.clipPointX->setText(QString::number(x));
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneOy(double y)
+{
+  preferences->ui.clipPointY->setText(QString::number(y));
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneOz(double z)
+{
+  preferences->ui.clipPointZ->setText(QString::number(z));  
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneNx(double x)
+{
+  preferences->ui.clipNormalX->setText(QString::number(x));  
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneNy(double y)
+{
+  preferences->ui.clipNormalY->setText(QString::number(y));
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneNz(double z)
+{
+  preferences->ui.clipNormalZ->setText(QString::number(z));  
+  GetClipPlane();
 }
 
 bool VtkPost::GetClipAll()
@@ -1685,52 +1750,151 @@ vtkLookupTable* VtkPost::GetCurrentLut()
 
 QString VtkPost::GetCurrentSurfaceName()
 {
-  return currentSurfaceName;
+  return surface->ui.surfaceCombo->currentText();
 }
 
 QString VtkPost::GetCurrentVectorName()
 {
-  return currentVectorName;
+  return vector->ui.vectorCombo->currentText();
+}
+
+QString VtkPost::GetCurrentVectorColorName()
+{
+  return vector->ui.colorCombo->currentText();
 }
 
 QString VtkPost::GetCurrentIsoContourName()
 {
-  return currentIsoContourName;
+  return isoContour->ui.contoursCombo->currentText();
+}
+
+QString VtkPost::GetCurrentIsoContourColorName()
+{
+  return isoContour->ui.colorCombo->currentText();
 }
 
 QString VtkPost::GetCurrentIsoSurfaceName()
 {
-  return currentIsoSurfaceName;
+  return isoSurface->ui.contoursCombo->currentText();
+}
+
+QString VtkPost::GetCurrentIsoSurfaceColorName()
+{
+  return isoSurface->ui.colorCombo->currentText();
 }
 
 QString VtkPost::GetCurrentStreamLineName()
 {
-  return currentStreamLineName;
+  return streamLine->ui.vectorCombo->currentText();
 }
 
-void VtkPost::SetCurrentSurfaceName(QString name)
+QString VtkPost::GetCurrentStreamLineColorName()
 {
-  currentSurfaceName = name;
+  return streamLine->ui.colorCombo->currentText();
 }
 
-void VtkPost::SetCurrentVectorName(QString name)
+bool VtkPost::SetCurrentSurfaceName(QString name)
 {
-  currentVectorName = name;
+  for(int i = 0; i < surface->ui.surfaceCombo->count(); i++) {
+    if(surface->ui.surfaceCombo->itemText(i) == name) {
+      surface->ui.surfaceCombo->setCurrentIndex(i);
+      currentSurfaceName = name;
+      return true;
+    }
+  }
+  return false;
 }
 
-void VtkPost::SetCurrentIsoContourName(QString name)
+bool VtkPost::SetCurrentVectorName(QString name)
 {
-  currentIsoContourName = name;
+  for(int i = 0; i < vector->ui.vectorCombo->count(); i++) {
+    if(vector->ui.vectorCombo->itemText(i) == name) {
+      vector->ui.vectorCombo->setCurrentIndex(i);
+      currentVectorName = name;
+      return true;
+    }
+  }
+  return false;
 }
 
-void VtkPost::SetCurrentIsoSurfaceName(QString name)
+bool VtkPost::SetCurrentVectorColorName(QString name)
 {
-  currentIsoSurfaceName = name;
+  for(int i = 0; i < vector->ui.colorCombo->count(); i++) {
+    if(vector->ui.colorCombo->itemText(i) == name) {
+      vector->ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
 }
 
-void VtkPost::SetCurrentStreamLineName(QString name)
+bool VtkPost::SetCurrentIsoContourName(QString name)
 {
-  currentStreamLineName = name;
+  for(int i = 0; i < isoContour->ui.contoursCombo->count(); i++) {
+    if(isoContour->ui.contoursCombo->itemText(i) == name) {
+      isoContour->ui.contoursCombo->setCurrentIndex(i);
+      currentIsoContourName = name;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool VtkPost::SetCurrentIsoContourColorName(QString name)
+{
+  for(int i = 0; i < isoContour->ui.colorCombo->count(); i++) {
+    if(isoContour->ui.colorCombo->itemText(i) == name) {
+      isoContour->ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool VtkPost::SetCurrentIsoSurfaceName(QString name)
+{
+  for(int i = 0; i < isoSurface->ui.contoursCombo->count(); i++) {
+    if(isoSurface->ui.contoursCombo->itemText(i) == name) {
+      isoSurface->ui.contoursCombo->setCurrentIndex(i);
+      currentIsoSurfaceName = name;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool VtkPost::SetCurrentIsoSurfaceColorName(QString name)
+{
+  for(int i = 0; i < isoSurface->ui.colorCombo->count(); i++) {
+    if(isoSurface->ui.colorCombo->itemText(i) == name) {
+      isoSurface->ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool VtkPost::SetCurrentStreamLineName(QString name)
+{
+  for(int i = 0; i < streamLine->ui.vectorCombo->count(); i++) {
+    if(streamLine->ui.vectorCombo->itemText(i) == name) {
+      streamLine->ui.vectorCombo->setCurrentIndex(i);
+      currentStreamLineName = name;
+      return true;
+    }
+  }
+  return false;
+}
+
+bool VtkPost::SetCurrentStreamLineColorName(QString name)
+{
+  for(int i = 0; i < streamLine->ui.colorCombo->count(); i++) {
+    if(streamLine->ui.colorCombo->itemText(i) == name) {
+      streamLine->ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
 }
 
 int VtkPost::GetScalarFields()
@@ -1792,4 +1956,91 @@ void VtkPost::showHelpSlot()
                         "Press 'i' to show/hide the interactive plane widget\n"
 			"Press 'w' to show the results in wireframe mode\n"
 			"Press 's' to show the results in surface mode"));
+}
+
+void VtkPost::SetSurfaces(bool b)
+{
+  drawSurfaceAct->setChecked(b);
+  drawSurfaceSlot();
+}
+
+void VtkPost::SetVectors(bool b)
+{
+  drawVectorAct->setChecked(b);
+  drawVectorSlot();
+}
+
+void VtkPost::SetIsoContours(bool b)
+{
+  drawIsoContourAct->setChecked(b);
+  drawIsoContourSlot();
+}
+
+void VtkPost::SetIsoSurfaces(bool b)
+{
+  drawIsoSurfaceAct->setChecked(b);
+  drawIsoSurfaceSlot();
+}
+
+void VtkPost::SetStreamLines(bool b)
+{
+  drawStreamLineAct->setChecked(b);
+  drawStreamLineSlot();
+}
+
+void VtkPost::SetColorBar(bool b)
+{
+  drawColorBarAct->setChecked(b);
+  drawColorBarSlot();
+}
+
+void VtkPost::SetMeshPoints(bool b)
+{
+  drawMeshPointAct->setChecked(b);
+  drawMeshPointSlot();
+}
+
+void VtkPost::SetMeshEdges(bool b)
+{
+  drawMeshEdgeAct->setChecked(b);
+  drawMeshEdgeSlot();
+}
+
+void VtkPost::SetFeatureEdges(bool b)
+{
+  drawFeatureEdgesAct->setChecked(b);
+  drawFeatureEdgesSlot();
+}
+
+void VtkPost::SetAxes(bool b)
+{
+  drawAxesAct->setChecked(b);
+  drawAxesSlot();
+  qvtkWidget->GetRenderWindow()->Render();
+}
+
+void VtkPost::SetPostFileStart(int n)
+{
+  readEpFile->ui.start->setValue(n);
+}
+
+void VtkPost::SetPostFileEnd(int n)
+{
+  readEpFile->ui.end->setValue(n);
+}
+
+void VtkPost::Redraw()
+{
+  this->redrawSlot();
+}
+
+void VtkPost::SetFeatureAngle(int angle)
+{
+  preferences->ui.angleSpin->setValue(angle);
+  this->drawFeatureEdgesSlot();
+}
+
+void VtkPost::Render()
+{
+  qvtkWidget->GetRenderWindow()->Render();
 }

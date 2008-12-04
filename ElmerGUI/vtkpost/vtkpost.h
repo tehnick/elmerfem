@@ -47,6 +47,11 @@
 #include <QHash>
 #include <QTextStream>
 
+#ifdef PYTHONQT
+#include <PythonQt.h>
+#include <gui/PythonQtScriptingConsole.h>
+#endif
+
 class EpMesh;
 class ScalarField;
 class QVTKWidget;
@@ -104,48 +109,33 @@ public:
   vtkActor* GetPickedPointActor();
   vtkActor* GetMeshPointActor();
   vtkActor* GetMeshEdgeActor();
-  double GetLength();
-  void GetBounds(double*);
   vtkUnstructuredGrid* GetLineGrid();
   vtkUnstructuredGrid* GetSurfaceGrid();
   vtkUnstructuredGrid* GetVolumeGrid();
   vtkPlane* GetClipPlane();
-  void SetClipPlaneOrigin(double*);
-  void SetClipPlaneNormal(double*);
   vtkImplicitPlaneWidget* GetPlaneWidget();
   vtkLookupTable* GetCurrentLut();
-  int NofNodes();
-  QString GetCurrentSurfaceName();
-  QString GetCurrentVectorName();
-  QString GetCurrentIsoContourName();
-  QString GetCurrentIsoSurfaceName();
-  QString GetCurrentStreamLineName();
-  void SetCurrentSurfaceName(QString);
-  void SetCurrentVectorName(QString);
-  void SetCurrentIsoContourName(QString);
-  void SetCurrentIsoSurfaceName(QString);
-  void SetCurrentStreamLineName(QString);
-  int GetScalarFields();
-  void SetScalarFields(int);
   ScalarField* GetScalarField();
   EpMesh* GetEpMesh();
-  double* GetCurrentPickPosition();
-  void SetCurrentPickPosition(double*);
   Preferences* GetPreferences();
-  bool GetClipAll();
-  void SetClipAll(bool);
 
   void minMax(ScalarField *);
 
   ScalarField* addScalarField(QString, int, double *);
 
+  void SetClipPlaneOrigin(double*);
+  void SetClipPlaneNormal(double*);
+  void GetBounds(double*);
+  double* GetCurrentPickPosition();
+  void SetCurrentPickPosition(double*);
+  int GetScalarFields();
+  void SetScalarFields(int);
+
 signals:
   void canProceedWithNextSignal(vtkRenderWindow*);
 
 public slots:
-  bool readPostFile(QString);
   void redrawSlot();
-  void readEpFileSlot();
 
 #ifdef MATC
   void domatcSlot();
@@ -153,8 +143,55 @@ public slots:
   void matcCutPasteSlot();
 #endif
 
+  // These functions have been defined "public slots" for PythonQt
+  void SetPostFileStart(int);
+  void SetPostFileEnd(int);
+  bool ReadPostFile(QString);
+  void SetSurfaces(bool);
+  void SetVectors(bool);
+  void SetIsoContours(bool);
+  void SetIsoSurfaces(bool);
+  void SetStreamLines(bool);
+  void SetColorBar(bool);
+  void SetMeshPoints(bool);
+  void SetMeshEdges(bool);
+  void SetFeatureEdges(bool);
+  void SetAxes(bool);
+  QString GetCurrentSurfaceName();
+  QString GetCurrentVectorName();
+  QString GetCurrentIsoContourName();
+  QString GetCurrentIsoSurfaceName();
+  QString GetCurrentStreamLineName();
+  QString GetCurrentVectorColorName();
+  QString GetCurrentIsoContourColorName();
+  QString GetCurrentIsoSurfaceColorName();
+  QString GetCurrentStreamLineColorName();
+  bool SetCurrentSurfaceName(QString);
+  bool SetCurrentVectorName(QString);
+  bool SetCurrentIsoContourName(QString);
+  bool SetCurrentIsoSurfaceName(QString);
+  bool SetCurrentStreamLineName(QString);
+  bool SetCurrentVectorColorName(QString);
+  bool SetCurrentIsoContourColorName(QString);
+  bool SetCurrentIsoSurfaceColorName(QString);
+  bool SetCurrentStreamLineColorName(QString);
+  bool GetClipAll();
+  void SetClipAll(bool);
+  double GetLength();
+  int NofNodes();
+  void Redraw();
+  void SetFeatureAngle(int);
+  void SetClipPlaneOx(double);
+  void SetClipPlaneOy(double);
+  void SetClipPlaneOz(double);
+  void SetClipPlaneNx(double);
+  void SetClipPlaneNy(double);
+  void SetClipPlaneNz(double);
+  void Render();
+
 private slots:
   void exitSlot();
+  void readEpFileSlot();
   void showSurfaceDialogSlot();
   void showVectorDialogSlot();
   void showIsoContourDialogSlot();
@@ -195,6 +232,10 @@ private slots:
   void reloadPostSlot();
 
   void showHelpSlot();
+
+#ifdef PYTHONQT
+  void showPythonQtConsoleSlot();
+#endif
 
 private:
   QMenu *fileMenu;
@@ -294,6 +335,12 @@ private:
   // Post file input:
   QString postLine;
   QTextStream postLineStream;
+
+#ifdef PYTHONQT
+  QAction *showPythonQtConsoleAct;
+  PythonQtObjectPtr mainContext;
+  PythonQtScriptingConsole *console;
+#endif  
 };
 
 #endif // VTKPOST_H
