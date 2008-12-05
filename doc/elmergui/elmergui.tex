@@ -502,13 +502,285 @@ The solver will finally write a result file for ElmerPost in the project directo
 The name of the ep-file is defined in
 \menu{Model}{Setup...}
 
-\subsection{Post preocessor}
+\subsection{Post preocessing I (ElmerPost)}
 
-The post processor is activated from
+ElmerGUI provides two different post processors for drawing and displaying results.
+
+The first alternative is activated from
 \menu{Run}{Start postprocessor}
 \noindent This will launch ElmerPost, which will read in the results and displays
-a contour plot representing the solution. If the results were prodoced by the parallel solver, the domain decomposition used in the calculations will be shown.
+a contour plot representing the solution. If the results were prodoced by the parallel
+solver, the domain decomposition used in the calculations will be shown.
 
+\subsection{Post preocessing II (VTK)}
+
+The second post processor is based on the Visualization Toolkit, VTK. It is activated from
+\menu{Run}{Postprocessor (VTK)...}
+\noindent A new window will then pop up, providing methods for drawing surfaces, contours,
+vectors, and stream lines.
+
+\subsubsection{Python interface}
+
+If ElmerGUI has been compiled with PyhthonQt-support, there is a Python console
+available for scripting. The console is located under the Edit-menu:
+\menu{Edit}{PythonQt console...}
+\noindent The console provides access to the ``public slots'' of the following C++ classes:
+\begin{footnotesize}
+\begin{verbatim}
+egp             // elmergui post processor
+matc            // matc language interpreter
+preferences     // controls for preferences
+surfaces        // controls for surface plots
+vectors	        // controls for vector fields
+isoContours     // controls for iso contours
+isoSurfaces     // controls for iso surfaces
+streamLines     // controls for stream lines
+colorBar        // cotrols for the color bar
+timeStep        // controls for transient results
+\end{verbatim}
+\end{footnotesize}
+Each of these classes provides a number of useful methods for data and display
+manipulation. To fix ideas, the following sequence of commands will read in the
+result file and draws the ``Temperature'' field as a surface plot. More examples
+can be found in section N.N.
+\begin{footnotesize}
+\begin{verbatim}
+py> egp.ReadPostFile("case.ep")
+py> egp.SetSurfaces(1)
+py> surfaces.SetFieldName("Temperature")
+py> egp.Render()
+\end{verbatim}
+\end{footnotesize}
+The methods are the following (not in order):
+\begin{footnotesize}
+\begin{verbatim}
+egp:
+  void SetPostFileStart(int);                  // start time
+  void SetPostFileEnd(int);                    // end time
+  bool ReadPostFile(QString);                  // read post file
+  void Redraw();                               // regenarate all actors
+  void Render();                               // update display
+  void SetSurfaces(bool);                      // surface plot mode
+  void SetVectors(bool);                       // vector plot mode
+  void SetIsoContours(bool);                   // iso contour mode
+  void SetIsoSurfaces(bool);                   // iso surface mode
+  void SetStreamLines(bool);                   // stream line mode
+  void SetColorBar(bool);                      // show/hide colorbar
+  void SetMeshPoints(bool);                    // show/hide nodes
+  void SetMeshEdges(bool);                     // show/hide edges
+  void SetFeatureEdges(bool);                  // show/hide feature edges
+  void SetAxes(bool);                          // show/hide coord. axes
+  bool GetClipAll();                           // clipping on?
+  void SetClipAll(bool);                       // set clippping mode
+  void SetClipPlaneOx(double);                 // clip plane origin
+  void SetClipPlaneOy(double);                 // clip plane origin
+  void SetClipPlaneOz(double);                 // clip plane origin
+  void SetClipPlaneNx(double);                 // clip plane normal
+  void SetClipPlaneNy(double);                 // clip plane normal
+  void SetClipPlaneNz(double);                 // clip plane normal
+  double GetCameraDistance();                  // get camera distance
+  void SetCameraDistance(double);              // set camera distance
+  double GetCameraPositionX();                 // get camera position
+  double GetCameraPositionY();                 // get camera position
+  double GetCameraPositionZ();                 // get camera position
+  void SetCameraPositionX(double);             // set camera position
+  void SetCameraPositionY(double);             // set camera position
+  void SetCameraPositionZ(double);             // set camera position
+  double GetCameraFocalPointX();               // get focal point
+  double GetCameraFocalPointY();               // get focal point
+  double GetCameraFocalPointZ();               // get focal point
+  void SetCameraFocalPointX(double);           // set focal point
+  void SetCameraFocalPointY(double);           // set focal point
+  void SetCameraFocalPointZ(double);           // set focal point
+  void CameraDolly(double);                    // camera dolly
+  void CameraRoll(double);                     // camera roll
+  void CameraAzimuth(double);                  // camera azimuth
+  void CameraYaw(double);                      // camera yaw
+  void CameraElevation(double);                // camera elevation
+  void CameraPitch(double);                    // camera pitch
+  void CameraZoom(double);                     // camera zoom
+  void SetInitialCameraPosition();             // reset camera position
+  double GetLength();                          // get model length
+  int NofNodes();                              // get number of nodes
+  bool MatcCmd(QString);                       // evaluate matc command
+  void domatcSlot();                           // flush matc console
+  bool SavePngFile(QString);                   // save png image
+  void RotateX(double);                        // rotate model
+  void RotateY(double);                        // rotate model
+  void RotateZ(double);                        // rotate model
+  void SetOrientation(double, double, double); // set orientation
+  void SetPositionX(double);                   // set position
+  void SetPositionY(double);                   // set position
+  void SetPositionZ(double);                   // set position
+  void SetPosition(double, double, double);    // set position (abs)
+  void AddPosition(double, double, double);    // set position (inc)
+  void SetOrigin(double, double, double);      // set origin
+  void SetScaleX(double);                      // set display scale
+  void SetScaleY(double);                      // set display scale
+  void SetScaleZ(double);                      // set display scale
+  void SetScale(double, double, double);       // set scale
+  void Reset();                                // reset display
+
+matc:
+  bool SetCommand(QString);                    // set command
+
+preferences:
+  void SetSurfaceMeshForPoints(bool);          // draw nodes on surface
+  void SetVolumeMeshForPoints(bool);           // draw nodes in volume
+  void SetPointSize(int);                      // node size
+  void SetPointQuality(int);                   // node quality
+  void SetClipPlaneForPoints(bool);            // clip nodes
+  void SetSurfaceMeshForEdges(bool);           // draw edges on surface
+  void SetVolumeMeshForEdges(bool);            // draw edges in volume
+  void SetTubeFilterForEdges(bool);            // draw edges as tubes
+  void SetClipPlaneForEdges(bool);             // clip edges
+  void SetLineWidthForEdges(int);              // edge line width
+  void SetTubeQualityForEdges(int);            // edge tube quality
+  void SetTubeRadiusForEdges(int);             // edge tube radius
+  void SetSurfaceMeshForFeatureEdges(bool);    // feature edges for surf
+  void SetVolumeMeshForFeatureEdges(bool);     // feature edges for vol
+  void SetTubeFilterForFeatureEdges(bool);     // feature edges as tubes
+  void SetClipPlaneForFeatureEdges(bool);      // clip feature edges
+  void SetDrawBoundaryEdges(bool);             // boundary edges
+  int GetFeatureAngle();                       // get feature angle
+  void SetFeatureAngle(int);                   // set feature angle
+  void SetLineWidthForFeatureEdges(int);       // feature line with
+  void SetTubeQualityForFeatureEdges(int);     // feature tube quality
+  void SetTubeRadiusForFeatureEdges(int);      // feature tube radius
+  void SetClipPlaneOx(double);                 // clip plane origin
+  void SetClipPlaneOy(double);                 // clip plane origin
+  void SetClipPlaneOz(double);                 // clip plane origin
+  void SetClipPlaneNx(double);                 // clip plane normal
+  void SetClipPlaneNy(double);                 // clip plane normal
+  void SetClipPlaneNz(double);                 // clip plane normal
+
+surfaces:
+  QString GetFieldName();                      // get field name
+  bool SetFieldName(QString);                  // set field name
+  void SetMinVal(double);                      // minimum
+  void SetMaxVal(double);                      // maximum
+  void SetKeepLimits(bool);                    // keep limits
+  void SetComputeNormals(bool);                // shade model
+  void SetFeatureAngle(int);                   // set feature angle
+  void SetOpacity(int);                        // set opacity
+  void SetClipPlane(bool);                     // set clipping
+
+vectors:
+  QString GetFieldName();                      // get field name
+  QString GetColorName();                      // get color name
+  QString GetThresholdName();                  // get threshold name
+  bool SetFieldName(QString);                  // set field name
+  bool SetColorName(QString);                  // set color name
+  bool SetThresholdName(QString);              // set threshold name
+  void SetLength(int);                         // set arrow length
+  void SetQuality(int);                        // set arrow quality
+  void SetEveryNth(int);                       // reduce arrows
+  void SetClipPlane(bool);                     // set clipping
+  void SetComputeNormals(bool);                // smooth arrows
+  void SetRandomMode(bool);                    // reduce randomly
+  void SetScaleByMagnitude(bool);              // scaling
+  void SetMinColorVal(double);                 // color min
+  void SetMaxColorVal(double);                 // color max
+  void SetKeepColorLimits(bool);               // keep color limits
+  void SetMinThresholdVal(double);             // treshold min
+  void SetMaxThresholdVal(double);             // threshold max
+  void SetUseThreshold(bool);                  // use threshold
+  void SetKeepThresholdLimits(bool);           // keep threshold limits
+
+isoContours:
+  QString GetFieldName();                      // get field name
+  QString GetColorName();                      // get color field name
+  bool SetFieldName(QString);                  // set field name
+  bool SetColorName(QString);                  // set color field name
+  void SetMinFieldVal(double);                 // minimum
+  void SetMaxFieldVal(double);                 // maximum
+  void SetContours(int);                       // number of contours
+  void SetKeepFieldLimits(bool);               // keep limits
+  void SetMinColorVal(double);                 // color min
+  void SetMaxColorVal(double);                 // color max
+  void SetKeepColorLimits(bool);               // keep color limits
+  void SetUseTubeFilter(bool);                 // draw with tubes
+  void SetUseClipPlane(bool);                  // clip
+  void SetLineWidth(int);                      // line width
+  void SetTubeQuality(int);                    // tube quality
+  void SetTubeRadius(int);                     // tube radius
+
+isoSurfaces:
+  QString GetFieldName();                      // get field name
+  QString GetColorName();                      // get color name
+  bool SetFieldName(QString);                  // set field name
+  bool SetColorName(QString);                  // set color name
+  void SetMinFieldVal(double);                 // minimum
+  void SetMaxFieldVal(double);                 // maximum
+  void SetContours(int);                       // number of contours
+  void SetKeepFieldLimits(bool);               // keep limits
+  void SetMinColorVal(double);                 // color min
+  void SetMaxColorVal(double);                 // color max
+  void SetKeepColorLimits(bool);               // keep color limits
+  void SetComputeNormals(bool);                // shade model
+  void SetUseClipPlane(bool);                  // clip
+  void SetFeatureAngle(int);                   // set feature angle
+  void SetOpacity(int);                        // set opacity
+
+streamLines:
+  QString GetFieldName();                      // get field name
+  QString GetColorName();                      // get color field name
+  bool SetFieldName(QString);                  // set field name
+  bool SetColorName(QString);                  // set color field name
+  void SetMaxTime(double);                     // max time
+  void SetStepLength(double);                  // time step length
+  void SetThreads(int);                        // number of threads
+  void SetIntegStepLength(double);             // integ. step length
+  void SetUseSurfaceMesh(bool);                // use surface mesh
+  void SetUseVolumeMesh(bool);                 // use volume mesh
+  void SetIntegrateForwards(bool);             // integrate forwards
+  void SetIntegrateBackwards(bool);            // integrate backwards
+  void SetMinColorVal(double);                 // color minimum
+  void SetMaxColorVal(double);                 // color maximum
+  void SetKeepColorLimits(bool);               // keep color limits
+  void SetDrawLines(bool);                     // draw lines
+  void SetDrawRibbons(bool);                   // draw ribbons
+  void SetLineWidth(int);                      // line width
+  void SetRibbonWidth(int);                    // ribbon width
+  void SetSphereSource(bool);                  // sphere source
+  void SetLineSource(bool);                    // line source
+  void SetPointSource(bool);                   // point source
+  void SetSphereSourceX(double);               // sphere origin
+  void SetSphereSourceY(double);               // sphere origin
+  void SetSphereSourceZ(double);               // sphere origin
+  void SetSphereSourceRadius(double);          // sphere radius
+  void SetSphereSourcePoints(int);             // nof points in sphere
+  void SetLineSourceStartX(double);            // line start
+  void SetLineSourceStartY(double);            // line start
+  void SetLineSourceStartZ(double);            // line start
+  void SetLineSourceEndX(double);              // line end
+  void SetLineSourceEndY(double);              // line end
+  void SetLineSourceEndZ(double);              // line end
+  void SetLineSourcePoints(int);               // nof point on line
+
+colorBar:
+  bool SetFieldName(QString);                  // set field name
+  void SetLayoutHorizontal(bool);              // draw horizontal
+  void SetLayoutVertical(bool);                // draw vertical
+  void SetAnnotateFieldName(bool);             // draw field name
+  void SetLabels(int);                         // nof labels
+  void SetLineWidth(double);                   // line width
+  void SetLength(double);                      // set length
+
+timeStep:
+  void SetCurrent(int);                        // current time step
+  void SetStart(int);                          // first step
+  void SetStop(int);                           // last step
+  void SetIncrement(int);                      // increment
+  void SetMatcCmd(QString);                    // matc cmd
+  void SetRegenerateBeforeDrawing(bool);       // regenerate actors
+  void SetSaveFrames(bool);                    // save picture files
+  void SetSaveDirectory(QString);              // set directory
+  void Loop();                                 // start/stop loop
+  bool IsLooping();                            // is looping?
+  void DrawCurrent();                          // draw current frame
+\end{verbatim}
+\end{footnotesize}
 
 \bibliographystyle{plain}
 \bibliography{elmergui}
