@@ -223,6 +223,13 @@ void Matc::curl(VtkPost* vtkPost, double *in, double *out)
   s->Delete(); 
 }
 
+bool Matc::SetCommand(QString cmd)
+{
+  ui.mcEdit->setText(cmd);
+  return true;
+}
+
+
 void Matc::domatc(VtkPost* vtkPost)
 {
   int scalarFields = vtkPost->GetScalarFields();

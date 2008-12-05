@@ -316,6 +316,9 @@ VtkPost::VtkPost(QWidget *parent)
   PythonQt::init(PythonQt::IgnoreSiteModule | PythonQt::RedirectStdOut);
   mainContext = PythonQt::self()->getMainModule();
   mainContext.addObject("egp", this);
+#ifdef MATC
+  mainContext.addObject("matc", matc);
+#endif
   mainContext.addObject("surfaces", surface);
   mainContext.addObject("vectors", vector);
   mainContext.addObject("isoContours", isoContour);

@@ -72,6 +72,9 @@ public:
 
   void domatc(VtkPost*);
 
+public slots:
+  bool SetCommand(QString);
+
 private slots:
   void okButtonClicked();
 
