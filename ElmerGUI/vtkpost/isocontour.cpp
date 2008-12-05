@@ -96,38 +96,6 @@ void IsoContour::okButtonClicked()
   close();
 }
 
-QString IsoContour::GetFieldName()
-{
-  return ui.contoursCombo->currentText();
-}
-
-QString IsoContour::GetColorName()
-{
-  return ui.colorCombo->currentText();
-}
-
-bool IsoContour::SetFieldName(QString name)
-{
-  for(int i = 0; i < ui.contoursCombo->count(); i++) {
-    if(ui.contoursCombo->itemText(i) == name) {
-      ui.contoursCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
-}
-
-bool IsoContour::SetColorName(QString name)
-{
-  for(int i = 0; i < ui.colorCombo->count(); i++) {
-    if(ui.colorCombo->itemText(i) == name) {
-      ui.colorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
-}
-
 void IsoContour::populateWidgets(VtkPost* vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -303,4 +271,99 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   iso->Delete();
   colorArray->Delete();
   contourArray->Delete();
+}
+
+
+// Public slots:
+//---------------
+QString IsoContour::GetFieldName()
+{
+  return ui.contoursCombo->currentText();
+}
+
+QString IsoContour::GetColorName()
+{
+  return ui.colorCombo->currentText();
+}
+
+bool IsoContour::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.contoursCombo->count(); i++) {
+    if(ui.contoursCombo->itemText(i) == name) {
+      ui.contoursCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsoContour::SetColorName(QString name)
+{
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == name) {
+      ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+void IsoContour::SetMinFieldVal(double f)
+{
+  ui.contoursMinEdit->setText(QString::number(f));
+}
+
+void IsoContour::SetMaxFieldVal(double f)
+{
+  ui.contoursMaxEdit->setText(QString::number(f));
+}
+
+void IsoContour::SetContours(int n)
+{
+  ui.contoursSpin->setValue(n);
+}
+
+void IsoContour::SetKeepFieldLimits(bool b)
+{
+  ui.keepContourLimits->setChecked(b);
+}
+
+void IsoContour::SetMinColorVal(double f)
+{
+  ui.colorMinEdit->setText(QString::number(f));
+}
+
+void IsoContour::SetMaxColorVal(double f)
+{
+  ui.colorMaxEdit->setText(QString::number(f));
+}
+
+void IsoContour::SetKeepColorLimits(bool b)
+{
+  ui.keepColorLimits->setChecked(b);
+}
+
+void IsoContour::SetUseTubeFilter(bool b)
+{
+  ui.useTubeFilter->setChecked(b);
+}
+
+void IsoContour::SetUseClipPlane(bool b)
+{
+  ui.useClip->setChecked(b);
+}
+
+void IsoContour::SetLineWidth(int n)
+{
+  ui.lineWidthSpin->setValue(n);
+}
+
+void IsoContour::SetTubeQuality(int n)
+{
+  ui.tubeQuality->setValue(n);
+}
+
+void IsoContour::SetTubeRadius(int n)
+{
+  ui.tubeRadius->setValue(n);
 }

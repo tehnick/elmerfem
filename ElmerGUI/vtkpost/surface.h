@@ -68,6 +68,13 @@ signals:
 public slots:
   QString GetFieldName();
   bool SetFieldName(QString);
+  void SetMinVal(double);
+  void SetMaxVal(double);
+  void SetKeepLimits(bool);
+  void SetComputeNormals(bool);
+  void SetFeatureAngle(int);
+  void SetOpacity(int);
+  void SetClipPlane(bool);
 
 private slots:
   void cancelButtonClicked();

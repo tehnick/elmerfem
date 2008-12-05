@@ -70,6 +70,18 @@ public slots:
   QString GetColorName();
   bool SetFieldName(QString);
   bool SetColorName(QString);
+  void SetMinFieldVal(double);
+  void SetMaxFieldVal(double);
+  void SetContours(int);
+  void SetKeepFieldLimits(bool);
+  void SetMinColorVal(double);
+  void SetMaxColorVal(double);
+  void SetKeepColorLimits(bool);
+  void SetUseTubeFilter(bool);
+  void SetUseClipPlane(bool);
+  void SetLineWidth(int);
+  void SetTubeQuality(int);
+  void SetTubeRadius(int);
 
 private slots:
   void cancelButtonClicked();

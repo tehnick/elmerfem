@@ -64,8 +64,24 @@ public:
 public slots:
   QString GetFieldName();
   QString GetColorName();
+  QString GetThresholdName();
   bool SetFieldName(QString);
   bool SetColorName(QString);
+  bool SetThresholdName(QString);
+  void SetLength(int);
+  void SetQuality(int);
+  void SetEveryNth(int);
+  void SetClipPlane(bool);
+  void SetComputeNormals(bool);
+  void SetRandomMode(bool);
+  void SetScaleByMagnitude(bool);
+  void SetMinColorVal(double);
+  void SetMaxColorVal(double);
+  void SetKeepColorLimits(bool);
+  void SetMinThresholdVal(double);
+  void SetMaxThresholdVal(double);
+  void SetUseThreshold(bool);
+  void SetKeepThresholdLimits(bool);
 
 signals:
   void drawVectorSignal();

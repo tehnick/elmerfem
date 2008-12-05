@@ -94,23 +94,6 @@ void Surface::okButtonClicked()
   close();
 }
 
-
-QString Surface::GetFieldName()
-{
-  return ui.surfaceCombo->currentText();
-}
-
-bool Surface::SetFieldName(QString name)
-{
-  for(int i = 0; i < ui.surfaceCombo->count(); i++) {
-    if(ui.surfaceCombo->itemText(i) == name) {
-      ui.surfaceCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
-}
-
 void Surface::populateWidgets(VtkPost* vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -242,4 +225,57 @@ void Surface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   clipper->Delete();
   filter->Delete();
   scalars->Delete();
+}
+
+// Public slots:
+//---------------
+QString Surface::GetFieldName()
+{
+  return ui.surfaceCombo->currentText();
+}
+
+bool Surface::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.surfaceCombo->count(); i++) {
+    if(ui.surfaceCombo->itemText(i) == name) {
+      ui.surfaceCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+void Surface::SetMinVal(double f)
+{
+  ui.minEdit->setText(QString::number(f));
+}
+
+void Surface::SetMaxVal(double f)
+{
+  ui.maxEdit->setText(QString::number(f));
+}
+
+void Surface::SetKeepLimits(bool b)
+{
+  ui.keepLimits->setChecked(b);
+}
+
+void Surface::SetComputeNormals(bool b)
+{
+  ui.useNormals->setChecked(b);
+}
+
+void Surface::SetFeatureAngle(int n)
+{
+  ui.featureAngle->setValue(n);
+}
+
+void Surface::SetOpacity(int n)
+{
+  ui.opacitySpin->setValue(n);
+}
+
+void Surface::SetClipPlane(bool b)
+{
+  ui.clipPlane->setChecked(b);
 }

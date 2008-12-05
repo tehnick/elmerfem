@@ -97,38 +97,6 @@ void Vector::okButtonClicked()
   close();
 }
 
-QString Vector::GetFieldName()
-{
-  return ui.vectorCombo->currentText();
-}
-
-QString Vector::GetColorName()
-{
-  return ui.colorCombo->currentText();
-}
-
-bool Vector::SetFieldName(QString name)
-{
-  for(int i = 0; i < ui.vectorCombo->count(); i++) {
-    if(ui.vectorCombo->itemText(i) == name) {
-      ui.vectorCombo->setCurrentIndex(i); 
-      return true;
-    }
-  }
-  return false;
-}
-
-bool Vector::SetColorName(QString name)
-{
-  for(int i = 0; i < ui.colorCombo->count(); i++) {
-    if(ui.colorCombo->itemText(i) == name) {
-      ui.colorCombo->setCurrentIndex(i); 
-      return true;
-    }
-  }
-  return false;
-}
-
 void Vector::populateWidgets(VtkPost *vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -173,10 +141,7 @@ void Vector::populateWidgets(VtkPost *vtkPost)
     ui.thresholdCombo->addItem(sf->name);
   }
 
-  for(int i = 0; i < ui.thresholdCombo->count(); i++) {
-    if(ui.thresholdCombo->itemText(i) == name)
-      ui.thresholdCombo->setCurrentIndex(i);
-  }
+  this->SetThresholdName(name);
 
   thresholdSelectionChanged(ui.thresholdCombo->currentIndex());
 }
@@ -400,3 +365,124 @@ void Vector::draw(VtkPost* vtkPost, TimeStep* timeStep)
   vectorColor->Delete();
   vectorData->Delete();
 }
+
+// Public slots:
+//---------------
+QString Vector::GetFieldName()
+{
+  return ui.vectorCombo->currentText();
+}
+
+QString Vector::GetColorName()
+{
+  return ui.colorCombo->currentText();
+}
+
+QString Vector::GetThresholdName()
+{
+  return ui.thresholdCombo->currentText();
+}
+
+bool Vector::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.vectorCombo->count(); i++) {
+    if(ui.vectorCombo->itemText(i) == name) {
+      ui.vectorCombo->setCurrentIndex(i); 
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Vector::SetColorName(QString name)
+{
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == name) {
+      ui.colorCombo->setCurrentIndex(i); 
+      return true;
+    }
+  }
+  return false;
+}
+
+bool Vector::SetThresholdName(QString name)
+{
+  for(int i = 0; i < ui.thresholdCombo->count(); i++) {
+    if(ui.thresholdCombo->itemText(i) == name) {
+      ui.thresholdCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+void Vector::SetLength(int n)
+{
+  ui.scaleSpin->setValue(n);
+}
+
+void Vector::SetQuality(int n)
+{
+  ui.qualitySpin->setValue(n);
+}
+
+void Vector::SetEveryNth(int n)
+{
+  ui.everyNth->setValue(n);
+}
+
+void Vector::SetClipPlane(bool b)
+{
+  ui.useClip->setChecked(b);
+}
+
+void Vector::SetComputeNormals(bool b)
+{
+  ui.useNormals->setChecked(b);
+}
+
+void Vector::SetRandomMode(bool b)
+{
+  ui.randomMode->setChecked(b);
+}
+
+void Vector::SetScaleByMagnitude(bool b)
+{
+  ui.scaleByMagnitude->setChecked(b);
+}
+
+void Vector::SetMinColorVal(double f)
+{
+  ui.minVal->setText(QString::number(f));
+}
+
+void Vector::SetMaxColorVal(double f)
+{
+  ui.maxVal->setText(QString::number(f));
+}
+
+void Vector::SetKeepColorLimits(bool b)
+{
+  ui.keepLimits->setChecked(b);
+}
+
+void Vector::SetMinThresholdVal(double f)
+{
+  ui.thresholdMin->setText(QString::number(f));
+}
+
+void Vector::SetMaxThresholdVal(double f)
+{
+  ui.thresholdMax->setText(QString::number(f));
+}
+
+void Vector::SetUseThreshold(bool b)
+{
+  ui.useThreshold->setChecked(b);
+}
+
+void Vector::SetKeepThresholdLimits(bool b)
+{
+  ui.keepThresholdLimits->setChecked(b);
+}
+
