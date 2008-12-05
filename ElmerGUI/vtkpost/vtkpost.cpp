@@ -2081,37 +2081,37 @@ void VtkPost::SetCameraFocalPointZ(double f)
   renderer->GetActiveCamera()->SetFocalPoint(x, y, f);
 }
 
-void VtkPost::SetCameraDolly(double f)
+void VtkPost::CameraDolly(double f)
 {
   renderer->GetActiveCamera()->Dolly(f);
 }
 
-void VtkPost::SetCameraRoll(double f)
+void VtkPost::CameraRoll(double f)
 {
   renderer->GetActiveCamera()->Roll(f);
 }
 
-void VtkPost::SetCameraAzimuth(double f)
+void VtkPost::CameraAzimuth(double f)
 {
   renderer->GetActiveCamera()->Azimuth(f);
 }
 
-void VtkPost::SetCameraElevation(double f)
+void VtkPost::CameraElevation(double f)
 {
   renderer->GetActiveCamera()->Elevation(f);
 }
 
-void VtkPost::SetCameraPitch(double f)
+void VtkPost::CameraPitch(double f)
 {
   renderer->GetActiveCamera()->Pitch(f);
 }
 
-void VtkPost::SetCameraZoom(double f)
+void VtkPost::CameraZoom(double f)
 {
   renderer->GetActiveCamera()->Zoom(f);
 }
 
-void VtkPost::SetCameraYaw(double f)
+void VtkPost::CameraYaw(double f)
 {
   renderer->GetActiveCamera()->Yaw(f);
 }
