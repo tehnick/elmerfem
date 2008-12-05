@@ -214,6 +214,16 @@ public slots:
   void RotateY(double);
   void RotateZ(double);
   void SetOrientation(double, double, double);
+  void SetPositionX(double);
+  void SetPositionY(double);
+  void SetPositionZ(double);
+  void SetPosition(double, double, double);
+  void AddPosition(double, double, double);
+  void SetOrigin(double, double, double);
+  void SetScaleX(double);
+  void SetScaleY(double);
+  void SetScaleZ(double);
+  void SetScale(double, double, double);
 
 private slots:
   void exitSlot();

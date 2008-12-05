@@ -328,6 +328,7 @@ VtkPost::VtkPost(QWidget *parent)
   mainContext.addObject("streamLines", streamLine);
   mainContext.addObject("colorBar", colorBar);
   mainContext.addObject("preferences", preferences);
+  mainContext.addObject("timeStep", timeStep);
   console = new PythonQtScriptingConsole(NULL, mainContext);
   console->setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   console->setWindowTitle("ElmerGUI PythonQt");
@@ -2155,7 +2156,7 @@ void VtkPost::RotateX(double f)
 {
   vtkActorCollection* actors = renderer->GetActors();
   actors->InitTraversal();
-  vtkActor* actor;
+  vtkActor* actor = NULL;
   while((actor = actors->GetNextActor()) != NULL) {
     actor->RotateX(f);
   }
@@ -2165,7 +2166,7 @@ void VtkPost::RotateY(double f)
 {
   vtkActorCollection* actors = renderer->GetActors();
   actors->InitTraversal();
-  vtkActor* actor;
+  vtkActor* actor = NULL;
   while((actor = actors->GetNextActor()) != NULL) {
     actor->RotateY(f);
   }
@@ -2175,7 +2176,7 @@ void VtkPost::RotateZ(double f)
 {
   vtkActorCollection* actors = renderer->GetActors();
   actors->InitTraversal();
-  vtkActor* actor;
+  vtkActor* actor = NULL;
   while((actor = actors->GetNextActor()) != NULL) {
     actor->RotateZ(f);
   }
@@ -2185,8 +2186,120 @@ void VtkPost::SetOrientation(double x, double y, double z)
 {
   vtkActorCollection* actors = renderer->GetActors();
   actors->InitTraversal();
-  vtkActor* actor;
+  vtkActor* actor = NULL;
   while((actor = actors->GetNextActor()) != NULL) {
     actor->SetOrientation(x, y, z);
+  }
+}
+
+void VtkPost::SetPositionX(double f)
+{
+  double x[3];
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->GetPosition(x);
+    actor->SetPosition(f, x[1], x[2]);
+  }
+}
+
+void VtkPost::SetPositionY(double f)
+{
+  double x[3];
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->GetPosition(x);
+    actor->SetPosition(x[0], f, x[2]);
+  }
+}
+
+void VtkPost::SetPositionZ(double f)
+{
+  double x[3];
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->GetPosition(x);
+    actor->SetPosition(x[0], x[1], f);
+  }
+}
+
+void VtkPost::SetPosition(double x, double y, double z)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->SetPosition(x, y, z);
+  }
+}
+
+void VtkPost::AddPosition(double x, double y, double z)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->AddPosition(x, y, z);
+  }
+}
+
+void VtkPost::SetOrigin(double x, double y, double z)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->SetOrigin(x, y, z);
+  }
+}
+
+void VtkPost::SetScaleX(double f)
+{
+  double x[3];
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->GetScale(x);
+    actor->SetScale(f, x[1], x[2]);
+  }
+}
+
+void VtkPost::SetScaleY(double f)
+{
+  double x[3];
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->GetScale(x);
+    actor->SetScale(x[0], f, x[2]);
+  }
+}
+
+void VtkPost::SetScaleZ(double f)
+{
+  double x[3];
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->GetScale(x);
+    actor->SetScale(x[0], x[1], f);
+  }
+}
+
+void VtkPost::SetScale(double x, double y, double z)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor = NULL;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->SetScale(x, y, z);
   }
 }

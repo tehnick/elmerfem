@@ -63,6 +63,18 @@ signals:
   void timeStepChangedSignal();
 
 public slots:
+  void SetCurrent(int);
+  void SetStart(int);
+  void SetStop(int);
+  void SetIncrement(int);
+  void SetMatcCmd(QString);
+  void SetRegenerateBeforeDrawing(bool);
+  void SetSaveFrames(bool);
+  void SetSaveDirectory(QString);
+  void Loop();
+  bool IsLooping();
+  void DrawCurrent();
+
   void canProceedWithNextSlot(vtkRenderWindow*);
 
 private slots:

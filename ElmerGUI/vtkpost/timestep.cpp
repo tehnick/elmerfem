@@ -228,3 +228,59 @@ void TimeStep::loopButtonClicked()
     applyButtonClicked();
   }
 }
+
+void TimeStep::SetCurrent(int n)
+{
+  ui.timeStep->setValue(n);
+}
+
+void TimeStep::SetStart(int n)
+{
+  ui.start->setValue(n);
+}
+
+void TimeStep::SetStop(int n)
+{
+  ui.stop->setValue(n);
+}
+
+void TimeStep::SetIncrement(int n)
+{
+  ui.increment->setValue(n);
+}
+
+void TimeStep::SetMatcCmd(QString cmd)
+{
+  ui.doBefore->setText(cmd);
+}
+
+void TimeStep::SetRegenerateBeforeDrawing(bool b)
+{
+  ui.regenerateBeforeDrawing->setChecked(b);
+}
+
+void TimeStep::SetSaveFrames(bool b)
+{
+  ui.saveFrames->setChecked(b);
+}
+
+void TimeStep::SetSaveDirectory(QString dirName)
+{
+  ui.saveDirectory->setText(dirName);
+}
+
+void TimeStep::Loop()
+{
+  loopButtonClicked();
+}
+
+bool TimeStep::IsLooping()
+{
+  return this->loopOn;
+}
+
+void TimeStep::DrawCurrent()
+{
+  if(loopOn) return;
+  this->applyButtonClicked();
+}
