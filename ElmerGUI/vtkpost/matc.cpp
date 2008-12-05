@@ -244,6 +244,7 @@ void Matc::domatc(VtkPost* vtkPost)
     {
       var = (VARIABLE *)lst;
       if ( !NAME(var) || (NCOL(var) % n)!=0 ) continue;
+      if ( strcmp(NAME(var),"ans")==0 ) continue;
       
       int found = false;
       for( int i=0; i < scalarFields; i++ )
@@ -315,7 +316,8 @@ void Matc::domatc(VtkPost* vtkPost)
 	{
 	  var = (VARIABLE *)lst;
 	  if ( !NAME(var) || (NCOL(var) % n)!=0 ) continue;
-	  
+          if ( strcmp(NAME(var),"ans")==0 ) continue;
+
 	  if ( NROW(var)==1 && sf->name == NAME(var) )
 	    {
 	      if ( count != i ) scalarField[count]=*sf;
