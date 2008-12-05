@@ -1,9 +1,20 @@
 TARGET = PythonQt
 TEMPLATE = lib
+win32:CONFIG += release
 
-INCLUDEPATH += /usr/include/python2.5
-LIBPATH += /usr/lib
-LIBS += -lpython2.5
+unix {
+   INCLUDEPATH += /usr/include/python2.5
+   LIBPATH += /usr/lib
+   LIBS += -lpython2.5
+}
+
+win32 {
+   DEFINES += ELMERGUI_MODIFICATIONS
+   INCLUDEPATH += c:\PYTHON\Python-2.6.1\Include
+   INCLUDEPATH += c:\PYTHON\Python-2.6.1\PC          # for pyconfog.h
+   LIBPATH += c:\PYTHON\Python-2.6.1\PCbuild
+   LIBS += -lpython26
+}
 
 INCLUDEPATH += src
 CONFIG += qt

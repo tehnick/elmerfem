@@ -420,8 +420,9 @@ void SifGenerator::makeEquationBlocks()
   }
 
   int n=numberForSolver.count();
-  int snum[n],j=0;
-  QString sname[n];
+  int j=0;
+  int *snum = new int[n];          // snum[n];
+  QString *sname = new QString[n]; // sname[n];
 
   QMapIterator<QString, int> map_it(numberForSolver);
   while (map_it.hasNext()) {
@@ -553,6 +554,9 @@ void SifGenerator::makeEquationBlocks()
   }
 
   delete [] solverActive;
+
+  delete [] snum;
+  delete [] sname;
 }
 
 //-------------------------------------------------------------------------

@@ -11,7 +11,7 @@ DEFINES += QWT       # Use QWT for convergence monitor?
 DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
 DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
-# DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
+DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
 
 #------------------------------------------------------------------------------
 # Target:
@@ -57,7 +57,7 @@ unix {
 }
 
 win32 {
-   QMAKE_PRE_LINK = cd netgen/ngcore & nmake -f Makefile.win32 & cd ../..
+   QMAKE_PRE_LINK = cd netgen/ngcore & nmake -f Makefile.win32 & cd ../.. 
 }
 
 macx {
@@ -81,7 +81,13 @@ contains(DEFINES, PYTHONQT) {
    }
 
    win32 {
-      DEFINES -= PYTHONQT
+      QMAKE_PRE_LINK += & cd PythonQt & qmake & make & cd .. 
+      INCLUDEPATH += c:\PYTHON\Python-2.6.1\Include
+      INCLUDEPATH += c:\PYTHON\Python-2.6.1\PC             # pyconfig.h
+      INCLUDEPATH += ./PythonQt/src
+      LIBPATH += ./PythonQt/lib
+      LIBPATH += c:\PYTHON\Python-2.6.1\PCbuild
+      LIBS += -lpython26 -lPythonQt
    }
 
    macx {

@@ -49,6 +49,9 @@
 
 #define PYTHONQT_MAX_ARGS 32
 
+#ifdef ELMERGUI_MODIFICATIONS
+#define WRITE_RESTRICTED PY_WRITE_RESTRICTED
+#endif
 
 PyObject* PythonQtCallSlot(QObject* objectToCall, PyObject* args, bool strict, PythonQtSlotInfo* info, bool isVariantCall, void* firstArgument)
 {
