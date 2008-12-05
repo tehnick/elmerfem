@@ -256,8 +256,10 @@ VtkPost::VtkPost(QWidget *parent)
 
 #ifdef MATC
   matc = new Matc(this);
-  connect(matc->ui.mcEdit, SIGNAL(returnPressed()), this, SLOT(domatcSlot()));
-  connect(matc->ui.mcHistory, SIGNAL(selectionChanged()), this, SLOT(matcCutPasteSlot()));
+  connect(matc->ui.mcEdit, SIGNAL(returnPressed()), 
+        this, SLOT(domatcSlot()));
+  connect(matc->ui.mcHistory, SIGNAL(selectionChanged()), 
+        this, SLOT(matcCutPasteSlot()));
 #endif
 
   // Ep-data:
@@ -573,6 +575,14 @@ void VtkPost::showPythonQtConsoleSlot()
 #endif
 
 #ifdef MATC
+
+bool VtkPost::MatcCmd(QString cmd)
+{
+   matc->ui.mcEdit->setText(cmd);
+   domatcSlot();
+   return  true;
+}
+
 void VtkPost::matcOpenSlot()
 {
   matc->show();

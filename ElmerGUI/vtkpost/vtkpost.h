@@ -155,6 +155,7 @@ public slots:
   void redrawSlot();
 
 #ifdef MATC
+  bool MatcCmd(QString);
   void domatcSlot();
   void matcOpenSlot();
   void matcCutPasteSlot();
