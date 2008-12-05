@@ -1537,9 +1537,7 @@ void VtkPost::fitToWindowSlot()
 void VtkPost::resetModelViewSlot()
 {
   if(!postFileRead) return;
-  renderer->ResetCamera();
-  renderer->GetActiveCamera()->SetViewUp(0, 1, 0);
-  // todo
+  SetInitialCameraPosition();
 }
 
 // Clip all -action toggled:
