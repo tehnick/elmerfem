@@ -97,38 +97,6 @@ void IsoSurface::okButtonClicked()
   close();
 }
 
-QString IsoSurface::GetFieldName()
-{
-  return ui.contoursCombo->currentText();
-}
-
-QString IsoSurface::GetColorName()
-{
-  return ui.colorCombo->currentText();
-}
-
-bool IsoSurface::SetFieldName(QString name)
-{
-  for(int i = 0; i < ui.contoursCombo->count(); i++) {
-    if(ui.contoursCombo->itemText(i) == name) {
-      ui.contoursCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
-}
-
-bool IsoSurface::SetColorName(QString name)
-{
-  for(int i = 0; i < ui.colorCombo->count(); i++) {
-    if(ui.colorCombo->itemText(i) == name) {
-      ui.colorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
-}
-
 void IsoSurface::populateWidgets(VtkPost* vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -306,3 +274,93 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   colorArray->Delete();
   contourArray->Delete();
 }
+
+// Public slots:
+//---------------
+QString IsoSurface::GetFieldName()
+{
+  return ui.contoursCombo->currentText();
+}
+
+QString IsoSurface::GetColorName()
+{
+  return ui.colorCombo->currentText();
+}
+
+bool IsoSurface::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.contoursCombo->count(); i++) {
+    if(ui.contoursCombo->itemText(i) == name) {
+      ui.contoursCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsoSurface::SetColorName(QString name)
+{
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == name) {
+      ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+void IsoSurface::SetMinFieldVal(double f)
+{
+  ui.contoursMinEdit->setText(QString::number(f));
+}
+
+void IsoSurface::SetMaxFieldVal(double f)
+{
+  ui.contoursMaxEdit->setText(QString::number(f));
+}
+
+void IsoSurface::SetContours(int n)
+{
+  ui.contoursSpin->setValue(n);
+}
+
+void IsoSurface::SetKeepFieldLimits(bool b)
+{
+  ui.keepContourLimits->setChecked(b);
+}
+
+void IsoSurface::SetMinColorVal(double f)
+{
+  ui.colorMinEdit->setText(QString::number(f));
+}
+
+void IsoSurface::SetMaxColorVal(double f)
+{
+  ui.colorMaxEdit->setText(QString::number(f));
+}
+
+void IsoSurface::SetKeepColorLimits(bool b)
+{
+  ui.keepColorLimits->setChecked(b);
+}
+
+void IsoSurface::SetComputeNormals(bool b)
+{
+  ui.normalsCheck->setChecked(b);
+}
+
+void IsoSurface::SetUseClipPlane(bool b)
+{
+  ui.clipPlane->setChecked(b);
+}
+
+void IsoSurface::SetFeatureAngle(int n)
+{
+  ui.featureAngle->setValue(n);
+}
+
+void IsoSurface::SetOpacity(int n)
+{
+  ui.opacitySpin->setValue(n);
+}
+

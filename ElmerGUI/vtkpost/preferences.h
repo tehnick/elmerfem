@@ -58,8 +58,34 @@ signals:
   void redrawSignal();
 
 public slots:
+  void SetSurfaceMeshForPoints(bool);
+  void SetVolumeMeshForPoints(bool);
+  void SetPointSize(int);
+  void SetPointQuality(int);
+  void SetClipPlaneForPoints(bool);
+  void SetSurfaceMeshForEdges(bool);
+  void SetVolumeMeshForEdges(bool);
+  void SetTubeFilterForEdges(bool);
+  void SetClipPlaneForEdges(bool);
+  void SetLineWidthForEdges(int);
+  void SetTubeQualityForEdges(int);
+  void SetTubeRadiusForEdges(int);
+  void SetSurfaceMeshForFeatureEdges(bool);
+  void SetVolumeMeshForFeatureEdges(bool);
+  void SetTubeFilterForFeatureEdges(bool);
+  void SetClipPlaneForFeatureEdges(bool);
+  void SetDrawBoundaryEdges(bool);
   int GetFeatureAngle();
   void SetFeatureAngle(int);
+  void SetLineWidthForFeatureEdges(int);
+  void SetTubeQualityForFeatureEdges(int);
+  void SetTubeRadiusForFeatureEdges(int);
+  void SetClipPlaneOx(double);
+  void SetClipPlaneOy(double);
+  void SetClipPlaneOz(double);
+  void SetClipPlaneNx(double);
+  void SetClipPlaneNy(double);
+  void SetClipPlaneNz(double);
 
 private slots:
   void okButtonClicked();

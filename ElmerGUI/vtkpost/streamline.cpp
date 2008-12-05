@@ -95,38 +95,6 @@ void StreamLine::okButtonClicked()
   close();
 }
 
-QString StreamLine::GetFieldName()
-{
-  return ui.vectorCombo->currentText();
-}
-
-QString StreamLine::GetColorName()
-{
-  return ui.colorCombo->currentText();
-}
-
-bool StreamLine::SetFieldName(QString name)
-{
-  for(int i = 0; i < ui.vectorCombo->count(); i++) {
-    if(ui.vectorCombo->itemText(i) == name) {
-      ui.vectorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
-}
-
-bool StreamLine::SetColorName(QString name)
-{
-  for(int i = 0; i < ui.colorCombo->count(); i++) {
-    if(ui.colorCombo->itemText(i) == name) {
-      ui.colorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
-}
-
 void StreamLine::populateWidgets(VtkPost* vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -385,4 +353,188 @@ void StreamLine::draw(VtkPost* vtkPost, TimeStep* timeStep)
   streamer->Delete();
   ribbon->Delete();
   mapper->Delete();
+}
+
+// Public slots:
+//---------------
+QString StreamLine::GetFieldName()
+{
+  return ui.vectorCombo->currentText();
+}
+
+QString StreamLine::GetColorName()
+{
+  return ui.colorCombo->currentText();
+}
+
+bool StreamLine::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.vectorCombo->count(); i++) {
+    if(ui.vectorCombo->itemText(i) == name) {
+      ui.vectorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool StreamLine::SetColorName(QString name)
+{
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == name) {
+      ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+void StreamLine::SetMaxTime(double f)
+{
+  ui.propagationTime->setText(QString::number(f));
+}
+
+void StreamLine::SetStepLength(double f)
+{
+  ui.stepLength->setText(QString::number(f));
+}
+
+void StreamLine::SetThreads(int n)
+{
+  ui.threads->setValue(n);
+}
+
+void StreamLine::SetUseSurfaceMesh(bool b)
+{
+  ui.useSurfaceGrid->setChecked(b);
+}
+
+void StreamLine::SetUseVolumeMesh(bool b)
+{
+  ui.useVolumeGrid->setChecked(b);
+}
+
+void StreamLine::SetIntegrateForwards(bool b)
+{
+  ui.forward->setChecked(b);
+}
+
+void StreamLine::SetIntegrateBackwards(bool b)
+{
+  ui.backward->setChecked(b);
+}
+
+void StreamLine::SetIntegStepLength(double f)
+{
+  ui.integStepLength->setText(QString::number(f));
+}
+
+void StreamLine::SetMinColorVal(double f)
+{
+  ui.minVal->setText(QString::number(f));
+}
+
+void StreamLine::SetMaxColorVal(double f)
+{
+  ui.maxVal->setText(QString::number(f));
+}
+
+void StreamLine::SetKeepColorLimits(bool b)
+{
+  ui.keepLimits->setChecked(b);
+}
+
+void StreamLine::SetDrawLines(bool b)
+{
+  ui.drawLines->setChecked(b);
+}
+
+void StreamLine::SetDrawRibbons(bool b)
+{
+  ui.drawRibbon->setChecked(b);
+}
+
+void StreamLine::SetLineWidth(int n)
+{
+  ui.lineWidth->setValue(n);
+}
+
+void StreamLine::SetRibbonWidth(int n)
+{
+  ui.ribbonWidth->setValue(n);
+}
+
+void StreamLine::SetSphereSource(bool b)
+{
+  ui.sphereSource->setChecked(b);
+}
+
+void StreamLine::SetLineSource(bool b)
+{
+  ui.lineSource->setChecked(b);
+}
+
+void StreamLine::SetPointSource(bool b)
+{
+  ui.pickSource->setChecked(b);
+}
+
+void StreamLine::SetSphereSourceX(double f)
+{
+  ui.centerX->setText(QString::number(f));
+}
+
+void StreamLine::SetSphereSourceY(double f)
+{
+  ui.centerY->setText(QString::number(f));
+}
+
+void StreamLine::SetSphereSourceZ(double f)
+{
+  ui.centerZ->setText(QString::number(f));
+}
+
+void StreamLine::SetSphereSourceRadius(double f)
+{
+  ui.radius->setText(QString::number(f));
+}
+
+void StreamLine::SetSphereSourcePoints(int n)
+{
+  ui.points->setValue(n);
+}
+
+void StreamLine::SetLineSourceStartX(double f)
+{
+  ui.startX->setText(QString::number(f));
+}
+
+void StreamLine::SetLineSourceStartY(double f)
+{
+  ui.startY->setText(QString::number(f));
+}
+
+void StreamLine::SetLineSourceStartZ(double f)
+{
+  ui.startZ->setText(QString::number(f));
+}
+
+void StreamLine::SetLineSourceEndX(double f)
+{
+  ui.endX->setText(QString::number(f));
+}
+
+void StreamLine::SetLineSourceEndY(double f)
+{
+  ui.endY->setText(QString::number(f));
+}
+
+void StreamLine::SetLineSourceEndZ(double f)
+{
+  ui.endZ->setText(QString::number(f));
+}
+
+void StreamLine::SetLineSourcePoints(int n)
+{
+  ui.lines->setValue(n);
 }

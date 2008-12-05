@@ -70,6 +70,17 @@ public slots:
   QString GetColorName();
   bool SetFieldName(QString);
   bool SetColorName(QString);
+  void SetMinFieldVal(double);
+  void SetMaxFieldVal(double);
+  void SetContours(int);
+  void SetKeepFieldLimits(bool);
+  void SetMinColorVal(double);
+  void SetMaxColorVal(double);
+  void SetKeepColorLimits(bool);
+  void SetComputeNormals(bool);
+  void SetUseClipPlane(bool);
+  void SetFeatureAngle(int);
+  void SetOpacity(int);
 
 private slots:
   void cancelButtonClicked();

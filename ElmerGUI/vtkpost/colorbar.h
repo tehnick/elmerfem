@@ -63,6 +63,15 @@ signals:
   void drawColorBarSignal();
   void hideColorBarSignal();
 
+public slots:
+  bool SetFieldName(QString);
+  void SetLayoutHorizontal(bool);
+  void SetLayoutVertical(bool);
+  void SetAnnotateFieldName(bool);
+  void SetLabels(int);
+  void SetLineWidth(double);
+  void SetLength(double);
+
 private slots:
   void cancelButtonClicked();
   void okButtonClicked();

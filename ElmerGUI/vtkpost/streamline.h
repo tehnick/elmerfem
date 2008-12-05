@@ -70,6 +70,36 @@ public slots:
   QString GetColorName();
   bool SetFieldName(QString);
   bool SetColorName(QString);
+  void SetMaxTime(double);
+  void SetStepLength(double);
+  void SetThreads(int);
+  void SetIntegStepLength(double);
+  void SetUseSurfaceMesh(bool);
+  void SetUseVolumeMesh(bool);
+  void SetIntegrateForwards(bool);
+  void SetIntegrateBackwards(bool);
+  void SetMinColorVal(double);
+  void SetMaxColorVal(double);
+  void SetKeepColorLimits(bool);
+  void SetDrawLines(bool);
+  void SetDrawRibbons(bool);
+  void SetLineWidth(int);
+  void SetRibbonWidth(int);
+  void SetSphereSource(bool);
+  void SetLineSource(bool);
+  void SetPointSource(bool);
+  void SetSphereSourceX(double);
+  void SetSphereSourceY(double);
+  void SetSphereSourceZ(double);
+  void SetSphereSourceRadius(double);
+  void SetSphereSourcePoints(int);
+  void SetLineSourceStartX(double);
+  void SetLineSourceStartY(double);
+  void SetLineSourceStartZ(double);
+  void SetLineSourceEndX(double);
+  void SetLineSourceEndY(double);
+  void SetLineSourceEndZ(double);
+  void SetLineSourcePoints(int);
 
 private slots:
   void cancelButtonClicked();

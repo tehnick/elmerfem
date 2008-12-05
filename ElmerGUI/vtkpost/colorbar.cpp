@@ -194,3 +194,46 @@ void ColorBar::draw(VtkPost* vtkPost)
     colorBarActor->SetTitle("");
   }
 }
+
+// Public slots:
+//---------------
+bool ColorBar::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == name) {
+      ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+void ColorBar::SetLayoutHorizontal(bool b)
+{
+  ui.horizontalRButton->setChecked(b);
+}
+
+void ColorBar::SetLayoutVertical(bool b)
+{
+  ui.verticalRButton->setChecked(b);
+}
+
+void ColorBar::SetAnnotateFieldName(bool b)
+{
+  ui.annotateBox->setChecked(b);
+}
+
+void ColorBar::SetLabels(int n)
+{
+  ui.labelsSpin->setValue(n);
+}
+
+void ColorBar::SetLineWidth(double f)
+{
+  ui.widthEdit->setText(QString::number(f));
+}
+
+void ColorBar::SetLength(double f)
+{
+  ui.heightEdit->setText(QString::number(f));
+}

@@ -77,12 +77,141 @@ void Preferences::cancelButtonClicked()
   close();
 }
 
+
+// Public slots:
+//---------------
 int Preferences::GetFeatureAngle()
 {
   return ui.angleSpin->value();
 }
 
+void Preferences::SetSurfaceMeshForPoints(bool b)
+{
+  ui.meshPointsSurface->setChecked(b);
+}
+void Preferences::SetVolumeMeshForPoints(bool b)
+{
+  ui.meshPointsVolume->setChecked(b);
+}
+void Preferences::SetPointSize(int n)
+{
+  ui.pointSize->setValue(n);
+}
+void Preferences::SetPointQuality(int n)
+{
+  ui.pointQuality->setValue(n);
+}
+void Preferences::SetClipPlaneForPoints(bool b)
+{
+  ui.meshPointsClip->setChecked(b);
+}
+
+void Preferences::SetSurfaceMeshForEdges(bool b)
+{
+  ui.meshEdgesSurface->setChecked(b);
+}
+
+void Preferences::SetVolumeMeshForEdges(bool b)
+{
+  ui.meshEdgesVolume->setChecked(b);
+}
+
+void Preferences::SetTubeFilterForEdges(bool b)
+{
+  ui.meshEdgeTubes->setChecked(b);
+}
+
+void Preferences::SetClipPlaneForEdges(bool b)
+{
+  ui.meshEdgesClip->setChecked(b);
+}
+
+void Preferences::SetLineWidthForEdges(int n)
+{
+  ui.meshLineWidth->setValue(n);
+}
+
+void Preferences::SetTubeQualityForEdges(int n)
+{
+  ui.meshEdgeTubeQuality->setValue(n);
+}
+
+void Preferences::SetTubeRadiusForEdges(int n)
+{
+  ui.meshEdgeTubeRadius->setValue(n);
+}
+
+void Preferences::SetSurfaceMeshForFeatureEdges(bool b)
+{
+  ui.surfaceRButton->setChecked(b);
+}
+
+void Preferences::SetVolumeMeshForFeatureEdges(bool b)
+{
+  ui.volumeRButton->setChecked(b);
+}
+
+void Preferences::SetTubeFilterForFeatureEdges(bool b)
+{
+  ui.featureEdgeTubes->setChecked(b);
+}
+
+void Preferences::SetClipPlaneForFeatureEdges(bool b)
+{
+  ui.featureEdgesClip->setChecked(b);
+}
+
+void Preferences::SetDrawBoundaryEdges(bool b)
+{
+  ui.drawBoundaryEdges->setChecked(b);
+}
+
 void Preferences::SetFeatureAngle(int n)
 {
   ui.angleSpin->setValue(n);
+}
+
+void Preferences::SetLineWidthForFeatureEdges(int n)
+{
+  ui.lineWidthSpin->setValue(n);
+}
+
+void Preferences::SetTubeQualityForFeatureEdges(int n)
+{
+  ui.featureEdgeTubeQuality->setValue(n);
+}
+
+void Preferences::SetTubeRadiusForFeatureEdges(int n)
+{
+  ui.featureEdgeTubeRadius->setValue(n);
+}
+
+void Preferences::SetClipPlaneOx(double f)
+{
+  ui.clipPointX->setText(QString::number(f));
+}
+
+void Preferences::SetClipPlaneOy(double f)
+{
+  ui.clipPointY->setText(QString::number(f));
+}
+
+void Preferences::SetClipPlaneOz(double f)
+{
+  ui.clipPointZ->setText(QString::number(f));
+}
+
+void Preferences::SetClipPlaneNx(double f)
+{
+  ui.clipNormalX->setText(QString::number(f));
+}
+
+void Preferences::SetClipPlaneNy(double f)
+{
+  ui.clipNormalY->setText(QString::number(f));
+}
+
+void Preferences::SetClipPlaneNz(double f)
+{
+  ui.clipNormalZ->setText(QString::number(f));
 }
