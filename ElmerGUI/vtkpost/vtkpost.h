@@ -209,6 +209,7 @@ public slots:
   void SetInitialCameraPosition();
   double GetLength();
   int NofNodes();
+  bool SavePngFile(QString);
 
 private slots:
   void exitSlot();

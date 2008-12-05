@@ -636,21 +636,7 @@ void VtkPost::savePictureSlot()
     return;
   }
 
-  vtkWindowToImageFilter* image = vtkWindowToImageFilter::New();
-
-  image->SetInput(qvtkWidget->GetRenderWindow());
-  image->Update();
-
-  vtkPNGWriter* writer = vtkPNGWriter::New();
-
-  writer->SetInputConnection(image->GetOutputPort());
-  writer->SetFileName(fileName.toAscii().data());
-
-  qvtkWidget->GetRenderWindow()->Render();
-  writer->Write();
-
-  writer->Delete();
-  image->Delete();
+  this->SavePngFile(fileName);
 }
 
 // Read input file (dialog):
@@ -2138,4 +2124,28 @@ void VtkPost::SetInitialCameraPosition()
 					   initialCameraPosition[2]);
   renderer->GetActiveCamera()->SetRoll(initialCameraRoll);
   renderer->GetRenderWindow()->Render();
+}
+
+
+bool VtkPost::SavePngFile(QString fileName)
+{ 
+  if(fileName.isEmpty()) return false;
+
+  vtkWindowToImageFilter* image = vtkWindowToImageFilter::New();
+
+  image->SetInput(qvtkWidget->GetRenderWindow());
+  image->Update();
+
+  vtkPNGWriter* writer = vtkPNGWriter::New();
+
+  writer->SetInputConnection(image->GetOutputPort());
+  writer->SetFileName(fileName.toAscii().data());
+
+  qvtkWidget->GetRenderWindow()->Render();
+  writer->Write();
+
+  writer->Delete();
+  image->Delete();
+
+  return true;
 }
