@@ -316,6 +316,13 @@ VtkPost::VtkPost(QWidget *parent)
   PythonQt::init(PythonQt::IgnoreSiteModule | PythonQt::RedirectStdOut);
   mainContext = PythonQt::self()->getMainModule();
   mainContext.addObject("egp", this);
+  mainContext.addObject("surfaces", surface);
+  mainContext.addObject("vectors", vector);
+  mainContext.addObject("isoContours", isoContour);
+  mainContext.addObject("isoSurfaces", isoSurface);
+  mainContext.addObject("streamLines", streamLine);
+  mainContext.addObject("colorBar", colorBar);
+  mainContext.addObject("preferences", preferences);
   console = new PythonQtScriptingConsole(NULL, mainContext);
   console->setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   console->setWindowTitle("ElmerGUI PythonQt");
@@ -1751,151 +1758,92 @@ vtkLookupTable* VtkPost::GetCurrentLut()
 
 QString VtkPost::GetCurrentSurfaceName()
 {
-  return surface->ui.surfaceCombo->currentText();
+  return currentSurfaceName;
 }
 
 QString VtkPost::GetCurrentVectorName()
 {
-  return vector->ui.vectorCombo->currentText();
+  return currentVectorName;
 }
 
 QString VtkPost::GetCurrentVectorColorName()
 {
-  return vector->ui.colorCombo->currentText();
+  return currentVectorColorName;
 }
 
 QString VtkPost::GetCurrentIsoContourName()
 {
-  return isoContour->ui.contoursCombo->currentText();
+  return currentIsoContourName;
 }
 
 QString VtkPost::GetCurrentIsoContourColorName()
 {
-  return isoContour->ui.colorCombo->currentText();
+  return currentIsoContourColorName;
 }
 
 QString VtkPost::GetCurrentIsoSurfaceName()
 {
-  return isoSurface->ui.contoursCombo->currentText();
+  return currentIsoSurfaceName;
 }
 
 QString VtkPost::GetCurrentIsoSurfaceColorName()
 {
-  return isoSurface->ui.colorCombo->currentText();
+  return currentIsoContourColorName;
 }
 
 QString VtkPost::GetCurrentStreamLineName()
 {
-  return streamLine->ui.vectorCombo->currentText();
+  return currentStreamLineName;
 }
 
 QString VtkPost::GetCurrentStreamLineColorName()
 {
-  return streamLine->ui.colorCombo->currentText();
+  return currentStreamLineColorName;
 }
 
-bool VtkPost::SetCurrentSurfaceName(QString name)
+void VtkPost::SetCurrentSurfaceName(QString name)
 {
-  for(int i = 0; i < surface->ui.surfaceCombo->count(); i++) {
-    if(surface->ui.surfaceCombo->itemText(i) == name) {
-      surface->ui.surfaceCombo->setCurrentIndex(i);
-      currentSurfaceName = name;
-      return true;
-    }
-  }
-  return false;
+  currentSurfaceName = name;
 }
 
-bool VtkPost::SetCurrentVectorName(QString name)
+void VtkPost::SetCurrentVectorName(QString name)
 {
-  for(int i = 0; i < vector->ui.vectorCombo->count(); i++) {
-    if(vector->ui.vectorCombo->itemText(i) == name) {
-      vector->ui.vectorCombo->setCurrentIndex(i);
-      currentVectorName = name;
-      return true;
-    }
-  }
-  return false;
+  currentVectorName = name;
 }
 
-bool VtkPost::SetCurrentVectorColorName(QString name)
+void VtkPost::SetCurrentVectorColorName(QString name)
 {
-  for(int i = 0; i < vector->ui.colorCombo->count(); i++) {
-    if(vector->ui.colorCombo->itemText(i) == name) {
-      vector->ui.colorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
+  currentVectorName = name;
 }
 
-bool VtkPost::SetCurrentIsoContourName(QString name)
+void VtkPost::SetCurrentIsoContourName(QString name)
 {
-  for(int i = 0; i < isoContour->ui.contoursCombo->count(); i++) {
-    if(isoContour->ui.contoursCombo->itemText(i) == name) {
-      isoContour->ui.contoursCombo->setCurrentIndex(i);
-      currentIsoContourName = name;
-      return true;
-    }
-  }
-  return false;
+  currentIsoContourName = name;
 }
 
-bool VtkPost::SetCurrentIsoContourColorName(QString name)
+void VtkPost::SetCurrentIsoContourColorName(QString name)
 {
-  for(int i = 0; i < isoContour->ui.colorCombo->count(); i++) {
-    if(isoContour->ui.colorCombo->itemText(i) == name) {
-      isoContour->ui.colorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
+  currentIsoContourColorName = name;
 }
 
-bool VtkPost::SetCurrentIsoSurfaceName(QString name)
+void VtkPost::SetCurrentIsoSurfaceName(QString name)
 {
-  for(int i = 0; i < isoSurface->ui.contoursCombo->count(); i++) {
-    if(isoSurface->ui.contoursCombo->itemText(i) == name) {
-      isoSurface->ui.contoursCombo->setCurrentIndex(i);
-      currentIsoSurfaceName = name;
-      return true;
-    }
-  }
-  return false;
+  currentIsoSurfaceName = name;
 }
 
-bool VtkPost::SetCurrentIsoSurfaceColorName(QString name)
+void VtkPost::SetCurrentIsoSurfaceColorName(QString name)
 {
-  for(int i = 0; i < isoSurface->ui.colorCombo->count(); i++) {
-    if(isoSurface->ui.colorCombo->itemText(i) == name) {
-      isoSurface->ui.colorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
+  currentIsoSurfaceColorName = name;
 }
 
-bool VtkPost::SetCurrentStreamLineName(QString name)
+void VtkPost::SetCurrentStreamLineName(QString name)
 {
-  for(int i = 0; i < streamLine->ui.vectorCombo->count(); i++) {
-    if(streamLine->ui.vectorCombo->itemText(i) == name) {
-      streamLine->ui.vectorCombo->setCurrentIndex(i);
-      currentStreamLineName = name;
-      return true;
-    }
-  }
-  return false;
+  currentStreamLineName = name;
 }
 
-bool VtkPost::SetCurrentStreamLineColorName(QString name)
+void VtkPost::SetCurrentStreamLineColorName(QString name)
 {
-  for(int i = 0; i < streamLine->ui.colorCombo->count(); i++) {
-    if(streamLine->ui.colorCombo->itemText(i) == name) {
-      streamLine->ui.colorCombo->setCurrentIndex(i);
-      return true;
-    }
-  }
-  return false;
+  currentStreamLineColorName = name;
 }
 
 int VtkPost::GetScalarFields()
@@ -2033,12 +1981,6 @@ void VtkPost::SetPostFileEnd(int n)
 void VtkPost::Redraw()
 {
   this->redrawSlot();
-}
-
-void VtkPost::SetFeatureAngle(int angle)
-{
-  preferences->ui.angleSpin->setValue(angle);
-  this->drawFeatureEdgesSlot();
 }
 
 void VtkPost::Render()

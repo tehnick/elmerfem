@@ -95,6 +95,38 @@ void StreamLine::okButtonClicked()
   close();
 }
 
+QString StreamLine::GetFieldName()
+{
+  return ui.vectorCombo->currentText();
+}
+
+QString StreamLine::GetColorName()
+{
+  return ui.colorCombo->currentText();
+}
+
+bool StreamLine::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.vectorCombo->count(); i++) {
+    if(ui.vectorCombo->itemText(i) == name) {
+      ui.vectorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool StreamLine::SetColorName(QString name)
+{
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == name) {
+      ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
 void StreamLine::populateWidgets(VtkPost* vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -120,10 +152,7 @@ void StreamLine::populateWidgets(VtkPost* vtkPost)
     ui.colorCombo->addItem(sf->name);
   }
 
-  for(int i = 0; i < ui.colorCombo->count(); i++) {
-    if(ui.colorCombo->itemText(i) == name)
-      ui.colorCombo->setCurrentIndex(i);
-  }
+  this->SetColorName(name);
 
   colorSelectionChanged(ui.colorCombo->currentIndex());
 }

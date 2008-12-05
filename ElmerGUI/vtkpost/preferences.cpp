@@ -76,3 +76,13 @@ void Preferences::cancelButtonClicked()
 {
   close();
 }
+
+int Preferences::GetFeatureAngle()
+{
+  return ui.angleSpin->value();
+}
+
+void Preferences::SetFeatureAngle(int n)
+{
+  ui.angleSpin->setValue(n);
+}

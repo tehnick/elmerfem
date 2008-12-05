@@ -94,6 +94,23 @@ void Surface::okButtonClicked()
   close();
 }
 
+
+QString Surface::GetFieldName()
+{
+  return ui.surfaceCombo->currentText();
+}
+
+bool Surface::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.surfaceCombo->count(); i++) {
+    if(ui.surfaceCombo->itemText(i) == name) {
+      ui.surfaceCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
 void Surface::populateWidgets(VtkPost* vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -109,10 +126,7 @@ void Surface::populateWidgets(VtkPost* vtkPost)
     ui.surfaceCombo->addItem(sf->name);
   }
 
-  for(int i = 0; i < ui.surfaceCombo->count(); i++) {
-    if(ui.surfaceCombo->itemText(i) == name)
-      ui.surfaceCombo->setCurrentIndex(i);
-  }
+  this->SetFieldName(name);
 
   surfaceSelectionChanged(ui.surfaceCombo->currentIndex());
 }

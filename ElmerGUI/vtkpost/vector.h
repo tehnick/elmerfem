@@ -61,6 +61,12 @@ public:
   void populateWidgets(VtkPost*);
   void draw(VtkPost*, TimeStep*);
 
+public slots:
+  QString GetFieldName();
+  QString GetColorName();
+  bool SetFieldName(QString);
+  bool SetColorName(QString);
+
 signals:
   void drawVectorSignal();
   void hideVectorSignal();

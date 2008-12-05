@@ -57,6 +57,10 @@ public:
 signals:
   void redrawSignal();
 
+public slots:
+  int GetFeatureAngle();
+  void SetFeatureAngle(int);
+
 private slots:
   void okButtonClicked();
   void cancelButtonClicked();

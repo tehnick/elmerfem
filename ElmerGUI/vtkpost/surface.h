@@ -65,6 +65,10 @@ signals:
   void drawSurfaceSignal();
   void hideSurfaceSignal();
 
+public slots:
+  QString GetFieldName();
+  bool SetFieldName(QString);
+
 private slots:
   void cancelButtonClicked();
   void okButtonClicked();

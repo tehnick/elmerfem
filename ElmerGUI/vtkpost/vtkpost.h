@@ -129,6 +129,24 @@ public:
   void SetCurrentPickPosition(double*);
   int GetScalarFields();
   void SetScalarFields(int);
+  QString GetCurrentSurfaceName();
+  void SetCurrentSurfaceName(QString);
+  QString GetCurrentVectorName();
+  QString GetCurrentVectorColorName();
+  void SetCurrentVectorName(QString);
+  void SetCurrentVectorColorName(QString);
+  QString GetCurrentIsoContourName();
+  QString GetCurrentIsoContourColorName();
+  void SetCurrentIsoContourName(QString);
+  void SetCurrentIsoContourColorName(QString);
+  QString GetCurrentIsoSurfaceName();
+  QString GetCurrentIsoSurfaceColorName();
+  void SetCurrentIsoSurfaceName(QString);
+  void SetCurrentIsoSurfaceColorName(QString);
+  QString GetCurrentStreamLineName();
+  QString GetCurrentStreamLineColorName();
+  void SetCurrentStreamLineName(QString);
+  void SetCurrentStreamLineColorName(QString);
 
 signals:
   void canProceedWithNextSignal(vtkRenderWindow*);
@@ -142,10 +160,12 @@ public slots:
   void matcCutPasteSlot();
 #endif
 
-  // These functions have been defined "public slots" for PythonQt
+  // Python bindings:
   void SetPostFileStart(int);
   void SetPostFileEnd(int);
   bool ReadPostFile(QString);
+  void Redraw();
+  void Render();
   void SetSurfaces(bool);
   void SetVectors(bool);
   void SetIsoContours(bool);
@@ -156,37 +176,14 @@ public slots:
   void SetMeshEdges(bool);
   void SetFeatureEdges(bool);
   void SetAxes(bool);
-  QString GetCurrentSurfaceName();
-  QString GetCurrentVectorName();
-  QString GetCurrentIsoContourName();
-  QString GetCurrentIsoSurfaceName();
-  QString GetCurrentStreamLineName();
-  QString GetCurrentVectorColorName();
-  QString GetCurrentIsoContourColorName();
-  QString GetCurrentIsoSurfaceColorName();
-  QString GetCurrentStreamLineColorName();
-  bool SetCurrentSurfaceName(QString);
-  bool SetCurrentVectorName(QString);
-  bool SetCurrentIsoContourName(QString);
-  bool SetCurrentIsoSurfaceName(QString);
-  bool SetCurrentStreamLineName(QString);
-  bool SetCurrentVectorColorName(QString);
-  bool SetCurrentIsoContourColorName(QString);
-  bool SetCurrentIsoSurfaceColorName(QString);
-  bool SetCurrentStreamLineColorName(QString);
   bool GetClipAll();
   void SetClipAll(bool);
-  double GetLength();
-  int NofNodes();
-  void Redraw();
-  void SetFeatureAngle(int);
   void SetClipPlaneOx(double);
   void SetClipPlaneOy(double);
   void SetClipPlaneOz(double);
   void SetClipPlaneNx(double);
   void SetClipPlaneNy(double);
   void SetClipPlaneNz(double);
-  void Render();
   double GetCameraDistance();
   void SetCameraDistance(double);
   double GetCameraPositionX();
@@ -209,6 +206,8 @@ public slots:
   void SetCameraPitch(double);
   void SetCameraZoom(double);
   void SetInitialCameraPosition();
+  double GetLength();
+  int NofNodes();
 
 private slots:
   void exitSlot();
@@ -350,9 +349,13 @@ private:
 
   QString currentSurfaceName;
   QString currentVectorName;
+  QString currentVectorColorName;
   QString currentIsoContourName;
+  QString currentIsoContourColorName;
   QString currentIsoSurfaceName;
+  QString currentIsoSurfaceColorName;
   QString currentStreamLineName;
+  QString currentStreamLineColorName;
   double currentPickPosition[3];
 
   // Post file input:

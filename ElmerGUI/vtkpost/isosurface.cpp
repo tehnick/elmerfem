@@ -97,6 +97,38 @@ void IsoSurface::okButtonClicked()
   close();
 }
 
+QString IsoSurface::GetFieldName()
+{
+  return ui.contoursCombo->currentText();
+}
+
+QString IsoSurface::GetColorName()
+{
+  return ui.colorCombo->currentText();
+}
+
+bool IsoSurface::SetFieldName(QString name)
+{
+  for(int i = 0; i < ui.contoursCombo->count(); i++) {
+    if(ui.contoursCombo->itemText(i) == name) {
+      ui.contoursCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
+bool IsoSurface::SetColorName(QString name)
+{
+  for(int i = 0; i < ui.colorCombo->count(); i++) {
+    if(ui.colorCombo->itemText(i) == name) {
+      ui.colorCombo->setCurrentIndex(i);
+      return true;
+    }
+  }
+  return false;
+}
+
 void IsoSurface::populateWidgets(VtkPost* vtkPost)
 {
   this->scalarField = vtkPost->GetScalarField();
@@ -114,15 +146,8 @@ void IsoSurface::populateWidgets(VtkPost* vtkPost)
     ui.colorCombo->addItem(sf->name);
   }
 
-  for(int i = 0; i < ui.contoursCombo->count(); i++) {
-    if(ui.contoursCombo->itemText(i) == contoursName)
-      ui.contoursCombo->setCurrentIndex(i);
-  }
-
-  for(int i = 0; i < ui.colorCombo->count(); i++) {
-    if(ui.colorCombo->itemText(i) == colorName)
-      ui.colorCombo->setCurrentIndex(i);
-  }
+  this->SetFieldName(contoursName);
+  this->SetColorName(colorName);
 
   contoursSelectionChanged(ui.contoursCombo->currentIndex());
   colorSelectionChanged(ui.colorCombo->currentIndex());
