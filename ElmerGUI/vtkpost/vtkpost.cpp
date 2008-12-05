@@ -2149,3 +2149,44 @@ bool VtkPost::SavePngFile(QString fileName)
 
   return true;
 }
+
+
+void VtkPost::RotateX(double f)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->RotateX(f);
+  }
+}
+
+void VtkPost::RotateY(double f)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->RotateY(f);
+  }
+}
+
+void VtkPost::RotateZ(double f)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->RotateZ(f);
+  }
+}
+
+void VtkPost::SetOrientation(double x, double y, double z)
+{
+  vtkActorCollection* actors = renderer->GetActors();
+  actors->InitTraversal();
+  vtkActor* actor;
+  while((actor = actors->GetNextActor()) != NULL) {
+    actor->SetOrientation(x, y, z);
+  }
+}

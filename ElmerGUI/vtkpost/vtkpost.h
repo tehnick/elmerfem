@@ -210,6 +210,10 @@ public slots:
   double GetLength();
   int NofNodes();
   bool SavePngFile(QString);
+  void RotateX(double);
+  void RotateY(double);
+  void RotateZ(double);
+  void SetOrientation(double, double, double);
 
 private slots:
   void exitSlot();
