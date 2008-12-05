@@ -302,6 +302,81 @@ void SifGenerator::makeBodyBlocks()
 }
 
 
+int SifGenerator::findHashValue(DynamicEditor *de,QString sname, QString name)
+{
+    for(int i = 0; i < de->hash.count(); i++) {
+      hash_entry_t entry = de->hash.values().at(i); 
+
+      QWidget *widget = entry.widget;
+      if (widget->isEnabled()) {
+        QString key = de->hash.keys().at(i);
+        QStringList keySplitted = key.split("/");
+        QString solverName = keySplitted.at(1).trimmed();
+        QString labelName = keySplitted.at(3).trimmed();
+
+        QDomElement elem = entry.elem;
+        if ( solverName==sname && labelName==name &&
+            elem.attribute("Widget","")=="Edit" )
+        {
+          QLineEdit *line = (QLineEdit*)widget;
+          QString str = line->text().trimmed();
+          if ( str.isEmpty() ) return 0;
+          return str.toInt();
+        }
+      }
+    }
+    return 0;
+}
+
+
+int SifGenerator::sort_index(int n, int a[], QString b[])
+{
+   int i,j,l,ir;
+   int ra;
+   QString rb;
+
+   if ( n <= 1 ) return true;
+
+   l = n / 2 +1;
+   ir = n-1;
+   while( true ) {
+     if ( l >= 1 ) {
+       l = l - 1;
+       ra = a[l];
+       rb = b[l];
+     } else {
+       ra = a[ir];
+       rb = b[ir];
+       a[ir] = a[0];
+       b[ir] = b[0];
+       ir = ir - 1;
+       if ( ir == 0 ) {
+         a[0] = ra;
+         b[0] = rb;
+         return true;
+       }
+     }
+     i = l;
+     j = l + l;
+     while( j <= ir ) {
+       if ( j<ir  ) {
+          if ( a[j]<a[j+1] ) j = j+1;
+       }
+       if ( ra<a[j] ) {
+         a[i] = a[j];
+         b[i] = b[j];
+         i = j;
+         j =  j + i;
+       } else {
+         j = ir + 1;
+       }
+       a[i] = ra;
+       b[i] = rb;
+    }
+  }
+  return true;
+}
+
 
 // Make Equation/Solver -blocks:
 //-----------------------------------------------------------------------------
@@ -309,34 +384,87 @@ void SifGenerator::makeEquationBlocks()
 {
   // enumerate solvers && write solver blocks:
 
-  int solverNumber = 0;
-  QHash<QString, int> numberForSolver;
+  QMap<QString, int> numberForSolver;
   numberForSolver.clear();
+
+  int solverNumber = 0;
+
+  for(int index = 0; index < limit->maxEquations(); index++) {
+    DynamicEditor *eqEditor = &equationEditor[index];
+
+    if(eqEditor->menuAction != NULL) {
+      for(int i = 0; i < eqEditor->hash.count(); i++) {
+	hash_entry_t entry = eqEditor->hash.values().at(i); 
+
+	QWidget *widget = entry.widget;
+        if (widget->isEnabled()) {
+          QDomElement elem = entry.elem;
+
+	  QString key = eqEditor->hash.keys().at(i);
+	  QStringList keySplitted = key.split("/");
+	  QString labelName  = keySplitted.at(3).trimmed();
+	  QString solverName = keySplitted.at(1).trimmed();
+
+	  if(labelName=="Active" && elem.attribute("Widget", "")=="CheckBox") {
+	    QCheckBox *checkBox = (QCheckBox*)widget;
+	    if(checkBox->isChecked()) {
+	      if(!numberForSolver.contains(solverName)) {
+                int pri=findHashValue( eqEditor, solverName, "Priority");
+                numberForSolver.insert(solverName, pri);
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+
+  int n=numberForSolver.count();
+  int snum[n],j=0;
+  QString sname[n];
+
+  QMapIterator<QString, int> map_it(numberForSolver);
+  while (map_it.hasNext()) {
+      map_it.next();
+      snum[j]=map_it.value(); 
+      sname[j]=map_it.key(); 
+      j++;
+  }
+  sort_index(n,snum,sname);
+  numberForSolver.clear();
+  for( int i=0; i<n; i++ )
+  {
+    numberForSolver.insert(sname[i],n-i);
+    snum[i]=0;
+  }
+  
   for(int index = 0; index < limit->maxEquations(); index++) {
     DynamicEditor *eqEditor = &equationEditor[index];
     if(eqEditor->menuAction != NULL) {
       for(int i = 0; i < eqEditor->hash.count(); i++) {
 	hash_entry_t entry = eqEditor->hash.values().at(i); 
+
 	QWidget *widget = entry.widget;
-        if(widget->isEnabled()) {
+        if (widget->isEnabled()) {
 	  QString key = eqEditor->hash.keys().at(i);
 	  QStringList keySplitted = key.split("/");
 	  QString solverName = keySplitted.at(1).trimmed();
 	  QString labelName = keySplitted.at(3).trimmed();
           QDomElement elem = entry.elem;
-	  if((labelName == "Active") &&
-	     (elem.attribute("Widget", "") == "CheckBox")) {
-	    QCheckBox *checkBox = (QCheckBox*)widget;
-	    if(checkBox->isChecked()) {
-	      if(!numberForSolver.contains(solverName)) {
-		numberForSolver.insert(solverName, ++solverNumber);
-		te->append("Solver " + QString::number(solverNumber));
-		te->append("  Equation = " + solverName);
-		makeSolverBlocks(solverName);
-		te->append("End");
-		te->append("");
-	      }
-	    }
+
+	  if(labelName=="Active" && elem.attribute("Widget", "")=="CheckBox") {
+             QCheckBox *checkBox = (QCheckBox*)widget;
+	     if(checkBox->isChecked()) {
+                solverNumber=numberForSolver.find(solverName).value();
+                if(solverNumber>0 && snum[solverNumber-1]==0 ) {
+                  snum[solverNumber-1]=1; 
+                  te->append("Solver " + QString::number(solverNumber));
+                  te->append("  Equation = " + solverName);
+                  makeSolverBlocks(solverName);
+                  te->append("End");
+                  te->append("");
+	       }
+	     }
 	  }
 	}
       }
@@ -405,7 +533,8 @@ void SifGenerator::makeEquationBlocks()
 	     (labelName != "Active")) 
 	    handleCheckBox(elem, widget);
 	  
-	  if(elem.attribute("Widget", "") == "Edit")
+	  if(elem.attribute("Widget", "") == "Edit" &&
+             labelName != "Priority")
 	    handleLineEdit(elem, widget);
 	  
 	  if(elem.attribute("Widget", "") == "Combo")
