@@ -239,6 +239,8 @@ void Matc::domatc(VtkPost* vtkPost)
   ptr=mtc_domath(cmd.toAscii().data());
   ui.mcHistory->append(cmd);
   if ( ptr ) ui.mcOutput->append(ptr);
+
+  if ( n<=0 ) return;
   
   for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
     {
