@@ -524,7 +524,7 @@ vectors, and stream lines.
 If ElmerGUI has been compiled with PyhthonQt-support, there is a Python console
 available for scripting. The console is located under the Edit-menu:
 \menu{Edit}{PythonQt console...}
-\noindent The console provides access to the ``public slots'' of the following C++ classes:
+\noindent The console provides access to the ``public slots'' of the following classes:
 \begin{footnotesize}
 \begin{verbatim}
 egp             // elmergui post processor
@@ -539,22 +539,26 @@ colorBar        // cotrols for the color bar
 timeStep        // controls for transient results
 \end{verbatim}
 \end{footnotesize}
-Each of these classes provides a number of useful methods for data and display
-manipulation. To fix ideas, the following sequence of commands will read in the
-result file and draws the ``Temperature'' field as a surface plot. More examples
-can be found in section N.N.
+
+Each of the above classes provides a number of useful methods for data and display
+manipulation. To fix ideas, suppose that we want to read in the result file ``case.ep''
+and display the temperature fields as a semi transparent surface plot. The commands
+to execute are then the following (more examples can be found in section 7.3.3):
 \begin{footnotesize}
 \begin{verbatim}
 py> egp.ReadPostFile("case.ep")
-py> egp.SetSurfaces(1)
+py> egp.SetSurfaces(True)
 py> surfaces.SetFieldName("Temperature")
-py> egp.Render()
+py> surfaces.SetOpacity(50)
+py> egp.Redraw()
 \end{verbatim}
 \end{footnotesize}
-The methods are the following (not in order):
+
+\subsubsection{Public methods}
+Interface version 0.2:
 \begin{footnotesize}
 \begin{verbatim}
-egp:
+class egp:
   void SetPostFileStart(int);                  // start time
   void SetPostFileEnd(int);                    // end time
   bool ReadPostFile(QString);                  // read post file
@@ -619,12 +623,13 @@ egp:
   void SetScaleY(double);                      // set display scale
   void SetScaleZ(double);                      // set display scale
   void SetScale(double, double, double);       // set scale
-  void Reset();                                // reset display
+  void ResetAll();                             // reset display
+  void ResetCamera();                          // reset camera
 
-matc:
+class matc:
   bool SetCommand(QString);                    // set command
 
-preferences:
+class preferences:
   void SetSurfaceMeshForPoints(bool);          // draw nodes on surface
   void SetVolumeMeshForPoints(bool);           // draw nodes in volume
   void SetPointSize(int);                      // node size
@@ -654,7 +659,7 @@ preferences:
   void SetClipPlaneNy(double);                 // clip plane normal
   void SetClipPlaneNz(double);                 // clip plane normal
 
-surfaces:
+class surfaces:
   QString GetFieldName();                      // get field name
   bool SetFieldName(QString);                  // set field name
   void SetMinVal(double);                      // minimum
@@ -665,7 +670,7 @@ surfaces:
   void SetOpacity(int);                        // set opacity
   void SetClipPlane(bool);                     // set clipping
 
-vectors:
+class vectors:
   QString GetFieldName();                      // get field name
   QString GetColorName();                      // get color name
   QString GetThresholdName();                  // get threshold name
@@ -687,7 +692,7 @@ vectors:
   void SetUseThreshold(bool);                  // use threshold
   void SetKeepThresholdLimits(bool);           // keep threshold limits
 
-isoContours:
+class isoContours:
   QString GetFieldName();                      // get field name
   QString GetColorName();                      // get color field name
   bool SetFieldName(QString);                  // set field name
@@ -705,7 +710,7 @@ isoContours:
   void SetTubeQuality(int);                    // tube quality
   void SetTubeRadius(int);                     // tube radius
 
-isoSurfaces:
+class isoSurfaces:
   QString GetFieldName();                      // get field name
   QString GetColorName();                      // get color name
   bool SetFieldName(QString);                  // set field name
@@ -722,7 +727,7 @@ isoSurfaces:
   void SetFeatureAngle(int);                   // set feature angle
   void SetOpacity(int);                        // set opacity
 
-streamLines:
+class streamLines:
   QString GetFieldName();                      // get field name
   QString GetColorName();                      // get color field name
   bool SetFieldName(QString);                  // set field name
@@ -758,7 +763,7 @@ streamLines:
   void SetLineSourceEndZ(double);              // line end
   void SetLineSourcePoints(int);               // nof point on line
 
-colorBar:
+class colorBar:
   bool SetFieldName(QString);                  // set field name
   void SetLayoutHorizontal(bool);              // draw horizontal
   void SetLayoutVertical(bool);                // draw vertical
@@ -767,7 +772,7 @@ colorBar:
   void SetLineWidth(double);                   // line width
   void SetLength(double);                      // set length
 
-timeStep:
+class timeStep:
   void SetCurrent(int);                        // current time step
   void SetStart(int);                          // first step
   void SetStop(int);                           // last step
@@ -779,6 +784,103 @@ timeStep:
   void Loop();                                 // start/stop loop
   bool IsLooping();                            // is looping?
   void DrawCurrent();                          // draw current frame
+\end{verbatim}
+\end{footnotesize}
+
+\subsubsection{Example scripts}
+
+The exampels below are executed from the PythonQt-console as
+\begin{footnotesize}
+\begin{verbatim}
+py> execfile("sample.py")
+\end{verbatim}
+\end{footnotesize}
+where ``sample.py'' is a text file containing the script to execute.
+
+\vskip5mm
+\noindent{\bf Read in results}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile(``case.ep'')
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Set orientation}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile(``case.ep'')
+egp.SetSurfaces(True)
+egp.SetOrientation(45, 45, 0)
+egp.SetInitalCameraPosition()
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Visualize temperature on surfaces}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile(``case.ep'')
+egp.SetSurfaces(True)
+egp.SetOrientation(45, 45, 0)
+egp.SetInitalCameraPosition()
+surfaces.SetFieldName("Temperature")
+egp.Redraw()
+\end{verbatim}
+\end{footnotesize}
+
+
+\vskip5mm
+\noindent{\bf Rotate object}
+\begin{footnotesize}
+\begin{verbatim}
+import time
+egp.ReadPostFile(``case.ep'')
+egp.SetSurfaces(True)
+for i in range (180):
+        egp.RotateY(2.0)
+        egp.ResetCamera()
+        egp.Render()
+        time.sleep(0.1)
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Rotate and save frames}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile(``case.ep'')
+egp.SetSurfaces(True)
+for i in range (180):
+        egp.RotateY(2.0)
+        egp.ResetCamera()
+        egp.Render()
+        egp.SavePngFile("frame" + str(i) + ".png")
+\end{verbatim}
+\end{footnotesize}
+
+
+\vskip5mm
+\noindent{\bf Preparing and playing back video clips}
+
+\vskip5mm
+
+\noindent With ffmpeg (see ffmpeg's manuals for more accurate controls):
+\begin{footnotesize}
+\begin{verbatim}
+$ ffmpeg -b 1000000 -i frame%d.png example.avi
+\end{verbatim}
+\end{footnotesize}
+With mencoder (see mencoder's manuals for better controls):
+\begin{footnotesize}
+\begin{verbatim}
+$ mencoder -ovc lavc -mf type=png:fps=25 -o example.avi mf://frame%d.png
+\end{verbatim}
+\end{footnotesize}
+Playback with mplayer (choose appropriate frame rate):
+\begin{footnotesize}
+\begin{verbatim}
+$ mplayer -fps 50 example.avi
 \end{verbatim}
 \end{footnotesize}
 
@@ -914,7 +1016,6 @@ The directory {\tt ELMERGUI\_HOME} contains a subdirectory called ``edf''. This 
 
 The ed-files are loaded iteratively from the edf-directory once and for all when ElmerGUI starts. Later, it is possible to view and edit their contents by choosing
 \menu{File}{Definitions...}
-
 
 An ed-file has the following structure:
 \begin{footnotesize}
