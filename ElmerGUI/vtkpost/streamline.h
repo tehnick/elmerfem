@@ -66,40 +66,40 @@ signals:
   void hideStreamLineSignal();
 
 public slots:
-  QString GetFieldName();
-  QString GetColorName();
-  bool SetFieldName(QString);
-  bool SetColorName(QString);
-  void SetMaxTime(double);
-  void SetStepLength(double);
-  void SetThreads(int);
-  void SetIntegStepLength(double);
-  void SetUseSurfaceMesh(bool);
-  void SetUseVolumeMesh(bool);
-  void SetIntegrateForwards(bool);
-  void SetIntegrateBackwards(bool);
-  void SetMinColorVal(double);
-  void SetMaxColorVal(double);
-  void SetKeepColorLimits(bool);
-  void SetDrawLines(bool);
-  void SetDrawRibbons(bool);
-  void SetLineWidth(int);
-  void SetRibbonWidth(int);
-  void SetSphereSource(bool);
-  void SetLineSource(bool);
-  void SetPointSource(bool);
-  void SetSphereSourceX(double);
-  void SetSphereSourceY(double);
-  void SetSphereSourceZ(double);
-  void SetSphereSourceRadius(double);
-  void SetSphereSourcePoints(int);
-  void SetLineSourceStartX(double);
-  void SetLineSourceStartY(double);
-  void SetLineSourceStartZ(double);
-  void SetLineSourceEndX(double);
-  void SetLineSourceEndY(double);
-  void SetLineSourceEndZ(double);
-  void SetLineSourcePoints(int);
+  QString GetFieldName();                           // get field name
+  QString GetColorName();                           // get color name
+  bool SetFieldName(QString);                       // set field name
+  bool SetColorName(QString);                       // set color name
+  void SetMaxTime(double);                          // max time
+  void SetStepLength(double);                       // step length
+  void SetThreads(int);                             // nof threads
+  void SetIntegStepLength(double);                  // integ. step length
+  void UseSurfaceMesh(bool);                        // use forface mesh
+  void UseVolumeMesh(bool);                         // use volume mesh
+  void IntegrateForwards(bool);                     // integrate forwards
+  void IntegrateBackwards(bool);                    // integrate backwards
+  void SetMinColorVal(double);                      // color min val
+  void SetMaxColorVal(double);                      // color max value
+  void KeepColorLimits(bool);                       // keep color limits
+  void DrawLines(bool);                             // draw using lines
+  void DrawRibbons(bool);                           // draw using ribbons
+  void SetLineWidth(int);                           // line width
+  void SetRibbonWidth(int);                         // ribbon width
+  void UseSphereSource(bool);                       // use sphere source
+  void UseLineSource(bool);                         // use line source
+  void UsePointSource(bool);                        // use point source
+  void SetSphereSourceX(double);                    // sphere origin
+  void SetSphereSourceY(double);                    // sphere origin
+  void SetSphereSourceZ(double);                    // sphere origin
+  void SetSphereSourceRadius(double);               // sphere radius
+  void SetSphereSourcePoints(int);                  // nof pts in sphere
+  void SetLineSourceStartX(double);                 // line start point
+  void SetLineSourceStartY(double);                 // line start point
+  void SetLineSourceStartZ(double);                 // line start point
+  void SetLineSourceEndX(double);                   // line end point
+  void SetLineSourceEndY(double);                   // line end point
+  void SetLineSourceEndZ(double);                   // line end point
+  void SetLineSourcePoints(int);                    // nof pts on line
 
 private slots:
   void cancelButtonClicked();

@@ -63,17 +63,17 @@ signals:
   void timeStepChangedSignal();
 
 public slots:
-  void SetCurrent(int);
-  void SetStart(int);
-  void SetStop(int);
-  void SetIncrement(int);
-  void SetMatcCmd(QString);
-  void SetRegenerateBeforeDrawing(bool);
-  void SetSaveFrames(bool);
-  void SetSaveDirectory(QString);
-  void Loop();
-  bool IsLooping();
-  void DrawCurrent();
+  void SetCurrent(int);                             // set current step
+  void SetStart(int);                               // set first step
+  void SetStop(int);                                // set last step
+  void SetIncrement(int);                           // set increment
+  void SetMatcCmd(QString);                         // set MATC cmd
+  void RegenerateBeforeDrawing(bool);               // regenerate actors
+  void SaveFrames(bool);                            // save frames
+  void SetSaveDirectory(QString);                   // set save dir
+  void Loop();                                      // toggle looping
+  bool IsLooping();                                 // is loop on?
+  void DrawCurrent();                               // draw current frame
 
   void canProceedWithNextSlot(vtkRenderWindow*);
 

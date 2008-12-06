@@ -66,21 +66,21 @@ signals:
   void hideIsoSurfaceSignal();
 
 public slots:
-  QString GetFieldName();
-  QString GetColorName();
-  bool SetFieldName(QString);
-  bool SetColorName(QString);
-  void SetMinFieldVal(double);
-  void SetMaxFieldVal(double);
-  void SetContours(int);
-  void SetKeepFieldLimits(bool);
-  void SetMinColorVal(double);
-  void SetMaxColorVal(double);
-  void SetKeepColorLimits(bool);
-  void SetComputeNormals(bool);
-  void SetUseClipPlane(bool);
-  void SetFeatureAngle(int);
-  void SetOpacity(int);
+  QString GetFieldName();                           // get field name
+  QString GetColorName();                           // get color name
+  bool SetFieldName(QString);                       // set field name
+  bool SetColorName(QString);                       // set color name
+  void SetMinFieldVal(double);                      // set min value
+  void SetMaxFieldVal(double);                      // set max value
+  void SetContours(int);                            // nof contours
+  void KeepFieldLimits(bool);                       // keep limits
+  void SetMinColorVal(double);                      // set color min
+  void SetMaxColorVal(double);                      // set color max
+  void KeepColorLimits(bool);                       // keep color limits
+  void ComputeNormals(bool);                        // shade model
+  void UseClipPlane(bool);                          // set clpping on/off
+  void SetFeatureAngle(int);                        // set feature angle
+  void SetOpacity(int);                             // set opacity
 
 private slots:
   void cancelButtonClicked();

@@ -404,22 +404,22 @@ void StreamLine::SetThreads(int n)
   ui.threads->setValue(n);
 }
 
-void StreamLine::SetUseSurfaceMesh(bool b)
+void StreamLine::UseSurfaceMesh(bool b)
 {
   ui.useSurfaceGrid->setChecked(b);
 }
 
-void StreamLine::SetUseVolumeMesh(bool b)
+void StreamLine::UseVolumeMesh(bool b)
 {
   ui.useVolumeGrid->setChecked(b);
 }
 
-void StreamLine::SetIntegrateForwards(bool b)
+void StreamLine::IntegrateForwards(bool b)
 {
   ui.forward->setChecked(b);
 }
 
-void StreamLine::SetIntegrateBackwards(bool b)
+void StreamLine::IntegrateBackwards(bool b)
 {
   ui.backward->setChecked(b);
 }
@@ -439,17 +439,17 @@ void StreamLine::SetMaxColorVal(double f)
   ui.maxVal->setText(QString::number(f));
 }
 
-void StreamLine::SetKeepColorLimits(bool b)
+void StreamLine::KeepColorLimits(bool b)
 {
   ui.keepLimits->setChecked(b);
 }
 
-void StreamLine::SetDrawLines(bool b)
+void StreamLine::DrawLines(bool b)
 {
   ui.drawLines->setChecked(b);
 }
 
-void StreamLine::SetDrawRibbons(bool b)
+void StreamLine::DrawRibbons(bool b)
 {
   ui.drawRibbon->setChecked(b);
 }
@@ -464,17 +464,17 @@ void StreamLine::SetRibbonWidth(int n)
   ui.ribbonWidth->setValue(n);
 }
 
-void StreamLine::SetSphereSource(bool b)
+void StreamLine::UseSphereSource(bool b)
 {
   ui.sphereSource->setChecked(b);
 }
 
-void StreamLine::SetLineSource(bool b)
+void StreamLine::UseLineSource(bool b)
 {
   ui.lineSource->setChecked(b);
 }
 
-void StreamLine::SetPointSource(bool b)
+void StreamLine::UsePointSource(bool b)
 {
   ui.pickSource->setChecked(b);
 }

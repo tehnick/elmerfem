@@ -85,11 +85,11 @@ int Preferences::GetFeatureAngle()
   return ui.angleSpin->value();
 }
 
-void Preferences::SetSurfaceMeshForPoints(bool b)
+void Preferences::UseSurfaceMeshForPoints(bool b)
 {
   ui.meshPointsSurface->setChecked(b);
 }
-void Preferences::SetVolumeMeshForPoints(bool b)
+void Preferences::UseVolumeMeshForPoints(bool b)
 {
   ui.meshPointsVolume->setChecked(b);
 }
@@ -101,27 +101,27 @@ void Preferences::SetPointQuality(int n)
 {
   ui.pointQuality->setValue(n);
 }
-void Preferences::SetClipPlaneForPoints(bool b)
+void Preferences::UseClipPlaneForPoints(bool b)
 {
   ui.meshPointsClip->setChecked(b);
 }
 
-void Preferences::SetSurfaceMeshForEdges(bool b)
+void Preferences::UseSurfaceMeshForEdges(bool b)
 {
   ui.meshEdgesSurface->setChecked(b);
 }
 
-void Preferences::SetVolumeMeshForEdges(bool b)
+void Preferences::UseVolumeMeshForEdges(bool b)
 {
   ui.meshEdgesVolume->setChecked(b);
 }
 
-void Preferences::SetTubeFilterForEdges(bool b)
+void Preferences::UseTubeFilterForEdges(bool b)
 {
   ui.meshEdgeTubes->setChecked(b);
 }
 
-void Preferences::SetClipPlaneForEdges(bool b)
+void Preferences::UseClipPlaneForEdges(bool b)
 {
   ui.meshEdgesClip->setChecked(b);
 }
@@ -141,27 +141,27 @@ void Preferences::SetTubeRadiusForEdges(int n)
   ui.meshEdgeTubeRadius->setValue(n);
 }
 
-void Preferences::SetSurfaceMeshForFeatureEdges(bool b)
+void Preferences::UseSurfaceMeshForFeatureEdges(bool b)
 {
   ui.surfaceRButton->setChecked(b);
 }
 
-void Preferences::SetVolumeMeshForFeatureEdges(bool b)
+void Preferences::UseVolumeMeshForFeatureEdges(bool b)
 {
   ui.volumeRButton->setChecked(b);
 }
 
-void Preferences::SetTubeFilterForFeatureEdges(bool b)
+void Preferences::UseTubeFilterForFeatureEdges(bool b)
 {
   ui.featureEdgeTubes->setChecked(b);
 }
 
-void Preferences::SetClipPlaneForFeatureEdges(bool b)
+void Preferences::UseClipPlaneForFeatureEdges(bool b)
 {
   ui.featureEdgesClip->setChecked(b);
 }
 
-void Preferences::SetDrawBoundaryEdges(bool b)
+void Preferences::DrawBoundaryEdges(bool b)
 {
   ui.drawBoundaryEdges->setChecked(b);
 }

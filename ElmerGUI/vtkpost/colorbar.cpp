@@ -208,17 +208,17 @@ bool ColorBar::SetFieldName(QString name)
   return false;
 }
 
-void ColorBar::SetLayoutHorizontal(bool b)
+void ColorBar::UseHorizontalLayout(bool b)
 {
   ui.horizontalRButton->setChecked(b);
 }
 
-void ColorBar::SetLayoutVertical(bool b)
+void ColorBar::UseVerticalLayout(bool b)
 {
   ui.verticalRButton->setChecked(b);
 }
 
-void ColorBar::SetAnnotateFieldName(bool b)
+void ColorBar::AnnotateFieldName(bool b)
 {
   ui.annotateBox->setChecked(b);
 }

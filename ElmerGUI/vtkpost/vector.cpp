@@ -436,7 +436,7 @@ void Vector::SetClipPlane(bool b)
   ui.useClip->setChecked(b);
 }
 
-void Vector::SetComputeNormals(bool b)
+void Vector::ComputeNormals(bool b)
 {
   ui.useNormals->setChecked(b);
 }
@@ -446,7 +446,7 @@ void Vector::SetRandomMode(bool b)
   ui.randomMode->setChecked(b);
 }
 
-void Vector::SetScaleByMagnitude(bool b)
+void Vector::ScaleByMagnitude(bool b)
 {
   ui.scaleByMagnitude->setChecked(b);
 }
@@ -461,7 +461,7 @@ void Vector::SetMaxColorVal(double f)
   ui.maxVal->setText(QString::number(f));
 }
 
-void Vector::SetKeepColorLimits(bool b)
+void Vector::KeepColorLimits(bool b)
 {
   ui.keepLimits->setChecked(b);
 }
@@ -476,12 +476,12 @@ void Vector::SetMaxThresholdVal(double f)
   ui.thresholdMax->setText(QString::number(f));
 }
 
-void Vector::SetUseThreshold(bool b)
+void Vector::UseThreshold(bool b)
 {
   ui.useThreshold->setChecked(b);
 }
 
-void Vector::SetKeepThresholdLimits(bool b)
+void Vector::KeepThresholdLimits(bool b)
 {
   ui.keepThresholdLimits->setChecked(b);
 }

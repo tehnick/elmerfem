@@ -66,15 +66,15 @@ signals:
   void hideSurfaceSignal();
 
 public slots:
-  QString GetFieldName();
-  bool SetFieldName(QString);
-  void SetMinVal(double);
-  void SetMaxVal(double);
-  void SetKeepLimits(bool);
-  void SetComputeNormals(bool);
-  void SetFeatureAngle(int);
-  void SetOpacity(int);
-  void SetClipPlane(bool);
+  QString GetFieldName();                           // get field name
+  bool SetFieldName(QString);                       // set field name
+  void SetMinVal(double);                           // set minimum
+  void SetMaxVal(double);                           // set maximum
+  void KeepLimits(bool);                            // keep limits
+  void SetComputeNormals(bool);                     // shade model
+  void SetFeatureAngle(int);                        // feature angle
+  void SetOpacity(int);                             // set opacity
+  void SetClipPlane(bool);                          // set clipping
 
 private slots:
   void cancelButtonClicked();

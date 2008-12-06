@@ -58,34 +58,34 @@ signals:
   void redrawSignal();
 
 public slots:
-  void SetSurfaceMeshForPoints(bool);
-  void SetVolumeMeshForPoints(bool);
-  void SetPointSize(int);
-  void SetPointQuality(int);
-  void SetClipPlaneForPoints(bool);
-  void SetSurfaceMeshForEdges(bool);
-  void SetVolumeMeshForEdges(bool);
-  void SetTubeFilterForEdges(bool);
-  void SetClipPlaneForEdges(bool);
-  void SetLineWidthForEdges(int);
-  void SetTubeQualityForEdges(int);
-  void SetTubeRadiusForEdges(int);
-  void SetSurfaceMeshForFeatureEdges(bool);
-  void SetVolumeMeshForFeatureEdges(bool);
-  void SetTubeFilterForFeatureEdges(bool);
-  void SetClipPlaneForFeatureEdges(bool);
-  void SetDrawBoundaryEdges(bool);
-  int GetFeatureAngle();
-  void SetFeatureAngle(int);
-  void SetLineWidthForFeatureEdges(int);
-  void SetTubeQualityForFeatureEdges(int);
-  void SetTubeRadiusForFeatureEdges(int);
-  void SetClipPlaneOx(double);
-  void SetClipPlaneOy(double);
-  void SetClipPlaneOz(double);
-  void SetClipPlaneNx(double);
-  void SetClipPlaneNy(double);
-  void SetClipPlaneNz(double);
+  void UseSurfaceMeshForPoints(bool);              // nodes of surface mesh
+  void UseVolumeMeshForPoints(bool);               // nodes of volume mesh
+  void SetPointSize(int);                          // set node point size
+  void SetPointQuality(int);                       // set node point quality
+  void UseClipPlaneForPoints(bool);                // clip nodes
+  void UseSurfaceMeshForEdges(bool);               // edges of surface mesh
+  void UseVolumeMeshForEdges(bool);                // edges of volume mesh
+  void UseTubeFilterForEdges(bool);                // use tube filter
+  void UseClipPlaneForEdges(bool);                 // clip edges
+  void SetLineWidthForEdges(int);                  // edge line width
+  void SetTubeQualityForEdges(int);                // edge tube quality
+  void SetTubeRadiusForEdges(int);                 // edge tube radius
+  void UseSurfaceMeshForFeatureEdges(bool);        // surface mesh: f-edges
+  void UseVolumeMeshForFeatureEdges(bool);         // volume mesh: f-edges
+  void UseTubeFilterForFeatureEdges(bool);         // use tube filter
+  void UseClipPlaneForFeatureEdges(bool);          // clip f-edges
+  void DrawBoundaryEdges(bool);                    // draw boundary edges
+  int GetFeatureAngle();                           // get feature angle
+  void SetFeatureAngle(int);                       // set feature angle
+  void SetLineWidthForFeatureEdges(int);           // f-edge line width
+  void SetTubeQualityForFeatureEdges(int);         // f-edge tube quality
+  void SetTubeRadiusForFeatureEdges(int);          // f-edge tube radius
+  void SetClipPlaneOx(double);                     // clip plane origin
+  void SetClipPlaneOy(double);                     // clip plane origin
+  void SetClipPlaneOz(double);                     // clip plane origin
+  void SetClipPlaneNx(double);                     // clip plane normal
+  void SetClipPlaneNy(double);                     // clip plane normal
+  void SetClipPlaneNz(double);                     // clip plane normal
 
 private slots:
   void okButtonClicked();

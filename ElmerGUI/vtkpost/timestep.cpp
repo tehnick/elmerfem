@@ -254,12 +254,12 @@ void TimeStep::SetMatcCmd(QString cmd)
   ui.doBefore->setText(cmd);
 }
 
-void TimeStep::SetRegenerateBeforeDrawing(bool b)
+void TimeStep::RegenerateBeforeDrawing(bool b)
 {
   ui.regenerateBeforeDrawing->setChecked(b);
 }
 
-void TimeStep::SetSaveFrames(bool b)
+void TimeStep::SaveFrames(bool b)
 {
   ui.saveFrames->setChecked(b);
 }

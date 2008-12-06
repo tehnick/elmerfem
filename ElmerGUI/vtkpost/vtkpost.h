@@ -147,85 +147,99 @@ public:
   QString GetCurrentStreamLineColorName();
   void SetCurrentStreamLineName(QString);
   void SetCurrentStreamLineColorName(QString);
+  int NofNodes();
 
 signals:
   void canProceedWithNextSignal(vtkRenderWindow*);
 
 public slots:
-  void redrawSlot();
+  void redrawSlot();                                // redraw all actors
 
 #ifdef MATC
-  bool MatcCmd(QString);
-  void domatcSlot();
-  void matcOpenSlot();
-  void matcCutPasteSlot();
+  bool MatcCmd(QString);                            // evaluate matc cmd
+  void domatcSlot();                                // flush matc console
+  void matcOpenSlot();                              // open matc console
+  void matcCutPasteSlot();                          // handle cut-paste
 #endif
 
-  // Python bindings:
-  void SetPostFileStart(int);
-  void SetPostFileEnd(int);
-  bool ReadPostFile(QString);
-  void Redraw();
-  void Render();
-  void SetSurfaces(bool);
-  void SetVectors(bool);
-  void SetIsoContours(bool);
-  void SetIsoSurfaces(bool);
-  void SetStreamLines(bool);
-  void SetColorBar(bool);
-  void SetMeshPoints(bool);
-  void SetMeshEdges(bool);
-  void SetFeatureEdges(bool);
-  void SetAxes(bool);
-  bool GetClipAll();
-  void SetClipAll(bool);
-  void SetClipPlaneOx(double);
-  void SetClipPlaneOy(double);
-  void SetClipPlaneOz(double);
-  void SetClipPlaneNx(double);
-  void SetClipPlaneNy(double);
-  void SetClipPlaneNz(double);
-  double GetCameraDistance();
-  void SetCameraDistance(double);
-  double GetCameraPositionX();
-  double GetCameraPositionY();
-  double GetCameraPositionZ();
-  void SetCameraPositionX(double);
-  void SetCameraPositionY(double);
-  void SetCameraPositionZ(double);
-  double GetCameraFocalPointX();
-  double GetCameraFocalPointY();
-  double GetCameraFocalPointZ();
-  void SetCameraFocalPointX(double);
-  void SetCameraFocalPointY(double);
-  void SetCameraFocalPointZ(double);
-  void CameraDolly(double);
-  void CameraRoll(double);
-  void CameraAzimuth(double);
-  void CameraYaw(double);
-  void CameraElevation(double);
-  void CameraPitch(double);
-  void CameraZoom(double);
-  void SetInitialCameraPosition();
-  double GetLength();
-  int NofNodes();
-  bool SavePngFile(QString);
-  void RotateX(double);
-  void RotateY(double);
-  void RotateZ(double);
-  void SetOrientation(double, double, double);
-  void SetPositionX(double);
-  void SetPositionY(double);
-  void SetPositionZ(double);
-  void SetPosition(double, double, double);
-  void AddPosition(double, double, double);
-  void SetOrigin(double, double, double);
-  void SetScaleX(double);
-  void SetScaleY(double);
-  void SetScaleZ(double);
-  void SetScale(double, double, double);
-  void ResetCamera();
-  void ResetAll();
+  void SetPostFileStart(int);                       // first time step
+  void SetPostFileEnd(int);                         // last time step
+  bool ReadPostFile(QString);                       // read result file
+
+  void Render();                                    // render
+  void ResetCamera();                               // reset camera
+  void Redraw();                                    // redraw actors
+  void ResetAll();                                  // reset view
+
+  void SetSurfaces(bool);                           // show/hide surfaces
+  void SetVectors(bool);                            // show/hide vectors
+  void SetIsoContours(bool);                        // show/hide isocontours
+  void SetIsoSurfaces(bool);                        // show/hide isosurfaces
+  void SetStreamLines(bool);                        // show/hide streamlines
+  void SetColorBar(bool);                           // show/hide colorbar
+  void SetMeshPoints(bool);                         // show/hide/nodes
+  void SetMeshEdges(bool);                          // show/hide edges
+  void SetFeatureEdges(bool);                       // show/hide f-edges
+  void SetAxes(bool);                               // show/hide axes
+
+  bool GetClipAll();                                // is clipping on?
+  void SetClipAll(bool);                            // clipping on/off
+  void SetClipPlaneOx(double);                      // clip plane origin
+  void SetClipPlaneOy(double);                      // clip plane origin
+  void SetClipPlaneOz(double);                      // clip plane origin
+  void SetClipPlaneNx(double);                      // clip plane normal
+  void SetClipPlaneNy(double);                      // clip plane normal
+  void SetClipPlaneNz(double);                      // clip plane normal
+
+  double GetCameraDistance();                       // get camera distance
+  void SetCameraDistance(double);                   // set camera distance
+  double GetCameraPositionX();                      // get camera position
+  double GetCameraPositionY();                      // get camera position
+  double GetCameraPositionZ();                      // get camera position
+  void SetCameraPositionX(double);                  // set camera position
+  void SetCameraPositionY(double);                  // set camera position
+  void SetCameraPositionZ(double);                  // set camera position
+  double GetCameraFocalPointX();                    // get focal point
+  double GetCameraFocalPointY();                    // get focal point
+  double GetCameraFocalPointZ();                    // get focal point
+  void SetCameraFocalPointX(double);                // set focal point
+  void SetCameraFocalPointY(double);                // set focal point
+  void SetCameraFocalPointZ(double);                // set focal point
+  void CameraDolly(double);                         // dolly
+  void CameraRoll(double);                          // roll
+  void CameraAzimuth(double);                       // azimuth
+  void CameraYaw(double);                           // yaw
+  void CameraElevation(double);                     // elevation
+  void CameraPitch(double);                         // pitch
+  void CameraZoom(double);                          // zoom
+  void SetCameraRoll(double);                       // set roll
+  void SetInitialCameraPosition();                  // set initial position
+
+  void RotateX(double);                             // rotate visible actors
+  void RotateY(double);                             // rotate visible actors
+  void RotateZ(double);                             // rotate visible actors
+  void SetOrientation(double, double, double);      // set orientation
+  void SetPositionX(double);                        // set position
+  void SetPositionY(double);                        // set position
+  void SetPositionZ(double);                        // set position
+  void SetPosition(double, double, double);         // set position
+  void AddPosition(double, double, double);         // add position
+  void SetOrigin(double, double, double);           // set origin
+  void SetScaleX(double);                           // set scale
+  void SetScaleY(double);                           // set scale
+  void SetScaleZ(double);                           // set scale
+  void SetScale(double, double, double);            // set scale
+
+  double GetLength();                               // get model size
+  double GetNofNodes();                             // get nof nodes
+  double GetMinX();                                 // bounding box
+  double GetMaxX();                                 // bounding box
+  double GetMinY();                                 // bounding box
+  double GetMaxY();                                 // bounding box
+  double GetMinZ();                                 // bounding box
+  double GetMaxZ();                                 // bounding box
+
+  bool SavePngFile(QString);                        // save image file
 
 private slots:
   void exitSlot();
@@ -341,11 +355,11 @@ private:
   vtkActor* isoSurfaceActor;
   vtkActor* streamLineActor;
   vtkActor* axesActor;
+  vtkActor* pickedPointActor;
   vtkFollower* axesXTextActor;
   vtkFollower* axesYTextActor;
   vtkFollower* axesZTextActor;
   vtkScalarBarActor* colorBarActor;
-  vtkActor* pickedPointActor;
   vtkImplicitPlaneWidget* planeWidget;
   double initialCameraPosition[3];
   double initialCameraRoll;

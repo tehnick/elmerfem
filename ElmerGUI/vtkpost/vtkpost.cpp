@@ -326,9 +326,10 @@ VtkPost::VtkPost(QWidget *parent)
   mainContext.addObject("isoContours", isoContour);
   mainContext.addObject("isoSurfaces", isoSurface);
   mainContext.addObject("streamLines", streamLine);
-  mainContext.addObject("colorBar", colorBar);
   mainContext.addObject("preferences", preferences);
-  mainContext.addObject("timeStep", timeStep);
+  mainContext.addObject("timeSteps", timeStep);
+  mainContext.addObject("colorBar", colorBar);
+
   console = new PythonQtScriptingConsole(NULL, mainContext);
   console->setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   console->setWindowTitle("ElmerGUI PythonQt");
@@ -677,7 +678,7 @@ void VtkPost::getPostLineStream(QTextStream* postStream)
   postLineStream.setString(&postLine);
 }
 
-// Read in data:
+// Read in data (public slot):
 //----------------------------------------------------------------------
 bool VtkPost::ReadPostFile(QString postFileName)
 {
@@ -1636,19 +1637,6 @@ vtkFollower* VtkPost::GetAxesZTextActor()
   return axesZTextActor;
 }
 
-double VtkPost::GetLength()
-{
-  double volumeLength = volumeGrid->GetLength();
-  double surfaceLength = surfaceGrid->GetLength();
-  double lineLength = lineGrid->GetLength();
-
-  double length = volumeLength;
-  if(surfaceLength > length) length = surfaceLength;
-  if(lineLength > length) length = lineLength;
-
-  return length;
-}
-
 void VtkPost::GetBounds(double* bounds)
 {
   volumeGrid->GetBounds(bounds);
@@ -1705,50 +1693,9 @@ void VtkPost::SetClipPlaneNormal(double* normal)
   preferences->ui.clipNormalZ->setText(QString::number(normal[2]));
 }
 
-void VtkPost::SetClipPlaneOx(double x)
+int VtkPost::NofNodes()
 {
-  preferences->ui.clipPointX->setText(QString::number(x));
-  GetClipPlane();
-}
-
-void VtkPost::SetClipPlaneOy(double y)
-{
-  preferences->ui.clipPointY->setText(QString::number(y));
-  GetClipPlane();
-}
-
-void VtkPost::SetClipPlaneOz(double z)
-{
-  preferences->ui.clipPointZ->setText(QString::number(z));  
-  GetClipPlane();
-}
-
-void VtkPost::SetClipPlaneNx(double x)
-{
-  preferences->ui.clipNormalX->setText(QString::number(x));  
-  GetClipPlane();
-}
-
-void VtkPost::SetClipPlaneNy(double y)
-{
-  preferences->ui.clipNormalY->setText(QString::number(y));
-  GetClipPlane();
-}
-
-void VtkPost::SetClipPlaneNz(double z)
-{
-  preferences->ui.clipNormalZ->setText(QString::number(z));  
-  GetClipPlane();
-}
-
-bool VtkPost::GetClipAll()
-{
-  return clipAllAct->isChecked();
-}
-
-void VtkPost::SetClipAll(bool clip)
-{
-  clipAllAct->setChecked(clip);
+   return epMesh->epNodes;
 }
 
 vtkLookupTable* VtkPost::GetCurrentLut()
@@ -1878,11 +1825,6 @@ void VtkPost::SetCurrentPickPosition(double *p)
   currentPickPosition[2] = p[2];
 }
 
-int VtkPost::NofNodes()
-{
-   return epMesh->epNodes;
-}
-
 Preferences* VtkPost::GetPreferences()
 {
   return preferences;
@@ -1907,6 +1849,46 @@ void VtkPost::showHelpSlot()
 			"Press 's' to show the results in surface mode"));
 }
 
+//------------------------------------------------------------
+//                       Public slots:
+//------------------------------------------------------------
+void VtkPost::SetPostFileStart(int n)
+{
+  readEpFile->ui.start->setValue(n);
+}
+
+void VtkPost::SetPostFileEnd(int n)
+{
+  readEpFile->ui.end->setValue(n);
+}
+
+// ReadPostFile(QString) defined above
+
+//------------------------------------------------------------
+void VtkPost::Render()
+{
+  qvtkWidget->GetRenderWindow()->Render();
+}
+
+void VtkPost::Redraw()
+{
+  this->redrawSlot();
+}
+
+void VtkPost::ResetCamera()
+{
+  renderer->ResetCamera();
+}
+
+void VtkPost::ResetAll()
+{
+  SetInitialCameraPosition();
+  SetOrientation(0, 0, 0);
+  SetOrigin(0, 0, 0);
+  SetScale(1, 1, 1);
+}
+
+//------------------------------------------------------------
 void VtkPost::SetSurfaces(bool b)
 {
   drawSurfaceAct->setChecked(b);
@@ -1965,29 +1947,56 @@ void VtkPost::SetAxes(bool b)
 {
   drawAxesAct->setChecked(b);
   drawAxesSlot();
-  qvtkWidget->GetRenderWindow()->Render();
 }
 
-void VtkPost::SetPostFileStart(int n)
+//------------------------------------------------------------
+bool VtkPost::GetClipAll()
 {
-  readEpFile->ui.start->setValue(n);
+  return clipAllAct->isChecked();
 }
 
-void VtkPost::SetPostFileEnd(int n)
+void VtkPost::SetClipAll(bool clip)
 {
-  readEpFile->ui.end->setValue(n);
+  clipAllAct->setChecked(clip);
 }
 
-void VtkPost::Redraw()
+void VtkPost::SetClipPlaneOx(double x)
 {
-  this->redrawSlot();
+  preferences->ui.clipPointX->setText(QString::number(x));
+  GetClipPlane();
 }
 
-void VtkPost::Render()
+void VtkPost::SetClipPlaneOy(double y)
 {
-  qvtkWidget->GetRenderWindow()->Render();
+  preferences->ui.clipPointY->setText(QString::number(y));
+  GetClipPlane();
 }
 
+void VtkPost::SetClipPlaneOz(double z)
+{
+  preferences->ui.clipPointZ->setText(QString::number(z));  
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneNx(double x)
+{
+  preferences->ui.clipNormalX->setText(QString::number(x));  
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneNy(double y)
+{
+  preferences->ui.clipNormalY->setText(QString::number(y));
+  GetClipPlane();
+}
+
+void VtkPost::SetClipPlaneNz(double z)
+{
+  preferences->ui.clipNormalZ->setText(QString::number(z));  
+  GetClipPlane();
+}
+
+//------------------------------------------------------------
 double VtkPost::GetCameraDistance()
 {
   return renderer->GetActiveCamera()->GetDistance();
@@ -2117,6 +2126,11 @@ void VtkPost::CameraYaw(double f)
   renderer->GetActiveCamera()->Yaw(f);
 }
 
+void VtkPost::SetCameraRoll(double f)
+{
+  renderer->GetActiveCamera()->SetRoll(f);
+}
+
 void VtkPost::SetInitialCameraPosition()
 {
   renderer->ResetCamera();  
@@ -2124,34 +2138,9 @@ void VtkPost::SetInitialCameraPosition()
 					   initialCameraPosition[1], 
 					   initialCameraPosition[2]);
   renderer->GetActiveCamera()->SetRoll(initialCameraRoll);
-  renderer->GetRenderWindow()->Render();
 }
 
-
-bool VtkPost::SavePngFile(QString fileName)
-{ 
-  if(fileName.isEmpty()) return false;
-
-  vtkWindowToImageFilter* image = vtkWindowToImageFilter::New();
-
-  image->SetInput(qvtkWidget->GetRenderWindow());
-  image->Update();
-
-  vtkPNGWriter* writer = vtkPNGWriter::New();
-
-  writer->SetInputConnection(image->GetOutputPort());
-  writer->SetFileName(fileName.toAscii().data());
-
-  qvtkWidget->GetRenderWindow()->Render();
-  writer->Write();
-
-  writer->Delete();
-  image->Delete();
-
-  return true;
-}
-
-
+//------------------------------------------------------------
 void VtkPost::RotateX(double f)
 {
   vtkActorCollection* actors = renderer->GetActors();
@@ -2304,15 +2293,81 @@ void VtkPost::SetScale(double x, double y, double z)
   }
 }
 
-void VtkPost::ResetAll()
+//----------------------------------------------------------------------
+double VtkPost::GetLength()
 {
-  SetInitialCameraPosition();
-  SetOrientation(0, 0, 0);
-  SetOrigin(0, 0, 0);
-  SetScale(1, 1, 1);
+  double volumeLength = volumeGrid->GetLength();
+  double surfaceLength = surfaceGrid->GetLength();
+  double lineLength = lineGrid->GetLength();
+
+  double length = volumeLength;
+  if(surfaceLength > length) length = surfaceLength;
+  if(lineLength > length) length = lineLength;
+
+  return length;
 }
 
-void VtkPost::ResetCamera()
+double VtkPost::GetNofNodes()
 {
-  renderer->ResetCamera();
+   return epMesh->epNodes;
+}
+
+double VtkPost::GetMinX()
+{
+  ScalarField *sf = &scalarField[2];
+  return sf->minVal;
+}
+
+double VtkPost::GetMaxX()
+{
+  ScalarField *sf = &scalarField[2];
+  return sf->maxVal;
+}
+
+double VtkPost::GetMinY()
+{
+  ScalarField *sf = &scalarField[3];
+  return sf->minVal;
+}
+
+double VtkPost::GetMaxY()
+{
+  ScalarField *sf = &scalarField[3];
+  return sf->maxVal;
+}
+
+double VtkPost::GetMinZ()
+{
+  ScalarField *sf = &scalarField[4];
+  return sf->minVal;
+}
+
+double VtkPost::GetMaxZ()
+{
+  ScalarField *sf = &scalarField[4];
+  return sf->maxVal;
+}
+
+//----------------------------------------------------------------------
+bool VtkPost::SavePngFile(QString fileName)
+{ 
+  if(fileName.isEmpty()) return false;
+
+  vtkWindowToImageFilter* image = vtkWindowToImageFilter::New();
+
+  image->SetInput(qvtkWidget->GetRenderWindow());
+  image->Update();
+
+  vtkPNGWriter* writer = vtkPNGWriter::New();
+
+  writer->SetInputConnection(image->GetOutputPort());
+  writer->SetFileName(fileName.toAscii().data());
+
+  qvtkWidget->GetRenderWindow()->Render();
+  writer->Write();
+
+  writer->Delete();
+  image->Delete();
+
+  return true;
 }

@@ -62,26 +62,26 @@ public:
   void draw(VtkPost*, TimeStep*);
 
 public slots:
-  QString GetFieldName();
-  QString GetColorName();
-  QString GetThresholdName();
-  bool SetFieldName(QString);
-  bool SetColorName(QString);
-  bool SetThresholdName(QString);
-  void SetLength(int);
-  void SetQuality(int);
-  void SetEveryNth(int);
-  void SetClipPlane(bool);
-  void SetComputeNormals(bool);
-  void SetRandomMode(bool);
-  void SetScaleByMagnitude(bool);
-  void SetMinColorVal(double);
-  void SetMaxColorVal(double);
-  void SetKeepColorLimits(bool);
-  void SetMinThresholdVal(double);
-  void SetMaxThresholdVal(double);
-  void SetUseThreshold(bool);
-  void SetKeepThresholdLimits(bool);
+  QString GetFieldName();                           // get field name
+  QString GetColorName();                           // get color name
+  QString GetThresholdName();                       // get threshold name
+  bool SetFieldName(QString);                       // set field name
+  bool SetColorName(QString);                       // set color name
+  bool SetThresholdName(QString);                   // set threshold name
+  void SetLength(int);                              // set arrow length
+  void SetQuality(int);                             // set arrow quality
+  void SetEveryNth(int);                            // reduce arrows
+  void SetClipPlane(bool);                          // set clipping on/off
+  void ComputeNormals(bool);                        // draw better arrows
+  void SetRandomMode(bool);                         // randomly reduce data
+  void ScaleByMagnitude(bool);                      // scale arrows
+  void SetMinColorVal(double);                      // set color min
+  void SetMaxColorVal(double);                      // set color max
+  void KeepColorLimits(bool);                       // keep color limits
+  void SetMinThresholdVal(double);                  // set threshold min
+  void SetMaxThresholdVal(double);                  // set threshold max
+  void UseThreshold(bool);                          // use threshold
+  void KeepThresholdLimits(bool);                   // keep thrshld limits
 
 signals:
   void drawVectorSignal();

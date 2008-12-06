@@ -323,7 +323,7 @@ void IsoContour::SetContours(int n)
   ui.contoursSpin->setValue(n);
 }
 
-void IsoContour::SetKeepFieldLimits(bool b)
+void IsoContour::KeepFieldLimits(bool b)
 {
   ui.keepContourLimits->setChecked(b);
 }
@@ -338,17 +338,17 @@ void IsoContour::SetMaxColorVal(double f)
   ui.colorMaxEdit->setText(QString::number(f));
 }
 
-void IsoContour::SetKeepColorLimits(bool b)
+void IsoContour::KeepColorLimits(bool b)
 {
   ui.keepColorLimits->setChecked(b);
 }
 
-void IsoContour::SetUseTubeFilter(bool b)
+void IsoContour::UseTubeFilter(bool b)
 {
   ui.useTubeFilter->setChecked(b);
 }
 
-void IsoContour::SetUseClipPlane(bool b)
+void IsoContour::UseClipPlane(bool b)
 {
   ui.useClip->setChecked(b);
 }

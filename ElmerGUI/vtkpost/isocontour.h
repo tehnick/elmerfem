@@ -66,22 +66,22 @@ signals:
   void hideIsoContourSignal();
 
 public slots:
-  QString GetFieldName();
-  QString GetColorName();
-  bool SetFieldName(QString);
-  bool SetColorName(QString);
-  void SetMinFieldVal(double);
-  void SetMaxFieldVal(double);
-  void SetContours(int);
-  void SetKeepFieldLimits(bool);
-  void SetMinColorVal(double);
-  void SetMaxColorVal(double);
-  void SetKeepColorLimits(bool);
-  void SetUseTubeFilter(bool);
-  void SetUseClipPlane(bool);
-  void SetLineWidth(int);
-  void SetTubeQuality(int);
-  void SetTubeRadius(int);
+  QString GetFieldName();                           // get field name    
+  QString GetColorName();                           // get color name
+  bool SetFieldName(QString);                       // set field name
+  bool SetColorName(QString);                       // set color name
+  void SetMinFieldVal(double);                      // set min value
+  void SetMaxFieldVal(double);                      // set max value
+  void SetContours(int);                            // set nof contours
+  void KeepFieldLimits(bool);                       // keep limits
+  void SetMinColorVal(double);                      // set color min
+  void SetMaxColorVal(double);                      // set color max
+  void KeepColorLimits(bool);                       // keep color limits
+  void UseTubeFilter(bool);                         // use tube filter
+  void UseClipPlane(bool);                          // set clipping on/off
+  void SetLineWidth(int);                           // set line width
+  void SetTubeQuality(int);                         // set tube quality
+  void SetTubeRadius(int);                          // set tube radius
 
 private slots:
   void cancelButtonClicked();

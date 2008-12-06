@@ -64,13 +64,13 @@ signals:
   void hideColorBarSignal();
 
 public slots:
-  bool SetFieldName(QString);
-  void SetLayoutHorizontal(bool);
-  void SetLayoutVertical(bool);
-  void SetAnnotateFieldName(bool);
-  void SetLabels(int);
-  void SetLineWidth(double);
-  void SetLength(double);
+  bool SetFieldName(QString);                       // set field name
+  void UseHorizontalLayout(bool);                   // horizontal layout
+  void UseVerticalLayout(bool);                     // vertical layout
+  void AnnotateFieldName(bool);                     // annotate field name
+  void SetLabels(int);                              // set nof labels
+  void SetLineWidth(double);                        // set line width
+  void SetLength(double);                           // set bar length
 
 private slots:
   void cancelButtonClicked();

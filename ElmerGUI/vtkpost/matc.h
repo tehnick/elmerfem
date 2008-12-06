@@ -73,7 +73,7 @@ public:
   void domatc(VtkPost*);
 
 public slots:
-  bool SetCommand(QString);
+  bool SetCommand(QString);                         // Enter matc cmd
 
 private slots:
   void okButtonClicked();

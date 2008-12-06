@@ -324,7 +324,7 @@ void IsoSurface::SetContours(int n)
   ui.contoursSpin->setValue(n);
 }
 
-void IsoSurface::SetKeepFieldLimits(bool b)
+void IsoSurface::KeepFieldLimits(bool b)
 {
   ui.keepContourLimits->setChecked(b);
 }
@@ -339,17 +339,17 @@ void IsoSurface::SetMaxColorVal(double f)
   ui.colorMaxEdit->setText(QString::number(f));
 }
 
-void IsoSurface::SetKeepColorLimits(bool b)
+void IsoSurface::KeepColorLimits(bool b)
 {
   ui.keepColorLimits->setChecked(b);
 }
 
-void IsoSurface::SetComputeNormals(bool b)
+void IsoSurface::ComputeNormals(bool b)
 {
   ui.normalsCheck->setChecked(b);
 }
 
-void IsoSurface::SetUseClipPlane(bool b)
+void IsoSurface::UseClipPlane(bool b)
 {
   ui.clipPlane->setChecked(b);
 }

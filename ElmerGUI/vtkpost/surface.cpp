@@ -255,7 +255,7 @@ void Surface::SetMaxVal(double f)
   ui.maxEdit->setText(QString::number(f));
 }
 
-void Surface::SetKeepLimits(bool b)
+void Surface::KeepLimits(bool b)
 {
   ui.keepLimits->setChecked(b);
 }
