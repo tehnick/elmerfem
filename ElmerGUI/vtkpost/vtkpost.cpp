@@ -2303,3 +2303,16 @@ void VtkPost::SetScale(double x, double y, double z)
     actor->SetScale(x, y, z);
   }
 }
+
+void VtkPost::ResetAll()
+{
+  SetInitialCameraPosition();
+  SetOrientation(0, 0, 0);
+  SetOrigin(0, 0, 0);
+  SetScale(1, 1, 1);
+}
+
+void VtkPost::ResetCamera()
+{
+  renderer->ResetCamera();
+}

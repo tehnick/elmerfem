@@ -224,6 +224,8 @@ public slots:
   void SetScaleY(double);
   void SetScaleZ(double);
   void SetScale(double, double, double);
+  void ResetCamera();
+  void ResetAll();
 
 private slots:
   void exitSlot();
