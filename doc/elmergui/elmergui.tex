@@ -527,15 +527,15 @@ available for scripting. The console is located under the Edit-menu:
 \noindent The console provides access to the ``public slots'' of the following classes:
 \begin{footnotesize}
 \begin{verbatim}
-egp             // elmergui post processor
-matc            // matc language interpreter
+egp             // ElmerGUI post processor
+matc            // MATC language interpreter
 preferences     // controls for preferences
 surfaces        // controls for surface plots
 vectors	        // controls for vector fields
-isoContours     // controls for iso contours
-isoSurfaces     // controls for iso surfaces
-streamLines     // controls for stream lines
-colorBar        // cotrols for the color bar
+isoContours     // controls for isocontours
+isoSurfaces     // controls for isosurfaces
+streamLines     // controls for streamlines
+colorBar        // cotrols for the colorbar
 timeStep        // controls for transient results
 \end{verbatim}
 \end{footnotesize}
@@ -559,231 +559,234 @@ Interface version 0.2:
 \begin{footnotesize}
 \begin{verbatim}
 class egp:
-  void SetPostFileStart(int);                  // start time
-  void SetPostFileEnd(int);                    // end time
-  bool ReadPostFile(QString);                  // read post file
-  void Redraw();                               // regenarate all actors
-  void Render();                               // update display
-  void SetSurfaces(bool);                      // surface plot mode
-  void SetVectors(bool);                       // vector plot mode
-  void SetIsoContours(bool);                   // iso contour mode
-  void SetIsoSurfaces(bool);                   // iso surface mode
-  void SetStreamLines(bool);                   // stream line mode
-  void SetColorBar(bool);                      // show/hide colorbar
-  void SetMeshPoints(bool);                    // show/hide nodes
-  void SetMeshEdges(bool);                     // show/hide edges
-  void SetFeatureEdges(bool);                  // show/hide feature edges
-  void SetAxes(bool);                          // show/hide coord. axes
-  bool GetClipAll();                           // clipping on?
-  void SetClipAll(bool);                       // set clippping mode
-  void SetClipPlaneOx(double);                 // clip plane origin
-  void SetClipPlaneOy(double);                 // clip plane origin
-  void SetClipPlaneOz(double);                 // clip plane origin
-  void SetClipPlaneNx(double);                 // clip plane normal
-  void SetClipPlaneNy(double);                 // clip plane normal
-  void SetClipPlaneNz(double);                 // clip plane normal
-  double GetCameraDistance();                  // get camera distance
-  void SetCameraDistance(double);              // set camera distance
-  double GetCameraPositionX();                 // get camera position
-  double GetCameraPositionY();                 // get camera position
-  double GetCameraPositionZ();                 // get camera position
-  void SetCameraPositionX(double);             // set camera position
-  void SetCameraPositionY(double);             // set camera position
-  void SetCameraPositionZ(double);             // set camera position
-  double GetCameraFocalPointX();               // get focal point
-  double GetCameraFocalPointY();               // get focal point
-  double GetCameraFocalPointZ();               // get focal point
-  void SetCameraFocalPointX(double);           // set focal point
-  void SetCameraFocalPointY(double);           // set focal point
-  void SetCameraFocalPointZ(double);           // set focal point
-  void CameraDolly(double);                    // camera dolly
-  void CameraRoll(double);                     // camera roll
-  void CameraAzimuth(double);                  // camera azimuth
-  void CameraYaw(double);                      // camera yaw
-  void CameraElevation(double);                // camera elevation
-  void CameraPitch(double);                    // camera pitch
-  void CameraZoom(double);                     // camera zoom
-  void SetInitialCameraPosition();             // reset camera position
-  double GetLength();                          // get model length
-  int NofNodes();                              // get number of nodes
-  bool MatcCmd(QString);                       // evaluate matc command
-  void domatcSlot();                           // flush matc console
-  bool SavePngFile(QString);                   // save png image
-  void RotateX(double);                        // rotate model
-  void RotateY(double);                        // rotate model
-  void RotateZ(double);                        // rotate model
-  void SetOrientation(double, double, double); // set orientation
-  void SetPositionX(double);                   // set position
-  void SetPositionY(double);                   // set position
-  void SetPositionZ(double);                   // set position
-  void SetPosition(double, double, double);    // set position (abs)
-  void AddPosition(double, double, double);    // set position (inc)
-  void SetOrigin(double, double, double);      // set origin
-  void SetScaleX(double);                      // set display scale
-  void SetScaleY(double);                      // set display scale
-  void SetScaleZ(double);                      // set display scale
-  void SetScale(double, double, double);       // set scale
-  void ResetAll();                             // reset display
-  void ResetCamera();                          // reset camera
+  bool MatcCmd(QString);                         // evaluate MATC cmd
+  void domatcSlot();                             // flush MATC console
+
+  void SetPostFileStart(int);                    // first time step
+  void SetPostFileEnd(int);                      // last time step
+  bool ReadPostFile(QString);                    // read result file
+
+  void Render();                                 // render
+  void ResetCamera();                            // reset camera
+  void Redraw();                                 // redraw actors
+  void ResetAll();                               // reset view
+
+  void SetSurfaces(bool);                        // show/hide surfaces
+  void SetVectors(bool);                         // show/hide vectors
+  void SetIsoContours(bool);                     // show/hide isocontours
+  void SetIsoSurfaces(bool);                     // show/hide isosurfaces
+  void SetStreamLines(bool);                     // show/hide streamlines
+  void SetColorBar(bool);                        // show/hide colorbar
+  void SetMeshPoints(bool);                      // show/hide/nodes
+  void SetMeshEdges(bool);                       // show/hide edges
+  void SetFeatureEdges(bool);                    // show/hide f-edges
+  void SetAxes(bool);                            // show/hide axes
+
+  bool GetClipAll();                             // is clipping on?
+  void SetClipAll(bool);                         // clipping on/off
+  void SetClipPlaneOx(double);                   // clip plane origin
+  void SetClipPlaneOy(double);                   // clip plane origin
+  void SetClipPlaneOz(double);                   // clip plane origin
+  void SetClipPlaneNx(double);                   // clip plane normal
+  void SetClipPlaneNy(double);                   // clip plane normal
+  void SetClipPlaneNz(double);                   // clip plane normal
+
+  double GetCameraDistance();                    // get camera distance
+  void SetCameraDistance(double);                // set camera distance
+  double GetCameraPositionX();                   // get camera position
+  double GetCameraPositionY();                   // get camera position
+  double GetCameraPositionZ();                   // get camera position
+  void SetCameraPositionX(double);               // set camera position
+  void SetCameraPositionY(double);               // set camera position
+  void SetCameraPositionZ(double);               // set camera position
+  double GetCameraFocalPointX();                 // get focal point
+  double GetCameraFocalPointY();                 // get focal point
+  double GetCameraFocalPointZ();                 // get focal point
+  void SetCameraFocalPointX(double);             // set focal point
+  void SetCameraFocalPointY(double);             // set focal point
+  void SetCameraFocalPointZ(double);             // set focal point
+  void CameraDolly(double);                      // dolly
+  void CameraRoll(double);                       // roll
+  void CameraAzimuth(double);                    // azimuth
+  void CameraYaw(double);                        // yaw
+  void CameraElevation(double);                  // elevation
+  void CameraPitch(double);                      // pitch
+  void CameraZoom(double);                       // zoom
+  void SetCameraRoll(double);                    // set roll
+  void SetInitialCameraPosition();               // set initial position
+
+  void RotateX(double);                          // rotate visible actors
+  void RotateY(double);                          // rotate visible actors
+  void RotateZ(double);                          // rotate visible actors
+  void SetOrientation(double, double, double);   // set orientation
+  void SetPositionX(double);                     // set position
+  void SetPositionY(double);                     // set position
+  void SetPositionZ(double);                     // set position
+  void SetPosition(double, double, double);      // set position
+  void AddPosition(double, double, double);      // add position
+  void SetOrigin(double, double, double);        // set origin
+  void SetScaleX(double);                        // set scale
+  void SetScaleY(double);                        // set scale
+  void SetScaleZ(double);                        // set scale
+  void SetScale(double, double, double);         // set scale
+  double GetLength();                            // get model size
+  double GetNofNodes();                          // get nof nodes
+  double GetMinX();                              // bounding box
+  double GetMaxX();                              // bounding box
+  double GetMinY();                              // bounding box
+  double GetMaxY();                              // bounding box
+  double GetMinZ();                              // bounding box
+  double GetMaxZ();                              // bounding box
+
+  bool SavePngFile(QString);                     // save image file
 
 class matc:
-  bool SetCommand(QString);                    // set command
+  bool SetCommand(QString);                      // Enter MATC cmd
 
 class preferences:
-  void SetSurfaceMeshForPoints(bool);          // draw nodes on surface
-  void SetVolumeMeshForPoints(bool);           // draw nodes in volume
-  void SetPointSize(int);                      // node size
-  void SetPointQuality(int);                   // node quality
-  void SetClipPlaneForPoints(bool);            // clip nodes
-  void SetSurfaceMeshForEdges(bool);           // draw edges on surface
-  void SetVolumeMeshForEdges(bool);            // draw edges in volume
-  void SetTubeFilterForEdges(bool);            // draw edges as tubes
-  void SetClipPlaneForEdges(bool);             // clip edges
-  void SetLineWidthForEdges(int);              // edge line width
-  void SetTubeQualityForEdges(int);            // edge tube quality
-  void SetTubeRadiusForEdges(int);             // edge tube radius
-  void SetSurfaceMeshForFeatureEdges(bool);    // feature edges for surf
-  void SetVolumeMeshForFeatureEdges(bool);     // feature edges for vol
-  void SetTubeFilterForFeatureEdges(bool);     // feature edges as tubes
-  void SetClipPlaneForFeatureEdges(bool);      // clip feature edges
-  void SetDrawBoundaryEdges(bool);             // boundary edges
-  int GetFeatureAngle();                       // get feature angle
-  void SetFeatureAngle(int);                   // set feature angle
-  void SetLineWidthForFeatureEdges(int);       // feature line with
-  void SetTubeQualityForFeatureEdges(int);     // feature tube quality
-  void SetTubeRadiusForFeatureEdges(int);      // feature tube radius
-  void SetClipPlaneOx(double);                 // clip plane origin
-  void SetClipPlaneOy(double);                 // clip plane origin
-  void SetClipPlaneOz(double);                 // clip plane origin
-  void SetClipPlaneNx(double);                 // clip plane normal
-  void SetClipPlaneNy(double);                 // clip plane normal
-  void SetClipPlaneNz(double);                 // clip plane normal
+  void UseSurfaceMeshForPoints(bool);            // nodes of surface mesh
+  void UseVolumeMeshForPoints(bool);             // nodes of volume mesh
+  void SetPointSize(int);                        // set node point size
+  void SetPointQuality(int);                     // set node point quality
+  void UseClipPlaneForPoints(bool);              // clip nodes
+  void UseSurfaceMeshForEdges(bool);             // edges of surface mesh
+  void UseVolumeMeshForEdges(bool);              // edges of volume mesh
+  void UseTubeFilterForEdges(bool);              // use tube filter
+  void UseClipPlaneForEdges(bool);               // clip edges
+  void SetLineWidthForEdges(int);                // edge line width
+  void SetTubeQualityForEdges(int);              // edge tube quality
+  void SetTubeRadiusForEdges(int);               // edge tube radius
+  void UseSurfaceMeshForFeatureEdges(bool);      // surface mesh: f-edges
+  void UseVolumeMeshForFeatureEdges(bool);       // volume mesh: f-edges
+  void UseTubeFilterForFeatureEdges(bool);       // use tube filter
+  void UseClipPlaneForFeatureEdges(bool);        // clip f-edges
+  void DrawBoundaryEdges(bool);                  // draw boundary edges
+  int GetFeatureAngle();                         // get feature angle
+  void SetFeatureAngle(int);                     // set feature angle
+  void SetLineWidthForFeatureEdges(int);         // f-edge line width
+  void SetTubeQualityForFeatureEdges(int);       // f-edge tube quality
+  void SetTubeRadiusForFeatureEdges(int);        // f-edge tube radius
+  void SetClipPlaneOx(double);                   // clip plane origin
+  void SetClipPlaneOy(double);                   // clip plane origin
+  void SetClipPlaneOz(double);                   // clip plane origin
+  void SetClipPlaneNx(double);                   // clip plane normal
+  void SetClipPlaneNy(double);                   // clip plane normal
+  void SetClipPlaneNz(double);                   // clip plane normal
 
 class surfaces:
-  QString GetFieldName();                      // get field name
-  bool SetFieldName(QString);                  // set field name
-  void SetMinVal(double);                      // minimum
-  void SetMaxVal(double);                      // maximum
-  void SetKeepLimits(bool);                    // keep limits
-  void SetComputeNormals(bool);                // shade model
-  void SetFeatureAngle(int);                   // set feature angle
-  void SetOpacity(int);                        // set opacity
-  void SetClipPlane(bool);                     // set clipping
+  QString GetFieldName();                        // get field name
+  bool SetFieldName(QString);                    // set field name
+  void SetMinVal(double);                        // set minimum
+  void SetMaxVal(double);                        // set maximum
+  void KeepLimits(bool);                         // keep limits
+  void SetComputeNormals(bool);                  // shade model
+  void SetFeatureAngle(int);                     // feature angle
+  void SetOpacity(int);                          // set opacity
+  void SetClipPlane(bool);                       // set clipping
 
 class vectors:
-  QString GetFieldName();                      // get field name
-  QString GetColorName();                      // get color name
-  QString GetThresholdName();                  // get threshold name
-  bool SetFieldName(QString);                  // set field name
-  bool SetColorName(QString);                  // set color name
-  bool SetThresholdName(QString);              // set threshold name
-  void SetLength(int);                         // set arrow length
-  void SetQuality(int);                        // set arrow quality
-  void SetEveryNth(int);                       // reduce arrows
-  void SetClipPlane(bool);                     // set clipping
-  void SetComputeNormals(bool);                // smooth arrows
-  void SetRandomMode(bool);                    // reduce randomly
-  void SetScaleByMagnitude(bool);              // scaling
-  void SetMinColorVal(double);                 // color min
-  void SetMaxColorVal(double);                 // color max
-  void SetKeepColorLimits(bool);               // keep color limits
-  void SetMinThresholdVal(double);             // treshold min
-  void SetMaxThresholdVal(double);             // threshold max
-  void SetUseThreshold(bool);                  // use threshold
-  void SetKeepThresholdLimits(bool);           // keep threshold limits
+  QString GetFieldName();                        // get field name
+  bool SetFieldName(QString);                    // set field name
+  void SetMinVal(double);                        // set minimum
+  void SetMaxVal(double);                        // set maximum
+  void KeepLimits(bool);                         // keep limits
+  void SetComputeNormals(bool);                  // shade model
+  void SetFeatureAngle(int);                     // feature angle
+  void SetOpacity(int);                          // set opacity
+  void SetClipPlane(bool);                       // set clipping
 
 class isoContours:
-  QString GetFieldName();                      // get field name
-  QString GetColorName();                      // get color field name
-  bool SetFieldName(QString);                  // set field name
-  bool SetColorName(QString);                  // set color field name
-  void SetMinFieldVal(double);                 // minimum
-  void SetMaxFieldVal(double);                 // maximum
-  void SetContours(int);                       // number of contours
-  void SetKeepFieldLimits(bool);               // keep limits
-  void SetMinColorVal(double);                 // color min
-  void SetMaxColorVal(double);                 // color max
-  void SetKeepColorLimits(bool);               // keep color limits
-  void SetUseTubeFilter(bool);                 // draw with tubes
-  void SetUseClipPlane(bool);                  // clip
-  void SetLineWidth(int);                      // line width
-  void SetTubeQuality(int);                    // tube quality
-  void SetTubeRadius(int);                     // tube radius
+  QString GetFieldName();                        // get field name
+  QString GetColorName();                        // get color name
+  bool SetFieldName(QString);                    // set field name
+  bool SetColorName(QString);                    // set color name
+  void SetMinFieldVal(double);                   // set min value
+  void SetMaxFieldVal(double);                   // set max value
+  void SetContours(int);                         // set nof contours
+  void KeepFieldLimits(bool);                    // keep limits
+  void SetMinColorVal(double);                   // set color min
+  void SetMaxColorVal(double);                   // set color max
+  void KeepColorLimits(bool);                    // keep color limits
+  void UseTubeFilter(bool);                      // use tube filter
+  void UseClipPlane(bool);                       // set clipping on/off
+  void SetLineWidth(int);                        // set line width
+  void SetTubeQuality(int);                      // set tube quality
+  void SetTubeRadius(int);                       // set tube radius
 
 class isoSurfaces:
-  QString GetFieldName();                      // get field name
-  QString GetColorName();                      // get color name
-  bool SetFieldName(QString);                  // set field name
-  bool SetColorName(QString);                  // set color name
-  void SetMinFieldVal(double);                 // minimum
-  void SetMaxFieldVal(double);                 // maximum
-  void SetContours(int);                       // number of contours
-  void SetKeepFieldLimits(bool);               // keep limits
-  void SetMinColorVal(double);                 // color min
-  void SetMaxColorVal(double);                 // color max
-  void SetKeepColorLimits(bool);               // keep color limits
-  void SetComputeNormals(bool);                // shade model
-  void SetUseClipPlane(bool);                  // clip
-  void SetFeatureAngle(int);                   // set feature angle
-  void SetOpacity(int);                        // set opacity
+  QString GetFieldName();                        // get field name
+  QString GetColorName();                        // get color name
+  bool SetFieldName(QString);                    // set field name
+  bool SetColorName(QString);                    // set color name
+  void SetMinFieldVal(double);                   // set min value
+  void SetMaxFieldVal(double);                   // set max value
+  void SetContours(int);                         // nof contours
+  void KeepFieldLimits(bool);                    // keep limits
+  void SetMinColorVal(double);                   // set color min
+  void SetMaxColorVal(double);                   // set color max
+  void KeepColorLimits(bool);                    // keep color limits
+  void ComputeNormals(bool);                     // shade model
+  void UseClipPlane(bool);                       // set clpping on/off
+  void SetFeatureAngle(int);                     // set feature angle
+  void SetOpacity(int);                          // set opacity
 
 class streamLines:
-  QString GetFieldName();                      // get field name
-  QString GetColorName();                      // get color field name
-  bool SetFieldName(QString);                  // set field name
-  bool SetColorName(QString);                  // set color field name
-  void SetMaxTime(double);                     // max time
-  void SetStepLength(double);                  // time step length
-  void SetThreads(int);                        // number of threads
-  void SetIntegStepLength(double);             // integ. step length
-  void SetUseSurfaceMesh(bool);                // use surface mesh
-  void SetUseVolumeMesh(bool);                 // use volume mesh
-  void SetIntegrateForwards(bool);             // integrate forwards
-  void SetIntegrateBackwards(bool);            // integrate backwards
-  void SetMinColorVal(double);                 // color minimum
-  void SetMaxColorVal(double);                 // color maximum
-  void SetKeepColorLimits(bool);               // keep color limits
-  void SetDrawLines(bool);                     // draw lines
-  void SetDrawRibbons(bool);                   // draw ribbons
-  void SetLineWidth(int);                      // line width
-  void SetRibbonWidth(int);                    // ribbon width
-  void SetSphereSource(bool);                  // sphere source
-  void SetLineSource(bool);                    // line source
-  void SetPointSource(bool);                   // point source
-  void SetSphereSourceX(double);               // sphere origin
-  void SetSphereSourceY(double);               // sphere origin
-  void SetSphereSourceZ(double);               // sphere origin
-  void SetSphereSourceRadius(double);          // sphere radius
-  void SetSphereSourcePoints(int);             // nof points in sphere
-  void SetLineSourceStartX(double);            // line start
-  void SetLineSourceStartY(double);            // line start
-  void SetLineSourceStartZ(double);            // line start
-  void SetLineSourceEndX(double);              // line end
-  void SetLineSourceEndY(double);              // line end
-  void SetLineSourceEndZ(double);              // line end
-  void SetLineSourcePoints(int);               // nof point on line
+  QString GetFieldName();                        // get field name
+  QString GetColorName();                        // get color name
+  bool SetFieldName(QString);                    // set field name
+  bool SetColorName(QString);                    // set color name
+  void SetMaxTime(double);                       // max time
+  void SetStepLength(double);                    // step length
+  void SetThreads(int);                          // nof threads
+  void SetIntegStepLength(double);               // integ. step length
+  void UseSurfaceMesh(bool);                     // use forface mesh
+  void UseVolumeMesh(bool);                      // use volume mesh
+  void IntegrateForwards(bool);                  // integrate forwards
+  void IntegrateBackwards(bool);                 // integrate backwards
+  void SetMinColorVal(double);                   // color min val
+  void SetMaxColorVal(double);                   // color max value
+  void KeepColorLimits(bool);                    // keep color limits
+  void DrawLines(bool);                          // draw using lines
+  void DrawRibbons(bool);                        // draw using ribbons
+  void SetLineWidth(int);                        // line width
+  void SetRibbonWidth(int);                      // ribbon width
+  void UseSphereSource(bool);                    // use sphere source
+  void UseLineSource(bool);                      // use line source
+  void UsePointSource(bool);                     // use point source
+  void SetSphereSourceX(double);                 // sphere origin
+  void SetSphereSourceY(double);                 // sphere origin
+  void SetSphereSourceZ(double);                 // sphere origin
+  void SetSphereSourceRadius(double);            // sphere radius
+  void SetSphereSourcePoints(int);               // nof pts in sphere
+  void SetLineSourceStartX(double);              // line start point
+  void SetLineSourceStartY(double);              // line start point
+  void SetLineSourceStartZ(double);              // line start point
+  void SetLineSourceEndX(double);                // line end point
+  void SetLineSourceEndY(double);                // line end point
+  void SetLineSourceEndZ(double);                // line end point
+  void SetLineSourcePoints(int);                 // nof pts on line
 
 class colorBar:
-  bool SetFieldName(QString);                  // set field name
-  void SetLayoutHorizontal(bool);              // draw horizontal
-  void SetLayoutVertical(bool);                // draw vertical
-  void SetAnnotateFieldName(bool);             // draw field name
-  void SetLabels(int);                         // nof labels
-  void SetLineWidth(double);                   // line width
-  void SetLength(double);                      // set length
+  bool SetFieldName(QString);                    // set field name
+  void UseHorizontalLayout(bool);                // horizontal layout
+  void UseVerticalLayout(bool);                  // vertical layout
+  void AnnotateFieldName(bool);                  // annotate field name
+  void SetLabels(int);                           // set nof labels
+  void SetLineWidth(double);                     // set line width
+  void SetLength(double);                        // set bar length
 
 class timeStep:
-  void SetCurrent(int);                        // current time step
-  void SetStart(int);                          // first step
-  void SetStop(int);                           // last step
-  void SetIncrement(int);                      // increment
-  void SetMatcCmd(QString);                    // matc cmd
-  void SetRegenerateBeforeDrawing(bool);       // regenerate actors
-  void SetSaveFrames(bool);                    // save picture files
-  void SetSaveDirectory(QString);              // set directory
-  void Loop();                                 // start/stop loop
-  bool IsLooping();                            // is looping?
-  void DrawCurrent();                          // draw current frame
+  void SetCurrent(int);                          // set current step
+  void SetStart(int);                            // set first step
+  void SetStop(int);                             // set last step
+  void SetIncrement(int);                        // set increment
+  void SetMatcCmd(QString);                      // set MATC cmd
+  void RegenerateBeforeDrawing(bool);            // regenerate actors
+  void SaveFrames(bool);                         // save frames
+  void SetSaveDirectory(QString);                // set save dir
+  void Loop();                                   // toggle looping
+  bool IsLooping();                              // is loop on?
+  void DrawCurrent();                            // draw current frame
 \end{verbatim}
 \end{footnotesize}
 
@@ -801,7 +804,7 @@ where ``sample.py'' is a text file containing the script to execute.
 \noindent{\bf Read in results}
 \begin{footnotesize}
 \begin{verbatim}
-egp.ReadPostFile(``case.ep'')
+egp.ReadPostFile("case.ep")
 \end{verbatim}
 \end{footnotesize}
 
@@ -809,7 +812,7 @@ egp.ReadPostFile(``case.ep'')
 \noindent{\bf Set orientation}
 \begin{footnotesize}
 \begin{verbatim}
-egp.ReadPostFile(``case.ep'')
+egp.ReadPostFile("case.ep")
 egp.SetSurfaces(True)
 egp.SetOrientation(45, 45, 0)
 egp.SetInitalCameraPosition()
@@ -820,7 +823,7 @@ egp.SetInitalCameraPosition()
 \noindent{\bf Visualize temperature on surfaces}
 \begin{footnotesize}
 \begin{verbatim}
-egp.ReadPostFile(``case.ep'')
+egp.ReadPostFile("case.ep")
 egp.SetSurfaces(True)
 egp.SetOrientation(45, 45, 0)
 egp.SetInitalCameraPosition()
@@ -835,7 +838,7 @@ egp.Redraw()
 \begin{footnotesize}
 \begin{verbatim}
 import time
-egp.ReadPostFile(``case.ep'')
+egp.ReadPostFile("case.ep")
 egp.SetSurfaces(True)
 for i in range (180):
         egp.RotateY(2.0)
@@ -845,11 +848,47 @@ for i in range (180):
 \end{verbatim}
 \end{footnotesize}
 
+
+\vskip5mm
+\noindent{\bf Traveling isosurface}
+\vskip5mm
+\noindent The following script makes an iso surface ($z=const.$) travel through the model
+in 100 steps. The surface is colored according to the temperature field. The model it self
+is drawn transparent.
+\begin{footnotesize}
+\begin{verbatim}
+import time
+egp.ReadPostFile("case.ep")
+egp.SetSurfaces(True)
+egp.SetIsoSurfaces(True)
+egp.SetFeatureEdges(True)
+preferences.SetFeatureAngle(45)
+surfaces.SetFieldName("Null")
+surfaces.SetOpacity(20)
+isoSurfaces.SetFieldName("nodes_z")
+isoSurfaces.SetColorName("Temperature")
+isoSurfaces.SetContours(1)
+isoSurfaces.KeepFieldLimits(True)
+egp.SetOrientation(45, 45, 0)
+egp.ResetCamera()
+egp.Render()
+zmin = egp.GetMinZ()
+zmax = egp.GetMaxZ()
+for i in range(100):
+    z = zmin+(float(i)/100.0)*(zmax-zmin)
+    isoSurfaces.SetMinFieldVal(z)
+    isoSurfaces.SetMaxFieldVal(z)
+    egp.Redraw()
+    time.sleep(0.05)
+\end{verbatim}
+\end{footnotesize}
+
+
 \vskip5mm
 \noindent{\bf Rotate and save frames}
 \begin{footnotesize}
 \begin{verbatim}
-egp.ReadPostFile(``case.ep'')
+egp.ReadPostFile("case.ep")
 egp.SetSurfaces(True)
 for i in range (180):
         egp.RotateY(2.0)
@@ -858,7 +897,6 @@ for i in range (180):
         egp.SavePngFile("frame" + str(i) + ".png")
 \end{verbatim}
 \end{footnotesize}
-
 
 \vskip5mm
 \noindent{\bf Preparing and playing back video clips}
