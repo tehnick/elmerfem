@@ -11,7 +11,7 @@ DEFINES += QWT       # Use QWT for convergence monitor?
 DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
 DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
-# DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
+DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
 
 #------------------------------------------------------------------------------
 # Target:
