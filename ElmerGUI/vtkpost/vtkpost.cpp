@@ -321,13 +321,13 @@ VtkPost::VtkPost(QWidget *parent)
 #ifdef MATC
   mainContext.addObject("matc", matc);
 #endif
-  mainContext.addObject("surfaces", surface);
-  mainContext.addObject("vectors", vector);
-  mainContext.addObject("isoContours", isoContour);
-  mainContext.addObject("isoSurfaces", isoSurface);
-  mainContext.addObject("streamLines", streamLine);
+  mainContext.addObject("surface", surface);
+  mainContext.addObject("vector", vector);
+  mainContext.addObject("isoContour", isoContour);
+  mainContext.addObject("isoSurface", isoSurface);
+  mainContext.addObject("streamLine", streamLine);
   mainContext.addObject("preferences", preferences);
-  mainContext.addObject("timeSteps", timeStep);
+  mainContext.addObject("timeStep", timeStep);
   mainContext.addObject("colorBar", colorBar);
 
   console = new PythonQtScriptingConsole(NULL, mainContext);
