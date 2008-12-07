@@ -1,6 +1,6 @@
 TARGET = PythonQt
 TEMPLATE = lib
-win32:CONFIG += release
+CONFIG += release
 
 unix {
    INCLUDEPATH += /usr/include/python2.5
@@ -25,7 +25,7 @@ MOC_DIR = ./tmp
 OBJECTS_DIR = ./tmp
 RCC_DIR = ./tmp
 UI_DIR = ./tmp
-unix:QMAKE_CXXFLAGS = -w
+QMAKE_CXXFLAGS_WARN_ON = -w
 
 HEADERS += \
   src/PythonQt.h \

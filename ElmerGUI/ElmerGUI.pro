@@ -11,7 +11,7 @@ DEFINES += QWT       # Use QWT for convergence monitor?
 DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
 DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
-# DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
+DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
 
 #------------------------------------------------------------------------------
 # Target:
@@ -33,15 +33,8 @@ UI_DIR = ./tmp
 #------------------------------------------------------------------------------
 # Compiler flags:
 #------------------------------------------------------------------------------
-unix {
-   QMAKE_CXXFLAGS = -Wno-deprecated
-   QMAKE_CXXFLAGS_WARN_ON = 
-}
-
-win32 {
-   QMAKE_CXXFLAGS = /wd4005 /wd4100 /wd4996 /wd4305 \
-                    /wd4805 /wd4189 /wd4390 /wd4554
-}
+unix: QMAKE_CXXFLAGS = -Wno-deprecated
+win32: QMAKE_CXXFLAGS_WARN_ON = -w
 
 #------------------------------------------------------------------------------
 # QT:
@@ -52,9 +45,9 @@ CONFIG += uitools
 #------------------------------------------------------------------------------
 # NETGEN (see ./netgen/README for more details):
 #------------------------------------------------------------------------------
-unix:  QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
+unix: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
 win32: QMAKE_PRE_LINK = cd netgen & qmake & nmake & cd ..
-macx:  QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
+macx: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
 
 INCLUDEPATH += ./netgen/libsrc/interface
 LIBPATH += ./netgen/ngcore
@@ -73,7 +66,7 @@ contains(DEFINES, PYTHONQT) {
    }
 
    win32 {
-      QMAKE_PRE_LINK += & cd PythonQt & qmake & make & cd .. 
+      QMAKE_PRE_LINK += & cd PythonQt & qmake & nmake & cd .. 
       INCLUDEPATH += c:\PYTHON\Python-2.6.1\Include
       INCLUDEPATH += c:\PYTHON\Python-2.6.1\PC             # pyconfig.h
       INCLUDEPATH += ./PythonQt/src
@@ -82,9 +75,7 @@ contains(DEFINES, PYTHONQT) {
       LIBS += -lpython26 -lPythonQt
    }
 
-   macx {
-      DEFINES -= PYTHONQT
-   }
+   macx: DEFINES -= PYTHONQT              # not supported at the moment
 }
 
 #------------------------------------------------------------------------------
@@ -162,18 +153,20 @@ contains(DEFINES, VTKPOST) {
 #------------------------------------------------------------------------------
 contains(DEFINES, MATC) {
    unix {
-      LIBPATH += /usr/local/lib
+      QMAKE_PRE_LINK += cd matc; qmake; make; cd .. ; 
+      LIBPATH += ./matc/lib
       LIBS += -lmatc
    }
 
    win32 {
-      QMAKE_PRE_LINK += & cd matc & nmake & cd ..
-      LIBPATH += .\matc
+      QMAKE_PRE_LINK += & cd matc & qmake & nmake & cd ..
+      LIBPATH += .\matc\lib
       LIBS += -lmatc
    }
 
    macx {
-      LIBPATH += /usr/local/lib
+      QMAKE_PRE_LINK += cd matc; qmake; make; cd .. ; 
+      LIBPATH += ./matc/lib
       LIBS += -lmatc
    }
 }
@@ -222,9 +215,7 @@ contains(DEFINES, OCC_63) {
 #------------------------------------------------------------------------------
 # Process info query on win32:
 #------------------------------------------------------------------------------
-win32 {
-   LIBS += -lpsapi
-}
+win32: LIBS += -lpsapi
 
 #------------------------------------------------------------------------------
 # Input files:
@@ -391,12 +382,8 @@ contains(DEFINES, OCC_63) {
 # Resource files:
 #------------------------------------------------------------------------------
 RESOURCES += ElmerGUI.qrc
-
-macx {
-   RC_FILE = M3Dicon.icns
-}
-
-RC_FILE += ElmerGUI.rc   
+win32: RC_FILE += ElmerGUI.rc
+macx: RC_FILE = M3Dicon.icns
 
 #------------------------------------------------------------------------------
 # END OF FILE
