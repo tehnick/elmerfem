@@ -34,7 +34,7 @@ UI_DIR = ./tmp
 # Compiler flags:
 #------------------------------------------------------------------------------
 unix {
-   QMAKE_CXXFLAGS = -O2 -Wno-deprecated
+   QMAKE_CXXFLAGS = -Wno-deprecated
    QMAKE_CXXFLAGS_WARN_ON = 
 }
 
@@ -52,17 +52,9 @@ CONFIG += uitools
 #------------------------------------------------------------------------------
 # NETGEN (see ./netgen/README for more details):
 #------------------------------------------------------------------------------
-unix {
-   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../.. ; 
-}
-
-win32 {
-   QMAKE_PRE_LINK = cd netgen/ngcore & nmake -f Makefile.win32 & cd ../.. 
-}
-
-macx {
-   QMAKE_PRE_LINK = cd netgen/ngcore; make; cd ../.. ; 
-}
+unix:  QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
+win32: QMAKE_PRE_LINK = cd netgen & qmake & nmake & cd ..
+macx:  QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
 
 INCLUDEPATH += ./netgen/libsrc/interface
 LIBPATH += ./netgen/ngcore
