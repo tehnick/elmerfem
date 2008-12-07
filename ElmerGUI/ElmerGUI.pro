@@ -21,6 +21,22 @@ TARGET = ElmerGUI
 CONFIG += release
 
 #------------------------------------------------------------------------------
+# Installation:
+#------------------------------------------------------------------------------
+unix: ELMER_HOME = /usr/local
+win32: ELMER_HOME = c:\Elmer5.4
+macx: ELMER_HOME = /usr/local
+
+ELMERGUI_HOME = $${ELMER_HOME}/bin
+
+target.path = $$ELMERGUI_HOME
+INSTALLS += target
+
+edf.path = $${ELMERGUI_HOME}/edf
+edf.files += edf/*
+INSTALLS += edf
+
+#------------------------------------------------------------------------------
 # Directories:
 #------------------------------------------------------------------------------
 DEPENDPATH += . src forms plugins vtkpost cad
