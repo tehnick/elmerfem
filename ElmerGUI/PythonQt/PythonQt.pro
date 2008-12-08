@@ -6,6 +6,7 @@ include(../ElmerGUI.pri)
 TARGET = PythonQt
 TEMPLATE = lib
 CONFIG += qt release warn_off
+unix: CONFIG += staticlib 
 
 INCLUDEPATH += $${PY_INCLUDEPATH} src
 LIBPATH += $${PY_LIBPATH}
