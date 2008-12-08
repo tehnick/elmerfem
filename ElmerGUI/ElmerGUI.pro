@@ -73,6 +73,12 @@ macx: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd ..
 # PYTHONQT (see PythonQt/README for more details):
 #------------------------------------------------------------------------------
 contains(DEFINES, PYTHONQT) {
+   !exists($${PY_INCLUDEPATH}/Python.h) {
+      message("PYTHONQT has been defined, but Python.h was not found")
+      message("Check PY_INCLUDEPATH in ElmerGUI.pri or undefine PYTHONQT")
+      error("Configuration error has occurred. Unable to continue.")
+   }
+
    INCLUDEPATH += $${PY_INCLUDEPATH} PythonQt/src
    LIBPATH += $${PY_LIBPATH} PythonQt/lib
    LIBS += $${PY_LIBS} -lPythonQt
@@ -92,6 +98,12 @@ contains(DEFINES, PYTHONQT) {
 # QWT:
 #------------------------------------------------------------------------------
 contains(DEFINES, QWT) {
+   !exists($${QWT_INCLUDEPATH}/qwt.h) {
+      message("QWT has been defined, but qwt.h was not found")
+      message("Check QWT_INCLUDEPATH in ElmerGUI.pri or undefine QWT")
+      error("Configuration error has occurred. Unable to continue.")
+   }      
+
    INCLUDEPATH += $${QWT_INCLUDEPATH}
    LIBPATH += $${QWT_LIBPATH}
    LIBS += $${QWT_LIBS}
@@ -101,6 +113,12 @@ contains(DEFINES, QWT) {
 # VTK:
 #------------------------------------------------------------------------------
 contains(DEFINES, VTKPOST) {
+   !exists($${VTK_INCLUDEPATH}/QVTKWidget.h) {
+      message("VTKPOST has been defined, but QVTKWidget.h was not found")
+      message("Check VTK_INCLUDEPATH in ElmerGUI.pri or undefine VTKPOST")
+      error("Configuration error has occurred. Unable to continue.")
+   }      
+
    INCLUDEPATH += $${VTK_INCLUDEPATH}
    LIBPATH += $${VTK_LIBPATH}
    LIBS += $${VTK_LIBS}
@@ -122,6 +140,12 @@ contains(DEFINES, MATC) {
 # OpenCASCADE:
 #------------------------------------------------------------------------------
 contains(DEFINES, OCC_63) {
+   !exists($${OCC_INCLUDEPATH}/BRepTools.hxx) {
+      message("OCC_63 has been defined, but BRepTools.hxx was not found")
+      message("Check OCC_INCLUDEPATH in ElmerGUI.pri or undefine OCC_63")
+      error("Configuration error has occurred. Unable to continue.")
+   }      
+
    contains(BITS, 64):  DEFINES += _OCC64
 
    unix: DEFINES += HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
