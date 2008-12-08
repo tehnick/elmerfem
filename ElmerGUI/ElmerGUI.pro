@@ -4,6 +4,8 @@
 #
 #==============================================================================
 
+include(ElmerGUI.pri)
+
 #------------------------------------------------------------------------------
 # Optional components (undefine or comment out to exclude from compilation):
 #------------------------------------------------------------------------------
@@ -28,15 +30,9 @@ CONFIG += release
 #------------------------------------------------------------------------------
 # Installation directory:
 #------------------------------------------------------------------------------
-unix: ELMER_HOME = /usr/local
-win32: ELMER_HOME = c:\Elmer5.4
-macx: ELMER_HOME = /usr/local
-
 ELMERGUI_HOME = $${ELMER_HOME}/bin
-
-target.path = $$ELMERGUI_HOME
+target.path = $${ELMERGUI_HOME}
 INSTALLS += target
-
 edf.path = $${ELMERGUI_HOME}/edf
 edf.files += edf/*
 INSTALLS += edf
@@ -65,176 +61,70 @@ CONFIG += uitools
 #------------------------------------------------------------------------------
 # NETGEN (see ./netgen/README for more details):
 #------------------------------------------------------------------------------
-unix: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
-win32: QMAKE_PRE_LINK = cd netgen & qmake & nmake & cd ..
-macx: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. ; 
-
-INCLUDEPATH += ./netgen/libsrc/interface
-LIBPATH += ./netgen/ngcore
+INCLUDEPATH += netgen/libsrc/interface
+LIBPATH += netgen/ngcore
 LIBS += -lng
+
+unix: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd .. 
+win32: QMAKE_PRE_LINK = cd netgen & qmake & nmake & cd ..
+macx: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd ..
 
 #------------------------------------------------------------------------------
 # PYTHONQT (see ./PythonQt/README for more details):
 #------------------------------------------------------------------------------
 contains(DEFINES, PYTHONQT) {
-   unix {
-      QMAKE_PRE_LINK += cd PythonQt; qmake; make; cd .. ; 
-      INCLUDEPATH += /usr/include/python2.5
-      INCLUDEPATH += ./PythonQt/src
-      LIBPATH += ./PythonQt/lib
-      LIBS += -lPythonQt
-   }
+   INCLUDEPATH += $${PY_INCLUDEPATH} PythonQt/src
+   LIBPATH += $${PY_LIBPATH} PythonQt/lib
+   LIBS += $${PY_LIBS} -lPythonQt
 
-   win32 {
-      QMAKE_PRE_LINK += & cd PythonQt & qmake & nmake & cd .. 
-      INCLUDEPATH += c:\PYTHON\Python-2.6.1\Include
-      INCLUDEPATH += c:\PYTHON\Python-2.6.1\PC             # pyconfig.h
-      INCLUDEPATH += ./PythonQt/src
-      LIBPATH += ./PythonQt/lib
-      LIBPATH += c:\PYTHON\Python-2.6.1\PCbuild
-      LIBS += -lpython26 -lPythonQt
-   }
-
-   macx: DEFINES -= PYTHONQT              # not supported at the moment
+   unix: QMAKE_PRE_LINK += ; cd PythonQt; qmake; make; cd .. 
+   win32: QMAKE_PRE_LINK += & cd PythonQt & qmake & nmake & cd .. 
+   macx: DEFINES -= PYTHONQT  # not supported at the moment
 }
 
 #------------------------------------------------------------------------------
-# QWT (you may need to edit this):
+# QWT:
 #------------------------------------------------------------------------------
 contains(DEFINES, QWT) {
-   unix {
-      INCLUDEPATH += /usr/include/qwt-qt4
-      LIBS += -lqwt-qt4
-   }
-
-   win32 {
-      INCLUDEPATH += c:\qwt\5.1.1\vc\include
-      LIBPATH += c:\qwt\5.1.1\vc\lib
-      LIBS += -lqwt5
-   }
-
-   macx {
-      INCLUDEPATH += /usr/local/qwt-5.0.2/include
-      LIBPATH += /usr/local/qwt-5.0.2/lib
-      LIBS += -lqwt5
-   }
+   INCLUDEPATH += $${QWT_INCLUDEPATH}
+   LIBPATH += $${QWT_LIBPATH}
+   LIBS += $${QWT_LIBS}
 }
 
 #------------------------------------------------------------------------------
-# VTK (you may need to edit this):
+# VTK:
 #------------------------------------------------------------------------------
 contains(DEFINES, VTKPOST) {
-   unix {
-      INCLUDEPATH += /usr/include/vtk-5.0
-      LIBS += -lvtkHybrid -lvtkWidgets -lQVTK
-   }
-
-   win32 {
-      INCLUDEPATH += c:\VTK\VC\include\vtk-5.2
-      LIBPATH += c:\VTK\VC\lib\vtk-5.2
-      LIBS += -lQVTK \
-              -lvtkCommon \
-              -lvtkDICOMParser \
-              -lvtkFiltering \
-              -lvtkGenericFiltering \
-              -lvtkGraphics \
-              -lvtkHybrid \
-              -lvtkIO \
-              -lvtkImaging \
-              -lvtkInfovis \
-              -lvtkNetCDF \
-              -lvtkRendering \
-              -lvtkViews \
-              -lvtkVolumeRendering \
-              -lvtkWidgets \
-              -lvtkexoIIc \
-              -lvtkexpat \
-              -lvtkfreetype \
-              -lvtkftgl \
-              -lvtkjpeg \
-              -lvtklibxml2 \
-              -lvtkmetaio \
-              -lvtkpng \
-              -lvtksys \
-              -lvtktiff \
-              -lvtkverdict \
-              -lvtkzlib \
-              -ladvapi32
-      }
-
-   macx {
-      INCLUDEPATH += /usr/local/include/vtk-5.0
-      LIBS += -lvtkHybrid -lvtkWidgets -lQVTK
-   }
+   INCLUDEPATH += $${VTK_INCLUDEPATH}
+   LIBPATH += $${VTK_LIBPATH}
+   LIBS += $${VTK_LIBS}
 }
 
 #------------------------------------------------------------------------------
-# MATC (you may need to edit this):
+# MATC:
 #------------------------------------------------------------------------------
 contains(DEFINES, MATC) {
-   unix {
-      QMAKE_PRE_LINK += cd matc; qmake; make; cd .. ; 
-      LIBPATH += ./matc/lib
-      LIBS += -lmatc
-   }
+   LIBPATH += matc/lib
+   LIBS += -lmatc
 
-   win32 {
-      QMAKE_PRE_LINK += & cd matc & qmake & nmake & cd ..
-      LIBPATH += .\matc\lib
-      LIBS += -lmatc
-   }
-
-   macx {
-      QMAKE_PRE_LINK += cd matc; qmake; make; cd .. ; 
-      LIBPATH += ./matc/lib
-      LIBS += -lmatc
-   }
+   unix: QMAKE_PRE_LINK += ; cd matc; qmake; make; cd .. 
+   win32: QMAKE_PRE_LINK += & cd matc & qmake & nmake & cd ..
+   macx: QMAKE_PRE_LINK += ; cd matc; qmake; make; cd .. 
 }
 
 #------------------------------------------------------------------------------
-# OpenCASCADE (you may need to edit this):
+# OpenCASCADE:
 #------------------------------------------------------------------------------
 contains(DEFINES, OCC_63) {
-   contains(BITS, 64) {
-      DEFINES += _OCC64
-   } else {
-      DEFINES -= _OCC64
-   }
+   contains(BITS, 64):  DEFINES += _OCC64
 
-   unix {
-      DEFINES += HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
-      INCLUDEPATH += /usr/local/OpenCASCADE/inc
-      LIBPATH += /usr/local/OpenCASCADE/lib
-      LIBS += -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
-   }
-              
-   win32 {
-      # CONFIG += embed_manifest_dll windows
-      DEFINES += WNT CSFDB
-      INCLUDEPATH += $(CASROOT)/inc
-      LIBPATH += $(CASROOT)/win32/lib
-      LIBS += $(CASROOT)/win32/lib/TKBRep.lib \
-              $(CASROOT)/win32/lib/TKernel.lib \
-              $(CASROOT)/win32/lib/TKG2d.lib \
-              $(CASROOT)/win32/lib/TKG3d.lib \
-              $(CASROOT)/win32/lib/TKGeomAlgo.lib \
-              $(CASROOT)/win32/lib/TKGeomBase.lib \
-              $(CASROOT)/win32/lib/TKMath.lib \
-              $(CASROOT)/win32/lib/TKMesh.lib \
-              $(CASROOT)/win32/lib/TKShHealing.lib \
-              $(CASROOT)/win32/lib/TKSTEP.lib \
-              $(CASROOT)/win32/lib/TKSTEP209.lib \
-              $(CASROOT)/win32/lib/TKSTEPAttr.lib \
-              $(CASROOT)/win32/lib/TKSTEPBase.lib \
-              $(CASROOT)/win32/lib/TKIGES.lib \
-              $(CASROOT)/win32/lib/TKTopAlgo.lib \
-              $(CASROOT)/win32/lib/TKXSBase.lib
-   }
+   unix: DEFINES += HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
+   win32: DEFINES += WNT CSFDB
+   macx: DEFINED -= OCC_63         # not supported at the moment
 
-   macx {
-      # Not supported at the moment:
-      DEFINES -= OCC_63
-   }
+   INCLUDEPATH += $${OCC_INCLUDEPATH}
+   LIBPATH += $${OCC_LIBPATH}
+   LIBS += $${OCC_LIBS}
 }
 
 #------------------------------------------------------------------------------

@@ -5,22 +5,23 @@ Prequisites:
 
    - Qt 4                        (tested with 4.2.2 and newer)
    - libng                       (see ./netgen/README)
-   - Matc                        (part of Elmer, see ./matc/README)
+   - matc                        (part of Elmer, see ./matc/README)
 
 Optional components:
 
    - Qwt 5                       (for qt 4)
    - Vtk 5                       (compiled with qt 4)
    - Open Cascade                (6.3)
+   . PythonQt                    /seet ./PythonQt/README for more details)
    - Tetgen                      (1.4.2 or newer)
 
 Please read the file LICENSES before using any of these software components.
 
 Tetgen should be installed as described in ../misc/tetgen_patches/REAEDME
 
-In order to compile ElmerGUI, edit the file ElmerGUI.pro to select the
-optional components, and define the directories where the external libraries
-reside.
+In order to compile ElmerGUI, edit the file ElmerGUI.pro and select the
+optional components to include. Also edit the file ElmerGUI.pri to define
+the directories where the external libraries and their headers reside.
 
 If this is the first time you compile ElmerGUI, the following lines may be
 commented out in order to minimize possible compilation problems (add the
@@ -46,16 +47,9 @@ and PATH for Windows), its functionality will be available when
 the program starts. If the lib is not found, the main program will run,
 but with some functionality disabled.
 
-Finally:
+Finally install the program by typing
 
-- set the environment variable ELMERGUI_HOME point to the directory
-  containing the executable
-- copy the directory "edf" and its contents in ELMERGUI_HOME
+$ make install
 
-NOTE ON WIN32 / VC:
--------------------
-If you are using VTK for postprocessing, and MATC for manipulating internal
-variables, matc.lib should be built locally prior to compiling ElmerGUI:
-
-cd matc
-nmake
+Finally set the environment variable ELMERGUI_HOME = $ELMER_HOME/bin to
+point to the installation directory (ELMER_HOME is defined in ElmerGUI.pri).
