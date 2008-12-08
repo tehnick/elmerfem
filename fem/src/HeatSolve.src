@@ -1353,24 +1353,20 @@ CONTAINS
 !------------------------------------------------------------------------------
 
       IF( GetLogical( BC, 'Phase Change',Found ) ) THEN
-         LatentHeat(1:n) = GetReal( BC,'Latent Heat' )
-         
          PhaseVelocity(1,1:n) = GetReal( BC,'Phase Velocity 1', Found  )
          PhaseVelocity(2,1:n) = GetReal( BC,'Phase Velocity 2', Found  )
          PhaseVelocity(3,1:n) = GetReal( BC,'Phase Velocity 3', Found  )
   
-         ! By default get boundary from left unless right is known to be solid
-         Parent => Element % BoundaryInfo % Right
-         GotIt = ASSOCIATED(Parent)
-         IF( Found ) THEN
-            k = GetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
-            IF (.NOT. GetLogical(Model % Materials(k) % Values, 'Solid', Found) ) &
-                 GotIt = .FALSE.
+         ! Ensure that the latent heat and density come from the same side	
+         LatentHeat(1:n) = GetParentMatProp( 'Latent Heat', &
+	   UElement = Element, UParent = Parent )
+	 IF(.NOT. ASSOCIATED(Parent) ) THEN
+	   CALL Warn('HeatSolve','Parent not associated')
+         ELSE
+           k = GetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
+           Density(1:n) = GetReal( Model % Materials(k) % Values, 'Density', &
+	      UElement = Parent )
          END IF
-         IF(.NOT. GotIt) Parent => Element % BoundaryInfo % Left
-
-         k = GetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
-         Density(1:n) = GetReal( Model % Materials(k) % Values, 'Density' )
 
          ! This could be rather put as a new type of BC into the assembly routine and 
          ! then the Normal could be taken at the proper Gaussian integration points. 

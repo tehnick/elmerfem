@@ -108,7 +108,7 @@
      !------------------------------------------------------------------
      ParallelEnv => ParallelInit()
      OutputPE = ParEnv % MyPE
-
+	
      IF ( FirstTime ) THEN
        !
        ! Print banner to output:
@@ -782,7 +782,7 @@
      LOGICAL :: ExecThis
      INTEGER, SAVE ::  stepcount=0
 
-     REAL(KIND=dp) :: RealTime, newtime, prevtime=0
+     REAL(KIND=dp) :: RealTime, newtime, prevtime=0, maxtime
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
@@ -818,8 +818,8 @@
          sTime(1) = sTime(1) + dt
          sStep(1) = Time
 
-       ! Move the old timesteps one step down the ladder
-       IF(timestep > 1 .OR. interval > 1) THEN
+         ! Move the old timesteps one step down the ladder
+         IF(timestep > 1 .OR. interval > 1) THEN
            DO i = SIZE(sPrevSizes,2),2,-1
              sPrevSizes(1,i) = sPrevSizes(1,i-1)
            END DO
@@ -834,25 +834,32 @@
            CALL Info( 'MAIN', ' ', Level=3 )
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
-           IF ( Transient.OR.Scanning ) THEN
+           IF ( Transient .OR. Scanning ) THEN
              WRITE( Message, * ) 'Time: ',TRIM(IntegerToString(Time)),'/', &
                    TRIM(IntegerToString(stepcount)), sTime(1)
              CALL Info( 'MAIN', Message, Level=3 )
 
              newtime= RealTime()
-             IF ( Time>1 ) THEN
-               timeleft = NINT((stepcount-(Time-1))*(newtime-prevtime)/60._dp);
-               IF (timeleft>120) THEN
-                 WRITE( Message, *) 'Estimated time left: ', &
-                   TRIM(IntegerToString(timeleft/60)),' hours.'
-               ELSE IF(timeleft >60) THEN
-                 WRITE( Message, *) 'Estimated time left: 1 hour ', &
-                   TRIM(IntegerToSTring(MOD(timeleft,60))), ' minutes.'
-               ELSE IF(timeleft>=1) THEN
-                 WRITE( Message, *) 'Estimated time left: ', &
-                   TRIM(IntegerToString(timeleft)),' minutes.'
-               ELSE
-                 WRITE( Message, *) 'Estimated time left: less than a minute.'
+
+             IF( Time > 1 ) THEN
+               maxtime = ListGetConstReal( CurrentModel % Simulation,'Real Time Max',GotIt)
+               IF( GotIt ) THEN
+                  WRITE( Message,'(A,F8.3)') 'Fraction of real time left: ',&
+	            (1.0_dp-RealTime() / maxtime )
+               ELSE             
+                 timeleft = NINT((stepcount-(Time-1))*(newtime-prevtime)/60._dp);
+                 IF (timeleft > 120) THEN
+                   WRITE( Message, *) 'Estimated time left: ', &
+                     TRIM(IntegerToString(timeleft/60)),' hours.'
+                 ELSE IF(timeleft > 60) THEN
+                   WRITE( Message, *) 'Estimated time left: 1 hour ', &
+                     TRIM(IntegerToSTring(MOD(timeleft,60))), ' minutes.'
+                 ELSE IF(timeleft >= 1) THEN
+                   WRITE( Message, *) 'Estimated time left: ', &
+                     TRIM(IntegerToString(timeleft)),' minutes.'
+                 ELSE
+                   WRITE( Message, *) 'Estimated time left: less than a minute.'
+                 END IF
                END IF
                CALL Info( 'MAIN', Message, Level=3 )
              END IF
@@ -1046,16 +1053,28 @@
             END DO 
          END IF
 !------------------------------------------------------------------------------
+
+         maxtime = ListGetConstReal( CurrentModel % Simulation,'Real Time Max',GotIt)
+         IF( GotIt .AND. RealTime() > maxtime ) THEN
+            CALL Info('MAIN','Reached allowed maximum real time, exiting...')
+            GOTO 100
+         END IF
+
+!------------------------------------------------------------------------------
+
          IF ( SteadyStateReached .AND. .NOT. (Transient .OR. Scanning) ) THEN
             IF ( Timestep >= CoupledMinIter ) EXIT
          END IF
+
 !------------------------------------------------------------------------------
        END DO ! timestep within an iterval
+!------------------------------------------------------------------------------
+	 
 !------------------------------------------------------------------------------
      END DO ! timestep intervals, i.e. the simulation
 !------------------------------------------------------------------------------
 
-     DO i=1,CurrentModel % NumberOfSolvers
+100   DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
         IF ( Solver % Procedure == 0 ) CYCLE
         When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
