@@ -47,10 +47,10 @@ CONFIG += warn_off
 #------------------------------------------------------------------------------
 DEPENDPATH += . src forms plugins vtkpost cad
 INCLUDEPATH += .
-MOC_DIR = ./tmp
-OBJECTS_DIR = ./tmp
-RCC_DIR = ./tmp
-UI_DIR = ./tmp
+MOC_DIR = tmp
+OBJECTS_DIR = tmp
+RCC_DIR = tmp
+UI_DIR = tmp
 
 #------------------------------------------------------------------------------
 # QT:
@@ -59,7 +59,7 @@ QT += opengl xml script
 CONFIG += uitools
 
 #------------------------------------------------------------------------------
-# NETGEN (see ./netgen/README for more details):
+# NETGEN (see netgen/README for more details):
 #------------------------------------------------------------------------------
 INCLUDEPATH += netgen/libsrc/interface
 LIBPATH += netgen/ngcore
@@ -70,7 +70,7 @@ win32: QMAKE_PRE_LINK = cd netgen & qmake & nmake & cd ..
 macx: QMAKE_PRE_LINK = cd netgen ; qmake ; make ; cd ..
 
 #------------------------------------------------------------------------------
-# PYTHONQT (see ./PythonQt/README for more details):
+# PYTHONQT (see PythonQt/README for more details):
 #------------------------------------------------------------------------------
 contains(DEFINES, PYTHONQT) {
    INCLUDEPATH += $${PY_INCLUDEPATH} PythonQt/src
