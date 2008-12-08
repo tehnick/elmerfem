@@ -1648,8 +1648,8 @@ acx_tcltk_save_LIBS="$LIBS"
 if test $acx_tcltk_ok = no; then
 if test "x$TCLTK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$TCLTK_LIBS $LIBS"
-	AC_MSG_CHECKING([for TkGetDisplay in $TCLTK_LIBS])
-	AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes], [TCLTK_LIBS=""])
+	AC_MSG_CHECKING([for Tk_Init in $TCLTK_LIBS])
+	AC_TRY_LINK_FUNC(Tk_Init, [acx_tk_ok=yes], [TCLTK_LIBS=""])
 
 	AC_MSG_CHECKING([for Tcl_Init in $TCLTK_LIBS])
 	AC_TRY_LINK_FUNC(Tcl_Init, [acx_tcl_ok=yes], [TCLTK_LIBS=""])
@@ -1682,7 +1682,7 @@ if test "$acx_tcltk_ok" = no; then
 		AC_MSG_CHECKING([for -ltcl$v -ltk$v libs in -L$l])
 		
 		AC_TRY_LINK_FUNC(Tcl_Init, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
-		AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+		AC_TRY_LINK_FUNC(Tk_Init, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
 
 		LDFLAGS=$acx_tcltk_LDFLAGS_save
 		LIBS=$acx_tcltk_LIBS_save
