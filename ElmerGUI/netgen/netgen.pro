@@ -1,8 +1,10 @@
+#----------------------------------------------------------------------
+#                       qmake roject file for libng
+#----------------------------------------------------------------------
 TARGET = ng
 TEMPLATE = lib
 CONFIG -= qt debug
-CONFIG += staticlib release
-QMAKE_CXXFLAGS_WARN_ON = -w
+CONFIG += staticlib release warn_off
 DESTDIR = ngcore
 OBJECTS_DIR = obj
 DEFINES = NO_PARALLEL_THREADS

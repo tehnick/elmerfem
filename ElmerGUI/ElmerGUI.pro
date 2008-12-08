@@ -5,23 +5,28 @@
 #==============================================================================
 
 #------------------------------------------------------------------------------
-# Optional components:
+# Optional components (undefine or comment out to exclude from compilation):
 #------------------------------------------------------------------------------
 DEFINES += QWT       # Use QWT for convergence monitor?
 DEFINES += VTKPOST   # Use VTK for postprocessing?
 DEFINES += MATC      # Use MATC for internal operations in postprocessing?
 DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
-DEFINES += PYTHONQT  # Use PythonQt for scripting? Works only with *nix atm.
+DEFINES += PYTHONQT  # Use PythonQt for scripting in post processor?
+
+#------------------------------------------------------------------------------
+# 64 bit system?
+#------------------------------------------------------------------------------
+BITS = 32
 
 #------------------------------------------------------------------------------
 # Target:
 #------------------------------------------------------------------------------
-TEMPLATE = app
 TARGET = ElmerGUI
+TEMPLATE = app
 CONFIG += release
 
 #------------------------------------------------------------------------------
-# Installation:
+# Installation directory:
 #------------------------------------------------------------------------------
 unix: ELMER_HOME = /usr/local
 win32: ELMER_HOME = c:\Elmer5.4
@@ -37,6 +42,11 @@ edf.files += edf/*
 INSTALLS += edf
 
 #------------------------------------------------------------------------------
+# Compiler flags:
+#------------------------------------------------------------------------------
+CONFIG += warn_off
+
+#------------------------------------------------------------------------------
 # Directories:
 #------------------------------------------------------------------------------
 DEPENDPATH += . src forms plugins vtkpost cad
@@ -45,16 +55,6 @@ MOC_DIR = ./tmp
 OBJECTS_DIR = ./tmp
 RCC_DIR = ./tmp
 UI_DIR = ./tmp
-
-#------------------------------------------------------------------------------
-# Compiler flags:
-#------------------------------------------------------------------------------
-unix {
-   QMAKE_CXXFLAGS = -Wno-deprecated
-   QMAKE_CXXFLAGS_WARN_ON =
-}
-
-win32: QMAKE_CXXFLAGS_WARN_ON = -w
 
 #------------------------------------------------------------------------------
 # QT:
@@ -195,9 +195,14 @@ contains(DEFINES, MATC) {
 # OpenCASCADE (you may need to edit this):
 #------------------------------------------------------------------------------
 contains(DEFINES, OCC_63) {
+   contains(BITS, 64) {
+      DEFINES += _OCC64
+   } else {
+      DEFINES -= _OCC64
+   }
+
    unix {
-      DEFINES -= _OCC64     # Add when compiling on 64-bit platforms
-      DEFINES +=  HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
+      DEFINES += HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
       INCLUDEPATH += /usr/local/OpenCASCADE/inc
       LIBPATH += /usr/local/OpenCASCADE/lib
       LIBS += -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
@@ -205,7 +210,7 @@ contains(DEFINES, OCC_63) {
               
    win32 {
       # CONFIG += embed_manifest_dll windows
-      DEFINES += OCC_63 WNT CSFDB
+      DEFINES += WNT CSFDB
       INCLUDEPATH += $(CASROOT)/inc
       LIBPATH += $(CASROOT)/win32/lib
       LIBS += $(CASROOT)/win32/lib/TKBRep.lib \
@@ -227,7 +232,7 @@ contains(DEFINES, OCC_63) {
    }
 
    macx {
-      # Unsupported at the moment:
+      # Not supported at the moment:
       DEFINES -= OCC_63
    }
 }

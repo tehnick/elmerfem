@@ -1,6 +1,5 @@
 TARGET = PythonQt
 TEMPLATE = lib
-CONFIG += release
 
 unix {
    INCLUDEPATH += /usr/include/python2.5
@@ -11,21 +10,19 @@ unix {
 win32 {
    DEFINES += ELMERGUI_MODIFICATIONS
    INCLUDEPATH += c:\PYTHON\Python-2.6.1\Include
-   INCLUDEPATH += c:\PYTHON\Python-2.6.1\PC          # for pyconfog.h
+   INCLUDEPATH += c:\PYTHON\Python-2.6.1\PC              # for pyconfig.h
    LIBPATH += c:\PYTHON\Python-2.6.1\PCbuild
    LIBS += -lpython26
 }
 
 INCLUDEPATH += src
-CONFIG += qt
+CONFIG += qt release warn_off
 DEFINES += PYTHONQT_EXPORTS
 DESTDIR = ./lib
-DLLDESTDIR = ./lib
 MOC_DIR = ./tmp
 OBJECTS_DIR = ./tmp
 RCC_DIR = ./tmp
 UI_DIR = ./tmp
-QMAKE_CXXFLAGS_WARN_ON = -w
 
 HEADERS += \
   src/PythonQt.h \
