@@ -70,7 +70,7 @@ public:
 
   Ui::mcDialog ui;
 
-  void domatc(VtkPost*);
+  QString domatc(VtkPost*);
 
 public slots:
   bool SetCommand(QString);                         // Enter matc cmd

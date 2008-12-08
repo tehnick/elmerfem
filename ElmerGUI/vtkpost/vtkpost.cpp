@@ -578,11 +578,10 @@ void VtkPost::showPythonQtConsoleSlot()
 
 #ifdef MATC
 
-bool VtkPost::MatcCmd(QString cmd)
+QString VtkPost::MatcCmd(QString cmd)
 {
    matc->ui.mcEdit->setText(cmd);
-   domatcSlot();
-   return  true;
+   return domatcSlot();
 }
 
 void VtkPost::matcOpenSlot()
@@ -597,10 +596,11 @@ void VtkPost::matcCutPasteSlot()
   matc->ui.mcEdit->paste();
 }
 
-void VtkPost::domatcSlot()
+QString VtkPost::domatcSlot()
 {
-  matc->domatc(this);
+  QString res=matc->domatc(this);
   populateWidgetsSlot();
+  return res;
 }
 #endif
 

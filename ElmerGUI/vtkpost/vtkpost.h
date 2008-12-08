@@ -156,8 +156,8 @@ public slots:
   void redrawSlot();                                // redraw all actors
 
 #ifdef MATC
-  bool MatcCmd(QString);                            // evaluate matc cmd
-  void domatcSlot();                                // flush matc console
+  QString MatcCmd(QString);                         // evaluate matc cmd
+  QString domatcSlot();                             // flush matc console
   void matcOpenSlot();                              // open matc console
   void matcCutPasteSlot();                          // handle cut-paste
 #endif

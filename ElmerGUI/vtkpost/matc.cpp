@@ -230,12 +230,13 @@ bool Matc::SetCommand(QString cmd)
 }
 
 
-void Matc::domatc(VtkPost* vtkPost)
+QString Matc::domatc(VtkPost* vtkPost)
 {
   int scalarFields = vtkPost->GetScalarFields();
   int n=vtkPost->NofNodes();
   ScalarField* scalarField = vtkPost->GetScalarField();
 
+  QString res;
   char *ptr;
   LIST *lst;
   VARIABLE *var;
@@ -245,9 +246,13 @@ void Matc::domatc(VtkPost* vtkPost)
   
   ptr=mtc_domath(cmd.toAscii().data());
   ui.mcHistory->append(cmd);
-  if ( ptr ) ui.mcOutput->append(ptr);
+  res = "";
+  if ( ptr ) {
+    res = ptr;
+    ui.mcOutput->append(res);
+  }
 
-  if ( n<=0 ) return;
+  if ( n<=0 ) return res;
   
   for( lst = listheaders[VARIABLES].next; lst; lst = NEXT(lst))
     {
@@ -339,6 +344,7 @@ void Matc::domatc(VtkPost* vtkPost)
 	}
     }
   if ( count<scalarFields ) vtkPost->SetScalarFields(count);
+  return res;
 }
 
 VARIABLE *Matc::com_grad(VARIABLE *in)
