@@ -28,13 +28,13 @@ TEMPLATE = app
 CONFIG += release
 
 #------------------------------------------------------------------------------
-# Installation directory:
+# Installation directory and files:
 #------------------------------------------------------------------------------
 ELMERGUI_HOME = $${ELMER_HOME}/bin
 target.path = $${ELMERGUI_HOME}
 INSTALLS += target
 edf.path = $${ELMERGUI_HOME}/edf
-edf.files += edf/*
+edf.files = edf/*
 INSTALLS += edf
 
 #------------------------------------------------------------------------------
@@ -80,6 +80,12 @@ contains(DEFINES, PYTHONQT) {
    unix: QMAKE_PRE_LINK += ; cd PythonQt; qmake; make; cd .. 
    win32: QMAKE_PRE_LINK += & cd PythonQt & qmake & nmake & cd .. 
    macx: DEFINES -= PYTHONQT  # not supported at the moment
+
+   win32 {
+      pythonqt.path = $${ELMERGUI_HOME}
+      pythonqt.files = PythonQt\lib\PythonQt.dll
+      INSTALLS += pythonqt
+   }
 }
 
 #------------------------------------------------------------------------------
