@@ -1,6 +1,8 @@
 #----------------------------------------------------------------------
 #                 qmake project file for MATC library
 #----------------------------------------------------------------------
+include(../ElmerGUI.pri)
+
 TARGET = matc
 TEMPLATE = lib
 CONFIG -= qt debug

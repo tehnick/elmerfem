@@ -1,13 +1,15 @@
 #----------------------------------------------------------------------
 #                       qmake project file for libng
 #----------------------------------------------------------------------
+include(../ElmerGUI.pri)
+
 TARGET = ng
 TEMPLATE = lib
 CONFIG -= qt debug
 CONFIG += staticlib release warn_off
 DESTDIR = ngcore
 OBJECTS_DIR = obj
-DEFINES = NO_PARALLEL_THREADS
+DEFINES += NO_PARALLEL_THREADS
 INCLUDEPATH = libsrc/include
 SOURCES = libsrc/opti/linopt.cpp \
           libsrc/opti/bfgs.cpp \
