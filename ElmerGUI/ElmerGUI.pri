@@ -21,14 +21,15 @@ BITS = 32
 #------------------------------------------------------------------------------
 # Installation directory:
 #------------------------------------------------------------------------------
-# Use the system variable:
-ELMER_HOME = $$(ELMER_HOME)
-
-# If empty, set default:
-isEmpty($${ELMER_HOME}) {
-   unix: DESTDIR = /usr/local
-   win32: DESTDIR = c:\Elmer5.4
-   macx: DESTDIR = /usr/local
+ELMERGUI_HOME = $$(ELMERGUI_HOME)
+isEmpty(ELMERGUI_HOME) {
+   ELMER_HOME = $$(ELMER_HOME)
+   isEmpty(ELMER_HOME) {
+      unix: ELMER_HOME = /usr/local
+      win32: ELMER_HOME = c:\Elmer5.4
+      macx: ELMER_HOME = /usr/local
+   }
+   ELMERGUI_HOME = $${ELMER_HOME}/bin
 }
 
 #------------------------------------------------------------------------------

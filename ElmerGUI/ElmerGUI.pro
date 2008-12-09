@@ -35,7 +35,7 @@ include(ElmerGUI.pri)
    error("Detected inconsistent configuration. Unable to continue.")
 }
 
-message(ELMER_HOME = $${ELMER_HOME})
+message(ELMERGUI_HOME=$${ELMERGUI_HOME})
 
 #------------------------------------------------------------------------------
 # Build in all subdirectories:

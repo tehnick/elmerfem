@@ -16,7 +16,6 @@ CONFIG += release
 #------------------------------------------------------------------------------
 # Installation directory and files:
 #------------------------------------------------------------------------------
-ELMERGUI_HOME = $${ELMER_HOME}/bin
 target.path = $${ELMERGUI_HOME}
 INSTALLS += target
 edf.path = $${ELMERGUI_HOME}/edf

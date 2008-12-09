@@ -23,7 +23,6 @@ unix {
 
 win32 {
    DEFINES += ELMERGUI_MODIFICATIONS
-   ELMERGUI_HOME = $${ELMER_HOME}/bin
    pythonqtdll.path = $${ELMERGUI_HOME}
    pythonqtdll.files = lib\PythonQt.dll
    INSTALLS += pythonqtdll
