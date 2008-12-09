@@ -6,7 +6,6 @@ include(../ElmerGUI.pri)
 TARGET = PythonQt
 TEMPLATE = lib
 CONFIG += qt release warn_off
-unix: CONFIG += staticlib 
 
 INCLUDEPATH += $${PY_INCLUDEPATH} src
 LIBPATH += $${PY_LIBPATH}
@@ -17,7 +16,18 @@ MOC_DIR = tmp
 OBJECTS_DIR = tmp
 
 DEFINES += PYTHONQT_EXPORTS
-win32: DEFINES += ELMERGUI_MODIFICATIONS
+
+unix {
+   CONFIG += staticlib 
+}
+
+win32 {
+   DEFINES += ELMERGUI_MODIFICATIONS
+   ELMERGUI_HOME = $${ELMER_HOME}/bin
+   pythonqtdll.path = $${ELMERGUI_HOME}
+   pythonqtdll.files = lib\PythonQt.dll
+   INSTALLS += pythonqtdll
+}
 
 HEADERS += src/PythonQt.h \
            src/PythonQtStdDecorators.h \
