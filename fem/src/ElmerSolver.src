@@ -156,7 +156,7 @@
 !------------------------------------------------------------------------------
 !    Read element definition file, and initialize element types
 !------------------------------------------------------------------------------
-     IF ( Initialize<=1 ) THEN
+     IF ( Initialize==1 ) THEN
        CALL FreeModel(CurrentModel)
        FirstLoad=.TRUE.
      END IF
@@ -404,7 +404,7 @@
      IF ( Initialize /= 1 ) CALL Info( '', '*** Elmer Solver: ALL DONE ***' )
      IF ( ParEnv % PEs>1 )  CALL ParallelFinalize()
 
-!      IF ( Initialize<=0 ) CALL FreeModel(CurrentModel)
+     IF ( Initialize<=0 ) CALL FreeModel(CurrentModel)
 
      RETURN
 
@@ -1404,17 +1404,11 @@
     IF (.NOT.ASSOCIATED(Mesh)) RETURN
 
     CALL FreeMesh(Mesh % Next)
-    Mesh % Next => NULL()
 
-    CALL FreeMesh(Mesh % Child)
-    Mesh % Child => NULL()
+    Mesh % Next   => NULL()
+    Mesh % Parent => NULL()
+    Mesh % Child  => NULL()
 
-    IF (ASSOCIATED(Mesh % Parent)) THEN
-      Mesh % Parent % Child=>NULL()
-      CALL FreeMesh(Mesh % Parent)
-      Mesh % Parent => NULL()
-    END IF
-  
     CALL ReleaseMesh(Mesh)
     DEALLOCATE(Mesh)
 !------------------------------------------------------------------------------

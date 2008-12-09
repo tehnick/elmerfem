@@ -4627,7 +4627,7 @@ CONTAINS
 !    Deallocate mesh variables:
 !    --------------------------
      CALL ReleaseVariableList( Mesh % Variables )
-     NULLIFY( Mesh % Variables )
+     Mesh % Variables => NULL()
 
 !    Deallocate mesh geometry (nodes,elements and edges):
 !    ----------------------------------------------------
@@ -4641,18 +4641,18 @@ CONTAINS
 
         DEALLOCATE( Mesh % Nodes )
      END IF
-     NULLIFY( Mesh % Nodes )
+     Mesh % Nodes => NULL()
 
      IF ( ASSOCIATED( Mesh % Edges ) ) CALL ReleaseMeshEdgeTables( Mesh )
-     NULLIFY( Mesh % Edges )
+     Mesh % Edges => NULL()
 
 ! ML
      IF ( ASSOCIATED( Mesh % Faces ) ) CALL ReleaseMeshFaceTables( Mesh )
-     NULLIFY( Mesh % Faces )
+     Mesh % Faces => NULL()
 
      IF (ASSOCIATED(Mesh % ViewFactors) ) &
           CALL ReleaseMeshFactorTables( Mesh % ViewFactors )
-     NULLIFY( Mesh % ViewFactors )
+     Mesh % ViewFactors => NULL()
 
 
      IF ( ASSOCIATED( Mesh % Elements ) ) THEN
@@ -4676,32 +4676,32 @@ CONTAINS
 
            IF ( ASSOCIATED( Mesh % Elements(i) % NodeIndexes ) ) &
               DEALLOCATE( Mesh % Elements(i) % NodeIndexes )
-           NULLIFY( Mesh % Elements(i) % NodeIndexes )
+           Mesh % Elements(i) % NodeIndexes => NULL()
 
            IF ( ASSOCIATED( Mesh % Elements(i) % EdgeIndexes ) ) &
               DEALLOCATE( Mesh % Elements(i) % EdgeIndexes )
-           NULLIFY( Mesh % Elements(i) % EdgeIndexes )
+           Mesh % Elements(i) % EdgeIndexes => NULL()
 
            IF ( ASSOCIATED( Mesh % Elements(i) % FaceIndexes ) ) &
               DEALLOCATE( Mesh % Elements(i) % FaceIndexes )
-           NULLIFY( Mesh % Elements(i) % FaceIndexes )
+           Mesh % Elements(i) % FaceIndexes => NULL()
 
            IF ( ASSOCIATED( Mesh % Elements(i) % DGIndexes ) ) &
               DEALLOCATE( Mesh % Elements(i) % DGIndexes )
-           NULLIFY( Mesh % Elements(i) % DGIndexes )
+           Mesh % Elements(i) % DGIndexes => NULL()
 
            IF ( ASSOCIATED( Mesh % Elements(i) % BubbleIndexes ) ) &
               DEALLOCATE( Mesh % Elements(i) % BubbleIndexes )
-           NULLIFY( Mesh % Elements(i) % BubbleIndexes )
+           Mesh % Elements(i) % BubbleIndexes => NULL()
 
            IF ( ASSOCIATED( Mesh % Elements(i) % PDefs ) ) &
               DEALLOCATE( Mesh % Elements(i) % PDefs )
-           NULLIFY( Mesh % Elements(i) % PDefs )
+           Mesh % Elements(i) % PDefs => NULL()
  
         END DO
         DEALLOCATE( Mesh % Elements )
      END IF
-     NULLIFY( Mesh % Elements )
+     Mesh % Elements => NULL()
 
 !    Deallocate mesh to mesh projector structures:
 !    ---------------------------------------------
@@ -4713,12 +4713,12 @@ CONTAINS
         Projector => Projector % Next
         DEALLOCATE( Projector1 )
      END DO
-     NULLIFY( Mesh % Projector )
+     Mesh % Projector => NULL()
 
 !    Deallocate quadrant tree (used in mesh to mesh interpolation):
 !    --------------------------------------------------------------
      CALL FreeQuadrantTree( Mesh % RootQuadrant )
-     NULLIFY( Mesh % RootQuadrant )
+     Mesh % RootQuadrant => NULL()
 
 !    DEALLOCATE( Mesh )
 

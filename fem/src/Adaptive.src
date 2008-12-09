@@ -145,7 +145,7 @@ CONTAINS
     END INTERFACE
 !------------------------------------------------------------------------------
 
-    TYPE(Mesh_t), POINTER   :: RefMesh,NewMesh, Mesh
+    TYPE(Mesh_t), POINTER   :: RefMesh,NewMesh, Mesh, sMesh
     TYPE( Nodes_t ) :: Nodes
     TYPE( Matrix_t ), POINTER :: NewMatrix
     INTEGER, POINTER :: Permutation(:)
@@ -480,7 +480,7 @@ CONTAINS
     Model % Meshes   => NewMesh
     RefMesh % Child  => NewMesh
     NewMesh % Parent => RefMesh
-    NULLIFY( NewMesh % Child )
+    NewMesh % Child => NULL()
 
     NewMesh % MaxBDOFs = RefMesh % MaxBDOFs
 
@@ -779,19 +779,23 @@ CONTAINS
 !   the last two meshes:
 !   ---------------------------------------------------------
     Mesh => RefMesh % Parent
-    DO WHILE( ASSOCIATED( Mesh ) )
+    DO WHILE( ASSOCIATED(Mesh) )
+       sMesh => Mesh % Parent
        IF ( Mesh % AdaptiveDepth /= 0 ) THEN
           IF ( ASSOCIATED( Mesh % Parent ) ) THEN
              Mesh % Parent % Child => Mesh % Child
           END IF
 
-          IF ( ASSOCIATED( Mesh % Child ) ) THEN
+          IF ( ASSOCIATED(Mesh % Child) ) THEN
              Mesh % Child % Parent => Mesh % Parent
           END IF
 
           CALL ReleaseMesh( Mesh )
+
+          Mesh % Child  => NULL()
+          Mesh % Parent => NULL()
        END IF
-       Mesh => Mesh % Parent
+       Mesh => sMesh
     END DO
 
 !------------------------------------------------------------------------------
