@@ -57,7 +57,7 @@
 #include "meshpoint.h"
 #include "meshedge.h"
 
-#ifdef MATC
+#ifdef EG_MATC
 #include "matc.h"
 #endif
 
@@ -254,7 +254,7 @@ VtkPost::VtkPost(QWidget *parent)
   meshPoint = new MeshPoint(this);
   meshEdge = new MeshEdge(this);
 
-#ifdef MATC
+#ifdef EG_MATC
   matc = new Matc(this);
   connect(matc->ui.mcEdit, SIGNAL(returnPressed()), 
         this, SLOT(domatcSlot()));
@@ -314,11 +314,11 @@ VtkPost::VtkPost(QWidget *parent)
 
   // Python bindings:
   //-----------------
-#ifdef PYTHONQT
+#ifdef EG_PYTHONQT
   PythonQt::init(PythonQt::IgnoreSiteModule | PythonQt::RedirectStdOut);
   mainContext = PythonQt::self()->getMainModule();
   mainContext.addObject("egp", this);
-#ifdef MATC
+#ifdef EG_MATC
   mainContext.addObject("matc", matc);
 #endif
   mainContext.addObject("surfaces", surface);
@@ -460,7 +460,7 @@ void VtkPost::createActions()
 
   // Edit menu:
   //------------
-#ifdef MATC
+#ifdef EG_MATC
   matcAct = new QAction(QIcon(""), tr("Matc..."), this);
   matcAct->setStatusTip("Matc window");
   connect(matcAct, SIGNAL(triggered()), this, SLOT(matcOpenSlot()));
@@ -474,7 +474,7 @@ void VtkPost::createActions()
   timeStepAct->setStatusTip("Time step control");
   connect(timeStepAct, SIGNAL(triggered()), this, SLOT(showTimeStepDialogSlot()));
 
-#ifdef PYTHONQT
+#ifdef EG_PYTHONQT
   showPythonQtConsoleAct = new QAction(QIcon(""), tr("PythonQt console..."), this);
   showPythonQtConsoleAct->setStatusTip("Show/hide PythonQt console");
   connect(showPythonQtConsoleAct, SIGNAL(triggered()), this, SLOT(showPythonQtConsoleSlot()));
@@ -506,12 +506,12 @@ void VtkPost::createMenus()
   editMenu->addMenu(editGroupsMenu);
   editMenu->addSeparator();
   editMenu->addAction(timeStepAct);
-#ifdef MATC
+#ifdef EG_MATC
   editMenu->addSeparator();
   editMenu->addAction( matcAct );
 #endif
 
-#ifdef PYTHONQT
+#ifdef EG_PYTHONQT
   editMenu->addSeparator();
   editMenu->addAction(showPythonQtConsoleAct);
 #endif
@@ -569,14 +569,14 @@ void VtkPost::createStatusBar()
 {
 }
 
-#ifdef PYTHONQT
+#ifdef EG_PYTHONQT
 void VtkPost::showPythonQtConsoleSlot()
 {
   console->show();
 }
 #endif
 
-#ifdef MATC
+#ifdef EG_MATC
 
 QString VtkPost::MatcCmd(QString cmd)
 {
@@ -724,7 +724,7 @@ bool VtkPost::ReadPostFile(QString postFileName)
 
   for(int i = 0; i < scalarFields; i++ ) {
      ScalarField *sf = &scalarField[i];
-#ifdef MATC
+#ifdef EG_MATC
      QByteArray nm = sf->name.trimmed().toAscii();
      var_delete( nm.data() );
 #else
@@ -861,7 +861,7 @@ bool VtkPost::ReadPostFile(QString postFileName)
     if ( real_timesteps < sf_timesteps )
     {
       sf->values = real_timesteps*nodes;
-#ifdef MATC
+#ifdef EG_MATC
       QString name=sf->name;
       int n = sf->name.indexOf("_x");
       if ( n>0 ) 
@@ -972,7 +972,7 @@ bool VtkPost::ReadPostFile(QString postFileName)
 void VtkPost::addVectorField(QString fieldName, int values)
 {
    
-#ifdef MATC
+#ifdef EG_MATC
     QByteArray nm=fieldName.trimmed().toAscii();
 
     char *name = (char *)malloc( nm.count()+1 );
@@ -1008,7 +1008,7 @@ ScalarField* VtkPost::addScalarField(QString fieldName, int values, double *valu
   sf->value = value;
  
   if ( !sf->value ) {
-#ifdef MATC
+#ifdef EG_MATC
     QByteArray nm=fieldName.trimmed().toAscii();
 
     char *name = (char *)malloc( nm.count()+1 );
@@ -1235,7 +1235,7 @@ void VtkPost::redrawSlot()
 {
   if(!postFileRead) return;
 
-#ifdef MATC
+#ifdef EG_MATC
    VARIABLE *tvar = var_check((char *)"t");
    if (!tvar) tvar=var_new((char *)"t", TYPE_DOUBLE,1,1 );
    M(tvar,0,0) = (double)timeStep->ui.timeStep->value();

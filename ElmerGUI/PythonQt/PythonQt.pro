@@ -22,7 +22,7 @@ unix {
 }
 
 win32 {
-   DEFINES += ELMERGUI_MODIFICATIONS
+   DEFINES += EG_MODS
    pythonqtdll.path = $${ELMERGUI_HOME}
    pythonqtdll.files = lib\PythonQt.dll
    INSTALLS += pythonqtdll

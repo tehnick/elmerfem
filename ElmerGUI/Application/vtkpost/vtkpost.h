@@ -47,7 +47,7 @@
 #include <QHash>
 #include <QTextStream>
 
-#ifdef PYTHONQT
+#ifdef EG_PYTHONQT
 #include <PythonQt.h>
 #include <gui/PythonQtScriptingConsole.h>
 #endif
@@ -155,7 +155,7 @@ signals:
 public slots:
   void redrawSlot();                                // redraw all actors
 
-#ifdef MATC
+#ifdef EG_MATC
   QString MatcCmd(QString);                         // evaluate matc cmd
   QString domatcSlot();                             // flush matc console
   void matcOpenSlot();                              // open matc console
@@ -285,7 +285,7 @@ private slots:
 
   void showHelpSlot();
 
-#ifdef PYTHONQT
+#ifdef EG_PYTHONQT
   void showPythonQtConsoleSlot();
 #endif
 
@@ -394,7 +394,7 @@ private:
   QString postLine;
   QTextStream postLineStream;
 
-#ifdef PYTHONQT
+#ifdef EG_PYTHONQT
   QAction *showPythonQtConsoleAct;
   PythonQtObjectPtr mainContext;
   PythonQtScriptingConsole *console;

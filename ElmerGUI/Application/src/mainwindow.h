@@ -73,11 +73,11 @@
 #include "operation.h"
 #include "materiallibrary.h"
 
-#ifdef QWT
+#ifdef EG_QWT
 #include "convergenceview.h"
 #endif
 
-#ifdef OCC_63
+#ifdef EG_OCC
 #include "cad/cadview.h"
 #endif
 
@@ -85,7 +85,7 @@ class QAction;
 class QMenu;
 class GLWidget;
 
-#ifdef VTKPOST
+#ifdef EG_VTK
 class VtkPost;
 #endif
 
@@ -244,7 +244,7 @@ private:
   SifWindow *solverLogWindow;     // Solver log
   SifGenerator *sifGenerator;     // SIF generator
   EdfEditor *edfEditor;           // Edf editor
-#ifdef QWT
+#ifdef EG_QWT
   ConvergenceView *convergenceView; // Convergence plotter
 #endif
 
@@ -365,11 +365,11 @@ private:
   CheckMpi *checkMpi;
   MaterialLibrary *materialLibrary;
 
-#ifdef OCC_63
+#ifdef EG_OCC
   CadView *cadView;
 #endif
 
-#ifdef VTKPOST
+#ifdef EG_VTK
   VtkPost *vtkPost;
 #endif
 

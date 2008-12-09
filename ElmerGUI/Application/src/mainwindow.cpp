@@ -45,7 +45,7 @@
 #include <fstream>
 #include "mainwindow.h"
 
-#ifdef VTKPOST
+#ifdef EG_VTK
 #include "vtkpost/vtkpost.h"
 VtkPost *vtkp;
 #endif
@@ -141,16 +141,16 @@ MainWindow::MainWindow()
   checkMpi = new CheckMpi;
   materialLibrary = new MaterialLibrary(this);
 
-#ifdef QWT
+#ifdef EG_QWT
   convergenceView = new ConvergenceView(limit, this);
 #endif
 
-#ifdef VTKPOST
+#ifdef EG_VTK
   vtkp = vtkPost = new VtkPost(this);
   vtkPostMeshUnifierRunning = false;
 #endif
 
-#ifdef OCC_63
+#ifdef EG_OCC
   cadView = new CadView(this);
   if(egIni->isPresent("deflection"))
     cadView->setDeflection(egIni->value("deflection").toDouble());
@@ -846,7 +846,7 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
-#ifdef OCC_63
+#ifdef EG_OCC
   viewMenu->addSeparator();
   viewMenu->addAction(showCadModelAct);
 #endif
@@ -863,13 +863,13 @@ void MainWindow::createMenus()
   solverMenu->addSeparator();
   solverMenu->addAction(runsolverAct);
   solverMenu->addAction(killsolverAct);
-#ifdef QWT
+#ifdef EG_QWT
   solverMenu->addAction(showConvergenceAct);
 #endif
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
-#ifdef VTKPOST
+#ifdef EG_VTK
   solverMenu->addSeparator();
   solverMenu->addAction(showVtkPostAct);
 #endif
@@ -1212,7 +1212,7 @@ void MainWindow::readInputFile(QString fileName)
 
     return;
 
-#ifdef OCC_63
+#ifdef EG_OCC
 
   } else if( (fileSuffix.toLower() == "brep") ||
 	     (fileSuffix.toLower() == "step") ||
@@ -4168,7 +4168,7 @@ void MainWindow::sharpEdgeColorSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showCadModelSlot()
 {
-#ifdef OCC_63
+#ifdef EG_OCC
   cadView->show();
 #endif
 }
@@ -4178,7 +4178,7 @@ void MainWindow::showCadModelSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showVtkPostSlot()
 {
-#ifdef VTKPOST
+#ifdef EG_VTK
   QString postFileName = saveDirName + "/"  + generalSetup->ui.postFileEdit->text().trimmed();
 
   // Parallel solution:
@@ -4383,7 +4383,7 @@ void MainWindow::remeshSlot()
       if(maxMeshSize <= 0) maxMeshSize = 10000000;
       nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);      
 
-#ifdef OCC_63
+#ifdef EG_OCC
     } else {
       
       // OCC: (re)generate STL for nglib:
@@ -5466,7 +5466,7 @@ void MainWindow::runsolverSlot()
   solverLogWindow->show();
 
   // convergence plot:
-#ifdef QWT
+#ifdef EG_QWT
   convergenceView->removeData();
   convergenceView->title = "Convergence history";
 #endif
@@ -5519,7 +5519,7 @@ void MainWindow::meshSplitterFinishedSlot(int exitCode)
   }
   
   // Set up convergence plot:
-#ifdef QWT
+#ifdef EG_QWT
   convergenceView->removeData();
   convergenceView->title = "Convergence history";
 #endif
@@ -5576,7 +5576,7 @@ void MainWindow::meshUnifierFinishedSlot(int exitCode)
 
   // VtkPost:
   //---------
-#ifdef VTKPOST
+#ifdef EG_VTK
   if(vtkPostMeshUnifierRunning) {
     vtkPost->show();
     
@@ -5705,7 +5705,7 @@ void MainWindow::solverStdoutSlot()
 
   solverLogWindow->getTextEdit()->append(qs);
 
-#ifdef QWT
+#ifdef EG_QWT
   if(!showConvergence) {
 
     // hide convergence plot
@@ -5730,7 +5730,7 @@ void MainWindow::solverStdoutSlot()
       int last = tmpSplitted.count() - 1;
       QString timeString = tmpSplitted.at(last);
       double timeDouble = timeString.toDouble();
-#ifdef QWT
+#ifdef EG_QWT
       convergenceView->title = "Convergence history (time="
 	+ QString::number(timeDouble) + ")";
 #endif
@@ -5768,7 +5768,7 @@ void MainWindow::solverStdoutSlot()
       }
       
       // res1 = norm, res2 = relative change
-#ifdef QWT
+#ifdef EG_QWT
       if(copyOfTmp.contains("NS"))	
 	convergenceView->appendData(res2, "NS/" + name);
       
@@ -6088,16 +6088,16 @@ void MainWindow::showaboutSlot()
 			"ElmerGUI uses the Qt4 Cross-Platform "
 			"Application Framework by Trolltech:\n\n"
 			"http://trolltech.com/products/qt\n\n"
-#ifdef VTKPOST
+#ifdef EG_VTK
 			"This version of ElmerGUI contains a built-in postprocessor "
 			"based on the Visualization Toolkit (VTK):\n\n"
 			"http://www.vtk.org\n\n"
 #endif
 
-#ifdef OCC_63
+#ifdef EG_OCC
 			"This version of ElmerGUI has been compiled with the "
 			"OpenCascade solids modeling library:\n\n"
-			"http://www.opencascade.org/\n"
+			"http://www.opencascade.org/\n\n"
 #endif
 
 #ifdef MPICH2

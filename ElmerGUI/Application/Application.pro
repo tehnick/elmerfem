@@ -47,7 +47,7 @@ CONFIG += uitools
 #------------------------------------------------------------------------------
 # MATC (see ../matc/README for more details):
 #------------------------------------------------------------------------------
-contains(DEFINES, MATC) {
+contains(DEFINES, EG_MATC) {
    LIBPATH += ../matc/lib
    LIBS += -lmatc
 }
@@ -62,7 +62,7 @@ LIBS += -lng
 #------------------------------------------------------------------------------
 # QWT:
 #------------------------------------------------------------------------------
-contains(DEFINES, QWT) {
+contains(DEFINES, EG_QWT) {
    INCLUDEPATH += $${QWT_INCLUDEPATH}
    LIBPATH += $${QWT_LIBPATH}
    LIBS += $${QWT_LIBS}
@@ -71,7 +71,7 @@ contains(DEFINES, QWT) {
 #------------------------------------------------------------------------------
 # VTK:
 #------------------------------------------------------------------------------
-contains(DEFINES, VTKPOST) {
+contains(DEFINES, EG_VTK) {
    INCLUDEPATH += $${VTK_INCLUDEPATH}
    LIBPATH += $${VTK_LIBPATH}
    LIBS += $${VTK_LIBS}
@@ -80,12 +80,12 @@ contains(DEFINES, VTKPOST) {
 #------------------------------------------------------------------------------
 # OpenCASCADE:
 #------------------------------------------------------------------------------
-contains(DEFINES, OCC_63) {
+contains(DEFINES, EG_OCC) {
    contains(BITS, 64):  DEFINES += _OCC64
 
    unix: DEFINES += HAVE_CONFIG_H HAVE_IOSTREAM HAVE_FSTREAM HAVE_LIMITS_H
    win32: DEFINES += WNT CSFDB
-   macx: DEFINED -= OCC_63         # not supported at the moment
+   macx: DEFINED -= EG_OCC         # not supported at the moment
 
    INCLUDEPATH += $${OCC_INCLUDEPATH}
    LIBPATH += $${OCC_LIBPATH}
@@ -95,7 +95,7 @@ contains(DEFINES, OCC_63) {
 #------------------------------------------------------------------------------
 # PYTHONQT (see ../PythonQt/README for more details):
 #------------------------------------------------------------------------------
-contains(DEFINES, PYTHONQT) {
+contains(DEFINES, EG_PYTHONQT) {
    INCLUDEPATH += $${PY_INCLUDEPATH} ../PythonQt/src
    LIBPATH += $${PY_LIBPATH} ../PythonQt/lib
    LIBS += $${PY_LIBS} -lPythonQt
@@ -195,12 +195,12 @@ SOURCES += src/bodypropertyeditor.cpp \
 #------------------------------------------------------------------------------
 # Optional input files:
 #------------------------------------------------------------------------------
-contains(DEFINES, QWT) {
+contains(DEFINES, EG_QWT) {
    HEADERS += src/convergenceview.h
    SOURCES += src/convergenceview.cpp
 }
 
-contains(DEFINES, VTKPOST) {
+contains(DEFINES, EG_VTK) {
    HEADERS += vtkpost/axes.h \
               vtkpost/featureedge.h \
               vtkpost/vtkpost.h \
@@ -247,7 +247,7 @@ contains(DEFINES, VTKPOST) {
               vtkpost/streamline.cpp \
               vtkpost/timestep.cpp
 
-   contains(DEFINES, MATC) {
+   contains(DEFINES, EG_MATC) {
       HEADERS += vtkpost/matc.h \
                  vtkpost/mc.h
 
@@ -257,7 +257,7 @@ contains(DEFINES, VTKPOST) {
    }
 }
 
-contains(DEFINES, OCC_63) {
+contains(DEFINES, EG_OCC) {
    HEADERS += cad/cadview.h \
               cad/cadpreferences.h
 
