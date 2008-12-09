@@ -1,15 +1,35 @@
 #==============================================================================
 #
-#      ElmerGUI: libraries and headers for the qmake project file
+#                       ElmerGUI: configuration file
 #
 #==============================================================================
 
 #------------------------------------------------------------------------------
+# Optional components (undefine or comment out to exclude from compilation):
+#------------------------------------------------------------------------------
+DEFINES += QWT       # Use QWT for convergence monitor?
+DEFINES += VTKPOST   # Use VTK for postprocessing?
+DEFINES += MATC      # Use MATC for internal operations in postprocessing?
+DEFINES += OCC_63    # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
+DEFINES += PYTHONQT  # Use PythonQt for scripting in post processor?
+
+#------------------------------------------------------------------------------
+# 64 bit system?
+#------------------------------------------------------------------------------
+BITS = 32
+
+#------------------------------------------------------------------------------
 # Installation directory:
 #------------------------------------------------------------------------------
-unix: ELMER_HOME = /usr/local
-win32: ELMER_HOME = c:\Elmer5.4
-macx: ELMER_HOME = /usr/local
+# Use the system variable:
+ELMER_HOME = $$(ELMER_HOME)
+
+# If empty, set default:
+isEmpty($${ELMER_HOME}) {
+   unix: DESTDIR = /usr/local
+   win32: DESTDIR = c:\Elmer5.4
+   macx: DESTDIR = /usr/local
+}
 
 #------------------------------------------------------------------------------
 # Python library:
