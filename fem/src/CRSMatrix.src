@@ -1071,7 +1071,6 @@ END FUNCTION CRS_RowSum
     Cols   => PMatrix % Cols
     Values => PMatrix % Values
 
-    v = 0.0d0
     IF ( ASSOCIATED( uperm ) .AND. ASSOCIATED( vperm ) ) THEN
        IF ( LTrans ) THEN
           DO i=1,n
@@ -1087,9 +1086,16 @@ END FUNCTION CRS_RowSum
           DO i=1,n
              l = vperm(i)
              IF ( l > 0 ) THEN
+               IF ( ANY(Values(Rows(i):Rows(i+1)-1)/=0) ) v(l)=0
+             END IF
+          END DO
+
+          DO i=1,n
+             l = vperm(i)
+             IF ( l > 0 ) THEN
                 DO j = Rows(i), Rows(i+1)-1
                    k = uperm(Cols(j))
-                   IF ( k > 0 ) v(l) = v(l) + u(k) * Values(j)
+                   IF ( k>0 ) v(l) = v(l) + u(k) * Values(j)
                 END DO
              END IF
           END DO

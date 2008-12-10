@@ -143,7 +143,6 @@
 
 MODULE ElementDescription
 
-   USE Lists
    USE Integration
    USE GeneralUtils
    USE LinearAlgebra
@@ -5051,9 +5050,9 @@ END IF
 
 !------------------------------------------------------------------------------
 
-    u = 0.d0
-    v = 0.d0
-    w = 0.d0
+    u = 0._dp
+    v = 0._dp
+    w = 0._dp
     n = Element % Type % NumberOfNodes
 
     ! @todo Not supported yet
@@ -5064,9 +5063,9 @@ END IF
 !------------------------------------------------------------------------------
     DO i=1,Maxiter
 !------------------------------------------------------------------------------
-      r = InterpolateInElement( Element,ElementNodes % x(1:n),u,v,w ) - x
-      s = InterpolateInElement( Element,ElementNodes % y(1:n),u,v,w ) - y
-      t = InterpolateInElement( Element,ElementNodes % z(1:n),u,v,w ) - z
+      r = InterpolateInElement(Element,ElementNodes % x(1:n),u,v,w) - x
+      s = InterpolateInElement(Element,ElementNodes % y(1:n),u,v,w) - y
+      t = InterpolateInElement(Element,ElementNodes % z(1:n),u,v,w) - z
 
       IF ( r**2 + s**2 + t**2 < EPSILON(1.0_dp) ) EXIT
 
@@ -5084,11 +5083,10 @@ END IF
 
       CASE(2)
 
-         J(1,1) = FirstDerivativeInU2D( Element, ElementNodes % x, u, v )
-         J(1,2) = FirstDerivativeInV2D( Element, ElementNodes % x, u, v )
-         J(2,1) = FirstDerivativeInU2D( Element, ElementNodes % y, u, v )
-         J(2,2) = FirstDerivativeInV2D( Element, ElementNodes % y, u, v )
-
+         J(1,1) = FirstDerivativeInU2D( Element, ElementNodes % x,u,v )
+         J(1,2) = FirstDerivativeInV2D( Element, ElementNodes % x,u,v )
+         J(2,1) = FirstDerivativeInU2D( Element, ElementNodes % y,u,v )
+         J(2,2) = FirstDerivativeInV2D( Element, ElementNodes % y,u,v )
 
         SELECT CASE( CoordinateSystemDimension() )
            CASE(3)
@@ -5132,7 +5130,9 @@ END IF
     END DO
 !------------------------------------------------------------------------------
 
-    IF ( i > MaxIter ) CALL Warn( 'GlobalToLocal', 'did not converge.' )
+    IF ( i > MaxIter ) THEN
+       CALL Warn( 'GlobalToLocal', 'did not converge.')
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE GlobalToLocal
 !------------------------------------------------------------------------------

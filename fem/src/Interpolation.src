@@ -44,8 +44,6 @@
 MODULE Interpolation
 
    USE Types
-   USE Lists
-
    USE CoordinateSystems
    USE ElementDescription
 
@@ -84,7 +82,7 @@ MODULE Interpolation
      TYPE(Quadrant_t), POINTER :: ChildQuadrant
      INTEGER :: i
      REAL(KIND=dp) :: BBox(6), eps3
-     REAL(KIND=dp), PARAMETER :: eps2=0.0d0 !!!!!!! *** !!!!!!
+     REAL(KIND=dp), PARAMETER :: eps2=0.0_dp !!!!!!! *** !!!!!!
 !------------------------------------------------------------------------------
 
 !    Loop over ChildQuadrants:
@@ -95,15 +93,15 @@ MODULE Interpolation
 !
 !       ******** NOTE: eps2 set to zero at the moment **********
 !
-        eps3 = eps2 * MAXVAL( BBox(4:6) - BBox(1:3) )
+        eps3 = eps2 * MAXVAL(BBox(4:6) - BBox(1:3))
         BBox(1:3) = BBox(1:3) - eps3
         BBox(4:6) = BBox(4:6) + eps3
         !
         ! Is the point in ChildQuadrant(i)?
         ! ----------------------------------
-        IF ( (Point(1) >= BBox(1)) .AND. (Point(1) <= BBox(4)) .AND. &
-             (Point(2) >= BBox(2)) .AND. (Point(2) <= BBox(5)) .AND. &
-             (Point(3) >= BBox(3)) .AND. (Point(3) <= BBox(6)) ) EXIT
+        IF ( ( Point(1) >= BBox(1)) .AND. (Point(1) <= BBox(4) ) .AND. &
+             ( Point(2) >= BBox(2)) .AND. (Point(2) <= BBox(5) ) .AND. &
+             ( Point(3) >= BBox(3)) .AND. (Point(3) <= BBox(6) ) ) EXIT
      END DO
 
      IF ( i > 2**dim ) THEN
@@ -132,7 +130,7 @@ MODULE Interpolation
 
 !------------------------------------------------------------------------------
      FUNCTION PointInElement( Element, ElementNodes, Point, &
-          LocalCoordinates, EPS ) RESULT(IsInElement)
+          LocalCoordinates, EPS, Eps_abs ) RESULT(IsInElement)
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -161,7 +159,7 @@ MODULE Interpolation
     Type(Element_t), POINTER :: Element
     Type(Nodes_t) :: ElementNodes
     LOGICAL :: IsInElement
-    REAL(KIND=dp), OPTIONAL :: Eps
+    REAL(KIND=dp), OPTIONAL :: Eps, Eps_abs
     REAL(KIND=dp), DIMENSION(:) :: Point
     REAL(KIND=dp), DIMENSION(:) :: LocalCoordinates
 !------------------------------------------------------------------------------
@@ -172,23 +170,26 @@ MODULE Interpolation
 
 !   Initialize:
 !   -----------
-    Eps2 = 1.0d-9
-    IF ( PRESENT( Eps ) ) Eps2 = Eps
 
     IsInElement = .FALSE.
     n = Element % Type % NumberOfNodes
 
-    xdist = MAXVAL( ElementNodes % x(1:n) ) - MINVAL( ElementNodes % x(1:n) )
-    ydist = MAXVAL( ElementNodes % y(1:n) ) - MINVAL( ElementNodes % y(1:n) )
-    zdist = MAXVAL( ElementNodes % z(1:n) ) - MINVAL( ElementNodes % z(1:n) )
-    escale = MAX( MAX( xdist, ydist ), zdist )
+    xdist = MAXVAL(ElementNodes % x(1:n)) - MINVAL(ElementNodes % x(1:n))
+    ydist = MAXVAL(ElementNodes % y(1:n)) - MINVAL(ElementNodes % y(1:n))
+    zdist = MAXVAL(ElementNodes % z(1:n)) - MINVAL(ElementNodes % z(1:n))
+    escale = MAX(MAX(xdist, ydist), zdist)
 
-    IF ( ( Point(1) < MINVAL( ElementNodes % x(1:n) ) - eps2*escale ) .OR. &
-         ( Point(1) > MAXVAL( ElementNodes % x(1:n) ) + eps2*escale ) .OR. &
-         ( Point(2) < MINVAL( ElementNodes % y(1:n) ) - eps2*escale ) .OR. &
-         ( Point(2) > MAXVAL( ElementNodes % y(1:n) ) + eps2*escale ) .OR. &
-         ( Point(3) < MINVAL( ElementNodes % z(1:n) ) - eps2*escale ) .OR. &
-         ( Point(3) > MAXVAL( ElementNodes % z(1:n) ) + eps2*escale ) )  RETURN
+    Eps2 = 1.0d-9
+    IF ( PRESENT(Eps) ) Eps2 = Eps
+    IF ( PRESENT(Eps_abs) ) Eps2 = Eps_abs/escale
+
+    IF ( (Point(1)<MINVAL(ElementNodes % x(1:n)) - eps2*escale) .OR. &
+         (Point(1)>MAXVAL(ElementNodes % x(1:n)) + eps2*escale) .OR. &
+         (Point(2)<MINVAL(ElementNodes % y(1:n)) - eps2*escale) .OR. &
+         (Point(2)>MAXVAL(ElementNodes % y(1:n)) + eps2*escale) .OR. &
+         (Point(3)<MINVAL(ElementNodes % z(1:n)) - eps2*escale) .OR. &
+         (Point(3)>MAXVAL(ElementNodes % z(1:n)) + eps2*escale) )  RETURN
+
 !
 !   Get element local coordinates from global
 !   coordinates of the point:

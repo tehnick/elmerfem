@@ -267,7 +267,6 @@ EXTRA_DIST = \
 	HeatSolve.src \
 	HelmholtzBEM.src \
 	HelmholtzSolve.src \
-	IMeshToMesh.src \
 	Integration.src \
 	Interpolation.src \
 	IterSolve.src \
