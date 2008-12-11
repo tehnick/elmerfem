@@ -127,8 +127,8 @@ macx {
 # OpenCASCADE library:
 #------------------------------------------------------------------------------
 unix {
-   OCC_INCLUDEPATH = /usr/local/OpenCASCADE/inc
-   OCC_LIBPATH = /usr/local/OpenCASCADE/lib
+   OCC_INCLUDEPATH = /usr/include/opencascade
+   OCC_LIBPATH = /usr/lib
    OCC_LIBS = -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
 }
 
