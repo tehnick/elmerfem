@@ -4130,10 +4130,16 @@ CONTAINS
         kr = A % Rows(2*(k-1)+1)
         ki = A % Rows(2*(k-1)+2)
         DO j=G % Rows(k),G % Rows(k+1)-1
-          A % Values(kr)   =  G % Values(j) - omega**2*G % MassValues(j)
-          A % Values(kr+1) = -G % Dampvalues(j) * omega
-          A % Values(ki)   =  G % Dampvalues(j) * omega
-          A % Values(ki+1) =  G % Values(j) - omega**2*G % MassValues(j)
+          A % Values(kr)   =  G % Values(j)
+          IF (ASSOCIATED(G % MassValues)) A % Values(kr) = &
+             A % Values(kr) - omega**2*G % MassValues(j)
+          IF (ASSOCIATED(G % DampValues)) THEN
+            A % Values(kr+1) = -G % Dampvalues(j) * omega
+            A % Values(ki)   =  G % Dampvalues(j) * omega
+          END IF
+          A % Values(ki+1) =  G % Values(j)
+          IF (ASSOCIATED(G % MassValues)) A % Values(ki+1) = &
+             A % Values(ki+1) - omega**2*G % MassValues(j)
           kr = kr + 2
           ki = ki + 2
         END DO
