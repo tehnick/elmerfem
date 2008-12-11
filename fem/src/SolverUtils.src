@@ -2477,12 +2477,12 @@ CONTAINS
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Nodes_t) :: ElementNodes
     INTEGER :: i,j,k,l,m,n,t, iBC
-    LOGICAL :: GotIt, Found
+    LOGICAL :: GotIt, Found, PeriodicNormals
     REAL(KIND=dp) :: s,Bu,Bv
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Matrix_t), POINTER :: Projector
   
-    REAL(KIND=dp), POINTER :: SetNormal(:,:)
+    REAL(KIND=dp), POINTER :: SetNormal(:,:), Rot(:,:)
 
     REAL(KIND=dp), TARGET :: x(Model % MaxElementNodes)
     REAL(KIND=dp), TARGET :: y(Model % MaxElementNodes)
@@ -2541,6 +2541,15 @@ CONTAINS
        Projector => Model % BCs(iBC) % PMatrix
        IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
 
+       !
+       ! TODO: consistent normals, if rotations given:
+       ! ---------------------------------------------
+       Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
+               'Periodic BC Rotate', Found )
+       IF ( Found .AND. ASSOCIATED(Rot) ) THEN
+         IF ( Any(Rot/=0) ) CYCLE
+       END IF
+
        DO i=1,Projector % NumberOfRows
           k = BoundaryReorder(Projector % InvPerm(i))
           IF ( k <= 0 ) CYCLE
@@ -2555,6 +2564,15 @@ CONTAINS
     DO iBC=1,Model % NumberOfBCs
        Projector => Model % BCs(iBC) % PMatrix
        IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
+
+       !
+       ! TODO: consistent normals, if rotations given:
+       ! ---------------------------------------------
+       Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
+               'Periodic BC Rotate', Found )
+       IF ( Found .AND. ASSOCIATED(Rot) ) THEN
+         IF ( ANY(Rot/=0) ) CYCLE
+       END IF
 
        DO i=1,Projector % NumberOfRows
           k = BoundaryReorder(Projector % InvPerm(i))
