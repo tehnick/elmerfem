@@ -82,6 +82,8 @@ class FeatureEdge;
 class MeshPoint;
 class MeshEdge;
 class Matc;
+class EcmaConsole;
+class QScriptEngine;
 
 class VtkPost : public QMainWindow
 {
@@ -289,6 +291,9 @@ private slots:
   void showPythonQtConsoleSlot();
 #endif
 
+  void showECMAScriptConsoleSlot();
+  void evaluateECMAScriptSlot(QString);
+
 private:
   QMenu *fileMenu;
   QMenu *editMenu;
@@ -398,7 +403,12 @@ private:
   QAction *showPythonQtConsoleAct;
   PythonQtObjectPtr mainContext;
   PythonQtScriptingConsole *console;
-#endif  
+#endif
+
+  // ECMAScript
+  QAction* showECMAScriptConsoleAct;
+  EcmaConsole* ecmaConsole;
+  QScriptEngine* engine;
 };
 
 #endif // VTKPOST_H

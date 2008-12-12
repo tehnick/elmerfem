@@ -39,6 +39,7 @@
  *****************************************************************************/
 
 #include <QtGui>
+#include <QScriptEngine>
 #include <iostream>
 
 #include "epmesh.h"
@@ -56,6 +57,7 @@
 #include "featureedge.h"
 #include "meshpoint.h"
 #include "meshedge.h"
+#include "ecmaconsole.h"
 
 #ifdef EG_MATC
 #include "matc.h"
@@ -335,6 +337,39 @@ VtkPost::VtkPost(QWidget *parent)
   console->setWindowTitle("ElmerGUI PythonQt");
   console->resize(400, 300);
 #endif
+
+  // ECMAScript
+  //-----------
+  ecmaConsole = new EcmaConsole(NULL);
+  ecmaConsole->setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+  ecmaConsole->setWindowTitle("ElmerGUI ECMAScript");
+  ecmaConsole->resize(400, 300);
+
+  connect(ecmaConsole, SIGNAL(cmd(QString)), this, SLOT(evaluateECMAScriptSlot(QString)));
+
+  engine = new QScriptEngine(this);
+
+  QScriptValue egpValue = engine->newQObject(this);
+  QScriptValue matcValue = engine->newQObject(matc);
+  QScriptValue surfacesValue = engine->newQObject(surface);
+  QScriptValue vectorsValue = engine->newQObject(vector);
+  QScriptValue isoContoursValue = engine->newQObject(isoContour);
+  QScriptValue isoSurfacesValue = engine->newQObject(isoSurface);
+  QScriptValue streamLinesValue = engine->newQObject(streamLine);
+  QScriptValue preferencesValue = engine->newQObject(preferences);
+  QScriptValue timeStepValue = engine->newQObject(timeStep);
+  QScriptValue colorBarValue = engine->newQObject(colorBar);
+
+  engine->globalObject().setProperty("egp", egpValue);
+  engine->globalObject().setProperty("matc", matcValue);
+  engine->globalObject().setProperty("surfaces", surfacesValue);
+  engine->globalObject().setProperty("vectors", vectorsValue);
+  engine->globalObject().setProperty("isoContours", isoContoursValue);
+  engine->globalObject().setProperty("isoSurfaces", isoSurfacesValue);
+  engine->globalObject().setProperty("streamLines", streamLinesValue);
+  engine->globalObject().setProperty("preferences", preferencesValue);
+  engine->globalObject().setProperty("timeStep", timeStepValue);
+  engine->globalObject().setProperty("colorBar", colorBarValue);
 }
 
 VtkPost::~VtkPost()
@@ -480,6 +515,10 @@ void VtkPost::createActions()
   connect(showPythonQtConsoleAct, SIGNAL(triggered()), this, SLOT(showPythonQtConsoleSlot()));
 #endif
 
+  showECMAScriptConsoleAct = new QAction(QIcon(""), tr("ECMAScript console..."), this);
+  showECMAScriptConsoleAct->setStatusTip("Show/hide ECMAScript console");
+  connect(showECMAScriptConsoleAct, SIGNAL(triggered()), this, SLOT(showECMAScriptConsoleSlot()));
+
   // Help menu:
   //-----------
   showHelpAct = new QAction(QIcon(":/icons/help-about.png"), tr("Help..."), this);
@@ -515,6 +554,9 @@ void VtkPost::createMenus()
   editMenu->addSeparator();
   editMenu->addAction(showPythonQtConsoleAct);
 #endif
+
+  editMenu->addSeparator();
+  editMenu->addAction(showECMAScriptConsoleAct);
 
   // View menu:
   //-----------
@@ -575,6 +617,18 @@ void VtkPost::showPythonQtConsoleSlot()
   console->show();
 }
 #endif
+
+void VtkPost::showECMAScriptConsoleSlot()
+{
+  ecmaConsole->show();
+}
+
+void VtkPost::evaluateECMAScriptSlot(QString line)
+{
+  QScriptValue val = engine->evaluate(line);
+  if(val.isUndefined()) return;
+  ecmaConsole->append(val.toString());
+}
 
 #ifdef EG_MATC
 

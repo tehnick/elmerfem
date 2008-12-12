@@ -215,7 +215,8 @@ contains(DEFINES, EG_VTK) {
               vtkpost/vector.h \
               vtkpost/readepfile.h \
               vtkpost/streamline.h \
-              vtkpost/timestep.h
+              vtkpost/timestep.h \
+              vtkpost/ecmaconsole.h
 
    FORMS += vtkpost/axes.ui \
             vtkpost/featureedge.ui \
@@ -245,7 +246,8 @@ contains(DEFINES, EG_VTK) {
               vtkpost/vector.cpp \
               vtkpost/readepfile.cpp \
               vtkpost/streamline.cpp \
-              vtkpost/timestep.cpp
+              vtkpost/timestep.cpp \
+              vtkpost/ecmaconsole.cpp
 
    contains(DEFINES, EG_MATC) {
       HEADERS += vtkpost/matc.h \
