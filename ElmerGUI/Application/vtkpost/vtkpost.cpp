@@ -623,15 +623,14 @@ void VtkPost::showECMAScriptConsoleSlot()
   ecmaConsole->show();
 }
 
-void VtkPost::evaluateECMAScriptSlot(QString line)
+void VtkPost::evaluateECMAScriptSlot(QString cmd)
 {
-  QScriptValue val = engine->evaluate(line);
+  QScriptValue val = engine->evaluate(cmd);
   if(val.isUndefined()) return;
   ecmaConsole->append(val.toString());
 }
 
 #ifdef EG_MATC
-
 QString VtkPost::MatcCmd(QString cmd)
 {
    matc->ui.mcEdit->setText(cmd);
@@ -2424,4 +2423,34 @@ bool VtkPost::SavePngFile(QString fileName)
   image->Delete();
 
   return true;
+}
+
+//----------------------------------------------------------------------
+void VtkPost::Execute(QString fileName)
+{
+  if(fileName.isEmpty()) {
+    ecmaConsole->append("Execute: file name must be given");
+    return;
+  }
+
+  QFile scriptFile(fileName);
+
+  if(!scriptFile.exists()) {
+    ecmaConsole->append("Execute: script file does not exist");
+    return;
+  }
+
+  scriptFile.open(QIODevice::ReadOnly);
+
+  if(scriptFile.error()) {
+    ecmaConsole->append("Execute: error when opening script file");
+    return;
+  }
+  
+  QByteArray script = scriptFile.readAll();
+  scriptFile.close();
+
+  engine->evaluate(script);
+
+  // error handling is still missing
 }

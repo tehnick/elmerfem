@@ -243,6 +243,8 @@ public slots:
 
   bool SavePngFile(QString);                        // save image file
 
+  void Execute(QString);                            // Execute ECMA script
+
 private slots:
   void exitSlot();
   void readEpFileSlot();
