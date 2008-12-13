@@ -25,6 +25,8 @@
  *                                                                           *
  *  ElmerGUI ecmaconsole                                                     *
  *                                                                           *
+ *  Modified from the PythonQt console by Florian Link / MeVis Research      *
+ *                                                                           *
  *****************************************************************************
  *                                                                           *
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *

@@ -629,9 +629,15 @@ void VtkPost::evaluateECMAScriptSlot(QString cmd)
   if(cmd.isEmpty()) return;
   if(cmd.trimmed().toLower() == "quit") ecmaConsole->hide();
   QScriptValue val = engine->evaluate(cmd);
-  // todo:: catch exceptions
-  if(val.isUndefined()) return;
-  ecmaConsole->append(val.toString());
+
+  QString msg = val.toString();
+
+  if(engine->hasUncaughtException())
+    msg = "Uncaught exception:" + msg;
+
+  // do not show "undefined"
+  if(msg.trimmed() != "undefined")
+    ecmaConsole->append(msg);
 }
 
 #ifdef EG_MATC
@@ -2430,31 +2436,42 @@ bool VtkPost::SavePngFile(QString fileName)
 }
 
 //----------------------------------------------------------------------
-void VtkPost::Execute(QString fileName)
+bool VtkPost::Execute(QString fileName)
 {
   if(fileName.isEmpty()) {
     ecmaConsole->append("Execute: file name must be given");
-    return;
+    return false;
   }
 
   QFile scriptFile(fileName);
 
   if(!scriptFile.exists()) {
     ecmaConsole->append("Execute: script file does not exist");
-    return;
+    return false;
   }
 
   scriptFile.open(QIODevice::ReadOnly);
 
   if(scriptFile.error()) {
     ecmaConsole->append("Execute: error when opening script file");
-    return;
+    return false;
   }
   
   QByteArray script = scriptFile.readAll();
   scriptFile.close();
 
-  engine->evaluate(script);
+  QScriptValue val = engine->evaluate(script);
 
-  // todo: catch exceptions
+  if(engine->hasUncaughtException()) {
+    int line = engine->uncaughtExceptionLineNumber();
+    QString msg = "Uncaught exception at line" + QString::number(line) + ":" + val.toString();
+    ecmaConsole->append(msg);
+    return false;
+  }
+
+  // do not show "undefined"
+  if(val.toString().trimmed() != "undefined")
+    ecmaConsole->append(val.toString());
+
+  return true;
 }
