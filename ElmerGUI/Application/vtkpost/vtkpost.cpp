@@ -675,6 +675,21 @@ void VtkPost::minMax(ScalarField *sf)
      if ( sf->minVal>sf->value[i] ) sf->minVal=sf->value[i];
      if ( sf->maxVal<sf->value[i] ) sf->maxVal=sf->value[i];
    }
+
+   if(sf->name == "nodes_x") {
+     boundingBoxMinX = sf->minVal;
+     boundingBoxMaxX = sf->maxVal;
+   }
+
+   if(sf->name == "nodes_y") {
+     boundingBoxMinY = sf->minVal;
+     boundingBoxMaxY = sf->maxVal;
+   }
+
+   if(sf->name == "nodes_z") {
+     boundingBoxMinZ = sf->minVal;
+     boundingBoxMaxZ = sf->maxVal;
+   }
 }
 
 // Populate widgets in user interface dialogs:
@@ -2377,38 +2392,32 @@ double VtkPost::GetNofNodes()
 
 double VtkPost::GetMinX()
 {
-  ScalarField *sf = &scalarField[2];
-  return sf->minVal;
+  return boundingBoxMinX;
 }
 
 double VtkPost::GetMaxX()
 {
-  ScalarField *sf = &scalarField[2];
-  return sf->maxVal;
+  return boundingBoxMaxX;
 }
 
 double VtkPost::GetMinY()
 {
-  ScalarField *sf = &scalarField[3];
-  return sf->minVal;
+  return boundingBoxMinY;
 }
 
 double VtkPost::GetMaxY()
 {
-  ScalarField *sf = &scalarField[3];
-  return sf->maxVal;
+  return boundingBoxMaxY;
 }
 
 double VtkPost::GetMinZ()
 {
-  ScalarField *sf = &scalarField[4];
-  return sf->minVal;
+  return boundingBoxMinZ;
 }
 
 double VtkPost::GetMaxZ()
 {
-  ScalarField *sf = &scalarField[4];
-  return sf->maxVal;
+  return boundingBoxMaxZ;
 }
 
 //----------------------------------------------------------------------

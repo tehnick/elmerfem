@@ -401,6 +401,14 @@ private:
   QString postLine;
   QTextStream postLineStream;
 
+  // bounding box:
+  double boundingBoxMinX;
+  double boundingBoxMaxX;
+  double boundingBoxMinY;
+  double boundingBoxMaxY;
+  double boundingBoxMinZ;
+  double boundingBoxMaxZ;
+
 #ifdef EG_PYTHONQT
   QAction *showPythonQtConsoleAct;
   PythonQtObjectPtr mainContext;
