@@ -620,12 +620,16 @@ void VtkPost::showPythonQtConsoleSlot()
 
 void VtkPost::showECMAScriptConsoleSlot()
 {
+  ecmaConsole->clearHistory();
   ecmaConsole->show();
 }
 
 void VtkPost::evaluateECMAScriptSlot(QString cmd)
 {
+  if(cmd.isEmpty()) return;
+  if(cmd.trimmed().toLower() == "quit") ecmaConsole->hide();
   QScriptValue val = engine->evaluate(cmd);
+  // todo:: catch exceptions
   if(val.isUndefined()) return;
   ecmaConsole->append(val.toString());
 }
@@ -2452,5 +2456,5 @@ void VtkPost::Execute(QString fileName)
 
   engine->evaluate(script);
 
-  // error handling is still missing
+  // todo: catch exceptions
 }
