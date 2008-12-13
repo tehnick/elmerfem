@@ -34,7 +34,7 @@ vector fields, and visualize time dependent data.
 \end{center}
 \end{figure}
 
-One of the main features of ElmerGUI is the interface to the parallel solver,  {\tt ElmerSolver\_mpi}.
+One of the main features of ElmerGUI is the interface to the parallel solver,  {\tt ElmerSolver\_mpi}.
 The GUI hides from the user a number of operations that are normally performed from command line with various external tools related to domain decomposition, launching the paralle processes, and merging the results. This makes it possible to use ElmerSolver with multi-core processors even on interactive desktop
 environments.
 
@@ -43,7 +43,7 @@ for an proprietary application. An example of customizing the menus is provided 
 
 ElmerGUI relies on the Qt4 cross platform framework from Trolltech \cite{QtHome}, and it uses the Qwt5
 libray by Josef Wilgen and Uwe Rathman\cite{QwtHome}. The internal postprocessor is based on the VTK  library of Ken Martin, Will Schroeder, and Bill Lorensen \cite{VTKHome}. The CAD import features are
-implemented by linking against the OCC library from OpenCASCADE S.A.S. \cite{OCCHome}. The program is
+implemented by linking against the OCC library from OpenCASCADE S.A.S. \cite{OCCHome}. The program is
 also capable of using Tetgen \cite{TetgenHome} and Netgen \cite{NetgenHome} as external finite element
 mesh generators.
 
@@ -509,13 +509,11 @@ The name of the ep-file is defined in
 
 \subsection{Post preocessing I (ElmerPost)}
 
-ElmerGUI provides two different post processors for drawing and displaying results.
+ElmerGUI provides two different post processors for drawing, displaying, and manipulating the results.
 
 The first alternative is activated from
 \menu{Run}{Start postprocessor}
-\noindent This will launch ElmerPost, which will read in the results and displays
-a contour plot representing the solution. If the results were prodoced by the parallel
-solver, the domain decomposition used in the calculations will be shown.
+\noindent This will launch ElmerPost, which will read in the result file and displays a contour plot representing the solution. If the results were prodoced by the parallel solver, the domain decomposition used in the calculations will be shown.
 
 \subsection{Post preocessing II (VTK)}
 
@@ -529,7 +527,7 @@ vectors, and stream lines.
 If ElmerGUI has been compiled with PyhthonQt-support, there is a Python console
 available for scripting. The console is located under the Edit-menu:
 \menu{Edit}{PythonQt console...}
-\noindent The console provides access to the ``public slots'' of the following classes:
+\noindent The console provides access to the following classes:
 \begin{footnotesize}
 \begin{verbatim}
 egp             // ElmerGUI post processor
@@ -803,7 +801,7 @@ The exampels below are executed from the PythonQt-console as
 py> execfile("sample.py")
 \end{verbatim}
 \end{footnotesize}
-where ``sample.py'' is a text file containing the script to execute.
+where ``sample.py'' is a text file containing the script to run.
 
 \vskip5mm
 \noindent{\bf Read in results}
@@ -926,6 +924,120 @@ Playback with mplayer (choose appropriate frame rate):
 $ mplayer -fps 50 example.avi
 \end{verbatim}
 \end{footnotesize}
+
+\subsubsection{ECMAScript interface}
+
+In addition to Python, it is possible to use Qt's internal ECMAScript engine for scripting. The ECMAScript console is activated from
+the Edit menu as:
+\menu{Edit}{ECMAScript console...}
+The ECMAScript interface provides access to the same classes and methods
+as the Python interface. However, users familiar with JavaScript (from
+which ECMAScript has been derived and standardized) may find the ECMAScript interface more comfortable.
+
+ECMAScript files are executed from the console by entering the command
+\begin{footnotesize}
+\begin{verbatim}
+js> egp.Execute("script.js")
+\end{verbatim}
+\end{footnotesize}
+
+The above examples for Python translate to the following ECMAScript files:
+
+\vskip5mm
+\noindent{\bf Read in results}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile("case.ep")
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Set orientation}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile("case.ep")
+egp.SetSurfaces(1)
+egp.SetOrientation(45, 45, 0)
+egp.SetInitalCameraPosition()
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Visualize temperature on surfaces}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile("case.ep")
+egp.SetSurfaces(1)
+egp.SetOrientation(45, 45, 0)
+egp.SetInitalCameraPosition()
+surfaces.SetFieldName("Temperature")
+egp.Redraw()
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Rotate object}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile("case.ep")
+egp.SetSurfaces(1)
+for(var i = 0; i < 180; i++)
+{
+   egp.RotateY(2.0)
+   egp.ResetCamera()
+   egp.Render()
+}
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Traveling isosurface}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile("case.ep")
+egp.SetSurfaces(1)
+egp.SetIsoSurfaces(1)
+egp.SetFeatureEdges(1)
+preferences.SetFeatureAngle(45)
+surfaces.SetFieldName("Null")
+surfaces.SetOpacity(20)
+isoSurfaces.SetFieldName("nodes_z")
+isoSurfaces.SetColorName("Temperature")
+isoSurfaces.SetContours(1)
+isoSurfaces.KeepFieldLimits(1)
+egp.SetOrientation(45, 45, 0)
+egp.ResetCamera()
+egp.Render()
+var zmin = egp.GetMinZ()
+var zmax = egp.GetMaxZ()
+for(var i = 0; i < 100; i++)
+{
+   var z = zmin + i/100.0 * (zmax-zmin)
+   isoSurfaces.SetMinFieldVal(z)
+   isoSurfaces.SetMaxFieldVal(z)
+   egp.Redraw()
+}
+\end{verbatim}
+\end{footnotesize}
+
+\vskip5mm
+\noindent{\bf Rotate and save frames}
+\begin{footnotesize}
+\begin{verbatim}
+egp.ReadPostFile("case.ep")
+egp.SetSurfaces(1)
+for(var i = 0; i < 180; i++)
+{
+    egp.RotateY(2.0)
+    egp.ResetCamera()
+    egp.Render()
+    egp.SavePngFile("frame" + i + ".png")
+}
+\end{verbatim}
+\end{footnotesize}
+
+
+
 
 \bibliographystyle{plain}
 \bibliography{elmergui}
