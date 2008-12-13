@@ -51,7 +51,7 @@
 EcmaConsole::EcmaConsole(QWidget* parent)
   : QTextEdit(parent)
 {
-  prompt = "js>";
+  prompt = "js> ";
   this->clearHistory();
 }
 
