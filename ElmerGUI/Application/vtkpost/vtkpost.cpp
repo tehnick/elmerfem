@@ -370,6 +370,19 @@ VtkPost::VtkPost(QWidget *parent)
   engine->globalObject().setProperty("preferences", preferencesValue);
   engine->globalObject().setProperty("timeStep", timeStepValue);
   engine->globalObject().setProperty("colorBar", colorBarValue);
+
+  ecmaConsole->addNames("egp", this->metaObject());
+  ecmaConsole->addNames("matc", matc->metaObject());
+  ecmaConsole->addNames("surfaces", surface->metaObject());
+  ecmaConsole->addNames("vectors", vector->metaObject());
+  ecmaConsole->addNames("isoContours", isoContour->metaObject());
+  ecmaConsole->addNames("isoSurfaces", isoSurface->metaObject());
+  ecmaConsole->addNames("streamLines", streamLine->metaObject());
+  ecmaConsole->addNames("preferences", preferences->metaObject());
+  ecmaConsole->addNames("timeStep", timeStep->metaObject());
+  ecmaConsole->addNames("colorBar", colorBar->metaObject());
+
+  ecmaConsole->initCompleter();
 }
 
 VtkPost::~VtkPost()

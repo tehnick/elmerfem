@@ -47,11 +47,19 @@
 #include <QMouseEvent>
 #include <QTextCursor>
 #include <QTextBlock>
+#include <QMetaObject>
+#include <QMetaMethod>
+#include <QCompleter>
+#include <QStringListModel>
+#include <QScrollBar>
+
+#include <iostream>
+using namespace std;
 
 EcmaConsole::EcmaConsole(QWidget* parent)
   : QTextEdit(parent)
 {
-  prompt = "js> ";
+  prompt = "qs> ";
   this->clearHistory();
 }
 
@@ -76,6 +84,28 @@ void EcmaConsole::mouseReleaseEvent(QMouseEvent* event)
 
 void EcmaConsole::keyPressEvent(QKeyEvent* event)
 {
+  if(completer && completer->popup()->isVisible()) {
+    switch(event->key()) {
+    case Qt::Key_Return:
+      if(!completer->popup()->currentIndex().isValid()) {
+        insertCompletion(completer->currentCompletion());
+        completer->popup()->hide();
+        event->accept();
+	return;
+      }
+      event->ignore();
+      return;
+    case Qt::Key_Enter:
+    case Qt::Key_Escape:
+    case Qt::Key_Tab:
+    case Qt::Key_Backtab:
+      event->ignore();
+      return;
+    default:
+      break;
+    }
+  }
+
   switch(event->key()) {
   case Qt::Key_Return:
     execLine();
@@ -114,6 +144,8 @@ void EcmaConsole::keyPressEvent(QKeyEvent* event)
     event->accept();
     break;
   }
+
+  handleTabCompletion();
 }
 
 int EcmaConsole::getPromptPos()
@@ -160,4 +192,116 @@ void EcmaConsole::clearHistory()
   history.clear();
   historyPtr = 0;
   this->append(prompt);
+}
+
+void EcmaConsole::addNames(QString className, QMetaObject* metaObject)
+{
+  QStringList publicSlots;
+  int methodCount = metaObject->methodCount();
+  for(int i = 0; i < methodCount; i++) {
+    QMetaMethod method = metaObject->method(i);
+    QMetaMethod::Access access = method.access();
+    QMetaMethod::MethodType methodType = method.methodType();
+    if((access == QMetaMethod::Public) && (methodType == QMetaMethod::Slot)) {
+      QString signature = method.signature();
+      int j = signature.indexOf("(");
+      QString slotName = signature.left(j);
+      publicSlots << slotName;
+    }
+  }
+  publicSlots.sort();
+  names.insert(className, publicSlots);
+}
+
+void EcmaConsole::initCompleter()
+{
+  completer = new QCompleter(this);
+  completer->setWidget(this);
+  connect(completer, SIGNAL(activated(const QString&)), this, SLOT(insertCompletion(const QString&)));
+}
+
+
+void EcmaConsole::handleTabCompletion()
+{
+  QTextCursor textCursor = this->textCursor();
+  int pos = textCursor.position();
+  textCursor.setPosition(getPromptPos());
+  textCursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);
+  int startPos = textCursor.selectionStart();
+
+  int offset = pos-startPos;
+  QString text = textCursor.selectedText();
+
+  QString textToComplete;
+  int cur = offset;
+
+  while(cur--) {
+    QChar c = text.at(cur);
+    if(c.isLetterOrNumber() || (c == '.') || (c == '_')) {
+      textToComplete.prepend(c);
+    } else {
+      break;
+    }
+  }
+
+  QString lookup;
+  QString compareText = textToComplete;
+  int dot = compareText.lastIndexOf('.');
+
+  if(dot != -1) {
+    lookup = compareText.mid(0, dot);
+    compareText = compareText.mid(dot+1, offset);
+  }
+
+  if(!lookup.isEmpty() || !compareText.isEmpty()) {
+    compareText = compareText.toLower();
+    QStringList found;
+
+    QStringList list;
+    if(lookup.isEmpty()) {
+      // all class names
+      list = names.keys();
+    } else {
+      // methods for a class
+      list = names.value(lookup);
+    }
+
+    foreach(QString name, list) {
+      if(name.toLower().startsWith(compareText))
+	found << name;
+    }
+    
+    if(!found.isEmpty()) {
+      completer->setCompletionPrefix(compareText);
+      completer->setCompletionMode(QCompleter::PopupCompletion);
+      completer->setModel(new QStringListModel(found, completer));
+      completer->setCaseSensitivity(Qt::CaseInsensitive);
+      QTextCursor c = this->textCursor();
+      c.movePosition(QTextCursor::StartOfWord);
+      QRect cr = cursorRect(c);
+      cr.setWidth(completer->popup()->sizeHintForColumn(0)
+        + completer->popup()->verticalScrollBar()->sizeHint().width());
+      cr.translate(0,8);
+      completer->complete(cr);
+    } else {
+      completer->popup()->hide();
+    }
+  } else {
+    completer->popup()->hide();
+  }
+}
+
+void EcmaConsole::insertCompletion(const QString& completion)
+{
+  QTextCursor tc = textCursor();
+  tc.movePosition(QTextCursor::Left, QTextCursor::KeepAnchor);
+  if (tc.selectedText() == ".") {
+    tc.insertText(QString(".") + completion);
+  } else {
+    tc = textCursor();
+    tc.movePosition(QTextCursor::StartOfWord, QTextCursor::MoveAnchor);
+    tc.movePosition(QTextCursor::EndOfWord, QTextCursor::KeepAnchor);
+    tc.insertText(completion);
+    setTextCursor(tc);
+  }
 }

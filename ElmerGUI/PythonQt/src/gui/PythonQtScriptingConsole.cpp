@@ -256,7 +256,7 @@ void PythonQtScriptingConsole::insertCompletion(const QString& completion)
 //-----------------------------------------------------------------------------
 void PythonQtScriptingConsole::handleTabCompletion()
 {
-  QTextCursor textCursor   = this->textCursor();
+  QTextCursor textCursor = this->textCursor();
   int pos = textCursor.position();
   textCursor.setPosition(commandPromptPosition());
   textCursor.movePosition(QTextCursor::End, QTextCursor::KeepAnchor);

@@ -46,10 +46,13 @@
 #include <QTextEdit>
 #include <QString>
 #include <QStringList>
+#include <QHash>
 
 class QWidget;
 class QKeyEvent;
 class QMouseEvent;
+class QMetaObject;
+class QCompleter;
 
 class EcmaConsole : public QTextEdit
 {
@@ -59,12 +62,15 @@ public:
   EcmaConsole(QWidget* parent = 0);
   ~EcmaConsole();
   void clearHistory();
+  void addNames(QString, QMetaObject*);
+  void initCompleter();
 
 public slots:
   void keyPressEvent(QKeyEvent*);
   void mousePressEvent(QMouseEvent*);
   void mouseReleaseEvent(QMouseEvent*);
   void mouseDoubleClickEvent(QMouseEvent*);
+  void insertCompletion(const QString&);
 
 signals:
   void cmd(QString);
@@ -74,8 +80,11 @@ private:
   int getPromptPos();
   void execLine();
   void scanHistory();
+  void handleTabCompletion();
   int historyPtr;
   QStringList history;
+  QHash<QString, QStringList> names;
+  QCompleter* completer;
 };
 
 #endif
