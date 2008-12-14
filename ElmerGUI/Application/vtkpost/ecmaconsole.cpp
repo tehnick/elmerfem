@@ -105,47 +105,54 @@ void EcmaConsole::keyPressEvent(QKeyEvent* event)
       break;
     }
   }
-
+  
+  bool eventHandled = false;
+  
   switch(event->key()) {
   case Qt::Key_Return:
     execLine();
-    event->ignore();
+    eventHandled = true;
     break;
     
   case Qt::Key_Up:
     if(historyPtr > 0) {
       historyPtr--;
       scanHistory();
-    }    
-    event->ignore();
+    }
+    eventHandled = true;
     break;
-
+    
   case Qt::Key_Down:
     if(historyPtr < history.count()-1) {
       historyPtr++;
       scanHistory();
     }
-    event->ignore();
+    eventHandled = true;
     break;
-
+    
   case Qt::Key_Left:
   case Qt::Key_Backspace:
   case Qt::Key_Backtab:
-    if(this->textCursor().position() <= getPromptPos()) {
-      event->ignore();
-      break;
-    }
-    QTextEdit::keyPressEvent(event);
-    event->accept();
+    if(this->textCursor().position() <= getPromptPos())
+      eventHandled = true;
     break;
-
+    
   default:
-    QTextEdit::keyPressEvent(event);
-    event->accept();
     break;
   }
-
-  handleTabCompletion();
+  
+  if(eventHandled) {
+    completer->popup()->hide();
+    event->ignore();
+  } else {
+    QTextEdit::keyPressEvent(event);
+    QString text = event->text();
+    if(!text.isEmpty()) {
+      handleTabCompletion();
+    } else {
+      completer->popup()->hide();
+    }
+  }
 }
 
 int EcmaConsole::getPromptPos()
