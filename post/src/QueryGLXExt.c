@@ -1,12 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <X11/Xatom.h>
-#include <X11/Intrinsic.h>
-#include <X11/Shell.h>
-#include <X11/extensions/XInput.h>
-#include <X11/keysymdef.h>
-
 #include <GL/glx.h>
 
 int main( int argc, char **argv )
