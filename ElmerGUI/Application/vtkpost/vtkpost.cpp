@@ -98,6 +98,26 @@
 
 using namespace std;
 
+// Custom print for QtScript:
+//----------------------------
+#if QT_VERSION >= 0x040403
+QScriptValue printFun(QScriptContext* context, QScriptEngine* engine)
+{
+  QString result;
+  for (int i = 0; i < context->argumentCount(); ++i) {
+    if (i > 0)
+      result.append(" ");
+    result.append(context->argument(i).toString());
+  }
+  
+  QScriptValue calleeData = context->callee().data();
+  EcmaConsole* ecmaConsole = qobject_cast<EcmaConsole*>(calleeData.toQObject());
+  ecmaConsole->append(result);
+  
+  return engine->undefinedValue();
+}
+#endif
+
 // Interaction event handler (press 'i' to interact):
 //-------------------------------------------------------------------
 static void iEventHandler(vtkObject* caller, unsigned long eid, 
@@ -348,6 +368,12 @@ VtkPost::VtkPost(QWidget *parent)
   connect(ecmaConsole, SIGNAL(cmd(QString)), this, SLOT(evaluateECMAScriptSlot(QString)));
 
   engine = new QScriptEngine(this);
+
+#if QT_VERSION >= 0x040403
+  QScriptValue fun = engine->newFunction(printFun);
+  fun.setData(engine->newQObject(ecmaConsole));
+  engine->globalObject().setProperty("print", fun);
+#endif
 
   QScriptValue egpValue = engine->newQObject(this);
   QScriptValue matcValue = engine->newQObject(matc);
