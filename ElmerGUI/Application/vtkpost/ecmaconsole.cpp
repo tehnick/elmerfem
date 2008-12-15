@@ -201,7 +201,7 @@ void EcmaConsole::clearHistory()
   this->append(prompt);
 }
 
-void EcmaConsole::addNames(QString className, QMetaObject* metaObject)
+void EcmaConsole::addNames(QString className, const QMetaObject* metaObject)
 {
   QStringList publicSlots;
   int methodCount = metaObject->methodCount();

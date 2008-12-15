@@ -39,6 +39,7 @@
  *****************************************************************************/
 
 #include <QtGui>
+#include <QVector>
 #include <iostream>
 #include "epmesh.h"
 #include "vtkpost.h"
@@ -69,7 +70,6 @@ IsoSurface::IsoSurface(QWidget *parent)
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
   connect(ui.contoursCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(contoursSelectionChanged(int)));
   connect(ui.colorCombo, SIGNAL(currentIndexChanged(int)), this, SLOT(colorSelectionChanged(int)));
-
   connect(ui.keepContourLimits, SIGNAL(stateChanged(int)), this, SLOT(keepContourLimitsSlot(int)));
   connect(ui.keepColorLimits, SIGNAL(stateChanged(int)), this, SLOT(keepColorLimitsSlot(int)));
 
@@ -119,6 +119,8 @@ void IsoSurface::populateWidgets(VtkPost* vtkPost)
 
   contoursSelectionChanged(ui.contoursCombo->currentIndex());
   colorSelectionChanged(ui.colorCombo->currentIndex());
+
+  ui.contourList->clear();
 }
 
 void IsoSurface::contoursSelectionChanged(int newIndex)
@@ -168,6 +170,20 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   bool useClip = ui.clipPlane->isChecked();
   useClip |= vtkPost->GetClipAll();
 
+  // contour list:
+  QString contourListText = ui.contourList->text().trimmed();
+  QStringList contourList = contourListText.split(";");
+  int contourValues = contourList.count();
+
+  QVector<double> contourValue(contourValues);
+  for(int i = 0; i < contourValues; i++)
+    contourValue[i] = contourList.at(i).toDouble();  
+  qSort(contourValue);
+
+  bool useListValues = false;
+  if(!contourListText.isEmpty())
+    useListValues = true;
+
   ScalarField* sf = &scalarField[contourIndex];
   int maxDataStepContour = sf->values / vtkPost->NofNodes();
   int step = timeStep->ui.timeStep->value();
@@ -197,7 +213,7 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
   vtkPost->GetVolumeGrid()->GetPointData()->AddArray(contourArray);
 
   vtkPost->GetVolumeGrid()->GetPointData()->RemoveArray("IsoSurfaceColor");
-  vtkFloatArray *colorArray = vtkFloatArray::New();
+  vtkFloatArray* colorArray = vtkFloatArray::New();
   sf = &scalarField[colorIndex];
   colorArray->SetName("IsoSurfaceColor");
   colorArray->SetNumberOfComponents(1);
@@ -208,15 +224,21 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
 
   // Isosurfaces:
   //--------------
-  vtkContourFilter *iso = vtkContourFilter::New();
+  vtkContourFilter* iso = vtkContourFilter::New();
   vtkPost->GetVolumeGrid()->GetPointData()->SetActiveScalars("IsoSurface");
   iso->SetInput(vtkPost->GetVolumeGrid());
   iso->ComputeScalarsOn();
-  iso->GenerateValues(contours, contourMinVal, contourMaxVal);
+  if(useListValues) {
+    iso->SetNumberOfContours(contourValues);
+    for(int i = 0; i < contourValues; i++)
+      iso->SetValue(i, contourValue[i]);
+  } else {
+    iso->GenerateValues(contours, contourMinVal, contourMaxVal);
+  }
 
   // Apply the clip plane:
   //-----------------------
-  vtkClipPolyData *clipper = vtkClipPolyData::New();
+  vtkClipPolyData* clipper = vtkClipPolyData::New();
 
   if(useClip) {
     clipper->SetInputConnection(iso->GetOutputPort());
@@ -227,7 +249,7 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
 
   // Normals:
   //---------
-  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
+  vtkPolyDataNormals* normals = vtkPolyDataNormals::New();
 
   if(useNormals) {
     if(useClip) {
@@ -240,7 +262,7 @@ void IsoSurface::draw(VtkPost* vtkPost, TimeStep* timeStep)
 
   // Mapper:
   //--------
-  vtkDataSetMapper *mapper = vtkDataSetMapper::New();
+  vtkDataSetMapper* mapper = vtkDataSetMapper::New();
   
   if(useNormals) {
     mapper->SetInputConnection(normals->GetOutputPort());
@@ -322,6 +344,11 @@ void IsoSurface::SetMaxFieldVal(double f)
 void IsoSurface::SetContours(int n)
 {
   ui.contoursSpin->setValue(n);
+}
+
+void IsoSurface::SetContourValues(QString values)
+{
+  ui.contourList->setText(values);
 }
 
 void IsoSurface::KeepFieldLimits(bool b)

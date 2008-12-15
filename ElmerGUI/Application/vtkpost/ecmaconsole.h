@@ -62,7 +62,7 @@ public:
   EcmaConsole(QWidget* parent = 0);
   ~EcmaConsole();
   void clearHistory();
-  void addNames(QString, QMetaObject*);
+  void addNames(QString, const QMetaObject*);
   void initCompleter();
 
 public slots:
