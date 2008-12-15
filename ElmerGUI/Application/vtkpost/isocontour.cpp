@@ -118,6 +118,8 @@ void IsoContour::populateWidgets(VtkPost* vtkPost)
 
   contoursSelectionChanged(ui.contoursCombo->currentIndex());
   colorSelectionChanged(ui.colorCombo->currentIndex());
+
+  ui.contourList->clear();
 }
 
 void IsoContour::contoursSelectionChanged(int newIndex)
@@ -168,6 +170,20 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   bool useClip = ui.useClip->isChecked();
   useClip |= vtkPost->GetClipAll();
 
+  // contour list:
+  QString contourListText = ui.contourList->text().trimmed();
+  QStringList contourList = contourListText.split(";");
+  int contourValues = contourList.count();
+
+  QVector<double> contourValue(contourValues);
+  for(int i = 0; i < contourValues; i++)
+    contourValue[i] = contourList.at(i).toDouble();  
+  qSort(contourValue);
+
+  bool useListValues = false;
+  if(!contourListText.isEmpty())
+    useListValues = true;
+
   ScalarField* sf = &scalarField[contourIndex];
   int maxDataStepsContour = sf->values / vtkPost->NofNodes();
   int step = timeStep->ui.timeStep->value();
@@ -212,7 +228,13 @@ void IsoContour::draw(VtkPost* vtkPost, TimeStep* timeStep)
   vtkPost->GetSurfaceGrid()->GetPointData()->SetActiveScalars("IsoContour");
   iso->SetInput(vtkPost->GetSurfaceGrid());
   iso->ComputeScalarsOn();
-  iso->GenerateValues(contours, contourMinVal, contourMaxVal);
+  if(useListValues) {
+    iso->SetNumberOfContours(contourValues);
+    for(int i = 0; i < contourValues; i++)
+      iso->SetValue(i, contourValue[i]);    
+  } else {
+    iso->GenerateValues(contours, contourMinVal, contourMaxVal);
+  }
 
   // Tube filter:
   //-------------
@@ -321,6 +343,11 @@ void IsoContour::SetMaxFieldVal(double f)
 void IsoContour::SetContours(int n)
 {
   ui.contoursSpin->setValue(n);
+}
+
+void IsoContour::SetContourValues(QString values)
+{
+  ui.contourList->setText(values);
 }
 
 void IsoContour::KeepFieldLimits(bool b)

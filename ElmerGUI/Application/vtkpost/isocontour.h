@@ -73,6 +73,7 @@ public slots:
   void SetMinFieldVal(double);                      // set min value
   void SetMaxFieldVal(double);                      // set max value
   void SetContours(int);                            // set nof contours
+  void SetContourValues(QString);                   // set contour values
   void KeepFieldLimits(bool);                       // keep limits
   void SetMinColorVal(double);                      // set color min
   void SetMaxColorVal(double);                      // set color max
