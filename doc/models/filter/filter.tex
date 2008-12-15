@@ -28,7 +28,7 @@ phenomena with different timescales (turbulence).
 The solver is built so that an estimate for the filtered data may be
 obtained at all times i.e. the normalizing is done after each timestep.
 As an example let's consider taking a simple mean over a period of time. 
-The stating point
+The starting point
 is the time averaged mean,
 \begin{equation}
   <f>_T=\frac{1}{T} \int_0^T f(t)\, dt .
@@ -40,7 +40,7 @@ Its discrete counterpart assuming piecewise constant integration is
 where $T_n=\sum dt_i$. Now this may be presented inductively as
 \begin{eqnarray}
   <f>_n & = & \frac{T_{n-1} <f>_{n-1} + f_n dt_n}{T_{n-1} + dt_n} \\
-  T_n & = & T_{n-1} + dt_i .
+  T_n & = & T_{n-1} + dt_n .
 \end{eqnarray}
 
 \subsection*{Weighted mean}
@@ -52,17 +52,17 @@ function $g(t)$ depending on time only. Then similarly,
 
 
 \subsection*{Fourier series}
-Using the weighted mean a starting point its possible to present
+Using the weighted mean as starting point its possible to present
 the solution in terms of sine and cosine series. 
 In order to obtain normalized Fourier series components
-the sine and cosine functions are internally defined 
-as $2\sin(2\pi w t)$ and $2\cos(2\pi w t)$, where 
+the function $g$ is internally replaced by sine and cosine functions defined 
+as $2\sin(2\pi k w t)$ and $2\cos(2\pi k w t)$, where 
 $k$ is the degree of the term, and $w$ is the user defined frequency.
 After each full cycle the inner product then includes the Fourier 
 coefficients
 and the transient solution may hence be approximated by 
 \begin{equation}
-  f \approx \sum_{k=1}^{m_s} s_k \sin(2\pi w t) + \sum_{k=1}^{m_c} c_k \cos(2\pi w t), 
+  f \approx \sum_{k=1}^{m_s} s_k \sin(2\pi k w t) + \sum_{k=1}^{m_c} c_k \cos(2\pi k w t), 
 \end{equation}
 where $m_s$ and $m_c$ are maximum degrees defined by the user. 
 
@@ -73,7 +73,7 @@ by relaxing the weight (elapsed time) related to the old solution by
 \begin{equation}
   T_{n-1} := T_{n-1} \exp (-dt_n / \tau),
 \end{equation} 
-where $\tau$ is the time scale when decay to fraction $1/\mbox{e}$ is 
+where $\tau$ is the time scale when decay to fraction $1/e$ is 
 desired. If the decay time is short compared to the overall simulation
 time this provides a continuous mean that represents only 
 the recent results. The fraction of the last timestep in 
@@ -130,8 +130,20 @@ Note that this keyword also activates timestep-insensitive averaging.
 \sifitem{Stop Timestep i}{Integer}
 The timestep number that ends the averaging.
 %
-
-
+\sifitem{Start Cycle i}{Real}
+Alternative way to give the start time for sine and cosine series.
+The start time is the inverse of this.
+%
+\sifitem{Stop Cycle i}{Real}
+Alternative way to give the stop time for sine and cosine series.
+%
+\sifitem{Start Real Time}{Real}
+Start after given real wall-clock-time, rather than physical simulation time. 
+%
+\sifitem{Start Real Time Fraction}{Real}
+Relative way of given start time when the \texttt{Real Time Max} keyword in \texttt{Simulation}
+block is given.
+%
 \sifitem{Reset Interval i}{Real}
 The time interval at which the computation of a mean is reinitialized.
 %
