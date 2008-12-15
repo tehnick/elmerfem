@@ -88,7 +88,7 @@ void Text::draw(VtkPost* vtkPost)
   int posY = ui.posyEdit->text().toInt();
 
   vtkTextActor* textActor = vtkPost->GetTextActor();
-  textActor->ScaledTextOff();
+  // textActor->ScaledTextOff();
   textActor->SetDisplayPosition(posX, posY);
   textActor->SetInput(message.toAscii().data());
 
