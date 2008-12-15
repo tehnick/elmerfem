@@ -58,10 +58,10 @@ class QVTKWidget;
 class vtkRenderer;
 class vtkRenderWindow;
 class vtkActor;
+class vtkTextActor;
 class vtkFollower;
 class vtkScalarBarActor;
 class vtkDataSetMapper;
-class vtkTextActor;
 class vtkUnstructuredGrid;
 class vtkLookupTable;
 class vtkPlane;
@@ -78,6 +78,7 @@ class ReadEpFile;
 class StreamLine;
 class TimeStep;
 class Axes;
+class Text;
 class FeatureEdge;
 class MeshPoint;
 class MeshEdge;
@@ -121,6 +122,7 @@ public:
   ScalarField* GetScalarField();
   EpMesh* GetEpMesh();
   Preferences* GetPreferences();
+  vtkTextActor* GetTextActor();
 
   void minMax(ScalarField *);
   ScalarField* addScalarField(QString, int, double *);
@@ -183,6 +185,7 @@ public slots:
   void SetMeshEdges(bool);                          // show/hide edges
   void SetFeatureEdges(bool);                       // show/hide f-edges
   void SetAxes(bool);                               // show/hide axes
+  void SetText(bool);                               // show/hide text
 
   bool GetClipAll();                                // is clipping on?
   void SetClipAll(bool);                            // clipping on/off
@@ -256,6 +259,7 @@ private slots:
   void showStreamLineDialogSlot();
   void showTimeStepDialogSlot();
   void showPreferencesDialogSlot();
+  void showTextDialogSlot();
 
   void drawMeshPointSlot();
   void drawMeshEdgeSlot();
@@ -267,6 +271,7 @@ private slots:
   void drawColorBarSlot();
   void drawStreamLineSlot();
   void drawAxesSlot();
+  void drawTextSlot();
 
   void hideSurfaceSlot();
   void hideVectorSlot();
@@ -274,6 +279,7 @@ private slots:
   void hideIsoSurfaceSlot();
   void hideColorBarSlot();
   void hideStreamLineSlot();
+  void hideTextSlot();
 
   void groupChangedSlot(QAction*);
   void regenerateGridsSlot();
@@ -324,6 +330,7 @@ private:
   QAction *fitToWindowAct;
   QAction *resetModelViewAct;
   QAction *drawAxesAct;
+  QAction *drawTextAct;
   QAction *reloadPostAct;
   QAction *readEpFileAct;
   QAction *clipAllAct;
@@ -368,6 +375,7 @@ private:
   vtkFollower* axesZTextActor;
   vtkScalarBarActor* colorBarActor;
   vtkImplicitPlaneWidget* planeWidget;
+  vtkTextActor* textActor;
   double initialCameraPosition[3];
   double initialCameraRoll;
 
@@ -381,6 +389,7 @@ private:
   Matc* matc;               // ui
   TimeStep* timeStep;       // ui
   Axes* axes;               // ui
+  Text* text;               // ui
   FeatureEdge* featureEdge; // ui
   MeshPoint* meshPoint;     // ui
   MeshEdge* meshEdge;       // ui

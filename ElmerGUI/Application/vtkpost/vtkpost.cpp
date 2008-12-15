@@ -54,6 +54,7 @@
 #include "streamline.h"
 #include "timestep.h"
 #include "axes.h"
+#include "text.h"
 #include "featureedge.h"
 #include "meshpoint.h"
 #include "meshedge.h"
@@ -66,6 +67,7 @@
 #include <QVTKWidget.h>
 #include <vtkLookupTable.h>
 #include <vtkActor.h>
+#include <vtkTextActor.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkRenderWindowInteractor.h>
@@ -202,6 +204,7 @@ VtkPost::VtkPost(QWidget *parent)
   //------------
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   setWindowTitle("ElmerGUI postprocessor");
+  resize(800, 600);
 
   createActions();
   createMenus();
@@ -227,6 +230,7 @@ VtkPost::VtkPost(QWidget *parent)
   axesYTextActor = vtkFollower::New();
   axesZTextActor = vtkFollower::New();
   pickedPointActor = vtkActor::New();
+  textActor = vtkTextActor::New();
 
   // Default color map (from blue to red):
   //--------------------------------------
@@ -272,6 +276,11 @@ VtkPost::VtkPost(QWidget *parent)
   connect(readEpFile, SIGNAL(readPostFileSignal(QString)), this, SLOT(ReadPostFile(QString)));
 
   axes = new Axes(this);
+
+  text = new Text(this);
+  connect(text, SIGNAL(drawTextSignal()), this, SLOT(drawTextSlot()));
+  connect(text, SIGNAL(hideTextSignal()), this, SLOT(hideTextSlot()));
+
   featureEdge = new FeatureEdge(this);
   meshPoint = new MeshPoint(this);
   meshEdge = new MeshEdge(this);
@@ -385,6 +394,7 @@ VtkPost::VtkPost(QWidget *parent)
   QScriptValue preferencesValue = engine->newQObject(preferences);
   QScriptValue timeStepValue = engine->newQObject(timeStep);
   QScriptValue colorBarValue = engine->newQObject(colorBar);
+  QScriptValue textValue = engine->newQObject(text);
 
   engine->globalObject().setProperty("egp", egpValue);
   engine->globalObject().setProperty("matc", matcValue);
@@ -396,6 +406,7 @@ VtkPost::VtkPost(QWidget *parent)
   engine->globalObject().setProperty("preferences", preferencesValue);
   engine->globalObject().setProperty("timeStep", timeStepValue);
   engine->globalObject().setProperty("colorBar", colorBarValue);
+  engine->globalObject().setProperty("text", textValue);
 
   ecmaConsole->addNames("egp", this->metaObject());
   ecmaConsole->addNames("matc", matc->metaObject());
@@ -407,6 +418,7 @@ VtkPost::VtkPost(QWidget *parent)
   ecmaConsole->addNames("preferences", preferences->metaObject());
   ecmaConsole->addNames("timeStep", timeStep->metaObject());
   ecmaConsole->addNames("colorBar", colorBar->metaObject());
+  ecmaConsole->addNames("text", text->metaObject());
 
   ecmaConsole->initCompleter();
 }
@@ -465,6 +477,13 @@ void VtkPost::createActions()
   drawAxesAct->setCheckable(true);
   drawAxesAct->setChecked(false);
   connect(drawAxesAct, SIGNAL(triggered()), this, SLOT(drawAxesSlot()));
+
+  drawTextAct = new QAction(QIcon(""), tr("Text..."), this);
+  drawTextAct->setStatusTip("Annotate text");
+  drawTextAct->setCheckable(true);
+  drawTextAct->setChecked(false);
+  connect(drawTextAct, SIGNAL(triggered()), this, SLOT(showTextDialogSlot()));
+  connect(drawTextAct, SIGNAL(toggled(bool)), this, SLOT(maybeRedrawSlot(bool)));
 
   drawColorBarAct = new QAction(QIcon(""), tr("Colorbar"), this);
   drawColorBarAct->setStatusTip("Draw color bar");
@@ -605,6 +624,8 @@ void VtkPost::createMenus()
   viewMenu->addAction(drawFeatureEdgesAct);
   viewMenu->addAction(drawAxesAct);
   viewMenu->addSeparator();
+  viewMenu->addAction(drawTextAct);
+  viewMenu->addSeparator();
   viewMenu->addAction(drawSurfaceAct);
   viewMenu->addSeparator();
   viewMenu->addAction(drawIsoContourAct);
@@ -641,6 +662,8 @@ void VtkPost::createToolbars()
   viewToolBar->addSeparator();
   viewToolBar->addAction(drawColorBarAct);
   viewToolBar->addSeparator();
+  viewToolBar->addAction(drawTextAct);
+  viewToolBar->addSeparator();  
   viewToolBar->addAction(preferencesAct);
   viewToolBar->addSeparator();
   viewToolBar->addAction(redrawAct);
@@ -1376,6 +1399,7 @@ void VtkPost::redrawSlot()
   drawStreamLineSlot();
   drawColorBarSlot();
   drawAxesSlot();
+  drawTextSlot();
 
   vtkRenderWindow *renderWindow = qvtkWidget->GetRenderWindow();
   renderWindow->Render();
@@ -1635,6 +1659,37 @@ void VtkPost::drawAxesSlot()
   qvtkWidget->GetRenderWindow()->Render();
 }
 
+// Draw text:
+//----------------------------------------------------------------------
+void VtkPost::showTextDialogSlot()
+{
+  if(!postFileRead) return;
+  qvtkWidget->GetRenderWindow()->Render();
+
+  if(drawTextAct->isChecked()) {
+    text->show();
+  } else {
+    text->close();
+    drawTextSlot();
+  }
+}
+
+void VtkPost::hideTextSlot()
+{
+  drawTextAct->setChecked(false);
+  drawTextSlot();
+}
+
+void VtkPost::drawTextSlot()
+{
+  if(!postFileRead) return;
+  renderer->RemoveActor2D(textActor);
+  if(!drawTextAct->isChecked()) return;
+  text->draw(this);
+  renderer->AddActor2D(textActor);
+  qvtkWidget->GetRenderWindow()->Render();
+}
+
 
 // Time step control:
 //----------------------------------------------------------------------
@@ -1752,6 +1807,11 @@ vtkFollower* VtkPost::GetAxesYTextActor()
 vtkFollower* VtkPost::GetAxesZTextActor()
 {
   return axesZTextActor;
+}
+
+vtkTextActor* VtkPost::GetTextActor()
+{
+  return textActor;
 }
 
 void VtkPost::GetBounds(double* bounds)
@@ -2006,6 +2066,12 @@ void VtkPost::ResetAll()
 }
 
 //------------------------------------------------------------
+void VtkPost::SetText(bool b)
+{
+  drawTextAct->setChecked(b);
+  drawTextSlot();
+}
+
 void VtkPost::SetSurfaces(bool b)
 {
   drawSurfaceAct->setChecked(b);

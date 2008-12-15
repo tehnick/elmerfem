@@ -216,7 +216,8 @@ contains(DEFINES, EG_VTK) {
               vtkpost/readepfile.h \
               vtkpost/streamline.h \
               vtkpost/timestep.h \
-              vtkpost/ecmaconsole.h
+              vtkpost/ecmaconsole.h \
+              vtkpost/text.h
 
    FORMS += vtkpost/axes.ui \
             vtkpost/featureedge.ui \
@@ -230,7 +231,8 @@ contains(DEFINES, EG_VTK) {
             vtkpost/vector.ui \
             vtkpost/readepfile.ui \
             vtkpost/streamline.ui \
-            vtkpost/timestep.ui
+            vtkpost/timestep.ui \
+            vtkpost/text.ui
 
    SOURCES += vtkpost/axes.cpp \
               vtkpost/featureedge.cpp \
@@ -247,7 +249,8 @@ contains(DEFINES, EG_VTK) {
               vtkpost/readepfile.cpp \
               vtkpost/streamline.cpp \
               vtkpost/timestep.cpp \
-              vtkpost/ecmaconsole.cpp
+              vtkpost/ecmaconsole.cpp \
+              vtkpost/text.cpp
 
    contains(DEFINES, EG_MATC) {
       HEADERS += vtkpost/matc.h \
