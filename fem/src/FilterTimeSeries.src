@@ -85,12 +85,13 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dtime,TransientSimulation )
   CHARACTER(LEN=MAX_NAME_LEN) :: Oper, OldOper, OperName, VarName, MeanVarName, Name, &
       FilterName, OldVarName, tmpname
   REAL(KIND=dp) :: st, t0, t1, time, Phase, Ratio, Weight, Relax, val, cnew, cold, &
-      freq, fcoeff, dt
+      freq, fcoeff, dt, q
   REAL(KIND=dp) :: CumWeight(99)
   REAL(KIND=dp), POINTER :: MeanField(:), InstField(:), Component(:)
+  REAL(KIND=dp) :: RealTime
 
 
-  SAVE SubroutineVisited, TimesVisited
+  SAVE SubroutineVisited, TimesVisited, CumWeight
 
 
 !------------------------------------------------------------------------------
@@ -144,6 +145,23 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dtime,TransientSimulation )
 
     dt = dtime
     ratio = 1.0_dp
+
+    ! Start after given wall-clock time
+    t0 = GetCReal(Solver % Values,'Filter Start Real Time', Found )
+    IF ( Found ) THEN
+       IF( RealTime() < t0 ) THEN
+          ratio = 0.0_dp
+       END IF
+    END IF
+    
+    ! Start after relative given wall-clock time
+    q = GetCReal(Solver % Values,'Real Time Max Fraction', Found )
+    IF( Found ) THEN
+       t0 = GetCReal(Model % Simulation,'Real Time Max' )
+       IF( RealTime() < q * t0 ) THEN
+          ratio = 0.0_dp
+       END IF
+    END IF
 
     ! Start watch time
     Name = ParameterName('Start Time',NoVar)
