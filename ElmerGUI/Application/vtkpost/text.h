@@ -72,6 +72,7 @@ public slots:
   void SetRed(double);
   void SetGreen(double);
   void SetBlue(double);
+  void SetRGB(double, double, double);
 
 signals:
   void drawTextSignal();

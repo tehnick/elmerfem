@@ -207,3 +207,10 @@ void Text::SetBlue(double d)
   if(blue < 0.0) blue = 0.0;
   if(blue > 1.0) blue = 1.0; 
 }
+
+void Text::SetRGB(double r, double g, double b)
+{
+  this->SetRed(r);
+  this->SetGreen(g);
+  this->SetBlue(b);
+}

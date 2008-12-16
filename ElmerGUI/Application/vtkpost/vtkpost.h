@@ -248,6 +248,8 @@ public slots:
 
   bool Execute(QString);                            // Execute ECMA script
 
+  void SetBgColor(double, double, double);          // bg color (rgb)
+
 private slots:
   void exitSlot();
   void readEpFileSlot();

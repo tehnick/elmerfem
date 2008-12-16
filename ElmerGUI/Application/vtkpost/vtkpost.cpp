@@ -2550,6 +2550,26 @@ bool VtkPost::SavePngFile(QString fileName)
 }
 
 //----------------------------------------------------------------------
+void VtkPost::SetBgColor(double r, double g, double b)
+{
+  double R = r;
+  double G = g;
+  double B = b;
+
+  if(R < 0.0) R = 0.0;
+  if(R > 1.0) R = 1.0;
+  
+  if(G < 0.0) G = 0.0;
+  if(G > 1.0) G = 1.0;
+  
+  if(B < 0.0) B = 0.0;
+  if(B > 1.0) B = 1.0;
+  
+  renderer->SetBackground(R, G, B);
+  renderer->GetRenderWindow()->Render();
+}
+
+//----------------------------------------------------------------------
 bool VtkPost::Execute(QString fileName)
 {
   if(fileName.isEmpty()) {
@@ -2589,3 +2609,5 @@ bool VtkPost::Execute(QString fileName)
 
   return true;
 }
+
+
