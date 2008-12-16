@@ -62,6 +62,16 @@ public slots:
   void SetMessage(QString);
   void SetPosX(int);
   void SetPosY(int);
+  void SetLeft();
+  void SetCentered();
+  void SetRight();
+  void SetSize(int);
+  void SetBold(bool);
+  void SetItalic(bool);
+  void SetShadow(bool);
+  void SetRed(double);
+  void SetGreen(double);
+  void SetBlue(double);
 
 signals:
   void drawTextSignal();
@@ -73,6 +83,9 @@ private slots:
   void okButtonClicked();
 
 private:
+  double red;
+  double green;
+  double blue;
 
 };
 

@@ -58,6 +58,10 @@ Text::Text(QWidget *parent)
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   connect(ui.cancelButton, SIGNAL(clicked()), this, SLOT(cancelButtonClicked()));
   connect(ui.okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+
+  red = 0.0;
+  green = 0.0;
+  blue = 0.0;
 }
 
 Text::~Text()
@@ -86,20 +90,49 @@ void Text::draw(VtkPost* vtkPost)
   QString message = ui.textEdit->text();
   int posX = ui.posxEdit->text().toInt();
   int posY = ui.posyEdit->text().toInt();
+  int size = ui.size->value();
+  bool left = ui.left->isChecked();
+  bool centered = ui.centered->isChecked();
+  bool right = ui.right->isChecked();
+  bool bold = ui.bold->isChecked();
+  bool italic = ui.italic->isChecked();
+  bool shadow = ui.shadow->isChecked();
 
   vtkTextActor* textActor = vtkPost->GetTextActor();
-  // textActor->ScaledTextOff();
+  if(textActor == NULL) return;
+
   textActor->SetDisplayPosition(posX, posY);
   textActor->SetInput(message.toAscii().data());
 
   vtkTextProperty* tprop = textActor->GetTextProperty();
-  tprop->SetFontSize(18);
+  if(tprop == NULL) return;
+
   tprop->SetFontFamilyToArial();
-  tprop->SetJustificationToCentered();
-  tprop->BoldOn();
-  tprop->ItalicOn();
-  tprop->ShadowOn();
-  tprop->SetColor(0, 0, 1);
+  tprop->SetFontSize(size);
+  
+  if(left) tprop->SetJustificationToLeft();
+  if(centered) tprop->SetJustificationToCentered();
+  if(right) tprop->SetJustificationToRight();
+
+  if(bold) {
+    tprop->BoldOn();
+  } else {
+    tprop->BoldOff();
+  }
+
+  if(italic) {
+    tprop->ItalicOn();
+  } else {
+    tprop->ItalicOff();
+  }
+
+  if(shadow) {
+    tprop->ShadowOn();
+  } else {
+    tprop->ShadowOff();
+  }
+
+  tprop->SetColor(red, green, blue);
 }
 
 void Text::SetMessage(QString message)
@@ -115,4 +148,62 @@ void Text::SetPosX(int x)
 void Text::SetPosY(int y)
 {
   ui.posyEdit->setText(QString::number(y));
+}
+
+void Text::SetLeft()
+{
+  ui.left->setChecked(true);
+}
+
+void Text::SetCentered()
+{
+  ui.centered->setChecked(true);
+}
+
+void Text::SetRight()
+{
+  ui.right->setChecked(true);
+}
+
+void Text::SetSize(int n)
+{
+  ui.size->setValue(n);
+}
+
+void Text::SetBold(bool b)
+{
+  ui.bold->setChecked(b);
+}
+
+void Text::SetItalic(bool b)
+{
+  ui.italic->setChecked(b);
+}
+
+void Text::SetShadow(bool b)
+{
+  ui.shadow->setChecked(b);
+}
+
+void Text::SetRed(double d)
+{
+  red = d;
+  if(red < 0.0) red = 0.0;
+  if(red > 1.0) red = 1.0;
+  
+}
+
+void Text::SetGreen(double d)
+{
+  green = d;
+  if(green < 0.0) green = 0.0;
+  if(green > 1.0) green = 1.0;
+  
+}
+
+void Text::SetBlue(double d)
+{
+  blue = d;
+  if(blue < 0.0) blue = 0.0;
+  if(blue > 1.0) blue = 1.0; 
 }
