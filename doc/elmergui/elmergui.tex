@@ -63,9 +63,8 @@ svn co https://elmerfem.svn.sourceforge.net/svnroot/elmerfem/trunk trunk
 \subsection{Linux}
 
 Bofore staring to compile, please make sure that you have the development package of Qt 4
-installed on your system (i.e., libraries, headers, and program development tools). Qt version 4.2
-or newer is recommended. You may also wish to install Qwt 5, VTK version 5, and OpenCASCADE 6.3, 
-for additional functionality.
+installed on your system (i.e., libraries, headers, and program development tools). Qt version 4.3
+or newer is recommended. You may also wish to install Qwt 5, VTK version 5 (compiled with support to Qt4), and OpenCASCADE 6.3, for additional functionality.
 
 The program is compiled and installed by executing the following sequence of commands in a terminal window:
 \begin{verbatim}
@@ -74,10 +73,10 @@ $ qmake
 $ make
 $ make install
 \end{verbatim}
-The default installation directory defined in the project file {\tt ElmerGUI.pro} is
+The default installation directory defined in the project file {\tt ElmerGUI.pri} is
 {\tt /usr/local/bin}.
 
-It is possible that the project file ``ElmerGUI.pro'' needs to be edited depending on how and
+It is possible that the project definition file ``ElmerGUI.pri'' needs to be edited depending on how and
 where the external libraries have been installed. The lines that need attention can be found from
 the beginning of the file.
 
@@ -87,7 +86,7 @@ and add it to {\tt PATH}:
 $ export ELMERGUI_HOME=/usr/local/bin
 $ export PATH=$PATH:$ELMERGUI_HOME
 \end{verbatim}
-The program is started by entering the command
+The program is launhed by the command
 \begin{verbatim}
 $ ElmerGUI
 \end{verbatim}
@@ -105,12 +104,16 @@ through the file release system of SourceForge.NET \cite{ElmerfemHome}. The bina
 on external components, which must be installed prior to downloading Elmer. The list of possible
 dependencies can be found from the ``Release notes'' of the file release.
 
-It is also possible to compile ElmerGUI from source. This can be done either with Visual Studio
-2008 C++ Express Edition \cite{VCEE2008Home}, or by using the MinGW compiler suite \cite{MinGWHome}.
+It is also possible to compile ElmerGUI from source. This can be done either by
+Visual Studio 2008 C++ Express Edition \cite{VCEE2008Home} (or any other MS
+compiler that provides at least the same functionality), or by using the MinGW 
+compiler suite \cite{MinGWHome}.
 
 The compilation instructions for MinGW are more or less the same as for Linux. The only exception
-is that then OCC should probably be excluded from compilation, and the cad import functionality will
-be unavailable. The advantage of using MinGW, on the other hand, is that it is then possible to use
+is that then OCC should probably be excluded from compilation. In this case, cad import functionality will
+be unavailable. 
+
+The advantage of using MinGW is that it is then possible to use
 Qt's precompiled binary packages \cite{QtHome}, which otherwise have to be built from source. MinGW
 might also be the natural choice for users that prefer Unix-like operating environments.
 
@@ -123,11 +126,11 @@ and execute the following sequence commands within ElmerGUI's source directory:
 \end{verbatim}
 
 Again, it is necessary to verify that the paths to all external components have been correctly
-defined in ``ElmerGUI.pro''. The build process is performed in release mode, producing the
-executable ``ElmerGUI.exe''.
+defined in ``ElmerGUI.pri''. The build process is performed in release mode, producing the
+executable ``release/ElmerGUI.exe''.
 
-The final task is to introduce the environment variable {\tt ELMERGUI\_HOME} and add it to the
-binary search path.
+The final task is to introduce the environment variable {\tt ELMERGUI\_HOME} with
+value {\tt c:/Elmer5.4/bin} and add it to the binary search path.
 
 \section{Input files}
 
