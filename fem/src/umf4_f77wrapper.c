@@ -89,7 +89,6 @@
 /* integer type: int or long */
 /* -------------------------------------------------------------------------- */
 
-
 #define Int int
 #define UMFPACK_defaults	 umfpack_di_defaults
 #define UMFPACK_free_numeric	 umfpack_di_free_numeric
@@ -203,6 +202,139 @@ void STDCALLBULL FC_FUNC(umf4fnum,UMF4FNUM) (void **Numeric)
 /* call umf4fsym (symbolic) */
 
 void STDCALLBULL FC_FUNC(umf4fsym,UMF4FSYM) (void **Symbolic)
+{
+#ifdef HAVE_UMFPACK
+    UMFPACK_free_symbolic (Symbolic) ;
+#endif
+}
+
+
+#undef Int
+#undef UMFPACK_defaults
+#undef UMFPACK_free_numeric
+#undef UMFPACK_free_symbolic
+#undef UMFPACK_numeric
+#undef UMFPACK_report_control
+#undef UMFPACK_report_info
+#undef UMFPACK_save_numeric
+#undef UMFPACK_save_symbolic
+#undef UMFPACK_load_numeric
+#undef UMFPACK_load_symbolic
+#undef UMFPACK_scale
+#undef UMFPACK_solve
+#undef UMFPACK_symbolic
+
+#define Int long
+#define UMFPACK_defaults	 umfpack_dl_defaults
+#define UMFPACK_free_numeric	 umfpack_dl_free_numeric
+#define UMFPACK_free_symbolic	 umfpack_dl_free_symbolic
+#define UMFPACK_numeric		 umfpack_dl_numeric
+#define UMFPACK_report_control	 umfpack_dl_report_control
+#define UMFPACK_report_info	 umfpack_dl_report_info
+#define UMFPACK_save_numeric	 umfpack_dl_save_numeric
+#define UMFPACK_save_symbolic	 umfpack_dl_save_symbolic
+#define UMFPACK_load_numeric	 umfpack_dl_load_numeric
+#define UMFPACK_load_symbolic	 umfpack_dl_load_symbolic
+#define UMFPACK_scale		 umfpack_dl_scale
+#define UMFPACK_solve		 umfpack_dl_solve
+#define UMFPACK_symbolic	 umfpack_dl_symbolic
+
+
+/* -------------------------------------------------------------------------- */
+/* umf4def: set default control parameters */
+/* -------------------------------------------------------------------------- */
+
+/* call umf4def (control) */
+
+void STDCALLBULL FC_FUNC(umf4_l_def,UMF4_L_DEF) (double Control[])
+{
+#ifdef HAVE_UMFPACK
+    UMFPACK_defaults (Control) ;
+#endif
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* umf4sym: pre-ordering and symbolic factorization */
+/* -------------------------------------------------------------------------- */
+
+/* call umf4sym (m, n, Ap, Ai, Ax, symbolic, control, info) */
+
+void STDCALLBULL FC_FUNC(umf4_l_sym,UMF4_L_SYM) (Int *m, Int *n, Int Ap [ ], Int Ai [ ],
+    double Ax [ ], void **Symbolic,
+    double Control[], double Info[])
+{
+#ifdef HAVE_UMFPACK
+    (void) UMFPACK_symbolic (*m, *n, Ap, Ai, Ax, Symbolic, Control, Info) ;
+#endif
+}
+
+/* -------------------------------------------------------------------------- */
+/* umf4num: numeric factorization */
+/* -------------------------------------------------------------------------- */
+
+/* call umf4num (Ap, Ai, Ax, symbolic, numeric, control, info) */
+
+void STDCALLBULL FC_FUNC(umf4_l_num,UMF4_L_NUM) (Int Ap [ ], Int Ai [ ], double Ax [ ],
+    void **Symbolic, void **Numeric,
+    double Control[], double Info[])
+{
+#ifdef HAVE_UMFPACK
+    (void) UMFPACK_numeric (Ap, Ai, Ax, *Symbolic, Numeric, Control, Info);
+#endif
+}
+
+/* -------------------------------------------------------------------------- */
+/* umf4solr: solve a linear system with iterative refinement */
+/* -------------------------------------------------------------------------- */
+
+/* call umf4solr (sys, Ap, Ai, Ax, x, b, numeric, control, info) */
+
+void STDCALLBULL FC_FUNC(umf4_l_solr,UMF4_L_SOLR) (Int *sys, Int Ap [ ], Int Ai [ ], double Ax [ ],
+    double x [ ], double b [ ], void **Numeric,
+    double Control[], double Info[])
+{
+#ifdef HAVE_UMFPACK
+    (void) UMFPACK_solve (*sys, Ap, Ai, Ax, x, b, *Numeric, Control, Info) ;
+#endif
+}
+
+/* -------------------------------------------------------------------------- */
+/* umf4sol: solve a linear system without iterative refinement */
+/* -------------------------------------------------------------------------- */
+
+/* call umf4sol (sys, x, b, numeric, control, info) */
+
+void STDCALLBULL FC_FUNC(umf4_l_sol,UMF4_L_SOL) (Int *sys, double x [ ], double b [ ], void **Numeric,
+    double Control[], double Info[])
+{
+#ifdef HAVE_UMFPACK
+    Control [UMFPACK_IRSTEP] = 0 ;
+    (void) UMFPACK_solve (*sys, (Int *) NULL, (Int *) NULL, (double *) NULL,
+	x, b, *Numeric, Control, Info) ;
+#endif
+}
+
+/* -------------------------------------------------------------------------- */
+/* umf4fnum: free the Numeric object */
+/* -------------------------------------------------------------------------- */
+
+/* call umf4fnum (numeric) */
+
+void STDCALLBULL FC_FUNC(umf4_l_fnum,UMF4FNUM) (void **Numeric)
+{
+#ifdef HAVE_UMFPACK
+    UMFPACK_free_numeric (Numeric) ;
+#endif
+}
+
+/* -------------------------------------------------------------------------- */
+/* umf4fsym: free the Symbolic object */
+/* -------------------------------------------------------------------------- */
+
+/* call umf4fsym (symbolic) */
+
+void STDCALLBULL FC_FUNC(umf4_l_fsym,UMF4FSYM) (void **Symbolic)
 {
 #ifdef HAVE_UMFPACK
     UMFPACK_free_symbolic (Symbolic) ;

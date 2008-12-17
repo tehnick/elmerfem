@@ -292,6 +292,32 @@ CONTAINS
        INTEGER(KIND=AddrInt) :: numeric
        REAL(KIND=dp) :: x(*), b(*), control(*), iinfo(*)
     END SUBROUTINE umf4sol
+
+    SUBROUTINE umf4_l_def( control )
+       USE Types
+       REAL(KIND=dp) :: control(*) 
+    END SUBROUTINE umf4_l_def
+
+    SUBROUTINE umf4_l_sym( m,n,rows,cols,values,symbolic,control,iinfo )
+       USE Types
+       INTEGER(KIND=AddrInt) :: m,n,rows(*),cols(*)
+       INTEGER(KIND=AddrInt) ::  symbolic
+       REAL(KIND=dp) :: Values(*), control(*),iinfo(*)
+    END SUBROUTINE umf4_l_sym
+
+    SUBROUTINE umf4_l_num( rows,cols,values,symbolic,numeric, control,iinfo )
+       USE Types
+       INTEGER(KIND=AddrInt) :: rows(*),cols(*)
+       INTEGER(KIND=AddrInt) ::  numeric, symbolic
+       REAL(KIND=dp) :: Values(*), control(*),iinfo(*)
+    END SUBROUTINE umf4_l_num
+
+    SUBROUTINE umf4_l_sol( sys, x, b, numeric, control, iinfo )
+       USE Types
+       INTEGER(KIND=AddrInt) :: sys
+       INTEGER(KIND=AddrInt) :: numeric
+       REAL(KIND=dp) :: x(*), b(*), control(*), iinfo(*)
+    END SUBROUTINE umf4_l_sol
   END INTERFACE
 #endif
 
@@ -304,11 +330,15 @@ CONTAINS
 #ifdef HAVE_UMFPACK
   INTEGER :: status, sys
   REAL(KIND=dp) :: iInfo(90), Control(20)
-  INTEGER(KIND=AddrInt) :: symbolic, zero=0
+  INTEGER(KIND=AddrInt) :: symbolic, zero=0, ln, lsys
+  INTEGER(KIND=AddrInt), ALLOCATABLE :: LRows(:), LCols(:)
 
   SAVE iInfo, Control
  
-  LOGICAL :: Factorize, UMFFound, stat
+  LOGICAL :: Factorize, UMFFound, stat, BigMode
+
+  BigMode = ListGetString( Solver % Values, &
+      'Linear System Direct Method' ) == 'big umfpack'
 
   Factorize = ListGetLogical( Solver % Values, 'UMF Factorize', UMFFound )
   IF ( .NOT. UMFFound ) Factorize = .TRUE.
@@ -316,45 +346,74 @@ CONTAINS
   n = A % NumberofRows
   IF ( Factorize .OR. A% UmfPack_Numeric==0 ) THEN
     Factorize = ListGetLogical( Solver % Values, &
-               'Linear System Refactorize', stat )
+       'Linear System Refactorize', stat )
     IF ( .NOT. stat ) Factorize = .TRUE.
 
     IF ( Factorize .OR. A % UmfPack_Numeric==0 ) THEN
       IF ( A % UMFPack_Numeric /= 0 ) THEN
-        CALL umf4fnum( A % UMFPack_Numeric )
+        IF( BigMode ) THEN
+          CALL umf4fnum( A % UMFPack_Numeric )
+        ELSE
+          CALL umf4_l_fnum( A % UMFPack_Numeric )
+         END IF
         A % UMFPack_Numeric = 0
       END IF
 
-      A % Rows = A % Rows-1
-      A % Cols = A % Cols-1
+      IF ( BigMode ) THEN
+        ALLOCATE( LRows(SIZE(A % Rows)), LCols(SIZE(A % Cols)) )
+        LRows = A % Rows-1
+        LCols = A % Cols-1
+        ln = n
+        CALL umf4_l_def( Control )
+        CALL umf4_l_sym( ln,ln, LRows, LCols, A % Values, Symbolic, Control, iInfo )
+      ELSE
+        A % Rows = A % Rows-1
+        A % Cols = A % Cols-1
+        CALL umf4def( Control )
+        CALL umf4sym( n,n, A % Rows, A % Cols, A % Values, Symbolic, Control, iInfo )
+      END IF
 
-      CALL umf4def( Control )
-      CALL umf4sym( n,n, A % Rows, A % Cols, A % Values, Symbolic, Control, iInfo )
       IF (iinfo(1)<0) THEN
           print *, 'Error occurred in umf4sym: ', iinfo(1)
           stop
       END IF
-      CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+      IF ( BigMode ) THEN
+        CALL umf4_l_num(LRows, LCols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+      ELSE
+        CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+      END IF
       IF (iinfo(1)<0) THEN
           print *, 'Error occurred in umf4num: ', iinfo(1)
           stop
       ENDIF
-      CALL umf4fsym( Symbolic )
-
-      A % Rows = A % Rows+1
-      A % Cols = A % Cols+1
+      IF ( BigMode ) THEN
+        CALL umf4_l_fsym( Symbolic )
+        DEALLOCATE( LRows, LCols )
+      ELSE
+        A % Rows = A % Rows+1
+        A % Cols = A % Cols+1
+      END IF
     END IF
   END IF
 
-  sys = 2
-  CALL umf4sol( sys, x, b, A % UMFPack_Numeric, Control, iInfo )
+  if ( BigMode ) THEN
+    lsys = 2
+    CALL umf4_l_sol( lsys, x, b, A % UMFPack_Numeric, Control, iInfo )
+  ELSE
+    sys = 2
+    CALL umf4sol( sys, x, b, A % UMFPack_Numeric, Control, iInfo )
+  END IF
   IF (iinfo(1)<0) THEN
     PRINT*, 'Error occurred in umf4sol: ', iinfo(1)
     STOP
   END IF
  
   IF ( Factorize .AND. .NOT. UMFFound ) THEN
-    CALL umf4fnum(A % UMFPack_Numeric)
+    IF ( BigMode ) THEN
+      CALL umf4_l_fnum(A % UMFPack_Numeric)
+    ELSE
+      CALL umf4fnum(A % UMFPack_Numeric)
+    END IF
     A % UMFPack_Numeric = 0
   END IF
 #else
@@ -402,7 +461,7 @@ CONTAINS
            CALL ComplexBandSolver( A, x, b )
         END IF
 
-      CASE( 'umfpack' )
+      CASE( 'umfpack', 'big umfpack' )
         CALL Umfpack_SolveSystem( Solver, A, x, b )
 
       CASE DEFAULT
