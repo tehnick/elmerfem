@@ -1405,8 +1405,8 @@
     CALL FreeMesh(Mesh % Next)
 
     Mesh % Next   => NULL()
-    Mesh % Parent => NULL()
     Mesh % Child  => NULL()
+    Mesh % Parent => NULL()
 
     CALL ReleaseMesh(Mesh)
     DEALLOCATE(Mesh)
@@ -1468,8 +1468,10 @@
 
    IF (ASSOCIATED(Model % BCs)) THEN
      DO i=1,Model % NumberOfBCs
-       IF (ASSOCIATED(Model % BCs(i) % PMatrix)) &
+       IF (ASSOCIATED(Model % BCs(i) % PMatrix)) THEN
+         Model % BCs(i) % PMatrix % ConstraintMatrix => NULL()
          CALL FreeMatrix(Model % BCs(i) % PMatrix)
+       END IF
        CALL FreeValueList( Model % BCs(i) % Values)
      END DO
      DEALLOCATE(Model % BCs)

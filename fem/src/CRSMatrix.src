@@ -216,14 +216,16 @@ CONTAINS
         END DO
       END IF
 
-      DO i=1,N
-        DO j=Rows(i),Rows(i+1)-1
-          IF ( Cols(j) == i ) THEN
-            Diag(i) = j
-            EXIT
-          END IF
+      IF ( ASSOCIATED(Diag) ) THEN
+        DO i=1,N
+          DO j=Rows(i),Rows(i+1)-1
+            IF ( Cols(j) == i ) THEN
+              Diag(i) = j
+              EXIT
+            END IF
+          END DO
         END DO
-      END DO
+      END IF
 
       A % Ordered = .TRUE.
     END IF
@@ -321,7 +323,7 @@ CONTAINS
     Diag   => A % Diag
     Values => A % Values
 
-    IF ( i /= j .OR. .NOT. A % Ordered ) THEN
+    IF ( .NOT.ASSOCIATED(Diag) .OR. i /= j .OR. .NOT. A % Ordered ) THEN
       k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
       IF ( k==0 .AND. Value/=0 ) PRINT*,'Trying to add value to nonexistent matrix element: ', i,j,Value
       IF ( k==0 ) RETURN
@@ -376,7 +378,7 @@ CONTAINS
     Diag   => A % Diag
     Values => A % Values
 
-    IF ( i /= j .OR. .NOT. A % Ordered ) THEN
+    IF ( .NOT.ASSOCIATED(Diag) .OR. i /= j .OR. .NOT. A % Ordered ) THEN
        k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
       IF ( k==0 ) THEN
          PRINT*,'Trying to set value to nonexistent matrix element: ', i,j,value
@@ -432,7 +434,7 @@ CONTAINS
     Diag   => A % Diag
     Values => A % Values
 
-    IF ( i /= j .OR. .NOT. A % Ordered ) THEN
+    IF ( .NOT.ASSOCIATED(Diag).OR.i /= j .OR. .NOT. A % Ordered ) THEN
        k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
       IF ( k==0 ) THEN
          PRINT*,'Trying to get value to nonexistent matrix element: ', i,j
@@ -491,7 +493,7 @@ CONTAINS
     Diag   => A % Diag
     Values => A % Values
 
-    IF ( i /= j .OR. .NOT. A % Ordered ) THEN
+    IF ( .NOT.ASSOCIATED(Diag).OR.i /= j .OR. .NOT. A % Ordered ) THEN
        k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
       IF ( k==0 ) THEN
          PRINT*,'Trying to change value of a nonexistent matrix element: ', i,j,NewValue

@@ -1279,12 +1279,14 @@ CONTAINS
      ALLOCATE( DonePeriodic( Model % Mesh % NumberOFNodes ) )
      DonePeriodic = .FALSE.
      DO BC=1,Model % NumberOfBCs
-       CALL SetPeriodicBoundariesPass1( Model, A, b, Name, DOF, NDOFs, Perm, BC, DonePeriodic )
+       CALL SetPeriodicBoundariesPass1( Model, A, b, Name, DOF, &
+               NDOFs, Perm, BC, DonePeriodic )
      END DO
      
      DonePeriodic = .FALSE.
      DO BC=1,Model % NumberOfBCs
-       CALL SetPeriodicBoundariesPass2( Model, A, b, Name, DOF, NDOFs, Perm, BC, DonePeriodic )
+       CALL SetPeriodicBoundariesPass2( Model, A, b, Name, DOF, &
+               NDOFs, Perm, BC, DonePeriodic )
      END DO
      DEALLOCATE( DonePeriodic ) 
    END IF
@@ -1800,10 +1802,10 @@ CONTAINS
     INTEGER :: This, DOF, NDOFs, Perm(:)
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,l,m,n,nn,ii,nlen
-    LOGICAL :: GotIt
+    INTEGER :: p,q,i,j,k,l,m,n,nn,ii,nlen
+    LOGICAL :: GotIt, Found
     REAL(KIND=dp) :: Scale
-    TYPE(Matrix_t), POINTER :: Projector, Projector1
+    TYPE(Matrix_t), POINTER :: A, Projector, Projector1
 !------------------------------------------------------------------------------
 
     nlen = LEN_TRIM(Name)
@@ -1823,27 +1825,98 @@ CONTAINS
 !   Do the assembly of the projector:
 !   ---------------------------------
 !
-    DO i=1,Projector % NumberOfRows
-       ii = Projector % InvPerm(i)
-       k = Perm(ii)
-       IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
-          k = NDOFs * (k-1) + DOF
-          DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-            IF ( Projector % Cols(l) <= 0 .OR. Projector % Values(l)==0.0d0 ) CYCLE
+    IF ( ListGetLogical( Model % BCs(This) % Values,  &
+         'Periodic BC Use Lagrange Coefficient', Found ) ) THEN
 
-            m = Perm(Projector % Cols(l))
-            IF ( m > 0 ) THEN
-              m = NDOFs*(m-1) + DOF
-              DO nn=StiffMatrix % Rows(k),StiffMatrix % Rows(k+1)-1
-                 CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
-                        Projector % Values(l) * StiffMatrix % Values(nn) )
-              END DO
-              ForceVector(m) = ForceVector(m)+Projector % Values(l)*ForceVector(k)
-            END IF
-          END DO
-       END IF
-       Done(ii) = .TRUE.
-    END DO
+      A => StiffMatrix % ConstraintMatrix
+      IF ( .NOT. ASSOCIATED(A).OR..NOT. &
+              ASSOCIATED(A,Projector % ConstraintMatrix) ) THEN
+
+        A => StiffMatrix
+        DO WHILE(ASSOCIATED(A % ConstraintMatrix))
+          A => A % ConstraintMatrix
+        END DO
+        A % ConstraintMatrix => AllocateMatrix()
+        A => A % ConstraintMatrix
+        Projector % ConstraintMatrix => A
+
+        n = NDOFs*Projector % NumberOfRows
+        A % NumberOfRows = n
+
+        ALLOCATE( A % RHS(n), A % Rows(n+1), &
+           A % Cols(SIZE(Projector % Cols)*NDOFs**2+n),  &
+             A % Values(SIZE(Projector % Values)*NDOFs**2+n) )
+
+         A % Rows(1) = 1
+         DO i=1,Projector % NumberOfRows
+           n = Projector % Rows(i+1)-Projector % Rows(i)
+           DO j=1,NDOFs
+             k = NDOFs*(i-1)+j
+             A % Rows(k+1)=A % Rows(k)+NDOFs*n+1
+           END DO
+         END DO
+
+         DO i=1,Projector % NumberOfRows
+           k = Perm(Projector % InvPerm(i))
+           DO p=1,NDOFs
+             n = A % Rows(NDOFs*(i-1)+p)
+             A % Cols(n) = NDOFs*(k-1)+p
+
+             DO j=Projector % Rows(i),Projector % Rows(i+1)-1
+               m = Perm(Projector % Cols(j))
+               IF ( m>0 ) THEN
+                 DO q=1,NDOFs
+                   n = n + 1
+                   A % Cols(n) = NDOFs*(m-1)+q
+                 END DO
+               END IF
+             END DO
+           END DO
+         END DO
+         CALL CRS_SortMatrix(A)
+
+         A % RHS = 0._dp
+         A % Values = 0._dp
+      END IF
+
+      DO i=1,Projector % NumberOfRows
+        k = Perm(Projector % InvPerm(i))
+        IF ( k<=0 ) CYCLE
+
+        CALL SetMatrixElement( A, NDOFs*(i-1)+DOF, &
+               NDOFs*(k-1)+DOF, Scale )
+
+        DO j=Projector % Rows(i),Projector % Rows(i+1)-1
+          m = Perm(Projector % Cols(j))
+          IF ( m>0 ) THEN
+            CALL SetMatrixElement( A, NDOFs*(i-1)+DOF, &
+               NDOFs*(m-1)+DOF, Projector % Values(j) )
+          END IF
+        END DO
+      END DO
+    ELSE
+      DO i=1,Projector % NumberOfRows
+         ii = Projector % InvPerm(i)
+         k = Perm(ii)
+         IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
+            k = NDOFs * (k-1) + DOF
+            DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+              IF ( Projector % Cols(l) <= 0 .OR. Projector % Values(l)==0.0d0 ) CYCLE
+
+              m = Perm(Projector % Cols(l))
+              IF ( m > 0 ) THEN
+                m = NDOFs*(m-1) + DOF
+                DO nn=StiffMatrix % Rows(k),StiffMatrix % Rows(k+1)-1
+                   CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
+                          Projector % Values(l) * StiffMatrix % Values(nn) )
+                END DO
+                ForceVector(m) = ForceVector(m)+Projector % Values(l)*ForceVector(k)
+              END IF
+            END DO
+         END IF
+         Done(ii) = .TRUE.
+      END DO
+    END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE SetPeriodicBoundariesPass1
 !------------------------------------------------------------------------------
@@ -1907,6 +1980,9 @@ CONTAINS
     Projector => Model % BCs(This) % PMatrix
     IF ( .NOT. ASSOCIATED(Projector) ) RETURN
 !
+    IF ( ListGetLogical( Model % BCs(This) % Values,  &
+         'Periodic BC Use Lagrange Coefficient', GotIt ) ) RETURN
+
 !   Do the assembly of the projector:
 !   ---------------------------------
     DO i=1,Projector % NumberOfRows
@@ -3766,8 +3842,8 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
     LOGICAL :: Relax, Found, ConstrainedSolve
-    INTEGER :: n,i,j,k,l,istat
-    TYPE(Matrix_t), POINTER :: SaveMatrix
+    INTEGER :: n,i,j,k,l,istat,nrows,ncols
+    TYPE(Matrix_t), POINTER :: SaveMatrix, Atmp, Btmp
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp) :: Relaxation,Beta,Gamma
@@ -3810,13 +3886,57 @@ CONTAINS
 
     ConstrainedSolve = .FALSE.
     IF ( ASSOCIATED(A % ConstraintMatrix) )  THEN
-      IF ( A % ConstraintMatrix % NumberOFRows>=1 ) ConstrainedSolve = .TRUE.
+      IF ( A % ConstraintMatrix % NumberOFRows>=1 ) & 
+        ConstrainedSolve = .TRUE.
     END IF
 
     IF ( ConstrainedSolve ) THEN
-      CALL SolveWithLinearRestriction( A, b, x, Norm, DOFs, Solver )
+
+      ! 
+      ! if there are several constraint matrices unify:
+      ! -----------------------------------------------
+      Btmp => NULL()
+      Atmp => A % ConstraintMatrix
+      IF ( ASSOCIATED(Atmp % ConstraintMatrix) ) THEN
+        nrows = 0
+        ncols = 0
+        DO WHILE(ASSOCIATED(Atmp))
+          nrows = nrows + Atmp % NumberOfRows
+          ncols = ncols + SIZE(Atmp % Cols)
+          Atmp => Atmp % ConstraintMatrix
+        END DO
+
+        Btmp => AllocateMatrix()
+        ALLOCATE( Btmp % RHS(nrows), Btmp % Rows(nrows+1), &
+            Btmp % Cols(ncols), Btmp % Values(ncols) )
+        Btmp % NumberOFRows = nrows
+
+        Atmp => A % ConstraintMatrix
+        k = 0
+        n = 1
+        Btmp % Rows(n) = 1
+        DO WHILE(ASSOCIATED(Atmp))
+          DO i=1,Atmp % NumberOfRows
+            DO j=Atmp % Rows(i),Atmp % Rows(i+1)-1
+              k = k + 1
+              Btmp % Cols(k)   = Atmp % Cols(j)
+              Btmp % Values(k) = Atmp % Values(j)
+            END DO
+            n = n + 1
+            Btmp % Rows(n) = k + 1
+          END DO
+          Atmp => Atmp % ConstraintMatrix
+        END DO
+        Atmp => A % ConstraintMatrix
+        A % ConstraintMatrix => Btmp
+      END IF
+
+      CALL SolveWithLinearRestriction( A,b,x,Norm,DOFs,Solver )
+
+      CALL FreeMatrix(Btmp)
+      A % ConstraintMatrix => Atmp
     ELSE
-      CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
+      CALL SolveLinearSystem( A,b,x,Norm,DOFs,Solver )
     END IF
 
 !------------------------------------------------------------------------------
