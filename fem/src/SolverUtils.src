@@ -1829,9 +1829,12 @@ CONTAINS
          'Periodic BC Use Lagrange Coefficient', Found ) ) THEN
 
       A => StiffMatrix % ConstraintMatrix
-      IF ( .NOT. ASSOCIATED(A).OR..NOT. &
-              ASSOCIATED(A,Projector % ConstraintMatrix) ) THEN
+      DO WHILE(ASSOCIATED(A))
+        IF (ASSOCIATED(A,Projector % ConstraintMatrix)) EXIT
+        A => A % ConstraintMatrix
+      END DO
 
+      IF ( .NOT.ASSOCIATED(A,Projector % ConstraintMatrix) ) THEN
         A => StiffMatrix
         DO WHILE(ASSOCIATED(A % ConstraintMatrix))
           A => A % ConstraintMatrix
