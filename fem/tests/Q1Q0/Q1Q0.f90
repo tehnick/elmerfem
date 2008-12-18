@@ -46,8 +46,6 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: P
 
   INTEGER, ALLOCATABLE, SAVE :: Indexes(:), pCount(:)
-
-  SAVE STIFF, MASS, LOAD, FORCE, rho, mu, Velocity, AllocationsDone
 !------------------------------------------------------------------------------
 
    dim = CoordinateSystemDimension()
