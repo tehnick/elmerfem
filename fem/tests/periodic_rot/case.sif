@@ -83,11 +83,11 @@ Boundary Condition 2
   Name = "outflow"
 
   Normal-Tangential Velocity = True
-
-  Periodic BC Rotate(3) = Real  0 0 90
+  Periodic BC Rotate(3) = Real  0 0 -90
   Periodic BC = Integer 3
+  Periodic BC Velocity 1 = Logical True
   Periodic BC Velocity 2 = Logical True
-  Anti Periodic BC Velocity 1 = Logical True
+! Periodic BC Use Lagrange Coefficient = Logical True
 End
 
 
@@ -95,9 +95,9 @@ Boundary Condition 3
   Target Boundaries(1) = 6
   Name = "inflow"
 
-  Velocity 1 = Variable Coordinate 1
-     Real MATC "sq2=sqrt(2);t=2*(tx-sq2)*sq2-1; if (t<0) { 1-t^2 } else { 0 }"
-  Velocity 2 = 0
+  Pressure 1 = Variable Coordinate 1
+     Real MATC "sq2=sqrt(2);t=2*(tx-sq2)*sq2-1; if (t<0) { 1 } else { 0 }"
+  Velocity 2 =  0
   Normal-Tangential Velocity = True
 End
 
@@ -108,4 +108,4 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=0.28830530086483597\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=0.13097278\n" );
