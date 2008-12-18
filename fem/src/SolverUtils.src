@@ -1008,7 +1008,7 @@ CONTAINS
      IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Indexes(1:Element % TYPE % NumberOfNodes) = &
+       Indexes(1:Element % Type % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -1086,11 +1086,11 @@ CONTAINS
      Rotate = .TRUE.
      IF ( PRESENT(RotateNT) ) Rotate=RotateNT
 
-     IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
+     IF ( Rotate .AND. NormalTangentialNOFNodes>0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
        Element => CurrentModel % CurrentElement
-       Indexes(1:Element % TYPE % NumberOfNodes) = &
+       Indexes(1:Element % Type % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -1824,7 +1824,6 @@ CONTAINS
 !
 !   Do the assembly of the projector:
 !   ---------------------------------
-!
     IF ( ListGetLogical( Model % BCs(This) % Values,  &
          'Periodic BC Use Lagrange Coefficient', Found ) ) THEN
 
@@ -2566,6 +2565,8 @@ CONTAINS
     REAL(KIND=dp) :: s,Bu,Bv
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Matrix_t), POINTER :: Projector
+
+    LOGICAL, ALLOCATABLE :: Done(:)
   
     REAL(KIND=dp), POINTER :: SetNormal(:,:), Rot(:,:)
 
@@ -2632,7 +2633,26 @@ CONTAINS
        Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
                'Periodic BC Rotate', Found )
        IF ( Found .AND. ASSOCIATED(Rot) ) THEN
-         IF ( Any(Rot/=0) ) CYCLE
+         IF ( Any(Rot/=0) ) THEN
+           ALLOCATE( Done(SIZE(BoundaryNormals,1)) )
+           Done=.FALSE.
+           DO i=1,Projector % NumberOfRows
+              k = BoundaryReorder(Projector % InvPerm(i))
+              IF ( k <= 0 ) CYCLE
+              DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+                IF ( Projector % Cols(l) <= 0 ) CYCLE
+                m = BoundaryReorder(Projector % Cols(l))
+                IF ( m>0 ) THEN
+                  IF ( .NOT.Done(m) ) THEN
+                    Done(m) = .TRUE.
+                    BoundaryNormals(m,:) = -BoundaryNormals(m,:)
+                  END IF
+                END IF
+              END DO
+           END DO
+           DEALLOCATE(Done)
+           CYCLE
+         END IF
        END IF
 
        DO i=1,Projector % NumberOfRows
