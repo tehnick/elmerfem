@@ -1453,15 +1453,11 @@
 !------------------------------------------------------------------------------
    TYPE(Model_t), POINTER :: Model
 !------------------------------------------------------------------------------
+   TYPE(Matrix_t), POINTER :: A,B
    INTEGER :: i
    IF (.NOT.ASSOCIATED(Model)) RETURN
 
    CALL FreeMesh(Model % Meshes)
-
-   DO i=1,Model % NumberOfSolvers
-     CALL FreeSolver(Model % Solvers(i))
-   END DO
-   DEALLOCATE(Model % Solvers)
 
    CALL FreeValueList(Model % Constants)
    CALL FreeValueList(Model % Simulation)
@@ -1469,13 +1465,23 @@
    IF (ASSOCIATED(Model % BCs)) THEN
      DO i=1,Model % NumberOfBCs
        IF (ASSOCIATED(Model % BCs(i) % PMatrix)) THEN
-         Model % BCs(i) % PMatrix % ConstraintMatrix => NULL()
+         A => Model % BCs(i) % PMatrix
+         DO WHILE( ASSOCIATED(A) )
+           B => A % Child
+           A % Child => NULL()
+           A => B % Child
+         END DO
          CALL FreeMatrix(Model % BCs(i) % PMatrix)
        END IF
        CALL FreeValueList( Model % BCs(i) % Values)
      END DO
      DEALLOCATE(Model % BCs)
    END IF
+
+   DO i=1,Model % NumberOfSolvers
+     CALL FreeSolver(Model % Solvers(i))
+   END DO
+   DEALLOCATE(Model % Solvers)
 
    IF (ASSOCIATED(Model % ICs)) THEN
      DO i=1,Model % NumberOfICs

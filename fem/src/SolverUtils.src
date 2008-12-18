@@ -1805,7 +1805,7 @@ CONTAINS
     INTEGER :: p,q,i,j,k,l,m,n,nn,ii,nlen
     LOGICAL :: GotIt, Found
     REAL(KIND=dp) :: Scale
-    TYPE(Matrix_t), POINTER :: A, Projector, Projector1
+    TYPE(Matrix_t), POINTER :: A, B, Projector, Projector1
 !------------------------------------------------------------------------------
 
     nlen = LEN_TRIM(Name)
@@ -1828,20 +1828,25 @@ CONTAINS
     IF ( ListGetLogical( Model % BCs(This) % Values,  &
          'Periodic BC Use Lagrange Coefficient', Found ) ) THEN
 
+      B => NULL()
       A => StiffMatrix % ConstraintMatrix
       DO WHILE(ASSOCIATED(A))
-        IF (ASSOCIATED(A,Projector % ConstraintMatrix)) EXIT
+        B => Projector % Child
+        DO WHILE(ASSOCIATED(B))
+          IF (ASSOCIATED(A,B)) EXIT
+          B => B % Child
+        END DO
+        IF (ASSOCIATED(A,B)) EXIT
         A => A % ConstraintMatrix
       END DO
 
-      IF ( .NOT.ASSOCIATED(A,Projector % ConstraintMatrix) ) THEN
-        A => StiffMatrix
-        DO WHILE(ASSOCIATED(A % ConstraintMatrix))
-          A => A % ConstraintMatrix
-        END DO
-        A % ConstraintMatrix => AllocateMatrix()
-        A => A % ConstraintMatrix
-        Projector % ConstraintMatrix => A
+      IF ( .NOT.ASSOCIATED(A,B) ) THEN
+        A => AllocateMatrix()
+        A % ConstraintMatrix => StiffMatrix % ConstraintMatrix
+        StiffMatrix % ConstraintMatrix => A
+
+        A % Child => Projector % Child
+        Projector % Child => A
 
         n = NDOFs*Projector % NumberOfRows
         A % NumberOfRows = n
@@ -1886,6 +1891,7 @@ CONTAINS
         k = Perm(Projector % InvPerm(i))
         IF ( k<=0 ) CYCLE
 
+        CALL ZeroRow(A,NDOFS*(i-1)+DOF)
         CALL SetMatrixElement( A, NDOFs*(i-1)+DOF, &
                NDOFs*(k-1)+DOF, Scale )
 
@@ -1901,7 +1907,7 @@ CONTAINS
       DO i=1,Projector % NumberOfRows
          ii = Projector % InvPerm(i)
          k = Perm(ii)
-         IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
+         IF ( .NOT. Done(ii) .AND. k>0 ) THEN
             k = NDOFs * (k-1) + DOF
             DO l=Projector % Rows(i),Projector % Rows(i+1)-1
               IF ( Projector % Cols(l) <= 0 .OR. Projector % Values(l)==0.0d0 ) CYCLE
@@ -1913,7 +1919,7 @@ CONTAINS
                    CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
                           Projector % Values(l) * StiffMatrix % Values(nn) )
                 END DO
-                ForceVector(m) = ForceVector(m)+Projector % Values(l)*ForceVector(k)
+                ForceVector(m)=ForceVector(m)+Projector % Values(l)*ForceVector(k)
               END IF
             END DO
          END IF
@@ -3728,10 +3734,14 @@ CONTAINS
        GetVarName(Solver % Variable) // ' Loads' )
 
     IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
-      ALLOCATE( TempVector(n) )
+      k = SIZE(A % BulkRHS)
+      ALLOCATE( TempVector(k) )
       SaveValues => A % Values
       A % Values => A % BulkValues
+      i = A % NumberOfRows
+      A % NumberOFRows = k
       CALL MatrixVectorMultiply( A, x, TempVector )
+      A % NumberOfRows = i
       A % Values => SaveValues
       TempVector = TempVector - A % BulkRHS
       DO i=1,SIZE( NodalLoads % Perm )
@@ -3743,7 +3753,7 @@ CONTAINS
          END IF
       END DO
       DEALLOCATE( TempVector )
-      CALL BackRotateNTSystem( NodalLoads % Values, NodalLoads % Perm, DOFs )
+      CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
     END IF
 
     CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
@@ -3776,7 +3786,6 @@ CONTAINS
 ! must be deallocated on request.
 
     IF( ListGetLogical( Solver % Values, 'Linear System Preconditioning Deallocate', GotIt) ) THEN
-
        ! ILU preconditioning
        IF( ASSOCIATED(A % ILUValues) ) THEN
           IF(  SIZE( A % ILUValues) /= SIZE(A % Values) ) &
@@ -3799,7 +3808,6 @@ CONTAINS
           END IF
        END IF
     END IF
-
 
   END SUBROUTINE SolveLinearSystem
 !------------------------------------------------------------------------------
@@ -3936,8 +3944,10 @@ CONTAINS
 
       CALL SolveWithLinearRestriction( A,b,x,Norm,DOFs,Solver )
 
-      CALL FreeMatrix(Btmp)
-      A % ConstraintMatrix => Atmp
+      IF ( ASSOCIATED(Btmp) ) THEN
+        CALL FreeMatrix(Btmp)
+        A % ConstraintMatrix => Atmp
+      END IF
     ELSE
       CALL SolveLinearSystem( A,b,x,Norm,DOFs,Solver )
     END IF
@@ -3947,10 +3957,9 @@ CONTAINS
 10  CONTINUE
 
     IF ( Solver % LinAfterProc /= 0 ) THEN
-       istat = ExecLinSolveProcs( Solver % LinAfterProc, CurrentModel, Solver, &
-                 A, b, x, n, DOFs, Norm )
+      istat = ExecLinSolveProcs( Solver % LinAfterProc, CurrentModel, Solver, &
+              A, b, x, n, DOFs, Norm )
     END IF
-
 
     IF ( Solver % TimeOrder == 2 ) THEN
       IF ( ASSOCIATED( Solver % Variable % PrevValues ) ) THEN
@@ -3958,157 +3967,152 @@ CONTAINS
         Beta  = (1.0d0 - Solver % Alpha)**2 / 4.0d0
         DO i=1,n
           Solver % Variable % PrevValues(i,2) = &
-           (1.0d0/(Beta*Solver % dt**2))* &
-            (x(i)-Solver % Variable % PrevValues(i,3)) -  &
-             (1.0d0/(Beta*Solver % dt))*Solver % Variable % PrevValues(i,4)+ &
-               (1.0d0-1.0d0/(2*Beta))*Solver % Variable % PrevValues(i,5)
+             (1.0d0/(Beta*Solver % dt**2))* &
+               (x(i)-Solver % Variable % PrevValues(i,3)) -  &
+                  (1.0d0/(Beta*Solver % dt))*Solver % Variable % PrevValues(i,4)+ &
+                        (1.0d0-1.0d0/(2*Beta))*Solver % Variable % PrevValues(i,5)
 
           Solver % Variable % PrevValues(i,1) = &
             Solver % Variable % PrevValues(i,4) + &
-              Solver % dt*((1.0d0-Gamma)*Solver % Variable % PrevValues(i,5)+&
-                Gamma*Solver % Variable % PrevValues(i,2))
+               Solver % dt*((1.0d0-Gamma)*Solver % Variable % PrevValues(i,5)+&
+                  Gamma*Solver % Variable % PrevValues(i,2))
         END DO
       END IF
     END IF
-
 
     IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
       st = CPUTime() - t0
       IF( ListGetLogical(Solver % Values,'Linear System Timing Cumulative',Found)) THEN
         ct = ListGetConstReal(CurrentModel % Simulation,'res: solution time '&
-	    //TRIM(Solver % Variable % Name))
+                //TRIM(Solver % Variable % Name))
         st = st + ct
       END IF 
       CALL ListAddConstReal(CurrentModel % Simulation,'res: solution time '&
-         //TRIM(Solver % Variable % Name),st)
+              //TRIM(Solver % Variable % Name),st)
       WRITE(Message,'(a,F8.2,a)') 'Solution time for '&
-         //TRIM(Solver % Variable % Name)//': ',st,' (s)'
-      CALL Info('SolveSystem',Message)	
+      //TRIM(Solver % Variable % Name)//': ',st,' (s)'
+      CALL Info('SolveSystem',Message)    
     END IF
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE SolveSystem
+END SUBROUTINE SolveSystem
 !------------------------------------------------------------------------------
 
-
 !------------------------------------------------------------------------------
-  SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
-          EigenValues, EigenVectors,Solver )
+SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
+        EigenValues, EigenVectors,Solver )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
 ! Solve a linear eigen system
 !
 !******************************************************************************
-  USE EigenSolve
+    USE EigenSolve
 !------------------------------------------------------------------------------
     COMPLEX(KIND=dp) :: EigenValues(:),EigenVectors(:,:)
     REAL(KIND=dp) :: Norm
     TYPE(Matrix_t), POINTER :: StiffMatrix
     INTEGER :: NOFEigen
     TYPE(Solver_t) :: Solver
-!------------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
 
     INTEGER :: n
 
-!------------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
     n = StiffMatrix % NumberOfRows
 
     IF ( .NOT. Solver % Matrix % COMPLEX ) THEN
-       IF ( ParEnv % PEs <= 1 ) THEN
-          CALL ArpackEigenSolve( Solver, StiffMatrix, n, NOFEigen, &
-                       EigenValues, EigenVectors )
-       ELSE
-          CALL ParallelArpackEigenSolve( Solver, StiffMatrix, n, NOFEigen, &
-                       EigenValues, EigenVectors )
-       END IF
+      IF ( ParEnv % PEs <= 1 ) THEN
+        CALL ArpackEigenSolve( Solver, StiffMatrix, n, NOFEigen, &
+                EigenValues, EigenVectors )
+      ELSE
+        CALL ParallelArpackEigenSolve( Solver, StiffMatrix, n, NOFEigen, &
+                EigenValues, EigenVectors )
+      END IF
     ELSE
-       CALL ArpackEigenSolveComplex( Solver, StiffMatrix, n/2, &
-                NOFEigen, EigenValues, EigenVectors )
+      CALL ArpackEigenSolveComplex( Solver, StiffMatrix, n/2, &
+              NOFEigen, EigenValues, EigenVectors )
     END IF
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE SolveEigenSystem
+END SUBROUTINE SolveEigenSystem
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
-    SUBROUTINE NSCondensate( N, Nb, dim, K, F, F1 )
+SUBROUTINE NSCondensate( N, Nb, dim, K, F, F1 )
 !------------------------------------------------------------------------------
-      USE LinearAlgebra
-      INTEGER :: N, Nb, dim
-      REAL(KIND=dp) :: K(:,:),F(:),F1(:), Kbb(nb*dim,nb*dim), &
-           Kbl(nb*dim,n*(dim+1)),Klb(n*(dim+1),nb*dim),Fb(nb*dim)
+    USE LinearAlgebra
+    INTEGER :: N, Nb, dim
+    REAL(KIND=dp) :: K(:,:),F(:),F1(:), Kbb(nb*dim,nb*dim), &
+      Kbl(nb*dim,n*(dim+1)),Klb(n*(dim+1),nb*dim),Fb(nb*dim)
 
-      INTEGER :: m, i, j, l, p, Cdofs((dim+1)*n), Bdofs(dim*nb)
+    INTEGER :: m, i, j, l, p, Cdofs((dim+1)*n), Bdofs(dim*nb)
 
-      m = 0
-      DO p = 1,n
-        DO i = 1,dim+1
-          m = m + 1
-          Cdofs(m) = (dim+1)*(p-1) + i
-        END DO
+    m = 0
+    DO p = 1,n
+      DO i = 1,dim+1
+        m = m + 1
+        Cdofs(m) = (dim+1)*(p-1) + i
       END DO
-      
-      m = 0
-      DO p = 1,nb
-        DO i = 1,dim
-          m = m + 1
-          Bdofs(m) = (dim+1)*(p-1) + i + n*(dim+1)
-        END DO
+    END DO
+
+    m = 0
+    DO p = 1,nb
+      DO i = 1,dim
+        m = m + 1
+        Bdofs(m) = (dim+1)*(p-1) + i + n*(dim+1)
       END DO
+    END DO
 
-      Kbb = K(Bdofs,Bdofs)
-      Kbl = K(Bdofs,Cdofs)
-      Klb = K(Cdofs,Bdofs)
-      Fb  = F(Bdofs)
+    Kbb = K(Bdofs,Bdofs)
+    Kbl = K(Bdofs,Cdofs)
+    Klb = K(Cdofs,Bdofs)
+    Fb  = F(Bdofs)
 
-      CALL InvertMatrix( Kbb,nb*dim )
+    CALL InvertMatrix( Kbb,nb*dim )
 
-      F(1:(dim+1)*n) = F(1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb, Fb ) )
-      K(1:(dim+1)*n,1:(dim+1)*n) = &
-           K(1:(dim+1)*n,1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb,Kbl ) )
+    F(1:(dim+1)*n) = F(1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb, Fb ) )
+    K(1:(dim+1)*n,1:(dim+1)*n) = &
+    K(1:(dim+1)*n,1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb,Kbl ) )
 
-      Fb  = F1(Bdofs)
-      F1(1:(dim+1)*n) = F1(1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb, Fb ) )
+    Fb  = F1(Bdofs)
+    F1(1:(dim+1)*n) = F1(1:(dim+1)*n) - MATMUL( Klb, MATMUL( Kbb, Fb ) )
 !------------------------------------------------------------------------------
-    END SUBROUTINE NSCondensate
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-    SUBROUTINE Condensate( N, K, F, F1 )
-!------------------------------------------------------------------------------
-      USE LinearAlgebra
-      INTEGER :: N, dim
-      REAL(KIND=dp) :: K(:,:),F(:),F1(:),Kbb(N,N), &
-           Kbl(N,N),Klb(N,N),Fb(N)
-
-      INTEGER :: m, i, j, l, p, Ldofs(N), Bdofs(N)
-
-      Ldofs = (/ (i, i=1,n) /)
-      Bdofs = Ldofs + n
-
-      Kbb = K(Bdofs,Bdofs)
-      Kbl = K(Bdofs,Ldofs)
-      Klb = K(Ldofs,Bdofs)
-      Fb  = F(Bdofs)
-
-      CALL InvertMatrix( Kbb,n )
-
-      F(1:n) = F(1:n) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
-      K(1:n,1:n) = &
-           K(1:n,1:n) - MATMUL( Klb, MATMUL( Kbb, Kbl ) )
-
-      Fb  = F1(Bdofs)
-      F1(1:n) = F1(1:n) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
-!------------------------------------------------------------------------------
-    END SUBROUTINE Condensate
+END SUBROUTINE NSCondensate
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  SUBROUTINE CondensateP( N, Nb, K, F, F1 )
+SUBROUTINE Condensate( N, K, F, F1 )
+!------------------------------------------------------------------------------
+    USE LinearAlgebra
+    INTEGER :: N, dim
+    REAL(KIND=dp) :: K(:,:),F(:),F1(:),Kbb(N,N), &
+             Kbl(N,N),Klb(N,N),Fb(N)
+
+    INTEGER :: m, i, j, l, p, Ldofs(N), Bdofs(N)
+
+    Ldofs = (/ (i, i=1,n) /)
+    Bdofs = Ldofs + n
+
+    Kbb = K(Bdofs,Bdofs)
+    Kbl = K(Bdofs,Ldofs)
+    Klb = K(Ldofs,Bdofs)
+    Fb  = F(Bdofs)
+
+    CALL InvertMatrix( Kbb,n )
+
+    F(1:n) = F(1:n) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
+    K(1:n,1:n) = K(1:n,1:n) - MATMUL( Klb, MATMUL( Kbb, Kbl ) )
+
+    Fb  = F1(Bdofs)
+    F1(1:n) = F1(1:n) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
+!------------------------------------------------------------------------------
+END SUBROUTINE Condensate
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+SUBROUTINE CondensateP( N, Nb, K, F, F1 )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -4138,7 +4142,7 @@ CONTAINS
     USE LinearAlgebra
     INTEGER :: N, Nb
     REAL(KIND=dp) :: K(:,:),F(:),Kbb(Nb,Nb), &
-         Kbl(Nb,N), Klb(N,Nb), Fb(Nb)
+    Kbl(Nb,N), Klb(N,Nb), Fb(Nb)
     REAL(KIND=dp), OPTIONAL :: F1(:)
 
     INTEGER :: m, i, j, l, p, Ldofs(N), Bdofs(Nb)
@@ -4150,23 +4154,22 @@ CONTAINS
     Kbl = K(Bdofs,Ldofs)
     Klb = K(Ldofs,Bdofs)
     Fb  = F(Bdofs)
- 
+
     CALL InvertMatrix( Kbb,nb )
 
     F(1:n) = F(1:n) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
     IF (PRESENT(F1)) THEN
-       F1(1:n) = F1(1:n) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
+      F1(1:n) = F1(1:n) - MATMUL( Klb, MATMUL( Kbb, Fb  ) )
     END IF
 
-    K(1:n,1:n) = &
-         K(1:n,1:n) - MATMUL( Klb, MATMUL( Kbb, Kbl ) )
+    K(1:n,1:n) = K(1:n,1:n) - MATMUL( Klb, MATMUL( Kbb, Kbl ) )
 !------------------------------------------------------------------------------
-  END SUBROUTINE CondensateP
+END SUBROUTINE CondensateP
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE SolveHarmonicSystem( G, Solver )
+SUBROUTINE SolveHarmonicSystem( G, Solver )
 !------------------------------------------------------------------------------
     TYPE(Solver_t) :: Solver
     TYPE(Matrix_t), TARGET :: G
@@ -4183,7 +4186,7 @@ CONTAINS
     TYPE(ValueList_t), POINTER :: BC
     INTEGER, TARGET :: Dnodes(1)
     INTEGER, POINTER :: NodeIndexes(:)
-	
+
     DO j=1,Solver % Variable % DOFs
       Name = ComponentName( Solver % Variable % Name, j ) 
       DO i=1,CurrentModel % NumberOFBCs
@@ -4192,9 +4195,9 @@ CONTAINS
         imag_given = ListCheckPresent( BC, TRIM(Name) // ' im' )
 
         IF ( real_given .AND. .NOT. imag_given ) THEN
-          CALL ListAddConstReal( BC, TRIM(Name) // ' im', 0._dp)
+            CALL ListAddConstReal( BC, TRIM(Name) // ' im', 0._dp)
         ELSE IF ( imag_given .AND. .NOT. real_given ) THEN
-          CALL ListAddConstReal( BC, Name, 0._dp )
+            CALL ListAddConstReal( BC, Name, 0._dp )
         END IF
       END DO
     END DO
@@ -4216,8 +4219,8 @@ CONTAINS
 
     IF ( .NOT. ASSOCIATED(A) ) THEN
       A => CreateMatrix( CurrentModel, Solver, Solver % Mesh,   &
-        Solver % Variable % Perm, DOFs, MATRIX_CRS, OptimizeBW, &
-           ListGetString( Solver % Values, 'Equation') )
+              Solver % Variable % Perm, DOFs, MATRIX_CRS, OptimizeBW, &
+              ListGetString( Solver % Values, 'Equation') )
       A % COMPLEX = .TRUE.
       BMatrix % EMatrix => A
     END IF
@@ -4228,7 +4231,7 @@ CONTAINS
     b(2:2*n:2) = G % RHS_im(1:n)
 
     ! This cumbersome way makes it possible to use the same data structure even in the case
-    ! of simulation mode being scanning 	
+    ! of simulation mode being scanning     
     IF( ListGetString( CurrentModel % Simulation,'Simulation Type') == 'scanning') THEN
       NodeIndexes => Dnodes
       i = 1
@@ -4255,14 +4258,14 @@ CONTAINS
         DO j=G % Rows(k),G % Rows(k+1)-1
           A % Values(kr)   =  G % Values(j)
           IF (ASSOCIATED(G % MassValues)) A % Values(kr) = &
-             A % Values(kr) - omega**2*G % MassValues(j)
+              A % Values(kr) - omega**2*G % MassValues(j)
           IF (ASSOCIATED(G % DampValues)) THEN
             A % Values(kr+1) = -G % Dampvalues(j) * omega
             A % Values(ki)   =  G % Dampvalues(j) * omega
           END IF
           A % Values(ki+1) =  G % Values(j)
           IF (ASSOCIATED(G % MassValues)) A % Values(ki+1) = &
-             A % Values(ki+1) - omega**2*G % MassValues(j)
+            A % Values(ki+1) - omega**2*G % MassValues(j)
           kr = kr + 2
           ki = ki + 2
         END DO
@@ -4272,10 +4275,10 @@ CONTAINS
         Name = ComponentName( Solver % Variable % Name, j ) 
 
         CALL SetDirichletBoundaries( CurrentModel, A, b, Name, &
-               2*j-1, DOFs, Solver % Variable % Perm )
+                2*j-1, DOFs, Solver % Variable % Perm )
 
         CALL SetDirichletBoundaries( CurrentModel, A, b, TRIM(Name) // ' im', &
-               2*j, DOFs, Solver % Variable % Perm )
+                2*j, DOFs, Solver % Variable % Perm )
       END DO
 
       CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
@@ -4290,7 +4293,7 @@ CONTAINS
 
     DEALLOCATE( x, b )
 !------------------------------------------------------------------------------
-   END SUBROUTINE SolveHarmonicSystem
+ END SUBROUTINE SolveHarmonicSystem
 !------------------------------------------------------------------------------
 
 
@@ -4668,8 +4671,14 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 !------------------------------------------------------------------------------
 ! Solve the Collection-system 
 !------------------------------------------------------------------------------
+  CollectionMatrix % BulkValues => StiffMatrix % BulkValues
+  CollectionMatrix % BulkRHS => StiffMatrix % BulkRHS
+
   CALL SolveLinearSystem( CollectionMatrix, CollectionVector, &
        CollectionSolution, Norm, DOFs, Solver )
+
+  CollectionMatrix % BulkRHS => NULL()
+  CollectionMatrix % BulkValues => NULL()
   
 !------------------------------------------------------------------------------
 ! Separate the solution from CollectionSolution
