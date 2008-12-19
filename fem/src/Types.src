@@ -77,6 +77,11 @@ MODULE Types
 !------------------------------------------------------------------------------
   CHARACTER, PARAMETER :: Backslash = ACHAR(92)
 !------------------------------------------------------------------------------
+
+#ifdef HAVE_MUMPS
+  INCLUDE 'dmumps_struc.h'
+#endif
+
   TYPE Matrix_t
     TYPE(Matrix_t), POINTER :: Child, Parent, ConstraintMatrix, EMatrix
     INTEGER :: NumberOfRows
@@ -84,7 +89,6 @@ MODULE Types
     INTEGER :: Subband, Format, SolveCount
     LOGICAL :: Ordered, Lumped, Symmetric, Complex, DGMatrix
 
-    INTEGER(KIND=AddrInt) :: SPMatrix
     TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => NULL()
 
     INTEGER, POINTER :: Perm(:),InvPerm(:),RowOwner(:)
@@ -96,7 +100,11 @@ MODULE Types
     REAL(KIND=dp),  POINTER :: Values(:),ILUValues(:)
     REAL(KIND=dp),  POINTER :: MassValues(:),DampValues(:),BulkValues(:)
 
+#ifdef HAVE_MUMPS
+    TYPE(dmumps_struc), POINTER :: MumpsID => NULL()
+#endif
     INTEGER(KIND=AddrInt) :: UMFPack_Numeric
+
     INTEGER, POINTER :: ILURows(:),ILUCols(:),ILUDiag(:)
 
 !   For Complex systems, not used yet!:

@@ -325,7 +325,7 @@ CONTAINS
   TYPE(Matrix_t), POINTER :: A
   TYPE(Solver_t) :: Solver
   INTEGER :: n
-  REAL(KIND=dp) :: x(*), b(*)
+  REAL(KIND=dp), TARGET :: x(*), b(*)
 
 #ifdef HAVE_UMFPACK
   INTEGER :: status, sys
@@ -352,10 +352,10 @@ CONTAINS
     IF ( Factorize .OR. A % UmfPack_Numeric==0 ) THEN
       IF ( A % UMFPack_Numeric /= 0 ) THEN
         IF( BigMode ) THEN
-          CALL umf4fnum( A % UMFPack_Numeric )
-        ELSE
           CALL umf4_l_fnum( A % UMFPack_Numeric )
-         END IF
+        ELSE
+          CALL umf4fnum( A % UMFPack_Numeric )
+        END IF
         A % UMFPack_Numeric = 0
       END IF
 
@@ -374,18 +374,21 @@ CONTAINS
       END IF
 
       IF (iinfo(1)<0) THEN
-          print *, 'Error occurred in umf4sym: ', iinfo(1)
-          stop
+        PRINT *, 'Error occurred in umf4sym: ', iinfo(1)
+        STOP
       END IF
+
       IF ( BigMode ) THEN
         CALL umf4_l_num(LRows, LCols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
       ELSE
         CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
       END IF
+
       IF (iinfo(1)<0) THEN
           print *, 'Error occurred in umf4num: ', iinfo(1)
           stop
       ENDIF
+
       IF ( BigMode ) THEN
         CALL umf4_l_fsym( Symbolic )
         DEALLOCATE( LRows, LCols )
@@ -396,7 +399,7 @@ CONTAINS
     END IF
   END IF
 
-  if ( BigMode ) THEN
+  IF ( BigMode ) THEN
     lsys = 2
     CALL umf4_l_sol( lsys, x, b, A % UMFPack_Numeric, Control, iInfo )
   ELSE
@@ -423,6 +426,72 @@ CONTAINS
   END SUBROUTINE UMFPack_SolveSystem
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  SUBROUTINE Mumps_SolveSystem( Solver,A,x,b )
+!------------------------------------------------------------------------------
+  TYPE(Matrix_t), POINTER :: A
+  TYPE(Solver_t) :: Solver
+  INTEGER :: n
+  REAL(KIND=dp), TARGET :: x(*), b(*)
+
+#ifdef HAVE_MUMPS
+  INTEGER :: i,j,ierr
+  LOGICAL :: Factorize, stat
+
+  ! serial version for now, but needs this anyway...
+  ! -------------------------------------------------
+  IF ( .NOT. ASSOCIATED(A % MumpsID) ) THEN
+    ALLOCATE(A % MumpsID)
+    CALL MPI_Init(ierr)
+
+    A % MumpsID % comm =  9
+    A % MumpsID % job  = -1
+    A % MumpsID % par  =  1
+
+    CALL DMumps(A % MumpsID)
+
+    A % MumpsID % n  = a % numberofrows
+    A % MumpsID % nz = a % rows(A % MumpsID % n+1)-1
+
+    ALLOCATE( A % MumpsID % irn(A % MumpsID % nz) )
+    DO i=1,A % MumpsID % n
+      DO j=A % Rows(i),a % Rows(i+1)-1
+        A % MumpsID % irn(j) = i
+      END DO
+    END DO
+
+    A % MumpsID % jcn => A % cols
+    A % MumpsID % a   => A % values
+
+    ALLOCATE(A % MumpsID % rhs(A % MumpsID % n))
+  END IF
+
+  A % MumpsID % rhs = b(1:A % MumpsID % n)
+  A % MumpsID % sym = 0
+  A % MumpsID % icntl(5) = 0
+
+  Factorize = ListGetLogical( Solver % Values, &
+     'Linear System Refactorize', stat )
+  IF ( .NOT. stat ) Factorize = .TRUE.
+
+  IF ( Factorize ) THEN
+    A % MumpsID % job = 4
+    CALL DMumps(A % MumpsID)
+  END IF
+
+  A % MumpsID % job = 3
+  CALL DMumps(A % MumpsID)
+  x(1:A % MumpsID % n) = A % MumpsID % rhs
+
+  CALL MPI_Finalize(ierr)
+#else
+   CALL Fatal( 'Mumps_SolveSystem', 'MUMPS Solver has not been installed.' )
+#endif
+!------------------------------------------------------------------------------
+  END SUBROUTINE Mumps_SolveSystem
+!------------------------------------------------------------------------------
+
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE DirectSolver( A,x,b,Solver )
@@ -439,17 +508,6 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
-#if 0
-    SELECT CASE( A % Format )
-
-    CASE( MATRIX_BAND, MATRIX_SBAND, MATRIX_CRS )
-      CALL BandSolver( A, x, b )
-
-    CASE DEFAULT
-       CALL Fatal( 'DirectSolver', 'Unknown matrix format for directsolver.' )
-
-    END SELECT
-#else
     Method = ListGetString( Solver % Values, 'Linear System Direct Method',GotIt )
     IF ( .NOT. GotIt ) Method = 'banded'
 
@@ -464,10 +522,12 @@ CONTAINS
       CASE( 'umfpack', 'big umfpack' )
         CALL Umfpack_SolveSystem( Solver, A, x, b )
 
+      CASE( 'mumps' )
+        CALL Mumps_SolveSystem( Solver, A, x, b )
+
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )
     END SELECT
-#endif
 
 !------------------------------------------------------------------------------
   END SUBROUTINE DirectSolver
