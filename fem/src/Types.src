@@ -187,7 +187,6 @@ MODULE Types
   END TYPE SParIterSolverGlobalD_t
 
   TYPE(SParIterSolverGlobalD_t), POINTER :: ParMatrix
-!DEC$ATTRIBUTES DLLEXPORT :: ParMatrix
 
 !-------------------------------------------------------------------------------
 
@@ -523,98 +522,97 @@ MODULE Types
 !
 !     Simulation input data, that concern the model as a whole
 !
-      TYPE(ValueList_t), POINTER :: Simulation
+      TYPE(ValueList_t), POINTER :: Simulation => NULL()
 !
 !     Variables
 !
-      TYPE(Variable_t), POINTER  :: Variables
+      TYPE(Variable_t), POINTER  :: Variables => NULL()
 !
 !     Some physical constants, that will be read from the database or set by
 !     other means: gravity direction/intensity and Stefan-Boltzmann constant)
 !
-      TYPE(ValueList_t), POINTER :: Constants
+      TYPE(ValueList_t), POINTER :: Constants => NULL()
 !
 !     Types  of  equations (flow,heat,...) and  some  parameters (for example
 !     laminar or turbulent flow or type of convection model for heat equation,
 !     etc.)
 !
-      INTEGER :: NumberOfEquations
-      TYPE(EquationArray_t), POINTER :: Equations(:)
+      INTEGER :: NumberOfEquations = 0
+      TYPE(EquationArray_t), POINTER :: Equations(:) => NULL()
 !
 !     Active bodyforces: (bussinesq approx., heatsource, freele chosen
 !     bodyforce...)
 !
-      INTEGER :: NumberOfBodyForces
-      TYPE(BodyForceArray_t), POINTER :: BodyForces(:)
+      INTEGER :: NumberOfBodyForces = 0
+      TYPE(BodyForceArray_t), POINTER :: BodyForces(:) => NULL()
 !
 !     Initial conditions for field variables
 !
-      INTEGER :: NumberOfICs
-      TYPE(InitialConditionArray_t), POINTER :: ICs(:)
+      INTEGER :: NumberOfICs = 0
+      TYPE(InitialConditionArray_t), POINTER :: ICs(:) => NULL()
 !
 !     Boundary conditions
 !
-      INTEGER :: NumberOfBCs
-      TYPE(BoundaryConditionArray_t), POINTER :: BCs(:)
+      INTEGER :: NumberOfBCs = 0
+      TYPE(BoundaryConditionArray_t), POINTER :: BCs(:) => NULL()
 !
 !     For free surfaces the curvatures...
 !
-      INTEGER, POINTER :: FreeSurfaceNodes(:)
-      REAL(KIND=dp), POINTER :: BoundaryCurvatures(:)
+      INTEGER, POINTER :: FreeSurfaceNodes(:) => NULL()
+      REAL(KIND=dp), POINTER :: BoundaryCurvatures(:) => NULL()
 !
 !     Material parameters
 !
-      INTEGER :: NumberOfMaterials
-      TYPE(MaterialArray_t), POINTER :: Materials(:)
+      INTEGER :: NumberOfMaterials = 0
+      TYPE(MaterialArray_t), POINTER :: Materials(:) => NULL()
 !
 !     Active bodies, every element has a pointer to a body, body has
 !     material,ICs,bodyforces and equations
 !
-      INTEGER :: NumberOfBodies 
-      TYPE(BodyArray_t), POINTER :: Bodies(:)
+      INTEGER :: NumberOfBodies  = 0
+      TYPE(BodyArray_t), POINTER :: Bodies(:) => NULL()
 !
 !      Boundary to boundary condition mapping
 !
-      INTEGER :: NumberOfBoundaries
-      INTEGER, POINTER :: BoundaryId(:)
-      TYPE(BoundaryArray_t), POINTER :: Boundaries(:)
+      INTEGER :: NumberOfBoundaries = 0
+      INTEGER, POINTER :: BoundaryId(:) => NULL()
+      TYPE(BoundaryArray_t), POINTER :: Boundaries(:) => NULL()
 !
 !     Linear equation solvers
 !
-      INTEGER :: NumberOfSolvers
-      TYPE(Solver_t), POINTER :: Solvers(:)
+      INTEGER :: NumberOfSolvers = 0
+      TYPE(Solver_t), POINTER :: Solvers(:) => NULL()
 !
 !     Node coordinates + info for parallel computations
 !
-      TYPE(Nodes_t), POINTER :: Nodes
+      TYPE(Nodes_t), POINTER :: Nodes => NULL()
 !
 !     Max number of nodes in any one element in this model
 !
-      INTEGER :: MaxElementNodes
+      INTEGER :: MaxElementNodes = 0
 !
 !     Elements
 !
-      TYPE(Element_t),DIMENSION(:), POINTER :: Elements
+      TYPE(Element_t), POINTER :: Elements(:) => NULL()
 !
 !     For reference the current element in process   
 !
-      TYPE(Element_t), POINTER :: CurrentElement
+      TYPE(Element_t), POINTER :: CurrentElement => NULL()
 !
 !     These are for internal use,   number of potentially nonzero elements
 !     in stiffness and mass matrices (with one dof), and number of nonzero
 !     elements in rows of the matrices.
 !
-      INTEGER :: TotalMatrixElements
-      INTEGER, POINTER :: RowNonzeros(:)
+      INTEGER :: TotalMatrixElements = 0
+      INTEGER, POINTER :: RowNonzeros(:) => NULL()
 
       TYPE(Mesh_t), POINTER :: Meshes
 
-      TYPE(Mesh_t),   POINTER :: Mesh
-      TYPE(Solver_t), POINTER :: Solver
+      TYPE(Mesh_t),   POINTER :: Mesh   => NULL()
+      TYPE(Solver_t), POINTER :: Solver => NULL()
     END TYPE Model_t
 
     TYPE(Model_t),  POINTER :: CurrentModel
-!DEC$ATTRIBUTES DLLEXPORT :: CurrentModel
     TYPE(Matrix_t), POINTER :: GlobalMatrix
 !------------------------------------------------------------------------------
 END MODULE Types
