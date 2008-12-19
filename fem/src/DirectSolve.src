@@ -435,6 +435,7 @@ CONTAINS
   REAL(KIND=dp), TARGET :: x(*), b(*)
 
 #ifdef HAVE_MUMPS
+  TYPE(dmumps_struc), SAVE :: DefID
   INTEGER :: i,j,ierr
   LOGICAL :: Factorize, stat
 
@@ -442,6 +443,8 @@ CONTAINS
   ! -------------------------------------------------
   IF ( .NOT. ASSOCIATED(A % MumpsID) ) THEN
     ALLOCATE(A % MumpsID)
+    A % MumpsID = DefID
+
     CALL MPI_Init(ierr)
 
     A % MumpsID % comm =  9
