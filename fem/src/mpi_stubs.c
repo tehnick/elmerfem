@@ -1,5 +1,6 @@
 #include "../config.h"
 
+#ifndef HAVE_MPI_STUBS
 void STDCALLBULL FC_FUNC_(mpi_init,MPI_INIT) 
      (int *p) { *p = 0; }
 void STDCALLBULL FC_FUNC_(mpi_comm_size,MPI_COMM_SIZE) 
@@ -102,9 +103,7 @@ void MPI_Get_count() {}
 void MPI_Type_vector() {}
 void MPI_Irsend() {}
 void hpmp_lor() {}
-
-
-
+#endif
 
 /* parpack */
 void STDCALLBULL FC_FUNC(pdneupd,PDNEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26, void *g27, void *g28,void *g29 ) {}
