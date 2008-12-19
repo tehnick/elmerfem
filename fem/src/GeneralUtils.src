@@ -1536,12 +1536,13 @@ END FUNCTION ComponentNameVar
 ! that does not exist in the current working directory
 !------------------------------------------------------------------------------
 
-  FUNCTION NextFreeFilename(Filename0,Suffix0) RESULT (Filename)
+  FUNCTION NextFreeFilename(Filename0,Suffix0,LastExisting) RESULT (Filename)
 
     CHARACTER(LEN=MAX_NAME_LEN) :: Filename0
     CHARACTER(LEN=MAX_NAME_LEN), OPTIONAL :: Suffix0 
+    LOGICAL, OPTIONAL :: LastExisting
     CHARACTER(LEN=MAX_NAME_LEN) :: Filename
-    CHARACTER(LEN=MAX_NAME_LEN) :: Prefix, Suffix
+    CHARACTER(LEN=MAX_NAME_LEN) :: Prefix, Suffix, PrevFilename
     LOGICAL :: FileIs
     INTEGER :: No, ind, len
     
@@ -1561,6 +1562,7 @@ END FUNCTION ComponentNameVar
 
     No = 0
     DO WHILE (.TRUE.)
+      IF( No > 0 ) PrevFilename = Filename	
       No = No + 1
       IF( No < 10) THEN
         WRITE( FileName,'(A,I1,A)') TRIM(Prefix),No,TRIM(Suffix)
@@ -1570,13 +1572,15 @@ END FUNCTION ComponentNameVar
         WRITE( FileName,'(A,I3,A)') TRIM(Prefix),No,TRIM(Suffix)
       ELSE IF( No < 10000) THEN
         WRITE( FileName,'(A,I4,A)') TRIM(Prefix),No,TRIM(Suffix)
-      ELSE IF( No < 100000) THEN
-        WRITE( FileName,'(A,I5,A)') TRIM(Prefix),No,TRIM(Suffix)
       END IF
-
       INQUIRE( FILE=Filename, EXIST=FileIs )
       IF(.NOT. FileIs) EXIT
     END DO
+
+    IF( Present(LastExisting)) THEN
+      IF( LastExisting ) Filename = PrevFilename
+    END IF
+
 !------------------------------------------------------------------------------
   END FUNCTION NextFreeFilename
 !------------------------------------------------------------------------------

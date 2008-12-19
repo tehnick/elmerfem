@@ -1268,6 +1268,16 @@
                 PostName   = PostFile
                 OutputName = OutputFile
              END IF
+
+	     IF ( ListGetLogical( CurrentModel % Simulation,'Filename Numbering',&
+	          GotIt) ) THEN
+	        IF( CurrentStep == 0 ) THEN
+                  PostName = NextFreeFilename(PostName)
+                ELSE 
+	          PostName = NextFreeFilename(PostName,LastExisting = .TRUE. ) 
+                END IF
+	     END IF
+
              CALL SetCurrentMesh( CurrentModel, Mesh )
 
              EigAnal = .FALSE.
@@ -1328,7 +1338,7 @@
                              Var => Var % Next
                            END DO
 
-                           IF ( CurrentStep>0 ) THEN
+                           IF ( CurrentStep > 0 ) THEN
                              IF ( Mesh % SavesDone /= 0 ) Mesh % SavesDone = j
                              CALL WritePostFile( PostName,OutputName, CurrentModel, &
                                 CurrentModel % Solvers(i) % NOFEigenValues, .TRUE. )

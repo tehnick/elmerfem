@@ -2156,7 +2156,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes, LineNodes
   TYPE(Element_t), POINTER   :: CurrentElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, Name, CondName, &
-       MaskName, PrevMaskName, SideParFile, DateStr
+       TempName, MaskName, PrevMaskName, SideParFile, DateStr
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
 
 
@@ -2215,7 +2215,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   
   FileAppend = ListGetLogical(Solver % Values,'File Append',GotIt )
   MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt )
-  
+ 
   IntersectEdge = ListGetLogical(Solver % Values,'Intersect Edge',GotIt )
   IF(IntersectEdge) THEN
      IntersectCoordinate = ListGetInteger(Solver % Values,'Intersect Coordinate')
@@ -2230,8 +2230,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   END IF
   
   IF(CalculateFlux) THEN
-     VarName = ListGetString(Solver % Values,'Flux Variable',GotIt )
-     IF(.NOT. gotIt) VarName = TRIM('Temperature')
+     TempName = ListGetString(Solver % Values,'Flux Variable',GotIt )
+     IF(.NOT. gotIt) TempName = TRIM('Temperature')
      CondName = ListGetString(Solver % Values,'Flux Coefficient',GotIt )
      IF(.NOT. gotIt) CondName = TRIM('Heat Conductivity')
   END IF
@@ -2390,6 +2390,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
   maxboundary = 0
   IF( SaveNodes > 0 ) THEN
+
      ALLOCATE( InvPerm(SaveNodes), BoundaryIndex(SaveNodes) )
      BoundaryIndex = 0
      InvPerm = 0
@@ -2403,7 +2404,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
            InvPerm(SavePerm(i)) = i
         END IF
      END DO
-     
+
      IF(CalculateFlux) THEN
         ALLOCATE(PointFluxes(SaveNodes,3),PointWeight(SaveNodes))    
         PointFluxes = 0.0d0
@@ -2453,16 +2454,18 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
         DO i=1,n
            node = NodeIndexes(i)
            
-           CALL BoundaryFlux( Model, node, VarName,  &
+           CALL BoundaryFlux( Model, node, TempName,  &
                 CondName, f1, f2, fn, weight, Mesh % MaxElementDOFs ) 
-           
+
            j = SavePerm(node) 
+
            PointFluxes(j,1) = PointFluxes(j,1) + weight * f1
            PointFluxes(j,2) = PointFluxes(j,2) + weight * f2
            PointFluxes(j,3) = PointFluxes(j,3) + weight * fn
            PointWeight(j) = PointWeight(j) + weight
         END DO        
      END DO
+
 
      ! Normalize flux by division with the integration weight
      IF( CalculateFlux ) THEN
@@ -2787,6 +2790,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
         ValueNames(No+2) = 'Flux 2'
         ValueNames(No+3) = 'Flux normal'      
      END IF
+
   
      SideNamesFile = TRIM(SideFile) // '.' // TRIM("names")
      OPEN (10, FILE=SideNamesFile)
@@ -3063,8 +3067,8 @@ CONTAINS
 !-----------------------------------------------------------------------
 
     Tvar => VariableGet( Model % Variables, TRIM(VarName) )
+
     Permutated = ASSOCIATED(Tvar % Perm)
-    
     Element => Model % CurrentElement
     
     IF ( FluxBody > 0 ) THEN
@@ -3128,7 +3132,7 @@ CONTAINS
     stat = ElementInfo( Parent, Nodes, u, v, w, detJ, &
         Basis, dBasisdx )
     weight = detJ
-    
+   
     ! Compute the normal of the surface for the normal flux
     DO j = 1, Element % TYPE % NumberOfNodes
       IF ( node == Element % NodeIndexes(j) ) EXIT
@@ -3245,7 +3249,7 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), ALLOCATABLE, TARGET :: Param(:,:)
   REAL(KIND=dp), POINTER :: PParam(:)
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(199), Name
-  LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., MovingMesh, GotCoeff, &
+  LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
   SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
@@ -3419,7 +3423,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: PParam(:)
   
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(99), Name
-  LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., MovingMesh, GotCoeff, &
+  LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
   SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
