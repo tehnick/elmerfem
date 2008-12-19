@@ -246,7 +246,7 @@ void STDCALLBULL FC_FUNC(umf4fsym,UMF4FSYM) (void **Symbolic)
 
 /* call umf4def (control) */
 
-void STDCALLBULL FC_FUNC(umf4_l_def,UMF4_L_DEF) (double Control[])
+void STDCALLBULL FC_FUNC_(umf4_l_def,UMF4_L_DEF) (double Control[])
 {
 #ifdef HAVE_UMFPACK
     UMFPACK_defaults (Control) ;
@@ -260,7 +260,7 @@ void STDCALLBULL FC_FUNC(umf4_l_def,UMF4_L_DEF) (double Control[])
 
 /* call umf4sym (m, n, Ap, Ai, Ax, symbolic, control, info) */
 
-void STDCALLBULL FC_FUNC(umf4_l_sym,UMF4_L_SYM) (Int *m, Int *n, Int Ap [ ], Int Ai [ ],
+void STDCALLBULL FC_FUNC_(umf4_l_sym,UMF4_L_SYM) (Int *m, Int *n, Int Ap [ ], Int Ai [ ],
     double Ax [ ], void **Symbolic,
     double Control[], double Info[])
 {
@@ -275,7 +275,7 @@ void STDCALLBULL FC_FUNC(umf4_l_sym,UMF4_L_SYM) (Int *m, Int *n, Int Ap [ ], Int
 
 /* call umf4num (Ap, Ai, Ax, symbolic, numeric, control, info) */
 
-void STDCALLBULL FC_FUNC(umf4_l_num,UMF4_L_NUM) (Int Ap [ ], Int Ai [ ], double Ax [ ],
+void STDCALLBULL FC_FUNC_(umf4_l_num,UMF4_L_NUM) (Int Ap [ ], Int Ai [ ], double Ax [ ],
     void **Symbolic, void **Numeric,
     double Control[], double Info[])
 {
@@ -290,7 +290,7 @@ void STDCALLBULL FC_FUNC(umf4_l_num,UMF4_L_NUM) (Int Ap [ ], Int Ai [ ], double 
 
 /* call umf4solr (sys, Ap, Ai, Ax, x, b, numeric, control, info) */
 
-void STDCALLBULL FC_FUNC(umf4_l_solr,UMF4_L_SOLR) (Int *sys, Int Ap [ ], Int Ai [ ], double Ax [ ],
+void STDCALLBULL FC_FUNC_(umf4_l_solr,UMF4_L_SOLR) (Int *sys, Int Ap [ ], Int Ai [ ], double Ax [ ],
     double x [ ], double b [ ], void **Numeric,
     double Control[], double Info[])
 {
@@ -305,7 +305,7 @@ void STDCALLBULL FC_FUNC(umf4_l_solr,UMF4_L_SOLR) (Int *sys, Int Ap [ ], Int Ai 
 
 /* call umf4sol (sys, x, b, numeric, control, info) */
 
-void STDCALLBULL FC_FUNC(umf4_l_sol,UMF4_L_SOL) (Int *sys, double x [ ], double b [ ], void **Numeric,
+void STDCALLBULL FC_FUNC_(umf4_l_sol,UMF4_L_SOL) (Int *sys, double x [ ], double b [ ], void **Numeric,
     double Control[], double Info[])
 {
 #ifdef HAVE_UMFPACK
@@ -321,7 +321,7 @@ void STDCALLBULL FC_FUNC(umf4_l_sol,UMF4_L_SOL) (Int *sys, double x [ ], double 
 
 /* call umf4fnum (numeric) */
 
-void STDCALLBULL FC_FUNC(umf4_l_fnum,UMF4FNUM) (void **Numeric)
+void STDCALLBULL FC_FUNC_(umf4_l_fnum,UMF4FNUM) (void **Numeric)
 {
 #ifdef HAVE_UMFPACK
     UMFPACK_free_numeric (Numeric) ;
@@ -334,7 +334,7 @@ void STDCALLBULL FC_FUNC(umf4_l_fnum,UMF4FNUM) (void **Numeric)
 
 /* call umf4fsym (symbolic) */
 
-void STDCALLBULL FC_FUNC(umf4_l_fsym,UMF4FSYM) (void **Symbolic)
+void STDCALLBULL FC_FUNC_(umf4_l_fsym,UMF4FSYM) (void **Symbolic)
 {
 #ifdef HAVE_UMFPACK
     UMFPACK_free_symbolic (Symbolic) ;
