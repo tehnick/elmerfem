@@ -340,6 +340,7 @@
        TotalTimesteps = 0
        DO interval=1,TimeIntervals
          DO timestep = 1,Timesteps(interval)
+           IF( OutputIntervals(Interval) == 0 ) CYCLE
            LastSaved = .FALSE.
            IF ( MOD(Timestep-1, OutputIntervals(Interval))==0 ) THEN
               LastSaved = .TRUE.
@@ -363,6 +364,7 @@
        END DO
 
        IF ( .NOT.LastSaved ) TotalTimesteps = TotalTimesteps + 1
+       IF( TotalTimesteps == 0 ) TotalTimesteps = 1	
 
        CALL ListAddLogical( CurrentModel % Simulation,  &
             'Initialization Phase', .FALSE. )
@@ -385,16 +387,30 @@
 !------------------------------------------------------------------------------
 !    Always save the last step to output
 !------------------------------------------------------------------------------
-       IF ( .NOT.LastSaved ) CALL SaveCurrent( Timestep )
+       IF ( .NOT.LastSaved ) THEN
+         DO i=1,CurrentModel % NumberOfSolvers
+            Solver => CurrentModel % Solvers(i)
+            IF ( Solver % Procedure == 0 ) CYCLE
+            ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_SAVE)
+            When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
+            IF ( GotIt ) ExecThis = ( When == 'before saving') 
+            IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
+         END DO
 
-       DO i=1,CurrentModel % NumberOfSolvers
-          Solver => CurrentModel % Solvers(i)
-          IF ( Solver % Procedure == 0 ) CYCLE
-          ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_SAVE)
-          When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
-          IF ( GotIt ) ExecThis = ( When == 'after saving') 
-          IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
-       END DO
+         IF ( CurrentModel % Meshes % SavesDone == 0 ) THEN
+           CALL SaveToPost( 0 )
+         END IF
+         CALL SaveCurrent( Timestep )
+
+         DO i=1,CurrentModel % NumberOfSolvers
+            Solver => CurrentModel % Solvers(i)
+            IF ( Solver % Procedure == 0 ) CYCLE
+            ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_SAVE)
+            When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
+            IF ( GotIt ) ExecThis = ( When == 'after saving') 
+            IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
+         END DO
+       END IF
 
        IF ( Initialize>=2 ) EXIT
      END DO
@@ -1022,34 +1038,37 @@
 !------------------------------------------------------------------------------
 !        Save results to disk, if requested
 !------------------------------------------------------------------------------
-         IF ( CurrentModel % Meshes % SavesDone == 0 ) THEN
-            CALL SaveToPost( 0 )
-         END IF
-
-         k = MOD( Timestep-1, OutputIntervals(Interval) )
          LastSaved = .FALSE.
-         IF ( k == 0 .OR. SteadyStateReached ) THEN
+	 IF( OutputIntervals(Interval) /= 0 ) THEN
+
+           IF ( CurrentModel % Meshes % SavesDone == 0 ) THEN
+             CALL SaveToPost( 0 )
+           END IF
+
+           k = MOD( Timestep-1, OutputIntervals(Interval) )
+           IF ( k == 0 .OR. SteadyStateReached ) THEN
             
-           DO i=1,CurrentModel % NumberOfSolvers
+             DO i=1,CurrentModel % NumberOfSolvers
                Solver => CurrentModel % Solvers(i)
                IF ( Solver % Procedure == 0 ) CYCLE
                ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_SAVE)
                When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
                IF ( GotIt ) ExecThis = ( When == 'before saving') 
                IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
-            END DO 
+             END DO 
 
-            CALL SaveCurrent( Timestep )
-            LastSaved = .TRUE.
+             CALL SaveCurrent( Timestep )
+             LastSaved = .TRUE.
 
-            DO i=1,CurrentModel % NumberOfSolvers
+             DO i=1,CurrentModel % NumberOfSolvers
                Solver => CurrentModel % Solvers(i)
                IF ( Solver % Procedure == 0 ) CYCLE
                ExecThis = ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_SAVE)
                When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
                IF ( GotIt ) ExecThis = ( When == 'after saving') 
                IF( ExecThis ) CALL SolverActivate( CurrentModel,Solver,dt,Transient )
-            END DO 
+             END DO 
+           END IF
          END IF
 !------------------------------------------------------------------------------
 
