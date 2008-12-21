@@ -589,16 +589,18 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     tmp->generalOptions->setupTabs(*elmerDefs, "Solver", current );
   }
 
-  parseSolverSpecificTab(tmp->generalOptions, solverName);
-
+  bool hasMatrix = parseSolverSpecificTab(tmp->generalOptions, solverName);
 
   ui = tmp->ui; 
-  parseGeneralTab(ui);
-  parseSteadyStateTab(ui);
-  parseNonlinearSystemTab(ui);
-  parseLinearSystemTab(ui);
-  parseParallelTab(ui);
-  // todo: add adaptivity & multigrid
+
+  if(hasMatrix) {
+    parseGeneralTab(ui);
+    parseSteadyStateTab(ui);
+    parseNonlinearSystemTab(ui);
+    parseLinearSystemTab(ui);
+    parseParallelTab(ui);
+    // todo: add adaptivity & multigrid
+  }
 
   if(!found)
   {
@@ -809,9 +811,12 @@ void SifGenerator::makeBoundaryBlocks()
 
 // Parse "Solver specific tab"
 //-----------------------------------------------------------------------------
-void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solverName)
+bool SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solverName)
 {
-  if ( !solEditor ) return;
+  // returns true if there is a matrix involved. otherwise returns false.
+  if ( !solEditor ) return false;
+
+  bool hasMatrix = true;
 
   QScriptEngine engine; 
 
@@ -824,7 +829,6 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
   for(int i = 0; i < solEditor->hash.count(); i++) {
     hash_entry_t entry = solEditor->hash.values().at(i);
 
-
     QString key = solEditor->hash.keys().at(i);
     QStringList keySplitted = key.split("/");	  
     QString tabName   = keySplitted.at(1).trimmed();
@@ -832,6 +836,13 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
 
     if ( tabName != solverName ) continue;
 
+    // Has matrix?
+    if(labelName == "No Matrix Equation") {
+      if(entry.elem.attribute("Widget", "") == "CheckBox") {
+	QCheckBox* cb = (QCheckBox*)entry.widget;
+	hasMatrix = !cb->isChecked();
+      }
+    }
 
     // variable names handled separately...
     // ------------------------------------
@@ -899,6 +910,8 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
        handleComboBox(elem, widget);
     }
   }
+
+  return hasMatrix;
 }
 
 // Parse "Exec Solver" tab from ui to sif:

@@ -117,7 +117,7 @@ class SifGenerator  {
 
   int  sort_index(int,int [],QString []);
   int  findHashValue(DynamicEditor*,QString,QString);
-  void parseSolverSpecificTab(DynamicEditor *, QString);
+  bool parseSolverSpecificTab(DynamicEditor *, QString);
   void parseGeneralTab(Ui::solverParameterEditor);
   void parseSteadyStateTab(Ui::solverParameterEditor);
   void parseNonlinearSystemTab(Ui::solverParameterEditor);

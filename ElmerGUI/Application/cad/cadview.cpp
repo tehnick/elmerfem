@@ -86,8 +86,9 @@ static void pickEventHandler(vtkObject* caller, unsigned long eid,
   vtkAbstractPicker* picker = qvtkWidget->GetInteractor()->GetPicker();
   vtkPropPicker* propPicker = vtkPropPicker::SafeDownCast(picker);
   vtkActor* actor = propPicker->GetActor();
+  int faceNumber = cadView->getFaceNumber(actor);
 
-  if(actor) {
+  if(faceNumber > 0) {
     vtkProperty* p = actor->GetProperty();
 
     double color[3];
@@ -96,10 +97,13 @@ static void pickEventHandler(vtkObject* caller, unsigned long eid,
     // Toggle color:
     //--------------
     if(color[0] < 0.5) {
+      cout << "Secected face: ";
       p->SetColor(1, 0, 0);
     } else {
+      cout << "Unselected face: ";
       p->SetColor(0, 1, 1);
     }
+    cout << faceNumber << endl;
   }
 }
 
@@ -248,6 +252,8 @@ bool CadView::readFile(QString fileName)
 
   this->fileName = fileName;
 
+  actorToFace.clear();
+
   clearScreen();
 
   // Compute bounding box:
@@ -364,6 +370,7 @@ bool CadView::readFile(QString fileName)
     partActor->GetProperty()->SetColor(0, 1, 1);
     partActor->SetMapper(partMapper);
     renderer->AddActor(partActor);
+    actorToFace.insert(partActor, numberOfFaces);
 
     vtkFeatureEdges* partFeature = vtkFeatureEdges::New();
     partFeature->SetInputConnection(partCleaner->GetOutputPort());
@@ -694,4 +701,10 @@ void CadView::differenceOf(double* u, double* v, double* w)
   u[0] = v[0] - w[0];
   u[1] = v[1] - w[1];
   u[2] = v[2] - w[2];
+}
+
+int CadView::getFaceNumber(vtkActor* actor)
+{
+  if(actor == NULL) return -1;
+  return actorToFace.value(actor);
 }

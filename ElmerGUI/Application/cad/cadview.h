@@ -42,6 +42,8 @@
 #define CADVIEW_H
 
 #include <QMainWindow>
+#include <QHash>
+
 #include "cadpreferences.h"
 
 namespace nglib {
@@ -80,6 +82,7 @@ public:
   void setDeflection(double);
   double lengthOf(double*);
   void differenceOf(double*, double*, double*);
+  int getFaceNumber(vtkActor*);
 
  private slots:
   void closeSlot();
@@ -119,6 +122,8 @@ public:
   CadPreferences* cadPreferences;
 
   QString fileName;
+
+  QHash<vtkActor*, int> actorToFace;
 };
 
 #endif // CADVIEW_H
