@@ -58,7 +58,7 @@ CONTAINS
    SUBROUTINE ComplexBandSolver( A,x,b )
 !------------------------------------------------------------------------------
 
-     REAL(KIND=dp) :: x(:),b(:)
+     REAL(KIND=dp) :: x(*),b(*)
      TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
 
@@ -158,7 +158,7 @@ CONTAINS
    SUBROUTINE BandSolver( A,x,b )
 !------------------------------------------------------------------------------
 
-     REAL(KIND=dp) :: x(:),b(:)
+     REAL(KIND=dp) :: x(*),b(*)
      TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
 
@@ -385,16 +385,17 @@ CONTAINS
       END IF
 
       IF (iinfo(1)<0) THEN
-          print *, 'Error occurred in umf4num: ', iinfo(1)
-          stop
+        PRINT*, 'Error occurred in umf4num: ', iinfo(1)
+        STOP
       ENDIF
 
       IF ( BigMode ) THEN
-        CALL umf4_l_fsym( Symbolic )
         DEALLOCATE( LRows, LCols )
+        CALL umf4_l_fsym( Symbolic )
       ELSE
         A % Rows = A % Rows+1
         A % Cols = A % Cols+1
+        CALL umf4fsym( Symbolic )
       END IF
     END IF
   END IF
@@ -406,6 +407,7 @@ CONTAINS
     sys = 2
     CALL umf4sol( sys, x, b, A % UMFPack_Numeric, Control, iInfo )
   END IF
+
   IF (iinfo(1)<0) THEN
     PRINT*, 'Error occurred in umf4sol: ', iinfo(1)
     STOP
@@ -437,56 +439,74 @@ CONTAINS
 #ifdef HAVE_MUMPS
   TYPE(dmumps_struc), SAVE :: DefID
   INTEGER :: i,j,ierr
-  LOGICAL :: Factorize, stat
+  LOGICAL :: Factorize, ReFactorize, UMFFound, stat
 
   ! serial version for now, but needs this anyway...
   ! -------------------------------------------------
-  IF ( .NOT. ASSOCIATED(A % MumpsID) ) THEN
-    ALLOCATE(A % MumpsID)
-    A % MumpsID = DefID
 
-    CALL MPI_Init(ierr)
+  Factorize = ListGetLogical( Solver % Values, 'UMF Factorize', UMFFound )
+  IF ( .NOT. UMFFound ) Factorize = .TRUE.
 
-    A % MumpsID % comm =  9
-    A % MumpsID % job  = -1
-    A % MumpsID % par  =  1
+  IF ( Factorize .OR..NOT. ASSOCIATED(A % MumpsID) ) THEN
+    Factorize = ListGetLogical( Solver % Values, &
+       'Linear System Refactorize', stat )
+    IF ( .NOT. stat ) Factorize = .TRUE.
+    
+    IF ( Factorize .OR..NOT.ASSOCIATED(A % MumpsId) ) THEN
+      IF ( ASSOCIATED(A % MumpsID) ) THEN
+        DEALLOCATE(A % MumpsID % rhs, A % MumpsID % irn)
+        A % MumpsID % job = -2
+        CALL DMumps(A % MumpsID)
+        DEALLOCATE(A % MumpsID)
+      END IF
 
-    CALL DMumps(A % MumpsID)
+      ALLOCATE(A % MumpsID)
+      A % MumpsID = DefID
 
-    A % MumpsID % n  = a % numberofrows
-    A % MumpsID % nz = a % rows(A % MumpsID % n+1)-1
+      CALL MPI_Init(ierr)
 
-    ALLOCATE( A % MumpsID % irn(A % MumpsID % nz) )
-    DO i=1,A % MumpsID % n
-      DO j=A % Rows(i),a % Rows(i+1)-1
-        A % MumpsID % irn(j) = i
+      A % MumpsID % comm =  9
+      A % MumpsID % job  = -1
+      A % MumpsID % par  =  1
+
+      CALL DMumps(A % MumpsID)
+
+      A % MumpsID % n  = a % numberofrows
+      A % MumpsID % nz = a % rows(A % MumpsID % n+1)-1
+
+      ALLOCATE( A % MumpsID % irn(A % MumpsID % nz) )
+      DO i=1,A % MumpsID % n
+        DO j=A % Rows(i),a % Rows(i+1)-1
+          A % MumpsID % irn(j) = i
+        END DO
       END DO
-    END DO
 
-    A % MumpsID % jcn => A % cols
-    A % MumpsID % a   => A % values
+      A % MumpsID % jcn => A % cols
+      A % MumpsID % a   => A % values
 
-    ALLOCATE(A % MumpsID % rhs(A % MumpsID % n))
+      ALLOCATE(A % MumpsID % rhs(A % MumpsID % n))
+
+      A % MumpsID % sym = 0
+      A % MumpsID % icntl(5) = 0
+
+      A % MumpsID % job = 4
+      CALL DMumps(A % MumpsID)
+    END IF
   END IF
 
   A % MumpsID % rhs = b(1:A % MumpsID % n)
-  A % MumpsID % sym = 0
-  A % MumpsID % icntl(5) = 0
-
-  Factorize = ListGetLogical( Solver % Values, &
-     'Linear System Refactorize', stat )
-  IF ( .NOT. stat ) Factorize = .TRUE.
-
-  IF ( Factorize ) THEN
-    A % MumpsID % job = 4
-    CALL DMumps(A % MumpsID)
-  END IF
 
   A % MumpsID % job = 3
   CALL DMumps(A % MumpsID)
   x(1:A % MumpsID % n) = A % MumpsID % rhs
 
-  CALL MPI_Finalize(ierr)
+  IF ( Factorize.AND..NOT.UMFFound ) THEN
+    DEALLOCATE(A % MumpsID % rhs, A % MumpsID % irn)
+    A % MumpsID % job = -2
+    CALL DMumps(A % MumpsID)
+    DEALLOCATE(A % MumpsID)
+    A % MumpsId => NULL()
+  END IF
 #else
    CALL Fatal( 'Mumps_SolveSystem', 'MUMPS Solver has not been installed.' )
 #endif
@@ -502,7 +522,7 @@ CONTAINS
 
     TYPE(Solver_t) :: Solver
 
-    REAL(KIND=dp), DIMENSION(:) :: x,b
+    REAL(KIND=dp) :: x(*),b(*)
     TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
 
