@@ -335,68 +335,63 @@ CONTAINS
 
   SAVE iInfo, Control
  
-  LOGICAL :: Factorize, UMFFound, stat, BigMode
+  LOGICAL :: Factorize, FreeFactorize, stat, BigMode
 
   BigMode = ListGetString( Solver % Values, &
       'Linear System Direct Method' ) == 'big umfpack'
 
-  Factorize = ListGetLogical( Solver % Values, 'UMF Factorize', UMFFound )
-  IF ( .NOT. UMFFound ) Factorize = .TRUE.
+  Factorize = ListGetLogical( Solver % Values, &
+     'Linear System Refactorize', stat )
+  IF ( .NOT. stat ) Factorize = .TRUE.
 
   n = A % NumberofRows
   IF ( Factorize .OR. A% UmfPack_Numeric==0 ) THEN
-    Factorize = ListGetLogical( Solver % Values, &
-       'Linear System Refactorize', stat )
-    IF ( .NOT. stat ) Factorize = .TRUE.
-
-    IF ( Factorize .OR. A % UmfPack_Numeric==0 ) THEN
-      IF ( A % UMFPack_Numeric /= 0 ) THEN
-        IF( BigMode ) THEN
-          CALL umf4_l_fnum( A % UMFPack_Numeric )
-        ELSE
-          CALL umf4fnum( A % UMFPack_Numeric )
-        END IF
-        A % UMFPack_Numeric = 0
-      END IF
-
-      IF ( BigMode ) THEN
-        ALLOCATE( LRows(SIZE(A % Rows)), LCols(SIZE(A % Cols)) )
-        LRows = A % Rows-1
-        LCols = A % Cols-1
-        ln = n
-        CALL umf4_l_def( Control )
-        CALL umf4_l_sym( ln,ln, LRows, LCols, A % Values, Symbolic, Control, iInfo )
+    IF ( A % UMFPack_Numeric /= 0 ) THEN
+      IF( BigMode ) THEN
+        CALL umf4_l_fnum( A % UMFPack_Numeric )
       ELSE
-        A % Rows = A % Rows-1
-        A % Cols = A % Cols-1
-        CALL umf4def( Control )
-        CALL umf4sym( n,n, A % Rows, A % Cols, A % Values, Symbolic, Control, iInfo )
+        CALL umf4fnum( A % UMFPack_Numeric )
       END IF
+      A % UMFPack_Numeric = 0
+    END IF
 
-      IF (iinfo(1)<0) THEN
-        PRINT *, 'Error occurred in umf4sym: ', iinfo(1)
-        STOP
-      END IF
+    IF ( BigMode ) THEN
+      ALLOCATE( LRows(SIZE(A % Rows)), LCols(SIZE(A % Cols)) )
+      LRows = A % Rows-1
+      LCols = A % Cols-1
+      ln = n
+      CALL umf4_l_def( Control )
+      CALL umf4_l_sym( ln,ln, LRows, LCols, A % Values, Symbolic, Control, iInfo )
+    ELSE
+      A % Rows = A % Rows-1
+      A % Cols = A % Cols-1
+      CALL umf4def( Control )
+      CALL umf4sym( n,n, A % Rows, A % Cols, A % Values, Symbolic, Control, iInfo )
+    END IF
 
-      IF ( BigMode ) THEN
-        CALL umf4_l_num(LRows, LCols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
-      ELSE
-        CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
-      END IF
+    IF (iinfo(1)<0) THEN
+      PRINT *, 'Error occurred in umf4sym: ', iinfo(1)
+      STOP
+    END IF
 
-      IF (iinfo(1)<0) THEN
-        PRINT*, 'Error occurred in umf4num: ', iinfo(1)
-        STOP
-      ENDIF
+    IF ( BigMode ) THEN
+      CALL umf4_l_num(LRows, LCols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+    ELSE
+      CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+    END IF
 
-      IF ( BigMode ) THEN
-        DEALLOCATE( LRows, LCols )
-        CALL umf4_l_fsym( Symbolic )
-      ELSE
-        A % Rows = A % Rows+1
-        A % Cols = A % Cols+1
-        CALL umf4fsym( Symbolic )
-      END IF
+    IF (iinfo(1)<0) THEN
+      PRINT*, 'Error occurred in umf4num: ', iinfo(1)
+      STOP
+    ENDIF
+
+    IF ( BigMode ) THEN
+      DEALLOCATE( LRows, LCols )
+      CALL umf4_l_fsym( Symbolic )
+    ELSE
+      A % Rows = A % Rows+1
+      A % Cols = A % Cols+1
+      CALL umf4fsym( Symbolic )
     END IF
   END IF
 
@@ -413,7 +408,11 @@ CONTAINS
     STOP
   END IF
  
-  IF ( Factorize .AND. .NOT. UMFFound ) THEN
+  FreeFactorize = ListGetLogical( Solver % Values, &
+      'Linear System Free Factorization', stat )
+  IF ( .NOT. stat ) FreeFactorize = .TRUE.
+
+  IF ( Factorize .AND. FreeFactorize ) THEN
     IF ( BigMode ) THEN
       CALL umf4_l_fnum(A % UMFPack_Numeric)
     ELSE
@@ -439,59 +438,53 @@ CONTAINS
 #ifdef HAVE_MUMPS
   TYPE(dmumps_struc), SAVE :: DefID
   INTEGER :: i,j,ierr
-  LOGICAL :: Factorize, ReFactorize, UMFFound, stat
+  LOGICAL :: Factorize, FreeFactorize, stat
 
   ! serial version for now, but needs this anyway...
   ! -------------------------------------------------
 
-  Factorize = ListGetLogical( Solver % Values, 'UMF Factorize', UMFFound )
-  IF ( .NOT. UMFFound ) Factorize = .TRUE.
+  Factorize = ListGetLogical( Solver % Values, &
+     'Linear System Refactorize', stat )
+  IF ( .NOT. stat ) Factorize = .TRUE.
 
-  IF ( Factorize .OR..NOT. ASSOCIATED(A % MumpsID) ) THEN
-    Factorize = ListGetLogical( Solver % Values, &
-       'Linear System Refactorize', stat )
-    IF ( .NOT. stat ) Factorize = .TRUE.
-    
-    IF ( Factorize .OR..NOT.ASSOCIATED(A % MumpsId) ) THEN
-      IF ( ASSOCIATED(A % MumpsID) ) THEN
-        DEALLOCATE(A % MumpsID % rhs, A % MumpsID % irn)
-        A % MumpsID % job = -2
-        CALL DMumps(A % MumpsID)
-        DEALLOCATE(A % MumpsID)
-      END IF
-
-      ALLOCATE(A % MumpsID)
-      A % MumpsID = DefID
-
-      CALL MPI_Init(ierr)
-
-      A % MumpsID % comm =  9
-      A % MumpsID % job  = -1
-      A % MumpsID % par  =  1
-
+  IF ( Factorize .OR. .NOT.ASSOCIATED(A % MumpsID) ) THEN
+    IF ( ASSOCIATED(A % MumpsID) ) THEN
+      DEALLOCATE(A % MumpsID % rhs, A % MumpsID % irn)
+      A % MumpsID % job = -2
       CALL DMumps(A % MumpsID)
-
-      A % MumpsID % n  = a % numberofrows
-      A % MumpsID % nz = a % rows(A % MumpsID % n+1)-1
-
-      ALLOCATE( A % MumpsID % irn(A % MumpsID % nz) )
-      DO i=1,A % MumpsID % n
-        DO j=A % Rows(i),a % Rows(i+1)-1
-          A % MumpsID % irn(j) = i
-        END DO
-      END DO
-
-      A % MumpsID % jcn => A % cols
-      A % MumpsID % a   => A % values
-
-      ALLOCATE(A % MumpsID % rhs(A % MumpsID % n))
-
-      A % MumpsID % sym = 0
-      A % MumpsID % icntl(5) = 0
-
-      A % MumpsID % job = 4
-      CALL DMumps(A % MumpsID)
+      DEALLOCATE(A % MumpsID)
     END IF
+
+    ALLOCATE(A % MumpsID)
+    A % MumpsID = DefID
+
+    CALL MPI_Init(ierr)
+
+    A % MumpsID % comm =  9
+    A % MumpsID % par  =  1
+    A % MumpsID % job  = -1
+    CALL DMumps(A % MumpsID)
+
+    A % MumpsID % n  = A % NumberofRows
+    A % MumpsID % nz = A % Rows(A % MumpsID % n+1)-1
+
+    ALLOCATE( A % MumpsID % irn(A % MumpsID % nz) )
+    DO i=1,A % MumpsID % n
+      DO j=A % Rows(i),a % Rows(i+1)-1
+        A % MumpsID % irn(j) = i
+      END DO
+    END DO
+
+    A % MumpsID % jcn => A % cols
+    A % MumpsID % a   => A % values
+
+    ALLOCATE(A % MumpsID % rhs(A % MumpsID % n))
+
+    A % MumpsID % sym = 0
+    A % MumpsID % icntl(5) = 0
+
+    A % MumpsID % job = 4
+    CALL DMumps(A % MumpsID)
   END IF
 
   A % MumpsID % rhs = b(1:A % MumpsID % n)
@@ -500,7 +493,11 @@ CONTAINS
   CALL DMumps(A % MumpsID)
   x(1:A % MumpsID % n) = A % MumpsID % rhs
 
-  IF ( Factorize.AND..NOT.UMFFound ) THEN
+  FreeFactorize = ListGetLogical( Solver % Values, &
+      'Linear System Free Factorization', stat )
+  IF ( .NOT. stat ) FreeFactorize = .TRUE.
+
+  IF ( Factorize .AND. FreeFactorize ) THEN
     DEALLOCATE(A % MumpsID % rhs, A % MumpsID % irn)
     A % MumpsID % job = -2
     CALL DMumps(A % MumpsID)

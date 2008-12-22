@@ -451,7 +451,7 @@
        IF ( AllocationsDone ) THEN
          DEALLOCATE( Density,                &
                      Damping,                &
-	             RayleighAlpha,          &
+                   RayleighAlpha,          &
                      RayleighBeta,           &
                      DampCoeff,              &
                      SpringCoeff,            &
@@ -511,7 +511,7 @@
        TransformMatrix = 0.0d0
 
        IF ( .NOT. AllocationsDone ) THEN
-		  CalculateStrains = GetLogical(SolverParams, 'Calculate Strains', Found)
+              CalculateStrains = GetLogical(SolverParams, 'Calculate Strains', Found)
           CalcPrincipalAngle = GetLogical(SolverParams, 'Calculate PAngle', Found)
           CalcPrincipalAll = GetLogical(SolverParams, 'Calculate Principal', Found)
           CalcStressAll = GetLogical( SolverParams, 'Calculate Stresses',Found )
@@ -557,72 +557,72 @@
                            'VonMises', 1, VonMises, DisplPerm )
              END IF
 
-			 IF(CalcPrincipalAll) THEN
-				 Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress' )
-				 IF ( .NOT. ASSOCIATED( Var ) ) THEN
-					 ALLOCATE( PrincipalStress( 3*n ) )
-					 PrincipalStress = 0.0d0
-					 CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-								'Principal Stress', 3, PrincipalStress, DisplPerm )
-					 DO i=1,3
-						  PrincipalStressComp => PrincipalStress(i::3)
-						  CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
-							 'Principal Stress '//CHAR(i+ICHAR('0')), 1, PrincipalStressComp, DisplPerm )
-					 END DO
-				 END IF 
-				 Var => VariableGet( Solver % Mesh % Variables, 'Tresca' )
-				 IF ( .NOT. ASSOCIATED( Var ) ) THEN
-				   ALLOCATE( Tresca( n ) )
-				   CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-							   'Tresca', 1, Tresca, DisplPerm )
-				 END IF
-				
-				 IF(CalcPrincipalAngle) THEN
-					Var => VariableGet( Solver % Mesh % Variables, 'Principal Angle' )
-					IF ( .NOT. ASSOCIATED( Var ) ) THEN
-					 ALLOCATE( PrincipalAngle( 9*n ) )
-					 PrincipalAngle = 0.0d0
-					 CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-								'Principal Angle', 9, PrincipalAngle, DisplPerm )
-					 DO i=1,9
-						  PrincipalAngleComp => PrincipalAngle(i::9)
-						  CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
-							 'Principal Angle '//CHAR(i+ICHAR('0')), 1, PrincipalAngleComp, DisplPerm )
-					 END DO
-				 END IF
-				 END IF ! PrincipalAngle
-			 END IF !CalcPrincipalAll
+                   IF(CalcPrincipalAll) THEN
+                         Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress' )
+                         IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                               ALLOCATE( PrincipalStress( 3*n ) )
+                               PrincipalStress = 0.0d0
+                               CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                                                'Principal Stress', 3, PrincipalStress, DisplPerm )
+                               DO i=1,3
+                                      PrincipalStressComp => PrincipalStress(i::3)
+                                      CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
+                                           'Principal Stress '//CHAR(i+ICHAR('0')), 1, PrincipalStressComp, DisplPerm )
+                               END DO
+                         END IF 
+                         Var => VariableGet( Solver % Mesh % Variables, 'Tresca' )
+                         IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                           ALLOCATE( Tresca( n ) )
+                           CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                                             'Tresca', 1, Tresca, DisplPerm )
+                         END IF
+                        
+                         IF(CalcPrincipalAngle) THEN
+                              Var => VariableGet( Solver % Mesh % Variables, 'Principal Angle' )
+                              IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                               ALLOCATE( PrincipalAngle( 9*n ) )
+                               PrincipalAngle = 0.0d0
+                               CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                                                'Principal Angle', 9, PrincipalAngle, DisplPerm )
+                               DO i=1,9
+                                      PrincipalAngleComp => PrincipalAngle(i::9)
+                                      CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
+                                           'Principal Angle '//CHAR(i+ICHAR('0')), 1, PrincipalAngleComp, DisplPerm )
+                               END DO
+                         END IF
+                         END IF ! PrincipalAngle
+                   END IF !CalcPrincipalAll
 
           END IF ! CalcStress or CalcStressAll
 
-			IF(CalculateStrains) THEN
-	            Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
-	            IF ( .NOT. ASSOCIATED( Var ) ) THEN
-	              ALLOCATE( NodalStrain( 6*n ) )
-	!               NodalStrain = 0.0d0
-	              CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-	                'Strain', 6, NodalStrain, DisplPerm )
-	              DO i=1,6
-	                StrainComp => NodalStrain(i::6)
-	                CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
-	                  'Strain '//CHAR(i+ICHAR('0')), 1, StrainComp, DisplPerm )
-	              END DO
-	            END IF
-				IF(CalcPrincipalAll) THEN
-				 Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
-				 IF ( .NOT. ASSOCIATED( Var ) ) THEN
-					 ALLOCATE( PrincipalStrain( 3*n ) )
-					 PrincipalStrain = 0.0d0
-					 CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-								'Principal Strain', 3, PrincipalStrain, DisplPerm )
-					 DO i=1,3
-						  PrincipalStrainComp => PrincipalStrain(i::3)
-						  CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
-							 'Principal Strain '//CHAR(i+ICHAR('0')), 1, PrincipalStrainComp, DisplPerm )
-					 END DO
-				 END IF				
-				END IF
-			END IF !Calculate strains
+                  IF(CalculateStrains) THEN
+                  Var => VariableGet( Solver % Mesh % Variables, 'Strain' )
+                  IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                    ALLOCATE( NodalStrain( 6*n ) )
+      !               NodalStrain = 0.0d0
+                    CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                      'Strain', 6, NodalStrain, DisplPerm )
+                    DO i=1,6
+                      StrainComp => NodalStrain(i::6)
+                      CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
+                        'Strain '//CHAR(i+ICHAR('0')), 1, StrainComp, DisplPerm )
+                    END DO
+                  END IF
+                        IF(CalcPrincipalAll) THEN
+                         Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain' )
+                         IF ( .NOT. ASSOCIATED( Var ) ) THEN
+                               ALLOCATE( PrincipalStrain( 3*n ) )
+                               PrincipalStrain = 0.0d0
+                               CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                                                'Principal Strain', 3, PrincipalStrain, DisplPerm )
+                               DO i=1,3
+                                      PrincipalStrainComp => PrincipalStrain(i::3)
+                                      CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,Solver, &
+                                           'Principal Strain '//CHAR(i+ICHAR('0')), 1, PrincipalStrainComp, DisplPerm )
+                               END DO
+                         END IF                        
+                        END IF
+                  END IF !Calculate strains
 
 
 
@@ -672,26 +672,26 @@
         Var => VariableGet( Solver % Mesh % Variables, 'Stress', .TRUE. )
         StressPerm  => Var % Perm
         NodalStress => Var % Values
-		IF(CalcPrincipalAll) THEN
-			Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress', .TRUE. )
-			PrincipalStress => Var % Values
-			Var => VariableGet( Solver % Mesh % Variables, 'Tresca', .TRUE. )
-			Tresca => Var % Values		
-			IF(CalcPrincipalAngle) THEN
-				Var=>VariableGet( Solver % Mesh % Variables, 'Principal Angle', .TRUE.)
-				PrincipalAngle => Var % Values
-			END IF
-		END IF ! CalcPrincipal
+            IF(CalcPrincipalAll) THEN
+                  Var => VariableGet( Solver % Mesh % Variables, 'Principal Stress', .TRUE. )
+                  PrincipalStress => Var % Values
+                  Var => VariableGet( Solver % Mesh % Variables, 'Tresca', .TRUE. )
+                  Tresca => Var % Values            
+                  IF(CalcPrincipalAngle) THEN
+                        Var=>VariableGet( Solver % Mesh % Variables, 'Principal Angle', .TRUE.)
+                        PrincipalAngle => Var % Values
+                  END IF
+            END IF ! CalcPrincipal
      END IF
 
-	IF(CalculateStrains) THEN
-     	Var => VariableGet( Solver % Mesh % Variables, 'Strain', .TRUE. )
-     	NodalStrain => Var % Values
-		IF(CalcPrincipalAll) THEN
-			Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
-			PrincipalStrain => Var % Values
-		END IF 
-	END IF !CalculateStrains
+      IF(CalculateStrains) THEN
+           Var => VariableGet( Solver % Mesh % Variables, 'Strain', .TRUE. )
+           NodalStrain => Var % Values
+            IF(CalcPrincipalAll) THEN
+                  Var => VariableGet( Solver % Mesh % Variables, 'Principal Strain', .TRUE. )
+                  PrincipalStrain => Var % Values
+            END IF 
+      END IF !CalculateStrains
 
      IF ( ANY( UpdatePresent ) ) THEN
        RefDofs = ReferenceSol % DOFs
@@ -1127,8 +1127,8 @@ CONTAINS
        RayleighAlpha = 0.0d0
        RayleighBeta = 0.0d0
        IF( RayleighDamping ) THEN
-	  RayleighAlpha(1:N) = GetReal( Material, 'Rayleigh alpha', Found )
-	  RayleighBeta(1:N) = GetReal( Material, 'Rayleigh beta', Found )
+        RayleighAlpha(1:N) = GetReal( Material, 'Rayleigh alpha', Found )
+        RayleighBeta(1:N) = GetReal( Material, 'Rayleigh beta', Found )
        END IF
 
        CALL InputTensor( HeatExpansionCoeff, Isotropic(2),  &
@@ -1602,18 +1602,20 @@ CONTAINS
      REAL(KIND=dp), POINTER :: StressTemp(:)
 
      TYPE(Solver_t), POINTER :: StSolver
-     LOGICAL :: FirstTime = .TRUE., OptimizeBW, GlobalBubbles
+
+     LOGICAL :: FirstTime = .TRUE., OptimizeBW, GlobalBubbles, &
+          Factorize, FoundFactorize, FreeFactorize, FoundFreeFactorize
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
      SAVE Nodes, StSolver, ForceG, Permutation, SForceG
 
      ! These variables are needed for Principal stress calculation
-	 ! they are quite small and allocated even if principal stress calculation
-	 ! is not requested
-	 REAL(KIND=dp) :: PriCache(3,3), PriTmp, PriW(3),PriWork(102)
-	 INTEGER       :: PriN=3, PriLWork=102, PriInfo=0
-	 REAL(KIND=dp) :: PriAngT1=0, PriAngT2=0, PriAngV(3)=0
+     ! they are quite small and allocated even if principal stress calculation
+     ! is not requested
+     REAL(KIND=dp) :: PriCache(3,3), PriTmp, PriW(3),PriWork(102)
+     INTEGER       :: PriN=3, PriLWork=102, PriInfo=0
+     REAL(KIND=dp) :: PriAngT1=0, PriAngT2=0, PriAngV(3)=0
 
 !------------------------------------------------------------------------------
 
@@ -1622,7 +1624,7 @@ CONTAINS
      n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
      ALLOCATE( Indexes(n), LocalDisplacement(3,n) )
      ALLOCATE( MASS(n,n), FORCE(6*n) )
-	 ALLOCATE(SFORCE(6*n))
+       ALLOCATE(SFORCE(6*n))
      ALLOCATE( Basis(n), dBasisdx(n,3) )
 
      IF ( FirstTime .OR. Solver % Mesh % Changed ) THEN
@@ -1667,7 +1669,7 @@ CONTAINS
 
      Model % Solver => StSolver
      IF ( EigenAnalysis ) &
-       CALL ListAddLogical( stSolver % Values, 'Eigen Analysis', .FALSE. )
+       CALL ListAddLogical( SolverParams, 'Eigen Analysis', .FALSE. )
 
      Ident = 0.0d0
      DO i=1,3
@@ -1685,9 +1687,9 @@ CONTAINS
 
      NodalStress  = 0.0d0
      ForceG       = 0.0d0
-	 IF(CalculateStrains) THEN
-     	NodalStrain  = 0.0d0
-     	SForceG      = 0.0d0
+       IF(CalculateStrains) THEN
+           NodalStrain  = 0.0d0
+           SForceG      = 0.0d0
      END IF
      CALL DefaultInitialize()
 
@@ -1733,7 +1735,7 @@ CONTAINS
         ! -------------------------
         IntegStuff = GaussPoints( Element )
         Stress = 0.0d0
-		Strain  = 0.0d0
+            Strain  = 0.0d0
         MASS   = 0.0d0
         FORCE  = 0.0d0
         SFORCE = 0.0d0
@@ -1764,7 +1766,7 @@ CONTAINS
             DO j=i,3
               k = Ind( 3*(i-1)+j )
               FORCE(6*(p-1)+k) = FORCE(6*(p-1)+k) + Weight*Stress(i,j)*Basis(p)
-              SFORCE(6*(p-1)+k) = SFORCE(6*(p-1)+k) + Weight*Strain(i,j)*Basis(p)			
+              SFORCE(6*(p-1)+k) = SFORCE(6*(p-1)+k) + Weight*Strain(i,j)*Basis(p)                  
             END DO
             END DO
           END DO
@@ -1784,54 +1786,59 @@ CONTAINS
         END DO
       END DO
 
+      Factorize = GetLogical( SolverParams, 'Linear System Refactorize', FoundFactorize )
+      FreeFactorize = GetLogical( SolverParams, &
+              'Linear System Free Factorization', FoundFreeFactorize )
+
+      CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .FALSE. )
+      CALL ListAddLogical( SolverParams, 'Linear System Free Factorization', .FALSE. )
+
       DO i=1,3
       DO j=i,3
         k = IND(3*(i-1)+j)
 
         StSolver % Matrix % RHS = ForceG(k::6)
-		DO l=1,SIZE( Permutation )
-			IF ( Permutation(l) > 0 ) THEN
-				StSolver % Variable % Values(Permutation(l)) = &
-					NodalStress(6*(StressPerm(l)-1)+k)
-		    END IF
-		END DO		
-		
 
-        st = DefaultSolve()
         DO l=1,SIZE( Permutation )
-          IF ( Permutation(l) > 0 ) THEN
-            NodalStress(6*(StressPerm(l)-1)+k) = StSolver % Variable % Values(Permutation(l))
-          END IF
+          IF ( Permutation(l) <= 0 ) CYCLE
+          StSolver % Variable % Values(Permutation(l)) = NodalStress(6*(StressPerm(l)-1)+k)
+        END DO            
+            
+        st = DefaultSolve()
+
+        DO l=1,SIZE( Permutation )
+          IF ( Permutation(l) <= 0 ) CYCLE
+          NodalStress(6*(StressPerm(l)-1)+k) = StSolver % Variable % Values(Permutation(l))
         END DO
 
-		IF(CalculateStrains) THEN
-        	StSolver % Matrix % RHS = SForceG(k::6)
-			DO l=1,SIZE( Permutation )
-				IF ( Permutation(l) > 0 ) THEN
-					StSolver % Variable % Values(Permutation(l)) = &
-						NodalStrain(6*(StressPerm(l)-1)+k)		
-			    END IF
-			END DO		
-	!		StSolver % Variable % Values = 0	! this solves some convergence problems at the expence of bad convergence	
-	        st = DefaultSolve()
-	        DO l=1,SIZE( Permutation )
-	          IF ( Permutation(l) > 0 ) THEN
-	            NodalStrain(6*(StressPerm(l)-1)+k) = StSolver % Variable % Values(Permutation(l))
-	          END IF
-	        END DO
-	    END IF !CalculateStrains
-
-        IF ( k == 1 ) THEN
-          CALL ListAddLogical( StSolver % Values, 'UMF Factorize', .FALSE. )
-          CALL ListAddInteger( StSolver % Values, 'Linear System Precondition Recompute', 100 )
-        END IF
-
+        IF(CalculateStrains) THEN
+          StSolver % Matrix % RHS = SForceG(k::6)
+          DO l=1,SIZE( Permutation )
+            IF ( Permutation(l) <= 0 ) CYCLE
+            StSolver % Variable % Values(Permutation(l)) = NodalStrain(6*(StressPerm(l)-1)+k)            
+          END DO            
+          ! this solves some convergence problems at the expence of bad convergence      
+          ! StSolver % Variable % Values = 0
+          st = DefaultSolve()
+          DO l=1,SIZE( Permutation )
+            IF ( Permutation(l) <= 0 ) CYCLE
+            NodalStrain(6*(StressPerm(l)-1)+k) = StSolver % Variable % Values(Permutation(l))
+          END DO
+        END IF !CalculateStrains
       END DO
       END DO
 
-      CALL ListAddLogical( StSolver % Values, 'UMF Factorize', .TRUE. )
-      CALL ListAddInteger( StSolver % Values, 'Linear System Precondition Recompute', 1 )
+      IF ( FoundFactorize ) THEN
+        CALL ListAddLogical( SolverParams, 'Linear System Refactorize', Factorize )
+      ELSE
+        CALL ListRemove( SolverParams, 'Linear System Refactorize' )
+      END IF
 
+      IF ( .NOT. FoundFreeFactorize ) THEN
+        CALL ListRemove( SolverParams, 'Linear System Free Factorization' )
+      ELSE
+        CALL ListAddLogical( SolverParams, 'Linear System Free Factorization', FreeFactorize )
+      END IF
 
       ! Von Mises stress from the component nodal values:
       ! -------------------------------------------------
@@ -1859,117 +1866,114 @@ CONTAINS
 
       VonMises = SQRT( 3.0d0 * VonMises / 2.0d0 )
 
-	  !Principal stresses and Tresca
-	  IF(CalcPrincipalAll) THEN
-		DO i=1,SIZE( StressPerm )
-			IF ( StressPerm(i) <= 0 ) CYCLE	 
-			!Stresses: 
-			p = 0
-			DO j=1,3
-				DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
-					p = p+1
-					q = 6 * (StressPerm(i)-1) + IND(p)
-					PriCache(j,k) = NodalStress(q)
-				END DO
-			END DO
-			!Use lapack function to do solve eigenvalues (i.e. principal stresses)
-			CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
-			IF(PriInfo /= 0) THEN !error in dsyev
-				PriW = 0; !we probably should put NaN in error
-			END IF		  
+      !Principal stresses and Tresca
+      IF(CalcPrincipalAll) THEN
+        DO i=1,SIZE( StressPerm )
+          IF ( StressPerm(i) <= 0 ) CYCLE       
+          !Stresses: 
+          p = 0
+          DO j=1,3
+            DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
+              p = p+1
+              q = 6 * (StressPerm(i)-1) + IND(p)
+              PriCache(j,k) = NodalStress(q)
+            END DO
+          END DO
+          !Use lapack function to do solve eigenvalues (i.e. principal stresses)
+          CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
+          IF (PriInfo /= 0) THEN !error in dsyev
+            PriW = 0; !we probably should put NaN in error
+          END IF              
 
-			DO l=1,3
-				! eigenvalues are returned in opposite order 
-				PrincipalStress(3 * (StressPerm(i)-1 )+l) = PriW(4-l)				
-			END DO
+          DO l=1,3
+            ! eigenvalues are returned in opposite order 
+            PrincipalStress(3 * (StressPerm(i)-1 )+l) = PriW(4-l)                        
+          END DO
 
-			IF(CalcPrincipalAngle) THEN
-				!DSYEV has changed the vector, so well copy it again from NodalStress
-				p=0
-				DO j=1,3
-					DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
-						p = p+1
-						q = 6 * (StressPerm(i)-1) + IND(p)
-						PriCache(j,k) = NodalStress(q)
-					END DO
-				END DO
+          IF(CalcPrincipalAngle) THEN
+            !DSYEV has changed the vector, so well copy it again from NodalStress
+            p=0
+            DO j=1,3
+              DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
+                 p = p+1
+                 q = 6 * (StressPerm(i)-1) + IND(p)
+                 PriCache(j,k) = NodalStress(q)
+              END DO
+            END DO
 
-				DO k=1,3 ! for all principal stresses
-				    ! This is where things get _very_ heary. The code below
-					! solves the following equation system:
-					!  (s11-p)v1 + s12*v2 + s13*v3=0
-					!  s12*v1    + (s22-p)*v2 + s23*v3=0
-					!  v1**2 + v2**2 + v3**2 = 1
-					!  where v1...3 are the directional cosines of the primary stresses,
-					!        sij are the stress matrix components and
-					!        p   is the primary stress in question  
-					! The code is practically unreadable.
-					! This code unit has been tested with the non-trivial
-					! known solutions from following textbooks:
-					!   Pennala, E. 1992. Lujuusopin Perusteet
-					!   Shames, I. H., Cozzarelli, F., A. Elastic and inelastic stress analysis
-					PriAngT1 =( PriCache(1,2) + &
-						 ((PriCache(2,2)-PriW(4-k)) * (PriCache(1,1)-PriW(4-k))) / &
-						 (-PriCache(1,2) ) ) / & 
-						(((PriCache(2,2)-PriW(4-k))*PriCache(1,3))/&
-						  PriCache(1,2) - PriCache(2,3) )
-					PriAngT2 =(PriCache(1,1)-PriW(4-k))/(PriCache(1,2)) + &
-						 PriAngT1*PriCache(1,3)/PriCache(1,2)
-					PriAngV(1) = (1/(1+PriAngT1**2 + PriAngT2**2))**0.5
-					PriAngV(2) = -PriAngT2 * PriAngV(1)
-					PriAngV(3) = PriAngT1 * PriAngV(1)
+            DO k=1,3 ! for all principal stresses
+              ! This is where things get _very_ heary. The code below
+              ! solves the following equation system:
+              !   (s11-p)v1 + s12*v2 + s13*v3=0
+              !   s12*v1    + (s22-p)*v2 + s23*v3=0
+              !   v1**2 + v2**2 + v3**2 = 1
+              !   where v1...3 are the directional cosines of the primary stresses,
+              !   sij are the stress matrix components and
+              !   p   is the primary stress in question  
+              ! The code is practically unreadable.
+              ! This code unit has been tested with the non-trivial
+              ! known solutions from following textbooks:
+              !   Pennala, E. 1992. Lujuusopin Perusteet
+              !   Shames, I. H., Cozzarelli, F., A. Elastic and inelastic stress analysis
+              PriAngT1 =( PriCache(1,2) + &
+                 ((PriCache(2,2)-PriW(4-k)) * (PriCache(1,1)-PriW(4-k))) / &
+                 (-PriCache(1,2) ) ) / & 
+                (((PriCache(2,2)-PriW(4-k))*PriCache(1,3))/&
+                  PriCache(1,2) - PriCache(2,3) )
+              PriAngT2 =(PriCache(1,1)-PriW(4-k))/(PriCache(1,2)) + &
+                     PriAngT1*PriCache(1,3)/PriCache(1,2)
+              PriAngV(1) = (1/(1+PriAngT1**2 + PriAngT2**2))**0.5
+              PriAngV(2) = -PriAngT2 * PriAngV(1)
+              PriAngV(3) = PriAngT1 * PriAngV(1)
 
-					PrincipalAngle(9 * (StressPerm(i)-1 ) +3*(k-1) + 1)    = &
-							(ACOS(PriAngV(1)) ) !angle in radians *360/6.28
-					PrincipalAngle(9 * (StressPerm(i)-1 ) +3*(k-1) + 2) = &
-							(ACOS(PriAngV(2)) ) !angle in radians *360/6.28
-					PrincipalAngle(9 * (StressPerm(i)-1 ) +3*(k-1) + 3) = &
-							(ACOS(PriAngV(3)) ) !angle in radians *360/6.28					
-				END DO
-				
-			END IF
+              PrincipalAngle(9 * (StressPerm(i)-1 ) +3*(k-1) + 1)    = &
+                          (ACOS(PriAngV(1)) ) !angle in radians *360/6.28
+              PrincipalAngle(9 * (StressPerm(i)-1 ) +3*(k-1) + 2) = &
+                          (ACOS(PriAngV(2)) ) !angle in radians *360/6.28
+              PrincipalAngle(9 * (StressPerm(i)-1 ) +3*(k-1) + 3) = &
+                          (ACOS(PriAngV(3)) ) !angle in radians *360/6.28                              
+            END DO
+          END IF
 
-			!Tresca				
-			Tresca(StressPerm(i)) = (PrincipalStress(3*(StressPerm(i)-1) +1) - PrincipalStress(3*(StressPerm(i)-1) +2))/2
-			PriTmp = (PrincipalStress(3*(StressPerm(i)-1) +2) - PrincipalStress(3*(StressPerm(i)-1) +3))/2
-			IF (PriTmp > Tresca(StressPerm(i)) ) Tresca(StressPerm(i)) = PriTmp
-			PriTmp = (PrincipalStress(3*(StressPerm(i)-1) +1) - PrincipalStress(3*(StressPerm(i)-1) +3))/2
-			IF (PriTmp > Tresca(StressPerm(i)) ) Tresca(StressPerm(i)) = PriTmp
-			
-			
-			!Strain:
-			IF(CalculateStrains)THEN
-				p = 0
-				DO j=1,3
-					DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
-						p = p+1
-						q = 6 * (StressPerm(i)-1) + IND(p)
-						PriCache(j,k) = NodalStrain(q)
-					END DO
-				END DO
-			
-				!Use lapack function to do solve eigenvalues
-				CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
-				IF(PriInfo /= 0) THEN
-					PriW = 0;
-				END IF		  
-				DO l=1,3
-					! eigenvalues are returned in opposite order 
-					PrincipalStrain(3 * (StressPerm(i)-1 )+l) = PriW(4-l)
-				END DO
-			END IF ! CalculateStrains
-			
-	    END DO
-	  END IF ! Calculate Principal
-	  
+          !Tresca                        
+          Tresca(StressPerm(i)) = (PrincipalStress(3*(StressPerm(i)-1) +1) - &
+                       PrincipalStress(3*(StressPerm(i)-1) +2))/2
+          PriTmp = (PrincipalStress(3*(StressPerm(i)-1) +2) - &
+                       PrincipalStress(3*(StressPerm(i)-1) +3))/2
+          IF (PriTmp > Tresca(StressPerm(i)) ) Tresca(StressPerm(i)) = PriTmp
 
-
+          PriTmp = (PrincipalStress(3*(StressPerm(i)-1) +1) - &
+                       PrincipalStress(3*(StressPerm(i)-1) +3))/2
+          IF (PriTmp > Tresca(StressPerm(i)) ) Tresca(StressPerm(i)) = PriTmp
+          
+          !Strain:
+          IF(CalculateStrains)THEN
+            p = 0
+            DO j=1,3
+              DO k=1,3 ! TODO only upper triangle should be filled, this is is wasteful
+                p = p+1
+                q = 6 * (StressPerm(i)-1) + IND(p)
+                PriCache(j,k) = NodalStrain(q)
+              END DO
+            END DO
+      
+            !Use lapack function to do solve eigenvalues
+            CALL DSYEV( 'N', 'U', 3, PriCache, 3, PriW, PriWork, PriLWork, PriInfo )
+            IF(PriInfo /= 0) PriW = 0;
+            DO l=1,3
+              ! eigenvalues are returned in opposite order 
+              PrincipalStrain(3 * (StressPerm(i)-1 )+l) = PriW(4-l)
+            END DO
+          END IF ! CalculateStrains
+        END DO
+      END IF ! Calculate Principal
 
       DEALLOCATE( Basis, dBasisdx )
       DEALLOCATE( Indexes, LocalDisplacement, MASS, FORCE )
+
       IF ( EigenAnalysis ) &
-        CALL ListAddLogical( stSolver % Values, 'Eigen Analysis', .TRUE. )
-      CALL ListAddConstReal( StSolver % Values,'Nonlinear System Relaxation Factor', Relax )
+        CALL ListAddLogical( SolverParams, 'Eigen Analysis', .TRUE. )
+      CALL ListAddConstReal( SolverParams,'Nonlinear System Relaxation Factor', Relax )
 
       Model % Solver => Solver
 !------------------------------------------------------------------------------

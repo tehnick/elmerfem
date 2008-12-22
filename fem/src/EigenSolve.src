@@ -117,6 +117,8 @@ CONTAINS
                        NCONV, maxitr, ishfts, mode, istat
       LOGICAL   ::     First, Stat, Direct = .FALSE., &
                        Iterative = .FALSE., NewSystem, Damped, Stability
+
+      LOGICAL :: Factorize, FreeFactorize,FoundFactorize,FoundFreeFactorize
       REAL(KIND=dp) :: SigmaR, SigmaI, TOL
 
       COMPLEX(KIND=dp) :: s
@@ -268,6 +270,15 @@ CONTAINS
 
 !     Compute LU-factors for (A-\sigma M) (if consistent mass matrix)
 !
+      Factorize = ListGetLogical( Solver % Values, &
+            'Linear System Refactorize', FoundFactorize )
+      CALL ListAddLogical( Solver % Values, 'Linear System Refactorize',.TRUE. )
+
+      FreeFactorize = ListGetLogical( Solver % Values, &
+                'Linear System Refactorize', FoundFreeFactorize )
+      CALL ListAddLogical( Solver % Values,  &
+                     'Linear System Free Factorization',.FALSE. )
+
       IF ( .NOT. Matrix % Lumped ) THEN
          SigmaR = ListGetConstReal( Solver % Values,'Eigen System Shift', stat )
          IF ( SigmaR /= 0.0d0 ) THEN
@@ -281,7 +292,6 @@ CONTAINS
             DirectMethod = ListGetString( Solver % Values, &
               'Linear System Direct Method', stat )
 
-            CALL ListAddLogical( Solver % Values, 'UMF Factorize', .TRUE. )
             SELECT CASE( DirectMethod )
             CASE DEFAULT
                Stat = CRS_ILUT(Matrix, 0.0d0)
@@ -412,13 +422,23 @@ CONTAINS
             IF ( Iterative ) THEN
                CALL ListAddLogical( Solver % Values,  'No Precondition Recompute', .TRUE. )
             ELSE
-               CALL ListAddLogical( Solver % Values, 'UMF Factorize', .FALSE. )
+               CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', .FALSE. )
             END IF
             NewSystem = .FALSE.
          END IF
        END DO
 
-       CALL ListAddLogical( Solver % Values, 'UMF Factorize', .TRUE. )
+      IF ( FoundFactorize ) THEN
+        CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', Factorize )
+      ELSE
+        CALL ListRemove( Solver % Values, 'Linear System Refactorize' )
+      END IF
+
+      IF ( .NOT. FoundFreeFactorize ) THEN
+        CALL ListRemove( Solver % Values, 'Linear System Free Factorization' )
+      ELSE
+        CALL ListAddLogical( Solver % Values, 'Linear System Free Factorization', FreeFactorize )
+      END IF
 
 !     %-----------------------------------------%
 !     | Either we have convergence, or there is |
@@ -665,9 +685,10 @@ END SUBROUTINE CheckResiduals
       CHARACTER ::     BMAT*1, Which*2, DirectMethod*200
       INTEGER   ::     IDO, NCV, lWORKL, kinfo, i, j, k, l, p, IERR, iter, &
                        NCONV, maxitr, ishfts, mode, istat
-      LOGICAL   ::     First, Stat, Direct = .FALSE., &
+      LOGICAL   ::     First, Stat, Direct = .FALSE., FactorizeSetting, &
                        Iterative = .FALSE., NewSystem, &
                        rvec = .TRUE.
+      LOGICAL :: Factorize, FreeFactorize,FoundFactorize,FoundFreeFactorize
       REAL(KIND=dp) :: SigmaR, SigmaI, TOL
 
       COMPLEX(KIND=dp) :: s
@@ -761,13 +782,21 @@ END SUBROUTINE CheckResiduals
       V = 0.0d0
       D = 0.0d0
 
+      Factorize = ListGetLogical( Solver % Values, &
+            'Linear System Refactorize', FoundFactorize )
+      CALL ListAddLogical( Solver % Values, 'Linear System Refactorize',.TRUE. )
+
+      FreeFactorize = ListGetLogical( Solver % Values, &
+                'Linear System Refactorize', FoundFreeFactorize )
+      CALL ListAddLogical( Solver % Values,  &
+                     'Linear System Free Factorization',.FALSE. )
+
       Direct = ListGetString( Solver % Values, &
            'Linear System Solver', stat ) == 'direct'
       IF ( Direct ) THEN
          DirectMethod = ListGetString( Solver % Values, &
            'Linear System Direct Method', stat )
 
-         CALL ListAddLogical( Solver % Values, 'UMF Factorize', .TRUE. )
          SELECT CASE( DirectMethod )
          CASE DEFAULT
             Stat = CRS_ILUT(Matrix, 0.0d0)
@@ -837,7 +866,7 @@ END SUBROUTINE CheckResiduals
             IF ( Iterative ) THEN
                CALL ListAddLogical( Solver % Values,  'No Precondition Recompute', .TRUE. )
             ELSE
-               CALL ListAddLogical( Solver % Values, 'UMF Factorize', .FALSE. )
+               CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', .FALSE. )
             END IF
             NewSystem = .FALSE.
          END IF
@@ -845,7 +874,17 @@ END SUBROUTINE CheckResiduals
 !-----------------------------------------------------------------------------------------      
       END DO  ! ido == 99
 
-      CALL ListAddLogical( Solver % Values, 'UMF Factorize', .TRUE. )
+      IF ( FoundFactorize ) THEN
+        CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', Factorize )
+      ELSE
+        CALL ListRemove( Solver % Values, 'Linear System Refactorize' )
+      END IF
+
+      IF ( .NOT. FoundFreeFactorize ) THEN
+        CALL ListRemove( Solver % Values, 'Linear System Free Factorization' )
+      ELSE
+        CALL ListAddLogical( Solver % Values, 'Linear System Free Factorization', FreeFactorize )
+      END IF
 !
 !     %-----------------------------------------%
 !     | Either we have convergence, or there is |
@@ -1157,6 +1196,10 @@ END SUBROUTINE CheckResiduals
 !
 !     Compute LU-factors for (A-\sigma M) (if consistent mass matrix)
 !
+      CALL ListAddLogical( Solver % Values, 'Linear System Refactorize',.TRUE.)
+      CALL ListAddLogical( Solver % Values, &
+                       'Linear System Free Factorization',.FALSE.)
+
       IF ( .NOT. Matrix % Lumped ) THEN
          Direct = ListGetString( Solver % Values, &
            'Linear System Solver', stat ) == 'direct'
@@ -1294,11 +1337,15 @@ END SUBROUTINE CheckResiduals
             IF ( Iterative ) THEN
                CALL ListAddLogical( Solver % Values,  'No Precondition Recompute', .TRUE. )
             ELSE
-               CALL ListAddLogical( Solver % Values, 'UMF Factorize', .FALSE. )
+               CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', .FALSE. )
             END IF
             NewSystem = .FALSE.
          END IF
        END DO
+
+       CALL ListAddLogical( Solver % Values, 'Linear System Refactorize', .TRUE. )
+       CALL ListAddLogical( Solver % Values, &
+                           'Linear System Free Factorization', .TRUE. )
 !
 !     %-----------------------------------------%
 !     | Either we have convergence, or there is |
