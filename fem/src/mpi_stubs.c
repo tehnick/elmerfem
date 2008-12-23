@@ -59,7 +59,6 @@ void STDCALLBULL FC_FUNC_(mpi_win_post,MPI_WIN_POST) () {}
 void STDCALLBULL FC_FUNC_(mpi_win_wait,MPI_WIN_WAIT) () {}
 void STDCALLBULL FC_FUNC_(mpi_waitsome,MPI_WAITSOME) () {}
 
-
 void STDCALLBULL MPI_Type_free() {}
 void STDCALLBULL MPI_Startall() {}
 void STDCALLBULL MPI_Gather() {}
@@ -86,6 +85,12 @@ void STDCALLBULL MPI_Type_commit() {}
 void STDCALLBULL MPI_Recv_init() {}
 void STDCALLBULL MPI_Wtime() {}
 void STDCALLBULL MPI_Send_init() {}
+void MPI_Probe() {}
+void MPI_Send() {}
+void MPI_Get_count() {}
+void MPI_Type_vector() {}
+void MPI_Irsend() {}
+#endif
 
 void hpmp_flinteroperate() {}
 void hpmp_max() {}
@@ -96,14 +101,8 @@ void hpmp_int() {}
 void hpmp_double() {}
 void hpmp_comm_world() {}
 
-void MPI_Probe() {}
-void MPI_Send() {}
 void hpmp_long() {}
-void MPI_Get_count() {}
-void MPI_Type_vector() {}
-void MPI_Irsend() {}
 void hpmp_lor() {}
-#endif
 
 /* parpack */
 void STDCALLBULL FC_FUNC(pdneupd,PDNEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26, void *g27, void *g28,void *g29 ) {}

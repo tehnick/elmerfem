@@ -3701,9 +3701,12 @@ CONTAINS
        IF ( Solver % MultiGridSolver ) THEN
           CALL MultiGridSolve( A, x, b, &
                  DOFs, Solver, Solver % MultiGridLevel )
-       ELSE
+       ELSE IF ( ListGetString( Solver % Values, &
+               'Linear System Solver', GotIt ) == 'iterative' ) THEN
           CALL ParallelIter( A, A % ParallelInfo, DOFs, &
                    x, b, Solver, A % ParMatrix )
+       ELSE
+           CALL DirectSolver( A, x, b, Solver )
        END IF
     END IF
 
