@@ -385,7 +385,9 @@ VtkPost::VtkPost(QWidget *parent)
 #endif
 
   QScriptValue egpValue = engine->newQObject(this);
+#ifdef EG_MATC
   QScriptValue matcValue = engine->newQObject(matc);
+#endif
   QScriptValue surfacesValue = engine->newQObject(surface);
   QScriptValue vectorsValue = engine->newQObject(vector);
   QScriptValue isoContoursValue = engine->newQObject(isoContour);
@@ -397,7 +399,9 @@ VtkPost::VtkPost(QWidget *parent)
   QScriptValue textValue = engine->newQObject(text);
 
   engine->globalObject().setProperty("egp", egpValue);
+#ifdef EG_MATC
   engine->globalObject().setProperty("matc", matcValue);
+#endif
   engine->globalObject().setProperty("surfaces", surfacesValue);
   engine->globalObject().setProperty("vectors", vectorsValue);
   engine->globalObject().setProperty("isoContours", isoContoursValue);
@@ -409,7 +413,9 @@ VtkPost::VtkPost(QWidget *parent)
   engine->globalObject().setProperty("text", textValue);
 
   ecmaConsole->addNames("egp", this->metaObject());
+#ifdef EG_MATC
   ecmaConsole->addNames("matc", matc->metaObject());
+#endif
   ecmaConsole->addNames("surfaces", surface->metaObject());
   ecmaConsole->addNames("vectors", vector->metaObject());
   ecmaConsole->addNames("isoContours", isoContour->metaObject());
