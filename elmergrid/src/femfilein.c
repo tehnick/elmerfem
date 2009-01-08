@@ -3224,6 +3224,22 @@ static int GmshToElmerType(int gmshtype)
     elmertype = 101;
     break;
 
+  case 16:
+    elmertype = 408;
+    break;
+  case 17:
+    elmertype = 820;
+    break;
+  case 18:
+    elmertype = 715;
+    break;
+  case 19:
+    elmertype = 613;
+    break;
+  case 21:
+    elmertype = 310;
+    break;
+
   default:
     printf("Gmsh element %d does not have an Elmer counterpart!\n",gmshtype);
   }
@@ -3232,28 +3248,52 @@ static int GmshToElmerType(int gmshtype)
 }
 
 
-static void GmshToElmerIndx(int elemtype,int elemind[])
+static void GmshToElmerIndx(int elemtype,int *topology)
 {
-  int tmpind[MAXNODESD2];
+  int i,j,oldtopology[MAXNODESD2],nodes;
+  int reorder, *porder;
+
+  int order510[]={0,1,2,3,4,5,6,7,9,8};
+  int order613[]={0,1,2,3,4,5,8,10,6,7,9,11,12};
+  int order715[]={0,1,2,3,4,5,6,9,7,8,10,11,12,14,13};
+  int order820[]={0,1,2,3,4,5,6,7,8,11,12,9,10,12,14,15,16,18,19,17};
+
+
+  nodes = elemtype % 100;
+
+  reorder = FALSE;
 
   switch (elemtype) {
       
   case 510:        
-    tmpind[8] = elemind[8];
-    tmpind[9] = elemind[9];
-    elemind[8] = tmpind[9];
-    elemind[9] = tmpind[8];    
+    reorder = TRUE;
+    porder = &order510[0];
     break;
 
-    /* There seems to be conflicting data whether this is needed or not 
-  case 306:        
-    tmpind[4] = elemind[4];
-    tmpind[5] = elemind[5];
-    elemind[4] = tmpind[5];
-    elemind[5] = tmpind[4];    
-    break; */
+  case 613:        
+    reorder = TRUE;
+    porder = &order613[0];
+    break;
+
+  case 715:        
+    reorder = TRUE;
+    porder = &order715[0];
+    break;
+
+  case 820:        
+    reorder = TRUE;
+    porder = &order820[0];
+    break;
+
   }
 
+  if( reorder ) {
+    nodes = elemtype % 100;
+    for(i=0;i<nodes;i++) 
+      oldtopology[i] = topology[i];
+    for(i=0;i<nodes;i++) 
+      topology[i] = oldtopology[porder[i]];
+  }
 }
 
 
@@ -3507,27 +3547,25 @@ omstart:
 	  data->elementtypes[i] = elementtype;
 
 	  /* Point does not seem to have physical properties */
-	  tagmat = 0;
-	  if(gmshtype != 15) {
-	    notags = next_int(&cp);
-	    if(notags > 0) tagphys = next_int(&cp);
-	    if(notags > 1) taggeom = next_int(&cp);
-	    if(notags > 2) tagpart = next_int(&cp);
-	    for(j=4;j<=notags;j++)
-	      next_int(&cp);
-	    if(tagphys) {
-	      tagmat = tagphys;
-	    }
-	    else {
-	      tagmat = taggeom;
-	      usetaggeom = TRUE;
-	    }
-	  }
-	  data->material[i] = tagmat;
+	  notags = next_int(&cp);
+	  if(notags > 0) tagphys = next_int(&cp);
+	  if(notags > 1) taggeom = next_int(&cp);
+	  if(notags > 2) tagpart = next_int(&cp);
+	  for(j=4;j<=notags;j++)
+	    next_int(&cp);
 
+	  if(tagphys) {
+	    tagmat = tagphys;
+	  }
+	  else {
+	    tagmat = taggeom;
+	    usetaggeom = TRUE;
+	  }
+
+	  data->material[i] = tagmat;
 	  for(j=0;j<elemnodes;j++)
 	    elemind[j] = next_int(&cp);
-	  
+
 	  GmshToElmerIndx(elementtype,elemind);	  
 
 	  for(j=0;j<elemnodes;j++)
@@ -3637,9 +3675,16 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
 
   if(strstr(line,"$MeshFormat")) 
     errno = LoadGmshInput2(data,bound,filename,info);
-  else 
+  else {
+    printf("*****************************************************\n");
+    printf("The $MeshFormat was not given, assuming Gmsh 1 format\n");
+    printf("This version of Gmsh format is no longer supported\n");
+    printf("Please use Gsmh 2 version for output\n");
+    printf("*****************************************************\n");
+    
     errno = LoadGmshInput1(data,bound,filename,info);
-     
+  }     
+
   return(errno);
 }
 
