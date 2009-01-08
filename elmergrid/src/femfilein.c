@@ -3423,6 +3423,7 @@ static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
   int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
   int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
   int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype,elemdim;
+  int usetaggeom,tagmat,verno;
   FILE *in;
   char *cp,line[MAXLINESIZE];
 
@@ -3438,6 +3439,7 @@ static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
   maxnodes = 0;
   maxindx = 0;
   maxelemtype = 0;
+  usetaggeom = FALSE;
 
 omstart:
 
@@ -3449,6 +3451,13 @@ omstart:
     /* Header info is not much needed */
     if(!strncasecmp(line,"$MeshFormat",11)) {
       Getrow(line,in,TRUE);
+      cp = line;
+      verno = next_int(&cp);
+
+      if(verno != 2) {
+	printf("Version number is not compatible with the parser: %d\n",verno);
+      }
+
       Getrow(line,in,TRUE);
       if(strncasecmp(line,"$EndMeshFormat",14)) {
 	printf("MeshFormat section should end to string $EndMeshFormat\n");
@@ -3498,7 +3507,7 @@ omstart:
 	  data->elementtypes[i] = elementtype;
 
 	  /* Point does not seem to have physical properties */
-	  tagphys = 0;
+	  tagmat = 0;
 	  if(gmshtype != 15) {
 	    notags = next_int(&cp);
 	    if(notags > 0) tagphys = next_int(&cp);
@@ -3506,8 +3515,15 @@ omstart:
 	    if(notags > 2) tagpart = next_int(&cp);
 	    for(j=4;j<=notags;j++)
 	      next_int(&cp);
+	    if(tagphys) {
+	      tagmat = tagphys;
+	    }
+	    else {
+	      tagmat = taggeom;
+	      usetaggeom = TRUE;
+	    }
 	  }
-	  data->material[i] = tagphys;
+	  data->material[i] = tagmat;
 
 	  for(j=0;j<elemnodes;j++)
 	    elemind[j] = next_int(&cp);
@@ -3522,6 +3538,14 @@ omstart:
 	}
 	
       }
+      getline;
+    }
+    else if(!strncasecmp(line,"$PhysicalNames",14)) {
+      if(info) printf("Physical names are not accounted for\n");
+      getline;
+      cp = line;
+      i = next_int(&cp);
+      for(;i>0;i--) getline;
       getline;
     }
     else {
@@ -3575,6 +3599,12 @@ omstart:
 
   if(1) ElementsToBoundaryConditions(data,bound,info);
 
+  /* The geometric entities are rather randomly numbered */
+  if( usetaggeom ) {
+    RenumberBoundaryTypes(data,bound,TRUE,0,info);
+    RenumberMaterialTypes(data,bound,info);
+  }
+
   if(info) printf("Succesfully read the mesh from the Gmsh input file.\n");
 
   return(0);
@@ -3598,12 +3628,16 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
     }
   }
 
-  Getrow(line,in,TRUE);
+  Getrow(line,in,FALSE);
   fclose(in);
 
-  if(strstr(line,"MESHFORMAT")) 
+  if(info) {
+    printf("Format chosen using the first line: %s",line);
+  }
+
+  if(strstr(line,"$MeshFormat")) 
     errno = LoadGmshInput2(data,bound,filename,info);
-  else
+  else 
     errno = LoadGmshInput1(data,bound,filename,info);
      
   return(errno);

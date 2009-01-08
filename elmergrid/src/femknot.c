@@ -3817,13 +3817,15 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 {
   int i,j,k,l,doinit;
   int minbc,maxbc,*mapbc;
-  
+  int elemdim,bccum,elemtype,*mapdim,sideind[MAXNODESD1];
+
   if(renumber) {
-    if(info) printf("Renumbering boundary types\n");
+    if(0) printf("Renumbering boundary types\n");
     
     doinit = TRUE;
     for(j=0;j < MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
+
       for(i=1;i<=bound[j].nosides;i++) {
 	if(doinit) {
 	  maxbc = minbc = bound[j].types[i];
@@ -3836,28 +3838,39 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
     if(doinit) return;
     
     mapbc = Ivector(minbc,maxbc);
-    for(i=minbc;i<=maxbc;i++) mapbc[i] = 0;
+    mapdim = Ivector(minbc,maxbc);
+    for(i=minbc;i<=maxbc;i++) mapbc[i] = mapdim[i] = 0;
     
     for(j=0;j < MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
-      for(i=1;i<=bound[j].nosides;i++)
+      for(i=1;i<=bound[j].nosides;i++) {
+	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,sideind,&elemtype);
+	elemdim = GetElementDimension(elemtype);
 	mapbc[bound[j].types[i]] = TRUE;
+	mapdim[bound[j].types[i]] = elemdim;
+      }
     }
     
     j = 0;
-    for(i=minbc;i<=maxbc;i++) 
-      if(mapbc[i]) {
-	j++;
-	mapbc[i] = j;
-      }    
+    /* Give the larger dimension always a smaller BC type */
+    for(elemdim==2;elemdim>=0;elemdim--) {
+      for(i=minbc;i<=maxbc;i++) {
+	if(mapdim[i] != elemdim) continue;
+	if(mapbc[i]) {
+	  j++;
+	  mapbc[i] = j;
+	}    
+      }
+    }
 
     if(maxbc - minbc >= j || minbc != 1) { 
       if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
     
       for(j=0;j < MAXBOUNDARIES;j++) {
 	if(!bound[j].created) continue;
-	for(i=1;i<=bound[j].nosides;i++)
+	for(i=1;i<=bound[j].nosides;i++) {
 	  bound[j].types[i] = mapbc[bound[j].types[i]];
+	}
       }
       if(data->boundarynamesexist) {
 	for(j=minbc;j<=MIN(maxbc,MAXBODIES-1);j++) {
@@ -3882,9 +3895,6 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
-  else {
-    if(info) printf("BCs ordered continously between %d and %d\n",minbc,maxbc);
-  }
 }  
   
 
@@ -3894,7 +3904,7 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
   int i,j,k,l,noelements,doinit;
   int minmat,maxmat,*mapmat;
   
-  if(info) printf("Setting new material types\n");
+  if(0) printf("Setting new material types\n");
   
   noelements = data->noelements;
   if(noelements < 1) {
