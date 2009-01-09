@@ -518,7 +518,10 @@
         CALL ListAddConstReal( Model % Simulation, &
              'RES: CurrentSolver Scaling', ControlScaling )
 
-        Potential = ControlScaling * Potential
+	IF( ListGetLogical( Solver % Values,'Potential Control',GotIt) ) THEN
+	  Potential = ControlScaling * Potential
+        END IF
+
         IF ( CalculateHeating )  Heating = ControlScaling**2 * Heating
         IF ( CalculateCurrent )  VolCurrent = ControlScaling * VolCurrent
      END IF
