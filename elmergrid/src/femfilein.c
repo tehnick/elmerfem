@@ -31,8 +31,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <strings.h>
-#include <unistd.h>
+/*#include <strings.h>*/
+/*include <unistd.h>*/
 
 #include "nrutil.h"
 #include "common.h"
@@ -3180,7 +3180,7 @@ end:
 
 static int GmshToElmerType(int gmshtype)
 {
-  int elmertype;
+  int elmertype = 0;
 
   switch (gmshtype) {
       
@@ -3250,7 +3250,7 @@ static int GmshToElmerType(int gmshtype)
 
 static void GmshToElmerIndx(int elemtype,int *topology)
 {
-  int i,j,oldtopology[MAXNODESD2],nodes;
+  int i=0,nodes=0,oldtopology[MAXNODESD2];
   int reorder, *porder;
 
   int order510[]={0,1,2,3,4,5,6,7,9,8};
@@ -3258,8 +3258,6 @@ static void GmshToElmerIndx(int elemtype,int *topology)
   int order715[]={0,1,2,3,4,5,6,9,7,8,10,11,12,14,13};
   int order820[]={0,1,2,3,4,5,6,7,8,11,12,9,10,12,14,15,16,18,19,17};
 
-
-  nodes = elemtype % 100;
 
   reorder = FALSE;
 
@@ -3300,7 +3298,7 @@ static void GmshToElmerIndx(int elemtype,int *topology)
 static int LoadGmshInput1(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim;
+  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim;
   int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
   int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
   int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype,elemdim;
@@ -3459,7 +3457,7 @@ allocate:
 static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim,notags;
+  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim,notags;
   int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
   int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
   int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype,elemdim;
@@ -3484,13 +3482,12 @@ static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
 omstart:
 
   for(;;) {
-    if(Getrow(line,in,TRUE)) goto end;
+    if(Getrow(line,in,FALSE)) goto end;
     if(!line) goto end;
-    if(strstr(line,"END")) continue;
+    if(strstr(line,"$End")) continue;
 
-    /* Header info is not much needed */
-    if(!strncasecmp(line,"$MeshFormat",11)) {
-      Getrow(line,in,TRUE);
+    if(strstr(line,"$MeshFormat")) {
+      getline;
       cp = line;
       verno = next_int(&cp);
 
@@ -3498,17 +3495,16 @@ omstart:
 	printf("Version number is not compatible with the parser: %d\n",verno);
       }
 
-      Getrow(line,in,TRUE);
-      if(strncasecmp(line,"$EndMeshFormat",14)) {
-	printf("MeshFormat section should end to string $EndMeshFormat\n");
+      getline;
+      if(!strstr(line,"$EndMeshFormat")) {
+	printf("$MeshFormat section should end to string $EndMeshFormat:\n");
 	printf("%s\n",line);
       }      
     }
       
-    else if(!strncasecmp(line,"$Nodes",6)) {
+    else if(strstr(line,"$Nodes")) {
       getline;
       cp = line;
-
       noknots = next_int(&cp);
 
       for(i=1; i <= noknots; i++) {
@@ -3527,9 +3523,13 @@ omstart:
 	}
       }
       getline;
+      if(!strstr(line,"$EndNodes")) {
+	printf("$Nodes section should end to string $EndNodes:\n");
+	printf("%s\n",line);
+      }           
     }
     
-    else if(!strncasecmp(line,"$Elements",9)) {
+    else if(strstr(line,"$Elements")) {
       getline;
       cp = line;
       noelements = next_int(&cp);
@@ -3577,14 +3577,23 @@ omstart:
 	
       }
       getline;
+      if(!strstr(line,"$EndElements")) {
+	printf("$Elements section should end to string $EndElements:\n");
+	printf("%s\n",line);
+      }   
     }
-    else if(!strncasecmp(line,"$PhysicalNames",14)) {
+    else if(strstr(line,"$PhysicalNames")) {
       if(info) printf("Physical names are not accounted for\n");
       getline;
       cp = line;
       i = next_int(&cp);
       for(;i>0;i--) getline;
+
       getline;
+      if(!strstr(line,"$EndPhysicalNames")) {
+	printf("$PhysicalNames section should end to string $EndPhysicalNames:\n");
+	printf("%s\n",line);
+      }   
     }
     else {
       if(!allocated) printf("Untreated command: %s",line);
