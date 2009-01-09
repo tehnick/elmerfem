@@ -84,23 +84,18 @@
 !******************************************************************************
      USE Types
      USE Lists
- 
      USE Integration
      USE ElementDescription
-
      USE Differentials
      USE DefUtils
- 
      USE SolverUtils
      USE ElementUtils
-
 
      IMPLICIT NONE
 !------------------------------------------------------------------------------
  
      TYPE(Model_t) :: Model
      TYPE(Solver_t), TARGET:: Solver
- 
      REAL (KIND=DP) :: dt
      LOGICAL :: TransientSimulation
  
@@ -148,7 +143,7 @@
 !------------------------------------------------------------------------------
      Potential     => Solver % Variable % Values
      PotentialPerm => Solver % Variable % Perm
- 
+
      LocalNodes = Model % NumberOfNodes
      StiffMatrix => Solver % Matrix
      ForceVector => StiffMatrix % RHS
@@ -158,14 +153,17 @@
 
      ControlTarget = GetCReal( Solver % Values,'Power Control',ControlPower)
      IF(ControlPower) THEN
-	ControlCurrent = .FALSE.
+	 ControlCurrent = .FALSE.
      ELSE
        ControlTarget = GetCReal( Solver % Values,'Current Control',ControlCurrent)
      END IF
      Control = ControlPower .OR. ControlCurrent
 
      ! To obtain convergence rescale the potential to the original BCs
-     IF(Control) Potential = Potential / ControlScaling
+     IF( Control ) THEN
+       Potential = Potential / ControlScaling
+       Solver % Variable % Norm = Solver % Variable % Norm / ControlScaling
+     END IF
 
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
@@ -517,10 +515,8 @@
         CALL Info( 'StatCurrentSolve', Message, Level=4 )
         CALL ListAddConstReal( Model % Simulation, &
              'RES: CurrentSolver Scaling', ControlScaling )
-
-	IF( ListGetLogical( Solver % Values,'Potential Control',GotIt) ) THEN
 	  Potential = ControlScaling * Potential
-        END IF
+        Solver % Variable % Norm = ControlScaling * Solver % Variable % Norm
 
         IF ( CalculateHeating )  Heating = ControlScaling**2 * Heating
         IF ( CalculateCurrent )  VolCurrent = ControlScaling * VolCurrent
