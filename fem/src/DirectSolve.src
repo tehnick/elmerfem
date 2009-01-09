@@ -438,7 +438,6 @@ CONTAINS
 #ifdef HAVE_MUMPS
   INCLUDE 'mpif.h'
 
-  TYPE(dmumps_struc), SAVE :: DefID
   INTEGER :: i,j,ip,ierr
   LOGICAL :: Factorize, FreeFactorize, stat
 
@@ -462,8 +461,6 @@ CONTAINS
     END IF
 
     ALLOCATE(A % MumpsID)
-    A % MumpsID = DefID
-
     A % MumpsID % comm =  MPI_COMM_WORLD
     A % MumpsID % par  =  1
     A % MumpsID % job  = -1
@@ -491,11 +488,19 @@ CONTAINS
 
     ALLOCATE(A % MumpsID % rhs(A % MumpsId % n))
 
-    A % MumpsID % sym = 0
-    A % MumpsID % icntl(5)  = 0
-    A % MumpsID % icntl(6)  = 7
-    A % MumpsID % icntl(18) = 3
-    A % MumpsID % icntl(21) = 1
+    IF ( ListGetLogical(Solver % Values, &
+                     'Linear System Symmetric', stat) ) THEN
+      A % MumpsID % sym = 2
+    ELSE
+      A % MumpsID % sym = 0
+    END IF
+
+    A % MumpsID % icntl(2)  = 0 ! supress printing of diagnostics and warnings
+    A % MumpsID % icntl(3)  = 0 ! supress statistics
+    A % MumpsID % icntl(4)  = 1 ! the same as the two above, but doesn't seem to work.
+    A % MumpsID % icntl(5)  = 0 ! matrix format 'assembled'
+    A % MumpsID % icntl(18) = 3 ! 'distributed' matrix 
+    A % MumpsID % icntl(21) = 1 ! 'distributed' solution phase
 
     A % MumpsID % job = 4
     CALL DMumps(A % MumpsID)
@@ -505,6 +510,9 @@ CONTAINS
     ALLOCATE(A % MumpsID % isol_loc(A % MumpsId % lsol_loc))
   END IF
 
+ ! sum the rhs from all procs. Could be done
+ ! for neighbours only (i guess):
+ ! ------------------------------------------
   A % MumpsID % RHS = 0
   DO i=1,A % NumberOfRows
     ip = A % ParallelInfo % GlobalDOFs(A % InvPerm(i))
@@ -513,9 +521,13 @@ CONTAINS
   CALL MPI_ALLREDUCE( A % MumpsID % RHS, A % MumpsID % RHS, &
     A % MumpsID % n, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr )
 
+ ! Solution:
+ ! ---------
   A % MumpsID % job = 3
   CALL DMumps(A % MumpsID)
 
+ ! Distribute the solution to all:
+ ! -------------------------------
   A % MumpsId % Rhs = 0
   DO i=1,A % MumpsID % lsol_loc
     A % MumpsID % RHS(A % MumpsID % isol_loc(i)) = &
@@ -524,6 +536,8 @@ CONTAINS
   CALL MPI_ALLREDUCE( A % MumpsID % RHS, A % MumpsID % RHS, &
     A % MumpsID % N, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr )
 
+ ! Select the values which belong to us:
+ ! -------------------------------------
   DO i=1,A % NumberOfRows
     ip = A % ParallelInfo % GlobalDOFs(A % Invperm(i))
     x(i) = A % MumpsId % RHS(ip)

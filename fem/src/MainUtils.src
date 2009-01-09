@@ -177,6 +177,16 @@ CONTAINS
              str = ListGetString(Model % Solvers(i) % Values, &
                   'Linear System Direct Method', Found )
 
+             IF ( ParEnv % PEs>1 ) THEN
+               IF ( str /= 'mumps' ) &
+                 CALL Fatal( 'GetMatrixFormat', 'Only MUMPS direct solver' // &
+                                ' implemented in parallel!')
+             ELSE
+               IF ( str == 'mumps' ) &
+                 CALL Fatal( 'GetMatrixFormat', 'Currently no serial version' // &
+                           ' of the MUMPS solver implemented, sorry!')
+             END IF
+
              IF ( .NOT. Found ) THEN
                 FORMAT = MATRIX_CRS
              ELSE
