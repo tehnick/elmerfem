@@ -7074,6 +7074,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   free_Ivector(parentorder,1,noelements);
   free_Ivector(moveelement,1,noelements); 
   free_Ivector(possible,1,noknots);
+  free_Imatrix(invtopo,1,noknots,1,maxpossible);
 
   return;
 }
