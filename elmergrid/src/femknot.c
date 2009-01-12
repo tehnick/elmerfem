@@ -162,7 +162,7 @@ void GetElementSide(int element,int side,int normal,
       ind[0] = elemind[side];
       ind[1] = elemind[(side+1)%3];
     }
-    else {
+    else if( side < 6 ) {
       *sideelemtype = 101;
       ind[0] = elemind[side-3];
     }
@@ -175,7 +175,7 @@ void GetElementSide(int element,int side,int normal,
       ind[1] = elemind[(side+1)%3];
       ind[2] = elemind[side+3];
     }
-    else {
+    else if( side < 9 ) {
       *sideelemtype = 101;
       ind[0] = elemind[side-3];
     }
@@ -189,26 +189,50 @@ void GetElementSide(int element,int side,int normal,
       ind[2] = elemind[2*side+3];
       ind[3] = elemind[2*side+4];            
     }
-    else {
+    else if( side < 13) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-3];
     }
     break;
 
   case 404: /* Linear quadrilateral */
+    if(side < 4) {
+      *sideelemtype = 202;
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+    }
+    else if(side < 8) {
+      *sideelemtype = 101;      
+      ind[0] = elemind[side-4];
+    }
+    break;
+
   case 405:
     if(side < 4) {
       *sideelemtype = 202;
       ind[0] = elemind[side];
       ind[1] = elemind[(side+1)%4];
     }
-    else {
+    else if(side < 9) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-4];
     }
     break;
 
+
   case 408: /* 2nd order quadrilateral */
+    if(side < 4) {
+      *sideelemtype = 203;
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+      ind[2] = elemind[side+4];
+    }
+    else if(side < 12) {
+      *sideelemtype = 101;      
+      ind[0] = elemind[side-4];
+    }
+    break;
+
   case 409:
     if(side < 4) {
       *sideelemtype = 203;
@@ -216,13 +240,26 @@ void GetElementSide(int element,int side,int normal,
       ind[1] = elemind[(side+1)%4];
       ind[2] = elemind[side+4];
     }
-    else {
+    else if(side < 13) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-4];
     }
     break;
 
   case 412: /* 3rd order quadrilateral */
+    if(side < 4) {
+      *sideelemtype = 204;      
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+      ind[2] = elemind[2*side+4];
+      ind[3] = elemind[2*side+5];      
+    }
+    else if(side < 16) {
+      *sideelemtype = 101;      
+      ind[0] = elemind[side-4];
+    }
+    break;
+
   case 416:
     if(side < 4) {
       *sideelemtype = 204;      
@@ -231,7 +268,7 @@ void GetElementSide(int element,int side,int normal,
       ind[2] = elemind[2*side+4];
       ind[3] = elemind[2*side+5];      
     }
-    else {
+    else if(side < 20) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-4];
     }
@@ -262,7 +299,7 @@ void GetElementSide(int element,int side,int normal,
 	ind[1] = elemind[(side-6)%3];	
       }
     }
-    else {
+    else if(side < 14) {
       *sideelemtype = 101;
       ind[0] = elemind[side-10];
     }      
@@ -302,7 +339,7 @@ void GetElementSide(int element,int side,int normal,
 	ind[2] = elemind[side-3];
       }
     }    
-    else {
+    else if(side < 20) {
       *sideelemtype = 101;
       ind[0] = elemind[side-10];
     }      
@@ -322,9 +359,24 @@ void GetElementSide(int element,int side,int normal,
       for(i=0;i<3;i++)
 	ind[i] = elemind[3*(side-3)+i];
     }
-    else {
+    else if(side < 14) {
+      *sideelemtype = 202;
+      if(side < 8) {
+	ind[0] = elemind[side-5];
+	ind[1] = elemind[(side-4)%3];
+      }
+      if(side < 11) {
+	ind[0] = elemind[3+side-8];
+	ind[1] = elemind[3+(side-7)%3];
+      }
+      else {
+	ind[0] = elemind[side-11];
+	ind[1] = elemind[3+side-11];	
+      }
+    }
+    else if (side < 20) {
       *sideelemtype = 101;
-      ind[0] = elemind[side-5];      
+      ind[0] = elemind[side-14];      
     }
     break;
 
@@ -336,14 +388,25 @@ void GetElementSide(int element,int side,int normal,
       ind[1] = elemind[4];
       ind[2] = elemind[(side+1)%4];
     }
-    else if (side == 4) {
+    else if (side < 5) {
       *sideelemtype = 404;     
       for(i=0;i<3;i++)
 	ind[i] = elemind[i];
     }
-    else {
+    else if(side < 13) {
+      *sideelemtype = 202;
+      if(side < 9) {
+	ind[0] = elemind[side-5];
+	ind[1] = elemind[(side-4)%4];
+      }
+      else {
+	ind[0] = elemind[side-9];
+	ind[1] = elemind[4];
+      }
+    }
+    else if(side < 18) {
       *sideelemtype = 101;
-      ind[0] = elemind[side-4];            
+      ind[0] = elemind[side-13];            
     }
     break;
 
@@ -365,9 +428,22 @@ void GetElementSide(int element,int side,int normal,
       for(i=0;i<3;i++)
 	ind[i+4] = elemind[i+5];
     }
-    else {
+    else if(side < 13) {
+      *sideelemtype = 203;
+      if(side < 9) {
+	ind[0] = elemind[(side-5)];
+	ind[1] = elemind[(side-4)%4];
+	ind[2] = elemind[side];
+      }
+      else {
+	ind[0] = elemind[side-9];
+	ind[1] = elemind[4];
+	ind[2] = elemind[side];
+      }
+    }
+    else if(side < 26) {
       *sideelemtype = 101;
-      ind[0] = elemind[side-4];            
+      ind[0] = elemind[side-13];            
     }
     break;
 
@@ -395,7 +471,7 @@ void GetElementSide(int element,int side,int normal,
 	ind[0] = elemind[side-6];
 	ind[1] = elemind[(side-9)%4+4];      
       }
-      else if(side < 18) {
+      else {
 	ind[0] = elemind[side-14];
 	ind[1] = elemind[side-14+4];      
       }
@@ -3816,8 +3892,8 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 			   int renumber, int bcoffset, int info)
 {
   int i,j,k,l,doinit;
-  int minbc,maxbc,*mapbc;
-  int elemdim,bccum,elemtype,*mapdim,sideind[MAXNODESD1];
+  int minbc=0,maxbc=0,*mapbc;
+  int elemdim=0,elemtype=0,*mapdim,sideind[MAXNODESD1];
 
   if(renumber) {
     if(0) printf("Renumbering boundary types\n");
@@ -3902,7 +3978,7 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info)
 {     
   int i,j,k,l,noelements,doinit;
-  int minmat,maxmat,*mapmat;
+  int minmat=0,maxmat=0,*mapmat;
   
   if(0) printf("Setting new material types\n");
   
@@ -6766,7 +6842,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   int sidenodes,sidenodes2,maxelemtype,elemtype,elemdim,sideelements,material;
   int *moveelement,*parentorder,*possible,**invtopo;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
-  int debug,unmoved;
+  int debug,unmoved,removed;
 
 
   if(info) printf("Making elements to boundary conditions\n");
@@ -6794,6 +6870,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   maxelemtype = 0;
   maxelemsides = 0;
   unmoved = 0;
+  removed = 0;
 
   for(i=1;i<=noelements;i++) {
     moveelement[i] = FALSE;
@@ -6934,8 +7011,15 @@ void ElementsToBoundaryConditions(struct FemType *data,
     }
 
     if(!same) {
-      moveelement[elemind] = FALSE;
-      unmoved += 1;
+      if(0) printf("sideelemtype = %d sidenodes=%d %d %d\n",sideelemtype,sidenodes,sideind[0],sideind[1]);
+      if(moveelement[elemind] == 1) {
+	moveelement[elemind] = FALSE;
+	unmoved += 1;
+      }
+      else {
+	moveelement[elemind] = -1;
+	removed += 1;
+      }
     }
 
   foundtwo:
@@ -6953,7 +7037,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
   }
   else {
     printf("Found %d side elements, could have found %d\n",sideelem,sideelements);
-    printf("Leaving %d lower dimensional elements to be bulk elements\n",unmoved);
+    if(unmoved) printf("Leaving %d lower dimensional elements to be bulk elements\n",unmoved);
+    if(removed) printf("Removing %d lower dimensional elements from the element list\n",removed);
   }
 
 
@@ -6961,7 +7046,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   parentorder = Ivector(1,noelements);
   j = 0;
   for(i=1;i<=noelements;i++) {
-    if(!moveelement[i]) {
+    if(moveelement[i] == 0) {
       parentorder[i] = ++j;
 
       data->material[j] = data->material[i];

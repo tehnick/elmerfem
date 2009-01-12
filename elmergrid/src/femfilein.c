@@ -32,7 +32,7 @@
 #include <ctype.h>
 #include <string.h>
 /*#include <strings.h>*/
-/*include <unistd.h>*/
+/*#include <unistd.h>*/
 
 #include "nrutil.h"
 #include "common.h"
@@ -3497,8 +3497,7 @@ omstart:
 
       getline;
       if(!strstr(line,"$EndMeshFormat")) {
-	printf("$MeshFormat section should end to string $EndMeshFormat:\n");
-	printf("%s\n",line);
+	printf("$MeshFormat section should end to string $EndMeshFormat:\n%s\n",line);
       }      
     }
       
@@ -3524,8 +3523,7 @@ omstart:
       }
       getline;
       if(!strstr(line,"$EndNodes")) {
-	printf("$Nodes section should end to string $EndNodes:\n");
-	printf("%s\n",line);
+	printf("$Nodes section should end to string $EndNodes:\n%s\n",line);
       }           
     }
     
@@ -3578,8 +3576,7 @@ omstart:
       }
       getline;
       if(!strstr(line,"$EndElements")) {
-	printf("$Elements section should end to string $EndElements:\n");
-	printf("%s\n",line);
+	printf("$Elements section should end to string $EndElements:\n%s\n",line);
       }   
     }
     else if(strstr(line,"$PhysicalNames")) {
@@ -3591,8 +3588,7 @@ omstart:
 
       getline;
       if(!strstr(line,"$EndPhysicalNames")) {
-	printf("$PhysicalNames section should end to string $EndPhysicalNames:\n");
-	printf("%s\n",line);
+	printf("$PhysicalNames section should end to string $EndPhysicalNames:\n%s\n",line);
       }   
     }
     else {
@@ -3644,7 +3640,7 @@ omstart:
     free_Ivector(revindx,1,maxindx);
   }
 
-  if(1) ElementsToBoundaryConditions(data,bound,info);
+  ElementsToBoundaryConditions(data,bound,info);
 
   /* The geometric entities are rather randomly numbered */
   if( usetaggeom ) {
