@@ -59,6 +59,10 @@ void STDCALLBULL FC_FUNC_(mpi_win_post,MPI_WIN_POST) () {}
 void STDCALLBULL FC_FUNC_(mpi_win_wait,MPI_WIN_WAIT) () {}
 void STDCALLBULL FC_FUNC_(mpi_waitsome,MPI_WAITSOME) () {}
 
+void STDCALLBULL FC_FUNC_(mpi_comm_create,MPI_COMM_CREATE) () {}
+void STDCALLBULL FC_FUNC_(mpi_comm_group,MPI_COMM_GROUP) () {}
+void STDCALLBULL FC_FUNC_(mpi_group_incl,MPI_GROUP_INCL) () {}
+
 void STDCALLBULL MPI_Type_free() {}
 void STDCALLBULL MPI_Startall() {}
 void STDCALLBULL MPI_Gather() {}

@@ -165,13 +165,14 @@ CONTAINS
 ! and should be removed...
 ! -----------------------------------------------------------------
     DO i=1,Model % NumberOfSolvers
+       Format = MATRIX_CRS
+
        IF (  &
             ListGetString(Model % Solvers(i) % Values, 'Equation') == Equation &
             ) THEN
 
           str = ListGetString( Model % Solvers(i) % Values, & 
                   'Linear System Solver', Found )
-          IF ( .NOT. Found ) str = 'direct'
 
           IF ( str == 'direct' ) THEN
              str = ListGetString(Model % Solvers(i) % Values, &
@@ -188,38 +189,22 @@ CONTAINS
              END IF
 
              IF ( .NOT. Found ) THEN
-                FORMAT = MATRIX_CRS
              ELSE
                 SELECT CASE( str )
-                CASE( 'banded', 'symmetric banded' )
-                   FORMAT = MATRIX_CRS
-
                 CASE( 'umfpack', 'big umfpack' )
 #include "../config.h"
-#ifdef HAVE_UMFPACK
-                   FORMAT = MATRIX_CRS
-#else
+#ifndef HAVE_UMFPACK
                    CALL Fatal( 'GetMatrixFormat', 'UMPACK solver has not been installed.' )
 #endif
                 CASE( 'mumps' )
-#ifdef HAVE_MUMPS
-                   FORMAT = MATRIX_CRS
-#else
+#ifndef HAVE_MUMPS
                    CALL Fatal( 'GetMatrixFormat', 'MUMPS solver has not been installed.' )
 #endif
                 CASE DEFAULT
                    CALL Warn( 'GetMatrixFormat', 'Unknown direct solver method: ' // TRIM(str) )
                    CALL Warn( 'GetMatrixFormat', 'band solver (LAPACK) will be used.' )
-                   FORMAT = MATRIX_CRS
                 END SELECT
              END IF
-          ELSE IF ( str == 'iterative' ) THEN
-             FORMAT = MATRIX_CRS
-          ELSE IF ( str == 'multigrid' ) THEN
-             FORMAT = MATRIX_CRS
-          ELSE
-             CALL Fatal( 'GetMatrixFormat', 'Unknown linear system solver: ' // TRIM(str) )
-             STOP
           END IF
 
           EXIT
@@ -688,7 +673,7 @@ CONTAINS
                           'Heat Equation', GlobalBubbles=GlobalBubbles)
 
       Nrows = Ndeg
-      IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
+      IF (ASSOCIATED( Solver % Matrix)) Nrows=Solver % Matrix % NumberOfRows
       IF ( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
         ALLOCATE( Solution(Nrows),STAT=istat )
         IF ( istat /= 0 ) THEN
@@ -696,7 +681,7 @@ CONTAINS
         END IF
 
         CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh, Solver,&
-                    'Temperature',1, Solution, Perm, Output=VariableOutput )
+           'Temperature',1, Solution, Perm, Output=VariableOutput )
 
         Solver % Variable => VariableGet( Solver % Mesh % Variables, 'Temperature' )
         Solution = 0.0d0
@@ -768,14 +753,14 @@ CONTAINS
                'Discontinuous Galerkin', Found ), GlobalBubbles=GlobalBubbles )
 
           Nrows = DOFs * Ndeg
-          IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
+          IF (ASSOCIATED(Solver % Matrix)) Nrows=Solver % Matrix % NumberOfRows
 
-          IF ( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
+          IF (.NOT.ASSOCIATED(Solver % Variable)) THEN
             ALLOCATE( Solution( Nrows ) )
             Solution = 0.0d0
 
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                        var_name(1:n), DOFs, Solution, Perm, Output=VariableOutput )
+            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+               var_name(1:n), DOFs, Solution, Perm, Output=VariableOutput )
 
             Solver % Variable => VariableGet( Solver % Mesh % Variables, var_name(1:n) )
 
@@ -1398,9 +1383,10 @@ CONTAINS
                                 ( k1 + 2*k2 + 2*k3 + k4 ) / 6
               DEALLOCATE( k1, k2, k3, k4 )
             END SELECT
-             Solver % Variable % Norm = ComputeNorm(Solver, n, Solver % Variable % Values)
+            Solver % Variable % Norm = &
+                   ComputeNorm(Solver, n, Solver % Variable % Values)
            ELSE
-             CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+             CALL SolverActivate(Model,Solver,dt,TransientSimulation)
            END IF
 !------------------------------------------------------------------------------
 !         check for coupled system convergence
@@ -1409,7 +1395,12 @@ CONTAINS
           IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
              IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
 
-               CALL ComputeChange(Solver,.TRUE., n)
+               IF ( ParEnv % PEs>1 ) THEN
+                 IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
+                   CALL ComputeChange(Solver,.TRUE., n)
+               ELSE
+                 CALL ComputeChange(Solver,.TRUE., n)
+               END IF
                RelativeChange = Solver % Variable % SteadyChange	
                Tolerance = ListGetConstReal( Solver % Values,   &
                    'Steady State Convergence Tolerance', Found ) 
@@ -2207,11 +2198,15 @@ END SUBROUTINE GenericSolver
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
      LOGICAL :: stat, Found, GB, FirstTime=.TRUE., MeActive
-     INTEGER :: i, j, SolverAddr, BDOFs, execi, timestep, maxdim
+     INTEGER :: i, j, n, SolverAddr, BDOFs, execi, timestep, maxdim
      REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: TimeVar, IterV
      TYPE(Element_t), POINTER :: CurrentElement
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
+
+     INTEGER :: comm_active, group_active, group_world, ierr
+     INTEGER, ALLOCATABLE :: memb(:)
+
      SAVE TimeVar, FirstTime
 !------------------------------------------------------------------------------
      CALL SetCurrentMesh( Model, Solver % Mesh )
@@ -2262,8 +2257,39 @@ END SUBROUTINE GenericSolver
 
      MeActive = ASSOCIATED(Solver % Matrix)
      IF ( MeActive ) &
-        MeActive = MeActive .AND. (Solver % Matrix % NumberOfRows > 0)
+        MeActive = MeActive .AND. (Solver % Matrix % NumberOfRows>0)
      CALL ParallelActive( MeActive )
+
+     IF ( MeActive ) &
+       Solver % Matrix % Comm = MPI_COMM_WORLD
+     IF ( ParEnv % PEs>1 ) THEN
+       DO i=1,ParEnv % PEs
+         IF ( ParEnv % Active(i) ) THEN
+           EXIT
+         END IF
+       END DO
+
+       OutputPE = -1
+       IF ( i-1==ParEnv % MyPE ) OutputPE=0
+
+       n = COUNT(ParEnv % Active)
+       IF ( n>0 ) THEN
+         CALL MPI_Comm_group( MPI_COMM_WORLD, group_world, ierr )
+         ALLOCATE(memb(n))
+         n = 0
+         DO i=1,ParEnv % PEs
+           IF ( ParEnv % Active(i) ) THEN
+             n=n+1
+             memb(n)=i-1
+           END IF
+         END DO
+         CALL MPI_Group_incl( group_world, n, memb, group_active, ierr)
+         DEALLOCATE(memb)
+         CALL MPI_Comm_create( MPI_COMM_WORLD, group_active, &
+                 comm_active, ierr)
+         IF ( MeActive ) Solver % Matrix % Comm = comm_active
+       END IF
+     END IF
 
      str = ListGetString( Solver % Values, 'Namespace', Found )
      IF (Found) CALL ListSetNamespace(TRIM(str))

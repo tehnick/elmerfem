@@ -47,6 +47,7 @@ MODULE DirectSolve
    USE CRSMatrix
    USE Lists
    USE BandMatrix
+   USE SParIterSolve
    USE SparIterGlobals
 
    IMPLICIT NONE
@@ -427,24 +428,23 @@ CONTAINS
   END SUBROUTINE UMFPack_SolveSystem
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE Mumps_SolveSystem( Solver,A,x,b )
 !------------------------------------------------------------------------------
   TYPE(Matrix_t), POINTER :: A
   TYPE(Solver_t) :: Solver
-  INTEGER :: n
   REAL(KIND=dp), TARGET :: x(*), b(*)
 
 #ifdef HAVE_MUMPS
   INCLUDE 'mpif.h'
 
-  INTEGER :: i,j,ip,ierr
+  INTEGER, ALLOCATABLE :: Owner(:)
+  INTEGER :: i,j,n,ip,ierr
   LOGICAL :: Factorize, FreeFactorize, stat
 
-  ! serial version for now, but needs this anyway...
-  ! -------------------------------------------------
-
-  CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+  INTEGER, ALLOCATABLE :: memb(:)
+  INTEGER :: Comm_active, Group_active, Group_world
 
   Factorize = ListGetLogical( Solver % Values, &
      'Linear System Refactorize', stat )
@@ -454,26 +454,32 @@ CONTAINS
     IF ( ASSOCIATED(A % MumpsID) ) THEN
       DEALLOCATE( A % MumpsID % irn_loc, &
          A % MumpsID % jcn_loc, A % MumpsID % Rhs,  &
-            A % MumpsID % isol_loc, A % MumpsID % sol_loc)
+            A % MumpsID % isol_loc, A % MumpsID % sol_loc, A % Gorder)
       A % MumpsID % job = -2
       CALL DMumps(A % MumpsID)
       DEALLOCATE(A % MumpsID)
     END IF
 
     ALLOCATE(A % MumpsID)
-    A % MumpsID % comm =  MPI_COMM_WORLD
+
+    A % MumpsID % Comm = A % Comm
     A % MumpsID % par  =  1
     A % MumpsID % job  = -1
     CALL DMumps(A % MumpsID)
 
-    A % MumpsId % n = MAXVAL(A % ParallelInfo % GlobalDOFs)
-    CALL MPI_ALLREDUCE( A % MumpsID % n, A % MumpsID % n, &
-       1, MPI_INTEGER, MPI_MAX, MPI_COMM_WORLD, ierr )
+    n = SIZE(A % ParallelInfo % GlobalDOFs)
+    ALLOCATE( A % Gorder(n), Owner(n) )
+    CALL ContinuousNumbering( A % ParallelInfo, &
+        A % Perm, A % Gorder, Owner )
+
+    CALL MPI_ALLREDUCE( SUM(Owner), A % MumpsID % n, &
+       1, MPI_INTEGER, MPI_SUM, A % MumpsID % Comm, ierr )
+    DEALLOCATE(Owner)
 
     A % MumpsID % nz_loc = A % Rows(A % NumberOfRows+1)-1
     ALLOCATE( A % MumpsID % irn_loc(A % MumpsID % nz_loc) )
     DO i=1,A % NumberOfRows
-      ip = A % ParallelInfo % GlobalDOFs(A % InvPerm(i))
+      ip = A % Gorder(A % InvPerm(i))
       DO j=A % Rows(i),A % Rows(i+1)-1
         A % MumpsID % irn_loc(j) = ip
       END DO
@@ -481,8 +487,7 @@ CONTAINS
 
     ALLOCATE( A % MumpsID % jcn_loc(A % MumpsId % nz_loc) )
     DO i=1,A % MumpsID % nz_loc
-      A % MumpsID % jcn_loc(i) = A % ParallelInfo % GlobalDofs( &
-                      A % Invperm(A % Cols(i)))
+      A % MumpsID % jcn_loc(i) = A % Gorder(A % Invperm(A % Cols(i)))
     END DO
     A % MumpsID % a_loc   => A % values
 
@@ -515,11 +520,11 @@ CONTAINS
  ! ------------------------------------------
   A % MumpsID % RHS = 0
   DO i=1,A % NumberOfRows
-    ip = A % ParallelInfo % GlobalDOFs(A % InvPerm(i))
+    ip = A % Gorder(A % InvPerm(i))
     A % MumpsId % RHS(ip) = b(i)
   END DO
   CALL MPI_ALLREDUCE( A % MumpsID % RHS, A % MumpsID % RHS, &
-    A % MumpsID % n, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr )
+    A % MumpsID % n, MPI_DOUBLE_PRECISION, MPI_SUM, A % MumpsID % Comm, ierr )
 
  ! Solution:
  ! ---------
@@ -534,12 +539,12 @@ CONTAINS
             A % MumpsID % sol_loc(i)
   END DO
   CALL MPI_ALLREDUCE( A % MumpsID % RHS, A % MumpsID % RHS, &
-    A % MumpsID % N, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, ierr )
+    A % MumpsID % N, MPI_DOUBLE_PRECISION, MPI_SUM,A %  MumpsID % Comm, ierr )
 
  ! Select the values which belong to us:
  ! -------------------------------------
   DO i=1,A % NumberOfRows
-    ip = A % ParallelInfo % GlobalDOFs(A % Invperm(i))
+    ip = A % Gorder(A % Invperm(i))
     x(i) = A % MumpsId % RHS(ip)
   END DO
 
@@ -550,7 +555,7 @@ CONTAINS
   IF ( Factorize .AND. FreeFactorize ) THEN
     DEALLOCATE( A % MumpsID % irn_loc, &
        A % MumpsID % jcn_loc, A % MumpsID % Rhs,  &
-         A % MumpsID % isol_loc, A % MumpsID % sol_loc)
+         A % MumpsID % isol_loc, A % MumpsID % sol_loc, A % Gorder)
 
     A % MumpsID % job = -2
     CALL DMumps(A % MumpsID)

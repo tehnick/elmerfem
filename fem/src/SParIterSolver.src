@@ -1269,15 +1269,162 @@ END SUBROUTINE ZeroSplittedMatrix
 !----------------------------------------------------------------------
 
 
+
 !----------------------------------------------------------------------
-!----------------------------------------------------------------------
+  SUBROUTINE ContinuousNumbering(ParallelInfo, Mperm, Aperm, Owner )
+!--------------------------------------------------------------------
+     INTEGER :: Mperm(:), Aperm(:), Owner(:)
+     TYPE(ParallelInfo_t) :: ParallelInfo
+
+     INTEGER, ALLOCATABLE :: neigh(:), sz(:),buf_a(:,:),buf_g(:,:), &
+                  buf_aa(:), buf_gg(:)
+     INTEGER, ALLOCATABLE :: n_nownbuf(:),g_nownbuf(:),i_nownbuf(:)
+     INTEGER, POINTER :: nb(:)
+     INTEGER :: min_id,max_id,my_id,next_id,prev_id, active_neighbours
+     INTEGER :: i,j,k,src,n,nob,gind,ssz,status(MPI_STATUS_SIZE),ierr
+
+     Owner = 0; Aperm = 0;
+     n = SIZE(ParallelInfo % GlobalDOFs)
+ 
+     DO min_id=0,Parenv % PEs-1
+       IF ( ParEnv % Active(min_id+1) ) EXIT
+     END DO
+
+     DO max_id=Parenv % PEs-1,0,-1
+       IF ( ParEnv % Active(max_id+1) ) EXIT
+     END DO
+
+     my_id = ParEnv % MyPE
+
+     ! receive our lowest index:
+     ! -------------------------
+     gind = 0
+     IF ( my_id /= min_id ) THEN
+       DO prev_id=my_id-1,0,-1
+         IF ( ParEnv % Active(prev_id+1) ) EXIT
+       END DO
+       CALL MPI_RECV( gind, 1, MPI_INTEGER, &
+           prev_id, 801, MPI_COMM_WORLD, status, ierr )
+     END IF
+
+     ! give a number to dofs owned by us:
+     ! -----------------------------------
+     DO i=1,n
+       IF ( Mperm(i) == 0 ) CYCLE
+
+       nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+       IF ( nb(1)==my_id ) THEN
+         Owner(i) = 1
+         gind = gind + 1
+         Aperm(i) = gind
+       END IF
+     END DO
+
+     ! next pe in line needs it's base:
+     ! --------------------------------
+     IF ( ParEnv % MyPE < max_id ) THEN
+       DO next_id=my_id+1,ParEnv % PEs-1
+         IF ( ParEnv % Active(next_id+1) ) EXIT
+       END DO
+       CALL MPI_BSEND( gind, 1, MPI_INTEGER, &
+          next_id, 801, MPI_COMM_WORLD, ierr )
+     END IF
+
+
+     ! the rest is to communicate the numbering of shared dofs
+     ! from owners to others that share the dofs:
+     ! --------------------------------------------------------
+     ALLOCATE( neigh(Parenv % PEs),sz(ParEnv % NumOfNeighbours) )
+     k = 0
+     DO i=1,ParEnv % PEs
+       IF ( .NOT. ParEnv % Active(i) ) CYCLE
+
+       IF( ParEnv % IsNeighbour(i) ) THEN
+         k=k+1
+         neigh(i)=k
+       END IF
+     END DO
+
+     sz = 0
+     DO i=1,n
+       IF ( Owner(i) == 1 ) THEN
+         nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+         DO j=2,SIZE(nb)
+           k = neigh(nb(j)+1)
+           sz(k) = sz(k) + 1
+         END DO
+       END IF
+     END DO
+
+     ALLOCATE( buf_a(MAXVAL(sz),ParEnv % NumOfNeighbours), &
+               buf_g(MAXVAL(sz),ParEnv % NumOfNeighbours) )
+
+     nob = COUNT(owner==0)
+     ALLOCATE( n_nownbuf(nob), g_nownbuf(nob), i_nownbuf(nob) )
+
+     sz  = 0
+     nob = 0
+     DO i=1,n
+       IF ( Owner(i) /= 0  ) THEN
+         nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+         DO j=2,SIZE(nb)
+           k = neigh(nb(j)+1)
+           sz(k) = sz(k) + 1
+           buf_a(sz(k),k) = Aperm(i)
+           buf_g(sz(k),k) = ParallelInfo % GlobalDOFs(i)
+         END DO
+       ELSE
+         nob = nob + 1
+         i_nownbuf(nob) = nob
+         n_nownbuf(nob) = i
+         g_nownbuf(nob) = ParallelInfo % GlobalDOFs(i)
+       END IF
+     END DO
+     IF ( nob>0 ) CALL SortI( nob,g_nownbuf,n_nownbuf )
+
+     active_neighbours = 0
+     DO i=1,ParEnv % PEs
+       IF ( .NOT. ParEnv % Active(i) ) CYCLE
+
+       IF ( ParEnv % IsNeighbour(i) ) THEN
+         active_neighbours = active_neighbours+1
+         k = neigh(i)
+         ssz = sz(k)
+         CALL MPI_BSEND( ssz,1,MPI_INTEGER,i-1,802,MPI_COMM_WORLD,ierr )
+         IF ( ssz>0 ) THEN
+           CALL MPI_BSEND( buf_a(1:ssz,k),ssz,MPI_INTEGER,i-1,803,MPI_COMM_WORLD,ierr )
+           CALL MPI_BSEND( buf_g(1:ssz,k),ssz,MPI_INTEGER,i-1,804,MPI_COMM_WORLD,ierr )
+         END IF
+       END IF
+     END DO 
+
+     DEALLOCATE( buf_a, buf_g, neigh, sz )
+
+     DO i=1,active_neighbours
+       CALL MPI_RECV( ssz,1,MPI_INTEGER,MPI_ANY_SOURCE,802,MPI_COMM_WORLD,status,ierr )
+       IF ( ssz>0 ) THEN
+         src = status(MPI_SOURCE)
+         ALLOCATE( buf_aa(ssz), buf_gg(ssz) )
+
+         CALL MPI_RECV( buf_aa,ssz,MPI_INTEGER,src,803,MPI_COMM_WORLD,status,ierr )
+         CALL MPI_RECV( buf_gg,ssz,MPI_INTEGER,src,804,MPI_COMM_WORLD,status,ierr )
+
+         DO j=1,ssz
+           k = SearchIAItem( nob, g_nownbuf, buf_gg(j), i_nownbuf )
+           IF ( k>0 ) Aperm(n_nownbuf(k)) = buf_aa(j)
+         END DO
+
+         DEALLOCATE( buf_aa, buf_gg )
+       END IF
+     END DO
+
+     DEALLOCATE( n_nownbuf, g_nownbuf, i_nownbuf )
+!--------------------------------------------------------------------
+   END SUBROUTINE ContinuousNumbering
+!--------------------------------------------------------------------
 
 
 
-
-
-
-!********************************************************************
 !********************************************************************
 !
 ! Call the iterative solver
@@ -1307,8 +1454,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       gind, hypre_intpara(10) = 0
 
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
-  INTEGER, ALLOCATABLE :: Owner(:), Aperm(:), n_nownbuf(:), g_nownbuf(:), &
-      i_nownbuf(:), buf_a(:,:), buf_g(:,:), buf_aa(:), buf_gg(:), sz(:), neigh(:)
+  INTEGER, ALLOCATABLE :: Owner(:), Aperm(:)
 
   INTEGER, POINTER :: nb(:)
 
@@ -1446,121 +1592,15 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 !              'BoomerAMG  ', Found )
 !         IF (.NOT.Found)  hypre_intpara() = 0
       END IF
+
+
       !
       ! Hypre wants to have a continuous ascending numbering across
       ! partitions, try creating such a beast:
       ! ------------------------------------------------------------
       n = SIZE(ParallelInfo % GlobalDOFs)
       ALLOCATE( Owner(n), Aperm(n) )
-      Owner = 0; Aperm = 0;
-
-      ! receive our lowest index:
-      ! -------------------------
-      gind = 0
-      IF ( ParEnv % MyPE /= 0 ) &
-        CALL MPI_RECV( gind, 1, MPI_INTEGER, &
-            ParEnv % myPE-1, 801, MPI_COMM_WORLD, status, ierr )
-
-      ! give a number to dofs owned by us:
-      ! -----------------------------------
-      DO i=1,n
-        nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
-        IF ( nb(1)==ParEnv % MyPE ) THEN
-          Owner(i) = 1
-          gind = gind + 1
-          Aperm(i) = gind
-        END IF
-      END DO
-
-      ! next pe in line needs it's base:
-      ! --------------------------------
-      IF ( ParEnv % MyPE < ParEnv % PEs-1 ) &
-        CALL MPI_BSEND( gind, 1, MPI_INTEGER, &
-           ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
-
-
-      ! the rest is to communicate the numbering of shared dofs
-      ! from owners to others that share the dofs:
-      ! --------------------------------------------------------
-      ALLOCATE( neigh(Parenv % PEs),sz(ParEnv % NumOfNeighbours) )
-      k = 0
-      DO i=1,ParEnv % PEs
-        IF( ParEnv % IsNeighbour(i) ) THEN
-          k=k+1
-          neigh(i)=k
-        END IF
-      END DO
-
-      sz = 0
-      DO i=1,n
-        IF ( Owner(i) == 1 ) THEN
-          nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
-          DO j=2,SIZE(nb)
-            k = neigh(nb(j)+1)
-            sz(k) = sz(k) + 1
-          END DO
-        END IF
-      END DO
-
-      ALLOCATE( buf_a(MAXVAL(sz),ParEnv % NumOfNeighbours), &
-                buf_g(MAXVAL(sz),ParEnv % NumOfNeighbours) )
-
-      nob = COUNT( owner==0 )
-      ALLOCATE( n_nownbuf(nob), g_nownbuf(nob), i_nownbuf(nob) )
-
-      sz  = 0
-      nob = 0
-      DO i=1,n
-        IF ( Owner(i) /= 0  ) THEN
-          nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
-          DO j=2,SIZE(nb)
-            k = neigh(nb(j)+1)
-            sz(k) = sz(k) + 1
-            buf_a(sz(k),k) = Aperm(i)
-            buf_g(sz(k),k) = ParallelInfo % GlobalDOFs(i)
-          END DO
-        ELSE
-          nob = nob + 1
-          i_nownbuf(nob) = nob
-          n_nownbuf(nob) = i
-          g_nownbuf(nob) = ParallelInfo % GlobalDOFs(i)
-        END IF
-      END DO
-      IF ( nob>0 ) CALL SortI( nob,g_nownbuf,n_nownbuf )
-
-      DO i=1,ParEnv % PEs
-        IF ( ParEnv % IsNeighbour(i) ) THEN
-          k = neigh(i)
-          ssz = sz(k)
-          CALL MPI_BSEND( ssz,1,MPI_INTEGER,i-1,802,MPI_COMM_WORLD,ierr )
-          IF ( ssz>0 ) THEN
-            CALL MPI_BSEND( buf_a(1:ssz,k),ssz,MPI_INTEGER,i-1,803,MPI_COMM_WORLD,ierr )
-            CALL MPI_BSEND( buf_g(1:ssz,k),ssz,MPI_INTEGER,i-1,804,MPI_COMM_WORLD,ierr )
-          END IF
-        END IF
-      END DO 
-
-      DEALLOCATE( buf_a, buf_g, neigh, sz )
-
-      DO i=1,ParEnv % NumOfNeighbours
-        CALL MPI_RECV( ssz,1,MPI_INTEGER,MPI_ANY_SOURCE,802,MPI_COMM_WORLD,status,ierr )
-        IF ( ssz>0 ) THEN
-          src = status(MPI_SOURCE)
-          ALLOCATE( buf_aa(ssz), buf_gg(ssz) )
-
-          CALL MPI_RECV( buf_aa,ssz,MPI_INTEGER,src,803,MPI_COMM_WORLD,status,ierr )
-          CALL MPI_RECV( buf_gg,ssz,MPI_INTEGER,src,804,MPI_COMM_WORLD,status,ierr )
-
-          DO j=1,ssz
-            k = SearchIAItem( nob, g_nownbuf, buf_gg(j), i_nownbuf )
-            IF ( k>0 ) Aperm(n_nownbuf(k)) = buf_aa(j)
-          END DO
-
-          DEALLOCATE( buf_aa, buf_gg )
-       END IF
-      END DO
-
-      DEALLOCATE( n_nownbuf, g_nownbuf, i_nownbuf )
+      CALL ContinuousNumbering(ParallelInfo,SourceMatrix % Perm,APerm,Owner)
       ! ------------------------------------------------------------
 
       CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
