@@ -31,9 +31,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-// which prototypes are needed from these headers?
-//#include <strings.h>
-//#include <unistd.h>
 
 #include "egutils.h"
 #include "egdef.h"
@@ -2628,7 +2625,6 @@ end:
 }
 
 
-
 static int GmshToElmerType(int gmshtype)
 {
   int elmertype = 0;
@@ -2675,6 +2671,22 @@ static int GmshToElmerType(int gmshtype)
     elmertype = 101;
     break;
 
+  case 16:
+    elmertype = 408;
+    break;
+  case 17:
+    elmertype = 820;
+    break;
+  case 18:
+    elmertype = 715;
+    break;
+  case 19:
+    elmertype = 613;
+    break;
+  case 21:
+    elmertype = 310;
+    break;
+
   default:
     printf("Gmsh element %d does not have an Elmer counterpart!\n",gmshtype);
   }
@@ -2683,38 +2695,60 @@ static int GmshToElmerType(int gmshtype)
 }
 
 
-static void GmshToElmerIndx(int elemtype,int elemind[])
+static void GmshToElmerIndx(int elemtype,int *topology)
 {
-  int tmpind[MAXNODESD2];
+  int i=0,nodes=0,oldtopology[MAXNODESD2];
+  int reorder, *porder;
+
+  int order510[]={0,1,2,3,4,5,6,7,9,8};
+  int order613[]={0,1,2,3,4,5,8,10,6,7,9,11,12};
+  int order715[]={0,1,2,3,4,5,6,9,7,8,10,11,12,14,13};
+  int order820[]={0,1,2,3,4,5,6,7,8,11,12,9,10,12,14,15,16,18,19,17};
+
+
+  reorder = FALSE;
 
   switch (elemtype) {
       
   case 510:        
-    tmpind[8] = elemind[8];
-    tmpind[9] = elemind[9];
-    elemind[8] = tmpind[9];
-    elemind[9] = tmpind[8];    
+    reorder = TRUE;
+    porder = &order510[0];
     break;
 
-    /* There seems to be conflicting data whether this is needed or not 
-  case 306:        
-    tmpind[4] = elemind[4];
-    tmpind[5] = elemind[5];
-    elemind[4] = tmpind[5];
-    elemind[5] = tmpind[4];    
-    break; */
+  case 613:        
+    reorder = TRUE;
+    porder = &order613[0];
+    break;
+
+  case 715:        
+    reorder = TRUE;
+    porder = &order715[0];
+    break;
+
+  case 820:        
+    reorder = TRUE;
+    porder = &order820[0];
+    break;
+
   }
 
+  if( reorder ) {
+    nodes = elemtype % 100;
+    for(i=0;i<nodes;i++) 
+      oldtopology[i] = topology[i];
+    for(i=0;i<nodes;i++) 
+      topology[i] = oldtopology[porder[i]];
+  }
 }
 
 
 static int LoadGmshInput1(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots = 0,noelements = 0,maxnodes,dim;
-  int elemind[MAXNODESD2],elementtype;
-  int i,j,k,allocated,*revindx = NULL,maxindx;
-  int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype;
+  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim;
+  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
+  int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
+  int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype,elemdim;
   FILE *in;
   char *cp,line[MAXLINESIZE];
 
@@ -2755,6 +2789,7 @@ allocate:
     if(Getrow(line,in,TRUE)) goto end;
     if(!line) goto end;
     if(strstr(line,"END")) goto end;
+
     if(strstr(line,"$NOD")) {
       
       getline;
@@ -2869,10 +2904,11 @@ allocate:
 static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots = 0,noelements = 0,maxnodes,dim,notags;
-  int elemind[MAXNODESD2],elementtype;
-  int i,j,k,allocated,*revindx = NULL,maxindx;
-  int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype;
+  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim,notags;
+  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
+  int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
+  int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype,elemdim;
+  int usetaggeom,tagmat,verno;
   FILE *in;
   char *cp,line[MAXLINESIZE];
 
@@ -2888,28 +2924,33 @@ static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
   maxnodes = 0;
   maxindx = 0;
   maxelemtype = 0;
+  usetaggeom = FALSE;
 
 omstart:
 
   for(;;) {
-    if(Getrow(line,in,TRUE)) goto end;
+    if(Getrow(line,in,FALSE)) goto end;
     if(!line) goto end;
-    if(strstr(line,"END")) continue;
+    if(strstr(line,"$End")) continue;
 
-    /* Header info is not much needed */
-    if(strstr(line,"$MESHFORMAT")) {
-      Getrow(line,in,TRUE);
-      Getrow(line,in,TRUE);
-      if(strstr(line,"$ENDMESHFORMAT")) {
-	printf("MeshFormat section should end to string $EndMeshFormat\n");
-	printf("%s\n",line);
+    if(strstr(line,"$MeshFormat")) {
+      getline;
+      cp = line;
+      verno = next_int(&cp);
+
+      if(verno != 2) {
+	printf("Version number is not compatible with the parser: %d\n",verno);
+      }
+
+      getline;
+      if(!strstr(line,"$EndMeshFormat")) {
+	printf("$MeshFormat section should end to string $EndMeshFormat:\n%s\n",line);
       }      
     }
       
-    if(strstr(line,"$NODES")) {
+    else if(strstr(line,"$Nodes")) {
       getline;
       cp = line;
-
       noknots = next_int(&cp);
 
       for(i=1; i <= noknots; i++) {
@@ -2928,13 +2969,16 @@ omstart:
 	}
       }
       getline;
+      if(!strstr(line,"$EndNodes")) {
+	printf("$Nodes section should end to string $EndNodes:\n%s\n",line);
+      }           
     }
     
-    if(strstr(line,"$ELEMENTS")) {
+    else if(strstr(line,"$Elements")) {
       getline;
       cp = line;
       noelements = next_int(&cp);
-      
+
       for(i=1; i <= noelements; i++) {
 	getline;
 	
@@ -2948,20 +2992,25 @@ omstart:
 	  data->elementtypes[i] = elementtype;
 
 	  /* Point does not seem to have physical properties */
-	  tagphys = 0;
-	  if(gmshtype != 15) {
-	    notags = next_int(&cp);
-	    if(notags > 0) tagphys = next_int(&cp);
-	    if(notags > 1) taggeom = next_int(&cp);
-	    if(notags > 2) tagpart = next_int(&cp);
-	    for(j=4;j<=notags;j++)
-	      next_int(&cp);
-	  }
-	  data->material[i] = tagphys;
+	  notags = next_int(&cp);
+	  if(notags > 0) tagphys = next_int(&cp);
+	  if(notags > 1) taggeom = next_int(&cp);
+	  if(notags > 2) tagpart = next_int(&cp);
+	  for(j=4;j<=notags;j++)
+	    next_int(&cp);
 
+	  if(tagphys) {
+	    tagmat = tagphys;
+	  }
+	  else {
+	    tagmat = taggeom;
+	    usetaggeom = TRUE;
+	  }
+
+	  data->material[i] = tagmat;
 	  for(j=0;j<elemnodes;j++)
 	    elemind[j] = next_int(&cp);
-	  
+
 	  GmshToElmerIndx(elementtype,elemind);	  
 
 	  for(j=0;j<elemnodes;j++)
@@ -2973,6 +3022,21 @@ omstart:
 	
       }
       getline;
+      if(!strstr(line,"$EndElements")) {
+	printf("$Elements section should end to string $EndElements:\n%s\n",line);
+      }   
+    }
+    else if(strstr(line,"$PhysicalNames")) {
+      if(info) printf("Physical names are not accounted for\n");
+      getline;
+      cp = line;
+      i = next_int(&cp);
+      for(;i>0;i--) getline;
+
+      getline;
+      if(!strstr(line,"$EndPhysicalNames")) {
+	printf("$PhysicalNames section should end to string $EndPhysicalNames:\n%s\n",line);
+      }   
     }
     else {
       if(!allocated) printf("Untreated command: %s",line);
@@ -3023,7 +3087,13 @@ omstart:
     free_Ivector(revindx,1,maxindx);
   }
 
-  if(1) ElementsToBoundaryConditions(data,bound,info);
+  ElementsToBoundaryConditions(data,bound,info);
+
+  /* The geometric entities are rather randomly numbered */
+  if( usetaggeom ) {
+    RenumberBoundaryTypes(data,bound,TRUE,0,info);
+    RenumberMaterialTypes(data,bound,info);
+  }
 
   if(info) printf("Succesfully read the mesh from the Gmsh input file.\n");
 
@@ -3037,9 +3107,7 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
 {
   FILE *in;
   char line[MAXLINESIZE],filename[MAXFILESIZE];
-  int errorno;
-
-  printf("prefix: %s\n",prefix);
+  int errno;
 
   sprintf(filename,"%s",prefix);
   if ((in = fopen(filename,"r")) == NULL) {
@@ -3050,17 +3118,27 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
     }
   }
 
-  Getrow(line,in,TRUE);
+  Getrow(line,in,FALSE);
   fclose(in);
 
-  if(strstr(line,"MESHFORMAT")) 
-    errorno = LoadGmshInput2(data,bound,filename,info);
-  else
-    errorno = LoadGmshInput1(data,bound,filename,info);
-     
-  return(errorno);
-}
+  if(info) {
+    printf("Format chosen using the first line: %s",line);
+  }
 
+  if(strstr(line,"$MeshFormat")) 
+    errno = LoadGmshInput2(data,bound,filename,info);
+  else {
+    printf("*****************************************************\n");
+    printf("The $MeshFormat was not given, assuming Gmsh 1 format\n");
+    printf("This version of Gmsh format is no longer supported\n");
+    printf("Please use Gsmh 2 version for output\n");
+    printf("*****************************************************\n");
+    
+    errno = LoadGmshInput1(data,bound,filename,info);
+  }     
+
+  return(errno);
+}
 
 
 

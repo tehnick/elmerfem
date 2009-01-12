@@ -127,6 +127,7 @@ int GetMaxElementDimension(struct FemType *data)
 }
 
 
+
 void GetElementSide(int element,int side,int normal,
 		    struct FemType *data,int *ind,int *sideelemtype)
 /* Give the indices of a given side of a given element. 
@@ -158,7 +159,7 @@ void GetElementSide(int element,int side,int normal,
       ind[0] = elemind[side];
       ind[1] = elemind[(side+1)%3];
     }
-    else {
+    else if( side < 6 ) {
       *sideelemtype = 101;
       ind[0] = elemind[side-3];
     }
@@ -171,7 +172,7 @@ void GetElementSide(int element,int side,int normal,
       ind[1] = elemind[(side+1)%3];
       ind[2] = elemind[side+3];
     }
-    else {
+    else if( side < 9 ) {
       *sideelemtype = 101;
       ind[0] = elemind[side-3];
     }
@@ -185,26 +186,50 @@ void GetElementSide(int element,int side,int normal,
       ind[2] = elemind[2*side+3];
       ind[3] = elemind[2*side+4];            
     }
-    else {
+    else if( side < 13) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-3];
     }
     break;
 
   case 404: /* Linear quadrilateral */
+    if(side < 4) {
+      *sideelemtype = 202;
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+    }
+    else if(side < 8) {
+      *sideelemtype = 101;      
+      ind[0] = elemind[side-4];
+    }
+    break;
+
   case 405:
     if(side < 4) {
       *sideelemtype = 202;
       ind[0] = elemind[side];
       ind[1] = elemind[(side+1)%4];
     }
-    else {
+    else if(side < 9) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-4];
     }
     break;
 
+
   case 408: /* 2nd order quadrilateral */
+    if(side < 4) {
+      *sideelemtype = 203;
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+      ind[2] = elemind[side+4];
+    }
+    else if(side < 12) {
+      *sideelemtype = 101;      
+      ind[0] = elemind[side-4];
+    }
+    break;
+
   case 409:
     if(side < 4) {
       *sideelemtype = 203;
@@ -212,13 +237,26 @@ void GetElementSide(int element,int side,int normal,
       ind[1] = elemind[(side+1)%4];
       ind[2] = elemind[side+4];
     }
-    else {
+    else if(side < 13) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-4];
     }
     break;
 
   case 412: /* 3rd order quadrilateral */
+    if(side < 4) {
+      *sideelemtype = 204;      
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+      ind[2] = elemind[2*side+4];
+      ind[3] = elemind[2*side+5];      
+    }
+    else if(side < 16) {
+      *sideelemtype = 101;      
+      ind[0] = elemind[side-4];
+    }
+    break;
+
   case 416:
     if(side < 4) {
       *sideelemtype = 204;      
@@ -227,7 +265,7 @@ void GetElementSide(int element,int side,int normal,
       ind[2] = elemind[2*side+4];
       ind[3] = elemind[2*side+5];      
     }
-    else {
+    else if(side < 20) {
       *sideelemtype = 101;      
       ind[0] = elemind[side-4];
     }
@@ -258,7 +296,7 @@ void GetElementSide(int element,int side,int normal,
 	ind[1] = elemind[(side-6)%3];	
       }
     }
-    else {
+    else if(side < 14) {
       *sideelemtype = 101;
       ind[0] = elemind[side-10];
     }      
@@ -298,7 +336,7 @@ void GetElementSide(int element,int side,int normal,
 	ind[2] = elemind[side-3];
       }
     }    
-    else {
+    else if(side < 20) {
       *sideelemtype = 101;
       ind[0] = elemind[side-10];
     }      
@@ -318,9 +356,24 @@ void GetElementSide(int element,int side,int normal,
       for(i=0;i<3;i++)
 	ind[i] = elemind[3*(side-3)+i];
     }
-    else {
+    else if(side < 14) {
+      *sideelemtype = 202;
+      if(side < 8) {
+	ind[0] = elemind[side-5];
+	ind[1] = elemind[(side-4)%3];
+      }
+      if(side < 11) {
+	ind[0] = elemind[3+side-8];
+	ind[1] = elemind[3+(side-7)%3];
+      }
+      else {
+	ind[0] = elemind[side-11];
+	ind[1] = elemind[3+side-11];	
+      }
+    }
+    else if (side < 20) {
       *sideelemtype = 101;
-      ind[0] = elemind[side-5];      
+      ind[0] = elemind[side-14];      
     }
     break;
 
@@ -332,14 +385,25 @@ void GetElementSide(int element,int side,int normal,
       ind[1] = elemind[4];
       ind[2] = elemind[(side+1)%4];
     }
-    else if (side == 4) {
+    else if (side < 5) {
       *sideelemtype = 404;     
       for(i=0;i<3;i++)
 	ind[i] = elemind[i];
     }
-    else {
+    else if(side < 13) {
+      *sideelemtype = 202;
+      if(side < 9) {
+	ind[0] = elemind[side-5];
+	ind[1] = elemind[(side-4)%4];
+      }
+      else {
+	ind[0] = elemind[side-9];
+	ind[1] = elemind[4];
+      }
+    }
+    else if(side < 18) {
       *sideelemtype = 101;
-      ind[0] = elemind[side-4];            
+      ind[0] = elemind[side-13];            
     }
     break;
 
@@ -361,9 +425,22 @@ void GetElementSide(int element,int side,int normal,
       for(i=0;i<3;i++)
 	ind[i+4] = elemind[i+5];
     }
-    else {
+    else if(side < 13) {
+      *sideelemtype = 203;
+      if(side < 9) {
+	ind[0] = elemind[(side-5)];
+	ind[1] = elemind[(side-4)%4];
+	ind[2] = elemind[side];
+      }
+      else {
+	ind[0] = elemind[side-9];
+	ind[1] = elemind[4];
+	ind[2] = elemind[side];
+      }
+    }
+    else if(side < 26) {
       *sideelemtype = 101;
-      ind[0] = elemind[side-4];            
+      ind[0] = elemind[side-13];            
     }
     break;
 
@@ -391,7 +468,7 @@ void GetElementSide(int element,int side,int normal,
 	ind[0] = elemind[side-6];
 	ind[1] = elemind[(side-9)%4+4];      
       }
-      else if(side < 18) {
+      else {
 	ind[0] = elemind[side-14];
 	ind[1] = elemind[side-14+4];      
       }
@@ -3544,19 +3621,20 @@ int RemoveUnusedNodes(struct FemType *data,int info)
 
 
 
-
 void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 			   int renumber, int bcoffset, int info)
 {
-  int i,j,doinit;
-  int minbc = 0,maxbc = 0,*mapbc;
-  
+  int i,j,k,l,doinit;
+  int minbc=0,maxbc=0,*mapbc;
+  int elemdim=0,elemtype=0,*mapdim,sideind[MAXNODESD1];
+
   if(renumber) {
-    if(info) printf("Renumbering boundary types\n");
+    if(0) printf("Renumbering boundary types\n");
     
     doinit = TRUE;
     for(j=0;j < MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
+
       for(i=1;i<=bound[j].nosides;i++) {
 	if(doinit) {
 	  maxbc = minbc = bound[j].types[i];
@@ -3567,41 +3645,50 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
       }
     }
     if(doinit) return;
-
-    if(minbc != 1 || maxbc != 1) {
-      mapbc = Ivector(minbc,maxbc);
-      for(i=minbc;i<=maxbc;i++) mapbc[i] = 0;
-      
-      for(j=0;j < MAXBOUNDARIES;j++) {
-	if(!bound[j].created) continue;
-	for(i=1;i<=bound[j].nosides;i++)
-	  mapbc[bound[j].types[i]] = TRUE;
+    
+    mapbc = Ivector(minbc,maxbc);
+    mapdim = Ivector(minbc,maxbc);
+    for(i=minbc;i<=maxbc;i++) mapbc[i] = mapdim[i] = 0;
+    
+    for(j=0;j < MAXBOUNDARIES;j++) {
+      if(!bound[j].created) continue;
+      for(i=1;i<=bound[j].nosides;i++) {
+	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,sideind,&elemtype);
+	elemdim = GetElementDimension(elemtype);
+	mapbc[bound[j].types[i]] = TRUE;
+	mapdim[bound[j].types[i]] = elemdim;
       }
-      
-      j = 0;
-      for(i=minbc;i<=maxbc;i++) 
+    }
+    
+    j = 0;
+    /* Give the larger dimension always a smaller BC type */
+    for(elemdim==2;elemdim>=0;elemdim--) {
+      for(i=minbc;i<=maxbc;i++) {
+	if(mapdim[i] != elemdim) continue;
 	if(mapbc[i]) {
 	  j++;
 	  mapbc[i] = j;
 	}    
-      
-      if(maxbc - minbc >= j || minbc != 1) { 
-	if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
-	
-	for(j=0;j < MAXBOUNDARIES;j++) {
-	  if(!bound[j].created) continue;
-	  for(i=1;i<=bound[j].nosides;i++)
-	    bound[j].types[i] = mapbc[bound[j].types[i]];
-	}
-	if(data->boundarynamesexist) {
-	  for(j=minbc;j<=MIN(maxbc,MAXBODIES-1);j++) {
-	    if(mapbc[j]) 
-	      strcpy(data->boundaryname[mapbc[j]],data->boundaryname[j]);
-	  }
+      }
+    }
+
+    if(maxbc - minbc >= j || minbc != 1) { 
+      if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
+    
+      for(j=0;j < MAXBOUNDARIES;j++) {
+	if(!bound[j].created) continue;
+	for(i=1;i<=bound[j].nosides;i++) {
+	  bound[j].types[i] = mapbc[bound[j].types[i]];
 	}
       }
-      free_Ivector(mapbc,minbc,maxbc);
+      if(data->boundarynamesexist) {
+	for(j=minbc;j<=MIN(maxbc,MAXBODIES-1);j++) {
+	  if(mapbc[j]) 
+	    strcpy(data->boundaryname[mapbc[j]],data->boundaryname[j]);
+	}
+      }
     }
+    free_Ivector(mapbc,minbc,maxbc);
   }
 
   if(bcoffset) {
@@ -3617,19 +3704,16 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
-  else {
-    if(info) printf("BCs ordered continously between %d and %d\n",minbc,maxbc);
-  }
 }  
   
 
 
 void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info)
 {     
-  int i,j,noelements,doinit;
-  int minmat = 0,maxmat = 0,*mapmat;
+  int i,j,k,l,noelements,doinit;
+  int minmat=0,maxmat=0,*mapmat;
   
-  if(info) printf("Setting new material types\n");
+  if(0) printf("Setting new material types\n");
   
   noelements = data->noelements;
   if(noelements < 1) {
@@ -3646,8 +3730,6 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
     maxmat = MAX(maxmat,data->material[j]);
     minmat = MIN(minmat,data->material[j]);    
   }
-
-  if(minmat == 1 && maxmat == 1) return;
 
   mapmat = Ivector(minmat,maxmat);
   for(i=minmat;i<=maxmat;i++) mapmat[i] = 0;
@@ -6082,15 +6164,15 @@ void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *double
 void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int info)
 {
-  int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,sideelem,sameelem;
+  int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,parent,sideelem,sameelem;
   int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same,minelemtype;
   int sidenodes,sidenodes2,maxelemtype,elemtype,elemdim,sideelements,material;
   int *moveelement,*parentorder,*possible,**invtopo;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim = 0;
-  int debug,unmoved;
+  int debug,unmoved,removed;
 
 
-  if(info) printf("Setting elements to boundary conditions\n");
+  if(info) printf("Making elements to boundary conditions\n");
 
   for(j=0;j < MAXBOUNDARIES;j++) 
     bound[j].created = FALSE;
@@ -6107,7 +6189,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   if(info) printf("Trailing bulk elementtype is %d\n",minelemtype);
 
   elemdim = GetElementDimension(maxelemtype);
-  if( elemdim == GetElementDimension(minelemtype) ) return;
+  if( elemdim - GetElementDimension(minelemtype) == 0) return;
 
   moveelement = Ivector(1,noelements); 
 
@@ -6115,6 +6197,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   maxelemtype = 0;
   maxelemsides = 0;
   unmoved = 0;
+  removed = 0;
 
   for(i=1;i<=noelements;i++) {
     moveelement[i] = FALSE;
@@ -6134,10 +6217,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   }
   if(info) printf("There are %d (out of %d) lower dimensional elements.\n",
 		  sideelements,noelements);
-  if(sideelements == 0) {
-    free_Ivector(moveelement,1,noelements);
-    return;
-  }
+  if(sideelements == 0) return;
 
   AllocateBoundary(bound,sideelements);
 
@@ -6153,12 +6233,11 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
   j = 1;
   maxpossible = possible[1];
-  for(i=1;i<=noknots;i++) {
+  for(i=1;i<=noknots;i++)
     if(maxpossible < possible[i]) {
       maxpossible = possible[i]; 
       j = i;
     }  
-  }
   if(info) printf("Node %d belongs to maximum of %d elements\n",j,maxpossible);
 
   /* Make a table showing to which elements a node belongs to 
@@ -6259,8 +6338,15 @@ void ElementsToBoundaryConditions(struct FemType *data,
     }
 
     if(!same) {
-      moveelement[elemind] = FALSE;
-      unmoved += 1;
+      if(0) printf("sideelemtype = %d sidenodes=%d %d %d\n",sideelemtype,sidenodes,sideind[0],sideind[1]);
+      if(moveelement[elemind] == 1) {
+	moveelement[elemind] = FALSE;
+	unmoved += 1;
+      }
+      else {
+	moveelement[elemind] = -1;
+	removed += 1;
+      }
     }
 
   foundtwo:
@@ -6278,7 +6364,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
   }
   else {
     printf("Found %d side elements, could have found %d\n",sideelem,sideelements);
-    printf("Leaving %d lower dimensional elements to be bulk elements\n",unmoved);
+    if(unmoved) printf("Leaving %d lower dimensional elements to be bulk elements\n",unmoved);
+    if(removed) printf("Removing %d lower dimensional elements from the element list\n",removed);
   }
 
 
@@ -6286,7 +6373,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   parentorder = Ivector(1,noelements);
   j = 0;
   for(i=1;i<=noelements;i++) {
-    if(!moveelement[i]) {
+    if(moveelement[i] == 0) {
       parentorder[i] = ++j;
 
       data->material[j] = data->material[i];
@@ -6314,8 +6401,6 @@ void ElementsToBoundaryConditions(struct FemType *data,
   free_Ivector(moveelement,1,noelements); 
   free_Ivector(possible,1,noknots);
   free_Imatrix(invtopo,1,noknots,1,maxpossible);
-
-  RenumberMaterialTypes(data,bound,info);
 
   return;
 }

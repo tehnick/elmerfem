@@ -75,6 +75,10 @@ static struct GridType *grids;
 static struct FemType data[MAXCASES];
 static struct BoundaryType *boundaries[MAXCASES];
 static struct ElmergridType eg;
+static char Filename[MAXFILESIZE];
+static char Inmethod
+
+
 int info=TRUE,nogrids=0,nomeshes=0,activemesh=0;
 
 const char *IOmethods[] = {
@@ -1306,61 +1310,23 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
   
 
 #if LIB_MODE
-int eg_loadmesh(const char *filename0)
+int eg_loadmesh(const char *filename)
 {
-  static int i,k,inmethod,errorstat;
-  static int nofile;
+  static int inmethod,errorstat,info;
 
-  static int visited = FALSE;
-  char filename[MAXFILESIZE];
-
-  activemesh = 0;
-  strcpy(filename,filename0);
-
-
+  strcpy(Filename,filename);
   info = TRUE;
-  if(info) printf("\nElmerGrid loading data from file: %s\n",filename);
-  
-  if(visited) {
-    for(k=0;k<MAXCASES;k++) {
-      DestroyKnots(&data[k]);
-      for(i=0;i<MAXBOUNDARIES;i++) 
-	DestroyBoundary(&boundaries[k][i]);
-    }
-  }
-  else {
-    grids = (struct GridType*)malloc((size_t) (MAXCASES)*sizeof(struct GridType));     
-    visited = TRUE;
-  }
-
-  InitParameters(&eg);
-  InitGrid(grids);
-  info = TRUE;
+  if(info) printf("\nElmerGrid checksing filename suffix for file: %s\n",filename);
 
   inmethod = DetermineFileType(filename,info);
+  Inmethod = inmethod;
 
-  if(inmethod < 0) return(1);
-  if(inmethod == 0) {
-    errorstat = LoadCommands(filename,&eg,grids,1,IOmethods,info);
-    inmethod = eg.inmethod;
-    info = !eg.silent;  
-  } 
-  else {
-    eg.inmethod = inmethod;
-  }
-  strcpy(eg.filesin[0],filename);
-
-   
-  nofile = 0;
-  nomeshes = 0;
-  nogrids = 0;
-
-  errorstat = ImportMeshDefinition(inmethod,nofile,filename,&nogrids);
-
-  if(errorstat) return(errorstat);
-  nomeshes += nogrids;
-
-  return(0);
+  if(inmethod < 0) 
+    errorstat = 1;
+  else
+    errorstat = 0;
+  
+  return(errorstat);
 }
 
 
@@ -1372,7 +1338,43 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
   static char arguments[10][10],**argv;
   int argc;
   static int visited = FALSE;
+  char filename[MAXFILESIZE];
+  
+  activemesh = 0;
+  nofile = 0;
+  nomeshes = 0;
+  nogrids = 0;
+  info = TRUE;
 
+  if(!visited) {
+    grids = (struct GridType*)malloc((size_t) (MAXCASES)*sizeof(struct GridType));     
+    argv = (char**) malloc((size_t) 10*sizeof(char*));
+  }
+  visited++;
+
+  InitParameters(&eg);
+  InitGrid(grids);
+
+  strcpy(filename,Filename);
+  if(info) printf("\nElmerGrid loading data from file: %s\n",filename);
+
+  inmethod = Inmethod;
+  if(inmethod < 0) return(1);
+
+  if(inmethod == 0) {
+    errorstat = LoadCommands(filename,&eg,grids,1,IOmethods,info);
+    inmethod = eg.inmethod;
+    info = !eg.silent;  
+  } 
+  else {
+    eg.inmethod = inmethod;
+  }
+  strcpy(eg.filesin[0],filename);
+
+  errorstat = ImportMeshDefinition(inmethod,nofile,filename,&nogrids);
+
+  if(errorstat) return(errorstat);
+  nomeshes += nogrids;
   
   if(info) printf("\nElmerGrid manipulating and importing data\n");
 
@@ -1387,10 +1389,7 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
     return(1);
   }
 
-  if(!visited) {
-    argv = (char**) malloc((size_t) 10*sizeof(char*));
-  }
-  visited += 1;
+  /* Checking in-line parameters */
   argc = StringToStrings(str,arguments,10,' ');
   for(i=0;i<argc;i++) argv[i] = &arguments[i][0];
 
@@ -1399,13 +1398,21 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
   inmethod = eg.inmethod;
   outmethod = 0;
 
-
   ManipulateMeshDefinition(inmethod,outmethod,eg.relh);
 
   errorstat = ConvertEgTypeToMeshType(&data[activemesh],boundaries[activemesh],mesh);
 
   if(info) printf("Done converting mesh\n");
   return(errorstat);
+
+  for(k=0;k<MAXCASES;k++) {
+    DestroyKnots(&data[k]);
+    for(i=0;i<MAXBOUNDARIES;i++) 
+      DestroyBoundary(&boundaries[k][i]);
+  }
+  if(info) printf("Done destroying structures\n");
+
+
 }
 
 
