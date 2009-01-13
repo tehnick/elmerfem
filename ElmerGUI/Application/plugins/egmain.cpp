@@ -76,7 +76,7 @@ static struct FemType data[MAXCASES];
 static struct BoundaryType *boundaries[MAXCASES];
 static struct ElmergridType eg;
 static char Filename[MAXFILESIZE];
-static char Inmethod
+static int Inmethod;
 
 
 int info=TRUE,nogrids=0,nomeshes=0,activemesh=0;
@@ -1006,7 +1006,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 #endif
 
 
-static int DetermineFileType(char *filename,int info)
+static int DetermineFileType(const char *filename,int info)
 {
   int mode;
   mode = -1;
@@ -1316,7 +1316,7 @@ int eg_loadmesh(const char *filename)
 
   strcpy(Filename,filename);
   info = TRUE;
-  if(info) printf("\nElmerGrid checksing filename suffix for file: %s\n",filename);
+  if(info) printf("\nElmerGrid checking filename suffix for file: %s\n",filename);
 
   inmethod = DetermineFileType(filename,info);
   Inmethod = inmethod;
@@ -1326,6 +1326,7 @@ int eg_loadmesh(const char *filename)
   else
     errorstat = 0;
   
+  if(info) printf("Initialized the filetype\n");
   return(errorstat);
 }
 
@@ -1333,7 +1334,7 @@ int eg_loadmesh(const char *filename)
 
 int eg_transfermesh(mesh_t *mesh,const char *str)
 {
-  int i,inmethod,outmethod,errorstat;
+  int i,k,inmethod,outmethod,errorstat,nofile;
   info = TRUE;
   static char arguments[10][10],**argv;
   int argc;
@@ -1411,8 +1412,6 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
       DestroyBoundary(&boundaries[k][i]);
   }
   if(info) printf("Done destroying structures\n");
-
-
 }
 
 
