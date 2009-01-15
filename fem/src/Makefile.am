@@ -327,6 +327,7 @@ EXTRA_DIST = \
 	SolverUtils.src \
 	SolveSBand.src \
 	SolveHypre.c   \
+	SolveSuperLU.c \
 	Spalart-Allmaras.src\
 	SParIterComm.src \
 	SParIterGlobals.src \
