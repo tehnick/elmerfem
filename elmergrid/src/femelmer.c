@@ -1925,7 +1925,7 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
   noelements = data->noelements;
   noknots = data->noknots;
 
-  if(info) printf("\nMaking a simple partitioning for %d elements in %d-dimensions.\n",
+  if(info) printf("Making a simple partitioning for %d elements in %d-dimensions.\n",
 		  noelements,data->dim);
 
   arrange = Rvector(1,noelements);
@@ -2161,7 +2161,7 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
   noelements = data->noelements;
   noknots = data->noknots;
 
-  if(info) printf("\nMaking a simple partitioning for %d nodes in %d-dimensions.\n",
+  if(info) printf("Making a simple partitioning for %d nodes in %d-dimensions.\n",
 		  noknots,data->dim);
 
   arrange = Rvector(1,noknots);
@@ -2332,7 +2332,7 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
   int *neededby,*metistopo;
   int *indxper,*inpart,*epart,*npart;
 
-  if(info) printf("\nMaking a Metis partitioning for %d elements in %d-dimensions.\n",
+  if(info) printf("Making a Metis partitioning for %d elements in %d-dimensions.\n",
 		  data->noelements,data->dim);
 
   if(!data->partitionexist) {
@@ -2490,7 +2490,7 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
   int numflag,nparts,edgecut;
   int *indxper;
 
-  if(info) printf("\nMaking a Metis partitioning for %d nodes in %d-dimensions.\n",
+  if(info) printf("Making a Metis partitioning for %d nodes in %d-dimensions.\n",
 		  data->noknots,data->dim);
 
   CreateDualGraph(data,TRUE,info);
@@ -2811,7 +2811,8 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	}
       }
     }
-    if(info) printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
+    if(info && boundaryelems) 
+      printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
   } while(boundaryelems && k < 10);
 
  
@@ -2968,7 +2969,7 @@ optimizeownership:
 
  optimizesharing:
   
-  if(info) printf("\nChecking for problematic sharings\n"); 
+  if(info) printf("Checking for problematic sharings\n"); 
   m = 0;
   if(partitions > 2) do {
     
@@ -3095,7 +3096,7 @@ optimizeownership:
   /* This seems to work also iteratively */
   if(!noopt && m+n > 10 && optimize < 50) {
     optimize++;
-    printf("\nPerforming ownership optimization round %d\n",optimize);
+    printf("Performing ownership optimization round %d\n",optimize);
     goto optimizeownership;
   }
 
@@ -3386,7 +3387,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   else 
     sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
 
-  if(info) printf("\nSaving mesh for %d partitions\n",partitions);
+  if(info) printf("Saving mesh for %d partitions\n",partitions);
 
 
   /*********** part.n.nodes *********************/

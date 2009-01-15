@@ -254,6 +254,7 @@ int main(int argc, char *argv[])
 
   /**********************************/
   printf("\nElmergrid loading data:\n");
+  printf(  "-----------------------\n");
 
   dim = eg.dim;
   nofile = 0;
@@ -512,6 +513,7 @@ int main(int argc, char *argv[])
  redoelements:
 
   printf("\nElmergrid creating and manipulating meshes:\n");
+  printf(  "-------------------------------------------\n");
 
   if(nogrids > nomeshes && outmethod != 1) { 
 
@@ -810,6 +812,11 @@ int main(int argc, char *argv[])
 
   for(k=0;k<nomeshes;k++) {
     int noopt = 0;
+
+    if(eg.partitions || eg.metis) 
+      printf("\nElmergrid partitioning meshes:\n");
+      printf(  "------------------------------\n");
+
     if(eg.partitions) {
       if(eg.partopt % 2 == 0) 
 	PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
@@ -839,6 +846,7 @@ int main(int argc, char *argv[])
 
   /********************************/
   printf("\nElmergrid saving data:\n");
+  printf(  "----------------------\n");
 
   switch (outmethod) {
   case 1:
