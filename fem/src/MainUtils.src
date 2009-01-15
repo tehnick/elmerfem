@@ -200,6 +200,10 @@ CONTAINS
 #ifndef HAVE_MUMPS
                    CALL Fatal( 'GetMatrixFormat', 'MUMPS solver has not been installed.' )
 #endif
+                CASE( 'superlu' )
+#ifndef HAVE_SUPERLU
+                   CALL Fatal( 'GetMatrixFormat', 'SuperLU solver has not been installed.' )
+#endif
                 CASE DEFAULT
                    CALL Warn( 'GetMatrixFormat', 'Unknown direct solver method: ' // TRIM(str) )
                    CALL Warn( 'GetMatrixFormat', 'band solver (LAPACK) will be used.' )

@@ -573,6 +573,58 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+  SUBROUTINE SuperLU_SolveSystem( Solver,A,x,b )
+!------------------------------------------------------------------------------
+  TYPE(Matrix_t), POINTER :: A
+  TYPE(Solver_t) :: Solver
+  REAL(KIND=dp), TARGET :: x(*), b(*)
+
+#ifdef HAVE_SUPERLU
+      integer :: n, nnz, nrhs, ldb, info, iopt
+
+      n = A % NumberOfRows
+      ldb = n
+      nrhs = 1
+      nnz = A % Rows(n+1)
+!
+! First, factorize the matrix. The factors are stored in *factors* handle.
+      iopt = 1
+      call c_fortran_dgssv( iopt, n, nnz, nrhs, A % values, A % Cols, &
+            A % Rows, b, ldb, A % Umfpack_numeric, info )
+ 
+      if (info .eq. 0) then
+         write (*,*) 'Factorization succeeded'
+      else
+         write(*,*) 'INFO from factorization = ', info
+      endif
+!
+! Second, solve the system using the existing factors.
+      iopt = 2
+      call c_fortran_dgssv( iopt, n, nnz, nrhs, A % values, A % Cols, &
+           A % Rows,  b, ldb, A % Umfpack_numeric, info )
+      x(1:n) = b(1:n)
+!
+      if (info .eq. 0) then
+         write (*,*) 'Solve succeeded'
+      else
+         write(*,*) 'INFO from triangular solve = ', info
+      endif
+
+! Last, free the storage allocated inside SuperLU
+      iopt = 3
+      call c_fortran_dgssv( iopt, n, nnz, nrhs, A % values, A % Cols, &
+           A % Rows, b, ldb, A % Umfpack_numeric, info )
+      A % UmfPack_numeric = 0
+!
+#endif      
+!------------------------------------------------------------------------------
+  END SUBROUTINE SuperLU_SolveSystem
+!------------------------------------------------------------------------------
+
+
+
+
+!------------------------------------------------------------------------------
   SUBROUTINE DirectSolver( A,x,b,Solver )
 !------------------------------------------------------------------------------
 
@@ -603,6 +655,9 @@ CONTAINS
 
       CASE( 'mumps' )
         CALL Mumps_SolveSystem( Solver, A, x, b )
+
+      CASE( 'superlu' )
+        CALL SuperLU_SolveSystem( Solver, A, x, b )
 
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )
