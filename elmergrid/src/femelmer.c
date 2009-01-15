@@ -1594,8 +1594,20 @@ static int CreatePartitionTable(struct FemType *data,int info)
     }
   }
 
+  /* For periodic nodes copy the partitioning of the primary node */
+  if(periodic) {
+    printf("Accounting for the periodic nodes in partition table\n");
+    for(i=1;i<=noknots;i++) {
+      ind = indxper[i];
+      if(ind == i) continue;
+      for(k=1;k<=maxneededtimes;k++) {
+	data->partitiontable[k][i] = data->partitiontable[k][ind];
+      }
+    }
+  }
+
+
   if(info) {
-    if(periodic) printf("Taking into account the periodic BCs\n");
     printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
     printf("There are %d shared nodes which is %.2lf %% of all nodes.\n",
 	   sharings,(100.*sharings)/noknots);
@@ -2597,7 +2609,7 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
 
 static int CheckPartitioning(struct FemType *data,int info)
 {
-  int i,j,partitions,part,part2,noknots,noelements,mini,maxi,sumi;
+  int i,j,partitions,part,part2,noknots,noelements,mini,maxi,sumi,hit,ind,nodesd2,elemtype;
   int *elempart, *nodepart,*elemsinpart,*nodesinpart,*sharedinpart;
 
   noknots = data->noknots;
@@ -2653,7 +2665,7 @@ static int CheckPartitioning(struct FemType *data,int info)
   }
 
   if(info) {
-    if(partitions <= 3) {
+    if(partitions <= 4) {
       printf("Distribution of elements, nodes and shared nodes\n");
       printf("     %-10s %-10s %-10s %-10s\n","partition","elements","nodes","shared");
       for(i=1;i<=partitions;i++)
@@ -2685,6 +2697,41 @@ static int CheckPartitioning(struct FemType *data,int info)
     }
   }
 
+  if(0) printf("Checking that each node in elements belongs to nodes\n");
+  for(i=1;i<=data->noelements;i++) {
+    part = elempart[i];
+    elemtype = data->elementtypes[j];
+    nodesd2 = elemtype%100;
+
+    for(j=0;j < nodesd2;j++) 
+      ind = data->topology[i][j];
+
+    hit = FALSE;
+    for(j=1;j<=data->maxpartitiontable;j++) {
+      part2 = data->partitiontable[j][ind];
+      if( part == part2 ) hit = TRUE;
+      if(hit && !part) break;
+    }
+    if(!hit) {
+      printf("******** Warning *******\n");
+      printf("Node %d in element %d does not belong to partition %d (%d)\n",ind,i,part,j);
+    }
+  }
+
+  if(0) printf("Checking that each node in partition is shown in partition list\n");
+  for(i=1;i<=data->noknots;i++) {
+    part = nodepart[i];
+
+    hit = FALSE;
+    for(j=1;j<=data->maxpartitiontable;j++) {
+      part2 = data->partitiontable[j][i];
+      if( part == part2 ) hit = TRUE;
+      if(hit && !part) break;
+    }
+    if(!hit) {
+      printf("***** Node %d in partition %d is not in partition list\n",i,part,j);
+    }
+  }
 }
 
 
@@ -3041,6 +3088,8 @@ optimizeownership:
     else 
       printf("There shouldn't be any more problematic sharings, knock, knock...\n");
   }
+
+  printf("A posteriori checking\n");
   CheckPartitioning(data,info);
 
   /* This seems to work also iteratively */
@@ -3089,11 +3138,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   partitions = data->nopartitions;
   if(!partitions) {
     printf("Tried to save partiotioned format without partitions!\n");
-    bigerror("No ElmerPost file saved!");
+    bigerror("No Elmer mesh files saved!");
   }
   if(partitions > MAXPARTITIONS) {
     printf("There are some static data that limits the size of partitions to %d\n",MAXPARTITIONS);
-    bigerror("No ElmerPost file saved!");
+    bigerror("No Elmer mesh files saved!");
   }
 
   elempart = data->elempart;
@@ -3170,7 +3219,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     for(j=1;j<=maxneededtimes;j++)
       if(data->partitiontable[j][i]) neededtimes[i] += 1;
   }
-  printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
+  if(info) printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
 
 
   /*********** part.n.elements *********************/
@@ -3353,14 +3402,17 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     ownnodes[i] = 0;
   }    
 
+
   for(l=1; l <= noknots; l++) {      
     i = l;
     if(reorder) i=invorder[l];
 
-    for(j=1;j<=neededtimes2[i];j++) {
+    /*    for(j=1;j<=neededtimes2[i];j++) { */
+    for(j=1;j<=maxneededtimes;j++) {
 
       k = data->partitiontable[j][i];
-	
+      if(!k) break;
+
       ind = i;
       if(reorder) ind=order[i];
 
@@ -3547,7 +3599,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     if(0 && orphannodes) printf("There were %d orphan BC nodes in partition %d\n",orphannodes,part);
 
     /* The second side for discontinuous boundary conditions.
-	 Note that this has not been treated for orphan control. */
+       Note that this has not been treated for orphan control. */
     for(j=0;j < MAXBOUNDARIES;j++) {
       for(i=1; i <= bound[j].nosides; i++) {
 	if(bound[j].ediscont) 
