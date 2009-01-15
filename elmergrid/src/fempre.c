@@ -813,33 +813,37 @@ int main(int argc, char *argv[])
   for(k=0;k<nomeshes;k++) {
     int noopt = 0;
 
-    if(eg.partitions || eg.metis) 
+    if(eg.partitions || eg.metis) {
       printf("\nElmergrid partitioning meshes:\n");
       printf(  "------------------------------\n");
 
-    if(eg.partitions) {
-      if(eg.partopt % 2 == 0) 
-	PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
-      else 
-	PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
-      noopt = eg.partopt / 2;      
-    }
-#if PARTMETIS
-    if(eg.metis) {
       if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
 	FindPeriodicNodes(&data[k],eg.periodicdim,info);
-      if(eg.partopt % 5 <= 1) 
-	PartitionMetisElements(&data[k],eg.metis,eg.partopt % 5,info);
-      else
-	PartitionMetisNodes(&data[k],eg.metis,eg.partopt % 5,info);      
-      noopt = eg.partopt / 5;      
-    }
+
+      if(eg.partitions) {
+	if(eg.partopt % 2 == 0) 
+	  PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+	else 
+	  PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+	noopt = eg.partopt / 2;      
+      }
+#if PARTMETIS
+      if(eg.metis) {
+	if(eg.partopt % 5 <= 1) 
+	  PartitionMetisElements(&data[k],eg.metis,eg.partopt % 5,info);
+	else
+	  PartitionMetisNodes(&data[k],eg.metis,eg.partopt % 5,info);      
+	noopt = eg.partopt / 5;      
+      }
 #endif
-    if(eg.partitions || eg.metis ) 
+      if(data[k].periodicexist)
+	FindPeriodicParents(&data[k],boundaries[k],info);	
+
       OptimizePartitioning(&data[k],boundaries[k],noopt,info);
-    if(data[k].periodicexist) {
-      free_Ivector(data[k].periodic,1,data[k].noknots);
-      data[k].periodicexist = FALSE;
+      if(data[k].periodicexist) {
+	free_Ivector(data[k].periodic,1,data[k].noknots);
+	data[k].periodicexist = FALSE;
+      }
     }
   }
 

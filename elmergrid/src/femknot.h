@@ -84,6 +84,7 @@ void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound
 void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int info);
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info);
+int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info);
 int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 		      int *boundnodes,int suggesttype,int dimred,int info);
 int FindBulkBoundary(struct FemType *data,int mat1,int mat2,

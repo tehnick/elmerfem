@@ -147,7 +147,7 @@ void GetElementSide(int element,int side,int normal,
 
   if(side < 0 && sides > 4) 
     side = -(side+1);
-
+  
   switch (elemtype) {
   case 202:
   case 203:
@@ -7107,22 +7107,22 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
   indxper = Ivector(1,noknots);
   data->periodic = indxper;
   topbot = Ivector(1,noknots);
- 
-
+  
+  
   for(i=1;i<=noknots;i++) 
     indxper[i] = i;
-
+  
   for(dim=1;dim<=3;dim++) {
     if(!periodicdim[dim-1]) continue;
 
     if(info) printf("Finding periodic nodes in dim=%d\n",dim);
-
+    
     if(dim==1) coord = data->x;
     else if(dim==2) coord = data->y;
     else if(dim==3) coord = data->z;
-
+    
     coordmax = coordmin = coord[1];
-
+    
     for(i=1;i<=data->noknots;i++) {
       if(coordmax < coord[i]) coordmax = coord[i];
       if(coordmin > coord[i]) coordmin = coord[i];
@@ -7262,19 +7262,148 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 
   if(info) printf("Found all in all %d periodic nodes.\n",tothits);
 
-#if 1
-  if(data->noknots < 200) {
-    for(i=1;i<=data->noknots;i++)
-      if(i!=indxper[i]) printf("i=%d per=%d\n",i,indxper[i]);
-  }
-#endif
-
  dealloc:
   free_Ivector(topbot,1,noknots);
 
   return(0);
 }
 
+
+
+
+int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info)
+{
+  int i,i2,j,k,k2,l,l2,totsides,newsides,sidenodes,sideelemtype,side;
+  int noknots,maxhits,nodes,hits,targets;
+  int parent,parent2,newind,sideind[MAXNODESD1];
+  int **periodicparents, *periodichits,*periodictarget,*indexper;
+  
+  totsides = 0;
+  newsides = 0;
+  targets = 0;
+  
+  if(info) printf("Finding secondary periodic parents for boundary elements\n");
+  
+  if(!data->periodicexist) {
+    printf("FindPeriodicParents: Periodic nodes are not defined\n");
+    return(2);
+  }
+  
+  indexper = data->periodic;
+  
+  /* Set pointers that point to the periodic nodes */
+  noknots = data->noknots;
+  periodictarget = Ivector(1,noknots);
+  for(i=1;i<=noknots;i++)
+    periodictarget[i] = 0;
+
+  for(i=1;i<=noknots;i++) {
+    j = indexper[i];
+    if( j != i) periodictarget[j] = i;      
+  } 
+  for(i=1;i<=noknots;i++) 
+    if(periodictarget[i]) targets++;
+  if(info) printf("Number of potential periodic targets is %d\n",targets);
+  
+
+  /* Vector telling how many elements are associated with the periodic nodes */
+  maxhits = 0;
+  periodichits = Ivector(1,noknots);
+  for(i=1;i<=noknots;i++)
+    periodichits[i] = 0;
+
+  /* Create the matrix telling which elements are associated with the periodic nodes */
+ setparents:
+  for(j=1;j <= data->noelements;j++) {
+    nodes = data->elementtypes[j] % 100;    
+    for(i=0;i<nodes;i++) {
+      k = data->topology[j][i];
+      if( periodictarget[k] ) {
+	periodichits[k] += 1;
+	if( maxhits > 0 ) {
+	  periodicparents[k][periodichits[k]] = j;
+	}
+      }
+    }
+  }
+
+  if( maxhits == 0 )   {
+    for(i=1;i<=noknots;i++) 
+      maxhits = MAX( maxhits, periodichits[i] );
+
+    printf("Maximum number of elements associated with periodic nodes is %d\n",maxhits);
+    periodicparents = Imatrix(1,noknots,1,maxhits);
+    for(i=1;i<=noknots;i++) {
+      periodichits[i] = 0;
+      for(j=1;j<=maxhits;j++) 
+        periodicparents[i][j] = 0;
+    }
+    goto setparents;
+  }      
+
+  for(j=0;j<MAXBOUNDARIES;j++) {
+    if(!bound[j].created) continue;
+    if(!bound[j].nosides) continue;
+    
+    for(i=1;i<=bound[j].nosides;i++) {    
+      
+      /* If secondary parent already set skip */
+      if(bound[j].parent2[i]) continue;
+
+      parent = bound[j].parent[i];
+      side = bound[j].side[i];
+      
+      GetElementSide(parent,side,1,data,sideind,&sideelemtype);
+      sidenodes = sideelemtype % 100;
+
+      /* All the nodes must be periodic and there must be a periodic counterpart */
+      hits =  0;      
+      for(k=0;k<sidenodes;k++) {
+        l = sideind[k];
+        l2 = indexper[l];
+        if( l != l2) {
+          sideind[k] = l2;
+	  if( periodictarget[l2] ) hits++;
+	}
+      }
+      if(hits < sidenodes) continue;
+
+      if(0) printf("Trying to find secondary parent for boundary %d/%d/%d\n",j,i,parent);
+      totsides++;
+
+      /* The parent is the one element that has exactly the same set of periodic nodes */
+      l = sideind[0];
+      for(l2=1;l2<=periodichits[l];l2++) {
+        parent = periodicparents[l][l2];
+
+        hits = 1;
+        for(k=1;k<sidenodes;k++) {
+          for(k2=1;k2<=periodichits[sideind[k]];k2++) {
+	    if(0) printf("parent2: %d %d %d\n",k,k2,periodicparents[sideind[k]][k2]);
+            if(periodicparents[sideind[k]][k2] == parent) hits++;
+	  }
+        }
+        if(hits == sidenodes) break;
+      }
+
+      if(hits == sidenodes) {
+	newsides++;
+	if(0) printf("New parents for boundary element: %d %d\n",bound[j].parent[i],parent);
+        bound[j].parent2[i] = parent;
+      }
+      else {
+	printf("Could not find a periodic counterpart: %d/%d/%d\n",j,i,parent);
+      }
+    }
+  }
+
+  free_Ivector(periodictarget,1,noknots);
+  free_Ivector(periodichits,1,noknots);
+  free_Imatrix(periodicparents,1,noknots,1,maxhits);
+
+  if(info) printf("Found %d secondary parents for %d potential sides.\n",newsides,totsides); 
+  return(0);
+}
 
 
 

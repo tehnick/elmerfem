@@ -1596,7 +1596,7 @@ static int CreatePartitionTable(struct FemType *data,int info)
 
   /* For periodic nodes copy the partitioning of the primary node */
   if(periodic) {
-    printf("Accounting for the periodic nodes in partition table\n");
+    if(info) printf("Accounting for the periodic nodes in partition table\n");
     for(i=1;i<=noknots;i++) {
       ind = indxper[i];
       if(ind == i) continue;
@@ -2768,6 +2768,7 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	part1 = data->elempart[mam1];
 	part2 = data->elempart[mam2];
 	if(part1 == part2) continue;
+
 	  
 	/* The first iterations check which parents is ruling 
 	   thereafter choose pragmatically the other to overcome
