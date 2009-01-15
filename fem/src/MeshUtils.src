@@ -1479,13 +1479,29 @@ END SUBROUTINE CreateGlobalNumbering
 !   Fill in the mesh node structures with the
 !   boundary nodes:
 !   -----------------------------------------
-    ALLOCATE( BMesh1 % Nodes )
+    BMesh2 % NumberOfNodes = COUNT( Perm2==1 )
     BMesh1 % NumberOfNodes = COUNT( Perm1==1 )
+
+    IF (BMesh1 % NumberOfNodes==0 .OR. BMesh2 % NumberOfNOdes==0) THEN
+      DO i=1,BMesh1 % NumberOfBulkElements
+         DEALLOCATE( BMesh1 % Elements(i) % NodeIndexes )
+      END DO
+
+      DO i=1,BMesh2 % NumberOfBulkElements
+         DEALLOCATE( BMesh2 % Elements(i) % NodeIndexes )
+      END DO
+
+      DEALLOCATE( BMesh1 % Elements, BMesh2 % Elements )
+      DEALLOCATE( Perm1, Perm2, BMesh1, BMesh2 )
+      RETURN
+    END IF
+
+    ALLOCATE( BMesh1 % Nodes )
     CALL AllocateVector( BMesh1 % Nodes % x, BMesh1 % NumberOfNodes ) 
     CALL AllocateVector( BMesh1 % Nodes % y, BMesh1 % NumberOfNodes ) 
     CALL AllocateVector( BMesh1 % Nodes % z, BMesh1 % NumberOfNodes )
 
-    BMesh2 % NumberOfNodes = COUNT( Perm2==1 )
+    ALLOCATE( BMesh2 % Nodes )
     CALL AllocateVector( BMesh2 % Nodes % x, BMesh2 % NumberOfNodes ) 
     CALL AllocateVector( BMesh2 % Nodes % y, BMesh2 % NumberOfNodes ) 
     CALL AllocateVector( BMesh2 % Nodes % z, BMesh2 % NumberOfNodes )
