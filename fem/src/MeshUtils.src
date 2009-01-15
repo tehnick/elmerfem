@@ -1444,6 +1444,8 @@ END SUBROUTINE CreateGlobalNumbering
     BMesh2 % MaxElementNodes = 0
     DO i=1, Mesh % NumberOfBoundaryElements
        Element => Elements(i)
+       IF ( Element % Type % ElementCode < 200 ) CYCLE
+
        n = Element % TYPE % NumberOfNodes
        Constraint = Element % BoundaryInfo % Constraint
 
