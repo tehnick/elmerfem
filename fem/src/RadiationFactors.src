@@ -637,7 +637,6 @@
           
      st = RealTime()
      
-
      DO t=1,RadiationSurfaces
 
        RHS    = 0.0D0
@@ -659,10 +658,10 @@
          ELSE           
            IF(t == 1) THEN
              CALL ListAddLogical( Solver % Values, &
-                 'umf factorize', .TRUE. )
+                 'Linear System Refactorize', .TRUE. )
            ELSE IF(t==2) THEN
              CALL ListAddLogical( Solver % Values, &
-                 'umf factorize', .FALSE. )
+                 'Linear System Refactorize', .FALSE. )
            END IF
            CALL DirectSolver( GFactorSP, SOL, RHS, Solver )
          END IF
@@ -1040,7 +1039,7 @@
            'Linear System Direct Method', 'umfpack' )
 
        CALL ListAddInteger( Solver % Values, &
-           'Linear System Max Iterations', 100 )
+           'Linear System Max Iterations', 500 )
        
        CALL ListAddConstReal( Solver % Values, &
            'Linear System Convergence Tolerance', 1.0D-9 )
@@ -1049,7 +1048,7 @@
            'Linear System Preconditioning', 'None' )
        
        CALL ListAddInteger( Solver % Values, &
-           'Linear System Residual Output', 0 )
+           'Linear System Residual Output', 10 )
        
      END SUBROUTINE InitFactorSolver
 
