@@ -580,42 +580,77 @@ CONTAINS
   REAL(KIND=dp), TARGET :: x(*), b(*)
 
 #ifdef HAVE_SUPERLU
-      integer :: n, nnz, nrhs, ldb, info, iopt
+      LOGICAL :: stat, Factorize, FreeFactorize
+      integer :: n, nnz, nrhs, iinfo, iopt, nprocs
+
+      interface
+        subroutine solve_superlu( iopt, nprocs, n, nnz, nrhs, values, cols, &
+                     rows, b, ldb, factors, iinfo )
+            use types
+            integer :: iopt, nprocs, n, nnz, nrhs, cols(*), rows(*), ldb, iinfo
+            real(kind=dp) :: values(*), b(*)
+            integer(kind=addrint) :: factors
+        end subroutine solve_superlu
+      end interface
 
       n = A % NumberOfRows
-      ldb = n
       nrhs = 1
-      nnz = A % Rows(n+1)
+!     x(1:n) = b(1:n)
+      nnz = A % Rows(n+1)-1
+
+      nprocs = ListGetInteger( Solver % Values, & 
+              'Linear System Number of Threads', stat )
+      IF ( .NOT. stat ) nprocs = 1
 !
-! First, factorize the matrix. The factors are stored in *factors* handle.
-      iopt = 1
-      call c_fortran_dgssv( iopt, n, nnz, nrhs, A % values, A % Cols, &
-            A % Rows, b, ldb, A % Umfpack_numeric, info )
+      Factorize = ListGetLogical( Solver % Values, &
+         'Linear System Refactorize', stat )
+      IF ( .NOT. stat ) Factorize = .TRUE.
+
+      IF ( Factorize .OR. A % Umfpack_numeric==0 ) THEN
+
+        IF ( A % UmfPack_numeric/= 0 ) THEN
+          iopt = 3
+          call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
+                     A % Rows, b, n, A % Umfpack_numeric, iinfo )
+          A % UmfPack_numeric = 0
+        END IF
+
+        ! First, factorize the matrix. The factors are stored in *factors* handle.
+        iopt = 1
+        call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
+              A % Rows, b, n, A % Umfpack_numeric, iinfo )
  
-      if (info .eq. 0) then
-         write (*,*) 'Factorization succeeded'
-      else
-         write(*,*) 'INFO from factorization = ', info
-      endif
-!
-! Second, solve the system using the existing factors.
+        if (iinfo .eq. 0) then
+           write (*,*) 'Factorization succeeded'
+        else
+           write(*,*) 'INFO from factorization = ', iinfo
+        endif
+      END IF
+
+      !
+      ! Second, solve the system using the existing factors.
       iopt = 2
-      call c_fortran_dgssv( iopt, n, nnz, nrhs, A % values, A % Cols, &
-           A % Rows,  b, ldb, A % Umfpack_numeric, info )
+      call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
+           A % Rows,  b, n, A % Umfpack_numeric, iinfo )
       x(1:n) = b(1:n)
 !
-      if (info .eq. 0) then
+      if (iinfo .eq. 0) then
          write (*,*) 'Solve succeeded'
       else
-         write(*,*) 'INFO from triangular solve = ', info
+         write(*,*) 'INFO from triangular solve = ', iinfo
       endif
 
 ! Last, free the storage allocated inside SuperLU
-      iopt = 3
-      call c_fortran_dgssv( iopt, n, nnz, nrhs, A % values, A % Cols, &
-           A % Rows, b, ldb, A % Umfpack_numeric, info )
-      A % UmfPack_numeric = 0
-!
+      FreeFactorize = ListGetLogical( Solver % Values, &
+          'Linear System Free Factorization', stat )
+      IF ( .NOT. stat ) FreeFactorize = .TRUE.
+
+      IF ( Factorize .AND. FreeFactorize ) THEN
+        iopt = 3
+        call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
+                    A % Rows, b, n, A % Umfpack_numeric, iinfo )
+        A % UmfPack_numeric = 0
+      END IF
 #endif      
 !------------------------------------------------------------------------------
   END SUBROUTINE SuperLU_SolveSystem
