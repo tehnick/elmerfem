@@ -3246,13 +3246,12 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, body_id, material_id,&
        n, j, i, elementNumber
   INTEGER, POINTER :: Permutation(:),NodeIndexes(:)
-  REAL(KIND=dp), ALLOCATABLE, TARGET :: Param(:,:)
   REAL(KIND=dp), POINTER :: PParam(:)
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(199), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
-  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
+  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Permutation, NoParams, PPParam, PPPerm
 
   !-----------------------------------
   ! get pointers to Solver information
@@ -3269,7 +3268,7 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   IF(.NOT.SubroutineVisited) THEN
      DIM = CoordinateSystemDimension()
      LocalNodes = Model % NumberOfNodes
-     ALLOCATE(Permutation(LocalNodes))
+     ALLOCATE( Permutation(LocalNodes) )
      DO i=1,LocalNodes
        Permutation(i) = i
      END DO
@@ -3300,15 +3299,9 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      ! --------------------------------------------
      IF(NoParams > 0) ParamsExist = .TRUE.
      IF (ParamsExist) THEN 
-        ALLOCATE(Param( NoParams, LocalNodes ), &
-             PPParam(NoParams),&
-             PPPerm(NoParams), &
-             STAT=istat )
+        ALLOCATE(  PPParam(NoParams), PPPerm(NoParams), STAT=istat )
         IF (istat /= 0) THEN 
            CALL FATAL('SaveMaterials', 'Allocation Error')
-        ELSE
-           CALL INFO('SaveMaterials', 'Allocation done', Level=3)
-           Param(1:NoParams,1:LocalNodes) = 0.0D00
         END IF
      END IF
      SubroutineVisited = .TRUE.
@@ -3318,7 +3311,8 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      ! -----------------
      IF (ParamsExist) THEN
        DO ParamNo = 1, NoParams
-         PParam => Param(ParamNo,:)
+         ALLOCATE(PParam(LocalNodes))
+         PParam = 0._dp
          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
              TRIM(ParamName(ParamNo)), 1, PParam, Permutation)           
        END DO
@@ -3419,14 +3413,13 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, bc_id,&
        n, j, i, t
   INTEGER, POINTER :: Permutation(:),Perm(:),NodeIndexes(:)
-  REAL(KIND=dp), ALLOCATABLE, TARGET :: Param(:,:)
   REAL(KIND=dp), POINTER :: PParam(:)
   
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(99), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
-  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
+  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Permutation, NoParams, PPParam, PPPerm
 
   !-----------------------------------
   ! get pointers to Solver information
@@ -3475,15 +3468,9 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      ! --------------------------------------------
      IF(NoParams > 0) ParamsExist = .TRUE.
      IF (ParamsExist) THEN 
-       ALLOCATE(Param( NoParams, LocalNodes ), &
-            PPParam(NoParams),&
-            PPPerm(NoParams), &
-            STAT=istat )
+       ALLOCATE( PPParam(NoParams), PPPerm(NoParams),  STAT=istat )
        IF (istat /= 0) THEN 
          CALL FATAL('SaveBoundaryValues', 'Allocation Error')
-       ELSE
-         CALL INFO('SaveBoundaryValues', 'Allocation done', Level=3)
-         Param(1:NoParams,1:LocalNodes) = 0.0D00
        END IF
      END IF
      SubroutineVisited = .TRUE.
@@ -3493,7 +3480,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      ! -----------------
      IF (ParamsExist) THEN
        DO ParamNo = 1, NoParams
-         PParam => Param(ParamNo,:)
+         ALLOCATE( PParam(LocalNodes) )
          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
              TRIM(ParamName(ParamNo)), 1, PParam, Permutation)
        END DO
