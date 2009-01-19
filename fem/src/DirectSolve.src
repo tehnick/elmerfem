@@ -696,6 +696,7 @@ CONTAINS
       cols => a % cols
       rows => a % rows
       values => a % values
+      n = A % Numberofrows
 
       IF ( posdef ) THEN
         nz = A % rows(n+1)-1
@@ -728,11 +729,10 @@ CONTAINS
 !     all memory that is necessary for the factorization 
 !
       phase     = 11      ! only reordering and symbolic factorization
-      msglvl    = 1       ! with statistical information
+      msglvl    = 0       ! with statistical information
       maxfct    = 1
       mnum      = 1
       nrhs      = 1
-      n         = A % NumberOfRows
 
       CALL pardiso (pt, maxfct, mnum, mtype, phase, n, Values, &
            rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, error)
