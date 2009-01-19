@@ -99,7 +99,7 @@ FC_FUNC_(solve_superlu,SOLVE_SUPERLU)(int *iopt, int *nprocs, int *n,
 	 *   permc_spec = 2: minimum degree on structure of A'+A
 	 *   permc_spec = 3: approximate minimum degree for unsymmetric matrices
 	 */    	
-        permc_spec = 3;
+        permc_spec = 1;
   	get_perm_c(permc_spec, &A, perm_c);
 	
         pdgstrf_init(*nprocs, fact, trans, refact, panel_size, relax,

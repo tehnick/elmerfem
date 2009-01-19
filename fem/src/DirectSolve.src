@@ -595,7 +595,7 @@ CONTAINS
 
       n = A % NumberOfRows
       nrhs = 1
-!     x(1:n) = b(1:n)
+      x(1:n) = b(1:n)
       nnz = A % Rows(n+1)-1
 
       nprocs = ListGetInteger( Solver % Values, & 
@@ -611,14 +611,14 @@ CONTAINS
         IF ( A % UmfPack_numeric/= 0 ) THEN
           iopt = 3
           call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-                     A % Rows, b, n, A % Umfpack_numeric, iinfo )
+                     A % Rows, x, n, A % Umfpack_numeric, iinfo )
           A % UmfPack_numeric = 0
         END IF
 
         ! First, factorize the matrix. The factors are stored in *factors* handle.
         iopt = 1
         call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-              A % Rows, b, n, A % Umfpack_numeric, iinfo )
+              A % Rows, x, n, A % Umfpack_numeric, iinfo )
  
         if (iinfo .eq. 0) then
            write (*,*) 'Factorization succeeded'
@@ -631,8 +631,7 @@ CONTAINS
       ! Second, solve the system using the existing factors.
       iopt = 2
       call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-           A % Rows,  b, n, A % Umfpack_numeric, iinfo )
-      x(1:n) = b(1:n)
+           A % Rows,  x, n, A % Umfpack_numeric, iinfo )
 !
       if (iinfo .eq. 0) then
          write (*,*) 'Solve succeeded'
@@ -648,13 +647,140 @@ CONTAINS
       IF ( Factorize .AND. FreeFactorize ) THEN
         iopt = 3
         call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-                    A % Rows, b, n, A % Umfpack_numeric, iinfo )
+                    A % Rows, x, n, A % Umfpack_numeric, iinfo )
         A % UmfPack_numeric = 0
       END IF
 #endif      
 !------------------------------------------------------------------------------
   END SUBROUTINE SuperLU_SolveSystem
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE Pardiso_SolveSystem( Solver,A,x,b )
+!------------------------------------------------------------------------------
+
+        IMPLICIT NONE
+
+        TYPE(Matrix_t), POINTER :: A
+        TYPE(Solver_t) :: Solver
+        REAL(KIND=dp), TARGET :: x(*), b(*)
+
+#ifdef HAVE_PARDISO
+        INTEGER*8 pt(64)
+
+!..     All other variables 
+
+        INTEGER maxfct, mnum, mtype, phase, n, nrhs, error, msglvl
+        INTEGER iparm(64)
+        INTEGER i, j, k, nz, idum
+        LOGICAL :: Found, Symm, Posdef
+        REAL*8  waltime1, waltime2, ddum
+
+        REAL(KIND=dp), POINTER :: values(:)
+        INTEGER, POINTER  :: rows(:), cols(:)
+
+!
+!  .. Setup Pardiso control parameters und initialize the solvers     
+!     internal adress pointers. This is only necessary for the FIRST   
+!     call of the PARDISO solver.                                     
+!     
+      symm = ListGetLogical( Solver % Values, &
+         'Linear System Symmetric', Found )
+
+      posdef = ListGetLogical( Solver % Values, &
+         'Linear System Positive Definite', Found )
+
+      mtype = 11
+
+      cols => a % cols
+      rows => a % rows
+      values => a % values
+
+      IF ( posdef ) THEN
+        nz = A % rows(n+1)-1
+        allocate( values(nz), cols(nz), rows(n+1) )
+        k = 1
+        do i=1,n
+         rows(i)=k
+         do j=a % rows(i), a % rows(i+1)-1
+           if ( a % cols(j)>= i ) then
+             cols(k) = a % cols(j)
+             values(k) = a % values(j)
+             k = k + 1
+           end if
+         end do
+        end do
+        rows(n+1)=k
+        mtype     = 2
+      ELSE IF ( symm ) THEN
+        mtype = 1
+      END IF
+
+      CALL pardisoinit(pt, mtype, iparm)
+
+!  .. Numbers of Processors ( value of OMP_NUM_THREADS )
+      iparm(3) = ListGetInteger( Solver % Values, &
+           'Linear System Number of Threads', Found )
+      IF ( .NOT. Found ) Iparm(3) = 1
+    
+!..   Reordering and Symbolic Factorization, This step also allocates
+!     all memory that is necessary for the factorization 
+!
+      phase     = 11      ! only reordering and symbolic factorization
+      msglvl    = 1       ! with statistical information
+      maxfct    = 1
+      mnum      = 1
+      nrhs      = 1
+      n         = A % NumberOfRows
+
+      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, Values, &
+           rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, error)
+     
+      WRITE(*,*) 'Reordering completed ... '
+
+      IF (error .NE. 0) THEN
+        WRITE(*,*) 'The following ERROR was detected: ', error
+        STOP
+      END IF
+
+      WRITE(*,*) 'Number of nonzeros in factors   = ',iparm(18)
+      WRITE(*,*) 'Number of factorization MFLOPS  = ',iparm(19)
+
+!.. Factorization.
+      phase     = 22  ! only factorization
+      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, Values, &
+          rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, error) 
+
+      WRITE(*,*) 'Factorization completed ...  '
+      IF (error .NE. 0) THEN
+         WRITE(*,*) 'The following ERROR was detected: ', error
+        STOP
+      ENDIF 
+
+!.. Back substitution and iterative refinement
+      phase     = 33  ! only factorization
+      iparm(8)  = 1   ! max numbers of iterative refinement steps
+
+      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, values, &
+           rows, cols, idum, nrhs, iparm, msglvl, b, x, error) 
+      WRITE(*,*) 'Solve completed ... '
+     
+
+!.. Termination and release of memory
+      phase     = -1           ! release internal memory
+      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, ddum, idum, idum, &
+                    idum, nrhs, iparm, msglvl, ddum, ddum, error)
+
+      IF(posdef) DEALLOCATE( values, rows, cols )
+#endif
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE Pardiso_SolveSystem
+!------------------------------------------------------------------------------
+
+
+
 
 
 
@@ -672,11 +798,14 @@ CONTAINS
     LOGICAL :: GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: Method
 
+real(kind=dp) :: st, realtime
 !------------------------------------------------------------------------------
 
     Method = ListGetString( Solver % Values, 'Linear System Direct Method',GotIt )
     IF ( .NOT. GotIt ) Method = 'banded'
 
+
+st = realtime()
     SELECT CASE( Method )
       CASE( 'banded', 'symmetric banded' )
         IF ( .NOT. A % Complex ) THEN
@@ -694,9 +823,13 @@ CONTAINS
       CASE( 'superlu' )
         CALL SuperLU_SolveSystem( Solver, A, x, b )
 
+      CASE( 'pardiso' )
+        CALL Pardiso_SolveSystem( Solver, A, x, b )
+
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )
     END SELECT
+print*,'solve time: ', realtime()-st
 
 !------------------------------------------------------------------------------
   END SUBROUTINE DirectSolver

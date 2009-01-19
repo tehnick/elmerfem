@@ -204,6 +204,10 @@ CONTAINS
 #ifndef HAVE_SUPERLU
                    CALL Fatal( 'GetMatrixFormat', 'SuperLU solver has not been installed.' )
 #endif
+                CASE( 'pardiso' )
+#ifndef HAVE_PARDISO
+                   CALL Fatal( 'GetMatrixFormat', 'Pardiso solver has not been installed.' )
+#endif
                 CASE DEFAULT
                    CALL Warn( 'GetMatrixFormat', 'Unknown direct solver method: ' // TRIM(str) )
                    CALL Warn( 'GetMatrixFormat', 'band solver (LAPACK) will be used.' )
