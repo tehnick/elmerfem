@@ -3224,10 +3224,6 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   TYPE RealPointerList_t
      REAL(KIND=dp), DIMENSION(:), POINTER :: var
   END TYPE RealPointerList_t
-
-  TYPE IntPointerList_t
-     INTEGER, DIMENSION(:), POINTER :: perm
-  END TYPE IntPointerList_t
 !------------------------------------------------------------------------------
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
@@ -3242,16 +3238,19 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: Material
   TYPE(Variable_t), POINTER :: Var
   TYPE(RealPointerList_t), POINTER :: PPParam(:)
-  TYPE(IntPointerList_t), POINTER :: PPPerm(:)
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, body_id, material_id,&
        n, j, i, elementNumber
-  INTEGER, POINTER :: Permutation(:),NodeIndexes(:)
-  REAL(KIND=dp), POINTER :: PParam(:)
+  INTEGER, POINTER :: NodeIndexes(:)
+  REAL(KIND=dp), POINTER :: PParam(:), LocalParam(:)
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(199), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
-  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Permutation, NoParams, PPParam, PPPerm
+  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, NoParams, &
+	LocalParam, PPParam
+
+
+  CALL Info('SaveMaterials','Saving selected parameters as dofs')
 
   !-----------------------------------
   ! get pointers to Solver information
@@ -3268,10 +3267,10 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   IF(.NOT.SubroutineVisited) THEN
      DIM = CoordinateSystemDimension()
      LocalNodes = Model % NumberOfNodes
-     ALLOCATE( Permutation(LocalNodes) )
-     DO i=1,LocalNodes
-       Permutation(i) = i
-     END DO
+
+     n = Solver % Mesh % MaxElementNodes
+     ALLOCATE( LocalParam(n) )
+
      ! Find out how many variables should we saved
      NoParams = 0
      GotVar = .TRUE.
@@ -3279,12 +3278,12 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
 
      DO WHILE(GotVar)  
        NoParams = NoParams + 1
-       IF (NoParams > 99) &
-            CALL FATAL('SaveBMaterials','Number of parameters cannot exceed 99')
        IF(NoParams < 10) THEN
          WRITE (Name,'(A,I2)') 'Parameter',NoParams
-       ELSE
+       ELSE IF(NoParams < 100) THEN
          WRITE (Name,'(A,I3)') 'Parameter',NoParams    
+       ELSE	
+         CALL FATAL('SaveMaterials','Number of parameters cannot exceed 99')
        END IF
        ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
        IF(GotVar) THEN
@@ -3294,40 +3293,56 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      END DO
      NoParams = NoParams-1
 
+     IF( NoParams == 0) THEN
+       CALL WARN( 'SaveMaterials', 'No valid parameters found. Nothing will be written')       
+       RETURN
+     END IF     
+
      ! --------------------------------------------
      ! Allocate space for new variables to be added
      ! --------------------------------------------
-     IF(NoParams > 0) ParamsExist = .TRUE.
-     IF (ParamsExist) THEN 
-        ALLOCATE(  PPParam(NoParams), PPPerm(NoParams), STAT=istat )
-        IF (istat /= 0) THEN 
-           CALL FATAL('SaveMaterials', 'Allocation Error')
-        END IF
-     END IF
+     ALLOCATE(  PPParam(NoParams), STAT=istat )
+     IF (istat /= 0) CALL FATAL('SaveMaterials', 'Allocation Error')
      SubroutineVisited = .TRUE.
 
      !------------------
      ! Add new Variables
      ! -----------------
-     IF (ParamsExist) THEN
-       DO ParamNo = 1, NoParams
-         ALLOCATE(PParam(LocalNodes))
-         PParam = 0._dp
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
-             TRIM(ParamName(ParamNo)), 1, PParam, Permutation)           
-       END DO
-     ELSE
-       CALL WARN( 'SaveMaterials', 'No valid parameters found. Nothing will be written')
-     END IF
+     DO ParamNo = 1, NoParams
+       ALLOCATE(PParam(LocalNodes))
+       PParam = 0._dp
+       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
+             TRIM(ParamName(ParamNo)), 1, PParam )
+     END DO
+
+    !------------------------------------------------
+    ! Check that parameter is given in some material
+    !------------------------------------------------
+    DO i=1,NoParams
+      GotIt = .FALSE.
+      DO j=1,Model % NumberOfMaterials
+        Material => Model % Materials(j) % Values
+        IF( ListCheckPresent( Material, TRIM(ParamName(i)) ) ) THEN
+          GotIt = .TRUE.
+	  EXIT
+        END IF
+      END DO
+      IF(.NOT. GotIt) THEN
+        CALL Warn('SaveMaterials','Parameter '//TRIM(ParamName(i))//' not present in any material')
+      ELSE
+        ParamsExist = .TRUE.
+      END IF
+    END DO
   END IF
+
   !------------------------------------------
   ! Assign Pointer Variables and Permutations
   !------------------------------------------
   DO i=1,NoParams  
      Var => VariableGet( Model % Variables, TRIM(ParamName(i)), .TRUE.)     
      PPParam(i) % var => Var % Values
-     PPPerm(i) % perm => Var % Perm     
   END DO
+
   !-----------------------------------
   ! Loop all active elements of solver
   !------------------------------------------------------
@@ -3341,6 +3356,7 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      body_id = CurrentElement % BodyId
      material_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Material' )
      Material => Model % Materials(material_id) % Values
+
      IF (.NOT. ASSOCIATED(Material)) THEN
         WRITE( Message,'(a,I4,a,I4,a)')&
              'No Material for material-id ', material_id, ' for body-id ', body_id, &
@@ -3353,19 +3369,16 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      !-----------------------------------
      ! loop all parameters to be exported
      !-------------------------------------
-     DO i=1,NoParams
-       
-       PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = &
-            ListGetReal(Material, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
-       IF (.NOT. GotIt) THEN ! post a warning if parameter not found in material section
-         WRITE( Message,'(A,I3,A,A,A,I3)') 'No entry for Parameter ', i, ': ',&
-             TRIM(ParamName(i)),' found in material no. ', material_id
-         CALL WARN('SaveMaterials', Message)
-         PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = 0.0D00
-       END IF
-     END DO! end loop over parameters
-     !-------------------------------------
-   END DO! end loop over all active elements of solver  
+     DO i=1,NoParams 
+       LocalParam(1:n) = ListGetReal(Material, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
+       IF( GotIt ) PPParam(i) % var(NodeIndexes(1:n)) = LocalParam(1:n)
+     END DO
+
+   END DO 
+
+   CALL Info('SaveMaterials','All done')
+
+
 
 END SUBROUTINE SaveMaterials
 
@@ -3389,11 +3402,6 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   TYPE RealPointerList_t
      REAL(KIND=dp), DIMENSION(:), POINTER :: var
   END TYPE RealPointerList_t
-
-  TYPE IntPointerList_t
-     INTEGER, DIMENSION(:), POINTER :: perm
-  END TYPE IntPointerList_t
-
 !------------------------------------------------------------------------------
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
@@ -3408,18 +3416,21 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: BC
   TYPE(Variable_t), POINTER :: Var
   TYPE(RealPointerList_t), POINTER :: PPParam(:)
-  TYPE(IntPointerList_t), POINTER :: PPPerm(:)
 
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, bc_id,&
        n, j, i, t
-  INTEGER, POINTER :: Permutation(:),Perm(:),NodeIndexes(:)
-  REAL(KIND=dp), POINTER :: PParam(:)
+  INTEGER, POINTER :: NodeIndexes(:)
+  REAL(KIND=dp), POINTER :: PParam(:), LocalParam(:)
   
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(99), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
-  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Permutation, NoParams, PPParam, PPPerm
+  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, NoParams, &
+	LocalParam, PPParam
+
+
+  CALL Info('SaveBoundaryValues','Saving selected boundary values as dofs')
 
   !-----------------------------------
   ! get pointers to Solver information
@@ -3435,27 +3446,24 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   !----------------------------------------
   IF(.NOT.SubroutineVisited) THEN
      DIM = CoordinateSystemDimension()
+     n = Solver % Mesh % MaxElementNodes
+     ALLOCATE( LocalParam(n) )
+
      LocalNodes = Model % NumberOfNodes
-     ALLOCATE(Permutation(LocalNodes))
-     DO i=1,LocalNodes
-       Permutation(i) = i
-     END DO
-     ! Find out how many variables should we saved
      NoParams = 0
      GotVar = .TRUE.
      ParamsExist = .FALSE.
 
      DO WHILE(GotVar)  
        NoParams = NoParams + 1
-       IF (NoParams > 99) &
-            CALL FATAL('SaveBoundaryValues','Number of parameters cannot exceed 99')
        IF(NoParams < 10) THEN
-          WRITE (Name,'(A,I1)') 'Parameter ',NoParams
-       ELSE
-          WRITE (Name,'(A,I2)') 'Parameter ',NoParams    
+         WRITE (Name,'(A,I2)') 'Parameter',NoParams
+       ELSE IF(NoParams < 100) THEN
+         WRITE (Name,'(A,I3)') 'Parameter',NoParams    
+       ELSE	
+         CALL FATAL('SaveBoundaryValues','Number of parameters cannot exceed 99')
        END IF
        ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
-       
        IF(GotVar) THEN
           WRITE(Message,'(A,A,A)') TRIM(Name),': ', ParamName(NoParams)
           CALL INFO('SaveBoundaryValues',Message,Level=3)
@@ -3463,39 +3471,55 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      END DO
      NoParams = NoParams-1
 
+     IF( NoParams == 0) THEN
+       CALL WARN( 'SaveBoundaryValues', 'No valid parameters found. Nothing will be written')       
+       RETURN
+     END IF     
+
      ! --------------------------------------------
      ! Allocate space for new variables to be added
      ! --------------------------------------------
-     IF(NoParams > 0) ParamsExist = .TRUE.
-     IF (ParamsExist) THEN 
-       ALLOCATE( PPParam(NoParams), PPPerm(NoParams),  STAT=istat )
-       IF (istat /= 0) THEN 
-         CALL FATAL('SaveBoundaryValues', 'Allocation Error')
-       END IF
-     END IF
+     ALLOCATE( PPParam(NoParams),  STAT=istat )
+     IF (istat /= 0) CALL FATAL('SaveBoundaryValues', 'Allocation Error')
      SubroutineVisited = .TRUE.
 
      !------------------
      ! Add new Variables
      ! -----------------
-     IF (ParamsExist) THEN
-       DO ParamNo = 1, NoParams
-         ALLOCATE( PParam(LocalNodes) )
-         PParam = 0._dp
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
-             TRIM(ParamName(ParamNo)), 1, PParam, Permutation)
-       END DO
-     ELSE
-       CALL WARN( 'SaveBoundaryValues', 'No valid parameters found. Nothing will be written')
-     END IF
+     DO ParamNo = 1, NoParams
+       ALLOCATE( PParam(LocalNodes) )
+       PParam = 0._dp
+       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
+             TRIM(ParamName(ParamNo)), 1, PParam )
+     END DO
+
+    !------------------------------------------------
+    ! Check that parameter is given in some material
+    !------------------------------------------------
+    DO i=1,NoParams
+      GotIt = .FALSE.
+      DO j=1,Model % NumberOfBCs
+        BC => Model % BCs(j) % Values
+        IF( ListCheckPresent( BC, TRIM(ParamName(i)) ) ) THEN
+          GotIt = .TRUE.
+	  EXIT
+        END IF
+      END DO
+      IF(.NOT. GotIt) THEN
+        CALL Warn('SaveBoundaryValues','Parameter '//TRIM(ParamName(i))//' not present in any BCs')
+      ELSE
+        ParamsExist = .TRUE.
+      END IF
+    END DO
+
   END IF
+
   !------------------------------------------
-  ! Assign Pointer Variables and Permutations
+  ! Assign Pointer Variables 
   !------------------------------------------
   DO i=1,NoParams  
      Var => VariableGet( Model % Variables, TRIM(ParamName(i)), .TRUE.)     
      PPParam(i) % var => Var % Values
-     PPPerm(i) % perm => Var % Perm     
   END DO
   !-----------------------------------
   ! Loop all active elements of solver
@@ -3508,13 +3532,14 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      ! do nothing, if we are dealing with a halo-element in parallel run
      !------------------------------------------------------------------
      IF (BoundaryElement % PartIndex .NE. Parenv % mype) CYCLE
+
      !--------------------------------
      ! get some information on element
      !--------------------------------    
      Model % CurrentElement => BoundaryElement
      NodeIndexes => BoundaryElement % NodeIndexes
      n = GetElementNOFNodes(BoundaryElement)
-!              IF ( GetElementFamily() == 1 ) CYCLE
+
      BC => GetBC()
      bc_id = GetBCId( BoundaryElement )
      IF ( .NOT.ASSOCIATED( BC ) ) CYCLE
@@ -3523,17 +3548,13 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      ! loop all parameters to be exported
      !-------------------------------------
      DO i=1,NoParams        
-        PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = &
-             ListGetReal(BC, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
-        IF (.NOT.GotIt) THEN
-           WRITE(Message,'(a,a,a,i3,a,i10)') 'Boundary property ',TRIM(ParamName(i)),&
-                ' not found on boundary no. ',bc_id,' for element no. ', t
-           CALL INFO('SaveBoundaryValues', Message, Level=9)
-           PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = 0.0D00
-        END IF
-     END DO! end loop over parameters
-     !-------------------------------------
-  END DO! end loop over all boundary element
+       LocalParam(1:n) = ListGetReal(BC, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
+       IF( GotIt ) PPParam(i) % var(NodeIndexes(1:n)) = LocalParam(1:n)
+     END DO
+
+  END DO
+
+  CALL Info('SaveBoundaryValues','All done')
   
 END SUBROUTINE SaveBoundaryValues
 
