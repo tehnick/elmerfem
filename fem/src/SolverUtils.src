@@ -3882,7 +3882,7 @@ CONTAINS
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp) :: Relaxation,Beta,Gamma
     REAL(KIND=dp), ALLOCATABLE :: Diag(:), TempVector(:)
-    REAL(KIND=dp) :: t0,st,ct,CPUTime
+    REAL(KIND=dp) :: t0,rt0,rst,st,ct,CPUTime,RealTime
 
     INTERFACE ExecLinSolveProcs
       INTEGER FUNCTION ExecLinSolveProcs( Proc,Model,Solver,A,b,x,n,DOFs,Norm )
@@ -3899,7 +3899,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
-      t0 = CPUTime()
+      t0 = CPUTime(); rt0 = RealTime()
     END IF
 
     n = A % NumberOfRows
@@ -4004,16 +4004,22 @@ CONTAINS
     END IF
 
     IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
-      st = CPUTime() - t0
+      st  = CPUTime() - t0;
+      rst = RealTime() - rt0
       IF( ListGetLogical(Solver % Values,'Linear System Timing Cumulative',Found)) THEN
-        ct = ListGetConstReal(CurrentModel % Simulation,'res: solution time '&
+        ct = ListGetConstReal(CurrentModel % Simulation,'res: solution cpu time '&
                 //TRIM(Solver % Variable % Name))
         st = st + ct
+        ct = ListGetConstReal(CurrentModel % Simulation,'res: solution real time '&
+                //TRIM(Solver % Variable % Name))
+        rst = rst + ct
       END IF 
-      CALL ListAddConstReal(CurrentModel % Simulation,'res: solution time '&
+      CALL ListAddConstReal(CurrentModel % Simulation,'res: solution cpu time '&
               //TRIM(Solver % Variable % Name),st)
-      WRITE(Message,'(a,F8.2,a)') 'Solution time for '&
-      //TRIM(Solver % Variable % Name)//': ',st,' (s)'
+      CALL ListAddConstReal(CurrentModel % Simulation,'res: solution real time '&
+              //TRIM(Solver % Variable % Name),st)
+      WRITE(Message,'(a,f8.2,f8.2,a)') 'Solution time (CPU,REAL) for '&
+      //TRIM(Solver % Variable % Name)//': ',st,rst,' (s)'
       CALL Info('SolveSystem',Message)    
     END IF
 
