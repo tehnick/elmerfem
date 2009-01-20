@@ -660,31 +660,53 @@ CONTAINS
   SUBROUTINE Pardiso_SolveSystem( Solver,A,x,b )
 !------------------------------------------------------------------------------
 
-        IMPLICIT NONE
+      IMPLICIT NONE
 
-        TYPE(Matrix_t), POINTER :: A
-        TYPE(Solver_t) :: Solver
-        REAL(KIND=dp), TARGET :: x(*), b(*)
+      TYPE(Matrix_t), POINTER :: A
+      TYPE(Solver_t) :: Solver
+      REAL(KIND=dp), TARGET :: x(*), b(*)
 
 #ifdef HAVE_PARDISO
-        INTEGER*8 pt(64)
+!..   All other variables 
 
-!..     All other variables 
+      INTERFACE
+        SUBROUTINE pardiso(pt, maxfct, mnum, mtype, phase, n, &
+          values, rows, cols, idum, nrhs, iparm, msglvl, b, x, ierror)
+          USE Types
+          REAL(KIND=dp) :: values(*), b(*), x(*)
+          INTEGER(KIND=AddrInt) :: pt(*)
+          INTEGER :: idum(*), nrhs, iparm(*), msglvl, ierror
+          INTEGER :: maxfct, mnum, mtype, phase, n, rows(*), cols(*)
+        END SUBROUTINE pardiso
 
-        INTEGER maxfct, mnum, mtype, phase, n, nrhs, error, msglvl
-        INTEGER iparm(64)
-        INTEGER i, j, k, nz, idum
-        LOGICAL :: Found, Symm, Posdef
-        REAL*8  waltime1, waltime2, ddum
+        SUBROUTINE pardisoinit(pt,mtype,iparm)
+          USE Types
+          INTEGER :: mtype, iparm(*)
+          INTEGER(KIND=AddrInt) :: pt(*)
+        END SUBROUTINE pardisoinit
+      END INTERFACE
 
-        REAL(KIND=dp), POINTER :: values(:)
-        INTEGER, POINTER  :: rows(:), cols(:)
+      INTEGER maxfct, mnum, mtype, phase, n, nrhs, ierror, msglvl
+      INTEGER, POINTER :: Iparm(:)
+      INTEGER i, j, k, nz, idum(1)
+      LOGICAL :: Found, Symm, Posdef
+      REAL*8  waltime1, waltime2, ddum(1)
 
-!
+      LOGICAL :: Factorize, FreeFactorize
+      INTEGER :: tlen
+      CHARACTER(LEN=MAX_NAME_LEN) :: threads
+
+      REAL(KIND=dp), POINTER :: values(:)
+      INTEGER, POINTER  :: rows(:), cols(:)
+
 !  .. Setup Pardiso control parameters und initialize the solvers     
 !     internal adress pointers. This is only necessary for the FIRST   
 !     call of the PARDISO solver.                                     
 !     
+      Factorize = ListGetLogical( Solver % Values, &
+         'Linear System Refactorize', Found )
+      IF ( .NOT. Found ) Factorize = .TRUE.
+
       symm = ListGetLogical( Solver % Values, &
          'Linear System Symmetric', Found )
 
@@ -705,7 +727,7 @@ CONTAINS
         do i=1,n
          rows(i)=k
          do j=a % rows(i), a % rows(i+1)-1
-           if ( a % cols(j)>= i ) then
+           if ( a % cols(j)>=i .and. a % values(j) /= 0._dp ) then
              cols(k) = a % cols(j)
              values(k) = a % values(j)
              k = k + 1
@@ -718,59 +740,82 @@ CONTAINS
         mtype = 1
       END IF
 
-      CALL pardisoinit(pt, mtype, iparm)
-
-!  .. Numbers of Processors ( value of OMP_NUM_THREADS )
-      iparm(3) = ListGetInteger( Solver % Values, &
-           'Linear System Number of Threads', Found )
-      IF ( .NOT. Found ) Iparm(3) = 1
-    
-!..   Reordering and Symbolic Factorization, This step also allocates
-!     all memory that is necessary for the factorization 
-!
-      phase     = 11      ! only reordering and symbolic factorization
       msglvl    = 0       ! with statistical information
       maxfct    = 1
       mnum      = 1
       nrhs      = 1
+      iparm => A % PardisoParam
+      
+      IF ( Factorize .OR. .NOT.ASSOCIATED(A % PardisoID) ) THEN
+        IF(ASSOCIATED(A % PardisoId)) THEN
+          phase     = -1           ! release internal memory
+          CALL pardiso (A % PardisoId, maxfct, mnum, mtype, phase, n, &
+           ddum, idum, idum, idum, nrhs, iparm, msglvl, ddum, ddum, ierror)
+          DEALLOCATE(A % PardisoId, A % PardisoParam)
+          A % PardisoId => NULL()
+          A % PardisoParam => NULL()
+        END IF
 
-      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, Values, &
-           rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, error)
+        ALLOCATE(A % PardisoId(64), A % PardisoParam(64))
+        iparm => A % PardisoParam
+        CALL pardisoinit(A % PardisoId, mtype, iparm )
+
+!..     Reordering and Symbolic Factorization, This step also allocates
+!       all memory that is necessary for the factorization 
+!
+        phase     = 11      ! only reordering and symbolic factorization
+        msglvl    = 0       ! with statistical information
+        maxfct    = 1
+        mnum      = 1
+        nrhs      = 1
+
+!  ..   Numbers of Processors ( value of OMP_NUM_THREADS )
+        CALL envir( 'OMP_NUM_THREADS'//char(0), threads, tlen )
+        iparm(3) = 1
+        IF ( tlen>0 ) &
+          READ(threads(1:tlen),*) iparm(3)
+        IF (iparm(3)<=0) Iparm(3) = 1
+
+        CALL pardiso(A % PardisoId, maxfct, mnum, mtype, phase, n, &
+          values, rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, ierror)
      
-      WRITE(*,*) 'Reordering completed ... '
+        IF (ierror .NE. 0) THEN
+          WRITE(*,*) 'The following ERROR was detected: ', ierror
+          STOP
+        END IF
 
-      IF (error .NE. 0) THEN
-        WRITE(*,*) 'The following ERROR was detected: ', error
-        STOP
+!..     Factorization.
+        phase     = 22  ! only factorization
+        CALL pardiso (A % pardisoId, maxfct, mnum, mtype, phase, n, &
+         values, rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, ierror) 
+
+        IF (ierror .NE. 0) THEN
+           WRITE(*,*) 'The following ERROR was detected: ', ierror
+          STOP
+        ENDIF 
       END IF
 
-      WRITE(*,*) 'Number of nonzeros in factors   = ',iparm(18)
-      WRITE(*,*) 'Number of factorization MFLOPS  = ',iparm(19)
-
-!.. Factorization.
-      phase     = 22  ! only factorization
-      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, Values, &
-          rows, cols, idum, nrhs, iparm, msglvl, ddum, ddum, error) 
-
-      WRITE(*,*) 'Factorization completed ...  '
-      IF (error .NE. 0) THEN
-         WRITE(*,*) 'The following ERROR was detected: ', error
-        STOP
-      ENDIF 
-
-!.. Back substitution and iterative refinement
+!..   Back substitution and iterative refinement
       phase     = 33  ! only factorization
       iparm(8)  = 1   ! max numbers of iterative refinement steps
 
-      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, values, &
-           rows, cols, idum, nrhs, iparm, msglvl, b, x, error) 
-      WRITE(*,*) 'Solve completed ... '
+      CALL pardiso(A % PardisoId, maxfct, mnum, mtype, phase, n, &
+       values, rows, cols, idum, nrhs, iparm, msglvl, b, x, ierror) 
      
+!..   Termination and release of memory
+      FreeFactorize = ListGetLogical( Solver % Values, &
+          'Linear System Free Factorization', Found )
+      IF ( .NOT. Found ) FreeFactorize = .TRUE.
 
-!.. Termination and release of memory
-      phase     = -1           ! release internal memory
-      CALL pardiso (pt, maxfct, mnum, mtype, phase, n, ddum, idum, idum, &
-                    idum, nrhs, iparm, msglvl, ddum, ddum, error)
+      IF ( Factorize .AND. FreeFactorize ) THEN
+        phase     = -1           ! release internal memory
+        CALL pardiso (A % PardisoId, maxfct, mnum, mtype, phase, n, &
+          ddum, idum, idum, idum, nrhs, iparm, msglvl, ddum, ddum, ierror)
+
+        DEALLOCATE(A % PardisoId, A % PardisoParam)
+        A % PardisoId => NULL()
+        A % PardisoParam => NULL()
+      END IF
 
       IF(posdef) DEALLOCATE( values, rows, cols )
 #endif
@@ -797,15 +842,12 @@ CONTAINS
 
     LOGICAL :: GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: Method
-
-real(kind=dp) :: st, realtime
 !------------------------------------------------------------------------------
 
     Method = ListGetString( Solver % Values, 'Linear System Direct Method',GotIt )
     IF ( .NOT. GotIt ) Method = 'banded'
 
 
-st = realtime()
     SELECT CASE( Method )
       CASE( 'banded', 'symmetric banded' )
         IF ( .NOT. A % Complex ) THEN
@@ -829,7 +871,6 @@ st = realtime()
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )
     END SELECT
-print*,'solve time: ', realtime()-st
 
 !------------------------------------------------------------------------------
   END SUBROUTINE DirectSolver
