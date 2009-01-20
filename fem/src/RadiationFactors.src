@@ -105,7 +105,8 @@
 
      LOGICAL :: GotIt, SaveFactors, UpdateViewFactors, UpdateGebhardtFactors, &
          ComputeViewFactors, OptimizeBW, TopologyTest, TopologyFixed, &
-         FilesExist, FullMatrix, ImplicitLimitIs, IterSolveGebhardt, Found
+         FilesExist, FullMatrix, ImplicitLimitIs, IterSolveGebhardt, &
+	 ConstantEmissivity, Found
      LOGICAL, POINTER :: ActiveNodes(:)
 
      SAVE TimesVisited 
@@ -163,6 +164,8 @@
      IF(.NOT. (FirstTime .OR. UpdateViewFactors .OR. UpdateGebhardtFactors)) THEN
        RETURN
      END IF
+
+     ConstantEmissivity = FirstTime .AND. UpdateGebhardtFactors
 
      IF(GeometryFixedAfter == TimesVisited) THEN
        x0(1) = 0.0
@@ -580,7 +583,7 @@
 
      MatrixEntries = 0
      ImplicitEntries = 0
-
+     Emissivity = 1.0_dp
 
      ! Fill the matrix for gebhardt factors
      DO t=1,RadiationSurfaces
@@ -593,11 +596,13 @@
        DO i=1,Model % NumberOfBCs
          IF ( Model % BCs(i) % Tag  == k ) THEN
 
-           Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
+	   IF(.NOT. ConstantEmissivity) THEN
+             Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes, Found) ) / n
-	   IF( .NOT. Found ) THEN
-              Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n	
-           END IF 
+	     IF( .NOT. Found ) THEN
+                Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n	
+             END IF 
+           END IF
 
            Vals => ViewFactors(t) % Factors
            Cols => ViewFactors(t) % Elements
@@ -675,18 +680,20 @@
        n = CurrentElement % TYPE % NumberOfNodes
        NodeIndexes => CurrentElement % NodeIndexes
        
-       k = CurrentElement % BoundaryInfo % Constraint
-       DO j=1,Model % NumberOfBCs
-         IF ( Model % BCs(j) % Tag == k ) THEN
-           Emissivity = SUM(ListGetReal( Model % BCs(j) % Values, &
+       IF(.NOT. ConstantEmissivity) THEN
+         k = CurrentElement % BoundaryInfo % Constraint
+         DO j=1,Model % NumberOfBCs
+           IF ( Model % BCs(j) % Tag == k ) THEN
+             Emissivity = SUM(ListGetReal( Model % BCs(j) % Values, &
                'Emissivity', n, NodeIndexes, Found)) / n
-	   IF( .NOT. Found ) THEN
+	     IF( .NOT. Found ) THEN
 	      Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n	
-           END IF 
-           EXIT
-         END IF
-       END DO
-       
+             END IF 
+             EXIT
+           END IF
+         END DO
+       END IF       
+
        n = 0
        DO i=1,RadiationSurfaces
          Vals => ViewFactors(i) % Factors
