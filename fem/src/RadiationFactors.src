@@ -115,6 +115,7 @@
 
      Model => CurrentModel
 
+
      Found = .FALSE.
      DO i=1,Model % NumberOfBCs
 	RadiationFlag = ListGetString( Model % BCs(i) % Values, &
@@ -583,7 +584,8 @@
 
      MatrixEntries = 0
      ImplicitEntries = 0
-     Emissivity = 1.0_dp
+     Emissivity = ListGetConstReal( TSolver % Values,'Constant Emissivity',GotIt )
+     IF(.NOT. GotIt) Emissivity = 0.5_dp
 
      ! Fill the matrix for gebhardt factors
      DO t=1,RadiationSurfaces
@@ -762,6 +764,9 @@
          GebhardtFactors % NumberOfImplicitFactors = n
          ALLOCATE( GebhardtFactors % Elements(n), GebhardtFactors % Factors(n) )
        ELSE IF(ImplicitLimitIs) THEN 
+	 IF( TopologyFixed ) THEN
+           CALL Warn('RadiationFactors','Matrix topology cannot be fixed with implicit Gebhardt factors')
+         END IF
          TopologyFixed = .FALSE.
          TopologyTest = .FALSE.
          DEALLOCATE( GebhardtFactors % Elements, GebhardtFactors % Factors )
@@ -935,8 +940,8 @@
 
        AMatrix => CreateMatrix( CurrentModel,TSolver,TSolver % Mesh, &
            NewPerm, 1, MatrixFormat, OptimizeBW,  &
-            ListGetString( Solver % Values, 'Equation', Found ),.FALSE.)       
-       
+            ListGetString( TSolver % Values, 'Equation', Found ) )       
+      
        ! Reorder the primary variable for bandwidth optimization:
        ! --------------------------------------------------------
        IF ( OptimizeBW ) THEN
@@ -953,19 +958,21 @@
              END WHERE
            END DO
          END IF
+
          Tsolver % Variable % Perm = NewPerm
          DEALLOCATE( NewPerm )
        END IF
-       
+
        ! TODO: CreateMatrix should do these:
        ! -----------------------------------
-       AMatrix % Lumped    = ListGetLogical( TSolver % Values, &
+       AMatrix % Lumped = ListGetLogical( TSolver % Values, &
            'Lumped Mass Matrix', GotIt )
        AMatrix % Symmetric = ListGetLogical( TSolver % Values, &
            'Linear System Symmetric', GotIt )       
        
        n = AMatrix % NumberOFRows
        ALLOCATE( AMatrix % RHS(n) )
+
 
        ! Transient case additional allocations:
        ! --------------------------------------
