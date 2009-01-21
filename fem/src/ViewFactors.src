@@ -717,7 +717,7 @@
     INTEGER :: i,n
 
     N = HUTI_NDIM
-    DO i=1,N
+    DO i=1,n
       u(i) = v(i) / Jacobian(i,i) 
     END DO
   END SUBROUTINE DiagPrec
@@ -734,12 +734,14 @@
     REAL(KIND=dp) :: s
 
     n = HUTI_NDIM
-
-    DO i=1,n
-      s = 0.0D0
-      DO j=1,n
-        s = s + Jacobian(i,j) * u(j)
-      END DO
-      v(i) = s
-    END DO
+    CALL DGEMV('N',n,n,1._dp,Jacobian,n,u,1,0._dp,v,1)
+ 
+!   DO i=1,n
+!     s = 0.0_dp
+!     DO j=1,n
+!       s = s + Jacobian(i,j) * u(j)
+!     END DO
+!     v(i) = s
+!   END DO
+ 
   END SUBROUTINE Matvec
