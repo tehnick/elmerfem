@@ -115,7 +115,6 @@
 
      Model => CurrentModel
 
-
      Found = .FALSE.
      DO i=1,Model % NumberOfBCs
 	RadiationFlag = ListGetString( Model % BCs(i) % Values, &
@@ -646,8 +645,8 @@
      
      DO t=1,RadiationSurfaces
 
-       RHS    = 0.0D0
-       RHS(t) = 1.0D0
+       RHS    = 0.0_dp
+       RHS(t) = 1.0_dp
 
        ! It may be a good initial start that the Gii is 
        ! the same as previously
@@ -666,6 +665,8 @@
            IF(t == 1) THEN
              CALL ListAddLogical( Solver % Values, &
                  'Linear System Refactorize', .TRUE. )
+             CALL ListAddLogical( Solver % Values, &
+                 'Linear System Free Factorization', .FALSE. )
            ELSE IF(t==2) THEN
              CALL ListAddLogical( Solver % Values, &
                  'Linear System Refactorize', .FALSE. )
@@ -673,6 +674,7 @@
            CALL DirectSolver( GFactorSP, SOL, RHS, Solver )
          END IF
        END IF
+       CALL ListRemove(Solver % Values,'Linear System Free Factorization')
 
        SolSum = SUM(SOL)
        MinSum = MIN(MinSum,SolSum)
@@ -1050,7 +1052,7 @@
            'Linear System Iterative Method', 'CGS' )
 
        CALL ListAddString( Solver % Values, &
-           'Linear System Direct Method', 'umfpack' )
+           'Linear System Direct Method', 'Umfpack' )
 
        CALL ListAddInteger( Solver % Values, &
            'Linear System Max Iterations', 500 )
