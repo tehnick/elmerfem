@@ -4516,16 +4516,15 @@ CONTAINS
     DO WHILE( ASSOCIATED( Var ) ) 
 
        SELECT CASE( Var % Name )
-         CASE( 'time', 'timestep', 'timestep size', 'timestep interval', &
-               'coupled iter', 'nonlin iter', 'coordinate 1', 'coordinate 2', 'coordinate 3' )
-            NULLIFY( Var % Values )
-            NULLIFY( Var % Perm )
-            NULLIFY( Var % PrevValues )
+         CASE( 'time', 'timestep', 'timestep size', &
+               'timestep interval', 'coupled iter', &
+               'nonlin iter', 'coordinate 1', &
+               'coordinate 2', 'coordinate 3' )
             Var => Var % Next
             CYCLE
        END SELECT
 
-       IF ( Var % DOFs > 1 ) THEN
+       IF (Var % DOFs>1) THEN
           Var => Var % Next
           CYCLE
        END IF
