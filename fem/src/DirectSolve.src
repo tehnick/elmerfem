@@ -916,28 +916,40 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: Method
 !------------------------------------------------------------------------------
 
+    IF ( PRESENT(Free_Fact) ) THEN
+      IF ( Free_Fact ) THEN
+        CALL BandSolver( A, x, b, Free_Fact )
+        CALL ComplexBandSolver( A, x, b, Free_Fact )
+        CALL Mumps_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL Pardiso_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL SuperLU_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL Umfpack_SolveSystem( Solver, A, x, b, Free_Fact )
+        RETURN
+      END IF
+    END IF
+
     Method = ListGetString( Solver % Values, 'Linear System Direct Method',GotIt )
     IF ( .NOT. GotIt ) Method = 'banded'
 
     SELECT CASE( Method )
       CASE( 'banded', 'symmetric banded' )
         IF ( .NOT. A % Complex ) THEN
-           CALL BandSolver( A, x, b, Free_Fact )
+           CALL BandSolver( A, x, b )
         ELSE
-           CALL ComplexBandSolver( A, x, b, Free_Fact )
+           CALL ComplexBandSolver( A, x, b )
         END IF
 
       CASE( 'umfpack', 'big umfpack' )
-        CALL Umfpack_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL Umfpack_SolveSystem( Solver, A, x, b )
 
       CASE( 'mumps' )
-        CALL Mumps_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL Mumps_SolveSystem( Solver, A, x, b )
 
       CASE( 'superlu' )
-        CALL SuperLU_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL SuperLU_SolveSystem( Solver, A, x, b )
 
       CASE( 'pardiso' )
-        CALL Pardiso_SolveSystem( Solver, A, x, b, Free_Fact )
+        CALL Pardiso_SolveSystem( Solver, A, x, b )
 
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )
