@@ -43,6 +43,7 @@
 
 MODULE ElementUtils
 
+    USE DirectSolve
     USE Integration
     USE ListMatrix
     USE BandMatrix
@@ -52,6 +53,76 @@ MODULE ElementUtils
     USE BandwidthOptimize
 
 CONTAINS
+
+!------------------------------------------------------------------------------
+   RECURSIVE SUBROUTINE FreeMatrix(Matrix)
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t), POINTER :: Matrix
+!------------------------------------------------------------------------------
+     TYPE(Solver_t) :: Solver
+     REAL(KIND=dp) :: x(1), b(1)
+
+     IF ( .NOT. ASSOCIATED( Matrix ) ) RETURN
+
+     CALL DirectSolver( Matrix,x,b,Solver,Free_Fact=.TRUE.)
+
+     IF ( ASSOCIATED( Matrix % Perm ) )        DEALLOCATE( Matrix % Perm )
+     IF ( ASSOCIATED( Matrix % InvPerm ) )     DEALLOCATE( Matrix % InvPerm )
+
+     IF ( ASSOCIATED( Matrix % Cols ) ) THEN
+        IF ( ASSOCIATED( Matrix % Cols, Matrix % ILUCols ) ) &
+           NULLIFY( Matrix % ILUCols )
+        DEALLOCATE( Matrix % Cols )
+     END IF
+
+     IF ( ASSOCIATED( Matrix % Rows ) ) THEN
+        IF ( ASSOCIATED( Matrix % Rows, Matrix % ILURows ) ) &
+           NULLIFY( Matrix % ILURows )
+        DEALLOCATE( Matrix % Rows )
+     END IF
+
+     IF ( ASSOCIATED( Matrix % Diag ) ) THEN
+        IF ( ASSOCIATED( Matrix % Diag, Matrix % ILUDiag ) ) &
+           NULLIFY( Matrix % ILUDiag )
+        DEALLOCATE( Matrix % Diag )
+     END IF
+
+     IF ( ASSOCIATED( Matrix % GRows ) )       DEALLOCATE( Matrix % GRows )
+  
+     IF ( ASSOCIATED( Matrix % RHS   ) )       DEALLOCATE( Matrix % RHS )
+     IF ( ASSOCIATED( Matrix % Force ) )       DEALLOCATE( Matrix % Force )
+     IF ( ASSOCIATED( Matrix % RHS_im ) )      DEALLOCATE( Matrix % RHS_im )
+
+     IF ( ASSOCIATED( Matrix % Values ) )      DEALLOCATE( Matrix % Values )
+     IF ( ASSOCIATED( Matrix % MassValues ) )  DEALLOCATE( Matrix % MassValues )
+     IF ( ASSOCIATED( Matrix % DampValues ) )  DEALLOCATE( Matrix % DampValues )
+
+     IF ( ASSOCIATED( Matrix % ILUValues ) )   DEALLOCATE( Matrix % ILUValues )
+     IF ( ASSOCIATED( Matrix % ILUCols ) )     DEALLOCATE( Matrix % ILUCols )
+     IF ( ASSOCIATED( Matrix % ILURows ) )     DEALLOCATE( Matrix % ILURows )
+     IF ( ASSOCIATED( Matrix % ILUDiag ) )     DEALLOCATE( Matrix % ILUDiag )
+
+     IF ( ASSOCIATED( Matrix % CRHS   ) )      DEALLOCATE( Matrix % CRHS )
+     IF ( ASSOCIATED( Matrix % CForce ) )      DEALLOCATE( Matrix % CForce )
+
+     IF ( ASSOCIATED( Matrix % CValues ) )     DEALLOCATE( Matrix % CValues )
+     IF ( ASSOCIATED( Matrix % CILUValues ) )  DEALLOCATE( Matrix % CILUValues )
+
+     IF ( ASSOCIATED(Matrix % CMassValues) )  DEALLOCATE( Matrix % CMassValues )
+     IF ( ASSOCIATED(Matrix % CDampValues) )  DEALLOCATE( Matrix % CDampValues )
+
+     IF ( ASSOCIATED( Matrix % GRows ) )      DEALLOCATE( Matrix % GRows )
+     IF ( ASSOCIATED( Matrix % GOrder) )      DEALLOCATE( Matrix % GOrder )
+     IF ( ASSOCIATED( Matrix % RowOwner ) )   DEALLOCATE( Matrix % RowOwner )
+
+     CALL FreeMatrix( Matrix % EMatrix )
+     CALL FreeMatrix( Matrix % ConstraintMatrix )
+
+     DEALLOCATE( Matrix )
+!------------------------------------------------------------------------------
+   END SUBROUTINE FreeMatrix
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE MakeListMatrix( Model,Solver,Mesh,List,Reorder, &

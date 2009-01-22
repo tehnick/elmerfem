@@ -56,9 +56,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE ComplexBandSolver( A,x,b )
+   SUBROUTINE ComplexBandSolver( A,x,b, Free_fact )
 !------------------------------------------------------------------------------
 
+     LOGICAL, OPTIONAL :: Free_Fact
      REAL(KIND=dp) :: x(*),b(*)
      TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -69,6 +70,13 @@ CONTAINS
 
      SAVE BA
 !------------------------------------------------------------------------------
+
+     IF ( PRESENT(Free_Fact) ) THEN
+       IF ( Free_Fact ) THEN
+         IF ( ALLOCATED(BA) ) DEALLOCATE(BA)
+         RETURN
+       END IF
+     END IF
 
      n = A % NumberOfRows
      x(1:n) = b(1:n)
@@ -156,9 +164,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE BandSolver( A,x,b )
+   SUBROUTINE BandSolver( A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
-
+     LOGICAL, OPTIONAL :: Free_Fact
      REAL(KIND=dp) :: x(*),b(*)
      TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -168,6 +176,13 @@ CONTAINS
 
      SAVE BA
 !------------------------------------------------------------------------------
+     IF ( PRESENT(Free_Fact) ) THEN
+       IF ( Free_Fact ) THEN
+         IF ( ALLOCATED(BA) ) DEALLOCATE(BA)
+         RETURN
+       END IF
+     END IF
+
      N = A % NumberOfRows
 
      x(1:n) = b(1:n)
@@ -263,8 +278,13 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  SUBROUTINE UMFPack_SolveSystem( Solver,A,x,b )
+  SUBROUTINE UMFPack_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
+    LOGICAL, OPTIONAL :: Free_Fact
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp), TARGET :: x(*), b(*)
+
 #include "../config.h"
 #ifdef HAVE_UMFPACK
   INTERFACE
@@ -320,16 +340,8 @@ CONTAINS
        REAL(KIND=dp) :: x(*), b(*), control(*), iinfo(*)
     END SUBROUTINE umf4_l_sol
   END INTERFACE
-#endif
 
-
-  TYPE(Matrix_t), POINTER :: A
-  TYPE(Solver_t) :: Solver
-  INTEGER :: n
-  REAL(KIND=dp), TARGET :: x(*), b(*)
-
-#ifdef HAVE_UMFPACK
-  INTEGER :: status, sys
+  INTEGER :: n, status, sys
   REAL(KIND=dp) :: iInfo(90), Control(20)
   INTEGER(KIND=AddrInt) :: symbolic, zero=0, ln, lsys
   INTEGER(KIND=AddrInt), ALLOCATABLE :: LRows(:), LCols(:)
@@ -337,6 +349,16 @@ CONTAINS
   SAVE iInfo, Control
  
   LOGICAL :: Factorize, FreeFactorize, stat, BigMode
+
+  IF ( PRESENT(Free_Fact) ) THEN
+    IF ( Free_Fact ) THEN
+      IF ( A % UMFPack_Numeric/=0 ) THEN
+        CALL umf4fnum(A % UMFPack_Numeric)
+        A % UMFPack_Numeric = 0
+      END IF
+      RETURN
+    END IF
+  END IF
 
   BigMode = ListGetString( Solver % Values, &
       'Linear System Direct Method' ) == 'big umfpack'
@@ -430,8 +452,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE Mumps_SolveSystem( Solver,A,x,b )
+  SUBROUTINE Mumps_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
+  LOGICAL, OPTIONAL :: Free_Fact
   TYPE(Matrix_t), POINTER :: A
   TYPE(Solver_t) :: Solver
   REAL(KIND=dp), TARGET :: x(*), b(*)
@@ -445,6 +468,20 @@ CONTAINS
 
   INTEGER, ALLOCATABLE :: memb(:)
   INTEGER :: Comm_active, Group_active, Group_world
+
+  IF ( PRESENT(Free_Fact) ) THEN
+    IF ( Free_Fact ) THEN
+      IF ( ASSOCIATED(A % MumpsID) ) THEN
+        DEALLOCATE( A % MumpsID % irn_loc, &
+           A % MumpsID % jcn_loc, A % MumpsID % rhs,  &
+              A % MumpsID % isol_loc, A % MumpsID % sol_loc, A % Gorder)
+        A % MumpsID % job = -2
+        CALL DMumps(A % MumpsID)
+        DEALLOCATE(A % MumpsID)
+      END IF
+      RETURN
+    END IF
+  END IF
 
   Factorize = ListGetLogical( Solver % Values, &
      'Linear System Refactorize', stat )
@@ -500,9 +537,9 @@ CONTAINS
       A % MumpsID % sym = 0
     END IF
 
-    A % MumpsID % icntl(2)  = 0 ! supress printing of diagnostics and warnings
-    A % MumpsID % icntl(3)  = 0 ! supress statistics
-    A % MumpsID % icntl(4)  = 1 ! the same as the two above, but doesn't seem to work.
+!   A % MumpsID % icntl(2)  = 0 ! supress printing of diagnostics and warnings
+!   A % MumpsID % icntl(3)  = 0 ! supress statistics
+!   A % MumpsID % icntl(4)  = 1 ! the same as the two above, but doesn't seem to work.
     A % MumpsID % icntl(5)  = 0 ! matrix format 'assembled'
     A % MumpsID % icntl(18) = 3 ! 'distributed' matrix 
     A % MumpsID % icntl(21) = 1 ! 'distributed' solution phase
@@ -573,8 +610,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE SuperLU_SolveSystem( Solver,A,x,b )
+  SUBROUTINE SuperLU_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
+  LOGICAL, OPTIONAL :: Free_fact
   TYPE(Matrix_t), POINTER :: A
   TYPE(Solver_t) :: Solver
   REAL(KIND=dp), TARGET :: x(*), b(*)
@@ -593,6 +631,18 @@ CONTAINS
         end subroutine solve_superlu
       end interface
 
+      IF ( PRESENT(Free_Fact) ) THEN
+        IF ( Free_Fact ) THEN
+          IF ( A % SuperLU_Factors/= 0 ) THEN
+            iopt = 3
+            CALL Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, &
+               A % Cols, A % Rows, x, n, A % SuperLU_Factors, iinfo )
+            A % SuperLU_Factors = 0
+          END IF
+          RETURN
+        END IF
+      END IF
+
       n = A % NumberOfRows
       nrhs = 1
       x(1:n) = b(1:n)
@@ -606,19 +656,19 @@ CONTAINS
          'Linear System Refactorize', stat )
       IF ( .NOT. stat ) Factorize = .TRUE.
 
-      IF ( Factorize .OR. A % Umfpack_numeric==0 ) THEN
+      IF ( Factorize .OR. A % SuperLU_Factors==0 ) THEN
 
-        IF ( A % UmfPack_numeric/= 0 ) THEN
+        IF ( A % SuperLU_Factors/= 0 ) THEN
           iopt = 3
           call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-                     A % Rows, x, n, A % Umfpack_numeric, iinfo )
-          A % UmfPack_numeric = 0
+                     A % Rows, x, n, A % SuperLU_Factors, iinfo )
+          A % SuperLU_Factors
         END IF
 
         ! First, factorize the matrix. The factors are stored in *factors* handle.
         iopt = 1
         call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-              A % Rows, x, n, A % Umfpack_numeric, iinfo )
+              A % Rows, x, n, A % SuperLU_Factors, iinfo )
  
         if (iinfo .eq. 0) then
            write (*,*) 'Factorization succeeded'
@@ -631,7 +681,7 @@ CONTAINS
       ! Second, solve the system using the existing factors.
       iopt = 2
       call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-           A % Rows,  x, n, A % Umfpack_numeric, iinfo )
+           A % Rows,  x, n, A % SuperLU_Factors, iinfo )
 !
       if (iinfo .eq. 0) then
          write (*,*) 'Solve succeeded'
@@ -647,8 +697,8 @@ CONTAINS
       IF ( Factorize .AND. FreeFactorize ) THEN
         iopt = 3
         call Solve_SuperLU( iopt, nprocs, n, nnz, nrhs, A % Values, A % Cols, &
-                    A % Rows, x, n, A % Umfpack_numeric, iinfo )
-        A % UmfPack_numeric = 0
+                    A % Rows, x, n, A % SuperLU_Factors, iinfo )
+        A % SuperLU_Factors = 0
       END IF
 #endif      
 !------------------------------------------------------------------------------
@@ -657,12 +707,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE Pardiso_SolveSystem( Solver,A,x,b )
+  SUBROUTINE Pardiso_SolveSystem( Solver,A,x,b,Free_fact )
 !------------------------------------------------------------------------------
 
       IMPLICIT NONE
 
       TYPE(Matrix_t), POINTER :: A
+      LOGICAL, OPTIONAL :: Free_fact
       TYPE(Solver_t) :: Solver
       REAL(KIND=dp), TARGET :: x(*), b(*)
 
@@ -698,6 +749,26 @@ CONTAINS
 
       REAL(KIND=dp), POINTER :: values(:)
       INTEGER, POINTER  :: rows(:), cols(:)
+
+      IF ( PRESENT(Free_Fact) ) THEN
+        IF ( Free_Fact ) THEN
+          IF(ASSOCIATED(A % PardisoId)) THEN
+            phase     = -1           ! release internal memory
+            n = A % NumberOfRows
+            mtype  = 11
+            maxfct = 1
+            mnum   = 1
+            nrhs   = 1
+            msglvl = 0
+            CALL pardiso(A % PardisoId, maxfct, mnum, mtype, phase, n, &
+             ddum, idum, idum, idum, nrhs, A % PardisoParam, msglvl, ddum, ddum, ierror)
+            DEALLOCATE(A % PardisoId, A % PardisoParam)
+            A % PardisoId => NULL()
+            A % PardisoParam => NULL()
+          END IF
+          RETURN
+        END IF
+      END IF
 
 !  .. Setup Pardiso control parameters und initialize the solvers     
 !     internal adress pointers. This is only necessary for the FIRST   
@@ -745,6 +816,7 @@ CONTAINS
       mnum      = 1
       nrhs      = 1
       iparm => A % PardisoParam
+
       
       IF ( Factorize .OR. .NOT.ASSOCIATED(A % PardisoID) ) THEN
         IF(ASSOCIATED(A % PardisoId)) THEN
@@ -831,13 +903,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE DirectSolver( A,x,b,Solver )
+  SUBROUTINE DirectSolver( A,x,b,Solver,Free_Fact )
 !------------------------------------------------------------------------------
 
     TYPE(Solver_t) :: Solver
-
     REAL(KIND=dp) :: x(*),b(*)
     TYPE(Matrix_t), POINTER :: A
+    LOGICAL, OPTIONAL :: Free_Fact
 !------------------------------------------------------------------------------
 
     LOGICAL :: GotIt
@@ -847,26 +919,25 @@ CONTAINS
     Method = ListGetString( Solver % Values, 'Linear System Direct Method',GotIt )
     IF ( .NOT. GotIt ) Method = 'banded'
 
-
     SELECT CASE( Method )
       CASE( 'banded', 'symmetric banded' )
         IF ( .NOT. A % Complex ) THEN
-           CALL BandSolver( A, x, b )
+           CALL BandSolver( A, x, b, Free_Fact )
         ELSE
-           CALL ComplexBandSolver( A, x, b )
+           CALL ComplexBandSolver( A, x, b, Free_Fact )
         END IF
 
       CASE( 'umfpack', 'big umfpack' )
-        CALL Umfpack_SolveSystem( Solver, A, x, b )
+        CALL Umfpack_SolveSystem( Solver, A, x, b, Free_Fact )
 
       CASE( 'mumps' )
-        CALL Mumps_SolveSystem( Solver, A, x, b )
+        CALL Mumps_SolveSystem( Solver, A, x, b, Free_Fact )
 
       CASE( 'superlu' )
-        CALL SuperLU_SolveSystem( Solver, A, x, b )
+        CALL SuperLU_SolveSystem( Solver, A, x, b, Free_Fact )
 
       CASE( 'pardiso' )
-        CALL Pardiso_SolveSystem( Solver, A, x, b )
+        CALL Pardiso_SolveSystem( Solver, A, x, b, Free_Fact )
 
       CASE DEFAULT
         CALL Fatal( 'DirectSolver', 'Unknown direct solver method.' )
