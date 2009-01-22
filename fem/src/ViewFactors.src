@@ -43,7 +43,7 @@
 
    MODULE ViewFactorGlobals
      USE Types
-     REAL(KIND=dp), ALLOCATABLE :: Jacobian(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Jdiag(:), Jacobian(:,:)
    END MODULE ViewFactorGlobals
 
    PROGRAM ViewFactors
@@ -569,7 +569,7 @@
 
         REAL(KIND=dp) :: SUM = 0.0D0,eps=1.0D-20,s,si,sj
   
-        ALLOCATE( RHS(N),SOL(N),PSOL(N),Areas(N),Jacobian(N,N),STAT=istat )
+        ALLOCATE( RHS(n),SOL(n),PSOL(n),Areas(n),Jdiag(n),Jacobian(n,n),STAT=istat )
 
         IF ( istat /= 0 ) THEN
           CALL Fatal( 'Viewfactors', &
@@ -579,15 +579,15 @@
 !------------------------------------------------------------------------------
 !       First force the matrix (before dividing by area) to be symmetric
 !------------------------------------------------------------------------------
-        DO i=1,N
+        DO i=1,n
           Areas(i) = ElementArea( Model % Mesh, RadElements(i), &
                RadElements(i) % Type % NumberOfNodes )
         END DO
 
-        DO i=1,N
-          DO j=i,N
-            si = Areas(i) * Factors((i-1)*N+j)
-            sj = Areas(j) * Factors((j-1)*N+i)
+        DO i=1,n
+          DO j=i,n
+            si = Areas(i) * Factors((i-1)*n+j)
+            sj = Areas(j) * Factors((j-1)*n+i)
 
             li = (ABS(si) < HUGE(si)) 
             lj = (ABS(sj) < HUGE(sj)) 
@@ -602,8 +602,8 @@
               s = 0.0
             END IF
 
-            Factors((i-1)*N+j) = s
-            Factors((j-1)*N+i) = s
+            Factors((i-1)*n+j) = s
+            Factors((j-1)*n+i) = s
           END DO
         END DO
 !------------------------------------------------------------------------------
@@ -611,39 +611,40 @@
 !       well behaved equation (symmetric, diagonal dominant), no need for any
 !       tricks...)
 !------------------------------------------------------------------------------
-        SOL = 1.0D0
-        SUM = 1.0D0
+        SOL = 1.0_dp
+        SUM = 1.0_dp
         it = 0
 
         DO WHILE( SUM > eps .AND. it < itmax )
-          DO i=1,N
-            SUM = 0.0D0
-            DO j=1,N
-              SUM = SUM + Factors((i-1)*N+j) * SOL(j)
+          DO i=1,n
+            SUM = 0.0_dp
+            DO j=1,n
+              SUM = SUM + Factors((i-1)*n+j) * SOL(j)
             END DO
             SUM = SUM * SOL(i)
             RHS(i) = -(SUM - Areas(i))
           END DO
 
-          SUM = 0.0D0
-          DO i=1,N
+          SUM = 0.0_dp
+          DO i=1,n
             SUM = SUM + RHS(i)**2 / Areas(i)
           END DO
-          SUM = SUM / N
+          SUM = SUM / n
 
           IF ( SUM <= eps ) EXIT
 
-          DO i=1,N
-            DO j=1,N
-              Jacobian(i,j) = Factors((i-1)*N+j) * SOL(i)
+          DO i=1,n
+            DO j=1,n
+              Jacobian(i,j) = Factors((i-1)*n+j) * SOL(i)
             END DO
             DO j=1,N
-              Jacobian(i,i) = Jacobian(i,i) + Factors((i-1)*N+j) * SOL(j)
+              Jacobian(i,i) = Jacobian(i,i) + Factors((i-1)*n+j) * SOL(j)
             END DO
+            Jdiag(i) = 1._dp/Jacobian(i,i)
           END DO
              
           PSOL = SOL
-          CALL IterSolv( N,SOL,RHS )
+          CALL IterSolv( n,SOL,RHS )
           SOL = PSOL + SOL
 
           it = it + 1
@@ -658,7 +659,7 @@
           END DO
         END DO
 
-        DEALLOCATE( SOL,RHS,PSOL,Areas,Jacobian )
+        DEALLOCATE( SOL,RHS,PSOL,Areas,Jdiag,Jacobian )
 
     END SUBROUTINE NormalizeFactors
 
@@ -682,7 +683,7 @@
       HUTI_NDIM = N
 
       ipar = 0
-      dpar = 0.0D0
+      dpar = 0.0_dp
 
       HUTI_WRKDIM = HUTI_CG_WORKSIZE
       wsize = HUTI_WRKDIM
@@ -695,17 +696,16 @@
 
       HUTI_TOLERANCE = 1.0D-12
 
-       iterProc  = AddrFunc(HUTI_D_CG)
-       mvProc    = AddrFunc(Matvec)
-       pcondProc = AddrFunc(DiagPrec)
-       CALL IterCall( iterProc,x,b,ipar,dpar,work,mvProc,pcondProc, &
-                 dProc, dProc, dProc, dProc )
+      iterProc  = AddrFunc(HUTI_D_CG)
+      mvProc    = AddrFunc(Matvec)
+      pcondProc = AddrFunc(DiagPrec)
+      CALL IterCall( iterProc,x,b,ipar,dpar,work,mvProc,pcondProc, &
+                dProc, dProc, dProc, dProc )
           
       DEALLOCATE( work )
     END SUBROUTINE IterSolv 
 
   END PROGRAM ViewFactors
-
 
 
   SUBROUTINE DiagPrec( u,v,ipar )
@@ -716,32 +716,19 @@
 
     INTEGER :: i,n
 
-    N = HUTI_NDIM
-    DO i=1,n
-      u(i) = v(i) / Jacobian(i,i) 
-    END DO
+    n = HUTI_NDIM
+    u(1:n) = v(1:n)*Jdiag(1:n)
   END SUBROUTINE DiagPrec
-
 
 
   SUBROUTINE Matvec( u,v,ipar )
     USE ViewFactorGlobals
 
-    REAL(KIND=dp) :: u(*),v(*)
     INTEGER :: ipar(*)
+    REAL(KIND=dp) :: u(*),v(*)
 
-    INTEGER :: i,j,n
-    REAL(KIND=dp) :: s
+    INTEGER :: n
 
     n = HUTI_NDIM
-    CALL DGEMV('N',n,n,1._dp,Jacobian,n,u,1,0._dp,v,1)
- 
-!   DO i=1,n
-!     s = 0.0_dp
-!     DO j=1,n
-!       s = s + Jacobian(i,j) * u(j)
-!     END DO
-!     v(i) = s
-!   END DO
- 
+    CALL DGEMV('N',n,n,1.0_dp,Jacobian,n,u,1,0.0_dp,v,1)
   END SUBROUTINE Matvec
