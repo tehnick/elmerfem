@@ -1082,13 +1082,14 @@
      REAL (KIND=dp) :: s
      
      n = HUTI_NDIM
+     CALL DGEMV('N',n,n,1._dp,GFactorFull,n,u,1,0._dp,v,1)
      
-     DO i=1,n
-       s = 0.0D0
-       DO j=1,n
-         s = s + GFactorFull(i,j) * u(j)
-       END DO
-       v(i) = s
-     END DO
+   ! DO i=1,n
+   !   s = 0.0D0
+   !   DO j=1,n
+   !     s = s + GFactorFull(i,j) * u(j)
+   !   END DO
+   !   v(i) = s
+   ! END DO
      
    END SUBROUTINE RMatvec
