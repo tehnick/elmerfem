@@ -3221,10 +3221,6 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   IMPLICIT NONE
 ! Types
 !------------------------------------------------------------------------------
-  TYPE RealPointerList_t
-     REAL(KIND=dp), DIMENSION(:), POINTER :: var
-  END TYPE RealPointerList_t
-!------------------------------------------------------------------------------
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt
@@ -3237,26 +3233,24 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t),POINTER :: CurrentElement
   TYPE(ValueList_t), POINTER :: Material
   TYPE(Variable_t), POINTER :: Var
-  TYPE(RealPointerList_t), POINTER :: PPParam(:)
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, body_id, material_id,&
-       n, j, i, elementNumber
-  INTEGER, POINTER :: NodeIndexes(:)
-  REAL(KIND=dp), POINTER :: PParam(:), LocalParam(:)
+       n, j, i, elementNumber, FieldNodes
+  INTEGER, POINTER :: NodeIndexes(:), FieldPerm(:)
+  REAL(KIND=dp), POINTER :: LocalParam(:), Field(:)
   CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(199), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
-  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, NoParams, &
-	LocalParam, PPParam
+  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, NoParams, LocalParam
 
 
   CALL Info('SaveMaterials','Saving selected parameters as dofs')
+
 
   !-----------------------------------
   ! get pointers to Solver information
   !-----------------------------------
   PointerToSolver => Solver
-
   IF ( .NOT. ASSOCIATED( PointerToSolver ) ) THEN
     CALL FATAL('SaveMaterials', ' No Solver Pointer associated')
   END IF
@@ -3297,86 +3291,88 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
        CALL WARN( 'SaveMaterials', 'No valid parameters found. Nothing will be written')       
        RETURN
      END IF     
-
-     ! --------------------------------------------
-     ! Allocate space for new variables to be added
-     ! --------------------------------------------
-     ALLOCATE(  PPParam(NoParams), STAT=istat )
-     IF (istat /= 0) CALL FATAL('SaveMaterials', 'Allocation Error')
-     SubroutineVisited = .TRUE.
-
+     
      !------------------
      ! Add new Variables
      ! -----------------
      DO ParamNo = 1, NoParams
-       ALLOCATE(PParam(LocalNodes))
-       PParam = 0._dp
-       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
-             TRIM(ParamName(ParamNo)), 1, PParam )
+       Var => VariableGet( Model % Variables, TRIM(ParamName(ParamNo)), .TRUE.)     
+       IF(.NOT. ASSOCIATED( Var ) ) THEN
+         ALLOCATE(Field(LocalNodes))
+         Field = 0._dp
+         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
+             TRIM(ParamName(ParamNo)), 1, Field, FieldPerm )         
+         NULLIFY( Field ) 
+       END IF
      END DO
 
     !------------------------------------------------
     ! Check that parameter is given in some material
     !------------------------------------------------
-    DO i=1,NoParams
-      GotIt = .FALSE.
-      DO j=1,Model % NumberOfMaterials
-        Material => Model % Materials(j) % Values
-        IF( ListCheckPresent( Material, TRIM(ParamName(i)) ) ) THEN
-          GotIt = .TRUE.
-	  EXIT
-        END IF
-      END DO
-      IF(.NOT. GotIt) THEN
-        CALL Warn('SaveMaterials','Parameter '//TRIM(ParamName(i))//' not present in any material')
-      ELSE
-        ParamsExist = .TRUE.
-      END IF
-    END DO
-  END IF
-
-  !------------------------------------------
-  ! Assign Pointer Variables and Permutations
-  !------------------------------------------
-  DO i=1,NoParams  
-     Var => VariableGet( Model % Variables, TRIM(ParamName(i)), .TRUE.)     
-     PPParam(i) % var => Var % Values
-  END DO
-
-  !-----------------------------------
-  ! Loop all active elements of solver
-  !------------------------------------------------------
-  DO elementNumber=1,Solver % Mesh % NumberOfBulkElements
-
-     !--------------------------------
-     ! get some information on element
-     !--------------------------------
-     CurrentElement => Solver % Mesh % Elements(elementNumber)
-     Model % CurrentElement => CurrentElement
-     body_id = CurrentElement % BodyId
-     material_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Material' )
-     Material => Model % Materials(material_id) % Values
-
-     IF (.NOT. ASSOCIATED(Material)) THEN
-        WRITE( Message,'(a,I4,a,I4,a)')&
-             'No Material for material-id ', material_id, ' for body-id ', body_id, &
-             'associated'
-        CALL FATAL('SaveMaterials', Message)
-     END IF     
-     n = CurrentElement % TYPE % NumberOfNodes
-     NodeIndexes => CurrentElement % NodeIndexes
-
-     !-----------------------------------
-     ! loop all parameters to be exported
-     !-------------------------------------
-     DO i=1,NoParams 
-       LocalParam(1:n) = ListGetReal(Material, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
-       IF( GotIt ) PPParam(i) % var(NodeIndexes(1:n)) = LocalParam(1:n)
+     DO i=1,NoParams
+       GotIt = .FALSE.
+       DO j=1,Model % NumberOfMaterials
+         Material => Model % Materials(j) % Values
+         IF( ListCheckPresent( Material, TRIM(ParamName(i)) ) ) THEN
+           GotIt = .TRUE.
+           EXIT
+         END IF
+       END DO
+       IF(.NOT. GotIt) THEN
+         CALL Warn('SaveMaterials','Parameter '//TRIM(ParamName(i))//' not present in any material')
+       ELSE
+         ParamsExist = .TRUE.
+       END IF
      END DO
 
-   END DO 
+     IF( .NOT. ParamsExist ) THEN
+       CALL WARN( 'SaveMaterials', 'Parameters are not to be found. Nothing will be written')       
+       RETURN
+     END IF     
 
-   CALL Info('SaveMaterials','All done')
+     SubroutineVisited = .TRUE.
+   END IF
+
+
+  !-----------------------------------
+  ! loop all parameters to be exported
+  !-------------------------------------
+  DO i=1,NoParams 
+    
+    Var => VariableGet( Model % Variables, TRIM(ParamName(i)), .TRUE.)     
+    Field => Var % Values
+    FieldPerm => Var % Perm
+
+    DO elementNumber=1,Solver % Mesh % NumberOfBulkElements
+
+      CurrentElement => Solver % Mesh % Elements(elementNumber)
+      n = CurrentElement % TYPE % NumberOfNodes
+      NodeIndexes => CurrentElement % NodeIndexes
+
+      IF( ASSOCIATED( FieldPerm ) ) THEN
+        IF( .NOT. ALL(FieldPerm(NodeIndexes) > 0) ) CYCLE
+      END IF
+
+
+      Model % CurrentElement => CurrentElement
+      body_id = CurrentElement % BodyId
+      material_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Material' )
+      Material => Model % Materials(material_id) % Values
+
+      LocalParam(1:n) = ListGetReal(Material, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
+      IF(.NOT. GotIt) CYCLE
+
+      IF( ASSOCIATED( FieldPerm ) ) THEN
+        Field(FieldPerm(NodeIndexes(1:n))) = LocalParam(1:n)      
+      ELSE
+        Field(NodeIndexes(1:n)) = LocalParam(1:n)      
+      END IF
+
+    END DO
+  END DO
+
+
+  CALL Info('SaveMaterials','All done')
 
 
 
