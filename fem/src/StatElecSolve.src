@@ -680,13 +680,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
           k = CurrentElement % BoundaryInfo % Right % BodyId
 
         IF ( ANY(Ivals==j.OR.Ivals==k) ) THEN
-!         CALL TotalChargeBC( LocalForce,CurrentElement,n,ElementNodes )
-!         NodeIndexes => CurrentElement % BoundaryInfo % Left % NodeIndexes
-!         DO j=1,CurrentElement % BoundaryInfo % Left % Type % NumberOfNodes
-!           CALL AddToMatrixElement( Solver % Matrix % ConstraintMatrix, &
-!               1, PotentialPerm(NodeIndexes(j)), -LocalForce(j) )
-!         END DO
-
           NodeIndexes => CurrentElement % NodeIndexes
           DO j=1,GetElementNOFNodes()
             l = PotentialPerm(NodeIndexes(j))
@@ -699,6 +692,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
                 IF ( CM % Cols(m)>=Solver % Matrix % Cols(k) ) EXIT
                 m = m+1  
               END DO
+              IF ( m>=CM % Rows(2) ) EXIT
               IF ( CM % Cols(m) == Solver % Matrix % Cols(k) ) &
                 CM % Values(m) = CM % Values(m)+Solver % Matrix % Values(k)
             END DO
