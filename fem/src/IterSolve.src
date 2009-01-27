@@ -312,11 +312,9 @@ END FUNCTION DotProduct
      ELSE IF ( str(1:3) == 'ilu' ) THEN
        ILUn = NINT(ListGetCReal( SolverParam % Values, &
           'Linear System ILU Order', gotit ))
-print*,gotit, ilun
-       IF ( .NOT.gotit ) THEN
+       IF ( .NOT.gotit ) &
          ILUn = ICHAR(str(4:4)) - ICHAR('0')
-         IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
-       END IF
+       IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
        PCondType = PRECOND_ILUn
      ELSE IF ( str(1:4) == 'bilu' ) THEN
        ILUn = ICHAR(str(5:5)) - ICHAR('0')
