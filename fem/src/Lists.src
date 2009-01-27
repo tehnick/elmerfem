@@ -1966,6 +1966,40 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END FUNCTION ListGetConstReal
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  RECURSIVE FUNCTION ListGetCReal( List, Name, Found ) RESULT(s)
+     TYPE(ValueList_t), POINTER :: List
+     CHARACTER(LEN=*) :: Name
+     LOGICAL, OPTIONAL :: Found
+     INTEGER, TARGET :: Dnodes(1)
+     INTEGER, POINTER :: NodeIndexes(:)
+
+     REAL(KIND=dp) :: s
+     REAL(KIND=dp) :: x(1)
+     TYPE(Element_t), POINTER :: Element
+
+     INTEGER :: n, istat
+
+     IF ( PRESENT( Found ) ) Found = .FALSE.
+
+     NodeIndexes => Dnodes
+     n = 1
+     NodeIndexes(n) = 1
+
+     x = 0.0_dp
+     IF ( ASSOCIATED(List) ) THEN
+        IF ( PRESENT( Found ) ) THEN
+           x(1:n) = ListGetReal( List, Name, n, NodeIndexes, Found )
+        ELSE
+           x(1:n) = ListGetReal( List, Name, n, NodeIndexes )
+        END IF
+     END IF
+     s = x(1)
+!------------------------------------------------------------------------------
+  END FUNCTION ListGetCReal
+!------------------------------------------------------------------------------
+
+
 #define MAX_FNC 32
 
 !------------------------------------------------------------------------------
