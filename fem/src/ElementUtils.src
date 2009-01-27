@@ -610,6 +610,12 @@ CONTAINS
        A => Matrix % ConstraintMatrix
        A % NumberOfRows = n
        ALLOCATE( A % Rows(n+1), A % Diag(n), A % RHS(n) )
+
+       DO i=1,n
+         A % RHS(i:i) = ListGetConstReal( Solver % Values,  &
+           'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Value' )
+       END DO
+
        Cols = 0
        A % Rows(1) = 1
        DO i=1,n
@@ -669,7 +675,6 @@ CONTAINS
          WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' BC'
          ivals => ListGetIntegerArray( Solver % Values, str, Found )
          IF ( ASSOCIATED(ivals) ) THEN
-stop 'eh'
            DO k=Solver % Mesh % NumberOfBulkElements+1, &
                 Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOfBoundaryElements
              Element => Solver % Mesh % Elements(k)
