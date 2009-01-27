@@ -664,6 +664,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
              'Constraint DOF 1 Body', Gotit )
       IF ( .NOT. ASSOCIATED(Ivals) ) CYCLE
 
+      Solver % Matrix % ConstraintMatrix % RHS(1) = &
+        GetCReal( Solver % Values, 'Constraint DOF 1 Value', GotIt )
+
       DO i=1,GetNOFBoundaryElements()
         CurrentElement => GetBoundaryElement(i)
         IF ( .NOT.ActiveBoundaryElement() ) CYCLE
@@ -689,6 +692,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
             l = PotentialPerm(NodeIndexes(j))
             IF ( Done(l) ) CYCLE
             Done(l) = .TRUE.
+            CM % RHS(1) = CM % RHS(1)+Solver % Matrix % RHS(l)
             m = CM % Rows(1)
             DO k=Solver % Matrix % Rows(l),Solver % Matrix % Rows(l+1)-1
               DO WHILE(m<CM % Rows(2))
@@ -699,8 +703,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
                 CM % Values(m) = CM % Values(m)+Solver % Matrix % Values(k)
             END DO
           END DO
-          Solver % Matrix % ConstraintMatrix % RHS(1) = &
-            GetCReal( Solver % Values, 'Constraint DOF 1 Value', GotIt )
         END IF
       END DO
       DEALLOCATE(Done)
