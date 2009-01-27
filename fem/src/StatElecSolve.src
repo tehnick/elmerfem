@@ -169,21 +169,24 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Alpha, Beta, LayerH, Voltage, RelPerm1, RelPerm2
   REAL(KIND=dp) :: PermittivityOfVacuum, Norm, RelativeChange
   
-  REAL (KIND=DP) :: Wetot, at0, RealTime
+  REAL (KIND=DP) :: Wetot, at0, RealTime, ss
   REAL (KIND=DP) :: at, st, CPUTime, PotentialDifference, Capacitance
   REAL (KIND=DP) :: MinPotential, MaxPotential, NonLinearTol
   
-  INTEGER, POINTER :: NodeIndexes(:), CapBodyIndex(:)
+  INTEGER, POINTER :: NodeIndexes(:), CapBodyIndex(:), Ivals(:)
   INTEGER, POINTER :: PotentialPerm(:), EnergyPerm(:), SurfPerm(:)
   INTEGER, POINTER :: FieldPermOne(:), FieldPermTwo(:), FieldPermThree(:)
   INTEGER, POINTER :: FluxPermOne(:), FluxPermTwo(:), FluxPermThree(:)
   INTEGER :: CapBodies, CapBody, Permi, Permj, iter, MaxIterations
-  INTEGER :: i, j, k, n, t, istat, bf_id, LocalNodes, DIM, NonlinearIter
+  INTEGER :: i, j, k, l, m, n, t, istat, bf_id, LocalNodes, DIM, NonlinearIter
   
   LOGICAL :: AllocationsDone = .FALSE., gotIt, FluxBC
   LOGICAL :: CalculateField, CalculateFlux, CalculateEnergy
   LOGICAL :: CalculateCapMatrix, ConstantWeights
   LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
+
+  TYPE(Matrix_t), POINTER :: CM
+  LOGICAL, ALLOCATABLE :: Done(:)
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
   
@@ -637,7 +640,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-      CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce, BulkUpdate = SaveBulk )
+      CALL DefaultUpdateEquations( LocalStiffMatrix,LocalForce, BulkUpdate = SaveBulk )
 
 !------------------------------------------------------------------------------
     END DO
@@ -648,9 +651,64 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
 
 1000 CONTINUE
+
+    CM => Solver % Matrix % ConstraintMatrix
+    IF (ASSOCIATED(CM) ) THEN
+      CM % Values = 0._dp
+      IF ( .NOT. CM % Ordered ) CALL CRS_SortMatrix(CM)
+
+      ALLOCATE( Done(Solver % Mesh % NumberOfNodes) )
+      Done = .FALSE.
+
+      Ivals => ListGetIntegerArray( Solver % Values, &
+             'Constraint DOF 1 Body', Gotit )
+      IF ( .NOT. ASSOCIATED(Ivals) ) CYCLE
+
+      DO i=1,GetNOFBoundaryElements()
+        CurrentElement => GetBoundaryElement(i)
+        IF ( .NOT.ActiveBoundaryElement() ) CYCLE
+    
+        j = -1
+        IF ( ASSOCIATED(CurrentElement % BoundaryInfo % Left) ) &
+          j = CurrentElement % BoundaryInfo % Left % BodyId
+
+        k = -1
+        IF ( ASSOCIATED(CurrentElement % BoundaryInfo % Right) ) &
+          k = CurrentElement % BoundaryInfo % Right % BodyId
+
+        IF ( ANY(Ivals==j.OR.Ivals==k) ) THEN
+!         CALL TotalChargeBC( LocalForce,CurrentElement,n,ElementNodes )
+!         NodeIndexes => CurrentElement % BoundaryInfo % Left % NodeIndexes
+!         DO j=1,CurrentElement % BoundaryInfo % Left % Type % NumberOfNodes
+!           CALL AddToMatrixElement( Solver % Matrix % ConstraintMatrix, &
+!               1, PotentialPerm(NodeIndexes(j)), -LocalForce(j) )
+!         END DO
+
+          NodeIndexes => CurrentElement % NodeIndexes
+          DO j=1,GetElementNOFNodes()
+            l = PotentialPerm(NodeIndexes(j))
+            IF ( Done(l) ) CYCLE
+            Done(l) = .TRUE.
+            m = CM % Rows(1)
+            DO k=Solver % Matrix % Rows(l),Solver % Matrix % Rows(l+1)-1
+              DO WHILE(m<CM % Rows(2))
+                IF ( CM % Cols(m)>=Solver % Matrix % Cols(k) ) EXIT
+                m = m+1  
+              END DO
+              IF ( CM % Cols(m) == Solver % Matrix % Cols(k) ) &
+                CM % Values(m) = CM % Values(m)+Solver % Matrix % Values(k)
+            END DO
+          END DO
+          Solver % Matrix % ConstraintMatrix % RHS(1) = &
+            GetCReal( Solver % Values, 'Constraint DOF 1 Value', GotIt )
+        END IF
+      END DO
+      DEALLOCATE(Done)
+    END IF
     
     MinPotential = HUGE(MinPotential)
     MaxPotential = -HUGE(MaxPotential)
+
 
     DO t=Solver % Mesh % NumberOfBulkElements + 1, &
         Solver % Mesh % NumberOfBulkElements + &
@@ -716,41 +774,42 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
           
           Alpha = GetConstReal( Model % BCs(i) % Values, & 
               'Layer Relative Permittivity', gotit )
-          IF(.NOT. (GotIt .OR. FluxBC)) CYCLE
-
-          IF ( Gotit ) THEN
-            LayerH = GetConstReal( Model % BCs(i) % Values, &
-                'Layer Thickness', gotit )
-            IF ( (.NOT. gotit) .OR. LayerH < 1e-12 ) THEN
-              CALL Warn( 'StatElecSolve', &
-                  'Charge layer thickness not given or too small. Using 1e-8 m')
-              LayerH = 1e-8
-            END IF
-            Alpha = Alpha / LayerH
+          IF(GotIt .OR. FluxBC) THEN
+            IF ( Gotit ) THEN
+              LayerH = GetConstReal( Model % BCs(i) % Values, &
+                  'Layer Thickness', gotit )
+              IF ( (.NOT. gotit) .OR. LayerH < 1e-12 ) THEN
+                CALL Warn( 'StatElecSolve', &
+                    'Charge layer thickness not given or too small. Using 1e-8 m')
+                LayerH = 1e-8
+              END IF
+              Alpha = Alpha / LayerH
             
-            Voltage = GetConstReal( Model % BCs(i) % Values, &
-                'Electrode Potential', gotit )
-            Beta = GetConstReal( Model % BCs(i) % Values, &
-                'Layer Charge Density', gotit )
-            Beta = Alpha*Voltage + 0.5d0*Beta*LayerH / PermittivityOfVacuum            
-          END IF
+              Voltage = GetConstReal( Model % BCs(i) % Values, &
+                  'Electrode Potential', gotit )
+              Beta = GetConstReal( Model % BCs(i) % Values, &
+                  'Layer Charge Density', gotit )
+              Beta = Alpha*Voltage + 0.5d0*Beta*LayerH / PermittivityOfVacuum            
+            END IF
           
 !------------------------------------------------------------------------------
 !             Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
-          CALL StatElecBoundary( LocalStiffMatrix, LocalForce,  &
-              Load, Alpha, Beta, CurrentElement, n, ElementNodes )
+            CALL StatElecBoundary( LocalStiffMatrix, LocalForce,  &
+                Load, Alpha, Beta, CurrentElement, n, ElementNodes )
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
 !------------------------------------------------------------------------------
-          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-              ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
+            CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+                ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
+          END IF
 !------------------------------------------------------------------------------
+
         END IF ! of currentelement bc == bcs(i)
       END DO ! of i=1,model bcs
     END DO   ! Neumann BCs
 !------------------------------------------------------------------------------
-    
+
     CALL SetNodalLoads( Model,StiffMatrix,ForceVector, &
         Componentname(Solver % Variable),1,1,PotentialPerm )       
 	
@@ -935,6 +994,47 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
  
    CONTAINS
+
+!------------------------------------------------------------------------------
+   SUBROUTINE TotalChargeBC(F,Element,n,Nodes)
+!------------------------------------------------------------------------------
+     TYPE(Nodes_t) :: Nodes
+     INTEGER :: n
+     REAL(KIND=dp) :: F(:)
+     TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+     TYPE(GaussIntegrationPoints_t) :: IntegStuff
+     INTEGER :: i, j, pn
+     LOGICAL :: stat
+     TYPE(Nodes_t), SAVE :: Pnodes
+     TYPE(Element_t), POINTER ::  Parent
+     REAL(KIND=dp) :: s,u,v,w,detJ,pdetJ,pBasis(10),Basis(10),dBasisdx(10,3),Normal(3)
+
+     Parent => Element % BoundaryInfo % Left
+     CALL GetElementNodes( PNodes, Parent )
+     pn = Parent % Type % NumberOfNodes
+
+     IntegStuff = GaussPoints(Element)
+
+     F = 0._dp
+     DO i=1,IntegStuff % N
+       u = IntegStuff % u(i)
+       v = IntegStuff % v(i)
+       w = IntegStuff % w(i)
+       Normal = NormalVector(Element,Nodes,u,v,.TRUE.)
+       stat = ElementInfo(Element,Nodes,u,v,w,detJ,Basis )
+       CALL GetParentUVW( Element,n,Parent,pn,u,v,w,Basis )
+       stat = ElementInfo(Parent,PNodes,u,v,w,pdetJ,Basis,dBasisdx )
+       DO j=1,3
+         F(1:pn) = F(1:pn) - IntegStuff % s(i) * detJ * &
+               dBasisdx(1:pn,j)  * Normal(j)
+       END DO
+     END DO
+     
+!------------------------------------------------------------------------------
+   END SUBROUTINE TotalChargeBC
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
 ! Compute the Electric Flux, Electric Field and Electric Energy at model nodes

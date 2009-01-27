@@ -499,6 +499,7 @@ CONTAINS
      CHARACTER(LEN=MAX_NAME_LEN) :: Eq, str
      LOGICAL :: GotIt, DG, GB, UseOptimized, Found
      INTEGER i,j,k,l,k1,t,n, p,m, EDOFs, FDOFs, BDOFs, cols
+     INTEGER, POINTER :: Ivals(:)
      INTEGER, ALLOCATABLE :: InvInitialReorder(:)
 
 !------------------------------------------------------------------------------
@@ -613,12 +614,12 @@ CONTAINS
        A % Rows(1) = 1
        DO i=1,n
          WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Body' 
-         j = ListGetInteger( Solver % Values, str, Found )
-         IF ( j>0 ) THEN
+         ivals => ListGetIntegerArray( Solver % Values, str, Found )
+         IF ( ASSOCIATED(ivals) ) THEN
            InvInitialReorder=0
            DO k=1,Solver % Mesh % NumberOfBulkElements
              Element => Solver % Mesh % Elements(k)
-             IF ( Element % Bodyid /= j ) CYCLE
+             IF ( ALL(ivals /= Element % Bodyid) ) CYCLE
              IF ( ALL( Perm(Element % NodeIndexes) > 0 ) ) &
                InvInitialReorder(Element % NodeIndexes)=1
            END DO
@@ -626,13 +627,13 @@ CONTAINS
          END IF
 
          WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' BC'
-         j = ListGetInteger( Solver % Values, str, Found )
-         IF ( j>0 ) THEN
+         Ivals => ListGetIntegerArray( Solver % Values, str, Found )
+         IF ( ASSOCIATED(Ivals) ) THEN
            InvInitialReorder=0
            DO k=Solver % Mesh % NumberOfBulkElements+1, &
                 Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOfBoundaryElements
              Element => Solver % Mesh % Elements(k)
-             IF ( Element % Boundaryinfo % Constraint /= j ) CYCLE
+             IF ( ALL(Element % Boundaryinfo % Constraint /= ivals) ) CYCLE
              IF ( ALL( Perm(Element % NodeIndexes) > 0 ) ) &
                InvInitialReorder(Element % NodeIndexes)=1
            END DO
@@ -647,11 +648,12 @@ CONTAINS
 
        DO i=1,n
          WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Body' 
-         j = ListGetInteger( Solver % Values, str, Found )
-         IF ( j>0 ) THEN
+         ivals => ListGetIntegerArray( Solver % Values, str, Found )
+         IF ( ASSOCIATED(ivals) ) THEN
            DO k=1,Solver % Mesh % NumberOfBulkElements
              Element => Solver % Mesh % Elements(k)
-             IF ( Element % Bodyid /= j ) CYCLE
+             IF ( ALL(ivals /= Element % Bodyid) ) CYCLE
+
              IF ( ALL( Perm(Element % NodeIndexes) > 0 ) ) THEN
                DO p=1,Element % TYPE % NumberOfNodes
                  l = Perm(Element % NodeIndexes(p))
@@ -665,14 +667,15 @@ CONTAINS
          END IF
 
          WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' BC'
-         j = ListGetInteger( Solver % Values, str, Found )
-         IF ( j>0 ) THEN
+         ivals => ListGetIntegerArray( Solver % Values, str, Found )
+         IF ( ASSOCIATED(ivals) ) THEN
+stop 'eh'
            DO k=Solver % Mesh % NumberOfBulkElements+1, &
                 Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOfBoundaryElements
              Element => Solver % Mesh % Elements(k)
-             IF ( Element % Boundaryinfo % Constraint /= j ) CYCLE
+             IF ( ALL(ivals /= Element % Boundaryinfo % Constraint) ) CYCLE
              IF ( ALL(Perm(Element % NodeIndexes) > 0) ) THEN
-               DO p=1,Element % TYPE % NumberOfNodes
+               DO p=1,Element % Type % NumberOfNodes
                  l = Perm(Element % NodeIndexes(p))
                  DO m=1,DOFs 
                    k1 = DOFs*(l-1)+m
@@ -683,6 +686,7 @@ CONTAINS
            END DO
          END IF
        END DO
+       CALL CRS_SortMatrix(A)
      END IF
 
      DEALLOCATE( Model % RowNonZeros, InvInitialReorder )

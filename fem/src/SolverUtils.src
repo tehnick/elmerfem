@@ -3446,12 +3446,13 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
-                  x, Norm, DOFs, Solver )
+       x, Norm, DOFs, Solver, BulkMatrix )
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: b(:), x(:), Norm
     TYPE(Matrix_t), POINTER :: A
     INTEGER :: DOFs
     TYPE(Solver_t), TARGET :: Solver
+    TYPE(Matrix_t), OPTIONAL, POINTER :: BulkMatrix
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
@@ -3752,21 +3753,21 @@ CONTAINS
        DEALLOCATE( Diag )
     END IF
 
-
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
        GetVarName(Solver % Variable) // ' Loads' )
 
-    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
-      k = SIZE(A % BulkRHS)
-      ALLOCATE( TempVector(k) )
-      SaveValues => A % Values
-      A % Values => A % BulkValues
-      i = A % NumberOfRows
-      A % NumberOFRows = k
-      CALL MatrixVectorMultiply( A, x, TempVector )
-      A % NumberOfRows = i
-      A % Values => SaveValues
-      TempVector = TempVector - A % BulkRHS
+    Aaid => A
+    IF (PRESENT(BulkMatrix)) THEN
+      IF (ASSOCIATED(BulkMatrix) ) Aaid=>BulkMatrix
+    END IF
+
+    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(Aaid % BulkValues) ) THEN
+      ALLOCATE( TempVector(Aaid % NumberOfRows) )
+      SaveValues => Aaid % Values
+      Aaid % Values => Aaid % BulkValues
+      CALL MatrixVectorMultiply( Aaid, x, TempVector )
+      Aaid % Values => SaveValues
+      TempVector = TempVector - Aaid % BulkRHS
       DO i=1,SIZE( NodalLoads % Perm )
         IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
            DO j=1,DOFs
@@ -3778,8 +3779,7 @@ CONTAINS
       DEALLOCATE( TempVector )
       CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
     END IF
-
-    CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 ! Compute the change of the solution with different methods 
@@ -3792,17 +3792,17 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
-    Solver % Variable % PrimaryMesh => Solver % Mesh
-    CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-          GetVarName(Solver % Variable) )
-
-    IF ( ASSOCIATED( NodalLoads ) ) THEN
-      NodalLoads % PrimaryMesh => Solver % Mesh
-      CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-                   GetVarName(NodalLoads) )
+   CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+ 
+   Solver % Variable % PrimaryMesh => Solver % Mesh
+   CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
+         GetVarName(Solver % Variable) )
+ 
+   IF ( ASSOCIATED( NodalLoads ) ) THEN
+     NodalLoads % PrimaryMesh => Solver % Mesh
+     CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
+                  GetVarName(NodalLoads) )
    END IF
-!------------------------------------------------------------------------------
-
 
 !------------------------------------------------------------------------------
 ! In order to be able to change the preconditoners or solvers the old matrix structures
@@ -4700,15 +4700,8 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 !------------------------------------------------------------------------------
 ! Solve the Collection-system 
 !------------------------------------------------------------------------------
-  CollectionMatrix % BulkValues => StiffMatrix % BulkValues
-  CollectionMatrix % BulkRHS => StiffMatrix % BulkRHS
-
   CALL SolveLinearSystem( CollectionMatrix, CollectionVector, &
-       CollectionSolution, Norm, DOFs, Solver )
-
-  CollectionMatrix % BulkRHS => NULL()
-  CollectionMatrix % BulkValues => NULL()
-  
+      CollectionSolution, Norm, DOFs, Solver, StiffMatrix )
 !------------------------------------------------------------------------------
 ! Separate the solution from CollectionSolution
 !------------------------------------------------------------------------------
@@ -4730,7 +4723,6 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 
     CALL Info( 'SolveWithLinearRestriction', 'All done' )
 
-!------------------------------------------------------------------------------
   END SUBROUTINE SolveWithLinearRestriction
 !------------------------------------------------------------------------------
 
