@@ -328,9 +328,8 @@ CONTAINS
     ELSE
       k = Diag(i)
     END IF
-!$omp critical
+!$omp atomic
     Values(k) = Values(k) + value
-!$omp end critical
   END SUBROUTINE CRS_AddToMatrixElement
 !------------------------------------------------------------------------------
 
@@ -385,9 +384,7 @@ CONTAINS
     ELSE
        k = Diag(i)
     END IF
-!$omp critical
     Values(k) = value
-!$omp end critical
   END SUBROUTINE CRS_SetMatrixElement
 !------------------------------------------------------------------------------
 
@@ -441,9 +438,7 @@ CONTAINS
     ELSE
        k = Diag(i)
     END IF
-!$omp critical
     value = Values(k)
-!$omp end critical
 
   END FUNCTION CRS_GetMatrixElement
 !------------------------------------------------------------------------------
@@ -610,18 +605,16 @@ CONTAINS
            IF ( Col >= Row ) THEN
              DO c=Diag(Row),Rows(Row+1)-1
                IF ( Cols(c) == Col ) THEN
-!$omp critical
+!$omp atomic
                  Values(c) = Values(c) + LocalMatrix(i,j)
-!$omp end critical
                  EXIT
                END IF
              END DO
            ELSE
              DO c=Rows(Row),Diag(Row)-1
                IF ( Cols(c) == Col ) THEN
-!$omp critical
+!$omp atomic
                  Values(c) = Values(c) + LocalMatrix(i,j)
-!$omp end critical
                  EXIT
                END IF
              END DO
@@ -640,18 +633,16 @@ CONTAINS
                    IF ( Col >= Row ) THEN
                      DO c=Diag(Row),Rows(Row+1)-1
                         IF ( Cols(c) == Col ) THEN
-!$omp critical
+!$omp atomic
                            Values(c) = Values(c) + LocalMatrix(Dofs*i-k,Dofs*j-l)
-!$omp end critical
                            EXIT
                         END IF
                      END DO
                    ELSE
                      DO c=Rows(Row),Diag(Row)-1
                         IF ( Cols(c) == Col ) THEN
-!$omp critical
+!$omp atomic
                            Values(c) = Values(c) + LocalMatrix(Dofs*i-k,Dofs*j-l)
-!$omp end critical
                            EXIT
                         END IF
                      END DO
@@ -742,9 +733,8 @@ CONTAINS
                  ELSE IF ( Col >= Row ) THEN
                     DO c=Diag(Row),Rows(Row+1)-1
                        IF ( Cols(c) == Col ) THEN
-!$omp critical
+!$omp atomic
                           Values(c) = Values(c) + LocalMatrix(RowDofs*i-k,ColDofs*j-l)
-!$omp end critical
                           EXIT
                        END IF
                     END DO
@@ -752,9 +742,8 @@ CONTAINS
                  ELSE
                     DO c=Rows(Row),Diag(Row)-1
                        IF ( Cols(c) == Col ) THEN
-!$omp critical
+!$omp atomic
                            Values(c) = Values(c) + LocalMatrix(RowDofs*i-k,ColDofs*j-l)
-!$omp end critical
                            EXIT
                         END IF
                      END DO

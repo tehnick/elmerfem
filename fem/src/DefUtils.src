@@ -90,7 +90,7 @@ CONTAINS
 
     IF ( .NOT.ALLOCATED(IndexStore) ) THEN
 !$omp barrier
-!$omp critical
+!$omp critical(get_index)
       IF ( .NOT.ALLOCATED(IndexStore) ) THEN
         nthreads = 1
 !$      nthreads = omp_get_num_threads()
@@ -98,7 +98,7 @@ CONTAINS
         IF ( Istat /= 0 ) &
            CALL Fatal( 'GetIndexStore', 'Memory allocation error.' )
       END IF
-!$omp end critical
+!$omp end critical(get_index)
     END IF
 
 10  thread = 1
@@ -114,7 +114,7 @@ CONTAINS
 
     IF ( .NOT.ALLOCATED(Store) ) THEN
 !$omp barrier
-!$omp critical
+!$omp critical(get_store)
       IF ( .NOT.ALLOCATED(Store) ) THEN
         nthreads = 1
 !$      nthreads = omp_get_num_threads()
@@ -122,7 +122,7 @@ CONTAINS
         IF ( Istat /= 0 ) &
            CALL Fatal( 'GetStore', 'Memory allocation error.' )
       END IF
-!$omp end critical
+!$omp end critical(get_store)
      END IF
 
      thread = 0
@@ -161,22 +161,26 @@ CONTAINS
   END FUNCTION GetMesh
 
 
+  FUNCTION GetCurrentElement(Element) RESULT(Ret_Element)
+    TYPE(Element_t), POINTER :: Ret_Element
+    TYPE(Element_t), OPTIONAL, TARGET :: Element
+
+    IF (PRESENT(Element)) THEN
+      Ret_Element=>Element
+    ELSE
+      Ret_Element=>CurrentModel % CurrentElement
+    END IF
+  END FUNCTION GetCurrentElement
+
+
   FUNCTION GetElementIndex(Element) RESULT(Indx)
      TYPE(Element_t), OPTIONAL :: Element
      INTEGER :: Indx
+     TYPE(Element_t), POINTER :: CurrElement
 
-     IF ( PRESENT(Element) ) THEN
-       Indx = Element % ElementIndex
-     ELSE
-       Indx = CurrentModel % CurrentElement % ElementIndex
-     END IF
+     CurrElement => GetCurrentElement(Element)
+     Indx = CurrElement % ElementIndex
   END FUNCTION GetElementIndex
-
-
-  FUNCTION GetCurrentElement() RESULT(Element)
-    TYPE(Element_t), POINTER :: Element
-    Element => CurrentModel % CurrentElement
-  END FUNCTION GetCurrentElement
 
 
   FUNCTION GetNOFActive( USolver ) RESULT(n)
@@ -284,8 +288,7 @@ CONTAINS
      END IF
      IF ( .NOT. ASSOCIATED( Variable ) ) RETURN
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT(UElement) ) Element => UElement
+     Element => GetCurrentElement(UElement)
 
      IF ( ASSOCIATED( Variable ) ) THEN
         Indexes => GetIndexStore()
@@ -348,9 +351,7 @@ CONTAINS
      END IF
      IF ( .NOT. ASSOCIATED( Variable ) ) RETURN
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT(UElement) ) Element => UElement
-
+     Element => GetCurrentElement(UElement)
 
      IF ( ASSOCIATED( Variable ) ) THEN
         Indexes => GetIndexStore()
@@ -513,8 +514,7 @@ CONTAINS
 
      IF ( PRESENT( Found ) ) Found = .FALSE.
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT( UElement ) ) Element => UElement
+     Element => GetCurrentElement(UElement)
 
      IF ( ASSOCIATED(Element) ) THEN
        n = GetElementNOFNodes(Element)
@@ -551,12 +551,9 @@ CONTAINS
     TYPE(ValueList_t), POINTER :: Material
     TYPE(Element_t), POINTER :: Element, Parent
     
-    IF ( PRESENT( UElement ) ) THEN
-       Element => UElement
-    ELSE	
-       Element => CurrentModel % CurrentElement
-    END IF
-    IF( Present( UParent ) ) NULLIFY( UParent )
+    Element => GetCurrentElement(Uelement)
+
+    IF( Present(UParent) ) NULLIFY( UParent )
 
     n = GetElementNOFNodes(Element)
     Indexes => Element % NodeIndexes
@@ -607,8 +604,7 @@ CONTAINS
 
      IF ( PRESENT( Found ) ) Found = .FALSE.
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT( UElement ) ) Element => UElement
+     Element => GetCurrentElement(UElement)
 
      n = GetElementNOFNodes( Element )
      IF ( ASSOCIATED(List) ) THEN
@@ -636,8 +632,7 @@ CONTAINS
 
      IF ( PRESENT( Found ) ) Found = .FALSE.
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT( UElement ) ) Element => UElement
+     Element => GetCurrentElement(UElement)
 
      n = GetElementNOFNodes( Element )
      IF ( ASSOCIATED(List) ) THEN
@@ -659,8 +654,7 @@ CONTAINS
 
     TYPE(Element_t), POINTER :: Element
 
-    Element => CurrentModel % CurrentElement
-    IF ( PRESENT( UElement ) ) Element => UElement
+    Element => GetCurrentElement(UElement)
 
     p => Element % PropertyData
     DO WHILE( ASSOCIATED(p) )
@@ -696,9 +690,7 @@ CONTAINS
 
     TYPE(Element_t), POINTER :: Element
 
-    Element => CurrentModel % CurrentElement
-    IF ( PRESENT( UElement ) ) Element => UElement
-
+    Element => GetCurrentElement(UElement)
 
     Values => NULL()
     p=> Element % PropertyData
@@ -726,7 +718,7 @@ CONTAINS
 
      IF ( t > 0 .AND. t <= Solver % NumberOfActiveElements ) THEN
         Element => Solver % Mesh % Elements( Solver % ActiveElements(t) )
-        CurrentModel % CurrentElement => Element ! may be used be user functions
+        CurrentModel % CurrentElement => Element ! may be used by user functions
      ELSE
         WRITE( Message, * ) 'Invalid element number requested: ', t
         CALL Fatal( 'GetActiveElement', Message )
@@ -769,8 +761,7 @@ CONTAINS
      Solver => CurrentModel % Solver
      IF ( PRESENT( USolver ) ) Solver => USolver
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT( UElement ) ) Element => UElement
+     Element => GetCurrentElement(UElement)
 
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
@@ -779,15 +770,13 @@ CONTAINS
 
 
 
-  FUNCTION GetElementCode( Element )  RESULT(TYPE)
-     INTEGER :: TYPE
+  FUNCTION GetElementCode( Element )  RESULT(etype)
+     INTEGER :: etype
      TYPE(Element_t), OPTIONAL :: Element
+     TYPE(Element_t), POINTER :: CurrElement
 
-     IF ( PRESENT( Element ) ) THEN
-        TYPE = Element % TYPE % ElementCode
-     ELSE
-        TYPE = CurrentModel % CurrentElement % TYPE % ElementCode
-     END IF
+     CurrElement => GetCurrentElement(Element)
+     etype = CurrElement % Type % ElementCode
   END FUNCTION GetElementCode
 
 
@@ -795,12 +784,10 @@ CONTAINS
   FUNCTION GetElementFamily( Element )  RESULT(family)
      INTEGER :: family
      TYPE(Element_t), OPTIONAL :: Element
+     TYPE(Element_t), POINTER :: CurrElement
 
-     IF ( PRESENT( Element ) ) THEN
-        family = Element % TYPE % ElementCode / 100
-     ELSE
-        family = CurrentModel % CurrentElement % TYPE % ElementCode / 100
-     END IF
+     CurrElement => GetCurrentElement(Element)
+     family = CurrElement % TYPE % ElementCode / 100
   END FUNCTION GetElementFamily
 
 
@@ -808,12 +795,10 @@ CONTAINS
   FUNCTION GetElementNOFNodes( Element ) RESULT(n)
      INTEGER :: n
      TYPE(Element_t), OPTIONAL :: Element
+     TYPE(Element_t), POINTER :: CurrElement
 
-     IF ( PRESENT( Element ) ) THEN
-        n = Element % TYPE % NumberOfNodes
-     ELSE
-        n = CurrentModel % CurrentElement % TYPE % NumberOfNodes
-     END IF
+     CurrElement => GetCurrentElement(Element)
+     n = CurrElement % Type % NumberOfNodes
   END FUNCTION GetELementNOFNodes
 
 
@@ -878,11 +863,7 @@ CONTAINS
      LOGICAL :: Found, GB
      INTEGER :: nb,i,j,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs
 
-     IF ( PRESENT( UElement ) ) THEN
-        Element => UElement
-     ELSE
-        Element => CurrentModel % CurrentElement
-     END IF
+     Element => GetCurrentElement(UElement)
 
      IF ( PRESENT( USolver ) ) THEN
         Solver => USolver
@@ -992,7 +973,8 @@ CONTAINS
   FUNCTION GetElementNOFBDOFs( Element, USolver ) RESULT(n)
     INTEGER :: n
     TYPE(Solver_t), OPTIONAL, POINTER :: USolver
-    TYPE(Element_t), OPTIONAL, POINTER :: Element
+    TYPE(Element_t), OPTIONAL :: Element
+    TYPE(Element_t), POINTER  :: CurrElement
 
     TYPE(Solver_t), POINTER :: Solver
 
@@ -1007,13 +989,11 @@ CONTAINS
     GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
     IF (.NOT.Found) GB = .TRUE.
 
+
     n = 0
     IF ( .NOT. GB ) THEN
-      IF ( PRESENT( Element ) ) THEN
-         n = Element % BDOFs
-      ELSE
-         n = CurrentModel % CurrentElement % BDOFs
-      END IF
+      CurrElement => GetCurrentElement(Element)
+      n = CurrElement % BDOFs
     END IF
   END FUNCTION GetElementNOFBDOFs
 
@@ -1033,8 +1013,7 @@ CONTAINS
      Solver => CurrentModel % Solver
      IF ( PRESENT( USolver ) ) Solver => USolver
 
-     Element => CurrentModel % CurrentElement
-     IF ( PRESENT( UElement ) ) Element => UElement
+     Element => GetCurrentElement(UElement)
 
      n = MAX(Solver % Mesh % MaxElementNodes,Solver % Mesh % MaxElementDOFs)
 
@@ -1080,14 +1059,12 @@ CONTAINS
 !------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
+     TYPE(Element_t), POINTER :: CurrElement
 
      INTEGER :: bf_id, body_id
 
-     IF ( PRESENT( Element ) ) THEN
-        body_id = Element % BodyId 
-     ELSE
-        body_id = CurrentModel % CurrentElement % BodyId 
-     END IF
+     CurrElement => GetCurrentElement(Element)
+     body_id = CurrElement % BodyId 
 
      IF ( PRESENT( Found ) ) THEN
         bf_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
@@ -1107,14 +1084,12 @@ CONTAINS
 !------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
+     TYPE(Element_t), POINTER :: CurrElement
 
      INTEGER :: mat_id, body_id
 
-     IF ( PRESENT( Element ) ) THEN
-        body_id = Element % BodyId 
-     ELSE
-        body_id = CurrentModel % CurrentElement % BodyId 
-     END IF
+     CurrElement => GetCurrentElement(Element)
+     body_id = CurrElement % BodyId 
 
      IF ( PRESENT( Found ) ) THEN
         mat_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
@@ -1134,14 +1109,12 @@ CONTAINS
 !------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
+     TYPE(Element_t), POINTER :: CurrElement
 
      INTEGER :: eq_id, body_id
 
-     IF ( PRESENT( Element ) ) THEN
-        body_id = Element % BodyId 
-     ELSE
-        body_id = CurrentModel % CurrentElement % BodyId 
-     END IF
+     CurrElement => GetCurrentElement(Element)
+     body_id = CurrElement % BodyId 
 
      IF ( PRESENT( Found ) ) THEN
         eq_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
@@ -1669,9 +1642,9 @@ CONTAINS
      END IF
 
      IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
-       str = ListGetString( Solver  % Values, 'Boundary Element Procedure', Found )
+       str = ListGetString( Solver % Values, 'Boundary Element Procedure', Found )
      ELSE
-       str = ListGetString( Solver  % Values, 'Bulk Element Procedure', Found )
+       str = ListGetString( Solver % Values, 'Bulk Element Procedure', Found )
      END IF
 
      IF ( Found ) THEN
