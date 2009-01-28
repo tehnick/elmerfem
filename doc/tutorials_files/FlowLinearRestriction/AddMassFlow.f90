@@ -4,7 +4,7 @@ FUNCTION AddMassFlow( Model, Solver, StiffMatrix, ForceVector, &
 !DEC$ATTRIBUTES DLLEXPORT:: AddMasFlow
 !------------------------------------------------------------------------------
 !******************************************************************************
-!  This function will create a restriction matrix to EMatrix-field
+!  This function will create a restriction matrix to ConstraintMatrix-field
 !  of the StiffMatrix and then call SolveWithLinearRestriction.
 !  This restriction matrix ( and restriction vector ) will set
 !  sinusoidal (time dependent) massflow to a pipe.
@@ -81,14 +81,14 @@ FUNCTION AddMassFlow( Model, Solver, StiffMatrix, ForceVector, &
   END IF
 
 !------------------------------------------------------------------------------
-! Set RestMatrix point to EMatrix-field. Allocate memory if necessary.
+! Set RestMatrix point to ConstraintMatrix-field. Allocate memory if necessary.
 !------------------------------------------------------------------------------
-  RestMatrix => StiffMatrix % EMatrix
+  RestMatrix => StiffMatrix % ConstraintMatrix
 
   IF ( .NOT. ASSOCIATED( RestMatrix ) ) THEN
      
-     StiffMatrix % EMatrix => AllocateMatrix()
-     RestMatrix => StiffMatrix % EMatrix
+     StiffMatrix % ConstraintMatrix => AllocateMatrix()
+     RestMatrix => StiffMatrix % ConstraintMatrix
      RestMatrix % NumberOfRows = 1
 
 ! Count number of values in RestMatrix:
