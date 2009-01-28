@@ -832,9 +832,8 @@ CONTAINS
        IF ( Nodeindexes(i) > 0 ) THEN
          DO j=1,NDOFs
            k = NDOFs * (NodeIndexes(i)-1) + j
-!$omp critical
+!$omp atomic
            ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
-!$omp end critical
          END DO
        END IF
      END DO
@@ -902,9 +901,8 @@ CONTAINS
        IF ( NodeIndexes(i) > 0 ) THEN
          DO j=1,NDOFs
            k = NDOFs * (NodeIndexes(i)-1) + j
-!$omp critical
+!$omp atomic
            ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
-!$omp end critical
          END DO
        END IF
      END DO
@@ -3075,7 +3073,6 @@ CONTAINS
     Norm = ComputeNorm(Solver, n, x)
     Solver % Variable % Norm = Norm
 
-
     SELECT CASE( ConvergenceType )
     CASE('residual')
       !------------------------------------------------------------------
@@ -3581,20 +3578,18 @@ CONTAINS
       DEALLOCATE( TempVector )
       CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
     END IF
+   CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 ! Compute the change of the solution with different methods 
 !------------------------------------------------------------------------------
-
    IF( .NOT. ListGetLogical(Solver % Values,'Skip Compute Change',GotIt) ) THEN
      CALL ComputeChange(Solver,.FALSE.,n, x)
      Norm = Solver % Variable % Norm
    END IF
 
 !------------------------------------------------------------------------------
-
-   CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
  
    Solver % Variable % PrimaryMesh => Solver % Mesh
    CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
@@ -4182,7 +4177,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   SAVE MultiplierValues, SolverPointer
 !------------------------------------------------------------------------------
   SolverPointer => Solver
-  CALL Info( 'SolveWithLinearRestriction ', ' ' )
+  CALL Info( 'SolveWithLinearRestriction ', ' ', Level=5 )
 
   RestMatrix => StiffMatrix % ConstraintMatrix
   IF ( .NOT. ASSOCIATED( RestMatrix ) ) CALL Fatal( 'AddMassFlow', 'RestMatrix not associated' ) 
@@ -4206,7 +4201,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   IF ( ExportMultiplier ) THEN
      MultiplierName = ListGetString( Solver % Values, 'Lagrange Multiplier Name', Found )
      IF ( .NOT. Found ) THEN
-        CALL Info( 'SolveWithLinearRestriction', 'Lagrange Multiplier Name set to LagrangeMultiplier' )
+        CALL Info( 'SolveWithLinearRestriction', 'Lagrange Multiplier Name set to LagrangeMultiplier', Level=5 )
         MultiplierName = "LagrangeMultiplier"
      END IF
 
@@ -4293,7 +4288,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      END DO
   END DO
   
-  CALL Info( 'SolveWithLinearRestriction', 'RestMatrixTranspose done' )
+  CALL Info( 'SolveWithLinearRestriction', 'RestMatrixTranspose done', Level=5 )
 
 !------------------------------------------------------------------------------
 ! Allocate memory for CollectionMatrix i.e. the matrix that is actually solved.
@@ -4401,7 +4396,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
        END DO
   END DO
   
-  CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix upper part done' ) 
+  CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix upper part done', Level=5 ) 
 
 !------------------------------------------------------------------------------
 ! Put the RestMatrix to lower part of CollectionMatrix
@@ -4479,7 +4474,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 ! END DO
 
 
-  CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix done' )
+  CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix done', Level=5 )
 
 
 !------------------------------------------------------------------------------
@@ -4497,7 +4492,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
   CollectionVector( i:j ) = RestVector( 1:k )
 
   
-  CALL Info( 'SolveWithLinearRestriction', 'CollectionVector done' )
+  CALL Info( 'SolveWithLinearRestriction', 'CollectionVector done', Level=5 )
 
 !------------------------------------------------------------------------------
 ! Solve the Collection-system 
@@ -4511,7 +4506,6 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
     i = 1
     j = StiffMatrix % NumberOfRows
     Solution( i:j ) = CollectionSolution( i:j )
-    Solver % Variable % Norm = SQRT( SUM( Solution(i:j)**2 )/j )
 
     IF ( ExportMultiplier ) THEN
        i = StiffMatrix % NumberOfRows
@@ -4523,7 +4517,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
     CALL FreeMatrix( CollectionMatrix )
     DEALLOCATE( TmpRow, CollectionSolution )
 
-    CALL Info( 'SolveWithLinearRestriction', 'All done' )
+    CALL Info( 'SolveWithLinearRestriction', 'All done', Level=5 )
 
   END SUBROUTINE SolveWithLinearRestriction
 !------------------------------------------------------------------------------
