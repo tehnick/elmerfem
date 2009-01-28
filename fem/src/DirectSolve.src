@@ -917,10 +917,18 @@ CONTAINS
       IF ( Free_Fact ) THEN
         CALL BandSolver( A, x, b, Free_Fact )
         CALL ComplexBandSolver( A, x, b, Free_Fact )
+#ifdef HAVE_MUMPS
         CALL Mumps_SolveSystem( Solver, A, x, b, Free_Fact )
+#endif
+#ifdef HAVE_PARDISO
         CALL Pardiso_SolveSystem( Solver, A, x, b, Free_Fact )
+#endif
+#ifdef HAVE_SUPERLU
         CALL SuperLU_SolveSystem( Solver, A, x, b, Free_Fact )
+#endif
+#ifdef HAVE_UMFPACK
         CALL Umfpack_SolveSystem( Solver, A, x, b, Free_Fact )
+#endif
         RETURN
       END IF
     END IF
