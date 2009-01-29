@@ -1124,7 +1124,8 @@ CONTAINS
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
     INTEGER :: i,j,k,l,n,ierr,istat
-    LOGICAL :: Found, Stat, AbsNorm, Convergence, RungeKutta, MeActive, Relax, NeedSol
+    LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
+	Relax, NeedSol
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
@@ -1138,12 +1139,17 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Intialize equation solvers for new timestep
 !------------------------------------------------------------------------------
+    Scanning = &
+      ListGetString( CurrentModel % Simulation, 'Simulation Type', Found ) == 'scanning'
+
     IF ( TransientSimulation ) THEN
        DO k=1,Model % NumberOfSolvers
           Solver => Model % Solvers(k)
           IF ( Solver % PROCEDURE /= 0 ) CALL InitializeTimestep( Solver )
        END DO
+    END IF	
 
+    IF( TransientSimulation .OR. Scanning ) THEN
        IterV => VariableGet(Model % Solvers(1) % Mesh % Variables, 'coupled iter')
        steadyIt => IterV % Values(1)
     END IF
@@ -1174,7 +1180,7 @@ CONTAINS
     IF ( PrevDT == 0.0d0 ) PrevDT = dt
 !------------------------------------------------------------------------------
     DO i=1,CoupledMaxIter
-       IF ( TransientSimulation ) THEN
+       IF ( TransientSimulation .OR. Scanning ) THEN
           CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )
           WRITE( Message, * ) 'Coupled system iteration: ', i
           CALL Info( 'SolveEquations', Message, Level=3 )
