@@ -13,6 +13,7 @@ void GetElementInfo(int element,struct FemType *data,
 		    Real *globalcoord,int *ind,int *material);
 void GetElementSide(int element,int side,int normal,
 		    struct FemType *data,int *ind,int *sideelemtype);
+int GetElementFaces(int elemtype);
 void NumberVariables(struct FemType *data,int variable);
 int CalculateIndexwidth(struct FemType *data,int indxis,int *indx);
 void InitializeKnots(struct FemType *data);

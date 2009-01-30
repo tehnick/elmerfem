@@ -545,6 +545,49 @@ void GetElementSide(int element,int side,int normal,
 }
 
 
+int GetElementFaces(int elemtype) 
+{
+  int basetype=0,elemfaces=0;
+
+  basetype = elemtype / 100;
+
+  switch (basetype) {
+  case 1:
+    elemfaces = 0;
+    break;
+  case 2:
+    elemfaces = 2;
+    break;
+  case 3:
+    elemfaces = 3;
+    break;
+  case 4:
+    elemfaces = 4;
+    break;
+  case 5:
+    elemfaces = 4;
+    break;
+  case 6:
+    elemfaces = 5;
+    break;
+  case 7:
+    elemfaces = 5;
+    break;
+  case 8:
+    elemfaces = 6;
+    break;
+
+  default:
+    printf("GetElementFaces: Unknown elementtype %d\n",elemfaces);
+  }
+
+  return(elemfaces);
+}
+
+
+
+
+
 
 int GetElementGraph(int element,int edge,struct FemType *data,int *ind)
 {
@@ -7189,6 +7232,7 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	    goto hit2d;
 	  }
 	}
+
       hit2d:
 	if(hit) {
 	  tothits++;
@@ -7235,18 +7279,8 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 
       hit3d:
 	if(hit) {
-	  tothits++;
-	  
-	  if(indxper[j] == j) indxper[j2] = j;
-	  else if(indxper[indxper[j]]==indxper[j]) {
-	    indxper[j2] = indxper[j];
-	  }
-	  else if(indxper[indxper[indxper[j]]]==indxper[indxper[j]]) {
-	    indxper[j2] = indxper[indxper[j]];
-	  }
-	  else {
-	    printf("unknown 3d case!\n");
-	  }
+	  tothits++;	  
+          indxper[j2] = indxper[j];
 	}
 	else {
 	  printf("The periodic counterpart for node %d was not found!\n",j);
@@ -7274,8 +7308,8 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info)
 {
   int i,i2,j,k,k2,l,l2,totsides,newsides,sidenodes,sideelemtype,side;
-  int noknots,maxhits,nodes,hits,targets;
-  int parent,parent2,newind,sideind[MAXNODESD1];
+  int noknots,maxhits,nodes,hits,hits2,targets,mappings,targetnode;
+  int parent,parent2,newind,sideind[MAXNODESD1],sideind2[MAXNODESD1];
   int **periodicparents, *periodichits,*periodictarget,*indexper;
   
   totsides = 0;
@@ -7297,10 +7331,20 @@ int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info
   for(i=1;i<=noknots;i++)
     periodictarget[i] = 0;
 
+  mappings = 0;
   for(i=1;i<=noknots;i++) {
     j = indexper[i];
-    if( j != i) periodictarget[j] = i;      
+    if( j != i) {
+      mappings++;
+      periodictarget[j] = i;      
+    }
   } 
+
+  if(0) for(i=1;i<=noknots;i++)
+    printf("indexes(%d) : %d %d\n",i,indexper[i],periodictarget[i]);
+
+
+  if(info) printf("Number of potential periodic mappings is %d\n",mappings);
   for(i=1;i<=noknots;i++) 
     if(periodictarget[i]) targets++;
   if(info) printf("Number of potential periodic targets is %d\n",targets);
@@ -7318,7 +7362,7 @@ int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info
     nodes = data->elementtypes[j] % 100;    
     for(i=0;i<nodes;i++) {
       k = data->topology[j][i];
-      if( periodictarget[k] ) {
+      if( k != indexper[k] ) {
 	periodichits[k] += 1;
 	if( maxhits > 0 ) {
 	  periodicparents[k][periodichits[k]] = j;
@@ -7351,48 +7395,75 @@ int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info
       if(bound[j].parent2[i]) continue;
 
       parent = bound[j].parent[i];
+      if(0) printf("1st parent %d\n",parent);
+
       side = bound[j].side[i];
       
       GetElementSide(parent,side,1,data,sideind,&sideelemtype);
       sidenodes = sideelemtype % 100;
 
-      /* All the nodes must be periodic and there must be a periodic counterpart */
-      hits =  0;      
+      /* Some node must be periodic target and ohers either target or mapped nodes */
+      hits = hits2 = 0;      
       for(k=0;k<sidenodes;k++) {
         l = sideind[k];
-        l2 = indexper[l];
-        if( l != l2) {
-          sideind[k] = l2;
-	  if( periodictarget[l2] ) hits++;
-	}
+        if( periodictarget[l] ) 
+          hits++;
+        else if(indexper[l] != l) 
+          hits2++;
       }
-      if(hits < sidenodes) continue;
+      if(!hits || hits + hits2 < sidenodes) continue;
 
-      if(0) printf("Trying to find secondary parent for boundary %d/%d/%d\n",j,i,parent);
+      if(0) printf("Trying to find other parent for boundary %d and parent %d\n",
+		   bound[j].types[i],parent);
+      if(0) printf("hits = %d %d %d\n",hits,hits2,sidenodes);
+
       totsides++;
 
       /* The parent is the one element that has exactly the same set of periodic nodes */
-      l = sideind[0];
-      for(l2=1;l2<=periodichits[l];l2++) {
-        parent = periodicparents[l][l2];
-
-        hits = 1;
-        for(k=1;k<sidenodes;k++) {
-          for(k2=1;k2<=periodichits[sideind[k]];k2++) {
-	    if(0) printf("parent2: %d %d %d\n",k,k2,periodicparents[sideind[k]][k2]);
-            if(periodicparents[sideind[k]][k2] == parent) hits++;
+      for(l=0;l<sidenodes;l++) {
+        targetnode = periodictarget[sideind[l]];
+	if(!targetnode) continue;
+    
+	for(l2=1;l2<=periodichits[targetnode];l2++) {
+	  int side,elemtype,elemsides,sideelemtype2;
+	  
+	  parent2 = periodicparents[targetnode][l2];
+	  if(parent == parent2) continue;
+	  
+	  elemtype = data->elementtypes[parent2];
+	  elemsides = GetElementFaces(elemtype);
+	  
+	  for(side=0;side<elemsides;side++) { 
+	    GetElementSide(parent2,side,1,data,sideind2,&sideelemtype2);
+	    if( sideelemtype != sideelemtype2 ) continue;
+	    
+	    
+	    hits = 0;
+	    for(k=0;k<sidenodes;k++) {
+	      for(k2=0;k2<sidenodes;k2++) {
+		if( indexper[sideind[k]] == indexper[sideind2[k2]]) {
+		  hits++;
+		  break;
+		}
+	      }
+	    }
+	    if(hits == sidenodes) goto found;
 	  }
-        }
-        if(hits == sidenodes) break;
+	}
       }
 
+    found:     
       if(hits == sidenodes) {
-	newsides++;
-	if(0) printf("New parents for boundary element: %d %d\n",bound[j].parent[i],parent);
-        bound[j].parent2[i] = parent;
+	  newsides++;
+	  if(0) printf("New parents for boundary element: %d %d\n",bound[j].parent[i],parent);
+	  bound[j].parent2[i] = parent2;
       }
       else {
 	printf("Could not find a periodic counterpart: %d/%d/%d\n",j,i,parent);
+	printf("ind = %d ",sideind[0]);
+	for(k=1;k<sidenodes;k++)
+	  printf("%d ",sideind[k]);
+	printf("\n");
       }
     }
   }

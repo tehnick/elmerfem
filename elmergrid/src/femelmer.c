@@ -2423,7 +2423,6 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
   nn = j;
   npart = Ivector(0,nn-1);
   
- 
   if(periodic) {
     for(i=0;i<noelements;i++) 
       for(j=0;j<nodesd2;j++) 
@@ -2461,9 +2460,11 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
   else {
     /* Set the partition given by Metis for each node. */
     for(i=1;i<=noknots;i++) {
-      j = neededby[i];
-      if(periodic) j = neededby[indxper[i]];
-      if(!j) continue;		 
+      if(periodic) 
+	j = neededby[indxper[i]];
+      else
+	j = neededby[i];
+      if(!j) printf("Cant set partitioning for node %d\n",i);
       data->nodepart[i] = npart[j-1]+1;
       if(data->nodepart[i] < 1 || data->nodepart[i] > partitions) 
 	printf("Invalid partition %d for node %d\n",data->nodepart[i],i);
@@ -2781,7 +2782,7 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	    if(data->nodepart[ind] == part1) hit++;
 	    if(data->nodepart[ind] == part2) hit2++;
 	  }
-	  nodesd2 = data->elementtypes[mam1] % 100;    
+	  nodesd2 = data->elementtypes[mam2] % 100;    
 	  for(l=0;l < nodesd2;l++) {
 	    ind = data->topology[mam2][l];
 	    if(data->nodepart[ind] == part1) hit++;
@@ -2805,11 +2806,28 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	
 	data->elempart[newmam] = dompart;
 	boundaryelems++;	    
-	nodesd2 =  data->elementtypes[newmam] % 100;
-	for(l=0;l < nodesd2;l++) {
-	  ind = data->topology[newmam][l];
-	  data->nodepart[ind] = dompart;
+
+	/* Move the ownership of all nodes to the leading partition */
+	if(0) {
+	  nodesd2 =  data->elementtypes[newmam] % 100;
+	  for(l=0;l < nodesd2;l++) {
+	    ind = data->topology[newmam][l];
+	    data->nodepart[ind] = dompart;
+	  }
 	}
+	else {
+	  nodesd2 = data->elementtypes[mam1] % 100;
+	  for(l=0;l < nodesd2;l++) {
+	    ind = data->topology[mam1][l];
+	    data->nodepart[ind] = dompart;
+	  }	    
+	  nodesd2 = data->elementtypes[mam2] % 100;
+	  for(l=0;l < nodesd2;l++) {
+	    ind = data->topology[mam2][l];
+	    data->nodepart[ind] = dompart;
+	  }	    
+	}
+
       }
     }
     if(info && boundaryelems) 
@@ -2843,7 +2861,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   if(0) CheckPartitioning(data,info);
 
   /* This is the only routine that affects the ownership of elements */
-  OptimizePartitioningAtBoundary(data,bound,info);
+  if(1) OptimizePartitioningAtBoundary(data,bound,info);
 
   /* Create a table showing to which partitions nodes belong to */
   CreatePartitionTable(data,info);
@@ -2972,6 +2990,8 @@ optimizeownership:
   
   if(info) printf("Checking for problematic sharings\n"); 
   m = 0;
+  sharings = 0;
+
   if(partitions > 2) do {
     
     int i1,i2,e1,e2,owners;
@@ -2979,7 +2999,6 @@ optimizeownership:
     int **knows;
 
     m++;
-    sharings = 0;
     e1 = e2 = 0;
     
     if(m == 1 && optimize == 1) {
