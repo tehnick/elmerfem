@@ -56,12 +56,18 @@ MeshingThread::~MeshingThread()
 {
 }
 
+nglib::Ng_Mesh* MeshingThread::getNgMesh()
+{
+  return this->ngmesh;
+}
 
 void MeshingThread::generate(int generatorType,
 			     QString cs,
 			     TetlibAPI *tetlibAPI,
 			     nglib::Ng_Mesh *ngmesh,
 			     nglib::Ng_STL_Geometry *nggeom,
+			     nglib::Ng_Geometry_2D *nggeom2d,
+			     int ngDim,
 			     nglib::Ng_Meshing_Parameters *mp)
 {
   this->generatorType = generatorType;
@@ -75,7 +81,9 @@ void MeshingThread::generate(int generatorType,
 
   this->ngmesh = ngmesh;
   this->nggeom = nggeom;
+  this->nggeom2d = nggeom2d;
   this->mp = mp;
+  this->ngDim = ngDim;
 
   if (!isRunning()) {
     cout << "Starting meshing thread with low priority" << endl;
@@ -129,21 +137,48 @@ void MeshingThread::run()
     
     int rv = 0;
     
-    rv = nglib::Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
-    cout << "Generate Surface Mesh: Ng_result=" << rv << endl;
-    
-    rv = nglib::Ng_GenerateVolumeMesh(ngmesh, mp);
-    cout << "Generate Volume Mesh: Ng_result=" << rv << endl;
-    
-    int np = nglib::Ng_GetNP(ngmesh);
-    cout << "Meshing thread: nodes: " << np << endl;
-    
-    int ne = nglib::Ng_GetNE(ngmesh);
-    cout << "Meshing thread: elements: " << ne << endl;
-    
-    int nse = nglib::Ng_GetNSE(ngmesh);
-    cout << "Meshing thread: boundary elements: " << nse << endl;      
-    cout.flush();
+    if(ngDim == 3) {
+
+      cout << "3D meshing..." << endl;
+
+      rv = nglib::Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
+      cout << "Generate Surface Mesh: Ng_result=" << rv << endl;
+      
+      rv = nglib::Ng_GenerateVolumeMesh(ngmesh, mp);
+      cout << "Generate Volume Mesh: Ng_result=" << rv << endl;
+      
+      int np = nglib::Ng_GetNP(ngmesh);
+      cout << "Meshing thread: nodes: " << np << endl;
+      
+      int ne = nglib::Ng_GetNE(ngmesh);
+      cout << "Meshing thread: elements: " << ne << endl;
+      
+      int nse = nglib::Ng_GetNSE(ngmesh);
+      cout << "Meshing thread: boundary elements: " << nse << endl;      
+      cout.flush();
+
+    } else if(ngDim == 2) {
+
+      cout << "2D meshing..." << endl;
+
+      rv = nglib::Ng_GenerateMesh_2D(nggeom2d, &ngmesh, mp);
+      cout << "Generate 2D Mesh: Ng_result=" << rv << endl;
+
+      int np = nglib::Ng_GetNP_2D(ngmesh);
+      cout << "Meshing thread: nodes: " << np << endl;
+      
+      int ne = nglib::Ng_GetNE_2D(ngmesh);
+      cout << "Meshing thread: elements: " << ne << endl;
+      
+      int nse = nglib::Ng_GetNSeg_2D(ngmesh);
+      cout << "Meshing thread: boundary elements: " << nse << endl;      
+      cout.flush();
+      
+    } else {
+
+      cout << "Illegal spatial dimension: " << ngDim << endl;
+
+    }
     
   } else {
     

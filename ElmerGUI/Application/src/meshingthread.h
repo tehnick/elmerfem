@@ -64,11 +64,16 @@ public:
   MeshingThread(QObject *parent = 0);
   ~MeshingThread();
 
-  void generate(int generatorType, QString cs, TetlibAPI *tetlibAPI, 
-		nglib::Ng_Mesh *ngmesh, nglib::Ng_STL_Geometry *nggeom, 
-		nglib::Ng_Meshing_Parameters *mp);
+  void generate(int generatorType, QString cs,
+		TetlibAPI *tetlibAPI, 
+		nglib::Ng_Mesh *ngmesh,
+		nglib::Ng_STL_Geometry *nggeom, 
+		nglib::Ng_Geometry_2D *nggeom2d,
+		int ngDim, nglib::Ng_Meshing_Parameters *mp);
 
   void stopMeshing();
+
+  nglib::Ng_Mesh *getNgMesh();
 
 protected:
   void run();
@@ -87,7 +92,9 @@ private:
   NglibAPI *nglibAPI;
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
+  nglib::Ng_Geometry_2D *nggeom2d;
   nglib::Ng_Meshing_Parameters *mp;
+  int ngDim;
 };
 
 #endif // MESHINGTHREAD_H

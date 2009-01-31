@@ -1091,6 +1091,7 @@ void MainWindow::readInputFile(QString fileName)
   activeGenerator = GEN_UNKNOWN;
   tetlibInputOk = false;
   nglibInputOk = false;
+  ngDim = 3;
 
   // Choose generator according to fileSuffix:
   //------------------------------------------
@@ -1239,6 +1240,22 @@ void MainWindow::readInputFile(QString fileName)
 
 #endif
 
+  } else if( (fileSuffix.toLower() == "in2d") ) {
+    
+    if(!nglibPresent) {
+      logMessage("unable to mesh - nglib unavailable");
+      return;
+    }
+    
+    activeGenerator = GEN_NGLIB;
+    cout << "Selected nglib for in2d-format" << endl;
+    
+    in2dFileName = fileName;
+    
+    nglibInputOk = true;
+
+    ngDim = 2;
+
   } else {
 
     logMessage("Unable to open file: file type unknown");
@@ -1271,6 +1288,7 @@ void MainWindow::makeElmerMeshFromNglib()
 {
   meshutils->clearMesh(glWidget->getMesh());
   nglibAPI->ngmesh = this->ngmesh;
+  nglibAPI->setDim(this->ngDim);
   glWidget->setMesh(nglibAPI->createElmerMeshStructure());
 
   glWidget->rebuildLists();
@@ -4352,50 +4370,98 @@ void MainWindow::remeshSlot()
       return;
     }
 
+
+
     // Init & set mesh params.:
     //--------------------------
     nglib::Ng_Init();
 
     char backgroundmesh[1024];
     sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());      
+
     mp.maxh = meshControl->nglibMaxH.toDouble();
     mp.fineness = meshControl->nglibFineness.toDouble();
     mp.secondorder = 0;
     mp.meshsize_filename = backgroundmesh;
 
-    nggeom = nglib::Ng_STL_NewGeometry();
-    ngmesh = nglib::Ng_NewMesh();
+    if(ngDim == 3) {
 
-    if(!occInputOk) {
+      // STL (3D):
+      //-----------
+      cout << "Start 3D meshing..." << endl;
 
-      // STL: regenerate structures for nglib:
-      //--------------------------------------
-      nggeom = nglib::Ng_STL_LoadGeometry(stlFileName.toAscii().data(), 0);
+      nggeom = nglib::Ng_STL_NewGeometry();
+
+      ngmesh = nglib::Ng_NewMesh();
       
-      if(!nggeom) {
-	logMessage("Ng_STL_LoadGeometry failed");
+      if(!occInputOk) {
+	
+	// STL: regenerate structures for nglib:
+	//--------------------------------------
+	nggeom = nglib::Ng_STL_LoadGeometry(stlFileName.toAscii().data(), 0);
+	
+	if(!nggeom) {
+	  logMessage("Ng_STL_LoadGeometry failed");
+	  return;
+	}
+	
+	nglib::Ng_STL_InitSTLGeometry(nggeom);
+
+	nglib::Ng_STL_MakeEdges(nggeom, ngmesh, &mp);
+	
+	double maxMeshSize = mp.maxh;
+
+	if(maxMeshSize <= 0) maxMeshSize = 10000000;
+
+	nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);      
+	
+#ifdef EG_OCC
+      } else {
+	
+	// OCC: (re)generate STL for nglib:
+	//----------------------------------
+	cadView->setMesh(ngmesh);
+	cadView->setGeom(nggeom);
+	cadView->setMp(&mp);
+	cadView->generateSTL();
+#endif
+      }
+      
+    } else if(ngDim == 2) {
+
+      // IN2D (2D):
+      //------------
+      cout << "Start 2D meshing..." << endl;
+
+      if(in2dFileName.isEmpty()) {
+	logMessage("File name is empty - aborting");
+	return;
+      }
+
+      ngmesh = nglib::Ng_NewMesh();
+
+      nggeom2d = nglib::Ng_LoadGeometry_2D(in2dFileName.toAscii().data());
+      
+      if(!nggeom2d) {
+	logMessage("Ng_LoadGeometry_2D failed");
 	return;
       }
       
-      nglib::Ng_STL_InitSTLGeometry(nggeom);
-      nglib::Ng_STL_MakeEdges(nggeom, ngmesh, &mp);
-
       double maxMeshSize = mp.maxh;
-      if(maxMeshSize <= 0) maxMeshSize = 10000000;
-      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);      
 
-#ifdef EG_OCC
+      if(maxMeshSize <= 0) maxMeshSize = 10000000;
+
+      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);
+
     } else {
       
-      // OCC: (re)generate STL for nglib:
-      //----------------------------------
-      cadView->setMesh(ngmesh);
-      cadView->setGeom(nggeom);
-      cadView->setMp(&mp);
-      cadView->generateSTL();
-#endif
-    }
+      // Unknown spatial dimension:
+      //----------------------------
+      cout << "Unknown spatial dimension" << endl;
+      return;
 
+    }
+    
   } else {
 
     logMessage("Remesh: uknown generator type");
@@ -4419,9 +4485,9 @@ void MainWindow::remeshSlot()
   if(activeGenerator == GEN_NGLIB) 
     stopMeshingAct->setEnabled(false);
 
-  meshingThread->generate(activeGenerator,
-			  tetlibControlString, tetlibAPI,
-			  ngmesh, nggeom, &mp);
+  meshingThread->generate(activeGenerator, tetlibControlString,
+			  tetlibAPI, ngmesh, nggeom, nggeom2d,
+			  ngDim, &mp);
 }
 
 
@@ -4496,6 +4562,8 @@ void MainWindow::meshingFinishedSlot()
     makeElmerMeshFromTetlib();
 
   } else if(activeGenerator == GEN_NGLIB) {
+
+    this->ngmesh = meshingThread->getNgMesh();
 
     makeElmerMeshFromNglib();
 
