@@ -3892,7 +3892,7 @@ void MainWindow::resetSlot()
     return;
   }
 
-  glWidget->stateFlatShade = false;
+  glWidget->stateFlatShade = true;
   glWidget->stateDrawSurfaceMesh = true;
   glWidget->stateDrawSharpEdges = true;
   glWidget->stateDrawSurfaceElements = true;
