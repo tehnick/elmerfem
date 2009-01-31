@@ -125,9 +125,8 @@ mesh_t* NglibAPI::createElmerMeshStructure()
       edge->setPoints(2);
       edge->newPointIndexes(2);
 
-      int face = 1; // default
+      edge->setIndex(1);
 
-      edge->setIndex(face);      
       edge->setPointIndex(0, -1);
       edge->setPointIndex(1, -1);
       
@@ -161,7 +160,7 @@ mesh_t* NglibAPI::createElmerMeshStructure()
       surface->newNodeIndexes(3);
       surface->setEdges(3);
       surface->newEdgeIndexes(3);
-      
+
       int face = nglib::EG_GetSurfaceElementBCProperty(ngmesh, i+1);
       
       surface->setIndex(face);
@@ -195,6 +194,9 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     mesh->setSurfaces(nglib::Ng_GetNE_2D(ngmesh));
     mesh->newSurfaceArray(mesh->getSurfaces()); 
     
+    double n[3];
+    n[0] = 0; n[1] = 0; n[2] = 1;
+
     for(int i = 0; i < mesh->getSurfaces(); i++) {
       surface_t *surface = mesh->getSurface(i);
       
@@ -208,9 +210,15 @@ mesh_t* NglibAPI::createElmerMeshStructure()
       surface->setNodeIndex(0, surface->getNodeIndex(0) - 1);
       surface->setNodeIndex(1, surface->getNodeIndex(1) - 1);
       surface->setNodeIndex(2, surface->getNodeIndex(2) - 1);
-      
+
+      surface->setNormalVec(n);
+
       surface->setIndex(1); // default
     }
+
+    // Find parents for edge elements:
+    //---------------------------------
+    meshutils.findEdgeElementParents(mesh);
 
   } else {
 
@@ -237,7 +245,7 @@ mesh_t* NglibAPI::createElmerMeshStructure()
       element->setIndex(1); // default
     }
 
-    // Find parents for surface elements:
+    // Find parents for surface elements (?????):
     //------------------------------------
     meshutils.findSurfaceElementParents(mesh);
     

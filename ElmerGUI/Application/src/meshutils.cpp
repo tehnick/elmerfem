@@ -347,6 +347,116 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 
 // Find parent elements for existing surfaces...
 //----------------------------------------------------------------------------
+void Meshutils::findEdgeElementParents(mesh_t *mesh)
+{
+#define RESETENTRY0             \
+  h->node[0] = UNKNOWN;		\
+  h->node[1] = UNKNOWN;  	\
+  h->element[0] = UNKNOWN;	\
+  h->element[1] = UNKNOWN;	\
+  h->next = NULL;
+
+  class hashEntry {
+  public:
+    int node[2];
+    int element[2];
+    hashEntry *next;
+  };
+
+  int keys = mesh->getNodes();
+  hashEntry *hash = new hashEntry[keys];
+
+  bool found;
+  hashEntry *h;
+
+  for(int i=0; i<keys; i++) {
+    h = &hash[i];
+    RESETENTRY0;
+  }
+
+  // TODO: only tetrahedron at the moment
+
+  static int edgemap[][2] = {{0,1}, {1,2}, {2,0}};
+  
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
+    surface_t *s = mesh->getSurface(i);
+
+    for(int f = 0; f < 3; f++) {
+      int n0 = s->getNodeIndex(edgemap[f][0]);
+      int n1 = s->getNodeIndex(edgemap[f][1]);
+
+      if(n1 < n0) {
+	int tmp = n1;
+	n1 = n0;
+	n0 = tmp;
+      }
+      
+      h = &hash[n0];
+      found = false;
+      while(h->next) {                                       
+	if(h->node[0] == n1) {
+	  found = true;
+	  break;
+	}
+	h = h->next;
+      }                                                      
+      
+      if(!found) {
+	h->node[0] = n1;
+	h->element[0] = i;
+	h->next = new hashEntry;
+	h = h->next;
+	RESETENTRY0;
+      } else {
+	h->element[1] = i;
+      }      
+    }
+  }
+
+  // count faces:
+  int edges = 0;
+  for(int i = 0; i < keys; i++) {
+    h = &hash[i];
+    while((h = h->next) != NULL) 
+      edges++;
+  }
+  
+  cout << "Found total of " << edges << " edges" << endl;
+
+  // Finally find parents:
+  for(int i = 0; i < mesh->getEdges(); i++) {
+    edge_t *e = mesh->getEdge(i);
+    
+    int n0 = e->getNodeIndex(0);
+    int n1 = e->getNodeIndex(1);
+    
+    if(n1 < n0) {
+      int tmp = n1;
+      n1 = n0;
+      n0 = tmp;
+    }
+    
+    h = &hash[n0];
+    while(h->next) {
+      if(h->node[0] == n1) {
+
+	// should we deallocate s->element if it exists?
+	e->setSurfaces(2);
+	e->newSurfaceIndexes(2);
+
+	e->setSurfaceIndex(0, h->element[0]);
+	e->setSurfaceIndex(1, h->element[1]);
+      }
+      h = h->next;
+    }
+  }
+
+  delete [] hash;
+}
+
+
+// Find parent elements for existing surfaces...
+//----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementParents(mesh_t *mesh)
 {
 #define RESETENTRY0             \

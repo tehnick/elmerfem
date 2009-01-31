@@ -60,6 +60,7 @@ class Meshutils
   void findSurfaceElements(mesh_t*);
   void findSurfaceElementEdges(mesh_t*);
   void findSurfaceElementParents(mesh_t*);
+  void findEdgeElementParents(mesh_t*);
   void findSurfaceElementNormals(mesh_t*);
   void findSharpEdges(mesh_t*, double);
   void findSharpPoints(mesh_t*, double);

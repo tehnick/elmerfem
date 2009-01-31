@@ -1028,6 +1028,9 @@ bool mesh_t::save(char *dirName)
   for(int i = 0; i < this->surfaces; i++) {
     surface_t *s = &this->surface[i];
 
+    if(s->getNature() == PDE_BULK)
+      continue;
+
     int e0 = s->getElementIndex(0) + 1;
     int e1 = s->getElementIndex(1) + 1;
 
@@ -1058,6 +1061,9 @@ bool mesh_t::save(char *dirName)
 
   for(int i = 0; i < this->edges; i++) {
     edge_t *e = &this->edge[i];
+
+    if(e->getNature() == PDE_BULK)
+      continue;
 
     int s0 = e->getSurfaceIndex(0) + 1;
     int s1 = e->getSurfaceIndex(1) + 1;
