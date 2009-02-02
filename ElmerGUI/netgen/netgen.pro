@@ -11,6 +11,9 @@ DESTDIR = ngcore
 OBJECTS_DIR = obj
 DEFINES += NO_PARALLEL_THREADS
 INCLUDEPATH = libsrc/include
+
+unix: QMAKE_CXXFLAGS += -ffriend-injection
+
 SOURCES = libsrc/opti/linopt.cpp \
           libsrc/opti/bfgs.cpp \
           libsrc/opti/linsearch.cpp \
