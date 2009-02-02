@@ -301,6 +301,7 @@ struct ElmergridType {
     layermove,  /* map the created layer to the original geometry */
     metis,      /* number of Metis partitions */
     partopt,    /* free parameter for optimization */
+    partoptim,  /* apply agressive optimization to node sharing */
     partitions, /* number of simple geometric partitions */
     partdim[3],
     partjoin,   /* number of parallel dimenions to be joined */

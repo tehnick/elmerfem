@@ -7436,8 +7436,7 @@ int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info
 	  for(side=0;side<elemsides;side++) { 
 	    GetElementSide(parent2,side,1,data,sideind2,&sideelemtype2);
 	    if( sideelemtype != sideelemtype2 ) continue;
-	    
-	    
+	    	    
 	    hits = 0;
 	    for(k=0;k<sidenodes;k++) {
 	      for(k2=0;k2<sidenodes;k2++) {
@@ -7454,9 +7453,9 @@ int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info
 
     found:     
       if(hits == sidenodes) {
-	  newsides++;
-	  if(0) printf("New parents for boundary element: %d %d\n",bound[j].parent[i],parent);
-	  bound[j].parent2[i] = parent2;
+	newsides++;
+	if(0) printf("Parents joined by boundary element: %d %d\n",parent,parent2);
+	bound[j].parent2[i] = -parent2;
       }
       else {
 	printf("Could not find a periodic counterpart: %d/%d/%d\n",j,i,parent);

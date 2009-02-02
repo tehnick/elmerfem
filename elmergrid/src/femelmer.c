@@ -1534,7 +1534,7 @@ int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info)
 static int CreatePartitionTable(struct FemType *data,int info)
 {
   int i,j,k,l,m,noelements,noknots,partitions,nonodes,periodic;
-  int maxneededtimes,sharings,part,ind,hit;
+  int maxneededtimes,sharings,part,ind,hit,notinany;
   int *indxper;
 
   printf("Creating a table showing all parenting partitions of nodes.\n");  
@@ -1553,6 +1553,7 @@ static int CreatePartitionTable(struct FemType *data,int info)
   maxneededtimes = 0;
   sharings = 0;
 
+  /* Make the partition list taking into account periodicity */
   for(i=1;i<=noelements;i++) {
     part = data->elempart[i];
     nonodes =  data->elementtypes[i] % 100;
@@ -1582,27 +1583,38 @@ static int CreatePartitionTable(struct FemType *data,int info)
     }
   }
 
-  /* Make the partitiontable such that the owner node is the first one in the list */  
-  for(i=1;i<=noknots;i++) {
-    for(k=2;k<=maxneededtimes;k++) {
-      if(data->partitiontable[k][i] == 0) break;
-      if(data->partitiontable[k][i] == data->nodepart[i]) {
-	j = data->partitiontable[1][i];
-	data->partitiontable[k][i] = j;
-	data->partitiontable[1][i] = data->nodepart[i];	
-      }
-    }
-  }
-
-  /* For periodic nodes copy the partitioning of the primary node */
+  /* For periodic counterparts copy the table */
   if(periodic) {
-    if(info) printf("Accounting for the periodic nodes in partition table\n");
     for(i=1;i<=noknots;i++) {
       ind = indxper[i];
       if(ind == i) continue;
       for(k=1;k<=maxneededtimes;k++) {
+	if( !data->partitiontable[k][ind] ) break;
 	data->partitiontable[k][i] = data->partitiontable[k][ind];
       }
+    }
+  }
+
+
+  /* Make the partitiontable such that the owner node is the first one in the list */  
+  notinany = 0;
+  for(i=1;i<=noknots;i++) {
+    hit = FALSE;
+    for(k=1;k<=maxneededtimes;k++) {
+      if(!data->partitiontable[k][i]) break;
+      if(data->partitiontable[k][i] == data->nodepart[i]) {
+	hit = k;
+	break;
+      }
+    }
+    if( hit != 1 ) {
+      data->partitiontable[hit][i] = data->partitiontable[1][i];
+      data->partitiontable[1][i] = data->nodepart[i];
+    }
+    else if(!hit) {
+      printf("node not in any elements!\n");
+      notinany++;
+      data->nodepart[i] = data->partitiontable[1][i];
     }
   }
 
@@ -1611,6 +1623,7 @@ static int CreatePartitionTable(struct FemType *data,int info)
     printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
     printf("There are %d shared nodes which is %.2lf %% of all nodes.\n",
 	   sharings,(100.*sharings)/noknots);
+    printf("The initial owner was not any of the elements for %d nodes\n",notinany);
   }
     
   data->maxpartitiontable = maxneededtimes;
@@ -2622,6 +2635,7 @@ static int CheckPartitioning(struct FemType *data,int info)
   for(i=1;i<=partitions;i++)
     elemsinpart[i] = nodesinpart[i] = sharedinpart[i] = 0;
 
+  if(info) printf("Checking for partitioning\n");
 
   /* Check that division of elements */
   elempart = data->elempart;
@@ -2698,6 +2712,8 @@ static int CheckPartitioning(struct FemType *data,int info)
     }
   }
 
+  if(!data->maxpartitiontable) return;
+
   if(0) printf("Checking that each node in elements belongs to nodes\n");
   for(i=1;i<=data->noelements;i++) {
     part = elempart[i];
@@ -2722,12 +2738,12 @@ static int CheckPartitioning(struct FemType *data,int info)
   if(0) printf("Checking that each node in partition is shown in partition list\n");
   for(i=1;i<=data->noknots;i++) {
     part = nodepart[i];
-
+    
     hit = FALSE;
     for(j=1;j<=data->maxpartitiontable;j++) {
       part2 = data->partitiontable[j][i];
       if( part == part2 ) hit = TRUE;
-      if(hit && !part) break;
+	if(hit && !part) break;
     }
     if(!hit) {
       printf("***** Node %d in partition %d is not in partition list\n",i,part,j);
@@ -2739,15 +2755,22 @@ static int CheckPartitioning(struct FemType *data,int info)
 static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryType *bound,int info)
 {
   int i,j,k,l,n,m,boundaryelems,ind,periodic,hit,hit2;
-  int dompart,part1,part2,newmam,mam1,mam2,part,discont;
-  int nodesd2;
+  int dompart,part1,part2,newmam,mam1,mam2,part,discont,nodesd2;
+  int *alteredparent;
+
 
   if(!data->partitionexist) {
     printf("OptimizePartitioningAtDap: this should be called only after partitioning\n");
     bigerror("Optimization not performed!");
   }
 
-  if(0) printf("Optimizing the partitioning at boundaries.\n");
+  if(1) printf("Optimizing the partitioning at boundaries.\n");
+
+  /* Memorize the original parent */
+  alteredparent = Ivector(1,data->noelements);
+  for(i=1;i<=data->noelements;i++)
+    alteredparent[i] = data->elempart[i];
+
   
   /* Set the secondary parent to be a parent also because we want all 
      internal BCs to be within the same partition. 
@@ -2764,7 +2787,7 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	  if(bound[j].discont[i]) continue;
 
 	mam1 = bound[j].parent[i];
-	mam2 = bound[j].parent2[i];
+	mam2 = abs(bound[j].parent2[i]);
 	if(!mam1 || !mam2) continue;
 	part1 = data->elempart[mam1];
 	part2 = data->elempart[mam2];
@@ -2815,7 +2838,7 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 	    data->nodepart[ind] = dompart;
 	  }
 	}
-	else {
+	else if(0) {
 	  nodesd2 = data->elementtypes[mam1] % 100;
 	  for(l=0;l < nodesd2;l++) {
 	    ind = data->topology[mam1][l];
@@ -2834,7 +2857,26 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
       printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
   } while(boundaryelems && k < 10);
 
- 
+
+  j = 0;
+  for(i=1;i<=data->noelements;i++) {
+    if(alteredparent[i] == data->elempart[i]) 
+      alteredparent[i] = 0;
+    else 
+      j++;
+  }
+  free_Ivector(alteredparent,1,data->noelements);
+  if(info) printf("Ownership of %d parents was changed at BCs\n",j); 
+
+
+
+  /* Remove the negative secondary parents that were only used to opitmize the partitioning */ 
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    if(!bound[j].created) continue;
+    for(i=1; i <= bound[j].nosides; i++) 
+      bound[j].parent2[i] = MAX(0, bound[j].parent2[i]);
+  }
+
   if(0) printf("The partitioning at discontinous gaps was optimized.\n"); 
   return(0);
 }
@@ -2847,24 +2889,13 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   int dompart,part1,part2,newmam,mam1,mam2,noknots,part,dshared,dshared0;
   int *elempart,*nodepart,*neededtimes,*indxper,sharings;
   int nodesd2,maxneededtimes,*probnodes,optimize;
-  int **neededmatrix,*neededvector;
+  int *neededvector;
   Real *rpart;
 
   if(!data->partitionexist) {
     printf("OptimizePartitioning: this should be called only after partitioning\n");
     bigerror("Optimization not performed!");
   }
-
-  printf("Optimizing the partitioning for boundaries and load balancing.\n");
-
-  /* Check initial partitioning */
-  if(0) CheckPartitioning(data,info);
-
-  /* This is the only routine that affects the ownership of elements */
-  if(1) OptimizePartitioningAtBoundary(data,bound,info);
-
-  /* Create a table showing to which partitions nodes belong to */
-  CreatePartitionTable(data,info);
 
   noknots = data->noknots;
   noelements = data->noelements;
@@ -2873,11 +2904,16 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   nodepart = data->nodepart; 
   periodic = data->periodicexist;
   if(periodic) indxper = data->periodic;
+
+  /* This is the only routine that affects the ownership of elements */
+  OptimizePartitioningAtBoundary(data,bound,info);
+
+  /* Create a table showing to which partitions nodes belong to */
+  CreatePartitionTable(data,info);
   maxneededtimes = data->maxpartitiontable;
 
-
  /* A posteriori correction, don't know if this just corrects the symptom */
-  if(periodic) {
+  if(0 && periodic) {
     for(i=1;i<=noknots;i++) {
       ind = indxper[i];
       if(i != ind && nodepart[i] != nodepart[ind]) {
@@ -2890,44 +2926,28 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   /* Check partitioning after table is created for the first time */
   CheckPartitioning(data,info);
 
-  
+
   /* Distribute the shared nodes as evenly as possible. 
      These store the load balancing information. */
-  neededmatrix = Imatrix(1,partitions,1,partitions);
   neededvector = Ivector(1,partitions);  
-  for(i=1;i<=partitions;i++) {
+  for(i=1;i<=partitions;i++) 
     neededvector[i] = 0;    
-    for(j=1;j<=partitions;j++)
-      neededmatrix[i][j] = 0;
-  }  
       
   /* Make the initial distribution that points the ownerships. */
-  for(i=1;i<=noknots;i++) {
-    ind = i;
-    if(periodic) ind = indxper[ind];
-
-    j = nodepart[ind];
-    neededvector[j] += 1;
-
-    for(l=1;l<=maxneededtimes;l++) {
-      
-      k = data->partitiontable[l][ind];
-      if(!k) break;
-      if(j == k) continue;
-
-      neededmatrix[j][k] += 1;
-    }
-  }    
+  for(i=1;i<=noknots;i++) 
+    neededvector[nodepart[i]] += 1;
    
   optimize = 1;
   probnodes = Ivector(1,noknots);
   for(i=1;i<=noknots;i++)
     probnodes[i] = 0;
 
+  if(!noopt) printf("Applying aggressive optimization for load balancing\n");
+
 optimizeownership:
 
   if(!noopt) {
-    /* compute the first maximum deviation of shared nodes. */
+    /* compute the first maximum deviation in ownership or shared nodes. */
     j = k = neededvector[1];
     for(i=1;i<=partitions;i++) {
       if(j < neededvector[i]) j = neededvector[i];
@@ -2937,7 +2957,6 @@ optimizeownership:
     
     if(info) printf("Maximum deviation in ownership %d\n",dshared);
     
-
     n = 0;
     do {
       n++;
@@ -3016,7 +3035,7 @@ optimizeownership:
       /* Check the number of owners in an element */
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
-	if(periodic) ind = indxper[ind];
+	if(0 && periodic) ind = indxper[ind];
 	k = nodepart[ind];
 	
 	if(!elemparts[k]) {
@@ -3035,7 +3054,7 @@ optimizeownership:
       /* Check which partitions are related by a common node */
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
-	if(periodic) ind = indxper[ind];
+	if(0 && periodic) ind = indxper[ind];
 
 	for(l=1;l<=maxneededtimes;l++) {
 	  e1 = data->partitiontable[l][ind];
@@ -3043,7 +3062,7 @@ optimizeownership:
 	  for(k=l+1;k<=maxneededtimes;k++) {
 	    e2 = data->partitiontable[k][ind];
 	    if(!e2) break;
-	    knows[e1][e2] = knows[e2][e1] = 1;
+	    knows[e1][e2] = knows[e2][e1] = TRUE;
 	  }
 	}
       }    
@@ -3068,7 +3087,7 @@ optimizeownership:
 	/* Count the number of nodes with wrong parents */
 	for(j=0;j < nodesd2;j++) {
 	  ind = data->topology[i][j];
-	  if(periodic) ind = indxper[ind];
+	  if(0 && periodic) ind = indxper[ind];
 	  
 	  for(l=1;l<=maxneededtimes;l++) {
 	    if(data->partitiontable[l][ind] == 0) break;
@@ -3080,7 +3099,7 @@ optimizeownership:
 	/* Change the owner of those with less sharings */
 	for(j=0;j < nodesd2;j++) {
 	  ind = data->topology[i][j];
-	  if(periodic) ind = indxper[ind];
+	  if(0 && periodic) ind = indxper[ind];
 
 	  if(nodepart[ind] == i1 && e1 < e2) {
 	    probnodes[ind] += 1;
@@ -3107,7 +3126,7 @@ optimizeownership:
     if(sharings) 
       printf("%d problematic sharings may still exist\n",sharings);
     else 
-      printf("There shouldn't be any more problematic sharings, knock, knock...\n");
+      printf("There shouldn't be any problematic sharings, knock, knock...\n");
   }
 
   printf("A posteriori checking\n");
@@ -3120,7 +3139,6 @@ optimizeownership:
     goto optimizeownership;
   }
 
-  free_Imatrix(neededmatrix,1,partitions,1,partitions);
   free_Ivector(neededvector,1,partitions);
   free_Ivector(probnodes,1,noknots);
  

@@ -169,6 +169,7 @@ static void Instructions()
   printf("-partjoin int        : number of partitions in the data to be joined\n");
   printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
+  printf("-partoptim           : apply agressive optimization to node sharing\n");
 
   if(0) printf("-names               : conserve name information where applicable\n");
 #if 0
@@ -813,6 +814,8 @@ int main(int argc, char *argv[])
   for(k=0;k<nomeshes;k++) {
     int noopt = 0;
 
+    noopt = eg.partoptim;
+
     if(eg.partitions || eg.metis) {
       printf("\nElmergrid partitioning meshes:\n");
       printf(  "------------------------------\n");
@@ -821,25 +824,23 @@ int main(int argc, char *argv[])
 	FindPeriodicNodes(&data[k],eg.periodicdim,info);
 
       if(eg.partitions) {
-	if(eg.partopt % 2 == 0) 
+	if(eg.partopt == 0) 
 	  PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
 	else 
 	  PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
-	noopt = eg.partopt / 2;      
       }
 #if PARTMETIS
       if(eg.metis) {
-	if(eg.partopt % 5 <= 1) 
-	  PartitionMetisElements(&data[k],eg.metis,eg.partopt % 5,info);
+	if(eg.partopt <= 1) 
+	  PartitionMetisElements(&data[k],eg.metis,eg.partopt,info);
 	else
-	  PartitionMetisNodes(&data[k],eg.metis,eg.partopt % 5,info);      
-	noopt = eg.partopt / 5;      
+	  PartitionMetisNodes(&data[k],eg.metis,eg.partopt,info);      
       }
 #endif
       if(data[k].periodicexist)
 	FindPeriodicParents(&data[k],boundaries[k],info);	
 
-      OptimizePartitioning(&data[k],boundaries[k],noopt,info);
+      OptimizePartitioning(&data[k],boundaries[k],!noopt,info);
       if(data[k].periodicexist) {
 	free_Ivector(data[k].periodic,1,data[k].noknots);
 	data[k].periodicexist = FALSE;

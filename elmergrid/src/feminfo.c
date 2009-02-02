@@ -243,6 +243,8 @@ void InitParameters(struct ElmergridType *eg)
   eg->elements3d = 0;
   eg->nodes3d = 0;
   eg->metis = 0;
+  eg->partopt = 0;
+  eg->partoptim = 0;
   eg->partjoin = 0;
   eg->partitionhalo = FALSE;
   eg->partitionindirect = FALSE;
@@ -614,7 +616,10 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	if(dim==3) eg->partcorder[2] = atof(argv[arg+3]);
       }
     }
-
+    if(strcmp(argv[arg],"-partoptim") == 0) {
+      eg->partoptim = TRUE;
+      printf("Aggressive optimization will be applied to node sharing.\n");
+    }
     if(strcmp(argv[arg],"-metis") == 0) {
 #if PARTMETIS
       if(arg+1 >= argc) {
