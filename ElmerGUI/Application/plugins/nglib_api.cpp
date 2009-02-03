@@ -62,15 +62,15 @@ int NglibAPI::getDim()
   return this->ngDim;
 }
 
+void NglibAPI::setNgmesh(nglib::Ng_Mesh *ngmesh)
+{
+  this->ngmesh = ngmesh;
+}
+
 // Populate elmer's mesh structure:
 //-----------------------------------------------------------------------------
 mesh_t* NglibAPI::createElmerMeshStructure()
 {
-  Helpers helpers;
-  Meshutils meshutils;
-  
-  // Create new mesh structure:
-  //----------------------------
   mesh_t *mesh = new mesh_t;
 
   mesh->setNodes(0);
@@ -81,185 +81,191 @@ mesh_t* NglibAPI::createElmerMeshStructure()
 
   bool twod = (ngDim == 2) ? true : false;
   
-  // Nodes:
-  //--------
   if(twod) {
-    mesh->setNodes(nglib::Ng_GetNP_2D(ngmesh));
+    create2D(mesh);
   } else {
-    mesh->setNodes(nglib::Ng_GetNP(ngmesh));
+    create3D(mesh);
   }
 
+  return mesh;
+}
+
+void NglibAPI::create2D(mesh_t *mesh)
+{
+  Meshutils meshutils;
+  
+  // Node points:
+  //--------------
+  mesh->setNodes(nglib::Ng_GetNP_2D(ngmesh));
   mesh->newNodeArray(mesh->getNodes());
 
   for(int i = 0; i < mesh->getNodes(); i++) {
     node_t *node = mesh->getNode(i);
 
-    if(twod) {
-      double *x = node->getXvec();
-      x[0] = 0; x[1] = 0; x[2] = 0;
-      nglib::Ng_GetPoint_2D(ngmesh, i+1, x);
-    } else {
-      nglib::Ng_GetPoint(ngmesh, i+1, node->getXvec());
-    }
-
+    double *x = node->getXvec();
+    x[0] = 0; x[1] = 0; x[2] = 0;
+    nglib::Ng_GetPoint_2D(ngmesh, i + 1, x);
+    
     node->setIndex(-1); // default
   }
 
   // Boundary elements:
   //--------------------
+  mesh->setEdges(nglib::Ng_GetNSeg_2D(ngmesh));
+  mesh->newEdgeArray(mesh->getEdges());
+  
+  for(int i = 0; i < mesh->getEdges(); i++) {
+    edge_t *edge = mesh->getEdge(i);
+    
+    edge->setNature(PDE_BOUNDARY);
+    edge->setCode(202);
+    edge->setNodes(2);
+    edge->newNodeIndexes(2);
+    edge->setPoints(2);
+    edge->newPointIndexes(2);
+    
+    edge->setIndex(1);
+    
+    edge->setPointIndex(0, -1);
+    edge->setPointIndex(1, -1);
+    
+    // data for edge->points is not available
+    
+    nglib::Ng_GetSegment_2D(ngmesh, i + 1, edge->getNodeIndexes());
+    
+    edge->setNodeIndex(0, edge->getNodeIndex(0) - 1);
+    edge->setNodeIndex(1, edge->getNodeIndex(1) - 1);
+    
+    // swap orientation:
+    //------------------
+    int tmp = edge->getNodeIndex(0);
+    edge->setNodeIndex(0, edge->getNodeIndex(1));
+    edge->setNodeIndex(1, tmp);
+  }
+  
+  // Elements:
+  //-----------
+  mesh->setSurfaces(nglib::Ng_GetNE_2D(ngmesh));
+  mesh->newSurfaceArray(mesh->getSurfaces()); 
+  
+  double n[3];
+  n[0] = 0; n[1] = 0; n[2] = -1;
+  
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
+    
+    surface->setNature(PDE_BULK);
+    surface->setCode(303);
+    surface->setNodes(3);
+    surface->newNodeIndexes(3);
+    
+    nglib::Ng_GetElement_2D(ngmesh, i+1, surface->getNodeIndexes());
+    
+    surface->setNodeIndex(0, surface->getNodeIndex(0) - 1);
+    surface->setNodeIndex(1, surface->getNodeIndex(1) - 1);
+    surface->setNodeIndex(2, surface->getNodeIndex(2) - 1);
+    
+    surface->setNormalVec(n);
+    
+    surface->setIndex(1); // default
+  }
+  
+  // Find parents for edge elements:
+  //---------------------------------
+  meshutils.findEdgeElementParents(mesh);
+  
+  mesh->setDim(ngDim);
+  mesh->setCdim(ngDim);
+}
 
-  if(twod) {
+void NglibAPI::create3D(mesh_t *mesh)
+{  
+  Meshutils meshutils;
 
-    // 2D:
-    //-----
-    mesh->setEdges(nglib::Ng_GetNSeg_2D(ngmesh));
-    mesh->newEdgeArray(mesh->getEdges());
+  // Node points:
+  //--------------
+  mesh->setNodes(nglib::Ng_GetNP(ngmesh));
+  mesh->newNodeArray(mesh->getNodes());
 
-    for(int i=0; i < mesh->getEdges(); i++) {
-      edge_t *edge = mesh->getEdge(i);
-      
-      edge->setNature(PDE_BOUNDARY);
-      edge->setCode(202);
-      edge->setNodes(2);
-      edge->newNodeIndexes(2);
-      edge->setPoints(2);
-      edge->newPointIndexes(2);
+  for(int i = 0; i < mesh->getNodes(); i++) {
+    node_t *node = mesh->getNode(i);
+    nglib::Ng_GetPoint(ngmesh, i+1, node->getXvec());
+    node->setIndex(-1); // default
+  }
 
-      edge->setIndex(1);
-
-      edge->setPointIndex(0, -1);
-      edge->setPointIndex(1, -1);
-      
-      // data for edge->points is not available
-      
-      nglib::Ng_GetSegment_2D(ngmesh, i+1, edge->getNodeIndexes());
-      
-      edge->setNodeIndex(0, edge->getNodeIndex(0) - 1);
-      edge->setNodeIndex(1, edge->getNodeIndex(1) - 1);
-      
-      // swap orientation:
-      //------------------
-      int tmp = edge->getNodeIndex(0);
-      edge->setNodeIndex(0, edge->getNodeIndex(1));
-      edge->setNodeIndex(1, tmp);
-    }
-
-  } else {
-
-    // 3D:
-    //-----
-    mesh->setSurfaces(nglib::Ng_GetNSE(ngmesh));
-    mesh->newSurfaceArray(mesh->getSurfaces());
-
-    for(int i=0; i < mesh->getSurfaces(); i++) {
-      surface_t *surface = mesh->getSurface(i);
-      
-      surface->setNature(PDE_BOUNDARY);
-      surface->setCode(303);
-      surface->setNodes(3);
-      surface->newNodeIndexes(3);
-      surface->setEdges(3);
-      surface->newEdgeIndexes(3);
-
-      int face = nglib::EG_GetSurfaceElementBCProperty(ngmesh, i+1);
-      
-      surface->setIndex(face);
-      
-      surface->setEdgeIndex(0, -1);
-      surface->setEdgeIndex(1, -1);
-      surface->setEdgeIndex(2, -1);
-      
-      // data for surface->element is not available
-      
-      nglib::Ng_GetSurfaceElement(ngmesh, i+1, surface->getNodeIndexes());
-      
-      surface->setNodeIndex(0, surface->getNodeIndex(0) - 1);
-      surface->setNodeIndex(1, surface->getNodeIndex(1) - 1);
-      surface->setNodeIndex(2, surface->getNodeIndex(2) - 1);
-      
-      // swap orientation:
-      //------------------
-      int tmp = surface->getNodeIndex(1);
-      surface->setNodeIndex(1, surface->getNodeIndex(2));
-      surface->setNodeIndex(2, tmp);
-    }
+  // Boundary elements:
+  //--------------------
+  mesh->setSurfaces(nglib::Ng_GetNSE(ngmesh));
+  mesh->newSurfaceArray(mesh->getSurfaces());
+  
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
+    
+    surface->setNature(PDE_BOUNDARY);
+    surface->setCode(303);
+    surface->setNodes(3);
+    surface->newNodeIndexes(3);
+    surface->setEdges(3);
+    surface->newEdgeIndexes(3);
+    
+    int face = nglib::EG_GetSurfaceElementBCProperty(ngmesh, i+1);
+    
+    surface->setIndex(face);
+    
+    surface->setEdgeIndex(0, -1);
+    surface->setEdgeIndex(1, -1);
+    surface->setEdgeIndex(2, -1);
+    
+    // data for surface->element is not available
+    
+    nglib::Ng_GetSurfaceElement(ngmesh, i+1, surface->getNodeIndexes());
+    
+    surface->setNodeIndex(0, surface->getNodeIndex(0) - 1);
+    surface->setNodeIndex(1, surface->getNodeIndex(1) - 1);
+    surface->setNodeIndex(2, surface->getNodeIndex(2) - 1);
+    
+    // swap orientation:
+    //------------------
+    int tmp = surface->getNodeIndex(1);
+    surface->setNodeIndex(1, surface->getNodeIndex(2));
+    surface->setNodeIndex(2, tmp);
   }
 
   // Elements:
   //-----------
-  if(twod) {
-
-    // 2D:
-    //-----
-    mesh->setSurfaces(nglib::Ng_GetNE_2D(ngmesh));
-    mesh->newSurfaceArray(mesh->getSurfaces()); 
+  mesh->setElements(nglib::Ng_GetNE(ngmesh));
+  mesh->newElementArray(mesh->getElements()); 
+  
+  for(int i = 0; i < mesh->getElements(); i++) {
+    element_t *element = mesh->getElement(i);
     
-    double n[3];
-    n[0] = 0; n[1] = 0; n[2] = 1;
-
-    for(int i = 0; i < mesh->getSurfaces(); i++) {
-      surface_t *surface = mesh->getSurface(i);
-      
-      surface->setNature(PDE_BULK);
-      surface->setCode(303);
-      surface->setNodes(3);
-      surface->newNodeIndexes(3);
-      
-      nglib::Ng_GetElement_2D(ngmesh, i+1, surface->getNodeIndexes());
-      
-      surface->setNodeIndex(0, surface->getNodeIndex(0) - 1);
-      surface->setNodeIndex(1, surface->getNodeIndex(1) - 1);
-      surface->setNodeIndex(2, surface->getNodeIndex(2) - 1);
-
-      surface->setNormalVec(n);
-
-      surface->setIndex(1); // default
-    }
-
-    // Find parents for edge elements:
-    //---------------------------------
-    meshutils.findEdgeElementParents(mesh);
-
-  } else {
-
-    // 3D:
-    //-----
-    mesh->setElements(nglib::Ng_GetNE(ngmesh));
-    mesh->newElementArray(mesh->getElements()); 
+    element->setNature(PDE_BULK);
+    element->setCode(504);
+    element->setNodes(4);
+    element->newNodeIndexes(4);
     
-    for(int i = 0; i < mesh->getElements(); i++) {
-      element_t *element = mesh->getElement(i);
-      
-      element->setNature(PDE_BULK);
-      element->setCode(504);
-      element->setNodes(4);
-      element->newNodeIndexes(4);
-      
-      nglib::Ng_GetVolumeElement(ngmesh, i+1, element->getNodeIndexes());
-      
-      element->setNodeIndex(0, element->getNodeIndex(0) - 1);
-      element->setNodeIndex(1, element->getNodeIndex(1) - 1);
-      element->setNodeIndex(2, element->getNodeIndex(2) - 1);
-      element->setNodeIndex(3, element->getNodeIndex(3) - 1);
-      
-      element->setIndex(1); // default
-    }
-
-    // Find parents for surface elements (?????):
-    //------------------------------------
-    meshutils.findSurfaceElementParents(mesh);
+    nglib::Ng_GetVolumeElement(ngmesh, i+1, element->getNodeIndexes());
     
-    // Find edges for surface elements:
-    //----------------------------------
-    meshutils.findSurfaceElementEdges(mesh);
+    element->setNodeIndex(0, element->getNodeIndex(0) - 1);
+    element->setNodeIndex(1, element->getNodeIndex(1) - 1);
+    element->setNodeIndex(2, element->getNodeIndex(2) - 1);
+    element->setNodeIndex(3, element->getNodeIndex(3) - 1);
     
-    // Compute normals for boundary elements:
-    //---------------------------------------
-    meshutils.findSurfaceElementNormals(mesh);
+    element->setIndex(1); // default
   }
+  
+  // Find parents for surface elements (?????):
+  //------------------------------------
+  meshutils.findSurfaceElementParents(mesh);
+  
+  // Find edges for surface elements:
+  //----------------------------------
+  meshutils.findSurfaceElementEdges(mesh);
+  
+  // Compute normals for boundary elements:
+  //---------------------------------------
+  meshutils.findSurfaceElementNormals(mesh);
 
   mesh->setDim(ngDim);
   mesh->setCdim(ngDim);
-
-  return mesh;
 }

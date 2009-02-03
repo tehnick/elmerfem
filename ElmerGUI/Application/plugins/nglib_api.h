@@ -53,17 +53,17 @@ class NglibAPI
  public:
   NglibAPI();
   ~NglibAPI();
-  void setDim(int ngDim);
+
+  void setNgmesh(nglib::Ng_Mesh*);
+  void setDim(int);
   int getDim();
-
-  nglib::Ng_Mesh* ngmesh;
-
   mesh_t* createElmerMeshStructure();
+  void create2D(mesh_t*);
+  void create3D(mesh_t*);
 
  private:
+  nglib::Ng_Mesh* ngmesh;
   int ngDim;
-
-  
 };
 
 #endif // #ifndef NGLIB_API_H

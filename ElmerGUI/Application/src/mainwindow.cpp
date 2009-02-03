@@ -1287,10 +1287,10 @@ void MainWindow::makeElmerMeshFromTetlib()
 void MainWindow::makeElmerMeshFromNglib()
 {
   meshutils->clearMesh(glWidget->getMesh());
-  nglibAPI->ngmesh = this->ngmesh;
   nglibAPI->setDim(this->ngDim);
-  glWidget->setMesh(nglibAPI->createElmerMeshStructure());
+  nglibAPI->setNgmesh(ngmesh);
 
+  glWidget->setMesh(nglibAPI->createElmerMeshStructure());
   glWidget->rebuildLists();
 
   logMessage("Input file processed");
