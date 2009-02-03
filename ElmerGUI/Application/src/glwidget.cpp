@@ -1126,9 +1126,9 @@ GLuint GLWidget::makeLists()
   // Scan edge elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int edge_bcs = 0;
-  int *edge_nature = new int[mesh->getEdges()];
+  int *edge_nature = new int[mesh->getEdges() + 1];
   
-  for(i=0; i < mesh->getEdges(); i++)
+  for(i=0; i <= mesh->getEdges(); i++)
     edge_nature[i] = 0;
   
   for(i=0; i < mesh->getEdges(); i++) {
@@ -1137,7 +1137,7 @@ GLuint GLWidget::makeLists()
       edge_nature[edge->getIndex()] = edge->getNature();
   }    
   
-  for(i=0; i < mesh->getEdges(); i++) {
+  for(i=0; i <= mesh->getEdges(); i++) {
     if(edge_nature[i] > 0) {
       edge_bcs++;
       if(edge_nature[i] == PDE_BULK)
@@ -1206,8 +1206,10 @@ GLuint GLWidget::makeLists()
   }
   
   // Edge lists (only PDE_BOUNDARY):
-  for(i=0; i < mesh->getEdges(); i++) {
+  for(i=0; i < mesh->getEdges(); i++)
     mesh->getEdge(i)->setSelected(false);
+
+  for(i = 0; i <= mesh->getEdges(); i++) {
     if(edge_nature[i] == PDE_BOUNDARY) {
       list_t *l = &list[current_index++];
       l->setNature(edge_nature[i]); 

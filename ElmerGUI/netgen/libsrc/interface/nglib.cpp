@@ -72,7 +72,6 @@ void Ng_DeleteMesh (Ng_Mesh * mesh)
   delete (Mesh*)mesh;
 }
 
-
 // return bc property for surface element i
 int
 EG_GetSurfaceElementBCProperty(Ng_Mesh * mesh, int i)

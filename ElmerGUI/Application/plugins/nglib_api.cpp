@@ -124,15 +124,15 @@ void NglibAPI::create2D(mesh_t *mesh)
     edge->setPoints(2);
     edge->newPointIndexes(2);
     
-    edge->setIndex(1);
-    
     edge->setPointIndex(0, -1);
     edge->setPointIndex(1, -1);
     
-    // data for edge->points is not available
-    
-    nglib::Ng_GetSegment_2D(ngmesh, i + 1, edge->getNodeIndexes());
-    
+    int idx;
+
+    nglib::Ng_GetSegment_2D(ngmesh, i + 1, edge->getNodeIndexes(), &idx);
+
+    edge->setIndex(idx);
+        
     edge->setNodeIndex(0, edge->getNodeIndex(0) - 1);
     edge->setNodeIndex(1, edge->getNodeIndex(1) - 1);
     
@@ -215,8 +215,6 @@ void NglibAPI::create3D(mesh_t *mesh)
     surface->setEdgeIndex(0, -1);
     surface->setEdgeIndex(1, -1);
     surface->setEdgeIndex(2, -1);
-    
-    // data for surface->element is not available
     
     nglib::Ng_GetSurfaceElement(ngmesh, i+1, surface->getNodeIndexes());
     

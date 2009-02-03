@@ -82,7 +82,6 @@ int
 EG_GetSurfaceElementBCProperty(Ng_Mesh * mesh, int i);
 
 
-
 // Generates new mesh structure
 Ng_Mesh * Ng_NewMesh ();
 void Ng_DeleteMesh (Ng_Mesh * mesh);
