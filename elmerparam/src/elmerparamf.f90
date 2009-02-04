@@ -1,7 +1,7 @@
 !
 !  ElmerParam - A simple system for parametrized computing
 ! 
-!  Copyright (C) 2006  CSC - Scientific Computing Ltd.
+!  Copyright (C) 2006  CSC - IT Center for Science, Ltd.
 !
 !  Authors: Erik Edelmann <Erik.Edelmann@csc.fi>
 !           Peter Råback <Peter.Raback@csc.fi>
