@@ -1,10 +1,10 @@
 /*  
    ElmerGrid - A simple mesh generation and manipulation utility  
-   Copyright (C) 1995- , CSC - Scientific Computing Ltd.   
+   Copyright (C) 1995- , CSC - IT Center for Science Ltd.   
 
    Author: Peter Råback
    Email: Peter.Raback@csc.fi
-   Address: CSC - Scientific Computing Ltd.
+   Address: CSC - IT Center for Science Ltd.
             Keilaranta 14
             02101 Espoo, Finland
 
@@ -58,7 +58,7 @@
 int LoadSolutionElmer(struct FemType *data,int results,char *prefix,int info)
 /* This procedure reads the solution in a form that is understood 
    by the programs Funcs and ElmerPost, created
-   by Juha Ruokolainen at Center for Scientific Computing. 
+   by Juha Ruokolainen at CSC - IT Center for Science Ltd.. 
    This procedure is not by far general.
    */
 {
@@ -643,7 +643,7 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
 		      int nobound,char *prefix,int decimals,int info)
 /* This procedure saves the solution in a form that is understood 
    by the programs Funcs and ElmerPost, created
-   by Juha Ruokolainen at Center for Scientific Computing. 
+   by Juha Ruokolainen at CSC - IT Center for Science Ltd.. 
    */
 {
   int material,noknots,noelements,bulkelems,novctrs,sideelems,sideelemtype,elemtype,boundtype;
@@ -1624,6 +1624,16 @@ static int CreatePartitionTable(struct FemType *data,int info)
     printf("There are %d shared nodes which is %.2lf %% of all nodes.\n",
 	   sharings,(100.*sharings)/noknots);
     printf("The initial owner was not any of the elements for %d nodes\n",notinany);
+  }
+
+
+  if(0) for(i=1;i<=noknots;i++) {
+    if(data->partitiontable[maxneededtimes][i]) {
+      printf("node %d parts: ",i);
+      for(k=1;k<=maxneededtimes;k++) 
+	printf("%d ",data->partitiontable[k][i]);
+      printf("\n");
+    }
   }
     
   data->maxpartitiontable = maxneededtimes;

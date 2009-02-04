@@ -21,7 +21,7 @@
 //   Revision 1.1  2003/02/06 09:37:53  jpr
 //   *** empty log message ***
 //
-//   2003/02/01 Juha Ruokolainen / Center for Scientific Computing
+//   2003/02/01 Juha Ruokolainen / CSC - IT Center for Science Ltd.
 //   Fixed some bugs in add_primitive. Changed the list of primitives 
 //   to a binary tree of primitives. Sorting now works correctly.
 //   Added handling of GL_LINE_RESET_TOKEN, but the line patterns etc. are

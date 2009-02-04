@@ -1,10 +1,10 @@
 /*  
    ElmerGrid - A simple mesh generation and manipulation utility  
-   Copyright (C) 1995- , CSC - Scientific Computing Ltd.   
+   Copyright (C) 1995- , CSC - IT Center for Science Ltd.   
  
    Author: Peter Råback
    Email: Peter.Raback@csc.fi
-   Address: CSC - Scientific Computing Ltd.
+   Address: CSC - IT Center for Science Ltd.
             Keilaranta 14
             02101 Espoo, Finland
 

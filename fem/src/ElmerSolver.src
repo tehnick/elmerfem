@@ -2,7 +2,7 @@
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
-! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
 ! * 
 ! *  This program is free software; you can redistribute it and/or
 ! *  modify it under the terms of the GNU General Public License
@@ -30,7 +30,7 @@
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
-! *  Address: CSC - Scientific Computing Ltd.
+! *  Address: CSC - IT Center for Science Ltd.
 ! *           Keilaranta 14
 ! *           02101 Espoo, Finland 
 ! *
@@ -423,10 +423,12 @@
 !------------------------------------------------------------------------------
 !    THIS IS THE END (...,at last, the end, my friend,...)
 !------------------------------------------------------------------------------
-     IF ( Initialize /= 1 ) CALL Info( '', '*** Elmer Solver: ALL DONE ***' )
+     IF ( Initialize /= 1 ) CALL Info( 'ElmerSolver', '*** Elmer Solver: ALL DONE ***' )
      IF ( ParEnv % PEs>1 )  CALL ParallelFinalize()
 
-     IF ( Initialize<=0 ) CALL FreeModel(CurrentModel)
+     IF ( Initialize <=0 ) CALL FreeModel(CurrentModel)
+
+     CALL Info('ElmerSolver','The end')	
 
      RETURN
 

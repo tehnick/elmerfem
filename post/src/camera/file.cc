@@ -25,7 +25,7 @@
 //   Revision 1.1  2003/02/06 09:37:53  jpr
 //   *** empty log message ***
 //
-//   2003/02/01 Juha Ruokolainen / Center for Scientific Computing, Finland
+//   2003/02/01 Juha Ruokolainen / CSC - IT Center for Science Ltd., Finland
 //   Added code to handle primitives stored in a binary tree instead of
 //   a list. Separate routine for outputting primitives. Some changes
 //   to generated postscript code: 

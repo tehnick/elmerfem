@@ -1,38 +1,5 @@
-/*
- * $Id: main.c,v 1.11 2006/02/02 06:54:44 jpr Exp $ 
- *
- * $Log: main.c,v $
- * Revision 1.11  2006/02/02 06:54:44  jpr
- * small formatting changes.
- *
- * Revision 1.9  2005/08/25 13:44:22  vierinen
- * windoze stuff
- *
- * Revision 1.5  2005/05/26 12:34:54  vierinen
- * windows stuff
- *
- * Revision 1.4  2005/05/11 06:45:37  vierinen
- * stupid readline update
- *
- * Revision 1.3  2005/04/29 11:19:16  vierinen
- * stupid comment line fix
- *
- * Revision 1.2  2005/04/15 06:54:30  vierinen
- * added gnu readline support
- *
- * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
- * initial matc automake package
- *
- * Revision 1.2  1998/08/01 12:34:47  jpr
- *
- * Added Id, started Log.
- * 
- *
- */
-
 #include <stdio.h>
 #include <signal.h>
-
 #include "../config.h"
 
 #ifdef USE_READLINE

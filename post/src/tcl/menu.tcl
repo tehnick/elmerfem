@@ -2,7 +2,7 @@
 #*
 #*       ELMER, A Computational Fluid Dynamics Program.
 #*
-#*       Copyright 1st April 1995 - , Center for Scientific Computing,
+#*       Copyright 1st April 1995 - , CSC - IT Center for Science Ltd.,
 #*                                    Finland.
 #*
 #*       All rights reserved. No part of this program may be used,
@@ -19,8 +19,8 @@
 #*
 #*                     Author:       Juha Ruokolainen
 #*
-#*                    Address: Center for Scientific Computing
-#*                                Tietotie 6, P.O. BOX 405
+#*                    Address: CSC - IT Center for Science Ltd.
+#*                                Keilaranta 14, P.O. BOX 405
 #*                                  02101 Espoo, Finland
 #*                                  Tel. +358 0 457 2723
 #*                                Telefax: +358 0 457 2302
@@ -172,7 +172,7 @@ menu .menubar.help.menu
 
 #.menubar.help.menu add command -underline 0
 #.menubar.help.menu entryconfigure last -label "About Elmerpost..." \
-#   -command { message "\nElmerpost Version 0.9 (12/2/97)\n\nAuthor: Juha Ruokolainen\n\nCopyright: Center for Scientific Computing (CSC)\n                  P.O.Box. 405, 02320 Espoo, Finland\n" "About ElmerPost" }
+#   -command { message "\nElmerpost Version 0.9 (12/2/97)\n\nAuthor: Juha Ruokolainen\n\nCopyright: CSC - IT Center for Science Ltd. (CSC)\n                  P.O.Box. 405, 02320 Espoo, Finland\n" "About ElmerPost" }
 #.menubar.help.menu add command -underline 0
 #.menubar.help.menu entryconfigure last -label "About the Elmer project..." -command {  help http://www.csc.fi/CFD/elmer/ }
 pack .menubar.help -side left

@@ -2,7 +2,7 @@
 ! *
 ! *       ELMER, A Computational Fluid Dynamics Program.
 ! *
-! *       Copyright 1st April 1995 - , Center for Scientific Computing,
+! *       Copyright 1st April 1995 - , CSC - IT Center for Science Ltd.,
 ! *                                    Finland.
 ! *
 ! *       All rights reserved. No part of this program may be used,

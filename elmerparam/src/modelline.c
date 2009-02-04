@@ -6,7 +6,7 @@
 
   Authors: Erik Edelmann <Erik.Edelmann@csc.fi>
            Peter Råback <Peter.Raback@csc.fi>
-  Address: CSC - Scientific Computing Ltd.
+  Address: CSC - IT Center for Science Ltd.
            Keilaranta 14
            02101 Espoo, Finland
             

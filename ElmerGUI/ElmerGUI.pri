@@ -11,12 +11,12 @@ DEFINES += EG_QWT      # Use QWT for convergence monitor?
 DEFINES += EG_VTK      # Use VTK for postprocessing?
 DEFINES += EG_MATC     # Use MATC for internal operations in postprocessing?
 DEFINES += EG_OCC      # Use OpenCASCADE 6.3 for importing CAD files? Needs VTK.
-DEFINES += EG_PYTHONQT # Use PythonQt for scripting in post processor?
+DEFINES -= EG_PYTHONQT # Use PythonQt for scripting in post processor?
 
 #------------------------------------------------------------------------------
 # 64 bit system?
 #------------------------------------------------------------------------------
-BITS = 32
+BITS = 64
 
 #------------------------------------------------------------------------------
 # Installation directory:
@@ -54,9 +54,9 @@ macx {
 # QWT library:
 #------------------------------------------------------------------------------
 unix {
-  QWT_INCLUDEPATH = /usr/include/qwt-qt4
-  QWT_LIBPATH = /usr/lib
-  QWT_LIBS = -lqwt-qt4
+  QWT_INCLUDEPATH = $$(QWTDIR)/include
+  QWT_LIBPATH = $$(QWTDIR)/lib
+  QWT_LIBS = -lqwt
 }
 
 win32 {
@@ -75,8 +75,8 @@ macx {
 # VTK library:
 #------------------------------------------------------------------------------
 unix {
-   VTK_INCLUDEPATH = /usr/include/vtk-5.0
-   VTK_LIBPATH = /usr/lib
+   VTK_INCLUDEPATH = $$(VTKDIR)/include/vtk-5.2
+   VTK_LIBPATH = $$(VTKDIR)/lib/vtk-5.2
    VTK_LIBS = -lvtkHybrid \
               -lvtkWidgets \
     	      -lQVTK
@@ -127,8 +127,8 @@ macx {
 # OpenCASCADE library:
 #------------------------------------------------------------------------------
 unix {
-   OCC_INCLUDEPATH = /usr/include/opencascade
-   OCC_LIBPATH = /usr/lib
+   OCC_INCLUDEPATH = $$(OCCDIR)/inc
+   OCC_LIBPATH = $$(OCCDIR)/lib
    OCC_LIBS = -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
 }
 

@@ -2,7 +2,7 @@
  *
  *       ELMER, A Computational Fluid Dynamics Program.
  *
- *       Copyright 1st April 1995 - , Center for Scientific Computing,
+ *       Copyright 1st April 1995 - , CSC - IT Center for Science Ltd.,
  *                                    Finland.
  *
  *       All rights reserved. No part of this program may be used,
@@ -19,7 +19,7 @@
  *
  *                     Author:       Juha Ruokolainen
  *
- *                    Address:   Tietotie 6, P.O. BOX 405
+ *                    Address:   Keilaranta 14, P.O. BOX 405
  *                                 02101 Espoo, Finland
  *                                 Tel. +358 0 457 2723
  *                               Telefax: +358 0 457 2302
