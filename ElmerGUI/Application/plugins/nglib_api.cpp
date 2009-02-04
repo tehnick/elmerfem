@@ -127,11 +127,11 @@ void NglibAPI::create2D(mesh_t *mesh)
     edge->setPointIndex(0, -1);
     edge->setPointIndex(1, -1);
     
-    int idx;
+    int bcIdx;
 
-    nglib::Ng_GetSegment_2D(ngmesh, i + 1, edge->getNodeIndexes(), &idx);
+    nglib::Ng_GetSegment_2D(ngmesh, i + 1, edge->getNodeIndexes(), &bcIdx);
 
-    edge->setIndex(idx);
+    edge->setIndex(bcIdx);
         
     edge->setNodeIndex(0, edge->getNodeIndex(0) - 1);
     edge->setNodeIndex(1, edge->getNodeIndex(1) - 1);
@@ -159,15 +159,17 @@ void NglibAPI::create2D(mesh_t *mesh)
     surface->setNodes(3);
     surface->newNodeIndexes(3);
     
-    nglib::Ng_GetElement_2D(ngmesh, i+1, surface->getNodeIndexes());
+    int matIdx;
+
+    nglib::Ng_GetElement_2D(ngmesh, i+1, surface->getNodeIndexes(), &matIdx);
+
+    surface->setIndex(matIdx);
     
     surface->setNodeIndex(0, surface->getNodeIndex(0) - 1);
     surface->setNodeIndex(1, surface->getNodeIndex(1) - 1);
     surface->setNodeIndex(2, surface->getNodeIndex(2) - 1);
     
-    surface->setNormalVec(n);
-    
-    surface->setIndex(1); // default
+    surface->setNormalVec(n);    
   }
   
   // Find parents for edge elements:
@@ -249,10 +251,10 @@ void NglibAPI::create3D(mesh_t *mesh)
     element->setNodeIndex(2, element->getNodeIndex(2) - 1);
     element->setNodeIndex(3, element->getNodeIndex(3) - 1);
     
-    element->setIndex(1); // default
+    element->setIndex(1); // default (no multibody meshing atm)
   }
   
-  // Find parents for surface elements (?????):
+  // Find parents for surface elements:
   //------------------------------------
   meshutils.findSurfaceElementParents(mesh);
   

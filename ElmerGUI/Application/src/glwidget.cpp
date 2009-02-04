@@ -1099,9 +1099,9 @@ GLuint GLWidget::makeLists()
   // Scan surface elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int surface_bcs = 0;
-  int *surface_nature = new int[mesh->getSurfaces()];
+  int *surface_nature = new int[mesh->getSurfaces() + 1];
   
-  for(i=0; i < mesh->getSurfaces(); i++)
+  for(i=0; i <= mesh->getSurfaces(); i++)
     surface_nature[i] = 0;
   
   for(i=0; i < mesh->getSurfaces(); i++) {
@@ -1110,7 +1110,7 @@ GLuint GLWidget::makeLists()
       surface_nature[surface->getIndex()] = surface->getNature();
   }    
   
-  for(i=0; i < mesh->getSurfaces(); i++) {
+  for(i=0; i <= mesh->getSurfaces(); i++) {
     if(surface_nature[i] > 0) {
       surface_bcs++;
       if(surface_nature[i] == PDE_BULK)
@@ -1177,8 +1177,10 @@ GLuint GLWidget::makeLists()
   cout.flush();
 
   // Surface lists:
-  for(i=0; i < mesh->getSurfaces(); i++) {
+  for(i=0; i < mesh->getSurfaces(); i++)
     mesh->getSurface(i)->setSelected(false);
+
+  for(i=0; i <= mesh->getSurfaces(); i++) {
     if(surface_nature[i] > 0) {
 
       // triangles & quads:
