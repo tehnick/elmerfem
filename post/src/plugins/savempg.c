@@ -7,9 +7,9 @@
 //
 //   MinGW: 
 //     > gcc -shared -O -I$FFMPEG/include -L$FFMPEG/lib -o savempg.dll 
-//               savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil -lz
+//               savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil -lswscale -lz
 //   Linux:
-//     > more or less the same (-lGL -ltcl -lavcodec -lavutil -lz)
+//     > more or less the same (-lGL -ltcl -lavcodec -lavutil -lswscale -lz)
 //
 // ( Note that the libraries required depend on the libavcodec build. )
 //
@@ -44,7 +44,8 @@
 #include <math.h>
 #include <GL/gl.h>
 #include <tcl.h>
-#include <avcodec.h>
+#include "libavcodec/avcodec.h"
+#include "libswscale/swscale.h"
 
 #define INBUF_SIZE 4096
 #define STATE_READY 0
@@ -417,8 +418,39 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
     // Convert to YUV:
     //----------------
+
+#if 1
+
+    // 
+    // Use swscale:
+    //
+
+    static struct SwsContext *img_convert_ctx;
+    
+    if( img_convert_ctx == NULL )
+      img_convert_ctx = sws_getContext( nx, ny, PIX_FMT_RGB24,
+					nx, ny, PIX_FMT_YUV420P,
+					SWS_BICUBIC, NULL, NULL, NULL );
+
+    if( img_convert_ctx == NULL ) {
+      SetMessage( interp, "Unable to initialize scaler context" );
+      return TCL_ERROR;
+    }
+    
+    sws_scale( img_convert_ctx,
+	       RGBpicture->data, RGBpicture->linesize,
+	       0, ny,
+	       YUVpicture->data, YUVpicture->linesize );
+#else
+
+    //
+    // Use img_convert (deprecated):
+    //
+
     img_convert( (AVPicture*)YUVpicture, PIX_FMT_YUV420P, 
 		 (AVPicture*)RGBpicture, PIX_FMT_RGB24, nx, ny );
+
+#endif
 
     // Encode frame:
     //--------------
