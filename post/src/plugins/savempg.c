@@ -1,15 +1,18 @@
 //=============================================================================
 // savempg.c
 //
-// Module for compressing and saving ElmerPost-pictures in MPEG1 format
+// Module for compressing and saving ElmerPost-pictures in MPEG formats.
 //
-// Compile e.g. as follows (you'll need ffmpeg installed in $FFMPEG):
+// Compile e.g. as follows:
 //
-//   MinGW: 
-//     > gcc -shared -O -I$FFMPEG/include -L$FFMPEG/lib -o savempg.dll 
-//               savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil -lswscale -lz
-//   Linux:
-//     > more or less the same (-lGL -ltcl -lavcodec -lavutil -lswscale -lz)
+// Linux:
+//
+// gcc -shared -O -I/usr/include/ffmpeg -I/usr/include/tcl8.4
+//    savempg.c -o savempg.o -lavcodec -lavutil -lswscale
+//
+// MinGW: 
+// gcc -shared -O -I$FFMPEG/include -L$FFMPEG/lib -o savempg.dll 
+//     savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil -lswscale -lz
 //
 // ( Note that the libraries required depend on the libavcodec build. )
 //
@@ -80,9 +83,9 @@ void SetMessage( Tcl_Interp *interp, char *message ) {
 }
 
 static double psnr( double d ) {
-  if( d==0 )
+  if( d == 0 )
     return INFINITY;
-  return -10.0*log( d )/log( 10.0 );
+  return -10.0 * log( d ) / log( 10.0 );
 }
 
 void print_info( int count_frames, AVCodecContext *context, int bytes ) {
@@ -114,8 +117,9 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   static FILE *MPGfile;
   static char *state, fname[256];
   static buffer_t buff;
+  static struct SwsContext *img_convert_ctx;
 
-  if( argc<2 ) {
+  if( argc < 2 ) {
     SetMessage( interp, "too few arguments" );
     return TCL_ERROR;
   }
@@ -274,8 +278,10 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     fprintf( stdout, "savempg: file: %s\n", fname );
     fprintf( stdout, "savempg: libavcodec: %s\n", 
 	     AV_STRINGIFY(LIBAVCODEC_VERSION) );
-    fprintf( stdout, "savempg: libavutil: %s\n", 
+    fprintf( stdout, "savempg: libavutil: %s\n",
 	     AV_STRINGIFY(LIBAVUTIL_VERSION) );
+    fprintf( stdout, "savempg: libswscale: %s\n",
+	     AV_STRINGIFY(LIBSWSCALE_VERSION) );
     fflush( stdout );
 
     count_frames = 0;
@@ -285,10 +291,10 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     glGetIntegerv( GL_VIEWPORT, viewp );
     ox = viewp[0];
     oy = viewp[1];
-    nx = viewp[2]+1;
-    ny = viewp[3]+1;
-    PIXsize = nx*ny;
-    stride = 3*nx;
+    nx = viewp[2] + 1;
+    ny = viewp[3] + 1;
+    PIXsize = nx * ny;
+    stride = 3 * nx;
 
     // Must be even:
     //--------------
@@ -303,11 +309,11 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     // Allocate memory:
     //-----------------
     if( codec_id == CODEC_ID_RAWVIDEO )
-      MPGbufsize = 3*(PIXsize/2);
+      MPGbufsize = 3 * (PIXsize / 2);
 
     if ( !(buff.RGB = (uint8_t*)malloc(stride*ny)) ||
 	 !(buff.ROW = (uint8_t*)malloc(stride)) ||
-	 !(buff.YUV = (uint8_t*)malloc(3*(PIXsize/2))) ||
+	 !(buff.YUV = (uint8_t*)malloc(3 * (PIXsize / 2))) ||
 	 !(buff.MPG = (uint8_t*)malloc(MPGbufsize)) ) {
       fclose( MPGfile );
       SetMessage( interp, "can't allocate memory" );
@@ -408,9 +414,9 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
     // The picture is upside down - flip it:
     //---------------------------------------
-    for( y=0; y<ny/2; y++ ) {
-      uint8_t *r1 = buff.RGB + stride*y;
-      uint8_t *r2 = buff.RGB + stride*(ny-1-y);
+    for( y = 0; y < ny/2; y++ ) {
+      uint8_t *r1 = buff.RGB + stride * y;
+      uint8_t *r2 = buff.RGB + stride * (ny - 1 - y);
       memcpy( buff.ROW, r1, stride );
       memcpy( r1, r2, stride );
       memcpy( r2, buff.ROW, stride );
@@ -418,39 +424,18 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
     // Convert to YUV:
     //----------------
-
-#if 1
-
-    // 
-    // Use swscale:
-    //
-
-    static struct SwsContext *img_convert_ctx;
-    
     if( img_convert_ctx == NULL )
       img_convert_ctx = sws_getContext( nx, ny, PIX_FMT_RGB24,
 					nx, ny, PIX_FMT_YUV420P,
 					SWS_BICUBIC, NULL, NULL, NULL );
-
+    
     if( img_convert_ctx == NULL ) {
-      SetMessage( interp, "Unable to initialize scaler context" );
+      SetMessage( interp, "can't initialize scaler context" );
       return TCL_ERROR;
     }
     
-    sws_scale( img_convert_ctx,
-	       RGBpicture->data, RGBpicture->linesize,
-	       0, ny,
-	       YUVpicture->data, YUVpicture->linesize );
-#else
-
-    //
-    // Use img_convert (deprecated):
-    //
-
-    img_convert( (AVPicture*)YUVpicture, PIX_FMT_YUV420P, 
-		 (AVPicture*)RGBpicture, PIX_FMT_RGB24, nx, ny );
-
-#endif
+    sws_scale( img_convert_ctx, RGBpicture->data, RGBpicture->linesize,
+	       0, ny, YUVpicture->data, YUVpicture->linesize );
 
     // Encode frame:
     //--------------
