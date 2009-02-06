@@ -54,9 +54,9 @@ macx {
 # QWT library:
 #------------------------------------------------------------------------------
 unix {
-  QWT_INCLUDEPATH = $$(QWTDIR)/include
-  QWT_LIBPATH = $$(QWTDIR)/lib
-  QWT_LIBS = -lqwt
+  QWT_INCLUDEPATH = /usr/include/qwt-qt4
+  QWT_LIBPATH = /usr/lib
+  QWT_LIBS = -lqwt-qt4
 }
 
 win32 {
@@ -75,8 +75,8 @@ macx {
 # VTK library:
 #------------------------------------------------------------------------------
 unix {
-   VTK_INCLUDEPATH = $$(VTKDIR)/include/vtk-5.2
-   VTK_LIBPATH = $$(VTKDIR)/lib/vtk-5.2
+   VTK_INCLUDEPATH = /usr/include/vtk-5.0
+   VTK_LIBPATH = /usr/lib
    VTK_LIBS = -lvtkHybrid \
               -lvtkWidgets \
     	      -lQVTK
@@ -127,8 +127,8 @@ macx {
 # OpenCASCADE library:
 #------------------------------------------------------------------------------
 unix {
-   OCC_INCLUDEPATH = $$(OCCDIR)/inc
-   OCC_LIBPATH = $$(OCCDIR)/lib
+   OCC_INCLUDEPATH = /usr/include/opencascade
+   OCC_LIBPATH = /usr/lib
    OCC_LIBS = -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
 }
 
