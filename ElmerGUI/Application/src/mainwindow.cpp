@@ -1016,8 +1016,8 @@ void MainWindow::createStatusBar()
 {
   // progress bar:
   progressBar = new QProgressBar;
-  progressBar->setMaximumHeight(16);
-  progressBar->setMaximumWidth(160);
+  progressBar->setMaximumHeight(14);
+  progressBar->setMaximumWidth(140);
   progressBar->setTextVisible(false);
   progressBar->hide();
 
