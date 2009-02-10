@@ -41,6 +41,7 @@
 #include <QtGui>
 #include <QFile>
 #include <QFont>
+#include <QProgressBar>
 #include <iostream>
 #include <fstream>
 #include "mainwindow.h"
@@ -1013,6 +1014,14 @@ void MainWindow::createToolBars()
 //-----------------------------------------------------------------------------
 void MainWindow::createStatusBar()
 {
+  // progress bar:
+  progressBar = new QProgressBar;
+  progressBar->setMaximumHeight(16);
+  progressBar->setMaximumWidth(160);
+  progressBar->setTextVisible(false);
+  progressBar->hide();
+
+  statusBar()->addPermanentWidget(progressBar);
   statusBar()->showMessage(tr("Ready"));
 }
 
@@ -1664,8 +1673,19 @@ void MainWindow::loadProjectSlot()
   QDir::setCurrent(projectDirName);
   saveDirName = projectDirName;
 
+  progressBar->show();
+  progressBar->setRange(0, 14);
+
+  // Clear previous data:
+  //----------------------
+  progressBar->setValue(1);
+
   logMessage("Clearing model data");
   modelClearSlot();
+
+  // Load project doc:
+  //-------------------
+  progressBar->setValue(2);
 
   logMessage("Loading project document...");
   QDomDocument projectDoc;
@@ -1677,6 +1697,9 @@ void MainWindow::loadProjectSlot()
   if(!projectFile.exists()) {
     QMessageBox::information(window(), tr("Project loader"),
 			     tr("Project file does not exist"));
+
+    progressBar->hide();
+
     return;
 
   } else {  
@@ -1686,6 +1709,9 @@ void MainWindow::loadProjectSlot()
 			       tr("Parse error at line %1, col %2:\n%3")
 			       .arg(errRow).arg(errCol).arg(errStr));
       projectFile.close();
+
+      progressBar->hide();
+
       return;
     }
   }
@@ -1695,6 +1721,9 @@ void MainWindow::loadProjectSlot()
   if(projectDoc.documentElement().tagName() != "contents") {
     QMessageBox::information(window(), tr("Project loader"),
 			     tr("This is not a project file"));
+
+    progressBar->hide();
+
     return;
   }
 
@@ -1703,6 +1732,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                                 LOAD MESH
   //===========================================================================
+  progressBar->setValue(3);
   logMessage("Loading mesh files...");
   loadElmerMesh(projectDirName);
   resetSlot();
@@ -1710,6 +1740,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                          LOAD GEOMETRY INPUT FILE
   //===========================================================================
+  progressBar->setValue(4);
   cout << "Loading geometry input file" << endl;
   QDomElement geomInput = contents.firstChildElement("geometryinputfile");
   geometryInputFileName = projectDirName + "/" + geomInput.text().trimmed();
@@ -1719,30 +1750,35 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                               LOAD OPERATIONS
   //===========================================================================
+  progressBar->setValue(5);
   QDomElement ops = contents.firstChildElement("operations");
   operations = operation.readFromProject(&projectDoc, &ops);
 
   //===========================================================================
   //                            LOAD GENERAL SETUP
   //===========================================================================
+  progressBar->setValue(6);
   QDomElement gsBlock = contents.firstChildElement("generalsetup");
   generalSetup->readFromProject(&projectDoc, &gsBlock);
 
   //===========================================================================
   //                          LOAD PARALLEL SETTINGS
   //===========================================================================
+  progressBar->setValue(7);
   QDomElement paraBlock = contents.firstChildElement("parallelsettings");
   parallel->readFromProject(&projectDoc, &paraBlock);
 
   //===========================================================================
   //                            LOAD MESH PARAMETERS
   //===========================================================================
+  progressBar->setValue(8);
   QDomElement meshParams = contents.firstChildElement("meshparameters");
   meshControl->readFromProject(&projectDoc, &meshParams);
 
   //===========================================================================
   //                          LOAD SOLVER PARAMETERS
   //===========================================================================
+  progressBar->setValue(9);
   QDomElement speBlock = contents.firstChildElement("solverparameters");
 
   QDomElement item = speBlock.firstChildElement("item");
@@ -1765,6 +1801,9 @@ void MainWindow::loadProjectSlot()
 
     if(realIndex < 0) {
       cout << "ERROR: The current edf setup conflicts with the project. Aborting." << endl;
+
+      progressBar->hide();
+
       return;
     }
 
@@ -1772,6 +1811,9 @@ void MainWindow::loadProjectSlot()
 
     if((index < 0) || (index >= limit->maxSolvers())) {
       logMessage("Load project: solver parameters: index out of bounds");
+
+      progressBar->hide();
+
       return;
     }
 
@@ -1782,6 +1824,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                        LOAD DYNAMIC EDITOR CONTENTS
   //===========================================================================
+  progressBar->setValue(10);
   QDomElement element = projectDoc.documentElement().firstChildElement("equation");
   loadProjectContents(element, equationEditor, limit->maxEquations(), "Equation");
   element = projectDoc.documentElement().firstChildElement("material");
@@ -1797,6 +1840,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                          LOAD SOLVER SPECIFIC OPTIONS
   //===========================================================================
+  progressBar->setValue(11);
   QDomElement solverOptionsBlock = contents.firstChildElement("solverspecificoptions");
 
   for(item = solverOptionsBlock.firstChildElement("item"); 
@@ -1821,6 +1865,9 @@ void MainWindow::loadProjectSlot()
 
     if(realIndex < 0) {
       cout << "ERROR: The current edf setup conflicts with the project. Aborting." << endl;
+
+      progressBar->hide();
+      
       return;
     }
 
@@ -1828,6 +1875,9 @@ void MainWindow::loadProjectSlot()
 
     if((index < 0) || (index >= limit->maxSolvers())) {
       logMessage("Load project: solver specific options: index out of bounds");
+
+      progressBar->hide();
+
       return;
     }
 
@@ -1845,6 +1895,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                           LOAD BODY PROPERTIES
   //===========================================================================
+  progressBar->setValue(12);
   QDomElement bodyBlock = contents.firstChildElement("bodyproperties");
 
   item = bodyBlock.firstChildElement("item");
@@ -1853,6 +1904,9 @@ void MainWindow::loadProjectSlot()
 
     if((index < 0) || (index >= limit->maxBodies())) {
       logMessage("Load project: body properties: index out of bounds");
+
+      progressBar->hide();
+
       return;
     }
 
@@ -1864,6 +1918,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                          LOAD BOUNDARY PROPERTIES
   //===========================================================================
+  progressBar->setValue(13);
   QDomElement boundaryBlock = contents.firstChildElement("boundaryproperties");
 
   item = boundaryBlock.firstChildElement("item");
@@ -1872,6 +1927,9 @@ void MainWindow::loadProjectSlot()
 
     if((index < 0) || (index >= limit->maxBoundaries())) {
       logMessage("Load project: boundary properties: index out of bounds");
+
+      progressBar->hide();
+
       return;
     }
 
@@ -1882,6 +1940,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                              REGENERATE SIF
   //===========================================================================
+  progressBar->setValue(14);
   if(glWidget->hasMesh()) {
     logMessage("Regenerating and saving the solver input file...");
 
@@ -1905,6 +1964,8 @@ void MainWindow::loadProjectSlot()
   }
 
   logMessage("Ready");
+
+  progressBar->hide();
 }
 
 
@@ -4480,7 +4541,6 @@ void MainWindow::remeshSlot()
   // Re-enable when finished() or terminated() signal is received:
   remeshAct->setEnabled(false);
   stopMeshingAct->setEnabled(true);
-  glWidget->enableIndicator(true);
 
   if(activeGenerator == GEN_NGLIB) 
     stopMeshingAct->setEnabled(false);
@@ -4517,6 +4577,9 @@ void MainWindow::meshingStartedSlot()
 		    "Use Mesh->Terminate to stop processing");
 
   statusBar()->showMessage(tr("Mesh generator started"));
+  
+  progressBar->show();
+  progressBar->setRange(0, 0);
 }
 
 
@@ -4525,6 +4588,9 @@ void MainWindow::meshingStartedSlot()
 void MainWindow::meshingTerminatedSlot()
 {
   logMessage("Mesh generator terminated");
+
+  progressBar->hide();
+  progressBar->setRange(0, 100);
 
   stopMeshingAct->setEnabled(true);
 
@@ -4548,7 +4614,6 @@ void MainWindow::meshingTerminatedSlot()
 
   remeshAct->setEnabled(true);
   stopMeshingAct->setEnabled(false);
-  glWidget->enableIndicator(false);
 }
 
 // Mesh is ready (signaled by meshingThread):
@@ -4556,6 +4621,9 @@ void MainWindow::meshingTerminatedSlot()
 void MainWindow::meshingFinishedSlot()
 {
   logMessage("Mesh generation ready");
+
+  progressBar->hide();
+  progressBar->setRange(0, 100);
 
   if(activeGenerator == GEN_TETLIB) {
 
@@ -4585,7 +4653,6 @@ void MainWindow::meshingFinishedSlot()
 
   remeshAct->setEnabled(true);
   stopMeshingAct->setEnabled(false);
-  glWidget->enableIndicator(false);
 
   resetSlot();
 }

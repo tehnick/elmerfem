@@ -84,6 +84,7 @@
 class QAction;
 class QMenu;
 class GLWidget;
+class QProgressBar;
 
 #ifdef EG_VTK
 class VtkPost;
@@ -455,6 +456,9 @@ private:
   // operations:
   int operations;
   operation_t operation;
+
+  // progress bar:
+  QProgressBar *progressBar;
 
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all

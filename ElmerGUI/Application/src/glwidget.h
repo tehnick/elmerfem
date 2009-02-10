@@ -115,7 +115,6 @@ public:
   void rebuildEdgeLists(void);
 
   bool toggleCoordinates();
-  void enableIndicator(bool);
 
   int lists;
   list_t *list;
@@ -142,7 +141,6 @@ public:
   bool stateUseBgImage;
   bool stateStretchBgImage;
   bool stateAlignRightBgImage;
-  bool stateDrawIndicator;
   QString bgImageFileName;
   int currentlySelectedBody;
   QColor backgroundColor;
@@ -197,9 +195,6 @@ private:
   GLUquadricObj *quadric_axis;
   void drawCoordinates();
 
-  GLUquadricObj *quadric_indicator;
-  void drawIndicator();
-
   double drawTranslate[3];
   double drawScale;
 
@@ -210,12 +205,6 @@ private:
 
   void changeNormalDirection(double*, double*);
   void drawSphere(int, int, float);
-  QTimer *indicatorTimer;
-  float indicatorColor;
-
-private slots:
-  void updateIndicator();
-
 };
 
 #endif

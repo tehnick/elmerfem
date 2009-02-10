@@ -173,7 +173,6 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawBodyIndex = false;
   stateBcColors = false;
   stateBodyColors = false;
-  stateDrawIndicator = false;
 
   currentlySelectedBody = -1;
 
@@ -195,13 +194,6 @@ GLWidget::GLWidget(QWidget *parent)
 
   // Coordinate axis:
   quadric_axis = gluNewQuadric();
-
-  // Indicator for mesh generator:
-  quadric_indicator = gluNewQuadric();
-  indicatorTimer = new QTimer(this);
-  connect(indicatorTimer, SIGNAL(timeout()),
-	  this, SLOT(updateIndicator()));
-  indicatorColor = 0.0;
 
   // Background image:
   stateUseBgImage = false;
@@ -343,12 +335,6 @@ void GLWidget::paintGL()
   // Background image:
   if(stateUseBgImage)
     drawBgImage();
-
-  // Draw an indicator when meshgen is running:
-  if(stateDrawIndicator) {
-    drawIndicator();
-    return;
-  }
 
   // FE objects:
   if(lists) {
@@ -1765,62 +1751,6 @@ bool GLWidget::toggleCoordinates()
   updateGL();
   return stateDrawCoordinates;
 }
-
-// Draw a red spehere to indicate ongoing action...
-//-----------------------------------------------------------------------------
-void GLWidget::drawIndicator()
-{
-  GLint viewport[4];
-
-  glGetIntegerv(GL_VIEWPORT, viewport);  
-
-  double relX = (double)viewport[2] / (double)viewport[3] - 0.1;
-
-  glDisable(GL_DEPTH_TEST);
-  glPushMatrix();
-  glLoadIdentity();
-  glTranslated(relX, -0.9, 0.0);
-
-  glColor3d(indicatorColor, 0, 0);
-  drawSphere(16, 16, 0.05);
-  // glColor3d(1, 0, 0);
-  // gluSphere(quadric_indicator, 0.05, 16, 16);
-
-  glPopMatrix();
-  glEnable(GL_DEPTH_TEST);
-}
-
-// Enable/disable indicator...
-//-----------------------------------------------------------------------------
-void GLWidget::enableIndicator(bool set)
-{
-  stateDrawIndicator = set;
-  updateGL();
-
-  if(stateDrawIndicator) {
-    indicatorTimer->start(50);
-  } else {
-    indicatorTimer->stop();
-  }
-}
-
-// Slot for indicator timer timeout...
-//-----------------------------------------------------------------------------
-void GLWidget::updateIndicator()
-{
-  static float pos = 0.0;
-
-  pos += 0.2;
-
-  if(pos > 1000.0 * MY_PI)
-    pos = 0.0;
-
-  indicatorColor = (1.0 + sin(pos)) / 2.0;
-
-  drawIndicator();
-  updateGL();
-}
-
 
 // Draw background image...
 //-----------------------------------------------------------------------------
