@@ -879,6 +879,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       // allocate temp arrays:
       bool *tmp1 = new bool[MAX_BULK_INDEX];
       bool *tmp2 = new bool[MAX_BULK_INDEX];
+
       for(int i = 0; i < MAX_BULK_INDEX; i++) {
 	tmp1[i] = true;
 	tmp2[i] = false;
@@ -994,7 +995,7 @@ void GLWidget::rebuildLists()
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildSurfaceLists()
 {
-  for( int i=0; i<lists; i++ )
+  for( int i = 0; i < lists; i++ )
   {
      list_t *l = &list[i];
      if( l->getType() == SURFACELIST )
@@ -1054,7 +1055,7 @@ GLuint GLWidget::makeLists()
   // - A list of sharp edges will always be drawn (even if it is empty)
   //---------------------------------------------------------------------------
   
-  // Simultaneously, construct hash for mapping body & boundary incides:
+  // Simultaneously, populate hash for mapping body & boundary incides:
   boundaryMap.clear();
   bodyMap.clear();
   int boundaryCount = 0;

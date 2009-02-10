@@ -1014,10 +1014,9 @@ void MainWindow::createToolBars()
 //-----------------------------------------------------------------------------
 void MainWindow::createStatusBar()
 {
-  // progress bar:
   progressBar = new QProgressBar;
-  progressBar->setMaximumHeight(14);
-  progressBar->setMaximumWidth(140);
+  progressBar->setMaximumHeight(12);
+  progressBar->setMaximumWidth(120);
   progressBar->setTextVisible(false);
   progressBar->hide();
 
