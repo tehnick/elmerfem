@@ -459,6 +459,7 @@ private:
 
   // progress bar:
   QProgressBar *progressBar;
+  QLabel *progressLabel;
 
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all

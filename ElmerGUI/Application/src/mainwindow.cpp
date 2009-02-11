@@ -1020,7 +1020,12 @@ void MainWindow::createStatusBar()
   progressBar->setTextVisible(false);
   progressBar->hide();
 
+  progressLabel = new QLabel;
+  progressLabel->hide();
+
+  statusBar()->addPermanentWidget(progressLabel);
   statusBar()->addPermanentWidget(progressBar);
+
   statusBar()->showMessage(tr("Ready"));
 }
 
@@ -1426,8 +1431,16 @@ void MainWindow::saveProjectSlot()
     return;
   }
 
+  progressBar->show();
+  progressBar->setRange(0, 13);
+
+  progressLabel->setText("Saving:");
+  progressLabel->show();
+
   // Create project document:
   //-------------------------
+  progressBar->setValue(1);
+
   QDomDocument projectDoc("egproject");
   QDomElement contents = projectDoc.createElement("contents");
   projectDoc.appendChild(contents);
@@ -1435,12 +1448,14 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                                  SAVE MESH
   //===========================================================================
+  progressBar->setValue(2);
   logMessage("Saving mesh files...");
   saveElmerMesh(projectDirName);
 
   //===========================================================================
   //                          SAVE GEOMETRY INPUT FILE
   //===========================================================================
+  progressBar->setValue(3);
   QFileInfo geometryInputFileInfo(geometryInputFileName);
   QString baseName = geometryInputFileInfo.baseName();
 
@@ -1488,6 +1503,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                               SAVE OPERATIONS
   //===========================================================================
+  progressBar->setValue(4);
   QDomElement ops = projectDoc.createElement("operations");
   contents.appendChild(ops);
   operation.appendToProject(&projectDoc, &ops);
@@ -1495,6 +1511,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                              SAVE GENERAL SETUP
   //===========================================================================
+  progressBar->setValue(5);
   logMessage("Saving menu contents... ");
   QDomElement gsBlock = projectDoc.createElement("generalsetup");
   projectDoc.documentElement().appendChild(gsBlock);
@@ -1503,6 +1520,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                            SAVE PARALLEL SETTINGS
   //===========================================================================
+  progressBar->setValue(6);
   QDomElement paraBlock = projectDoc.createElement("parallelsettings");
   projectDoc.documentElement().appendChild(paraBlock);
   parallel->appendToProject(&projectDoc, &paraBlock);
@@ -1510,6 +1528,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                            SAVE MESH PARAMETERS
   //===========================================================================
+  progressBar->setValue(7);
   QDomElement meshParams = projectDoc.createElement("meshparameters");
   projectDoc.documentElement().appendChild(meshParams);
   meshControl->appendToProject(&projectDoc, &meshParams);
@@ -1517,6 +1536,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                            SAVE SOLVER PARAMETERS
   //===========================================================================
+  progressBar->setValue(8);
   QDomElement speBlock = projectDoc.createElement("solverparameters");
   projectDoc.documentElement().appendChild(speBlock);
   for(int index = 0; index < limit->maxSolvers(); index++) {
@@ -1535,6 +1555,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                          SAVE DYNAMIC MENU CONTENTS
   //===========================================================================
+  progressBar->setValue(9);
   saveProjectContents(projectDoc, "equation", equationEditor, limit->maxEquations());
   saveProjectContents(projectDoc, "material", materialEditor, limit->maxMaterials());
   saveProjectContents(projectDoc, "bodyforce", bodyForceEditor, limit->maxBodyforces());
@@ -1544,6 +1565,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                          SAVE SOLVER SPECIFIC OPTIONS
   //===========================================================================
+  progressBar->setValue(10);
   QDomElement solverOptionsBlock = projectDoc.createElement("solverspecificoptions");
   projectDoc.documentElement().appendChild(solverOptionsBlock);
   for(int index = 0; index < limit->maxSolvers(); index++) {
@@ -1569,6 +1591,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                            SAVE BODY PROPERTIES
   //===========================================================================
+  progressBar->setValue(11);
   QDomElement bodyBlock = projectDoc.createElement("bodyproperties");
   projectDoc.documentElement().appendChild(bodyBlock);
   for(int index = 0; index < limit->maxBodies(); index++) {
@@ -1586,6 +1609,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                          SAVE BOUNDARY PROPERTIES
   //===========================================================================
+  progressBar->setValue(12);
   QDomElement boundaryBlock = projectDoc.createElement("boundaryproperties");
   projectDoc.documentElement().appendChild(boundaryBlock);
   for(int index = 0; index < limit->maxBoundaries(); index++) {
@@ -1603,6 +1627,7 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   //                             SAVE PROJECT DOCUMENT
   //===========================================================================
+  progressBar->setValue(13);
   const int indent = 3;
   QFile projectFile("egproject.xml");
   projectFile.open(QIODevice::WriteOnly);
@@ -1611,6 +1636,9 @@ void MainWindow::saveProjectSlot()
 
   saveDirName = projectDirName;
   logMessage("Ready");
+
+  progressBar->hide();
+  progressLabel->hide();
 }
 
 
@@ -1675,6 +1703,9 @@ void MainWindow::loadProjectSlot()
   progressBar->show();
   progressBar->setRange(0, 14);
 
+  progressLabel->setText("Loading:");
+  progressLabel->show();
+
   // Clear previous data:
   //----------------------
   progressBar->setValue(1);
@@ -1698,6 +1729,7 @@ void MainWindow::loadProjectSlot()
 			     tr("Project file does not exist"));
 
     progressBar->hide();
+    progressLabel->hide();
 
     return;
 
@@ -1710,6 +1742,7 @@ void MainWindow::loadProjectSlot()
       projectFile.close();
 
       progressBar->hide();
+      progressLabel->hide();
 
       return;
     }
@@ -1722,6 +1755,7 @@ void MainWindow::loadProjectSlot()
 			     tr("This is not a project file"));
 
     progressBar->hide();
+    progressLabel->hide();
 
     return;
   }
@@ -1802,6 +1836,7 @@ void MainWindow::loadProjectSlot()
       cout << "ERROR: The current edf setup conflicts with the project. Aborting." << endl;
 
       progressBar->hide();
+      progressLabel->hide();
 
       return;
     }
@@ -1812,6 +1847,7 @@ void MainWindow::loadProjectSlot()
       logMessage("Load project: solver parameters: index out of bounds");
 
       progressBar->hide();
+      progressLabel->hide();
 
       return;
     }
@@ -1866,6 +1902,7 @@ void MainWindow::loadProjectSlot()
       cout << "ERROR: The current edf setup conflicts with the project. Aborting." << endl;
 
       progressBar->hide();
+      progressLabel->hide();
       
       return;
     }
@@ -1876,6 +1913,7 @@ void MainWindow::loadProjectSlot()
       logMessage("Load project: solver specific options: index out of bounds");
 
       progressBar->hide();
+      progressLabel->hide();
 
       return;
     }
@@ -1905,6 +1943,7 @@ void MainWindow::loadProjectSlot()
       logMessage("Load project: body properties: index out of bounds");
 
       progressBar->hide();
+      progressLabel->hide();
 
       return;
     }
@@ -1928,6 +1967,7 @@ void MainWindow::loadProjectSlot()
       logMessage("Load project: boundary properties: index out of bounds");
 
       progressBar->hide();
+      progressLabel->hide();
 
       return;
     }
@@ -1965,6 +2005,7 @@ void MainWindow::loadProjectSlot()
   logMessage("Ready");
 
   progressBar->hide();
+  progressLabel->hide();
 }
 
 
@@ -4579,6 +4620,9 @@ void MainWindow::meshingStartedSlot()
   
   progressBar->show();
   progressBar->setRange(0, 0);
+
+  progressLabel->show();
+  progressLabel->setText("Meshing:");
 }
 
 
@@ -4590,6 +4634,8 @@ void MainWindow::meshingTerminatedSlot()
 
   progressBar->hide();
   progressBar->setRange(0, 100);
+
+  progressLabel->hide();
 
   stopMeshingAct->setEnabled(true);
 
@@ -4623,6 +4669,8 @@ void MainWindow::meshingFinishedSlot()
 
   progressBar->hide();
   progressBar->setRange(0, 100);
+
+  progressLabel->hide();
 
   if(activeGenerator == GEN_TETLIB) {
 
