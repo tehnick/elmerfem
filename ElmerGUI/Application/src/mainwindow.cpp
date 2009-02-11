@@ -152,7 +152,7 @@ MainWindow::MainWindow()
 #endif
 
 #ifdef EG_OCC
-  cadView = new CadView(this);
+  cadView = new CadView();
   if(egIni->isPresent("deflection"))
     cadView->setDeflection(egIni->value("deflection").toDouble());
 #endif
