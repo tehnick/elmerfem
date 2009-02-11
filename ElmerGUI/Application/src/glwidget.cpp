@@ -176,8 +176,6 @@ GLWidget::GLWidget(QWidget *parent)
 
   currentlySelectedBody = -1;
 
-  lists = 0;
-
   drawScale = 1.0;
   drawTranslate[0] = 0.0;
   drawTranslate[1] = 0.0;
@@ -210,18 +208,7 @@ GLWidget::GLWidget(QWidget *parent)
 //-----------------------------------------------------------------------------
 GLWidget::~GLWidget()
 {
-#if 0
-  makeCurrent();
-  for(int i=0; i < (int)lists; i++) {
-    list_t *l = &list[i];
-    glDeleteLists(l->getObject(), 1);
-  }
-
-  delete helpers;
-  delete meshutils;
-#endif
 }
-
 
 
 // Min size hint...
@@ -337,9 +324,9 @@ void GLWidget::paintGL()
     drawBgImage();
 
   // FE objects:
-  if(lists) {
-    for(int i=0; i<(int)lists; i++) {
-      list_t *l = &list[i];
+  if(list.count() > 0) {
+    for(int i=0; i<(int)list.count(); i++) {
+      list_t *l = getList(i);
 
       if(l->isVisible()) {
 	glPushName(i);
@@ -706,7 +693,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
-  if(lists == 0) 
+  if(list.count() == 0) 
     return;
 
   static list_t dummylist;
@@ -770,7 +757,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
   // highlight the selected boundary:
   if(nearest != DUMMY_NAME) {
-    list_t *l = &list[nearest];
+    list_t *l = getList(nearest);
 
     // skip sharp edge lists
     if(l->getType() == SHARPEDGELIST) 
@@ -778,12 +765,12 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     
     // substitute surfacemeshlist with the parent surfacelist:
     if(l->getType() == SURFACEMESHLIST)
-      l = &list[l->getParent()];
+      l = getList(l->getParent());
 
     // if not ctrl pressed, rebuild all selected lists except this one:
     if(!ctrlPressed) {
-      for(i=0; i < lists; i++) {
-	list_t *l2 = &list[i];
+      for(i=0; i < list.count(); i++) {
+	list_t *l2 = getList(i);
 	if(l2->isSelected() && (l2->getIndex() != l->getIndex())) {
 	  glDeleteLists(l2->getObject(), 1);
 	  l2->setSelected(false);
@@ -886,8 +873,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       }
       
       // check if the selected lists uniquely determine a bulk body:
-      for(int i = 0; i < lists; i++) {
-	list_t *l2 = &list[i];
+      for(int i = 0; i < list.count(); i++) {
+	list_t *l2 = getList(i);
 
 	if(l2->isSelected() && (l2->getNature() == PDE_BULK)) {
 	  for(int j = 0; j < MAX_BULK_INDEX; j++) {
@@ -978,15 +965,14 @@ void GLWidget::rebuildLists()
 
   delete [] bb;
  
-  if(lists) {
-    for(int i=0; i < (int)lists; i++) {
-      list_t *l = &list[i];
+  if(list.count() > 0) {
+    for(int i=0; i < (int)list.count(); i++) {
+      list_t *l = getList(i);
       glDeleteLists(l->getObject(), 1);
     }
-    lists = 0;
   }
 
-  lists = makeLists();
+  makeLists();
 
   updateGL();
 }
@@ -995,9 +981,9 @@ void GLWidget::rebuildLists()
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildSurfaceLists()
 {
-  for( int i = 0; i < lists; i++ )
+  for( int i = 0; i < list.count(); i++ )
   {
-     list_t *l = &list[i];
+    list_t *l = getList(i);
      if( l->getType() == SURFACELIST )
      {
        glDeleteLists( l->getObject(), 1 );
@@ -1014,9 +1000,9 @@ void GLWidget::rebuildSurfaceLists()
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildEdgeLists()
 {
-  for( int i=0; i<lists; i++ )
+  for( int i=0; i<list.count(); i++ )
   {
-     list_t *l = &list[i];
+    list_t *l = getList(i);
      if ( l->getType() == EDGELIST )
      {
        glDeleteLists( l->getObject(), 1 );
@@ -1036,11 +1022,10 @@ void GLWidget::rebuildEdgeLists()
 GLuint GLWidget::makeLists()
 {
   int i;
+  list_t *l;
 
-  if((mesh == NULL) || mesh->isUndefined()) {
-    lists = 0;
+  if((mesh == NULL) || mesh->isUndefined())
     return 0;
-  }
 
   // The rule for composing lists to display is the following:
   //---------------------------------------------------------------------------
@@ -1119,7 +1104,7 @@ GLuint GLWidget::makeLists()
     }
   }
 
-  cout << "Bcs / materials on surface elements: " << surface_bcs << endl;
+  cout << "Bcs/materials on surface elements: " << surface_bcs << endl;
   cout.flush();
 
   // Scan edge elements to determine the number of bcs. / mat. indices:
@@ -1155,7 +1140,7 @@ GLuint GLWidget::makeLists()
     }
   }
 
-  cout << "Bcs / materials on edge elements: " << edge_bcs << endl;  
+  cout << "Bcs/materials on edge elements: " << edge_bcs << endl;  
   cout.flush();
 
   // Scan point elements to determine the number of bcs. / mat. indices:
@@ -1164,23 +1149,17 @@ GLuint GLWidget::makeLists()
 
   // TODO
 
-  cout << "Bcs / materials on point elements: " << point_bcs << endl;  
+  cout << "Bcs/materials on point elements: " << point_bcs << endl;  
   cout.flush();
 
   // Generate lists:
   //---------------------------------------------------------------------
-  lists = 0;
-  lists += surface_bcs;   // surface elements
-  lists += surface_bcs;   // surface mesh lines (child of surf.elems.)
-  lists += edge_bcs;      // edge elements
-  lists += point_bcs;     // point elements
-  lists += 1;             // sharp edges on surfaces
-  lists += 1;             // volume mesh (conditional, visual only)
-  
-  list = new list_t[lists];
-  int current_index = 0;
+  for(i = 0; i < list.count(); i++)
+    delete list.at(i);
 
-  cout << "Generating " << lists << " lists to display" << endl;
+  list.clear();
+
+  cout << "Generating  lists to display" << endl;
   cout.flush();
 
   // Surface lists:
@@ -1193,25 +1172,28 @@ GLuint GLWidget::makeLists()
     int nature = surfaceNatures.value(index);
 
     if(nature > 0) {
-      // triangles & quads:
-      list_t *l = &list[current_index++];
+      l = new list_t;
+      list.push_back(l);
+
       l->setNature(nature);
       l->setType(SURFACELIST);
       l->setIndex(index);
       l->setObject(generateSurfaceList(l->getIndex(), surfaceColor)); // cyan
-      l->setChild(current_index);
+      l->setChild(list.count());
       l->setParent(-1);
       l->setSelected(false);
       l->setVisible(stateDrawSurfaceElements);
 
       // edges of surface elements (just for visual):
-      l = &list[current_index++];
+      l = new list_t;
+      list.push_back(l);
+
       l->setNature(PDE_UNKNOWN);
       l->setType(SURFACEMESHLIST);
       l->setIndex(index);
       l->setObject(generateSurfaceMeshList(l->getIndex(), surfaceMeshColor)); // black
       l->setChild(-1);
-      l->setParent(current_index - 2);
+      l->setParent(list.count() - 2);
       l->setSelected(false);
       l->setVisible(stateDrawSurfaceMesh);
     }
@@ -1227,7 +1209,9 @@ GLuint GLWidget::makeLists()
     int nature = edgeNatures.value(index);
     
     if(nature > 0) {
-      list_t *l = &list[current_index++];
+      l = new list_t;
+      list.push_back(l);
+
       l->setNature(nature); 
       l->setType(EDGELIST);
       l->setIndex(index);
@@ -1243,7 +1227,9 @@ GLuint GLWidget::makeLists()
 
   // Sharp edges (just for visual):
   //--------------------------------
-  list_t *l = &list[current_index++];
+  l = new list_t;
+  list.push_back(l);
+
   l->setNature(PDE_UNKNOWN);
   l->setType(SHARPEDGELIST);
   l->setIndex(-1);
@@ -1255,7 +1241,9 @@ GLuint GLWidget::makeLists()
 
   // Volume mesh (visual only):
   //----------------------------
-  l = &list[current_index++];
+  l = new list_t;
+  list.push_back(l);
+
   l->setNature(PDE_UNKNOWN);
   l->setType(VOLUMEMESHLIST);
   l->setIndex(-1);
@@ -1274,7 +1262,10 @@ GLuint GLWidget::makeLists()
   updateGL();
   getMatrix();
 
-  return lists;
+  cout << "Generated " << list.count() << " lists" << endl;
+  cout.flush();
+
+  return list.count();
 }
 
 
@@ -1869,10 +1860,10 @@ void GLWidget::changeNormalDirection(double *u, double *v)
 
 list_t* GLWidget::getList(int i) const
 {
-  return &this->list[i];
+  return list.at(i);
 }
 
 int GLWidget::getLists() const
 {
-  return this->lists;
+  return list.count();
 }
