@@ -1056,91 +1056,111 @@ GLuint GLWidget::makeLists()
   //---------------------------------------------------------------------------
   
   // Simultaneously, populate hash for mapping body & boundary incides:
+  //--------------------------------------------------------------------
   boundaryMap.clear();
   bodyMap.clear();
   int boundaryCount = 0;
   int bodyCount = 0;
 
-  // Scan volume elements to determine the number of mat. ind. (just for hash):
-  //---------------------------------------------------------------------------
-  int *element_nature = new int[mesh->getElements()];
+  // Scan volume elements to determine the number of material indices:
+  //-------------------------------------------------------------------
+  QHash<int, int> bodyNatures;
 
-  for(i=0; i < mesh->getElements(); i++)
-    element_nature[i] = 0;
-  
-  for(i=0; i < mesh->getElements(); i++) {
+  for(i = 0; i < mesh->getElements(); i++) {
     element_t *element = mesh->getElement(i);
-    if(element->getIndex() >= 0)  // accept also index 0
-      element_nature[element->getIndex()] = element->getNature();
-  }    
-  
-  for(i=0; i < mesh->getElements(); i++) {
-    if(element_nature[i] == PDE_BULK) {
-      bodyMap.insert(i, bodyCount);
-      bodyCount++;
-    }
-  }  
+    int index = element->getIndex();
 
-  delete [] element_nature;
-  
-  // Scan surface elements to determine the number of bcs / mat. indices:
-  //---------------------------------------------------------------------------
-  int surface_bcs = 0;
-  int *surface_nature = new int[mesh->getSurfaces() + 1];
-  
-  for(i=0; i <= mesh->getSurfaces(); i++)
-    surface_nature[i] = 0;
-  
-  for(i=0; i < mesh->getSurfaces(); i++) {
-    surface_t *surface = mesh->getSurface(i);
-    if(surface->getIndex() > 0)
-      surface_nature[surface->getIndex()] = surface->getNature();
-  }    
-  
-  for(i=0; i <= mesh->getSurfaces(); i++) {
-    if(surface_nature[i] > 0) {
-      surface_bcs++;
-      if(surface_nature[i] == PDE_BULK)
-	bodyMap.insert(i, bodyCount++);
-      if(surface_nature[i] == PDE_BOUNDARY)
-	boundaryMap.insert(i, boundaryCount++);
+    if(index >= 0) {
+      int nature = element->getNature();
+
+      if(!bodyNatures.contains(index))
+	bodyNatures.insert(index, nature);
     }
-  }  
-  
+  }    
+
+  for(i = 0; i < bodyNatures.keys().count(); i++) {
+    int index = bodyNatures.keys().at(i);
+    int nature = bodyNatures.value(index);
+
+    if(nature == PDE_BULK) 
+      bodyMap.insert(index, bodyCount++);
+  }
+
+  // Scan surface elements to determine the number of bcs. / mat. indices:
+  //-----------------------------------------------------------------------
+  int surface_bcs = 0;
+
+  QHash<int, int> surfaceNatures;
+
+  for(i = 0; i < mesh->getSurfaces(); i++) {
+    surface_t *surface = mesh->getSurface(i);
+    int index = surface->getIndex();
+
+    if(index > 0) {
+      int nature = surface->getNature();
+
+      if(!surfaceNatures.contains(index))
+	surfaceNatures.insert(index, nature);
+    }
+  }    
+
+  for(i = 0; i < surfaceNatures.keys().count(); i++) {
+    int index = surfaceNatures.keys().at(i);
+    int nature = surfaceNatures.value(index);
+
+    if(nature > 0) {
+      surface_bcs++;
+
+      if(nature == PDE_BULK)
+	bodyMap.insert(index, bodyCount++);
+      
+      if(nature == PDE_BOUNDARY)
+	boundaryMap.insert(index, boundaryCount++);
+    }
+  }
+
   cout << "Bcs / materials on surface elements: " << surface_bcs << endl;
   cout.flush();
 
-  // Scan edge elements to determine the number of bcs / mat. indices:
-  //---------------------------------------------------------------------------
+  // Scan edge elements to determine the number of bcs. / mat. indices:
+  //--------------------------------------------------------------------
   int edge_bcs = 0;
-  int *edge_nature = new int[mesh->getEdges() + 1];
   
-  for(i=0; i <= mesh->getEdges(); i++)
-    edge_nature[i] = 0;
+  QHash<int, int> edgeNatures;
   
-  for(i=0; i < mesh->getEdges(); i++) {
+  for(i = 0; i < mesh->getEdges(); i++) {
     edge_t *edge = mesh->getEdge(i);
-    if(edge->getIndex() > 0)
-      edge_nature[edge->getIndex()] = edge->getNature();
-  }    
-  
-  for(i=0; i <= mesh->getEdges(); i++) {
-    if(edge_nature[i] > 0) {
-      edge_bcs++;
-      if(edge_nature[i] == PDE_BULK)
-	bodyMap.insert(i, bodyCount++);
-      if(edge_nature[i] == PDE_BOUNDARY)
-	boundaryMap.insert(i, boundaryCount++);
+    int index = edge->getIndex();
+    
+    if(index > 0) {
+      int nature = edge->getNature();
+
+      if(!edgeNatures.contains(index))
+	edgeNatures.insert(index, nature);
     }
-  }  
-  
+  }    
+
+  for(i = 0; i < edgeNatures.keys().count(); i++) {
+    int index = edgeNatures.keys().at(i);
+    int nature = edgeNatures.value(index);
+
+    if(nature > 0) {
+      edge_bcs++;
+
+      if(nature == PDE_BULK)
+	bodyMap.insert(index, bodyCount++);
+      
+      if(nature == PDE_BOUNDARY)
+	boundaryMap.insert(index, boundaryCount++);
+    }
+  }
+
   cout << "Bcs / materials on edge elements: " << edge_bcs << endl;  
   cout.flush();
 
-  // Scan point elements to determine the number of bcs / mat. indices:
-  //---------------------------------------------------------------------------
+  // Scan point elements to determine the number of bcs. / mat. indices:
+  //---------------------------------------------------------------------
   int point_bcs = 0;
-  int *point_nature = new int[mesh->getPoints()];
 
   // TODO
 
@@ -1148,7 +1168,7 @@ GLuint GLWidget::makeLists()
   cout.flush();
 
   // Generate lists:
-  //---------------------------------------------------------------------------
+  //---------------------------------------------------------------------
   lists = 0;
   lists += surface_bcs;   // surface elements
   lists += surface_bcs;   // surface mesh lines (child of surf.elems.)
@@ -1164,17 +1184,20 @@ GLuint GLWidget::makeLists()
   cout.flush();
 
   // Surface lists:
-  for(i=0; i < mesh->getSurfaces(); i++)
+  //----------------
+  for(i = 0; i < mesh->getSurfaces(); i++)
     mesh->getSurface(i)->setSelected(false);
 
-  for(i=0; i <= mesh->getSurfaces(); i++) {
-    if(surface_nature[i] > 0) {
+  for(i = 0; i < surfaceNatures.keys().count(); i++) {
+    int index = surfaceNatures.keys().at(i);
+    int nature = surfaceNatures.value(index);
 
+    if(nature > 0) {
       // triangles & quads:
       list_t *l = &list[current_index++];
-      l->setNature(surface_nature[i]);
+      l->setNature(nature);
       l->setType(SURFACELIST);
-      l->setIndex(i);
+      l->setIndex(index);
       l->setObject(generateSurfaceList(l->getIndex(), surfaceColor)); // cyan
       l->setChild(current_index);
       l->setParent(-1);
@@ -1185,25 +1208,29 @@ GLuint GLWidget::makeLists()
       l = &list[current_index++];
       l->setNature(PDE_UNKNOWN);
       l->setType(SURFACEMESHLIST);
-      l->setIndex(i);
+      l->setIndex(index);
       l->setObject(generateSurfaceMeshList(l->getIndex(), surfaceMeshColor)); // black
       l->setChild(-1);
-      l->setParent(current_index-2);
+      l->setParent(current_index - 2);
       l->setSelected(false);
       l->setVisible(stateDrawSurfaceMesh);
     }
   }
   
   // Edge lists (only PDE_BOUNDARY):
-  for(i=0; i < mesh->getEdges(); i++)
+  //---------------------------------
+  for(i = 0; i < mesh->getEdges(); i++)
     mesh->getEdge(i)->setSelected(false);
-
-  for(i = 0; i <= mesh->getEdges(); i++) {
-    if(edge_nature[i] == PDE_BOUNDARY) {
+  
+  for(i = 0; i < edgeNatures.keys().count(); i++) {
+    int index = edgeNatures.keys().at(i);
+    int nature = edgeNatures.value(index);
+    
+    if(nature > 0) {
       list_t *l = &list[current_index++];
-      l->setNature(edge_nature[i]); 
+      l->setNature(nature); 
       l->setType(EDGELIST);
-      l->setIndex(i);
+      l->setIndex(index);
       l->setObject(generateEdgeList(l->getIndex(), edgeColor)); // green
       l->setChild(-1);
       l->setParent(-1);
@@ -1215,6 +1242,7 @@ GLuint GLWidget::makeLists()
   // Point lists: TODO
 
   // Sharp edges (just for visual):
+  //--------------------------------
   list_t *l = &list[current_index++];
   l->setNature(PDE_UNKNOWN);
   l->setType(SHARPEDGELIST);
@@ -1225,8 +1253,8 @@ GLuint GLWidget::makeLists()
   l->setSelected(false);
   l->setVisible(stateDrawSharpEdges);
 
-
-  // Volume mesh (visual only)
+  // Volume mesh (visual only):
+  //----------------------------
   l = &list[current_index++];
   l->setNature(PDE_UNKNOWN);
   l->setType(VOLUMEMESHLIST);
@@ -1237,10 +1265,12 @@ GLuint GLWidget::makeLists()
   l->setSelected(false);
   l->setVisible(stateDrawVolumeMesh);
 
-  delete [] surface_nature;
-  delete [] edge_nature;
-  delete [] point_nature;
-  
+  // Clean up:
+  //-----------
+  edgeNatures.clear();
+  surfaceNatures.clear();
+  bodyNatures.clear();  
+
   updateGL();
   getMatrix();
 
