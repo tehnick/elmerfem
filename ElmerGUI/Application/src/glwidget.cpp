@@ -73,7 +73,7 @@ void list_t::setNature(int n)
   this->nature = n;
 }
 
-int list_t::getNature(void)
+int list_t::getNature(void) const
 {
   return this->nature;
 }
@@ -83,7 +83,7 @@ void list_t::setType(int n)
   this->type = n;
 }
 
-int list_t::getType(void)
+int list_t::getType(void) const
 {
   return this->type;
 }
@@ -93,7 +93,7 @@ void list_t::setIndex(int n)
   this->index = n;
 }
 
-int list_t::getIndex(void)
+int list_t::getIndex(void) const
 {
   return this->index;
 }
@@ -103,7 +103,7 @@ void list_t::setObject(GLuint n)
   this->object = n;
 }
 
-GLuint list_t::getObject(void)
+GLuint list_t::getObject(void) const
 {
   return this->object;
 }
@@ -113,7 +113,7 @@ void list_t::setChild(int n)
   this->child = n;
 }
 
-int list_t::getChild(void)
+int list_t::getChild(void) const
 {
   return this->child;
 }
@@ -123,7 +123,7 @@ void list_t::setParent(int n)
   this->parent = n;
 }
 
-int list_t::getParent(void)
+int list_t::getParent(void) const
 {
   return this->parent;
 }
@@ -133,7 +133,7 @@ void list_t::setSelected(bool b)
   this->selected = b;
 }
 
-bool list_t::isSelected(void)
+bool list_t::isSelected(void) const
 {
   return this->selected;
 }
@@ -143,7 +143,7 @@ void list_t::setVisible(bool b)
   this->visible = b;
 }
 
-bool list_t::isVisible(void)
+bool list_t::isVisible(void) const
 {
   return this->visible;
 }
@@ -239,12 +239,12 @@ QSize GLWidget::sizeHint() const
   return QSize(720, 576);
 }
 
-void GLWidget::setMesh(mesh_t* m)
+void GLWidget::setMesh(mesh_t *m)
 {
   this->mesh = m;
 }
 
-mesh_t* GLWidget::getMesh(void)
+mesh_t* GLWidget::getMesh(void) const
 {
   return this->mesh;
 }
@@ -259,7 +259,7 @@ void GLWidget::deleteMesh(void)
   delete this->mesh;
 }
 
-bool GLWidget::hasMesh(void)
+bool GLWidget::hasMesh(void) const
 {
   if(this->mesh)
     return true;
@@ -1867,72 +1867,12 @@ void GLWidget::changeNormalDirection(double *u, double *v)
   u[2] = -v[2];
 }
 
-// Auxiliary function for drawing a sphere (equivalent to gluSphere):
-//---------------------------------------------------------------------------
-void GLWidget::drawSphere(int stacks, int slices, float radius) {
-  float off_H = MY_PI / (float)stacks;
-  float off_R = MY_PI * 2.0 / (float)slices;
-  float a, b, v[3];
-  int st, sl;
-  
-  glBegin(GL_TRIANGLE_FAN);
+list_t* GLWidget::getList(int i) const
+{
+  return &this->list[i];
+}
 
-  v[0] = 0.0;
-  v[1] = 1.0;
-  v[2] = 0.0;
-  glNormal3fv(v);
-  glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
-
-  for(sl = 0; sl < slices+1; sl++) {
-    a = (float)sl * off_R;
-    v[0] = sin(a) * sin(off_H);
-    v[2] = cos(a) * sin(off_H);
-    v[1] = cos(off_H);
-    glNormal3fv(v);
-    glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
-  }
-
-  glEnd();
-
-  glBegin(GL_TRIANGLE_FAN);
-
-  v[0] = 0.0;
-  v[2] = 0.0;
-  v[1] = -1.0;
-  glNormal3fv(v);
-  glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
-
-  for(sl = slices; sl >= 0; sl--) {
-    a = (float)sl * off_R;
-    v[0] = sin(a) * sin(MY_PI-off_H);
-    v[2] = cos(a) * sin(MY_PI-off_H);
-    v[1] = cos(MY_PI-off_H);
-    glNormal3fv(v);
-    glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
-  }
-
-  glEnd();
-  
-  for(st = 1; st < stacks-1; st++) {
-    b = (float)st * off_H;
-
-    glBegin(GL_QUAD_STRIP);
-
-    for(sl = 0; sl < slices+1; sl++) {
-      a = (float)sl * off_R;
-      v[0] = sin(a) * sin(b);
-      v[2] = cos(a) * sin(b);
-      v[1] = cos(b);
-      glNormal3fv(v);
-      glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
-
-      v[0] = sin(a) * sin(b+off_H);
-      v[2] = cos(a) * sin(b+off_H);
-      v[1] = cos(b+off_H);
-      glNormal3fv(v);
-      glVertex3f(v[0]*radius, v[1]*radius, v[2]*radius);
-    }
-
-    glEnd();
-  }
+int GLWidget::getLists() const
+{
+  return this->lists;
 }

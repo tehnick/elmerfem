@@ -54,7 +54,6 @@ enum ListTypes {
 #include <QGLWidget>
 #include <QHash>
 #include <QGLPixelBuffer>
-#include <QTimer>
 #include "helpers.h"
 #include "meshutils.h"
 
@@ -66,21 +65,21 @@ class list_t {
   ~list_t();
 
   void setNature(int);
-  int getNature(void);
+  int getNature(void) const;
   void setType(int);
-  int getType(void);
+  int getType(void) const;
   void setIndex(int);
-  int getIndex(void);
+  int getIndex(void) const;
   void setObject(GLuint);
-  GLuint getObject(void);
+  GLuint getObject(void) const;
   void setChild(int);
-  int getChild(void);
+  int getChild(void) const;
   void setParent(int);
-  int getParent(void);
+  int getParent(void) const;
   void setSelected(bool);
-  bool isSelected(void);
+  bool isSelected(void) const;
   void setVisible(bool);
-  bool isVisible(void);
+  bool isVisible(void) const;
 
  private:
   int nature;        // PDE_UNKNOWN, PDE_BOUNDARY, PDE_BULK, ...
@@ -105,19 +104,19 @@ public:
   QSize sizeHint() const;
 
   void setMesh(mesh_t*);
-  mesh_t* getMesh(void);
+  mesh_t* getMesh(void) const;
   void newMesh(void);
   void deleteMesh(void);
-  bool hasMesh(void);
+  bool hasMesh(void) const;
+
+  list_t* getList(int) const;
+  int getLists() const;
 
   void rebuildLists();
   void rebuildSurfaceLists(void);
   void rebuildEdgeLists(void);
 
   bool toggleCoordinates();
-
-  int lists;
-  list_t *list;
   
   // public state variables:
   bool stateFlatShade;
@@ -173,6 +172,9 @@ protected:
   void keyReleaseEvent(QKeyEvent*);
   
 private:
+  int lists;
+  list_t *list;
+
   mesh_t *mesh;
   
   Helpers *helpers;
@@ -204,7 +206,6 @@ private:
   void drawBgImage();
 
   void changeNormalDirection(double*, double*);
-  void drawSphere(int, int, float);
 };
 
 #endif

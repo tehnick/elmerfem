@@ -1434,7 +1434,7 @@ void MainWindow::saveProjectSlot()
   progressBar->show();
   progressBar->setRange(0, 13);
 
-  progressLabel->setText("Saving:");
+  progressLabel->setText("Saving");
   progressLabel->show();
 
   // Create project document:
@@ -1703,7 +1703,7 @@ void MainWindow::loadProjectSlot()
   progressBar->show();
   progressBar->setRange(0, 14);
 
-  progressLabel->setText("Loading:");
+  progressLabel->setText("Loading");
   progressLabel->show();
 
   // Clear previous data:
@@ -3596,8 +3596,7 @@ void MainWindow::contextMenuEvent(QContextMenuEvent *event)
 void MainWindow::hidesurfacemeshSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There is no surface mesh to hide/show");
@@ -3607,7 +3606,7 @@ void MainWindow::hidesurfacemeshSlot()
   glWidget->stateDrawSurfaceMesh = !glWidget->stateDrawSurfaceMesh;
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->getType() == SURFACEMESHLIST) 
     {
       l->setVisible(glWidget->stateDrawSurfaceMesh);
@@ -3615,7 +3614,7 @@ void MainWindow::hidesurfacemeshSlot()
       // do not set visible if the parent surface list is hidden
       int p = l->getParent();
       if(p >= 0) {
-	list_t *lp = &list[p];
+	list_t *lp = glWidget->getList(p);
 	if(!lp->isVisible())
 	  l->setVisible(false);
       }
@@ -3636,8 +3635,7 @@ void MainWindow::hidesurfacemeshSlot()
 void MainWindow::hidevolumemeshSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There is no volume mesh to hide/show");
@@ -3648,7 +3646,7 @@ void MainWindow::hidevolumemeshSlot()
 
 
   for(int i = 0; i < lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->getType() == VOLUMEMESHLIST)
       l->setVisible(glWidget->stateDrawVolumeMesh);
   }
@@ -3669,8 +3667,7 @@ void MainWindow::hidevolumemeshSlot()
 void MainWindow::hidesharpedgesSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There are no sharp edges to hide/show");
@@ -3680,7 +3677,7 @@ void MainWindow::hidesharpedgesSlot()
   glWidget->stateDrawSharpEdges = !glWidget->stateDrawSharpEdges;
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->getType() == SHARPEDGELIST)  
       l->setVisible(glWidget->stateDrawSharpEdges);
   }
@@ -3714,8 +3711,7 @@ void MainWindow::viewCoordinatesSlot()
 void MainWindow::selectDefinedEdgesSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There are no entities from which to select");
@@ -3743,7 +3739,7 @@ void MainWindow::selectDefinedEdgesSlot()
   }
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->getType() == EDGELIST) {
       int j = l->getIndex();
       if( j < 0 ) continue;
@@ -3777,8 +3773,7 @@ void MainWindow::selectDefinedEdgesSlot()
 void MainWindow::selectDefinedSurfacesSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There are no entities from which to select");
@@ -3806,7 +3801,7 @@ void MainWindow::selectDefinedSurfacesSlot()
   }
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->getType() == SURFACELIST) {
       int j = l->getIndex();
       if( j < 0 ) continue;
@@ -3841,8 +3836,7 @@ void MainWindow::selectDefinedSurfacesSlot()
 void MainWindow::selectAllSurfacesSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There are no surfaces to select");
@@ -3850,7 +3844,7 @@ void MainWindow::selectAllSurfacesSlot()
   }
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->getType() == SURFACELIST)
     {
       l->setSelected(true);
@@ -3875,8 +3869,7 @@ void MainWindow::selectAllSurfacesSlot()
 void MainWindow::selectAllEdgesSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There are no edges to select");
@@ -3884,7 +3877,7 @@ void MainWindow::selectAllEdgesSlot()
   }
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
 
     if(l->getType() == EDGELIST)
       l->setSelected(true);
@@ -3909,8 +3902,7 @@ void MainWindow::selectAllEdgesSlot()
 void MainWindow::hideselectedSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("There is nothing to hide/show");
@@ -3919,7 +3911,7 @@ void MainWindow::hideselectedSlot()
 
   bool something_selected = false;
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     something_selected |= l->isSelected();
   }
 
@@ -3930,7 +3922,7 @@ void MainWindow::hideselectedSlot()
 
   bool vis = false;
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->isSelected()) {
       l->setVisible(!l->isVisible());
       if(l->isVisible())
@@ -3939,7 +3931,7 @@ void MainWindow::hideselectedSlot()
       // hide the child surface edge list if parent is hidden
       int c = l->getChild();
       if(c >= 0) {
-	list_t *lc = &list[c];
+	list_t *lc = glWidget->getList(c);
 	lc->setVisible(l->isVisible());
 	if(!glWidget->stateDrawSurfaceMesh)
 	  lc->setVisible(false);
@@ -3960,8 +3952,7 @@ void MainWindow::hideselectedSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showallSlot()
 {
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
   
   glWidget->stateDrawSurfaceMesh = true;
   glWidget->stateDrawSharpEdges = true;
@@ -3971,7 +3962,7 @@ void MainWindow::showallSlot()
   synchronizeMenuToState();
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     l->setVisible(true);
   }
 
@@ -3985,8 +3976,7 @@ void MainWindow::showallSlot()
 void MainWindow::resetSlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
   
   if(mesh == NULL) {
     logMessage("There is nothing to reset");
@@ -4003,7 +3993,7 @@ void MainWindow::resetSlot()
   glWidget->stateDrawNodeNumbers = false;
 
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     l->setVisible(true);
     l->setSelected(false);
 
@@ -4622,7 +4612,7 @@ void MainWindow::meshingStartedSlot()
   progressBar->setRange(0, 0);
 
   progressLabel->show();
-  progressLabel->setText("Meshing:");
+  progressLabel->setText("Meshing");
 }
 
 
@@ -4725,8 +4715,7 @@ void MainWindow::surfaceDivideSlot()
 void MainWindow::doDivideSurfaceSlot(double angle)
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("No mesh to divide");
@@ -4745,16 +4734,19 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   p->angle = angle;
 
   int selected=0;
+
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
+
     if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY))
       selected++;
   }
   p->selected = selected;
   p->select_set = new int[selected];
   selected = 0;
+
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];    
+    list_t *l = glWidget->getList(i);
     if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY))
       p->select_set[selected++] = i;
   }
@@ -4778,8 +4770,7 @@ void MainWindow::doDivideSurfaceSlot(double angle)
 void MainWindow::surfaceUnifySlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("No surfaces to unify");
@@ -4788,7 +4779,7 @@ void MainWindow::surfaceUnifySlot()
   
   int targetindex = -1, selected=0;
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
       selected++;
       if(targetindex < 0) targetindex = l->getIndex();
@@ -4812,7 +4803,7 @@ void MainWindow::surfaceUnifySlot()
   
   selected = 0;
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];    
+    list_t *l = glWidget->getList(i);
     if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
       p->select_set[selected++] = i;
       for(int j=0; j < mesh->getSurfaces(); j++) {
@@ -4842,11 +4833,10 @@ void MainWindow::applyOperations()
   operation_t *p = operation.next;
   for( ; p; p=p->next )
   {
-    int lists = glWidget->lists;
-    list_t *list = glWidget->list;
+    int lists = glWidget->getLists();
 
     for( int i=0; i<lists; i++ )
-      list[i].setSelected(false);
+      glWidget->getList(i)->setSelected(false);
 
     for( int j=0; j<mesh->getSurfaces(); j++ )
       mesh->getSurface(j)->setSelected(false);
@@ -4855,7 +4845,7 @@ void MainWindow::applyOperations()
       mesh->getEdge(j)->setSelected(false);
 
     for(int i=0; i < p->selected; i++) {
-      list_t *l = &list[p->select_set[i]];
+      list_t *l = glWidget->getList(p->select_set[i]);
 
       l->setSelected(true);
       if ( p->type < OP_UNIFY_EDGE ) {
@@ -4888,8 +4878,9 @@ void MainWindow::applyOperations()
 
     } else if (p->type == OP_UNIFY_SURFACE ) {
       int targetindex = -1;
+
       for(int i=0; i<lists; i++) {
-        list_t *l = &list[i];
+        list_t *l = glWidget->getList(i);
         if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
           if(targetindex < 0) {
             targetindex = l->getIndex();
@@ -4898,7 +4889,7 @@ void MainWindow::applyOperations()
         }
       }
       for(int i=0; i<lists; i++) {
-        list_t *l = &list[i];    
+        list_t *l = glWidget->getList(i);
         if(l->isSelected() && (l->getType() == SURFACELIST) && (l->getNature() == PDE_BOUNDARY)) {
           for(int j=0; j < mesh->getSurfaces(); j++) {
             surface_t *s = mesh->getSurface(j);
@@ -4913,7 +4904,7 @@ void MainWindow::applyOperations()
     } else if (p->type == OP_UNIFY_EDGE ) {
       int targetindex = -1;
       for(int i=0; i<lists; i++) {
-        list_t *l = &list[i];
+        list_t *l = glWidget->getList(i);
         if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
           if(targetindex < 0) {
             targetindex = l->getIndex();
@@ -4922,7 +4913,7 @@ void MainWindow::applyOperations()
         }
       }
       for(int i=0; i<lists; i++) {
-        list_t *l = &list[i];    
+        list_t *l = glWidget->getList(i);
         if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
           for(int j=0; j < mesh->getEdges(); j++) {
             edge_t *e = mesh->getEdge(j);
@@ -4963,8 +4954,7 @@ void MainWindow::edgeDivideSlot()
 void MainWindow::doDivideEdgeSlot(double angle)
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("No mesh to divide");
@@ -4982,15 +4972,16 @@ void MainWindow::doDivideEdgeSlot(double angle)
 
   int selected=0;
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY)
       selected++;
   }
   p->selected = selected;
   p->select_set = new int[selected];
   selected = 0;
+
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];    
+    list_t *l = glWidget->getList(i);
     if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY)
       p->select_set[selected++] = i;
   }
@@ -5016,8 +5007,7 @@ void MainWindow::doDivideEdgeSlot(double angle)
 void MainWindow::edgeUnifySlot()
 {
   mesh_t *mesh = glWidget->getMesh();
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
+  int lists = glWidget->getLists();
 
   if(mesh == NULL) {
     logMessage("No edges to unify");
@@ -5026,7 +5016,7 @@ void MainWindow::edgeUnifySlot()
   
   int targetindex = -1, selected=0;
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
+    list_t *l = glWidget->getList(i);
     if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
       selected++;
       if(targetindex < 0) targetindex = l->getIndex();
@@ -5049,8 +5039,9 @@ void MainWindow::edgeUnifySlot()
   p->select_set = new int[selected]; 
   
   selected = 0;
+
   for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];    
+    list_t *l = glWidget->getList(i);
     if(l->isSelected() && l->getType() == EDGELIST && l->getNature() == PDE_BOUNDARY) {
       p->select_set[selected++] = i;
       for(int j=0; j < mesh->getEdges(); j++) {
