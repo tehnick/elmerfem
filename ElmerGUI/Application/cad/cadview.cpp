@@ -301,6 +301,8 @@ bool CadView::readFile(QString fileName)
       continue;
     }
 
+    const gp_Trsf& Transformation = Location.Transformation();
+
     const Poly_Array1OfTriangle& Triangles = Triangulation->Triangles();
     const TColgp_Array1OfPnt& Nodes = Triangulation->Nodes();
 
@@ -341,8 +343,9 @@ bool CadView::readFile(QString fileName)
     double x[3];
     vtkPoints* partPoints = vtkPoints::New();
     for(int i = Nodes.Lower(); i <= Nodes.Upper(); i++) {
-      x[0] = Nodes(i).X(); x[1] = Nodes(i).Y(); x[2] = Nodes(i).Z();
-      Location.Transformation().Transforms(x[0], x[1], x[2]);
+      gp_XYZ XYZ = Nodes(i).Coord();
+      Transformation.Transforms(XYZ);
+      x[0] = XYZ.X(); x[1] = XYZ.Y(); x[2] = XYZ.Z();
       partPoints->InsertPoint(i - Nodes.Lower(), x);
     }
 
