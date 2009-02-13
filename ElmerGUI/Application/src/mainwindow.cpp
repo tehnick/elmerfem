@@ -4536,7 +4536,9 @@ void MainWindow::remeshSlot()
 	logMessage("Ng_LoadGeometry_2D failed");
 	return;
       }
-      
+
+      nglibAPI->setNggeom2D(nggeom2d);
+
       double maxMeshSize = mp.maxh;
 
       if(maxMeshSize <= 0) maxMeshSize = 10000000;

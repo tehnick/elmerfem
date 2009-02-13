@@ -67,6 +67,11 @@ void NglibAPI::setNgmesh(nglib::Ng_Mesh *ngmesh)
   this->ngmesh = ngmesh;
 }
 
+void NglibAPI::setNggeom2D(nglib::Ng_Geometry_2D *geom2d)
+{
+  this->geom2d = geom2d;
+}
+
 // Populate elmer's mesh structure:
 //-----------------------------------------------------------------------------
 mesh_t* NglibAPI::createElmerMeshStructure()
@@ -127,12 +132,14 @@ void NglibAPI::create2D(mesh_t *mesh)
     edge->setPointIndex(0, -1);
     edge->setPointIndex(1, -1);
     
-    int bcIdx;
+    int matIdx;
+    nglib::Ng_GetSegment_2D(ngmesh, i + 1, edge->getNodeIndexes(), &matIdx);
 
-    nglib::Ng_GetSegment_2D(ngmesh, i + 1, edge->getNodeIndexes(), &bcIdx);
+    int bcIdx;
+    nglib::EG_GetSegmentBCProperty(ngmesh, geom2d, matIdx-1, &bcIdx);
 
     edge->setIndex(bcIdx);
-        
+
     edge->setNodeIndex(0, edge->getNodeIndex(0) - 1);
     edge->setNodeIndex(1, edge->getNodeIndex(1) - 1);
     

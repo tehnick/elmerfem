@@ -100,6 +100,21 @@ EG_GetSurfaceElement (Ng_Mesh * mesh, int num, int * pi, int * ptrignum)
   return et;
 }
 
+// return segment bcnum
+void
+EG_GetSegmentBCProperty (Ng_Mesh *mesh, Ng_Geometry_2D * geom, int num, int * bcnum)
+{
+  const Segment & seg = ((Mesh*)mesh)->LineSegment(num);
+
+  int edgenum = seg.edgenr;
+
+  SplineGeometry2d *geom2d = (SplineGeometry2d*)geom;
+
+  SplineSegment &spline = geom2d->GetSpline(num);
+
+  if(bcnum)
+    *bcnum = spline.bc;
+}
 
 // feeds points, surface elements and volume elements to the mesh
 void Ng_AddPoint (Ng_Mesh * mesh, double * x)

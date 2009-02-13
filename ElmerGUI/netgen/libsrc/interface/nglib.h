@@ -72,6 +72,7 @@ enum Ng_Result { NG_OK = 0,
 void Ng_Init ();
 void Ng_Exit ();
   
+// ===== Elmer related additions =====
 
 // return surface and volume element in pi + underlying stl number
 Ng_Surface_Element_Type 
@@ -80,6 +81,10 @@ EG_GetSurfaceElement (Ng_Mesh * mesh, int num, int * pi, int * ptrignum);
 // return surface element bc property:
 int
 EG_GetSurfaceElementBCProperty(Ng_Mesh * mesh, int i);
+
+// return segment bcnum
+void
+EG_GetSegmentBCProperty (Ng_Mesh *mesh, Ng_Geometry_2D *geom, int num, int * bcnum);
 
 
 // Generates new mesh structure

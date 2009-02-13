@@ -55,6 +55,7 @@ class NglibAPI
   ~NglibAPI();
 
   void setNgmesh(nglib::Ng_Mesh*);
+  void setNggeom2D(nglib::Ng_Geometry_2D*);
   void setDim(int);
   int getDim();
   mesh_t* createElmerMeshStructure();
@@ -63,6 +64,7 @@ class NglibAPI
 
  private:
   nglib::Ng_Mesh* ngmesh;
+  nglib::Ng_Geometry_2D *geom2d;
   int ngDim;
 };
 
