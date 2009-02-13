@@ -296,6 +296,9 @@ bool CadView::readFile(QString fileName)
     TopLoc_Location Location;
     Handle(Poly_Triangulation) Triangulation = BRep_Tool::Triangulation(Face, Location);
 
+    const gp_Trsf& Transformation = Location.Transformation();
+    const gp_XYZ& Translation = Transformation.TranslationPart();
+
     if(Triangulation.IsNull()) {
       cout << "Encountered empty triangulation after face: " << numberOfFaces+1 << endl;
       continue;
@@ -341,7 +344,9 @@ bool CadView::readFile(QString fileName)
     double x[3];
     vtkPoints* partPoints = vtkPoints::New();
     for(int i = Nodes.Lower(); i <= Nodes.Upper(); i++) {
-      x[0] = Nodes(i).X(); x[1] = Nodes(i).Y(); x[2] = Nodes(i).Z();
+      x[0] = Nodes(i).X() + Translation.X();
+      x[1] = Nodes(i).Y() + Translation.Y();
+      x[2] = Nodes(i).Z() + Translation.Z();
       partPoints->InsertPoint(i - Nodes.Lower(), x);
     }
 

@@ -4399,6 +4399,7 @@ void MainWindow::remeshSlot()
   // ***** ELMERGRID *****
 
   if(activeGenerator == GEN_ELMERGRID) {
+
     meshutils->clearMesh(glWidget->getMesh());
     glWidget->newMesh();
     mesh_t *mesh = glWidget->getMesh();
@@ -4408,15 +4409,14 @@ void MainWindow::remeshSlot()
     
     if(mesh->getSurfaces() == 0) meshutils->findSurfaceElements(mesh);
     
-    for(int i=0; i<mesh->getSurfaces(); i++ )
-      {
-	surface_t *surface = mesh->getSurface(i);
-	
-	surface->setEdges((int)(surface->getCode() / 100));
-	surface->newEdgeIndexes(surface->getEdges());
-	for(int j=0; j<surface->getEdges(); j++)
-	  surface->setEdgeIndex(j, -1);
-      }
+    for(int i = 0; i < mesh->getSurfaces(); i++ ) {
+      surface_t *surface = mesh->getSurface(i);
+      
+      surface->setEdges((int)(surface->getCode() / 100));
+      surface->newEdgeIndexes(surface->getEdges());
+      for(int j=0; j<surface->getEdges(); j++)
+	surface->setEdgeIndex(j, -1);
+    }
 
     meshutils->findSurfaceElementEdges(mesh);
     meshutils->findSurfaceElementNormals(mesh);
@@ -4461,14 +4461,13 @@ void MainWindow::remeshSlot()
       return;
     }
 
-
-
     // Init & set mesh params.:
-    //--------------------------
+    //--------------------------    
+    cout << "Initializing nglib" << endl;
     nglib::Ng_Init();
 
     char backgroundmesh[1024];
-    sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());      
+    sprintf(backgroundmesh, "%s", meshControl->nglibBackgroundmesh.toAscii().data());
 
     mp.maxh = meshControl->nglibMaxH.toDouble();
     mp.fineness = meshControl->nglibFineness.toDouble();

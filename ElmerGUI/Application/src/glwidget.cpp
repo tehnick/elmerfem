@@ -324,8 +324,8 @@ void GLWidget::paintGL()
     drawBgImage();
 
   // FE objects:
-  if(list.count() > 0) {
-    for(int i=0; i<(int)list.count(); i++) {
+  if(getLists() > 0) {
+    for(int i = 0; i < getLists(); i++) {
       list_t *l = getList(i);
 
       if(l->isVisible()) {
@@ -693,7 +693,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
-  if(list.count() == 0) 
+  if(getLists() == 0) 
     return;
 
   static list_t dummylist;
@@ -769,7 +769,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
     // if not ctrl pressed, rebuild all selected lists except this one:
     if(!ctrlPressed) {
-      for(i=0; i < list.count(); i++) {
+      for(i = 0; i < getLists(); i++) {
 	list_t *l2 = getList(i);
 	if(l2->isSelected() && (l2->getIndex() != l->getIndex())) {
 	  glDeleteLists(l2->getObject(), 1);
@@ -873,7 +873,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       }
       
       // check if the selected lists uniquely determine a bulk body:
-      for(int i = 0; i < list.count(); i++) {
+      for(int i = 0; i < getLists(); i++) {
 	list_t *l2 = getList(i);
 
 	if(l2->isSelected() && (l2->getNature() == PDE_BULK)) {
@@ -965,8 +965,8 @@ void GLWidget::rebuildLists()
 
   delete [] bb;
  
-  if(list.count() > 0) {
-    for(int i=0; i < (int)list.count(); i++) {
+  if(getLists() > 0) {
+    for(int i=0; i < getLists(); i++) {
       list_t *l = getList(i);
       glDeleteLists(l->getObject(), 1);
     }
@@ -981,7 +981,7 @@ void GLWidget::rebuildLists()
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildSurfaceLists()
 {
-  for( int i = 0; i < list.count(); i++ )
+  for( int i = 0; i < getLists(); i++ )
   {
     list_t *l = getList(i);
      if( l->getType() == SURFACELIST )
@@ -1000,7 +1000,7 @@ void GLWidget::rebuildSurfaceLists()
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildEdgeLists()
 {
-  for( int i=0; i<list.count(); i++ )
+  for( int i = 0; i < getLists(); i++ )
   {
     list_t *l = getList(i);
      if ( l->getType() == EDGELIST )
@@ -1154,7 +1154,7 @@ GLuint GLWidget::makeLists()
 
   // Generate lists:
   //---------------------------------------------------------------------
-  for(i = 0; i < list.count(); i++)
+  for(i = 0; i < getLists(); i++)
     delete list.at(i);
 
   list.clear();
@@ -1179,7 +1179,7 @@ GLuint GLWidget::makeLists()
       l->setType(SURFACELIST);
       l->setIndex(index);
       l->setObject(generateSurfaceList(l->getIndex(), surfaceColor)); // cyan
-      l->setChild(list.count());
+      l->setChild(getLists());
       l->setParent(-1);
       l->setSelected(false);
       l->setVisible(stateDrawSurfaceElements);
@@ -1193,7 +1193,7 @@ GLuint GLWidget::makeLists()
       l->setIndex(index);
       l->setObject(generateSurfaceMeshList(l->getIndex(), surfaceMeshColor)); // black
       l->setChild(-1);
-      l->setParent(list.count() - 2);
+      l->setParent(getLists() - 2);
       l->setSelected(false);
       l->setVisible(stateDrawSurfaceMesh);
     }
@@ -1262,10 +1262,10 @@ GLuint GLWidget::makeLists()
   updateGL();
   getMatrix();
 
-  cout << "Generated " << list.count() << " lists" << endl;
+  cout << "Generated " << getLists() << " lists" << endl;
   cout.flush();
 
-  return list.count();
+  return getLists();
 }
 
 
