@@ -6254,25 +6254,27 @@ void MainWindow::compilerFinishedSlot(int)
 void MainWindow::showaboutSlot()
 {
   QMessageBox::about(this, tr("Information about ElmerGUI"),
-		     tr("ElmerGUI is a preprocessor for three dimensional "
-			"modeling with Elmer finite element software. "
-			"The program uses elmergrid, and optionally "
-			"tetlib or nglib, as finite element mesh generators:\n\n"
+		     tr("ElmerGUI is a preprocessor for two and "
+			"three dimensional modeling with Elmer "
+			"finite element software. The program "
+			"uses elmergrid, nglib, and optionally tetlib, "
+			"as finite element mesh generators:\n\n"
 			"http://www.csc.fi/elmer/\n"
-			"http://tetgen.berlios.de/\n"
-			"http://www.hpfem.jku.at/netgen/\n\n"
+			"http://www.hpfem.jku.at/netgen/\n"
+			"http://tetgen.berlios.de/\n\n"
 			"ElmerGUI uses the Qt4 Cross-Platform "
-			"Application Framework by Trolltech:\n\n"
-			"http://trolltech.com/products/qt\n\n"
+			"Application Framework by Qtsoftware:\n\n"
+			"http://www.qtsoftware.com/\n\n"
 #ifdef EG_VTK
-			"This version of ElmerGUI contains a built-in postprocessor "
-			"based on the Visualization Toolkit (VTK):\n\n"
-			"http://www.vtk.org\n\n"
+			"This version of ElmerGUI contains a built-in "
+			"postprocessor based on the Visualization Toolkit "
+			"(VTK):\n\n"
+			"http://www.vtk.org/\n\n"
 #endif
 
 #ifdef EG_OCC
-			"This version of ElmerGUI has been compiled with the "
-			"OpenCascade solids modeling library:\n\n"
+			"This version of ElmerGUI has been compiled with "
+			"the OpenCascade solids modeling library:\n\n"
 			"http://www.opencascade.org/\n\n"
 #endif
 
@@ -6287,7 +6289,7 @@ void MainWindow::showaboutSlot()
 #endif
 			"The GPL-licensed source code of ElmerGUI is available "
 			"from the SVN repository at Sourceforge.net\n\n"
-			"http://sourceforge.net/projects/elmerfem\n\n"
+			"http://sourceforge.net/projects/elmerfem/\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));
 }
