@@ -1036,6 +1036,25 @@ void MainWindow::createStatusBar()
 //
 //*****************************************************************************
 
+void MainWindow::parseCmdLine()
+{
+  QStringList args = QCoreApplication::arguments();
+  
+  if(!args.contains("-nogui"))
+    this->show();
+
+  int input = args.indexOf("-i");
+
+  if(input > 0) {
+    QString fileName = args.at(input + 1);
+
+    if(fileName.left(1) != "-") {
+      cout << "Reading input files" << endl;
+      readInputFile(fileName);
+      remeshSlot();
+    }
+  }
+}
 
 // File -> Open...
 //-----------------------------------------------------------------------------
@@ -4691,6 +4710,27 @@ void MainWindow::meshingFinishedSlot()
 
   remeshAct->setEnabled(true);
   stopMeshingAct->setEnabled(false);
+
+  // Check cmd line arguments:
+  //---------------------------
+  QStringList args = QCoreApplication::arguments();
+
+  int output = args.indexOf("-o");
+
+  if(output > 0) {
+    QString dirName = args.at(output + 1);
+    
+    if(dirName.left(1) != "-") {
+      cout << "Saving mesh files" << endl;
+      saveElmerMesh(dirName);
+    }
+  }
+
+  if(args.contains("-e")) {
+    cout << "Exiting" << endl;
+    QApplication::closeAllWindows();
+    exit(0);
+  }
 
   resetSlot();
 }

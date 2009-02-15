@@ -100,6 +100,8 @@ public:
   MainWindow();
   ~MainWindow();
 
+  void parseCmdLine();
+
 protected:
   void contextMenuEvent(QContextMenuEvent *event);
 
