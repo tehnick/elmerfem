@@ -4726,7 +4726,7 @@ void MainWindow::meshingFinishedSlot()
     }
   }
 
-  if(args.contains("-e")) {
+  if(args.contains("-e") || args.contains("-nogui")) {
     cout << "Exiting" << endl;
     QApplication::closeAllWindows();
     exit(0);
