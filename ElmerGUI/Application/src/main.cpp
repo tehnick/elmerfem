@@ -90,7 +90,27 @@ int main(int argc, char *argv[])
   //========================================================================
 
   QApplication app(argc, argv);
+
+  QStringList argList = QCoreApplication::arguments();
+
+  if(argList.contains("-h") || argList.contains("--help")) {
+    cout << "Usage:" << endl;
+    cout << "  ElmerGUI [OPTION [FILE|DIR]]..." << endl;
+    cout << endl;
+    cout << "Graphical user interface and mesh generator for Elmer" << endl;
+    cout << endl;
+    cout << "Application options:" << endl;
+    cout << " -h, --help       Show help options" << endl;
+    cout << " -i <string>      Select input file" << endl;
+    cout << " -o <string>      Select output dir" << endl;
+    cout << " -nogui           Disable GUI" << endl;
+    cout << " -e               Exit after saving" << endl;
+    cout << endl;
+    return 0;
+  }
+
   MainWindow mainWindow;
   mainWindow.parseCmdLine();
+
   return app.exec();
 }
