@@ -6617,6 +6617,11 @@ void MainWindow::loadDefinitions()
 //-----------------------------------------------------------------------------
 void MainWindow::setupSplash()
 {
+  QStringList args = QCoreApplication::arguments();
+  
+  if(args.contains("-nogui"))
+    return;
+
   if(egIni->isSet("splashscreen")) {
     pixmap.load(":/images/splash.png");
     splash.setPixmap(pixmap);
@@ -6630,6 +6635,11 @@ void MainWindow::setupSplash()
 //-----------------------------------------------------------------------------
 void MainWindow::updateSplash(QString text)
 {
+  QStringList args = QCoreApplication::arguments();
+  
+  if(args.contains("-nogui"))
+    return;
+
   if(!egIni->isSet("splashscreen"))
     return;
 
@@ -6656,6 +6666,11 @@ void MainWindow::setupSysTrayIcon()
 {
   sysTrayIcon = NULL;
 
+  QStringList args = QCoreApplication::arguments();
+  
+  if(args.contains("-nogui"))
+    return;
+
   if(!egIni->isSet("systrayicon"))
     return;
 
@@ -6672,6 +6687,11 @@ void MainWindow::setupSysTrayIcon()
 void MainWindow::updateSysTrayIcon(QString label, QString msg)
 {
   int duration = 3000;
+
+  QStringList args = QCoreApplication::arguments();
+  
+  if(args.contains("-nogui"))
+    return;
 
   if(!sysTrayIcon)
     return;
