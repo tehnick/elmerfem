@@ -1048,8 +1048,16 @@ void MainWindow::parseCmdLine()
   if(input > 0) {
     QString fileName = args.at(input + 1);
 
+    QFileInfo fileInfo(fileName);
+    
+    if(!fileInfo.exists()) {
+      cout << "Input file \"" << fileName.toAscii().data() << "\" does not exist" << endl;
+      QApplication::closeAllWindows();
+      exit(0);
+    }
+
     if(fileName.left(1) != "-") {
-      cout << "Reading input files" << endl;
+      cout << "Reading input file " << fileName.toAscii().data() << endl;
       readInputFile(fileName);
       remeshSlot();
     }
