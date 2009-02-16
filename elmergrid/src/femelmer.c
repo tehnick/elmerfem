@@ -1534,7 +1534,7 @@ int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info)
 static int CreatePartitionTable(struct FemType *data,int info)
 {
   int i,j,k,l,m,noelements,noknots,partitions,nonodes,periodic;
-  int maxneededtimes,sharings,part,ind,hit,notinany;
+  int maxneededtimes,sharings,part,ind,hit,notinany,debug;
   int *indxper;
 
   printf("Creating a table showing all parenting partitions of nodes.\n");  
@@ -1562,6 +1562,9 @@ static int CreatePartitionTable(struct FemType *data,int info)
       ind = data->topology[i][j];
       if(periodic) ind = indxper[ind];
 
+      debug = FALSE;
+      if(debug) printf("ind=%d i=%d j=%d part=%d\n",ind,i,j,part); 
+
       hit = 0;
       for(k=1;k<=maxneededtimes;k++) { 
 	if(data->partitiontable[k][ind] == 0) hit = k;
@@ -1580,8 +1583,10 @@ static int CreatePartitionTable(struct FemType *data,int info)
 	data->partitiontable[maxneededtimes][ind] = part;
 	if(maxneededtimes == 2) sharings++;
       }
+      if(debug) printf("hit = %d\n",hit);
     }
   }
+
 
   /* For periodic counterparts copy the table */
   if(periodic) {
@@ -1607,17 +1612,20 @@ static int CreatePartitionTable(struct FemType *data,int info)
 	break;
       }
     }
-    if( hit != 1 ) {
+    if( hit > 1 ) {
       data->partitiontable[hit][i] = data->partitiontable[1][i];
       data->partitiontable[1][i] = data->nodepart[i];
     }
     else if(!hit) {
-      printf("node not in any elements!\n");
+      if(0) {
+	printf("Node %d in partition %d not in the table!\n",i,data->nodepart[i]);
+	if(periodic) printf("indexper: %d\n",indxper[i]);
+      }
+
       notinany++;
       data->nodepart[i] = data->partitiontable[1][i];
     }
   }
-
 
   if(info) {
     printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
