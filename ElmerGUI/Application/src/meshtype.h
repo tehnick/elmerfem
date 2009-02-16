@@ -61,11 +61,11 @@ class node_t {
   ~node_t();
 
   void setX(int, double);
-  double getX(int);
+  double getX(int) const;
   void setXvec(double*);
-  double* getXvec(void);
+  double* getXvec();
   void setIndex(int);
-  int getIndex(void);
+  int getIndex() const;
 
  private:
   double x[3];                     // 3d-coordinates
@@ -79,20 +79,20 @@ class element_t {
   ~element_t();
 
   void setNature(int);
-  int getNature(void);
+  int getNature() const;
   void setCode(int);
-  int getCode(void);
+  int getCode() const;
   void setNodes(int);
-  int getNodes(void);
+  int getNodes() const;
   void setIndex(int);
-  int getIndex(void);
+  int getIndex() const;
   void setSelected(int);
-  int getSelected(void);
-  int getNodeIndex(int);
+  int getSelected() const;
+  int getNodeIndex(int) const;
   void setNodeIndex(int, int);
-  int* getNodeIndexes();
+  int* getNodeIndexes() const;
   void newNodeIndexes(int);
-  void deleteNodeIndexes(void);
+  void deleteNodeIndexes();
 
  private:
   int nature;                      // PDE_BULK, ...
@@ -110,13 +110,13 @@ class point_t: public element_t {
   ~point_t();
 
   void setSharp(bool);
-  bool isSharp(void);
+  bool isSharp() const;
   void setEdges(int);
-  int getEdges(void);
+  int getEdges() const;
   void setEdgeIndex(int, int);
-  int getEdgeIndex(int);
+  int getEdgeIndex(int) const;
   void newEdgeIndexes(int);
-  void deleteEdgeIndexes(void);
+  void deleteEdgeIndexes();
 
  private:
   bool sharp_point;                // marker
@@ -131,19 +131,19 @@ class edge_t: public element_t {
   ~edge_t();
 
   void setSharp(bool);
-  bool isSharp(void);
+  bool isSharp() const;
   void setPoints(int);
-  int getPoints(void);
+  int getPoints() const;
   void setPointIndex(int, int);
-  int getPointIndex(int);
+  int getPointIndex(int) const;
   void newPointIndexes(int);
-  void deletePointIndexes(void);
+  void deletePointIndexes();
   void setSurfaces(int);
-  int getSurfaces(void);
+  int getSurfaces() const;
   void setSurfaceIndex(int, int);
-  int getSurfaceIndex(int);
+  int getSurfaceIndex(int) const;
   void newSurfaceIndexes(int);
-  void deleteSurfaceIndexes(void);
+  void deleteSurfaceIndexes();
 
  private:
   bool sharp_edge;                 // marker
@@ -160,20 +160,20 @@ class surface_t: public element_t {
   ~surface_t();
 
   void setEdges(int);
-  int getEdges(void);
+  int getEdges() const;
   void setEdgeIndex(int, int);
-  int getEdgeIndex(int);
+  int getEdgeIndex(int) const;
   void newEdgeIndexes(int);
-  void deleteEdgeIndexes(void);
+  void deleteEdgeIndexes();
   void setElements(int);
-  int getElements(void);
+  int getElements() const;
   void setElementIndex(int, int);
-  int getElementIndex(int);
+  int getElementIndex(int) const;
   void newElementIndexes(int);
-  void deleteElementIndexes(void);
+  void deleteElementIndexes();
   void setNormalVec(double*);
-  double* getNormalVec(void);
-  double getNormal(int);
+  double* getNormalVec();
+  double getNormal(int) const;
   void setNormal(int, double);
   void setVertexNormalVec(int, double*);
   void addVertexNormalVec(int, double*);
@@ -195,45 +195,45 @@ class mesh_t {
   mesh_t();
   ~mesh_t();
 
-  bool isUndefined(void);
-  void clear(void);
+  bool isUndefined() const;
+  void clear();
   bool load(char*);
   bool save(char*);
-  double* boundingBox(void);
+  double* boundingBox();
   void setCdim(int);
-  int getCdim(void);
+  int getCdim() const;
   void setDim(int);
-  int getDim(void);
+  int getDim() const;
   void setNodes(int);
-  int getNodes(void);
+  int getNodes() const;
   void setPoints(int);
-  int getPoints(void);
+  int getPoints() const;
   void setEdges(int);
-  int getEdges(void);
+  int getEdges() const;
   void setSurfaces(int);
-  int getSurfaces(void);
+  int getSurfaces() const;
   void setElements(int);
-  int getElements(void);
+  int getElements() const;
   node_t* getNode(int);
   void setNodeArray(node_t*);
   void newNodeArray(int);
-  void deleteNodeArray(void);
+  void deleteNodeArray();
   point_t* getPoint(int);
   void setPointArray(point_t*);
   void newPointArray(int);
-  void deletePointArray(void);
+  void deletePointArray();
   edge_t* getEdge(int);
   void setEdgeArray(edge_t*);
   void newEdgeArray(int);
-  void deleteEdgeArray(void);
+  void deleteEdgeArray();
   surface_t* getSurface(int);
   void setSurfaceArray(surface_t*);
   void newSurfaceArray(int);
-  void deleteSurfaceArray(void);
+  void deleteSurfaceArray();
   element_t* getElement(int);
   void setElementArray(element_t*);
   void newElementArray(int);
-  void deleteElementArray(void);
+  void deleteElementArray();
 
  private:
   void setDefaults();

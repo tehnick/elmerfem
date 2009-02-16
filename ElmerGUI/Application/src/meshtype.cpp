@@ -59,7 +59,7 @@ void node_t::setXvec(double* y)
   this->x[2] = y[2];
 }
 
-double* node_t::getXvec(void)
+double* node_t::getXvec()
 {
   return &this->x[0];
 }
@@ -69,7 +69,7 @@ void node_t::setX(int n, double y)
   this->x[n] = y;
 }
 
-double node_t::getX(int n)
+double node_t::getX(int n) const
 {
   return this->x[n];
 }
@@ -80,7 +80,7 @@ void node_t::setIndex(int n)
 
 }
 
-int node_t::getIndex(void)
+int node_t::getIndex() const
 {
   return this->index;
 }
@@ -100,7 +100,7 @@ void element_t::setNature(int n)
   this->nature = n;
 }
 
-int element_t::getNature(void)
+int element_t::getNature() const
 {
   return this->nature;
 }
@@ -110,7 +110,7 @@ void element_t::setCode(int n)
   this->code = n;
 }
 
-int element_t::getCode(void)
+int element_t::getCode() const
 {
   return this->code;
 }
@@ -120,7 +120,7 @@ void element_t::setNodes(int n)
   this->nodes = n;
 }
 
-int element_t::getNodes(void)
+int element_t::getNodes() const
 {
   return this->nodes;
 }
@@ -130,7 +130,7 @@ void element_t::setIndex(int n)
   this->index = n;
 }
 
-int element_t::getIndex(void)
+int element_t::getIndex() const
 {
   return this->index;
 }
@@ -140,12 +140,12 @@ void element_t::setSelected(int n)
   this->selected = n;
 }
 
-int element_t::getSelected(void)
+int element_t::getSelected() const
 {
   return this->selected;
 }
 
-int element_t::getNodeIndex(int n)
+int element_t::getNodeIndex(int n) const
 {
   return this->node[n];
 }
@@ -160,12 +160,12 @@ void element_t::newNodeIndexes(int n)
   this->node = new int[n];
 }
 
-void element_t::deleteNodeIndexes(void)
+void element_t::deleteNodeIndexes()
 {
   delete [] this->node;
 }
 
-int* element_t::getNodeIndexes()
+int* element_t::getNodeIndexes() const
 {
   return this->node;
 }
@@ -185,7 +185,7 @@ void point_t::setSharp(bool b)
   this->sharp_point = b;
 }
 
-bool point_t::isSharp(void)
+bool point_t::isSharp() const
 {
   return this->sharp_point;
 }
@@ -195,12 +195,12 @@ void point_t::setEdges(int n)
   this->edges = n;
 }
 
-int point_t::getEdges(void)
+int point_t::getEdges() const
 {
   return this->edges;
 }
 
-int point_t::getEdgeIndex(int n)
+int point_t::getEdgeIndex(int n) const
 {
   return this->edge[n];
 }
@@ -215,7 +215,7 @@ void point_t::newEdgeIndexes(int n)
   this->edge = new int[n];
 }
 
-void point_t::deleteEdgeIndexes(void)
+void point_t::deleteEdgeIndexes()
 {
   delete [] this->edge;
 }
@@ -235,7 +235,7 @@ void edge_t::setSharp(bool b)
   this->sharp_edge = b;
 }
 
-bool edge_t::isSharp(void)
+bool edge_t::isSharp() const
 {
   return this->sharp_edge;
 }
@@ -245,7 +245,7 @@ void edge_t::setPoints(int n)
   this->points = n;
 }
 
-int edge_t::getPoints(void)
+int edge_t::getPoints() const
 {
   return this->points;
 }
@@ -255,7 +255,7 @@ void edge_t::setPointIndex(int m, int n)
   this->point[m] = n;
 }
 
-int edge_t::getPointIndex(int n)
+int edge_t::getPointIndex(int n) const
 {
   return this->point[n];
 }
@@ -265,9 +265,39 @@ void edge_t::newPointIndexes(int n)
   this->point = new int[n];
 }
 
-void edge_t::deletePointIndexes(void)
+void edge_t::deletePointIndexes()
 {
   delete [] this->point;
+}
+
+void edge_t::setSurfaces(int n)
+{
+  this->surfaces = n;
+}
+
+int edge_t::getSurfaces() const
+{
+  return this->surfaces;
+}
+
+void edge_t::setSurfaceIndex(int m, int n)
+{
+  this->surface[m] = n;
+}
+
+int edge_t::getSurfaceIndex(int n) const
+{
+  return this->surface[n];
+}
+
+void edge_t::newSurfaceIndexes(int n)
+{
+  this->surface = new int[n];
+}
+
+void edge_t::deleteSurfaceIndexes()
+{
+  delete [] this->surface;
 }
 
 // surface_t
@@ -280,42 +310,12 @@ surface_t::~surface_t()
 {
 }
 
-void edge_t::setSurfaces(int n)
-{
-  this->surfaces = n;
-}
-
-int edge_t::getSurfaces(void)
-{
-  return this->surfaces;
-}
-
-void edge_t::setSurfaceIndex(int m, int n)
-{
-  this->surface[m] = n;
-}
-
-int edge_t::getSurfaceIndex(int n)
-{
-  return this->surface[n];
-}
-
-void edge_t::newSurfaceIndexes(int n)
-{
-  this->surface = new int[n];
-}
-
-void edge_t::deleteSurfaceIndexes(void)
-{
-  delete [] this->surface;
-}
-
 void surface_t::setEdges(int n)
 {
   this->edges = n;
 }
 
-int surface_t::getEdges(void)
+int surface_t::getEdges() const
 {
   return this->edges;
 }
@@ -325,7 +325,7 @@ void surface_t::setEdgeIndex(int m, int n)
   this->edge[m] = n;
 }
 
-int surface_t::getEdgeIndex(int n)
+int surface_t::getEdgeIndex(int n) const
 {
   return this->edge[n];
 }
@@ -335,7 +335,7 @@ void surface_t::newEdgeIndexes(int n)
   this->edge = new int[n];
 }
 
-void surface_t::deleteEdgeIndexes(void)
+void surface_t::deleteEdgeIndexes()
 {
   delete [] this->edge;
 }
@@ -345,7 +345,7 @@ void surface_t::setElements(int n)
   this->elements = n;
 }
 
-int surface_t::getElements(void)
+int surface_t::getElements() const
 {
   return this->elements;
 }
@@ -355,7 +355,7 @@ void surface_t::setElementIndex(int m, int n)
   this->element[m] = n;
 }
 
-int surface_t::getElementIndex(int n)
+int surface_t::getElementIndex(int n) const
 {
   return this->element[n];
 }
@@ -365,12 +365,12 @@ void surface_t::newElementIndexes(int n)
   this->element = new int[n];
 }
 
-void surface_t::deleteElementIndexes(void)
+void surface_t::deleteElementIndexes()
 {
   delete [] this->element;
 }
 
-double* surface_t::getNormalVec(void)
+double* surface_t::getNormalVec()
 {
   return &this->normal[0];
 }
@@ -382,7 +382,7 @@ void surface_t::setNormalVec(double* d)
   this->normal[2] = d[2];
 }
 
-double surface_t::getNormal(int n)
+double surface_t::getNormal(int n) const
 {
   return this->normal[n];
 }
@@ -429,7 +429,7 @@ mesh_t::~mesh_t()
 {
 }
 
-bool mesh_t::isUndefined()
+bool mesh_t::isUndefined() const
 {
   if((cdim < 0) || (dim < 0) || (nodes < 1))
     return true;
@@ -1218,7 +1218,7 @@ void mesh_t::setCdim(int n)
   this->cdim = n;
 }
 
-int mesh_t::getCdim(void)
+int mesh_t::getCdim() const
 {
   return this->cdim;
 }
@@ -1228,7 +1228,7 @@ void mesh_t::setDim(int n)
   this->dim = n;
 }
 
-int mesh_t::getDim(void)
+int mesh_t::getDim() const
 {
   return this->dim;
 }
@@ -1238,7 +1238,7 @@ void mesh_t::setNodes(int n)
   this->nodes = n;
 }
 
-int mesh_t::getNodes(void)
+int mesh_t::getNodes() const
 {
   return this->nodes;
 }
@@ -1248,7 +1248,7 @@ void mesh_t::setPoints(int n)
   this->points = n;
 }
 
-int mesh_t::getPoints(void)
+int mesh_t::getPoints() const
 {
   return this->points;
 }
@@ -1258,7 +1258,7 @@ void mesh_t::setEdges(int n)
   this->edges = n;
 }
 
-int mesh_t::getEdges(void)
+int mesh_t::getEdges() const
 {
   return this->edges;
 }
@@ -1268,7 +1268,7 @@ void mesh_t::setSurfaces(int n)
   this->surfaces = n;
 }
 
-int mesh_t::getSurfaces(void)
+int mesh_t::getSurfaces() const
 {
   return this->surfaces;
 }
@@ -1278,7 +1278,7 @@ void mesh_t::setElements(int n)
   this->elements = n;
 }
 
-int mesh_t::getElements(void)
+int mesh_t::getElements() const
 {
   return this->elements;
 }
@@ -1298,7 +1298,7 @@ void mesh_t::newNodeArray(int n)
   this->node = new node_t[n];
 }
 
-void mesh_t::deleteNodeArray(void)
+void mesh_t::deleteNodeArray()
 {
   delete [] this->node;
 }
@@ -1318,7 +1318,7 @@ void mesh_t::newPointArray(int n)
   this->point = new point_t[n];
 }
 
-void mesh_t::deletePointArray(void)
+void mesh_t::deletePointArray()
 {
   delete [] this->point;
 }
@@ -1338,7 +1338,7 @@ void mesh_t::newEdgeArray(int n)
   this->edge = new edge_t[n];
 }
 
-void mesh_t::deleteEdgeArray(void)
+void mesh_t::deleteEdgeArray()
 {
   delete [] this->edge;
 }
@@ -1358,7 +1358,7 @@ void mesh_t::newSurfaceArray(int n)
   this->surface = new surface_t[n];
 }
 
-void mesh_t::deleteSurfaceArray(void)
+void mesh_t::deleteSurfaceArray()
 {
   delete [] this->surface;
 }
@@ -1378,7 +1378,7 @@ void mesh_t::newElementArray(int n)
   this->element = new element_t[n];
 }
 
-void mesh_t::deleteElementArray(void)
+void mesh_t::deleteElementArray()
 {
   delete [] this->element;
 }

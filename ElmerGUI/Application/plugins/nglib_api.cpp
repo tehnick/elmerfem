@@ -57,7 +57,7 @@ void NglibAPI::setDim(int ngDim)
   this->ngDim = ngDim;
 }
 
-int NglibAPI::getDim()
+int NglibAPI::getDim() const
 {
   return this->ngDim;
 }
