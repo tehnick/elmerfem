@@ -1588,22 +1588,14 @@ static int CreatePartitionTable(struct FemType *data,int info)
   }
 
 
-  /* For periodic counterparts copy the table */
-  if(periodic) {
-    for(i=1;i<=noknots;i++) {
-      ind = indxper[i];
-      if(ind == i) continue;
-      for(k=1;k<=maxneededtimes;k++) {
-	if( !data->partitiontable[k][ind] ) break;
-	data->partitiontable[k][i] = data->partitiontable[k][ind];
-      }
-    }
-  }
-
-
   /* Make the partitiontable such that the owner node is the first one in the list */  
   notinany = 0;
   for(i=1;i<=noknots;i++) {
+    
+    /* Skip the periodic nodes and take care of them later */
+    if(periodic) 
+      if(i != indxper[i]) continue;
+
     hit = FALSE;
     for(k=1;k<=maxneededtimes;k++) {
       if(!data->partitiontable[k][i]) break;
@@ -1621,11 +1613,26 @@ static int CreatePartitionTable(struct FemType *data,int info)
 	printf("Node %d in partition %d not in the table!\n",i,data->nodepart[i]);
 	if(periodic) printf("indexper: %d\n",indxper[i]);
       }
-
+      
       notinany++;
       data->nodepart[i] = data->partitiontable[1][i];
     }
   }
+
+
+  /* For periodic counterparts copy the table and ownership */
+  if(periodic) {
+    for(i=1;i<=noknots;i++) {
+      ind = indxper[i];
+      if(ind == i) continue;
+      for(k=1;k<=maxneededtimes;k++) {
+	if( !data->partitiontable[k][ind] ) break;
+	data->partitiontable[k][i] = data->partitiontable[k][ind];
+      }
+      data->nodepart[i] = data->nodepart[ind];
+    }
+  }
+
 
   if(info) {
     printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
@@ -2981,7 +2988,8 @@ optimizeownership:
       for(i=1;i<=noknots;i++) {
 	
 	ind = i;
-	if(periodic) ind = indxper[ind];
+	if(periodic) 
+	  if(indxper[ind] != ind) continue;
 	
 	if(maxneededtimes > 2) 
 	  l = data->partitiontable[3][ind];
@@ -3018,10 +3026,16 @@ optimizeownership:
       dshared = j-k;
       
     } while (dshared < dshared0 && n < 3);
-    
-    if(info) printf("Divided the shared nodes with %d heuristic iterations\n",n);
-    if(0) CheckPartitioning(data,info);
+
+
+    /* Change the ownership of periodic nodes accordingly */
+    for(i=1;i<=noknots;i++) {
+      ind = indxper[i];
+      if(i != ind && nodepart[i] != nodepart[ind]) 
+	nodepart[i] = nodepart[ind]; 
+    }
   }
+
 
  optimizesharing:
   
@@ -3117,28 +3131,51 @@ optimizeownership:
 	/* Change the owner of those with less sharings */
 	for(j=0;j < nodesd2;j++) {
 	  ind = data->topology[i][j];
-	  if(0 && periodic) ind = indxper[ind];
+	  if(periodic) {
+	    if(ind != indxper[ind]) 
+	      if(info) printf("***** Danger: chanching ownership of a periodic node %d (%d)\n",ind,indxper[ind]);
+	  }	    
 
 	  if(nodepart[ind] == i1 && e1 < e2) {
 	    probnodes[ind] += 1;
 	    nodepart[ind] = elempart[i];
 	    neededvector[elempart[i]] += 1;
 	    neededvector[i1] -= 1;
+	    if(periodic) {
+	      if(ind != indxper[ind]) {
+		nodepart[indxper[ind]] = elempart[i];
+	      }
+	    }
 	  }
 	  else if(nodepart[ind] == i2) {
 	    probnodes[ind] += 1;
 	    nodepart[ind] = elempart[i]; 
 	    neededvector[elempart[i]] += 1;
 	    neededvector[i2] -= 1;
+	    if(periodic) {
+	      if(ind != indxper[ind]) {
+		nodepart[indxper[ind]] = elempart[i];
+	      }
+	    }
 	  }
 	}	
 	sharings++;
       }
     }
-
+      
     if(info && sharings) printf("Changed the ownership of %d nodes\n",sharings);
-
+    /* Change the ownership of periodic nodes accordingly */
+    if(periodic && sharings) {
+      for(i=1;i<=noknots;i++) {
+	ind = indxper[i];
+	if(i != ind && nodepart[i] != nodepart[ind]) 
+	  nodepart[i] = nodepart[ind]; 
+      }
+    }
+      
   } while (sharings > 0 && m < 3);
+  
+  
 
   if(info) {
     if(sharings) 
