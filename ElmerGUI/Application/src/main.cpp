@@ -37,9 +37,11 @@
  *  Original Date: 15 Mar 2008                                               *
  *                                                                           *
  *****************************************************************************/
-
 #include <QApplication>
+#include <iostream>
 #include "mainwindow.h"
+
+using namespace std;
 
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
