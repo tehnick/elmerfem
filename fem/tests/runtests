@@ -31,7 +31,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/wrk/raback/elmerbin/bin:$PATH
+    export PATH=/usr/local/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "ELMER_HOME=%s\n" $ELMER_HOME
@@ -48,13 +48,13 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-#export F90="gfortran -O -m64 -fPIC -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
-#export LD="gfortran -shared  -m64 -fPIC"
+#export F90="mpif90 -O -m64 -fPIC -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+#export LD="mpif90 -shared  -m64 -fPIC"
 export LD=elmerld
 export F90=elmerf90-nosh
 export LIBS="-L$ELMER_LIB "
 
-gcc -o findnorm$EXE_EXT findnorm.c -lm
+mpicc -o findnorm$EXE_EXT findnorm.c -lm
 chmod 775 findnorm$EXE_EXT
 
 total=0

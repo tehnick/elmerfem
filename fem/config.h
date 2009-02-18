@@ -5,10 +5,10 @@
 /* #undef AIX */
 
 /* Couldn't determine. sticking with 32 bits. */
-#define ARCH_32_BITS 1
+/* #undef ARCH_32_BITS */
 
 /* 64 bit arch. */
-/* #undef ARCH_64_BITS */
+#define ARCH_64_BITS 1
 
 /* Detected platform. */
 /* #undef BASTARDS */
@@ -29,10 +29,10 @@
 /* #undef DEC_ALPHA */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 4
+#define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/c/Elmer5.4/share/elmersolver"
+#define ELMER_SOLVER_HOME "/usr/local/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -46,7 +46,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## __
+#define F77_FUNC_(name,NAME) name ## _
 
 /* Char pointer mangling */
 #define FC_CHAR_PTR(P,L) char *P
@@ -63,7 +63,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## __
+#define FC_FUNC_(name,NAME) name ## _
 
 /* Define if you have a ARPACK library. */
 #define HAVE_ARPACK 1
@@ -72,20 +72,20 @@
 #define HAVE_BLAS 1
 
 /* Define to 1 if you have the `dlclose' function. */
-/* #undef HAVE_DLCLOSE */
+#define HAVE_DLCLOSE 1
 
 /* Define to 1 if you have the `dlerror' function. */
-/* #undef HAVE_DLERROR */
+#define HAVE_DLERROR 1
 
 /* Define to 1 if you have the `dlopen' function. */
-/* #undef HAVE_DLOPEN */
+#define HAVE_DLOPEN 1
 
 /* Define if your system has dlopen, dlsym, dlerror, and dlclose for dynamic
    linking */
-/* #undef HAVE_DLOPEN_API */
+#define HAVE_DLOPEN_API 1
 
 /* Define to 1 if you have the `dlsym' function. */
-/* #undef HAVE_DLSYM */
+#define HAVE_DLSYM 1
 
 /* Define if your system has dyld for dynamic linking */
 /* #undef HAVE_DYLD_API */
@@ -94,10 +94,10 @@
 #define HAVE_EIOF 1
 
 /* Define to 1 if you have the `fseeko' function. */
-/* #undef HAVE_FSEEKO */
+#define HAVE_FSEEKO 1
 
 /* Define to 1 if you have the `ftello' function. */
-/* #undef HAVE_FTELLO */
+#define HAVE_FTELLO 1
 
 /* Does the fortran environment implement etime */
 #define HAVE_F_ETIME 1
@@ -109,7 +109,7 @@
 #define HAVE_HUTI 1
 
 /* Define if you have a HYPRE library. */
-/* #undef HAVE_HYPRE */
+#define HAVE_HYPRE 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -118,13 +118,13 @@
 #define HAVE_LAPACK 1
 
 /* Define to 1 if you have the `dl' library (-ldl). */
-/* #undef HAVE_LIBDL */
+#define HAVE_LIBDL 1
 
 /* Define to 1 if you have the `dld' library (-ldld). */
 /* #undef HAVE_LIBDLD */
 
 /* Define if your system has LoadLibrary for dynamic linking */
-#define HAVE_LOADLIBRARY_API 1
+/* #undef HAVE_LOADLIBRARY_API */
 
 /* Define if you have a MATC library. */
 #define HAVE_MATC 1
@@ -133,10 +133,10 @@
 #define HAVE_MEMORY_H 1
 
 /* ... */
-/* #undef HAVE_MPI */
+#define HAVE_MPI 1
 
 /* Define if you have a PARPACK library. */
-/* #undef HAVE_PARPACK */
+#define HAVE_PARPACK 1
 
 /* Define to 1 if you have the `shl_findsym' function. */
 /* #undef HAVE_SHL_FINDSYM */
@@ -175,10 +175,10 @@
 /* #undef HPUX */
 
 /* Detected platform. */
-/* #undef LINUX */
+#define LINUX 1
 
 /* Detected platform. */
-#define MINGW32 1
+/* #undef MINGW32 */
 
 /* Name of package */
 #define PACKAGE "fem"
@@ -202,16 +202,16 @@
 /* #undef SGI */
 
 /* Shared lib filename extension */
-#define SHL_EXTENSION ".dll"
+#define SHL_EXTENSION ".so"
 
 /* The size of `long', as computed by sizeof. */
-#define SIZEOF_LONG 4
+/* #undef SIZEOF_LONG */
 
 /* The size of `off_t', as computed by sizeof. */
-/* #undef SIZEOF_OFF_T */
+#define SIZEOF_OFF_T 8
 
 /* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 4
+#define SIZEOF_VOIDP 8
 
 /* Detected platform. */
 /* #undef SOLARIS */
@@ -229,4 +229,4 @@
 #define VERSION "5.5.0"
 
 /* Detected platform2. */
-#define WIN32 1
+/* #undef WIN32 */

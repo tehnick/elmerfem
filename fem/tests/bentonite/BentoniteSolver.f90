@@ -5,10 +5,6 @@
 ! *       Copyright 1st April 1995 - , CSC - IT Center for Science Ltd.,
 ! *                                    Finland.
 ! *
-! *       All rights reserved. No part of this program may be used,
-! *       reproduced or transmitted in any form or by any means
-! *       without the written permission of CSC.
-! *
 ! ****************************************************************************/
 !
 !/*****************************************************************************
