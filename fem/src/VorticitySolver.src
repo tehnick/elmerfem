@@ -44,6 +44,7 @@
   SUBROUTINE VorticitySolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
+    IMPLICIT NONE
 
     TYPE(Model_t)  :: Model
     TYPE(Solver_t) :: Solver
@@ -52,16 +53,26 @@
 !------------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: SolverParams
     INTEGER :: dim
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VorName, HelpName
+    LOGICAL :: GotIt
 !------------------------------------------------------------------------------
     SolverParams => GetSolverParams()
     dim = CoordinateSystemDimension()
 
+    VarName = GetString(SolverParams,'Vorticity Variable',GotIt )
+    IF(gotIt) THEN
+      VorName = 'Curl '//TRIM(VarName)
+    ELSE
+      VorName = 'Vorticity'
+    END IF
+
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
       IF(dim == 2) THEN
-        CALL ListAddString( SolverParams, 'Variable', 'Vorticity' )
+        CALL ListAddString( SolverParams, 'Variable', VorName )
       ELSE IF(dim == 3) THEN
-        CALL ListAddString(SolverParams, 'Exported Variable 1','F[Vorticity:3]')
+        HelpName = 'F['//TRIM(Vorname)//':3]'
+        CALL ListAddString(SolverParams, 'Exported Variable 1',HelpName)
         CALL ListAddString(SolverParams, 'Vorticity Result Variable','F')
         CALL ListAddString( SolverParams, 'Variable','-nooutput vorticity_temp' )
       ELSE
@@ -147,19 +158,28 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
   
   SolverParams => GetSolverParams()
 
-  VarName = GetString(SolverParams,'Vorticity Result Variable',GotIt )
-  IF(.NOT. gotIt) VarName = 'Vorticity'
-  VorticitySol => VariableGet( Solver % Mesh % Variables,  VarName )
-  IF(ASSOCIATED(VorticitySol)) THEN
+  IF( dim == 2 ) THEN
+    VorticitySol => Solver % Variable
     Dofs = VorticitySol % DOFs
-    IF(DOfs /= 1 .AND. Dofs /= 3) THEN
+    IF(Dofs /= 1) THEN
       PRINT *,'DOFS',Dofs
-      CALL Fatal('VorticitySolver','Vorticity should have 1 (2D) or 3 (3D) components')
+      CALL Fatal('VorticitySolver','Vorticity should have 1 component in 2D')
     END IF
-  ELSE
-    CALL Fatal('VorticitySolver','Vorticity Result Variable is missing: '//TRIM(VarName))      
+  ELSE IF( dim == 3) THEN    
+    VarName = GetString(SolverParams,'Vorticity Result Variable',GotIt )
+    IF(.NOT. gotIt) VarName = 'Vorticity'
+    VorticitySol => VariableGet( Solver % Mesh % Variables,  VarName )
+    IF( ASSOCIATED(VorticitySol) ) THEN
+      Dofs = VorticitySol % DOFs
+      IF(Dofs /= 3) THEN
+        PRINT *,'DOFS',Dofs
+        CALL Fatal('VorticitySolver','Vorticity should have 3 components in 3D')
+      END IF
+    ELSE
+      CALL Fatal('VorticitySolver','Vorticity Result Variable is missing: '//TRIM(VarName))      
+    END IF
   END IF
-  
+
   CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
       CurrentCoordinateSystem() == CylindricSymmetric
   
