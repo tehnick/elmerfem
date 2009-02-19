@@ -42,8 +42,13 @@
 #include <QFile>
 #include <QFont>
 #include <QProgressBar>
+#include <QAction>
+#include <QSystemTrayIcon>
+#include <QContextMenuEvent>
+
 #include <iostream>
 #include <fstream>
+
 #include "mainwindow.h"
 
 #ifdef EG_VTK

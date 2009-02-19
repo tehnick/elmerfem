@@ -43,12 +43,8 @@
 
 #include <QMainWindow>
 #include <QProcess>
-#include <QAction>
 #include <QDomDocument>
-#include <QtUiTools>
-#include <QColorDialog>
-#include <QSystemTrayIcon>
-#include <QContextMenuEvent>
+
 #include "maxlimits.h"
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
@@ -85,6 +81,8 @@ class QAction;
 class QMenu;
 class GLWidget;
 class QProgressBar;
+class QSystemTrayIcon;
+class QContextMenuEvent;
 
 #ifdef EG_VTK
 class VtkPost;
