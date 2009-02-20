@@ -47,8 +47,8 @@
 #include <math.h>
 #include <GL/gl.h>
 #include <tcl.h>
-#include "libavcodec/avcodec.h"
-#include "libswscale/swscale.h"
+#include "avcodec.h"
+#include "swscale.h"
 
 #define INBUF_SIZE 4096
 #define STATE_READY 0

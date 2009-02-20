@@ -118,10 +118,10 @@ LIBS="$COMMON_LIBS"
 CFLAGS="$COMMON_CFLAGS"
 
 AC_CHECK_HEADERS([math.h])
-AC_CHECK_HEADERS([libavcodec/avcodec.h])
+AC_CHECK_HEADERS([avcodec.h])
 
 if test "$ac_cv_header_math_h" == yes; then
-  if test "$ac_cv_header_libavcodec_avcodec_h" == yes; then
+  if test "$ac_cv_header_avcodec_h" == yes; then
     AC_CHECK_LIB([avcodec],[avcodec_init])
     AC_CHECK_LIB([avutil],[av_malloc])
     AC_CHECK_LIB([swscale],[sws_scale])
