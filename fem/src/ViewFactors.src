@@ -478,7 +478,7 @@
 
          CALL Info( 'ViewFactors', 'Normalizing Factors... ', Level=3 )
          CALL NormalizeFactors( Model )
-         
+
          DO i=1,N
            s = 0.0D0
            DO j=1,N
@@ -492,6 +492,7 @@
              FMax = MAX( FMax,s )
            END IF
          END DO
+
          WRITE (Message,'(A,F8.2)') 'View factors normalized in time (s):',CPUTime()-at0		
          CALL Info( 'ViewFactors',Message, Level=3 )
           
@@ -564,8 +565,10 @@
 
         REAL(KIND=dp), ALLOCATABLE :: RHS(:),SOL(:),Areas(:),PSOL(:)
 
-        REAL(KIND=dp) :: SUM = 0.0D0,eps=1.0D-20,s,si,sj
-  
+        REAL(KIND=dp) :: cum = 0.0D0,eps=1.0D-20,s,si,sj
+	REAL(KIND=dp) :: at1, CPUTime  
+
+
         ALLOCATE( RHS(n),SOL(n),PSOL(n),Areas(n),Jdiag(n),Jacobian(n,n),STAT=istat )
 
         IF ( istat /= 0 ) THEN
@@ -609,42 +612,39 @@
 !       tricks...)
 !------------------------------------------------------------------------------
         SOL = 1.0_dp
-        SUM = 1.0_dp
-        it = 0
+        cum = 1.0_dp
 
-        DO WHILE( SUM > eps .AND. it < itmax )
+        DO it=1,itmax
+
           DO i=1,n
-            SUM = 0.0_dp
+            cum = 0.0_dp
             DO j=1,n
-              SUM = SUM + Factors((i-1)*n+j) * SOL(j)
+              cum = cum + Factors((i-1)*n+j) * SOL(j)
             END DO
-            SUM = SUM * SOL(i)
-            RHS(i) = -(SUM - Areas(i))
+            cum = cum * SOL(i)
+            RHS(i) = Areas(i) - cum
           END DO
 
-          SUM = 0.0_dp
-          DO i=1,n
-            SUM = SUM + RHS(i)**2 / Areas(i)
-          END DO
-          SUM = SUM / n
+	  cum = SUM( RHS*RHS/Areas ) / n
 
-          IF ( SUM <= eps ) EXIT
+          WRITE (Message,'(A,I2,A,ES12.3)') 'Normalization iteration',it,': ',cum
+          CALL Info( 'ViewFactors',Message, Level=3 )
+
+          IF ( cum <= eps ) EXIT
 
           DO i=1,n
             DO j=1,n
               Jacobian(i,j) = Factors((i-1)*n+j) * SOL(i)
             END DO
-            DO j=1,N
+            DO j=1,n
               Jacobian(i,i) = Jacobian(i,i) + Factors((i-1)*n+j) * SOL(j)
             END DO
-            Jdiag(i) = 1._dp/Jacobian(i,i)
+            Jdiag(i) = 1._dp / Jacobian(i,i)
           END DO
              
           PSOL = SOL
           CALL IterSolv( n,SOL,RHS )
           SOL = PSOL + SOL
-
-          it = it + 1
         END DO
 
 !------------------------------------------------------------------------------
