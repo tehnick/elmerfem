@@ -1406,12 +1406,13 @@ END SUBROUTINE CreateGlobalNumbering
     IF ( GotRotate ) THEN
 
        DO i=1,SIZE(Parray,1)
-	Alpha = Parray(i,1) * PI / 180
+	    Alpha = Parray(i,1) * PI / 180
+          IF( ABS(Alpha) < TINY(Alpha) ) CYCLE 
 
           SELECT CASE(i)
             CASE(1)
                RotMatrix(2,2) =  COS(Alpha)
-               RotMatrix(2,3) = -SIN(Alpha)
+               RotMatrix(2,3) = -SIN(Alpha) 
                RotMatrix(3,2) =  SIN(Alpha)
                RotMatrix(3,3) =  COS(Alpha)
             CASE(2)
