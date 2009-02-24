@@ -1261,7 +1261,7 @@ END SUBROUTINE CreateGlobalNumbering
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2
     REAL(KIND=dp), POINTER :: PArray(:,:) => NULL()
     REAL(KIND=dp) :: x(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
-           TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist
+           TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist, alpha
 
     REAL(KIND=dp) :: scl_x, scl_y, scl_z
     REAL(KIND=dp) :: xmin_1, xmax_1, ymin_1, ymax_1, zmin_1, zmax_1
@@ -1404,24 +1404,26 @@ END SUBROUTINE CreateGlobalNumbering
                    'Periodic BC Rotate', GotRotate )
 
     IF ( GotRotate ) THEN
-       Parray = Parray * PI / 180
+
        DO i=1,SIZE(Parray,1)
+	Alpha = Parray(i,1) * PI / 180
+
           SELECT CASE(i)
             CASE(1)
-               RotMatrix(2,2) =  COS(Parray(i,1))
-               RotMatrix(2,3) = -SIN(Parray(i,1))
-               RotMatrix(3,2) =  SIN(Parray(i,1))
-               RotMatrix(3,3) =  COS(Parray(i,1))
+               RotMatrix(2,2) =  COS(Alpha)
+               RotMatrix(2,3) = -SIN(Alpha)
+               RotMatrix(3,2) =  SIN(Alpha)
+               RotMatrix(3,3) =  COS(Alpha)
             CASE(2)
-               RotMatrix(1,1) =  COS(Parray(i,1))
-               RotMatrix(1,3) = -SIN(Parray(i,1))
-               RotMatrix(3,1) =  SIN(Parray(i,1))
-               RotMatrix(3,3) =  COS(Parray(i,1))
+               RotMatrix(1,1) =  COS(Alpha)
+               RotMatrix(1,3) = -SIN(Alpha)
+               RotMatrix(3,1) =  SIN(Alpha)
+               RotMatrix(3,3) =  COS(Alpha)
             CASE(3)
-               RotMatrix(1,1) =  COS(Parray(i,1))
-               RotMatrix(1,2) = -SIN(Parray(i,1))
-               RotMatrix(2,1) =  SIN(Parray(i,1))
-               RotMatrix(2,2) =  COS(Parray(i,1))
+               RotMatrix(1,1) =  COS(Alpha)
+               RotMatrix(1,2) = -SIN(Alpha)
+               RotMatrix(2,1) =  SIN(Alpha)
+               RotMatrix(2,2) =  COS(Alpha)
            END SELECT
        END DO
     END IF
