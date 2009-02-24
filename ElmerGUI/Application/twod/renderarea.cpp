@@ -615,3 +615,20 @@ void RenderArea::modifyPoint(int idx, double x, double y)
   points.insert(idx, QPointF(x, y));
   update();
 }
+
+void RenderArea::modifyCurve(int idx, int in, int out, int np, int p0, int p1, int p2)
+{
+  if(reading) return;
+
+  Spline s;
+  s.in = in;
+  s.out = out;
+  s.np = np;
+  s.p[0] = p0;
+  s.p[1] = p1;
+  s.p[2] = p2;
+
+  splines.insert(idx+1, s);
+
+  update();
+}

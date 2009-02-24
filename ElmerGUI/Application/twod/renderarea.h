@@ -64,6 +64,7 @@ class RenderArea : public QWidget
 
   void setCurveEditor(CurveEditor *curveEditor);
   void modifyPoint(int idx, double x, double y);
+  void modifyCurve(int idx, int in, int out, int np, int p1, int p2, int p3);
 
  public slots:
   void fitSlot();

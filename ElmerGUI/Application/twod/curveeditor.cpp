@@ -53,6 +53,7 @@ CurveEditor::CurveEditor(QWidget *parent)
   addTab(cTable, tr("Curves"));
   addTab(pTable, tr("Points"));
 
+  connect(cTable, SIGNAL(cellChanged(int, int)), this, SLOT(cCellChanged(int, int)));
   connect(pTable, SIGNAL(cellChanged(int, int)), this, SLOT(pCellChanged(int, int)));
 
   clearAll();
@@ -196,4 +197,47 @@ void CurveEditor::pCellChanged(int row, int col)
     return;
 
   renderArea->modifyPoint(idx, x, y);
+}
+
+void CurveEditor::cCellChanged(int row, int col)
+{
+  QTableWidgetItem *item0 = cTable->item(row, 0);
+  QTableWidgetItem *item1 = cTable->item(row, 1);
+  QTableWidgetItem *item2 = cTable->item(row, 2);
+  QTableWidgetItem *item3 = cTable->item(row, 3);
+  QTableWidgetItem *item4 = cTable->item(row, 4);
+  QTableWidgetItem *item5 = cTable->item(row, 5);
+
+  int in, out, np, p0, p1, p2;
+
+  if(item0)
+    in = item0->text().toInt();
+  else
+    return;
+
+  if(item1)
+    out = item1->text().toInt();
+  else
+    return;
+
+  if(item2)
+    np = item2->text().toInt();
+  else
+    return;
+
+  if(item3)
+    p0 = item3->text().toInt();
+  else
+    return;
+
+  if(item4)
+    p1 = item4->text().toInt();
+  else
+    return;
+
+  p2 = 0;
+  if(item5)
+    p2 = item5->text().toInt();
+
+  renderArea->modifyCurve(row, in, out, np, p0, p1, p2);
 }

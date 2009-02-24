@@ -60,6 +60,7 @@ public:
   void clearAll();
 
 private slots:
+  void cCellChanged(int row, int col);
   void pCellChanged(int row, int col);
 
 private:
