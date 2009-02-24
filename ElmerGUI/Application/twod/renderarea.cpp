@@ -389,8 +389,6 @@ void RenderArea::fitSlot()
   renderport.setRect(xmin-oh, ymin-oh, width+2*oh, height+2*oh);
 
   update();
-
-  emit(statusMessage("Ready"));
 }
 
 void RenderArea::readSlot(QString fileName)
@@ -402,6 +400,7 @@ void RenderArea::readSlot(QString fileName)
 
   points.clear();
   splines.clear();
+  bodies.clear();
   curveEditor->clearAll();
 
   reading = true;
@@ -452,6 +451,16 @@ void RenderArea::readSlot(QString fileName)
     case(1):
       stream >> index >> x >> y;
       p.setX(x); p.setY(y);
+      if(points.contains(index)) {
+	QString message = "Consistency error. ";
+	message += "Multiple point index " + QString::number(index);
+	points.clear();
+	splines.clear();
+	bodies.clear();
+	cout << message.toAscii().data() << endl;
+	emit(statusMessage(message));
+	return;
+      }
       points.insert(index, p);
       curveEditor->addPoint(index, x, y);
       break;
@@ -473,12 +482,12 @@ void RenderArea::readSlot(QString fileName)
   }
 
   if(!correctVersion) {
-    cout << "Wrong spline geometry format" << endl;
-    cout << "splinecurves2dv2 is required" << endl;
-    cout << "Aborting" << endl;
+    QString message = "Unsupported format (splinecurve2dv2 is required)";
+    cout << message.toAscii().data() << endl;
     points.clear();
     splines.clear();
     curveEditor->clearAll();
+    emit(statusMessage(message));
     reading = false;
     return;
   }
@@ -496,6 +505,36 @@ void RenderArea::readSlot(QString fileName)
 
     if(!bodies.contains(s.out))
       bodies.push_back(s.out);
+  }
+
+  // Check consistency:
+  //--------------------
+  for(int i = 0; i < splines.keys().size(); i++) {
+    int idx = splines.keys().at(i);
+    Spline s = splines.value(idx);
+
+    for(int j = 0; j < s.np; j++) {
+      int p = s.p[j];
+
+      if(!points.contains(p)) {
+	QString message = "Consistency error. Spline ";
+	message += QString::number(idx);
+	message += " refers to point ";
+	message += QString::number(p);
+	message += " which does not exist.";
+
+	bodies.clear();
+	points.clear();
+	splines.clear();
+	curveEditor->clearAll();
+
+	emit(statusMessage(message));
+
+	reading = false;
+
+	return;
+      }
+    }
   }
 
   cout << "Points: " << points.count() << endl;

@@ -50,8 +50,8 @@ CurveEditor::CurveEditor(QWidget *parent)
   pTable = new QTableWidget(0, 3, this);
   cTable = new QTableWidget(0, 6, this);
 
-  addTab(pTable, tr("Points"));
   addTab(cTable, tr("Curves"));
+  addTab(pTable, tr("Points"));
 
   connect(pTable, SIGNAL(cellChanged(int, int)), this, SLOT(pCellChanged(int, int)));
 
@@ -67,6 +67,7 @@ void CurveEditor::addPoint(int idx, double x, double y)
   int i = pTable->rowCount();
   
   pTable->insertRow(i);
+  pTable->setRowHeight(i, 20);
   QTableWidgetItem *item;
 
   item = new QTableWidgetItem;
@@ -87,6 +88,7 @@ void CurveEditor::addCurve(int in, int out, int pts, int *p)
   int i = cTable->rowCount();
   
   cTable->insertRow(i);
+  cTable->setRowHeight(i, 20);
   QTableWidgetItem *item;
 
   item = new QTableWidgetItem;

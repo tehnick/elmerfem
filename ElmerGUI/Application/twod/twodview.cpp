@@ -74,7 +74,7 @@ TwodView::TwodView(QWidget *parent)
   createMenus();
   createStatusBar();
   
-  setWindowTitle("ElmerGUI 2D model view");
+  setWindowTitle("ElmerGUI 2D modeler");
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
   resize(620, 400);
 }
