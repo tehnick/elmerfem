@@ -68,6 +68,7 @@
 #include "egini.h"
 #include "operation.h"
 #include "materiallibrary.h"
+#include "twod/twodview.h"
 
 #ifdef EG_QWT
 #include "convergenceview.h"
@@ -162,6 +163,7 @@ private slots:
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
   void showCadModelSlot();        // View -> Show cad model...
+  void showTwodViewSlot();        // View -> Show 2D view...
   void showVtkPostSlot();         // View -> Show VTK post processor...
   void parallelSettingsSlot();    // Solver -> Parallel settings
   void runsolverSlot();           // Solver -> Run solver
@@ -332,6 +334,7 @@ private:
   QAction *showallAct;            // View -> Show all
   QAction *resetAct;              // View -> Reset model view
   QAction *showCadModelAct;       // View -> Show cad model...
+  QAction *showTwodViewAct;       // View -> Show 2d view...
   QAction *showVtkPostAct;        // View -> Show VTK post processor...
   QAction *meshcontrolAct;        // Mesh -> Control...
   QAction *remeshAct;             // Mesh -> Remesh
@@ -369,6 +372,8 @@ private:
 #ifdef EG_OCC
   CadView *cadView;
 #endif
+
+  TwodView *twodView;
 
 #ifdef EG_VTK
   VtkPost *vtkPost;

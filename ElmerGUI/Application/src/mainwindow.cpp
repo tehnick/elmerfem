@@ -146,6 +146,7 @@ MainWindow::MainWindow()
   parallel = new Parallel(this);
   checkMpi = new CheckMpi;
   materialLibrary = new MaterialLibrary(this);
+  twodView = new TwodView(this);
 
 #ifdef EG_QWT
   convergenceView = new ConvergenceView(limit, this);
@@ -664,6 +665,11 @@ void MainWindow::createActions()
   showCadModelAct->setStatusTip(tr("Displays the cad model in a separate window"));
   connect(showCadModelAct, SIGNAL(triggered()), this, SLOT(showCadModelSlot()));
 
+  // View -> Show 2d view
+  showTwodViewAct = new QAction(QIcon(), tr("2D modeler..."), this);
+  showTwodViewAct->setStatusTip(tr("Displays the 2d geometry in a separate window"));
+  connect(showTwodViewAct, SIGNAL(triggered()), this, SLOT(showTwodViewSlot()));
+
   // Solver -> Parallel settings
   parallelSettingsAct = new QAction(QIcon(), tr("Parallel settings..."), this);
   parallelSettingsAct->setStatusTip(tr("Choose parametes and methods for parallel solution"));
@@ -856,6 +862,7 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showCadModelAct);
 #endif
+  viewMenu->addAction(showTwodViewAct);
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Sif"));
@@ -4312,6 +4319,14 @@ void MainWindow::showCadModelSlot()
 #ifdef EG_OCC
   cadView->show();
 #endif
+}
+
+
+// View -> Twod model...
+//-----------------------------------------------------------------------------
+void MainWindow::showTwodViewSlot()
+{
+  twodView->show();
 }
 
 

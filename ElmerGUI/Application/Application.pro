@@ -33,7 +33,7 @@ QMAKE_FLAGS += -Wl,-rpath,$$(VTKHOME)/lib/vtk-5.2
 #------------------------------------------------------------------------------
 # Directories:
 #------------------------------------------------------------------------------
-DEPENDPATH += . src forms plugins vtkpost cad
+DEPENDPATH += . src forms plugins vtkpost cad twod
 INCLUDEPATH += .
 MOC_DIR = tmp
 OBJECTS_DIR = tmp
@@ -147,7 +147,9 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/elmergrid_api.h \
            plugins/nglib_api.h \
            plugins/tetgen.h \
-           plugins/tetlib_api.h
+           plugins/tetlib_api.h \
+           twod/renderarea.h \
+           twod/twodview.h
 
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
@@ -193,7 +195,9 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/egutils.cpp \
            plugins/elmergrid_api.cpp \
            plugins/nglib_api.cpp \
-           plugins/tetlib_api.cpp
+           plugins/tetlib_api.cpp \
+           twod/renderarea.cpp \
+           twod/twodview.cpp
 
 #------------------------------------------------------------------------------
 # Optional input files:
