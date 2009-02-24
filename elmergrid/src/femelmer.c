@@ -2895,7 +2895,7 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 
 
 
-  /* Remove the negative secondary parents that were only used to opitmize the partitioning */ 
+  /* Remove the negative secondary parents that were only used to optimize the partitioning */ 
   for(j=0;j < MAXBOUNDARIES;j++) {
     if(!bound[j].created) continue;
     for(i=1; i <= bound[j].nosides; i++) 
@@ -2988,8 +2988,8 @@ optimizeownership:
       for(i=1;i<=noknots;i++) {
 	
 	ind = i;
-	if(periodic) 
-	  if(indxper[ind] != ind) continue;
+	/* if(periodic) 
+	   if(indxper[ind] != ind) continue; */
 	
 	if(maxneededtimes > 2) 
 	  l = data->partitiontable[3][ind];
@@ -3029,11 +3029,11 @@ optimizeownership:
 
 
     /* Change the ownership of periodic nodes accordingly */
-    for(i=1;i<=noknots;i++) {
+    /* for(i=1;i<=noknots;i++) {
       ind = indxper[i];
       if(i != ind && nodepart[i] != nodepart[ind]) 
 	nodepart[i] = nodepart[ind]; 
-    }
+	} */
   }
 
 
@@ -3131,7 +3131,7 @@ optimizeownership:
 	/* Change the owner of those with less sharings */
 	for(j=0;j < nodesd2;j++) {
 	  ind = data->topology[i][j];
-	  if(periodic) {
+	  if(0 && periodic) {
 	    if(ind != indxper[ind]) 
 	      if(info) printf("***** Danger: chanching ownership of a periodic node %d (%d)\n",ind,indxper[ind]);
 	  }	    
@@ -3141,7 +3141,7 @@ optimizeownership:
 	    nodepart[ind] = elempart[i];
 	    neededvector[elempart[i]] += 1;
 	    neededvector[i1] -= 1;
-	    if(periodic) {
+	    if(0 && periodic) {
 	      if(ind != indxper[ind]) {
 		nodepart[indxper[ind]] = elempart[i];
 	      }
@@ -3165,7 +3165,7 @@ optimizeownership:
       
     if(info && sharings) printf("Changed the ownership of %d nodes\n",sharings);
     /* Change the ownership of periodic nodes accordingly */
-    if(periodic && sharings) {
+    if(0 && periodic && sharings) {
       for(i=1;i<=noknots;i++) {
 	ind = indxper[i];
 	if(i != ind && nodepart[i] != nodepart[ind]) 
