@@ -30,7 +30,7 @@
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
- *  Address: CSC - IT Center for Science Ltd.                                 *
+ *  Address: CSC - IT Center for Science Ltd.                                *
  *           Keilaranta 14                                                   *
  *           02101 Espoo, Finland                                            *
  *                                                                           *
@@ -68,6 +68,7 @@ TwodView::TwodView(QWidget *parent)
   addDockWidget(Qt::RightDockWidgetArea, dockWidget); 
 
   renderArea->setCurveEditor(curveEditor);
+  curveEditor->setRenderArea(renderArea);
 
   createActions();
   createMenus();

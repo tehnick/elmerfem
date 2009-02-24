@@ -30,7 +30,7 @@
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
- *  Address: CSC - IT Center for Science Ltd.                                 *
+ *  Address: CSC - IT Center for Science Ltd.                                *
  *           Keilaranta 14                                                   *
  *           02101 Espoo, Finland                                            *
  *                                                                           *
@@ -292,6 +292,8 @@ void RenderArea::mouseMoveEvent(QMouseEvent *event)
     points.insert(selectedPoint, q);
     
     update();
+
+    curveEditor->modifyPoint(selectedPoint, q.x(), q.y());
     
     message = QString::number(q.x()) + " "  + QString::number(q.y());
     
@@ -402,6 +404,8 @@ void RenderArea::readSlot(QString fileName)
   splines.clear();
   curveEditor->clearAll();
 
+  reading = true;
+
   int mode = 0;
   int index, i;
   double x, y;
@@ -475,6 +479,7 @@ void RenderArea::readSlot(QString fileName)
     points.clear();
     splines.clear();
     curveEditor->clearAll();
+    reading = false;
     return;
   }
 
@@ -498,6 +503,8 @@ void RenderArea::readSlot(QString fileName)
   cout << "Bodies: " << bodies.count() - 1 << endl;
 
   emit(statusMessage("Ready"));
+
+  reading = false;
 }
 
 QPointF RenderArea::quadNurbs(double u, QPointF P0, QPointF P1, QPointF P2) const
@@ -561,4 +568,11 @@ void RenderArea::drawMaterialNumbersSlot(bool state)
 void RenderArea::setCurveEditor(CurveEditor *curveEditor)
 {
   this->curveEditor = curveEditor;
+}
+
+void RenderArea::modifyPoint(int idx, double x, double y)
+{
+  if(reading) return;
+  points.insert(idx, QPointF(x, y));
+  update();
 }

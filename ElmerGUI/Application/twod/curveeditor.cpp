@@ -40,6 +40,7 @@
 #include <QTableWidget>
 #include <iostream>
 #include "curveeditor.h"
+#include "renderarea.h"
 
 using namespace std;
 
@@ -51,6 +52,8 @@ CurveEditor::CurveEditor(QWidget *parent)
 
   addTab(pTable, tr("Points"));
   addTab(cTable, tr("Curves"));
+
+  connect(pTable, SIGNAL(cellChanged(int, int)), this, SLOT(pCellChanged(int, int)));
 
   clearAll();
 }
@@ -140,4 +143,55 @@ void CurveEditor::clearAll()
   cTable->setColumnWidth(3, 40);
   cTable->setColumnWidth(4, 40);
   cTable->setColumnWidth(5, 40);
+}
+
+void CurveEditor::modifyPoint(int idx, double x, double y)
+{
+  for(int i = 0; i < pTable->rowCount(); i++) {
+    QTableWidgetItem *item = pTable->item(i, 0);
+
+    if(item) {
+      if(item->text().toInt() == idx) {
+	QTableWidgetItem *itemX = pTable->item(i, 1);
+	if(itemX)
+	  itemX->setText(QString::number(x));
+
+	QTableWidgetItem *itemY = pTable->item(i, 2);
+	if(itemY)
+	  itemY->setText(QString::number(y));
+      }
+    }
+  }
+}
+
+void CurveEditor::setRenderArea(RenderArea *renderArea)
+{
+  this->renderArea = renderArea;
+}
+
+void CurveEditor::pCellChanged(int row, int col)
+{
+  QTableWidgetItem *item0 = pTable->item(row, 0);
+  QTableWidgetItem *item1 = pTable->item(row, 1);
+  QTableWidgetItem *item2 = pTable->item(row, 2);
+
+  int idx;
+  double x, y;
+
+  if(item0)
+    idx = item0->text().toInt();
+  else
+    return;
+
+  if(item1)
+    x = item1->text().toDouble();
+  else
+    return;
+
+  if(item2)
+    y = item2->text().toDouble();
+  else
+    return;
+
+  renderArea->modifyPoint(idx, x, y);
 }

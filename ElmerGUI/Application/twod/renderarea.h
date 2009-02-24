@@ -30,7 +30,7 @@
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
- *  Address: CSC - IT Center for Science Ltd.                                 *
+ *  Address: CSC - IT Center for Science Ltd.                                *
  *           Keilaranta 14                                                   *
  *           02101 Espoo, Finland                                            *
  *                                                                           *
@@ -62,6 +62,9 @@ class RenderArea : public QWidget
   RenderArea(QWidget *parent = 0);
   ~RenderArea();
 
+  void setCurveEditor(CurveEditor *curveEditor);
+  void modifyPoint(int idx, double x, double y);
+
  public slots:
   void fitSlot();
   void readSlot(QString fileName);
@@ -71,7 +74,6 @@ class RenderArea : public QWidget
   void drawPointNumbersSlot(bool state);
   void drawSplineNumbersSlot(bool state);
   void drawMaterialNumbersSlot(bool state);
-  void setCurveEditor(CurveEditor *curveEditor);
 
  signals:
   void statusMessage(QString message);
@@ -102,7 +104,7 @@ class RenderArea : public QWidget
   bool drawSplineNumbers;
   bool drawMaterialNumbers;
   CurveEditor *curveEditor;
-  
+  bool reading;
 };
 
 #endif //  RENDERAREA_H

@@ -30,7 +30,7 @@
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
- *  Address: CSC - IT Center for Science Ltd.                                 *
+ *  Address: CSC - IT Center for Science Ltd.                                *
  *           Keilaranta 14                                                   *
  *           02101 Espoo, Finland                                            *
  *                                                                           *
@@ -43,6 +43,7 @@
 #include <QTabWidget>
 
 class QTableWidget;
+class RenderArea;
 
 class CurveEditor : public QTabWidget
 {
@@ -52,13 +53,19 @@ public:
   CurveEditor(QWidget *parent = 0);
   ~CurveEditor();
 
+  void setRenderArea(RenderArea *renderArea);
   void addPoint(int idx, double x, double y);
   void addCurve(int in, int out, int pts, int *p);
+  void modifyPoint(int idx, double x, double y);
   void clearAll();
+
+private slots:
+  void pCellChanged(int row, int col);
 
 private:
   QTableWidget *pTable;
   QTableWidget *cTable;
+  RenderArea *renderArea;
 
 };
 
