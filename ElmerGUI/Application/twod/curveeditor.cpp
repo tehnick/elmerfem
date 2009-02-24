@@ -23,63 +23,121 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI TwodView                                                        *
+ *  ElmerGUI CurveEditor                                                     *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
- *  Address: CSC - IT Center for Science Ltd.                                 *
+ *  Address: CSC - IT Center for Science Ltd.                                *
  *           Keilaranta 14                                                   *
  *           02101 Espoo, Finland                                            *
  *                                                                           *
  *  Original Date: 15 Mar 2008                                               *
  *                                                                           *
  *****************************************************************************/
-#ifndef TWODVIEW_H
-#define TWODVIEW_H
+#include <QTableWidget>
+#include <iostream>
+#include "curveeditor.h"
 
-#include <QMainWindow>
+using namespace std;
 
-class RenderArea;
-class CurveEditor;
-class QAction;
-class QMenu;
-
-class TwodView : public QMainWindow
+CurveEditor::CurveEditor(QWidget *parent)
+  : QTabWidget(parent)
 {
-Q_OBJECT
+  pTable = new QTableWidget(0, 3, this);
+  cTable = new QTableWidget(0, 6, this);
 
-public:
-  TwodView(QWidget *parent = 0);
-  ~TwodView();
+  addTab(pTable, tr("Points"));
+  addTab(cTable, tr("Curves"));
 
-public slots:
-  void statusMessage(QString message);
-  void openSlot();
-  void helpSlot();
+  clearAll();
+}
 
-private:
-  void createActions();
-  void createMenus();
-  void createStatusBar();
+CurveEditor::~CurveEditor()
+{
+}
 
-  RenderArea *renderArea;
-  CurveEditor *curveEditor;
-  QAction *quitAction;
-  QAction *fitAction;
-  QAction *openAction;
-  QAction *drawPointsAction;
-  QAction *drawSplinesAction;
-  QAction *drawTangentsAction;
-  QAction *drawPointNumbersAction;
-  QAction *drawSplineNumbersAction;
-  QAction *drawMaterialNumbersAction;
-  QAction *helpAction;
-  QMenu *fileMenu;
-  QMenu *viewMenu;
-  QMenu *helpMenu;
-};
+void CurveEditor::addPoint(int idx, double x, double y)
+{
+  int i = pTable->rowCount();
+  
+  pTable->insertRow(i);
+  QTableWidgetItem *item;
 
-#endif // TWODVIEW_H
+  item = new QTableWidgetItem;
+  item->setText(QString::number(idx));
+  pTable->setItem(i, 0, item);
+
+  item = new QTableWidgetItem;
+  item->setText(QString::number(x));
+  pTable->setItem(i, 1, item);
+
+  item = new QTableWidgetItem;
+  item->setText(QString::number(y));
+  pTable->setItem(i, 2, item);
+}
+
+void CurveEditor::addCurve(int in, int out, int pts, int *p)
+{
+  int i = cTable->rowCount();
+  
+  cTable->insertRow(i);
+  QTableWidgetItem *item;
+
+  item = new QTableWidgetItem;
+  item->setText(QString::number(in));
+  cTable->setItem(i, 0, item);
+
+  item = new QTableWidgetItem;
+  item->setText(QString::number(out));
+  cTable->setItem(i, 1, item);
+
+  item = new QTableWidgetItem;
+  item->setText(QString::number(pts));
+  cTable->setItem(i, 2, item);
+
+  item = new QTableWidgetItem;
+  item->setText(QString::number(p[0]));
+  cTable->setItem(i, 3, item);
+
+  item = new QTableWidgetItem;
+  item->setText(QString::number(p[1]));
+  cTable->setItem(i, 4, item);
+
+  item = new QTableWidgetItem;
+  if(pts == 3) {
+    item->setText(QString::number(p[2]));
+  } else {
+    item->setText("-");
+  }
+  cTable->setItem(i, 5, item);
+}
+
+void CurveEditor::clearAll()
+{
+  pTable->clear();
+  pTable->setRowCount(0);
+
+  cTable->clear();
+  cTable->setRowCount(0);
+
+  QStringList pHeaders;
+  pHeaders << "idx" << "x" << "y";
+  pTable->setHorizontalHeaderLabels(pHeaders);
+
+  pTable->setColumnWidth(0, 40);
+  pTable->setColumnWidth(1, 80);
+  pTable->setColumnWidth(2, 80);
+
+  QStringList cHeaders;
+  cHeaders << "in" << "out" << "pts" << "p1" << "p2" << "p3";
+  cTable->setHorizontalHeaderLabels(cHeaders);
+  cTable->setColumnWidth(0, 40);
+  cTable->setColumnWidth(1, 40);
+  cTable->setColumnWidth(2, 40);
+  cTable->setColumnWidth(3, 40);
+  cTable->setColumnWidth(4, 40);
+  cTable->setColumnWidth(5, 40);
+}

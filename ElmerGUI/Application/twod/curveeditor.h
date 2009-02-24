@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI TwodView                                                        *
+ *  ElmerGUI CurveEditor                                                     *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -37,49 +37,29 @@
  *  Original Date: 15 Mar 2008                                               *
  *                                                                           *
  *****************************************************************************/
-#ifndef TWODVIEW_H
-#define TWODVIEW_H
+#ifndef CURVEEDITOR_H
+#define CURVEEDITOR_H
 
-#include <QMainWindow>
+#include <QTabWidget>
 
-class RenderArea;
-class CurveEditor;
-class QAction;
-class QMenu;
+class QTableWidget;
 
-class TwodView : public QMainWindow
+class CurveEditor : public QTabWidget
 {
 Q_OBJECT
 
 public:
-  TwodView(QWidget *parent = 0);
-  ~TwodView();
+  CurveEditor(QWidget *parent = 0);
+  ~CurveEditor();
 
-public slots:
-  void statusMessage(QString message);
-  void openSlot();
-  void helpSlot();
+  void addPoint(int idx, double x, double y);
+  void addCurve(int in, int out, int pts, int *p);
+  void clearAll();
 
 private:
-  void createActions();
-  void createMenus();
-  void createStatusBar();
+  QTableWidget *pTable;
+  QTableWidget *cTable;
 
-  RenderArea *renderArea;
-  CurveEditor *curveEditor;
-  QAction *quitAction;
-  QAction *fitAction;
-  QAction *openAction;
-  QAction *drawPointsAction;
-  QAction *drawSplinesAction;
-  QAction *drawTangentsAction;
-  QAction *drawPointNumbersAction;
-  QAction *drawSplineNumbersAction;
-  QAction *drawMaterialNumbersAction;
-  QAction *helpAction;
-  QMenu *fileMenu;
-  QMenu *viewMenu;
-  QMenu *helpMenu;
 };
 
-#endif // TWODVIEW_H
+#endif // CURVEEDITOR_H

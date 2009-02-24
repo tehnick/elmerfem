@@ -149,7 +149,8 @@ HEADERS += src/bodypropertyeditor.h \
            plugins/tetgen.h \
            plugins/tetlib_api.h \
            twod/renderarea.h \
-           twod/twodview.h
+           twod/twodview.h \
+           twod/curveeditor.h
 
 FORMS += forms/bodypropertyeditor.ui \
          forms/boundarydivision.ui \
@@ -197,7 +198,8 @@ SOURCES += src/bodypropertyeditor.cpp \
            plugins/nglib_api.cpp \
            plugins/tetlib_api.cpp \
            twod/renderarea.cpp \
-           twod/twodview.cpp
+           twod/twodview.cpp \
+           twod/curveeditor.cpp
 
 #------------------------------------------------------------------------------
 # Optional input files:

@@ -146,7 +146,7 @@ MainWindow::MainWindow()
   parallel = new Parallel(this);
   checkMpi = new CheckMpi;
   materialLibrary = new MaterialLibrary(this);
-  twodView = new TwodView(this);
+  twodView = new TwodView;
 
 #ifdef EG_QWT
   convergenceView = new ConvergenceView(limit, this);

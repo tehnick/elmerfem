@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI mainwindow                                                      *
+ *  ElmerGUI TwodView                                                        *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -44,10 +44,12 @@
 #include <QStatusBar>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QDockWidget>
 #include <iostream>
 
 #include "twodview.h"
 #include "renderarea.h"
+#include "curveeditor.h"
 
 using namespace std;
 
@@ -59,12 +61,21 @@ TwodView::TwodView(QWidget *parent)
 
   connect(renderArea, SIGNAL(statusMessage(QString)), this, SLOT(statusMessage(QString)));
 
+  curveEditor = new CurveEditor;
+  QDockWidget *dockWidget = new QDockWidget("Editor", this);
+  dockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
+  dockWidget->setWidget(curveEditor);  
+  addDockWidget(Qt::RightDockWidgetArea, dockWidget); 
+
+  renderArea->setCurveEditor(curveEditor);
+
   createActions();
   createMenus();
   createStatusBar();
   
   setWindowTitle("ElmerGUI 2D model view");
-  resize(600, 600);  
+  setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+  resize(620, 400);
 }
 
 TwodView::~TwodView()

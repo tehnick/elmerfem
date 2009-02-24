@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI mainwindow                                                      *
+ *  ElmerGUI RenderArea                                                      *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -45,6 +45,7 @@
 #include <iostream>
 #include <math.h>
 #include "renderarea.h"
+#include "curveeditor.h"
 
 using namespace std;
 
@@ -399,6 +400,7 @@ void RenderArea::readSlot(QString fileName)
 
   points.clear();
   splines.clear();
+  curveEditor->clearAll();
 
   int mode = 0;
   int index, i;
@@ -447,6 +449,7 @@ void RenderArea::readSlot(QString fileName)
       stream >> index >> x >> y;
       p.setX(x); p.setY(y);
       points.insert(index, p);
+      curveEditor->addPoint(index, x, y);
       break;
 
     case(2):
@@ -454,6 +457,7 @@ void RenderArea::readSlot(QString fileName)
       for(i = 0; i < s.np; i++)
 	stream >> s.p[i];
       splines.insert(++countSplines, s);
+      curveEditor->addCurve(s.in, s.out, s.np, s.p);
       break;
 
     case(3):
@@ -470,6 +474,7 @@ void RenderArea::readSlot(QString fileName)
     cout << "Aborting" << endl;
     points.clear();
     splines.clear();
+    curveEditor->clearAll();
     return;
   }
 
@@ -551,4 +556,9 @@ void RenderArea::drawMaterialNumbersSlot(bool state)
 {
   drawMaterialNumbers = state;
   update();
+}
+
+void RenderArea::setCurveEditor(CurveEditor *curveEditor)
+{
+  this->curveEditor = curveEditor;
 }

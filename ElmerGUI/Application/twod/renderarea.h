@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ElmerGUI mainwindow                                                      *
+ *  ElmerGUI RenderArea                                                      *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -42,6 +42,8 @@
 
 #include <QWidget>
 #include <QHash>
+
+class CurveEditor;
 
 class Spline
 {
@@ -69,6 +71,7 @@ class RenderArea : public QWidget
   void drawPointNumbersSlot(bool state);
   void drawSplineNumbersSlot(bool state);
   void drawMaterialNumbersSlot(bool state);
+  void setCurveEditor(CurveEditor *curveEditor);
 
  signals:
   void statusMessage(QString message);
@@ -98,6 +101,7 @@ class RenderArea : public QWidget
   bool drawPointNumbers;
   bool drawSplineNumbers;
   bool drawMaterialNumbers;
+  CurveEditor *curveEditor;
   
 };
 
