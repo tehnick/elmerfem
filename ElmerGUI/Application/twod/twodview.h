@@ -59,6 +59,8 @@ public slots:
   void statusMessage(QString message);
   void openSlot();
   void helpSlot();
+  void addPointSlot();
+  void addCurveSlot();
 
 private:
   void createActions();
@@ -67,9 +69,11 @@ private:
 
   RenderArea *renderArea;
   CurveEditor *curveEditor;
-  QAction *quitAction;
-  QAction *fitAction;
   QAction *openAction;
+  QAction *quitAction;
+  QAction *addPointAction;
+  QAction *addCurveAction;
+  QAction *fitAction;
   QAction *drawPointsAction;
   QAction *drawSplinesAction;
   QAction *drawTangentsAction;
@@ -78,6 +82,7 @@ private:
   QAction *drawMaterialNumbersAction;
   QAction *helpAction;
   QMenu *fileMenu;
+  QMenu *editMenu;
   QMenu *viewMenu;
   QMenu *helpMenu;
 };

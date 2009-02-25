@@ -50,8 +50,8 @@ CurveEditor::CurveEditor(QWidget *parent)
   pTable = new QTableWidget(0, 3, this);
   cTable = new QTableWidget(0, 6, this);
 
-  addTab(cTable, tr("Curves"));
   addTab(pTable, tr("Points"));
+  addTab(cTable, tr("Curves"));
 
   connect(cTable, SIGNAL(cellChanged(int, int)), this, SLOT(cCellChanged(int, int)));
   connect(pTable, SIGNAL(cellChanged(int, int)), this, SLOT(pCellChanged(int, int)));
@@ -240,4 +240,34 @@ void CurveEditor::cCellChanged(int row, int col)
     p2 = item5->text().toInt();
 
   renderArea->modifyCurve(row, in, out, np, p0, p1, p2);
+}
+
+void CurveEditor::addPoint()
+{
+  int i = pTable->rowCount();
+  
+  pTable->insertRow(i);
+  pTable->setRowHeight(i, 20);
+  QTableWidgetItem *item;
+
+  for(int j = 0; j < 3; j++) {
+    item = new QTableWidgetItem;
+    item->setText("-");
+    pTable->setItem(i, j, item);
+  }
+}
+
+void CurveEditor::addCurve()
+{
+  int i = cTable->rowCount();
+  
+  cTable->insertRow(i);
+  cTable->setRowHeight(i, 20);
+  QTableWidgetItem *item;
+
+  for(int j = 0; j < 6; j++) {
+    item = new QTableWidgetItem;
+    item->setText("-");
+    cTable->setItem(i, j, item);
+  }
 }

@@ -62,6 +62,10 @@ RenderArea::RenderArea(QWidget *parent)
     readSlot(args.at(1));
     fitSlot();
   }
+
+  reading = false;
+  
+  fitSlot();
 }
 
 RenderArea::~RenderArea()
@@ -108,6 +112,10 @@ void RenderArea::paintEvent(QPaintEvent * /* event */)
     int idx = splines.keys().at(i);
     Spline s = splines.value(idx);
     
+    if(!points.contains(s.p[0])) continue;
+    if(!points.contains(s.p[1])) continue;
+    if((s.np == 3) && !points.contains(s.p[2])) continue;
+
     QPointF p0 = points.value(s.p[0]);
     QPointF p1 = points.value(s.p[1]);
     QPointF p2 = points.value(s.p[2]);
@@ -207,7 +215,7 @@ void RenderArea::paintEvent(QPaintEvent * /* event */)
   
   // Draw spline path:
   //-------------------
-  painter.setPen(splinePen);  
+  painter.setPen(splinePen);
   painter.drawPath(path);
 
   // Draw points:
@@ -217,6 +225,8 @@ void RenderArea::paintEvent(QPaintEvent * /* event */)
   painter.setPen(pointPen);
   for(int i = 0; i < points.keys().size(); i++) {
     int idx = points.keys().at(i);
+    if(idx < 1) continue;
+
     QPointF p = points.value(idx);
     QPointF q = mapToViewport(p);
     
@@ -366,10 +376,10 @@ QPointF RenderArea::mapToRenderport(QPointF point) const
 
 void RenderArea::fitSlot()
 {
-  double xmin = 9e99;
-  double xmax = -9e99;
-  double ymin = 9e99;
-  double ymax = -9e99;
+  double xmin = 9e9;
+  double xmax = -9e9;
+  double ymin = 9e9;
+  double ymax = -9e9;
 
   for(int i = 0; i < points.keys().size(); i++) {
     int idx = points.keys().at(i);
@@ -380,10 +390,17 @@ void RenderArea::fitSlot()
     ymin = qMin(ymin, p.y());
     ymax = qMax(ymax, p.y());
   }
-  
+
+  if(points.keys().size() < 1) {
+    xmin = 0;
+    xmax = 1;
+    ymin = 0;
+    ymax = 1;
+  }
+
   double width = xmax - xmin;
   double height = ymax - ymin;
-  
+
   double oh = qMax(width, height) * 0.1;
 
   renderport.setRect(xmin-oh, ymin-oh, width+2*oh, height+2*oh);
@@ -410,11 +427,11 @@ void RenderArea::readSlot(QString fileName)
   double x, y;
   QPointF p;
   Spline s;
-  int countSplines = 0;
 
   // Parse input file:
   //-------------------
   bool correctVersion = false;
+  int countSplines = 0;
 
   while(!file.atEnd()) {
     QByteArray line = file.readLine();
@@ -612,7 +629,9 @@ void RenderArea::setCurveEditor(CurveEditor *curveEditor)
 void RenderArea::modifyPoint(int idx, double x, double y)
 {
   if(reading) return;
+
   points.insert(idx, QPointF(x, y));
+
   update();
 }
 

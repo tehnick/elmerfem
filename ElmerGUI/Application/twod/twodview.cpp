@@ -93,6 +93,14 @@ void TwodView::createActions()
   quitAction->setShortcut(tr("Ctrl+Q"));
   connect(quitAction, SIGNAL(triggered()), this, SLOT(close()));
 
+  addPointAction = new QAction(QIcon(""), tr("&Insert point"), this);
+  addPointAction->setShortcut(tr("Ctrl+P"));
+  connect(addPointAction, SIGNAL(triggered()), this, SLOT(addPointSlot()));
+
+  addCurveAction = new QAction(QIcon(""), tr("&Insert curve"), this);
+  addCurveAction->setShortcut(tr("Ctrl+C"));
+  connect(addCurveAction, SIGNAL(triggered()), this, SLOT(addCurveSlot()));
+
   fitAction =  new QAction(QIcon(""), tr("&Fit to window"), this);
   fitAction->setShortcut(tr("Ctrl+F"));
   connect(fitAction, SIGNAL(triggered()), renderArea, SLOT(fitSlot()));
@@ -139,6 +147,10 @@ void TwodView::createMenus()
   fileMenu->addSeparator();
   fileMenu->addAction(quitAction);
 
+  editMenu = menuBar()->addMenu(tr("&Edit"));
+  editMenu->addAction(addPointAction);
+  editMenu->addAction(addCurveAction);
+
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(drawPointsAction);
   viewMenu->addAction(drawSplinesAction);
@@ -173,6 +185,16 @@ void TwodView::openSlot()
 
   renderArea->readSlot(fileName);
   renderArea->fitSlot();
+}
+
+void TwodView::addPointSlot()
+{
+  curveEditor->addPoint();
+}
+
+void TwodView::addCurveSlot()
+{
+  curveEditor->addCurve();
 }
 
 void TwodView::helpSlot()

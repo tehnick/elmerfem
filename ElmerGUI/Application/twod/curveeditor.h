@@ -58,6 +58,8 @@ public:
   void addCurve(int in, int out, int pts, int *p);
   void modifyPoint(int idx, double x, double y);
   void clearAll();
+  void addPoint();
+  void addCurve();
 
 private slots:
   void cCellChanged(int row, int col);
