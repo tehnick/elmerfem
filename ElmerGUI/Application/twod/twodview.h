@@ -2,7 +2,7 @@
  *                                                                           *
  *  Elmer, A Finite Element Software for Multiphysical Problems              *
  *                                                                           *
- *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland    *
+ *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland   *
  *                                                                           *
  *  This program is free software; you can redistribute it and/or            *
  *  modify it under the terms of the GNU General Public License              *
@@ -61,6 +61,8 @@ public slots:
   void helpSlot();
   void addPointSlot();
   void addCurveSlot();
+  void deletePointSlot();
+  void deleteCurveSlot();
 
 private:
   void createActions();
@@ -73,6 +75,8 @@ private:
   QAction *quitAction;
   QAction *addPointAction;
   QAction *addCurveAction;
+  QAction *deletePointAction;
+  QAction *deleteCurveAction;
   QAction *fitAction;
   QAction *drawPointsAction;
   QAction *drawSplinesAction;

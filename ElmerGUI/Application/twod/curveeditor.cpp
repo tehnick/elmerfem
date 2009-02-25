@@ -2,7 +2,7 @@
  *                                                                           *
  *  Elmer, A Finite Element Software for Multiphysical Problems              *
  *                                                                           *
- *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland    *
+ *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland   *
  *                                                                           *
  *  This program is free software; you can redistribute it and/or            *
  *  modify it under the terms of the GNU General Public License              *
@@ -38,6 +38,7 @@
  *                                                                           *
  *****************************************************************************/
 #include <QTableWidget>
+#include <QModelIndex>
 #include <iostream>
 #include "curveeditor.h"
 #include "renderarea.h"
@@ -270,4 +271,46 @@ void CurveEditor::addCurve()
     item->setText("-");
     cTable->setItem(i, j, item);
   }
+}
+
+void CurveEditor::deletePoint()
+{
+  QModelIndex index = pTable->currentIndex();
+  int row = index.row();
+
+  // Check if the point is attached to a curve:
+  //--------------------------------------------
+  bool attached = false;
+  int curve = -1;
+  int idx = pTable->item(row, 0)->text().toInt();
+  for(int i = 0; i < cTable->rowCount(); i++) {
+    int p0 = cTable->item(i, 3)->text().toInt();
+    int p1 = cTable->item(i, 4)->text().toInt();
+    int p2 = cTable->item(i, 5)->text().toInt();
+    if((p0 == idx) || (p1 == idx) || (p2 == idx)) {
+      curve = i + 1;
+      attached = true;
+      break;
+    }
+  }
+
+  // Do not delete if attached:
+  //---------------------------
+  if(attached) {
+    QString message = "Point is attached to curve " + QString::number(curve);
+    cout << message.toAscii().data() << endl;
+    emit(statusMessage(message));
+    return;
+  }
+
+  pTable->removeRow(row);
+  renderArea->updatePoints(pTable);
+}
+
+void CurveEditor::deleteCurve()
+{
+  QModelIndex index = cTable->currentIndex();
+  int row = index.row();
+  cTable->removeRow(row);
+  renderArea->updateCurves(cTable);
 }

@@ -42,6 +42,7 @@
 #include <QFile>
 #include <QTextStream>
 #include <QCoreApplication>
+#include <QTableWidget>
 #include <iostream>
 #include <math.h>
 #include "renderarea.h"
@@ -648,6 +649,44 @@ void RenderArea::modifyCurve(int idx, int in, int out, int np, int p0, int p1, i
   s.p[2] = p2;
 
   splines.insert(idx+1, s);
+
+  update();
+}
+
+void RenderArea::updatePoints(QTableWidget *table)
+{
+  points.clear();
+
+  for(int i = 0; i < table->rowCount(); i++) {
+    int idx = table->item(i, 0)->text().toInt();
+    double x = table->item(i, 1)->text().toDouble();
+    double y = table->item(i, 2)->text().toDouble();
+    points.insert(idx, QPointF(x, y));
+  }
+
+  update();
+
+}
+
+void RenderArea::updateCurves(QTableWidget *table)
+{
+  Spline s;
+
+  splines.clear();
+
+  for(int i = 0; i < table->rowCount(); i++) {
+    s.in = table->item(i, 0)->text().toInt();
+    s.out = table->item(i, 1)->text().toInt();
+    s.np = table->item(i, 2)->text().toInt();
+
+    if(s.np < 2) s.np = 2;
+    if(s.np > 3) s.np = 3;
+
+    for(int j = 0; j < s.np; j++)
+      s.p[j] = table->item(i, 3+j)->text().toInt();
+
+    splines.insert(i, s);
+  }
 
   update();
 }

@@ -44,6 +44,7 @@
 #include <QHash>
 
 class CurveEditor;
+class QTableWidget;
 
 class Spline
 {
@@ -65,6 +66,8 @@ class RenderArea : public QWidget
   void setCurveEditor(CurveEditor *curveEditor);
   void modifyPoint(int idx, double x, double y);
   void modifyCurve(int idx, int in, int out, int np, int p1, int p2, int p3);
+  void updatePoints(QTableWidget *table);
+  void updateCurves(QTableWidget *table);
 
  public slots:
   void fitSlot();

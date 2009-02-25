@@ -2,7 +2,7 @@
  *                                                                           *
  *  Elmer, A Finite Element Software for Multiphysical Problems              *
  *                                                                           *
- *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland    *
+ *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland   *
  *                                                                           *
  *  This program is free software; you can redistribute it and/or            *
  *  modify it under the terms of the GNU General Public License              *
@@ -60,6 +60,11 @@ public:
   void clearAll();
   void addPoint();
   void addCurve();
+  void deletePoint();
+  void deleteCurve();
+
+signals:
+  void statusMessage(QString message);
 
 private slots:
   void cCellChanged(int row, int col);

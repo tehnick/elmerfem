@@ -2,7 +2,7 @@
  *                                                                           *
  *  Elmer, A Finite Element Software for Multiphysical Problems              *
  *                                                                           *
- *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland    *
+ *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland   *
  *                                                                           *
  *  This program is free software; you can redistribute it and/or            *
  *  modify it under the terms of the GNU General Public License              *
@@ -62,6 +62,9 @@ TwodView::TwodView(QWidget *parent)
   connect(renderArea, SIGNAL(statusMessage(QString)), this, SLOT(statusMessage(QString)));
 
   curveEditor = new CurveEditor;
+
+  connect(curveEditor, SIGNAL(statusMessage(QString)), this, SLOT(statusMessage(QString)));
+
   QDockWidget *dockWidget = new QDockWidget("Editor", this);
   dockWidget->setAllowedAreas(Qt::RightDockWidgetArea);
   dockWidget->setWidget(curveEditor);  
@@ -100,6 +103,14 @@ void TwodView::createActions()
   addCurveAction = new QAction(QIcon(""), tr("&Insert curve"), this);
   addCurveAction->setShortcut(tr("Ctrl+C"));
   connect(addCurveAction, SIGNAL(triggered()), this, SLOT(addCurveSlot()));
+
+  deletePointAction = new QAction(QIcon(""), tr("&Delete point"), this);
+  deletePointAction->setShortcut(tr("Ctrl+Z"));
+  connect(deletePointAction, SIGNAL(triggered()), this, SLOT(deletePointSlot()));
+
+  deleteCurveAction = new QAction(QIcon(""), tr("&Delete curve"), this);
+  deleteCurveAction->setShortcut(tr("Ctrl+X"));
+  connect(deleteCurveAction, SIGNAL(triggered()), this, SLOT(deleteCurveSlot()));
 
   fitAction =  new QAction(QIcon(""), tr("&Fit to window"), this);
   fitAction->setShortcut(tr("Ctrl+F"));
@@ -150,6 +161,9 @@ void TwodView::createMenus()
   editMenu = menuBar()->addMenu(tr("&Edit"));
   editMenu->addAction(addPointAction);
   editMenu->addAction(addCurveAction);
+  editMenu->addSeparator();
+  editMenu->addAction(deletePointAction);
+  editMenu->addAction(deleteCurveAction);
 
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(drawPointsAction);
@@ -195,6 +209,16 @@ void TwodView::addPointSlot()
 void TwodView::addCurveSlot()
 {
   curveEditor->addCurve();
+}
+
+void TwodView::deletePointSlot()
+{
+  curveEditor->deletePoint();
+}
+
+void TwodView::deleteCurveSlot()
+{
+  curveEditor->deleteCurve();
 }
 
 void TwodView::helpSlot()
