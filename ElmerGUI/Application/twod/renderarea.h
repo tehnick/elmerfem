@@ -72,6 +72,7 @@ class RenderArea : public QWidget
  public slots:
   void fitSlot();
   void readSlot(QString fileName);
+  void saveSlot(QString fileName);
   void drawPointsSlot(bool state);
   void drawSplinesSlot(bool state);
   void drawTangentsSlot(bool state);

@@ -92,6 +92,10 @@ void TwodView::createActions()
   openAction->setShortcut(tr("Ctrl+O"));
   connect(openAction, SIGNAL(triggered()), this, SLOT(openSlot()));
 
+  saveAction = new QAction(QIcon(""), tr("&Save as..."), this);
+  saveAction->setShortcut(tr("Ctrl+S"));
+  connect(saveAction, SIGNAL(triggered()), this, SLOT(saveSlot()));
+
   quitAction = new QAction(QIcon(""), tr("&Quit"), this);
   quitAction->setShortcut(tr("Ctrl+Q"));
   connect(quitAction, SIGNAL(triggered()), this, SLOT(close()));
@@ -155,6 +159,7 @@ void TwodView::createMenus()
 {
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(openAction);
+  fileMenu->addAction(saveAction);
   fileMenu->addSeparator();
   fileMenu->addAction(quitAction);
 
@@ -188,6 +193,16 @@ void TwodView::createStatusBar()
 void TwodView::statusMessage(QString message)
 {
   statusBar()->showMessage(message);
+}
+
+void TwodView::saveSlot()
+{
+  QString fileName = QFileDialog::getSaveFileName(this, tr("Save file"), "", tr("Geometry Input Files (*.in2d)"));
+
+  if(fileName.isEmpty())
+    return;
+
+  renderArea->saveSlot(fileName);
 }
 
 void TwodView::openSlot()

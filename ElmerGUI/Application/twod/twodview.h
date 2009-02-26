@@ -58,6 +58,7 @@ public:
 public slots:
   void statusMessage(QString message);
   void openSlot();
+  void saveSlot();
   void helpSlot();
   void addPointSlot();
   void addCurveSlot();
@@ -72,6 +73,7 @@ private:
   RenderArea *renderArea;
   CurveEditor *curveEditor;
   QAction *openAction;
+  QAction *saveAction;
   QAction *quitAction;
   QAction *addPointAction;
   QAction *addCurveAction;

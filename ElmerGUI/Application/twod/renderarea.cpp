@@ -409,11 +409,54 @@ void RenderArea::fitSlot()
   update();
 }
 
+void RenderArea::saveSlot(QString fileName)
+{
+  QFile file(fileName);
+
+  if(!file.open(QIODevice::WriteOnly | QIODevice::Text))
+    return;
+
+  QTextStream out(&file);
+
+  out << "splinecurves2dv2" << endl;
+  out << 1 << endl;
+  out << endl;
+
+  out << "points" << endl;
+  for(int i = 0; i < points.keys().size(); i++) {
+    int idx = points.keys().at(i);
+    QPointF p = points.value(idx);
+    out << idx << " " << p.x() << " " << p.y() << endl;
+  }
+
+  out << endl;
+
+  out << "segments" << endl;
+  for(int i = 0; i < splines.keys().size(); i++) {
+    int idx = splines.keys().at(i);
+    Spline s = splines.value(idx);
+    out << s.out << " " << s.in << " " << s.np;
+    for(int j = 0; j < s.np; j++)
+      out << " " << s.p[j];
+    out << " -bc=" << idx << endl;
+  }
+
+  out << endl;
+  out << "materials" << endl;
+  for(int i = 0; i < bodies.size(); i++) {
+    if(bodies.at(i) == 0) continue;
+    out << bodies.at(i) << " material" << bodies.at(i);
+    out << " -maxh=0.1" << endl;
+  }
+
+  file.close();
+}
+
 void RenderArea::readSlot(QString fileName)
 {
   QFile file(fileName);
 
-  if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+  if(!file.open(QIODevice::ReadOnly | QIODevice::Text))
     return;
 
   points.clear();
