@@ -162,7 +162,7 @@ CONTAINS
     INTEGER :: MaxDGDOFs, MaxNDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
     INTEGER :: i,j,k,l,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat,Maxdim
 
-    LOGICAL :: Found, BandwidthOptimize, EigAnal, ComplexFlag, &
+    LOGICAL :: Found, Stat, BandwidthOptimize, EigAnal, ComplexFlag, &
     MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal, MGAlgebraic
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str,eq,var_name, tmpname
@@ -624,6 +624,7 @@ CONTAINS
       Solver % Variable % Name = ''
       Solver % Variable % NameLen = 0
       Solver % Variable % Norm = 0.0d0
+      NULLIFY( Solver % Variable % Perm )
       NULLIFY( Solver % Variable % Values )
       NULLIFY( Solver % Matrix )
      
@@ -632,6 +633,9 @@ CONTAINS
       ! It may be a normal field variable or a global (0D) variable
       !------------------------------------------------------------------------
       var_name = ListGetString( Solver % Values, 'Variable', Found )
+
+	print *,'name: ',Found,TRIM(var_name)
+
       IF ( Found ) THEN
         DOFs = ListGetInteger( Solver % Values, 'Variable DOFs', Found, minv=1 )
         IF ( .NOT. Found ) THEN
@@ -675,6 +679,20 @@ CONTAINS
         ! If the variable is a field variable create a permutation and matrix related to it
         !----------------------------------------------------------------------------------
         eq = ListGetString( Solver  % Values, 'Equation', Found )
+	print *,'eq Found',Found,eq
+	IF( Found ) THEN
+	  Found = .FALSE.
+ 	  DO i=1, CurrentModel % NumberOfEquations
+            IF( ListGetLogical( CurrentModel % Equations(i) % Values, TRIM(eq), Stat)) THEN
+              Found = .TRUE.
+              EXIT
+            END IF	
+          END DO
+        END IF
+	print *,'really found eq',Found
+
+
+
         IF( Found ) THEN
           IF ( ASSOCIATED( Solver % Variable ) ) THEN
             Perm => Solver % Variable % Perm
