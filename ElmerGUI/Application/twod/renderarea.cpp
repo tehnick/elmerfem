@@ -232,7 +232,7 @@ void RenderArea::paintEvent(QPaintEvent * /* event */)
     QPointF q = mapToViewport(p);
     
     if(drawPoints)
-      painter.drawEllipse(q, pointRadius, pointRadius);
+      painter.drawEllipse(int(q.x()), int(q.y()), int(pointRadius), int(pointRadius));
     
     if(drawPointNumbers)
       painter.drawText(q + offset2, QString::number(idx));
