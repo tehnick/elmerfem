@@ -38,137 +38,6 @@
 ! *
 ! ****************************************************************************/
  
-!------------------------------------------------------------------------------
-! Subroutines Parameteri are for cases where the parameter directly
-! is associated to some coefficient. Then the paremeter is constant 
-! and may be fetched with these following 5 subroutines.
-
-FUNCTION Parameter1( Model, n, x ) RESULT( param )
-  USE Types
-  USE Lists
-
-  TYPE(Model_t) :: Model
-  INTEGER :: n
-  REAL(KIND=dp) :: x,param
-  
-  param = ListGetConstReal(Model % Simulation,'Parameter 1')
-
-END FUNCTION Parameter1
-!------------------------------------------------------------------------------
-FUNCTION Parameter2( Model, n, x ) RESULT( param )
-  USE Types
-  USE Lists
-
-  TYPE(Model_t) :: Model
-  INTEGER :: n
-  REAL(KIND=dp) :: x,param
-  
-  param = ListGetConstReal(Model % Simulation,'Parameter 2')
-
-END FUNCTION Parameter2
-!------------------------------------------------------------------------------
-FUNCTION Parameter3( Model, n, x ) RESULT( param )
-  USE Types
-  USE Lists
-
-  TYPE(Model_t) :: Model
-  INTEGER :: n
-  REAL(KIND=dp) :: x,param
-  
-  param = ListGetConstReal(Model % Simulation,'Parameter 3')
-
-END FUNCTION Parameter3
-!------------------------------------------------------------------------------
-FUNCTION Parameter4( Model, n, x ) RESULT( param )
-  USE Types
-  USE Lists
-
-  TYPE(Model_t) :: Model
-  INTEGER :: n
-  REAL(KIND=dp) :: x,param
-  
-  param = ListGetConstReal(Model % Simulation,'Parameter 4')
-
-END FUNCTION Parameter4
-!------------------------------------------------------------------------------
-FUNCTION Parameter5( Model, n, x ) RESULT( param )
-  USE Types
-  USE Lists
-
-  TYPE(Model_t) :: Model
-  INTEGER :: n
-  REAL(KIND=dp) :: x,param
-  
-  param = ListGetConstReal(Model % Simulation,'Parameter 5')
-
-END FUNCTION Parameter5
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
-! This subroutine could be used "before all" in order to initialize
-! the parameters. The parameters may be given or also read from a file
-! that has previously been saved by the optimization routine.
-!
-SUBROUTINE GuessOptimum( Model,Solver,dt,TransientSimulation )
-!------------------------------------------------------------------------------
-
-  USE Types
-  USE Lists
-  USE MeshUtils
-  USE Integration
-  USE ElementDescription
-  USE SolverUtils
-
-  IMPLICIT NONE
-!------------------------------------------------------------------------------
-  TYPE(Solver_t), TARGET :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-  
-  INTEGER :: i,n
-  REAL(KIND=dp) :: parami
-  REAL(KIND=dp), ALLOCATABLE :: param(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: Name
-  LOGICAL :: fileis, GotIt
-  CHARACTER(LEN=MAX_NAME_LEN) :: GuessFile
-
-  GuessFile = ListGetString(Solver % Values,'Filename',GotIt )
-  IF(.NOT. GotIt) GuessFile = 'optimize-best.dat'
-
-  INQUIRE (FILE=GuessFile, EXIST=fileis)
-
-  IF(fileis) THEN
-    OPEN(10,FILE=GuessFile)
-    READ (10,*) n
-    ALLOCATE (param(n))
-    DO i=1,n
-      READ (10,*) param(i)
-    END DO
-    CLOSE(10)
-
-#if 0
-    PRINT *,'Initial Guess for parameters',param
-#endif
-
-    DO i=1,n
-      WRITE (Name,'(A,I2)') 'Parameter',i          
-      CALL ListAddConstReal(Model % Simulation,Name,param(i))
-    END DO
-  ELSE
-    i = 0
-    GotIt = .TRUE.
-    DO WHILE(GotIt) 
-      i = i+1
-      WRITE (Name,'(A,I2)') 'Initial Parameter',i
-      Parami = ListGetConstReal(Solver % Values,Name,GotIt)
-      WRITE (Name,'(A,I2)') 'Parameter',i
-      CALL ListAddConstReal(Model % Simulation,Name,Parami)
-    END DO
-  END IF
-
-END SUBROUTINE GuessOptimum
-
 
 !------------------------------------------------------------------------------
 SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
@@ -208,111 +77,154 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
-  LOGICAL :: gotIt, SubroutineVisited=.FALSE.
+  LOGICAL :: gotIt, OptimalFinish, InternalHistory, SaveHistory
   LOGICAL, ALLOCATABLE :: FixedParam(:)
   INTEGER :: i,j,k,l,NoParam, NoValues, NoFreeParam, OptimizationsDone=0, Direction=1
-  REAL(KIND=dp), ALLOCATABLE :: Param(:), MinParam(:), MaxParam(:), PrevParam(:,:), &
+  REAL(KIND=dp), POINTER :: Param(:)
+  REAL(KIND=dp), ALLOCATABLE :: MinParam(:), MaxParam(:), PrevParam(:,:), &
       PrevCost(:), BestParam(:)
-  REAL(KIND=dp) :: Cost, SCALE, Step, Eps, MinCost, x(10), c(10)
-  CHARACTER(LEN=MAX_NAME_LEN) :: Name, Method
+  REAL(KIND=dp) :: Cost, CostTarget, Extent, Step, Eps, MinCost, x(10), c(10)
+  CHARACTER(LEN=MAX_NAME_LEN) :: Name, ParamStr, Method
   CHARACTER(LEN=MAX_NAME_LEN) :: BestFile, HistoryFile
   
-  SAVE SubroutineVisited, Param, MinParam, MaxParam, PrevParam, NoParam, &
+  SAVE Param, MinParam, MaxParam, PrevParam, NoParam, &
       OptimizationsDone, Method, Direction, x, c, PrevCost, Eps, &
-      FixedParam, NoFreeParam, MinCost, BestParam
+      FixedParam, NoFreeParam, MinCost, BestParam, NoValues, &
+      OptimalFinish, InternalHistory
 
-!------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------
+  ! In the 1st round perform initializations 
+  !------------------------------------------------------------------------------
+  IF( OptimizationsDone == 0) THEN
 
-
-
-  OptimizationsDone = OptimizationsDone + 1
-
-  IF(.NOT. SubroutineVisited) THEN
-    SubroutineVisited = .TRUE.
-    NoParam = ListGetInteger(Solver % Values,'No Parameter')
-
+    NoParam = Solver % Variable % DOFs
     IF(NoParam == 0) THEN
-      CALL Warn('FindOptimum','There are no parameters to optimize!')
-      RETURN
+      CALL Fatal('FindOptimum','There are no parameters to optimize!')
     END IF
 
-    NoValues = ListGetInteger(Model % Simulation,'Steady State Max Iterations')
-    ALLOCATE( Param(NoParam), MinParam(NoParam), BestParam(NoParam), MaxParam(NoParam), &
-        PrevParam(NoValues,NoParam), PrevCost(NoValues), FixedParam(NoParam))
+    Param => Solver % Variable % Values
+    IF( SIZE( Param) /= NoParam ) THEN
+      CALL Fatal('FindOptimum','The variable vector is of wrong size')
+    END IF
 
+    OptimalFinish = ListGetLogical( Solver % Values,'Optimal Finish',GotIt)
+    NoValues = ListGetInteger(Model % Simulation,'Timestep Intervals')
+
+    ALLOCATE( MinParam(NoParam), BestParam(NoParam), MaxParam(NoParam), &
+        FixedParam(NoParam))
+
+    MinParam = 0.0_dp
+    BestParam = 0.0_dp
+    MaxParam = 0.0_dp
+    FixedParam = .FALSE.
+    MinCost = HUGE(MinCost)
+   
     NoFreeParam = 0
     DO i=1,NoParam
       IF(i < 10) THEN
-        WRITE (Name,'(A,I2)') 'Min Parameter',i
-        MinParam(i) = ListGetConstReal(Solver % Values,Name)
-
-        WRITE (Name,'(A,I2)') 'Max Parameter',i
-        MaxParam(i) = ListGetConstReal(Solver % Values,Name)
-
-        WRITE (Name,'(A,I2)') 'Parameter',i
-        Param(i) = ListGetConstReal(Model % Simulation,Name,GotIt)
-
-        WRITE (Name,'(A,I2)') 'Fixed Parameter',i
-        FixedParam(i) = ListGetLogical(Solver % Values,Name,GotIt)        
-        IF(.NOT. FixedParam(i)) NoFreeParam = NoFreeParam + 1
-      ELSE
-        CALL Warn('FindOptimum','Code the case for NoParam > 10 as well!')
-        RETURN
+        WRITE( ParamStr,'(A,I2)') 'Parameter',i
+      ELSE IF( i < 100 ) THEN
+        WRITE( ParamStr,'(A,I3)') 'Parameter',i 
+      ELSE IF( i < 1000 ) THEN
+        WRITE( ParamStr,'(A,I4)') 'Parameter',i
       END IF
+
+      Param(i) = ListGetConstReal(Solver % Values,'Fixed '//TRIM(ParamStr),GotIt)
+      IF( GotIt ) THEN
+        FixedParam(i) = .TRUE.
+      ELSE
+        MinParam(i) = ListGetConstReal(Solver % Values,'Min '//TRIM(ParamStr))
+        MaxParam(i) = ListGetConstReal(Solver % Values,'Max '//TRIM(ParamStr))
+        NoFreeParam = NoFreeParam + 1
+        Param(i) = ListGetConstReal(Solver % Values,'Initial '//TRIM(ParamStr),GotIt)
+        IF(.NOT. GotIt ) THEN
+          Param(i) = 0.5_dp * ( MinParam(i) + MaxParam(i) ) 
+        END IF
+      END IF
+
+      IF( ListGetLogical(Solver % Values,'Optimal Restart',GotIt) ) THEN
+        CALL GuessOptimum()
+      END IF
+
     END DO
 
-    MinCost = HUGE(MinCost)
     Method = ListGetString(Solver % Values,'Optimization Method')
+
+    ! Internal history could be used in more complicated optimization routines
+    !--------------------------------------------------------------------------
+    InternalHistory = ListGetLogical( Solver % Values,'Internal History',GotIt)    
+    IF( Method == 'bisect') InternalHistory = .TRUE.
+    IF( InternalHistory ) THEN
+      ALLOCATE( PrevParam(NoValues,NoParam), PrevCost(NoValues))
+    END IF
+
+    PRINT *,'min',minparam
+    PRINT *,'max',maxparam
+    PRINT *,'param',param
+    PRINT *,'fixedparam',fixedparam
+    PRINT *,'method: ',method
   END IF
 
-  Cost = ListGetConstReal(Model % Simulation,'Cost Function',GotIt)
-  IF(.NOT. GotIt) THEN
-    Name = ListGetString(Solver % Values,'Cost Function Name',GotIt)
-    IF(.NOT. GotIt) CALL Fatal('FindOptimum','Give Cost Function or its name')
-    Cost = ListGetConstReal(Model % Simulation,Name,GotIt)
-    IF(.NOT. GotIt) CALL Fatal('FindOptimum','Cost with the given name was not found')
-  END IF
-
-  IF(Cost < MinCost) THEN
-    MinCost = Cost
-    BestParam(1:NoParam) = Param(1:NoParam)
-
-    WRITE(Message,'(A,ES15.6E3)') 'Found New Minimum Set',MinCost
-    CALL Info('FindOptimum',Message,Level=4)
-
-    BestFile = ListGetString(Solver % Values,'Filename',GotIt )
-    IF(.NOT. GotIt) BestFile = 'optimize-best.dat'
-
-    OPEN (10, FILE=BestFile, STATUS='REPLACE')
-    WRITE (10,'(I)') NoParam
-    DO i=1,NoParam
-      WRITE (10,'(ES17.8E3)') Param(i)
-    END DO
-    WRITE (10,'(ES17.8E3)') Cost
-    CLOSE(10)
-  END IF
-
-
-  PrevParam(OptimizationsDone,1:NoParam) = Param(1:NoParam)
-  PrevCost(OptimizationsDone) = Cost
-
-  HistoryFile = ListGetString(Solver % Values,'History File',GotIt )
-  IF(.NOT. GotIt) HistoryFile = 'optimize.dat'
-
-  IF(OptimizationsDone == 1) THEN
-    OPEN (10, FILE=HistoryFile)
-  ELSE
-    OPEN (10, FILE=HistoryFile,POSITION='APPEND')
-  END IF
+  !------------------------------------------------------------------------------
+  ! If visiting for the second time inspect how good the previous solution was
+  !------------------------------------------------------------------------------
+  IF( OptimizationsDone > 0 ) THEN
+    Cost = ListGetConstReal(Model % Simulation,'Cost Function',GotIt)
+    IF(.NOT. GotIt) THEN
+      Name = ListGetString(Solver % Values,'Cost Function Name',GotIt)
+      IF(.NOT. GotIt) CALL Fatal('FindOptimum','Give Cost Function or its name')
+      Cost = ListGetConstReal(Model % Simulation,Name,GotIt)     
+      IF(.NOT. GotIt) CALL Fatal('FindOptimum','Cost with the given name was not found')
+    END IF
+    CostTarget = ListGetConstReal( Solver % Values,'Cost Function Target',GotIt)    
+    IF( GotIt ) Cost = ABS( Cost - CostTarget ) 
   
-  WRITE (10,'(ES17.8E3)',advance='no') Cost
-  DO i=1,NoParam
-    WRITE (10,'(ES17.8E3)',advance='no') Param(i)
-  END DO
-  
-  WRITE(10,'(A)') ' '
-  CLOSE(10)
+    PRINT *,'cost',cost,mincost
+        
+    ! Found a new best point
+    !-----------------------
+    IF(Cost < MinCost) THEN
+      MinCost = Cost
+      BestParam(1:NoParam) = Param(1:NoParam)
+      
+      WRITE(Message,'(A,ES15.6E3)') 'Found New Minimum Set',MinCost
+      CALL Info('FindOptimum',Message,Level=4)
 
+      BestFile = ListGetString(Solver % Values,'Best File',GotIt )
+      IF( GotIt ) THEN
+        OPEN (10, FILE=BestFile, STATUS='UNKNOWN')
+        WRITE (10,'(I4)') NoParam
+        DO i=1,NoParam
+          WRITE (10,'(ES17.8E3)') Param(i)
+        END DO
+        WRITE (10,'(ES17.8E3)') Cost
+        CLOSE(10)
+      END IF
+    END IF
+
+    IF( InternalHistory ) THEN
+      PrevParam(OptimizationsDone,1:NoParam) = Param(1:NoParam)
+      PrevCost(OptimizationsDone) = Cost
+    END IF
+
+    ! Save the results to a file
+    !---------------------------
+    HistoryFile = ListGetString(Solver % Values,'History File',GotIt )
+    IF( GotIt ) THEN
+      IF(OptimizationsDone == 1) THEN
+        OPEN (10, FILE=HistoryFile)
+      ELSE
+        OPEN (10, FILE=HistoryFile,POSITION='APPEND')
+      END IF
+      
+      WRITE (10,'(ES17.8E3)',advance='no') Cost
+      DO i=1,NoParam
+        WRITE (10,'(ES17.8E3)',advance='no') Param(i)
+      END DO
+      WRITE(10,'(A)') ' '
+      CLOSE(10)
+    END IF
+  END IF
 
   CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
   WRITE( Message, '(A,I2,A,A)' ) 'Manipulating',NoFreeParam,' parameters using ',TRIM(Method) 
@@ -320,28 +232,33 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   WRITE( Message, '(A,ES15.6E3)' ) 'Lowest cost so far is ',MinCost
   CALL Info( 'FindOptimum', Message, Level=4 )
   CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
-
+  
 
   SELECT CASE(Method)
     
   CASE ('random')
     DO i=1,NoParam
-      CALL RANDOM_NUMBER(SCALE)
-      Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * SCALE
+      CALL RANDOM_NUMBER(Extent)
+      Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * Extent
     END DO
     
-  CASE ('scan')
+  CASE ('scanning')
     IF(NoFreeParam /= 1) CALL Fatal('FindOptimum',&
         'Option scan implemented only for one parameter')
     DO i=1,NoParam
       IF(.NOT. FixedParam(i)) EXIT
     END DO
-    PRINT *,'Active Parameter',i
-    SCALE = (OptimizationsDone+1)*1.0d0/(NoValues-1)
-    Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * SCALE
+    PRINT *,'Active Parameter',i,NoValues,OptimizationsDone
+    IF( OptimalFinish ) THEN
+      Extent = OptimizationsDone*1.0_dp/(NoValues-2)
+    ELSE
+      Extent = OptimizationsDone*1.0_dp/(NoValues-1)
+    END IF
+    PRINT *,'extent',extent,MinParam(i),MaxParam(i)
+    Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * Extent
     
   CASE ('genetic')
-    CALL GeneticOptimize(NoParam, OptimizationsDone, Param, Cost)
+    CALL GeneticOptimize(NoParam, OptimizationsDone+1, Param, Cost)
     DO i=1,NoParam 
       Param(i) = MAX(MinParam(i),Param(i))
       Param(i) = MIN(MaxParam(i),Param(i))
@@ -355,21 +272,23 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       IF(.NOT. FixedParam(j)) EXIT
     END DO
     PRINT *,'Active Parameter For Bisection Search',j
-    CALL BisectOptimize(OptimizationsDone)
+    PRINT *,'Interval',MinParam(1),MaxParam(1)
+    CALL BisectOptimize(OptimizationsDone+1)
     
   END SELECT
 
+  IF( OptimalFinish .AND. OptimizationsDone == NoValues - 1 ) THEN
+    CALL Info('FindOptimum','Peforming the last step with the best so far')
+    Param = BestParam
+  END IF
 
-  DO i=1,NoParam
-    WRITE (Name,'(A,I2)') 'Parameter',i          
-    CALL ListAddConstReal(Model % Simulation,Name,Param(i))
-  END DO
+  IF(.TRUE.) THEN
+    WRITE (*,'(A,ES12.4)') 'Minimum Cost',MinCost
+    WRITE (*,'(A,4ES12.4)') 'Best set',BestParam
+    WRITE (*,'(A,4ES12.4)') 'Test set',Param
+  END IF
 
-#if 0
-  WRITE (*,'(A,ES12.4)') 'Minimum Cost',MinCost
-  WRITE (*,'(A,4ES12.4)') 'Best set',BestParam
-  WRITE (*,'(A,4ES12.4)') 'Test set',Param
-#endif
+  OptimizationsDone = OptimizationsDone + 1
 
 CONTAINS
 
@@ -414,10 +333,10 @@ CONTAINS
       popcross = ListGetConstReal(Solver % Values,'Population Crossover',GotIt)
       IF(.NOT. GotIt) popcross = 0.1
       ALLOCATE(pars(parsize,popsize),vals(popsize),mask(parsize))
-#if 0
-      PRINT *,'popsize',popsize,'parsize',parsize
-      PRINT *,'popcoeff',popcoeff,'popcross',popcross
-#endif
+      IF(.FALSE.) THEN
+        PRINT *,'popsize',popsize,'parsize',parsize
+        PRINT *,'popcoeff',popcoeff,'popcross',popcross
+      END IF
     END IF
     
     ! Read the cases into the population
@@ -438,9 +357,9 @@ CONTAINS
       Param = MinParam + (MaxParam-MinParam) * rnd(parsize)
     END IF
 
-    ! Here use genetic algoritms 
+    ! Here use genetic algorithms 
     IF(no >= popsize) THEN
-      /* Find the three vectors to recombine */
+      ! Find the three vectors to recombine 
       i0 = MOD(no,popsize) + 1 
       DO
         i1 = idx(popsize)
@@ -473,6 +392,9 @@ CONTAINS
   SUBROUTINE BisectOptimize(no)
 
     INTEGER :: no
+    REAL(KIND=dp) :: step 
+
+    SAVE step
 
     IF(no == 1) THEN
       step = ListGetConstReal(Solver % Values,'Step Size',GotIt)
@@ -482,56 +404,92 @@ CONTAINS
     
     IF(no <= 3) THEN
       Param(j) = Param(j) + step
-    ELSE IF(ABS(Step) > Eps) THEN
-      IF(no == 4) THEN
-        x(1) = PrevParam(1,j)
-        x(2) = PrevParam(2,j)
-        x(3) = PrevParam(3,j)
-        c(1) = PrevCost(1)
-        c(2) = PrevCost(2)
-        c(3) = PrevCost(3)
-      ELSE
-        x(3) = Param(j)
-        c(3) = Cost
-      END IF
+      RETURN
+    END IF
 
-      ! Order the previous points so that x1 < x2 < x3
-      DO k=1,2 
-        DO i=k+1,3
-          IF(x(i) < x(k)) THEN
-            x(4) = x(k)
-            x(k) = x(i)
-            x(i) = x(4)
-            c(4) = c(k)
-            c(k) = c(i)
-            c(i) = c(4)
-          END IF
-        END DO
+    IF(no == 4) THEN
+      x(1) = PrevParam(1,j)
+      x(2) = PrevParam(2,j)
+      x(3) = PrevParam(3,j)
+      c(1) = PrevCost(1)
+      c(2) = PrevCost(2)
+      c(3) = PrevCost(3)
+    ELSE
+      x(3) = Param(j)
+      c(3) = Cost
+    END IF
+
+    ! Order the previous points so that x1 < x2 < x3
+    DO k=1,2 
+      DO i=k+1,3
+        IF(x(i) < x(k)) THEN
+          x(4) = x(k)
+          x(k) = x(i)
+          x(i) = x(4)
+          c(4) = c(k)
+          c(k) = c(i)
+          c(i) = c(4)
+        END IF
       END DO
-
-      ! Monotonic line segment
-      IF( (c(2)-c(1))*(c(3)-c(2)) > 0.0) THEN
-        IF(c(3) < c(1)) THEN
-          Param(j) = x(3) + SIGN(step,x(3)-x(1))
-          c(1) = c(3)
-          x(1) = x(3)
-        ELSE
-          Param(j) = x(1) + SIGN(step,x(1)-x(3))
-        END IF
-      ELSE IF(c(2) < c(1) .OR. c(2) < c(3)) THEN 
-        IF(c(3) < c(1)) THEN
-          c(1) = c(3)
-          x(1) = x(3)
-        END IF
-        step = (x(2)-x(1))/2.0d0
-        Param(j) = x(1) + SIGN(step,x(2)-x(1))
+    END DO
+    
+    ! Monotonic line segment
+    IF( (c(2)-c(1))*(c(3)-c(2)) > 0.0) THEN
+      IF(c(3) < c(1)) THEN
+        Param(j) = x(3) + SIGN(step,x(3)-x(1))
+        c(1) = c(3)
+        x(1) = x(3)
       ELSE
-        CALL Fatal('FindOptimum','This method cannot handle local maxima')
+        Param(j) = x(1) + SIGN(step,x(1)-x(3))
       END IF
-
+    ELSE IF(c(2) < c(1) .OR. c(2) < c(3)) THEN 
+      IF(c(3) < c(1)) THEN
+        c(1) = c(3)
+        x(1) = x(3)
+      END IF
+      step = (x(2)-x(1))/2.0d0
+      Param(j) = x(1) + SIGN(step,x(2)-x(1))
+    ELSE
+      CALL Fatal('FindOptimum','Bisection method cannot handle local maxima')
     END IF
 
   END SUBROUTINE BisectOptimize
+
+
+
+!--------------------------------------------------------------------------------------
+! This subroutine may be used to continue the optimization from the previous best value
+!--------------------------------------------------------------------------------------
+  SUBROUTINE GuessOptimum( )
+!------------------------------------------------------------------------------
+
+    INTEGER :: i,n
+    REAL(KIND=dp) :: parami
+    REAL(KIND=dp), ALLOCATABLE :: param(:)
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name
+    LOGICAL :: fileis, GotIt
+    CHARACTER(LEN=MAX_NAME_LEN) :: GuessFile
+
+    GuessFile = ListGetString(Solver % Values,'Filename',GotIt )
+    IF(.NOT. GotIt) GuessFile = 'optimize-best.dat'
+
+    INQUIRE (FILE=GuessFile, EXIST=fileis)
+    
+    IF(.NOT. fileis ) THEN
+      CALL Warn('FindOptimum','Previous optimum was not found in: '//TRIM(GuessFile))
+      RETURN
+    END IF
+
+    OPEN(10,FILE=GuessFile)
+    READ (10,*) n
+    ALLOCATE (param(n))
+    DO i=1,n
+      READ (10,*) param(i)
+    END DO
+    CLOSE(10)
+
+  END SUBROUTINE GuessOptimum
+
 
 
 END SUBROUTINE FindOptimum
