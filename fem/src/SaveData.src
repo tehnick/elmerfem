@@ -374,9 +374,15 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     IF(.NOT. ASSOCIATED(Var)) CYCLE 
 
     
-    IF(SIZE(Var % Values) == 1) THEN
+    IF(SIZE(Var % Values) == Var % Dofs) THEN
       IF(.NOT. GotVar) CYCLE
-      CALL AddToSaveList('value: '//TRIM(VariableName)//' scalar variable', Var % Values(1))
+      IF( Var % Dofs == 1 ) THEN
+        CALL AddToSaveList('value: '//TRIM(VariableName)//' scalar variable', Var % Values(1))
+      ELSE
+        DO j=1,Var % DOfs
+          CALL AddToSaveList('value: '//ComponentName(VariableName,j)//' scalar variable', Var % Values(j))          
+        END DO
+      END IF
       CYCLE
     END IF
     
@@ -517,7 +523,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
     DO WHILE( ASSOCIATED( Var ) )
       
-      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1) THEN
+      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == Var % DOFs ) THEN
         
         CONTINUE
 
@@ -577,7 +583,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     Var => Model % Variables
     DO WHILE( ASSOCIATED( Var ) )
 
-      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1) THEN
+      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == Var % DOFs) THEN
         CONTINUE 
       
       ELSE IF (ASSOCIATED (Var % EigenVectors)) THEN
