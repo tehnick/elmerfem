@@ -764,6 +764,12 @@ CONTAINS
           Var => OldVariables
           DO WHILE( ASSOCIATED( Var ) )
 
+	     IF( SIZE( Var % Values ) == Var % DOFs ) THEN	
+               Var => Var % Next
+	       CYCLE
+             END IF          
+
+
              IF ( Var % DOFs == 1 .AND. &
                   Var % Name(1:10) /= 'coordinate' .AND. &
                   Var % Name /= 'coupled iter'     .AND. &
@@ -935,6 +941,12 @@ CONTAINS
 !------------------------------------------------------------------------------
         Var => OldVariables
         DO WHILE( ASSOCIATED(Var) )
+	
+           IF( SIZE( Var % Values ) == Var % DOFs ) THEN   
+             Var => Var % Next
+	     CYCLE
+           END IF 
+
            IF ( Var % DOFs == 1 .AND. &
                 Var % Name(1:10) /= 'coordinate' .AND. &
                 Var % Name /= 'coupled iter'     .AND. &

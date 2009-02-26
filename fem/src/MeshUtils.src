@@ -4388,6 +4388,11 @@ CONTAINS
     Var => VariableList
     DO WHILE( ASSOCIATED( Var ) ) 
 
+       IF( SIZE( Var % Values ) == Var % DOFs ) THEN
+         Var => Var % Next
+         CYCLE	 
+       END IF 
+
        SELECT CASE( Var % Name )
          CASE( 'time', 'timestep', 'timestep size', &
                'timestep interval', 'coupled iter', &
@@ -4397,7 +4402,7 @@ CONTAINS
             CYCLE
        END SELECT
 
-       IF (Var % DOFs>1) THEN
+       IF (Var % DOFs > 1) THEN
           Var => Var % Next
           CYCLE
        END IF

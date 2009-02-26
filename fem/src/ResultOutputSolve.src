@@ -296,6 +296,13 @@ END SUBROUTINE ResultOutputSolver
           CYCLE
        END IF
        
+       IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
+          Var => Var % Next
+          CYCLE
+       END IF
+ 
+
+
        SELECT CASE(Var % Name)
        CASE('time', 'timestep', 'timestep size', 'timestep interval', &
             'coupled iter', 'nonlin iter')
@@ -381,6 +388,12 @@ END SUBROUTINE ResultOutputSolver
              CYCLE
           END IF
           
+          IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
+            Var => Var % Next
+            CYCLE
+          END IF
+ 
+
           SELECT CASE(Var % Name)
           CASE('time', 'timestep', 'timestep size', 'timestep interval', &
                'coupled iter', 'nonlin iter')
@@ -680,6 +693,12 @@ END SUBROUTINE ResultOutputSolver
              CYCLE
           END IF
           
+          IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
+            Var => Var % Next
+            CYCLE
+          END IF
+ 
+
           SELECT CASE(Var % Name)
           CASE('time', 'timestep', 'timestep size', 'timestep interval', &
                'coupled iter', 'nonlin iter')
@@ -1784,6 +1803,11 @@ CONTAINS
                 CYCLE
             END IF
 
+            IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
+              Var => Var % Next
+              CYCLE
+            END IF
+
             SELECT CASE( Var % Name )
             CASE( 'time','timestep','timestep size', 'timestep interval', &
                   'coupled iter', 'nonlin iter' )
@@ -2403,6 +2427,11 @@ CONTAINS
             IF ( .NOT.Var % Output ) THEN
                 Var => Var % Next
                 CYCLE
+            END IF
+
+            IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
+              Var => Var % Next
+              CYCLE
             END IF
 
             SELECT CASE( Var % Name )

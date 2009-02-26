@@ -533,6 +533,12 @@ CONTAINS
 !   -----------------------------------------------
     Var => RefMesh % Variables
     DO WHILE( ASSOCIATED( Var ) )
+
+       IF( SIZE( Var % Values ) == Var % DOFs ) THEN
+         Var => Var % Next 	 
+         CYCLE
+       END IF
+
        SELECT CASE( Var % Name )
        CASE( 'coordinate 1', 'coordinate 2', 'coordinate 3', 'time' , &
              'timestep', 'timestep size', 'timestep interval', &
