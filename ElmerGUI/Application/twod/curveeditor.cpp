@@ -139,7 +139,7 @@ void CurveEditor::clearAll()
   pTable->setColumnWidth(2, 80);
 
   QStringList cHeaders;
-  cHeaders << "in" << "out" << "pts" << "p1" << "p2" << "p3";
+  cHeaders << "out" << "in" << "pts" << "p1" << "p2" << "p3";
   cTable->setHorizontalHeaderLabels(cHeaders);
   cTable->setColumnWidth(0, 40);
   cTable->setColumnWidth(1, 40);

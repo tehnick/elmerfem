@@ -426,7 +426,8 @@ void RenderArea::saveSlot(QString fileName)
   for(int i = 0; i < points.keys().size(); i++) {
     int idx = points.keys().at(i);
     QPointF p = points.value(idx);
-    out << idx << " " << p.x() << " " << p.y() << endl;
+    if(idx > 0)
+      out << idx << " " << p.x() << " " << p.y() << endl;
   }
 
   out << endl;
@@ -435,10 +436,27 @@ void RenderArea::saveSlot(QString fileName)
   for(int i = 0; i < splines.keys().size(); i++) {
     int idx = splines.keys().at(i);
     Spline s = splines.value(idx);
-    out << s.out << " " << s.in << " " << s.np;
-    for(int j = 0; j < s.np; j++)
-      out << " " << s.p[j];
-    out << " -bc=" << idx << endl;
+    if((s.out > 0) || (s.in > 0)) {
+	out << s.out << " " << s.in << " " << s.np;
+	for(int j = 0; j < s.np; j++)
+	  out << " " << s.p[j];
+	out << " -bc=" << idx << endl;
+      }
+  }
+
+  // Enumerate bodies:
+  //-------------------
+  bodies.clear();
+
+  for(int i = 0; i < splines.keys().size(); i++) {
+    int idx = splines.keys().at(i);
+    Spline s = splines.value(idx);
+
+    if(!bodies.contains(s.in))
+      bodies.push_back(s.in);
+
+    if(!bodies.contains(s.out))
+      bodies.push_back(s.out);
   }
 
   out << endl;
