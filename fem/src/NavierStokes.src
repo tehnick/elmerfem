@@ -145,7 +145,7 @@ MODULE NavierStokes
      REAL(KIND=dp) :: detJ, NodalBasis(n), dLBasisdx(n,3)
      REAL(KIND=dp) :: PBasis(n), pdBasisdx(n,3),BaseP, dNodalBasisdx(n,n,3)
 
-     REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
+     REAL(KIND=dp) :: Velo(3),Grad(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
 
      REAL(KIND=dp), POINTER :: A(:,:),M(:,:),Load(:)
      REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3)
@@ -154,6 +154,11 @@ MODULE NavierStokes
      REAL(KIND=dp) :: VNorm,hK,mK,Viscosity,dViscositydx(3),Temperature
      REAL(KIND=dp) :: dDensitydx(3), Density, Pressure, dTemperaturedx(3), &
                       dPressuredx(3),dPrevPressuredx(3), Compress
+
+
+     REAL(KIND=dp) :: Tau_M, Tau_C, Gmat(3,3),Gvec(3), dt=0._dp, C1, NodalVelo(4,n), &
+       RM(n,4,4),LC(3,n), gradP(n), PRM(4), GradNodal(n,3,3), PVelo(3), NodalPVelo(3,n), &
+       Work(3,n)
 
      INTEGER :: i,j,k,l,c,p,q,t,dim
 
@@ -165,13 +170,19 @@ MODULE NavierStokes
      INTEGER :: LinearBasis, LinearCode(3:8) = (/ 303,404,504,605,706,808 /)
   
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-     INTEGER :: N_Integ, NBasis, deg(100)
+     INTEGER :: N_Integ, NBasis, deg(100), Order
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
 
-     LOGICAL :: stat, Bubbles, PBubbles, Stabilize, P2P1
+     LOGICAL :: Found, Transient, stat, Bubbles, PBubbles, Stabilize, VMS, P2P1
 !------------------------------------------------------------------------------
 
      dim = CoordinateSystemDimension()
+
+     Transient = GetString(GetSimulation(),'Simulation Type',Found)=='transient'
+     IF ( Transient ) THEN
+       dt = CurrentModel % Solver % dt
+       Order = MIN(CurrentModel % Solver % DoneTime, CurrentModel % Solver % Order)
+     END IF
 
 !#ifdef LES
 !     LESVar => VariableGet( CurrentModel % Variables, 'LES' )
@@ -204,6 +215,7 @@ MODULE NavierStokes
      Bubbles   = .FALSE.
      PBubbles  = .FALSE.
      P2P1      = .FALSE.
+     VMS =  StabilizeFlag == 'vms'
      Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.Stabilize .OR. Compressible1 .OR. Compressible2 ) THEN
        PBubbles  = isPElement(Element) .AND. Element % BDOFs > 0
@@ -241,6 +253,8 @@ MODULE NavierStokes
 !    Stabilization parameters: hK, mK (take a look at Franca et.al.)
 !------------------------------------------------------------------------------
     
+       hK = element % hK
+       mK = element % StabilizationMK
      IF ( Stabilize ) THEN
        hK = element % hK
        mK = element % StabilizationMK
@@ -253,7 +267,44 @@ MODULE NavierStokes
          stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
          dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
        END DO
+     ELSE IF  ( Vms ) THEN
+      NodalVelo(1,1:n) = Ux(1:n)
+      NodalVelo(2,1:n) = Uy(1:n)
+      NodalVelo(3,1:n) = Uz(1:n)
+      NodalVelo(dim+1,1:n) = NodalPressure(1:n)
+
+      dNodalBasisdx = 0._dp
+      GradNodal = 0._dp
+      DO p=1,n
+         u = Element % Type % NodeU(p)
+         v = Element % Type % NodeV(p)
+         w = Element % Type % NodeW(p)
+         stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
+
+         dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
+         GradNodal(p,1:dim,1:dim) = MATMUL( NodalVelo(1:dim,1:n), dBasisdx(1:n,1:dim) )
+         GradNodal(p,dim+1,1:dim) = MATMUL( NodalVelo(dim+1,1:n), dBasisdx(1:n,1:dim) )
+      END DO
+
+      NodalPvelo = 0._dp
+      IF ( Transient ) THEN
+        CALL GetVectorLocalSolution( NodalPVelo, tStep=-1 )
+
+        IF ( Order<2 ) THEN
+          NodalPVelo(1:dim,1:n)=(NodalVelo(1:dim,1:n)-NodalPVelo(1:dim,1:n))/dt
+        ELSE
+          CALL GetVectorLocalSolution( Work, tStep=-2 )
+          NodalPVelo(1:dim,1:n)=(1.5_dp*NodalVelo(1:dim,1:n)- &
+                 2._dp*NodalPVelo(1:dim,1:n)+0.5_dp*Work(1:dim,1:n) )/dt
+        END IF
+      END IF
+
+      C1 = 36._dp
+      LC(1,1:n) = Element % Type % NodeU(1:n)
+      LC(2,1:n) = Element % Type % NodeV(1:n)
+      LC(3,1:n) = Element % Type % NodeW(1:n)
      END IF
+
 !------------------------------------------------------------------------------
 !   Now we start integrating
 !------------------------------------------------------------------------------
@@ -317,11 +368,11 @@ MODULE NavierStokes
       Velo(2) = SUM( (Uy(1:n)-MUy(1:n))*Basis(1:n) )
       IF ( DIM > 2 ) Velo(3) = SUM( (Uz(1:n)-MUz(1:n))*Basis(1:n) )
 
-      dVelodx = 0.0D0
+      Grad = 0.0D0
       DO i=1,3
-        dVelodx(1,i) = SUM( Ux(1:n) * dBasisdx(1:n,i) )
-        dVelodx(2,i) = SUM( Uy(1:n) * dBasisdx(1:n,i) )
-        IF ( DIM > 2 ) dVelodx(3,i) = SUM( Uz(1:n) * dBasisdx(1:n,i) )
+        Grad(1,i) = SUM( Ux(1:n) * dBasisdx(1:n,i) )
+        Grad(2,i) = SUM( Uy(1:n) * dBasisdx(1:n,i) )
+        IF ( DIM > 2 ) Grad(3,i) = SUM( Uz(1:n) * dBasisdx(1:n,i) )
       END DO
 !------------------------------------------------------------------------------
 !     Force at integration point
@@ -354,6 +405,14 @@ MODULE NavierStokes
         END DO
       END IF
 
+      IF ( Convect .AND. NewtonLinearization ) THEN
+        DO i=1,dim
+          DO j=1,dim
+            Force(i) = Force(i) + Grad(i,j) * Velo(j)
+          END DO
+        END DO
+      END IF
+
 !------------------------------------------------------------------------------
 !     Effective viscosity & derivatives at integration point
 !------------------------------------------------------------------------------
@@ -367,72 +426,127 @@ MODULE NavierStokes
           dViscositydx(i) = SUM( NodalViscosity(1:n)*dBasisdx(1:n,i) )
         END DO
 !------------------------------------------------------------------------------
-!      Stabilization parameters Tau & Delta
+!       Stabilization parameters Tau & Delta
 !------------------------------------------------------------------------------
-       IF ( Convect ) THEN
-          VNorm = MAX( SQRT( SUM(Velo(1:DIM)**2) ), 1.0d-12 )
-          Re = MIN( 1.0d0, Density * mK * hK * VNorm / (4 * Viscosity) )
-
-          Tau = hK * Re / (2 * Density * VNorm)
-          Delta = Density * Lambda * Re * hK * VNorm
-       ELSE
-          Delta = 2 * Viscosity / mK
-          Tau   = mK * hK**2  / ( 8 * Viscosity )
-       END IF
-
+        IF ( Convect ) THEN
+           VNorm = MAX( SQRT( SUM(Velo(1:DIM)**2) ), 1.0d-12 )
+           Re = MIN( 1.0d0, Density * mK * hK * VNorm / (4 * Viscosity) )
+ 
+           Tau = hK * Re / (2 * Density * VNorm)
+           Delta = Density * Lambda * Re * hK * VNorm
+        ELSE
+           Delta = 2 * Viscosity / mK
+           Tau   = mK * hK**2  / ( 8 * Viscosity )
+        END IF
 !------------------------------------------------------------------------------
-!      SU will contain residual of ns-equations (except for the time derivative
-!      and force terms). SW will contain the weight function values.
+!       SU will contain residual of ns-equations (except for the time derivative
+!       and force terms). SW will contain the weight function values.
 !------------------------------------------------------------------------------
-       SU(1:n,:,:) = 0.0D0
-       SW(1:n,:,:) = 0.0D0
+        SU(1:n,:,:) = 0.0D0
+        SW(1:n,:,:) = 0.0D0
 
-       DO p=1,N
-         DO i=1,DIM
-           SU(p,i,c) = SU(p,i,c) + dBasisdx(p,i)
-           IF(Porous) THEN
-             SU(p,i,i) = SU(p,i,i) + Viscosity * Drag(i) * Basis(p)
-           END IF
+        DO p=1,N
+          DO i=1,DIM
+            SU(p,i,c) = SU(p,i,c) + dBasisdx(p,i)
+            IF(Porous) THEN
+              SU(p,i,i) = SU(p,i,i) + Viscosity * Drag(i) * Basis(p)
+            END IF
 
-           IF ( Convect ) THEN
-             DO j=1,DIM
-               SU(p,i,i) = SU(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
-             END DO
-           END IF
+            IF ( Convect ) THEN
+              DO j=1,DIM
+                SU(p,i,i) = SU(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
+              END DO
+            END IF
 
-           DO j=1,DIM
-             SU(p,i,i) = SU(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
-             SU(p,i,j) = SU(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
-             SU(p,i,i) = SU(p,i,i) - Viscosity * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
-             SU(p,i,j) = SU(p,i,j) - Viscosity * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
-           END DO
+            DO j=1,DIM
+              SU(p,i,i) = SU(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
+              SU(p,i,j) = SU(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
+              SU(p,i,i) = SU(p,i,i) - Viscosity * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
+              SU(p,i,j) = SU(p,i,j) - Viscosity * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
+            END DO
 
-           IF ( Convect .AND. NewtonLinearization ) THEN
-             DO j=1,DIM
-               SU(p,i,j) = SU(p,i,j) + Density * dVelodx(i,j) * Basis(p)
-             END DO
-           END IF
+            IF ( Convect .AND. NewtonLinearization ) THEN
+              DO j=1,DIM
+                SU(p,i,j) = SU(p,i,j) + Density * Grad(i,j) * Basis(p)
+              END DO
+            END IF
 !
 !------------------------------------------------------------------------------
 
-           IF ( Convect ) THEN
-             SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
-             DO j=1,dim
-               SW(p,i,i) = SW(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
-             END DO
-           ELSE
-             SW(p,i,c) = SW(p,i,c) + dBasisdx(p,i)
-           END IF
+            IF ( Convect ) THEN
+              SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
+              DO j=1,dim
+                SW(p,i,i) = SW(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
+              END DO
+            ELSE
+              SW(p,i,c) = SW(p,i,c) + dBasisdx(p,i)
+            END IF
 
-           DO j=1,dim
-             SW(p,i,i) = SW(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
-             SW(p,i,j) = SW(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
-             SW(p,i,i) = SW(p,i,i) - Viscosity * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
-             SW(p,i,j) = SW(p,i,j) - Viscosity * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
-           END DO
-         END DO
-       END DO
-     END IF
+            DO j=1,dim
+              SW(p,i,i) = SW(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
+              SW(p,i,j) = SW(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
+              SW(p,i,i) = SW(p,i,i) - Viscosity * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
+              SW(p,i,j) = SW(p,i,j) - Viscosity * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
+            END DO
+          END DO
+        END DO
+      ELSE IF ( Vms ) THEN
+        Viscosity = Viscosity / Density
+        Density = 1._dp
+
+        PVelo = MATMUL( NodalPVelo(:,1:n), Basis(1:n) )
+        DO i=1,dim
+          gradP(i) = SUM( NodalVelo(dim+1,1:n)*dBasisdx(1:n,i) )
+        END DO
+
+        Gmat = 0._dp
+        Gvec = 0._dp
+        DO i=1,dim
+          DO j=1,dim
+            Gvec(i) = Gvec(i) + SUM(LC(j,1:n)*dBasisdx(1:n,i))
+            DO k=1,dim
+              Gmat(i,j) = Gmat(i,j) + SUM(LC(k,1:n)*dBasisdx(1:n,i)) * &
+                                      SUM(LC(k,1:n)*dBasisdx(1:n,j))
+            END DO
+          END DO
+        END DO
+
+        IF ( Transient ) THEN
+          Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
+                C1 * Viscosity**2 * SUM(Gmat*Gmat) + 4/dt**2 )
+        ELSE
+          Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
+                C1 * Viscosity**2 * SUM(Gmat*Gmat) )
+        END IF
+        Tau_C = 1._dp / ( Tau_M * SUM(Gvec*Gvec) )
+
+        RM = 0._dp
+        DO p=1,n
+          DO i=1,dim
+            DO j=1,dim
+              RM(p,i,i) = RM(p,i,i) + Velo(j) * dBasisdx(p,j)
+              RM(p,i,i) = RM(p,i,i) - Viscosity*SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
+            END DO
+            RM(p,i,dim+1) = RM(p,i,dim+1) + dBasisdx(p,i)
+            RM(p,dim+1,i) = RM(p,dim+1,i) + dBasisdx(p,i)
+          END DO
+        END DO
+
+        PRM = 0._dp
+        DO i=1,dim
+          DO j=1,dim
+            PRM(i) = PRM(i) + Velo(j) * Grad(i,j)
+            PRM(i) = PRM(i) - Viscosity*SUM(GradNodal(1:n,i,j)*dBasisdx(1:n,j))
+          END DO
+          PRM(i) = PRM(i) + GradP(i)
+          PRM(dim+1) = PRM(dim+1) + Grad(i,i)
+        END DO
+      END IF
+
+
+!#ifdef LES
+!#define LSDelta (SQRT(2.0d0)*Element % hK)
+!#define LSGamma 6
 
 !------------------------------------------------------------------------------
 !    Loop over basis functions (of both unknowns and weights)
@@ -490,6 +604,7 @@ MODULE NavierStokes
            ELSE
               A(i,j) = A(i,j) + s * Viscosity * dBasisdx(q,i) * dBasisdx(p,j)
            END IF
+
            IF ( Convect ) THEN
               A(i,i) = A(i,i) + s * Density * dBasisdx(q,j) * Velo(j) * Basis(p)
            END IF
@@ -551,7 +666,7 @@ MODULE NavierStokes
        IF ( Convect .AND. NewtonLinearization ) THEN
          DO i=1,DIM
            DO j=1,DIM
-             A(i,j) = A(i,j) + s * Density * dVelodx(i,j) * Basis(q) * Basis(p)
+             A(i,j) = A(i,j) + s * Density * Grad(i,j) * Basis(q) * Basis(p)
            END DO
          END DO
        END IF
@@ -572,6 +687,57 @@ MODULE NavierStokes
                A(j,i) = A(j,i) + s * Delta * dBasisdx(q,i) * dBasisdx(p,j)
              END DO
           END DO
+       ELSE IF ( Vms ) THEN
+          DO i=1,dim
+            ! (u',grad(q))
+            M(dim+1,i) = M(dim+1,i) + s * Tau_M * Basis(q) * dBasisdx(p,i)
+            DO k=1,dim+1
+              A(dim+1,k) = A(dim+1,k) + s * Tau_M * RM(q,i,k) * dBasisdx(p,i)
+            END DO
+
+            DO j=1,dim
+              ! -(u'*grad(u),w)
+              M(i,j) = M(i,j) - s * Tau_M * Basis(q) * Grad(i,j) * Basis(p)
+              DO k=1,dim+1
+                 A(i,k) = A(i,k) - s * Tau_M * RM(q,j,k) * Grad(i,j) * Basis(p)/2
+              END DO
+              A(i,i) = A(i,i) - s * Tau_M * PRM(j) * dBasisdx(q,j) * Basis(p)/2
+              A(i,i) = A(i,i) + s * Tau_M * Force(j) * dBasisdx(q,j) * Basis(p)
+
+              ! (u',u.grad(w))
+              M(i,i) = M(i,i) + s * Tau_M * Basis(q) * Velo(j) * dBasisdx(p,j)
+
+              DO k=1,dim+1
+                 A(i,k) = A(i,k) + s * Tau_M * RM(q,i,k) * Velo(j) * dBasisdx(p,j)/2
+              END DO
+              A(i,j) = A(i,j) + s * Tau_M * PRM(i) * Basis(q) * dBasisdx(p,j)/2
+              A(i,j) = A(i,j) - s * Tau_M * Force(i) * Basis(q) * dBasisdx(p,j)
+            END DO
+
+            ! (div(u),div(w))
+            DO j=1,dim
+              A(i,j) = A(i,j) + s * Tau_C * RM(q,dim+1,j) * dBasisdx(p,i)
+            END DO
+
+            DO j=1,dim
+              DO k=1,dim+1
+                A(i,k) = A(i,k) - s * Tau_M**2 * RM(q,i,k) * PRM(j) * dBasisdx(p,j)/2
+                A(i,k) = A(i,k) - s * Tau_M**2 * PRM(i) * RM(q,j,k) * dBasisdx(p,j)/2
+ 
+                A(i,k) = A(i,k) + s * Tau_M**2 * RM(q,i,k) * Force(j) * dBasisdx(p,j)
+                A(i,k) = A(i,k) + s * Tau_M**2 * Force(i) * RM(q,j,k) * dBasisdx(p,j)
+              END DO
+
+              M(i,i) = M(i,i) - s * Tau_M**2 * Basis(q) * PRM(j) * dBasisdx(p,j)
+              M(i,j) = M(i,j) - s * Tau_M**2 * PRM(i) * Basis(q) * dBasisdx(p,j)
+ 
+              M(i,i) = M(i,i) + s * Tau_M**2 * Basis(q) * Force(j) * dBasisdx(p,j)
+              M(i,j) = M(i,j) + s * Tau_M**2 * Basis(q) * Force(i) * dBasisdx(p,j)
+
+              M(i,i) = M(i,i) - s * Tau_M**2 * Basis(q) * PVelo(j) * dBasisdx(p,j)
+              M(i,j) = M(i,j) - s * Tau_M**2 * PVelo(i) * Basis(q) * dBasisdx(p,j)
+            END DO
+          END DO
        END IF
      END DO
      END DO
@@ -579,17 +745,6 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 !    The righthand side...
 !------------------------------------------------------------------------------
-     IF ( Convect .AND. NewtonLinearization ) THEN
-       DO i=1,dim
-         DO j=1,dim
-           Force(i) = Force(i) + dVelodx(i,j) * Velo(j)
-         END DO
-       END DO
-     END IF
-
-!#ifdef LES
-!#define LSDelta (SQRT(2.0d0)*Element % hK)
-!#define LSGamma 6
 !     LSx=0
 !     IF ( ASSOCIATED( LESVar ) ) THEN
 !       DO i=1,dim
@@ -601,7 +756,7 @@ MODULE NavierStokes
 !       DO i=1,dim
 !       DO j=1,dim
 !          DO k=1,dim
-!             LSx(i,j) = LSx(i,j) + dVelodx(i,k) * dVelodx(j,k)
+!             LSx(i,j) = LSx(i,j) + Grad(i,k) * Grad(j,k)
 !          END DO
 !       END DO
 !       END DO
@@ -633,6 +788,13 @@ MODULE NavierStokes
            DO j=1,c
              Load(j) = Load(j) + s * Tau * Density * Force(i) * SW(p,i,j)
            END DO
+         END DO
+       ELSE IF ( Vms ) THEN
+         DO i=1,dim
+           DO j=1,dim
+             Load(i) = Load(i) - s * Tau_M**2 * Force(i) * Force(j) * dBasisdx(p,j)
+           END DO
+           Load(dim+1) = Load(dim+1) + s * Tau_M * Force(i) * dBasisdx(p,i)
          END DO
        END IF
      END DO
@@ -736,13 +898,13 @@ MODULE NavierStokes
    REAL(KIND=dp) :: u,v,w,ParentU,ParentV,ParentW,s,x(n),y(n),z(n)
    REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
    REAL(KIND=dp) :: TangentForce(3),Force(3),Normal(3),Tangent(3),Tangent2(3), &
-               Vect(3), Alpha, Viscosity,dVelodx(3,3),Velo(3)
+               Vect(3), Alpha, Viscosity,Grad(3,3),Velo(3)
 
    REAL(KIND=dp) :: xx, yy, ydot, ydotdot, MassFlux
 
    INTEGER :: i,j,k,l,k1,k2,t,q,p,c,dim,N_Integ
 
-   LOGICAL :: stat
+   LOGICAL :: stat, Found
 
    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
