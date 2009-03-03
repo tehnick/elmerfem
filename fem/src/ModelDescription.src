@@ -3066,14 +3066,14 @@ CONTAINS
 !
       MeshScale = 1.0_dp
       DO i=1,Model % NumberOfSolvers
-        IF ( .NOT. ASSOCIATED(Model % Solvers(i) % Variable) ) CYCLE
-        IF ( Model % Solvers(i) % Variable % NameLen <= 0 ) CYCLE
-
-        IF (Model % Solvers(i) % Variable % Name &
-             (1:Model % Solvers(i) % Variable % NameLen) == 'displacement') THEN
-           MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
-                       'Displace Mesh', Gotit )
-           IF ( Gotit .AND. .NOT. MeshMoved ) MeshScale = 0.0_dp
+        MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
+                    'Displace Mesh', Gotit )
+        IF ( Gotit ) THEN
+          IF ( .NOT. MeshMoved ) MeshScale = 0.0_dp
+        ELSE
+          MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
+                 'Output Mesh Deformation', Gotit )
+          IF ( MeshMoved ) MeshScale = 0.0_dp
         END IF
       END DO
 
@@ -3114,20 +3114,20 @@ CONTAINS
                SELECT CASE( MeshUpdate % DOFs )
                CASE(1)
                   WRITE(PostFileUnit,'(3E20.12E3)') &
-                       Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
+                       Model % Nodes % x(i) - MeshScale*MeshUpdate % Values(k+1), &
                        Model % Nodes % y(i), Model % Nodes % z(i)
                   
                CASE(2)
                   WRITE(PostFileUnit,'(3E20.12E3)') &
-                       Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
-                       Model % Nodes % y(i) - MeshUpdate % Values(k+2), &
+                       Model % Nodes % x(i) - MeshScale*MeshUpdate % Values(k+1), &
+                       Model % Nodes % y(i) - MeshScale*MeshUpdate % Values(k+2), &
                        Model % Nodes % z(i)
                   
                CASE(3)
                   WRITE(PostFileUnit,'(3E20.12E3)') &
-                       Model % Nodes % x(i) - MeshUpdate % Values(k+1), &
-                       Model % Nodes % y(i) - MeshUpdate % Values(k+2), &
-                       Model % Nodes % z(i) - MeshUpdate % Values(k+3)
+                       Model % Nodes % x(i) - MeshScale*MeshUpdate % Values(k+1), &
+                       Model % Nodes % y(i) - MeshScale*MeshUpdate % Values(k+2), &
+                       Model % Nodes % z(i) - MeshScale*MeshUpdate % Values(k+3)
                END SELECT
             ELSE
                WRITE(PostFileUnit,'(3E20.12E3)') Model % Nodes % x(i),Model % Nodes % y(i), &
