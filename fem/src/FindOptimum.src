@@ -77,20 +77,21 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
-  LOGICAL :: gotIt, OptimalFinish, InternalHistory, SaveHistory
+  LOGICAL :: gotIt, OptimalFinish, OptimalStart, InternalHistory, SaveHistory
   LOGICAL, ALLOCATABLE :: FixedParam(:)
-  INTEGER :: i,j,k,l,NoParam, NoValues, NoFreeParam, OptimizationsDone=0, Direction=1
+  INTEGER :: i,j,k,l,NoParam, NoValues, NoFreeParam, NoOpt, &
+      OptimizationsDone=0, Direction=1
   REAL(KIND=dp), POINTER :: Param(:)
   REAL(KIND=dp), ALLOCATABLE :: MinParam(:), MaxParam(:), PrevParam(:,:), &
       PrevCost(:), BestParam(:)
-  REAL(KIND=dp) :: Cost, CostTarget, Extent, Step, Eps, MinCost, x(10), c(10)
+  REAL(KIND=dp) :: Cost, CostTarget, MinCost, x(10), c(10)
   CHARACTER(LEN=MAX_NAME_LEN) :: Name, ParamStr, Method
   CHARACTER(LEN=MAX_NAME_LEN) :: BestFile, HistoryFile
   
   SAVE Param, MinParam, MaxParam, PrevParam, NoParam, &
-      OptimizationsDone, Method, Direction, x, c, PrevCost, Eps, &
+      OptimizationsDone, Method, Direction, x, c, PrevCost, &
       FixedParam, NoFreeParam, MinCost, BestParam, NoValues, &
-      OptimalFinish, InternalHistory
+      OptimalFinish, OptimalStart, InternalHistory
 
   !------------------------------------------------------------------------------
   ! In the 1st round perform initializations 
@@ -129,24 +130,24 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
         WRITE( ParamStr,'(A,I4)') 'Parameter',i
       END IF
 
-      Param(i) = ListGetConstReal(Solver % Values,'Fixed '//TRIM(ParamStr),GotIt)
-      IF( GotIt ) THEN
-        FixedParam(i) = .TRUE.
-      ELSE
+      FixedParam(i) = ListGetLogical(Solver % Values,'Fixed '//TRIM(ParamStr),GotIt)
+
+      IF(.NOT. FixedParam(i) ) THEN
         MinParam(i) = ListGetConstReal(Solver % Values,'Min '//TRIM(ParamStr))
         MaxParam(i) = ListGetConstReal(Solver % Values,'Max '//TRIM(ParamStr))
-        NoFreeParam = NoFreeParam + 1
-        Param(i) = ListGetConstReal(Solver % Values,'Initial '//TRIM(ParamStr),GotIt)
-        IF(.NOT. GotIt ) THEN
-          Param(i) = 0.5_dp * ( MinParam(i) + MaxParam(i) ) 
-        END IF
       END IF
 
-      IF( ListGetLogical(Solver % Values,'Optimal Restart',GotIt) ) THEN
-        CALL GuessOptimum()
+      Param(i) = ListGetConstReal(Solver % Values,'Initial '//TRIM(ParamStr),GotIt)
+      IF(.NOT. GotIt ) THEN
+        Param(i) = 0.5_dp * ( MinParam(i) + MaxParam(i) ) 
       END IF
-
     END DO
+    
+    NoFreeParam = NoParam - COUNT(FixedParam)
+    IF( NoFreeParam == 0 ) THEN
+      CALL Warn('FindOptimum','All parameters are fixed, no optimization!')
+      RETURN
+    END IF
 
     Method = ListGetString(Solver % Values,'Optimization Method')
 
@@ -158,11 +159,12 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       ALLOCATE( PrevParam(NoValues,NoParam), PrevCost(NoValues))
     END IF
 
-    PRINT *,'min',minparam
-    PRINT *,'max',maxparam
-    PRINT *,'param',param
-    PRINT *,'fixedparam',fixedparam
-    PRINT *,'method: ',method
+    OptimalStart = ListGetLogical(Solver % Values,'Optimal Restart',GotIt)
+    IF( OptimalStart ) THEN
+      CALL GuessOptimum()
+      GOTO 100
+    END IF
+    
   END IF
 
   !------------------------------------------------------------------------------
@@ -177,17 +179,15 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       IF(.NOT. GotIt) CALL Fatal('FindOptimum','Cost with the given name was not found')
     END IF
     CostTarget = ListGetConstReal( Solver % Values,'Cost Function Target',GotIt)    
-    IF( GotIt ) Cost = ABS( Cost - CostTarget ) 
+    IF( GotIt ) Cost = Cost - CostTarget 
   
-    PRINT *,'cost',cost,mincost
-        
     ! Found a new best point
     !-----------------------
     IF(Cost < MinCost) THEN
       MinCost = Cost
       BestParam(1:NoParam) = Param(1:NoParam)
       
-      WRITE(Message,'(A,ES15.6E3)') 'Found New Minimum Set',MinCost
+      WRITE(Message,'(A,ES15.6E3)') 'Found New Minimum Cost:',MinCost
       CALL Info('FindOptimum',Message,Level=4)
 
       BestFile = ListGetString(Solver % Values,'Best File',GotIt )
@@ -224,12 +224,22 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       WRITE(10,'(A)') ' '
       CLOSE(10)
     END IF
+    
+    IF( OptimalFinish .AND. OptimizationsDone == NoValues - 1 ) THEN
+      CALL Info('FindOptimum','Peforming the last step with the best so far')
+      Param = BestParam
+      GOTO 100
+    END IF
   END IF
 
+
   CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
-  WRITE( Message, '(A,I2,A,A)' ) 'Manipulating',NoFreeParam,' parameters using ',TRIM(Method) 
+  WRITE( Message, '(A,I3,A,A)' ) 'Manipulating',NoFreeParam,' parameters using ',TRIM(Method) 
   CALL Info( 'FindOptimum', Message, Level=4 )
-  WRITE( Message, '(A,ES15.6E3)' ) 'Lowest cost so far is ',MinCost
+  IF(OptimizationsDone > 0) THEN
+    WRITE( Message, '(A,ES15.6E3)' ) 'Last evaluated cost: ',Cost    
+  END IF
+  WRITE( Message, '(A,ES15.6E3)' ) 'Lowest cost so far: ',MinCost
   CALL Info( 'FindOptimum', Message, Level=4 )
   CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
   
@@ -237,58 +247,30 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   SELECT CASE(Method)
     
   CASE ('random')
-    DO i=1,NoParam
-      CALL RANDOM_NUMBER(Extent)
-      Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * Extent
-    END DO
+    CALL RandomParameter()
     
   CASE ('scanning')
-    IF(NoFreeParam /= 1) CALL Fatal('FindOptimum',&
-        'Option scan implemented only for one parameter')
-    DO i=1,NoParam
-      IF(.NOT. FixedParam(i)) EXIT
-    END DO
-    PRINT *,'Active Parameter',i,NoValues,OptimizationsDone
-    IF( OptimalFinish ) THEN
-      Extent = OptimizationsDone*1.0_dp/(NoValues-2)
-    ELSE
-      Extent = OptimizationsDone*1.0_dp/(NoValues-1)
-    END IF
-    PRINT *,'extent',extent,MinParam(i),MaxParam(i)
-    Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * Extent
+    CALL ScanParameter()
     
   CASE ('genetic')
-    CALL GeneticOptimize(NoParam, OptimizationsDone+1, Param, Cost)
-    DO i=1,NoParam 
-      Param(i) = MAX(MinParam(i),Param(i))
-      Param(i) = MIN(MaxParam(i),Param(i))
-    END DO
-
+    CALL GeneticOptimize(NoParam, Param, Cost)
+    
   CASE ('bisect')    
-    IF(NoFreeParam /= 1) CALL Fatal('FindOptimum',&
-        'Option bisect implemented only for one parameter')
-    Eps = ListGetConstReal(Solver % Values,'Optimization Accuracy')
-    DO j=1,NoParam
-      IF(.NOT. FixedParam(j)) EXIT
-    END DO
-    PRINT *,'Active Parameter For Bisection Search',j
-    PRINT *,'Interval',MinParam(1),MaxParam(1)
-    CALL BisectOptimize(OptimizationsDone+1)
+    CALL BisectOptimize()
+    
+  CASE DEFAULT
+    CALL Fatal('FindOptimum','Unknown method')
     
   END SELECT
+ 
 
-  IF( OptimalFinish .AND. OptimizationsDone == NoValues - 1 ) THEN
-    CALL Info('FindOptimum','Peforming the last step with the best so far')
-    Param = BestParam
-  END IF
-
-  IF(.TRUE.) THEN
-    WRITE (*,'(A,ES12.4)') 'Minimum Cost',MinCost
-    WRITE (*,'(A,4ES12.4)') 'Best set',BestParam
-    WRITE (*,'(A,4ES12.4)') 'Test set',Param
-  END IF
-
-  OptimizationsDone = OptimizationsDone + 1
+  DO i=1,NoParam 
+    IF( FixedParam(i) ) CYCLE
+    Param(i) = MAX(MinParam(i),Param(i))
+    Param(i) = MIN(MaxParam(i),Param(i))
+  END DO
+  
+100 OptimizationsDone = OptimizationsDone + 1
 
 CONTAINS
 
@@ -312,10 +294,12 @@ CONTAINS
   END FUNCTION idx
 
 !-------------------------------------------------------------------------------
+! Choose next parameter set from genetic optimization procedure
+!-------------------------------------------------------------------------------
 
-  SUBROUTINE GeneticOptimize(parsize, no, parameters, func)
+  SUBROUTINE GeneticOptimize(parsize, parameters, func)
 
-    INTEGER :: parsize, no
+    INTEGER :: parsize, no = 0
     REAL (KIND=dp) :: parameters(parsize), func
 
     INTEGER :: popsize, i0, i1, i2, i3 
@@ -323,8 +307,11 @@ CONTAINS
     REAL(KIND=dp), ALLOCATABLE :: pars(:,:), vals(:) 
     LOGICAL, ALLOCATABLE :: mask(:)
 
-    SAVE i0, pars, vals, mask, popsize, popcoeff, popcross
+    SAVE no, i0, pars, vals, mask, popsize, popcoeff, popcross
         
+
+    no = no + 1
+
     IF(no == 1) THEN
       popsize = ListGetInteger(Solver % Values,'Populazation Size',GotIt)
       IF(.NOT. GotIt) popsize = 5 * parsize
@@ -386,15 +373,76 @@ CONTAINS
   END SUBROUTINE GeneticOptimize
 
 !-------------------------------------------------------------------------------
+! Choose next parameter set from even random distribution
+!-------------------------------------------------------------------------------
 
+  SUBROUTINE RandomParameter()
 
+    INTEGER :: i
+    REAL(KIND=dp) :: Extent
 
-  SUBROUTINE BisectOptimize(no)
+    DO i=1,NoParam
+      CALL RANDOM_NUMBER(Extent)
+      Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * Extent
+    END DO
 
-    INTEGER :: no
-    REAL(KIND=dp) :: step 
+  END SUBROUTINE RandomParameter
 
-    SAVE step
+!-------------------------------------------------------------------------------
+! Choose next parameter from 1D parameter scanning
+!-------------------------------------------------------------------------------
+
+  SUBROUTINE ScanParameter()
+
+    INTEGER :: no, maxno, i,j
+    REAL(KIND=dp) :: Extent
+
+    SAVE no, i, maxno
+
+    IF( no == 0 ) THEN
+      IF(NoFreeParam /= 1) CALL Fatal('FindOptimum',&
+          'Option scan implemented only for one parameter')
+      DO i=1,NoParam
+        IF(.NOT. FixedParam(i)) EXIT
+      END DO
+      WRITE(Message,'(A,I3)') 'Applying scanning to parameter',i
+      CALL Info('FindOptimum',Message)
+
+      maxno = NoValues 
+      IF( OptimalFinish ) maxno = maxno -1
+      IF( OptimalStart ) maxno = maxno - 1
+    END IF
+
+    Extent = no * 1.0_dp/(maxno-1)
+    Param(i) = MinParam(i) + (MaxParam(i)-MinParam(i)) * Extent
+    no = no + 1
+
+  END SUBROUTINE ScanParameter
+
+!-------------------------------------------------------------------------------
+! Choose next parameter set from 1D bisection search
+!-------------------------------------------------------------------------------
+
+  SUBROUTINE BisectOptimize()
+
+    INTEGER :: j, no = 0
+    REAL(KIND=dp) :: step, eps 
+
+    SAVE j, no, step
+
+!    Eps = ListGetConstReal(Solver % Values,'Optimization Accuracy')
+
+    IF(NoFreeParam /= 1) CALL Fatal('FindOptimum',&
+        'Option bisect implemented only for one parameter')
+    IF( no == 0 ) THEN
+      DO j=1,NoParam
+        IF(.NOT. FixedParam(j)) EXIT
+      END DO
+      WRITE(Message,'(A,I3)') 'Applying bisection search to parameter',j
+      CALL Info('FindOptimum',Message)
+    END IF
+    
+    no = no + 1
 
     IF(no == 1) THEN
       step = ListGetConstReal(Solver % Values,'Step Size',GotIt)
@@ -465,13 +513,13 @@ CONTAINS
 
     INTEGER :: i,n
     REAL(KIND=dp) :: parami
-    REAL(KIND=dp), ALLOCATABLE :: param(:)
+    REAL(KIND=dp), ALLOCATABLE :: guessparam(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: Name
     LOGICAL :: fileis, GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: GuessFile
 
-    GuessFile = ListGetString(Solver % Values,'Filename',GotIt )
-    IF(.NOT. GotIt) GuessFile = 'optimize-best.dat'
+    GuessFile = ListGetString(Solver % Values,'Guess File',GotIt )
+    IF(.NOT. GotIt) GuessFile = 'best.dat'
 
     INQUIRE (FILE=GuessFile, EXIST=fileis)
     
@@ -482,11 +530,14 @@ CONTAINS
 
     OPEN(10,FILE=GuessFile)
     READ (10,*) n
-    ALLOCATE (param(n))
+    ALLOCATE (guessparam(n))
     DO i=1,n
-      READ (10,*) param(i)
+      READ (10,*) guessparam(i)
     END DO
     CLOSE(10)
+
+    n = MIN( n, SIZE( param) )
+    param(1:n) = guessparam(1:n)
 
   END SUBROUTINE GuessOptimum
 
