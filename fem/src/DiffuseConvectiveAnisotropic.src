@@ -50,10 +50,10 @@ MODULE DiffuseConvective
 
 !------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveCompose( MassMatrix,StiffMatrix,ForceVector,  &
-      LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,PhaseChange,Temperature, &
-         Enthalpy,UX,UY,UZ,MUX,MUY,MUZ,NodalViscosity,NodalDensity,NodalPressure, &
+      LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,PhaseChange,NodalTemperature, &
+         Enthalpy,Ux,Uy,Uz,MUx,MUy,MUz,Nodalmu,Nodalrho,NodalPressure, &
             NodaldPressureDt, NodalPressureCoeff, Compressible, Stabilize, &
-            UseBubbles, Element,n,Nodes )
+              UseBubbles, Element,n,Nodes )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -84,9 +84,8 @@ MODULE DiffuseConvective
 !  LOGICAL :: PhaseChange
 !     INPUT: Do we model phase change here...
 !
-!  REAL(KIND=dp) :: Temperature
-!     INPUT: Temperature from previous iteration, needed if we model
-!            phase change
+!  REAL(KIND=dp) :: NodalTemperature
+!     INPUT: NodalTemperature from previous iteration
 !
 !  REAL(KIND=dp) :: Enthalpy
 !     INPUT: Enthalpy from previous iteration, needed if we model
@@ -96,7 +95,7 @@ MODULE DiffuseConvective
 !     INPUT: Nodal values of velocity components from previous iteration
 !           used only if coefficient of the convection term (C1) is nonzero
 !
-!  REAL(KIND=dp) :: NodalViscosity(:)
+!  REAL(KIND=dp) :: Nodalmu(:)
 !     INPUT: Nodal values of the viscosity
 !
 !  LOGICAL :: Stabilize
@@ -117,11 +116,11 @@ MODULE DiffuseConvective
 
      REAL(KIND=dp), DIMENSION(:)   :: ForceVector,UX,UY,UZ,MUX,MUY,MUZ,LoadVector
      REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix
-     REAL(KIND=dp) :: Temperature(:),Enthalpy(:),NodalViscosity(:), &
-       NodaldPressureDt(:),NodalPressure(:),NodalPressureCoeff(:),NodalDensity(:)
-     REAL(KIND=dp) :: NodalC0(:),NodalC1(:),NodalCT(:),NodalC2(:,:,:),dT
+     REAL(KIND=dp) :: NodalTemperature(:),Enthalpy(:),Nodalmu(:), &
+       NodaldPressureDt(:),NodalPressure(:),NodalPressureCoeff(:),Nodalrho(:)
+     REAL(KIND=dp) :: NodalC0(:),NodalC1(:),NodalCT(:),NodalC2(:,:,:)
 
-     LOGICAL :: Stabilize,UseBubbles,PhaseChange,Compressible
+     LOGICAL :: UseBubbles,PhaseChange,Compressible,Stabilize
 
      INTEGER :: n
 
@@ -132,11 +131,12 @@ MODULE DiffuseConvective
 !    Local variables
 !------------------------------------------------------------------------------
 !
+     CHARACTER(LEN=MAX_NAME_LEN) :: StabilizeFlag
      REAL(KIND=dp) :: dBasisdx(2*n,3),detJ
      REAL(KIND=dp) :: Basis(2*n)
      REAL(KIND=dp) :: ddBasisddx(n,3,3),dNodalBasisdx(n,n,3)
 
-     REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force
+     REAL(KIND=dp) :: Velo(3),Grad(3,3),Force
 
      REAL(KIND=dp) :: A,M
      REAL(KIND=dp) :: Load
@@ -144,19 +144,30 @@ MODULE DiffuseConvective
      REAL(KIND=dp) :: VNorm,hK,mK
      REAL(KIND=dp) :: Lambda=1.0,Pe,Pe1,Pe2,Tau,x,y,z
 
-     INTEGER :: i,j,k,c,p,q,t,dim,N_Integ,NBasis
+     REAL(KIND=dp) :: Tau_M, Tau_C, Gmat(3,3),Gvec(3), dt=0._dp, LC1, NodalVelo(4,n), &
+       RM(n),LC(3,n), gradP(n), VRM(3), GradNodal(n,3,3), PVelo(3), NodalPVelo(3,n), &
+       Work(3,n), Grav(3), expc, reft, temperature
+
+     REAL(KIND=dp), POINTER :: gWrk(:,:)
+
+     INTEGER :: i,j,k,c,p,q,t,dim,N_Integ,NBasis,Order
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-     REAL(KIND=dp) :: s,u,v,w,dEnth,dTemp,Viscosity,DivVelo,Pressure,Density,&
+     REAL(KIND=dp) :: s,u,v,w,dEnth,dTemp,mu,DivVelo,Pressure,rho,&
                       Pcoeff
 
      REAL(KIND=dp) :: C0,C00,C1,CT,C2(3,3),dC2dx(3,3,3),SU(n),SW(n)
 
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
 
-     LOGICAL :: stat,Convection,ConvectAndStabilize,Bubbles
+     LOGICAL :: Vms, Found, Transient, stat,Convection,ConvectAndStabilize,Bubbles
 
 !------------------------------------------------------------------------------
+
+     StabilizeFlag = GetString( GetSolverParams(),'Stabilization Method',Found )
+     Vms = StabilizeFlag == 'vms'
+
+     Transient = GetString(GetSimulation(),'Simulation type',Found)=='transient'
 
      dim = CoordinateSystemDimension()
      c = dim + 1
@@ -169,7 +180,7 @@ MODULE DiffuseConvective
      Convection =  ANY( NodalC1 /= 0.0d0 )
      NBasis = n
      Bubbles = .FALSE.
-     IF ( Convection .AND. .NOT. Stabilize .AND. UseBubbles ) THEN
+     IF ( Convection .AND. .NOT. (Vms .OR. Stabilize) .AND. UseBubbles ) THEN
         NBasis = 2*n
         Bubbles = .TRUE.
      END IF
@@ -192,8 +203,60 @@ MODULE DiffuseConvective
 !    Stabilization parameters: hK, mK (take a look at Franca et.al.)
 !    If there is no convection term we don t need stabilization.
 !------------------------------------------------------------------------------
+       hK = element % hK
+       mK = element % StabilizationMK
+
      ConvectAndStabilize = .FALSE.
-     IF ( Stabilize .AND. Convection ) THEN
+     IF  ( Vms ) THEN
+       NodalVelo(1,1:n) = Ux(1:n)
+       NodalVelo(2,1:n) = Uy(1:n)
+       NodalVelo(3,1:n) = Uz(1:n)
+       NodalVelo(dim+1,1:n) = NodalPressure(1:n)
+
+       dNodalBasisdx = 0._dp
+       GradNodal = 0._dp
+       DO p=1,n
+          u = Element % Type % NodeU(p)
+          v = Element % Type % NodeV(p)
+          w = Element % Type % NodeW(p)
+          stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
+ 
+          dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
+          GradNodal(p,1:dim,1:dim) = MATMUL( NodalVelo(1:dim,1:n), dBasisdx(1:n,1:dim) )
+          GradNodal(p,dim+1,1:dim) = MATMUL( NodalVelo(dim+1,1:n), dBasisdx(1:n,1:dim) )
+       END DO
+
+       NodalPvelo = 0._dp
+       IF ( Transient ) THEN
+         dt = CurrentModel % Solver % dt
+         Order = MIN(CurrentModel % Solver % DoneTime,CurrentModel % Solver % Order)
+ 
+         CALL GetVectorLocalSolution( NodalPVelo, 'Flow Solution', tStep=-1 )
+ 
+         IF ( Order<2 ) THEN
+           NodalPVelo(1:dim,1:n)=(NodalVelo(1:dim,1:n)-NodalPVelo(1:dim,1:n))/dt
+         ELSE
+           CALL GetVectorLocalSolution( Work, 'Flow Solution', tStep=-2 )
+           NodalPVelo(1:dim,1:n)=(1.5_dp*NodalVelo(1:dim,1:n) - &
+                  2._dp*NodalPVelo(1:dim,1:n)+0.5_dp*Work(1:dim,1:n) )/dt
+         END IF
+       END IF
+
+       expc = GetCReal(GetMaterial(),'Heat Expansion Coefficient',Found)
+       reft = GetCReal(GetMaterial(),'Reference Temperature',Found)
+       CALL GetConstRealArray( GetConstants(), gWrk, 'Grav',Found )
+       IF ( Found ) THEN
+         grav = gWrk(1:3,1)*gWrk(4,1)
+       ELSE
+         grav    =  0.00_dp
+         grav(2) = -9.81_dp
+       END IF
+
+       LC1 = 36._dp
+       LC(1,1:n) = Element % Type % NodeU(1:n)
+       LC(2,1:n) = Element % Type % NodeV(1:n)
+       LC(3,1:n) = Element % Type % NodeW(1:n)
+     ELSE IF ( Stabilize .AND. Convection ) THEN
        ConvectAndStabilize = .TRUE.
        hK = element % hK
        mK = element % StabilizationMK
@@ -240,7 +303,7 @@ MODULE DiffuseConvective
           dTemp = 0.0D0
           DO i=1,3
             dEnth = dEnth + SUM( Enthalpy(1:n) * dBasisdx(1:n,i) )**2
-            dTemp = dTemp + SUM( Temperature(1:n) * dBasisdx(1:n,i) )**2
+            dTemp = dTemp + SUM( NodalTemperature(1:n) * dBasisdx(1:n,i) )**2
           END DO
 
           CT = SQRT( dEnth/dTemp )
@@ -249,7 +312,7 @@ MODULE DiffuseConvective
 !      Coefficient of the diffusion term & it s derivatives at the
 !      integration point
 !------------------------------------------------------------------------------
-       Density = SUM( NodalDensity(1:n) * Basis(1:n) ) 
+       rho = SUM( Nodalrho(1:n) * Basis(1:n) ) 
 
        DO i=1,dim
          DO j=1,dim
@@ -258,8 +321,8 @@ MODULE DiffuseConvective
        END DO
 
        DO i=1,dim
-          C2(i,i) = EffectiveConductivity( C2(i,i), Density, Element, &
-                 Temperature, UX,UY,UZ, Nodes, n, n, u, v, w )
+          C2(i,i) = EffectiveConductivity( C2(i,i), rho, Element, &
+                 NodalTemperature, UX,UY,UZ, Nodes, n, n, u, v, w )
        END DO
 !------------------------------------------------------------------------------
 !      If there's no convection term we don't need the velocities, and
@@ -278,21 +341,87 @@ MODULE DiffuseConvective
           IF ( dim > 2 ) Velo(3) = SUM( (UZ(1:n)-MUZ(1:n))*Basis(1:n) )
 
           IF ( Compressible ) THEN
-            dVelodx = 0.0D0
+            Grad = 0.0D0
             DO i=1,3
-              dVelodx(1,i) = SUM( UX(1:n)*dBasisdx(1:n,i) )
-              dVelodx(2,i) = SUM( UY(1:n)*dBasisdx(1:n,i) )
-              IF ( dim > 2 ) dVelodx(3,i) = SUM( UZ(1:n)*dBasisdx(1:n,i) )
+              Grad(1,i) = SUM( UX(1:n)*dBasisdx(1:n,i) )
+              Grad(2,i) = SUM( UY(1:n)*dBasisdx(1:n,i) )
+              IF ( dim > 2 ) Grad(3,i) = SUM( UZ(1:n)*dBasisdx(1:n,i) )
             END DO
 
             Pressure = SUM( NodalPressure(1:n)*Basis(1:n) )
             DivVelo = 0.0D0
             DO i=1,dim
-              DivVelo = DivVelo + dVelodx(i,i)
+              DivVelo = DivVelo + Grad(i,i)
             END DO
           END IF
 
-          IF ( Stabilize ) THEN
+
+          IF ( Vms ) THEN
+            mu = GetCReal( GetMaterial(), 'Viscosity', Found )
+            mu = EffectiveViscosity( mu, rho, Ux, Uy, Uz, &
+                   Element, Nodes, n, n, u,v,w )
+
+            Grad = 0.0D0
+            DO i=1,3
+              Grad(1,i) = SUM( Ux(1:n)*dBasisdx(1:n,i) )
+              Grad(2,i) = SUM( Uy(1:n)*dBasisdx(1:n,i) )
+              Grad(3,i) = SUM( Uz(1:n)*dBasisdx(1:n,i) )
+            END DO
+            VNorm = SQRT( SUM(Velo(1:dim)**2) )
+
+            Temperature = SUM(Basis(1:n)*NodalTemperature(1:n))
+
+            DO i=1,dim
+              GradP(i) = SUM( NodalPressure(1:n)*dBasisdx(1:n,i) )
+            END DO
+
+            Pe  = MIN( 1.0_dp, mK*hK*C1*VNorm/(2*ABS(C2(1,1))) )
+            IF ( VNorm /= 0.0 ) THEN
+               Tau = hK * Pe / (2 * C1 * VNorm)
+            END IF
+
+            Gmat = 0._dp
+            Gvec = 0._dp
+            DO i=1,dim
+              DO j=1,dim
+                Gvec(i) = Gvec(i) + SUM(LC(j,1:n)*dBasisdx(1:n,i))
+                DO k=1,dim
+                  Gmat(i,j) = Gmat(i,j) + SUM(LC(k,1:n)*dBasisdx(1:n,i)) * &
+                                          SUM(LC(k,1:n)*dBasisdx(1:n,j))
+                END DO
+              END DO
+            END DO
+
+            IF ( Transient ) THEN
+              Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
+                    LC1 * (mu/rho)**2*SUM(Gmat*Gmat)  + 4/dt**2 )
+            ELSE
+              Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
+                    LC1 * (mu/rho)**2 * SUM(Gmat*Gmat) )
+            END IF
+
+            RM = 0._dp
+            DO p=1,n
+              RM(p) = C0 * Basis(p)
+              DO i=1,dim
+                RM(p) = RM(p) + C1 * Velo(i) * dBasisdx(p,i)
+                DO j=1,dim
+                  RM(p) = RM(p) - C2(i,j)*SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
+                END DO
+              END DO
+            END DO
+
+            VRM = 0._dp
+            DO i=1,dim
+              VRM(i) = SUM(NodalPVelo(i,1:n)*Basis(1:n))
+              DO j=1,dim
+                VRM(i) = VRM(i) + Velo(j) * Grad(i,j)
+                VRM(i) = VRM(i) - (mu/rho)*SUM(GradNodal(1:n,i,j)*dBasisdx(1:n,j))
+              END DO
+              VRM(i) = VRM(i) + GradP(i)
+              VRM(i) = VRM(i) + Grav(i)*ExpC*( Temperature - RefT )
+            END DO
+          ELSE IF ( Stabilize ) THEN
 !------------------------------------------------------------------------------
 !           Stabilization parameter Tau
 !------------------------------------------------------------------------------
@@ -300,7 +429,6 @@ MODULE DiffuseConvective
 
 #if 1
             Pe  = MIN( 1.0D0, mK*hK*C1*VNorm/(2*ABS(C2(1,1))) )
-
             Tau = 0.0D0
             IF ( VNorm /= 0.0 ) THEN
                Tau = hK * Pe / (2 * C1 * VNorm)
@@ -392,7 +520,17 @@ MODULE DiffuseConvective
 !------------------------------------------------------------------------------
 !           Next we add the stabilization...
 !------------------------------------------------------------------------------
-            IF ( Stabilize ) THEN
+            IF ( Vms ) THEN
+              DO i=1,dim
+                A = A - C1 * Tau_M * VRM(i) * dBasisdx(q,i) * Basis(p)
+
+                A = A + C1 * Velo(i) * Tau * RM(q) * dBasisdx(p,i)
+                M = M + C1 * Velo(i) * Tau * CT*Basis(q) * dBasisdx(p,i)
+
+                A = A - C1 * Tau_M * VRM(i) * Tau * RM(q) * dBasisdx(p,i)
+                M = M - C1 * Tau_M * VRM(i) * Tau * CT*Basis(q) * dBasisdx(p,i)
+              END DO
+            ELSE IF ( Stabilize ) THEN
               A = A + Tau * SU(q) * SW(p)
               M = M + Tau * CT * Basis(q) * SW(p)
             END IF
@@ -422,26 +560,33 @@ MODULE DiffuseConvective
             END DO
           END IF
 
-          Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
-          Viscosity = EffectiveViscosity( Viscosity, Density, UX, UY, UZ, &
-                       Element, Nodes, n, n, U, V, W )
-          IF ( Viscosity > 0.0d0 ) THEN
+          mu = SUM( Nodalmu(1:n) * Basis(1:n) )
+          mu = EffectiveViscosity( mu, rho, Ux, Uy, Uz, &
+                 Element, Nodes, n, n, u,v,w )
+          IF ( mu > 0.0d0 ) THEN
             IF ( .NOT.Compressible ) THEN
-              dVelodx = 0.0D0
+              Grad = 0.0D0
               DO i=1,3
-                dVelodx(1,i) = SUM( UX(1:n)*dBasisdx(1:n,i) )
-                dVelodx(2,i) = SUM( UY(1:n)*dBasisdx(1:n,i) )
-                IF ( dim > 2 ) dVelodx(3,i) = SUM( UZ(1:n)*dBasisdx(1:n,i) )
+                Grad(1,i) = SUM( UX(1:n)*dBasisdx(1:n,i) )
+                Grad(2,i) = SUM( UY(1:n)*dBasisdx(1:n,i) )
+                IF ( dim > 2 ) Grad(3,i) = SUM( UZ(1:n)*dBasisdx(1:n,i) )
               END DO
             END IF
-            Force = Force + 0.5d0 * Viscosity*SecondInvariant(Velo,dVelodx)
+            Force = Force + 0.5d0 * mu*SecondInvariant(Velo,Grad)
           END IF
         END IF
 !------------------------------------------------------------------------------
         DO p=1,NBasis
-          Load = Basis(p)
-          IF ( ConvectAndStabilize ) Load = Load + Tau * SW(p)
-          ForceVector(p) = ForceVector(p) + s * Force * Load
+          Load = Force * Basis(p)
+          IF ( Vms ) THEN
+            DO i=1,dim
+              Load = Load + C1 * Velo(i) * Tau  * Force * dBasisdx(p,i)
+              Load = Load - C1 * Tau_M * VRM(i) * Tau * Force * dBasisdx(p,i)
+            END DO
+          ELSE IF ( ConvectAndStabilize ) THEN
+            Load = Load + Tau * Force * SW(p)
+          END IF
+          ForceVector(p) = ForceVector(p) + s * Load
         END DO
       END DO
 !------------------------------------------------------------------------------

@@ -356,9 +356,14 @@
           'Stabilization Method',Found )
 
      SELECT CASE(StabilizeFlag)
+     CASE('vms')
+       Stabilize = .FALSE.
+       UseBubbles= .FALSE.
      CASE('stabilized')
        Stabilize = .TRUE.
+       UseBubbles = .FALSE.
      CASE('bubbles')
+       Stabilize = .FALSE.
        UseBubbles = .TRUE.
      END SELECT
 
@@ -848,7 +853,7 @@
                PhaseSpatial, LocalTemperature, Enthalpy, U, V, W, &
                MU(1,1:n),MU(2,1:n),MU(3,1:n), Viscosity, Density, Pressure, &
                dPressureDt, PressureCoeff, CompressibilityModel /= Incompressible, &
-               Stabilize, Bubbles, Element, n, ElementNodes )
+               Stabilize, UseBubbles, Element, n, ElementNodes )
 
 !------------------------------------------------------------------------------
          ELSE
