@@ -56,41 +56,15 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
 
   CHARACTER(10) :: OutputFormat
-  LOGICAL :: Found, UseIntervals, SaveNow
-
-  SAVE nstep, ninterval
+  LOGICAL :: Found
     
 
-  t0 = CPUTime()
-
-  UseIntervals = GetLogical(Solver % Values,'Use Output Intervals',Found)
-  IF(.NOT. Found) UseIntervals = .TRUE.
-
-  IF(UseIntervals) THEN
-    OutputIntervals => ListGetIntegerArray( CurrentModel % Simulation, &
-        'Output Intervals', Found )
-    IF(Found) THEN
-      nstep = nstep + 1
-      Timesteps => ListGetIntegerArray( CurrentModel % Simulation, &
-          'Timestep Intervals', Found )
-      IF( Found ) THEN
-        IF(nstep > Timesteps(ninterval) ) THEN
-          ninterval = ninterval + 1
-          nstep = 1
-        END IF
-      END IF
-      SaveNow = ( MOD( nstep-1, OutputIntervals(nInterval) ) == 0)
-      IF(.NOT. SaveNow) THEN
-        RETURN
-      END IF
-    END IF
-  END IF
-
-
   CALL Info( 'ResultOutputSolver', '-------------------------------------')
+  t0 = CPUTime()
 
   SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
   SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
+  SaveGmsh = SaveGmsh .OR. ListGetLogical(Solver % Values,'New Gmsh Format',Found)
   SaveVTK = ListGetLogical(Solver % Values,'VTK Format',Found)
   SaveVTU = ListGetLogical(Solver % Values,'VTU Format',Found)
   SaveOpenDx = ListGetLogical(Solver % Values,'Dx Format',Found)
@@ -132,8 +106,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
   IF( SaveGmsh ) THEN
-    CALL Info( 'ResultOutputSolver','Saving results in gmsh format' )        
-    CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
+    IF( ListGetLogical(Solver % Values,'Gmsh New Format',Found) ) THEN
+      CALL Info( 'ResultOutputSolver','Saving results in new gmsh format' )        
+      CALL GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
+    ELSE
+      CALL Info( 'ResultOutputSolver','Saving results in gmsh format' )        
+      CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )      
+    END IF
   END IF
   IF( SaveVTK ) THEN
     CALL Info( 'ResultOutputSolver','Saving results in legacy vtk format' )            
@@ -348,7 +327,7 @@ END SUBROUTINE ResultOutputSolver
           IF ( Var % DOFs == 1 ) THEN
              DOFs = DOFs + 1
           ELSE
-             j=index(Var % Name, '[')
+             j=INDEX(Var % Name, '[')
              IF ( j > 0 ) THEN
                 str =  ' '
                 DO i=1,LEN_TRIM(Var % Name)
@@ -453,7 +432,7 @@ END SUBROUTINE ResultOutputSolver
                 str(1:1) = CHAR(ICHAR(str(1:1))-ICHAR('a')+ICHAR('A'))
                 WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ',str(1:Var % NameLen)
              ELSE
-                j=index(Var % Name, '[')
+                j=INDEX(Var % Name, '[')
                 IF ( j > 0 ) THEN
                    str =  ' '
                    DO i=1,LEN_TRIM(Var % Name)
@@ -830,7 +809,7 @@ END SUBROUTINE ResultOutputSolver
                    WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
                 END IF
              ELSE
-                l = index( var % name, '[' )
+                l = INDEX( var % name, '[' )
                 IF ( l > 0 ) THEN
                    DOFs = 0
                    DO WHILE( .TRUE. )
@@ -1753,6 +1732,331 @@ CONTAINS
 END SUBROUTINE GmshOutputSolver
 !------------------------------------------------------------------------------
   
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  TYPE(Element_t),POINTER :: Element
+  TYPE(Variable_t), POINTER :: Solution
+  INTEGER, POINTER :: Perm(:)
+  REAL(KIND=dp), POINTER :: Values(:)
+  REAL(KIND=dp) :: Vector(3), Time
+  COMPLEX(KIND=dp), POINTER :: CValues(:)
+  TYPE(Variable_t), POINTER :: TimeVariable
+  TYPE(ValueList_t), POINTER :: SolverParams
+  
+  LOGICAL :: Found, GotField, FileAppend, AlterTopology
+  LOGICAL :: EigenAnalysis = .FALSE., EigenActive
+  
+  INTEGER :: VisitedTimes = 0
+  INTEGER :: i,j,k,l,m,n,dim,dofs,ElmerCode, GmshCode,body_id, Nloop, Loop, Vari, Rank, truedim
+  INTEGER :: Tag, ElemNo, NumberOfAllElements
+  INTEGER, PARAMETER :: MaxElemCode = 827
+  INTEGER, TARGET :: PermIndexes(27)
+  INTEGER :: ElmerToGmshType(MaxElemCode), GmshToElmerType(21)
+  INTEGER, ALLOCATABLE :: ElementOrder(:)
+  INTEGER, POINTER :: NodeIndexes(:)
+  INTEGER, POINTER :: ElmerIndexes(:)
+  INTEGER :: GmshIndexes(27) 
+
+  INTEGER, PARAMETER :: LENGTH = 1024
+  CHARACTER(LEN=LENGTH) :: OutputFile, Txt, FieldName, CompName
+    
+  SAVE VisitedTimes, ElementOrder, ElemNo, GmshIndexes
+  
+!------------------------------------------------------------------------------
+
+  CALL Info('GmshOutputSolver','Saving results in Gmsh format')
+
+  GmshToElmerType = (/ 202, 303, 404, 504, 808, 706, 605, 203, 306, 409, &
+      510, 827, 0, 0, 101, 408, 820, 715, 613, 0, 310 /)
+  ElmerToGmshType = 0
+
+  DO i=1,SIZE(GmshToElmerType)
+    j = GmshToElmerType(i)
+    IF( j > 0 ) ElmerToGmshType(j) = i
+  END DO
+
+
+  SolverParams => GetSolverParams()
+  EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
+  FileAppend = GetLogical( SolverParams,'File Append',Found)
+  IF(.NOT. Found) FileAppend = .TRUE.
+  AlterTopology = GetLogical( SolverParams,'Alter Topology',Found)
+  
+  OutputFile = GetString( Solver % Values, 'Output File Name', Found )
+  IF( .NOT.Found ) THEN
+    CALL Warn('GmshOutputSolver','Output File Name undefined, using default')
+    OutputFile = 'Output.msh'
+  END IF
+  IF(INDEX(OutputFile,'.') == 0) WRITE( OutputFile,'(A,A)') TRIM(OutputFile),".msh"
+
+  dim = CoordinateSystemDimension()
+  IF( VisitedTimes > 0 ) THEN
+    IF( AlterTopology ) THEN
+      OutputFile = NextFreeFilename( OutputFile )
+      CALL Info('GmshOutputSolver','Writing mesh and data to a new file: '//TRIM(OutputFile))
+    ELSE IF( FileAppend ) THEN      
+      CALL Info('GmshOutputSolver','Appending data to the same file: '//TRIM(OutputFile))
+      OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )      
+      GOTO 10
+    ELSE
+      OutputFile = NextFreeFilename( OutputFile )          
+      CALL Info('GmshOutputSolver','Writing data to a new file: '//TRIM(OutputFile))
+      OPEN(UNIT=10, FILE=OutputFile )
+      WRITE(10,'(A)') '$MeshFormat'
+      WRITE(10,'(A)') '2.0 0 8'
+      WRITE(10,'(A)') '$EndMeshFormat'          
+      GOTO 10    
+    END IF
+  END IF
+
+
+  ! Save the header
+  !-------------------------------------------------
+  CALL Info('GsmhOutputSolver','Saving results to file: '//TRIM(OutputFile))
+  OPEN(UNIT=10, FILE=OutputFile )
+  
+  WRITE(10,'(A)') '$MeshFormat'
+  WRITE(10,'(A)') '2.0 0 8'
+  WRITE(10,'(A)') '$EndMeshFormat'    
+  
+
+  ! Save the mesh nodes
+  !-------------------------------------------------
+  CALL Info('GmshOutputSolver','Writing the mesh nodes')
+  WRITE(10,'(A)') '$Nodes'
+  WRITE(10,'(I8)') Model % NumberOfNodes
+  IF( dim == 3 ) THEN
+    DO i = 1, Model % NumberOfNodes
+      WRITE(10,'(I8,3E20.12E3)') i,Model % Nodes % x(i),Model % Nodes % y(i), Model % Nodes % z(i)
+    END DO
+  ELSE 
+    DO i = 1, Model % NumberOfNodes
+      WRITE(10,'(I8,2E20.12E3,A)') i,Model % Nodes % x(i),Model % Nodes % y(i),' 0.0' 
+    END DO
+  END IF
+  WRITE(10,'(A)') '$EndNodes'
+
+  ! Save the mesh elements
+  !-------------------------------------------------
+  CALL Info('GmshOutputSolver','Writing the mesh elements')
+  NumberOfAllElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+  WRITE(10,'(A)') '$Elements'
+  WRITE(10,'(I8)') NumberOfAllElements
+  DO i = 1, NumberOfAllElements
+    Element => Model % Mesh % Elements(i)
+    ElmerCode = Element % TYPE % ElementCode
+
+    GmshCode = ElmerToGmshType(ElmerCode)
+    IF( GmshCode == 0 ) THEN
+      CALL Warn('GmshOutputSolver','Gmsh element index not found!')
+      CYCLE
+    END IF
+
+    IF( i <= Model % NumberOfBulkElements ) THEN
+      Tag = Element % BodyId
+    ELSE
+      Tag = Element % BoundaryInfo % Constraint + 1000
+    END IF
+
+    WRITE(10,'(I8,I3,I3,I5)',ADVANCE='NO') i,GmshCode,1,Tag
+    k = MOD(ElmerCode,100)
+    ElmerIndexes => Element % NodeIndexes
+
+    CALL ElmerToGmshIndex(ElmerCode,ElmerIndexes,GmshIndexes)
+
+    DO j=1,k-1
+      WRITE(10,'(I8)',ADVANCE='NO') GmshIndexes(j)
+    END DO
+    WRITE(10,'(I8)') GmshIndexes(k)
+  END DO
+  WRITE(10,'(A)') '$EndElements'
+
+  IF(.FALSE.) THEN
+    WRITE(10,'(A)') '$PhysicalNames'
+    WRITE(10,'(A)') '$EndPhysicalNames'
+  END IF
+
+
+10 CONTINUE
+
+
+  ! Time is needed
+  !-------------------------------------------------
+  TimeVariable => VariableGet( Model % Variables, 'Time' )        
+  Time = TimeVariable % Values(1)
+  
+  ! Loop over different type of variables
+  !-------------------------------------------------
+  CALL Info('GmshOutputSolver','Writing the nodal data')
+  DO Rank = 0,2
+    DO Vari = 1, 99
+      IF( Vari < 10 ) THEN
+        IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
+      ELSE
+        IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
+      END IF
+
+      FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+      IF(.NOT. Found) EXIT 
+      IF( Rank == 2) THEN
+        CALL Warn('GmshOutputSolver','Not implemented yet for tensors!')
+        CYCLE
+      END IF
+
+      Solution => VariableGet( Solver % Mesh % Variables, FieldName )
+      IF(.NOT. ASSOCIATED(Solution)) THEN
+        CALL Warn('GsmhOutputSolver','Variable not present: '//TRIM(FieldName))
+        CYCLE
+      END IF
+      IF( ASSOCIATED(Solution % EigenVectors) ) THEN
+        CALL Warn('GmshOutputSolver','Eigenvectors related to field: '//TRIM(FieldName))
+        CALL Warn('GmshOutputSolver','Eigenvectors saving yet not supported')
+      END IF
+
+      
+      WRITE(10,'(A)') '$NodeData'
+      WRITE(10,'(A)') '1'
+      WRITE(10,'(A)') TRIM(FieldName)
+      WRITE(10,'(A)') '1'
+      WRITE(10,'(E20.12E3)') Time
+      WRITE(10,'(A)') '3'
+      WRITE(10,'(I8)') VisitedTimes
+      IF(Rank == 0) THEN
+        WRITE(10,'(A)') '1'
+      ELSE IF(Rank == 1) THEN
+        WRITE(10,'(A)') '3'
+      ELSE 
+        WRITE(10,'(A)') '9'
+      END IF
+      
+      WRITE(10,'(I8)') SIZE(Solution % Values) / Solution % DOFs
+      IF( Rank == 0 ) THEN
+        DO i=1,SIZE(Solution % Perm) 
+          j = Solution % Perm(i)
+          IF( j == 0) CYCLE
+          WRITE(10,'(I8,E20.12E3)') i,Solution % Values(j)
+        END DO
+      ELSE IF(Rank == 1) THEN
+        DO i=1,SIZE(Solution % Perm) 
+          j = Solution % Perm(i)
+          IF( j == 0) CYCLE
+          dofs = Solution % DOFs
+          truedim = MIN(dofs, dim)
+          IF( truedim == 2 ) THEN
+            Vector(1) = Solution % Values(dofs*(j-1)+1)
+            Vector(2) = Solution % Values(dofs*(j-1)+2)
+            Vector(3) = 0.0_dp           
+          ELSE
+            Vector(1) = Solution % Values(dofs*(j-1)+1)
+            Vector(2) = Solution % Values(dofs*(j-1)+2)
+            Vector(3) = Solution % Values(dofs*(j-1)+3)
+          END IF
+          WRITE(10,'(I8,3E20.12E3)') i,Vector
+        END DO
+      END IF
+      WRITE(10,'(A)') '$EndNodeData'
+
+    END DO
+  END DO
+  
+      
+  IF(.FALSE.) THEN
+    WRITE(10,'(A)') '$ElementData'
+    WRITE(10,'(A)') '$EndElementData'
+  END IF
+  
+  IF(.FALSE.) THEN
+    WRITE(10,'(A)') '$ElementNodeData'
+    WRITE(10,'(A)') '$EndElementNodeData'
+  END IF
+  
+  CLOSE(10)
+  VisitedTimes = VisitedTimes + 1
+  
+  CALL Info('GmshOutputSolver','Gmsh output complete')
+
+CONTAINS
+
+
+
+  SUBROUTINE ElmerToGmshIndex(Code,ElmerIndexes,GmshIndexes)
+
+    INTEGER :: Code
+    INTEGER :: ElmerIndexes(:),GmshIndexes(:)
+    INTEGER :: i,n
+    LOGICAL :: reorder, Visited = .FALSE.
+
+    INTEGER, TARGET :: order510(10),order613(13),order715(15),order820(20)
+    INTEGER, POINTER :: order(:)
+
+    SAVE Visited
+
+    IF(.NOT. Visited ) THEN
+      order510(:) = (/ 0,1,2,3,4,5,6,7,9,8 /)
+      order613(:) = (/ 0,1,2,3,4,5,8,10,6,7,9,11,12 /)
+      order715(:) = (/ 0,1,2,3,4,5,6,9,7,8,10,11,12,14,13 /)
+      order820(:) = (/ 0,1,2,3,4,5,6,7,8,11,12,9,10,12,14,15,16,18,19,17 /)
+      Visited = .TRUE.
+    END IF
+
+    reorder = .FALSE.
+
+    SELECT CASE( Code )
+      
+    CASE (510)
+      reorder = .TRUE.
+      order => order510
+      
+    CASE (613)
+      reorder = .TRUE.
+      order => order613
+      
+    CASE (715)
+      reorder = .TRUE.
+      order => order715
+      
+    CASE (820)
+      reorder = .TRUE.
+      order => order820
+     
+    CASE DEFAULT
+      
+    END SELECT
+
+    n = MOD(Code,100) 
+    IF( reorder ) THEN
+      DO i=1,n 
+        GmshIndexes(order(i)+1) = ElmerIndexes(i)
+      END DO
+    ELSE
+      GmshIndexes(1:n) = ElmerIndexes(1:n)      
+    END IF
+
+
+  END SUBROUTINE ElmerToGmshIndex
+
+!------------------------------------------------------------------------------
+END SUBROUTINE GmshNewOutputSolver
+!------------------------------------------------------------------------------
+  
+
 
 !------------------------------------------------------------------------------
 ! The Vtk output solver begins here
