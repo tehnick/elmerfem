@@ -257,19 +257,23 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     
   CASE ('bisect')    
     CALL BisectOptimize()
+
+  CASE ('simplex')    
+    CALL SimplexOptimize( NoParam, Param, Cost, MinParam, MaxParam )
     
   CASE DEFAULT
     CALL Fatal('FindOptimum','Unknown method')
     
   END SELECT
  
-
+IF(.FALSE.) THEN
   DO i=1,NoParam 
     IF( FixedParam(i) ) CYCLE
     Param(i) = MAX(MinParam(i),Param(i))
     Param(i) = MIN(MaxParam(i),Param(i))
   END DO
-  
+END IF  
+
 100 OptimizationsDone = OptimizationsDone + 1
 
 CONTAINS
@@ -502,6 +506,215 @@ CONTAINS
     END IF
 
   END SUBROUTINE BisectOptimize
+
+
+!--------------------------------------------------------------------------------------
+! Find the optimum using the Simplex method (Nelder-Mead algorithm)
+! Note that constraint box is taken into account only when creating the initial simplex.
+!--------------------------------------------------------------------------------------
+  SUBROUTINE SimplexOptimize( nx, x, cost, minx, maxx )
+
+    INTEGER :: nx
+    REAL (KIND=dp) :: cost,x(:),minx(:),maxx(:)
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,il,ih,is,no = 0, mode = 0, submode = 0
+    LOGICAL :: Found
+    REAL(KIND=dp) :: lambda, fl,fh,fs,fr,fe
+    REAL(KIND=dp) :: alpha=1.0_dp,beta=0.5_dp,gamma=2.0_dp,delta=0.5_dp
+    REAL(KIND=dp), POINTER :: eig(:,:), ls(:), xall(:,:), f(:), x0(:), xr(:),xc(:)
+
+    SAVE no,eig,ls,xall,f,x0,xr,xc,mode,submode,ih,il,is,fr,fs,fe,fh,fl
+
+    no = no + 1
+
+    ! Initialize the unit vectors
+    !-----------------------------
+    IF( no == 1 ) THEN
+      ALLOCATE(eig(nx,nx),ls(nx),xall(nx+1,nx),f(nx+1),x0(nx),xr(nx),xc(nx))
+      eig = 0.0
+      lambda = ListGetConstReal(Solver % Values,'Simplex Relative Length Scale',Found)
+      IF(.NOT. Found ) lambda = 0.01_dp
+      DO i=1,nx
+        eig(i,i) = 1.0_dp
+        IF( maxx(i) - x(i) > x(i) - minx(i) ) THEN
+          ls(i) = lambda * (maxx(i) - x(i))
+        ELSE
+          ls(i) = lambda * (minx(i) - x(i)) 
+        END IF
+      END DO
+      x0 = x
+    END IF
+
+    ! Memorize the 1st simplex
+    !--------------------------
+    IF( no > 1 .AND. no <= nx + 2 ) THEN
+      xall(no-1,:) = x
+      f(no-1) = cost
+    END IF
+
+
+    ! Create the 1st simplex
+    !---------------------------
+    IF( no <= nx + 1) THEN
+      IF( no == 1 ) THEN
+        x = x0
+      ELSE
+        x = x0 + ls(no-1) * eig(no-1,:)
+      END IF
+      RETURN
+    END IF
+
+    IF( mode <= 1 ) THEN
+      ! Find the minimum and maximum nodes in the simplex
+      !--------------------------------------------------
+      
+      fl = HUGE(fl)  ! best
+      fh = -HUGE(fh) ! worst   
+      fs = -HUGE(fs) ! second worst   
+
+      DO i=1,nx+1
+        IF( f(i) < fl ) THEN
+          il = i
+          fl = f(i)
+        END IF
+        IF( f(i) > fh ) THEN
+          ih = i
+          fh = f(i)
+        END IF
+      END DO
+      DO i=1,nx+1
+        IF(i == ih) CYCLE
+        IF(i == il) CYCLE
+        IF( f(i) > fs ) THEN
+          is = i
+          fs = f(i)
+        END IF
+      END DO
+
+      ! Minpoint neglecting the worst point
+      !------------------------------------
+      xc = 0.0_dp
+      DO i=1,nx+1
+        IF( i == ih ) CYCLE
+        xc = xc + xall(i,:) 
+      END DO
+      xc = xc / nx
+
+    END IF
+
+
+    ! mode
+    ! 0 - undecided
+    ! 1 - reflection
+    ! 2 - expansion
+    ! 3 - contraction
+    ! 4 - shrinkage
+    ! 5 - finished
+
+    Found = .FALSE.
+    IF( mode == 0 ) THEN
+      mode = 1
+    ELSE IF( mode == 1) THEN
+      fr = cost
+      xr = x
+      IF( fr <= fs .AND. fr >= fl ) THEN
+        Found = .TRUE.
+      ELSE IF( fr < fl ) THEN
+        mode = 2
+      ELSE IF(fr > fs) THEN
+        mode = 3
+        IF( fr < fh ) THEN
+          submode = 1
+        ELSE
+          submode = 2
+        END IF
+      END IF
+
+    ELSE IF(mode == 2) THEN
+      fe = cost
+      IF( fe >= fr ) THEN
+        x = xr
+        cost = fr
+      END IF
+      Found = .TRUE.
+    ELSE IF(mode == 3) THEN
+      IF( submode == 1 .AND. cost < fr ) THEN
+        Found = .TRUE.
+      ELSE IF( submode == 2 .AND. cost < fh ) THEN
+        Found = .TRUE.
+      ELSE
+        mode = 4
+        submode = 0
+      END IF      
+    ELSE IF( mode == 4) THEN
+      CALL Warn('FindOptimum','Srink mode not ok yet!')
+      IF( submode == nx ) THEN
+        mode = 1
+        submode = 0
+      END IF
+    END IF
+
+
+    IF( Found ) THEN
+      xall(ih,:) = x 
+      f(ih) = cost
+      mode = 1
+      submode = 0
+
+      ! Find the minimum and maximum nodes in the simplex
+      !--------------------------------------------------
+      
+      fl = HUGE(fl)  ! best
+      fh = -HUGE(fh) ! worst   
+      fs = -HUGE(fs) ! second worst   
+      DO i=1,nx+1
+        IF( f(i) < fl ) THEN
+          il = i
+          fl = f(i)
+        END IF
+        IF( f(i) > fh ) THEN
+          ih = i
+          fh = f(i)
+        END IF
+      END DO
+      DO i=1,nx+1
+        IF(i == ih) CYCLE
+        IF( f(i) > fs ) THEN
+          is = i
+          fs = f(i)
+        END IF
+      END DO
+
+      ! Minpoint neglecting the worst point
+      !------------------------------------
+      xc = 0.0_dp
+      DO i=1,nx+1
+        IF( i == ih ) CYCLE
+        xc = xc + xall(i,:) 
+      END DO
+      xc = xc / nx
+    END IF
+
+
+    IF( mode == 1 ) THEN
+      x = xc + alpha*(xc - xall(ih,:))
+    ELSE IF( mode == 2 ) THEN
+      x = xc + gamma*(xc - xall(ih,:))
+    ELSE IF(mode == 3 ) THEN
+      IF( submode == 1 ) THEN
+        x = xc + beta*(xr - xc)        
+      ELSE
+        x = xc + beta*(xall(ih,:) - xc)        
+      END IF
+    ELSE IF(mode == 4) THEN
+      submode = submode + 1 
+      i = submode 
+      IF( submode >= il ) i = i + 1
+      x = xall(il,:) + delta*(xall(i,:)-xall(il,:))
+      xall(i,:) = x
+    END IF
+
+  END SUBROUTINE SimplexOptimize
 
 
 
