@@ -23,7 +23,10 @@
 !
 !/******************************************************************************
 ! *
-! *  This solver may be used for optimization 
+! *  This solver may be used for optimization. It is not intended to provide
+! *  a full featured solution for optimization problems. However, sometimes
+! *  its nice that the optimization may be performed in one sweep without the
+! *  need for restarting the solver for each optimization trial. 
 ! *
 ! ******************************************************************************
 ! *
@@ -266,13 +269,13 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     
   END SELECT
  
-IF(.FALSE.) THEN
-  DO i=1,NoParam 
-    IF( FixedParam(i) ) CYCLE
-    Param(i) = MAX(MinParam(i),Param(i))
-    Param(i) = MIN(MaxParam(i),Param(i))
-  END DO
-END IF  
+  IF(.FALSE.) THEN
+    DO i=1,NoParam 
+      IF( FixedParam(i) ) CYCLE
+      Param(i) = MAX(MinParam(i),Param(i))
+      Param(i) = MIN(MaxParam(i),Param(i))
+    END DO
+  END IF
 
 100 OptimizationsDone = OptimizationsDone + 1
 
