@@ -243,8 +243,8 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     WRITE( Message, '(A,ES15.6E3)' ) 'Last evaluated cost: ',Cost    
   END IF
   WRITE( Message, '(A,ES15.6E3)' ) 'Lowest cost so far: ',MinCost
-  CALL Info( 'FindOptimum', Message, Level=4 )
-  CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
+
+
   
 
   SELECT CASE(Method)
@@ -276,6 +276,15 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       Param(i) = MIN(MaxParam(i),Param(i))
     END DO
   END IF
+
+
+  IF( NoParam <= 5 ) THEN
+    WRITE( Message, * ) 'Next set: ',Param
+    CALL Info( 'FindOptimum', Message, Level=4 )
+  END IF
+  CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
+
+
 
 100 OptimizationsDone = OptimizationsDone + 1
 
@@ -520,19 +529,23 @@ CONTAINS
     INTEGER :: nx
     REAL (KIND=dp) :: cost,x(:),minx(:),maxx(:)
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,il,ih,is,no = 0, mode = 0, submode = 0
-    LOGICAL :: Found
-    REAL(KIND=dp) :: lambda, fl,fh,fs,fr,fe
+    INTEGER :: i,j,il,ih,is,no = 0, nomax, mode = 0, submode = 0
+    LOGICAL :: Found, AllocationsDone
+    REAL(KIND=dp) :: lambda, fl,fh,fs,fr,fe,ratio=0.0, maxratio
     REAL(KIND=dp) :: alpha=1.0_dp,beta=0.5_dp,gamma=2.0_dp,delta=0.5_dp
     REAL(KIND=dp), POINTER :: eig(:,:), ls(:), xall(:,:), f(:), x0(:), xr(:),xc(:)
 
-    SAVE no,eig,ls,xall,f,x0,xr,xc,mode,submode,ih,il,is,fr,fs,fe,fh,fl
+    SAVE no,eig,ls,xall,f,x0,xr,xc,mode,submode,ih,il,is,fr,fs,fe,fh,fl,&
+        nomax,ratio,maxratio,AllocationsDone
 
     no = no + 1
 
+    PRINT *,'Simplex: ',no,mode,maxratio,Cost,ratio
+    
+
     ! Initialize the unit vectors
     !-----------------------------
-    IF( no == 1 ) THEN
+    IF(.NOT. AllocationsDone ) THEN
       ALLOCATE(eig(nx,nx),ls(nx),xall(nx+1,nx),f(nx+1),x0(nx),xr(nx),xc(nx))
       eig = 0.0
       lambda = ListGetConstReal(Solver % Values,'Simplex Relative Length Scale',Found)
@@ -545,7 +558,19 @@ CONTAINS
           ls(i) = lambda * (minx(i) - x(i)) 
         END IF
       END DO
-      x0 = x
+      nomax = ListGetInteger(Solver % Values,'Simplex Restart Interval',Found)
+      maxratio = ListGetConstReal(Solver % Values,'Simplex Restart Convergence Ratio',Found)      
+      IF(.NOT. Found) maxratio = 1.0_dp
+      AllocationsDone = .TRUE.
+    END IF
+
+    IF( nomax > 0 .AND. no > nomax .AND. ratio > maxratio ) THEN
+      CALL Info('FindOptimum','Making a restart in simplex')
+      ratio = 0.0_dp
+      ls = 0.1 * ls
+
+      PRINT *,'Simplex: coeff',ls
+      no = 1
     END IF
 
     ! Memorize the 1st simplex
@@ -560,7 +585,7 @@ CONTAINS
     !---------------------------
     IF( no <= nx + 1) THEN
       IF( no == 1 ) THEN
-        x = x0
+        x0 = x
       ELSE
         x = x0 + ls(no-1) * eig(no-1,:)
       END IF
@@ -660,6 +685,9 @@ CONTAINS
 
     IF( Found ) THEN
       xall(ih,:) = x 
+
+      ratio = cost / f(ih)
+
       f(ih) = cost
       mode = 1
       submode = 0
