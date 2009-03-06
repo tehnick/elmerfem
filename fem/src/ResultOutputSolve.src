@@ -280,11 +280,7 @@ END SUBROUTINE ResultOutputSolver
           CYCLE
        END IF
  
-
-
        SELECT CASE(Var % Name)
-       CASE('time', 'timestep', 'timestep size', 'timestep interval', &
-            'coupled iter', 'nonlin iter')
           
        CASE( 'mesh update' )
           Var1 => Model % Variables
@@ -1748,32 +1744,27 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
   TYPE(Element_t),POINTER :: Element
-  TYPE(Variable_t), POINTER :: Solution
   INTEGER, POINTER :: Perm(:)
   REAL(KIND=dp), POINTER :: Values(:)
   REAL(KIND=dp) :: Vector(3), Time
   COMPLEX(KIND=dp), POINTER :: CValues(:)
-  TYPE(Variable_t), POINTER :: TimeVariable
+  TYPE(Variable_t), POINTER :: Solution, TimeVariable
   TYPE(ValueList_t), POINTER :: SolverParams
   
-  LOGICAL :: Found, GotField, FileAppend, AlterTopology
+  LOGICAL :: Found, GotField, FileAppend, AlterTopology, MaskExists
   LOGICAL :: EigenAnalysis = .FALSE., EigenActive
   
   INTEGER :: VisitedTimes = 0
-  INTEGER :: i,j,k,l,m,n,dim,dofs,ElmerCode, GmshCode,body_id, Nloop, Loop, Vari, Rank, truedim
-  INTEGER :: Tag, ElemNo, NumberOfAllElements
+  INTEGER :: i,j,k,l,m,n,nsize,dim,dofs,ElmerCode, GmshCode,body_id, Vari, Rank, truedim
+  INTEGER :: Tag, NumberOfAllElements, BCOffSet
   INTEGER, PARAMETER :: MaxElemCode = 827
-  INTEGER, TARGET :: PermIndexes(27)
-  INTEGER :: ElmerToGmshType(MaxElemCode), GmshToElmerType(21)
-  INTEGER, ALLOCATABLE :: ElementOrder(:)
-  INTEGER, POINTER :: NodeIndexes(:)
-  INTEGER, POINTER :: ElmerIndexes(:)
-  INTEGER :: GmshIndexes(27) 
+  INTEGER :: ElmerToGmshType(MaxElemCode), GmshToElmerType(21), GmshIndexes(27) 
+  INTEGER, POINTER :: NodeIndexes(:), ElmerIndexes(:), MaskPerm(:)
 
   INTEGER, PARAMETER :: LENGTH = 1024
   CHARACTER(LEN=LENGTH) :: OutputFile, Txt, FieldName, CompName
     
-  SAVE VisitedTimes, ElementOrder, ElemNo, GmshIndexes
+  SAVE VisitedTimes
   
 !------------------------------------------------------------------------------
 
@@ -1788,13 +1779,19 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
     IF( j > 0 ) ElmerToGmshType(j) = i
   END DO
 
-
   SolverParams => GetSolverParams()
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
   FileAppend = GetLogical( SolverParams,'File Append',Found)
   IF(.NOT. Found) FileAppend = .TRUE.
   AlterTopology = GetLogical( SolverParams,'Alter Topology',Found)
   
+  Txt = ListGetString( SolverParams,'Mask Variable',MaskExists)
+  IF( MaskExists ) THEN
+    Solution => VariableGet(Model % Variables,TRIM(Txt))
+    IF( ASSOCIATED(Solution)) MaskPerm => Solution % Perm
+    MaskExists = ASSOCIATED(MaskPerm)
+  END IF
+
   OutputFile = GetString( Solver % Values, 'Output File Name', Found )
   IF( .NOT.Found ) THEN
     CALL Warn('GmshOutputSolver','Output File Name undefined, using default')
@@ -1836,14 +1833,26 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
   ! Save the mesh nodes
   !-------------------------------------------------
   CALL Info('GmshOutputSolver','Writing the mesh nodes')
+  IF( MaskExists ) THEN
+    nsize = MAXVAL( MaskPerm ) 
+  ELSE
+    nsize = Model % NumberOfNodes
+  END IF
+
   WRITE(10,'(A)') '$Nodes'
-  WRITE(10,'(I8)') Model % NumberOfNodes
+  WRITE(10,'(I8)') nsize
   IF( dim == 3 ) THEN
     DO i = 1, Model % NumberOfNodes
+      IF( MaskExists ) THEN
+        IF( MaskPerm(i) == 0 ) CYCLE
+      END IF      
       WRITE(10,'(I8,3E20.12E3)') i,Model % Nodes % x(i),Model % Nodes % y(i), Model % Nodes % z(i)
     END DO
   ELSE 
     DO i = 1, Model % NumberOfNodes
+      IF( MaskExists ) THEN
+        IF( MaskPerm(i) == 0 ) CYCLE
+      END IF            
       WRITE(10,'(I8,2E20.12E3,A)') i,Model % Nodes % x(i),Model % Nodes % y(i),' 0.0' 
     END DO
   END IF
@@ -1853,11 +1862,31 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
   !-------------------------------------------------
   CALL Info('GmshOutputSolver','Writing the mesh elements')
   NumberOfAllElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+  
+  IF( MaskExists ) THEN
+    nsize = 0
+    DO i=1,NumberOfAllElements
+      Element => Model % Mesh % Elements(i)
+      ElmerIndexes => Element % NodeIndexes
+      IF( ANY(MaskPerm(ElmerIndexes) == 0) ) CYCLE
+      nsize = nsize  + 1
+    END DO
+  ELSE
+    nsize = NumberOfAllElements
+  END IF
+
+
+
   WRITE(10,'(A)') '$Elements'
-  WRITE(10,'(I8)') NumberOfAllElements
+  WRITE(10,'(I8)') nsize
   DO i = 1, NumberOfAllElements
     Element => Model % Mesh % Elements(i)
     ElmerCode = Element % TYPE % ElementCode
+    ElmerIndexes => Element % NodeIndexes
+    
+    IF( MaskExists ) THEN
+      IF( ANY(MaskPerm(ElmerIndexes) == 0) ) CYCLE     
+    END IF
 
     GmshCode = ElmerToGmshType(ElmerCode)
     IF( GmshCode == 0 ) THEN
@@ -1868,12 +1897,11 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
     IF( i <= Model % NumberOfBulkElements ) THEN
       Tag = Element % BodyId
     ELSE
-      Tag = Element % BoundaryInfo % Constraint + 1000
+      Tag = GetBCId( Element ) + BCOffset
     END IF
 
     WRITE(10,'(I8,I3,I3,I5)',ADVANCE='NO') i,GmshCode,1,Tag
     k = MOD(ElmerCode,100)
-    ElmerIndexes => Element % NodeIndexes
 
     CALL ElmerToGmshIndex(ElmerCode,ElmerIndexes,GmshIndexes)
 
@@ -1884,8 +1912,24 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
   END DO
   WRITE(10,'(A)') '$EndElements'
 
-  IF(.FALSE.) THEN
+
+
+  BCOffSet = Model % NumberOfBodies
+
+  ! With a mask the list of physical entities should be checked
+  !-------------------------------------------------------------
+  IF(.NOT. MaskExists ) THEN
+    nsize = Model % NumberOfBodies + Model % NumberOfBCs
     WRITE(10,'(A)') '$PhysicalNames'
+    WRITE(10,'(I8)') nsize
+    DO i=1,Model % NumberOfBodies 
+      Txt = ListGetString( Model % Bodies(i) % Values,'Name')
+      WRITE(10,'(I8,A)') i,'"'//TRIM(Txt)//'"'
+    END DO
+    DO i=1,Model % NumberOfBCs
+      Txt = ListGetString( Model % BCs(i) % Values,'Name')
+      WRITE(10,'(I8,A)') i+BCOffset,'"'//TRIM(Txt)//'"'
+    END DO
     WRITE(10,'(A)') '$EndPhysicalNames'
   END IF
 
@@ -1930,6 +1974,24 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
         CALL Warn('GmshOutputSolver','Eigenvectors saving yet not supported')
       END IF
 
+      Values => Solution % Values
+      Perm => Solution % Perm
+      dofs = Solution % DOFs
+      truedim = MIN(dofs, dim)
+
+      IF( MaskExists ) THEN
+        nsize = 0
+        DO i=1,SIZE(Perm)
+          IF( Perm(i)==0 .OR. MaskPerm(i) == 0 ) CYCLE
+          nsize = nsize + 1
+        END DO
+        IF( nsize == 0 ) THEN
+          CALL Warn('GmshOutputSolver','No dofs with the current mask for saving: '//TRIM(FieldName))         
+        END IF
+      ELSE
+        nsize = SIZE(Values) / Dofs
+      END IF
+
       
       WRITE(10,'(A)') '$NodeData'
       WRITE(10,'(A)') '1'
@@ -1944,33 +2006,28 @@ SUBROUTINE GmshNewOutputSolver( Model,Solver,dt,TransientSimulation )
         WRITE(10,'(A)') '3'
       ELSE 
         WRITE(10,'(A)') '9'
-      END IF
-      
-      WRITE(10,'(I8)') SIZE(Solution % Values) / Solution % DOFs
-      IF( Rank == 0 ) THEN
-        DO i=1,SIZE(Solution % Perm) 
-          j = Solution % Perm(i)
-          IF( j == 0) CYCLE
-          WRITE(10,'(I8,E20.12E3)') i,Solution % Values(j)
-        END DO
-      ELSE IF(Rank == 1) THEN
-        DO i=1,SIZE(Solution % Perm) 
-          j = Solution % Perm(i)
-          IF( j == 0) CYCLE
-          dofs = Solution % DOFs
-          truedim = MIN(dofs, dim)
+      END IF     
+      WRITE(10,'(I8)') nsize
+     
+      DO i=1,SIZE(Perm) 
+        j = Perm(i)
+        IF( j == 0) CYCLE
+        IF( MaskExists ) THEN
+          IF( MaskPerm(i) == 0 ) CYCLE
+        END IF
+        
+        IF( Rank == 0 ) THEN
+          WRITE(10,'(I8,E20.12E3)') i,Values(j)
+        ELSE IF(Rank == 1) THEN
           IF( truedim == 2 ) THEN
-            Vector(1) = Solution % Values(dofs*(j-1)+1)
-            Vector(2) = Solution % Values(dofs*(j-1)+2)
-            Vector(3) = 0.0_dp           
+            WRITE(10,'(I8,2E20.12E3,A)') i,&
+                Values(dofs*(j-1)+1),Values(dofs*(j-1)+2),' 0.0'
           ELSE
-            Vector(1) = Solution % Values(dofs*(j-1)+1)
-            Vector(2) = Solution % Values(dofs*(j-1)+2)
-            Vector(3) = Solution % Values(dofs*(j-1)+3)
+            WRITE(10,'(I8,3E20.12E3)') i,&
+                Values(dofs*(j-1)+1),Values(dofs*(j-1)+2),Values(dofs*(j-1)+3)
           END IF
-          WRITE(10,'(I8,3E20.12E3)') i,Vector
-        END DO
-      END IF
+        END IF
+      END DO
       WRITE(10,'(A)') '$EndNodeData'
 
     END DO
