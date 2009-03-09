@@ -195,6 +195,9 @@
 !      Add electric field to the variable list (disabled)
 !------------------------------------------------------------------------------
        IF ( CalculateField ) THEN         
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
+               Solver, 'Electric Field', dim, ElField, PotentialPerm)
+
           Ex => ElField(1:Dim*LocalNodes-Dim+1:Dim)
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
                'Electric Field 1', 1, Ex, PotentialPerm)
@@ -215,6 +218,9 @@
 !------------------------------------------------------------------------------
 
        IF ( CalculateCurrent ) THEN
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
+               Solver, 'Volume Current', dim, VolCurrent, PotentialPerm)
+
           Cx => VolCurrent(1:Dim*LocalNodes-Dim+1:Dim)
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
                Solver, 'Volume Current 1', 1, Cx, PotentialPerm)
