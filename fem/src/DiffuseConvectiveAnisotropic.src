@@ -154,7 +154,7 @@ MODULE DiffuseConvective
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      REAL(KIND=dp) :: s,u,v,w,dEnth,dTemp,mu,DivVelo,Pressure,rho,&
-                      Pcoeff
+                      Pcoeff, minl, maxl
 
      REAL(KIND=dp) :: C0,C00,C1,CT,C2(3,3),dC2dx(3,3,3),SU(n),SW(n)
 
@@ -252,10 +252,16 @@ MODULE DiffuseConvective
          grav(2) = -9.81_dp
        END IF
 
-       LC1 = 36._dp
+       LC1 = 2._dp/mK
        LC(1,1:n) = Element % Type % NodeU(1:n)
        LC(2,1:n) = Element % Type % NodeV(1:n)
        LC(3,1:n) = Element % Type % NodeW(1:n)
+
+       DO i=1,Element % Type % Dimension
+         minl=MINVAL(LC(i,1:n))
+         maxl=MAXVAL(LC(i,1:n))
+         LC(i,1:n) = 2*(LC(i,1:n)-minl)/(maxl-minl)-1
+       END DO
      ELSE IF ( Stabilize .AND. Convection ) THEN
        ConvectAndStabilize = .TRUE.
        hK = element % hK
@@ -375,10 +381,6 @@ MODULE DiffuseConvective
               GradP(i) = SUM( NodalPressure(1:n)*dBasisdx(1:n,i) )
             END DO
 
-            Pe  = MIN( 1.0_dp, mK*hK*C1*VNorm/(2*ABS(C2(1,1))) )
-            IF ( VNorm /= 0.0 ) THEN
-               Tau = hK * Pe / (2 * C1 * VNorm)
-            END IF
 
             Gmat = 0._dp
             Gvec = 0._dp
@@ -394,10 +396,15 @@ MODULE DiffuseConvective
 
             IF ( Transient ) THEN
               Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
-                    LC1 * (mu/rho)**2*SUM(Gmat*Gmat)  + 4/dt**2 )
+                    LC1**2 * (mu/rho)**2*SUM(Gmat*Gmat)/dim + 4/dt**2 )
             ELSE
               Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
-                    LC1 * (mu/rho)**2 * SUM(Gmat*Gmat) )
+                    LC1**2 * (mu/rho)**2 * SUM(Gmat*Gmat)/dim )
+            END IF
+
+            Pe  = MIN( 1.0_dp, mK*hK*C1*VNorm/(2*ABS(C2(1,1))) )
+            IF ( VNorm /= 0.0 ) THEN
+               Tau = hK * Pe / (2 * C1 * VNorm)
             END IF
 
             RM = 0._dp

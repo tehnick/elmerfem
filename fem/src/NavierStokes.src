@@ -158,7 +158,7 @@ MODULE NavierStokes
 
      REAL(KIND=dp) :: Tau_M, Tau_C, Gmat(3,3),Gvec(3), dt=0._dp, C1, NodalVelo(4,n), &
        RM(n,4,4),LC(3,n), gradP(n), PRM(4), GradNodal(n,3,3), PVelo(3), NodalPVelo(3,n), &
-       Work(3,n)
+       Work(3,n), maxl, minl
 
      INTEGER :: i,j,k,l,c,p,q,t,dim
 
@@ -299,10 +299,16 @@ MODULE NavierStokes
         END IF
       END IF
 
-      C1 = 36._dp
+      C1 = 2._dp/mK
       LC(1,1:n) = Element % Type % NodeU(1:n)
       LC(2,1:n) = Element % Type % NodeV(1:n)
       LC(3,1:n) = Element % Type % NodeW(1:n)
+
+      DO i=1,Element % Type % Dimension
+        minl=MINVAL(LC(i,1:n))
+        maxl=MAXVAL(LC(i,1:n))
+        LC(i,1:n) = 2*(LC(i,1:n)-minl)/(maxl-minl)-1
+      END DO
      END IF
 
 !------------------------------------------------------------------------------
@@ -507,19 +513,32 @@ MODULE NavierStokes
             Gvec(i) = Gvec(i) + SUM(LC(j,1:n)*dBasisdx(1:n,i))
             DO k=1,dim
               Gmat(i,j) = Gmat(i,j) + SUM(LC(k,1:n)*dBasisdx(1:n,i)) * &
-                                      SUM(LC(k,1:n)*dBasisdx(1:n,j))
+                            SUM(LC(k,1:n)*dBasisdx(1:n,j))
+                                     
             END DO
           END DO
         END DO
 
+
         IF ( Transient ) THEN
           Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
-            C1*(mu/rho)**2*SUM(Gmat*Gmat) + 4/dt**2 )
+            C1**2*(mu/rho)**2*SUM(Gmat*Gmat)/dim + 4/dt**2 )
         ELSE
           Tau_M = 1._dp / SQRT( SUM(Velo*MATMUL(Gmat,Velo)) + &
-                C1 * (mu/rho)**2 * SUM(Gmat*Gmat) )
+             C1**2 * (mu/rho)**2 * SUM(Gmat*Gmat)/dim )
         END IF
         Tau_C = 1._dp / (Tau_M*SUM(Gvec*Gvec))
+
+!
+!       VNorm = MAX( SQRT( SUM(Velo(1:dim)**2) ), 1.0d-12 )
+!       Re = MIN( 1.0d0, rho * mK * hK * VNorm / (4 * mu) )
+!
+!       Tau = hK * Re / (2 * rho * VNorm)
+!       Delta = rho * Lambda * Re * hK * VNorm
+!PRINT*, hk,mk,2/c1,2._dp/sqrt(Gmat(1,1)),2._dp/sqrt(Gmat(2,2))
+!PRINT*,tau,tau_m,dim
+!PRINT*,'---'
+!
 
         RM = 0._dp
         DO p=1,n
