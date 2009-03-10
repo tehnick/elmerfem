@@ -60,6 +60,7 @@ void STDCALLBULL FC_FUNC_(mpi_win_wait,MPI_WIN_WAIT) () {}
 void STDCALLBULL FC_FUNC_(mpi_waitsome,MPI_WAITSOME) () {}
 
 void STDCALLBULL FC_FUNC_(mpi_comm_create,MPI_COMM_CREATE) () {}
+void STDCALLBULL FC_FUNC_(mpi_comm_free,MPI_COMM_FREE) () {}
 void STDCALLBULL FC_FUNC_(mpi_comm_group,MPI_COMM_GROUP) () {}
 void STDCALLBULL FC_FUNC_(mpi_group_incl,MPI_GROUP_INCL) () {}
 
@@ -107,6 +108,23 @@ void hpmp_comm_world() {}
 
 void hpmp_long() {}
 void hpmp_lor() {}
+
+
+#include <stdio.h>
+#include <stdarg.h>
+
+int __isoc99_sscanf(const char *s, const char *format,...)
+{
+  va_list arg;
+  int n;
+    
+  va_start(arg,format);
+  n = vsscanf(s,format,arg);
+  va_end(arg);
+    
+  return n;
+}
+
 
 /* parpack */
 void STDCALLBULL FC_FUNC(pdneupd,PDNEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26, void *g27, void *g28,void *g29 ) {}

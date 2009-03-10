@@ -2249,7 +2249,7 @@ END SUBROUTINE GenericSolver
        IF ( i-1==ParEnv % MyPE ) OutputPE=0
 
        n = COUNT(ParEnv % Active)
-       IF ( n>0 ) THEN
+       IF ( n>0 .AND. n<ParEnv % PEs ) THEN
          CALL MPI_Comm_group( MPI_COMM_WORLD, group_world, ierr )
          ALLOCATE(memb(n))
          n = 0
@@ -2263,7 +2263,7 @@ END SUBROUTINE GenericSolver
          DEALLOCATE(memb)
          CALL MPI_Comm_create( MPI_COMM_WORLD, group_active, &
                  comm_active, ierr)
-         IF ( MeActive ) Solver % Matrix % Comm = comm_active
+         Solver % Matrix % Comm = comm_active
        END IF
      END IF
 
@@ -2284,6 +2284,8 @@ END SUBROUTINE GenericSolver
 #endif
 
      CALL ListSetNamespace('')
+     IF ( Solver % Matrix % Comm /= MPI_COMM_WORLD ) &
+        CALL MPI_Comm_Free( Solver % Matrix % Comm, ierr )
 
      Solver % dt = OrigDT
 !------------------------------------------------------------------------------
