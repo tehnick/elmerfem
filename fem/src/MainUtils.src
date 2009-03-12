@@ -2236,8 +2236,8 @@ END SUBROUTINE GenericSolver
         MeActive = MeActive .AND. (Solver % Matrix % NumberOfRows>0)
      CALL ParallelActive( MeActive )
 
-     IF ( MeActive ) &
-       Solver % Matrix % Comm = MPI_COMM_WORLD
+     IF ( MeActive ) Solver % Matrix % Comm = MPI_COMM_WORLD
+
      IF ( ParEnv % PEs>1 ) THEN
        DO i=1,ParEnv % PEs
          IF ( ParEnv % Active(i) ) THEN
@@ -2249,7 +2249,7 @@ END SUBROUTINE GenericSolver
        IF ( i-1==ParEnv % MyPE ) OutputPE=0
 
        n = COUNT(ParEnv % Active)
-       IF ( n>0 .AND. n<ParEnv % PEs ) THEN
+       IF ( MeActive .AND. n>0 .AND. n<ParEnv % PEs ) THEN
          CALL MPI_Comm_group( MPI_COMM_WORLD, group_world, ierr )
          ALLOCATE(memb(n))
          n = 0
@@ -2284,8 +2284,10 @@ END SUBROUTINE GenericSolver
 #endif
 
      CALL ListSetNamespace('')
-     IF ( Solver % Matrix % Comm /= MPI_COMM_WORLD ) &
-        CALL MPI_Comm_Free( Solver % Matrix % Comm, ierr )
+     IF ( MeActive ) THEN
+       IF ( Solver % Matrix % Comm /= MPI_COMM_WORLD ) &
+          CALL MPI_Comm_Free( Solver % Matrix % Comm, ierr )
+     END IF
 
      Solver % dt = OrigDT
 !------------------------------------------------------------------------------
