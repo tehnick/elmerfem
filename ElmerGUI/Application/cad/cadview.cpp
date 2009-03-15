@@ -75,6 +75,9 @@
 #include <IGESControl_Reader.hxx>
 #include <Bnd_Box.hxx>
 #include <BRepBndLib.hxx>
+#include <TopoDS_Edge.hxx>
+#include <BRepAdaptor_Curve2d.hxx>
+#include <GCPnts_TangentialDeflection.hxx>
 
 using namespace std;
 
@@ -141,6 +144,7 @@ CadView::CadView(QWidget *parent)
   modelLength = 0.0;
   numberOfFaces = 0;
   fileName = "";
+  modelDim = -1;
 }
 
 CadView::~CadView()
@@ -232,7 +236,7 @@ bool CadView::readFile(QString fileName)
   QFileInfo fileInfo(fileName);
   QString fileSuffix = fileInfo.suffix().toLower();
   
-  TopoDS_Shape shape;
+  // TopoDS_Shape shape;
 
   if(fileSuffix == "brep")
     shape = readBrep(fileName);
@@ -272,16 +276,20 @@ bool CadView::readFile(QString fileName)
 		       +(max[1]-min[1])*(max[1]-min[1]) 
 		       +(max[0]-min[0])*(max[0]-min[0]));
 
-  deflection *= length; // use relative deflection
+  deflection *= length; // use relative units
 
   double t0 = sqrt((max[0] - min[0])*(max[0] - min[0]));
   double t1 = sqrt((max[1] - min[1])*(max[1] - min[1]));
   double t2 = sqrt((max[2] - min[2])*(max[2] - min[2]));
 
+  modelDim = 3;
+
   double tol = 1.0e-6 * length;
+
   if((t0 < tol) || (t1 < tol) || (t2 < tol)) {
-    cout << "Cad import: Shape seems to be 2D. Unable to proceed. Aborting." << endl;
-    return false;
+    modelDim = 2;
+    // cout << "Cad import: Shape seems to be 2D. Unable to proceed. Aborting." << endl;
+    // return false;
   }
   
   // Construct model data and draw surfaces:
@@ -711,4 +719,151 @@ int CadView::getFaceNumber(vtkActor* actor)
 {
   if(actor == NULL) return -1;
   return actorToFace.value(actor);
+}
+
+int CadView::getDim()
+{
+  return modelDim;
+}
+
+void CadView::generateIn2dFile()
+{
+  cout << "Generating In2D file from 2D Iges geometry"<< endl;
+
+  QVector<pt> pts;
+  QVector<seg> segs;
+
+#if 0
+  // Read IGES file:
+  //-----------------
+  IGESControl_Reader igesReader;
+  IFSelect_ReturnStatus status;
+  status = igesReader.ReadFile("iges2ng.in2d");
+
+  TopoDS_Shape Shape;  
+  if(status == IFSelect_RetDone) {
+    igesReader.TransferRoots();
+    Shape = igesReader.OneShape();
+  } else {
+    cout << "No shapes" << endl;
+    return 0;
+  }
+#endif
+
+  // Loop over faces:
+  //------------------
+  bool firstPoint = true;
+  gp_Pnt previousPnt;
+  int numberOfFaces = 0;
+  int numberOfPts = 0;
+  int numberOfSegs = 0;
+  int numberOfSegments = 0;
+  TopExp_Explorer expFace(shape, TopAbs_FACE);
+  for(expFace; expFace.More(); expFace.Next()) {
+    TopoDS_Face Face = TopoDS::Face(expFace.Current());
+    cout << "Face: " << ++numberOfFaces << endl;
+
+    // Loop over edges:
+    //------------------
+    int numberOfEdges = 0;
+    TopExp_Explorer expEdge(Face, TopAbs_EDGE);
+    for(expEdge; expEdge.More(); expEdge.Next()) {
+      TopoDS_Edge Edge = TopoDS::Edge(expEdge.Current());
+      cout << " Edge: " << ++numberOfEdges << endl;
+
+      // Divide edge into segments:
+      //----------------------------
+      double AngularDeflection = 0.1;
+      double CurvatureDeflection = 0.1;
+      int MinPoints = 0;
+      double Tolerance = 1.0e-9;
+      BRepAdaptor_Curve2d Curve(Edge, Face);
+      GCPnts_TangentialDeflection TD(Curve, AngularDeflection, 
+				     CurvatureDeflection, MinPoints,
+				     Tolerance);
+      int nofPoints = TD.NbPoints();
+      cout << "  Points: " << nofPoints << endl;
+
+      // Loop over segments:
+      //---------------------
+      for(int i = 1; i <= nofPoints; i++) {
+	double p0 = TD.Parameter(i-1);
+	double p1 = TD.Parameter(i);
+	double dist = sqrt((p1-p0)*(p1-p0));
+
+	if(dist < 1.0e-9) {
+	  cout << "   Skipped one (based on parameter)" << endl;
+	  continue;
+	}
+
+	gp_Pnt value = TD.Value(i);
+
+	if(firstPoint) {
+	  firstPoint = false;
+	  previousPnt = value;
+	  pt p;
+	  p.n = ++numberOfPts;
+	  p.x = value.X();
+	  p.y = value.Y();
+	  pts.push_back(p);
+	  continue;
+	}
+
+	double dx = value.X() - previousPnt.X();
+	double dy = value.Y() - previousPnt.Y();
+
+	dist = sqrt(dx*dx + dy*dy);
+
+	if(dist < 1.0e-9) {
+	  cout << "   Skipped one (based on value)" << endl;
+	  continue;
+	}
+	
+	// cout << value.X() << " " << value.Y() << endl;
+
+	pt p;
+	p.n = ++numberOfPts;
+	p.x = value.X();
+	p.y = value.Y();
+	pts.push_back(p);
+
+	seg s;
+	s.p0 = numberOfPts - 1;
+	s.p1 = numberOfPts;
+	s.bc = numberOfEdges;
+	segs.push_back(s);
+	numberOfSegs++;
+
+	previousPnt = value;
+      }
+    }
+  }
+
+  // cout << "Total number of pts: " << numberOfPts << endl;
+  // cout << "Total number of segs: " << numberOfSegs << endl;
+
+  fstream file("iges2ng.in2d", ios::out);
+
+  file << "splinecurves2dv2" << endl;
+  file << "1" << endl << endl;
+
+  file << "points" << endl;
+  for(int i = 0; i < pts.size() - 1; i++) {
+    pt p = pts[i];
+    file << p.n << " " << p.x << " " << p.y << endl;
+  }
+
+  seg s;
+  file << endl << "segments" << endl;
+  for(int i = 0; i < segs.size() - 1; i++) {
+    s = segs[i];
+    file << "1 0 2 " << s.p0 << " " << s.p1 << " -bc=" << s.bc << endl;
+  }
+
+  file << "1 0 2 " << s.p1  << " 1 -bc=" << s.bc << endl;
+
+  file << endl << "materials" << endl;
+  file << "1 mat1 -maxh=100000" << endl;
+				       
+  file.close();
 }

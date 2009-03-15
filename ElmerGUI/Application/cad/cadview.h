@@ -60,6 +60,22 @@ class vtkActor;
 class vtkPolyData;
 class vtkAppendPolyData;
 
+class pt
+{
+ public:
+  int n;
+  double x;
+  double y;
+};
+
+class seg
+{
+ public:
+  int p0;
+  int p1;
+  int bc;
+};
+
 class CadView : public QMainWindow
 {
   Q_OBJECT
@@ -83,6 +99,8 @@ public:
   double lengthOf(double*);
   void differenceOf(double*, double*, double*);
   int getFaceNumber(vtkActor*);
+  int getDim();
+  void generateIn2dFile();
 
  private slots:
   void closeSlot();
@@ -124,6 +142,10 @@ public:
   QString fileName;
 
   QHash<vtkActor*, int> actorToFace;
+
+  int modelDim;
+
+  TopoDS_Shape shape;
 };
 
 #endif // CADVIEW_H

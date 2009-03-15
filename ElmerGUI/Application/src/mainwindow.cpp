@@ -1282,6 +1282,8 @@ void MainWindow::readInputFile(QString fileName)
 
     occInputOk = cadView->readFile(fileName);
 
+    ngDim = cadView->getDim();
+
     if(!occInputOk) {
       logMessage("Cad import: error: Unable to proceed with input file");
       cadView->close();
@@ -4525,7 +4527,7 @@ void MainWindow::remeshSlot()
 
       // STL (3D):
       //-----------
-      cout << "Start 3D meshing..." << endl;
+      cout << "Start meshing..." << endl;
 
       nggeom = nglib::Ng_STL_NewGeometry();
 
@@ -4570,27 +4572,57 @@ void MainWindow::remeshSlot()
       //------------
       cout << "Start 2D meshing..." << endl;
 
-      if(in2dFileName.isEmpty()) {
-	logMessage("File name is empty - aborting");
-	return;
+      if(!occInputOk) {
+	
+	// Native 2D geometry input for Ng:
+	//----------------------------------
+	if(in2dFileName.isEmpty()) {
+	  logMessage("File name is empty - aborting");
+	  return;
+	}
+	
+	ngmesh = nglib::Ng_NewMesh();
+	
+	nggeom2d = nglib::Ng_LoadGeometry_2D(in2dFileName.toAscii().data());
+	
+	if(!nggeom2d) {
+	  logMessage("Ng_LoadGeometry_2D failed");
+	  return;
+	}
+	
+	nglibAPI->setNggeom2D(nggeom2d);
+	
+	double maxMeshSize = mp.maxh;
+	
+	if(maxMeshSize <= 0) maxMeshSize = 10000000;
+	
+	nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);
+
+#ifdef EG_OCC
+      } else {
+
+	// Model originates from a 2D cad file:
+	//--------------------------------------
+	cadView->generateIn2dFile();
+
+	ngmesh = nglib::Ng_NewMesh();
+	
+	nggeom2d = nglib::Ng_LoadGeometry_2D("iges2ng.in2d");
+	
+	if(!nggeom2d) {
+	  logMessage("Ng_LoadGeometry_2D failed");
+	  return;
+	}
+	
+	nglibAPI->setNggeom2D(nggeom2d);
+	
+	double maxMeshSize = mp.maxh;
+	
+	if(maxMeshSize <= 0) maxMeshSize = 10000000;
+	
+	nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);
+#endif
       }
-
-      ngmesh = nglib::Ng_NewMesh();
-
-      nggeom2d = nglib::Ng_LoadGeometry_2D(in2dFileName.toAscii().data());
-      
-      if(!nggeom2d) {
-	logMessage("Ng_LoadGeometry_2D failed");
-	return;
-      }
-
-      nglibAPI->setNggeom2D(nggeom2d);
-
-      double maxMeshSize = mp.maxh;
-
-      if(maxMeshSize <= 0) maxMeshSize = 10000000;
-
-      nglib::Ng_RestrictMeshSizeGlobal(ngmesh, maxMeshSize);
 
     } else {
       
