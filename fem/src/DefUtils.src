@@ -2674,7 +2674,6 @@ CONTAINS
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
              Name, DOF, x % DOFs, x % Perm, Offset )
 
-        IF ( ConstantValue ) CYCLE
 
 !       Dirichlet BCs for face & edge DOFs:
 !       -----------------------------------
@@ -2686,6 +2685,11 @@ CONTAINS
            BC => GetBC()
            IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
            IF ( .NOT. ListCheckPresent(BC, Name) ) CYCLE
+
+           ptr => ListFind(BC, Name,Found )
+           ConstantValue =  ptr % Procedure == 0 .AND. &
+             ptr % type == LIST_TYPE_CONSTANT_SCALAR
+           IF ( ConstantValue ) CYCLE
 
            ! Get parent element:
            ! -------------------
