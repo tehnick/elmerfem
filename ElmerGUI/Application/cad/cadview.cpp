@@ -787,18 +787,10 @@ void CadView::generateIn2dFile()
       // Loop over segments:
       //---------------------
       for(int i = 2; i <= nofPoints; i++) {
-	double p0 = TD.Parameter(i-1);
-	double p1 = TD.Parameter(i);
-	double dist = sqrt((p1-p0)*(p1-p0));
-
-	if(dist < 1.0e-9) {
-	  cout << "   Skipped one (based on parameter)" << endl;
-	  continue;
-	}
-
-	gp_Pnt value = TD.Value(i);
+	gp_Pnt value;
 
 	if(firstPoint) {
+	  value = TD.Value(1);
 	  firstPoint = false;
 	  previousPnt = value;
 	  pt p;
@@ -806,8 +798,19 @@ void CadView::generateIn2dFile()
 	  p.x = value.X();
 	  p.y = value.Y();
 	  pts.push_back(p);
+	}
+
+	double p0 = TD.Parameter(i-1);
+	double p1 = TD.Parameter(i);
+
+	double dist = sqrt((p1-p0)*(p1-p0));
+
+	if(dist < 1.0e-9) {
+	  cout << "   Skipped one (based on parameter)" << endl;
 	  continue;
 	}
+
+	value = TD.Value(i);
 
 	double dx = value.X() - previousPnt.X();
 	double dy = value.Y() - previousPnt.Y();

@@ -16,7 +16,7 @@ DEFINES -= EG_PYTHONQT # Use PythonQt for scripting in post processor?
 #------------------------------------------------------------------------------
 # 64 bit system?
 #------------------------------------------------------------------------------
-BITS = 32
+BITS = 64
 
 #------------------------------------------------------------------------------
 # Installation directory:
@@ -127,8 +127,8 @@ macx {
 # OpenCASCADE library:
 #------------------------------------------------------------------------------
 unix {
-   OCC_INCLUDEPATH = /usr/include/opencascade
-   OCC_LIBPATH = /usr/lib
+   OCC_INCLUDEPATH = /usr/local/inc
+   OCC_LIBPATH = /usr/local/lib
    OCC_LIBS = -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
 }
 
