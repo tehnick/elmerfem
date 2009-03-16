@@ -775,7 +775,7 @@ void CadView::generateIn2dFile()
       //----------------------------
       double AngularDeflection = 0.1;
       double CurvatureDeflection = 0.1;
-      int MinPoints = 0;
+      int MinPoints = 2;
       double Tolerance = 1.0e-9;
       BRepAdaptor_Curve2d Curve(Edge, Face);
       GCPnts_TangentialDeflection TD(Curve, AngularDeflection, 
@@ -786,7 +786,7 @@ void CadView::generateIn2dFile()
 
       // Loop over segments:
       //---------------------
-      for(int i = 1; i <= nofPoints; i++) {
+      for(int i = 2; i <= nofPoints; i++) {
 	double p0 = TD.Parameter(i-1);
 	double p1 = TD.Parameter(i);
 	double dist = sqrt((p1-p0)*(p1-p0));
