@@ -142,8 +142,20 @@ void MaterialLibrary::okButtonClicked()
 	    lineEdit->setText(propertyValue);
 	  }
 	}
-      }
 
+	if(elem.attribute("Widget") == "Combo") {
+	  QComboBox *comboBox = (QComboBox*)widget;
+	  if(propertyName == widgetName) {
+	    for(int n = 0; n < comboBox->count(); n++) {
+	      QString itemText = comboBox->itemText(n).trimmed();
+	      if(itemText.toLower() == propertyValue.toLower())
+		comboBox->setCurrentIndex(n);
+	    }
+	    match = true;
+	  }
+	}
+      }
+      
 #if 0
       if(!match) 
 	cout << "Material loader: no match for parameter: "
