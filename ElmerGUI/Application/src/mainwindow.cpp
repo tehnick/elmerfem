@@ -1896,11 +1896,49 @@ void MainWindow::loadProjectSlot()
     SolverParameterEditor *spe = &solverParameterEditor[index];
     spe->readFromProject(&projectDoc, &item);
   }
-    
+
+  // Changed the load order in 19 March 2009 for taking the "use as a body"
+  // flags into account. The original boundary property loader is below.
+
+  //===========================================================================
+  //                          LOAD BOUNDARY PROPERTIES
+  //===========================================================================
+  progressBar->setValue(10);
+  QDomElement boundaryBlock = contents.firstChildElement("boundaryproperties");
+
+  item = boundaryBlock.firstChildElement("item");
+  for( ; !item.isNull(); item = item.nextSiblingElement()) {
+    int index = item.attribute("index").toInt();
+
+    if((index < 0) || (index >= limit->maxBoundaries())) {
+      logMessage("Load project: boundary properties: index out of bounds");
+
+      progressBar->hide();
+      progressLabel->hide();
+
+      return;
+    }
+
+    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
+
+    bpe->readFromProject(&projectDoc, &item);
+
+    if(bpe->ui.boundaryAsABody->isChecked()) {
+      connect(bpe, SIGNAL(BoundaryAsABodyChanged(BoundaryPropertyEditor*, int)),
+	      this, SLOT(boundaryAsABodyChanged(BoundaryPropertyEditor*, int)));
+
+      populateBoundaryComboBoxes(bpe);
+
+      bpe->ui.boundaryAsABody->toggle();
+      bpe->ui.boundaryAsABody->toggle();
+      bpe->ui.applyButton->click();
+    }
+  }
+
   //===========================================================================
   //                        LOAD DYNAMIC EDITOR CONTENTS
   //===========================================================================
-  progressBar->setValue(10);
+  progressBar->setValue(11);
   QDomElement element = projectDoc.documentElement().firstChildElement("equation");
   loadProjectContents(element, equationEditor, limit->maxEquations(), "Equation");
   element = projectDoc.documentElement().firstChildElement("material");
@@ -1916,7 +1954,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                          LOAD SOLVER SPECIFIC OPTIONS
   //===========================================================================
-  progressBar->setValue(11);
+  progressBar->setValue(12);
   QDomElement solverOptionsBlock = contents.firstChildElement("solverspecificoptions");
 
   for(item = solverOptionsBlock.firstChildElement("item"); 
@@ -1973,7 +2011,7 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   //                           LOAD BODY PROPERTIES
   //===========================================================================
-  progressBar->setValue(12);
+  progressBar->setValue(13);
   QDomElement bodyBlock = contents.firstChildElement("bodyproperties");
 
   item = bodyBlock.firstChildElement("item");
@@ -1993,7 +2031,7 @@ void MainWindow::loadProjectSlot()
     bpe->readFromProject(&projectDoc, &item);
   }
 
-
+#if 0
   //===========================================================================
   //                          LOAD BOUNDARY PROPERTIES
   //===========================================================================
@@ -2016,6 +2054,7 @@ void MainWindow::loadProjectSlot()
     BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
     bpe->readFromProject(&projectDoc, &item);
   }
+#endif
 
   //===========================================================================
   //                              REGENERATE SIF
@@ -5304,9 +5343,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
     populateBoundaryComboBoxes(boundaryEdit);
-
+    
     connect( boundaryEdit, SIGNAL(BoundaryAsABodyChanged(BoundaryPropertyEditor *,int)),
-          this, SLOT(boundaryAsABodyChanged(BoundaryPropertyEditor *,int)) );
+	     this, SLOT(boundaryAsABodyChanged(BoundaryPropertyEditor *,int)) );
     
     if(boundaryEdit->touched) {
       boundaryEdit->ui.applyButton->setText("Update");
