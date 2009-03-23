@@ -1897,9 +1897,11 @@ void MainWindow::loadProjectSlot()
     spe->readFromProject(&projectDoc, &item);
   }
 
+#if 0
   // Changed the load order in 19 March 2009 for taking the "use as a body"
   // flags into account. The original boundary property loader is below.
-
+  // 
+  // Changed back to original 23 March 2009. Todo...
   //===========================================================================
   //                          LOAD BOUNDARY PROPERTIES
   //===========================================================================
@@ -1934,6 +1936,7 @@ void MainWindow::loadProjectSlot()
       bpe->ui.applyButton->click();
     }
   }
+#endif
 
   //===========================================================================
   //                        LOAD DYNAMIC EDITOR CONTENTS
@@ -2031,7 +2034,6 @@ void MainWindow::loadProjectSlot()
     bpe->readFromProject(&projectDoc, &item);
   }
 
-#if 0
   //===========================================================================
   //                          LOAD BOUNDARY PROPERTIES
   //===========================================================================
@@ -2054,7 +2056,6 @@ void MainWindow::loadProjectSlot()
     BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
     bpe->readFromProject(&projectDoc, &item);
   }
-#endif
 
   //===========================================================================
   //                              REGENERATE SIF

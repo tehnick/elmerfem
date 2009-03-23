@@ -733,31 +733,14 @@ void CadView::generateIn2dFile()
   QVector<pt> pts;
   QVector<seg> segs;
 
-#if 0
-  // Read IGES file:
-  //-----------------
-  IGESControl_Reader igesReader;
-  IFSelect_ReturnStatus status;
-  status = igesReader.ReadFile("iges2ng.in2d");
-
-  TopoDS_Shape Shape;  
-  if(status == IFSelect_RetDone) {
-    igesReader.TransferRoots();
-    Shape = igesReader.OneShape();
-  } else {
-    cout << "No shapes" << endl;
-    return 0;
-  }
-#endif
-
-  // Loop over faces:
-  //------------------
   bool firstPoint = true;
-  gp_Pnt previousPnt;
   int numberOfFaces = 0;
   int numberOfPts = 0;
   int numberOfSegs = 0;
-  int numberOfSegments = 0;
+  gp_Pnt previousPnt;
+
+  // Loop over faces:
+  //------------------
   TopExp_Explorer expFace(shape, TopAbs_FACE);
   for(expFace; expFace.More(); expFace.Next()) {
     TopoDS_Face Face = TopoDS::Face(expFace.Current());
@@ -777,15 +760,17 @@ void CadView::generateIn2dFile()
       double CurvatureDeflection = 0.1;
       int MinPoints = 2;
       double Tolerance = 1.0e-9;
+
       BRepAdaptor_Curve2d Curve(Edge, Face);
       GCPnts_TangentialDeflection TD(Curve, AngularDeflection, 
 				     CurvatureDeflection, MinPoints,
 				     Tolerance);
+
       int nofPoints = TD.NbPoints();
       cout << "  Points: " << nofPoints << endl;
 
-      // Loop over segments:
-      //---------------------
+      // Loop over points:
+      //-------------------
       for(int i = 2; i <= nofPoints; i++) {
 	gp_Pnt value;
 
@@ -805,7 +790,7 @@ void CadView::generateIn2dFile()
 
 	double dist = sqrt((p1-p0)*(p1-p0));
 
-	if(dist < 1.0e-9) {
+	if(dist < Tolerance) {
 	  cout << "   Skipped one (based on parameter)" << endl;
 	  continue;
 	}
@@ -817,13 +802,11 @@ void CadView::generateIn2dFile()
 
 	dist = sqrt(dx*dx + dy*dy);
 
-	if(dist < 1.0e-9) {
+	if(dist < Tolerance) {
 	  cout << "   Skipped one (based on value)" << endl;
 	  continue;
 	}
 	
-	// cout << value.X() << " " << value.Y() << endl;
-
 	pt p;
 	p.n = ++numberOfPts;
 	p.x = value.X();
@@ -842,9 +825,8 @@ void CadView::generateIn2dFile()
     }
   }
 
-  // cout << "Total number of pts: " << numberOfPts << endl;
-  // cout << "Total number of segs: " << numberOfSegs << endl;
-
+  // Write the in2d file:
+  //----------------------
   fstream file("iges2ng.in2d", ios::out);
 
   file << "splinecurves2dv2" << endl;
