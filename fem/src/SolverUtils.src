@@ -2977,6 +2977,7 @@ CONTAINS
     INTEGER, POINTER :: Indexes(:)
     TYPE(Variable_t), POINTER :: iterV
     LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore
+    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
 
     Indexes => Dnodes
     Indexes(1) = 1
@@ -3000,6 +3001,7 @@ CONTAINS
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
     ELSE
+
       tmp = ListGetReal( Solver % Values, &
           'Nonlinear System Relaxation Factor', nn, Indexes, Relax )
       Relaxation = tmp(1)
@@ -3038,6 +3040,7 @@ CONTAINS
       RETURN
     END IF
 
+
     IF(PRESENT(nsize)) THEN
       n = nsize
     ELSE
@@ -3059,7 +3062,6 @@ CONTAINS
       IF(SIZE(x0) /= SIZE(x)) CALL Warn('ComputeChange','Possible mismatch in length of vectors!')
     END IF
 
-
     IF(Relax .AND. RelaxBefore) THEN
       x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)
     END IF
@@ -3072,6 +3074,7 @@ CONTAINS
 
     Norm = ComputeNorm(Solver, n, x)
     Solver % Variable % Norm = Norm
+
 
     SELECT CASE( ConvergenceType )
     CASE('residual')
@@ -3113,7 +3116,7 @@ CONTAINS
       CALL Warn('ComputeChange','Unknown convergence measure: '//TRIM(ConvergenceType))    
       
     END SELECT
-    
+
     IF(SteadyState) THEN
       Solver % Variable % SteadyChange = Change
     ELSE
@@ -3126,19 +3129,22 @@ CONTAINS
     END IF
 
     ! Steady state output is done within MainUtils
+    SolverName = ListGetString( Solver % Values, 'Equation',Stat)
+    IF(.NOT. Stat) SolverName = Solver % Variable % Name
+
     IF(SteadyState) THEN        
       iterV => VariableGet( Solver % Mesh % Variables, 'coupled iter' )
       n = NINT(iterV % Values(1))
       WRITE( Message, '(a,g15.8,g15.8,a)') &
          'SS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
-          ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
+          ' ) :: '// TRIM(SolverName)
       CALL Info( 'ComputeChange', Message, Level=3 )
     ELSE
       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
       n = NINT(iterV % Values(1))-1
       WRITE( Message, '(a,g15.8,g15.8,a)') &
          'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
-          ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
+          ' ) :: '// TRIM(SolverName)
       CALL Info( 'ComputeChange', Message, Level=3 )
     END IF
 
@@ -3156,6 +3162,7 @@ CONTAINS
     INTEGER :: val
     INTEGER :: i,n,t
 !------------------------------------------------------------------------------
+	
      string = ' '
      val = value
      n = LOG10(REAL(value))+1
@@ -3266,6 +3273,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     n = A % NumberOfRows
+
 
     IF ( Solver % Matrix % Lumped .AND. Solver % TimeOrder == 1 ) THEN
        Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
@@ -3510,6 +3518,7 @@ CONTAINS
        END IF
     END IF
 
+
     IF ( ScaleSystem ) THEN
 ! 
 !      Solve x:  INV(D)x = y
@@ -3594,7 +3603,7 @@ CONTAINS
    Solver % Variable % PrimaryMesh => Solver % Mesh
    CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
          GetVarName(Solver % Variable) )
- 
+
    IF ( ASSOCIATED( NodalLoads ) ) THEN
      NodalLoads % PrimaryMesh => Solver % Mesh
      CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
@@ -3769,6 +3778,7 @@ CONTAINS
         A % ConstraintMatrix => Atmp
       END IF
     ELSE
+
       CALL SolveLinearSystem( A,b,x,Norm,DOFs,Solver )
     END IF
 
