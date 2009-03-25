@@ -14,7 +14,6 @@
 ! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! *  GNU General Public License for more details.
 ! *
-
 ! *  You should have received a copy of the GNU General Public License
 ! *  along with this program (in file fem/GPL-2); if not, write to the 
 ! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
@@ -1492,7 +1491,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t),POINTER :: Element
-    INTEGER :: i,j,k,l,t,n,nd,NoIterations,iter,istat
+    INTEGER :: i,j,k,l,t,n,nd,NoIterations,NoTests,iter,istat,tests
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: ProcName
     LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint
@@ -1503,10 +1502,11 @@ CONTAINS
     INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id
     INTEGER, POINTER :: ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: ConsValues(:)
-    REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsVolume
+    REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsVolume, &
+        Residual, PrevResidual
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
     LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric, &
-        AllDirFlag, Robust
+        AllDirFlag, Robust, ErrorReduced
     INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
     REAL(KIND=dp), POINTER :: ForceVector(:),AllValues(:)
@@ -1663,6 +1663,9 @@ CONTAINS
     NonlinearTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',gotIt)
     Robust = ListGetLogical(Solver % Values,'Robust Nonlinear Solver',GotIt)
     IF( Robust ) THEN
+      NoTests = GetInteger( SolverParams,'Nonlinear System Max StepSize Tests',GotIt)
+      IF(.NOT. GotIt) NoTests = NoIterations
+      CALL ListAddString(Solver % Values,'Nonlinear System Convergence Measure','residual')
       CALL ListAddLogical(Solver % Values,'Skip Compute Change',.TRUE.)
     END IF
  
@@ -1701,26 +1704,7 @@ CONTAINS
       ! Map the original vectors to the monolithic vector if requested
       !----------------------------------------------------------------------------------
       IF( ListGetLogical( SolverParams,'Coupled Initial Guess',GotIt)) THEN
-        CALL Info('CoupledSolver','Copying an initial guess',Level=5)
-        
-        DO i = 1,NoVar + NoCons
-          IF( VarDofs(i) == 0 ) CYCLE
-          
-          IF( i <= NoVar ) THEN
-            WRITE (str,'(A,I2)') 'Variable',i
-          ELSE
-            WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
-          END IF
-          VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-          Var => VariableGet( Mesh % Variables, TRIM(VarName) )
-          
-          CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
-          DO j=1,SIZE(Var % Values)
-            Solver % Variable % Values(Offset(i)+j) = Var % Values(j)
-          END DO
-          
-          ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
-        END DO
+        CALL SingleToCoupledVector()
       END IF
     END IF
     
@@ -1732,12 +1716,15 @@ CONTAINS
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
     CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
+    Residual = -1.0_dp
+    PrevResidual = -1.0_dp
     
     DO iter = 1,NoIterations
       
       WRITE(Message,'(A,T35,I5)') 'Coupled iteration:',iter
       CALL Info('CoupledSolver',Message,Level=5)
-      
+   
+      tests = 0
 100   IF( Amat % FORMAT == MATRIX_CRS ) CALL DefaultInitialize()
       IF( AllDirFlag ) AllDir = .FALSE.
 
@@ -1757,21 +1744,22 @@ CONTAINS
 !------------------------------------------------------------------------------          
       CALL CoupledSystemDirichlet()
       
-
 !------------------------------------------------------------------------------
 !    This will be a point for robust solver which cheks the stepsize
 !    but whats below is still crap...
 !------------------------------------------------------------------------------          
-      IF( Robust .AND. iter > 1 ) THEN
-        CALL ComputeChange(Solver,.FALSE.,totsize)
-        Norm = Solver % Variable % Norm
-        IF( Norm > PrevNorm ) THEN
-          Solver % Variable % Values = &
-              0.5_dp * (Solver % Variable % Values + Solver % Variable % NonlinValues )
-          GOTO 100
+      IF( Robust  ) THEN
+        ErrorReduced = CheckStepSize(Solver,PrevResidual,Residual)
+        tests = tests + 1
+        PrevResidual = Residual
+
+        IF( iter > 1 ) THEN
+          IF(.NOT. ErrorReduced) THEN
+            CALL CoupledToSingleVector()
+            GOTO 100
+          END IF
+          IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
         END IF
-        PRINT *,'norm c',norm,Solver % Variable % NonlinChange
-        IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
       END IF
 
 !------------------------------------------------------------------------------
@@ -1780,34 +1768,12 @@ CONTAINS
       Norm = DefaultSolve()     
       CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
 
+      CALL CoupledToSingleVector()
       IF(.NOT. Robust) THEN
         IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
       END IF
-
     END DO
-    
-!------------------------------------------------------------------------------          
-! Map the result back to the original vectors
-!----------------------------------------------------------------------------------
-    CALL Info('CoupledSolver','Copying results into original variables',Level=5)
-    DO i = 1,NoVar + NoCons
-      IF( VarDofs(i) == 0 ) CYCLE
 
-      IF( i <= NoVar ) THEN
-        WRITE (str,'(A,I2)') 'Variable',i
-      ELSE
-        WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
-      END IF
-      VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-      Var => VariableGet( Mesh % Variables, TRIM(VarName) )
-      
-      CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
-      DO j=1,SIZE(Var % Values)
-        Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
-      END DO
-      
-      ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
-    END DO
     
     DEALLOCATE( FORCE, STIFF, DAMP, MASS, ColInds, RowInds, Indexes )
     IF( AllDirFlag ) DEALLOCATE( AllDir ) 
@@ -1860,6 +1826,10 @@ CONTAINS
 !------------------------------------------------------------------------------
  
    
+    !------------------------------------------------------------------------------          
+    ! Subroutine sets the Dirichlet conditions for the coupled system 
+    ! using the single system vector names and sizes.
+    !----------------------------------------------------------------------------------
     SUBROUTINE CoupledSystemDirichlet()
       
       DO i = 1,NoVar
@@ -1877,13 +1847,73 @@ CONTAINS
     END SUBROUTINE CoupledSystemDirichlet
 
 
+    !------------------------------------------------------------------------------          
+    ! Subroutine copies results from the single system vectors to a coupled system
+    ! initial guess.
+    !----------------------------------------------------------------------------------
+    SUBROUTINE SingleToCoupledVector()
+      CALL Info('CoupledSolver','Copying an initial guess',Level=5)
+      
+      DO i = 1,NoVar + NoCons
+        IF( VarDofs(i) == 0 ) CYCLE
+        
+        IF( i <= NoVar ) THEN
+          WRITE (str,'(A,I2)') 'Variable',i
+        ELSE
+          WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
+        END IF
+        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
+        Var => VariableGet( Mesh % Variables, TRIM(VarName) )
+        
+        CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
+        DO j=1,SIZE(Var % Values)
+          Solver % Variable % Values(Offset(i)+j) = Var % Values(j)
+        END DO
+        
+        ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
+      END DO
 
+    END SUBROUTINE SingleToCoupledVector
+
+
+
+    !------------------------------------------------------------------------------          
+    ! Subroutine copies results from the coupled system vector back to the 
+    ! original vectors.
+    !----------------------------------------------------------------------------------
+    SUBROUTINE CoupledToSingleVector()
+      CALL Info('CoupledSolver','Copying results into original variables',Level=5)
+      DO i = 1,NoVar + NoCons
+        IF( VarDofs(i) == 0 ) CYCLE
+        
+        IF( i <= NoVar ) THEN
+          WRITE (str,'(A,I2)') 'Variable',i
+        ELSE
+          WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
+        END IF
+        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
+        Var => VariableGet( Mesh % Variables, TRIM(VarName) )
+        
+        CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
+        DO j=1,SIZE(Var % Values)
+          Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
+        END DO
+        
+        ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
+      END DO
+
+    END SUBROUTINE CoupledToSingleVector
+
+
+    !---------------------------------------------------
+    ! Perform assembly for the coupled system linear
+    ! system of equations including possible constraints
+    !---------------------------------------------------
     SUBROUTINE CoupledSystemAssembly()
-
-     !-----------------------------------------------
-     ! Start of normal assemly process
-     ! This is the basic loop without any constraints.
-     !-----------------------------------------------
+      !-----------------------------------------------
+      ! Start of normal assemly process
+      ! This is the basic loop without any constraints.
+      !-----------------------------------------------
       BulkMode = .TRUE.
 100   IF(BulkMode) THEN
         CALL Info('CoupledSolver','Starting bulk assembly',Level=5)

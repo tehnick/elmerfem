@@ -810,7 +810,7 @@ CONTAINS
      IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Indexes(1:Element % Type % NumberOfNodes) = &
+       Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -891,7 +891,7 @@ CONTAINS
        dim = CoordinateSystemDimension()
        Indexes = 0
        Element => CurrentModel % CurrentElement
-       Indexes(1:Element % Type % NumberOfNodes) = &
+       Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -2433,7 +2433,7 @@ CONTAINS
        Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
                'Periodic BC Rotate', Found )
        IF ( Found .AND. ASSOCIATED(Rot) ) THEN
-         IF ( Any(Rot/=0) ) THEN
+         IF ( ANY(Rot/=0) ) THEN
            ALLOCATE( Done(SIZE(BoundaryNormals,1)) )
            Done=.FALSE.
            DO i=1,Projector % NumberOfRows
@@ -3077,11 +3077,12 @@ CONTAINS
 
 
     SELECT CASE( ConvergenceType )
+
     CASE('residual')
-      !------------------------------------------------------------------
-      ! x is solution of A(x0)x=b, thus residual should be reall r=b-A(x)x 
-      ! Instead we use r=b-A(x0)x0 which unfortunately is one step behind.
-      !------------------------------------------------------------------
+      !--------------------------------------------------------------------------
+      ! x is solution of A(x0)x=b(x0), thus residual should be reall r=b(x)-A(x)x 
+      ! Instead we use r=b(x0)-A(x0)x0 which unfortunately is one step behind.
+      !--------------------------------------------------------------------------
       A => Solver % Matrix
       b => Solver % Matrix % rhs
 
@@ -3150,6 +3151,101 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   END SUBROUTINE ComputeChange
+!------------------------------------------------------------------------------
+    
+
+!------------------------------------------------------------------------------
+  FUNCTION CheckStepSize(Solver,PrevChange,Change,&
+      nsize,values,values0) RESULT (Success) 
+!------------------------------------------------------------------------------
+    TYPE(Solver_t), TARGET :: Solver
+    REAL(KIND=dp) :: PrevChange, Change
+    INTEGER, OPTIONAL :: nsize
+    REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
+    LOGICAL :: Success
+!------------------------------------------------------------------------------
+    INTEGER :: n
+    TYPE(Matrix_t), POINTER :: A
+    REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:)
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation
+    CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
+    INTEGER, TARGET  ::  nn=1, Dnodes(1)
+    INTEGER, POINTER :: Indexes(:)
+    TYPE(Variable_t), POINTER :: iterV
+    LOGICAL :: Stat, ConvergenceAbsolute
+    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+
+    IF(PRESENT(values)) THEN
+      x => values
+    ELSE 
+      x => Solver % Variable % Values      
+    END IF
+
+    IF(PRESENT(nsize)) THEN
+      n = nsize
+    ELSE
+      n = SIZE(x)
+    END IF
+
+    !--------------------------------------------------------------------------
+    ! This is the real residual r=b-Ax
+    !--------------------------------------------------------------------------
+    A => Solver % Matrix
+    b => Solver % Matrix % rhs
+    
+    ALLOCATE(r(n))
+    CALL MatrixVectorMultiply( A, x, r)      
+    r = r - b
+    Change = ComputeNorm(Solver, n, r)
+    DEALLOCATE(r)
+
+    ! Negative (impossible) value may be used as indicator that's its the 1st step
+    !-----------------------------------------------------------------------------
+    IF( PrevChange < 0.0_dp ) THEN
+      Success = .FALSE.
+      RETURN
+    END IF
+
+    Success = (Change < PrevChange)
+
+    IF( Success ) THEN      
+
+      bNorm = ComputeNorm(Solver, n, b)
+      Solver % Variable % NonlinChange = Change / bNorm
+      
+      Norm = ComputeNorm(Solver, n, x)
+      Solver % Variable % Norm = Norm
+
+      SolverName = ListGetString( Solver % Values, 'Equation',Stat)
+      IF(.NOT. Stat) SolverName = Solver % Variable % Name
+      
+      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      n = NINT(iterV % Values(1))
+      WRITE( Message, '(a,g15.8,g15.8,a)') &
+          'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change / bNorm,&
+          ' ) :: '// TRIM(SolverName)
+      CALL Info( 'CheckStepSize', Message, Level=3 )      
+      iterV % Values(1) = n + 1 
+    ELSE
+      IF(PRESENT(values0)) THEN
+        x0 => values0
+      ELSE
+        IF(.NOT. ASSOCIATED(Solver % Variable % NonlinValues)) &
+            CALL Fatal('ComputeChange','Previous nonlinear solution is needed')       
+        x0 => Solver % Variable % NonlinValues
+      END IF
+      IF(SIZE(x0) /= SIZE(x)) CALL Warn('ComputeChange','Possible mismatch in length of vectors!')
+
+      Relaxation = ListGetConstReal( Solver % Values, &
+          'Nonlinear System Stepsize Reduction Factor', Stat )
+      IF(.NOT. Stat) Relaxation = 0.5_dp
+      x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)
+      
+      CALL Info( 'CheckStepSize','Step rejected, increasing relaxation', Level=3 )      
+    END IF
+
+!------------------------------------------------------------------------------
+  END FUNCTION CheckStepSize
 !------------------------------------------------------------------------------
     
 
