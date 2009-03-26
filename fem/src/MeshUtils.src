@@ -2658,11 +2658,12 @@ END SUBROUTINE FindNeighbourNodes
      INTEGER :: i,j,k,n,n1,n2,DOFs
      LOGICAL :: Found, OptimizeBandwidth
      TYPE(Matrix_t), POINTER   :: Matrix
-     TYPE(Variable_t), POINTER :: TimeVar
      REAL(KIND=dp), POINTER :: Work(:)
      INTEGER, POINTER :: Permutation(:)
+     TYPE(Variable_t), POINTER :: TimeVar, SaveVar
 !------------------------------------------------------------------------------
-     DOFs = Solver % Variable % DOFs
+     SaveVar => Solver % Variable
+     DOFs = SaveVar % DOFs
 
      Solver % Mesh => Mesh
      CALL SetCurrentMesh( CurrentModel, Mesh )
@@ -2720,15 +2721,14 @@ END SUBROUTINE FindNeighbourNodes
      DEALLOCATE( Permutation )
      CALL AllocateVector( Matrix % RHS, Matrix % NumberOfRows )
 
-     IF ( ListGetLogical( Solver % Values, 'Eigen Analysis',Found ) ) THEN
-        n = ListGetInteger( Solver % Values,  &
-            'Eigen System Values', Found  )
+     IF ( ASSOCIATED(SaveVar % EigenValues) ) THEN
+        n = SIZE(SaveVar % EigenValues)
 
-        IF ( Found .AND. n > 0 ) THEN
+        IF ( n > 0 ) THEN
            Solver % NOFEigenValues = n
            CALL AllocateVector( Solver % Variable % EigenValues,n )
            CALL AllocateArray( Solver % Variable % EigenVectors, n, &
-                    SIZE( Solver % Variable % Values ) ) 
+                    SIZE(Solver % Variable % Values) ) 
 
            Solver % Variable % EigenValues  = 0.0d0
            Solver % Variable % EigenVectors = 0.0d0
@@ -2737,9 +2737,9 @@ END SUBROUTINE FindNeighbourNodes
            Matrix % MassValues = 0.0d0
         END IF
      ELSE IF ( ASSOCIATED( Solver % Matrix % Force ) ) THEN
-        n1 = SIZE( Solver % Matrix % Force,1 )
-        n2 = SIZE( Solver % Matrix % Force,2 )
-        CALL AllocateArray( Matrix % Force,n1,n2 )
+        n1 = Matrix % NumberOFRows
+        n2 = SIZE(Solver % Matrix % Force,2)
+        ALLOCATE(Matrix % Force(n1,n2))
         Matrix % Force = 0.0d0
      END IF
 
@@ -2870,6 +2870,13 @@ END SUBROUTINE FindNeighbourNodes
 !
 !   Update new mesh node count:
 !   ---------------------------
+    NewMesh % NumberOfEdges = 0
+    NewMesh % NumberOfFaces = 0
+    NewMesh % MaxBDOFs = Mesh % MaxBDOFs
+    NewMesh % MaxEdgeDOFs = Mesh % MaxEdgeDOFs
+    NewMesh % MaxFaceDOFs = Mesh % MaxFaceDOFs
+    NewMesh % MaxElementDOFs = Mesh % MaxElementDOFs
+
     NewMesh % NumberOfNodes = NodeCnt
     NewMesh % Nodes % NumberOfNodes = NodeCnt
 !
@@ -2899,6 +2906,10 @@ END SUBROUTINE FindNeighbourNodes
 
     END DO
     CALL AllocateVector( NewMesh % Elements, NewElCnt )
+    DO i=1,NewELCnt
+      NewMesh % Elements(i) % EdgeIndexes => NULL()
+      NewMesh % Elements(i) % FaceIndexes => NULL()
+    END DO
 
     CALL AllocateArray( Child, Mesh % NumberOfBulkElements, 8 )
     NewElCnt = 0
