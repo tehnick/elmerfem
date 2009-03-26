@@ -92,10 +92,10 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
   F2 => VariableGet(Solver % Mesh % Variables, F2name)
 
   IF(.NOT.ASSOCIATED(F2)) THEN
-     WRITE(Message, *) 'F2 not found: ', TRIM(F1name)
+     WRITE(Message, *) 'F2 not found: ', TRIM(F2name)
      CALL Fatal(SenderName, Message)
   ELSE
-     WRITE(Message, *) 'F2: ', TRIM(F1name)
+     WRITE(Message, *) 'F2: ', TRIM(F2name)
      CALL Info(SenderName, Message)     
   END IF
 
