@@ -35,10 +35,11 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
   CHARACTER(LEN=MAX_NAME_LEN) :: SenderName, F1name, F2name, MeshName
   TYPE(Variable_t), POINTER :: F1, F2
   LOGICAL :: Found, AllocationsDone
-  INTEGER :: N, t
+  INTEGER :: n, t
   TYPE(Element_t), POINTER :: Element
   REAL(KIND=dp), ALLOCATABLE :: F1loc(:), F2loc(:)
-  REAL(KIND=dp) :: nrm, nrmloc, nrmf1, nrmf1loc, nrmf2, nrmf2loc
+  REAL(KIND=dp) :: L2nrm, L2nrmloc, L2nrmf1, L2nrmf1loc, L2nrmf2, L2nrmf2loc
+  REAL(KIND=dp) :: H1nrm, H1nrmloc, H1nrmf1, H1nrmf1loc, H1nrmf2, H1nrmf2loc
   SAVE F1loc, F2loc, AllocationsDone
 !------------------------------------------------------------------------------
   SenderName = 'DifferenceSolve'
@@ -52,13 +53,13 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
   CALL Info(SenderName, Message)
 
   IF(.NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
-     N = Solver % Mesh % MaxElementDOFs
+     n = Solver % Mesh % MaxElementDOFs
 
      IF(AllocationsDone) THEN
         DEALLOCATE(F1loc, F2loc)
      END IF
 
-     ALLOCATE(F1loc(N), F2loc(N))
+     ALLOCATE(F1loc(n), F2loc(n))
 
      AllocationsDone = .TRUE.
   END IF
@@ -78,7 +79,7 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
      WRITE(Message, *) 'F1 not found: ', TRIM(F1name)
      CALL Fatal(SenderName, Message)
   ELSE
-     WRITE(Message, *) 'F1: ', TRIM(F1name)
+     WRITE(Message, *) 'F1: "', TRIM(F1name), '" interpolated on ', MeshName
      CALL Info(SenderName, Message)     
   END IF
 
@@ -95,50 +96,77 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
      WRITE(Message, *) 'F2 not found: ', TRIM(F2name)
      CALL Fatal(SenderName, Message)
   ELSE
-     WRITE(Message, *) 'F2: ', TRIM(F2name)
+     WRITE(Message, *) 'F2: "', TRIM(F2name), '" interpolated on ', MeshName
      CALL Info(SenderName, Message)     
   END IF
 
-  nrm = 0.0d0
-  nrmf1 = 0.0d0
-  nrmf2 = 0.0d0
+  L2nrm = 0.0d0
+  L2nrmf1 = 0.0d0
+  L2nrmf2 = 0.0d0
+
+  H1nrm = 0.0d0
+  H1nrmf1 = 0.0d0
+  H1nrmf2 = 0.0d0
 
   DO t = 1, GetNofActive()
      Element => GetActiveElement(t)
-     n = GetElementNOFNodes()
+     n = GetElementNOFNodes(Element)
 
      CALL GetScalarLocalSolution(F1loc, F1name)
      CALL GetScalarLocalSolution(F2loc, F2name)
      
-     CALL Compute(Element, n, F1loc, F2loc, nrmloc, nrmf1loc, nrmf2loc)
+     CALL Compute(Element, n, F1loc, F2loc, &
+          L2nrmloc, L2nrmf1loc, L2nrmf2loc, &
+          H1nrmloc, H1nrmf1loc, H1nrmf2loc)
 
-     nrm = nrm + nrmloc
-     nrmf1 = nrmf1 + nrmf1loc
-     nrmf2 = nrmf2 + nrmf2loc
+     L2nrm = L2nrm + L2nrmloc
+     L2nrmf1 = L2nrmf1 + L2nrmf1loc
+     L2nrmf2 = L2nrmf2 + L2nrmf2loc
+
+     H1nrm = H1nrm + H1nrmloc
+     H1nrmf1 = H1nrmf1 + H1nrmf1loc
+     H1nrmf2 = H1nrmf2 + H1nrmf2loc
   END DO
 
-  nrm = SQRT(nrm)
-  nrmf1 = SQRT(nrmf1)
-  nrmf2 = SQRT(nrmf2)
+  L2nrm = SQRT(L2nrm)
+  L2nrmf1 = SQRT(L2nrmf1)
+  L2nrmf2 = SQRT(L2nrmf2)
 
-  WRITE(Message, *) '|| F1 - F2 ||_0 =', nrm
+  H1nrm = SQRT(H1nrm)
+  H1nrmf1 = SQRT(H1nrmf1)
+  H1nrmf2 = SQRT(H1nrmf2)
+
+  WRITE(Message, *) '|| F1 - F2 || =', L2nrm
   CALL Info(SenderName, Message)
-  WRITE(Message, *) '|| F1 ||_0 =', nrmf1
+  WRITE(Message, *) '|| F1 || =', L2nrmf1
   CALL Info(SenderName, Message)
-  WRITE(Message, *) '|| F2 ||_0 =', nrmf2
+  WRITE(Message, *) '|| F2 || =', L2nrmf2
+  CALL Info(SenderName, Message)
+
+  WRITE(Message, *) '|| grad(F1 - F2) || =', H1nrm
+  CALL Info(SenderName, Message)
+  WRITE(Message, *) '|| grad F1 || =', H1nrmf1
+  CALL Info(SenderName, Message)
+  WRITE(Message, *) '|| grad F2 || =', H1nrmf2
   CALL Info(SenderName, Message)
 
 CONTAINS
 
-  SUBROUTINE Compute(Element, n, F1, F2, nrm, nrmf1, nrmf2)
+  SUBROUTINE Compute(Element, n, F1, F2, &
+       L2nrm, L2nrmf1, L2nrmf2, &
+       H1nrm, H1nrmf1, H1nrmf2)
+
     TYPE(Element_t), POINTER :: Element
     INTEGER :: n
-    REAL(KIND=dp) :: F1(:), F2(:), nrm, nrmf1, nrmf2
+    REAL(KIND=dp) :: F1(:), F2(:)
+    REAL(KIND=dp) :: L2nrm, L2nrmf1, L2nrmf2
+    REAL(KIND=dp) :: H1nrm, H1nrmf1, H1nrmf2
 
     TYPE(GaussIntegrationPoints_t) :: IP
     REAL(KIND=dp) :: detJ, Basis(n), dBasisdx(n, 3)
     REAL(KIND=dp) :: F1atIP, F2atIP
-    INTEGER :: t
+    REAL(KIND=dp) :: gradF1atIP(n), gradF2atIP(n)
+    INTEGER :: t, i
     LOGICAL :: stat
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -147,9 +175,13 @@ CONTAINS
 
     IP = GaussPoints(Element)
 
-    nrm = 0.0d0
-    nrmf1 = 0.0d0
-    nrmf2 = 0.0d0
+    L2nrm = 0.0d0
+    L2nrmf1 = 0.0d0
+    L2nrmf2 = 0.0d0
+
+    H1nrm = 0.0d0
+    H1nrmf1 = 0.0d0
+    H1nrmf2 = 0.0d0
 
     DO t = 1, IP % n
        stat = ElementInfo(Element, Nodes, &
@@ -159,9 +191,18 @@ CONTAINS
        F1atIP = SUM( F1(1:n) * Basis(1:n) )
        F2atIP = SUM( F2(1:n) * Basis(1:n) )
 
-       nrm = nrm + (F1atIP - F2atIP)**2 * IP % s(t) * detJ
-       nrmf1 = nrmf1 + F1atIP**2 * IP % s(t) * detJ
-       nrmf2 = nrmf2 + F2atIP**2 * IP % s(t) * detJ
+       gradF1atIP(1:3) = MATMUL(TRANSPOSE(dBasisdx(1:n,1:3)), F1(1:n) )
+       gradF2atIP(1:3) = MATMUL(TRANSPOSE(dBasisdx(1:n,1:3)), F2(1:n) )
+
+       L2nrm = L2nrm + (F1atIP - F2atIP)**2 * IP % s(t) * detJ
+       L2nrmf1 = L2nrmf1 + F1atIP**2 * IP % s(t) * detJ
+       L2nrmf2 = L2nrmf2 + F2atIP**2 * IP % s(t) * detJ
+
+       DO i = 1, 3
+          H1nrm = H1nrm + (gradF1atIP(i) - gradF2atIP(i))**2 * IP % s(t) * detJ
+          H1nrmf1 = H1nrmf1 + gradF1atIP(i)**2 * IP % s(t) * detJ
+          H1nrmf2 = H1nrmf2 + gradF2atIP(i)**2 * IP % s(t) * detJ
+       END DO
 
     END DO
 
