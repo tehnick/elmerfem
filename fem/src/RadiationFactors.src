@@ -138,12 +138,11 @@
 
      UpdateViewFactors = ListGetLogical( TSolver % Values,  &
          'Update View Factors',GotIt )
-     IF( UpdateViewFactors ) THEN
-       GeometryFixedAfter = ListGetInteger(TSolver % Values, &
+     GeometryFixedAfter = ListGetInteger(TSolver % Values, &
          'View Factors Fixed After Iterations',GotIt)
-       IF(.NOT. GotIt) GeometryFixedAfter = HUGE(GeometryFixedAfter)
+     IF(.NOT. GotIt) GeometryFixedAfter = HUGE(GeometryFixedAfter)
+     IF( UpdateViewFactors ) THEN
        IF(GeometryFixedAfter < TimesVisited) UpdateViewFactors = .FALSE.
-
        IF(TimesVisited > 1 ) THEN
          SteadyChange = TSolver % Variable % SteadyChange
          GeometryFixedTol = ListGetConstReal(TSolver % Values, &
@@ -154,12 +153,12 @@
 
      UpdateGebhardtFactors = ListGetLogical( TSolver % Values,  &
          'Update Gebhardt Factors',GotIt )
-     IF( UpdateGebhardtFactors ) THEN
-       FactorsFixedAfter = ListGetInteger(TSolver % Values, &
+     FactorsFixedAfter = ListGetInteger(TSolver % Values, &
          'Gebhardt Factors Fixed After Iterations',GotIt)
-       IF(.NOT. GotIt) FactorsFixedAfter = HUGE(FactorsFixedAfter)
-       IF(FactorsFixedAfter < TimesVisited) UpdateGebhardtFactors = .FALSE.
+     IF(.NOT. GotIt) FactorsFixedAfter = HUGE(FactorsFixedAfter)
 
+     IF( UpdateGebhardtFactors ) THEN
+       IF(FactorsFixedAfter < TimesVisited) UpdateGebhardtFactors = .FALSE.
        IF(TimesVisited > 1 ) THEN
          SteadyChange = TSolver % Variable % SteadyChange
          FactorsFixedTol = ListGetConstReal(TSolver % Values, &
