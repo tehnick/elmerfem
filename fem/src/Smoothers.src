@@ -43,24 +43,25 @@ MODULE Smoothers
 
   USE Types
   USE CRSMatrix
-  USE ParallelUtils  
   USE Lists
+  USE ParallelUtils  
 
   IMPLICIT NONE
 
 CONTAINS
 
 !------------------------------------------------------------------------------
-    FUNCTION MGSmooth( Solver, A, x, b, r, Level, DOFs, PreSmooth, CF) RESULT(RNorm)
+    FUNCTION MGSmooth( Solver, A, Mesh, x, b, r, Level, DOFs, PreSmooth, CF) RESULT(RNorm)
 !------------------------------------------------------------------------------
       TYPE(Solver_t), POINTER :: Solver
       TYPE(Matrix_t), POINTER :: A
+      TYPE(Mesh_t) :: Mesh
       INTEGER :: Level, DOFs
-      REAL(KIND=dp), TARGET :: x(:),b(:),r(:),RNorm
+      REAL(KIND=dp), TARGET :: x(:),b(:),r(:),RNorm, rphi=5.0_dp
       LOGICAL PreSmooth
       INTEGER, POINTER, OPTIONAL :: CF(:)
 !------------------------------------------------------------------------------
-      CHARACTER(LEN=MAX_NAME_LEN) :: IterMethod
+      CHARACTER(LEN=MAX_NAME_LEN) :: IterMethod, im
       LOGICAL :: Parallel, Found
       TYPE(Matrix_t), POINTER :: M
       INTEGER :: n, Rounds, InvLevel
@@ -104,17 +105,7 @@ CONTAINS
         END IF
       END IF
 
-      SELECT CASE( IterMethod )
-      CASE( 'cg' )
-        ALLOCATE( Z(n), Pr(n), Q(n) )
-        
-      CASE( 'bicgstab' )
-        ALLOCATE( Pr(n), Ri(n), T(n), T1(n), T2(n), S(n), V(n) )
-      END SELECT
-
-      
       IF(Presmooth) THEN
-       
         Iters => ListGetIntegerArray( Solver % Values,'MG Pre Smoothing Iterations',Found)
         IF(Found) THEN
           Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
@@ -130,6 +121,16 @@ CONTAINS
         END IF
       END IF
 
+      RNorm = MGnorm( n, Mr ) 
+      IF ( Rounds <= 0 ) RETURN
+
+      SELECT CASE( IterMethod )
+      CASE( 'cg' )
+        ALLOCATE( Z(n), Pr(n), Q(n) )
+        
+      CASE( 'bicgstab' )
+        ALLOCATE( Pr(n), Ri(n), T(n), T1(n), T2(n), S(n), V(n) )
+      END SELECT
     
       IF( IterMethod(1:1) == 'w') THEN
         TmpArray => ListGetConstRealArray(Solver % Values,'MG Smoother Relaxation Factor')
@@ -139,9 +140,8 @@ CONTAINS
           Omega = 1.0d0
         END IF
       END IF
-      
+
       SELECT CASE( IterMethod )
-        
       CASE( 'jacobi' ) 
         CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
         
@@ -182,27 +182,29 @@ CONTAINS
         CALL CCG( n, A, M, Mx, Mb, Mr, Rounds )
        
       CASE( 'bicgstab' )
-        CALL BiCG( n, A, M, Mx, Mb, Mr, Rounds )
+       CALL BiCG( n, A, M, Mx, Mb, Mr, Rounds )
+
+      CASE( 'uzawa' )                                   
+        CALL Uzawa( n, A, M, Mx, Mb, Mr, Rounds )
+
+      CASE( 'vanka' )                                   
+        CALL Vanka( n, A, M, Mx, Mb, Mr, Rounds )
 
       CASE( 'test gs' )                                   
         CALL TestGS( n, A, M, Mx, Mb, Mr, Rounds )
-
 
       CASE DEFAULT
         CALL Warn('MGSmooth','Unknown smoother, using Jacobi')
         CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
       END SELECT
 
-
-      
       CALL MGmv( A, x, r, .TRUE. )
       r = b - r
       IF ( Parallel ) Mr = Mb - Mr
      
       RNorm = MGnorm( n, Mr ) 
 
-
-      SELECT CASE( IterMethod )
+      SELECT CASE( Itermethod )
       CASE( 'cg' )
         DEALLOCATE( Z, Pr, Q)
         
@@ -830,6 +832,237 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+      SUBROUTINE Uzawa( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        USE LinearAlgebra
+
+        TYPE(Matrix_t), POINTER :: A,M
+        INTEGER :: Rounds, n
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,j,k,l,t,k0,k1,dofs,nn,elem,it
+        INTEGER, POINTER :: ind(:)
+        TYPE(Variable_t), POINTER :: Var
+        REAL(KIND=dp) :: st_norm
+        REAL(KIND=dp), ALLOCATABLE :: px(:), pb(:), pr(:)
+!------------------------------------------------------------------------------
+
+         Var => VariableGet( Mesh % Variables,  &
+               CurrentModel % Solver % Variable % Name, ThisOnly=.TRUE. )
+
+         dofs = Var % DOFs
+
+         ALLOCATE( px(n), pr(n), pb(n) )
+
+         CALL MGMv( A,x,r )
+         r(1:n) = b(1:n) - r(1:n)
+         st_norm = SQRT(SUM(r**2))
+
+if ( Rounds == 0 ) return
+
+DO it=1,200
+         k = 0
+         DO i=dofs,n,dofs
+           k = k + 1
+           px(k) = x(i) 
+           pb(k) = b(i) 
+           pr(k) = r(i) 
+         END DO
+
+         k = 0
+         r = b
+         DO i=1,n
+           IF ( MOD(i,dofs)==0 ) CYCLE
+           DO j=A % Rows(i),A % Rows(i+1)-1
+             IF ( MOD(A % Cols(j),dofs)==0 ) CYCLE
+             r(i) = r(i) - A % Values(j)*x(A % Cols(j))
+           END DO
+         END DO
+
+         DO i=1,n
+           IF ( MOD(i,dofs)==0 ) CYCLE
+           r(i) = r(i)/(rphi*A % Values(A % Diag(i)))
+         END DO
+
+
+         k = 0
+         DO i=dofs,n,dofs
+           k = k+1
+           DO j=A % Rows(i),A % Rows(i+1)-1
+             IF ( MOD(A % Cols(j),dofs)==0 ) CYCLE
+             pb(k) = pb(k) - A % Values(j)*x(A % Cols(j))
+             pb(k) = pb(k) - A % Values(j)*r(A % Cols(j))
+           END DO
+         END DO
+
+         CALL BiCGUzawa( k,A,M,px,pb,pr,Rounds, st_norm*1.d-2 )
+         k = 0
+         DO i=dofs,n,dofs
+           k = k + 1
+           x(i) = px(k)
+         END DO
+
+         px = x(1:n)
+         k = 0
+         DO i=1,n
+           IF ( MOD(i,dofs)==0 ) CYCLE
+           k = k+1
+           px(i) = px(i) + r(i)
+         END DO
+
+         k = 0
+         DO i=1,n
+           IF ( MOD(i,dofs)==0 ) CYCLE
+           k = k+1
+           DO j=A % Rows(i)+dofs-1,A % Rows(i+1)-1,dofs
+             px(i) = px(i) - A % Values(j)*x(A % Cols(j)) / &
+                   (rphi*A % Values(A % Diag(i)))
+           END DO
+         END DO
+         x(1:n) = px
+
+         CALL MGMv( A,x,r )
+         r(1:n) = b(1:n) - r(1:n)
+         PRINT*,'AAAAAAAAAA: ', it, Rounds, st_norm*0.5_dp, SQRT(SUM(r**2))
+
+         IF ( it > Rounds ) THEN
+           IF ( SQRT(SUM(r**2)) < 0.5_dp*st_norm ) EXIT
+         END IF
+end do
+!------------------------------------------------------------------------------
+      END SUBROUTINE Uzawa
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+     SUBROUTINE UzawaMv( A, x, b )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t) :: A
+        INTEGER :: i,j,k,n,q,dofs=3
+        REAL(KIND=dp) :: x(:),b(:)
+        REAL(KIND=dp), ALLOCATABLE :: temp(:)
+!------------------------------------------------------------------------------
+         n = A % NumberOfRows
+         ALLOCATE(temp(n))
+
+         b = 0._dp
+         temp = 0._dp
+
+         DO i=1,n
+           IF ( MOD(i,dofs)==0 ) CYCLE
+           DO j=A % Rows(i)+dofs-1,A % Rows(i+1)-1,dofs
+             q = A % Cols(j)/dofs
+             temp(i) = temp(i) + A % Values(j)*x(q)
+           END DO
+         END DO
+
+         DO i=1,n
+           IF ( MOD(i,dofs)==0 ) CYCLE
+           temp(i) = temp(i)/(rphi*A % Values(A % Diag(i)))
+         END DO
+
+         k = 0
+         DO i=dofs,n,dofs
+           k = k + 1
+           DO j=A % Rows(i),A % Rows(i+1)-1
+             IF ( MOD(A % Cols(j),dofs)==0 ) CYCLE
+             b(k) = b(k) - A % Values(j)*temp(A % Cols(j))
+           END DO
+         END DO
+
+         k = 0
+         DO i=dofs,n,dofs
+           k = k + 1
+           DO j=A % Rows(i)+dofs-1,A % Rows(i+1)-1,dofs
+             q = A % Cols(j)/dofs
+             b(k) = b(k) + A % Values(j)*x(q)
+           END DO
+         END DO
+!------------------------------------------------------------------------------
+     END SUBROUTINE UzawaMv
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+     SUBROUTINE UzawaPcond( A, b )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t) :: A
+        REAL(KIND=dp) :: b(:)
+!------------------------------------------------------------------------------
+       REAL(KIND=dp) :: s
+       INTEGER :: i,k,dofs=3,n
+
+        n = A % NumberOfRows
+        k = 0
+        DO i=dofs,n,dofs
+          k = k + 1
+          s = A % Values(A % Diag(i))
+          IF ( ABS(s) > 100*AEPS ) b(k) = b(k) / s
+        END DO
+!------------------------------------------------------------------------------
+     END SUBROUTINE UzawaPcond
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE BiCGUzawa( n, A, M, x, b, r, Rounds, reps )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A,M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,n
+        REAL(KIND=dp) :: alpha,beta,omega,rho,oldrho, reps
+        REAL(KIND=dp), ALLOCATABLE :: Pr(:), Ri(:), V(:), S(:), T(:), T1(:), T2(:)
+!------------------------------------------------------------------------------
+        ALLOCATE( Pr(n), Ri(n), T(n), T1(n), T2(n), S(n), V(n) )
+        PR = 0; Ri=0; T=0; T1=0; T2=0; S=0; V=0
+
+        CALL UzawaMv( A, x, r )
+        r(1:n) = b(1:n) - r(1:n)
+        
+        Ri(1:n) = r(1:n)
+        Pr(1:n) = 0
+        V(1:n) = 0
+        omega  = 1
+        alpha  = 0
+        oldrho = 1
+        
+        DO i=1,200
+          rho = MGdot( n, r, Ri )
+          
+          beta = alpha * rho / ( oldrho * omega )
+          Pr(1:n) = r(1:n) + beta * (Pr(1:n) - omega*V(1:n))
+          
+          V(1:n) = Pr(1:n)
+          CALL UzawaPcond( A,V )
+          T1(1:n) = V(1:n)
+          CALL UzawaMv( A, T1, V )
+
+          alpha = rho / MGdot( n, Ri, V )
+          S(1:n) = r(1:n) - alpha * V(1:n)
+          
+          T(1:n) = S(1:n)
+          CALL UzawaPcond( A,T )
+          T2(1:n) = T(1:n)
+          CALL UzawaMv( A, T2, T )
+
+          omega = MGdot( n,T,S ) / MGdot( n,T,T )
+          oldrho = rho
+          r(1:n) = S(1:n) - omega*T(1:n)
+          x(1:n) = x(1:n) + alpha*T1(1:n) + omega*T2(1:n)
+
+          CALL UzawaMv( A, x, t1 )
+          t1(1:n) = b(1:n) - t1(1:n)
+print*,i,sqrt(sum(t1**2))
+          IF ( SQRT(SUM(t1**2)) < reps ) EXIT
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE BiCGUzawa
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
       SUBROUTINE BiCG( n, A, M, x, b, r, Rounds )
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A,M
@@ -839,6 +1072,8 @@ CONTAINS
         INTEGER :: i,n
         REAL(KIND=dp) :: alpha,beta,omega,rho,oldrho
 !------------------------------------------------------------------------------
+        IF ( Rounds <= 0 ) RETURN
+
         CALL MGmv( A, x, r )
         r(1:n) = b(1:n) - r(1:n)
         
@@ -876,6 +1111,98 @@ CONTAINS
         END DO
 !------------------------------------------------------------------------------
       END SUBROUTINE BiCG
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+      SUBROUTINE Vanka( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+use linearalgebra
+        TYPE(Matrix_t), POINTER :: A,M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,j,k,l,n,t,nn,k1,k2,elem,nsize,it
+        REAL(KIND=dp) :: st_norm
+        INTEGER, ALLOCATABLE :: ind(:), cnt(:)
+        REAL(KIND=dp), ALLOCATABLE :: AL(:,:),u(:),g(:) ,xx(:)
+        TYPE(Variable_t), POINTER :: Var
+        TYPE(Element_t), POINTER :: element
+!------------------------------------------------------------------------------
+        CALL MGmv( A, x, r )
+        r(1:n) = b(1:n) - r(1:n)
+        st_norm = SQRT(SUM(r(1:n)**2))
+
+        Var => VariableGet( Mesh % Variables, &
+                 CurrentModel % Solver % Variable % Name, ThisOnly=.TRUE. )
+        
+        elem = Mesh % NumberOfBulkElements
+        nsize = Mesh % MaxElementDOFs*DOFs
+        ALLOCATE( AL(nsize,nsize), u(nsize), g(nsize), ind(nsize) )
+        ALLOCATE( xx(n), cnt(n) )
+        xx = 0
+        cnt = 0
+        
+do it=1,Rounds
+        DO t=1,elem
+          element => Mesh % Elements(t)
+          nn = Element % Type % NumberOfnodes
+          nsize = nn*DOFs
+
+          k = 0
+          DO i=1,nn
+            l = Element % Nodeindexes(i)
+            DO j=1,DOFs
+              k = k +1
+              ind(k) = DOFs*(Var % Perm(l)-1)+j
+            END DO
+          END DO
+
+          DO i=1,nsize
+!           DO j=1,nsize
+!             AL(i,j) = CRS_GetMatrixElement(A,ind(i),ind(j))
+!           END DO
+            u(i) = x(ind(i))
+!           g(i) = b(ind(i))
+          END DO
+!         g(1:nsize) = g(1:nsize) - MATMUL(AL(1:nsize,1:nsize),u(1:nsize))
+!         DO i=1,nn
+!           DO j=1,DOFs-1
+!             DO k=1,nn
+!               DO l=l,DOFs-1
+!                 k1 = DOFs*(i-1)+j
+!                 k2 = DOFs*(k-1)+l
+!                 IF ( k1 /= k2 ) AL(k1,k2) = 0._dp
+!               END DO
+!             END DO
+!           END DO
+!         END DO
+!         CALL InvertMatrix( AL,nsize )
+!         u(1:nsize) = u(1:nsize) + MATMUL(AL(1:nsize,1:nsize),g(1:nsize))
+!         DO i=1,nsize
+!           x(ind(1:nsize)) = sum(x(ind(1:nsize)))/nsize
+!         END DO
+
+          k=0
+          do i=1,nn
+            do j=1,DOFs
+              k = k + 1
+              xx(ind(k)) = xx(ind(k)) + SUM(u(j:nsize:dofs))/nn
+              cnt(ind(k)) = cnt(ind(k)) + 1
+            end do
+          end do
+        END DO
+        where(cnt>0)
+           x = 0.8*x + 0.2*xx/cnt
+        end where
+end do
+
+        DEALLOCATE( AL, u, g, ind )
+
+        CALL MGmv( A, x, r )
+        r(1:n) = b(1:n) - r(1:n)
+print*, t,SQRT(SUM(r**2))
+!------------------------------------------------------------------------------
+      END SUBROUTINE Vanka
 !------------------------------------------------------------------------------
 
 

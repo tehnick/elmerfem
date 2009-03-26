@@ -63,17 +63,19 @@ CONTAINS
        TYPE(Solver_t) :: Solver
        REAL(KIND=dp) :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
-       LOGICAL :: Found, Algebraic, Cluster, Geometric
+       LOGICAL :: Found, Algebraic, Cluster, Geometric, Pelement
        CHARACTER(LEN=MAX_NAME_LEN) :: MGMethod    
        
        MGMethod = ListGetString( Solver % Values,'MG Method',Found) 
        IF( Found ) THEN
+         Pelement = ( MGmethod == 'p' )  
          Cluster = ( MGmethod == 'cluster' ) 
          Algebraic = ( MGmethod == 'algebraic' ) 
          Geometric = ( MGmethod == 'geometric' )  
        ELSE
          Algebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) 
          Cluster = ListGetLogical( Solver % Values, 'MG Cluster', Found )
+         PElement = ListGetLogical( Solver % Values, 'MG PElement', Found )
          Geometric = ListGetLogical( Solver % Values, 'MG Geometric', Found )
        END IF
 
@@ -81,6 +83,8 @@ CONTAINS
          CALL AMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
        ELSE IF( Cluster ) THEN
          CALL CMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
+       ELSE IF( Pelement ) THEN
+         CALL PMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
        ELSE
          CALL GMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
        END IF
@@ -101,12 +105,13 @@ CONTAINS
        INTEGER :: DOFs, Level
        LOGICAL, OPTIONAL :: NewSystem
        TYPE(Solver_t), TARGET :: Solver       
-       REAL(KIND=dp) :: ForceVector(:), Solution(:)
+       REAL(KIND=dp), TARGET :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
        TYPE(Variable_t), POINTER :: Variable1, TimeVar, SaveVariable
        TYPE(Mesh_t), POINTER   :: Mesh1, Mesh2, SaveMesh
        TYPE(Matrix_t), POINTER :: Matrix2, PMatrix, SaveMatrix
        TYPE(Solver_t), POINTER :: PSolver             
+
 
        INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100
        LOGICAL :: Condition, Found, Parallel, Project,Transient
@@ -120,8 +125,10 @@ CONTAINS
 
        REAL(KIND=dp) :: CPUTime, tt
 
+
        LOGICAL :: NewLinearSystem
        SAVE NewLinearSystem
+
 !------------------------------------------------------------------------------
        tt = CPUTime()
 !
@@ -131,11 +138,19 @@ CONTAINS
 
        IF ( Level == Solver % MultiGridLevel ) THEN
           NewLinearSystem = .TRUE.
-
           IF ( PRESENT( NewSystem ) ) THEN
              NewLinearSystem = NewLinearSystem .AND. NewSystem
           END IF
        ELSE IF ( Level <= 1 ) THEN
+          CALL ListAddLogical( Solver % Values,  &
+                      'Linear System Free Factorization', .FALSE. )
+          IF ( NewLinearSystem ) THEN
+            CALL ListAddLogical( Solver % Values,  &
+                       'Linear System Refactorize', .TRUE. )
+          ELSE
+            CALL ListAddLogical( Solver % Values,  &
+                       'Linear System Refactorize', .FALSE. )
+          END IF
           NewLinearSystem = .FALSE.
        END IF
 
@@ -151,39 +166,37 @@ CONTAINS
              CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
            END IF
          ELSE
-           CALL ParallelIter( Matrix1, Solver % Mesh % ParallelInfo, DOFs, &
-               Solution, ForceVector, Solver, Matrix1 % ParMatrix )
+           IF (ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)) THEN
+             CALL ParallelIter( Matrix1, Matrix1 % ParallelInfo, DOFs, &
+                 Solution, ForceVector, Solver, Matrix1 % ParMatrix )
+           ELSE
+             CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
+           END IF
          END IF
          RETURN
        END IF
 !
-       n = Matrix1 % NumberOfRows
-       ALLOCATE( Residual(n) )
-       Residual = 0.0d0
 !
 !      Parallel initializations:
 !      -------------------------
-       IF ( Parallel ) THEN
-          CALL ParallelInitSolve( Matrix1, Solution, ForceVector, Residual )
+       n = Matrix1 % NumberOfRows
+       ALLOCATE( Residual(n) )
+       Residual = 0.0d0
 
-          PMatrix => ParallelMatrix( Matrix1 ) 
+       IF ( Parallel ) THEN
+          CALL ParallelInitSolve( Matrix1, Solution, &
+                  ForceVector, Residual, NewLinearSystem )
+          PMatrix => ParallelMatrix( Matrix1 )
        END IF
 !
 !      Compute residual:
 !      -----------------
+       RHSNorm = MGnorm( n, ForceVector )
        CALL MGmv( Matrix1, Solution, Residual, .TRUE. )
        Residual(1:n) = ForceVector(1:n) - Residual(1:n)
  
-       RHSNorm = MGnorm( n, ForceVector )
-       ResidualNorm = MGnorm( n, Residual ) / RHSNorm
- 
        Tolerance = ListGetConstReal( Solver % Values, &
           'Linear System Convergence Tolerance' )
-
-!      IF ( ResidualNorm < Tolerance ) THEN
-!         DEALLOCATE( Residual )
-!         RETURN
-!      END IF
 !---------------------------------------------------------------------
 !
 !      Initialize the multilevel solve:
@@ -260,7 +273,6 @@ CONTAINS
        ELSE
           Solver % Mesh => Mesh2
           CALL SetCurrentMesh( CurrentModel, Mesh2 )
-
           Solver % Variable => VariableGet( Mesh2 % Variables, &
                  Variable1 % Name, ThisOnly = .TRUE. )
        END IF
@@ -274,7 +286,9 @@ CONTAINS
        n2 = Matrix2 % NumberOfRows
 
        Residual2 => Matrix2 % RHS
-       ALLOCATE( Work(n), Work2(n2), Solution2(n2) )
+       Solution2 => Solver % Variable % Values
+
+       ALLOCATE( Work(n), Work2(n2) )
 !------------------------------------------------------------------------------
 !
 !      Mesh projector matrices from the higher level mesh
@@ -286,6 +300,7 @@ CONTAINS
 
        Project = ListGetLogical( Solver % Values, 'MG Project Matrix', Found )
        IF ( .NOT. Found ) Project = .TRUE.
+
 
        IF ( Project ) THEN
           IF ( NewLinearSystem ) THEN
@@ -309,8 +324,8 @@ CONTAINS
                           'Nonlinear System Max Iterations', 1 )
 
              Solver % MultigridLevel = -1
-             CALL ExecSolver( Solver % PROCEDURE, CurrentModel, &
-                      Solver, Solver % dt, Transient )
+
+             CALL MSolverActivate( CurrentModel, Solver, Solver % dt, Transient )
              Solver % MultigridLevel = i
              CALL ListAddInteger( Solver % Values, &
                       'Nonlinear System Max Iterations',MAX(1, k) )
@@ -328,7 +343,8 @@ CONTAINS
               'MG Max Iterations', Found )
 
           IF ( .NOT. Found ) THEN
-            IF( ListGetString( Solver % Values, 'Linear System Solver', Found ) == 'multigrid') THEN
+            IF( ListGetString( Solver % Values, &
+                  'Linear System Solver', Found ) == 'multigrid') THEN
               MaxIter = ListGetInteger( Solver % Values, &
                   'Linear System Max Iterations' )
             ELSE
@@ -399,13 +415,17 @@ CONTAINS
 !      Ok, lets go:
 !      ------------
        DO iter = 1,MaxIter
-          ResidualNorm = GMGSweep() / RHSNorm
+          ResidualNorm = GMGSweep()
 
-          WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
-                 Level, ' iter:', iter,' is:', ResidualNorm
+          WRITE(Message,'(A,I4,A,I5,A,E20.12E3,E20.12E3)') 'MG Residual at level:', &
+                 Level, ' iter:', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
           CALL Info( 'GMGSolve', Message, Level=5 )
 
-          IF ( ResidualNorm < Tolerance ) EXIT
+          IF( Level == Solver % MultiGridTotal ) THEN
+            IF ( ResidualNorm/RHSNorm < Tolerance ) EXIT
+          ELSE
+            IF ( ResidualNorm < Tolerance ) EXIT
+          END IF
        END DO
 
 
@@ -416,12 +436,14 @@ CONTAINS
        IF ( Parallel ) THEN 
           CALL ParallelUpdateResult( Matrix1, Solution, Residual )
        END IF
+
        Solver % Variable => SaveVariable
        Solver % Mesh     => SaveMesh
        Solver % Matrix   => SaveMatrix
        CALL SetCurrentMesh( CurrentModel, Solver % Mesh )
+       CurrentModel % Meshes => Solver % Mesh
 
-       DEALLOCATE( Residual, Solution2, Work, Work2 )
+       DEALLOCATE( Residual, Work, Work2 )
 
        IF ( Level == Solver % MultiGridTotal ) THEN
           WRITE( Message,'(A,F8.2)') 'MG iter time: ', CPUTime() - tt
@@ -458,8 +480,8 @@ CONTAINS
        END IF
 
        PSolver => Solver
-       RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, &
-               Residual, Level, DOFs, .TRUE. )
+       RNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, &
+            ForceVector, Residual, Level, DOFs, .TRUE. )
 !
 !------------------------------------------------------------------------------
 !
@@ -469,8 +491,8 @@ CONTAINS
 !     Project current residual to the lower level mesh:
 !     -------------------------------------------------
       DO i=1,DOFs
-         R1 => Residual (i:n :DOFs)
          R2 => Residual2(i:n2:DOFs)
+         R1 => Residual (i:n :DOFs)
 
          CALL CRS_ApplyProjector( ProjPN, R1, Permutation, &
                 R2, Permutation2, Trans = .FALSE. )
@@ -479,8 +501,7 @@ CONTAINS
 !
 !     Recursively solve (PAQ)z = Pr:
 !     ------------------------------
-      Solution2(1:n2) = 0.0d0
-      DO i=1,Sweeps
+      DO i=1,  Sweeps
          Work2(1:n2) = Solution2(1:n2)
 
          CALL MultigridSolve( Matrix2, Work2, Residual2, &
@@ -492,21 +513,21 @@ CONTAINS
 !
 !     Compute x = x + Qz:
 !     -------------------
+
       DO i=1,DOFs
          R1 => Residual (i:n :DOFs)
          R2 => Solution2(i:n2:DOFs)
 
          CALL CRS_ApplyProjector( ProjQT, R2, Permutation2, &
-                R1, Permutation, Trans = .TRUE. )
+                R1, Permutation, Trans = .TRUE.)
       END DO
 
       Solution(1:n) = Solution(1:n) + Residual(1:n)
 !
 !     Post smoothing:
 !     ---------------
-
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, &
-          Residual, Level, DOFs, .FALSE. )
+      RNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, ForceVector, &
+                   Residual, Level, DOFs, .FALSE. )
 !------------------------------------------------------------------------------
     END FUNCTION GMGSweep
 !------------------------------------------------------------------------------
@@ -530,12 +551,13 @@ CONTAINS
 !------------------------------------------------------------------------------
       INTEGER, POINTER :: L1(:), L2(:), InvPermB(:)
       REAL(KIND=dp) :: s
-      REAL(KIND=dp), POINTER :: R1(:),R2(:)
-      INTEGER :: i,j,k,l,NA,NB,N,k1,k2,k3,ni,nj,RDOF,CDOF
+      REAL(KIND=dp), POINTER :: R1(:),R2(:), bvals(:)
+      INTEGER :: i,j,k,l,m,NA,NB,N,k1,k2,k3,ni,nj,RDOF,CDOF,k_a,m_q,dof
 !------------------------------------------------------------------------------
 
       NA = A % NumberOfRows
       NB = B % NumberOfRows
+
 !
 !     Compute size for the work arrays:
 !     ---------------------------------
@@ -766,6 +788,560 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   END SUBROUTINE GMGSolve
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    RECURSIVE SUBROUTINE PMGSolve( Matrix1, Solution, &
+        ForceVector, DOFs, Solver, Level, NewSystem )
+!------------------------------------------------------------------------------
+       USE ModelDescription
+       IMPLICIT NONE
+
+       TYPE(Matrix_t), POINTER :: Matrix1
+       INTEGER :: DOFs, Level
+       LOGICAL, OPTIONAL :: NewSystem
+       TYPE(Solver_t), TARGET :: Solver       
+       REAL(KIND=dp), TARGET :: ForceVector(:), Solution(:)
+!------------------------------------------------------------------------------
+       TYPE(Variable_t), POINTER :: Variable1, TimeVar, SaveVariable
+       TYPE(Mesh_t), POINTER   :: Mesh1, Mesh2, SaveMesh
+       TYPE(Matrix_t), POINTER :: Matrix2, PMatrix, SaveMatrix
+       TYPE(Solver_t), POINTER :: PSolver             
+
+       INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, RDOF, CDOF
+       LOGICAL :: Condition, Found, Parallel, Project,Transient
+       CHARACTER(LEN=MAX_NAME_LEN) :: Path,str,mgname
+
+       TYPE(Matrix_t), POINTER :: ProjPN, ProjQT
+       INTEGER, POINTER :: Permutation(:), Permutation2(:), Indexes(:), Deg(:), &
+                PatLevel(:)
+
+       REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
+       REAL(KIND=dp), POINTER :: Residual(:), Work(:), Residual2(:), Work2(:),  Solution2(:), &
+               SaveVals(:), Basis(:)
+
+       REAL(KIND=dp), POINTER, SAVE :: SolutionStore(:,:), Degree(:)
+
+       REAL(KIND=dp) :: CPUTime, tt, detJ
+
+       LOGICAL :: NewLinearSystem, stat
+       SAVE NewLinearSystem
+
+       TYPE(Nodes_t), SAVE :: Nodes
+       TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+       tt = CPUTime()
+!
+!      Initialize:
+!      -----------
+       Parallel = ParEnv % PEs > 1
+
+       IF ( Level == Solver % MultiGridLevel ) THEN
+          NewLinearSystem = .TRUE.
+
+          IF ( PRESENT( NewSystem ) ) THEN
+             NewLinearSystem = NewLinearSystem .AND. NewSystem
+          END IF
+       ELSE IF ( Level <= 1 ) THEN
+          CALL ListAddLogical( Solver % Values,  &
+                      'Linear System Free Factorization', .FALSE. )
+          IF ( NewLinearSystem ) THEN
+            CALL ListAddLogical( Solver % Values,  &
+                       'Linear System Refactorize', .TRUE. )
+          ELSE
+            CALL ListAddLogical( Solver % Values,  &
+                       'Linear System Refactorize', .FALSE. )
+          END IF
+          NewLinearSystem = .FALSE.
+       END IF
+
+!---------------------------------------------------------------------
+!
+!      If at lowest level, solve directly:
+!      -----------------------------------
+       IF ( Level <= 1 ) THEN
+         IF ( .NOT. Parallel ) THEN
+           IF (ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)) THEN
+             CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
+           ELSE
+             CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
+           END IF
+         ELSE
+           CALL ParallelIter( Matrix1, Solver % Mesh % ParallelInfo, DOFs, &
+               Solution, ForceVector, Solver, Matrix1 % ParMatrix )
+         END IF
+         RETURN
+       END IF
+!
+       n = Matrix1 % NumberOfRows
+       ALLOCATE( Residual(n) )
+       Residual = 0.0d0
+!
+!      Parallel initializations:
+!      -------------------------
+       IF ( Parallel ) THEN
+          CALL ParallelInitSolve( Matrix1, Solution, ForceVector, Residual )
+          PMatrix => ParallelMatrix( Matrix1 ) 
+       END IF
+!
+!      Compute residual:
+!      -----------------
+       CALL MGmv( Matrix1, Solution, Residual, .TRUE. )
+       Residual(1:n) = ForceVector(1:n) - Residual(1:n)
+ 
+       RHSNorm = MGnorm( n, ForceVector )
+       ResidualNorm = MGnorm( n, Residual ) / RHSNorm
+ 
+       Tolerance = ListGetConstReal( Solver % Values, &
+          'Linear System Convergence Tolerance' )
+
+!---------------------------------------------------------------------
+!
+!      Initialize the multilevel solve:
+!      --------------------------------
+       SaveMatrix   => Solver % Matrix
+       SaveVariable => Solver % Variable
+
+       Variable1   => Solver % Variable
+       Permutation => Variable1 % Perm
+
+       Matrix2 => Matrix1 % Child
+      
+       IF ( NewLinearSystem ) THEN
+         IF ( .NOT. ASSOCIATED(Matrix2) ) THEN
+           n2 = Solver % Mesh % MaxElementDOFs
+           ALLOCATE( Degree(n), Indexes(n2), Deg(n2), Basis(n2) )
+           ALLOCATE( Nodes % x(n2),Nodes % y(n2), Nodes % z(n2) )
+           DO i=1,Solver % Mesh % NumberOfBulkElements
+             Element => Solver % Mesh % Elements(i)
+             n = PMGGetElementDOFs( Indexes, Element )
+
+             Nodes % x = Solver % Mesh % Nodes % x(Indexes(1:n))
+             Nodes % y = Solver % Mesh % Nodes % y(Indexes(1:n))
+             Nodes % z = Solver % Mesh % Nodes % z(Indexes(1:n))
+             stat = ElementInfo( Element, Nodes, 0._dp, 0._dp, 0._dp, detJ, &
+                          Basis, BasisDegree=Deg )
+
+             DO j=1,n
+               DO k=1,DOFs
+                 Degree(DOFs*(Permutation(Indexes(j))-1)+k) = Deg(j)
+               END DO
+             END DO
+           END DO
+           DEALLOCATE( Indexes,Deg,Basis,Nodes % x,Nodes % y,Nodes % z )
+            
+           PatLevel => ListGetIntegerArray( Solver % Values,'MG P at Level',Found)
+           IF(.NOT.Found) THEN
+             ALLOCATE(PatLevel(Level-1))
+             PatLevel = (/(i,i=1,level-1)/)
+           END IF
+
+           n = Matrix1 % NumberOfRows
+           ALLOCATE( Matrix1 % Perm(n) )
+           Matrix1 % Perm=(/(i,i=1,n)/)
+
+           PMatrix => Matrix1
+           DO l=level-1,1,-1
+             Matrix2 => AllocateMatrix()
+             Matrix2 % Parent => Pmatrix
+             Pmatrix % Child  => Matrix2
+             n2 = COUNT(Degree<=PatLevel(l))
+             Matrix2 % NumberOfRows = n2
+             ALLOCATE( Matrix2 % Rows(n2+1), Matrix2 % Diag(n2), Matrix2 % Perm(n) )
+             Matrix2 % Perm = 0
+           
+             j = 0
+             DO i=1,n
+               IF ( Degree(i) <= PatLevel(l) ) THEN
+                 j = j + 1
+                 Matrix2 % Perm(i) = j
+               END IF
+             END DO
+
+             Matrix2 % Rows(1) = 1
+             j = 0
+             DO i=1,n
+               IF ( Matrix2 % Perm(i) == 0 ) CYCLE
+               j = j + 1
+               Matrix2 % Rows(j+1) = Matrix2 % Rows(j)
+               DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
+                 IF ( Matrix2 % Perm(Matrix1 % Cols(k)) /= 0 ) &
+                   Matrix2 % Rows(j+1) = Matrix2 % Rows(j+1)+1
+               END DO
+             END DO
+
+             ALLOCATE( Matrix2 % Cols(Matrix2 % Rows(n2+1)), &
+                       Matrix2 % Values(Matrix2 % Rows(n2+1)) )
+
+             j = 0
+             m = 0
+             DO i=1,n
+               IF ( Matrix2 % Perm(i) == 0 ) CYCLE
+               j = j + 1
+               DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
+                 IF ( Matrix2 % Perm(Matrix1 % Cols(k)) /= 0 ) THEN
+                   m = m + 1
+                   Matrix2 % Cols(m) = Matrix2 % Perm(Matrix1 % Cols(k))
+                   IF ( j==Matrix2 % Cols(m)) Matrix2 % Diag(j)=m
+                 END IF
+               END DO
+             END DO
+             Pmatrix => Matrix2
+           END DO
+           ALLOCATE( SolutionStore( Level-1,n ) )
+           SolutionStore = 0._dp
+         END IF
+
+         PMatrix => Matrix1
+         DO l=Level-1,1,-1
+           j = 0
+           m = 0
+           DO i=1,n
+             IF ( Matrix2 % Perm(i) == 0 ) CYCLE
+             j = j + 1
+             DO k=Matrix1 % Rows(i),Matrix1 % Rows(i+1)-1
+               IF ( Matrix2 % Perm(Matrix1 % Cols(k)) /= 0 ) THEN
+                 m = m + 1
+                 Matrix2 % Values(m) = Matrix1 % Values(k)
+               END IF
+             END DO
+           END DO
+           Matrix2 => PMatrix % Child
+         END DO
+         Matrix2 => Matrix1 % Child
+       END IF
+
+
+!------------------------------------------------------------------------------
+!
+!      Some more initializations:
+!      --------------------------
+       n  = Matrix1 % NumberOfRows
+       n2 = Matrix2 % NumberOfRows
+print*,'sizes: ', n,n2
+
+       ALLOCATE( Residual2(n2) )
+       Residual2 = 0._dp
+
+       Solution2 => SolutionStore(Level-1,1:n2)
+!------------------------------------------------------------------------------
+!
+!      Global iteration parameters:
+!      ----------------------------
+       MaxIter = 1
+
+       IF ( Level == Solver % MultiGridTotal ) THEN
+          MaxIter = ListGetInteger(Solver % Values,'MG Max Iterations',Found)
+
+          IF ( .NOT. Found ) THEN
+            IF( ListGetString( Solver % Values, &
+                   'Linear System Solver', Found ) == 'multigrid') THEN
+              MaxIter = ListGetInteger(Solver % Values,'Linear System Max Iterations')
+            ELSE
+              MaxIter = 1
+            END IF
+          END IF
+          Tolerance = ListGetConstReal( Solver % Values, &
+              'MG Convergence Tolerance', Found )
+          IF ( .NOT. Found ) THEN
+             Tolerance = ListGetConstReal( Solver % Values, &
+                 'Linear System Convergence Tolerance' )
+          END IF
+       ELSE
+          MaxIter = ListGetInteger( Solver % Values, &
+               'MG Level Max Iterations', Found )
+          IF ( .NOT. Found ) MaxIter = 1
+
+          Tolerance = ListGetConstReal( Solver % Values, &
+              'MG Level Convergence Tolerance', Found )
+          IF ( .NOT. Found ) Tolerance = HUGE(Tolerance)
+       END IF
+
+!------------------------------------------------------------------------------
+!      Smoothing preconditiong, if not given
+!      diagonal preconditioning is used:
+!      -------------------------------------
+       IF ( NewLinearSystem ) THEN
+         str = ListGetString( Solver % Values, 'MG Preconditioning', Found )
+         IF ( .NOT. Found ) THEN
+           str = ListGetString( Solver % Values,'Linear System Preconditioning', Found )
+         END IF
+         IF ( str == 'ilut' )  THEN
+           ILUTOL = ListGetConstReal( Solver % Values, &
+                'MG ILUT Tolerance', Found )
+           IF ( .NOT. Found ) THEN
+              ILUTOL = ListGetConstReal( Solver % Values, &
+                   'Linear System ILUT Tolerance' )
+           END IF
+           IF ( Parallel ) THEN
+              Condition = CRS_ILUT( PMatrix, ILUTOL )
+           ELSE
+              Condition = CRS_ILUT( Matrix1, ILUTOL )
+           END IF
+         ELSE IF ( str(1:3) == 'ilu' ) THEN
+           k = ICHAR(str(4:4)) - ICHAR('0')
+           IF ( k < 0 .OR. k > 9 ) k = 0
+           IF ( Parallel ) THEN
+              Condition = CRS_IncompleteLU( PMatrix, k )
+           ELSE
+              Condition = CRS_IncompleteLU( Matrix1, k )
+           END IF
+         END IF
+       END IF
+
+
+!------------------------------------------------------------------------------
+!
+!      Ok, lets go:
+!      ------------
+       DO iter = 1,MaxIter
+          ResidualNorm = PMGSweep()
+
+          WRITE(Message,'(A,I4,A,I5,A,E20.12E3,E20.12E3)') 'MG Residual at level:', &
+                 Level, ' iter:', iter,' is:', ResidualNorm/RHSNorm, ResidualNorm
+          CALL Info( 'PMGSolve', Message, Level=5 )
+
+          IF( Level == Solver % MultiGridTotal ) THEN
+            IF ( ResidualNorm/RHSNorm < Tolerance ) EXIT
+          ELSE
+            IF ( ResidualNorm < Tolerance ) EXIT
+          END IF
+       END DO
+
+
+!------------------------------------------------------------------------------
+!
+!      Finalize:
+!      ---------
+       IF ( Parallel ) THEN 
+          CALL ParallelUpdateResult( Matrix1, Solution, Residual )
+       END IF
+       Solver % Matrix   => SaveMatrix
+       Solver % Variable => SaveVariable
+
+       DEALLOCATE( Residual, Residual2 )
+
+       IF ( Level == Solver % MultiGridTotal ) THEN
+          WRITE( Message,'(A,F8.2)') 'MG iter time: ', CPUTime() - tt
+          CALL Info( 'PMGSolve', Message, Level=5 )
+       END IF
+
+
+       RETURN
+!------------------------------------------------------------------------------
+
+  CONTAINS
+
+
+
+!------------------------------------------------------------------------------
+  FUNCTION PMGGetElementDOFs( Indexes, UElement, USolver )  RESULT(NB)
+!------------------------------------------------------------------------------
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
+     INTEGER :: Indexes(:)
+
+     TYPE(Solver_t),  POINTER :: Solver
+     TYPE(Element_t), POINTER :: Element, Parent
+
+     LOGICAL :: Found, GB
+     INTEGER :: nb,i,j,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs
+
+     Element => UElement
+
+     IF ( PRESENT( USolver ) ) THEN
+        Solver => USolver
+     ELSE
+        Solver => CurrentModel % Solver
+     END IF
+
+     NB = 0
+
+     IF ( ListGetLogical( Solver % Values, 'Discontinuous Galerkin', Found ) ) THEN
+        DO i=1,Element % DGDOFs
+           NB = NB + 1
+           Indexes(NB) = Element % DGIndexes(i)
+        END DO
+
+        IF ( ASSOCIATED( Element % BoundaryInfo ) ) THEN
+           IF ( ASSOCIATED( Element % BoundaryInfo % Left ) ) THEN
+              DO i=1,Element % BoundaryInfo % Left % DGDOFs
+                 NB = NB + 1
+                 Indexes(NB) = Element % BoundaryInfo % Left % DGIndexes(i)
+              END DO
+           END IF
+           IF ( ASSOCIATED( Element % BoundaryInfo % Right ) ) THEN
+              DO i=1,Element % BoundaryInfo % Right % DGDOFs
+                 NB = NB + 1
+                 Indexes(NB) = Element % BoundaryInfo % Right % DGIndexes(i)
+              END DO
+           END IF
+        END IF
+
+        IF ( NB > 0 ) RETURN
+     END IF
+
+     DO i=1,Element % NDOFs
+        NB = NB + 1
+        Indexes(NB) = Element % NodeIndexes(i)
+     END DO
+
+     FaceDOFs   = Solver % Mesh % MaxFaceDOFs
+     EdgeDOFs   = Solver % Mesh % MaxEdgeDOFs
+     BubbleDOFs = Solver % Mesh % MaxBDOFs
+
+     IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
+        DO j=1,Element % TYPE % NumberOFEdges
+          EDOFs = Solver % Mesh % Edges( Element % EdgeIndexes(j) ) % BDOFs
+          DO i=1,EDOFs
+             NB = NB + 1
+             Indexes(NB) = EdgeDOFs*(Element % EdgeIndexes(j)-1) + &
+                      i + Solver % Mesh % NumberOfNodes
+          END DO
+        END DO
+     END IF
+
+     IF ( ASSOCIATED( Element % FaceIndexes ) ) THEN
+        DO j=1,Element % TYPE % NumberOFFaces
+           FDOFs = Solver % Mesh % Faces( Element % FaceIndexes(j) ) % BDOFs
+           DO i=1,FDOFs
+              NB = NB + 1
+              Indexes(NB) = FaceDOFs*(Element % FaceIndexes(j)-1) + i + &
+                 Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges
+           END DO
+        END DO
+     END IF
+
+     GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
+     IF (.NOT.Found) GB = .TRUE.
+
+     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+       IF (.NOT. isPElement(Element) ) RETURN
+
+       Parent => Element % BoundaryInfo % Left
+       IF (.NOT.ASSOCIATED(Parent) ) &
+         Parent => Element % BoundaryInfo % Right
+       IF (.NOT.ASSOCIATED(Parent) ) RETURN
+
+       IF ( ASSOCIATED( Parent % EdgeIndexes ) ) THEN
+         EDOFs = Element % BDOFs
+         DO i=1,EDOFs
+           NB = NB + 1
+           Indexes(NB) = EdgeDOFs*(Parent % EdgeIndexes(Element % PDefs % LocalNumber)-1) + &
+                    i + Solver % Mesh % NumberOfNodes
+         END DO
+       END IF
+
+       IF ( ASSOCIATED( Parent % FaceIndexes ) ) THEN
+         FDOFs = Element % BDOFs
+         DO i=1,FDOFs
+           NB = NB + 1
+           Indexes(NB) = FaceDOFs*(Parent % FaceIndexes(Element % PDefs % LocalNumber)-1) + i + &
+              Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges
+         END DO
+       END IF
+     ELSE IF ( GB ) THEN
+        IF ( ASSOCIATED( Element % BubbleIndexes ) ) THEN
+           DO i=1,Element % BDOFs
+              NB = NB + 1
+              Indexes(NB) = FaceDOFs*Solver % Mesh % NumberOfFaces + &
+                 Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges + &
+                   Element % BubbleIndexes(i)
+           END DO
+        END IF
+     END IF
+!------------------------------------------------------------------------------
+  END FUNCTION PMGGetElementDOFs
+!------------------------------------------------------------------------------
+
+  
+!------------------------------------------------------------------------------
+    RECURSIVE FUNCTION PMGSweep() RESULT(RNorm)
+!------------------------------------------------------------------------------
+       INTEGER :: i,j,Rounds
+       LOGICAL :: Found
+       REAL(KIND=dp) :: RNorm
+!------------------------------------------------------------------------------
+
+!      Presmoothing:
+!      -------------
+
+       PSolver => Solver
+       RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, &
+            ForceVector, Residual, Level, DOFs, .TRUE. )
+!
+!------------------------------------------------------------------------------
+
+!
+!     Recursively solve (PAQ)z = Pr:
+!     ------------------------------
+      DO i=1,SIZE(Matrix2 % Perm)
+        j = Matrix2 % Perm(i)
+        IF ( j>0 )  THEN
+          k = Matrix1 % Perm(i)
+          Residual2(j) = Residual(k)
+        END IF
+      END DO
+
+      CALL PMGSolve( Matrix2, Solution2, Residual2, &
+        DOFs, Solver, Level-1, NewLinearSystem )
+
+      DO i=1,SIZE(Matrix2 % Perm)
+        j = Matrix2 % Perm(i)
+        IF ( j>0 )  THEN
+          k = Matrix1 % Perm(i)
+          Solution(k) = Solution(k) + Solution2(j)
+        END IF
+      END DO
+!
+!     Post smoothing:
+!     ---------------
+      RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, &
+             ForceVector, Residual, Level, DOFs, .FALSE. )
+!------------------------------------------------------------------------------
+    END FUNCTION PMGSweep
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    FUNCTION MGnorm( n, x ) RESULT(s)
+!------------------------------------------------------------------------------
+       INTEGER :: n
+       REAL(KIND=dp) :: s,x(:)
+!------------------------------------------------------------------------------
+       IF ( .NOT. Parallel ) THEN
+          s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
+       ELSE
+          s = ParallelNorm( n, x )
+       END IF
+!------------------------------------------------------------------------------
+    END FUNCTION MGnorm
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+    SUBROUTINE MGmv( A, x, b, Update )
+!------------------------------------------------------------------------------
+       REAL(KIND=dp) :: x(:), b(:)
+       LOGICAL, OPTIONAL :: Update
+       TYPE(Matrix_t), POINTER :: A
+!------------------------------------------------------------------------------
+       IF ( .NOT. Parallel ) THEN
+         CALL CRS_MatrixVectorMultiply( A, x, b )
+       ELSE
+         IF ( PRESENT( Update ) ) THEN
+           CALL ParallelMatrixVector( A,x,b,Update )
+         ELSE
+           CALL ParallelMatrixVector( A,x,b )
+         END IF
+       END IF
+!------------------------------------------------------------------------------
+    END SUBROUTINE MGmv
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE PMGSolve
 !------------------------------------------------------------------------------
 
 
@@ -1128,8 +1704,8 @@ CONTAINS
       END IF
       
       PSolver => Solver
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector,Residual, &
-          Level, DOFs, .TRUE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, ForceVector, &
+             Residual, Level, DOFs, .TRUE.)
       
 !------------------------------------------------------------------------------
 !
@@ -1169,8 +1745,8 @@ CONTAINS
 
 !      Post smoothing:
 !      ---------------
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, Residual, &
-          Level, DOFs, .FALSE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, ForceVector, &
+          Residual, Level, DOFs, .FALSE.)
 !------------------------------------------------------------------------------
     END FUNCTION AMGSweep
 !------------------------------------------------------------------------------
@@ -4733,8 +5309,8 @@ CONTAINS
       END IF
       
       PSolver => Solver
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector,Residual, &
-          Level, DOFs, .TRUE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, ForceVector, &
+          Residual, Level, DOFs, .TRUE.)
       
 !------------------------------------------------------------------------------
 !
@@ -4774,8 +5350,8 @@ CONTAINS
 !      Post smoothing:
 !      ---------------
 
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, Residual, &
-          Level, DOFs, .FALSE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solver % Mesh, Solution, ForceVector, &
+          Residual, Level, DOFs, .FALSE.)
 !------------------------------------------------------------------------------
     END FUNCTION CMGSweep
 !------------------------------------------------------------------------------
@@ -5817,6 +6393,137 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   END SUBROUTINE CMGSolve
+!------------------------------------------------------------------------------
+
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE MSolverActivate( Model, Solver, dt, TransientSimulation )
+!------------------------------------------------------------------------------
+     USE MeshUtils
+     TYPE(Model_t)  :: Model
+     TYPE(Solver_t),TARGET :: Solver
+     LOGICAL :: TransientSimulation
+     REAL(KIND=dp) :: dt, OrigDT, DTScal
+!------------------------------------------------------------------------------
+     LOGICAL :: stat, Found, GB, FirstTime=.TRUE., MeActive
+     INTEGER :: i, j, n, SolverAddr, BDOFs, execi, timestep, maxdim
+     REAL(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: TimeVar, IterV
+     TYPE(Element_t), POINTER :: CurrentElement
+     CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
+
+     INTEGER :: comm_active, group_active, group_world, ierr
+     INTEGER, ALLOCATABLE :: memb(:)
+
+     SAVE TimeVar, FirstTime
+!------------------------------------------------------------------------------
+     CALL SetCurrentMesh( Model, Solver % Mesh )
+     Model % Solver => Solver
+
+     st = ListGetConstReal( Solver % Values, 'Start Time', Found )
+     IF ( Found ) THEN
+       TimeVar => VariableGet( Model % Variables, 'Time' )
+       IF ( TimeVar % Values(1) < st ) RETURN
+     END IF
+
+     execi = ListGetInteger( Solver % Values, 'Exec Interval', Found )
+     IF ( Found ) THEN
+       TimeVar => VariableGet( Model % Variables, 'Timestep' )
+       execi = MOD( NINT(Timevar % Values(1))-1, execi )
+       IF ( execi /= 0 ) RETURN
+     END IF
+
+!    IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
+       Solver % NumberOFActiveElements = 0
+       EquationName = ListGetString( Solver % Values, 'Equation', stat )
+
+       IF ( Stat ) THEN
+          IF (  ASSOCIATED( Solver % ActiveElements ) ) DEALLOCATE( Solver % ActiveElements )
+          ALLOCATE( Solver % ActiveElements( Solver % Mesh % NumberOfBulkElements + &
+                       Solver % Mesh % NumberOFBoundaryElements ) )
+
+          Maxdim = 0
+          DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
+             CurrentElement => Solver % Mesh % Elements(i)
+             IF ( CheckElementEquation( Model, CurrentElement, EquationName ) ) THEN
+                Solver % NumberOfActiveElements = Solver % NumberOFActiveElements + 1
+                Solver % ActiveElements( Solver % NumberOFActiveElements ) = i
+                Maxdim = MAX( CurrentElement % TYPE % DIMENSION, Maxdim )
+             END IF
+          END DO
+          CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
+       END IF
+!    END IF
+!------------------------------------------------------------------------------
+     Solver % Mesh % OutputActive = .TRUE.
+     OrigDT = dt
+     DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
+     IF ( .NOT. Found ) DTScal = 1.0d0
+     Solver % dt = DTScal * dt
+
+     MeActive = ASSOCIATED(Solver % Matrix)
+     IF ( MeActive ) &
+        MeActive = MeActive .AND. (Solver % Matrix % NumberOfRows>0)
+     CALL ParallelActive( MeActive )
+
+     IF ( ASSOCIATED(Solver % Matrix) ) Solver % Matrix % Comm = MPI_COMM_WORLD
+
+     IF ( ParEnv % PEs>1 ) THEN
+       DO i=1,ParEnv % PEs
+         IF ( ParEnv % Active(i) ) THEN
+           EXIT
+         END IF
+       END DO
+
+       OutputPE = -1
+       IF ( i-1==ParEnv % MyPE ) OutputPE=0
+
+       n = COUNT(ParEnv % Active)
+       IF ( n>0 .AND. n<ParEnv % PEs ) THEN
+         CALL MPI_Comm_group( MPI_COMM_WORLD, group_world, ierr )
+         ALLOCATE(memb(n))
+         n = 0
+         DO i=1,ParEnv % PEs
+           IF ( ParEnv % Active(i) ) THEN
+             n=n+1
+             memb(n)=i-1
+           END IF
+         END DO
+         CALL MPI_Group_incl( group_world, n, memb, group_active, ierr)
+         DEALLOCATE(memb)
+         CALL MPI_Comm_create( MPI_COMM_WORLD, group_active, &
+                 comm_active, ierr)
+         Solver % Matrix % Comm = comm_active
+       END IF
+     END IF
+
+     str = ListGetString( Solver % Values, 'Namespace', Found )
+     IF (Found) CALL ListSetNamespace(TRIM(str))
+
+     iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+     iterV % Values(1) = 1
+
+     str = ListGetString( Solver  % Values, 'Procedure', Found )
+
+#ifdef SGIn32
+      SolverAddr = Solver % PROCEDURE
+      CALL ExecSolver( SolverAddr, Model, Solver, DTScal*dt, TransientSimulation)
+#else
+      CALL ExecSolver( &
+             Solver % PROCEDURE, Model, Solver, DTScal*dt, TransientSimulation)
+#endif
+
+     CALL ListSetNamespace('')
+     IF ( ASSOCIATED(Solver % Matrix) ) THEN
+       IF ( Solver % Matrix % Comm /= MPI_COMM_WORLD ) &
+          CALL MPI_Comm_Free( Solver % Matrix % Comm, ierr )
+     END IF
+
+     Solver % dt = OrigDT
+!------------------------------------------------------------------------------
+   END SUBROUTINE MSolverActivate
 !------------------------------------------------------------------------------
 
 END MODULE Multigrid
