@@ -1750,17 +1750,28 @@ CONTAINS
 !    This will be a point for robust solver which cheks the stepsize
 !    but whats below is still crap...
 !------------------------------------------------------------------------------          
-      IF( Robust  ) THEN
-        ErrorReduced = CheckStepSize(Solver,PrevResidual,Residual)
+      IF( Robust  ) THEN   
+        ErrorReduced = CheckStepSize(Solver,tests==0,PrevResidual,Residual)
         tests = tests + 1
-        PrevResidual = Residual
 
-        IF( iter > 1 ) THEN
-          IF(.NOT. ErrorReduced) THEN
+
+        PRINT *,'Error',ErrorReduced,Solver % Variable % NonlinChange, NonlinearTol
+        
+        IF( tests >  NoTests ) THEN
+          CALL Warn('CoupledSolver','Maximum number of linesearch steps exceeded')
+          ErrorReduced = .TRUE.
+        END IF
+        
+        IF( iter == 1 ) THEN
+          PrevResidual = Residual
+        ELSE
+          IF( ErrorReduced ) THEN 
+            PrevResidual = Residual
+            IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
+          ELSE
             CALL CoupledToSingleVector()
             GOTO 100
           END IF
-          IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
         END IF
       END IF
 

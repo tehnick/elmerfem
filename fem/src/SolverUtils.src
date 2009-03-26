@@ -3155,25 +3155,27 @@ CONTAINS
     
 
 !------------------------------------------------------------------------------
-  FUNCTION CheckStepSize(Solver,PrevChange,Change,&
+  FUNCTION CheckStepSize(Solver,FirstTrial,PrevResidual,Residual,&
       nsize,values,values0) RESULT (Success) 
 !------------------------------------------------------------------------------
     TYPE(Solver_t), TARGET :: Solver
-    REAL(KIND=dp) :: PrevChange, Change
+    REAL(KIND=dp) :: PrevResidual, Residual
     INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
-    LOGICAL :: Success
+    LOGICAL :: FirstTrial,Success
 !------------------------------------------------------------------------------
     INTEGER :: n
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:)
-    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation
-    CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
     TYPE(Variable_t), POINTER :: iterV
-    LOGICAL :: Stat, ConvergenceAbsolute
+    LOGICAL :: Stat
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+
+
+    SAVE Alpha
 
     IF(PRESENT(values)) THEN
       x => values
@@ -3187,6 +3189,7 @@ CONTAINS
       n = SIZE(x)
     END IF
 
+
     !--------------------------------------------------------------------------
     ! This is the real residual r=b-Ax
     !--------------------------------------------------------------------------
@@ -3196,22 +3199,37 @@ CONTAINS
     ALLOCATE(r(n))
     CALL MatrixVectorMultiply( A, x, r)      
     r = r - b
-    Change = ComputeNorm(Solver, n, r)
+    Residual = ComputeNorm(Solver, n, r)
     DEALLOCATE(r)
 
     ! Negative (impossible) value may be used as indicator that's its the 1st step
     !-----------------------------------------------------------------------------
-    IF( PrevChange < 0.0_dp ) THEN
+    IF( PrevResidual < 0.0 ) THEN
       Success = .FALSE.
       RETURN
     END IF
 
-    Success = (Change < PrevChange)
+    ! Negative (impossible) value may be used as indicator that's its the 1st step
+    !-----------------------------------------------------------------------------
+    IF( FirstTrial ) THEN
+      Alpha = 1.0_dp
+    END IF
+
+    ! Armijo GoldStein Criterion for accepting stepsize
+    !-----------------------------------------------------------------
+    Myy = ListGetConstReal( Solver % Values, &
+          'Nonlinear System Linesearch Limit', Stat )
+    IF(.NOT. Stat) Myy = 0.5_dp
+    Success = ( PrevResidual - Residual > Myy * Alpha * PrevResidual)
+
+    iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+    PRINT *,'CSS AG',NINT(iterV % Values(1)),Success,Residual,PrevResidual,Alpha
+    PRINT *,'    AG',PrevResidual - Residual, 0.5_dp * Alpha * PrevResidual
 
     IF( Success ) THEN      
 
       bNorm = ComputeNorm(Solver, n, b)
-      Solver % Variable % NonlinChange = Change / bNorm
+      Solver % Variable % NonlinChange = Residual / bNorm
       
       Norm = ComputeNorm(Solver, n, x)
       Solver % Variable % Norm = Norm
@@ -3222,7 +3240,7 @@ CONTAINS
       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
       n = NINT(iterV % Values(1))
       WRITE( Message, '(a,g15.8,g15.8,a)') &
-          'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change / bNorm,&
+          'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Residual / bNorm,&
           ' ) :: '// TRIM(SolverName)
       CALL Info( 'CheckStepSize', Message, Level=3 )      
       iterV % Values(1) = n + 1 
@@ -3231,16 +3249,17 @@ CONTAINS
         x0 => values0
       ELSE
         IF(.NOT. ASSOCIATED(Solver % Variable % NonlinValues)) &
-            CALL Fatal('ComputeChange','Previous nonlinear solution is needed')       
+            CALL Fatal('CheckStepSize','Previous nonlinear solution is needed')       
         x0 => Solver % Variable % NonlinValues
       END IF
-      IF(SIZE(x0) /= SIZE(x)) CALL Warn('ComputeChange','Possible mismatch in length of vectors!')
+      IF(SIZE(x0) /= SIZE(x)) CALL Warn('CheckStepSize','Possible mismatch in length of vectors!')
 
       Relaxation = ListGetConstReal( Solver % Values, &
-          'Nonlinear System Stepsize Reduction Factor', Stat )
+          'Nonlinear System Linesearch Factor', Stat )
       IF(.NOT. Stat) Relaxation = 0.5_dp
-      x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)
-      
+      x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)      
+      Alpha = Alpha * Relaxation
+
       CALL Info( 'CheckStepSize','Step rejected, increasing relaxation', Level=3 )      
     END IF
 
