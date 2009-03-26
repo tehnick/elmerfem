@@ -30,10 +30,9 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
-  TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: SolverParams
   CHARACTER(LEN=MAX_NAME_LEN) :: SenderName, F1name, F2name, MeshName
-  TYPE(Variable_t), POINTER :: F1, F2
+  TYPE(Variable_t), POINTER :: F1, F2, Difference
   LOGICAL :: Found, AllocationsDone
   INTEGER :: n, t
   TYPE(Element_t), POINTER :: Element
@@ -44,14 +43,16 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
 !------------------------------------------------------------------------------
   SenderName = 'DifferenceSolve'
 
-  Mesh => GetMesh()
+  ! Print mesh name:
+  !------------------
+  MeshName = Solver % Mesh % Name
 
-  MeshName = Mesh % Name
-  
   WRITE(Message, *) 'Functions are interpolated using mesh: ', TRIM(MeshName)
 
   CALL Info(SenderName, Message)
 
+  ! Allocate local storage:
+  !-------------------------
   IF(.NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
      n = Solver % Mesh % MaxElementDOFs
 
@@ -64,6 +65,8 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
      AllocationsDone = .TRUE.
   END IF
 
+  ! Fetch first scalar function:
+  !------------------------------
   SolverParams => GetSolverParams()
   
   F1name = GetString(SolverParams, "F1", Found)
@@ -83,6 +86,8 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
      CALL Info(SenderName, Message)     
   END IF
 
+  ! Fetch second scalar function:
+  !-------------------------------
   F2name = GetString(SolverParams, "F2", Found)
 
   IF(.NOT.Found) THEN
@@ -100,6 +105,13 @@ SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
      CALL Info(SenderName, Message)     
   END IF
 
+  ! Compute the difference:
+  !-------------------------
+  Difference => Solver % Variable
+  Difference % Values = F1 % Values - F2 % Values
+
+  ! Compute norms:
+  !----------------
   L2nrm = 0.0d0
   L2nrmf1 = 0.0d0
   L2nrmf2 = 0.0d0
