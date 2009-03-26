@@ -1,5 +1,5 @@
-SUBROUTINE DifferenceSolver( Model, Solver, dt, TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT:: PoissonSolver
+SUBROUTINE DifferenceSolver(Model, Solver, dt, TransientSimulation)
+!DEC$ATTRIBUTES DLLEXPORT:: DifferenceSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -30,24 +30,35 @@ SUBROUTINE DifferenceSolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
+  TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: SolverParams
-  CHARACTER(LEN=MAX_NAME_LEN) :: F1name, F2name
+  CHARACTER(LEN=MAX_NAME_LEN) :: SenderName, F1name, F2name, MeshName
   TYPE(Variable_t), POINTER :: F1, F2
   LOGICAL :: Found, AllocationsDone
   INTEGER :: N, t
   TYPE(Element_t), POINTER :: Element
-  REAL(KIND=dp), ALLOCATABLE :: F1local(:), F2local(:)
+  REAL(KIND=dp), ALLOCATABLE :: F1loc(:), F2loc(:)
   REAL(KIND=dp) :: nrm, nrmloc, nrmf1, nrmf1loc, nrmf2, nrmf2loc
-  SAVE F1local, F2local, AllocationsDone
+  SAVE F1loc, F2loc, AllocationsDone
 !------------------------------------------------------------------------------
+  SenderName = 'DifferenceSolve'
+
+  Mesh => GetMesh()
+
+  MeshName = Mesh % Name
+  
+  WRITE(Message, *) 'Functions are interpolated using mesh: ', TRIM(MeshName)
+
+  CALL Info(SenderName, Message)
+
   IF(.NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
      N = Solver % Mesh % MaxElementDOFs
 
      IF(AllocationsDone) THEN
-        DEALLOCATE(F1local, F2local)
+        DEALLOCATE(F1loc, F2loc)
      END IF
 
-     ALLOCATE(F1local(N), F2local(N))
+     ALLOCATE(F1loc(N), F2loc(N))
 
      AllocationsDone = .TRUE.
   END IF
@@ -57,33 +68,35 @@ SUBROUTINE DifferenceSolver( Model, Solver, dt, TransientSimulation )
   F1name = GetString(SolverParams, "F1", Found)
   
   IF(.NOT.Found) THEN
-     PRINT *, "F1 was not found (name unspecified)"
-     RETURN
+     WRITE(Message, *) 'F1 not found (name unspecified)'
+     CALL Fatal(SenderName, Message)
   END IF
 
   F1 => VariableGet(Solver % Mesh % Variables, F1name)
 
   IF(.NOT.ASSOCIATED(F1)) THEN
-     PRINT *, "F1 not found: ", TRIM(F1name)
-     RETURN
+     WRITE(Message, *) 'F1 not found: ', TRIM(F1name)
+     CALL Fatal(SenderName, Message)
   ELSE
-     PRINT *, "Found F1: ", TRIM(F1name)
+     WRITE(Message, *) 'F1: ', TRIM(F1name)
+     CALL Info(SenderName, Message)     
   END IF
 
   F2name = GetString(SolverParams, "F2", Found)
 
   IF(.NOT.Found) THEN
-     PRINT *, "F2 was not found (name unspecified)"
-     RETURN
+     WRITE(Message, *) 'F2 not found (name unspecified)'
+     CALL Fatal(SenderName, Message)
   END IF
 
   F2 => VariableGet(Solver % Mesh % Variables, F2name)
 
   IF(.NOT.ASSOCIATED(F2)) THEN
-     PRINT *, "F2 not found: ", TRIM(F2name)
-     RETURN
+     WRITE(Message, *) 'F2 not found: ', TRIM(F1name)
+     CALL Fatal(SenderName, Message)
   ELSE
-     PRINT *, "Found F2: ", TRIM(F2name)
+     WRITE(Message, *) 'F2: ', TRIM(F1name)
+     CALL Info(SenderName, Message)     
   END IF
 
   nrm = 0.0d0
@@ -94,10 +107,10 @@ SUBROUTINE DifferenceSolver( Model, Solver, dt, TransientSimulation )
      Element => GetActiveElement(t)
      n = GetElementNOFNodes()
 
-     CALL GetScalarLocalSolution(F1local, F1name)
-     CALL GetScalarLocalSolution(F2local, F2name)
+     CALL GetScalarLocalSolution(F1loc, F1name)
+     CALL GetScalarLocalSolution(F2loc, F2name)
      
-     CALL Compute(Element, n, F1local, F2local, nrmloc, nrmf1loc, nrmf2loc)
+     CALL Compute(Element, n, F1loc, F2loc, nrmloc, nrmf1loc, nrmf2loc)
 
      nrm = nrm + nrmloc
      nrmf1 = nrmf1 + nrmf1loc
@@ -108,20 +121,23 @@ SUBROUTINE DifferenceSolver( Model, Solver, dt, TransientSimulation )
   nrmf1 = SQRT(nrmf1)
   nrmf2 = SQRT(nrmf2)
 
-  PRINT *, "|| F1 - F2 ||_0 = ", nrm
-  PRINT *, "|| F1 ||_0 = ", nrmf1
-  PRINT *, "|| F2 ||_0 = ", nrmf2
+  WRITE(Message, *) '|| F1 - F2 ||_0 =', nrm
+  CALL Info(SenderName, Message)
+  WRITE(Message, *) '|| F1 ||_0 =', nrmf1
+  CALL Info(SenderName, Message)
+  WRITE(Message, *) '|| F2 ||_0 =', nrmf2
+  CALL Info(SenderName, Message)
 
 CONTAINS
 
-  SUBROUTINE Compute(Element, n, F1local, F2local, nrm, nrmf1, nrmf2)
+  SUBROUTINE Compute(Element, n, F1, F2, nrm, nrmf1, nrmf2)
     TYPE(Element_t), POINTER :: Element
     INTEGER :: n
-    REAL(KIND=dp) :: F1local(:), F2local(:), nrm, nrmf1, nrmf2
+    REAL(KIND=dp) :: F1(:), F2(:), nrm, nrmf1, nrmf2
 
     TYPE(GaussIntegrationPoints_t) :: IP
     REAL(KIND=dp) :: detJ, Basis(n), dBasisdx(n, 3)
-    REAL(KIND=dp) :: F1, F2
+    REAL(KIND=dp) :: F1atIP, F2atIP
     INTEGER :: t
     LOGICAL :: stat
     TYPE(Nodes_t) :: Nodes
@@ -140,12 +156,12 @@ CONTAINS
             IP % U(t), IP % V(t), IP % W(t), &
             detJ, Basis, dBasisdx)
 
-       F1 = SUM( F1local(1:n) * Basis(1:n) )
-       F2 = SUM( F2local(1:n) * Basis(1:n) )
+       F1atIP = SUM( F1(1:n) * Basis(1:n) )
+       F2atIP = SUM( F2(1:n) * Basis(1:n) )
 
-       nrm = nrm + (F1 - F2)**2 * IP % s(t) * detJ
-       nrmf1 = nrmf1 + F1**2 * IP % s(t) * detJ
-       nrmf2 = nrmf2 + F2**2 * IP % s(t) * detJ
+       nrm = nrm + (F1atIP - F2atIP)**2 * IP % s(t) * detJ
+       nrmf1 = nrmf1 + F1atIP**2 * IP % s(t) * detJ
+       nrmf2 = nrmf2 + F2atIP**2 * IP % s(t) * detJ
 
     END DO
 
