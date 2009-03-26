@@ -304,15 +304,18 @@
 
        IF ( FirstLoad ) &
          ALLOCATE( sTime(1), sStep(1), sInterval(1), sSize(1), &
-                   steadyIt(1), nonLinit(1) )
+             steadyIt(1), nonLinit(1), sPrevSizes(1,5) )
 
        Time = 0
        dt   = 0._dp
 
-       sTime(1) = 0._dp
-       sStep(1) = Time
-       sSize(1) = dt
-       sInterval(1) = 0._dp
+       sTime = 0._dp
+       sStep = Time
+
+       sSize = dt
+       sPrevSizes = 0_dp
+
+       sInterval = 0._dp
 
        steadyIt = 0
        nonlinIt = 0
@@ -515,9 +518,7 @@
 
        ! Save some previous timesteps for variable timestep multistep methods
        DtVar => VariableGet( Mesh % Variables, 'Timestep size' )
-       ALLOCATE( DtVar % PrevValues(1, 5) )       
-       DtVar % PrevValues = 0.0_dp      
-       sPrevSizes => DtVar % PrevValues
+       DtVar % PrevValues => sPrevSizes
 
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                'nonlin iter', 1, nonlinIt )
