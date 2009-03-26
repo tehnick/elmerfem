@@ -41,20 +41,55 @@
     USE Multigrid
 
     INTEGER, DIMENSION(*) :: ipar
-    REAL(KIND=dp), DIMENSION(*) :: u,v
+    REAL(KIND=dp), TARGET :: u(*),v(*)
 
-    INTEGER :: n, DOFs
+    INTEGER :: i,j,k,me,n, DOFs
     TYPE(Solver_t), POINTER :: PSolver
+
+    TYPE(Matrix_t), POINTER :: A
+    REAL(KIND=dp), POINTER :: x(:),b(:)
 
     PSolver => CurrentModel % Solver
 
     n = HUTI_NDIM
     IF ( PSolver % Matrix % Complex ) n=2*n
 
-    u(1:n) = 0.0d0
-    DOFs =  n / COUNT(PSolver % Variable % Perm>0)
-    CALL MultiGridSolve( GlobalMatrix, u(1:n), v(1:n), &
+    x => u(1:n)
+    b => v(1:n)
+    A => GlobalMatrix
+
+    IF ( ParEnv % PEs > 1 ) THEN
+      A => GlobalMatrix % EMatrix
+      n = A % NumberOfRows
+      ALLOCATE( x(n), b(n) )
+      x=0; b=0;
+
+      j = 0
+      me = ParEnv % MyPe
+      DO i=1,n
+        k = A % INVPerm(i)
+        IF ( A % ParallelInfo % NeighbourList(k) % Neighbours(1) == me ) THEN
+           j = j + 1
+           b(i) = v(j)
+        END IF
+      END DO
+    END IF
+
+    DOFs =  PSolver % Variable % DOFs
+    CALL MultiGridSolve( A, x, b, &
           DOFs,  PSolver, PSolver % MultiGridLevel, FirstCall)
+
+    IF ( ParEnv % PEs > 1 ) THEN
+      j = 0
+      DO i=1,n
+        k = A % INVPerm(i)
+        IF ( A % ParallelInfo % NeighbourList(k) % Neighbours(1) == me ) THEN
+           j = j + 1
+           u(j) = x(i)
+        END IF
+      END DO
+      DEALLOCATE( x,b )
+    END IF
 
     FirstCall = .FALSE.
 

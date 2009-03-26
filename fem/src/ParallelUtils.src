@@ -207,13 +207,17 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelInitSolve( Matrix, x, b, r )
+    SUBROUTINE ParallelInitSolve( Matrix, x, b, r, Update )
 !-------------------------------------------------------------------------------
        REAL(KIND=dp) :: x(:), b(:), r(:)
+       LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
+       LOGICAL :: Upd
 #ifdef PARALLEL_FOR_REAL
-       CALL SParInitSolve( Matrix, x, b, r, Matrix % ParallelInfo )
+       Upd = .TRUE.
+       IF ( PRESENT(Update) ) Upd=Update
+       CALL SParInitSolve( Matrix, x, b, r, Matrix % ParallelInfo, Upd )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitSolve
@@ -383,6 +387,20 @@ CONTAINS
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelUpdateResult
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+    SUBROUTINE ParallelUpdateRHS( Matrix, b )
+!-------------------------------------------------------------------------------
+       REAL(KIND=dp) :: b(:)
+       TYPE(Matrix_t), POINTER :: Matrix
+!-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
+       CALL SParUpdateRHS( Matrix, b, Matrix % ParallelInfo )
+#endif
+!-------------------------------------------------------------------------------
+    END SUBROUTINE ParallelUpdateRHS
 !-------------------------------------------------------------------------------
 
 
