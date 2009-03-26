@@ -14,6 +14,7 @@
 ! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ! *  GNU General Public License for more details.
 ! *
+
 ! *  You should have received a copy of the GNU General Public License
 ! *  along with this program (in file fem/GPL-2); if not, write to the 
 ! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
@@ -162,8 +163,7 @@ CONTAINS
     INTEGER :: i,j,k,l,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat,Maxdim
 
     LOGICAL :: Found, Stat, BandwidthOptimize, EigAnal, ComplexFlag, &
-    MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal, MGAlgebraic, &
-    VariableGlobal, VariableCoupled, NoMatrix
+    MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal, MGAlgebraic
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str,eq,var_name, tmpname
 
@@ -299,6 +299,13 @@ CONTAINS
     VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
     IF ( .NOT. Found ) VariableOutput = .TRUE.
     
+    var_name = ListGetString( Solver % Values, 'Variable', Found )
+    IF ( Found ) THEN
+      IF ( var_name(1:9) == '-nooutput' ) THEN
+        VariableOutput = .FALSE.
+        var_name(1:LEN(var_name)-10) = var_name(11:)
+      END IF
+    END IF
 
     !------------------------------------------------------------------------------
     SELECT CASE( Name )       
@@ -623,20 +630,11 @@ CONTAINS
      
       
       ! Check if a variable for the solver exists
+      ! It may be a normal field variable or a global (0D) variable
       !------------------------------------------------------------------------
-
       var_name = ListGetString( Solver % Values, 'Variable', Found )
-      IF( Found ) THEN
 
-        ! It may be a normal field variable or a global (0D) variable
-        !------------------------------------------------------------------------
-        
-        VariableGlobal = ListGetLogical( Solver % Values, 'Variable Global', Found )
-        VariableCoupled = ListGetLogical( Solver % Values, 'Generic Solver', Found )
-        
-        VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
-        IF ( .NOT. Found ) VariableOutput = .TRUE.
-        
+      IF ( Found ) THEN
         DOFs = ListGetInteger( Solver % Values, 'Variable DOFs', Found, minv=1 )
         IF ( .NOT. Found ) THEN
           j = 0
@@ -650,15 +648,13 @@ CONTAINS
           END DO
         END IF
         
+        VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
+        IF ( .NOT. Found ) VariableOutput = .TRUE.
+        
         DO WHILE( var_name(1:1) == '-' )
           IF ( var_name(1:10) == '-nooutput ' ) THEN
             VariableOutput = .FALSE.
             var_name(1:LEN(var_name)-10) = var_name(11:)
-          END IF
-          
-          IF ( var_name(1:8) == '-global ' ) THEN
-            VariableGlobal = .TRUE.
-            var_name(1:LEN(var_name)-8) = var_name(9:)
           END IF
           
           IF ( var_name(1:6) == '-dofs ' ) THEN
@@ -674,29 +670,23 @@ CONTAINS
         END DO
         IF ( DOFs == 0 ) DOFs = 1
         
-        
-        NoMatrix = ListGetLogical( Solver % Values, 'No Matrix', Found )
-        IF ( .NOT. Found ) NoMatrix = VariableGlobal
-        
-        
         n = LEN_TRIM(var_name)
         Solver % Variable => VariableGet( Solver % Mesh % Variables,var_name(1:n) )
         
-        
+
         ! If the variable is a field variable create a permutation and matrix related to it
         !----------------------------------------------------------------------------------
         eq = ListGetString( Solver  % Values, 'Equation', Found )
-        IF( Found ) THEN
-          Found = .FALSE.
-          DO i=1, CurrentModel % NumberOfEquations
+	IF( Found ) THEN
+	  Found = .FALSE.
+ 	  DO i=1, CurrentModel % NumberOfEquations
             IF( ListGetLogical( CurrentModel % Equations(i) % Values, TRIM(eq), Stat)) THEN
               Found = .TRUE.
               EXIT
-            END IF
+            END IF	
           END DO
         END IF
-        
-        
+
         IF( Found ) THEN
           IF ( ASSOCIATED( Solver % Variable ) ) THEN
             Perm => Solver % Variable % Perm
@@ -711,13 +701,6 @@ CONTAINS
           
           Nrows = DOFs * Ndeg
           IF (ASSOCIATED(Solver % Matrix)) Nrows = Solver % Matrix % NumberOfRows
-          
-          ! Basically the solver coupled be matrix free but still the matrix
-          ! is used here temperarily since it is needed when making the 
-          ! permutation vector
-          IF( NoMatrix ) THEN
-            CALL FreeMatrix( Solver % Matrix )
-          END IF
           
           IF (.NOT.ASSOCIATED(Solver % Variable)) THEN
             ALLOCATE( Solution( Nrows ) )
@@ -737,8 +720,7 @@ CONTAINS
               END DO
             END IF
           END IF
-          
-        ELSE IF( VariableGlobal ) THEN
+        ELSE IF( ListGetLogical(Solver % Values,'Global Variable',Found) ) THEN
           ALLOCATE( Solution( DOFs ) )
           Solution = 0.0_dp
           
@@ -753,18 +735,11 @@ CONTAINS
                   tmpname, 1, Component )
             END DO
           END IF
-          
-          IF(.NOT. NoMatrix ) THEN
-            CALL Warn('AddEquation','Implement matrix methods for global variable')
-          END IF
-          
-        ELSE IF( VariableCoupled ) THEN
-          CALL Info('AddEquation','The coupled variable is created at a later stage')
-          
         ELSE            
-          CALL Warn('AddEquation','Solver has a variable but it is not associated to any equation')
+          CALL Warn('AddEquation','Solver has a variable but is not associated to any equation')
         END IF
       END IF
+
 
       !------------------------------------------------------------------------------
     END SELECT
@@ -800,11 +775,6 @@ CONTAINS
             var_name(1:LEN(var_name)-10) = var_name(11:)
           END IF
           
-          IF ( var_name(1:8) == '-global ' ) THEN
-            VariableGlobal = .TRUE.
-            var_name(1:LEN(var_name)-8) = var_name(9:)
-          END IF
-
           IF ( var_name(1:6) == '-dofs ' ) THEN
             READ( var_name(7:), * ) DOFs 
             j = LEN_TRIM( var_name )
@@ -821,16 +791,10 @@ CONTAINS
         NewVariable => VariableGet( Solver % Mesh % Variables, Var_name )
         
         IF ( .NOT. ASSOCIATED(NewVariable) ) THEN
-          IF( VariableGlobal ) THEN
-            nSize = DOFs
-            NULLIFY( Perm )
-          ELSE
-            nSize = DOFs * SIZE(Solver % Variable % Values) / Solver % Variable % DOFs
-            Perm => Solver % Variable % Perm
-          END IF
-
+          nSize = DOFs * SIZE(Solver % Variable % Values) / Solver % Variable % DOFs
           ALLOCATE( Solution(nSize) )
           Solution = 0.0d0
+          Perm => Solver % Variable % Perm
           IF( ASSOCIATED(Perm) ) THEN
             CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
                 var_name, DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
@@ -839,7 +803,7 @@ CONTAINS
                 var_name, DOFs, Solution )
           END IF
 
-          IF ( DOFs > 1 .AND. .NOT. VariableGlobal ) THEN
+          IF ( DOFs > 1 ) THEN
             n = LEN_TRIM( var_name )
             DO j=1,DOFs
               tmpname = ComponentName( var_name(1:n), j )
@@ -943,6 +907,7 @@ CONTAINS
          Solver % SolverExecWhen = SOLVER_EXEC_ALWAYS
     END SELECT
 
+
     IF ( ListGetLogical( Solver % Values, 'Before All', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AHEAD_ALL
     ELSE IF ( ListGetLogical( Solver % Values, 'Before Simulation', Found ) ) THEN
@@ -969,8 +934,8 @@ CONTAINS
     str = ListGetString( Solver  % Values, 'After Linsolve', Found )
     IF ( Found ) Solver % LinAfterProc = GetProcAddr( str )
 
+
 !------------------------------------------------------------------------------
-    IF ( .NOT. ASSOCIATED( Solver % Variable ) ) RETURN
     IF ( .NOT. ASSOCIATED( Solver % Variable % Values ) ) RETURN
 !------------------------------------------------------------------------------
 
@@ -1160,12 +1125,14 @@ CONTAINS
                    CALL UpdateSolverMesh( Solver, NewMesh )
                    Solver % Mesh % Changed = .FALSE.
                 ELSE
-                   NewMesh => SplitMeshEqual( Solver % Mesh )
+                   NewMesh => SplitMeshEqual(Solver % Mesh)
                    NewMesh % Next => CurrentModel % Meshes
                    CurrentModel % Meshes => NewMesh
 
                    OldMesh   => Solver % Mesh
                    OldMatrix => Solver % Matrix
+                   Newmesh % OutputActive = .TRUE.
+                   OldMesh % OutputActive = .FALSE.
 
                    CALL UpdateSolverMesh( Solver, NewMesh )
                    Solver % Mesh % Changed = .FALSE.
@@ -1208,7 +1175,7 @@ CONTAINS
     REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
     INTEGER :: i,j,k,l,n,ierr,istat
     LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
-	Relax, NeedSol, IsCoupled
+	Relax, NeedSol
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
@@ -1244,15 +1211,15 @@ CONTAINS
 
       when  = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF ( Found ) THEN
-        IF ( When == 'before timestep' ) THEN
-          CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-          CALL ParallelBarrier
-        END IF
+         IF ( When == 'before timestep' ) THEN
+           CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+           CALL ParallelBarrier
+         END IF
       ELSE
-        IF ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_TIME ) THEN
-          CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-          CALL ParallelBarrier
-        END IF
+         IF ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_TIME ) THEN
+            CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+            CALL ParallelBarrier
+         END IF
       END IF
     END DO
 
@@ -1264,11 +1231,12 @@ CONTAINS
 !------------------------------------------------------------------------------
     DO i=1,CoupledMaxIter
        IF ( TransientSimulation .OR. Scanning ) THEN
-         CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )
-         WRITE( Message, * ) 'Coupled system iteration: ', i
-         CALL Info( 'SolveEquations', Message, Level=3 )
-         CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )         
-         steadyIt = i
+          CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )
+          WRITE( Message, * ) 'Coupled system iteration: ', i
+          CALL Info( 'SolveEquations', Message, Level=3 )
+          CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )
+
+          steadyIt = i
        END IF
 
        DoneThis = .FALSE.
@@ -1288,39 +1256,41 @@ CONTAINS
 !------------------------------------------------------------------------------
 
           Solver => Model % Solvers(k)
+          IF ( Solver % PROCEDURE == 0 ) THEN
 
-          IsCoupled = ListGetLogical( Solver % Values,'Generic Solver',Found )
+!!!!!!!!!!!! This is still experimental
+             IF( ListGetLogical(Solver % Values,'Generic Solver',Found) ) THEN 
+                CALL GenericSolver( Model, Solver, dt, TransientSimulation )
+             END IF
 
-          IF ( Solver % PROCEDURE == 0 .AND. .NOT. IsCoupled ) THEN
-            CALL Warn('SolveEquations','No routine related to solver!')
-            DoneThis(k) = .TRUE.
-            CYCLE
+             DoneThis(k) = .TRUE.
+             CYCLE
           END IF
 
           When = ListGetString( Solver % Values, 'Exec Solver', Found )
           IF ( Found ) THEN
-            IF ( When /= 'always' ) THEN
-              DoneThis(k) = .TRUE.
-              CYCLE
-            END IF
+             IF ( When /= 'always' ) THEN
+                DoneThis(k) = .TRUE.
+                CYCLE
+             END IF
           ELSE
             IF ( Solver % SolverExecWhen /= SOLVER_EXEC_ALWAYS ) THEN
-              DoneThis(k) = .TRUE.
-              CYCLE
+               DoneThis(k) = .TRUE.
+               CYCLE
             END IF
           END IF
 !------------------------------------------------------------------------------
 
           RungeKutta = .FALSE.
           IF ( TransientSimulation .AND. Solver % TimeOrder == 1 ) THEN
-            RungeKutta = ListGetString( Solver % Values, &
-                'Timestepping Method', Found ) == 'runge-kutta'
+             RungeKutta = ListGetString( Solver % Values, &
+                    'Timestepping Method', Found ) == 'runge-kutta'
           END IF
-          
+
           n = 0
           IF ( ASSOCIATED(Solver % Variable) ) THEN
             IF ( ASSOCIATED(Solver % Variable % Values) ) &
-                n = SIZE(Solver % Variable % Values)
+              n = SIZE(Solver % Variable % Values)
             Solver % Variable % PrevNorm = Solver % Variable % Norm
           END IF
 
@@ -1328,7 +1298,7 @@ CONTAINS
           Relaxation = ListGetConstReal( Solver % Values, &
               'Steady State Relaxation Factor', Relax )
           Relax = Relax .AND. (Relaxation /= 1.0d0)
-          
+
           NeedSol = ( ListGetString( Solver % Values, &
               'Steady State Convergence Measure', Stat ) /= 'norm')  
           NeedSol = NeedSol .AND. Stat
@@ -1347,7 +1317,7 @@ CONTAINS
           END IF
 
 
-          IF ( RungeKutta .AND. n > 0 ) THEN
+          IF ( RungeKutta .AND. n>0 ) THEN
 
             SELECT CASE( Solver % Order )
             CASE(2)
@@ -1386,7 +1356,7 @@ CONTAINS
               DEALLOCATE( k1, k2, k3, k4 )
             END SELECT
             Solver % Variable % Norm = &
-                ComputeNorm(Solver, n, Solver % Variable % Values)
+                   ComputeNorm(Solver, n, Solver % Variable % Values)
            ELSE
              CALL SolverActivate(Model,Solver,dt,TransientSimulation)
            END IF
@@ -1401,13 +1371,12 @@ CONTAINS
                  IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
                    CALL ComputeChange(Solver,.TRUE., n)
                ELSE
-                 CALL ComputeChange(Solver,.TRUE.)
-!                 CALL ComputeChange(Solver,.TRUE.,n)
+                 CALL ComputeChange(Solver,.TRUE., n)
                END IF
                RelativeChange = Solver % Variable % SteadyChange	
                Tolerance = ListGetConstReal( Solver % Values,   &
                    'Steady State Convergence Tolerance', Found ) 
-
+               
                IF ( Found ) THEN
                  DoneThis(k) = (RelativeChange < Tolerance)
                ELSE
@@ -1473,7 +1442,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE CoupledSolver( Model, Solver, dt, Transient )
+  SUBROUTINE GenericSolver( Model, Solver, dt, Transient )
 !------------------------------------------------------------------------------
 !  
 ! Provide assembly loop and solution of linear and nonlinear systems
@@ -1491,10 +1460,11 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t),POINTER :: Element
-    INTEGER :: i,j,k,l,t,n,nd,NoIterations,NoTests,iter,istat,tests
+    INTEGER :: i,j,k,l,t,n,nd,NoIterations,iter,istat
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: ProcName
-    LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint
+    LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, Visited = .FALSE., &
+        ThisConstraint
     INTEGER(KIND=AddrInt) :: ProcPntr    
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
@@ -1502,11 +1472,9 @@ CONTAINS
     INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id
     INTEGER, POINTER :: ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: ConsValues(:)
-    REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsVolume, &
-        Residual, PrevResidual
+    REAL(KIND=dp) :: NonlinearTol, Norm, ConsValue, ConsVolume
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
-    LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric, &
-        AllDirFlag, Robust, ErrorReduced
+    LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric
     INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
     REAL(KIND=dp), POINTER :: ForceVector(:),AllValues(:)
@@ -1532,12 +1500,16 @@ CONTAINS
       END SUBROUTINE ExecLocalAssembly
     END INTERFACE
     
+    SAVE Visited 
+    
+    CALL Info('GenericSolver','---------------------------------------',Level=5)
+    CALL Info('GenericSolver','Solving a Generic equation',Level=5)
+    CALL Info('GenericSolver','---------------------------------------',Level=5)
 
-    CALL Info('CoupledSolver','---------------------------------------',Level=5)
-    CALL Info('CoupledSolver','Solving a system of equations',Level=5)
-    CALL Info('CoupledSolver','---------------------------------------',Level=5)
 
+!!!!!!!!!! This should be done externally when routine is taken into proper use
 
+    Model % Solver => Solver
     Mesh => GetMesh()
     SolverParams => GetSolverParams()
 
@@ -1576,7 +1548,6 @@ CONTAINS
     ! might be better to create special solvers somewhere else.
     ! The size of constraint is deduced directly from its type.
     !-------------------------------------------------------------------------------------
-    AllDirFlag = .FALSE.
     DO i = 1,9
       WRITE (str,'(A,I2)') 'Constraint',i
       VarName = ListGetString( SolverParams, TRIM(str), GotIt )
@@ -1594,14 +1565,12 @@ CONTAINS
           
         CASE('floating')
           ConDofs = 1
-          AllDirFlag = .TRUE.
 
         CASE('equality')
           ConDofs = 0
-          AllDirFlag = .TRUE.
 
         CASE DEFAULT          
-          CALL Warn('CoupledSolver','Coupled constraint does not really work yet')
+          CALL Warn('GenericSolver','Generic constraint does not really work yet')
           WRITE (str,'(A,I2,A)') 'Constraint',i,' DOFs'
           ConDofs = ListGetInteger( SolverParams, str)
 
@@ -1627,7 +1596,7 @@ CONTAINS
 
     DO j=1,NoVar+NoCons
       WRITE(Message,'(A,I2,A,T35,I10)') 'Permutation offset',j,': ',OffSet(j)
-      CALL Info('CoupledSolver',Message)
+      CALL Info('GenericSolver',Message)
     END DO
 
 
@@ -1635,13 +1604,13 @@ CONTAINS
     MaxDofs = MAXVAL( VarDofs )
 
     WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
-    CALL Info('CoupledSolver',Message)
+    CALL Info('GenericSolver',Message)
   
     WRITE(Message,'(A,T35,I10)') 'Number of constraints: ',NoCons
-    CALL Info('CoupledSolver',Message)
+    CALL Info('GenericSolver',Message)
   
     WRITE(Message,'(A,T35,I10)') 'Size of coupled system: ',TotSize
-    CALL Info('CoupledSolver',Message)
+    CALL Info('GenericSolver',Message)
 
 
 !------------------------------------------------------------------------------
@@ -1656,271 +1625,60 @@ CONTAINS
         MASS(  MaxDofs*N, MaxDofs*N ), &
         ColInds( N ), RowInds( N ),    &
         Indexes(N), STAT=istat )
-    IF ( istat /= 0 ) CALL FATAL('CoupledSolver','Memory allocation error')
+    IF ( istat /= 0 ) CALL FATAL('GenericSolver','Memory allocation error')
     
     NoIterations = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',gotIt)
-    Robust = ListGetLogical(Solver % Values,'Robust Nonlinear Solver',GotIt)
-    IF( Robust ) THEN
-      NoTests = GetInteger( SolverParams,'Nonlinear System Max StepSize Tests',GotIt)
-      IF(.NOT. GotIt) NoTests = NoIterations
-      CALL ListAddString(Solver % Values,'Nonlinear System Convergence Measure','residual')
-      CALL ListAddLogical(Solver % Values,'Skip Compute Change',.TRUE.)
-    END IF
- 
-    ! For the 1st time the matrix should be a list, later CRS
-    !--------------------------------------------------------
-    IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
+    
+    IF(.NOT. Visited ) THEN
       Amat => AllocateMatrix()
       Amat % ListMatrix => Alist
       Amat % FORMAT = MATRIX_LIST      
       Solver % Matrix => Amat
-    END IF
-      
-    ! This actual variable is not saved, so a dummy name suffices
-    !------------------------------------------------------------
-    VarName = ListGetString( SolverParams,'Variable', GotIt )
-    IF(.NOT. GotIt) THEN
-      CALL Info('CoupledSolver','New coupled variable added: Alldofs', Level=5)
-      VarName = 'alldofs'
-      CALL ListAddString( SolverParams,'Variable',VarName)
-    END IF
-    
-    ! If the variable hasn't been created do it now
-    !----------------------------------------------
-    Var => VariableGet(Mesh % Variables, VarName )
-    IF(.NOT. ASSOCIATED(Var) ) THEN
+
       ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
       DO i=1,TotSize
         AllPerm(i) = i
         AllValues(i) = 0.0_dp
       END DO
       CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-          VarName,1,AllValues,AllPerm,Output=.FALSE.)        
+          'AllDofs',1,AllValues,AllPerm,Output=.FALSE.)
+      CALL Info('GenericSolver','New coupled variable added: Alldofs', Level=5)
+
       Amat % Rhs => ForceVector
-      Solver % Variable => VariableGet(Mesh % Variables, VarName )
-      
-      ! Map the original vectors to the monolithic vector if requested
-      !----------------------------------------------------------------------------------
-      IF( ListGetLogical( SolverParams,'Coupled Initial Guess',GotIt)) THEN
-        CALL SingleToCoupledVector()
-      END IF
+      Solver % Variable => VariableGet(Mesh % Variables, 'Alldofs')
+
+      ALLOCATE( AllDir(TotSize) ) 
+      AllDir = .FALSE.
+      Visited = .TRUE.
     END IF
-    
     Amat => GetMatrix()
-    ForceVector => Amat % Rhs
-    IF( AllDirFlag ) ALLOCATE( AllDir(TotSize) ) 
-   
+
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
-    CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
-    Residual = -1.0_dp
-    PrevResidual = -1.0_dp
+    CALL Info('GenericSolver','-------------------------------------------------',Level=5)
     
     DO iter = 1,NoIterations
       
-      WRITE(Message,'(A,T35,I5)') 'Coupled iteration:',iter
-      CALL Info('CoupledSolver',Message,Level=5)
-   
-      tests = 0
-100   IF( Amat % FORMAT == MATRIX_CRS ) CALL DefaultInitialize()
-      IF( AllDirFlag ) AllDir = .FALSE.
-
-!----------------------------------------------------------------
-! For clarity the whole assembly process put under one subroutine 
-!----------------------------------------------------------------
-      CALL CoupledSystemAssembly()
+      WRITE(Message,'(A,T35,I5)') 'Generic iteration:',iter
+      CALL Info('GenericSolver',Message,Level=5)
       
-!----------------------------------------------------------------------
-! The CRS matrix may be created only when the matrix structure is known
-!----------------------------------------------------------------------
-      IF( Amat % FORMAT == MATRIX_LIST ) CALL List_ToCRSMatrix(Amat)
-      CALL DefaultFinishAssembly()
-      
-!------------------------------------------------------------------------------
-!    Do the Dirichlet conditions using offset
-!------------------------------------------------------------------------------          
-      CALL CoupledSystemDirichlet()
-      
-!------------------------------------------------------------------------------
-!    This will be a point for robust solver which cheks the stepsize
-!    but whats below is still crap...
-!------------------------------------------------------------------------------          
-      IF( Robust  ) THEN
-        ErrorReduced = CheckStepSize(Solver,PrevResidual,Residual)
-        tests = tests + 1
-        PrevResidual = Residual
+      IF( Amat % FORMAT == MATRIX_CRS ) CALL DefaultInitialize()
+      AllDir = .FALSE.
 
-        IF( iter > 1 ) THEN
-          IF(.NOT. ErrorReduced) THEN
-            CALL CoupledToSingleVector()
-            GOTO 100
-          END IF
-          IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
-        END IF
-      END IF
-
-!------------------------------------------------------------------------------
-!   Finally solve the system
-!------------------------------------------------------------------------------          
-      Norm = DefaultSolve()     
-      CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
-
-      CALL CoupledToSingleVector()
-      IF(.NOT. Robust) THEN
-        IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
-      END IF
-    END DO
-
-    
-    DEALLOCATE( FORCE, STIFF, DAMP, MASS, ColInds, RowInds, Indexes )
-    IF( AllDirFlag ) DEALLOCATE( AllDir ) 
-    
-    CALL Info('CoupledSolver','All done')
-    CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
-
-
-  CONTAINS 
-
-!------------------------------------------------------------------------------
-   SUBROUTINE IntegralConstraint( Mass, Damp, Stiff, Force, Element, n )
-!------------------------------------------------------------------------------
-! Integration routine for integral type of constraints i.e. body or boundary
-! integral of some dof is known a priori.
-!------------------------------------------------------------------------------
-     
-      IMPLICIT NONE
-!------------------------------------------------------------------------------
-      REAL(KIND=dp) :: Stiff(:,:), Damp(:,:), Mass(:,:), Force(:)
-      TYPE(Element_t), POINTER :: Element
-      INTEGER :: n
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-      TYPE(GaussIntegrationPoints_t) :: IntegStuff
-      REAL(KIND=dp) :: Basis(n)
-      REAL(KIND=dp) :: Weight, DetJ
-      INTEGER :: i,j,t,p,q
-      LOGICAL :: Found
-      
-      TYPE(Nodes_t),SAVE :: Nodes
-      
-      CALL GetElementNodes( Nodes ) 
-      IntegStuff = GaussPoints( Element )
-      
-      DO t=1,IntegStuff % n
-        Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
-            IntegStuff % v(t), IntegStuff % w(t), detJ, Basis )     
-        Weight = IntegStuff % s(t) * detJ
-        DO p=1,n
-          STIFF(1,p) = STIFF(1,p) + Weight * Basis(p)
-          FORCE(p) = FORCE(p) + ConsValue * Weight * Basis(p)
-        END DO
-        ConsVolume = ConsVolume + Weight 
-      END DO
-
-!------------------------------------------------------------------------------
-    END SUBROUTINE IntegralConstraint
-!------------------------------------------------------------------------------
- 
-   
-    !------------------------------------------------------------------------------          
-    ! Subroutine sets the Dirichlet conditions for the coupled system 
-    ! using the single system vector names and sizes.
-    !----------------------------------------------------------------------------------
-    SUBROUTINE CoupledSystemDirichlet()
-      
-      DO i = 1,NoVar
-        WRITE (str,'(A,I2)') 'Variable',i
-        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-        IF(.NOT. GotIt) EXIT
-        
-        Var => VariableGet( Mesh % Variables, TRIM(VarName) )
-        IF (.NOT. ASSOCIATED(Var)) EXIT 
-        
-        CALL DefaultDirichletBCs( Ux=Var, UOffset=Offset(i) )
-      END DO
-      CALL Info( 'CoupledSolver', 'Dirichlet conditions done', Level=4 )
- 
-    END SUBROUTINE CoupledSystemDirichlet
-
-
-    !------------------------------------------------------------------------------          
-    ! Subroutine copies results from the single system vectors to a coupled system
-    ! initial guess.
-    !----------------------------------------------------------------------------------
-    SUBROUTINE SingleToCoupledVector()
-      CALL Info('CoupledSolver','Copying an initial guess',Level=5)
-      
-      DO i = 1,NoVar + NoCons
-        IF( VarDofs(i) == 0 ) CYCLE
-        
-        IF( i <= NoVar ) THEN
-          WRITE (str,'(A,I2)') 'Variable',i
-        ELSE
-          WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
-        END IF
-        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-        Var => VariableGet( Mesh % Variables, TRIM(VarName) )
-        
-        CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
-        DO j=1,SIZE(Var % Values)
-          Solver % Variable % Values(Offset(i)+j) = Var % Values(j)
-        END DO
-        
-        ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
-      END DO
-
-    END SUBROUTINE SingleToCoupledVector
-
-
-
-    !------------------------------------------------------------------------------          
-    ! Subroutine copies results from the coupled system vector back to the 
-    ! original vectors.
-    !----------------------------------------------------------------------------------
-    SUBROUTINE CoupledToSingleVector()
-      CALL Info('CoupledSolver','Copying results into original variables',Level=5)
-      DO i = 1,NoVar + NoCons
-        IF( VarDofs(i) == 0 ) CYCLE
-        
-        IF( i <= NoVar ) THEN
-          WRITE (str,'(A,I2)') 'Variable',i
-        ELSE
-          WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
-        END IF
-        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-        Var => VariableGet( Mesh % Variables, TRIM(VarName) )
-        
-        CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
-        DO j=1,SIZE(Var % Values)
-          Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
-        END DO
-        
-        ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
-      END DO
-
-    END SUBROUTINE CoupledToSingleVector
-
-
-    !---------------------------------------------------
-    ! Perform assembly for the coupled system linear
-    ! system of equations including possible constraints
-    !---------------------------------------------------
-    SUBROUTINE CoupledSystemAssembly()
       !-----------------------------------------------
       ! Start of normal assemly process
       ! This is the basic loop without any constraints.
       !-----------------------------------------------
       BulkMode = .TRUE.
 100   IF(BulkMode) THEN
-        CALL Info('CoupledSolver','Starting bulk assembly',Level=5)
+        CALL Info('GenericSolver','Starting bulk assembly',Level=5)
         ElementsFirst = 1
         ElementsLast = Mesh % NumberOFBulkElements
       ELSE
-        CALL Info('CoupledSolver','Starting boundary assembly',Level=5)
+        CALL Info('GenericSolver','Starting boundary assembly',Level=5)
         ElementsFirst = Mesh % NumberOFBulkElements+1
         ElementsLast = Mesh % NumberOfBulkElements + &
                Mesh % NumberOFBoundaryElements
@@ -1965,16 +1723,16 @@ CONTAINS
           ProcName = ListGetString( SolverParams, TRIM(str), GotProc )
           IF( .NOT. GotProc ) THEN
             IF( BulkMode .AND. RowVar == ColVar) THEN
-              CALL Warn('CoupledSolver','Diagonal bulk entries should be assembled!')
+              CALL Warn('GenericSolver','Diagonal bulk entries should be assembled!')
             END IF
             CYCLE
           END IF
           
           ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.,quiet=.FALSE.)
           IF ( ProcPntr == 0 ) THEN
-            CALL Fatal('CoupledSolver','AssemblyRoutine not found: '//TRIM(ProcName))
+            CALL Fatal('GenericSolver','AssemblyRoutine not found: '//TRIM(ProcName))
           ELSE
-            CALL Info('CoupledSolver','AssemblyRoutine: '//TRIM(ProcName))
+            CALL Info('GenericSolver','AssemblyRoutine: '//TRIM(ProcName))
           END IF
           
           ! The assembly loop for a submatrix starts here
@@ -2028,11 +1786,10 @@ CONTAINS
             ! Assemble the matrix with offset
             !-----------------------------------------------
 
-
             CALL GlueLocalSubMatrix( Amat, &
                 RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
                 RowDofs,ColDofs,STIFF )
-           
+            
             ! Assemble the r.h.s with offset
             !-----------------------------------------------
             DO i=1,Nrow
@@ -2060,11 +1817,11 @@ CONTAINS
       END DO
       
       IF(BulkMode) THEN
-        CALL Info( 'CoupledSolver', 'Bulk assembly done for blocks', Level=4 )
+        CALL Info( 'GenericSolver', 'Bulk assembly done for blocks', Level=4 )
         BulkMode = .FALSE.
         GOTO 100
       ELSE 
-        CALL Info( 'CoupledSolver', 'Boundary assembly done for blocks', Level=4 )
+        CALL Info( 'GenericSolver', 'Boundary assembly done for blocks', Level=4 )
       END IF
       
 
@@ -2075,11 +1832,11 @@ CONTAINS
       !-----------------------------------------------------------------------------------
       BulkMode = .TRUE.
 200   IF(BulkMode) THEN
-        CALL Info('CoupledSolver','Starting bulk assembly',Level=5)
+        CALL Info('GenericSolver','Starting bulk assembly',Level=5)
         ElementsFirst = 1
         ElementsLast = Mesh % NumberOfBulkElements 
       ELSE
-        CALL Info('CoupledSolver','Starting boundary assembly',Level=5)
+        CALL Info('GenericSolver','Starting boundary assembly',Level=5)
         ElementsFirst = Mesh % NumberOfBulkElements + 1
         ElementsLast =  Mesh % NumberOfBulkElements + &
               Mesh % NumberOfBoundaryElements
@@ -2104,7 +1861,7 @@ CONTAINS
         IF( ASSOCIATED(VarInds)) THEN
           ColVar =  VarInds(1) 
         ELSE        
-          CALL Fatal('CoupledSolver','Cannot continue without pointer to variables')
+          CALL Fatal('GenericSolver','Cannot continue without pointer to variables')
         END IF
 
         WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Value'
@@ -2281,39 +2038,165 @@ CONTAINS
       END DO
       
       IF(BulkMode) THEN
-        CALL Info( 'CoupledSolver', 'Bulk assembly done for constraints', Level=4 )
+        CALL Info( 'GenericSolver', 'Bulk assembly done for constraints', Level=4 )
         BulkMode = .FALSE.
         GOTO 200
       ELSE 
-        CALL Info( 'CoupledSolver', 'Boundary assembly done for constraints', Level=4 )
+        CALL Info( 'GenericSolver', 'Boundary assembly done for constraints', Level=4 )
       END IF
+      
+!----------------------------------------------------------------------
+! The CRS matrix may be created only when the matrix structure is known
+!----------------------------------------------------------------------
+      IF( Amat % FORMAT == MATRIX_LIST ) CALL List_ToCRSMatrix(Amat)
+      CALL DefaultFinishAssembly()
+      
+!------------------------------------------------------------------------------
+!    Do the Dirichlet conditions using offset
+!------------------------------------------------------------------------------          
+      DO i = 1,NoVar
+        WRITE (str,'(A,I2)') 'Variable',i
+        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
+        IF(.NOT. GotIt) EXIT
+        
+        Var => VariableGet( Mesh % Variables, TRIM(VarName) )
+        IF (.NOT. ASSOCIATED(Var)) EXIT 
+        
+        CALL DefaultDirichletBCs( Ux=Var, UOffset=Offset(i) )
+      END DO
+      CALL Info( 'GenericSolver', 'Dirichlet conditions done', Level=4 )
+      
+!------------------------------------------------------------------------------
+!   Finally solve the system
+!   This could be divided into solution & update making different 
+!   robust solution methods possible.
+!------------------------------------------------------------------------------          
+   
+      Norm = DefaultSolve()     
+      CALL Info('GenericSolver','-------------------------------------------------',Level=5)
+      
+      IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
+    END DO
+    
+!------------------------------------------------------------------------------          
+! Map the result back to the original vectors
+!----------------------------------------------------------------------------------
+    CALL Info('GenericSolver','Copying results into original variables',Level=5)
+    DO i = 1,NoVar + NoCons
+      IF( VarDofs(i) == 0 ) CYCLE
 
-   END SUBROUTINE CoupledSystemAssembly
+      IF( i <= NoVar ) THEN
+        WRITE (str,'(A,I2)') 'Variable',i
+      ELSE
+        WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
+      END IF
+      VarName = ListGetString( SolverParams, TRIM(str), GotIt )
+      Var => VariableGet( Mesh % Variables, TRIM(VarName) )
+      
+      CALL Info('GenericSolver','Variable: '//TRIM(VarName),Level=5)
+      DO j=1,SIZE(Var % Values)
+        Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
+      END DO
+      
+      IF( i > NoVar ) THEN
+        PRINT *,TRIM(str),': ',Var % Values       
+      END IF
+    END DO
+    
+    DEALLOCATE( FORCE, STIFF, DAMP, MASS, ColInds, RowInds, Indexes )
+    Visited = .TRUE.
+    
+    CALL Info('GenericSolver','All done')
+    CALL Info('GenericSolver','-------------------------------------------------',Level=5)
+
+
+  CONTAINS 
+
 
 !------------------------------------------------------------------------------
-END SUBROUTINE CoupledSolver
+   SUBROUTINE IntegralConstraint( Mass, Damp, Stiff, Force, Element, n )
+!------------------------------------------------------------------------------
+! Integration routine for intgral type of constraints i.e. body or boundary
+! integral of some dof is known a priori.
+!------------------------------------------------------------------------------
+
+      
+      IMPLICIT NONE
+!------------------------------------------------------------------------------
+      REAL(KIND=dp) :: Stiff(:,:), Damp(:,:), Mass(:,:), Force(:)
+      TYPE(Element_t), POINTER :: Element
+      INTEGER :: n
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+      TYPE(GaussIntegrationPoints_t) :: IntegStuff
+      REAL(KIND=dp) :: Basis(n)
+      REAL(KIND=dp) :: Weight, DetJ
+      INTEGER :: i,j,t,p,q
+      LOGICAL :: Visited = .FALSE., Found
+      
+      TYPE(Nodes_t),SAVE :: Nodes
+      
+      CALL GetElementNodes( Nodes ) 
+      IntegStuff = GaussPoints( Element )
+      
+      DO t=1,IntegStuff % n
+        Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
+            IntegStuff % v(t), IntegStuff % w(t), detJ, Basis )     
+        Weight = IntegStuff % s(t) * detJ
+        DO p=1,n
+          STIFF(1,p) = STIFF(1,p) + Weight * Basis(p)
+          FORCE(p) = FORCE(p) + ConsValue * Weight * Basis(p)
+        END DO
+        ConsVolume = ConsVolume + Weight 
+      END DO
+      Visited = .TRUE.
+!------------------------------------------------------------------------------
+    END SUBROUTINE IntegralConstraint
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+END SUBROUTINE GenericSolver
 !------------------------------------------------------------------------------
  
 
 
-
 !------------------------------------------------------------------------------
-  SUBROUTINE SingleSolver( Model, Solver, dt, TransientSimulation )
+  SUBROUTINE SolverActivate( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
      TYPE(Model_t)  :: Model
      TYPE(Solver_t),POINTER :: Solver
      LOGICAL :: TransientSimulation
-     REAL(KIND=dp) :: dt
+     REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, GB, MeActive
-     INTEGER :: i, j, n, SolverAddr, BDOFs, maxdim
+     LOGICAL :: stat, Found, GB, FirstTime=.TRUE., MeActive
+     INTEGER :: i, j, n, SolverAddr, BDOFs, execi, timestep, maxdim
+     REAL(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: TimeVar, IterV
      TYPE(Element_t), POINTER :: CurrentElement
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
 
      INTEGER :: comm_active, group_active, group_world, ierr
+     TYPE(Matrix_t), POINTER :: M
      INTEGER, ALLOCATABLE :: memb(:)
 
+     SAVE TimeVar, FirstTime
 !------------------------------------------------------------------------------
+     CALL SetCurrentMesh( Model, Solver % Mesh )
+     Model % Solver => Solver
+
+     st = ListGetConstReal( Solver % Values, 'Start Time', Found )
+     IF ( Found ) THEN
+       TimeVar => VariableGet( Model % Variables, 'Time' )
+       IF ( TimeVar % Values(1) < st ) RETURN
+     END IF
+
+     execi = ListGetInteger( Solver % Values, 'Exec Interval', Found )
+     IF ( Found ) THEN
+       TimeVar => VariableGet( Model % Variables, 'Timestep' )
+       execi = MOD( NINT(Timevar % Values(1))-1, execi )
+       IF ( execi /= 0 ) RETURN
+     END IF
 
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
        Solver % NumberOFActiveElements = 0
@@ -2339,13 +2222,22 @@ END SUBROUTINE CoupledSolver
        CALL CalculateNodalWeights(Solver)
      END IF
 !------------------------------------------------------------------------------
+     Solver % Mesh % OutputActive = .TRUE.
+     OrigDT = dt
+     DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
+     IF ( .NOT. Found ) DTScal = 1.0d0
+     Solver % dt = DTScal * dt
 
      MeActive = ASSOCIATED(Solver % Matrix)
      IF ( MeActive ) &
-        MeActive = MeActive .AND. (Solver % Matrix % NumberOfRows > 0)
+        MeActive = MeActive .AND. (Solver % Matrix % NumberOfRows>0)
      CALL ParallelActive( MeActive )
 
-     IF ( ASSOCIATED(Solver % Matrix) ) Solver % Matrix % Comm = MPI_COMM_WORLD
+     M => Solver % Matrix
+     DO WHILE( ASSOCIATED(M) )
+       M % Comm = MPI_COMM_WORLD
+       M => M % Parent
+     END DO
 
      IF ( ParEnv % PEs>1 ) THEN
        DO i=1,ParEnv % PEs
@@ -2372,85 +2264,37 @@ END SUBROUTINE CoupledSolver
          DEALLOCATE(memb)
          CALL MPI_Comm_create( MPI_COMM_WORLD, group_active, &
                  comm_active, ierr)
-         Solver % Matrix % Comm = comm_active
+         M => Solver % Matrix
+         DO WHILE(ASSOCIATED(M))
+           M % Comm = comm_active
+           M => M % Parent
+         END DO
        END IF
      END IF
 
-     str = ListGetString( Solver  % Values,'Procedure', Found )
+     str = ListGetString( Solver % Values, 'Namespace', Found )
+     IF (Found) CALL ListSetNamespace(TRIM(str))
+
+     iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+     iterV % Values(1) = 1
+
+     str = ListGetString( Solver  % Values, 'Procedure', Found )
 
 #ifdef SGIn32
       SolverAddr = Solver % PROCEDURE
-      CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation)
+      CALL ExecSolver( SolverAddr, Model, Solver, DTScal*dt, TransientSimulation)
 #else
-      CALL ExecSolver( Solver % PROCEDURE, &
-          Model, Solver, dt, TransientSimulation)
+      CALL ExecSolver( &
+             Solver % PROCEDURE, Model, Solver, DTScal*dt, TransientSimulation)
 #endif
 
+     CALL ListSetNamespace('')
      IF ( ASSOCIATED(Solver % Matrix) ) THEN
        IF ( Solver % Matrix % Comm /= MPI_COMM_WORLD ) &
           CALL MPI_Comm_Free( Solver % Matrix % Comm, ierr )
      END IF
 
-!------------------------------------------------------------------------------
-   END SUBROUTINE SingleSolver
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-  SUBROUTINE SolverActivate( Model, Solver, dt, TransientSimulation )
-!------------------------------------------------------------------------------
-     TYPE(Model_t)  :: Model
-     TYPE(Solver_t),POINTER :: Solver
-     LOGICAL :: TransientSimulation
-     REAL(KIND=dp) :: dt, OrigDT, DTScal
-!------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, IsCoupled
-     INTEGER :: i, j, n, BDOFs, execi, timestep
-     REAL(KIND=dp) :: st
-     TYPE(Variable_t), POINTER :: TimeVar, IterV
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
-
-     SAVE TimeVar
-!------------------------------------------------------------------------------
-     IsCoupled = ListGetLogical( Solver % Values,'Generic Solver',Found)
-
-     CALL SetCurrentMesh( Model, Solver % Mesh )
-     Model % Solver => Solver
-
-     st = ListGetConstReal( Solver % Values, 'Start Time', Found )
-     IF ( Found ) THEN
-       TimeVar => VariableGet( Model % Variables, 'Time' )
-       IF ( TimeVar % Values(1) < st ) RETURN
-     END IF
-
-     execi = ListGetInteger( Solver % Values, 'Exec Interval', Found )
-     IF ( Found ) THEN
-       TimeVar => VariableGet( Model % Variables, 'Timestep' )
-       execi = MOD( NINT(Timevar % Values(1))-1, execi )
-       IF ( execi /= 0 ) RETURN
-     END IF
-
-!------------------------------------------------------------------------------
-     Solver % Mesh % OutputActive = .TRUE.
-     DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
-     IF ( .NOT. Found ) DTScal = 1.0_dp
-     Solver % dt = DtScal * dt 
-
-     iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
-     iterV % Values(1) = 1
-
-     str = ListGetString( Solver % Values, 'Namespace', Found )
-     IF (Found) CALL ListSetNamespace(TRIM(str))
-
-     IF( IsCoupled ) THEN
-       CALL CoupledSolver( Model, Solver, DTScal * dt, TransientSimulation )       
-     ELSE 
-       CALL SingleSolver( Model, Solver, DTScal * dt, TransientSimulation ) 
-     END IF
-   
-     CALL ListSetNamespace('')
-     Solver % dt = dt
-
+     Solver % dt = OrigDT
 !------------------------------------------------------------------------------
    END SUBROUTINE SolverActivate
 !------------------------------------------------------------------------------
