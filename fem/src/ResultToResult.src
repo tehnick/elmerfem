@@ -245,7 +245,8 @@ PROGRAM ResultToResult
        eq = ListGetString( OLdModel % Solvers(i) % Values,'Equation' )
 
        Solver => OldModel % Solvers(i)
-       CALL AddEquation( Solver, eq, TransientSimulation )
+       CALL AddEquationBasics( Solver, eq, TransientSimulation )
+       CALL AddEquationSolution( Solver, TransientSimulation )
      END DO
 
 !------------------------------------------------------------------------------
@@ -423,7 +424,8 @@ PROGRAM ResultToResult
        eq = ListGetString( NewModel % Solvers(i) % Values,'Equation' )
 
        Solver => NewModel % Solvers(i)
-       CALL AddEquation( Solver, eq, TransientSimulation )
+       CALL AddEquationBasics( Solver, eq, TransientSimulation )
+       CALL AddEquationSolution( Solver, TransientSimulation )
      END DO
 
 !------------------------------------------------------------------------------

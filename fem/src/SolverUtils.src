@@ -3222,10 +3222,6 @@ CONTAINS
     IF(.NOT. Stat) Myy = 0.5_dp
     Success = ( PrevResidual - Residual > Myy * Alpha * PrevResidual)
 
-    iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
-    PRINT *,'CSS AG',NINT(iterV % Values(1)),Success,Residual,PrevResidual,Alpha
-    PRINT *,'    AG',PrevResidual - Residual, 0.5_dp * Alpha * PrevResidual
-
     IF( Success ) THEN      
 
       bNorm = ComputeNorm(Solver, n, b)
@@ -3242,7 +3238,7 @@ CONTAINS
       WRITE( Message, '(a,g15.8,g15.8,a)') &
           'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Residual / bNorm,&
           ' ) :: '// TRIM(SolverName)
-      CALL Info( 'CheckStepSize', Message, Level=3 )      
+      CALL Info( 'CheckStepSize', Message, Level=3 )       
       iterV % Values(1) = n + 1 
     ELSE
       IF(PRESENT(values0)) THEN
@@ -3389,7 +3385,6 @@ CONTAINS
 !------------------------------------------------------------------------------
     n = A % NumberOfRows
 
-
     IF ( Solver % Matrix % Lumped .AND. Solver % TimeOrder == 1 ) THEN
        Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
        IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
@@ -3486,7 +3481,6 @@ CONTAINS
          END IF
       END IF
     END IF
-
 
     IF ( Solver % MultiGridLevel == -1  ) RETURN
 
@@ -3705,6 +3699,7 @@ CONTAINS
    CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
 ! Compute the change of the solution with different methods 
 !------------------------------------------------------------------------------
@@ -3893,7 +3888,6 @@ CONTAINS
         A % ConstraintMatrix => Atmp
       END IF
     ELSE
-
       CALL SolveLinearSystem( A,b,x,Norm,DOFs,Solver )
     END IF
 

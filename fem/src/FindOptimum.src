@@ -181,9 +181,14 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       Cost = ListGetConstReal(Model % Simulation,Name,GotIt)     
       IF(.NOT. GotIt) CALL Fatal('FindOptimum','Cost with the given name was not found')
     END IF
-    CostTarget = ListGetConstReal( Solver % Values,'Cost Function Target',GotIt)    
+    CostTarget = ListGetConstReal( Solver % Values,'Cost Function Offset',GotIt)    
     IF( GotIt ) Cost = Cost - CostTarget 
-  
+    IF( ListGetLogical( Solver % Values,'Cost Function Absolute',GotIt)) THEN
+      Cost = ABS( Cost )
+    ELSE IF( ListGetLogical( Solver % Values,'Cost Function Opposite',GotIt)) THEN
+      Cost = -Cost
+    END IF
+
     ! Found a new best point
     !-----------------------
     IF(Cost < MinCost) THEN
@@ -329,7 +334,7 @@ CONTAINS
     no = no + 1
 
     IF(no == 1) THEN
-      popsize = ListGetInteger(Solver % Values,'Populazation Size',GotIt)
+      popsize = ListGetInteger(Solver % Values,'Population Size',GotIt)
       IF(.NOT. GotIt) popsize = 5 * parsize
       popcoeff = ListGetConstReal(Solver % Values,'Population Coefficient',GotIt)
       IF(.NOT. GotIt) popcoeff = 0.7

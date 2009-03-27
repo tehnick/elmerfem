@@ -146,7 +146,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE AddEquation( Solver, Name,Transient )
+  SUBROUTINE AddEquationBasics( Solver, Name,Transient )
 !------------------------------------------------------------------------------
     TYPE(Solver_t), POINTER :: Solver
     LOGICAL :: Transient
@@ -163,7 +163,7 @@ CONTAINS
 
     LOGICAL :: Found, Stat, BandwidthOptimize, EigAnal, ComplexFlag, &
     MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal, MGAlgebraic, &
-    VariableGlobal, VariableCoupled, NoMatrix
+    VariableGlobal, NoMatrix, IsAssemblySolver, IsCoupledSolver, IsEquation
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str,eq,var_name, tmpname
 
@@ -202,12 +202,18 @@ CONTAINS
             Solver % dt, Transient )
       END IF
     END IF
- 
+    
+    IsCoupledSolver = ListGetLogical( Solver % Values, 'Coupled Solver', Found )
+    IsAssemblySolver = ListGetLogical( Solver % Values, 'Assembly Solver', Found )
+    IsAssemblySolver = IsAssemblySolver .OR. IsCoupledSolver
+
+
     ! Computation of dofs makes only sense if it has been decleared where the solver is active
+    ! and its not a coupled solver
     !-----------------------------------------------------------------------------------------
     Ndeg = 0
     eq = ListGetString( Solver  % Values, 'Equation', Found )
-    IF( Found ) THEN
+    IF( Found .AND. .NOT. IsCoupledSolver ) THEN
       MaxNDOFs  = 0
       MaxDGDOFs = 0
       DO i=1,Solver % Mesh % NumberOFBulkElements
@@ -563,7 +569,6 @@ CONTAINS
       END IF
       CALL AddSolverProcedure( Solver, MeshSolver )
       !------------------------------------------------------------------------------
-      !------------------------------------------------------------------------------
 
       
       !------------------------------------------------------------------------------
@@ -632,7 +637,6 @@ CONTAINS
         !------------------------------------------------------------------------
         
         VariableGlobal = ListGetLogical( Solver % Values, 'Variable Global', Found )
-        VariableCoupled = ListGetLogical( Solver % Values, 'Generic Solver', Found )
         
         VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
         IF ( .NOT. Found ) VariableOutput = .TRUE.
@@ -673,31 +677,52 @@ CONTAINS
           END IF
         END DO
         IF ( DOFs == 0 ) DOFs = 1
-        
-        
+                
         NoMatrix = ListGetLogical( Solver % Values, 'No Matrix', Found )
         IF ( .NOT. Found ) NoMatrix = VariableGlobal
-        
-        
+    
         n = LEN_TRIM(var_name)
         Solver % Variable => VariableGet( Solver % Mesh % Variables,var_name(1:n) )
         
         
         ! If the variable is a field variable create a permutation and matrix related to it
         !----------------------------------------------------------------------------------
+        IsEquation = .FALSE.
         eq = ListGetString( Solver  % Values, 'Equation', Found )
         IF( Found ) THEN
           Found = .FALSE.
           DO i=1, CurrentModel % NumberOfEquations
             IF( ListGetLogical( CurrentModel % Equations(i) % Values, TRIM(eq), Stat)) THEN
-              Found = .TRUE.
+              IsEquation = .TRUE.
               EXIT
             END IF
           END DO
         END IF
         
-        
-        IF( Found ) THEN
+        IF( IsCoupledSolver ) THEN
+          CALL Info('AddEquation','Coupled system matrix will be created later on')
+
+        ELSE IF( VariableGlobal ) THEN
+          ALLOCATE( Solution( DOFs ) )
+          Solution = 0.0_dp
+          
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+              var_name(1:n), DOFs, Solution )
+          Solver % Variable => VariableGet( Solver % Mesh % Variables, var_name(1:n) )
+          IF( DOFs > 1 ) THEN
+            DO i=1,DOFs
+              tmpname = ComponentName( var_name(1:n), i )
+              Component => Solution( i:i )
+              CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+                  tmpname, 1, Component )
+            END DO
+          END IF
+          
+          IF(.NOT. NoMatrix ) THEN
+            CALL Warn('AddEquation','Implement matrix methods for global variable')
+          END IF
+          
+        ELSE IF( IsEquation ) THEN
           IF ( ASSOCIATED( Solver % Variable ) ) THEN
             Perm => Solver % Variable % Perm
           ELSE
@@ -707,9 +732,9 @@ CONTAINS
           Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
               Perm, DOFs, MatrixFormat, BandwidthOptimize, eq(1:LEN_TRIM(eq)), &
               ListGetLogical( Solver % Values, &
-              'Discontinuous Galerkin', Found ), GlobalBubbles=GlobalBubbles )
-          
+              'Discontinuous Galerkin', Found ), GlobalBubbles=GlobalBubbles )          
           Nrows = DOFs * Ndeg
+
           IF (ASSOCIATED(Solver % Matrix)) Nrows = Solver % Matrix % NumberOfRows
           
           ! Basically the solver coupled be matrix free but still the matrix
@@ -737,30 +762,6 @@ CONTAINS
               END DO
             END IF
           END IF
-          
-        ELSE IF( VariableGlobal ) THEN
-          ALLOCATE( Solution( DOFs ) )
-          Solution = 0.0_dp
-          
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-              var_name(1:n), DOFs, Solution )
-          Solver % Variable => VariableGet( Solver % Mesh % Variables, var_name(1:n) )
-          IF( DOFs > 1 ) THEN
-            DO i=1,DOFs
-              tmpname = ComponentName( var_name(1:n), i )
-              Component => Solution( i:i )
-              CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                  tmpname, 1, Component )
-            END DO
-          END IF
-          
-          IF(.NOT. NoMatrix ) THEN
-            CALL Warn('AddEquation','Implement matrix methods for global variable')
-          END IF
-          
-        ELSE IF( VariableCoupled ) THEN
-          CALL Info('AddEquation','The coupled variable is created at a later stage')
-          
         ELSE            
           CALL Warn('AddEquation','Solver has a variable but it is not associated to any equation')
         END IF
@@ -769,156 +770,106 @@ CONTAINS
       !------------------------------------------------------------------------------
     END SELECT
 
-    l = 1
+
+
+    !------------------------------------------------------------------------------
+    ! Add the exported variables which are typically auxiliary variables derived
+    ! from the solution without their own matrix equation.  
+    !------------------------------------------------------------------------------
+    l = 0
     DO WHILE( .TRUE. )
+      l = l + 1
       str = ComponentName( 'exported variable', l )
       var_name = ListGetString( Solver % Values, str, Found )
       
-      IF ( Found ) THEN
-        str = TRIM( ComponentName( 'exported variable', l ) ) // ' Output'
-        VariableOutput = ListGetLogical( Solver % Values, str, Found )
-        IF ( .NOT. Found ) VariableOutput = .TRUE.
-        
-        str = TRIM( ComponentName( 'exported variable', l ) ) // ' DOFs'
-        DOFs = ListGetInteger( Solver % Values, str, Found )
-        IF ( .NOT. Found ) THEN
-          j = 0
-          DOFs = 0
-          DO WHILE( .TRUE. )
-            i = INDEX( var_name(j+1:), ':' ) + j
-            IF ( i<=j ) EXIT
-            READ( var_name(i+1:),'(i1)' ) k
-            DOFs = DOFs + k
-            j = i + 1
-          END DO
-        END IF
+      IF(.NOT. Found) EXIT
 
-        VariableOutput = .TRUE.
-        DO WHILE( var_name(1:1) == '-' )
-          IF ( var_name(1:10) == '-nooutput ' ) THEN
-            VariableOutput = .FALSE.
-            var_name(1:LEN(var_name)-10) = var_name(11:)
-          END IF
-          
-          IF ( var_name(1:8) == '-global ' ) THEN
-            VariableGlobal = .TRUE.
-            var_name(1:LEN(var_name)-8) = var_name(9:)
-          END IF
-
-          IF ( var_name(1:6) == '-dofs ' ) THEN
-            READ( var_name(7:), * ) DOFs 
-            j = LEN_TRIM( var_name )
-            k = 7
-            DO WHILE( var_name(k:k) /= ' '  )
-              k = k + 1
-              IF ( k > j ) EXIT
-            END DO
-            var_name(1:LEN(var_name)-(k+2)) = var_name(k+1:)
-          END IF
+      str = TRIM( ComponentName( 'exported variable', l ) ) // ' Output'
+      VariableOutput = ListGetLogical( Solver % Values, str, Found )
+      IF ( .NOT. Found ) VariableOutput = .TRUE.
+      
+      str = TRIM( ComponentName( 'exported variable', l ) ) // ' DOFs'
+      DOFs = ListGetInteger( Solver % Values, str, Found )
+      IF ( .NOT. Found ) THEN
+        j = 0
+        DOFs = 0
+        DO WHILE( .TRUE. )
+          i = INDEX( var_name(j+1:), ':' ) + j
+          IF ( i<=j ) EXIT
+          READ( var_name(i+1:),'(i1)' ) k
+          DOFs = DOFs + k
+          j = i + 1
         END DO
-        IF ( DOFs == 0 ) DOFs = 1
-        
-        NewVariable => VariableGet( Solver % Mesh % Variables, Var_name )
-        
-        IF ( .NOT. ASSOCIATED(NewVariable) ) THEN
-          IF( VariableGlobal ) THEN
-            nSize = DOFs
-            NULLIFY( Perm )
-          ELSE
-            nSize = DOFs * SIZE(Solver % Variable % Values) / Solver % Variable % DOFs
-            Perm => Solver % Variable % Perm
-          END IF
-
-          ALLOCATE( Solution(nSize) )
-          Solution = 0.0d0
-          IF( ASSOCIATED(Perm) ) THEN
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                var_name, DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
-          ELSE          
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                var_name, DOFs, Solution )
-          END IF
-
-          IF ( DOFs > 1 .AND. .NOT. VariableGlobal ) THEN
-            n = LEN_TRIM( var_name )
-            DO j=1,DOFs
-              tmpname = ComponentName( var_name(1:n), j )
-              Component => Solution( j:nSize-DOFs+j:DOFs )
-              IF( ASSOCIATED(Perm) ) THEN
-                CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                    tmpname, 1, Component, Perm, Output=VariableOutput )
-              ELSE
-                CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                    tmpname, 1, Component )               
-              END IF
-            END DO
-          END IF
-        END IF
-      ELSE
-        EXIT
       END IF
-      l = l + 1
-    END DO
-
-    IF ( ListGetLogical( Solver % Values,'Calculate Loads', Found ) ) THEN
-      Var_name = GetVarName(Solver % Variable) // ' Loads'
-      Var => VariableGet( Solver % Mesh % Variables, var_name )
-      IF ( .NOT. ASSOCIATED(Var) ) THEN
-        ALLOCATE( Solution(SIZE(Solver % Variable % Values)) )
-        DOFs = Solver % Variable % DOFs
+      
+      VariableOutput = .TRUE.
+      DO WHILE( var_name(1:1) == '-' )
+        IF ( var_name(1:10) == '-nooutput ' ) THEN
+          VariableOutput = .FALSE.
+          var_name(1:LEN(var_name)-10) = var_name(11:)
+        END IF
+        
+        IF ( var_name(1:8) == '-global ' ) THEN
+          VariableGlobal = .TRUE.
+          var_name(1:LEN(var_name)-8) = var_name(9:)
+        END IF
+        
+        IF ( var_name(1:6) == '-dofs ' ) THEN
+          READ( var_name(7:), * ) DOFs 
+          j = LEN_TRIM( var_name )
+          k = 7
+          DO WHILE( var_name(k:k) /= ' '  )
+            k = k + 1
+            IF ( k > j ) EXIT
+          END DO
+          var_name(1:LEN(var_name)-(k+2)) = var_name(k+1:)
+        END IF
+      END DO
+      IF ( DOFs == 0 ) DOFs = 1
+      
+      NewVariable => VariableGet( Solver % Mesh % Variables, Var_name )
+      
+      IF ( .NOT. ASSOCIATED(NewVariable) ) THEN
+        IF( VariableGlobal ) THEN
+          nSize = DOFs
+          NULLIFY( Perm )
+        ELSE
+          nSize = DOFs * SIZE(Solver % Variable % Values) / Solver % Variable % DOFs
+          Perm => Solver % Variable % Perm
+        END IF
+        
+        ALLOCATE( Solution(nSize) )
         Solution = 0.0d0
-        Perm => Solver % Variable % Perm
-
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-            var_name, Solver % Variable % DOFs, Solution, &
-            Solver % Variable % Perm, Output=VariableOutput )
-
-        IF ( DOFs > 1 ) THEN
-          n = LEN_TRIM( Var_name )
+        IF( ASSOCIATED(Perm) ) THEN
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+              var_name, DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
+        ELSE          
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+              var_name, DOFs, Solution )
+        END IF
+        
+        IF ( DOFs > 1 .AND. .NOT. VariableGlobal ) THEN
+          n = LEN_TRIM( var_name )
           DO j=1,DOFs
             tmpname = ComponentName( var_name(1:n), j )
-            Component => Solution( j:nRows-DOFs+j:DOFs )
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                tmpname, 1, Component, Perm, Output=VariableOutput )
+            Component => Solution( j:nSize-DOFs+j:DOFs )
+            IF( ASSOCIATED(Perm) ) THEN
+              CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+                  tmpname, 1, Component, Perm, Output=VariableOutput )
+            ELSE
+              CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+                  tmpname, 1, Component )               
+            END IF
           END DO
         END IF
       END IF
-    END IF
+    END DO
 
-    !------------------------------------------------------------------------------
-    ! Add computation of the weights resulting from Galerkin integration
-    
-    IF ( ListGetLogical( Solver % Values,'Calculate Weights', Found ) ) THEN
-      Var_name = GetVarName(Solver % Variable) // ' Weights'
-      Var => VariableGet( Solver % Mesh % Variables, var_name )
-      IF ( .NOT. ASSOCIATED(Var) ) THEN
-        Perm => Solver % Variable % Perm
-        IF( ASSOCIATED( Perm ) ) THEN
-          ALLOCATE( Solution(SIZE(Solver % Variable % Perm)) )
-          Solution = 0.0d0        
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-              var_name, 1, Solution, &
-              Solver % Variable % Perm, Output=VariableOutput )
-        END IF
-      END IF
-    END IF
-    !------------------------------------------------------------------------------
 
-    Solver % NOFEigenValues = 0
-    !   NULLIFY( Solver % Variable % PrevValues )
-    !   NULLIFY( Solver % Variable % EigenValues )
-    !   NULLIFY( Solver % Variable % EigenVectors )
-
-    Solver % DoneTime  = 0
-    Solver % MultiGridLevel = 1
-    Solver % MultiGridTotal = 0
-    Solver % MultiGridSolver = .FALSE.
-    Solver % MultiGridEqualSplit = .FALSE.
-    !------------------------------------------------------------------------------
-    !
-    ! Check for special solvers, to be executed only
-    ! at a certain points in simulation:
-    ! ----------------------------------------------
+    !------------------------------------------------------------------
+    ! Check for special solvers, to be executed only 
+    ! at a certain instances during the simulation:
+    !------------------------------------------------------------------
 
     Solver % SolverExecWhen = SOLVER_EXEC_ALWAYS
 
@@ -969,232 +920,320 @@ CONTAINS
     str = ListGetString( Solver  % Values, 'After Linsolve', Found )
     IF ( Found ) Solver % LinAfterProc = GetProcAddr( str )
 
+  END SUBROUTINE AddEquationBasics
+
+
+  !------------------------------------------------------------------------------
+  SUBROUTINE AddEquationSolution(Solver, Transient )
+    !------------------------------------------------------------------------------
+    ! Add information that is typically only needed if there's a matrix equation
+    ! to work with. This should be called only after both the solution vector and
+    ! matrix have been created.
+    !------------------------------------------------------------------------------  
+    TYPE(Solver_t), POINTER :: Solver
+    LOGICAL :: Transient
 !------------------------------------------------------------------------------
+    TYPE(Variable_t), POINTER :: Var
+    CHARACTER(LEN=MAX_NAME_LEN) :: str, var_name, tmpname
+    INTEGER :: i,j,k,n,nrows,DOFs
+    REAL(KIND=dp), POINTER :: Solution(:), Component(:)
+    INTEGER, POINTER :: Perm(:)
+    LOGICAL :: Found, Stat, ComplexFlag, HarmonicAnal,EigAnal,VariableOutput, &
+        MGAlgebraic,MultigridActive
+    REAL(KIND=dp), POINTER :: freqv(:,:)
+    TYPE(Mesh_t),   POINTER :: NewMesh,OldMesh
+    TYPE(Element_t), POINTER :: CurrentElement
+    TYPE(Matrix_t), POINTER :: NewMatrix, Oldmatrix
+
+
+    !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Solver % Variable ) ) RETURN
     IF ( .NOT. ASSOCIATED( Solver % Variable % Values ) ) RETURN
-!------------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
+    
+    !------------------------------------------------------------------------------
+    ! Create the variable needed for the computation of nodal loads: r=b-Ax
+    !------------------------------------------------------------------------------
+    IF ( ListGetLogical( Solver % Values,'Calculate Loads', Found ) ) THEN
+      Var_name = GetVarName(Solver % Variable) // ' Loads'
+      Var => VariableGet( Solver % Mesh % Variables, var_name )
+      IF ( .NOT. ASSOCIATED(Var) ) THEN
+        ALLOCATE( Solution(SIZE(Solver % Variable % Values)) )
+        DOFs = Solver % Variable % DOFs
+        Solution = 0.0d0
+        nrows = SIZE( Solution ) 
+        Perm => Solver % Variable % Perm
+        VariableOutput = Solver % Variable % Output
+
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+            var_name, Solver % Variable % DOFs, Solution, &
+            Solver % Variable % Perm, Output=VariableOutput )
+
+        IF ( DOFs > 1 ) THEN
+          n = LEN_TRIM( Var_name )
+          DO j=1,DOFs
+            tmpname = ComponentName( var_name(1:n), j )
+            Component => Solution( j:nRows-DOFs+j:DOFs )
+            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+                tmpname, 1, Component, Perm, Output=VariableOutput )
+          END DO
+        END IF
+      END IF
+    END IF
+
+    !------------------------------------------------------------------------------
+    ! Add computation of the weights resulting from Galerkin integration
+    !------------------------------------------------------------------------------
+    IF ( ListGetLogical( Solver % Values,'Calculate Weights', Found ) ) THEN
+      Var_name = GetVarName(Solver % Variable) // ' Weights'
+      Var => VariableGet( Solver % Mesh % Variables, var_name )
+      IF ( .NOT. ASSOCIATED(Var) ) THEN
+        Perm => Solver % Variable % Perm
+        IF( ASSOCIATED( Perm ) ) THEN
+          ALLOCATE( Solution(SIZE(Solver % Variable % Perm)) )
+          Solution = 0.0d0        
+          VariableOutput = Solver % Variable % Output
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+              var_name, 1, Solution, &
+              Solver % Variable % Perm, Output=VariableOutput )
+        END IF
+      END IF
+    END IF
+    !------------------------------------------------------------------------------
+
+    Solver % NOFEigenValues = 0
+    !   NULLIFY( Solver % Variable % PrevValues )
+    !   NULLIFY( Solver % Variable % EigenValues )
+    !   NULLIFY( Solver % Variable % EigenVectors )
+
+    Solver % DoneTime  = 0
+    Solver % MultiGridLevel = 1
+    Solver % MultiGridTotal = 0
+    Solver % MultiGridSolver = .FALSE.
+    Solver % MultiGridEqualSplit = .FALSE.
+
 
     HarmonicAnal = ListGetLogical( Solver % Values, 'Harmonic Analysis', Found )
-
+    
     IF ( ASSOCIATED( Solver % Matrix ) ) THEN
-       ALLOCATE( Solver % Matrix % RHS(Solver % Matrix % NumberOFRows) )
-       Solver % Matrix % RHS = 0.0d0
-
-       Solver % Matrix % RHS_im => NULL()
-       IF ( HarmonicAnal ) THEN
-         ALLOCATE( Solver % Matrix % RHS_im(Solver % Matrix % NumberOFRows) )
-         Solver % Matrix % RHS_im = 0.0d0
-       END IF
+      ALLOCATE( Solver % Matrix % RHS(Solver % Matrix % NumberOFRows) )
+      Solver % Matrix % RHS = 0.0d0
+      
+      Solver % Matrix % RHS_im => NULL()
+      IF ( HarmonicAnal ) THEN
+        ALLOCATE( Solver % Matrix % RHS_im(Solver % Matrix % NumberOFRows) )
+        Solver % Matrix % RHS_im = 0.0d0
+      END IF
     END IF
 !------------------------------------------------------------------------------
 
     EigAnal = ListGetLogical( Solver % Values, 'Eigen Analysis', Found )
-
+    
     IF ( Transient .AND. .NOT. EigAnal .AND. .NOT. HarmonicAnal ) THEN
-       k = ListGetInteger( Solver % Values, 'Time Derivative Order', Found, &
-                  minv=0, maxv=2 )
-       Solver % TimeOrder = 1
-       IF ( Found ) Solver % TimeOrder = MIN(MAX(1,k),2)
-
-       IF ( ASSOCIATED( Solver % Matrix ) ) THEN
-          ALLOCATE( Solver % Matrix % Force(Solver % Matrix % NumberOFRows, &
-                          Solver % TimeOrder+1) )
-          Solver % Matrix % Force = 0.0d0
-       END IF
-
-       IF ( .NOT. ASSOCIATED( Solver % Variable % PrevValues ) ) THEN
-          IF ( Solver % TimeOrder == 2 ) THEN
-             ALLOCATE( Solver % Variable % PrevValues( &
+      k = ListGetInteger( Solver % Values, 'Time Derivative Order', Found, &
+          minv=0, maxv=2 )
+      Solver % TimeOrder = 1
+      IF ( Found ) Solver % TimeOrder = MIN(MAX(1,k),2)
+      
+      IF ( ASSOCIATED( Solver % Matrix ) ) THEN
+        ALLOCATE( Solver % Matrix % Force(Solver % Matrix % NumberOFRows, &
+            Solver % TimeOrder+1) )
+        Solver % Matrix % Force = 0.0d0
+      END IF
+      
+      IF ( .NOT. ASSOCIATED( Solver % Variable % PrevValues ) ) THEN
+        IF ( Solver % TimeOrder == 2 ) THEN
+          ALLOCATE( Solver % Variable % PrevValues( &
               SIZE(Solver % Variable % Values),5) )
-          ELSE IF ( Solver % Order > Solver % TimeOrder ) THEN
-             ALLOCATE(Solver % Variable % PrevValues( &
-                   SIZE(Solver % Variable % Values), Solver % Order))
+        ELSE IF ( Solver % Order > Solver % TimeOrder ) THEN
+          ALLOCATE(Solver % Variable % PrevValues( &
+              SIZE(Solver % Variable % Values), Solver % Order))
+        ELSE
+          ALLOCATE(Solver % Variable % PrevValues( &
+              SIZE(Solver % Variable % Values), Solver % TimeOrder))
+        END IF
+        Solver % Variable % PrevValues = 0.0d0
+        
+        IF ( Solver % Variable % DOFs > 1 ) THEN
+          IF ( Solver % Variable % Name == 'flow solution' ) THEN
+            DO k=1,Solver % Variable % DOFs-1
+              str = 'Velocity ' // CHAR(k+ICHAR('0'))
+              Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
+              Var % PrevValues =>  &
+                  Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
+            END DO
+            Var => VariableGet( Solver % Mesh % Variables, 'Pressure', .TRUE. )
+            Var % PrevValues =>  &
+                Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
           ELSE
-             ALLOCATE(Solver % Variable % PrevValues( &
-                   SIZE(Solver % Variable % Values), Solver % TimeOrder))
+            DO k=1,Solver % Variable % DOFs
+              str = ComponentName( Solver % Variable % Name, k )
+              Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
+              Var % PrevValues =>  &
+                  Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
+            END DO
           END IF
-          Solver % Variable % PrevValues = 0.0d0
-
-          IF ( Solver % Variable % DOFs > 1 ) THEN
-             IF ( Solver % Variable % Name == 'flow solution' ) THEN
-               DO k=1,Solver % Variable % DOFs-1
-                  str = 'Velocity ' // CHAR(k+ICHAR('0'))
-                  Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
-                  Var % PrevValues =>  &
-                      Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
-               END DO
-               Var => VariableGet( Solver % Mesh % Variables, 'Pressure', .TRUE. )
-               Var % PrevValues =>  &
-                     Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
-             ELSE
-               DO k=1,Solver % Variable % DOFs
-                  str = ComponentName( Solver % Variable % Name, k )
-                  Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
-                  Var % PrevValues =>  &
-                      Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
-               END DO
-             END IF
-          END IF
-       END IF
+        END IF
+      END IF
     ELSE
-       Solver % TimeOrder = 0
-       IF ( EigAnal ) THEN
-          ComplexFlag = ListGetLogical( Solver % Values,  'Eigen System Complex', Found )
-          IF ( .NOT. Found ) ComplexFlag = .FALSE.
-
-          n = ListGetInteger( Solver % Values,  'Eigen System Values', Found )
-          IF ( Found .AND. n > 0 ) THEN
-             Solver % NOFEigenValues = n
-             IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
-               ALLOCATE( Solver % Variable % EigenValues(n) )
-               ALLOCATE( Solver % Variable % EigenVectors(n, &
-                    SIZE( Solver % Variable % Values ) ) )
-
-               Solver % Variable % EigenValues  = 0.0d0
-               Solver % Variable % EigenVectors = 0.0d0
-
-               DO k=1,Solver % Variable % DOFs
-                 str = ComponentName( Solver % Variable % Name, k )
-                 Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
-                 IF ( ASSOCIATED( Var ) ) THEN
-                    Var % EigenValues => Solver % Variable % EigenValues
-                    IF ( ComplexFlag ) THEN
-                       Var % EigenVectors => Solver % Variable % EigenVectors
-                    ELSE
-                       Var % EigenVectors =>  & 
-                          Solver % Variable % EigenVectors(:,k::Solver % Variable % DOFs )
-                    END IF
-                 END IF
-               END DO
-             END IF
-             ALLOCATE( Solver % Matrix % MassValues(SIZE(Solver % Matrix % Values)) )
-             Solver % Matrix % MassValues = 0.0d0
+      Solver % TimeOrder = 0
+      IF ( EigAnal ) THEN
+        ComplexFlag = ListGetLogical( Solver % Values,  'Eigen System Complex', Found )
+        IF ( .NOT. Found ) ComplexFlag = .FALSE.
+        
+        n = ListGetInteger( Solver % Values,  'Eigen System Values', Found )
+        IF ( Found .AND. n > 0 ) THEN
+          Solver % NOFEigenValues = n
+          IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
+            ALLOCATE( Solver % Variable % EigenValues(n) )
+            ALLOCATE( Solver % Variable % EigenVectors(n, &
+                SIZE( Solver % Variable % Values ) ) )
+            
+            Solver % Variable % EigenValues  = 0.0d0
+            Solver % Variable % EigenVectors = 0.0d0
+            
+            DO k=1,Solver % Variable % DOFs
+              str = ComponentName( Solver % Variable % Name, k )
+              Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
+              IF ( ASSOCIATED( Var ) ) THEN
+                Var % EigenValues => Solver % Variable % EigenValues
+                IF ( ComplexFlag ) THEN
+                  Var % EigenVectors => Solver % Variable % EigenVectors
+                ELSE
+                  Var % EigenVectors =>  & 
+                      Solver % Variable % EigenVectors(:,k::Solver % Variable % DOFs )
+                END IF
+              END IF
+            END DO
           END IF
-       ELSE IF ( HarmonicAnal ) THEN
-          freqv => ListGetConstRealArray( Solver % Values, 'Frequency', Found )
-          IF ( Found ) THEN
-             n = SIZE(Freqv,1)
-             Solver % NOFEigenValues = n
-             IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
-               ALLOCATE( Solver % Variable % EigenValues(n) )
-               ALLOCATE( Solver % Variable % EigenVectors(n, &
-                    SIZE( Solver % Variable % Values ) ) )
-
-               Solver % Variable % EigenValues  = 0.0d0
-               Solver % Variable % EigenVectors = 0.0d0
-
-               DO k=1,Solver % Variable % DOFs
-                 str = ComponentName( Solver % Variable % Name, k )
-                 Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
-                 IF ( ASSOCIATED( Var ) ) THEN
-                    Var % EigenValues => Solver % Variable % EigenValues
-                    Var % EigenVectors => &
-                        Solver % Variable % EigenVectors(:,k::Solver % Variable % DOFs)
-                 END IF
-               END DO
-             END IF
-             ALLOCATE( Solver % Matrix % MassValues(SIZE(Solver % Matrix % Values)) )
-             Solver % Matrix % MassValues = 0.0d0
-          ELSE
-             CALL Fatal( 'AddEquation', 'Frequency must be given for harmonic analysis.' )
+          ALLOCATE( Solver % Matrix % MassValues(SIZE(Solver % Matrix % Values)) )
+          Solver % Matrix % MassValues = 0.0d0
+        END IF
+      ELSE IF ( HarmonicAnal ) THEN
+        freqv => ListGetConstRealArray( Solver % Values, 'Frequency', Found )
+        IF ( Found ) THEN
+          n = SIZE(Freqv,1)
+          Solver % NOFEigenValues = n
+          IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
+            ALLOCATE( Solver % Variable % EigenValues(n) )
+            ALLOCATE( Solver % Variable % EigenVectors(n, &
+                SIZE( Solver % Variable % Values ) ) )
+            
+            Solver % Variable % EigenValues  = 0.0d0
+            Solver % Variable % EigenVectors = 0.0d0
+            
+            DO k=1,Solver % Variable % DOFs
+              str = ComponentName( Solver % Variable % Name, k )
+              Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
+              IF ( ASSOCIATED( Var ) ) THEN
+                Var % EigenValues => Solver % Variable % EigenValues
+                Var % EigenVectors => &
+                    Solver % Variable % EigenVectors(:,k::Solver % Variable % DOFs)
+              END IF
+            END DO
           END IF
-       END IF
+          ALLOCATE( Solver % Matrix % MassValues(SIZE(Solver % Matrix % Values)) )
+          Solver % Matrix % MassValues = 0.0d0
+        ELSE
+          CALL Fatal( 'AddEquation', 'Frequency must be given for harmonic analysis.' )
+        END IF
+      END IF
     END IF
 
 !------------------------------------------------------------------------------
 
     IF ( ASSOCIATED( Solver % Matrix ) ) THEN
-       Solver % Matrix % Symmetric = ListGetLogical( Solver % Values, &
-                  'Linear System Symmetric', Found )
-
-       Solver % Matrix % Lumped = ListGetLogical( Solver % Values, &
-                  'Lumped Mass Matrix', Found )
-
-       MultigridActive = &
-         ListGetString( Solver % Values, 'Linear System Solver', Found ) == 'multigrid' .OR. &
-         ListGetString( Solver % Values, 'Linear System Preconditioning', Found ) == 'multigrid'
+      Solver % Matrix % Symmetric = ListGetLogical( Solver % Values, &
+          'Linear System Symmetric', Found )
+      
+      Solver % Matrix % Lumped = ListGetLogical( Solver % Values, &
+          'Lumped Mass Matrix', Found )
+      
+      MultigridActive = &
+          ListGetString( Solver % Values, 'Linear System Solver', Found ) == 'multigrid' .OR. &
+          ListGetString( Solver % Values, 'Linear System Preconditioning', Found ) == 'multigrid'
 
 
 !      Check for multigrid solver:
 !      ---------------------------
        IF ( MultigridActive ) THEN
 
-          str = ListGetString( Solver % Values,'MG Method',Found) 
-          IF( Found ) THEN
-            MGAlgebraic = ( str == 'algebraic' ) .OR. ( str == 'cluster')
-          ELSE	    
-            MGAlgebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) &
+         str = ListGetString( Solver % Values,'MG Method',Found) 
+         IF( Found ) THEN
+           MGAlgebraic = ( str == 'algebraic' ) .OR. ( str == 'cluster')
+         ELSE	    
+           MGAlgebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) &
 	       .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found )
-          END IF
-
-          Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
-                        'MG Levels', Found, minv=1 )
-
-          IF ( .NOT. Found ) THEN
-             Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
-                     'Multigrid Levels', Found, minv=1 )
-          END IF
-          IF ( .NOT. Found ) THEN
-	    IF( MGAlgebraic ) THEN 
-	      Solver % MultiGridTotal = 10
-            ELSE
-	      Solver % MultiGridTotal = 3	    
-	    END IF
-          END IF
+         END IF
+         
+         Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
+             'MG Levels', Found, minv=1 )
+         
+         IF ( .NOT. Found ) THEN
+           Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
+               'Multigrid Levels', Found, minv=1 )
+         END IF
+         IF ( .NOT. Found ) THEN
+           IF( MGAlgebraic ) THEN 
+             Solver % MultiGridTotal = 10
+           ELSE
+             Solver % MultiGridTotal = 3	    
+           END IF
+         END IF
 
 !         Check if h/2 splitting of mesh requested:
 !         ------------------------------------------
-          Solver % MultiGridEqualSplit = ListGetLogical( &
+         Solver % MultiGridEqualSplit = ListGetLogical( &
              Solver % Values, 'MG Equal Split', Found )
-
-          IF ( Solver % MultiGridEqualSplit ) THEN
+         
+         IF ( Solver % MultiGridEqualSplit ) THEN
+           CALL ParallelInitMatrix( Solver, Solver % Matrix )
+           Solver % MultiGridLevel = 1
+           DO WHILE( Solver % MultiGridLevel < Solver % MultiGridTotal )
+             IF ( ASSOCIATED( Solver % Mesh % Child ) ) THEN
+               NewMesh => Solver % Mesh % Child
+               
+               OldMesh   => Solver % Mesh
+               OldMatrix => Solver % Matrix
+               
+               CALL UpdateSolverMesh( Solver, NewMesh )
+               Solver % Mesh % Changed = .FALSE.
+             ELSE
+               NewMesh => SplitMeshEqual( Solver % Mesh )
+               NewMesh % Next => CurrentModel % Meshes
+               CurrentModel % Meshes => NewMesh
+               
+               OldMesh   => Solver % Mesh
+               OldMatrix => Solver % Matrix
+               
+               CALL UpdateSolverMesh( Solver, NewMesh )
+               Solver % Mesh % Changed = .FALSE.
+               
+               NewMesh % Parent => OldMesh
+               OldMesh % Child  => NewMesh
+               NewMesh % Name = OldMesh % Name
+               Newmesh % OutputActive = .TRUE.
+               OldMesh % OutputActive = .FALSE.
+             END IF
+             
+             NewMatrix => Solver % Matrix
+             NewMatrix % Parent => OldMatrix
+             OldMatrix % Child  => NewMatrix
              CALL ParallelInitMatrix( Solver, Solver % Matrix )
-             Solver % MultiGridLevel = 1
-             DO WHILE( Solver % MultiGridLevel < Solver % MultiGridTotal )
-                IF ( ASSOCIATED( Solver % Mesh % Child ) ) THEN
-                   NewMesh => Solver % Mesh % Child
-
-                   OldMesh   => Solver % Mesh
-                   OldMatrix => Solver % Matrix
-
-                   CALL UpdateSolverMesh( Solver, NewMesh )
-                   Solver % Mesh % Changed = .FALSE.
-                ELSE
-                   NewMesh => SplitMeshEqual( Solver % Mesh )
-                   NewMesh % Next => CurrentModel % Meshes
-                   CurrentModel % Meshes => NewMesh
-
-                   OldMesh   => Solver % Mesh
-                   OldMatrix => Solver % Matrix
-
-                   CALL UpdateSolverMesh( Solver, NewMesh )
-                   Solver % Mesh % Changed = .FALSE.
-
-                   NewMesh % Parent => OldMesh
-                   OldMesh % Child  => NewMesh
-                   NewMesh % Name = OldMesh % Name
-                   Newmesh % OutputActive = .TRUE.
-                   OldMesh % OutputActive = .FALSE.
-                END IF
-
-                NewMatrix => Solver % Matrix
-                NewMatrix % Parent => OldMatrix
-                OldMatrix % Child  => NewMatrix
-                CALL ParallelInitMatrix( Solver, Solver % Matrix )
-                Solver % MultiGridLevel = Solver % MultiGridLevel + 1
-             END DO
-          END IF
-          CALL MeshStabParams( Solver % Mesh )
-          Solver % MultiGridSolver = ListGetString(Solver % Values, &
+             Solver % MultiGridLevel = Solver % MultiGridLevel + 1
+           END DO
+         END IF
+         CALL MeshStabParams( Solver % Mesh )
+         Solver % MultiGridSolver = ListGetString(Solver % Values, &
              'Linear System Solver', Found ) == 'multigrid'
-          Solver % MultiGridLevel  = Solver % MultiGridTotal
+         Solver % MultiGridLevel  = Solver % MultiGridTotal
        END IF
-    END IF
-
+     END IF
+     
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE AddEquation
+   END SUBROUTINE AddEquationSolution
 !------------------------------------------------------------------------------
 
 
@@ -1210,7 +1249,7 @@ CONTAINS
     REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
     INTEGER :: i,j,k,l,n,ierr,istat
     LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
-	Relax, NeedSol, IsCoupled
+	Relax, NeedSol, IsCoupledSolver, IsAssemblySolver
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
@@ -1258,6 +1297,7 @@ CONTAINS
       END IF
     END DO
 
+
 !------------------------------------------------------------------------------
 
     ALLOCATE( DoneThis( Model % NumberOfSolvers ) )
@@ -1291,9 +1331,11 @@ CONTAINS
 
           Solver => Model % Solvers(k)
 
-          IsCoupled = ListGetLogical( Solver % Values,'Generic Solver',Found )
+          IsCoupledSolver = ListGetLogical( Solver % Values, 'Coupled Solver', Found )
+          IsAssemblySolver = ListGetLogical( Solver % Values, 'Assembly Solver', Found )
+          IsAssemblySolver = IsAssemblySolver .OR. IsCoupledSolver
 
-          IF ( Solver % PROCEDURE == 0 .AND. .NOT. IsCoupled ) THEN
+          IF ( Solver % PROCEDURE == 0 .AND. .NOT. IsAssemblySolver ) THEN
             CALL Warn('SolveEquations','No routine related to solver!')
             DoneThis(k) = .TRUE.
             CYCLE
@@ -1477,8 +1519,11 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE CoupledSolver( Model, Solver, dt, Transient )
 !------------------------------------------------------------------------------
-!  
 ! Provide assembly loop and solution of linear and nonlinear systems
+! This routine uses minimalistic assmebly routines to create the 
+! matrices. Often the results to less labour in coding which may be 
+! comprimized by less flexibility.
+!------------------------------------------------------------------------------
     
     USE DefUtils
     
@@ -1491,12 +1536,14 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
+    TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t),POINTER :: Element
     INTEGER :: i,j,k,l,t,n,nd,NoIterations,NoTests,iter,istat,tests
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: ProcName
-    LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint
+    LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint, &
+        IsCoupledSolver, IsAssemblySolver
     INTEGER(KIND=AddrInt) :: ProcPntr    
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
@@ -1542,6 +1589,10 @@ CONTAINS
 
     Mesh => GetMesh()
     SolverParams => GetSolverParams()
+    PSolver => Solver
+
+    IsCoupledSolver = ListGetLogical( Solver % Values,'Coupled Solver',GotIt)
+    IsAssemblySolver = ListGetLogical( Solver % Values,'Assembly Solver',GotIt)
 
 !------------------------------------------------------------------------------
 ! Check out which variables the coupled model includes
@@ -1559,99 +1610,110 @@ CONTAINS
     NoCons = 0
     VarDofs = 0
 
-    DO i = 1,9
-      WRITE (str,'(A,I2)') 'Variable',i
-      VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-      IF(.NOT. GotIt) EXIT
-      Var => VariableGet( Mesh % Variables, TRIM(VarName) )
-      IF(.NOT. ASSOCIATED( Var )) EXIT 
+    IF( IsCoupledSolver ) THEN
       
-      NoVar = NoVar + 1
-      VarDofs(NoVar) = Var % Dofs
-      VarSizes(NoVar) = SIZE( Var % Values )
-      Offset(NoVar+1) = Offset(NoVar) + VarSizes(NoVar)
-    END DO
+      DO i = 1,9
+        WRITE (str,'(A,I2)') 'Variable',i
+        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
+        IF(.NOT. GotIt) EXIT
+        Var => VariableGet( Mesh % Variables, TRIM(VarName) )
+        IF(.NOT. ASSOCIATED( Var )) EXIT 
+        
+        NoVar = NoVar + 1
+        VarDofs(NoVar) = Var % Dofs
+        VarSizes(NoVar) = SIZE( Var % Values )
+        Offset(NoVar+1) = Offset(NoVar) + VarSizes(NoVar)
+      END DO
 
-
-    !------------------------------------------------------------------------------------
-    ! Here is a hack for taking constraints into account where dofs are created on-the-fly
-    ! might be better to create special solvers somewhere else.
-    ! The size of constraint is deduced directly from its type.
-    !-------------------------------------------------------------------------------------
-    AllDirFlag = .FALSE.
-    DO i = 1,9
-      WRITE (str,'(A,I2)') 'Constraint',i
-      VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-      IF(.NOT. GotIt) EXIT
-      
-      NoCons = NoCons + 1      
-      
-      WRITE (str,'(A,I2,A)') 'Constraint',i,' Type'
-      ConsType = ListGetString( SolverParams,TRIM(str))
-           
-      SELECT CASE( ConsType )
-
+      !------------------------------------------------------------------------------------
+      ! Here is a hack for taking constraints into account where dofs are created on-the-fly
+      ! might be better to create special solvers somewhere else.
+      ! The size of constraint is deduced directly from its type.
+      !-------------------------------------------------------------------------------------
+      AllDirFlag = .FALSE.
+      DO i = 1,9
+        WRITE (str,'(A,I2)') 'Constraint',i
+        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
+        IF(.NOT. GotIt) EXIT
+        
+        NoCons = NoCons + 1      
+        
+        WRITE (str,'(A,I2,A)') 'Constraint',i,' Type'
+        ConsType = ListGetString( SolverParams,TRIM(str))
+        
+        SELECT CASE( ConsType )
+          
         CASE('integral')
           ConDofs = 1
           
         CASE('floating')
           ConDofs = 1
           AllDirFlag = .TRUE.
-
+          
         CASE('equality')
           ConDofs = 0
           AllDirFlag = .TRUE.
-
+          
         CASE DEFAULT          
           CALL Warn('CoupledSolver','Coupled constraint does not really work yet')
           WRITE (str,'(A,I2,A)') 'Constraint',i,' DOFs'
           ConDofs = ListGetInteger( SolverParams, str)
 
-      END SELECT
+        END SELECT
 
-      ! Create the constrained variables for possible other use
-      !-----------------------------------------------------------
-      IF( ConDofs > 0 ) THEN
-        Var => VariableGet( Mesh % Variables, VarName )
-        IF( .NOT. ASSOCIATED(Var) ) THEN
-          ALLOCATE(ConsValues(ConDofs))
-          CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-            VarName, ConDofs, ConsValues, Output = .FALSE. )          
-          Var => VariableGet( Mesh % Variables, VarName )         
+        ! Create the constrained variables for possible other use
+        !-----------------------------------------------------------
+        IF( ConDofs > 0 ) THEN
+          Var => VariableGet( Mesh % Variables, VarName )
+          IF( .NOT. ASSOCIATED(Var) ) THEN
+            ALLOCATE(ConsValues(ConDofs))
+            CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+                VarName, ConDofs, ConsValues, Output = .FALSE. )          
+            Var => VariableGet( Mesh % Variables, VarName )         
+          END IF
         END IF
-      END IF
+        
+        j = NoVar + NoCons
+        VarDofs(j) = ConDofs
+        VarSizes(j) = 1
+        Offset(j+1) = Offset(j) + VarSizes(j)
+      END DO
 
-      j = NoVar + NoCons
-      VarDofs(j) = ConDofs
-      VarSizes(j) = 1
-      Offset(j+1) = Offset(j) + VarSizes(j)
-    END DO
+      DO j=1,NoVar+NoCons
+        WRITE(Message,'(A,I2,A,T35,I10)') 'Permutation offset',j,': ',OffSet(j)
+        CALL Info('CoupledSolver',Message)
+      END DO
+      
 
-    DO j=1,NoVar+NoCons
-      WRITE(Message,'(A,I2,A,T35,I10)') 'Permutation offset',j,': ',OffSet(j)
+      TotSize = SUM( VarSizes )
+      MaxDofs = MAXVAL( VarDofs )
+      
+      WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
       CALL Info('CoupledSolver',Message)
-    END DO
+      
+      WRITE(Message,'(A,T35,I10)') 'Number of constraints: ',NoCons
+      CALL Info('CoupledSolver',Message)
+      
+      WRITE(Message,'(A,T35,I10)') 'Size of coupled system: ',TotSize
+      CALL Info('CoupledSolver',Message)
 
-
-    TotSize = SUM( VarSizes )
-    MaxDofs = MAXVAL( VarDofs )
-
-    WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
-    CALL Info('CoupledSolver',Message)
-  
-    WRITE(Message,'(A,T35,I10)') 'Number of constraints: ',NoCons
-    CALL Info('CoupledSolver',Message)
-  
-    WRITE(Message,'(A,T35,I10)') 'Size of coupled system: ',TotSize
-    CALL Info('CoupledSolver',Message)
-
+    ELSE
+      CALL Info('CoupledSolver','Using existing variable and matrix')
+      NoVar = 1
+      Var => Solver % Variable
+      VarDofs(1) = Var % Dofs
+      VarSizes(1) = SIZE( Var % Values )
+      TotSize = VarSizes(1)
+      MaxDofs = VarDofs(1)
+    END IF
+      
 
 !------------------------------------------------------------------------------
 ! Do some initial stuff
 !------------------------------------------------------------------------------
   
     N = Mesh % MaxElementDOFs
-
+    
     ALLOCATE( FORCE( MaxDofs*N ),      &
         STIFF( MaxDofs*N, MaxDofs*N ), &
         DAMP( MaxDofs*N, MaxDofs*N ),  &
@@ -1738,14 +1800,23 @@ CONTAINS
 !----------------------------------------------------------------------
 ! The CRS matrix may be created only when the matrix structure is known
 !----------------------------------------------------------------------
-      IF( Amat % FORMAT == MATRIX_LIST ) CALL List_ToCRSMatrix(Amat)
+      IF( Amat % FORMAT == MATRIX_LIST ) THEN
+        CALL List_ToCRSMatrix(Amat)
+        IF( .NOT. IsCoupledSolver ) THEN
+          CALL AddEquationSolution(PSolver, Transient )
+        END IF
+      END IF
       CALL DefaultFinishAssembly()
       
 !------------------------------------------------------------------------------
 !    Do the Dirichlet conditions using offset
 !------------------------------------------------------------------------------          
-      CALL CoupledSystemDirichlet()
-      
+      IF( IsCoupledSolver ) THEN
+        CALL CoupledSystemDirichlet()
+      ELSE      
+        CALL DefaultDirichletBCs()
+      END IF
+
 !------------------------------------------------------------------------------
 !    This will be a point for robust solver which cheks the stepsize
 !    but whats below is still crap...
@@ -1753,9 +1824,6 @@ CONTAINS
       IF( Robust  ) THEN   
         ErrorReduced = CheckStepSize(Solver,tests==0,PrevResidual,Residual)
         tests = tests + 1
-
-
-        PRINT *,'Error',ErrorReduced,Solver % Variable % NonlinChange, NonlinearTol
         
         IF( tests >  NoTests ) THEN
           CALL Warn('CoupledSolver','Maximum number of linesearch steps exceeded')
@@ -1769,7 +1837,9 @@ CONTAINS
             PrevResidual = Residual
             IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
           ELSE
-            CALL CoupledToSingleVector()
+            IF( IsCoupledSolver ) THEN
+              CALL CoupledToSingleVector()
+            END IF
             GOTO 100
           END IF
         END IF
@@ -1781,7 +1851,9 @@ CONTAINS
       Norm = DefaultSolve()     
       CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
 
-      CALL CoupledToSingleVector()
+      IF( IsCoupledSolver ) THEN
+        CALL CoupledToSingleVector()
+      END IF
       IF(.NOT. Robust) THEN
         IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
       END IF
@@ -1882,8 +1954,6 @@ CONTAINS
         DO j=1,SIZE(Var % Values)
           Solver % Variable % Values(Offset(i)+j) = Var % Values(j)
         END DO
-        
-        ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
       END DO
 
     END SUBROUTINE SingleToCoupledVector
@@ -1911,8 +1981,6 @@ CONTAINS
         DO j=1,SIZE(Var % Values)
           Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
         END DO
-        
-        ! IF( i > NoVar ) PRINT *,TRIM(str),': ',Var % Values       
       END DO
 
     END SUBROUTINE CoupledToSingleVector
@@ -1943,9 +2011,13 @@ CONTAINS
       !-------------------------------------------
       DO RowVar = 1,NoVar 
 
-        WRITE (str,'(A,I2)') 'Variable',RowVar
-        RowName = ListGetString( SolverParams, TRIM(str), GotIt )
-        Var => VariableGet( Mesh % Variables, TRIM(RowName) ) 
+        IF( IsCoupledSolver ) THEN
+          WRITE (str,'(A,I2)') 'Variable',RowVar
+          RowName = ListGetString( SolverParams, TRIM(str), GotIt )
+          Var => VariableGet( Mesh % Variables, TRIM(RowName) ) 
+        ELSE
+          Var => Solver % Variable
+        END IF
 
         RowDofs = Var % Dofs
         RowPerm => Var % Perm
@@ -1954,14 +2026,18 @@ CONTAINS
         ! Variables over columns
         !------------------------------------------
         DO ColVar = 1,NoVar          
-          WRITE (str,'(A,I2)') 'Variable',ColVar
-          ColName = ListGetString( SolverParams, TRIM(str), GotIt )
-          Var => VariableGet( Mesh % Variables, TRIM(ColName) )
-          
+          IF( IsCoupledSolver ) THEN
+            WRITE (str,'(A,I2)') 'Variable',ColVar
+            ColName = ListGetString( SolverParams, TRIM(str), GotIt )
+            Var => VariableGet( Mesh % Variables, TRIM(ColName) )
+          ELSE
+            Var => Solver % Variable
+          END IF
+
           ColDofs = Var % Dofs
           ColPerm => Var % Perm
           ColInd0 = Offset(ColVar)
-           
+
           ! These could be user provided for each block
           !-----------------------------------------
           AssemblySymmetric = .FALSE.
@@ -1976,6 +2052,18 @@ CONTAINS
           END IF
           
           ProcName = ListGetString( SolverParams, TRIM(str), GotProc )
+          ! Test if the 11 block is not given with 'ij' indexes
+          !--------------------------------------------------------
+          IF(.NOT. GotProc .AND. RowVar == 1 .AND. ColVar == 1) THEN
+            IF( BulkMode ) THEN
+              WRITE (str,'(A)') 'Bulk Assembly Procedure'
+            ELSE
+              WRITE (str,'(A)') 'Boundary Assembly Procedure'
+            END IF
+            ProcName = ListGetString( SolverParams, TRIM(str), GotProc )
+          END IF
+
+
           IF( .NOT. GotProc ) THEN
             IF( BulkMode .AND. RowVar == ColVar) THEN
               CALL Warn('CoupledSolver','Diagonal bulk entries should be assembled!')
@@ -2429,7 +2517,7 @@ END SUBROUTINE CoupledSolver
      LOGICAL :: TransientSimulation
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, IsCoupled
+     LOGICAL :: stat, Found, IsCoupledSolver, IsAssemblySolver
      INTEGER :: i, j, n, BDOFs, execi, timestep
      REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: TimeVar, IterV
@@ -2437,7 +2525,9 @@ END SUBROUTINE CoupledSolver
 
      SAVE TimeVar
 !------------------------------------------------------------------------------
-     IsCoupled = ListGetLogical( Solver % Values,'Generic Solver',Found)
+     IsCoupledSolver = ListGetLogical( Solver % Values, 'Coupled Solver', Found )
+     IsAssemblySolver = ListGetLogical( Solver % Values, 'Assembly Solver', Found )
+     IsAssemblySolver = IsAssemblySolver .OR. IsCoupledSolver
 
      CALL SetCurrentMesh( Model, Solver % Mesh )
      Model % Solver => Solver
@@ -2467,7 +2557,7 @@ END SUBROUTINE CoupledSolver
      str = ListGetString( Solver % Values, 'Namespace', Found )
      IF (Found) CALL ListSetNamespace(TRIM(str))
 
-     IF( IsCoupled ) THEN
+     IF( IsAssemblySolver ) THEN
        CALL CoupledSolver( Model, Solver, DTScal * dt, TransientSimulation )       
      ELSE 
        CALL SingleSolver( Model, Solver, DTScal * dt, TransientSimulation ) 

@@ -121,6 +121,11 @@
 !------------------------------------------------------------------------------
 
   StressSol => VariableGet( Solver % Mesh % Variables, 'Displacement' )
+  IF( ListGetLogical( Solver % Values,'Ignore Displacement',Found) ) THEN
+    NULLIFY( StressSol )
+  END IF		
+
+
   IF ( ASSOCIATED( StressSol ) )  THEN
      StressPerm   => StressSol % Perm
      STDOFs       =  StressSol % DOFs
