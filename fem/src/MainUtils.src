@@ -1016,13 +1016,15 @@ CONTAINS
     HarmonicAnal = ListGetLogical( Solver % Values, 'Harmonic Analysis', Found )
     
     IF ( ASSOCIATED( Solver % Matrix ) ) THEN
-      ALLOCATE( Solver % Matrix % RHS(Solver % Matrix % NumberOFRows) )
-      Solver % Matrix % RHS = 0.0d0
-      
-      Solver % Matrix % RHS_im => NULL()
-      IF ( HarmonicAnal ) THEN
-        ALLOCATE( Solver % Matrix % RHS_im(Solver % Matrix % NumberOFRows) )
-        Solver % Matrix % RHS_im = 0.0d0
+      IF(.NOT. ASSOCIATED(Solver % Matrix % RHS)) THEN
+        ALLOCATE( Solver % Matrix % RHS(Solver % Matrix % NumberOFRows) )
+        Solver % Matrix % RHS = 0.0d0
+        
+        Solver % Matrix % RHS_im => NULL()
+        IF ( HarmonicAnal ) THEN
+          ALLOCATE( Solver % Matrix % RHS_im(Solver % Matrix % NumberOFRows) )
+          Solver % Matrix % RHS_im = 0.0d0
+        END IF
       END IF
     END IF
 !------------------------------------------------------------------------------
@@ -1523,6 +1525,12 @@ CONTAINS
 ! This routine uses minimalistic assmebly routines to create the 
 ! matrices. Often the results to less labour in coding which may be 
 ! comprimized by less flexibility.
+! 
+! There are currently two modes
+! IsCoupledSolver:  the variable consists of several pieces and the matrix equation
+!                   is created within this solver.
+! IsAssemblySolver: only one assembly routine is used and the matrix equation may
+!                   be formed externally using standard procedures.
 !------------------------------------------------------------------------------
     
     USE DefUtils
@@ -1582,17 +1590,24 @@ CONTAINS
     END INTERFACE
     
 
+    IsCoupledSolver = ListGetLogical( Solver % Values,'Coupled Solver',GotIt)
+    IsAssemblySolver = ListGetLogical( Solver % Values,'Assembly Solver',GotIt)
+
+
     CALL Info('CoupledSolver','---------------------------------------',Level=5)
-    CALL Info('CoupledSolver','Solving a system of equations',Level=5)
+    IF(IsCoupledSolver) THEN
+      CALL Info('CoupledSolver','Solving a system of equations',Level=5)
+    ELSE IF(IsAssemblySolver) THEN
+      CALL Info('CoupledSolver','Solving one equation',Level=5)      
+    ELSE
+      CALL Fatal('CoupledSolver','You should maybe not be here?')
+    END IF
     CALL Info('CoupledSolver','---------------------------------------',Level=5)
 
 
     Mesh => GetMesh()
     SolverParams => GetSolverParams()
     PSolver => Solver
-
-    IsCoupledSolver = ListGetLogical( Solver % Values,'Coupled Solver',GotIt)
-    IsAssemblySolver = ListGetLogical( Solver % Values,'Assembly Solver',GotIt)
 
 !------------------------------------------------------------------------------
 ! Check out which variables the coupled model includes
@@ -1684,7 +1699,6 @@ CONTAINS
         CALL Info('CoupledSolver',Message)
       END DO
       
-
       TotSize = SUM( VarSizes )
       MaxDofs = MAXVAL( VarDofs )
       
@@ -1696,9 +1710,54 @@ CONTAINS
       
       WRITE(Message,'(A,T35,I10)') 'Size of coupled system: ',TotSize
       CALL Info('CoupledSolver',Message)
+      
+      ! For the 1st time the matrix should be a list, later CRS
+      !--------------------------------------------------------
+      IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
+        Amat => AllocateMatrix()
+        Amat % ListMatrix => Alist
+        Amat % FORMAT = MATRIX_LIST      
+        Solver % Matrix => Amat
+      END IF
 
-    ELSE
+      ! This actual variable is not saved, so a dummy name suffices
+      !------------------------------------------------------------
+      VarName = ListGetString( SolverParams,'Variable', GotIt )
+      IF(.NOT. GotIt) THEN
+        CALL Info('CoupledSolver','New coupled variable added: Alldofs', Level=5)
+        VarName = 'alldofs'
+        CALL ListAddString( SolverParams,'Variable',VarName)
+      END IF
+      
+      ! If the variable hasn't been created do it now
+      !----------------------------------------------
+      Var => VariableGet(Mesh % Variables, VarName )
+      IF(.NOT. ASSOCIATED(Var) ) THEN
+        ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
+        DO i=1,TotSize
+          AllPerm(i) = i
+          AllValues(i) = 0.0_dp
+        END DO
+        CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+            VarName,1,AllValues,AllPerm,Output=.FALSE.)        
+        Amat % Rhs => ForceVector
+        Solver % Variable => VariableGet(Mesh % Variables, VarName )
+        
+        ! Map the original vectors to the monolithic vector if requested
+        !----------------------------------------------------------------------------------
+        IF( ListGetLogical( SolverParams,'Coupled Initial Guess',GotIt)) THEN
+          CALL SingleToCoupledVector()
+        END IF
+      END IF
+
+   ELSE
       CALL Info('CoupledSolver','Using existing variable and matrix')
+      IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
+        CALL Fatal('CoupledSolver','In Assembly Solver mode the Matrix should exist!')
+      END IF
+      IF(.NOT. ASSOCIATED(Solver % Variable)) THEN
+        CALL Fatal('CoupledSolver','In Assembly Solver mode the Variable should exist!')
+      END IF
       NoVar = 1
       Var => Solver % Variable
       VarDofs(1) = Var % Dofs
@@ -1709,7 +1768,7 @@ CONTAINS
       
 
 !------------------------------------------------------------------------------
-! Do some initial stuff
+! Do some initial stuff common for both modes
 !------------------------------------------------------------------------------
   
     N = Mesh % MaxElementDOFs
@@ -1732,46 +1791,7 @@ CONTAINS
       CALL ListAddString(Solver % Values,'Nonlinear System Convergence Measure','residual')
       CALL ListAddLogical(Solver % Values,'Skip Compute Change',.TRUE.)
     END IF
- 
-    ! For the 1st time the matrix should be a list, later CRS
-    !--------------------------------------------------------
-    IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
-      Amat => AllocateMatrix()
-      Amat % ListMatrix => Alist
-      Amat % FORMAT = MATRIX_LIST      
-      Solver % Matrix => Amat
-    END IF
-      
-    ! This actual variable is not saved, so a dummy name suffices
-    !------------------------------------------------------------
-    VarName = ListGetString( SolverParams,'Variable', GotIt )
-    IF(.NOT. GotIt) THEN
-      CALL Info('CoupledSolver','New coupled variable added: Alldofs', Level=5)
-      VarName = 'alldofs'
-      CALL ListAddString( SolverParams,'Variable',VarName)
-    END IF
-    
-    ! If the variable hasn't been created do it now
-    !----------------------------------------------
-    Var => VariableGet(Mesh % Variables, VarName )
-    IF(.NOT. ASSOCIATED(Var) ) THEN
-      ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
-      DO i=1,TotSize
-        AllPerm(i) = i
-        AllValues(i) = 0.0_dp
-      END DO
-      CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-          VarName,1,AllValues,AllPerm,Output=.FALSE.)        
-      Amat % Rhs => ForceVector
-      Solver % Variable => VariableGet(Mesh % Variables, VarName )
-      
-      ! Map the original vectors to the monolithic vector if requested
-      !----------------------------------------------------------------------------------
-      IF( ListGetLogical( SolverParams,'Coupled Initial Guess',GotIt)) THEN
-        CALL SingleToCoupledVector()
-      END IF
-    END IF
-    
+       
     Amat => GetMatrix()
     ForceVector => Amat % Rhs
     IF( AllDirFlag ) ALLOCATE( AllDir(TotSize) ) 
@@ -1796,15 +1816,19 @@ CONTAINS
 ! For clarity the whole assembly process put under one subroutine 
 !----------------------------------------------------------------
       CALL CoupledSystemAssembly()
-      
+      IF( IsCoupledSolver ) THEN
+        CALL CoupledConstraintAssembly()
+      END IF
+
 !----------------------------------------------------------------------
 ! The CRS matrix may be created only when the matrix structure is known
+! and some initialization may be done only when the matrix exists
 !----------------------------------------------------------------------
       IF( Amat % FORMAT == MATRIX_LIST ) THEN
         CALL List_ToCRSMatrix(Amat)
-        IF( .NOT. IsCoupledSolver ) THEN
-          CALL AddEquationSolution(PSolver, Transient )
-        END IF
+        CALL AddEquationSolution(PSolver, Transient )
+        ! Eigenmodes...
+        IF( Transient ) GOTO 100  
       END IF
       CALL DefaultFinishAssembly()
       
@@ -1830,6 +1854,7 @@ CONTAINS
           ErrorReduced = .TRUE.
         END IF
         
+        ! Update the reference residual only when new step is accepted
         IF( iter == 1 ) THEN
           PrevResidual = Residual
         ELSE
@@ -1837,9 +1862,7 @@ CONTAINS
             PrevResidual = Residual
             IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
           ELSE
-            IF( IsCoupledSolver ) THEN
-              CALL CoupledToSingleVector()
-            END IF
+            IF( IsCoupledSolver ) CALL CoupledToSingleVector()
             GOTO 100
           END IF
         END IF
@@ -1851,9 +1874,9 @@ CONTAINS
       Norm = DefaultSolve()     
       CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
 
-      IF( IsCoupledSolver ) THEN
-        CALL CoupledToSingleVector()
-      END IF
+      IF( IsCoupledSolver ) CALL CoupledToSingleVector()
+
+      ! The non-robust solver will use one assembly routine less 
       IF(.NOT. Robust) THEN
         IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
       END IF
@@ -1959,7 +1982,6 @@ CONTAINS
     END SUBROUTINE SingleToCoupledVector
 
 
-
     !------------------------------------------------------------------------------          
     ! Subroutine copies results from the coupled system vector back to the 
     ! original vectors.
@@ -1987,14 +2009,11 @@ CONTAINS
 
 
     !---------------------------------------------------
-    ! Perform assembly for the coupled system linear
-    ! system of equations including possible constraints
-    !---------------------------------------------------
     SUBROUTINE CoupledSystemAssembly()
-      !-----------------------------------------------
-      ! Start of normal assemly process
-      ! This is the basic loop without any constraints.
-      !-----------------------------------------------
+      !---------------------------------------------------
+      ! Perform normal assembly for the coupled system linear
+      ! system of equations.
+      !---------------------------------------------------
       BulkMode = .TRUE.
 100   IF(BulkMode) THEN
         CALL Info('CoupledSolver','Starting bulk assembly',Level=5)
@@ -2063,7 +2082,6 @@ CONTAINS
             ProcName = ListGetString( SolverParams, TRIM(str), GotProc )
           END IF
 
-
           IF( .NOT. GotProc ) THEN
             IF( BulkMode .AND. RowVar == ColVar) THEN
               CALL Warn('CoupledSolver','Diagonal bulk entries should be assembled!')
@@ -2126,34 +2144,37 @@ CONTAINS
               END IF
             END IF
             
-            ! Assemble the matrix with offset
-            !-----------------------------------------------
-
-
-            CALL GlueLocalSubMatrix( Amat, &
-                RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
-                RowDofs,ColDofs,STIFF )
-           
-            ! Assemble the r.h.s with offset
-            !-----------------------------------------------
-            DO i=1,Nrow
-              DO j=1,RowDofs
-                Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
-                ForceVector(Row) = ForceVector(Row) + &
-                    FORCE(RowDofs*(i-1)+j)
+            IF( IsCoupledSolver ) THEN
+              ! Assemble the matrix with offset
+              !-----------------------------------------------
+              
+              CALL GlueLocalSubMatrix( Amat, &
+                  RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
+                  RowDofs,ColDofs,STIFF )
+              
+              ! Assemble the r.h.s with offset
+              !-----------------------------------------------
+              DO i=1,Nrow
+                DO j=1,RowDofs
+                  Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
+                  ForceVector(Row) = ForceVector(Row) + &
+                      FORCE(RowDofs*(i-1)+j)
+                END DO
               END DO
-            END DO
                       
-            ! For some constraints assemble also the transpose
-            !--------------------------------------------------
-            IF( AssemblySymmetric ) THEN
-              CALL GlueLocalSubMatrix( Amat, &
-                  ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
-                  ColDofs,RowDofs,TRANSPOSE(STIFF) )               
-            ELSE IF( AssemblyAntisymmetric ) THEN
-              CALL GlueLocalSubMatrix( Amat, &
-                  ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
-                  ColDofs,RowDofs,-TRANSPOSE(STIFF) )               
+              ! For some constraints assemble also the transpose
+              !--------------------------------------------------
+              IF( AssemblySymmetric ) THEN
+                CALL GlueLocalSubMatrix( Amat, &
+                    ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
+                    ColDofs,RowDofs,TRANSPOSE(STIFF) )               
+              ELSE IF( AssemblyAntisymmetric ) THEN
+                CALL GlueLocalSubMatrix( Amat, &
+                    ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
+                    ColDofs,RowDofs,-TRANSPOSE(STIFF) )               
+              END IF
+            ELSE              
+              CALL DefaultUpdateEquations( STIFF, FORCE )
             END IF
 
           END DO
@@ -2167,10 +2188,15 @@ CONTAINS
       ELSE 
         CALL Info( 'CoupledSolver', 'Boundary assembly done for blocks', Level=4 )
       END IF
-      
+    END SUBROUTINE CoupledSystemAssembly
+    !-----------------------------------------------------------------------------------
 
+    
+
+    !-----------------------------------------------------------------------------------
+    SUBROUTINE CoupledConstraintAssembly()
       !-----------------------------------------------------------------------------------
-      ! Start of constraints assembly
+      ! Perform constraints assembly
       ! Some constraints are assembled by integration while others are done by elimination.
       ! It is important that constraints are applied after the normal assembly process. 
       !-----------------------------------------------------------------------------------
@@ -2389,7 +2415,7 @@ CONTAINS
         CALL Info( 'CoupledSolver', 'Boundary assembly done for constraints', Level=4 )
       END IF
 
-   END SUBROUTINE CoupledSystemAssembly
+    END SUBROUTINE CoupledConstraintAssembly
 
 !------------------------------------------------------------------------------
 END SUBROUTINE CoupledSolver
