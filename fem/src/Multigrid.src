@@ -114,8 +114,8 @@ CONTAINS
 
 
        INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100
-       LOGICAL :: Condition, Found, Parallel, Project,Transient
-       CHARACTER(LEN=MAX_NAME_LEN) :: Path,str,mgname
+       CHARACTER(LEN=MAX_NAME_LEN) :: Path,str,mgname, LowestSolver
+       LOGICAL :: Condition, Found, Parallel, Project,Transient, LIter
 
        TYPE(Matrix_t), POINTER :: ProjPN, ProjQT
        INTEGER, POINTER :: Permutation(:), Permutation2(:)
@@ -136,6 +136,13 @@ CONTAINS
 !      -----------
        Parallel = ParEnv % PEs > 1
 
+       n = Matrix1 % NumberOfRows
+       ALLOCATE( Residual(n) )
+       Residual = 0.0d0
+       RHSNorm = MGnorm( n, ForceVector )
+!
+!      Check for top & bottom levels:
+!      ------------------------------ 
        IF ( Level == Solver % MultiGridLevel ) THEN
           NewLinearSystem = .TRUE.
           IF ( PRESENT( NewSystem ) ) THEN
@@ -144,54 +151,68 @@ CONTAINS
        ELSE IF ( Level <= 1 ) THEN
           CALL ListAddLogical( Solver % Values,  &
                       'Linear System Free Factorization', .FALSE. )
-          IF ( NewLinearSystem ) THEN
-            CALL ListAddLogical( Solver % Values,  &
-                       'Linear System Refactorize', .TRUE. )
-          ELSE
-            CALL ListAddLogical( Solver % Values,  &
-                       'Linear System Refactorize', .FALSE. )
+
+          CALL ListAddLogical( Solver % Values, &
+                     'Linear System Refactorize', NewLinearSystem )
+
+          n = Matrix1 % NumberOfRows
+
+          RHSNorm = MGNorm( n, ForceVector )
+          ForceVector = ForceVector / RHSNorm
+
+          LowestSolver = ListGetString(Solver % Values,'MG Lowest Linear Solver',Found)
+          IF ( .NOT. Found ) THEN
+            LIter=ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)
+            IF ( .NOT. Found .AND. Parallel ) LIter=.TRUE.
+            LowestSolver='direct'
+            IF ( LIter ) LowestSolver='iterative'
           END IF
+
+          SELECT CASE(LowestSolver)
+          CASE('iterative')
+            IF ( Parallel ) THEN
+              CALL ParallelIter( Matrix1, Matrix1 % ParallelInfo, DOFs, &
+                  Solution, ForceVector, Solver, Matrix1 % ParMatrix )
+            ELSE
+              CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
+            END IF
+          CASE('direct')
+            CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
+          CASE('smoother')
+            IF ( Parallel ) THEN
+               CALL ParallelInitSolve( Matrix1, Solution, &
+                       ForceVector, Residual, NewLinearSystem )
+            END IF
+            PSolver => Solver
+            RHSNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, &
+                 ForceVector, Residual, Level, DOFs, .TRUE. )
+          CASE DEFAULT
+             CALL Warn( 'GMG:', 'Unknown solver selection for MG lowest level' )
+             CALL Warn( 'GMG:', 'Using iterative solver' )
+
+             IF ( Parallel ) THEN
+               CALL ParallelIter( Matrix1, Matrix1 % ParallelInfo, DOFs, &
+                   Solution, ForceVector, Solver, Matrix1 % ParMatrix )
+             ELSE
+               CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
+             END IF
+          END SELECT
+
+          Solution = Solution * RHSNorm
+
+          DEALLOCATE( Residual )
           NewLinearSystem = .FALSE.
+          RETURN
        END IF
 
-!---------------------------------------------------------------------
-!
-!      If at lowest level, solve directly:
-!      -----------------------------------
-       IF ( Level <= 1 ) THEN
-         IF ( .NOT. Parallel ) THEN
-           IF (ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)) THEN
-             CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
-           ELSE
-             CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
-           END IF
-         ELSE
-           IF (ListGetLogical(Solver % Values,'MG Lowest Linear Solver Iterative',Found)) THEN
-             CALL ParallelIter( Matrix1, Matrix1 % ParallelInfo, DOFs, &
-                 Solution, ForceVector, Solver, Matrix1 % ParMatrix )
-           ELSE
-             CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
-           END IF
-         END IF
-         RETURN
-       END IF
-!
-!
-!      Parallel initializations:
-!      -------------------------
-       n = Matrix1 % NumberOfRows
-       ALLOCATE( Residual(n) )
-       Residual = 0.0d0
-
+!      Compute residual:
+!      -----------------
        IF ( Parallel ) THEN
           CALL ParallelInitSolve( Matrix1, Solution, &
                   ForceVector, Residual, NewLinearSystem )
           PMatrix => ParallelMatrix( Matrix1 )
        END IF
-!
-!      Compute residual:
-!      -----------------
-       RHSNorm = MGnorm( n, ForceVector )
+
        CALL MGmv( Matrix1, Solution, Residual, .TRUE. )
        Residual(1:n) = ForceVector(1:n) - Residual(1:n)
  
@@ -501,14 +522,9 @@ CONTAINS
 !
 !     Recursively solve (PAQ)z = Pr:
 !     ------------------------------
-      DO i=1,  Sweeps
-         Work2(1:n2) = Solution2(1:n2)
-
-         CALL MultigridSolve( Matrix2, Work2, Residual2, &
+      DO i=1,Sweeps
+         CALL MultigridSolve( Matrix2, Solution2, Residual2, &
              DOFs, Solver, Level-1, NewLinearSystem )
-
-!        Solution2(1:n2) = Solution2(1:n2) + Work2(1:n2)
-         Solution2(1:n2) = Work2(1:n2)
       END DO
 !
 !     Compute x = x + Qz:
@@ -839,7 +855,6 @@ CONTAINS
 
        IF ( Level == Solver % MultiGridLevel ) THEN
           NewLinearSystem = .TRUE.
-
           IF ( PRESENT( NewSystem ) ) THEN
              NewLinearSystem = NewLinearSystem .AND. NewSystem
           END IF
@@ -881,7 +896,8 @@ CONTAINS
 !      Parallel initializations:
 !      -------------------------
        IF ( Parallel ) THEN
-          CALL ParallelInitSolve( Matrix1, Solution, ForceVector, Residual )
+          CALL ParallelInitSolve( Matrix1, Solution, &
+              ForceVector, Residual, NewLinearSystem )
           PMatrix => ParallelMatrix( Matrix1 ) 
        END IF
 !
@@ -989,8 +1005,6 @@ CONTAINS
              END DO
              Pmatrix => Matrix2
            END DO
-           ALLOCATE( SolutionStore( Level-1,n ) )
-           SolutionStore = 0._dp
          END IF
 
          PMatrix => Matrix1
@@ -1019,12 +1033,10 @@ CONTAINS
 !      --------------------------
        n  = Matrix1 % NumberOfRows
        n2 = Matrix2 % NumberOfRows
-print*,'sizes: ', n,n2
 
-       ALLOCATE( Residual2(n2) )
+       ALLOCATE( Residual2(n2), Solution2(n2) )
        Residual2 = 0._dp
-
-       Solution2 => SolutionStore(Level-1,1:n2)
+       Solution2 = 0._dp
 !------------------------------------------------------------------------------
 !
 !      Global iteration parameters:
@@ -1120,7 +1132,7 @@ print*,'sizes: ', n,n2
        Solver % Matrix   => SaveMatrix
        Solver % Variable => SaveVariable
 
-       DEALLOCATE( Residual, Residual2 )
+       DEALLOCATE( Residual, Residual2, Solution2 )
 
        IF ( Level == Solver % MultiGridTotal ) THEN
           WRITE( Message,'(A,F8.2)') 'MG iter time: ', CPUTime() - tt
