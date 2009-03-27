@@ -505,7 +505,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE CRS_MoveRow( A,n1,n2 )
+  SUBROUTINE CRS_MoveRow( A,n1,n2,coeff )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -527,13 +527,20 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A
     INTEGER :: n1,n2
- 
-    REAL(KIND=dp) :: Value
+    REAL(KIND=dp),OPTIONAL :: coeff 
+
+    REAL(KIND=dp) :: Value, c
     INTEGER :: i,j
+
+    IF( PRESENT(Coeff)) THEN
+      c = coeff
+    ELSE
+      c = 1.0_dp
+    END IF
 
     DO i=A % Rows(n1),A % Rows(n1+1)-1
       j = A % Cols(i)
-      Value = A % Values(i) 
+      Value = c * A % Values(i) 
       A % Values(i) = 0.0_dp
       CALL CRS_AddToMatrixElement( A,n2,j,Value )      
     END DO

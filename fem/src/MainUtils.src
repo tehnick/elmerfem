@@ -1559,7 +1559,7 @@ CONTAINS
     INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id
     INTEGER, POINTER :: ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: ConsValues(:)
-    REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsVolume, &
+    REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume, &
         Residual, PrevResidual
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
     LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric, &
@@ -1784,9 +1784,9 @@ CONTAINS
     NoIterations = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',gotIt)
-    Robust = ListGetLogical(Solver % Values,'Robust Nonlinear Solver',GotIt)
+    Robust = ListGetLogical(Solver % Values,'Nonlinear System Linesearch',GotIt)
     IF( Robust ) THEN
-      NoTests = GetInteger( SolverParams,'Nonlinear System Max StepSize Tests',GotIt)
+      NoTests = GetInteger( SolverParams,'Nonlinear System Linesearch Iterations',GotIt)
       IF(.NOT. GotIt) NoTests = NoIterations
       CALL ListAddString(Solver % Values,'Nonlinear System Convergence Measure','residual')
       CALL ListAddLogical(Solver % Values,'Skip Compute Change',.TRUE.)
@@ -2003,6 +2003,8 @@ CONTAINS
         DO j=1,SIZE(Var % Values)
           Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
         END DO
+
+        CALL InvalidateVariable( Model % Meshes, Solver % Mesh, VarName )
       END DO
 
     END SUBROUTINE CoupledToSingleVector
@@ -2235,7 +2237,11 @@ CONTAINS
         END IF
 
         WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Value'
-        ConsValue = GetCReal(Solver % Values,TRIM(str))
+        ConsValue = GetCReal(Solver % Values,TRIM(str), GotIt)
+
+        WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Coeff'
+        ConsCoeff = GetCReal(Solver % Values,TRIM(str), GotIt)
+        IF(.NOT. GotIt) ConsCoeff = 1.0_dp
 
         IF ( ConsType == 'equality' ) THEN
           WRITE (str,'(A,I2)') 'Variable',VarInds(2)
@@ -2329,17 +2335,19 @@ CONTAINS
                 
                 IF( ConsType == 'floating') THEN
                   Row = RowInd0 + 1
-                  CALL MoveRow( Amat, Col, Row ) 
-                  ! ForceVector(Row) = ForceVector(Row) + ForceVector(Col)
-                ELSE 
-                  Row = RowInd0 + RowDofs * RowInds(i) - k
-                  CALL MoveRow( Amat, Col, Row ) 
+                  CALL MoveRow( Amat, Col, Row )
                   ForceVector(Row) = ForceVector(Row) + ForceVector(Col)
+                  ForceVector(Col) = 0.0_dp
+                ELSE IF( ConsType == 'equality') THEN
+                  Row = RowInd0 + RowDofs * RowInds(i) - k
+                  CALL MoveRow( Amat, Col, Row, ConsCoeff ) 
+                  ForceVector(Row) = ForceVector(Row) + ForceVector(Col)
+                  ForceVector(Col) = 0.0_dp
                 END IF
                 
-                ForceVector(Col) = 0.0_dp                                                      
+                ForceVector(Row) = ForceVector(Row) + ConsValue
                 CALL SetMatrixElement( Amat,Col,Col,1.0_dp )
-                CALL SetMatrixElement( Amat,Col,Row,-1.0_dp )
+                CALL SetMatrixElement( Amat,Col,Row,-ConsCoeff)
               END DO
             END DO
             CYCLE

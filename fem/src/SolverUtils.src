@@ -278,19 +278,28 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-   SUBROUTINE MoveRow( StiffMatrix, n1, n2 )
+   SUBROUTINE MoveRow( StiffMatrix, n1, n2, Coeff )
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
-      INTEGER :: n1, n2
+     INTEGER :: n1, n2
+     REAL(KIND=dp), OPTIONAL :: Coeff
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
        CASE( MATRIX_CRS )
-         CALL CRS_MoveRow( StiffMatrix,n1,n2 )
+         IF( PRESENT( Coeff ) ) THEN
+           CALL CRS_MoveRow( StiffMatrix,n1,n2,Coeff )
+         ELSE
+           CALL CRS_MoveRow( StiffMatrix,n1,n2 )  
+         END IF
 
        CASE( MATRIX_LIST )
-         CALL List_MoveRow( StiffMatrix % ListMatrix,n1,n2 )
-         
+         IF( PRESENT( Coeff ) ) THEN
+           CALL List_MoveRow( StiffMatrix % ListMatrix,n1,n2,Coeff )
+         ELSE
+           CALL List_MoveRow( StiffMatrix % ListMatrix,n1,n2 )
+         END IF
+
        CASE DEFAULT
          CALL Warn('MoveRow','Not implemented for this type')
          
