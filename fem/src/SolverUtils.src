@@ -3378,8 +3378,8 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp), POINTER :: SaveValues(:)
-    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag
     REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:)
+    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm
     TYPE(Matrix_t), POINTER :: Aaid
 
 !------------------------------------------------------------------------------
@@ -3457,8 +3457,6 @@ CONTAINS
          END DO
       END DO
 
-      b(1:n) =  b(1:n) * Diag(1:n)
-
       IF ( ASSOCIATED( A % MassValues ) ) THEN
          IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
             DO i=1,n
@@ -3523,8 +3521,6 @@ CONTAINS
            END DO
          END DO
 
-         b(1:n) =  b(1:n) / Diag(1:n)
-
          IF ( ASSOCIATED( A % MassValues ) ) THEN
             IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
                DO i=1,n
@@ -3559,8 +3555,6 @@ CONTAINS
        RETURN
      END IF
 
-!------------------------------------------------------------------------------
-
     Relaxation = ListGetConstReal( Solver % Values, &
       'Nonlinear System Relaxation Factor', Relax )
     Relax = Relax .AND. (Relaxation /= 1.0d0)
@@ -3592,27 +3586,33 @@ CONTAINS
     Solver % MultiGridTotal = MAX( Solver % MultiGridTotal, &
         ListGetInteger( Solver % Values,'MG Levels', GotIt, minv=1 ) )
     Solver % MultiGridLevel = Solver % MultigridTotal
-
 !------------------------------------------------------------------------------
 ! 
-!   Convert initial value to the scaled system:
-!   -------------------------------------------
-    IF ( ScaleSystem ) x(1:n) = x(1:n) / Diag(1:n)
+!   Convert rhs initial value to the scaled system:
+!   -----------------------------------------------
+    IF ( ScaleSystem ) b(1:n) = b(1:n) * Diag(1:n)
+    bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+
+    IF ( bnorm==0._dp ) THEN
+      CALL Info('SolveSystem','Solution trivially zero!')
+      x = 0.0d0
+      RETURN
+    END IF
+
+    IF ( ScaleSystem ) THEN
+      b(1:n) = b(1:n) / bnorm
+      x(1:n) = x(1:n) / Diag(1:n) / bnorm
+    END IF
 
     IF ( ParEnv % PEs <= 1 ) THEN
-       IF ( ALL( b(1:n) == 0.0d0 ) ) THEN
-          CALL Info('SolveSystem','Solution trivially zero!')
-          x = 0.0d0
+       IF ( Solver % MultiGridSolver ) THEN
+           CALL MultiGridSolve( A, x, b, &
+                   DOFs, Solver, Solver % MultiGridLevel )
+       ELSE IF ( ListGetString( Solver % Values, &
+               'Linear System Solver', GotIt ) == 'iterative' ) THEN
+          CALL IterSolver( A, x, b, Solver )
        ELSE
-          IF ( Solver % MultiGridSolver ) THEN
-              CALL MultiGridSolve( A, x, b, &
-                      DOFs, Solver, Solver % MultiGridLevel )
-          ELSE IF ( ListGetString( Solver % Values, &
-                  'Linear System Solver', GotIt ) == 'iterative' ) THEN
-             CALL IterSolver( A, x, b, Solver )
-          ELSE
-              CALL DirectSolver( A, x, b, Solver )
-          END IF
+           CALL DirectSolver( A, x, b, Solver )
        END IF
     ELSE
        IF ( Solver % MultiGridSolver ) THEN
@@ -3630,9 +3630,10 @@ CONTAINS
 
     IF ( ScaleSystem ) THEN
 ! 
-!      Solve x:  INV(D)x = y
-!      ----------------------
-       x(1:n) = x(1:n) * Diag(1:n)
+!      Solve x:  INV(D)x = y, scale b back to orig
+!      -------------------------------------------
+       x(1:n) = x(1:n) * Diag(1:n) * bnorm
+       b(1:n) = b(1:n) / Diag(1:n) * bnorm
 
 ! 
 !      Scale the system back to original:
@@ -3642,8 +3643,6 @@ CONTAINS
            A % Values(j) = A % Values(j) / ( Diag(i) * Diag(A % Cols(j)) )
          END DO
        END DO
-
-       b(1:n) =  b(1:n) / Diag(1:n)
 
        IF ( ASSOCIATED( A % MassValues ) ) THEN
           IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
