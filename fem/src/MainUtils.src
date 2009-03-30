@@ -1560,7 +1560,7 @@ CONTAINS
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: ProcName
     LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint, &
-        IsCoupledSolver, IsAssemblySolver
+        IsCoupledSolver, IsAssemblySolver, IsListMatrix
     INTEGER(KIND=AddrInt) :: ProcPntr    
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
@@ -1872,6 +1872,7 @@ CONTAINS
     CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
     Residual = -1.0_dp
     PrevResidual = -1.0_dp
+    IsListMatrix = ( Amat % FORMAT == MATRIX_LIST )
     
     DO iter = 1,NoIterations
       
@@ -1879,7 +1880,7 @@ CONTAINS
       CALL Info('CoupledSolver',Message,Level=5)
    
       tests = 0
-100   IF( Amat % FORMAT == MATRIX_CRS ) CALL DefaultInitialize()
+100   IF(.NOT. IsListMatrix ) CALL DefaultInitialize()
       IF( AllDirFlag ) AllDir = .FALSE.
 
 !----------------------------------------------------------------
@@ -1894,11 +1895,11 @@ CONTAINS
 ! The CRS matrix may be created only when the matrix structure is known
 ! and some initialization may be done only when the matrix exists
 !----------------------------------------------------------------------
-      IF( Amat % FORMAT == MATRIX_LIST ) THEN
+      IF( IsListMatrix ) THEN
         CALL List_ToCRSMatrix(Amat)
+        IsListMatrix = .FALSE.
         CALL AddEquationSolution(PSolver, Transient )
-        ! Eigenmodes...
-        IF( Transient ) GOTO 100  
+        GOTO 100  
       END IF
       CALL DefaultFinishAssembly()
       
@@ -1912,8 +1913,8 @@ CONTAINS
       END IF
 
 !------------------------------------------------------------------------------
-!    This will be a point for robust solver which cheks the stepsize
-!    but whats below is still crap...
+!    Check the stepsize of nonlinear iteration using the Armijo-GoldStein 
+!    criterion for the stepsize.
 !------------------------------------------------------------------------------          
       IF( Robust  ) THEN   
         ErrorReduced = CheckStepSize(Solver,tests==0,PrevResidual,Residual)
@@ -2187,9 +2188,23 @@ CONTAINS
             ColInds(1:Ncol) = ColPerm(Indexes(1:nd))
             IF(.NOT. ALL(ColInds(1:Ncol) > 0)) CYCLE                 
 
-! Do the assembly, now really
-!---------------------------------------------------------------------------------------
-            
+            ! Here just the matrix structure is set, no values
+            !---------------------------------------------------------------
+            IF( IsListMatrix ) THEN
+              CALL GlueLocalSubMatrix( Amat, &
+                  RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
+                  RowDofs,ColDofs,STIFF )
+              IF( AssemblySymmetric .OR. AssemblyAntiSymmetric ) THEN
+                CALL GlueLocalSubMatrix( Amat, &
+                    ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
+                    ColDofs,RowDofs,STIFF )          
+              END IF
+              CYCLE
+            END IF
+
+
+            ! Do the assembly, now really
+            !---------------------------------------------------------------
             STIFF = 0.0_dp
             DAMP = 0.0_dp
             MASS = 0.0_dp
@@ -2403,17 +2418,23 @@ CONTAINS
                 IF( AllDir(Col) ) CYCLE
                 AllDir(Col) = .TRUE.
                 
+
                 IF( ConsType == 'floating') THEN
                   Row = RowInd0 + 1
-                  CALL MoveRow( Amat, Col, Row )
-                  ForceVector(Row) = ForceVector(Row) + ForceVector(Col)
-                  ForceVector(Col) = 0.0_dp
                 ELSE IF( ConsType == 'equality') THEN
                   Row = RowInd0 + RowDofs * RowInds(i) - k
-                  CALL MoveRow( Amat, Col, Row, ConsCoeff ) 
-                  ForceVector(Row) = ForceVector(Row) + ForceVector(Col)
-                  ForceVector(Col) = 0.0_dp
                 END IF
+
+                IF( IsListMatrix ) THEN
+                  CALL MoveRow( Amat, Col, Row )
+                  CALL SetMatrixElement( Amat,Col,Col,0.0_dp )
+                  CALL SetMatrixElement( Amat,Col,Row,0.0_dp )
+                  CYCLE
+                END IF
+
+                CALL MoveRow( Amat, Col, Row, ConsCoeff ) 
+                ForceVector(Row) = ForceVector(Row) + ForceVector(Col)
+                ForceVector(Col) = 0.0_dp
                 
                 ForceVector(Row) = ForceVector(Row) + ConsValue
                 CALL SetMatrixElement( Amat,Col,Col,1.0_dp )
@@ -2422,6 +2443,21 @@ CONTAINS
             END DO
             CYCLE
           END IF
+
+
+          IF( IsListMatrix ) THEN            
+            CALL GlueLocalSubMatrix( Amat, &
+                RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
+                RowDofs,ColDofs,STIFF )
+            IF( AssemblySymmetric .OR. AssemblyAntisymmetric ) THEN
+              CALL GlueLocalSubMatrix( Amat, &
+                  ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
+                  ColDofs,RowDofs,STIFF )               
+            END IF
+            CYCLE
+          END IF
+
+
 
           ! Do the assembly, now really (active only for some constraints)
           !----------------------------------------------------------------
