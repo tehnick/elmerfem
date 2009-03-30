@@ -1539,6 +1539,7 @@ CONTAINS
 ! check the time-dependency
 ! check for eigenmode analysis
 ! different lumped functionalities (energy,...)
+! bandwidth optimization for coupled system
 
     
     USE DefUtils
@@ -1689,11 +1690,11 @@ CONTAINS
             ConsValues = 0.0_dp
 
             WRITE (str,'(A,I2,A)') 'Variable',i,' Dofs'
-            ColDofs = ListGetInteger( SolverParams, TRIM(str), GotIt )
-            IF(.NOT. GotIt) ColDofs = 1
+            ConDofs = ListGetInteger( SolverParams, TRIM(str), GotIt )
+            IF(.NOT. GotIt) ConDofs = 1
 
             CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-                VarName, ColDofs, ConsValues, ColPerm )          
+                VarName, ConDofs, ConsValues, ColPerm )          
             Var => VariableGet( Mesh % Variables, VarName )         
             PRINT *,'Creating variable ',TRIM(VarName),' with dofs',ConDofs
             NULLIFY( ConsValues )
