@@ -1532,6 +1532,14 @@ CONTAINS
 ! IsAssemblySolver: only one assembly routine is used and the matrix equation may
 !                   be formed externally using standard procedures.
 !------------------------------------------------------------------------------
+
+! TODO:
+! non-nodal elements (internal allocation & right elementtype)
+! solution (and perm) vectors could be reused by setting pointers to correct positions
+! check the time-dependency
+! check for eigenmode analysis
+! different lumped functionalities (energy,...)
+
     
     USE DefUtils
     
@@ -1556,7 +1564,7 @@ CONTAINS
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
          VarSizes(20), VarDofs(20)
-    INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id
+    INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id
     INTEGER, POINTER :: ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: ConsValues(:)
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume, &
@@ -1564,7 +1572,7 @@ CONTAINS
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
     LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric, &
         AllDirFlag, Robust, ErrorReduced
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:)
+    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:),ActiveVariables(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
     REAL(KIND=dp), POINTER :: ForceVector(:),AllValues(:)
     LOGICAL, POINTER :: AllDir(:)
@@ -1609,21 +1617,16 @@ CONTAINS
     SolverParams => GetSolverParams()
     PSolver => Solver
 
-!------------------------------------------------------------------------------
-! Check out which variables the coupled model includes
-! and compure size information related to the new coupled dof.
-!------------------------------------------------------------------------------
-
-    !----------------------------------------------------------------------------
-    ! Currently the list of active variables and their permutation vectors must be
-    ! provided using other solvers for initiazalition. This could be allocated 
-    ! internally using the Variable = AllDofs[VectorDof:3 ScalarDof:1] system
-    !--------------------------------------------------------------------------
+    !------------------------------------------------------------------------------
+    ! Check out which variables the coupled model includes
+    ! and compure size information related to the new coupled dof.
+    !------------------------------------------------------------------------------
     Offset = 0
     VarSizes = 0    
     NoVar = 0
     NoCons = 0
     VarDofs = 0
+
 
     IF( IsCoupledSolver ) THEN
       
@@ -1632,7 +1635,72 @@ CONTAINS
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         IF(.NOT. GotIt) EXIT
         Var => VariableGet( Mesh % Variables, TRIM(VarName) )
-        IF(.NOT. ASSOCIATED( Var )) EXIT 
+        
+        !-----------------------------------------------------------------------------------
+        ! If variable does not exist it will be created. 
+        ! Here only normal nodal elements are supported for the moment. 
+        ! Then also the creation of permutation vector is straight-forward.
+        ! Note that no reordering is currently performed.
+        !
+        ! There is limitation regarding non-nodal elements which stems partly from the fact
+        ! that an elementtype is solver specific while this one solver could have a number of
+        ! different elementtypes for different equations.
+        !-----------------------------------------------------------------------------------
+        IF(.NOT. ASSOCIATED( Var )) THEN
+          CALL Info('CoupledSolver','Variable '//TRIM(VarName)//' does not exist, creating')
+          n = Solver % Mesh % NumberOfNodes
+          NULLIFY( ColPerm )
+          ALLOCATE( ColPerm(n) )
+          ColPerm = 0
+
+          !------------------------------------------------------------------------------             
+          DO t=1,Mesh % NumberOfBulkElements + Mesh % NumberOFBoundaryElements
+
+            Element => Mesh % Elements(t)
+            CurrentModel % CurrentElement => Element
+            
+            body_id = Element % BodyId 
+            IF( body_id < 1 ) CYCLE
+
+            eq_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values,'Equation')
+            IF( eq_id < 1 ) CYCLE
+
+            ActiveVariables => ListGetIntegerArray( CurrentModel % Equations(eq_id) % Values, &
+                'Active Variables')
+            IF(.NOT. ASSOCIATED(ActiveVariables)) CYCLE
+
+            IF( ANY(ActiveVariables == i) )  THEN
+              n  = GetElementNOFNodes()
+              Indexes => Element % NodeIndexes
+              ColPerm( Indexes(1:n) ) = 1
+            END IF
+          END DO
+
+          j = 0
+          DO t = 1, SIZE(ColPerm)
+            IF( ColPerm(t) > 0 ) THEN
+              j = j + 1
+              ColPerm(t) = j
+            END IF
+          END DO
+
+          IF( j > 0 ) THEN
+            ALLOCATE(ConsValues(j))
+            ConsValues = 0.0_dp
+
+            WRITE (str,'(A,I2,A)') 'Variable',i,' Dofs'
+            ColDofs = ListGetInteger( SolverParams, TRIM(str), GotIt )
+            IF(.NOT. GotIt) ColDofs = 1
+
+            CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+                VarName, ColDofs, ConsValues, ColPerm )          
+            Var => VariableGet( Mesh % Variables, VarName )         
+            PRINT *,'Creating variable ',TRIM(VarName),' with dofs',ConDofs
+            NULLIFY( ConsValues )
+          ELSE 
+            CALL Fatal('CoupledSolver','Variable '//TRIM(VarName)//' cannot be created')
+          END IF
+        END IF
         
         NoVar = NoVar + 1
         VarDofs(NoVar) = Var % Dofs
@@ -1681,6 +1749,7 @@ CONTAINS
         IF( ConDofs > 0 ) THEN
           Var => VariableGet( Mesh % Variables, VarName )
           IF( .NOT. ASSOCIATED(Var) ) THEN
+            CALL Info('CoupledSolver','Constraint '//TRIM(VarName)//' does not exist, creating')
             ALLOCATE(ConsValues(ConDofs))
             CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                 VarName, ConDofs, ConsValues, Output = .FALSE. )          
@@ -1778,7 +1847,7 @@ CONTAINS
         DAMP( MaxDofs*N, MaxDofs*N ),  &
         MASS(  MaxDofs*N, MaxDofs*N ), &
         ColInds( N ), RowInds( N ),    &
-        Indexes(N), STAT=istat )
+        Indexes( n ), STAT=istat )
     IF ( istat /= 0 ) CALL FATAL('CoupledSolver','Memory allocation error')
     
     NoIterations = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
