@@ -1451,7 +1451,8 @@ CONTAINS
 
           IF ( k > 0 ) THEN
             IF ( DOF>0 ) THEN
-              m = BoundaryReorder(Indexes(j))
+              m = 0
+              IF ( NormalTangentialNOFNodes>0 ) m=BoundaryReorder(Indexes(j))
               IF ( m>0 .AND. CheckNT ) THEN
                 RotVec = 0._dp
                 RotVec(DOF) = 1._dp
