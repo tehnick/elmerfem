@@ -1451,27 +1451,25 @@ CONTAINS
 
           IF ( k > 0 ) THEN
             IF ( DOF>0 ) THEN
-              IF ( CheckNT ) THEN
-                m = BoundaryReorder(Indexes(j))
-                IF ( m>0 ) THEN
-                  RotVec = 0._dp
-                  RotVec(DOF) = 1._dp
-                  CALL RotateNTSystem( RotVec, Indexes(j) )
-                  DO k=1,dim
-                    IF ( ABS(RotVec(k)) > 1.d-8 ) THEN
-                      IF ( NTelement(m,k)==elno ) THEN
-                        l = NDOFs * (Perm(Indexes(j))-1) + k
-                        IF ( .NOT. NTZeroing_done(m,k) ) THEN
-                          b(l) = 0._dp
-                          CALL ZeroRow( A,l )
-                          CALL SetMatrixElement( A,l,l,1.0_dp)
-                          NTZeroing_done(m,k) = .TRUE.
-                        END IF
-                        b(l) = b(l) + RotVec(k) * Work(j)
+              m = BoundaryReorder(Indexes(j))
+              IF ( m>0 .AND. CheckNT ) THEN
+                RotVec = 0._dp
+                RotVec(DOF) = 1._dp
+                CALL RotateNTSystem( RotVec, Indexes(j) )
+                DO k=1,dim
+                  IF ( ABS(RotVec(k)) > 1.d-8 ) THEN
+                    IF ( NTelement(m,k)==elno ) THEN
+                      l = NDOFs * (Perm(Indexes(j))-1) + k
+                      IF ( .NOT. NTZeroing_done(m,k) ) THEN
+                        b(l) = 0._dp
+                        CALL ZeroRow( A,l )
+                        CALL SetMatrixElement( A,l,l,1.0_dp)
+                        NTZeroing_done(m,k) = .TRUE.
                       END IF
+                      b(l) = b(l) + RotVec(k) * Work(j)
                     END IF
-                  END DO
-                END IF
+                  END IF
+                END DO
               ELSE
                 k = OffSet + NDOFs * (k-1) + DOF
                 IF ( A % FORMAT == MATRIX_SBAND ) THEN
