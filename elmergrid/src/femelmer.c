@@ -191,7 +191,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
   int ind[MAXNODESD3];
   int nofiles,activestep;
   Real r, *res, x, y, z;
-  FILE *in[MAXPARTITIONS+1],*out;
+  FILE *in[MAXPARTITIONS+1],*intest,*out;
   char line[LONGLINE],filename[MAXFILESIZE],text[MAXNAMESIZE],outstyle[MAXFILESIZE];
   char *cp;
 
@@ -201,13 +201,15 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int par
 
   for(i=0;;i++) {
     sprintf(filename,"%s.ep.%d",prefix,i);
-    if ((in[i] = fopen(filename,"r")) == NULL) break;
-
-    if(i > MAXPARTITIONS) {
-      printf("There are some static data that limit the size of partitions to %d\n",MAXPARTITIONS);
-      return(1);
-    }
+    if ((intest = fopen(filename,"r")) == NULL) break;
+    if(i<=MAXPARTITIONS) in[i] = intest;
   }
+  if(i > MAXPARTITIONS) {
+    printf("**********************************************************\n");
+    printf("Only data for %d partitions is fused (%d)\n",MAXPARTITIONS,i);
+    printf("**********************************************************\n");
+    i = MAXPARTITIONS;
+  } 
   nofiles = i;
 
   if(nofiles < 2) {
@@ -3221,6 +3223,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int maxneededtimes,indirecttype,bcneeded,trueparent,*ownerpart;
   int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,*bcnodesaved2,orphannodes;
   int *bcnodedummy,*elementhalo,*neededtimes2;
+  int partstart,partfin,filesetsize,nofile;
   FILE *out,*outfiles[MAXPARTITIONS+1];
 
 
@@ -3234,10 +3237,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     printf("Tried to save partiotioned format without partitions!\n");
     bigerror("No Elmer mesh files saved!");
   }
-  if(partitions > MAXPARTITIONS) {
-    printf("There are some static data that limits the size of partitions to %d\n",MAXPARTITIONS);
-    bigerror("No Elmer mesh files saved!");
-  }
+
 
   elempart = data->elempart;
   ownerpart = data->nodepart;
@@ -3294,6 +3294,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   if(info) printf("Saving mesh in parallel ElmerSolver format to directory %s/%s.\n",
 		  directoryname,subdirectoryname);
 
+  filesetsize = MAXPARTITIONS;
+  if(partitions > filesetsize) 
+    if(info) printf("Saving %d partitions in maximum sets of %d\n",partitions,filesetsize);
+
   elementsinpart = Ivector(1,partitions);
   indirectinpart = Ivector(1,partitions);
   sidesinpart = Ivector(1,partitions);
@@ -3319,14 +3323,24 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   /*********** part.n.elements *********************/
   /* Save elements in all partitions and where they are needed */
 
-  for(part=1;part<=partitions;part++) {
+  
+  partstart = 1;
+  partfin = MIN( partitions, filesetsize );
+
+ next_elements_set:
+
+  for(part=partstart;part<=partfin;part++) {
     sprintf(filename,"%s.%d.%s","part",part,"elements");
-    outfiles[part] = fopen(filename,"w");
+    nofile = part - partstart + 1;
+    outfiles[nofile] = fopen(filename,"w");
   }
 
   for(i=1;i<=noelements;i++) {
     part = elempart[i];
 
+    if(part < partstart || part > partfin) continue;
+
+    nofile = part - partstart + 1;
     elemtype = data->elementtypes[i];
     nodesd2 = elemtype%100;
     bulktypes[part][elemtype] += 1;
@@ -3337,6 +3351,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       fprintf(outfiles[part],"%d/%d %d %d ",i,part,data->material[i],elemtype);
     else
       fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
+
     for(j=0;j < nodesd2;j++) {
       ind = data->topology[i][j];
       if(neededtimes[ind] > 1) otherpart++;
@@ -3434,8 +3449,15 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     }
   }
 
-  for(part=1;part<=partitions;part++)   
-    fclose(outfiles[part]);
+  for(part=partstart;part<=partfin;part++) {
+    nofile = part - partstart + 1;
+    fclose(outfiles[nofile]);
+  }
+  if(partfin < partitions) {
+    partstart = partfin + 1;
+    partfin = MIN( partfin + filesetsize, partitions);
+    goto next_elements_set;
+  }
   /* part.n.elements saved */
 
 
@@ -3484,9 +3506,17 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 
   /*********** part.n.nodes *********************/
-  for(part=1;part<=partitions;part++) {
+
+  partstart = 1;
+  partfin = MIN( partitions, filesetsize);
+
+
+ next_nodes_set:
+
+  for(part=partstart;part<=partfin;part++) {
     sprintf(filename,"%s.%d.%s","part",part,"nodes");
-    outfiles[part] = fopen(filename,"w");
+    nofile = part - partstart + 1;
+    outfiles[nofile] = fopen(filename,"w");
   }
   
   for(i=1;i<=partitions;i++) {
@@ -3507,6 +3537,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       k = data->partitiontable[j][i];
       if(!k) break;
 
+      if(k < partstart || k > partfin) continue;
+
       ind = i;
       if(reorder) ind=order[i];
 
@@ -3522,15 +3554,30 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	sharednodes[k] += 1;
     }
   }
-  for(part=1;part<=partitions;part++)   
-    fclose(outfiles[part]);
+
+  for(part=partstart;part<=partfin;part++) {
+    nofile = part - partstart + 1;
+    fclose(outfiles[nofile]);
+  }
+  if(partfin < partitions) {
+    partstart = partfin + 1;
+    partfin = MIN( partfin + filesetsize, partitions);
+    goto next_nodes_set;
+  }
   /* part.n.nodes saved */
       
 
   /*********** part.n.shared *********************/
-  for(part=1;part<=partitions;part++) {
+
+  partstart = 1;
+  partfin = MIN( partitions, filesetsize );
+
+ next_shared_set:
+
+  for(part=partstart;part<=partfin;part++) {
     sprintf(filename2,"%s.%d.%s","part",part,"shared");
-    outfiles[part] = fopen(filename2,"w");
+    nofile = part - partstart + 1;
+    outfiles[nofile] = fopen(filename,"w");
   }
 
   for(l=1; l <= noknots; l++) {      
@@ -3541,10 +3588,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
     for(j=1;j<=neededtimes2[i];j++) {
       k = data->partitiontable[j][i];
-	
+      
+      if(k < partstart || k > partfin) continue;
+
       ind = i;
       if(reorder) ind = order[i];
-
       neededtwice[k] += 1; 
 
       fprintf(outfiles[k],"%d %d %d",ind,neededtimes2[i],ownerpart[i]);      
@@ -3553,6 +3601,20 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       fprintf(outfiles[k],"\n");
     }
   }
+
+  for(part=partstart;part<=partfin;part++) {
+    nofile = part - partstart + 1;
+    fclose(outfiles[nofile]);
+  }
+  if(partfin < partitions) {
+    partstart = partfin + 1;
+    partfin = MIN( partfin + filesetsize, partitions);
+    goto next_shared_set;
+  }
+  /* part.n.shared saved */
+
+
+
 
    
   /*********** part.n.boundary *********************/
@@ -3956,12 +4018,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       if(indirect) printf(" %-8d",indirectinpart[part]);
       printf("\n");
     }
-  } /* of part */
+  } 
+  /*********** end of part.n.boundary *********************/
+
 
   free_Ivector(bcnodesaved2,1,noknots);
   if(halo) free_Ivector(neededtimes2,1,noknots);
   
-
+  
   chdir("..");
   chdir("..");
 
