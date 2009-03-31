@@ -3342,7 +3342,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     nodesd2 = elemtype%100;
 
     if(part >= partstart && part <= partfin) {
-      nofile = part - partstart - 1;
+      nofile = part - partstart + 1;
       bulktypes[part][elemtype] += 1;
       elementsinpart[part] += 1;
     
@@ -3406,7 +3406,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  }
 
 	  if(part2 < partstart || part > partfin) continue;
-	  nofile2 = part2 - partstart - 1;
+	  nofile2 = part2 - partstart + 1;
 
 
 	  if(sidehits == sideelemtype % 100 && elementhalo[part2] != i) {
