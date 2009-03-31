@@ -3223,7 +3223,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int maxneededtimes,indirecttype,bcneeded,trueparent,*ownerpart;
   int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,*bcnodesaved2,orphannodes;
   int *bcnodedummy,*elementhalo,*neededtimes2;
-  int partstart,partfin,filesetsize,nofile;
+  int partstart,partfin,filesetsize,nofile,nofile2;
   FILE *out,*outfiles[MAXPARTITIONS+1];
 
 
@@ -3338,31 +3338,36 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=noelements;i++) {
     part = elempart[i];
 
-    if(part < partstart || part > partfin) continue;
-
-    nofile = part - partstart + 1;
     elemtype = data->elementtypes[i];
     nodesd2 = elemtype%100;
-    bulktypes[part][elemtype] += 1;
-    elementsinpart[part] += 1;
-    otherpart = 0;
 
-    if(halo)
-      fprintf(outfiles[part],"%d/%d %d %d ",i,part,data->material[i],elemtype);
-    else
-      fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
+    if(part >= partstart && part <= partfin) {
+      nofile = part - partstart - 1;
+      bulktypes[part][elemtype] += 1;
+      elementsinpart[part] += 1;
+    
+      if(halo)
+	fprintf(outfiles[nofile],"%d/%d %d %d ",i,part,data->material[i],elemtype);
+      else
+	fprintf(outfiles[nofile],"%d %d %d ",i,data->material[i],elemtype);
 
-    for(j=0;j < nodesd2;j++) {
-      ind = data->topology[i][j];
-      if(neededtimes[ind] > 1) otherpart++;
-      if(reorder) ind = order[ind];
-      fprintf(outfiles[part],"%d ",ind);
+      for(j=0;j < nodesd2;j++) {
+	ind = data->topology[i][j];
+	if(reorder) ind = order[ind];
+	fprintf(outfiles[nofile],"%d ",ind);
+      }
+      fprintf(outfiles[nofile],"\n");    
     }
-    fprintf(outfiles[part],"\n");    
 
 
-    /* The face can be shared only if there are enough shared nodes */
-    if(halo && otherpart) {
+    if(halo) {
+      /* The face can be shared only if there are enough shared nodes */
+      otherpart = 0;
+      for(j=0;j < nodesd2;j++) {
+	ind = data->topology[i][j];
+	if(neededtimes[ind] > 1) otherpart++;
+      }
+      if(!otherpart) continue;
 
       /* If the saving of halo is requested check it for elements which have at least 
 	 two nodes in shared partitions. First make this quick test. */
@@ -3400,20 +3405,24 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    }
 	  }
 
+	  if(part2 < partstart || part > partfin) continue;
+	  nofile2 = part2 - partstart - 1;
+
+
 	  if(sidehits == sideelemtype % 100 && elementhalo[part2] != i) {
 	    if(0) printf("Adding halo for partition %d and element %d\n",part2,i);
 
 	    /* Remember that this element is saved for this partition */
 	    elementhalo[part2] = i;
 
-	    fprintf(outfiles[part2],"%d/%d %d %d ",i,part,data->material[i],elemtype);
+	    fprintf(outfiles[nofile2],"%d/%d %d %d ",i,part,data->material[i],elemtype);
 
 	    for(j=0;j < nodesd2;j++) {
 	      ind = data->topology[i][j];
 	      if(reorder) ind = order[ind];
-	      fprintf(outfiles[part2],"%d ",ind);
+	      fprintf(outfiles[nofile2],"%d ",ind);
 	    }
-	    fprintf(outfiles[part2],"\n");    	    
+	    fprintf(outfiles[nofile2],"\n");    	    
 	    bulktypes[part2][elemtype] += 1;
 	    elementsinpart[part2] += 1;	
 
@@ -3538,14 +3547,15 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       if(!k) break;
 
       if(k < partstart || k > partfin) continue;
+      nofile = k - partstart + 1;
 
       ind = i;
       if(reorder) ind=order[i];
 
       if(data->dim == 2)
-	fprintf(outfiles[k],outstyle,ind,-1,data->x[i],data->y[i]);
+	fprintf(outfiles[nofile],outstyle,ind,-1,data->x[i],data->y[i]);
       else if(data->dim == 3)
-	fprintf(outfiles[k],outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
+	fprintf(outfiles[nofile],outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
       
       needednodes[k] += 1;
       if(k == ownerpart[i]) 
@@ -3590,15 +3600,16 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       k = data->partitiontable[j][i];
       
       if(k < partstart || k > partfin) continue;
+      nofile = k - partstart + 1;
 
       ind = i;
       if(reorder) ind = order[i];
       neededtwice[k] += 1; 
 
-      fprintf(outfiles[k],"%d %d %d",ind,neededtimes2[i],ownerpart[i]);      
+      fprintf(outfiles[nofile],"%d %d %d",ind,neededtimes2[i],ownerpart[i]);      
       for(m=1;m<=neededtimes2[i];m++) 
-	if(data->partitiontable[m][i] != ownerpart[i]) fprintf(outfiles[k]," %d",data->partitiontable[m][i]);
-      fprintf(outfiles[k],"\n");
+	if(data->partitiontable[m][i] != ownerpart[i]) fprintf(outfiles[nofile]," %d",data->partitiontable[m][i]);
+      fprintf(outfiles[nofile],"\n");
     }
   }
 
