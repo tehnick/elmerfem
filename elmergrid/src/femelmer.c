@@ -3217,7 +3217,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int part,otherpart,part2,part3,elemtype,sideelemtype,*needednodes,*neededtwice;
   int **bulktypes,*sidetypes,tottypes;
   int i,j,k,l,l2,m,ind,ind2,sideind[MAXNODESD1],sidehit[MAXNODESD1],elemhit[MAXNODESD2];
-  char filename[MAXFILESIZE],filename2[MAXFILESIZE],outstyle[MAXFILESIZE];
+  char filename[MAXFILESIZE],outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
   int *neededtimes,*elempart,*elementsinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,indirecttype,bcneeded,trueparent,*ownerpart;
@@ -3585,7 +3585,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
  next_shared_set:
 
   for(part=partstart;part<=partfin;part++) {
-    sprintf(filename2,"%s.%d.%s","part",part,"shared");
+    sprintf(filename,"%s.%d.%s","part",part,"shared");
     nofile = part - partstart + 1;
     outfiles[nofile] = fopen(filename,"w");
   }
