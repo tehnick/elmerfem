@@ -1547,84 +1547,133 @@ CONTAINS
 
       ActiveSolvers => ListGetIntegerArray( Model % Equations(eqn) % Values, &
                            'Active Solvers', stat )
-      IF ( .NOT. stat .OR. .NOT. ASSOCIATED(ActiveSolvers) ) CYCLE
 
-      DO k=1,SIZE(ActiveSolvers)
-         IF ( ActiveSolvers(k) <= 0 .OR. ActiveSolvers(k)>Model % NumberOfSolvers ) THEN
-           WRITE(Message, * ) 'Invalid solver number ', ActiveSolvers(k), &
-             ' in ActiveSolvers definition in equation block ', eqn
-           CALL Error( 'LoadModel', Message )
-           CYCLE
-         END IF
 
-         Name = ListGetString( Model % Solvers(ActiveSolvers(k)) &
-                  % Values, 'Mesh', GotMesh )
+      ! In the CoupledSolver branch the element type may be defined globally
+      ! even though no active solvers are associated to the element
+      !-----------------------------------------------------------------------
+      IF ( .NOT. stat .OR. .NOT. ASSOCIATED(ActiveSolvers) ) THEN
+	ElementDef = ListGetString( Model % Equations(eqn) % Values, &
+            'Element', stat )
+        
+        j = INDEX( ElementDef, 'n:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
+        END IF
+        
+        j = INDEX( ElementDef, 'e:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
+        END IF
+        
+        j = INDEX( ElementDef, 'f:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
+        END IF
+        
+        j = INDEX( ElementDef, 'd:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
+        END IF
+        
+        j = INDEX( ElementDef, 'b:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
+        END IF
+        
+        j = INDEX( ElementDef, 'p:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
+        END IF
 
-         ElementDef = ListGetString( Model % Equations(eqn) % Values, &
-             'Element[' // CHAR(k+ICHAR('0')) // ']', stat )
+      ELSE        
 
-        IF ( .NOT. stat ) THEN
+        ! When active solvers are given check also solver-wise element definitions
+        !--------------------------------------------------------------------------
+        DO k=1,SIZE(ActiveSolvers)
+          IF ( ActiveSolvers(k) <= 0 .OR. ActiveSolvers(k)>Model % NumberOfSolvers ) THEN
+            WRITE(Message, * ) 'Invalid solver number ', ActiveSolvers(k), &
+                ' in ActiveSolvers definition in equation block ', eqn
+            CALL Error( 'LoadModel', Message )
+            CYCLE
+          END IF
+          
+          Name = ListGetString( Model % Solvers(ActiveSolvers(k)) &
+              % Values, 'Mesh', GotMesh )
+          
           ElementDef = ListGetString( Model % Equations(eqn) % Values, &
-                        'Element', stat )
+              'Element[' // CHAR(k+ICHAR('0')) // ']', stat )
+          
           IF ( .NOT. stat ) THEN
+            ElementDef = ListGetString( Model % Equations(eqn) % Values, &
+                'Element', stat )
+            IF ( .NOT. stat ) THEN
+              IF ( ListGetLogical( Model % Solvers(ActiveSolvers(k)) % Values, &
+                  'Discontinuous Galerkin', stat ) ) THEN
+                Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = 0
+                IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4),0 )
+              END IF
+              CYCLE
+            END IF
+          END IF
+          
+          j = INDEX( ElementDef, 'n:' )
+          IF ( j>0 ) THEN
+            READ( ElementDef(j+2:), * ) l
+            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,1) = l
+            IF (.NOT. GotMesh ) Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
+          END IF
+          
+          j = INDEX( ElementDef, 'e:' )
+          IF ( j>0 ) THEN
+            READ( ElementDef(j+2:), * ) l
+            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,2) = l
+            IF ( .NOT. GotMesh ) Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
+          END IF
+          
+          j = INDEX( ElementDef, 'f:' )
+          IF ( j>0 ) THEN
+            READ( ElementDef(j+2:), * ) l
+            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,3) = l
+            IF ( .NOT. GotMesh ) Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
+          END IF
+          
+          j = INDEX( ElementDef, 'd:' )
+          IF ( j>0 ) THEN
+            READ( ElementDef(j+2:), * ) l
+            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = l
+            IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
+          ELSE 
             IF ( ListGetLogical( Model % Solvers(ActiveSolvers(k)) % Values, &
-                        'Discontinuous Galerkin', stat ) ) THEN
+                'Discontinuous Galerkin', stat ) ) THEN
               Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = 0
               IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4),0 )
             END IF
-            CYCLE
           END IF
-        END IF
-
-        j = Index( ElementDef, 'n:' )
-        IF ( j>0 ) THEN
-          READ( ElementDef(j+2:), * ) l
-          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,1) = l
-          IF (.NOT. GotMesh ) Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
-        END IF
-
-        j = Index( ElementDef, 'e:' )
-        IF ( j>0 ) THEN
-          READ( ElementDef(j+2:), * ) l
-          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,2) = l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
-        END IF
-
-        j = Index( ElementDef, 'f:' )
-        IF ( j>0 ) THEN
-          READ( ElementDef(j+2:), * ) l
-          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,3) = l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
-        END IF
-
-        j = Index( ElementDef, 'd:' )
-        IF ( j>0 ) THEN
-          READ( ElementDef(j+2:), * ) l
-          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
-        ELSE 
-          IF ( ListGetLogical( Model % Solvers(ActiveSolvers(k)) % Values, &
-                      'Discontinuous Galerkin', stat ) ) THEN
-            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = 0
-            IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4),0 )
+          
+          j = INDEX( ElementDef, 'b:' )
+          IF ( j>0 ) THEN
+            READ( ElementDef(j+2:), * ) l
+            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,5) = l
+            IF ( .NOT. GotMesh ) Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
           END IF
-        END IF
-
-        j = Index( ElementDef, 'b:' )
-        IF ( j>0 ) THEN
-          READ( ElementDef(j+2:), * ) l
-          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,5) = l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
-        END IF
-
-        j = Index( ElementDef, 'p:' )
-        IF ( j>0 ) THEN
-          READ( ElementDef(j+2:), * ) l
-          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,6) = l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
-        END IF
-      END DO
+          
+          j = INDEX( ElementDef, 'p:' )
+          IF ( j>0 ) THEN
+            READ( ElementDef(j+2:), * ) l
+            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,6) = l
+            IF ( .NOT. GotMesh ) Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
+          END IF
+        END DO
+      END IF
     END DO
+
 
     Name = ListGetString( Model % Simulation, 'Mesh', GotIt )
 
@@ -2898,7 +2947,7 @@ CONTAINS
           IF ( Var % DOFs == 1 ) THEN
              DOFs = DOFs + nDOFs
           ELSE
-            j=index(Var % Name, '[')
+            j=INDEX(Var % Name, '[')
             IF ( j > 0 ) THEN
               str =  ' '
               DO i=1,LEN_TRIM(Var % Name)
@@ -3006,7 +3055,7 @@ CONTAINS
               IF (ASSOCIATED(Var % Cvalues)) &
                 WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ',str(1:Var % NameLen)//'.im'
             ELSE
-               j=index(Var % Name, '[')
+               j=INDEX(Var % Name, '[')
                IF ( j > 0 ) THEN
                  str =  ' '
                  DO i=1,LEN_TRIM(Var % Name)
@@ -3457,7 +3506,7 @@ CONTAINS
                     WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
                  END IF
               ELSE
-                 l = index( var % name, '[' )
+                 l = INDEX( var % name, '[' )
                  IF ( l > 0 ) THEN
                     DOFs = 0
                     DO WHILE( .TRUE. )

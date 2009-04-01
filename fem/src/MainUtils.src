@@ -1566,7 +1566,7 @@ CONTAINS
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
          VarSizes(20), VarDofs(20)
     INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id
-    INTEGER, POINTER :: ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
+    INTEGER, POINTER :: VarPerm(:), ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: ConsValues(:)
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume, &
         Residual, PrevResidual
@@ -1650,9 +1650,9 @@ CONTAINS
         IF(.NOT. ASSOCIATED( Var )) THEN
           CALL Info('CoupledSolver','Variable '//TRIM(VarName)//' does not exist, creating')
           n = Solver % Mesh % NumberOfNodes
-          NULLIFY( ColPerm )
-          ALLOCATE( ColPerm(n) )
-          ColPerm = 0
+          NULLIFY( VarPerm )
+          ALLOCATE( VarPerm(n) )
+          VarPerm = 0
 
           !------------------------------------------------------------------------------             
           DO t=1,Mesh % NumberOfBulkElements + Mesh % NumberOFBoundaryElements
@@ -1673,28 +1673,28 @@ CONTAINS
             IF( ANY(ActiveVariables == i) )  THEN
               n  = GetElementNOFNodes()
               Indexes => Element % NodeIndexes
-              ColPerm( Indexes(1:n) ) = 1
+              VarPerm( Indexes(1:n) ) = 1
             END IF
           END DO
 
           j = 0
-          DO t = 1, SIZE(ColPerm)
-            IF( ColPerm(t) > 0 ) THEN
+          DO t = 1, SIZE(VarPerm)
+            IF( VarPerm(t) > 0 ) THEN
               j = j + 1
-              ColPerm(t) = j
+              VarPerm(t) = j
             END IF
           END DO
 
           IF( j > 0 ) THEN
-            ALLOCATE(ConsValues(j))
-            ConsValues = 0.0_dp
-
             WRITE (str,'(A,I2,A)') 'Variable',i,' Dofs'
             ConDofs = ListGetInteger( SolverParams, TRIM(str), GotIt )
             IF(.NOT. GotIt) ConDofs = 1
 
+            ALLOCATE(ConsValues(ConDofs * j))
+            ConsValues = 0.0_dp
+
             CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-                VarName, ConDofs, ConsValues, ColPerm )          
+                VarName, ConDofs, ConsValues, VarPerm )          
             Var => VariableGet( Mesh % Variables, VarName )         
             PRINT *,'Creating variable ',TRIM(VarName),' with dofs',ConDofs
             NULLIFY( ConsValues )
@@ -1702,7 +1702,7 @@ CONTAINS
             CALL Fatal('CoupledSolver','Variable '//TRIM(VarName)//' cannot be created')
           END IF
         END IF
-        
+
         NoVar = NoVar + 1
         VarDofs(NoVar) = Var % Dofs
         VarSizes(NoVar) = SIZE( Var % Values )
@@ -1796,13 +1796,13 @@ CONTAINS
       IF(.NOT. GotIt) THEN
         CALL Info('CoupledSolver','New coupled variable added: Alldofs', Level=5)
         VarName = 'alldofs'
-        CALL ListAddString( SolverParams,'Variable',VarName)
       END IF
-      
+
       ! If the variable hasn't been created do it now
       !----------------------------------------------
       Var => VariableGet(Mesh % Variables, VarName )
       IF(.NOT. ASSOCIATED(Var) ) THEN
+
         ALLOCATE(AllPerm(TotSize),AllValues(TotSize),ForceVector(TotSize))
         DO i=1,TotSize
           AllPerm(i) = i
@@ -1812,15 +1812,15 @@ CONTAINS
             VarName,1,AllValues,AllPerm,Output=.FALSE.)        
         Amat % Rhs => ForceVector
         Solver % Variable => VariableGet(Mesh % Variables, VarName )
-        
+        Var => Solver % Variable
+       
         ! Map the original vectors to the monolithic vector if requested
         !----------------------------------------------------------------------------------
         IF( ListGetLogical( SolverParams,'Coupled Initial Guess',GotIt)) THEN
           CALL SingleToCoupledVector()
         END IF
       END IF
-
-   ELSE
+    ELSE
       CALL Info('CoupledSolver','Using existing variable and matrix')
       IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
         CALL Fatal('CoupledSolver','In Assembly Solver mode the Matrix should exist!')
@@ -1887,7 +1887,7 @@ CONTAINS
 ! For clarity the whole assembly process put under one subroutine 
 !----------------------------------------------------------------
       CALL CoupledSystemAssembly()
-      IF( IsCoupledSolver ) THEN
+      IF( IsCoupledSolver .AND. NoCons > 0 ) THEN
         CALL CoupledConstraintAssembly()
       END IF
 
