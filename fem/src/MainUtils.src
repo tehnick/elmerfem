@@ -1567,7 +1567,7 @@ CONTAINS
          VarSizes(20), VarDofs(20)
     INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id
     INTEGER, POINTER :: VarPerm(:), ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
-    REAL(KIND=dp), POINTER :: ConsValues(:)
+    REAL(KIND=dp), POINTER :: ConsValues(:), Component(:)
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume, &
         Residual, PrevResidual
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
@@ -1695,8 +1695,19 @@ CONTAINS
 
             CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                 VarName, ConDofs, ConsValues, VarPerm )          
-            Var => VariableGet( Mesh % Variables, VarName )         
             PRINT *,'Creating variable ',TRIM(VarName),' with dofs',ConDofs
+
+            IF( ConDofs > 1 ) THEN
+              DO t=1,ConDofs
+                Component => ConsValues(t:ConDofs*(j-1)+t:ConDofs)
+                WRITE(str,'(A,I2)') TRIM(VarName),t
+                CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+                    str, 1, Component, VarPerm )          
+                PRINT *,'Creating variable ',TRIM(str)
+             END DO
+            END IF
+
+            Var => VariableGet( Mesh % Variables, VarName )         
             NULLIFY( ConsValues )
           ELSE 
             CALL Fatal('CoupledSolver','Variable '//TRIM(VarName)//' cannot be created')
@@ -2287,6 +2298,8 @@ CONTAINS
       ! Some constraints are assembled by integration while others are done by elimination.
       ! It is important that constraints are applied after the normal assembly process. 
       !-----------------------------------------------------------------------------------
+      INTEGER :: TargetDof, TmpInds(4) 
+
       BulkMode = .TRUE.
 200   IF(BulkMode) THEN
         CALL Info('CoupledSolver','Starting bulk assembly',Level=5)
@@ -2320,13 +2333,17 @@ CONTAINS
         ELSE        
           CALL Fatal('CoupledSolver','Cannot continue without pointer to variables')
         END IF
-
+        
+        WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Components'
+        TargetDof = ListGetInteger( Solver % Values, TRIM(str) )
+      
         WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Value'
         ConsValue = GetCReal(Solver % Values,TRIM(str), GotIt)
 
         WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Coeff'
         ConsCoeff = GetCReal(Solver % Values,TRIM(str), GotIt)
         IF(.NOT. GotIt) ConsCoeff = 1.0_dp
+
 
         IF ( ConsType == 'equality' ) THEN
           WRITE (str,'(A,I2)') 'Variable',VarInds(2)
@@ -2418,7 +2435,6 @@ CONTAINS
                 IF( AllDir(Col) ) CYCLE
                 AllDir(Col) = .TRUE.
                 
-
                 IF( ConsType == 'floating') THEN
                   Row = RowInd0 + 1
                 ELSE IF( ConsType == 'equality') THEN
@@ -2445,20 +2461,6 @@ CONTAINS
           END IF
 
 
-          IF( IsListMatrix ) THEN            
-            CALL GlueLocalSubMatrix( Amat, &
-                RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
-                RowDofs,ColDofs,STIFF )
-            IF( AssemblySymmetric .OR. AssemblyAntisymmetric ) THEN
-              CALL GlueLocalSubMatrix( Amat, &
-                  ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
-                  ColDofs,RowDofs,STIFF )               
-            END IF
-            CYCLE
-          END IF
-
-
-
           ! Do the assembly, now really (active only for some constraints)
           !----------------------------------------------------------------
             
@@ -2476,42 +2478,61 @@ CONTAINS
               CALL Default2ndOrderTime( MASS,DAMP,STIFF,FORCE )
             END IF
           END IF
+
            
           ! Assemble the matrix with offset
-          !-----------------------------------------------
-          CALL GlueLocalSubMatrix( Amat, &
-              RowInd0,ColInd0,Nrow,Ncol,RowInds,ColInds,&
-              RowDofs,ColDofs,STIFF )
-          
-          
-          ! Assemble the r.h.s with offset
-          !-----------------------------------------------
-          DO i=1,Nrow
-            DO j=1,RowDofs
-              Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
-              ForceVector(Row) = ForceVector(Row) + &
-                  FORCE(RowDofs*(i-1)+j)
+          ! Because we want to have constraints component-wise
+          ! There is somewhat dirty hack for calling the gluematrix
+          !---------------------------------------------------------
+          DO k=1,ColDofs
+            IF( TargetDof /= 0 .AND. TargetDof /= k) CYCLE
+            TmpInds(1:Ncol) = ColDofs * (ColInds(1:Ncol)-1) + k
+
+            IF( IsListMatrix ) THEN            
+              CALL GlueLocalSubMatrix( Amat, &
+                  RowInd0,ColInd0,Nrow,Ncol,RowInds,TmpInds,&
+                  RowDofs,1,STIFF )
+              IF( AssemblySymmetric .OR. AssemblyAntisymmetric ) THEN
+                CALL GlueLocalSubMatrix( Amat, &
+                    ColInd0,RowInd0,Ncol,Nrow,TmpInds,RowInds,&
+                    1,RowDofs,STIFF )               
+              END IF
+              CYCLE
+            END IF
+
+            CALL GlueLocalSubMatrix( Amat, &
+                RowInd0,ColInd0,Nrow,Ncol,RowInds,TmpInds,&
+                RowDofs,1,STIFF )
+
+            ! For some constraints assemble also the transpose
+            !--------------------------------------------------
+            IF( AssemblySymmetric ) THEN
+              CALL GlueLocalSubMatrix( Amat, &
+                  ColInd0,RowInd0,Ncol,Nrow,TmpInds,RowInds,&
+                  1,RowDofs,TRANSPOSE(STIFF) )               
+            ELSE IF( AssemblyAntisymmetric ) THEN
+              CALL GlueLocalSubMatrix( Amat, &
+                  ColInd0,RowInd0,Ncol,Nrow,TmpInds,RowInds,&
+                  1,RowDofs,-TRANSPOSE(STIFF) )               
+            END IF
+            
+            ! Assemble the r.h.s with offset
+            !-----------------------------------------------
+            DO i=1,Nrow
+              DO j=1,RowDofs
+                Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
+                ForceVector(Row) = ForceVector(Row) + &
+                    FORCE(RowDofs*(i-1)+j)
+              END DO
             END DO
-          END DO
           
-          ! For some constraints assemble also the transpose
-          !--------------------------------------------------
-          IF( AssemblySymmetric ) THEN
-            CALL GlueLocalSubMatrix( Amat, &
-                ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
-                ColDofs,RowDofs,TRANSPOSE(STIFF) )               
-          ELSE IF( AssemblyAntisymmetric ) THEN
-            CALL GlueLocalSubMatrix( Amat, &
-                ColInd0,RowInd0,Ncol,Nrow,ColInds,RowInds,&
-                ColDofs,RowDofs,-TRANSPOSE(STIFF) )               
-          END IF
-          
+          END DO          
         END DO
       
         ! For constraints do some special setting
         !---------------------------------------------------
         IF( ConsType == 'integral' ) THEN
-          PRINT *,'Constraint Volume: ',ConsVolume
+          PRINT *,'Integral constraint sum of weights: ',ConsVolume
           DO i=1,Nrow
             DO j=1,RowDofs
               Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
