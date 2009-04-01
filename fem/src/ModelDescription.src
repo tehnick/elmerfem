@@ -2791,6 +2791,12 @@ CONTAINS
     INTEGER, POINTER :: MaskPerm(:), MaskOrder(:)
 !------------------------------------------------------------------------------
 
+
+    IF( Model % Mesh % SavesDone == 0 ) THEN
+      CALL Info('WriteToPost','Saving results in ElmerPost format to file '//TRIM(PostFile))
+    END IF
+
+
     IF ( INDEX( PostFile, ':') == 0 .AND. PostFile(1:1) /= '/' .AND. &
              PostFile(1:1) /= Backslash ) THEN
 
@@ -2889,6 +2895,7 @@ CONTAINS
     DOFs = 0
     Var => Model % Variables
     DO WHILE( ASSOCIATED( Var ) )
+
       IF ( .NOT. Var % Output ) THEN
          Var => Var % Next
          CYCLE
@@ -2942,10 +2949,13 @@ CONTAINS
         CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
 
         CASE DEFAULT
+
           nDOFs = 1
           IF (ASSOCIATED(Var % Cvalues)) nDOFs=2
+
           IF ( Var % DOFs == 1 ) THEN
              DOFs = DOFs + nDOFs
+
           ELSE
             j=INDEX(Var % Name, '[')
             IF ( j > 0 ) THEN
@@ -2966,6 +2976,7 @@ CONTAINS
               END DO
             END IF
           END IF
+
       END SELECT
       Var => Var % Next
     END DO
