@@ -3519,6 +3519,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   partstart = 1;
   partfin = MIN( partitions, filesetsize);
 
+  for(i=1;i<=partitions;i++) {
+    needednodes[i] = 0;
+    neededtwice[i] = 0;
+    sharednodes[i] = 0;
+    ownnodes[i] = 0;
+  }    
 
  next_nodes_set:
 
@@ -3528,14 +3534,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     outfiles[nofile] = fopen(filename,"w");
   }
   
-  for(i=1;i<=partitions;i++) {
-    needednodes[i] = 0;
-    neededtwice[i] = 0;
-    sharednodes[i] = 0;
-    ownnodes[i] = 0;
-  }    
-
-
   for(l=1; l <= noknots; l++) {      
     i = l;
     if(reorder) i=invorder[l];
@@ -3993,7 +3991,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 
     fclose(out);
+    /*********** end of part.n.boundary *********************/
 
+
+
+    
+    /*********** start of part.n.header *********************/
     tottypes = 0;
     for(i=minelemtype;i<=maxelemtype;i++) {
       if(bulktypes[part][i]) tottypes++;
@@ -4030,7 +4033,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       printf("\n");
     }
   } 
-  /*********** end of part.n.boundary *********************/
+  /*********** end of part.n.header *********************/
 
 
   free_Ivector(bcnodesaved2,1,noknots);
