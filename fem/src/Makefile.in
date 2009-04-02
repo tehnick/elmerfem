@@ -319,7 +319,7 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	VorticitySolver$(SHL_EXT) \
 	ScalarPotentialSolver$(SHL_EXT)  \
 	StructuredMeshMapper$(SHL_EXT) \
-	ReynoldsSolver$(SHL_EXT)
+	ReynoldsSolver$(OBJ_EXT)
 
 SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
@@ -434,6 +434,7 @@ EXTRA_DIST = \
 	FDiffusion3D.src \
 	FilterTimeSeries.src \
 	ExchangeCorrelations.src \
+	fft.c \
 	FDiffusion.src \
 	FindOptimum.src \
 	FlowSolve.src \
@@ -915,7 +916,6 @@ uninstall-am: uninstall-binPROGRAMS
 	ps ps-am tags tags-recursive uninstall uninstall-am \
 	uninstall-binPROGRAMS
 
-
 Adaptive.$(OBJEXT): Adaptive.f90 CRSMatrix.$(OBJEXT) ModelDescription.$(OBJEXT) GeneralUtils.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 AdvectionDiffusion.$(OBJEXT): AdvectionDiffusion.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) SolverUtils.$(OBJEXT)
 AdvectionReaction.$(OBJEXT): AdvectionReaction.f90 DefUtils.$(OBJEXT)
@@ -1043,6 +1043,7 @@ Walls.$(OBJEXT): Walls.f90
 iso_varying_string.$(OBJEXT): iso_varying_string.f90
 solve_cmplx.$(OBJEXT): solve_cmplx.f90 Types.$(OBJEXT)
 solve_real.$(OBJEXT): solve_real.f90
+
 all-local: $(ELMER_TARGETS)
 
 @HAVE_WINDRES_TRUE@SUFFIXES: .f90 .so .src .rc

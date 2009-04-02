@@ -56,8 +56,8 @@ MODULE Integration
       REAL(KIND=dp), POINTER :: u(:),v(:),w(:),s(:)
    END TYPE GaussIntegrationPoints_t
 
-   TYPE(GaussIntegrationPoints_t), ALLOCATABLE, TARGET, PRIVATE :: IntegStuff(:)
    SAVE IntegStuff
+   TYPE(GaussIntegrationPoints_t), ALLOCATABLE, TARGET, PRIVATE :: IntegStuff(:)
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -349,6 +349,54 @@ MODULE Integration
 !------------------------------------------------------------------------------
 
  CONTAINS
+
+!------------------------------------------------------------------------------
+   SUBROUTINE ComputeFejerPoints1D( Points,Weights,n )
+!------------------------------------------------------------------------------
+! Subroutine to compute Fejer integration points by FFT
+!------------------------------------------------------------------------------
+    INTEGER :: n
+    REAL(KIND=dp) :: Points(n),Weights(n)
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,k,l,m 
+    COMPLEX(KIND=dp) :: W(n+1)
+    REAL(KIND=dp) :: arr((n+1)/2+1), V(n+2)
+
+    DO i=1,n
+      Points(i) = COS(i*PI/(n+1._dp))
+    END DO
+
+    k = 0
+    DO i=1,n+1,2
+      k = k + 1
+      arr(k) = i
+    END DO
+
+    l = n-k+1
+    j = 0
+    DO i=1,k
+      j = j + 1
+      V(j) = 2._dp/(arr(i)*(arr(i)-2))
+    END DO
+
+    j = j + 1
+    V(j) = 1._dp/arr(k)
+    DO i=1,l
+      j = j + 1
+      V(j) = 0._dp
+    END DO
+
+    DO i=1,n+1
+      W(i) = -(V(i)+V(n+2-i+1))
+    END DO
+    CALL fcfftb(n+1,W,W)
+
+    Weights(1:n) = W(2:n+1)/(n+1)
+    Weights(1:n) = 2 * Weights(1:n) / SUM(Weights(1:n))
+!------------------------------------------------------------------------------
+  END SUBROUTINE ComputeFejerPoints1D
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
    SUBROUTINE ComputeGaussPoints1D( Points,Weights,n )

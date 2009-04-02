@@ -252,6 +252,7 @@ EXTRA_DIST = \
 	FDiffusion3D.src \
 	FilterTimeSeries.src \
 	ExchangeCorrelations.src \
+	fft.c \
 	FDiffusion.src \
 	FindOptimum.src \
 	FlowSolve.src \
