@@ -1553,7 +1553,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
-    TYPE(Solver_t), POINTER :: PSolver
+    TYPE(Solver_t), POINTER :: PSolver, PSolver2
     TYPE(Variable_t), POINTER :: Var
     TYPE(Element_t),POINTER :: Element
     INTEGER :: i,j,k,l,t,n,nd,NoIterations,NoTests,iter,istat,tests
@@ -1565,7 +1565,7 @@ CONTAINS
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
          VarSizes(20), VarDofs(20)
-    INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id
+    INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id, solver_id
     INTEGER, POINTER :: VarPerm(:), ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
     REAL(KIND=dp), POINTER :: ConsValues(:), Component(:)
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume, &
@@ -1630,6 +1630,15 @@ CONTAINS
 
 
     IF( IsCoupledSolver ) THEN
+
+      solver_id = 0
+      DO i = 1, Model % NumberOfSolvers
+        PSolver2 => Model % Solvers(i)
+        IF( ASSOCIATED( PSolver2, PSolver ) ) THEN
+          solver_id = i
+          EXIT
+        END IF
+      END DO
       
       DO i = 1,9
         WRITE (str,'(A,I2)') 'Variable',i
@@ -1666,8 +1675,14 @@ CONTAINS
             eq_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values,'Equation')
             IF( eq_id < 1 ) CYCLE
 
-            ActiveVariables => ListGetIntegerArray( CurrentModel % Equations(eq_id) % Values, &
-                'Active Variables')
+            WRITE (str,'(A,I1,A)') 'Active Variables[',i,']'
+
+            ActiveVariables => ListGetIntegerArray( CurrentModel % Equations(eq_id) % Values, str)
+            IF(.NOT. ASSOCIATED(ActiveVariables)) THEN
+              ActiveVariables => ListGetIntegerArray( CurrentModel % Equations(eq_id) % Values, &
+                  'Active Variables')
+            END IF
+
             IF(.NOT. ASSOCIATED(ActiveVariables)) CYCLE
 
             IF( ANY(ActiveVariables == i) )  THEN
@@ -1695,7 +1710,8 @@ CONTAINS
 
             CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                 VarName, ConDofs, ConsValues, VarPerm )          
-            PRINT *,'Creating variable ',TRIM(VarName),' with dofs',ConDofs
+            WRITE( Message,'(A,I2,A)') 'Creating variable '//TRIM(VarName)//' WITH',ConDofs,' dofs'
+            CALL Info('CoupledSolver',Message)
 
             IF( ConDofs > 1 ) THEN
               DO t=1,ConDofs
@@ -1703,7 +1719,7 @@ CONTAINS
                 WRITE(str,'(A,I2)') TRIM(VarName),t
                 CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
                     str, 1, Component, VarPerm )          
-                PRINT *,'Creating variable ',TRIM(str)
+                ! PRINT *,'Creating variable ',TRIM(str)
              END DO
             END IF
 
@@ -2021,6 +2037,7 @@ CONTAINS
     ! using the single system vector names and sizes.
     !----------------------------------------------------------------------------------
     SUBROUTINE CoupledSystemDirichlet()
+      CALL Info( 'CoupledSolver', 'Setting coupled system Dirichlet conditions', Level=4 )
       
       DO i = 1,NoVar
         WRITE (str,'(A,I2)') 'Variable',i
@@ -2032,7 +2049,6 @@ CONTAINS
         
         CALL DefaultDirichletBCs( Ux=Var, UOffset=Offset(i) )
       END DO
-      CALL Info( 'CoupledSolver', 'Dirichlet conditions done', Level=4 )
  
     END SUBROUTINE CoupledSystemDirichlet
 
@@ -2055,7 +2071,7 @@ CONTAINS
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         Var => VariableGet( Mesh % Variables, TRIM(VarName) )
         
-        CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
+        ! CALL Info('CoupledSolver','Copying from variable: '//TRIM(VarName),Level=5)
         DO j=1,SIZE(Var % Values)
           Solver % Variable % Values(Offset(i)+j) = Var % Values(j)
         END DO
@@ -2081,7 +2097,7 @@ CONTAINS
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         Var => VariableGet( Mesh % Variables, TRIM(VarName) )
         
-        CALL Info('CoupledSolver','Variable: '//TRIM(VarName),Level=5)
+        ! CALL Info('CoupledSolver','Copying to variable: '//TRIM(VarName),Level=5)
         DO j=1,SIZE(Var % Values)
           Var % Values(j) = Solver % Variable % Values(Offset(i)+j)
         END DO
@@ -2098,13 +2114,16 @@ CONTAINS
       ! Perform normal assembly for the coupled system linear
       ! system of equations.
       !---------------------------------------------------
+      CALL Info('CoupledSolver','Starting coupled system assembly',Level=5)
+
       BulkMode = .TRUE.
+
 100   IF(BulkMode) THEN
-        CALL Info('CoupledSolver','Starting bulk assembly',Level=5)
+        ! CALL Info('CoupledSolver','Starting bulk assembly',Level=5)
         ElementsFirst = 1
         ElementsLast = Mesh % NumberOFBulkElements
       ELSE
-        CALL Info('CoupledSolver','Starting boundary assembly',Level=5)
+        ! CALL Info('CoupledSolver','Starting boundary assembly',Level=5)
         ElementsFirst = Mesh % NumberOFBulkElements+1
         ElementsLast = Mesh % NumberOfBulkElements + &
                Mesh % NumberOFBoundaryElements
@@ -2175,9 +2194,9 @@ CONTAINS
           
           ProcPntr = GetProcAddr( TRIM(ProcName), abort=.FALSE.,quiet=.FALSE.)
           IF ( ProcPntr == 0 ) THEN
-            CALL Fatal('CoupledSolver','AssemblyRoutine not found: '//TRIM(ProcName))
+            CALL Fatal('CoupledSolver','Assembly routine not found: '//TRIM(ProcName))
           ELSE
-            CALL Info('CoupledSolver','AssemblyRoutine: '//TRIM(ProcName))
+            CALL Info('CoupledSolver','Using assembly routine: '//TRIM(ProcName))
           END IF
           
           ! The assembly loop for a submatrix starts here
@@ -2280,11 +2299,11 @@ CONTAINS
       END DO
       
       IF(BulkMode) THEN
-        CALL Info( 'CoupledSolver', 'Bulk assembly done for blocks', Level=4 )
+        ! CALL Info( 'CoupledSolver', 'Bulk assembly done for blocks', Level=4 )
         BulkMode = .FALSE.
         GOTO 100
       ELSE 
-        CALL Info( 'CoupledSolver', 'Boundary assembly done for blocks', Level=4 )
+        ! CALL Info( 'CoupledSolver', 'Boundary assembly done for blocks', Level=4 )
       END IF
     END SUBROUTINE CoupledSystemAssembly
     !-----------------------------------------------------------------------------------
@@ -2300,13 +2319,15 @@ CONTAINS
       !-----------------------------------------------------------------------------------
       INTEGER :: TargetDof, TmpInds(4) 
 
+      CALL Info('CoupledSolver','Starting constraint assembly',Level=5)
+      
       BulkMode = .TRUE.
 200   IF(BulkMode) THEN
-        CALL Info('CoupledSolver','Starting bulk assembly',Level=5)
+        ! CALL Info('CoupledSolver','Starting constraing bulk assembly',Level=5)
         ElementsFirst = 1
         ElementsLast = Mesh % NumberOfBulkElements 
       ELSE
-        CALL Info('CoupledSolver','Starting boundary assembly',Level=5)
+        ! CALL Info('CoupledSolver','Starting boundary assembly',Level=5)
         ElementsFirst = Mesh % NumberOfBulkElements + 1
         ElementsLast =  Mesh % NumberOfBulkElements + &
               Mesh % NumberOfBoundaryElements
@@ -2532,7 +2553,7 @@ CONTAINS
         ! For constraints do some special setting
         !---------------------------------------------------
         IF( ConsType == 'integral' ) THEN
-          PRINT *,'Integral constraint sum of weights: ',ConsVolume
+          ! PRINT *,'Integral constraint sum of weights: ',ConsVolume
           DO i=1,Nrow
             DO j=1,RowDofs
               Row = RowInd0 + RowDofs * (RowInds(i)-1) + j
@@ -2543,11 +2564,11 @@ CONTAINS
       END DO
       
       IF(BulkMode) THEN
-        CALL Info( 'CoupledSolver', 'Bulk assembly done for constraints', Level=4 )
+        ! CALL Info( 'CoupledSolver', 'Bulk assembly done for constraints', Level=4 )
         BulkMode = .FALSE.
         GOTO 200
       ELSE 
-        CALL Info( 'CoupledSolver', 'Boundary assembly done for constraints', Level=4 )
+        ! CALL Info( 'CoupledSolver', 'Boundary assembly done for constraints', Level=4 )
       END IF
 
     END SUBROUTINE CoupledConstraintAssembly
