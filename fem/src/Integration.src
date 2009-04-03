@@ -45,7 +45,7 @@ MODULE Integration
 
    IMPLICIT NONE
 
-   INTEGER, PARAMETER, PRIVATE :: MAXN = 12
+   INTEGER, PARAMETER, PRIVATE :: MAXN = 14
    INTEGER, PARAMETER, PRIVATE :: MAX_INTEGRATION_POINTS = MAXN**3
 
    LOGICAL, PRIVATE :: GInit = .FALSE.
@@ -362,8 +362,9 @@ MODULE Integration
     COMPLEX(KIND=dp) :: W(n+1)
     REAL(KIND=dp) :: arr((n+1)/2+1), V(n+2)
 
-    DO i=1,n
+    DO i=1,(n+1)/2
       Points(i) = COS(i*PI/(n+1._dp))
+      Points(n-i+1) = -Points(i)
     END DO
 
     k = 0
@@ -372,26 +373,22 @@ MODULE Integration
       arr(k) = i
     END DO
 
-    l = n-k+1
-    j = 0
+    V = 0._dp
     DO i=1,k
-      j = j + 1
-      V(j) = 2._dp/(arr(i)*(arr(i)-2))
+      V(i) = 2._dp/(arr(i)*(arr(i)-2))
     END DO
-
-    j = j + 1
-    V(j) = 1._dp/arr(k)
-    DO i=1,l
-      j = j + 1
-      V(j) = 0._dp
-    END DO
+    V(k+1) = 1._dp/arr(k)
 
     DO i=1,n+1
-      W(i) = -(V(i)+V(n+2-i+1))
+      W(i) = -(V(i)+V(n-i+3))
     END DO
-    CALL fcfftb(n+1,W,W)
+    CALL frfftb(n+1,W,V)
 
-    Weights(1:n) = W(2:n+1)/(n+1)
+    Weights(1:n) = V(2:n+1)/(n+1)
+    DO i=1,n/2
+      Weights(i) = (Weights(i) + Weights(n-i+1))/2
+      Weights(n-i+1) = Weights(i)
+    END DO
     Weights(1:n) = 2 * Weights(1:n) / SUM(Weights(1:n))
 !------------------------------------------------------------------------------
   END SUBROUTINE ComputeFejerPoints1D
@@ -465,24 +462,6 @@ MODULE Integration
 !    Points(1:np) = REAL( Eigs(1:np) )
 
 !------------------------------------------------------------------------------
-     DO i=1,np
-       s = EvalPoly( np,P,Points(i) )
-       IF ( ABS(s) > 3.0d-12 ) THEN
-         CALL Warn( 'ComputeGaussPoints1D', &
-                 '-------------------------------------------------------' )
-         CALL Warn( 'ComputeGaussPoints1D', 'Computed integration point' )
-         CALL Warn( 'ComputeGaussPoints1D', 'seems to be inaccurate: ' )
-         WRITE( Message, * ) 'Points req.: ',n
-         CALL Warn( 'ComputeGaussPoints1D', Message )
-         WRITE( Message, * ) 'Residual: ',s
-         CALL Warn( 'ComputeGaussPoints1D', Message )
-         WRITE( Message, * ) 'Point: +-', SQRT(Points(i))
-         CALL Warn( 'ComputeGaussPoints1D', Message )
-         CALL Warn( 'ComputeGaussPoints1D', &
-                 '-------------------------------------------------------' )
-       END IF
-     END DO
-!------------------------------------------------------------------------------
 ! Backsubstitute from y=x^2
 !------------------------------------------------------------------------------
      Q(1:np+1) = P(1:np+1)
@@ -500,6 +479,26 @@ MODULE Integration
 
      CALL DerivPoly( n,Q,P )
      CALL RefineRoots( n,P,Q,Points )
+!------------------------------------------------------------------------------
+! Check for roots
+!------------------------------------------------------------------------------
+     DO i=1,n
+       s = EvalPoly( n,P,Points(i) )
+       IF ( ABS(s) > 1.0d-12 ) THEN
+         CALL Warn( 'ComputeGaussPoints1D', &
+                 '-------------------------------------------------------' )
+         CALL Warn( 'ComputeGaussPoints1D', 'Computed integration point' )
+         CALL Warn( 'ComputeGaussPoints1D', 'seems to be inaccurate: ' )
+         WRITE( Message, * ) 'Points req.: ',n
+         CALL Warn( 'ComputeGaussPoints1D', Message )
+         WRITE( Message, * ) 'Residual: ',s
+         CALL Warn( 'ComputeGaussPoints1D', Message )
+         WRITE( Message, * ) 'Point: +-', SQRT(Points(i))
+         CALL Warn( 'ComputeGaussPoints1D', Message )
+         CALL Warn( 'ComputeGaussPoints1D', &
+                 '-------------------------------------------------------' )
+       END IF
+     END DO
 !------------------------------------------------------------------------------
 ! Finally, the integration weights equal to
 !
@@ -548,7 +547,7 @@ CONTAINS
      REAL(KIND=dp) :: P(n+1),Q(n),Points(n)
  
      REAL(KIND=dp) :: x,s
-     INTEGER, PARAMETER :: MaxIter = 400
+     INTEGER, PARAMETER :: MaxIter = 100
 
      DO i=1,n
        x = Points(i)

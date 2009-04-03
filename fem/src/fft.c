@@ -635,7 +635,6 @@ void cfftf( N, T, F )
         }
 
     FFTKernel( N, F, F ); 
-
     BitReverseArray( N, F );
 }
 
@@ -662,15 +661,12 @@ void cfftb( N, F, T )
     if ( F != T ) {
         for( k = 0; k < N; k++ ) T[k].Real = F[k].Real;
         }
-
     for( k = 0; k < N; k++ ) T[k].Imag = -F[k].Imag;
-
     cfftf( N, T, T );
-
     for( k = 0; k < N; k++ ) T[k].Imag = -T[k].Imag;
 }
 
-void FC_FUNC(fcfftb,CFFTB)( N, F, T )
+void FC_FUNC(fcfftb,FCFFTB)( N, F, T )
     int *N;
     COMPLEX *F;
     COMPLEX *T;
@@ -860,6 +856,15 @@ rfftb( N, F, T )
     T[N] = Eves - Odds;
 
     free( W );
+}
+
+
+FC_FUNC(frfftb,FRFFTB)( N, F, T )
+    int *N;
+    COMPLEX *F;
+    double   *T;
+{
+   rfftb( *N, F, T ); 
 }
 
 /*
