@@ -5553,8 +5553,8 @@ static void CylindricalCoordinateImprove(struct FemType *data,Real factor,
 }
 
 
-static void CylindricalCoordinateCurve(struct FemType *data,
-				       Real zet,Real rad,Real angle)
+void CylindricalCoordinateCurve(struct FemType *data,
+				Real zet,Real rad,Real angle)
 {
   int i;
   Real x,y,z;
@@ -5569,26 +5569,38 @@ static void CylindricalCoordinateCurve(struct FemType *data,
   z1 = z0+r0*f0;
   
   for(i=1;i<=data->noknots;i++) {
-    x = data->x[i];
-    y = data->y[i];
-    z = data->z[i];
-    
-    if(z <= z0) continue;
 
+    if(data->dim == 2) {
+      z = data->x[i];
+      x = data->y[i];
+    }
+    else {
+      x = data->x[i];
+      y = data->y[i];
+      z = data->z[i];
+    }    
+
+    if(z <= z0) continue;
+    
     if(z >= z1) {
       z2 = z0 + sin(f0)*(r0+x) + cos(f0)*(z-z1);
       x2 = (cos(f0)-1.0)*r0 + cos(f0)*x - sin(f0)*(z-z1);
-      data->z[i] = z2;
-      data->x[i] = x2;
     }
     else {
       f = (z-z0)/r0;
       z2 = z0 + sin(f)*(r0+x);
       x2 = (cos(f)-1.0)*r0 + cos(f)*x;
+    }          
+
+    if( data->dim == 2) {
+      data->x[i] = z2;
+      data->y[i] = x2;      
+    }
+    else {
       data->z[i] = z2;
-      data->x[i] = x2;
-    }    
-    
+      data->x[i] = x2;      
+    }
+
   }
 }
 
@@ -6514,7 +6526,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     CylindricalCoordinateImprove(data,grid->rotateimprove,
 				 grid->rotateradius1,grid->rotateradius2);
 
-    if(grid->rotatecurve)
+    if(0 && grid->rotatecurve)
       CylindricalCoordinateCurve(data,grid->curvezet,
 				 grid->curverad,grid->curveangle);
 

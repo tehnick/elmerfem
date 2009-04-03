@@ -351,7 +351,8 @@ struct ElmergridType {
     pelemmap[4*MAXMATERIALS],pelems,
     belemmap[4*MAXMATERIALS], belems,
     advancedelem[7*MAXMATERIALS], advancedmat,
-    bcoffset;
+    bcoffset,
+    rotatecurve;
 
   Real cscale[3], 
     corder[3],
@@ -364,7 +365,8 @@ struct ElmergridType {
     layereps, 
     triangleangle, 
     partcorder[3],
-    polarradius;
+    polarradius,
+    curverad,curveangle,curvezet;
 
   char filesin[MAXCASES][MAXFILESIZE],
     filesout[MAXCASES][MAXFILESIZE], 

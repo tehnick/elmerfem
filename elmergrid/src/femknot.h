@@ -75,6 +75,8 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 			 struct GridType *grid,
 			 struct FemType *data,struct BoundaryType *bound,
 			 int info);
+void CylindricalCoordinateCurve(struct FemType *data,
+				Real zet,Real rad,Real angle);
 void ReduceElementOrder(struct FemType *data,int matmin,int matmax);
 void IsoparametricElements(struct FemType *data,struct BoundaryType *bound,
 			   int bcstoo,int info);

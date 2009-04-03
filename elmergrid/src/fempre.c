@@ -589,6 +589,16 @@ int main(int argc, char *argv[])
 				eg.layerbounds, eg.layernumber, eg.layerratios, eg.layerthickness,
 				eg.layerparents, info);
 
+  /* Take up the infor on rotation */
+  for(k=0;k<nogrids;k++) 
+    if( grids[k].rotatecurve ) {
+      eg.rotatecurve = TRUE;
+      eg.curvezet = grids[k].curvezet;
+      eg.curverad = grids[k].curverad;
+      eg.curveangle = grids[k].curveangle;
+    }
+
+
   if(outmethod != 1 && dim != 2 && eg.dim != 2) { 
     j = MAX(nogrids,1);
 
@@ -607,7 +617,7 @@ int main(int argc, char *argv[])
 	if(nogrids) {
 	  elements3d = MAX(eg.elements3d, grids[k].wantedelems3d);
 	  nodes3d = MAX(eg.nodes3d, grids[k].wantednodes3d);
-	  
+
 	  if(elements3d) {
 	    if( abs(data[j].noelements - elements3d) / (1.0*elements3d) > 0.01 && elementsredone < 5 ) {
 	      grids[k].wantedelems *= pow(1.0*elements3d / data[j].noelements, (2.0/3.0));
@@ -657,6 +667,11 @@ int main(int argc, char *argv[])
       CylinderCoordinates(&data[k],info);
     }
   }
+
+  /* Rotate may apply to 2d and 3d geometries as well */
+  for(k=0;k<nomeshes;k++) 
+    if(eg.rotatecurve) 
+      CylindricalCoordinateCurve(&data[k],eg.curvezet,eg.curverad,eg.curveangle);
 
   /* Unite meshes if there are several of them */
   if(eg.unitemeshes) {

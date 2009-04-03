@@ -283,6 +283,11 @@ void InitParameters(struct ElmergridType *eg)
   eg->discont = 0;
   eg->connect = 0;
   eg->advancedmat = 0;
+
+  eg->rotatecurve = FALSE;
+  eg->curverad = 0.5;
+  eg->curveangle = 90.0;
+  eg->curvezet = 0.0;
   
   for(i=0;i<MAXSIDEBULK;i++) 
     eg->sidebulk[i] = 0;
@@ -998,6 +1003,10 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	else if(eg->dim == 3) 
 	  sscanf(params,"%d%d%d",&eg->clone[0],&eg->clone[1],&eg->clone[2]);
       }
+    }
+    else if(strstr(command,"MERGE")) {
+      eg->merge = TRUE;
+      sscanf(params,"%le",&eg->cmerge);
     }
     else if(strstr(command,"MIRROR")) {
       if(eg->dim == 1) 
@@ -2680,6 +2689,8 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     }
      
     else if(strstr(command,"REVOLVE")) {
+      printf("rovolve: %s %s\n",command,params);
+
       if(strstr(command,"REVOLVE RADIUS")) {
 	(*grid)[k].rotate = TRUE;
 	sscanf(params,"%le",&(*grid)[k].rotateradius2);
