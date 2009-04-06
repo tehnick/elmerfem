@@ -949,7 +949,6 @@ CONTAINS
                DO j=1,Element % Type % NumberOfNodes
                  IF ( Edge % NodeIndexes(i)==Element % NodeIndexes(j)) k=k+1
                END DO
-               IF ( k==Element % Type % NumberOfNodes) EXIT
              END DO
              IF ( k==Element % Type % NumberOfNodes) EXIT
            END DO
@@ -982,7 +981,7 @@ CONTAINS
          FDOFs = Element % BDOFs
          DO i=1,FDOFs
            NB = NB + 1
-           Indexes(NB) = FaceDOFs*(Parent % FaceIndexes(Element % PDefs % LocalNumber)-1) + i + &
+           Indexes(NB) = FaceDOFs*(Parent % FaceIndexes(Ind)-1) + i + &
               Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges
          END DO
        END IF
@@ -2726,24 +2725,72 @@ CONTAINS
            IF ( .NOT. ASSOCIATED( Parent ) )   CYCLE
 
            IF ( Name(1:8) == 'tangent ' ) THEN
-             IF ( ASSOCIATED( Solver % Mesh % Edges ) .AND. &
-                     GetElementFamily() == 2 ) THEN
-               n = Element % Type % NumberOfNodes
-               CALL LocalBcIntegral( BC, Element, n, Name, Work(1) )
-               IF ( Element % NodeIndexes(1) < &
-                     Element % NodeIndexes(2) ) Work(1)=-Work(1)
+             IF ( ASSOCIATED( Solver % Mesh % Edges ) ) THEN
+               SELECT CASE(GetElementFamily())
+               CASE(2)
+                 n = Element % Type % NumberOfNodes
+                 CALL LocalBcIntegral( BC, Element, n, Name, Work(1) )
+                 IF ( Element % NodeIndexes(1) < &
+                       Element % NodeIndexes(2) ) Work(1)=-Work(1)
 
-               n=GetElementDOFs(gInd)
-               DO k=1,n
-                 nb = x % Perm(gInd(k))
-                 IF ( nb <= 0 ) CYCLE
-                 nb = Offset + x % DOFs*(nb-1) + DOF
+                 n=GetElementDOFs(gInd)
+                 DO k=1,n
+                   nb = x % Perm(gInd(k))
+                   IF ( nb <= 0 ) CYCLE
+                   nb = Offset + x % DOFs*(nb-1) + DOF
   
-                 CALL ZeroRow( A, nb )
-                 CALL SetMatrixElement(A,nb,nb,1._dp)
-                 A % RHS(nb) = Work(1)
-               END DO
+                   CALL ZeroRow( A, nb )
+                   CALL SetMatrixElement(A,nb,nb,1._dp)
+                   A % RHS(nb) = Work(1)
+                 END DO
+               CASE(3,4)
+                 DO j=1,Parent % Type % NumberOfFaces
+                   Face => Solver % Mesh % Faces(Parent % FaceIndexes(j))
+                   IF (Element % Type % ElementCode == Face % Type % ElementCode) THEN
+                     n = 0
+                     DO k=1,Element % Type % NumberOfNodes
+                       DO l=1,Face % Type % NumberOfNodes
+                         IF ( Element % NodeIndexes(k)==Face % NodeIndexes(l)) n=n+1
+                       END DO
+                     END DO
+                     IF ( n==Element % Type % NumberOfNodes ) EXIT
+                   END IF
+                 END DO
+
+                 DO j=1,Face % Type % NumberOfEdges
+                   Edge => Solver % Mesh % Edges(Face % EdgeIndexes(j))
+                   n = Edge % Type % NumberOfNodes
+                   CALL LocalBcIntegral( BC, Edge, n, Name, Work(1) )
+                   IF ( Edge % NodeIndexes(1) < &
+                            Edge % NodeIndexes(2) ) Work(1)=-Work(1)
+
+                   n=GetElementDOFs(gInd,Edge)
+                   DO k=1,n
+                     nb = x % Perm(gInd(k))
+                     IF ( nb <= 0 ) CYCLE
+                     nb = Offset + x % DOFs*(nb-1) + DOF
+  
+                     CALL ZeroRow( A, nb )
+                     CALL SetMatrixElement(A,nb,nb,1._dp)
+                     A % RHS(nb) = Work(1)
+                   END DO
+                 END DO
+               END SELECT
              END IF
+           ELSE IF ( Name(1:7) == 'normal ' ) THEN
+             n = Element % Type % NumberOfNodes
+             CALL LocalBcIntegral( BC, Element, n, Name, Work(1) )
+
+             n=GetElementDOFs(gInd)
+             DO k=1,n
+               nb = x % Perm(gInd(k))
+               IF ( nb <= 0 ) CYCLE
+               nb = Offset + x % DOFs*(nb-1) + DOF
+
+               CALL ZeroRow( A, nb )
+               CALL SetMatrixElement(A,nb,nb,1._dp)
+               A % RHS(nb) = Work(1)
+             END DO
            END IF
 
            IF ( .NOT. ASSOCIATED( Parent % pDefs ) ) CYCLE
