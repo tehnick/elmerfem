@@ -858,10 +858,10 @@ CONTAINS
      INTEGER :: Indexes(:)
 
      TYPE(Solver_t),  POINTER :: Solver
-     TYPE(Element_t), POINTER :: Element, Parent
+     TYPE(Element_t), POINTER :: Element, Parent, Edge, Face
 
      LOGICAL :: Found, GB
-     INTEGER :: nb,i,j,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs
+     INTEGER :: nb,i,j,k,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs, Ind
 
      Element => GetCurrentElement(UElement)
 
@@ -932,23 +932,53 @@ CONTAINS
      IF (.NOT.Found) GB = .TRUE.
 
      IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
-       IF (.NOT. isPElement(Element) ) RETURN
 
        Parent => Element % BoundaryInfo % Left
        IF (.NOT.ASSOCIATED(Parent) ) &
          Parent => Element % BoundaryInfo % Right
        IF (.NOT.ASSOCIATED(Parent) ) RETURN
 
-       IF ( ASSOCIATED( Parent % EdgeIndexes ) ) THEN
+       IF ( ASSOCIATED(Parent % EdgeIndexes) ) THEN
+         IF ( isPElement(Element) ) THEN
+           Ind=Element % PDefs % LocalNumber
+         ELSE
+           DO Ind=1,Parent % Type % NumberOfEdges
+             Edge => Solver % Mesh % Edges(Parent % EdgeIndexes(ind))
+             k = 0
+             DO i=1,Edge % Type % NumberOfNodes
+               DO j=1,Element % Type % NumberOfNodes
+                 IF ( Edge % NodeIndexes(i)==Element % NodeIndexes(j)) k=k+1
+               END DO
+               IF ( k==Element % Type % NumberOfNodes) EXIT
+             END DO
+             IF ( k==Element % Type % NumberOfNodes) EXIT
+           END DO
+         END IF
+
          EDOFs = Element % BDOFs
          DO i=1,EDOFs
            NB = NB + 1
-           Indexes(NB) = EdgeDOFs*(Parent % EdgeIndexes(Element % PDefs % LocalNumber)-1) + &
+           Indexes(NB) = EdgeDOFs*(Parent % EdgeIndexes(Ind)-1) + &
                     i + Solver % Mesh % NumberOfNodes
          END DO
        END IF
 
        IF ( ASSOCIATED( Parent % FaceIndexes ) ) THEN
+         IF ( isPElement(Element) ) THEN
+           Ind=Element % PDefs % LocalNumber
+         ELSE
+           DO Ind=1,Parent % Type % NumberOfFaces
+             Face => Solver % Mesh % Edges(Parent % FaceIndexes(ind))
+             k = 0
+             DO i=1,Face % Type % NumberOfNodes
+               DO j=1,Element % Type % NumberOfNodes
+                 IF ( Face % NodeIndexes(i)==Element % NodeIndexes(j)) k=k+1
+               END DO
+             END DO
+             IF ( k==Element % Type % NumberOfNodes) EXIT
+           END DO
+         END IF
+
          FDOFs = Element % BDOFs
          DO i=1,FDOFs
            NB = NB + 1
@@ -2637,6 +2667,7 @@ CONTAINS
 
            ptr => ListFind(BC, Name,Found )
            IF ( .NOT. ASSOCIATED(ptr) ) CYCLE
+
            ConstantValue =  ptr % Procedure == 0 .AND. &
              ptr % type == LIST_TYPE_CONSTANT_SCALAR
            
@@ -2685,10 +2716,6 @@ CONTAINS
            IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
            IF ( .NOT. ListCheckPresent(BC, Name) ) CYCLE
 
-           ptr => ListFind(BC, Name,Found )
-           ConstantValue =  ptr % Procedure == 0 .AND. &
-             ptr % type == LIST_TYPE_CONSTANT_SCALAR
-           IF ( ConstantValue ) CYCLE
 
            ! Get parent element:
            ! -------------------
@@ -2697,7 +2724,34 @@ CONTAINS
                Parent => Element % BoundaryInfo % Right
            END IF
            IF ( .NOT. ASSOCIATED( Parent ) )   CYCLE
+
+           IF ( Name(1:8) == 'tangent ' ) THEN
+             IF ( ASSOCIATED( Solver % Mesh % Edges ) .AND. &
+                     GetElementFamily() == 2 ) THEN
+               n = Element % Type % NumberOfNodes
+               CALL LocalBcIntegral( BC, Element, n, Name, Work(1) )
+               IF ( Element % NodeIndexes(1) < &
+                     Element % NodeIndexes(2) ) Work(1)=-Work(1)
+
+               n=GetElementDOFs(gInd)
+               DO k=1,n
+                 nb = x % Perm(gInd(k))
+                 IF ( nb <= 0 ) CYCLE
+                 nb = Offset + x % DOFs*(nb-1) + DOF
+  
+                 CALL ZeroRow( A, nb )
+                 CALL SetMatrixElement(A,nb,nb,1._dp)
+                 A % RHS(nb) = Work(1)
+               END DO
+             END IF
+           END IF
+
            IF ( .NOT. ASSOCIATED( Parent % pDefs ) ) CYCLE
+
+           ptr => ListFind(BC, Name,Found )
+           ConstantValue =  ptr % Procedure == 0 .AND. &
+             ptr % type == LIST_TYPE_CONSTANT_SCALAR
+           IF ( ConstantValue ) CYCLE
 
            SELECT CASE(Parent % Type % Dimension)
            CASE(2)
@@ -2852,6 +2906,68 @@ CONTAINS
      END SELECT
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveLinSys
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalBcIntegral(BC, Element, nd, Name, Integral )
+!******************************************************************************
+!
+!  DESCRIPTION:
+!     Integral given function over elementj
+!
+!  ARGUMENTS:
+!
+!    Type(ValueList_t), POINTER :: BC
+!      INOUT: Boundary condition value list
+!
+!    Type(Element_t) :: Element
+!      INPUT: Boundary element to get stiffness matrix to
+!
+!    INTEGER :: nd
+!      INPUT: number of  boundary element nodes
+!
+!    CHARACTER(LEN=MAX_NAME_LEN) :: Name
+!      INPUT: name of boundary condition
+!
+!    REAL(Kind=dp) :: Integral
+!      OUTPUT: Integral of the given function
+!    
+!******************************************************************************
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+
+    TYPE(Element_t), POINTER :: Element
+    INTEGER :: nd
+    REAL(KIND=dp) :: Integral
+    TYPE(ValueList_t), POINTER :: BC
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name
+!------------------------------------------------------------------------------
+    TYPE(GaussIntegrationPoints_t) :: IP
+    INTEGER :: p,q,t
+    REAL(KIND=dp) :: Basis(nd)
+    REAL(KIND=dp) :: xip,yip,zip,s,DetJ,Load(nd)
+    LOGICAL :: stat
+    TYPE(Nodes_t) :: Nodes
+    SAVE Nodes
+!------------------------------------------------------------------------------
+
+    ! Get nodes of boundary elements parent and gauss points for boundary
+    CALL GetElementNodes( Nodes, Element )
+
+    Load(1:nd) = GetReal( BC, Name, stat )
+
+    Integral = 0._dp
+    IP = GaussPoints( Element )
+    DO t=1,IP % n
+      stat = ElementInfo( Element, Nodes, IP % u(t), &
+         IP % v(t), IP % w(t), DetJ, Basis )
+
+       s = IP % s(t) * DetJ
+       Integral = Integral + s * SUM(Load(1:nd)*Basis(1:nd))
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalBcIntegral
 !------------------------------------------------------------------------------
 
 
