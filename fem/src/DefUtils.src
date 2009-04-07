@@ -2730,7 +2730,7 @@ CONTAINS
                CASE(2)
                  n = Element % Type % NumberOfNodes
                  CALL LocalBcIntegral( BC, Element, n, Name, Work(1) )
-                 IF ( Element % NodeIndexes(1) < &
+                 IF ( Element % NodeIndexes(1) > &
                        Element % NodeIndexes(2) ) Work(1)=-Work(1)
 
                  n=GetElementDOFs(gInd)
@@ -2761,7 +2761,7 @@ CONTAINS
                    Edge => Solver % Mesh % Edges(Face % EdgeIndexes(j))
                    n = Edge % Type % NumberOfNodes
                    CALL LocalBcIntegral( BC, Edge, n, Name, Work(1) )
-                   IF ( Edge % NodeIndexes(1) < &
+                   IF ( Edge % NodeIndexes(1) > &
                             Edge % NodeIndexes(2) ) Work(1)=-Work(1)
 
                    n=GetElementDOFs(gInd,Edge)

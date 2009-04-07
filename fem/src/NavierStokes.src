@@ -157,7 +157,7 @@ MODULE NavierStokes
 
 
      REAL(KIND=dp) :: Tau_M, Tau_C, Gmat(3,3),Gvec(3), dt=0._dp, C1, NodalVelo(4,n), &
-       RM(n,4,4),LC(3,n), gradP(n), PRM(4), GradNodal(n,3,3), PVelo(3), NodalPVelo(3,n), &
+       RM(n,4,4),LC(3,n), gradP(n), PRM(4), GradNodal(n,3,3), PVelo(3), NodalPVelo(4,n), &
        Work(3,n), maxl, minl
 
      INTEGER :: i,j,k,l,c,p,q,t,dim
@@ -729,7 +729,6 @@ MODULE NavierStokes
               ! (rho*u',u.grad(w))
               ! ---------------
               M(i,i) = M(i,i) + s * rho * Tau_M * rho*Basis(q) * Velo(j) * dBasisdx(p,j)
-
               DO k=1,dim+1
                  A(i,k) = A(i,k) + s * rho * Tau_M * RM(q,i,k) * Velo(j) * dBasisdx(p,j)/2
               END DO
@@ -737,13 +736,13 @@ MODULE NavierStokes
               A(i,j) = A(i,j) - s * rho * Tau_M * rho*Force(i) * Basis(q) * dBasisdx(p,j)
             END DO
 
-            ! (rho*div(u),div(w))
+            ! (rho*div(u'),div(w))
             ! ---------------
             DO j=1,dim
               A(i,j) = A(i,j) + s * rho*Tau_C*RM(q,dim+1,j) * dBasisdx(p,i)
             END DO
 
-            ! (rho*u'*u',grad(w))
+            ! -(rho*u'*u',grad(w))
             ! ---------------
             DO j=1,dim
               DO k=1,dim+1
