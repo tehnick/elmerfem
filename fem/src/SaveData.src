@@ -1648,7 +1648,7 @@ CONTAINS
     TYPE(Element_t), TARGET :: SideElement
     TYPE(Element_t), POINTER :: Element, Parent    
     TYPE(ValueList_t), POINTER :: Material
-    REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
+    REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3),LocalCoordinates(3),Point(3)
     REAL(KIND=dp) :: Basis(Model % MaxElementNodes),dBasisdx(Model % MaxElementNodes,3),&
         ParentBasis(Model % MaxElementNodes),&
         ParentdBasisdx(Model % MaxElementNodes,3),EnergyTensor(3,3,Model % MaxElementNodes),&
@@ -1714,6 +1714,7 @@ CONTAINS
 
 !   /* Go through the line segments */
     DO Line = 1,NoLines 
+
       LineNodes % x(1:2) = LineCoordinates(2*Line-1:2*Line,1) 
       LineNodes % y(1:2) = LineCoordinates(2*Line-1:2*Line,2) 
       IF(DIM == 3) LineNodes % z(1:2) = LineCoordinates(2*Line-1:2*Line,3) 
@@ -1912,6 +1913,7 @@ CONTAINS
           x = SUM( ElementNodes % x(1:n) * Basis(1:n) )
           y = SUM( ElementNodes % y(1:n) * Basis(1:n) )
           z = SUM( ElementNodes % z(1:n) * Basis(1:n) )
+
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
@@ -1928,19 +1930,37 @@ CONTAINS
           END IF
      
           area =  area + s          
+
           Normal = NormalVector( Element,ElementNodes,U,V,.FALSE. )
+
 
 !------------------------------------------------------------------------------
 !      Because the intersection nodes do not really exist the field variables 
 !      must be avaluated using the nodes of the parent element.
 !------------------------------------------------------------------------------
             
-          CALL GetParentUVW( Element, n, Parent, pn, Up, Vp, Wp, Basis)
+          Point(1) = x
+          Point(2) = y
+          Point(3) = z
+          
+          ! PRINT *,'Point',Point
+          
+          IF( .NOT. PointInElement( Element, ElementNodes, Point, LocalCoordinates ) ) THEN
+            CALL Warn('PolylineIntegrals','The node should be in the element by construction!')
+            CYCLE
+          END IF
+          
+          ! PRINT *,'Local',LocalCoordinates
+          
+          Up = LocalCoordinates(1)
+          Vp = LocalCoordinates(1)
+          Wp = LocalCoordinates(1)
+          
           
           stat = ElementInfo( Parent,ParentNodes,Up,Vp,Wp,SqrtElementMetric, &
               ParentBasis,ParentdBasisdx )
           
-          
+  
           SELECT CASE(OperName)
             
             CASE ('diffusive flux')
@@ -1957,7 +1977,8 @@ CONTAINS
                 END IF
               END DO
             END DO
-            
+
+
             fluxes(Line) = fluxes(Line) + s * SUM(Normal(1:DIM) * Flow(1:DIM))
             
             
@@ -1987,7 +2008,7 @@ CONTAINS
       END DO
 
     END DO
-
+	
     DEALLOCATE( ParentNodes % x, ParentNodes % y, ParentNodes % z, PermIndexes, &
         SideNodes % x, SideNodes % y, SideNodes % z, SideIndexes, &
         LineNodes % x, LineNodes % y, LineNodes % z, OnLine)
