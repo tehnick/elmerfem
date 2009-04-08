@@ -2198,6 +2198,35 @@ static int WindowPosition( ClientData cl,Tcl_Interp *interp,int argc,char **argv
 }
 
 
+static int MPlayer( ClientData cl, Tcl_Interp *interp, int argc, char **argv )
+{
+#if defined(MINGW32)
+  return TCL_OK;
+#endif
+
+  if( argc < 2 ) {
+    sprintf( interp->result, "Usage: mplayer filename");
+    return TCL_ERROR;
+  }
+
+  // File name:
+  char *fileName = *++argv;
+
+  // Get Window Id:
+  GLXDrawable drawable = glXGetCurrentDrawable();
+  int winId = (int)drawable;
+
+  // Player command:
+  char playCmd[1024];
+  sprintf( playCmd, "mplayer -wid %d %s", winId, fileName );
+
+  // Call mplayer:
+  system( playCmd );
+
+  return TCL_OK;
+}
+
+
 int main(int argc,char **argv)
 {
     static char init[1024],initcommands[1024],tmp[1024],ephome[512];
@@ -2348,6 +2377,9 @@ int main(int argc,char **argv)
     Tcl_CreateCommand( TCLInterp, "ftfont", (Tcl_CmdProc *)FtFont, 
 		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 #endif
+
+    Tcl_CreateCommand( TCLInterp, "mplayer", (Tcl_CmdProc *)MPlayer, 
+		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
     CurrentObject = &VisualObject;
     CurrentObject->Name = strcpy( malloc(strlen("default")+1), "default" );
