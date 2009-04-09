@@ -3043,7 +3043,6 @@ optimizeownership:
   
   if(info) printf("Checking for problematic sharings\n"); 
   m = 0;
-  sharings = 0;
 
   if(partitions > 2) do {
     
@@ -3052,6 +3051,7 @@ optimizeownership:
     int **knows;
 
     m++;
+    sharings = 0;
     e1 = e2 = 0;
     
     if(m == 1 && optimize == 1) {
@@ -3128,11 +3128,8 @@ optimizeownership:
 	    hit += 1;
 	    i1 = invelemparts[j];
 	    i2 = invelemparts[k];
-	    if(info && hit > 1) printf("Partitions %d and %d in element %d (%d owners) oddly and multiply related\n",
-				   i1,i2,i,owners);
 	  }
       }
-
       /* Nullify the elemparts vector */
       for(j=1;j<=owners;j++) {
 	k = invelemparts[j];
@@ -3146,6 +3143,12 @@ optimizeownership:
       
       if(hit) {
 	e1 = e2 = 0;
+
+	if(info) {
+	  if( hit + m > 2 ) printf("Partitions %d and %d in element %d (%d owners) oddly related %d times\n",
+			       i1,i2,i,owners,hit);
+	}
+
 
 	/* Count the number of nodes with wrong parents */
 	for(j=0;j < nodesd2;j++) {
