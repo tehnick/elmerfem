@@ -3047,8 +3047,8 @@ optimizeownership:
 
   if(partitions > 2) do {
     
-    int i1,i2,e1,e2,owners;
-    int *elemparts;
+    int i1,i2,e1,e2,owners,ownpart;
+    int *elemparts,*invelemparts;
     int **knows;
 
     m++;
@@ -3056,50 +3056,64 @@ optimizeownership:
     
     if(m == 1 && optimize == 1) {
       elemparts = Ivector(1,partitions);
-      knows = Imatrix(1,partitions,1,partitions);
+      invelemparts = Ivector(1,100);
+      knows = Imatrix(1,100,1,100);
     }
 
     for(j=1;j<=partitions;j++) 
-      for(k=1;k<=partitions;k++) 
+      elemparts[j] = 0;
+
+    for(j=1;j<=100;j++) 
+      invelemparts[j] = 0;
+    
+    for(j=1;j<=100;j++) 
+      for(k=1;k<=100;k++)
 	knows[j][k] = 0;
-    for(j=1;j<=partitions;j++) 
-      elemparts[j] = FALSE;
     
     for(i=1;i<=noelements;i++) {
-      
+      int ownpart;
+
       owners = 0;
       nodesd2 = data->elementtypes[i] % 100;
-      
+      ownpart = FALSE;
+
       /* Check the number of owners in an element */
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
 	k = nodepart[ind];
+
+	/* Mark if the element partition is one of the owners */
+	if( k == elempart[i]) ownpart = TRUE;
 	if(!elemparts[k]) {
-	  elemparts[k] = TRUE;
 	  owners++;
+	  elemparts[k] = owners;
+	  invelemparts[owners] = k;
 	}
       }
       
       /* One strange owner is still ok. */
-      if(owners - elemparts[elempart[i]] <= 1) {
+      if(owners - ownpart <= 1) {
 	/* Nullify the elemparts vector */
-	for(j=0;j < nodesd2;j++) {
-	  ind = data->topology[i][j];
-	  k = nodepart[ind];
-	  elemparts[k] = FALSE;
+	for(j=1;j<=owners;j++) {
+	  k = invelemparts[j];
+	  elemparts[k] = 0;
 	}
 	continue;
       }
 
-      /* Check which partitions are related by a common node */
+      /* Check which of the partitions are related by a common node */
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
 	for(l=1;l<=maxneededtimes;l++) {
 	  e1 = data->partitiontable[l][ind];
 	  if(!e1) break;
+	  e1 = elemparts[e1];
+	  if(!e1) continue;
 	  for(k=l+1;k<=maxneededtimes;k++) {
 	    e2 = data->partitiontable[k][ind];
 	    if(!e2) break;
+	    e2 = elemparts[e2];
+	    if(!e2) continue;
 	    knows[e1][e2] = knows[e2][e1] = TRUE;
 	  }
 	}
@@ -3108,40 +3122,27 @@ optimizeownership:
       /* Check if there are more complex relations:
 	 i.e. two partitions are joined at an element but not at the same node. */
       hit = FALSE;
-      for(j=1;j<=partitions;j++) {
-	for(k=j+1;k<=partitions;k++) 
-	  if(elemparts[j] && elemparts[k] && !knows[j][k]) {
-	    if(info && hit) printf("Partitions %d and %d in element %d (%d owners) oddly and multiply related\n",
-				   j,k,i,owners);
-	    hit = TRUE;
-	    i1 = j;
-	    i2 = k;
+      for(j=1;j<=owners;j++)
+	for(k=j+1;k<=owners;k++) {
+	  if(!knows[j][k]) {
+	    hit += 1;
+	    i1 = invelemparts[j];
+	    i2 = invelemparts[k];
+	    if(info && hit > 1) printf("Partitions %d and %d in element %d (%d owners) oddly and multiply related\n",
+				   i1,i2,i,owners);
 	  }
       }
 
-
       /* Nullify the elemparts vector */
-      for(j=0;j < nodesd2;j++) {
-	ind = data->topology[i][j];
-	k = nodepart[ind];
-	elemparts[k] = FALSE;
+      for(j=1;j<=owners;j++) {
+	k = invelemparts[j];
+	elemparts[k] = 0;
       }
 
       /* Nullify the knows matrix */
-      for(j=0;j < nodesd2;j++) {
-	ind = data->topology[i][j];
-	for(l=1;l<=maxneededtimes;l++) {
-	  e1 = data->partitiontable[l][ind];
-	  if(!e1) break;
-	  for(k=l+1;k<=maxneededtimes;k++) {
-	    e2 = data->partitiontable[k][ind];
-	    if(!e2) break;
-	    knows[e1][e2] = knows[e2][e1] = FALSE;
-	  }
-	}
-      }   
-
-
+      for(j=1;j <= owners;j++) 
+	for(k=1;k <= owners;k++) 
+	  knows[j][k] = FALSE;
       
       if(hit) {
 	e1 = e2 = 0;
@@ -3149,44 +3150,23 @@ optimizeownership:
 	/* Count the number of nodes with wrong parents */
 	for(j=0;j < nodesd2;j++) {
 	  ind = data->topology[i][j];
-	  if(0 && periodic) ind = indxper[ind];
-	  
 	  for(l=1;l<=maxneededtimes;l++) {
-	    if(data->partitiontable[l][ind] == 0) break;
-	    if(data->partitiontable[l][ind] == i1) e1++;
-	    if(data->partitiontable[l][ind] == i2) e2++;
+	    k = data->partitiontable[l][ind];
+	    if(k == 0) break;
+	    if(k == i1) e1++;
+	    if(k == i2) e2++;
 	  }
 	}
 
 	/* Change the owner of those with less sharings */
 	for(j=0;j < nodesd2;j++) {
 	  ind = data->topology[i][j];
-	  if(0 && periodic) {
-	    if(ind != indxper[ind]) 
-	      if(info) printf("***** Danger: chanching ownership of a periodic node %d (%d)\n",ind,indxper[ind]);
-	  }	    
-
-	  if(nodepart[ind] == i1 && e1 < e2) {
+	  k = nodepart[ind];
+	  if((k == i1 && e1 < e2) || (k == i2 && e1 >= e2)) {
 	    probnodes[ind] += 1;
 	    nodepart[ind] = elempart[i];
 	    neededvector[elempart[i]] += 1;
-	    neededvector[i1] -= 1;
-	    if(0 && periodic) {
-	      if(ind != indxper[ind]) {
-		nodepart[indxper[ind]] = elempart[i];
-	      }
-	    }
-	  }
-	  else if(nodepart[ind] == i2) {
-	    probnodes[ind] += 1;
-	    nodepart[ind] = elempart[i]; 
-	    neededvector[elempart[i]] += 1;
-	    neededvector[i2] -= 1;
-	    if(periodic) {
-	      if(ind != indxper[ind]) {
-		nodepart[indxper[ind]] = elempart[i];
-	      }
-	    }
+	    neededvector[k] -= 1;
 	  }
 	}	
 	sharings++;
@@ -3194,14 +3174,6 @@ optimizeownership:
     }
       
     if(info && sharings) printf("Changed the ownership of %d nodes\n",sharings);
-    /* Change the ownership of periodic nodes accordingly */
-    if(0 && periodic && sharings) {
-      for(i=1;i<=noknots;i++) {
-	ind = indxper[i];
-	if(i != ind && nodepart[i] != nodepart[ind]) 
-	  nodepart[i] = nodepart[ind]; 
-      }
-    }
       
   } while (sharings > 0 && m < 3);
   
