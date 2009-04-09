@@ -3058,20 +3058,22 @@ optimizeownership:
       elemparts = Ivector(1,partitions);
       knows = Imatrix(1,partitions,1,partitions);
     }
+
+    for(j=1;j<=partitions;j++) 
+      for(k=1;k<=partitions;k++) 
+	knows[j][k] = 0;
+    for(j=1;j<=partitions;j++) 
+      elemparts[j] = FALSE;
     
     for(i=1;i<=noelements;i++) {
       
       owners = 0;
-      for(j=1;j<=partitions;j++) 
-	elemparts[j] = FALSE;
       nodesd2 = data->elementtypes[i] % 100;
       
       /* Check the number of owners in an element */
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
-	if(0 && periodic) ind = indxper[ind];
 	k = nodepart[ind];
-	
 	if(!elemparts[k]) {
 	  elemparts[k] = TRUE;
 	  owners++;
@@ -3079,17 +3081,19 @@ optimizeownership:
       }
       
       /* One strange owner is still ok. */
-      if(owners - elemparts[elempart[i]] <= 1) continue;
+      if(owners - elemparts[elempart[i]] <= 1) {
+	/* Nullify the elemparts vector */
+	for(j=0;j < nodesd2;j++) {
+	  ind = data->topology[i][j];
+	  k = nodepart[ind];
+	  elemparts[k] = FALSE;
+	}
+	continue;
+      }
 
-      for(j=1;j<=partitions;j++) 
-	for(k=1;k<=partitions;k++) 
-	  knows[j][k] = 0;
-      
       /* Check which partitions are related by a common node */
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
-	if(0 && periodic) ind = indxper[ind];
-
 	for(l=1;l<=maxneededtimes;l++) {
 	  e1 = data->partitiontable[l][ind];
 	  if(!e1) break;
@@ -3114,6 +3118,30 @@ optimizeownership:
 	    i2 = k;
 	  }
       }
+
+
+      /* Nullify the elemparts vector */
+      for(j=0;j < nodesd2;j++) {
+	ind = data->topology[i][j];
+	k = nodepart[ind];
+	elemparts[k] = FALSE;
+      }
+
+      /* Nullify the knows matrix */
+      for(j=0;j < nodesd2;j++) {
+	ind = data->topology[i][j];
+	for(l=1;l<=maxneededtimes;l++) {
+	  e1 = data->partitiontable[l][ind];
+	  if(!e1) break;
+	  for(k=l+1;k<=maxneededtimes;k++) {
+	    e2 = data->partitiontable[k][ind];
+	    if(!e2) break;
+	    knows[e1][e2] = knows[e2][e1] = FALSE;
+	  }
+	}
+      }   
+
+
       
       if(hit) {
 	e1 = e2 = 0;
