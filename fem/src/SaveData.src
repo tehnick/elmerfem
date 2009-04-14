@@ -1764,6 +1764,8 @@ CONTAINS
           ElementNodes % z(NodeNumber) = z0
           pos(NodeNumber) = u
 
+!          PRINT *,'Inside:',x0,y0,z0,u
+
         END DO
 
         IF(NodeNumber == 0) CYCLE
@@ -1818,7 +1820,9 @@ CONTAINS
         dsmax = SQRT(dx*dx+dy*dy)
         LineNode = 0
 
-        DO i=1,Parent % TYPE % ElementCode / 100 
+!        PRINT *,'dx',dx,'dy',dy,y0
+
+       DO i=1,Parent % TYPE % ElementCode / 100 
           DO j=1,2
             dx = ParentNodes % x(i) - ElementNodes % x(j)
             dy = ParentNodes % y(i) - ElementNodes % y(j)
@@ -1898,7 +1902,7 @@ CONTAINS
 !    Numerical integration
 !------------------------------------------------------------------------------
 
-        IntegStuff = GaussPoints( Element )
+        IntegStuff = GaussPoints( Element, 2 )
         
         DO i=1,IntegStuff % n
           U = IntegStuff % u(i)
@@ -1944,14 +1948,10 @@ CONTAINS
           Point(2) = y
           Point(3) = z
           
-          ! PRINT *,'Point',Point
-          
-          IF( .NOT. PointInElement( Element, ElementNodes, Point, LocalCoordinates ) ) THEN
+          IF( .NOT. PointInElement( Parent, ParentNodes, Point, LocalCoordinates ) ) THEN
             CALL Warn('PolylineIntegrals','The node should be in the element by construction!')
             CYCLE
           END IF
-          
-          ! PRINT *,'Local',LocalCoordinates
           
           Up = LocalCoordinates(1)
           Vp = LocalCoordinates(2)
@@ -1985,17 +1985,18 @@ CONTAINS
             
             CASE ('convective flux')
             
-            coeff = SUM( EnergyCoeff(1:pn) * Basis(1:pn))
+            coeff = SUM( EnergyCoeff(1:pn) * ParentBasis(1:pn))
             
             IF(NoDofs == 1) THEN
-              func = SUM( Var % Values(PermIndexes(1:pn)) * Basis(1:pn) )
+              func = SUM( Var % Values(PermIndexes(1:pn)) * ParentBasis(1:pn) )
               fluxes(Line) = fluxes(Line) + s * coeff * func
             ELSE 
               DO j=1,DIM
-                Flow(j) = coeff * SUM( Var % Values(NoDofs*(PermIndexes(1:pn)-1)+j) * Basis(1:pn) )
+                Flow(j) = coeff * SUM( Var % Values(NoDofs*(PermIndexes(1:pn)-1)+j) * ParentBasis(1:pn) )
               END DO
               fluxes(Line) = fluxes(Line) + s * coeff * SUM(Normal * Flow)
             END IF
+
             
             CASE ('area')            
             
