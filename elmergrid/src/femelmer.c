@@ -2909,11 +2909,38 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 }
 
 
+static int CheckSharedDeviation(int *neededvector,int partitions,int info)
+{
+  int i,minshared,maxshared,dshared;
+  Real sumshared, sumshared2, varshared;
+    
+  sumshared = sumshared2 = 0.0;
+  minshared = maxshared = neededvector[1];
+  for(i=1;i<=partitions;i++) {
+    sumshared += neededvector[i];
+    sumshared2 += neededvector[i] * neededvector[i];
+    maxshared = MAX(maxshared, neededvector[i]);
+    minshared = MIN(minshared, neededvector[i]);
+  }
+  
+  dshared = maxshared - minshared;
+  varshared = sqrt( 1.0*sumshared2 / partitions - 1.0*(sumshared/partitions)*(sumshared / partitions) );
+  
+  if(info) {
+    printf("Maximum deviation in ownership %d\n",dshared);
+    printf("Average deviation in ownership %.2lf\n",varshared);      
+  }
+
+  return(dshared);
+}  
+
+
+
 
 int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,int info)
 {
   int i,j,k,l,n,m,boundaryelems,noelements,partitions,ind,periodic,hit,hit2;
-  int dompart,part1,part2,newmam,mam1,mam2,noknots,part,dshared,dshared0;
+  int dompart,part1,part2,newmam,mam1,mam2,noknots,part,dshared,dshared0,avedshared;
   int *elempart,*nodepart,*neededtimes,*indxper,sharings;
   int nodesd2,maxneededtimes,*probnodes,optimize;
   int *neededvector;
@@ -2971,71 +2998,46 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
 
   if(!noopt) printf("Applying aggressive optimization for load balancing\n");
 
-optimizeownership:
+ optimizeownership:
 
-  if(!noopt) {
-    /* compute the first maximum deviation in ownership or shared nodes. */
-    j = k = neededvector[1];
-    for(i=1;i<=partitions;i++) {
-      if(j < neededvector[i]) j = neededvector[i];
-      if(k > neededvector[i]) k = neededvector[i];
-    }
-    dshared = j-k;
-    
-    if(info) printf("Maximum deviation in ownership %d\n",dshared);
-    
-    n = 0;
-    do {
-      n++;
-      for(i=1;i<=noknots;i++) {
-	
+  dshared = CheckSharedDeviation(neededvector,partitions,info);
+
+  if(!noopt) {    
+    int maxrounds = 5;
+
+    for(n=0;n<maxrounds;n++) {
+      for(i=1;i<=noknots;i++) {      
 	ind = i;
-	/* if(periodic) 
-	   if(indxper[ind] != ind) continue; */
-	
-	if(maxneededtimes > 2) 
-	  l = data->partitiontable[3][ind];
-	else 
-	  l = 0;
 	k = data->partitiontable[2][ind];
+	if(!k) continue;
 	
-	/* only apply the switch to cases with exactly two partitions */
-	if(l || !k) continue;
+	/* only apply the switch to cases with exactly two partitions 
+	   to avoid the nasty multiply coupled nodes. */
+	if(maxneededtimes > 2) 
+	  if(data->partitiontable[3][ind]) continue;
+	
 	j = data->partitiontable[1][ind];
 	
-	if(k > 0) {
-	  if(probnodes[ind]) continue;
-	  
-	  if(neededvector[j] < neededvector[k] && nodepart[ind] == k) {
-	    neededvector[j] += 1;
-	    neededvector[k] -= 1;
-	    nodepart[ind] = j;
-	  }
-	  else if(neededvector[k] < neededvector[j] && nodepart[ind] == j) {
-	    neededvector[k] += 1;
-	    neededvector[j] -= 1;
-	    nodepart[ind] = k;
-	  }
+	if(probnodes[ind]) continue;	  
+	
+	/* Switch the owner to the smaller owner group if possible */
+	if(neededvector[j] < neededvector[k] && nodepart[ind] == k) {
+	  neededvector[j] += 1;
+	  neededvector[k] -= 1;
+	  nodepart[ind] = j;
+	}
+	else if(neededvector[k] < neededvector[j] && nodepart[ind] == j) {
+	  neededvector[k] += 1;
+	  neededvector[j] -= 1;
+	  nodepart[ind] = k;
 	}
       }
       
-      j = k = neededvector[1];
-      for(i=1;i<=partitions;i++) {
-	if(j < neededvector[i]) j = neededvector[i];
-	if(k > neededvector[i]) k = neededvector[i];
-      }
       dshared0 = dshared;
-      dshared = j-k;
+      dshared = CheckSharedDeviation(neededvector,partitions,info);
       
-    } while (dshared < dshared0 && n < 3);
-
-
-    /* Change the ownership of periodic nodes accordingly */
-    /* for(i=1;i<=noknots;i++) {
-      ind = indxper[i];
-      if(i != ind && nodepart[i] != nodepart[ind]) 
-	nodepart[i] = nodepart[ind]; 
-	} */
+      if(dshared >= dshared0) break;
+    }
   }
 
 
