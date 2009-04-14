@@ -1764,8 +1764,6 @@ CONTAINS
           ElementNodes % z(NodeNumber) = z0
           pos(NodeNumber) = u
 
-!          PRINT *,'Inside:',x0,y0,z0,u
-
         END DO
 
         IF(NodeNumber == 0) CYCLE
@@ -1777,8 +1775,8 @@ CONTAINS
 
         !---------------------------------------------------------------------------
         ! If there is only one intersection the other end of the node must lie
-        ! inside the element. Assume that the line is long compared to the 
-        ! element and thus the end may be easily 
+        ! inside the element. Assuming that the line is long compared to the 
+        ! element the correct end of the line segment may be easily deduced.
         !---------------------------------------------------------------------------
         IF(NodeNumber == 1) THEN
           IF(pos(1) < 0.5d0) THEN
@@ -1820,9 +1818,8 @@ CONTAINS
         dsmax = SQRT(dx*dx+dy*dy)
         LineNode = 0
 
-!        PRINT *,'dx',dx,'dy',dy,y0
 
-       DO i=1,Parent % TYPE % ElementCode / 100 
+        DO i=1,Parent % TYPE % ElementCode / 100 
           DO j=1,2
             dx = ParentNodes % x(i) - ElementNodes % x(j)
             dy = ParentNodes % y(i) - ElementNodes % y(j)
@@ -1937,7 +1934,6 @@ CONTAINS
           area =  area + s          
 
           Normal = NormalVector( Element,ElementNodes,U,V,.FALSE. )
-
 
 !------------------------------------------------------------------------------
 !      Because the intersection nodes do not really exist the field variables 
