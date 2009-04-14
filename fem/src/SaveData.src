@@ -1673,6 +1673,8 @@ CONTAINS
     ALLOCATE(OnLine(Mesh % NumberOfNodes,2))
 
 
+    CALL Info('PolylineIntegrals','Operator: '//TRIM(OperName))
+
     area = 0.0
 
     NoDofs = Var % Dofs
@@ -1960,48 +1962,37 @@ CONTAINS
   
           SELECT CASE(OperName)
             
-            CASE ('diffusive flux')
-            
-            Flow = 0.0d0
-            DO j = 1, DIM
-              DO k = 1, DIM
-                IF(Permutated) THEN
+            CASE ('diffusive flux')           
+              Flow = 0.0d0
+              DO j = 1, DIM
+                DO k = 1, DIM
                   Flow(j) = Flow(j) + SUM( EnergyTensor(j,k,1:pn) * ParentBasis(1:pn) ) * &
-                      SUM( ParentdBasisdx(1:pn,k) * Var % Values(Var % Perm(ParentIndexes(1:pn))) )
-                ELSE
-                  Flow(j) = Flow(j) + SUM( EnergyTensor(j,k,1:pn) * ParentBasis(1:pn) ) * &
-                      SUM( ParentdBasisdx(1:pn,k) * Var % Values(ParentIndexes(1:pn)) ) 
-                END IF
+                      SUM( ParentdBasisdx(1:pn,k) * Var % Values(PermIndexes(1:pn)) ) 
+                END DO
               END DO
-            END DO
+              fluxes(Line) = fluxes(Line) + s * SUM(Normal(1:DIM) * Flow(1:DIM))
+            
+            
+            CASE ('convective flux')            
+              coeff = SUM( EnergyCoeff(1:pn) * ParentBasis(1:pn))              
+              IF(NoDofs == 1) THEN
+                func = SUM( Var % Values(PermIndexes(1:pn)) * ParentBasis(1:pn) )                
+                fluxes(Line) = fluxes(Line) + s * coeff * func
+              ELSE 
+                DO j=1,DIM
+                  Flow(j) = coeff * &
+                      SUM( Var % Values(NoDofs*(PermIndexes(1:pn)-1)+j) * ParentBasis(1:pn) )
+                END DO
+                fluxes(Line) = fluxes(Line) + s * coeff * SUM(Normal * Flow)
+              END IF
+                          
+            CASE ('area')                        
+              coeff = SUM( EnergyCoeff(1:pn) * Basis(1:pn))
+              fluxes(Line) = fluxes(Line) + s * coeff 
+              
+            END SELECT
 
-
-            fluxes(Line) = fluxes(Line) + s * SUM(Normal(1:DIM) * Flow(1:DIM))
-            
-            
-            CASE ('convective flux')
-            
-            coeff = SUM( EnergyCoeff(1:pn) * ParentBasis(1:pn))
-            
-            IF(NoDofs == 1) THEN
-              func = SUM( Var % Values(PermIndexes(1:pn)) * ParentBasis(1:pn) )
-              fluxes(Line) = fluxes(Line) + s * coeff * func
-            ELSE 
-              DO j=1,DIM
-                Flow(j) = coeff * SUM( Var % Values(NoDofs*(PermIndexes(1:pn)-1)+j) * ParentBasis(1:pn) )
-              END DO
-              fluxes(Line) = fluxes(Line) + s * coeff * SUM(Normal * Flow)
-            END IF
-
-            
-            CASE ('area')            
-            
-            coeff = SUM( EnergyCoeff(1:pn) * Basis(1:pn))
-            fluxes(Line) = fluxes(Line) + s * coeff 
-            
-          END SELECT
-
-        END DO 
+        END DO
 
       END DO
 
