@@ -2942,7 +2942,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   int i,j,k,l,n,m,boundaryelems,noelements,partitions,ind,periodic,hit,hit2;
   int dompart,part1,part2,newmam,mam1,mam2,noknots,part,dshared,dshared0,avedshared;
   int *elempart,*nodepart,*neededtimes,*indxper,sharings;
-  int nodesd2,maxneededtimes,*probnodes,optimize;
+  int nodesd2,maxneededtimes,*probnodes,optimize,target;
   int *neededvector;
   Real *rpart;
 
@@ -3003,11 +3003,21 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   dshared = CheckSharedDeviation(neededvector,partitions,info);
 
   if(!noopt) {    
-    int maxrounds = 5;
+    int target, same, nochanges, maxrounds, dtarget;
 
-    for(n=0;n<maxrounds;n++) {
+    target = noknots / partitions;
+    maxrounds = 5;
+    dtarget = 3;
+    nochanges = 0;
+
+
+    for(n=1;n<=maxrounds;n++) {
+      nochanges = 0;
+
       for(i=1;i<=noknots;i++) {      
 	ind = i;
+
+	/* owner partition may only be changed it there a are two of them */
 	k = data->partitiontable[2][ind];
 	if(!k) continue;
 	
@@ -3016,22 +3026,28 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
 	if(maxneededtimes > 2) 
 	  if(data->partitiontable[3][ind]) continue;
 	
-	j = data->partitiontable[1][ind];
-	
+	/* Do not change the ownership of nodes that cause topological problems */
 	if(probnodes[ind]) continue;	  
 	
+	j = data->partitiontable[1][ind];
+
 	/* Switch the owner to the smaller owner group if possible */
+	if(abs(neededvector[j] - neededvector[k]) < dtarget ) continue;
+
 	if(neededvector[j] < neededvector[k] && nodepart[ind] == k) {
+	  nochanges++;
 	  neededvector[j] += 1;
 	  neededvector[k] -= 1;
 	  nodepart[ind] = j;
 	}
 	else if(neededvector[k] < neededvector[j] && nodepart[ind] == j) {
+	  nochanges++;
 	  neededvector[k] += 1;
 	  neededvector[j] -= 1;
 	  nodepart[ind] = k;
 	}
       }
+      if(info && nochanges) printf("Changed the ownership of %d nodes\n",nochanges);
       
       dshared0 = dshared;
       dshared = CheckSharedDeviation(neededvector,partitions,info);
