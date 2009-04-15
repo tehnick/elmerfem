@@ -186,7 +186,6 @@
           OPEN( Unit=InFileUnit, Action='Read',File=ModelName,Status='OLD',ERR=20 )
           CurrentModel => LoadModel( ModelName,.FALSE.,ParEnv % PEs,ParEnv % MyPE )
 
-
           CALL Info( 'MAIN', 'Done               ', Level = 3 )
           CALL Info( 'MAIN', '-----------------------', Level = 3 )
        ELSE
@@ -775,18 +774,7 @@
          ELSE
            OutputName = TRIM(RestartFile)
          END IF
-
-         IF ( ParEnv % PEs > 1 ) THEN
-            IF ( ParEnv % MyPE < 10 ) THEN
-               WRITE( OutputName, '(a,i1)' ) TRIM(OutputName) // '.',ParEnv % MyPe
-            ELSE IF ( ParEnv % MyPE < 100 ) THEN
-               WRITE( OutputName, '(a,i2)' ) TRIM(OutputName) // '.',ParEnv % MyPE
-            ELSE IF ( ParENv % MyPe < 1000 ) THEN
-               WRITE( OutputName, '(a,i3)' ) TRIM(OutputName) // '.',ParEnv % MyPE
-            ELSE
-               WRITE( OutputName, '(a,i4)' ) TRIM(OutputName) // '.',ParEnv % MyPE
-            END IF
-         END IF
+         WRITE( OutputName, '(a,a)' ) TRIM(OutputName) // '.',TRIM(i2s(ParEnv % MyPe))
 
          CALL SetCurrentMesh( CurrentModel, Mesh )
          CALL LoadRestartFile( OutputName,k,Mesh )
@@ -1153,13 +1141,7 @@
           IF ( OutputFile(i:i) == ' ' ) EXIT
         END DO
         OutputFile(i:i) = '.'
-        IF ( ParEnv % MyPE < 10 ) THEN
-          WRITE( OutputFile(i+1:), '(i1)' ) ParEnv % MyPE
-        ELSE IF ( ParEnv % MyPE < 100 ) THEN
-          WRITE( OutputFile(i+1:), '(i2)' ) ParEnv % MyPE
-        ELSE
-          WRITE( OutputFile(i+1:), '(i3)' ) ParEnv % MyPE
-        END IF
+        WRITE( OutputFile(i+1:), '(a)' ) TRIM(i2s(ParEnv % MyPE))
       END IF
 
       BinaryOutput = ListGetLogical( CurrentModel % Simulation,'Binary Output',GotIt )
@@ -1260,13 +1242,7 @@
           IF ( OutputFile(i:i) == ' ' ) EXIT
         END DO
         OutputFile(i:i) = '.'
-        IF ( ParEnv % MyPE < 10 ) THEN
-          WRITE( OutputFile(i+1:), '(i1)' ) ParEnv % MyPE
-        ELSE IF ( ParEnv % MyPE < 100 ) THEN
-          WRITE( OutputFile(i+1:), '(i2)' ) ParEnv % MyPE
-        ELSE
-          WRITE( OutputFile(i+1:), '(i3)' ) ParEnv % MyPE
-        END IF
+        WRITE( OutputFile(i+1:), '(a)' ) TRIM(i2s(ParEnv % MyPE))
       END IF
     END IF
     
@@ -1277,13 +1253,7 @@
              IF ( PostFile(i:i) == ' ' ) EXIT
           END DO
           PostFile(i:i) = '.'
-          IF ( ParEnv % MyPE < 10 ) THEN
-             WRITE( PostFile(i+1:), '(i1)' ) ParEnv % MyPE
-          ELSE IF ( ParEnv % MyPE < 100 ) THEN
-             WRITE( PostFile(i+1:), '(i2)' ) ParEnv % MyPE
-          ELSE
-             WRITE( PostFile(i+1:), '(i3)' ) ParEnv % MyPE
-          END IF
+          WRITE( PostFile(i+1:), '(a)' ) TRIM(i2s(ParEnv % MyPE))
        END IF
        
        Mesh => CurrentModel % Meshes

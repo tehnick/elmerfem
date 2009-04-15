@@ -591,8 +591,8 @@ MODULE NavierStokes
 !      Mass matrix:
 !------------------------------------------------------------------------------
        ! Momentum equations
-       DO i=1,DIM
-         M(i,i) = M(i,i) + s * rho * Basis(q) * Basis(p)
+       DO i=1,dim
+         M(i,i) = M(i,i) + s*rho*Basis(q)*Basis(p)
        END DO
 
        ! Mass for the tontinuity equation (in terms of pressure)
@@ -684,8 +684,8 @@ MODULE NavierStokes
 !      Convection, Newton linearization
 !------------------------------------------------------------------------------
        IF ( Convect .AND. NewtonLinearization ) THEN
-         DO i=1,DIM
-           DO j=1,DIM
+         DO i=1,dim
+           DO j=1,dim
              A(i,j) = A(i,j) + s * rho * Grad(i,j) * Basis(q) * Basis(p)
            END DO
          END DO
@@ -695,7 +695,7 @@ MODULE NavierStokes
 !      Add stabilization...
 !------------------------------------------------------------------------------
        IF ( Stabilize ) THEN 
-          DO i=1,DIM
+          DO i=1,dim
              DO j=1,c
                 M(j,i) = M(j,i) + s * Tau * rho * Basis(q) * SW(p,i,j)
                 DO k=1,c

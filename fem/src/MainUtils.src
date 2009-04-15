@@ -770,8 +770,8 @@ CONTAINS
       !------------------------------------------------------------------------------
     END SELECT
 
-
-
+    IF ( ASSOCIATED(Solver % Matrix) ) Solver % Matrix % Comm = MPI_COMM_WORLD
+ 
     !------------------------------------------------------------------------------
     ! Add the exported variables which are typically auxiliary variables derived
     ! from the solution without their own matrix equation.  
@@ -2629,12 +2629,6 @@ END SUBROUTINE CoupledSolver
         MeActive = MeActive .AND. (Solver % Matrix % NumberOfRows > 0)
      CALL ParallelActive( MeActive )
 
-     M => Solver % Matrix
-     DO WHILE( ASSOCIATED(M) )
-       M % Comm = MPI_COMM_WORLD
-       M => M % Parent
-     END DO
-
      IF ( ParEnv % PEs>1 ) THEN
        DO i=1,ParEnv % PEs
          IF ( ParEnv % Active(i) ) THEN
@@ -2647,6 +2641,11 @@ END SUBROUTINE CoupledSolver
 
        n = COUNT(ParEnv % Active)
        IF ( n>0 .AND. n<ParEnv % PEs ) THEN
+         IF ( ASSOCIATED(Solver % Matrix) ) THEN
+           IF ( Solver % Matrix % Comm /= MPI_COMM_WORLD ) &
+              CALL MPI_Comm_Free( Solver % Matrix % Comm, ierr )
+         END IF
+
          CALL MPI_Comm_group( MPI_COMM_WORLD, group_world, ierr )
          ALLOCATE(memb(n))
          n = 0
@@ -2666,9 +2665,16 @@ END SUBROUTINE CoupledSolver
            M % Comm = comm_active
            M => M % Parent
          END DO
+       ELSE
+         M => Solver % Matrix
+         DO WHILE( ASSOCIATED(M) )
+           M % Comm = MPI_COMM_WORLD
+           M => M % Parent
+         END DO
        END IF
      END IF
-
+     IF ( ASSOCIATED(Solver % MAtrix) ) &
+       ParEnv % ActiveComm = Solver % Matrix % Comm
      str = ListGetString( Solver  % Values,'Procedure', Found )
 
 #ifdef SGIn32
@@ -2678,13 +2684,6 @@ END SUBROUTINE CoupledSolver
       CALL ExecSolver( Solver % PROCEDURE, &
           Model, Solver, dt, TransientSimulation)
 #endif
-
-
-
-     IF ( ASSOCIATED(Solver % Matrix) ) THEN
-       IF ( Solver % Matrix % Comm /= MPI_COMM_WORLD ) &
-          CALL MPI_Comm_Free( Solver % Matrix % Comm, ierr )
-     END IF
 
 !------------------------------------------------------------------------------
    END SUBROUTINE SingleSolver

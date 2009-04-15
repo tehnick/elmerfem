@@ -230,8 +230,9 @@ CONTAINS
        REAL(KIND=dp) :: x(:)
 !-------------------------------------------------------------------------------
 
-       GlobalData     => Matrix % ParMatrix
-       ParEnv         =  GlobalData % ParEnv
+       GlobalData => Matrix % ParMatrix
+       ParEnv     =  GlobalData % ParEnv
+       ParEnv % ActiveComm = Matrix % Comm
 
        CALL ExchangeSourceVec( Matrix, Matrix % ParMatrix % SplittedMatrix, &
               Matrix % ParallelInfo, x )
@@ -269,6 +270,8 @@ CONTAINS
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
       GlobalData => Matrix % ParMatrix
+      ParEnv = GlobalData % ParEnv
+      ParEnv % ActiveComm = Matrix % Comm
       IF ( PRESENT( Update ) ) THEN
          IF ( Update ) THEN
             IF ( PRESENT(UseMassVals) ) THEN

@@ -3284,7 +3284,12 @@ CONTAINS
 	
      string = ' '
      val = value
-     n = LOG10(REAL(value))+1
+     IF ( value > 0 ) THEN
+       n = LOG10(REAL(value))+1
+     ELSE
+       n = 1
+     END IF
+
      DO i=n-1,0,-1
       t = val / 10**i
       val = val - t*10**i

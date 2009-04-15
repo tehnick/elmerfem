@@ -120,8 +120,9 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: ProjPN, ProjQT
        INTEGER, POINTER :: Permutation(:), Permutation2(:)
 
-       REAL(KIND=dp), POINTER :: Residual(:), Work(:), Residual2(:), Work2(:),  Solution2(:)
-       REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
+       REAL(KIND=dp), POINTER :: Residual(:), Work(:), Residual2(:), &
+                      Work2(:),  Solution2(:)
+       REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL, tmp
 
        REAL(KIND=dp) :: CPUTime, tt
 
@@ -139,7 +140,10 @@ CONTAINS
        n = Matrix1 % NumberOfRows
        ALLOCATE( Residual(n) )
        Residual = 0.0d0
-       RHSNorm = MGnorm( n, ForceVector )
+
+       RHSNorm = ParallelReduction(SQRT(SUM(ForceVector**2)))
+       Solution = Solution / RHSnorm
+       ForceVector = ForceVector / RHSnorm
 !
 !      Check for top & bottom levels:
 !      ------------------------------ 
@@ -154,11 +158,6 @@ CONTAINS
 
           CALL ListAddLogical( Solver % Values, &
                      'Linear System Refactorize', NewLinearSystem )
-
-          n = Matrix1 % NumberOfRows
-
-          RHSNorm = MGNorm( n, ForceVector )
-          ForceVector = ForceVector / RHSNorm
 
           LowestSolver = ListGetString(Solver % Values,'MG Lowest Linear Solver',Found)
           IF ( .NOT. Found ) THEN
@@ -184,7 +183,7 @@ CONTAINS
                        ForceVector, Residual, NewLinearSystem )
             END IF
             PSolver => Solver
-            RHSNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, &
+            tmp = MGSmooth( PSolver, Matrix1, Mesh1, Solution, &
                  ForceVector, Residual, Level, DOFs, .TRUE. )
           CASE DEFAULT
              CALL Warn( 'GMG:', 'Unknown solver selection for MG lowest level' )
@@ -199,6 +198,7 @@ CONTAINS
           END SELECT
 
           Solution = Solution * RHSNorm
+          ForceVector = ForceVector * RHSnorm
 
           DEALLOCATE( Residual )
           NewLinearSystem = .FALSE.
@@ -457,6 +457,8 @@ CONTAINS
        IF ( Parallel ) THEN 
           CALL ParallelUpdateResult( Matrix1, Solution, Residual )
        END IF
+       Solution = Solution * RHSNorm
+       ForceVector = ForceVector * RHSNorm
 
        Solver % Variable => SaveVariable
        Solver % Mesh     => SaveMesh
@@ -486,6 +488,7 @@ CONTAINS
        REAL(KIND=dp) :: RNorm
 !------------------------------------------------------------------------------
        INTEGER :: Sweeps, InvLevel
+       REAL(KIND=dp) :: Bnorm 
        INTEGER, POINTER :: Iters(:)
        REAL(KIND=dp), POINTER :: R1(:),R2(:)
 !------------------------------------------------------------------------------
@@ -501,9 +504,10 @@ CONTAINS
        END IF
 
        PSolver => Solver
+
        RNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, &
             ForceVector, Residual, Level, DOFs, .TRUE. )
-!
+
 !------------------------------------------------------------------------------
 !
 !     Solve (PAQ)z = Pr, x = x + Qz:
@@ -542,8 +546,11 @@ CONTAINS
 !
 !     Post smoothing:
 !     ---------------
+
+
       RNorm = MGSmooth( PSolver, Matrix1, Mesh1, Solution, ForceVector, &
                    Residual, Level, DOFs, .FALSE. )
+
 !------------------------------------------------------------------------------
     END FUNCTION GMGSweep
 !------------------------------------------------------------------------------

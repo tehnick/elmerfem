@@ -607,13 +607,7 @@ CONTAINS
            IF ( PostFile(i:i) == ' ' ) EXIT
          END DO
          PostFile(i:i) = '.'
-         IF ( ParEnv % MyPE < 10 ) THEN
-           WRITE( PostFile(i+1:), '(i1)' ) ParEnv % MyPE
-         ELSE IF ( ParEnv % MyPE < 100 ) THEN
-           WRITE( PostFile(i+1:), '(i2)' ) ParEnv % MyPE
-         ELSE
-           WRITE( PostFile(i+1:), '(i3)' ) ParEnv % MyPE
-         END IF
+         WRITE( PostFile(i+1:), '(a)' ) TRIM(i2s(ParEnv % MyPE))
        END IF
        Mesh => CurrentModel % Meshes
        DO WHILE( ASSOCIATED( Mesh ) )

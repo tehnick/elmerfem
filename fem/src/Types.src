@@ -79,11 +79,19 @@ MODULE Types
   INCLUDE 'dmumps_struc.h'
 #endif
 
+  TYPE BasicMatrix_t
+    INTEGER :: NumberOfRows
+    INTEGER, POINTER :: Rows(:), Cols(:), Diag(:)
+    INTEGER, POINTER :: GRows(:), RowOwner(:)
+    REAL(KIND=dp), POINTER :: Values(:),MassValues(:),DampValues(:)
+  END  TYPE BasicMatrix_t
+
+
   TYPE Matrix_t
     TYPE(Matrix_t), POINTER :: Child, Parent, ConstraintMatrix, EMatrix
     INTEGER :: NumberOfRows
 
-    INTEGER :: Subband, Format, SolveCount, Comm
+    INTEGER :: Subband, Format, SolveCount, Comm=-1
     LOGICAL :: Ordered, Lumped, Symmetric, Complex, DGMatrix
 
     TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => NULL()
@@ -116,7 +124,6 @@ MODULE Types
 !   For Complex systems, not used yet!:
 !   -----------------------------------
     COMPLEX(KIND=dp), POINTER :: CRHS(:),CForce(:,:)
-
     COMPLEX(KIND=dp),  POINTER :: CValues(:),CILUValues(:)
     COMPLEX(KIND=dp),  POINTER :: CMassValues(:),CDampValues(:)
 
@@ -134,6 +141,7 @@ MODULE Types
      INTEGER                          :: PEs
      INTEGER                          :: MyPE
      LOGICAL                          :: Initialized
+     INTEGER                          :: ActiveComm
      LOGICAL, DIMENSION(:), POINTER   :: Active
      LOGICAL, DIMENSION(:), POINTER   :: IsNeighbour
      LOGICAL, DIMENSION(:), POINTER   :: SendingNB
@@ -179,9 +187,10 @@ MODULE Types
 
 
   TYPE SplittedMatrixT
+     TYPE (BasicMatrix_t), DIMENSION(:), POINTER :: IfMatrix
      TYPE (Matrix_t), POINTER :: InsideMatrix
-     TYPE (Matrix_t), DIMENSION(:), POINTER :: IfMatrix
-     TYPE (Matrix_t), DIMENSION(:), POINTER :: NbsIfMatrix
+     TYPE (BasicMatrix_t), DIMENSION(:), POINTER :: NbsIfMatrix
+
      TYPE (VecIndicesT), DIMENSION(:), POINTER :: VecIndices
      TYPE (IfVecT), DIMENSION(:), POINTER :: IfVecs
      TYPE (IfLColsT), DIMENSION(:), POINTER :: IfLCols

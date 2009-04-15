@@ -622,6 +622,7 @@ CONTAINS
            END IF
         END IF
 
+        Mesh % Elements(i) % BDOFs  = 0
         Mesh % Elements(i) % DGDOFs = 0
         NULLIFY( Mesh % Elements(i) % PDefs )
         NULLIFY( Mesh % Elements(i) % DGIndexes )
@@ -4043,7 +4044,7 @@ CONTAINS
        TYPE(Mesh_t), POINTER :: Mesh, NewMesh
 !------------------------------------------------------------------------------
        TYPE(Element_t), POINTER :: Edge, Face, Element, BoundaryElement
-       INTEGER :: i,j,k,l,m,n,p,q
+       INTEGER :: i,j,k,l,m,n,p,q, istat
        INTEGER, POINTER :: IntCnts(:),IntArray(:),Reorder(:)
        INTEGER, ALLOCATABLE :: list1(:), list2(:)
        LOGICAL, ALLOCATABLE :: InterfaceTag(:)
@@ -4064,8 +4065,10 @@ CONTAINS
 !      execution:
 !      ----------------------------------------------------
        n = NewMesh % NumberOfNodes
-       ALLOCATE( NewMesh % ParallelInfo % NeighbourList(n) )
-       CALL AllocateVector( NewMesh % ParallelInfo % INTERFACE,n  )
+       ALLOCATE( NewMesh % ParallelInfo % NeighbourList(n), stat=istat )
+       IF ( istat /= 0 ) &
+         CALL Fatal( 'UpdateParallelMesh', 'Allocate error.' )
+       CALL AllocateVector( NewMesh % ParallelInfo % Interface,n  )
        CALL AllocateVector( NewMesh % ParallelInfo % GlobalDOFs,n )
 
        DO i=1,n
@@ -4300,7 +4303,7 @@ CONTAINS
 !      -----------------------------------
        DO i=1,Mesh % NumberOfNodes
           CALL AllocateVector( NewMesh % ParallelInfo % NeighbourList(i) % Neighbours, &
-             SIZE( Mesh % ParallelInfo % Neighbourlist(i) % Neighbours ) )
+                SIZE( Mesh % ParallelInfo % Neighbourlist(i) % Neighbours) )
 
           NewMesh % ParallelInfo % NeighbourList(i) % Neighbours = &
              Mesh % ParallelInfo % NeighbourList(i) % Neighbours
@@ -4311,9 +4314,9 @@ CONTAINS
 !      of the interface nodes:
 !      ----------------------------------------
        DO i=Mesh % NumberOfNodes+1, NewMesh % NumberOfNodes
-          IF ( .NOT. NewMesh % ParallelInfo % INTERFACE(i) ) THEN
-             CALL AllocateVector( NewMesh % ParallelInfo % NeighbourList(i) % Neighbours,1 )
-             NewMesh % ParallelInfo % NeighbourList(i) %  Neighbours(1) = ParEnv % MyPE
+          IF ( .NOT. NewMesh % ParallelInfo % Interface(i) ) THEN
+            CALL AllocateVector( NewMesh % ParallelInfo % NeighbourList(i) % Neighbours,1 )
+            NewMesh % ParallelInfo % NeighbourList(i) %  Neighbours(1) = ParEnv % MyPE
           END IF
        END DO
 !

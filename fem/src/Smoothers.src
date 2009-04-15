@@ -53,6 +53,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     FUNCTION MGSmooth( Solver, A, Mesh, x, b, r, Level, DOFs, PreSmooth, CF) RESULT(RNorm)
 !------------------------------------------------------------------------------
+      USE ParallelUtils
       TYPE(Solver_t), POINTER :: Solver
       TYPE(Matrix_t), POINTER :: A
       TYPE(Mesh_t) :: Mesh
@@ -67,9 +68,10 @@ CONTAINS
       INTEGER :: n, Rounds, InvLevel
       INTEGER, POINTER :: Iters(:)
       REAL(KIND=dp), POINTER :: Mx(:),Mb(:),Mr(:)
-      REAL(KIND=dp) :: Omega
-      REAL(KIND=dp), ALLOCATABLE :: Q(:), Z(:), Ri(:), T(:), T1(:), T2(:), S(:), V(:), Pr(:)
+      REAL(KIND=dp) :: Omega, Bnorm
       REAL(KIND=dp), POINTER :: TmpArray(:,:)
+      REAL(KIND=dp), ALLOCATABLE :: Q(:), Z(:), Ri(:), T(:), &
+             T1(:), T2(:), S(:), V(:), Pr(:)
 !------------------------------------------------------------------------------
       
       SAVE Z, Pr, Q, Ri, T, T1, T2, S, V
@@ -267,7 +269,6 @@ CONTAINS
         LOGICAL, OPTIONAL :: Update
         TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
-
         IF ( .NOT. Parallel ) THEN
           CALL CRS_MatrixVectorMultiply( A, x, b )
         ELSE
@@ -307,9 +308,7 @@ CONTAINS
         DO i=1,Rounds
           CALL MGmv( A, x, r )
           r(1:n) = b(1:n) - r(1:n)
-          
-          r(1:n) = r(1:n) / M % Values(M % Diag)
-          x(1:n) = x(1:n) + r(1:n)
+          x(1:n) = x(1:n) + r(1:n) / M % Values(M % Diag(1:n))
         END DO
 !------------------------------------------------------------------------------
       END SUBROUTINE Jacobi
@@ -328,9 +327,7 @@ CONTAINS
         DO i=1,Rounds
           CALL MGmv( A, x, r )
           r(1:n) = b(1:n) - r(1:n)
-          
-          r(1:n) = r(1:n) / M % Values(M % Diag)
-          x(1:n) = x(1:n) + w * r(1:n)
+          x(1:n) = x(1:n) + w * r(1:n) / M % Values(M % Diag)
         END DO
 !------------------------------------------------------------------------------
       END SUBROUTINE SmoothedJacobi
@@ -500,10 +497,9 @@ CONTAINS
         INTEGER, POINTER :: Cols(:),Rows(:)
         REAL(KIND=dp), POINTER :: Values(:)
         
-        n = A % NumberOfRows
-        Rows   => A % Rows
-        Cols   => A % Cols
-        Values => A % Values
+        Rows   => M % Rows
+        Cols   => M % Cols
+        Values => M % Values
         
         DO k=1,Rounds
           DO i=1,n
@@ -1054,7 +1050,6 @@ end do
 
           CALL UzawaMv( A, x, t1 )
           t1(1:n) = b(1:n) - t1(1:n)
-print*,i,sqrt(sum(t1**2))
           IF ( SQRT(SUM(t1**2)) < reps ) EXIT
         END DO
 !------------------------------------------------------------------------------

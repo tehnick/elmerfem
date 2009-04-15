@@ -231,6 +231,63 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_SortBasicMatrix( A, ValuesToo )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Sort columns to ascending order for rows of a CRS format matrix
+!
+!  ARGUMENTS:
+!
+!  TYPE(Matrix_t) :: A
+!     INPUT: Structure holding matrix
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+    TYPE(BasicMatrix_t) :: A
+    LOGICAL, OPTIONAL :: ValuesToo
+
+    INTEGER :: i,j,n
+
+    LOGICAL :: SortValues
+    REAL(KIND=dp), POINTER :: Values(:)
+    INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
+
+    SortValues = .FALSE.
+    IF ( PRESENT(ValuesToo) ) SortValues=ValuesToo
+
+    Diag   => A % Diag
+    Rows   => A % Rows
+    Cols   => A % Cols
+    IF ( SortValues ) Values => A % Values
+    n = A % NumberOfRows
+
+    IF ( SortValues ) THEN
+      DO i=1,N
+        CALL SortF( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),Values(Rows(i):Rows(i+1)-1) )
+      END DO
+    ELSE
+      DO i=1,N
+          CALL Sort( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1) )
+      END DO
+    END IF
+
+    IF ( ASSOCIATED(Diag) ) THEN
+      DO i=1,N
+        DO j=Rows(i),Rows(i+1)-1
+          IF ( Cols(j) == i ) THEN
+            Diag(i) = j
+            EXIT
+          END IF
+        END DO
+      END DO
+    END IF
+  END SUBROUTINE CRS_SortBasicMatrix
+!------------------------------------------------------------------------------
+
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_MakeMatrixIndex( A,i,j )

@@ -467,7 +467,7 @@
        body_id = -1
 
        CALL StartAdvanceOutput( 'FlowSolve', 'Assembly: ' )
-       DO t = 1,Solver % NumberOFActiveElements
+       DO t = 1,GetNOFActive()
 
          CALL AdvanceOutput( t,GetNOFActive() )
 !
@@ -908,7 +908,7 @@
 !------------------------------------------------------------------------------
 !        Add local stiffness matrix and force vector to global matrix & vector
 !------------------------------------------------------------------------------
-         CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
+         CALL DefaultUpdateEquations( STIFF, FORCE )
 !------------------------------------------------------------------------------
       END DO
 !------------------------------------------------------------------------------
