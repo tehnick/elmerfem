@@ -2986,7 +2986,8 @@ static int RenumberPartitions(struct FemType *data,int info)
   for(i=0;i<8;i++) options[i] = 0;
   perm = Ivector(0,partitions-1);
   iperm = Ivector(0,partitions-1);
-  
+
+#if PARTMETIS   
   if(info) printf("Starting Metis reordering routine.\n");
 
   if(1) {
@@ -2995,6 +2996,11 @@ static int RenumberPartitions(struct FemType *data,int info)
   else {
     METIS_EdgeND(&nn,xadj,adjncy,&numflag,&options[0],perm,iperm);    
   }
+#else
+  if(info) printf("This version was not compiled with metis\n");
+  return(1);
+#endif
+
 
   /* Print the new order of partitions */
   for(i=0;i<partitions;i++)
