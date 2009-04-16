@@ -2201,8 +2201,10 @@ static int WindowPosition( ClientData cl,Tcl_Interp *interp,int argc,char **argv
 static int MPlayer( ClientData cl, Tcl_Interp *interp, int argc, char **argv )
 {
 #if defined(MINGW32)
+
   return TCL_OK;
-#endif
+
+#else
 
   if( argc < 2 ) {
     sprintf( interp->result, "Usage: mplayer filename");
@@ -2224,6 +2226,8 @@ static int MPlayer( ClientData cl, Tcl_Interp *interp, int argc, char **argv )
   system( playCmd );
 
   return TCL_OK;
+
+#endif
 }
 
 
