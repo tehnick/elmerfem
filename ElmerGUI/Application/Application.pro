@@ -27,8 +27,11 @@ INSTALLS += edf
 #------------------------------------------------------------------------------
 CONFIG += warn_off
 
-# Added by Mikko:
-QMAKE_FLAGS += -Wl,-rpath,$$(VTKHOME)/lib/vtk-5.2
+# QMAKE_LFLAGS += -Wl,-rpath,$$(VTKHOME)/lib/vtk-5.2
+
+win32 {
+  QMAKE_LFLAGS += /NODEFAULTLIB:library
+}
 
 #------------------------------------------------------------------------------
 # Directories:
