@@ -2909,6 +2909,119 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 }
 
 
+
+
+static int RenumberPartitions(struct FemType *data,int info)
+{
+  int i,j,k,con,totcon,nn,numflag,noelements,noknots,partitions;
+  int part,part1,part2;
+  int maxneededtimes,totneededtimes;
+  int *nodepart,*elempart;
+  int *perm,*iperm,options[8];
+  int *xadj,*adjncy;
+  int **partmatrix;
+
+
+  printf("Renumbering partitions to minimize bandwidth.\n");  
+
+  partitions = data->nopartitions;
+  noelements = data->noelements;
+  noknots = data->noknots;
+  maxneededtimes = data->maxpartitiontable;
+
+
+  partmatrix = Imatrix(1,partitions,1,partitions);
+  for(i=1;i<=partitions;i++)
+    for(j=1;j<=partitions;j++)
+      partmatrix[i][j] = FALSE;
+
+  totneededtimes = noknots;
+  for(i=1;i<=noknots;i++) {
+    if(data->partitiontable[2][i] == 0) continue;
+    for(j=1;j<=maxneededtimes;j++) {
+      part1 =  data->partitiontable[j][i];
+      if(!part1) break;
+      for(k=j+1;k<=maxneededtimes;k++) {
+	part2 = data->partitiontable[k][i];
+	if(!part2) break;
+	partmatrix[part1][part2] = TRUE;
+      }
+    }
+  }
+  
+  for(i=1;i<=partitions;i++)
+    for(j=1;j<=partitions;j++)
+      if(partmatrix[i][j]) partmatrix[j][i] = TRUE;
+ 
+  totcon = 0;
+  for(i=1;i<=partitions;i++)
+    for(j=1;j<=partitions;j++)
+      if(partmatrix[i][j]) {
+	printf("i=%d j=%d\n",i,j);
+	totcon++;
+      }
+
+
+  if(info) printf("There are %d connections alltogether\n",totcon);
+
+  xadj = Ivector(0,partitions);
+  adjncy = Ivector(0,totcon-1);
+  for(i=0;i<totcon;i++) 
+    adjncy[i] = 0;
+
+  totcon = 0;
+  for(i=1;i<=partitions;i++) {
+    xadj[i-1] = totcon;
+    for(j=1;j<=partitions;j++) {
+      con = partmatrix[j][i];
+      if(!con) continue;
+      adjncy[totcon] = j-1;
+      totcon++;
+    }
+  }
+  xadj[partitions] = totcon;
+
+  nn = partitions;
+  numflag = 0;
+  for(i=0;i<8;i++) options[i] = 0;
+  perm = Ivector(0,partitions-1);
+  iperm = Ivector(0,partitions-1);
+  
+  if(info) printf("Starting Metis reordering routine.\n");
+
+  if(1) {
+    METIS_NodeND(&nn,xadj,adjncy,&numflag,&options[0],perm,iperm);
+  }
+  else {
+    METIS_EdgeND(&nn,xadj,adjncy,&numflag,&options[0],perm,iperm);    
+  }
+
+  /* Print the new order of partitions */
+  for(i=0;i<partitions;i++)
+    printf("i=%d perm=%d iperm=%d\n",i,perm[i],iperm[i]);
+
+  /* Use the renumbering or not */
+  if(1) {
+    if(info) printf("Moving partitions to new positions\n");
+    nodepart = data->nodepart;
+    elempart = data->elempart;
+    for(i=1;i<=noelements;i++) 
+      elempart[i] = iperm[elempart[i]-1]+1;
+    for(i=1;i<=noknots;i++)
+      nodepart[i] = iperm[nodepart[i]-1]+1;
+    for(i=1;i<=noknots;i++) {
+      for(j=1;j<=maxneededtimes;j++) {
+	part = data->partitiontable[j][i];
+	if(!part) break;
+	data->partitiontable[j][i] = iperm[part-1]+1;
+      }
+    }
+  }
+
+
+}
+
+
 static int CheckSharedDeviation(int *neededvector,int partitions,int info)
 {
   int i,minshared,maxshared,dshared;
@@ -2965,6 +3078,10 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   /* Create a table showing to which partitions nodes belong to */
   CreatePartitionTable(data,info);
   maxneededtimes = data->maxpartitiontable;
+
+  /* Activate this if you want to test the renumbering scheme */
+  if(0) RenumberPartitions(data,info);
+
 
  /* A posteriori correction, don't know if this just corrects the symptom */
   if(0 && periodic) {
