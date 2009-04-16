@@ -2957,7 +2957,7 @@ static int RenumberPartitions(struct FemType *data,int info)
   for(i=1;i<=partitions;i++)
     for(j=1;j<=partitions;j++)
       if(partmatrix[i][j]) {
-	printf("i=%d j=%d\n",i,j);
+	if(0) printf("i=%d j=%d\n",i,j);
 	totcon++;
       }
 
@@ -2997,7 +2997,7 @@ static int RenumberPartitions(struct FemType *data,int info)
     METIS_EdgeND(&nn,xadj,adjncy,&numflag,&options[0],perm,iperm);    
   }
 #else
-  if(info) printf("This version was not compiled with metis\n");
+  if(info) printf("This version was not compiled with METIS needed for bandwidth optimization\n");
   return(1);
 #endif
 
