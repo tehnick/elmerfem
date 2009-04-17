@@ -2909,16 +2909,134 @@ static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryTy
 }
 
 
+static void Levelize(int n,int level,int *maxlevel,int *levels,int *rows,int *cols,int *done)
+{    
+   int j,k;
+
+   levels[n] = level;
+   done[n] = TRUE;
+   *maxlevel = MAX( *maxlevel,level );
+
+   for( j=rows[n]; j<rows[n+1]; j++ ) {
+      k = cols[j];
+      if ( !done[k] ) Levelize(k,level+1,maxlevel,levels,rows,cols,done);
+   }
+}
+
+static void RCM( int nrows, int *rows, int *cols, int *iperm )
+{
+  int i,j,k,n,startn,mindegree,maxlevel,newroot;
+  int *level,*degree,*done;
+
+  done   = Ivector(0,nrows-1);
+  level  = Ivector(0,nrows-1);
+  degree = Ivector(0,nrows-1);
+
+  k = 0;
+  for(i=0; i<nrows; i++ )
+  {
+    for( j=rows[i]; j<rows[i+1]; j++ )
+      k = MAX( k, ABS(cols[j]-i)+1 );
+    degree[i] = rows[i+1]-rows[i];
+  }
+printf( "RCM: BW before: %d\n", k );
+
+   startn = 0;
+   mindegree = degree[startn];
+   for( i=0; i<nrows; i++ ) {
+     if ( degree[i] < mindegree ) {
+       startn = i;
+       mindegree = degree[i];
+     }
+     level[i] = 0;
+   }
+
+   maxlevel = 0;
+   for( i=0; i<done[i]; i++ ) done[i]=FALSE;
+
+   Levelize( startn,0,&maxlevel,level,rows,cols,done );
+
+   newroot = TRUE;
+   while(newroot) {
+     newroot = FALSE;
+     mindegree = degree[startn];
+     k = startn;
+
+     for( i=0; i<nrows; i++ ) {
+       if ( level[i] == maxlevel ) {
+         if ( degree[i] < mindegree ) {
+           k = i;
+           mindegree = degree[i];
+         }
+       }
+     }
+
+     if ( k /= startn ) {
+       j = maxlevel;
+       maxlevel = 0;
+       for(i=0; i<nrows; i++ ) done[i]=FALSE;
+
+       Levelize( k,0,&maxlevel,level,rows,cols,done );
+
+       if ( j > maxlevel ) {
+         newroot = TRUE;
+         startn = j;
+       }
+     }
+   }
+
+  for(i=0; i<nrows; i++ ) done[i]=-1,iperm[i]=-1;
+
+  done[0]=startn;
+  iperm[startn]=0;
+  i=1;
+
+  for( j=0; j<nrows; j++ ) {
+    if ( done[j]<0 ) {
+      for( k=0; k<nrows; k++ ) {
+         if ( iperm[k]<0 ) {
+             done[i]=k;
+             iperm[k]=i;
+             i++;
+             break;
+           }
+         }
+       }
+
+    for( k=rows[done[j]]; k<rows[done[j]+1]; k++) { 
+        n = cols[k];
+       if ( iperm[n]<0 ) {
+         done[i] = n;
+         iperm[n] = i;
+         i++;
+        }
+      }
+    }
+
+    for( i=0; i<nrows; i++ )
+      iperm[done[i]] = nrows-1-i;
+
+    k = 0;
+    for(i=0; i<nrows; i++ )
+      for( j=rows[i]; j<rows[i+1]; j++ )
+        k = MAX( k, ABS(iperm[cols[j]]-iperm[i])+1 );
+ printf( "RCM: BW after: %d %d\n", startn,k );
+
+   free_Ivector(level,0,nrows-1);
+   free_Ivector(done,0,nrows-1);
+   free_Ivector(degree,0,nrows-1);
+}
+
 
 
 static int RenumberPartitions(struct FemType *data,int info)
 {
-  int i,j,k,con,totcon,nn,numflag,noelements,noknots,partitions;
-  int part,part1,part2;
+  int i,j,k,n,con,totcon,nn,numflag,noelements,noknots,partitions;
+  int part,part1,part2,startn,newroot,maxlevel,mindegree;
   int maxneededtimes,totneededtimes;
   int *nodepart,*elempart;
   int *perm,*iperm,options[8];
-  int *xadj,*adjncy;
+  int *xadj,*adjncy,*level,*degree;
   int **partmatrix;
 
 
@@ -2987,6 +3105,14 @@ static int RenumberPartitions(struct FemType *data,int info)
   perm = Ivector(0,partitions-1);
   iperm = Ivector(0,partitions-1);
 
+  RCM( partitions, xadj, adjncy, iperm );
+
+  /* Print the new order of partitions */
+printf( "RCM: \n" );
+  for(i=0;i<partitions;i++)
+    printf("i=%d iperm=%d\n",i,iperm[i] );
+
+if (0) {
 #if PARTMETIS   
   if(info) printf("Starting Metis reordering routine.\n");
 
@@ -3000,11 +3126,12 @@ static int RenumberPartitions(struct FemType *data,int info)
   if(info) printf("This version was not compiled with METIS needed for bandwidth optimization\n");
   return(1);
 #endif
-
-
   /* Print the new order of partitions */
+printf( "METIS: \n" );
   for(i=0;i<partitions;i++)
     printf("i=%d perm=%d iperm=%d\n",i,perm[i],iperm[i]);
+
+}
 
   /* Use the renumbering or not */
   if(1) {
@@ -3403,7 +3530,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   /* Order the nodes so that the different partitions have a continous interval of nodes.
      This information is used only just before the saving of node indexes in each instance. 
      This feature was coded for collaboration with Hypre library that assumes this. */
-  reorder = TRUE;
+  reorder = FALSE;
   if(reorder) {
     order = Ivector(1,noknots);
     k = 0;
