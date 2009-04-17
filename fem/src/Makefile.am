@@ -85,7 +85,8 @@ else
 
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 	$(RM) $@
-	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION).so -o libelmersolver-$(VERSION).so $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+	ln -s libelmersolver-$(VERSION).so $@
 
 
 .$(OBJEXT).$(SHLEXT): 
@@ -192,7 +193,7 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) ViewFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
-	$(CP) libelmersolver$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(CP) -a libelmersolver*$(SHL_EXT) $(DESTDIR)$(prefix)/lib
 	$(CP) elmerf90 elmerf90-nosh elmerld $(DESTDIR)$(prefix)/bin
 if USE_MPI
 	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin

@@ -319,7 +319,7 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	VorticitySolver$(SHL_EXT) \
 	ScalarPotentialSolver$(SHL_EXT)  \
 	StructuredMeshMapper$(SHL_EXT) \
-	ReynoldsSolver$(OBJ_EXT)
+	ReynoldsSolver$(SHL_EXT)
 
 SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
@@ -1094,7 +1094,8 @@ fdeps:
 
 @USE_WINDOWS_COMPILER_FALSE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 @USE_WINDOWS_COMPILER_FALSE@	$(RM) $@
-@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION).so -o libelmersolver-$(VERSION).so $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+@USE_WINDOWS_COMPILER_FALSE@	ln -s libelmersolver-$(VERSION).so $@
 
 @USE_WINDOWS_COMPILER_FALSE@.$(OBJEXT).$(SHLEXT): 
 @USE_WINDOWS_COMPILER_FALSE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
@@ -1172,7 +1173,7 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) ViewFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
-	$(CP) libelmersolver$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(CP) -a libelmersolver*$(SHL_EXT) $(DESTDIR)$(prefix)/lib
 	$(CP) elmerf90 elmerf90-nosh elmerld $(DESTDIR)$(prefix)/bin
 @USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin
 

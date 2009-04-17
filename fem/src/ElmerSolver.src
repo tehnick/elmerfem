@@ -774,7 +774,8 @@
          ELSE
            OutputName = TRIM(RestartFile)
          END IF
-         WRITE( OutputName, '(a,a)' ) TRIM(OutputName) // '.',TRIM(i2s(ParEnv % MyPe))
+         IF ( ParEnv % PEs > 1 ) &
+           OutputName = TRIM(OutputName) // '.' // TRIM(i2s(ParEnv % MyPe))
 
          CALL SetCurrentMesh( CurrentModel, Mesh )
          CALL LoadRestartFile( OutputName,k,Mesh )
