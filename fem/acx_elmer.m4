@@ -682,7 +682,7 @@ fi
 
 # Generic HYPRE library?
 if test $acx_hypre_ok = no; then
-	AC_CHECK_LIB(HYPRE, $HYPRE_IJMatrixCreate, [acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE"],,[-lm])
+	AC_CHECK_LIB(HYPRE_IJ_mv, $HYPRE_IJMatrixCreate, [acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE_Euclid -lHYPRE_parcsr_ls -lHYPRE_ParaSails -lHYPRE_IJ_mv"],,[-lm])
 fi
 
 AC_SUBST(HYPRE_LIBS)

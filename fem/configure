@@ -14056,14 +14056,14 @@ fi
 
 # Generic HYPRE library?
 if test $acx_hypre_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_HYPRE_$HYPRE_IJMatrixCreate" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $HYPRE_IJMatrixCreate in -lHYPRE" >&5
-echo $ECHO_N "checking for $HYPRE_IJMatrixCreate in -lHYPRE... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_HYPRE_IJ_mv_$HYPRE_IJMatrixCreate" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $HYPRE_IJMatrixCreate in -lHYPRE_IJ_mv" >&5
+echo $ECHO_N "checking for $HYPRE_IJMatrixCreate in -lHYPRE_IJ_mv... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lHYPRE -lm $LIBS"
+LIBS="-lHYPRE_IJ_mv -lm $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -14136,7 +14136,7 @@ ac_res=`eval echo '${'$as_ac_Lib'}'`
 	       { echo "$as_me:$LINENO: result: $ac_res" >&5
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE"
+  acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE_Euclid -lHYPRE_parcsr_ls -lHYPRE_ParaSails -lHYPRE_IJ_mv"
 fi
 
 fi
@@ -15935,7 +15935,7 @@ echo "$as_me: WARNING: sizeof(long) = $ac_cv_sizeof_long !? What kind of weird s
   fi
 fi
 
-SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+SOLVER_LIBS="$LIBS $MPI_LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
 case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
