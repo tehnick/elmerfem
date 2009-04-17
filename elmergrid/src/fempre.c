@@ -170,6 +170,8 @@ static void Instructions()
   printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
   printf("-partoptim           : apply agressive optimization to node sharing\n");
+  printf("-partbw              : minimize the bandwith of partition-partion couplings\n");
+  printf("-parthypre           : number the nodes continously partitionwise\n");
 
   if(0) printf("-names               : conserve name information where applicable\n");
 #if 0
@@ -855,7 +857,7 @@ int main(int argc, char *argv[])
       if(data[k].periodicexist)
 	FindPeriodicParents(&data[k],boundaries[k],info);	
 
-      OptimizePartitioning(&data[k],boundaries[k],!noopt,info);
+      OptimizePartitioning(&data[k],boundaries[k],!noopt,eg.partbw,info);
       if(data[k].periodicexist) {
 	free_Ivector(data[k].periodic,1,data[k].noknots);
 	data[k].periodicexist = FALSE;
@@ -877,7 +879,7 @@ int main(int argc, char *argv[])
     for(k=0;k<nomeshes;k++) {
       if(data[k].nopartitions > 1) 
 	SaveElmerInputPartitioned(&data[k],boundaries[k],eg.filesout[k],eg.decimals,
-				  eg.partitionhalo,eg.partitionindirect,info);
+				  eg.partitionhalo,eg.partitionindirect,eg.parthypre,info);
       else
 	SaveElmerInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,info);
     }

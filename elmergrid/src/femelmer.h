@@ -27,8 +27,9 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
 int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int info);
 int ReorderElementsMetis(struct FemType *data,int info);
 #endif
-int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,int info);
+int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,
+			 int partbw,int info);
 int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 			      char *prefix,int decimals,int halo,int indirect,
-			      int info);
+			      int parthypre,int info);
 

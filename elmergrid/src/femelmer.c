@@ -2923,7 +2923,8 @@ static void Levelize(int n,int level,int *maxlevel,int *levels,int *rows,int *co
    }
 }
 
-static int RCM( int nrows, int *rows, int *cols, int *iperm )
+
+static int RenumberCuthillMckee( int nrows, int *rows, int *cols, int *iperm )
 {
   int i,j,k,n,startn,mindegree,maxlevel,newroot,bw_bef,bw_aft;
   int *level,*degree,*done;
@@ -2939,7 +2940,7 @@ static int RCM( int nrows, int *rows, int *cols, int *iperm )
       bw_bef = MAX( bw_bef, ABS(cols[j]-i)+1 );
     degree[i] = rows[i+1]-rows[i];
   }
-printf( "RCM: BW before: %d\n", bw_bef );
+  printf( "RCM: Bandwidth before: %d\n", bw_bef );
 
    startn = 0;
    mindegree = degree[startn];
@@ -3020,7 +3021,7 @@ printf( "RCM: BW before: %d\n", bw_bef );
     for(i=0; i<nrows; i++ )
       for( j=rows[i]; j<rows[i+1]; j++ )
         bw_aft = MAX( bw_aft, ABS(iperm[cols[j]]-iperm[i])+1 );
- printf( "RCM: BW after: %d\n", bw_aft );
+ printf( "RCM: Bandwidth after: %d\n", bw_aft );
 
    free_Ivector(level,0,nrows-1);
    free_Ivector(done,0,nrows-1);
@@ -3033,16 +3034,16 @@ printf( "RCM: BW before: %d\n", bw_bef );
 
 static int RenumberPartitions(struct FemType *data,int info)
 {
-  int i,j,k,n,con,totcon,nn,numflag,noelements,noknots,partitions;
+  int i,j,k,l,n,m,hit,con,totcon,noelements,noknots,partitions;
   int maxneededtimes,totneededtimes;
   int part,part1,part2,bw_reduced;
   int *nodepart,*elempart;
-  int *perm,*iperm,options[8];
+  int *perm;
   int *xadj,*adjncy;
-  int **partmatrix;
+  int *partparttable[MAXCONNECTIONS];
 
 
-  printf("Renumbering partitions to minimize bandwidth.\n");  
+  if(info) printf("Renumbering partitions to minimize bandwidth.\n");  
 
   partitions = data->nopartitions;
   noelements = data->noelements;
@@ -3050,39 +3051,50 @@ static int RenumberPartitions(struct FemType *data,int info)
   maxneededtimes = data->maxpartitiontable;
 
 
-  partmatrix = Imatrix(1,partitions,1,partitions);
-  for(i=1;i<=partitions;i++)
-    for(j=1;j<=partitions;j++)
-      partmatrix[i][j] = FALSE;
-
-  totneededtimes = noknots;
+  /* Make the partition-partition list from the node-partition list */
+  totneededtimes = 0;
+  totcon = 0;
   for(i=1;i<=noknots;i++) {
     if(data->partitiontable[2][i] == 0) continue;
     for(j=1;j<=maxneededtimes;j++) {
       part1 =  data->partitiontable[j][i];
       if(!part1) break;
-      for(k=j+1;k<=maxneededtimes;k++) {
+
+      for(k=1;k<=maxneededtimes;k++) {
+	if(k==j) continue;
 	part2 = data->partitiontable[k][i];
 	if(!part2) break;
-	partmatrix[part1][part2] = TRUE;
+
+	hit = 0;
+	for(l=1;l<=totneededtimes;l++) { 
+	  if(partparttable[l][part1] == part2) {
+	    hit = -1;
+	    break;
+	  }
+	  else if(partparttable[l][part1] == 0) {
+	    totcon++;
+	    partparttable[l][part1] = part2;
+	    hit = 1;
+	    break;
+	  }
+	}
+	if(!hit) {
+	  totneededtimes++;
+	  partparttable[totneededtimes] = Ivector(1,partitions);
+	  for(m=1;m<=partitions;m++)
+	    partparttable[totneededtimes][m] = 0;
+	  partparttable[totneededtimes][part1] = part2;
+	  totcon++;
+	}
       }
     }
   }
-  
-  for(i=1;i<=partitions;i++)
-    for(j=1;j<=partitions;j++)
-      if(partmatrix[i][j]) partmatrix[j][i] = TRUE;
- 
-  totcon = 0;
-  for(i=1;i<=partitions;i++)
-    for(j=1;j<=partitions;j++)
-      if(partmatrix[i][j]) {
-	if(0) printf("i=%d j=%d\n",i,j);
-	totcon++;
-      }
 
+  if(info) {
+    printf("There are %d connections alltogether\n",totcon);
+    printf("There are %.3lf connnections between partitions in average\n",1.0*totcon/partitions);
+  }
 
-  if(info) printf("There are %d connections alltogether\n",totcon);
 
   xadj = Ivector(0,partitions);
   adjncy = Ivector(0,totcon-1);
@@ -3092,66 +3104,50 @@ static int RenumberPartitions(struct FemType *data,int info)
   totcon = 0;
   for(i=1;i<=partitions;i++) {
     xadj[i-1] = totcon;
-    for(j=1;j<=partitions;j++) {
-      con = partmatrix[j][i];
+    for(j=1;j<=totneededtimes;j++) {
+      con = partparttable[j][i];
       if(!con) continue;
-      adjncy[totcon] = j-1;
+      adjncy[totcon] = con-1;
       totcon++;
     }
-  }
+  }    
   xadj[partitions] = totcon;
 
-  nn = partitions;
-  numflag = 0;
-  for(i=0;i<8;i++) options[i] = 0;
+
+
   perm = Ivector(0,partitions-1);
-  iperm = Ivector(0,partitions-1);
+  bw_reduced = RenumberCuthillMckee( partitions, xadj, adjncy, perm );
 
-  bw_reduced = RCM( partitions, xadj, adjncy, iperm );
 
   /* Print the new order of partitions */
-printf( "RCM: \n" );
-  for(i=0;i<partitions;i++)
-    printf("i=%d iperm=%d\n",i,iperm[i] );
-
-if (0) {
-#if PARTMETIS   
-  if(info) printf("Starting Metis reordering routine.\n");
-
-  if(1) {
-    METIS_NodeND(&nn,xadj,adjncy,&numflag,&options[0],perm,iperm);
+  if(0 && info) {
+    printf( "Partition order afer Cuthill-McKee bandwidth optimization: \n" );
+    for(i=0;i<partitions;i++)
+      printf("old=%d new=%d\n",i,perm[i] );
   }
-  else {
-    METIS_EdgeND(&nn,xadj,adjncy,&numflag,&options[0],perm,iperm);    
-  }
-#else
-  if(info) printf("This version was not compiled with METIS needed for bandwidth optimization\n");
-  return(1);
-#endif
-  /* Print the new order of partitions */
-printf( "METIS: \n" );
-  for(i=0;i<partitions;i++)
-    printf("i=%d perm=%d iperm=%d\n",i,perm[i],iperm[i]);
-
-}
 
   /* Use the renumbering or not */
   if(bw_reduced) {
-    if(info) printf("Moving partitions to new positions\n");
+    if(info) printf("Successful ordering: moving partitions to new positions\n");
     nodepart = data->nodepart;
     elempart = data->elempart;
     for(i=1;i<=noelements;i++) 
-      elempart[i] = iperm[elempart[i]-1]+1;
+      elempart[i] = perm[elempart[i]-1]+1;
     for(i=1;i<=noknots;i++)
-      nodepart[i] = iperm[nodepart[i]-1]+1;
+      nodepart[i] = perm[nodepart[i]-1]+1;
     for(i=1;i<=noknots;i++) {
       for(j=1;j<=maxneededtimes;j++) {
 	part = data->partitiontable[j][i];
 	if(!part) break;
-	data->partitiontable[j][i] = iperm[part-1]+1;
+	data->partitiontable[j][i] = perm[part-1]+1;
       }
     }
   }
+
+  for(i=1;i<=totneededtimes;i++)
+    free_Ivector(partparttable[i],1,partitions);
+  free_Ivector(xadj,0,partitions);
+  free_Ivector(adjncy,0,totcon-1);
 
 
 }
@@ -3185,7 +3181,8 @@ static int CheckSharedDeviation(int *neededvector,int partitions,int info)
 
 
 
-int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,int info)
+int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,
+			 int partbw, int info)
 {
   int i,j,k,l,n,m,boundaryelems,noelements,partitions,ind,periodic,hit,hit2;
   int dompart,part1,part2,newmam,mam1,mam2,noknots,part,dshared,dshared0,avedshared;
@@ -3214,24 +3211,11 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   CreatePartitionTable(data,info);
   maxneededtimes = data->maxpartitiontable;
 
-  /* Activate this if you want to test the renumbering scheme */
-  if(1) RenumberPartitions(data,info);
-
-
- /* A posteriori correction, don't know if this just corrects the symptom */
-  if(0 && periodic) {
-    for(i=1;i<=noknots;i++) {
-      ind = indxper[i];
-      if(i != ind && nodepart[i] != nodepart[ind]) {
-	printf("This could be problem: i1 = %d i2 = %d p1=%d p2=%d\n",i,ind,nodepart[i],nodepart[ind]);
-	nodepart[i] = nodepart[ind]; 
-      }
-    }
-  }
+  /* Renumber the bandwith of partition-partition connections */
+  if(partbw) RenumberPartitions(data,info);
 
   /* Check partitioning after table is created for the first time */
   CheckPartitioning(data,info);
-
 
   /* Distribute the shared nodes as evenly as possible. 
      These store the load balancing information. */
@@ -3480,7 +3464,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
 #define DEBUG 1
 int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 			      char *prefix,int decimals,int halo,int indirect,
-			      int info)
+			      int parthypre,int info)
 /* Saves the mesh in a form that may be used as input 
    in Elmer calculations in parallel platforms. 
    */
@@ -3532,7 +3516,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   /* Order the nodes so that the different partitions have a continous interval of nodes.
      This information is used only just before the saving of node indexes in each instance. 
      This feature was coded for collaboration with Hypre library that assumes this. */
-  reorder = TRUE;
+  reorder = parthypre;
   if(reorder) {
     order = Ivector(1,noknots);
     k = 0;

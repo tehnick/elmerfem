@@ -263,6 +263,8 @@ void InitParameters(struct ElmergridType *eg)
   eg->bulkbounds = 0;
   eg->partorder = FALSE;
   eg->findsides = FALSE;
+  eg->parthypre = FALSE;
+  eg->partbw = FALSE;
   eg->pelems = 0;
   eg->belems = 0;
   eg->saveboundaries = TRUE;
@@ -625,6 +627,16 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       eg->partoptim = TRUE;
       printf("Aggressive optimization will be applied to node sharing.\n");
     }
+    if(strcmp(argv[arg],"-partbw") == 0) {
+      eg->partbw = TRUE;
+      printf("Bandwidth will be optimized for partitions.\n");
+    }
+    if(strcmp(argv[arg],"-parthypre") == 0) {
+      eg->parthypre = TRUE;
+      printf("Numbering of partitions will be made continous.\n");
+    }
+
+
     if(strcmp(argv[arg],"-metis") == 0) {
 #if PARTMETIS
       if(arg+1 >= argc) {
@@ -1114,6 +1126,14 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     else if(strstr(command,"HALO")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
       if(strstr(params,"TRUE")) eg->partitionhalo = TRUE;      
+    }
+    else if(strstr(command,"PARTBW")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->partbw = TRUE;      
+    }
+    else if(strstr(command,"PARTHYPRE")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->parthypre = TRUE;      
     }
     else if(strstr(command,"INDIRECT")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);

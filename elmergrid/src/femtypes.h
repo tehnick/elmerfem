@@ -345,6 +345,8 @@ struct ElmergridType {
     partorder,
     partitionhalo, /* create halo for the partitioning */
     partitionindirect, /* should one create indirect connections between nodes */
+    partbw, /* minimize bandwidth for partitions */
+    parthypre, /* renumber for hypre */
     nofilesin,
     saveinterval[3],
     elementsredone,
