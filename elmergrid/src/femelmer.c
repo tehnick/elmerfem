@@ -2971,7 +2971,7 @@ printf( "RCM: BW before: %d\n", bw_bef );
        }
      }
 
-     if ( k /= startn ) {
+     if ( k != startn ) {
        j = maxlevel;
        maxlevel = 0;
        for(i=0; i<nrows; i++ ) done[i]=FALSE;
