@@ -3530,7 +3530,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   /* Order the nodes so that the different partitions have a continous interval of nodes.
      This information is used only just before the saving of node indexes in each instance. 
      This feature was coded for collaboration with Hypre library that assumes this. */
-  reorder = FALSE;
+  reorder = TRUE;
   if(reorder) {
     order = Ivector(1,noknots);
     k = 0;
