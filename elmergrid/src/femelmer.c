@@ -3215,7 +3215,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   maxneededtimes = data->maxpartitiontable;
 
   /* Activate this if you want to test the renumbering scheme */
-  if(1) RenumberPartitions(data,info);
+  if(0) RenumberPartitions(data,info);
 
 
  /* A posteriori correction, don't know if this just corrects the symptom */
