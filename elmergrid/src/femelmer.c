@@ -2923,23 +2923,23 @@ static void Levelize(int n,int level,int *maxlevel,int *levels,int *rows,int *co
    }
 }
 
-static void RCM( int nrows, int *rows, int *cols, int *iperm )
+static int RCM( int nrows, int *rows, int *cols, int *iperm )
 {
-  int i,j,k,n,startn,mindegree,maxlevel,newroot;
+  int i,j,k,n,startn,mindegree,maxlevel,newroot,bw_bef,bw_aft;
   int *level,*degree,*done;
 
   done   = Ivector(0,nrows-1);
   level  = Ivector(0,nrows-1);
   degree = Ivector(0,nrows-1);
 
-  k = 0;
+  bw_bef = 0;
   for(i=0; i<nrows; i++ )
   {
     for( j=rows[i]; j<rows[i+1]; j++ )
-      k = MAX( k, ABS(cols[j]-i)+1 );
+      bw_bef = MAX( bw_bef, ABS(cols[j]-i)+1 );
     degree[i] = rows[i+1]-rows[i];
   }
-printf( "RCM: BW before: %d\n", k );
+printf( "RCM: BW before: %d\n", bw_bef );
 
    startn = 0;
    mindegree = degree[startn];
@@ -3016,15 +3016,17 @@ printf( "RCM: BW before: %d\n", k );
     for( i=0; i<nrows; i++ )
       iperm[done[i]] = nrows-1-i;
 
-    k = 0;
+    bw_aft = 0;
     for(i=0; i<nrows; i++ )
       for( j=rows[i]; j<rows[i+1]; j++ )
-        k = MAX( k, ABS(iperm[cols[j]]-iperm[i])+1 );
- printf( "RCM: BW after: %d %d\n", startn,k );
+        bw_aft = MAX( bw_aft, ABS(iperm[cols[j]]-iperm[i])+1 );
+ printf( "RCM: BW after: %d\n", bw_aft );
 
    free_Ivector(level,0,nrows-1);
    free_Ivector(done,0,nrows-1);
    free_Ivector(degree,0,nrows-1);
+
+   return bw_aft < bw_bef;
 }
 
 
@@ -3032,11 +3034,11 @@ printf( "RCM: BW before: %d\n", k );
 static int RenumberPartitions(struct FemType *data,int info)
 {
   int i,j,k,n,con,totcon,nn,numflag,noelements,noknots,partitions;
-  int part,part1,part2,startn,newroot,maxlevel,mindegree;
   int maxneededtimes,totneededtimes;
+  int part,part1,part2,bw_reduced;
   int *nodepart,*elempart;
   int *perm,*iperm,options[8];
-  int *xadj,*adjncy,*level,*degree;
+  int *xadj,*adjncy;
   int **partmatrix;
 
 
@@ -3105,7 +3107,7 @@ static int RenumberPartitions(struct FemType *data,int info)
   perm = Ivector(0,partitions-1);
   iperm = Ivector(0,partitions-1);
 
-  RCM( partitions, xadj, adjncy, iperm );
+  bw_reduced = RCM( partitions, xadj, adjncy, iperm );
 
   /* Print the new order of partitions */
 printf( "RCM: \n" );
@@ -3134,7 +3136,7 @@ printf( "METIS: \n" );
 }
 
   /* Use the renumbering or not */
-  if(1) {
+  if(bw_reduced) {
     if(info) printf("Moving partitions to new positions\n");
     nodepart = data->nodepart;
     elempart = data->elempart;
@@ -3213,7 +3215,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   maxneededtimes = data->maxpartitiontable;
 
   /* Activate this if you want to test the renumbering scheme */
-  if(0) RenumberPartitions(data,info);
+  if(1) RenumberPartitions(data,info);
 
 
  /* A posteriori correction, don't know if this just corrects the symptom */
