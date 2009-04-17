@@ -2952,7 +2952,7 @@ printf( "RCM: BW before: %d\n", bw_bef );
    }
 
    maxlevel = 0;
-   for( i=0; i<done[i]; i++ ) done[i]=FALSE;
+   for( i=0; i<nrows; i++ ) done[i]=FALSE;
 
    Levelize( startn,0,&maxlevel,level,rows,cols,done );
 
@@ -3215,7 +3215,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   maxneededtimes = data->maxpartitiontable;
 
   /* Activate this if you want to test the renumbering scheme */
-  if(0) RenumberPartitions(data,info);
+  if(1) RenumberPartitions(data,info);
 
 
  /* A posteriori correction, don't know if this just corrects the symptom */
