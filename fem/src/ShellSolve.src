@@ -169,8 +169,11 @@
 
      Norm = Solver % Variable % Norm
      Unorm = 0.0d0
+
      DO i = 1, Solver % Mesh % NumberOfNodes
-       Unorm = Unorm + Deflection(6*i-5)**2 + Deflection(6*i-4)**2 + Deflection(6*i-3)**2
+        j = DeflectionPerm(i)
+        if(j < 1) cycle
+       Unorm = Unorm + Deflection(6*j-5)**2 + Deflection(6*j-4)**2 + Deflection(6*j-3)**2
      END DO
      Unorm = SQRT( Unorm )
 
@@ -285,6 +288,7 @@
              ABS( Solver % Mesh % Nodes % y(i) - 0.10d0 ) < 1.0d-6 .AND. &
              ABS( Solver % Mesh % nodes % z(i) - 1.00d0 ) < 1.0d-6 ) THEN
             j = DeflectionPerm(i)
+            if(j < 1) cycle
             DisplMax = Deflection(6*(j-1)+2)
          END IF
        END DO
@@ -346,18 +350,22 @@
 
      Unorm = 0.0d0
      DO i = 1, Solver % Mesh % NumberOfNodes
-       Unorm = MAX(Unorm, SQRT( Deflection(6*i-5)**2 + &
-           Deflection(6*i-4)**2 + Deflection(6*i-3)**2) )
-       Maxcomponent = MAX( Unorm, MAX(MAX(Deflection(6*i-5), &
-           Deflection(6*i-4)),Deflection(6*i-3)) )
+        j = DeflectionPerm(i)
+        if(j < 1) cycle
+        Unorm = MAX(Unorm, SQRT( Deflection(6*j-5)**2 + &
+             Deflection(6*j-4)**2 + Deflection(6*j-3)**2) )
+        Maxcomponent = MAX( Unorm, MAX(MAX(Deflection(6*j-5), &
+             Deflection(6*j-4)),Deflection(6*j-3)) )
      END DO
      !PRINT *,'Max deflection =',Unorm
      MaximumDeflection = Unorm
 
      Unorm = 0.0d0
      DO i = 1, Solver % Mesh % NumberOfNodes
-       Unorm = Unorm + Deflection(6*i-5)**2 + &
-              Deflection(6*i-4)**2 + Deflection(6*i-3)**2
+        j = DeflectionPerm(i)
+        if(j < 1) cycle
+       Unorm = Unorm + Deflection(6*j-5)**2 + &
+              Deflection(6*j-4)**2 + Deflection(6*j-3)**2
      END DO
      Unorm = SQRT( Unorm )
 
@@ -572,6 +580,7 @@
              
              IF ( r < 1.0d-8 ) THEN
                 k = DeflectionPerm( i )
+                if(k < 1) cycle
                 ForceVector( 6*k-5 ) = ForceVector( 6*k-5 ) + Fx
                 ForceVector( 6*k-4 ) = ForceVector( 6*k-4 ) + Fy
                 ForceVector( 6*k-3 ) = ForceVector( 6*k-3 ) + Fz
@@ -604,6 +613,7 @@
 !-----------------------------------------------------------------------------
    SUBROUTINE CalculateStresses()
 !-----------------------------------------------------------------------------
+      INTEGER :: isz
       INTEGER, POINTER :: Perm(:)
 
       at  = CPUTime()
@@ -722,25 +732,29 @@
         END DO
         CLOSE( 98 )
 
+
+        isz = Solver % Mesh % NumberOfNodes
+        
         IF( .NOT.ASSOCIATED( VariableGet( Solver % Mesh % Variables, &
             'Stress.xx') ) ) THEN
 
-          ALLOCATE( SxxNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( SyyNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( SzzNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( SxyNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( SxzNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( SyzNodal( Solver % Mesh % NumberOfNodes ) )
+          ALLOCATE( SxxNodal( isz ) )
+          ALLOCATE( SyyNodal( isz ) )
+          ALLOCATE( SzzNodal( isz ) )
+          ALLOCATE( SxyNodal( isz ) )
+          ALLOCATE( SxzNodal( isz ) )
+          ALLOCATE( SyzNodal( isz ) )
 
-          ALLOCATE( EpsxxNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( EpsyyNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( EpszzNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( EpsxyNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( EpsxzNodal( Solver % Mesh % NumberOfNodes ) )
-          ALLOCATE( EpsyzNodal( Solver % Mesh % NumberOfNodes ) )
+          ALLOCATE( EpsxxNodal( isz ) )
+          ALLOCATE( EpsyyNodal( isz ) )
+          ALLOCATE( EpszzNodal( isz ) )
+          ALLOCATE( EpsxyNodal( isz ) )
+          ALLOCATE( EpsxzNodal( isz ) )
+          ALLOCATE( EpsyzNodal( isz ) )
 
-          ALLOCATE(Perm(Solver % Mesh % NumberOfNodes))
-          Perm = (/ (i,i=1,Solver % Mesh % NumberOfNodes) /)
+          ALLOCATE(Perm(isz))
+
+          Perm = (/ (i,i=1,isz) /)
 
           PSolver => Solver
 
@@ -797,7 +811,7 @@
         EpsxzNodal = 0.0d0
         EpsyzNodal = 0.0d0
 
-        ALLOCATE( Referenced( Solver % Mesh % NumberOfNodes ) )
+        ALLOCATE( Referenced( isz ) )
         Referenced = 0.0d0
 
         DO i = 1, Solver % NumberOfActiveElements
