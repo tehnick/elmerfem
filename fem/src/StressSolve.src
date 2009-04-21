@@ -529,9 +529,13 @@
 !------------------------------------------------------------------------------
      Refactorize = GetLogical( SolverParams, 'Linear System Refactorize', Found )
      IF ( .NOT. Found ) Refactorize = .TRUE.
+
      IF ( Transient .AND. .NOT. Refactorize .AND. dt /= Prevdt ) THEN
-        CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .TRUE. )
+       CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .TRUE. )
+       CALL ListAddLogical( SolverParams, &
+             'Linear System Free Factorization',.FALSE.)
      END IF
+
      ConstantSystem = GetLogical( SolverParams, 'Constant System', Found )
      ConstantBulkSystem = GetLogical( SolverParams, 'Constant Bulk System', Found )
      ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', Found )
@@ -636,7 +640,8 @@
        UNorm = DefaultSolve()
        IF ( Transient .AND. .NOT. Refactorize .AND. dt /= Prevdt ) THEN
          Prevdt = dt
-         CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .FALSE. )
+         CALL ListRemove( SolverParams, 'Linear System Free Factorization' )
+         CALL ListAddLogical(SolverParams,'Linear System Refactorize',.FALSE.)
        END IF
 
        IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
