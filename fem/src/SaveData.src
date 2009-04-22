@@ -89,7 +89,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
       IntSquare, LocalCoords(3), TempCoordinates(3), Value
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
-      CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:)
+      CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:)
   INTEGER, ALLOCATABLE :: BoundaryHits(:)
   INTEGER, POINTER :: PointIndex(:), CoordinateIndex(:), CoordinatesElemNo(:), &
@@ -107,7 +107,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Values, ValueNames, NoCoordinates, ScalarsFile, ScalarNamesFile, &
       ExactCoordinates, CoordinatesElemNo, NoElements, ElementNodes, &
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
-      BoundaryFluxes, BoundaryHits, VariablesExist, NoLines, &
+      BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
       LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues, &
       LiveGraph
 
@@ -186,7 +186,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
 
     n = MAX( Model % NumberOfBodies, MAX(Model % NumberOfBCs, NoLines))
-    ALLOCATE( BoundaryFluxes(n), BoundaryHits(n) )
+    ALLOCATE( BoundaryFluxes(n), BoundaryAreas(n), BoundaryHits(n) )
 
   END IF
 
@@ -428,11 +428,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = VectorMeanDeviation(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
         
-      CASE ('int','int mean','int variance')
-        Value = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
+      CASE ('int','int mean','int variance','volume',&
+	'potential energy','diffusive energy','convective energy')
 
-      CASE ('volume','potential energy','diffusive energy','convective energy')
         Value = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
         IF(GotCoeff) THEN
           CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName)//' with '//TRIM(CoefficientName), Value)
@@ -443,7 +441,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       CASE('boundary sum','boundary dofs','boundary mean','boundary max','boundary min',&
           'boundary max abs','boundary min abs')
         BoundaryHits = 0
-        BoundaryFluxes = 0.0d0         
+        BoundaryFluxes = 0.0_dp         
         CALL BoundaryStatistics(Var, Oper, GotCoeff, &
             CoefficientName, BoundaryFluxes, BoundaryHits)
         DO j=1,Model % NumberOfBCs
@@ -454,24 +452,27 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           END IF
         END DO
         
-      CASE ('diffusive flux','convective flux','area')
+      CASE ('boundary int','boundary int mean','area','diffusive flux','convective flux')
         BoundaryHits = 0
-        BoundaryFluxes = 0.0d0                 
-        Minimum = 0.0d0
-        Maximum = 0.0d0
+        BoundaryFluxes = 0.0_dp
+	BoundaryAreas = 0.0_dp      
+        Minimum = 0.0_dp
+        Maximum = 0.0_dp
 
         CALL BoundaryIntegrals(Var, Oper, GotCoeff, CoefficientName,&
-            BoundaryFluxes,BoundaryHits)
+            BoundaryFluxes,BoundaryAreas,BoundaryHits)
 
         DO j=1,Model % NumberOfBCs
-           IF( ListGetLogical(Model % BCs(j) % Values,'Flux Integrate',gotIt ) .OR. &
-               ListGetLogical(Model % BCs(j) % Values,'Save Scalars',gotIt ) ) THEN
+	  IF( BoundaryHits(j) > 0 ) THEN
+	    IF( TRIM(Oper) == 'boundary int mean' ) THEN
+              BoundaryFluxes(j) = BoundaryFluxes(j) / BoundaryAreas(j)
+            END IF
             WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over bc',j
             CALL AddToSaveList( TRIM(Name), BoundaryFluxes(j))
           END IF
         END DO
         
-        IF(TRIM(Oper) /= 'area') THEN
+        IF(TRIM(Oper) == 'diffusive flux' .OR. TRIM(Oper) == 'convective flux') THEN
           IF( ANY (BoundaryHits > 0) ) THEN
             WRITE (Name,'(A,A,A,A)') 'min ',TRIM(Oper),': ',TRIM(VariableName)
             CALL AddToSaveList( TRIM(Name), Minimum)
@@ -483,13 +484,17 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         
         IF(NoLines > 0) THEN
           BoundaryHits = 0
-          BoundaryFluxes = 0.0d0         
+          BoundaryFluxes = 0.0_dp
+	  BoundaryAreas = 0.0_dp
           
           CALL PolylineIntegrals(Var, Oper, GotCoeff, CoefficientName,&
-              BoundaryFluxes,BoundaryHits)
+              BoundaryFluxes,BoundaryAreas, BoundaryHits)
           
           DO j=1,NoLines
             IF(BoundaryHits(j) > 0 .OR. Parallel) THEN
+              IF( TRIM(Oper) == 'boundary int mean' ) THEN
+                BoundaryFluxes(j) = BoundaryFluxes(j) / BoundaryAreas(j)
+              END IF
               WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over polyline',j
               CALL AddToSaveList( TRIM(Name), BoundaryFluxes(j))
             END IF
@@ -1173,12 +1178,12 @@ CONTAINS
 
 
   SUBROUTINE BoundaryIntegrals(Var, OperName, GotCoeff, &
-      CoeffName, fluxes, fluxescomputed)
+      CoeffName, fluxes, areas, fluxescomputed)
 
     TYPE(Variable_t), POINTER :: Var
     CHARACTER(LEN=MAX_NAME_LEN) :: OperName, CoeffName
     LOGICAL :: GotCoeff
-    REAL(KIND=dp) :: fluxes(:)
+    REAL(KIND=dp) :: fluxes(:), areas(:)
     INTEGER :: fluxescomputed(:)
     
     INTEGER :: t, FluxBody, LBody, RBody
@@ -1190,7 +1195,7 @@ CONTAINS
         ParentdBasisdx(Model % MaxElementNodes,3),EnergyTensor(3,3,Model % MaxElementNodes),&
         EnergyCoeff(Model % MaxElementNodes)
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,up,vp,wp,S,A,L,C(3,3),x,y,z
-    REAL(KIND=dp) :: func, coeff, area, Normal(3), Flow(3), flux
+    REAL(KIND=dp) :: func, coeff, Normal(3), Flow(3), flux
     REAL(KIND=DP), POINTER :: Pwrk(:,:,:)
     INTEGER, POINTER :: ParentIndexes(:), PermIndexes(:)
 
@@ -1205,7 +1210,6 @@ CONTAINS
 
     ALLOCATE(ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n), PermIndexes(n) )
 
-    area = 0.0d0
     Minimum = HUGE(minimum)
     Maximum = -HUGE(maximum)
 
@@ -1229,14 +1233,16 @@ CONTAINS
         RETURN
       END IF
       
-      CASE ('area')
+      CASE ('area','boundary int','boundary int mean')
 
     CASE DEFAULT 
       CALL Warn('SaveScalars','Unknown statistical operator')
 
     END SELECT
 
-    fluxes = 0.0d0
+    fluxes = 0.0_dp
+    areas = 0.0_dp
+    coeff = 1.0_dp
 
 
     DO t = Mesh % NumberOfBulkElements+1, Mesh % NumberOfBulkElements &
@@ -1401,8 +1407,7 @@ CONTAINS
           END IF          
           fluxescomputed(bc) = fluxescomputed(bc) + 1
 
-
-        CASE ('area')
+        CASE ('area','boundary int','boundary int mean')
            IF(GotCoeff) THEN
              i = ListGetInteger( Model % Bodies(Element % BodyId) % Values, 'Material', &
                  minv=1, maxv=Model % NumberOFMaterials )
@@ -1451,8 +1456,6 @@ CONTAINS
             END IF
             s = s * SqrtElementMetric * IntegStuff % s(i)
           END IF
-
-          area =  area + s
           
           Normal = NormalVector( Element,ElementNodes,U,V,.TRUE. )
 
@@ -1503,12 +1506,31 @@ CONTAINS
               Maximum = MAX(Maximum,  SUM(Normal * Flow))
             END IF
             
+          CASE ('boundary int','boundary int mean')
+            
+            coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
+            
+            IF(NoDofs == 1) THEN
+              func = SUM( Var % Values(PermIndexes(1:n)) * Basis(1:n) )
+	      flux = coeff * func 
+              fluxes(bc) = fluxes(bc) + s * flux
+            ELSE 
+	      flux = 0.0_dp
+              DO j=1,NoDofs
+                flux = flux + SUM( Var % Values(NoDofs*(PermIndexes(1:n)-1)+j) * Basis(1:n) )**2
+              END DO
+	      flux = coeff * SQRT( flux )
+              fluxes(bc) = fluxes(bc) + s *  flux
+            END IF
+     
           CASE ('area')
             coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
             fluxes(bc) = fluxes(bc) + s * coeff 
             
          END SELECT
           
+	 areas(bc) = areas(bc) + s * coeff
+
         END DO
 
       END DO
@@ -1637,12 +1659,12 @@ CONTAINS
 
 
   SUBROUTINE PolylineIntegrals(Var, OperName, GotCoeff, &
-      CoeffName, fluxes, fluxescomputed)
+      CoeffName, fluxes, areas, fluxescomputed)
 
     TYPE(Variable_t), POINTER :: Var
     CHARACTER(LEN=MAX_NAME_LEN) :: OperName, CoeffName
     LOGICAL :: GotCoeff
-    REAL(KIND=dp) :: fluxes(:)
+    REAL(KIND=dp) :: fluxes(:),areas(:)
     INTEGER :: fluxescomputed(:)
     
     INTEGER :: t
@@ -1655,7 +1677,7 @@ CONTAINS
         ParentdBasisdx(Model % MaxElementNodes,3),EnergyTensor(3,3,Model % MaxElementNodes),&
         EnergyCoeff(Model % MaxElementNodes) 
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,up,vp,wp,S,A,L,C(3,3),x,y,z,dx,dy,dz,ds,dsmax
-    REAL(KIND=dp) :: func, coeff, area, Normal(3), Flow(3), x0, y0, z0, pos(2)
+    REAL(KIND=dp) :: func, coeff, Normal(3), Flow(3), x0, y0, z0, pos(2), flux
     REAL(KIND=DP), POINTER :: Pwrk(:,:,:)
     INTEGER, POINTER :: ParentIndexes(:), PermIndexes(:), SideIndexes(:), OnLine(:,:)
 
@@ -1675,7 +1697,8 @@ CONTAINS
 
     CALL Info('PolylineIntegrals','Operator: '//TRIM(OperName))
 
-    area = 0.0
+    areas = 0.0_dp
+    coeff = 1.0_dp   
 
     NoDofs = Var % Dofs
     Permutated = ASSOCIATED(Var % Perm)
@@ -1697,7 +1720,7 @@ CONTAINS
         RETURN
       END IF
       
-      CASE ('area')
+      CASE ('area','boundary int','boundary int mean')
 
     CASE DEFAULT 
       CALL Warn('SaveScalars','Unknown physical operator')
@@ -1933,8 +1956,6 @@ CONTAINS
             s = s * SqrtElementMetric * IntegStuff % s(i)            
           END IF
      
-          area =  area + s          
-
           Normal = NormalVector( Element,ElementNodes,U,V,.FALSE. )
 
 !------------------------------------------------------------------------------
@@ -1985,12 +2006,29 @@ CONTAINS
                 END DO
                 fluxes(Line) = fluxes(Line) + s * coeff * SUM(Normal * Flow)
               END IF
-                          
+ 
+           CASE ('boundary int','boundary int mean')            
+              coeff = SUM( EnergyCoeff(1:pn) * ParentBasis(1:pn))              
+              IF(NoDofs == 1) THEN
+                func = SUM( Var % Values(PermIndexes(1:pn)) * ParentBasis(1:pn) )                
+                fluxes(Line) = fluxes(Line) + s * coeff * func
+              ELSE 
+	        flux = 0.0_dp
+                DO j=1,NoDofs
+                  flux = flux + &
+                      SUM( Var % Values(NoDofs*(PermIndexes(1:pn)-1)+j) * ParentBasis(1:pn) )**2
+                END DO
+	        flux = coeff * SQRT(flux) 
+                fluxes(Line) = fluxes(Line) + s * flux
+              END IF
+                         
             CASE ('area')                        
               coeff = SUM( EnergyCoeff(1:pn) * Basis(1:pn))
               fluxes(Line) = fluxes(Line) + s * coeff 
               
             END SELECT
+
+            areas(Line) = areas(Line) + s * coeff
 
         END DO
 
