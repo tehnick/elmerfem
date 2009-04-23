@@ -563,7 +563,6 @@
 
 !------------------------------------------------------------------------------
 !    Make sure that initial values at boundaries are set correctly.
-!    TODO: does not handle normal-tangential vector values correctly.
 !    NOTE: This overrides the initial condition setting for field variables!!!!
 !-------------------------------------------------------------------------------
      InitDirichlet = ListGetLogical( CurrentModel % Simulation, &
@@ -608,18 +607,14 @@
                    k = LEN_TRIM(var % name)
                    vect_dof = ICHAR(Var % Name(k:k))-ICHAR('0');
                    IF ( vect_dof>=1 .AND. vect_dof<= 3 ) THEN
-                     nt_boundary = GetLogical( BC, &
-                        'normal-tangential '//var % name(1:k-2)//' rotate', gotIt)
-                     IF (.NOT. gotIt ) nt_boundary = .TRUE.
-
-                     nt_boundary = nt_boundary .AND. GetLogical( BC, &
+                     nt_boundary =  GetLogical( BC, &
                         'normal-tangential '//var % name(1:k-2), gotIt)
 
                      IF ( nt_boundary ) THEN
                        nt_boundary = .FALSE.
                        Vect_var => Mesh % Variables
                        DO WHILE( ASSOCIATED(Vect_var) )
-                         IF ( Vect_var % Dofs>1 ) THEN
+                         IF ( Vect_var % Dofs>=dim ) THEN
                            DO real_dof=1,Vect_var % Dofs
                              nt_boundary = ASSOCIATED(Var % Values, &
                                Vect_var % Values(real_dof::Vect_var % Dofs))
@@ -641,6 +636,15 @@
                        CASE(2)
                          CALL TangentDirections(nrm,t1,t2)
                        END SELECT
+
+                       SELECT CASE(vect_dof)
+                         CASE(1)
+                           vec = nrm
+                         CASE(2)
+                           vec = t1
+                         CASE(3)
+                           vec = t2
+                       END SELECT
                      END IF
                    END IF
                  END IF
@@ -654,19 +658,8 @@
                          m = l+real_dof-1
                          tmp(l)=Vect_var % Values(Vect_var % Dofs*(k-1)+m)
                        END DO
-
-                       SELECT CASE(vect_dof)
-                       CASE(1) 
-                         vec = nrm
-                       CASE(2) 
-                         vec = t1
-                       CASE(3) 
-                         vec = t2
-                       END SELECT
-
                        udot = SUM(vec(1:dim)*tmp(1:dim))
                        tmp(1:dim)=tmp(1:dim)+(work(j)-udot)*vec(1:dim)
-
                        DO l=1,dim
                          m = l+real_dof-1
                          Vect_var % Values(Vect_var % Dofs*(k-1)+m)=tmp(l)
