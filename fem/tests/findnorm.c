@@ -34,7 +34,12 @@ int main(int argc, char **argv)
         while( *ptr != '\0' && *ptr!='+' && *ptr != '-' && *ptr != '.' && !isdigit(*ptr) ) ptr++;
         n = sscanf( ptr, "%lf", &f );
         if ( n==1 && f != 0.0 ) norm = f;
-      } else if ( ptr = strstr( line, "(CPU,REAL):" )  ) {
+      } else if (ptr = strstr( line, "Check NRM=") ) {
+        while( *ptr != '\0' && *ptr!='+' && *ptr != '-' && *ptr != '.' && !isdigit(*ptr) ) ptr++;
+        n = sscanf( ptr, "%lf", &f );
+        if ( n==1 && f != 0.0 ) norm = f;
+      } 
+      else if ( ptr = strstr( line, "(CPU,REAL):" )  ) {
         sscanf(  ptr+11, "%lf %lf", &CPUT, &REALT); 
       }
    }
