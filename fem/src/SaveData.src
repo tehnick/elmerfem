@@ -82,7 +82,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
-      ComplexEigen, Parallel, LiveGraph, FileAppend, SaveEigenValue, SaveEigenFreq
+      ComplexEigen, Parallel, LiveGraph, FileAppend, SaveEigenValue, &
+      SaveEigenFreq, CheckNorm
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
       Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
@@ -109,7 +110,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
       BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
       LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues, &
-      LiveGraph
+      LiveGraph, CheckNorm
 
 !------------------------------------------------------------------------------
 
@@ -126,6 +127,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   IF(.NOT.SubroutineVisited) THEN
     
     FileAppend = ListGetLogical( Solver % Values,'File Append',GotIt)
+
+    CheckNorm = ListGetLogical( Solver % Values,'Check norm',GotIt )
 
     ScalarsFile = ListGetString(Solver % Values,'Filename',GotIt )
     IF(.NOT. GotIt) ScalarsFile = DefaultScalarsFile
@@ -644,7 +647,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
   IF(NoValues /= PrevNoValues) THEN 
     IF(SubroutineVisited) THEN
-      CALL Warn('SaveScalars','Number of scalar values differ from previous time!')
+      WRITE ( Message,'(A,I2,I2)') 'Number of scalar values differ from previous time:',&
+          NoValues,PrevNoValues
+      CALL Warn('SaveScalars',Message)
     END IF
 
     OPEN (10, FILE=ScalarNamesFile)
@@ -734,6 +739,15 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   DO No=1,NoValues
     CALL ListAddConstReal(Model % Simulation,TRIM(ValueNames(No)),Values(No))
   END DO
+
+  !------------------------------------------------------------------------------
+  ! For consistancy checks one may print out a value: here its the 1st value
+  !------------------------------------------------------------------------------
+  IF( CheckNorm ) THEN
+    WRITE( Message, '(a,g15.8)') 'Check NRM= ',Values(1)
+    CALL Info( 'SaveScalars', Message, Level=3 )
+  END IF
+
 
   PrevNoValues = NoValues
   SubroutineVisited = .TRUE.
