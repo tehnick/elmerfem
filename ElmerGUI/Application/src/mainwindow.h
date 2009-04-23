@@ -258,8 +258,8 @@ private:
   void applyOperations();
   void populateBodyComboBoxes(BodyPropertyEditor*);
   void populateBoundaryComboBoxes(BoundaryPropertyEditor*);
-  void saveProjectContents(QDomDocument, QString, DynamicEditor*, int);
-  void loadProjectContents(QDomElement, DynamicEditor*, int, QString);
+  void saveProjectContents(QDomDocument, QString, QVector<DynamicEditor*>&);
+  void loadProjectContents(QDomElement, QVector<DynamicEditor*>&, QString);
   QString getDefaultDirName();
 
   QMenu *fileMenu;                // File menu
@@ -355,11 +355,13 @@ private:
 
   // property editors etc:
   GeneralSetup *generalSetup;
-  DynamicEditor *equationEditor;
-  DynamicEditor *materialEditor;
-  DynamicEditor *bodyForceEditor;
-  DynamicEditor *initialConditionEditor;
-  DynamicEditor *boundaryConditionEditor;
+
+  QVector<DynamicEditor*> equationEditor;
+  QVector<DynamicEditor*> materialEditor;
+  QVector<DynamicEditor*> bodyForceEditor;
+  QVector<DynamicEditor*> initialConditionEditor;
+  QVector<DynamicEditor*> boundaryConditionEditor;
+
   BoundaryPropertyEditor *boundaryPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   SolverParameterEditor *solverParameterEditor;

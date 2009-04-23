@@ -55,6 +55,8 @@
 #include <qwt_text.h>
 #include <qwt_scale_engine.h>
 
+#define MAX_NOF_PENS 25
+
 class CurveData
 {
 public:

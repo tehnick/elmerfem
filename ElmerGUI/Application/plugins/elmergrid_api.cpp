@@ -7,14 +7,14 @@ using namespace std;
 
 ElmergridAPI::ElmergridAPI()
 {
-  cout << "Constructing ElmergridAPI" << endl;
+  cout << "Constructing ElmergridAPI... done" << endl;
   cout.flush();
 }
 
 
 ElmergridAPI::~ElmergridAPI()
 {
-  cout << "Destructing ElmergridAPI" << endl;
+  cout << "Destructing ElmergridAPI... done" << endl;
   cout.flush();
 }
  

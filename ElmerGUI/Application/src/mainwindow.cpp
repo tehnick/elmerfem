@@ -129,12 +129,7 @@ MainWindow::MainWindow()
   meshSplitter = new QProcess(this);
   meshUnifier = new QProcess(this);
   generalSetup = new GeneralSetup(this);
-  equationEditor = new DynamicEditor[limit->maxEquations()];
-  materialEditor = new DynamicEditor[limit->maxMaterials()];
-  bodyForceEditor = new DynamicEditor[limit->maxBodyforces()];
-  boundaryConditionEditor = new DynamicEditor[limit->maxBcs()];
   boundaryPropertyEditor = new BoundaryPropertyEditor[limit->maxBoundaries()];
-  initialConditionEditor = new DynamicEditor[limit->maxInitialconditions()];
   solverParameterEditor = new SolverParameterEditor[limit->maxSolvers()];
   bodyPropertyEditor = new BodyPropertyEditor[limit->maxBodies()];
   summaryEditor = new SummaryEditor(this);
@@ -292,34 +287,14 @@ MainWindow::~MainWindow()
 void MainWindow::setDynamicLimits()
 {
   // Values defined in "edf/egini.xml" that override default limits:
+  if(egIni->isPresent("max_boundaries")) {
+    limit->setMaxBoundaries(egIni->value("max_boundaries").toInt());
+    cout << "Max boundaries: " << limit->maxBoundaries() << endl;
+  }
+
   if(egIni->isPresent("max_solvers")) {
     limit->setMaxSolvers(egIni->value("max_solvers").toInt());
     cout << "Max solvers: " << limit->maxSolvers() << endl;
-  }
-
-  if(egIni->isPresent("max_equations")) {
-    limit->setMaxEquations(egIni->value("max_equations").toInt());
-    cout << "Max equations: " << limit->maxEquations() << endl;
-  }
-
-  if(egIni->isPresent("max_materials")) {
-    limit->setMaxMaterials(egIni->value("max_materials").toInt());
-    cout << "Max materials: " << limit->maxMaterials() << endl;
-  }
-
-  if(egIni->isPresent("max_bodyforces")) {
-    limit->setMaxBodyforces(egIni->value("max_bodyforces").toInt());
-    cout << "Max bodyforces: " << limit->maxBodyforces() << endl;
-  }
-
-  if(egIni->isPresent("max_initialconditions")) {
-    limit->setMaxInitialconditions(egIni->value("max_initialconditions").toInt());
-    cout << "Max initialconditions: " << limit->maxInitialconditions() << endl;
-  }
-
-  if(egIni->isPresent("max_bcs")) {
-    limit->setMaxBcs(egIni->value("max_bcs").toInt());
-    cout << "Max bcs: " << limit->maxBcs() << endl;
   }
 
   if(egIni->isPresent("max_bodies")) {
@@ -327,9 +302,34 @@ void MainWindow::setDynamicLimits()
     cout << "Max bodies: " << limit->maxBodies() << endl;
   }
 
-  if(egIni->isPresent("max_boundaries")) {
-    limit->setMaxBoundaries(egIni->value("max_boundaries").toInt());
-    cout << "Max boundaries: " << limit->maxBoundaries() << endl;
+  // Deprecated ** 21/04/09 **
+  if(egIni->isPresent("max_equations")) {
+    limit->setMaxEquations(egIni->value("max_equations").toInt());
+    // cout << "Max equations: " << limit->maxEquations() << endl;
+  }
+
+  // Deprecated ** 21/04/09 **
+  if(egIni->isPresent("max_materials")) {
+    limit->setMaxMaterials(egIni->value("max_materials").toInt());
+    // cout << "Max materials: " << limit->maxMaterials() << endl;
+  }
+
+  // Deprecated ** 21/04/09 **
+  if(egIni->isPresent("max_bodyforces")) {
+    limit->setMaxBodyforces(egIni->value("max_bodyforces").toInt());
+    // cout << "Max bodyforces: " << limit->maxBodyforces() << endl;
+  }
+
+  // Deprecated ** 21/04/09 **
+  if(egIni->isPresent("max_initialconditions")) {
+    limit->setMaxInitialconditions(egIni->value("max_initialconditions").toInt());
+    // cout << "Max initialconditions: " << limit->maxInitialconditions() << endl;
+  }
+
+  // Deprecated ** 21/04/09 **  
+  if(egIni->isPresent("max_bcs")) {
+    limit->setMaxBcs(egIni->value("max_bcs").toInt());
+    // cout << "Max bcs: " << limit->maxBcs() << endl;
   }
 }
 
@@ -1597,11 +1597,11 @@ void MainWindow::saveProjectSlot()
   //                          SAVE DYNAMIC MENU CONTENTS
   //===========================================================================
   progressBar->setValue(9);
-  saveProjectContents(projectDoc, "equation", equationEditor, limit->maxEquations());
-  saveProjectContents(projectDoc, "material", materialEditor, limit->maxMaterials());
-  saveProjectContents(projectDoc, "bodyforce", bodyForceEditor, limit->maxBodyforces());
-  saveProjectContents(projectDoc, "initialcondition", initialConditionEditor, limit->maxInitialconditions());
-  saveProjectContents(projectDoc, "boundarycondition", boundaryConditionEditor, limit->maxBcs());
+  saveProjectContents(projectDoc, "equation", equationEditor);
+  saveProjectContents(projectDoc, "material", materialEditor);
+  saveProjectContents(projectDoc, "bodyforce", bodyForceEditor);
+  saveProjectContents(projectDoc, "initialcondition", initialConditionEditor);
+  saveProjectContents(projectDoc, "boundarycondition", boundaryConditionEditor);
 
   //===========================================================================
   //                          SAVE SOLVER SPECIFIC OPTIONS
@@ -1687,13 +1687,15 @@ void MainWindow::saveProjectSlot()
 // Helper function for saveProject
 //-----------------------------------------------------------------------------
 void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName, 
-				     DynamicEditor *editor, int Nmax)
+				     QVector<DynamicEditor*>& editor)
 {
+  int Nmax = editor.size();
+
   QDomElement editorBlock = projectDoc.createElement(blockName);
   projectDoc.documentElement().appendChild(editorBlock);
 
   for(int i = 0; i < Nmax; i++) {
-    DynamicEditor *de = &editor[i];
+    DynamicEditor *de = editor[i];
     
     if(de->menuAction == NULL)
       continue;
@@ -1943,15 +1945,15 @@ void MainWindow::loadProjectSlot()
   //===========================================================================
   progressBar->setValue(11);
   QDomElement element = projectDoc.documentElement().firstChildElement("equation");
-  loadProjectContents(element, equationEditor, limit->maxEquations(), "Equation");
+  loadProjectContents(element, equationEditor, "Equation");
   element = projectDoc.documentElement().firstChildElement("material");
-  loadProjectContents(element, materialEditor, limit->maxMaterials(), "Material");
+  loadProjectContents(element, materialEditor, "Material");
   element = projectDoc.documentElement().firstChildElement("bodyforce");
-  loadProjectContents(element, bodyForceEditor, limit->maxBodyforces(), "BodyForce");
+  loadProjectContents(element, bodyForceEditor, "BodyForce");
   element = projectDoc.documentElement().firstChildElement("initialcondition");
-  loadProjectContents(element, initialConditionEditor, limit->maxInitialconditions(), "InitialCondition");
+  loadProjectContents(element, initialConditionEditor, "InitialCondition");
   element = projectDoc.documentElement().firstChildElement("boundarycondition");
-  loadProjectContents(element, boundaryConditionEditor, limit->maxBcs(), "BoundaryCondition");
+  loadProjectContents(element, boundaryConditionEditor, "BoundaryCondition");
 
 
   //===========================================================================
@@ -2092,19 +2094,29 @@ void MainWindow::loadProjectSlot()
 
 // Helper function for load project
 //--------------------------------------------------------------------------------------------
-void MainWindow::loadProjectContents(QDomElement projectElement, DynamicEditor *editor, int Nmax, QString Mname)
+void MainWindow::loadProjectContents(QDomElement projectElement, 
+				     QVector<DynamicEditor*>& editor,
+				     QString Mname)
 {
+  int Nmax = editor.size();
+
   QDomElement item = projectElement.firstChildElement("item");
 
   for(; !item.isNull(); item = item.nextSiblingElement()) {  
     int index = item.attribute("index").toInt();
 
-    if((index < 0) || (index >= Nmax)) {
+    if(index < 0) {
       logMessage("Project loader: index out of bounds (dynamic editor)");
       return;
     }
 
-    DynamicEditor *de = &editor[index];
+    if(index >= editor.size())
+      editor.resize(index+1);
+
+    if(!editor[index])
+      editor[index] = new DynamicEditor;
+    
+    DynamicEditor *de = editor[index];
 
     bool active = (item.firstChildElement("active").text().toInt() > 0);
 
@@ -2417,26 +2429,10 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
 //-----------------------------------------------------------------------------
 void MainWindow::addEquationSlot()
 {
-  // use the first free slot in equationEditor array:
-  int current = 0;
-  bool found = false;
-  
-  DynamicEditor *pe = NULL;
+  DynamicEditor *pe = new DynamicEditor;
+  equationEditor.append(pe);
+  int current = equationEditor.size() - 1;
 
-  for(int i = 0; i < limit->maxEquations(); i++) {
-    pe = &equationEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-  
-  if(!found) {
-    logMessage("Equation max limit reached - unable to add equation");
-    return;
-  }
-  
   pe->setupTabs(*elmerDefs, "Equation", current);
 
   pe->applyButton->setText("Add");
@@ -2472,9 +2468,10 @@ void MainWindow::editNumericalMethods(int current, int id)
 {
   QString title="";
 
-  for(int i = 0; i < limit->maxEquations(); i++) {
-    if(equationEditor[i].ID == id) {
-      title = equationEditor[i].tabWidget->tabText(current);
+  for(int i = 0; i < equationEditor.size(); i++) {
+    // ** 23/04/09 **
+    if(equationEditor[i]->ID == id) {
+      title = equationEditor[i]->tabWidget->tabText(current);
       break;
     }
   }
@@ -2531,9 +2528,8 @@ void MainWindow::dynamicEditorNameChange(QString t)
 // signal (int,int) emitted by equation editor when ready:
 //-----------------------------------------------------------------------------
 void MainWindow::pdeEditorFinishedSlot(int signal, int id)
-{
-  
-  DynamicEditor *pe = &equationEditor[id];
+{  
+  DynamicEditor *pe = equationEditor[id];
   
   const QString &equationName = pe->nameEdit->text().trimmed();
 
@@ -2571,6 +2567,10 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
     delete pe->menuAction;
     pe->menuAction = NULL;
     pe->close();
+
+    int k = equationEditor.indexOf(pe);
+    if(k>=0) equationEditor.remove(k);
+
     logMessage("Equation deleted");
   }
 }
@@ -2580,8 +2580,8 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
 void MainWindow::equationSelectedSlot(QAction* act)
 {
   // Edit the selected material:
-  for(int i = 0; i < limit->maxEquations(); i++) {
-    DynamicEditor *pe = &equationEditor[i];
+  for(int i = 0; i < equationEditor.size(); i++) {
+    DynamicEditor *pe = equationEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -2621,27 +2621,11 @@ void MainWindow::equationBodyChanged(int state)
 //-----------------------------------------------------------------------------
 void MainWindow::addMaterialSlot()
 {
-  // use the first free slot in materialEditor array:
-  int current = 0;
-  bool found = false;
+  DynamicEditor *pe = new DynamicEditor;
+  materialEditor.append(pe);
+  int current = materialEditor.size() - 1;
 
-  DynamicEditor *pe = NULL;
-  for(int i = 0; i < limit->maxMaterials(); i++) {
-    pe = &materialEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-  
-  if(!found) {
-    logMessage("Material max limit reached - unable to add material");
-    return;
-  }
-  
   pe->setupTabs(*elmerDefs, "Material", current );
-
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
   pe->discardButton->setText("Cancel");
@@ -2666,12 +2650,13 @@ void MainWindow::addMaterialSlot()
 
   createBodyCheckBoxes(BODY_MATERIAL,pe);
   pe->show(); pe->raise();
+
 }
 
 
 void MainWindow::showMaterialLibrary(int tab, int ID)
 {
-  materialLibrary->editor = &materialEditor[ID];
+  materialLibrary->editor = materialEditor[ID];
   materialLibrary->elmerDefs = this->elmerDefs;
   materialLibrary->show();
 }
@@ -2680,8 +2665,7 @@ void MainWindow::showMaterialLibrary(int tab, int ID)
 //-----------------------------------------------------------------------------
 void MainWindow::matEditorFinishedSlot(int signal, int id)
 {
-
-  DynamicEditor *pe = &materialEditor[id];
+  DynamicEditor *pe = materialEditor[id];
   
   const QString &materialName = pe->nameEdit->text().trimmed();
 
@@ -2720,6 +2704,10 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
     delete pe->menuAction;
     pe->menuAction = NULL;
     pe->close();
+
+    int k = materialEditor.indexOf(pe);
+    if(k>=0) materialEditor.remove(k);
+
     logMessage("Material deleted");
 
   } else {
@@ -2732,8 +2720,9 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
 void MainWindow::materialSelectedSlot(QAction* act)
 {
   // Edit the selected material:
-  for(int i = 0; i < limit->maxMaterials(); i++) {
-    DynamicEditor *pe = &materialEditor[i];
+  for(int i = 0; i < materialEditor.size(); i++) {
+    DynamicEditor *pe = materialEditor[i];
+
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -2775,25 +2764,10 @@ void MainWindow::materialBodyChanged(int state)
 //-----------------------------------------------------------------------------
 void MainWindow::addBodyForceSlot()
 {
-  // use the first free slot in bodyForceEditor array:
-  int current = 0;
-  bool found = false;
+  DynamicEditor *pe = new DynamicEditor;
+  bodyForceEditor.append(pe);
+  int current = bodyForceEditor.size() - 1;
 
-  DynamicEditor *pe = NULL;
-  for(int i = 0; i < limit->maxBodyforces(); i++) {
-    pe = &bodyForceEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-  
-  if(!found) {
-    logMessage("Body force max limit reached - unable to add");
-    return;
-  }
-  
   pe->setupTabs(*elmerDefs, "BodyForce", current );
 
   pe->applyButton->setText("Add");
@@ -2821,7 +2795,7 @@ void MainWindow::addBodyForceSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
 {
-  DynamicEditor *pe = &bodyForceEditor[id];
+  DynamicEditor *pe = bodyForceEditor[id];
   
   const QString &bodyForceName = pe->nameEdit->text().trimmed();
 
@@ -2858,6 +2832,10 @@ void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
     delete pe->menuAction;
     pe->menuAction = NULL;
     pe->close();
+
+    int k = bodyForceEditor.indexOf(pe);
+    if(k>=0) bodyForceEditor.remove(k);
+
     logMessage("Body force deleted");
   }
 }
@@ -2867,8 +2845,8 @@ void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
 void MainWindow::bodyForceSelectedSlot(QAction* act)
 {
   // Edit the selected body force:
-  for(int i = 0; i < limit->maxBodyforces(); i++) {
-    DynamicEditor *pe = &bodyForceEditor[i];
+  for(int i = 0; i < bodyForceEditor.size(); i++) {
+    DynamicEditor *pe = bodyForceEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -2910,24 +2888,9 @@ void MainWindow::forceBodyChanged(int state)
 //-----------------------------------------------------------------------------
 void MainWindow::addInitialConditionSlot()
 {
-  // use the first free slot in initialConditionEditor array:
-  int current = 0;
-  bool found = false;
-  
-  DynamicEditor *pe = NULL;
-  for(int i = 0; i < limit->maxInitialconditions(); i++) {
-    pe = &initialConditionEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-  
-  if(!found) {
-    logMessage("Initial condition max limit reached - unable to add");
-    return;
-  }
+  DynamicEditor *pe = new DynamicEditor;
+  initialConditionEditor.append(pe);
+  int current = initialConditionEditor.size() - 1;
   
   pe->setupTabs(*elmerDefs, "InitialCondition", current );
 
@@ -2956,7 +2919,7 @@ void MainWindow::addInitialConditionSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
 {
-  DynamicEditor *pe = &initialConditionEditor[id];
+  DynamicEditor *pe = initialConditionEditor[id];
   
   const QString &initialConditionName = pe->nameEdit->text().trimmed();
   
@@ -2993,6 +2956,10 @@ void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
     delete pe->menuAction;
     pe->menuAction = NULL;
     pe->close();
+    
+    int k = initialConditionEditor.indexOf(pe);
+    if(k>=0) initialConditionEditor.remove(k);
+
     logMessage("Initial condition deleted");
   }
 }
@@ -3002,8 +2969,8 @@ void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
 void MainWindow::initialConditionSelectedSlot(QAction* act)
 {
   // Edit the selected initial condition:
-  for(int i = 0; i < limit->maxInitialconditions(); i++) {
-    DynamicEditor *pe = &initialConditionEditor[i];
+  for(int i = 0; i < initialConditionEditor.size(); i++) {
+    DynamicEditor *pe = initialConditionEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -3108,25 +3075,10 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
 //-----------------------------------------------------------------------------
 void MainWindow::addBoundaryConditionSlot()
 {
-  // use the first free slot in boundaryConditionEditor array:
-  int current = 0;
-  bool found = false;
-  
-  DynamicEditor *pe = NULL;
-  for(int i = 0; i < limit->maxBcs(); i++) {
-    pe = &boundaryConditionEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-  
-  if(!found) {
-    logMessage("Boundary condition max limit reached - unable to add");
-    return;
-  }
-  
+  DynamicEditor *pe = new DynamicEditor;
+  boundaryConditionEditor.append(pe);
+  int current = boundaryConditionEditor.size() - 1;
+
   pe->setupTabs(*elmerDefs, "BoundaryCondition", current );
   
   pe->applyButton->setText("Add");
@@ -3154,7 +3106,7 @@ void MainWindow::addBoundaryConditionSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
 {
-  DynamicEditor *pe = &boundaryConditionEditor[id];
+  DynamicEditor *pe = boundaryConditionEditor[id];
   
   const QString &boundaryConditionName = pe->nameEdit->text().trimmed();
   
@@ -3193,6 +3145,9 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
     pe->menuAction = NULL;
     pe->close();
 
+    int k = boundaryConditionEditor.indexOf(pe);
+    if(k>=0) boundaryConditionEditor.remove(k);
+
     logMessage("Boundary condition deleted");
   }
 }
@@ -3202,8 +3157,8 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
 void MainWindow::boundaryConditionSelectedSlot(QAction* act)
 {
   // Edit the selected boundary condition:
-  for(int i = 0; i < limit->maxBcs(); i++) {
-    DynamicEditor *pe = &boundaryConditionEditor[i];
+  for(int i = 0; i < boundaryConditionEditor.size(); i++) {
+    DynamicEditor *pe = boundaryConditionEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -3345,12 +3300,10 @@ void MainWindow::modelSummarySlot()
   }
   te->append("");
 
-
-
   // Check equations:
   int count = 0;
-  for(int i = 0; i < limit->maxEquations(); i++) {
-    if(equationEditor[i].menuAction != NULL)
+  for(int i = 0; i < equationEditor.size(); i++) {
+    if(equationEditor[i]->menuAction != NULL)
       count++;
   }
   te->append("GENERAL");
@@ -3358,16 +3311,16 @@ void MainWindow::modelSummarySlot()
 
   // Check materials:
   count = 0;
-  for(int i = 0; i < limit->maxMaterials(); i++) {
-    if(materialEditor[i].menuAction != NULL)
+  for(int i = 0; i < materialEditor.size(); i++) {
+    if(materialEditor[i]->menuAction != NULL)
       count++;
   }
   te->append("Materials: " + QString::number(count));
 
   // Check boundary conditions:
   count = 0;
-  for(int i = 0; i < limit->maxBcs(); i++) {
-    if( boundaryConditionEditor[i].touched) count++;
+  for(int i = 0; i < boundaryConditionEditor.size(); i++) {
+    if( boundaryConditionEditor[i]->touched) count++;
   }
   te->append("Boundary conditions: " + QString::number(count));
 
@@ -3399,13 +3352,18 @@ void MainWindow::modelSummarySlot()
 
   te->append("VOLUME BODIES");
   count = 0;
-  for(int i = 0; i<mesh->getElements(); i++) {
+  for(int i = 0; i < mesh->getElements(); i++) {
     if( tmp[i]>0 ) {
       count++;
       QString qs = "Body " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " volume elements";
-      if(bodyPropertyEditor[i].touched) 
-	qs.append(" (Body property set)");
+
+      element_t *e = mesh->getElement(i);
+      int j = e->getIndex();
+      if((j >= 0) && (j < limit->maxBodies()))
+	if(bodyPropertyEditor[j].touched) 
+	  qs.append(" (Body property set)");
+      
       te->append(qs);
     }
   }
@@ -3439,8 +3397,13 @@ void MainWindow::modelSummarySlot()
       count++;
       QString qs = "Body " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " surface elements";
-      if(bodyPropertyEditor[i].touched) 
-	qs.append(" (Body property set)");
+
+      surface_t *s = mesh->getSurface(i);
+      int j = s->getIndex();
+      if((j >= 0) && (j < limit->maxBodies()))
+	if(bodyPropertyEditor[j].touched)
+	  qs.append(" (Body property set)");
+
       te->append(qs);
     }
   }
@@ -3449,42 +3412,6 @@ void MainWindow::modelSummarySlot()
   te->append("");
 
   delete [] tmp;
-
-
-  // Count surface boundaries:
-  //--------------------------
-  undetermined = 0;
-  tmp = new int[mesh->getSurfaces()];
-  for(int i = 0; i < mesh->getSurfaces(); i++)
-    tmp[i] = 0;
-  
-  for(int i = 0; i < mesh->getSurfaces(); i++) {
-    surface_t *s = mesh->getSurface(i);
-    if(s->getNature() == PDE_BOUNDARY) {
-      if(s->getIndex() >= 0)
-	tmp[s->getIndex()]++;
-      else
-	undetermined++;
-    }
-  }
-
-  te->append("SURFACE BOUNDARIES");
-  count = 0;
-  for(int i = 0; i < mesh->getSurfaces(); i++) {
-    if( tmp[i]>0 ) {
-      count++;
-      QString qs = "Boundary " + QString::number(i) + ": " 
-	+ QString::number(tmp[i]) + " surface elements";
-      if(boundaryConditionEditor[i].touched) qs.append(" (BC set)");
-      te->append(qs);
-    }
-  }
-  te->append("Undetermined: " + QString::number(undetermined));
-  te->append("Total: " + QString::number(count) + " surface boundaries");
-  te->append("");
-
-  delete [] tmp;
-
 
   // Count edge bodies:
   //---------------------
@@ -3510,13 +3437,58 @@ void MainWindow::modelSummarySlot()
       count++;
       QString qs = "Body " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " edge elements";
-      if(bodyPropertyEditor[i].touched) 
-	qs.append(" (Body property set)");
+
+      edge_t *e = mesh->getEdge(i);
+      int j = e->getIndex();
+      if((j >= 0) && (j < limit->maxBodies()))
+	if(bodyPropertyEditor[j].touched) 
+	  qs.append(" (Body property set)");
+
       te->append(qs);
     }
   }
   te->append("Undetermined: " + QString::number(undetermined));
   te->append("Total: " + QString::number(count) + " edge bodies");
+  te->append("");
+
+  delete [] tmp;
+
+  // Count surface boundaries:
+  //--------------------------
+  undetermined = 0;
+  tmp = new int[mesh->getSurfaces()];
+  for(int i = 0; i < mesh->getSurfaces(); i++)
+    tmp[i] = 0;
+  
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
+    surface_t *s = mesh->getSurface(i);
+    if(s->getNature() == PDE_BOUNDARY) {
+      if(s->getIndex() >= 0)
+	tmp[s->getIndex()]++;
+      else
+	undetermined++;
+    }
+  }
+
+  te->append("SURFACE BOUNDARIES");
+  count = 0;
+  for(int i = 0; i < mesh->getSurfaces(); i++) {
+    if( tmp[i]>0 ) {
+      count++;
+      QString qs = "Boundary " + QString::number(i) + ": " 
+	+ QString::number(tmp[i]) + " surface elements";
+      
+      surface_t *s = mesh->getSurface(i);     
+      int j = s->getIndex();
+      if((j >= 0) &&(j < boundaryConditionEditor.size()))
+	if(boundaryConditionEditor[j]->touched)
+	  qs.append(" (BC set)");
+
+      te->append(qs);
+    }
+  }
+  te->append("Undetermined: " + QString::number(undetermined));
+  te->append("Total: " + QString::number(count) + " surface boundaries");
   te->append("");
 
   delete [] tmp;
@@ -3545,7 +3517,13 @@ void MainWindow::modelSummarySlot()
       count++;
       QString qs = "Boundary " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " edge elements";
-      if( boundaryConditionEditor[i].touched) qs.append(" (BC set)");
+
+      edge_t *e = mesh->getEdge(i);
+      int j = e->getIndex();
+      if((j >= 0) && (j < boundaryConditionEditor.size()))
+	if( boundaryConditionEditor[j]->touched)
+	  qs.append(" (BC set)");
+
       te->append(qs);
     }
   }
@@ -3562,49 +3540,64 @@ void MainWindow::modelSummarySlot()
 void MainWindow::modelClearSlot()
 {
   // clear equations:
-  for(int i = 0; i < limit->maxEquations(); i++) {
-    DynamicEditor *pe = &equationEditor[i];
+  for(int i = 0; i < equationEditor.size(); i++) {
+    DynamicEditor *pe = equationEditor[i];
     if(pe->menuAction != NULL)
       delete pe->menuAction;
   }
-  delete [] equationEditor;
-  equationEditor = new DynamicEditor[limit->maxEquations()];
+
+  for(int i = 0; i < equationEditor.size(); i++)
+    delete equationEditor[i];
+
+  equationEditor.clear();
 
   // clear materials:
-  for(int i = 0; i < limit->maxMaterials(); i++) {
-    DynamicEditor *de = &materialEditor[i];
+  for(int i = 0; i < materialEditor.size(); i++) {
+    DynamicEditor *de = materialEditor[i];
     if(de->menuAction != NULL)
       delete de->menuAction;
   }
-  delete [] materialEditor;
-  materialEditor = new DynamicEditor[limit->maxMaterials()];
+
+  for(int i = 0; i < materialEditor.size(); i++)
+    delete materialEditor[i];
+
+  materialEditor.clear();
 
   // clear body forces:
-  for(int i = 0; i < limit->maxBodyforces(); i++) {
-    DynamicEditor *de = &bodyForceEditor[i];
+  for(int i = 0; i < bodyForceEditor.size(); i++) {
+    DynamicEditor *de = bodyForceEditor[i];
     if(de->menuAction != NULL)
       delete de->menuAction;
   }
-  delete [] bodyForceEditor;
-  bodyForceEditor = new DynamicEditor[limit->maxBodyforces()];
+  
+  for(int i = 0; i < bodyForceEditor.size(); i++)
+    delete bodyForceEditor[i];
+
+  bodyForceEditor.clear();
 
   // clear initial conditions:
-  for(int i = 0; i < limit->maxInitialconditions(); i++) {
-    DynamicEditor *de = &initialConditionEditor[i];
+  for(int i = 0; i < initialConditionEditor.size(); i++) {
+    DynamicEditor *de = initialConditionEditor[i];
     if(de->menuAction != NULL)
       delete de->menuAction;
   }
-  delete [] initialConditionEditor;
-  initialConditionEditor = new DynamicEditor[limit->maxInitialconditions()];
+  
+  for(int i = 0; i < initialConditionEditor.size(); i++)
+    delete initialConditionEditor[i];
+
+  initialConditionEditor.clear();
 
   // clear boundary conditions:
-  for(int i = 0; i < limit->maxBcs(); i++) {
-    DynamicEditor *de = &boundaryConditionEditor[i];
+  for(int i = 0; i < boundaryConditionEditor.size(); i++) {
+    DynamicEditor *de = boundaryConditionEditor[i];
     if(de->menuAction != NULL)
       delete de->menuAction;
   }
-  delete [] boundaryConditionEditor;
-  boundaryConditionEditor = new DynamicEditor[limit->maxBcs()];
+
+  for(int i = 0; i < boundaryConditionEditor.size(); i++)
+    delete boundaryConditionEditor[i];
+
+  boundaryConditionEditor.clear();
 
   // clear boundary setting:
   delete [] boundaryPropertyEditor;
@@ -5268,11 +5261,13 @@ void MainWindow::generateSifSlot()
   sifGenerator->setDim(mesh->getDim());
   sifGenerator->setCdim(mesh->getCdim());
   sifGenerator->setGeneralSetup(generalSetup);
+
   sifGenerator->setEquationEditor(equationEditor);
   sifGenerator->setMaterialEditor(materialEditor);
   sifGenerator->setBodyForceEditor(bodyForceEditor);
   sifGenerator->setInitialConditionEditor(initialConditionEditor);
   sifGenerator->setBoundaryConditionEditor(boundaryConditionEditor);
+
   sifGenerator->setSolverParameterEditor(solverParameterEditor);
   sifGenerator->setBoundaryPropertyEditor(boundaryPropertyEditor);
   sifGenerator->setBodyPropertyEditor(bodyPropertyEditor);
@@ -5337,7 +5332,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     // renumbering:
     int n = glWidget->boundaryMap.value(l->getIndex());
-    if(n >= limit->maxBcs()) {
+
+    if(n >= limit->maxBoundaries()) {
       logMessage("Error: index exceeds MAX_BCS (increase it in egini.xml)");
       return;
     }
@@ -5375,10 +5371,12 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
     // renumbering:
     int n = glWidget->boundaryMap.value(l->getIndex());
-    if(n >= limit->maxBcs()) {
+
+    if(n >= limit->maxBoundaries()) {
       logMessage("Error: index exceeds MAX_BCS (increase it in egini.xml)");
       return;
     }
+
     BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
     bodyEdit = boundaryEdit->bodyProperties;
     if ( bodyEdit ) {
@@ -5451,8 +5449,8 @@ void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
   int count = 1;
   boundary->ui.boundaryConditionCombo->insertItem(count++, "");
 
-  for(int i = 0; i < limit->maxBcs(); i++) {
-    DynamicEditor *bcEdit = &boundaryConditionEditor[i];
+  for(int i = 0; i < boundaryConditionEditor.size(); i++) {
+    DynamicEditor *bcEdit = boundaryConditionEditor[i];
     if(bcEdit->menuAction != NULL) {
       const QString &name = bcEdit->nameEdit->text().trimmed();
       boundary->ui.boundaryConditionCombo->insertItem(count, name);
@@ -5472,11 +5470,11 @@ void MainWindow::boundaryComboChanged(BoundaryPropertyEditor *b, QString text)
   b->condition = 0;
   b->touched = false;
 
-  for( int i=0; i < limit->maxBcs(); i++ )
+  for( int i=0; i < boundaryConditionEditor.size(); i++ )
   {
-    DynamicEditor *bc = &boundaryConditionEditor[i];
+    DynamicEditor *bc = boundaryConditionEditor[i];
     if ( bc->ID >= 0 ) {
-       if ( bc->nameEdit->text().trimmed()==text ) {
+       if ( bc->nameEdit->text().trimmed() == text ) {
          b->condition = bc; 
          b->touched = true;
          break;
@@ -5513,8 +5511,8 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
   int takethis = 1; // -1
   bodyEdit->ui.equationCombo->insertItem(count++, "");
 
-  for(int i = 0; i < limit->maxEquations(); i++) {
-    DynamicEditor *eqEdit = &equationEditor[i];
+  for(int i = 0; i < equationEditor.size(); i++) {
+    DynamicEditor *eqEdit = equationEditor[i];
     if(eqEdit->menuAction != NULL) {
       const QString &name = eqEdit->nameEdit->text().trimmed();
       bodyEdit->ui.equationCombo->insertItem(count, name);
@@ -5536,8 +5534,9 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
   bodyEdit->ui.materialCombo->insertItem(count, "");
   count++;
 
-  for(int i = 0; i < limit->maxMaterials(); i++) {
-    DynamicEditor *matEdit = &materialEditor[i];
+  for(int i = 0; i < materialEditor.size(); i++) {
+    DynamicEditor *matEdit = materialEditor[i];
+
     if(matEdit->menuAction != NULL) {
       const QString &name = matEdit->nameEdit->text().trimmed();
       bodyEdit->ui.materialCombo->insertItem(count, name);
@@ -5562,8 +5561,8 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
   takethis = 1; // -1
   bodyEdit->ui.bodyForceCombo->insertItem(count++, "");
 
-  for(int i = 0; i < limit->maxBodyforces(); i++) {
-    DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
+  for(int i = 0; i < bodyForceEditor.size(); i++) {
+    DynamicEditor *bodyForceEdit = bodyForceEditor[i];
     if(bodyForceEdit->menuAction != NULL) {
       const QString &name = bodyForceEdit->nameEdit->text().trimmed();
       bodyEdit->ui.bodyForceCombo->insertItem(count, name);
@@ -5584,8 +5583,8 @@ void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
   takethis = 1; // -1
   bodyEdit->ui.initialConditionCombo->insertItem(count++, "");
 
-  for(int i = 0; i < limit->maxInitialconditions(); i++) {
-    DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
+  for(int i = 0; i < initialConditionEditor.size(); i++) {
+    DynamicEditor *initialConditionEdit = initialConditionEditor[i];
     if(initialConditionEdit->menuAction != NULL) {
       const QString &name = initialConditionEdit->nameEdit->text().trimmed();
       bodyEdit->ui.initialConditionCombo->insertItem(count, name);
@@ -5603,9 +5602,10 @@ void MainWindow::materialComboChanged(BodyPropertyEditor *b, QString text)
 {
   b->material = 0;
   b->touched = false;
-  for(int i=0; i < limit->maxMaterials(); i++)
+  for(int i=0; i < materialEditor.size(); i++)
   {
-    DynamicEditor *mat = &materialEditor[i];
+    DynamicEditor *mat = materialEditor[i];
+
     if ( mat->ID >= 0 ) {
        if ( mat->nameEdit->text().trimmed()==text ) {
          b->material = mat; 
@@ -5622,9 +5622,9 @@ void MainWindow::initialComboChanged(BodyPropertyEditor *b, QString text)
   b->initial = 0;
   b->touched = false;
 
-  for( int i=0; i < limit->maxInitialconditions(); i++ )
+  for( int i=0; i < initialConditionEditor.size(); i++ )
   {
-    DynamicEditor *ic = &initialConditionEditor[i];
+    DynamicEditor *ic = initialConditionEditor[i];
     if ( ic->ID >= 0 ) {
        if ( ic->nameEdit->text().trimmed()==text ) {
          b->initial = ic; 
@@ -5641,9 +5641,8 @@ void MainWindow::forceComboChanged(BodyPropertyEditor *b, QString text)
   b->force = 0;
   b->touched = false;
 
-  for( int i=0; i < limit->maxBodyforces(); i++ )
-  {
-    DynamicEditor *bf = &bodyForceEditor[i];
+  for( int i=0; i < bodyForceEditor.size(); i++ ) {
+    DynamicEditor *bf = bodyForceEditor[i];
     if ( bf->ID >= 0 ) {
        if ( bf->nameEdit->text().trimmed()==text ) {
          b->force = bf; 
@@ -5660,9 +5659,9 @@ void MainWindow::equationComboChanged(BodyPropertyEditor *b, QString text)
   b->equation = 0;
   b->touched = false;
 
-  for( int i=0; i < limit->maxEquations(); i++ )
+  for( int i=0; i < equationEditor.size(); i++ )
   {
-    DynamicEditor *equ = &equationEditor[i];
+    DynamicEditor *equ = equationEditor[i];
     if ( equ->ID >= 0 ) {
        if ( equ->nameEdit->text().trimmed() == text ) {
          b->equation = equ; 

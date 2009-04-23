@@ -125,8 +125,8 @@ ConvergenceView::ConvergenceView(Limit *limit, QWidget *parent)
   plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
 
   // default pen
-  pen = new QPen[limit->maxEquations()];
-  for(int i = 0; i < limit->maxEquations(); i++)
+  pen = new QPen[MAX_NOF_PENS];
+  for(int i = 0; i < MAX_NOF_PENS; i++)
     pen[i] = QPen(Qt::black);
 
   // available colors

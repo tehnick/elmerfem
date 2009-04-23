@@ -81,27 +81,27 @@ void SifGenerator::setGeneralSetup(GeneralSetup* g)
   this->generalSetup = g;
 }
 
-void SifGenerator::setEquationEditor(DynamicEditor* d)
+void SifGenerator::setEquationEditor(QVector<DynamicEditor*>& d)
 {
   this->equationEditor = d;
 }
 
-void SifGenerator::setMaterialEditor(DynamicEditor* d)
+void SifGenerator::setMaterialEditor(QVector<DynamicEditor*>& d)
 {
   this->materialEditor = d;
 }
 
-void SifGenerator::setBodyForceEditor(DynamicEditor* d)
+void SifGenerator::setBodyForceEditor(QVector<DynamicEditor*>& d)
 {
   this->bodyForceEditor = d;
 }
 
-void SifGenerator::setInitialConditionEditor(DynamicEditor* d)
+void SifGenerator::setInitialConditionEditor(QVector<DynamicEditor*>& d)
 {
   this->initialConditionEditor = d;
 }
 
-void SifGenerator::setBoundaryConditionEditor(DynamicEditor* d)
+void SifGenerator::setBoundaryConditionEditor(QVector<DynamicEditor*>& d)
 {
   this->boundaryConditionEditor = d;
 }
@@ -389,8 +389,8 @@ void SifGenerator::makeEquationBlocks()
 
   int solverNumber = 0;
 
-  for(int index = 0; index < limit->maxEquations(); index++) {
-    DynamicEditor *eqEditor = &equationEditor[index];
+  for(int index = 0; index < equationEditor.size(); index++) {
+    DynamicEditor *eqEditor = equationEditor[index];
 
     if(eqEditor->menuAction != NULL) {
       for(int i = 0; i < eqEditor->hash.count(); i++) {
@@ -439,8 +439,8 @@ void SifGenerator::makeEquationBlocks()
     snum[i]=0;
   }
   
-  for(int index = 0; index < limit->maxEquations(); index++) {
-    DynamicEditor *eqEditor = &equationEditor[index];
+  for(int index = 0; index < equationEditor.size(); index++) {
+    DynamicEditor *eqEditor = equationEditor[index];
     if(eqEditor->menuAction != NULL) {
       for(int i = 0; i < eqEditor->hash.count(); i++) {
 	hash_entry_t entry = eqEditor->hash.values().at(i); 
@@ -476,8 +476,8 @@ void SifGenerator::makeEquationBlocks()
   int* solverActive = new int[limit->maxSolvers()];
 
   int sifIndex = 0;
-  for(int index = 0; index < limit->maxEquations(); index++) {
-    DynamicEditor *eqEditor = &equationEditor[index];
+  for(int index = 0; index < equationEditor.size(); index++) {
+    DynamicEditor *eqEditor = equationEditor[index];
 
     if(eqEditor->menuAction != NULL) {
       te->append("Equation " + QString::number(++sifIndex));
@@ -617,8 +617,8 @@ void SifGenerator::makeMaterialBlocks()
 {
   int sifIndex = 0;
 
-  for(int index = 0; index < limit->maxMaterials(); index++) {
-    DynamicEditor *matEditor = &materialEditor[index];
+  for(int index = 0; index < materialEditor.size(); index++) {
+    DynamicEditor *matEditor = materialEditor[index];
     
     if(matEditor->menuAction != NULL) {      
       te->append("Material " + QString::number(++sifIndex));
@@ -658,8 +658,8 @@ void SifGenerator::makeBodyForceBlocks()
 {
   int sifIndex = 0;
 
-  for(int index = 0; index < limit->maxBodyforces(); index++) {
-    DynamicEditor *bfEdit = &bodyForceEditor[index];
+  for(int index = 0; index < bodyForceEditor.size(); index++) {
+    DynamicEditor *bfEdit = bodyForceEditor[index];
     
     if(bfEdit->menuAction != NULL) { 
       te->append("Body Force " + QString::number(++sifIndex));
@@ -698,8 +698,8 @@ void SifGenerator::makeInitialConditionBlocks()
 {
   int sifIndex = 0;
   
-  for(int index = 0; index < limit->maxInitialconditions(); index++) {
-    DynamicEditor *icEdit = &initialConditionEditor[index];
+  for(int index = 0; index < initialConditionEditor.size(); index++) {
+    DynamicEditor *icEdit = initialConditionEditor[index];
     
     if(icEdit->menuAction != NULL) { 
       te->append("Initial Condition " + QString::number(++sifIndex));
@@ -730,9 +730,6 @@ void SifGenerator::makeInitialConditionBlocks()
     }
   }
 }
-
-
-
 
 
 
@@ -771,8 +768,8 @@ void SifGenerator::makeBoundaryBlocks()
       // te->append("  Name = " +  name);
 
       // check which one of the dynamic editors has "name" typed in nameEdit:
-      for(int j = 0; j < limit->maxBcs(); j++) {
-	DynamicEditor *bc = &boundaryConditionEditor[j];
+      for(int j = 0; j < boundaryConditionEditor.size(); j++) {
+	DynamicEditor *bc = boundaryConditionEditor[j];
 	if(bc->menuAction != NULL) {
 	  if(bc->nameEdit->text().trimmed() == name) {
 	    
