@@ -537,7 +537,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
      SUBROUTINE InterpolateMeshToMesh( OldMesh, NewMesh, OldVariables, &
-                NewVariables, UseQuadrantTree, Projector )
+                NewVariables, UseQuadrantTree, Projector, MaskName )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !  DESCRIPTION:
@@ -568,6 +568,7 @@ CONTAINS
        TYPE(Variable_t), POINTER, OPTIONAL :: OldVariables, NewVariables
        LOGICAL, OPTIONAL :: UseQuadrantTree
        TYPE(Projector_t), POINTER, OPTIONAL :: Projector
+       CHARACTER(LEN=*),OPTIONAL :: MaskName
 !------------------------------------------------------------------------------
        INTEGER :: dim
        Type(Nodes_t) :: ElementNodes
@@ -596,7 +597,7 @@ CONTAINS
        TYPE(Epntr_t), ALLOCATABLE :: ElemPtrs(:)
 
        INTEGER, ALLOCATABLE:: RInd(:)
-       LOGICAL :: Found, EpsAbsGiven,EpsRelGiven
+       LOGICAL :: Found, EpsAbsGiven,EpsRelGiven, MaskExists
        REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_abs, eps_rel
        REAL(KIND=dp), POINTER :: Values(:), LocalU(:), LocalV(:), LocalW(:)
 !------------------------------------------------------------------------------
@@ -652,6 +653,11 @@ CONTAINS
              RootQuadrant => OldMesh % RootQuadrant
           END IF
        END IF
+
+! Use mask or not
+!---------------------------------------
+	MaskExists = PRESENT( MaskName )
+
 !------------------------------------------------------------------------------
 
        n = OldMesh % MaxElementNodes
@@ -700,6 +706,11 @@ CONTAINS
                  DO k=1, LeafQuadrant % NElemsInQuadrant
                     Element => OldMesh % Elements(LeafQuadrant % Elements(k))
 
+                    IF( MaskExists ) THEN
+	              IF(.NOT. ListCheckPresent( &
+	                   CurrentModel % Bodies(Element % BodyId) % Values,MaskName )) CYCLE
+                    END IF
+	
                     NodeIndexes => Element % NodeIndexes
                     n = Element % Type % NumberOfNodes
 
@@ -1013,12 +1024,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    RECURSIVE FUNCTION VariableGet( Variables, Name, ThisOnly ) RESULT(Var)
+    RECURSIVE FUNCTION VariableGet( Variables, Name, ThisOnly, MaskName ) RESULT(Var)
 !------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
       CHARACTER(LEN=*) :: Name
-
       LOGICAL, OPTIONAL :: ThisOnly
+      CHARACTER(LEN=*),OPTIONAL :: MaskName	
 !------------------------------------------------------------------------------
       TYPE(Mesh_t), POINTER :: Mesh
       TYPE(Projector_t), POINTER :: Projector
@@ -1054,6 +1065,7 @@ double precision :: t1,CPUTime
       IF ( PRESENT(ThisOnly) ) THEN
          IF ( ThisOnly ) RETURN
       END IF
+
 !------------------------------------------------------------------------------
       NULLIFY( PVar )
       Mesh => CurrentModel % Meshes
@@ -1218,8 +1230,15 @@ double precision :: t1,CPUTime
 ! interpolation call
 !------------------------------------------------------------------------------
 t1 = CPUTime()
-      CALL InterpolateMeshToMesh( PVar % PrimaryMesh, &
+
+      IF( Present( MaskName ) ) THEN
+       CALL InterpolateMeshToMesh( PVar % PrimaryMesh, &
+            CurrentModel % Mesh, Var, Variables, MaskName=MaskName )
+      ELSE
+        CALL InterpolateMeshToMesh( PVar % PrimaryMesh, &
             CurrentModel % Mesh, Var, Variables, Projector=Projector )
+      END IF
+
 
 WRITE( Message, * ) 'Interpolation time: ', CPUTime()-t1
 CALL Info( 'VariableGet', Message, Level=7 )
@@ -2385,5 +2404,37 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
    END FUNCTION ListGetDerivValue
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+! Given the body of a keyword find the 1st free keyword in the list structure.
+! The intended use for this is in Solver_init to decleare exported variables
+! without the risk of running over some existing ones. 
+!------------------------------------------------------------------------------
+
+  FUNCTION NextFreeKeyword(keyword0,List) RESULT (Keyword)
+
+    CHARACTER(LEN=MAX_NAME_LEN) :: Keyword0
+    TYPE(ValueList_t), POINTER  :: List
+    CHARACTER(LEN=MAX_NAME_LEN) :: Keyword
+    INTEGER :: No
+    
+    DO No = 1, 9999
+      IF( No < 10) THEN
+        WRITE( Keyword,'(A,I2)') TRIM(Keyword0),No
+      ELSE IF( No < 100) THEN
+        WRITE( Keyword,'(A,I3)') TRIM(Keyword0),No
+      ELSE IF( No < 1000) THEN
+        WRITE( Keyword,'(A,I4)') TRIM(Keyword0),No
+      ELSE IF( No < 10000) THEN
+        WRITE( Keyword,'(A,I5)') TRIM(Keyword0),No
+      END IF
+      IF( .NOT. ListCheckPresent(List,Keyword)) EXIT
+    END DO
+
+!------------------------------------------------------------------------------
+  END FUNCTION NextFreeKeyword
+!------------------------------------------------------------------------------
+
 
 END MODULE Lists
