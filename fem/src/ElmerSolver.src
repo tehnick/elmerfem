@@ -542,6 +542,17 @@
      INTEGER, ALLOCATABLE :: Indexes(:)
      REAL(KIND=dp),ALLOCATABLE :: Work(:)
 
+     INTEGER :: i,j,k,l,m,vect_dof,real_dof,dim
+
+     REAL(KIND=dp) :: nrm(3),t1(3),t2(3),vec(3),tmp(3),udot
+     TYPE(ValueList_t), POINTER :: BC
+     TYPE(Nodes_t), SAVE :: Nodes
+     LOGICAL :: nt_boundary
+     TYPE(Element_t), POINTER :: Element
+     TYPE(Variable_t), POINTER :: var, vect_var
+
+     dim = CoordinateSystemDimension()
+
      IF (GetLogical(GetSimulation(),'Restart Before Initial Conditions',Found)) THEN
        CALL Restart
        CALL InitCond
@@ -559,82 +570,149 @@
             'Initialize Dirichlet Conditions', GotIt ) 
      IF ( .NOT. GotIt ) InitDirichlet = .TRUE.
 
+     vect_var => Null()
      IF ( InitDirichlet ) THEN
        Mesh => CurrentModel % Meshes
        DO WHILE( ASSOCIATED(Mesh) )
          ALLOCATE( Work(Mesh % MaxElementDOFs) )
          CALL SetCurrentMesh( CurrentModel, Mesh )
+
          DO t = Mesh % NumberOfBulkElements + 1, &
                  Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
 
-           CurrentElement => Mesh % Elements(t)
+           Element => Mesh % Elements(t)
 
            ! Set also the current element pointer in the model structure to
            ! reflect the element being processed:
            ! ---------------------------------------------------------------
-           CurrentModel % CurrentElement => CurrentElement
-           n = CurrentElement % TYPE % NumberOfNodes
+           CurrentModel % CurrentElement => Element
+           n = Element % TYPE % NumberOfNodes
 
-           DO i=1,CurrentModel % NumberOfBCs
-             IF ( CurrentElement % BoundaryInfo % Constraint == &
-                        CurrentModel % BCs(i) % Tag ) THEN
+           BC => GetBC()
 
-               Var => Mesh % Variables
-               DO WHILE( ASSOCIATED(Var) )
-                 Solver => Var % Solver
-                 IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+           Var => Mesh % Variables
+           DO WHILE( ASSOCIATED(Var) )
+             Solver => Var % Solver
+             IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
 
-                 str = ListGetString( Solver % Values, 'Namespace', Found )
-                 IF (Found) CALL ListSetNamespace(TRIM(str))
+             str = ListGetString( Solver % Values, 'Namespace', Found )
+             IF (Found) CALL ListSetNamespace(TRIM(str))
 
-                 IF ( Var % DOFs <= 1 ) THEN
-                   Work(1:n) = ListGetReal( CurrentModel % BCs(i) % Values, &
-                     Var % Name, n, CurrentElement % NodeIndexes, gotIt )
-                   IF ( GotIt ) THEN
-                     DO j=1,n
-                       k = CurrentElement % NodeIndexes(j)
-                       IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-                       IF ( k>0 ) Var % Values(k) = Work(j)
-                     END DO
-                   END IF
 
-                   IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
-                      Work(1:n) = GetReal( CurrentModel % BCs(i) % Values, &
-                             TRIM(Var % Name) // ' Velocity', GotIt )
-                      IF ( GotIt ) THEN
-                        DO j=1,n
-                          k = CurrentElement % NodeIndexes(j)
-                          IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-                          IF ( k>0 ) Var % PrevValues(k,1) = Work(j)
-                        END DO
-                      END IF
-                      Work(1:n) = GetReal( CurrentModel % BCs(i) % Values, &
-                             TRIM(Var % Name) // ' Acceleration', GotIt )
-                      IF ( GotIt ) THEN
-                        DO j=1,n
-                          k = CurrentElement % NodeIndexes(j)
-                          IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-                          IF ( k>0 ) Var % PrevValues(k,2) = Work(j)
-                        END DO
-                      END IF
-                   END IF
-                 ELSE
-                   CALL ListGetRealArray( CurrentModel % BCs(i) % Values, &
-                     Var % Name, WorkA, n, CurrentElement % NodeIndexes, gotIt )
-                   IF ( GotIt ) THEN
-                     DO j=1,n
-                       k = CurrentElement % NodeIndexes(j)
-                       DO l=1,MIN(SIZE(WorkA,1),Var % DOFs)
-                         IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-                         IF ( k>0 ) Var % Values(Var % DOFs*(k-1)+l) = WorkA(l,1,j)
+             IF ( Var % DOFs <= 1 ) THEN
+               Work(1:n) = GetReal( BC,Var % Name, gotIt )
+               IF ( GotIt ) THEN
+
+                 nt_boundary = .FALSE.
+                 IF ( GetElementFamily() /= 1 ) THEN
+                   k = LEN_TRIM(var % name)
+                   vect_dof = ICHAR(Var % Name(k:k))-ICHAR('0');
+                   IF ( vect_dof>=1 .AND. vect_dof<= 3 ) THEN
+                     nt_boundary = GetLogical( BC, &
+                        'normal-tangential '//var % name(1:k-2)//' rotate', gotIt)
+                     IF (.NOT. gotIt ) nt_boundary = .TRUE.
+
+                     nt_boundary = nt_boundary .AND. GetLogical( BC, &
+                        'normal-tangential '//var % name(1:k-2), gotIt)
+
+                     IF ( nt_boundary ) THEN
+                       nt_boundary = .FALSE.
+                       Vect_var => Mesh % Variables
+                       DO WHILE( ASSOCIATED(Vect_var) )
+                         IF ( Vect_var % Dofs>1 ) THEN
+                           DO real_dof=1,Vect_var % Dofs
+                             nt_boundary = ASSOCIATED(Var % Values, &
+                               Vect_var % Values(real_dof::Vect_var % Dofs))
+                             IF ( nt_boundary ) EXIT
+                           END DO
+                           IF ( nt_boundary ) EXIT
+                         END IF
+                         Vect_var => Vect_var % Next
                        END DO
-                     END DO
+                     END IF
+
+                     IF ( nt_boundary ) THEN
+                       CALL GetElementNodes(Nodes)
+                       nrm = NormalVector(Element,Nodes,0._dp,0._dp,.TRUE.)
+                       SELECT CASE(Element % Type % Dimension)
+                       CASE(1)
+                         t1(1) =  nrm(2)
+                         t1(2) = -nrm(1)
+                       CASE(2)
+                         CALL TangentDirections(nrm,t1,t2)
+                       END SELECT
+                     END IF
                    END IF
                  END IF
-                 CALL ListSetNamespace('')
-                 Var => Var % Next
-               END DO
+
+                 DO j=1,n
+                   k = Element % NodeIndexes(j)
+                   IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                   IF ( k>0 ) THEN
+                     IF ( nt_boundary ) THEN
+                       DO l=1,dim
+                         m = l+real_dof-1
+                         tmp(l)=Vect_var % Values(Vect_var % Dofs*(k-1)+m)
+                       END DO
+
+                       SELECT CASE(vect_dof)
+                       CASE(1) 
+                         vec = nrm
+                       CASE(2) 
+                         vec = t1
+                       CASE(3) 
+                         vec = t2
+                       END SELECT
+
+                       udot = SUM(vec(1:dim)*tmp(1:dim))
+                       tmp(1:dim)=tmp(1:dim)+(work(j)-udot)*vec(1:dim)
+
+                       DO l=1,dim
+                         m = l+real_dof-1
+                         Vect_var % Values(Vect_var % Dofs*(k-1)+m)=tmp(l)
+                       END DO
+                     ELSE
+                       Var % Values(k) = Work(j)
+                     END IF
+                   END IF
+                 END DO
+               END IF
+
+               IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
+                  Work(1:n) = GetReal( BC, TRIM(Var % Name) // ' Velocity', GotIt )
+                  IF ( GotIt ) THEN
+                    DO j=1,n
+                      k = Element % NodeIndexes(j)
+                      IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                      IF ( k>0 ) Var % PrevValues(k,1) = Work(j)
+                    END DO
+                  END IF
+                  Work(1:n) = GetReal( BC, TRIM(Var % Name) // ' Acceleration', GotIt )
+                  IF ( GotIt ) THEN
+                    DO j=1,n
+                      k = Element % NodeIndexes(j)
+                      IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                      IF ( k>0 ) Var % PrevValues(k,2) = Work(j)
+                    END DO
+                  END IF
+               END IF
+             ELSE
+               CALL ListGetRealArray( BC, &
+                 Var % Name, WorkA, n, Element % NodeIndexes, gotIt )
+               IF ( GotIt ) THEN
+                 DO j=1,n
+                   k = Element % NodeIndexes(j)
+                   DO l=1,MIN(SIZE(WorkA,1),Var % DOFs)
+                     IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                     IF ( k>0 ) Var % Values(Var % DOFs*(k-1)+l) = WorkA(l,1,j)
+                   END DO
+                 END DO
+               ELSE
+               END IF
              END IF
+
+             CALL ListSetNamespace('')
+             Var => Var % Next
            END DO
          END DO
          DEALLOCATE( Work )
