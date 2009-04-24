@@ -78,7 +78,7 @@ class SifGenerator  {
   void setBodyForceEditor(QVector<DynamicEditor*>&);
   void setInitialConditionEditor(QVector<DynamicEditor*>&);
   void setBoundaryConditionEditor(QVector<DynamicEditor*>&);
-  void setSolverParameterEditor(SolverParameterEditor*);
+  void setSolverParameterEditor(QVector<SolverParameterEditor*>&);
   void setBoundaryPropertyEditor(BoundaryPropertyEditor*);
   void setBodyPropertyEditor(BodyPropertyEditor*);
   void setMeshControl(MeshControl*);
@@ -109,7 +109,7 @@ class SifGenerator  {
   QVector<DynamicEditor*> bodyForceEditor;
   QVector<DynamicEditor*> initialConditionEditor;
   QVector<DynamicEditor*> boundaryConditionEditor;
-  SolverParameterEditor* solverParameterEditor;
+  QVector<SolverParameterEditor*> solverParameterEditor;
   BoundaryPropertyEditor* boundaryPropertyEditor;
   BodyPropertyEditor* bodyPropertyEditor;
   MeshControl* meshControl;

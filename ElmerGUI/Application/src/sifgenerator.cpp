@@ -106,7 +106,7 @@ void SifGenerator::setBoundaryConditionEditor(QVector<DynamicEditor*>& d)
   this->boundaryConditionEditor = d;
 }
 
-void SifGenerator::setSolverParameterEditor(SolverParameterEditor* s)
+void SifGenerator::setSolverParameterEditor(QVector<SolverParameterEditor*>& s)
 {
   this->solverParameterEditor = s;
 }
@@ -473,7 +473,7 @@ void SifGenerator::makeEquationBlocks()
   }
   
   // generate equation blocks:
-  int* solverActive = new int[limit->maxSolvers()];
+  int* solverActive = new int[solverParameterEditor.size()];
 
   int sifIndex = 0;
   for(int index = 0; index < equationEditor.size(); index++) {
@@ -489,7 +489,7 @@ void SifGenerator::makeEquationBlocks()
       QString solverString = "";
       int nofSolvers = 0;
 
-      for( int i=0; i < limit->maxSolvers(); i++ )
+      for( int i=0; i < solverParameterEditor.size(); i++ )
         solverActive[i] = false;
 
       for(int i = 0; i < eqEditor->hash.count(); i++) {
@@ -568,8 +568,12 @@ void SifGenerator::makeSolverBlocks(QString solverName)
   bool found = false;
   int current=-1;
 
-  for(int i = 0; i < limit->maxSolvers(); i++) {
-    spe = &solverParameterEditor[i];
+  for(int i = 0; i < solverParameterEditor.size(); i++) {
+    spe = solverParameterEditor[i];
+
+    if(!spe)
+      continue;
+
     QString currentName = spe->solverName.trimmed();
     if(currentName == solverName) {
       found = true;

@@ -130,7 +130,6 @@ MainWindow::MainWindow()
   meshUnifier = new QProcess(this);
   generalSetup = new GeneralSetup(this);
   boundaryPropertyEditor = new BoundaryPropertyEditor[limit->maxBoundaries()];
-  solverParameterEditor = new SolverParameterEditor[limit->maxSolvers()];
   bodyPropertyEditor = new BodyPropertyEditor[limit->maxBodies()];
   summaryEditor = new SummaryEditor(this);
   sifGenerator = new SifGenerator;
@@ -292,9 +291,10 @@ void MainWindow::setDynamicLimits()
     cout << "Max boundaries: " << limit->maxBoundaries() << endl;
   }
 
+  // Deprecated ** 23/04/09 **
   if(egIni->isPresent("max_solvers")) {
     limit->setMaxSolvers(egIni->value("max_solvers").toInt());
-    cout << "Max solvers: " << limit->maxSolvers() << endl;
+    // cout << "Max solvers: " << limit->maxSolvers() << endl;
   }
 
   if(egIni->isPresent("max_bodies")) {
@@ -1580,8 +1580,9 @@ void MainWindow::saveProjectSlot()
   progressBar->setValue(8);
   QDomElement speBlock = projectDoc.createElement("solverparameters");
   projectDoc.documentElement().appendChild(speBlock);
-  for(int index = 0; index < limit->maxSolvers(); index++) {
-    SolverParameterEditor *spe = &solverParameterEditor[index];
+
+  for(int index = 0; index < solverParameterEditor.size(); index++) {
+    SolverParameterEditor *spe = solverParameterEditor[index];
 
     if(!spe)
       continue;
@@ -1609,8 +1610,9 @@ void MainWindow::saveProjectSlot()
   progressBar->setValue(10);
   QDomElement solverOptionsBlock = projectDoc.createElement("solverspecificoptions");
   projectDoc.documentElement().appendChild(solverOptionsBlock);
-  for(int index = 0; index < limit->maxSolvers(); index++) {
-    SolverParameterEditor *spe = &solverParameterEditor[index];
+
+  for(int index = 0; index < solverParameterEditor.size(); index++) {
+    SolverParameterEditor *spe = solverParameterEditor[index];
 
     if(!spe)
       continue;
@@ -1886,7 +1888,7 @@ void MainWindow::loadProjectSlot()
 
     index = realIndex - 1;
 
-    if((index < 0) || (index >= limit->maxSolvers())) {
+    if(index < 0) {
       logMessage("Load project: solver parameters: index out of bounds");
 
       progressBar->hide();
@@ -1895,7 +1897,13 @@ void MainWindow::loadProjectSlot()
       return;
     }
 
-    SolverParameterEditor *spe = &solverParameterEditor[index];
+    if(index >= solverParameterEditor.size())
+      solverParameterEditor.resize(index + 1);
+
+    if(!solverParameterEditor[index])
+      solverParameterEditor[index] = new SolverParameterEditor;
+
+    SolverParameterEditor *spe = solverParameterEditor[index];
     spe->readFromProject(&projectDoc, &item);
   }
 
@@ -1993,7 +2001,7 @@ void MainWindow::loadProjectSlot()
 
     index = realIndex - 1;
 
-    if((index < 0) || (index >= limit->maxSolvers())) {
+    if(index < 0) {
       logMessage("Load project: solver specific options: index out of bounds");
 
       progressBar->hide();
@@ -2002,7 +2010,13 @@ void MainWindow::loadProjectSlot()
       return;
     }
 
-    SolverParameterEditor *spe = &solverParameterEditor[index];
+    if(index >= solverParameterEditor.size())
+      solverParameterEditor.resize(index + 1);
+
+    if(!solverParameterEditor[index])
+      solverParameterEditor[index] = new SolverParameterEditor;
+
+    SolverParameterEditor *spe = solverParameterEditor[index];
     spe->solverName = name;
 
     if(spe->generalOptions == NULL) 
@@ -2481,7 +2495,13 @@ void MainWindow::editNumericalMethods(int current, int id)
     return;
   }
 
-  SolverParameterEditor *spe = &solverParameterEditor[current];
+  if(current >= solverParameterEditor.size())
+    solverParameterEditor.resize(current + 1);
+
+  if(!solverParameterEditor[current])
+    solverParameterEditor[current] = new SolverParameterEditor;
+
+  SolverParameterEditor *spe = solverParameterEditor[current];
 
   spe->setWindowTitle("Solver control for " + title);
 
@@ -5267,7 +5287,6 @@ void MainWindow::generateSifSlot()
   sifGenerator->setBodyForceEditor(bodyForceEditor);
   sifGenerator->setInitialConditionEditor(initialConditionEditor);
   sifGenerator->setBoundaryConditionEditor(boundaryConditionEditor);
-
   sifGenerator->setSolverParameterEditor(solverParameterEditor);
   sifGenerator->setBoundaryPropertyEditor(boundaryPropertyEditor);
   sifGenerator->setBodyPropertyEditor(bodyPropertyEditor);

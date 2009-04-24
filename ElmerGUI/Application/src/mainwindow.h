@@ -364,7 +364,9 @@ private:
 
   BoundaryPropertyEditor *boundaryPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
-  SolverParameterEditor *solverParameterEditor;
+
+  QVector<SolverParameterEditor*> solverParameterEditor;
+
   SummaryEditor *summaryEditor;
   GLcontrol *glControl;
   Parallel *parallel;
