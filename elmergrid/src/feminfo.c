@@ -278,6 +278,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->boundorder = FALSE;
   eg->sidemappings = 0;
   eg->bulkmappings = 0;
+  eg->coordinatemap[0] = eg->coordinatemap[1] = eg->coordinatemap[2] = 0;
   eg->clone[0] = eg->clone[1] = eg->clone[2] = 0;
   eg->mirror[0] = eg->mirror[1] = eg->mirror[2] = 0;
   eg->mirrorbc = 0;
@@ -722,7 +723,16 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	eg->bulkmap[3*eg->bulkmappings+i-1-arg] = atoi(argv[i]);
       eg->bulkmappings++;
     } 
-
+    if(strcmp(argv[arg],"-coordinatemap") == 0) {
+      if( arg+3 >= argc ) {
+	printf("Give three parameters for the index permutation\n");
+	return(18);
+      }
+      else {
+	for(i=0;i<3;i++) 
+	  eg->coordinatemap[i] = atoi(argv[arg+1+i]);
+      }
+    } 
     if(strcmp(argv[arg],"-layer") == 0) {
       if(arg+4 >= argc) {
 	printf("Give four parameters for the layer: boundary, elements, thickness, ratio.\n");
@@ -1161,6 +1171,9 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       printf("Found %d bulk type mappings\n",i);
       eg->bulkmappings = i;
     }
+    else if(strstr(command,"COORDINATE MAPPING")) {
+      sscanf(params,"%d%d%d",&eg->coordinatemap[0],&eg->coordinatemap[1],&eg->coordinatemap[2]);
+    }	
     else if(strstr(command,"BOUNDARY BOUNDARY")) {
       for(i=0;i<MAXBOUNDARIES;i++) {
 	if(i>0) Getline(params,in);
