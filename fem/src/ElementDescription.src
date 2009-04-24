@@ -4763,6 +4763,8 @@ END IF
     REAL(KIND=dp), ALLOCATABLE :: nx(:),ny(:),nz(:)
 !------------------------------------------------------------------------------
 
+    IF(.NOT. ASSOCIATED( Boundary % BoundaryInfo ) )  RETURN
+
     k = Boundary % BoundaryInfo % OutBody
 
     LeftElement => Boundary % BoundaryInfo % Left
@@ -4917,8 +4919,10 @@ END IF
         y = InterpolateInElement( Boundary,ny,1.0d0/3,1.0d0/3,0.0d0)
         z = InterpolateInElement( Boundary,nz,1.0d0/3,1.0d0/3,0.0d0)
       END SELECT
+
       CALL CheckNormalDirection( Boundary,Normal,x,y,z )
     END IF
+
 !------------------------------------------------------------------------------
   END FUNCTION NormalVector
 !------------------------------------------------------------------------------
