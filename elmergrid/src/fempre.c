@@ -839,8 +839,6 @@ int main(int argc, char *argv[])
       data[k].y = tmpcoord[eg.coordinatemap[1]-1];
       data[k].z = tmpcoord[eg.coordinatemap[2]-1];      
 
-      printf("map = %d %d %d\n",eg.coordinatemap[0],eg.coordinatemap[1],eg.coordinatemap[2]);
-
       if(eg.coordinatemap[3] != 3) data[k].dim = 3;
     }
   }
