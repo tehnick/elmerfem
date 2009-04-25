@@ -130,7 +130,6 @@ MainWindow::MainWindow()
   meshUnifier = new QProcess(this);
   generalSetup = new GeneralSetup(this);
   boundaryPropertyEditor = new BoundaryPropertyEditor[limit->maxBoundaries()];
-  bodyPropertyEditor = new BodyPropertyEditor[limit->maxBodies()];
   summaryEditor = new SummaryEditor(this);
   sifGenerator = new SifGenerator;
   sifGenerator->setLimit(this->limit);
@@ -297,9 +296,10 @@ void MainWindow::setDynamicLimits()
     // cout << "Max solvers: " << limit->maxSolvers() << endl;
   }
 
+  // Deprecated ** 23/04/09 **
   if(egIni->isPresent("max_bodies")) {
     limit->setMaxBodies(egIni->value("max_bodies").toInt());
-    cout << "Max bodies: " << limit->maxBodies() << endl;
+    // cout << "Max bodies: " << limit->maxBodies() << endl;
   }
 
   // Deprecated ** 21/04/09 **
@@ -1637,8 +1637,9 @@ void MainWindow::saveProjectSlot()
   progressBar->setValue(11);
   QDomElement bodyBlock = projectDoc.createElement("bodyproperties");
   projectDoc.documentElement().appendChild(bodyBlock);
-  for(int index = 0; index < limit->maxBodies(); index++) {
-    BodyPropertyEditor *bpe = &bodyPropertyEditor[index];
+
+  for(int index = 0; index < bodyPropertyEditor.size(); index++) {
+    BodyPropertyEditor *bpe = bodyPropertyEditor[index];
 
     if(!bpe)
       continue;
@@ -2037,7 +2038,7 @@ void MainWindow::loadProjectSlot()
   for(; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
 
-    if((index < 0) || (index >= limit->maxBodies())) {
+    if(index < 0) {
       logMessage("Load project: body properties: index out of bounds");
 
       progressBar->hide();
@@ -2046,7 +2047,13 @@ void MainWindow::loadProjectSlot()
       return;
     }
 
-    BodyPropertyEditor *bpe = &bodyPropertyEditor[index];
+    if(index >= bodyPropertyEditor.size())
+      bodyPropertyEditor.resize(index + 1);
+
+    if(!bodyPropertyEditor[index])
+      bodyPropertyEditor[index] = new BodyPropertyEditor;
+
+    BodyPropertyEditor *bpe = bodyPropertyEditor[index];
     bpe->readFromProject(&projectDoc, &item);
   }
 
@@ -2322,13 +2329,20 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
   slayout->addWidget(l,count,0);
   count++;
 
-  for( int i=0; i<glWidget->bodyMap.count(); i++ )
+  for( int i=0; i < glWidget->bodyMap.count(); i++ )
   {
      int n=glWidget->bodyMap.key(i);
      if ( n >= 0 ) {
-        int m=glWidget->bodyMap.value(n);
+        int m = glWidget->bodyMap.value(n);
 
-        BodyPropertyEditor *body = &bodyPropertyEditor[m];
+	if(m >= bodyPropertyEditor.size())
+	  bodyPropertyEditor.resize(m + 1);
+
+	if(!bodyPropertyEditor[m])
+	  bodyPropertyEditor[m] = new BodyPropertyEditor;
+
+	BodyPropertyEditor *body = bodyPropertyEditor[m];
+	
         populateBodyComboBoxes(body);
 
         QString title = body->ui.nameEdit->text().trimmed();
@@ -2380,7 +2394,7 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
   {
      BoundaryPropertyEditor *boundary=&boundaryPropertyEditor[i];
      if ( boundary->bodyProperties ) {
-        BodyPropertyEditor *body = boundary->bodyProperties;
+       BodyPropertyEditor *body = boundary->bodyProperties;
         populateBodyComboBoxes(body);
 
         QString title = body->ui.nameEdit->text().trimmed();
@@ -2532,17 +2546,20 @@ void MainWindow::editNumericalMethods(int current, int id)
 
 void MainWindow::dynamicEditorNameChange(QString t)
 {
-   for( int i=0; i<limit->maxBodies(); i++ )
-   {
-     if ( bodyPropertyEditor[i].touched )
-       populateBodyComboBoxes( &bodyPropertyEditor[i] );
-   }
-
-   for( int i=0; i<limit->maxBoundaries(); i++ )
-   {
-     if ( boundaryPropertyEditor[i].touched )
-       populateBoundaryComboBoxes( &boundaryPropertyEditor[i] );
-   }
+  for( int i = 0; i < bodyPropertyEditor.size(); i++ )
+    {
+      if(!bodyPropertyEditor[i])
+	continue;
+      
+      if ( bodyPropertyEditor[i]->touched )
+	populateBodyComboBoxes( bodyPropertyEditor[i] );
+    }
+  
+   for( int i = 0; i < limit->maxBoundaries(); i++ )
+     {
+       if ( boundaryPropertyEditor[i].touched )
+	 populateBoundaryComboBoxes( &boundaryPropertyEditor[i] );
+     }
 }
 
 // signal (int,int) emitted by equation editor when ready:
@@ -2571,9 +2588,14 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
 
   } else if(signal == MAT_DELETE) {
 
-    for( int i=0; i < limit->maxBodies(); i++ ) {
-       BodyPropertyEditor *body = &bodyPropertyEditor[i];
-       if ( body->equation == pe ) body->equation=NULL;
+    for( int i = 0; i < bodyPropertyEditor.size(); i++ ) {
+       BodyPropertyEditor *body = bodyPropertyEditor[i];
+
+       if(!body)
+	 continue;
+       
+       if ( body->equation == pe )
+	 body->equation = NULL;
     }
 
     // Equation is not in menu:
@@ -2708,9 +2730,14 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
 
   } else if(signal == MAT_DELETE) {
 
-    for( int i=0; i < limit->maxBodies(); i++ ) {
-       BodyPropertyEditor *body = &bodyPropertyEditor[i];
-       if ( body->material == pe ) body->material=NULL;
+    for( int i = 0; i < bodyPropertyEditor.size(); i++ ) {
+      BodyPropertyEditor *body = bodyPropertyEditor[i];
+      
+      if(!body)
+	continue;
+
+      if ( body->material == pe )
+	body->material = NULL;
     }
 
     // Material is not in menu:
@@ -2837,9 +2864,14 @@ void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
      addBodyForceSlot(); 
 
   } else if(signal == MAT_DELETE) {
-    for( int i=0; i < limit->maxBodies(); i++ ) {
-       BodyPropertyEditor *body = &bodyPropertyEditor[i];
-       if ( body->force == pe ) body->force=NULL;
+    for( int i = 0; i < bodyPropertyEditor.size(); i++ ) {
+      BodyPropertyEditor *body = bodyPropertyEditor[i];
+
+      if(!body)
+	continue;
+
+      if ( body->force == pe )
+	body->force = NULL;
     }
 
     if(pe->menuAction == NULL) {
@@ -2960,9 +2992,14 @@ void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
 
   } else if(signal == MAT_DELETE) {
 
-    for( int i=0; i < limit->maxBodies(); i++ ) {
-       BodyPropertyEditor *body = &bodyPropertyEditor[i];
-       if ( body->initial == pe ) body->initial=NULL;
+    for( int i = 0; i < bodyPropertyEditor.size(); i++ ) {
+      BodyPropertyEditor *body = bodyPropertyEditor[i];
+
+      if(!body)
+	continue;
+
+      if ( body->initial == pe )
+	body->initial = NULL;
     }
 
     // Initial condition is not in menu:
@@ -3346,10 +3383,15 @@ void MainWindow::modelSummarySlot()
 
   // Check body properties:
   count = 0;
-  for(int i = 0; i < limit->maxBodies(); i++) {
-    if(bodyPropertyEditor[i].touched)
+  for(int i = 0; i < bodyPropertyEditor.size(); i++) {
+
+    if(!bodyPropertyEditor[i])
+      continue;
+
+    if(bodyPropertyEditor[i]->touched)
       count++;
   }
+
   te->append("Body properties: " + QString::number(count));
   te->append("");
 
@@ -3380,8 +3422,9 @@ void MainWindow::modelSummarySlot()
 
       element_t *e = mesh->getElement(i);
       int j = e->getIndex();
-      if((j >= 0) && (j < limit->maxBodies()))
-	if(bodyPropertyEditor[j].touched) 
+
+      if((j >= 0) && (j < bodyPropertyEditor.size()))
+	if(bodyPropertyEditor[j] && bodyPropertyEditor[j]->touched) 
 	  qs.append(" (Body property set)");
       
       te->append(qs);
@@ -3420,8 +3463,9 @@ void MainWindow::modelSummarySlot()
 
       surface_t *s = mesh->getSurface(i);
       int j = s->getIndex();
-      if((j >= 0) && (j < limit->maxBodies()))
-	if(bodyPropertyEditor[j].touched)
+
+      if((j >= 0) && (j < bodyPropertyEditor.size()))
+	if(bodyPropertyEditor[j] && bodyPropertyEditor[j]->touched)
 	  qs.append(" (Body property set)");
 
       te->append(qs);
@@ -3460,8 +3504,9 @@ void MainWindow::modelSummarySlot()
 
       edge_t *e = mesh->getEdge(i);
       int j = e->getIndex();
-      if((j >= 0) && (j < limit->maxBodies()))
-	if(bodyPropertyEditor[j].touched) 
+
+      if((j >= 0) && (j < bodyPropertyEditor.size()))
+	if(bodyPropertyEditor[j] && bodyPropertyEditor[j]->touched) 
 	  qs.append(" (Body property set)");
 
       te->append(qs);
@@ -3615,7 +3660,8 @@ void MainWindow::modelClearSlot()
   }
 
   for(int i = 0; i < boundaryConditionEditor.size(); i++)
-    delete boundaryConditionEditor[i];
+    if(boundaryConditionEditor[i])
+      delete boundaryConditionEditor[i];
 
   boundaryConditionEditor.clear();
 
@@ -3624,8 +3670,11 @@ void MainWindow::modelClearSlot()
   boundaryPropertyEditor = new BoundaryPropertyEditor[limit->maxBoundaries()];
 
   // clear body settings:
-  delete [] bodyPropertyEditor;
-  bodyPropertyEditor = new BodyPropertyEditor[limit->maxBodies()];
+  for(int i = 0; i < bodyPropertyEditor.size(); i++)
+    if(bodyPropertyEditor[i])
+      delete bodyPropertyEditor[i];
+  
+  bodyPropertyEditor.clear();
 }
 
 
@@ -3889,7 +3938,14 @@ void MainWindow::selectDefinedSurfacesSlot()
     int n=glWidget->bodyMap.key(i);
     if ( n >= 0 ) {
       int m = glWidget->bodyMap.value(n);
-      BodyPropertyEditor *body = &bodyPropertyEditor[m];
+
+      BodyPropertyEditor *body = bodyPropertyEditor[m];
+
+      if(!body) {
+	cout << "MainWindow: Body index out of bounds" << endl;
+	continue;
+      }
+
       activebody[n] = body->material && body->equation;
     }
   }
@@ -5424,14 +5480,20 @@ void MainWindow::boundarySelectedSlot(list_t *l)
  
     // renumbering:
     n = glWidget->bodyMap.value(current);
-    if(n >= limit->maxBodies()) {
-      logMessage("Error: index exceeds MAX_BODIES (increase it in egini.xml)");
+
+    if(n >= bodyPropertyEditor.size()) {
+      logMessage("MainWindow: Body index out of bounds)");
       return;
     }
      
-    bodyEdit =  &bodyPropertyEditor[n];
+    bodyEdit = bodyPropertyEditor[n];
+
+    if(!bodyEdit)
+      cout << "MainWindow: Undetermined body index" << endl;
+
     bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
     bodyEdit->ui.nameEdit->setText("Body Property " + QString::number(n+1));
+
   }
 
   if ( bodyEdit ) {
@@ -5510,8 +5572,17 @@ void MainWindow::boundaryAsABodyChanged(BoundaryPropertyEditor *b, int status)
   if ( status ) {
     for( int i=0; i < limit->maxBoundaries(); i++ )
       if ( boundaryPropertyEditor[i].bodyProperties ) indx++;
-    b->bodyProperties = &bodyPropertyEditor[indx];
+
+    if(indx >= bodyPropertyEditor.size()) {
+      cout << "MainWindow: Body index out of bounds" << endl;
+      return;
+    }
+
+    if(bodyPropertyEditor[indx])
+      b->bodyProperties = bodyPropertyEditor[indx];
+
   } else {
+
     b->bodyProperties = NULL;
   }
 }

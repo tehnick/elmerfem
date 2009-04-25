@@ -361,9 +361,8 @@ private:
   QVector<DynamicEditor*> bodyForceEditor;
   QVector<DynamicEditor*> initialConditionEditor;
   QVector<DynamicEditor*> boundaryConditionEditor;
-
   BoundaryPropertyEditor *boundaryPropertyEditor;
-  BodyPropertyEditor *bodyPropertyEditor;
+  QVector<BodyPropertyEditor*> bodyPropertyEditor;
 
   QVector<SolverParameterEditor*> solverParameterEditor;
 

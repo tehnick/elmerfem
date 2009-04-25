@@ -116,7 +116,7 @@ void SifGenerator::setBoundaryPropertyEditor(BoundaryPropertyEditor* b)
   this->boundaryPropertyEditor = b;
 }
 
-void SifGenerator::setBodyPropertyEditor(BodyPropertyEditor* b)
+void SifGenerator::setBodyPropertyEditor(QVector<BodyPropertyEditor*>& b)
 {
   this->bodyPropertyEditor = b;
 }
@@ -222,7 +222,16 @@ void SifGenerator::makeBodyBlocks()
   int sifIndex = 0, maxOriginalIndex=-1;
 
   for(int index = 0; index < bodyMap.count(); index++) {
-    BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[index];
+
+    if(index >= bodyPropertyEditor.size()) {
+      cout << "SifGenerator: Body index out of bounds" << endl;
+      continue;
+    }
+
+    BodyPropertyEditor *bodyEdit = bodyPropertyEditor[index];
+
+    if(!bodyEdit)
+      continue;
     
     int originalIndex = bodyMap.key(index);
     maxOriginalIndex = max(maxOriginalIndex, originalIndex );
