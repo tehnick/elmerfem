@@ -129,7 +129,6 @@ MainWindow::MainWindow()
   meshSplitter = new QProcess(this);
   meshUnifier = new QProcess(this);
   generalSetup = new GeneralSetup(this);
-  boundaryPropertyEditor = new BoundaryPropertyEditor[limit->maxBoundaries()];
   summaryEditor = new SummaryEditor(this);
   sifGenerator = new SifGenerator;
   sifGenerator->setLimit(this->limit);
@@ -285,9 +284,11 @@ MainWindow::~MainWindow()
 void MainWindow::setDynamicLimits()
 {
   // Values defined in "edf/egini.xml" that override default limits:
+
+  // Deprecated ** 23/04/09 **
   if(egIni->isPresent("max_boundaries")) {
     limit->setMaxBoundaries(egIni->value("max_boundaries").toInt());
-    cout << "Max boundaries: " << limit->maxBoundaries() << endl;
+    // cout << "Max boundaries: " << limit->maxBoundaries() << endl;
   }
 
   // Deprecated ** 23/04/09 **
@@ -1656,8 +1657,9 @@ void MainWindow::saveProjectSlot()
   progressBar->setValue(12);
   QDomElement boundaryBlock = projectDoc.createElement("boundaryproperties");
   projectDoc.documentElement().appendChild(boundaryBlock);
-  for(int index = 0; index < limit->maxBoundaries(); index++) {
-    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
+
+  for(int index = 0; index < boundaryPropertyEditor.size(); index++) {
+    BoundaryPropertyEditor *bpe = boundaryPropertyEditor[index];
 
     if(!bpe)
       continue;
@@ -1923,16 +1925,22 @@ void MainWindow::loadProjectSlot()
   for( ; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
 
-    if((index < 0) || (index >= limit->maxBoundaries())) {
+    if(index < 0) {
       logMessage("Load project: boundary properties: index out of bounds");
-
+      
       progressBar->hide();
       progressLabel->hide();
-
+      
       return;
     }
 
-    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
+    if(index >= boundaryPropertyEditor.size())
+      boundaryPropertyEditor.resize(index + 1);
+
+    if(!boundaryPropertyEditor[index])
+      boundaryPropertyEditor[index] = new BoundaryPropertyEditor;
+
+    BoundaryPropertyEditor *bpe = boundaryPropertyEditor[index];
 
     bpe->readFromProject(&projectDoc, &item);
 
@@ -2067,16 +2075,22 @@ void MainWindow::loadProjectSlot()
   for( ; !item.isNull(); item = item.nextSiblingElement()) {
     int index = item.attribute("index").toInt();
 
-    if((index < 0) || (index >= limit->maxBoundaries())) {
+    if(index < 0) {
       logMessage("Load project: boundary properties: index out of bounds");
-
+      
       progressBar->hide();
       progressLabel->hide();
-
+      
       return;
     }
 
-    BoundaryPropertyEditor *bpe = &boundaryPropertyEditor[index];
+    if(index >= boundaryPropertyEditor.size())
+      boundaryPropertyEditor.resize(index + 1);
+
+    if(!boundaryPropertyEditor[index])
+      boundaryPropertyEditor[index] = new BoundaryPropertyEditor;
+
+    BoundaryPropertyEditor *bpe = boundaryPropertyEditor[index];
     bpe->readFromProject(&projectDoc, &item);
   }
 
@@ -2390,9 +2404,13 @@ void MainWindow::createBodyCheckBoxes(int which, DynamicEditor *pe)
      }
   }
 
-  for( int i=0; i < limit->maxBoundaries(); i++ )
+  for( int i = 0; i < boundaryPropertyEditor.size(); i++ )
   {
-     BoundaryPropertyEditor *boundary=&boundaryPropertyEditor[i];
+    BoundaryPropertyEditor *boundary = boundaryPropertyEditor[i];
+
+    if(!boundary)
+      continue;
+
      if ( boundary->bodyProperties ) {
        BodyPropertyEditor *body = boundary->bodyProperties;
         populateBodyComboBoxes(body);
@@ -2555,10 +2573,13 @@ void MainWindow::dynamicEditorNameChange(QString t)
 	populateBodyComboBoxes( bodyPropertyEditor[i] );
     }
   
-   for( int i = 0; i < limit->maxBoundaries(); i++ )
+   for( int i = 0; i < boundaryPropertyEditor.size(); i++ )
      {
-       if ( boundaryPropertyEditor[i].touched )
-	 populateBoundaryComboBoxes( &boundaryPropertyEditor[i] );
+       if(!boundaryPropertyEditor[i])
+	 continue;
+       
+       if ( boundaryPropertyEditor[i]->touched )
+	 populateBoundaryComboBoxes( boundaryPropertyEditor[i] );
      }
 }
 
@@ -3084,9 +3105,16 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
   {
      int n=glWidget->boundaryMap.key(i);
      if ( n >= 0 ) {
-        int m=glWidget->boundaryMap.value(n);
+       int m = glWidget->boundaryMap.value(n);
 
-        BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[m];
+       if(m >= boundaryPropertyEditor.size())
+	 boundaryPropertyEditor.resize(m + 1);
+
+       if(!boundaryPropertyEditor[m])
+	 boundaryPropertyEditor[m] = new BoundaryPropertyEditor;
+
+	BoundaryPropertyEditor *boundary = boundaryPropertyEditor[m];
+	
         populateBoundaryComboBoxes(boundary);
 
 	// TODO: check this
@@ -3185,8 +3213,12 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
 
   } else if(signal == MAT_DELETE) {
 
-    for( int i=0; i < limit->maxBoundaries(); i++ ) {
-       BoundaryPropertyEditor *bndry = &boundaryPropertyEditor[i];
+    for( int i=0; i < boundaryPropertyEditor.size(); i++ ) {
+      BoundaryPropertyEditor *bndry = boundaryPropertyEditor[i];
+      
+      if(!bndry)
+	continue;
+
        if ( bndry->condition == pe ) bndry->condition=NULL;
     }
 
@@ -3666,8 +3698,11 @@ void MainWindow::modelClearSlot()
   boundaryConditionEditor.clear();
 
   // clear boundary setting:
-  delete [] boundaryPropertyEditor;
-  boundaryPropertyEditor = new BoundaryPropertyEditor[limit->maxBoundaries()];
+  for(int i = 0; i < boundaryPropertyEditor.size(); i++)
+    if(boundaryPropertyEditor[i])
+      delete boundaryPropertyEditor[i];
+  
+  boundaryPropertyEditor.clear();
 
   // clear body settings:
   for(int i = 0; i < bodyPropertyEditor.size(); i++)
@@ -3876,7 +3911,14 @@ void MainWindow::selectDefinedEdgesSlot()
     int n=glWidget->boundaryMap.key(i);
     if ( n >= 0 ) {
       int m = glWidget->boundaryMap.value(n);
-      BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[m];
+      
+      if(m >= boundaryPropertyEditor.size())
+	boundaryPropertyEditor.resize(m + 1);
+
+      if(!boundaryPropertyEditor[m])
+	boundaryPropertyEditor[m] = new BoundaryPropertyEditor;
+
+      BoundaryPropertyEditor *boundary = boundaryPropertyEditor[m];
       activeboundary[n] = boundary->condition;
     }
   }
@@ -5408,12 +5450,12 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     // renumbering:
     int n = glWidget->boundaryMap.value(l->getIndex());
 
-    if(n >= limit->maxBoundaries()) {
-      logMessage("Error: index exceeds MAX_BCS (increase it in egini.xml)");
+    if(n >= boundaryPropertyEditor.size()) {
+      logMessage("Error: Boundary index mismatch");
       return;
     }
     
-    BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
+    BoundaryPropertyEditor *boundaryEdit = boundaryPropertyEditor[n];
     populateBoundaryComboBoxes(boundaryEdit);
     
     connect( boundaryEdit, SIGNAL(BoundaryAsABodyChanged(BoundaryPropertyEditor *,int)),
@@ -5447,13 +5489,21 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     // renumbering:
     int n = glWidget->boundaryMap.value(l->getIndex());
 
-    if(n >= limit->maxBoundaries()) {
-      logMessage("Error: index exceeds MAX_BCS (increase it in egini.xml)");
+    if(n >= boundaryPropertyEditor.size()) {
+      logMessage("Error: Boundary index mismatch");
       return;
     }
 
-    BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
+    BoundaryPropertyEditor *boundaryEdit = boundaryPropertyEditor[n];
+
+    if(!boundaryEdit) {
+      cout << "MainWindow: Boundary index out of bounds" << endl;
+      return;
+    }
+      
+
     bodyEdit = boundaryEdit->bodyProperties;
+
     if ( bodyEdit ) {
       glWidget->ctrlPressed = false;
       glWidget->shiftPressed = false;
@@ -5570,8 +5620,9 @@ void MainWindow::boundaryAsABodyChanged(BoundaryPropertyEditor *b, int status)
   int indx=glWidget->bodyMap.count();
 
   if ( status ) {
-    for( int i=0; i < limit->maxBoundaries(); i++ )
-      if ( boundaryPropertyEditor[i].bodyProperties ) indx++;
+    for( int i = 0; i < boundaryPropertyEditor.size(); i++ )
+      if ( boundaryPropertyEditor[i]
+	   && boundaryPropertyEditor[i]->bodyProperties ) indx++;
 
     if(indx >= bodyPropertyEditor.size()) {
       cout << "MainWindow: Body index out of bounds" << endl;

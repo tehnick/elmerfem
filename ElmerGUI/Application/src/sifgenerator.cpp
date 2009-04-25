@@ -111,7 +111,7 @@ void SifGenerator::setSolverParameterEditor(QVector<SolverParameterEditor*>& s)
   this->solverParameterEditor = s;
 }
 
-void SifGenerator::setBoundaryPropertyEditor(BoundaryPropertyEditor* b)
+void SifGenerator::setBoundaryPropertyEditor(QVector<BoundaryPropertyEditor*>& b)
 {
   this->boundaryPropertyEditor = b;
 }
@@ -270,14 +270,21 @@ void SifGenerator::makeBodyBlocks()
     }
   }
 
-  for( int index=0; index < limit->maxBoundaries(); index++ )
+  for( int index = 0; index < boundaryPropertyEditor.size(); index++ )
   {
-    BodyPropertyEditor *bodyEdit=boundaryPropertyEditor[index].bodyProperties;
+    if(!boundaryPropertyEditor[index])
+      continue;
+
+    BodyPropertyEditor *bodyEdit = boundaryPropertyEditor[index]->bodyProperties;
+
+    if(!bodyEdit)
+      continue;
 
     if(bodyEdit && bodyEdit->touched ) {
       te->append("Body " + QString::number(++sifIndex));
 
-      boundaryPropertyEditor[index].bodyID = ++maxOriginalIndex;
+      boundaryPropertyEditor[index]->bodyID = ++maxOriginalIndex;
+
       te->append("  Target Bodies(1) = " + QString::number(maxOriginalIndex));
 
       if ( bodyEdit->ui.nameEdit->text().trimmed() == "" )
@@ -751,17 +758,21 @@ void SifGenerator::makeInitialConditionBlocks()
 void SifGenerator::makeBoundaryBlocks()
 {
   int sifIndex = 0;
-  int* boundaryBC = new int[limit->maxBoundaries()];
+  int* boundaryBC = new int[boundaryPropertyEditor.size()];
 
   for(int index = 0; index < boundaryMap.count(); index++) {
-    BoundaryPropertyEditor *bEdit = &boundaryPropertyEditor[index];
+    BoundaryPropertyEditor *bEdit = boundaryPropertyEditor[index];
+
+    if(!bEdit)
+      continue;
+
     if(bEdit->touched)
       boundaryBC[index] = ++sifIndex;
   }
 
   sifIndex = 0;
   for(int index = 0; index < boundaryMap.count(); index++) {
-    BoundaryPropertyEditor *bEdit = &boundaryPropertyEditor[index];
+    BoundaryPropertyEditor *bEdit = boundaryPropertyEditor[index];
 
     if(bEdit->touched) {
       te->append("Boundary Condition " + QString::number(++sifIndex));
