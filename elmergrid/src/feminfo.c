@@ -265,8 +265,6 @@ void InitParameters(struct ElmergridType *eg)
   eg->findsides = FALSE;
   eg->parthypre = FALSE;
   eg->partbw = FALSE;
-  eg->pelems = 0;
-  eg->belems = 0;
   eg->saveboundaries = TRUE;
   eg->merge = FALSE;
   eg->bcoffset = FALSE;
@@ -285,7 +283,6 @@ void InitParameters(struct ElmergridType *eg)
   eg->decimals = 12;
   eg->discont = 0;
   eg->connect = 0;
-  eg->advancedmat = 0;
 
   eg->rotatecurve = FALSE;
   eg->curverad = 0.5;
@@ -579,16 +576,6 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-boundorder") == 0) {
       eg->boundorder = TRUE;
     }
-    if(strcmp(argv[arg],"-pelem") == 0) {
-      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
-	eg->pelemmap[3*eg->pelems+i-1-arg] = atoi(argv[i]);
-      eg->pelems++;
-    } 
-    if(strcmp(argv[arg],"-belem") == 0) {
-      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
-	eg->belemmap[3*eg->belems+i-1-arg] = atoi(argv[i]);
-      eg->belems++;
-    } 
     if(strcmp(argv[arg],"-partition") == 0) {
       if(arg+dim >= argc) {
 	printf("The number of partitions in %d dims is required as paramaters.\n",dim);
@@ -1053,48 +1040,6 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     else if(strstr(command,"INCREASE DEGREE")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
       if(strstr(params,"TRUE")) eg->increase = TRUE;      
-    }
-    else if(strstr(command,"ADVANCED ELEMENTS")) {
-      printf("Loading advanced element definitions\n");
-      
-      for(i=0;i<MAXMATERIALS;i++) {
-	if(i>0) Getline(params,in);
-	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
-	if(strstr(params,"END")) break;
-		
-	sscanf(params,"%d%d%d%d%d%d%d",
-	       &eg->advancedelem[7*i],&eg->advancedelem[7*i+1],&eg->advancedelem[7*i+2],
-	       &eg->advancedelem[7*i+3],&eg->advancedelem[7*i+4],&eg->advancedelem[7*i+5],
-	       &eg->advancedelem[7*i+6]);
-      }  
-      eg->advancedmat = i;
-      printf("Found %d definitions for advanced elements.\n",i);
-    }
-    else if(strstr(command,"POWER ELEMENTS")) {
-      printf("Loading p-type element definitions\n");
-      
-      for(i=0;i<MAXMATERIALS;i++) {
-	if(i>0) Getline(params,in);
-	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
-	if(strstr(params,"END")) break;
-	sscanf(params,"%d%d%d",
-	       &eg->pelemmap[3*i],&eg->pelemmap[3*i+1],&eg->pelemmap[3*i+2]);
-      }  
-      eg->pelems = i;
-      printf("Found %d definitions for p-elements.\n",i);
-    }
-    else if(strstr(command,"BUBBLE ELEMENTS")) {
-      printf("Loading bubble element definitions\n");
-      
-      for(i=0;i<MAXMATERIALS;i++) {
-	if(i>0) Getline(params,in);
-	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
-	if(strstr(params,"END")) break;
-	sscanf(params,"%d%d%d",
-	       &eg->belemmap[3*i],&eg->belemmap[3*i+1],&eg->belemmap[3*i+2]);
-      }  
-      eg->belems = i;
-      printf("Found %d definitions for bubble elements.\n",i);
     }
     else if(strstr(command,"METIS OPTION")) {
 #if PARTMETIS

@@ -177,12 +177,6 @@ static void Instructions()
 #if 0
   printf("-map str             : file with mapping info for mesh-to-mesh interpolation\n");
 #endif
-#if 0
-  /* This functionality has moved into the ElmerSolver */
-  printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
-  printf("-belem int[3]        : set bubble dofs to int3 at interval [int1 int2]\n");
-#endif
-
 }
 
 
