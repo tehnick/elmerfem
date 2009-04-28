@@ -1095,7 +1095,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       if(strstr(params,"TRUE")) eg->partitionindirect = TRUE;      
     }
     else if(strstr(command,"BOUNDARY TYPE MAPPINGS")) {
-      for(i=0;i<MAXMATERIALS;i++) {
+      for(i=0;i<MAXMAPPINGS;i++) {
 	if(i>0) Getline(params,in);
 	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
 	if(strstr(params,"END")) break;
@@ -1106,7 +1106,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       eg->sidemappings = i;
     }
     else if(strstr(command,"BULK TYPE MAPPINGS")) {
-      for(i=0;i<MAXMATERIALS;i++) {
+      for(i=0;i<MAXMAPPINGS;i++) {
 	if(i>0) Getline(params,in);
 	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
 	if(strstr(params,"END")) break;
@@ -2117,9 +2117,7 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
 	}      
       if(minmat < 0) 
 	printf("LoadElmergrid: please use positive material indices.\n");
-      if(maxmat > MAXMATERIALS) 
-	printf("LoadElmergrid: material indices larger to %d may create problems.\n",
-	       MAXMATERIALS);
+
       mode = 0;
       break;
 
@@ -2658,9 +2656,6 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 	}      
       if(minmat < 0) 
 	printf("LoadElmergrid: please use positive material indices.\n");
-      if(maxmat > MAXMATERIALS) 
-	printf("LoadElmergrid: material indices larger to %d may create problems.\n",
-	       MAXMATERIALS);
     }
     else if(strstr(command,"MATERIALS INTERVAL")) {
       sscanf(params,"%d %d",&(*grid)[k].firstmaterial,&(*grid)[k].lastmaterial);      

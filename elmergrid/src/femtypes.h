@@ -6,7 +6,6 @@
 #define MAXDOFS 20          /* maximum number of variables, e.g. T,P */ 
 #define MAXCELLS 100        /* maximum number of subcells in given direction */
 #define MAXBOUNDARIES 100   /* maximum number of boundaries for BCs */
-#define MAXMATERIALS  100   /* maximum index of materials */
 #define MAXCASES    12      /* maximum number of coexisting cases */ 
 #define MAXFILESIZE 600     /* maximum filenamesize for i/o files */
 #define MAXLINESIZE 200     /* maximum length of line to be read */
@@ -16,7 +15,7 @@
 #define MAXNODESD3 64       /* maximum number of 3D nodes */ 
 #define MAXNODESD2 27       /* maximum number of 2D nodes */ 
 #define MAXNODESD1 9        /* maximum number of 1D nodes */
-#define MAXMAPPINGS 10      /* maximum number of geometry mappings */
+#define MAXMAPPINGS 20      /* maximum number of geometry mappings */
 #define MAXCONNECTIONS 100  /* maximum number of connections in dual graph */
 #define MAXBCS 1000         /* maximum number of BCs in naming */
 #define MAXBODIES 100       /* maximum number of bodies in naming */
@@ -309,7 +308,7 @@ struct ElmergridType {
     outmethod,  /* method in which the mesh is written by ElmerGrid */
     sidemap[3*MAXBOUNDARIES],
     sidemappings,
-    bulkmap[3*MAXMATERIALS],
+    bulkmap[3*MAXMAPPINGS],
     bulkmappings,
     coordinatemap[3],
     boundorder, 
