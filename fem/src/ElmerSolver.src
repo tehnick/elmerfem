@@ -106,6 +106,7 @@
      ParallelEnv => ParallelInit()
      OutputPE = ParEnv % MyPE
 	
+!tt = realtime()
      IF ( FirstTime ) THEN
        !
        ! Print banner to output:
@@ -380,6 +381,8 @@
        FirstLoad = .FALSE.
        IF ( Initialize==1 ) EXIT
 
+!if ( parenv % mype==0 ) print*,'INIT TIME: ', realtime()-tt; tt = realtime()
+
 !------------------------------------------------------------------------------
 !      Here we actually start the simulation ....
 !      First go trough timeintervals
@@ -392,6 +395,7 @@
        ELSE
           CALL ExecSimulation
        END IF
+!if ( parenv % mype == 0 ) print*,'SOLVE TIME: ', realtime()-tt
 !------------------------------------------------------------------------------
 !    Always save the last step to output
 !------------------------------------------------------------------------------

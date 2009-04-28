@@ -85,8 +85,11 @@ CONTAINS
        TYPE(Mesh_t), POINTER :: Mesh
        TYPE(Element_t), POINTER :: Element
        TYPE(NeighbourList_t), POINTER :: MtrxN, MeshN
+
+real(kind=dp) :: realtime,tt
 !-------------------------------------------------------------------------------
 
+!tt = realtime()
 #ifdef PARALLEL_FOR_REAL
        IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Solver % Matrix) ) RETURN
        Mesh => Solver % Mesh
@@ -200,6 +203,7 @@ CONTAINS
 
        Matrix % ParMatrix => &
           ParInitMatrix( Matrix, Matrix % ParallelInfo )
+!if ( parenv % mype == 0 ) print*,'MATRIX INIT TIME: ', realtime()-tt
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitMatrix

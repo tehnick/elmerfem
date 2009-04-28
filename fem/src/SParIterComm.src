@@ -61,7 +61,7 @@ CONTAINS
 !-----------------------------------------------------------------
      INTEGER :: n, i, sz, ierr
      LOGICAL :: isfine
-     INTEGER*1, ALLOCATABLE, SAVE :: SendBuffer(:)
+     INTEGER*1, ALLOCATABLE, SAVE :: send_buffer(:)
      INTERFACE 
         SUBROUTINE MPI_BUFFER_ATTACH( buf, n, ierr)
            INTEGER*1 :: buf(*)
@@ -76,22 +76,22 @@ CONTAINS
 
      sz = MAX( 4*n, 2**20 )
 
-     isfine = ALLOCATED( SendBuffer )
-     IF ( isfine ) isfine = (sz <= SIZE(SendBuffer))
+     isfine = ALLOCATED( send_buffer )
+     IF ( isfine ) isfine = (sz <= SIZE(send_buffer))
      IF ( isfine ) RETURN
 
-     IF ( ALLOCATED(SendBuffer) ) THEN
-        i = SIZE(SendBuffer)
-        CALL MPI_BUFFER_DETACH( SendBuffer, i, ierr )
-        DEALLOCATE( SendBuffer )
+     IF ( ALLOCATED(send_buffer) ) THEN
+        i = SIZE(send_buffer)
+        CALL MPI_BUFFER_DETACH( send_buffer, i, ierr )
+        DEALLOCATE( send_buffer )
      END IF
 
-     ALLOCATE( SendBuffer(sz), stat=i )
+     ALLOCATE( send_buffer(sz), stat=i )
      IF ( i/= 0 ) THEN
        CALL Fatal( 'CheckBuffer', 'Alloc failed' )
      END IF
 
-     CALL MPI_BUFFER_ATTACH( SendBuffer, sz, ierr )
+     CALL MPI_BUFFER_ATTACH( send_buffer, sz, ierr )
 
 !-----------------------------------------------------------------
    END SUBROUTINE CheckBuffer
@@ -2111,6 +2111,7 @@ END  SUBROUTINE SParIterAllReduceAnd
 !-----------------------------------------------------------------------
 
 
+
 !*********************************************************************
 !*********************************************************************
 !
@@ -2119,110 +2120,209 @@ END  SUBROUTINE SParIterAllReduceAnd
 ! communication...
 !
   SUBROUTINE ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
-
-    USE types
+    USE Types
     IMPLICIT NONE
 
     ! Parameters
 
-    TYPE (BasicMatrix_t), DIMENSION(*) :: NbsIfMatrix, RecvdIfMatrix
+    TYPE (BasicMatrix_t), DIMENSION(:) :: NbsIfMatrix, RecvdIfMatrix
 
     ! Local variables
 
-    INTEGER :: i, j, ierr, sproc, destproc, rows, cols, TotalSize
+    INTEGER :: i, j, n, sz, req_cnt, ierr, sproc, &
+         destproc, rows, cols, TotalSize
+
+    INTEGER, ALLOCATABLE :: requests(:), &
+            recv_rows(:), recv_cols(:), neigh(:)
 
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
   !*********************************************************************
+  n = ParEnv % NumOfNeighbours
+  ALLOCATE( neigh(n) )
 
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-       IF ( NbsIfMatrix(i) % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-       ELSE
-           Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*NbsIfMatrix(i) % NumberOfRows + &
-                12*Cols
-       END IF
-     END IF
+  n = 0
+  DO i=1,ParEnv % PEs
+    IF ( ParEnv % IsNeighbour(i) ) THEN
+      n = n + 1
+      neigh(n)  = i-1
+    END IF
   END DO
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
 
-  !----------------------------------------------------------------------
+  totalsize = 0
+  DO i = 1, n
+    totalsize = totalsize + 1
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+
+    IF ( rows > 0 ) THEN
+      cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+      totalsize = totalsize + 3*rows + 1 + cols
+    END IF
+  END DO
+  CALL CheckBuffer( totalsize*4+MPI_BSEND_OVERHEAD*8 )
+
   !
-  ! Send the interface parts
+  ! Receive interface sizes:
+  !--------------------------
+  ALLOCATE( recv_rows(n), recv_cols(n), requests(n) )
+  DO i=1,n
+    CALL MPI_iRECV( recv_rows(i),1, MPI_INTEGER, neigh(i), &
+         2000, MPI_COMM_WORLD, requests(i), ierr )
+  END DO
+
+  DO i=1,n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    CALL MPI_BSEND( rows, 1, MPI_INTEGER, &
+           destproc, 2000, MPI_COMM_WORLD, ierr )
+  END DO
+  CALL MPI_WaitAll( n, requests, MPI_STATUSES_IGNORE, ierr )
+   
+!----------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i=1,n
+    IF (recv_rows(i)>0) THEN
+      req_cnt = req_cnt + 1
+      CALL MPI_iRECV( recv_cols(i), 1, MPI_INTEGER, neigh(i), &
+         2001, MPI_COMM_WORLD, requests(req_cnt), ierr )
+    END IF
+  END DO
   !
-  !----------------------------------------------------------------------
+  ! Send interface sizes:
+  !--------------------------
 
-    DO i = 1, ParEnv % PEs
-      IF ( ParEnv % IsNeighbour(i) ) THEN
-          destproc = i - 1
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % NumberOfRows, 1, MPI_INTEGER, &
-                destproc, 1000, MPI_COMM_WORLD, ierr )
-
-          IF ( NbsIfMatrix(i) % NumberOfRows > 0 ) THEN
-             Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1)-1
-
-             CALL MPI_BSEND( Cols, 1, MPI_INTEGER, &
-                  destproc, 1001, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % GRows, &
-                  NbsIfMatrix(i) % NumberOfRows, MPI_INTEGER, &
-                  destproc, 1002, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % Rows, &
-                  NbsIfMatrix(i) % NumberOfRows + 1, MPI_INTEGER, &
-                  destproc, 1003, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % RowOwner, &
-                  NbsIfMatrix(i) % NumberOfRows, MPI_INTEGER, &
-                  destproc, 1004, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % Cols, &
-                  Cols, MPI_INTEGER, destproc, 1005, MPI_COMM_WORLD, ierr )
-          END IF
-       END IF
-    END DO
-
+  DO i=1,n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF (rows>0) THEN
+      cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+      CALL MPI_BSEND( cols,1, MPI_INTEGER, &
+           destproc, 2001, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+  
   !----------------------------------------------------------------------
   !
   ! Receive the interface parts
   !
   !----------------------------------------------------------------------
 
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( rows, 1, MPI_INTEGER, MPI_ANY_SOURCE, 1000, &
-                    MPI_COMM_WORLD, status, ierr )
-     sproc = status(MPI_SOURCE)
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
 
-     IF ( Rows == 0 ) THEN
-        RecvdIfMatrix(sproc+1) % NumberOfRows = 0
-     ELSE
-       CALL MPI_RECV( cols, 1, MPI_INTEGER, sproc, 1001, &
-              MPI_COMM_WORLD, status, ierr )
-
-       RecvdIfMatrix(sproc+1) % NumberOfRows = Rows
-       ALLOCATE( RecvdIfMatrix(sproc+1) % Rows(Rows+1) )
-       ALLOCATE( RecvdIfMatrix(sproc+1) % Diag(Rows) )
-       ALLOCATE( RecvdIfMatrix(sproc+1) % Cols(Cols) )
-       ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(Rows) )
+     IF ( rows>0 ) THEN
+       cols = recv_cols(i)
+       ALLOCATE( RecvdIfMatrix(sproc+1) % Rows(rows+1) )
+       ALLOCATE( RecvdIfMatrix(sproc+1) % Diag(rows) )
+       ALLOCATE( RecvdIfMatrix(sproc+1) % Cols(cols) )
+       ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(rows) )
        ALLOCATE( RecvdIfMatrix(sproc+1) % RowOwner(Rows) )
 
-       CALL MPI_RECV( RecvdIfMatrix(sproc+1) % GRows, Rows,  MPI_INTEGER, &
-             sproc, 1002, MPI_COMM_WORLD, status, ierr )
-
-       CALL MPI_RECV( RecvdIfmatrix(sproc+1) % Rows, Rows+1, MPI_INTEGER, &
-            sproc, 1003, MPI_COMM_WORLD, status, ierr )
-
-       CALL MPI_RECV( RecvdIfmatrix(sproc+1) % RowOwner, Rows, MPI_INTEGER, &
-            sproc, 1004, MPI_COMM_WORLD, status, ierr )
-
-       CALL MPI_RECV( RecvdIfMatrix(sproc+1) % Cols, Cols, MPI_INTEGER, &
-            sproc, 1005, MPI_COMM_WORLD, status, ierr )
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % GRows, rows,  MPI_INTEGER, &
+             sproc, 1002, MPI_COMM_WORLD, requests(req_cnt), ierr )
      END IF
   END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % GRows, &
+            rows, MPI_INTEGER, destproc, 1002, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! -------------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+     IF ( rows>0 ) THEN
+       cols = recv_cols(i)
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfmatrix(sproc+1) % Rows, rows+1, MPI_INTEGER, &
+            sproc, 1003, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % Rows, &
+            rows+1, MPI_INTEGER, destproc, 1003, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! -------------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+     IF ( rows>0 ) THEN
+       cols = recv_cols(i)
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % Cols, cols, MPI_INTEGER, &
+            sproc, 1004, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % Cols, &
+            cols, MPI_INTEGER, destproc, 1004, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! -------------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+     IF ( rows>0 ) THEN
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % RowOwner, rows, MPI_INTEGER, &
+            sproc, 1005, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % RowOwner, &
+            rows, MPI_INTEGER, destproc, 1005, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! -------------------------------------------------------------------------
+
+  DEALLOCATE( requests, neigh, recv_rows, recv_cols )
 !*********************************************************************
 END SUBROUTINE ExchangeInterfaces
 !*********************************************************************
@@ -2231,140 +2331,284 @@ END SUBROUTINE ExchangeInterfaces
 !*********************************************************************
 !*********************************************************************
 !
-! Send all of the *VALUES* in the interface matrix blocks (in NbsIfMatrices)
-! to neighbour processors. This is done once on every non-linear iteration
-! when the coefficient matrix has been assembled.
+! Send all of the interface matrix blocks (in NbsIfMatrices) to neighbour
+! processors. This is done only once so there is no need to optimize
+! communication...
 !
-SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass, NeedDamp )
+  SUBROUTINE ExchangeIfvalues( NbsIfMatrix, RecvdIfMatrix,NeedMass,NeedDamp )
+    USE Types
+    IMPLICIT NONE
 
-  USE types
-  IMPLICIT NONE
+    ! Parameters
 
-  ! Parameters
+    LOGICAL :: NeedMass, NeedDamp
+    TYPE (BasicMatrix_t), DIMENSION(:) :: NbsIfMatrix, RecvdIfMatrix
 
-  TYPE (BasicMatrix_t), DIMENSION(:) :: NbsIfMatrix, RecvdIfMatrix
+    ! Local variables
 
-  ! Local variables
+    INTEGER :: i, j, n, sz, req_cnt, ierr, sproc, &
+         destproc, rows, cols, TotalSize
 
-  LOGICAL :: NeedMass, NeedDamp
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER :: i, j, ierr, destproc, rows, cols, sproc, TotalSize
+    INTEGER, ALLOCATABLE :: requests(:), &
+            recv_rows(:), recv_cols(:), neigh(:)
 
+    INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
   !*********************************************************************
+  n = ParEnv % NumOfNeighbours
+  ALLOCATE( neigh(n) )
 
-  !----------------------------------------------------------------------
-  !
-  ! Send the interface parts
-  !
-  !----------------------------------------------------------------------
-
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        IF ( NbsIfMatrix(i) % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-        ELSE
-           Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*NbsIfMatrix(i) % NumberOfRows + &
-                       12*Cols
-        END IF
-     END IF
-  END DO
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
-
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        destproc = i - 1
-        CALL MPI_BSEND( NbsIfMatrix(i) % NumberOfRows, 1, MPI_INTEGER, &
-              destproc, 2000, MPI_COMM_WORLD, ierr )
-
-        IF ( NbsIfMatrix(i) % NumberOfRows > 0 ) THEN
-          Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1) - 1
-
-          CALL MPI_BSEND( Cols, 1, MPI_INTEGER, &
-                 destproc, 2001, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % GRows, &
-              NbsIfMatrix(i) % NumberOfRows, MPI_INTEGER, &
-                destproc, 2002, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % Rows, &
-               NbsIfMatrix(i) % NumberOfRows + 1, MPI_INTEGER, &
-               destproc, 2003, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % Cols, &
-            Cols, MPI_INTEGER, destproc, 2004, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % Values, Cols, &
-             MPI_DOUBLE_PRECISION, destproc, 2005, MPI_COMM_WORLD, ierr )
-
-           IF ( NeedMass ) &
-              CALL MPI_BSEND( NbsIfMatrix(i) % MassValues, Cols, &
-                MPI_DOUBLE_PRECISION, destproc, 2006, MPI_COMM_WORLD, ierr )
-
-           IF ( NeedDamp ) &
-              CALL MPI_BSEND( NbsIfMatrix(i) % DampValues, Cols, &
-                MPI_DOUBLE_PRECISION, destproc, 2007, MPI_COMM_WORLD, ierr )
-           END IF
-     END IF
+  n = 0
+  DO i=1,ParEnv % PEs
+    IF ( ParEnv % IsNeighbour(i) ) THEN
+      n = n + 1
+      neigh(n)  = i-1
+    END IF
   END DO
 
+  totalsize = 0
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows == 0 ) THEN
+      totalsize = totalsize + 4
+    ELSE
+      cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+      totalsize = totalsize + 4 + 3*4*rows + 4 + 4*cols
+    END IF
+  END DO
+  CALL CheckBuffer( totalsize+MPI_BSEND_OVERHEAD*8 )
+
+  !
+  ! Receive interface sizes:
+  !--------------------------
+  ALLOCATE( recv_rows(n), recv_cols(n), requests(n) )
+  DO i=1,n
+    CALL MPI_iRECV( recv_rows(i),1, MPI_INTEGER, neigh(i), &
+         2000, MPI_COMM_WORLD, requests(i), ierr )
+  END DO
+
+  DO i=1,n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    CALL MPI_BSEND( rows, 1, MPI_INTEGER, &
+           destproc, 2000, MPI_COMM_WORLD, ierr )
+  END DO
+  CALL MPI_WaitAll( n, requests, MPI_STATUSES_IGNORE, ierr )
+   
+!----------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i=1,n
+    IF (recv_rows(i)>0) THEN
+      req_cnt = req_cnt + 1
+      CALL MPI_iRECV( recv_cols(i), 1, MPI_INTEGER, neigh(i), &
+         2001, MPI_COMM_WORLD, requests(req_cnt), ierr )
+    END IF
+  END DO
+  !
+  ! Send interface sizes:
+  !--------------------------
+
+  DO i=1,n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF (rows>0) THEN
+      cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+      CALL MPI_BSEND( cols,1, MPI_INTEGER, &
+           destproc, 2001, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+  
   !----------------------------------------------------------------------
   !
   ! Receive the interface parts
   !
   !----------------------------------------------------------------------
 
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( Rows, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-             2000, MPI_COMM_WORLD, status, ierr )
-     sproc = status(MPI_SOURCE)
+!----------------------------------------------------------------------
 
-     IF ( Rows == 0 ) THEN
-        RecvdIfMatrix(sproc+1) % NumberOfRows = 0
-     ELSE
-        CALL MPI_RECV( Cols, 1, MPI_INTEGER, sproc, 2001, &
-               MPI_COMM_WORLD, status, ierr )
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
 
-        RecvdIfMatrix(sproc+1) % NumberOfRows = Rows
-        ALLOCATE( RecvdIfMatrix(sproc+1) % Rows(Rows+1) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % Cols(Cols) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(Rows) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % Values(Cols) )
-        RecvdIfMatrix(sproc+1) % MassValues => NULL()
-        IF ( NeedMass ) THEN
-          ALLOCATE( RecvdIfMatrix(sproc+1) % MassValues(Cols) )
-          RecvdIfMatrix(sproc+1) % MassValues = 0.0d0
-        END IF
-        RecvdIfMatrix(sproc+1) % DampValues => NULL()
-        IF ( NeedDamp ) THEN
-          ALLOCATE( RecvdIfMatrix(sproc+1) % DampValues(Cols) )
-          RecvdIfMatrix(sproc+1) % DampValues = 0.0d0
-        END IF
+     IF ( rows>0 ) THEN
+       cols = recv_cols(i)
+       ALLOCATE( RecvdIfMatrix(sproc+1) % Rows(rows+1) )
+       ALLOCATE( RecvdIfMatrix(sproc+1) % Diag(rows) )
+       ALLOCATE( RecvdIfMatrix(sproc+1) % Cols(cols) )
+       ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(rows) )
+       ALLOCATE( RecvdIfMatrix(sproc+1) % Values(cols) )
 
-        CALL MPI_RECV( RecvdIfMatrix(sproc+1) % GRows, Rows,  MPI_INTEGER, &
-                  sproc, 2002, MPI_COMM_WORLD, status, ierr )
+       RecvdIfMatrix(sproc+1) % MassValues => NULL()
+       IF ( NeedMass ) &
+         ALLOCATE( RecvdIfMatrix(sproc+1) % MassValues(Cols) )
 
-        CALL MPI_RECV( RecvdIfmatrix(sproc+1) % Rows, Rows+1, MPI_INTEGER, &
-                  sproc, 2003, MPI_COMM_WORLD, status, ierr )
+       RecvdIfMatrix(sproc+1) % DampValues => NULL()
+       IF ( NeedMass ) &
+         ALLOCATE( RecvdIfMatrix(sproc+1) % DampValues(Cols) )
 
-        CALL MPI_RECV( RecvdIfMatrix(sproc+1) % Cols, Cols, MPI_INTEGER, &
-                  sproc, 2004, MPI_COMM_WORLD, status, ierr )
-
-        CALL MPI_RECV( RecvdIfMatrix(sproc+1) % Values, Cols, &
-            MPI_DOUBLE_PRECISION, sproc, 2005, MPI_COMM_WORLD, status, ierr )
-
-        IF ( NeedMass ) &
-           CALL MPI_RECV( RecvdIfMatrix(sproc+1) % MassValues, Cols, &
-             MPI_DOUBLE_PRECISION, sproc, 2006, MPI_COMM_WORLD, status, ierr )
-
-        IF ( NeedDamp ) &
-           CALL MPI_RECV( RecvdIfMatrix(sproc+1) % DampValues, Cols, &
-             MPI_DOUBLE_PRECISION, sproc, 2007, MPI_COMM_WORLD, status, ierr )
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % GRows, rows,  MPI_INTEGER, &
+             sproc, 2002, MPI_COMM_WORLD, requests(req_cnt), ierr )
      END IF
-
   END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % GRows, &
+            rows, MPI_INTEGER, destproc, 2002, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+!----------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+     IF ( rows>0 ) THEN
+       cols = recv_cols(i)
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfmatrix(sproc+1) % Rows, rows+1, MPI_INTEGER, &
+            sproc, 2003, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % Rows, &
+            rows+1, MPI_INTEGER, destproc, 2003, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+!----------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+     IF ( rows>0 ) THEN
+       cols = recv_cols(i)
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % Cols, cols, MPI_INTEGER, &
+            sproc, 2004, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % Cols, &
+            cols, MPI_INTEGER, destproc, 2004, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+!----------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     rows = recv_rows(i)
+     sproc = neigh(i)
+     RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+     IF ( rows>0 ) THEN
+       cols = recv_cols(i)
+       req_cnt = req_cnt+1
+       CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % Values, cols, MPI_DOUBLE_PRECISION, &
+            sproc, 2005, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    rows = NbsIfMatrix(destproc+1) % NumberOfRows
+    IF ( rows>0 ) THEN
+       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+       CALL MPI_BSEND( NbsIfMatrix(destproc+1) % Values, &
+            cols, MPI_DOUBLE_PRECISION, destproc, 2005, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+!----------------------------------------------------------------------
+
+  IF ( NeedMass ) THEN
+    req_cnt = 0
+    DO i = 1, n
+       rows = recv_rows(i)
+       sproc = neigh(i)
+       RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+       IF ( rows>0 ) THEN
+         cols = recv_cols(i)
+         req_cnt = req_cnt+1
+         CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % MassValues, cols, &
+           MPI_DOUBLE_PRECISION, sproc, 2006, MPI_COMM_WORLD, requests(req_cnt), ierr )
+       END IF
+    END DO
+
+    DO i = 1, n
+      destproc = neigh(i)
+      rows = NbsIfMatrix(destproc+1) % NumberOfRows
+      IF ( rows>0 ) THEN
+         cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+         CALL MPI_BSEND( NbsIfMatrix(destproc+1) % MassValues, &
+              cols, MPI_DOUBLE_PRECISION, destproc, 2006, MPI_COMM_WORLD, ierr )
+      END IF
+    END DO
+    CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+  END IF
+
+!----------------------------------------------------------------------
+
+  IF ( NeedDamp ) THEN
+    req_cnt = 0
+    DO i = 1, n
+       rows = recv_rows(i)
+       sproc = neigh(i)
+       RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+       IF ( rows>0 ) THEN
+         cols = recv_cols(i)
+         req_cnt = req_cnt+1
+         CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % DampValues, cols, &
+           MPI_DOUBLE_PRECISION, sproc, 2007, MPI_COMM_WORLD, requests(req_cnt), ierr )
+       END IF
+    END DO
+
+    DO i = 1, n
+      destproc = neigh(i)
+      rows = NbsIfMatrix(destproc+1) % NumberOfRows
+      IF ( rows>0 ) THEN
+         cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+         CALL MPI_BSEND( NbsIfMatrix(destproc+1) % DampValues, &
+              cols, MPI_DOUBLE_PRECISION, destproc, 2007, MPI_COMM_WORLD, ierr )
+      END IF
+    END DO
+    CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+  END IF
+
+!----------------------------------------------------------------------
+
+  DEALLOCATE( requests, neigh, recv_rows, recv_cols )
 !*********************************************************************
 END SUBROUTINE ExchangeIfValues
 !*********************************************************************
@@ -2380,98 +2624,156 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
   REAL(KIND=dp), DIMENSION(:) :: SourceVec
 
   TYPE Buf_t
-    INTEGER, POINTER :: RHSind(:)
-    REAL(KIND=dp), POINTER :: RHSVec(:)
+    INTEGER, POINTER :: ind(:)
+    REAL(KIND=dp), POINTER :: vec(:)
   END TYPE Buf_t
-  TYPE(Buf_t), ALLOCATABLE :: Buf(:)
+  TYPE(Buf_t), ALLOCATABLE :: recv_buf(:), send_buf(:)
 
   ! Local variables
-  INTEGER :: i, j, k, datalen, ierr, sproc, destproc, ind, psum, dl, DOF
-  INTEGER :: owner, request
+  INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt
+  INTEGER :: owner, request, totalsize
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER, DIMENSION(:), ALLOCATABLE :: indbuf
-  INTEGER, DIMENSION(:), ALLOCATABLE :: RHSbufInds
-  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: valbuf
 
-  ALLOCATE( RHSBufInds(ParEnv % PEs), Buf(ParEnv % PEs) )
-  RHSBufInds = 0
+  INTEGER, ALLOCATABLE :: requests(:), recv_size(:), &
+        send_size(:), perm(:), neigh(:)
+  !*********************************************************************
+  n = ParEnv % NumOfNeighbours
+  ALLOCATE( neigh(n) )
 
-  DO i = 1, SourceMatrix % NumberOfRows
-    k = SourceMatrix % INVPerm(i)
-    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
-      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
-      IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
-         RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
-      END IF
-    END DO
-  END DO
-
-  DO I=1,ParEnv % PEs
-    IF ( RHSBufInds(i) > 0 ) THEN
-       ALLOCATE(Buf(i) % RHSInd(RHSBufInds(i)),Buf(i) % RHSVec(RHSBUfInds(i)))
-    END IF
-  END DO
-
-  RHSBufInds = 0
-  DO i = 1, SourceMatrix % NumberOfRows
-    k = SourceMatrix % INVPerm(i)
-    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
-      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
-      IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
-         RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
-         Buf(owner+1) % RHSind(RHSbufInds(owner+1)) = &
-               ParallelInfo % GlobalDOFs(k)
-         Buf(owner+1) % RHSvec(RHSbufInds(owner+1)) = SourceVec(i)
-      END IF
-    END DO
-  END DO
-
-  DO i = 1, ParEnv % PEs
+  n = 0
+  DO i=1,ParEnv % PEs
     IF ( ParEnv % IsNeighbour(i) ) THEN
-       destproc = i - 1
-
-       DataLen = RHSbufInds(i)
-       CALL MPI_BSEND( DataLen, 1, MPI_INTEGER, &
-        destproc, 3000, MPI_COMM_WORLD, ierr )
-
-       IF ( DataLen > 0 ) THEN
-          CALL MPI_BSEND( Buf(i) % RHSind, DataLen, &
-             MPI_INTEGER, destproc, 3001, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( Buf(i) % RHSVec, DataLen, &
-             MPI_DOUBLE_PRECISION, destproc, 3002, MPI_COMM_WORLD, ierr )
-       END IF
+      n = n + 1
+      neigh(n)  = i-1
     END IF
   END DO
 
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( DataLen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-             3000, MPI_COMM_WORLD, status, ierr )
-     sproc = status(MPI_SOURCE)
+  ALLOCATE(perm(0:Parenv % Pes-1))
+  DO i=1,n
+    perm(neigh(i))=i
+  END DO
 
-     IF ( DataLen /= 0 ) THEN
-        ALLOCATE( IndBuf(DataLen), ValBuf(DataLen) )
-        CALL MPI_RECV( IndBuf, DataLen, MPI_INTEGER, sproc, &
-                3001, MPI_COMM_WORLD, status, ierr )
-        CALL MPI_RECV( ValBuf, DataLen, MPI_DOUBLE_PRECISION, &
-             sproc, 3002, MPI_COMM_WORLD, status, ierr )
-        DO j = 1, DataLen
-           Ind = SearchNode( ParallelInfo, IndBuf(j) )
-           IF ( Ind /= -1 ) THEN
-              Ind = SourceMatrix % Perm(Ind)
-              IF ( Ind > 0 ) &
-                 SourceVec(Ind) = SourceVec(Ind) + ValBuf(j)
-           END IF
-        END DO
-        DEALLOCATE( IndBuf, ValBuf )
+  ALLOCATE( send_size(n), recv_buf(n), send_buf(n) )
+
+  send_size = 0
+  DO i = 1, SourceMatrix % NumberOfRows
+    k = SourceMatrix % INVPerm(i)
+    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
+      IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
+         owner = perm(owner)
+         send_size(owner) = send_size(owner) + 1
+      END IF
+    END DO
+  END DO
+
+  DO i=1,n
+    IF ( send_size(i) > 0 ) &
+      ALLOCATE(send_buf(i) % ind(send_size(i)),send_buf(i) % vec(send_size(i)))
+  END DO
+
+  send_size = 0
+  DO i = 1, SourceMatrix % NumberOfRows
+    k = SourceMatrix % INVPerm(i)
+    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
+      IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
+         owner = perm(owner)
+         send_size(owner) = send_size(owner) + 1
+         send_buf(owner) % vec(send_size(owner)) = SourceVec(i)
+         send_buf(owner) % ind(send_size(owner)) = ParallelInfo % GlobalDOFs(k)
+      END IF
+    END DO
+  END DO
+
+  totalsize = SUM(send_size)
+  CALL CheckBuffer( 3*4*totalsize+3*MPI_BSEND_OVERHEAD )
+
+  !
+  ! Receive interface sizes:
+  !--------------------------
+  ALLOCATE( recv_size(n), requests(n) )
+  DO i=1,n
+    CALL MPI_iRECV( recv_size(i), 1, MPI_INTEGER, neigh(i), &
+          3000, MPI_COMM_WORLD, requests(i), ierr )
+  END DO
+
+  !
+  ! Send interface sizes:
+  !--------------------------
+  DO i=1,n
+    CALL MPI_BSEND( send_size(i), 1, MPI_INTEGER, neigh(i), &
+          3000, MPI_COMM_WORLD, ierr )
+  END DO
+  CALL MPI_WaitAll( n, requests, MPI_STATUSES_IGNORE, ierr )
+  
+! --------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     sproc = neigh(i)
+     datalen = recv_size(i)
+     IF ( datalen > 0 ) THEN
+        req_cnt = req_cnt + 1
+        ALLOCATE( recv_buf(i) % ind(datalen) )
+        CALL MPI_iRECV( recv_buf(i) % Ind, datalen, MPI_INTEGER, sproc, &
+                3001, MPI_COMM_WORLD, requests(req_cnt), ierr )
      END IF
   END DO
 
-  DO i=1,ParEnv % PEs
-    IF (RHSBufInds(i)>0) DEALLOCATE(Buf(i) % RHSInd, Buf(i) % RHSVec)
+  DO i = 1, n
+    destproc = neigh(i)
+    datalen = send_size(i)
+    IF ( datalen > 0 ) THEN
+       CALL MPI_BSEND( send_buf(i) % ind, datalen, &
+          MPI_INTEGER, destproc, 3001, MPI_COMM_WORLD, ierr )
+    END IF
   END DO
-  ! Clean up temporary work space
-  DEALLOCATE( Buf, RHSbufInds )
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! --------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     sproc = neigh(i)
+     dataLen = recv_size(i)
+     IF ( datalen > 0 ) THEN
+        req_cnt = req_cnt + 1
+        ALLOCATE( recv_buf(i) % vec(datalen) )
+        CALL MPI_iRECV( recv_buf(i) % vec, datalen, MPI_DOUBLE_PRECISION, &
+             sproc, 3002, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    datalen = send_size(i)
+    IF ( datalen > 0 ) THEN
+       CALL MPI_BSEND( send_buf(i) % vec, datalen, &
+          MPI_DOUBLE_PRECISION, destproc, 3002, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! --------------------------------------------------------------------
+
+  DO i=1,n
+     datalen = recv_size(i)
+     DO j = 1, datalen
+       Ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j) )
+       IF ( Ind /= -1 ) THEN
+          Ind = SourceMatrix % Perm(Ind)
+          IF ( Ind > 0 ) &
+             SourceVec(Ind) = SourceVec(Ind) + recv_buf(i) % vec(j)
+       END IF
+    END DO
+  END DO
+
+  DO i=1,n
+    IF (send_size(i)>0) DEALLOCATE(send_buf(i) % Ind, send_buf(i) % Vec)
+    IF (recv_size(i)>0) DEALLOCATE(recv_buf(i) % Ind, recv_buf(i) % Vec)
+  END DO
+  DEALLOCATE( recv_buf, send_buf, recv_size, send_size, requests, neigh, perm )
 
 !*********************************************************************
 END SUBROUTINE ExchangeSourceVec
@@ -2492,16 +2794,37 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   REAL(KIND=dp), DIMENSION(:) :: SourceRHS, TargetRHS
 
   ! Local variables
+  TYPE Buf_t
+    INTEGER, POINTER :: ind(:)
+    REAL(KIND=dp), POINTER :: vec(:)
+  END TYPE Buf_t
+  TYPE(Buf_t), ALLOCATABLE :: recv_buf(:), send_buf(:)
 
-  INTEGER :: i, j, k, datalen, ierr, sproc, destproc, ind, psum, dl, DOF
-  INTEGER :: owner, request
+  INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt
+  INTEGER :: owner, request, totalsize
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER, DIMENSION(:), ALLOCATABLE :: indbuf
-  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: valbuf
-  INTEGER, DIMENSION(:), ALLOCATABLE :: RHSbufInds
 
+  INTEGER, ALLOCATABLE :: requests(:), recv_size(:), &
+        send_size(:), perm(:), neigh(:)
   !*********************************************************************
 
+  n = ParEnv % NumOfNeighbours
+  ALLOCATE( neigh(n) )
+
+  n = 0
+  DO i=1,ParEnv % PEs
+    IF ( ParEnv % IsNeighbour(i) ) THEN
+      n = n + 1
+      neigh(n)  = i-1
+    END IF
+  END DO
+
+  ALLOCATE(perm(0:Parenv % Pes-1))
+  DO i=1,n
+    perm(neigh(i))=i
+  END DO
+
+  ALLOCATE( send_size(n), recv_buf(n), send_buf(n) )
   !----------------------------------------------------------------------
   !
   ! Extract the interface elements from SourceRHS to be sent to the
@@ -2509,75 +2832,121 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   !
   !----------------------------------------------------------------------
 
-  ALLOCATE(RHSbufInds(ParEnv % PEs))
-  RHSbufInds = 0
+  send_size = 0
   DO i = 1, SourceMatrix % NumberOfRows
     k = SourceMatrix % INVPerm(i)
     owner = ParallelInfo % NeighbourList(k) % Neighbours(1)
     IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
-       RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
-       SplittedMatrix % RHS(owner+1) % RHSind(RHSbufInds(owner+1)) = &
-             ParallelInfo % GlobalDOFs(k)
-       SplittedMatrix % RHS(owner+1) % RHSvec(RHSbufInds(owner+1)) = &
-            SourceRHS(i)
+       owner = perm(owner)
+       send_size(owner) = send_size(owner) + 1
     END IF
   END DO
 
-  !----------------------------------------------------------------------
+  DO i=1,n
+    IF ( send_size(i) > 0 ) &
+      ALLOCATE(send_buf(i) % ind(send_size(i)), send_buf(i) % vec(send_size(i)) )
+  END DO
+
+  send_size = 0
+  DO i = 1, SourceMatrix % NumberOfRows
+    k = SourceMatrix % INVPerm(i)
+    owner = ParallelInfo % NeighbourList(k) % Neighbours(1)
+    IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
+       owner = perm(owner)
+       send_size(owner) = send_size(owner) + 1
+       send_buf(owner) % vec(send_size(owner)) = SourceRHS(i)
+       send_buf(owner) % ind(send_size(owner)) = ParallelInfo % GlobalDOFs(k)
+    END IF
+  END DO
+
+  totalsize = SUM(send_size)
+  CALL CheckBuffer( 3*4*totalsize+3*MPI_BSEND_OVERHEAD )
+
   !
-  ! Do the exchange operation
+  ! Receive interface sizes:
+  !--------------------------
+  ALLOCATE( recv_size(n), requests(n) )
+  DO i=1,n
+    CALL MPI_iRECV( recv_size(i),1, MPI_INTEGER, neigh(i), &
+         3100, MPI_COMM_WORLD, requests(i), ierr )
+  END DO
+
   !
-  !----------------------------------------------------------------------
+  ! Send interface sizes:
+  !--------------------------
+  DO i=1,n
+    CALL MPI_BSEND( send_size(i), 1, MPI_INTEGER, neigh(i), &
+         3100, MPI_COMM_WORLD, ierr )
+  END DO
+  CALL MPI_WaitAll( n, requests, MPI_STATUSES_IGNORE, ierr )
+  
+! --------------------------------------------------------------------
 
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        destproc = i - 1
-        DataLen = RHSbufInds(i)
-
-        CALL MPI_BSEND( DataLen, 1, MPI_INTEGER, &
-              destproc, 3100, MPI_COMM_WORLD, ierr )
-        IF ( DataLen > 0 ) THEN
-           CALL MPI_BSEND( SplittedMatrix % RHS(i) % RHSind, DataLen, &
-              MPI_INTEGER, destproc, 3101, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( SplittedMatrix % RHS(i) % RHSVec, DataLen, &
-              MPI_DOUBLE_PRECISION, destproc, 3102, MPI_COMM_WORLD, ierr )
-        END IF
-
+  req_cnt = 0
+  DO i = 1, n
+     sproc = neigh(i)
+     datalen = recv_size(i)
+     IF ( datalen > 0 ) THEN
+        req_cnt = req_cnt + 1
+        ALLOCATE( recv_buf(i) % ind(datalen) )
+        CALL MPI_iRECV( recv_buf(i) % Ind, datalen, MPI_INTEGER, sproc, &
+                3101, MPI_COMM_WORLD, requests(req_cnt), ierr )
      END IF
   END DO
 
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( DataLen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-               3100, MPI_COMM_WORLD, status, ierr )
-     sproc = status(MPI_SOURCE)
+  DO i = 1, n
+    destproc = neigh(i)
+    datalen = send_size(i)
+    IF ( datalen > 0 ) THEN
+       CALL MPI_BSEND( send_buf(i) % ind, datalen, &
+          MPI_INTEGER, destproc, 3101, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
 
-     IF ( DataLen /= 0 ) THEN
-        ALLOCATE( IndBuf(DataLen), ValBuf(DataLen) )
+! --------------------------------------------------------------------
 
-        CALL MPI_RECV( IndBuf, DataLen, MPI_INTEGER, sproc, &
-                3101, MPI_COMM_WORLD, status, ierr )
-        CALL MPI_RECV( ValBuf, DataLen, MPI_DOUBLE_PRECISION, &
-             sproc, 3102, MPI_COMM_WORLD, status, ierr )
-        DO j = 1, DataLen
-           Ind = SearchNode( ParallelInfo, IndBuf(j) )
-           IF ( Ind /= -1 ) THEN
-              Ind = SourceMatrix % Perm(Ind)
-              IF ( Ind > 0 ) THEN
-                 SourceRHS(Ind) = SourceRHS(Ind) + ValBuf(j)
-              END IF
-!          ELSE
-!             WRITE( Message, * ) ParEnv % MyPE,'RHS receive error'
-!             CALL Fatal( 'ExchangeRHSIf', Message )
-           END IF
-        END DO
-        DEALLOCATE( IndBuf, ValBuf )
+  req_cnt = 0
+  DO i = 1, n
+     sproc = neigh(i)
+     datalen = recv_size(i)
+     IF ( datalen > 0 ) THEN
+        req_cnt = req_cnt + 1
+        ALLOCATE( recv_buf(i) % vec(datalen) )
+        CALL MPI_iRECV( recv_buf(i) % vec, datalen, MPI_DOUBLE_PRECISION, &
+             sproc, 3102, MPI_COMM_WORLD, requests(req_cnt), ierr )
      END IF
-     
   END DO
 
-  ! Clean up temporary work space
-  DEALLOCATE( RHSbufInds )
+  DO i = 1, n
+    destproc = neigh(i)
+    datalen = send_size(i)
+    IF ( datalen > 0 ) THEN
+       CALL MPI_BSEND( send_buf(i) % vec, datalen, &
+          MPI_DOUBLE_PRECISION, destproc, 3102, MPI_COMM_WORLD, ierr )
+    END IF
+  END DO
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! --------------------------------------------------------------------
+
+  DO i=1,n
+     datalen = recv_size(i)
+     DO j = 1, datalen
+       Ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j) )
+       IF ( Ind /= -1 ) THEN
+          Ind = SourceMatrix % Perm(Ind)
+          IF ( Ind > 0 ) &
+             SourceRHS(Ind) = SourceRHS(Ind) + recv_buf(i) % vec(j)
+       END IF
+    END DO
+  END DO
+
+  DO i=1,n
+    IF (send_size(i)>0) DEALLOCATE(send_buf(i) % Ind, send_buf(i) % Vec)
+    IF (recv_size(i)>0) DEALLOCATE(recv_buf(i) % Ind, recv_buf(i) % Vec)
+  END DO
+  DEALLOCATE( recv_buf, send_buf, recv_size, send_size, requests, neigh, perm )
 
   ! copy source to target
   j = 0
@@ -2596,6 +2965,171 @@ END SUBROUTINE ExchangeRHSIf
 !*********************************************************************
 !*********************************************************************
 !
+! Send parts of the result vector to neighbours
+!
+!
+!*********************************************************************
+SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
+  USE types
+  IMPLICIT NONE
+
+  TYPE(SplittedMatrixT) :: SplittedMatrix
+  TYPE(Matrix_t) :: SourceMatrix
+  REAL(KIND=dp), DIMENSION(:) :: XVec
+  TYPE (ParallelInfo_t) :: ParallelInfo
+
+  ! Local variables
+
+  TYPE (ResBufferT), POINTER :: CurrRBuf
+
+  TYPE Buf_t
+    INTEGER, POINTER :: ind(:)
+    REAL(KIND=dp), POINTER :: vec(:)
+  END TYPE Buf_t
+  TYPE(Buf_t), ALLOCATABLE :: recv_buf(:)
+
+  INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt
+  INTEGER :: owner, request, totalsize
+  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
+
+  INTEGER, ALLOCATABLE :: requests(:), recv_size(:), &
+        send_size(:), perm(:), neigh(:)
+  !*********************************************************************
+
+  n = ParEnv % NumOfNeighbours
+  ALLOCATE( neigh(n) )
+
+  n = 0
+  DO i=1,ParEnv % PEs
+    IF ( ParEnv % IsNeighbour(i) ) THEN
+      n = n + 1
+      neigh(n)  = i-1
+    END IF
+  END DO
+
+  ALLOCATE(perm(0:Parenv % Pes-1))
+  DO i=1,n
+    perm(neigh(i))=i
+  END DO
+
+  ALLOCATE( recv_size(n), requests(n), recv_buf(n) )
+
+  TotalSize = 0
+  DO i = 1, ParEnv % PEs
+     totalsize = totalsize + 1
+     IF ( ParEnv % IsNeighbour(i) ) THEN
+       CurrRBuf => SplittedMatrix % ResBuf(i)
+       IF ( ASSOCIATED(CurrRBuf % ResInd) ) THEN
+         datalen = SIZE(CurrRBuf % ResInd)
+         totalsize = totalsize + 1 + 3*datalen
+       END IF
+     END IF
+  END DO
+  CALL CheckBuffer( totalsize*4 + 3*MPI_BSEND_OVERHEAD )
+
+  DO i = 1,n
+    CALL MPI_iRECV( recv_size(i), 1, MPI_INTEGER, &
+        neigh(i), 9000, MPI_COMM_WORLD, requests(i), ierr )
+  END DO
+
+  DO i = 1,n
+    destproc = neigh(i)
+    CurrRBuf => SplittedMatrix % ResBuf(destproc+1)
+
+    datalen = 0
+    IF ( ASSOCIATED(CurrRBuf % ResInd) ) &
+      datalen = SIZE(CurrRBuf % ResInd)
+
+    CALL MPI_BSEND( datalen, 1, MPI_INTEGER, &
+         destproc, 9000, MPI_COMM_WORLD, ierr )
+  END DO
+  CALL MPI_WaitAll( n, requests, MPI_STATUSES_IGNORE, ierr )
+
+! --------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     sproc = neigh(i)
+     datalen = recv_size(i)
+     IF ( datalen > 0 ) THEN
+       req_cnt = req_cnt + 1
+       ALLOCATE( recv_buf(i) % ind(datalen) )
+       CALL MPI_iRECV( recv_buf(i) % ind, datalen, MPI_INTEGER, sproc, &
+               9001, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    CurrRBuf => SplittedMatrix % ResBuf(destproc+1)
+    IF ( ASSOCIATED(CurrRBuf % ResInd) ) THEN
+      datalen = SIZE(CurrRBuf % Resind)
+      IF ( datalen > 0 ) THEN
+         CALL MPI_BSEND( CurrRBuf % resind, datalen, &
+            MPI_INTEGER, destproc, 9001, MPI_COMM_WORLD, ierr )
+      END IF
+    END IF
+  END DO
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! --------------------------------------------------------------------
+
+  req_cnt = 0
+  DO i = 1, n
+     sproc = neigh(i)
+     datalen = recv_size(i)
+     IF ( datalen > 0 ) THEN
+        req_cnt = req_cnt + 1
+        ALLOCATE( recv_buf(i) % vec(datalen) )
+        CALL MPI_iRECV( recv_buf(i) % vec, datalen, MPI_DOUBLE_PRECISION, &
+             sproc, 9002, MPI_COMM_WORLD, requests(req_cnt), ierr )
+     END IF
+  END DO
+
+  DO i = 1, n
+    destproc = neigh(i)
+    CurrRBuf => SplittedMatrix % ResBuf(destproc+1)
+    IF ( ASSOCIATED(CurrRBuf % ResInd) ) THEN
+      datalen = SIZE(CurrRBuf % Resind)
+      IF ( datalen > 0 ) THEN
+         CALL MPI_BSEND( CurrRBuf % resval, datalen, &
+            MPI_DOUBLE_PRECISION, destproc, 9002, MPI_COMM_WORLD, ierr )
+      END IF
+    END IF
+  END DO
+  CALL MPI_WaitAll( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+
+! --------------------------------------------------------------------
+
+  DO i=1,n
+     datalen = recv_size(i)
+     DO j = 1, datalen
+       ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j) )
+       IF ( ind /= -1 ) THEN
+          ind = SourceMatrix % Perm(ind)
+          IF ( ind > 0 ) &
+             xvec(ind) = recv_buf(i) % vec(j)
+       END IF
+    END DO
+  END DO
+
+  DO i=1,n
+    IF (recv_size(i)>0) DEALLOCATE(recv_buf(i) % Ind, recv_buf(i) % Vec)
+  END DO
+  DEALLOCATE( recv_buf, recv_size, requests, neigh, perm )
+
+  CALL SparIterActiveBarrier
+!*********************************************************************
+
+!*********************************************************************
+END SUBROUTINE ExchangeResult
+!*********************************************************************
+!*********************************************************************
+
+
+!*********************************************************************
+!*********************************************************************
+!
 ! Build index tables for faster vector element combination (in parallel
 ! matrix-vector operation).
 !
@@ -2608,151 +3142,137 @@ SUBROUTINE BuildRevVecIndices( SplittedMatrix )
 
   ! Local variables
 
-  INTEGER :: i, j, k, l, n, VecLen, ind, ierr, destproc, sproc, TotLen
+  INTEGER :: i, j, k, m, n, VecLen, ind, ierr, destproc, sproc, TotLen
   TYPE (BasicMatrix_t), POINTER :: CurrIf
   TYPE(Matrix_t), POINTER :: InsideMatrix
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER :: TotalSize
+  INTEGER :: TotalSize, count
   LOGICAL :: Found
   INTEGER, POINTER :: RevBuff(:),RevInd(:)
-  INTEGER, DIMENSION(:), ALLOCATABLE :: GIndices,RowOwner
+  INTEGER, DIMENSION(:), ALLOCATABLE :: GIndices,RowOwner,neigh,L
+
+  TYPE Buf_t
+    INTEGER, POINTER :: rbuf(:)
+  END TYPE Buf_t
+  TYPE(Buf_t), ALLOCATABLE :: sbuf(:)
+
 REAL(KIND=dp) :: tt,CPUTime
 
   !*********************************************************************
 tt = CPUTime()
 
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        CurrIf => SplittedMatrix % NbsIfMatrix(i)
-        IF ( CurrIf % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-        ELSE
-           k = CurrIf % Rows(CurrIf % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*CurrIf % NumberOfRows + 12*k
-        END IF
-     END IF
-
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        CurrIf => SplittedMatrix % IfMatrix(i)
-        IF ( CurrIf % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-        ELSE
-           k = CurrIf % Rows(CurrIf % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*CurrIf % NumberOfRows + 12*k
-        END IF
-     END IF
+  n = Parenv % NumOfNeighbours
+  ALLOCATE( neigh(n), sbuf(n), L(n) )
+  n = 0
+  DO i = 1,ParEnv % PEs
+    IF ( ParEnv % IsNeighbour(i) ) THEN
+      n = n + 1
+      neigh(n) = i-1
+    END IF
   END DO
 
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
+  count = 0
+  totalsize = 0
+  DO i = 1, n
+    CurrIf => SplittedMatrix % IfMatrix(neigh(i)+1)
+    DO j=1,n
+      DO k=1,CurrIf % NumberOfRows
+        IF (CurrIf % RowOwner(k)==neigh(j)) totalsize=totalsize+1
+      END DO
+      count = count+2
+      totalsize=totalsize+1
+    END DO
+  END DO
+  CALL CheckBuffer( totalsize*4+MPI_BSEND_OVERHEAD*count )
 
   InsideMatrix => SplittedMatrix % InsideMatrix
 
-  DO i = 1, ParEnv % PEs
-     CurrIf => SplittedMatrix % IfMatrix(i)
-     ALLOCATE( GIndices( CurrIf % NumberOfRows ) )
-
-     DO j=0,ParEnv % PEs-1
-        IF (  ParEnv % IsNeighbour(j+1) ) THEN
-           L = 0
-           DO k=1,CurrIf % NumberOfRows
-              IF ( CurrIf % RowOwner(k) == j ) THEN
-                 L = L + 1
-                 GIndices(L) = CurrIf % GRows(k)
-              END IF
-           END DO
-           CALL MPI_BSEND( L, 1, MPI_INTEGER, j, 4000 + 2*i, &
-                    MPI_COMM_WORLD, ierr )
-
-           IF ( L > 0 ) THEN
-if ( .not.parenv % isneighbour(i)) then
-  print*,'here: ', parenv % mype, j, L; call flush(6)
-end if
-              CALL MPI_BSEND( GIndices, L, MPI_INTEGER, j, &
-                 4000 + 2*i+1, MPI_COMM_WORLD, ierr )
+  L = 0
+  DO i = 1, n
+     CurrIf => SplittedMatrix % IfMatrix(neigh(i)+1)
+     DO j=1,n
+        destproc = neigh(j) 
+        DO k=1,CurrIf % NumberOfRows
+           IF ( CurrIf % RowOwner(k) == destproc ) THEN
+              L(j) = L(j) + 1
            END IF
-        END IF
+        END DO
      END DO
-     DEALLOCATE( GIndices )
+  END DO
+
+  DO i=1,n
+    sbuf(i) % rbuf => NULL()
+    IF ( L(i) > 0 ) ALLOCATE( sbuf(i) % rbuf(L(i)) )
+  END DO
+
+  L = 0
+  DO i = 1, n
+     CurrIf => SplittedMatrix % IfMatrix(neigh(i)+1)
+     DO j=1,n
+        destproc = neigh(j) 
+        DO k=1,CurrIf % NumberOfRows
+           IF ( CurrIf % RowOwner(k) == destproc ) THEN
+              L(j) = L(j) + 1
+              sbuf(j) % rbuf(L(j)) = CurrIf % GRows(k)
+           END IF
+        END DO
+     END DO
+  END DO
+
+  DO i=1,n
+    CALL MPI_BSEND( L(i), 1, MPI_INTEGER, neigh(i), 4000, &
+                MPI_COMM_WORLD, ierr )
+
+    IF ( L(i) > 0 ) THEN
+       CALL MPI_BSEND( sbuf(i) % rbuf, L(i), MPI_INTEGER, neigh(i), &
+               4001, MPI_COMM_WORLD, ierr )
+    END IF
   END DO
 !print*,parenv % mype, 'first send: ', CPUTime()-tt
 !tt = CPUtime()
 !
 !
 !
-  DO i = 1, ParEnv % PEs
-     IF ( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+  DO i = 1,n
+    sproc = neigh(i)
+    CALL MPI_RECV( veclen, 1, MPI_INTEGER, sproc, &
+         4000, MPI_COMM_WORLD, status, ierr )
 
-     CurrIf => SplittedMatrix % IfMatrix(i)
+    SplittedMatrix % VecIndices(sproc+1) % RevInd => NULL()
+    IF ( veclen > 0 ) THEN
+      ALLOCATE( SplittedMatrix % Vecindices(sproc+1) % RevInd(Veclen) )
+      ALLOCATE( Gindices(Veclen) )
 
-     ALLOCATE( RevBuff(512) )
-     RevInd => RevBuff
-     RevInd = 0
-     TotLen = 0
-     sproc = i-1
+      CALL MPI_RECV( Gindices, veclen, MPI_INTEGER, sproc, &
+              4001, MPI_COMM_WORLD, status, ierr )
 
-     DO j=0,ParEnv % PEs-1
-        CALL MPI_RECV( VecLen, 1, MPI_INTEGER, sproc, &
-          4000+2*(j+1), MPI_COMM_WORLD, status, ierr )
-
-        IF ( VecLen /= 0 ) THEN
-           ALLOCATE( GIndices(VecLen) )
-
-           CALL MPI_RECV( GIndices, VecLen, MPI_INTEGER, sproc, &
-              4000+2*(j+1)+1, MPI_COMM_WORLD, status, ierr )
-
-           IF ( TotLen+VecLen>SIZE(RevBuff) ) THEN
-              ALLOCATE( RevInd( 2*(TotLen + VecLen) ) )
-              RevInd = 0
-              RevInd(1:SIZE(RevBuff)) = RevBuff
-              DEALLOCATE( RevBuff )
-              RevBuff => RevInd 
-              Revind => RevBuff(TotLen+1:)
-           END IF
-
-           DO n = 1, VecLen
-              Ind = SearchIAItem( InsideMatrix %  NumberOfRows, &
-                InsideMatrix % GRows, GIndices(n), InsideMatrix % Gorder )
-
-              IF ( Ind > 0 ) THEN
-                 RevInd(n) = Ind
-!             ELSE
-!                WRITE( Message, * ) ParEnv % MyPE,' (1)Could not find local node ', &
-!                         GIndices(n), '(reveiced from', sproc, ')'
-!                CALL Error( 'BuildRevVecIndices', Message )
-              END IF
-           END DO
-
-           DEALLOCATE( GIndices )
-           Totlen = TotLen + VecLen
-           RevInd => RevBuff(TotLen+1:)
-        END IF 
-     END DO
-
-     IF ( TotLen > 0 ) THEN
-       ALLOCATE( SplittedMatrix % Vecindices(i) % Revind(TotLen) )
-       SplittedMatrix % VecIndices(i) % RevInd = RevBuff(1:TotLen)
-       DEALLOCATE(RevBuff)
-     ELSE
-       DEALLOCATE( RevBuff )
-       NULLIFY( SplittedMatrix % VecIndices(i) % RevInd )
-     END IF
+      DO m = 1, VecLen
+         ind = SearchIAItem( InsideMatrix %  NumberOfRows, &
+           InsideMatrix % GRows, Gindices(m), InsideMatrix % Gorder )
+         SplittedMatrix % Vecindices(sproc+1) % RevInd(m) = ind
+      END DO
+      DEALLOCATE( Gindices )
+    END IF 
   END DO
 
 !print*,parenv % mype, 'first recv: ', CPUTime()-tt
 !tt = CPUtime()
 
-  DO i=1,ParEnv % PEs
-    CurrIf => SplittedMatrix % IfMatrix(i)
+  DO i=1,n
+    CurrIf => SplittedMatrix % IfMatrix(neigh(i)+1)
     DO k = 1,CurrIf % NumberOfRows
-      DO l = CurrIf % Rows(k), CurrIf % Rows(k+1) - 1
+      DO m = CurrIf % Rows(k), CurrIf % Rows(k+1) - 1
         Ind = SearchIAItem( InsideMatrix %  NumberOfRows, &
-          InsideMatrix % GRows, CurrIf % Cols(l), InsideMatrix % Gorder )
-        SplittedMatrix % IfLCols(i) % IfVec(l) = ind
+          InsideMatrix % GRows, CurrIf % Cols(m), InsideMatrix % Gorder )
+        SplittedMatrix % IfLCols(neigh(i)+1) % IfVec(m) = ind
       END DO
     END DO
   END DO
+
+  DO i=1,n
+     IF ( ASSOCIATED(sbuf(i) % rbuf) ) DEALLOCATE(sbuf(i) % rbuf)
+  END DO
+  DEALLOCATE(neigh, sbuf,L)
 !print*,parenv % mype, 'secnd recv: ', CPUTime()-tt
 !*********************************************************************
 END SUBROUTINE BuildRevVecIndices
@@ -3071,11 +3591,12 @@ SUBROUTINE Recv_LocIf_size( n, neigh, sizes )
   END DO
 
   DO i=1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( Veclen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-             6000, MPI_COMM_WORLD, status, ierr )
+     CALL MPI_RECV( Veclen, 1, MPI_INTEGER, neigh(i), &
+            6000, MPI_COMM_WORLD, status, ierr )
 
-     sproc = status(MPI_SOURCE)
-     sizes(perm(sproc)) = Veclen
+!    sproc = status(MPI_SOURCE)
+!    sizes(perm(sproc)) = Veclen
+     sizes(i) = Veclen
   END DO
   DEALLOCATE(perm)
 !*********************************************************************
@@ -3389,106 +3910,6 @@ END SUBROUTINE ParEnvFinalize
 
 
 
-!*********************************************************************
-!*********************************************************************
-!
-! Send parts of the result vector to neighbours
-!
-!
-!*********************************************************************
-SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
-  USE types
-  IMPLICIT NONE
-
-  TYPE(SplittedMatrixT) :: SplittedMatrix
-  TYPE(Matrix_t) :: SourceMatrix
-  TYPE (ParallelInfo_t) :: ParallelInfo
-  REAL(KIND=dp), DIMENSION(:) :: XVec
-
-  ! Local variables
-
-  INTEGER :: i, j, k, ierr, sproc, destproc, BufLen, ResInd, DOF,TotalSize
-  INTEGER, DIMENSION(:), ALLOCATABLE :: IndBuf
-  TYPE (ResBufferT), POINTER :: CurrRBuf
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: ValBuf
-
-  !*********************************************************************
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-       CurrRBuf => SplittedMatrix % ResBuf(i)
-       IF ( .NOT. ASSOCIATED(CurrRBuf % ResInd) ) THEN
-           TotalSize = TotalSize + 4
-       ELSE
-           BufLen = SIZE( CurrRBuf % ResInd )
-           TotalSize = TotalSize + 4 + 12*Buflen
-       END IF
-     END IF
-  END DO
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
-
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-
-        destproc = i - 1
-
-        CurrRBuf => SplittedMatrix % ResBuf(i)
-        IF ( .NOT. ASSOCIATED(CurrRBuf % ResInd) ) THEN
-           j = 0
-           CALL MPI_BSEND( j, 1, MPI_INTEGER, destproc, 9000, MPI_COMM_WORLD, ierr )
-        ELSE
-           BufLen = SIZE(CurrRBuf % ResInd)
-           CALL MPI_BSEND( BufLen, 1, MPI_INTEGER, destproc, 9000, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( CurrRBuf % ResInd, BufLen, MPI_INTEGER, &
-                 destproc, 9001, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( CurrRBuf % ResVal, BufLen, MPI_DOUBLE_PRECISION, &
-                   destproc, 9002, MPI_COMM_WORLD, ierr )
-        END IF
-
-     END IF
-  END DO
-
-
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( BufLen, 1, MPI_INTEGER, &
-         MPI_ANY_SOURCE, 9000, MPI_COMM_WORLD, status, ierr )
-
-     IF ( BufLen > 0 ) THEN
-        sproc = status(MPI_SOURCE)
-        ALLOCATE( IndBuf( BufLen ), ValBuf( BufLen ) )
-
-        CALL MPI_RECV( IndBuf, BufLen, MPI_INTEGER, &
-             sproc, 9001, MPI_COMM_WORLD, status, ierr )
-
-        CALL MPI_RECV( ValBuf, BufLen, MPI_DOUBLE_PRECISION, &
-             sproc, 9002, MPI_COMM_WORLD, status, ierr )
-
-        DO j = 1, BufLen
-           ResInd = SearchNode( ParallelInfo, IndBuf(j) )
-           IF ( ResInd > 0 ) THEN
-              ResInd = SourceMatrix % Perm(ResInd)
-              IF ( ResInd > 0 ) XVec(ResInd) = ValBuf(j)
-!          ELSE
-!             WRITE( Message, * ) ParEnv % MyPE, 'Result Receive error: '
-!             CALL Fatal( 'ExchangeResult', Message )
-           END IF
-        END DO
-
-        DEALLOCATE( IndBuf, ValBuf )
-     END IF
-  END DO
-  CALL SparIterActiveBarrier
-!*********************************************************************
-END SUBROUTINE ExchangeResult
-!*********************************************************************
-
-
-
-!*********************************************************************
 !*********************************************************************
 !
 ! Search an element QueriedNode from an ordered set Nodes and return

@@ -83,6 +83,7 @@ CONTAINS
     TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
 
     TYPE (ParEnv_t), POINTER :: ParallelEnv
+real(kind=dp) :: tt,realtime
     !******************************************************************
 
     IF ( .NOT. ParEnv % Initialized ) THEN
@@ -90,7 +91,9 @@ CONTAINS
     END IF
 
     ALLOCATE( SParMatrixDesc )
+!tt=realtime()
     CALL ParEnvInit( SParMatrixDesc, ParallelInfo, SourceMatrix )
+!if ( parenv % mype==0 ) print*,'ENV INIT TIME: ', realtime()-tt
 
     SParMatrixDesc % Matrix => SourceMatrix
     SParMatrixDesc % DOFs = 1
@@ -98,8 +101,11 @@ CONTAINS
 
     ParEnv = SParMatrixDesc % ParEnv
     ParEnv % ActiveComm = SourceMatrix % Comm
+!tt=realtime()
     SParMatrixDesc % SplittedMatrix => &
-                   SplitMatrix( SourceMatrix, ParallelInfo )
+                        SplitMatrix( SourceMatrix, ParallelInfo )
+!if ( parenv % mype==0 ) print*,'SPLIT TIME: ', realtime()-tt
+
   END FUNCTION ParInitMatrix
 
 
@@ -142,8 +148,9 @@ CONTAINS
 
     LOGICAL :: NeedMass, NeedDamp, GotNewCol, Found
 
-real(kind=dp) :: cputime,st
+real(kind=dp) :: realtime,st
   !******************************************************************
+!st = realtime()
     ALLOCATE( SplittedMatrix )
     SplittedMatrix % InsideMatrix => AllocateMatrix()
 
@@ -535,7 +542,9 @@ real(kind=dp) :: cputime,st
   ! the interface blocks already at this processor.
   !
   !----------------------------------------------------------------------
+!if ( parenv % mype==0 ) print*,'SPLIT INIT TIME: ', realtime()-st; st = realtime()
   CALL ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
+!if ( parenv % mype==0 ) print*, 'EXCHANGE INTERF TIME: ', realtime()-st; st=realtime()
 
   !----------------------------------------------------------------------
   ! Insert matrix elements to splittedmatrix if got from the
@@ -758,10 +767,12 @@ real(kind=dp) :: cputime,st
      ALLOCATE( SplittedMatrix % InsideMatrix % DampValues( & 
         SplittedMatrix % InsideMatrix % Rows(n+1) - 1 ) )
 
+!if ( parenv % mype==0 ) print*, 'INSERT INTERF TIME: ', realtime()-st; st=realtime()
 !-----------------------------------------------------------------------------
 
   CALL ClearInsideC( SourceMatrix, SplittedMatrix % InsideMatrix, &
              RecvdIfMatrix, ParallelInfo )
+!if ( parenv % mype==0 ) print*, 'CLEAR INS TIME: ', realtime()-st; st=realtime()
 
   SplittedMatrix % IfMatrix(:) % NumberOfRows = 0
   DO i = 1, ParEnv % PEs
@@ -805,6 +816,7 @@ real(kind=dp) :: cputime,st
         END IF
      END IF
   END DO
+!if ( parenv % mype==0 ) print*, 'COMBINE AND STUFF TIME: ', realtime()-st; st=realtime()
 
   !----------------------------------------------------------------------
   !
@@ -812,6 +824,7 @@ real(kind=dp) :: cputime,st
   !
   !----------------------------------------------------------------------
   CALL RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo )
+!if ( parenv % mype==0 ) print*, 'RENUMBER TIME: ', realtime()-st; st=realtime()
 
   !----------------------------------------------------------------------
   !
@@ -819,6 +832,7 @@ real(kind=dp) :: cputime,st
   !
   !----------------------------------------------------------------------
   CALL BuildRevVecIndices( SplittedMatrix )
+!if ( parenv % mype==0 ) print*, 'BUILD REV TIME: ', realtime()-st; st=realtime()
 
   !----------------------------------------------------------------------
   !
@@ -848,6 +862,7 @@ real(kind=dp) :: cputime,st
   END DO
 
   DEALLOCATE( OwnIfMatrix, RecvdIfMatrix )
+!if ( parenv % mype==0 ) print*, 'REST TIME: ', realtime()-st; st=realtime()
 !********************************************************************
 END FUNCTION SplitMatrix
 !********************************************************************
@@ -2643,13 +2658,14 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
   !
   !----------------------------------------------------------------------
   InsideMatrix => SplittedMatrix % InsideMatrix
-  NeedMass = ASSOCIATED( InsideMatrix % MassValues )
-  NeedDamp = ASSOCIATED( InsideMatrix % DampValues )
+  NeedMass = ASSOCIATED(InsideMatrix % MassValues)
+  NeedDamp = ASSOCIATED(InsideMatrix % DampValues)
 
   ALLOCATE( RecvdIfMatrix(ParEnv % PEs) )
   RecvdIfMatrix(:) % NumberOfRows = 0
+
   CALL ExchangeIfValues(SplittedMatrix % NbsIfMatrix, &
-          RecvdIfMatrix,NeedMass,NeedDamp )
+         RecvdIfMatrix,NeedMass,NeedDamp )
 
   !----------------------------------------------------------------------
   !
