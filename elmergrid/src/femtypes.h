@@ -351,7 +351,9 @@ struct ElmergridType {
     saveinterval[3],
     elementsredone,
     bcoffset,
-    rotatecurve;
+    rotatecurve,
+    timeron,
+    nosave;
 
   Real cscale[3], 
     corder[3],

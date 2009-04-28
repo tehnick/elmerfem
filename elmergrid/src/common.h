@@ -19,6 +19,10 @@ typedef double Real;
 #define TRUE 1
 #define FALSE 0
 
+void timer_init();
+void timer_activate();
+void timer_show();
+
 void bigerror(char error_text[]);
 void smallerror(char error_text[]);
 int  FileExists(char *filename);

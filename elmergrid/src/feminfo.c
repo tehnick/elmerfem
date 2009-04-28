@@ -266,6 +266,8 @@ void InitParameters(struct ElmergridType *eg)
   eg->parthypre = FALSE;
   eg->partbw = FALSE;
   eg->saveboundaries = TRUE;
+  eg->timeron = FALSE;
+  eg->nosave = FALSE;
   eg->merge = FALSE;
   eg->bcoffset = FALSE;
   eg->periodic = 0;
@@ -785,6 +787,12 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     }
     if(strcmp(argv[arg],"-nobound") == 0) {
       eg->saveboundaries = FALSE;
+    }
+    if(strcmp(argv[arg],"-nosave") == 0) {
+      eg->nosave = TRUE;
+    }
+    if(strcmp(argv[arg],"-timer") == 0) {
+      eg->timeron = TRUE;
     }
 
     /* The following keywords are not actively used */

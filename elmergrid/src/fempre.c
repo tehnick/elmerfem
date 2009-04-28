@@ -156,6 +156,8 @@ static void Instructions()
   printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
   printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
+  printf("-nosave              : disable saving part alltogether\n");
+  printf("-timer               : show timer information\n");
 
   printf("\nThe following keywords are related only to the parallel Elmer computations.\n");
   printf("-partition int[4]    : the mesh will be partitioned in main directions\n");
@@ -204,9 +206,11 @@ int main(int argc, char *argv[])
   long ii;
 
   showmem = TRUE;
+
   printf("\nStarting program Elmergrid\n");
 
   InitParameters(&eg);
+
   grids = (struct GridType*)malloc((size_t) (MAXCASES)*sizeof(struct GridType));     
   InitGrid(grids);
   info = TRUE;
@@ -248,6 +252,7 @@ int main(int argc, char *argv[])
   }
 #endif
 
+  if(eg.timeron) timer_activate();
 
   /**********************************/
   printf("\nElmergrid loading data:\n");
@@ -263,6 +268,8 @@ int main(int argc, char *argv[])
 
  read_another_file:    
 
+  timer_show();
+  
   switch (inmethod) {
 
   case 1:        
@@ -511,6 +518,8 @@ int main(int argc, char *argv[])
 
   printf("\nElmergrid creating and manipulating meshes:\n");
   printf(  "-------------------------------------------\n");
+  timer_show();
+
 
   if(nogrids > nomeshes && outmethod != 1) { 
 
@@ -846,6 +855,7 @@ int main(int argc, char *argv[])
     if(eg.partitions || eg.metis) {
       printf("\nElmergrid partitioning meshes:\n");
       printf(  "------------------------------\n");
+      timer_show();
 
       if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
 	FindPeriodicNodes(&data[k],eg.periodicdim,info);
@@ -864,21 +874,30 @@ int main(int argc, char *argv[])
 	  PartitionMetisNodes(&data[k],eg.metis,eg.partopt,info);      
       }
 #endif
-      if(data[k].periodicexist)
+      if(data[k].periodicexist) 
 	FindPeriodicParents(&data[k],boundaries[k],info);	
 
+      timer_show();
       OptimizePartitioning(&data[k],boundaries[k],!noopt,eg.partbw,info);
+
       if(data[k].periodicexist) {
 	free_Ivector(data[k].periodic,1,data[k].noknots);
 	data[k].periodicexist = FALSE;
       }
     }
+    timer_show();
   }
 
+
+  if(eg.nosave) {
+    Goodbye();
+    return(0);
+  }
 
   /********************************/
   printf("\nElmergrid saving data:\n");
   printf(  "----------------------\n");
+
 
   switch (outmethod) {
   case 1:
@@ -1017,6 +1036,8 @@ int main(int argc, char *argv[])
     Instructions();
     break;
   }    
+
+  timer_show();
 
   Goodbye();
   return(0);

@@ -32,8 +32,45 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <sys/types.h>
+#include <time.h> 
 
 #include "common.h" 
+
+static Real timer_t0, timer_dt;
+static int timer_active = FALSE;
+
+
+void timer_init()
+{
+  timer_active = FALSE;
+}
+
+void timer_activate()
+{
+  Real time;
+  timer_active = TRUE; 
+
+  time = clock() / (double)CLOCKS_PER_SEC;
+
+  printf("Activating timer (s): %.2lf\n",time);
+  timer_dt = time;
+  timer_t0 = time;
+}
+
+
+void timer_show()
+{
+  Real time;
+
+  if(!timer_active) return;
+
+  time = clock() / (double)CLOCKS_PER_SEC;
+  printf("Elapsed time (s): %.2lf %.2lf\n",time-timer_t0,time-timer_dt);
+  timer_dt = time;
+}
+
+
 
 
 void bigerror(char error_text[])
