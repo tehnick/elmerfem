@@ -1573,6 +1573,7 @@ CONTAINS
 
 
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultInitialize( Solver )
 !------------------------------------------------------------------------------
@@ -1603,7 +1604,10 @@ CONTAINS
     LOGICAL :: Found
 
     TYPE(Solver_t), POINTER :: Solver
+    CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond
+
     Solver => CurrentModel % Solver
+
     IF ( PRESENT( USolver ) ) Solver => USolver
     IF ( GetLogical(Solver % Values,'Linear System Solver Disabled',Found) ) RETURN
 

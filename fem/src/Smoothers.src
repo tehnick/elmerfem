@@ -1117,89 +1117,84 @@ use linearalgebra
         REAL(KIND=dp) :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,j,k,l,n,t,nn,k1,k2,elem,nsize,it
-        REAL(KIND=dp) :: st_norm
-        INTEGER, ALLOCATABLE :: ind(:), cnt(:)
-        REAL(KIND=dp), ALLOCATABLE :: AL(:,:),u(:),g(:) ,xx(:)
+        REAL(KIND=dp) :: s
+
+        LOGICAL :: NS
+
         TYPE(Variable_t), POINTER :: Var
         TYPE(Element_t), POINTER :: element
-!------------------------------------------------------------------------------
-        CALL MGmv( A, x, r )
-        r(1:n) = b(1:n) - r(1:n)
-        st_norm = SQRT(SUM(r(1:n)**2))
 
+        INTEGER, ALLOCATABLE :: ind(:)
+        REAL(KIND=dp), ALLOCATABLE :: AL(:,:), h(:)
+!------------------------------------------------------------------------------
         Var => VariableGet( Mesh % Variables, &
                  CurrentModel % Solver % Variable % Name, ThisOnly=.TRUE. )
+
+        NS = .FALSE.
+        IF ( Var % Name=='flow solution' ) NS=.TRUE.
         
         elem = Mesh % NumberOfBulkElements
         nsize = Mesh % MaxElementDOFs*DOFs
-        ALLOCATE( AL(nsize,nsize), u(nsize), g(nsize), ind(nsize) )
-        ALLOCATE( xx(n), cnt(n) )
-        xx = 0
-        cnt = 0
-        
-do it=1,Rounds
-        DO t=1,elem
-          element => Mesh % Elements(t)
-          nn = Element % Type % NumberOfnodes
-          nsize = nn*DOFs
+        ALLOCATE( AL(nsize,nsize), ind(nsize), h(nsize) )
+        AL = 0._dp
 
-          k = 0
-          DO i=1,nn
-            l = Element % Nodeindexes(i)
-            DO j=1,DOFs
-              k = k +1
-              ind(k) = DOFs*(Var % Perm(l)-1)+j
+        DO it=1,Rounds
+          DO t=1,elem
+            element => Mesh % Elements(t)
+            nn = Element % Type % NumberOfnodes
+            nsize = nn*DOFs
+
+            k = 0
+            DO i=1,nn
+              l = Element % Nodeindexes(i)
+              DO j=1,DOFs
+                k = k +1
+                ind(k) = DOFs*(Var % Perm(l)-1)+j
+              END DO
             END DO
-          END DO
 
-          DO i=1,nsize
-!           DO j=1,nsize
-!             AL(i,j) = CRS_GetMatrixElement(A,ind(i),ind(j))
-!           END DO
-            u(i) = x(ind(i))
-!           g(i) = b(ind(i))
-          END DO
-!         g(1:nsize) = g(1:nsize) - MATMUL(AL(1:nsize,1:nsize),u(1:nsize))
-!         DO i=1,nn
-!           DO j=1,DOFs-1
-!             DO k=1,nn
-!               DO l=l,DOFs-1
-!                 k1 = DOFs*(i-1)+j
-!                 k2 = DOFs*(k-1)+l
-!                 IF ( k1 /= k2 ) AL(k1,k2) = 0._dp
-!               END DO
-!             END DO
-!           END DO
-!         END DO
-!         CALL InvertMatrix( AL,nsize )
-!         u(1:nsize) = u(1:nsize) + MATMUL(AL(1:nsize,1:nsize),g(1:nsize))
-!         DO i=1,nsize
-!           x(ind(1:nsize)) = sum(x(ind(1:nsize)))/nsize
-!         END DO
+            DO i=1,nsize
+              j = ind(i)
+              s = 0._dp
+              DO k=A % Rows(j),A % Rows(j+1)-1
+                s = s + A % Values(k)*x(A % Cols(k))
+              END DO
+              h(i) = b(j)-s
+            END DO
 
-          k=0
-          do i=1,nn
-            do j=1,DOFs
-              k = k + 1
-              xx(ind(k)) = xx(ind(k)) + SUM(u(j:nsize:dofs))/nn
-              cnt(ind(k)) = cnt(ind(k)) + 1
-            end do
-          end do
+            IF (NS) THEN
+              DO i=1,nsize
+                DO j=1,nsize
+                  AL(i,j) = CRS_GetMatrixElement( A,ind(i),ind(j) )
+                END DO
+              END DO
+              CALL SolveLinSys( nsize,SIZE(AL,1),AL,h )
+            ELSE
+              h(1:nsize)=h(1:nsize)/A % Values(A % Diag(ind(1:nsize)))
+            END IF
+
+            x(ind(1:nsize))=x(ind(1:nsize))+h(1:nsize)
+          END DO
         END DO
-        where(cnt>0)
-           x = 0.8*x + 0.2*xx/cnt
-        end where
-end do
 
-        DEALLOCATE( AL, u, g, ind )
-
-        CALL MGmv( A, x, r )
-        r(1:n) = b(1:n) - r(1:n)
-print*, t,SQRT(SUM(r**2))
+        DEALLOCATE( AL, h, ind )
 !------------------------------------------------------------------------------
       END SUBROUTINE Vanka
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+      SUBROUTINE SolveLinSys( N,LDa,A,x )
+!------------------------------------------------------------------------------
+        INTEGER  N,IPIV(N),LDa,info
+        DOUBLE PRECISION  A(LDa,*),x(n)
+
+        IF ( N .LE. 0 ) RETURN
+        CALL DGETRF( N,N,A,LDa,IPIV,INFO )
+        CALL DGETRS( 'N',N,1,A,LDa,IPIV,X,N,INFO )
+!------------------------------------------------------------------------------
+      END SUBROUTINE SolveLinSys
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------

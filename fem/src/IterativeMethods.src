@@ -399,6 +399,8 @@ CONTAINS
       sigma = one
       rho0 = one
 
+10    CONTINUE 
+
       DO Round = 1, MaxRounds
 
         !-------------------------
@@ -548,8 +550,11 @@ CONTAINS
       ! solve the true unknown x
       !------------------------------------------------------------
       IF(Converged) THEN
+        WRITE (*, '(I8, 2E11.4)') Round, rnrm, errorind
+
         CALL CRS_LUSolve( n, A, x )       
         x(1:n) = x(1:n) + work(1:n,xp)        
+
 !        WRITE(*,'(a,ES12.3)') 'The 2-norm of the solution: ', &
 !            dnrm2( n, x(1:n), 1 )  
       END IF

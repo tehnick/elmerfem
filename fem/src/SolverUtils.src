@@ -2984,16 +2984,12 @@ CONTAINS
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
     TYPE(Variable_t), POINTER :: iterV
-    LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
-
-    Indexes => Dnodes
-    Indexes(1) = 1
+    LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore
 
     IF(SteadyState) THEN
-      tmp = ListGetReal( Solver % Values, &
-          'Steady State Relaxation Factor', nn, Indexes, Relax )
-      Relaxation = tmp(1)
+      Relaxation = ListGetCReal( Solver % Values, &
+          'Steady State Relaxation Factor', Relax )
       Relax = Relax .AND. (Relaxation /= 1.0d0)
       IF(Relax) THEN
          RelaxBefore = ListGetLogical( Solver % Values, &
@@ -3009,15 +3005,14 @@ CONTAINS
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
     ELSE
+      Relaxation = ListGetCReal( Solver % Values, &
+          'Nonlinear System Relaxation Factor', Relax )
 
-      tmp = ListGetReal( Solver % Values, &
-          'Nonlinear System Relaxation Factor', nn, Indexes, Relax )
-      Relaxation = tmp(1)
       Relax = Relax .AND. (Relaxation /= 1.0d0)
       IF(Relax) THEN
-          RelaxBefore = ListGetLogical( Solver % Values, &
-          'Nonlinear System Relaxation Before', Stat )
-          IF (.NOT. Stat ) RelaxBefore = .TRUE.
+        RelaxBefore = ListGetLogical( Solver % Values, &
+        'Nonlinear System Relaxation Before', Stat )
+        IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
 
       ConvergenceType = ListGetString(Solver % Values,&
@@ -3082,7 +3077,6 @@ CONTAINS
 
     Norm = ComputeNorm(Solver, n, x)
     Solver % Variable % Norm = Norm
-
 
     SELECT CASE( ConvergenceType )
 
@@ -3395,6 +3389,13 @@ CONTAINS
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm
     TYPE(Matrix_t), POINTER :: Aaid
 
+    INTERFACE 
+       SUBROUTINE VankaCreate(A,Solver)
+          USE Types
+          TYPE(Matrix_t) :: A
+          TYPE(Solver_t) :: Solver
+       END SUBROUTINE VankaCreate
+    END INTERFACE
 !------------------------------------------------------------------------------
     n = A % NumberOfRows
 
@@ -3505,7 +3506,6 @@ CONTAINS
 
 !   If solving eigensystem go there:
 !   --------------------------------
-
     IF ( EigenAnalysis ) THEN
        CALL SolveEigenSystem( &
            A, Solver %  NOFEigenValues, &
@@ -3601,8 +3601,8 @@ CONTAINS
     Solver % MultiGridLevel = Solver % MultigridTotal
 !------------------------------------------------------------------------------
 ! 
-!   Convert rhs initial value to the scaled system:
-!   -----------------------------------------------
+!   Convert rhs & initial value to the scaled system:
+!   -------------------------------------------------
     IF ( ScaleSystem ) b(1:n) = b(1:n) * Diag(1:n)
     bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
 

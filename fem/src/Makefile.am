@@ -317,6 +317,7 @@ EXTRA_DIST = \
 	ResultToResult.src \
 	ReynoldsSolver.src \
 	RigidBodyReduction.src \
+	RigidMeshMapper.src \
 	SaveData.src \
 	ScalarPotentialSolver.src \
 	ShellSolve.src \
@@ -352,6 +353,7 @@ EXTRA_DIST = \
 	V2FSolver.src \
 	Komega.src \
 	SSTKomega.src \
+	VankaCreate.src \
 	ViewFactors.src \
 	VorticitySolver.src \
 	Walls.src \

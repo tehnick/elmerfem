@@ -72,6 +72,7 @@ MODULE IterSolve
    INTEGER, PARAMETER, PRIVATE :: PRECOND_ILUT      =           530
    INTEGER, PARAMETER, PRIVATE :: PRECOND_MG        =           540
    INTEGER, PARAMETER, PRIVATE :: PRECOND_BILUn     =           550
+   INTEGER, PARAMETER, PRIVATE :: PRECOND_Vanka     =           560
 
    LOGICAL :: FirstCall = .TRUE.
 
@@ -133,6 +134,23 @@ END FUNCTION DotProduct
 #define HUTI_DIVERGENCE 3
 #endif
 
+!------------------------------------------------------------------------------
+  SUBROUTINE VankaPrec(u,v,ipar )
+!------------------------------------------------------------------------------
+    INTEGER :: ipar(*)
+    REAL(KIND=dp) :: u(HUTI_NDIM), v(HUTI_NDIM)
+!------------------------------------------------------------------------------
+
+    REAL(KIND=dp), POINTER :: SaveValues(:)
+
+    SaveValues => GlobalMatrix % Values
+    GlobalMatrix % Values => GlobalMatrix % ILUValues
+    CALL CRS_MatrixVectorProd(v,u,ipar)
+    GlobalMatrix % Values => SaveValues
+!------------------------------------------------------------------------------
+  END SUBROUTINE VankaPrec
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE IterSolver( A,x,b,SolverParam,DotF,NormF,MatvecF )
@@ -175,6 +193,14 @@ END FUNCTION DotProduct
 
     INTEGER(KIND=Addrint) :: dotProc, normProc, pcondProc, &
             pcondrProc=0, mvProc, AddrFunc, iterProc
+
+    INTERFACE
+       SUBROUTINE VankaCreate(A,Solver)
+          USE Types
+          TYPE(Matrix_t) :: A
+          TYPE(Solver_t) :: Solver
+       END SUBROUTINE VankaCreate
+    END INTERFACE
 !------------------------------------------------------------------------------
     N = A % NumberOfRows
 
@@ -324,6 +350,8 @@ END FUNCTION DotProduct
        END IF
      ELSE IF ( str(1:9) == 'multigrid' ) THEN
        PCondType = PRECOND_MG
+     ELSE IF ( str(1:5) == 'vanka' ) THEN
+       PCondType = PRECOND_VANKA
      ELSE
        PCondType = PRECOND_NONE
        CALL Warn( 'IterSolve', 'Unknown preconditioner type, feature disabled.' )
@@ -347,11 +375,12 @@ END FUNCTION DotProduct
                    Condition = CRS_ComplexILUT( A,ILUT_TOL )
                 END IF
              ELSE
-               IF ( PCondType == PRECOND_ILUn ) THEN
+               SELECT CASE(PCondType)
+               CASE(PRECOND_ILUn)
                  Condition = CRS_IncompleteLU(A,ILUn)
-               ELSE IF ( PCondType == PRECOND_ILUT ) THEN
+               CASE(PRECOND_ILUT)
                  Condition = CRS_ILUT( A,ILUT_TOL )
-               ELSE IF ( PCondType == PRECOND_BILUn ) THEN
+               CASE(PRECOND_BILUn)
                  Blocks = SolverParam % Variable % Dofs
                  IF ( Blocks <= 1 ) THEN
                    Condition = CRS_IncompleteLU(A,ILUn)
@@ -368,7 +397,9 @@ END FUNCTION DotProduct
                    END IF
                    DEALLOCATE( Adiag )
                  END IF
-               END IF
+               CASE(PRECOND_VANKA)
+                 CALL VankaCreate( A, SolverParam )
+               END SELECT
              END IF
            ELSE
              IF ( PCondType == PRECOND_ILUn ) THEN
@@ -433,6 +464,9 @@ END FUNCTION DotProduct
 
        CASE (PRECOND_MG)
          pcondProc = AddrFunc( MultiGridPrec )
+
+       CASE (PRECOND_VANKA)
+         pcondProc = AddrFunc( VankaPrec )
 
        CASE DEFAULT
          pcondProc = 0
