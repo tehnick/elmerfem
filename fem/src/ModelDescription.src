@@ -2503,19 +2503,19 @@ CONTAINS
     ! ---------------------------------------------
     Var => Mesh % Variables
     DO WHILE(ASSOCIATED(Var))
-      IF ( .NOT. ASSOCIATED(Var % perm) .OR. Var % DOFs<=1 ) CYCLE
-
-      n = Var % DOFs*COUNT(Var % Perm>0)
-      IF ( SIZE(Var % Values) /= n) THEN
-        ALLOCATE(Temp(n))
-        Temp = Var % Values(1:n)
-        DEALLOCATE(Var % Values)
-        Var % Values => Temp
-        DO i=1,DOFs
-          Comp => VariableGet(Mesh % Variables, &
-                ComponentName(Var % Name,i),ThisOnly=.TRUE.)
-          Comp % Values => Var % Values(i::Var % DOFs)
-        END DO
+      IF ( ASSOCIATED(Var % Perm) .AND. Var % DOFs>1 ) THEN
+        n = Var % DOFs*COUNT(Var % Perm>0)
+        IF ( SIZE(Var % Values) /= n) THEN
+          ALLOCATE(Temp(n))
+          Temp = Var % Values(1:n)
+          DEALLOCATE(Var % Values)
+          Var % Values => Temp
+          DO i=1,DOFs
+            Comp => VariableGet(Mesh % Variables, &
+                  ComponentName(Var % Name,i),ThisOnly=.TRUE.)
+            Comp % Values => Var % Values(i::Var % DOFs)
+          END DO
+        END IF
       END IF
       Var => Var % Next
     END DO
@@ -2524,14 +2524,14 @@ CONTAINS
     ! -----------------------
     Var => Mesh % Variables
     DO WHILE(ASSOCIATED(Var))
-      IF ( .NOT.ASSOCIATED(Var % Perm) .OR. Var % DOFs/=1 ) CYCLE
-
-      n = COUNT(Var % Perm>0)
-      IF ( SIZE(Var % Values) /= n) THEN
-        ALLOCATE(Temp(n))
-        Temp = Var % Values(1:n)
-        DEALLOCATE(Var % Values)
-        Var % Values => Temp
+      IF ( ASSOCIATED(Var % Perm) .AND. Var % DOFs==1 ) THEN
+        n = COUNT(Var % Perm>0)
+        IF ( SIZE(Var % Values) /= n) THEN
+          ALLOCATE(Temp(n))
+          Temp = Var % Values(1:n)
+          DEALLOCATE(Var % Values)
+          Var % Values => Temp
+        END IF
       END IF
       Var => Var % Next
     END DO
