@@ -41,6 +41,33 @@
 ! *****************************************************************************/
 
 
+!------------------------------------------------------------------------------
+SUBROUTINE PhaseChangeSolve_Init( Model,Solver,dt,TransientSimulation)
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL ::  TransientSimulation
+    REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+
+    Params => GetSolverParams()
+    VariableName = GetString(Params,'Variable')
+    CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+          '-nooutput '//TRIM(ComponentName(VariableName))//'Move' )
+
+    IF (ListGetLogical(Params,'Use Average Velocity',Found)) &
+      CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+          '-nooutput '//TRIM(ComponentName(VariableName))//'MoveAve' )
+!------------------------------------------------------------------------------
+END SUBROUTINE PhaseChangeSolve_Init
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
 SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
