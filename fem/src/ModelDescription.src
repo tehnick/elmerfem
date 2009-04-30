@@ -2205,7 +2205,7 @@ CONTAINS
     TYPE(Mesh_T), POINTER :: Mesh
     LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
-    TYPE(Variable_t),POINTER :: Var
+    TYPE(Variable_t),POINTER :: Var, Comp
     CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,FName,PosName
     CHARACTER(LEN=512) :: Trash
     INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
@@ -2221,7 +2221,7 @@ CONTAINS
     LOGICAL, SAVE :: Binary
 
     REAL(KIND=dp) :: Dummy,value,Time
-    REAL(KIND=dp), POINTER :: Component(:)
+    REAL(KIND=dp), POINTER :: Component(:), Temp(:)
     REAL(KIND=dp), POINTER :: Velocity1(:),Velocity2(:),Velocity3(:),Pressure(:)
     INTEGER(KIND=IntOff_k) :: Pos
     CHARACTER(1) :: E
@@ -2497,6 +2497,44 @@ CONTAINS
        END IF
        RestartFileOpen = .FALSE.
     END IF
+
+    ! Change variable allocations to correct sizes,
+    ! first for vectors...
+    ! ---------------------------------------------
+    Var => Mesh % Variables
+    DO WHILE(ASSOCIATED(Var))
+      IF ( .NOT. ASSOCIATED(Var % perm) .OR. Var % DOFs<=1 ) CYCLE
+
+      n = Var % DOFs*COUNT(Var % Perm>0)
+      IF ( SIZE(Var % Values) /= n) THEN
+        ALLOCATE(Temp(n))
+        Temp = Var % Values(1:n)
+        DEALLOCATE(Var % Values)
+        Var % Values => Temp
+        DO i=1,DOFs
+          Comp => VariableGet(Mesh % Variables, &
+                ComponentName(Var % Name,i),ThisOnly=.TRUE.)
+          Comp % Values => Var % Values(i::Var % DOFs)
+        END DO
+      END IF
+      Var => Var % Next
+    END DO
+
+    !... and then for scalars
+    ! -----------------------
+    Var => Mesh % Variables
+    DO WHILE(ASSOCIATED(Var))
+      IF ( .NOT.ASSOCIATED(Var % Perm) .OR. Var % DOFs/=1 ) CYCLE
+
+      n = COUNT(Var % Perm>0)
+      IF ( SIZE(Var % Values) /= n) THEN
+        ALLOCATE(Temp(n))
+        Temp = Var % Values(1:n)
+        DEALLOCATE(Var % Values)
+        Var % Values => Temp
+      END IF
+      Var => Var % Next
+    END DO
 
     CALL CPU_TIME(tstop)
     
