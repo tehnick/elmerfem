@@ -213,11 +213,11 @@ endif
 
 
 if USE_LOCAL_MPIF_H
-mpif:
+mpif: mpif_stub.h
 	$(CP) mpif_stub.h mpif.h
 	$(CP) mpif_stub.h mpif
 else 
-mpif:
+mpif: mpif_stub.h
 	$(CP) mpif_stub.h mpif
 endif
 

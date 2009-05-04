@@ -1187,10 +1187,10 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi
 
-@USE_LOCAL_MPIF_H_TRUE@mpif:
+@USE_LOCAL_MPIF_H_TRUE@mpif: mpif_stub.h
 @USE_LOCAL_MPIF_H_TRUE@	$(CP) mpif_stub.h mpif.h
 @USE_LOCAL_MPIF_H_TRUE@	$(CP) mpif_stub.h mpif
-@USE_LOCAL_MPIF_H_FALSE@mpif:
+@USE_LOCAL_MPIF_H_FALSE@mpif: mpif_stub.h
 @USE_LOCAL_MPIF_H_FALSE@	$(CP) mpif_stub.h mpif
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
