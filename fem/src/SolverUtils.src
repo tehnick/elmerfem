@@ -3438,9 +3438,7 @@ CONTAINS
         Diag(1:n) = A % Values(A % Diag(1:n))
       END IF
 
-      IF ( ParEnv % PEs>1 ) THEN
-         CALL ParallelSumVector(Solver % Matrix, Diag)
-      END IF
+      IF ( ParEnv % PEs>1 ) CALL ParallelSumVector(A, Diag)
 
       IF ( Solver % Matrix % COMPLEX ) THEN
         DO i=1,n,2
