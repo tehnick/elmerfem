@@ -150,7 +150,7 @@ MODULE NavierStokes
      REAL(KIND=dp), POINTER :: A(:,:),M(:,:),Load(:)
      REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3)
 
-     REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2,GasC
+     REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2,GasC, hScale
      REAL(KIND=dp) :: VNorm,hK,mK,mu,dmudx(3),Temperature
      REAL(KIND=dp) :: drhodx(3), rho, Pressure, dTemperaturedx(3), &
                       dPressuredx(3),dPrevPressuredx(3), Compress
@@ -183,6 +183,9 @@ MODULE NavierStokes
        dt = CurrentModel % Solver % dt
        Order = MIN(CurrentModel % Solver % DoneTime, CurrentModel % Solver % Order)
      END IF
+
+     hScale = GetCReal( GetSolverParams(), 'H scale', Found )
+     IF ( .NOT. Found )  hScale = 1._dp
 
 !#ifdef LES
 !     LESVar => VariableGet( CurrentModel % Variables, 'LES' )
@@ -253,12 +256,10 @@ MODULE NavierStokes
 !    Stabilization parameters: hK, mK (take a look at Franca et.al.)
 !------------------------------------------------------------------------------
     
-       hK = element % hK
-       mK = element % StabilizationMK
-     IF ( Stabilize ) THEN
-       hK = element % hK
-       mK = element % StabilizationMK
+     hK = element % hK*hscale
+     mK = element % StabilizationMK
 
+     IF ( Stabilize ) THEN
        dNodalBasisdx = 0._dp
        DO p=1,n
          u = Element % Type % NodeU(p)
