@@ -803,6 +803,7 @@ CONTAINS
       END IF
       
       VariableOutput = .TRUE.
+      VariableGlobal = .FALSE.
       DO WHILE( var_name(1:1) == '-' )
         IF ( var_name(1:10) == '-nooutput ' ) THEN
           VariableOutput = .FALSE.
@@ -2593,18 +2594,18 @@ END SUBROUTINE CoupledSolver
      TYPE(Element_t), POINTER :: CurrentElement
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
 
-     INTEGER :: comm_active, group_active, group_world, ierr
      INTEGER, ALLOCATABLE :: memb(:)
      TYPE(Matrix_t), POINTER :: M
+     INTEGER :: comm_active, group_active, group_world, ierr
 
 !------------------------------------------------------------------------------
 
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
        Solver % NumberOFActiveElements = 0
-       EquationName = ListGetString( Solver % Values, 'Equation', stat )
+       EquationName = ListGetString( Solver % Values, 'Equation', Found)
 
-       IF ( Stat ) THEN
-          IF (  ASSOCIATED( Solver % ActiveElements ) ) DEALLOCATE( Solver % ActiveElements )
+       IF ( Found ) THEN
+          IF (  ASSOCIATED(Solver % ActiveElements)) DEALLOCATE( Solver % ActiveElements )
           ALLOCATE( Solver % ActiveElements( Solver % Mesh % NumberOfBulkElements + &
                        Solver % Mesh % NumberOFBoundaryElements ) )
 
