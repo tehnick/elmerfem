@@ -32,7 +32,6 @@ esac
 AC_SUBST(canonical_host_type)
 ])
 
-
 AC_DEFUN([ACX_PROG_AR],[
 # fixme: do something more intelligent here
 AC_MSG_CHECKING([for ar])
@@ -115,6 +114,14 @@ AC_MSG_RESULT([optimized])
 fi
 
 ])
+
+dnl
+dnl check for svn revision
+dnl
+acx_revision=`svnversion src`
+AC_DEFINE_UNQUOTED(REVISION,"$acx_revision",[svn revision])
+
+
 
 dnl
 dnl @synopsis ACX_HUTI([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
