@@ -1141,6 +1141,8 @@ use linearalgebra
         DO it=1,Rounds
           DO t=1,elem
             element => Mesh % Elements(t)
+            IF ( ANY(Var % Perm(Element % NodeIndexes)<=0) ) CYCLE
+
             nn = Element % Type % NumberOfnodes
             nsize = nn*DOFs
 

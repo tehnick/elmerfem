@@ -134,8 +134,8 @@ CONTAINS
       CALL matvecsubr( x, r, ipar )
      
       r(1:n) = b(1:n) - r(1:n)
-      bnorm = normfun(n, b )
-      rnorm = normfun(n, r) 
+      bnorm = normfun(n, b, 1)
+      rnorm = normfun(n, r, 1) 
 
       Residual = rnorm / bnorm
       Converged = (Residual < MinTolerance) 
@@ -161,7 +161,7 @@ CONTAINS
         
         CALL matvecsubr( x, r, ipar )
         r(1:n) = b(1:n) - r(1:n)
-        rnorm = normfun(n, r)
+        rnorm = normfun(n, r, 1)
         
         Residual = rnorm / bnorm
         IF( MOD(k,OutputInterval) == 0) THEN
@@ -243,8 +243,8 @@ CONTAINS
       CALL matvecsubr( x, r, ipar )
       r(1:n) = b(1:n) - r(1:n)
       
-      bnorm = normfun(n, b)
-      rnorm = normfun(n, r)
+      bnorm = normfun(n, b, 1)
+      rnorm = normfun(n, r, 1)
       
       Residual = rnorm / bnorm
       Converged = (Residual < MinTolerance) 
@@ -256,7 +256,7 @@ CONTAINS
         CALL matvecsubr( x, r, ipar )
         
         r(1:n) = b(1:n) - r(1:n)
-        rnorm = normfun(n, r)
+        rnorm = normfun(n, r, 1)
         
         Residual = rnorm / bnorm
         
@@ -373,10 +373,10 @@ CONTAINS
       yl = y0+1
       y = yl+1
       
-      CALL CRS_MatrixVectorMultiply( A, x, work(1:n,r) )
+      CALL matvecsubr( x, work(1:n,r), ipar )
       work(1:n,r) = b(1:n) - work(1:n,r)
-      bnrm = dnrm2(n, b(1:n), 1)
-      rnrm0 = dnrm2(n, work(1:n,r), 1)
+      bnrm  = normfun(n, b(1:n), 1 )
+      rnrm0 = normfun(n, work(1:n,r), 1 )
 
       !-------------------------------------------------------------------
       ! Check whether the initial guess satisfies the stopping criterion
@@ -384,6 +384,7 @@ CONTAINS
       errorind = rnrm0 / bnrm
       Converged = (errorind < Tol)
       Diverged = (errorind > MaxTol)
+
       IF( Converged .OR. Diverged) RETURN
 
       work(1:n,rr) = work(1:n,r) 
@@ -409,7 +410,7 @@ CONTAINS
         rho0 = -omega*rho0
         
         DO k=1,l
-          rho1 = ddot(n, work(1:n,rr), 1, work(1:n,r+k-1), 1)
+          rho1 = dotprodfun(n, work(1:n,rr), 1, work(1:n,r+k-1), 1 )
           IF (rho0 == zero) THEN
             CALL Fatal( 'RealBiCGStab(l)', 'Breakdown error.' )
           ENDIF
@@ -418,10 +419,10 @@ CONTAINS
           DO j=0,k-1
             work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
           ENDDO
-          t(1:n) = work(1:n,u+k-1)
-          CALL CRS_LUSolve( n, A, t )
-          CALL CRS_MatrixVectorMultiply( A, t, work(1:n,u+k) )      
-          sigma = ddot(n, work(1:n,rr), 1, work(1:n,u+k), 1)
+          CALL pcondlsubr( t, work(1:n,u+k-1), ipar )
+          CALL matvecsubr( t, work(1:n,u+k),   ipar )
+
+          sigma = dotprodfun(n, work(1:n,rr), 1, work(1:n,u+k), 1 )
           IF (sigma == zero) THEN
             CALL Fatal( 'RealBiCGStab(l)', 'Breakdown error.' )
           ENDIF
@@ -430,10 +431,9 @@ CONTAINS
           DO j=0,k-1
             work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
           ENDDO
-          t(1:n) = work(1:n,r+k-1)
-          CALL CRS_LUSolve( n, A, t ) 
-          CALL CRS_MatrixVectorMultiply( A, t, work(1:n,r+k) )  
-          rnrm = dnrm2(n, work(1:n,r), 1)
+          CALL pcondlsubr( t, work(1:n,r+k-1), ipar )
+          CALL matvecsubr( t, work(1:n,r+k),   ipar )
+          rnrm = normfun(n, work(1:n,r), 1 )
           mxnrmx = MAX (mxnrmx, rnrm)
           mxnrmr = MAX (mxnrmr, rnrm)
         ENDDO
@@ -444,7 +444,7 @@ CONTAINS
           
         DO i=1,l+1
           DO j=1,i
-            rwork(i,j) = ddot(n, work(1:n,r+i-1), 1, work(1:n,r+j-1),1 ) 
+            rwork(i,j) = dotprodfun(n, work(1:n,r+i-1), 1, work(1:n,r+j-1), 1 ) 
           END DO
         END DO
         DO j=2,l+1
@@ -508,9 +508,8 @@ CONTAINS
         rcmp = ((rnrm < delta*mxnrmr .AND. rnrm0 < mxnrmr) .OR. xpdt)
         IF (rcmp) THEN
           ! PRINT *, 'Performing residual update...'
-          t(1:n) = x(1:n)
-          CALL CRS_LUSolve( n, A, t )         
-          CALL CRS_MatrixVectorMultiply( A, t, work(1:n,r) )
+          CALL pcondlsubr( t, x, ipar )
+          CALL matvecsubr( t, work(1:n,r), ipar )
           work(1:n,r) = work(1:n,bp) - work(1:n,r)
           mxnrmr = rnrm
           IF (xpdt) THEN
@@ -529,14 +528,14 @@ CONTAINS
             t(1:n) = t(1:n) + work(1:n,xp)  
           END IF
         ELSE
-          t(1:n) = x(1:n)
-          CALL CRS_LUSolve( n, A, t ) 
-          t(1:n) =  t(1:n) + work(1:n,xp)
+          CALL pcondlsubr( t, x, ipar )
+          t(1:n) = t(1:n)+work(1:n,xp)
         END IF
         
         errorind = rnrm / bnrm
         IF( MOD(Round,OutputInterval) == 0) THEN
-          WRITE (*, '(I8, 2E11.4)') Round, rnrm, errorind
+          WRITE (Message, '(I8, 2E11.4)') Round, rnrm, errorind
+          CALL Info( '', Message, Level=6 )
         END IF
       
         Converged = (errorind < Tol) 
@@ -550,15 +549,18 @@ CONTAINS
       ! solve the true unknown x
       !------------------------------------------------------------
       IF(Converged) THEN
-        WRITE (*, '(I8, 2E11.4)') Round, rnrm, errorind
+        IF ( OutputInterval /= HUGE(OutputInterval) ) THEN
+          WRITE (Message, '(I8, 2E11.4)') Round, rnrm, errorind
+          CALL Info( '', Message, Level=6 )
+        END IF
 
-        CALL CRS_LUSolve( n, A, x )       
+        t(1:n) = x(1:n)
+        CALL pcondlsubr( x, t, ipar )
         x(1:n) = x(1:n) + work(1:n,xp)        
 
 !        WRITE(*,'(a,ES12.3)') 'The 2-norm of the solution: ', &
 !            dnrm2( n, x(1:n), 1 )  
       END IF
-
 !------------------------------------------------------------------------------
     END SUBROUTINE RealBiCGStabl
 !------------------------------------------------------------------------------

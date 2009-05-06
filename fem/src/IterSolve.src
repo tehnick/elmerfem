@@ -101,26 +101,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-FUNCTION VectorNorm2(n,x) RESULT (norm)
-  INTEGER :: n
-  REAL(KIND=dp) :: x(n),norm
-  REAL(KIND=dp) :: dnrm2
-  EXTERNAL :: dnrm2
-
-  norm = DNRM2(N, X, 1)
-END FUNCTION VectorNorm2
-
-
-FUNCTION DotProduct(n,x,y) RESULT (res)
-  INTEGER :: n
-  REAL(KIND=dp) :: x(n),y(n),res
-  REAL(KIND=dp) :: ddot
-  EXTERNAL :: ddot
-  
-  res = DDOT(N, X, 1, Y, 1)
-END FUNCTION DotProduct
-
-
 #ifndef HUTI_MAXTOLERANCE
 #define HUTI_MAXTOLERANCE dpar(2)
 #endif
@@ -491,21 +471,21 @@ END FUNCTION DotProduct
 
        CASE (ITER_SGS)
          iterProc = AddrFunc( itermethod_sgs )
-         dotProc = AddrFunc(DotProduct)
-         normproc = AddrFunc(VectorNorm2)
+         IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
+         IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
          ! Eliminate the MOD(i,0) problem in later testing
          IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
 
        CASE (ITER_JACOBI)
          iterProc = AddrFunc( itermethod_jacobi )
-         dotProc = AddrFunc(DotProduct)
-         normproc = AddrFunc(VectorNorm2)
+         IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
+         IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
          IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
 
        CASE (ITER_BICGSTABL)
          iterProc = AddrFunc( itermethod_bicgstabl )
-         dotProc = AddrFunc(DotProduct)
-         normproc = AddrFunc(VectorNorm2)
+         IF ( dotProc  == 0 ) dotProc = AddrFunc(ddot)
+         IF ( normProc == 0 ) normproc = AddrFunc(dnrm2)
          IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
 
        END SELECT
