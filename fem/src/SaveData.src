@@ -653,11 +653,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     END IF
 
     OPEN (10, FILE=ScalarNamesFile)
-    IF(ListCheckPresent( Model % Simulation,'Comment' )) THEN
-      WRITE(10,*) ListGetString(Model % Simulation,'Comment')
+    Message = ListGetString(Model % Simulation,'Comment',GotIt)	
+    IF( GotIt ) THEN
+      WRITE(10,'(A)') TRIM(Message)
     END IF 		
-    IF(ListCheckPresent( Solver % Values,'Comment' )) THEN
-      WRITE(10,*) ListGetString(Solver % Values,'Comment')
+    Message = ListGetString(Solver % Values,'Comment',GotIt)	
+    IF( GotIt ) THEN
+      WRITE(10,'(A)') TRIM(Message)
     END IF 		
     DateStr = FormatDate()
     WRITE( 10,'(A,A)') 'File started at: ',TRIM(DateStr)
@@ -2789,12 +2791,15 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   
      SideNamesFile = TRIM(SideFile) // '.' // TRIM("names")
      OPEN (10, FILE=SideNamesFile)
-     IF(ListCheckPresent( Model % Simulation,'Comment' )) THEN
-        WRITE(10,*) ListGetString(Model % Simulation,'Comment')
-     END IF
-     IF(ListCheckPresent( Solver % Values,'Comment' )) THEN
-        WRITE(10,*) ListGetString(Solver % Values,'Comment')
-     END IF
+
+     Message = ListGetString(Model % Simulation,'Comment',GotIt)	
+     IF( GotIt ) THEN
+       WRITE(10,'(A)') TRIM(Message)
+     END IF 		
+     Message = ListGetString(Solver % Values,'Comment',GotIt)	
+     IF( GotIt ) THEN
+       WRITE(10,'(A)') TRIM(Message)
+     END IF 
      WRITE(10,'(A,A)') 'Variables in file: ',TRIM(SideFile)
 
      DateStr = FormatDate()
