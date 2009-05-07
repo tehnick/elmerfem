@@ -572,7 +572,7 @@ CONTAINS
 !------------------------------------------------------------------------------
        INTEGER :: dim
        Type(Nodes_t) :: ElementNodes
-       INTEGER :: nBulk, i, j, k, l, n
+       INTEGER :: nBulk, i, j, k, l, n, bf_id
        REAL(KIND=dp), DIMENSION(3) :: Point
        INTEGER, POINTER :: NodeIndexes(:)
        REAL(KIND=dp), DIMENSION(3) :: LocalCoordinates
@@ -707,8 +707,11 @@ CONTAINS
                     Element => OldMesh % Elements(LeafQuadrant % Elements(k))
 
                     IF( MaskExists ) THEN
-	              IF(.NOT. ListCheckPresent( &
-	                   CurrentModel % Bodies(Element % BodyId) % Values,MaskName )) CYCLE
+	              bf_id = ListGetInteger( CurrentModel % Bodies(Element % BodyId) % Values, &
+                       'Body Force', Found )
+	              IF( .NOT. Found ) CYCLE
+	              IF(.NOT. ListCheckPresent( &	
+	                   CurrentModel % BodyForces(bf_id) % Values,MaskName) ) CYCLE
                     END IF
 	
                     NodeIndexes => Element % NodeIndexes
