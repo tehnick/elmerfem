@@ -355,24 +355,26 @@ CONTAINS
       IF ( l < 2) CALL Fatal( 'RealBiCGStabl', 'Polynomial degree < 2' )
       
       IF ( ALL(x == 0.0d0) ) x = b
+
       
       zero = 0.0d0
       one =  1.0d0
+
       work = 0.0d0
       rwork = 0.0d0
-      
+    
       rr = 1
       r = rr+1
       u = r+(l+1)
       xp = u+(l+1)
       bp = xp+1
-      
+    
       z = 1
       zz = z+(l+1)
       y0 = zz+(l+1)
       yl = y0+1
       y = yl+1
-      
+    
       CALL matvecsubr( x, work(1:n,r), ipar )
       work(1:n,r) = b(1:n) - work(1:n,r)
       bnrm  = normfun(n, b(1:n), 1 )
@@ -400,15 +402,12 @@ CONTAINS
       sigma = one
       rho0 = one
 
-10    CONTINUE 
-
-      DO Round = 1, MaxRounds
-
+      DO Round=1,MaxRounds
         !-------------------------
         ! --- The BiCG part ---
         !-------------------------
         rho0 = -omega*rho0
-        
+      
         DO k=1,l
           rho1 = dotprodfun(n, work(1:n,rr), 1, work(1:n,r+k-1), 1 )
           IF (rho0 == zero) THEN
@@ -441,7 +440,7 @@ CONTAINS
         !--------------------------------------
         ! --- The convex polynomial part ---
         !--------------------------------------
-          
+        
         DO i=1,l+1
           DO j=1,i
             rwork(i,j) = dotprodfun(n, work(1:n,r+i-1), 1, work(1:n,r+j-1), 1 ) 
@@ -454,9 +453,9 @@ CONTAINS
         rwork(1:l+1,zz:zz+l) = rwork(1:l+1,z:z+l)
         CALL dgetrf (l-1, l-1, rwork(2:l,zz+1:zz+l-1), l-1, &
             iwork, stat)
-        
+      
         ! --- tilde r0 and tilde rl (small vectors)
-        
+      
         rwork(1,y0) = -one
         rwork(2:l,y0) = rwork(2:l,z) 
         CALL dgetrs('n', l-1, 1, rwork(2:l,zz+1:zz+l-1), l-1, iwork, &
@@ -468,9 +467,9 @@ CONTAINS
         CALL dgetrs ('n', l-1, 1, rwork(2:l,zz+1:zz+l-1), l-1, iwork, &
             rwork(2:l,yl), l-1, stat)
         rwork(l+1,yl) = -one
-        
+      
         ! --- Convex combination
-        
+      
         CALL dsymv ('u', l+1, one, rwork(1:l+1,z:z+l), l+1, &
             rwork(1:l+1,y0), 1, zero, rwork(1:l+1,y), 1)
         kappa0 = SQRT( ddot(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1) )
@@ -478,7 +477,7 @@ CONTAINS
             rwork(1:l+1,yl), 1, zero, rwork(1:l+1,y), 1)
         kappal = SQRT( ddot(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1) )
         CALL dsymv ('u', l+1, one, rwork(1:l+1,z:z+l), l+1, &
-            rwork(1:l+1,y0), 1, zero, rwork(1:l+1,y), 1)
+          rwork(1:l+1,y0), 1, zero, rwork(1:l+1,y), 1)
         varrho = ddot(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1) / &
             (kappa0*kappal)
         hatgamma = varrho/ABS(varrho) * MAX(ABS(varrho),7d-1) * &
@@ -493,11 +492,11 @@ CONTAINS
           x(1:n) = x(1:n) + rwork(j+1,y0) * work(1:n,r+j-1)
           work(1:n,r) = work(1:n,r) - rwork(j+1,y0) * work(1:n,r+j)
         ENDDO
-        
+    
         CALL dsymv ('u', l+1, one, rwork(1:l+1,z:z+l), l+1, &
             rwork(1:l+1,y0), 1, zero, rwork(1:l+1,y), 1)
         rnrm = SQRT( ddot(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1) )
-          
+        
         !---------------------------------------
         !  --- The reliable update part ---
         !---------------------------------------
@@ -531,36 +530,30 @@ CONTAINS
           CALL pcondlsubr( t, x, ipar )
           t(1:n) = t(1:n)+work(1:n,xp)
         END IF
-        
+      
         errorind = rnrm / bnrm
         IF( MOD(Round,OutputInterval) == 0) THEN
           WRITE (Message, '(I8, 2E11.4)') Round, rnrm, errorind
           CALL Info( '', Message, Level=6 )
         END IF
-      
+    
         Converged = (errorind < Tol) 
         Diverged = (errorind > MaxTol)     
-
         IF( Converged .OR. Diverged) EXIT    
       END DO
-      
+
+      IF(OutputInterval/=HUGE(OutputInterval)) THEN
+        WRITE (Message, '(I8, 2E11.4)') Round, rnrm, errorind
+        CALL Info( '', Message, Level=6 )
+      END IF
+    
       !------------------------------------------------------------
       ! We have solved z = P*x, with P the preconditioner, so finally 
       ! solve the true unknown x
       !------------------------------------------------------------
-      IF(Converged) THEN
-        IF ( OutputInterval /= HUGE(OutputInterval) ) THEN
-          WRITE (Message, '(I8, 2E11.4)') Round, rnrm, errorind
-          CALL Info( '', Message, Level=6 )
-        END IF
-
-        t(1:n) = x(1:n)
-        CALL pcondlsubr( x, t, ipar )
-        x(1:n) = x(1:n) + work(1:n,xp)        
-
-!        WRITE(*,'(a,ES12.3)') 'The 2-norm of the solution: ', &
-!            dnrm2( n, x(1:n), 1 )  
-      END IF
+      t(1:n) = x(1:n)
+      CALL pcondlsubr( x, t, ipar )
+      x(1:n) = x(1:n) + work(1:n,xp)        
 !------------------------------------------------------------------------------
     END SUBROUTINE RealBiCGStabl
 !------------------------------------------------------------------------------
