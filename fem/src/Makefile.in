@@ -141,6 +141,7 @@ LIBEXT = @LIBEXT@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBSOLVER_DEPS = @LIBSOLVER_DEPS@
+LN = @LN@
 LONG_KIND = @LONG_KIND@
 LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
@@ -1101,8 +1102,9 @@ fdeps:
 
 @USE_WINDOWS_COMPILER_FALSE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 @USE_WINDOWS_COMPILER_FALSE@	$(RM) $@
-@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION).so -o libelmersolver-$(VERSION).so $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
-@USE_WINDOWS_COMPILER_FALSE@	ln -s libelmersolver-$(VERSION).so $@
+@MAC_OSX_TRUE@@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-dylib_install_name,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+@MAC_OSX_FALSE@@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+@USE_WINDOWS_COMPILER_FALSE@	$(LN) -s libelmersolver-$(VERSION)$(SHL_EXT) $@
 
 @USE_WINDOWS_COMPILER_FALSE@.$(OBJEXT).$(SHLEXT): 
 @USE_WINDOWS_COMPILER_FALSE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
@@ -1180,7 +1182,9 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) ViewFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
-	$(CP) -a libelmersolver*$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(CP) libelmersolver-$(VERSION)$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(LN) -sf libelmersolver-$(VERSION)$(SHL_EXT)\
+              $(DESTDIR)$(prefix)/lib/libelmersolver$(SHL_EXT)
 	$(CP) elmerf90 elmerf90-nosh elmerld $(DESTDIR)$(prefix)/bin
 @USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin
 

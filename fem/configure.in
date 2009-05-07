@@ -171,11 +171,13 @@ SOLVER_LIBS="$LIBS $MPI_LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIB
 
 dnl Host specific hacks.
 dnl
+AM_CONDITIONAL(MAC_OSX,0)
 case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     EXTRA_LIBS="-L$prefix/lib $HUTI_LIBS $BLAS_LIBS"
   ;;
   *darwin*)
+    AM_CONDITIONAL(MAC_OSX,1)
     EXTRA_LIBS="$STDCXX_LIBS $FCFLIBS $FLIBS"
   ;;
   *-*-mingw*)
@@ -191,9 +193,11 @@ if test "$acx_cv_c_compiler_ms" = "yes"; then
     EXTRA_LIBS="-llibelmersolver -stack:500000000"
 fi
 
+
 TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG."
 
 CP='cp'
+LN='ln'
 RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
@@ -259,6 +263,7 @@ AC_SUBST(UNIX_MATH_LIB)
 AC_SUBST(LIBSOLVER_DEPS)
 AC_SUBST(RM)
 AC_SUBST(CP)
+AC_SUBST(LN)
 AC_SUBST(MV)
 AC_SUBST(F77)
 AC_SUBST(CPP)

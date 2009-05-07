@@ -767,6 +767,8 @@ SH_LD
 UPPERCASEMODS_TRUE
 UPPERCASEMODS_FALSE
 modput_opt
+MAC_OSX_TRUE
+MAC_OSX_FALSE
 TESTS_FCFLAGS
 INCLUDE_MODULE_FLAG
 MESHGEN2D_LIBS
@@ -799,6 +801,7 @@ UNIX_MATH_LIB
 LIBSOLVER_DEPS
 RM
 CP
+LN
 MV
 MKDIR
 SOLVER_LIBS
@@ -15945,11 +15948,27 @@ fi
 
 SOLVER_LIBS="$LIBS $MPI_LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
+ if 0; then
+  MAC_OSX_TRUE=
+  MAC_OSX_FALSE='#'
+else
+  MAC_OSX_TRUE='#'
+  MAC_OSX_FALSE=
+fi
+
 case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     EXTRA_LIBS="-L$prefix/lib $HUTI_LIBS $BLAS_LIBS"
   ;;
   *darwin*)
+     if 1; then
+  MAC_OSX_TRUE=
+  MAC_OSX_FALSE='#'
+else
+  MAC_OSX_TRUE='#'
+  MAC_OSX_FALSE=
+fi
+
     EXTRA_LIBS="$STDCXX_LIBS $FCFLIBS $FLIBS"
   ;;
   *-*-mingw*)
@@ -15961,9 +15980,11 @@ if test "$acx_cv_c_compiler_ms" = "yes"; then
     EXTRA_LIBS="-llibelmersolver -stack:500000000"
 fi
 
+
 TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG."
 
 CP='cp'
+LN='ln'
 RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
@@ -16022,6 +16043,7 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6; }
 echo "${ECHO_T}defining OFF_KIND to be $OFF_KIND" >&6; }
 { echo "$as_me:$LINENO: result: defining LONG_KIND to be $LONG_KIND" >&5
 echo "${ECHO_T}defining LONG_KIND to be $LONG_KIND" >&6; }
+
 
 
 
@@ -16272,6 +16294,20 @@ if test -z "${UPPERCASEMODS_TRUE}" && test -z "${UPPERCASEMODS_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"UPPERCASEMODS\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"UPPERCASEMODS\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${MAC_OSX_TRUE}" && test -z "${MAC_OSX_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"MAC_OSX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"MAC_OSX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${MAC_OSX_TRUE}" && test -z "${MAC_OSX_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"MAC_OSX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"MAC_OSX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -17014,6 +17050,8 @@ SH_LD!$SH_LD$ac_delim
 UPPERCASEMODS_TRUE!$UPPERCASEMODS_TRUE$ac_delim
 UPPERCASEMODS_FALSE!$UPPERCASEMODS_FALSE$ac_delim
 modput_opt!$modput_opt$ac_delim
+MAC_OSX_TRUE!$MAC_OSX_TRUE$ac_delim
+MAC_OSX_FALSE!$MAC_OSX_FALSE$ac_delim
 TESTS_FCFLAGS!$TESTS_FCFLAGS$ac_delim
 INCLUDE_MODULE_FLAG!$INCLUDE_MODULE_FLAG$ac_delim
 MESHGEN2D_LIBS!$MESHGEN2D_LIBS$ac_delim
@@ -17046,14 +17084,12 @@ UNIX_MATH_LIB!$UNIX_MATH_LIB$ac_delim
 LIBSOLVER_DEPS!$LIBSOLVER_DEPS$ac_delim
 RM!$RM$ac_delim
 CP!$CP$ac_delim
+LN!$LN$ac_delim
 MV!$MV$ac_delim
 MKDIR!$MKDIR$ac_delim
 SOLVER_LIBS!$SOLVER_LIBS$ac_delim
 SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
 OFF_KIND!$OFF_KIND$ac_delim
-LONG_KIND!$LONG_KIND$ac_delim
-LIBOBJS!$LIBOBJS$ac_delim
-LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -17088,6 +17124,52 @@ N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g; b n
 ' >>$CONFIG_STATUS <conf$$subs.sed
 rm -f conf$$subs.sed
 cat >>$CONFIG_STATUS <<_ACEOF
+CEOF$ac_eof
+_ACEOF
+
+
+ac_delim='%!_!# '
+for ac_last_try in false false false false false :; do
+  cat >conf$$subs.sed <<_ACEOF
+LONG_KIND!$LONG_KIND$ac_delim
+LIBOBJS!$LIBOBJS$ac_delim
+LTLIBOBJS!$LTLIBOBJS$ac_delim
+_ACEOF
+
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 3; then
+    break
+  elif $ac_last_try; then
+    { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
+echo "$as_me: error: could not make $CONFIG_STATUS" >&2;}
+   { (exit 1); exit 1; }; }
+  else
+    ac_delim="$ac_delim!$ac_delim _$ac_delim!! "
+  fi
+done
+
+ac_eof=`sed -n '/^CEOF[0-9]*$/s/CEOF/0/p' conf$$subs.sed`
+if test -n "$ac_eof"; then
+  ac_eof=`echo "$ac_eof" | sort -nru | sed 1q`
+  ac_eof=`expr $ac_eof + 1`
+fi
+
+cat >>$CONFIG_STATUS <<_ACEOF
+cat >"\$tmp/subs-3.sed" <<\CEOF$ac_eof
+/@[a-zA-Z_][a-zA-Z_0-9]*@/!b end
+_ACEOF
+sed '
+s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g
+s/^/s,@/; s/!/@,|#_!!_#|/
+:n
+t n
+s/'"$ac_delim"'$/,g/; t
+s/$/\\/; p
+N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g; b n
+' >>$CONFIG_STATUS <conf$$subs.sed
+rm -f conf$$subs.sed
+cat >>$CONFIG_STATUS <<_ACEOF
+:end
+s/|#_!!_#|//g
 CEOF$ac_eof
 _ACEOF
 
@@ -17341,7 +17423,7 @@ s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
 s&@INSTALL@&$ac_INSTALL&;t t
 s&@MKDIR_P@&$ac_MKDIR_P&;t t
 $ac_datarootdir_hack
-" $ac_file_inputs | sed -f "$tmp/subs-1.sed" | sed -f "$tmp/subs-2.sed" | sed 's/|#_!!_#|//g' >$tmp/out
+" $ac_file_inputs | sed -f "$tmp/subs-1.sed" | sed -f "$tmp/subs-2.sed" | sed -f "$tmp/subs-3.sed" >$tmp/out
 
 test -z "$ac_datarootdir_hack$ac_datarootdir_seen" &&
   { ac_out=`sed -n '/\${datarootdir}/p' "$tmp/out"`; test -n "$ac_out"; } &&

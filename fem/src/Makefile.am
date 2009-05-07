@@ -85,8 +85,12 @@ else
 
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 	$(RM) $@
-	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION).so -o libelmersolver-$(VERSION).so $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
-	ln -s libelmersolver-$(VERSION).so $@
+if MAC_OSX
+	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-dylib_install_name,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+else
+	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+endif
+	$(LN) -s libelmersolver-$(VERSION)$(SHL_EXT) $@
 
 
 .$(OBJEXT).$(SHLEXT): 
@@ -193,7 +197,9 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) ViewFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
-	$(CP) -a libelmersolver*$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(CP) libelmersolver-$(VERSION)$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+	$(LN) -sf libelmersolver-$(VERSION)$(SHL_EXT)\
+              $(DESTDIR)$(prefix)/lib/libelmersolver$(SHL_EXT)
 	$(CP) elmerf90 elmerf90-nosh elmerld $(DESTDIR)$(prefix)/bin
 if USE_MPI
 	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin
