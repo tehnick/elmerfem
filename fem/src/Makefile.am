@@ -197,9 +197,13 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) ViewFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(DESTDIR)$(prefix)/bin
+if USE_WINDOWS_COMPILER
+	$(CP) libelmersolver*$(SHL_EXT) $(DESTDIR)$(prefix)/lib
+else
 	$(CP) libelmersolver-$(VERSION)$(SHL_EXT) $(DESTDIR)$(prefix)/lib
 	$(LN) -sf libelmersolver-$(VERSION)$(SHL_EXT)\
               $(DESTDIR)$(prefix)/lib/libelmersolver$(SHL_EXT)
+endif
 	$(CP) elmerf90 elmerf90-nosh elmerld $(DESTDIR)$(prefix)/bin
 if USE_MPI
 	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin
