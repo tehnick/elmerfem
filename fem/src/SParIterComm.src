@@ -2335,13 +2335,14 @@ END SUBROUTINE ExchangeInterfaces
 ! processors. This is done only once so there is no need to optimize
 ! communication...
 !
-  SUBROUTINE ExchangeIfvalues( NbsIfMatrix, RecvdIfMatrix,NeedMass,NeedDamp )
+  SUBROUTINE ExchangeIfvalues( NbsIfMatrix, RecvdIfMatrix, &
+             NeedMass, NeedDamp, NeedPrec )
     USE Types
     IMPLICIT NONE
 
     ! Parameters
 
-    LOGICAL :: NeedMass, NeedDamp
+    LOGICAL :: NeedMass, NeedDamp,NeedPrec
     TYPE (BasicMatrix_t), DIMENSION(:) :: NbsIfMatrix, RecvdIfMatrix
 
     ! Local variables
@@ -2373,7 +2374,7 @@ END SUBROUTINE ExchangeInterfaces
       totalsize = totalsize + 4
     ELSE
       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
-      totalsize = totalsize + 4 + 3*4*rows + 4 + 4*cols
+      totalsize = totalsize + 4 + 3*4*rows + 4 + 5*cols
     END IF
   END DO
   CALL CheckBuffer( totalsize+MPI_BSEND_OVERHEAD*8 )
@@ -2447,8 +2448,12 @@ END SUBROUTINE ExchangeInterfaces
          ALLOCATE( RecvdIfMatrix(sproc+1) % MassValues(Cols) )
 
        RecvdIfMatrix(sproc+1) % DampValues => NULL()
-       IF ( NeedMass ) &
+       IF ( NeedDamp ) &
          ALLOCATE( RecvdIfMatrix(sproc+1) % DampValues(Cols) )
+
+       RecvdIfMatrix(sproc+1) % ILUValues => NULL()
+       IF ( NeedPrec ) &
+         ALLOCATE( RecvdIfMatrix(sproc+1) % ILUValues(Cols) )
 
        req_cnt = req_cnt+1
        CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % GRows, rows,  MPI_INTEGER, &
@@ -2601,6 +2606,35 @@ END SUBROUTINE ExchangeInterfaces
          cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
          CALL MPI_BSEND( NbsIfMatrix(destproc+1) % DampValues, &
               cols, MPI_DOUBLE_PRECISION, destproc, 2007, MPI_COMM_WORLD, ierr )
+      END IF
+    END DO
+    CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )
+  END IF
+
+!----------------------------------------------------------------------
+
+  IF ( NeedPrec ) THEN
+    req_cnt = 0
+    DO i = 1, n
+       rows = recv_rows(i)
+       sproc = neigh(i)
+       RecvdIfMatrix(sproc+1) % NumberOfRows = rows
+
+       IF ( rows>0 ) THEN
+         cols = recv_cols(i)
+         req_cnt = req_cnt+1
+         CALL MPI_iRECV( RecvdIfMatrix(sproc+1) % ILUValues, cols, &
+           MPI_DOUBLE_PRECISION, sproc, 2008, MPI_COMM_WORLD, requests(req_cnt), ierr )
+       END IF
+    END DO
+
+    DO i = 1, n
+      destproc = neigh(i)
+      rows = NbsIfMatrix(destproc+1) % NumberOfRows
+      IF ( rows>0 ) THEN
+         cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
+         CALL MPI_BSEND( NbsIfMatrix(destproc+1) % ILUValues, &
+              cols, MPI_DOUBLE_PRECISION, destproc, 2008, MPI_COMM_WORLD, ierr )
       END IF
     END DO
     CALL MPI_Waitall( req_cnt, requests, MPI_STATUSES_IGNORE, ierr )

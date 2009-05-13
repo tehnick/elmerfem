@@ -114,21 +114,16 @@ CONTAINS
 #define HUTI_DIVERGENCE 3
 #endif
 
+
 !------------------------------------------------------------------------------
-  SUBROUTINE VankaPrec(u,v,ipar )
+  SUBROUTINE pcond_dummy(u,v,ipar )
 !------------------------------------------------------------------------------
     INTEGER :: ipar(*)
     REAL(KIND=dp) :: u(HUTI_NDIM), v(HUTI_NDIM)
 !------------------------------------------------------------------------------
-
-    REAL(KIND=dp), POINTER :: SaveValues(:)
-
-    SaveValues => GlobalMatrix % Values
-    GlobalMatrix % Values => GlobalMatrix % ILUValues
-    CALL CRS_MatrixVectorProd(v,u,ipar)
-    GlobalMatrix % Values => SaveValues
+    u=v 
 !------------------------------------------------------------------------------
-  END SUBROUTINE VankaPrec
+  END SUBROUTINE pcond_dummy
 !------------------------------------------------------------------------------
 
 
@@ -180,6 +175,12 @@ CONTAINS
           TYPE(Matrix_t) :: A
           TYPE(Solver_t) :: Solver
        END SUBROUTINE VankaCreate
+
+       SUBROUTINE VankaPrec(u,v,ipar)
+          USE Types
+          INTEGER :: ipar(*)
+          REAL(KIND=dp) :: u(*),v(*)
+       END SUBROUTINE VankaPrec
     END INTERFACE
 !------------------------------------------------------------------------------
     N = A % NumberOfRows
@@ -344,10 +345,8 @@ CONTAINS
         Refactorize = ListGetLogical( SolverParam % Values, 'Linear System Refactorize', Gotit )
         IF ( .NOT. Gotit ) Refactorize = .TRUE.
 
-        IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize .AND. MOD(A % SolveCount, n)==0) ) THEN
-
+        IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize.AND.MOD(A % SolveCount, n)==0) ) THEN
            IF ( A % FORMAT == MATRIX_CRS ) THEN
-
              IF ( A % COMPLEX ) THEN
                 IF ( PCondType == PRECOND_ILUn ) THEN
                    Condition = CRS_ComplexIncompleteLU(A,ILUn)
@@ -378,7 +377,7 @@ CONTAINS
                    DEALLOCATE( Adiag )
                  END IF
                CASE(PRECOND_VANKA)
-                 CALL VankaCreate( A, SolverParam )
+!                CALL VankaCreate( A, SolverParam )
                END SELECT
              END IF
            ELSE
@@ -426,7 +425,7 @@ CONTAINS
 
      SELECT CASE( PCondType )
        CASE (PRECOND_NONE)
-         pcondProc = 0
+         pcondProc = AddrFunc( pcond_dummy )
 
        CASE (PRECOND_DIAGONAL)
          IF ( .NOT. A % COMPLEX ) THEN
