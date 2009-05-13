@@ -908,19 +908,19 @@ SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
 
   !*******************************************************************
 
-  NeedPrec = ASSOCIATED(SplittedMatrix % InsideMatrix % ILUValues)
   NeedMass = ASSOCIATED(SplittedMatrix % InsideMatrix % MassValues)
   NeedDamp = ASSOCIATED(SplittedMatrix % InsideMatrix % DampValues)
 
   SplittedMatrix % InsideMatrix % Values = 0.0d0
-  IF ( NeedPrec ) SplittedMatrix % InsideMatrix % ILUValues  = 0.0d0
   IF ( NeedMass ) SplittedMatrix % InsideMatrix % MassValues = 0.0d0
   IF ( NeedDamp ) SplittedMatrix % InsideMatrix % DampValues = 0.0d0
 
+  NeedPrec = .FALSE.
   DO i = 1, ParEnv % PEs
 
      IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows /= 0 ) THEN
        SplittedMatrix % IfMatrix(i) % Values = 0.0d0
+       NeedPrec = ASSOCIATED(SplittedMatrix % IfMatrix(i) % ILUValues)
        IF ( NeedPrec ) SplittedMatrix % IfMatrix(i) % ILUValues  = 0.0d0
        IF ( NeedMass ) SplittedMatrix % IfMatrix(i) % MassValues = 0.0d0
        IF ( NeedDamp ) SplittedMatrix % IfMatrix(i) % DampValues = 0.0d0
@@ -933,6 +933,7 @@ SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
        IF ( NeedDamp ) SplittedMatrix % NbsIfMatrix(i) % DampValues = 0.0d0
      END IF
   END DO
+  IF ( NeedPrec ) SplittedMatrix % InsideMatrix % ILUValues  = 0.0d0
 !----------------------------------------------------------------------
 END SUBROUTINE ZeroSplittedMatrix
 !----------------------------------------------------------------------
@@ -974,9 +975,16 @@ END SUBROUTINE ZeroSplittedMatrix
     GlobalData % ParallelInfo => ParallelInfo
 
     IF ( UpdateMatrix ) THEN
-      NeedPrec = ASSOCIATED(SplittedMatrix % InsideMatrix % ILUValues)
       NeedMass = ASSOCIATED(SplittedMatrix % InsideMatrix % MassValues)
       NeedDamp = ASSOCIATED(SplittedMatrix % InsideMatrix % DampValues)
+
+      NeedPrec = .FALSE.
+      DO i=1,ParEnv % PEs
+        IF (SplittedMatrix % IfMatrix(i) % NumberOfRows>0) THEN
+          NeedPrec = ASSOCIATED(SplittedMatrix % IfMatrix(i) % ILUValues)
+          EXIT
+        END IF
+      END DO
 
       CALL ZeroSplittedMatrix( SplittedMatrix )
       !------------------------------------------------------------------
@@ -1626,10 +1634,17 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
    END IF
 #endif
 
-  CALL ZeroSplittedMatrix( SplittedMatrix )
-  NeedPrec = ASSOCIATED( SplittedMatrix % InsideMatrix % ILUValues )
+  NeedPrec = .FALSE.
+  DO i=1,ParEnv % PEs
+    IF ( SplittedMatrix % IfMatrix(i) % NumberOFRows>0 ) THEN
+      NeedPrec = ASSOCIATED( SplittedMatrix % IfMatrix(i) % ILUValues )
+      EXIT
+    END IF
+  END DO
   NeedMass = ASSOCIATED( SplittedMatrix % InsideMatrix % MassValues )
   NeedDamp = ASSOCIATED( SplittedMatrix % InsideMatrix % DampValues )
+
+  CALL ZeroSplittedMatrix( SplittedMatrix )
 
   !------------------------------------------------------------------
   !
@@ -2694,7 +2709,15 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
   !
   !----------------------------------------------------------------------
   InsideMatrix => SplittedMatrix % InsideMatrix
-  NeedPrec = ASSOCIATED(InsideMatrix % ILUValues)
+
+  NeedPrec = .FALSE.
+  DO i=1,Parenv % PEs
+    IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows>0 ) THEN
+      NeedPrec = ASSOCIATED(SplittedMatrix % IfMatrix(i) % ILUValues)
+      EXIT
+    END IF
+  END DO
+
   NeedMass = ASSOCIATED(InsideMatrix % MassValues)
   NeedDamp = ASSOCIATED(InsideMatrix % DampValues)
 
