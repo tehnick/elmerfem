@@ -724,7 +724,7 @@ bool mesh_t::load(char* dirName)
       point->newNodeIndexes(point->getNodes());
       for(int j = 0; j < point->getNodes(); j++) {
 	int k;
-	mesh_elements >> k;
+	mesh_boundary >> k;
 	point->setNodeIndex(j, k-1);
       }
       break;
