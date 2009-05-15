@@ -220,12 +220,6 @@ CONTAINS
     REAL(KIND=dp) :: RealTime, tstart, tend,s
     !******************************************************************
 
-    ALLOCATE( ParEnv % IsNeighbour(ParEnv % PEs) )
-    ParEnv % NumOfNeighbours = 0
-    ParEnv % IsNeighbour(:)  = .FALSE.
-
-    CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
-
     IF ( .NOT. ASSOCIATED(ParEnv % Active) ) THEN
       ALLOCATE( ParEnv % Active(ParEnv % PEs) )
       ParEnv % Active = .TRUE.
@@ -252,6 +246,8 @@ CONTAINS
     !------------------------------------------------------------------
     ! Sync all neighbouring information
     !------------------------------------------------------------------
+    CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
+
     ALLOCATE( Active(ParEnv % PEs), NeighList(Parenv % PEs) )
     DO MinActive=0,ParEnv % PEs-1
       IF ( ParEnv % Active(MinActive+1) ) EXIT
@@ -512,12 +508,12 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------  
-   SUBROUTINE SParGlobalNumbering( Mesh, NewNodeCnt, &
+   SUBROUTINE SParGlobalNumbering( Mesh, OldMesh, NewNodeCnt, &
             OldIntCnts, OldIntArray, Reorder )
 !-----------------------------------------------------------------------
     USE GeneralUtils
 !-----------------------------------------------------------------------
-     TYPE(Mesh_t) :: Mesh
+     TYPE(Mesh_t) :: Mesh, OldMesh
      INTEGER, TARGET :: NewNodeCnt, OldIntArray(:), &
                OldIntCnts(:), Reorder(:)
 !-----------------------------------------------------------------------
@@ -538,6 +534,8 @@ CONTAINS
         INTEGER, POINTER :: DATA(:)
      END TYPE Request_t
      TYPE(Request_t), POINTER :: Request1(:), Request2(:)
+
+     LOGICAL, POINTER :: IsNeighbour(:)
 
      TYPE(Element_t), POINTER :: Element
 
@@ -561,9 +559,24 @@ tstart = realtime()
 !
 !    find least numbered of the active procs:
 !    ----------------------------------------
-     DO MinProc = 1,ParEnv % PEs
-        IF ( ParEnv % Active( MinProc ) ) EXIT
-     END DO
+     MinProc = 0
+
+     IF ( ASSOCIATED(ParEnv % IsNeighbour) ) THEN
+       IsNeighbour => ParEnv % IsNeighbour
+     ELSE
+       ALLOCATE(IsNeighbour(ParEnv % PEs))
+       IsNeighbour = .FALSE.
+       DO i=1,OldMesh % Nodes % NumberOfNodes
+         IF ( OldMesh % ParallelInfo % Interface(i) ) THEN
+           DO j=1,SIZE(OldMesh % ParallelInfo % NeighbourList(i) % Neighbours)
+             IsNeighbour(OldMesh % ParallelInfo % &
+               NeighbourList(i) % Neighbours(j)+1) = .TRUE.
+           END DO
+         END IF
+       END DO
+       IsNeighbour(ParEnv % myPE+1) = .FALSE.
+     END IF
+
 !
 !    Our maximum global node index:
 !    -------------------------------
@@ -810,7 +823,7 @@ tstart = realtime()
      !--------------------------------
      DO i = 1, ParEnv % PEs
         IF( i-1 == ParEnv % MyPE ) CYCLE
-        IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+        IF( .NOT. IsNeighbour(i) ) CYCLE
 
         CALL MPI_BSEND( tosend(i), 1, MPI_INTEGER, i-1, 100, MPI_COMM_WORLD, ierr)
         IF( tosend(i) < 1 ) CYCLE
@@ -842,7 +855,7 @@ tstart = realtime()
      !--------------------------------------------------------------
      DO i = 1, ParEnv % PEs
         IF( i-1 == ParEnv % MyPE ) CYCLE
-        IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+        IF( .NOT. IsNeighbour(i) ) CYCLE
 
         CALL MPI_RECV( DataSize, 1, MPI_INTEGER, i-1, 100, MPI_COMM_WORLD, status, ierr )
         !IF( DataSize /= toreceive(i) ) THEN
@@ -929,7 +942,7 @@ tstart = realtime()
 !ddd = 0
      DO i = 1, ParEnv % PEs              
         IF( i-1 == ParEnv % MyPE ) CYCLE
-        IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+        IF( .NOT. IsNeighbour(i) ) CYCLE
 
         DataSize = 0
         IF( ASSOCIATED( Request2(i) % DATA ) ) DataSize = SIZE( Request2(i) % DATA )
@@ -947,7 +960,7 @@ tstart = realtime()
      !----------------------------
      DO i = 1, ParEnv % PEs
         IF( i-1 == ParEnv % MyPE ) CYCLE
-        IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+        IF( .NOT. IsNeighbour(i) ) CYCLE
 
         CALL MPI_RECV( DataSize, 1, MPI_INTEGER, i-1, 900, MPI_COMM_WORLD, status, ierr )
         IF( DataSize < 1 ) CYCLE
@@ -995,7 +1008,7 @@ tstart = realtime()
      !------------------------------------------------------
      DO i = 1, ParEnv % PEs              
         IF( i-1 == ParEnv % MyPE ) CYCLE
-        IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+        IF( .NOT. IsNeighbour(i) ) CYCLE
 
         DataSize = 0
         IF( ASSOCIATED( Request1(i) % DATA ) ) DataSize = SIZE( Request1(i) % DATA )
@@ -1008,7 +1021,7 @@ tstart = realtime()
      !----------------------------------------------------------------------
      DO i = 1, ParEnv % PEs
         IF( i-1 == ParEnv % MyPE ) CYCLE
-        IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+        IF( .NOT. IsNeighbour(i) ) CYCLE
 
         CALL MPI_RECV( DataSize, 1, MPI_INTEGER, i-1, 700, MPI_COMM_WORLD, status, ierr )
         IF( DataSize < 1 ) CYCLE
@@ -1161,6 +1174,8 @@ tstart = realtime()
      END DO
 
      DEALLOCATE( IntCnts )
+     IF ( .NOT. ASSOCIATED(Parenv % IsNeighbour,IsNeighbour) ) &
+       DEALLOCATE(isNeighbour)
 
      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 !print*,'globnum: ', parenv % mype, RealTime()-tstart; call flush(6)

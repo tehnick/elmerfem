@@ -1502,8 +1502,8 @@ CONTAINS
     TYPE(Model_t), POINTER :: Model
 
 !------------------------------------------------------------------------------
-    TYPE(Mesh_t), POINTER :: Mesh,Mesh1
-    INTEGER :: i,j,k,l,s,nlen,eqn
+    TYPE(Mesh_t), POINTER :: Mesh,Mesh1,NewMesh,OldMesh
+    INTEGER :: i,j,k,l,s,nlen,eqn,MeshKeep,MeshLevels
     LOGICAL :: GotIt,GotMesh,found,OneMeshName, OpenFile
     LOGICAL :: stat
     INTEGER, POINTER :: ActiveSolvers(:)
@@ -1716,6 +1716,31 @@ CONTAINS
       Model % Meshes => LoadMesh( Model, MeshDir, MeshName, &
           BoundariesOnly, numprocs, mype, def_dofs )
 
+      CALL SetCoordinateSystem( Model )
+
+      MeshLevels = ListGetInteger( Model % Simulation, 'Mesh Levels', GotIt )
+      IF ( .NOT. GotIt ) MeshLevels=1
+
+      MeshKeep = ListGetInteger( Model % Simulation, 'Mesh keep',  GotIt )
+      IF ( .NOT. GotIt ) MeshKeep=MeshLevels
+
+      DO i=2,MeshLevels
+        OldMesh => Model % Meshes
+        NewMesh => SplitMeshEqual(OldMesh)
+        IF ( i>MeshLevels-MeshKeep+1 ) THEN
+          NewMesh % Next => OldMesh
+          NewMesh % Parent => OldMesh
+          OldMesh % Child  => NewMesh
+          NewMesh % Name = OldMesh % Name
+          Newmesh % OutputActive = .TRUE.
+          OldMesh % OutputActive = .FALSE.
+        ELSE
+          CALL ReleaseMesh(OldMesh)
+        END IF
+        Model % Meshes => NewMesh
+      END DO
+
+
       IF ( OneMeshName ) THEN
          i = 0
       ELSE
@@ -1807,6 +1832,28 @@ CONTAINS
 
         Model % Solvers(s) % Mesh => &
           LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype,def_dofs )
+
+        MeshLevels = ListGetInteger( Model % Solvers(s) % Values, 'Mesh Levels', GotIt )
+        IF ( .NOT. GotIt ) MeshLevels=1
+
+        MeshKeep = ListGetInteger( Model % Solvers(s) % Values, 'Mesh keep',  GotIt )
+        IF ( .NOT. GotIt ) MeshKeep=MeshLevels
+
+        DO i=2,MeshLevels
+          OldMesh => Model % Solvers(s) % Mesh
+          NewMesh => SplitMeshEqual(OldMesh)
+          IF ( i>MeshLevels-MeshKeep+1 ) THEN
+            NewMesh % Next => OldMesh
+            NewMesh % Parent => OldMesh
+            OldMesh % Child  => NewMesh
+            NewMesh % Name = OldMesh % Name
+            Newmesh % OutputActive = .TRUE.
+            OldMesh % OutputActive = .FALSE.
+          ELSE
+            CALL ReleaseMesh(OldMesh)
+          END IF
+          Model % Solvers(s) % Mesh => NewMesh
+        END DO
 
         IF ( OneMeshName ) i = 0
 

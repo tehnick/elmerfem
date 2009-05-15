@@ -427,17 +427,17 @@ CONTAINS
         NULLIFY( Element % BubbleIndexes )
 
         ! Check if given element is a p element
-        IF (inDOFs(6) /= 0) THEN
+        IF (inDOFs(6) > 0) THEN
            CALL AllocatePDefinitions(Element) 
 
            NeedEdges = .TRUE.
               
            ! Calculate element bubble dofs and set element p
            Element % PDefs % P = inDOFs(6)
-           IF ( inDOFs(5) == 0 ) THEN
-              Element % BDOFs = getBubbleDOFs(Element, Element % PDefs % P)
-           ELSE
+           IF ( inDOFs(5) > 0 ) THEN
               Element % BDOFs = inDOFs(5)
+           ELSE
+              Element % BDOFs = getBubbleDOFs(Element, Element % PDefs % P)
            END IF
               
            ! All elements in actual mesh are not edges
@@ -4370,7 +4370,7 @@ CONTAINS
 
        k = NewMesh % Nodes % NumberOfNodes - Mesh % Nodes % NumberOfNodes
 
-       CALL ParallelGlobalNumbering( NewMesh, k, IntCnts, IntArray, Reorder )
+       CALL ParallelGlobalNumbering( NewMesh, Mesh, k, IntCnts, IntArray, Reorder )
 
 !      Account for the reordering of the nodes:
 !      ----------------------------------------

@@ -944,7 +944,7 @@ CONTAINS
     REAL(KIND=dp), POINTER :: freqv(:,:)
     TYPE(Mesh_t),   POINTER :: NewMesh,OldMesh
     TYPE(Element_t), POINTER :: CurrentElement
-    TYPE(Matrix_t), POINTER :: NewMatrix, Oldmatrix
+    TYPE(Matrix_t), POINTER :: NewMatrix, Oldmatrix, SaveMatrix
 
 
     !------------------------------------------------------------------------------
@@ -1192,6 +1192,7 @@ CONTAINS
          IF ( Solver % MultiGridEqualSplit ) THEN
            CALL ParallelInitMatrix( Solver, Solver % Matrix )
            Solver % MultiGridLevel = 1
+
            DO WHILE( Solver % MultiGridLevel < Solver % MultiGridTotal )
              IF ( ASSOCIATED( Solver % Mesh % Child ) ) THEN
                NewMesh => Solver % Mesh % Child
@@ -1215,9 +1216,9 @@ CONTAINS
                NewMesh % Parent => OldMesh
                OldMesh % Child  => NewMesh
                NewMesh % Name = OldMesh % Name
-               Newmesh % OutputActive = .TRUE.
-               OldMesh % OutputActive = .FALSE.
              END IF
+             Newmesh % OutputActive = .TRUE.
+             OldMesh % OutputActive = .FALSE.
              
              NewMatrix => Solver % Matrix
              NewMatrix % Parent => OldMatrix
@@ -1225,7 +1226,33 @@ CONTAINS
              CALL ParallelInitMatrix( Solver, Solver % Matrix )
              Solver % MultiGridLevel = Solver % MultiGridLevel + 1
            END DO
+         ELSE
+           CALL ParallelInitMatrix( Solver, Solver % Matrix )
+           OldMesh   => Solver % Mesh
+           Var => Solver % Variable
+           SaveMatrix => Solver % Matrix
+
+           Solver % MultiGridLevel = 1
+           DO WHILE( Solver % MultiGridLevel < Solver % MultigridTotal )
+             IF ( ASSOCIATED(Solver % Mesh % Parent) ) THEN
+               NewMesh => Solver % Mesh % Parent
+               OldMatrix => Solver % Matrix
+               CALL UpdateSolverMesh( Solver, NewMesh )
+               Solver % Mesh % Changed = .FALSE.
+               NewMatrix => Solver % Matrix
+               NewMatrix % Child => OldMatrix
+               OldMatrix % Parent  => NewMatrix
+               CALL ParallelInitMatrix(Solver, Solver % Matrix )
+             END IF
+             Solver % MultiGridLevel = Solver % MultiGridLevel+1
+           END DO
+
+           Solver % Mesh => OldMesh
+           Solver % Variable => Var
+           Solver % Matrix => SaveMatrix
+           CALL SetCurrentMesh(CurrentModel,Solver % Mesh)
          END IF
+
          CALL MeshStabParams( Solver % Mesh )
          Solver % MultiGridSolver = ListGetString(Solver % Values, &
              'Linear System Solver', Found ) == 'multigrid'

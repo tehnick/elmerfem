@@ -463,13 +463,13 @@ real(kind=dp) :: realtime,tt
 
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelGlobalNumbering(Mesh,NewNodes,IntCnts,IntArray,Reorder)
+    SUBROUTINE ParallelGlobalNumbering(Mesh,OldMesh,NewNodes,IntCnts,IntArray,Reorder)
 !-------------------------------------------------------------------------------
-       TYPE(Mesh_t) :: Mesh
+       TYPE(Mesh_t) :: Mesh, OldMesh
        INTEGER :: NewNodes,IntCnts(:),IntArray(:),Reorder(:)
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
-        CALL SparGlobalNumbering( Mesh,NewNodes,IntCnts,IntArray,Reorder )
+        CALL SparGlobalNumbering( Mesh,OldMesh,NewNodes,IntCnts,IntArray,Reorder )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelGlobalNumbering
