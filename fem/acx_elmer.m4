@@ -1075,12 +1075,12 @@ AM_CONDITIONAL(USE_64BIT_ARCH, test "$ac_cv_sizeof_voidp" -eq "8")
 
 if test "$with_64bits" != no; then
    AC_MSG_CHECKING(to see if we got 64 bits)
+   B64FLAGS=""
 
    if test "$ac_cv_sizeof_voidp" -ne 8; then
       AC_MSG_RESULT([nope, reverting compiler flags]) 
 
       dnl FIXME: test that all compilers are 64 bit
-      B64FLAGS=""
       CFLAGS=$orig_CFLAGS
       FFLAGS=$orig_FFLAGS
       FCFLAGS=$orig_FCFLAGS
@@ -1455,7 +1455,7 @@ SHLLIB_VER='$(SHLLIB).$(version)'
 SHLBIN_VER='$(SHLBIN).$(version)'
 SHLLINKEXT=
 LIBEXT=a
-SH_LD2=$CXX
+SH_LD2="$CXX $B64CXXFLAGS"
 SH_LD=$FC
 SH_LDFLAGS=-shared
 SH_LINKING_TO_FLAGS=
@@ -1472,24 +1472,24 @@ dnl
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
     SH_LD="ld"
-    SH_LDFLAGS="-Bshareable"
+    SH_LDFLAGS="-Bshareable $B64FLAGS"
   ;;
   *-*-freebsd*)
     SH_LD="$CC"
-    SH_LDFLAGS="-shared"
+    SH_LDFLAGS="-shared $B64CFLAGS"
   ;;
   alpha*-dec-osf*)
-    SH_LDFLAGS="-shared"
+    SH_LDFLAGS="-shared $B64FCFLAGS"
   ;;
   *-*-darwin*)
     SH_LD="gcc"
-    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module ${LDFLAGS}'
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module ${LDFLAGS} ${B64CFLAGS}'
     SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
-       SH_LDFLAGS="-shared"
+       SH_LDFLAGS="-shared $B64FCFLAGS"
        LD_LIBRARY_PATH_VAR=PATH
   ;;
   *-*-linux* | *-*-gnu*)
@@ -1497,17 +1497,17 @@ case "$canonical_host_type" in
 	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-    SH_LDFLAGS="-G"
+    SH_LDFLAGS="-G $B64FCFLAGS"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
+    SH_LDFLAGS="-G $ACX_LOPT_FLAGS $B64FCFLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
 #    RPATH_FLAG="-blibpath:"
     SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
-    SH_LDFLAGS="-shared -fPIC"
+    SH_LDFLAGS="-shared -fPIC $B64FCFLAGS"
   ;;
   *-sgi-*)
       true
@@ -1516,7 +1516,7 @@ case "$canonical_host_type" in
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
     if test "$GXX" != yes; then
-      SH_LDFLAGS=-G
+      SH_LDFLAGS="-G $B64FLAGS"
       RPATH_FLAG="-R"
     fi
 
@@ -1524,7 +1524,7 @@ case "$canonical_host_type" in
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
-      SH_LDFLAGS=-G
+      SH_LDFLAGS="-G $B64FCFLAGS"
       RPATH_FLAG="-R"
     fi
   ;;
