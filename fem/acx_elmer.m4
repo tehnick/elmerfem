@@ -1457,8 +1457,8 @@ SHLLINKEXT=
 LIBEXT=a
 SH_LD2="$CXX $B64CXXFLAGS"
 SH_LD=$FC
-SH_LDFLAGS="-shared $B64FCFLAGS"
-SH_LINKING_TO_FLAGS=
+SH_LDFLAGS="-shared"
+SH_LINKING_TO_FLAGS="$B64FCFLAGS"
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 SONAME_FLAGS=
@@ -1472,18 +1472,18 @@ dnl
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
     SH_LD="ld"
-    SH_LDFLAGS="-Bshareable $B64FLAGS"
+    SH_LDFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
     SH_LD="$CC"
-    SH_LDFLAGS="-shared $B64CFLAGS"
+    SH_LDFLAGS="-shared"
   ;;
   alpha*-dec-osf*)
-    SH_LDFLAGS="-shared $B64FCFLAGS"
+    SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
     SH_LD="gcc"
-    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module ${LDFLAGS} ${B64CFLAGS}'
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module ${LDFLAGS}"
     SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
@@ -1497,17 +1497,17 @@ case "$canonical_host_type" in
 	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-    SH_LDFLAGS="-G $B64FCFLAGS"
+    SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-    SH_LDFLAGS="-G $ACX_LOPT_FLAGS $B64FCFLAGS"
-    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
+    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
+    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared $B64FCFLAGS"
     LD_LIBRARY_PATH_VAR=LIBPATH
 #    RPATH_FLAG="-blibpath:"
     SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
-    SH_LDFLAGS="-shared -fPIC $B64FCFLAGS"
+    SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
       true
@@ -1516,7 +1516,7 @@ case "$canonical_host_type" in
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
     if test "$GXX" != yes; then
-      SH_LDFLAGS="-G $B64FLAGS"
+      SH_LDFLAGS="-G"
       RPATH_FLAG="-R"
     fi
 
@@ -1524,7 +1524,7 @@ case "$canonical_host_type" in
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
-      SH_LDFLAGS="-G $B64FCFLAGS"
+      SH_LDFLAGS="-G"
       RPATH_FLAG="-R"
     fi
   ;;
