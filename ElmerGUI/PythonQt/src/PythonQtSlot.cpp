@@ -49,7 +49,8 @@
 
 #define PYTHONQT_MAX_ARGS 32
 
-#ifdef EG_MODS
+// Correction by A. Powell:
+#if PY_VERSION_HEX >= 0x02060000 || defined EG_MODS
 #define WRITE_RESTRICTED PY_WRITE_RESTRICTED
 #endif
 
