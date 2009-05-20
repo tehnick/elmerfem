@@ -1081,6 +1081,10 @@ if test "$with_64bits" != no; then
       AC_MSG_RESULT([nope, reverting compiler flags]) 
 
       dnl FIXME: test that all compilers are 64 bit
+      B64CXXFLAGS=""
+      B64FCFLAGS=""
+      B64CFLAGS=""
+      B64FFLAGS=""
       CFLAGS=$orig_CFLAGS
       FFLAGS=$orig_FFLAGS
       FCFLAGS=$orig_FCFLAGS
