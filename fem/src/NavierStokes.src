@@ -481,19 +481,19 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 
             IF ( Convect ) THEN
-              SW(p,i,c) = SW(p,i,c) + rho * dBasisdx(p,i)
+              SW(p,c,i) = SW(p,c,i) + rho * dBasisdx(p,i)
               DO j=1,dim
                 SW(p,i,i) = SW(p,i,i) + rho * dBasisdx(p,j) * Velo(j)
               END DO
             ELSE
-              SW(p,i,c) = SW(p,i,c) + dBasisdx(p,i)
+              SW(p,c,i) = SW(p,c,i) + dBasisdx(p,i)
             END IF
 
             DO j=1,dim
               SW(p,i,i) = SW(p,i,i) - dmudx(j) * dBasisdx(p,j)
-              SW(p,i,j) = SW(p,i,j) - dmudx(j) * dBasisdx(p,i)
+              SW(p,j,i) = SW(p,j,i) - dmudx(j) * dBasisdx(p,i)
               SW(p,i,i) = SW(p,i,i) - mu * SUM(dNodalBasisdx(p,1:n,j)*dBasisdx(1:n,j))
-              SW(p,i,j) = SW(p,i,j) - mu * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
+              SW(p,j,i) = SW(p,j,i) - mu * SUM(dNodalBasisdx(p,1:n,i)*dBasisdx(1:n,j))
             END DO
           END DO
         END DO
@@ -698,16 +698,14 @@ MODULE NavierStokes
        IF ( Stabilize ) THEN 
           DO i=1,dim
              DO j=1,c
-                M(j,i) = M(j,i) + s * Tau * rho * Basis(q) * SW(p,i,j)
-                DO k=1,c
-                   A(j,k) = A(j,k) + s * Tau * SU(q,i,k) * SW(p,i,j)
-                END DO
+               M(j,i) = M(j,i) + s * Tau * rho * Basis(q) * SW(p,j,i)
              END DO
 
              DO j=1,dim
                A(j,i) = A(j,i) + s * Delta * dBasisdx(q,i) * dBasisdx(p,j)
              END DO
           END DO
+          A = A + s*Tau*MATMUL(SW(p,1:c,1:dim),SU(q,1:dim,1:c))
        ELSE IF ( Vms ) THEN
           DO i=1,dim
             ! (rho*u',grad(q))
@@ -812,7 +810,7 @@ MODULE NavierStokes
        IF ( Stabilize ) THEN
          DO i=1,DIM
            DO j=1,c
-             Load(j) = Load(j) + s * Tau * rho * Force(i) * SW(p,i,j)
+             Load(j) = Load(j) + s * Tau * rho * Force(i) * SW(p,j,i)
            END DO
          END DO
        ELSE IF ( Vms ) THEN

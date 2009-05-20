@@ -599,26 +599,20 @@ CONTAINS
             READ( Unit,'(A)',END=10,ERR=10 ) readstr
           END IF
 
-          i = 1
-          DO WHILE(readstr(i:i)==' '.OR. ICHAR(readstr(i:i))==Tab)
-            i=i+1
-            IF ( i>MAXLEN ) EXIT
-          END DO
-          IF ( i>MAXLEN ) EXIT
+          readstr = ADJUSTL(readstr)
 
           DO k=1,12
-            IF ( i+k-1>MAXLEN ) EXIT
-
-            j = ICHAR( readstr(i+k-1:i+k-1) )
+            j = ICHAR(readstr(k:k))
             IF ( j >= A .AND. j<= Z ) THEN
               Tmpstr(k:k) = CHAR(j+U2L)
             ELSE
-              Tmpstr(k:k) = readstr(i+k-1:i+k-1)
+              tmpstr(k:k) = readstr(k:k)
             END IF
           END DO
 
           IF ( Tmpstr(1:12) == 'include path' ) THEN
-            IncludePath = readstr(i+13:)
+            k = LEN_TRIM(readstr)
+            IncludePath(1:k-13) = readstr(14:k)
           ELSE
             EXIT
           END IF
@@ -626,7 +620,7 @@ CONTAINS
 
         IF ( tmpstr(1:8) == 'include ' ) THEN
           IncludeUnit = IncludeUnit-1
-          CALL OpenIncludeFile( IncludeUnit, TRIM(readstr(i+8:)), IncludePath )
+          CALL OpenIncludeFile( IncludeUnit, TRIM(readstr(9:)), IncludePath )
           READ( IncludeUnit,'(A)',END=3,ERR=3 ) readstr
           GO TO 4
 3         CLOSE(IncludeUnit)
@@ -634,13 +628,9 @@ CONTAINS
           READ( Unit,'(A)',END=10,ERR=10 ) readstr
 4         CONTINUE
         END IF
-        DO ninlen=LEN(readstr),1,-1
-          IF ( readstr(ninlen:ninlen) /= ' ' ) EXIT 
-        END DO
+        ninlen = LEN_TRIM(readstr)
      ELSE
-        DO inlen=LEN(readstr),1,-1
-          IF ( readstr(inlen:inlen) /= ' ' ) EXIT 
-        END DO
+        inlen = LEN_TRIM(readstr)
         ninlen = inlen-ValueStarts+1
         IF ( Prefix == ' ' ) THEN
            readstr = readstr(ValueStarts:inlen)
@@ -687,10 +677,8 @@ CONTAINS
        i = i + 1
      END DO
 
-     DO i=1,inlen
-       IF ( readstr(i:i) == '$' ) EXIT
-     END DO
-     IF ( i < inlen ) THEN
+     i = INDEX( readstr(1:inlen), '$' )
+     IF ( i>0 .AND. i<inlen ) THEN
        m = i
        copystr(i:inlen) = readstr(i:inlen)
        DO WHILE(i<=inlen)
