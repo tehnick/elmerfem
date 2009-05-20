@@ -178,12 +178,6 @@ MODULE NavierStokes
 
      dim = CoordinateSystemDimension()
 
-     Transient = GetString(GetSimulation(),'Simulation Type',Found)=='transient'
-     IF ( Transient ) THEN
-       dt = CurrentModel % Solver % dt
-       Order = MIN(CurrentModel % Solver % DoneTime, CurrentModel % Solver % Order)
-     END IF
-
      hScale = GetCReal( GetSolverParams(), 'H scale', Found )
      IF ( .NOT. Found )  hScale = 1._dp
 
@@ -219,6 +213,13 @@ MODULE NavierStokes
      PBubbles  = .FALSE.
      P2P1      = .FALSE.
      VMS =  StabilizeFlag == 'vms'
+
+     Transient = GetString(GetSimulation(),'Simulation Type',Found)=='transient'
+     IF ( VMS .AND. Transient ) THEN
+       dt = CurrentModel % Solver % dt
+       Order = MIN(CurrentModel % Solver % DoneTime, CurrentModel % Solver % Order)
+     END IF
+
      Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.(Vms .OR. Stabilize) .OR. Compressible1 .OR. Compressible2 ) THEN
        PBubbles  = isPElement(Element) .AND. Element % BDOFs > 0
