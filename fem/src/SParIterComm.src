@@ -51,9 +51,17 @@ MODULE SParIterComm
   INCLUDE "mpif.h"
 
   TYPE Buff_t
-    REAL(KIND=dp), POINTER :: rbuf(:) => NULL()
+    REAL(KIND=dp), POINTER :: rbuf(:) => Null()
   END TYPE Buff_t
 
+  TYPE iBuff_t
+    INTEGER, POINTER :: ibuf(:) => Null()
+  END TYPE iBuff_t
+
+  TYPE vBuff_t
+    INTEGER, POINTER :: ind(:) => Null()
+    REAL(KIND=dp), POINTER :: vec(:) => Null()
+  END TYPE vBuff_t
 CONTAINS
 
 !-----------------------------------------------------------------
@@ -1535,6 +1543,7 @@ CONTAINS
    END SUBROUTINE SParGlobalNumbering
 !-----------------------------------------------------------------------
 
+
 !*********************************************************************
 ! Do global numbering for elements, edges and faces.
 ! (now only works for 1 dof edges .)
@@ -2672,11 +2681,7 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
   TYPE (ParallelInfo_t) :: ParallelInfo
   REAL(KIND=dp), DIMENSION(:) :: SourceVec
 
-  TYPE Buf_t
-    INTEGER, POINTER :: ind(:)
-    REAL(KIND=dp), POINTER :: vec(:)
-  END TYPE Buf_t
-  TYPE(Buf_t), ALLOCATABLE :: recv_buf(:), send_buf(:)
+  TYPE(vBuff_t), ALLOCATABLE :: recv_buf(:), send_buf(:)
 
   ! Local variables
   INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt
@@ -2843,11 +2848,7 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   REAL(KIND=dp), DIMENSION(:) :: SourceRHS, TargetRHS
 
   ! Local variables
-  TYPE Buf_t
-    INTEGER, POINTER :: ind(:)
-    REAL(KIND=dp), POINTER :: vec(:)
-  END TYPE Buf_t
-  TYPE(Buf_t), ALLOCATABLE :: recv_buf(:), send_buf(:)
+  TYPE(vBuff_t), ALLOCATABLE :: recv_buf(:), send_buf(:)
 
   INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt
   INTEGER :: owner, request, totalsize
@@ -3031,11 +3032,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
 
   TYPE (ResBufferT), POINTER :: CurrRBuf
 
-  TYPE Buf_t
-    INTEGER, POINTER :: ind(:)
-    REAL(KIND=dp), POINTER :: vec(:)
-  END TYPE Buf_t
-  TYPE(Buf_t), ALLOCATABLE :: recv_buf(:)
+  TYPE(vBuff_t), ALLOCATABLE :: recv_buf(:)
 
   INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt
   INTEGER :: owner, request, totalsize
@@ -3183,29 +3180,26 @@ END SUBROUTINE ExchangeResult
 ! matrix-vector operation).
 !
 SUBROUTINE BuildRevVecIndices( SplittedMatrix )
-  USE Types
   IMPLICIT NONE
 
   TYPE (SplittedMatrixT) :: SplittedMatrix
-  TYPE (Nodes_t) :: Nodes
 
   ! Local variables
 
   INTEGER :: i, j, k, m, n, VecLen, ind, ierr, destproc, sproc, TotLen
+
   TYPE (BasicMatrix_t), POINTER :: CurrIf
   TYPE(Matrix_t), POINTER :: InsideMatrix
+
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
   INTEGER :: TotalSize, count
   LOGICAL :: Found
   INTEGER, POINTER :: RevBuff(:),RevInd(:)
   INTEGER, DIMENSION(:), ALLOCATABLE :: GIndices,RowOwner,neigh,L
 
-  TYPE Buf_t
-    INTEGER, POINTER :: rbuf(:)
-  END TYPE Buf_t
-  TYPE(Buf_t), ALLOCATABLE :: sbuf(:)
+  TYPE(iBuff_t), ALLOCATABLE :: sbuf(:)
 
-REAL(KIND=dp) :: tt,CPUTime
+  REAL(KIND=dp) :: tt,CPUTime
 
   !*********************************************************************
 tt = CPUTime()
@@ -3250,8 +3244,8 @@ tt = CPUTime()
   END DO
 
   DO i=1,n
-    sbuf(i) % rbuf => NULL()
-    IF ( L(i) > 0 ) ALLOCATE( sbuf(i) % rbuf(L(i)) )
+    sbuf(i) % ibuf => NULL()
+    IF ( L(i) > 0 ) ALLOCATE( sbuf(i) % ibuf(L(i)) )
   END DO
 
   L = 0
@@ -3262,7 +3256,7 @@ tt = CPUTime()
         DO k=1,CurrIf % NumberOfRows
            IF ( CurrIf % RowOwner(k) == destproc ) THEN
               L(j) = L(j) + 1
-              sbuf(j) % rbuf(L(j)) = CurrIf % GRows(k)
+              sbuf(j) % ibuf(L(j)) = CurrIf % GRows(k)
            END IF
         END DO
      END DO
@@ -3273,7 +3267,7 @@ tt = CPUTime()
                 MPI_COMM_WORLD, ierr )
 
     IF ( L(i) > 0 ) THEN
-       CALL MPI_BSEND( sbuf(i) % rbuf, L(i), MPI_INTEGER, neigh(i), &
+       CALL MPI_BSEND( sbuf(i) % ibuf, L(i), MPI_INTEGER, neigh(i), &
                4001, MPI_COMM_WORLD, ierr )
     END IF
   END DO
@@ -3319,7 +3313,7 @@ tt = CPUTime()
   END DO
 
   DO i=1,n
-     IF ( ASSOCIATED(sbuf(i) % rbuf) ) DEALLOCATE(sbuf(i) % rbuf)
+     IF ( ASSOCIATED(sbuf(i) % ibuf) ) DEALLOCATE(sbuf(i) % ibuf)
   END DO
   DEALLOCATE(neigh, sbuf,L)
 !print*,parenv % mype, 'secnd recv: ', CPUTime()-tt
