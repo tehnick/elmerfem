@@ -422,7 +422,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       CASE ('steady state change')
         Value = Var % SteadyChange
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
-	
+
       CASE ('dofs','sum','max','min','max abs','min abs','mean','variance') 
         Value = VectorStatistics(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
@@ -432,7 +432,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
         
       CASE ('int','int mean','int variance','volume',&
-	'potential energy','diffusive energy','convective energy')
+        'potential energy','diffusive energy','convective energy')
 
         Value = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
         IF(GotCoeff) THEN
@@ -458,7 +458,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       CASE ('boundary int','boundary int mean','area','diffusive flux','convective flux')
         BoundaryHits = 0
         BoundaryFluxes = 0.0_dp
-	BoundaryAreas = 0.0_dp      
+        BoundaryAreas = 0.0_dp      
         Minimum = 0.0_dp
         Maximum = 0.0_dp
 
@@ -466,8 +466,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
             BoundaryFluxes,BoundaryAreas,BoundaryHits)
 
         DO j=1,Model % NumberOfBCs
-	  IF( BoundaryHits(j) > 0 ) THEN
-	    IF( TRIM(Oper) == 'boundary int mean' ) THEN
+          IF( BoundaryHits(j) > 0 ) THEN
+            IF( TRIM(Oper) == 'boundary int mean' ) THEN
               BoundaryFluxes(j) = BoundaryFluxes(j) / BoundaryAreas(j)
             END IF
             WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over bc',j
@@ -488,7 +488,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         IF(NoLines > 0) THEN
           BoundaryHits = 0
           BoundaryFluxes = 0.0_dp
-	  BoundaryAreas = 0.0_dp
+          BoundaryAreas = 0.0_dp
           
           CALL PolylineIntegrals(Var, Oper, GotCoeff, CoefficientName,&
               BoundaryFluxes,BoundaryAreas, BoundaryHits)
@@ -653,14 +653,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     END IF
 
     OPEN (10, FILE=ScalarNamesFile)
-    Message = ListGetString(Model % Simulation,'Comment',GotIt)	
+    Message = ListGetString(Model % Simulation,'Comment',GotIt)
     IF( GotIt ) THEN
       WRITE(10,'(A)') TRIM(Message)
-    END IF 		
-    Message = ListGetString(Solver % Values,'Comment',GotIt)	
+    END IF
+    Message = ListGetString(Solver % Values,'Comment',GotIt)
     IF( GotIt ) THEN
       WRITE(10,'(A)') TRIM(Message)
-    END IF 		
+    END IF
     DateStr = FormatDate()
     WRITE( 10,'(A,A)') 'File started at: ',TRIM(DateStr)
     WRITE(10,*) 'Variables in columns of matrix: '//TRIM(ScalarsFile)
@@ -1528,14 +1528,14 @@ CONTAINS
             
             IF(NoDofs == 1) THEN
               func = SUM( Var % Values(PermIndexes(1:n)) * Basis(1:n) )
-	      flux = coeff * func 
+              flux = coeff * func 
               fluxes(bc) = fluxes(bc) + s * flux
             ELSE 
-	      flux = 0.0_dp
+              flux = 0.0_dp
               DO j=1,NoDofs
                 flux = flux + SUM( Var % Values(NoDofs*(PermIndexes(1:n)-1)+j) * Basis(1:n) )**2
               END DO
-	      flux = coeff * SQRT( flux )
+              flux = coeff * SQRT( flux )
               fluxes(bc) = fluxes(bc) + s *  flux
             END IF
      
@@ -1545,7 +1545,7 @@ CONTAINS
             
          END SELECT
           
-	 areas(bc) = areas(bc) + s * coeff
+         areas(bc) = areas(bc) + s * coeff
 
         END DO
 
@@ -2029,12 +2029,12 @@ CONTAINS
                 func = SUM( Var % Values(PermIndexes(1:pn)) * ParentBasis(1:pn) )                
                 fluxes(Line) = fluxes(Line) + s * coeff * func
               ELSE 
-	        flux = 0.0_dp
+                flux = 0.0_dp
                 DO j=1,NoDofs
                   flux = flux + &
                       SUM( Var % Values(NoDofs*(PermIndexes(1:pn)-1)+j) * ParentBasis(1:pn) )**2
                 END DO
-	        flux = coeff * SQRT(flux) 
+                flux = coeff * SQRT(flux) 
                 fluxes(Line) = fluxes(Line) + s * flux
               END IF
                          
@@ -2051,7 +2051,7 @@ CONTAINS
       END DO
 
     END DO
-	
+
     DEALLOCATE( ParentNodes % x, ParentNodes % y, ParentNodes % z, PermIndexes, &
         SideNodes % x, SideNodes % y, SideNodes % z, SideIndexes, &
         LineNodes % x, LineNodes % y, LineNodes % z, OnLine)
@@ -2792,11 +2792,11 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      SideNamesFile = TRIM(SideFile) // '.' // TRIM("names")
      OPEN (10, FILE=SideNamesFile)
 
-     Message = ListGetString(Model % Simulation,'Comment',GotIt)	
+     Message = ListGetString(Model % Simulation,'Comment',GotIt)
      IF( GotIt ) THEN
        WRITE(10,'(A)') TRIM(Message)
-     END IF 		
-     Message = ListGetString(Solver % Values,'Comment',GotIt)	
+     END IF
+     Message = ListGetString(Solver % Values,'Comment',GotIt)
      IF( GotIt ) THEN
        WRITE(10,'(A)') TRIM(Message)
      END IF 
@@ -3275,7 +3275,7 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
          WRITE (Name,'(A,I2)') 'Parameter',NoParams
        ELSE IF(NoParams < 100) THEN
          WRITE (Name,'(A,I3)') 'Parameter',NoParams    
-       ELSE	
+       ELSE
          CALL FATAL('SaveMaterials','Number of parameters cannot exceed 99')
        END IF
        ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
@@ -3421,7 +3421,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
   SAVE SubroutineVisited, DIM, LocalNodes, ParamName, NoParams, &
-	LocalParam, PPParam
+       LocalParam, PPParam
 
 
   CALL Info('SaveBoundaryValues','Saving selected boundary values as dofs')
@@ -3454,7 +3454,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
          WRITE (Name,'(A,I2)') 'Parameter',NoParams
        ELSE IF(NoParams < 100) THEN
          WRITE (Name,'(A,I3)') 'Parameter',NoParams    
-       ELSE	
+       ELSE
          CALL FATAL('SaveBoundaryValues','Number of parameters cannot exceed 99')
        END IF
        ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
@@ -3496,7 +3496,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
         BC => Model % BCs(j) % Values
         IF( ListCheckPresent( BC, TRIM(ParamName(i)) ) ) THEN
           GotIt = .TRUE.
-	  EXIT
+          EXIT
         END IF
       END DO
       IF(.NOT. GotIt) THEN

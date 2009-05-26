@@ -1164,9 +1164,9 @@ CONTAINS
          str = ListGetString( Solver % Values,'MG Method',Found) 
          IF( Found ) THEN
            MGAlgebraic = ( str == 'algebraic' ) .OR. ( str == 'cluster')
-         ELSE	    
+         ELSE    
            MGAlgebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) &
-	       .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found )
+              .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found )
          END IF
          
          Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
@@ -1180,7 +1180,7 @@ CONTAINS
            IF( MGAlgebraic ) THEN 
              Solver % MultiGridTotal = 10
            ELSE
-             Solver % MultiGridTotal = 3	    
+             Solver % MultiGridTotal = 3
            END IF
          END IF
 
@@ -1279,7 +1279,7 @@ CONTAINS
     REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
     INTEGER :: i,j,k,l,n,ierr,istat
     LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
-	Relax, NeedSol, IsCoupledSolver, IsAssemblySolver
+       Relax, NeedSol, IsCoupledSolver, IsAssemblySolver
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
@@ -1301,7 +1301,7 @@ CONTAINS
           Solver => Model % Solvers(k)
           IF ( Solver % PROCEDURE /= 0 ) CALL InitializeTimestep( Solver )
        END DO
-    END IF	
+    END IF
 
     IF( TransientSimulation .OR. Scanning ) THEN
        IterV => VariableGet(Model % Solvers(1) % Mesh % Variables, 'coupled iter')
@@ -1478,7 +1478,7 @@ CONTAINS
                  CALL ComputeChange(Solver,.TRUE.)
 !                 CALL ComputeChange(Solver,.TRUE.,n)
                END IF
-               RelativeChange = Solver % Variable % SteadyChange	
+               RelativeChange = Solver % Variable % SteadyChange
                Tolerance = ListGetConstReal( Solver % Values,   &
                    'Steady State Convergence Tolerance', Found ) 
 
@@ -1488,7 +1488,7 @@ CONTAINS
                  DoneThis(k) = .TRUE.
                END IF
              END IF
-	  END IF 
+          END IF 
 
           CALL ParallelAllReduceAnd( DoneThis(k) )
           IF( ALL(DoneThis) ) EXIT

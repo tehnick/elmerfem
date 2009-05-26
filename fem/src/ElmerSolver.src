@@ -105,7 +105,7 @@
      !------------------------------------------------------------------
      ParallelEnv => ParallelInit()
      OutputPE = ParEnv % MyPE
-	
+
 !tt = realtime()
      IF ( FirstTime ) THEN
        !
@@ -378,7 +378,7 @@
        END DO
 
        IF ( .NOT.LastSaved ) TotalTimesteps = TotalTimesteps + 1
-       IF( TotalTimesteps == 0 ) TotalTimesteps = 1	
+       IF( TotalTimesteps == 0 ) TotalTimesteps = 1
 
        CALL ListAddLogical( CurrentModel % Simulation,  &
             'Initialization Phase', .FALSE. )
@@ -439,7 +439,7 @@
 
      IF ( Initialize <=0 ) CALL FreeModel(CurrentModel)
 
-     CALL Info('ElmerSolver','The end')	
+     CALL Info('ElmerSolver','The end')
 
      RETURN
 
@@ -939,7 +939,7 @@
                maxtime = ListGetConstReal( CurrentModel % Simulation,'Real Time Max',GotIt)
                IF( GotIt ) THEN
                   WRITE( Message,'(A,F8.3)') 'Fraction of real time left: ',&
-	            (1.0_dp-RealTime() / maxtime )
+                              1.0_dp-RealTime() / maxtime
                ELSE             
                  timeleft = NINT((stepcount-(Time-1))*(newtime-prevtime)/60._dp);
                  IF (timeleft > 120) THEN
@@ -1118,7 +1118,7 @@
 !        Save results to disk, if requested
 !------------------------------------------------------------------------------
          LastSaved = .FALSE.
-	 IF( OutputIntervals(Interval) /= 0 ) THEN
+         IF( OutputIntervals(Interval) /= 0 ) THEN
 
            IF ( CurrentModel % Meshes % SavesDone == 0 ) THEN
              CALL SaveToPost( 0 )
@@ -1166,7 +1166,7 @@
 !------------------------------------------------------------------------------
        END DO ! timestep within an iterval
 !------------------------------------------------------------------------------
-	 
+ 
 !------------------------------------------------------------------------------
      END DO ! timestep intervals, i.e. the simulation
 !------------------------------------------------------------------------------
@@ -1349,14 +1349,14 @@
                 OutputName = OutputFile
              END IF
 
-	     IF ( ListGetLogical( CurrentModel % Simulation,'Filename Numbering',&
-	          GotIt) ) THEN
-	        IF( CurrentStep == 0 ) THEN
+            IF ( ListGetLogical( CurrentModel % Simulation,'Filename Numbering',&
+             GotIt) ) THEN
+                IF( CurrentStep == 0 ) THEN
                   PostName = NextFreeFilename(PostName)
                 ELSE 
-	          PostName = NextFreeFilename(PostName,LastExisting = .TRUE. ) 
+                  PostName = NextFreeFilename(PostName,LastExisting = .TRUE. ) 
                 END IF
-	     END IF
+             END IF
 
              CALL SetCurrentMesh( CurrentModel, Mesh )
 

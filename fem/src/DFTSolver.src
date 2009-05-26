@@ -38,7 +38,7 @@ SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
   INTEGER :: i, j, k, t, n, nd, m, v, istat
   INTEGER :: EigSolverNumber, NOFeigs, GlobSize
   INTEGER, ALLOCATABLE :: Indexes(:)
-  CHARACTER*255 :: str_tmp
+  CHARACTER(LEN=MAX_NAME_LEN) :: str_tmp
   TYPE(Element_t), POINTER :: Element
   REAL(KIND=dp) :: Norm, s, s0
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
@@ -268,7 +268,7 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Found
   INTEGER :: n, nd, t, istat, GlobSize, xctype, NOFeigs
   REAL(KIND=dp) :: Norm, ShiftConst, EigMassNorm, TotalNucleiCharge,TotalCharge
-  CHARACTER*255 :: str_tmp
+  CHARACTER(LEN=MAX_NAME_LEN) :: str_tmp
   TYPE(Valuelist_t), POINTER :: SolverParams
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
   REAL(KIND=dp), ALLOCATABLE :: LocalHartreePotential(:), LocalChargeDensity(:)
@@ -589,7 +589,7 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
   REAL(KIND=dp), POINTER :: NucleiTable(:,:)
   INTEGER, POINTER :: NodesOfNuclei(:), Perm(:)
   REAL(KIND=dp) :: x, y, z, tol, r, s
-  CHARACTER*255 :: str_tmp
+  CHARACTER(LEN=MAX_NAME_LEN) :: str_tmp
   
   ! Variables for assembly
   TYPE( ValueList_t ), POINTER :: BodyForce
@@ -1122,7 +1122,7 @@ CONTAINS
         Coefficients(:), SolutionStorage(:,:), RHS(:)    
     REAL(KIND=dp) :: s
     INTEGER :: NOFSolutionsStored, istat, k, ierr, t, p    
-    CHARACTER*255 :: str_tmp    
+    CHARACTER(LEN=MAX_NAME_LEN) :: str_tmp    
     LOGICAL :: FirstTime = .TRUE., DoneNonRelaxed = .FALSE. 
         
     SAVE PulayMatrix, ResidualStorage, SolutionStorage, FirstTime, &

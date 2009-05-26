@@ -399,9 +399,9 @@
         
         ! Find the BC that controls the heater 
         ! If not found assume that smart heater is related to phase change 
-	GotIt = .FALSE.
-	Found = .FALSE.
-	SmartHeaterBC = 0
+        GotIt = .FALSE.
+        Found = .FALSE.
+        SmartHeaterBC = 0
 
         DO i=1,Model % NumberOfBCs
            GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
@@ -414,7 +414,7 @@
            DO i=1,Model % NumberOfBCs
               GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
               IF(GotIt) THEN
-	        SmartHeaterBC = i
+                SmartHeaterBC = i
                 EXIT
               END IF
            END DO
@@ -424,14 +424,14 @@
         END IF
 
         MeltPoint = GetCReal( Model % BCs(SmartHeaterBC) % Values,&
-		'Smart Heater Temperature',Found)
-	IF(.NOT. Found) THEN
+               'Smart Heater Temperature',Found)
+        IF(.NOT. Found) THEN
            DO k=1, Model % NumberOfMaterials
               MeltPoint = GetCReal( Model % Materials(k) % Values, &
                    'Melting Point', Found )
               IF(Found) EXIT
            END DO
-	   IF(.NOT. Found) THEN
+           IF(.NOT. Found) THEN
               CALL Fatal('HeatSolver','Smart Heater Temperature / Melting Point is undefined')
            END IF
         END IF
@@ -464,7 +464,7 @@
         
         PowerTimeScale = ListGetConstReal(Solver % Values, &
              'Smart Heater Time Scale',Found)
-	
+
         IF(TransientSimulation .AND. dt < PowerTimeScale) THEN
            TransientHeaterControl = .TRUE.
            CALL Info( 'HeatSolve', 'Using Transient Heater Control')
@@ -656,7 +656,7 @@
          HeatCapacity(1:n) = GetReal( Material, 'Heat Capacity', Found )
 
 
- 	 CALL ListGetRealArray( Material,'Heat Conductivity',Hwrk,n, &
+         CALL ListGetRealArray( Material,'Heat Conductivity',Hwrk,n, &
                       Element % NodeIndexes )
          HeatConductivity = 0.0d0
          IF ( SIZE(Hwrk,1) == 1 ) THEN
@@ -833,7 +833,7 @@
                  Load(1:n) = Load(1:n) * HeaterScaling(bf_id) 
               END IF
            END IF
-	 END IF	
+         END IF
 
 !------------------------------------------------------------------------------
 !        Get element local matrices, and RHS vectors
@@ -1019,7 +1019,7 @@
           ! The change is computed separately for the controlled temperature field
           !-----------------------------------------------------------------------
           CALL ComputeChange(Solver,.FALSE.,LocalNodes,Temperature)
-	  Norm = Solver % Variable % Norm
+          Norm = Solver % Variable % Norm
 
         END IF
 
@@ -1254,15 +1254,15 @@ CONTAINS
          PhaseVelocity(2,1:n) = GetReal( BC,'Phase Velocity 2', Found  )
          PhaseVelocity(3,1:n) = GetReal( BC,'Phase Velocity 3', Found  )
   
-         ! Ensure that the latent heat and density come from the same side	
+         ! Ensure that the latent heat and density come from the same side
          LatentHeat(1:n) = GetParentMatProp( 'Latent Heat', &
-	   UElement = Element, UParent = Parent )
-	 IF(.NOT. ASSOCIATED(Parent) ) THEN
-	   CALL Warn('HeatSolve','Parent not associated')
+              UElement = Element, UParent = Parent )
+         IF(.NOT. ASSOCIATED(Parent) ) THEN
+           CALL Warn('HeatSolve','Parent not associated')
          ELSE
            k = GetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
            Density(1:n) = GetReal( Model % Materials(k) % Values, 'Density', &
-	      UElement = Parent )
+              UElement = Parent )
          END IF
 
          ! This could be rather put as a new type of BC into the assembly routine and 

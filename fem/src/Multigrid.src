@@ -2357,7 +2357,7 @@ CONTAINS
       ! Mark Dirichlet nodes with negative sign in order to favour boundaries in future
       IF( maxbond < DirLim * ABS(Values (Amat % Diag(ind)) ) ) THEN
         IF(ElimDir) THEN
-	  Fixed(ind) = .TRUE.
+          Fixed(ind) = .TRUE.
           Cands(ind) = -1
           elimnods = elimnods + 1
         END IF
@@ -2430,7 +2430,7 @@ CONTAINS
       maxbond = 0.0
        
       IF ( Level == Solver % MultiGridTotal ) THEN
-        k = ind	
+        k = ind
       ELSE
         k = AMG(Level+1) % InvCF(ind)
       END IF
@@ -2845,7 +2845,7 @@ CONTAINS
     find = 0
 
     ! Make the tightly bonded neighbours of coarse nodes to be fine nodes 
-    ! This has an effect only if the CF list has been initialized	
+    ! This has an effect only if the CF list has been initialized
     DO ind = 1, nods
       IF(CF(ind) == 0) CYCLE
       
@@ -2887,7 +2887,7 @@ CONTAINS
         ci = Cols(i)
 
         IF(Cands(ci) > 0) THEN
-          ! Only give points to undicided points	
+          ! Only give points to undicided points
           IF(CF(ci) == 0) THEN
             IF(CF(ind) == 0) Con(ci) = Con(ci) + 1
             IF(CF(ind) < 0)  Con(ci) = Con(ci) + 2
@@ -5094,7 +5094,7 @@ CONTAINS
       IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Unsolve',gotit ) ) THEN
         RETURN
       ELSE IF ( .NOT. Parallel ) THEN
- 	IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
+        IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
         ELSE
           CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )

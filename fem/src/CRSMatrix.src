@@ -723,7 +723,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_GlueLocalSubMatrix( A,row0,col0,Nrow,Ncol,RowInds,ColInds,&
-	RowDofs,ColDofs,LocalMatrix )
+                  RowDofs,ColDofs,LocalMatrix )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -786,7 +786,7 @@ CONTAINS
                  Col  = Col0 + ColDofs * ColInds(j) - l
 
 ! If Diag does not exist then one cannot separate the gluing into two parts
-                IF( .FALSE. ) THEN	
+                IF( .FALSE. ) THEN
                     DO c=Rows(Row),Rows(Row+1)-1
                        IF ( Cols(c) == Col ) THEN
                            Values(c) = Values(c) + LocalMatrix(RowDofs*i-k,ColDofs*j-l)
@@ -823,11 +823,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE CRS_SetSymmDirichlet( A,b,n,s )
+  SUBROUTINE CRS_SetSymmDirichlet( A,b,n,val )
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A
     INTEGER :: n
-    REAL(KIND=dp) :: b(:),s
+    REAL(KIND=dp) :: b(:),val
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,k1,k2
     REAL(KIND=dp) :: t
@@ -856,7 +856,7 @@ CONTAINS
        IF ( k <= 30 ) THEN
          DO j = k1, k2
            IF ( A % Cols(j) == n ) THEN
-             b(i) = b(i) - A % Values(j) * s
+             b(i) = b(i) - A % Values(j) * val
              A % Values(j) = 0.0_dp
              IF ( isMass ) A % MassValues(j) = 0._dp
              IF ( isDamp ) A % DampValues(j) = 0._dp
@@ -869,7 +869,7 @@ CONTAINS
          j = CRS_Search( k,A % Cols(k1:k2),n )
          IF ( j > 0 ) THEN
            j = j + k1 - 1
-           b(i) = b(i) - A % Values(j) * s
+           b(i) = b(i) - A % Values(j) * val
            A % Values(j) = 0.0_dp
            IF ( isMass ) A % MassValues(j) = 0._dp
            IF ( isDamp ) A % DampValues(j) = 0._dp
@@ -877,8 +877,8 @@ CONTAINS
        END IF
     END DO
 
-    CALL CRS_ZeroRow( A,n )
-    b(n) = s
+    CALL CRS_ZeroRow(A,n)
+    b(n) = val
     A % Values(A % Diag(n)) = 1._dp
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_SetSymmDirichlet
@@ -1330,7 +1330,7 @@ END FUNCTION CRS_RowSum
         IF( MOD(i,Blocks) == MOD(l,Blocks) ) THEN
           B % Values(kb) = A % Values(k)
           B % Cols(kb) = A % Cols(k)
-	  IF( B % Cols(kb) == i) B % Diag(i) = kb
+          IF( B % Cols(kb) == i) B % Diag(i) = kb
           kb = kb + 1  
         END IF
       END DO

@@ -214,17 +214,17 @@ CONTAINS
        a(1) = a(1) + 1.0_dp / (Dts(1)+Dts(2)) 
        a(2) = a(2) - (1.0_dp + Dts(1)/Dts(2)) / (Dts(1)+Dts(2)) 
        a(3) = (Dts(1)/Dts(2)) / (Dts(1)+Dts(2)) 
-     END IF	
+     END IF
      IF(Order >= 3) THEN
        a(1) = a(1) + 1.0_dp / (Dts(1)+Dts(2)+Dts(3)) 
        a(2) = a(2) - (1.0_dp + Dts(1)/Dts(2)*(1.0+(Dts(1)+Dts(2))/(Dts(2)+Dts(3)))) / (Dts(1)+Dts(2)+Dts(3)) 
        a(3) = a(3) + (Dts(1)/Dts(2)*(1.0+(Dts(1)+Dts(2))/(Dts(2)+Dts(3))) + &
-	          Dts(1)/Dts(3)*(Dts(1)+Dts(2))/(Dts(2)+Dts(3)) ) / (Dts(1)+Dts(2)+Dts(3)) 
+               Dts(1)/Dts(3)*(Dts(1)+Dts(2))/(Dts(2)+Dts(3)) ) / (Dts(1)+Dts(2)+Dts(3)) 
        a(4) = -(Dts(1)/Dts(3))*(Dts(1)+Dts(2))/(Dts(2)+Dts(3)) / (Dts(1)+Dts(2)+Dts(3))
-     END IF	
+     END IF
      IF(Order > 3) THEN
        CALL Warn('VBDFLocal','Variable timestep BDF implemented only to order 3')
-     END IF	
+     END IF
 
      DO i=1,NB1
        s = 0.0_dp

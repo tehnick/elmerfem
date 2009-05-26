@@ -402,8 +402,8 @@
            IF ( CurrentElement % BoundaryInfo % Constraint == &
                Model % BCs(i) % Tag ) THEN
 
-	      FluxBC = ListGetLogical(Model % BCs(i) % Values,'Electric Flux BC',gotIt) 
-              IF( GotIt .AND. .NOT. FluxBC) CYCLE            	
+              FluxBC = ListGetLogical(Model % BCs(i) % Values,'Electric Flux BC',gotIt) 
+              IF( GotIt .AND. .NOT. FluxBC) CYCLE
 
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
@@ -420,7 +420,7 @@
 !------------------------------------------------------------------------------
              Load(1:n) = ListGetReal( Model % BCs(i) % Values,'Surface Charge', &
                  n,NodeIndexes,gotIt )
-	     IF(.NOT. GotIt) CYCLE
+             IF(.NOT. GotIt) CYCLE
             
              ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
              ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
@@ -466,7 +466,7 @@
        st = CPUTime()
        
        Norm = DefaultSolve()
-       RelativeChange = Solver % Variable % NonlinChange	
+       RelativeChange = Solver % Variable % NonlinChange
 
        st = CPUTime() - st
        WRITE( Message, * ) 'Solve (s)             :',st
@@ -846,7 +846,7 @@ CONTAINS
          k = ListGetInteger( Model % Bodies( Element % BodyId ) % &
              Values, 'Material', minv=1, maxv=Model % NumberOfMaterials )
          
-	 IF(.NOT. NonDimensional) THEN
+         IF(.NOT. NonDimensional) THEN
            Permittivity(1:n) = ListGetReal( Model % Materials(k) % Values, &
                'Relative Permittivity',n, NodeIndexes )
          END IF

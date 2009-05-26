@@ -69,15 +69,15 @@ CONTAINS
 !-----------------------------------------------------------------
      INTEGER :: n, i, sz, ierr
      LOGICAL :: isfine
-     INTEGER*1, ALLOCATABLE, SAVE :: send_buffer(:)
+     INTEGER(KIND=1), ALLOCATABLE, SAVE :: send_buffer(:)
      INTERFACE 
         SUBROUTINE MPI_BUFFER_ATTACH( buf, n, ierr)
-           INTEGER*1 :: buf(*)
+           INTEGER(KIND=1) :: buf(*)
            INTEGER :: n, ierr
         END SUBROUTINE MPI_BUFFER_ATTACH
 
         SUBROUTINE MPI_BUFFER_DETACH( buf, n, ierr)
-           INTEGER*1 :: buf(*)
+           INTEGER(KIND=1) :: buf(*)
            INTEGER :: n, ierr
         END SUBROUTINE MPI_BUFFER_DETACH
      END INTERFACE
@@ -224,8 +224,8 @@ CONTAINS
     INTEGER :: i, j, k, n, sz, ierr, proc, MinActive
     INTEGER, ALLOCATABLE :: Active(:), buf(:)
     LOGICAL :: L
-    LOGICAL*1, ALLOCATABLE :: NeighAll(:,:)
     REAL(KIND=dp) :: RealTime, tstart, tend,s
+    LOGICAL(KIND=1), ALLOCATABLE :: NeighAll(:,:)
     !******************************************************************
 
     IF ( .NOT. ASSOCIATED(ParEnv % Active) ) THEN
@@ -3917,7 +3917,7 @@ FUNCTION SParCNorm( ndim, x, xind ) result (norm)
   !*********************************************************************
   norm = 0.0d0
   DO i = 1, ndim
-     norm = norm + DREAL(x(i))**2 + AIMAG(x(i))**2
+     norm = norm + REAL(x(i))**2 + AIMAG(x(i))**2
   END DO
   CALL SparActiveSUM(norm,0)
   norm = SQRT(norm)

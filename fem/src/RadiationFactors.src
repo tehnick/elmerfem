@@ -87,12 +87,12 @@
      REAL (KIND=dp), ALLOCATABLE :: SOL(:), RHS(:), Fac(:)
      REAL (KIND=dp) :: MinSum, MaxSum, SolSum, PrevSelf, FactorSum, &
          ImplicitSum, ImplicitLimit, NeglectLimit, SteadyChange, FactorsFixedTol, &
-	 GeometryFixedTol
+         GeometryFixedTol
      REAL (KIND=dp) :: at, at0, st, RealTime, CPUTime
      INTEGER :: BandSize,SubbandSize,RadiationSurfaces, GeometryFixedAfter, &
          Row,Col,MatrixElements, MatrixFormat, maxind, TimesVisited=0, &
          RadiationBody, MaxRadiationBody, MatrixEntries, ImplicitEntries, &
-	 FactorsFixedAfter
+         FactorsFixedAfter
      INTEGER, POINTER :: Cols(:), NodeIndexes(:), TempPerm(:), NewPerm(:)
      INTEGER, ALLOCATABLE :: FacPerm(:)
      INTEGER, ALLOCATABLE, TARGET :: RowSpace(:),Reorder(:),ElementNumbers(:), &
@@ -105,7 +105,7 @@
      LOGICAL :: GotIt, SaveFactors, UpdateViewFactors, UpdateGebhardtFactors, &
          ComputeViewFactors, OptimizeBW, TopologyTest, TopologyFixed, &
          FilesExist, FullMatrix, ImplicitLimitIs, IterSolveGebhardt, &
-	 ConstantEmissivity, Found
+         ConstantEmissivity, Found
      LOGICAL, POINTER :: ActiveNodes(:)
 
      SAVE TimesVisited 
@@ -116,7 +116,7 @@
 
      Found = .FALSE.
      DO i=1,Model % NumberOfBCs
-	RadiationFlag = ListGetString( Model % BCs(i) % Values, &
+       RadiationFlag = ListGetString( Model % BCs(i) % Values, &
              'Radiation', GotIt )
         IF (GotIt) THEN
           IF ( RadiationFlag(1:12) == 'diffuse gray' ) Found = .TRUE.
@@ -619,11 +619,11 @@
        DO i=1,Model % NumberOfBCs
          IF ( Model % BCs(i) % Tag  == k ) THEN
 
-	   IF(.NOT. ConstantEmissivity) THEN
+           IF(.NOT. ConstantEmissivity) THEN
              Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes, Found) ) / n
-	     IF( .NOT. Found ) THEN
-                Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n	
+             IF( .NOT. Found ) THEN
+                Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n
              END IF 
            END IF
 
@@ -713,8 +713,8 @@
            IF ( Model % BCs(j) % Tag == k ) THEN
              Emissivity = SUM(ListGetReal( Model % BCs(j) % Values, &
                'Emissivity', n, NodeIndexes, Found)) / n
-	     IF( .NOT. Found ) THEN
-	      Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n	
+             IF( .NOT. Found ) THEN
+               Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n
              END IF 
              EXIT
            END IF
@@ -788,7 +788,7 @@
          GebhardtFactors % NumberOfImplicitFactors = n
          ALLOCATE( GebhardtFactors % Elements(n), GebhardtFactors % Factors(n) )
        ELSE IF(ImplicitLimitIs) THEN 
-	 IF( TopologyFixed ) THEN
+         IF( TopologyFixed ) THEN
            CALL Warn('RadiationFactors','Matrix topology cannot be fixed with implicit Gebhardt factors')
          END IF
          TopologyFixed = .FALSE.

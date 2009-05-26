@@ -1426,7 +1426,7 @@ END SUBROUTINE CreateGlobalNumbering
                TrfMatrix(2,2) =  COS(Alpha)
            END SELECT
          
-	  RotMatrix = MATMUL( RotMatrix, TrfMatrix )
+           RotMatrix = MATMUL( RotMatrix, TrfMatrix )
        END DO
     END IF
 
@@ -1458,7 +1458,7 @@ END SUBROUTINE CreateGlobalNumbering
           x(2) = Mesh % Nodes % y(i)
           x(3) = Mesh % Nodes % z(i)
  
-	  IF( GotRotate ) THEN
+          IF( GotRotate ) THEN
             x = MATMUL( RotMatrix, x )
           END IF 
 
@@ -4402,7 +4402,7 @@ CONTAINS
 
        IF( SIZE( Var % Values ) == Var % DOFs ) THEN
          Var => Var % Next
-         CYCLE	 
+         CYCLE
        END IF 
 
        SELECT CASE( Var % Name )
@@ -5109,9 +5109,9 @@ CONTAINS
     ElemFin = 0     
     DO l = 1, Model % NumberOfBodies
        IF(ListCheckPresent( Model % Bodies(l) % Values,MaskName) ) THEN
-          ElemStart = 1	
+          ElemStart = 1
           ElemFin = Mesh % NumberOfBulkElements
-	  EXIT
+          EXIT
        END IF
     END DO
     DO l = 1, Model % NumberOfBCs

@@ -698,16 +698,15 @@
 !              CALL UpdateTimeForce( StiffMatrix,ForceVector,LocalForce, &
 !                        n,STDOFs, StressPerm(NodeIndexes) )
 
-	       LocalDampMatrix = 0.0
+               LocalDampMatrix = 0.0
                LocalMassMatrix = 0.0
-	       CALL Add2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
-        	    LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
+               CALL Add2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
+                 LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
                     StressPerm(NodeIndexes), Solver )
             END IF
 
-
-	         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-        	   ForceVector, LocalForce, n, STDOFs, StressPerm(NodeIndexes) )
+            CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+              ForceVector, LocalForce, n, STDOFs, StressPerm(NodeIndexes) )
 
 !------------------------------------------------------------------------------
           END IF

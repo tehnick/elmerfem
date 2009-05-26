@@ -230,7 +230,7 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
     Solver % Matrix % RHS => SaveRHS
     TotNorm = SQRT(TotNorm)
     Solver % Variable % Norm = Totnorm
-  ELSE	   
+  ELSE
     TotNorm = DefaultSolve()
   END IF
 !------------------------------------------------------------------------------     
@@ -330,8 +330,8 @@ CONTAINS
         IF(Dofs == 1) THEN
           Coeff = Weight * SUM( C(ActiveDir,1:dim) * Grad(1:dim) )
           FORCE(1,1:nd) = FORCE(1,1:nd) - Coeff*Basis(1:nd)
-        ELSE		
-          DO i=1,dim	
+        ELSE
+          DO i=1,dim
             Coeff = Weight * SUM( C(i,1:dim) * Grad(1:dim) )
             FORCE(i,1:nd) = FORCE(i,1:nd) - Coeff*Basis(1:nd)
           END DO
