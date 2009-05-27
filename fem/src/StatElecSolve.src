@@ -340,14 +340,14 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     
     IF ( CalculateEnergy ) THEN
       WeTemp = 0.0d0
-      Energy => WeTemp(:)
+      Energy => WeTemp
       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
           Solver, 'Electric Energy Density', 1, Energy, PotentialPerm )
     END IF
 
     IF ( CalculateSurfCharge ) THEN
        SurfChTemp = 0.0d0
-       SurfaceCharge => SurfChTemp(:)
+       SurfaceCharge => SurfChTemp
        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
            Solver, 'Surface Charge Density', 1, SurfaceCharge, PotentialPerm )
     END IF

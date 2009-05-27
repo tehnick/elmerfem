@@ -1308,7 +1308,7 @@ END SUBROUTINE ZeroSplittedMatrix
      DO i=1,n
        IF ( Mperm(i) == 0 ) CYCLE
 
-       nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+       nb => ParallelInfo % NeighbourList(i) % Neighbours
        IF ( nb(1)==my_id ) THEN
          Owner(i) = 1
          gind = gind + 1
@@ -1344,7 +1344,7 @@ END SUBROUTINE ZeroSplittedMatrix
      sz = 0
      DO i=1,n
        IF ( Owner(i) == 1 ) THEN
-         nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+         nb => ParallelInfo % NeighbourList(i) % Neighbours
          DO j=2,SIZE(nb)
            k = neigh(nb(j)+1)
            sz(k) = sz(k) + 1
@@ -1362,7 +1362,7 @@ END SUBROUTINE ZeroSplittedMatrix
      nob = 0
      DO i=1,n
        IF ( Owner(i) /= 0  ) THEN
-         nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+         nb => ParallelInfo % NeighbourList(i) % Neighbours
          DO j=2,SIZE(nb)
            k = neigh(nb(j)+1)
            sz(k) = sz(k) + 1
