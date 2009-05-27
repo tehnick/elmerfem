@@ -9,5 +9,5 @@ run:
 
 
 clean:
-	/bin/rm test.log temp.log mon.out Poisson Poisson.o Source Source.o so_locations
+	/bin/rm test.log temp.log mon.out Poisson$(SHL_EXT) Poisson$(OBJ_EXT) Source$(SHL_EXT) Source$(OBJ_EXT) so_locations
 	/bin/rm -r 1d

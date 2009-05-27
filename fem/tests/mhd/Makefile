@@ -8,5 +8,5 @@ run:
 
 
 clean:
-	/bin/rm test.log temp.log mon.out exmag$(OBJ_EXT) exmag 
+	/bin/rm test.log temp.log mon.out exmag$(OBJ_EXT) exmag$(SHL_EXT)
 	/bin/rm -r mesh

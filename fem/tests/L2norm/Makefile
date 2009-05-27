@@ -4,4 +4,4 @@ run:
 	$(ELMER_SOLVER)
 
 clean:
-	/bin/rm test.log temp.log mon.out Difference Difference.o so_locations
+	/bin/rm test.log temp.log mon.out Difference$(SHL_EXT) Difference$(OBJ_EXT) so_locations

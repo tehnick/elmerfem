@@ -8,4 +8,4 @@ run:
 
 
 clean:
-	/bin/rm test.log temp.log mon.out Velocity$(SHL_EXT) Velocity$(OBJ_EXT) Pressure$(SHL_EXT) Pressure.o so_locations
+	/bin/rm test.log temp.log mon.out Velocity$(SHL_EXT) Velocity$(OBJ_EXT) Pressure$(SHL_EXT) Pressure$(OBJ_EXT) so_locations

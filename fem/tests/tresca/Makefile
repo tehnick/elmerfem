@@ -6,4 +6,4 @@ run:
 	$(ELMER_SOLVER)
 
 clean:
-	/bin/rm test.log temp.log mon.out Tresca Tresca.o so_locations
+	/bin/rm test.log temp.log mon.out Tresca$(SHL_EXT) Tresca$(OBJ_EXT) so_locations
