@@ -36,13 +36,12 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
 
   TYPE(Solver_t), POINTER :: Solver3D
   TYPE(Element_t), POINTER :: Element, FaceElement
-  TYPE(Element_t), TARGET  :: TriangleElement
-  TYPE(Nodes_t) :: Nodes, FaceNodes, LineNodes
+  TYPE(Element_t), TARGET :: TriangleElement
+  TYPE(Nodes_t) :: Nodes, LineNodes, FaceNodes, ElementNodes
   TYPE(Variable_t), POINTER :: Variable2D, Variable3D
-  TYPE(Nodes_t) :: ElementNodes, LineNodes, FaceNodes
 
   REAL(KIND=dp), POINTER :: Values2D(:), Values3D(:), Vals(:)
-  REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+  REAL(KIND=dp), POINTER :: Basis(:)
   REAL(KIND=dp), POINTER :: PlaneX(:), PlaneY(:), PlaneZ(:)
   REAL(KIND=dp), POINTER :: VolumeX(:), VolumeY(:), VolumeZ(:)
   REAL(KIND=dp) :: CPUTime, at, totcpu
@@ -65,6 +64,14 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
   CHARACTER(LEN=MAX_NAME_LEN) :: ConvertFromName, ConvertFromVar, EqName
   LOGICAL :: AllocationsDone = .FALSE., stat, GotIt, Rotate, LimitRadius, Found
 
+  SAVE :: Solver3D, Variable2D, Variable3D, Values2D, Values3D, &
+      VolumeElements, PlaneNodes, VolumeX, VolumeY, VolumeZ, PlaneX, PlaneY, &
+      PlaneZ, MaxInt, IntBasis, IntNodes, IntExtent, IntOrder, &
+      MinHeight3D, MaxHeight3D, MinWidth3D, MaxWidth3D, &
+      Basis, ElementNodes, LineNodes, FaceNodes, Vals, Eps, Rotate, &
+      LimitRadius, MaxRelativeRadius, MinimumHits, AxisHits, Rmax3D
+
+
 !------------------------------------------------------------------------------
 
   totcpu = CPUTime()
@@ -75,7 +82,7 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
   CALL Info( 'ProjectToPlane', '-----------------------------------' )
   CALL Info( 'ProjectToPlane', ' ' )
 
-  IF ( .TRUE. ) THEN
+  IF ( .NOT. AllocationsDone ) THEN
     IF ( GetLogical( Model % Simulation, 'Output Version Numbers', stat ) ) THEN
       CALL Info( 'ProjectToPlane', 'Version 1.0 by raback (05-02-2007)', LEVEL=4 )
     END IF
@@ -172,7 +179,7 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
     ALLOCATE( MinHeight3D(VolumeElements), MaxHeight3D(VolumeElements))
     ALLOCATE( MinWidth3D(VolumeElements), MaxWidth3D(VolumeElements))
 
-    n = Model % MaxElementNodes
+    n = Solver3D % Mesh % MaxElementNodes
     ALLOCATE(ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), Basis(n) )
     ALLOCATE(LineNodes % x(2), LineNodes % y(2), LineNodes % z(2)  )
     ALLOCATE(FaceNodes % x(3), FaceNodes % y(3), FaceNodes % z(3), Vals(Dofs2D)  )
@@ -199,7 +206,6 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
     LineNodes % y(2) = LineNodes % y(1) + scale
 
     Eps = 1.0e-6 * scale    
-
 
 !------------------------------------------------------------------------------
 !  Check control parameters
@@ -244,12 +250,15 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
     END DO
     rmax3d = MAXVAL(MaxWidth3D)
  
+    AllocationsDone = .TRUE.
   END IF
-  
+
 
   ! By contruction split everything into triangles        
   corners = 3
+  
   TriangleElement % TYPE => GetElementType( 303, .FALSE. )
+
   FaceElement => TriangleElement
   Loops = 0
 
@@ -258,8 +267,6 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
   DO node = 1, PlaneNodes
 
     Loops(1) = Loops(1) + 1
-
-    at = CPUTime()
  
     IF(Perm2D(node) == 0) CYCLE
 
@@ -275,10 +282,12 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
     LineNodes % z(1) = z0
     LineNodes % z(2) = z0
 
-    
     !   Loop over 3D elements:
     !   -------------------
     Int = 0
+    Vals = 0
+    
+
     DO t = 1, VolumeElements
       
       Loops(2) = Loops(2) + 1
@@ -293,6 +302,8 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
 
 !------------------------------------------------------------------------------
       Element => GetActiveElement( t, Solver3D )
+      IF(.NOT. ASSOCIATED(Element)) CYCLE
+
       n = GetElementNOFNodes(Element)
       ElementNodes % x(1:n) = VolumeX( Element % NodeIndexes(1:n) )
       ElementNodes % y(1:n) = VolumeY( Element % NodeIndexes(1:n) )
@@ -301,7 +312,7 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
 
       Intersections = 0
       DO face=1, 12
-
+        
         CALL GetLinearTriangleFaces( Element, face, inds, GotIt )
         IF(.NOT. GotIt) EXIT
 
@@ -318,14 +329,14 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
           FaceNodes % y(1:corners) = 0.0d0            
           FaceNodes % z(1:corners) = ElementNodes % z(inds(1:corners))                       
         END IF
-          
-        xmin = MINVAL( FaceNodes % x(1:n) )
-        xmax = MAXVAL( FaceNodes % x(1:n) )                  
+
+        xmin = MINVAL( FaceNodes % x(1:corners) )
+        xmax = MAXVAL( FaceNodes % x(1:corners) )                  
         IF( x0 < xmin - Eps) CYCLE
         IF( x0 > xmax + Eps) CYCLE
         
-        zmin = MINVAL( FaceNodes % z(1:n) )
-        zmax = MAXVAL( FaceNodes % z(1:n) )                     
+        zmin = MINVAL( FaceNodes % z(1:corners) )
+        zmax = MAXVAL( FaceNodes % z(1:corners) )                     
         IF( z0 < zmin - Eps) CYCLE
         IF( z0 > zmax + Eps) CYCLE
 
@@ -357,18 +368,23 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
       
     END DO
 
-
+    
     IF(Int > MinimumHits) THEN
       
       Loops(7) = Loops(7) + 1
+
+      IF( Int == 1 ) THEN
+        DO l=1,Dofs2D
+          Vals(l) = SUM( IntBasis(:,k) * Values3D( Dofs3D * (Perm3D(IntNodes(:,1)) - 1) + l) )
+        END DO
+      ELSE
       
-      DO i=1,Int 
-        IntOrder(i) = i
-      END DO
-      
-      CALL SortR( Int, IntOrder, IntExtent)
-      
-      IF(Int > 1) THEN
+        DO i=1,Int 
+          IntOrder(i) = i
+        END DO
+        
+        CALL SortR( Int, IntOrder, IntExtent)
+        
         Vals = 0.0d0
         DO j=1,Int-1
           k = IntOrder(j)
@@ -393,13 +409,8 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
         ELSE
           Vals = Vals / (IntExtent(1)-IntExtent(Int)) 
         END IF
-      ELSE
-        DO l=1,Dofs2D
-          Vals(l) = SUM( IntBasis(:,k) * Values3D( Dofs3D * (Perm3D(IntNodes(:,1)) - 1) + l) )
-        END DO
       END IF
-
-    ELSE
+    ELSE 
       
       LocalPoint(1) = x0
       LocalPoint(2) = y0
@@ -479,6 +490,7 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
 
   END DO
 
+
   Solver % Variable % Norm = SQRT( SUM(Values2D**2) / SIZE(Perm2D) )
   
 
@@ -496,8 +508,10 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
   CALL Info( 'ProjectToPlane', 'All done' )
   CALL Info( 'ProjectToPlane', ' ' )
 
-  DEALLOCATE(IntBasis, IntNodes, IntExtent, IntOrder, &
-      MinHeight3D, MaxHeight3D, MinWidth3D, MaxWidth3D)
+  IF(.FALSE.) THEN
+    DEALLOCATE(IntBasis, IntNodes, IntExtent, IntOrder, &
+        MinHeight3D, MaxHeight3D, MinWidth3D, MaxWidth3D)
+  END IF
 
 
 CONTAINS
