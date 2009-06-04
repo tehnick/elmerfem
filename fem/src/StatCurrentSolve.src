@@ -255,7 +255,9 @@
      at = CPUTime()
      at0 = RealTime()
 
-     CALL InitializeToZero( StiffMatrix, ForceVector )
+     CALL DefaultInitialize()
+
+!     CALL InitializeToZero( StiffMatrix, ForceVector )
 !------------------------------------------------------------------------------
      CALL Info( 'StatCurrentSolve', '-------------------------------------',Level=4 )
      CALL Info( 'StatCurrentSolve', 'STAT CURRENT SOLVER:  ', Level=4 )
@@ -282,10 +284,10 @@
 !        Check if this element belongs to a body where potential
 !        should be calculated
 !------------------------------------------------------------------------------
-       CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
+       CurrentElement => GetActiveElement(t)
        NodeIndexes => CurrentElement % NodeIndexes
 
-       n = CurrentElement % TYPE % NumberOfNodes
+       n = GetElementNOFNodes()
  
        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
@@ -336,8 +338,11 @@
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-       CALL UpdateGlobalEquations( StiffMatrix,LocalStiffMatrix, &
-            ForceVector, LocalForce,n,1,PotentialPerm(NodeIndexes) )
+!       CALL UpdateGlobalEquations( StiffMatrix,LocalStiffMatrix, &
+!            ForceVector, LocalForce,n,1,PotentialPerm(NodeIndexes) )
+
+       CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
+
 !------------------------------------------------------------------------------
     END DO
 
@@ -407,8 +412,11 @@
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
 !------------------------------------------------------------------------------
-            CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-                ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
+!            CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+!                ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
+
+	     CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
+
 !------------------------------------------------------------------------------
           END IF ! of currentelement bc == bcs(i)
         END DO ! of i=1,model bcs
@@ -423,12 +431,17 @@
 !    Dirichlet boundary settings. Actually no need to call it except for
 !    transient simulations.
 !------------------------------------------------------------------------------
-     CALL FinishAssembly( Solver,ForceVector )
+!     CALL FinishAssembly( Solver,ForceVector )
+      CALL DefaultFinishAssembly()
+
+ 
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-     CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-            ComponentName(Solver % Variable),1,1,PotentialPerm )
+!     CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
+!            ComponentName(Solver % Variable),1,1,PotentialPerm )
+
+     CALL DefaultDirichletBCs()
 
      at = CPUTime() - at
      WRITE( Message, * ) 'Assembly (s)          :',at
@@ -437,8 +450,10 @@
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
      st = CPUTime()
-     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-                  Potential, Norm, 1, Solver )
+!     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
+!                  Potential, Norm, 1, Solver )
+     Norm = DefaultSolve()
+
      st = CPUTime() - st
      WRITE( Message, * ) 'Solve (s)             :',st
      CALL Info( 'StatCurrentSolve', Message, Level=4 )
