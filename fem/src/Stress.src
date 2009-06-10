@@ -787,18 +787,19 @@ MODULE StressLocal
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
- SUBROUTINE StressBoundary( STIFF,DAMP,FORCE,FORCE_im,LOAD,LOAD_im,NodalSpring,NodalDamp, &
-             NodalBeta,NodalBeta_im,NodalStress,NormalTangential,Element,n,ntot,Nodes )
+ SUBROUTINE StressBoundary( STIFF,DAMP,FORCE,FORCE_im,LOAD,LOAD_im,NodalSpring, &
+      NormalSpring, NodalDamp, NodalBeta,NodalBeta_im,NodalStress,NormalTangential, &
+         Element,n,ntot,Nodes )
    USE ElementUtils
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: NodalSpring(:),NodalDamp(:),NodalBeta(:),LOAD(:,:)
+   REAL(KIND=dp) :: NodalSpring(:,:),NodalDamp(:),NodalBeta(:),LOAD(:,:)
    REAL(KIND=dp) :: LOAD_im(:,:),FORCE_im(:),NodalBeta_im(:)
    TYPE(Element_t),POINTER  :: Element
    TYPE(Nodes_t)    :: Nodes
    REAL(KIND=dp) :: STIFF(:,:),DAMP(:,:),FORCE(:), NodalStress(:,:)
 
    INTEGER :: n,ntot
-   LOGICAL :: NormalTangential
+   LOGICAL :: NormalTangential, NormalSpring
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Basis(ntot)
    REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
@@ -898,12 +899,12 @@ MODULE StressLocal
         END SELECT
      END IF
 
+     SpringCoeff = MATMUL(Basis(1:n),NodalSpring(1:n,:))
      IF ( NormalTangential ) THEN
        DampCoeff(1)   = SUM( NodalDamp(1:n)*Basis(1:n) )
-       SpringCoeff(1) = SUM( NodalSpring(1:n)*Basis(1:n) )
      ELSE
-       DampCoeff(1:3)   = SUM( NodalDamp(1:n)*Basis(1:n) )   * Normal
-       SpringCoeff(1:3) = SUM( NodalSpring(1:n)*Basis(1:n) ) * Normal
+       IF ( NormalSpring ) SpringCoeff = SpringCoeff(1)*Normal
+       DampCoeff(1:3) = SUM( NodalDamp(1:n)*Basis(1:n))*Normal
      END IF
 
      DO p=1,Ntot
