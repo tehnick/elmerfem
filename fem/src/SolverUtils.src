@@ -2374,6 +2374,8 @@ CONTAINS
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Matrix_t), POINTER :: Projector
 
+    TYPE(Variable_t), POINTER :: NrmVar
+
     LOGICAL, ALLOCATABLE :: Done(:)
   
     REAL(KIND=dp), POINTER :: SetNormal(:,:), Rot(:,:)
@@ -2390,6 +2392,8 @@ CONTAINS
     ElementNodes % x => x
     ElementNodes % y => y
     ElementNodes % z => z
+
+    NrmVar => VariableGet( Model % Mesh % Variables, 'Normals' )
 
 !------------------------------------------------------------------------------
 !   Compute sum of elementwise normals for nodes on boundaries
@@ -2415,15 +2419,23 @@ CONTAINS
             IF ( Found .OR. .NOT. Gotit ) THEN
               DO j=1,CurrentElement % TYPE % NumberOfNodes
                 k = BoundaryReorder( NodeIndexes(j) )
-                Bu = CurrentElement % TYPE % NodeU(j)
-
-                IF ( CurrentElement % TYPE % DIMENSION > 1 ) THEN
-                  Bv = CurrentElement % TYPE % NodeV(j)
+                IF ( ASSOCIATED(NrmVar) ) THEN
+                  BoundaryNormals(k,:) = 0._dp
+                  DO l=1,NrmVar % DOFs
+                    BoundaryNormals(k,l) = NrmVar % Values( NrmVar % DOFs* &
+                           (NrmVar % Perm(NodeIndexes(j))-1)+l)
+                  END DO
                 ELSE
-                  Bv = 0.0D0
+                  Bu = CurrentElement % TYPE % NodeU(j)
+
+                  IF ( CurrentElement % Type % Dimension > 1 ) THEN
+                    Bv = CurrentElement % TYPE % NodeV(j)
+                  ELSE
+                    Bv = 0.0D0
+                  END IF
+                  BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
+                      NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
                 END IF
-                BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
-                    NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
               END DO
             END IF
           END IF
@@ -2431,74 +2443,76 @@ CONTAINS
       END DO
     END DO
 
-    DO iBC=1,Model % NumberOfBCs
-       Projector => Model % BCs(iBC) % PMatrix
-       IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
+    IF ( .NOT. ASSOCIATED(NrmVar) ) THEN
+      DO iBC=1,Model % NumberOfBCs
+         Projector => Model % BCs(iBC) % PMatrix
+         IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
 
-       !
-       ! TODO: consistent normals, if rotations given:
-       ! ---------------------------------------------
-       Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
-               'Periodic BC Rotate', Found )
-       IF ( Found .AND. ASSOCIATED(Rot) ) THEN
-         IF ( ANY(Rot/=0) ) THEN
-           ALLOCATE( Done(SIZE(BoundaryNormals,1)) )
-           Done=.FALSE.
-           DO i=1,Projector % NumberOfRows
-              k = BoundaryReorder(Projector % InvPerm(i))
-              IF ( k <= 0 ) CYCLE
-              DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-                IF ( Projector % Cols(l) <= 0 ) CYCLE
-                m = BoundaryReorder(Projector % Cols(l))
-                IF ( m>0 ) THEN
-                  IF ( .NOT.Done(m) ) THEN
-                    Done(m) = .TRUE.
-                    BoundaryNormals(m,:) = -BoundaryNormals(m,:)
+         !
+         ! TODO: consistent normals, if rotations given:
+         ! ---------------------------------------------
+         Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
+                 'Periodic BC Rotate', Found )
+         IF ( Found .AND. ASSOCIATED(Rot) ) THEN
+           IF ( ANY(Rot/=0) ) THEN
+             ALLOCATE( Done(SIZE(BoundaryNormals,1)) )
+             Done=.FALSE.
+             DO i=1,Projector % NumberOfRows
+                k = BoundaryReorder(Projector % InvPerm(i))
+                IF ( k <= 0 ) CYCLE
+                DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+                  IF ( Projector % Cols(l) <= 0 ) CYCLE
+                  m = BoundaryReorder(Projector % Cols(l))
+                  IF ( m>0 ) THEN
+                    IF ( .NOT.Done(m) ) THEN
+                      Done(m) = .TRUE.
+                      BoundaryNormals(m,:) = -BoundaryNormals(m,:)
+                    END IF
                   END IF
-                END IF
-              END DO
-           END DO
-           DEALLOCATE(Done)
-           CYCLE
+                END DO
+             END DO
+             DEALLOCATE(Done)
+             CYCLE
+           END IF
          END IF
-       END IF
 
-       DO i=1,Projector % NumberOfRows
-          k = BoundaryReorder(Projector % InvPerm(i))
-          IF ( k <= 0 ) CYCLE
-          DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-            IF ( Projector % Cols(l) <= 0 ) CYCLE
-            m = BoundaryReorder(Projector % Cols(l))
-            IF ( m>0 ) BoundaryNormals(m,:) = 0._dp
-          END DO
-       END DO
-    END DO
+         DO i=1,Projector % NumberOfRows
+            k = BoundaryReorder(Projector % InvPerm(i))
+            IF ( k <= 0 ) CYCLE
+            DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+              IF ( Projector % Cols(l) <= 0 ) CYCLE
+              m = BoundaryReorder(Projector % Cols(l))
+              IF ( m>0 ) BoundaryNormals(m,:) = 0._dp
+            END DO
+         END DO
+      END DO
 
-    DO iBC=1,Model % NumberOfBCs
-       Projector => Model % BCs(iBC) % PMatrix
-       IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
+      DO iBC=1,Model % NumberOfBCs
+         Projector => Model % BCs(iBC) % PMatrix
+         IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
 
-       !
-       ! TODO: consistent normals, if rotations given:
-       ! ---------------------------------------------
-       Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
-               'Periodic BC Rotate', Found )
-       IF ( Found .AND. ASSOCIATED(Rot) ) THEN
-         IF ( ANY(Rot/=0) ) CYCLE
-       END IF
+         !
+         ! TODO: consistent normals, if rotations given:
+         ! ---------------------------------------------
+         Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
+                 'Periodic BC Rotate', Found )
+         IF ( Found .AND. ASSOCIATED(Rot) ) THEN
+           IF ( ANY(Rot/=0) ) CYCLE
+         END IF
 
-       DO i=1,Projector % NumberOfRows
-          k = BoundaryReorder(Projector % InvPerm(i))
-          IF ( k <= 0 ) CYCLE
-          DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-            IF ( Projector % Cols(l) <= 0 ) CYCLE
-            m = BoundaryReorder(Projector % Cols(l))
-            IF ( m > 0 ) &
-               BoundaryNormals(m,:) = BoundaryNormals(m,:) + &
-                 Projector % Values(l) * BoundaryNormals(k,:)
-          END DO
-       END DO
-    END DO
+         DO i=1,Projector % NumberOfRows
+            k = BoundaryReorder(Projector % InvPerm(i))
+            IF ( k <= 0 ) CYCLE
+            DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+              IF ( Projector % Cols(l) <= 0 ) CYCLE
+              m = BoundaryReorder(Projector % Cols(l))
+              IF ( m > 0 ) &
+                 BoundaryNormals(m,:) = BoundaryNormals(m,:) + &
+                   Projector % Values(l) * BoundaryNormals(k,:)
+            END DO
+         END DO
+      END DO
+    END IF
 
 !------------------------------------------------------------------------------
 !   normalize 
