@@ -39,6 +39,33 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+  SUBROUTINE NormalSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    INTEGER :: dim
+    TYPE(ValueList_t), POINTER :: SolverParams
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      dim = CoordinateSystemDimension()
+      CALL ListAddString( SolverParams,  'Variable', '-nooutput Nrm_tmp' )
+      CALL ListAddString( SolverParams,  'Exported Variable 1', 'Normals' )
+      CALL ListAddInteger( SolverParams, 'Exported Variable 1 DOFs', dim )
+      CALL ListAddString( SolverParams,  'Normals Result Variable', 'Normals')
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
+!------------------------------------------------------------------------------
+  END SUBROUTINE NormalSolver_Init
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
 SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
@@ -141,7 +168,10 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------     
   DO i=1,dim
     Solver % Matrix % RHS => ForceVector(i,:)
+
+    CALL DefaultDirichletBCs()
     UNorm = DefaultSolve()
+
     DO j=1,Solver % Matrix % NumberOfRows
       NrmSol % Values(DOFs*(j-1)+i) = Solver % Variable % Values(j)
     END DO
