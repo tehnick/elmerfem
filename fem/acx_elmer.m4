@@ -1698,7 +1698,7 @@ case "$canonical_host_type" in
   ;;
 esac
 
-AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
+AM_CONDITIONAL(IBM_AIX, test "$acx_platform_def" = "AIX")
 ])
 
 AC_DEFUN([ACX_COMPILER_FIXES],

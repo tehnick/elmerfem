@@ -74,17 +74,22 @@ case "$host" in
     AC_MSG_RESULT([$PACX_SIGNAL])
     if test "x$PACX_SIGNAL" = "xyes" ; then
       if test -f "$mpi_lib_dir/libmpi.a" ; then
-        lib_mpi="mpi"
+        lib_mpi="-lmpi"
       elif test -f "$mpi_lib_dir/libmpi.so" ; then
-        lib_mpi="mpi"
+        lib_mpi="-lmpi"
       elif test -f "$mpi_lib_dir/libmpich.a" ; then
-        lib_mpi="mpich"
+        lib_mpi="-lmpich"
       else
         AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
       fi
     else
       if test -f "$mpi_lib_dir/libmpi_r.a" ; then
-         lib_mpi="mpi_r"
+         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+      elif test -f "/usr/lpp/ppe.poe//lib/libmpi_r.a" ; then
+	 mpi_dir="/usr/lpp/ppe.poe/"
+	 mpi_lib_dir="$mpi_dir/lib"
+	 mpi_inc_dir="$mpi_dir/include/thread64"
+         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
       else
          AC_MSG_ERROR([libmpi_r not found; check path for MPI package...])
       fi
@@ -93,11 +98,11 @@ case "$host" in
   ;;
   *)                         # All other machines
     if test -f "$mpi_lib_dir/libmpi.a" ; then
-      lib_mpi="mpi"
+      lib_mpi="-lmpi"
     elif test -f "$mpi_lib_dir/libmpi.so" ; then
-      lib_mpi="mpi"
+      lib_mpi="-lmpi"
     elif test -f "$mpi_lib_dir/libmpich.a" ; then
-      lib_mpi="mpich"
+      lib_mpi="-lmpich"
     else
       AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
     fi
@@ -113,7 +118,7 @@ if test "$acx_mpi_try_c_compile" != "no"; then
 	old_CFLAGS=${CFLAGS}
 	old_LIBS=${LIBS}
 	CFLAGS="-I$mpi_inc_dir"
-	LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
 	AC_TRY_COMPILE([#include <mpi.h>],
 	[{
 	  MPI_Finalize();
@@ -136,7 +141,7 @@ AC_CHECK_FILE($mpi_inc_dir/mpif.h,
 [acx_mpif_h_found=no
  MPI_INCLUDE_DIR=""])
 
-   MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
+   MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
 else  
    # use local mpif.h
    acx_mpif_h_found=no
@@ -171,7 +176,7 @@ AC_DEFUN([AC_CHECK_MPI_VERSION],
   [ old_CFLAGS=${CFLAGS}
     old_LIBS=${LIBS}
     CFLAGS="-I$mpi_inc_dir"
-    LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+    LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
     AC_TRY_RUN([
 #include <stdio.h>
 #include <mpi.h>
@@ -236,7 +241,7 @@ AC_DEFUN([AC_CHECK_FORTRAN_MPI_DATATYPE],
     if test -z "$ac_link" ; then
       dnl This is our last resort -- do it by hand
       dnl This might mean, that the test-program will not run on the cpu, configure runs on!
-      ac_link='$F77 $FFLAGS -I${mpi_inc_dir} -o conftest conftest.f -L${mpi_lib_dir} -l${lib_mpi} $SYS_LDFLAGS'
+      ac_link='$F77 $FFLAGS -I${mpi_inc_dir} -o conftest conftest.f -L${mpi_lib_dir} ${lib_mpi} $SYS_LDFLAGS'
     fi
 
     AC_TRY_RUN([
