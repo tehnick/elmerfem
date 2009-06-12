@@ -842,7 +842,7 @@ int main(int argc, char *argv[])
       data[k].y = tmpcoord[eg.coordinatemap[1]-1];
       data[k].z = tmpcoord[eg.coordinatemap[2]-1];      
 
-      if(eg.coordinatemap[3] != 3) data[k].dim = 3;
+      if(eg.coordinatemap[2] != 3) data[k].dim = 3;
     }
   }
 
