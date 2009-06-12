@@ -142,8 +142,8 @@ CONTAINS
        Residual = 0.0d0
 
        RHSNorm = ParallelReduction(SQRT(SUM(ForceVector**2)))
-       Solution = Solution / RHSnorm
-       ForceVector = ForceVector / RHSnorm
+       Solution(1:n) = Solution(1:n) / RHSnorm
+       ForceVector(1:n) = ForceVector(1:n) / RHSnorm
 !
 !      Check for top & bottom levels:
 !      ------------------------------ 
@@ -197,8 +197,8 @@ CONTAINS
              END IF
           END SELECT
 
-          Solution = Solution * RHSNorm
-          ForceVector = ForceVector * RHSnorm
+          Solution(1:n) = Solution(1:n) * RHSNorm
+          ForceVector(1:n) = ForceVector(1:n) * RHSnorm
 
           DEALLOCATE( Residual )
           NewLinearSystem = .FALSE.
@@ -457,8 +457,8 @@ CONTAINS
        IF ( Parallel ) THEN 
           CALL ParallelUpdateResult( Matrix1, Solution, Residual )
        END IF
-       Solution = Solution * RHSNorm
-       ForceVector = ForceVector * RHSNorm
+       Solution(1:n) = Solution(1:n) * RHSNorm
+       ForceVector(1:n) = ForceVector(1:n) * RHSNorm
 
        Solver % Variable => SaveVariable
        Solver % Mesh     => SaveMesh

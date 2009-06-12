@@ -64,6 +64,8 @@ void STDCALLBULL FC_FUNC_(mpi_comm_free,MPI_COMM_FREE) () {}
 void STDCALLBULL FC_FUNC_(mpi_comm_group,MPI_COMM_GROUP) () {}
 void STDCALLBULL FC_FUNC_(mpi_group_incl,MPI_GROUP_INCL) () {}
 
+void STDCALLBULL FC_FUNC_(mpi_statuses_ignore,MPI_STATUSES_IGNORE) () {}
+
 void STDCALLBULL MPI_Type_free() {}
 void STDCALLBULL MPI_Startall() {}
 void STDCALLBULL MPI_Gather() {}

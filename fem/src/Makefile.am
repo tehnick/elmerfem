@@ -73,7 +73,7 @@ if USE_MPI
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 	$(RM) $@
 	$(CP) _muldc3.oo _muldc3.o
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS)  $(MPI_LIBS) _muldc3.o -L. -Lbinio -lbinio
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) _muldc3.o -L. -Lbinio -lbinio
 else
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT) binio/libbinio.a
 	$(RM) $@
@@ -88,7 +88,11 @@ libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 if MAC_OSX
 	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-dylib_install_name,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
 else
-	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+if IBM_AIX
+	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+else
+	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS)  -Wl,-soname,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+endif
 endif
 	$(LN) -s libelmersolver-$(VERSION)$(SHL_EXT) $@
 
@@ -105,16 +109,15 @@ $(SOLVEROBJS): mpif
 
 if USE_MPI
 # the only way I got ibm MPI working was with mpxlf90...
-if IBM_IS_PIECE_OF_SHIT
-ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) $(SOLVEROBJS)
-	$(MPI_F90) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) \
-		   Solver$(OBJ_EXT) $(SOLVEROBJS) \
-		   $(SOLVER_LIBS) $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS) 
+if IBM_AIX
+ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
+	$(MPI_F90) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) \
+		   Solver$(OBJ_EXT) -L. -lelmersolver $(MPI_LIBS) $(EXTRA_LIBS)
 else
 ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
 	      -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) \
-	      -L. -lelmersolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
+	      -L. -lelmersolver $(MPI_LIBS) $(EXTRA_LIBS)
 endif
 endif
 

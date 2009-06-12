@@ -54,7 +54,7 @@ void elm_16node_quad_shape_functions(double a[16][16]);
 void elm_4node_quad_shape_functions(double a[4][4]);
 
 static double GeomNodes[MAX_GEOM_NODES][3],GeomNorms[MAX_GEOM_NODES][3];
-static int    GeomElem[MAX_GEOM_ELEM][4],Type[MAX_GEOM_ELEM];
+static int    GeomElem[MAX_GEOM_ELEM][16],Type[MAX_GEOM_ELEM];
 
 extern double ShapeFunctionMatrix[16][16],ShapeFunctionMatrix4[4][4],ShapeFunctionMatrix3[3][3];
 
