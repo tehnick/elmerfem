@@ -5,10 +5,10 @@
 /* #undef AIX */
 
 /* Couldn't determine. sticking with 32 bits. */
-/* #undef ARCH_32_BITS */
+#define ARCH_32_BITS 0
 
 /* 64 bit arch. */
-#define ARCH_64_BITS 1
+/* #undef ARCH_64_BITS */
 
 /* Detected platform. */
 /* #undef BASTARDS */
@@ -32,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/usr/local/share/elmersolver"
+#define ELMER_SOLVER_HOME "/wrk/jpr/ff/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -109,7 +109,7 @@
 #define HAVE_HUTI 1
 
 /* Define if you have a HYPRE library. */
-#define HAVE_HYPRE 1
+/* #undef HAVE_HYPRE */
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -133,10 +133,10 @@
 #define HAVE_MEMORY_H 1
 
 /* ... */
-#define HAVE_MPI 1
+/* #undef HAVE_MPI */
 
 /* Define if you have a PARPACK library. */
-#define HAVE_PARPACK 1
+/* #undef HAVE_PARPACK */
 
 /* Define to 1 if you have the `shl_findsym' function. */
 /* #undef HAVE_SHL_FINDSYM */
@@ -198,6 +198,9 @@
 /* Define to the version of this package. */
 #define PACKAGE_VERSION ""
 
+/* svn revision */
+#define REVISION "4198"
+
 /* Detected platform. */
 /* #undef SGI */
 
@@ -208,10 +211,10 @@
 /* #undef SIZEOF_LONG */
 
 /* The size of `off_t', as computed by sizeof. */
-#define SIZEOF_OFF_T 8
+#define SIZEOF_OFF_T 4
 
 /* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 8
+#define SIZEOF_VOIDP 0
 
 /* Detected platform. */
 /* #undef SOLARIS */

@@ -706,8 +706,8 @@ CCDEPMODE
 am__fastdepCC_TRUE
 am__fastdepCC_FALSE
 canonical_host_type
-IBM_IS_PIECE_OF_SHIT_TRUE
-IBM_IS_PIECE_OF_SHIT_FALSE
+IBM_AIX_TRUE
+IBM_AIX_FALSE
 CXX
 CXXFLAGS
 ac_ct_CXX
@@ -3913,11 +3913,11 @@ _ACEOF
 esac
 
  if test "$acx_platform_def" = "AIX"; then
-  IBM_IS_PIECE_OF_SHIT_TRUE=
-  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+  IBM_AIX_TRUE=
+  IBM_AIX_FALSE='#'
 else
-  IBM_IS_PIECE_OF_SHIT_TRUE='#'
-  IBM_IS_PIECE_OF_SHIT_FALSE=
+  IBM_AIX_TRUE='#'
+  IBM_AIX_FALSE=
 fi
 
 
@@ -10272,11 +10272,11 @@ echo $ECHO_N "checking whether to use signal-based MPI library... $ECHO_C" >&6; 
 echo "${ECHO_T}$PACX_SIGNAL" >&6; }
     if test "x$PACX_SIGNAL" = "xyes" ; then
       if test -f "$mpi_lib_dir/libmpi.a" ; then
-        lib_mpi="mpi"
+        lib_mpi="-lmpi"
       elif test -f "$mpi_lib_dir/libmpi.so" ; then
-        lib_mpi="mpi"
+        lib_mpi="-lmpi"
       elif test -f "$mpi_lib_dir/libmpich.a" ; then
-        lib_mpi="mpich"
+        lib_mpi="-lmpich"
       else
         { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
 echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
@@ -10284,7 +10284,12 @@ echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI packa
       fi
     else
       if test -f "$mpi_lib_dir/libmpi_r.a" ; then
-         lib_mpi="mpi_r"
+         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+      elif test -f "/usr/lpp/ppe.poe//lib/libmpi_r.a" ; then
+	 mpi_dir="/usr/lpp/ppe.poe/"
+	 mpi_lib_dir="$mpi_dir/lib"
+	 mpi_inc_dir="$mpi_dir/include/thread64"
+         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
       else
          { { echo "$as_me:$LINENO: error: libmpi_r not found; check path for MPI package..." >&5
 echo "$as_me: error: libmpi_r not found; check path for MPI package..." >&2;}
@@ -10296,11 +10301,11 @@ echo "${ECHO_T}found $lib_mpi" >&6; }
   ;;
   *)                         # All other machines
     if test -f "$mpi_lib_dir/libmpi.a" ; then
-      lib_mpi="mpi"
+      lib_mpi="-lmpi"
     elif test -f "$mpi_lib_dir/libmpi.so" ; then
-      lib_mpi="mpi"
+      lib_mpi="-lmpi"
     elif test -f "$mpi_lib_dir/libmpich.a" ; then
-      lib_mpi="mpich"
+      lib_mpi="-lmpich"
     else
       { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
 echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
@@ -10325,7 +10330,7 @@ echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
 	old_CFLAGS=${CFLAGS}
 	old_LIBS=${LIBS}
 	CFLAGS="-I$mpi_inc_dir"
-	LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -10436,7 +10441,7 @@ else
 fi
 
 
-   MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
+   MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
 else
    # use local mpif.h
    acx_mpif_h_found=no
@@ -15950,7 +15955,7 @@ echo "$as_me: WARNING: sizeof(long) = $ac_cv_sizeof_long !? What kind of weird s
   fi
 fi
 
-SOLVER_LIBS="$LIBS $MPI_LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
  if 0; then
   MAC_OSX_TRUE=
@@ -15962,7 +15967,7 @@ fi
 
 case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-    EXTRA_LIBS="-L$prefix/lib $HUTI_LIBS $BLAS_LIBS"
+    EXTRA_LIBS=""
   ;;
   *darwin*)
      if 1; then
@@ -16238,10 +16243,10 @@ echo "$as_me: error: conditional \"am__fastdepCC\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
-if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+if test -z "${IBM_AIX_TRUE}" && test -z "${IBM_AIX_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_AIX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+echo "$as_me: error: conditional \"IBM_AIX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -16952,8 +16957,8 @@ CCDEPMODE!$CCDEPMODE$ac_delim
 am__fastdepCC_TRUE!$am__fastdepCC_TRUE$ac_delim
 am__fastdepCC_FALSE!$am__fastdepCC_FALSE$ac_delim
 canonical_host_type!$canonical_host_type$ac_delim
-IBM_IS_PIECE_OF_SHIT_TRUE!$IBM_IS_PIECE_OF_SHIT_TRUE$ac_delim
-IBM_IS_PIECE_OF_SHIT_FALSE!$IBM_IS_PIECE_OF_SHIT_FALSE$ac_delim
+IBM_AIX_TRUE!$IBM_AIX_TRUE$ac_delim
+IBM_AIX_FALSE!$IBM_AIX_FALSE$ac_delim
 CXX!$CXX$ac_delim
 CXXFLAGS!$CXXFLAGS$ac_delim
 _ACEOF

@@ -256,7 +256,6 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = view3d viewaxis binio
@@ -1095,7 +1094,7 @@ fdeps:
 @USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 @USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(RM) $@
 @USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(CP) _muldc3.oo _muldc3.o
-@USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS)  $(MPI_LIBS) _muldc3.o -L. -Lbinio -lbinio
+@USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) _muldc3.o -L. -Lbinio -lbinio
 @USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT) binio/libbinio.a
 @USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@	$(RM) $@
 @USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@	$(CP) _muldc3.oo _muldc3.o
@@ -1104,7 +1103,8 @@ fdeps:
 @USE_WINDOWS_COMPILER_FALSE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 @USE_WINDOWS_COMPILER_FALSE@	$(RM) $@
 @MAC_OSX_TRUE@@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-dylib_install_name,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
-@MAC_OSX_FALSE@@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -Wl,-soname,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+@IBM_AIX_TRUE@@MAC_OSX_FALSE@@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
+@IBM_AIX_FALSE@@MAC_OSX_FALSE@@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS)  -Wl,-soname,libelmersolver-$(VERSION)$(SHL_EXT) -o libelmersolver-$(VERSION)$(SHL_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
 @USE_WINDOWS_COMPILER_FALSE@	$(LN) -s libelmersolver-$(VERSION)$(SHL_EXT) $@
 
 @USE_WINDOWS_COMPILER_FALSE@.$(OBJEXT).$(SHLEXT): 
@@ -1115,14 +1115,13 @@ $(BINARIES) $(BINARIES_ODD): libelmersolver$(SHL_EXT)
 $(SOLVEROBJS): mpif
 
 # the only way I got ibm MPI working was with mpxlf90...
-@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) $(SOLVEROBJS)
-@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@	$(MPI_F90) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) \
-@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@		   Solver$(OBJ_EXT) $(SOLVEROBJS) \
-@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@		   $(SOLVER_LIBS) $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS) 
-@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
-@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@	      -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) \
-@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@	      -L. -lelmersolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
+@IBM_AIX_TRUE@@USE_MPI_TRUE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
+@IBM_AIX_TRUE@@USE_MPI_TRUE@	$(MPI_F90) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) \
+@IBM_AIX_TRUE@@USE_MPI_TRUE@		   Solver$(OBJ_EXT) -L. -lelmersolver $(MPI_LIBS) $(EXTRA_LIBS)
+@IBM_AIX_FALSE@@USE_MPI_TRUE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
+@IBM_AIX_FALSE@@USE_MPI_TRUE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
+@IBM_AIX_FALSE@@USE_MPI_TRUE@	      -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) \
+@IBM_AIX_FALSE@@USE_MPI_TRUE@	      -L. -lelmersolver $(MPI_LIBS) $(EXTRA_LIBS)
 
 # Take resource files into account in case of windres:
 

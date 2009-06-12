@@ -706,8 +706,8 @@ CCDEPMODE
 am__fastdepCC_TRUE
 am__fastdepCC_FALSE
 canonical_host_type
-IBM_IS_PIECE_OF_SHIT_TRUE
-IBM_IS_PIECE_OF_SHIT_FALSE
+IBM_AIX_TRUE
+IBM_AIX_FALSE
 CXX
 CXXFLAGS
 ac_ct_CXX
@@ -767,6 +767,8 @@ SH_LD
 UPPERCASEMODS_TRUE
 UPPERCASEMODS_FALSE
 modput_opt
+MAC_OSX_TRUE
+MAC_OSX_FALSE
 TESTS_FCFLAGS
 INCLUDE_MODULE_FLAG
 MESHGEN2D_LIBS
@@ -799,6 +801,7 @@ UNIX_MATH_LIB
 LIBSOLVER_DEPS
 RM
 CP
+LN
 MV
 MKDIR
 SOLVER_LIBS
@@ -2514,7 +2517,6 @@ fi
 
 
 
-
 DEPDIR="${am__leading_dot}deps"
 
 ac_config_commands="$ac_config_commands depfiles"
@@ -3705,6 +3707,15 @@ done
 
 
 
+acx_revision=`svnversion src`
+
+cat >>confdefs.h <<_ACEOF
+@%:@define REVISION "$acx_revision"
+_ACEOF
+
+
+
+
 
 
 
@@ -3902,11 +3913,11 @@ _ACEOF
 esac
 
  if test "$acx_platform_def" = "AIX"; then
-  IBM_IS_PIECE_OF_SHIT_TRUE=
-  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+  IBM_AIX_TRUE=
+  IBM_AIX_FALSE='#'
 else
-  IBM_IS_PIECE_OF_SHIT_TRUE='#'
-  IBM_IS_PIECE_OF_SHIT_FALSE=
+  IBM_AIX_TRUE='#'
+  IBM_AIX_FALSE=
 fi
 
 
@@ -5037,7 +5048,7 @@ ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 if test -n "$ac_tool_prefix"; then
-  for ac_prog in xlf90 pathf90 ifort ifc f90 g95
+  for ac_prog in gfortran xlf90 pathf90 ifort ifc f90 g95
   do
     # Extract the first word of "$ac_tool_prefix$ac_prog", so it can be a program name with args.
 set dummy $ac_tool_prefix$ac_prog; ac_word=$2
@@ -5081,7 +5092,7 @@ fi
 fi
 if test -z "$FC"; then
   ac_ct_FC=$FC
-  for ac_prog in xlf90 pathf90 ifort ifc f90 g95
+  for ac_prog in gfortran xlf90 pathf90 ifort ifc f90 g95
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -5296,7 +5307,7 @@ ac_compile='$F77 -c $FFLAGS conftest.$ac_ext >&5'
 ac_link='$F77 -o conftest$ac_exeext $FFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_f77_compiler_gnu
 if test -n "$ac_tool_prefix"; then
-  for ac_prog in xlf pathf90 ifort ifc f77 g95 g77
+  for ac_prog in gfortran xlf pathf90 ifort ifc f77 g95 g77
   do
     # Extract the first word of "$ac_tool_prefix$ac_prog", so it can be a program name with args.
 set dummy $ac_tool_prefix$ac_prog; ac_word=$2
@@ -5340,7 +5351,7 @@ fi
 fi
 if test -z "$F77"; then
   ac_ct_F77=$F77
-  for ac_prog in xlf pathf90 ifort ifc f77 g95 g77
+  for ac_prog in gfortran xlf pathf90 ifort ifc f77 g95 g77
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -7344,12 +7355,16 @@ fi
 if test "$with_64bits" != no; then
    { echo "$as_me:$LINENO: checking to see if we got 64 bits" >&5
 echo $ECHO_N "checking to see if we got 64 bits... $ECHO_C" >&6; }
+   B64FLAGS=""
 
    if test "$ac_cv_sizeof_voidp" -ne 8; then
       { echo "$as_me:$LINENO: result: nope, reverting compiler flags" >&5
 echo "${ECHO_T}nope, reverting compiler flags" >&6; } 
 
-            B64FLAGS=""
+            B64CXXFLAGS=""
+      B64FCFLAGS=""
+      B64CFLAGS=""
+      B64FFLAGS=""
       CFLAGS=$orig_CFLAGS
       FFLAGS=$orig_FFLAGS
       FCFLAGS=$orig_FCFLAGS
@@ -9494,10 +9509,10 @@ SHLLIB_VER='$(SHLLIB).$(version)'
 SHLBIN_VER='$(SHLBIN).$(version)'
 SHLLINKEXT=
 LIBEXT=a
-SH_LD2=$CXX
+SH_LD2="$CXX $B64CXXFLAGS"
 SH_LD=$FC
-SH_LDFLAGS=-shared
-SH_LINKING_TO_FLAGS=
+SH_LDFLAGS="-shared"
+SH_LINKING_TO_FLAGS="$B64FCFLAGS"
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 SONAME_FLAGS=
@@ -9525,7 +9540,7 @@ case "$canonical_host_type" in
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
-       SH_LDFLAGS="-shared"
+       SH_LDFLAGS="-shared $B64FCFLAGS"
        LD_LIBRARY_PATH_VAR=PATH
   ;;
   *-*-linux* | *-*-gnu*)
@@ -9537,7 +9552,7 @@ case "$canonical_host_type" in
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
-    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
+    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared $B64FCFLAGS"
     LD_LIBRARY_PATH_VAR=LIBPATH
 #    RPATH_FLAG="-blibpath:"
     SH_EXPALL_FLAG="-bexpall"
@@ -9552,7 +9567,7 @@ case "$canonical_host_type" in
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
     if test "$GXX" != yes; then
-      SH_LDFLAGS=-G
+      SH_LDFLAGS="-G"
       RPATH_FLAG="-R"
     fi
 
@@ -9560,7 +9575,7 @@ case "$canonical_host_type" in
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
-      SH_LDFLAGS=-G
+      SH_LDFLAGS="-G"
       RPATH_FLAG="-R"
     fi
   ;;
@@ -10140,7 +10155,7 @@ CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. ${INCLUDE_MODULE_FLAG}binio"
 FFLAGS="$FFLAGS -I."
 ELMER_HOME="$prefix"
-FCPPFLAGS="-P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DFULL_INDUCTION -DUSE_ARPACK"
+FCPPFLAGS="$FCPPFLAGS -P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DFULL_INDUCTION -DUSE_ARPACK"
 TESTS_FCFLAGS=""
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
@@ -10257,11 +10272,11 @@ echo $ECHO_N "checking whether to use signal-based MPI library... $ECHO_C" >&6; 
 echo "${ECHO_T}$PACX_SIGNAL" >&6; }
     if test "x$PACX_SIGNAL" = "xyes" ; then
       if test -f "$mpi_lib_dir/libmpi.a" ; then
-        lib_mpi="mpi"
+        lib_mpi="-lmpi"
       elif test -f "$mpi_lib_dir/libmpi.so" ; then
-        lib_mpi="mpi"
+        lib_mpi="-lmpi"
       elif test -f "$mpi_lib_dir/libmpich.a" ; then
-        lib_mpi="mpich"
+        lib_mpi="-lmpich"
       else
         { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
 echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
@@ -10269,7 +10284,12 @@ echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI packa
       fi
     else
       if test -f "$mpi_lib_dir/libmpi_r.a" ; then
-         lib_mpi="mpi_r"
+         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+      elif test -f "/usr/lpp/ppe.poe//lib/libmpi_r.a" ; then
+	 mpi_dir="/usr/lpp/ppe.poe/"
+	 mpi_lib_dir="$mpi_dir/lib"
+	 mpi_inc_dir="$mpi_dir/include/thread64"
+         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
       else
          { { echo "$as_me:$LINENO: error: libmpi_r not found; check path for MPI package..." >&5
 echo "$as_me: error: libmpi_r not found; check path for MPI package..." >&2;}
@@ -10281,11 +10301,11 @@ echo "${ECHO_T}found $lib_mpi" >&6; }
   ;;
   *)                         # All other machines
     if test -f "$mpi_lib_dir/libmpi.a" ; then
-      lib_mpi="mpi"
+      lib_mpi="-lmpi"
     elif test -f "$mpi_lib_dir/libmpi.so" ; then
-      lib_mpi="mpi"
+      lib_mpi="-lmpi"
     elif test -f "$mpi_lib_dir/libmpich.a" ; then
-      lib_mpi="mpich"
+      lib_mpi="-lmpich"
     else
       { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
 echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
@@ -10310,7 +10330,7 @@ echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
 	old_CFLAGS=${CFLAGS}
 	old_LIBS=${LIBS}
 	CFLAGS="-I$mpi_inc_dir"
-	LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -10421,7 +10441,7 @@ else
 fi
 
 
-   MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
+   MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
 else  
    # use local mpif.h
    acx_mpif_h_found=no
@@ -10485,6 +10505,7 @@ done
 if test "$MPI_INCLUDE_DIR" != ""; then
    FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
    FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+   CFLAGS="$CFLAGS -I$MPI_INCLUDE_DIR"
    FCFLAGS="$FCFLAGS -I$MPI_INCLUDE_DIR"
 fi
    
@@ -14055,14 +14076,14 @@ fi
 
 # Generic HYPRE library?
 if test $acx_hypre_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_HYPRE_$HYPRE_IJMatrixCreate" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $HYPRE_IJMatrixCreate in -lHYPRE" >&5
-echo $ECHO_N "checking for $HYPRE_IJMatrixCreate in -lHYPRE... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_HYPRE_IJ_mv_$HYPRE_IJMatrixCreate" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $HYPRE_IJMatrixCreate in -lHYPRE_IJ_mv" >&5
+echo $ECHO_N "checking for $HYPRE_IJMatrixCreate in -lHYPRE_IJ_mv... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lHYPRE -lm $LIBS"
+LIBS="-lHYPRE_IJ_mv -lm $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -14135,7 +14156,7 @@ ac_res=`eval echo '${'$as_ac_Lib'}'`
 	       { echo "$as_me:$LINENO: result: $ac_res" >&5
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE"
+  acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE_Euclid -lHYPRE_parcsr_ls -lHYPRE_ParaSails -lHYPRE_IJ_mv"
 fi
 
 fi
@@ -14178,26 +14199,9 @@ case $with_umfpack in
 esac
 
 # Get fortran linker names of UMFPACK functions to check for.
-ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-case $ac_cv_fc_mangling in
-  upper*) ac_val="UMF4DEF" ;;
-  lower*) ac_val="umf4def" ;;
-  *)      ac_val="unknown" ;;
-esac
-case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
+#AC_FC_FUNC(umfpack_di_defaults)
 
-umf4def="$ac_val"
-
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-
+umfdef="umfpack_di_defaults";
 acx_umfpack_save_LIBS="$LIBS"
 
 LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
@@ -14206,8 +14210,8 @@ LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
-	{ echo "$as_me:$LINENO: checking for $umf4def in $UMFPACK_LIBS" >&5
-echo $ECHO_N "checking for $umf4def in $UMFPACK_LIBS... $ECHO_C" >&6; }
+	{ echo "$as_me:$LINENO: checking for $umfdef in $UMFPACK_LIBS" >&5
+echo $ECHO_N "checking for $umfdef in $UMFPACK_LIBS... $ECHO_C" >&6; }
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
 		# windose shite	
@@ -14216,7 +14220,7 @@ echo $ECHO_N "checking for $umf4def in $UMFPACK_LIBS... $ECHO_C" >&6; }
 		cat >conftest.$ac_ext <<_ACEOF
 int main ()
 		 {
-		   $umf4def(1);
+		   $umfdef();
 		   return 0;
 		 }
 		
@@ -14268,7 +14272,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $umf4def ();
+char $umfdef ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -14288,7 +14292,7 @@ char $umf4def ();
 int
 main ()
 {
-return $umf4def ();
+return $umfdef ();
   ;
   return 0;
 }
@@ -14331,9 +14335,9 @@ fi
 
 # Generic UMFPACK library?
 if test $acx_umfpack_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_umfpack_$umf4def" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $umf4def in -lumfpack" >&5
-echo $ECHO_N "checking for $umf4def in -lumfpack... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_umfpack_$umfdef" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $umfdef in -lumfpack" >&5
+echo $ECHO_N "checking for $umfdef in -lumfpack... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -14352,7 +14356,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $umf4def ();
+char $umfdef ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -14372,7 +14376,7 @@ char $umf4def ();
 int
 main ()
 {
-return $umf4def ();
+return $umfdef ();
   ;
   return 0;
 }
@@ -15953,11 +15957,27 @@ fi
 
 SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
+ if 0; then
+  MAC_OSX_TRUE=
+  MAC_OSX_FALSE='#'
+else
+  MAC_OSX_TRUE='#'
+  MAC_OSX_FALSE=
+fi
+
 case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-    EXTRA_LIBS="-L$prefix/lib $HUTI_LIBS $BLAS_LIBS"
+    EXTRA_LIBS=""
   ;;
   *darwin*)
+     if 1; then
+  MAC_OSX_TRUE=
+  MAC_OSX_FALSE='#'
+else
+  MAC_OSX_TRUE='#'
+  MAC_OSX_FALSE=
+fi
+
     EXTRA_LIBS="$STDCXX_LIBS $FCFLIBS $FLIBS"
   ;;
   *-*-mingw*)
@@ -15969,9 +15989,11 @@ if test "$acx_cv_c_compiler_ms" = "yes"; then
     EXTRA_LIBS="-llibelmersolver -stack:500000000"
 fi
 
+
 TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG."
 
 CP='cp'
+LN='ln'
 RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
@@ -16030,6 +16052,7 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6; }
 echo "${ECHO_T}defining OFF_KIND to be $OFF_KIND" >&6; }
 { echo "$as_me:$LINENO: result: defining LONG_KIND to be $LONG_KIND" >&5
 echo "${ECHO_T}defining LONG_KIND to be $LONG_KIND" >&6; }
+
 
 
 
@@ -16220,10 +16243,10 @@ echo "$as_me: error: conditional \"am__fastdepCC\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
-if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+if test -z "${IBM_AIX_TRUE}" && test -z "${IBM_AIX_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_AIX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+echo "$as_me: error: conditional \"IBM_AIX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -16280,6 +16303,20 @@ if test -z "${UPPERCASEMODS_TRUE}" && test -z "${UPPERCASEMODS_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"UPPERCASEMODS\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"UPPERCASEMODS\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${MAC_OSX_TRUE}" && test -z "${MAC_OSX_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"MAC_OSX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"MAC_OSX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${MAC_OSX_TRUE}" && test -z "${MAC_OSX_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"MAC_OSX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"MAC_OSX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -16920,8 +16957,8 @@ CCDEPMODE!$CCDEPMODE$ac_delim
 am__fastdepCC_TRUE!$am__fastdepCC_TRUE$ac_delim
 am__fastdepCC_FALSE!$am__fastdepCC_FALSE$ac_delim
 canonical_host_type!$canonical_host_type$ac_delim
-IBM_IS_PIECE_OF_SHIT_TRUE!$IBM_IS_PIECE_OF_SHIT_TRUE$ac_delim
-IBM_IS_PIECE_OF_SHIT_FALSE!$IBM_IS_PIECE_OF_SHIT_FALSE$ac_delim
+IBM_AIX_TRUE!$IBM_AIX_TRUE$ac_delim
+IBM_AIX_FALSE!$IBM_AIX_FALSE$ac_delim
 CXX!$CXX$ac_delim
 CXXFLAGS!$CXXFLAGS$ac_delim
 _ACEOF
@@ -17022,6 +17059,8 @@ SH_LD!$SH_LD$ac_delim
 UPPERCASEMODS_TRUE!$UPPERCASEMODS_TRUE$ac_delim
 UPPERCASEMODS_FALSE!$UPPERCASEMODS_FALSE$ac_delim
 modput_opt!$modput_opt$ac_delim
+MAC_OSX_TRUE!$MAC_OSX_TRUE$ac_delim
+MAC_OSX_FALSE!$MAC_OSX_FALSE$ac_delim
 TESTS_FCFLAGS!$TESTS_FCFLAGS$ac_delim
 INCLUDE_MODULE_FLAG!$INCLUDE_MODULE_FLAG$ac_delim
 MESHGEN2D_LIBS!$MESHGEN2D_LIBS$ac_delim
@@ -17054,14 +17093,12 @@ UNIX_MATH_LIB!$UNIX_MATH_LIB$ac_delim
 LIBSOLVER_DEPS!$LIBSOLVER_DEPS$ac_delim
 RM!$RM$ac_delim
 CP!$CP$ac_delim
+LN!$LN$ac_delim
 MV!$MV$ac_delim
 MKDIR!$MKDIR$ac_delim
 SOLVER_LIBS!$SOLVER_LIBS$ac_delim
 SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
 OFF_KIND!$OFF_KIND$ac_delim
-LONG_KIND!$LONG_KIND$ac_delim
-LIB@&t@OBJS!$LIB@&t@OBJS$ac_delim
-LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -17096,6 +17133,52 @@ N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g; b n
 ' >>$CONFIG_STATUS <conf$$subs.sed
 rm -f conf$$subs.sed
 cat >>$CONFIG_STATUS <<_ACEOF
+CEOF$ac_eof
+_ACEOF
+
+
+ac_delim='%!_!# '
+for ac_last_try in false false false false false :; do
+  cat >conf$$subs.sed <<_ACEOF
+LONG_KIND!$LONG_KIND$ac_delim
+LIB@&t@OBJS!$LIB@&t@OBJS$ac_delim
+LTLIBOBJS!$LTLIBOBJS$ac_delim
+_ACEOF
+
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 3; then
+    break
+  elif $ac_last_try; then
+    { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
+echo "$as_me: error: could not make $CONFIG_STATUS" >&2;}
+   { (exit 1); exit 1; }; }
+  else
+    ac_delim="$ac_delim!$ac_delim _$ac_delim!! "
+  fi
+done
+
+ac_eof=`sed -n '/^CEOF[0-9]*$/s/CEOF/0/p' conf$$subs.sed`
+if test -n "$ac_eof"; then
+  ac_eof=`echo "$ac_eof" | sort -nru | sed 1q`
+  ac_eof=`expr $ac_eof + 1`
+fi
+
+cat >>$CONFIG_STATUS <<_ACEOF
+cat >"\$tmp/subs-3.sed" <<\CEOF$ac_eof
+/@[a-zA-Z_][a-zA-Z_0-9]*@/!b end
+_ACEOF
+sed '
+s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g
+s/^/s,@/; s/!/@,|#_!!_#|/
+:n
+t n
+s/'"$ac_delim"'$/,g/; t
+s/$/\\/; p
+N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g; b n
+' >>$CONFIG_STATUS <conf$$subs.sed
+rm -f conf$$subs.sed
+cat >>$CONFIG_STATUS <<_ACEOF
+:end
+s/|#_!!_#|//g
 CEOF$ac_eof
 _ACEOF
 
@@ -17349,7 +17432,7 @@ s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
 s&@INSTALL@&$ac_INSTALL&;t t
 s&@MKDIR_P@&$ac_MKDIR_P&;t t
 $ac_datarootdir_hack
-" $ac_file_inputs | sed -f "$tmp/subs-1.sed" | sed -f "$tmp/subs-2.sed" | sed 's/|#_!!_#|//g' >$tmp/out
+" $ac_file_inputs | sed -f "$tmp/subs-1.sed" | sed -f "$tmp/subs-2.sed" | sed -f "$tmp/subs-3.sed" >$tmp/out
 
 test -z "$ac_datarootdir_hack$ac_datarootdir_seen" &&
   { ac_out=`sed -n '/\${datarootdir}/p' "$tmp/out"`; test -n "$ac_out"; } &&
