@@ -185,7 +185,7 @@ install-data-local:
 	@echo "Installing solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
 	mkdir -p $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
-	$(CP) *$(SHL_EXT) $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
+	$(CP) `ls -f *$(SHL_EXT) | grep -v libelmersolver` $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 	$(CP) elements.def $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 	$(CP) SOLVER.KEYWORDS $(DESTDIR)$(ELMER_SOLVER_DATADIR)/lib
 
