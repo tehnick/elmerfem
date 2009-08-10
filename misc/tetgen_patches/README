@@ -15,9 +15,14 @@ Usage:
 
 $ patch -p0 < patch_tetgen.h
 
+or (if there is no patch utility):
+
+> copy tetgen.h_patched tetgen.h
+
 Using the patched header, compile tetgen's lib as follows:
 
 Linux:
+------
 
 $ g++ -fPIC -c predicates.cxx
 $ g++ -fPIC -c -O -DTETLIBRARY tetgen.cxx
@@ -25,24 +30,41 @@ $ g++ -fPIC -c ElmerAPI.cpp
 $ g++ -shared -o libtet.so predicates.o ElmerAPI.o tetgen.o 
 
 MinGW:
-
+------
 $ g++ -c predicates.cxx
 $ g++ -O -DWIN32 -DTETLIBRARY -c tetgen.cxx
 $ g++ -c ElmerAPI.cpp
 $ g++ -shared predicates.o tetgen.o ElmerAPI.o -o libtet.dll
+
+Visual C++ 2008:
+-----------------
+
+> cl /DWIN32 /DTETLIBRARY /LD /O2 /EHsc predicates.cxx tetgen.cxx ElmerAPI.cpp /o libtet.dll
+
 
 Place the modified header and lib (so/dll) in the main directory of ElmerGUI.
 
 There is also a testmain, which can be used to test the library. Usage:
 
 Linux:
+------
 
 $ g++ -o testmain testmain.cpp -ldl
 
 MinGW:
+------
 
 $ g++ -o testmain.exe testmain.cpp
+
+Visual C++ 2008:
+-----------------
+
+> cl /DWIN32 testmain.cpp
 
 Finally:
 
 $ ./testmain
+
+or
+
+> testmain.exe
