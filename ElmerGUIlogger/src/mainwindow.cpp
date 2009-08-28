@@ -28,13 +28,14 @@
  *****************************************************************************
  *                                                                           *
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
+ *  Small fixes: Boris Pek                                                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - IT Center for Science Ltd.                                 *
  *           Keilaranta 14                                                   *
  *           02101 Espoo, Finland                                            *
  *                                                                           *
- *  Original Date: 15 Mar 2008                                               *
+ *  Original Date: 24 Aug 2009                                               *
  *                                                                           *
  *****************************************************************************/
 
@@ -72,8 +73,6 @@ MainWindow::MainWindow()
   textEdit->append("ELMERGUI_HOME: " + ELMERGUI_HOME);
   textEdit->append("ELMER_POST_HOME: " + ELMER_POST_HOME);
 
-  textEdit->append("Starting ElmerGUI...");
-
   elmerGUI = new QProcess(this);
 
   connect(elmerGUI, SIGNAL(error(QProcess::ProcessError)), this, SLOT(errorSlot(QProcess::ProcessError)));
@@ -83,15 +82,7 @@ MainWindow::MainWindow()
   connect(elmerGUI, SIGNAL(started()), this, SLOT(startedSlot()));
   connect(elmerGUI, SIGNAL(stateChanged(QProcess::ProcessState)), this, SLOT(stateChangedSlot(QProcess::ProcessState)));
 
-  elmerGUI->start("ElmerGUI");
-
-  if(!elmerGUI->waitForStarted()) {
-    textEdit->setTextColor(Qt::darkGreen);
-    textEdit->append("Probably the executable ElmerGUI(.exe) is either missing, or "
-		     "then there is no path to it (at least ELMER_HOME/bin and "
-		     "ELMERGUI_HOME should be found from path). Please check your Elmer "
-		     "installation.");
-  }
+  startElmerGUISlot();
 }
 
 MainWindow::~MainWindow()
@@ -100,6 +91,10 @@ MainWindow::~MainWindow()
 
 void MainWindow::createActions()
 {
+  startElmerGUIAct = new QAction(QIcon(":/icons/ElmerGUI.png"), tr("Start ElmerGUI"), this);
+  startElmerGUIAct->setShortcut(tr("Ctrl+R"));
+  connect(startElmerGUIAct, SIGNAL(triggered()), this, SLOT(startElmerGUISlot()));
+
   saveAsAct = new QAction(QIcon(":/icons/document-save-as.png"), tr("Save as..."), this);
   saveAsAct->setShortcut(tr("Ctrl+S"));
   connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsSlot()));
@@ -116,11 +111,33 @@ void MainWindow::createActions()
 void MainWindow::createMenus()
 {
   fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(startElmerGUIAct);
+  fileMenu->addSeparator();
   fileMenu->addAction(saveAsAct);
   fileMenu->addSeparator();
   fileMenu->addAction(printAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
+}
+
+void MainWindow::startElmerGUISlot()
+{
+  textEdit->setTextColor(Qt::darkGreen);
+
+  textEdit->append("Starting ElmerGUI...");
+
+  elmerGUI->start("ElmerGUI");
+
+  if(!elmerGUI->waitForStarted()) {
+    textEdit->setTextColor(Qt::darkGreen);
+    textEdit->append("Probably the executable ElmerGUI(.exe) is either missing, or "
+             "then there is no path to it (at least ELMER_HOME/bin and "
+             "ELMERGUI_HOME should be found from path). Please check your Elmer "
+             "installation.");
+  }
+  else {
+    startElmerGUIAct->setEnabled(false);
+  }
 }
 
 void MainWindow::saveAsSlot()
@@ -229,6 +246,8 @@ void MainWindow::finishedSlot(int exitCode, QProcess::ExitStatus status)
   default:
     textEdit->append("Exit status unknown");
   }
+
+  startElmerGUIAct->setEnabled(true);
 }
 
 void MainWindow::stdoutSlot()

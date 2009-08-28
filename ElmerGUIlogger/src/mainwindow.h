@@ -28,13 +28,14 @@
  *****************************************************************************
  *                                                                           *
  *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
+ *  Small fixes: Boris Pek                                                   *
  *  Email:   Juha.Ruokolainen@csc.fi                                         *
  *  Web:     http://www.csc.fi/elmer                                         *
  *  Address: CSC - IT Center for Science Ltd.                                 *
  *           Keilaranta 14                                                   *
  *           02101 Espoo, Finland                                            *
  *                                                                           *
- *  Original Date: 15 Mar 2008                                               *
+ *  Original Date: 24 Aug 2009                                               *
  *                                                                           *
  *****************************************************************************/
 
@@ -57,6 +58,7 @@ class MainWindow : public QMainWindow
   ~MainWindow();
 
  private slots:
+  void startElmerGUISlot();
   void saveAsSlot();
   void printSlot();
   void exitSlot();
@@ -72,6 +74,7 @@ class MainWindow : public QMainWindow
   void createMenus();
   
   QMenu* fileMenu;
+  QAction* startElmerGUIAct;
   QAction* saveAsAct;
   QAction* printAct;
   QAction* exitAct;
