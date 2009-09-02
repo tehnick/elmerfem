@@ -3400,7 +3400,7 @@ CONTAINS
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp), POINTER :: SaveValues(:)
     REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:)
-    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm
+    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm,Energy
     TYPE(Matrix_t), POINTER :: Aaid
 
     INTERFACE 
@@ -3713,6 +3713,17 @@ CONTAINS
       SaveValues => Aaid % Values
       Aaid % Values => Aaid % BulkValues
       CALL MatrixVectorMultiply( Aaid, x, TempVector )
+
+      Energy = 0._dp
+      DO i=1,Aaid % NumberOfRows
+        Energy = Energy + x(i)*TempVector(i)
+      END DO
+      CALL ListAddConstReal( Solver % Values, 'Energy norm', Energy )
+      IF( ListGetLogical(Solver % Values, 'Output Energy Norm', gotIt) ) THEN
+        WRITE( Message, * ) 'Energy Norm: ', Energy
+        CALL Info( 'SolveLinearSystem', Message )
+      END IF
+
       Aaid % Values => SaveValues
       TempVector = TempVector - Aaid % BulkRHS
       DO i=1,SIZE( NodalLoads % Perm )
