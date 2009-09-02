@@ -50,7 +50,8 @@
 
 using namespace std;
 
-#define MY_PI 3.14159
+#define MY_PI 3.14159265
+#define ZSHIFT -3.0
 
 list_t::list_t()
 {
@@ -159,6 +160,7 @@ GLWidget::GLWidget(QWidget *parent)
   surfaceMeshColor = Qt::black;
   sharpEdgeColor = Qt::black;
 
+  stateOrtho = false;
   stateFlatShade = true;
   stateDrawSurfaceMesh = true;
   stateDrawVolumeMesh = false;
@@ -297,7 +299,7 @@ void GLWidget::initializeGL()
   
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
-  glDepthRange(-10.0, 10.0);
+  // glDepthRange(-10.0, 10.0);
 
   glShadeModel(GL_SMOOTH);
   // glEnable(GL_LINE_SMOOTH);
@@ -325,67 +327,74 @@ void GLWidget::paintGL()
 
   // FE objects:
   if(getLists() > 0) {
+
     for(int i = 0; i < getLists(); i++) {
       list_t *l = getList(i);
 
       if(l->isVisible()) {
 	glPushName(i);
 
-	if((l->getType() == SURFACEMESHLIST) && stateDrawSurfaceMesh) {
-	  
+	if((l->getType() == SURFACEMESHLIST) && stateDrawSurfaceMesh) {	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.01);
+	  glTranslated(0, 0, ZSHIFT);
 	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 	  
 	} else if((l->getType() == VOLUMEMESHLIST) && stateDrawVolumeMesh) {
-	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.01);
+	  glTranslated(0, 0, ZSHIFT);
 	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 	  
 	} else if ((l->getType() == SHARPEDGELIST) && stateDrawSharpEdges) {
-
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.01);
+	  glTranslated(0, 0, ZSHIFT);
 	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 
-	} else if((l->getType() == EDGELIST) && stateDrawEdgeElements ) {
-	  
+	} else if((l->getType() == EDGELIST) && stateDrawEdgeElements ) {	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
 	  glTranslated(0, 0, 0.02);
+	  glTranslated(0, 0, ZSHIFT);
 	  glCallList(l->getObject()); 
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 
 	} else if((l->getType() == SURFACELIST) && stateDrawSurfaceElements ) {
-
+	  glMatrixMode(GL_PROJECTION);
+	  glPushMatrix();
+	  glTranslated(0, 0, ZSHIFT);
 	  glCallList(l->getObject());
+	  glPopMatrix();
+	  glMatrixMode(GL_MODELVIEW);
 
 	} else {
-	  
+	  glMatrixMode(GL_PROJECTION);
+	  glPushMatrix();
+	  glTranslated(0, 0, ZSHIFT);
 	  glCallList(l->getObject()); 
-	  
+	  glPopMatrix();
+	  glMatrixMode(GL_MODELVIEW);
 	}
 
 	glPopName();
       }
     }
   }
-
 
   if(stateDrawCoordinates) {
     // push a dummy name
@@ -398,34 +407,38 @@ void GLWidget::paintGL()
     if(stateDrawSurfaceNumbers) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
+      glTranslated(0, 0, ZSHIFT);
       glTranslated(0, 0, 0.1);
       glColor3d(0.5, 0, 0);
       
       for(int i=0; i < mesh->getSurfaces(); i++) {
 	surface_t *surface = mesh->getSurface(i);
 	int nodes = surface->getCode() / 100;
-
+	
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
-
-	for(int j=0; j < nodes;j++) {
+	
+	for(int j = 0; j < nodes; j++) {
 	  int ind = surface->getNodeIndex(j);
 	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
 	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
 	  xabs[2] = xabs[2] + mesh->getNode(ind)->getX(2);
 	}
+	
 	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
 	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
 	
 	renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
       }
-       glPopMatrix();
-       glMatrixMode(GL_MODELVIEW);
+
+      glPopMatrix();
+      glMatrixMode(GL_MODELVIEW);
     }       
     
     if(stateDrawEdgeNumbers) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
+      glTranslated(0, 0, ZSHIFT);
       glTranslated(0, 0, 0.1);
       glColor3d(0.0, 0.5, 0);
       
@@ -435,7 +448,7 @@ void GLWidget::paintGL()
 	
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
 	
-	for(int j=0; j < nodes;j++) {
+	for(int j = 0; j < nodes; j++) {
 	  int ind = edge->getNodeIndex(j);
 	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
 	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
@@ -447,6 +460,7 @@ void GLWidget::paintGL()
 	
 	renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
       }
+
       glPopMatrix();
       glMatrixMode(GL_MODELVIEW);
     }       
@@ -454,10 +468,11 @@ void GLWidget::paintGL()
     if(stateDrawNodeNumbers) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
+      glTranslated(0, 0, ZSHIFT);
       glTranslated(0, 0, 0.1);
       glColor3d(0, 0, 0.5);
 
-      for(int i=0; i < mesh->getNodes(); i++) {
+      for(int i = 0; i < mesh->getNodes(); i++) {
 	xabs[0] = mesh->getNode(i)->getX(0);
 	xabs[1] = mesh->getNode(i)->getX(1);
 	xabs[2] = mesh->getNode(i)->getX(2);
@@ -468,6 +483,7 @@ void GLWidget::paintGL()
 	
 	renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
       }
+
       glPopMatrix();
       glMatrixMode(GL_MODELVIEW);
     }
@@ -475,21 +491,23 @@ void GLWidget::paintGL()
     if(stateDrawBoundaryIndex || stateDrawBodyIndex) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
+      glTranslated(0, 0, ZSHIFT);
       glTranslated(0, 0, 0.1);
       glColor3d(0.5, 0, 0);
 
-      for(int i=0; i < mesh->getEdges(); i++) {
+      for(int i = 0; i < mesh->getEdges(); i++) {
 	edge_t *edge = mesh->getEdge(i);
 	int nodes = edge->getCode() / 100;
 	
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
 	
-	for(int j=0; j < nodes;j++) {
+	for(int j = 0; j < nodes;j++) {
 	  int ind = edge->getNodeIndex(j);
 	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
 	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
 	  xabs[2] = xabs[2] + mesh->getNode(ind)->getX(2);
 	}
+
 	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
 	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
@@ -501,18 +519,19 @@ void GLWidget::paintGL()
 	  renderText(xrel[0], xrel[1], xrel[2], QString::number(edge->getIndex()));
       }
       
-      for(int i=0; i < mesh->getSurfaces(); i++) {
+      for(int i = 0; i < mesh->getSurfaces(); i++) {
 	surface_t *surface = mesh->getSurface(i);
 	int nodes = surface->getCode() / 100;
 
 	xabs[0] = xabs[1] = xabs[2] = 0.0;
 	
-	for(int j=0; j < nodes; j++) {
+	for(int j = 0; j < nodes; j++) {
 	  int ind = surface->getNodeIndex(j);
 	  xabs[0] = xabs[0] + mesh->getNode(ind)->getX(0);
 	  xabs[1] = xabs[1] + mesh->getNode(ind)->getX(1);
 	  xabs[2] = xabs[2] + mesh->getNode(ind)->getX(2);
 	}
+
 	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
 	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
@@ -540,10 +559,39 @@ void GLWidget::paintGL()
       glMatrixMode(GL_MODELVIEW);
     }
   }
-
 }
 
 
+// Change projection...
+//-----------------------------------------------------------------------------
+void GLWidget::changeProjection()
+{
+  GLint viewport[4];
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  
+  int width = viewport[2];
+  int height = viewport[3];
+  double top = 1.0;
+  double bottom = -1.0;
+  double left = -(double)width / (double)height;
+  double right = (double)width / (double)height;
+  double _near = -10.0;
+  double _far = 10.0;
+
+  if(stateOrtho) {
+    glViewport(0, 0, (GLint)width, (GLint)height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(left, right, bottom, top, _near, _far);
+    glMatrixMode(GL_MODELVIEW);
+  } else {
+    glViewport(0, 0, (GLint)width, (GLint)height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(45.0, (float)width/(float)height, 0.1, 10.0);
+    glMatrixMode(GL_MODELVIEW);  
+  }
+}
 
 // Resize window...
 //-----------------------------------------------------------------------------
@@ -556,18 +604,28 @@ void GLWidget::resizeGL(int width, int height)
   double _near = -10.0;
   double _far = 10.0;
 
-  glViewport(0, 0, width, height);
-  glMatrixMode(GL_PROJECTION);
-  glLoadIdentity();
-  glOrtho(left, right, bottom, top, _near, _far);
-  glMatrixMode(GL_MODELVIEW);
+  if(stateOrtho) {
+    glViewport(0, 0, (GLint)width, (GLint)height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    glOrtho(left, right, bottom, top, _near, _far);
+    glMatrixMode(GL_MODELVIEW);
+  } else {
+    glViewport(0, 0, (GLint)width, (GLint)height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(45.0, (float)width/(float)height, 0.1, 10.0);
+    glMatrixMode(GL_MODELVIEW);  
+  }
 }
 
 
 // Focus in event...
 //-----------------------------------------------------------------------------
-void GLWidget::focusInEvent(QFocusEvent*)
+void GLWidget::focusInEvent(QFocusEvent *event)
 {
+  Q_UNUSED(event)
+
   // Should we check the key pressed status here?
 }
 
@@ -655,13 +713,6 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     double ax = -(double)dy;
     double ay =  (double)dx;
     double az = 0.0;
-
-#if 0
-    if ( event->buttons() & Qt::RightButton ) {
-       az = ay;
-       ay = 0;
-    }
-#endif
 
     double s = 180.0*sqrt(ax*ax+ay*ay+az*az)/(double)(viewport[3]+1);
     double bx = invmatrix[0]*ax + invmatrix[4]*ay + invmatrix[8]*az;
@@ -1503,36 +1554,6 @@ GLuint GLWidget::generateSurfaceList(int index, QColor qColor)
   glEnd();
   glEndList();
 
-#if 0
-  // Draw indexes:
-  //------------
-  
-  cout << "draw indexes" << endl; 
-
-  for(int i=0; i < mesh->getSurfaces(); i++) {
-    surface_t *surface = mesh->getSurface(i);
-
-    if((surface->getIndex() == index)) {
-      int nodes = surface->getCode() / 100;
-
-      x0[0] = x0[1] = x0[2] = 0.0;
-      for(int j=0;j<nodes;j++) {
-	int ind = surface->node[j];
-	x0[0] = x0[0] + mesh->node[ind].x[0];
-	x0[1] = x0[1] + mesh->node[ind].x[1];
-	x0[2] = x0[2] + mesh->node[ind].x[2];
-      }
-      x1[0] = (x0[0]/nodes - drawTranslate[0]) / drawScale;
-      x1[1] = (x0[1]/nodes - drawTranslate[1]) / drawScale;
-      x1[2] = (x0[2]/nodes - drawTranslate[2]) / drawScale;
-
-      glColor3d(1, 1, 1);
-      renderText(x1[0], x1[1], x1[2], "c");
-    }
-    renderText(0.0, 0.0, 0.0, "A");
-  }
-#endif
-
   return current;
 }
 
@@ -1736,7 +1757,8 @@ void GLWidget::drawCoordinates()
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
 
-  glTranslated(-0.8, -0.8, 5.0);
+  // glTranslated(-0.8, -0.8, 5.0);
+  glTranslated(-0.8, -0.8, ZSHIFT);
 
   glMatrixMode(GL_MODELVIEW);
 

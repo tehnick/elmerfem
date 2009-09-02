@@ -162,6 +162,8 @@ private slots:
   void resetSlot();               // View -> Reset model view
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
+  void orthoSlot();               // View -> Projection -> Ortho
+  void perspectiveSlot();         // View -> Projection -> Perspective
   void showCadModelSlot();        // View -> Show cad model...
   void showTwodViewSlot();        // View -> Show 2D view...
   void showVtkPostSlot();         // View -> Show VTK post processor...
@@ -272,6 +274,7 @@ private:
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
   QMenu *shadeMenu;               // View -> Shade model menu
+  QMenu *projectionMenu;          // View -> Projection menu
   QMenu *numberingMenu;           // View -> Show numbering menu
   QMenu *colorizeMenu;            // View -> Colors menu
   QMenu *meshMenu;                // Mesh menu
@@ -331,6 +334,8 @@ private:
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
+  QAction *orthoAct;              // View -> Projection -> Ortho
+  QAction *perspectiveAct;        // View -> Projection -> Perspective
   QAction *showallAct;            // View -> Show all
   QAction *resetAct;              // View -> Reset model view
   QAction *showCadModelAct;       // View -> Show cad model...

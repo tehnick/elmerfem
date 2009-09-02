@@ -115,10 +115,12 @@ public:
   void rebuildLists();
   void rebuildSurfaceLists();
   void rebuildEdgeLists();
+  void changeProjection();
 
   bool toggleCoordinates();
   
   // public state variables:
+  bool stateOrtho;
   bool stateFlatShade;
   bool stateDrawSurfaceMesh;
   bool stateDrawVolumeMesh;

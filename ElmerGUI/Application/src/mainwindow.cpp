@@ -564,12 +564,6 @@ void MainWindow::createActions()
   hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
 
-  // View -> Shade model -> Flat
-  flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
-  flatShadeAct->setStatusTip(tr("Set shade model to flat"));
-  connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
-  flatShadeAct->setCheckable(true);
-
   // View -> Show surface numbers
   showSurfaceNumbersAct = new QAction(QIcon(), tr("Surface element numbers"), this);
   showSurfaceNumbersAct->setStatusTip(tr("Show surface element numbers "
@@ -650,6 +644,24 @@ void MainWindow::createActions()
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
   connect(smoothShadeAct, SIGNAL(triggered()), this, SLOT(smoothShadeSlot()));
   smoothShadeAct->setCheckable(true);
+
+  // View -> Shade model -> Flat
+  flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
+  flatShadeAct->setStatusTip(tr("Set shade model to flat"));
+  connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
+  flatShadeAct->setCheckable(true);
+
+  // View -> Projection -> Orthogonal
+  orthoAct = new QAction(QIcon(), tr("Orthogonal"), this);
+  orthoAct->setStatusTip(tr("Set projection to orthogonal"));
+  connect(orthoAct, SIGNAL(triggered()), this, SLOT(orthoSlot()));
+  orthoAct->setCheckable(true);
+
+  // View -> Projection -> Perspective
+  perspectiveAct = new QAction(QIcon(), tr("Perspective"), this);
+  perspectiveAct->setStatusTip(tr("Set projection to perspective"));
+  connect(perspectiveAct, SIGNAL(triggered()), this, SLOT(perspectiveSlot()));
+  perspectiveAct->setCheckable(true);
 
   // View -> Show all
   showallAct = new QAction(QIcon(), tr("Show all"), this);
@@ -834,6 +846,10 @@ void MainWindow::createMenus()
   shadeMenu = viewMenu->addMenu(tr("Shade model"));
   shadeMenu->addAction(flatShadeAct);
   shadeMenu->addAction(smoothShadeAct);
+  viewMenu->addSeparator();
+  projectionMenu = viewMenu->addMenu(tr("Projection"));
+  projectionMenu->addAction(orthoAct);
+  projectionMenu->addAction(perspectiveAct);
   viewMenu->addSeparator();
   numberingMenu = viewMenu->addMenu(tr("Numbering"));
   numberingMenu->addAction(showSurfaceNumbersAct);
@@ -4249,6 +4265,40 @@ void MainWindow::smoothShadeSlot()
   logMessage("Shade model: smooth");
 }
 
+// View -> Projection -> Orthogonal
+//-----------------------------------------------------------------------------
+void MainWindow::orthoSlot()
+{
+  if(!glWidget->hasMesh()) {
+    logMessage("Refusing to change projection when mesh is empty");
+    return;
+  }
+
+  glWidget->stateOrtho = true;
+  glWidget->changeProjection();
+  glWidget->updateGL();
+
+  synchronizeMenuToState();
+  logMessage("Projection: orthogonal");
+}
+
+// View -> Projection -> Perspective
+//-----------------------------------------------------------------------------
+void MainWindow::perspectiveSlot()
+{
+  if(!glWidget->hasMesh()) {
+    logMessage("Refusing to change projection when mesh is empty");
+    return;
+  }
+
+  glWidget->stateOrtho = false;
+  glWidget->changeProjection();
+  glWidget->updateGL();
+
+  synchronizeMenuToState();
+  logMessage("Projection: perspective");
+}
+
 
 // View -> Show numbering -> Surface numbering
 //-----------------------------------------------------------------------------
@@ -6620,6 +6670,14 @@ void MainWindow::synchronizeMenuToState()
   } else {
     flatShadeAct->setChecked(false);
     smoothShadeAct->setChecked(true);
+  }
+
+  if(glWidget->stateOrtho) {
+    orthoAct->setChecked(true);
+    perspectiveAct->setChecked(false);
+  } else {
+    orthoAct->setChecked(false);
+    perspectiveAct->setChecked(true);
   }
 
   if(glWidget->stateDrawSurfaceNumbers) 

@@ -93,7 +93,6 @@ void Helpers::crossProduct(double *a, double *b, double *c)
 void Helpers::invertMatrix(const double *m, double *out )
 {
 #define MAT(m,r,c) (m)[(c)*4+(r)]
-  
 #define m11 MAT(m,0,0)
 #define m12 MAT(m,0,1)
 #define m13 MAT(m,0,2)
@@ -131,10 +130,10 @@ void Helpers::invertMatrix(const double *m, double *out )
   
   if (det == 0.0) {
     // Error handling
-  }
-  else {
-    double invDet = 1.0 / det;
 
+  } else {
+    double invDet = 1.0 / det;
+    
     tmp[0] *= invDet;
     tmp[1] *= invDet;
     tmp[2] *= invDet;
@@ -163,6 +162,7 @@ void Helpers::invertMatrix(const double *m, double *out )
     
     memcpy(out, tmp, 16*sizeof(double));
   }
+  
 #undef m11
 #undef m12
 #undef m13
