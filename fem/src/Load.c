@@ -55,7 +55,7 @@
 #  include <dlfcn.h>
 #endif
 
-#define MAX_NAME_LEN 128
+#define MAX_PATH_LEN 512
 
 #ifdef SGI64
 void corename_()
@@ -116,7 +116,7 @@ void STDCALLBULL FC_FUNC(systemc,SYSTEMC) ( FC_CHAR_PTR(str,l1) )
 void STDCALLBULL FC_FUNC(envir,ENVIR) ( FC_CHAR_PTR(Name,l1), FC_CHAR_PTR(Value,l2), int *len )
 {
     if ( getenv( Name ) ) {
-      strncpy( Value,(char *)getenv(Name), MAX_NAME_LEN );
+      strncpy( Value,(char *)getenv(Name), MAX_PATH_LEN );
       *len = strlen( Value );
     } else {
       *len = 0;
@@ -183,12 +183,12 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    void (*Function)(),*Handle;
    int i;
    char *cptr;
-   static char ElmerLib[2*MAX_NAME_LEN], NewLibName[3*MAX_NAME_LEN],
-               NewName[MAX_NAME_LEN],   dl_err_msg[6][MAX_NAME_LEN];
+   static char ElmerLib[2*MAX_PATH_LEN], NewLibName[3*MAX_PATH_LEN],
+               NewName[MAX_PATH_LEN],   dl_err_msg[6][MAX_PATH_LEN];
 /*--------------------------------------------------------------------------*/
    
    fortranMangle( Name, NewName );
-   strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
+   strncpy( NewLibName, Library, 3*MAX_PATH_LEN );
 
    if ( *Quiet==0 ) {
      fprintf(stdout,"Loading user function library: [%s]...[%s]\n", Library, Name );
@@ -201,16 +201,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    ElmerLib[0] = '\0';
    cptr = (char *)getenv( "ELMER_LIB" );
    if ( cptr != NULL ) {
-      strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
-      strncat( ElmerLib, "/", 2*MAX_NAME_LEN  );
+      strncpy( ElmerLib, cptr, 2*MAX_PATH_LEN );
+      strncat( ElmerLib, "/", 2*MAX_PATH_LEN  );
    } else {
       cptr = (char *)getenv("ELMER_HOME");
       if ( cptr != NULL  ) {
-         strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
-         strncat( ElmerLib, "/share/elmersolver/lib/", 2*MAX_NAME_LEN );
+         strncpy( ElmerLib, cptr, 2*MAX_PATH_LEN );
+         strncat( ElmerLib, "/share/elmersolver/lib/", 2*MAX_PATH_LEN );
       } else {
-         strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_NAME_LEN );
-         strncat( ElmerLib, "/lib/", 2*MAX_NAME_LEN );
+         strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_PATH_LEN );
+         strncat( ElmerLib, "/lib/", 2*MAX_PATH_LEN );
       }
    }
 
@@ -218,21 +218,21 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
      {
         switch(i) 
         {
-          case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
+          case 0: strncpy( NewLibName, Library,  3*MAX_PATH_LEN );
                   break;
           case 1: case 3: case 5:
-                  strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                  strncat( NewLibName, SHL_EXTENSION, 3*MAX_PATH_LEN );
                   break;
           case 2: strcpy( NewLibName, "./");
-                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                  strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                   break;
-          case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
-                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+          case 4: strncpy( NewLibName, ElmerLib, 3*MAX_PATH_LEN );
+                  strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                   break;
         }
         if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
           {
-             strncpy( dl_err_msg[i], dlerror(), MAX_NAME_LEN );
+             strncpy( dl_err_msg[i], dlerror(), MAX_PATH_LEN );
           } else {
              break;
           }
@@ -244,16 +244,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
           {
              switch(i) 
              {
-               case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
+               case 0: strncpy( NewLibName, Library,  3*MAX_PATH_LEN );
                        break;
                case 1: case 3: case 5:
-                       strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                       strncat( NewLibName, SHL_EXTENSION, 3*MAX_PATH_LEN );
                        break;
                case 2: strcpy( NewLibName, "./");
-                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                       strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                        break;
-               case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
-                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+               case 4: strncpy( NewLibName, ElmerLib, 3*MAX_PATH_LEN );
+                       strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                        break;
              }
              fprintf( stderr, "\nLoad: Unable to open shared library: [%s]\n", NewLibName );
@@ -275,16 +275,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    ElmerLib[0] = '\0';
    cptr = (char *)getenv( "ELMER_LIB" );
    if ( cptr != NULL ) {
-      strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
-      strncat( ElmerLib, "/", 2*MAX_NAME_LEN  );
+      strncpy( ElmerLib, cptr, 2*MAX_PATH_LEN );
+      strncat( ElmerLib, "/", 2*MAX_PATH_LEN  );
    } else {
       cptr = (char *)getenv("ELMER_HOME");
       if ( cptr != NULL  ) {
-         strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
-         strncat( ElmerLib, "/share/elmersolver/lib/", 2*MAX_NAME_LEN );
+         strncpy( ElmerLib, cptr, 2*MAX_PATH_LEN );
+         strncat( ElmerLib, "/share/elmersolver/lib/", 2*MAX_PATH_LEN );
       } else {
-         strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_NAME_LEN );
-         strncat( ElmerLib, "/lib/", 2*MAX_NAME_LEN );
+         strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_PATH_LEN );
+         strncat( ElmerLib, "/lib/", 2*MAX_PATH_LEN );
       }
    }
 
@@ -292,16 +292,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
      {
         switch(i) 
         {
-   	  case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
+   	  case 0: strncpy( NewLibName, Library,  3*MAX_PATH_LEN );
                   break;
           case 1: case 3: case 5:
-                  strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                  strncat( NewLibName, SHL_EXTENSION, 3*MAX_PATH_LEN );
                   break;
 	  case 2: strcpy( NewLibName, "./");
-                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                  strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                   break;
-          case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
-                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+          case 4: strncpy( NewLibName, ElmerLib, 3*MAX_PATH_LEN );
+                  strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                   break;
         }
 
@@ -320,16 +320,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
           {
              switch(i) 
              {
-               case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
+               case 0: strncpy( NewLibName, Library,  3*MAX_PATH_LEN );
                        break;
                case 1: case 3: case 5:
-                       strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                       strncat( NewLibName, SHL_EXTENSION, 3*MAX_PATH_LEN );
                        break;
                case 2: strcpy( NewLibName, "./");
-                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                       strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                        break;
-               case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
-                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+               case 4: strncpy( NewLibName, ElmerLib, 3*MAX_PATH_LEN );
+                       strncat( NewLibName, Library,  3*MAX_PATH_LEN );
                        break;
              }
              fprintf( stderr, "\nLoad: Unable to open shared library: [%s]\n", NewLibName );

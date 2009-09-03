@@ -129,7 +129,7 @@ CONTAINS
      CHARACTER(LEN=*) :: FileName
      CHARACTER(LEN=*) :: MeshDir,MeshName
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=1024) :: FName
+     CHARACTER(LEN=MAX_PATH_LEN) :: FName
  
      INTEGER :: k,k0,k1,l
 !------------------------------------------------------------------------------
@@ -775,7 +775,7 @@ CONTAINS
        TYPE(HashValue_t), POINTER :: Value
        LOGICAL :: FirstTime = .TRUE.,lstat
        SAVE FirstTime, Hash
-       CHARACTER(LEN=MAX_NAME_LEN) :: str,str1
+       CHARACTER(LEN=MAX_PATH_LEN) :: str,str1
        EXTERNAL ENVIR
 
        IF ( PRESENT( ReturnType ) ) ReturnType = .FALSE.
@@ -958,7 +958,7 @@ CONTAINS
 
       CHARACTER(LEN=MAX_NAME_LEN) :: TypeString
       LOGICAL :: ReturnType, ScanOnly
-      CHARACTER(LEN=MAX_NAME_LEN) :: Name
+      CHARACTER(LEN=MAX_PATH_LEN) :: Name
 
       INTEGER :: LEN
 
@@ -1338,7 +1338,7 @@ CONTAINS
     INTEGER, ALLOCATABLE :: Mapping(:)
     INTEGER :: i,j,k,l,n,m,p
     REAL(KIND=dp) :: s
-    CHARACTER(LEN=MAX_NAME_LEN) :: FName
+    CHARACTER(LEN=MAX_PATH_LEN) :: FName
     TYPE(Element_t), POINTER :: elm,celm
 
 !------------------------------------------------------------------------------
@@ -2253,8 +2253,8 @@ CONTAINS
     LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var, Comp
-    CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,FName,PosName
-    CHARACTER(LEN=512) :: Trash
+    CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,PosName
+    CHARACTER(LEN=MAX_PATH_LEN) :: FName,Trash
     INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
     INTEGER :: nNodes, Stat
     INTEGER, SAVE :: FmtVersion

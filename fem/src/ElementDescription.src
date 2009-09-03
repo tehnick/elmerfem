@@ -393,8 +393,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !     Local variables
 !------------------------------------------------------------------------------
-      INTEGER, PARAMETER :: MAXLEN = 512
-      CHARACTER(LEN=MAXLEN) :: str,elmer_home
+      CHARACTER(LEN=MAX_PATH_LEN) :: str,elmer_home
 
       INTEGER :: k
       INTEGER, DIMENSION(MaxDeg3) :: BasisTerms
@@ -464,36 +463,36 @@ ELMER_SOLVER_HOME,&
           DO WHILE( ReadAndTrim(1,str) )
 
             IF ( str(1:9) == 'dimension' ) THEN
-              READ( str(10:MAXLEN), * ) element % Dimension
+              READ( str(10:MAX_PATH_LEN), * ) element % Dimension
 
             ELSE IF ( str(1:4) == 'code' ) THEN
-              READ( str(5:MAXLEN), * ) element % ElementCode
+              READ( str(5:MAX_PATH_LEN), * ) element % ElementCode
 
             ELSE IF ( str(1:5) == 'nodes' ) THEN
-              READ( str(6:MAXLEN), * ) element % NumberOfNodes
+              READ( str(6:MAX_PATH_LEN), * ) element % NumberOfNodes
 
             ELSE IF ( str(1:6) == 'node u' ) THEN
               ALLOCATE( element % NodeU(element % NumberOfNodes) )
-              READ( str(7:MAXLEN), * ) (element % NodeU(k),k=1,element % NumberOfNodes)
+              READ( str(7:MAX_PATH_LEN), * ) (element % NodeU(k),k=1,element % NumberOfNodes)
 
             ELSE IF ( str(1:6) == 'node v' ) THEN
               ALLOCATE( element % NodeV(element % NumberOfNodes) )
-              READ( str(7:MAXLEN), * ) (element % NodeV(k),k=1,element % NumberOfNodes)
+              READ( str(7:MAX_PATH_LEN), * ) (element % NodeV(k),k=1,element % NumberOfNodes)
 
             ELSE IF ( str(1:6) == 'node w' ) THEN
               ALLOCATE( element % NodeW(element % NumberOfNodes ) )
-              READ( str(7:MAXLEN), * ) (element % NodeW(k),k=1,element % NumberOfNodes)
+              READ( str(7:MAX_PATH_LEN), * ) (element % NodeW(k),k=1,element % NumberOfNodes)
 
             ELSE IF ( str(1:5) == 'basis' ) THEN
-              READ( str(6:MAXLEN), * ) (BasisTerms(k),k=1,element % NumberOfNodes)
+              READ( str(6:MAX_PATH_LEN), * ) (BasisTerms(k),k=1,element % NumberOfNodes)
 
             ELSE IF ( str(1:13) == 'stabilization' ) THEN
-              READ( str(14:MAXLEN), * ) element % StabilizationMK
+              READ( str(14:MAX_PATH_LEN), * ) element % StabilizationMK
 
             ELSE IF ( str(1:12) == 'gauss points' ) THEN
 
               Element % GaussPoints2 = 0
-              READ( str(13:MAXLEN), *,END=10 ) element % GaussPoints,element % GaussPoints2
+              READ( str(13:MAX_PATH_LEN), *,END=10 ) element % GaussPoints,element % GaussPoints2
 
 10            CONTINUE
 
