@@ -141,7 +141,9 @@ AC_CHECK_FILE($mpi_inc_dir/mpif.h,
 [acx_mpif_h_found=no
  MPI_INCLUDE_DIR=""])
 
-   MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
+   if test "$MPI_LIBS" != ""; then
+     MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
+   fi
 else  
    # use local mpif.h
    acx_mpif_h_found=no
