@@ -5063,6 +5063,13 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   synchronizeMenuToState();
   glWidget->rebuildLists();
   glWidget->updateGL();
+
+  // Added 05 September 2009
+  boundaryPropertyEditor.clear();
+  boundaryPropertyEditor.resize(parts);
+  for(int i = 0; i < parts; i++)
+    boundaryPropertyEditor[i] = new BoundaryPropertyEditor;
+  
 }
 
 
@@ -5232,6 +5239,13 @@ void MainWindow::applyOperations()
   
   synchronizeMenuToState();
   glWidget->updateGL();
+  
+  // Added 05 September 2009
+  boundaryPropertyEditor.clear();
+  int parts = glWidget->getLists();
+  boundaryPropertyEditor.resize(parts);
+  for(int i = 0; i < parts; i++)
+    boundaryPropertyEditor[i] = new BoundaryPropertyEditor;
 }
 
 
@@ -5298,9 +5312,15 @@ void MainWindow::doDivideEdgeSlot(double angle)
 
   synchronizeMenuToState();
   glWidget->rebuildLists();
-  glWidget->updateGL(); 
-}
+  glWidget->updateGL();
 
+  // Added 05 September 2009
+  boundaryPropertyEditor.clear();
+  boundaryPropertyEditor.resize(parts);
+  for(int i = 0; i < parts; i++)
+    boundaryPropertyEditor[i] = new BoundaryPropertyEditor;
+
+}
 
 
 
@@ -5496,7 +5516,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
     glWidget->altPressed = false;
-    
+
     // renumbering:
     int n = glWidget->boundaryMap.value(l->getIndex());
 
