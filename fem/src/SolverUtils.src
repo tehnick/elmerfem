@@ -3714,12 +3714,16 @@ CONTAINS
       Aaid % Values => Aaid % BulkValues
       CALL MatrixVectorMultiply( Aaid, x, TempVector )
 
-      Energy = 0._dp
-      DO i=1,Aaid % NumberOfRows
-        Energy = Energy + x(i)*TempVector(i)
-      END DO
-      CALL ListAddConstReal( Solver % Values, 'Energy norm', Energy )
-      IF( ListGetLogical(Solver % Values, 'Output Energy Norm', gotIt) ) THEN
+      IF( ListGetLogical(Solver % Values, 'Calculate Energy Norm', gotIt) ) THEN
+        Energy = 0._dp
+        DO i=1,Aaid % NumberOfRows
+          Energy = Energy + x(i)*TempVector(i)
+        END DO
+        CALL ListAddConstReal( Solver % Values, 'Energy norm', Energy )
+
+        WRITE( Message,'(A,A,A)') 'res: ',GetVarname(Solver % Variable),' Energy Norm'
+        CALL ListAddConstReal( Model % Simulation, Message, Energy )
+
         WRITE( Message, * ) 'Energy Norm: ', Energy
         CALL Info( 'SolveLinearSystem', Message )
       END IF
