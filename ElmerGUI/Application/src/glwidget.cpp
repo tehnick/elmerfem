@@ -51,7 +51,7 @@
 using namespace std;
 
 #define MY_PI 3.14159265
-#define ZSHIFT -3.0
+#define ZSHIFT -5.0
 
 list_t::list_t()
 {
@@ -588,7 +588,7 @@ void GLWidget::changeProjection()
     glViewport(0, 0, (GLint)width, (GLint)height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45.0, (float)width/(float)height, 0.1, 10.0);
+    gluPerspective(30.0, (float)width/(float)height, 0.1, 10.0);
     glMatrixMode(GL_MODELVIEW);  
   }
 }
