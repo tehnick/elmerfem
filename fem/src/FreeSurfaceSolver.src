@@ -434,7 +434,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            IF (.NOT.NormalFlux) THEN
               Flux(1,1:n) = GetReal( BodyForce, TRIM(VariableName) // ' Accumulation Flux 1',Found)
               IF (.NOT.Found) Flux(1,1:n) = 0.0_dp
-              IF (DIM == 2) THEN
+              IF (DIM >= 2) THEN
                  Flux(2,1:n) = GetReal( BodyForce, TRIM(VariableName) // ' Accumulation Flux 2',Found )
                  IF (.NOT.Found) Flux(2,1:n) = 0.0_dp
               ELSE
