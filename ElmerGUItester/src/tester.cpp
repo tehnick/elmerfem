@@ -9,6 +9,8 @@ Tester::Tester(QWidget *parent)
 
   setWindowTitle("ElmerGUI installation tester");
 
+  setWindowIcon(QIcon(":/img/Mesh3D.png"));
+
   kosher = true;
 }
 
@@ -69,6 +71,28 @@ void Tester::testEnvironment()
   else
     kosher = false;
 #else
+  QString targetPath(elmerHome + "/bin");
+  ui.pathResult->setText(targetPath);
+  ui.pathResult->setAutoFillBackground(true);
+  ui.pathResult->setPalette(red);  
+
+  QStringList pathList = path.split(":");
+  if(pathList.contains(targetPath))
+    ui.pathResult->setPalette(green);  
+  else
+    kosher = false;
+
+  QString targetLdLibraryPath(elmerHome + "/lib");
+  ui.ldLibraryPathResult->setText(targetLdLibraryPath);
+  ui.ldLibraryPathResult->setAutoFillBackground(true);
+  ui.ldLibraryPathResult->setPalette(red);  
+
+  QString ldLibraryPath(getenv("LD_LIBRARY_PATH"));
+  QStringList ldLibraryPathList = ldLibraryPath.split(":");
+  if(ldLibraryPathList.contains(targetLdLibraryPath))
+    ui.ldLibraryPathResult->setPalette(green);
+  else
+    kosher = false;
 #endif
 }
 
@@ -145,10 +169,11 @@ void Tester::verdict()
   e->append("1) Make sure that ELMER_HOME has been set up properly");
   e->append("2) Set ELMERGUI_HOME to ELMER_HOME/bin");
   e->append("3) Set ELMER_POST_HOME to ELMER_HOME/share/elmerpost");
-#ifdef Q_OS_WIN32
   e->append("4) Make sure that ELMER_HOME/bin is in PATH");
+#ifdef Q_OS_WIN32
   e->append("5) Make sure that ELMER_HOME/lib is in PATH");
-  e->append("6) Executables should be found from ELMER_HOME/bin");
 #else
+  e->append("5) Make sure that ELMER_HOME/lib is in LD_LIBRARY_PATH");
 #endif
+  e->append("6) Executables should be found from ELMER_HOME/bin");
 }
