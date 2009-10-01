@@ -32,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/wrk/jpr/ff/share/elmersolver"
+#define ELMER_SOLVER_HOME "/usr/local/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -199,7 +199,7 @@
 #define PACKAGE_VERSION ""
 
 /* svn revision */
-#define REVISION "4198"
+#define REVISION "4233"
 
 /* Detected platform. */
 /* #undef SGI */
