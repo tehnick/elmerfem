@@ -155,6 +155,7 @@ void Tester::verdict()
 
   if(ok) {
     e->append("Elmer seems to be installed correctly on this system");
+    testFunctionality();
     return;
   }
 
@@ -169,4 +170,48 @@ void Tester::verdict()
   e->append("5) Make sure that ELMER_HOME/lib is in LD_LIBRARY_PATH");
 #endif
   e->append("6) Executables should be found from ELMER_HOME/bin");
+}
+
+void Tester::testFunctionality()
+{
+  QTextEdit *e = ui.verdict;
+
+  e->append("");
+  e->append("Performing some additional tests:");
+  e->append("Checking whether ElmerSolver starts...");
+  solver = new QProcess(this);
+  connect(solver, SIGNAL(finished(int, QProcess::ExitStatus)),
+	  this, SLOT(solverFinished(int, QProcess::ExitStatus)));
+  QString solverName("ElmerSolver");
+  QStringList solverArgs;
+  solverArgs << "-v";
+  solver->start(solverName, solverArgs);
+
+  if(!solver->waitForStarted()) {
+    e->append("ERROR: ElmerSolver refuses to start");
+    return;
+  }
+}
+
+void Tester::solverFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+  Q_UNUSED(exitCode)
+    
+  QTextEdit *e = ui.verdict;
+
+  if(exitStatus != QProcess::NormalExit) {
+    e->append("ERROR: ElmerSolver did not exit normally");
+    return;
+  }
+
+  QString str(solver->readAllStandardOutput());
+  str.replace("\r", "");
+  QStringList list = str.split("\n");
+
+  foreach(QString line, list) {
+    if(line.contains("Library version"))
+      e->append(line.replace("MAIN:", "").trimmed());
+  }
+
+  e->append("OK: ElmerSolver starts properly");
 }

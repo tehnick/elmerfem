@@ -20,11 +20,17 @@ class Tester : public QWidget
   bool testFile(const QString &value, QLabel *label);
   bool testPath(const QString &value, QLabel *label);
   bool testLdLibraryPath(const QString &value, QLabel *label);
+  void testFunctionality();
 
   Ui::mainForm ui;
   QString elmerHome;
   QString elmerGuiHome;
   bool ok;
+  QProcess *solver;
+
+ private slots:
+  void solverFinished(int exitCode, QProcess::ExitStatus exitStatus);
+
 };
 
 #endif // TESTER_H
