@@ -15,8 +15,16 @@ class Tester : public QWidget
   void verdict();
 
  private:
+  QString get(const QString &variable);
+  bool testDir(const QString &variable, QLabel *label);
+  bool testFile(const QString &value, QLabel *label);
+  bool testPath(const QString &value, QLabel *label);
+  bool testLdLibraryPath(const QString &value, QLabel *label);
+
   Ui::mainForm ui;
-  bool kosher;
+  QString elmerHome;
+  QString elmerGuiHome;
+  bool ok;
 };
 
 #endif // TESTER_H

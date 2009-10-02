@@ -8,159 +8,137 @@ Tester::Tester(QWidget *parent)
   connect(ui.closeButton, SIGNAL(clicked()), this, SLOT(close()));
 
   setWindowTitle("ElmerGUI installation tester");
-
   setWindowIcon(QIcon(":/img/Mesh3D.png"));
 
-  kosher = true;
+  elmerHome = get("ELMER_HOME");
+  elmerGuiHome = get("ELMERGUI_HOME");
+  ok = true;
+}
+
+QString Tester::get(const QString &variable)
+{
+  QString value(getenv(qPrintable(variable)));
+
+#ifdef Q_OS_WIN32
+  while(value.endsWith("\\"))
+    value.chop(1);
+#else
+  while(value.endsWith("/"))
+    value.chop(1);
+#endif
+
+  return value;
+}
+
+bool Tester::testDir(const QString &variable, QLabel *label)
+{
+  QString value(get(variable));
+
+  label->setText(value);
+  label->setAutoFillBackground(true);
+  label->setPalette(QPalette(Qt::red));
+
+  if(!value.isEmpty() && QDir(value).exists()) {
+    label->setPalette(QPalette(Qt::green));
+    return true;
+  }
+
+  return false;
+}
+
+bool Tester::testFile(const QString &value, QLabel *label)
+{
+  label->setText(value);
+  label->setAutoFillBackground(true);
+  label->setPalette(QPalette(Qt::red));
+
+  if(!value.isEmpty() && QFile(value).exists()) {
+    label->setPalette(QPalette(Qt::green));
+    return true;
+  }
+
+  return false;
+}
+
+bool Tester::testPath(const QString &value, QLabel *label)
+{
+  QString path(get("PATH"));
+
+#ifdef Q_OS_WIN32
+  QStringList splitPath(path.split(";"));
+#else
+  QStringList splitPath(path.split(":"));
+#endif
+
+  label->setText(value);
+  label->setAutoFillBackground(true);
+  label->setPalette(QPalette(Qt::red));  
+
+  if(splitPath.contains(value)) {
+    label->setPalette(QPalette(Qt::green));
+    return true;
+  }
+  
+  return false;
+}
+
+bool Tester::testLdLibraryPath(const QString &value, QLabel *label)
+{
+  QString ldLibraryPath(get("LD_LIBRARY_PATH"));
+
+#ifdef Q_OS_WIN32
+  QStringList splitLdLibraryPath(ldLibraryPath.split(";"));
+#else
+  QStringList splitLdLibraryPath(ldLibraryPath.split(":"));
+#endif
+
+  label->setText(value);
+  label->setAutoFillBackground(true);
+  label->setPalette(QPalette(Qt::red));  
+
+  if(splitLdLibraryPath.contains(value)) {
+    label->setPalette(QPalette(Qt::green));
+    return true;
+  }
+  
+  return false;
 }
 
 void Tester::testEnvironment()
 {
-  QPalette green(Qt::green);
-  QPalette red(Qt::red);
-  
-  QString elmerHome(getenv("ELMER_HOME"));
-  ui.elmerHomeResult->setText(elmerHome);
-  ui.elmerHomeResult->setAutoFillBackground(true);
-  ui.elmerHomeResult->setPalette(red);
-  if(!elmerHome.isEmpty() && QDir(elmerHome).exists())
-    ui.elmerHomeResult->setPalette(green);
-  else
-    kosher = false;
+  ok &= testDir("ELMER_HOME", ui.elmerHomeResult);
+  ok &= testDir("ELMERGUI_HOME", ui.elmerGuiHomeResult);
+  ok &= testDir("ELMER_POST_HOME", ui.elmerPostHomeResult);
 
-  QString elmerGuiHome(getenv("ELMERGUI_HOME"));
-  ui.elmerGuiHomeResult->setText(elmerGuiHome);
-  ui.elmerGuiHomeResult->setAutoFillBackground(true);
-  ui.elmerGuiHomeResult->setPalette(red);    
-  if(!elmerGuiHome.isEmpty() && QDir(elmerGuiHome).exists())
-    ui.elmerGuiHomeResult->setPalette(green);
-  else
-    kosher = false;
-
-  QString elmerPostHome(getenv("ELMER_POST_HOME"));
-  ui.elmerPostHomeResult->setText(elmerPostHome);
-  ui.elmerPostHomeResult->setAutoFillBackground(true);
-  ui.elmerPostHomeResult->setPalette(red);    
-  if(!elmerPostHome.isEmpty() && QDir(elmerPostHome).exists())
-    ui.elmerPostHomeResult->setPalette(green);
-  else
-    kosher = false;
-
-  QString path(getenv("PATH"));
 #ifdef Q_OS_WIN32
-  QString targetPath(elmerHome + "\\bin");
-  ui.pathResult->setText(targetPath);
-  ui.pathResult->setAutoFillBackground(true);
-  ui.pathResult->setPalette(red);  
-
-  QStringList pathList = path.split(";");
-  if(pathList.contains(targetPath))
-    ui.pathResult->setPalette(green);  
-  else
-    kosher = false;
-
-  ui.ldLibraryPathLabel->setText("PATH");
-  targetPath = elmerHome + "\\lib";
-  ui.ldLibraryPathResult->setText(targetPath);
-  ui.ldLibraryPathResult->setAutoFillBackground(true);
-  ui.ldLibraryPathResult->setPalette(red);  
-
-  pathList = path.split(";");
-  if(pathList.contains(targetPath))
-    ui.ldLibraryPathResult->setPalette(green);
-  else
-    kosher = false;
+  ok &= testPath(elmerHome + "\\bin", ui.pathResult);
+  ok &= testPath(elmerHome + "\\lib", ui.ldLibraryPathResult);
 #else
-  QString targetPath(elmerHome + "/bin");
-  ui.pathResult->setText(targetPath);
-  ui.pathResult->setAutoFillBackground(true);
-  ui.pathResult->setPalette(red);  
-
-  QStringList pathList = path.split(":");
-  if(pathList.contains(targetPath))
-    ui.pathResult->setPalette(green);  
-  else
-    kosher = false;
-
-  QString targetLdLibraryPath(elmerHome + "/lib");
-  ui.ldLibraryPathResult->setText(targetLdLibraryPath);
-  ui.ldLibraryPathResult->setAutoFillBackground(true);
-  ui.ldLibraryPathResult->setPalette(red);  
-
-  QString ldLibraryPath(getenv("LD_LIBRARY_PATH"));
-  QStringList ldLibraryPathList = ldLibraryPath.split(":");
-  if(ldLibraryPathList.contains(targetLdLibraryPath))
-    ui.ldLibraryPathResult->setPalette(green);
-  else
-    kosher = false;
+  ok &= testPath(elmerHome + "/bin", ui.pathResult);
+  ok &= testLdLibraryPath(elmerHome + "/lib", ui.ldLibraryPathResult);
 #endif
 }
 
 void Tester::testExecutables()
 {
-  QPalette green(Qt::green);
-  QPalette red(Qt::red);
-  
-  QString elmerHome(getenv("ELMER_HOME"));
 #ifdef Q_OS_WIN32
-  QString elmerSolver(elmerHome + "\\bin\\ElmerSolver.exe");
+  ok &= testFile(elmerHome + "\\bin\\ElmerSolver.exe", ui.elmerSolverResult);
+  ok &= testFile(elmerGuiHome + "\\ElmerGUI.exe", ui.elmerGuiResult);
+  ok &= testFile(elmerHome + "\\bin\\ElmerPost.exe", ui.elmerPostResult);
+  ok &= testFile(elmerHome + "\\bin\\ElmerGrid.exe", ui.elmerGridResult);
 #else
-  QString elmerSolver(elmerHome + "/bin/ElmerSolver");
+  ok &= testFile(elmerHome + "/bin/ElmerSolver", ui.elmerSolverResult);
+  ok &= testFile(elmerGuiHome + "/ElmerGUI", ui.elmerGuiResult);
+  ok &= testFile(elmerHome + "/bin/ElmerPost", ui.elmerPostResult);
+  ok &= testFile(elmerHome + "/bin/ElmerGrid", ui.elmerGridResult);
 #endif
-  ui.elmerSolverResult->setText(elmerSolver);
-  ui.elmerSolverResult->setAutoFillBackground(true);
-  ui.elmerSolverResult->setPalette(red);
-  if(QFile(elmerHome).exists())
-    ui.elmerSolverResult->setPalette(green);
-  else
-    kosher = false;
-
-  QString elmerGuiHome(getenv("ELMERGUI_HOME"));
-#ifdef Q_OS_WIN32
-  QString elmerGui(elmerGuiHome + "\\ElmerGUI.exe");
-#else
-  QString elmerGui(elmerGuiHome + "/ElmerGUI");
-#endif
-  ui.elmerGuiResult->setText(elmerGui);
-  ui.elmerGuiResult->setAutoFillBackground(true);
-  ui.elmerGuiResult->setPalette(red);
-  if(QFile(elmerGui).exists())
-    ui.elmerGuiResult->setPalette(green);
-  else
-    kosher = false;
-
-#ifdef Q_OS_WIN32
-  QString elmerPost(elmerHome + "\\bin\\ElmerPost.exe");
-#else
-  QString elmerPost(elmerHome + "/bin/ElmerPost");
-#endif
-  ui.elmerPostResult->setText(elmerPost);
-  ui.elmerPostResult->setAutoFillBackground(true);
-  ui.elmerPostResult->setPalette(red);
-  if(QFile(elmerPost).exists())
-    ui.elmerPostResult->setPalette(green);
-  else
-    kosher = false;
-
-#ifdef Q_OS_WIN32
-  QString elmerGrid(elmerHome + "\\bin\\ElmerGrid.exe");
-#else
-  QString elmerGrid(elmerHome + "/bin/ElmerGrid");
-#endif
-  ui.elmerGridResult->setText(elmerGrid);
-  ui.elmerGridResult->setAutoFillBackground(true);
-  ui.elmerGridResult->setPalette(red);
-  if(QFile(elmerGrid).exists())
-    ui.elmerGridResult->setPalette(green);
-  else
-    kosher = false;
 }
 
 void Tester::verdict()
 {
   QTextEdit *e = ui.verdict;
 
-  if(kosher) {
+  if(ok) {
     e->append("Elmer seems to be installed correctly on this system");
     return;
   }
