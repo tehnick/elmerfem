@@ -178,6 +178,9 @@ void Tester::testFunctionality()
 
   e->append("");
   e->append("Performing some additional tests:");
+
+  // ElmerSolver
+  e->append("");
   e->append("Checking whether ElmerSolver starts...");
   solver = new QProcess(this);
   connect(solver, SIGNAL(finished(int, QProcess::ExitStatus)),
@@ -214,4 +217,67 @@ void Tester::solverFinished(int exitCode, QProcess::ExitStatus exitStatus)
   }
 
   e->append("OK: ElmerSolver starts properly");
+
+  // ElmerPost
+  e->append("");
+  e->append("Checking whether ElmerPost starts...");
+  post = new QProcess(this);
+  connect(post, SIGNAL(finished(int, QProcess::ExitStatus)),
+	  this, SLOT(postFinished(int, QProcess::ExitStatus)));
+  QString postName("ElmerPost");
+  QStringList postArgs;
+  postArgs << "-v";
+  post->start(postName, postArgs);
+
+  if(!post->waitForStarted()) {
+    e->append("ERROR: ElmerPost refuses to start");
+    return;
+  }
+}
+
+void Tester::postFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+  Q_UNUSED(exitCode)
+    
+  QTextEdit *e = ui.verdict;
+
+  if(exitStatus != QProcess::NormalExit) {
+    e->append("ERROR: ElmerPost did not exit normally");
+    return;
+  }
+
+  QString str(post->readAllStandardOutput());
+  str.replace("\r", "");
+  str.replace("\n", "");
+  e->append(str);
+  e->append("OK: ElmerPost starts properly");
+
+  // ElmerGrid
+  e->append("");
+  e->append("Checking whether ElmerGrid starts...");
+  grid = new QProcess(this);
+  connect(grid, SIGNAL(finished(int, QProcess::ExitStatus)),
+	  this, SLOT(gridFinished(int, QProcess::ExitStatus)));
+  QString gridName("ElmerGrid");
+  grid->start(gridName);
+
+  if(!grid->waitForStarted()) {
+    e->append("ERROR: ElmerGrid refuses to start");
+    return;
+  }
+}
+
+void Tester::gridFinished(int exitCode, QProcess::ExitStatus exitStatus)
+{
+  Q_UNUSED(exitCode)
+    
+  QTextEdit *e = ui.verdict;
+
+  if(exitStatus != QProcess::NormalExit) {
+    e->append("ERROR: ElmerGrid did not exit normally");
+    return;
+  }
+
+  QString str(grid->readAllStandardOutput());
+  e->append("OK: ElmerGrid starts properly");
 }

@@ -27,9 +27,13 @@ class Tester : public QWidget
   QString elmerGuiHome;
   bool ok;
   QProcess *solver;
+  QProcess *post;
+  QProcess *grid;
 
  private slots:
   void solverFinished(int exitCode, QProcess::ExitStatus exitStatus);
+  void postFinished(int exitCode, QProcess::ExitStatus exitStatus);
+  void gridFinished(int exitCode, QProcess::ExitStatus exitStatus);
 
 };
 
