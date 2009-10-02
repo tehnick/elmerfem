@@ -65,7 +65,7 @@ bool Tester::testPath(const QString &value, QLabel *label)
   QString path(get("PATH"));
 
 #ifdef Q_OS_WIN32
-  QStringList splitPath(path.split(";"));
+  QStringList splitPath(path.toUpper().split(";"));
 #else
   QStringList splitPath(path.split(":"));
 #endif
@@ -74,10 +74,17 @@ bool Tester::testPath(const QString &value, QLabel *label)
   label->setAutoFillBackground(true);
   label->setPalette(QPalette(Qt::red));  
 
+#ifdef Q_OS_WIN32
+  if(splitPath.contains(value.toUpper())) {
+    label->setPalette(QPalette(Qt::green));
+    return true;
+  }
+#else
   if(splitPath.contains(value)) {
     label->setPalette(QPalette(Qt::green));
     return true;
   }
+#endif
   
   return false;
 }
@@ -87,7 +94,7 @@ bool Tester::testLdLibraryPath(const QString &value, QLabel *label)
   QString ldLibraryPath(get("LD_LIBRARY_PATH"));
 
 #ifdef Q_OS_WIN32
-  QStringList splitLdLibraryPath(ldLibraryPath.split(";"));
+  QStringList splitLdLibraryPath(ldLibraryPath.toUpper().split(";"));
 #else
   QStringList splitLdLibraryPath(ldLibraryPath.split(":"));
 #endif
@@ -96,10 +103,17 @@ bool Tester::testLdLibraryPath(const QString &value, QLabel *label)
   label->setAutoFillBackground(true);
   label->setPalette(QPalette(Qt::red));  
 
+#ifdef Q_OS_WIN32
+  if(splitLdLibraryPath.contains(value.toUpper())) {
+    label->setPalette(QPalette(Qt::green));
+    return true;
+  }
+#else
   if(splitLdLibraryPath.contains(value)) {
     label->setPalette(QPalette(Qt::green));
     return true;
   }
+#endif
   
   return false;
 }
@@ -111,6 +125,7 @@ void Tester::testEnvironment()
   ok &= testDir("ELMER_POST_HOME", ui.elmerPostHomeResult);
 
 #ifdef Q_OS_WIN32
+  ui.ldLibraryPathLabel->setText("PATH");
   ok &= testPath(elmerHome + "\\bin", ui.pathResult);
   ok &= testPath(elmerHome + "\\lib", ui.ldLibraryPathResult);
 #else
