@@ -15,3 +15,4 @@ FORMS += forms/mainform.ui
 SOURCES += src/main.cpp src/tester.cpp
 
 RESOURCES += ElmerGUItester.qrc
+win32: RC_FILE = ElmerGUItester.rc

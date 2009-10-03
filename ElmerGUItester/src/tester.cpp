@@ -8,7 +8,7 @@ Tester::Tester(QWidget *parent)
   connect(ui.closeButton, SIGNAL(clicked()), this, SLOT(close()));
 
   setWindowTitle("ElmerGUI installation tester");
-  setWindowIcon(QIcon(":/img/Mesh3D.png"));
+  setWindowIcon(QIcon(":/img/ElmerGUItester.ico"));
 
   elmerHome = get("ELMER_HOME");
   elmerGuiHome = get("ELMERGUI_HOME");
@@ -36,13 +36,13 @@ bool Tester::testDir(const QString &variable, QLabel *label)
 
   label->setText(value);
   label->setAutoFillBackground(true);
-  label->setPalette(QPalette(Qt::red));
 
   if(!value.isEmpty() && QDir(value).exists()) {
     label->setPalette(QPalette(Qt::green));
     return true;
   }
 
+  label->setPalette(QPalette(Qt::red));
   return false;
 }
 
@@ -50,13 +50,13 @@ bool Tester::testFile(const QString &value, QLabel *label)
 {
   label->setText(value);
   label->setAutoFillBackground(true);
-  label->setPalette(QPalette(Qt::red));
 
   if(!value.isEmpty() && QFile(value).exists()) {
     label->setPalette(QPalette(Qt::green));
     return true;
   }
 
+  label->setPalette(QPalette(Qt::red));
   return false;
 }
 
@@ -72,7 +72,6 @@ bool Tester::testPath(const QString &value, QLabel *label)
 
   label->setText(value);
   label->setAutoFillBackground(true);
-  label->setPalette(QPalette(Qt::red));  
 
 #ifdef Q_OS_WIN32
   if(splitPath.contains(value.toUpper())) {
@@ -86,6 +85,7 @@ bool Tester::testPath(const QString &value, QLabel *label)
   }
 #endif
   
+  label->setPalette(QPalette(Qt::red));  
   return false;
 }
 
@@ -101,7 +101,6 @@ bool Tester::testLdLibraryPath(const QString &value, QLabel *label)
 
   label->setText(value);
   label->setAutoFillBackground(true);
-  label->setPalette(QPalette(Qt::red));  
 
 #ifdef Q_OS_WIN32
   if(splitLdLibraryPath.contains(value.toUpper())) {
@@ -115,6 +114,7 @@ bool Tester::testLdLibraryPath(const QString &value, QLabel *label)
   }
 #endif
   
+  label->setPalette(QPalette(Qt::red));  
   return false;
 }
 
