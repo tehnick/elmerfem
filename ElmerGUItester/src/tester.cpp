@@ -152,6 +152,8 @@ void Tester::testExecutables()
 
 void Tester::verdict()
 {
+  repaint();
+
   if(ok) {
     e->append("Elmer seems to be installed correctly on this system");
     e->append("");
@@ -209,6 +211,8 @@ void Tester::testSolver()
   }
 
   e->append("OK: ElmerSolver seems functional");
+
+  repaint();
 }
 
 void Tester::testPost()
@@ -241,6 +245,8 @@ void Tester::testPost()
     e->append(str);
 
   e->append("OK: ElmerPost seems functional");
+
+  repaint();
 }
 
 void Tester::testGrid()
@@ -265,4 +271,6 @@ void Tester::testGrid()
 
   QString str(grid->readAllStandardOutput());
   e->append("OK: ElmerGrid seems functional");
+
+  repaint();
 }
