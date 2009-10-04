@@ -13,6 +13,7 @@ Tester::Tester(QWidget *parent)
   elmerHome = get("ELMER_HOME");
   elmerGuiHome = get("ELMERGUI_HOME");
   ok = true;
+  e = ui.verdict;
 }
 
 QString Tester::get(const QString &variable)
@@ -151,11 +152,15 @@ void Tester::testExecutables()
 
 void Tester::verdict()
 {
-  QTextEdit *e = ui.verdict;
-
   if(ok) {
     e->append("Elmer seems to be installed correctly on this system");
-    testFunctionality();
+    e->append("");
+    e->append("Performing some additional tests:");
+    
+    testSolver();
+    testPost();
+    testGrid();
+
     return;
   }
 
@@ -172,38 +177,25 @@ void Tester::verdict()
   e->append("6) Executables should be found from ELMER_HOME/bin");
 }
 
-void Tester::testFunctionality()
+void Tester::testSolver()
 {
-  QTextEdit *e = ui.verdict;
-
-  e->append("");
-  e->append("Performing some additional tests:");
-
-  // ElmerSolver
   e->append("");
   e->append("Checking whether ElmerSolver starts...");
-  solver = new QProcess(this);
-  connect(solver, SIGNAL(finished(int, QProcess::ExitStatus)),
-	  this, SLOT(solverFinished(int, QProcess::ExitStatus)));
+
   QString solverName("ElmerSolver");
   QStringList solverArgs;
   solverArgs << "-v";
+
+  QProcess *solver = new QProcess(this);
   solver->start(solverName, solverArgs);
 
   if(!solver->waitForStarted()) {
-    e->append("ERROR: ElmerSolver refuses to start");
+    e->append("ERROR: ElmerSolver does not start");
     return;
   }
-}
 
-void Tester::solverFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
-  Q_UNUSED(exitCode)
-    
-  QTextEdit *e = ui.verdict;
-
-  if(exitStatus != QProcess::NormalExit) {
-    e->append("ERROR: ElmerSolver did not exit normally");
+  if(!solver->waitForFinished()) {
+    e->append("ERROR: ElmerSolver does not finish");
     return;
   }
 
@@ -216,68 +208,61 @@ void Tester::solverFinished(int exitCode, QProcess::ExitStatus exitStatus)
       e->append(line.replace("MAIN:", "").trimmed());
   }
 
-  e->append("OK: ElmerSolver starts properly");
+  e->append("OK: ElmerSolver seems functional");
+}
 
-  // ElmerPost
+void Tester::testPost()
+{
   e->append("");
   e->append("Checking whether ElmerPost starts...");
-  post = new QProcess(this);
-  connect(post, SIGNAL(finished(int, QProcess::ExitStatus)),
-	  this, SLOT(postFinished(int, QProcess::ExitStatus)));
+
   QString postName("ElmerPost");
   QStringList postArgs;
   postArgs << "-v";
+
+  QProcess *post = new QProcess(this);
   post->start(postName, postArgs);
 
   if(!post->waitForStarted()) {
-    e->append("ERROR: ElmerPost refuses to start");
+    e->append("ERROR: ElmerPost does not start");
     return;
   }
-}
 
-void Tester::postFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
-  Q_UNUSED(exitCode)
-    
-  QTextEdit *e = ui.verdict;
-
-  if(exitStatus != QProcess::NormalExit) {
-    e->append("ERROR: ElmerPost did not exit normally");
+  if(!post->waitForFinished()) {
+    e->append("ERROR: ElmerPost does not finish");
     return;
   }
 
   QString str(post->readAllStandardOutput());
   str.replace("\r", "");
   str.replace("\n", "");
-  e->append(str);
-  e->append("OK: ElmerPost starts properly");
+  str = str.trimmed();
+  if(!str.isEmpty())
+    e->append(str);
 
-  // ElmerGrid
+  e->append("OK: ElmerPost seems functional");
+}
+
+void Tester::testGrid()
+{
   e->append("");
   e->append("Checking whether ElmerGrid starts...");
-  grid = new QProcess(this);
-  connect(grid, SIGNAL(finished(int, QProcess::ExitStatus)),
-	  this, SLOT(gridFinished(int, QProcess::ExitStatus)));
+
   QString gridName("ElmerGrid");
+
+  QProcess *grid = new QProcess(this);
   grid->start(gridName);
 
   if(!grid->waitForStarted()) {
-    e->append("ERROR: ElmerGrid refuses to start");
+    e->append("ERROR: ElmerGrid does not start");
     return;
   }
-}
 
-void Tester::gridFinished(int exitCode, QProcess::ExitStatus exitStatus)
-{
-  Q_UNUSED(exitCode)
-    
-  QTextEdit *e = ui.verdict;
-
-  if(exitStatus != QProcess::NormalExit) {
-    e->append("ERROR: ElmerGrid did not exit normally");
+  if(!grid->waitForFinished()) {
+    e->append("ERROR: ElmerGrid does not finish");
     return;
   }
 
   QString str(grid->readAllStandardOutput());
-  e->append("OK: ElmerGrid starts properly");
+  e->append("OK: ElmerGrid seems functional");
 }
