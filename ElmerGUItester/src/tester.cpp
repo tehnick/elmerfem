@@ -20,7 +20,7 @@ QString Tester::get(const QString &variable) const
 {
   QString value(getenv(qPrintable(variable)));
 
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   while(value.endsWith("\\"))
     value.chop(1);
 #else
@@ -65,7 +65,7 @@ bool Tester::testPath(const QString &value, QLabel *label) const
 {
   QString path(get("PATH"));
 
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   QStringList splitPath(path.toUpper().split(";"));
 #else
   QStringList splitPath(path.split(":"));
@@ -74,7 +74,7 @@ bool Tester::testPath(const QString &value, QLabel *label) const
   label->setText(value);
   label->setAutoFillBackground(true);
 
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   if(splitPath.contains(value.toUpper())) {
     label->setPalette(QPalette(Qt::green));
     return true;
@@ -94,7 +94,7 @@ bool Tester::testLdLibraryPath(const QString &value, QLabel *label) const
 {
   QString ldLibraryPath(get("LD_LIBRARY_PATH"));
 
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   QStringList splitLdLibraryPath(ldLibraryPath.toUpper().split(";"));
 #else
   QStringList splitLdLibraryPath(ldLibraryPath.split(":"));
@@ -103,7 +103,7 @@ bool Tester::testLdLibraryPath(const QString &value, QLabel *label) const
   label->setText(value);
   label->setAutoFillBackground(true);
 
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   if(splitLdLibraryPath.contains(value.toUpper())) {
     label->setPalette(QPalette(Qt::green));
     return true;
@@ -125,7 +125,7 @@ void Tester::testEnvironment()
   ok &= testDir("ELMERGUI_HOME", ui.elmerGuiHomeResult);
   ok &= testDir("ELMER_POST_HOME", ui.elmerPostHomeResult);
 
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   ui.ldLibraryPathLabel->setText("PATH");
   ok &= testPath(elmerHome + "\\bin", ui.pathResult);
   ok &= testPath(elmerHome + "\\lib", ui.ldLibraryPathResult);
@@ -137,7 +137,7 @@ void Tester::testEnvironment()
 
 void Tester::testExecutables()
 {
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   ok &= testFile(elmerHome + "\\bin\\ElmerSolver.exe", ui.elmerSolverResult);
   ok &= testFile(elmerGuiHome + "\\ElmerGUI.exe", ui.elmerGuiResult);
   ok &= testFile(elmerHome + "\\bin\\ElmerPost.exe", ui.elmerPostResult);
@@ -172,7 +172,7 @@ void Tester::verdict()
   e->append("2) Set ELMERGUI_HOME to ELMER_HOME/bin");
   e->append("3) Set ELMER_POST_HOME to ELMER_HOME/share/elmerpost");
   e->append("4) Make sure that ELMER_HOME/bin is in PATH");
-#ifdef Q_OS_WIN
+#ifdef Q_WS_WIN
   e->append("5) Make sure that ELMER_HOME/lib is in PATH");
 #else
   e->append("5) Make sure that ELMER_HOME/lib is in LD_LIBRARY_PATH");
