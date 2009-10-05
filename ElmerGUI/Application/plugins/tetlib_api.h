@@ -37,20 +37,15 @@
  *  Original Date: 15 Mar 2008                                               *
  *                                                                           *
  *****************************************************************************/
-
 #ifndef TETLIB_API_H
 #define TETLIB_API_H
 
-#ifdef WIN32
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
-
+#include <QLibrary>
 #include "tetgen.h"
-
 #include "src/helpers.h"
 #include "src/meshutils.h"
+
+typedef tetgenio* (*tetgenio_t)();
 
 typedef void (*delegate_tetrahedralize_t)(int, char*, char*, tetgenio*, tetgenio*, tetgenio*, tetgenio*);
 
@@ -61,22 +56,16 @@ class TetlibAPI
   ~TetlibAPI();
   
   bool loadTetlib();
+  mesh_t *createElmerMeshStructure();
 
-#ifdef WIN32
-  HINSTANCE hTetlib;
-#else
-  void *hTetlib;
-#endif
-  
-  typedef tetgenio* (*tetgenio_t)();
-  tetgenio_t ptetgenio;
   tetgenio *in;
   tetgenio *out;
-
   delegate_tetrahedralize_t delegate_tetrahedralize;
 
-  mesh_t* createElmerMeshStructure();
+ private:
+  QLibrary *libtet;
+  tetgenio_t ptetgenio;
 
 };
 
-#endif // #ifndef TETLIB_API_H
+#endif // TETLIB_API_H

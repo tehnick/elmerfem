@@ -37,81 +37,59 @@
  *  Original Date: 15 Mar 2008                                               *
  *                                                                           *
  *****************************************************************************/
-
-#include <iostream>
 #include "tetlib_api.h"
-
+#include <iostream>
 using namespace std;
 
 TetlibAPI::TetlibAPI()
 {
 }
 
-
 TetlibAPI::~TetlibAPI()
 {
 }
 
-
 bool TetlibAPI::loadTetlib()
 {
-  cout << "Load tetlib... ";
+  cout << "Load tetgen plugin... ";
 
-#ifdef WIN32
-  hTetlib = LoadLibrary(TEXT("libtet.dll"));
-#elif __APPLE__
-  hTetlib = dlopen("@executable_path/../lib/libtet.dylib",RTLD_LAZY);
-#else
-  hTetlib = dlopen("libtet.so", RTLD_LAZY);  
-#endif
-  
-  if(!hTetlib) {
-    cout << "unable to load library\n";
-    cout << "tetlib functionality unavailable\n";
+  libtet = new QLibrary("libtet");
+
+  if(!libtet->load()) {
+    cout << "not found" << endl;
+    cout << "Tetgen functionality unavailable" << endl;
     cout.flush();
     return false;
   }
 
-  cout << "done\n";
+  cout << "done" << endl;
   cout.flush();
-  
-#ifdef WIN32
-#define DLSYMPROC GetProcAddress
-#else
-#define DLSYMPROC dlsym
-#endif
 
-  if(!(ptetgenio = (tetgenio_t) DLSYMPROC(hTetlib, "CreateObjectOfTetgenio")))
-    {
-      cout << "Unable to get proc address for 'tetgenio'\n";
-      cout.flush();
-#ifndef WIN32
-      dlclose(hTetlib);
-#endif
-      return false;
-    }
-  
+  ptetgenio = (tetgenio_t)libtet->resolve("CreateObjectOfTetgenio");
+
+  if(!ptetgenio) {
+    cout << "Unable to resolve 'CreateObjectOfTetgenio'" << endl;
+    cout.flush();
+    return false;
+  }
+
   in = (ptetgenio)();
   out = (ptetgenio)(); 
 
-  if(!(delegate_tetrahedralize = (delegate_tetrahedralize_t) DLSYMPROC(hTetlib, "delegate_tetrahedralize")))
-    {
-      cout << "Unable to get proc address for 'delegate_tetrahedralize'\n";
-      cout.flush();
-#ifndef WIN32
-      dlclose(hTetlib);
-#endif
-      return false;
-    }
-  
+  delegate_tetrahedralize = (delegate_tetrahedralize_t)libtet->resolve("delegate_tetrahedralize");
+
+  if(!delegate_tetrahedralize) {
+    cout << "Unable to resolve 'delegate_tetrahedralize'" << endl;
+    cout.flush();
+    return false;
+  }
+
   return true;
 }
 
-
-
-// Populate elmer's mesh structure:
+// Populate Elmer's mesh structure:
 //-----------------------------------------------------------------------------
-mesh_t* TetlibAPI::createElmerMeshStructure()
+mesh_t *TetlibAPI::createElmerMeshStructure()
 {
   Helpers helpers;
   Meshutils meshutils;
