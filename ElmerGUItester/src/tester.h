@@ -15,14 +15,15 @@ class Tester : public QWidget
   void verdict();
 
  private:
-  QString get(const QString &variable);
-  bool testDir(const QString &variable, QLabel *label);
-  bool testFile(const QString &value, QLabel *label);
-  bool testPath(const QString &value, QLabel *label);
-  bool testLdLibraryPath(const QString &value, QLabel *label);
+  QString get(const QString &variable) const;
+  bool testDir(const QString &variable, QLabel *label) const;
+  bool testFile(const QString &value, QLabel *label) const;
+  bool testPath(const QString &value, QLabel *label) const;
+  bool testLdLibraryPath(const QString &value, QLabel *label) const;
   void testSolver();
   void testPost();
   void testGrid();
+  void testTetgen();
 
   Ui::mainForm ui;
   QString elmerHome;

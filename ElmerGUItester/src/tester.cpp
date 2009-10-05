@@ -16,11 +16,11 @@ Tester::Tester(QWidget *parent)
   e = ui.verdict;
 }
 
-QString Tester::get(const QString &variable)
+QString Tester::get(const QString &variable) const
 {
   QString value(getenv(qPrintable(variable)));
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   while(value.endsWith("\\"))
     value.chop(1);
 #else
@@ -31,7 +31,7 @@ QString Tester::get(const QString &variable)
   return value;
 }
 
-bool Tester::testDir(const QString &variable, QLabel *label)
+bool Tester::testDir(const QString &variable, QLabel *label) const
 {
   QString value(get(variable));
 
@@ -47,7 +47,7 @@ bool Tester::testDir(const QString &variable, QLabel *label)
   return false;
 }
 
-bool Tester::testFile(const QString &value, QLabel *label)
+bool Tester::testFile(const QString &value, QLabel *label) const
 {
   label->setText(value);
   label->setAutoFillBackground(true);
@@ -61,11 +61,11 @@ bool Tester::testFile(const QString &value, QLabel *label)
   return false;
 }
 
-bool Tester::testPath(const QString &value, QLabel *label)
+bool Tester::testPath(const QString &value, QLabel *label) const
 {
   QString path(get("PATH"));
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   QStringList splitPath(path.toUpper().split(";"));
 #else
   QStringList splitPath(path.split(":"));
@@ -74,7 +74,7 @@ bool Tester::testPath(const QString &value, QLabel *label)
   label->setText(value);
   label->setAutoFillBackground(true);
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   if(splitPath.contains(value.toUpper())) {
     label->setPalette(QPalette(Qt::green));
     return true;
@@ -90,11 +90,11 @@ bool Tester::testPath(const QString &value, QLabel *label)
   return false;
 }
 
-bool Tester::testLdLibraryPath(const QString &value, QLabel *label)
+bool Tester::testLdLibraryPath(const QString &value, QLabel *label) const
 {
   QString ldLibraryPath(get("LD_LIBRARY_PATH"));
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   QStringList splitLdLibraryPath(ldLibraryPath.toUpper().split(";"));
 #else
   QStringList splitLdLibraryPath(ldLibraryPath.split(":"));
@@ -103,7 +103,7 @@ bool Tester::testLdLibraryPath(const QString &value, QLabel *label)
   label->setText(value);
   label->setAutoFillBackground(true);
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   if(splitLdLibraryPath.contains(value.toUpper())) {
     label->setPalette(QPalette(Qt::green));
     return true;
@@ -125,7 +125,7 @@ void Tester::testEnvironment()
   ok &= testDir("ELMERGUI_HOME", ui.elmerGuiHomeResult);
   ok &= testDir("ELMER_POST_HOME", ui.elmerPostHomeResult);
 
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   ui.ldLibraryPathLabel->setText("PATH");
   ok &= testPath(elmerHome + "\\bin", ui.pathResult);
   ok &= testPath(elmerHome + "\\lib", ui.ldLibraryPathResult);
@@ -137,7 +137,7 @@ void Tester::testEnvironment()
 
 void Tester::testExecutables()
 {
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   ok &= testFile(elmerHome + "\\bin\\ElmerSolver.exe", ui.elmerSolverResult);
   ok &= testFile(elmerGuiHome + "\\ElmerGUI.exe", ui.elmerGuiResult);
   ok &= testFile(elmerHome + "\\bin\\ElmerPost.exe", ui.elmerPostResult);
@@ -162,6 +162,7 @@ void Tester::verdict()
     testSolver();
     testPost();
     testGrid();
+    testTetgen();
 
     return;
   }
@@ -171,7 +172,7 @@ void Tester::verdict()
   e->append("2) Set ELMERGUI_HOME to ELMER_HOME/bin");
   e->append("3) Set ELMER_POST_HOME to ELMER_HOME/share/elmerpost");
   e->append("4) Make sure that ELMER_HOME/bin is in PATH");
-#ifdef Q_OS_WIN32
+#ifdef Q_OS_WIN
   e->append("5) Make sure that ELMER_HOME/lib is in PATH");
 #else
   e->append("5) Make sure that ELMER_HOME/lib is in LD_LIBRARY_PATH");
@@ -273,4 +274,24 @@ void Tester::testGrid()
   e->append("OK: ElmerGrid seems functional");
 
   repaint();
+}
+
+void Tester::testTetgen()
+{
+  e->append("");
+  e->append("Checking whether Tetgen plugin loads...");
+
+  QLibrary tetgen("libtet");
+
+  if(!tetgen.load()) {
+    e->append("INFO: Tetgen plugin is not available");
+    return;
+  }
+
+  if(!tetgen.resolve("CreateObjectOfTetgenio")) {
+    e->append("WARNING: libtet version mismatch");
+    return;
+  }
+  
+  e->append("OK: Tetgen plugin seems functional");
 }
