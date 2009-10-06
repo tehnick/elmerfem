@@ -5,5 +5,7 @@ INCLUDEPATH += . ../plugin
 QMAKE_CXXFLAGS += -DTETLIBRARY
 CONFIG += release console
 SOURCES += main.cpp
-INSTALLS += target
-target.path = .
+win32: {
+  INSTALLS += target
+  target.path = .
+}

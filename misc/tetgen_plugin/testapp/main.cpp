@@ -30,6 +30,6 @@ int main(int argc, char **argv)
   delegate_t delegate_tetrahedralize = pdelegate;
   
   in->initialize();
-  in->load_poly("example");
-  delegate_tetrahedralize(1, NULL, "JApq1.414", in, out, NULL, NULL);
+  in->load_poly((char *)"example");
+  delegate_tetrahedralize(1, NULL, (char *)"JApq1.414", in, out, NULL, NULL);
 }
