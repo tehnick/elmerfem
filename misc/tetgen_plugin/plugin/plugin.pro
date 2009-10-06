@@ -23,7 +23,8 @@ unix: {
 }
 
 HEADERS += tetgen.h
-SOURCES += tetgen.cxx ElmerAPI.cpp
-win32: SOURCES += predicates.cxx
+SOURCES += predicates.cxx tetgen.cxx ElmerAPI.cpp
+unix: SOURCES -= predicates.cxx
+
 target.path = $${ELMER_HOME}/lib
 INSTALLS += target
