@@ -9,8 +9,8 @@ typedef void (*delegate_t)(int, char *tetgenbehavior, char*, tetgenio*,
 int main(int argc, char **argv)
 {
   QCoreApplication app(argc, argv);
-  
-  QLibrary plugin("libtet");
+
+  QLibrary plugin("tetplugin");
 
   if(!plugin.load())
     qFatal(qPrintable(plugin.errorString()));

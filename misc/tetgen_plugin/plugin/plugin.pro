@@ -5,7 +5,7 @@ isEmpty(ELMER_HOME) {
 }
 
 TEMPLATE = lib
-TARGET = libtet
+TARGET = tetplugin
 DEPENDPATH += .
 INCLUDEPATH += .
 CONFIG += release dll warn_off
