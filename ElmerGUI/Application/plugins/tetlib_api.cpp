@@ -53,7 +53,7 @@ bool TetlibAPI::loadTetlib()
 {
   cout << "Load tetgen plugin... ";
 
-  libtet = new QLibrary("libtet");
+  libtet = new QLibrary("tetplugin");
 
   if(!libtet->load()) {
     cout << "not found" << endl;
