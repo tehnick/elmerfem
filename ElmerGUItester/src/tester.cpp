@@ -281,7 +281,7 @@ void Tester::testTetgen()
   e->append("");
   e->append("Checking whether Tetgen plugin loads...");
 
-  QLibrary tetgen("libtet");
+  QLibrary tetgen("tetplugin");
 
   if(!tetgen.load()) {
     e->append("INFO: Tetgen plugin is not available");
