@@ -1,6 +1,6 @@
-#include <iostream>
+#include <QtGlobal>
 #include "tetgen.h"
-using namespace std;
+
 //
 // C-delegator for overloaded 'tetrahedralize':
 //
@@ -16,11 +16,12 @@ void delegate_tetrahedralize(int bs, tetgenbehavior *b, char *switches,
 
   return;
 }
+
 //
 // Create object of class 'tetgenio'
 //
 extern "C" 
-#ifdef WIN32
+#ifdef Q_WS_WIN
 __declspec(dllexport)
 #endif
 tetgenio* CreateObjectOfTetgenio()
