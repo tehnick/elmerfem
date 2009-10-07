@@ -60,8 +60,8 @@ unix {
 }
 
 win32 {
-  QWT_INCLUDEPATH = c:\qwt\5.1.1\vc\include
-  QWT_LIBPATH = c:\qwt\5.1.1\vc\lib
+  QWT_INCLUDEPATH = c:\Source\Qwt\include
+  QWT_LIBPATH = c:\Source\Qwt\lib
   QWT_LIBS = -lqwt5
 }
 
@@ -83,8 +83,8 @@ unix {
 }
 
 win32 {
-   VTK_INCLUDEPATH = c:\VTK\VC\include\vtk-5.2
-   VTK_LIBPATH = c:\VTK\VC\lib\vtk-5.2
+   VTK_INCLUDEPATH = c:\Source\VTK\include\vtk-5.4
+   VTK_LIBPATH = c:\Source\VTK\lib\vtk-5.4
    VTK_LIBS = -lQVTK \
               -lvtkCommon \
               -lvtkDICOMParser \

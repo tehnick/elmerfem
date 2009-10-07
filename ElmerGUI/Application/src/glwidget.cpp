@@ -785,6 +785,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
   hits = glRenderMode(GL_RENDER);
   
+  bool badDriver = true;
   GLuint smallestz = DUMMY_NAME;
   GLuint nearest = DUMMY_NAME;
 
@@ -792,7 +793,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     for (i=0, j=0; i<hits; i++) {
       GLuint minz = buffer[j+1];
       GLuint resultz = buffer[j+3];
-      
+
+      badDriver = (badDriver && (minz == 0x80000000));
+
       if(minz < smallestz) {
 	nearest = resultz;
 	smallestz = minz;
@@ -806,6 +809,17 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
 
+  if(badDriver) {
+    cerr << "Detected broken graphics driver" << endl;
+    cerr.flush();
+    cout << "glRenderMode(GL_RENDER) produces bad z-values" << endl;
+    cout << "Unable to reliably select objects" << endl;
+    cout << "Vendor: " << glGetString(GL_VENDOR) << endl;
+    cout << "Renderer: " << glGetString(GL_RENDERER) << endl;
+    cout << "Version: " << glGetString(GL_VERSION) << endl;
+    cout.flush();
+  }
+  
   // highlight the selected boundary:
   if(nearest != DUMMY_NAME) {
     list_t *l = getList(nearest);
