@@ -588,8 +588,8 @@ void GLWidget::changeProjection()
     glViewport(0, 0, (GLint)width, (GLint)height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(30.0, (float)width/(float)height, 0.1, 10.0);
-    glMatrixMode(GL_MODELVIEW);  
+    gluPerspective(54.0, (float)width/(float)height, 0.1, 10.0);
+    glMatrixMode(GL_MODELVIEW);
   }
 }
 
@@ -780,8 +780,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   
   glMatrixMode(GL_MODELVIEW);
 
-  // updateGL();
-  paintGL();
+  updateGL();
+  // paintGL();
 
   hits = glRenderMode(GL_RENDER);
   
