@@ -511,11 +511,11 @@ void InitRandom(int seed)
 /*************************************************************************
 * This function returns the log2(x)
 **************************************************************************/
-int log2(int a)
+// ML 7. Oct. 2009, modified log2 -> log2int
+int log2int(int a)
 {
   int i;
 
   for (i=1; a > 1; i++, a = a>>1);
   return i-1;
 }
-

@@ -459,7 +459,8 @@ double drand48();
 void srand48(long);
 int ispow2(int);
 void InitRandom(int);
-int log2(int);
+// ML 7. Oct. 2009, modified log2 -> log2int
+int log2int(int);
 
 
 

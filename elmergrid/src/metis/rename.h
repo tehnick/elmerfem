@@ -410,9 +410,5 @@
 #define RandomPermute			__RandomPermute
 #define ispow2				__ispow2
 #define InitRandom			__InitRandom
-#define log2				__log2
-
-
-
-
-
+// ML 7. Oct. 2009, modified log2 -> log2int
+#define log2int				__log2int
