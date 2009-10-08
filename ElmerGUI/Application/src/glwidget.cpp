@@ -810,7 +810,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glMatrixMode(GL_MODELVIEW);
 
   if(badDriver) {
-    cerr << "Detected broken graphics driver" << endl;
+    cerr << "Detected bad GL-context or broken graphics driver" << endl;
     cerr.flush();
     cout << "glRenderMode(GL_RENDER) produces bad z-values" << endl;
     cout << "Unable to reliably select objects" << endl;
