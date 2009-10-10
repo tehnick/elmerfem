@@ -113,6 +113,7 @@ private slots:
   void saveAsSlot();              // File -> Save As...
   void saveProjectSlot();         // File -> Save project...
   void savePictureSlot();         // File -> Save picture as...
+  void grabFrameSlot();           // utility slot
   void closeMainWindowSlot();     // File -> exit
   void modelSetupSlot();          // Model -> Setup...
   void addEquationSlot();         // Model -> Equation...
@@ -473,6 +474,10 @@ private:
   // progress bar:
   QProgressBar *progressBar;
   QLabel *progressLabel;
+
+  // screen shot:
+  QTimeLine *grabTimeLine;
+  QString pictureFileName;
 
 //  #ifdef __APPLE__
 //  This is only needed for Mac OS X, but it's easier to include in all

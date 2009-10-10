@@ -45,6 +45,7 @@
 #include <QAction>
 #include <QSystemTrayIcon>
 #include <QContextMenuEvent>
+#include <QTimeLine>
 
 #include <iostream>
 #include <fstream>
@@ -139,7 +140,8 @@ MainWindow::MainWindow()
   checkMpi = new CheckMpi;
   materialLibrary = new MaterialLibrary(this);
   twodView = new TwodView;
-
+  grabTimeLine = new QTimeLine(1000, this);
+  
 #ifdef EG_QWT
   convergenceView = new ConvergenceView(limit, this);
 #endif
@@ -225,6 +227,9 @@ MainWindow::MainWindow()
   
   // meshUnifier emits(void) when there is something to read from stderr:
   connect(meshUnifier, SIGNAL(readyReadStandardError()), this, SLOT(meshUnifierStderrSlot()));
+
+  // grabTimeLine emits finished() when done:
+  connect(grabTimeLine, SIGNAL(finished()), this, SLOT(grabFrameSlot()));
   
   // set initial state:
   operations = 0;
@@ -1056,6 +1061,8 @@ void MainWindow::createStatusBar()
   statusBar()->addPermanentWidget(progressBar);
 
   statusBar()->showMessage(tr("Ready"));
+
+  connect(grabTimeLine, SIGNAL(frameChanged(int)), progressBar, SLOT(setValue(int)));
 }
 
 
@@ -2301,28 +2308,53 @@ void MainWindow::closeMainWindowSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::savePictureSlot()
 {
-  bool withAlpha = false;
+  QString defaultDirName(getDefaultDirName());
 
-  QImage image = glWidget->grabFrameBuffer(withAlpha);
-
-  QString defaultDirName = getDefaultDirName();
-
-  QString fileName = QFileDialog::getSaveFileName(this,	tr("Save picture"), defaultDirName, tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
+  pictureFileName = QFileDialog::getSaveFileName(this,	tr("Save picture"), defaultDirName, tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
   
-  if(fileName.isEmpty()) {
+  if(pictureFileName.isEmpty()) {
     logMessage("File name is empty");
     return;
   }
 
-  glWidget->updateGL();
+  int delay = egIni->value("screenshotdelay").toInt();
+
+  grabTimeLine->stop();
+  grabTimeLine->setDuration(delay);
+  grabTimeLine->setCurveShape(QTimeLine::LinearCurve);
+  grabTimeLine->setDirection(QTimeLine::Backward);
+  grabTimeLine->setFrameRange(0, 10);
+  progressLabel->setText("Delay screen shot");
+  progressLabel->show();
+  progressBar->setRange(0, 10);
+  progressBar->show();
+  grabTimeLine->start();
+}
+
+void MainWindow::grabFrameSlot()
+{
+  progressLabel->hide();
+  progressBar->hide();
+
+  if(pictureFileName.isEmpty()) {
+    logMessage("Unable to take screen shot - file name is empty");
+    return;
+  }
+
+  QFileInfo fi(pictureFileName);
+  QString suffix(fi.suffix());
+  suffix.toUpper();
+  
+  int imageQuality(egIni->value("defaultimagequality").toInt());
+
+  bool withAlpha(false);
+
   glWidget->updateGL();
   glReadBuffer(GL_FRONT);
 
-  QFileInfo fi(fileName);
-  QString suffix = fi.suffix();
-  suffix.toUpper();
-  
-  bool success = image.save(fileName, suffix.toAscii(), 95); // fixed quality
+  QImage image(glWidget->grabFrameBuffer(withAlpha));
+
+  bool success(image.save(pictureFileName, suffix.toAscii(), imageQuality));
   
   if(!success)
     logMessage("Failed writing picture file");
