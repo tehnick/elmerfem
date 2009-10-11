@@ -2350,7 +2350,7 @@ void MainWindow::grabFrameSlot()
   bool withAlpha(false);
 
   glWidget->updateGL();
-  glReadBuffer(GL_FRONT);
+  glReadBuffer(GL_BACK);
 
   QImage image(glWidget->grabFrameBuffer(withAlpha));
 
