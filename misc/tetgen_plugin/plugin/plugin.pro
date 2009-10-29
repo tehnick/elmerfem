@@ -18,7 +18,7 @@ unix: {
    nooptimize.dependency_type = TYPE_C
    nooptimize.variable_out = OBJECTS
    nooptimize.output = ${QMAKE_VAR_OBJECTS_DIR}${QMAKE_FILE_IN_BASE}$${first(QMAKE_EXT_OBJ)}
-   nooptimize.commands = $${QMAKE_CXX} -O0 $(INCPATH) -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
+   nooptimize.commands = $${QMAKE_CXX} -fPIC -O0 $(INCPATH) -c ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
    QMAKE_EXTRA_COMPILERS += nooptimize   
 }
 
