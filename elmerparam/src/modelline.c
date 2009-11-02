@@ -39,7 +39,7 @@
  * content of the memory area pointed to -- make a copy if you need to store the
  * read data for some longer period.  */
 
-static const char *getline(FILE *fd, size_t *len)
+static const char *readline(FILE *fd, size_t *len)
 {
     static char *line = NULL;
     static size_t linesize = 0;
@@ -489,7 +489,7 @@ void ml_read(modelline_t *ml, FILE *fd, param_t *p)
     const char *line;
 
     for (row = 0; row < nrow(ml, p); row++) {
-        line = getline(fd, &len);
+        line = readline(fd, &len);
         if (!line) {
             fprintf(stderr, PKG_NAME "Premature end of input\n");
             return;

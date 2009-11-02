@@ -2,7 +2,7 @@ all:
 
 install:
 	R CMD build elmerparam
-	R CMD INSTALL -l /home/edelmann/elmer/lib/R elmerparam
+	R CMD INSTALL -l /usr/local/lib/R elmerparam
 
 distdir: clean
 	cp -r ./* $(distdir)/
