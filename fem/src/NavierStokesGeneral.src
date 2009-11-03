@@ -114,7 +114,7 @@ MODULE NavierStokesGeneral
 !    Local variables
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4)
+     REAL(KIND=dp) :: Velo(3),UVelo(3),dVelodx(3,3),Force(4)
 
      REAL(KIND=dp) :: ddBasisddx(n,3,3)
      REAL(KIND=dp) :: Basis(n)
@@ -216,6 +216,13 @@ MODULE NavierStokesGeneral
       END IF
 
       IF ( NewtonLinearization ) THEN
+        UVelo    = 0.0D0
+        UVelo(1) = SUM( Ux(1:n) * Basis )
+        UVelo(2) = SUM( Uy(1:n) * Basis )
+        IF ( dim > 2 .AND. CurrentCoordinateSystem() /= AxisSymmetric ) THEN
+          UVelo(3) = SUM( Uz(1:n) * Basis )
+        END IF
+
         dVelodx = 0.0D0
         DO i=1,3
           dVelodx(1,i) = SUM( Ux(1:n)*dBasisdx(1:n,1) )
@@ -588,10 +595,10 @@ MODULE NavierStokesGeneral
      IF ( NewtonLinearization ) THEN
        DO i=1,dim
          DO j=1,dim
-           Force(i) = Force(i) + dVelodx(i,j) * Velo(j)
+           Force(i) = Force(i) + dVelodx(i,j) * Uvelo(j)
            IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
              DO k=1,dim
-               Force(i) = Force(i) + Symb(k,j,i) * Velo(k) * Velo(j)
+               Force(i) = Force(i) + Symb(k,j,i) * Uvelo(k) * Uvelo(j)
              END DO
            END IF
          END DO

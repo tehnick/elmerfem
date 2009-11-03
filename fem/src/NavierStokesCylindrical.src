@@ -139,7 +139,7 @@ MODULE NavierStokesCylindrical
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4)
+     REAL(KIND=dp) :: Velo(3),UVelo(3),dVelodx(3,3),Force(4)
 
      REAL(KIND=dp) :: ddBasisddx(n,3,3)
      REAL(KIND=dp) :: dBasisdx(2*n,3),detJ, dNodalBasisdx(n,n,3)
@@ -805,16 +805,22 @@ MODULE NavierStokesCylindrical
 !------------------------------------------------------------------------------
 !
      IF (  Convect .AND. NewtonLinearization ) THEN
+
+       Uvelo = 0.0_dp
+       Uvelo(1) = SUM( Basis(1:n) * Ux(1:n) )
+       Uvelo(2) = SUM( Basis(1:n) * Uy(1:n) )
+       IF ( DIM > 2 ) Uvelo(3) = SUM( Basis(1:n) * Uz(1:n) )
+
        DO i=1,dim
          DO j=1,dim
-           Force(i) = Force(i) + dVelodx(i,j) * Velo(j)
+           Force(i) = Force(i) + dVelodx(i,j) * Uvelo(j)
          END DO
        END DO
 
        IF ( CurrentCoordinateSystem() /= AxisSymmetric ) THEN
-         Force(1) = Force(1) + Symb(3,3,1) * Velo(3) * Velo(3)
-         Force(3) = Force(3) + Symb(3,1,3) * Velo(1) * Velo(3)
-         Force(3) = Force(3) + Symb(1,3,3) * Velo(3) * Velo(1)
+         Force(1) = Force(1) + Symb(3,3,1) * UVelo(3) * UVelo(3)
+         Force(3) = Force(3) + Symb(3,1,3) * UVelo(1) * UVelo(3)
+         Force(3) = Force(3) + Symb(1,3,3) * UVelo(3) * UVelo(1)
        END IF
      END IF 
 

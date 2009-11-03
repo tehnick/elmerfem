@@ -145,7 +145,7 @@ MODULE NavierStokes
      REAL(KIND=dp) :: detJ, NodalBasis(n), dLBasisdx(n,3)
      REAL(KIND=dp) :: PBasis(n), pdBasisdx(n,3),BaseP, dNodalBasisdx(n,n,3)
 
-     REAL(KIND=dp) :: Velo(3),Grad(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
+     REAL(KIND=dp) :: Velo(3),UVelo(3),Grad(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
 
      REAL(KIND=dp), POINTER :: A(:,:),M(:,:),Load(:)
      REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3)
@@ -414,9 +414,15 @@ MODULE NavierStokes
       END IF
 
       IF ( Convect .AND. NewtonLinearization ) THEN
+
+        Uvelo = 0.0_dp
+        Uvelo(1) = SUM( Basis(1:n) * Ux(1:n) )
+        Uvelo(2) = SUM( Basis(1:n) * Uy(1:n) )
+        IF ( DIM > 2 ) Uvelo(3) = SUM( Basis(1:n) * Uz(1:n) )
+
         DO i=1,dim
           DO j=1,dim
-            Force(i) = Force(i) + Grad(i,j) * Velo(j)
+            Force(i) = Force(i) + Grad(i,j) * Uvelo(j) 
           END DO
         END DO
       END IF
