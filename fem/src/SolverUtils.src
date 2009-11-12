@@ -62,7 +62,7 @@ MODULE SolverUtils
                                       BoundaryTangent2(:,:)
 
    SAVE BoundaryReorder, NormalTangentialNOFNodes, BoundaryNormals, &
-              BoundaryTangent1, BoundaryTangent2
+              BoundaryTangent1, BoundaryTangent2, NormalTangentialName
 
 CONTAINS
 
@@ -142,11 +142,9 @@ CONTAINS
          NormalTangentialNOFNodes, BoundaryReorder, &
                     BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
 
-     IF ( NormalTangentialNOFNodes > 0 ) THEN
-       CALL AverageBoundaryNormals( CurrentModel, NormalTangentialName, &
-         NormalTangentialNOFNodes, BoundaryReorder, &
-               BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
-     END IF
+     CALL AverageBoundaryNormals( CurrentModel, NormalTangentialName, &
+       NormalTangentialNOFNodes, BoundaryReorder, &
+             BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
 !------------------------------------------------------------------------------
    END SUBROUTINE InitializeToZero
 !------------------------------------------------------------------------------
@@ -819,7 +817,7 @@ CONTAINS
      IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Indexes(1:Element % TYPE % NumberOfNodes) = &
+       Indexes(1:Element % Type % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -1370,12 +1368,15 @@ CONTAINS
     SUBROUTINE CheckNTElement(n,elno)
       INTEGER :: n,elno
       INTEGER :: i,j,k,l,m,dim
+      LOGICAL :: found
       REAL(KIND=dp) :: Condition(n), RotVec(3)
       
       dim = CoordinateSystemDimension()
 
       IF ( DOF <= 0 ) RETURN
+      IF ( ALL(BoundaryReorder(Indexes(1:n))<1) ) RETURN
       IF ( .NOT. ListCheckPresent(ValueList, Name) ) RETURN
+      IF ( ListGetLogical(ValueList,NormalTangentialName,Found) ) RETURN
 
       IF ( Conditional ) THEN
         Condition(1:n) = ListGetReal( ValueList, CondName, n, Indexes, gotIt )
@@ -1385,8 +1386,6 @@ CONTAINS
       !
       ! Check for nodes belonging to n-t boundary getting set by other bcs.
       ! -------------------------------------------------------------------
-      IF ( ALL(BoundaryReorder(Indexes(1:n))>0) ) RETURN
-      IF ( ALL(BoundaryReorder(Indexes(1:n))<1) ) RETURN
 
       DO j=1,n
         IF ( Conditional .AND. Condition(j)<0.0_dp ) CYCLE
@@ -1415,7 +1414,7 @@ CONTAINS
     SUBROUTINE SetElementValues(n,elno)
       INTEGER :: n,elno
       INTEGER :: i,j,k,l,m,dim
-      LOGICAL :: CheckNT
+      LOGICAL :: CheckNT,found
       REAL(KIND=dp) :: Condition(n), Work(n), RotVec(3)
       
       dim = CoordinateSystemDimension()
@@ -1441,8 +1440,8 @@ CONTAINS
         CheckNT = .FALSE.
         IF ( NormalTangentialNOFNodes>0 .AND. DOF>0 ) THEN
           CheckNT = .TRUE.
-          IF ( ALL(BoundaryReorder(Indexes(1:n))>0) ) CheckNT = .FALSE.
           IF ( ALL(BoundaryReorder(Indexes(1:n))<1) ) CheckNT = .FALSE.
+          IF ( ListGetLogical(ValueList,NormalTangentialName,Found)) CheckNT=.FALSE.
         END IF
         
         DO j=1,n
@@ -2253,10 +2252,19 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     TYPE(Element_t), POINTER :: CurrentElement
-    INTEGER :: i,j,k,n,t
-    LOGICAL :: GotIt, Found
+    INTEGER :: i,j,k,n,t,ierr,iter, proc
+    LOGICAL :: GotIt, Found, Conditional
     TYPE(Mesh_t), POINTER :: Mesh
-    INTEGER, POINTER :: NodeIndexes(:),Visited(:)
+    INTEGER, POINTER :: NodeIndexes(:)
+    REAL(KIND=dp), ALLOCATABLE :: Condition(:)
+
+    TYPE buff_t
+      INTEGER, POINTER :: buff(:)
+    END TYPE buff_t
+    INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
+    INTEGER, POINTER :: nlist(:)
+    TYPE(Buff_t), ALLOCATABLE :: n_index(:)
+    INTEGER, ALLOCATABLE :: n_count(:), gbuff(:)
 !------------------------------------------------------------------------------
     NumberOfBoundaryNodes = 0
 
@@ -2273,9 +2281,6 @@ CONTAINS
 
     Mesh => Model % Mesh
     n = Mesh % NumberOFNodes
-
-    ALLOCATE( Visited(n) )
-    Visited = 0
 
     IF ( .NOT. ASSOCIATED( BoundaryReorder ) ) THEN
       ALLOCATE( BoundaryReorder(n) )
@@ -2294,7 +2299,7 @@ CONTAINS
 
       n = CurrentElement % TYPE % NumberOfNodes
       NodeIndexes => CurrentElement % NodeIndexes
-
+      ALLOCATE( Condition(n)  )
       DO i=1,Model % NumberOfBCs
         IF ( CurrentElement % BoundaryInfo % Constraint == &
                   Model % BCs(i) % Tag ) THEN
@@ -2302,22 +2307,95 @@ CONTAINS
             Found=ListGetLogical( Model % BCs(i) % Values, &
                TRIM(VariableName) // ' Rotate',gotIt)
             IF ( Found .OR. .NOT. GotIt ) THEN
+              Condition(1:n) = ListGetReal( Model % BCs(i) % Values, &
+                 TRIM(VariableName) // ' Condition', n, NodeIndexes, Conditional )
+
               DO j=1,n
+                IF ( Conditional .AND. Condition(j)<0._dp ) CYCLE
+
                 k = NodeIndexes(j)
-                IF ( Visited(k) == 0 ) THEN
+                IF ( BoundaryReorder(k)==0 ) THEN
                   NumberOfBoundaryNodes = NumberOfBoundaryNodes + 1
-                  BoundaryReorder(NodeIndexes(j)) = NumberOfBoundaryNodes
+                  BoundaryReorder(k) = NumberOfBoundaryNodes
                 END IF
-                Visited(k) = Visited(k) + 1
               END DO
             END IF
           END IF
         END IF
       END DO
+      DEALLOCATE( Condition )
     END DO
-!------------------------------------------------------------------------------
 
-    DEALLOCATE( Visited )
+    IF (ParEnv % PEs>1 ) THEN
+      ALLOCATE( n_count(ParEnv% PEs),n_index(ParEnv % PEs) )
+      n_count = 0
+      DO i=1,Mesh % NumberOfNodes
+        IF (BoundaryReorder(i)<=0 ) CYCLE
+        IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
+
+        nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+        DO j=1,SIZE(nlist)
+          k = nlist(j)+1
+          IF ( k-1 == ParEnv % myPE ) CYCLE
+          n_count(k) = n_count(k)+1
+        END DO
+      END DO
+      DO i=1,ParEnv % PEs
+        IF ( n_count(i)>0 ) &
+          ALLOCATE( n_index(i) % buff(n_count(i)) )
+      END DO
+      n_count = 0
+      DO i=1,Mesh % NumberOfNodes
+        IF (BoundaryReorder(i)<=0 ) CYCLE
+        IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
+
+        nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+        DO j=1,SIZE(nlist)
+          k = nlist(j)+1
+          IF ( k == ParEnv % myPE+1 ) CYCLE
+          n_count(k) = n_count(k)+1
+          n_index(k) % buff(n_count(k)) = Mesh % Parallelinfo % &
+               GlobalDOFs(i)
+        END DO
+      END DO
+      DO i=1,ParEnv % PEs
+        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+           CALL MPI_BSEND( n_count(i), 1, MPI_INTEGER, i-1, &
+                800, MPI_COMM_WORLD, ierr )
+           IF ( n_count(i)>0 ) &
+             CALL MPI_BSEND( n_index(i) % buff, n_count(i), MPI_INTEGER, i-1, &
+                 801, MPI_COMM_WORLD, ierr )
+        END IF
+      END DO
+      DO i=1,ParEnv % PEs
+        IF ( n_count(i)>0 ) DEALLOCATE( n_index(i) % Buff)
+
+        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+           CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
+                800, MPI_COMM_WORLD, status, ierr )
+           IF ( n>0 ) THEN
+             ALLOCATE( gbuff(n) )
+             proc = status(MPI_SOURCE)
+             CALL MPI_RECV( gbuff, n, MPI_INTEGER, proc, &
+                 801, MPI_COMM_WORLD, status, ierr )
+
+             DO j=1,n
+               k = SearchNode( Mesh % ParallelInfo, gbuff(j) )
+               IF ( k>0 ) THEN
+                 IF ( BoundaryReorder(k)<= 0 ) THEN
+                   NumberOfBoundaryNodes = NumberOfBoundaryNodes + 1
+                   BoundaryReorder(k) = NumberOfBoundaryNodes
+                 END IF
+               END IF
+             END DO
+             DEALLOCATE(gbuff)
+           END IF
+        END IF
+      END DO
+      DEALLOCATE( n_index, n_count )
+    END IF
+
+!------------------------------------------------------------------------------
 
     IF ( NumberOfBoundaryNodes == 0 ) THEN
 !     DEALLOCATE( BoundaryReorder )
@@ -2368,11 +2446,12 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Nodes_t) :: ElementNodes
-    INTEGER :: i,j,k,l,m,n,t, iBC
-    LOGICAL :: GotIt, Found, PeriodicNormals
+    INTEGER :: i,j,k,l,m,n,t, iBC, ierr, proc
+    LOGICAL :: GotIt, Found, PeriodicNormals, Conditional
     REAL(KIND=dp) :: s,Bu,Bv
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Matrix_t), POINTER :: Projector
+    REAL(KIND=dp), ALLOCATABLE :: Condition(:)
 
     TYPE(Variable_t), POINTER :: NrmVar
 
@@ -2383,11 +2462,17 @@ CONTAINS
     REAL(KIND=dp), TARGET :: x(Model % MaxElementNodes)
     REAL(KIND=dp), TARGET :: y(Model % MaxElementNodes)
     REAL(KIND=dp), TARGET :: z(Model % MaxElementNodes)
+
+    TYPE buff_t
+      INTEGER, POINTER :: buff(:)
+      REAL(KIND=dp), POINTER :: normals(:)
+    END TYPE buff_t
+    INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
+    INTEGER, POINTER :: nlist(:)
+    TYPE(Buff_t), ALLOCATABLE :: n_index(:)
+    REAL(KIND=dp), ALLOCATABLE :: nbuff(:)
+    INTEGER, ALLOCATABLE :: n_count(:), gbuff(:), n_comp(:)
 !------------------------------------------------------------------------------
-
-    IF ( NumberOfBoundaryNodes <= 0 ) RETURN
-
-    BoundaryNormals = 0.0d0
 
     ElementNodes % x => x
     ElementNodes % y => y
@@ -2395,88 +2480,112 @@ CONTAINS
 
     NrmVar => VariableGet( Model % Mesh % Variables, 'Normals' )
 
+    IF ( ASSOCIATED(NrmVar) ) THEN
+
+      IF ( NumberOfBoundaryNodes >0 ) THEN
+        BoundaryNormals = 0._dp
+        DO i=1,Model % NumberOfNodes
+           k = BoundaryReorder(i)
+           IF (k>0 ) THEN
+             DO l=1,NrmVar % DOFs
+                BoundaryNormals(k,l) = NrmVar % Values( NrmVar % DOFs* &
+                             (NrmVar % Perm(i)-1)+l)
+             END DO
+           END IF
+         END DO
+      END IF
+
+    ELSE
+
 !------------------------------------------------------------------------------
 !   Compute sum of elementwise normals for nodes on boundaries
 !------------------------------------------------------------------------------
-    DO t=Model % NumberOfBulkElements + 1, Model % NumberOfBulkElements + &
-                  Model % NumberOfBoundaryElements
 
-      CurrentElement => Model % Elements(t)
-      IF ( CurrentElement % TYPE  % ElementCode < 200 ) CYCLE
+      ALLOCATE( n_comp(Model % NumberOfNodes) )
+      n_comp = 0
 
-      n = CurrentElement % TYPE % NumberOfNodes
-      NodeIndexes => CurrentElement % NodeIndexes
+      IF ( NumberOfBoundaryNodes>0 ) THEN
+        BoundaryNormals = 0._dp
 
-      ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
-      ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
-      ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
+        DO t=Model % NumberOfBulkElements + 1, Model % NumberOfBulkElements + &
+                      Model % NumberOfBoundaryElements
+          CurrentElement => Model % Elements(t)
+          IF ( CurrentElement % TYPE  % ElementCode < 200 ) CYCLE
 
-      DO i=1,Model % NumberOfBCs
-        IF ( CurrentElement % BoundaryInfo % Constraint == Model % BCs(i) % Tag ) THEN
-          IF ( ListGetLogical( Model % BCs(i) % Values,VariableName, gotIt) ) THEN
-            Found = ListGetLogical( Model % BCs(i) % Values, &
-                TRIM(VariableName) // ' Rotate',gotIt)
-            IF ( Found .OR. .NOT. Gotit ) THEN
-              DO j=1,CurrentElement % TYPE % NumberOfNodes
-                k = BoundaryReorder( NodeIndexes(j) )
-                IF ( ASSOCIATED(NrmVar) ) THEN
-                  BoundaryNormals(k,:) = 0._dp
-                  DO l=1,NrmVar % DOFs
-                    BoundaryNormals(k,l) = NrmVar % Values( NrmVar % DOFs* &
-                           (NrmVar % Perm(NodeIndexes(j))-1)+l)
+          n = CurrentElement % TYPE % NumberOfNodes
+          NodeIndexes => CurrentElement % NodeIndexes
+
+          ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
+          ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
+          ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
+
+          ALLOCATE(Condition(n))
+
+          DO i=1,Model % NumberOfBCs
+            IF ( CurrentElement % BoundaryInfo % Constraint == Model % BCs(i) % Tag ) THEN
+              IF ( ListGetLogical( Model % BCs(i) % Values,VariableName, gotIt) ) THEN
+                Found = ListGetLogical( Model % BCs(i) % Values, &
+                    TRIM(VariableName) // ' Rotate',gotIt)
+                IF ( Found .OR. .NOT. Gotit ) THEN
+                  Condition(1:n) = ListGetReal( Model % BCs(i) % Values, &
+                       TRIM(VariableName) // ' Condition', n, NodeIndexes, Conditional )
+  
+                  DO j=1,CurrentElement % TYPE % NumberOfNodes
+                    IF ( Conditional .AND. Condition(j) < 0._dp ) CYCLE
+
+                    k = BoundaryReorder( NodeIndexes(j) )
+                      IF (k>0) THEN
+                      Bu = CurrentElement % TYPE % NodeU(j)
+                      IF ( CurrentElement % Type % Dimension > 1 ) THEN
+                        Bv = CurrentElement % TYPE % NodeV(j)
+                      ELSE
+                        Bv = 0.0D0
+                      END IF
+                      n_comp(NodeIndexes(j)) = 1
+                      BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
+                          NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
+                    END IF
                   END DO
-                ELSE
-                  Bu = CurrentElement % TYPE % NodeU(j)
-
-                  IF ( CurrentElement % Type % Dimension > 1 ) THEN
-                    Bv = CurrentElement % TYPE % NodeV(j)
-                  ELSE
-                    Bv = 0.0D0
-                  END IF
-                  BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
-                      NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
                 END IF
+              END IF
+            END IF
+          END DO
+          DEALLOCATE(Condition)
+        END DO
+
+        DO iBC=1,Model % NumberOfBCs
+          Projector => Model % BCs(iBC) % PMatrix
+          IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
+
+          !
+          ! TODO: consistent normals, if rotations given:
+          ! ---------------------------------------------
+          Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
+                  'Periodic BC Rotate', Found )
+          IF ( Found .AND. ASSOCIATED(Rot) ) THEN
+            IF ( ANY(Rot/=0) ) THEN
+              ALLOCATE( Done(SIZE(BoundaryNormals,1)) )
+              Done=.FALSE.
+              DO i=1,Projector % NumberOfRows
+                 k = BoundaryReorder(Projector % InvPerm(i))
+                 IF ( k <= 0 ) CYCLE
+                 DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+                   IF ( Projector % Cols(l) <= 0 ) CYCLE
+                   m = BoundaryReorder(Projector % Cols(l))
+                   IF ( m>0 ) THEN
+                     IF ( .NOT.Done(m) ) THEN
+                       Done(m) = .TRUE.
+                       BoundaryNormals(m,:) = -BoundaryNormals(m,:)
+                     END IF
+                   END IF
+                 END DO
               END DO
+              DEALLOCATE(Done)
+              CYCLE
             END IF
           END IF
-        END IF
-      END DO
-    END DO
 
-    IF ( .NOT. ASSOCIATED(NrmVar) ) THEN
-      DO iBC=1,Model % NumberOfBCs
-         Projector => Model % BCs(iBC) % PMatrix
-         IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
-
-         !
-         ! TODO: consistent normals, if rotations given:
-         ! ---------------------------------------------
-         Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
-                 'Periodic BC Rotate', Found )
-         IF ( Found .AND. ASSOCIATED(Rot) ) THEN
-           IF ( ANY(Rot/=0) ) THEN
-             ALLOCATE( Done(SIZE(BoundaryNormals,1)) )
-             Done=.FALSE.
-             DO i=1,Projector % NumberOfRows
-                k = BoundaryReorder(Projector % InvPerm(i))
-                IF ( k <= 0 ) CYCLE
-                DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-                  IF ( Projector % Cols(l) <= 0 ) CYCLE
-                  m = BoundaryReorder(Projector % Cols(l))
-                  IF ( m>0 ) THEN
-                    IF ( .NOT.Done(m) ) THEN
-                      Done(m) = .TRUE.
-                      BoundaryNormals(m,:) = -BoundaryNormals(m,:)
-                    END IF
-                  END IF
-                END DO
-             END DO
-             DEALLOCATE(Done)
-             CYCLE
-           END IF
-         END IF
-
-         DO i=1,Projector % NumberOfRows
+          DO i=1,Projector % NumberOfRows
             k = BoundaryReorder(Projector % InvPerm(i))
             IF ( k <= 0 ) CYCLE
             DO l=Projector % Rows(i),Projector % Rows(i+1)-1
@@ -2484,52 +2593,145 @@ CONTAINS
               m = BoundaryReorder(Projector % Cols(l))
               IF ( m>0 ) BoundaryNormals(m,:) = 0._dp
             END DO
-         END DO
-      END DO
+          END DO
+        END DO
 
-      DO iBC=1,Model % NumberOfBCs
-         Projector => Model % BCs(iBC) % PMatrix
-         IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
+        DO iBC=1,Model % NumberOfBCs
+           Projector => Model % BCs(iBC) % PMatrix
+           IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
 
-         !
-         ! TODO: consistent normals, if rotations given:
-         ! ---------------------------------------------
-         Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
-                 'Periodic BC Rotate', Found )
-         IF ( Found .AND. ASSOCIATED(Rot) ) THEN
-           IF ( ANY(Rot/=0) ) CYCLE
-         END IF
+           !
+           ! TODO: consistent normals, if rotations given:
+           ! ---------------------------------------------
+           Rot => ListGetConstRealArray(Model % BCs(iBC) % Values, &
+                   'Periodic BC Rotate', Found )
+           IF ( Found .AND. ASSOCIATED(Rot) ) THEN
+             IF ( ANY(Rot/=0) ) CYCLE
+           END IF
 
-         DO i=1,Projector % NumberOfRows
-            k = BoundaryReorder(Projector % InvPerm(i))
-            IF ( k <= 0 ) CYCLE
-            DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-              IF ( Projector % Cols(l) <= 0 ) CYCLE
-              m = BoundaryReorder(Projector % Cols(l))
-              IF ( m > 0 ) &
-                 BoundaryNormals(m,:) = BoundaryNormals(m,:) + &
-                   Projector % Values(l) * BoundaryNormals(k,:)
+           DO i=1,Projector % NumberOfRows
+              k = BoundaryReorder(Projector % InvPerm(i))
+              IF ( k <= 0 ) CYCLE
+              DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+                IF ( Projector % Cols(l) <= 0 ) CYCLE
+                m = BoundaryReorder(Projector % Cols(l))
+                IF ( m > 0 ) &
+                   BoundaryNormals(m,:) = BoundaryNormals(m,:) + &
+                     Projector % Values(l) * BoundaryNormals(k,:)
+              END DO
+           END DO
+        END DO
+      END IF
+
+      IF (ParEnv % PEs>1 ) THEN
+        ALLOCATE( n_count(ParEnv% PEs),n_index(ParEnv % PEs) )
+        n_count = 0
+
+        IF ( NumberOfBoundaryNodes>0 ) THEN
+          DO i=1,Model % Mesh % NumberOfNodes
+            IF (BoundaryReorder(i)<=0 .OR. n_comp(i)<=0 ) CYCLE
+            IF (.NOT.Model % Mesh % ParallelInfo % Interface(i) ) CYCLE
+  
+            nlist => Model % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+            DO j=1,SIZE(nlist)
+              k = nlist(j)+1
+              IF ( k-1 == ParEnv % myPE ) CYCLE
+              n_count(k) = n_count(k)+1
             END DO
-         END DO
-      END DO
+          END DO
+          DO i=1,ParEnv % PEs
+            IF ( n_count(i)>0 ) &
+                ALLOCATE( n_index(i) % buff(n_count(i)), &
+                        n_index(i) % normals(3*n_count(i)) )
+          END DO
+
+          n_count = 0
+          DO i=1,Model % NumberOfNodes
+            IF (BoundaryReorder(i)<=0 .OR. n_comp(i)<=0 ) CYCLE
+            IF (.NOT.Model % Mesh % ParallelInfo % Interface(i) ) CYCLE
+
+            nlist => Model % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+            DO j=1,SIZE(nlist)
+              k = nlist(j)+1
+              IF ( k-1 == ParEnv % myPE ) CYCLE
+              n_count(k) = n_count(k)+1
+              n_index(k) % buff(n_count(k)) = Model % Mesh % Parallelinfo % &
+                 GlobalDOFs(i)
+              l = BoundaryReorder(i)
+              n_index(k) % normals(3*n_count(k)-2)=BoundaryNormals(l,1)
+              n_index(k) % normals(3*n_count(k)-1)=BoundaryNormals(l,2)
+              n_index(k) % normals(3*n_count(k)-0)=BoundaryNormals(l,3)
+            END DO
+          END DO
+        END IF
+
+        DO i=1,ParEnv % PEs
+          IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+            CALL MPI_BSEND( n_count(i), 1, MPI_INTEGER, i-1, &
+                900, MPI_COMM_WORLD, ierr )
+            IF ( n_count(i)>0 ) THEN
+              CALL MPI_BSEND( n_index(i) % buff, n_count(i), MPI_INTEGER, i-1, &
+                  901, MPI_COMM_WORLD, ierr )
+              CALL MPI_BSEND( n_index(i) % normals, 3*n_count(i), MPI_DOUBLE_PRECISION, &
+                    i-1,  902, MPI_COMM_WORLD, ierr )
+            END IF
+          END IF
+        END DO
+        DO i=1,ParEnv % PEs
+          IF ( n_count(i)>0 ) DEALLOCATE( n_index(i) % Buff, n_index(i) % Normals)
+
+          IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+             CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
+                    900, MPI_COMM_WORLD, status, ierr )
+             IF ( n>0 ) THEN
+               proc = status(MPI_SOURCE)
+               ALLOCATE( gbuff(n), nbuff(3*n) )
+               CALL MPI_RECV( gbuff, n, MPI_INTEGER, proc, &
+                   901, MPI_COMM_WORLD, status, ierr )
+
+               CALL MPI_RECV( nbuff, 3*n, MPI_DOUBLE_PRECISION, proc, &
+                    902, MPI_COMM_WORLD, status, ierr )
+
+               DO j=1,n
+                 k = SearchNode( Model % Mesh % ParallelInfo, gbuff(j) )
+                 IF ( k>0 ) THEN
+                   n_comp(k) = n_comp(k)+1
+                   l = BoundaryReorder(k)
+                   IF ( l>0 ) THEN
+                     BoundaryNormals(l,1)=BoundaryNormals(l,1)+nbuff(3*j-2)
+                     BoundaryNormals(l,2)=BoundaryNormals(l,2)+nbuff(3*j-1)
+                     BoundaryNormals(l,3)=BoundaryNormals(l,3)+nbuff(3*j-0)
+                   END IF
+                 END IF
+               END DO
+               DEALLOCATE(gbuff, nbuff)
+             END IF
+          END IF
+        END DO
+        DEALLOCATE( n_index, n_count )
+      END IF
+
+      DEALLOCATE(n_comp)
     END IF
 
 !------------------------------------------------------------------------------
 !   normalize 
 !------------------------------------------------------------------------------
-    DO i=1,Model % NumberOfNodes
-      k = BoundaryReorder(i) 
-      IF ( k > 0 ) THEN
-        s = SQRT( SUM( BoundaryNormals(k,:)**2 ) )
-        IF ( s /= 0.0d0 ) &
-          BoundaryNormals(k,:) = BoundaryNormals(k,:) / s
+    IF ( NumberOfBoundaryNodes>0 ) THEN
+      DO i=1,Model % NumberOfNodes
+        k = BoundaryReorder(i) 
+        IF ( k > 0 ) THEN
+          s = SQRT( SUM( BoundaryNormals(k,:)**2 ) )
+          IF ( s /= 0.0d0 ) &
+            BoundaryNormals(k,:) = BoundaryNormals(k,:) / s
 
-        IF ( CoordinateSystemDimension() > 2 ) THEN
-          CALL TangentDirections( BoundaryNormals(k,:),  &
-              BoundaryTangent1(k,:), BoundaryTangent2(k,:) )
+          IF ( CoordinateSystemDimension() > 2 ) THEN
+            CALL TangentDirections( BoundaryNormals(k,:),  &
+                BoundaryTangent1(k,:), BoundaryTangent2(k,:) )
+          END IF
         END IF
-      END IF
-    END DO
+      END DO
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE AverageBoundaryNormals
 !------------------------------------------------------------------------------
