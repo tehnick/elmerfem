@@ -751,6 +751,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64FCFLAGS="-fPIC"
 	        ;;
+	  xl*)
+	        B64FCFLAGS="-q64"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -765,6 +768,9 @@ case "$canonical_host_type" in
 	  pgf*)
 	        # portland group
 	        B64FFLAGS="-fPIC"
+	        ;;
+	  xl*)
+	        B64FFLAGS="-q64"
 	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
@@ -781,6 +787,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64CFLAGS="-fPIC"
 	        ;;
+	  xl*)
+	        B64CFLAGS="-q64"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -796,6 +805,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64CXXFLAGS="-fPIC"
 	  ;;
+	  xl*)
+	        B64CXXFLAGS="-q64"
+	        ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
 	  ;;
@@ -1274,6 +1286,17 @@ case "$canonical_host_type" in
     CXXPICFLAG="-fPIC"
     FPICFLAG="-fPIC"
     FCPICFLAG="-fPIC"
+
+	if test x"$CC" != x; then
+	case "$CC" in 
+	  xl*)
+	    CPICFLAG=""
+   	    CXXPICFLAG=""
+	    FPICFLAG=""
+	    FCPICFLAG=""
+	  ;;
+	esac
+	fi
   ;;
   i[[3456]]86-*-sco3.2v5*)
 	true

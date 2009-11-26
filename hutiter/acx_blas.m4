@@ -47,8 +47,8 @@ case $with_blas in
 esac
 
 # Get fortran linker names of BLAS functions to check for.
-AC_FC_FUNC(sgemm)
-AC_FC_FUNC(dgemm)
+AC_FC_FUNC(saxpy)
+AC_FC_FUNC(daxpy)
 
 acx_blas_save_LIBS="$LIBS"
 LIBS="$LIBS $FCLIBS $FLIBS"
@@ -57,7 +57,7 @@ LIBS="$LIBS $FCLIBS $FLIBS"
 if test $acx_blas_ok = no; then
 if test "x$BLAS_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
-	AC_MSG_CHECKING([for $sgemm in $BLAS_LIBS])
+	AC_MSG_CHECKING([for $saxpy in $BLAS_LIBS])
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
 		# windose shite	
@@ -66,7 +66,7 @@ if test "x$BLAS_LIBS" != x; then
 		AC_LINK_IFELSE(
 		[int main ()
 		 {
-		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   $saxpy(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
 		   return 0;
 		 }
 		],
@@ -79,7 +79,7 @@ if test "x$BLAS_LIBS" != x; then
 		CFLAGS="$save_CFLAGS"
 	else
 		AC_MSG_CHECKING([for $huti_d_gmres in $HUTI_LIBS])
-		AC_TRY_LINK_FUNC($sgemm, [acx_blas_ok=yes], [BLAS_LIBS=""])
+		AC_TRY_LINK_FUNC($saxpy, [acx_blas_ok=yes], [BLAS_LIBS=""])
 	fi
 
 	AC_MSG_RESULT($acx_blas_ok)	
@@ -93,14 +93,14 @@ if test $acx_blas_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS"
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
-   	        AC_MSG_CHECKING([for $sgemm in default link])	
+   	        AC_MSG_CHECKING([for $saxpy in default link])	
 		# windose shite	
 		save_CFLAGS="$CFLAGS"
 		CFLAGS="$CFLAGS -Gz"
 		AC_LINK_IFELSE(
 		[int main ()
 		 {
-		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   $saxpy(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
 		   return 0;
 		 }
 		],
@@ -113,7 +113,7 @@ if test $acx_blas_ok = no; then
 		CFLAGS="$save_CFLAGS"
    	        AC_MSG_RESULT($acx_blas_ok)
 	else
-		AC_CHECK_FUNC($sgemm, [acx_blas_ok=yes])
+		AC_CHECK_FUNC($saxpy, [acx_blas_ok=yes])
 	fi
 
 	LIBS="$save_LIBS"
@@ -122,8 +122,8 @@ fi
 # BLAS in ATLAS library? (http://math-atlas.sourceforge.net/)
 if test $acx_blas_ok = no; then
 	AC_CHECK_LIB(atlas, ATL_xerbla,
-		[AC_CHECK_LIB(f77blas, $sgemm,
-		[AC_CHECK_LIB(cblas, cblas_dgemm,
+		[AC_CHECK_LIB(f77blas, $saxpy,
+		[AC_CHECK_LIB(cblas, cblas_daxpy,
 			[acx_blas_ok=yes
 			 BLAS_LIBS="-lcblas -lf77blas -latlas"],
 			[], [-lf77blas -latlas])],
@@ -132,29 +132,29 @@ fi
 
 # BLAS in PhiPACK libraries? (requires generic BLAS lib, too)
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(blas, $sgemm,
-		[AC_CHECK_LIB(dgemm, $dgemm,
-		[AC_CHECK_LIB(sgemm, $sgemm,
-			[acx_blas_ok=yes; BLAS_LIBS="-lsgemm -ldgemm -lblas"],
+	AC_CHECK_LIB(blas, $saxpy,
+		[AC_CHECK_LIB(daxpy, $daxpy,
+		[AC_CHECK_LIB(saxpy, $saxpy,
+			[acx_blas_ok=yes; BLAS_LIBS="-lsaxpy -ldaxpy -lblas"],
 			[], [-lblas])],
 			[], [-lblas])])
 fi
 
 # BLAS in Alpha CXML library?
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(cxml, $sgemm, [acx_blas_ok=yes;BLAS_LIBS="-lcxml"])
+	AC_CHECK_LIB(cxml, $saxpy, [acx_blas_ok=yes;BLAS_LIBS="-lcxml"])
 fi
 
 # BLAS in Alpha DXML library? (now called CXML, see above)
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(dxml, $sgemm, [acx_blas_ok=yes;BLAS_LIBS="-ldxml"])
+	AC_CHECK_LIB(dxml, $saxpy, [acx_blas_ok=yes;BLAS_LIBS="-ldxml"])
 fi
 
 # BLAS in Sun Performance library?
 if test $acx_blas_ok = no; then
 	if test "x$GCC" != xyes; then # only works with Sun CC
 		AC_CHECK_LIB(sunmath, acosp,
-			[AC_CHECK_LIB(sunperf, $sgemm,
+			[AC_CHECK_LIB(sunperf, $saxpy,
         			[BLAS_LIBS="-lsunperf -lsunmath"
                                  acx_blas_ok=yes],[],[-lsunmath])])
 	fi
@@ -162,33 +162,33 @@ fi
 
 # BLAS in SCSL library?  (SGI/Cray Scientific Library)
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(scs, $sgemm, [acx_blas_ok=yes; BLAS_LIBS="-lscs"])
+	AC_CHECK_LIB(scs, $saxpy, [acx_blas_ok=yes; BLAS_LIBS="-lscs"])
 fi
 
 # BLAS in SGIMATH library?
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(complib.sgimath, $sgemm,
+	AC_CHECK_LIB(complib.sgimath, $saxpy,
 		     [acx_blas_ok=yes; BLAS_LIBS="-lcomplib.sgimath"])
 fi
 
 # BLAS in IBM ESSL library? (requires generic BLAS lib, too)
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(blas, $sgemm,
-		[AC_CHECK_LIB(essl, $sgemm,
+	AC_CHECK_LIB(blas, $saxpy,
+		[AC_CHECK_LIB(essl, $saxpy,
 			[acx_blas_ok=yes; BLAS_LIBS="-lessl -lblas"],
 			[], [-lblas $FLIBS])])
 fi
 
 # BLAS in IBM ESSL library? (sometimes just essl is kosher)
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(essl, $sgemm,
+	AC_CHECK_LIB(essl, $saxpy,
 	   	[acx_blas_ok=yes; BLAS_LIBS="-lessl"],
 		[], [$FLIBS])
 fi
 
 # Generic BLAS library?
 if test $acx_blas_ok = no; then
-	AC_CHECK_LIB(blas, $sgemm, [acx_blas_ok=yes; BLAS_LIBS="-lblas"])
+	AC_CHECK_LIB(blas, $saxpy, [acx_blas_ok=yes; BLAS_LIBS="-lblas"])
 fi
 
 AC_SUBST(BLAS_LIBS)

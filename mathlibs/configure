@@ -718,6 +718,8 @@ B64FLAGS
 mpi_dir
 mpi_lib_dir
 mpi_inc_dir
+mpi_library
+mpi_include
 lib_mpi
 MPI_LIBS
 MPI_INCLUDE_DIR
@@ -1331,6 +1333,8 @@ Optional Packages:
   --with-mpi-dir=MPIDIR   give the path for MPI /usr/local/mpich
   --with-mpi-lib-dir=dir  give the path for MPI-libraries MPI_DIR/lib
   --with-mpi-inc-dir=dir  give the path for MPI-include-files MPI_DIR/include
+  --with-mpi-library=library  give MPI-libraray-files
+  --with-mpi-include=include  give MPI-include-files
 
 Some influential environment variables:
   F77         Fortran 77 compiler command
@@ -4662,6 +4666,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64FCFLAGS="-fPIC"
 	        ;;
+	  xl*)
+	        B64FCFLAGS="-q64"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -4676,6 +4683,9 @@ case "$canonical_host_type" in
 	  pgf*)
 	        # portland group
 	        B64FFLAGS="-fPIC"
+	        ;;
+	  xl*)
+	        B64FFLAGS="-q64"
 	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
@@ -4692,6 +4702,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64CFLAGS="-fPIC"
 	        ;;
+	  xl*)
+	        B64CFLAGS="-q64"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -4707,6 +4720,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64CXXFLAGS="-fPIC"
 	  ;;
+	  xl*)
+	        B64CXXFLAGS="-q64"
+	        ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
 	  ;;
@@ -5361,6 +5377,7 @@ esac
 
 acx_mpi_ok=disabled
 
+echo $host
 case  $host in
  rs6000-ibm-aix* | powerpc-ibm-aix*)
      acx_mpi_try_c_compile=no
@@ -5419,6 +5436,34 @@ fi
 echo "${ECHO_T}$mpi_inc_dir" >&6; }
 
 
+{ echo "$as_me:$LINENO: checking for mpi-library" >&5
+echo $ECHO_N "checking for mpi-library... $ECHO_C" >&6; }
+
+# Check whether --with-mpi_library was given.
+if test "${with_mpi_library+set}" = set; then
+  withval=$with_mpi_library; acx_mpi_ok=no; mpi_library="$withval"
+else
+  mpi_library=""
+fi
+
+{ echo "$as_me:$LINENO: result: $mpi_library" >&5
+echo "${ECHO_T}$mpi_library" >&6; }
+
+
+{ echo "$as_me:$LINENO: checking for mpi-include" >&5
+echo $ECHO_N "checking for mpi-include... $ECHO_C" >&6; }
+
+# Check whether --with-mpi_include was given.
+if test "${with_mpi_include+set}" = set; then
+  withval=$with_mpi_include; acx_mpi_ok=no; mpi_include="$withval"
+else
+  mpi_include=""
+fi
+
+{ echo "$as_me:$LINENO: result: $mpi_include" >&5
+echo "${ECHO_T}$mpi_include" >&6; }
+
+
 
 
 if test "$acx_mpi_ok" != disabled; then
@@ -5440,9 +5485,10 @@ if test "$acx_mpi_ok" != disabled; then
 
 # MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs)
 
+if test "mpi_library" == ""; then
+
 { echo "$as_me:$LINENO: checking for MPI library" >&5
 echo $ECHO_N "checking for MPI library... $ECHO_C" >&6; }
-libmpi=""
 case "$host" in
   *-ibm-aix*)                # IBM/SP2 machines
     # checking whether to use signal-based MPI
@@ -5496,6 +5542,16 @@ echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI packa
 echo "${ECHO_T}found $lib_mpi" >&6; }
   ;;
 esac
+else
+ lib_mpi=$mpi_library
+fi
+
+echo "ss: ", $lib_mpi
+
+if test "$MPI_LIBS" == ""; then
+  MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
+fi
+
 
 
 # Compilation of a MPI program (depends on above macro)
@@ -5510,7 +5566,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
 	old_CFLAGS=${CFLAGS}
 	old_LIBS=${LIBS}
-	CFLAGS="-I$mpi_inc_dir"
+	CFLAGS="-I$mpi_inc_dir $mpi_include"
 	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -5578,7 +5634,11 @@ else
 	acx_mpi_ok=yes
 fi
 
-as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
+MPI_INCLUDE=""
+MPI_INCLUDE_DIR=""
+
+if test "$mpi_include" == ""; then
+  as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $mpi_inc_dir/mpif.h" >&5
 echo $ECHO_N "checking for $mpi_inc_dir/mpif.h... $ECHO_C" >&6; }
 if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
@@ -5599,14 +5659,16 @@ ac_res=`eval echo '${'$as_ac_File'}'`
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_File'}'` = yes; then
   acx_mpif_h_found=yes
- MPI_INCLUDE_DIR=$mpi_inc_dir
+   MPI_INCLUDE_DIR=$mpi_inc_dir
 else
   acx_mpif_h_found=no
- MPI_INCLUDE_DIR=""
+   MPI_INCLUDE_DIR=""
 fi
 
+else
+   MPI_INCLUDE=$mpi_include
+fi
 
-   MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
 else
    # use local mpif.h
    acx_mpif_h_found=no
@@ -6475,6 +6537,8 @@ B64FLAGS!$B64FLAGS$ac_delim
 mpi_dir!$mpi_dir$ac_delim
 mpi_lib_dir!$mpi_lib_dir$ac_delim
 mpi_inc_dir!$mpi_inc_dir$ac_delim
+mpi_library!$mpi_library$ac_delim
+mpi_include!$mpi_include$ac_delim
 lib_mpi!$lib_mpi$ac_delim
 MPI_LIBS!$MPI_LIBS$ac_delim
 MPI_INCLUDE_DIR!$MPI_INCLUDE_DIR$ac_delim
@@ -6486,7 +6550,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 17; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 19; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

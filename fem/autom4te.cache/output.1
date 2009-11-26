@@ -742,6 +742,8 @@ RPATH_ELMER
 mpi_dir
 mpi_lib_dir
 mpi_inc_dir
+mpi_library
+mpi_include
 lib_mpi
 MPI_LIBS
 MPI_INCLUDE_DIR
@@ -1420,6 +1422,8 @@ Optional Packages:
   --with-mpi-dir=MPIDIR   give the path for MPI /usr/local/mpich
   --with-mpi-lib-dir=dir  give the path for MPI-libraries MPI_DIR/lib
   --with-mpi-inc-dir=dir  give the path for MPI-include-files MPI_DIR/include
+  --with-mpi-library=library  give MPI-libraray-files 
+  --with-mpi-include=include  give MPI-include-files 
   --with-blas=<lib>       use BLAS library <lib>
   --with-lapack=<lib>     use LAPACK library <lib>
   --with-huti=<lib>       use HUTI library <lib>
@@ -6709,6 +6713,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64FCFLAGS="-fPIC"
 	        ;;
+          xl*)
+               B64FCFLAGS="-q64"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -6723,6 +6730,9 @@ case "$canonical_host_type" in
 	  pgf*)
 	        # portland group
 	        B64FFLAGS="-fPIC"
+	        ;;
+          xl*)
+               B64FFLAGS="-q64"
 	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
@@ -6739,6 +6749,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64CFLAGS="-fPIC"
 	        ;;
+          xl*)
+               B64CFLAGS="-q64"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -6754,6 +6767,9 @@ case "$canonical_host_type" in
 	        # portland group
 	        B64CXXFLAGS="-fPIC"
 	  ;;
+          xl*)
+               B64CXXFLAGS="-q64"
+	        ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
 	  ;;
@@ -9421,10 +9437,21 @@ case "$canonical_host_type" in
 	true
   ;;
   *-*-linux* | *-*-gnu*)
-    CPICFLAG="-fPIC"
-    CXXPICFLAG="-fPIC"
-    FPICFLAG="-fPIC"
-    FCPICFLAG="-fPIC"
+	CPICFLAG="-fPIC"
+	CXXPICFLAG="-fPIC"
+	FPICFLAG="-fPIC"
+	FCPICFLAG="-fPIC"
+
+	if test x"$CC" != x; then
+	case "$CC" in 
+	  xl*)
+	    CPICFLAG=""
+   	    CXXPICFLAG=""
+	    FPICFLAG=""
+	    FCPICFLAG=""
+	  ;;
+	esac
+	fi
   ;;
   i[3456]86-*-sco3.2v5*)
 	true
@@ -9546,6 +9573,12 @@ case "$canonical_host_type" in
   *-*-linux* | *-*-gnu*)
 	RPATH_FLAG="-Wl,-rpath="
 	SH_EXPALL_FLAG="-Wl,--export-dynamic"
+	case "$FC" in
+	xl*)
+	 SH_LDFLAGS="-G"
+	;;
+	esac
+	
   ;;
   i[3456]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -10146,7 +10179,7 @@ fi
 
 
 if test "$prefix" = "NONE"; then
-   prefix="/usr/"
+   prefix="/usr/local"
 fi
 
 LIBS="-L. $LIBS -L$prefix/lib"
@@ -10180,6 +10213,7 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
  
 acx_mpi_ok=disabled
 
+echo $host
 case  $host in 
  rs6000-ibm-aix* | powerpc-ibm-aix*)
      acx_mpi_try_c_compile=no
@@ -10238,6 +10272,34 @@ fi
 echo "${ECHO_T}$mpi_inc_dir" >&6; }
 
 
+{ echo "$as_me:$LINENO: checking for mpi-library" >&5
+echo $ECHO_N "checking for mpi-library... $ECHO_C" >&6; }
+
+# Check whether --with-mpi_library was given.
+if test "${with_mpi_library+set}" = set; then
+  withval=$with_mpi_library; acx_mpi_ok=no; mpi_library="$withval"
+else
+  mpi_library=""
+fi
+
+{ echo "$as_me:$LINENO: result: $mpi_library" >&5
+echo "${ECHO_T}$mpi_library" >&6; }
+
+
+{ echo "$as_me:$LINENO: checking for mpi-include" >&5
+echo $ECHO_N "checking for mpi-include... $ECHO_C" >&6; }
+
+# Check whether --with-mpi_include was given.
+if test "${with_mpi_include+set}" = set; then
+  withval=$with_mpi_include; acx_mpi_ok=no; mpi_include="$withval"
+else
+  mpi_include=""
+fi
+
+{ echo "$as_me:$LINENO: result: $mpi_include" >&5
+echo "${ECHO_T}$mpi_include" >&6; }
+
+
 
 
 if test "$acx_mpi_ok" != disabled; then
@@ -10259,9 +10321,10 @@ if test "$acx_mpi_ok" != disabled; then
 
 # MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
 
+if test "mpi_library" == ""; then
+
 { echo "$as_me:$LINENO: checking for MPI library" >&5
 echo $ECHO_N "checking for MPI library... $ECHO_C" >&6; }
-libmpi=""
 case "$host" in
   *-ibm-aix*)                # IBM/SP2 machines
     # checking whether to use signal-based MPI
@@ -10315,6 +10378,16 @@ echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI packa
 echo "${ECHO_T}found $lib_mpi" >&6; }
   ;;
 esac
+else
+ lib_mpi=$mpi_library
+fi
+
+echo "ss: ", $lib_mpi
+
+if test "$MPI_LIBS" == ""; then
+  MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
+fi
+
 
 
 # Compilation of a MPI program (depends on above macro)
@@ -10329,7 +10402,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
 	old_CFLAGS=${CFLAGS}
 	old_LIBS=${LIBS}
-	CFLAGS="-I$mpi_inc_dir"
+	CFLAGS="-I$mpi_inc_dir $mpi_include"
 	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
@@ -10413,7 +10486,11 @@ else
 	acx_mpi_ok=yes
 fi
 
-as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
+MPI_INCLUDE=""
+MPI_INCLUDE_DIR=""
+
+if test "$mpi_include" == ""; then
+  as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $mpi_inc_dir/mpif.h" >&5
 echo $ECHO_N "checking for $mpi_inc_dir/mpif.h... $ECHO_C" >&6; }
 if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
@@ -10434,14 +10511,16 @@ ac_res=`eval echo '${'$as_ac_File'}'`
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_File'}'` = yes; then
   acx_mpif_h_found=yes
- MPI_INCLUDE_DIR=$mpi_inc_dir
+   MPI_INCLUDE_DIR=$mpi_inc_dir
 else
   acx_mpif_h_found=no
- MPI_INCLUDE_DIR=""
+   MPI_INCLUDE_DIR=""
 fi
 
+else
+   MPI_INCLUDE=$mpi_include
+fi
 
-   MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
 else  
    # use local mpif.h
    acx_mpif_h_found=no
@@ -10539,13 +10618,13 @@ ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 case $ac_cv_fc_mangling in
-  upper*) ac_val="SGEMM" ;;
-  lower*) ac_val="sgemm" ;;
+  upper*) ac_val="SAXPY" ;;
+  lower*) ac_val="saxpy" ;;
   *)      ac_val="unknown" ;;
 esac
 case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
 
-sgemm="$ac_val"
+saxpy="$ac_val"
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -10558,13 +10637,13 @@ ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
 case $ac_cv_fc_mangling in
-  upper*) ac_val="DGEMM" ;;
-  lower*) ac_val="dgemm" ;;
+  upper*) ac_val="DAXPY" ;;
+  lower*) ac_val="daxpy" ;;
   *)      ac_val="unknown" ;;
 esac
 case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
 
-dgemm="$ac_val"
+daxpy="$ac_val"
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -10580,8 +10659,8 @@ LIBS="$LIBS $FCLIBS $FLIBS"
 if test $acx_blas_ok = no; then
 if test "x$BLAS_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
-	{ echo "$as_me:$LINENO: checking for $sgemm in $BLAS_LIBS" >&5
-echo $ECHO_N "checking for $sgemm in $BLAS_LIBS... $ECHO_C" >&6; }
+	{ echo "$as_me:$LINENO: checking for $saxpy in $BLAS_LIBS" >&5
+echo $ECHO_N "checking for $saxpy in $BLAS_LIBS... $ECHO_C" >&6; }
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
 		# windose shite	
@@ -10590,7 +10669,7 @@ echo $ECHO_N "checking for $sgemm in $BLAS_LIBS... $ECHO_C" >&6; }
 		cat >conftest.$ac_ext <<_ACEOF
 int main ()
 		 {
-		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   $saxpy(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
 		   return 0;
 		 }
 		
@@ -10644,7 +10723,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -10664,7 +10743,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -10711,15 +10790,15 @@ if test $acx_blas_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS"
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
-   	        { echo "$as_me:$LINENO: checking for $sgemm in default link" >&5
-echo $ECHO_N "checking for $sgemm in default link... $ECHO_C" >&6; }	
+   	        { echo "$as_me:$LINENO: checking for $saxpy in default link" >&5
+echo $ECHO_N "checking for $saxpy in default link... $ECHO_C" >&6; }	
 		# windose shite	
 		save_CFLAGS="$CFLAGS"
 		CFLAGS="$CFLAGS -Gz"
 		cat >conftest.$ac_ext <<_ACEOF
 int main ()
 		 {
-		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   $saxpy(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
 		   return 0;
 		 }
 		
@@ -10760,9 +10839,9 @@ rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
    	        { echo "$as_me:$LINENO: result: $acx_blas_ok" >&5
 echo "${ECHO_T}$acx_blas_ok" >&6; }
 	else
-		as_ac_var=`echo "ac_cv_func_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm" >&5
-echo $ECHO_N "checking for $sgemm... $ECHO_C" >&6; }
+		as_ac_var=`echo "ac_cv_func_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy" >&5
+echo $ECHO_N "checking for $saxpy... $ECHO_C" >&6; }
 if { as_var=$as_ac_var; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -10772,12 +10851,12 @@ _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-/* Define $sgemm to an innocuous variant, in case <limits.h> declares $sgemm.
+/* Define $saxpy to an innocuous variant, in case <limits.h> declares $saxpy.
    For example, HP-UX 11i <limits.h> declares gettimeofday.  */
-#define $sgemm innocuous_$sgemm
+#define $saxpy innocuous_$saxpy
 
 /* System header to define __stub macros and hopefully few prototypes,
-    which can conflict with char $sgemm (); below.
+    which can conflict with char $saxpy (); below.
     Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
     <limits.h> exists even on freestanding compilers.  */
 
@@ -10787,7 +10866,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 # include <assert.h>
 #endif
 
-#undef $sgemm
+#undef $saxpy
 
 /* Override any GCC internal prototype to avoid an error.
    Use char because int might match the return type of a GCC
@@ -10795,11 +10874,11 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 /* The GNU C library defines this for functions which it implements
     to always fail with ENOSYS.  Some functions are actually named
     something starting with __ and the normal name is an alias.  */
-#if defined __stub_$sgemm || defined __stub___$sgemm
+#if defined __stub_$saxpy || defined __stub___$saxpy
 choke me
 #endif
 
@@ -10822,7 +10901,7 @@ choke me
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -10948,9 +11027,9 @@ fi
 { echo "$as_me:$LINENO: result: $ac_cv_lib_atlas_ATL_xerbla" >&5
 echo "${ECHO_T}$ac_cv_lib_atlas_ATL_xerbla" >&6; }
 if test $ac_cv_lib_atlas_ATL_xerbla = yes; then
-  as_ac_Lib=`echo "ac_cv_lib_f77blas_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lf77blas" >&5
-echo $ECHO_N "checking for $sgemm in -lf77blas... $ECHO_C" >&6; }
+  as_ac_Lib=`echo "ac_cv_lib_f77blas_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lf77blas" >&5
+echo $ECHO_N "checking for $saxpy in -lf77blas... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -10969,7 +11048,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -10989,7 +11068,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11028,9 +11107,9 @@ ac_res=`eval echo '${'$as_ac_Lib'}'`
 	       { echo "$as_me:$LINENO: result: $ac_res" >&5
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  { echo "$as_me:$LINENO: checking for cblas_dgemm in -lcblas" >&5
-echo $ECHO_N "checking for cblas_dgemm in -lcblas... $ECHO_C" >&6; }
-if test "${ac_cv_lib_cblas_cblas_dgemm+set}" = set; then
+  { echo "$as_me:$LINENO: checking for cblas_daxpy in -lcblas" >&5
+echo $ECHO_N "checking for cblas_daxpy in -lcblas... $ECHO_C" >&6; }
+if test "${ac_cv_lib_cblas_cblas_daxpy+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -11048,7 +11127,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char cblas_dgemm ();
+char cblas_daxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11068,7 +11147,7 @@ char cblas_dgemm ();
 int
 main ()
 {
-return cblas_dgemm ();
+return cblas_daxpy ();
   ;
   return 0;
 }
@@ -11091,21 +11170,21 @@ eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
 	 test ! -s conftest.err
        } && test -s conftest$ac_exeext &&
        $as_test_x conftest$ac_exeext; then
-  ac_cv_lib_cblas_cblas_dgemm=yes
+  ac_cv_lib_cblas_cblas_daxpy=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-	ac_cv_lib_cblas_cblas_dgemm=no
+	ac_cv_lib_cblas_cblas_daxpy=no
 fi
 
 rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
       conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_cblas_cblas_dgemm" >&5
-echo "${ECHO_T}$ac_cv_lib_cblas_cblas_dgemm" >&6; }
-if test $ac_cv_lib_cblas_cblas_dgemm = yes; then
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_cblas_cblas_daxpy" >&5
+echo "${ECHO_T}$ac_cv_lib_cblas_cblas_daxpy" >&6; }
+if test $ac_cv_lib_cblas_cblas_daxpy = yes; then
   acx_blas_ok=yes
 			 BLAS_LIBS="-lcblas -lf77blas -latlas"
 fi
@@ -11118,9 +11197,9 @@ fi
 
 # BLAS in PhiPACK libraries? (requires generic BLAS lib, too)
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_blas_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lblas" >&5
-echo $ECHO_N "checking for $sgemm in -lblas... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_blas_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lblas" >&5
+echo $ECHO_N "checking for $saxpy in -lblas... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11139,7 +11218,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11159,7 +11238,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11198,14 +11277,14 @@ ac_res=`eval echo '${'$as_ac_Lib'}'`
 	       { echo "$as_me:$LINENO: result: $ac_res" >&5
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  as_ac_Lib=`echo "ac_cv_lib_dgemm_$dgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $dgemm in -ldgemm" >&5
-echo $ECHO_N "checking for $dgemm in -ldgemm... $ECHO_C" >&6; }
+  as_ac_Lib=`echo "ac_cv_lib_daxpy_$daxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $daxpy in -ldaxpy" >&5
+echo $ECHO_N "checking for $daxpy in -ldaxpy... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-ldgemm -lblas $LIBS"
+LIBS="-ldaxpy -lblas $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -11219,7 +11298,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $dgemm ();
+char $daxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11239,7 +11318,7 @@ char $dgemm ();
 int
 main ()
 {
-return $dgemm ();
+return $daxpy ();
   ;
   return 0;
 }
@@ -11278,14 +11357,14 @@ ac_res=`eval echo '${'$as_ac_Lib'}'`
 	       { echo "$as_me:$LINENO: result: $ac_res" >&5
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  as_ac_Lib=`echo "ac_cv_lib_sgemm_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lsgemm" >&5
-echo $ECHO_N "checking for $sgemm in -lsgemm... $ECHO_C" >&6; }
+  as_ac_Lib=`echo "ac_cv_lib_saxpy_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lsaxpy" >&5
+echo $ECHO_N "checking for $saxpy in -lsaxpy... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lsgemm -lblas $LIBS"
+LIBS="-lsaxpy -lblas $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -11299,7 +11378,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11319,7 +11398,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11358,7 +11437,7 @@ ac_res=`eval echo '${'$as_ac_Lib'}'`
 	       { echo "$as_me:$LINENO: result: $ac_res" >&5
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  acx_blas_ok=yes; BLAS_LIBS="-lsgemm -ldgemm -lblas"
+  acx_blas_ok=yes; BLAS_LIBS="-lsaxpy -ldaxpy -lblas"
 fi
 
 fi
@@ -11369,9 +11448,9 @@ fi
 
 # BLAS in Alpha CXML library?
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_cxml_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lcxml" >&5
-echo $ECHO_N "checking for $sgemm in -lcxml... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_cxml_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lcxml" >&5
+echo $ECHO_N "checking for $saxpy in -lcxml... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11390,7 +11469,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11410,7 +11489,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11456,9 +11535,9 @@ fi
 
 # BLAS in Alpha DXML library? (now called CXML, see above)
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_dxml_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -ldxml" >&5
-echo $ECHO_N "checking for $sgemm in -ldxml... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_dxml_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -ldxml" >&5
+echo $ECHO_N "checking for $saxpy in -ldxml... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11477,7 +11556,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11497,7 +11576,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11622,9 +11701,9 @@ fi
 { echo "$as_me:$LINENO: result: $ac_cv_lib_sunmath_acosp" >&5
 echo "${ECHO_T}$ac_cv_lib_sunmath_acosp" >&6; }
 if test $ac_cv_lib_sunmath_acosp = yes; then
-  as_ac_Lib=`echo "ac_cv_lib_sunperf_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lsunperf" >&5
-echo $ECHO_N "checking for $sgemm in -lsunperf... $ECHO_C" >&6; }
+  as_ac_Lib=`echo "ac_cv_lib_sunperf_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lsunperf" >&5
+echo $ECHO_N "checking for $saxpy in -lsunperf... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11643,7 +11722,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11663,7 +11742,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11713,9 +11792,9 @@ fi
 
 # BLAS in SCSL library?  (SGI/Cray Scientific Library)
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_scs_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lscs" >&5
-echo $ECHO_N "checking for $sgemm in -lscs... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_scs_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lscs" >&5
+echo $ECHO_N "checking for $saxpy in -lscs... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11734,7 +11813,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11754,7 +11833,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11800,9 +11879,9 @@ fi
 
 # BLAS in SGIMATH library?
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_complib.sgimath_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lcomplib.sgimath" >&5
-echo $ECHO_N "checking for $sgemm in -lcomplib.sgimath... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_complib.sgimath_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lcomplib.sgimath" >&5
+echo $ECHO_N "checking for $saxpy in -lcomplib.sgimath... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11821,7 +11900,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11841,7 +11920,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11887,9 +11966,9 @@ fi
 
 # BLAS in IBM ESSL library? (requires generic BLAS lib, too)
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_blas_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lblas" >&5
-echo $ECHO_N "checking for $sgemm in -lblas... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_blas_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lblas" >&5
+echo $ECHO_N "checking for $saxpy in -lblas... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11908,7 +11987,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -11928,7 +12007,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -11967,9 +12046,9 @@ ac_res=`eval echo '${'$as_ac_Lib'}'`
 	       { echo "$as_me:$LINENO: result: $ac_res" >&5
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  as_ac_Lib=`echo "ac_cv_lib_essl_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lessl" >&5
-echo $ECHO_N "checking for $sgemm in -lessl... $ECHO_C" >&6; }
+  as_ac_Lib=`echo "ac_cv_lib_essl_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lessl" >&5
+echo $ECHO_N "checking for $saxpy in -lessl... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -11988,7 +12067,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -12008,7 +12087,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -12056,9 +12135,9 @@ fi
 
 # BLAS in IBM ESSL library? (sometimes just essl is kosher)
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_essl_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lessl" >&5
-echo $ECHO_N "checking for $sgemm in -lessl... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_essl_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lessl" >&5
+echo $ECHO_N "checking for $saxpy in -lessl... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -12077,7 +12156,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -12097,7 +12176,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -12143,9 +12222,9 @@ fi
 
 # Generic BLAS library?
 if test $acx_blas_ok = no; then
-	as_ac_Lib=`echo "ac_cv_lib_blas_$sgemm" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $sgemm in -lblas" >&5
-echo $ECHO_N "checking for $sgemm in -lblas... $ECHO_C" >&6; }
+	as_ac_Lib=`echo "ac_cv_lib_blas_$saxpy" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $saxpy in -lblas" >&5
+echo $ECHO_N "checking for $saxpy in -lblas... $ECHO_C" >&6; }
 if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -12164,7 +12243,7 @@ cat >>conftest.$ac_ext <<_ACEOF
 #ifdef __cplusplus
 extern "C"
 #endif
-char $sgemm ();
+char $saxpy ();
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -12184,7 +12263,7 @@ char $sgemm ();
 int
 main ()
 {
-return $sgemm ();
+return $saxpy ();
   ;
   return 0;
 }
@@ -13945,7 +14024,7 @@ HYPRE_IJMatrixCreate="HYPRE_IJMatrixCreate"
 
 acx_hypre_save_LIBS="$LIBS"
 
-LIBS="$MPI_LIBS $BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$MPI_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check HYPRE_LIBS environment variable
 if test $acx_hypre_ok = no; then
@@ -14204,7 +14283,7 @@ esac
 umfdef="umfpack_di_defaults";
 acx_umfpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check UMFPACK_LIBS environment variable
 if test $acx_umfpack_ok = no; then
@@ -17034,6 +17113,8 @@ RPATH_ELMER!$RPATH_ELMER$ac_delim
 mpi_dir!$mpi_dir$ac_delim
 mpi_lib_dir!$mpi_lib_dir$ac_delim
 mpi_inc_dir!$mpi_inc_dir$ac_delim
+mpi_library!$mpi_library$ac_delim
+mpi_include!$mpi_include$ac_delim
 lib_mpi!$lib_mpi$ac_delim
 MPI_LIBS!$MPI_LIBS$ac_delim
 MPI_INCLUDE_DIR!$MPI_INCLUDE_DIR$ac_delim
@@ -17097,8 +17178,6 @@ LN!$LN$ac_delim
 MV!$MV$ac_delim
 MKDIR!$MKDIR$ac_delim
 SOLVER_LIBS!$SOLVER_LIBS$ac_delim
-SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
-OFF_KIND!$OFF_KIND$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -17140,12 +17219,14 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
+OFF_KIND!$OFF_KIND$ac_delim
 LONG_KIND!$LONG_KIND$ac_delim
 LIB@&t@OBJS!$LIB@&t@OBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 3; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 5; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
