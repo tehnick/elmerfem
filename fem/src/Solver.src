@@ -27,26 +27,36 @@ PROGRAM Solver
    USE Types
    USE GeneralUtils
 
-   INTEGER, PARAMETER :: Initialize=0
-
-   CHARACTER(LEN=MAX_NAME_LEN) :: DateStr
    REAL(KIND=dp) :: CT, RT, CPUTime, RealTime
+   INTEGER, PARAMETER :: Initialize=0
+   INTEGER :: tlen
+   LOGICAL :: Silent
+   CHARACTER(LEN=MAX_NAME_LEN) :: DateStr, toutput
 
 #if defined(MINGW32)
    CALL SET_STDIO_BUFS()
 #endif
 
+   CALL envir( 'ELMERSOLVER_OUTPUT_TOTAL'//CHAR(0), toutput, tlen )
+   Silent = toutput(1:1)=='0' .OR. toutput(1:5)=='false'
+
    CT = CPUtime()
    RT = RealTime()
-   DateStr = FormatDate()
-   WRITE( *,'(A,A)' ) "ELMER SOLVER (v " // VERSION // ") STARTED AT: ", TRIM(DateStr)
+
+
+   IF ( .NOT. Silent ) THEN
+     DateStr = FormatDate()
+     WRITE( *,'(A,A)' ) "ELMER SOLVER (v " // VERSION // ") STARTED AT: ", TRIM(DateStr)
+   END IF
 
    CALL ElmerSolver(Initialize)
 
-   WRITE( *,'(a,F12.2,F12.2)' ) 'SOLVER TOTAL TIME(CPU,REAL): ', &
-               CPUTime()-CT, RealTime()-RT
-   DateStr = FormatDate()
-   WRITE( *,'(A,A)' ) 'ELMER SOLVER FINISHED AT: ', TRIM(DateStr)
+   IF ( .NOT. Silent ) THEN
+     WRITE( *,'(a,F12.2,F12.2)' ) 'SOLVER TOTAL TIME(CPU,REAL): ', &
+                 CPUTime()-CT, RealTime()-RT
+     DateStr = FormatDate()
+     WRITE( *,'(A,A)' ) 'ELMER SOLVER FINISHED AT: ', TRIM(DateStr)
+   END IF
 END PROGRAM Solver
 
 ! ******************************************************************************
