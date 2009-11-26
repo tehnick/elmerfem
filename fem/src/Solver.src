@@ -26,6 +26,7 @@
 PROGRAM Solver
    USE Types
    USE GeneralUtils
+   USE ParallelUtils
 
    REAL(KIND=dp) :: CT, RT, CPUTime, RealTime
    INTEGER, PARAMETER :: Initialize=0
@@ -52,10 +53,12 @@ PROGRAM Solver
    CALL ElmerSolver(Initialize)
 
    IF ( .NOT. Silent ) THEN
-     WRITE( *,'(a,F12.2,F12.2)' ) 'SOLVER TOTAL TIME(CPU,REAL): ', &
-                 CPUTime()-CT, RealTime()-RT
-     DateStr = FormatDate()
-     WRITE( *,'(A,A)' ) 'ELMER SOLVER FINISHED AT: ', TRIM(DateStr)
+     IF ( ParEnv % myPE == 0 ) THEN
+       WRITE( *,'(a,F12.2,F12.2)' ) 'SOLVER TOTAL TIME(CPU,REAL): ', &
+                   CPUTime()-CT, RealTime()-RT
+       DateStr = FormatDate()
+       WRITE( *,'(A,A)' ) 'ELMER SOLVER FINISHED AT: ', TRIM(DateStr)
+     END IF
    END IF
 END PROGRAM Solver
 
