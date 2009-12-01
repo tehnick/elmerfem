@@ -152,7 +152,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ, &
-            SOL(nd),Grad(3),SU(nd),stab,uabs
+            SOL(nd),Grad(3),SU(nd),stab,uabs,hscale
     LOGICAL :: Stat
     INTEGER :: i,j,t,dim
     TYPE(GaussIntegrationPoints_t) :: IP
@@ -167,6 +167,8 @@ CONTAINS
     dim  = CoordinateSystemDimension()
     CALL GetScalarLocalSolution( SOL )
 
+    hscale = GetCReal( GetSolverParams(), 'H scale', stat )
+
     !Numerical integration:
     !----------------------
     IP = GaussPoints( Element )
@@ -179,8 +181,8 @@ CONTAINS
       END DO
 
       Uabs = SQRT( SUM( Grad(1:dim)**2 ) )
-      Grad(1:dim) = Grad(1:dim) / Uabs
-      stab = Element % hk/2
+      Grad(1:dim) = Grad(1:dim) / MAX(Uabs,1.d-8)
+      stab = hscale*Element % hk/2
 
       SU = 0.0_dp
       DO i=1,nd
