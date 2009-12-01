@@ -272,7 +272,7 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
 
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), buf(:) ,xp(:),yp(:),zp(:)
   REAL(KIND=dp), POINTER :: distance(:)
-  INTEGER, POINTER :: gPerm(:), ibuf(:), aperm(:),bperm(:)
+  INTEGER, POINTER :: gPerm(:), ibuf(:), aperm(:),bperm(:),cperm(:)
 
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
@@ -304,54 +304,47 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
   IF ( ParEnv % PEs > 1 ) THEN
     comm = Solver % Matrix % Comm
     gPerm => Mesh % ParallelInfo % GlobalDOFs
-    maxnode = ParallelReduction(MAXVAL(gPerm)*1._dp,2)
-    ALLOCATE( ibuf(maxnode),buf(maxnode) ); ibuf=0
+    maxnode = NINT(ParallelReduction(MAXVAL(gPerm)*1._dp,2))
+    ALLOCATE( ibuf(maxnode),cperm(maxnode) ); ibuf=0
     DO i=1,nb
       ibuf(gperm(aperm(i))) = 1
     END DO    
     CALL MPI_ALLREDUCE(ibuf, ibuf, maxnode, MPI_INTEGER, MPI_SUM, comm, i)
 
-    nnb = COUNT(ibuf/=0)
-    ALLOCATE( xp(nnb), yp(nnb), zp(nnb) )
-    xp=0; yp=0; zp=0;
+    nnb = 0
+    DO i=1,maxnode
+     IF ( ibuf(i)/=0 ) THEN
+       nnb=nnb+1
+       cperm(i)=nnb
+       ibuf(nnb) = ibuf(i)
+     END IF
+    END DO
+
+    ALLOCATE( xp(nnb), yp(nnb), zp(nnb), buf(nnb) )
+    buf=0._dp
+
+    DO i=1,nb
+      buf(cperm(gperm(aperm(i)))) = Mesh % Nodes % x(aperm(i))
+    END DO    
+    CALL MPI_ALLREDUCE(buf, xp, nnb, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
+    xp(1:nnb) = xp(1:nnb)/ibuf(1:nnb)
 
     buf = 0._dp
     DO i=1,nb
-      buf(gperm(aperm(i))) = Mesh % Nodes % x(aperm(i))
+      buf(cperm(gperm(aperm(i)))) = Mesh % Nodes % y(aperm(i))
     END DO    
-    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
-    nnb = 0
-    DO i=1,maxnode
-      IF ( ibuf(i)==0 ) CYCLE
-      nnb  = nnb+1
-      xp(nnb) = buf(i)/ibuf(i)
-    END DO
+    CALL MPI_ALLREDUCE(buf, yp, nnb, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
+    yp(1:nnb) = yp(1:nnb)/ibuf(1:nnb)
 
     buf = 0._dp
     DO i=1,nb
-      buf(gperm(aperm(i))) = Mesh % Nodes % y(aperm(i))
+      buf(cperm(gperm(aperm(i)))) = Mesh % Nodes % z(aperm(i))
     END DO    
-    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
-    nnb = 0
-    DO i=1,maxnode
-      IF ( ibuf(i)==0 ) CYCLE
-      nnb  = nnb+1
-      yp(nnb) = buf(i)/ibuf(i)
-    END DO
+    CALL MPI_ALLREDUCE(buf, zp, nnb, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
+    zp(1:nnb) = zp(1:nnb)/ibuf(1:nnb)
 
-    buf = 0._dp
-    DO i=1,nb
-      buf(gperm(aperm(i))) = Mesh % Nodes % z(aperm(i))
-    END DO    
-    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
-    nnb = 0
-    DO i=1,maxnode
-      IF ( ibuf(i)==0 ) CYCLE
-      nnb  = nnb+1
-      zp(nnb) = buf(i)/ibuf(i)
-    END DO
     nb = nnb
-    DEALLOCATE(ibuf)
+    DEALLOCATE(ibuf,buf,cperm)
   ELSE
     ALLOCATE( xp(nb),yp(nb),zp(nb) )
     DO i=1,nb
@@ -381,21 +374,6 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
   END DO
 
   DEALLOCATE(xp,yp,zp,aperm,bperm)
-
-  IF ( ParEnv % PEs>1 ) THEN
-    buf = HUGE(1._dp)
-    DO i=1,n
-      k = Solver % Variable % Perm(i)
-      IF ( k>0 ) buf(gperm(i)) = distance(k)
-    END DO
-    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_MIN, comm, i)
-
-    DO i=1,n
-      k = Solver % Variable % Perm(i)
-      IF ( k>0 ) distance(k)=buf(gperm(i))
-    END DO
-    DEALLOCATE(buf)
-  END IF
 
   Solver % Variable % Norm = SQRT(SUM(distance))
   distance = SQRT(distance)
