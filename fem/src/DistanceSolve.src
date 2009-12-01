@@ -74,7 +74,7 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
   INTEGER :: n, nb, nd, t, i,j,k,istat, active, MaxIter
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: BodyForce
-  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), buf(:)
 
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
@@ -265,20 +265,22 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
 
   TYPE(ValueList_t), POINTER :: SolverParams, BC
 
+  INTEGER :: n, nb, nnb, nd, t, i,j,k,istat, active, MaxIter, maxnode,comm
   REAL(KIND=dp) :: Pnorm,Norm,RelaxDT,TOL,x0,y0,z0,dist
-  INTEGER :: n, nb, nd, t, i,j,k,istat, active, MaxIter
-  INTEGER, POINTER :: APerm(:), BPerm(:)
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: BodyForce
-  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), buf(:) ,xp(:),yp(:),zp(:)
+  REAL(KIND=dp), POINTER :: distance(:)
+  INTEGER, POINTER :: gPerm(:), ibuf(:), aperm(:),bperm(:)
 
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
 
   Mesh => GetMesh()
-  ALLOCATE( APerm(Mesh % NumberOfNodes), BPerm(Mesh % NumberOfNodes) )
-  Aperm = 0
-  Bperm = 0
+  n = Mesh % NumberOfNodes
+  ALLOCATE( aperm(n), bperm(n) ); aperm = 0; bperm = 0
+
   nb = 0
   DO t=1,Mesh % NumberOfBoundaryElements
     Element => GetBoundaryElement(t)
@@ -287,42 +289,116 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
     BC => GetBC()
     IF ( ListCheckPresent(BC,ComponentName(Solver % Variable)).OR. &
          GetLogical( BC, 'Noslip Wall BC', Found ) ) THEN
-      n = GetElementNOFNodes()
-      DO i=1,n
+      nd = GetElementNOFNodes()
+      DO i=1,nd
         j = Element % NodeIndexes(i)
-        IF ( Bperm(j) == 0 ) THEN
+        IF ( bperm(j) == 0 ) THEN
           nb = nb + 1
-          Aperm(nb) = j
-          Bperm(j)  = nb
+          aperm(nb) = j
+          bperm(j)  = nb
         END IF
       END DO
     END IF
   END DO
+  
+  IF ( ParEnv % PEs > 1 ) THEN
+    comm = Solver % Matrix % Comm
+    gPerm => Mesh % ParallelInfo % GlobalDOFs
+    maxnode = ParallelReduction(MAXVAL(gPerm)*1._dp,2)
+    ALLOCATE( ibuf(maxnode),buf(maxnode) ); ibuf=0
+    DO i=1,nb
+      ibuf(gperm(aperm(i))) = 1
+    END DO    
+    CALL MPI_ALLREDUCE(ibuf, ibuf, maxnode, MPI_INTEGER, MPI_SUM, comm, i)
 
-  Solver % Variable % Values = HUGE(1._dp)
-  DO i=1,Mesh % NumberOfNodes
+    nnb = COUNT(ibuf/=0)
+    ALLOCATE( xp(nnb), yp(nnb), zp(nnb) )
+    xp=0; yp=0; zp=0;
+
+    buf = 0._dp
+    DO i=1,nb
+      buf(gperm(aperm(i))) = Mesh % Nodes % x(aperm(i))
+    END DO    
+    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
+    nnb = 0
+    DO i=1,maxnode
+      IF ( ibuf(i)==0 ) CYCLE
+      nnb  = nnb+1
+      xp(nnb) = buf(i)/ibuf(i)
+    END DO
+
+    buf = 0._dp
+    DO i=1,nb
+      buf(gperm(aperm(i))) = Mesh % Nodes % y(aperm(i))
+    END DO    
+    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
+    nnb = 0
+    DO i=1,maxnode
+      IF ( ibuf(i)==0 ) CYCLE
+      nnb  = nnb+1
+      yp(nnb) = buf(i)/ibuf(i)
+    END DO
+
+    buf = 0._dp
+    DO i=1,nb
+      buf(gperm(aperm(i))) = Mesh % Nodes % z(aperm(i))
+    END DO    
+    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
+    nnb = 0
+    DO i=1,maxnode
+      IF ( ibuf(i)==0 ) CYCLE
+      nnb  = nnb+1
+      zp(nnb) = buf(i)/ibuf(i)
+    END DO
+    nb = nnb
+    DEALLOCATE(ibuf)
+  ELSE
+    ALLOCATE( xp(nb),yp(nb),zp(nb) )
+    DO i=1,nb
+      xp(i) = Solver % Mesh % Nodes % x(aperm(i))
+      yp(i) = Solver % Mesh % Nodes % y(aperm(i))
+      zp(i) = Solver % Mesh % Nodes % z(aperm(i))
+    END DO
+  END IF
+
+  distance => Solver % Variable % Values
+  distance = HUGE(1._dp)
+  DO i=1,n
     k = Solver % Variable % Perm(i)
     IF ( k <= 0 ) CYCLE
 
-    IF ( Bperm(i) /= 0 ) THEN
-      Solver % Variable % Values(k) = 0.0_dp
-      CYCLE
+    IF ( bperm(i) /= 0 ) THEN
+      distance(k) = 0._dp
+    ELSE
+      x0 = Mesh % Nodes % x(i)
+      y0 = Mesh % Nodes % y(i)
+      z0 = Mesh % Nodes % z(i)
+      DO j=1,nb
+        dist = (xp(j)-x0)**2 + (yp(j)-y0)**2 +  (zp(j)-z0)**2
+        distance(k) = MIN(distance(k), dist)
+      END DO
     END IF
-
-    x0 = Mesh % Nodes % x(i)
-    y0 = Mesh % Nodes % y(i)
-    z0 = Mesh % Nodes % z(i)
-    DO j=1,nb
-      dist = (Mesh % Nodes % x(Aperm(j))-x0)**2 + &
-             (Mesh % Nodes % y(Aperm(j))-y0)**2 + &
-             (Mesh % Nodes % z(Aperm(j))-z0)**2
-      Solver % Variable % Values(k) = MIN(Solver % Variable % Values(k), dist)
-    END DO
   END DO
-  Solver % Variable % Norm   = SQRT(SUM(Solver % Variable % Values)) 
-  Solver % Variable % Values = SQRT(Solver % Variable % Values)
 
-  DEALLOCATE( APerm, BPerm )
+  DEALLOCATE(xp,yp,zp,aperm,bperm)
+
+  IF ( ParEnv % PEs>1 ) THEN
+    buf = HUGE(1._dp)
+    DO i=1,n
+      k = Solver % Variable % Perm(i)
+      IF ( k>0 ) buf(gperm(i)) = distance(k)
+    END DO
+    CALL MPI_ALLREDUCE(buf, buf, maxnode, MPI_DOUBLE_PRECISION, MPI_MIN, comm, i)
+
+    DO i=1,n
+      k = Solver % Variable % Perm(i)
+      IF ( k>0 ) distance(k)=buf(gperm(i))
+    END DO
+    DEALLOCATE(buf)
+  END IF
+
+  Solver % Variable % Norm = SQRT(SUM(distance))
+  distance = SQRT(distance)
 !------------------------------------------------------------------------------
 END SUBROUTINE DistanceSolver1
 !------------------------------------------------------------------------------
