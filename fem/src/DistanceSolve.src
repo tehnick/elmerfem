@@ -276,8 +276,11 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: distance(:)
   INTEGER, POINTER :: gPerm(:), ibuf(:), aperm(:),bperm(:),cperm(:)
 
+real(kind=dp) :: cputime, st
+
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
+
 
   Mesh => GetMesh()
   n = Mesh % NumberOfNodes
@@ -349,28 +352,109 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
   END IF
 
   distance => Solver % Variable % Values
-  distance = HUGE(1._dp)
-  DO i=1,n
-    k = Solver % Variable % Perm(i)
-    IF ( k <= 0 ) CYCLE
 
-    IF ( bperm(i) /= 0 ) THEN
-      distance(k) = 0._dp
-    ELSE
-      x0 = Mesh % Nodes % x(i)
-      y0 = Mesh % Nodes % y(i)
-      z0 = Mesh % Nodes % z(i)
-      DO j=1,nb
-        dist = (xp(j)-x0)**2 + (yp(j)-y0)**2 + (zp(j)-z0)**2
-        distance(k) = MIN(distance(k), dist)
-      END DO
-    END IF
-  END DO
+!st=cputime()
+!  CALL distcomp0
+!if ( parenv % mype==0) print*,'algo 0:', cputime()-st
+!st=cputime()
+  CALL distcomp
+!if ( parenv % mype==0) print*,'algo 1:', cputime()-st
 
   DEALLOCATE(xp,yp,zp,aperm,bperm)
 
   Solver % Variable % Norm = SQRT(SUM(distance))
   distance = SQRT(distance)
+
+CONTAINS
+
+  SUBROUTINE distcomp0
+
+    INTEGER :: i,j,k,x0,y0,z0
+
+    distance = HUGE(1._dp)
+    DO i=1,n
+      k = Solver % Variable % Perm(i)
+      IF ( k <= 0 ) CYCLE
+ 
+      IF ( bperm(i) /= 0 ) THEN
+          distance(k) = 0._dp
+      ELSE
+        x0 = Mesh % Nodes % x(i)
+        y0 = Mesh % Nodes % y(i)
+        z0 = Mesh % Nodes % z(i)
+        DO j=1,nb
+          dist = (xp(j)-x0)**2 + (yp(j)-y0)**2 + (zp(j)-z0)**2
+          distance(k) = MIN(distance(k), dist)
+        END DO
+      END IF
+    END DO
+  END SUBROUTINE distcomp0
+
+  SUBROUTINE distcomp
+
+    REAL(KIND=dp), ALLOCATABLE :: xxp(:),yyp(:),zzp(:),d(:),dd(:)
+    REAL(KIND=dp) :: xl,yl,zl,dl
+    INTEGER :: i,j,k,l,nnb
+    INTEGER, ALLOCATABLE :: dperm(:), near(:)
+
+    nnb = n+nb
+    ALLOCATE( xxp(nnb), yyp(nnb), zzp(nnb), d(nnb), dperm(nnb), &
+              near(nnb), dd(nb) )
+
+    xxp(1:n) = Mesh % Nodes % x
+    yyp(1:n) = Mesh % Nodes % y
+    zzp(1:n) = Mesh % Nodes % z
+
+    xxp(n+1:nnb) = xp
+    yyp(n+1:nnb) = yp
+    zzp(n+1:nnb) = zp
+
+    d = SQRT(xxp**2 + yyp**2 + zzp**2)
+    dperm = (/ (i,i=1,nnb) /)
+
+    CALL SortR(nnb,dperm,d)
+
+    j = 0
+    DO i=1,nnb
+      near(i)=j
+      IF ( dperm(i)>n ) THEN
+        j=j+1
+        xp(j)=xxp(dperm(i))
+        yp(j)=yyp(dperm(i))
+        zp(j)=zzp(dperm(i))
+        dd(j)=d(i)
+      END IF
+    END DO
+
+    DO i=1,nnb
+      j=dperm(i)
+      IF ( j>n ) CYCLE
+
+      k = Solver % Variable % Perm(j)
+      IF ( k <= 0 ) CYCLE
+
+      IF ( bperm(j)/=0 ) THEN
+        distance(k) = 0._dp
+      ELSE
+        dl = d(i)
+        xl = xxp(j)
+        yl = yyp(j)
+        zl = zzp(j)
+        dist = HUGE(1._dp)
+        DO l=near(i)+1,nb
+          IF( (dd(l)-dl)**2>dist ) EXIT
+          dist = MIN(dist,(xp(l)-xl)**2+(yp(l)-yl)**2+(zp(l)-zl)**2)
+        END DO
+
+        DO l=near(i),1,-1
+          IF( (dd(l)-dl)**2>dist ) EXIT
+          dist = MIN(dist,(xp(l)-xl)**2+(yp(l)-yl)**2+(zp(l)-zl)**2)
+        END DO
+        distance(k) = dist
+      END  IF
+    END DO
+    DEALLOCATE( xxp, yyp, zzp, d, dperm, near, dd )
+  END SUBROUTINE distcomp
 !------------------------------------------------------------------------------
 END SUBROUTINE DistanceSolver1
 !------------------------------------------------------------------------------
