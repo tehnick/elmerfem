@@ -466,6 +466,8 @@ CONTAINS
   INTEGER, ALLOCATABLE :: memb(:)
   INTEGER :: Comm_active, Group_active, Group_world
 
+  REAL(KIND=dp), ALLOCATABLE :: dbuf(:)
+
   IF ( PRESENT(Free_Fact) ) THEN
     IF ( Free_Fact ) THEN
       IF ( ASSOCIATED(A % MumpsID) ) THEN
@@ -557,7 +559,9 @@ CONTAINS
     ip = A % Gorder(A % InvPerm(i))
     A % MumpsId % RHS(ip) = b(i)
   END DO
-  CALL MPI_ALLREDUCE( A % MumpsID % RHS, A % MumpsID % RHS, &
+  ALLOCATE( dbuf(A % MumpsID % n) )
+  dbuf = A % MumpsId % RHS
+  CALL MPI_ALLREDUCE( dbuf, A % MumpsID % RHS, &
     A % MumpsID % n, MPI_DOUBLE_PRECISION, MPI_SUM, A % MumpsID % Comm, ierr )
 
  ! Solution:
@@ -572,8 +576,11 @@ CONTAINS
     A % MumpsID % RHS(A % MumpsID % isol_loc(i)) = &
             A % MumpsID % sol_loc(i)
   END DO
-  CALL MPI_ALLREDUCE( A % MumpsID % RHS, A % MumpsID % RHS, &
+  dbuf = A % MumpsId % RHS
+  CALL MPI_ALLREDUCE( dbuf, A % MumpsID % RHS, &
     A % MumpsID % N, MPI_DOUBLE_PRECISION, MPI_SUM,A %  MumpsID % Comm, ierr )
+
+  DEALLOCATE(dbuf)
 
  ! Select the values which belong to us:
  ! -------------------------------------
