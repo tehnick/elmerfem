@@ -309,8 +309,11 @@ real(kind=dp) :: cputime, st
   IF ( ParEnv % PEs > 1 ) THEN
     comm = Solver % Matrix % Comm
     gPerm => Mesh % ParallelInfo % GlobalDOFs
+
     maxnode = NINT(ParallelReduction(MAXVAL(gPerm(aperm(1:nb)))*1._dp,2))
-    ALLOCATE( ibuf(maxnode),cperm(maxnode) ); cperm=0
+    ALLOCATE( ibuf(maxnode),cperm(maxnode) );
+
+    cperm=0
     cperm(gperm(aperm(1:nb))) = 1
     CALL MPI_ALLREDUCE(cperm, ibuf, maxnode, MPI_INTEGER, MPI_SUM, comm, i)
 
@@ -353,12 +356,12 @@ real(kind=dp) :: cputime, st
 
   distance => Solver % Variable % Values
 
- st=cputime()
-   CALL distcomp0
- if ( parenv % mype==0) print*,'algo 0:', cputime()-st
- st=cputime()
+! st=cputime()
+!!   CALL distcomp0
+! if ( parenv % mype==0) print*,'algo 0:', cputime()-st
+! st=cputime()
   CALL distcomp
- if ( parenv % mype==0) print*,'algo 1:', cputime()-st
+! if ( parenv % mype==0) print*,'algo 1:', cputime()-st
 
   DEALLOCATE(xp,yp,zp,aperm,bperm)
 
