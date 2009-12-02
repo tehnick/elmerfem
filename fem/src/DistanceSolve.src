@@ -353,12 +353,12 @@ real(kind=dp) :: cputime, st
 
   distance => Solver % Variable % Values
 
-!st=cputime()
-!  CALL distcomp0
-!if ( parenv % mype==0) print*,'algo 0:', cputime()-st
-!st=cputime()
+ st=cputime()
+   CALL distcomp0
+ if ( parenv % mype==0) print*,'algo 0:', cputime()-st
+ st=cputime()
   CALL distcomp
-!if ( parenv % mype==0) print*,'algo 1:', cputime()-st
+ if ( parenv % mype==0) print*,'algo 1:', cputime()-st
 
   DEALLOCATE(xp,yp,zp,aperm,bperm)
 
@@ -369,7 +369,8 @@ CONTAINS
 
   SUBROUTINE distcomp0
 
-    INTEGER :: i,j,k,x0,y0,z0
+    INTEGER :: i,j,k,cnt
+    REAL(KIND=dp) :: xl,yl,zl
 
     distance = HUGE(1._dp)
     DO i=1,n
@@ -379,11 +380,11 @@ CONTAINS
       IF ( bperm(i) /= 0 ) THEN
           distance(k) = 0._dp
       ELSE
-        x0 = Mesh % Nodes % x(i)
-        y0 = Mesh % Nodes % y(i)
-        z0 = Mesh % Nodes % z(i)
+        xl = Mesh % Nodes % x(i)
+        yl = Mesh % Nodes % y(i)
+        zl = Mesh % Nodes % z(i)
         DO j=1,nb
-          dist = (xp(j)-x0)**2 + (yp(j)-y0)**2 + (zp(j)-z0)**2
+          dist = (xp(j)-xl)**2 + (yp(j)-yl)**2 + (zp(j)-zl)**2
           distance(k) = MIN(distance(k), dist)
         END DO
       END IF
