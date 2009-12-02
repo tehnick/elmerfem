@@ -393,13 +393,15 @@ CONTAINS
   SUBROUTINE distcomp
 
     REAL(KIND=dp), ALLOCATABLE :: xxp(:),yyp(:),zzp(:),d(:),dd(:)
-    REAL(KIND=dp) :: xl,yl,zl,dl
-    INTEGER :: i,j,k,l,nnb
+    REAL(KIND=dp) :: xl,yl,zl,dl,c(3)
+    INTEGER :: i,j,k,l,nnb,cnt
     INTEGER, ALLOCATABLE :: dperm(:), near(:)
 
     nnb = n+nb
     ALLOCATE( xxp(nnb), yyp(nnb), zzp(nnb), d(nnb), dperm(nnb), &
               near(nnb), dd(nb) )
+
+    CALL random_number(c)
 
     xxp(1:n) = Mesh % Nodes % x
     yyp(1:n) = Mesh % Nodes % y
@@ -408,6 +410,13 @@ CONTAINS
     xxp(n+1:nnb) = xp
     yyp(n+1:nnb) = yp
     zzp(n+1:nnb) = zp
+ 
+    xl = MAXVAL(xxp)-MINVAL(xxp)
+    yl = MAXVAL(yyp)-MINVAL(yyp)
+    zl = MAXVAL(zzp)-MINVAL(zzp)
+    xxp = xxp + xl*(2*c(1)-1)
+    yyp = yyp + yl*(2*c(2)-1)
+    zzp = zzp + zl*(2*c(3)-1)
 
     d = SQRT(xxp**2 + yyp**2 + zzp**2)
     dperm = (/ (i,i=1,nnb) /)
