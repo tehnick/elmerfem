@@ -2266,6 +2266,14 @@ CONTAINS
     TYPE(Buff_t), ALLOCATABLE :: n_index(:)
     INTEGER, ALLOCATABLE :: n_count(:), gbuff(:)
 !------------------------------------------------------------------------------
+
+    ! need an early initialization to avarage normals across partitions:
+    !-------------------------------------------------------------------
+    IF ( Parenv  % PEs >1 ) THEN
+      IF (.NOT. ASSOCIATED(Model % Solver % Matrix % ParMatrix) ) &
+         CALL ParallelInitMatrix( Model % Solver, Model % Solver % Matrix )
+    END IF
+
     NumberOfBoundaryNodes = 0
 
     Found = .FALSE.
@@ -2326,7 +2334,11 @@ CONTAINS
       DEALLOCATE( Condition )
     END DO
 
-    IF (ParEnv % PEs>1 ) THEN
+    IF (ParEnv % PEs>1 )  THEN
+!------------------------------------------------------------------------------
+!   If parallel execution, check for parallel matrix initializations
+!------------------------------------------------------------------------------
+
       ALLOCATE( n_count(ParEnv% PEs),n_index(ParEnv % PEs) )
       n_count = 0
       DO i=1,Mesh % NumberOfNodes
