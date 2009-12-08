@@ -1,0 +1,420 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Module containing a solver for mesh update
+! *
+! ******************************************************************************
+! *
+! *  Authors: Juha Ruokolainen
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 10 May 2000
+! *
+! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+ SUBROUTINE MeshSolver( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Solve stress equations for mesh update. This is intended for mesh morfing 
+!  that does not include ALE velocity field. 
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh,materials,BCs,etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
+!            currently)
+!
+!******************************************************************************
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+
+  LOGICAL ::  TransientSimulation
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+  INTEGER :: i,j,k,n,nd,nb,t,STDOFs,LocalNodes,istat,dim
+  INTEGER :: VisitedTimes = 0
+
+  TYPE(Element_t),POINTER :: Element
+  TYPE(ValueList_t),POINTER :: Material, BC
+
+  REAL(KIND=dp) :: RelativeChange, UNorm, PrevUNorm,  maxu
+  TYPE(Variable_t), POINTER :: MeshSol
+  REAL(KIND=dp), POINTER :: MeshUpdate(:), PrevMeshUpdate(:)
+  INTEGER, POINTER :: MeshPerm(:)
+
+  LOGICAL :: AllocationsDone = .FALSE., Isotropic = .TRUE., &
+            GotForceBC, Found, MovingMesh 
+
+  REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
+       LOAD(:,:),FORCE(:), ElasticModulus(:,:,:),PoissonRatio(:), &
+       Alpha(:,:), Beta(:)
+
+  REAL(KIND=dp), POINTER :: OrigX(:), OrigY(:), OrigZ(:), &
+      TrueX(:), TrueY(:), TrueZ(:)
+
+  SAVE STIFF, LOAD, FORCE, AllocationsDone, &
+       ElasticModulus, PoissonRatio, Alpha, Beta, &
+       OrigX, OrigY, OrigZ, TrueX, TrueY, TrueZ, PrevMeshUpdate, &
+       VisitedTimes,dim 
+
+!------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
+  REAL(KIND=dp) :: at,at0,CPUTime,RealTime
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+! Get variables needed for solution
+!------------------------------------------------------------------------------
+  IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+
+  VisitedTimes = VisitedTimes + 1
+
+  dim = CoordinateSystemDimension()
+  MeshSol => Solver % Variable
+  MeshPerm      => MeshSol % Perm
+  STDOFs        =  MeshSol % DOFs
+  MeshUpdate    => MeshSol % Values
+
+  LocalNodes = COUNT( MeshPerm > 0 )
+  IF ( LocalNodes <= 0 ) RETURN
+
+!------------------------------------------------------------------------------
+
+  TrueX => Solver % Mesh % Nodes % x
+  TrueY => Solver % Mesh % Nodes % y
+  TrueZ => Solver % Mesh % Nodes % z
+
+  IF ( AllocationsDone ) THEN
+    Solver % Mesh % Nodes % x => OrigX
+    Solver % Mesh % Nodes % y => OrigY
+    Solver % Mesh % Nodes % z => OrigZ
+  END IF
+
+!------------------------------------------------------------------------------
+
+  UNorm = Solver % Variable % Norm
+!------------------------------------------------------------------------------
+! Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+  IF ( .NOT. AllocationsDone  ) THEN
+    N = Solver % Mesh % MaxElementDOFs
+    
+    IF ( AllocationsDone ) THEN
+      DEALLOCATE(  ElasticModulus, PoissonRatio, &
+          FORCE, Alpha, Beta, STIFF, LOAD, STAT=istat )
+    END IF
+    
+    ALLOCATE( &
+        Alpha(3,N), Beta(N), &
+        ElasticModulus( 6,6,N ), PoissonRatio( N ), &
+        FORCE( STDOFs*N ), STIFF( STDOFs*N,STDOFs*N ),  &
+        LOAD( 4,N ),STAT=istat )
+    
+    n = SIZE(MeshUpdate) / STDOFs
+    ALLOCATE( OrigX(n), OrigY(n), OrigZ(n) )
+    OrigX = Solver % Mesh % Nodes % x
+    OrigY = Solver % Mesh % Nodes % y
+    OrigZ = Solver % Mesh % Nodes % z
+
+     IF ( istat /= 0 ) THEN
+      CALL Fatal( 'MeshSolve', 'Memory allocation error.' )
+    END IF
+
+!------------------------------------------------------------------------------
+    AllocationsDone = .TRUE.
+!------------------------------------------------------------------------------
+  END IF
+!------------------------------------------------------------------------------
+
+  MovingMesh = ListGetLogical( Solver % Values,'Moving Mesh', Found ) 
+  IF(.NOT. Found) MovingMesh = .TRUE.
+  MovingMesh = MovingMesh .AND. ( VisitedTimes > 1 )
+
+  IF( MovingMesh ) THEN
+    IF( VisitedTimes == 2 ) THEN
+      n = SIZE(MeshUpdate) 
+      ALLOCATE( PrevMeshUpdate(n) )
+      PrevMeshUpdate = 0.0_dp
+    END IF
+    PrevMeshUpdate = MeshUpdate
+  END IF
+
+!------------------------------------------------------------------------------
+! Do some additional initialization, and go for it
+!------------------------------------------------------------------------------
+  at  = CPUTime()
+  at0 = RealTime()
+
+  CALL Info( 'MeshSolve', ' ', Level=4 )
+  CALL Info( 'MeshSolve', '-------------------------------------', Level=4 )
+  CALL Info( 'MeshSolve', 'Nonphysical Mesh Solver:', Level=4 )
+  CALL Info( 'MeshSolve', '-------------------------------------', Level=4 )
+  CALL Info( 'MeshSolve', ' ', Level=4 )
+  CALL Info( 'MeshSolve', 'Starting assembly...', Level=4 )
+!------------------------------------------------------------------------------
+  CALL DefaultInitialize()
+!------------------------------------------------------------------------------
+  DO t=1,Solver % NumberOfActiveElements
+
+     IF ( RealTime() - at0 > 1.0 ) THEN
+       WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
+           (Solver % NumberOfActiveElements-t) / &
+           (1.0*Solver % NumberOfActiveElements)), ' % done'
+       
+       CALL Info( 'MeshSolve', Message, Level=5 )
+       
+       at0 = RealTime()
+     END IF
+     
+     Element => GetActiveElement(t)
+     nd = GetElementNOFDOFs()
+     nb = GetElementNOFBDOFs()
+     n  = GetElementNOFNodes()
+     
+     Material => GetMaterial()
+     
+     ElasticModulus(1,1,1:n) = GetReal( Material, &
+         'Mesh Elastic Modulus', Found )
+     IF ( .NOT. Found ) THEN
+       ElasticModulus(1,1,1:n) = GetReal( Material, &
+           'Youngs Modulus', Found )
+     END IF
+     IF ( .NOT. Found ) ElasticModulus(1,1,1:n) = 1.0d0
+     
+     PoissonRatio(1:n) = GetReal( Material, &
+         'Mesh Poisson Ratio', Found )
+     IF ( .NOT. Found ) THEN
+       PoissonRatio(1:n) = GetReal( Material, &
+           'Poisson Ratio', Found )
+     END IF
+     IF ( .NOT. Found ) PoissonRatio(1:n) = 0.25d0
+     
+!------------------------------------------------------------------------------
+!    Get element local stiffness & mass matrices
+!------------------------------------------------------------------------------
+     CALL LocalMatrix( STIFF, FORCE, ElasticModulus, &
+         PoissonRatio, .FALSE., Isotropic, Element, n, nd, nb )
+
+!------------------------------------------------------------------------------
+!    Update global matrices from local matrices 
+!------------------------------------------------------------------------------
+     CALL DefaultUpdateEquations( STIFF, FORCE )
+   END DO
+
+
+!------------------------------------------------------------------------------
+
+  CALL DefaultFinishAssembly()
+  CALL Info( 'MeshSolve', 'Assembly done', Level=4 )
+
+!------------------------------------------------------------------------------
+! Dirichlet boundary conditions
+!------------------------------------------------------------------------------
+  CALL DefaultDirichletBCs()
+
+!------------------------------------------------------------------------------
+  CALL Info( 'MeshSolve', 'Set boundaries done', Level=4 )
+!------------------------------------------------------------------------------
+! Solve the system and check for convergence
+!------------------------------------------------------------------------------
+  PrevUNorm = UNorm
+
+  UNorm = DefaultSolve()
+  RelativeChange = Solver % Variable % NonlinChange
+
+  WRITE( Message, * ) 'Result Norm   : ',UNorm
+  CALL Info( 'MeshSolve', Message, Level=4 )
+  WRITE( Message, * ) 'Relative Change : ',RelativeChange
+  CALL Info( 'MeshSolve', Message, Level=4 )
+
+  n = SIZE( MeshPerm )
+
+  IF( MovingMesh ) THEN
+    DO i=1,n
+      j = MeshPerm(i)
+      IF( j == 0 ) CYCLE
+      IF( dim == 2 ) THEN
+        Truex(i) = Truex(i) + ( MeshUpdate(2*j-1) - PrevMeshUpdate(2*j-1) )
+        Truey(i) = Truey(i) + ( MeshUpdate(2*j) - PrevMeshUpdate(2*j) )
+      ELSE
+        Truex(i) = Truex(i) + ( MeshUpdate(3*j-2) - PrevMeshUpdate(3*j-2) )
+        Truey(i) = Truey(i) + ( MeshUpdate(3*j-1) - PrevMeshUpdate(3*j-1) )
+        Truez(i) = Truez(i) + ( MeshUpdate(3*j) - PrevMeshUpdate(3*j) )
+      END IF
+    END DO
+  ELSE
+    DO i=1,n
+      j = MeshPerm(i)
+      IF( j == 0 ) CYCLE
+      IF( dim == 2 ) THEN
+        Truex(i) = Truex(i) + MeshUpdate(2*j-1)
+        Truey(i) = Truey(i) + MeshUpdate(2*j) 
+      ELSE
+        Truex(i) = Truex(i) + MeshUpdate(3*j-2)
+        Truey(i) = Truey(i) + MeshUpdate(3*j-1)
+        Truez(i) = Truez(i) + MeshUpdate(3*j)
+      END IF
+    END DO
+  END IF
+
+
+  Solver % Mesh % Nodes % x => TrueX
+  Solver % Mesh % Nodes % y => TrueY
+  Solver % Mesh % Nodes % z => TrueZ
+
+
+  CONTAINS
+
+!------------------------------------------------------------------------------
+   SUBROUTINE LocalMatrix( STIFF,FORCE,NodalYoung, NodalPoisson, &
+              PlaneStress, Isotropic, Element,n, nd, nb )
+!------------------------------------------------------------------------------
+     IMPLICIT NONE
+
+     REAL(KIND=dp) :: NodalPoisson(:), NodalYoung(:,:,:)
+     REAL(KIND=dp), TARGET :: STIFF(:,:), FORCE(:)
+     INTEGER :: n,nd,nb
+     TYPE(Element_t) :: Element
+     LOGICAL :: PlaneStress, Isotropic
+!------------------------------------------------------------------------------
+!
+     REAL(KIND=dp) :: Basis(nd)
+     REAL(KIND=dp) :: dBasisdx(nd,3),detJ
+
+     REAL(KIND=dp) :: NodalLame1(n),NodalLame2(n),Lame1,Lame2, &
+                      Poisson, Young
+
+     REAL(KIND=dp), POINTER :: A(:,:)
+     REAL(KIND=dp) :: s,u,v,w
+     INTEGER :: i,j,k,p,q,t,dim  
+     LOGICAL :: stat
+     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+
+     TYPE(Nodes_t) :: Nodes
+     SAVE  Nodes
+!------------------------------------------------------------------------------
+
+     CALL GetElementNodes( Nodes )
+     dim = CoordinateSystemDimension()
+
+     IF ( PlaneStress ) THEN
+        NodalLame1(1:n) = NodalYoung(1,1,1:n) * NodalPoisson(1:n) / &
+               ((1.0d0 - NodalPoisson(1:n)**2))
+     ELSE
+        NodalLame1(1:n) = NodalYoung(1,1,1:n) * NodalPoisson(1:n) /  &
+           ((1.0d0 + NodalPoisson(1:n)) * (1.0d0 - 2.0d0*NodalPoisson(1:n)))
+     END IF
+
+     NodalLame2(1:n) = NodalYoung(1,1,1:n) / (2* (1.0d0 + NodalPoisson(1:n)))
+
+     STIFF = 0.0d0
+     FORCE = 0.0d0
+
+     ! Integration stuff:
+     ! ------------------  
+     IntegStuff = GaussPoints( Element )
+
+     ! Now we start integrating:
+     ! -------------------------
+     DO t=1,IntegStuff % n
+       u = IntegStuff % u(t)
+       v = IntegStuff % v(t)
+       w = IntegStuff % w(t)
+
+       ! Basis function values & derivatives at the integration point:
+       !--------------------------------------------------------------
+       stat = ElementInfo( Element,Nodes, u, v, w, detJ, &
+             Basis, dBasisdx )
+
+       s = detJ * IntegStuff % s(t)
+
+       ! Lame parameters at the integration point:
+       ! -----------------------------------------
+       Lame1 = SUM( NodalLame1(1:n)*Basis(1:n) )
+       Lame2 = SUM( NodalLame2(1:n)*Basis(1:n) )
+
+
+       ! Loop over basis functions (of both unknowns and weights):
+       ! ---------------------------------------------------------
+       DO p=1,nd
+       DO q=p,nd
+          A => STIFF( dim*(p-1)+1:dim*p,dim*(q-1)+1:dim*q )
+          DO i=1,dim
+             DO j = 1,dim
+                A(i,j) = A(i,j) + s * Lame1 * dBasisdx(q,j) * dBasisdx(p,i)
+                A(i,i) = A(i,i) + s * Lame2 * dBasisdx(q,j) * dBasisdx(p,j)
+                A(i,j) = A(i,j) + s * Lame2 * dBasisdx(q,i) * dBasisdx(p,j)
+             END DO
+          END DO
+       END DO
+       END DO
+     END DO 
+
+     ! Assign the symmetric block:
+     ! ---------------------------
+     DO p=1,dim*nd
+       DO q=1,p-1
+         STIFF(p,q)=STIFF(q,p)
+       END DO
+     END DO
+
+     IF ( nb == 0 ) THEN
+       DO p=nd-Element % BDOFs+1,nd
+         DO i=1,dim
+            j = (p-1)*dim + i
+            STIFF( j,: ) = 0.0d0
+            STIFF( :,j ) = 0.0d0
+            STIFF( j,j ) = 1.0d0
+            FORCE( j )   = 0.0d0
+         END DO
+       END DO
+     END IF
+!------------------------------------------------------------------------------
+ END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+END SUBROUTINE MeshSolver
+!------------------------------------------------------------------------------
