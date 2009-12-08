@@ -2380,7 +2380,7 @@ CONTAINS
                  801, MPI_COMM_WORLD, status, ierr )
 
              DO j=1,n
-               k = SearchNode( Mesh % ParallelInfo, gbuff(j) )
+               k = SearchNodeL( Mesh % ParallelInfo, gbuff(j) )
                IF ( k>0 ) THEN
                  IF ( BoundaryReorder(k)<= 0 ) THEN
                    NumberOfBoundaryNodes = NumberOfBoundaryNodes + 1
@@ -2472,13 +2472,16 @@ CONTAINS
     TYPE(Buff_t), ALLOCATABLE :: n_index(:)
     REAL(KIND=dp), ALLOCATABLE :: nbuff(:)
     INTEGER, ALLOCATABLE :: n_count(:), gbuff(:), n_comp(:)
+
+    TYPE(Mesh_t), POINTER :: Mesh
 !------------------------------------------------------------------------------
 
     ElementNodes % x => x
     ElementNodes % y => y
     ElementNodes % z => z
 
-    NrmVar => VariableGet( Model % Mesh % Variables, 'Normals' )
+    Mesh => Model % Mesh
+    NrmVar => VariableGet( Mesh % Variables, 'Normals' )
 
     IF ( ASSOCIATED(NrmVar) ) THEN
 
@@ -2628,11 +2631,11 @@ CONTAINS
         n_count = 0
 
         IF ( NumberOfBoundaryNodes>0 ) THEN
-          DO i=1,Model % Mesh % NumberOfNodes
+          DO i=1,Mesh % NumberOfNodes
             IF (BoundaryReorder(i)<=0 .OR. n_comp(i)<=0 ) CYCLE
-            IF (.NOT.Model % Mesh % ParallelInfo % Interface(i) ) CYCLE
+            IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
   
-            nlist => Model % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+            nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
             DO j=1,SIZE(nlist)
               k = nlist(j)+1
               IF ( k-1 == ParEnv % myPE ) CYCLE
@@ -2648,14 +2651,14 @@ CONTAINS
           n_count = 0
           DO i=1,Model % NumberOfNodes
             IF (BoundaryReorder(i)<=0 .OR. n_comp(i)<=0 ) CYCLE
-            IF (.NOT.Model % Mesh % ParallelInfo % Interface(i) ) CYCLE
+            IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
 
-            nlist => Model % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+            nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
             DO j=1,SIZE(nlist)
               k = nlist(j)+1
               IF ( k-1 == ParEnv % myPE ) CYCLE
               n_count(k) = n_count(k)+1
-              n_index(k) % buff(n_count(k)) = Model % Mesh % Parallelinfo % &
+              n_index(k) % buff(n_count(k)) = Mesh % Parallelinfo % &
                  GlobalDOFs(i)
               l = BoundaryReorder(i)
               n_index(k) % normals(3*n_count(k)-2)=BoundaryNormals(l,1)
@@ -2693,7 +2696,7 @@ CONTAINS
                     902, MPI_COMM_WORLD, status, ierr )
 
                DO j=1,n
-                 k = SearchNode( Model % Mesh % ParallelInfo, gbuff(j) )
+                 k = SearchNodeL( Mesh % ParallelInfo, gbuff(j) )
                  IF ( k>0 ) THEN
                    n_comp(k) = n_comp(k)+1
                    l = BoundaryReorder(k)
@@ -2735,6 +2738,62 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE AverageBoundaryNormals
 !------------------------------------------------------------------------------
+
+
+
+!*********************************************************************
+!
+! Search an element QueriedNode from an ordered set Nodes and return
+! Index to Nodes structure. Return value -1 means QueriedNode was
+! not found.
+!
+FUNCTION SearchNodeL( ParallelInfo, QueriedNode ) RESULT(Indx)
+
+  USE Types
+  IMPLICIT NONE
+
+  TYPE (ParallelInfo_t) :: ParallelInfo
+  INTEGER :: QueriedNode, Indx
+
+  ! Local variables
+
+  INTEGER :: Lower, Upper, Lou, i
+
+  !*********************************************************************
+
+  Indx = -1
+  Upper = SIZE(ParallelInfo % GlobalDOFs)
+  Lower = 1
+
+  ! Handle the special case
+
+  IF ( Upper == 0 ) RETURN
+
+10 CONTINUE
+  IF ( ParallelInfo % GlobalDOFs(Lower) == QueriedNode ) THEN
+     Indx = Lower
+     RETURN
+  ELSE IF ( ParallelInfo % GlobalDOFs(Upper) == QueriedNode ) THEN
+     Indx = Upper
+     RETURN
+  END IF
+
+  IF ( (Upper - Lower) > 1 ) THEN
+     Lou = ISHFT((Upper + Lower), -1)
+     IF ( ParallelInfo % GlobalDOFs(Lou) < QueriedNode ) THEN
+        Lower = Lou
+        GOTO 10
+     ELSE
+        Upper = Lou
+        GOTO 10
+     END IF
+  END IF
+
+  RETURN
+!*********************************************************************
+END FUNCTION SearchNodeL
+!*********************************************************************
+
 
 
 !------------------------------------------------------------------------------
