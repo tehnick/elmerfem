@@ -1468,27 +1468,54 @@ CONTAINS
 !         check for coupled system convergence
 !------------------------------------------------------------------------------
 
-          IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
-             IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
+           IF ( Scanning ) THEN
 
-               IF ( ParEnv % PEs>1 ) THEN
-                 IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
-                   CALL ComputeChange(Solver,.TRUE., n)
-               ELSE
-                 CALL ComputeChange(Solver,.TRUE.)
-!                 CALL ComputeChange(Solver,.TRUE.,n)
-               END IF
-               RelativeChange = Solver % Variable % SteadyChange
-               Tolerance = ListGetConstReal( Solver % Values,   &
-                   'Steady State Convergence Tolerance', Found ) 
+              IF ( i >= CoupledMinIter ) THEN
+                 IF ( i /= CoupledMaxIter ) THEN
 
-               IF ( Found ) THEN
-                 DoneThis(k) = (RelativeChange < Tolerance)
-               ELSE
-                 DoneThis(k) = .TRUE.
-               END IF
-             END IF
-          END IF 
+                    IF ( ParEnv % PEs>1 ) THEN
+                       IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
+                            CALL ComputeChange(Solver,.TRUE., n)
+                    ELSE
+                       CALL ComputeChange(Solver,.TRUE.)
+                       !                 CALL ComputeChange(Solver,.TRUE.,n)
+                    END IF
+                    RelativeChange = Solver % Variable % SteadyChange
+                    Tolerance = ListGetConstReal( Solver % Values,   &
+                         'Steady State Convergence Tolerance', Found ) 
+                    
+                    IF ( Found ) THEN
+                       DoneThis(k) = (RelativeChange < Tolerance)
+                    ELSE
+                       DoneThis(k) = .TRUE.
+                    END IF
+                 END IF
+              END IF
+	
+           ELSE
+
+              IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
+                 IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
+
+                    IF ( ParEnv % PEs>1 ) THEN
+                       IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
+                            CALL ComputeChange(Solver,.TRUE., n)
+                    ELSE
+                       CALL ComputeChange(Solver,.TRUE.)
+                       !                 CALL ComputeChange(Solver,.TRUE.,n)
+                    END IF
+                    RelativeChange = Solver % Variable % SteadyChange
+                    Tolerance = ListGetConstReal( Solver % Values,   &
+                         'Steady State Convergence Tolerance', Found ) 
+
+                    IF ( Found ) THEN
+                       DoneThis(k) = (RelativeChange < Tolerance)
+                    ELSE
+                       DoneThis(k) = .TRUE.
+                    END IF
+                 END IF
+              END IF
+           END IF
 
           CALL ParallelAllReduceAnd( DoneThis(k) )
           IF( ALL(DoneThis) ) EXIT
