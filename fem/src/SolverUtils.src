@@ -3438,6 +3438,20 @@ END FUNCTION SearchNodeL
       CALL Info( 'ComputeChange', Message, Level=3 )
     END IF
 
+    ! The update of exported variables may be done internally to allow some nonlinear features	   
+    ! or in steady state level to allow coupling to other solvers.
+    IF( SteadyState ) THEN 
+      IF ( ListGetLogical( Solver % Values,&
+          'Steady State Update Exported Variables',Stat) ) &
+          CALL UpdateExportedVariables( Solver )	
+    ELSE
+      IF ( ListGetLogical( Solver % Values,&
+          'Nonlinear Update Exported Variables',Stat) ) &
+          CALL UpdateExportedVariables( Solver )	
+    END IF
+
+
+
 !------------------------------------------------------------------------------
   END SUBROUTINE ComputeChange
 !------------------------------------------------------------------------------
@@ -4348,7 +4362,7 @@ SUBROUTINE UpdateExportedVariables( Solver )
   ! Add values for exported variables which are typically auxiliary variables derived
   ! from the solution.
   !------------------------------------------------------------------------------
-  TYPE(Solver_t), POINTER :: Solver
+  TYPE(Solver_t) :: Solver
   
   INTEGER :: i,j,k,l,n,m,t,bf_id,dofs,nsize
   CHARACTER(LEN=MAX_NAME_LEN) :: str, var_name,tmpname,condname
