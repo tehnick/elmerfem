@@ -85,7 +85,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   INTEGER :: i,j,k,l,NoParam, NoValues, NoFreeParam, NoOpt, &
       OptimizationsDone=0, Direction=1
   REAL(KIND=dp), POINTER :: Param(:)
-  REAL(KIND=dp), ALLOCATABLE :: MinParam(:), MaxParam(:), PrevParam(:,:), &
+  REAL(KIND=dp), ALLOCATABLE :: MinParam(:), MaxParam(:), dParam(:), PrevParam(:,:), &
       PrevCost(:), BestParam(:)
   REAL(KIND=dp) :: Cost, CostTarget, MinCost, x(10), c(10)
   CHARACTER(LEN=MAX_NAME_LEN) :: Name, ParamStr, Method
@@ -115,11 +115,12 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     NoValues = ListGetInteger(Model % Simulation,'Timestep Intervals')
 
     ALLOCATE( MinParam(NoParam), BestParam(NoParam), MaxParam(NoParam), &
-        FixedParam(NoParam))
+        dParam(NoParam), FixedParam(NoParam))
 
     MinParam = 0.0_dp
     BestParam = 0.0_dp
     MaxParam = 0.0_dp
+    dParam = 0.0_dp
     FixedParam = .FALSE.
     MinCost = HUGE(MinCost)
    
@@ -134,16 +135,19 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
       END IF
 
       FixedParam(i) = ListGetLogical(Solver % Values,'Fixed '//TRIM(ParamStr),GotIt)
-
-      IF(.NOT. FixedParam(i) ) THEN
-        MinParam(i) = ListGetConstReal(Solver % Values,'Min '//TRIM(ParamStr))
-        MaxParam(i) = ListGetConstReal(Solver % Values,'Max '//TRIM(ParamStr))
-      END IF
-
       Param(i) = ListGetConstReal(Solver % Values,'Initial '//TRIM(ParamStr),GotIt)
-      IF(.NOT. GotIt ) THEN
-        Param(i) = 0.5_dp * ( MinParam(i) + MaxParam(i) ) 
+
+      IF(.NOT. ( FixedParam(i) .OR. GotIt ) ) THEN
+        MinParam(i) = ListGetConstReal(Solver % Values,'Min '//TRIM(ParamStr),GotIt)
+        MaxParam(i) = ListGetConstReal(Solver % Values,'Max '//TRIM(ParamStr),GotIt)
+        IF(.NOT. GotIt ) THEN
+          Param(i) = 0.5_dp * ( MinParam(i) + MaxParam(i) ) 
+        END IF
+      ELSE
+        MinParam(i) = ListGetConstReal(Solver % Values,'Min '//TRIM(ParamStr))
+        MaxParam(i) = ListGetConstReal(Solver % Values,'Max '//TRIM(ParamStr))       
       END IF
+      dParam(i) = ListGetConstReal(Solver % Values,'Scale '//TRIM(ParamStr),GotIt)
     END DO
     
     NoFreeParam = NoParam - COUNT(FixedParam)
@@ -267,7 +271,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     CALL BisectOptimize()
 
   CASE ('simplex')    
-    CALL SimplexOptimize( NoParam, Param, Cost, MinParam, MaxParam )
+    CALL SimplexOptimize( NoParam, Param, Cost, MinParam, MaxParam, dParam )
     
   CASE DEFAULT
     CALL Fatal('FindOptimum','Unknown method')
@@ -529,10 +533,10 @@ CONTAINS
 ! Find the optimum using the Simplex method (Nelder-Mead algorithm)
 ! Note that constraint box is taken into account only when creating the initial simplex.
 !--------------------------------------------------------------------------------------
-  SUBROUTINE SimplexOptimize( nx, x, cost, minx, maxx )
+  SUBROUTINE SimplexOptimize( nx, x, cost, minx, maxx, diffx )
 
     INTEGER :: nx
-    REAL (KIND=dp) :: cost,x(:),minx(:),maxx(:)
+    REAL (KIND=dp) :: cost,x(:),minx(:),maxx(:),diffx(:)
 !------------------------------------------------------------------------------
     INTEGER :: i,j,il,ih,is,no = 0, nomax, mode = 0, submode = 0
     LOGICAL :: Found, AllocationsDone
@@ -552,17 +556,26 @@ CONTAINS
     !-----------------------------
     IF(.NOT. AllocationsDone ) THEN
       ALLOCATE(eig(nx,nx),ls(nx),xall(nx+1,nx),f(nx+1),x0(nx),xr(nx),xc(nx))
-      eig = 0.0
+
       lambda = ListGetConstReal(Solver % Values,'Simplex Relative Length Scale',Found)
       IF(.NOT. Found ) lambda = 0.01_dp
       DO i=1,nx
-        eig(i,i) = 1.0_dp
-        IF( maxx(i) - x(i) > x(i) - minx(i) ) THEN
-          ls(i) = lambda * (maxx(i) - x(i))
+        IF( ABS( diffx(i) ) > TINY(diffx(i)) ) THEN
+          ls(i) = lambda * diffx(i)
         ELSE
-          ls(i) = lambda * (minx(i) - x(i)) 
+          IF( maxx(i) - x(i) > x(i) - minx(i) ) THEN
+            ls(i) = lambda * (maxx(i) - x(i))
+          ELSE
+            ls(i) = lambda * (minx(i) - x(i)) 
+          END IF
         END IF
       END DO
+
+      eig = 0.0
+      DO i=1,nx
+        eig(i,i) = 1.0_dp
+      END DO
+
       nomax = ListGetInteger(Solver % Values,'Simplex Restart Interval',Found)
       maxratio = ListGetConstReal(Solver % Values,'Simplex Restart Convergence Ratio',Found)      
       IF(.NOT. Found) maxratio = 1.0_dp
