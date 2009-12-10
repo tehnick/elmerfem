@@ -817,7 +817,7 @@ CONTAINS
      IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Indexes(1:Element % Type % NumberOfNodes) = &
+       Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -2343,7 +2343,7 @@ CONTAINS
       n_count = 0
       DO i=1,Mesh % NumberOfNodes
         IF (BoundaryReorder(i)<=0 ) CYCLE
-        IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
+        IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
 
         nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
         DO j=1,SIZE(nlist)
@@ -2359,7 +2359,7 @@ CONTAINS
       n_count = 0
       DO i=1,Mesh % NumberOfNodes
         IF (BoundaryReorder(i)<=0 ) CYCLE
-        IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
+        IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
 
         nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
         DO j=1,SIZE(nlist)
@@ -2551,7 +2551,7 @@ CONTAINS
                     k = BoundaryReorder( NodeIndexes(j) )
                       IF (k>0) THEN
                       Bu = CurrentElement % TYPE % NodeU(j)
-                      IF ( CurrentElement % Type % Dimension > 1 ) THEN
+                      IF ( CurrentElement % TYPE % DIMENSION > 1 ) THEN
                         Bv = CurrentElement % TYPE % NodeV(j)
                       ELSE
                         Bv = 0.0D0
@@ -2645,7 +2645,7 @@ CONTAINS
         IF ( NumberOfBoundaryNodes>0 ) THEN
           DO i=1,Mesh % NumberOfNodes
             IF (BoundaryReorder(i)<=0 .OR. n_comp(i)<=0 ) CYCLE
-            IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
+            IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
   
             nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
             DO j=1,SIZE(nlist)
@@ -2663,7 +2663,7 @@ CONTAINS
           n_count = 0
           DO i=1,Model % NumberOfNodes
             IF (BoundaryReorder(i)<=0 .OR. n_comp(i)<=0 ) CYCLE
-            IF (.NOT.Mesh % ParallelInfo % Interface(i) ) CYCLE
+            IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
 
             nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
             DO j=1,SIZE(nlist)
@@ -4300,6 +4300,191 @@ SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
 !------------------------------------------------------------------------------
 END SUBROUTINE SolveEigenSystem
 !------------------------------------------------------------------------------
+
+
+SUBROUTINE VariableNameParser(var_name, NoOutput, Global, Dofs )
+
+  CHARACTER(LEN=MAX_NAME_LEN) :: var_name
+  LOGICAL, OPTIONAL :: NoOutput, Global
+  INTEGER, OPTIONAL :: Dofs
+
+  INTEGER :: i,j,k
+
+  IF(PRESENT(NoOutput)) NoOutput = .FALSE.
+  IF(PRESENT(Global)) Global = .FALSE.
+  IF(PRESENT(Dofs)) Dofs = 0
+
+  DO WHILE( var_name(1:1) == '-' )
+    IF ( var_name(1:10) == '-nooutput ' ) THEN
+      IF(PRESENT(NoOutput)) NoOutput = .TRUE.
+      var_name(1:LEN(var_name)-10) = var_name(11:)
+    END IF
+    
+    IF ( var_name(1:8) == '-global ' ) THEN
+      IF(PRESENT(Global)) Global = .TRUE.
+      var_name(1:LEN(var_name)-8) = var_name(9:)
+    END IF
+    
+    IF ( var_name(1:6) == '-dofs ' ) THEN
+      IF(PRESENT(DOFs)) READ( var_name(7:), * ) DOFs     
+      j = LEN_TRIM( var_name )
+      k = 7
+      DO WHILE( var_name(k:k) /= ' '  )
+        k = k + 1
+        IF ( k > j ) EXIT
+      END DO
+      var_name(1:LEN(var_name)-(k+2)) = var_name(k+1:)
+    END IF
+  END DO
+
+END SUBROUTINE VariableNameParser
+
+
+
+
+SUBROUTINE UpdateExportedVariables( Solver )
+  
+  !------------------------------------------------------------------------------
+  ! Add values for exported variables which are typically auxiliary variables derived
+  ! from the solution.
+  !------------------------------------------------------------------------------
+  TYPE(Solver_t), POINTER :: Solver
+  
+  INTEGER :: i,j,k,l,n,m,t,bf_id,dofs,nsize
+  CHARACTER(LEN=MAX_NAME_LEN) :: str, var_name,tmpname,condname
+  REAL(KIND=dp), POINTER :: Values(:), Solution(:), LocalSol(:), LocalCond(:)
+  INTEGER, POINTER :: Indexes(:), Perm(:)
+  LOGICAL :: Found, AllocationsDone, Conditional, GotIt
+  LOGICAL, POINTER :: ActivePart(:),ActiveCond(:)
+  TYPE(Variable_t), POINTER :: ExpVariable
+  TYPE(ValueList_t), POINTER :: ValueList
+  TYPE(Element_t),POINTER :: Element
+
+  SAVE AllocationsDone
+
+
+  AllocationsDone = .FALSE.
+
+
+
+  l = 0
+  DO WHILE( .TRUE. )
+    l = l + 1
+    str = ComponentName( 'exported variable', l )
+    var_name = ListGetString( Solver % Values, str, GotIt )
+    
+    IF(.NOT. GotIt) EXIT
+    
+    CALL VariableNameParser( var_name ) 
+
+!    DO WHILE( var_name(1:1) == '-' )
+!      IF ( var_name(1:10) == '-nooutput ' ) THEN
+!        var_name(1:LEN(var_name)-10) = var_name(11:)
+!      END IF
+!      
+!      IF ( var_name(1:8) == '-global ' ) THEN
+!        var_name(1:LEN(var_name)-8) = var_name(9:)
+!      END IF
+!      
+!      IF ( var_name(1:6) == '-dofs ' ) THEN
+!        j = LEN_TRIM( var_name )
+!        k = 7
+!        DO WHILE( var_name(k:k) /= ' '  )
+!          k = k + 1
+!          IF ( k > j ) EXIT
+!        END DO
+!        var_name(1:LEN(var_name)-(k+2)) = var_name(k+1:)
+!      END IF
+!    END DO
+    
+    ExpVariable => VariableGet( Solver % Mesh % Variables, Var_name )
+    IF( .NOT. ASSOCIATED(ExpVariable)) CYCLE
+    
+    WRITE(Message,*) 'Trying to set values for variable: '//TRIM(Var_name)
+    CALL Info('UpdateExportedVariables',Message)
+  
+    IF( .NOT. AllocationsDone) THEN      
+      m = CurrentModel % NumberOFBodyForces
+      ALLOCATE( ActivePart(m), ActiveCond(m) )
+
+      m = Solver % Mesh % MaxElementDOFs
+      ALLOCATE( LocalSol(m), LocalCond(m))
+
+      AllocationsDone = .TRUE.
+    END IF
+
+    Dofs = ExpVariable % DOFs
+    Values => ExpVariable % Values
+    Perm => ExpVariable % Perm
+    n = LEN_TRIM( var_name )
+    
+    DO j=1,DOFs
+      
+      IF( Dofs > 1 ) THEN
+        tmpname = ComponentName( var_name(1:n), j )
+        nSize = DOFs * SIZE(Solver % Variable % Values) / Solver % Variable % DOFs
+        Perm => Solver % Variable % Perm
+        Solution => Values( j:nSize-DOFs+j:DOFs )
+      ELSE
+        tmpname = var_name(1:n)
+        Solution => Values
+      END IF
+      condname = TRIM(tmpname) //' Condition' 
+        
+      !------------------------------------------------------------------------------
+      ! Go through the Dirichlet conditions in the body force lists
+      !------------------------------------------------------------------------------
+      
+      ActivePart = .FALSE.
+      ActiveCond = .FALSE.
+
+      DO bf_id=1,CurrentModel % NumberOFBodyForces
+        ActivePart(bf_id) = ListCheckPresent( &
+            CurrentModel % BodyForces(bf_id) % Values,TmpName ) 
+        ActiveCond(bf_id) = ListCheckPresent( &
+            CurrentModel % BodyForces(bf_id) % Values,CondName )      
+      END DO
+      
+      IF ( .NOT. ANY( ActivePart ) ) CYCLE
+
+      CALL Info('UpdateExportedVariables','Found a proper definition in body forces')
+
+      DO t = 1, Solver % NumberOfActiveElements 
+        Element => CurrentModel % Elements(Solver % ActiveElements(t) )
+        bf_id = ListGetInteger( CurrentModel % Bodies(Element % BodyId) % Values,&
+            'Body Force',GotIt)
+        
+        IF(.NOT. GotIt) CYCLE
+        IF(.NOT. ActivePart(bf_id)) CYCLE
+        Conditional = ActiveCond(bf_id)
+        
+        CurrentModel % CurrentElement => Element
+        m = Element % TYPE % NumberOfNodes
+        Indexes => Element % NodeIndexes
+        ValueList => CurrentModel % BodyForces(bf_id) % Values
+        
+        LocalSol(1:m) = ListGetReal(ValueList, TmpName, m, Indexes(1:m) )
+        IF( Conditional ) THEN
+          LocalCond(1:m) = ListGetReal(ValueList, CondName, m, Indexes(1:m) )
+          DO i=1,m
+            IF( LocalCond(i) > 0.0_dp ) THEN
+              Solution( Perm(Indexes(i)) ) = LocalSol(i)
+            END IF
+          END DO
+        ELSE
+          Solution( Perm(Indexes(1:m)) ) = LocalSol(1:m)
+        END IF
+      END DO
+        
+    END DO
+  END DO
+
+  IF( AllocationsDone ) THEN
+    DEALLOCATE(ActivePart, ActiveCond, LocalSol, LocalCond)
+    AllocationsDone = .FALSE.
+  END IF
+
+END SUBROUTINE UpdateExportedVariables
 
 
 !------------------------------------------------------------------------------

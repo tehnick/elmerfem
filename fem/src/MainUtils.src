@@ -804,6 +804,7 @@ CONTAINS
       
       VariableOutput = .TRUE.
       VariableGlobal = .FALSE.
+
       DO WHILE( var_name(1:1) == '-' )
         IF ( var_name(1:10) == '-nooutput ' ) THEN
           VariableOutput = .FALSE.
@@ -1070,7 +1071,7 @@ CONTAINS
                 Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
           ELSE
             DO k=1,Solver % Variable % DOFs
-              str = ComponentName( Solver % Variable % Name, k )
+              str = ComponentName( Solver % Variable % Name, k ) 
               Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
               Var % PrevValues =>  &
                   Solver % Variable % PrevValues(k::Solver % Variable % DOFs,:)
@@ -1078,6 +1079,42 @@ CONTAINS
           END IF
         END IF
       END IF
+
+
+      IF ( Solver % TimeOrder >= 1 ) THEN
+        IF( ListGetLogical( Solver % Values,'Calculate Velocity',Found) ) THEN
+          Component => Solver % Variable % PrevValues(:,1)
+          str = TRIM( Solver % Variable % Name ) // ' Velocity'
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+              str, Solver % Variable % Dofs, Component, Solver % Variable % Perm, &
+              Secondary = .TRUE. )
+          
+          DO k=1,Solver % Variable % DOFs
+            Component => Solver % Variable % PrevValues(k::Solver % Variable % DOFs,1)          
+            str = ComponentName( Solver % Variable % Name) // ' Velocity ' // CHAR(i+ICHAR('0'))
+            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                str, 1, Component, Solver % Variable % Perm, Secondary = .TRUE. )
+          END DO
+        END IF
+      END IF
+
+      IF ( Solver % TimeOrder >= 2 ) THEN
+        IF( ListGetLogical( Solver % Values,'Calculate Acceleration',Found) ) THEN
+          Component => Solver % Variable % PrevValues(:,2)
+          str = TRIM( Solver % Variable % Name ) // ' Acceleration'
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+              str, Solver % Variable % Dofs, Component, Solver % Variable % Perm )
+          
+          DO k=1,Solver % Variable % DOFs
+            Component => Solver % Variable % PrevValues(k::Solver % Variable % DOFs,2)          
+            str = ComponentName( Solver % Variable % Name) // ' Acceleration ' // CHAR(i+ICHAR('0'))
+            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                str, 1, Component, Solver % Variable % Perm, Secondary = .TRUE. )
+          END DO
+        END IF
+      END IF
+
+
     ELSE
       Solver % TimeOrder = 0
       IF ( EigAnal ) THEN
@@ -1142,6 +1179,7 @@ CONTAINS
         END IF
       END IF
     END IF
+
 
 !------------------------------------------------------------------------------
 
@@ -2750,7 +2788,7 @@ END SUBROUTINE CoupledSolver
 !------------------------------------------------------------------------------
      TYPE(Model_t)  :: Model
      TYPE(Solver_t),POINTER :: Solver
-     LOGICAL :: TransientSimulation
+     LOGICAL :: TransientSimulation, UpdateExported
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
      LOGICAL :: stat, Found, IsCoupledSolver, IsAssemblySolver
@@ -2802,6 +2840,13 @@ END SUBROUTINE CoupledSolver
      CALL ListSetNamespace('')
      Solver % dt = dt
 
+
+     ! This does not yet link that well
+     ! UpdateExported = .NOT. ListGetLogical( Solver % Values,&
+     !    'Nonlinear Update Exported Variables',Found)
+     ! IF(UpdatedExported) CALL UpdateExportedVariables( Solver )	
+
+ 
 !------------------------------------------------------------------------------
    END SUBROUTINE SolverActivate
 !------------------------------------------------------------------------------
