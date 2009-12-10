@@ -1451,6 +1451,7 @@ CONTAINS
        StSolver % Matrix => CreateMatrix( Model, Solver, Solver % Mesh, Permutation, &
         1, MATRIX_CRS, OptimizeBW, 'Calculate Stresses', GlobalBubbles=GlobalBubbles )
        ALLOCATE( StSolver % Matrix % RHS(StSolver % Matrix % NumberOfRows) )
+       StSolver % Matrix % Comm = Solver % Matrix % Comm
 
        ALLOCATE( ForceG(StSolver % Matrix % NumberOfRows*6) )
        ALLOCATE( SForceG(StSolver % Matrix % NumberOfRows*6) )
