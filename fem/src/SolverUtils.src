@@ -3266,13 +3266,13 @@ END FUNCTION SearchNodeL
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER :: x0(:)
-    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1)
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
-    TYPE(Variable_t), POINTER :: iterV
-    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
-    LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore
+    TYPE(Variable_t), POINTER :: iterV, VeloVar, TimestepVar
+    CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, str
+    LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore, DoIt
 
     IF(SteadyState) THEN
       Relaxation = ListGetCReal( Solver % Values, &
@@ -3438,19 +3438,36 @@ END FUNCTION SearchNodeL
       CALL Info( 'ComputeChange', Message, Level=3 )
     END IF
 
+
     ! The update of exported variables may be done internally to allow some nonlinear features	   
     ! or in steady state level to allow coupling to other solvers.
+    DoIt = .FALSE.
     IF( SteadyState ) THEN 
-      IF ( ListGetLogical( Solver % Values,&
-          'Steady State Update Exported Variables',Stat) ) &
-          CALL UpdateExportedVariables( Solver )	
-    ELSE
-      IF ( ListGetLogical( Solver % Values,&
-          'Nonlinear Update Exported Variables',Stat) ) &
-          CALL UpdateExportedVariables( Solver )	
+      DoIt = ListGetLogical( Solver % Values,&
+          'Update Exported Variables',Stat)
+    ELSE 
+      DoIt = ListGetLogical( Solver % Values,&
+          'Nonlinear Update Exported Variables',Stat)
     END IF
+    IF( DoIt ) CALL UpdateExportedVariables( Solver )	
 
 
+    ! Only 1st order velocity computation implemented so far...
+    IF ( Solver % TimeOrder == 1 ) THEN
+      DoIt = .FALSE.
+      IF( SteadyState ) THEN
+        DoIt = ListGetLogical( Solver % Values,'Calculate Velocity',Stat)
+      ELSE
+        DoIt = ListGetLogical( Solver % Values,'Nonlinear Calculate Velocity',Stat)
+      END IF
+      IF( DoIt ) THEN
+        TimestepVar => VariableGet( Solver % Mesh % Variables, 'timestep size' )
+        dt = TimestepVar % Values(1) 
+        str = TRIM( Solver % Variable % Name ) // ' Velocity'
+        VeloVar => VariableGet( Solver % Mesh % Variables, str )
+        VeloVar % Values = (x - Solver % Variable % PrevValues(:,1)) / dt
+      END IF
+    END IF
 
 !------------------------------------------------------------------------------
   END SUBROUTINE ComputeChange

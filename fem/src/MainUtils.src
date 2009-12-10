@@ -980,6 +980,7 @@ CONTAINS
                 tmpname, 1, Component, Perm, Output=VariableOutput )
           END DO
         END IF
+        NULLIFY( Solution )
       END IF
     END IF
 
@@ -998,6 +999,7 @@ CONTAINS
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
               var_name, 1, Solution, &
               Solver % Variable % Perm, Output=VariableOutput )
+          NULLIFY( Solution )
         END IF
       END IF
     END IF
@@ -1081,8 +1083,22 @@ CONTAINS
       END IF
 
 
-      IF ( Solver % TimeOrder >= 1 ) THEN
-        IF( ListGetLogical( Solver % Values,'Calculate Velocity',Found) ) THEN
+      IF( ListGetLogical( Solver % Values,'Calculate Velocity',Found) ) THEN
+        IF ( Solver % TimeOrder == 1 ) THEN
+          ALLOCATE( Solution( SIZE( Solver % Variable % Values) ) )
+          Solution = 0.0_dp
+          str = TRIM( Solver % Variable % Name ) // ' Velocity'
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+              str, Solver % Variable % Dofs, Solution, Solver % Variable % Perm )
+          
+          DO k=1,Solver % Variable % DOFs
+            Component => Solution(k::Solver % Variable % DOFs )
+            str = ComponentName( Solver % Variable % Name) // ' Velocity ' // CHAR(i+ICHAR('0'))
+            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+                str, 1, Component, Solver % Variable % Perm )
+          END DO
+          NULLIFY( Solution )
+        ELSE IF ( Solver % TimeOrder >= 2 ) THEN
           Component => Solver % Variable % PrevValues(:,1)
           str = TRIM( Solver % Variable % Name ) // ' Velocity'
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
@@ -1098,12 +1114,16 @@ CONTAINS
         END IF
       END IF
 
-      IF ( Solver % TimeOrder >= 2 ) THEN
-        IF( ListGetLogical( Solver % Values,'Calculate Acceleration',Found) ) THEN
+      IF( ListGetLogical( Solver % Values,'Calculate Acceleration',Found) ) THEN
+        IF ( Solver % TimeOrder == 1 ) THEN
+          CALL Warn('AddEquationSolution',&
+              'No velocity computation implemented for 1st order time integration')
+        ELSE IF ( Solver % TimeOrder >= 2 ) THEN
           Component => Solver % Variable % PrevValues(:,2)
           str = TRIM( Solver % Variable % Name ) // ' Acceleration'
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-              str, Solver % Variable % Dofs, Component, Solver % Variable % Perm )
+              str, Solver % Variable % Dofs, Component, Solver % Variable % Perm, &
+              Secondary = .TRUE. )
           
           DO k=1,Solver % Variable % DOFs
             Component => Solver % Variable % PrevValues(k::Solver % Variable % DOFs,2)          
@@ -1113,7 +1133,6 @@ CONTAINS
           END DO
         END IF
       END IF
-
 
     ELSE
       Solver % TimeOrder = 0
