@@ -714,7 +714,11 @@ EGREP
 USE_64BIT_ARCH_TRUE
 USE_64BIT_ARCH_FALSE
 B64FLAGS
+USE_WINDOWS_COMPILER_TRUE
+USE_WINDOWS_COMPILER_FALSE
 MATC_LIBS
+USE_EXTERNAL_METIS_TRUE
+USE_EXTERNAL_METIS_FALSE
 MAINTAINER_MODE_TRUE
 MAINTAINER_MODE_FALSE
 MAINT
@@ -1319,6 +1323,16 @@ Optional Packages:
   --with-debug            Use debugging flags (environment variables override)
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
   --with-matc=<lib>       use MATC library <lib>
+  --with-metis=/path/to/metis  Specify the path to the Metis installation,
+                          of which the include and library directories
+                          are subdirs; use this if you want to override
+                          the METIS_DIR environment variable.
+  --with-metis-include=/path/to/metis  Specify the path to the METIS headers file; 
+                          use this if you want to override the
+                          METIS_INCLUDE_DIR environment variable.
+  --with-metis-libs=/path/to/metis  Specify the path to the METIS libraries; 
+                          use this if you want to override the
+                          METIS_LIBDIR environment variable.
 
 Some influential environment variables:
   CC          C compiler command
@@ -2217,7 +2231,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=elmergrid
- VERSION=5.4.0
+ VERSION=5.5.0
 
 
 cat >>confdefs.h <<_ACEOF
@@ -2364,13 +2378,16 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 
 
- if which windres > /dev/null; then
+ if test `which windres` != ""; then
   HAVE_WINDRES_TRUE=
   HAVE_WINDRES_FALSE='#'
 else
   HAVE_WINDRES_TRUE='#'
   HAVE_WINDRES_FALSE=
 fi
+
+
+
 
 
 
@@ -2502,6 +2519,11 @@ _ACEOF
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define MINGW32 1
+_ACEOF
+
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define WIN32 1
 _ACEOF
 
   ;;
@@ -4612,6 +4634,13 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
+	  xl*)
+	        B64FCFLAGS="-q64"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -4623,6 +4652,13 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FFLAGS="-fPIC"
+	        ;;
+	  xl*)
+	        B64FFLAGS="-q64"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -4634,6 +4670,13 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64CFLAGS="-fPIC"
+	        ;;
+	  xl*)
+	        B64CFLAGS="-q64"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -4641,10 +4684,17 @@ case "$canonical_host_type" in
 	fi
 
 	if test x"$CXX" != x; then
- 	case "$CC" in 
+ 	case "$CXX" in 
 	  icc | icc)
 		true
 	  ;;
+	  pgC*)
+	        # portland group
+	        B64CXXFLAGS="-fPIC"
+	  ;;
+	  xl*)
+	        B64CXXFLAGS="-q64"
+	        ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
 	  ;;
@@ -4785,8 +4835,8 @@ echo "${ECHO_T}$B64FCFLAGS" >&6; }
 	if test x"$CXX" != x; then
            { echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
 echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6; }
-           { echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
-echo "${ECHO_T}$B64CXXFLAGS" >&6; }
+           { echo "$as_me:$LINENO: result: $B64CXXFLAGS	" >&5
+echo "${ECHO_T}$B64CXXFLAGS	" >&6; }
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
@@ -5228,7 +5278,7 @@ _ACEOF
   *)
     
 cat >>confdefs.h <<\_ACEOF
-@%:@define ARCH_64_BITS 1
+@%:@define ARCH_32_BITS 1
 _ACEOF
 
   ;;
@@ -5268,6 +5318,95 @@ fi
 LIBS="-L. $LIBS -L$prefix/lib"
 LDFLAGS="-L. $LDFLAGS -L$prefix/lib"
 
+{ echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
+echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
+if test "${acx_cv_c_compiler_ms+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+int
+main ()
+{
+#ifndef _MSC_VER
+       choke me
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  acx_compiler_ms=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	acx_compiler_ms=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+acx_cv_c_compiler_ms=$acx_compiler_ms
+
+fi
+{ echo "$as_me:$LINENO: result: $acx_cv_c_compiler_ms" >&5
+echo "${ECHO_T}$acx_cv_c_compiler_ms" >&6; }
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define STDCALLBULL __stdcall
+_ACEOF
+
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define C_DLLEXPORT __declspec(dllexport)
+_ACEOF
+
+
+else
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define STDCALLBULL 
+_ACEOF
+
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define C_DLLEXPORT 
+_ACEOF
+
+fi
+ if test "$acx_cv_c_compiler_ms" = "yes"; then
+  USE_WINDOWS_COMPILER_TRUE=
+  USE_WINDOWS_COMPILER_FALSE='#'
+else
+  USE_WINDOWS_COMPILER_TRUE='#'
+  USE_WINDOWS_COMPILER_FALSE=
+fi
+
+
+
 
 
 acx_matc_ok=no
@@ -5293,6 +5432,7 @@ if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	{ echo "$as_me:$LINENO: checking for mtc_init in $MATC_LIBS" >&5
 echo $ECHO_N "checking for mtc_init in $MATC_LIBS... $ECHO_C" >&6; }
+
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5343,6 +5483,7 @@ fi
 
 rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
       conftest$ac_exeext conftest.$ac_ext
+
 	{ echo "$as_me:$LINENO: result: $acx_matc_ok" >&5
 echo "${ECHO_T}$acx_matc_ok" >&6; }
 	LIBS="$save_LIBS"
@@ -5438,6 +5579,131 @@ echo "$as_me: error: libmatc $ELMER_LIBERRORMSG" >&2;}
 fi
 
 LIBS="$LIBS $MATC_LIBS"
+
+
+
+
+
+
+
+  
+  
+# Check whether --with-metis was given.
+if test "${with_metis+set}" = set; then
+  withval=$with_metis; 
+	USE_CONTRIB_METIS=yes
+        DEAL_II_METIS_DIR=$withval
+	{ echo "$as_me:$LINENO: result: $DEAL_II_METIS_DIR" >&5
+echo "${ECHO_T}$DEAL_II_METIS_DIR" >&6; }
+
+                if test ! -d $DEAL_II_METIS_DIR/Lib ; then
+          { echo "$as_me:$LINENO: WARNING: Path to Metis specified with --with-metis does not
+ 			point to a complete Metis installation" >&5
+echo "$as_me: WARNING: Path to Metis specified with --with-metis does not
+ 			point to a complete Metis installation" >&2;}
+	fi
+	
+	DEAL_II_METIS_LIBDIR="$DEAL_II_METIS_DIR"
+	DEAL_II_METIS_INCDIR="$DEAL_II_METIS_DIR/Lib"
+     
+else
+  
+                if test "x$METIS_DIR" != "x" ; then
+  	  USE_CONTRIB_METIS=yes
+          DEAL_II_METIS_DIR="$METIS_DIR"
+	  { echo "$as_me:$LINENO: result: $DEAL_II_METIS_DIR" >&5
+echo "${ECHO_T}$DEAL_II_METIS_DIR" >&6; }
+
+                    if test ! -d $DEAL_II_METIS_DIR/Lib ; then
+            { { echo "$as_me:$LINENO: error: The path to Metis specified in the METIS_DIR
+	  		  environment variable does not
+ 			  point to a complete Metis installation" >&5
+echo "$as_me: error: The path to Metis specified in the METIS_DIR
+	  		  environment variable does not
+ 			  point to a complete Metis installation" >&2;}
+   { (exit 1); exit 1; }; }
+	  fi
+	  DEAL_II_METIS_LIBDIR="$DEAL_II_METIS_DIR"
+	  DEAL_II_METIS_INCDIR="$DEAL_II_METIS_DIR/Lib"
+        else
+	  USE_CONTRIB_METIS=no
+          DEAL_II_METIS_DIR=""
+        fi
+     
+fi
+
+
+  
+# Check whether --with-metis-include was given.
+if test "${with_metis_include+set}" = set; then
+  withval=$with_metis_include; 
+        METIS_INCLUDE_DIR=$withval
+	DEAL_II_METIS_INCDIR="$METIS_INCLUDE_DIR"
+     
+fi
+
+     
+  
+# Check whether --with-metis-libs was given.
+if test "${with_metis_libs+set}" = set; then
+  withval=$with_metis_libs; 
+	USE_CONTRIB_METIS=yes
+        DEAL_II_METIS_LIBDIR=$withval
+	{ echo "$as_me:$LINENO: result: $DEAL_II_METIS_LIBDIR" >&5
+echo "${ECHO_T}$DEAL_II_METIS_LIBDIR" >&6; }
+
+                if test ! -d $DEAL_II_METIS_LIBDIR ; then
+          { { echo "$as_me:$LINENO: error: Path to Metis specified with --with-metis does not
+ 			point to a complete Metis installation" >&5
+echo "$as_me: error: Path to Metis specified with --with-metis does not
+ 			point to a complete Metis installation" >&2;}
+   { (exit 1); exit 1; }; }
+	fi
+     
+else
+  
+                if test "x$METIS_LIBDIR" != "x" ; then
+  	  USE_CONTRIB_METIS=yes
+          DEAL_II_METIS_LIBDIR="$METIS_LIBDIR"
+	  { echo "$as_me:$LINENO: result: $DEAL_II_METIS_LIBDIR" >&5
+echo "${ECHO_T}$DEAL_II_METIS_LIBDIR" >&6; }
+
+                    if test ! -d $DEAL_II_METIS_LIBDIR ; then
+            { { echo "$as_me:$LINENO: error: The path to Metis specified in the METIS_DIR
+	  		  environment variable does not
+ 			  point to a complete Metis installation" >&5
+echo "$as_me: error: The path to Metis specified in the METIS_DIR
+	  		  environment variable does not
+ 			  point to a complete Metis installation" >&2;}
+   { (exit 1); exit 1; }; }
+	  fi
+        else
+          	            if test "x$USE_CONTRIB_METIS" != "xyes" ; then
+  	    USE_CONTRIB_METIS=no
+            DEAL_II_METIS_LIBDIR=""
+          fi
+        fi
+     
+fi
+
+     
+  if test "x$USE_CONTRIB_METIS" = "xyes" ; then
+    
+cat >>confdefs.h <<\_ACEOF
+@%:@define DEAL_II_USE_METIS 1
+_ACEOF
+
+    LDFLAGS="$LDFLAGS -L$DEAL_II_METIS_LIBDIR -lmetis"
+
+              fi
+
+ if test "x$USE_CONTRIB_METIS" = "xyes"; then
+  USE_EXTERNAL_METIS_TRUE=
+  USE_EXTERNAL_METIS_FALSE='#'
+else
+  USE_EXTERNAL_METIS_TRUE='#'
+  USE_EXTERNAL_METIS_FALSE=
+fi
 
 
 
@@ -5597,6 +5863,20 @@ if test -z "${USE_64BIT_ARCH_TRUE}" && test -z "${USE_64BIT_ARCH_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"USE_64BIT_ARCH\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_64BIT_ARCH\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_WINDOWS_COMPILER_TRUE}" && test -z "${USE_WINDOWS_COMPILER_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_EXTERNAL_METIS_TRUE}" && test -z "${USE_EXTERNAL_METIS_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_EXTERNAL_METIS\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_EXTERNAL_METIS\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -6283,7 +6563,11 @@ EGREP!$EGREP$ac_delim
 USE_64BIT_ARCH_TRUE!$USE_64BIT_ARCH_TRUE$ac_delim
 USE_64BIT_ARCH_FALSE!$USE_64BIT_ARCH_FALSE$ac_delim
 B64FLAGS!$B64FLAGS$ac_delim
+USE_WINDOWS_COMPILER_TRUE!$USE_WINDOWS_COMPILER_TRUE$ac_delim
+USE_WINDOWS_COMPILER_FALSE!$USE_WINDOWS_COMPILER_FALSE$ac_delim
 MATC_LIBS!$MATC_LIBS$ac_delim
+USE_EXTERNAL_METIS_TRUE!$USE_EXTERNAL_METIS_TRUE$ac_delim
+USE_EXTERNAL_METIS_FALSE!$USE_EXTERNAL_METIS_FALSE$ac_delim
 MAINTAINER_MODE_TRUE!$MAINTAINER_MODE_TRUE$ac_delim
 MAINTAINER_MODE_FALSE!$MAINTAINER_MODE_FALSE$ac_delim
 MAINT!$MAINT$ac_delim
@@ -6291,7 +6575,7 @@ LIB@&t@OBJS!$LIB@&t@OBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 10; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 14; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
@@ -6692,21 +6976,22 @@ echo "$as_me: $ac_file is unchanged" >&6;}
   fi
   rm -f "$tmp/out12"
 # Compute $ac_file's index in $config_headers.
+_am_arg=$ac_file
 _am_stamp_count=1
 for _am_header in $config_headers :; do
   case $_am_header in
-    $ac_file | $ac_file:* )
+    $_am_arg | $_am_arg:* )
       break ;;
     * )
       _am_stamp_count=`expr $_am_stamp_count + 1` ;;
   esac
 done
-echo "timestamp for $ac_file" >`$as_dirname -- $ac_file ||
-$as_expr X$ac_file : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
-	 X$ac_file : 'X\(//\)[^/]' \| \
-	 X$ac_file : 'X\(//\)$' \| \
-	 X$ac_file : 'X\(/\)' \| . 2>/dev/null ||
-echo X$ac_file |
+echo "timestamp for $_am_arg" >`$as_dirname -- "$_am_arg" ||
+$as_expr X"$_am_arg" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
+	 X"$_am_arg" : 'X\(//\)[^/]' \| \
+	 X"$_am_arg" : 'X\(//\)$' \| \
+	 X"$_am_arg" : 'X\(/\)' \| . 2>/dev/null ||
+echo X"$_am_arg" |
     sed '/^X\(.*[^/]\)\/\/*[^/][^/]*\/*$/{
 	    s//\1/
 	    q
@@ -6743,7 +7028,7 @@ echo "$as_me: executing $ac_file commands" >&6;}
   # each Makefile.in and add a new line on top of each file to say so.
   # Grep'ing the whole file is not good either: AIX grep has a line
   # limit of 2048, but all sed's we know have understand at least 4000.
-  if sed 10q "$mf" | grep '^#.*generated by automake' > /dev/null 2>&1; then
+  if sed -n 's,^#.*generated by automake.*,X,p' "$mf" | grep X >/dev/null 2>&1; then
     dirpart=`$as_dirname -- "$mf" ||
 $as_expr X"$mf" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
 	 X"$mf" : 'X\(//\)[^/]' \| \

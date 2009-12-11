@@ -686,11 +686,6 @@ am__tar
 am__untar
 HAVE_WINDRES_TRUE
 HAVE_WINDRES_FALSE
-canonical_host_type
-IBM_IS_PIECE_OF_SHIT_TRUE
-IBM_IS_PIECE_OF_SHIT_FALSE
-AR
-ARFLAGS
 CC
 CFLAGS
 LDFLAGS
@@ -707,6 +702,11 @@ AMDEPBACKSLASH
 CCDEPMODE
 am__fastdepCC_TRUE
 am__fastdepCC_FALSE
+canonical_host_type
+IBM_IS_PIECE_OF_SHIT_TRUE
+IBM_IS_PIECE_OF_SHIT_FALSE
+AR
+ARFLAGS
 USE_WINDOWS_COMPILER_TRUE
 USE_WINDOWS_COMPILER_FALSE
 RANLIB
@@ -1311,6 +1311,7 @@ if test -n "$ac_init_help"; then
 Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --disable-largefile     omit support for large files
   --disable-dependency-tracking  speeds up one-time build
   --enable-dependency-tracking   do not reject slow dependency extractors
   --enable-readline       use readline library (default is yes)
@@ -2374,292 +2375,6 @@ else
   HAVE_WINDRES_TRUE='#'
   HAVE_WINDRES_FALSE=
 fi
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-if test -z "$host"; then
-  host=unknown
-fi
-canonical_host_type=$host
-if test "$host" = unknown; then
-  { { echo "$as_me:$LINENO: error: configuring for unknown system type, your build will most likely be screwed." >&5
-echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-case "$canonical_host_type" in
-  *-*-darwin*)
-	LDFLAGS="$LDFLAGS -L/sw/lib"
-	CFLAGS="$CFLAGS -I/sw/include"
-	CXXFLAGS="$CXXFLAGS -I/sw/include"
-  ;;
-esac
-
-
-
-
-
-acx_platform_def="GENERIC"
-case "$canonical_host_type" in
-  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
-	acx_platform_def="BSD"
-
-cat >>confdefs.h <<\_ACEOF
-#define BSD 1
-_ACEOF
-
-  ;;
-  *-*-freebsd*)
-	acx_platform_def="BSD"
-
-cat >>confdefs.h <<\_ACEOF
-#define BSD 1
-_ACEOF
-
-  ;;
-  alpha*-dec-osf*)
-	acx_platform_def="DEC_ALPHA"
-
-cat >>confdefs.h <<\_ACEOF
-#define DEC_ALPHA 1
-_ACEOF
-
-  ;;
-  *-*-darwin*)
-
-cat >>confdefs.h <<\_ACEOF
-#define DARWIN 1
-_ACEOF
-
-  ;;
-  *-*-cygwin*)
-	acx_platform_def="WIN32"
-
-cat >>confdefs.h <<\_ACEOF
-#define CYGWIN 1
-_ACEOF
-
-  ;;
-  *-*-mingw*)
-	acx_platform_def="WIN32"
-
-cat >>confdefs.h <<\_ACEOF
-#define MINGW32 1
-_ACEOF
-
-
-cat >>confdefs.h <<\_ACEOF
-#define WIN32 1
-_ACEOF
-
-  ;;
-  *-*-linux* | *-*-gnu*)
-
-cat >>confdefs.h <<\_ACEOF
-#define LINUX 1
-_ACEOF
-
-  ;;
-  i[3456]86-*-sco3.2v5*)
-
-cat >>confdefs.h <<\_ACEOF
-#define BASTARDS 1
-_ACEOF
-
-  ;;
-  rs6000-ibm-aix* | powerpc-ibm-aix*)
-	acx_platform_def="AIX"
-
-cat >>confdefs.h <<\_ACEOF
-#define AIX 1
-_ACEOF
-
-  ;;
-  hppa*-hp-hpux*)
-
-cat >>confdefs.h <<\_ACEOF
-#define HPUX 1
-_ACEOF
-
-  ;;
-  *-sgi-*)
-
-cat >>confdefs.h <<\_ACEOF
-#define SGI 1
-_ACEOF
-
-  ;;
-  sparc-sun-sunos4*)
-
-cat >>confdefs.h <<\_ACEOF
-#define SUNOS 1
-_ACEOF
-
-  ;;
-  sparc-sun-solaris2* | i386-pc-solaris2*)
-
-cat >>confdefs.h <<\_ACEOF
-#define SOLARIS 1
-_ACEOF
-
-  ;;
-esac
-
- if test "$acx_platform_def" = "AIX"; then
-  IBM_IS_PIECE_OF_SHIT_TRUE=
-  IBM_IS_PIECE_OF_SHIT_FALSE='#'
-else
-  IBM_IS_PIECE_OF_SHIT_TRUE='#'
-  IBM_IS_PIECE_OF_SHIT_FALSE=
-fi
-
-
-
-acx_debug=no
-
-
-# Check whether --with-debug was given.
-if test "${with_debug+set}" = set; then
-  withval=$with_debug; acx_debug=yes
-fi
-
-
-{ echo "$as_me:$LINENO: checking for default compilation flags" >&5
-echo $ECHO_N "checking for default compilation flags... $ECHO_C" >&6; }
-
-if test "$acx_debug" = yes; then
-{ echo "$as_me:$LINENO: result: debugging" >&5
-echo "${ECHO_T}debugging" >&6; }
-  if test "$CFLAGS" = ""; then
-	CFLAGS="-g"
-  fi
-
-  if test "$FCFLAGS" = ""; then
-	FCFLAGS="-g"
-  fi
-
-  if test "$FFLAGS" = ""; then
-	FFLAGS="-g"
-  fi
-
-  if test "$CXXFLAGS" = ""; then
-	CXXFLAGS="-g"
-  fi
-else
-{ echo "$as_me:$LINENO: result: optimized" >&5
-echo "${ECHO_T}optimized" >&6; }
-  case "$canonical_host_type" in
-     rs6000-ibm-aix* | powerpc-ibm-aix*)
-		ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
-     ;;
-     *)
-	ACX_OPT_FLAG="-O"
-     ;;
-  esac
-
-  if test "$CFLAGS" = ""; then
-	CFLAGS=$ACX_OPT_FLAG
-  fi
-
-  if test "$FCFLAGS" = ""; then
-	FCFLAGS=$ACX_OPT_FLAG
-  fi
-
-  if test "$FFLAGS" = ""; then
-	FFLAGS=$ACX_OPT_FLAG
-  fi
-
-  if test "$CXXFLAGS" = ""; then
-	CXXFLAGS=$ACX_OPT_FLAG
-  fi
-fi
-
-
-
-# fixme: do something more intelligent here
-{ echo "$as_me:$LINENO: checking for ar" >&5
-echo $ECHO_N "checking for ar... $ECHO_C" >&6; }
-if test -z "$AR"; then
-        AR='ar'
-	acx_ar_userdefined=no
-else
-	acx_ar_userdefined=yes
-fi
-
-{ echo "$as_me:$LINENO: result: $AR" >&5
-echo "${ECHO_T}$AR" >&6; }
-
-{ echo "$as_me:$LINENO: checking for ar flags" >&5
-echo $ECHO_N "checking for ar flags... $ECHO_C" >&6; }
-if test -z "$ARFLAGS"; then
-  ARFLAGS="cru"
-fi
-
-{ echo "$as_me:$LINENO: result: $ARFLAGS" >&5
-echo "${ECHO_T}$ARFLAGS" >&6; }
 
 
 DEPDIR="${am__leading_dot}deps"
@@ -3750,6 +3465,643 @@ else
   am__fastdepCC_FALSE=
 fi
 
+
+
+# Check whether --enable-largefile was given.
+if test "${enable_largefile+set}" = set; then
+  enableval=$enable_largefile;
+fi
+
+if test "$enable_largefile" != no; then
+
+  { echo "$as_me:$LINENO: checking for special C compiler options needed for large files" >&5
+echo $ECHO_N "checking for special C compiler options needed for large files... $ECHO_C" >&6; }
+if test "${ac_cv_sys_largefile_CC+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_cv_sys_largefile_CC=no
+     if test "$GCC" != yes; then
+       ac_save_CC=$CC
+       while :; do
+	 # IRIX 6.2 and later do not support large files by default,
+	 # so use the C compiler's -n32 option if that helps.
+	 cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+	 rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext
+	 CC="$CC -n32"
+	 rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_largefile_CC=' -n32'; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext
+	 break
+       done
+       CC=$ac_save_CC
+       rm -f conftest.$ac_ext
+    fi
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_sys_largefile_CC" >&5
+echo "${ECHO_T}$ac_cv_sys_largefile_CC" >&6; }
+  if test "$ac_cv_sys_largefile_CC" != no; then
+    CC=$CC$ac_cv_sys_largefile_CC
+  fi
+
+  { echo "$as_me:$LINENO: checking for _FILE_OFFSET_BITS value needed for large files" >&5
+echo $ECHO_N "checking for _FILE_OFFSET_BITS value needed for large files... $ECHO_C" >&6; }
+if test "${ac_cv_sys_file_offset_bits+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  while :; do
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_file_offset_bits=no; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _FILE_OFFSET_BITS 64
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_file_offset_bits=64; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  ac_cv_sys_file_offset_bits=unknown
+  break
+done
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_sys_file_offset_bits" >&5
+echo "${ECHO_T}$ac_cv_sys_file_offset_bits" >&6; }
+case $ac_cv_sys_file_offset_bits in #(
+  no | unknown) ;;
+  *)
+cat >>confdefs.h <<_ACEOF
+#define _FILE_OFFSET_BITS $ac_cv_sys_file_offset_bits
+_ACEOF
+;;
+esac
+rm -f conftest*
+  if test $ac_cv_sys_file_offset_bits = unknown; then
+    { echo "$as_me:$LINENO: checking for _LARGE_FILES value needed for large files" >&5
+echo $ECHO_N "checking for _LARGE_FILES value needed for large files... $ECHO_C" >&6; }
+if test "${ac_cv_sys_large_files+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  while :; do
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_large_files=no; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#define _LARGE_FILES 1
+#include <sys/types.h>
+ /* Check that off_t can represent 2**63 - 1 correctly.
+    We can't simply define LARGE_OFF_T to be 9223372036854775807,
+    since some C++ compilers masquerading as C compilers
+    incorrectly reject 9223372036854775807.  */
+#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+  int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
+		       && LARGE_OFF_T % 2147483647 == 1)
+		      ? 1 : -1];
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  ac_cv_sys_large_files=1; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+  ac_cv_sys_large_files=unknown
+  break
+done
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_sys_large_files" >&5
+echo "${ECHO_T}$ac_cv_sys_large_files" >&6; }
+case $ac_cv_sys_large_files in #(
+  no | unknown) ;;
+  *)
+cat >>confdefs.h <<_ACEOF
+#define _LARGE_FILES $ac_cv_sys_large_files
+_ACEOF
+;;
+esac
+rm -f conftest*
+  fi
+fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  { { echo "$as_me:$LINENO: error: configuring for unknown system type, your build will most likely be screwed." >&5
+echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	LDFLAGS="$LDFLAGS -L/sw/lib"
+	CFLAGS="$CFLAGS -I/sw/include"
+	CXXFLAGS="$CXXFLAGS -I/sw/include"
+  ;;
+esac
+
+
+
+
+
+acx_platform_def="GENERIC"
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
+
+cat >>confdefs.h <<\_ACEOF
+#define BSD 1
+_ACEOF
+
+  ;;
+  *-*-freebsd*)
+	acx_platform_def="BSD"
+
+cat >>confdefs.h <<\_ACEOF
+#define BSD 1
+_ACEOF
+
+  ;;
+  alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
+
+cat >>confdefs.h <<\_ACEOF
+#define DEC_ALPHA 1
+_ACEOF
+
+  ;;
+  *-*-darwin*)
+
+cat >>confdefs.h <<\_ACEOF
+#define DARWIN 1
+_ACEOF
+
+  ;;
+  *-*-cygwin*)
+	acx_platform_def="WIN32"
+
+cat >>confdefs.h <<\_ACEOF
+#define CYGWIN 1
+_ACEOF
+
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+
+cat >>confdefs.h <<\_ACEOF
+#define MINGW32 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define WIN32 1
+_ACEOF
+
+  ;;
+  *-*-linux* | *-*-gnu*)
+
+cat >>confdefs.h <<\_ACEOF
+#define LINUX 1
+_ACEOF
+
+  ;;
+  i[3456]86-*-sco3.2v5*)
+
+cat >>confdefs.h <<\_ACEOF
+#define BASTARDS 1
+_ACEOF
+
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
+
+cat >>confdefs.h <<\_ACEOF
+#define AIX 1
+_ACEOF
+
+  ;;
+  hppa*-hp-hpux*)
+
+cat >>confdefs.h <<\_ACEOF
+#define HPUX 1
+_ACEOF
+
+  ;;
+  *-sgi-*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SGI 1
+_ACEOF
+
+  ;;
+  sparc-sun-sunos4*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SUNOS 1
+_ACEOF
+
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SOLARIS 1
+_ACEOF
+
+  ;;
+esac
+
+ if test "$acx_platform_def" = "AIX"; then
+  IBM_IS_PIECE_OF_SHIT_TRUE=
+  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+else
+  IBM_IS_PIECE_OF_SHIT_TRUE='#'
+  IBM_IS_PIECE_OF_SHIT_FALSE=
+fi
+
+
+
+acx_debug=no
+
+
+# Check whether --with-debug was given.
+if test "${with_debug+set}" = set; then
+  withval=$with_debug; acx_debug=yes
+fi
+
+
+{ echo "$as_me:$LINENO: checking for default compilation flags" >&5
+echo $ECHO_N "checking for default compilation flags... $ECHO_C" >&6; }
+
+if test "$acx_debug" = yes; then
+{ echo "$as_me:$LINENO: result: debugging" >&5
+echo "${ECHO_T}debugging" >&6; }
+  if test "$CFLAGS" = ""; then
+	CFLAGS="-g"
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS="-g"
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS="-g"
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS="-g"
+  fi
+else
+{ echo "$as_me:$LINENO: result: optimized" >&5
+echo "${ECHO_T}optimized" >&6; }
+  case "$canonical_host_type" in
+     rs6000-ibm-aix* | powerpc-ibm-aix*)
+		ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
+     ;;
+     *)
+	ACX_OPT_FLAG="-O"
+     ;;
+  esac
+
+  if test "$CFLAGS" = ""; then
+	CFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS=$ACX_OPT_FLAG
+  fi
+fi
+
+
+
+# fixme: do something more intelligent here
+{ echo "$as_me:$LINENO: checking for ar" >&5
+echo $ECHO_N "checking for ar... $ECHO_C" >&6; }
+if test -z "$AR"; then
+        AR='ar'
+	acx_ar_userdefined=no
+else
+	acx_ar_userdefined=yes
+fi
+
+{ echo "$as_me:$LINENO: result: $AR" >&5
+echo "${ECHO_T}$AR" >&6; }
+
+{ echo "$as_me:$LINENO: checking for ar flags" >&5
+echo $ECHO_N "checking for ar flags... $ECHO_C" >&6; }
+if test -z "$ARFLAGS"; then
+  ARFLAGS="cru"
+fi
+
+{ echo "$as_me:$LINENO: result: $ARFLAGS" >&5
+echo "${ECHO_T}$ARFLAGS" >&6; }
 
 
 { echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
@@ -6791,13 +7143,6 @@ echo "$as_me: error: conditional \"HAVE_WINDRES\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
-if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
-Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
-Usually this means the macro was only invoked conditionally." >&2;}
-   { (exit 1); exit 1; }; }
-fi
 if test -z "${AMDEP_TRUE}" && test -z "${AMDEP_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"AMDEP\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
@@ -6809,6 +7154,13 @@ if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"am__fastdepCC\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -7446,11 +7798,6 @@ am__tar!$am__tar$ac_delim
 am__untar!$am__untar$ac_delim
 HAVE_WINDRES_TRUE!$HAVE_WINDRES_TRUE$ac_delim
 HAVE_WINDRES_FALSE!$HAVE_WINDRES_FALSE$ac_delim
-canonical_host_type!$canonical_host_type$ac_delim
-IBM_IS_PIECE_OF_SHIT_TRUE!$IBM_IS_PIECE_OF_SHIT_TRUE$ac_delim
-IBM_IS_PIECE_OF_SHIT_FALSE!$IBM_IS_PIECE_OF_SHIT_FALSE$ac_delim
-AR!$AR$ac_delim
-ARFLAGS!$ARFLAGS$ac_delim
 CC!$CC$ac_delim
 CFLAGS!$CFLAGS$ac_delim
 LDFLAGS!$LDFLAGS$ac_delim
@@ -7467,6 +7814,11 @@ AMDEPBACKSLASH!$AMDEPBACKSLASH$ac_delim
 CCDEPMODE!$CCDEPMODE$ac_delim
 am__fastdepCC_TRUE!$am__fastdepCC_TRUE$ac_delim
 am__fastdepCC_FALSE!$am__fastdepCC_FALSE$ac_delim
+canonical_host_type!$canonical_host_type$ac_delim
+IBM_IS_PIECE_OF_SHIT_TRUE!$IBM_IS_PIECE_OF_SHIT_TRUE$ac_delim
+IBM_IS_PIECE_OF_SHIT_FALSE!$IBM_IS_PIECE_OF_SHIT_FALSE$ac_delim
+AR!$AR$ac_delim
+ARFLAGS!$ARFLAGS$ac_delim
 USE_WINDOWS_COMPILER_TRUE!$USE_WINDOWS_COMPILER_TRUE$ac_delim
 USE_WINDOWS_COMPILER_FALSE!$USE_WINDOWS_COMPILER_FALSE$ac_delim
 RANLIB!$RANLIB$ac_delim
