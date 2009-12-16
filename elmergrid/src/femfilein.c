@@ -3709,15 +3709,19 @@ int UnvToElmerType(int unvtype)
     break;
 
   case 41:
+  case 51:
+  case 61:
   case 74:
+  case 81:
   case 91:
     elmertype = 303;
     break;
 
   case 42:
-  case 51:
+  case 52:
   case 62:
   case 72:
+  case 82:
   case 92:
     elmertype = 306;
     break;
@@ -3726,6 +3730,7 @@ int UnvToElmerType(int unvtype)
   case 54:
   case 64:
   case 71:
+  case 84:
   case 94:
     elmertype = 404;
     break;
@@ -3770,9 +3775,10 @@ int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
   int noknots,totknots,noelements,elemcode,maxnodes;
   int allocated,maxknot,dim,ind;
   int reordernodes,reorderelements,nogroups,maxnode,maxelem,elid,unvtype,elmertype;
-  int nonodes,group,grouptype,mode,nopoints;
-  int debug,mingroup,maxgroup;
+  int nonodes,group,grouptype,mode,nopoints,nodeind,matind,physind,colorind;
+  int debug,mingroup,maxgroup,nogroup,noentities,dummy;
   int *u2eind,*u2eelem;
+  int *elementtypes;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
   int i,j,k,l,n;
   char entityname[MAXNAMESIZE];
@@ -3793,12 +3799,25 @@ int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
   InitializeKnots(data);
 
   dim = 3;
-  debug = FALSE;
   allocated = FALSE;
   reordernodes = FALSE;
   reorderelements = FALSE;
 
+  debug = FALSE;
+  if( debug ){
+    elementtypes = Ivector(0,820);
+    for(i=0;i<=820;i++) elementtypes[i] = FALSE;
+  }
+
+
 omstart:
+
+  if(info) {
+    if(allocated) 
+      printf("Second round for memorizing data\n");
+    else 
+      printf("First round for allocating data\n");
+  }
 
   maxnodes = 0;
   nogroups = 0;
@@ -3822,25 +3841,28 @@ omstart:
     else if( !strncmp(line,"  2412",6)) mode = 2412;
     else if( !strncmp(line,"  2467",6)) mode = 2467;
     else if( !strncmp(line,"  2435",6)) mode = 2435;
-    else if(0 && allocated && strncmp(line,"      ",6)) printf("Unknown command: %s",line);
+    else if(0 && allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
+
+    if(debug && mode) printf("Current mode is %d\n",mode);
 
     /* node definition */
     if( mode == 2411) {
-      if(0 && info && allocated) printf("Reading nodes\n");
+      if(debug) printf("Reading nodes\n");
       for(;;) {
 	Getrow(line,in,FALSE);
 	if( !strncmp(line,"    -1",6)) goto nextline;
 
 	cp = line;
-	i = next_int(&cp);
+	nodeind = next_int(&cp);
+	/* Three other fields omitted: two coordinate systems and color */
 	noknots += 1;
-	if(i != noknots) reordernodes = TRUE;
-	maxnode = MAX(maxnode,i);
+	if(nodeind != noknots) reordernodes = TRUE;
+	maxnode = MAX(maxnode,nodeind);
 	Getrow(line,in,FALSE);
 	
 	if(allocated) {
 	  if(reordernodes) {
-	    u2eind[i] = noknots;
+	    u2eind[nodeind] = noknots;
 	  }
 	  cp = line;
 	  data->x[noknots] = next_real(&cp);
@@ -3852,7 +3874,7 @@ omstart:
 
 
     if( mode == 2412) {
-      if(0 && info && allocated) printf("Reading elements\n");
+      if(debug) printf("Reading elements\n");
       for(;;) {
 	Getrow(line,in,FALSE);
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -3861,9 +3883,9 @@ omstart:
 	cp = line;
 	elid = next_int(&cp);
 	unvtype = next_int(&cp);
-	i = next_int(&cp);
-	i = next_int(&cp);
-	i = next_int(&cp);
+	physind = next_int(&cp);
+	matind = next_int(&cp);
+	colorind = next_int(&cp);
 	nonodes = next_int(&cp);
 	
 	if (!allocated) {
@@ -3880,88 +3902,92 @@ omstart:
 
 	  elmertype = UnvToElmerType(unvtype);
 
+	  if(debug && !elementtypes[elmertype]) {
+	    elementtypes[elmertype] = TRUE;
+	    printf("new elementtype in elmer: %d (unv: %d)\n",elmertype,unvtype);
+	  }
+
 	  if(elmertype%100 != nonodes)
 	    printf("nonodes = %d elemtype = %d elid = %d\n",nonodes,elmertype,elid);
 
 	  data->elementtypes[noelements] = elmertype;
 	  for(i=0;i<nonodes;i++)
 	    data->topology[noelements][i] = next_int(&cp);
+
+	  /* should this be physical property or material property? */
+	  data->material[noelements] = physind;
 	}
       }    
     }  
 
     if( mode == 2467 || mode == 2435) {
-      if(0 && info && allocated) printf("Reading groups\n");
+      if(debug) printf("Reading groups\n");
       
-      Getrow(line,in,FALSE);
-      if( !strncmp(line,"    -1",6)) goto nextline;
-
       for(;;) {
 	Getrow(line,in,FALSE);
+	if( !strncmp(line,"    -1",6)) goto nextline;
 	
+	cp = line;
+	nogroup = next_int(&cp);
+	for(i=1;i<=6;i++)
+	  dummy = next_int(&cp);
+	noentities = next_int(&cp);
+
+	Getrow(line,in,FALSE);	
 	if( !strncmp(line,"    -1",6)) goto nextline;
 	
 	/* Used for the empty group created by salome */
-	if( mode == 2467 && !strncmp(line,"            ",12)) continue;
+	/* if( mode == 2467 && !strncmp(line,"            ",12)) continue; */
 	
 	group++;
-
 	k = 0;
 	if(allocated) {
 	  sscanf(line,"%s",entityname);
 	  strcpy(data->bodyname[group],entityname);
 	  data->bodynamesexist = TRUE;
 	  data->boundarynamesexist = TRUE;
+
+	  if(info) printf("Reading group %d with %d entities: %s\n",
+			  nogroup,noentities,entityname);
 	}
-	
-	for(;;) {
-	  Getrow(line,in,FALSE);
-	  
-	  if( !strncmp(line,"    -1",6)) goto nextline;
-	  cp = line;
-	  
-	  for(i=1;i<=2;i++) {
-	    grouptype = next_int(&cp);
-	    ind = next_int(&cp);
-	    if( ind == 0 && i==1) goto newgroup;
-	    if( ind == 0 && i==2) continue;
-	    k++;
+	if(noentities == 0) Getrow(line,in,FALSE);
 
-	    /* Temperary exception: jump over nodal element groups */	    
-	    if(grouptype == 7 && mode == 2435) {
-	      if(allocated) printf("Note: in field 2435 nodal point groups are currently omitted!\n");
-	      group--;
-	      goto newgroup;
-	    }
+	for(i=0;i<noentities;i++) {
+	  if(i%2 == 0) {
+	    Getrow(line,in,FALSE);
+	    if( !strncmp(line,"    -1",6)) goto nextline;
+	    cp = line;
+	  }	  
 
-	    j = next_int(&cp);
-	    j = next_int(&cp);
-	    if( grouptype == 8 ) {
-	      if(allocated) {
-		if(reorderelements) ind = u2eelem[ind];
-		elemcode = data->elementtypes[ind];
-		data->material[ind] = group;
-	      }
-	    }
-	    else if(grouptype == 7) {
-	      nopoints += 1;
-	      if(allocated) {
-		elemcode = 101;
-		data->material[noelements+nopoints] = group;
-		data->elementtypes[noelements+nopoints] = elemcode;
-		data->topology[noelements+nopoints][0] = ind;
-	      }
-	    }
-	    else goto newgroup;
-	    
-	    if(k == 1 && allocated && info)
-	      printf("Found new group %d with elements %d: %s\n",group,elemcode,entityname);
+	  grouptype = next_int(&cp);
+	  ind = next_int(&cp);
+	  dummy = next_int(&cp);
+	  dummy = next_int(&cp);
 
+	  if(ind == 0) continue;
+
+	  if( grouptype == 8 ) {
+	    if(allocated) {
+	      if(reorderelements) ind = u2eelem[ind];
+	      elemcode = data->elementtypes[ind];
+	      data->material[ind] = group;
+	    }
+	  }
+	  else if(grouptype == 7) {
+	    nopoints += 1;
+	    if(allocated) {
+	      elemcode = 101;
+	      data->material[noelements+nopoints] = group;
+	      data->elementtypes[noelements+nopoints] = elemcode;
+	      data->topology[noelements+nopoints][0] = ind;
+	    }
+	  }
+	  else {
 	  }
 	}
+	if(k && allocated && info)
+	  printf("Found new group %d with elements %d: %s\n",group,elemcode,entityname);
 
-      newgroup:
-	continue;
       }
     }
 
@@ -3970,7 +3996,7 @@ omstart:
 end:
 
   exit;
-  printf("done reading\n");
+  if(info) printf("Done reading\n");
 
 
   if(!allocated) {
@@ -4028,8 +4054,8 @@ end:
     mingroup = MIN( mingroup, data->material[i]);
     maxgroup = MAX( maxgroup, data->material[i]);
   }
-  if(mingroup == 0) {
-   
+  if(info) printf("The group interval is [%d,%d]\n",mingroup,maxgroup);
+  if(mingroup == 0) {   
     if(info) {
       if(!maxgroup) printf("No material groups were successfully applied\n");
       printf("Unset elements were given material index %d\n",maxgroup+1);    
@@ -4037,8 +4063,6 @@ end:
     for(i=1;i<=data->noelements;i++) 
       if(data->material[i] == 0) data->material[i] = maxgroup + 1;
   }
-
-
     
   if(info) printf("The Universal mesh was loaded from file %s.\n\n",filename);
   return(0);
