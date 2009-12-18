@@ -752,7 +752,8 @@
            IF ( .NOT. Found ) &
              W(1:n) = GetReal( Equation, 'Convection Velocity 3', Found )
 
-         ELSE IF ( ConvectionFlag == 'computed' ) THEN
+         ELSE IF ( ConvectionFlag == 'computed' .AND. &
+              ASSOCIATED(FlowSolution) ) THEN
            DO i=1,n
              k = FlowPerm(Element % NodeIndexes(i))
              IF ( k > 0 ) THEN
@@ -786,6 +787,9 @@
                W(i) = 0.0d0
              END IF
            END DO
+         ELSE IF (ConvectionFlag=='computed' ) THEN
+           CALL Warn( 'HeatSolver', 'Convection model specified ' //  &
+                 'but no associated flow field present?' )
          ELSE  ! Conduction only
            C1 = 0.0D0 
          END IF
