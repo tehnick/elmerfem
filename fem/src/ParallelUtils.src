@@ -80,7 +80,7 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
        TYPE(ParallelInfo_t), POINTER :: MatrixPI, MeshPI
-       INTEGER :: i, j, k, l, m, n, DOFs
+       INTEGER :: i, j, k, l, m, n, DOFs, maxnode, maxbdofs
        LOGICAL :: DGSolver, Found
        TYPE(Mesh_t), POINTER :: Mesh
        TYPE(Element_t), POINTER :: Element
@@ -100,6 +100,9 @@ real(kind=dp) :: realtime,tt
        Matrix % Perm    = 0
        Matrix % INVPerm = 0
 
+       maxnode = MAXVAL(Solver  % Mesh % ParallelInfo % GlobalDOFs)
+       maxnode = NINT(ParallelReduction(1._dp*maxnode,2))
+
        DO i=1,n
           IF ( Solver % Variable % Perm(i) /= 0 )  THEN
              DO j=1,DOFs
@@ -116,13 +119,13 @@ real(kind=dp) :: realtime,tt
        END DO
 
        IF ( .NOT. Matrix % DGMatrix ) THEN
-         n = Solver % Mesh % NumberOfNodes
+         n = SIZE(Matrix % Perm)
          ALLOCATE( Matrix % ParallelInfo )
-         ALLOCATE( Matrix % ParallelInfo % NeighbourList(DOFs*n) )
-         CALL AllocateVector( Matrix % ParallelInfo % Interface, DOFs*n)
-         CALL AllocateVector( Matrix % ParallelInfo % GlobalDOFs, DOFs*n)
+         ALLOCATE( Matrix % ParallelInfo % NeighbourList(n) )
+         CALL AllocateVector( Matrix % ParallelInfo % Interface, n)
+         CALL AllocateVector( Matrix % ParallelInfo % GlobalDOFs, n)
 
-         DO i=1,n
+         DO i=1,Solver % Mesh % NumberOfNodes
             DO j=1,DOFs
                k = (i-1)*DOFs+j
                Matrix % ParallelInfo % GlobalDOFs(k) = &
@@ -134,6 +137,23 @@ real(kind=dp) :: realtime,tt
                Matrix % ParallelInfo % NeighbourList(k) % Neighbours = &
                  Solver % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
             END DO
+         END DO
+
+         maxbdofs = Solver % Mesh % MaxBDOFs
+         DO i=1,Solver % Mesh % NumberOfBulkElements
+           Element=>Solver % Mesh % Elements(i)
+           IF ( Element % BDOFs>0 ) THEN
+             DO l=1,Element % BDOFs
+               DO j=1,DOFs 
+                 k = DOFs*(Solver % Mesh % NumberOfNodes+Element % BubbleIndexes(l)-1)+j
+                 Matrix % ParallelInfo % GlobalDOFs(k) = &
+                   DOFs*(Maxnode+maxbdofs*(Element % GElementIndex-1)+l-1)+j
+                 Matrix % ParallelInfo % Interface(k) = .FALSE.
+                 ALLOCATE( Matrix % ParallelInfo % NeighbourList(k) % Neighbours(1) )
+                 Matrix % ParallelInfo % NeighbourList(k) % Neighbours = ParEnv % MyPE
+               END DO
+             END DO
+           END IF
          END DO
        ELSE
          MeshPI => Solver % Mesh % ParallelInfo
@@ -155,7 +175,7 @@ real(kind=dp) :: realtime,tt
            IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
            DO j=1,SIZE(Element % DGIndexes)
              k = Element % DGIndexes(j)
-             MatrixPI % GlobalDOFs(k) = 8*(Element % ElementIndex-1)+j
+             MatrixPI % GlobalDOFs(k) = 8*(Element % GElementIndex-1)+j
            END DO
          END DO
          ALLOCATE( MatrixPI % Interface(n), MatrixPI % NeighbourList(n) )
