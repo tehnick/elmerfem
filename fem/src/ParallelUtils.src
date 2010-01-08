@@ -81,7 +81,7 @@ CONTAINS
 !-------------------------------------------------------------------------------
        TYPE(ParallelInfo_t), POINTER :: MatrixPI, MeshPI
        INTEGER :: i, j, k, l, m, n, DOFs, maxnode, maxbdofs
-       LOGICAL :: DGSolver, Found
+       LOGICAL :: DGSolver, Found, GB
        TYPE(Mesh_t), POINTER :: Mesh
        TYPE(Element_t), POINTER :: Element
        TYPE(NeighbourList_t), POINTER :: MtrxN, MeshN
@@ -99,9 +99,6 @@ real(kind=dp) :: realtime,tt
        ALLOCATE( Matrix % Perm(DOFs*n), Matrix % InvPerm(DOFs*n)  )
        Matrix % Perm    = 0
        Matrix % INVPerm = 0
-
-       maxnode = MAXVAL(Solver  % Mesh % ParallelInfo % GlobalDOFs)
-       maxnode = NINT(ParallelReduction(1._dp*maxnode,2))
 
        DO i=1,n
           IF ( Solver % Variable % Perm(i) /= 0 )  THEN
@@ -139,10 +136,16 @@ real(kind=dp) :: realtime,tt
             END DO
          END DO
 
-         maxbdofs = Solver % Mesh % MaxBDOFs
-         DO i=1,Solver % Mesh % NumberOfBulkElements
-           Element=>Solver % Mesh % Elements(i)
-           IF ( Element % BDOFs>0 ) THEN
+         GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
+         IF (.NOT.Found) GB = .TRUE.
+
+         IF ( GB ) THEN
+           maxnode = MAXVAL(Solver % Mesh % ParallelInfo % GlobalDOFs)
+           maxnode = NINT(ParallelReduction(1._dp*maxnode,2))
+           maxbdofs = NINT(ParallelReduction(1._dp*Solver % Mesh % MaxBDOFs,2))
+
+           DO i=1,Solver % Mesh % NumberOfBulkElements
+             Element=>Solver % Mesh % Elements(i)
              DO l=1,Element % BDOFs
                DO j=1,DOFs 
                  k = DOFs*(Solver % Mesh % NumberOfNodes+Element % BubbleIndexes(l)-1)+j
@@ -153,8 +156,8 @@ real(kind=dp) :: realtime,tt
                  Matrix % ParallelInfo % NeighbourList(k) % Neighbours = ParEnv % MyPE
                END DO
              END DO
-           END IF
-         END DO
+           END DO
+         END IF
        ELSE
          MeshPI => Solver % Mesh % ParallelInfo
 
