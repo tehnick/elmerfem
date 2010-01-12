@@ -832,17 +832,15 @@ CONTAINS
                  Mesh % ParallelInfo % NumberOfIfDOFs + 1
      END DO
 
-     ! Number edge, face and elements dofs globally.
-     ! jv: work in progress with global dof numbering
-
-     !  CALL CreateGlobalNumbering( Mesh, n )
-
      DO i=1,n
        IF ( .NOT.ASSOCIATED( Mesh % ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
           CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours, 1 )
           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = mype
        END IF
      END DO
+
+     CALL SParEdgeNumbering(Mesh)
+     CALL SParFaceNumbering(Mesh)
    END IF
    DEALLOCATE( LocalPerm, ElementTags )
    CALL eio_close_mesh( eio_info )
