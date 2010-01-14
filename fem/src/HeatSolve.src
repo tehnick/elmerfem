@@ -740,8 +740,15 @@
 !        Check for convection model
 !------------------------------------------------------------------------------
          C1 = 1.0D0
+         U = 0._dp
+         V = 0._dp
+         W = 0._dp
+
+         MU = 0.0d0
+         CALL GetVectorLocalSolution( MU, 'Mesh Velocity' )
 
          IF ( ConvectionFlag == 'constant' ) THEN
+
            U(1:n) = GetReal( Material, 'Convection Velocity 1', Found )
            IF ( .NOT. Found ) &
               U(1:n) = GetReal( Equation, 'Convection Velocity 1', Found )
@@ -790,12 +797,9 @@
          ELSE IF (ConvectionFlag=='computed' ) THEN
            CALL Warn( 'HeatSolver', 'Convection model specified ' //  &
                  'but no associated flow field present?' )
-         ELSE  ! Conduction only
-           C1 = 0.0D0 
+         ELSE
+           IF ( ALL(MU==0) ) C1 = 0.0D0 
          END IF
-
-         MU = 0.0d0
-         CALL GetVectorLocalSolution( MU, 'Mesh Velocity' )
 !------------------------------------------------------------------------------
 !        Check if modelling Phase Change with Eulerian approach 
 !------------------------------------------------------------------------------
