@@ -23,7 +23,9 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing a solver for mesh update
+! *  Module containing a solver for mesh update. The intended use for this
+! *  is, for example, in geometry optimization when the normal MeshUpdate is
+! *  not always suitable as it may be needed to extent real physical displacements.
 ! *
 ! ******************************************************************************
 ! *
@@ -77,7 +79,7 @@
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t),POINTER :: Material, BC
 
-  REAL(KIND=dp) :: RelativeChange, UNorm, PrevUNorm,  maxu
+  REAL(KIND=dp) :: RelativeChange, UNorm, maxu
   TYPE(Variable_t), POINTER :: MeshSol
   REAL(KIND=dp), POINTER :: MeshUpdate(:), PrevMeshUpdate(:)
   INTEGER, POINTER :: MeshPerm(:)
@@ -86,14 +88,12 @@
             GotForceBC, Found, MovingMesh 
 
   REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
-       LOAD(:,:),FORCE(:), ElasticModulus(:,:,:),PoissonRatio(:), &
-       Alpha(:,:), Beta(:)
-
+       LOAD(:,:),FORCE(:), ElasticModulus(:),PoissonRatio(:)
   REAL(KIND=dp), POINTER :: OrigX(:), OrigY(:), OrigZ(:), &
       TrueX(:), TrueY(:), TrueZ(:)
 
   SAVE STIFF, LOAD, FORCE, AllocationsDone, &
-       ElasticModulus, PoissonRatio, Alpha, Beta, &
+       ElasticModulus, PoissonRatio, &
        OrigX, OrigY, OrigZ, TrueX, TrueY, TrueZ, PrevMeshUpdate, &
        VisitedTimes,dim 
 
@@ -112,28 +112,13 @@
 
   dim = CoordinateSystemDimension()
   MeshSol => Solver % Variable
-  MeshPerm      => MeshSol % Perm
-  STDOFs        =  MeshSol % DOFs
-  MeshUpdate    => MeshSol % Values
+  MeshPerm => MeshSol % Perm
+  STDOFs =  MeshSol % DOFs
+  MeshUpdate => MeshSol % Values
 
   LocalNodes = COUNT( MeshPerm > 0 )
   IF ( LocalNodes <= 0 ) RETURN
 
-!------------------------------------------------------------------------------
-
-  TrueX => Solver % Mesh % Nodes % x
-  TrueY => Solver % Mesh % Nodes % y
-  TrueZ => Solver % Mesh % Nodes % z
-
-  IF ( AllocationsDone ) THEN
-    Solver % Mesh % Nodes % x => OrigX
-    Solver % Mesh % Nodes % y => OrigY
-    Solver % Mesh % Nodes % z => OrigZ
-  END IF
-
-!------------------------------------------------------------------------------
-
-  UNorm = Solver % Variable % Norm
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
@@ -142,16 +127,15 @@
     
     IF ( AllocationsDone ) THEN
       DEALLOCATE(  ElasticModulus, PoissonRatio, &
-          FORCE, Alpha, Beta, STIFF, LOAD, STAT=istat )
+          FORCE, STIFF, LOAD, STAT=istat )
     END IF
     
     ALLOCATE( &
-        Alpha(3,N), Beta(N), &
-        ElasticModulus( 6,6,N ), PoissonRatio( N ), &
+        ElasticModulus( N ), PoissonRatio( N ), &
         FORCE( STDOFs*N ), STIFF( STDOFs*N,STDOFs*N ),  &
         LOAD( 4,N ),STAT=istat )
     
-    n = SIZE(MeshUpdate) / STDOFs
+    n = SIZE( Solver % Mesh % Nodes % x )
     ALLOCATE( OrigX(n), OrigY(n), OrigZ(n) )
     OrigX = Solver % Mesh % Nodes % x
     OrigY = Solver % Mesh % Nodes % y
@@ -161,19 +145,30 @@
       CALL Fatal( 'MeshSolve', 'Memory allocation error.' )
     END IF
 
-!------------------------------------------------------------------------------
     AllocationsDone = .TRUE.
 !------------------------------------------------------------------------------
   END IF
 !------------------------------------------------------------------------------
 
+  TrueX => Solver % Mesh % Nodes % x
+  TrueY => Solver % Mesh % Nodes % y
+  TrueZ => Solver % Mesh % Nodes % z
+
+  Solver % Mesh % Nodes % x => OrigX
+  Solver % Mesh % Nodes % y => OrigY
+  Solver % Mesh % Nodes % z => OrigZ
+
   MovingMesh = ListGetLogical( Solver % Values,'Moving Mesh', Found ) 
   IF(.NOT. Found) MovingMesh = .TRUE.
   MovingMesh = MovingMesh .AND. ( VisitedTimes > 1 )
 
+
+! This variable is needed to enable that the mesh is changed externally independent of this solver.
+! Then the variations of this solver must always be relative to the previous update.
+!---------------------------------------------------------------------------------
   IF( MovingMesh ) THEN
     IF( VisitedTimes == 2 ) THEN
-      n = SIZE(MeshUpdate) 
+      n = SIZE( MeshUpdate ) 
       ALLOCATE( PrevMeshUpdate(n) )
       PrevMeshUpdate = 0.0_dp
     END IF
@@ -214,13 +209,13 @@
      
      Material => GetMaterial()
      
-     ElasticModulus(1,1,1:n) = GetReal( Material, &
+     ElasticModulus(1:n) = GetReal( Material, &
          'Mesh Elastic Modulus', Found )
      IF ( .NOT. Found ) THEN
-       ElasticModulus(1,1,1:n) = GetReal( Material, &
+       ElasticModulus(1:n) = GetReal( Material, &
            'Youngs Modulus', Found )
      END IF
-     IF ( .NOT. Found ) ElasticModulus(1,1,1:n) = 1.0d0
+     IF ( .NOT. Found ) ElasticModulus(1:n) = 1.0d0
      
      PoissonRatio(1:n) = GetReal( Material, &
          'Mesh Poisson Ratio', Found )
@@ -258,7 +253,6 @@
 !------------------------------------------------------------------------------
 ! Solve the system and check for convergence
 !------------------------------------------------------------------------------
-  PrevUNorm = UNorm
 
   UNorm = DefaultSolve()
   RelativeChange = Solver % Variable % NonlinChange
@@ -312,7 +306,7 @@
 !------------------------------------------------------------------------------
      IMPLICIT NONE
 
-     REAL(KIND=dp) :: NodalPoisson(:), NodalYoung(:,:,:)
+     REAL(KIND=dp) :: NodalPoisson(:), NodalYoung(:)
      REAL(KIND=dp), TARGET :: STIFF(:,:), FORCE(:)
      INTEGER :: n,nd,nb
      TYPE(Element_t) :: Element
@@ -339,14 +333,14 @@
      dim = CoordinateSystemDimension()
 
      IF ( PlaneStress ) THEN
-        NodalLame1(1:n) = NodalYoung(1,1,1:n) * NodalPoisson(1:n) / &
+        NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) / &
                ((1.0d0 - NodalPoisson(1:n)**2))
      ELSE
-        NodalLame1(1:n) = NodalYoung(1,1,1:n) * NodalPoisson(1:n) /  &
+        NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) /  &
            ((1.0d0 + NodalPoisson(1:n)) * (1.0d0 - 2.0d0*NodalPoisson(1:n)))
      END IF
 
-     NodalLame2(1:n) = NodalYoung(1,1,1:n) / (2* (1.0d0 + NodalPoisson(1:n)))
+     NodalLame2(1:n) = NodalYoung(1:n) / (2* (1.0d0 + NodalPoisson(1:n)))
 
      STIFF = 0.0d0
      FORCE = 0.0d0
