@@ -295,8 +295,6 @@ CONTAINS
           END DO
         END IF
       END DO
-
-      write(1,*) x(j),y(j),z(j)
     END DO
 
     
@@ -354,20 +352,19 @@ CONTAINS
        n=CreateSurfaceFromTetra(Element,F,LevelValue,Triangles)
        IF ( ANY(Triangles(1:n,:)<=0) ) CYCLE
 
-       Triangles = Triangles-1
        DO j=1,n
          k = k + 1
-         TriangleStore(k,:) = Triangles(j,:)+1
-         WRITE(2,*) 's 303 ', Triangles(j,1),Triangles(j,2),Triangles(j,3)
+         TriangleStore(k,:) = Triangles(j,:)
        END DO
      END DO
      ALLOCATE( Isomesh % Elements(k) )
-     DefElement => AllocateElement()
 
      Isomesh % NumberOfBulkElements = k
      Isomesh % NumberOfFaces = 0
      Isomesh % NumberOfEdges = 0
      Isomesh % NumberOfBoundaryElements = 0
+
+     DefElement => AllocateElement()
      DO i=1,k
        Isomesh % Elements(i) = DefElement
        Isomesh % Elements(i) % Type => GetElementType(303)
