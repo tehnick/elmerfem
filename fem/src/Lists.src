@@ -506,13 +506,13 @@ CONTAINS
          END DO
          ptr2 % Next => ptr
       END IF
-      NULLIFY( ptr % Next )
+      ptr % Next => Null()
 
       ptr % DOFs = DOFs
       IF ( PRESENT( Perm ) ) THEN
         ptr % Perm => Perm
       ELSE
-        NULLIFY( ptr % Perm )
+        ptr % Perm => Null()
       END IF
       ptr % Norm = 0.0d0
       ptr % PrevNorm = 0.0d0
@@ -522,15 +522,15 @@ CONTAINS
 
       ptr % NonlinChange = 0.0_dp
       ptr % SteadyChange = 0.0_dp
-      NULLIFY( ptr % NonlinValues, ptr % SteadyValues )
+      ptr % NonlinValues => Null(); ptr % SteadyValues => Null()
 
       ptr % Solver => Solver
       ptr % PrimaryMesh => Mesh
 
       ptr % Valid  = .TRUE.
       ptr % Output = .TRUE.
-      ptr % ValuesChanged = .TRUE.
       ptr % Secondary = .FALSE.
+      ptr % ValuesChanged = .TRUE.
 
       IF ( PRESENT( Secondary ) ) THEN
         PRINT *,'Secondary:',name
@@ -538,8 +538,6 @@ CONTAINS
       END IF
 
       IF ( PRESENT( Output ) ) ptr % Output = Output
-      
-
 !------------------------------------------------------------------------------
     END SUBROUTINE VariableAdd
 !------------------------------------------------------------------------------
@@ -567,10 +565,8 @@ CONTAINS
 
       IF( DOFs > 1 ) THEN
         DO i=1,DOFs
-          tmpname = ComponentName( Name, i )
-          PRINT *,'name',i,Name,tmpname
-
-          Component => Values( i:i )
+          tmpname = ComponentName(Name,i)
+          Component => Values(i::DOFs)
           CALL VariableAdd( Variables,Mesh,Solver,TmpName,1,Component,&
               Perm,Output,Secondary)
         END DO

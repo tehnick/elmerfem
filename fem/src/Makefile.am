@@ -284,6 +284,7 @@ EXTRA_DIST = \
 	HelmholtzSolve.src \
 	Integration.src \
 	Interpolation.src \
+	Isosurface.src \
 	IterSolve.src \
 	IterativeMethods.src \
 	KESolver.src \
@@ -312,6 +313,7 @@ EXTRA_DIST = \
 	NavierStokesCylindrical.src \
 	NavierStokes.src \
 	NavierStokesGeneral.src \
+	NonphysicalMeshSolve.src \
 	NormalSolver.src \
 	ParallelEigenSolve.src \
 	ParallelUtils.src \
@@ -354,6 +356,7 @@ EXTRA_DIST = \
 	StatCurrentSolve.src \
 	StatElecSolve.src \
 	StatMagSolve.src \
+	SteadyPhaseChange.src \
 	Stokes.src \
 	StreamSolver.src \
 	Stress.src \
@@ -362,6 +365,7 @@ EXTRA_DIST = \
 	StructuredMeshMapper.src \
 	TimeIntegrate.src \
 	TransportEquation.src \
+	TransientPhaseChange.src \
 	Types.src \
 	V2FSolver.src \
 	Komega.src \

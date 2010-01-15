@@ -324,7 +324,11 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	StructuredMeshMapper$(SHL_EXT) \
 	FindOptimum$(SHL_EXT) \
 	RigidMeshMapper$(SHL_EXT) \
-	ReynoldsSolver$(SHL_EXT)
+	ReynoldsSolver$(SHL_EXT) \
+        Isosurface$(SHL_EXT) \
+        SteadyPhaseChange$(SHL_EXT) \
+        TransientPhaseChange$(SHL_EXT) \
+        NonphysicalMeshSolve$(SHL_EXT)
 
 SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
@@ -459,6 +463,7 @@ EXTRA_DIST = \
 	HelmholtzSolve.src \
 	Integration.src \
 	Interpolation.src \
+	Isosurface.src \
 	IterSolve.src \
 	IterativeMethods.src \
 	KESolver.src \
@@ -487,6 +492,7 @@ EXTRA_DIST = \
 	NavierStokesCylindrical.src \
 	NavierStokes.src \
 	NavierStokesGeneral.src \
+	NonphysicalMeshSolve.src \
 	NormalSolver.src \
 	ParallelEigenSolve.src \
 	ParallelUtils.src \
@@ -529,6 +535,7 @@ EXTRA_DIST = \
 	StatCurrentSolve.src \
 	StatElecSolve.src \
 	StatMagSolve.src \
+	SteadyPhaseChange.src \
 	Stokes.src \
 	StreamSolver.src \
 	Stress.src \
@@ -537,6 +544,7 @@ EXTRA_DIST = \
 	StructuredMeshMapper.src \
 	TimeIntegrate.src \
 	TransportEquation.src \
+	TransientPhaseChange.src \
 	Types.src \
 	V2FSolver.src \
 	Komega.src \
@@ -972,6 +980,7 @@ HelmholtzBEM.$(OBJEXT): HelmholtzBEM.f90 DefUtils.$(OBJEXT) Types.$(OBJEXT) Pois
 HelmholtzSolve.$(OBJEXT): HelmholtzSolve.f90 DefUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT)
 Integration.$(OBJEXT): Integration.f90 LinearAlgebra.$(OBJEXT) Types.$(OBJEXT)
 Interpolation.$(OBJEXT): Interpolation.f90 ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Types.$(OBJEXT)
+Isosurface.$(OBJEXT): Isosurface.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 iso_varying_string.$(OBJEXT): iso_varying_string.f90
 IterativeMethods.$(OBJEXT): IterativeMethods.f90 CRSMatrix.$(OBJEXT) Types.$(OBJEXT)
 IterSolve.$(OBJEXT): IterSolve.f90 SParIterGlobals.$(OBJEXT) BandMatrix.$(OBJEXT) Lists.$(OBJEXT) IterativeMethods.$(OBJEXT) CRSMatrix.$(OBJEXT) Types.$(OBJEXT)
@@ -999,6 +1008,7 @@ Multigrid.$(OBJEXT): Multigrid.f90 MeshUtils.$(OBJEXT) DirectSolve.$(OBJEXT) Ite
 NavierStokesCylindrical.$(OBJEXT): NavierStokesCylindrical.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT) Differentials.$(OBJEXT) ElementUtils.$(OBJEXT)
 NavierStokesGeneral.$(OBJEXT): NavierStokesGeneral.f90 MaterialModels.$(OBJEXT) Differentials.$(OBJEXT) CoordinateSystems.$(OBJEXT) Integration.$(OBJEXT)
 NavierStokes.$(OBJEXT): NavierStokes.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT) Differentials.$(OBJEXT) ElementUtils.$(OBJEXT)
+NonphysicalMeshSolve.$(OBJEXT): NonphysicalMeshSolve.f90 DefUtils.$(OBJEXT)
 NormalSolver.$(OBJEXT): NormalSolver.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 ParallelEigenSolve.$(OBJEXT): ParallelEigenSolve.f90 CRSMatrix.$(OBJEXT) IterSolve.$(OBJEXT) Multigrid.$(OBJEXT) ParallelUtils.$(OBJEXT)
 ParallelUtils.$(OBJEXT): ParallelUtils.f90 SParIterSolver.$(OBJEXT)
@@ -1041,6 +1051,7 @@ SSTKomega.$(OBJEXT): SSTKomega.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 StatCurrentSolve.$(OBJEXT): StatCurrentSolve.f90 DefUtils.$(OBJEXT) Differentials.$(OBJEXT)
 StatElecSolve.$(OBJEXT): StatElecSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 StatMagSolve.$(OBJEXT): StatMagSolve.f90 DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT)
+SteadyPhaseChange.$(OBJEXT): SteadyPhaseChange.f90
 Stokes.$(OBJEXT): Stokes.f90 DefUtils.$(OBJEXT) ElementUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT) SolverUtils.$(OBJEXT)
 StreamSolver.$(OBJEXT): StreamSolver.f90 DefUtils.$(OBJEXT)
 StressGeneral.$(OBJEXT): StressGeneral.f90 ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Integration.$(OBJEXT)
@@ -1049,6 +1060,7 @@ Stress.$(OBJEXT): Stress.f90 ElementUtils.$(OBJEXT) ElementDescription.$(OBJEXT)
 StructuredMeshMapper.$(OBJEXT): StructuredMeshMapper.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 StructuredProjectToPlane.$(OBJEXT): StructuredProjectToPlane.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 TimeIntegrate.$(OBJEXT): TimeIntegrate.f90 Lists.$(OBJEXT) Types.$(OBJEXT)
+TransientPhaseChange.$(OBJEXT): TransientPhaseChange.f90 DefUtils.$(OBJEXT)
 TransportEquation.$(OBJEXT): TransportEquation.f90 ElementUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 Types.$(OBJEXT): Types.f90 iso_varying_string.$(OBJEXT) Messages.$(OBJEXT)
 V2FSolver.$(OBJEXT): V2FSolver.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)

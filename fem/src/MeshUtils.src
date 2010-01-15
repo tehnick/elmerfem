@@ -124,17 +124,20 @@ CONTAINS
 
      Mesh % Stabilize = .FALSE.
 
-     NULLIFY( Mesh % Variables )
-     NULLIFY( Mesh % Parent )
-     NULLIFY( Mesh % Child  )
-     NULLIFY( Mesh % Next)
-     NULLIFY( Mesh % RootQuadrant )
-     NULLIFY( Mesh % Elements )
-     NULLIFY( Mesh % Edges )
-     NULLIFY( Mesh % Faces )
-     NULLIFY( Mesh % Projector )
+     Mesh % Variables => Null()
+     Mesh % Parent => Null()
+     Mesh % Child => Null()
+     Mesh % Next => Null()
+     Mesh % RootQuadrant => Null()
+     Mesh % Elements => Null()
+     Mesh % Edges => Null()
+     Mesh % Faces => Null()
+     Mesh % Projector => Null()
      Mesh % NumberOfEdges = 0
      Mesh % NumberOfFaces = 0
+     Mesh % NumberOfNodes = 0
+     Mesh % NumberOfBulkElements = 0
+     Mesh % NumberOfBoundaryElements = 0
 
      Mesh % MaxFaceDOFs = 0
      Mesh % MaxEdgeDOFs = 0
@@ -142,7 +145,7 @@ CONTAINS
      Mesh % MaxElementDOFs  = 0
      Mesh % MaxElementNodes = 0
 
-     NULLIFY( Mesh % ViewFactors )
+     Mesh % ViewFactors => Null()
 
      ALLOCATE( Mesh % Nodes, STAT=istat )
      IF ( istat /= 0 ) &
@@ -150,6 +153,8 @@ CONTAINS
      NULLIFY( Mesh % Nodes % x )
      NULLIFY( Mesh % Nodes % y )
      NULLIFY( Mesh % Nodes % z )
+     Mesh % Nodes % NumberOfNodes = 0
+
      Mesh % ParallelInfo % NumberOfIfDOFs =  0
      NULLIFY( Mesh % ParallelInfo % GlobalDOFs )
      NULLIFY( Mesh % ParallelInfo % INTERFACE )
@@ -2424,24 +2429,25 @@ END SUBROUTINE CreateGlobalNumbering
                 Edges(Edge) % PDefs % pyramidQuadEdge = .TRUE.
              END IF
 
-             DO ii=1,Element % TYPE % NumberOfFaces
-
-               Face => Mesh % Faces( Element % FaceIndexes(ii) )
-               IF ( .NOT. ASSOCIATED( Face % EdgeIndexes ) ) THEN
-                 ALLOCATE( Face % EdgeIndexes( Face % TYPE % NumberOfEdges ) )
-                 Face % EdgeIndexes = 0
-               END IF
-               DO jj=1,Face % TYPE % NumberOfEdges
-                  IF ( FaceEdgeMap(ii,jj) == k ) THEN
-                     Face % EdgeIndexes(jj) = Edge
-                     IF ( .NOT. ASSOCIATED( Edges(Edge) % BoundaryInfo % Left ) ) THEN
-                        Edges(Edge) % BoundaryInfo % Left => Face
-                     ELSE
-                        Edges(Edge) % BoundaryInfo % Right => Face
-                     END IF
-                  END IF
+             IF ( ASSOCIATED(Mesh % Faces) ) THEN
+               DO ii=1,Element % TYPE % NumberOfFaces
+                 Face => Mesh % Faces( Element % FaceIndexes(ii) )
+                 IF ( .NOT. ASSOCIATED( Face % EdgeIndexes ) ) THEN
+                   ALLOCATE( Face % EdgeIndexes( Face % TYPE % NumberOfEdges ) )
+                   Face % EdgeIndexes = 0
+                 END IF
+                 DO jj=1,Face % TYPE % NumberOfEdges
+                    IF ( FaceEdgeMap(ii,jj) == k ) THEN
+                       Face % EdgeIndexes(jj) = Edge
+                         IF ( .NOT. ASSOCIATED( Edges(Edge) % BoundaryInfo % Left ) ) THEN
+                          Edges(Edge) % BoundaryInfo % Left => Face
+                       ELSE
+                          Edges(Edge) % BoundaryInfo % Right => Face
+                       END IF
+                    END IF
+                 END DO
                END DO
-             END DO
+             END IF
           ELSE
 
 !            Edge not yet there, create:
@@ -2486,23 +2492,25 @@ END SUBROUTINE CreateGlobalNumbering
                 NULLIFY( Edges(Edge) % PDefs )
              END IF
 
-             DO ii=1,Element % TYPE % NumberOfFaces
-               Face => Mesh % Faces( Element % FaceIndexes(ii) )
-               IF ( .NOT. ASSOCIATED( Face % EdgeIndexes ) ) THEN
-                  ALLOCATE( Face % EdgeIndexes( Face % TYPE % NumberOfEdges ) )
-                  Face % EdgeIndexes = 0
-               END IF
-               DO jj=1,Face % TYPE % NumberOfEdges
-                  IF ( FaceEdgeMap(ii,jj) == k ) THEN
-                     Face % EdgeIndexes(jj) = Edge
-                     IF ( .NOT. ASSOCIATED( Edges(Edge) % BoundaryInfo % Left ) ) THEN
-                        Edges(Edge) % BoundaryInfo % Left => Face
-                     ELSE
-                        Edges(Edge) % BoundaryInfo % Right => Face
-                     END IF
-                  END IF
+             IF ( ASSOCIATED(Mesh % Faces) ) THEN
+               DO ii=1,Element % TYPE % NumberOfFaces
+                 Face => Mesh % Faces( Element % FaceIndexes(ii) )
+                 IF ( .NOT. ASSOCIATED( Face % EdgeIndexes ) ) THEN
+                    ALLOCATE( Face % EdgeIndexes( Face % TYPE % NumberOfEdges ) )
+                    Face % EdgeIndexes = 0
+                 END IF
+                 DO jj=1,Face % TYPE % NumberOfEdges
+                    IF ( FaceEdgeMap(ii,jj) == k ) THEN
+                       Face % EdgeIndexes(jj) = Edge
+                       IF ( .NOT. ASSOCIATED( Edges(Edge) % BoundaryInfo % Left ) ) THEN
+                          Edges(Edge) % BoundaryInfo % Left => Face
+                       ELSE
+                          Edges(Edge) % BoundaryInfo % Right => Face
+                       END IF
+                    END IF
+                 END DO
                END DO
-             END DO
+             END IF
 
 !            Update the hash table:
 !            ----------------------
