@@ -100,11 +100,11 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
 !    Local variables
 !------------------------------------------------------------------------------
   CHARACTER(LEN=MAX_NAME_LEN) :: LevelVariableName
-  TYPE(Mesh_t), POINTER :: Mesh, IsoMesh
+  TYPE(Mesh_t), POINTER :: Mesh, IsoMesh => Null(), Pmesh
   INTEGER :: i,j,k,l,n
   REAL(KIND=dp) :: LevelValue
 
-  INTEGER :: total, bricks, BrickToTetraMap(5,4), SaveNOFactive, SaveNOFBulk
+  INTEGER :: total, bricks, BrickToTetraMap(5,4), SaveNOFactive, SaveNOFBulk,calls=0
   TYPE(Variable_t), POINTER :: LevelVariable
   LOGICAL :: Found
   INTEGER, ALLOCATABLE :: eperm(:)
@@ -175,16 +175,29 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
 
   n = Mesh % NumberOfEdges
 
+  IF(ASSOCIATED(IsoMesh)) THEN
+    Pmesh => Model % Meshes
+    DO WHILE(ASSOCIATED(Pmesh % Next))
+      IF ( ASSOCIATED(Pmesh % next, Isomesh)) THEN
+        Pmesh % next=>Isomesh % Next
+        EXIT
+      END IF
+    END DO
+    CALL ReleaseMesh(Isomesh)
+  END IF
+
   Isomesh => AllocateMesh()
   IsoMesh % Name = GetString( GetSolverParams(), & 
       'Isosurface output directory', Found )
   IF (.NOT. Found ) IsoMesh % Name = "isosurf"
+
+  calls = calls + 1
+  Isomesh % name = TRIM(Isomesh % name) // TRIM(i2s(calls))
   CALL MakeDirectory( TRIM(Isomesh % name) // CHAR(0) )
 
   Isomesh % Changed = .TRUE.
   Isomesh % OutputActive  = .TRUE.
   
-
   LevelValue = GetCReal( GetSolverParams(), &
      'Isosurface threshold', Found )
 
@@ -204,6 +217,8 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
     Mesh => Mesh % Next
   END DO
   Mesh % Next => Isomesh 
+
+  CALL ReleaseMeshEdgeTables(Mesh)
 
 CONTAINS
 
@@ -320,17 +335,21 @@ CONTAINS
     CALL VariableAdd( IsoMesh % Variables,IsoMesh,Solver, &
        'Coordinate 3',1,IsoMesh % Nodes % z )
 
-    ALLOCATE( dummy(1) )
-    CALL VariableAdd( Isomesh % Variables, Isomesh, Solver, 'Time', 1, dummy )
+    V => VariableGet( Mesh % Variables, 'Time' )
+    CALL VariableAdd( Isomesh % Variables, Isomesh, Solver, 'Time', 1, &
+        V % Values )
 
     IF ( ints>0 ) THEN
       DO i=1,ints
-        ALLOCATE( Vperm(j),Vals(V % DOFs*j) )
-        Vperm = [(i,i=1,j)]
-        Vals = Varr(i) % Vals(1:V % DOFs*j)
-        DEALLOCATE( Varr(i) % Vals )
-        CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
-             TRIM(Vname(i)), V % DOFs, Vals, Vperm )
+        V => VariableGet( Mesh % Variables, Vname(ints) )
+        IF (ASSOCIATED(V)) THEN
+          ALLOCATE( Vperm(j),Vals(V % DOFs*j) )
+          Vperm = [(i,i=1,j)]
+          Vals = Varr(i) % Vals(1:V % DOFs*j)
+          DEALLOCATE( Varr(i) % Vals )
+          CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
+               TRIM(Vname(i)), V % DOFs, Vals, Vperm )
+        END IF
       END DO
       DEALLOCATE(Varr)
     END IF
@@ -369,11 +388,10 @@ CONTAINS
        Isomesh % Elements(i) = DefElement
        Isomesh % Elements(i) % Type => GetElementType(303)
        Isomesh % Elements(i) % Bodyid = 1
-       Isomesh % Elements(i) % EdgeIndexes => Null()
        ALLOCATE(Isomesh % Elements(i) % NodeIndexes(3))
        Isomesh % Elements(i) % NodeIndexes = TriangleStore(i,:)
      END DO
-     DEALLOCATE(DefElement)
+     DEALLOCATE(DefElement, TriangleStore)
   END SUBROUTINE CreateSurfaces
 
 
