@@ -350,9 +350,9 @@ CONTAINS
        F(1:4) = LevelVariable % Values( &
            LevelVariable % Perm(Element % NodeIndexes) )
        n=CreateSurfaceFromTetra(Element,F,LevelValue,Triangles)
-       IF ( ANY(Triangles(1:n,:)<=0) ) CYCLE
 
        DO j=1,n
+         IF ( ANY(Triangles(j,:)<=0) ) CYCLE
          k = k + 1
          TriangleStore(k,:) = Triangles(j,:)
        END DO
