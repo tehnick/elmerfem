@@ -118,6 +118,21 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
 
   Mesh => GetMesh()
 
+  LevelVariableName = GetString( GetSolverParams(), &
+            'Isosurface Variable')
+
+  LevelVariable => VariableGet( Mesh % Variables, & 
+            LevelVariableName )
+
+  IF (.NOT.ASSOCIATED(LevelVariable)) THEN
+    CALL Error( 'Isosurface', 'The isosurface variable: ' // &
+          TRIM(LevelVariableName) // ' not present' )
+    RETURN
+  END IF
+
+  LevelValue = GetCReal( GetSolverParams(), &
+     'Isosurface threshold', Found )
+
   BrickToTetraMap(1,:) = [1,2,4,5]
   BrickToTetraMap(2,:) = [6,7,2,5]
   BrickToTetraMap(3,:) = [3,4,2,7]
@@ -168,11 +183,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
     Solver % NumberOfActiveElements=total
   END IF
 
-  IF ( .NOT. ASSOCIATED(Mesh % Edges) ) CALL FindMeshEdges3D(Mesh)
-
-  LevelVariableName = GetString(GetSolverParams(), 'Isosurface Variable')
-  LevelVariable => VariableGet( Mesh % Variables,LevelVariableName)
-
+  IF (.NOT.ASSOCIATED(Mesh % Edges)) CALL FindMeshEdges3D(Mesh)
   n = Mesh % NumberOfEdges
 
   IF(ASSOCIATED(IsoMesh)) THEN
@@ -191,16 +202,13 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
       'Isosurface output directory', Found )
   IF (.NOT. Found ) IsoMesh % Name = "isosurf"
 
-  calls = calls + 1
+  Calls = Calls + 1
   Isomesh % name = TRIM(Isomesh % name) // TRIM(i2s(calls))
   CALL MakeDirectory( TRIM(Isomesh % name) // CHAR(0) )
 
   Isomesh % Changed = .TRUE.
   Isomesh % OutputActive  = .TRUE.
   
-  LevelValue = GetCReal( GetSolverParams(), &
-     'Isosurface threshold', Found )
-
   CALL CreateNodes()
   CALL CreateSurfaces()
 
