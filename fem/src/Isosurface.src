@@ -269,6 +269,7 @@ CONTAINS
         V => VariableGet( Mesh % Variables, Vname(i) )
         IF ( ASSOCIATED(V) ) THEN
           ALLOCATE(Varr(i) % vals(n*V%DOFs))
+          Varr(i) % Vals = 0._dp
         END IF
       END DO
     END IF
@@ -310,11 +311,11 @@ CONTAINS
         IF (ASSOCIATED(V)) THEN
           DO l=1,V % DOFs
             x1 = 0; x2 = 0;
-            IF ( V % Perm(n1)>0 ) &
+            IF ( V % Perm(n1)>0 .AND. V % Perm(n2)>0 ) THEN
               x1  = V % Values(V % DOFs*(V % Perm(n1)-1)+l)
-            IF ( V % Perm(n2)>0 ) &
               x2  = V % Values(V % DOFs*(V % Perm(n2)-1)+l)
-            Varr(k) % Vals(V % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
+              Varr(k) % Vals(V % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
+            END IF
           END DO
         END IF
       END DO
@@ -409,8 +410,7 @@ CONTAINS
     INTEGER :: scount, Surf(2,3)
 
     LOGICAL :: S0,S1,S2,S3
-    integer :: S,H,i,j,l
-    INTEGER :: TetraEdgeMap(6,2), Indexes(6)
+    integer :: S,H,i,j,l,Indexes(6)
 
     scount = 0
     Indexes = eperm(Tetra % EdgeIndexes)
@@ -429,39 +429,28 @@ CONTAINS
     IF ( S==0 .OR. S==4 ) RETURN
 
     IF ( S==1 .OR. S==3 ) THEN
-      IF ( (S==1 .AND. S0) .OR. (S==3 .AND. .NOT.S0) ) THEN
-        H = 1;
-      ELSE IF ( (S==1 .AND. S1) .OR. (S==3 .AND. .NOT.S1) ) THEN
-        H = 2;
-      ELSE IF ( (S==1 .AND. S2) .OR. (S==3 .AND. .NOT.S2) ) THEN
-        H = 3;
-      ELSE IF ( (S==1 .AND. S3) .OR. (S==3 .AND. .NOT.S3) ) THEN
-        H = 4;
-      ELSE
-        scount = 0
-        RETURN
-      END IF
-
-      TetraEdgeMap(1,:) = (/ 1,2 /)
-      TetraEdgeMap(2,:) = (/ 2,3 /)
-      TetraEdgeMap(3,:) = (/ 3,1 /)
-      TetraEdgeMap(4,:) = (/ 1,4 /)
-      TetraEdgeMap(5,:) = (/ 2,4 /)
-      TetraEdgeMap(6,:) = (/ 3,4 /)
-
-      l = 0
-      DO i=1,6
-        DO j=1,2
-          IF ( TetraEdgeMap(i,j)==H ) THEN
-            l = l + 1
-            Surf(1,l)=Indexes(i)
-            EXIT
-          END IF
-        END DO
-      END DO
       scount = 1
-      RETURN
+      IF ( (S==1 .AND. S0) .OR. (S==3 .AND. .NOT.S0) ) THEN
+        Surf(1,1)=Indexes(1)
+        Surf(1,2)=Indexes(3)
+        Surf(1,3)=Indexes(4)
+      ELSE IF ( (S==1 .AND. S1) .OR. (S==3 .AND. .NOT.S1) ) THEN
+        Surf(1,1)=Indexes(1)
+        Surf(1,2)=Indexes(2)
+        Surf(1,3)=Indexes(5)
+      ELSE IF ( (S==1 .AND. S2) .OR. (S==3 .AND. .NOT.S2) ) THEN
+        Surf(1,1)=Indexes(2)
+        Surf(1,2)=Indexes(3)
+        Surf(1,3)=Indexes(6)
+      ELSE IF ( (S==1 .AND. S3) .OR. (S==3 .AND. .NOT.S3) ) THEN
+        Surf(1,1)=Indexes(4)
+        Surf(1,2)=Indexes(5)
+        Surf(1,3)=Indexes(6)
+      ELSE
+        scount=0
+      END IF
     ELSE
+      scount=2
       IF ( (S0 .AND. S1) .OR. (.NOT.S0 .AND. .NOT.S1) ) THEN
         Surf(1,1) = Indexes(3)
         Surf(1,2) = Indexes(2)
@@ -486,9 +475,9 @@ CONTAINS
         Surf(2,1) = Indexes(1)
         Surf(2,2) = Indexes(6)
         Surf(2,3) = Indexes(3)
+      ELSE
+        scount=0
       END IF
-      scount=2
-      RETURN
     END IF
   END FUNCTION CreateSurfaceFromTetra
 
