@@ -104,7 +104,12 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   INTEGER :: i,j,k,l,n
   REAL(KIND=dp) :: LevelValue
 
-  INTEGER :: total, bricks, BrickToTetraMap(5,4), SaveNOFactive, SaveNOFBulk,calls=0
+  INTEGER, TARGET :: TetraToTetraMap(1,4), PyramidToTetraMap(2,4), &
+             WedgeToTetraMap(3,4), BrickToTetraMap(5,4)
+  INTEGER, POINTER :: Map(:,:)
+  INTEGER :: SaveNOFactive, SaveNOFBulk,calls=0
+  INTEGER :: total, tetras, pyramids, wedges, bricks
+
   TYPE(Variable_t), POINTER :: LevelVariable
   LOGICAL :: Found
   INTEGER, ALLOCATABLE :: eperm(:)
@@ -133,19 +138,34 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   LevelValue = GetCReal( GetSolverParams(), &
      'Isosurface threshold', Found )
 
+  TetraToTetraMap(1,:) = [1,2,3,4]
+
+  PyramidToTetraMap(1,:) = [3,5,4,1]
+  PyramidToTetraMap(2,:) = [3,5,2,1]
+
+  WedgeToTetraMap(1,:) = [5,4,3,1]
+  WedgeToTetraMap(2,:) = [5,3,2,1]
+  WedgeToTetraMap(3,:) = [5,6,4,3]
+
   BrickToTetraMap(1,:) = [1,2,4,5]
   BrickToTetraMap(2,:) = [6,7,2,5]
   BrickToTetraMap(3,:) = [3,4,2,7]
   BrickToTetraMap(4,:) = [8,7,5,4]
   BrickToTetraMap(5,:) = [2,4,5,7]
-  bricks = 0
+
+  tetras=0; pyramids=0; wedges=0; bricks=0
   DO i=1,Solver % NumberOfActiveElements
     Element => GetActiveElement(i)
-    IF ( GetElementFamily()==8 ) bricks=bricks+1
+    SELECT CASE(GetElementFamily())
+      CASE(5); tetras=tetras+1
+      CASE(6); pyramids=pyramids+1
+      CASE(7); wedges=wedges+1
+      CASE(8); bricks=bricks+1
+    END SELECT
   END DO
-  total = 4*bricks + Solver % NumberOfActiveElements
+  total = tetras+2*pyramids+3*wedges+5*bricks
 
-  IF ( bricks>0  ) THEN
+  IF ( total/=tetras ) THEN
     SaveNOFBulk = Mesh % NumberOfBulkElements
     SaveActive => Solver % ACtiveElements
     SaveElements => Mesh % Elements
@@ -158,21 +178,22 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
       Element => GetActiveElement(i)
 
       SELECT CASE(GetElementFamily())
-      CASE(5)
-         j = j + 1
-         NewElements(j)=Element
-      CASE(8)
-          DO k=1,5
-           j = j + 1
-           NewElements(j)=Element
-           NewElements(j) % Type => GetElementType(504)
-           ALLOCATE(NewElements(j) % NodeIndexes(4))
-           DO l=1,4
-              NewElements(j) % NodeIndexes(l) = &
-                 Element % NodeIndexes(BrickToTetraMap(k,l))
-           END DO
-         END DO
+        CASE(5); Map => TetraToTetraMap
+        CASE(6); Map => PyramidToTetraMap
+        CASE(7); Map => WedgeToTetraMap
+        CASE(8); Map => BrickToTetraMap
       END SELECT
+
+      DO k=1,SIZE(Map,1)
+        j = j + 1
+        NewElements(j)=Element
+        NewElements(j) % Type => GetElementType(504)
+        ALLOCATE(NewElements(j) % NodeIndexes(4))
+        DO l=1,4
+           NewElements(j) % NodeIndexes(l) = &
+              Element % NodeIndexes(Map(k,l))
+        END DO
+      END DO
     END DO
     Mesh % NumberOfBulkElements = total
     Mesh % Elements => NewElements
@@ -212,7 +233,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   CALL CreateNodes()
   CALL CreateSurfaces()
 
-  IF ( Bricks>0 ) THEN
+  IF ( total/=tetras ) THEN
     DEALLOCATE(NewElements, Solver % ActiveElements)
     Mesh % NumberOfBulkElements = SaveNOFBulk
     Mesh % Elements => SaveElements
@@ -406,43 +427,43 @@ CONTAINS
 
   FUNCTION CreateSurfaceFromTetra(Tetra,F,K,Surf) RESULT(scount)
     TYPE(Element_t) :: Tetra
-    REAL(KIND=dp) :: F(0:3), K
+    REAL(KIND=dp) :: F(4), K
     INTEGER :: scount, Surf(2,3)
 
-    LOGICAL :: S0,S1,S2,S3
+    LOGICAL :: S1,S2,S3,S4
     integer :: S,H,i,j,l,Indexes(6)
 
     scount = 0
     Indexes = eperm(Tetra % EdgeIndexes)
 
-    S0 = F(0) > K;
     S1 = F(1) > K;
     S2 = F(2) > K;
     S3 = F(3) > K;
+    S4 = F(4) > K;
 
     S = 0
-    IF ( s0 ) S=S+1
-    IF ( s1 ) S=S+1
-    IF ( s2 ) S=S+1
-    IF ( s3 ) S=S+1
+    IF ( S1 ) S=S+1
+    IF ( S2 ) S=S+1
+    IF ( S3 ) S=S+1
+    IF ( S4 ) S=S+1
 
     IF ( S==0 .OR. S==4 ) RETURN
 
     IF ( S==1 .OR. S==3 ) THEN
       scount = 1
-      IF ( (S==1 .AND. S0) .OR. (S==3 .AND. .NOT.S0) ) THEN
+      IF ( (S==1 .AND. S1) .OR. (S==3 .AND. .NOT.S1) ) THEN
         Surf(1,1)=Indexes(1)
         Surf(1,2)=Indexes(3)
         Surf(1,3)=Indexes(4)
-      ELSE IF ( (S==1 .AND. S1) .OR. (S==3 .AND. .NOT.S1) ) THEN
+      ELSE IF ( (S==1 .AND. S2) .OR. (S==3 .AND. .NOT.S2) ) THEN
         Surf(1,1)=Indexes(1)
         Surf(1,2)=Indexes(2)
         Surf(1,3)=Indexes(5)
-      ELSE IF ( (S==1 .AND. S2) .OR. (S==3 .AND. .NOT.S2) ) THEN
+      ELSE IF ( (S==1 .AND. S3) .OR. (S==3 .AND. .NOT.S3) ) THEN
         Surf(1,1)=Indexes(2)
         Surf(1,2)=Indexes(3)
         Surf(1,3)=Indexes(6)
-      ELSE IF ( (S==1 .AND. S3) .OR. (S==3 .AND. .NOT.S3) ) THEN
+      ELSE IF ( (S==1 .AND. S4) .OR. (S==3 .AND. .NOT.S4) ) THEN
         Surf(1,1)=Indexes(4)
         Surf(1,2)=Indexes(5)
         Surf(1,3)=Indexes(6)
@@ -451,7 +472,7 @@ CONTAINS
       END IF
     ELSE
       scount=2
-      IF ( (S0 .AND. S1) .OR. (.NOT.S0 .AND. .NOT.S1) ) THEN
+      IF ( (S1 .AND. S2) .OR. (.NOT.S1 .AND. .NOT.S2) ) THEN
         Surf(1,1) = Indexes(3)
         Surf(1,2) = Indexes(2)
         Surf(1,3) = Indexes(5)
@@ -459,7 +480,7 @@ CONTAINS
         Surf(2,1) = Indexes(3)
         Surf(2,2) = Indexes(5)
         Surf(2,3) = Indexes(4)
-      ELSE IF ( (S0 .AND. S2) .OR. (.NOT.S0 .AND. .NOT.S2) ) THEN
+      ELSE IF ( (S1 .AND. S3) .OR. (.NOT.S1 .AND. .NOT.S3) ) THEN
         Surf(1,1) = Indexes(1)
         Surf(1,2) = Indexes(2)
         Surf(1,3) = Indexes(6)
@@ -467,7 +488,7 @@ CONTAINS
         Surf(2,1) = Indexes(1)
         Surf(2,2) = Indexes(6)
         Surf(2,3) = Indexes(4)
-      ELSE IF ( (S0 .AND. S3) .OR. (.NOT.S0 .AND. .NOT.S3) ) THEN
+      ELSE IF ( (S1 .AND. S4) .OR. (.NOT.S1 .AND. .NOT.S4) ) THEN
         Surf(1,1) = Indexes(1)
         Surf(1,2) = Indexes(5)
         Surf(1,3) = Indexes(6)
