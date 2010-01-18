@@ -23,12 +23,12 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for computing avarage normals for nodes
+! *  Module for extracting isosurfaces
 ! *
 ! ******************************************************************************
 ! *
-! *  Authors: Peter Råback, Juha Ruokolainen
-! *  Email:   Peter.Raback@csc.fi
+! *  Authors: Juha Ruokolainen
+! *  Email:   jpr@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
 ! *           Keilaranta 14
@@ -52,14 +52,8 @@
     TYPE(ValueList_t), POINTER :: SolverParams
 !------------------------------------------------------------------------------
     SolverParams => GetSolverParams()
-    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
-      dim = CoordinateSystemDimension()
-      CALL ListAddString( SolverParams,  'Variable', '-nooutput Nrm_tmp' )
-      CALL ListAddString( SolverParams,  'Exported Variable 1', 'Normals' )
-      CALL ListAddInteger( SolverParams, 'Exported Variable 1 DOFs', dim )
-      CALL ListAddString( SolverParams,  'Normals Result Variable', 'Normals')
-    END IF
-    CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) &
+      CALL ListAddString( SolverParams,  'Variable', '-nooutput iso_tmp' )
 !------------------------------------------------------------------------------
   END SUBROUTINE IsosurfaceSolver_Init
 !------------------------------------------------------------------------------
@@ -252,7 +246,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
 CONTAINS
 
 
-  SUBROUTINE CreateNodes
+  SUBROUTINE CreateNodes()
 
     TYPE(Element_t), POINTER :: Edge
     INTEGER :: i,j,k,l,n1,n2,ints,comps
