@@ -1505,7 +1505,7 @@ CONTAINS
     TYPE(Mesh_t), POINTER :: Mesh,Mesh1,NewMesh,OldMesh
     INTEGER :: i,j,k,l,s,nlen,eqn,MeshKeep,MeshLevels
     LOGICAL :: GotIt,GotMesh,found,OneMeshName, OpenFile
-    LOGICAL :: stat
+    LOGICAL :: stat, single
     INTEGER, POINTER :: ActiveSolvers(:)
     INTEGER, ALLOCATABLE :: Def_Dofs(:,:)
     CHARACTER(LEN=MAX_NAME_LEN) :: Name,ElementDef
@@ -1767,6 +1767,11 @@ CONTAINS
     DO s=1,Model % NumberOfSolvers
       Name = ListGetString( Model % Solvers(s) % Values, 'Mesh', GotIt )
       IF ( GotIt ) THEN
+        single=.FALSE.
+        IF ( Name(1:8) == '-single ' ) THEN
+          single=.TRUE.
+          Name=Name(9:)
+        END IF
         OneMeshName = .FALSE.
         k = 1
         i = 1
@@ -1830,8 +1835,13 @@ CONTAINS
 
         Def_Dofs = Model % Solvers(s) % Def_Dofs
 
-        Model % Solvers(s) % Mesh => &
-          LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype,def_dofs )
+        IF ( single ) THEN
+          Model % Solvers(s) % Mesh => &
+            LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,1,0,def_dofs )
+        ELSE
+          Model % Solvers(s) % Mesh => &
+            LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype,def_dofs )
+        END IF
 
         MeshLevels = ListGetInteger( Model % Solvers(s) % Values, 'Mesh Levels', GotIt )
         IF ( .NOT. GotIt ) MeshLevels=1
