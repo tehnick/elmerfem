@@ -113,15 +113,15 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t), POINTER :: PSolver 
 
   REAL(KIND=dp) :: Normal(3), u, v, w, UPull, PrevUpull, &
-      Density, Update, MaxUpdate, Relax, VelocityRelax, &
-      surf, xx, yy, r, detJ, Temp, MeltPoint, NonlinearTol, &
+      Update, MaxUpdate, VelocityRelax, &
+      surf, xx, yy, r, detJ, Temp, NonlinearTol, &
       d, HeatCond, s, CoordMin(3), CoordMax(3), RelativeChange, area, &
       Norm, maxds, maxds0, ds, &
       pos0=0.0, prevpos0, Coeff, &
-      MeanSurface, PullRelax, SpeedUp, PrevNorm
+      MeanSurface, SpeedUp
   REAL(KIND=dp), POINTER :: Surface(:), Temperature(:), ForceVector(:),  &
       x(:), y(:), z(:), Basis(:), dBasisdx(:,:), NodalTemp(:), &
-      Conductivity(:), LatentHeat(:), TempDiff(:), &
+      Conductivity(:), LatentHeat(:), Density(:), &
       Normals(:), Weights(:), SurfaceVelo(:), PrevSurfaceVelo(:)
 
   REAL(KIND=dp), ALLOCATABLE :: &          
@@ -139,10 +139,9 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: ValueList
 
   SAVE FirstTime, Trip_node, Axis_node,SubroutineVisited, prevpos0, &
-      PrevSurfaceVelo, NormalDirection, MeltPoint, &
-      ForceVector, PullControl, &
-      Visited, Nodes, NodalTemp, Conductivity, LatentHeat, &
-      TempDiff, AllocationsDone, LocalStiffMatrix, LocalForceVector, LocalMassMatrix, &
+      PrevSurfaceVelo, NormalDirection, ForceVector, PullControl, &
+      Visited, Nodes, NodalTemp, Conductivity, LatentHeat, Density, &
+      AllocationsDone, LocalStiffMatrix, LocalForceVector, LocalMassMatrix, &
       x, y, z, Basis, dBasisdx, norm, PullVelocitySet, &
       Normals, Weights, NormalsPerm, AverageNormal, SurfaceVelo, &
       SurfaceVelocitySet, CoordMax, CoordMin, CoordMaxi, CoordMini, UPull, &
@@ -185,9 +184,6 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
     CALL Fatal('TransientPhaseChange','Temperature field needed for Phase Change')
   END IF
 
-  Relax = GetCReal( Solver % Values,  & 
-      'Nonlinear System Relaxation Factor', stat )
-  IF ( .NOT. stat ) Relax = 1.0d0
   NonlinearIter = ListGetInteger( Solver % Values, &
       'Nonlinear System Max Iterations', stat )
   IF ( .NOT. stat ) NonlinearIter = 1    
@@ -282,7 +278,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
 
     ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n), &
         x(n), y(n), z(n), Basis(n), dBasisdx(n,3), NodalTemp(n), &
-        Conductivity(n), LatentHeat(n), TempDiff(n), &
+        Conductivity(n), LatentHeat(n), Density(n), &
         LocalStiffMatrix(n,n), LocalForceVector(n), LocalMassMatrix(n,n), &
         STAT=istat)
     IF ( istat /= 0 ) CALL Fatal( 'TransientPhaseChange', 'Memory allocation error 1.' )     
@@ -331,19 +327,11 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   i =  ListGetInteger( Solver % Values,'Passive Steps',Stat)
   IF( i >= SubroutineVisited) GOTO 200
 
-
-  ! Find the constant material parameters: melting point and density
-  !-----------------------------------------------------------------
-  CurrentElement => Solver % Mesh % Elements(Solver % ActiveElements (1))
-  n = CurrentElement % TYPE % NumberOfNodes
-  NodeIndexes => CurrentElement % NodeIndexes
-  k = ListGetInteger(Model % Bodies(CurrentElement % BodyId) % Values,'Material')
-  Material => Model % Materials(k) % Values   
-  MeltPoint = ListGetConstReal( Material,'Melting Point' )
-  Density = ListGetConstReal( Material, 'Density' )
-
   ! The first pull velocity should always be set
   IF ( .NOT. PullVelocitySet ) THEN
+    CurrentElement => GetActiveElement(1)
+    k = GetMaterialId()
+    Material => Model % Materials(k) % Values
     WRITE (str,'(A,I2)') 'Convection Velocity',NormalDirection
     UPull = ListGetConstReal( Material, str, Stat )
     PullVelocitySet = .TRUE.
@@ -388,8 +376,8 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
       NodeIndexes => CurrentElement % NodeIndexes
       
       LatentHeat(1:n) = ListGetReal( Material, 'Latent Heat', n, NodeIndexes )
+      Density(1:n) = ListGetReal( Material, 'Density', n, NodeIndexes )
       Conductivity(1:n) = ListGetReal( Material,'Heat Conductivity', n, NodeIndexes )                
-      TempDiff(1:n) = Temperature( TempPerm(NodeIndexes) ) - MeltPoint
       
       CALL GetElementNodes( Nodes )
       CALL VelocityLocalMatrix( LocalStiffMatrix, LocalMassMatrix, LocalForceVector,&
@@ -513,7 +501,7 @@ CONTAINS
     TYPE(Nodes_t) :: PNodes
     TYPE(Element_t), POINTER :: Parent      
     REAL(KIND=dp) :: Basis(3*n),dBasisdx(3*n,3), &
-        X,Y,Z,U,V,W,S,detJ, TGrad(3,3),Flux,pu,pv,pw,pull, LocalHeat, &
+        X,Y,Z,U,V,W,S,detJ, TGrad(3,3),Flux,pu,pv,pw,pull, LocalHeat, LocalDens, &
         NodalTemp(3*n), xx(10),yy(10),zz(10),  NodalSurf(n), NodalNormal(3,n)
     REAL(KIND=dp) :: Velo, Ny, Normal(3), StabFactor, StabCoeff, DerSurf, xcoord
     LOGICAL :: Stat
@@ -579,7 +567,8 @@ CONTAINS
       END IF
 
       LocalHeat = SUM(Basis(1:n) * LatentHeat(1:n))
-      StabCoeff = StabFactor * LocalHeat * Density 
+      LocalDens = SUM(Basis(1:n) * Density(1:n))
+      StabCoeff = StabFactor * LocalHeat * LocalDens
       
       IF(UseLoads) THEN
         ! do nothing, loads already inserted
@@ -652,7 +641,7 @@ CONTAINS
         
         DO q=1,nBasis
           StiffMatrix(p,q) = StiffMatrix(p,q) + s * Basis(p) * Basis(q) * &
-              Normal(NormalDirection) * Density * LocalHeat            
+              Normal(NormalDirection) * LocalDens * LocalHeat            
           
           ! Jump over the special nodes (when defined)
           IF( IsBoundaryNode( SurfPerm(NodeIndexes(p))) ) CYCLE
