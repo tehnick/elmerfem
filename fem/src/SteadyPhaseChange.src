@@ -185,14 +185,14 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
      END DO    
      NoBNodes = COUNT ( BoundaryMarker )
 
-     WRITE(Message,'(A,T35,I12)') 'Number of nodes at the interface',NoBNodes
+     WRITE(Message,'(A,T35,I12)') 'Number of interface nodes:',NoBNodes
      CALL Info('SteadyPhaseChange',Message)
 
      IF( NoBNodes == 0 ) THEN
         CALL Warn('SteadyPhaseChange','There is no Phase Change boundary')
      END IF
 
-     WRITE(Message,'(A,T35,I12)') 'Number of elements at the interface',NoPhaseElements
+     WRITE(Message,'(A,T35,I12)') 'Number of interface elements:',NoPhaseElements
      CALL Info('SteadyPhaseChange',Message)
     
      ALLOCATE(PhaseElements(NoPhaseElements), STAT=istat) 
@@ -358,11 +358,11 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
 !-----------------------
 
   TriplePointFixed = ListGetLogical( Solver % Values,'Triple Point Fixed',stat)
-  IF(.NOT. Stat) TriplePointFixed = .TRUE.
+  IF(.NOT. Stat) TriplePointFixed = .FALSE.
 
   IF( TriplePointFixed ) THEN
     MeltPoint = Trip_Temp
-    WRITE(Message,'(A,T35,ES12.4)') 'Melting point set to triple point temperature: ',MeltPoint
+    WRITE(Message,'(A,T35,ES12.4)') 'Melting point set: ',MeltPoint
     CALL Info('SteadyPhaseChange',Message)        
   ELSE
     DO k=1, Model % NumberOfMaterials
@@ -371,7 +371,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
       IF(GotIt) EXIT
     END DO
     IF( GotIt ) THEN
-      WRITE(Message,'(A,T35,ES12.4)') 'Melting point found to: ',MeltPoint
+      WRITE(Message,'(A,T35,ES12.4)') 'Melting point found: ',MeltPoint
       CALL Info('SteadyPhaseChange',Message)        
     ELSE
       CALL Info('SteadyPhaseChange','Could not find melting point in any material!')        
@@ -788,7 +788,7 @@ CONTAINS
      IF(.NOT. IsoSurfAllocated) THEN
         ALLOCATE( IsoSurf(Nelems+1,2))
         IsoSurfAllocated = .TRUE.
-        WRITE(Message,'(A,T35,I12)') 'Isotherm created with number of segments',Nelems/2
+        WRITE(Message,'(A,T35,I12)') 'Number of isotherm segments:',Nelems
         CALL Info('SteadyPhaseChange',Message)
         GOTO 100
      END IF
