@@ -25,9 +25,9 @@ Simulation
   Timestep Sizes = 3.0e-2
   Timestep Intervals = 3
 !  Timestep Intervals = 100
-  Output Intervals = 1
+  Output Intervals = 0
 
-  Post File   = "data.ep"
+!  Post File   = "data.ep"
 !  Output File = "data.result"
 End
 
@@ -108,7 +108,8 @@ End
 Solver 3
   Variable = PhaseSurface
   Equation = "Phase Surface"
-  Procedure = "PhaseChangeSolve" "PhaseChangeSolve"
+!  Procedure = "PhaseChangeSolve" "PhaseChangeSolve"
+  Procedure = "TransientPhaseChange" "TransientPhaseChange"
 
   Nonlinear System Relaxation Factor = 1.0
   Nonlinear System Newton After Iterations = 10
@@ -117,10 +118,7 @@ Solver 3
 !  Use Triple Point for Melting Point = Logical True
 
   Surface Smoothing Factor = Real 0.0
-  Velocity Smoothing Factor = Real 0.05
-  Use Average Velocity = Logical False
   Transient Speedup = Real 1.0
-
   Velocity Smoothing Factor = Real 0.05
   Velocity Relaxation Factor = Real 0.5
 End
@@ -151,6 +149,7 @@ End
 Body Force 1
 !  Heat Source = Real 1.0
 !  Smart Heater Control = Logical True
+
 End
 
 
@@ -241,6 +240,7 @@ Boundary Condition 4
   Heat Flux BC = Logical True
   Heat Transfer Coefficient = Real $ trans
   External Temperature = Real 1.0
+  Phase Change Side = Logical True
 End
 
 Boundary Condition 5
@@ -256,4 +256,4 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM= 0.698030483075\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM= 0.96975646\n");
