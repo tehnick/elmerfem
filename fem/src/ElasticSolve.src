@@ -493,16 +493,21 @@
 !          NOTE: the following will replace LocalStiffMatrix and LocalForce
 !          with the combined information
 !------------------------------------------------------------------------------
-           CALL Add2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
-                LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
-                StressPerm(NodeIndexes), Solver )
+
+!           CALL Add2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
+!                LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
+!                StressPerm(NodeIndexes), Solver )
+              CALL Default2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
+	        LocalStiffMatrix, LocalForce )
 
          END IF
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
 !------------------------------------------------------------------------------
-         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-           ForceVector, LocalForce, n, STDOFs, StressPerm(NodeIndexes) )
+!         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+!           ForceVector, LocalForce, n, STDOFs, StressPerm(NodeIndexes) )
+
+         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 
          IF ( Solver % NOFEigenValues > 0 ) THEN
             CALL DefaultUpdateMass( LocalMassMatrix )
@@ -695,18 +700,24 @@
 !------------------------------------------------------------------------------
 
             IF ( TransientSimulation .AND. Solver % NOFEigenValues <= 0 ) THEN
-!              CALL UpdateTimeForce( StiffMatrix,ForceVector,LocalForce, &
-!                        n,STDOFs, StressPerm(NodeIndexes) )
+!!              CALL UpdateTimeForce( StiffMatrix,ForceVector,LocalForce, &
+!!                        n,STDOFs, StressPerm(NodeIndexes) )
 
                LocalDampMatrix = 0.0
                LocalMassMatrix = 0.0
-               CALL Add2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
-                 LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
-                    StressPerm(NodeIndexes), Solver )
+
+               CALL Default2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
+	        LocalStiffMatrix, LocalForce )
+
+!              CALL Add2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
+!                 LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
+!                    StressPerm(NodeIndexes), Solver )
             END IF
 
-            CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-              ForceVector, LocalForce, n, STDOFs, StressPerm(NodeIndexes) )
+            CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
+
+!            CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+!              ForceVector, LocalForce, n, STDOFs, StressPerm(NodeIndexes) )
 
 !------------------------------------------------------------------------------
           END IF
@@ -725,8 +736,10 @@
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
-      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-               Displacement, UNorm, STDOFs, Solver )
+!      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
+!               Displacement, UNorm, STDOFs, Solver )
+
+      UNorm = DefaultSolve()
       RelativeChange = Solver % Variable % NonlinChange
 
       WRITE( Message, * ) 'Result Norm   : ',UNorm
