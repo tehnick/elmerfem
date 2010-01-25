@@ -232,15 +232,6 @@
 
        IF ( AllocationsDone ) THEN
           DEALLOCATE( &
-                 ElementNodes % x, &
-                 ElementNodes % y, &
-                 ElementNodes % z, &
-                 ParentNodes % x, &
-                 ParentNodes % y, &
-                 ParentNodes % z, &
-                 FlowNodes % x, &
-                 FlowNodes % y, &
-                 FlowNodes % z, &
                  BoundaryDispl, &
                  ReferenceTemperature, &
                  HeatExpansionCoeff, &
@@ -257,15 +248,6 @@
        END IF
 
        ALLOCATE( &
-                 ElementNodes % x( N ), &
-                 ElementNodes % y( N ), &
-                 ElementNodes % z( N ), &
-                 ParentNodes % x( N ), &
-                 ParentNodes % y( N ), &
-                 ParentNodes % z( N ), &
-                 FlowNodes % x( N ), &
-                 FlowNodes % y( N ), &
-                 FlowNodes % z( N ), &
                  BoundaryDispl( N ), &
                  ReferenceTemperature( N ), &
                  HeatExpansionCoeff( 3,3,N ), &
@@ -351,10 +333,10 @@
        CALL Info( 'ElasticSolve', 'Starting assembly...', Level=4 )
 
 !------------------------------------------------------------------------------
-       CALL InitializeToZero( StiffMatrix, ForceVector )
+       CALL DefaultInitialize()
 !------------------------------------------------------------------------------
        t = 1
-       DO t=1,Solver % NumberOfActiveElements
+       DO t=1,GetNOFActive()
 
          IF ( RealTime() - at0 > 1.0 ) THEN
            WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
@@ -369,22 +351,14 @@
 !        Check if this element belongs to a body where displacements
 !        should be calculated
 !------------------------------------------------------------------------------
-           CurrentElement => Solver % Mesh % Elements(Solver % ActiveElements(t))
+          CurrentElement => GetActiveElement(t)
 !
-!          IF ( .NOT. CheckElementEquation( Model, &
-!               CurrentElement, EquationName ) ) CYCLE
-!------------------------------------------------------------------------------
 !        Ok, we´ve got one for stress computations
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-!        Set also the current element pointer in the model structure to
-!        reflect the element being processed
-!------------------------------------------------------------------------------
-         Model % CurrentElement => Solver % Mesh % Elements(t)
-!------------------------------------------------------------------------------
          body_id = CurrentElement % BodyId
-         n = CurrentElement % TYPE % NumberOfNodes
+         n = GetElementNOFNodes()
          NodeIndexes => CurrentElement % NodeIndexes
 
          eq_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Equation', &
@@ -392,9 +366,7 @@
          PlaneStress = ListGetLogical( Model % Equations(eq_id) % Values, &
                          'Plane Stress',gotIt )
 
-         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-         ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-         ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+         CALL GetElementNodes(ElementNodes, CurrentElement)
 
          k = ListGetInteger( Model % Bodies(body_id) % Values,'Material', &
                    minv=1, maxv=Model % NumberOFMaterials )
@@ -597,9 +569,7 @@
            k = ParentElement % TYPE % NumberOfNodes
            AdjacentNodes => ParentElement % NodeIndexes
 
-           ParentNodes % x(1:k) = Solver % Mesh % Nodes % x(AdjacentNodes)
-           ParentNodes % y(1:k) = Solver % Mesh % Nodes % y(AdjacentNodes)
-           ParentNodes % z(1:k) = Solver % Mesh % Nodes % z(AdjacentNodes)
+           CALL GetElementNodes( ParentNodes, ParentElement )
 
            LocalDisplacement = 0.0D0
            IF( .NOT. LinearModel ) THEN
@@ -630,9 +600,7 @@
                 FlowNOFNodes = FlowElement % TYPE % NumberOfNodes
                 AdjacentNodes => FlowElement % NodeIndexes
                 
-                FlowNodes % x(1:FlowNOFNodes) = Solver % Mesh % Nodes % x(AdjacentNodes)
-                FlowNodes % y(1:FlowNOFNodes) = Solver % Mesh % Nodes % y(AdjacentNodes)
-                FlowNodes % z(1:FlowNOFNodes) = Solver % Mesh % Nodes % z(AdjacentNodes)
+                CALL GetElementNodes( FlowNodes, FlowElement )
                 
                 DO j=1,FlowNOFNodes
                    k = StressPerm(AdjacentNodes(j))
@@ -703,11 +671,11 @@
 !!              CALL UpdateTimeForce( StiffMatrix,ForceVector,LocalForce, &
 !!                        n,STDOFs, StressPerm(NodeIndexes) )
 
-               LocalDampMatrix = 0.0
-               LocalMassMatrix = 0.0
+               LocalDampMatrix = 0._dp
+               LocalMassMatrix = 0._dp
 
                CALL Default2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
-	        LocalStiffMatrix, LocalForce )
+                       LocalStiffMatrix, LocalForce )
 
 !              CALL Add2ndOrderTime( LocalMassMatrix, LocalDampMatrix, &
 !                 LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
