@@ -4271,21 +4271,28 @@ END FUNCTION SearchNodeL
     IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
       st  = CPUTime() - t0;
       rst = RealTime() - rt0
-      IF( ListGetLogical(Solver % Values,'Linear System Timing Cumulative',Found)) THEN
-        ct = ListGetConstReal(CurrentModel % Simulation,'res: solution cpu time '&
-                //TRIM(Solver % Variable % Name))
-        st = st + ct
-        ct = ListGetConstReal(CurrentModel % Simulation,'res: solution real time '&
-                //TRIM(Solver % Variable % Name))
-        rst = rst + ct
-      END IF 
-      CALL ListAddConstReal(CurrentModel % Simulation,'res: solution cpu time '&
+
+      CALL ListAddConstReal(CurrentModel % Simulation,'res: cpu time '&
               //TRIM(Solver % Variable % Name),st)
-      CALL ListAddConstReal(CurrentModel % Simulation,'res: solution real time '&
+      CALL ListAddConstReal(CurrentModel % Simulation,'res: real time '&
               //TRIM(Solver % Variable % Name),rst)
       WRITE(Message,'(a,f8.2,f8.2,a)') 'Solution time (CPU,REAL) for '&
       //TRIM(Solver % Variable % Name)//': ',st,rst,' (s)'
       CALL Info('SolveSystem',Message)    
+
+      IF( ListGetLogical(Solver % Values,'Linear System Timing Cumulative',Found)) THEN
+        ct = ListGetConstReal(CurrentModel % Simulation,'res: cum cpu time '&
+                //TRIM(Solver % Variable % Name),Found)
+        st = st + ct
+        ct = ListGetConstReal(CurrentModel % Simulation,'res: cum real time '&
+                //TRIM(Solver % Variable % Name),Found)
+        rst = rst + ct
+        CALL ListAddConstReal(CurrentModel % Simulation,'res: cum cpu time '&
+              //TRIM(Solver % Variable % Name),st)
+        CALL ListAddConstReal(CurrentModel % Simulation,'res: cum real time '&
+              //TRIM(Solver % Variable % Name),rst)
+      END IF 
+
     END IF
 
 !------------------------------------------------------------------------------
