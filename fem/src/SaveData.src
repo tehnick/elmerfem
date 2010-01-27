@@ -100,7 +100,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       VariableName, ResultPrefix, Oper, Name, CoefficientName, ScalarParFile
   INTEGER :: i,j,k,l,q,n,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
-      MaxVars, NoEigenValues, Ind, EigenDofs
+      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
   SAVE SubroutineVisited, NumberOfVars, &
@@ -644,8 +644,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   ! Finally save all the scalars into a file 
   !------------------------------------------------------------------------------
+   LineInd = ListGetInteger( Solver % Values,'Line Marker',GotIt)
 
-  IF(NoValues /= PrevNoValues) THEN 
+   IF(NoValues /= PrevNoValues) THEN 
     IF(SubroutineVisited) THEN
       WRITE ( Message,'(A,I2,I2)') 'Number of scalar values differ from previous time:',&
           NoValues,PrevNoValues
@@ -664,8 +665,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     DateStr = FormatDate()
     WRITE( 10,'(A,A)') 'File started at: ',TRIM(DateStr)
     WRITE(10,*) 'Variables in columns of matrix: '//TRIM(ScalarsFile)
+    IF( LineInd /= 0 ) THEN
+      i = 1
+      WRITE(10,'(I4,": ",A)') 1,'Line Marker'
+    ELSE
+      i = 0
+    END IF 	
     DO No=1,NoValues 
-      WRITE(10,'(I4,": ",A)') No,TRIM(ValueNames(No))
+      WRITE(10,'(I4,": ",A)') No+i,TRIM(ValueNames(No))
     END DO
     CLOSE(10)
   END IF
@@ -705,12 +712,30 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   END IF
 
   IF(NoValues > 0) THEN
+    ! If there are multiple lines it may be a good idea to mark each by an index
+    IF( LineInd /= 0) THEN
+      WRITE (10,'(I6)',advance='no') LineInd
+    END IF
     DO No=1,NoValues-1
       WRITE (10,'(ES22.12E3)',advance='no') Values(No)
     END DO
     WRITE (10,'(ES22.12E3)') Values(NoValues)
   END IF
   CLOSE(10)
+
+  !------------------------------------------------------------------------------
+  ! Save data in livegraph format
+  !------------------------------------------------------------------------------
+  IF( .NOT. SubroutineVisited .AND. FileAppend .AND. LineInd /= 0 ) THEN
+    Message = ListGetString(Solver % Values,'Comment',GotIt)
+    Name = TRIM(ScalarsFile) // '.' // TRIM("marker")
+    IF( GotIt ) THEN
+      OPEN (10, FILE=Name,POSITION='APPEND')
+      WRITE(10,'(I6,A,A)') LineInd,': ',TRIM(Message)
+    END IF 
+  END IF
+
+
 
   !------------------------------------------------------------------------------
   ! Save data in livegraph format
