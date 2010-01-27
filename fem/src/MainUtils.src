@@ -2840,15 +2840,20 @@ END SUBROUTINE CoupledSolver
 
 !------------------------------------------------------------------------------
      Solver % Mesh % OutputActive = .TRUE.
-     DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
-     IF ( .NOT. Found ) DTScal = 1.0_dp
-     Solver % dt = DtScal * dt 
 
-     iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
-     iterV % Values(1) = 1
+     ! This is to avoid resetting of certain info that could be interesting
+     ! when saving data.
+     IF(.NOT. ListGetLogical( Solver % Values,'Auxiliary Solver',Found)) THEN
+       DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
+       IF ( .NOT. Found ) DTScal = 1.0_dp
+       Solver % dt = DtScal * dt 
 
-     str = ListGetString( Solver % Values, 'Namespace', Found )
-     IF (Found) CALL ListSetNamespace(TRIM(str))
+       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+       iterV % Values(1) = 1
+
+       str = ListGetString( Solver % Values, 'Namespace', Found )
+       IF (Found) CALL ListSetNamespace(TRIM(str))
+     END IF
 
      IF( IsAssemblySolver ) THEN
        CALL CoupledSolver( Model, Solver, DTScal * dt, TransientSimulation )       
