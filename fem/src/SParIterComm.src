@@ -230,15 +230,13 @@ CONTAINS
     !******************************************************************
 
     IF ( .NOT. ASSOCIATED(ParEnv % Active) ) THEN
-      ALLOCATE( ParEnv % Active(ParEnv % PEs) )
+      ALLOCATE(ParEnv % Active(ParEnv % PEs))
       ParEnv % Active = .TRUE.
     END IF
 
-    IF ( .NOT. ASSOCIATED(ParEnv % IsNeighbour) ) &
-      ALLOCATE( ParEnv % IsNeighbour(ParEnv % PEs) )
-
-    ParEnv % NumOfNeighbours = 0
+    ALLOCATE(ParEnv % IsNeighbour(ParEnv % PEs))
     ParEnv % IsNeighbour(:)  = .FALSE.
+    ParEnv % NumOfNeighbours = 0
 
     !------------------------------------------------------------------
     ! Count the number of real neighbours for this partition
@@ -591,7 +589,7 @@ real(kind=dp) :: realtime,tt
     gdofs => Mesh % ParallelInfo % GlobalDOFs
 
     !
-    ! Find neighbours and parent nodes for all new interface nodes:
+    ! Find neighbours and parent nodes for all new interface edges:
     ! =============================================================
     !
     ! Loop over edges:
@@ -605,9 +603,9 @@ real(kind=dp) :: realtime,tt
         Edgen(i) % Neighbours(1) = ParEnv % myPE
       ELSE
         !
-        ! This is an interface node:
+        ! This is an interface edge:
         !---------------------------
-        edgen(i) % interface = .TRUE.
+        Edgen(i) % Interface = .TRUE.
 
         list1 => NULL() ! list of PEs related to parent node 1
         list2 => NULL() ! list of PEs related to parent node 2
@@ -615,7 +613,7 @@ real(kind=dp) :: realtime,tt
 
         l = Element % NodeIndexes(1)
         parentnodes(i,1) =  l
-        ! This is the list of PEs sharing parent node 2:
+        ! This is the list of PEs sharing parent node 1:
         list1 => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
 
         l = Element % NodeIndexes(2)
@@ -731,11 +729,11 @@ real(kind=dp) :: realtime,tt
        ALLOCATE( gindices(datasize) )
        k = 1
        DO l = 1, n
-          m = Edgen(l) % neighbours(1)
+          m = Edgen(l) % Neighbours(1)
           IF( m /= ParEnv % MyPE ) CYCLE
 
-          DO m = 2,SIZE(edgen(l) % neighbours)
-             mm = Edgen(l) %  neighbours(m)
+          DO m = 2,SIZE(Edgen(l) % Neighbours)
+             mm = Edgen(l) %  Neighbours(m)
              IF( mm+1 .NE. i ) CYCLE
              gindices(k) = Edgen(l) % n
              gindices(k+1) = gdofs(parentnodes(l,1))
@@ -765,7 +763,7 @@ real(kind=dp) :: realtime,tt
           i-1, 400, MPI_COMM_WORLD, status, ierr )
 
        DO k = 1,n
-          IF( .NOT. Edgen(k) % interface .OR. Edgen(k) % n>0 ) CYCLE
+          IF( .NOT. Edgen(k) % Interface .OR. Edgen(k) % n>0 ) CYCLE
     
           DO l = 1, datasize
              m = 3*l-2
@@ -818,9 +816,9 @@ real(kind=dp) :: realtime,tt
     !-------------------------------------------------------------------
 
     !
-    !    Sort our own edges according to ascending
-    !    global order:
-    !    -----------------------------------------
+    ! Sort our own edges according to ascending
+    ! global order:
+    ! -----------------------------------------
     ALLOCATE( gdofs(n), grevorder(n), gorder(n) )
     gorder = (/ (i,i=1,n) /)
     DO i=1,n
@@ -949,7 +947,7 @@ real(kind=dp) :: realtime,tt
     gdofs => Mesh % ParallelInfo % GlobalDOFs
 
     !
-    ! Find neighbours and parent nodes for all new interface nodes:
+    ! Find neighbours and parent nodes for all new interface faces:
     ! =============================================================
     !
     ! Loop over faces:
@@ -963,17 +961,18 @@ real(kind=dp) :: realtime,tt
         Facen(i) % Neighbours(1) = ParEnv % myPE
       ELSE
         !
-        ! This is an interface node:
+        ! This is an interface face:
         !---------------------------
-        facen(i) % interface = .TRUE.
+        Facen(i) % Interface = .TRUE.
 
         list1 => NULL() ! list of PEs related to parent node 1
         list2 => NULL() ! list of PEs related to parent node 2
-        commonlist => NULL() ! intersection of list1 and list2
+        list3 => NULL() ! list of PEs related to parent node 3
+        commonlist => NULL() ! intersection of lists
 
         l = Element % NodeIndexes(1)
         parentnodes(i,1) =  l
-        ! This is the list of PEs sharing parent node 2:
+        ! This is the list of PEs sharing parent node 1:
         list1 => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
 
         l = Element % NodeIndexes(2)
@@ -1093,7 +1092,7 @@ real(kind=dp) :: realtime,tt
       IF(tosend(i)<1) CYCLE
 
       datasize = 4*tosend(i)
-      ALLOCATE( gindices(datasize) )
+      ALLOCATE(gindices(datasize))
       k = 1
       DO l = 1, n
          m = Facen(l) % Neighbours(1)
@@ -1143,7 +1142,7 @@ real(kind=dp) :: realtime,tt
           END IF
         END DO
       END DO
-      DEALLOCATE( gindices )
+      DEALLOCATE(gindices)
     END DO
 
     !
@@ -1169,15 +1168,15 @@ real(kind=dp) :: realtime,tt
     CALL MPI_ALLREDUCE( m, mm, 1, &
         MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr )
 
-    ! if some of the faces miss a global number retry.
-    ! -----------------------------------------------
+    ! if some of the faces miss a global number, retry.
+    ! -------------------------------------------------
     IF ( mm>0 ) GOTO 10
 
 
     ! Deallocate temp arrays:
     !------------------------
     DEALLOCATE( owned_faces, owned_faces2, &
-         parentnodes, tosend, toreceive )
+       parentnodes, tosend, toreceive )
 
     !-------------------------------------------------------------------
     ! Now, the numbering should be unique. It remains to sort the faces.
@@ -3423,6 +3422,7 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
         send_size(:), perm(:), neigh(:)
   !*********************************************************************
   n = ParEnv % NumOfNeighbours
+  IF ( n<= 0 ) RETURN
   ALLOCATE( neigh(n) )
 
   n = 0
@@ -4484,6 +4484,8 @@ SUBROUTINE SParActiveSUM(tsum, oper)
 !*********************************************************************
    INTEGER :: ierr
    REAL(KIND=dp) :: ssum
+
+   IF ( COUNT(ParEnv % Active)<= 1 ) RETURN
 
    ssum = tsum
    SELECT CASE(oper)

@@ -2338,38 +2338,40 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   If parallel execution, check for parallel matrix initializations
 !------------------------------------------------------------------------------
-
       ALLOCATE( n_count(ParEnv% PEs),n_index(ParEnv % PEs) )
       n_count = 0
-      DO i=1,Mesh % NumberOfNodes
-        IF (BoundaryReorder(i)<=0 ) CYCLE
-        IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
+      IF ( NumberOfBoundaryNodes>0 ) THEN
+        DO i=1,Mesh % NumberOfNodes
+          IF (BoundaryReorder(i)<=0 ) CYCLE
+          IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
 
-        nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
-        DO j=1,SIZE(nlist)
-          k = nlist(j)+1
-          IF ( k-1 == ParEnv % myPE ) CYCLE
-          n_count(k) = n_count(k)+1
+          nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+          DO j=1,SIZE(nlist)
+            k = nlist(j)+1
+            IF ( k-1 == ParEnv % myPE ) CYCLE
+            n_count(k) = n_count(k)+1
+          END DO
         END DO
-      END DO
-      DO i=1,ParEnv % PEs
-        IF ( n_count(i)>0 ) &
-          ALLOCATE( n_index(i) % buff(n_count(i)) )
-      END DO
-      n_count = 0
-      DO i=1,Mesh % NumberOfNodes
-        IF (BoundaryReorder(i)<=0 ) CYCLE
-        IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
+        DO i=1,ParEnv % PEs
+          IF ( n_count(i)>0 ) &
+            ALLOCATE( n_index(i) % buff(n_count(i)) )
+        END DO
+        n_count = 0
+        DO i=1,Mesh % NumberOfNodes
+          IF (BoundaryReorder(i)<=0 ) CYCLE
+          IF (.NOT.Mesh % ParallelInfo % INTERFACE(i) ) CYCLE
 
-        nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
-        DO j=1,SIZE(nlist)
-          k = nlist(j)+1
-          IF ( k == ParEnv % myPE+1 ) CYCLE
-          n_count(k) = n_count(k)+1
-          n_index(k) % buff(n_count(k)) = Mesh % Parallelinfo % &
-               GlobalDOFs(i)
+          nlist => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+          DO j=1,SIZE(nlist)
+            k = nlist(j)+1
+            IF ( k == ParEnv % myPE+1 ) CYCLE
+            n_count(k) = n_count(k)+1
+            n_index(k) % buff(n_count(k)) = Mesh % Parallelinfo % &
+                 GlobalDOFs(i)
+          END DO
         END DO
-      END DO
+      END IF
+
       DO i=1,ParEnv % PEs
         IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
            CALL MPI_BSEND( n_count(i), 1, MPI_INTEGER, i-1, &
@@ -2379,6 +2381,7 @@ CONTAINS
                  801, MPI_COMM_WORLD, ierr )
         END IF
       END DO
+
       DO i=1,ParEnv % PEs
         IF ( n_count(i)>0 ) DEALLOCATE( n_index(i) % Buff)
 
@@ -4162,7 +4165,6 @@ END FUNCTION SearchNodeL
     END INTERFACE
 
 !------------------------------------------------------------------------------
-
     IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
       t0 = CPUTime(); rt0 = RealTime()
     END IF

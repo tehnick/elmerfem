@@ -2710,7 +2710,6 @@ END SUBROUTINE CoupledSolver
      INTEGER :: comm_active, group_active, group_world, ierr
 
 !------------------------------------------------------------------------------
-
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
        Solver % NumberOFActiveElements = 0
        EquationName = ListGetString( Solver % Values, 'Equation', Found)
@@ -2730,9 +2729,8 @@ END SUBROUTINE CoupledSolver
              END IF
           END DO
           CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
+          IF (ASSOCIATED(Solver % Variable)) CALL CalculateNodalWeights(Solver)
        END IF
-
-       CALL CalculateNodalWeights(Solver)
      END IF
 !------------------------------------------------------------------------------
 
@@ -2785,16 +2783,25 @@ END SUBROUTINE CoupledSolver
          END DO
        END IF
      END IF
-     IF ( ASSOCIATED(Solver % MAtrix) ) &
+     IF ( ASSOCIATED(Solver % Matrix) ) THEN
        ParEnv % ActiveComm = Solver % Matrix % Comm
+       IF ( MeActive ) THEN
+         IF (.NOT. ASSOCIATED(Solver % Matrix % ParMatrix) ) &
+           CALL ParallelInitMatrix(Solver, Solver % Matrix )
+
+         Solver % Matrix % ParMatrix % ParEnv % ActiveComm = &
+                  Solver % Matrix % Comm
+         ParEnv = Solver % Matrix % ParMatrix % ParEnv
+       END IF
+     END IF
      str = ListGetString( Solver  % Values,'Procedure', Found )
 
 #ifdef SGIn32
-      SolverAddr = Solver % PROCEDURE
-      CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation)
+     SolverAddr = Solver % PROCEDURE
+     CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation)
 #else
-      CALL ExecSolver( Solver % PROCEDURE, &
-          Model, Solver, dt, TransientSimulation)
+     CALL ExecSolver( Solver % PROCEDURE, &
+         Model, Solver, dt, TransientSimulation)
 #endif
 
 !------------------------------------------------------------------------------
@@ -2864,10 +2871,8 @@ END SUBROUTINE CoupledSolver
      CALL ListSetNamespace('')
      Solver % dt = dt
 
-
 !------------------------------------------------------------------------------
    END SUBROUTINE SolverActivate
 !------------------------------------------------------------------------------
 
 END MODULE MainUtils
-
