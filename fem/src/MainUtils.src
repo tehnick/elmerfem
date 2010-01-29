@@ -2785,7 +2785,7 @@ END SUBROUTINE CoupledSolver
      END IF
      IF ( ASSOCIATED(Solver % Matrix) ) THEN
        ParEnv % ActiveComm = Solver % Matrix % Comm
-       IF ( MeActive ) THEN
+       IF ( ParEnv % PEs>1 .AND. MeActive ) THEN
          IF (.NOT. ASSOCIATED(Solver % Matrix % ParMatrix) ) &
            CALL ParallelInitMatrix(Solver, Solver % Matrix )
 
