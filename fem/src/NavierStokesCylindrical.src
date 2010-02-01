@@ -683,7 +683,7 @@ MODULE NavierStokesCylindrical
 !      Pressure terms
 !------------------------------------------------------------------------------
 !
-       IF ( gradPDiscretization ) THEN
+       IF ( gradpDiscretization ) THEN
          DO i=1,dim
            A(i,c) = A(i,c) + Metric(i) * dBasisdx(q,i) * Basis(p)
          END DO
@@ -713,7 +713,7 @@ MODULE NavierStokesCylindrical
          ELSE
            IF ( Convect ) THEN
              IF ( gradpDiscretization ) THEN
-               A(c,i) = A(c,i) - Density * dBasisdx(p,i) * Basis(q)
+               A(c,i) = A(c,i) - Density * Basis(q) * dBasisdx(p,i)
              ELSE
                A(c,i) = A(c,i) + Density * dBasisdx(q,i) * BaseP
              END IF
@@ -728,12 +728,14 @@ MODULE NavierStokesCylindrical
 !------------------------------------------------------------------------------
        END DO
 
-       IF ( Compressible .OR. Convect ) THEN
-         A(c,1) = A(c,1) + Density * Symb(1,3,3) * Basis(q) * BaseP
-       ELSE
-         A(c,1) = A(c,1) + Symb(1,3,3) * Basis(q) * BaseP
+       IF ( .NOT. gradpDiscretization ) THEN
+         IF ( Compressible .OR. Convect ) THEN
+           A(c,1) = A(c,1) + Density * Symb(1,3,3) * Basis(q) * BaseP
+         ELSE
+           A(c,1) = A(c,1) + Symb(1,3,3) * Basis(q) * BaseP
+         END IF
        END IF
-
+  
 !------------------------------------------------------------------------------
 !      Artificial Compressibility, affects only the continuity equation
 !------------------------------------------------------------------------------  
