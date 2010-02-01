@@ -97,6 +97,11 @@
 #include <vtkCommand.h>
 #include <vtkFollower.h>
 #include <vtkImplicitPlaneWidget.h>
+#include <vtkGeometryFilter.h>
+#include <vtkPolyDataNormals.h>
+#include <vtkPointData.h>
+#include <vtkCellData.h>
+#include <vtkIndent.h>
 
 using namespace std;
 
@@ -446,6 +451,10 @@ void VtkPost::createActions()
   savePictureAct->setStatusTip("Save picture in file");
   connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
 
+  savePovrayAct = new QAction(QIcon(""), tr("Save povray data..."), this);
+  savePovrayAct->setStatusTip("Save model data in povray-format");
+  connect(savePovrayAct, SIGNAL(triggered()), this, SLOT(savePovraySlot()));
+
   reloadPostAct = new QAction(QIcon(""), tr("Reload"), this);
   reloadPostAct->setStatusTip("Reloads input file");
   connect(reloadPostAct, SIGNAL(triggered()), this, SLOT(reloadPostSlot()));
@@ -599,6 +608,8 @@ void VtkPost::createMenus()
   fileMenu->addAction(reloadPostAct);
   fileMenu->addSeparator();
   fileMenu->addAction(savePictureAct);
+  fileMenu->addSeparator();
+  fileMenu->addAction(savePovrayAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
@@ -787,6 +798,135 @@ void VtkPost::savePictureSlot()
   this->SavePngFile(fileName);
 }
 
+// Save povray:
+//----------------------------------------------------------------------
+void VtkPost::savePovraySlot()
+{
+  QFile file("case.pov");
+
+  if(!file.open(QIODevice::WriteOnly))
+    return;
+
+  QTextStream text(&file);
+
+  // Convert to vtkPolyData with normals:
+  //======================================
+  vtkGeometryFilter *geometry = vtkGeometryFilter::New();
+  geometry->SetInput(surfaceGrid);
+  
+  vtkPolyDataNormals *normals = vtkPolyDataNormals::New();
+  normals->SetInputConnection(geometry->GetOutputPort());
+  
+  vtkPolyData *polyData = normals->GetOutput();
+
+  polyData->Update();
+
+  polyData->ComputeBounds();
+  
+  double *bounds = polyData->GetBounds();
+
+  double x0 = (bounds[1] + bounds[0])/2.0;
+  double y0 = (bounds[3] + bounds[2])/2.0;
+  double z0 = (bounds[5] + bounds[4])/2.0;
+
+  double dx = bounds[1] - bounds[0];
+  double dy = bounds[3] - bounds[2];
+  double dz = bounds[5] - bounds[4];
+
+  double ds = sqrt(dx*dx+dy*dy+dz*dz);
+
+  // Headers etc.
+  //==============
+  text << "#include \"colors.inc\"\n\n"
+       << "background {color White}\n"
+       << "camera {location <1,1,1>*" << ds/1.5 << " look_at <0,0,0>}\n"
+       << "light_source {<1,2,3>*" << 5*ds << " color White}\n\n";
+
+  // Mesh2:
+  //========
+  text << "mesh2 {\n";
+
+  // Vertex points:
+  //----------------
+  qDebug() << "Write points...";
+
+  text << "  vertex_vectors {\n"
+       << "    " << polyData->GetNumberOfPoints() << "\n";
+  
+  vtkPoints *points = polyData->GetPoints();
+
+  for(int i = 0; i < polyData->GetNumberOfPoints(); i++) {
+    double *p = points->GetPoint(i);
+    text << "    <" << p[0] << "," << p[1] << "," << p[2] << ">\n";
+  }
+    
+  text << "  }\n"; // vertex_vectors
+
+  // Surface normals:
+  //------------------
+  qDebug() << "Write normals...";
+
+  text << "  normal_vectors {\n"
+       << "    " << polyData->GetNumberOfPoints() << "\n";
+  for(int i = 0; i < polyData->GetNumberOfPoints(); i++) {
+    double *p = polyData->GetPointData()->GetNormals()->GetTuple(i);
+    text << "    <" << p[0] << "," << p[1] << "," << p[2] << ">\n";
+  }
+
+  text << "  }\n"; // normal_vectors
+
+  // Face indices:
+  //---------------
+  qDebug() << "Write faces...";
+
+  text << "  face_indices {\n"
+       << "    " << polyData->GetNumberOfCells() << "\n";
+  
+  for(int i = 0; i < polyData->GetNumberOfCells(); i++) {
+    vtkCell *cell = polyData->GetCell(i);
+    int n0 = cell->GetPointId(0);
+    int n1 = cell->GetPointId(1);
+    int n2 = cell->GetPointId(2);
+    text << "    <" << n0 << "," << n1 << "," << n2 << ">\n";    
+  }
+
+  text << "  }\n"; // face_indices
+
+  // Texture:
+  //----------
+  text << "  texture {\n"
+       << "    pigment {\n"
+       << "      rgb <0,1,1>\n"
+       << "    }\n"
+       << "    finish {\n"
+       << "      specular 0.7\n"
+       << "      roughness 0.05\n"
+       << "    }\n"
+       << "  }\n";
+
+  // Translate:
+  //------------
+  text << "  translate <" << -x0/2 << "," << -y0/2 << "," << -z0/2 << ">\n";
+
+  text << "}\n"; // mesh2
+
+  // Floor:
+  //--------
+  text << "  plane {\n"
+       << "    <0,-1,0>," << dy << "\n"
+       << "    pigment {\n"
+       << "      rgb<1,1,1>*0.8\n"
+       << "    }\n"
+       << "  }\n";
+  
+  // Finalize:
+  //===========
+  normals->Delete();
+  geometry->Delete();
+
+  file.close();
+}
+
 // Read input file (dialog):
 //----------------------------------------------------------------------
 void VtkPost::readEpFileSlot()
@@ -937,6 +1077,7 @@ bool VtkPost::ReadPostFile(QString postFileName)
   ScalarField *sfx = &scalarField[index+0];
   ScalarField *sfy = &scalarField[index+1];
   ScalarField *sfz = &scalarField[index+2];
+
   for( int i=0; i < nodes; i++ )
   {
     sfx->value[i] = epMesh->epNode[i].x[0];

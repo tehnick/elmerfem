@@ -75,7 +75,7 @@ macx {
 # VTK library:
 #------------------------------------------------------------------------------
 unix {
-   VTK_INCLUDEPATH = /usr/include/vtk-5.0
+   VTK_INCLUDEPATH = /usr/include/vtk-5.2
    VTK_LIBPATH = /usr/lib
    VTK_LIBS = -lvtkHybrid \
               -lvtkWidgets \
