@@ -89,7 +89,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
       IntSquare, LocalCoords(3), TempCoordinates(3), Value, &
-      Change, Norm, PrevNorm = 0.0_dp
+      Change, Norm = 0.0_dp, PrevNorm
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:)
@@ -111,7 +111,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
       BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
       LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues, &
-      LiveGraph, CheckNorm, PrevNorm
+      LiveGraph, CheckNorm, Norm
 
 !------------------------------------------------------------------------------
 
