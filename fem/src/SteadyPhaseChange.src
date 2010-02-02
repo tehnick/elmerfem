@@ -926,3 +926,111 @@ END SUBROUTINE BoxMoveMesh
 !------------------------------------------------------------------------------
   END SUBROUTINE SteadyPhaseChange
 !------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+  FUNCTION MeltingHeat(Model, Node, t) RESULT(Flux)
+!-------------------------------------------------------------------------------
+! This subroutine computes the heat flux resulting from solidification 
+! This 
+!-------------------------------------------------------------------------------
+  USE Types
+  USE Lists
+  USE ElementDescription
+  IMPLICIT NONE
+!-------------------------------------------------------------------------------
+  TYPE(Model_t) :: Model
+  INTEGER:: Node
+  REAL (KIND=dp):: Flux,t
+!-------------------------------------------------------------------------------
+  TYPE(Variable_t), POINTER :: NormalSol
+  INTEGER:: k,n,i
+  INTEGER, POINTER :: NodeIndexes(:), NormalsPerm(:) 
+  REAL (KIND=dp):: NodeLatentHeat, Density, NormalPull, u, v
+  REAL (KIND=dp):: UPull(3) = (/ 0,0,0 /), Normal(3), ElemLatentHeat(4)
+  REAL (KIND=dp), POINTER :: Normals(:)
+  LOGICAL:: stat, NormalExist = .FALSE., Visited = .FALSE.
+  TYPE(Nodes_t) :: Nodes
+  TYPE(Element_t), POINTER :: CurrentElement, Parent
+  
+!------------------------------------------------------------------------------
+
+  SAVE NormalExist, Normals, NormalsPerm, Nodes
+
+
+  IF(.NOT. Visited) THEN
+    NormalSol  => VariableGet( Model % Variables, 'Normals',ThisOnly=.TRUE. )
+    IF(ASSOCIATED(NormalSol)) THEN
+      NormalsPerm => NormalSol % Perm
+      Normals => NormalSol % Values
+      NormalExist = .TRUE.
+    ELSE
+      n = Model % Mesh % MaxElementNodes  
+      ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )
+    END IF
+    Visited = .TRUE.
+  END IF
+
+  CurrentElement => Model % CurrentElement
+  NodeIndexes => CurrentElement % NodeIndexes
+  n = CurrentElement % TYPE % NumberOfNodes
+  
+  k = ListGetInteger(Model % Bodies(CurrentElement % BodyId) % Values,'Material')
+  ElemLatentHeat(1:n) = ListGetReal( Model % Materials(k) % Values, 'Latent Heat', n, NodeIndexes )
+  
+  DO i=1,n
+    IF(NodeIndexes(i) == Node) EXIT
+  END DO
+  IF(NodeIndexes(i) /= Node) CALL Fatal('MeltingHeat','Node not found')
+  NodeLatentHeat = ElemLatentHeat(i)
+  
+  UPull = 0.0
+  UPull(1) = ListGetConstReal(Model % Simulation,'res: Pull Velocity 1',stat) 
+  IF(.NOT. stat) UPull(1) = ListGetConstReal(Model % Materials(k) % Values,'Convection Velocity 1',stat) 
+
+  UPull(2) = ListGetConstReal(Model % Simulation,'res: Pull Velocity 2',stat) 
+  IF(.NOT. stat) UPull(2) = ListGetConstReal(Model % Materials(k) % Values,'Convection Velocity 2',stat) 
+ 
+  Parent => CurrentElement % BoundaryInfo % Left
+  k = ListGetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
+  IF (ListGetLogical(Model % Materials(k) % Values, 'Solid', stat)) THEN
+    Density = ListGetConstReal( Model % Materials(k) % Values, 'Density' )
+  ELSE   
+    Parent => CurrentElement % BoundaryInfo % Right
+    k = ListGetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
+    Density = ListGetConstReal( Model % Materials(k) % Values, 'Density' )
+  END IF
+
+  IF(.NOT. ASSOCIATED(Parent)) CALL Fatal('MeltingHeat','Parent not found')
+!------------------------------------------------------------------------------
+
+  IF( NormalExist ) THEN
+    Normal(1) = Normals( 2*NormalsPerm( Node ) - 1 )
+    Normal(2) = Normals( 2*NormalsPerm( Node ))
+    Normal(3) = 0.0d0
+  ELSE
+    Nodes % x(1:n) = Model % Nodes % x(NodeIndexes)
+    Nodes % y(1:n) = Model % Nodes % y(NodeIndexes)
+    Nodes % z(1:n) = Model % Nodes % z(NodeIndexes)
+    
+    ! For line segments the normal in the center is usually sufficient
+    u = 0.0d0
+    v = 0.0d0
+    
+    ! If inner boundary, Normal Target Body should be defined for the boundary 
+    ! (if not, material density will be used to determine then normal direction 
+    ! and should be defined for bodies on both sides):
+
+    Normal = NormalVector( CurrentElement, Nodes, u, v, .TRUE. )
+  END IF
+
+  NormalPull = SUM( Normal * UPull )
+
+  Flux = NodeLatentHeat * Density * NormalPull
+
+!------------------------------------------------------------------------------
+END FUNCTION MeltingHeat
+!------------------------------------------------------------------------------
+
+
+
