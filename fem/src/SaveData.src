@@ -129,7 +129,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     
     FileAppend = ListGetLogical( Solver % Values,'File Append',GotIt)
 
-    CheckNorm = ListGetLogical( Solver % Values,'Check norm',GotIt )
+    CheckNorm = ListGetLogical( Solver % Values,'Show norm',GotIt )
 
     ScalarsFile = ListGetString(Solver % Values,'Filename',GotIt )
     IF(.NOT. GotIt) ScalarsFile = DefaultScalarsFile
@@ -776,7 +776,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
 
   IF( CheckNorm ) THEN
-    NormInd = ListGetInteger( Solver % Values,'Check Norm Operator',GotIt)
+    NormInd = ListGetInteger( Solver % Values,'Show Norm Index',GotIt)
     IF(NormInd < 1 .OR. NormInd > NoValues ) NormInd = 1
     PrevNorm = Norm
     Norm = Values( NormInd )
