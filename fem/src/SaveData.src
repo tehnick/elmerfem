@@ -786,14 +786,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Change = 0.0_dp
     END IF
 
-    ! Steady state output is done within MainUtils
     Name = ListGetString( Solver % Values, 'Equation',GotIt)
     IF(.NOT. GotIt) Name = Solver % Variable % Name
 
+    ! Here the name is ComputeChange in order to get the change also to ElmerGUI
     WRITE( Message, '(a,g15.8,g15.8,a)') &
        'SS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
           ' ) :: '//TRIM( Name )
-      CALL Info( 'SaveScalars', Message, Level=3 )
+      CALL Info( 'ComputeChange', Message, Level=3 )
 
 !    WRITE( Message, '(a,g15.8)') 'Check NRM= ',Values(1)
 !    CALL Info( 'SaveScalars', Message, Level=3 )
