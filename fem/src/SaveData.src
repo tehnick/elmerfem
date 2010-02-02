@@ -88,7 +88,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
       Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
-      IntSquare, LocalCoords(3), TempCoordinates(3), Value
+      IntSquare, LocalCoords(3), TempCoordinates(3), Value, &
+      Change, Norm, PrevNorm = 0.0_dp
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:)
@@ -100,7 +101,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       VariableName, ResultPrefix, Oper, Name, CoefficientName, ScalarParFile
   INTEGER :: i,j,k,l,q,n,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
-      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd
+      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
   SAVE SubroutineVisited, NumberOfVars, &
@@ -110,7 +111,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
       BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
       LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues, &
-      LiveGraph, CheckNorm
+      LiveGraph, CheckNorm, PrevNorm
 
 !------------------------------------------------------------------------------
 
@@ -770,9 +771,32 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   ! For consistancy checks one may print out a value: here its the 1st value
   !------------------------------------------------------------------------------
+
+
+
+
   IF( CheckNorm ) THEN
-    WRITE( Message, '(a,g15.8)') 'Check NRM= ',Values(1)
-    CALL Info( 'SaveScalars', Message, Level=3 )
+    NormInd = ListGetInteger( Solver % Values,'Check Norm Operator',GotIt)
+    IF(NormInd < 1 .OR. NormInd > NoValues ) NormInd = 1
+    PrevNorm = Norm
+    Norm = Values( NormInd )
+    IF( ABS( Norm ) + ABS( PrevNorm ) > 0.0_dp ) THEN
+      Change = 2.0*(ABS(Norm-PrevNorm))/(ABS(Norm)+ABS(PrevNorm))
+    ELSE
+      Change = 0.0_dp
+    END IF
+
+    ! Steady state output is done within MainUtils
+    Name = ListGetString( Solver % Values, 'Equation',GotIt)
+    IF(.NOT. GotIt) Name = Solver % Variable % Name
+
+    WRITE( Message, '(a,g15.8,g15.8,a)') &
+       'SS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
+          ' ) :: '//TRIM( Name )
+      CALL Info( 'SaveScalars', Message, Level=3 )
+
+!    WRITE( Message, '(a,g15.8)') 'Check NRM= ',Values(1)
+!    CALL Info( 'SaveScalars', Message, Level=3 )
   END IF
 
 
