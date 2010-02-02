@@ -84,7 +84,10 @@ struct GridType {
     boundtype[MAXBOUNDARIES]; /* type of the boundary */
   int structure[MAXCELLS+2][MAXCELLS+2], /* material structure of subcells */
     numbered[MAXCELLS+2][MAXCELLS+2];    /* numbering order of the subcells */
-  Real limitdx, 
+  Real dx0,    /* global mesh scale in x-direction */
+    dy0,
+    dz0,
+    limitdx, 
     triangleangle,
     xyratio, /* ratio between dx and dy */
     xzratio;
@@ -367,7 +370,8 @@ struct ElmergridType {
     triangleangle, 
     partcorder[3],
     polarradius,
-    curverad,curveangle,curvezet;
+    curverad,curveangle,curvezet,
+    relh;
 
   char filesin[MAXCASES][MAXFILESIZE],
     filesout[MAXCASES][MAXFILESIZE], 

@@ -27,7 +27,7 @@ int LoadViewFactors(struct FemType *data,struct BoundaryType *bound,
 		    char *prefix,int info);
 int SaveClosureFactors(struct BoundaryType *bound,char *prefix,int info);
 int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info);
-int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info);
+int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int info); 
 int SaveGridToGridMapping(struct CellType *cell1, struct GridType *grid1, 
 			  struct CellType *cell2, struct GridType *grid2,
 			  char *prefix);

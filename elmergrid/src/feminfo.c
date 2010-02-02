@@ -226,6 +226,7 @@ void InitParameters(struct ElmergridType *eg)
 {
   int i;
 
+  eg->relh = 1.0;
   eg->inmethod = 0;
   eg->outmethod = 0;
   eg->nofilesin = 1;
@@ -385,6 +386,16 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       else {
 	eg->merge = TRUE;
 	eg->cmerge = atof(argv[arg+1]);
+      }
+    }
+
+    if(strcmp(argv[arg],"-relh") == 0) {
+      if(arg+1 >= argc) {
+	printf("Give a relative mesh density related to the specifications\n");
+	return(3);
+      }
+      else {
+	eg->relh = atof(argv[arg+1]);
       }
     }
 
@@ -2406,7 +2417,7 @@ end:
   if(info) printf("Found %d divisions for grid\n",*nogrids);
 
   for(k=nogrids0;k < (*nogrids) && k<MAXCASES;k++) {
-    SetElementDivision(&(*grid)[k],info);
+    SetElementDivision(&(*grid)[k],1.0,info);
   }
 
 
@@ -2416,7 +2427,7 @@ end:
 
 
 
-int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info) 
+int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int info) 
 {
   char filename[MAXFILESIZE];
   char command[MAXLINESIZE],params[MAXLINESIZE];
@@ -2914,8 +2925,9 @@ end:
     }    
   }
 
+  
   for(k=nogrids0;k < (*nogrids) && k<MAXCASES;k++) {
-    SetElementDivision(&(*grid)[k],info);
+    SetElementDivision(&(*grid)[k],relh,info);
   }
 
   fclose(in);

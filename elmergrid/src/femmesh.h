@@ -9,7 +9,7 @@ void GridToGrid(struct GridType *grid1,struct GridType *grid2,int info);
 void ExampleGrid1D(struct GridType **grids,int *nogrids,int info);
 void ExampleGrid2D(struct GridType **grids,int *nogrids,int info);
 void ExampleGrid3D(struct GridType **grids,int *nogrids,int info);
-void SetElementDivision(struct GridType *grid,int info);
+void SetElementDivision(struct GridType *grid,Real relh,int info);
 void SetCellData(struct GridType *grid,struct CellType *cell,int info);
 void CreateCells(struct GridType *grid,struct CellType **cell,int info);
 void DestroyCells(struct CellType **cell); 

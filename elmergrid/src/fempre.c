@@ -123,6 +123,7 @@ static void Instructions()
   printf("-out str             : name of the output file\n");
   printf("-in str              : name of a secondary input file\n");
   printf("-decimals            : number of decimals in the saved mesh (eg. 8)\n");
+  printf("-relh real           : give relative mesh density parameter for ElmerGrid meshing\n");
   printf("-triangles           : rectangles will be divided to triangles\n");
   printf("-merge real          : merges nodes that are close to each other\n");
   printf("-order real[3]       : reorder elements and nodes using c1*x+c2*y+c3*z\n");
@@ -273,7 +274,7 @@ int main(int argc, char *argv[])
   switch (inmethod) {
 
   case 1:        
-    if(LoadElmergrid(&grids,&nogrids,eg.filesin[nofile],info) == 1) {   
+    if(LoadElmergrid(&grids,&nogrids,eg.filesin[nofile],eg.relh,info) == 1) {   
       if(dim == 3) ExampleGrid3D(&grids,&nogrids,info);
       if(dim == 2) ExampleGrid2D(&grids,&nogrids,info);
       if(dim == 1) ExampleGrid1D(&grids,&nogrids,info);
@@ -574,6 +575,7 @@ int main(int argc, char *argv[])
     for(i=1;i<=eg.connect;i++) 
       SetConnectedBoundary(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);
   
+
   /* Divide quadrilateral meshes into triangular meshes */
   for(k=0;k<nomeshes;k++) 
     if(nogrids && (eg.triangles || grids[k].triangles == TRUE)) {
@@ -582,12 +584,14 @@ int main(int argc, char *argv[])
       ElementsToTriangles(&data[k],boundaries[k],criticalangle,info);
     }
 
+
   /* Make a boundary layer with two different methods */
   if(eg.layers > 0) 
     for(k=0;k<nomeshes;k++) 
       CreateBoundaryLayer(&data[k],boundaries[k],eg.layers,
 			  eg.layerbounds, eg.layernumber, eg.layerratios, eg.layerthickness,
 			  eg.layerparents, eg.layermove, eg.layereps, info);
+
   else if(eg.layers < 0) 
     for(k=0;k<nomeshes;k++) 
       CreateBoundaryLayerDivide(&data[k],boundaries[k],abs(eg.layers),
@@ -607,6 +611,7 @@ int main(int argc, char *argv[])
   if(outmethod != 1 && dim != 2 && eg.dim != 2) { 
     j = MAX(nogrids,1);
 
+
     for(k=0;k<j;k++) {
       if(grids[k].dimension == 3 || grids[k].rotate) {
 
@@ -618,6 +623,7 @@ int main(int argc, char *argv[])
 
 	CreateKnotsExtruded(&(data[k]),boundaries[k],&(grids[k]),
 			    &(data[j]),boundaries[j],info);
+
 
 	if(nogrids) {
 	  elements3d = MAX(eg.elements3d, grids[k].wantedelems3d);
@@ -637,10 +643,10 @@ int main(int argc, char *argv[])
 	    }
 	    else elementsredone = 0;
 	  }
-	  
+
 	  if(elementsredone) {
 	    nomeshes = 0;
-	    for(i=0;i < nogrids;i++) SetElementDivision(&(grids[i]),info);
+	    for(i=0;i < nogrids;i++) SetElementDivision(&(grids[i]),eg.relh,info);
 	    
 	    DestroyKnots(&data[j]);
 	    DestroyKnots(&data[k]);

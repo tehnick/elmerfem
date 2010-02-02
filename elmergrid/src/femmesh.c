@@ -397,8 +397,7 @@ void ExampleGrid3D(struct GridType **grids,int *nogrids,int info)
 }
 
 
-
-void SetElementDivision(struct GridType *grid,int info)
+void SetElementDivision(struct GridType *grid,Real relh,int info)
 /* Given the densities and ratios in each cell finds the 
    optimum way to devide the mesh into elements. 
    The procedure is the following:
@@ -410,13 +409,13 @@ void SetElementDivision(struct GridType *grid,int info)
    materials that have indeces in interval [firstmat,lastmat]. 
    */
 {
-  int i,j,nx,ny,nxmax,nymax;
+  int i,j,nx,ny,nxmax = 0,nymax = 0;
   int sumxelems,sumyelems,sumxyelems;
+  int wantedelems,wantedelemsx,wantedelemsy;
   Real ratio,linearlimit;
-  Real dxmax,dymax,dx,dy,dxlimit;
+  Real dxmax = 0,dymax = 0,dx = 0,dy = 0,dxlimit = 0;
 
-  printf("SetElementDivision\n");
-
+  if(0) printf("SetElementDivision\n");
 
   if(grid->dimension == 1) 
     grid->numbering = NUMBER_1D;
@@ -433,7 +432,7 @@ void SetElementDivision(struct GridType *grid,int info)
 	  grid->structure[j][i] <= grid->lastmaterial)   
         grid->numbered[j][i] = ++grid->nocells; 
     }
-  if(info) printf("The mesh is devided into %d separate subcells.\n",grid->nocells);
+  if(0) printf("The mesh is devided into %d separate subcells.\n",grid->nocells);
   
   /* Put the linearity flags. */
   for(i=1; i<= nx ;i++) {
@@ -489,17 +488,20 @@ void SetElementDivision(struct GridType *grid,int info)
 
   /* Allocate elements for both axis separately */
   if(grid->autoratio == 2) {
-    
-    if(sumxelems > grid->totxelems) {
+
+    wantedelemsx = (int) (1.0*grid->totxelems / relh);
+    wantedelemsy = (int) (1.0*grid->totyelems / relh);
+
+    if(sumxelems > wantedelemsx) {
       printf("SetElementDivision: %d is too few elements in x-direction\n",grid->totxelems);
-      grid->totxelems = sumxelems+1;
+      wantedelemsx = sumxelems+1;
     }      
-    if(sumyelems > grid->totyelems) {
+    if(sumyelems > wantedelemsy ) {
       printf("SetElementDivision: %d is too few elements in y-direction\n",grid->totyelems);
-      grid->totyelems = sumyelems+1;
+      wantedelemsy = sumyelems+1;
     }   
     
-    for(;sumxelems < grid->totxelems;) {
+    for(;sumxelems < wantedelemsx;) {
       dxmax = 0.0;
       for(i=1;i<=nx;i++) {
 	if(grid->xelems[i] == 0) continue;
@@ -546,7 +548,7 @@ void SetElementDivision(struct GridType *grid,int info)
   
 
     if(grid->dimension > 1) {
-      for(;sumyelems < grid->totyelems;) {
+      for(;sumyelems < wantedelemsy;) {
 	dymax = 0.0;
 	for(i=1;i<=ny;i++) {
 	  if(grid->yelems[i] == 0) continue;
@@ -575,6 +577,8 @@ void SetElementDivision(struct GridType *grid,int info)
   /* Both axis dependently */
   if(grid->autoratio == 1)  {
     
+    wantedelems = (int) (1.0*grid->wantedelems / (relh*relh));
+
     sumxyelems = 0;
     for(;;) {
       dxmax = 0.0;
@@ -656,12 +660,12 @@ void SetElementDivision(struct GridType *grid,int info)
       if(dxmax > dymax) {
 	grid->xelems[nxmax] += 1;
 	sumxelems++;
-	dxlimit = (1.0-1.0e-6)*dxmax;
+	dxlimit = dxmax;
       }
       else {
 	grid->yelems[nymax] += 1;
 	sumyelems++;
-	dxlimit = (1.0-1.0e-6)*dymax;
+	dxlimit = dymax;
       }
       
       sumxyelems = 0;
@@ -669,20 +673,21 @@ void SetElementDivision(struct GridType *grid,int info)
 	for(i=1;i<=grid->xcells;i++) 
 	  if(grid->numbered[j][i]) sumxyelems += grid->xelems[i] * grid->yelems[j];
 
-      if(grid->wantedelems <= sumxyelems) break;
+      if(wantedelems <= sumxyelems) break;
     }
-
-    grid->limitdx = dxlimit;
   }    
 
 
 
   if(grid->autoratio == 3 || grid->limitdxverify)  {
     
-    dxlimit = grid->limitdx;
+    if(grid->autoratio == 3) {
+      dxlimit = relh * grid->limitdx;
+      dxmax = dymax = dxlimit;
+    }
 
     for(i=1;i<=nx;i++) {
-      
+
       for(;;) {       
 	if(grid->xlinear[i] || grid->xelems[i]==0) 
 	  dx = (grid->x[i] - grid->x[i-1])/(grid->xelems[i]+1);
@@ -710,8 +715,9 @@ void SetElementDivision(struct GridType *grid,int info)
 	  }
 	}
 	dx *= grid->xdens[i];
-
-	if( dx > dxlimit ) 
+	
+	/* choose the best fit for desired density */
+	if(fabs(dx-dxlimit) < fabs( dx*(1+1.0/grid->xelems[i]) -dxlimit) )
 	  grid->xelems[i] += 1;
 	else
 	  break;
@@ -750,7 +756,8 @@ void SetElementDivision(struct GridType *grid,int info)
 	}
 	
 	dy *= grid->ydens[i] / grid->xyratio;
-	if( dy > dxlimit ) 
+	/* choose the best fit for desired density */
+	if(fabs(dy-dxlimit) < fabs( dy*(1+1.0/grid->yelems[i]) -dxlimit) )
 	  grid->yelems[i] += 1;
 	else
 	  break; 
@@ -843,13 +850,11 @@ void SetElementDivision(struct GridType *grid,int info)
 
   grid->noelements = sumxyelems;
 
-#if DEBUG
-  printf("dxmax=%.3lg  dymax=%.3lg\n",dxmax,dymax);
-#endif
-  if(info) printf("Created %d x-divisions and %d y-divisions, total of %d elements.\n",
-		  sumxelems,sumyelems,sumxyelems);
-}
+  if(0) printf("Created a total of %d elements\n",sumxyelems);
 
+  grid->dx0 = dxmax;
+  grid->dy0 = dymax;
+}
 
 
 
@@ -1710,9 +1715,9 @@ int GetSideInfo(struct CellType *cell,int cellno,int side,int element,
 
 void SetElementDivisionExtruded(struct GridType *grid,int info)
 {
-  int i,j,nzmax,sumzelems;
+  int i,nzmax = 0,sumzelems;
   Real ratio,linearlimit;
-  Real dzmax,dz;
+  Real dzmax = 0,dz = 0;
   
   linearlimit = 0.001;
 
@@ -1743,48 +1748,62 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
   }
 
   if(grid->autoratio) {
+    int active;
     for(;;) {
       dzmax = 0.0;
+      active = FALSE;
+
       for(i=1;i<=grid->zcells;i++) {
 	if(grid->zelems[i] == 0) continue;
-	if(grid->zlinear[i] == TRUE || grid->zelems[i]==1) 
-	  dz = (grid->z[i] - grid->z[i-1])/grid->zelems[i];
+	if(grid->zlinear[i] == TRUE)
+	  dz = (grid->z[i] - grid->z[i-1])/(grid->zelems[i]+1);
 	else {
 	  if(grid->zexpand[i] > 0.0) {
-	    ratio = pow(grid->zexpand[i],1./(grid->zelems[i]-1.));
+	    ratio = pow(grid->zexpand[i],1./(1.*grid->zelems[i]));
 	    dz = (grid->z[i] - grid->z[i-1]) * 
-	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->zelems[i])));
+	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->zelems[i]+1)));
 	    if(ratio < 1.)   
 	      dz *= grid->zexpand[i];
 	  }
-	  else if(grid->zelems[i]==2) {
-	    dz = (grid->z[i] - grid->z[i-1])/grid->zelems[i];
+	  else if(grid->zelems[i]==1) {
+	    dz = (grid->z[i] - grid->z[i-1])/(grid->zelems[i]+1);
 	  } 
-	  else if(grid->zelems[i]%2 == 0) {
-	    ratio = pow(-grid->zexpand[i],1./(grid->zelems[i]/2-1.));
+	  else if((grid->zelems[i]+1)%2 == 0) {
+	    ratio = pow(-grid->zexpand[i],1./((grid->zelems[i]+1)/2-1.));
 	    dz = 0.5 * (grid->z[i] - grid->z[i-1]) * 
-	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->zelems[i]/2)));
+	      (1.-ratio) / (1.-pow(ratio,(Real)((grid->zelems[i]+1)/2)));
 	  }
-	  else if(grid->zelems[i]%2 == 1) {
-	    ratio = pow(-grid->zexpand[i],1./(grid->zelems[i]/2));
+	  else if((grid->zelems[i]+1)%2 == 1) {
+	    ratio = pow(-grid->zexpand[i],1./((grid->zelems[i]+1)/2));
 	    dz = (grid->z[i] - grid->z[i-1]) / 
-	      (2.0*(1.-pow(ratio,(Real)(grid->zelems[i]/2)))/
-	       (1-ratio) + pow(ratio,(Real)(grid->zelems[i]/2+0.5)));
+	      (2.0*(1.-pow(ratio,(Real)((grid->zelems[i]+1)/2)))/
+	       (1-ratio) + pow(ratio,(Real)((grid->zelems[i]+1)/2+0.5)));
 	  }
 	}
-	dz *= grid->zdens[i];
+	dz *= grid->zdens[i] / grid->xzratio;
+
 	if(dz > dzmax) {
 	  dzmax = dz;
 	  nzmax = i;
 	}
+
+	if(grid->autoratio) {
+	  if(fabs(dz - grid->dx0) < fabs( dz*(1.0/(1.0-1.0/grid->zelems[i])) - grid->dx0) ) {
+	    grid->zelems[i] += 1;
+	    sumzelems++;
+	    active = TRUE;
+	  }
+	}
       }
 
-      if(grid->autoratio && grid->xzratio * grid->limitdx > dzmax) break;
-
-      grid->zelems[nzmax] += 1;
-      sumzelems++;
-
-      if(!grid->autoratio && sumzelems >= grid->totzelems) break;
+      if(grid->autoratio) {
+	if(!active) break;
+      }
+      else {
+	grid->zelems[nzmax] += 1;
+	sumzelems++;
+	if(sumzelems >= grid->totzelems) break;
+      }
     }
   }
 
@@ -1820,14 +1839,16 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
 
   if(info) printf("Created %d extruded divisions.\n",
 		  grid->totzelems);
+  grid->dz0 = dzmax;
 }
+
 
 
 void SetElementDivisionCylinder(struct GridType *grid,int info)
 {
-  int i,j,k,nzmax;
+  int i,k;
   Real ratio,eps;
-  Real dzmax,dz;
+  Real dzmax;
   
   eps = 1.0e-8;
 
@@ -1894,7 +1915,5 @@ void SetElementDivisionCylinder(struct GridType *grid,int info)
   if(info) printf("Created %d divisions in %d cells for rotation [%.2lg  %.2lg].\n",
 		  grid->totzelems,grid->zcells,
 		  grid->rotateradius1,grid->rotateradius2);
+  grid->dz0 = dzmax;
 }
-
-
-

@@ -1634,6 +1634,7 @@ startpoint:
   SideAreas(data,bound);  
   printf("%d element sides between materials %d and %d were located to type %d.\n",
 	 nosides,material1,material2,boundarytype); 
+
   return(0);
 }
 
@@ -1840,6 +1841,8 @@ int CreateBoundaries(struct CellType *cell,struct FemType *data,
       CreateBoundary(cell,data,&boundaries[j],
 		     data->boundext[i],data->boundint[i],
 		     data->boundsolid[i],data->boundtype[i]);
+
+      printf("i=%d\n",i);
     }
   return(0);
 }
@@ -5910,6 +5913,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   Real z,*newx,*newy,*newz,corder[3];
   Real meanx,meany,absx,absy;
  
+
   if(grid->rotate)
     SetElementDivisionCylinder(grid,info);
   else if(grid->dimension == 3)
@@ -6009,7 +6013,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   if(layers == 2) knot2 = dataxy->noknots; 
   elem0 = 0;
   level = 0;
-
 
   for(cellk=1;cellk <= grid->zcells ;cellk++) {  
     
