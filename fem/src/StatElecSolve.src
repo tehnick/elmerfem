@@ -773,8 +773,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
     st = CPUTime()
-    CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-        Potential, Norm, 1, Solver )
+!    CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
+!        Potential, Norm, 1, Solver )
+
+    Norm = DefaultSolve()
     RelativeChange = Solver % Variable % NonlinChange
     st = CPUTime() - st
     WRITE( Message, * ) 'Solve (s)             :',st
