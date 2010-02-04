@@ -1,6 +1,6 @@
 Header
   CHECK KEYWORDS Warn
-  Mesh DB "." "global"
+  Mesh DB "." "reference"
   Include Path ""
   Results Directory ""
 End
@@ -13,8 +13,8 @@ Simulation
   Simulation Type = "Steady State"
   Steady State Max Iterations = 100
 
-!  Output Intervals = 0
-! Post File = "TempDist.ep"
+  Output Intervals = 0
+ Post File = "TempDist.ep"
 End
 
 Constants
@@ -37,11 +37,34 @@ End
 
 
 Equation 1
-  Name = "Equation1"
-  Active Solvers(2) = 1 2
+  Name = "Heat"
+  Active Solvers(3) = 1 2 3
 End
 
 Solver 1
+! In order not to mix the norm of the multimesh system
+!  Exec Solver = Before Timestep
+  Equation = "localHeat"
+  Variable = "refT"
+  Procedure = "HeatSolve" "HeatSolver"
+
+  Linear System Solver = "Direct"
+  Linear System Direct Method = "umfpack"
+
+  Steady State Convergence Tolerance = 1.0e-05
+
+  Stabilize = True
+
+  Nonlinear System Convergence Tolerance = 1.0e-05
+  Nonlinear System Max Iterations = 1
+  Nonlinear System Relaxation Factor = 1.0
+  Nonlinear System Newton After Iterations = 3
+  Nonlinear System Newton After Tolerance = 1.0e-02
+End
+
+Solver 2
+  Mesh = "global"
+
   Equation = "globalHeat"
   Variable = "globalT"
   Procedure = "HeatSolve" "HeatSolver"
@@ -60,13 +83,13 @@ Solver 1
   Nonlinear System Newton After Tolerance = 1.0e-02
 End
 
-Solver 2
+Solver 3
   Mesh = "local"
 
   Equation = "localHeat"
   Variable = "localT"
   Procedure = "HeatSolve" "HeatSolver"
-
+ 
   Linear System Solver = "Direct"
   Linear System Direct Method = "umfpack"
 
@@ -82,6 +105,7 @@ Solver 2
 End
 
 
+
 Material 1
   Name = "Ideal"
   Density = 1.0
@@ -95,10 +119,11 @@ End
 
 
 Boundary Condition 1
-  Name = "ExtBoundaries"
+  Name = "ExtBoxFrame"
   Target Boundaries = 1
 
   globalT = Real 0.0
+  refT = Real 0.0
 End
 
 Boundary Condition 2
@@ -117,11 +142,9 @@ Boundary Condition 3
 End
 
 Boundary Condition 4
-  Name = "HeaterBoundary"
+  Name = "InnerBoxFrame"
   Target Boundaries = 4
 End
-
-
 
 
 $fprintf( stderr, "TEST CASE 1\n");
