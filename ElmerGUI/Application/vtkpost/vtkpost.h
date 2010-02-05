@@ -155,6 +155,7 @@ public:
 
 signals:
   void canProceedWithNextSignal(vtkRenderWindow*);
+  void povrayState(int value);
 
 public slots:
   void redrawSlot();                                // redraw all actors

@@ -78,6 +78,8 @@
 #include <TopoDS_Edge.hxx>
 #include <BRepAdaptor_Curve2d.hxx>
 #include <GCPnts_TangentialDeflection.hxx>
+#include <GProp_GProps.hxx>
+#include <BRepGProp.hxx>
 
 using namespace std;
 
@@ -254,6 +256,22 @@ bool CadView::readFile(QString fileName)
 
   BRepTools::Clean(shape);
 
+  // Check 3D properties:
+  //----------------------
+  GProp_GProps System;
+  BRepGProp::VolumeProperties(shape, System);
+  double mass = System.Mass();
+
+  if(mass < 1.0e-12) {
+    QMessageBox message;
+    message.setIcon(QMessageBox::Warning);
+    message.setText("Non 3D-shape detected");
+    message.setInformativeText("The cad import features of ElmerGUI are currently limited to 3D models. Please consider using external software or other formats for meshing 1D and 2D geometries.");
+    message.exec();
+  }
+
+  // Go:
+  //-----
   this->fileName = fileName;
 
   actorToFace.clear();
@@ -583,6 +601,16 @@ TopoDS_Shape CadView::readStep(QString fileName)
     for(Standard_Integer n = 1; n <= nbr; n++) {
       bool ok = stepReader.TransferRoot(n);
       int nbs = stepReader.NbShapes();
+
+      // Display warning if nbs > 1
+      //----------------------------
+      if(nbs > 1) {
+	QMessageBox message;
+	message.setIcon(QMessageBox::Warning);
+	message.setText("Loading multiple shapes");
+	message.setInformativeText("The mesh generators of ElmerGUI are currently unable to handle cad files with multiple shapes. Please consider using external software for mesh generation in this case.");
+	message.exec();
+      }
       
       if(nbs > 0) {
 	shapes = new TopTools_HSequenceOfShape();

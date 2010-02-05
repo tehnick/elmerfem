@@ -835,6 +835,12 @@ void VtkPost::savePovraySlot()
 
   double ds = sqrt(dx*dx+dy*dy+dz*dz);
 
+  // Create progress dialog:
+  //=========================
+  QProgressDialog dialog;
+  connect(this, SIGNAL(povrayState(int)), &dialog, SLOT(setValue(int)));
+  dialog.show();
+
   // Headers etc.
   //==============
   text << "#include \"colors.inc\"\n\n"
@@ -848,7 +854,8 @@ void VtkPost::savePovraySlot()
 
   // Vertex points:
   //----------------
-  qDebug() << "Write points...";
+  dialog.setLabelText("Writing points...");
+  dialog.setMaximum(polyData->GetNumberOfPoints());
 
   text << "  vertex_vectors {\n"
        << "    " << polyData->GetNumberOfPoints() << "\n";
@@ -856,6 +863,7 @@ void VtkPost::savePovraySlot()
   vtkPoints *points = polyData->GetPoints();
 
   for(int i = 0; i < polyData->GetNumberOfPoints(); i++) {
+    emit(povrayState(i));
     double *p = points->GetPoint(i);
     text << "    <" << p[0] << "," << p[1] << "," << p[2] << ">\n";
   }
@@ -864,11 +872,14 @@ void VtkPost::savePovraySlot()
 
   // Surface normals:
   //------------------
-  qDebug() << "Write normals...";
-
+  dialog.setLabelText("Writing normals...");
+  dialog.setMaximum(polyData->GetNumberOfPoints());
+ 
   text << "  normal_vectors {\n"
        << "    " << polyData->GetNumberOfPoints() << "\n";
+
   for(int i = 0; i < polyData->GetNumberOfPoints(); i++) {
+    emit(povrayState(i));
     double *p = polyData->GetPointData()->GetNormals()->GetTuple(i);
     text << "    <" << p[0] << "," << p[1] << "," << p[2] << ">\n";
   }
@@ -877,12 +888,14 @@ void VtkPost::savePovraySlot()
 
   // Face indices:
   //---------------
-  qDebug() << "Write faces...";
+  dialog.setLabelText("Writing faces...");
+  dialog.setMaximum(polyData->GetNumberOfCells());
 
   text << "  face_indices {\n"
        << "    " << polyData->GetNumberOfCells() << "\n";
   
   for(int i = 0; i < polyData->GetNumberOfCells(); i++) {
+    emit(povrayState(i));
     vtkCell *cell = polyData->GetCell(i);
     int n0 = cell->GetPointId(0);
     int n1 = cell->GetPointId(1);
@@ -906,18 +919,18 @@ void VtkPost::savePovraySlot()
 
   // Translate:
   //------------
-  text << "  translate <" << -x0/2 << "," << -y0/2 << "," << -z0/2 << ">\n";
+  text << "  translate <" << -x0/2.0 << "," << -y0/2.0 << "," << -z0/2.0 << ">\n";
 
-  text << "}\n"; // mesh2
+  text << "}\n\n"; // mesh2
 
   // Floor:
   //--------
-  text << "  plane {\n"
-       << "    <0,-1,0>," << dy << "\n"
-       << "    pigment {\n"
-       << "      rgb<1,1,1>*0.8\n"
-       << "    }\n"
-       << "  }\n";
+  text << "plane {\n"
+       << "  <0,-1,0>," << dy << "\n"
+       << "  pigment {\n"
+       << "    rgb<1,1,1>*0.8\n"
+       << "  }\n"
+       << "}\n";
   
   // Finalize:
   //===========
