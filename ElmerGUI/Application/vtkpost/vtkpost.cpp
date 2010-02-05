@@ -844,9 +844,9 @@ void VtkPost::savePovraySlot()
   // Headers etc.
   //==============
   text << "#include \"colors.inc\"\n\n"
-       << "background {color White}\n"
-       << "camera {location <1,1,1>*" << ds/1.5 << " look_at <0,0,0>}\n"
-       << "light_source {<1,2,3>*" << 5*ds << " color White}\n\n";
+       << "background {color White}\n\n"
+       << "camera {location <1,1,1>*" << ds/1.5 << " look_at 0}\n\n"
+       << "light_source {<1,2,3>*" << 5.0*ds << " color White}\n\n";
 
   // Mesh2:
   //========
@@ -926,9 +926,13 @@ void VtkPost::savePovraySlot()
   // Floor:
   //--------
   text << "plane {\n"
-       << "  <0,-1,0>," << dy << "\n"
+       << "  y," << -dy/1.5 << "\n"
        << "  pigment {\n"
-       << "    rgb<1,1,1>*0.8\n"
+       << "    checker rgb<0.9,0.5,0.4> rgb<0.9,0.9,1.0> scale " << ds/5.0 << "\n"
+       << "  }\n"
+       << "  finish {\n"
+       << "    reflection 0.0\n"
+       << "    ambient 0.4\n"
        << "  }\n"
        << "}\n";
   
