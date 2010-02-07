@@ -1722,7 +1722,13 @@ CONTAINS
      ELSE
        IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
      END IF
-     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
+     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), &
+                'Calculate Loads', Found )
+
+     IF ( .NOT. Found ) THEN
+       BUpd = BUpd .OR. &
+          GetLogical( GetEquation(), 'Calculate Loads', Found )
+     END IF
 
      IF ( BUpd ) THEN
        IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
@@ -2733,9 +2739,9 @@ CONTAINS
                SELECT CASE(GetElementFamily())
                CASE(2)
                  n = Element % Type % NumberOfNodes
-                 CALL LocalBcIntegral( BC, Element, n, Name, Work(1) )
-                 IF ( Element % NodeIndexes(1) > &
-                       Element % NodeIndexes(2) ) Work(1)=-Work(1)
+                 CALL LocalBcIntegral(BC, Element, n, Name, Work(1))
+                 IF ( Element % NodeIndexes(1) < &
+                      Element % NodeIndexes(2) ) Work(1)=-Work(1)
 
                  n=GetElementDOFs(gInd)
                  DO k=1,n
@@ -2765,7 +2771,7 @@ CONTAINS
                    Edge => Solver % Mesh % Edges(Face % EdgeIndexes(j))
                    n = Edge % Type % NumberOfNodes
                    CALL LocalBcIntegral( BC, Edge, n, Name, Work(1) )
-                   IF ( Edge % NodeIndexes(1) > &
+                   IF ( Edge % NodeIndexes(1) < &
                             Edge % NodeIndexes(2) ) Work(1)=-Work(1)
 
                    n=GetElementDOFs(gInd,Edge)
@@ -2995,9 +3001,9 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: Name
 !------------------------------------------------------------------------------
     TYPE(GaussIntegrationPoints_t) :: IP
-    INTEGER :: p,q,t
+    INTEGER :: n,p,q,t
     REAL(KIND=dp) :: Basis(nd)
-    REAL(KIND=dp) :: xip,yip,zip,s,DetJ,Load(nd)
+    REAL(KIND=dp) :: xip,yip,zip,s,DetJ,Load(nd),G(3)
     LOGICAL :: stat
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -3006,7 +3012,16 @@ CONTAINS
     ! Get nodes of boundary elements parent and gauss points for boundary
     CALL GetElementNodes( Nodes, Element )
 
-    Load(1:nd) = GetReal( BC, Name, stat )
+    Load(1:nd) = GetReal( BC, Name, stat, element )
+
+    n = LEN_TRIM(Name)
+    G(1) = Nodes % x(2)-Nodes % x(1)
+    G(2) = Nodes % y(2)-Nodes % y(1)
+    G(3) = Nodes % z(2)-Nodes % z(1)
+    G = G / SQRT(SUM(G**2))
+    Load(1:nd) = Load(1:nd)+GetReal( BC, Name(1:n)//' 1', stat, element )*G(1)
+    Load(1:nd) = Load(1:nd)+GetReal( BC, Name(1:n)//' 2', stat, element )*G(2)
+    Load(1:nd) = Load(1:nd)+GetReal( BC, Name(1:n)//' 3', stat, element )*G(3)
 
     Integral = 0._dp
     IP = GaussPoints( Element )
