@@ -2602,7 +2602,7 @@ CONTAINS
      REAL(KIND=dp), ALLOCATABLE :: Work(:), STIFF(:,:)
 
      INTEGER, ALLOCATABLE :: lInd(:), gInd(:)
-     INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, &
+     INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, ni, nj, &
           DOF, local, numEdgeDofs,istat, n_start, Offset
 
      LOGICAL :: Flag,Found, ConstantValue
@@ -2669,7 +2669,6 @@ CONTAINS
              Parent => Element % BoundaryInfo % Right
 
            IF ( .NOT. ASSOCIATED(Parent) )   CYCLE
-           IF ( .NOT. ASSOCIATED(Parent % pDefs) ) CYCLE
 
            BC => GetBC()
            IF ( .NOT. ASSOCIATED(BC) ) CYCLE
@@ -2682,7 +2681,11 @@ CONTAINS
            
            ! Get indexes for boundary and values for dofs associated to them
            n = GetElementNOFNodes()
-           CALL getBoundaryIndexes( Solver % Mesh, Element, Parent, gInd, numEdgeDofs )
+           IF ( ASSOCIATED(Parent % PDefs) ) THEN
+             CALL getBoundaryIndexes( Solver % Mesh, Element, Parent, gInd, numEdgeDofs )
+           ELSE
+             CYCLE 
+           END IF
 
            ! Contribute this boundary to global system
            ! (i.e solve global boundary problem)
@@ -2705,14 +2708,13 @@ CONTAINS
    ! Set Dirichlet dofs for edges and faces
      DO DOF=1,x % DOFs
         name = x % name
-        IF ( x % DOFs > 1 ) name = ComponentName(name,DOF)
+        IF (x % DOFs>1) name=ComponentName(name,DOF)
         
         CALL SetNodalLoads( CurrentModel,A, b, &
             Name,DOF,x % DOFs,x % Perm ) ! , Offset ) not yet ?
 
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
              Name, DOF, x % DOFs, x % Perm, Offset )
-
 
 !       Dirichlet BCs for face & edge DOFs:
 !       -----------------------------------
@@ -2722,9 +2724,8 @@ CONTAINS
            IF ( .NOT. ActiveBoundaryElement() ) CYCLE
 
            BC => GetBC()
-           IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
+           IF ( .NOT. ASSOCIATED(BC) ) CYCLE
            IF ( .NOT. ListCheckPresent(BC, Name) ) CYCLE
-
 
            ! Get parent element:
            ! -------------------
@@ -2738,10 +2739,9 @@ CONTAINS
              IF ( ASSOCIATED( Solver % Mesh % Edges ) ) THEN
                SELECT CASE(GetElementFamily())
                CASE(2)
-                 n = Element % Type % NumberOfNodes
-                 CALL LocalBcIntegral(BC, Element, n, Name, Work(1))
-                 IF ( Element % NodeIndexes(1) < &
-                      Element % NodeIndexes(2) ) Work(1)=-Work(1)
+                 nb = Parent % Type % NumberOfNodes
+                 n  = Element % Type % NumberOfNodes
+                 CALL LocalBcIntegral(BC,Element,n,Parent,nb,Name,STIFF,Work)
 
                  n=GetElementDOFs(gInd)
                  DO k=1,n
@@ -2756,7 +2756,7 @@ CONTAINS
                CASE(3,4)
                  DO j=1,Parent % Type % NumberOfFaces
                    Face => Solver % Mesh % Faces(Parent % FaceIndexes(j))
-                   IF (Element % Type % ElementCode == Face % Type % ElementCode) THEN
+                   IF (Element % Type % ElementCode==Face % Type % ElementCode) THEN
                      n = 0
                      DO k=1,Element % Type % NumberOfNodes
                        DO l=1,Face % Type % NumberOfNodes
@@ -2769,10 +2769,10 @@ CONTAINS
 
                  DO j=1,Face % Type % NumberOfEdges
                    Edge => Solver % Mesh % Edges(Face % EdgeIndexes(j))
-                   n = Edge % Type % NumberOfNodes
-                   CALL LocalBcIntegral( BC, Edge, n, Name, Work(1) )
-                   IF ( Edge % NodeIndexes(1) < &
-                            Edge % NodeIndexes(2) ) Work(1)=-Work(1)
+                   nb = Edge % Type % NumberOfNodes
+                   n  = Parent % Type % NumberOfNodes
+                   CALL LocalBcIntegral( BC, Edge, nb, Parent, &
+                          n, Name, STIFF, Work )
 
                    n=GetElementDOFs(gInd,Edge)
                    DO k=1,n
@@ -2789,7 +2789,7 @@ CONTAINS
              END IF
            ELSE IF ( Name(1:7) == 'normal ' ) THEN
              n = Element % Type % NumberOfNodes
-             CALL LocalBcIntegral( BC, Element, n, Name, Work(1) )
+!            CALL LocalBcIntegral( BC, Element, n, Name, Work(1),Work(2) )
 
              n=GetElementDOFs(gInd)
              DO k=1,n
@@ -2967,7 +2967,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalBcIntegral(BC, Element, nd, Name, Integral )
+  SUBROUTINE LocalBcIntegral(BC, Element, nd, Parent, np, Name, MASS, Integral)
 !******************************************************************************
 !
 !  DESCRIPTION:
@@ -2994,44 +2994,70 @@ CONTAINS
 !------------------------------------------------------------------------------
     IMPLICIT NONE
 
-    TYPE(Element_t), POINTER :: Element
-    INTEGER :: nd
-    REAL(KIND=dp) :: Integral
+    TYPE(Element_t) :: Element, Parent
+    INTEGER :: nd,np
+    REAL(KIND=dp) :: Integral(:),MASS(:,:)
     TYPE(ValueList_t), POINTER :: BC
     CHARACTER(LEN=MAX_NAME_LEN) :: Name
 !------------------------------------------------------------------------------
     TYPE(GaussIntegrationPoints_t) :: IP
-    INTEGER :: n,p,q,t
-    REAL(KIND=dp) :: Basis(nd)
-    REAL(KIND=dp) :: xip,yip,zip,s,DetJ,Load(nd),G(3)
-    LOGICAL :: stat
-    TYPE(Nodes_t) :: Nodes
-    SAVE Nodes
+    INTEGER, POINTER :: Edgemap(:,:)
+    INTEGER :: i,j,k,n,p,q,t
+    LOGICAL :: Lstat
+    TYPE(Nodes_t), SAVE :: Nodes, Pnodes
+    REAL(KIND=dp) :: Basis(np) ,dBasisdx(np,3)
+    REAL(KIND=dp) :: WhitB(6,3),RotWhitB(6,3),L,VL(3),G(3)
+    REAL(KIND=dp) :: u,v,w,s,DetJ,Load(np),Vload(3,1:np)
 !------------------------------------------------------------------------------
 
     ! Get nodes of boundary elements parent and gauss points for boundary
     CALL GetElementNodes( Nodes, Element )
+    CALL GetElementNodes( PNodes, Parent )
 
-    Load(1:nd) = GetReal( BC, Name, stat, element )
+    Load(1:nd) = GetReal( BC, Name, Lstat, Element )
+
+    EdgeMap => GetEdgeMap(GetElementFamily(Parent))
+    DO i=1,SIZE(EdgeMap,1)
+      j=EdgeMap(i,1); k=EdgeMap(i,2)
+      IF ( Parent % NodeIndexes(j)==Element % NodeIndexes(1) .AND. &
+           Parent % NodeIndexes(k)==Element % NodeIndexes(2) .OR.  &
+           Parent % NodeIndexes(j)==Element % NodeIndexes(2) .AND. &
+           Parent % NodeIndexes(k)==Element % NodeIndexes(1) ) EXIT
+    end do
 
     n = LEN_TRIM(Name)
-    G(1) = Nodes % x(2)-Nodes % x(1)
-    G(2) = Nodes % y(2)-Nodes % y(1)
-    G(3) = Nodes % z(2)-Nodes % z(1)
-    G = G / SQRT(SUM(G**2))
-    Load(1:nd) = Load(1:nd)+GetReal( BC, Name(1:n)//' 1', stat, element )*G(1)
-    Load(1:nd) = Load(1:nd)+GetReal( BC, Name(1:n)//' 2', stat, element )*G(2)
-    Load(1:nd) = Load(1:nd)+GetReal( BC, Name(1:n)//' 3', stat, element )*G(3)
+    VLoad(1,1:nd)=GetReal(BC,Name(1:n)//' 1',Lstat,element)
+    VLoad(2,1:nd)=GetReal(BC,Name(1:n)//' 2',Lstat,element)
+    VLoad(3,1:nd)=GetReal(BC,Name(1:n)//' 3',Lstat,element)
+
+    G(1) = PNodes % x(k) - PNodes % x(j)
+    G(2) = PNodes % y(k) - PNodes % y(j)
+    G(3) = PNodes % z(k) - PNodes % z(j)
+    G = G/SQRT(SUM(G**2))
 
     Integral = 0._dp
-    IP = GaussPoints( Element )
+    IP = GaussPoints(Element)
     DO t=1,IP % n
-      stat = ElementInfo( Element, Nodes, IP % u(t), &
+      Lstat = ElementInfo( Element, Nodes, IP % u(t), &
          IP % v(t), IP % w(t), DetJ, Basis )
+      s = IP % s(t) * DetJ
 
-       s = IP % s(t) * DetJ
-       Integral = Integral + s * SUM(Load(1:nd)*Basis(1:nd))
+      L  = SUM(Load(1:nd)*Basis(1:nd))
+      VL = MATMUL(Vload(:,1:nd),Basis(1:nd))
+
+      Integral(1)=Integral(1)+s*L
+      Integral(1)=Integral(1)+s*SUM(VL*G)
     END DO
+
+    j = Parent % NodeIndexes(j)
+    IF ( ParEnv % PEs>1 ) &
+      j=CurrentModel % Mesh % ParallelInfo % GlobalDOFs(j)
+
+    k = Parent % NodeIndexes(k)
+    IF ( ParEnv % PEs>1 ) &
+      k=CurrentModel % Mesh % ParallelInfo % GlobalDOFs(k)
+
+    IF (k < j) Integral=-Integral
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalBcIntegral
 !------------------------------------------------------------------------------
