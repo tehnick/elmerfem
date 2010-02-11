@@ -2748,10 +2748,13 @@ CONTAINS
                    nb = x % Perm(gInd(k))
                    IF ( nb <= 0 ) CYCLE
                    nb = Offset + x % DOFs*(nb-1) + DOF
-  
-                   CALL ZeroRow( A, nb )
-                   CALL SetMatrixElement(A,nb,nb,1._dp)
-                   A % RHS(nb) = Work(1)
+                   IF ( A % Symmetric ) THEN
+                     CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1))
+                   ELSE
+                     CALL ZeroRow( A, nb )
+                     CALL SetMatrixElement(A,nb,nb,1._dp)
+                     A % RHS(nb) = Work(1)
+                   END IF
                  END DO
                CASE(3,4)
                  DO j=1,Parent % Type % NumberOfFaces
@@ -2779,10 +2782,13 @@ CONTAINS
                      nb = x % Perm(gInd(k))
                      IF ( nb <= 0 ) CYCLE
                      nb = Offset + x % DOFs*(nb-1) + DOF
-  
-                     CALL ZeroRow( A, nb )
-                     CALL SetMatrixElement(A,nb,nb,1._dp)
-                     A % RHS(nb) = Work(1)
+                     IF ( A % Symmetric ) THEN
+                       CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1))
+                     ELSE
+                       CALL ZeroRow( A, nb )
+                       CALL SetMatrixElement(A,nb,nb,1._dp)
+                       A % RHS(nb) = Work(1)
+                     END IF
                    END DO
                  END DO
                END SELECT
