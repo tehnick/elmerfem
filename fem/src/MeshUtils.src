@@ -586,31 +586,30 @@ CONTAINS
           Mesh % Elements(i) % NodeIndexes(j) = LocalPerm(nodes(j) - MinIndex + 1)
         END DO
 
-        NULLIFY( Mesh % Elements(i) % EdgeIndexes )
-        NULLIFY( Mesh % Elements(i) % FaceIndexes )
+        Mesh % Elements(i) % EdgeIndexes => Null()
+        Mesh % Elements(i) % FaceIndexes => Null()
 
-        NULLIFY( Mesh % Elements(i) % BoundaryInfo % Left )
+        Mesh % Elements(i) % BoundaryInfo % Left => Null()
         IF ( Left >= 1 ) &
           Mesh % Elements(i) % BoundaryInfo % Left => Mesh % Elements(left)
 
-        NULLIFY( Mesh % Elements(i) % BoundaryInfo % Right )
+        Mesh % Elements(i) % BoundaryInfo % Right => Null()
         IF ( Right >= 1 ) &
           Mesh % Elements(i) % BoundaryInfo % Right => Mesh % Elements(right)
 
-        NULLIFY( Mesh % Elements(i) % Boundaryinfo % GebhardtFactors )
+        Mesh % Elements(i) % Boundaryinfo % GebhardtFactors => Null()
 
         Mesh % Elements(i) % NDOFs  = n
-
         IF ( ASSOCIATED(Mesh % Elements(i) % BoundaryInfo % Left) ) THEN
            IF( Mesh % Elements(i) % BoundaryInfo % Left % NDOFs == 0 )  &
               Mesh % Elements(i) % NDOFs = 0
 
            IF ( Mesh % Elements(i) % TYPE % DIMENSION == 1 ) THEN
               Mesh % Elements(i) % BDOFs = &
-                    EdgeDOFs( Mesh % Elements(i) % BoundaryInfo % Left % ElementIndex )
+                 EdgeDOFs(Mesh % Elements(i) % BoundaryInfo % Left % ElementIndex)
            ELSE
               Mesh % Elements(i) % BDOFs = &
-                    FaceDOFs( Mesh % Elements(i) % BoundaryInfo % Left % ElementIndex )
+                 FaceDOFs(Mesh % Elements(i) % BoundaryInfo % Left % ElementIndex)
            END IF
         END IF
 
@@ -620,43 +619,41 @@ CONTAINS
 
            IF ( Mesh % Elements(i) % TYPE % DIMENSION == 1 ) THEN
               Mesh % Elements(i) % BDOFs = &
-                    EdgeDOFs( Mesh % Elements(i) % BoundaryInfo % Right % ElementIndex )
+                  EdgeDOFs(Mesh % Elements(i) % BoundaryInfo % Right % ElementIndex)
            ELSE
               Mesh % Elements(i) % BDOFs = &
-                    FaceDOFs( Mesh % Elements(i) % BoundaryInfo % Right % ElementIndex )
+                  FaceDOFs(Mesh % Elements(i) % BoundaryInfo % Right % ElementIndex)
            END IF
         END IF
 
         Mesh % Elements(i) % DGDOFs = 0
-        NULLIFY( Mesh % Elements(i) % PDefs )
-        NULLIFY( Mesh % Elements(i) % DGIndexes )
-        NULLIFY( Mesh % Elements(i) % EdgeIndexes )
-        NULLIFY( Mesh % Elements(i) % FaceIndexes )
-        NULLIFY( Mesh % Elements(i) % BubbleIndexes )
+        Mesh % Elements(i) % PDefs => Null()
+        Mesh % Elements(i) % DGIndexes => Null()
+        Mesh % Elements(i) % EdgeIndexes => Null()
+        Mesh % Elements(i) % FaceIndexes => Null()
+        Mesh % Elements(i) % BubbleIndexes => Null()
       ELSE
         WRITE( Message, * ) 'Unknown element type ',TYPE,' ignoring element.'
         CALL Warn( 'LoadMesh', Message )
       END IF
     END DO
-
-    IF ( Mesh % MaxElementDOFs <= 0 ) Mesh % MaxElementDOFs = Mesh % MaxElementNodes 
+    IF ( Mesh % MaxElementDOFs <= 0 ) Mesh % MaxElementDOFs=Mesh % MaxElementNodes 
 
     DEALLOCATE( Coord, LocalEPerm )
-
-    NULLIFY( Model % FreeSurfaceNodes )
-    NULLIFY( Model % BoundaryCurvatures )
+    Model % FreeSurfaceNodes => Null()
+    Model % BoundaryCurvatures => Null()
 !------------------------------------------------------------------------------
-
 
     IF ( NeedEdges ) THEN
       CALL FindMeshEdges( Mesh )
+
       ! Set edge and face polynomial degree and degrees of freedom for
       ! all elements
       DO i=1,Mesh % NumberOFBulkElements
          Element => Mesh % Elements(i)
          
          ! Iterate each edge of element
-         DO j = 1,Element % TYPE % NumberOfEdges
+         DO j = 1,Element % Type % NumberOfEdges
             Edge => Mesh % Edges( Element % EdgeIndexes(j) ) 
             
             ! Set attributes of p element edges
@@ -769,7 +766,7 @@ CONTAINS
        END DO
      END IF
    END DO
-   IF ( ASSOCIATED(EdgeDOFs) ) DEALLOCATE( EdgeDOFs, FaceDOFs )
+   IF ( ASSOCIATED(EdgeDOFs) ) DEALLOCATE(EdgeDOFs, FaceDOFs)
 
    ! Reallocate coordinate arrays for iso-parametric p-elements:
    ! -----------------------------------------------------------
@@ -803,7 +800,6 @@ CONTAINS
    Mesh % ParallelInfo % GlobalDOFs => NodeTags
 
    IF ( parallel ) THEN
-
      DO i=1,Mesh % NumberOfBulkElements
        Mesh % Elements(i) % GElementIndex = ElementTags(i)
      END DO
@@ -812,8 +808,8 @@ CONTAINS
      Mesh % ParallelInfo % GlobalDOFs = 0
      Mesh % ParallelInfo % GlobalDOFs(1:Mesh % NumberOfNodes) = NodeTags
 
-     ALLOCATE( Mesh % ParallelInfo % NeighbourList(n), STAT=istat )
-     IF ( istat /= 0 ) CALL Fatal( 'LoadMesh', 'Unable to allocate mesh arrays.' )
+     ALLOCATE(Mesh % ParallelInfo % NeighbourList(n), STAT=istat)
+     IF (istat /= 0) CALL Fatal('LoadMesh', 'Unable to allocate mesh arrays.')
 
      DO i=1,n
        NULLIFY( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
@@ -830,7 +826,7 @@ CONTAINS
        k = LocalPerm( tag-MinIndex+1 )
 
        Mesh % ParallelInfo % INTERFACE(k) = .TRUE.
-       CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(k) % Neighbours, npart )
+       CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(k) % Neighbours,npart)
        Mesh % ParallelInfo % NeighbourList(k) % Neighbours = parts(1:npart) - 1
 
        IF ( parts(1)-1 /= mype ) Mesh % ParallelInfo % NumberOfIfDOFs = &
@@ -838,14 +834,14 @@ CONTAINS
      END DO
 
      DO i=1,n
-       IF ( .NOT.ASSOCIATED( Mesh % ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
-          CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours, 1 )
+       IF (.NOT.ASSOCIATED(Mesh % ParallelInfo % NeighbourList(i) % Neighbours)) THEN
+          CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours,1)
           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = mype
        END IF
      END DO
-
-     CALL SParEdgeNumbering(Mesh)
+ 
      CALL SParFaceNumbering(Mesh)
+     CALL SParEdgeNumbering(Mesh)
    END IF
    DEALLOCATE( LocalPerm, ElementTags )
    CALL eio_close_mesh( eio_info )
@@ -2047,7 +2043,7 @@ END SUBROUTINE CreateGlobalNumbering
 !
 !               Tetras:
 !               =======
-                nf(1:3) = Element % NodeIndexes( FaceMap(k,1:3) )
+                nf(1:3) = Element % NodeIndexes(FaceMap(k,1:3))
                 CALL sort( 3, nf )
 
              CASE(6)
@@ -2055,10 +2051,10 @@ END SUBROUTINE CreateGlobalNumbering
 !               Pyramids:
 !               =========
                 IF ( k == 1 ) THEN
-                   nf(1:4) = Element % NodeIndexes( FaceMap(k,1:4) )
+                   nf(1:4) = Element % NodeIndexes(FaceMap(k,1:4))
                    CALL sort( 4, nf )
                 ELSE
-                   nf(1:3) = Element % NodeIndexes( FaceMap(k,1:3) )
+                   nf(1:3) = Element % NodeIndexes(FaceMap(k,1:3))
                    CALL sort( 3, nf )
                 END IF
 
@@ -2067,10 +2063,10 @@ END SUBROUTINE CreateGlobalNumbering
 !               Wedges:
 !               =======
                 IF ( k <= 2 ) THEN
-                   nf(1:3) = Element % NodeIndexes( FaceMap(k,1:3) )
+                   nf(1:3) = Element % NodeIndexes(FaceMap(k,1:3))
                    CALL sort( 3, nf )
                 ELSE
-                   nf(1:4) = Element % NodeIndexes( FaceMap(k,1:4) )
+                   nf(1:4) = Element % NodeIndexes(FaceMap(k,1:4))
                    CALL sort( 4, nf )
                 END IF
                 
@@ -2078,7 +2074,7 @@ END SUBROUTINE CreateGlobalNumbering
 !
 !               Bricks:
 !               =======
-                nf(1:4) = Element % NodeIndexes( FaceMap(k,1:4) )
+                nf(1:4) = Element % NodeIndexes(FaceMap(k,1:4))
                 CALL sort( 4, nf )
 
              CASE DEFAULT
@@ -2193,13 +2189,13 @@ END SUBROUTINE CreateGlobalNumbering
                 Faces(Face) % NDOFs  = Faces(Face) % TYPE % NumberOfNodes
              Faces(Face) % BDOFs  = 0
              Faces(Face) % DGDOFs = 0
-             NULLIFY( Faces(Face) % EdgeIndexes )
-             NULLIFY( Faces(Face) % FaceIndexes )
+             Faces(Face) % EdgeIndexes => Null()
+             Faces(Face) % FaceIndexes => Null()
 
              CALL AllocateVector( Faces(Face) % NodeIndexes,n1 )
              DO n2=1,n1
                 Faces(Face) % NodeIndexes(n2) = &
-                         Element % NodeIndexes( FaceMap(k,n2) )
+                         Element % NodeIndexes(FaceMap(k,n2)) 
              END DO
 
              Element % FaceIndexes(k) = Face
@@ -2268,10 +2264,14 @@ END SUBROUTINE CreateGlobalNumbering
     TYPE(Element_t), POINTER :: Element, Edges(:), Face
 
     INTEGER, POINTER :: EdgeMap(:,:), FaceEdgeMap(:,:)
-    INTEGER, TARGET  :: TetraEdgeMap(6,3), BrickEdgeMap(12,3), &
+    INTEGER, TARGET  :: TetraEdgeMap(6,3), BrickEdgeMap(12,3), TetraFaceMap(4,6), &
       WedgeEdgeMap(9,3), PyramidEdgeMap(8,3), TetraFaceEdgeMap(4,3), &
       BrickFaceEdgeMap(8,4), WedgeFaceEdgeMap(6,4), PyramidFaceEdgeMap(5,4)
 !------------------------------------------------------------------------------
+    TetraFaceMap(1,:) = (/ 1, 2, 3, 5, 6, 7 /)
+    TetraFaceMap(2,:) = (/ 1, 2, 4, 5, 9, 8 /)
+    TetraFaceMap(3,:) = (/ 2, 3, 4, 6,10, 9 /)
+    TetraFaceMap(4,:) = (/ 3, 1, 4, 7, 8,10 /)
 
     TetraFaceEdgeMap(1,:) = (/ 1,2,3 /)
     TetraFaceEdgeMap(2,:) = (/ 1,5,4 /)
@@ -2431,16 +2431,16 @@ END SUBROUTINE CreateGlobalNumbering
              END IF
 
              IF ( ASSOCIATED(Mesh % Faces) ) THEN
-               DO ii=1,Element % TYPE % NumberOfFaces
+               DO ii=1,Element % Type % NumberOfFaces
                  Face => Mesh % Faces(Element % FaceIndexes(ii))
-                 IF ( .NOT. ASSOCIATED( Face % EdgeIndexes ) ) THEN
-                   ALLOCATE( Face % EdgeIndexes( Face % TYPE % NumberOfEdges ) )
+                 IF ( .NOT. ASSOCIATED(Face % EdgeIndexes) ) THEN
+                   ALLOCATE(Face % EdgeIndexes(Face % TYPE % NumberOfEdges))
                    Face % EdgeIndexes = 0
                  END IF
                  DO jj=1,Face % TYPE % NumberOfEdges
-                    IF ( FaceEdgeMap(ii,jj) == k ) THEN
+                    IF (FaceEdgeMap(ii,jj) == k) THEN
                        Face % EdgeIndexes(jj) = Edge
-                         IF ( .NOT. ASSOCIATED( Edges(Edge) % BoundaryInfo % Left ) ) THEN
+                       IF ( .NOT. ASSOCIATED(Edges(Edge) % BoundaryInfo % Left)) THEN
                           Edges(Edge) % BoundaryInfo % Left => Face
                        ELSE
                           Edges(Edge) % BoundaryInfo % Right => Face
@@ -2479,8 +2479,8 @@ END SUBROUTINE CreateGlobalNumbering
 
              Element % EdgeIndexes(k) = Edge
              ALLOCATE( Edges(Edge) % BoundaryInfo )
-             NULLIFY( Edges(Edge) % BoundaryInfo % Left )
-             NULLIFY( Edges(Edge) % BoundaryInfo % Right )
+             Edges(Edge) % BoundaryInfo % Left  => Null()
+             Edges(Edge) % BoundaryInfo % Right => Null()
 
              ! Allocate P element definitions 
              IF ( ASSOCIATED( Element % PDefs ) ) THEN
@@ -2499,14 +2499,14 @@ END SUBROUTINE CreateGlobalNumbering
              IF ( ASSOCIATED(Mesh % Faces) ) THEN
                DO ii=1,Element % TYPE % NumberOfFaces
                  Face => Mesh % Faces( Element % FaceIndexes(ii) )
-                 IF ( .NOT. ASSOCIATED( Face % EdgeIndexes ) ) THEN
+                 IF ( .NOT. ASSOCIATED(Face % EdgeIndexes) ) THEN
                     ALLOCATE( Face % EdgeIndexes( Face % TYPE % NumberOfEdges ) )
                     Face % EdgeIndexes = 0
                  END IF
                  DO jj=1,Face % TYPE % NumberOfEdges
                     IF ( FaceEdgeMap(ii,jj) == k ) THEN
                        Face % EdgeIndexes(jj) = Edge
-                       IF ( .NOT. ASSOCIATED( Edges(Edge) % BoundaryInfo % Left ) ) THEN
+                       IF (.NOT.ASSOCIATED( Edges(Edge) % BoundaryInfo % Left)) THEN
                           Edges(Edge) % BoundaryInfo % Left => Face
                        ELSE
                           Edges(Edge) % BoundaryInfo % Right => Face
@@ -2540,6 +2540,45 @@ END SUBROUTINE CreateGlobalNumbering
        END DO
     END DO
     DEALLOCATE( HashTable )
+
+    IF (ASSOCIATED(Mesh % Faces)) CALL FixFaceEdges()
+
+CONTAINS 
+
+    SUBROUTINE FixFaceEdges()
+
+      INTEGER :: i,j,k,n,swap,edgeind(4),i1(2),i2(2)
+
+      DO i=1,Mesh % NumberOfFaces
+        Face => Mesh % Faces(i)
+        n = Face % Type % NumberOfEdges
+        Edgeind(1:n) = Face % EdgeIndexes(1:n)
+        DO j=1,n
+          i1 = Mesh % Edges(Edgeind(j)) % NodeIndexes(1:2)
+          IF ( i1(1)>i1(2) ) THEN
+            swap=i1(1)
+            i1(1)=i1(2)
+            i1(2)=swap
+          END IF
+          DO k=1,n
+            i2(1) = k
+            i2(2) = k+1
+            IF ( i2(2)>n ) i2(2)=1
+            i2 = Face % NodeIndexes(i2)
+            IF ( i2(1)>i2(2) ) THEN
+              swap=i2(1)
+              i2(1)=i2(2)
+              i2(2)=swap
+            END IF
+            IF ( ALL(i1 == i2) ) THEN
+              Face % EdgeIndexes(k) = edgeind(j)
+              EXIT
+            END IF
+          END DO
+        END DO
+      END DO
+    END SUBROUTINE FixFaceEdges
+
 !------------------------------------------------------------------------------
   END SUBROUTINE FindMeshEdges3D
 !------------------------------------------------------------------------------

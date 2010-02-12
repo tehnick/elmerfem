@@ -837,7 +837,14 @@ real(kind=dp) :: realtime,tt
     ! ---------------------------------------
     DO i=1,Mesh % NumberOfBulkElements
       Element => Mesh % Elements(i)
-      Element % EdgeIndexes=grevorder(Element % EdgeIndexes)
+      j = Element % Type % NumberOfEdges
+      Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
+    END DO
+
+    DO i=1,Mesh % NumberOfFaces
+      Element => Mesh % Faces(i)
+      j = Element % Type % NumberOfEdges
+      Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
     END DO
 
     !
@@ -903,7 +910,7 @@ real(kind=dp) :: realtime,tt
                 p,q,r,datasize, ierr,status(MPI_STATUS_SIZE)
 
      LOGICAL, POINTER :: IsNeighbour(:)
-     TYPE(Element_t), POINTER :: Element
+     TYPE(Element_t), POINTER :: Element, Edge
 
 real(kind=dp) :: realtime,tt
 !-------------------------------------------------------------------------------
@@ -1192,8 +1199,7 @@ real(kind=dp) :: realtime,tt
       Mesh % Faces(i) % GelementIndex=gdofs(i)
     END DO
 
-    CALL SortI( n, gdofs, gorder )
-
+    CALL SortI(n,gdofs,gorder)
     DO i=1,n
       grevorder(gorder(i)) = i
     END DO
@@ -1203,7 +1209,8 @@ real(kind=dp) :: realtime,tt
     ! ---------------------------------------
     DO i=1,Mesh % NumberOfBulkElements
       Element => Mesh % Elements(i)
-      Element % FaceIndexes=grevorder(Element % FaceIndexes)
+      j = Element % Type % NumberOfFaces
+      Element % FaceIndexes(1:j)=grevorder(Element % FaceIndexes(1:j))
     END DO
 
     !
@@ -1222,9 +1229,26 @@ real(kind=dp) :: realtime,tt
       facen(k) = copyfacen
 
       j = grevorder(i)
-      grevorder(i)=grevorder(k)
+      grevorder(i) = grevorder(k)
       grevorder(k) = j
       gorder(grevorder(k)) = k
+    END DO
+
+    DO i=1,Mesh % NumberOfEdges
+      Mesh % Edges(i) % BoundaryInfo % Left => Null()
+      Mesh % Edges(i) % BoundaryInfo % Right => Null()
+    END DO
+
+    DO i=1,n
+      Element => Mesh % Faces(i)
+      DO j=1,Element % Type % NumberOfEdges
+        Edge => Mesh % Edges(Element % EdgeIndexes(j))
+        IF (.NOT.ASSOCIATED(Edge % BoundaryInfo % Left)) THEN
+          Edge % BoundaryInfo % Left => Mesh % Faces(i)
+        ELSE IF (.NOT.ASSOCIATED(Edge % BoundaryInfo % Right)) THEN
+          Edge % BoundaryInfo % Right => Mesh % Faces(i)
+        END IF
+      END DO
     END DO
 
     ALLOCATE( Mesh % ParallelInfo % FaceInterface(n), &

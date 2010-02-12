@@ -906,9 +906,9 @@ CONTAINS
      EdgeDOFs   = Solver % Mesh % MaxEdgeDOFs
      BubbleDOFs = Solver % Mesh % MaxBDOFs
 
-     IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
+     IF ( ASSOCIATED(Element % EdgeIndexes) ) THEN
         DO j=1,Element % TYPE % NumberOFEdges
-          EDOFs = Solver % Mesh % Edges( Element % EdgeIndexes(j) ) % BDOFs
+          EDOFs = Solver % Mesh % Edges(Element % EdgeIndexes(j)) % BDOFs
           DO i=1,EDOFs
              NB = NB + 1
              Indexes(NB) = EdgeDOFs*(Element % EdgeIndexes(j)-1) + &
@@ -947,7 +947,7 @@ CONTAINS
              k = 0
              DO i=1,Edge % Type % NumberOfNodes
                DO j=1,Element % Type % NumberOfNodes
-                 IF ( Edge % NodeIndexes(i)==Element % NodeIndexes(j)) k=k+1
+                 IF ( Edge % NodeIndexes(i)==Element % NodeIndexes(j) ) k=k+1
                END DO
              END DO
              IF ( k==Element % Type % NumberOfNodes) EXIT
@@ -2752,8 +2752,8 @@ CONTAINS
                      CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1))
                    ELSE
                      CALL ZeroRow( A, nb )
-                     CALL SetMatrixElement(A,nb,nb,1._dp)
                      A % RHS(nb) = Work(1)
+                     CALL SetMatrixElement(A,nb,nb,1._dp)
                    END IF
                  END DO
                CASE(3,4)
@@ -2786,8 +2786,8 @@ CONTAINS
                        CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1))
                      ELSE
                        CALL ZeroRow( A, nb )
-                       CALL SetMatrixElement(A,nb,nb,1._dp)
                        A % RHS(nb) = Work(1)
+                       CALL SetMatrixElement(A,nb,nb,1._dp)
                      END IF
                    END DO
                  END DO
@@ -3029,7 +3029,7 @@ CONTAINS
            Parent % NodeIndexes(k)==Element % NodeIndexes(2) .OR.  &
            Parent % NodeIndexes(j)==Element % NodeIndexes(2) .AND. &
            Parent % NodeIndexes(k)==Element % NodeIndexes(1) ) EXIT
-    end do
+    END DO
 
     n = LEN_TRIM(Name)
     VLoad(1,1:nd)=GetReal(BC,Name(1:n)//' 1',Lstat,element)

@@ -396,17 +396,18 @@ MODULE Types
 !-------------------------------------------------------------------------------
 
    TYPE Element_t
-     TYPE(ElementType_t), POINTER :: Type
+     TYPE(ElementType_t), POINTER :: Type => Null()
 
-     INTEGER :: BodyId, Splitted
+     INTEGER :: BodyId=0, Splitted=0
      REAL(KIND=dp) :: StabilizationMK,hK
 
-     TYPE(BoundaryInfo_t),  POINTER :: BoundaryInfo
+     TYPE(BoundaryInfo_t),  POINTER :: BoundaryInfo => Null()
 
      INTEGER :: ElementIndex, GElementIndex, PartIndex, NDOFs, BDOFs, DGDOFs
      INTEGER, DIMENSION(:), POINTER :: &
-         NodeIndexes,   EdgeIndexes, FaceIndexes, &
-         BubbleIndexes, DGIndexes
+         NodeIndexes => Null(), EdgeIndexes   => Null(), &
+         FaceIndexes => Null(), BubbleIndexes => Null(), &
+         DGIndexes   => Null()
 
      TYPE(PElementDefs_t), POINTER :: PDefs=>NULL()
      TYPE(ElementData_t),  POINTER :: PropertyData=>NULL()
