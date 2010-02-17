@@ -97,7 +97,7 @@
 
     REAL (KIND=DP) :: UNorm,PrevUNorm,NonlinearTol,RelativeChange, &
         at,at0,RealTime,CPUTime, AngularFrequency, jc, jre, jim, &
-        TotalHeating, DesiredHeating, TotalVolume
+        TotalHeating, DesiredHeating, TotalVolume, PermeabilityOfVacuum
 
     INTEGER :: body_id, eq_id, bf_id, LocalNodes, NonlinearIter
     INTEGER :: t,n,k,istat,i,iter,nedges,nfaces,q,j,dofs,dim
@@ -118,6 +118,9 @@
     IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
     dim = CoordinateSystemDimension()
+
+    PermeabilityOfVacuum = GetConstReal( Model % Simulation,'Permeability Of Vacuum',GotIt)
+    IF(.NOT. GotIt) PermeabilityOfVacuum = PI*4.0d-7
 
     MagneticSol => Solver % Variable 
     MagneticPerm  => MagneticSol % Perm
@@ -314,8 +317,15 @@
          Material => Model % Materials(k) % Values
          
          Permeability(1:n) = ListGetReal(Material, &
+             'Relative Permeability',n,NodeIndexes,GotIt)
+         IF( GotIt ) THEN
+	   Permeability(1:n) = PermeabilityOfVacuum * Permeability(1:n)
+         ELSE
+           Permeability(1:n) = ListGetReal(Material, &
              'Magnetic Permeability',n,NodeIndexes,GotIt)
-         IF(.NOT. GotIt) Permeability = PI*4.0d-7
+           IF(.NOT. GotIt) Permeability = PermeabilityOfVacuum
+         END IF
+
          Reluctivity(1:n) = 1.0/Permeability(1:n)
          
          IF(HarmonicSimulation) THEN
