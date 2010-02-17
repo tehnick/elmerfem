@@ -294,11 +294,12 @@
      NonlinearTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Convergence Tolerance' )
 
-     NewtonTol = ListGetConstReal( Solver % Values, &
-        'Nonlinear System Newton After Tolerance' )
+! Newton linearization not implemented, it seems
+!     NewtonTol = ListGetConstReal( Solver % Values, &
+!        'Nonlinear System Newton After Tolerance' )
 
-     NewtonIter = ListGetInteger( Solver % Values, &
-        'Nonlinear System Newton After Iterations' )
+!     NewtonIter = ListGetInteger( Solver % Values, &
+!        'Nonlinear System Newton After Iterations' )
 
      NonlinearIter = ListGetInteger( Solver % Values, &
          'Nonlinear System Max Iterations',GotIt )
@@ -716,8 +717,8 @@
       CALL Info( 'ElasticSolve', Message, Level=4 )
 
 !-----------------------------------------------------------------------------
-      IF ( RelativeChange < NewtonTol .OR. &
-             iter > NewtonIter ) NewtonLinearization = .TRUE.
+!      IF ( RelativeChange < NewtonTol .OR. &
+!             iter > NewtonIter ) NewtonLinearization = .TRUE.
 
       IF ( RelativeChange < NonLinearTol ) EXIT
 
