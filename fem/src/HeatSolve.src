@@ -102,7 +102,7 @@
 
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles,NewtonLinearization = .FALSE., &
-         Found, GotIt, HeatFluxBC, HeatGapBC
+         Found, GotIt, HeatFluxBC, HeatGapBC, GotMeltPoint
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, ConvectionField
      INTEGER :: CompressibilityModel
@@ -122,11 +122,13 @@
          SmartHeaterBC, SmartHeaterNode, DoneTime=0
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,SmartTol,Relax, &
             SaveRelax,dt,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling=1.0, &
-            PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave, Normal(3)
+            PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave, Normal(3), &
+	    dist, mindist, ControlPoint(3)
 
      REAL(KIND=dp), POINTER :: Temperature(:),FlowSolution(:), &
        ElectricCurrent(:), PhaseChangeIntervals(:,:),ForceVector(:), &
-       PrevSolution(:), HC(:), Hwrk(:,:,:),MeshVelocity(:), XX(:), YY(:),ForceHeater(:)
+       PrevSolution(:), HC(:), Hwrk(:,:,:),MeshVelocity(:), XX(:), YY(:),ForceHeater(:),&
+       RealWork(:,:)
 
      REAL(KIND=dp), ALLOCATABLE :: TSolution(:),TSolution1(:), vals(:)
      REAL(KIND=dp) :: Jx,Jy,Jz,JAbs, Power, MeltPoint, IntHeatSource
@@ -390,73 +392,113 @@
      TransientHeaterControl = .FALSE.
      IF(SmartHeaterControl) THEN
 
-        ! Mark the smart heaters 
-        SmartHeaters = .FALSE.
-        DO i = 1,Model % NumberOfBodyForces
-           IF( ListGetLogical( Model % BodyForces(i) % Values, &
-                  'Smart Heater Control', Found ) ) SmartHeaters(i) = .TRUE.
-        END DO
-        
-        ! Find the BC that controls the heater 
-        ! If not found assume that smart heater is related to phase change 
-        GotIt = .FALSE.
-        Found = .FALSE.
-        SmartHeaterBC = 0
+       ! Mark the smart heaters 
+       SmartHeaters = .FALSE.
+       bf_id = 0
+       DO i = 1,Model % NumberOfBodyForces
+         IF( ListGetLogical( Model % BodyForces(i) % Values, &
+             'Smart Heater Control', Found ) ) THEN
+           SmartHeaters(i) = .TRUE.	     
+           bf_id = i
+         END IF
+       END DO
 
-        DO i=1,Model % NumberOfBCs
+       ! Find the BC that controls the heater 
+       ! If not found assume that smart heater is related to phase change 
+       MeltPoint = GetCReal( Model % BodyForces(bf_id) % Values,&
+           'Smart Heater Temperature',GotMeltPoint)           
+              
+       SmartHeaterAverage = .FALSE.
+       SmartHeaterNode = ListGetInteger( Model % BodyForces(bf_id) % Values,&
+           'Smart Heater Control Node',GotIt) 
+       IF(.NOT. GotIt) THEN
+         RealWork => ListGetConstRealArray( Model % BodyForces(bf_id) % Values,&
+             'Smart Heater Control Point',GotIt) 
+         IF( GotIt ) THEN
+           ControlPoint(1:3) = RealWork(1:3,1)
+           PRINT *,'Given Control Point:',ControlPoint
+           
+           mindist = HUGE( mindist )
+           DO l=1,Model % NumberOfNodes
+             IF( TempPerm(l) == 0 ) CYCLE
+             
+             jx = Model % Mesh % Nodes % x(l)
+             jy = Model % Mesh % Nodes % y(l)
+             jz = Model % Mesh % Nodes % z(l)
+             
+             dist = (ControlPoint(1)-jx)**2 + (ControlPoint(2)-jy)**2 + (ControlPoint(3)-jz)**2
+             IF( dist < mindist ) THEN
+               mindist = dist
+               SmartHeaterNode = l
+             END IF
+           END DO
+         END IF
+
+         WRITE(*,Message) 'Found Control Point at distance:',SQRT(dist)
+         CALL Info('HeatSolve',Message)
+         WRITE(*,Message) 'Control Point Index:',SmartHeaterNode
+         CALL Info('HeatSolve',Message)        
+       END IF
+       
+       IF( .NOT. GotMeltPoint .OR. SmartHeaterNode == 0) THEN
+         GotIt = .FALSE.
+         Found = .FALSE.
+         SmartHeaterBC = 0
+         
+         DO i=1,Model % NumberOfBCs
            GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
            IF(GotIt) THEN
-              SmartHeaterBC = i
-              EXIT
+             SmartHeaterBC = i
+             EXIT
            END IF
-        END DO
-        IF(.NOT. GotIt) THEN
+         END DO
+         IF(.NOT. GotIt) THEN
            DO i=1,Model % NumberOfBCs
-              GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
-              IF(GotIt) THEN
-                SmartHeaterBC = i
-                EXIT
-              END IF
+             GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
+             IF(GotIt) THEN
+               SmartHeaterBC = i
+               EXIT
+             END IF
            END DO
-        END IF 
-        IF(SmartHeaterBC == 0) THEN
+         END IF
+         IF(SmartHeaterBC == 0) THEN
            CALL Fatal('HeatSolve','Smart Heater Boundary / Phase Change is undefined')
-        END IF
-
-        MeltPoint = GetCReal( Model % BCs(SmartHeaterBC) % Values,&
-               'Smart Heater Temperature',Found)
-        IF(.NOT. Found) THEN
+         END IF
+         
+         MeltPoint = GetCReal( Model % BCs(SmartHeaterBC) % Values,&
+             'Smart Heater Temperature',Found)
+         IF(.NOT. Found) THEN
            DO k=1, Model % NumberOfMaterials
-              MeltPoint = GetCReal( Model % Materials(k) % Values, &
-                   'Melting Point', Found )
-              IF(Found) EXIT
+             MeltPoint = GetCReal( Model % Materials(k) % Values, &
+                 'Melting Point', Found )
+             IF(Found) EXIT
            END DO
            IF(.NOT. Found) THEN
-              CALL Fatal('HeatSolver','Smart Heater Temperature / Melting Point is undefined')
+             CALL Fatal('HeatSolver','Smart Heater Temperature / Melting Point is undefined')
            END IF
-        END IF
-
-        ! Find the node related to temperature control 
-        SmartHeaterNode = 0
-        SmartHeaterAverage = ListGetLogical(Solver % Values,'Smart Heater Average', Found)
-        IF(.NOT. SmartHeaterAverage) THEN
+         END IF
+         
+         ! Find the node related to temperature control 
+         SmartHeaterAverage = ListGetLogical(Solver % Values,'Smart Heater Average', Found)
+         IF(.NOT. SmartHeaterAverage) THEN
            jx = -HUGE(jx)
            DO k = Model % Mesh % NumberOfBulkElements + 1, &
-                Model % Mesh % NumberOfBulkElements + Model % Mesh % NumberOfBoundaryElements
-              
-              Element => Model % Mesh % Elements(k)
-              
-              IF ( Element % BoundaryInfo % Constraint == SmartHeaterBC ) THEN
-                 DO l=1,Element % TYPE % NumberOfNodes
-                    IF ( Model % Mesh % Nodes % x(Element % NodeIndexes(l)) >= jx ) THEN
-                       j = Element % NodeIndexes(l) 
-                       jx = Model % Mesh % Nodes % x(Element % NodeIndexes(l))
-                    END IF
-                 END DO
-              END IF
+               Model % Mesh % NumberOfBulkElements + Model % Mesh % NumberOfBoundaryElements
+             
+             Element => Model % Mesh % Elements(k)
+             
+             IF ( Element % BoundaryInfo % Constraint == SmartHeaterBC ) THEN
+               DO l=1,Element % TYPE % NumberOfNodes
+                 IF ( Model % Mesh % Nodes % x(Element % NodeIndexes(l)) >= jx ) THEN
+                   j = Element % NodeIndexes(l) 
+                   jx = Model % Mesh % Nodes % x(Element % NodeIndexes(l))
+                 END IF
+               END DO
+             END IF
            END DO
            SmartHeaterNode = j
-        END IF
+         END IF
+       END IF
 
         SmartTol  = GetConstReal( SolverParams, &
              'Smart Heater Control After Tolerance',  Found )
@@ -1745,7 +1787,7 @@ CONTAINS
         x0 = ElementNodes % x(i)
         y0 = ElementNodes % y(i)
         z0 = ElementNodes % z(i)
-        DO j=1,Parent % Type % NumberOfNodes
+        DO j=1,Parent % TYPE % NumberOfNodes
           k = Parent % NodeIndexes(j)
           x = Solver % Mesh % Nodes % x(k) - x0
           y = Solver % Mesh % Nodes % y(k) - y0
@@ -1869,8 +1911,8 @@ CONTAINS
      IF ( .NOT. ASSOCIATED( Element ) ) RETURN
      IF ( ANY( Perm( Element % NodeIndexes ) <= 0 ) ) RETURN
 
-     En = Edge % Type % NumberOfNodes
-     Pn = Element % Type % NumberOfNodes
+     En = Edge % TYPE % NumberOfNodes
+     Pn = Element % TYPE % NumberOfNodes
 
      ALLOCATE( EdgeNodes % x(En), EdgeNodes % y(En), EdgeNodes % z(En) )
 
