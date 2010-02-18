@@ -623,7 +623,10 @@
              Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes, Found) ) / n
              IF( .NOT. Found ) THEN
-                Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement) ) / n
+                Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement, Found) ) / n
+	        IF(.NOT. Found) THEN
+	          WRITE( Message,'(A,I3,I3)') 'In boundary: ',i,k
+	        END IF 
              END IF 
            END IF
 
