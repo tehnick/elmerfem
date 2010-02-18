@@ -84,7 +84,7 @@
      INTEGER, POINTER :: Timesteps(:)
      INTEGER :: TimeIntervals,interval,timestep,combineInt
      
-     LOGICAL :: CylindricSymmetry,GotIt, Found, Radiation
+     LOGICAL :: CylindricSymmetry,GotIt, Found, Radiation, LeftEmis, RightEmis
 
      CHARACTER(LEN=MAX_NAME_LEN) :: eq,RadiationFlag, &
            ViewFactorsFile,OutputName,ModelName,LMessage, TempString
@@ -306,17 +306,11 @@
            nrm = NormalVector( Element, ElementNodes, 0.0d0, 0.0d0 )
          END IF
          
-         LeftBody  = 0
-         IF ( ASSOCIATED(Element % BoundaryInfo % Left) ) &
-             LeftBody  = Element % BoundaryInfo % Left % BodyId
-         
-         RightBody  = 0
-         IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
-             RightBody  = Element % BoundaryInfo % Right % BodyId
-         
+         LeftBody = 0
          LeftNode = -1
          Parent => Element % BoundaryInfo % Left
          IF ( ASSOCIATED(Parent) ) THEN
+           LeftBody  = Parent % BodyId
            DO i=1,Parent % TYPE % NumberOfNodes
              gotIt =.TRUE.
              DO j=1,Element % TYPE % NumberOfNodes
@@ -330,11 +324,17 @@
                EXIT
              END IF
            END DO
+           MatId = ListGetInteger( Model % Bodies(LeftBody) % Values, &
+            'Material', GotIt)
+           LeftEmis = ListCheckPresent( Model % Materials(MatId) % Values,&
+	    'Emissivity') 
          END IF
          
+         RightBody = 0
          RightNode=-1
          Parent => Element % BoundaryInfo % Right
          IF ( ASSOCIATED(Parent) ) THEN
+           RightBody = Parent % BodyId
            DO i=1,Parent % TYPE % NumberOfNodes
              gotIt =.TRUE.
              DO j=1,Element % TYPE % NumberOfNodes
@@ -348,14 +348,30 @@
                EXIT
              END IF
            END DO
+	   
+           MatId = ListGetInteger( Model % Bodies(RightBody) % Values, &
+            'Material', GotIt)
+           RightEmis = ListCheckPresent( Model % Materials(MatId) % Values,&
+	    'Emissivity') 
          END IF
-         
-         RadBody = ListGetInteger( Model % BCs( Element %  &
+
+! If emissivity given in either side then make the radiation target body to be the other.
+	 GotIt = .FALSE.
+	 IF( RightEmis .AND. LeftEmis ) THEN
+	   CALL Warn('ViewFactors','Emissivity defined on both sides!')
+         ELSE IF( RightEmis ) THEN
+           RadBody = LeftBody
+	   GotIt = .TRUE.
+         ELSE IF( LeftEmis ) THEN
+	   RadBody = RightBody
+           GotIt = .TRUE.
+         END IF
+ 
+         IF( .NOT. GotIt ) RadBody = ListGetInteger( Model % BCs( Element %  &
              BoundaryInfo % Constraint) % Values, 'Radiation Target Body',GotIt )
          
-         IF ( .NOT. GotIt ) &
-           RadBody = ListGetInteger( Model % BCs( Element %  &
-               BoundaryInfo % Constraint) % Values, 'Normal Target Body',GotIt )
+         IF ( .NOT. GotIt ) RadBody = ListGetInteger( Model % BCs( Element %  &
+             BoundaryInfo % Constraint) % Values, 'Normal Target Body',GotIt )
 
          IF ( RadBody < 0 ) RadBody = 0
          
