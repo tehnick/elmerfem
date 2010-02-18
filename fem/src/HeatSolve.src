@@ -434,9 +434,9 @@
            END DO
          END IF
 
-         WRITE(*,Message) 'Found Control Point at distance:',SQRT(dist)
+         WRITE(Message,*) 'Found Control Point at distance:',SQRT(mindist)
          CALL Info('HeatSolve',Message)
-         WRITE(*,Message) 'Control Point Index:',SmartHeaterNode
+         WRITE(Message,*) 'Control Point Index:',SmartHeaterNode
          CALL Info('HeatSolve',Message)        
        END IF
        
@@ -922,6 +922,8 @@
 !------------------------------------------------------------------------------
 
          IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
+
+print *,'heater control'
            IF ( TransientSimulation .AND. .NOT. ConstantBulk ) THEN
              CALL Default1stOrderTime( MASS, STIFF, FORCE )
            END IF
