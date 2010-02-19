@@ -2726,8 +2726,8 @@ CONTAINS
            BC => GetBC()
            IF ( .NOT. ASSOCIATED(BC) ) CYCLE
            IF ( .NOT. ListCheckPresent(BC, Name) .AND. &
-                .NOT. ListCheckPresent(BC, TRIM(Name)//' Edge') .AND. &
-                .NOT. ListCheckPresent(BC, TRIM(Name)//' Face') ) CYCLE
+                .NOT. ListCheckPresent(BC, TRIM(Name)//' (e)') .AND. &
+                .NOT. ListCheckPresent(BC, TRIM(Name)//' (f)') ) CYCLE
 
            ! Get parent element:
            ! -------------------
@@ -2737,7 +2737,7 @@ CONTAINS
            END IF
            IF ( .NOT. ASSOCIATED( Parent ) )   CYCLE
 
-           IF ( ListCheckPresent(BC, TRIM(Name)//' Edge') ) THEN
+           IF ( ListCheckPresent(BC, TRIM(Name)//' (e)') ) THEN
              IF ( ASSOCIATED( Solver % Mesh % Edges ) ) THEN
                SELECT CASE(GetElementFamily())
                CASE(2)
@@ -2756,7 +2756,7 @@ CONTAINS
 
                  nb = Parent % Type % NumberOfNodes
                  n  =  Edge % Type % NumberOfNodes
-                 CALL LocalBcIntegral(BC,Edge,n,Parent,nb,TRIM(Name)//' Edge',STIFF,Work)
+                 CALL LocalBcIntegral(BC,Edge,n,Parent,nb,TRIM(Name)//' (e)',STIFF,Work)
 
                  n=GetElementDOFs(gInd,Edge)
                  DO k=Edge % NDOFs+1,n
@@ -2790,7 +2790,7 @@ CONTAINS
                    nb = Edge % Type % NumberOfNodes
                    n  = Parent % Type % NumberOfNodes
                    CALL LocalBcIntegral( BC, Edge, nb, Parent, &
-                          n, TRIM(Name)//' Edge', STIFF, Work )
+                          n, TRIM(Name)//' (e)', STIFF, Work )
 
                    n=GetElementDOFs(gInd,Edge)
                    DO k=Edge % NDOFs+1,n
@@ -2808,9 +2808,9 @@ CONTAINS
                  END DO
                END SELECT
              END IF
-           ELSE IF ( ListCheckPresent(BC, TRIM(Name)//' Face') ) THEN
+           ELSE IF ( ListCheckPresent(BC, TRIM(Name)//' (f)') ) THEN
              n = Element % Type % NumberOfNodes
-!            CALL LocalBcIntegral( BC, Element, n, Name//' Face', Work(1),Work(2) )
+!            CALL LocalBcIntegral( BC, Element, n, Name//' (f)', Work(1),Work(2) )
 
              n=GetElementDOFs(gInd)
              DO k=1,n
