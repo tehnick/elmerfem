@@ -66,7 +66,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   INTEGER, POINTER :: NodeIndexes(:)
   REAL(KIND=dp), POINTER :: PArray(:,:) => NULL()
   REAL(KIND=dp) :: x0(4), x1(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
-      TrfMatrix(4,4),Identity(4,4), Origin(4),alpha
+      TrfMatrix(4,4),Identity(4,4), Origin(4),alpha, dCoord
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: Xorig(:),Yorig(:),Zorig(:),Xnew(:),Ynew(:),Znew(:),&
       Relax(:)
@@ -151,12 +151,13 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
     END DO
 
 
-    GotMatrix = ( bf_id == prev_bf_id ) 
-    NULLIFY(Parray)
+    IF( bf_id /= prev_bf_id ) THEN
 
-    ! Generic transformation matrix
-    !--------------------------------
-    IF(.NOT. GotMatrix ) THEN
+      prev_bf_id = bf_id
+      NULLIFY(Parray)
+      
+      ! Generic transformation matrix
+      !--------------------------------
       Parray => ListGetConstRealArray( BodyForce,'Mesh Matrix', GotMatrix )
       IF ( GotMatrix ) THEN
         DO i=1,SIZE(Parray,1)
@@ -165,84 +166,103 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           END DO
         END DO
       END IF
+      
+      IF(.NOT. GotMatrix ) THEN
+        TrsMatrix = Identity
+        RotMatrix = Identity
+        SclMatrix = Identity
+        
+        ! Rotations around main axis:
+        !---------------------------
+        Parray => ListGetConstRealArray( BodyForce,'Mesh Rotate', GotRotate )      
+        
+        IF ( GotRotate ) THEN
+          DO i=1,SIZE(Parray,1)
+            Alpha = Parray(i,1) * PI / 180.0_dp
+            IF( ABS(Alpha) < TINY(Alpha) ) CYCLE
+            TrfMatrix = Identity
+            
+            SELECT CASE(i)
+            CASE(1)
+              TrfMatrix(2,2) =  COS(Alpha)
+              TrfMatrix(2,3) = -SIN(Alpha)
+              TrfMatrix(3,2) =  SIN(Alpha)
+              TrfMatrix(3,3) =  COS(Alpha)
+            CASE(2)
+              TrfMatrix(1,1) =  COS(Alpha)
+              TrfMatrix(1,3) = -SIN(Alpha)
+              TrfMatrix(3,1) =  SIN(Alpha)
+              TrfMatrix(3,3) =  COS(Alpha)
+            CASE(3)
+              TrfMatrix(1,1) =  COS(Alpha)
+              TrfMatrix(1,2) = -SIN(Alpha)
+              TrfMatrix(2,1) =  SIN(Alpha)
+              TrfMatrix(2,2) =  COS(Alpha)
+            END SELECT
+            
+            RotMatrix = MATMUL( RotMatrix, TrfMatrix )
+          END DO
+        END IF
+        
+        ! Translations:
+        !---------------
+        Parray => ListGetConstRealArray( BodyForce,'Mesh Translate', GotTranslate )
+        IF ( GotTranslate ) THEN
+          DO i=1,SIZE(Parray,1)
+            TrsMatrix(i,4) = Parray(i,1)
+          END DO
+        END IF
+        dCoord = ListGetCReal( BodyForce,'Mesh Translate 1', Found) 
+        IF( Found ) THEN
+          TrsMatrix(1,4) = dCoord
+          GotTranslate = .TRUE.
+        END IF
+        dCoord = ListGetCReal( BodyForce,'Mesh Translate 2', Found) 
+        IF( Found ) THEN
+          TrsMatrix(2,4) = dCoord
+          GotTranslate = .TRUE.
+        END IF
+        dCoord = ListGetCReal( BodyForce,'Mesh Translate 3', Found) 
+        IF( Found ) THEN
+          TrsMatrix(3,4) = dCoord
+          GotTranslate = .TRUE.
+        END IF
+        
+        PRINT *,'Translate',bf_id,GotTranslate,TrsMatrix(1:2,4)
+
+
+        ! Scaling:
+        !---------
+        Parray => ListGetConstRealArray( BodyForce,'Mesh Scale', GotScale )
+        IF ( GotScale ) THEN
+          DO i=1,SIZE(Parray,1)
+            SclMatrix(i,i) = Parray(i,1)
+          END DO
+        END IF
+        
+        GotMatrix = GotRotate .OR. GotTranslate .OR. GotScale
+        IF(GotMatrix) THEN
+          ! Origin:
+          !---------
+          Parray => ListGetConstRealArray( BodyForce,'Mesh Origin', Found )
+          IF ( Found ) THEN
+            DO i=1,SIZE(Parray,1)
+              Origin(i) = Parray(i,1)
+            END DO
+          ELSE 
+            Origin = 0.0_dp
+          END IF
+          
+          TrfMatrix = MATMUL( TrsMatrix, RotMatrix )
+          IF( GotScale ) THEN
+            TrsMatrix = TrfMatrix
+            TrfMatrix = MATMUL( SClMatrix, TrsMatrix )
+          END IF
+        END IF
+      END IF
     END IF
 
-    IF(.NOT. GotMatrix ) THEN
-      TrsMatrix = Identity
-      RotMatrix = Identity
-      SclMatrix = Identity
-
-      ! Rotations around main axis:
-      !---------------------------
-      Parray => ListGetConstRealArray( BodyForce,'Mesh Rotate', GotRotate )      
-
-      IF ( GotRotate ) THEN
-        DO i=1,SIZE(Parray,1)
-          Alpha = Parray(i,1) * PI / 180.0_dp
-          IF( ABS(Alpha) < TINY(Alpha) ) CYCLE
-          TrfMatrix = Identity
-
-          SELECT CASE(i)
-          CASE(1)
-            TrfMatrix(2,2) =  COS(Alpha)
-            TrfMatrix(2,3) = -SIN(Alpha)
-            TrfMatrix(3,2) =  SIN(Alpha)
-            TrfMatrix(3,3) =  COS(Alpha)
-          CASE(2)
-            TrfMatrix(1,1) =  COS(Alpha)
-            TrfMatrix(1,3) = -SIN(Alpha)
-            TrfMatrix(3,1) =  SIN(Alpha)
-            TrfMatrix(3,3) =  COS(Alpha)
-          CASE(3)
-            TrfMatrix(1,1) =  COS(Alpha)
-            TrfMatrix(1,2) = -SIN(Alpha)
-            TrfMatrix(2,1) =  SIN(Alpha)
-            TrfMatrix(2,2) =  COS(Alpha)
-          END SELECT
-
-          RotMatrix = MATMUL( RotMatrix, TrfMatrix )
-        END DO
-      END IF
-
-      ! Translations:
-      !---------------
-      Parray => ListGetConstRealArray( BodyForce,'Mesh Translate', GotTranslate )
-      IF ( GotTranslate ) THEN
-        DO i=1,SIZE(Parray,1)
-          TrsMatrix(i,4) = Parray(i,1)
-        END DO
-      END IF
-    
-      ! Scaling:
-      !---------
-      Parray => ListGetConstRealArray( BodyForce,'Mesh Scale', GotScale )
-      IF ( GotScale ) THEN
-        DO i=1,SIZE(Parray,1)
-          SclMatrix(i,i) = Parray(i,1)
-        END DO
-      END IF
-
-      IF(.NOT. (GotRotate .OR. GotTranslate .OR. GotScale)) CYCLE
-
-      ! Origin:
-      !---------
-      Parray => ListGetConstRealArray( BodyForce,'Mesh Origin', Found )
-      IF ( Found ) THEN
-        DO i=1,SIZE(Parray,1)
-          Origin(i) = Parray(i,1)
-        END DO
-      ELSE 
-        Origin = 0.0_dp
-      END IF
-
-      TrfMatrix = MATMUL( TrsMatrix, RotMatrix )
-      IF( GotScale ) THEN
-        TrsMatrix = TrfMatrix
-        TrfMatrix = MATMUL( SClMatrix, TrsMatrix )
-      END IF
-    END IF
-
-    prev_bf_id = bf_id
+    IF(.NOT. GotMatrix ) CYCLE
 
     DO i=1,n
       j = NodeIndexes(i)
@@ -257,6 +277,8 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
       x1(1:3) = x1(1:3) / x1(4)
 
       x1 = Relax(i) * x1 + (1-Relax(i)) * x0
+ 
+!PRINT *,'dx',bf_id,j,x1(1:2)-x0(1:2),x1(4)
 
       Xnew(j) = x1(1)
       Ynew(j) = x1(2)
