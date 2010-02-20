@@ -308,6 +308,7 @@
          
          LeftBody = 0
          LeftNode = -1
+	 LeftEmis = .FALSE.
          Parent => Element % BoundaryInfo % Left
          IF ( ASSOCIATED(Parent) ) THEN
            LeftBody  = Parent % BodyId
@@ -332,6 +333,7 @@
          
          RightBody = 0
          RightNode=-1
+         RightEmis = .FALSE.
          Parent => Element % BoundaryInfo % Right
          IF ( ASSOCIATED(Parent) ) THEN
            RightBody = Parent % BodyId
@@ -359,6 +361,11 @@
 	 GotIt = .FALSE.
 	 IF( RightEmis .AND. LeftEmis ) THEN
 	   CALL Warn('ViewFactors','Emissivity defined on both sides!')
+           print *,'bodies',RightBody,LeftBody,'BC',GetBCId( Element ) 
+           IF( ASSOCIATED(Element % BoundaryInfo % Left, Element % BoundaryInfo % Right)) THEN
+	     print *,'parents are same!'
+             RadBody = LeftBody
+           END IF
          ELSE IF( RightEmis ) THEN
            RadBody = LeftBody
 	   GotIt = .TRUE.

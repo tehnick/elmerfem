@@ -78,7 +78,7 @@
      TYPE(Matrix_t), POINTER :: Amatrix
      TYPE(Factors_t), POINTER :: GebhardtFactors, ViewFactors(:)
 
-     INTEGER :: i,j,k,l,t,n,istat,Colj,j0,couplings, sym 
+     INTEGER :: i,j,k,l,t,n,n2,istat,Colj,j0,couplings, sym 
 
      REAL (KIND=dp) :: SimulationTime,dt,MinFactor,MaxOmittedFactor, ConsideredSum
      REAL (KIND=dp) :: s,Norm,PrevNorm,Emissivity,maxds,refds,ds,x,y,z,&
@@ -105,7 +105,7 @@
      LOGICAL :: GotIt, SaveFactors, UpdateViewFactors, UpdateGebhardtFactors, &
          ComputeViewFactors, OptimizeBW, TopologyTest, TopologyFixed, &
          FilesExist, FullMatrix, ImplicitLimitIs, IterSolveGebhardt, &
-         ConstantEmissivity, Found
+         ConstantEmissivity, Found, Debug
      LOGICAL, POINTER :: ActiveNodes(:)
 
      SAVE TimesVisited 
@@ -458,6 +458,8 @@
 
      ALLOCATE( RowSpace( RadiationSurfaces ), Reorder( RadiationSurfaces ), &
          InvElementNumbers(Model % NumberOfBoundaryElements), STAT=istat )
+     RowSpace = 0
+     ReOrder = 0
      IF ( istat /= 0 ) CALL Fatal('RadiationFactors','Memory allocation error 3.')
 
      ! Make the inverse of the list of element numbers of boundaries
@@ -469,6 +471,7 @@
 
      ViewFactors => TSolver % Mesh % ViewFactors
      ! Open the file for ViewFactors
+
      
      IF( FirstTime .OR. UpdateViewFactors ) THEN
 
@@ -523,29 +526,36 @@
            ViewFactors(i) % NumberOfFactors = n
            ALLOCATE( ViewFactors(i) % Elements(n) )
            ALLOCATE( ViewFactors(i) % Factors(n) )
-         ELSE IF(n /=  ViewFactors(i) % NumberOfFactors) THEN
-           DEALLOCATE( ViewFactors(i) % Elements )
-           DEALLOCATE( ViewFactors(i) % Factors )
-           ViewFactors % NumberOfFactors = n
-           ALLOCATE( ViewFactors(i) % Elements(n) )
-           ALLOCATE( ViewFactors(i) % Factors(n) )
+         ELSE 
+	   n2 = SIZE( ViewFactors(i) % Factors) 
+	   IF(n /=  n2 ) THEN
+             IF(ASSOCIATED(ViewFactors(i) % Elements)) &
+	       DEALLOCATE( ViewFactors(i) % Elements )
+	     IF(ASSOCIATED(ViewFactors(i) % Factors)) &
+               DEALLOCATE( ViewFactors(i) % Factors )
+             ALLOCATE( ViewFactors(i) % Elements(n) )
+             ALLOCATE( ViewFactors(i) % Factors(n) )
+           END IF
+           ViewFactors(i) % NumberOfFactors = n
          END IF
 
          Vals => ViewFactors(i) % Factors
          Cols => ViewFactors(i) % Elements
-         
+
+	 Vals = 0
+         Cols = 0
+
          DO j=1,n
            READ(10,*) t,Cols(j),Vals(j)         
            Cols(j) = ElementNumbers(Cols(j))
          END DO
-
        END DO
        CLOSE(10)
      END IF
 
 
      ! Check whether the element already sees itself, it will when 
-     ! gebhardt factors are computed. Also compute matrix size.
+     ! gebhardt factors are com§1puted. Also compute matrix size.
      DO i=1,RadiationSurfaces
        Cols => ViewFactors(i) % Elements
        n = ViewFactors(i) % NumberOfFactors
@@ -581,6 +591,7 @@
        DO i=1,RadiationSurfaces
          Reorder(i) = i
        END DO
+
        GFactorSP => CRS_CreateMatrix( RadiationSurfaces, &
            MatrixElements,RowSpace,1,Reorder,.TRUE. )
 
@@ -591,7 +602,7 @@
            Colj = InvElementNumbers(Cols(j)-j0)
            CALL CRS_MakeMatrixIndex( GFactorSP,t,Colj )
          END DO
-         
+
          CALL CRS_MakeMatrixIndex( GFactorSP,t,t )
        END DO
 
@@ -864,6 +875,7 @@
        END IF
 
      END DO
+
 
      WRITE(Message,'(A,T35,ES15.4)') 'Minimum Gebhardt factors sum',MinSum
      CALL Info('RadiationFactors',Message,LEVEL=4)
