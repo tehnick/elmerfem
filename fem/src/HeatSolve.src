@@ -110,7 +110,8 @@
      LOGICAL :: AllocationsDone = .FALSE.,PhaseSpatial=.FALSE., &
         PhaseChange=.FALSE., CheckLatentHeatRelease=.FALSE., FirstTime, &
         SmartHeaterControl, IntegralHeaterControl, HeaterControlLocal, SmartTolReached=.FALSE., &
-        TransientHeaterControl, SmartHeaterAverage, ConstantBulk, SaveBulk
+        TransientHeaterControl, SmartHeaterAverage, ConstantBulk, SaveBulk, &
+	TransientAssembly
      LOGICAL, POINTER :: SmartHeaters(:), IntegralHeaters(:)
 
      TYPE(Variable_t), POINTER :: TempSol,FlowSol,HeatSol,CurrentSol, MeshSol, DensitySol
@@ -121,7 +122,7 @@
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter,MDOFs, &
          SmartHeaterBC, SmartHeaterNode, DoneTime=0
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,SmartTol,Relax, &
-            SaveRelax,dt,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling=1.0, &
+            SaveRelax,dt,dt0,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling=1.0, &
             PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave, Normal(3), &
 	    dist, mindist, ControlPoint(3)
 
@@ -375,7 +376,6 @@
 
      NonlinearTol  = GetConstReal( SolverParams, &
                      'Nonlinear System Convergence Tolerance',    Found )
-
      NewtonTol     = GetConstReal( SolverParams, &
                       'Nonlinear System Newton After Tolerance',  Found )
 
@@ -386,6 +386,13 @@
      Relax = GetCReal( SolverParams, &
                'Nonlinear System Relaxation Factor',Found )
      IF ( .NOT.Found ) Relax = 1
+
+     TransientAssembly = TransientSimulation
+     dt0 = ListGetConstReal(SolverParams,'Steady State Transition Timestep',Found)
+     IF(.NOT. Found) dt0 = ListGetConstReal(SolverParams,'Smart Heater Time Scale',Found)
+
+     IF(Found .AND. dt > dt0) TransientAssembly = .FALSE.
+
 
 !------------------------------------------------------------------------------
 
@@ -680,6 +687,7 @@
 !------------------------------------------------------------------------------
 
            PhaseModel = GetString( Equation, 'Phase Change Model',Found )
+           IF(.NOT. Found) PhaseModel = GetString( Material, 'Phase Change Model',Found )
 
            PhaseChange = Found .AND. (PhaseModel(1:4) /= 'none')
            IF ( PhaseChange ) THEN
@@ -922,7 +930,7 @@
 
          IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
 
-           IF ( TransientSimulation .AND. .NOT. ConstantBulk ) THEN
+           IF ( TransientAssembly .AND. .NOT. ConstantBulk ) THEN
              CALL Default1stOrderTime( MASS, STIFF, FORCE )
            END IF
 
@@ -936,7 +944,7 @@
 !           If time dependent simulation add mass matrix to stiff matrix
 !------------------------------------------------------------------------------
             TimeForce  = 0.0_dp
-            IF ( TransientSimulation ) THEN
+            IF ( TransientAssembly ) THEN
                IF ( ConstantBulk ) THEN
                  CALL DefaultUpdateMass( MASS )
                ELSE
@@ -1065,9 +1073,7 @@
             Solver % Variable % NonlinValues = Temperature
           END IF
 
-
           PowerScaling = (MeltPoint - yave) / xave 
-print *,'PowerScale:',MeltPoint,yave,xave,PowerScaling
           Temperature = YY + PowerScaling * XX
 
           ! The change is computed separately for the controlled temperature field
@@ -1183,10 +1189,16 @@ print *,'PowerScale:',MeltPoint,yave,xave,PowerScaling
 !------------------------------------------------------------------------------
     IF(TransientHeaterControl) THEN
       PowerRelax = GetCReal(Solver % Values,'Smart Heater Relaxation Factor', GotIt)
+      IF(.NOT. GotIt) PowerRelax = 1.0_dp
       PowerSensitivity = ListGetConstReal(Solver % Values,'Smart Heater Power Sensivity',GotIt)
-      IF(.NOT. GotIt) PowerSensitivity = 4.0d0
+      IF(.NOT. GotIt) PowerSensitivity = 4.0_dp
       PowerScaling = PowerScaling * (1 + PowerSensitivity * PowerRelax * (MeltPoint/yave - 1.0d0) ) 
-      Temperature = Temperature * (1 + PowerRelax * (MeltPoint/yave - 1.0d0)   )     
+
+print *,'MeltPoint',MeltPoint,yave
+
+      IF( ListGetLogical( Solver % Values,'Smart Heater Transient Speedup',GotIt ) ) THEN
+        Temperature = Temperature * (1 + PowerRelax * (MeltPoint/yave - 1.0d0)   )     
+      END IF
       YY = Temperature
     END IF
 
@@ -1348,7 +1360,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !     Update global matrices from local matrices
 !------------------------------------------------------------------------------
-      IF ( TransientSimulation .AND. .NOT. ConstantBulk ) THEN
+      IF ( TransientAssembly .AND. .NOT. ConstantBulk ) THEN
         MASS = 0.d0
         CALL Default1stOrderTime( MASS, STIFF, FORCE )
       END IF
@@ -1473,7 +1485,7 @@ CONTAINS
             CALL IntegOverA( STIFF, FORCE, LOAD, &
                 HeatTransferCoeff, Element, n, k, ElementNodes ) 
             
-            IF ( TransientSimulation ) THEN
+            IF ( TransientAssembly ) THEN
               MASS = 0.d0
               CALL Add1stOrderTime( MASS, STIFF, &
                   FORCE,dt,n,1,TempPerm(Element % NodeIndexes),Solver )
