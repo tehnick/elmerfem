@@ -84,6 +84,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, Parallel, LiveGraph, FileAppend, SaveEigenValue, &
       SaveEigenFreq, CheckNorm
+  LOGICAL, POINTER :: ValuesInteger(:)
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
       Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
@@ -106,7 +107,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
-      Values, ValueNames, NoCoordinates, ScalarsFile, ScalarNamesFile, &
+      Values, ValueNames, ValuesInteger, NoCoordinates, ScalarsFile, ScalarNamesFile, &
       ExactCoordinates, CoordinatesElemNo, NoElements, ElementNodes, &
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
       BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
@@ -424,7 +425,19 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = Var % SteadyChange
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
-      CASE ('dofs','sum','max','min','max abs','min abs','mean','variance') 
+      CASE ('nodes')
+        Value = 1.0_dp * Solver % Mesh % NumberOfNodes
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.)
+
+      CASE ('elements')
+        Value = 1.0_dp * Solver % Mesh % NumberOfBulkElements
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.)
+
+      CASE ('dofs')
+        Value = 1.0_dp * SIZE(Var % Values)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.)
+
+      CASE ('sum','max','min','max abs','min abs','mean','variance') 
         Value = VectorStatistics(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
         
@@ -718,14 +731,22 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       WRITE (10,'(I6)',advance='no') LineInd
     END IF
     DO No=1,NoValues-1
-      WRITE (10,'(ES22.12E3)',advance='no') Values(No)
+      IF( ValuesInteger(No) ) THEN
+        WRITE (10,'(I10)',advance='no') NINT(Values(No))
+      ELSE
+        WRITE (10,'(ES22.12E3)',advance='no') Values(No)
+      END IF
     END DO
-    WRITE (10,'(ES22.12E3)') Values(NoValues)
+      IF( ValuesInteger(NoValues) ) THEN
+        WRITE (10,'(I10)') NINT(Values(NoValues))
+      ELSE
+        WRITE (10,'(ES22.12E3)') Values(NoValues)
+      END IF
   END IF
   CLOSE(10)
 
   !------------------------------------------------------------------------------
-  ! Save data in livegraph format
+  ! Save comments by line in a metadata file
   !------------------------------------------------------------------------------
   IF( .NOT. SubroutineVisited .AND. FileAppend .AND. LineInd /= 0 ) THEN
     Message = ListGetString(Solver % Values,'Comment',GotIt)
@@ -810,41 +831,51 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 CONTAINS
 
 
-    SUBROUTINE AddToSaveList(Name, Value)
+    SUBROUTINE AddToSaveList(Name, Value, ValueIsInteger )
 
     INTEGER :: n
     CHARACTER(LEN=*) :: Name
     REAL(KIND=dp) :: Value
+    LOGICAL, OPTIONAL :: ValueIsInteger
     REAL, ALLOCATABLE :: TmpValues(:)
     CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: TmpValueNames(:)
-     
+    LOGICAL, POINTER :: TmpValuesInteger(:)     
+
     SAVE TmpValues, TmpValueNames
 
 
     ! For the first time allocate some space
     IF(.NOT. ALLOCATED(Values)) THEN
       n = 20
-      ALLOCATE( Values(n), ValueNames(n))
+      ALLOCATE( Values(n), ValueNames(n), ValuesInteger(n) )
     END IF
 
     n = NoValues
 
     ! If vectors are too small make some more room in a rather dummy way
     IF(n >= SIZE(Values) ) THEN
-      ALLOCATE(TmpValues(n), TmpValueNames(n))
+      ALLOCATE(TmpValues(n), TmpValueNames(n), TmpValuesInteger(n))
       TmpValues(1:n) = Values(1:n)
+      TmpValuesInteger(1:n) = ValuesInteger(1:n)
       TmpValueNames(1:n) = ValueNames(1:n)
       DEALLOCATE(Values,ValueNames)
 
       ALLOCATE(Values(n+10), ValueNames(n+10))
       Values(1:n) = TmpValues(1:n)
+      ValuesInteger(1:n) = TmpValuesInteger(1:n)
       ValueNames(1:n) = TmpValueNames(1:n)
-      DEALLOCATE(TmpValues,TmpValueNames)
+
+      DEALLOCATE(TmpValues,TmpValueNames,TmpValuesInteger)
     END IF
 
     n = n + 1
     Values(n) = Value
     ValueNames(n) = TRIM(Name)
+    IF( PRESENT( ValueIsInteger ) ) THEN
+      ValuesInteger(n) = ValueIsInteger
+    ELSE
+      ValuesInteger(n) = .FALSE.
+    END IF
     NoValues = n
 
   END SUBROUTINE AddToSaveList
@@ -921,9 +952,6 @@ CONTAINS
 
     SELECT CASE(OperName)
       
-    CASE ('dofs')
-      operx = 1.0 * sumi
-
     CASE ('sum')
       operx = sumx
       
