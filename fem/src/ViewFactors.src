@@ -361,9 +361,10 @@
 	 GotIt = .FALSE.
 	 IF( RightEmis .AND. LeftEmis ) THEN
 	   CALL Warn('ViewFactors','Emissivity defined on both sides!')
-           print *,'bodies',RightBody,LeftBody,'BC',GetBCId( Element ) 
+           WRITE(Message,'(A,I3,I3,A,I3)') 'Bodies:',RightBody,LeftBody,' BC:',GetBCId( Element ) 
+	   CALL Info('ViewFactors',Message)
            IF( ASSOCIATED(Element % BoundaryInfo % Left, Element % BoundaryInfo % Right)) THEN
-	     print *,'parents are same!'
+	     CALL Warn('ViewFactors','Parents of the boundary element are the same')
              RadBody = LeftBody
            END IF
          ELSE IF( RightEmis ) THEN
