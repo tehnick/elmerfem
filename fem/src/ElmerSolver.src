@@ -62,7 +62,6 @@
                                steadyIt(:),nonlinIt(:),sPrevSizes(:,:)
 
      TYPE(Element_t),POINTER :: CurrentElement
-     REAL(KIND=dp), POINTER ::  TimeVariable(:)
 
      LOGICAL :: GotIt,Transient,Scanning,LastSaved
 
@@ -93,7 +92,7 @@
      REAL(KIND=dp) :: RealTime,tt
 
      REAL(KIND=dp) :: CumTime, ddt, MaxErr, AdaptiveLimit, &
-           AdaptiveMinTimestep, AdaptiveMaxTimestep
+           AdaptiveMinTimestep, AdaptiveMaxTimestep, StartTime
      INTEGER :: SmallestCount, AdaptiveKeepSmallest, StepControl=-1
      LOGICAL :: AdaptiveTime = .TRUE., FirstLoad = .TRUE., FirstTime=.TRUE.
      REAL(KIND=dp), POINTER :: xx(:,:), xxnrm(:), yynrm(:), PrevXX(:,:,:)
@@ -857,8 +856,18 @@
 
          CALL SetCurrentMesh( CurrentModel, Mesh )
          CALL LoadRestartFile( OutputName,k,Mesh )
+
+         StartTime = ListGetConstReal( CurrentModel % Simulation,'Restart Time',GotIt)
+         IF( GotIt ) THEN
+	   Var  => VariableGet( Mesh % Variables, 'Time' )
+           IF ( ASSOCIATED( Var ) )  Var % Values(1)  = StartTime
+         END IF
+
          Mesh => Mesh % Next
+
        END DO
+
+
      END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE Restart
