@@ -5612,6 +5612,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       glWidget->altPressed = false;
 
       bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
+
+      // if(bodyEdit->ui.nameEdit->text().trimmed().isEmpty())
       bodyEdit->ui.nameEdit->setText("Body Property{Boundary " + QString::number(n+1) +  "}");
     }
   }
@@ -5644,7 +5646,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       cout << "MainWindow: Undetermined body index" << endl;
 
     bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
-    bodyEdit->ui.nameEdit->setText("Body Property " + QString::number(n+1));
+
+    if(bodyEdit->ui.nameEdit->text().trimmed().isEmpty())
+      bodyEdit->ui.nameEdit->setText("Body Property " + QString::number(n+1));
 
   }
 
