@@ -177,7 +177,8 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
             combo->insertItem(count++,itemName.text().trimmed() );
           } 
           combo->setCurrentIndex(active);
-          connect(combo, SIGNAL(activated(QString)), this, SLOT(comboSlot(QString)));
+          // connect(combo, SIGNAL(activated(QString)), this, SLOT(comboSlot(QString)));
+	  connect(combo, SIGNAL(currentIndexChanged(QString)), this, SLOT(comboSlot(QString)));
 
         } else if ( widget_type == "CheckBox" ) {
           QCheckBox *l = new QCheckBox;
