@@ -83,7 +83,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, Parallel, LiveGraph, FileAppend, SaveEigenValue, &
-      SaveEigenFreq, CheckNorm
+      SaveEigenFreq, CheckNorm, IsInteger
   LOGICAL, POINTER :: ValuesInteger(:)
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
@@ -382,8 +382,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     
     IF(SIZE(Var % Values) == Var % Dofs) THEN
       IF(.NOT. GotVar) CYCLE
+      IsInteger = .FALSE.
+      IF( VariableName == 'nonlin iter' ) IsInteger = .TRUE.
+      IF( VariableName == 'coupled iter' ) IsInteger = .TRUE.
+
       IF( Var % Dofs == 1 ) THEN
-        CALL AddToSaveList('value: '//TRIM(VariableName)//' scalar variable', Var % Values(1))
+        CALL AddToSaveList('value: '//TRIM(VariableName)//' scalar variable', &
+                            Var % Values(1), IsInteger )
       ELSE
         DO j=1,Var % DOfs
           CALL AddToSaveList('value: '//ComponentName(VariableName,j)//' scalar variable', Var % Values(j))          
@@ -417,13 +422,25 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = Var % Norm
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
-      CASE ('nonlinear change')
+      CASE ('nonlin change')
         Value = Var % NonlinChange
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
       CASE ('steady state change')
         Value = Var % SteadyChange
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+
+      CASE ('nonlin iter')
+        Value = Var % NonlinIter
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.)
+
+      CASE ('nonlin converged')
+        Value = 1.0_dp * Var % NonlinConverged
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.)
+
+      CASE ('steady converged')
+        Value = 1.0_dp * Var % SteadyConverged
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.)
 
       CASE ('nodes')
         Value = 1.0_dp * Solver % Mesh % NumberOfNodes

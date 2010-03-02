@@ -77,7 +77,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: GotIt, GotIt2, GotIt3, stat, AllocationsDone = .FALSE., SubroutineVisited = .FALSE., &
       UseVelocity, SideCorrection, Bubbles, PartIntSliding, Cavitation, Converged
   REAL(KIND=dp), POINTER :: Pressure(:), CavitationValues(:), LoadValues(:)
-  REAL(KIND=dp) :: Norm, ReferencePressure, NonlinearTol, HeatRatio, BulkModulus, &
+  REAL(KIND=dp) :: Norm, ReferencePressure, HeatRatio, BulkModulus, &
       mfp0, Pres, Dens, CavitationPressure
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:), TimeForce(:), &
       Viscosity(:), GapHeight(:), NormalVelocity(:), Velocity(:,:), &
@@ -126,7 +126,6 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
   NoIterations = GetInteger( Solver % Values,'Nonlinear System Max Iterations',GotIt)
   IF(.NOT. GotIt) NoIterations = 1
-  NonlinearTol = GetCReal( Solver % Values,'Nonlinear System Convergence Tolerance',gotIt)
   
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
@@ -453,7 +452,8 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
     END IF
 
-    Converged = (Solver % Variable % NonlinChange < NonlinearTol)
+    Converged = ( Solver % Variable % NonlinConverged == 1 )
+
     IF( Converged .AND. (added + removed <= GetInteger(Solver % Values,&
         'Cavitation Set Maximum Change',Stat)) ) EXIT
   END DO

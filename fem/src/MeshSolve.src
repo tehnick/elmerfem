@@ -328,12 +328,18 @@
   WRITE( Message, * ) 'Relative Change : ',RelativeChange
   CALL Info( 'MeshSolve', Message, Level=4 )
 
+  
+
   IF ( TransientSimulation ) THEN
       ComputeMeshVelocity = ListGetLogical( Solver % Values, 'Compute Mesh Velocity', Found )
       IF ( .NOT. Found ) ComputeMeshVelocity = .TRUE.
 
       IF ( ComputeMeshVelocity ) THEN
          k = MIN( SIZE(Solver % Variable % PrevValues,2), Solver % DoneTime )
+
+	 j = ListGetInteger( Solver % Values,'Compute Mesh Velocity Order', Found)
+	 IF( Found ) k = MIN( k, j )        
+
          SELECT CASE(k)
          CASE(0)
             MeshVelocity = 0._dp

@@ -523,6 +523,7 @@ CONTAINS
       ptr % NonlinChange = 0.0_dp
       ptr % SteadyChange = 0.0_dp
       ptr % NonlinValues => Null(); ptr % SteadyValues => Null()
+      ptr % NonlinIter = 0
 
       ptr % Solver => Solver
       ptr % PrimaryMesh => Mesh
@@ -531,6 +532,10 @@ CONTAINS
       ptr % Output = .TRUE.
       ptr % Secondary = .FALSE.
       ptr % ValuesChanged = .TRUE.
+
+! Converged information undefined = -1, not = 0, yes = 1
+      ptr % NonlinConverged = -1
+      ptr % SteadyConverged = -1    
 
       IF ( PRESENT( Secondary ) ) THEN
         PRINT *,'Secondary:',name

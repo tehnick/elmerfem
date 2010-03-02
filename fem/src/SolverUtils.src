@@ -3269,7 +3269,8 @@ END FUNCTION SearchNodeL
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER :: x0(:)
-    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt, &
+        Tolerance
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
@@ -3314,6 +3315,7 @@ END FUNCTION SearchNodeL
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
 
       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      Solver % Variable % NonlinIter = iterV % Values(1)
       iterV % Values(1) = iterV % Values(1) + 1 
     END IF
 
@@ -3412,8 +3414,24 @@ END FUNCTION SearchNodeL
 
     IF(SteadyState) THEN
       Solver % Variable % SteadyChange = Change
+      Tolerance = ListGetConstReal( Solver % Values,'Steady State Convergence Tolerance',Stat)
+      IF( Stat ) THEN
+        IF( Change <= Tolerance ) THEN
+          Solver % Variable % SteadyConverged = 1
+        ELSE
+          Solver % Variable % SteadyConverged = 0
+        END IF          
+      END IF
     ELSE
       Solver % Variable % NonlinChange = Change
+      Tolerance = ListGetConstReal( Solver % Values,'Nonlinear System Convergence Tolerance',Stat)
+      IF( Stat ) THEN
+        IF( Change <= Tolerance ) THEN
+          Solver % Variable % NonlinConverged = 1
+        ELSE
+          Solver % Variable % NonlinConverged = 0
+        END IF          
+      END IF
     END IF
 
     IF(Relax .AND. .NOT. RelaxBefore) THEN

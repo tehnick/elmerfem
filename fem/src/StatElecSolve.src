@@ -111,7 +111,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   
   REAL (KIND=DP) :: Wetot, at0, RealTime, ss
   REAL (KIND=DP) :: at, st, CPUTime, PotentialDifference, Capacitance
-  REAL (KIND=DP) :: MinPotential, MaxPotential, NonLinearTol
+  REAL (KIND=DP) :: MinPotential, MaxPotential
   
   INTEGER, POINTER :: NodeIndexes(:), CapBodyIndex(:), Ivals(:)
   INTEGER, POINTER :: PotentialPerm(:), EnergyPerm(:), SurfPerm(:)
@@ -428,10 +428,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       'Nonlinear System Max Iterations', GotIt )
   IF ( .NOT. GotIt ) NonlinearIter = 1
  
-  NonlinearTol = 1.0d-12 
-  NonlinearTol = ListGetConstReal( Solver % Values, &
-      'Nonlinear System Convergence Tolerance', GotIt)
-  
   IF(CalculateCapMatrix) NonlinearIter = CapBodies
 
   EquationName = ListGetString( Solver % Values, 'Equation' )
@@ -872,7 +868,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        WRITE( Message, * ) 'Relative Change : ',RelativeChange
        CALL Info( 'StatElecSolve', Message, Level=4 )       
        CALL Info( 'StatElecSolve', ' ', Level=4 )       
-       IF ( RelativeChange < NonlinearTol)  EXIT
+	
+       IF( Solver % Variable % NonlinConverged == 1 ) EXIT
      END IF
 
    END DO
