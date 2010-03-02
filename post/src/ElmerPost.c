@@ -1955,6 +1955,7 @@ void epMouseDownProc(int Xpos, int Ypos)
 
 #ifndef MINGW32
     XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
+    epMouseDown &= (ShiftMask | Button1Mask | Button2Mask);
 #else
     auxGetMouseLoc( &x, &y );
 
@@ -2045,6 +2046,7 @@ void epMouseDownProc(int Xpos, int Ypos)
 
 #ifndef MINGW32
         XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
+	epMouseDown &= (ShiftMask | Button1Mask | Button2Mask);
 #else
         epMouseDown = 0;
         if ( GetAsyncKeyState( VK_LBUTTON ) & 0x8000 ) epMouseDown |= Button1Mask;
@@ -2104,6 +2106,7 @@ static int UpdateDisplay(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
 
 #ifndef MINGW32
     XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
+    epMouseDown &= (ShiftMask | Button1Mask | Button2Mask);
 #else
     auxGetMouseLoc( &x, &y );
 
