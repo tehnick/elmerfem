@@ -877,7 +877,7 @@ int main(int argc, char *argv[])
 	if(eg.partopt <= 1) 
 	  PartitionMetisElements(&data[k],eg.metis,eg.partopt,info);
 	else
-	  PartitionMetisNodes(&data[k],eg.metis,eg.partopt,info);      
+	  PartitionMetisNodes(&data[k],boundaries[k],&eg,eg.metis,eg.partopt,info);
       }
 #endif
       if(data[k].periodicexist) 

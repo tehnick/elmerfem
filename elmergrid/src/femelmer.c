@@ -2523,7 +2523,8 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
 
 
 
-int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int info)
+int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
+			struct ElmergridType *eg,int partitions,int metisopt,int info)
 {
   int i,j,k,l,noelements,noknots;
   int nn,con,maxcon,totcon,options[5];
@@ -2602,6 +2603,52 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
     wgtflag = 1;
   }
   
+  /* Add weight if there is a constraint */
+  if(eg->connect) {
+    int maxweight;
+    int con,bc,bctype,sideelemtype,sidenodes;
+    int j2,ind,ind2;
+    int sideind[MAXNODESD1];
+
+    maxweight = noknots;
+
+    printf("Adding weight of %d\n",noknots);
+
+    adjwgt = Ivector(0,totcon-1);
+    for(i=0;i<totcon;i++)
+      adjwgt[i] = 1;
+    wgtflag = 1;
+
+    for(con=1;con<=eg->connect;con++) {
+      bctype = eg->connectbounds[con-1];
+
+      for(bc=0;bc<MAXBOUNDARIES;bc++) {    
+	if(bound[bc].created == FALSE) continue;
+	if(bound[bc].nosides == 0) continue;
+	
+	for(i=1;i<=bound[bc].nosides;i++) {
+	  if(bound[bc].types[i] != bctype) continue;
+	  
+	  GetElementSide(bound[bc].parent[i],bound[bc].side[i],bound[bc].normal[i],
+			 data,sideind,&sideelemtype);
+	  sidenodes = sideelemtype%100;
+      
+	  for(j=0;j<sidenodes;j++) {
+	    for(j2=0;j2<sidenodes;j2++) {
+	      if(j==j2) continue;
+
+	      ind = sideind[j]-1;
+	      ind2 = sideind[j2]-1;
+
+	      for(k=xadj[ind];k<xadj[ind+1];k++) 
+		if(adjncy[k] == ind2) adjwgt[k] = maxweight;
+	    }
+	  }
+	}
+      }
+    }
+  }
+
   if(metisopt == 2) {
     if(info) printf("Starting graph partitioning METIS_PartGraphRecursive.\n");  
     METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
