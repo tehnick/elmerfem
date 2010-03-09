@@ -1826,6 +1826,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   GlobalData % SplittedMatrix => SplittedMatrix
 
   GlobalMatrix % Ematrix => SourceMatrix
+  GlobalMatrix % Complex = SourceMatrix % Complex
  !----------------------------------------------------------------------
  !
  ! Set up the preconditioner
@@ -2370,7 +2371,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   !----------------------------------------------------------------------
   ALLOCATE( buf( 2*HUTI_NDIM ) )
   buf = 0.0d0
-!/  CALL Recv_LocIf( GlobalData % SplittedMatrix, 2*HUTI_NDIM, buf )
+  CALL Recv_LocIf_Old( GlobalData % SplittedMatrix, 2*HUTI_NDIM, buf )
 
   DO i=1,HUTI_NDIM
      v(i) = v(i) + CMPLX( buf(2*i-1), buf(2*i), KIND=dp )
