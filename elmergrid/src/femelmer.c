@@ -2610,9 +2610,9 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
     int j2,ind,ind2;
     int sideind[MAXNODESD1];
 
-    maxweight = noknots;
+    maxweight = noknots+noelements;
 
-    printf("Adding weight of %d\n",noknots);
+    printf("Adding weight of %d\n",maxweight);
 
     adjwgt = Ivector(0,totcon-1);
     for(i=0;i<totcon;i++)
@@ -2683,6 +2683,54 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
   /* Set the partition given by Metis for each node. */
   for(i=1;i<=noknots;i++) 
     data->nodepart[i] = npart[i-1]+1;
+
+  if(eg->connect) {
+    int con,bc,bctype,sideelemtype,sidenodes,par;
+    int ind,sideind[MAXNODESD1];
+    int *sidehits,sidepartitions;
+
+    printf("Checking connection integrity\n");
+    sidehits = Ivector(1,partitions);
+
+    for(con=1;con<=eg->connect;con++) {
+      bctype = eg->connectbounds[con-1];
+
+      for(i=1;i<=partitions;i++)
+	sidehits[i] = 0;
+
+      for(bc=0;bc<MAXBOUNDARIES;bc++) {    
+	if(bound[bc].created == FALSE) continue;
+	if(bound[bc].nosides == 0) continue;
+	
+	for(i=1;i<=bound[bc].nosides;i++) {
+	  if(bound[bc].types[i] != bctype) continue;
+	  
+	  GetElementSide(bound[bc].parent[i],bound[bc].side[i],bound[bc].normal[i],
+			 data,sideind,&sideelemtype);
+	  sidenodes = sideelemtype%100;
+      
+	  for(j=0;j<sidenodes;j++) {
+	    ind = sideind[j];
+	    par = data->nodepart[ind];
+	    sidehits[par] += 1;
+	  }
+	}   
+      }
+
+      sidepartitions = 0;
+      for(i=1;i<=partitions;i++)
+	if( sidehits[i] ) sidepartitions += 1;
+
+      if(sidepartitions != 1) {
+	printf("PartitionMetisNodes: side %d belongs to %d partitions\n",bctype,sidepartitions);
+	if(1) 
+	  bigerror("Parallel constraints may not be set!");
+	else
+	  printf("**************** Warning *******************\n");
+      }
+    }
+  }
+
 
   PartitionElementsByNodes(data,info);
 
