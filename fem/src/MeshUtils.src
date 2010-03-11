@@ -176,7 +176,7 @@ CONTAINS
     CHARACTER(LEN=*) :: MeshDirPar,MeshNamePar
     LOGICAL :: BoundariesOnly
 
-    INTEGER, OPTIONAL :: numprocs,mype,def_Dofs(:,:)
+    INTEGER, OPTIONAL :: numprocs,mype,Def_Dofs(:)
 
     TYPE(Mesh_t),  POINTER :: Mesh
     TYPE(Model_t) :: Model
@@ -364,11 +364,9 @@ CONTAINS
       IF ( eio_info /= 0 ) EXIT
 
       IF ( PRESENT(Def_Dofs) ) THEN
-         IF ( body>0 .AND. body<=SIZE(Def_Dofs,1) ) THEN
-           DO j=1,6
-             IF ( Def_Dofs(body,j) >= 0 ) inDOFs(j)=Def_Dofs(body,j)
-           END DO
-        END IF
+        DO j=1,6
+          IF ( Def_Dofs(j) >= 0 ) inDOFs(j)=Def_Dofs(j)
+        END DO
       END IF
 
       Element => Mesh % Elements(i)
@@ -409,9 +407,8 @@ CONTAINS
         FaceDOFs(i) = inDOFs(3)
 
         IF ( PRESENT(Def_Dofs) ) THEN
-          IF ( body>0 .AND. body<=SIZE(Def_Dofs,1) ) THEN
-            IF ( Def_Dofs(body,4) == 0 ) inDOFs(4) = n
-          END IF
+          IF ( Def_Dofs(4) == 0 ) inDOFs(4) = n
+          Def_Dofs = MAX(Def_Dofs,inDOFs)
         END IF
 
         NULLIFY( Element % DGIndexes )
@@ -957,7 +954,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE ReadElementPropertyFile
 !------------------------------------------------------------------------------
-
 
 
 !------------------------------------------------------------------------------
@@ -2348,7 +2344,6 @@ CONTAINS
         END DO
       END DO
     END SUBROUTINE FixFaceEdges
-
 !------------------------------------------------------------------------------
   END SUBROUTINE FindMeshEdges3D
 !------------------------------------------------------------------------------
@@ -2440,10 +2435,8 @@ CONTAINS
             END IF
           END IF
         END IF
-
       END DO
     END DO
-    
   END DO
 
   ! This loop finds the final neighbour in the end of the chain 
@@ -2458,10 +2451,8 @@ CONTAINS
       END DO
     END DO
   END IF
-
-  DEALLOCATE( ElementNodes % x, &
-      ElementNodes % y, ElementNodes % z, Distances )  
-
+  DEALLOCATE(ElementNodes % x, ElementNodes % y, ElementNodes % z, Distances)
+!------------------------------------------------------------------------------
 END SUBROUTINE FindNeighbourNodes
 !------------------------------------------------------------------------------
 

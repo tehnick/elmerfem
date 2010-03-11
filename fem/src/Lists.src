@@ -231,7 +231,7 @@ CONTAINS
      END IF
 
 
-     IF ( ANY(Solver % Def_Dofs(:,6)>0) ) THEN
+     IF ( Solver % Def_Dofs(6)>0 ) THEN
        IF ( Mesh % NumberOFEdges>0 ) THEN
           ALLOCATE(EdgeDOFs(Mesh % NumberOfEdges))
           EdgeDOFs=0;
@@ -252,7 +252,7 @@ CONTAINS
          END DO
          IF ( t>n ) EXIT
 
-         Def_Dofs => Solver % Def_Dofs(Element % BodyId,:)
+         Def_Dofs => Solver % Def_Dofs
          IF ( ASSOCIATED(Element % EdgeIndexes) ) THEN
            DO i=1,Element % TYPE % NumberOfEdges
              j = Element % EdgeIndexes(i)
@@ -282,7 +282,7 @@ CONTAINS
 
        IF ( t > n ) EXIT
 
-       Def_Dofs => Solver % Def_Dofs(Element % BodyId,:)
+       Def_Dofs => Solver % Def_Dofs
 
        ndofs = Element % NDOFs
        IF ( Def_Dofs(1) >= 0 ) ndofs=Def_Dofs(1)*Element % TYPE % NumberOfNodes
@@ -297,11 +297,9 @@ CONTAINS
        IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
           DO i=1,Element % TYPE % NumberOfEdges
              Edge => Mesh % Edges( Element % EdgeIndexes(i) )
-             ndofs = Edge % BDOFs
+             ndofs = 0
              IF ( Def_Dofs(2) >= 0) THEN
                ndofs = Def_Dofs(2)
-             ELSE IF ( Def_Dofs(1)>=0) THEN
-               ndofs = 0
              ELSE IF (Def_Dofs(6)>0) THEN
                ndofs = EdgeDOFs(Element % EdgeIndexes(i))
              END IF
@@ -319,11 +317,9 @@ CONTAINS
        IF ( ASSOCIATED( Element % FaceIndexes ) ) THEN
           DO i=1,Element % TYPE % NumberOfFaces
              Face => Mesh % Faces( Element % FaceIndexes(i) )
-             ndofs = Face % BDOFs
+             ndofs = 0
              IF ( Def_Dofs(3) >= 0) THEN
                ndofs = Def_Dofs(3)
-             ELSE IF ( Def_Dofs(1)>=0) THEN
-               ndofs = 0
              ELSE IF (Def_Dofs(6)>0) THEN
                ndofs = FaceDOFs(Element % FaceIndexes(i))
              END IF
@@ -339,10 +335,8 @@ CONTAINS
        END IF
 
        IF ( GB .AND. ASSOCIATED( Element % BubbleIndexes ) ) THEN
-         ndofs = Element % BDOFs
-         IF ( Def_Dofs(1) >= 0 ) THEN
-            ndofs = 0
-         ELSE IF ( Def_Dofs(5) >= 0) THEN
+         ndofs = 0
+         IF ( Def_Dofs(5) >= 0) THEN
             ndofs = Def_Dofs(5)
          ELSE IF (Def_Dofs(6)>0) THEN
             ndofs = GetBubbleDOFs( Element, Def_Dofs(6) )

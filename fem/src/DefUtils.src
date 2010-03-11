@@ -832,7 +832,9 @@ CONTAINS
         IF ( n > 0 ) RETURN
      END IF
 
-     n = Element % NDOFs
+     IF ( Solver % Def_Dofs(1)>0 ) n = Element % NDOFs
+     IF ( ALL(Solver % Def_Dofs(2:)<=0) ) RETURN
+
      IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
         DO j=1,Element % TYPE % NumberOFEdges
            n =  n + Solver % Mesh % Edges(Element % EdgeIndexes(j)) % BDOFs
@@ -897,10 +899,13 @@ CONTAINS
         IF ( NB > 0 ) RETURN
      END IF
 
-     DO i=1,Element % NDOFs
-        NB = NB + 1
-        Indexes(NB) = Element % NodeIndexes(i)
-     END DO
+     IF ( Solver % Def_Dofs(1)>0 ) THEN
+       DO i=1,Element % NDOFs
+          NB = NB + 1
+          Indexes(NB) = Element % NodeIndexes(i)
+       END DO
+     END IF
+     IF ( ALL(Solver % Def_Dofs(2:)<=0) ) RETURN
 
      FaceDOFs   = Solver % Mesh % MaxFaceDOFs
      EdgeDOFs   = Solver % Mesh % MaxEdgeDOFs
@@ -1474,6 +1479,93 @@ CONTAINS
   END SUBROUTINE Default1stOrderTimeC
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  SUBROUTINE Default1stOrderTimeGlobal(USolver)
+!------------------------------------------------------------------------------
+   TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+!------------------------------------------------------------------------------
+   CHARACTER(LEN=MAX_NAME_LEN) :: Method
+   TYPE(Solver_t), POINTER :: Solver
+   INTEGER :: i,j,k,l,n,Order
+   REAL(KIND=dp), POINTER :: SaveValues(:) => NULL()
+   REAL(KIND=dp) :: FORCE(1), Dts(16)
+   LOGICAL :: ConstantDt, Found
+   TYPE(Variable_t), POINTER :: DtVar
+   SAVE STIFF, MASS, X
+   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:),MASS(:,:), X(:,:)
+
+   IF ( PRESENT(USolver) ) THEN
+     Solver => Usolver
+   ELSE
+     Solver => CurrentModel % solver
+   END IF
+
+   IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
+      IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,X )
+      n = 0
+      DO i=1,Solver % Matrix % NumberOfRows
+        n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
+      END DO
+      k = SIZE(Solver % Variable % PrevValues,2)
+      ALLOCATE( STIFF(1,n),MASS(1,n),X(n,k) )
+
+      SaveValues => Solver % Variable % Values
+   END IF
+
+   Order = MIN( Solver % DoneTime, Solver % Order )
+
+   Method = ListGetString( Solver % Values, 'Timestepping Method', Found )
+   IF ( Method == 'bdf' ) THEN
+     Dts(1) = Solver % Dt
+     ConstantDt = .TRUE.
+     IF(Order > 1) THEN
+       DtVar => VariableGet( Solver % Mesh % Variables, 'Timestep size' )
+       DO i=2,Order
+         Dts(i) = DtVar % PrevValues(1,i-1)
+         IF(ABS(Dts(i)-Dts(1)) > 1.0d-6 * Dts(1)) ConstantDt = .FALSE.
+       END DO
+     END IF
+   END IF
+
+   DO i=1,Solver % Matrix % NumberOFRows
+     n = 0
+     DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+       n=n+1
+       STIFF(1,n) = Solver % Matrix % Values(j)
+       MASS(1,n)  = Solver % Matrix % MassValues(j)
+       X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
+     END DO
+     FORCE(1) = Solver % Matrix % RHS(i)
+     Solver % Matrix % Force(i,1) = FORCE(1)
+
+     SELECT CASE( Method )
+     CASE( 'fs' )
+       CALL FractionalStep( n, Solver % dt, MASS, STIFF, FORCE, &
+                 X(:,1), Solver % Beta, Solver )
+     CASE('bdf')
+
+       IF(ConstantDt) THEN
+         CALL BDFLocal( n, Solver % dt, MASS, STIFF, FORCE, X, Order )
+       ELSE
+         CALL VBDFLocal(n, Dts, MASS, STIFF, FORCE, X, Order )
+       END IF
+
+     CASE DEFAULT
+       CALL NewmarkBeta( n, Solver % dt, MASS, STIFF, FORCE, &
+                 X(:,1), Solver % Beta )
+     END SELECT
+
+     n = 0
+     DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+        n=n+1
+       Solver % Matrix % Values(j) = STIFF(1,n)
+     END DO
+     Solver % Matrix % RHS(i) = FORCE(1)
+   END DO
+!----------------------------------------------------------------------------
+  END SUBROUTINE Default1stOrderTimeGlobal
+!----------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE Default2ndOrderTimeR( M, B, A, F, UElement, USolver )
@@ -1730,11 +1822,6 @@ CONTAINS
      END IF
      BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), &
                 'Calculate Loads', Found )
-
-     IF ( .NOT. Found ) THEN
-       BUpd = BUpd .OR. &
-          GetLogical( GetEquation(Element), 'Calculate Loads', Found )
-     END IF
 
      IF ( BUpd ) THEN
        IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
@@ -2747,18 +2834,16 @@ CONTAINS
            IF ( ListCheckPresent(BC, TRIM(Name)//' {e}') ) THEN
              IF ( ASSOCIATED( Solver % Mesh % Edges ) ) THEN
                SELECT CASE(GetElementFamily())
-               CASE(2)
+               CASE(1,2)
                  DO j=1,Parent % Type % NumberOfEdges
                    Edge => Solver % Mesh % Edges(Parent % EdgeIndexes(j))
-                   IF (Element % Type % ElementCode==Edge % Type % ElementCode) THEN
-                     n = 0
-                     DO k=1,Element % Type % NumberOfNodes
-                       DO l=1,Edge % Type % NumberOfNodes
-                         IF ( Element % NodeIndexes(k)==Edge % NodeIndexes(l)) n=n+1
-                       END DO
+                   n = 0
+                   DO k=1,Element % Type % NumberOfNodes
+                     DO l=1,Edge % Type % NumberOfNodes
+                       IF ( Element % NodeIndexes(k)==Edge % NodeIndexes(l)) n=n+1
                      END DO
-                     IF ( n==Element % Type % NumberOfNodes ) EXIT
-                   END IF
+                   END DO
+                   IF ( n==Element % Type % NumberOfNodes ) EXIT
                  END DO
 
                  nb = Parent % Type % NumberOfNodes
@@ -2766,7 +2851,7 @@ CONTAINS
                  CALL LocalBcIntegral(BC,Edge,n,Parent,nb,TRIM(Name)//' {e}',STIFF,Work)
 
                  n=GetElementDOFs(gInd,Edge)
-                 DO k=Edge % NDOFs+1,n
+                 DO k=Solver % Def_Dofs(1)*Edge % NDOFs+1,n
                    nb = x % Perm(gInd(k))
                    IF ( nb <= 0 ) CYCLE
                    nb = Offset + x % DOFs*(nb-1) + DOF
@@ -2800,7 +2885,7 @@ CONTAINS
                           n, TRIM(Name)//' {e}', STIFF, Work )
 
                    n=GetElementDOFs(gInd,Edge)
-                   DO k=Edge % NDOFs+1,n
+                   DO k=Solver % Def_Dofs(1)*Edge % NDOFs+1,n
                      nb = x % Perm(gInd(k))
                      IF ( nb <= 0 ) CYCLE
                      nb = Offset + x % DOFs*(nb-1) + DOF
@@ -3032,6 +3117,7 @@ CONTAINS
     INTEGER, POINTER :: Edgemap(:,:)
     INTEGER :: i,j,k,n,p,q,t
     LOGICAL :: Lstat
+    TYPE(ElementType_t), POINTER :: SavedType
     TYPE(Nodes_t), SAVE :: Nodes, Pnodes
     REAL(KIND=dp) :: Basis(np) ,dBasisdx(np,3)
     REAL(KIND=dp) :: WhitB(6,3),RotWhitB(6,3),L,VL(3),G(3)
@@ -3063,6 +3149,9 @@ CONTAINS
     G(3) = PNodes % z(k) - PNodes % z(j)
     G = G/SQRT(SUM(G**2))
 
+    SavedType => Element % Type
+    IF ( GetElementFamily()==1 ) Element % Type=>GetElementType(202)
+      
     Integral = 0._dp
     IP = GaussPoints(Element)
     DO t=1,IP % n
@@ -3074,6 +3163,7 @@ CONTAINS
       VL = MATMUL(Vload(:,1:nd),Basis(1:nd))
       Integral(1)=Integral(1)+s*(L+SUM(VL*G))
     END DO
+    Element % Type => SavedType
 
     j = Parent % NodeIndexes(j)
     IF ( ParEnv % PEs>1 ) &
