@@ -1,0 +1,2879 @@
+MODULE MGDynamicsUtils
+
+   USE DefUtils
+
+   COMPLEX(KIND=dp), PARAMETER :: im = (0._dp,1._dp)
+
+   INTERFACE SetDOFtoValue
+     MODULE PROCEDURE SetDOFtoValueR, SetDOFtoValueC
+   END INTERFACE
+
+CONTAINS
+
+!------------------------------------------------------------------------
+   SUBROUTINE EdgeBasis( Element, WBasis, RotWBasis, Basis, dBasisdx )
+!------------------------------------------------------------------------
+     TYPE(Element_t) :: Element
+     REAL(KIND=dp) :: WBasis(:,:), RotWBasis(:,:), Basis(:), dBasisdx(:,:)
+!------------------------------------------------------------------------
+     TYPE(Mesh_t), POINTER :: Mesh
+     LOGICAL :: Parallel
+     INTEGER :: i,j,k,nj,nk
+     INTEGER, POINTER :: EdgeMap(:,:)
+!------------------------------------------------------------------------
+     Mesh => GetMesh()
+     Parallel = ParEnv % PEs>1
+
+     EdgeMap => GetEdgeMap(GetElementFamily(Element))
+     DO i=1,SIZE(Edgemap,1)
+       j = EdgeMap(i,1); k = EdgeMap(i,2)
+
+       WBasis(i,:) = Basis(j)*dBasisdx(k,:) - Basis(k)*dBasisdx(j,:)
+
+       RotWBasis(i,1) = 2.0_dp * ( dBasisdx(j,2) * dBasisdx(k,3) - &
+                     dBasisdx(j,3) * dBasisdx(k,2) )
+
+       RotWBasis(i,2) = 2.0_dp * ( dBasisdx(j,3) * dBasisdx(k,1) - &
+                     dBasisdx(j,1) * dBasisdx(k,3) )
+
+       RotWBasis(i,3) = 2.0_dp * ( dBasisdx(j,1) * dBasisdx(k,2) - &
+                     dBasisdx(j,2) * dBasisdx(k,1) )
+
+       nj = Element % Nodeindexes(j)
+       IF (Parallel) nj=Mesh % ParallelInfo % GlobalDOFs(nj)
+
+       nk = Element % Nodeindexes(k)
+       IF (Parallel) nk=Mesh % ParallelInfo % GlobalDOFs(nk)
+
+       IF( nk < nj ) THEN
+         WBasis(i,:) = -WBasis(i,:); RotWBasis(i,:) = -RotWBasis(i,:)
+       END IF
+     END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE EdgeBasis
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  FUNCTION GetBoundaryEdgeIndex(Boundary,nedge) RESULT(n)
+!------------------------------------------------------------------------------
+    INTEGER :: n,nedge
+    TYPE(Element_t) :: Boundary
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,k,jb1,jb2,je1,je2
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Element_t), POINTER :: Parent, Edge, Face
+!------------------------------------------------------------------------------
+    Mesh => GetMesh()
+    n = 0
+    SELECT CASE(GetElementFamily())
+    CASE(1)
+      RETURN
+    CASE(2)
+      IF ( nedge==1 ) THEN
+        Parent => Boundary % BoundaryInfo % Left
+        IF ( .NOT. ASSOCIATED(Parent) ) &
+            Parent => Boundary % BoundaryInfo % Right
+
+        jb1 = Boundary % NodeIndexes(1)
+        jb2 = Boundary % NodeIndexes(2)
+        DO i=1,Parent % Type % NumberOfEdges
+          Edge => Mesh % Edges(Parent % EdgeIndexes(i))
+          je1 = Edge % NodeIndexes(1)
+          je2 = Edge % NodeIndexes(2)
+          IF ( jb1==je1.AND.jb2==je2 .OR. jb1==je2.AND.jb2==je1) EXIT
+        END DO
+        n = Parent % EdgeIndexes(i)
+      END IF
+    CASE(3,4)
+      j = GetBoundaryFaceIndex(Boundary)
+      Face => Mesh % Faces(j)
+      IF ( nedge<=Face % Type % NumberOfEdges ) &
+        n = Face % EdgeIndexes(nedge) 
+    END SELECT
+!------------------------------------------------------------------------------
+  END FUNCTION GetBoundaryEdgeIndex
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  FUNCTION GetBoundaryFaceIndex(Boundary) RESULT(n)
+!------------------------------------------------------------------------------
+    INTEGER :: n
+    TYPE(Element_t) :: Boundary
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,k,m
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Element_t), POINTER :: Parent, Face
+!------------------------------------------------------------------------------
+    Mesh => GetMesh()
+    Parent => Boundary % BoundaryInfo % Left
+    IF ( .NOT. ASSOCIATED(Parent) ) &
+       Parent => Boundary % BoundaryInfo % Right
+
+    DO i=1,Parent % Type % NumberOfFaces
+      Face => Mesh % Faces(Parent % FaceIndexes(i))
+      m = 0
+      DO j=1,Face % Type % NumberOfNodes
+        DO k=1,Boundary % Type % NumberOfNodes
+          IF ( Face % NodeIndexes(j)==Boundary % NodeIndexes(k)) m=m+1
+        END DO
+      END DO
+      IF ( m==Boundary % Type % NumberOfNodes) EXIT
+    END DO
+    n = Parent % FaceIndexes(i)
+!------------------------------------------------------------------------------
+  END FUNCTION GetBoundaryFaceIndex
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE SetDOFToValueR(Solver,k,value)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Value
+    TYPE(Solver_t) :: Solver
+    INTEGER :: n,k
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(Mesh_t), POINTER :: Mesh
+
+    Mesh => GetMesh(Solver)
+    n = Solver % Variable % Perm(k+Mesh % NumberOfNodes)
+    A => GetMatrix()
+    CALL CRS_SetSymmDirichlet(A,A % RHS,n,value)
+!------------------------------------------------------------------------------
+  END SUBROUTINE SetDOFToValueR
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE SetDOFToValueC(Solver,k,value)
+!------------------------------------------------------------------------------
+    COMPLEX(KIND=dp) :: Value
+    TYPE(Solver_t) :: Solver
+    INTEGER :: n,k
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(Mesh_t), POINTER :: Mesh
+
+    Mesh => GetMesh(Solver)
+    n = Solver % Variable % Perm(k+Mesh % NumberOfNodes)
+    A => GetMatrix()
+    CALL CRS_SetSymmDirichlet(A,A % RHS,2*(n-1)+1,REAL(value))
+    CALL CRS_SetSymmDirichlet(A,A % RHS,2*(n-1)+2,AIMAG(value))
+!------------------------------------------------------------------------------
+  END SUBROUTINE SetDOFToValueC
+!------------------------------------------------------------------------------
+
+END MODULE MGDynamicsUtils
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE MGDynamicsSolver_Init0(Model,Solver,dt,Transient)
+!------------------------------------------------------------------------------
+  USE MGDynamicsUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: Transient
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: SolverParams
+
+  SolverParams => GetSolverParams()
+  IF ( .NOT.ListCheckPresent(SolverParams, "Element") ) THEN
+    IF ( Transient ) THEN
+      CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
+    ELSE
+      CALL ListAddString( SolverParams, "Element", "n:0 e:1" )
+    ENDIF
+  END IF
+!------------------------------------------------------------------------------
+END SUBROUTINE MGDynamicsSolver_Init0
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Solve vector potential A
+! 
+!   sigma @A/@t - rot (1/mu) rot A = J^s + curl(M^s) - sigma grad(V^s)
+!   -div(sigma*(@A/@t+grad(V))=0
+!
+!  using edge elements (Nedelec/W basis of lowest degree).
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh, materials, BCs, etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear & nonlinear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations
+!
+!  LOGICAL :: Transient
+!     INPUT: Steady state or transient simulation
+!
+!******************************************************************************
+  USE MGDynamicsUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: Transient
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  LOGICAL :: AllocationsDone = .FALSE., Found, Lfact
+  TYPE(Element_t),POINTER :: Element, Edge
+
+  REAL(KIND=dp) :: Norm, PrevDT=-1
+  TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
+
+  INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0
+
+  TYPE(Mesh_t), POINTER :: Mesh
+  REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:)
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
+
+  INTEGER, POINTER :: Perm(:)
+  INTEGER, ALLOCATABLE, SAVE :: FluxMap(:)
+  LOGICAL, ALLOCATABLE, SAVE :: TreeEdges(:)
+  LOGICAL :: Stat, EigenAnalysis, TG, DoneAssembly=.FALSE., &
+         SkipAssembly, ConstantSystem, ConstantBulk
+
+  TYPE(Variable_t), POINTER :: Var
+  TYPE(Matrix_t), POINTER :: A
+  TYPE(ListMatrix_t), POINTER :: BasicCycles(:)
+
+  SAVE STIFF, LOAD, MASS, FORCE, Tcoef, Acoef, AllocationsDone
+!------------------------------------------------------------------------------
+
+  !Allocate some permanent storage, this is done first time only:
+  !--------------------------------------------------------------
+  Mesh => GetMesh()
+  nNodes = Mesh % NumberOfNodes
+  Perm => Solver % Variable % Perm
+
+  IF ( .NOT. AllocationsDone ) THEN
+     N = Mesh % MaxElementDOFs  ! just big enough
+     ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
+          MASS(N,N), Tcoef(N), Acoef(N), STAT=istat )
+     IF ( istat /= 0 ) THEN
+        CALL Fatal( 'MGDynamicsSolver', 'Memory allocation error.' )
+     END IF
+     AllocationsDone = .TRUE.
+  END IF
+  
+  ConstantSystem = GetLogical( GetSolverParams(), &
+       'Constant System', Found )
+
+  ConstantBulk = GetLogical( GetSolverParams(), &
+       'Constant Bulk System', Found )
+
+  SkipAssembly = DoneAssembly.AND.(ConstantBulk.OR.ConstantSystem)
+
+  !System assembly:
+  !----------------
+
+  A => GetMatrix()
+  IF ( SkipAssembly) THEN
+    A % RHS = A % BulkRHS
+    A % Values = A % BulkValues
+
+    IF ( ConstantBulk    ) GOTO 100
+    IF ( ConstantSystem  ) GOTO 200
+  END IF
+
+  CALL DefaultInitialize()
+  Active = GetNOFActive()
+  DO t=1,active
+     Element => GetActiveElement(t)
+     n  = GetElementNOFNodes() ! kulmat
+     nd = GetElementNOFDOFs()  ! vapausasteet
+
+     LOAD = 0.0d0
+     BodyForce => GetBodyForce()
+     IF ( ASSOCIATED(BodyForce) ) THEN
+        Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
+        Load(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
+        Load(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
+
+        Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
+        Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
+        Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
+
+        Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
+     END IF
+
+     Acoef = 0.0d0
+     Tcoef = 0.0d0
+     Material => GetMaterial( Element )
+     IF ( ASSOCIATED(Material) ) THEN
+       Acoef(1:n) = GetReal( Material, 'Reluctivity',  Found )
+       Tcoef(1:n) = GetReal( Material, 'Conductivity', Found )
+     END IF
+
+     !Get element local matrix and rhs vector:
+     !----------------------------------------
+     CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
+           Tcoef, Acoef, Element, n, nd )
+
+     !Update global matrix and rhs vector from local matrix & vector:
+     !---------------------------------------------------------------
+     IF (Transient) CALL DefaultUpdateMass(MASS)
+     CALL DefaultUpdateEquations(STIFF,FORCE, &
+          BulkUpdate=ConstantBulk.OR.ConstantSystem)
+  END DO
+
+100 CONTINUE
+
+  !
+  ! Robin type of BC in terms of H:
+  !--------------------------------
+  Active = GetNOFBoundaryElements()
+  DO t=1,Active
+     Element => GetBoundaryElement(t)
+     IF (.NOT. ActiveBoundaryElement()) CYCLE
+     BC=>GetBC()
+     IF (.NOT. ASSOCIATED(BC) ) CYCLE
+     
+     SELECT CASE(GetElementFamily())
+     CASE(1)
+       CYCLE
+     CASE(2)
+       k = GetBoundaryEdgeIndex(Element,1); Element => Mesh % Edges(k)
+     CASE(3,4)
+       k = GetBoundaryFaceIndex(Element)  ; Element => Mesh % Faces(k)
+     END SELECT
+
+     nd = GetElementNOFDOFs(Element)
+     n  = GetElementNOFNodes(Element)
+
+     Load(1,1:n) = GetReal( BC, 'Magnetic Field Strength 1', Found )
+     Load(2,1:n) = GetReal( BC, 'Magnetic Field Strength 2', Found )
+     Load(3,1:n) = GetReal( BC, 'Magnetic Field Strength 3', Found )
+
+     Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
+     Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
+
+     Acoef(1:n) = GetReal( BC, 'Magnetic Transfer Coefficient', Found ) !???
+
+     CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
+     CALL DefaultUpdateEquations( STIFF,FORCE,Element, &
+             BulkUpdate=ConstantSystem)
+  END DO
+
+  DoneAssembly = .TRUE.
+
+200 CONTINUE
+
+  IF ( Transient ) CALL Default1stOrderTimeGlobal()
+  CALL DefaultFinishAssembly()
+
+  ! And finally, solve:
+  !--------------------
+  
+  !
+  ! Dirichlet BCs in terms of vector potential A:
+  ! ---------------------------------------------
+  CALL DefaultDirichletBCs()
+
+  !
+  ! Dirichlet BCs in terms of magnetic flux density B:
+  ! --------------------------------------------------
+  CALL DirichletAfromB()
+
+  !
+  ! Gauge tree, if requested or using direct solver:
+  ! ------------------------------------------------
+  TG=GetLogical(GetSolverParams(), 'Use tree gauge', Found)
+  IF (.NOT. Found) TG=GetString(GetSolverParams(), &
+     'Linear System Solver',Found)=='direct'
+
+  IF (TG) THEN
+    CALL GaugeTree()
+    WRITE(Message,*) 'Volume tree edges: ', &
+           TRIM(i2s(COUNT(TreeEdges))),     &
+             ' of total: ',Mesh % NumberOfEdges
+    CALL Info('MGDynamicsSolver: ', Message, Level=5)
+  END IF
+
+  !
+  ! Linear system solution:
+  ! -----------------------
+  IF ( dt /= PrevDT ) THEN
+    LFact = GetLogical( GetSolverParams(),  &
+      'Linear System Refactorize', Found )
+
+    IF ( Found ) &
+      CALL ListAddLogical( getSolverParams(), &
+        'Linear System Refactorize', .TRUE. )
+  END IF
+
+  Norm = DefaultSolve()
+
+  IF ( Found .AND. dt /= PrevDT ) THEN
+    CALL ListAddLogical( GetSolverParams(), &
+       'Linear System Refactorize', LFact )
+  END IF
+  PrevDT = dt
+
+! CALL WriteResults  ! debugging helper
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+  SUBROUTINE GaugeTree()
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry
+    TYPE(ListMatrix_t), POINTER :: Alist(:)
+    INTEGER :: i,j,k,l,n,Start
+    LOGICAL, ALLOCATABLE :: Done(:)
+    TYPE(ValueList_t), POINTER :: BC
+    TYPE(Element_t), POINTER :: Edge, Boundary
+!------------------------------------------------------------------------------
+
+    IF ( .NOT. ALLOCATED(TreeEdges) ) THEN
+      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges=.FALSE.
+    END IF
+
+    n = Mesh % NumberOfNodes
+    ALLOCATE(Done(n)); Done=.FALSE.
+
+    ! 
+    ! Skip Dirichlet BCs in terms of A:
+    ! ---------------------------------
+    DO i=1,Mesh % NumberOfBoundaryElements
+      Boundary => GetBoundaryElement(i)
+      IF ( .NOT.ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC => GetBC()
+      IF (.NOT.ASSOCIATED(BC)) CYCLE
+      IF (.NOT.ListCheckPresent( BC, &
+           TRIM(Solver % Variable % Name)//' {e}')) CYCLE
+ 
+      j=1; k=GetBoundaryEdgeIndex(Boundary,j)
+      DO WHILE(k>0)
+        Edge => Mesh % Edges(k)
+        Done(Edge % NodeIndexes) = .TRUE.
+        j=j+1; k=GetBoundaryEdgeIndex(Boundary,j)
+      END DO
+    END DO
+
+    ! 
+    ! Skip Dirichlet BCs in terms of B:
+    ! ---------------------------------
+    DO i=1,FluxCount
+      j = FluxMap(i)
+      IF ( Perm(j+n)<=0 ) CYCLE
+      Edge => Mesh % Edges(j)
+      Done(Edge % NodeIndexes)=.TRUE.
+    END DO
+
+    !
+    ! node -> edge list
+    ! -----------------
+    Alist => Null()
+    n = Mesh % NumberOfNodes
+    DO i=1,Mesh % NumberOfEdges
+      Edge => Mesh % Edges(i)
+      IF ( Perm(i+n)<=0 ) CYCLE
+      DO j=1,Edge % Type % NumberOfNodes
+        k=Edge % NodeIndexes(j)
+        Aentry=>List_GetMatrixIndex(Alist,k,i)
+      END DO
+    END DO
+
+    !
+    ! generate the tree for all (perhaps disconnected) parts:
+    ! -------------------------------------------------------
+    DO WHILE(.NOT.ALL(Done))
+      DO Start=1,n
+        IF (.NOT. Done(Start)) EXIT
+      END DO
+      CALL DepthFirstSearch(Alist,Done,Start)
+    END DO
+    DEALLOCATE(Done)
+    CALL List_FreeMatrix(SIZE(Alist),Alist)
+!------------------------------------------------------------------------------
+  END SUBROUTINE GaugeTree
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE GaugeTreeFluxBC()
+!------------------------------------------------------------------------------
+!   TYPE(Mesh_t) :: Mesh
+!   LOGICAL, ALLOCATABLE :: TreeEdges(:)
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry, Ltmp
+    TYPE(ListMatrix_t), POINTER :: Alist(:)
+    INTEGER :: i,j,k,l,n,Start,nCount,fixedge
+    LOGICAL, ALLOCATABLE :: Done(:)
+    INTEGER, ALLOCATABLE :: NodeList(:)
+    TYPE(Element_t), POINTER :: Edge, Boundary
+!------------------------------------------------------------------------------
+    IF ( .NOT. ALLOCATED(TreeEdges) ) THEN
+      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges=.FALSE.
+    END IF
+
+    n = Mesh % NumberOfNodes
+    ALLOCATE(Done(n)); Done=.FALSE.
+
+    !
+    ! list the candidate nodes:
+    ! -------------------------
+    DO i=1,FluxCount
+      j = FluxMap(i)
+      Edge => Mesh % Edges(j)
+      Done(Edge % NodeIndexes)=.True.
+    END DO
+
+    ALLOCATE(NodeList(COUNT(Done)))
+    nCount = 0
+    DO i=1,n
+      IF ( Done(i) ) THEN
+        nCount = nCount+1
+        NodeList(nCount)=i
+      END IF
+    END DO
+
+    Done=.FALSE.
+    DO i=1,FluxCount
+      IF ( TreeEdges(FluxMap(i)) ) THEN
+        Edge => Mesh % Edges(FluxMap(i))
+        Done(Edge % NodeIndexes)=.TRUE.
+      END IF
+    END DO
+
+    ! 
+    ! Skip Dirichlet BCs in terms of A:
+    ! ---------------------------------
+    DO i=1,Mesh % NumberOfBoundaryElements
+      Boundary => GetBoundaryElement(i)
+      IF ( .NOT.ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC => GetBC()
+      IF (.NOT.ASSOCIATED(BC)) CYCLE
+      IF (.NOT.ListCheckPresent( BC, &
+           TRIM(Solver % Variable % Name)//' {e}')) CYCLE
+ 
+      j=1; k=GetBoundaryEdgeIndex(Boundary,j)
+      DO WHILE(k>0)
+        Edge => Mesh % Edges(k)
+        TreeEdges(k) = .True.
+        Done(Edge % NodeIndexes) = .TRUE.
+        j=j+1; k=GetBoundaryEdgeIndex(Boundary,j)
+      END DO
+    END DO
+
+    ! node -> edge list
+    ! -----------------
+    Alist => Null()
+    DO i=1,FluxCount
+      j = FluxMap(i)
+      IF ( Perm(j+n)<=0 ) CYCLE
+
+      Edge => Mesh % Edges(j)
+      DO k=1,Edge % Type % NumberOfNodes
+        l=Edge % NodeIndexes(k)
+        Aentry=>List_GetMatrixIndex(Alist,l,j)
+      END DO
+    END DO
+ 
+    ! generate the tree for all (perhaps disconnected) parts:
+    ! -------------------------------------------------------
+    DO WHILE(.NOT.ALL(Done(NodeList)))
+      DO i=1,nCount
+        Start = NodeList(i)
+        IF ( .NOT. Done(Start) ) EXIT
+      END DO
+      CALL BreadthFirstSearch(Alist,Done,start,nCount,NodeList)
+    END DO
+    DEALLOCATE(Done,NodeList)
+    CALL List_FreeMatrix(SIZE(Alist),Alist)
+!------------------------------------------------------------------------------
+  END SUBROUTINE GaugeTreeFluxBC
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE BreadthFirstSearch(Alist,done,start,nCount,NodeList)
+!------------------------------------------------------------------------------
+    INTEGER :: start,nCount,NodeList(:)
+    LOGICAL :: Done(:)
+    TYPE(ListMatrix_t) :: Alist(:)
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry, Ltmp, Btmp
+    INTEGER :: i,j,k,l,n,m,ll,if,bcycle
+    TYPE(Element_t), POINTER :: Edge,Edge1,Boundary
+    LOGICAL, ALLOCATABLE :: DoneL(:)
+    INTEGER, ALLOCATABLE :: Fifo(:), Previous(:), FiFo1(:)
+!------------------------------------------------------------------------------
+   ALLOCATE(DoneL(Mesh % NumberOfEdges)); DoneL=.FALSE.
+   ALLOCATE(Fifo(FluxCount),FiFo1(FluxCount))
+   ALLOCATE(Previous(Mesh % NumberOfNodes)); Previous=0;
+
+   iF = 0; m=0
+   DO i=1,nCount
+     j = NodeList(i)
+     IF ( Done(j) ) THEN
+       m=m+1; fifo1(m)=j
+       if=if+1; fifo(if)=j
+     END IF
+   END DO
+
+   IF ( if>0 ) THEN
+     DO WHILE(m>0)
+       j = Fifo1(m); m=m-1
+
+       Aentry => Alist(j) % Head
+       DO WHILE(ASSOCIATED(Aentry))
+         k = Aentry % Index
+         Aentry => Aentry % Next
+
+         Edge => Mesh % Edges(k)
+         IF (.NOT. TreeEdges(k) .OR. DoneL(k) ) CYCLE
+         DoneL(k)=.TRUE.
+
+         l = Edge % NodeIndexes(1)
+         IF (l==j) l=Edge % NodeIndexes(2)
+
+         If=If+1; Fifo(iF)=l
+         m=m+1; Fifo1(m)=l
+         Previous(l)=j
+       END DO
+     END DO
+     Start = l
+   END IF
+   
+   IF ( if==0 ) THEN
+     Done(Start)=.TRUE.
+     if=1; fifo(if)=start;
+   END IF
+
+   Bcycle=0;
+   ALLOCATE(BasicCycles(FluxCount))
+   BasicCycles(:) % Degree = 0
+   DO i=1,FluxCount
+     BasicCycles(i) % Head => Null()
+   END DO
+
+   DO WHILE(If>0)
+     j = Fifo(if); if=if-1
+
+     Aentry => Alist(j) % Head
+     DO WHILE(ASSOCIATED(Aentry))
+       k = Aentry % Index
+       Aentry => Aentry % Next
+
+       Edge => Mesh % Edges(k)
+       IF ( DoneL(k) ) CYCLE
+       DoneL(k)=.true.
+
+       l = Edge % NodeIndexes(1)
+       IF (l==j) l=Edge % NodeIndexes(2)
+
+       IF ( Done(l) ) THEN
+         ! Generate fundamental cycle
+         bcycle = bcycle+1
+         CALL AddToCycle(bcycle,k)
+
+         m = j
+         DO WHILE(m/=Previous(l))
+           Ltmp => Alist(m) % Head
+           DO WHILE(ASSOCIATED(Ltmp))
+             Edge1 => Mesh % Edges(Ltmp % Index)
+             IF ( ANY(Edge1 % NodeIndexes(1:2)==Previous(m)) ) THEN
+               CALL AddToCycle(bcycle,Ltmp % Index); EXIT
+             END IF
+             Ltmp=>Ltmp % Next
+           END DO
+           IF ( ANY(Edge1 % NodeIndexes(1:2) == l) ) EXIT
+           m = Previous(m)
+         END DO
+
+         IF ( ALL(Edge1 % NodeIndexes(1:2) /= l) ) THEN
+           ltmp => Alist(l) % Head
+           DO WHILE(ASSOCIATED(ltmp))
+             edge1 => Mesh % Edges(Ltmp % Index)
+             IF ( ANY(Edge1 % NodeIndexes(1:2)==Previous(l)) ) THEN
+               CALL AddToCycle(bcycle,Ltmp % Index); EXIT
+             END IF
+             ltmp=>ltmp % Next
+           END DO
+         END IF
+       ELSE
+         IF (.NOT.TreeEdges(k)) CALL SetDOFToValue(Solver,k,0._dp)
+         If=If+1; Fifo(iF)=l
+         Previous(l)=j
+         Done(l)=.TRUE.
+         TreeEdges(k) = .TRUE.
+       END IF
+     END DO
+   END DO
+   DEALLOCATE(Fifo, Fifo1, DoneL)
+!------------------------------------------------------------------------------
+  END SUBROUTINE BreadthFirstSearch
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE AddToCycle(bcycle,index)
+    INTEGER :: bcycle,index
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Btmp
+
+    ALLOCATE(Btmp); Btmp % Next => BasicCycles(bcycle) % Head;
+    Btmp % Index = index; BasicCycles(bcycle) % Head => Btmp
+    BasicCycles(bcycle) % Degree=BasicCycles(bcycle) % Degree+1
+!------------------------------------------------------------------------------
+  END SUBROUTINE AddToCycle
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  RECURSIVE SUBROUTINE DepthFirstSearch(Alist,done,i)
+!------------------------------------------------------------------------------
+    TYPE(ListMatrix_t) :: Alist(:)
+    INTEGER :: i
+    LOGICAL :: Done(:)
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry
+    INTEGER :: j,k,l,n
+    TYPE(Element_t), POINTER :: Edge
+!------------------------------------------------------------------------------
+
+    ! To give better matrix conditioning some directional heuristics
+    ! could be added,e.g. select the order of going through the nodes
+    ! edge list here:
+
+    Done(i) = .TRUE.
+
+    Aentry => Alist(i) % Head
+    DO WHILE(ASSOCIAted(Aentry))
+      k = Aentry % Index
+      Aentry => Aentry % Next
+
+      Edge => Mesh % Edges(k)
+      IF (ALL(Done(Edge % NodeIndexes))) CYCLE
+
+      IF ( .NOT. TreeEdges(k)) CALL SetDOFToValue(Solver,k,0._dp)
+      TreeEdges(k)=.TRUE.
+      DO l=1,2
+        n = Edge % NodeIndexes(l)
+        IF (.NOT. Done(n)) CALL DepthFirstSearch(Alist,done,n)
+      END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE DepthFirstSearch
+!------------------------------------------------------------------------------
+
+!-----------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix( MASS, STIFF, FORCE, LOAD, &
+            Tcoef, Acoef, Element, n, nd )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: STIFF(:,:), FORCE(:), MASS(:,:)
+    REAL(KIND=dp) :: LOAD(:,:), Tcoef(:), Acoef(:)
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), A, C
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ, L(3), G(3), M(3)
+    LOGICAL :: Stat
+    INTEGER :: t, i, j, p, q, np
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+
+    STIFF = 0.0d0
+    FORCE = 0.0d0
+    MASS  = 0.0d0
+
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints( Element )
+    np = n*Solver % Def_Dofs(1)
+    DO t=1,IP % n
+       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                  IP % W(t), detJ, Basis, dBasisdx )
+
+       CALL EdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
+
+       A = SUM( Basis(1:n) * Acoef(1:n) )
+       C = SUM( Basis(1:n) * Tcoef(1:n) )
+
+       M = MATMUL( LOAD(4:6,1:n), Basis(1:n) )
+       L = MATMUL( LOAD(1:3,1:n), Basis(1:n) )
+       L = L-C*MATMUL(LOAD(7,1:n), dBasisdx(1:n,:))
+
+       ! Compute element stiffness matrix and force vector:
+       ! --------------------------------------------------
+
+       !
+       ! The constraint equation for time dep., potential eq.
+       ! in steady state: -div(C*(dA/dt+grad(V)))=0
+       ! ---------------------------------------------------
+       IF ( Transient ) THEN
+         DO i=1,np
+           p = i
+           DO j=1,np
+             q = j
+             STIFF(p,q) = STIFF(p,q) + C * &
+               SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+           END DO
+           DO j=1,nd-np
+             q = j+np
+             MASS(p,q) = MASS(p,q) + C * &
+                 SUM(dBasisdx(i,:)*Wbasis(j,:))*detJ*IP % s(t)
+             STIFF(q,p) = STIFF(q,p) + C * &
+                 SUM(WBasis(j,:)*dBasisdx(i,:))*detJ*IP % s(t)
+           END DO
+         END DO
+       END IF
+
+       !
+       ! C*dA/dt + curl(1/mu*curl(A)) = J + curl(M) - C*grad(P):
+       ! -------------------------------------------------------
+       DO i = 1,nd-np
+         p = i+np
+         FORCE(p) = FORCE(p) + (SUM(L*WBasis(i,:)) + &
+            SUM(M*RotWBasis(i,:)))*detJ*IP%s(t) 
+         DO j = 1,nd-np
+           q = j+np
+           STIFF(p,q) = STIFF(p,q) + A * &
+              SUM(RotWBasis(i,:)*RotWBasis(j,:))*detJ*IP%s(t)
+           MASS(p,q) = MASS(p,q) + C * &
+                  SUM(WBasis(i,:)*WBasis(j,:))*detJ*IP % s(t)
+         END DO
+       END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrixBC(  STIFF, FORCE, LOAD, Bcoef, Element, n, nd )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: LOAD(:,:), Bcoef(:)
+    REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element, Parent, Edge
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,L(3),Normal(3)
+    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), B, F, TC
+    LOGICAL :: Stat
+    INTEGER, POINTER :: EdgeMap(:,:)
+    TYPE(GaussIntegrationPoints_t) :: IP
+    INTEGER :: t, i, j, k, ii,jj, np, p, q
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+    MASS  = 0.0_dp
+
+    ! Numerical integration:
+    !-----------------------
+    IP = GaussPoints(Element)
+
+    np = n*Solver % Def_Dofs(1)
+    DO t=1,IP % n
+       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                  IP % W(t), detJ, Basis, dBasisdx )
+
+       CALL EdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
+
+       B  = SUM(Basis(1:n) * Bcoef(1:n))
+       L  = MATMUL(LOAD(1:3,1:n), Basis(1:n))
+
+       F  = SUM(LOAD(4,1:n)*Basis(1:n))
+       TC = SUM(LOAD(5,1:n)*Basis(1:n))
+
+       ! Compute element stiffness matrix and force vector:
+       !---------------------------------------------------
+       DO p=1,np
+         FORCE(p) = FORCE(p) + F*Basis(p)*detJ*IP % s(t)
+         DO q=1,np
+           STIFF(p,q) = STIFF(p,q) + TC * &
+                  Basis(p)*Basis(q)*detJ*IP % s(T)
+         END DO
+       END DO
+
+       DO i = 1,nd-np
+         p = i+np
+         FORCE(p) = FORCE(p) + SUM(L*WBasis(i,:))*detJ*IP%s(t)
+         DO j = 1,nd-np
+           q = j+np
+           STIFF(p,q) = STIFF(p,q) + B * &
+              SUM(WBasis(i,:)*WBasis(j,:))*detJ*IP%s(t)
+         END DO
+       END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrixBC
+!------------------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------------
+  FUNCTION LocalFluxBC( LOAD, Element, n, nd ) RESULT(Bn)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: LOAD(:,:), Bn
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element, Edge, Parent
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ,L(3),Ln
+    REAL(KIND=dp) :: Normal(3)
+    LOGICAL :: Stat
+    INTEGER :: t
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes,  Element )
+    !
+    ! Integrate (B,n) over boundary face:
+    ! -----------------------------------
+    IP = GaussPoints(Element)
+    Bn = 0._dp
+    DO t=1,IP % n
+      stat = ElementInfo( Element,Nodes,IP % U(t),IP % V(t), &
+                 IP % W(t),detJ,Basis,dBasisdx )
+
+      Normal=NormalVector(Element,Nodes,IP % u(t),ip % v(t),.TRUE.)
+      Ln = SUM(LOAD(4,1:n)*Basis(1:n))
+      L  = MATMUL(LOAD(1:3,1:n), Basis(1:n))
+      Bn = Bn + Detj * IP % S(t) * (Ln+SUM(L*Normal))
+    END DO
+!------------------------------------------------------------------------------
+  END FUNCTION LocalFluxBC
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE DirichletAfromB()
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: s,p(3),q(3),cx(3),r,xmin,ymin,zmin,xmax,ymax,zmax
+    TYPE(ListMatrixEntry_t), POINTER :: Ltmp
+    TYPE(Matrix_t), POINTER :: Smat
+    TYPE(Nodes_t),SAVE :: Nodes
+    TYPE(ValueList_t), POINTER :: BC
+
+    LOGICAL :: Found, Found1,Found2,Found3,L1,L2,L3
+    INTEGER :: i,j,k,l,m,t,ii,Faces,n,nd,Active,je1,je2,pe1,pe2
+
+    TYPE(Element_t), POINTER :: Element, Edge, Edge1
+    REAL(KIND=dp), ALLOCATABLE :: Bn(:)
+    INTEGER, POINTER :: EdgeMap(:,:)
+    INTEGER, ALLOCATABLE :: dMap(:),FaceMap(:)
+    LOGICAL, ALLOCATABLE :: FluxBoundaryEdge(:), CycleEdges(:), UsedFaces(:)
+!------------------------------------------------------------------------------
+    ALLOCATE(FluxBoundaryEdge(Mesh % NumberOFEdges)); FluxBoundaryEdge=.FALSE.
+
+    Active = GetNOFBoundaryElements()
+    DO t=1,Active
+       Element => GetBoundaryElement(t)
+
+       IF (.NOT. ActiveBoundaryElement()) CYCLE
+       IF ( GetElementFamily()==1 ) CYCLE
+       BC=>GetBC()
+       IF (.NOT. ASSOCIATED(BC) ) CYCLE
+
+       Found = .FALSE.
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 1')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 2')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 3')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density {n}')
+
+       IF ( Found ) THEN
+         SELECT CASE(GetElementFamily())
+         CASE(2)
+           CYCLE !what would it mean in 2D,at least with only B_z solved?
+         CASE(3,4)
+           k = GetBoundaryFaceIndex(Element); Element => Mesh % Faces(k)
+         END SELECT
+         FluxBoundaryEdge(Element % EdgeIndexes)=.TRUE.
+       END IF
+    END DO
+
+    FluxCount = COUNT(FluxBoundaryEdge)
+    IF ( FluxCount==0 ) THEN
+      DEALLOCATE(FluxBoundaryEdge); RETURN
+    END IF
+
+    ALLOCATE(FluxMap(FluxCount))
+    FluxCount = 0
+    DO i=1,Mesh % NumberOfEdges
+      IF ( FluxBoundaryEdge(i) ) THEN
+        FluxCount = FluxCount+1
+        FluxMap(FluxCount) = i
+      END IF
+    END DO
+    DEALLOCATE(FluxBoundaryEdge)
+
+    DO i=1,FluxCount
+      Edge => Mesh % Edges(FluxMap(i))
+      Edge % BoundaryInfo % Left => Null()
+      Edge % BoundaryInfo % Right => Null()
+    END DO
+
+    ALLOCATE(FaceMap(Mesh % NumberOfFaces)); FaceMap=0
+    Faces = 0
+    DO t=1,Active
+      Element => GetBoundaryElement(t)
+
+      IF (.NOT. ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC=>GetBC()
+      IF (.NOT. ASSOCIATED(BC) ) CYCLE
+
+      Found = .FALSE.
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 1')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 2')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 3')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density {n}')
+      IF ( .NOT. Found ) CYCLE
+
+      k = GetBoundaryFaceIndex(Element); Element=>Mesh % Faces(k)
+      Faces=Faces+1
+      FaceMap(k) = Faces
+
+      DO i=1,Element % Type % NumberOfNodes
+        Edge => Mesh % Edges(Element % EdgeIndexes(i))
+        IF (.NOT.ASSOCIATED(Edge % BoundaryInfo % Left)) THEN
+           Edge % BoundaryInfo % Left => Element
+        ELSE IF (.NOT.ASSOCIATED(Edge % BoundaryInfo % Right)) THEN
+           Edge % BoundaryInfo % Right => Element
+        END IF
+      END DO
+    END DO
+
+
+    ! Make gauge tree for the boundary:
+    ! ---------------------------------
+    CALL GaugeTreeFluxBC()
+    WRITE(Message,*) 'Boundary tree edges: ', &
+      TRIM(i2s(COUNT(TreeEdges(FluxMap)))),   &
+             ' of total: ',TRIM(i2s(FluxCount))
+    CALL Info('MGDynamicsSolver: ', Message, Level=5)
+
+    ! Get (B,n) for BC faces:
+    ! -----------------------
+    ALLOCATE(Bn(Faces))
+    DO t=1,Active
+      Element => GetBoundaryElement(t)
+
+      IF (.NOT.ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC=>GetBC()
+      IF (.NOT. ASSOCIATED(BC) ) CYCLE
+
+      n  = GetElementNOFNodes(Element)
+      LOAD(1,1:n) = GetReal(BC,'Magnetic Flux Density 1',Found1)
+      LOAD(2,1:n) = GetReal(BC,'Magnetic Flux Density 2',Found2)
+      LOAD(3,1:n) = GetReal(BC,'Magnetic Flux Density 3',Found3)
+      LOAD(4,1:n) = GetReal(BC,'Magnetic Flux Density {n}',Found)
+
+      IF (Found.OR.Found1.OR.Found2.OR.Found3) THEN
+        k = GetBoundaryFaceIndex(Element)
+        Element => Mesh % Faces(k)
+        nd = GetElementNOFDOFs(Element)
+        Bn(FaceMap(k))=LocalFluxBC(LOAD,Element,n,nd)
+      END IF
+    END DO
+
+    !
+    ! Calculate value for free edges using the fundamental loop basis
+    ! generated by GaugeTreeFluxBC():
+    ! ---------------------------------------------------------------
+    ALLOCATE(CycleEdges(Mesh % NumberOFEdges), UsedFaces(Faces))
+    CycleEdges = .FALSE.
+    ALLOCATE(dMap(MAXVAL(BasicCycles(:) % Degree)))
+
+    Smat => GetMatrix()
+    DO i=1,SIZE(BasicCycles)
+      IF (BasicCycles(i) % Degree<=0 ) CYCLE
+
+      ! 
+      ! Extract loop edge indices: 
+      ! --------------------------
+      j = 0
+      Ltmp => BasicCycles(i) % Head
+      DO WHILE(ASSOCIATED(Ltmp))
+        j = j + 1
+        dMap(j) = Ltmp % Index; Ltmp => Ltmp % Next
+      END DO
+      IF ( j<= 0 ) CYCLE
+
+      !
+      ! Orient edges to form a polygonal path:
+      ! --------------------------------------
+      Edge  => Mesh % Edges(dMap(j))
+      Edge1 => Mesh % Edges(dMap(j-1))
+      IF ( ANY(Edge % NodeIndexes(1)==Edge1 % NodeIndexes) ) THEN
+        l = Edge % NodeIndexes(1)
+        Edge % NodeIndexes(1) = Edge % NodeIndexes(2)
+        Edge % NodeIndexes(2) = l
+      END IF
+ 
+      DO k=j-1,1,-1
+        Edge1 => Mesh % Edges(dMap(k))
+        IF (Edge % NodeIndexes(2)==Edge1 % NodeIndexes(2)) THEN
+          l = Edge1 % NodeIndexes(1)
+          Edge1 % NodeIndexes(1) = Edge1 % NodeIndexes(2)
+          Edge1 % NodeIndexes(2) = l
+        END IF
+        Edge => Edge1
+      END DO
+
+      !
+      ! Try to find which way is inside...
+      ! ----------------------------------
+      Edge => Mesh % Edges(dMap(j))
+      Element => Edge % BoundaryInfo % Left
+      IF ( j==3 ) THEN
+        m = 0
+        DO k=1,3
+          DO l=1,3
+            IF (dMap(l)==Element % EdgeIndexes(k)) m=m+1
+          END DO
+        END DO
+        L1 = m==3
+        IF ( .NOT. L1 ) Element=>Edge % BoundaryInfo % Right
+        S = Bn(FaceMap(Element % ElementIndex))
+      ELSE
+        ! If not a triangle, try a (planar) polygonal test. This
+        ! will fail for general 3D paths. We'll spot the failure
+        ! later by trial and error...Might be preferable to skip
+        ! this altogether? Dunno....
+        ! ------------------------------------------------------
+        xmin=HUGE(xmin); xmax=-HUGE(xmax);
+        ymin=HUGE(ymin); ymax=-HUGE(ymax);
+        zmin=HUGE(zmin); zmax=-HUGE(zmax);
+        DO k=1,j
+          Edge1 => Mesh % Edges(dMap(k))
+          DO l=1,2
+            m = Edge1 % NodeIndexes(l)
+            xmin = MIN(xmin,Mesh % Nodes % x(m))
+            ymin = MIN(ymin,Mesh % Nodes % y(m))
+            zmin = MIN(zmin,Mesh % Nodes % z(m))
+
+            xmax = MAX(xmax,Mesh % Nodes % x(m))
+            ymax = MAX(ymax,Mesh % Nodes % y(m))
+            zmax = MAX(zmax,Mesh % Nodes % z(m))
+          END DO
+        END DO
+        L1 = xmax-xmin > ymax-ymin
+        L2 = xmax-xmin > zmax-zmin
+        L3 = ymax-ymin > zmax-zmin
+        IF ( l1 ) THEN
+          l=1
+          IF ( l3 ) THEN
+            m=2; n=3
+          ELSE
+            m=3; n=2
+          END IF
+        ELSE
+          IF ( l2 ) THEN
+            l=1; m=2; n=3
+          ELSE
+            l=3; m=1; n=2
+          END IF
+        END IF
+        cx(l) = SUM(Mesh % Nodes % x(Element % NodeIndexes))/3._dp
+        cx(m) = SUM(Mesh % Nodes % y(Element % NodeIndexes))/3._dp
+        cx(n) = SUM(Mesh % Nodes % z(Element % NodeIndexes))/3._dp
+
+        L1 = .FALSE.
+        DO k=j,1,-1
+          Edge1 => Mesh % Edges(dMap(k))
+          je1 = Edge1 % NodeIndexes(1)
+          je2 = Edge1 % NodeIndexes(2)
+          p(l) = Mesh % Nodes % x(je1)
+          p(m) = Mesh % Nodes % y(je1)
+          p(n) = Mesh % Nodes % z(je1)
+
+          q(l) = Mesh % Nodes % x(je2)
+          q(m) = Mesh % Nodes % y(je2)
+          q(n) = Mesh % Nodes % z(je2)
+
+          IF ((q(2)>cx(2)).NEQV.(p(2)>cx(2))) THEN
+            IF (cx(1)<(p(1)-q(1))*(cx(2)-q(2))/(p(2)-q(2))+q(1)) L1=.NOT.L1
+          END IF
+        END DO
+        IF (.NOT.L1) THEN
+          IF (ASSOCIATED(Edge % BoundaryInfo % Right)) &
+            Element=>Edge % BoundaryInfo % Right
+        END IF
+
+        ! Compute integral of (B,n) inside the cycle path
+        ! -----------------------------------------------
+        CycleEdges(dMap(1:j))=.TRUE.
+        DO m=1,2
+          S=0; UsedFaces=.FALSE.;
+          IF( FloodFill(Element,CycleEdges, &
+                       FaceMap,UsedFaces,Bn,S) )EXIT
+
+          ! the in/out guess was wrong, try the other way:
+          ! ----------------------------------------------
+          IF (ASSOCIATED(Edge % BoundaryInfo % Right,Element)) THEN
+            Element => Edge % BoundaryInfo % Left
+          ELSE
+            Element => Edge % BoundaryInfo % Right
+          END IF
+        END DO
+        CycleEdges(dMap(1:j))=.FALSE.
+      END IF
+
+      !
+      ! Orient edge to parent triangle...
+      ! ---------------------------------
+      je1 = Edge % NodeIndexes(1)
+      je2 = Edge % NodeIndexes(2)
+      EdgeMap => GetEdgeMap(GetElementFamily(Element))
+      DO t=1,Element % Type % NumberOfEdges
+        pe1 = Element % NodeIndexes(EdgeMap(t,1))
+        pe2 = Element % NodeIndexes(EdgeMap(t,2))
+        IF (pe1==je1.AND.pe2==je2 .OR. pe1==je2.AND.pe2==je1) EXIT
+      END DO
+      IF ( pe1/=je1 ) S=-S
+
+      !
+      ! ...because we now know how to orient against outward normal:
+      ! ------------------------------------------------------------
+      CALL GetElementNodes(Nodes,Element)
+      p = NormalVector(Element,Nodes,0._dp,0._dp)
+      q = NormalVector(Element,Nodes,0._dp,0._dp,.TRUE.)
+      IF ( SUM(p*q)<0 ) S=-S
+
+      !
+      ! Check whether some edges in the path have nonzero values,
+      ! if so, substract from integral:
+      ! ---------------------------------------------------------
+      DO k=j-1,1,-1
+        R = Smat % RHS(Perm(dMap(k)+nNodes))
+        IF ( R==0 ) CYCLE
+
+        Edge1 => Mesh % Edges(dMap(k))
+        pe1=Edge1 % NodeIndexes(1)
+        pe2=Edge1 % NodeIndexes(2)
+        IF ( pe2<pe1 ) R=-R; S=S-R
+      END DO
+
+      !
+      ! ...and finally we should have the edge value:
+      ! ---------------------------------------------
+      IF ( je2<je1 ) S=-S
+      CALL SetDOFtoValue(Solver,dMap(j),S)
+    END DO
+    DEALLOCATE(dMap, CycleEdges, FaceMap, UsedFaces, Bn)
+    CALL List_FreeMatrix(SIZE(BasicCycles), BasicCycles)
+!------------------------------------------------------------------------------
+  END SUBROUTINE DirichletAfromB 
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  RECURSIVE FUNCTION FloodFill(Element,CycleEdges, &
+          FaceMap,UsedFaces,Bn,CycleSum) RESULT(Found)
+!------------------------------------------------------------------------------
+    TYPE(Element_t), POINTER :: e, Element
+    REAL(KIND=dp) :: CycleSum, Bn(:)
+    INTEGER :: i,j,n, FaceMap(:)
+    LOGICAL :: CycleEdges(:), UsedFaces(:), Found
+
+    Found=.FALSE.
+    IF (.NOT.ASSOCIATED(Element)) RETURN
+
+    n=FaceMap(Element % ElementIndex)
+    IF (UsedFaces(n)) THEN
+      Found=.TRUE.; RETURN
+    END IF
+    UsedFaces(n)=.True.
+    CycleSum = CycleSum+Bn(n)
+
+    DO i=1,Element % Type % NumberOfEdges
+      j = Element % EdgeIndexes(i)
+      IF ( CycleEdges(j) ) CYCLE
+
+      e => Mesh % Edges(j) % BoundaryInfo % Right
+      IF(.NOT.FloodFill(e,CycleEdges,FaceMap,UsedFaces,Bn,CycleSum)) RETURN
+
+      e => Mesh % Edges(j) % BoundaryInfo % Left
+      IF(.NOT.FloodFill(e,CycleEdges,FaceMap,UsedFaces,Bn,CycleSum)) RETURN
+    END DO
+    Found=.TRUE.; RETURN
+!------------------------------------------------------------------------------
+  END FUNCTION FloodFill
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE WriteResults
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: u,v,w,WBasis(12,3), &
+     RotWBasis(12,3), Basis(16), dBasisdx(16,3), Rot(3),detJ
+
+     INTEGER :: Active, Indexes(12), i,j,k,l,m,n,nd,np,p,q
+     TYPE(Variable_t), POINTER :: Var
+     TYPE(Element_t), POINTER :: Parent
+     TYPE(Nodes_t), SAVE :: Nodes, pNodes
+
+     OPEN(unit=10, file='ratkaisu.ep')
+
+     Active = GetNOFBoundaryElements()
+     t = Active * (CoordinateSystemDimension()) ! nurkkasolmujen lukumäärä
+     write(10,'(4i10,A)') t, Active, 3, 1,' vector: RotU'
+
+     !  Kirjoitetaan solmukoordinaatit:
+     !  -------------------------------
+     DO i = 1, Active
+       Element => GetBoundaryElement(i)
+       n = GetElementNOFNodes(Element)
+       DO j = 1,n
+         k = Element % NodeIndexes(j)
+         write(10,*) Model % Mesh % Nodes % x(k), &
+             Model % Mesh % Nodes % y(k), Model % Mesh % Nodes % z(k)
+       END DO
+     END DO
+
+     !  Kirjoitetaan elementit:
+     !  -----------------------
+     WRITE(10,'(a)') '#group all'
+     DO i = 1, Active
+       Element => GetBoundaryElement(i)
+       SELECT CASE( GetElementFamily(Element))
+       CASE(3)
+         WRITE(10,*) 'body1   303', 3*(i-1)+0,3*(i-1)+1,3*(i-1)+2
+       CASE(5)
+         WRITE(10,*) 'body1   504', 4*(i-1)+0,4*(i-1)+1,4*(i-1)+2,4*(i-1)+3
+       END SELECT
+     END DO
+     WRITE(10,'(a)') '#endgroup all'
+
+     ! Kirjoitetaan tulokset:
+     ! ----------------------
+     Var => Solver % Variable
+     WRITE(10,'(a)') '#time 1   1  1  1.0'
+     DO i = 1, Active
+       Element => GetBoundaryElement(i)
+       k=GetBoundaryFaceIndex(Element); Element=>Mesh % Faces(k)
+       n = GetElementNOFNodes(Element)
+       np = n*Solver % Def_dofs(1)
+       CALL GetElementNodes(Nodes, Element)
+
+       Parent => Element % Boundaryinfo % Left
+       CALL GetElementNodes(pNodes, Parent )
+       nd = GetElementDOFs(Indexes,Parent )
+
+       ! Luuppi nurkkapisteiden yli:
+       ! ---------------------------
+       DO j = 1,n
+         u = Element % Type % NodeU(j)
+         v = Element % Type % NodeV(j)
+         w = Element % Type % NodeW(j)
+
+         stat=ElementInfo(Element,Nodes,u,v,w,detJ,Basis,dBasisdx)
+
+         CALL GetParentUVW(Element,n,Parent,4,u,v,w,Basis)
+         stat=ElementInfo(parent,pNodes,u,v,w,detJ,Basis,dBasisdx)
+         CALL EdgeBasis(Parent,WBasis,RotWBasis,Basis,dBasisdx)
+
+         Rot = 0.0_dp
+         DO k = 1,nd-np
+           q = k+np
+           m = Var % Perm(Indexes(q))
+           IF ( m>0 ) Rot = Rot + WBasis(k,:)*Var % Values(m)
+         END DO
+         WRITE(10,*) rot
+       END DO
+     END DO
+
+     CLOSE(10)
+!------------------------------------------------------------------------
+  END SUBROUTINE WriteResults
+!------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+ END SUBROUTINE MGDynamicsSolver
+!------------------------------------------------------------------------------
+
+
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE MGDynamicsHarmonic_Init0(Model,Solver,dt,Transient)
+!------------------------------------------------------------------------------
+  USE MGDynamicsUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: Transient
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: SolverParams
+
+  SolverParams => GetSolverParams()
+  IF ( .NOT.ListCheckPresent(SolverParams, "Element") ) THEN
+    CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
+  END IF
+!------------------------------------------------------------------------------
+END SUBROUTINE MGDynamicsHarmonic_Init0
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE MGDynamicsHarmonic( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Solve vector potential A, scale potential V
+! 
+!  j omega sigma A+rot (1/mu) rot A+sigma grad(V) = J^s+rot M^s-sigma grad(V^s)
+!  -div(sigma (j omega A+grad(V)))=0
+!
+!  using edge elements (Nedelec/W basis of lowest degree) + nodal basis for V
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh, materials, BCs, etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear & nonlinear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations
+!
+!  LOGICAL :: Transient
+!     INPUT: Steady state or transient simulation
+!
+!******************************************************************************
+  USE MGDynamicsUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: Transient
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  LOGICAL :: AllocationsDone = .FALSE., Found, L1
+  TYPE(Element_t),POINTER :: Element, Edge
+
+  REAL(KIND=dp) :: Norm, Omega
+  TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
+
+  INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0
+
+  TYPE(Mesh_t), POINTER :: Mesh
+  COMPLEX(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:)
+  COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
+
+  LOGICAL :: Stat, EigenAnalysis, TG
+  INTEGER, POINTER :: Perm(:)
+  INTEGER, ALLOCATABLE, SAVE :: FluxMap(:)
+  LOGICAL, ALLOCATABLE, SAVE :: TreeEdges(:)
+
+  TYPE(Matrix_t), POINTER :: A
+  TYPE(ListMatrix_t), POINTER :: BasicCycles(:)
+
+  SAVE STIFF, LOAD, MASS, FORCE, Tcoef, Acoef, AllocationsDone
+!------------------------------------------------------------------------------
+
+
+  !Allocate some permanent storage, this is done first time only:
+  !--------------------------------------------------------------
+  Mesh => GetMesh()
+  nNodes = Mesh % NumberOfNodes
+  Perm => Solver % Variable % Perm
+
+  A => GetMatrix()
+  A %  Complex = .TRUE.
+  IF ( .NOT. AllocationsDone ) THEN
+     N = Mesh % MaxElementDOFs  ! just big enough
+     ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
+          MASS(N,N), Tcoef(N), Acoef(N), STAT=istat )
+     IF ( istat /= 0 ) THEN
+        CALL Fatal( 'MGDynamicsHarmonic', 'Memory allocation error.' )
+     END IF
+     AllocationsDone = .TRUE.
+  END IF
+  
+  Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
+  
+  !System assembly:
+  !----------------
+  CALL DefaultInitialize()
+  Active = GetNOFActive()
+  DO t=1,active
+     Element => GetActiveElement(t)
+     n  = GetElementNOFNodes() ! kulmat
+     nd = GetElementNOFDOFs()  ! vapausasteet
+
+     LOAD = 0.0d0
+     BodyForce => GetBodyForce()
+     IF ( ASSOCIATED(BodyForce) ) THEN
+        Load(1,1:n) = GetReal( BodyForce, 'Current Density 1', Found )
+        Load(1,1:n) = CMPLX( REAL(Load(1,1:n)), &
+          GetReal( BodyForce, 'Current Density im 1', Found ),KIND=dp)
+
+        Load(2,1:n) = GetReal( BodyForce, 'Current Density 2', Found )
+        Load(2,1:n) = CMPLX( REAL(Load(2,1:n)), & 
+          GetReal( BodyForce, 'Current Density im 2', Found), KIND=dp)
+
+        Load(3,1:n) = GetReal( BodyForce, 'Current Density 3', Found )
+        Load(3,1:n) = CMPLX( REAL(Load(3,1:n)), &
+          GetReal( BodyForce, 'Current Density im 3', Found), KIND=dp)
+
+
+        Load(4,1:n) = GetReal( BodyForce, 'Magnetization 1', Found )
+        Load(4,1:n) = CMPLX( REAL(Load(4,1:n)), &
+              GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
+
+        Load(5,1:n) = GetReal( BodyForce, 'Magnetization 2', Found )
+        Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
+              GetReal( BodyForce, 'Magnetization im 2', Found),KIND=dp)
+
+        Load(6,1:n) = GetReal( BodyForce, 'Magnetization 3', Found )
+        Load(6,1:n) = CMPLX( REAL(Load(6,1:n)), &
+              GetReal( BodyForce, 'Magnetization im 1', Found),KIND=dp)
+
+        Load(7,1:n) = GetReal( BodyForce, 'Electric Potential', Found )
+        Load(7,1:n) = CMPLX( REAL(Load(7,1:n)), &
+            GetReal( BodyForce, 'Electric Potential im', Found), KIND=dp)
+     END IF
+
+     Acoef = 0.0_dp
+     Tcoef = 0.0_dp
+     Material => GetMaterial( Element )
+     IF ( ASSOCIATED(Material) ) THEN
+       Acoef(1:n) = GetReal( Material, 'Reluctivity',  Found)
+       Acoef(1:n) = CMPLX( REAL(Acoef(1:n)), &
+          GetReal( Material, 'Reluctivity im', Found ),KIND=dp)
+
+       Tcoef(1:n) = GetReal( Material, 'Conductivity',  Found )
+       Tcoef(1:n) = CMPLX( REAL(Tcoef(1:n)), &
+         GetReal( Material, 'Conductivity im',  Found), KIND=dp)
+     END IF
+
+     !Get element local matrix and rhs vector:
+     !----------------------------------------
+     CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
+           Tcoef, Acoef, Element, n, nd )
+
+     !Update global matrix and rhs vector from local matrix & vector:
+     !---------------------------------------------------------------
+     CALL DefaultUpdateEquations( STIFF, FORCE )
+  END DO
+
+  !
+  ! Robin type of BC in terms of H:
+  !--------------------------------
+  Active = GetNOFBoundaryElements()
+  DO t=1,Active
+     Element => GetBoundaryElement(t)
+     IF (.NOT. ActiveBoundaryElement()) CYCLE
+     BC=>GetBC()
+     IF (.NOT. ASSOCIATED(BC) ) CYCLE
+     
+     SELECT CASE(GetElementFamily())
+     CASE(1)
+       CYCLE
+     CASE(2)
+       k = GetBoundaryEdgeIndex(Element,1); Element => Mesh % Edges(k)
+     CASE(3,4)
+       k = GetBoundaryFaceIndex(Element)  ; Element => Mesh % Faces(k)
+     END SELECT
+
+     nd = GetElementNOFDOFs(Element)
+     n  = GetElementNOFNodes(Element)
+
+     Load(1,1:n) = GetReal( BC, 'Magnetic Field Strength 1', Found )
+     Load(1,1:n) = CMPLX( REAL(Load(1,1:n)), &
+        GetReal(BC, 'Magnetic Field Strength im 1', Found), KIND=dp)
+
+     Load(2,1:n) = GetReal( BC, 'Magnetic Field Strength 2', Found )
+     Load(2,1:n) = CMPLX( REAL(Load(2,1:n)), &
+        GetReal(BC, 'Magnetic Field Strength im 2', Found), KIND=dp)
+
+     Load(3,1:n) = GetReal( BC, 'Magnetic Field Strength 3', Found )
+     Load(3,1:n) = CMPLX( REAL(Load(3,1:n)), &
+        GetReal(BC, 'Magnetic Field Strength im 3', Found), KIND=dp)
+
+     Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
+     Load(4,1:n) = CMPLX( REAL(LOAD(4,1:n)), &
+           GetReal( BC, 'Electric Flux im', Found), KIND=dp)
+
+     Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
+     Load(5,1:n) = CMPLX( REAL(Load(5,1:n)), &
+       GetReal( BC, 'Electric Transfer Coefficient im', Found), KIND=dp)
+
+     Acoef(1:n) = GetReal( BC, 'Magnetic Transfer Coefficient', Found )
+     Acoef(1:n) = CMPLX( REAL(Acoef(1:n)), &
+       GetReal( BC, 'Magnetic Transfer Coefficient im', Found), KIND=dp)
+
+     CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
+     CALL DefaultUpdateEquations(STIFF,FORCE,Element)
+  END DO
+
+  CALL DefaultFinishAssembly()
+
+  ! And finally, solve:
+  !--------------------
+  
+  !
+  ! Dirichlet BCs in terms of vector potential A:
+  ! ---------------------------------------------
+  CALL DefaultDirichletBCs()
+
+  !
+  ! Dirichlet BCs in terms of magnetic flux density B:
+  ! --------------------------------------------------
+  CALL DirichletAfromB()
+
+  !
+  ! Gauge tree, if requested or using direct solver:
+  ! ------------------------------------------------
+  TG=GetLogical(GetSolverParams(), 'Use tree gauge', Found)
+  IF (.NOT. Found) TG=GetString(GetSolverParams(), &
+     'Linear System Solver',Found)=='direct'
+
+  IF (TG) THEN
+    CALL GaugeTree()
+    WRITE(Message,*) 'Volume tree edges: ', &
+           TRIM(i2s(COUNT(TreeEdges))),     &
+             ' of total: ',Mesh % NumberOfEdges
+    CALL Info('MGDynamicsHarmonic: ', Message, Level=5)
+  END IF
+
+  !
+  ! Linear system solution:
+  ! -----------------------
+  Norm = DefaultSolve()
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+  SUBROUTINE GaugeTree()
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry
+    TYPE(ListMatrix_t), POINTER :: Alist(:)
+    INTEGER :: i,j,k,l,n,Start
+    LOGICAL, ALLOCATABLE :: Done(:)
+    TYPE(Element_t), POINTER :: Edge, Boundary
+!------------------------------------------------------------------------------
+
+    IF ( .NOT. ALLOCATED(TreeEdges) ) THEN
+      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges=.FALSE.
+    END IF
+
+    n = Mesh % NumberOfNodes
+    ALLOCATE(Done(n)); Done=.FALSE.
+
+    ! 
+    ! Skip Dirichlet BCs in terms of A:
+    ! ---------------------------------
+    DO i=1,Mesh % NumberOfBoundaryElements
+      Boundary => GetBoundaryElement(i)
+      IF ( .NOT.ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC => GetBC()
+      IF (.NOT.ASSOCIATED(BC)) CYCLE
+      IF (.NOT.ListCheckPresent( BC, &
+           TRIM(Solver % Variable % Name)//' {e}')) CYCLE
+ 
+      j=1; k=GetBoundaryEdgeIndex(Boundary,j)
+      DO WHILE(k>0)
+        Edge => Mesh % Edges(k)
+        Done(Edge % NodeIndexes) = .TRUE.
+        j=j+1; k=GetBoundaryEdgeIndex(Boundary,j)
+      END DO
+    END DO
+
+    ! 
+    ! Skip Dirichlet BCs in terms of B:
+    ! ---------------------------------
+    DO i=1,FluxCount
+      j = FluxMap(i)
+      IF ( Perm(j+n)<=0 ) CYCLE
+      Edge => Mesh % Edges(j)
+      Done(Edge % NodeIndexes)=.TRUE.
+    END DO
+
+    !
+    ! node -> edge list
+    ! -----------------
+    Alist => Null()
+    n = Mesh % NumberOfNodes
+    DO i=1,Mesh % NumberOfEdges
+      Edge => Mesh % Edges(i)
+      IF ( Perm(i+n)<=0 ) CYCLE
+      DO j=1,Edge % Type % NumberOfNodes
+        k=Edge % NodeIndexes(j)
+        Aentry=>List_GetMatrixIndex(Alist,k,i)
+      END DO
+    END DO
+
+    !
+    ! generate the tree for all (perhaps disconnected) parts:
+    ! -------------------------------------------------------
+    DO WHILE(.NOT.ALL(Done))
+      DO Start=1,n
+        IF (.NOT. Done(Start)) EXIT
+      END DO
+      CALL DepthFirstSearch(Alist,Done,Start)
+    END DO
+    DEALLOCATE(Done)
+    CALL List_FreeMatrix(SIZE(Alist),Alist)
+!------------------------------------------------------------------------------
+  END SUBROUTINE GaugeTree
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE GaugeTreeFluxBC()
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry, Ltmp
+    TYPE(ListMatrix_t), POINTER :: Alist(:)
+    INTEGER :: i,j,k,l,n,Start,nCount,fixedge
+    LOGICAL, ALLOCATABLE :: Done(:)
+    INTEGER, ALLOCATABLE :: NodeList(:)
+    TYPE(Element_t), POINTER :: Edge, Boundary
+!------------------------------------------------------------------------------
+    IF ( .NOT. ALLOCATED(TreeEdges) ) THEN
+      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges=.FALSE.
+    END IF
+
+    n = Mesh % NumberOfNodes
+    ALLOCATE(Done(n)); Done=.FALSE.
+
+    !
+    ! list the candidate nodes:
+    ! -------------------------
+    DO i=1,FluxCount
+      j = FluxMap(i)
+      Edge => Mesh % Edges(j)
+      Done(Edge % NodeIndexes)=.True.
+    END DO
+
+    ALLOCATE(NodeList(COUNT(Done)))
+    nCount = 0
+    DO i=1,n
+      IF ( Done(i) ) THEN
+        nCount = nCount+1
+        NodeList(nCount)=i
+      END IF
+    END DO
+
+    Done=.FALSE.
+    DO i=1,FluxCount
+      IF ( TreeEdges(FluxMap(i)) ) THEN
+        Edge => Mesh % Edges(FluxMap(i))
+        Done(Edge % NodeIndexes)=.TRUE.
+      END IF
+    END DO
+
+    ! 
+    ! Skip Dirichlet BCs in terms of A:
+    ! ---------------------------------
+    DO i=1,Mesh % NumberOfBoundaryElements
+      Boundary => GetBoundaryElement(i)
+      IF ( .NOT.ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC => GetBC()
+      IF (.NOT.ASSOCIATED(BC)) CYCLE
+      IF (.NOT.ListCheckPresent( BC, &
+           TRIM(Solver % Variable % Name)//' {e}')) CYCLE
+ 
+      j=1; k=GetBoundaryEdgeIndex(Boundary,j)
+      DO WHILE(k>0)
+        Edge => Mesh % Edges(k)
+        TreeEdges(k) = .True.
+        Done(Edge % NodeIndexes) = .TRUE.
+        j=j+1; k=GetBoundaryEdgeIndex(Boundary,j)
+      END DO
+    END DO
+
+    ! node -> edge list
+    ! -----------------
+    Alist => Null()
+    DO i=1,FluxCount
+      j = FluxMap(i)
+      IF ( Perm(j+n)<=0 ) CYCLE
+
+      Edge => Mesh % Edges(j)
+      DO k=1,Edge % Type % NumberOfNodes
+        l=Edge % NodeIndexes(k)
+        Aentry=>List_GetMatrixIndex(Alist,l,j)
+      END DO
+    END DO
+ 
+    ! generate the tree for all (perhaps disconnected) parts:
+    ! -------------------------------------------------------
+    DO WHILE(.NOT.ALL(Done(NodeList)))
+      DO i=1,nCount
+        Start = NodeList(i)
+        IF ( .NOT. Done(Start) ) EXIT
+      END DO
+      CALL BreadthFirstSearch(Alist,Done,start,nCount,NodeList)
+    END DO
+    DEALLOCATE(Done,NodeList)
+    CALL List_FreeMatrix(SIZE(Alist),Alist)
+!------------------------------------------------------------------------------
+  END SUBROUTINE GaugeTreeFluxBC
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE BreadthFirstSearch(Alist,done,start,nCount,NodeList)
+!------------------------------------------------------------------------------
+    INTEGER :: start,nCount,NodeList(:)
+    LOGICAL :: Done(:)
+    TYPE(ListMatrix_t) :: Alist(:)
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry, Ltmp, Btmp
+    INTEGER :: i,j,k,l,n,m,ll,if,bcycle
+    TYPE(Element_t), POINTER :: Edge,Edge1,Boundary
+    LOGICAL, ALLOCATABLE :: DoneL(:)
+    INTEGER, ALLOCATABLE :: Fifo(:), Previous(:), FiFo1(:)
+!------------------------------------------------------------------------------
+   ALLOCATE(DoneL(Mesh % NumberOfEdges)); DoneL=.FALSE.
+   ALLOCATE(Fifo(FluxCount),FiFo1(FluxCount))
+   ALLOCATE(Previous(Mesh % NumberOfNodes)); Previous=0;
+
+   iF = 0; m=0
+   DO i=1,nCount
+     j = NodeList(i)
+     IF ( Done(j) ) THEN
+       m=m+1; fifo1(m)=j
+       if=if+1; fifo(if)=j
+     END IF
+   END DO
+
+   IF ( if>0 ) THEN
+     DO WHILE(m>0)
+       j = Fifo1(m); m=m-1
+
+       Aentry => Alist(j) % Head
+       DO WHILE(ASSOCIATED(Aentry))
+         k = Aentry % Index
+         Aentry => Aentry % Next
+
+         Edge => Mesh % Edges(k)
+         IF (.NOT. TreeEdges(k) .OR. DoneL(k) ) CYCLE
+         DoneL(k)=.TRUE.
+
+         l = Edge % NodeIndexes(1)
+         IF (l==j) l=Edge % NodeIndexes(2)
+
+         If=If+1; Fifo(iF)=l
+         m=m+1; Fifo1(m)=l
+         Previous(l)=j
+       END DO
+     END DO
+     Start = l
+   END IF
+   
+   IF ( if==0 ) THEN
+     Done(Start)=.TRUE.
+     if=1; fifo(if)=start;
+   END IF
+
+   Bcycle=0;
+   ALLOCATE(BasicCycles(FluxCount))
+   BasicCycles(:) % Degree = 0
+   DO i=1,FluxCount
+     BasicCycles(i) % Head => Null()
+   END DO
+
+   DO WHILE(If>0)
+     j = Fifo(if); if=if-1
+
+     Aentry => Alist(j) % Head
+     DO WHILE(ASSOCIATED(Aentry))
+       k = Aentry % Index
+       Aentry => Aentry % Next
+
+       Edge => Mesh % Edges(k)
+       IF ( DoneL(k) ) CYCLE
+       DoneL(k)=.true.
+
+       l = Edge % NodeIndexes(1)
+       IF (l==j) l=Edge % NodeIndexes(2)
+
+       IF ( Done(l) ) THEN
+         ! Generate fundamental cycle
+         bcycle = bcycle+1
+         CALL AddToCycle(bcycle,k)
+
+         m = j
+         DO WHILE(m/=Previous(l))
+           Ltmp => Alist(m) % Head
+           DO WHILE(ASSOCIATED(Ltmp))
+             Edge1 => Mesh % Edges(Ltmp % Index)
+             IF ( ANY(Edge1 % NodeIndexes(1:2)==Previous(m)) ) THEN
+               CALL AddToCycle(bcycle,Ltmp % Index); EXIT
+             END IF
+             Ltmp=>Ltmp % Next
+           END DO
+           IF ( ANY(Edge1 % NodeIndexes(1:2) == l) ) EXIT
+           m = Previous(m)
+         END DO
+
+         IF ( ALL(Edge1 % NodeIndexes(1:2) /= l) ) THEN
+           ltmp => Alist(l) % Head
+           DO WHILE(ASSOCIATED(ltmp))
+             edge1 => Mesh % Edges(Ltmp % Index)
+             IF ( ANY(Edge1 % NodeIndexes(1:2)==Previous(l)) ) THEN
+               CALL AddToCycle(bcycle,Ltmp % Index); EXIT
+             END IF
+             ltmp=>ltmp % Next
+           END DO
+         END IF
+       ELSE
+         IF (.NOT.TreeEdges(k)) CALL SetDOFToValue(Solver,k,(0._dp,0._dp))
+         If=If+1; Fifo(iF)=l
+         Previous(l)=j
+         Done(l)=.TRUE.
+         TreeEdges(k) = .TRUE.
+       END IF
+     END DO
+   END DO
+   DEALLOCATE(Fifo, Fifo1, DoneL)
+!------------------------------------------------------------------------------
+  END SUBROUTINE BreadthFirstSearch
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE AddToCycle(bcycle,index)
+    INTEGER :: bcycle,index
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Btmp
+
+    ALLOCATE(Btmp); Btmp % Next => BasicCycles(bcycle) % Head;
+    Btmp % Index = index; BasicCycles(bcycle) % Head => Btmp
+    BasicCycles(bcycle) % Degree=BasicCycles(bcycle) % Degree+1
+!------------------------------------------------------------------------------
+  END SUBROUTINE AddToCycle
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  RECURSIVE SUBROUTINE DepthFirstSearch(Alist,done,i)
+!------------------------------------------------------------------------------
+    TYPE(ListMatrix_t) :: Alist(:)
+    INTEGER :: i
+    LOGICAL :: Done(:)
+!------------------------------------------------------------------------------
+    TYPE(ListMatrixEntry_t), POINTER :: Aentry
+    INTEGER :: j,k,l,n
+    TYPE(Element_t), POINTER :: Edge
+!------------------------------------------------------------------------------
+    ! To give better matrix conditioning some directional heuristics
+    ! could be added,e.g. select the order of going through the nodes
+    ! edge list here:
+
+    Done(i) = .TRUE.
+
+    Aentry => Alist(i) % Head
+    DO WHILE(ASSOCIAted(Aentry))
+      k = Aentry % Index
+      Aentry => Aentry % Next
+
+      Edge => Mesh % Edges(k)
+      IF (ALL(Done(Edge % NodeIndexes))) CYCLE
+
+      IF ( .NOT. TreeEdges(k)) CALL SetDOFToValue(Solver,k,(0._dp,0._dp))
+      TreeEdges(k)=.TRUE.
+      DO l=1,2
+        n = Edge % NodeIndexes(l)
+        IF (.NOT. Done(n)) CALL DepthFirstSearch(Alist,done,n)
+      END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE DepthFirstSearch
+!------------------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix( MASS, STIFF, FORCE, LOAD, &
+            Tcoef, Acoef, Element, n, nd )
+!------------------------------------------------------------------------------
+    COMPLEX(KIND=dp) :: STIFF(:,:), FORCE(:), MASS(:,:)
+    COMPLEX(KIND=dp) :: LOAD(:,:), Tcoef(:), Acoef(:)
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3)
+    COMPLEX(KIND=dp) :: A, C, L(3), G(3), M(3)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ
+    LOGICAL :: Stat
+    INTEGER :: t, i, j, p, q, np
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+    MASS  = 0.0_dp
+
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints( Element )
+
+    np = n*Solver % Def_dofs(1)
+    DO t=1,IP % n
+       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                  IP % W(t), detJ, Basis, dBasisdx )
+
+       CALL EdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
+
+       A = SUM( Basis(1:n) * Acoef(1:n) )
+       C = SUM( Basis(1:n) * Tcoef(1:n) )
+
+       M = MATMUL( LOAD(4:6,1:n), Basis(1:n) )
+       L = MATMUL( LOAD(1:3,1:n), Basis(1:n) )
+       L = L-C*MATMUL(LOAD(7,1:n), dBasisdx(1:n,:))
+
+       ! Compute element stiffness matrix and force vector:
+       ! --------------------------------------------------
+
+       !
+       ! The constraint equation: -div(C*(j*omega*A+grad(V)))=0
+       ! (multiplied by -j/omega):
+       ! --------------------------------------------------------
+       DO i=1,np
+         p = i
+         DO j=1,np
+           q = j
+           STIFF(p,q) = STIFF(p,q) - im*C/Omega * &
+             SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+         END DO
+         DO j=1,nd-np
+           q = j+np
+           STIFF(p,q) = STIFF(p,q) + C * &
+               SUM(dBasisdx(i,:)*Wbasis(j,:))*detJ*IP % s(t)
+           STIFF(q,p) = STIFF(q,p) + C * &
+               SUM(WBasis(j,:)*dBasisdx(i,:))*detJ*IP % s(t)
+         END DO
+       END DO
+
+       !
+       ! j*omega*C*A + curl(1/mu*curl(A)) + C*grad(V) = 
+       !        J + curl(M) - C*grad(P'):
+       ! ----------------------------------------------------
+       DO i = 1,nd-np
+         p = i+np
+         FORCE(p) = FORCE(p) + (SUM(L*WBasis(i,:)) + &
+            SUM(M*RotWBasis(i,:)))*detJ*IP%s(t) 
+         DO j = 1,nd-np
+           q = j+np
+           STIFF(p,q) = STIFF(p,q) + A * &
+              SUM(RotWBasis(i,:)*RotWBasis(j,:))*detJ*IP%s(t)
+           STIFF(p,q) = STIFF(p,q) + im*Omega*C * &
+                  SUM(WBasis(i,:)*WBasis(j,:))*detJ*IP % s(t)
+         END DO
+       END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------------
+  SUBROUTINE LocalMatrixBC(  STIFF, FORCE, LOAD, Bcoef, Element, n, nd )
+!------------------------------------------------------------------------------
+    COMPLEX(KIND=dp) :: LOAD(:,:), Bcoef(:)
+    COMPLEX(KIND=dp) :: STIFF(:,:), FORCE(:)
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element, Parent, Edge
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,L(3),Normal(3)
+    COMPLEX(KIND=dp) :: B, F, TC
+    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3)
+    LOGICAL :: Stat
+    INTEGER, POINTER :: EdgeMap(:,:)
+    TYPE(GaussIntegrationPoints_t) :: IP
+    INTEGER :: t, i, j, k, ii,jj, np, p, q
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+    MASS  = 0.0_dp
+
+    ! Numerical integration:
+    !-----------------------
+    IP = GaussPoints(Element)
+
+    np = n*Solver % Def_dofs(1)
+    DO t=1,IP % n
+       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+                  IP % W(t), detJ, Basis, dBasisdx )
+
+       CALL EdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
+
+       B  = SUM(Basis(1:n) * Bcoef(1:n))
+       L  = MATMUL(LOAD(1:3,1:n), Basis(1:n))
+
+       F  = SUM(LOAD(4,1:n)*Basis(1:n)) * -im/Omega
+       TC = SUM(LOAD(5,1:n)*Basis(1:n)) * -im/Omega
+
+       ! Compute element stiffness matrix and force vector:
+       !---------------------------------------------------
+       DO p=1,np
+         FORCE(p) = FORCE(p) + F*Basis(p)*detJ*IP % s(t)
+         DO q=1,np
+           STIFF(p,q) = STIFF(p,q) + TC * &
+                  Basis(p)*Basis(q)*detJ*IP % s(T)
+         END DO
+       END DO
+
+       DO i = 1,nd-np
+         p = i+np
+         FORCE(p) = FORCE(p) + SUM(L*WBasis(i,:))*detJ*IP%s(t)
+         DO j = 1,nd-np
+           q = j+np
+           STIFF(p,q) = STIFF(p,q) + B * &
+              SUM(WBasis(i,:)*WBasis(j,:))*detJ*IP%s(t)
+         END DO
+       END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrixBC
+!------------------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------------
+  FUNCTION LocalFluxBC( LOAD, Element, n, nd ) RESULT(Bn)
+!------------------------------------------------------------------------------
+    COMPLEX(KIND=dp) :: LOAD(:,:), Bn
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element, Edge, Parent
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ
+    REAL(KIND=dp) :: Normal(3)
+    COMPLEX(KIND=dp) :: L(3), ln
+    LOGICAL :: Stat
+    INTEGER :: t
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    TYPE(Nodes_t), SAVE :: Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes,  Element )
+    !
+    ! Integrate (B,n) over boundary face:
+    ! -----------------------------------
+    IP = GaussPoints(Element)
+    Bn = 0._dp
+    DO t=1,IP % n
+      stat = ElementInfo( Element,Nodes,IP % U(t),IP % V(t), &
+                 IP % W(t),detJ,Basis,dBasisdx )
+
+      Normal=NormalVector(Element,Nodes,IP % u(t),ip % v(t),.TRUE.)
+      Ln = SUM(LOAD(4,1:n)*Basis(1:n))
+      L  = MATMUL(LOAD(1:3,1:n), Basis(1:n))
+      Bn = Bn + Detj * IP % S(t) * (Ln+SUM(L*Normal))
+    END DO
+!------------------------------------------------------------------------------
+  END FUNCTION LocalFluxBC
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE DirichletAfromB()
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: p(3),q(3),cx(3),r,xmin,ymin,zmin,xmax,ymax,zmax
+    COMPLEX(KIND=dp) :: S
+    TYPE(ListMatrixEntry_t), POINTER :: Ltmp
+    TYPE(Matrix_t), POINTER :: Smat
+    TYPE(Nodes_t),SAVE :: Nodes
+    TYPE(ValueList_t), POINTER :: BC
+
+    LOGICAL :: Found, Found1,Found2,Found3,L1,L2,L3
+    INTEGER :: i,j,k,l,m,t,ii,Faces,n,nd,Active,je1,je2,pe1,pe2
+
+    TYPE(Element_t), POINTER :: Element, Edge, Edge1
+    COMPLEX(KIND=dp), ALLOCATABLE :: Bn(:)
+    INTEGER, POINTER :: EdgeMap(:,:)
+    INTEGER, ALLOCATABLE :: dMap(:),FaceMap(:)
+    LOGICAL, ALLOCATABLE :: FluxBoundaryEdge(:), CycleEdges(:), UsedFaces(:)
+!------------------------------------------------------------------------------
+    ALLOCATE(FluxBoundaryEdge(Mesh % NumberOFEdges)); FluxBoundaryEdge=.FALSE.
+
+    Active = GetNOFBoundaryElements()
+    DO t=1,Active
+       Element => GetBoundaryElement(t)
+
+       IF (.NOT. ActiveBoundaryElement()) CYCLE
+       IF ( GetElementFamily()==1 ) CYCLE
+       BC=>GetBC()
+       IF (.NOT. ASSOCIATED(BC) ) CYCLE
+
+       Found = .FALSE.
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 1')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im 1')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 2')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im 2')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 3')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im 3')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density {n}')
+       Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im {n}')
+
+       IF ( Found ) THEN
+         SELECT CASE(GetElementFamily())
+         CASE(2)
+           CYCLE !what would it mean in 2D,at least with only B_z solved?
+         CASE(3,4)
+           k = GetBoundaryFaceIndex(Element); Element => Mesh % Faces(k)
+         END SELECT
+         FluxBoundaryEdge(Element % EdgeIndexes)=.TRUE.
+       END IF
+    END DO
+
+    FluxCount = COUNT(FluxBoundaryEdge)
+    IF ( FluxCount==0 ) THEN
+      DEALLOCATE(FluxBoundaryEdge); RETURN
+    END IF
+
+    ALLOCATE(FluxMap(FluxCount))
+    FluxCount = 0
+    DO i=1,Mesh % NumberOfEdges
+      IF ( FluxBoundaryEdge(i) ) THEN
+        FluxCount = FluxCount+1
+        FluxMap(FluxCount) = i
+      END IF
+    END DO
+    DEALLOCATE(FluxBoundaryEdge)
+
+    DO i=1,FluxCount
+      Edge => Mesh % Edges(FluxMap(i))
+      Edge % BoundaryInfo % Left => Null()
+      Edge % BoundaryInfo % Right => Null()
+    END DO
+
+    ALLOCATE(FaceMap(Mesh % NumberOfFaces)); FaceMap=0
+    Faces = 0
+    DO t=1,Active
+      Element => GetBoundaryElement(t)
+
+      IF (.NOT. ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC=>GetBC()
+      IF (.NOT. ASSOCIATED(BC) ) CYCLE
+
+      Found = .FALSE.
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 1')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im 1')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 2')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im 2')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density 3')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im 3')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density {n}')
+      Found = Found .OR. ListCheckPresent(BC,'Magnetic Flux Density im {n}')
+      IF ( .NOT. Found ) CYCLE
+
+      k = GetBoundaryFaceIndex(Element); Element=>Mesh % Faces(k)
+      Faces=Faces+1
+      FaceMap(k) = Faces
+
+      DO i=1,Element % Type % NumberOfNodes
+        Edge => Mesh % Edges(Element % EdgeIndexes(i))
+        IF (.NOT.ASSOCIATED(Edge % BoundaryInfo % Left)) THEN
+           Edge % BoundaryInfo % Left => Element
+        ELSE IF (.NOT.ASSOCIATED(Edge % BoundaryInfo % Right)) THEN
+           Edge % BoundaryInfo % Right => Element
+        END IF
+      END DO
+    END DO
+
+
+    ! Make gauge tree for the boundary:
+    ! ---------------------------------
+    CALL GaugeTreeFluxBC()
+    WRITE(Message,*) 'Boundary tree edges: ', &
+      TRIM(i2s(COUNT(TreeEdges(FluxMap)))),   &
+             ' of total: ',TRIM(i2s(FluxCount))
+    CALL Info('MGDynamicsHarmonic: ', Message, Level=5)
+
+    ! Get (B,n) for BC faces:
+    ! -----------------------
+    ALLOCATE(Bn(Faces))
+    DO t=1,Active
+      Element => GetBoundaryElement(t)
+
+      IF (.NOT.ActiveBoundaryElement()) CYCLE
+      IF ( GetElementFamily()==1 ) CYCLE
+      BC=>GetBC()
+      IF (.NOT. ASSOCIATED(BC) ) CYCLE
+
+      n  = GetElementNOFNodes(Element)
+      LOAD(1,1:n) = GetReal(BC,'Magnetic Flux Density 1',Found1)
+      LOAD(1,1:n) = LOAD(1,1:n)+im*GetReal(BC,'Magnetic Flux Density im 1',Found)
+      Found1 = Found1.OR.Found
+
+      LOAD(2,1:n) = GetReal(BC,'Magnetic Flux Density 2',Found2)
+      LOAD(2,1:n) = LOAD(2,1:n)+im*GetReal(BC,'Magnetic Flux Density im 2',Found)
+      Found2 = Found2.OR.Found
+
+      LOAD(3,1:n) = GetReal(BC,'Magnetic Flux Density 3',Found3)
+      LOAD(3,1:n) = LOAD(2,1:n)+im*GetReal(BC,'Magnetic Flux Density im 3',Found)
+      Found3 = Found3.OR.Found
+
+      LOAD(4,1:n) = GetReal(BC,'Magnetic Flux Density {n}',Found)
+      LOAD(4,1:n) = LOAD(2,1:n)+im*GetReal(BC,'Magnetic Flux Density im {n}',L1)
+      Found = Found.OR.L1
+
+      IF (Found.OR.Found1.OR.Found2.OR.Found3) THEN
+        k = GetBoundaryFaceIndex(Element)
+        Element => Mesh % Faces(k)
+        nd = GetElementNOFDOFs(Element)
+        Bn(FaceMap(k))=LocalFluxBC(LOAD,Element,n,nd)
+      END IF
+    END DO
+
+    !
+    ! Calculate value for free edges using the Fundamental Loop Basis
+    ! generated by GaugeTreeFluxBC():
+    ! ---------------------------------------------------------------
+    ALLOCATE(CycleEdges(Mesh % NumberOFEdges), UsedFaces(Faces))
+    CycleEdges = .FALSE.
+    ALLOCATE(dMap(MAXVAL(BasicCycles(:) % Degree)))
+
+    Smat => GetMatrix()
+    DO i=1,SIZE(BasicCycles)
+      IF (BasicCycles(i) % Degree<=0 ) CYCLE
+
+      ! 
+      ! Extract loop edge indices: 
+      ! --------------------------
+      j = 0
+      Ltmp => BasicCycles(i) % Head
+      DO WHILE(ASSOCIATED(Ltmp))
+        j = j + 1
+        dMap(j) = Ltmp % Index; Ltmp => Ltmp % Next
+      END DO
+      IF ( j<= 0 ) CYCLE
+
+      !
+      ! Orient edges to form a polygonal path:
+      ! --------------------------------------
+      Edge  => Mesh % Edges(dMap(j))
+      Edge1 => Mesh % Edges(dMap(j-1))
+      IF ( ANY(Edge % NodeIndexes(1)==Edge1 % NodeIndexes) ) THEN
+        l = Edge % NodeIndexes(1)
+        Edge % NodeIndexes(1) = Edge % NodeIndexes(2)
+        Edge % NodeIndexes(2) = l
+      END IF
+ 
+      DO k=j-1,1,-1
+        Edge1 => Mesh % Edges(dMap(k))
+        IF (Edge % NodeIndexes(2)==Edge1 % NodeIndexes(2)) THEN
+          l = Edge1 % NodeIndexes(1)
+          Edge1 % NodeIndexes(1) = Edge1 % NodeIndexes(2)
+          Edge1 % NodeIndexes(2) = l
+        END IF
+        Edge => Edge1
+      END DO
+
+      !
+      ! Try to find which way is inside...
+      ! ----------------------------------
+      Edge => Mesh % Edges(dMap(j))
+      Element => Edge % BoundaryInfo % Left
+      IF ( j==3 ) THEN
+        m = 0
+        DO k=1,3
+          DO l=1,3
+            IF (dMap(l)==Element % EdgeIndexes(k)) m=m+1
+          END DO
+        END DO
+        L1 = m==3
+        IF ( .NOT. L1 ) Element=>Edge % BoundaryInfo % Right
+        S = Bn(FaceMap(Element % ElementIndex))
+      ELSE
+        ! If not a triangle, try a (planar) polygonal test. This
+        ! will fail for general 3D paths. We'll spot the failure
+        ! later by trial and error...Might be preferable to skip
+        ! this altogether? Dunno....
+        ! ------------------------------------------------------
+        xmin=HUGE(xmin); xmax=-HUGE(xmax);
+        ymin=HUGE(ymin); ymax=-HUGE(ymax);
+        zmin=HUGE(zmin); zmax=-HUGE(zmax);
+        DO k=1,j
+          Edge1 => Mesh % Edges(dMap(k))
+          DO l=1,2
+            m = Edge1 % NodeIndexes(l)
+            xmin = MIN(xmin,Mesh % Nodes % x(m))
+            ymin = MIN(ymin,Mesh % Nodes % y(m))
+            zmin = MIN(zmin,Mesh % Nodes % z(m))
+
+            xmax = MAX(xmax,Mesh % Nodes % x(m))
+            ymax = MAX(ymax,Mesh % Nodes % y(m))
+            zmax = MAX(zmax,Mesh % Nodes % z(m))
+          END DO
+        END DO
+        L1 = xmax-xmin > ymax-ymin
+        L2 = xmax-xmin > zmax-zmin
+        L3 = ymax-ymin > zmax-zmin
+        IF ( l1 ) THEN
+          l=1
+          IF ( l3 ) THEN
+            m=2; n=3
+          ELSE
+            m=3; n=2
+          END IF
+        ELSE
+          IF ( l2 ) THEN
+            l=1; m=2; n=3
+          ELSE
+            l=3; m=1; n=2
+          END IF
+        END IF
+        cx(l) = SUM(Mesh % Nodes % x(Element % NodeIndexes))/3._dp
+        cx(m) = SUM(Mesh % Nodes % y(Element % NodeIndexes))/3._dp
+        cx(n) = SUM(Mesh % Nodes % z(Element % NodeIndexes))/3._dp
+
+        L1 = .FALSE.
+        DO k=j,1,-1
+          Edge1 => Mesh % Edges(dMap(k))
+          je1 = Edge1 % NodeIndexes(1)
+          je2 = Edge1 % NodeIndexes(2)
+          p(l) = Mesh % Nodes % x(je1)
+          p(m) = Mesh % Nodes % y(je1)
+          p(n) = Mesh % Nodes % z(je1)
+
+          q(l) = Mesh % Nodes % x(je2)
+          q(m) = Mesh % Nodes % y(je2)
+          q(n) = Mesh % Nodes % z(je2)
+
+          IF ((q(2)>cx(2)).NEQV.(p(2)>cx(2))) THEN
+            IF (cx(1)<(p(1)-q(1))*(cx(2)-q(2))/(p(2)-q(2))+q(1)) L1=.NOT.L1
+          END IF
+        END DO
+        IF (.NOT.L1) THEN
+          IF (ASSOCIATED(Edge % BoundaryInfo % Right)) &
+            Element=>Edge % BoundaryInfo % Right
+        END IF
+
+        ! Compute integral of (B,n) inside the cycle path
+        ! -----------------------------------------------
+        CycleEdges(dMap(1:j))=.TRUE.
+        DO m=1,2
+          S=0; UsedFaces=.FALSE.;
+          IF( FloodFill(Element,CycleEdges, &
+                       FaceMap,UsedFaces,Bn,S) )EXIT
+
+          ! the in/out guess was wrong, try the other way:
+          ! ----------------------------------------------
+          IF (ASSOCIATED(Edge % BoundaryInfo % Right,Element)) THEN
+            Element => Edge % BoundaryInfo % Left
+          ELSE
+            Element => Edge % BoundaryInfo % Right
+          END IF
+        END DO
+        CycleEdges(dMap(1:j))=.FALSE.
+      END IF
+
+      !
+      ! Orient edge to parent triangle...
+      ! ---------------------------------
+      je1 = Edge % NodeIndexes(1)
+      je2 = Edge % NodeIndexes(2)
+      EdgeMap => GetEdgeMap(GetElementFamily(Element))
+      DO t=1,Element % Type % NumberOfEdges
+        pe1 = Element % NodeIndexes(EdgeMap(t,1))
+        pe2 = Element % NodeIndexes(EdgeMap(t,2))
+        IF (pe1==je1.AND.pe2==je2 .OR. pe1==je2.AND.pe2==je1) EXIT
+      END DO
+      IF ( pe1/=je1 ) S=-S
+
+      !
+      ! ...because we now know how to orient against outward normal:
+      ! ------------------------------------------------------------
+      CALL GetElementNodes(Nodes,Element)
+      p = NormalVector(Element,Nodes,0._dp,0._dp)
+      q = NormalVector(Element,Nodes,0._dp,0._dp,.TRUE.)
+      IF ( SUM(p*q)<0 ) S=-S
+
+      !
+      ! Check whether some edges in the path have nonzero values,
+      ! if so, substract from integral:
+      ! ---------------------------------------------------------
+      DO k=j-1,1,-1
+        R = Smat % RHS(Perm(dMap(k)+nNodes))
+        IF ( R==0 ) CYCLE
+
+        Edge1 => Mesh % Edges(dMap(k))
+        pe1=Edge1 % NodeIndexes(1)
+        pe2=Edge1 % NodeIndexes(2)
+        IF ( pe2<pe1 ) R=-R; S=S-R
+      END DO
+
+      !
+      ! ...and finally we should have the edge value:
+      ! ---------------------------------------------
+      IF ( je2<je1 ) S=-S
+      CALL SetDOFtoValue(Solver,dMap(j),S)
+    END DO
+    DEALLOCATE(dMap, CycleEdges, FaceMap, UsedFaces, Bn)
+    CALL List_FreeMatrix(SIZE(BasicCycles), BasicCycles)
+!------------------------------------------------------------------------------
+  END SUBROUTINE DirichletAfromB 
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  RECURSIVE FUNCTION FloodFill(Element,CycleEdges, &
+          FaceMap,UsedFaces,Bn,CycleSum) RESULT(Found)
+!------------------------------------------------------------------------------
+    TYPE(Element_t), POINTER :: e, Element
+    COMPLEX(KIND=dp) :: CycleSum, Bn(:)
+    INTEGER :: i,j,n, FaceMap(:)
+    LOGICAL :: CycleEdges(:), UsedFaces(:), Found
+
+    Found=.FALSE.
+    IF (.NOT.ASSOCIATED(Element)) RETURN
+
+    n=FaceMap(Element % ElementIndex)
+    IF (UsedFaces(n)) THEN
+      Found=.TRUE.; RETURN
+    END IF
+    UsedFaces(n)=.True.
+    CycleSum = CycleSum+Bn(n)
+
+    DO i=1,Element % Type % NumberOfEdges
+      j = Element % EdgeIndexes(i)
+      IF ( CycleEdges(j) ) CYCLE
+
+      e => Mesh % Edges(j) % BoundaryInfo % Right
+      IF(.NOT.FloodFill(e,CycleEdges,FaceMap,UsedFaces,Bn,CycleSum)) RETURN
+
+      e => Mesh % Edges(j) % BoundaryInfo % Left
+      IF(.NOT.FloodFill(e,CycleEdges,FaceMap,UsedFaces,Bn,CycleSum)) RETURN
+    END DO
+    Found=.TRUE.; RETURN
+!------------------------------------------------------------------------------
+  END FUNCTION FloodFill
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+ END SUBROUTINE MGDynamicsHarmonic
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE MGDynamicsCalcFields_Init(Model,Solver,dt,Transient)
+!------------------------------------------------------------------------------
+  USE MGDynamicsUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: Transient
+!------------------------------------------------------------------------------
+
+  CHARACTER(LEN=MAX_NAME_LEN) :: name
+  INTEGER  :: i
+  TYPE(Variable_t), POINTER :: Var
+  LOGICAL :: Found, FluxFound
+  TYPE(ValueList_t), POINTER :: EQ, SolverParams
+
+  SolverParams => GetSolverParams()
+
+  CALL ListAddString( SolverParams, 'Variable', '-nooutput hr_dummy' )
+
+  CALL ListAddLogical( SolverParams, 'Linear System refactorize', .FALSE.)
+
+  name = GetString( SolverParams, "Potential variable", Found )
+  Var => VariableGet( Solver % Mesh % variables, name )
+  IF ( .NOT. ASSOCIATED(Var) ) THEN
+    CALL Fatal( "MGDynamicsCalcFields", "potential variable nat available")
+  ENDIF
+
+  i = 1
+  IF ( Var % DOFs == 1 ) THEN
+    CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+             "Magnetic Flux Density[Magnetic Flux Density:3]" )
+  ELSE
+    CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+    "Magnetic Flux Density[Magnetic Flux Density re:3 Magnetic Flux Density im:3]" )
+  END IF
+
+  IF (GetLogical(SolverParams,'Calculate Magnetic Field Strength',Found)) THEN
+    i = i + 1
+    IF ( Var  % DOFs==1 ) THEN
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+            "Magnetic Field Strength[Magnetic Field Strength:3]" )
+    ELSE
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+      "Magnetic Field Strength[Magnetic Field Strength re:3 Magnetic Field Strength im:3]")
+    END IF
+  END IF
+
+
+  IF ( Transient .OR. Var % DOFs>1 ) THEN
+    IF ( GetLogical( SolverParams, 'Calculate Electric Field', Found ) ) THEN
+      i = i + 1
+      IF ( Var % DOFs==1 ) THEN
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Electric Field[Electric Field:3]" )
+      ELSE
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+             "Electric Field[Electric Field re:3 Electric Field im:3]" )
+      END IF
+    END IF
+
+    IF ( GetLogical( SolverParams, 'Calculate Current Density', Found ) ) THEN
+      i = i + 1
+      IF ( Var % DOFs==1 ) THEN
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Current Density[Current Density:3]" )
+      ELSE
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+           "Current Density[Current Density re:3 Current Density im:3]" )
+      END IF
+    END IF
+  END IF
+!------------------------------------------------------------------------------
+END SUBROUTINE MGDynamicsCalcFields_Init
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+ SUBROUTINE MGDynamicsCalcFields(Model,Solver,dt,Transient)
+!------------------------------------------------------------------------------
+   USE MGDynamicsUtils
+
+   IMPLICIT NONE
+!------------------------------------------------------------------------------
+   TYPE(Solver_t) :: Solver
+   TYPE(Model_t) :: Model
+
+   REAL(KIND=dp) :: dt
+   LOGICAL :: Transient
+!------------------------------------------------------------------------------
+  
+!------------------------------------------------------------------------------
+   REAL(KIND=dp) :: s,u,v,w,WBasis(16,3), SOL(2,16), PSOL(16), R(16), C(16), Norm
+   REAL(KIND=dp) :: RotWBasis(16,3), Basis(16), dBasisdx(16,3), Rot(2,3), efl(2,3)
+   REAL(KIND=dp) ::  detJ, C_ip, R_ip, Omega, Power
+
+   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF
+   INTEGER :: Active, Indexes(12), i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs
+
+   TYPE(Solver_t), POINTER :: pSolver
+   CHARACTER(LEN=MAX_NAME_LEN) :: Pname
+
+   LOGICAL :: Found, stat
+
+   TYPE(GaussIntegrationPoints_t) :: IP
+   TYPE(Nodes_t), SAVE :: Nodes
+   TYPE(Element_t), POINTER :: Element
+
+   REAL(KIND=dp), POINTER :: Fsave(:)
+   TYPE(Mesh_t), POINTER :: Mesh
+   REAL(KIND=dp), ALLOCATABLE, TARGET :: Gforce(:,:), MASS(:,:), FORCE(:,:)
+
+   Mesh => GetMesh()
+
+   MFD => VariableGet( Mesh % Variables, 'Magnetic Flux Density' )
+   IF ( .NOT. ASSOCIATED(MFD) ) RETURN
+
+   MFS => VariableGet( Mesh % Variables, 'Magnetic Field Strength')
+
+   Pname = GetString(GetSolverParams(), 'Potential Variable')
+   DO i=1,Model % NumberOfSolvers
+     pSolver => Model % Solvers(i)
+     IF ( Pname==getVarName(pSolver % Variable)) EXIT
+   END DO
+   vDOFs = pSolver % Variable % DOFs
+
+   EF => Null(); CD => Null()
+   IF ( Transient .OR. vDOFs==2 ) THEN
+     EF => VariableGet( Mesh % Variables, 'Electric Field' )
+     CD => VariableGet( Mesh % Variables, 'Current Density' )
+   END IF
+
+   DOFs = 3 
+   IF ( ASSOCIATED(MFS)) DOFs=DOFs+3
+   IF ( ASSOCIATED(CD))  DOFs=DOFs+3
+   IF ( ASSOCIATED(EF))  DOFs=DOFs+3
+   DOFs = DOFs*vDOFs
+   ALLOCATE(GForce(SIZE(Solver % Matrix % RHS),DOFs)); Gforce=0._dp
+
+   n = Mesh % MaxElementNodes
+   ALLOCATE( MASS(n,n), FORCE(n,DOFs) ) 
+   SOL = 0._dp; PSOL=0._dp
+
+   Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
+
+   Power = 0._dp
+   CALL DefaultInitialize()
+   DO i = 1, GetNOFActive()
+     Element => GetActiveElement(i)
+     n = GetElementNOFNodes()
+     np = n*pSolver % Def_Dofs(1)
+     nd = GetElementNOFDOFs(uSolver=pSolver)
+
+     CALL GetElementNodes( Nodes )
+
+     CALL GetVectorLocalSolution(SOL,Pname,uSolver=pSolver)
+     IF ( Transient ) THEN
+       CALL GetScalarLocalSolution(PSOL,Pname,uSolver=pSolver,Tstep=-1)
+       PSOL(1:nd)=(SOL(1,1:nd)-PSOL(1:nd))/dt
+     END IF
+
+     C(1:n) = GetReal(GetMaterial(),'Conductivity',Found)
+     IF ( ASSOCIATED(MFS) ) THEN
+       R(1:n) = GetReal(GetMaterial(),'Reluctivity',Found)
+     END IF
+
+     ! Luuppi nurkkapisteiden yli:
+     ! ---------------------------
+     IP = GaussPoints(Element)
+     MASS  = 0._dp
+     FORCE = 0._dp
+
+     Efl = 0._dp
+     DO j = 1,IP % n
+       u = IP % U(j)
+       v = IP % V(j)
+       w = IP % W(j)
+
+       stat=ElementInfo(Element,Nodes,u,v,w,detJ,Basis,dBasisdx)
+       CALL EdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
+
+       DO k=1,vDOFs
+         Rot(k,:) = MATMUL( SOL(k,np+1:nd), RotWBasis(1:nd-np,:) )
+       END DO
+       IF ( Transient ) THEN
+         Efl(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
+                  MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+       ELSE
+         DO k=1,vDOFs
+           Efl(k,:) = -im*Omega*MATMUL(SOL(k,np+1:nd),WBasis(1:nd-np,:)) - &
+                     MATMUL(SOL(k,1:np), dBasisdx(1:np,:))
+         END DO
+       END IF
+
+       C_ip = SUM( Basis(1:n)*C(1:n) )
+       IF (ASSOCIATED(MFS)) R_ip = SUM( Basis(1:n)*R(1:n) )
+
+       s = IP % s(j) * detJ
+
+       Power = Power + SUM(Efl**2)*C_ip*s
+       DO p=1,n
+         DO q=1,n
+           MASS(p,q)=MASS(p,q)+Basis(p)*Basis(q)*IP % s(j)*detJ
+         END DO
+         k = 0
+         DO l=1,vDOFs
+           FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*Rot(l,:)*Basis(p)
+           k = k+3
+         END DO
+         IF ( ASSOCIATED(MFS)) THEN
+           DO l=1,vDOFs
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*R_ip*Rot(l,:)*Basis(p)
+             k = k+3
+           END DO
+         END IF
+         IF ( ASSOCIATED(EF)) THEN
+           DO l=1,vDOFs
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*efl(l,:)*Basis(p)
+             k = k+3
+           END DO
+         END IF
+         IF ( ASSOCIATED(CD)) THEN
+           DO l=1,vDOFs
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*C_ip*efl(l,:)*Basis(p)
+             k = k+3
+           END DO
+         END IF
+       END DO
+     END DO
+     CALL DefaultUpdateEquations( MASS,Force(:,1))
+     Fsave => Solver % Matrix % RHS
+     DO l=1,DOFs
+       Solver % Matrix % RHS => GForce(:,l)
+       CALL DefaultUpdateForce(Force(1:n,l))
+     END DO
+     Solver % Matrix % RHS => Fsave
+   END DO
+
+   Fsave => Solver % Matrix % RHS
+   DOFs = 0
+   DO i=1,3*vDOFs
+     DOFs = DOFs+1
+     Solver % Matrix % RHS => Gforce(:,DOFs)
+     Norm = DefaultSolve()
+     MFD % Values(i::3*vDOFs) = Solver % Variable % Values
+   END DO
+
+   IF ( ASSOCIATED(MFS) ) THEN
+     DO i=1,3*vDOFs
+       DOFs = DOFs+1
+       Solver % Matrix % RHS => Gforce(:,DOFs)
+       Norm = DefaultSolve()
+       MFS % Values(i::3*vDOFs) = Solver % Variable % Values
+     END DO
+   END IF
+
+   IF ( ASSOCIATED(EF) ) THEN
+     DO i=1,3*vDOFs
+       DOFs = DOFs+1
+       Solver % Matrix % RHS => Gforce(:,DOFs)
+       Norm = DefaultSolve()
+       EF % Values(i::3*vDOFs) = Solver % Variable % Values
+     END DO
+   END IF
+
+   IF ( ASSOCIATED(CD) ) THEN
+     DO i=1,3*vDOFs
+       DOFs = DOFs+1
+       Solver % Matrix % RHS => Gforce(:,DOFs)
+       Norm = DefaultSolve()
+       CD % Values(i::3*vDOFs) = Solver % Variable % Values
+     END DO
+   END IF
+   Solver % Matrix % RHS => Fsave
+
+   WRITE(Message,*) 'Eddy current power: ', Power
+   CALL Info( 'MGDynamics', Message )
+
+   DEALLOCATE( Gforce,MASS,FORCE )
+
+!------------------------------------------------------------------------
+END SUBROUTINE MGDynamicsCalcFields
+!------------------------------------------------------------------------
