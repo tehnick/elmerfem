@@ -2741,7 +2741,7 @@ END SUBROUTINE MGDynamicsCalcFields_Init
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: s,u,v,w,WBasis(16,3), SOL(2,16), PSOL(16), R(16), C(16), Norm
    REAL(KIND=dp) :: RotWBasis(16,3), Basis(16), dBasisdx(16,3), Rot(2,3), efl(2,3)
-   REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power
+   REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
 
    COMPLEX(KIND=dp) :: CST(3,3)
 
@@ -2800,7 +2800,7 @@ END SUBROUTINE MGDynamicsCalcFields_Init
 
    Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
 
-   Power = 0._dp
+   Power = 0._dp; Energy = 0._dp
    CALL DefaultInitialize()
    DO i = 1, GetNOFActive()
      Element => GetActiveElement(i)
@@ -2860,6 +2860,7 @@ END SUBROUTINE MGDynamicsCalcFields_Init
        s = IP % s(j) * detJ
 
        Power = Power + SUM(Efl**2)*C_ip*s
+       Energy = Energy + s*(PR_ip*SUM(efl**2) + R_ip*SUM(rot**2))/2
        DO p=1,n
          DO q=1,n
            MASS(p,q)=MASS(p,q)+Basis(p)*Basis(q)*IP % s(j)*detJ
@@ -2980,6 +2981,9 @@ END SUBROUTINE MGDynamicsCalcFields_Init
    Solver % Matrix % RHS => Fsave
 
    WRITE(Message,*) 'Eddy current power: ', Power
+   CALL Info( 'MGDynamics', Message )
+
+   WRITE(Message,*) '(Electro)Magnetic Field Energy: ', Energy
    CALL Info( 'MGDynamics', Message )
 
    DEALLOCATE( Gforce,MASS,FORCE )
