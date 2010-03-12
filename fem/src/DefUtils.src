@@ -833,7 +833,7 @@ CONTAINS
      END IF
 
      IF ( Solver % Def_Dofs(1)>0 ) n = Element % NDOFs
-     IF ( ALL(Solver % Def_Dofs(2:)<=0) ) RETURN
+     IF ( ALL(Solver % Def_Dofs(2:)<0) ) RETURN
 
      IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
         DO j=1,Element % TYPE % NumberOFEdges
@@ -849,7 +849,7 @@ CONTAINS
 
      GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
      IF (.NOT.Found) GB = .TRUE.
-     IF ( GB .OR. ASSOCIATED(Element % BoundaryInfo) ) n = n + Element % BDOFs
+     IF ( GB .OR. ASSOCIATED(Element % BoundaryInfo) ) n=n+MAX(0,Element % BDOFs)
   END FUNCTION GetElementNOFDOFs
 
 
@@ -905,7 +905,7 @@ CONTAINS
           Indexes(NB) = Element % NodeIndexes(i)
        END DO
      END IF
-     IF ( ALL(Solver % Def_Dofs(2:)<=0) ) RETURN
+     IF ( ALL(Solver % Def_Dofs(2:)<0) ) RETURN
 
      FaceDOFs   = Solver % Mesh % MaxFaceDOFs
      EdgeDOFs   = Solver % Mesh % MaxEdgeDOFs
