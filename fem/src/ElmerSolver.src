@@ -727,7 +727,8 @@
    SUBROUTINE InitCond
 !------------------------------------------------------------------------------
      USE DefUtils
-     INTEGER :: DOFs
+     TYPE(Element_t), POINTER :: Edge
+     INTEGER :: DOFs,i,j,k,l
      CHARACTER(LEN=MAX_NAME_LEN) :: str
      LOGICAL :: Found
      TYPE(Solver_t), POINTER :: Solver
@@ -776,7 +777,6 @@
                       END DO
                     END IF
 
-
                     IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
                       Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
                              TRIM(Var % Name) // ' Velocity', GotIt )
@@ -797,6 +797,26 @@
                         END DO
                       END IF
                     END IF
+
+                    IF(ASSOCIATED(Mesh % Edges)) THEN
+                      IF ( i<=Mesh % NumberOfBulkElements) THEN
+                        Gotit = ListCheckPresent( CurrentModel % ICs(j) % Values, &
+                                  TRIM(Var % Name)//' {e}' )
+                        IF ( Gotit ) THEN
+                          DO k=1,CurrentElement % Type % NumberOfedges
+                            Edge => Mesh % Edges(CurrentElement % EdgeIndexes(k))
+                            l = Var % Perm(CurrentElement % EdgeIndexes(k)+Mesh % NumberOfNodes)
+                            IF ( l>0 ) THEN
+                              CALL LocalBcIntegral( CurrentModel % ICs(j) % Values, &
+                                  Edge, Edge % Type % NumberOfNodes, CurrentElement, n, &
+                                      TRIM(Var % Name)//' {e}', Work(1) )
+                              Var % Values(l) = Work(1)
+                            END IF
+                          END DO
+                        END IF
+                      END IF
+                    END IF
+
                  ELSE
                     CALL ListGetRealArray( CurrentModel % ICs(j) % Values, &
                       Var % Name, WorkA, n, CurrentElement % NodeIndexes, gotIt )
