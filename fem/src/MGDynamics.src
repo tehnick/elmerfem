@@ -24,7 +24,7 @@
 !/******************************************************************************
 ! *
 ! *  Solve Maxwell equations in vector potential formulation (or the A-V
-! *  formulation and (relatively)low frequency approximation using lowest
+! *  formulation) and (relatively)low frequency approximation using lowest
 ! *  order Withney 1-forms (edge elements).
 ! *
 ! ******************************************************************************
@@ -245,7 +245,7 @@ SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
 !   sigma @A/@t - rot (1/mu) rot A = J^s + curl(M^s) - sigma grad(V^s)
 !   -div(sigma*(@A/@t+grad(V))=0
 !
-!  using edge elements (Nedelec/W basis of lowest degree).
+!  using edge elements (Nedelec/Whitney basis of lowest degree)+nodal basis for V
 !
 !  ARGUMENTS:
 !
@@ -404,10 +404,10 @@ SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
      Load(2,1:n) = GetReal( BC, 'Magnetic Field Strength 2', Found )
      Load(3,1:n) = GetReal( BC, 'Magnetic Field Strength 3', Found )
 
+     Acoef(1:n) = GetReal( BC, 'Magnetic Transfer Coefficient', Found ) !???
+
      Load(4,1:n) = GetReal( BC, 'Electric Flux', Found )
      Load(5,1:n) = GetReal( BC, 'Electric Transfer Coefficient', Found )
-
-     Acoef(1:n) = GetReal( BC, 'Magnetic Transfer Coefficient', Found ) !???
 
      CALL LocalMatrixBC(STIFF,FORCE,LOAD,Acoef,Element,n,nd )
      CALL DefaultUpdateEquations( STIFF,FORCE,Element, &
@@ -886,8 +886,9 @@ CONTAINS
        END IF
 
        !
-       ! C*dA/dt + curl(1/mu*curl(A)) = J + curl(M) - C*grad(P):
-       ! -------------------------------------------------------
+       ! C*dA/dt + curl(1/mu*curl(A)) + C*grad(P) =  ! the last one above^
+       !    J^s + curl(M^s) - C*grad(P^s):
+       ! -----------------------------------------------------------------
        DO i = 1,nd-np
          p = i+np
          FORCE(p) = FORCE(p) + (SUM(L*WBasis(i,:)) + &
@@ -2186,8 +2187,8 @@ CONTAINS
        B  = SUM(Basis(1:n) * Bcoef(1:n))
        L  = MATMUL(LOAD(1:3,1:n), Basis(1:n))
 
-       F  = SUM(LOAD(4,1:n)*Basis(1:n)) * -im/Omega
-       TC = SUM(LOAD(5,1:n)*Basis(1:n)) * -im/Omega
+       F  = SUM(LOAD(4,1:n)*Basis(1:n)) * (-im/Omega)
+       TC = SUM(LOAD(5,1:n)*Basis(1:n)) * (-im/Omega)
 
        ! Compute element stiffness matrix and force vector:
        !---------------------------------------------------
