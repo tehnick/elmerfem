@@ -2848,7 +2848,7 @@ CONTAINS
 
                  nb = Parent % Type % NumberOfNodes
                  n  =  Edge % Type % NumberOfNodes
-                 CALL LocalBcIntegral(BC,Edge,n,Parent,nb,TRIM(Name)//' {e}',STIFF,Work)
+                 CALL LocalBcIntegral(BC,Edge,n,Parent,nb,TRIM(Name)//' {e}',Work(1))
 
                  n=GetElementDOFs(gInd,Edge)
                  DO k=Solver % Def_Dofs(1)*Edge % NDOFs+1,n
@@ -2882,7 +2882,7 @@ CONTAINS
                    nb = Edge % Type % NumberOfNodes
                    n  = Parent % Type % NumberOfNodes
                    CALL LocalBcIntegral( BC, Edge, nb, Parent, &
-                          n, TRIM(Name)//' {e}', STIFF, Work )
+                          n, TRIM(Name)//' {e}', Work(1) )
 
                    n=GetElementDOFs(gInd,Edge)
                    DO k=Solver % Def_Dofs(1)*Edge % NDOFs+1,n
@@ -3080,7 +3080,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalBcIntegral(BC, Element, nd, Parent, np, Name, MASS, Integral)
+  SUBROUTINE LocalBcIntegral(BC, Element, nd, Parent, np, Name, Integral)
 !******************************************************************************
 !
 !  DESCRIPTION:
@@ -3110,8 +3110,8 @@ CONTAINS
     TYPE(Element_t) :: Element, Parent
     INTEGER :: nd,np
     CHARACTER(LEN=*) :: Name
+    REAL(KIND=dp) :: Integral
     TYPE(ValueList_t), POINTER :: BC
-    REAL(KIND=dp) :: Integral(:),MASS(:,:)
 !------------------------------------------------------------------------------
     TYPE(GaussIntegrationPoints_t) :: IP
     INTEGER, POINTER :: Edgemap(:,:)
@@ -3161,7 +3161,7 @@ CONTAINS
 
       L  = SUM(Load(1:nd)*Basis(1:nd))
       VL = MATMUL(Vload(:,1:nd),Basis(1:nd))
-      Integral(1)=Integral(1)+s*(L+SUM(VL*G))
+      Integral=Integral+s*(L+SUM(VL*G))
     END DO
     Element % Type => SavedType
 
