@@ -242,7 +242,7 @@ SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
 !
 !  Solve vector potential A
 ! 
-!   sigma @A/@t - rot (1/mu) rot A = J^s + curl(M^s) - sigma grad(V^s)
+!   sigma @A/@t + rot (1/mu) rot A = J^s + curl(M^s) - sigma grad(V^s)
 !   -div(sigma*(@A/@t+grad(V))=0
 !
 !  using edge elements (Nedelec/Whitney basis of lowest degree)+nodal basis for V
@@ -2918,7 +2918,7 @@ END SUBROUTINE MGDynamicsCalcFields_Init
              END DO
              k = k + 6
              DO l=1,6
-               FORCE(p,k+l)=FORCE(p,k) + s*AIMAG(CST(ind1(l),ind2(l)))*Basis(p)
+               FORCE(p,k+l)=FORCE(p,k+l) + s*AIMAG(CST(ind1(l),ind2(l)))*Basis(p)
              END DO
              k = k + 6
            END IF
