@@ -393,6 +393,169 @@ CONTAINS
   END SUBROUTINE GetVectorLocalSolution
 
 
+! Eigenmodes may be used as a basis of sensitivity analysis, model reduction etc.
+! then these subroutines may be used to obtain the local eigenmodes
+!-------------------------------------------------------------------------------
+
+  FUNCTION GetNofEigenModes( name,USolver) RESULT (NofEigenModes)
+
+     CHARACTER(LEN=*), OPTIONAL :: name
+     TYPE(Solver_t)  , OPTIONAL, TARGET :: USolver
+     INTEGER :: NofEigenModes
+
+     REAL(KIND=dp), POINTER :: Values(:)
+     TYPE(Variable_t), POINTER :: Variable
+     TYPE(Solver_t)  , POINTER :: Solver
+
+     NofEigenModes = 0
+
+     Solver => CurrentModel % Solver
+     IF ( PRESENT(USolver) ) Solver => USolver
+
+     Variable => Solver % Variable
+     IF ( PRESENT(name) ) THEN
+        Variable => VariableGet( Solver % Mesh % Variables, name )
+     END IF
+
+     IF ( .NOT. ASSOCIATED( Variable ) ) RETURN
+     IF ( .NOT. ASSOCIATED( Variable % EigenValues ) ) RETURN
+     
+     NofEigenModes = SIZE( Variable % EigenValues, 1)
+  END FUNCTION
+
+
+
+  SUBROUTINE GetScalarLocalEigenmode( x,name,UElement,USolver,NoEigen,ComplexPart )
+     REAL(KIND=dp) :: x(:)
+     CHARACTER(LEN=*), OPTIONAL :: name
+     TYPE(Solver_t)  , OPTIONAL, TARGET :: USolver
+     TYPE(Element_t),  OPTIONAL, TARGET :: UElement
+     INTEGER, OPTIONAL :: NoEigen
+     LOGICAL, OPTIONAL :: ComplexPart
+
+     COMPLEX(KIND=dp), POINTER :: Values(:)
+     TYPE(Variable_t), POINTER :: Variable
+     TYPE(Solver_t)  , POINTER :: Solver
+     TYPE(Element_t),  POINTER :: Element
+     LOGICAL :: IsComplex
+
+     INTEGER :: i, n
+     INTEGER, POINTER :: Indexes(:)
+
+     Solver => CurrentModel % Solver
+     IF ( PRESENT(USolver) ) Solver => USolver
+
+     x = 0.0d0
+
+     Variable => Solver % Variable
+     IF ( PRESENT(name) ) THEN
+        Variable => VariableGet( Solver % Mesh % Variables, name )
+     END IF
+     IF ( .NOT. ASSOCIATED( Variable ) ) RETURN
+     IF ( .NOT. ASSOCIATED( Variable % EigenVectors ) ) RETURN
+
+     IsComplex = .FALSE.
+     IF( PRESENT( ComplexPart) ) IsComplex = ComplexPart
+
+     Element => GetCurrentElement(UElement)
+
+     IF ( ASSOCIATED( Variable ) ) THEN
+        Indexes => GetIndexStore()
+        IF ( ASSOCIATED(Variable % Solver ) ) THEN
+          n = GetElementDOFs( Indexes, Element, Variable % Solver )
+        ELSE
+          n = GetElementDOFs( Indexes, Element, Solver )
+        END IF
+        n = MIN( n, SIZE(x) )
+
+        Values => Variable % EigenVectors( :, NoEigen )
+
+        IF ( ASSOCIATED( Variable % Perm ) ) THEN
+           IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
+             IF( IsComplex ) THEN
+               x(1:n) = CMPLX( Values(Variable % Perm(Indexes(1:n))) )
+             ELSE
+               x(1:n) = REAL( Values(Variable % Perm(Indexes(1:n))) )
+             END IF	
+           END IF
+        ELSE
+	  x(1:n) = Values(Indexes(1:n))
+        END IF
+     END IF
+  END SUBROUTINE GetScalarLocalEigenmode
+
+
+
+  SUBROUTINE GetVectorLocalEigenmode( x,name,UElement,USolver,NoEigen,ComplexPart )
+     REAL(KIND=dp) :: x(:,:)
+     CHARACTER(LEN=*), OPTIONAL :: name
+     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     INTEGER, OPTIONAL :: NoEigen
+     LOGICAL, OPTIONAL :: ComplexPart
+
+     TYPE(Variable_t), POINTER :: Variable
+     TYPE(Solver_t)  , POINTER :: Solver
+     TYPE(Element_t),  POINTER :: Element
+     LOGICAL :: IsComplex
+
+     INTEGER :: i, j, n
+     INTEGER, POINTER :: Indexes(:)
+     COMPLEX(KIND=dp), POINTER ::  Values(:)
+
+     Solver => CurrentModel % Solver
+     IF ( PRESENT(USolver) ) Solver => USolver
+
+     x = 0.0d0
+
+     Variable => Solver % Variable
+     IF ( PRESENT(name) ) THEN
+        Variable => VariableGet( Solver % Mesh % Variables, name )
+     END IF
+     IF ( .NOT. ASSOCIATED( Variable ) ) RETURN
+     IF ( .NOT. ASSOCIATED( Variable % EigenVectors ) ) RETURN
+
+     Element => GetCurrentElement(UElement)
+
+     IF ( ASSOCIATED( Variable ) ) THEN
+        Indexes => GetIndexStore()
+        IF ( ASSOCIATED(Variable % Solver ) ) THEN
+          n = GetElementDOFs( Indexes, Element, Variable % Solver )
+        ELSE
+          n = GetElementDOFs( Indexes, Element, Solver )
+        END IF
+        n = MIN( n, SIZE(x) )
+
+        Values => Variable % EigenVectors( :, NoEigen )
+
+        DO i=1,Variable % DOFs
+           IF ( ASSOCIATED( Variable % Perm ) ) THEN
+              IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
+                DO j=1,n
+	          IF( IsComplex ) THEN
+                    x(i,j) = AIMAG( Values( Variable % DOFs * &
+                        (Variable % Perm(Indexes(j))-1)+i ) )
+                  ELSE
+                    x(i,j) = REAL( Values( Variable % DOFs * &
+                        (Variable % Perm(Indexes(j))-1)+i ) )
+                  END IF
+                END DO
+              END IF
+           ELSE
+              DO j=1,n
+                IF( IsComplex ) THEN
+                  x(i,j) = AIMAG( Values(Variable % DOFs*(Indexes(j)-1)+i) )
+                ELSE
+                  x(i,j) = REAL( Values(Variable % DOFs*(Indexes(j)-1)+i) )
+ 	        END IF
+              END DO
+           END IF
+         END DO
+     END IF
+  END SUBROUTINE GetVectorLocalEigenmode
+    
+
+
 
   FUNCTION GetString( List, Name, Found ) RESULT(str)
      TYPE(ValueList_t), POINTER :: List
