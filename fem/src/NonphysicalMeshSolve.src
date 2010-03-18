@@ -73,29 +73,31 @@
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-  INTEGER :: i,j,k,n,nd,nb,t,STDOFs,LocalNodes,istat,dim
+  INTEGER :: i,j,k,n,nd,nb,t,ind,STDOFs,LocalNodes,istat,dim
   INTEGER :: VisitedTimes = 0
 
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t),POINTER :: Material, BC
 
-  REAL(KIND=dp) :: RelativeChange, UNorm, maxu
-  TYPE(Variable_t), POINTER :: MeshSol
+  REAL(KIND=dp) :: RelativeChange, UNorm, maxu, TargetCoeff
+  TYPE(Variable_t), POINTER :: MeshSol, TargetSol
   REAL(KIND=dp), POINTER :: MeshUpdate(:), PrevMeshUpdate(:)
-  INTEGER, POINTER :: MeshPerm(:)
+  INTEGER, POINTER :: MeshPerm(:), NodeIndexes(:)
+  CHARACTER(LEN=MAX_NAME_LEN) :: TargetFieldName
 
   LOGICAL :: AllocationsDone = .FALSE., Isotropic = .TRUE., &
-            GotForceBC, Found, MovingMesh 
-
+            GotForceBC, Found, MovingMesh, Cumulative,GotTargetField
+			
   REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
-       LOAD(:,:),FORCE(:), ElasticModulus(:),PoissonRatio(:)
+       LOAD(:,:),FORCE(:), ElasticModulus(:),PoissonRatio(:), &
+		Alpha(:,:), Beta(:), Gamma(:,:)
   REAL(KIND=dp), POINTER :: OrigX(:), OrigY(:), OrigZ(:), &
       TrueX(:), TrueY(:), TrueZ(:)
 
   SAVE STIFF, LOAD, FORCE, AllocationsDone, &
        ElasticModulus, PoissonRatio, &
        OrigX, OrigY, OrigZ, TrueX, TrueY, TrueZ, PrevMeshUpdate, &
-       VisitedTimes,dim 
+       VisitedTimes,dim,Alpha,Beta,Gamma
 
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
@@ -118,6 +120,7 @@
 
   LocalNodes = COUNT( MeshPerm > 0 )
   IF ( LocalNodes <= 0 ) RETURN
+  Cumulative = ListGetLogical( Solver % Values,'Cumulative Displacement',Found)
 
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
@@ -127,21 +130,24 @@
     
     IF ( AllocationsDone ) THEN
       DEALLOCATE(  ElasticModulus, PoissonRatio, &
-          FORCE, STIFF, LOAD, STAT=istat )
+          FORCE, STIFF, Alpha, Beta, Gamma, LOAD, STAT=istat )
     END IF
     
     ALLOCATE( &
+        Alpha(3,N), Beta(N), Gamma(3,N), &
         ElasticModulus( N ), PoissonRatio( N ), &
         FORCE( STDOFs*N ), STIFF( STDOFs*N,STDOFs*N ),  &
         LOAD( 4,N ),STAT=istat )
     
-    n = SIZE( Solver % Mesh % Nodes % x )
-    ALLOCATE( OrigX(n), OrigY(n), OrigZ(n) )
-    OrigX = Solver % Mesh % Nodes % x
-    OrigY = Solver % Mesh % Nodes % y
-    OrigZ = Solver % Mesh % Nodes % z
-
-     IF ( istat /= 0 ) THEN
+    IF(.NOT. Cumulative) THEN
+      n = SIZE( Solver % Mesh % Nodes % x )
+      ALLOCATE( OrigX(n), OrigY(n), OrigZ(n) )
+      OrigX = Solver % Mesh % Nodes % x
+      OrigY = Solver % Mesh % Nodes % y
+      OrigZ = Solver % Mesh % Nodes % z
+    END IF
+    
+    IF ( istat /= 0 ) THEN
       CALL Fatal( 'MeshSolve', 'Memory allocation error.' )
     END IF
 
@@ -153,11 +159,13 @@
   TrueX => Solver % Mesh % Nodes % x
   TrueY => Solver % Mesh % Nodes % y
   TrueZ => Solver % Mesh % Nodes % z
-
-  Solver % Mesh % Nodes % x => OrigX
-  Solver % Mesh % Nodes % y => OrigY
-  Solver % Mesh % Nodes % z => OrigZ
-
+  
+  IF( .NOT. Cumulative ) THEN
+    Solver % Mesh % Nodes % x => OrigX
+    Solver % Mesh % Nodes % y => OrigY
+    Solver % Mesh % Nodes % z => OrigZ
+  END IF
+	
   MovingMesh = ListGetLogical( Solver % Values,'Moving Mesh', Found ) 
   IF(.NOT. Found) MovingMesh = .TRUE.
   MovingMesh = MovingMesh .AND. ( VisitedTimes > 1 )
@@ -191,112 +199,199 @@
   CALL DefaultInitialize()
 !------------------------------------------------------------------------------
   DO t=1,Solver % NumberOfActiveElements
-
-     IF ( RealTime() - at0 > 1.0 ) THEN
-       WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-           (Solver % NumberOfActiveElements-t) / &
-           (1.0*Solver % NumberOfActiveElements)), ' % done'
-       
-       CALL Info( 'MeshSolve', Message, Level=5 )
-       
-       at0 = RealTime()
-     END IF
-     
-     Element => GetActiveElement(t)
-     nd = GetElementNOFDOFs()
-     nb = GetElementNOFBDOFs()
-     n  = GetElementNOFNodes()
-     
-     Material => GetMaterial()
-     
-     ElasticModulus(1:n) = GetReal( Material, &
-         'Mesh Elastic Modulus', Found )
-     IF ( .NOT. Found ) THEN
-       ElasticModulus(1:n) = GetReal( Material, &
-           'Youngs Modulus', Found )
-     END IF
-     IF ( .NOT. Found ) ElasticModulus(1:n) = 1.0d0
-     
-     PoissonRatio(1:n) = GetReal( Material, &
-         'Mesh Poisson Ratio', Found )
-     IF ( .NOT. Found ) THEN
-       PoissonRatio(1:n) = GetReal( Material, &
-           'Poisson Ratio', Found )
-     END IF
-     IF ( .NOT. Found ) PoissonRatio(1:n) = 0.25d0
+    
+    IF ( RealTime() - at0 > 1.0 ) THEN
+      WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
+          (Solver % NumberOfActiveElements-t) / &
+          (1.0*Solver % NumberOfActiveElements)), ' % done'
+      
+      CALL Info( 'MeshSolve', Message, Level=5 )
+      
+      at0 = RealTime()
+    END IF
+    
+    Element => GetActiveElement(t)
+    nd = GetElementNOFDOFs()
+    nb = GetElementNOFBDOFs()
+    n  = GetElementNOFNodes()
+    
+    Material => GetMaterial()
+    
+    ElasticModulus(1:n) = GetReal( Material,'Mesh Elastic Modulus', Found )
+    IF ( .NOT. Found ) THEN
+      ElasticModulus(1:n) = GetReal( Material,'Youngs Modulus', Found )
+    END IF
+    IF ( .NOT. Found ) ElasticModulus(1:n) = 1.0d0
+    
+    PoissonRatio(1:n) = GetReal( Material,'Mesh Poisson Ratio', Found )
+    IF ( .NOT. Found ) THEN
+      PoissonRatio(1:n) = GetReal( Material,'Poisson Ratio', Found )
+    END IF
+    IF ( .NOT. Found ) PoissonRatio(1:n) = 0.25d0
      
 !------------------------------------------------------------------------------
 !    Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
-     CALL LocalMatrix( STIFF, FORCE, ElasticModulus, &
-         PoissonRatio, .FALSE., Isotropic, Element, n, nd, nb )
+    CALL LocalMatrix( STIFF, FORCE, ElasticModulus, &
+        PoissonRatio, .FALSE., Isotropic, Element, n, nd, nb )
 
 !------------------------------------------------------------------------------
 !    Update global matrices from local matrices 
 !------------------------------------------------------------------------------
-     CALL DefaultUpdateEquations( STIFF, FORCE )
-   END DO
+    CALL DefaultUpdateEquations( STIFF, FORCE )
+  END DO
 
+!------------------------------------------------------------------------------
+! Nodal displacements may be set by penalty also. This is the target field
+! for the displacements.
+!------------------------------------------------------------------------------
+
+   TargetFieldName = GetString(Solver % Values,'Target Field',GotTargetField )
+   IF( GotTargetField ) THEN
+     TargetSol => VariableGet( Model % Variables, TargetFieldName )     
+     IF( .NOT. ASSOCIATED(TargetSol)) THEN
+       CALL Fatal('NonphysicalMeshSolve','No Target Field')
+     END IF
+   END IF
+
+!------------------------------------------------------------------------------
+!     Neumann & Newton boundary conditions
+!------------------------------------------------------------------------------
+  DO t = 1, Solver % Mesh % NumberOfBoundaryElements
+    
+    Element => GetBoundaryElement(t)
+    IF ( .NOT.ActiveBoundaryElement() ) CYCLE
+    IF ( GetElementFamily() == 1 ) CYCLE
+    
+    BC => GetBC()
+    IF ( .NOT. ASSOCIATED(BC) ) CYCLE
+
+!------------------------------------------------------------------------------
+!        Force in given direction BC: \tau\cdot n = F
+!------------------------------------------------------------------------------
+    nd = GetElementNOFDOFs()
+    n  = GetElementNOFNodes()
+    nb = GetElementNOFBDOFs()
+
+    NodeIndexes => Element % NodeIndexes
+
+    LOAD = 0.0_dp
+    Alpha = 0.0_dp
+    Beta = 0.0_dp
+    Gamma = 0.0_dp    
+
+    Alpha(1,1:n) =  GetReal( BC, 'Mesh Coefficient 1', Found )
+    GotForceBC = Found
+    Alpha(2,1:n) =  GetReal( BC, 'Mesh Coefficient 2', Found )
+    GotForceBC = GotForceBC .OR. Found
+    Alpha(3,1:n) =  GetReal( BC, 'Mesh Coefficient 3', Found )
+    GotForceBC = GotForceBC .OR. Found
+    
+    LOAD(1,1:n) =  GetReal( BC, 'Mesh Force 1', Found )
+    GotForceBC = GotForceBC .OR. Found
+    LOAD(2,1:n) =  GetReal( BC, 'Mesh Force 2', Found )
+    GotForceBC = GotForceBC .OR. Found
+    LOAD(3,1:n) =  GetReal( BC, 'Mesh Force 3', Found )
+    GotForceBC = GotForceBC .OR. Found
+    
+    Beta(1:n) = GetReal( BC, 'Mesh Normal Force',Found )
+    GotForceBC = GotForceBC .OR. Found
+
+    Gamma(1,1:n) =  GetReal( BC, 'Mesh Penalty Factor 1', Found )
+    GotForceBC = GotForceBC .OR. Found
+    Alpha(2,1:n) =  GetReal( BC, 'Mesh Penalty Factor 2', Found )
+    GotForceBC = GotForceBC .OR. Found
+    Alpha(3,1:n) =  GetReal( BC, 'Mesh Penalty Factor 3', Found )
+    GotForceBC = GotForceBC .OR. Found
+    
+    IF ( .NOT. GotForceBC ) CYCLE
+    
+    CALL MeshBoundary( STIFF,FORCE, LOAD,Alpha,Beta,Gamma,Element,n,nd,nb )
 
 !------------------------------------------------------------------------------
 
-  CALL DefaultFinishAssembly()
-  CALL Info( 'MeshSolve', 'Assembly done', Level=4 )
+     CALL DefaultUpdateEquations( STIFF, FORCE )
+   END DO
+!------------------------------------------------------------------------------
+   
+!-----------------------------------------------------------   
+! Set the nodal coordinates by penalty
+!------------------------------------------------------------
+   IF(GotTargetField) THEN
+     TargetCoeff = GetCReal(Solver % Values,'Target Coefficient',Found)     
+     IF( Found) THEN
+       DO i=1,Solver % Mesh % NumberOfNodes
+         j = TargetSol % Perm(i)
+         IF(j==0) CYCLE
+         DO k=1,dim
+           ind = 3 * (j-1) + k
+           Solver % Matrix % rhs(ind) = Solver % Matrix % rhs(ind) + &
+             TargetCoeff * TargetSol % Values(ind)
+           CALL CRS_AddToMatrixElement( Solver % Matrix,ind,ind,TargetCoeff )
+         END DO
+       END DO
+     END IF
+   END IF
+   
+
+   CALL DefaultFinishAssembly()
+   CALL Info( 'MeshSolve', 'Assembly done', Level=4 )
 
 !------------------------------------------------------------------------------
 ! Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-  CALL DefaultDirichletBCs()
+   CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
-  CALL Info( 'MeshSolve', 'Set boundaries done', Level=4 )
+   CALL Info( 'MeshSolve', 'Set boundaries done', Level=4 )
 !------------------------------------------------------------------------------
 ! Solve the system and check for convergence
 !------------------------------------------------------------------------------
 
-  UNorm = DefaultSolve()
-  RelativeChange = Solver % Variable % NonlinChange
-
-  WRITE( Message, * ) 'Result Norm   : ',UNorm
-  CALL Info( 'MeshSolve', Message, Level=4 )
-  WRITE( Message, * ) 'Relative Change : ',RelativeChange
-  CALL Info( 'MeshSolve', Message, Level=4 )
-
-  n = SIZE( MeshPerm )
-
-  IF( MovingMesh ) THEN
-    DO i=1,n
-      j = MeshPerm(i)
-      IF( j == 0 ) CYCLE
-      IF( dim == 2 ) THEN
-        Truex(i) = Truex(i) + ( MeshUpdate(2*j-1) - PrevMeshUpdate(2*j-1) )
-        Truey(i) = Truey(i) + ( MeshUpdate(2*j) - PrevMeshUpdate(2*j) )
-      ELSE
-        Truex(i) = Truex(i) + ( MeshUpdate(3*j-2) - PrevMeshUpdate(3*j-2) )
-        Truey(i) = Truey(i) + ( MeshUpdate(3*j-1) - PrevMeshUpdate(3*j-1) )
-        Truez(i) = Truez(i) + ( MeshUpdate(3*j) - PrevMeshUpdate(3*j) )
-      END IF
-    END DO
-  ELSE
-    DO i=1,n
-      j = MeshPerm(i)
-      IF( j == 0 ) CYCLE
-      IF( dim == 2 ) THEN
-        Truex(i) = Truex(i) + MeshUpdate(2*j-1)
-        Truey(i) = Truey(i) + MeshUpdate(2*j) 
-      ELSE
-        Truex(i) = Truex(i) + MeshUpdate(3*j-2)
-        Truey(i) = Truey(i) + MeshUpdate(3*j-1)
-        Truez(i) = Truez(i) + MeshUpdate(3*j)
-      END IF
-    END DO
-  END IF
-
-
-  Solver % Mesh % Nodes % x => TrueX
-  Solver % Mesh % Nodes % y => TrueY
-  Solver % Mesh % Nodes % z => TrueZ
-
+   UNorm = DefaultSolve()
+   RelativeChange = Solver % Variable % NonlinChange
+   
+   WRITE( Message, * ) 'Result Norm   : ',UNorm
+   CALL Info( 'MeshSolve', Message, Level=4 )
+   WRITE( Message, * ) 'Relative Change : ',RelativeChange
+   CALL Info( 'MeshSolve', Message, Level=4 )
+   
+   n = SIZE( MeshPerm )
+   
+   IF( MovingMesh ) THEN
+     DO i=1,n
+       j = MeshPerm(i)
+       IF( j == 0 ) CYCLE
+       IF( dim == 2 ) THEN
+         Truex(i) = Truex(i) + ( MeshUpdate(2*j-1) - PrevMeshUpdate(2*j-1) )
+         Truey(i) = Truey(i) + ( MeshUpdate(2*j) - PrevMeshUpdate(2*j) )
+       ELSE
+         Truex(i) = Truex(i) + ( MeshUpdate(3*j-2) - PrevMeshUpdate(3*j-2) )
+         Truey(i) = Truey(i) + ( MeshUpdate(3*j-1) - PrevMeshUpdate(3*j-1) )
+         Truez(i) = Truez(i) + ( MeshUpdate(3*j) - PrevMeshUpdate(3*j) )
+       END IF
+     END DO
+   ELSE
+     DO i=1,n
+       j = MeshPerm(i)
+       IF( j == 0 ) CYCLE
+       IF( dim == 2 ) THEN
+         Truex(i) = Truex(i) + MeshUpdate(2*j-1)
+         Truey(i) = Truey(i) + MeshUpdate(2*j) 
+       ELSE
+         Truex(i) = Truex(i) + MeshUpdate(3*j-2)
+         Truey(i) = Truey(i) + MeshUpdate(3*j-1)
+         Truez(i) = Truez(i) + MeshUpdate(3*j)
+       END IF
+     END DO
+   END IF
+   
+   IF(.NOT. Cumulative) THEN
+     Solver % Mesh % Nodes % x => TrueX
+     Solver % Mesh % Nodes % y => TrueY
+     Solver % Mesh % Nodes % z => TrueZ
+   END IF
+   
 
   CONTAINS
 
@@ -408,6 +503,104 @@
  END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+ SUBROUTINE MeshBoundary( STIFF,FORCE,LOAD,NodalAlpha,NodalBeta,NodalGamma,&
+	Element,n,nd,nb )
+!------------------------------------------------------------------------------
+   REAL(KIND=dp) :: STIFF(:,:),FORCE(:)
+   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),NodalGamma(:,:),LOAD(:,:)
+   TYPE(Element_t),POINTER  :: Element
+   INTEGER :: n,nd,nb
+!------------------------------------------------------------------------------
+   REAL(KIND=dp) :: Basis(nd)
+   REAL(KIND=dp) :: dBasisdx(nd,3),detJ
+   REAL(KIND=dp) :: u,v,w,s
+   REAL(KIND=dp) :: Alpha(3),Beta,Gamma(3),Normal(3),LoadAtIP(3),Disp
+
+   INTEGER :: i,t,q,p,dim
+   LOGICAL :: stat
+
+   TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+
+   TYPE(Nodes_t)    :: Nodes
+   SAVE Nodes
+!------------------------------------------------------------------------------
+
+   dim = Element % TYPE % DIMENSION + 1
+   CALL GetElementNodes( Nodes )
+
+   FORCE = 0.0D0
+   STIFF = 0.0D0
+
+   IntegStuff = GaussPoints( Element )
+
+   DO t=1,IntegStuff % n
+
+     u = IntegStuff % u(t)
+     v = IntegStuff % v(t)
+     w = IntegStuff % w(t)
+
+!------------------------------------------------------------------------------
+!     Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
+                 Basis, dBasisdx )
+
+      s = detJ * IntegStuff % s(t)
+!------------------------------------------------------------------------------
+     LoadAtIP = 0.0D0
+     DO i=1,dim
+       LoadAtIP(i) = SUM( LOAD(i,1:n)*Basis )
+       Alpha(i) = SUM( NodalAlpha(i,1:n)*Basis )
+       Gamma(i) = SUM( NodalGamma(i,1:n)*Basis )
+     END DO
+
+     Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
+     LoadAtIP = LoadAtIP + SUM( NodalBeta(1:n) * Basis ) * Normal
+
+     IF( GotTargetField ) THEN
+       DO i=1,dim
+         Disp = SUM( Basis * TargetSol % Values( &
+	        dim * ( TargetSol % Perm( NodeIndexes(1:n) ) - 1) +  i ) )
+         LoadAtIP = LoadAtIP + Disp * Gamma(i)
+       END DO	
+     END IF
+
+
+     DO p=1,nd
+       DO q=1,nd
+         DO i=1,dim
+           STIFF((p-1)*dim+i,(q-1)*dim+i) =  &
+             STIFF((p-1)*dim+i,(q-1)*dim+i) + &
+               s * ( Alpha(i) + Gamma(i) ) * Basis(q) * Basis(p)
+         END DO
+       END DO
+     END DO
+
+     DO q=1,nd
+       DO i=1,dim
+         FORCE((q-1)*dim+i) = FORCE((q-1)*dim+i) + &
+                   s * Basis(q) * LoadAtIP(i)
+       END DO
+     END DO
+
+   END DO
+ 
+   IF ( nb == 0 ) THEN
+     DO p=nd-Element % BDOFs+1,nd
+       DO i=1,dim
+          j = (p-1)*dim + i
+          STIFF( j,: ) = 0.0d0
+          STIFF( :,j ) = 0.0d0
+          STIFF( j,j ) = 1.0d0
+          FORCE( j )   = 0.0d0
+       END DO
+     END DO
+   END IF
+
+!------------------------------------------------------------------------------
+ END SUBROUTINE MeshBoundary
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 END SUBROUTINE MeshSolver
