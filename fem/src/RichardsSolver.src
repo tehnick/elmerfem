@@ -1,0 +1,866 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************
+!
+!******************************************************************************
+! *
+! *  Richards equation for porous flow
+! *
+! *****************************************************************************
+! *
+! *  Authors: Peter Råback
+! *  Email:   Peter.Raback@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 9 Apr 2004
+! *
+! ****************************************************************************
+
+
+MODULE PorousMaterials
+
+  USE Types
+  USE DefUtils
+  USE SolverUtils
+  IMPLICIT NONE
+
+  INTEGER, PARAMETER :: POROSITY_VAN_GENUCHTEN = 1, &
+     POROSITY_CONSTANT = 2 
+
+CONTAINS
+
+!--------------------------------------------------------------------
+! This library contains porosity parameters that are computed at the 
+! integration point given the value of matric suction, psy.
+! More materials models could be added.
+!--------------------------------------------------------------------
+
+  FUNCTION HydraulicConductivity(Material,psy) RESULT ( kw )
+    TYPE(ValueList_t), POINTER :: Material
+    REAL(KIND=dp) :: psy, kw
+    REAL(KIND=dp) :: kwsat, a, m, n
+    TYPE(ValueList_t), POINTER :: PrevMaterial => NULL()
+    CHARACTER(LEN=MAX_NAME_LEN) :: PorosityModel
+    INTEGER :: PorosityModelIndex
+    LOGICAL :: Found
+    
+    SAVE PrevMaterial,PorosityModelIndex,kwsat,a,n,m
+    
+    ! Parameters for the certain model are assumed to be 
+    ! constant within a material
+    !--------------------------------------------------------
+    IF( .NOT. ASSOCIATED(Material, PrevMaterial) ) THEN
+      PrevMaterial => Material 
+      PorosityModel = GetString( Material,'Porosity Model',Found)
+      IF(.NOT. Found) PorosityModel = 'van Genuchten'
+      
+      SELECT CASE( PorosityModel )
+        
+      CASE('van genuchten')
+        PorosityModelIndex = POROSITY_VAN_GENUCHTEN
+        kwsat = GetConstReal( Material,'Saturated Hydraulic Conductivity')
+        a = GetConstReal( Material,'van Genuchten Alpha')
+        n = GetConstReal( Material,'van Genuchten N')
+        m = GetConstReal( Material,'van Genuchten M')
+        
+      CASE('constant')
+        PorosityModelIndex = POROSITY_CONSTANT
+        kwsat = GetConstReal( Material,'Hydraulic Conductivity')
+       
+      CASE DEFAULT
+        CALL Fatal('HydraulicConductivity',&
+            'Unknown porosity model:'//TRIM(PorosityModel))
+      END SELECT
+    END IF
+    
+
+    SELECT CASE( PorosityModelIndex ) 
+      
+    CASE( POROSITY_VAN_GENUCHTEN ) 
+        
+      IF( psy <= 0.0_dp ) THEN
+        kw = kwsat
+      ELSE
+        kw=kwsat*(1-(a*psy)**(n*m)*(1+(a*psy)**n)**(-m))**2*(1+(a*psy)**n)**(-m/2)
+      END IF
+      
+    CASE( POROSITY_CONSTANT ) 
+
+       kw = kwsat
+  
+    CASE DEFAULT
+      CALL Fatal('HydraulicConductivity','Unknown porosity function')
+    END SELECT
+   
+  END FUNCTION HydraulicConductivity
+
+
+
+  FUNCTION WaterContent( Material, psy ) RESULT ( teta )
+    TYPE(ValueList_t), POINTER :: Material
+    REAL(KIND=dp) :: psy, teta
+    REAL(KIND=dp) :: tetaR, tetaS, a, m, n
+    TYPE(ValueList_t), POINTER :: PrevMaterial => NULL()
+    CHARACTER(LEN=MAX_NAME_LEN) :: PorosityModel
+    INTEGER :: PorosityModelIndex
+    LOGICAL :: Found
+
+    SAVE PrevMaterial,PorosityModelIndex,tetaR,tetaS,a,n,m
+    
+    ! Parameters for the certain model are assumed to be 
+    ! constant within a material
+    !--------------------------------------------------------
+    IF( .NOT. ASSOCIATED(Material, PrevMaterial) ) THEN
+      PrevMaterial => Material 
+      PorosityModel = GetString( Material,'Porosity Model',Found)
+      IF(.NOT. Found) PorosityModel = 'van Genuchten'
+      
+      SELECT CASE( PorosityModel )
+        
+      CASE('van genuchten')
+        PorosityModelIndex = POROSITY_VAN_GENUCHTEN
+        tetaR = GetConstReal( Material,'Residual Water Content')
+        tetaS = GetConstReal( Material,'Saturated Water Content')
+        a = GetConstReal( Material,'van Genuchten Alpha')
+        n = GetConstReal( Material,'van Genuchten N')
+        m = GetConstReal( Material,'van Genuchten M')
+  
+      CASE('constant')
+        PorosityModelIndex = POROSITY_CONSTANT       
+        tetaS = GetConstReal( Material,'Water Content')
+         
+      CASE DEFAULT
+        CALL Fatal('WaterContent',&
+            'Unknown porosity model:'//TRIM(PorosityModel))
+      END SELECT
+      
+    END IF
+    
+    SELECT CASE( PorosityModelIndex ) 
+      
+    CASE( POROSITY_VAN_GENUCHTEN ) 
+        
+      IF( psy <= 0.0 ) THEN
+        teta = tetaS
+      ELSE
+        teta=tetaR+(tetaS-tetaR)/((1+(a*psy)**n)**m)
+      END IF
+      
+    CASE( POROSITY_CONSTANT ) 
+      teta = tetaS
+
+    CASE DEFAULT
+      CALL Fatal('WaterContent','Unknown porosity function')
+    END SELECT
+    
+  END FUNCTION WaterContent
+
+END MODULE PorousMaterials
+
+
+
+
+!------------------------------------------------------------------------------
+  RECURSIVE SUBROUTINE RichardsSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+
+     USE DefUtils
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     TYPE(Solver_t), TARGET :: Solver
+     REAL(KIND=dp) :: dt
+     LOGICAL :: Transient
+
+     TYPE(ValueList_t), POINTER :: Params
+     LOGICAL :: UseDG, Found
+
+     Params => GetSolverParams()
+     UseDG = GetLogical( Params,'Discontinuous Galerkin',Found)
+
+     IF( UseDG ) THEN
+       CALL ListAddString( Params,'Exported Variable 1',&
+           'Nodal PressureHead')
+     END IF
+
+
+  END SUBROUTINE RichardsSolver_Init
+
+!------------------------------------------------------------------------------
+  RECURSIVE SUBROUTINE RichardsSolver( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+! Solves the Richards equation for porous flow.
+!
+!******************************************************************************
+     USE DefUtils
+     USE PorousMaterials
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     TYPE(Solver_t), TARGET :: Solver
+     REAL(KIND=dp) :: dt
+     LOGICAL :: Transient
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: BC, BodyForce, Material,&
+          Constants, SolverParams
+
+     TYPE(Element_t), POINTER :: Element
+     TYPE( Element_t ), POINTER :: Faces(:)
+     TYPE(Nodes_t) :: ElementNodes
+     LOGICAL :: AllocationsDone = .FALSE., Found, Stat, Bubbles, UseDG
+     INTEGER :: NumberOfFAces
+     REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), STIFF(:,:), FORCE(:), TimeForce(:)
+     REAL(KIND=dp), POINTER :: ElemHead(:),ElemPrevHead(:),ElemSource(:)
+     TYPE(Mesh_t), POINTER :: Mesh
+
+     LOGICAL :: SubroutineVisited = .FALSE.,InitSolution, ResetRelax
+     INTEGER :: n, nd, t, istat, iter, dim, Active, NonlinearIterMax, &
+         ActiveCoordinate
+     REAL(KIND=dp) :: at,st,totst,totat,CPUTime
+     REAL(KIND=dp) :: NonlinearTol, Norm, RelativeChange, Relax
+
+
+     SAVE MASS, STIFF, FORCE, TimeForce, &
+         ElemHead, ElemPrevHead, ElemSource, &
+         AllocationsDone,SubroutineVisited
+
+     !----------------------------------------------------------------------------
+     WRITE(Message,'(A,A)') 'RichardsSolver for variable '// &
+         TRIM( Solver % Variable % Name )
+     CALL INFO('Richards',Message,Level=3)
+
+     Mesh => GetMesh()
+     DIM = CoordinateSystemDimension()
+
+     ! Initialize & allocate some permanent storage, this is done first time only:
+     !----------------------------------------------------------------------------
+     IF ( .NOT. AllocationsDone ) THEN
+        N = 2 * MAX(Mesh % MaxElementDOFs, Mesh % MaxElementNodes )
+        ALLOCATE( FORCE(N), MASS(n,n), STIFF(N,N), TimeForce(N), &
+            ElemHead(N),ElemPrevHead(N),ElemSource(N), STAT = istat )
+        
+       IF ( istat /= 0 ) CALL FATAL('Richards','Memory allocation error.' )
+       AllocationsDone = .TRUE.
+     END IF
+
+     !------------------------------------------------------------------------------
+     !    Read physical and numerical constants and initialize 
+     !------------------------------------------------------------------------------
+     SolverParams => GetSolverParams()
+
+     Bubbles = GetLogical( SolverParams, 'Bubbles', Found )
+
+     ActiveCoordinate = GetInteger( SolverParams,'Active Coordinate',Found)
+     IF(.NOT. Found) ActiveCoordinate = DIM
+
+     UseDG = GetLogical( SolverParams,'Discontinuous Galerkin',Found)
+     IF( UseDG ) THEN
+       CALL Info('Richards','Using DG for discretization') 
+       IF ( DIM == 2 ) THEN
+         Faces => Mesh % Edges
+         NumberOfFaces = Mesh % NumberOfEdges
+       ELSE
+         Faces => Mesh % Faces
+         NumberOfFaces = Mesh % NumberOfFaces
+       END IF
+     END IF
+
+     NonlinearIterMax = GetInteger( SolverParams, &
+         'Nonlinear System Max Iterations',Found )
+     IF ( .NOT.Found ) THEN
+       CALL WARN('Richards','No >Nonlinear System Max Iterations< found. Setting 1')
+       NonlinearIterMax = 1
+     END IF
+
+     NonlinearTol  = GetConstReal( SolverParams, &
+         'Nonlinear System Convergence Tolerance', Found )
+     
+     !------------------------------------------------------------------------------
+     !       non-linear system iteration loop
+     !------------------------------------------------------------------------------
+
+     DO iter=1,NonlinearIterMax
+
+        ! Assembly of the bulk elements:
+        !-------------------------------
+        at  = CPUTime()
+
+
+        CALL Info( 'Richards', ' ', Level=4 )
+        CALL Info( 'Richards', '-------------------------------------',Level=4 )
+        WRITE( Message,'(A,I4,A,I4)') &
+             'Nonlinear iteration no.', iter,' of',NonlinearIterMax
+        CALL Info( 'Richards', Message, Level=4 )
+        CALL Info( 'Richards', '-------------------------------------',Level=4 )
+        CALL Info( 'Richards', ' ', Level=4 )
+        CALL Info( 'Richards', 'Starting Assembly...', Level=4 )
+
+        InitSolution = .FALSE.
+        IF( iter == 1 .AND. .NOT. SubroutineVisited ) THEN
+          InitSolution = GetLogical( SolverParams,'Saturated Initial Guess',Found )
+        END IF
+        
+        IF( InitSolution ) THEN
+          Relax = GetConstReal(SolverParams,&
+              'Nonlinear System Relaxation Factor',Found)
+          IF(Found) THEN
+            CALL ListAddConstReal(SolverParams,&
+                'Nonlinear System Relaxation Factor',1.0_dp)
+            ResetRelax = .TRUE.
+          ELSE
+            ResetRelax = .FALSE.  
+          END IF
+        END IF
+        
+
+        CALL DefaultInitialize()
+        Active = GetNOFActive()
+
+        DO t = 1, Active  
+           !------------------------------------------------------------------------------
+           ! assign pointers and get number of nodes in element
+           ! The material parameters are defined in the library but the pointer to 
+           ! the correct material must be set here. 
+           !------------------------------------------------------------------------------  
+           Element => GetActiveElement( t )
+           n = GetElementNOfNodes( Element )           
+           nd = GetElementNOFDOFs()
+
+           Material => GetMaterial()
+
+           !------------------------------------------------------------------------------
+           ! the body force (r.h.s) = source
+           !------------------------------------------------------------------------------         
+           BodyForce => GetBodyForce( Element )           
+           ElemSource(1:n) = GetReal( BodyForce,'Richards Source', Found )    
+
+           CALL GetScalarLocalSolution( ElemHead )
+           IF( Transient ) THEN
+             CALL GetScalarLocalSolution( ElemPrevHead, tStep = -1 )
+           END IF
+
+           CALL LocalMatrix( MASS, STIFF, FORCE, &
+               ElemHead, ElemPrevHead, ElemSource, Element, n, nd ) 
+
+           TimeForce  = 0.0_dp
+           IF ( Transient ) CALL Default1stOrderTime( MASS, STIFF, FORCE )
+
+
+!PRINT *,'int stiff:',stiff(1,1:2*n)
+           IF (  Bubbles ) THEN
+             CALL Condensate( N, STIFF, FORCE, TimeForce )
+           END IF
+!PRINT *,'bubble stiff:',stiff(1,1:2*n)
+
+
+
+           CALL DefaultUpdateEquations( STIFF, FORCE )
+        END DO
+
+        CALL DefaultFinishAssembly()
+        CALL Info( 'Richards', 'Assembly done', Level=4 )
+
+        CALL DefaultDirichletBCs()
+        CALL Info( 'Richards', 'Dirichlet conditions done', Level=4 )
+
+        !------------------------------------------------------------------------------
+        !     Solve the system and check for convergence
+        !------------------------------------------------------------------------------
+        at = CPUTime() - at
+        st = CPUTime()
+
+        ! Solve the system:
+        !------------------
+        Norm = DefaultSolve()
+
+        IF(InitSolution .AND. ResetRelax ) THEN
+          CALL ListAddConstReal(SolverParams,&
+              'Nonlinear System Relaxation Factor',Relax)
+        END IF
+
+        st = CPUTIme()-st
+        totat = totat + at
+        totst = totst + st
+        WRITE(Message,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Assembly: (s)', at, totat
+        CALL Info( 'Richards', Message, Level=4 )
+        WRITE(Message,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Solve:    (s)', st, totst
+        CALL Info( 'Richards', Message, Level=4 )
+
+        RelativeChange = Solver % Variable % NonlinChange 
+        
+        IF (RelativeChange < NonlinearTol)  THEN 
+           WRITE(Message,'(A,I6,A,I6,A)') &
+                'Nonlinear iteration converged after ', iter, &
+                ' out of max ',NonlinearIterMax,' iterations'
+           CALL INFO('Richards',Message)
+           EXIT
+        ELSE IF ((iter == NonlinearIterMax) .AND. (NonlinearIterMax > 1)) THEN
+           CALL WARN('Richards','Maximum nonlinear iterations reached, but system not converged')
+        END IF
+
+        SubroutineVisited = .TRUE.
+
+     !-----------------------------------------------
+     END DO ! End of nonlinear iteration loop
+     !----------------------------------------------
+
+
+   CONTAINS
+
+
+!------------------------------------------------------------------------------------
+! The water content derivative is computed using the real differential. This way the 
+! differential of water content with time will be consistant.
+!------------------------------------------------------------------------------------
+
+     FUNCTION WaterContentDerivative( Material, head, prevhead ) RESULT ( dtetadhead )
+       
+       TYPE(ValueList_t), POINTER :: Material
+       REAL(KIND=dp) :: head, prevhead, dtetadhead, &
+           teta1, teta2, head1, head2, eps = 1.0d-6
+       
+       IF( ABS( head - prevhead ) < eps ) THEN
+         head1 = head - eps / 2
+         head2 = head + eps / 2
+       ELSE
+         head1 = prevhead
+         head2 = head
+       END IF
+       
+       teta1 = WaterContent( Material, head1 ) 
+       teta2 = WaterContent( Material, head2 ) 
+       
+       dtetadhead = (teta2 - teta1) / (head2 - head1)
+       
+     END FUNCTION WaterContentDerivative
+
+
+
+!------------------------------------------------------------------------------      
+     SUBROUTINE LocalMatrix(MASS, STIFF, FORCE, &
+         ElemHead, ElemPrevHead, ElemSource, Element, n, nd)
+!------------------------------------------------------------------------------
+       REAL(KIND=dp) :: MASS(:,:), STIFF(:,:), FORCE(:), &
+           ElemHead(:), ElemPrevHead(:), ElemSource(:)
+       INTEGER :: n, nd
+       TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+       REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3)
+       REAL(KIND=dp) :: x,y,z,detJ,Metric(3,3),SqrtMetric,Symb(3,3,3),dSymb(3,3,3,3)
+       REAL(KIND=dp) :: U,V,W,S,ipHead,ipPrevHead,ipCond,ipSource,ipContent
+       LOGICAL :: Stat
+       INTEGER :: i,j,p,q,t,dim,Nbasis, CoordSys
+       TYPE(GaussIntegrationPoints_t) :: IntegStuff
+       TYPE(Nodes_t) :: Nodes
+       SAVE Nodes
+!------------------------------------------------------------------------------
+       dim = CoordinateSystemDimension()
+       Metric = 0.0d0
+       Metric(1,1) = 1.0d0
+       Metric(2,2) = 1.0d0
+       Metric(3,3) = 1.0d0
+!------------------------------------------------------------------------------
+       FORCE = 0.0d0
+       STIFF = 0.0d0
+       MASS  = 0.0d0
+       CALL GetElementNodes( Nodes, Element )
+!------------------------------------------------------------------------------
+!      Numerical integration
+!------------------------------------------------------------------------------
+
+       NBasis = n
+       IF ( Bubbles ) THEN
+         NBasis = 2 * n
+         IntegStuff = GaussPoints( Element, Element % TYPE % GaussPoints2 )
+       ELSE
+         NBasis = nd
+         IntegStuff = GaussPoints( Element )
+       END IF
+
+!PRINT *,'n',n,nd,Nbasis,IntegStuff % n
+ 
+       DO t=1,IntegStuff % n
+         U = IntegStuff % u(t)
+         V = IntegStuff % v(t)
+         W = IntegStuff % w(t)
+         S = IntegStuff % s(t)
+!------------------------------------------------------------------------------
+!        Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+         stat = ElementInfo( Element, Nodes, U, V, W, detJ, &
+             Basis, dBasisdx, Bubbles = Bubbles )
+         
+         S = S * detJ
+
+         IF ( CoordSys /= Cartesian ) THEN
+           X = SUM( Nodes % X(1:n) * Basis(1:n) )
+           Y = SUM( Nodes % Y(1:n) * Basis(1:n) )
+           Z = SUM( Nodes % Z(1:n) * Basis(1:n) )
+           CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,X,Y,Z )
+           s = s * SqrtMetric
+         END IF
+
+         ipHead = SUM( elemHead(1:n) * Basis(1:n) )
+         ipCond = HydraulicConductivity(Material,ipHead)
+         
+         IF( Transient .AND. .NOT. InitSolution ) THEN
+           ipPrevHead = SUM( ElemPrevHead(1:n) * Basis(1:n) )
+           ipContent = WaterContentDerivative(Material,ipHead,ipPrevHead)
+         ELSE
+           ipContent = 0.0_dp
+         END IF
+ 
+         ipSource = SUM( ElemSource(1:n) *  Basis(1:n) )
+         
+!------------------------------------------------------------------------------
+!        The Richards equation
+!------------------------------------------------------------------------------
+         DO p=1,Nbasis
+           DO q=1,Nbasis
+             MASS(p,q)  = MASS(p,q) + s * ipContent * Basis(q) * Basis(p)
+             DO i=1,dim
+               DO j=1,dim
+                 STIFF(p,q) = STIFF(p,q) - s * ipCond * &
+                     Metric(i,j) * dBasisdx(q,i) * dBasisdx(p,i)
+               END DO
+             END DO
+           END DO
+           
+           FORCE(p) = FORCE(p) - s * dBasisdx(p,ActiveCoordinate) * ipCond 
+           FORCE(p) = FORCE(p) + s * ipSource * Basis(p)
+         END DO
+         
+!------------------------------------------------------------------------------
+       END DO
+!------------------------------------------------------------------------------
+     END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+!
+
+!------------------------------------------------------------------------------
+ END SUBROUTINE RichardsSolver
+!------------------------------------------------------------------------------
+
+
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE RichardsFlux_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: SolverParams
+    INTEGER :: dim
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
+      CALL ListAddString( SolverParams, 'Variable','-nooutput flux_temp' )
+      CALL ListAddString(SolverParams, 'Flux Result Variable','F')
+      IF(dim == 2) THEN
+        CALL ListAddString(SolverParams, 'Exported Variable 1','F[Flux:2]')
+      ELSE IF(dim == 3) THEN
+        CALL ListAddString(SolverParams, 'Exported Variable 1','F[Flux:3]')
+      ELSE
+        CALL Fatal('VortictySolver_init','Flux computation makes sense only in 2D and 3D')
+      END IF
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
+
+    ! Add linear system defaults: cg+diagonal
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
+      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
+      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
+      CALL ListAddString(SolverParams,'Linear System Preconditioning','diagonal')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
+      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Residual Output')) &
+      CALL ListAddInteger(SolverParams,'Linear System Residual Output',10)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE RichardsFlux_Init
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE RichardsFlux( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+
+  USE CoordinateSystems
+  USE DefUtils
+  USE PorousMaterials
+
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Solve the flux resulting from the solution of the Richards equation using
+!  the Galerkin method. The solver is somewhat complicated because the components
+!  of the flux (f_x,f_y,f_z) are computed one-by-one.
+!
+!******************************************************************************
+
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL ::  Transient
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t),POINTER :: SolverParams
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  INTEGER :: i,j,dim,DOFs,ActiveCoordinate
+  LOGICAL :: Found, ConstantBulkMatrix, ConstantBulkMatrixInUse, CSymmetry
+  REAL(KIND=dp) :: Unorm, Totnorm, FluxMultiplier
+  REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
+  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
+  TYPE(Variable_t), POINTER :: FluxSol
+  
+ 
+  CALL Info( 'RichardsFlux', '-------------------------------------',Level=4 )
+  CALL Info( 'RichardsFlux','Computing the flux',Level=4 )
+  CALL Info( 'RichardsFlux', '-------------------------------------',Level=4 )
+
+  dim = CoordinateSystemDimension()
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+  IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+  
+  SolverParams => GetSolverParams()
+
+  ActiveCoordinate = GetInteger( SolverParams,'Active Coordinate',Found)
+  IF(.NOT. Found) ActiveCoordinate = dim
+
+!-------------------------------------------------------------------------------
+! Use an auxiliary variable to store all the dimensions
+!-------------------------------------------------------------------------------
+  VarName = GetString(SolverParams,'Flux Result Variable',Found )
+  IF(.NOT. Found) VarName = 'Flux'
+  FluxSol => VariableGet( Solver % Mesh % Variables, VarName )
+  IF(ASSOCIATED(FluxSol)) THEN
+    Dofs = FluxSol % DOFs
+    IF(Dofs /= DIM) THEN
+      CALL Fatal('RichardsFlux','The flux should have DOFs equal to DIM')
+    END IF
+  ELSE
+    CALL Fatal('RichardsFlux','Flux Result Variable is missing: '//TRIM(VarName))      
+  END IF
+  
+  CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
+      CurrentCoordinateSystem() == CylindricSymmetric
+  
+  VarName = GetString(SolverParams,'Flux Variable',Found )
+  IF(.NOT. Found) VarName = 'Head'
+
+  at0 = RealTime()
+  
+  ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', Found )
+  ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
+      ASSOCIATED(Solver % Matrix % BulkValues)
+  
+  IF ( ConstantBulkMatrixInUse ) THEN
+    Solver % Matrix % Values = Solver % Matrix % BulkValues        
+    Solver % Matrix % rhs = 0.0_dp
+  ELSE
+    CALL DefaultInitialize()
+  END IF
+
+  ! We need DIM r.h.s. vectors, allocated DIM-1 additional ones  
+  ALLOCATE(ForceVector(Dofs-1,SIZE(Solver % Matrix % RHS)))  
+  ForceVector = 0.0_dp
+  SaveRHS => Solver % Matrix % RHS
+  
+  CALL BulkAssembly()
+  CALL DefaultFinishAssembly()
+  
+  at1 = RealTime()
+  WRITE(Message,* ) 'Assembly Time: ',at1-at0
+  CALL Info( 'RichardsFlux', Message, Level=5 )
+
+!------------------------------------------------------------------------------     
+
+  TotNorm = 0.0_dp
+  DO i=1,Dofs
+    IF(i==1) THEN
+      Solver % Matrix % RHS => SaveRHS
+    ELSE
+      Solver % Matrix % RHS => ForceVector(i-1,:)
+    END IF
+    UNorm = DefaultSolve()
+    TotNorm = TotNorm + Unorm ** 2
+    DO j=1,Solver % Matrix % NumberOfRows
+      FluxSol % Values(DOFs*(j-1)+i) = Solver % Variable % Values(j)
+    END DO
+  END DO
+
+! This may be used to multiply the resulting flux to a more convenient value range
+  FluxMultiplier = GetConstReal( SolverParams,'Flux Multiplier',Found) 
+  IF( Found ) THEN
+    FluxSol % Values = FluxMultiplier * FluxSol % Values
+  END IF
+
+
+  DEALLOCATE( ForceVector )  
+  Solver % Matrix % RHS => SaveRHS
+  TotNorm = SQRT(TotNorm)
+  Solver % Variable % Norm = Totnorm
+
+!------------------------------------------------------------------------------     
+
+  at2 = RealTime()
+  WRITE(Message,* ) 'Solution Time: ',at2-at1
+  CALL Info( 'RichardsFlux', Message, Level=5 )
+  
+  WRITE( Message, * ) 'Result Norm: ',TotNorm
+  CALL Info( 'RichardsFlux', Message, Level=4 )
+  
+CONTAINS
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE BulkAssembly()
+!------------------------------------------------------------------------------
+       
+    INTEGER :: elem,t,i,j,p,q,n,nd, Rank
+    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:)
+    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+    TYPE(Nodes_t) :: Nodes
+    INTEGER, POINTER :: NodeIndexes(:)
+    TYPE(Element_t), POINTER :: Element
+    REAL(KIND=dp) :: weight,grad(3),ipCond,ipHead,coeff,detJ,z
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
+    REAL(KIND=dp), ALLOCATABLE :: ElemHead(:)
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Material
+    
+    SAVE Nodes
+    
+    n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
+    ALLOCATE( STIFF(n,n), FORCE(dim,n) )
+    ALLOCATE( ElemHead(n), Basis(n), dBasisdx(n,3) )
+
+    DO elem = 1,Solver % NumberOFActiveElements
+         
+      ! Element information
+      ! ---------------------
+      Element => GetActiveElement(elem)
+      NodeIndexes => Element % NodeIndexes
+      CALL GetElementNodes( Nodes )
+      nd = GetElementNOFDOFs()
+      n  = GetElementNOFNodes()
+      Material => GetMaterial()
+      
+      CALL GetScalarLocalSolution( elemHead, VarName )
+
+      ! Integrate local stresses:
+      ! -------------------------
+      IntegStuff = GaussPoints( Element )
+      STIFF  = 0.0_dp
+      FORCE  = 0.0_dp
+
+      DO t=1,IntegStuff % n
+        Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
+            IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
+        
+        Weight = IntegStuff % s(t) * detJ
+        IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
+        
+        IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+          DO p=1,nd
+            DO q=1,nd
+              STIFF(p,q) = STIFF(p,q) + Weight * Basis(q) * Basis(p)
+            END DO
+          END DO
+        END IF
+        
+        ipHead = SUM( elemHead(1:n) * Basis(1:n) )
+        ipCond = HydraulicConductivity(Material,ipHead)
+        IF( ActiveCoordinate == 2 ) THEN
+          z = SUM( Basis(1:n) * Nodes % y(1:n) )
+        ELSE IF( ActiveCoordinate == 3 ) THEN
+          z = SUM( Basis(1:n) * Nodes % z(1:n) )
+        ELSE 
+          z = SUM( Basis(1:n) * Nodes % x(1:n) )
+        END IF
+
+        Grad(1:dim) = MATMUL( elemHead(1:nd), dBasisdx(1:nd,1:dim) )
+        
+        FORCE(ActiveCoordinate,1:nd) = FORCE(ActiveCoordinate,1:nd) - &
+            Weight * ipCond * Basis(1:nd) 
+        DO i=1,dim
+          FORCE(i,1:nd) = FORCE(i,1:nd) + &
+              Weight * ipCond * Grad(i) * Basis(1:nd)
+        END DO
+      END DO
+
+!------------------------------------------------------------------------------
+!      Update global matrices from local matrices 
+!------------------------------------------------------------------------------
+      IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+        Solver % Matrix % RHS => SaveRHS
+        CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
+            BulkUpdate=ConstantBulkMatrix )
+      ELSE
+        CALL DefaultUpdateForce( FORCE(1,1:nd) )       
+      END IF
+
+      DO i=2,Dofs
+        Solver % Matrix % RHS => ForceVector(i-1,:)
+        CALL DefaultUpdateForce( FORCE(i,1:nd) )
+      END DO
+    END DO
+    
+    DEALLOCATE( elemHead, STIFF, FORCE, Basis, dBasisdx )
+!------------------------------------------------------------------------------
+  END SUBROUTINE BulkAssembly
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+END SUBROUTINE RichardsFlux
+!------------------------------------------------------------------------------
+
+
