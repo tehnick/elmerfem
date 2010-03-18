@@ -1,0 +1,362 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Module for solving steady-state free surface problems for structured meshes.
+! *  Intended applications include drawing and extrusion processes.
+! *
+! ******************************************************************************
+! *
+! *  Authors: Peter Råback
+! *  Email:   Peter.Raback@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 3.3.2008
+! *
+! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+
+  USE CoordinateSystems
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  This solver assumes that the mesh is structural so that it could have 
+!  been obtained by extrusion in the direction of interest. For the given 
+!  direction the corresponding top and bottom node is computed for every node
+!  and this information is used to perform linear mapping in between.  
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh,materials,BCs,etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
+!            currently)
+!
+!******************************************************************************
+
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL ::  Transient
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t),POINTER :: SolverParams
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  INTEGER :: i,j,k,n,dim,DOFs,itop,ibot,ii,jj,Rounds,BotMode,TopMode,nsize, &
+      ActiveDirection,elem,FlowDofs,DispDofs
+  INTEGER, POINTER :: MaskPerm(:),TopPerm(:),BotPerm(:),TopPointer(:),&
+      BotPointer(:),UpPointer(:),DownPointer(:),NodeIndexes(:),FlowPerm(:),&
+      DispPerm(:)
+  LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
+      DisplacementMode, MaskExist
+  REAL(KIND=dp) :: UnitVector(3),x0loc,x0bot,x0top,xloc,wtop,BotVal,TopVal,&
+      ElemVector(3),DotPro,Eps,Length
+  REAL(KIND=dp) :: r1(3),r2(3),v1(3),v2(3),dr(3),dv(3),drproj(3),r2new(3),&
+      CoordMax,CoordMin,sumdr(3),Relax,Alpha
+  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
+  REAL(KIND=dp), POINTER :: Coord(:),BotField(:),TopField(:),Field(:),Surface(:),Flow(:), &
+      HardDisp(:)
+  TYPE(Variable_t), POINTER :: Var
+  TYPE(Element_t), POINTER :: Element
+  TYPE(Nodes_t), SAVE :: Nodes
+  TYPE(ValueList_t),POINTER :: BC
+  
+  
+  SAVE Visited,Initialized,UnitVector,Coord,MaskExist,MaskPerm,TopPointer,BotPointer,&
+      DownPointer,UpPointer,TopMode,BotMode,TopField,BotField,TopPerm,BotPerm,Field,&
+      Surface,Dim,HardDisp,DispPerm,ActiveDirection
+  
+  CALL Info( 'StructuredFlowLine','---------------------------------------',Level=4 )
+  CALL Info( 'StructuredFlowLine','Performing mapping on a structured mesh ',Level=4 )
+  CALL Info( 'StructuredFlowLine','---------------------------------------',Level=4 )
+
+!------------------------------------------------------------------------------
+!   Initialize the pointers to top and bottom nodes 
+!------------------------------------------------------------------------------
+
+  SolverParams => GetSolverParams()
+  
+
+  IF( .NOT. Initialized ) THEN
+    
+    at0 = CPUTime()
+    
+    NULLIFY(Field)
+    
+    ! Choose active direction coordinate and set corresponding unit vector
+    !---------------------------------------------------------------------
+    DIM = CoordinateSystemDimension()
+    ActiveDirection = GetInteger(SolverParams,'Active Coordinate')
+    IF(ActiveDirection == 1) THEN
+      Coord => Solver % Mesh % Nodes % x
+    ELSE IF(ActiveDirection == 2) THEN
+      Coord => Solver % Mesh % Nodes % y
+    ELSE IF(ActiveDirection == 3) THEN 
+      Coord => Solver % Mesh % Nodes % z
+    ELSE 
+      CALL Fatal('StructuredFlowLine','Invalid value for Active Coordinate')
+    END IF
+    UnitVector = 0.0_dp
+    UnitVector(ActiveDirection) = 1.0_dp
+    
+    ! Allocate pointers to top and bottom, and temporary pointers up and down
+    !------------------------------------------------------------------------
+    nsize = SIZE( Coord )
+    
+    ALLOCATE(TopPointer(nsize),UpPointer(nsize))
+    DO i=1,nsize
+      TopPointer(i) = i
+      UpPointer(i) = i
+    END DO
+    ALLOCATE(BotPointer(nsize),DownPointer(nsize))
+    DO i=1,nsize
+      BotPointer(i) = i
+      DownPointer(i) = i
+    END DO
+    
+    ! If mask variable is provided only those nodes will be moved
+    !-----------------------------------------------------------   
+    VarName = GetString(SolverParams,'Mapping Mask Variable',GotIt )
+    MaskExist = .FALSE.
+    IF(GotIt) THEN
+      Var => VariableGet( Model % Variables,  VarName )
+      IF(ASSOCIATED(Var)) THEN
+        MaskPerm => Var % Perm
+        MaskExist = ASSOCIATED(MaskPerm)
+      END IF
+    END IF
+    
+    ! Determine the pointer up and down using dot product as criterion
+    !-----------------------------------------------------------------
+    Eps = GetConstReal(SolverParams,'Dot Product Tolerance',GotIt)
+    IF(.NOT. GotIt) Eps = 1.0e-4
+    
+    IF(.FALSE.) PRINT *,'determine up and down pointers'
+    
+    DO elem = 1,Solver % Mesh % NumberOfBulkElements      
+      Element => Solver % Mesh % Elements(elem)
+      NodeIndexes => Element % NodeIndexes
+      Model % CurrentElement => Element
+      CALL GetElementNodes( Nodes )
+      n  = GetElementNOFNodes()
+      
+      IF( MaskExist ) THEN
+        IF( ANY(MaskPerm(NodeIndexes) == 0) ) CYCLE
+      END IF
+      
+      DO i=1,n
+        ii = NodeIndexes(i)
+        DO j=i+1,n
+          jj = NodeIndexes(j)
+          
+          ElemVector(1) = Nodes % x(j) - Nodes % x(i)
+          ElemVector(2) = Nodes % y(j) - Nodes % y(i)
+          ElemVector(3) = Nodes % z(j) - Nodes % z(i)
+          Length = SQRT(SUM(ElemVector*ElemVector))
+          DotPro = SUM(ElemVector * UnitVector) / Length
+          
+          IF(DotPro > 1.0_dp - Eps) THEN
+            UpPointer(ii) = jj
+            DownPointer(jj) = ii
+          ELSE IF(DotPro < Eps - 1.0_dp) THEN
+            DownPointer(ii) = jj
+            UpPointer(jj) = ii
+          END IF
+        END DO
+      END DO
+    END DO
+    
+    ! Pointer to top and bottom are found recursively using up and down
+    !------------------------------------------------------------------
+    IF(.FALSE.) PRINT *,'determine top and bottom pointers'
+    
+    Found = .TRUE.
+    Rounds = 0
+    DO WHILE(Found) 
+      Found = .FALSE.
+      DO i=1,nsize
+        IF( MaskExist ) THEN
+          IF( MaskPerm(i) == 0) CYCLE
+        END IF
+        j = UpPointer(i)
+        IF( TopPointer(i) /= TopPointer( j ) ) THEN
+          Found = .TRUE.
+          TopPointer(i) = TopPointer( j )
+        END IF
+        j = DownPointer(i)
+        IF( BotPointer(i) /= BotPointer( j ) ) THEN
+          Found = .TRUE.
+          BotPointer(i) = BotPointer( j )
+        END IF
+      END DO
+      IF( Found ) Rounds = Rounds + 1
+    END DO
+    
+    at1 = CPUTime()
+    
+    WRITE(Message,* ) 'Top and bottom pointer init rounds: ',Rounds
+    CALL Info('StructuredFlowLine',Message)
+    WRITE(Message,* ) 'Top and bottom pointer init time: ',at1-at0
+    CALL Info('StructuredFlowLine',Message)
+    
+    Initialized = .TRUE.
+  END IF
+  at0 = CPUTime()
+
+  ! End of initialization
+  !-------------------------------------------------------
+
+
+  ! Get the variables
+  !-------------------------------------------------------
+  VarName = GetString(SolverParams,'Velocity Variable Name',GotIt )
+  IF(.NOT. GotIt) VarName = 'Flow Solution'
+  Var => VariableGet( Solver % Mesh % Variables,  VarName )
+  IF(ASSOCIATED(Var)) THEN
+    Flow => Var % Values
+    FlowPerm => Var % Perm
+    FlowDofs = Var % DOFs
+  ELSE
+    CALL Fatal('StructuredFlowLine','Velocity variable is missing: '//TRIM(VarName))
+  END IF
+  
+  VarName = GetString(SolverParams,'Hard Displacement Name',GotIt )
+  IF(.NOT. GotIt) VarName = 'Hard Disp'
+  Var => VariableGet( Solver % Mesh % Variables,  VarName )
+  IF(ASSOCIATED(Var)) THEN
+    HardDisp => Var % Values
+    DispPerm => Var % Perm
+    DispDofs = Var % DOFs
+  ELSE
+    CALL Fatal('StructuredFlowLine','Hard displacement variable is missing: '//TRIM(VarName))
+  END IF
+  
+  IF( DispDofs /= DIM ) THEN 
+    CALL Fatal('StructuredFlowLine','Displacement variable of wrong size')
+  END IF
+  
+  
+  DisplacementMode = GetLogical(SolverParams,'Displacement Mode',Found)
+  
+  ! Map to the streamline
+  !-------------------------------------------------------------------
+  IF(.FALSE.) PRINT *,'perform linear mapping'
+  Alpha = 0.5_dp
+  Relax = ListGetConstReal( Solver % Values,'Nonlinear System Relaxation Factor',GotIt)
+  IF(.NOT. GotIt) Relax = 1.0_dp
+  CoordMin = ListGetConstReal( Solver % Values,'Min Coordinate',GotIt)
+  IF(.NOT. GotIt) CoordMin = -HUGE(CoordMin)
+  CoordMax = ListGetConstReal( Solver % Values,'Max Coordinate',GotIt)
+  IF(.NOT. GotIt) CoordMax = HUGE(CoordMax)
+  
+  nsize = SIZE( Coord )
+  DO i=1,nsize
+    IF( MaskExist ) THEN
+      IF( MaskPerm(i) == 0) CYCLE
+    END IF
+    itop = TopPointer(i)
+    
+    IF( i /= itop ) CYCLE	
+
+    k = i
+    ! First node of streamline is initilized	
+    v1(1) = Flow( FlowDofs*(FlowPerm(k)-1) + 1 ) 
+    v1(2) = Flow( FlowDofs*(FlowPerm(k)-1) + 2 ) 
+    IF( DIM == 3 ) THEN
+      v1(3) = Flow( FlowDofs*(FlowPerm(k)-1) + 3 ) 
+    END IF
+    
+    r1(1) = Solver % Mesh % Nodes % x(k)
+    r1(2) = Solver % Mesh % Nodes % y(k)
+    r1(3) = Solver % Mesh % Nodes % z(k)
+    
+    sumdr = 0.0_dp
+    
+    DO j=1,nsize
+      k = DownPointer(k)
+      
+      v2(1) = Flow( FlowDofs*(FlowPerm(k)-1) + 1 ) 
+      v2(2) = Flow( FlowDofs*(FlowPerm(k)-1) + 2 ) 
+      IF( DIM == 3 ) THEN
+        v2(3) = Flow( FlowDofs*(FlowPerm(k)-1) + 3 ) 
+      END IF
+      
+      r2(1) = Solver % Mesh % Nodes % x(k)
+      r2(2) = Solver % Mesh % Nodes % y(k)
+      r2(3) = Solver % Mesh % Nodes % z(k)
+      
+      dv = Alpha*v2 + (1-Alpha)*v1	  
+      dr = r2 - r1
+      r1 = r2
+      v1 = v2
+      
+      IF( r2( ActiveDirection) > CoordMax ) CYCLE
+      IF( r2( ActiveDirection) < CoordMin ) CYCLE
+      IF( ABS( dv( ActiveDirection) ) < TINY( CoordMin ) ) CYCLE  
+      
+      drproj = dv * ABS( dr(ActiveDirection) ) / ABS( dv(ActiveDirection) )
+      sumdr = sumdr + (drproj - dr)	  
+      
+      r2new = r2 + Relax * sumdr
+      
+      IF( DisplacementMode ) THEN
+        Solver % Mesh % Nodes % x(k) = r2new(1)
+        Solver % Mesh % Nodes % y(k) = r2new(2)
+        Solver % Mesh % Nodes % z(k) = r2new(3)
+      ELSE
+        HardDisp( DispDofs*(DispPerm(k)-1)+1) = r2new(1) - r2(1)
+        HardDisp( DispDofs*(DispPerm(k)-1)+2) = r2new(2) - r2(2)
+        IF(dim == 3) HardDisp( DispDofs*(DispPerm(k)-1)+3) = r2new(3) - r2(3)
+      END IF
+      
+      ! This is the bottom and we're done?
+      IF( k == BotPointer(k) ) EXIT
+      
+    END DO
+  END DO
+  
+  at1 = CPUTime()
+  
+  WRITE(Message,* ) 'Streamline mapping time: ',at1-at0
+  CALL Info('StructuredFlowLine',Message)
+  
+  
+!------------------------------------------------------------------------------
+END SUBROUTINE StructuredFlowLine
+!------------------------------------------------------------------------------
