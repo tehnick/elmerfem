@@ -3761,6 +3761,15 @@ END FUNCTION SearchNodeL
           ListGetLogical( Solver % Values, 'Harmonic Analysis',GotIt )
 
 
+    IF ( .NOT. HarmonicAnalysis .AND. .NOT. EigenAnalysis ) THEN
+      bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+      IF ( bnorm==0._dp ) THEN
+        CALL Info('SolveSystem','Solution trivially zero!')
+        x = 0.0d0
+        RETURN
+      END IF
+    END IF
+
     IF ( ScaleSystem .AND. .NOT. HarmonicAnalysis ) THEN
 !
 !     Scale system Ax = b as:
@@ -3942,12 +3951,6 @@ END FUNCTION SearchNodeL
 !   -------------------------------------------------
     IF ( ScaleSystem ) b(1:n) = b(1:n) * Diag(1:n)
     bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
-
-    IF ( bnorm==0._dp ) THEN
-      CALL Info('SolveSystem','Solution trivially zero!')
-      x = 0.0d0
-      RETURN
-    END IF
 
     IF ( ScaleSystem ) THEN
       b(1:n) = b(1:n) / bnorm
