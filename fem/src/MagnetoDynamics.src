@@ -40,7 +40,7 @@
 ! *
 ! *****************************************************************************/
     
-MODULE MGDynamicsUtils
+MODULE MagnetoDynamicsUtils
 
    USE DefUtils
 
@@ -48,6 +48,10 @@ MODULE MGDynamicsUtils
 
    INTERFACE SetDOFtoValue
      MODULE PROCEDURE SetDOFtoValueR, SetDOFtoValueC
+   END INTERFACE
+
+   INTERFACE GetReluctivity
+     MODULE PROCEDURE GetReluctivityR, GetReluctivityC
    END INTERFACE
 
 CONTAINS
@@ -204,13 +208,92 @@ CONTAINS
   END SUBROUTINE SetDOFToValueC
 !------------------------------------------------------------------------------
 
-END MODULE MGDynamicsUtils
+!------------------------------------------------------------------------------
+ SUBROUTINE GetReluctivityR(Material,Acoef,n)
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: Material
+    INTEGER :: n
+    REAL(KIND=dp) :: Acoef(:)
+!------------------------------------------------------------------------------
+    LOGICAL :: Found
+
+    Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found )
+    IF ( Found ) THEN
+      Acoef(1:n) = PI * 4.d-7 * Acoef(1:n)
+    ELSE
+      Acoef(1:n) = GetReal( Material, 'Permeability', Found )
+    END IF
+    IF ( Found ) THEN
+      Acoef(1:n) = 1._dp / Acoef(1:n)
+    ELSE
+      Acoef(1:n) = GetReal( Material, 'Reluctivity', Found )
+    END IF
+!------------------------------------------------------------------------------
+  END SUBROUTINE GetReluctivityR
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE MGDynamicsSolver_Init0(Model,Solver,dt,Transient)
+ SUBROUTINE GetReluctivityC(Material,Acoef,n)
 !------------------------------------------------------------------------------
-  USE MGDynamicsUtils
+    TYPE(ValueList_t), POINTER :: Material
+    INTEGER :: n
+    COMPLEX(KIND=dp) :: Acoef(:)
+!------------------------------------------------------------------------------
+    LOGICAL :: Found
+
+    Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found )
+    IF ( Found ) THEN
+      Acoef(1:n) = PI * 4.d-7 * Acoef(1:n)
+    ELSE
+      Acoef(1:n) = GetReal( Material, 'Permeability', Found )
+    END IF
+    IF ( Found ) THEN
+      Acoef(1:n) = 1._dp / Acoef(1:n)
+    ELSE
+      Acoef(1:n) = GetReal( Material, 'Reluctivity', Found )
+      Acoef(1:n) = CMPLX( REAL(Acoef(1:n)), &
+         GetReal( Material, 'Reluctivity im', Found ), KIND=dp )
+    END IF
+!------------------------------------------------------------------------------
+  END SUBROUTINE GetReluctivityC
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+ SUBROUTINE GetPermittivity(Material,Acoef,n)
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: Material
+    INTEGER :: n
+    REAL(KIND=dp) :: Acoef(:)
+!------------------------------------------------------------------------------
+    LOGICAL :: Found, FirstTime = .TRUE.
+    REAL(KIND=dp) :: Pvacuum = 0._dp
+
+    IF ( FirstTime ) THEN
+      Pvacuum = GetConstReal( CurrentModel % Constants, &
+              'Permittivity of Vacuum', Found )
+    END IF
+    
+
+    Acoef(1:n) = GetReal( Material, 'Relative Permittivity', Found )
+    IF ( Found ) THEN
+      Acoef(1:n) = Pvacuum * Acoef(1:n)
+    ELSE
+      Acoef(1:n) = GetReal( Material, 'Permittivity', Found )
+    END IF
+!------------------------------------------------------------------------------
+  END SUBROUTINE GetPermittivity
+!------------------------------------------------------------------------------
+
+
+
+END MODULE MagnetoDynamicsUtils
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE WhitneyAVSolver_Init0(Model,Solver,dt,Transient)
+!------------------------------------------------------------------------------
+  USE MagnetoDynamicsUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -231,12 +314,12 @@ SUBROUTINE MGDynamicsSolver_Init0(Model,Solver,dt,Transient)
     ENDIF
   END IF
 !------------------------------------------------------------------------------
-END SUBROUTINE MGDynamicsSolver_Init0
+END SUBROUTINE WhitneyAVSolver_Init0
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
+SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -262,7 +345,7 @@ SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
-  USE MGDynamicsUtils
+  USE MagnetoDynamicsUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -310,7 +393,7 @@ SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
      ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
           MASS(N,N), Tcoef(N), Acoef(N), STAT=istat )
      IF ( istat /= 0 ) THEN
-        CALL Fatal( 'MGDynamicsSolver', 'Memory allocation error.' )
+        CALL Fatal( 'WhitneyAVSolver', 'Memory allocation error.' )
      END IF
      AllocationsDone = .TRUE.
   END IF
@@ -360,8 +443,8 @@ SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
      Tcoef = 0.0d0
      Material => GetMaterial( Element )
      IF ( ASSOCIATED(Material) ) THEN
-       Acoef(1:n) = GetReal( Material, 'Reluctivity',  Found )
-       Tcoef(1:n) = GetReal( Material, 'Conductivity', Found )
+       CALL GetReluctivity(Material,Acoef,n)
+       Tcoef(1:n) = GetReal( Material, 'Electric Conductivity', Found )
      END IF
 
      !Get element local matrix and rhs vector:
@@ -446,7 +529,7 @@ SUBROUTINE MGDynamicsSolver( Model,Solver,dt,Transient )
     WRITE(Message,*) 'Volume tree edges: ', &
            TRIM(i2s(COUNT(TreeEdges))),     &
              ' of total: ',Mesh % NumberOfEdges
-    CALL Info('MGDynamicsSolver: ', Message, Level=5)
+    CALL Info('WhitneyAVSolver: ', Message, Level=5)
   END IF
 
   !
@@ -1112,7 +1195,7 @@ CONTAINS
     WRITE(Message,*) 'Boundary tree edges: ', &
       TRIM(i2s(COUNT(TreeEdges(FluxMap)))),   &
              ' of total: ',TRIM(i2s(FluxCount))
-    CALL Info('MGDynamicsSolver: ', Message, Level=5)
+    CALL Info('WhitneyAVSolver: ', Message, Level=5)
 
     ! Get (B,n) for BC faces:
     ! -----------------------
@@ -1453,16 +1536,16 @@ CONTAINS
 !------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
- END SUBROUTINE MGDynamicsSolver
+ END SUBROUTINE WhitneyAVSolver
 !------------------------------------------------------------------------------
 
 
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE MGDynamicsHarmonic_Init0(Model,Solver,dt,Transient)
+SUBROUTINE WhitneyAVHarmonicSolver_Init0(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------
-  USE MGDynamicsUtils
+  USE MagnetoDynamicsUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -1479,12 +1562,12 @@ SUBROUTINE MGDynamicsHarmonic_Init0(Model,Solver,dt,Transient)
     CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
   END IF
 !------------------------------------------------------------------------------
-END SUBROUTINE MGDynamicsHarmonic_Init0
+END SUBROUTINE WhitneyAVHarmonicSolver_Init0
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE MGDynamicsHarmonic( Model,Solver,dt,Transient )
+SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1510,7 +1593,7 @@ SUBROUTINE MGDynamicsHarmonic( Model,Solver,dt,Transient )
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
-  USE MGDynamicsUtils
+  USE MagnetoDynamicsUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -1559,7 +1642,7 @@ SUBROUTINE MGDynamicsHarmonic( Model,Solver,dt,Transient )
      ALLOCATE( FORCE(N), LOAD(7,N), STIFF(N,N), &
           MASS(N,N), Tcoef(N), Acoef(N), STAT=istat )
      IF ( istat /= 0 ) THEN
-        CALL Fatal( 'MGDynamicsHarmonic', 'Memory allocation error.' )
+        CALL Fatal( 'WhitneyAVHarmonicSolver', 'Memory allocation error.' )
      END IF
      AllocationsDone = .TRUE.
   END IF
@@ -1612,13 +1695,11 @@ SUBROUTINE MGDynamicsHarmonic( Model,Solver,dt,Transient )
      Tcoef = 0.0_dp
      Material => GetMaterial( Element )
      IF ( ASSOCIATED(Material) ) THEN
-       Acoef(1:n) = GetReal( Material, 'Reluctivity',  Found)
-       Acoef(1:n) = CMPLX( REAL(Acoef(1:n)), &
-          GetReal( Material, 'Reluctivity im', Found ),KIND=dp)
+       CALL GetReluctivity(Material,Acoef,n)
 
-       Tcoef(1:n) = GetReal( Material, 'Conductivity',  Found )
+       Tcoef(1:n) = GetReal( Material, 'Electric Conductivity',  Found )
        Tcoef(1:n) = CMPLX( REAL(Tcoef(1:n)), &
-         GetReal( Material, 'Conductivity im',  Found), KIND=dp)
+         GetReal( Material, 'Electric Conductivity im',  Found), KIND=dp)
      END IF
 
      !Get element local matrix and rhs vector:
@@ -1708,7 +1789,7 @@ SUBROUTINE MGDynamicsHarmonic( Model,Solver,dt,Transient )
     WRITE(Message,*) 'Volume tree edges: ', &
            TRIM(i2s(COUNT(TreeEdges))),     &
              ' of total: ',Mesh % NumberOfEdges
-    CALL Info('MGDynamicsHarmonic: ', Message, Level=5)
+    CALL Info('WhitneyAVHarmonicSolver: ', Message, Level=5)
   END IF
 
   !
@@ -2365,7 +2446,7 @@ CONTAINS
     WRITE(Message,*) 'Boundary tree edges: ', &
       TRIM(i2s(COUNT(TreeEdges(FluxMap)))),   &
              ' of total: ',TRIM(i2s(FluxCount))
-    CALL Info('MGDynamicsHarmonic: ', Message, Level=5)
+    CALL Info('WhitneyAVHarmonicSolver: ', Message, Level=5)
 
     ! Get (B,n) for BC faces:
     ! -----------------------
@@ -2629,14 +2710,14 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
- END SUBROUTINE MGDynamicsHarmonic
+ END SUBROUTINE WhitneyAVHarmonicSolver
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE MGDynamicsCalcFields_Init(Model,Solver,dt,Transient)
+SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------
-  USE MGDynamicsUtils
+  USE MagnetoDynamicsUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -2662,7 +2743,7 @@ SUBROUTINE MGDynamicsCalcFields_Init(Model,Solver,dt,Transient)
   name = GetString( SolverParams, "Potential variable", Found )
   Var => VariableGet( Solver % Mesh % variables, name )
   IF ( .NOT. ASSOCIATED(Var) ) THEN
-    CALL Fatal( "MGDynamicsCalcFields", "potential variable nat available")
+    CALL Fatal( "MagnetoDynamicsCalcFields", "potential variable nat available")
   ENDIF
 
   i = 1
@@ -2720,14 +2801,14 @@ SUBROUTINE MGDynamicsCalcFields_Init(Model,Solver,dt,Transient)
     END IF
   END IF
 !------------------------------------------------------------------------------
-END SUBROUTINE MGDynamicsCalcFields_Init
+END SUBROUTINE MagnetoDynamicsCalcFields_Init
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE MGDynamicsCalcFields(Model,Solver,dt,Transient)
+ SUBROUTINE MagnetoDynamicsCalcFields(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------
-   USE MGDynamicsUtils
+   USE MagnetoDynamicsUtils
 
    IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -2740,7 +2821,7 @@ END SUBROUTINE MGDynamicsCalcFields_Init
   
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: s,u,v,w,WBasis(16,3), SOL(2,16), PSOL(16), R(16), C(16), Norm
-   REAL(KIND=dp) :: RotWBasis(16,3), Basis(16), dBasisdx(16,3), Rot(2,3), efl(2,3)
+   REAL(KIND=dp) :: RotWBasis(16,3), Basis(16), dBasisdx(16,3), B(2,3), E(2,3)
    REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
 
    COMPLEX(KIND=dp) :: CST(3,3)
@@ -2755,6 +2836,7 @@ END SUBROUTINE MGDynamicsCalcFields_Init
    CHARACTER(LEN=MAX_NAME_LEN) :: Pname
 
    LOGICAL :: Found, stat
+   TYPE(ValueList_t), POINTER :: Material
 
    TYPE(GaussIntegrationPoints_t) :: IP
    TYPE(Nodes_t), SAVE :: Nodes
@@ -2818,9 +2900,10 @@ END SUBROUTINE MGDynamicsCalcFields_Init
        PSOL(1:nd)=(SOL(1,1:nd)-PSOL(1:nd))/dt
      END IF
 
-     PR(1:n) = GetReal(GetMaterial(),'Permittivity',Found)
-     R(1:n) = GetReal(GetMaterial(),'Reluctivity',Found)
-     C(1:n) = GetReal(GetMaterial(),'Conductivity',Found)
+     Material => GetMaterial()
+     CALL GetPermittivity(Material,PR,n)
+     CALL GetReluctivity(Material,R,n)
+     C(1:n) = GetReal(Material,'Electric Conductivity',Found)
 
      ! Luuppi nurkkapisteiden yli:
      ! ---------------------------
@@ -2828,8 +2911,7 @@ END SUBROUTINE MGDynamicsCalcFields_Init
      MASS  = 0._dp
      FORCE = 0._dp
 
-
-     Efl = 0._dp; Rot=0._dp
+     E = 0._dp; B=0._dp
      DO j = 1,IP % n
        u = IP % U(j)
        v = IP % V(j)
@@ -2839,14 +2921,14 @@ END SUBROUTINE MGDynamicsCalcFields_Init
        CALL EdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
 
        DO k=1,vDOFs
-         Rot(k,:) = MATMUL( SOL(k,np+1:nd), RotWBasis(1:nd-np,:) )
+         B(k,:) = MATMUL( SOL(k,np+1:nd), RotWBasis(1:nd-np,:) )
        END DO
        IF ( Transient ) THEN
-         Efl(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
-                  MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+         E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
+                   MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
        ELSE
          DO k=1,vDOFs
-           Efl(k,:) = -im*Omega*MATMUL(SOL(k,np+1:nd),WBasis(1:nd-np,:)) - &
+           E(k,:) = -im*Omega*MATMUL(SOL(k,np+1:nd),WBasis(1:nd-np,:)) - &
                      MATMUL(SOL(k,1:np), dBasisdx(1:np,:))
          END DO
        END IF
@@ -2857,32 +2939,32 @@ END SUBROUTINE MGDynamicsCalcFields_Init
 
        s = IP % s(j) * detJ
 
-       Power = Power + SUM(Efl**2)*C_ip*s
-       Energy = Energy + s*(PR_ip*SUM(efl**2) + R_ip*SUM(rot**2))/2
+       Power = Power + SUM(E**2)*C_ip*s
+       Energy = Energy + s*(PR_ip*SUM(E**2) + R_ip*SUM(B**2))/2
        DO p=1,n
          DO q=1,n
            MASS(p,q)=MASS(p,q)+s*Basis(p)*Basis(q)
          END DO
          k = 0
          DO l=1,vDOFs
-           FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*Rot(l,:)*Basis(p)
+           FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*B(l,:)*Basis(p)
            k = k+3
          END DO
          IF ( ASSOCIATED(MFS)) THEN
            DO l=1,vDOFs
-             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*R_ip*Rot(l,:)*Basis(p)
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*R_ip*B(l,:)*Basis(p)
              k = k+3
            END DO
          END IF
          IF ( ASSOCIATED(EF)) THEN
            DO l=1,vDOFs
-             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*efl(l,:)*Basis(p)
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*E(l,:)*Basis(p)
              k = k+3
            END DO
          END IF
          IF ( ASSOCIATED(CD)) THEN
            DO l=1,vDOFs
-             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*C_ip*efl(l,:)*Basis(p)
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*C_ip*E(l,:)*Basis(p)
              k = k+3
            END DO
          END IF
@@ -2890,9 +2972,9 @@ END SUBROUTINE MGDynamicsCalcFields_Init
            IF ( Vdofs==1 ) THEN
              DO l=1,3
                DO m=l,3
-                 ST(l,m)=PR_ip*efl(1,l)*efl(1,m)+R_ip*rot(1,l)*rot(1,m)
+                 ST(l,m)=PR_ip*E(1,l)*E(1,m)+R_ip*B(1,l)*B(1,m)
                END DO
-               ST(l,l)=ST(l,l)-(PR_ip*SUM(efl(1,:)**2)+R_ip*SUM(rot(1,:)**2))/2
+               ST(l,l)=ST(l,l)-(PR_ip*SUM(E(1,:)**2)+R_ip*SUM(B(1,:)**2))/2
              END DO
              DO l=1,6
                FORCE(p,k+l)=FORCE(p,k+l) + s*ST(ind1(l),ind2(l))*Basis(p)
@@ -2901,15 +2983,15 @@ END SUBROUTINE MGDynamicsCalcFields_Init
            ELSE
              DO l=1,3
                DO m=l,3
-                 CST(l,m) = PR_ip*CMPLX(efl(1,l),efl(2,l),KIND=dp) * &
-                                  CMPLX(efl(1,m),efl(2,m),KIND=dp)
+                 CST(l,m) = PR_ip*CMPLX(E(1,l),E(2,l),KIND=dp) * &
+                                  CMPLX(E(1,m),E(2,m),KIND=dp)
                  CST(l,m) = CST(l,m) + &
-                             R_ip*CMPLX(rot(1,l),rot(2,l),KIND=dp) * &
-                                  CMPLX(rot(1,m),rot(2,m),KIND=dp)
+                             R_ip*CMPLX(B(1,l),B(2,l),KIND=dp) * &
+                                  CMPLX(B(1,m),B(2,m),KIND=dp)
                END DO
                CST(l,l) = CST(l,l) - &
-                      (PR_ip*SUM(ABS(CMPLX(efl(1,:),efl(2,:)))**2)+ &
-                        R_ip*SUM(ABS(CMPLX(rot(1,:),rot(2,:)))**2))/2
+                      (PR_ip*SUM(ABS(CMPLX(E(1,:),E(2,:)))**2)+ &
+                        R_ip*SUM(ABS(CMPLX(B(1,:),B(2,:)))**2))/2
              END DO
              DO l=1,6
                FORCE(p,k+l)=FORCE(p,k+l) + s*REAL(CST(ind1(l),ind2(l)))*Basis(p)
@@ -2979,12 +3061,12 @@ END SUBROUTINE MGDynamicsCalcFields_Init
    Solver % Matrix % RHS => Fsave
 
    WRITE(Message,*) 'Eddy current power: ', Power
-   CALL Info( 'MGDynamics', Message )
+   CALL Info( 'MagnetoDynamics', Message )
 
    WRITE(Message,*) '(Electro)Magnetic Field Energy: ', Energy
-   CALL Info( 'MGDynamics', Message )
+   CALL Info( 'MagnetoDynamics', Message )
    DEALLOCATE( Gforce,MASS,FORCE )
 
 !------------------------------------------------------------------------
-END SUBROUTINE MGDynamicsCalcFields
+END SUBROUTINE MagnetoDynamicsCalcFields
 !------------------------------------------------------------------------

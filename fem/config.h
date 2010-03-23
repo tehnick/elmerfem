@@ -199,7 +199,7 @@
 #define PACKAGE_VERSION ""
 
 /* svn revision */
-#define REVISION "4296"
+#define REVISION "4420M"
 
 /* Detected platform. */
 /* #undef SGI */
