@@ -2892,6 +2892,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
 
    C = 0._dp; R=0._dp; PR=0._dp
+   Magnetization = 0._dp
 
    Power = 0._dp; Energy = 0._dp
    CALL DefaultInitialize()
@@ -2911,17 +2912,17 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
      Material => GetMaterial()
      IF ( ASSOCIATED(MFS) ) THEN
-       Magnetization(1,1:n) = GetReal( Material,'Magnetization 1' )
+       Magnetization(1,1:n) = GetReal( Material,'Magnetization 1', Found )
        Magnetization(1,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
-              GetReal( Material,'Magnetization 1 im' ), KIND=dp )
+              GetReal( Material,'Magnetization 1 im', Found ), KIND=dp )
 
-       Magnetization(2,1:n) = GetReal( Material,'Magnetization 2' )
+       Magnetization(2,1:n) = GetReal( Material,'Magnetization 2', Found )
        Magnetization(2,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
-              GetReal( Material,'Magnetization 2 im' ), KIND=dp )
+              GetReal( Material,'Magnetization 2 im', Found ), KIND=dp )
 
-       Magnetization(3,3:n) = GetReal( Material,'Magnetization 3' )
+       Magnetization(3,3:n) = GetReal( Material,'Magnetization 3', Found )
        Magnetization(3,3:n) = CMPLX( REAL(Magnetization(1,1:n)), &
-              GetReal( Material,'Magnetization 3 im' ), KIND=dp )
+              GetReal( Material,'Magnetization 3 im', Found ), KIND=dp )
      END IF
 
      CALL GetPermittivity(Material,PR,n)
@@ -2980,11 +2981,11 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
            k = k+3
          END DO
          IF ( ASSOCIATED(MFS)) THEN
-           FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*(R_ip*B(l,:)-REAL(MG_ip))*Basis(p)
+           FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*(R_ip*B(1,:)-REAL(MG_ip))*Basis(p)
            k = k+3
 
            IF ( Vdofs>1 ) THEN
-             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*(R_ip*B(l,:)-AIMAG(MG_ip))*Basis(p)
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*(R_ip*B(2,:)-AIMAG(MG_ip))*Basis(p)
              k = k+3
            END IF
          END IF
