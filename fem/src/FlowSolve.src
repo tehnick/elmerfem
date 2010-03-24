@@ -105,11 +105,12 @@
 
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE., GotForceBC, GotIt, &
                   MBFlag, Convect  = .TRUE., NormalTangential, RelaxBefore, &
-                  divDiscretization, GradPDiscretization, ComputeFree=.FALSE.
+                  divDiscretization, GradPDiscretization, ComputeFree=.FALSE., &
+                  Transient
 
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag, VarName
-     CHARACTER(LEN=MAX_NAME_LEN) :: LocalCoords
+     CHARACTER(LEN=MAX_NAME_LEN) :: LocalCoords, FlowModel
      INTEGER :: CompressibilityModel, ModelCoords, ModelDim
      INTEGER :: body_id,bf_id,eq_id,DIM
      INTEGER, POINTER :: NodeIndexes(:), Indexes(:)
@@ -208,6 +209,22 @@
         END SELECT
      END IF
 
+     ! check for Flow model, one of 'full', 'no convection', 'stokes':
+     ! ---------------------------------------------------------------
+     Transient = TransientSimulation
+     Convect = .TRUE.
+     FlowModel = GetString( GetSolverParams(), 'Flow Model', Gotit )
+     
+     SELECT CASE(FlowModel)
+     CASE('no convection')
+       Convect = .FALSE.
+     CASE('stokes')
+       Convect = .FALSE.
+       Transient = .FALSE.
+     CASE DEFAULT
+       FlowModel = 'full'
+     END SELECT
+
      DIM = CoordinateSystemDimension()
 
      FlowSol => Solver % Variable
@@ -224,7 +241,7 @@
      IF ( ASSOCIATED( TempSol ) ) THEN
        TempPerm     => TempSol % Perm
        Temperature  => TempSol % Values
-       IF( TransientSimulation ) THEN
+       IF( Transient ) THEN
          IF ( ASSOCIATED(TempSol % PrevValues) ) TempPrev => TempSol % PrevValues(:,1)
        END IF
      END IF
@@ -435,7 +452,7 @@
            'Artificial Compressibility Scaling',GotIt)      
 
        IF(.NOT.GotIt) PseudoCompressibilityScale = 1.0
-       IF(TransientSimulation) THEN
+       IF(Transient) THEN
          PseudoCompressibilityScale = PseudoCompressibilityScale / dt
        END IF
        PseudoPressureUpdate = ListGetLogical( Model % Simulation, &
@@ -487,9 +504,11 @@
            bf_id = ListGetInteger( Model % Bodies(body_id) % Values, &
               'Body Force', gotIt, 1, Model % NumberOfBodyForces )
 
-           Convect = ListGetLogical( Model % Equations(eq_id) % Values, &
-                     'NS Convect', GotIt )
-           IF ( .NOT. GotIt ) Convect = .TRUE.
+           IF ( FlowModel == 'full' ) THEN
+             Convect = ListGetLogical( Model % Equations(eq_id) % Values, &
+                       'NS Convect', GotIt )
+             IF ( .NOT. GotIt ) Convect = .TRUE.
+           ENDIF
 
            k = ListGetInteger( Model % Bodies(body_id) % Values, 'Material', &
                   minv=1, maxv=Model % NumberOfMaterials )
@@ -584,7 +603,7 @@
          IF ( ASSOCIATED( TempSol ) ) THEN
             IF ( ALL( TempPerm(NodeIndexes) > 0 ) ) THEN
                LocalTemperature(1:nd) = Temperature( TempPerm(Indexes(1:nd)) )
-               IF ( TransientSimulation .AND. CompressibilityModel /= Incompressible) THEN
+               IF ( Transient .AND. CompressibilityModel /= Incompressible) THEN
                  LocalTempPrev(1:nd) = TempPrev( TempPerm(Indexes(1:nd)) )
                END IF
             END IF
@@ -652,7 +671,7 @@
               IF ( .NOT.GotIt ) ReferencePressure = 0.0d0
 
               Pressure(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd)))
-              IF ( TransientSimulation ) THEN
+              IF ( Transient ) THEN
                 PrevPressure(1:nd) = Solver % Variable % PrevValues( &
                           NSDOFs*FlowPerm(Indexes(1:nd)),1 )
               END IF
@@ -663,7 +682,7 @@
              Pressure(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd)) )
              IF ( ASSOCIATED( DensitySol ) ) THEN
                Density(1:nd) = DensitySol % Values( DensitySol % Perm(Indexes(1:nd)) )
-               IF ( TransientSimulation ) THEN
+               IF ( Transient ) THEN
                   PrevDensity(1:nd) = DensitySol % PrevValues( &
                        DensitySol % Perm(Indexes(1:nd)),1)
                 END IF
@@ -684,7 +703,7 @@
              Density(1:n) = GetReal( Material,'Density' )
              Density(1:n) = Density(1:n) * ( 1 - HeatExpansionCoeff(1:n)  * &
                   ( LocalTemperature(1:n) - ReferenceTemperature(1:n) ) )
-             IF ( TransientSimulation ) THEN
+             IF ( Transient ) THEN
                 PrevDensity(1:n) = Density(1:n) * ( 1 - HeatExpansionCoeff(1:n) * &
                    ( LocalTempPrev(1:n) - ReferenceTemperature(1:n) )  )
              END IF
@@ -798,7 +817,7 @@
 !
 ! NOTE: LoadVector is multiplied by density inside *Navier* routines
 !
-         IF ( TransientSimulation ) THEN
+         IF ( Transient ) THEN
            SELECT CASE( CompressibilityModel )
            CASE( PerfectGas1 )
              IF ( ASSOCIATED( TempSol ) ) THEN
@@ -895,7 +914,7 @@
          IF ( nb==0 .AND. Bubbles ) nb = n
 
          TimeForce = 0.0_dp
-         IF ( TransientSimulation ) THEN
+         IF ( Transient ) THEN
 !------------------------------------------------------------------------------
 !          NOTE: the following will replace STIFF and FORCE
 !          with the combined information
@@ -1058,7 +1077,7 @@
           END IF
 !------------------------------------------------------------------------------
 
-          IF ( TransientSimulation ) THEN
+          IF ( Transient ) THEN
             MASS = 0.0d0
             CALL Default1stOrderTime( MASS, STIFF, FORCE )
           END IF
