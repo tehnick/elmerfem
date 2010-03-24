@@ -2799,6 +2799,12 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
            "Current Density[Current Density re:3 Current Density im:3]" )
       END IF
     END IF
+
+    IF ( GetLogical( SolverParams, 'Calculate Joule Heating', Found ) ) THEN
+      i = i + 1
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Joule Field" )
+    END IF
   END IF
 !------------------------------------------------------------------------------
 END SUBROUTINE MagnetoDynamicsCalcFields_Init
@@ -2823,13 +2829,14 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    REAL(KIND=dp) :: s,u,v,w,WBasis(16,3), SOL(2,16), PSOL(16), R(16), C(16), Norm
    REAL(KIND=dp) :: RotWBasis(16,3), Basis(16), dBasisdx(16,3), B(2,3), E(2,3)
    REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
+   COMPLEX(KIND=dp) ::  Magnetization(3,16), MG_ip(3)
 
    COMPLEX(KIND=dp) :: CST(3,3)
 
    INTEGER, PARAMETER :: ind1(6) = [1,2,3,1,2,1]
    INTEGER, PARAMETER :: ind2(6) = [1,2,3,2,3,3]
 
-   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST
+   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH
    INTEGER :: Active, Indexes(12), i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs
 
    TYPE(Solver_t), POINTER :: pSolver
@@ -2860,8 +2867,9 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    END DO
    vDOFs = pSolver % Variable % DOFs
 
-   EF => Null(); CD => Null()
+   EF => Null(); CD => Null(); JH => Null()
    IF ( Transient .OR. vDOFs==2 ) THEN
+     JH => VariableGet( Mesh % Variables, 'Joule Field' )
      EF => VariableGet( Mesh % Variables, 'Electric Field' )
      CD => VariableGet( Mesh % Variables, 'Current Density' )
    END IF
@@ -2874,6 +2882,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    IF ( ASSOCIATED(EF))  DOFs=DOFs+3
    IF ( ASSOCIATED(MST)) DOFs=DOFs+6
    DOFs = DOFs*vDOFs
+   IF ( ASSOCIATED(JH) ) DOFs=DOFs+1
    ALLOCATE(GForce(SIZE(Solver % Matrix % RHS),DOFs)); Gforce=0._dp
 
    n = Mesh % MaxElementNodes
@@ -2901,6 +2910,20 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      END IF
 
      Material => GetMaterial()
+     IF ( ASSOCIATED(MFS) ) THEN
+       Magnetization(1,1:n) = GetReal( Material,'Magnetization 1' )
+       Magnetization(1,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+              GetReal( Material,'Magnetization 1 im' ), KIND=dp )
+
+       Magnetization(2,1:n) = GetReal( Material,'Magnetization 2' )
+       Magnetization(2,1:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+              GetReal( Material,'Magnetization 2 im' ), KIND=dp )
+
+       Magnetization(3,3:n) = GetReal( Material,'Magnetization 3' )
+       Magnetization(3,3:n) = CMPLX( REAL(Magnetization(1,1:n)), &
+              GetReal( Material,'Magnetization 3 im' ), KIND=dp )
+     END IF
+
      CALL GetPermittivity(Material,PR,n)
      CALL GetReluctivity(Material,R,n)
      C(1:n) = GetReal(Material,'Electric Conductivity',Found)
@@ -2937,6 +2960,12 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        R_ip = SUM( Basis(1:n)*R(1:n) )
        PR_ip = SUM( Basis(1:n)*PR(1:n) )
 
+       IF ( ASSOCIATED(MFS) ) THEN
+         DO l=1,3
+           MG_ip(l) = SUM( Magnetization(l,1:n)*Basis(1:n) )
+         END DO
+       END IF
+
        s = IP % s(j) * detJ
 
        Power = Power + SUM(E**2)*C_ip*s
@@ -2951,10 +2980,13 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
            k = k+3
          END DO
          IF ( ASSOCIATED(MFS)) THEN
-           DO l=1,vDOFs
-             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*R_ip*B(l,:)*Basis(p)
+           FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*(R_ip*B(l,:)-REAL(MG_ip))*Basis(p)
+           k = k+3
+
+           IF ( Vdofs>1 ) THEN
+             FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*(R_ip*B(l,:)-AIMAG(MG_ip))*Basis(p)
              k = k+3
-           END DO
+           END IF
          END IF
          IF ( ASSOCIATED(EF)) THEN
            DO l=1,vDOFs
@@ -2967,6 +2999,10 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
              FORCE(p,k+1:k+3) = FORCE(p,k+1:k+3)+s*C_ip*E(l,:)*Basis(p)
              k = k+3
            END DO
+         END IF
+         IF ( ASSOCIATED(JH) ) THEN
+           FORCE(p,k+1) = FORCE(p,k+1)+s*SUM(E(:,:)**2)*Basis(p)
+           k = k+1
          END IF
          IF ( ASSOCIATED(MST)) THEN
            IF ( Vdofs==1 ) THEN
@@ -3050,6 +3086,13 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      END DO
    END IF
 
+   IF ( ASSOCIATED(JH) ) THEN
+     DOFs = DOFs+1
+     Solver % Matrix % RHS => Gforce(:,DOFs)
+     Norm = DefaultSolve()
+     JH % Values = Solver % Variable % Values
+   END IF
+
    IF ( ASSOCIATED(MST) ) THEN
      DO i=1,6*vDOFs
        DOFs = DOFs+1
@@ -3062,9 +3105,13 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
    WRITE(Message,*) 'Eddy current power: ', Power
    CALL Info( 'MagnetoDynamics', Message )
+   CALL ListAddConstReal( Model % Simulation, &
+        'res: Eddy current power', Power )
 
    WRITE(Message,*) '(Electro)Magnetic Field Energy: ', Energy
    CALL Info( 'MagnetoDynamics', Message )
+   CALL ListAddConstReal( Model % Simulation, &
+        'res: Magnetic Field Energy', Energy )
    DEALLOCATE( Gforce,MASS,FORCE )
 
 !------------------------------------------------------------------------
