@@ -150,9 +150,11 @@ MODULE DiffuseConvectiveGeneral
 
      REAL(KIND=dp) :: C0,CT,C1,C2(3,3),dC2dx(3,3,3),SU(n),SW(n),Density
 
-     LOGICAL :: stat,CylindricSymmetry,Convection,ConvectAndStabilize,Bubbles
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+
+     LOGICAL :: stat,CylindricSymmetry,Convection,ConvectAndStabilize,Bubbles, &
+               FrictionHeat, Found
+     TYPE(ValueList_t), POINTER :: BodyForce
 
 !------------------------------------------------------------------------------
 
@@ -212,6 +214,11 @@ MODULE DiffuseConvectiveGeneral
        END DO
      END IF
 
+!------------------------------------------------------------------------------
+     BodyForce => GetBodyForce()
+     FrictionHeat = .FALSE.
+     IF (ASSOCIATED(BodyForce)) &
+       FrictionHeat = GetLogical( BodyForce, 'Friction Heat', Found )
 !------------------------------------------------------------------------------
 !   Now we start integrating
 !------------------------------------------------------------------------------
@@ -464,21 +471,23 @@ MODULE DiffuseConvectiveGeneral
            END DO
          END IF
 
-         Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
-         Viscosity = EffectiveViscosity( Viscosity, Density, Ux, Uy, Uz, &
-               Element, Nodes, n, n, u, v, w )
-         IF ( Viscosity > 0.0d0 ) THEN
-           IF ( .NOT.Compressible ) THEN
-             dVelodx = 0.0D0
-             DO i=1,3
-               dVelodx(1,i) = SUM( Ux(1:n)*dBasisdx(1:n,i) )
-               dVelodx(2,i) = SUM( Uy(1:n)*dBasisdx(1:n,i) )
-               IF ( dim > 2 .AND. CurrentCoordinateSystem()/= AxisSymmetric ) &
-                 dVelodx(3,i) = SUM( Uz(1:n)*dBasisdx(1:n,i) )
-             END DO
+         IF ( FrictionHeat ) THEN
+           Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
+           Viscosity = EffectiveViscosity( Viscosity, Density, Ux, Uy, Uz, &
+                 Element, Nodes, n, n, u, v, w )
+           IF ( Viscosity > 0.0d0 ) THEN
+             IF ( .NOT.Compressible ) THEN
+               dVelodx = 0.0D0
+               DO i=1,3
+                 dVelodx(1,i) = SUM( Ux(1:n)*dBasisdx(1:n,i) )
+                 dVelodx(2,i) = SUM( Uy(1:n)*dBasisdx(1:n,i) )
+                 IF ( dim > 2 .AND. CurrentCoordinateSystem()/= AxisSymmetric ) &
+                   dVelodx(3,i) = SUM( Uz(1:n)*dBasisdx(1:n,i) )
+               END DO
+             END IF
+             Force = Force + 0.5d0 * Viscosity * &
+                    SecondInvariant( Velo,dVelodx,Metric,Symb )
            END IF
-           Force = Force + 0.5d0 * Viscosity * &
-                  SecondInvariant( Velo,dVelodx,Metric,Symb )
          END IF
        END IF
 !------------------------------------------------------------------------------
