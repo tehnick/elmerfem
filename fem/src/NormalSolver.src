@@ -100,14 +100,16 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
 !    Local variables
 !------------------------------------------------------------------------------
   TYPE(ValueList_t),POINTER :: SolverParams
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CondName
+  CHARACTER(LEN=MAX_NAME_LEN) :: Vname, VarName, CondName
   INTEGER :: i,j,k,dim,DOFs
   LOGICAL :: ConstantBulkMatrix, ConstantBulkMatrixInUse, CSymmetry
-  LOGICAL :: GotIt, Visited = .FALSE.
+  LOGICAL :: GotIt, Visited = .FALSE., SetD
   REAL(KIND=dp) :: Unorm, Totnorm, nrm
   REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: NrmSol
+
+  REAL(KIND=dp), ALLOCATABLE :: Values(:)
   
   SAVE Visited
 
@@ -166,10 +168,25 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   CALL Info( 'NormalSolver', Message, Level=5 )
 !        
 !------------------------------------------------------------------------------     
+  SetD = GetLogical(GetSolverParams(), 'Set Dirichlet Conditions',GotIt)
+  IF ( SetD ) THEN
+    ALLOCATE(Values(SIZE(Solver % Matrix % Values)))
+    Vname = Solver % Variable % Name
+    Values = Solver % Matrix % Values
+  END IF
   DO i=1,dim
     Solver % Matrix % RHS => ForceVector(i,:)
 
-    CALL DefaultDirichletBCs()
+    IF ( SetD ) THEN
+      Solver % Variable % Name = TRIM(VarName) // ' ' // TRIM(I2S(i))
+      Solver % Matrix % Values = Values
+      CALL DefaultDirichletBCs()
+      Solver % Variable % Name = Vname
+    ELSE
+      CALL DefaultDirichletBCs()
+    END IF
+
+    Solver % Variable % Values = 0._dp
     UNorm = DefaultSolve()
 
     DO j=1,Solver % Matrix % NumberOfRows
@@ -177,6 +194,7 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
     END DO
     Solver % Matrix % RHS => SaveRHS
   END DO
+  IF ( SetD ) DEALLOCATE(Values)
 
   DO i=1,Solver % Matrix % NumberOFRows
     nrm = 0.0_dp
