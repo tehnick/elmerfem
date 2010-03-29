@@ -2312,14 +2312,17 @@ CONTAINS
         IF ( CurrentElement % BoundaryInfo % Constraint == &
                   Model % BCs(i) % Tag ) THEN
           IF ( ListGetLogical( Model % BCs(i) % Values,VariableName, gotIt) ) THEN
-            Found=ListGetLogical( Model % BCs(i) % Values, &
-               TRIM(VariableName) // ' Rotate',gotIt)
+            Found = ListGetLogical( Model % BCs(i) % Values, &
+                 TRIM(VariableName) // ' Rotate',gotIt)
             IF ( Found .OR. .NOT. GotIt ) THEN
               Condition(1:n) = ListGetReal( Model % BCs(i) % Values, &
+                   TRIM(VariableName) // ' Rotate Condition', n, NodeIndexes, Conditional )
+
+              Condition(1:n) = Condition(1:n)+ListGetReal( Model % BCs(i) % Values, &
                  TRIM(VariableName) // ' Condition', n, NodeIndexes, Conditional )
 
               DO j=1,n
-                IF ( Conditional .AND. Condition(j)<0._dp ) CYCLE
+                IF ( Condition(j)<0._dp ) CYCLE
 
                 k = NodeIndexes(j)
                 IF ( BoundaryReorder(k)==0 ) THEN
