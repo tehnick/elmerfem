@@ -654,7 +654,7 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
   int ind[MAXNODESD1];
   Real *rpart;
   FILE *out;
-  
+
   if(!data->created) {
     printf("SaveSolutionElmer: You tried to save points that were never created.\n");
     return(1);
@@ -742,7 +742,7 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
     material = data->material[i];
 
     if(data->bodynamesexist) 
-      fprintf(out,"%s %d ",data->bodyname[material],elemtype);
+      fprintf(out,"body_%d_%s %d ",material,data->bodyname[material],elemtype);
     else if(elemtype/100 > 4) 
       fprintf(out,"vol%d %d ",material,elemtype);
     else if(elemtype/100 > 2) 
@@ -764,12 +764,16 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
       if(bound[j].created == FALSE) continue;
       
       for(i=1;i<=bound[j].nosides;i++) {
-	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
+
+	if(1) 
+	  GetBoundaryElement(i,&bound[j],data,ind,&sideelemtype); 
+	else
+	  GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
 
 	boundtype = bound[j].types[i];
 
 	if(data->boundarynamesexist) 
-	  fprintf(out,"%s %d ",data->boundaryname[boundtype],sideelemtype);	  
+	  fprintf(out,"bc_%d_%s %d ",boundtype,data->boundaryname[boundtype],sideelemtype);	  
 	else if(sideelemtype/100 > 2) 
 	  fprintf(out,"bcside%d %d ",boundtype,sideelemtype);
 	else if(sideelemtype/100 > 1) 
@@ -947,7 +951,11 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
     if(bound[j].nosides == 0) continue;
     
     for(i=1; i <= bound[j].nosides; i++) {
-      GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
+
+      if(1)
+	GetBoundaryElement(i,&bound[j],data,ind,&sideelemtype); 
+      else
+	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
       sumsides++;
       
       fprintf(out,"%d %d %d %d ",
@@ -1094,6 +1102,42 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
   
   return(0);
 }
+
+
+
+int SaveSizeInfo(struct FemType *data,struct BoundaryType *bound,
+		 char *prefix,int info)
+{
+  int nosides;
+  int i,j,k;
+  FILE *out;
+  char filename[MAXFILESIZE];
+
+  if(!data->created) {
+    printf("You tried to save points that were never created.\n");
+    return(1);
+  }
+
+  nosides = 0;
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    if(bound[j].created == FALSE) continue;
+    nosides += bound[j].nosides;
+  }
+
+  AddExtension(prefix,filename,"size");
+  if(info) printf("Saving size info into file.\n",filename);
+
+  out = fopen(filename,"w");
+  fprintf(out,"%d\n",data->noknots);
+  fprintf(out,"%d\n",data->noelements);
+  fprintf(out,"%d\n",nosides);
+  fprintf(out,"%d\n",data->nopartitions);
+
+  fclose(out);
+
+  return(0);
+}
+
 
 
 int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
@@ -3393,150 +3437,151 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   if(info) printf("Checking for problematic sharings\n"); 
   m = 0;
 
-  if(partitions > 2) do {
-    
-    int i1,i2,e1,e2,owners,ownpart;
-    int *elemparts,*invelemparts;
-    int **knows;
-
-    m++;
-    sharings = 0;
-    e1 = e2 = 0;
-    
-    if(m == 1 && optimize == 1) {
-      elemparts = Ivector(1,partitions);
-      invelemparts = Ivector(1,100);
-      knows = Imatrix(1,100,1,100);
-    }
-
-    for(j=1;j<=partitions;j++) 
-      elemparts[j] = 0;
-
-    for(j=1;j<=100;j++) 
-      invelemparts[j] = 0;
-    
-    for(j=1;j<=100;j++) 
-      for(k=1;k<=100;k++)
-	knows[j][k] = 0;
-    
-    for(i=1;i<=noelements;i++) {
-      int ownpart;
-
-      owners = 0;
-      nodesd2 = data->elementtypes[i] % 100;
-      ownpart = FALSE;
-
-      /* Check the number of owners in an element */
-      for(j=0;j < nodesd2;j++) {
-	ind = data->topology[i][j];
-	k = nodepart[ind];
-
-	/* Mark if the element partition is one of the owners */
-	if( k == elempart[i]) ownpart = TRUE;
-	if(!elemparts[k]) {
-	  owners++;
-	  elemparts[k] = owners;
-	  invelemparts[owners] = k;
-	}
+  if(partitions > 2) {  
+    do {
+      
+      int i1,i2,e1,e2,owners,ownpart;
+      int *elemparts,*invelemparts;
+      int **knows;
+      
+      m++;
+      sharings = 0;
+      e1 = e2 = 0;
+      
+      if(m == 1 && optimize == 1) {
+	elemparts = Ivector(1,partitions);
+	invelemparts = Ivector(1,100);
+	knows = Imatrix(1,100,1,100);
       }
       
-      /* One strange owner is still ok. */
-      if(owners - ownpart <= 1) {
+      for(j=1;j<=partitions;j++) 
+	elemparts[j] = 0;
+      
+      for(j=1;j<=100;j++) 
+	invelemparts[j] = 0;
+      
+      for(j=1;j<=100;j++) 
+	for(k=1;k<=100;k++)
+	  knows[j][k] = 0;
+      
+      for(i=1;i<=noelements;i++) {
+	int ownpart;
+	
+	owners = 0;
+	nodesd2 = data->elementtypes[i] % 100;
+	ownpart = FALSE;
+	
+	/* Check the number of owners in an element */
+	for(j=0;j < nodesd2;j++) {
+	  ind = data->topology[i][j];
+	  k = nodepart[ind];
+	  
+	  /* Mark if the element partition is one of the owners */
+	  if( k == elempart[i]) ownpart = TRUE;
+	  if(!elemparts[k]) {
+	    owners++;
+	    elemparts[k] = owners;
+	    invelemparts[owners] = k;
+	  }
+	}
+	
+	/* One strange owner is still ok. */
+	if(owners - ownpart <= 1) {
+	  /* Nullify the elemparts vector */
+	  for(j=1;j<=owners;j++) {
+	    k = invelemparts[j];
+	    elemparts[k] = 0;
+	  }
+	  continue;
+	}
+	
+	/* Check which of the partitions are related by a common node */
+	for(j=0;j < nodesd2;j++) {
+	  ind = data->topology[i][j];
+	  for(l=1;l<=maxneededtimes;l++) {
+	    e1 = data->partitiontable[l][ind];
+	    if(!e1) break;
+	    e1 = elemparts[e1];
+	    if(!e1) continue;
+	    for(k=l+1;k<=maxneededtimes;k++) {
+	      e2 = data->partitiontable[k][ind];
+	      if(!e2) break;
+	      e2 = elemparts[e2];
+	      if(!e2) continue;
+	      knows[e1][e2] = knows[e2][e1] = TRUE;
+	    }
+	  }
+	}    
+	
+	/* Check if there are more complex relations:
+	   i.e. two partitions are joined at an element but not at the same node. */
+	hit = FALSE;
+	for(j=1;j<=owners;j++)
+	  for(k=j+1;k<=owners;k++) {
+	    if(!knows[j][k]) {
+	      hit += 1;
+	      i1 = invelemparts[j];
+	      i2 = invelemparts[k];
+	    }
+	  }
 	/* Nullify the elemparts vector */
 	for(j=1;j<=owners;j++) {
 	  k = invelemparts[j];
 	  elemparts[k] = 0;
 	}
-	continue;
-      }
-
-      /* Check which of the partitions are related by a common node */
-      for(j=0;j < nodesd2;j++) {
-	ind = data->topology[i][j];
-	for(l=1;l<=maxneededtimes;l++) {
-	  e1 = data->partitiontable[l][ind];
-	  if(!e1) break;
-	  e1 = elemparts[e1];
-	  if(!e1) continue;
-	  for(k=l+1;k<=maxneededtimes;k++) {
-	    e2 = data->partitiontable[k][ind];
-	    if(!e2) break;
-	    e2 = elemparts[e2];
-	    if(!e2) continue;
-	    knows[e1][e2] = knows[e2][e1] = TRUE;
+	
+	/* Nullify the knows matrix */
+	for(j=1;j <= owners;j++) 
+	  for(k=1;k <= owners;k++) 
+	    knows[j][k] = FALSE;
+	
+	if(hit) {
+	  e1 = e2 = 0;
+	  
+	  if(info) {
+	    if( hit + m > 2 ) printf("Partitions %d and %d in element %d (%d owners) oddly related %d times\n",
+				     i1,i2,i,owners,hit);
 	  }
+	  
+	  
+	  /* Count the number of nodes with wrong parents */
+	  for(j=0;j < nodesd2;j++) {
+	    ind = data->topology[i][j];
+	    for(l=1;l<=maxneededtimes;l++) {
+	      k = data->partitiontable[l][ind];
+	      if(k == 0) break;
+	      if(k == i1) e1++;
+	      if(k == i2) e2++;
+	    }
+	  }
+	  
+	  /* Change the owner of those with less sharings */
+	  for(j=0;j < nodesd2;j++) {
+	    ind = data->topology[i][j];
+	    k = nodepart[ind];
+	    if((k == i1 && e1 < e2) || (k == i2 && e1 >= e2)) {
+	      probnodes[ind] += 1;
+	      nodepart[ind] = elempart[i];
+	      neededvector[elempart[i]] += 1;
+	      neededvector[k] -= 1;
+	    }
+	  }	
+	  sharings++;
 	}
-      }    
-
-      /* Check if there are more complex relations:
-	 i.e. two partitions are joined at an element but not at the same node. */
-      hit = FALSE;
-      for(j=1;j<=owners;j++)
-	for(k=j+1;k<=owners;k++) {
-	  if(!knows[j][k]) {
-	    hit += 1;
-	    i1 = invelemparts[j];
-	    i2 = invelemparts[k];
-	  }
       }
-      /* Nullify the elemparts vector */
-      for(j=1;j<=owners;j++) {
-	k = invelemparts[j];
-	elemparts[k] = 0;
-      }
-
-      /* Nullify the knows matrix */
-      for(j=1;j <= owners;j++) 
-	for(k=1;k <= owners;k++) 
-	  knows[j][k] = FALSE;
       
-      if(hit) {
-	e1 = e2 = 0;
-
-	if(info) {
-	  if( hit + m > 2 ) printf("Partitions %d and %d in element %d (%d owners) oddly related %d times\n",
-			       i1,i2,i,owners,hit);
-	}
-
-
-	/* Count the number of nodes with wrong parents */
-	for(j=0;j < nodesd2;j++) {
-	  ind = data->topology[i][j];
-	  for(l=1;l<=maxneededtimes;l++) {
-	    k = data->partitiontable[l][ind];
-	    if(k == 0) break;
-	    if(k == i1) e1++;
-	    if(k == i2) e2++;
-	  }
-	}
-
-	/* Change the owner of those with less sharings */
-	for(j=0;j < nodesd2;j++) {
-	  ind = data->topology[i][j];
-	  k = nodepart[ind];
-	  if((k == i1 && e1 < e2) || (k == i2 && e1 >= e2)) {
-	    probnodes[ind] += 1;
-	    nodepart[ind] = elempart[i];
-	    neededvector[elempart[i]] += 1;
-	    neededvector[k] -= 1;
-	  }
-	}	
-	sharings++;
-      }
+      if(info && sharings) printf("Changed the ownership of %d nodes\n",sharings);
+      
+    } while (sharings > 0 && m < 3);
+  
+    if(info) {
+      if(sharings) 
+	printf("%d problematic sharings may still exist\n",sharings);
+      else 
+	printf("There shouldn't be any problematic sharings, knock, knock...\n");
     }
-      
-    if(info && sharings) printf("Changed the ownership of %d nodes\n",sharings);
-      
-  } while (sharings > 0 && m < 3);
-  
-  
-
-  if(info) {
-    if(sharings) 
-      printf("%d problematic sharings may still exist\n",sharings);
-    else 
-      printf("There shouldn't be any problematic sharings, knock, knock...\n");
   }
+
 
   printf("A posteriori checking\n");
   CheckPartitioning(data,info);

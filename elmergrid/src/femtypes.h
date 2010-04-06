@@ -249,6 +249,8 @@ struct BoundaryType {
     *types,
     *discont,        /* type of discontinuous and periodic BCs */
     *normal,         /* direction of the normal */
+    *elementtypes,   /* side element types if needed */
+    **topology,       /* topology if needed */
     points[MAXVARS], /* how many points for each side? */
     evars[MAXVARS];  /* does the variables exist? */
   Real totalarea,       /* total area of the side */

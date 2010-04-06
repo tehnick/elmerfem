@@ -11,6 +11,7 @@ int GetMinElementType(struct FemType *data);
 int GetMaxElementDimension(struct FemType *data);
 void GetElementInfo(int element,struct FemType *data,
 		    Real *globalcoord,int *ind,int *material);
+void GetBoundaryElement(int sideind,struct BoundaryType *bound,struct FemType *data,int *ind,int *sideelemtype);
 void GetElementSide(int element,int side,int normal,
 		    struct FemType *data,int *ind,int *sideelemtype);
 int GetElementFaces(int elemtype);
@@ -63,8 +64,6 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
 		int *ncopies,Real *meshsize,int diffmats,int info);
 int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
 		 int *symmaxis,int diffmats,Real *meshsize,int symmbound,int info);
-int SideToBulkElements(struct FemType *data,struct BoundaryType *bound,
-		       int *sidebulk,int sidetobulk,int info);
 void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 		    int manual,Real corder[],int info);
 int RemoveUnusedNodes(struct FemType *data,int info);

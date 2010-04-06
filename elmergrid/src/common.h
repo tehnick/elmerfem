@@ -20,7 +20,7 @@ typedef double Real;
 #define FALSE 0
 
 void timer_init();
-void timer_activate();
+void timer_activate(const char *prefix);
 void timer_show();
 
 void bigerror(char error_text[]);

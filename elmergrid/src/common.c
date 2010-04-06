@@ -35,23 +35,32 @@
 #include <sys/types.h>
 #include <time.h> 
 
+/* Possible monitoring of memory usage, if supported */
+#define MEM_USAGE 0
+#if MEM_USAGE
+#include <sys/resource.h>
+#endif
+
 #include "common.h" 
 
 static Real timer_t0, timer_dt;
 static int timer_active = FALSE;
-
+static char timer_filename[600];
 
 void timer_init()
 {
   timer_active = FALSE;
 }
 
-void timer_activate()
+
+void timer_activate(const char *prefix)
 {
   Real time;
   timer_active = TRUE; 
 
   time = clock() / (double)CLOCKS_PER_SEC;
+
+  AddExtension(prefix,timer_filename,"time");
 
   printf("Activating timer (s): %.2lf\n",time);
   timer_dt = time;
@@ -61,13 +70,55 @@ void timer_activate()
 
 void timer_show()
 {
+  static int visited = 0;
   Real time;
+  char filename[512];
+  FILE *out;
+#if MEM_USAGE
+  int who,ret;
+  Real memusage;
+  static struct rusage usage;
+#endif
 
   if(!timer_active) return;
 
   time = clock() / (double)CLOCKS_PER_SEC;
   printf("Elapsed time (s): %.2lf %.2lf\n",time-timer_t0,time-timer_dt);
-  timer_dt = time;
+
+#if MEM_USAGE
+  who = RUSAGE_SELF;
+  ret = getrusage( who, &usage );
+  if( !ret ) {
+    printf("maxrss %ld\n",usage.ru_maxrss);
+    printf("ixrss %ld\n",usage.ru_ixrss);
+    printf("idrss %ld\n",usage.ru_idrss);
+    printf("isrss %ld\n",usage.ru_isrss);
+
+    memusage = (double) 1.0 * usage.ru_maxrss;
+  }
+  else {
+    printf("Failed to obtain resource usage!\n");
+    memusage = 0.0;
+  }
+#endif
+
+  visited = visited + 1;
+  if( visited == 1 ) {
+    out = fopen(timer_filename,"w");
+  }
+  else {
+    out = fopen(timer_filename,"a");    
+  }
+
+#if MEM_USAGE
+  fprintf(out,"%3d %12.4le %12.4le %12.4le\n",visited,time-timer_t0,time-timer_dt,memusage);
+#else
+  fprintf(out,"%3d %12.4le %12.4le\n",visited,time-timer_t0,time-timer_dt);
+#endif
+
+  fclose(out);
+
+  timer_dt = time; 
 }
 
 

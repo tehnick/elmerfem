@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
   }
 #endif
 
-  if(eg.timeron) timer_activate();
+  if(eg.timeron) timer_activate(eg.filesout[0]);
 
   /**********************************/
   printf("\nElmergrid loading data:\n");
@@ -739,12 +739,6 @@ int main(int argc, char *argv[])
       IsoparametricElements(&data[k],boundaries[k],TRUE,info);
   }  
 
-  /* This is mainly here for historical reasons */
-  for(k=0;k<nomeshes;k++) 
-    if(eg.findsides) 
-      SideToBulkElements(&data[k],boundaries[k],eg.sidebulk,FALSE,info);
-
-
   for(k=0;k<nomeshes;k++) {
     if(eg.bulkbounds || eg.boundbounds) {
       int *boundnodes,noboundnodes;
@@ -894,11 +888,17 @@ int main(int argc, char *argv[])
     timer_show();
   }
 
+  if(eg.timeron) {
+    for(k=0;k<nomeshes;k++) 
+      SaveSizeInfo(&data[k],boundaries[k],eg.filesout[k],info);
+  }
+  
 
   if(eg.nosave) {
     Goodbye();
     return(0);
   }
+
 
   /********************************/
   printf("\nElmergrid saving data:\n");
