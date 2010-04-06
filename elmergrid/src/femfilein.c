@@ -3708,6 +3708,10 @@ int UnvToElmerType(int unvtype)
     elmertype = 202;
     break;
 
+  case 23:
+    elmertype = 203;
+    break;
+
   case 41:
   case 51:
   case 61:
@@ -3726,6 +3730,14 @@ int UnvToElmerType(int unvtype)
     elmertype = 306;
     break;
 
+  case 43:
+  case 53:
+  case 63:
+  case 73:
+  case 93:
+    elmertype = 310;
+    break;
+
   case 44:
   case 54:
   case 64:
@@ -3733,6 +3745,14 @@ int UnvToElmerType(int unvtype)
   case 84:
   case 94:
     elmertype = 404;
+    break;
+
+  case 46:
+  case 56:
+  case 66:
+  case 76:
+  case 96:
+    elmertype = 408;
     break;
 
   case 111:
@@ -3767,7 +3787,24 @@ int UnvToElmerType(int unvtype)
   return(elmertype);
 }
 
-
+static int CheckRedundantIndexes(int nonodes,int *ind)
+{
+  int i,j,redundant;
+  
+  redundant = FALSE;
+  for(i=0;i<nonodes;i++) {
+    for(j=i+1;j<nonodes;j++) {
+	  if(ind[i] == ind[j]) redundant = TRUE;
+	}
+  }
+  if( redundant ) {
+    printf("Redundant nodes %d: ",nonodes);
+	for(i=0;i<nonodes;i++)
+	  printf(" %d ",ind[i]);
+	printf("\n");
+  }
+  return(redundant);
+}
 
 int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
      /* Load the grid in universal file format */
@@ -3841,7 +3878,7 @@ omstart:
     else if( !strncmp(line,"  2412",6)) mode = 2412;
     else if( !strncmp(line,"  2467",6)) mode = 2467;
     else if( !strncmp(line,"  2435",6)) mode = 2435;
-    else if(0 && allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
+    else if(1 && allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
 
     if(debug && mode) printf("Current mode is %d\n",mode);
 
