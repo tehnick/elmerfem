@@ -3846,6 +3846,10 @@ int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
     for(i=0;i<=820;i++) elementtypes[i] = FALSE;
   }
 
+  maxnodeind = 0;
+  maxnodes = 0;
+  maxelem = 0;
+
 
 omstart:
 
@@ -3856,17 +3860,14 @@ omstart:
       printf("First round for allocating data\n");
   }
 
-  maxnodes = 0;
-  nogroups = 0;
-  maxnodeind = 0;
-  maxelem = 0;
   noknots = 0;
   noelements = 0;
+  nogroups = 0;
   nopoints = 0;
   group = 0;
 
 
-  for(;;) {
+  for(;;) { 
 
   nextline:
     if( !strncmp(line,"    -1",6)) mode = 0;
@@ -3897,9 +3898,11 @@ omstart:
 	
 	if(allocated) {
 	  if(reordernodes) {
-	    if(u2eind[nodeind]) printf("Reordering node %d already set (%d vs. %d)\n",
-				       nodeind,u2eind[nodeind],noknots);
-	    u2eind[nodeind] = noknots;
+	    if(u2eind[nodeind]) 
+	      printf("Reordering node %d already set (%d vs. %d)\n",
+		     nodeind,u2eind[nodeind],noknots);
+	    else
+	      u2eind[nodeind] = noknots;
 	  }
 	  cp = line;
 	  data->x[noknots] = next_real(&cp);
@@ -3941,7 +3944,7 @@ omstart:
 	if(allocated) {
 	  if(reorderelements) u2eelem[elid] = noelements;
 
-	  elmertype = UnvToElmerType(unvtype);
+	  elmertype = UnvToElmerType(unvtype); 
 
 	  if(debug && !elementtypes[elmertype]) {
 	    elementtypes[elmertype] = TRUE;
