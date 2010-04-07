@@ -3793,15 +3793,15 @@ static int CheckRedundantIndexes(int nonodes,int *ind)
   
   redundant = FALSE;
   for(i=0;i<nonodes;i++) {
-    for(j=i+1;j<nonodes;j++) {
-	  if(ind[i] == ind[j]) redundant = TRUE;
-	}
+    if( ind[i] == 0 ) redundant = TRUE;
+    for(j=i+1;j<nonodes;j++) 
+      if(ind[i] == ind[j]) redundant = TRUE;
   }
   if( redundant ) {
-    printf("Redundant nodes %d: ",nonodes);
-	for(i=0;i<nonodes;i++)
-	  printf(" %d ",ind[i]);
-	printf("\n");
+    printf("Redundant element %d: ",nonodes);
+    for(i=0;i<nonodes;i++)
+      printf(" %d ",ind[i]);
+    printf("\n");
   }
   return(redundant);
 }
@@ -3811,7 +3811,7 @@ int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
 {
   int noknots,totknots,noelements,elemcode,maxnodes;
   int allocated,maxknot,dim,ind;
-  int reordernodes,reorderelements,nogroups,maxnode,maxelem,elid,unvtype,elmertype;
+  int reordernodes,reorderelements,nogroups,maxnodeind,maxelem,elid,unvtype,elmertype;
   int nonodes,group,grouptype,mode,nopoints,nodeind,matind,physind,colorind;
   int debug,mingroup,maxgroup,nogroup,noentities,dummy;
   int *u2eind,*u2eelem;
@@ -3858,7 +3858,7 @@ omstart:
 
   maxnodes = 0;
   nogroups = 0;
-  maxnode = 0;
+  maxnodeind = 0;
   maxelem = 0;
   noknots = 0;
   noelements = 0;
@@ -3893,18 +3893,22 @@ omstart:
 	nodeind = next_int(&cp);
 	/* Three other fields omitted: two coordinate systems and color */
 	noknots += 1;
-	if(nodeind != noknots) reordernodes = TRUE;
-	maxnode = MAX(maxnode,nodeind);
 	Getrow(line,in,FALSE);
 	
 	if(allocated) {
 	  if(reordernodes) {
+	    if(u2eind[nodeind]) printf("Reordering node %d already set (%d vs. %d)\n",
+				       nodeind,u2eind[nodeind],noknots);
 	    u2eind[nodeind] = noknots;
 	  }
 	  cp = line;
 	  data->x[noknots] = next_real(&cp);
 	  data->y[noknots] = next_real(&cp);
 	  data->z[noknots] = next_real(&cp);
+	}
+	else {
+	  if(nodeind != noknots) reordernodes = TRUE;
+	  maxnodeind = MAX(maxnodeind,nodeind);
 	}
       }
     }
@@ -3950,6 +3954,8 @@ omstart:
 	  data->elementtypes[noelements] = elmertype;
 	  for(i=0;i<nonodes;i++)
 	    data->topology[noelements][i] = next_int(&cp);
+
+	  CheckRedundantIndexes(nonodes,data->topology[noelements]);
 
 	  /* should this be physical property or material property? */
 	  data->material[noelements] = physind;
@@ -4039,9 +4045,9 @@ end:
   if(!allocated) {
 
     if(reordernodes) {
-      if(info) printf("Reordering %d nodes with indexes up to %d\n",noknots,maxnode);
-      u2eind = Ivector(1,maxnode);
-      for(i=1;i<=maxnodes;i++) u2eind[i] = 0;
+      if(info) printf("Reordering %d nodes with indexes up to %d\n",noknots,maxnodeind);
+      u2eind = Ivector(1,maxnodeind);
+      for(i=1;i<=maxnodeind;i++) u2eind[i] = 0;
     }
     if(reorderelements) {
       if(info) printf("Reordering %d elements with indexes up to %d\n",noelements,maxelem);
@@ -4079,7 +4085,7 @@ end:
     for(j=1;j<=noelements;j++)
       for(i=0;i<data->elementtypes[j]%100;i++)
 	data->topology[j][i] = u2eind[data->topology[j][i]];
-    free_Ivector(u2eind,1,maxnode);
+    free_Ivector(u2eind,1,maxnodeind);
   }
   if(reorderelements) {
     free_Ivector(u2eelem,1,maxelem);
