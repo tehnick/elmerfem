@@ -84,7 +84,7 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *doubles,int info);
 void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
 void ElementsToBoundaryConditions(struct FemType *data,
-				  struct BoundaryType *bound,int info);
+				  struct BoundaryType *bound,int retainorphans, int info);
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info);
 int FindPeriodicParents(struct FemType *data,struct BoundaryType *bound,int info);
 int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,

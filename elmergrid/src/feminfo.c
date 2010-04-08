@@ -332,10 +332,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
   if(i>MAXMETHODS) eg->outmethod = atoi(argv[2]);
  
 
-  /* Name of output file */
+  /* Default names of output file are derived from input file name */
   strcpy(eg->filesin[0],argv[3]);
   strcpy(eg->filesout[0],eg->filesin[0]);
   strcpy(eg->mapfile,eg->filesin[0]);
+  strcpy(eg->infofile,eg->filesin[0]);
 
 
   /* The optional inline parameters */
@@ -364,6 +365,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       }
     }
 
+ 
     if(strcmp(argv[arg],"-decimals") == 0) {
       eg->decimals = atoi(argv[arg+1]);
     }
@@ -805,6 +807,18 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-timer") == 0) {
       eg->timeron = TRUE;
     }
+
+    if(strcmp(argv[arg],"-infofile") == 0) {
+      eg->timeron = TRUE;
+      if(arg+1 >= argc) {
+	printf("The output name is required as a paramater\n");
+	return(2);
+      }
+      else {
+	strcpy(eg->infofile,argv[arg+1]);
+      }
+    }
+    
 
     /* The following keywords are not actively used */
 

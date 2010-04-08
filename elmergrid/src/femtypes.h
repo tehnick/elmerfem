@@ -377,6 +377,6 @@ struct ElmergridType {
 
   char filesin[MAXCASES][MAXFILESIZE],
     filesout[MAXCASES][MAXFILESIZE], 
-    mapfile[MAXFILESIZE];
+    mapfile[MAXFILESIZE],infofile[MAXFILESIZE];
 };
 

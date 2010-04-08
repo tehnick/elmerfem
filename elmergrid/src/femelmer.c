@@ -1125,7 +1125,7 @@ int SaveSizeInfo(struct FemType *data,struct BoundaryType *bound,
   }
 
   AddExtension(prefix,filename,"size");
-  if(info) printf("Saving size info into file.\n",filename);
+  if(info) printf("Saving size info into file %s.\n",filename);
 
   out = fopen(filename,"w");
   fprintf(out,"%d\n",data->noknots);

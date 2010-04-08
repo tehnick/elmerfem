@@ -63,6 +63,8 @@ void timer_activate(const char *prefix)
   AddExtension(prefix,timer_filename,"time");
 
   printf("Activating timer (s): %.2lf\n",time);
+  printf("Saving timer info to file %s\n",timer_filename);
+
   timer_dt = time;
   timer_t0 = time;
 }

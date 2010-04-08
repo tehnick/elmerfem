@@ -3446,7 +3446,7 @@ allocate:
     free_Ivector(revindx,1,maxindx);
   }
 
-  ElementsToBoundaryConditions(data,bound,info);
+  ElementsToBoundaryConditions(data,bound,FALSE,info);
 
   printf("Succesfully read the mesh from the Gmsh input file.\n");
 
@@ -3640,7 +3640,7 @@ omstart:
     free_Ivector(revindx,1,maxindx);
   }
 
-  ElementsToBoundaryConditions(data,bound,info);
+  ElementsToBoundaryConditions(data,bound,FALSE,info);
 
   /* The geometric entities are rather randomly numbered */
   if( usetaggeom ) {

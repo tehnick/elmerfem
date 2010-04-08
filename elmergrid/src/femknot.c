@@ -6839,7 +6839,7 @@ void IsoparametricElements(struct FemType *data,struct BoundaryType *bound,
 
 
 void ElementsToBoundaryConditions(struct FemType *data,
-				  struct BoundaryType *bound,int info)
+				  struct BoundaryType *bound,int retainorphans,int info)
 {
   int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,parent,sideelem,sameelem;
   int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same,minelemtype;
@@ -7042,7 +7042,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
       }
  
      /* If the element is of dimension DIM-1 then create a table showing where they are */
-      if(moveelement[elemind] == 1) {	
+      if(retainorphans && moveelement[elemind] == 1) {	
 	if(!notfound) {
 	  notfounds = Ivector(1,noelements); 
 	  for(i=1;i<=noelements;i++)
@@ -7073,24 +7073,29 @@ void ElementsToBoundaryConditions(struct FemType *data,
     printf("Found %d side elements, could have found %d\n",sideelem,sideelements);
     printf("Removing %d lower dimensional elements from the element list\n",removed);
     if(notfound) {
-      printf("************************** Warning **********************\n");
-      printf("Adding %d elements to boundary without parent information\n",notfound);
-
-      bound->elementtypes = Ivector(sideelem+1,sideelements);
-      for(i=sideelem+1;i<=sideelements;i++) bound->elementtypes[i] = 0;
-
-      bound->topology = Imatrix(sideelem+1,sideelements,0,MAXNODESD2-1);
-
-      for(elemind=1;elemind <= data->noelements;elemind++) {
-	if(!notfounds[elemind]) continue;
-	sideelem++;
-	j = data->elementtypes[elemind];
-	bound->elementtypes[sideelem] = j;
-	for(i=0;i<j%100;i++)
-	  bound->topology[sideelem][i] = data->topology[elemind][i];
-
-	/* Adding some constant here could be used for debugging */
-	bound->types[sideelem] = data->material[elemind] + 0*10;
+      printf("************************** WARNING **********************\n");
+      if(retainorphans) {
+	printf("Adding %d elements to boundary without parent information\n",notfound);
+	
+	bound->elementtypes = Ivector(sideelem+1,sideelements);
+	for(i=sideelem+1;i<=sideelements;i++) bound->elementtypes[i] = 0;
+	
+	bound->topology = Imatrix(sideelem+1,sideelements,0,MAXNODESD2-1);
+	
+	for(elemind=1;elemind <= data->noelements;elemind++) {
+	  if(!notfounds[elemind]) continue;
+	  sideelem++;
+	  j = data->elementtypes[elemind];
+	  bound->elementtypes[sideelem] = j;
+	  for(i=0;i<j%100;i++)
+	    bound->topology[sideelem][i] = data->topology[elemind][i];
+	  
+	  /* Adding some constant here could be used for debugging */
+	  bound->types[sideelem] = data->material[elemind] + 0*10;
+	}
+      }
+      else {
+	printf("Removing %d lower dimensional elements without parent information\n",notfound);	
       }
     }
   }
