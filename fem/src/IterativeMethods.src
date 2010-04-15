@@ -562,4 +562,146 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+
+
+ !------------------------------------------------------------------------------
+ SUBROUTINE itermethod_gcr( xvec, rhsvec, &
+      ipar, dpar, work, matvecsubr, pcondlsubr, &
+      pcondrsubr, dotprodfun, normfun, stopcfun )
+       
+    IMPLICIT NONE
+
+    EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
+    EXTERNAL dotprodfun, normfun, stopcfun
+    REAL(KIND=dp) :: dotprodfun
+    REAL(KIND=dp) :: normfun
+    REAL(KIND=dp) :: stopcfun
+    
+    ! Parameters
+    INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
+    REAL(KIND=dp), DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
+    REAL(KIND=dp) :: &
+       xvec(HUTI_NDIM),rhsvec(HUTI_NDIM),work(HUTI_WRKDIM,HUTI_NDIM)
+
+    INTEGER :: ndim
+    INTEGER :: Rounds, OutputInterval
+    REAL(KIND=dp) :: MinTol, MaxTol, Residual
+    LOGICAL :: Converged, Diverged
+    
+    ndim = HUTI_NDIM
+    Rounds = HUTI_MAXIT
+    MinTol = HUTI_TOLERANCE
+    MaxTol = HUTI_MAXTOLERANCE
+    OutputInterval = HUTI_DBUGLVL 
+       
+    CALL GCR(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, MaxTol, Residual, &
+        Converged, Diverged, OutputInterval )
+
+    IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
+    IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
+   
+
+  CONTAINS 
+    
+    
+    SUBROUTINE GCR( n, A, x, b, Rounds, MinTolerance, MaxTolerance, Residual, &
+        Converged, Diverged, OutputInterval) 
+!------------------------------------------------------------------------------
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: Rounds
+      REAL(KIND=dp) :: x(:),b(:)
+      LOGICAL :: Converged, Diverged
+      REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
+      INTEGER :: n, OutputInterval
+      REAL(KIND=dp) :: bnorm,rnorm
+      REAL(KIND=dp), POINTER :: R(:)
+
+      REAL(KIND=dp), ALLOCATABLE :: S(:,:), V(:,:), T1(:), T2(:)
+
+!------------------------------------------------------------------------------
+      INTEGER :: i,k
+      REAL(KIND=dp) :: alpha, beta
+!------------------------------------------------------------------------------
+      
+      Converged = .FALSE.
+      Diverged = .FALSE.
+      
+      ALLOCATE( R(n), T1(n), T2(n), S(n,Rounds), V(n,Rounds) )
+
+      V(1:n,1:Rounds) = 0.0d0	
+      S(1:n,1:Rounds) = 0.0d0	
+      
+      CALL matvecsubr( x, r, ipar )
+      r(1:n) = b(1:n) - r(1:n)
+      
+      bnorm = normfun(n, b, 1)
+      rnorm = normfun(n, r, 1)
+      
+      Residual = rnorm / bnorm
+      Converged = (Residual < MinTolerance) 
+      Diverged = (Residual > MaxTolerance)     
+      IF( Converged .OR. Diverged) RETURN
+      
+      DO k=1,Rounds
+         !----------------------------------------------------------
+         ! Perform the preconditioning...
+         !---------------------------------------------------------------
+         CALL pcondlsubr( T1, r, ipar )         
+         CALL matvecsubr( T1, T2, ipar )
+         !--------------------------------------------------------------
+         ! Perform the orthogonalization of the search directions....
+         !--------------------------------------------------------------
+         DO i=1,k-1
+            beta = dotprodfun(n, V(1:n,i), 1, T2(1:n), 1 )
+            T1(1:n) = T1(1:n) - beta * S(1:n,i)
+            T2(1:n) = T2(1:n) - beta * V(1:n,i)        
+         END DO
+
+         alpha = normfun(n, T2(1:n), 1 )
+         T1(1:n) = 1.0d0/alpha * T1(1:n)
+         T2(1:n) = 1.0d0/alpha * T2(1:n)
+
+         !-------------------------------------------------------------
+         ! The update of the solution and save the search data...
+         !------------------------------------------------------------- 
+         beta = dotprodfun(n, T2(1:n), 1, r(1:n), 1 )
+         x(1:n) = x(1:n) + beta * T1(1:n)      
+         r(1:n) = r(1:n) - beta * T2(1:n)
+         S(1:n,k) = T1(1:n)
+         V(1:n,k) = T2(1:n)       
+
+         !--------------------------------------------------------------
+         ! Check whether the convergence criterion is met 
+         !--------------------------------------------------------------
+         rnorm = normfun(n, r, 1)
+         Residual = rnorm / bnorm
+        
+         IF( MOD(i,OutputInterval) == 0) THEN
+            WRITE (*, '(I8, 2E11.4)') i, residual
+         END IF
+        
+         Converged = (Residual < MinTolerance) 
+         Diverged = (Residual > MaxTolerance)     
+         IF( Converged .OR. Diverged) EXIT
+        
+      END DO
+      
+      DEALLOCATE( R, S, V, T1, T2 )
+      
+    END SUBROUTINE GCR
+    
+!------------------------------------------------------------------------------
+  END SUBROUTINE itermethod_gcr
+!------------------------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
 END MODULE IterativeMethods
