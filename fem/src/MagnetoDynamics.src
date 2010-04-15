@@ -955,8 +955,13 @@ CONTAINS
            p = i
            DO j=1,np
              q = j
-             STIFF(p,q) = STIFF(p,q) + C * &
-               SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+             IF ( C /= 0._dp ) THEN
+               STIFF(p,q) = STIFF(p,q) + C * &
+                 SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+             ELSE
+               STIFF(p,q) = STIFF(p,q) + &
+                      Basis(q)*Basis(p)*detJ*IP % s(t)
+             END IF
            END DO
            DO j=1,nd-np
              q = j+np
@@ -2196,8 +2201,13 @@ CONTAINS
          p = i
          DO j=1,np
            q = j
-           STIFF(p,q) = STIFF(p,q) - im*C/Omega * &
-             SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+           IF ( C /= 0._dp ) THEN
+             STIFF(p,q) = STIFF(p,q) - im*C/Omega * &
+               SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+           ELSE
+             STIFF(p,q) = STIFF(p,q) + &
+                    Basis(q) * Basis(p)*detJ*IP % s(t)
+           END IF
          END DO
          DO j=1,nd-np
            q = j+np
