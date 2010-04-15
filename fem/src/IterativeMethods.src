@@ -632,6 +632,8 @@ CONTAINS
       V(1:n,1:Rounds) = 0.0d0	
       S(1:n,1:Rounds) = 0.0d0	
       
+      x(1:n) = b(1:n)
+
       CALL matvecsubr( x, r, ipar )
       r(1:n) = b(1:n) - r(1:n)
       
@@ -677,8 +679,8 @@ CONTAINS
          rnorm = normfun(n, r, 1)
          Residual = rnorm / bnorm
         
-         IF( MOD(i,OutputInterval) == 0) THEN
-            WRITE (*, '(I8, 2E11.4)') i, residual
+         IF( MOD(k,OutputInterval) == 0) THEN
+            WRITE (*, '(I8, E11.4)') k, residual
          END IF
         
          Converged = (Residual < MinTolerance) 
