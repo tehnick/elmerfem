@@ -58,7 +58,9 @@
 #ifndef HUTI_DIVERGENCE
 #define HUTI_DIVERGENCE 3
 #endif
-
+#ifndef HUTI_GCR_RESTART
+#define HUTI_GCR_RESTART ipar(17)
+#endif
 
 MODULE IterativeMethods
   
@@ -584,7 +586,7 @@ CONTAINS
     REAL(KIND=dp) :: &
        xvec(HUTI_NDIM),rhsvec(HUTI_NDIM),work(HUTI_WRKDIM,HUTI_NDIM)
 
-    INTEGER :: ndim
+    INTEGER :: ndim, RestartN
     INTEGER :: Rounds, OutputInterval
     REAL(KIND=dp) :: MinTol, MaxTol, Residual
     LOGICAL :: Converged, Diverged
@@ -593,10 +595,11 @@ CONTAINS
     Rounds = HUTI_MAXIT
     MinTol = HUTI_TOLERANCE
     MaxTol = HUTI_MAXTOLERANCE
-    OutputInterval = HUTI_DBUGLVL 
+    OutputInterval = HUTI_DBUGLVL
+    RestartN = HUTI_GCR_RESTART 
        
     CALL GCR(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, MaxTol, Residual, &
-        Converged, Diverged, OutputInterval )
+        Converged, Diverged, OutputInterval, RestartN )
 
     IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
     IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
@@ -606,31 +609,33 @@ CONTAINS
     
     
     SUBROUTINE GCR( n, A, x, b, Rounds, MinTolerance, MaxTolerance, Residual, &
-        Converged, Diverged, OutputInterval) 
+        Converged, Diverged, OutputInterval, m) 
 !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A
       INTEGER :: Rounds
       REAL(KIND=dp) :: x(:),b(:)
       LOGICAL :: Converged, Diverged
       REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
-      INTEGER :: n, OutputInterval
+      INTEGER :: n, OutputInterval, m
       REAL(KIND=dp) :: bnorm,rnorm
       REAL(KIND=dp), POINTER :: R(:)
 
       REAL(KIND=dp), ALLOCATABLE :: S(:,:), V(:,:), T1(:), T2(:)
 
 !------------------------------------------------------------------------------
-      INTEGER :: i,k
+      INTEGER :: i,j,k
       REAL(KIND=dp) :: alpha, beta
 !------------------------------------------------------------------------------
       
       Converged = .FALSE.
       Diverged = .FALSE.
       
-      ALLOCATE( R(n), T1(n), T2(n), S(n,Rounds), V(n,Rounds) )
-
-      V(1:n,1:Rounds) = 0.0d0	
-      S(1:n,1:Rounds) = 0.0d0	
+      ALLOCATE( R(n), T1(n), T2(n) )
+      if ( m > 1 ) then
+         ALLOCATE( S(n,m-1), V(n,m-1) )
+         V(1:n,1:m-1) = 0.0d0	
+         S(1:n,1:m-1) = 0.0d0
+      end if	
       
       x(1:n) = b(1:n)
 
@@ -646,6 +651,14 @@ CONTAINS
       IF( Converged .OR. Diverged) RETURN
       
       DO k=1,Rounds
+	 !----------------------------------------------
+	 ! Check for restarting
+         !--------------------------------------------- 
+	 if ( mod(k,m)==0 ) then
+	    j = m
+	 else
+	    j = mod(k,m)
+	 end if
          !----------------------------------------------------------
          ! Perform the preconditioning...
          !---------------------------------------------------------------
@@ -654,7 +667,7 @@ CONTAINS
          !--------------------------------------------------------------
          ! Perform the orthogonalization of the search directions....
          !--------------------------------------------------------------
-         DO i=1,k-1
+         DO i=1,j-1
             beta = dotprodfun(n, V(1:n,i), 1, T2(1:n), 1 )
             T1(1:n) = T1(1:n) - beta * S(1:n,i)
             T2(1:n) = T2(1:n) - beta * V(1:n,i)        
@@ -670,8 +683,10 @@ CONTAINS
          beta = dotprodfun(n, T2(1:n), 1, r(1:n), 1 )
          x(1:n) = x(1:n) + beta * T1(1:n)      
          r(1:n) = r(1:n) - beta * T2(1:n)
-         S(1:n,k) = T1(1:n)
-         V(1:n,k) = T2(1:n)       
+	 if ( j /= m ) then
+            S(1:n,j) = T1(1:n)
+            V(1:n,j) = T2(1:n)
+	 end if       
 
          !--------------------------------------------------------------
          ! Check whether the convergence criterion is met 
@@ -689,7 +704,8 @@ CONTAINS
         
       END DO
       
-      DEALLOCATE( R, S, V, T1, T2 )
+      DEALLOCATE( R, T1, T2 )
+      if ( m > 1 ) DEALLOCATE( S, V)
       
     END SUBROUTINE GCR
     
