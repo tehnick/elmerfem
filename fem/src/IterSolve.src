@@ -114,7 +114,9 @@ CONTAINS
 #ifndef HUTI_DIVERGENCE
 #define HUTI_DIVERGENCE 3
 #endif
-
+#ifndef HUTI_GCR_RESTART
+#define HUTI_GCR_RESTART ipar(17)
+#endif
 
 !------------------------------------------------------------------------------
   SUBROUTINE pcond_dummy(u,v,ipar )
@@ -264,6 +266,10 @@ CONTAINS
       CASE (ITER_GCR)
         HUTI_WRKDIM = 1
         wsize = HUTI_WRKDIM
+        HUTI_GCR_RESTART = ListGetInteger( SolverParam % Values, &
+             'Linear System GCR Restart',  GotIt ) 
+        IF ( .NOT. GotIT ) HUTI_GCR_RESTART = ListGetInteger( SolverParam % Values, &
+         'Linear System Max Iterations', minv=1 )
 
       CASE (ITER_BICGSTABL)
         HUTI_WRKDIM = 1
