@@ -987,15 +987,14 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
       GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype);       
       nodesd1 = sideelemtype%100;
       conelemtype = 100 + nodesd1 + 1;
-      
-      sumsides += nodesd1;
-      sidetypes[conelemtype] += nodesd1;	
+      sidetypes[conelemtype] += nodesd1;
       
       for(k=0;k<nodesd1;k++) {
-	fprintf(out,"%d 0 0 0 %d %d ",sumsides,conelemtype,ind[k]);
-	for(l=0;l<nodesd1;l++)
-	  fprintf(out,"%d ",ind2[l]);
-	fprintf(out,"\n");      
+        sumsides++;
+	    fprintf(out,"%d 0 0 0 %d %d ",sumsides,conelemtype,ind[k]);
+	    for(l=0;l<nodesd1;l++)
+	      fprintf(out,"%d ",ind2[l]);
+	    fprintf(out,"\n");      
       }
     }
   }
