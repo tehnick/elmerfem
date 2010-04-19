@@ -166,8 +166,12 @@ CONTAINS
     EXTERNAL :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, &
                 HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
 
-    REAL(KIND=dp) :: ddot, dnrm2
-    EXTERNAL :: ddot, dnrm2
+    REAL(KIND=dp) :: ddot, dnrm2, dznrm2
+    EXTERNAL :: ddot, dnrm2, dznrm2
+
+    COMPLEX(KIND=dp) :: zdotc
+    EXTERNAL :: zdotc
+
 
     INTEGER(KIND=Addrint) :: dotProc, normProc, pcondProc, &
             pcondrProc=0, mvProc, AddrFunc, iterProc
@@ -523,6 +527,15 @@ CONTAINS
           iterProc = AddrFunc( HUTI_Z_CGS )
        CASE (ITER_GMRES)
           iterProc = AddrFunc( HUTI_Z_GMRES )
+
+     /*******  Solvers from IterativeMethods.src ******/
+
+       CASE (ITER_GCR)
+         iterProc = AddrFunc( itermethod_z_gcr )
+         IF ( dotProc  == 0 ) dotProc = AddrFunc(zdotc)
+         IF ( normProc == 0 ) normproc = AddrFunc(dznrm2)
+         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )	
+
        END SELECT
      END IF
 
