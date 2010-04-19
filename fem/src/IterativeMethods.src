@@ -686,6 +686,9 @@ CONTAINS
 	 if ( j /= m ) then
             S(1:n,j) = T1(1:n)
             V(1:n,j) = T2(1:n)
+	 ! else
+	 !    CALL matvecsubr( x, r, ipar )
+         !    r(1:n) = b(1:n) - r(1:n)
 	 end if       
 
          !--------------------------------------------------------------
@@ -717,7 +720,175 @@ CONTAINS
 
 
 
+ !------------------------------------------------------------------------------
+ SUBROUTINE itermethod_z_gcr( xvec, rhsvec, &
+      ipar, dpar, work, matvecsubr, pcondlsubr, &
+      pcondrsubr, dotprodfun, normfun, stopcfun )
+       
+    IMPLICIT NONE
 
+    EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
+    EXTERNAL dotprodfun, normfun, stopcfun
+    COMPLEX(KIND=dp) :: dotprodfun
+    REAL(KIND=dp) :: normfun
+    REAL(KIND=dp) :: stopcfun
+    
+    ! Parameters
+    INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
+    REAL(KIND=dp), DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
+    REAL(KIND=dp) :: &
+       xvec(2*HUTI_NDIM),rhsvec(2*HUTI_NDIM),work(HUTI_WRKDIM,2*HUTI_NDIM)
+
+    COMPLEX(KIND=dp) :: y(HUTI_NDIM),f(HUTI_NDIM)
+    INTEGER :: ndim, RestartN, i
+    INTEGER :: Rounds, OutputInterval
+    REAL(KIND=dp) :: MinTol, MaxTol, Residual
+    LOGICAL :: Converged, Diverged
+    
+    ndim = HUTI_NDIM
+    Rounds = HUTI_MAXIT
+    MinTol = HUTI_TOLERANCE
+    MaxTol = HUTI_MAXTOLERANCE
+    OutputInterval = HUTI_DBUGLVL
+    RestartN = HUTI_GCR_RESTART 
+
+    !----------------------------------------------------------------------------
+    ! Transform the solution vector and the right-hand side vector to 
+    ! complex-valued vectors y and f
+    !---------------------------------------------------------------------------    
+    DO i=1,ndim
+      y(i) = CMPLX( xvec(2*i-1), xvec(2*i), kind=dp )
+      f(i) = CMPLX( rhsvec(2*i-1), rhsvec(2*i), kind=dp )
+    END DO
+
+       
+    CALL GCR_Z(ndim, GlobalMatrix, y, f, Rounds, MinTol, MaxTol, Residual, &
+        Converged, Diverged, OutputInterval, RestartN )
+
+    IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
+    IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
+   
+    !----------------------------------------------
+    ! Return the solution as a real vector...
+    !----------------------------------------------
+    DO i=1,ndim
+      xvec( 2*i-1 ) = REAL( y(i) )
+      xvec( 2*i ) = AIMAG( y(i) )
+    END DO
+
+
+
+  CONTAINS 
+    
+    
+    SUBROUTINE GCR_Z( n, A, x, b, Rounds, MinTolerance, MaxTolerance, Residual, &
+        Converged, Diverged, OutputInterval, m) 
+!------------------------------------------------------------------------------
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: Rounds
+      COMPLEX(KIND=dp) :: x(:),b(:)
+      LOGICAL :: Converged, Diverged
+      REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
+      INTEGER :: n, OutputInterval, m
+      REAL(KIND=dp) :: bnorm,rnorm
+      COMPLEX(KIND=dp), POINTER :: R(:)
+
+      COMPLEX(KIND=dp), ALLOCATABLE :: S(:,:), V(:,:), T1(:), T2(:)
+
+!------------------------------------------------------------------------------
+      INTEGER :: i,j,k
+      COMPLEX(KIND=dp) :: beta
+      REAL(KIND=dp) :: alpha
+!------------------------------------------------------------------------------
+      
+      Converged = .FALSE.
+      Diverged = .FALSE.
+      
+      ALLOCATE( R(n), T1(n), T2(n) )
+      if ( m > 1 ) then
+         ALLOCATE( S(n,m-1), V(n,m-1) )
+         V(1:n,1:m-1) = CMPLX( 0.0d0, 0.0d0, kind=dp)
+         S(1:n,1:m-1) = CMPLX( 0.0d0, 0.0d0, kind=dp)
+      end if	
+      
+      x(1:n) = b(1:n)
+
+      CALL matvecsubr( x, r, ipar )
+      r(1:n) = b(1:n) - r(1:n)
+      
+      bnorm = normfun(n, b, 1)
+      rnorm = normfun(n, r, 1)
+      
+      Residual = rnorm / bnorm
+      Converged = (Residual < MinTolerance) 
+      Diverged = (Residual > MaxTolerance)     
+      IF( Converged .OR. Diverged) RETURN
+      
+      DO k=1,Rounds
+	 !----------------------------------------------
+	 ! Check for restarting
+         !--------------------------------------------- 
+	 if ( mod(k,m)==0 ) then
+	    j = m
+	 else
+	    j = mod(k,m)
+	 end if
+         !----------------------------------------------------------
+         ! Perform the preconditioning...
+         !---------------------------------------------------------------
+         CALL pcondlsubr( T1, r, ipar )         
+         CALL matvecsubr( T1, T2, ipar )
+         !--------------------------------------------------------------
+         ! Perform the orthogonalization of the search directions....
+         !--------------------------------------------------------------
+         DO i=1,j-1
+            beta = dotprodfun(n, V(1:n,i), 1, T2(1:n), 1 )
+            T1(1:n) = T1(1:n) - beta * S(1:n,i)
+            T2(1:n) = T2(1:n) - beta * V(1:n,i)        
+         END DO
+
+         alpha = normfun(n, T2(1:n), 1 )
+         T1(1:n) = 1.0d0/alpha * T1(1:n)
+         T2(1:n) = 1.0d0/alpha * T2(1:n)
+
+         !-------------------------------------------------------------
+         ! The update of the solution and save the search data...
+         !------------------------------------------------------------- 
+         beta = dotprodfun(n, T2(1:n), 1, r(1:n), 1 )
+         x(1:n) = x(1:n) + beta * T1(1:n)      
+         r(1:n) = r(1:n) - beta * T2(1:n)
+	 if ( j /= m ) then
+            S(1:n,j) = T1(1:n)
+            V(1:n,j) = T2(1:n)
+	 ! else
+	 !    CALL matvecsubr( x, r, ipar )
+         !    r(1:n) = b(1:n) - r(1:n)
+	 end if       
+
+         !--------------------------------------------------------------
+         ! Check whether the convergence criterion is met 
+         !--------------------------------------------------------------
+         rnorm = normfun(n, r, 1)
+         Residual = rnorm / bnorm
+        
+         IF( MOD(k,OutputInterval) == 0) THEN
+            WRITE (*, '(I8, E11.4)') k, residual
+         END IF
+        
+         Converged = (Residual < MinTolerance) 
+         Diverged = (Residual > MaxTolerance)     
+         IF( Converged .OR. Diverged) EXIT
+        
+      END DO
+      
+      DEALLOCATE( R, T1, T2 )
+      if ( m > 1 ) DEALLOCATE( S, V)
+      
+    END SUBROUTINE GCR_Z
+    
+!------------------------------------------------------------------------------
+  END SUBROUTINE itermethod_z_gcr
+!------------------------------------------------------------------------------
 
 
 
