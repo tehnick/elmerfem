@@ -720,10 +720,11 @@ CONTAINS
 
 
 
- !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
  SUBROUTINE itermethod_z_gcr( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
+!------------------------------------------------------------------------------
        
     IMPLICIT NONE
 
@@ -889,6 +890,303 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE itermethod_z_gcr
 !------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE itermethod_z_bicgstabl( xvec, rhsvec, &
+       ipar, dpar, work, matvecsubr, pcondlsubr, &
+       pcondrsubr, dotprodfun, normfun, stopcfun )
+ !------------------------------------------------------------------------------
+
+    IMPLICIT NONE
+
+    EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
+    EXTERNAL dotprodfun, normfun, stopcfun
+    COMPLEX(KIND=dp) :: dotprodfun
+    REAL(KIND=dp) :: normfun
+    REAL(KIND=dp) :: stopcfun
+
+    ! Parameters
+    INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
+    REAL(KIND=dp), DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
+    REAL(KIND=dp) :: &
+         xvec(2*HUTI_NDIM),rhsvec(2*HUTI_NDIM),work(HUTI_WRKDIM,2*HUTI_NDIM)
+
+    COMPLEX(KIND=dp) :: y(HUTI_NDIM),f(HUTI_NDIM)
+    INTEGER :: ndim, i, PolynomialDegree
+    INTEGER :: Rounds, OutputInterval
+    REAL(KIND=dp) :: MinTol, MaxTol
+    LOGICAL :: Converged, Diverged
+    !--------------------------------------------------------------------------------    
+
+    ndim = HUTI_NDIM
+    Rounds = HUTI_MAXIT
+    MinTol = HUTI_TOLERANCE
+    MaxTol = HUTI_MAXTOLERANCE
+    OutputInterval = HUTI_DBUGLVL
+    PolynomialDegree = HUTI_BICGSTABL_L 
+    !----------------------------------------------------------------------------
+    ! Transform the solution vector and the right-hand side vector to 
+    ! complex-valued vectors y and f
+    !---------------------------------------------------------------------------    
+    DO i=1,ndim
+       y(i) = CMPLX( xvec(2*i-1), xvec(2*i), kind=dp )
+       f(i) = CMPLX( rhsvec(2*i-1), rhsvec(2*i), kind=dp )
+    END DO
+
+    CALL ComplexBiCGStabl(ndim, GlobalMatrix, y, f, Rounds, MinTol, MaxTol, &
+         Converged, Diverged, OutputInterval, PolynomialDegree)
+
+    IF(Converged) HUTI_INFO = HUTI_CONVERGENCE
+    IF(Diverged) HUTI_INFO = HUTI_DIVERGENCE
+
+    !----------------------------------------------
+    ! Return the solution as a real vector...
+    !----------------------------------------------
+    DO i=1,ndim
+       xvec( 2*i-1 ) = REAL( y(i) )
+       xvec( 2*i ) = AIMAG( y(i) )
+    END DO
+
+
+  CONTAINS 
+
+    !-----------------------------------------------------------------------------------
+    SUBROUTINE ComplexBiCGStabl( n, A, x, b, MaxRounds, Tol, MaxTol, Converged, &
+         Diverged, OutputInterval, l, StoppingCriterionType )
+    !-----------------------------------------------------------------------------------
+    !   This subroutine solves complex linear systems Ax = b by using the BiCGStab(l) algorithm 
+    !   with l >= 2 and the right-oriented preconditioning. 
+    !
+    !   The subroutine has been written using as a starting point the work of D.R. Fokkema 
+    !   (subroutine zbistbl v1.1 1998). Dr. Fokkema has given the right to distribute
+    !   the derived work under GPL and hence the original copyright notice of the subroutine
+    !   has been removed accordingly.  
+    !
+    !----------------------------------------------------------------------------------- 
+      INTEGER :: l   ! polynomial degree
+      INTEGER :: n, MaxRounds, OutputInterval   
+      LOGICAL :: Converged, Diverged
+      TYPE(Matrix_t), POINTER :: A
+      COMPLEX(KIND=dp) :: x(n), b(n)
+      REAL(KIND=dp) :: Tol, MaxTol
+      INTEGER, OPTIONAL :: StoppingCriterionType 
+      !------------------------------------------------------------------------------
+      COMPLEX(KIND=dp) :: zzero, zone, t(n), kappa0, kappal 
+      REAL(KIND=dp) :: rnrm0, rnrm, mxnrmx, mxnrmr, errorind, &
+           delta = 1.0d-2, bnrm
+      INTEGER :: i, j, rr, r, u, xp, bp, z, zz, y0, yl, y, k, iwork(l-1), stat, Round
+      COMPLEX(KIND=dp) :: work(n,3+2*(l+1)), rwork(l+1,3+2*(l+1)), &
+           alpha, beta, omega, rho0, rho1, sigma, zdotc, varrho, hatgamma
+      LOGICAL rcmp, xpdt
+      !------------------------------------------------------------------------------
+
+      IF ( l < 2) CALL Fatal( 'RealBiCGStabl', 'Polynomial degree < 2' )
+
+      IF ( ALL(x == CMPLX(0.0d0,0.0d0,kind=dp)) ) x = b
+
+      zzero = dcmplx( 0.0d0,0.0d0)
+      zone =  dcmplx( 1.0d0,0.0d0)
+      work = dcmplx( 0.0d0, 0.0d0 )
+      rwork = dcmplx( 0.0d0, 0.0d0 )
+
+      rr = 1
+      r = rr+1
+      u = r+(l+1)
+      xp = u+(l+1)
+      bp = xp+1
+
+      z = 1
+      zz = z+(l+1)
+      y0 = zz+(l+1)
+      yl = y0+1
+      y = yl+1
+
+      CALL matvecsubr( x, work(1:n,r), ipar )
+      work(1:n,r) = b(1:n) - work(1:n,r)
+      bnrm = normfun(n, b(1:n), 1)
+      rnrm0 = normfun(n, work(1:n,r), 1)
+
+      !-------------------------------------------------------------------
+      ! Check whether the initial guess satisfies the stopping criterion
+      !--------------------------------------------------------------------
+      errorind = rnrm0 / bnrm
+      Converged = (errorind < Tol)
+      Diverged = (errorind > MaxTol)
+
+      IF( Converged .OR. Diverged) RETURN
+
+      work(1:n,rr) = work(1:n,r) 
+      work(1:n,bp) = work(1:n,r)
+      work(1:n,xp) = x(1:n)
+
+      rnrm = rnrm0
+      mxnrmx = rnrm0
+      mxnrmr = rnrm0
+      x(1:n) = zzero    
+      alpha = zzero
+      omega = zone
+      sigma = zone
+      rho0 = zone
+
+      DO Round=1,MaxRounds 
+         !-------------------------
+         ! --- The BiCG part ---
+         !-------------------------
+         rho0 = -omega*rho0
+
+         DO k=1,l
+            rho1 = dotprodfun(n, work(1:n,rr), 1, work(1:n,r+k-1), 1)
+            IF (rho0 == zzero) THEN
+               CALL Fatal( 'ComplexBiCGStab(l)', 'Breakdown error.' )
+            ENDIF
+            beta = alpha*(rho1/rho0)
+            rho0 = rho1
+            DO j=0,k-1
+               work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
+            ENDDO
+            CALL pcondlsubr( t, work(1:n,u+k-1), ipar )
+            CALL matvecsubr( t, work(1:n,u+k),   ipar )
+
+            sigma = dotprodfun(n, work(1:n,rr), 1, work(1:n,u+k), 1)
+            IF (sigma == zzero) THEN
+               CALL Fatal( 'ComplexBiCGStab(l)', 'Breakdown error.' )
+            ENDIF
+            alpha = rho1/sigma
+            x(1:n) = x(1:n) + alpha * work(1:n,u)
+            DO j=0,k-1
+               work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
+            ENDDO
+            CALL pcondlsubr( t, work(1:n,r+k-1), ipar )
+            CALL matvecsubr( t, work(1:n,r+k),   ipar )
+            rnrm = normfun(n, work(1:n,r), 1)
+            mxnrmx = MAX (mxnrmx, rnrm)
+            mxnrmr = MAX (mxnrmr, rnrm)
+         ENDDO
+
+         !--------------------------------------
+         ! --- The convex polynomial part ---
+         !--------------------------------------
+
+         DO i=1,l+1
+            DO j=1,i
+               rwork(i,j) = dotprodfun(n, work(1:n,r+i-1), 1, work(1:n,r+j-1),1 ) 
+            END DO
+         END DO
+         DO j=2,l+1
+            rwork(1:j-1,j) = CONJG( rwork(j,1:j-1) )
+         END DO
+
+         rwork(1:l+1,zz:zz+l) = rwork(1:l+1,z:z+l)
+         CALL zgetrf (l-1, l-1, rwork(2:l,zz+1:zz+l-1), l-1, &
+              iwork, stat)
+
+         ! --- tilde r0 and tilde rl (small vectors)
+
+         rwork(1,y0) = -zone
+         rwork(2:l,y0) = rwork(2:l,z) 
+         CALL zgetrs('n', l-1, 1, rwork(2:l,zz+1:zz+l-1), l-1, iwork, &
+              rwork(2:l,y0), l-1, stat)
+         rwork(l+1,y0) = zzero
+
+         rwork(1,yl) = zzero
+         rwork(2:l,yl) = rwork(2:l,z+l) 
+         CALL zgetrs ('n', l-1, 1, rwork(2:l,zz+1:zz+l-1), l-1, iwork, &
+              rwork(2:l,yl), l-1, stat)
+         rwork(l+1,yl) = -zone
+
+         ! --- Convex combination
+
+         CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,y0), 1, zzero, rwork(1:l+1,y), 1)
+         kappa0 = SQRT( ZABS(zdotc(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1)) ) ! replace zdotc
+         CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,yl), 1, zzero, rwork(1:l+1,y), 1)
+         kappal = SQRT( ZABS(zdotc(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1)) )  ! replace zdotc
+         CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,y0), 1, zzero, rwork(1:l+1,y), 1)
+         varrho = zdotc(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1) / &            ! replace zdotc
+              (kappa0*kappal)
+         hatgamma = varrho/ZABS(varrho) * MAX(ZABS(varrho),7d-1) * &
+              kappa0/kappal
+         rwork(1:l+1,y0) = rwork(1:l+1,y0) - hatgamma * rwork(1:l+1,yl)
+
+         !  --- Update
+
+         omega = rwork(l+1,y0)
+         DO j=1,l
+            work(1:n,u) = work(1:n,u) - rwork(j+1,y0) * work(1:n,u+j)
+            x(1:n) = x(1:n) + rwork(j+1,y0) * work(1:n,r+j-1)
+            work(1:n,r) = work(1:n,r) - rwork(j+1,y0) * work(1:n,r+j)
+         ENDDO
+
+         CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,y0), 1, zzero, rwork(1:l+1,y), 1)
+         rnrm = SQRT( ZABS(zdotc(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1)) )
+
+         !---------------------------------------
+         !  --- The reliable update part ---
+         !---------------------------------------
+
+         mxnrmx = MAX (mxnrmx, rnrm)
+         mxnrmr = MAX (mxnrmr, rnrm)
+         xpdt = (rnrm < delta*rnrm0 .AND. rnrm0 < mxnrmx)
+         rcmp = ((rnrm < delta*mxnrmr .AND. rnrm0 < mxnrmr) .OR. xpdt)
+         IF (rcmp) THEN
+            ! PRINT *, 'Performing residual update...'
+            CALL pcondlsubr( t, x, ipar )
+            CALL matvecsubr( t, work(1:n,r), ipar )
+            work(1:n,r) = work(1:n,bp) - work(1:n,r)
+            mxnrmr = rnrm
+            IF (xpdt) THEN
+               ! PRINT *, 'Performing solution update...'
+               work(1:n,xp) = work(1:n,xp) + t(1:n)
+               x(1:n) = zzero
+               work(1:n,bp) = work(1:n,r)
+               mxnrmx = rnrm
+            ENDIF
+         ENDIF
+
+         IF (rcmp) THEN
+            IF (xpdt) THEN       
+               t(1:n) = work(1:n,xp)
+            ELSE
+               t(1:n) = t(1:n) + work(1:n,xp)  
+            END IF
+         ELSE
+            CALL pcondlsubr( t, x, ipar )
+            t(1:n) = t(1:n)+work(1:n,xp)
+         END IF
+
+         errorind = rnrm/bnrm
+         IF( MOD(Round,OutputInterval) == 0) THEN
+            WRITE (*, '(I8, E11.4)') Round, errorind
+         END IF
+
+         Converged = (errorind < Tol) 
+         Diverged = (errorind > MaxTol)     
+         IF( Converged .OR. Diverged) EXIT    
+      END DO
+
+      !------------------------------------------------------------
+      ! We have solved z = P*x, so finally solve the true unknown x
+      !------------------------------------------------------------
+      t(1:n) = x(1:n)
+      CALL pcondlsubr( x, t, ipar )
+      x(1:n) = x(1:n) + work(1:n,xp)      
+
+    !----------------------------------------------------------
+    END SUBROUTINE ComplexBiCGStabl
+    !----------------------------------------------------------
+
+!--------------------------------------------------------------
+  end SUBROUTINE itermethod_z_bicgstabl
+!--------------------------------------------------------------
+
+
+
+
 
 
 
