@@ -536,6 +536,12 @@ CONTAINS
          IF ( normProc == 0 ) normproc = AddrFunc(dznrm2)
          IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )	
 
+       CASE (ITER_BICGSTABL)
+         iterProc = AddrFunc( itermethod_z_bicgstabl )
+         IF ( dotProc  == 0 ) dotProc = AddrFunc(zdotc)
+         IF ( normProc == 0 ) normproc = AddrFunc(dznrm2)
+         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
+
        END SELECT
      END IF
 
