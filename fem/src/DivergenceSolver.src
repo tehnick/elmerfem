@@ -142,22 +142,28 @@ SUBROUTINE DivergenceSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
-  IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
-  IF ( COUNT( Solver % Variable % Perm > 0 ) <= 0 ) RETURN
-  
-  SolverParams => GetSolverParams()
 
+  SolverParams => GetSolverParams()
   DivergenceSol => Solver % Variable
+
   IF( ASSOCIATED(DivergenceSol)) THEN
-     Dofs = DivergenceSol % DOFs
-     IF(Dofs /= 1) CALL Fatal('DivergenceSolver','Divergence should have 1 component in 2D')
+    IF ( COUNT( Solver % Variable % Perm > 0 ) <= 0 ) THEN
+      CALL Warn('DivergenceSolver','Size is zero, nothing to compute')
+      RETURN
+    END IF
+    IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) THEN
+      CALL Warn('DivergenceSolver','No matrix associated, exiting')
+      RETURN
+    END IF
+    Dofs = DivergenceSol % DOFs
+    IF(Dofs /= 1) CALL Fatal('DivergenceSolver','Divergence should have 1 component in 2D')
   ELSE
-     CALL Fatal('DivergenceSolver','Divergence Result Variable is missing: '//TRIM(VarName))      
+     CALL Fatal('DivergenceSolver','Variable does not exist or its size is zero!')      
   END IF
 
   CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
        CurrentCoordinateSystem() == CylindricSymmetric
-  
+
   VarName = GetString(SolverParams,'Divergence Variable',GotIt )
   IF(.NOT. gotIt) VarName = TRIM('Velocity')
 
