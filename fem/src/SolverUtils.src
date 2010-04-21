@@ -3278,6 +3278,9 @@ END FUNCTION SearchNodeL
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, str
     LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore, DoIt
 
+    TYPE(Matrix_t), POINTER :: MMatrix
+    REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
+
     IF(SteadyState) THEN
       Relaxation = ListGetCReal( Solver % Values, &
           'Steady State Relaxation Factor', Relax )
@@ -3381,7 +3384,7 @@ END FUNCTION SearchNodeL
       b => Solver % Matrix % rhs
 
       ALLOCATE(r(n))
-      CALL MatrixVectorMultiply( A, x0, r)      
+      CALL MatrixVectorMultiply( A, x0, r)
       r = r - b
       Change = ComputeNorm(Solver, n, r)
       IF(.NOT. ConvergenceAbsolute) THEN
@@ -3391,6 +3394,39 @@ END FUNCTION SearchNodeL
         END IF
       END IF
       DEALLOCATE(r)
+
+    CASE('linear system residual')
+      !--------------------------------------------------------------------------
+      ! Here the true linear system residual r=b(x0)-A(x0)x is computed.
+      ! This option is useful for certain special solvers.  
+      !--------------------------------------------------------------------------
+      A => Solver % Matrix
+      b => Solver % Matrix % rhs
+ 
+      IF (ParEnv % Pes > 1) THEN
+        MMatrix => ParallelMatrix( A, Mx, Mb, Mr )
+        CALL ParallelMatrixVector( A,Mx,Mr )
+	Mr(1:MMatrix % NumberOfRows) = Mb(1:MMatrix % NumberOfRows) - Mr(1:MMatrix % NumberOfRows)
+        Change = ParallelNorm( MMatrix % NumberOfRows, Mr )		
+        IF(.NOT. ConvergenceAbsolute) THEN
+          bNorm = ParallelNorm(MMatrix % NumberOfRows, Mb)
+          IF(bNorm > 0.0) THEN
+            Change = Change / bNorm
+          END IF
+        END IF
+      ELSE	
+        ALLOCATE(r(n)) 
+        CALL MatrixVectorMultiply( A, x, r)
+        r = r - b
+        Change = ComputeNorm(Solver, n, r)
+        IF(.NOT. ConvergenceAbsolute) THEN
+          bNorm = ComputeNorm(Solver, n, b)
+          IF(bNorm > 0.0) THEN
+            Change = Change / bNorm
+          END IF
+        END IF
+        DEALLOCATE(r)	
+      END IF      
 
     CASE('solution')      
       ALLOCATE(r(n))
