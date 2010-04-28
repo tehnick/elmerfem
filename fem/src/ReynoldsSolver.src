@@ -298,6 +298,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
             CompressibilityType = Compressibility_None
           ELSE IF(CompressibilityModel == 'weakly compressible') THEN
             CompressibilityType = Compressibility_Weak
+            ReferencePressure = GetCReal( Material,'Reference Pressure',GotIt)           
             BulkModulus = GetCReal( Material, 'Bulk Modulus')
           ELSE IF(CompressibilityModel == 'isothermal ideal gas') THEN
             CompressibilityType = Compressibility_GasIsothermal
@@ -723,7 +724,7 @@ CONTAINS
         Density = 1.0d0
         
       CASE (Compressibility_Weak)
-        Density = EXP(Pres/BulkModulus)
+        Density = EXP(TotPres/BulkModulus)
         
       CASE (Compressibility_GasIsothermal)         
         Density = TotPres 
