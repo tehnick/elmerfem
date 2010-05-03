@@ -1102,6 +1102,49 @@ static void MovePointPower(Real *lim,int points,Real *coords,
   }
 }
 
+/* Creates airfoil shapes */
+static void MovePointNACAairfoil(Real *lim,int points,Real *coords,
+				 Real x,Real y,Real *dx,Real *dy)
+{
+  int i,n;
+  Real c,p,d,t,u;
+
+
+  if(y < lim[0]  ||  y > lim[2]) return;
+  if(x < coords[0]  ||  x > coords[1]) return;
+
+  if(0) {
+    printf("x=%.3le y=%.3le lim0=%.3le lim2=%.3le\n",x,y,lim[0],lim[2]);
+    printf("naca: %.3le %.3le %.3le\n",coords[0],coords[1],coords[2]);
+  }
+
+  t = x;
+  if(coords[1] > coords[0]) {
+    if(t<coords[0]) t = coords[0];
+    if(t>coords[1]) t = coords[1];
+  }
+  else {
+    if(t>coords[0]) t = coords[0];
+    if(t<coords[1]) t = coords[1];
+  }      
+    
+  u = (t - coords[0])/(coords[1]-coords[0]);    
+  p = 0.2969*sqrt(u) - 0.1260*u - 0.3537*u*u + 0.2843*u*u*u - 0.1015*u*u*u*u;
+  
+  d = coords[2] * (coords[1]-coords[0]) * p / 0.2;
+  
+  if(y < lim[1]) {
+    *dy += d*(y-lim[0])/(lim[1]-lim[0]);
+  }
+  else {
+    *dy += d*(lim[2]-y)/(lim[2]-lim[1]);      
+  }
+
+
+  if(0) printf("d=%.3le p=%.3le u=%.3le dy=%.3le\n",d,p,u,*dy);
+}
+
+
 
 static void MovePointArc(Real *lim,int points,Real *coords,
 			 Real x,Real y,Real *dx,Real *dy)
@@ -1273,6 +1316,10 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
 	    MovePointAngle(&maplim[3*k],grid->mappingpoints[k],grid->mappingparams[k],
 			   x,y,&dx,&dz);
 	    break;	
+	  case 9:
+	    MovePointNACAairfoil(&maplim[3*k],grid->mappingpoints[k],grid->mappingparams[k],
+				 x,y,&dx,&dy);
+	    break;	
 
 
 	  case -1:
@@ -1306,6 +1353,9 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
 	  case -8:
 	    MovePointAngle(&maplim[3*k],grid->mappingpoints[k],grid->mappingparams[k],
 			   y,x,&dy,&dz);
+	  case -9:
+	    MovePointNACAairfoil(&maplim[3*k],grid->mappingpoints[k],grid->mappingparams[k],
+			   y,x,&dy,&dx);
 	    break;
 
 
@@ -4016,7 +4066,7 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
       for(i=1;i<=bound[j].nosides;i++) {
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,sideind,&elemtype);
 	elemdim = GetElementDimension(elemtype);
-	mapbc[bound[j].types[i]] = TRUE;
+	mapbc[bound[j].types[i]] += 1;
 	mapdim[bound[j].types[i]] = elemdim;
       }
     }
@@ -4025,9 +4075,11 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
     /* Give the larger dimension always a smaller BC type */
     for(elemdim==2;elemdim>=0;elemdim--) {
       for(i=minbc;i<=maxbc;i++) {
+
 	if(mapdim[i] != elemdim) continue;
 	if(mapbc[i]) {
 	  j++;
+	  printf("boundary index changed %d -> %d in %d elements\n",i,j,mapbc[i]); 
 	  mapbc[i] = j;
 	}    
       }
@@ -4105,12 +4157,17 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
   for(i=minmat;i<=maxmat;i++) mapmat[i] = 0;
   
   for(j=1;j<=noelements;j++) 
-    mapmat[data->material[j]] = TRUE;
+    mapmat[data->material[j]] += 1;
   
   j = 0;
-  for(i=minmat;i<=maxmat;i++) 
-    if(mapmat[i]) mapmat[i] = ++j;
-  
+  for(i=minmat;i<=maxmat;i++) {
+    if(mapmat[i]) {
+      j++;
+      printf("body index changed %d -> %d in %d elements\n",i,j,mapmat[i]); 
+      mapmat[i] = j;
+    }
+  }  
+
   if(maxmat - minmat >= j || minmat != 1) { 
     if(info) printf("Mapping material types from [%d %d] to [%d %d]\n",
 		    minmat,maxmat,1,j);    
@@ -7091,7 +7148,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	    bound->topology[sideelem][i] = data->topology[elemind][i];
 	  
 	  /* Adding some constant here could be used for debugging */
-	  bound->types[sideelem] = data->material[elemind] + 0*10;
+	  bound->types[sideelem] = data->material[elemind] + 1*10;
 	}
       }
       else {
