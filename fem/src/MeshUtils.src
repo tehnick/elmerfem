@@ -184,7 +184,8 @@ CONTAINS
 
     INTEGER :: eio_info
  
-    REAL(KIND=dp), POINTER :: cCoord(:), coord(:,:)
+    REAL(KIND=dp), POINTER :: cCoord(:), coord(:,:), Wrk(:,:)
+    REAL(KIND=dp) :: CoordScale(3)
 
     INTEGER :: i,j,k,l,m,code,tag,body,TYPE,nodes(MAX_ELEMENT_NODES), &
              left,right,fields,npart,parts(1024)
@@ -340,6 +341,23 @@ CONTAINS
     DO i=1,Mesh % NumberOfNodes
       LocalPerm(NodeTags(i) - MinIndex + 1) = i
     END DO
+
+!-----------------------------------------------------------------------------
+! Scaling of coorinates 
+
+    Wrk => ListGetConstRealArray( Model % Simulation,'Coordinate Scaling',GotIt )    
+    IF( GotIt ) THEN            
+      CoordScale = 1.0_dp
+      DO i=1,mesh_dim
+        j = MIN( i, SIZE(Wrk,2) )
+        CoordScale(i) = Wrk(1,j)
+      END DO
+      WRITE(Message,'(A,3ES10.3)') 'Scaling coordinates:',CoordScale
+      CALL Info('LoadMesh',Message) 
+      Mesh % Nodes % x = CoordScale(1) * Mesh % Nodes % x
+      IF( mesh_dim > 1) Mesh % Nodes % y = CoordScale(2) * Mesh % Nodes % y
+      IF( mesh_dim > 2) Mesh % Nodes % z = CoordScale(3) * Mesh % Nodes % z
+    END IF
 
 !-----------------------------------------------------------------------------
 !   Mesh elements
