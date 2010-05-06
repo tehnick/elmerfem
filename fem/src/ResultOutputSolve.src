@@ -1,4 +1,4 @@
-!
+!/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
@@ -3612,7 +3612,7 @@ CONTAINS
         Values => Solution % Values
         
         IF( Rank == 0) THEN
-          WRITE( VtuUnit,'(A)') '        <DataArray type="Float32" Name="'//TRIM(FieldName)&
+          WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
               //'" NumberOfComponents="1" format="ascii">'    
           DO i = 1, Model % Mesh % NumberOfNodes
             j = Perm(i)
@@ -3627,11 +3627,11 @@ CONTAINS
         ELSE
           IF(VeloFlag) THEN
             sdofs = MAX(dofs - 1,3)            
-            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float32" Name="velocity"'&
+            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="velocity"'&
                 //' NumberOfComponents="',sdofs,'" format="ascii">'    
           ELSE
             sdofs = MAX(dofs,3)
-            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float32" Name="'//TRIM(FieldName)&
+            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
                 //'" NumberOfComponents="',sdofs,'" format="ascii">'    
           END IF
 
@@ -3684,7 +3684,7 @@ CONTAINS
     ! Coordinates of each point
     !-------------------------------------
     WRITE( VtuUnit,'(A)') '      <Points>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Float32" NumberOfComponents="3" format="ascii">'    
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
 
 
     ! If displacement field is active remove the displacement from the coordinates
@@ -3869,16 +3869,16 @@ CONTAINS
         Values => Solution % Values
         
         IF( Rank == 0) THEN
-          WRITE( VtuUnit,'(A)') '      <PDataArray type="Float32" Name="'//TRIM(FieldName)&
+          WRITE( VtuUnit,'(A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
               //'" NumberOfComponents="1" format="ascii"/>'    
         ELSE
           IF(VeloFlag) THEN
             sdofs = MAX(dofs - 1,3)            
-            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float32" Name="velocity"'&
+            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float64" Name="velocity"'&
                 //' NumberOfComponents="',sdofs,'" format="ascii"/>'    
           ELSE
             sdofs = MAX(dofs,3)
-            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float32" Name="'//TRIM(FieldName)&
+            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
                 //'" NumberOfComponents="',sdofs,'" format="ascii"/>'    
           END IF
         END IF
@@ -3898,7 +3898,7 @@ CONTAINS
     ! Coordinates of each point
     !-------------------------------------
     WRITE( VtuUnit,'(A)') '      <PPoints>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Float32" NumberOfComponents="3" format="ascii"/>'    
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii"/>'    
     WRITE( VtuUnit,'(A)') '      </PPoints>' 
 
     DO i=1,Partitions
