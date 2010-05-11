@@ -79,6 +79,9 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
 
+  CALL Info('DistanceSolver','Using PDE based distance solver')
+
+
   !Allocate some permanent storage, this is done first time only:
   !--------------------------------------------------------------
   Mesh => GetMesh()
@@ -141,6 +144,9 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
     Norm = DefaultSolve()
     IF ( Solver % Variable % NonlinChange <= TOL ) EXIT
   END DO
+
+  CALL Info('DistanceSolver','All done')
+
 
 CONTAINS
 
@@ -276,11 +282,13 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: distance(:)
   INTEGER, POINTER :: gPerm(:), ibuf(:), aperm(:),bperm(:),cperm(:)
 
-real(kind=dp) :: cputime, st
+REAL(kind=dp) :: cputime, st
 
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
 
+
+  CALL Info('DistanceSolver1','Using geometric distance solver')
 
   Mesh => GetMesh()
   n = Mesh % NumberOfNodes
@@ -368,6 +376,9 @@ real(kind=dp) :: cputime, st
   Solver % Variable % Norm = SQRT(SUM(distance))
   distance = SQRT(distance)
 
+
+  CALL Info('DistanceSolver1','All done')
+
 CONTAINS
 
   SUBROUTINE distcomp0
@@ -405,7 +416,7 @@ CONTAINS
     ALLOCATE( xxp(nnb), yyp(nnb), zzp(nnb), d(nnb), dperm(nnb), &
               near(nnb), dd(nb) )
 
-    CALL random_number(c)
+    CALL RANDOM_NUMBER(c)
 
     xxp(1:n) = Mesh % Nodes % x
     yyp(1:n) = Mesh % Nodes % y
