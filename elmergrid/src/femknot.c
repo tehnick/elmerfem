@@ -7580,9 +7580,10 @@ int CreateBoundaryLayer(struct FemType *data,struct BoundaryType *bound,
   int *topomap,*newmaterial,*herit,*inside,*nonlin;
   int endbcs, *endparents, *endtypes, *endnodes, *endnodes2, *endneighbours;
 
-  if(maxfilters == 1) maxfilters = 1000;
-  if(layereps > 0.1) layereps = 0.001;
-  if(layereps < 1.0e-8) layereps = 0.001;
+  printf("maxfilters=%d layereps=%.3le\n",maxfilters,layereps);
+
+  if(!maxfilters) maxfilters = 1000;
+  if(layereps < 1.0e-20) layereps = 1.0e-3;
   rectfactor = 1.0e2;
 
   dim = data->dim;
