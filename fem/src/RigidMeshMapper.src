@@ -134,6 +134,8 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
 
   DO elem = 1,Solver % Mesh % NumberOfBulkElements      
     Element => Solver % Mesh % Elements(elem)
+    CurrentModel % CurrentElement => Element
+
     NodeIndexes => Element % NodeIndexes
     Model % CurrentElement => Element
     CALL GetElementNodes( Nodes )
@@ -147,10 +149,9 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   
     Relax(1:n) = GetReal( BodyForce,'Mesh Relax',Found)
     IF(.NOT. Found ) Relax = 1.0_dp
-    DO i=1,n
-      Relax(i) = MIN( MAX( Relax(i), 0.0_dp ), 1.0_dp )
-    END DO
-
+!    DO i=1,n
+!      Relax(i) = MIN( MAX( Relax(i), 0.0_dp ), 1.0_dp )
+!    END DO
 
     IF( bf_id /= prev_bf_id ) THEN
 
@@ -246,7 +247,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           GotTranslate = .TRUE.
         END IF
         
-        PRINT *,'Translate',bf_id,GotTranslate,TrsMatrix(1:2,4)
+!        PRINT *,'Translate',bf_id,GotTranslate,TrsMatrix(1:2,4)
 
 
         ! Scaling:
