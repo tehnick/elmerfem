@@ -3270,7 +3270,7 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER :: x0(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt, &
-        Tolerance
+        Tolerance, MaxNorm
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
@@ -3372,6 +3372,22 @@ END FUNCTION SearchNodeL
 
     Norm = ComputeNorm(Solver, n, x)
     Solver % Variable % Norm = Norm
+
+
+    !--------------------------------------------------------------------------
+    ! The norm should be bounded in order to reach convergence
+    !--------------------------------------------------------------------------
+
+     MaxNorm = ListGetCReal( Solver % Values, &
+          'Nonlinear System Max Norm', Stat )
+    IF( .NOT. Stat) MaxNorm = HUGE( Norm )
+
+    IF( ISNAN( Norm ) .OR. Norm > MaxNorm ) THEN
+     CALL Fatal('ComputeChange','Norm of solution exceeded given bounds')
+    END IF
+  
+
+
 
     SELECT CASE( ConvergenceType )
 
