@@ -389,6 +389,10 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
       SELECT CASE(Oper)
 
+      CASE ('partitions')
+        Value = 1.0_dp * ParEnv % PEs 
+        CALL AddToSaveList('value: number of partitions',Value,.TRUE.,ParOper)
+
       CASE ('cpu time')
         Value = CPUTime()
         CALL AddToSaveList('value: cpu time from start (s)',Value,.FALSE.,ParOper)
@@ -763,7 +767,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     CALL Warn('SaveScalars','Found no values to save')
     RETURN
   ELSE
-    WRITE (Message,'(A,I3,A)') 'Found',NoValues,' values to savein total'
+    WRITE (Message,'(A,I3,A)') 'Found',NoValues,' values to save in total'
     CALL Info('SaveScalars',Message)
   END IF
 
@@ -991,8 +995,8 @@ CONTAINS
       ParOper = 'min'
 
       ! These operators should already be more of less parallel
-    CASE('cpu time','cpu memory','norm','nonlin change','steady state change','nonlin iter',&
-        'nonlin converged','steady converged')
+    CASE('partitions','cpu time','cpu memory','norm','nonlin change','steady state change',&
+	'nonlin iter','nonlin converged','steady converged')
       ParOper = 'none'
 
     CASE DEFAULT
