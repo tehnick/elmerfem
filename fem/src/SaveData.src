@@ -201,6 +201,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         n = Mesh % MaxElementNodes
         ALLOCATE( CoordinatesElemNo(NoElements), ElementValues(n), &
             CoordinatesBasis(NoElements,n) )
+        CoordinatesElemNo = 0
+        CoordinatesBasis = 0.0_dp
       ELSE
         NoCoordinates = SIZE(PointCoordinates,1)
         ALLOCATE(CoordinateIndex(NoCoordinates), CoordinateDist(NoCoordinates))
@@ -279,10 +281,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
             WRITE( Message, * ) 'Coordinate was not found in any of the elements!',j
             CALL Warn( 'SaveScalars', Message )
           END IF
-          CoordinatesElemNo(j) = 1          
-          CoordinatesBasis(j,:) = 0.0d0
         ELSE
-          CoordinatesElemNo(j) = 0
+          CoordinatesElemNo(j) = k
           ElementValues(1:n) = 0.0d0
           DO q=1,N
             ElementValues(q) = 1.0d0
@@ -762,6 +762,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   IF( NoValues == 0 ) THEN
     CALL Warn('SaveScalars','Found no values to save')
     RETURN
+  ELSE
+    WRITE (Message,'(A,I3,A)') 'Found',NoValues,' values to savein total'
+    CALL Info('SaveScalars',Message)
   END IF
 
   !------------------------------------------------------------------------------
@@ -781,7 +784,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       END IF
     END DO
     IF(l > 0 ) THEN
-      WRITE (Message,'(A,I2,A)') 'Performed',l,' parallel reduction operations'
+      WRITE (Message,'(A,I3,A)') 'Performed',l,' parallel reduction operations'
       CALL Info('SaveScalars',Message)
     END IF
   END IF
