@@ -51,16 +51,21 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt, t0, t1, CPUTime
-  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, SaveVTU, SaveEP
+  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, SaveVTU, SaveEP, &
+	ShowVariables
   INTEGER :: nInterval=1, nstep=0
   INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
 
   CHARACTER(10) :: OutputFormat
-  LOGICAL :: Found
+  LOGICAL :: SubroutineVisited=.FALSE.,Found
     
+  SAVE SubroutineVisited
+
 
   CALL Info( 'ResultOutputSolver', '-------------------------------------')
   t0 = CPUTime()
+
+  ShowVariables = ListGetLogical(Solver % Values,'Show Variables',Found)
 
   SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
   SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
@@ -97,6 +102,12 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL Warn('ResultOutputSolver','No output format was defined')
     RETURN
   END IF
+
+  IF( .NOT. SubroutineVisited .AND. ShowVariables ) THEN
+    CALL Info( 'ResultOutputSolver','Showing field variables at output' )    
+    CALL ShowFieldVariables( Model )
+  END IF
+
 
   ! Finally go for it and write desired data
   !-----------------------------------------
@@ -137,7 +148,75 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   CALL Info( 'ResultOutputSolver', Message )
   CALL Info( 'ResultOutputSolver', '-------------------------------------')
 
+  SubroutineVisited = .TRUE.
+  
 END SUBROUTINE ResultOutputSolver
+
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ShowFieldVariables( Model )
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t) :: Model
+!------------------------------------------------------------------------------
+    INTEGER :: LoopRank, VarRank
+    TYPE(Variable_t), POINTER :: Var
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+    INTEGER :: count
+
+
+    count = 0
+
+    DO LoopRank = 0,2
+      
+      IF( LoopRank == 0 ) THEN
+        CALL Info('ShowFieldVariables','Point Variables:')
+      ELSE IF( LoopRank == 1 ) THEN
+        CALL Info('ShowFieldVariables','Scalar Field Variables:')
+      ELSE
+        CALL Info('ShowFieldVariables','Vector Field Variables:')
+      END IF
+      
+      Var => Model % Variables
+      DO WHILE( ASSOCIATED( Var ) )
+        
+!         IF ( .NOT. Var % Output ) THEN
+!          Var => Var % Next
+!          CYCLE
+!        END IF
+        
+        IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
+          VarRank = 0
+        ELSE IF ( Var % Dofs == 1 ) THEN
+          VarRank = 1
+        ELSE IF ( Var % Dofs > 1  ) THEN
+          VarRank = 2
+        END IF
+
+        IF( LoopRank == VarRank ) THEN 
+          count = count + 1
+          VarName = GetVarName( Var )
+          IF( Var % Output ) THEN
+            WRITE(Message,'(A)') TRIM(VarName)
+          ELSE
+            WRITE(Message,'(A)') TRIM(VarName)//' (no output)'
+          END IF
+          CALL Info('ShowFieldVariables',Message) 
+        END IF
+
+        Var => Var % Next
+      END DO
+    END DO
+
+  END SUBROUTINE ShowFieldVariables
+
+  
+
+
 
 
 
