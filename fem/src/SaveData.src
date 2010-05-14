@@ -131,24 +131,16 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
   IF(.NOT.SubroutineVisited) THEN
     
-    WriteCore = .TRUE.
     IsParallel = .FALSE.
+    WriteCore = .TRUE.
     ParallelWrite = .FALSE.
     ParallelReduce = .FALSE.
-    DO i = 1, Model % NumberOfSolvers
-      ParSolver => Model % Solvers(i)
-      IF ( .NOT. ASSOCIATED( ParSolver % Matrix ) )  CYCLE
-      IF ( ASSOCIATED( ParSolver % Matrix % ParMatrix ) ) THEN
-        IF ( ParSolver %  Matrix % ParMatrix % ParEnv % PEs > 1 )  THEN
-          IsParallel = .TRUE.
-          EXIT
-        END IF
-      END IF
-    END DO
-    IF( IsParallel ) THEN
+
+    IF( ParEnv % PEs > 1 ) THEN
+      IsParallel = .TRUE.
       ParallelReduce = GetLogical( Solver % Values,'Parallel Reduce',GotIt)
       ParallelWrite = .NOT. ParallelReduce
-      IF( ParEnv % MYPe > 0 ) WriteCore = .FALSE. 
+      IF (ParEnv % MYPe > 0) WriteCore = .FALSE.
       OutputPE = ParEnv % MYPe
       IF( ParallelReduce ) CALL Info('SaveScalars','Parallel results will be reduced to one file')
       IF( ParallelWrite ) CALL Info('SaveScalars','Parallel results will be written to separate files')      
@@ -785,6 +777,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         CALL MPI_ALLREDUCE(Value,Value2,1,&
             MPI_DOUBLE_PRECISION,MPIOper(No),MPI_COMM_WORLD,ierr)
         Values(No) = Value2
+	IF( MPIOper(No) == MPI_MIN ) THEN
+	  WRITE( ValueNames(No),'(A)') TRIM( ValueNames(No) )//' : mpi_min'
+	ELSE IF( MPIOper(No) == MPI_MAX ) THEN
+	  WRITE( ValueNames(No),'(A)') TRIM( ValueNames(No) )//' : mpi_max'
+	ELSE IF( MPIOper(No) == MPI_SUM ) THEN
+	  WRITE( ValueNames(No),'(A)') TRIM( ValueNames(No) )//' : mpi_sum'
+	END IF	
       END IF
     END DO
     IF(l > 0 ) THEN
@@ -819,8 +818,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
        WRITE(10,'(A)') TRIM(Message)
      END IF
      DateStr = FormatDate()
-     WRITE( 10,'(A,A)') 'File started at: ',TRIM(DateStr)
-     WRITE(10,*) 'Variables in columns of matrix: '//TRIM(ScalarsFile)
+     WRITE( 10,'(A)') 'File started at: '//TRIM(DateStr)
+     IF(ParallelWrite) WRITE(10,'(A)') 'Parallel data is written into separate files'
+     IF(ParallelReduce) WRITE(10,'(A)') 'Parallel data is reduced into one file'
+     IF(FileAppend) WRITE(10,'(A)') 'Data is appended to existing file'
+
+     WRITE(10,'(A)') ' '
+     WRITE(10,'(A)') 'Variables in columns of matrix: '//TRIM(ScalarsFile)
      IF( LineInd /= 0 ) THEN
        i = 1
        WRITE(10,'(I4,": ",A)') 1,'Line Marker'
@@ -840,21 +844,12 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   CALL Info( 'SaveScalars', Message, Level=4 )
 
   IF ( ParallelWrite ) THEN
-    DO i=1,MAX_NAME_LEN
-      IF ( ScalarsFile(i:i) == ' ' ) EXIT
-      ScalarParFile(i:i) = ScalarsFile(i:i)
-    END DO
-    ScalarParFile(i:i) = '.'
-
-    IF ( ParSolver % Matrix % ParMatrix % ParEnv % MyPE < 10 ) THEN
-      WRITE( ScalarParFile(i+1:), '(i1)' ) &
-          ParSolver % Matrix % ParMatrix % ParEnv % MyPE
-    ELSE IF ( ParSolver % Matrix % ParMatrix % ParEnv % MyPE < 100 ) THEN
-      WRITE( ScalarParFile(i+1:), '(i2)' ) &
-          ParSolver % Matrix % ParMatrix % ParEnv % MyPE
+    IF ( ParEnv % MyPE < 10 ) THEN
+      WRITE( ScalarParFile, '(A,i1)' ) TRIM(ScalarsFile)//'.', ParEnv % MyPE
+    ELSE IF ( ParEnv % MyPE < 100 ) THEN
+      WRITE( ScalarParFile, '(A,i2)' ) TRIM(ScalarsFile)//'.', ParEnv % MyPE
     ELSE
-      WRITE( ScalarParFile(i+1:), '(i3)' ) &
-          ParSolver % Matrix % ParMatrix % ParEnv % MyPE
+      WRITE( ScalarParFile, '(A,i3)' ) TRIM(ScalarsFile)//'.', ParEnv % MyPE
     END IF
 
     IF(SubroutineVisited .OR. FileAppend) THEN 
@@ -1018,10 +1013,12 @@ CONTAINS
     REAL(KIND=dp) :: Value
     LOGICAL, OPTIONAL :: ValueIsInteger
     CHARACTER(LEN=MAX_NAME_LEN), OPTIONAL :: ParallelOperator
+    CHARACTER(LEN=MAX_NAME_LEN) :: ParOper
     REAL, ALLOCATABLE :: TmpValues(:)
     CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: TmpValueNames(:)
     LOGICAL, POINTER :: TmpValuesInteger(:)     
     INTEGER, POINTER :: TmpMPIOper(:)
+    LOGICAL :: GotParOper
 
     SAVE TmpValues, TmpValueNames, TmpMPIOper
 
@@ -1076,8 +1073,29 @@ CONTAINS
     NoValues = n
 
     IF( ParallelReduce ) THEN
+      GotParOper = .FALSE.
       IF( PRESENT(ParallelOperator)) THEN
-        SELECT CASE( ParallelOperator )
+	ParOper = ParallelOperator
+        GotParOper = .TRUE.
+      ELSE
+
+!------------------------------------------------------------------------------------------------
+! This is to ensure that parallel operators may be applied to also other scalars than those 
+! computed within this solver with the serial operators. The indexing may not be known in advance
+! but may be checked by a trial run. Note that the indexing does not often coinsice with the 
+! normal operators but then this loop is never reached.
+!------------------------------------------------------------------------------------------------
+
+        IF(n < 10) THEN
+          WRITE (Name,'(A,I2)') 'Parallel Operator',n
+        ELSE
+          WRITE (Name,'(A,I3)') 'Parallel Operator',n
+        END IF
+        ParOper = ListGetString(Solver % Values,TRIM(Name),GotParOper)
+      END IF
+
+      IF( GotParOper ) THEN
+        SELECT CASE( ParOper )
           
         CASE('max' )
           MPIOper(n) = MPI_MAX
@@ -1085,8 +1103,6 @@ CONTAINS
           MPIOper(n) = MPI_MIN
         CASE('sum' )
           MPIOper(n) = MPI_SUM
-        CASE('prod' )
-          MPIOper(n) = MPI_PROD
 
         CASE DEFAULT
           MPIOper(n) = 0
