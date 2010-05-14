@@ -83,7 +83,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotParOper, GotVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, IsParallel, ParallelWrite, LiveGraph, FileAppend, SaveEigenValue, &
-      SaveEigenFreq, CheckNorm, IsInteger, ParallelReduce, WriteCore
+      SaveEigenFreq, IsInteger, ParallelReduce, WriteCore
   LOGICAL, POINTER :: ValuesInteger(:)
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
@@ -102,7 +102,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       VariableName, ResultPrefix, Oper, ParOper, Name, CoefficientName, ScalarParFile
   INTEGER :: i,j,k,l,q,n,ierr,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
-      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd
+      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
   SAVE SubroutineVisited, NumberOfVars, &
@@ -112,7 +112,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
       BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
       LineCoordinates, ScalarParFile, IsParallel, ParallelWrite, ParSolver, PrevNoValues, &
-      LiveGraph, CheckNorm, Norm, ParallelReduce, WriteCore, MPIOper
+      LiveGraph, Norm, ParallelReduce, WriteCore, MPIOper
 
 !------------------------------------------------------------------------------
 
@@ -148,7 +148,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
     FileAppend = ListGetLogical( Solver % Values,'File Append',GotIt)
 
-    CheckNorm = ListGetLogical( Solver % Values,'Show norm',GotIt )
 
     ScalarsFile = ListGetString(Solver % Values,'Filename',GotIt )
     IF(.NOT. GotIt) ScalarsFile = DefaultScalarsFile
@@ -933,7 +932,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   ! For consistancy checks one may print out a value imitating ComputeChange
   !------------------------------------------------------------------------------
 
-  IF( CheckNorm ) THEN
+  IF( ListGetLogical( Solver % Values,'Show norm',GotIt ) ) THEN
     NormInd = ListGetInteger( Solver % Values,'Show Norm Index',GotIt)
     IF(NormInd < 1 .OR. NormInd > NoValues ) NormInd = 1
     PrevNorm = Norm
@@ -954,6 +953,15 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     CALL Info( 'ComputeChange', Message, Level=3 )
   END IF
   
+  !------------------------------------------------------------------------------
+  ! One may also export desired data as a cost function for FindOptimum solver
+  !------------------------------------------------------------------------------
+
+  CostInd = ListGetInteger( Solver % Values,'Cost Function Index',GotIt)
+  IF( CostInd > 0 .AND. CostInd <= NoValues ) THEN
+    CALL ListAddConstReal( Model % Simulation,'Cost Function',Values(CostInd) )
+  END IF
+
 
   PrevNoValues = NoValues
   SubroutineVisited = .TRUE.
