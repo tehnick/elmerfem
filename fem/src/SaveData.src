@@ -2498,19 +2498,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      n = Mesh % MaxElementNodes
      ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), &
           LineNodes % x(2), LineNodes % y(2), LineNodes % z(2), &
-          Basis(n), SavePerm(Mesh % NumberOfNodes) )
-     
-     Parallel = .FALSE.
-     DO i = 1, Model % NumberOfSolvers
-        ParSolver => Model % Solvers(i)
-        IF ( .NOT. ASSOCIATED( ParSolver % Matrix ) )  CYCLE
-        IF ( ASSOCIATED( ParSolver % Matrix % ParMatrix ) ) THEN
-           IF ( ParSolver %  Matrix % ParMatrix % ParEnv % PEs > 1 )  THEN
-              Parallel = .TRUE.
-              EXIT
-           END IF
-        END IF
-     END DO
+          Basis(n), SavePerm(Mesh % NumberOfNodes) )     
+     Parallel = ( ParEnv % PEs > 1) 
   END IF
 
   DIM = CoordinateSystemDimension()
@@ -2640,36 +2629,26 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Open files for saving
 !------------------------------------------------------------------------------
-  IF ( Parallel ) THEN
-     
-     DO i=1,MAX_NAME_LEN
-        IF ( SideFile(i:i) == ' ' ) EXIT
-        SideParFile(i:i) = SideFile(i:i)
-     END DO
-     SideParFile(i:i) = '.'
-     
-     IF ( ParSolver % Matrix % ParMatrix % ParEnv % MyPE < 10 ) THEN
-        WRITE( SideParFile(i+1:), '(i1)' ) &
-             ParSolver % Matrix % ParMatrix % ParEnv % MyPE
-     ELSE IF ( ParSolver % Matrix % ParMatrix % ParEnv % MyPE < 100 ) THEN
-        WRITE( SideParFile(i+1:), '(i2)' ) &
-             ParSolver % Matrix % ParMatrix % ParEnv % MyPE
-     ELSE
-        WRITE( SideParFile(i+1:), '(i3)' ) &
-             ParSolver % Matrix % ParMatrix % ParEnv % MyPE
-     END IF
-     
-     IF(SubroutineVisited .OR. FileAppend) THEN 
-        OPEN (10, FILE=SideParFile,POSITION='APPEND')
-     ELSE 
-        OPEN (10,FILE=SideParFile)
-     END IF
+  IF ( Parallel ) THEN     
+    IF ( ParEnv % MyPE < 10 ) THEN
+      WRITE( SideParFile, '(A,i1)' ) TRIM(SideFile)//'.',ParEnv % MyPE
+    ELSE IF ( ParEnv % MyPE < 100 ) THEN
+      WRITE( SideParFile, '(A,i2)' ) TRIM(SideFile)//'.',ParEnv % MyPE
+    ELSE
+      WRITE( SideParFile, '(A,i3)' ) TRIM(SideFile)//'.',ParEnv % MyPE
+    END IF
+    
+    IF(SubroutineVisited .OR. FileAppend) THEN 
+      OPEN (10, FILE=SideParFile,POSITION='APPEND')
+    ELSE 
+      OPEN (10,FILE=SideParFile)
+    END IF
   ELSE
-     IF(SubroutineVisited .OR. FileAppend) THEN 
-        OPEN (10, FILE=SideFile, POSITION='APPEND')
-     ELSE 
-        OPEN (10,FILE=SideFile)
-     END IF
+    IF(SubroutineVisited .OR. FileAppend) THEN 
+      OPEN (10, FILE=SideFile, POSITION='APPEND')
+    ELSE 
+      OPEN (10,FILE=SideFile)
+    END IF
   END IF
 
 !------------------------------------------------------------------------------
@@ -3595,8 +3574,6 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
          WRITE (Name,'(A,I2)') 'Parameter',NoParams
        ELSE IF(NoParams < 100) THEN
          WRITE (Name,'(A,I3)') 'Parameter',NoParams    
-       ELSE
-         CALL FATAL('SaveMaterials','Number of parameters cannot exceed 99')
        END IF
        ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
        IF(GotVar) THEN
