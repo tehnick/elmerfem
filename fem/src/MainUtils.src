@@ -2747,7 +2747,8 @@ END SUBROUTINE CoupledSolver
        END DO
 
        OutputPE = -1
-       IF ( i-1==ParEnv % MyPE ) OutputPE=0
+       IF ( i-1==ParEnv % MyPE .OR. i>=ParEnv % PEs .AND. ParEnv % myPE==0 ) &
+         OutputPE=0
 
        n = COUNT(ParEnv % Active)
        IF ( n>0 .AND. n<ParEnv % PEs ) THEN
