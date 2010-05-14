@@ -932,9 +932,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   ! For consistancy checks one may print out a value imitating ComputeChange
   !------------------------------------------------------------------------------
 
-  IF( ListGetLogical( Solver % Values,'Show norm',GotIt ) ) THEN
-    NormInd = ListGetInteger( Solver % Values,'Show Norm Index',GotIt)
-    IF(NormInd < 1 .OR. NormInd > NoValues ) NormInd = 1
+  NormInd = ListGetInteger( Solver % Values,'Show Norm Index',GotIt)
+  IF( NormInd > 0 .AND. NormInd <= NoValues ) THEN
     PrevNorm = Norm
     Norm = Values( NormInd )
     IF( ABS( Norm ) + ABS( PrevNorm ) > 0.0_dp ) THEN
