@@ -253,6 +253,7 @@ EXTRA_DIST = \
 	DiffuseConvectiveGeneralAnisotropic.src \
 	DirectSolve.src \
 	DistanceSolve.src \
+	DivergenceSolver.src \
 	EigenSolve.src \
 	ElasticSolve.src \
 	ElectricForce.src \
@@ -332,6 +333,7 @@ EXTRA_DIST = \
 	ResultToPost.src \
 	ResultToResult.src \
 	ReynoldsSolver.src \
+	RichardsSolver.src \
 	RigidBodyReduction.src \
 	RigidMeshMapper.src \
 	SaveData.src \
@@ -363,6 +365,7 @@ EXTRA_DIST = \
 	Stress.src \
 	StressGeneral.src \
 	StressSolve.src \
+	StucturedFlowLine.src \
 	StructuredMeshMapper.src \
 	TimeIntegrate.src \
 	TransportEquation.src \
