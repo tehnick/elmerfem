@@ -1337,7 +1337,7 @@ CONTAINS
     INTEGER :: i,j,k,l,n,ierr,istat
     LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
        Relax, NeedSol, IsCoupledSolver, IsAssemblySolver
-    LOGICAL, ALLOCATABLE :: DoneThis(:)
+    LOGICAL, ALLOCATABLE :: DoneThis(:), AfterConverged(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
     CHARACTER(LEN=max_name_len) :: When
@@ -1387,7 +1387,14 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
-    ALLOCATE( DoneThis( Model % NumberOfSolvers ) )
+    ALLOCATE( DoneThis( Model % NumberOfSolvers ), &
+         AfterConverged( Model % NumberOfSolvers ) )
+
+    DO i=1,Model % NumberOfSolvers
+      Solver => Model % Solvers(i)
+      AfterConverged(i) = ListGetLogical( Solver % Values, &
+             'Coupled System After Others Converged', Found )
+    END DO
 
     IF ( PrevDT == 0.0d0 ) PrevDT = dt
 !------------------------------------------------------------------------------
@@ -1410,6 +1417,9 @@ CONTAINS
           Mesh % OutputActive = .FALSE.
           Mesh => Mesh % Next
        END DO
+
+
+
 !------------------------------------------------------------------------------
 !      Go trough number of solvers (heat,laminar or turbulent flow, etc...)
 !------------------------------------------------------------------------------
@@ -1440,6 +1450,8 @@ CONTAINS
               CYCLE
             END IF
           END IF
+
+          IF ( AfterConverged(k) .AND. .NOT. ALL(AfterConverged .OR. DoneThis) ) CYCLE
 !------------------------------------------------------------------------------
 
           RungeKutta = .FALSE.
@@ -1622,7 +1634,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     IF ( .NOT.TransientSimulation ) SteadyStateReached = ALL(DoneThis)
 !------------------------------------------------------------------------------
-    DEALLOCATE( DoneThis )
+    DEALLOCATE( DoneThis, AfterConverged )
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
