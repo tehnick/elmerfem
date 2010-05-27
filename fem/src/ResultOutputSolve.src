@@ -3739,8 +3739,10 @@ CONTAINS
         END IF
       END DO
     END DO
-    WRITE( VtuUnit,'(A)') '      </PointData>'
-
+    
+    IF( ScalarsExist .OR. VectorsExist) THEN
+      WRITE( VtuUnit,'(A)') '      </PointData>'
+    END IF
     
     ! Elementwise information
     !-------------------------------------
