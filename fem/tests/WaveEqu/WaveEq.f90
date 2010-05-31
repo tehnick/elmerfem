@@ -157,8 +157,11 @@ SUBROUTINE WaveSolver_Init( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: SolverParams
+!------------------------------------------------------------------------------
 
-  CALL ListAddInteger( GetSolverParams(), 'Time derivative order', 2 )
+  SolverParams => GetSolverParams()
+  CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
 
 !------------------------------------------------------------------------------
 END SUBROUTINE WaveSolver_Init
