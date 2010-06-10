@@ -3801,7 +3801,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    }
 	  }
 
-	  if(part2 < partstart || part > partfin) continue;
+	  if(part2 < partstart || part2 > partfin) continue;
 	  nofile2 = part2 - partstart + 1;
 
 
