@@ -4092,7 +4092,13 @@ END FUNCTION SearchNodeL
       ALLOCATE( TempVector(Aaid % NumberOfRows) )
       SaveValues => Aaid % Values
       Aaid % Values => Aaid % BulkValues
-      CALL MatrixVectorMultiply( Aaid, x, TempVector )
+
+      IF ( ParEnv % PEs > 1 ) THEN
+        CALL ParallelInitSolve( Aaid, x, Aaid % BulkRHS, Tempvector )
+        CALL ParallelMatrixVector( Aaid, x, TempVector, .TRUE. )
+      ELSE
+        CALL MatrixVectorMultiply( Aaid, x, TempVector )
+      END IF
 
       IF( ListGetLogical(Solver % Values, 'Calculate Energy Norm', gotIt) ) THEN
         Energy = 0._dp
@@ -4110,6 +4116,7 @@ END FUNCTION SearchNodeL
 
       Aaid % Values => SaveValues
       TempVector = TempVector - Aaid % BulkRHS
+      IF ( ParEnv % PEs>1 ) CALL ParallelSumVector( AAid, Tempvector )
       DO i=1,SIZE( NodalLoads % Perm )
         IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
            DO j=1,DOFs
