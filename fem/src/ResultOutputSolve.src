@@ -67,7 +67,6 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 
   SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
   SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
-  SaveGmsh = SaveGmsh .OR. ListGetLogical(Solver % Values,'Gmsh Old Format',Found)
   SaveVTK = ListGetLogical(Solver % Values,'VTK Format',Found)
   SaveVTU = ListGetLogical(Solver % Values,'VTU Format',Found)
   SaveOpenDx = ListGetLogical(Solver % Values,'Dx Format',Found)
@@ -123,7 +122,6 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 
 
 
-
   ! Finally go for it and write desired data
   !-----------------------------------------
 
@@ -132,13 +130,8 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
   IF( SaveGmsh ) THEN
-    IF( ListGetLogical(Solver % Values,'Gmsh Old Format',Found) ) THEN
-      CALL Info( 'ResultOutputSolver','Saving results in gmsh format' )        
-      CALL GmshOldOutputSolver( Model,Solver,dt,TransientSimulation )      
-    ELSE
-      CALL Info( 'ResultOutputSolver','Saving results in new gmsh format' )        
-      CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
-    END IF
+    CALL Info( 'ResultOutputSolver','Saving results in new gmsh format' )        
+    CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
   IF( SaveVTK ) THEN
     CALL Info( 'ResultOutputSolver','Saving results in legacy vtk format' )            
@@ -183,10 +176,10 @@ CONTAINS
     TYPE(ValueList_t),POINTER  :: List
     LOGICAL :: ShowVariables
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,LoopDim, VarDim,DOFs
+    INTEGER :: i,j,k,l,LoopDim, VarDim,DOFs,dim
     TYPE(Variable_t), POINTER :: Var, Var1
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VarStr, VarStrComp, VarStrExt, str
-    LOGICAL :: IsVector, Set, GotIt
+    LOGICAL :: IsVector, Set, GotIt, ComponentVector
     INTEGER :: Nvector, Nscalar
 
 
@@ -199,7 +192,7 @@ CONTAINS
 
     Nscalar = 0
     Nvector = 0
-
+    dim = CoordinateSystemDimension()
     
     Var => Model % Variables
     DO WHILE( ASSOCIATED( Var ) )
@@ -216,17 +209,19 @@ CONTAINS
 
       VarDim = Var % Dofs
       IsVector = (VarDim > 1)
-
       Set = .FALSE.
-      WRITE(VarName,'(A)') TRIM(Var % Name)
 
+      WRITE(VarName,'(A)') TRIM(Var % Name)
 
       SELECT CASE(Var % Name)
 
-
       CASE( 'coordinate 1','coordinate 2','coordinate 3' )
+        ! These are treated separatetely as coordinates are not typically saved
+
 
       CASE( 'mesh update' )
+        ! Mesh update is treated separately because its special connection to displacement
+
         Var1 => Model % Variables
         DO WHILE( ASSOCIATED( Var1 ) )
           IF ( TRIM(Var1 % Name) == 'displacement' ) EXIT
@@ -257,106 +252,47 @@ CONTAINS
         
       CASE( 'displacement 1','displacement 2','displacement 3')
         
-      CASE( 'flow solution' )
-        ! In case of velocity just take the 'velocity' and 'pressure' as the real variables
-        !----------------------------------------------------------------------------------
-
-      CASE( 'velocity 2','velocity 3' )
-               
-      CASE( 'velocity 1') 
-        WRITE(VarName,'(A)') 'velocity'       
-        IsVector = .TRUE.
-        Set = .TRUE.
-
-      CASE( 'pressure' )
-        Set = .TRUE.
-        
-      CASE( 'magnetic field' )
-        Set = .TRUE.
-        
-      CASE( 'magnetic field 1','magnetic field 2','magnetic field 3')
-        
-      CASE( 'electric current' )
-        Set = .TRUE.
-        
-      CASE( 'electric current 1','electric current 2','electric current 3')
-        
-      CASE( 'magnetic flux density' )
-        Set = .TRUE.
-        
-      CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
-      
 
       CASE DEFAULT
   
+        ! All vector variables are assumed to be saved using its components
+        ! rather than vector itself.
+
         IF ( Var % DOFs == 1 ) THEN
           Set = .TRUE. 
-        ELSE
-   
-          !------------------------------------------------------------------------
-          ! Treat the variables given by the special syntax. This enables saving
-          ! of vectors without hard-coding them in.
-          !------------------------------------------------------------------------
-          j=INDEX(Var % Name, '[')
-          IF ( j > 0 ) THEN
-            str =  ' '
-            DO i=1,LEN_TRIM(Var % Name)
-              str(i:i) = Var % Name(i:i)
-            END DO
-            DOFs = 0
-            DO WHILE( .TRUE. )
-              i = INDEX( str(j+1:), ':' ) + j
-              IF ( i<=j ) EXIT
-              READ( str(i+1:),'(i1)' ) k
-              DOFs = DOFs+k
-              DO WHILE( str(j+1:j+1) == ' ' )
-                j = j + 1
-              END DO
-              DO l=j+1,i-1
-                IF ( str(l:l) == ' ' ) str(l:l) = '.'
-              END DO
-              IF ( k==1 ) THEN
-                Nscalar = Nscalar + 1
-                IF( Nscalar < 10 ) THEN
-                  WRITE(VarStr,'(A,I2)') 'Scalar Field',Nscalar
-                ELSE
-                  WRITE(VarStr,'(A,I3)') 'Scalar Field',Nscalar
-                END IF
-                WRITE(VarName,'(A)') str(j+1:i-1)
-                CALL ListAddString( List ,TRIM(VarStr),TRIM(VarName))
-               ELSE IF ( k <= 3 ) THEN
-                Nvector = Nvector + 1
-                IF( Nvector < 10 ) THEN
-                  WRITE(VarStr,'(A,I2)') 'Vector Field',Nvector
-                ELSE
-                  WRITE(VarStr,'(A,I3)') 'Vector Field',Nvector
-                END IF
-                WRITE(VarName,'(A)') str(j+1:i-1)
-                CALL ListAddString( List ,TRIM(VarStr),TRIM(VarName))
-              ELSE
-                DO l=1,k
-                  Nscalar = Nscalar + 1
-                  IF( Nscalar < 10 ) THEN
-                    WRITE(VarStr,'(A,I2)') 'Scalar Field',Nscalar
-                  ELSE
-                    WRITE(VarStr,'(A,I3)') 'Scalar Field',Nscalar                   
-                  END IF
-                  CALL ListAddString( List, TRIM(VarStr),&
-                      str(j+1:i-1) // ' ' // CHAR(l+ICHAR('0')) )
-                END DO
+          
+	  str =  ' '
+          j = LEN_TRIM(Var % Name)
+          DO i=1,j
+            str(i:i) = Var % Name(i:i)
+          END DO
+          
+          ! Check that there are exactly dim number of components
+          ! If so save the quantity as a vector, otherwise componentwise
+          IF( str(j:j) == '1') THEN
+            IF(dim == 2) THEN
+              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 2')		
+              IF( ASSOCIATED(Var1)) THEN
+                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3')		
+                IsVector = .NOT. ASSOCIATED(Var1)
               END IF
-              j = i + 1
-            END DO
-            !------------------------------------------------------------------------------
-            ! This uses the special feature that scalar nodes in this kind of construct are
-            ! located after the vector! They have already been treated, thus cycle.
-            !------------------------------------------------------------------------------
-            DO k=1,Var % DOFs
-              Var => Var % Next
-            END DO
+            END IF
+            IF(dim == 3) THEN
+              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3')		
+              IF( ASSOCIATED(Var1)) THEN
+                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 4')		
+                IsVector = .NOT. ASSOCIATED(Var1)
+              END IF
+            END IF
+	    IF( IsVector ) THEN
+              WRITE(VarName,'(A)') TRIM(str(1:j-2))
+              ! Loop over the 2nd (and 3rd) components as they are already accounted for
+	      DO k=2,dim
+                Var => Var % Next
+              END DO
+            END IF
           END IF
         END IF
-
       END SELECT
       
       !---------------------------------------------------------------------------
@@ -454,6 +390,7 @@ END SUBROUTINE ResultOutputSolver
     LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists
     INTEGER :: ScalarFields, VectorFields
     REAL(KIND=dp) :: Time,MeshScale, NodeCoords(3)
+    REAL(KIND=dp), POINTER :: Values(:), Values2(:), Values3(:)
     INTEGER :: ii,i,j,k,l,n,m,q,Node,DOFs,TimeStep, &
          NumberOfNodes, NumberOfElements, ind, Vari, DIM
     INTEGER, POINTER :: MaskPerm(:), MaskOrder(:), TimeSteps(:)
@@ -801,11 +738,12 @@ END SUBROUTINE ResultOutputSolver
         END IF
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Model % Variables, TRIM(VarName) ) 
+        Values => Var % Values
 
         k = i
         IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
         IF ( k > 0 ) THEN
-          WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Var % Values(k)
+          WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Values(k)
         ELSE
           WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0'
         END IF
@@ -820,13 +758,14 @@ END SUBROUTINE ResultOutputSolver
         END IF
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Model % Variables, VarName ) 
+
         IF( ASSOCIATED(Var) ) THEN
           k = i
           Dofs = Var% Dofs
           IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-
-          ! Check for the presence of secondary variable (in practice 'mesh update')
-          IF( k == 0) THEN
+          
+          IF( k == 0 ) THEN
+            ! Check for the presence of secondary variable (in practice 'mesh update')
             IF( Vari < 10 ) THEN
               WRITE(Txt,'(A,I2,A)') 'Vector Field',Vari,' Complement'
             ELSE
@@ -835,11 +774,11 @@ END SUBROUTINE ResultOutputSolver
             VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
             IF( GotIt ) THEN
               Var => VariableGet( Model % Variables, VarName ) 
-              IF( ASSOCIATED(Var % Perm)) k = Var % Perm(i)
+              k = Var % Perm(i)
             END IF
           END IF
-
-          IF ( k > 0 ) THEN
+          
+          IF( k > 0 ) THEN
             DO j=1,dofs
               WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Var % Values(dofs*(k-1)+j)
             END DO
@@ -849,29 +788,44 @@ END SUBROUTINE ResultOutputSolver
           ELSE 
             WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0 0.0 0.0'
           END IF
-
+          
         ELSE
           ! Check for the presence of component vectors given by its components i=1,2,3
           Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
           IF( ASSOCIATED(Var)) THEN
             k = i
             IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-            IF( k > 0 ) THEN
-              WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Var % Values(k)
-              Var => VariableGet( Model % Variables, TRIM(VarName)//' 2' ) 
-              WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Var % Values(k)
-              Var => VariableGet( Model % Variables, TRIM(VarName)//' 3' )          
-              IF( ASSOCIATED(Var)) THEN
-                WRITE(PostFileUnit,'(ES16.7E3)',ADVANCE='NO') Var % Values(k)
+
+            IF( k == 0 ) THEN
+              IF( Vari < 10 ) THEN
+                WRITE(Txt,'(A,I2,A)') 'Vector Field',Vari,' Complement'
               ELSE
-                WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0'               
+                WRITE(Txt,'(A,I3,A)') 'Vector Field',Vari,' Complement'
+              END IF
+              VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
+              IF( GotIt ) THEN
+                Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
+                k = Var % Perm(i)
+              END IF
+            END IF
+            IF( k > 0 ) THEN
+              Values => Var % Values
+              Var => VariableGet( Model % Variables, TRIM(VarName)//' 2' ) 
+              Values2 => Var % Values
+              IF( dim == 2 ) THEN
+                WRITE(PostFileUnit,'(2ES16.7E3,A)',ADVANCE='NO') Values(k),&
+                    Values2(k),' 0.0'               
+              ELSE
+                Var => VariableGet( Model % Variables, TRIM(VarName)//' 3' ) 
+                Values3 => Var % Values
+                WRITE(PostFileUnit,'(3ES16.7E3)',ADVANCE='NO') Values(k),&
+                    Values2(k), Values3(k)
               END IF
             ELSE
-              WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0 0.0 0.0'
+              WRITE(PostFileUnit,'(A)',ADVANCE='NO') ' 0.0 0.0 0.0'              
             END IF
           END IF
         END IF
-
       END DO
       
       WRITE(PostFileUnit,'()')
@@ -1383,368 +1337,6 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   
 
-
-!------------------------------------------------------------------------------
-SUBROUTINE GmshOldOutputSolver( Model,Solver,dt,TransientSimulation )
-!------------------------------------------------------------------------------
-  USE DefUtils
-  IMPLICIT NONE
-!------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
-! Local variables
-!------------------------------------------------------------------------------
-  TYPE(Element_t),POINTER :: Element
-  TYPE(Variable_t), POINTER :: Solution
-  INTEGER, POINTER :: Perm(:)
-  REAL(KIND=dp), POINTER :: Values(:)
-  COMPLEX(KIND=dp), POINTER :: CValues(:)
-  TYPE(Variable_t), POINTER :: TimeVariable
-  TYPE(ValueList_t), POINTER :: SolverParams
-  
-  LOGICAL :: Found, GotField, FileAppend, AlterTopology
-  LOGICAL :: EigenAnalysis = .FALSE., EigenActive
-  
-  INTEGER :: VisitedTimes = 0
-  INTEGER :: i,j,k,l,m,n,dim,dofs,Code, body_id, Nloop, Loop, Vari, Rank
-  INTEGER :: ElemNo, NumberOfAllElements
-  INTEGER, PARAMETER :: MaxElemCode = 827
-  INTEGER, TARGET :: PermIndexes(27)
-  INTEGER :: ListElemTypes(MaxElemCode)
-  INTEGER, ALLOCATABLE :: ElementOrder(:)
-  INTEGER, POINTER :: NodeIndexes(:)
-
-  INTEGER, PARAMETER :: LENGTH = 1024
-  CHARACTER(LEN=LENGTH) :: OutputFile, Txt, FieldName, CompName
-  CHARACTER(LEN=6), PARAMETER :: BodyIdField = 'bodyid'
-  
-  INTEGER :: ElemTypeOrder(15)
-  
-  SAVE VisitedTimes, ListElemTypes, ElementOrder, ElemNo
-  
-!------------------------------------------------------------------------------
-  ElemTypeOrder(:) = (/ 101, 202, 303, 404, 504, 808, 706, 605,  &
-                        203, 306, 408, 510, 820, 715, 613 /)
-  
-  CALL Info('GmshOutputSolver','Saving results in Gmsh format')
-  
-  SolverParams => GetSolverParams()
-  EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
-  FileAppend = GetLogical( SolverParams,'File Append',Found)
-  IF(.NOT. Found) FileAppend = .TRUE.
-  AlterTopology = GetLogical( SolverParams,'Alter Topology',Found)
-  
-  OutputFile = GetString( Solver % Values, 'Output File Name', Found )
-  IF( .NOT.Found ) OutputFile = 'Output.gm'
-
-  IF(INDEX(OutputFile,'.') == 0) WRITE( OutputFile,'(A,A)') TRIM(OutputFile),".gm"
- 
-  dim = CoordinateSystemDimension()
-  IF( VisitedTimes > 0 ) THEN
-    IF ( AlterTopology ) THEN
-      OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
-      GOTO 5    
-    END IF
-    IF ( FileAppend ) THEN
-      OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
-      GOTO 10    
-    END IF
-  END IF
-
-  ! Save the one-time information
-  !-------------------------------------------------
-  PRINT *,'Output File Name = ',TRIM(OutputFile)
-  OPEN(UNIT=10, FILE=OutputFile )
-  
-  WRITE(10,'(A)') '$PostFormat'
-  WRITE(10,'(A)') '1.4 0 8'
-  WRITE(10,'(A)') '$EndPostFormat'    
-  
-5 CONTINUE
-
-  IF( VisitedTimes > 0) DEALLOCATE(ElementOrder)
-
-  NumberOfAllElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-  ALLOCATE(ElementOrder(NumberOfAllElements))
-  ElementOrder = 0
-  ListElemTypes = 0
-
-  DO i = 1, NumberOfAllElements
-    Element => Model % Mesh % Elements(i)
-    Code = Element % TYPE % ElementCode
-    ListElemTypes(Code) = ListElemTypes(Code)+1
-  END DO
-  ! PRINT *,'Total number of elements =',SUM(ListElemTypes)
-
-  ! Order the elements so that they are saved in the order defined by the 
-  ! ElemTypeOrder vector. 
-  !----------------------------------------------------------------------
-  ElemNo = 0
-  DO j = 1,SIZE(ElemTypeOrder)
-    Code = ElemTypeOrder(j)
-    IF( ListElemTypes(code) == 0) CYCLE
-
-    DO i = 1, NumberOfAllElements
-      Element => Model % Mesh % Elements(i)
-      IF(Code /= Element % TYPE % ElementCode) CYCLE
-      ElemNo = ElemNo + 1
-      ElementOrder(ElemNo) = i
-    END DO
-  END DO
-
-  ! Check that there is a field to work with
-  !-------------------------------------------------
-  GotField = .FALSE.
-  DO Rank = 0,2
-    DO Vari = 1, 99
-      IF( Vari < 10 ) THEN
-        IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-        IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
-      ELSE
-        IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-        IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
-      END IF
-
-      FieldName = GetString( Solver % Values, TRIM(Txt), Found )
-      IF(.NOT. Found) EXIT 
-      IF( Rank == 2) THEN
-        CALL Warn('GmshOutputSolver','Not implemented yet for tensors!')
-        CYCLE
-      END IF
-
-      Solution => VariableGet( Solver % Mesh % Variables, FieldName )
-      IF(ASSOCIATED(Solution)) THEN
-        GotField = .TRUE.
-      ELSE IF (FieldName==BodyIdField .AND. Rank==0) THEN
-        GotField = .TRUE.
-      END IF
-    END DO
-  END DO
-
-  IF(.NOT. GotField) THEN
-    CALL Warn('GmshOutputSolver','No variables defined for saving')
-    GOTO 20
-  END IF
-
-
-10 CONTINUE
-
-
-  DO Rank = 0,2
-    DO Vari = 1, 99
-      IF( Vari < 10 ) THEN
-        IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-        IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
-      ELSE
-        IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-        IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
-      END IF
-      
-      FieldName = GetString( Solver % Values, TRIM(Txt), Found )
-      IF(.NOT. Found) EXIT
-
-      IF(Rank == 2) THEN
-        CALL Warn('GmshOutputSolver','Do the tensors')
-        EXIT
-      END IF
-      
-      Solution => VariableGet( Solver % Mesh % Variables, FieldName )
-      IF(.NOT. ASSOCIATED(Solution)) THEN
-        IF(FieldName == BodyIdField .AND. Rank==0) THEN
-          ! Gmsh Doesn't seem to be capable of extracting a physical
-          ! volume. One workaround is to create a scalar field with
-          ! nodal values equal to the body id of the element.
-          CALL Warn('GmshOutputSolver', 'Implement Body Id output!')
-        ELSE
-          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
-          CALL Warn('GmshOutputSolver', Txt)
-        END IF
-        CYCLE
-      END IF
-        
-
-      ! Eliminate possible blancos that are problematic for gmsh
-      !---------------------------------------------------------
-      CALL BlancoSubst(FieldName)
-
-      Perm => Solution % Perm
-      dofs = Solution % DOFs
-      
-      EigenActive = .FALSE.
-      IF( EigenAnalysis ) EigenActive =  ASSOCIATED(Solution % EigenVectors)
-      
-      IF(EigenActive) THEN
-        PRINT *,'Do the eigen values'
-        Cvalues => Solution % EigenVectors(Loop,:)
-        Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
-        IF( .NOT.Found ) Nloop = 1
-      ELSE
-        Values => Solution % Values
-      END IF
-      
-      ! Compute the number of active elements for this particular dof
-      !--------------------------------------------------------------
-      ListElemTypes = 0
-      DO i = 1, ElemNo
-        Element => Model % Mesh % Elements(ElementOrder(i))
-        Code = Element % TYPE % ElementCode
-        NodeIndexes => Element % NodeIndexes
-        IF( ANY(Perm(NodeIndexes) == 0)) CYCLE
-        ListElemTypes(Code) = ListElemTypes(Code) + 1
-      END DO
-      IF( SUM(ListElemTypes) == 0) CYCLE
-      
-      
-      ! Now write the view related to the current dof
-      !--------------------------------------------------------------
-      
-      
-      PRINT *,'Saving View for variable: ',TRIM(FieldName)
-      
-      WRITE(10,'(A)') '$View'
-      WRITE(10,'(A,I8)') TRIM(FieldName),1
-      
-      DO i = 1,SIZE(ElemTypeOrder)
-        Code = ElemTypeOrder(i)
-        n = ListElemTypes(code)
-        IF(Rank == 0) THEN
-          WRITE(10,'(I8,I8,I8)') n,0,0
-        ELSE IF(Rank == 1) THEN
-          WRITE(10,'(I8,I8,I8)') 0,n,0
-        ELSE
-          WRITE(10,'(I8,I8,I8)') 0,0,n
-        END IF
-        ! IF(n > 0) PRINT *,'there are',n,'elements of TYPE',Code
-      END DO
-      
-      ! Saving of names data currently omitted
-      WRITE(10,'(I8,I8,I8,I8)') 0,0,0,0
-      
-      IF( TransientSimulation ) THEN
-        TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
-        PRINT *,'Current time=',TimeVariable % Values(1)
-        WRITE(10,'(ES16.7E3)') TimeVariable % Values(1)
-      ELSE IF(.NOT. EigenAnalysis) THEN
-        WRITE(10,'(ES16.7E3)') 1.0*VisitedTimes
-      ELSE
-        DO i=1,Nloop
-          WRITE(10,'(ES16.7E3)') 1.0*i
-        END DO
-      END IF
-      
-      DO i = 1, ElemNo
-        Element => Model % Mesh % Elements(ElementOrder(i))
-        Code = Element % TYPE % ElementCode
-        NodeIndexes => Element % NodeIndexes
-        IF( ANY(Perm(NodeIndexes) == 0)) CYCLE
-        
-        n = element % TYPE % NumberOfNodes
-        CALL ElmerToGmshIndex(Code,n,NodeIndexes)
-
-        WRITE(10,'(100ES16.7E3)') Model % Mesh % Nodes % x(NodeIndexes(1:n))
-        WRITE(10,'(100ES16.7E3)') Model % Mesh % Nodes % y(NodeIndexes(1:n))
-        WRITE(10,'(100ES16.7E3)') Model % Mesh % Nodes % z(NodeIndexes(1:n))
-        
-        IF(Rank == 0) THEN
-          DO k = 1, MOD(Code,100)
-            ! NOTE: FMT currently allows writing of three digit exponents
-            ! This limitiation is also present below for
-            ! 2 and 3 dimensional fields.
-            WRITE(10,'(ES16.7E3)') Values(Perm(NodeIndexes(k)))
-          END DO
-        ELSE
-          DO k = 1, MOD(Code,100)
-            ! Always save three components for vectors!
-            DO l = 1, 2
-              WRITE(10,'(ES16.7E3)', ADVANCE='NO') Values(dofs*(Perm(NodeIndexes(k))-1)+l)
-            END DO
-            ! The third component usually only makes sense if it is related to the third coordinate
-            IF(dofs >= 3 .AND. dim >= 3) THEN
-              WRITE(10,'(ES16.7E3)') Values(dofs*(Perm(NodeIndexes(k))-1)+3)           
-            ELSE
-              WRITE(10,'(A)') ' 0.0'
-            END IF
-          END DO
-        END IF
-        
-      END DO
-      WRITE(10,'(A)') '$EndView'
-    END DO
-  END DO
-
-
-20 CONTINUE
-
-  CLOSE(10)
-  VisitedTimes = VisitedTimes + 1
-  
-  CALL Info('GmshOutputSolver','Gmsh output complete')
-
-CONTAINS
-
-  SUBROUTINE BlancoSubst(variable_name)
-    ! Subroutine by Kurt Baarman
-
-    IMPLICIT NONE
-    
-    CHARACTER(LEN=LENGTH) :: variable_name
-    CHARACTER(LEN=LENGTH),  PARAMETER :: &
-        NAMESET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_'
-    CHARACTER, PARAMETER :: GOOD = '_', BAD = ' ' 
-    INTEGER :: i, last = LENGTH
-    
-    last = SCAN(variable_name, TRIM(NAMESET), .TRUE.)
-    !WRITE (*,*) 'Original name: ',TRIM(variable_name)
-    
-    i = SCAN(variable_name(1:last), BAD)
-    DO WHILE (i /= 0)! .AND. i < last)
-      variable_name(i:i) = GOOD
-      i = SCAN(variable_name(1:last), BAD)
-    END DO
-    !WRITE (*,*) 'Altered name: ',TRIM(variable_name)
-    
-  END SUBROUTINE BlancoSubst
-
-
-  SUBROUTINE ElmerToGmshIndex(Code,n,NodeIndexes)
-
-    INTEGER :: Code
-    INTEGER, POINTER :: NodeIndexes(:)
-    INTEGER i,n
-
-    SELECT CASE( Code )
-
-    CASE(510)             
-      PermIndexes(1:n) = NodeIndexes(1:n)
-      PermIndexes(10) = NodeIndexes(9)
-      PermIndexes(9) = NodeIndexes(10)
-      NodeIndexes => PermIndexes
-      
-    ! There seems to be conflicting data whether this is needed or not
-    ! CASE(306)
-    !  PermIndexes(1:n) = NodeIndexes(1:n)
-    !  PermIndexes(5) = NodeIndexes(6)
-    !  PermIndexes(6) = NodeIndexes(5)     
-    !  NodeIndexes => PermIndexes
-
-    CASE DEFAULT
-            
-    END SELECT
-    
-  END SUBROUTINE ElmerToGmshIndex
-
-
-!------------------------------------------------------------------------------
-END SUBROUTINE GmshOldOutputSolver
-!------------------------------------------------------------------------------
-  
 
 
 !------------------------------------------------------------------------------
