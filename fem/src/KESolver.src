@@ -100,7 +100,7 @@
 !    Local variables
 !------------------------------------------------------------------------------
      TYPE(Matrix_t),POINTER  :: StiffMatrix
-     INTEGER :: i,j,k,l,n,t,iter,k1,k2,body_id,eq_id,istat,LocalNodes,bf_id,DOFs
+     INTEGER :: i,j,k,l,n,nd,nb,t,iter,k1,k2,body_id,eq_id,istat,LocalNodes,bf_id,DOFs
 
      TYPE(Nodes_t)   :: ElementNodes
      TYPE(Element_t),POINTER :: Element
@@ -110,7 +110,7 @@
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: NewtonLinearization = .FALSE.,gotIt
 !
-     LOGICAL :: AllocationsDone = .FALSE.
+     LOGICAL :: AllocationsDone = .FALSE., Bubbles
 
      CHARACTER(LEN=MAX_NAME_LEN) :: KEModel, V2FModel
 
@@ -218,6 +218,8 @@
 
      IF ( .NOT.GotIt ) NonlinearIter = 1
 
+     Bubbles = GetString(GetSolverParams(), &
+               'Stabilization method', GotIt ) == 'bubbles'
 
 !------------------------------------------------------------------------------
       DO i=1,Model % NumberOFBCs
@@ -276,7 +278,10 @@
          END IF
 !------------------------------------------------------------------------------
          CALL GetElementNodes( ElementNodes )
-         n = GetElementNOFNodes()
+         n  = GetElementNOFNodes()
+         nd = GetElementNOFDOFs()
+         IF ( Bubbles ) nd=2*n
+         nb = GetElementNOFBDOFs()
          NodeIndexes => Element % NodeIndexes
 !------------------------------------------------------------------------------
          CALL GetScalarLocalSolution( LocalV2, 'V2' )
@@ -370,7 +375,7 @@
 !        Get element local matrices, and RHS vectors
 !------------------------------------------------------------------------------
          CALL LocalMatrix( MASS,STIFF,FORCE,LOAD, &
-           U,V,W, Element,n,ElementNodes )
+           U,V,W, Element,n,nd+nb,ElementNodes )
 !------------------------------------------------------------------------------
          TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
@@ -379,7 +384,11 @@
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices
 !------------------------------------------------------------------------------
-         CALL Condensate( DOFs*N, STIFF, FORCE, TimeForce )
+         IF ( Bubbles ) THEN
+           CALL Condensate( DOFs*N, STIFF, FORCE, TimeForce )
+         ELSE IF ( nb > 0 ) THEN
+           CALL CondensateP( DOFs*nd, DOFs*nb, STIFF, FORCE, TimeForce )
+         END IF
          CALL DefaultUpdateEquations( STIFF, FORCE )
 !------------------------------------------------------------------------------
       END DO     !  Bulk elements
@@ -470,10 +479,10 @@
 !------------------------------------------------------------------------------
 !      Kinetic Energy Solution should be positive
 !------------------------------------------------------------------------------
-      n = SIZE( Solver % Variable % Values)
+      n = Solver % Mesh % NumberOfNodes
       Kmax = MAXVAL( Solver % Variable % Values(1:n:2) )
       Emax = MAXVAL( Solver % Variable % Values(2:n:2) )
-      DO i=1,SIZE(Solver % Variable % Perm)
+      DO i=1,n
          k = Solver % Variable % Perm(i)
          IF ( k <= 0 ) CYCLE
 
@@ -521,7 +530,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, &
-         LOAD, UX,UY,UZ,Element,n,Nodes )
+         LOAD, UX,UY,UZ,Element,n,nd,Nodes )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -564,7 +573,7 @@ CONTAINS
      REAL(KIND=dp), DIMENSION(:)   :: FORCE,UX,UY,UZ
      REAL(KIND=dp), DIMENSION(:,:) :: MASS,STIFF,LOAD
 
-     INTEGER :: n
+     INTEGER :: n,nd
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
@@ -573,9 +582,9 @@ CONTAINS
 !    Local variables
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: ddBasisddx(2*n,3,3)
-     REAL(KIND=dp) :: Basis(2*n)
-     REAL(KIND=dp) :: dBasisdx(2*n,3),detJ
+     REAL(KIND=dp) :: ddBasisddx(nd,3,3)
+     REAL(KIND=dp) :: Basis(nd)
+     REAL(KIND=dp) :: dBasisdx(nd,3),detJ
 
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3)
 
@@ -596,7 +605,7 @@ CONTAINS
 
      REAL(KIND=dp), POINTER :: gWork(:,:)
 
-     LOGICAL :: stat,Convection, Bubbles, UseRNGModel
+     LOGICAL :: stat,Convection, UseRNGModel
 
 !------------------------------------------------------------------------------
 
@@ -606,8 +615,8 @@ CONTAINS
      STIFF = 0.0D0
      MASS  = 0.0D0
 
-     NBasis = 2*n
-     Bubbles = .TRUE.
+     NBasis = nd
+     IF ( Bubbles ) NBasis = 2*n
 
      UseRNGModel = KEModel == 'rng'
 
