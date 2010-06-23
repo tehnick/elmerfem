@@ -124,10 +124,10 @@ MODULE Interpolation
  END SUBROUTINE FindLeafElements
 !------------------------------------------------------------------------------
 
-
+ 
 !------------------------------------------------------------------------------
      FUNCTION PointInElement( Element, ElementNodes, Point, &
-          LocalCoordinates, EPS, Eps_abs ) RESULT(IsInElement)
+	  LocalCoordinates, Eps_rel, Eps_abs, Distance ) RESULT(IsInElement)
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -153,39 +153,98 @@ MODULE Interpolation
 !    LOGICAL :: IsInBulkElement
 !      
 !******************************************************************************
-    Type(Element_t), POINTER :: Element
-    Type(Nodes_t) :: ElementNodes
+    TYPE(Element_t), POINTER :: Element
+    TYPE(Nodes_t) :: ElementNodes
     LOGICAL :: IsInElement
-    REAL(KIND=dp), OPTIONAL :: Eps, Eps_abs
+    REAL(KIND=dp), OPTIONAL :: Eps_rel, Eps_abs, Distance
     REAL(KIND=dp), DIMENSION(:) :: Point
     REAL(KIND=dp), DIMENSION(:) :: LocalCoordinates
 !------------------------------------------------------------------------------
     INTEGER :: n
     INTEGER :: i
-    REAL(KIND=dp) :: ug,vg,wg,xdist,ydist,zdist,eps2,escale
+    LOGICAL :: ComputeDistance
+    REAL(KIND=dp) :: ug,vg,wg,xdist,ydist,zdist,sumdist,eps0,eps,eps2,escale,&
+        minx,maxx,miny,maxy,minz,maxz
 !------------------------------------------------------------------------------
+
 
 !   Initialize:
 !   -----------
 
     IsInElement = .FALSE.
-    n = Element % Type % NumberOfNodes
+    n = Element % TYPE % NumberOfNodes
 
-    xdist = MAXVAL(ElementNodes % x(1:n)) - MINVAL(ElementNodes % x(1:n))
-    ydist = MAXVAL(ElementNodes % y(1:n)) - MINVAL(ElementNodes % y(1:n))
-    zdist = MAXVAL(ElementNodes % z(1:n)) - MINVAL(ElementNodes % z(1:n))
-    escale = MAX(MAX(xdist, ydist), zdist)
-
-    Eps2 = 1.0d-9
-    IF ( PRESENT(Eps) ) Eps2 = Eps
-    IF ( PRESENT(Eps_abs) ) Eps2 = Eps_abs/escale
-
-    IF ( (Point(1)<MINVAL(ElementNodes % x(1:n)) - eps2*escale) .OR. &
-         (Point(1)>MAXVAL(ElementNodes % x(1:n)) + eps2*escale) .OR. &
+    IF(.FALSE.) THEN
+      ! The old method
+      
+      xdist = MAXVAL(ElementNodes % x(1:n)) - MINVAL(ElementNodes % x(1:n))
+      ydist = MAXVAL(ElementNodes % y(1:n)) - MINVAL(ElementNodes % y(1:n))
+      zdist = MAXVAL(ElementNodes % z(1:n)) - MINVAL(ElementNodes % z(1:n))
+      
+      escale = MAX(MAX(xdist, ydist), zdist)
+      
+      Eps2 = 1.0d-9
+      IF ( PRESENT(Eps_rel) ) Eps2 = Eps
+      IF ( PRESENT(Eps_abs) ) Eps2 = Eps_abs/escale
+      
+      IF ( (Point(1)<MINVAL(ElementNodes % x(1:n)) - eps2*escale) .OR. &
+          (Point(1)>MAXVAL(ElementNodes % x(1:n)) + eps2*escale) .OR. &
          (Point(2)<MINVAL(ElementNodes % y(1:n)) - eps2*escale) .OR. &
          (Point(2)>MAXVAL(ElementNodes % y(1:n)) + eps2*escale) .OR. &
          (Point(3)<MINVAL(ElementNodes % z(1:n)) - eps2*escale) .OR. &
          (Point(3)>MAXVAL(ElementNodes % z(1:n)) + eps2*escale) )  RETURN
+
+    ELSE
+      IF ( PRESENT(Eps_abs) ) THEN
+        Eps = Eps_abs
+      ELSE
+        Eps = 1.0e-12
+      END IF
+      IF ( PRESENT(Eps_rel) ) THEN
+        Eps2 = Eps_rel
+      ELSE
+        Eps2 = 1.0e-8
+      END IF
+      
+      IF( PRESENT( Distance ) ) THEN
+        ! When distance has to be computed all coordinate directions need to be checked
+
+        minx = MINVAL( ElementNodes % x(1:n) )
+        maxx = MAXVAL( ElementNodes % x(1:n) )
+        miny = MINVAL( ElementNodes % y(1:n) )
+        maxy = MAXVAL( ElementNodes % y(1:n) )
+        minz = MINVAL( ElementNodes % z(1:n) )
+        maxz = MAXVAL( ElementNodes % z(1:n) )
+        
+        xdist = MAX( MAX( Point(1) - maxx, 0.0_dp ), minx - Point(1) )
+        ydist = MAX( MAX( Point(2) - maxy, 0.0_dp ), miny - Point(2) )
+        zdist = MAX( MAX( Point(3) - maxz, 0.0_dp ), minz - Point(3) )
+
+        Distance = SQRT( xdist**2 + ydist**2 + zdist**2)
+
+        IF( xdist > eps + eps2 * (maxx - minx) ) RETURN 
+        IF( ydist > eps + eps2 * (maxy - miny) ) RETURN 
+        IF( zdist > eps + eps2 * (maxz - minz) ) RETURN 
+      ELSE
+        ! Otherwise make decision independently after each coordinate direction
+
+        minx = MINVAL( ElementNodes % x(1:n) )
+        maxx = MAXVAL( ElementNodes % x(1:n) )
+        xdist = MAX( MAX( Point(1) - maxx, 0.0_dp ), minx - Point(1) )
+        IF( xdist > eps + eps2 * (maxx - minx) ) RETURN 
+        
+        miny = MINVAL( ElementNodes % y(1:n) )
+        maxy = MAXVAL( ElementNodes % y(1:n) )
+        ydist = MAX( MAX( Point(2) - maxy, 0.0_dp ), miny - Point(2) )
+        IF( ydist > eps + eps2 * (maxy - miny) ) RETURN 
+        
+        minz = MINVAL( ElementNodes % z(1:n) )
+        maxz = MAXVAL( ElementNodes % z(1:n) )
+        zdist = MAX( MAX( Point(3) - maxz, 0.0_dp ), minz - Point(3) )
+        IF( zdist > eps + eps2 * (maxz - minz) ) RETURN 
+      END IF
+    END IF
+
 
 !
 !   Get element local coordinates from global
@@ -198,7 +257,11 @@ MODULE Interpolation
     LocalCoordinates(2) = vg
     LocalCoordinates(3) = wg
 
-    SELECT CASE ( Element % Type % ElementCode / 100 )
+! Currently the eps of global coordinates is mixed with the eps of local
+! coordinates which is a bit disturbin. There could be sloppier global
+! coordinate search and a more rigorous local coordinate search.
+
+    SELECT CASE ( Element % TYPE % ElementCode / 100 )
       CASE(2)
          IsInElement = (ug<=1.d0 + eps2) .AND. (ug>=-1.d0 - eps2) 
 
@@ -433,7 +496,7 @@ MODULE Interpolation
       DO t=1, MotherQuadrant % NElemsInQuadrant
 !-------------------------------------------------------------------------------
          CurrentElement => Mesh % Elements( MotherQuadrant % Elements(t) )
-         n = CurrentElement % Type % NumberOfNodes
+         n = CurrentElement % TYPE % NumberOfNodes
          NodeIndexes => CurrentElement % NodeIndexes
 
 ! Get element coordinates

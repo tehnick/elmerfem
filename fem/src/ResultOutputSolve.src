@@ -179,7 +179,7 @@ CONTAINS
     INTEGER :: i,j,k,l,LoopDim, VarDim,DOFs,dim
     TYPE(Variable_t), POINTER :: Var, Var1
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VarStr, VarStrComp, VarStrExt, str
-    LOGICAL :: IsVector, Set, GotIt, ComponentVector
+    LOGICAL :: IsVector, Set, GotIt, ComponentVector, ThisOnly
     INTEGER :: Nvector, Nscalar
 
 
@@ -193,6 +193,7 @@ CONTAINS
     Nscalar = 0
     Nvector = 0
     dim = CoordinateSystemDimension()
+    ThisOnly = .TRUE.
     
     Var => Model % Variables
     DO WHILE( ASSOCIATED( Var ) )
@@ -271,16 +272,16 @@ CONTAINS
           ! If so save the quantity as a vector, otherwise componentwise
           IF( str(j:j) == '1') THEN
             IF(dim == 2) THEN
-              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 2')		
+              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 2',ThisOnly)		
               IF( ASSOCIATED(Var1)) THEN
-                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3')		
+                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
                 IsVector = .NOT. ASSOCIATED(Var1)
               END IF
             END IF
             IF(dim == 3) THEN
-              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3')		
+              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
               IF( ASSOCIATED(Var1)) THEN
-                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 4')		
+                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
                 IsVector = .NOT. ASSOCIATED(Var1)
               END IF
             END IF
@@ -3093,7 +3094,9 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: Var
   INTEGER :: i, j, k, Partitions, Part
   CHARACTER(MAX_NAME_LEN) :: Dir
+!  TYPE( ValueList_t ), POINTER :: SaveList
  
+
 
   IF ( nTime == 0 ) THEN
     CALL Info('VtuOutputSolver','Saving results in VTK XML format')
@@ -3116,7 +3119,10 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       Mesh => Mesh % next
       CYCLE
     END IF
-    
+     
+ !    NULLIFY( SaveList )
+ !    CALL CreateListForSaving( Model, SaveList, .TRUE. )	
+
     IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
       Dir = TRIM(Mesh % Name) // "/"
     ELSE
@@ -3152,7 +3158,7 @@ CONTAINS
     CHARACTER(LEN=512) :: str
     INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs,dispdofs, disp2dofs
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName, FieldName2
-    LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2
+    LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2, ThisOnly
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:), Perm2(:), DispPerm(:), Disp2Perm(:)
     REAL(KIND=dp), POINTER :: Values(:), DispValues(:), Disp2Values(:), Values2(:), Values3(:)
@@ -3164,6 +3170,7 @@ CONTAINS
     OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
     Solver => Model % Solver
     dim = CoordinateSystemDimension()
+    ThisOnly = .TRUE.
 
     !FreeSurfaceFlag = FreeSurface( Model )
     
@@ -3190,14 +3197,14 @@ CONTAINS
     DispDofs = 0
     Disp2Dofs = 0
     IF(RemoveDisp) THEN
-      Solution => VariableGet( Model % Mesh % Variables, 'Displacement' )     
+      Solution => VariableGet( Model % Mesh % Variables, 'Displacement', ThisOnly )     
       IF( ASSOCIATED( Solution ) ) THEN
         DispPerm => Solution % Perm
         DispValues => Solution % Values
         DispDofs = Solution % Dofs
       END IF
       
-      Solution => VariableGet( Model % Mesh % Variables, 'Mesh Update' )     
+      Solution => VariableGet( Model % Mesh % Variables, 'Mesh Update', ThisOnly )     
       IF( ASSOCIATED( Solution ) ) THEN
         Disp2Perm => Solution % Perm
         Disp2Values => Solution % Values
@@ -3230,10 +3237,10 @@ CONTAINS
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
-        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName) )
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
         ComponentVector = .FALSE.
         IF(.NOT. ASSOCIATED(Solution)) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1' )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1', ThisOnly )
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
@@ -3255,12 +3262,12 @@ CONTAINS
         ! Some vectors are defined by a set of components (either 2 or 3)
         !---------------------------------------------------------------------
         IF( ComponentVector ) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2' )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
           IF( ASSOCIATED(Solution)) THEN
             Values2 => Solution % Values
             dofs = 2
           END IF
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3' )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
           IF( ASSOCIATED(Solution)) THEN
             Values3 => Solution % Values
             dofs = 3
@@ -3283,7 +3290,7 @@ CONTAINS
         END IF
         FieldName2 = GetString( Solver % Values, TRIM(Txt), Found )
         IF( Found ) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName2) )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName2), ThisOnly )
           IF( ASSOCIATED(Solution)) THEN 
             Values2 => Solution % Values
             Perm2 => Solution % Perm 
@@ -3459,7 +3466,7 @@ CONTAINS
     !LOGICAL :: FreeSurfaceFlag
     INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName
-    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector
+    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector, ThisOnly
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:)
     REAL(KIND=dp), POINTER :: Values(:)
@@ -3470,6 +3477,7 @@ CONTAINS
     OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
     Solver => Model % Solver
     dim = CoordinateSystemDimension()
+    ThisOnly = .TRUE.
 
     !FreeSurfaceFlag = FreeSurface( Model )
     
@@ -3514,11 +3522,11 @@ CONTAINS
           EXIT
         END IF
         
-        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName) )
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
         ComponentVector = .FALSE.
 
         IF(.NOT. ASSOCIATED(Solution)) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1' )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1',ThisOnly )
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
@@ -3534,9 +3542,9 @@ CONTAINS
 
         dofs = Solution % DOFs
         IF( ComponentVector ) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2' )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
           IF( ASSOCIATED(Solution)) dofs = 2
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3' )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
           IF( ASSOCIATED(Solution)) dofs = 3
         END IF
         

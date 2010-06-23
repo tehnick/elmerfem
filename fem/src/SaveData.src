@@ -83,14 +83,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotParOper, GotVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, IsParallel, ParallelWrite, LiveGraph, FileAppend, SaveEigenValue, &
-      SaveEigenFreq, IsInteger, ParallelReduce, WriteCore
+      SaveEigenFreq, IsInteger, ParallelReduce, WriteCore, Hit, GotEpsAbs
   LOGICAL, POINTER :: ValuesInteger(:)
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
-      Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
+      Mean, Variance, Dist, MinDist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
       IntSquare, LocalCoords(3), TempCoordinates(3), Value, Value2, &
-      Change, Norm = 0.0_dp, PrevNorm
+      Change, Norm = 0.0_dp, PrevNorm, EpsAbs
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:)
@@ -102,7 +102,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       VariableName, ResultPrefix, Oper, ParOper, Name, CoefficientName, ScalarParFile
   INTEGER :: i,j,k,l,q,n,ierr,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
-      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd
+      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd      
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
   SAVE SubroutineVisited, NumberOfVars, &
@@ -112,7 +112,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
       BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
       LineCoordinates, ScalarParFile, IsParallel, ParallelWrite, ParSolver, PrevNoValues, &
-      LiveGraph, Norm, ParallelReduce, WriteCore, MPIOper
+      LiveGraph, Norm, ParallelReduce, WriteCore, MPIOper, EpsAbs, GotEpsAbs
 
 !------------------------------------------------------------------------------
 
@@ -180,6 +180,10 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     IF(gotIt) THEN
       NoDims = SIZE(PointCoordinates,2)
       ExactCoordinates = ListGetLogical(Solver % Values,'Exact Coordinates',GotIt )      
+
+      EpsAbs = ListGetConstReal( Solver % Values,'Coordinate Eps Abs',GotEpsAbs )
+print *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
+
       IF( ParallelReduce ) THEN
         IF(.NOT. ExactCoordinates) THEN
           CALL Warn('SaveScalars','Only Exact Save Coordinates works in parallel, enforcing...')
@@ -247,6 +251,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       
       DO j=1,NoElements
 
+	Hit = .FALSE.
+        TempCoordinates = 0.0_dp
+        DO i = 1, NoDims
+          TempCoordinates(i) = PointCoordinates(j,i)
+        END DO
+	MinDist = HUGE( MinDist ) 
+	l = 0
+
         ! Go through all old model bulk elements (could use quadrant tree!)
         DO k=1,Mesh % NumberOfBulkElements
 
@@ -258,21 +270,36 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
           ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
           
-          TempCoordinates = 0.0d0
-          DO i = 1, NoDims
-            TempCoordinates(i) = PointCoordinates(j,i)
-          END DO
-
-          IF ( PointInElement( CurrentElement, ElementNodes, &
-              TempCoordinates, LocalCoords ) ) EXIT
+	  Hit = PointInElement( CurrentElement, ElementNodes, &
+                TempCoordinates, LocalCoords, Distance = Dist )
+	  IF( Dist < MinDist ) THEN
+            MinDist = Dist
+            l = k
+          END IF   
+          IF( Hit ) EXIT
         END DO       
-        
-        IF ( k > Mesh % NumberOfBulkElements ) THEN
-          IF(.NOT. IsParallel ) THEN
-            WRITE( Message, * ) 'Coordinate was not found in any of the elements!',j
-            CALL Warn( 'SaveScalars', Message )
+
+	IF( .NOT. Hit ) THEN
+	  print *,'Trying with the closest so far',MinDist,l
+          CurrentElement => Mesh % Elements(l)
+          n = CurrentElement % TYPE % NumberOfNodes
+          NodeIndexes => CurrentElement % NodeIndexes
+          
+          ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+          ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+          ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+          
+	  IF( IsParallel ) THEN
+   	    Hit = PointInElement( CurrentElement, ElementNodes, &
+                  TempCoordinates, LocalCoords, Eps_Rel = 1.0e-3_dp, Eps_Abs=1.0e-3_dp )	
+          ELSE
+	    Hit = PointInElement( CurrentElement, ElementNodes, &
+                  TempCoordinates, LocalCoords, Eps_Rel = 1.0_dp, Eps_Abs=1.0_dp )	
           END IF
-        ELSE
+	  print *,'LocalCoords:',LocalCoords
+        END IF
+
+        IF( Hit ) THEN
           CoordinatesElemNo(j) = k
           ElementValues(1:n) = 0.0d0
           DO q=1,N
@@ -281,6 +308,11 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
                 LocalCoords(1), LocalCoords(2), LocalCoords(3) )
             ElementValues(q) = 0.0d0
           END DO
+        ELSE
+          IF(.NOT. IsParallel ) THEN
+            WRITE( Message, * ) 'Coordinate not found in any of the elements!',j
+            CALL Warn( 'SaveScalars', Message )
+          END IF
         END IF
         
       END DO
