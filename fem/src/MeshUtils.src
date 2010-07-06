@@ -5299,6 +5299,243 @@ CONTAINS
     
   END FUNCTION PointInMesh
 
+
+
+!--------------------------------------------------------------------------
+!  This subroutine finds the structure of an extruded mesh even though it is 
+! given in an unstructured formar. The routine may be used by some special
+! solvers that employ the special character of the mesh.
+! The extrusion is found for a given direction and for each node the corresponding 
+! up and down, and thereafter top and bottom node is computed.
+!-----------------------------------------------------------------------------
+  SUBROUTINE DetectExtrudedStructure( Mesh, Direction, Tolerance, MaskPerm, &
+      TopNodePointer, BotNodePointer, UpNodePointer, DownNodePointer )
+    
+    USE CoordinateSystems
+
+    TYPE(Mesh_t), POINTER :: Mesh
+    REAL(KIND=dp) :: Direction(3)
+    REAL(KIND=dp), OPTIONAL :: Tolerance
+    INTEGER, POINTER, OPTIONAL :: MaskPerm(:)
+    INTEGER, POINTER, OPTIONAL :: TopNodePointer(:), BotNodePointer(:), &
+        UpNodePointer(:), DownNodePointer(:)
+!-----------------------------------------------------------------------------
+    TYPE(Element_t), POINTER :: Element
+    TYPE(Nodes_t) :: Nodes
+    INTEGER :: i,j,k,n,ii,jj,dim, nsize, elem, TopNodes, BotNodes, Rounds
+    INTEGER, POINTER :: NodeIndexes(:)
+    LOGICAL :: MaskExists, UpActive, DownActive, GotIt, Found
+    REAL(KIND=dp) :: at0, at1, Length, UnitVector(3), ElemVector(3), DotPro, Eps, CPUTime
+    INTEGER, POINTER :: TopPointer(:), BotPointer(:), UpPointer(:), DownPointer(:)
+
+   
+    CALL Info('DetectExtrudedStructure','Determining extruded structure')
+    at0 = CPUTime()
+
+    ! Choose active direction coordinate and set corresponding unit vector
+    !---------------------------------------------------------------------
+    
+    Length = SQRT( SUM( Direction ** 2 ) )
+    IF( Length < EPSILON(Length) ) THEN
+      CALL Warn('DetectExtrudedStructure','Invalid direction vector, exiting...')
+      RETURN
+    END IF
+    UnitVector = Direction / Length
+    
+    WRITE(Message,'(A,3F8.3)') 'Unit vector of direction:',UnitVector
+    CALL Info('DetectExtrudedStructure',Message)
+
+    ! Check which direction is active
+    !---------------------------------------------------------------------
+    UpActive = PRESENT( UpNodePointer) .OR. PRESENT ( TopNodePointer )
+    DownActive = PRESENT( DownNodePointer) .OR. PRESENT ( BotNodePointer )
+    IF(.NOT. (UpActive .OR. DownActive ) ) THEN
+      CALL Warn('DetectExtrudedStructure','Either up or down direction should be active')
+    END IF
+
+    ! Allocate pointers to top and bottom, and temporary pointers up and down
+    !------------------------------------------------------------------------
+    n = Mesh % MaxElementNodes
+    ALLOCATE( Nodes % x(n), Nodes % y(n),Nodes % z(n) )
+
+    DIM = Mesh % MeshDim
+    MaskExists = PRESENT( MaskPerm )
+    IF( MaskExists ) THEN
+      nsize = MAXVAL( MaskPerm ) 
+      WRITE(Message,'(A,I8)') 'Applying mask of size:',nsize
+      CALL Info('DetectExtrudedStructure',Message)
+    ELSE
+      nsize = Mesh % NumberOfNodes
+    END IF
+    
+    IF( UpActive ) THEN
+      ALLOCATE(TopPointer(nsize),UpPointer(nsize))
+      DO i=1,nsize
+        TopPointer(i) = i
+        UpPointer(i) = i
+      END DO
+    END IF
+    IF( DownActive ) THEN
+      ALLOCATE(BotPointer(nsize),DownPointer(nsize))
+      DO i=1,nsize
+        BotPointer(i) = i
+        DownPointer(i) = i
+      END DO
+    END IF
+
+    ! Set the dot product tolerance
+    !-----------------------------------------------------------------
+    IF( PRESENT( Tolerance ) ) THEN
+      Eps = Tolerance 
+    ELSE
+      Eps = ListGetConstReal(CurrentModel % Solver % Values,'Dot Product Tolerance',GotIt)
+      IF(.NOT. GotIt) Eps = 0.01_dp
+    END IF
+
+    CALL Info('DetectExtrudedStructure','determine up and down pointers')
+
+    ! Determine the up and down pointers using dot product as criterion
+    !-----------------------------------------------------------------
+    DO elem = 1,Mesh % NumberOfBulkElements      
+      Element => Mesh % Elements(elem)
+      NodeIndexes => Element % NodeIndexes
+      CurrentModel % CurrentElement => Element
+
+      n = Element % TYPE % NumberOfNodes
+      Nodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+      Nodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+      Nodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+
+      IF (.NOT. (Element % PartIndex == Parenv % Mype) ) CYCLE
+
+      IF( MaskExists ) THEN
+        IF( ANY(MaskPerm(NodeIndexes) == 0) ) CYCLE
+      END IF
+
+      DO i=1,n
+        ii = NodeIndexes(i)
+        DO j=i+1,n
+          jj = NodeIndexes(j)
+
+          ElemVector(1) = Nodes % x(j) - Nodes % x(i)
+          ElemVector(2) = Nodes % y(j) - Nodes % y(i)
+          ElemVector(3) = Nodes % z(j) - Nodes % z(i)
+          Length = SQRT(SUM(ElemVector*ElemVector))
+          DotPro = SUM(ElemVector * UnitVector) / Length
+
+          IF(DotPro > 1.0_dp - Eps) THEN 
+            IF( UpActive ) UpPointer(ii) = jj
+            IF( DownActive ) DownPointer(jj) = ii
+          ELSE IF(DotPro < Eps - 1.0_dp) THEN
+            IF( DownActive ) DownPointer(ii) = jj
+            IF( UpActive ) UpPointer(jj) = ii
+          END IF
+        END DO
+      END DO
+    END DO
+    
+    ! Pointer to top and bottom are found recursively using up and down
+    !------------------------------------------------------------------
+    CALL Info('DetectExtrudedStructure','determine top and bottom pointers')
+
+    Found = .TRUE.
+    Rounds = 0
+    DO WHILE(Found) 
+      Found = .FALSE.
+      DO i=1,nsize
+        IF( MaskExists ) THEN
+          IF( MaskPerm(i) == 0) CYCLE
+        END IF
+        IF( UpActive ) THEN
+          j = UpPointer(i)
+          IF( TopPointer(i) /= TopPointer( j ) ) THEN
+            Found = .TRUE.
+            TopPointer(i) = TopPointer( j )
+          END IF
+        END IF
+        IF( DownActive ) THEN
+          j = DownPointer(i)
+          IF( BotPointer(i) /= BotPointer( j ) ) THEN
+            Found = .TRUE.
+            BotPointer(i) = BotPointer( j )
+          END IF
+        END IF
+      END DO
+      IF( Found ) Rounds = Rounds + 1
+    END DO
+
+    ! Count the number of nodes, for information only
+    !---------------------------------------------------------------
+    IF( UpActive ) THEN
+      TopNodes = 0
+      DO i=1,nsize
+        IF(TopPointer(i) == i) THEN
+          TopNodes = TopNodes + 1
+        END IF
+      END DO
+    END IF
+
+    IF( DownActive ) THEN
+      BotNodes = 0
+      DO i=1,nsize
+        IF(BotPointer(i) == i) THEN
+          BotNodes = BotNodes + 1
+        END IF
+      END DO
+    END IF
+
+    ! Return the requested pointer structures, otherwise deallocate
+    !---------------------------------------------------------------
+    DEALLOCATE( Nodes % x, Nodes % y,Nodes % z )
+
+    IF( UpActive ) THEN
+      IF( PRESENT( TopNodePointer ) ) THEN
+        TopNodePointer => TopPointer 
+        NULLIFY( TopPointer )
+      ELSE
+        DEALLOCATE( TopPointer )
+      END IF
+      IF( PRESENT( UpNodePointer ) ) THEN
+        UpNodePointer => UpPointer 
+        NULLIFY( UpPointer )
+      ELSE
+        DEALLOCATE( UpPointer )
+      END IF
+    END IF
+    IF( DownActive ) THEN
+      IF( PRESENT( BotNodePointer ) ) THEN
+        BotNodePointer => BotPointer 
+        NULLIFY( BotPointer ) 
+      ELSE
+        DEALLOCATE( BotPointer )
+      END IF
+      IF( PRESENT( DownNodePointer ) ) THEN
+        DownNodePointer => DownPointer 
+        NULLIFY( DownPointer ) 
+      ELSE
+        DEALLOCATE( DownPointer )
+      END IF
+    END IF
+
+    !---------------------------------------------------------------
+    at1 = CPUTime()  
+    WRITE(Message,* ) 'Top and bottom pointer init time: ',at1-at0
+    CALL Info('DetectExtrudedStructure',Message)
+    WRITE(Message,* ) 'Top and bottom pointer init rounds: ',Rounds
+    CALL Info('DetectExtrudedStructure',Message)
+    IF( UpActive ) THEN
+      WRITE(Message,* ) 'Number of nodes at the top: ',TopNodes
+      CALL Info('DetectExtrudedStructure',Message)
+    END IF
+    IF( DownActive ) THEN
+      WRITE(Message,* ) 'Number of nodes at the bottom: ',BotNodes
+      CALL Info('DetectExtrudedStructure',Message)
+    END IF
+
+  END SUBROUTINE DetectExtrudedStructure
+ !---------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
 END MODULE MeshUtils
 !------------------------------------------------------------------------------
