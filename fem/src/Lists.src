@@ -626,24 +626,24 @@ CONTAINS
        REAL(KIND=dp), POINTER :: OldValue(:), NewValue(:), ElementValues(:)
        TYPE(Quadrant_t), POINTER :: LeafQuadrant
        TYPE(Element_t),POINTER :: Element
-
+       
        REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:)
        REAL(KIND=dp) :: BoundingBox(6), detJ, u,v,w,s
-
+       
        LOGICAL :: UseQTree, Stat, UseProjector
        TYPE(Quadrant_t), POINTER :: RootQuadrant
-
+       
        INTEGER, POINTER   :: Rows(:), Cols(:)
-
+       
        TYPE Epntr_t
-          TYPE(Element_t), POINTER :: Element
+         TYPE(Element_t), POINTER :: Element
        END TYPE Epntr_t
-
+       
        TYPE(Epntr_t), ALLOCATABLE :: ElemPtrs(:)
-
+       
        INTEGER, ALLOCATABLE:: RInd(:)
        LOGICAL :: Found, EpsAbsGiven,EpsRelGiven, MaskExists
-       REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_abs, eps_rel
+       REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_global, eps_local
        REAL(KIND=dp), POINTER :: Values(:), LocalU(:), LocalV(:), LocalW(:)
 !------------------------------------------------------------------------------
 
@@ -653,52 +653,52 @@ CONTAINS
 !      not already there:
 !      ------------------------------------------------
        IF ( PRESENT(Projector) ) THEN
-          Projector => NewMesh % Projector
-
-          DO WHILE( ASSOCIATED( Projector ) )
-             IF ( ASSOCIATED(Projector % Mesh, OldMesh) ) THEN
-                IF ( PRESENT(OldVariables) ) CALL ApplyProjector
-                RETURN
-             END IF
-             Projector => Projector % Next
-          END DO
-
-          n = NewMesh % NumberOfNodes
-          ALLOCATE( LocalU(n), LocalV(n), LocalW(n), ElemPtrs(n) )
-          DO i=1,n
-            NULLIFY( ElemPtrs(i) % Element )
-          END DO
+         Projector => NewMesh % Projector
+         
+         DO WHILE( ASSOCIATED( Projector ) )
+           IF ( ASSOCIATED(Projector % Mesh, OldMesh) ) THEN
+             IF ( PRESENT(OldVariables) ) CALL ApplyProjector
+             RETURN
+           END IF
+           Projector => Projector % Next
+         END DO
+         
+         n = NewMesh % NumberOfNodes
+         ALLOCATE( LocalU(n), LocalV(n), LocalW(n), ElemPtrs(n) )
+         DO i=1,n
+           NULLIFY( ElemPtrs(i) % Element )
+         END DO
        END IF
 !
 !      Check if using the spatial division hierarchy for the search:
 !      -------------------------------------------------------------
        RootQuadrant => OldMesh % RootQuadrant
        dim = CoordinateSystemDimension()
-
+       
        IF ( .NOT. PRESENT( UseQuadrantTree ) ) THEN
          UseQTree = .TRUE.
        ELSE
          UseQTree = UseQuadrantTree
        ENDIF
-
+       
        IF ( UseQTree ) THEN
-          IF ( .NOT.ASSOCIATED( RootQuadrant ) ) THEN
-             BoundingBox(1) = MINVAL( OldMesh % Nodes % x )
-             BoundingBox(2) = MINVAL( OldMesh % Nodes % y )
-             BoundingBox(3) = MINVAL( OldMesh % Nodes % z )
-             BoundingBox(4) = MAXVAL( OldMesh % Nodes % x )
-             BoundingBox(5) = MAXVAL( OldMesh % Nodes % y )
-             BoundingBox(6) = MAXVAL( OldMesh % Nodes % z )
-
-             eps2 = eps1 * MAXVAL( BoundingBox(4:6) - BoundingBox(1:3) )
-             BoundingBox(1:3) = BoundingBox(1:3) - eps2
-             BoundingBox(4:6) = BoundingBox(4:6) + eps2
-
-             CALL BuildQuadrantTree( OldMesh,BoundingBox,OldMesh % RootQuadrant)
-             RootQuadrant => OldMesh % RootQuadrant
-          END IF
+         IF ( .NOT.ASSOCIATED( RootQuadrant ) ) THEN
+           BoundingBox(1) = MINVAL( OldMesh % Nodes % x )
+           BoundingBox(2) = MINVAL( OldMesh % Nodes % y )
+           BoundingBox(3) = MINVAL( OldMesh % Nodes % z )
+           BoundingBox(4) = MAXVAL( OldMesh % Nodes % x )
+           BoundingBox(5) = MAXVAL( OldMesh % Nodes % y )
+           BoundingBox(6) = MAXVAL( OldMesh % Nodes % z )
+           
+           eps2 = eps1 * MAXVAL( BoundingBox(4:6) - BoundingBox(1:3) )
+           BoundingBox(1:3) = BoundingBox(1:3) - eps2
+           BoundingBox(4:6) = BoundingBox(4:6) + eps2
+           
+           CALL BuildQuadrantTree( OldMesh,BoundingBox,OldMesh % RootQuadrant)
+           RootQuadrant => OldMesh % RootQuadrant
+         END IF
        END IF
-
+       
 ! Use mask or not
 !---------------------------------------
        MaskExists = PRESENT( MaskName )
@@ -707,103 +707,99 @@ CONTAINS
 
        n = OldMesh % MaxElementNodes
        ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), &
-                 ElementNodes % z(n), ElementValues(n) )
-
-       eps_rel = ListGetConstReal( CurrentModel % Simulation,  &
-          'Interpolation Relative Epsilon', EpsRelGiven )
-
-       eps_abs = ListGetConstReal( CurrentModel % Simulation,  &
-          'Interpolation Absolute Epsilon', EpsAbsGiven )
-
+           ElementNodes % z(n), ElementValues(n) )
+       
+       eps_global = ListGetConstReal( CurrentModel % Simulation,  &
+           'Interpolation Global Epsilon', Stat)
+       IF(.NOT. Stat) eps_global = 2.0e-10
+       
+       eps_local = ListGetConstReal( CurrentModel % Simulation,  &
+           'Interpolation Local Epsilon', Stat )
+       IF(.NOT. Stat) eps_local = 1.0e-10
+       
 !------------------------------------------------------------------------------
 ! Loop over all nodes in the new mesh
 !------------------------------------------------------------------------------
        DO i=1,NewMesh % NumberOfNodes
 !------------------------------------------------------------------------------
-          Point(1) = NewMesh % Nodes % x(i)
-          Point(2) = NewMesh % Nodes % y(i)
-          Point(3) = NewMesh % Nodes % z(i)
+         Point(1) = NewMesh % Nodes % x(i)
+         Point(2) = NewMesh % Nodes % y(i)
+         Point(3) = NewMesh % Nodes % z(i)
 !------------------------------------------------------------------------------
 ! Find in which old mesh bulk element the point belongs to
 !------------------------------------------------------------------------------
-          IF ( ASSOCIATED(RootQuadrant) .AND. UseQTree ) THEN
+         IF ( ASSOCIATED(RootQuadrant) .AND. UseQTree ) THEN
 !------------------------------------------------------------------------------
 ! Find the last existing quadrant that the point belongs to
 !------------------------------------------------------------------------------
-             NULLIFY(Element)
-             CALL FindLeafElements(Point, dim, RootQuadrant, LeafQuadrant)
-             IF ( ASSOCIATED(LeafQuadrant) ) THEN
-               ! Go through the bulk elements in the last ChildQuadrant
-               ! only.  Try to find matching element with progressively
-               ! sloppier tests. Allow at most 100 % of slack:
-               ! -------------------------------------------------------
-               Found = .FALSE.
-
-               IF ( EpsRelGiven ) THEN
-                 Eps2 = Eps_rel*1.d-12
-               ELSE IF ( EpsAbsGiven ) THEN
-                 Eps2 = Eps_abs*1.d-12
-               ELSE
-                 Eps2 = 1.d-12
-               END IF
-
-               DO j=1,12
-                 DO k=1, LeafQuadrant % NElemsInQuadrant
-                    Element => OldMesh % Elements(LeafQuadrant % Elements(k))
-
-                    IF( MaskExists ) THEN
-                      bf_id = ListGetInteger( CurrentModel % Bodies(Element % BodyId) % Values, &
+           NULLIFY(Element)
+           CALL FindLeafElements(Point, dim, RootQuadrant, LeafQuadrant)
+           IF ( ASSOCIATED(LeafQuadrant) ) THEN
+             ! Go through the bulk elements in the last ChildQuadrant
+             ! only.  Try to find matching element with progressively
+             ! sloppier tests. Allow at most 100 % of slack:
+             ! -------------------------------------------------------
+             Found = .FALSE.
+             Eps1 = eps_global
+             Eps2 = eps_local
+             
+             DO j=1,12
+               DO k=1, LeafQuadrant % NElemsInQuadrant
+                 Element => OldMesh % Elements(LeafQuadrant % Elements(k))
+                 
+                 IF( MaskExists ) THEN
+                   bf_id = ListGetInteger( CurrentModel % Bodies(Element % BodyId) % Values, &
                        'Body Force', Found )
-                    IF( .NOT. Found ) CYCLE
-                    IF(.NOT. ListCheckPresent( &
-                        CurrentModel % BodyForces(bf_id) % Values,MaskName) ) CYCLE
-                    END IF
-
-                    NodeIndexes => Element % NodeIndexes
-                    n = Element % TYPE % NumberOfNodes
-
-                    ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
-                    ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
-                    ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
-
-                    IF ( EpsAbsGiven ) THEN
-                      Found = PointInElement( Element, ElementNodes, &
-                              Point, LocalCoordinates, Eps_abs=Eps2 )
-                    ELSE
-                      Found = PointInElement( Element, ElementNodes, &
-                              Point, LocalCoordinates, Eps2 )
-                    END IF
-                    IF ( Found ) EXIT
-                 END DO
+                   IF( .NOT. Found ) CYCLE
+                   IF(.NOT. ListCheckPresent( &
+                       CurrentModel % BodyForces(bf_id) % Values,MaskName) ) CYCLE
+                 END IF
+                  
+                 NodeIndexes => Element % NodeIndexes
+                 n = Element % TYPE % NumberOfNodes
+                 
+                 ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
+                 ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
+                 ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
+                 
+                 Found = PointInElement( Element, ElementNodes, &
+                     Point, LocalCoordinates, Eps1, Eps2 )
                  IF ( Found ) EXIT
-                 Eps2  = 10*Eps2
                END DO
-               IF (.NOT.Found) NULLIFY(Element)
-             END IF
-!------------------------------------------------------------------------------
-          ELSE
-!------------------------------------------------------------------------------
-! Go through all old mesh bulk elements
-!------------------------------------------------------------------------------
-             DO k=1,OldMesh % NumberOfBulkElements
-                Element => OldMesh % Elements(k)
-
-                n = Element % TYPE % NumberOfNodes
-                NodeIndexes => Element % NodeIndexes
-
-                ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
-                ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
-                ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
-
-                IF ( PointInElement( Element, ElementNodes, &
-                        Point, LocalCoordinates ) ) EXIT
+               IF ( Found ) EXIT  
+               
+               Eps1 = 10 * Eps1
+               Eps2 = 10 * Eps2               
+               IF( Eps1 > 1.0_dp ) EXIT
              END DO
-             IF ( k == OldMesh % NumberOfBulkElements + 1 ) THEN
-                WRITE( Message, * ) 'Point was not found in any of the elements!',i
-                CALL Warn( 'InterpolateMeshToMesh', Message )
-                CYCLE
-             END IF
-          END IF
+           END IF
+         ELSE
+           !------------------------------------------------------------------------------
+           ! Go through all old mesh bulk elements
+           !------------------------------------------------------------------------------
+           DO k=1,OldMesh % NumberOfBulkElements
+             Element => OldMesh % Elements(k)
+             
+             n = Element % TYPE % NumberOfNodes
+             NodeIndexes => Element % NodeIndexes
+             
+             ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
+             ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
+             ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
+             
+             Found =  PointInElement( Element, ElementNodes, &
+                 Point, LocalCoordinates ) 
+             IF( Found ) EXIT
+           END DO
+         END IF
+         
+         IF (.NOT.Found) THEN
+           NULLIFY(Element)
+           WRITE( Message, * ) 'Point was not found in any of the elements!',i
+           CALL Warn( 'InterpolateMeshToMesh', Message )
+           CYCLE
+         END IF
+
 !------------------------------------------------------------------------------
 !
 !         Found Element in OldModel:

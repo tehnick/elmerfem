@@ -127,7 +127,8 @@ MODULE Interpolation
  
 !------------------------------------------------------------------------------
      FUNCTION PointInElement( Element, ElementNodes, Point, &
-	  LocalCoordinates, Eps_rel, Eps_abs, Distance ) RESULT(IsInElement)
+	  LocalCoordinates, GlobalEps, LocalEps, NumericEps, &
+          GlobalDistance, LocalDistance ) RESULT(IsInElement)
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -156,14 +157,15 @@ MODULE Interpolation
     TYPE(Element_t), POINTER :: Element
     TYPE(Nodes_t) :: ElementNodes
     LOGICAL :: IsInElement
-    REAL(KIND=dp), OPTIONAL :: Eps_rel, Eps_abs, Distance
+    REAL(KIND=dp), OPTIONAL :: GlobalEps, LocalEps, NumericEps, &
+        GlobalDistance, LocalDistance
     REAL(KIND=dp), DIMENSION(:) :: Point
     REAL(KIND=dp), DIMENSION(:) :: LocalCoordinates
 !------------------------------------------------------------------------------
     INTEGER :: n
     INTEGER :: i
     LOGICAL :: ComputeDistance
-    REAL(KIND=dp) :: ug,vg,wg,xdist,ydist,zdist,sumdist,eps0,eps,eps2,escale,&
+    REAL(KIND=dp) :: ug,vg,wg,xdist,ydist,zdist,sumdist,eps0,eps1,eps2,escale,&
         minx,maxx,miny,maxy,minz,maxz
 !------------------------------------------------------------------------------
 
@@ -174,75 +176,68 @@ MODULE Interpolation
     IsInElement = .FALSE.
     n = Element % TYPE % NumberOfNodes
 
-    IF(.FALSE.) THEN
-      ! The old method
-      
-      xdist = MAXVAL(ElementNodes % x(1:n)) - MINVAL(ElementNodes % x(1:n))
-      ydist = MAXVAL(ElementNodes % y(1:n)) - MINVAL(ElementNodes % y(1:n))
-      zdist = MAXVAL(ElementNodes % z(1:n)) - MINVAL(ElementNodes % z(1:n))
-      
-      escale = MAX(MAX(xdist, ydist), zdist)
-      
-      Eps2 = 1.0d-9
-      IF ( PRESENT(Eps_rel) ) Eps2 = Eps
-      IF ( PRESENT(Eps_abs) ) Eps2 = Eps_abs/escale
-      
-      IF ( (Point(1)<MINVAL(ElementNodes % x(1:n)) - eps2*escale) .OR. &
-          (Point(1)>MAXVAL(ElementNodes % x(1:n)) + eps2*escale) .OR. &
-         (Point(2)<MINVAL(ElementNodes % y(1:n)) - eps2*escale) .OR. &
-         (Point(2)>MAXVAL(ElementNodes % y(1:n)) + eps2*escale) .OR. &
-         (Point(3)<MINVAL(ElementNodes % z(1:n)) - eps2*escale) .OR. &
-         (Point(3)>MAXVAL(ElementNodes % z(1:n)) + eps2*escale) )  RETURN
 
+    ! The numberic precision 
+    IF ( PRESENT(NumericEps) ) THEN
+      eps0 = NumericEps
     ELSE
-      IF ( PRESENT(Eps_abs) ) THEN
-        Eps = Eps_abs
-      ELSE
-        Eps = 1.0e-12
-      END IF
-      IF ( PRESENT(Eps_rel) ) THEN
-        Eps2 = Eps_rel
-      ELSE
-        Eps2 = 1.0e-8
-      END IF
+      eps0 = EPSILON( eps0 )
+    END IF
+    
+    ! The rough check, used for global coordinates
+    IF ( PRESENT(GlobalEps) ) THEN
+      Eps1 = GlobalEps
+    ELSE
+      Eps1 = 1.0e-4
+    END IF 
+    
+    ! The more detailed condition, used for local coordinates
+    IF ( PRESENT(LocalEps) ) THEN
+      Eps2 = LocalEps
+    ELSE
+      Eps2 = 1.0e-10
+    END IF
+
+    IF( PRESENT( LocalDistance ) ) THEN
+      LocalDistance = HUGE( LocalDistance ) 
+    END IF
+    
+    IF( PRESENT( GlobalDistance ) ) THEN
+      ! When distance has to be computed all coordinate directions need to be checked
       
-      IF( PRESENT( Distance ) ) THEN
-        ! When distance has to be computed all coordinate directions need to be checked
-
-        minx = MINVAL( ElementNodes % x(1:n) )
-        maxx = MAXVAL( ElementNodes % x(1:n) )
-        miny = MINVAL( ElementNodes % y(1:n) )
-        maxy = MAXVAL( ElementNodes % y(1:n) )
-        minz = MINVAL( ElementNodes % z(1:n) )
-        maxz = MAXVAL( ElementNodes % z(1:n) )
-        
-        xdist = MAX( MAX( Point(1) - maxx, 0.0_dp ), minx - Point(1) )
-        ydist = MAX( MAX( Point(2) - maxy, 0.0_dp ), miny - Point(2) )
-        zdist = MAX( MAX( Point(3) - maxz, 0.0_dp ), minz - Point(3) )
-
-        Distance = SQRT( xdist**2 + ydist**2 + zdist**2)
-
-        IF( xdist > eps + eps2 * (maxx - minx) ) RETURN 
-        IF( ydist > eps + eps2 * (maxy - miny) ) RETURN 
-        IF( zdist > eps + eps2 * (maxz - minz) ) RETURN 
-      ELSE
-        ! Otherwise make decision independently after each coordinate direction
-
-        minx = MINVAL( ElementNodes % x(1:n) )
-        maxx = MAXVAL( ElementNodes % x(1:n) )
-        xdist = MAX( MAX( Point(1) - maxx, 0.0_dp ), minx - Point(1) )
-        IF( xdist > eps + eps2 * (maxx - minx) ) RETURN 
-        
-        miny = MINVAL( ElementNodes % y(1:n) )
-        maxy = MAXVAL( ElementNodes % y(1:n) )
-        ydist = MAX( MAX( Point(2) - maxy, 0.0_dp ), miny - Point(2) )
-        IF( ydist > eps + eps2 * (maxy - miny) ) RETURN 
-        
-        minz = MINVAL( ElementNodes % z(1:n) )
-        maxz = MAXVAL( ElementNodes % z(1:n) )
-        zdist = MAX( MAX( Point(3) - maxz, 0.0_dp ), minz - Point(3) )
-        IF( zdist > eps + eps2 * (maxz - minz) ) RETURN 
-      END IF
+      minx = MINVAL( ElementNodes % x(1:n) )
+      maxx = MAXVAL( ElementNodes % x(1:n) )
+      miny = MINVAL( ElementNodes % y(1:n) )
+      maxy = MAXVAL( ElementNodes % y(1:n) )
+      minz = MINVAL( ElementNodes % z(1:n) )
+      maxz = MAXVAL( ElementNodes % z(1:n) )
+      
+      xdist = MAX( MAX( Point(1) - maxx, 0.0_dp ), minx - Point(1) )
+      ydist = MAX( MAX( Point(2) - maxy, 0.0_dp ), miny - Point(2) )
+      zdist = MAX( MAX( Point(3) - maxz, 0.0_dp ), minz - Point(3) )
+      
+      GlobalDistance = SQRT( xdist**2 + ydist**2 + zdist**2)
+      
+      IF( xdist > eps0 + eps1 * (maxx - minx) ) RETURN 
+      IF( ydist > eps0 + eps1 * (maxy - miny) ) RETURN 
+      IF( zdist > eps0 + eps1 * (maxz - minz) ) RETURN 
+    ELSE
+      ! Otherwise make decision independently after each coordinate direction
+      
+      minx = MINVAL( ElementNodes % x(1:n) )
+      maxx = MAXVAL( ElementNodes % x(1:n) )
+      xdist = MAX( MAX( Point(1) - maxx, 0.0_dp ), minx - Point(1) )
+      IF( xdist > eps0 + eps1 * (maxx - minx) ) RETURN 
+      
+      miny = MINVAL( ElementNodes % y(1:n) )
+      maxy = MAXVAL( ElementNodes % y(1:n) )
+      ydist = MAX( MAX( Point(2) - maxy, 0.0_dp ), miny - Point(2) )
+      IF( ydist > eps0 + eps1 * (maxy - miny) ) RETURN 
+      
+      minz = MINVAL( ElementNodes % z(1:n) )
+      maxz = MAXVAL( ElementNodes % z(1:n) )
+      zdist = MAX( MAX( Point(3) - maxz, 0.0_dp ), minz - Point(3) )
+      IF( zdist > eps0 + eps1 * (maxz - minz) ) RETURN 
     END IF
 
 
@@ -251,7 +246,7 @@ MODULE Interpolation
 !   coordinates of the point:
 !   -----------------------------------------
     CALL GlobalToLocal( ug, vg, wg, Point(1), Point(2), Point(3), &
-                    Element, ElementNodes )
+        Element, ElementNodes )
 
     LocalCoordinates(1) = ug
     LocalCoordinates(2) = vg
@@ -263,29 +258,64 @@ MODULE Interpolation
 
     SELECT CASE ( Element % TYPE % ElementCode / 100 )
       CASE(2)
-         IsInElement = (ug<=1.d0 + eps2) .AND. (ug>=-1.d0 - eps2) 
+        sumdist = MAX( ug - 1.0, MAX( -ug - 1.0, 0.0 ) )
 
       CASE(3)
-         IsInElement = (ug+vg <= 1.d0 + eps2) .AND. &
-                       (ug<=1.d0 + eps2) .AND. (ug>=0.d0 - eps2) .AND. &
-                       (vg<=1.d0 + eps2) .AND. (vg>=0.d0 - eps2)
+        sumdist = MAX( -ug, 0.0 ) + MAX( -vg, 0.0 ) 
+        sumdist = sumdist + MAX( ug + vg - 1.0_dp, 0.0 ) 
 
       CASE(4)
-         IsInElement = ug>=-1.d0-eps2 .AND. ug<=1.d0+eps2 .AND. &
-                       vg>=-1.d0-eps2 .AND. vg<=1.d0+eps2
+        sumdist = MAX( ug - 1.0, MAX( -ug -1.0, 0.0 ) )
+        sumdist = sumdist + MAX( vg - 1.0, MAX( -vg - 1.0, 0.0 ) )
 
       CASE(5)
-         IsInElement = (ug+vg+wg <= 1.d0+eps2) .AND. &
-                       (ug<=1.d0+eps2) .AND. (ug>=0.d0-eps2) .AND. &
-                       (vg<=1.d0+eps2) .AND. (vg>=0.d0-eps2) .AND. &
-                       (wg<=1.d0+eps2) .AND. (wg>=0.d0-eps2)
-
+        sumdist = MAX( -ug, 0.0 ) + MAX( -vg, 0.0 ) + MAX( -wg, 0.0 ) 
+        sumdist = sumdist + MAX( ug + vg + wg - 1.0, 0.0 ) 
+        
       CASE(8)
-         IsInElement = ug>=-1.d0-eps2 .AND. ug<=1.d0+eps2 .AND. &
-                       vg>=-1.d0-eps2 .AND. vg<=1.d0+eps2 .AND. &
-                       wg>=-1.d0-eps2 .AND. wg<=1.d0+eps2
+        sumdist = MAX( ug - 1.0, MAX( -ug -1.0, 0.0 ) )
+        sumdist = sumdist + MAX( vg - 1.0, MAX( -vg - 1.0, 0.0 ) )
+        sumdist = sumdist + MAX( wg - 1.0, MAX( -wg - 1.0, 0.0 ) )
+        
+      CASE DEFAULT
+        WRITE( Message,'(A,I4)') 'Non implemented for element code',&
+            Element % TYPE % ElementCode 
+        CALL Warn('PointInElement',Message)
+      END SELECT
 
-    END SELECT
+
+      IF( sumdist < eps0 + eps2 ) THEN
+        IsInElement = .TRUE.
+      END IF
+
+      IF( PRESENT( LocalDistance ) ) THEN
+        LocalDistance = sumdist
+      END IF
+        
+
+!      CASE(2)
+!         IsInElement = (ug<=1.d0 + eps2) .AND. (ug>=-1.d0 - eps2) 
+!
+!      CASE(3)
+!         IsInElement = (ug+vg <= 1.d0 + eps2) .AND. &
+!                       (ug<=1.d0 + eps2) .AND. (ug>=0.d0 - eps2) .AND. &
+!                       (vg<=1.d0 + eps2) .AND. (vg>=0.d0 - eps2)
+!
+!      CASE(4)
+!         IsInElement = ug>=-1.d0-eps2 .AND. ug<=1.d0+eps2 .AND. &
+!                       vg>=-1.d0-eps2 .AND. vg<=1.d0+eps2
+!
+!      CASE(5)
+!         IsInElement = (ug+vg+wg <= 1.d0+eps2) .AND. &
+!                       (ug<=1.d0+eps2) .AND. (ug>=0.d0-eps2) .AND. &
+!                       (vg<=1.d0+eps2) .AND. (vg>=0.d0-eps2) .AND. &
+!                       (wg<=1.d0+eps2) .AND. (wg>=0.d0-eps2)
+!
+!      CASE(8)
+!         IsInElement = ug>=-1.d0-eps2 .AND. ug<=1.d0+eps2 .AND. &
+!                       vg>=-1.d0-eps2 .AND. vg<=1.d0+eps2 .AND. &
+!                       wg>=-1.d0-eps2 .AND. wg<=1.d0+eps2
+
 !------------------------------------------------------------------------------
     END FUNCTION PointInElement
 !------------------------------------------------------------------------------

@@ -668,7 +668,7 @@ CONTAINS
          Element => Mesh % Elements(i)
          
          ! Iterate each edge of element
-         DO j = 1,Element % Type % NumberOfEdges
+         DO j = 1,Element % TYPE % NumberOfEdges
             Edge => Mesh % Edges( Element % EdgeIndexes(j) ) 
             
             ! Set attributes of p element edges
@@ -2215,7 +2215,7 @@ CONTAINS
              END IF
 
              IF ( ASSOCIATED(Mesh % Faces) ) THEN
-               DO ii=1,Element % Type % NumberOfFaces
+               DO ii=1,Element % TYPE % NumberOfFaces
                  Face => Mesh % Faces(Element % FaceIndexes(ii))
                  IF ( .NOT. ASSOCIATED(Face % EdgeIndexes) ) THEN
                    ALLOCATE(Face % EdgeIndexes(Face % TYPE % NumberOfEdges))
@@ -2335,7 +2335,7 @@ CONTAINS
 
       DO i=1,Mesh % NumberOfFaces
         Face => Mesh % Faces(i)
-        n = Face % Type % NumberOfEdges
+        n = Face % TYPE % NumberOfEdges
         Edgeind(1:n) = Face % EdgeIndexes(1:n)
         DO j=1,n
           i1 = Mesh % Edges(Edgeind(j)) % NodeIndexes(1:2)
@@ -5071,6 +5071,233 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+
+!------------------------------------------------------------------------
+! Find a point in the mesh structure
+! There are two strategies:
+! 1) Recursive where the same routine is repeated with sloppier criteria
+! 2) One-sweep strategy where the best hit is registered and used if of 
+!    acceptable accuracy. 
+! There are two different epsilons that control the search. One for the 
+! rough test in absolute coordinates and another one for the more accurate
+! test in local coordinates.   
+!-------------------------------------------------------------------------
+  FUNCTION PointInMesh(Solver, GlobalCoords, LocalCoords, HitElement, &
+      CandElement, ExtInitialize ) RESULT ( Hit )
+        
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: GlobalCoords(3), LocalCoords(3)
+    TYPE(Element_t), POINTER :: HitElement 
+    TYPE(Element_t), POINTER, OPTIONAL :: CandElement
+    LOGICAL, OPTIONAL :: ExtInitialize
+    LOGICAL :: Hit
+!-------------------------------------------------------------------------
+    LOGICAL :: Initialize, Allocated = .FALSE., Stat, DummySearch, &
+        MaskExists, Found, IsRecursive
+    INTEGER :: i,j,k,n,bf_id,dim,mini
+    REAL(KIND=dp) :: u,v,w,dist,mindist,MinLocalCoords(3)
+    TYPE(Nodes_t) :: ElementNodes
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER, POINTER :: NodeIndexes(:)
+    TYPE(Element_t), POINTER :: CurrentElement
+    TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
+    REAL(kind=dp) :: BoundingBox(6), eps2, eps1 = 1e-3, GlobalEps, LocalEps
+    CHARACTER(LEN=MAX_NAME_LEN) :: MaskName
+
+
+    SAVE :: Allocated, ElementNodes, DummySearch, Mesh, MaskName, MaskExists, &
+        GlobalEps, LocalEps, IsRecursive
+
+
+    IF( PRESENT( ExtInitialize ) ) THEN
+      Initialize = ExtInitialize
+    ELSE
+      Initialize = .NOT. Allocated 
+    END IF
+
+    IF( Initialize ) THEN
+      Mesh => Solver % Mesh
+      n = Mesh % MaxElementNodes
+      IF( Allocated ) THEN
+        DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z )
+      END IF
+      ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
+      Allocated = .TRUE.
+
+      IsRecursive = ListGetLogical( CurrentModel % Simulation,&
+          'Interpolation Search Recursive',Stat )
+!      IF(.NOT. Stat ) IsRecursive = .TRUE.
+
+      LocalEps = ListGetConstReal( CurrentModel % Simulation,  &
+          'Interpolation Local Epsilon', Stat )
+      IF(.NOT. stat) LocalEps = 1.0e-10
+
+      GlobalEps = ListGetConstReal( CurrentModel % Simulation,  &
+          'Interpolation Global Epsilon', Stat ) 
+      IF(.NOT. stat) THEN
+        IF( IsRecursive ) THEN
+          GlobalEps = 2.0e-10
+        ELSE
+          GlobalEps = 1.0e-4
+        END IF
+      END IF
+
+      DummySearch = ListGetLogical( CurrentModel % Simulation,&
+          'Interpolation Search Dummy',Stat )
+
+      MaskName = ListGetString( CurrentModel % Simulation,&
+          'Interpolation Search Mask',MaskExists )
+
+      IF( ASSOCIATED( Mesh % RootQuadrant ) ) THEN
+        CALL FreeQuadrantTree( Mesh % RootQuadrant )
+        Mesh % RootQuadrant => Null()
+      END IF
+    END IF
+      
+
+    !-----------------------------------------------
+    ! Create the octree search structure, if needed 
+    !-----------------------------------------------
+    IF ( .NOT. ( DummySearch .OR.  ASSOCIATED( Mesh % RootQuadrant ) ) ) THEN
+      BoundingBox(1) = MINVAL( Mesh % Nodes % x )
+      BoundingBox(2) = MINVAL( Mesh % Nodes % y )
+      BoundingBox(3) = MINVAL( Mesh % Nodes % z )
+      BoundingBox(4) = MAXVAL( Mesh % Nodes % x )
+      BoundingBox(5) = MAXVAL( Mesh % Nodes % y )
+      BoundingBox(6) = MAXVAL( Mesh % Nodes % z )
+      
+      eps2 = eps1 * MAXVAL( BoundingBox(4:6) - BoundingBox(1:3) )
+      BoundingBox(1:3) = BoundingBox(1:3) - eps2
+      BoundingBox(4:6) = BoundingBox(4:6) + eps2
+      
+      CALL BuildQuadrantTree( Mesh,BoundingBox,Mesh % RootQuadrant)
+      RootQuadrant => Mesh % RootQuadrant
+      IF (.NOT. ASSOCIATED(RootQuadrant) ) THEN
+        CALL Warn('PointInMesh','No RootQuadrant associated')
+        RETURN
+      END IF
+    END IF
+
+
+    Hit = .FALSE.
+
+    ! Check that the previous hit is not hit even now
+    !-------------------------------------------------
+    IF( PRESENT( CandElement ) ) THEN
+
+      IF( ASSOCIATED(CandElement)) THEN
+
+        CurrentElement => CandElement
+        n = CurrentElement % TYPE % NumberOfNodes
+        NodeIndexes => CurrentElement % NodeIndexes
+        
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+        
+        IF ( PointInElement( CurrentElement, ElementNodes, &
+            GlobalCoords, LocalCoords ) ) THEN
+          Hit = .TRUE.
+          HitElement => CurrentElement
+          RETURN
+        END IF
+      END IF
+    END IF
+
+
+    Eps1 = GlobalEps
+    Eps2 = LocalEps
+
+
+100 IF( DummySearch ) THEN
+
+      mindist = HUGE( mindist ) 
+      
+      !----------------------------------------------------------
+      ! Go through all bulk elements in a dummy search.
+      ! This algorithm is mainly here for debugging purposes, or
+      ! if just a few nodes need to be searched.
+      !----------------------------------------------------------
+      DO k=1,Mesh % NumberOfBulkElements
+        CurrentElement => Mesh % Elements(k)
+        n = CurrentElement % TYPE % NumberOfNodes
+        NodeIndexes => CurrentElement % NodeIndexes
+        
+        IF( MaskExists ) THEN
+          bf_id = ListGetInteger( CurrentModel % Bodies(CurrentElement % BodyId) % Values, &
+              'Body Force', Found )
+          IF( .NOT. Found ) CYCLE
+          IF(.NOT. ListCheckPresent( CurrentModel % BodyForces(bf_id) % Values,MaskName) ) CYCLE
+        END IF
+
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+        
+        Hit = PointInElement( CurrentElement, ElementNodes, &
+            GlobalCoords, LocalCoords, Eps1, Eps2, LocalDistance = dist )
+        IF( dist < mindist ) THEN
+          mini = k
+          mindist = dist
+        END IF
+        IF( Hit ) EXIT
+      END DO      
+    ELSE
+      !-----------------------------------------------
+      ! Find the right element using an octree search
+      ! This is the preferred algorithms of the two.
+      !-----------------------------------------------
+      NULLIFY(CurrentElement)
+      CALL FindLeafElements(GlobalCoords, Mesh % MeshDim, RootQuadrant, LeafQuadrant)
+      IF ( ASSOCIATED(LeafQuadrant) ) THEN
+        DO j=1, LeafQuadrant % NElemsInQuadrant
+          k = LeafQuadrant % Elements(j)
+          CurrentElement => Mesh % Elements(k)
+          
+          IF( MaskExists ) THEN
+            bf_id = ListGetInteger( CurrentModel % Bodies(CurrentElement % BodyId) % Values, &
+                'Body Force', Found )
+            IF( .NOT. Found ) CYCLE
+            IF(.NOT. ListCheckPresent( CurrentModel % BodyForces(bf_id) % Values,MaskName) ) CYCLE
+          END IF
+          
+          n = CurrentElement % TYPE % NumberOfNodes
+          NodeIndexes => CurrentElement % NodeIndexes
+                    
+          ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+          ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+          ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+          
+          Hit = PointInElement( CurrentElement, ElementNodes, &
+              GlobalCoords, LocalCoords, Eps1, Eps2, LocalDistance = dist ) 
+          IF( dist < mindist ) THEN
+            mini = k
+            mindist = dist
+            MinLocalCoords = LocalCoords
+          END IF
+          IF( Hit ) EXIT
+        END DO
+      END IF      
+    END IF
+
+    IF( .NOT. Hit ) THEN
+      IF( IsRecursive ) THEN
+        Eps1 = 10.0 * Eps1
+        Eps2 = 10.0 * Eps2
+        IF( Eps1 <= 1.0_dp ) GOTO 100
+      ELSE
+        IF( mindist < Eps1 ) THEN
+          CurrentElement => Mesh % Elements(k)
+          LocalCoords = MinLocalCoords
+          Hit = .TRUE.
+        END IF
+      END IF
+    END IF
+
+    IF( Hit ) HitElement => CurrentElement
+    
+  END FUNCTION PointInMesh
 
 !------------------------------------------------------------------------------
 END MODULE MeshUtils

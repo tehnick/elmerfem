@@ -182,7 +182,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ExactCoordinates = ListGetLogical(Solver % Values,'Exact Coordinates',GotIt )      
 
       EpsAbs = ListGetConstReal( Solver % Values,'Coordinate Eps Abs',GotEpsAbs )
-print *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
+PRINT *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
 
       IF( ParallelReduce ) THEN
         IF(.NOT. ExactCoordinates) THEN
@@ -271,7 +271,7 @@ print *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
           ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
           
 	  Hit = PointInElement( CurrentElement, ElementNodes, &
-                TempCoordinates, LocalCoords, Distance = Dist )
+                TempCoordinates, LocalCoords, LocalDistance = Dist )
 	  IF( Dist < MinDist ) THEN
             MinDist = Dist
             l = k
@@ -280,7 +280,7 @@ print *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
         END DO       
 
 	IF( .NOT. Hit ) THEN
-	  print *,'Trying with the closest so far',MinDist,l
+	  PRINT *,'Trying with the closest so far',MinDist,l
           CurrentElement => Mesh % Elements(l)
           n = CurrentElement % TYPE % NumberOfNodes
           NodeIndexes => CurrentElement % NodeIndexes
@@ -291,12 +291,12 @@ print *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
           
 	  IF( IsParallel ) THEN
    	    Hit = PointInElement( CurrentElement, ElementNodes, &
-                  TempCoordinates, LocalCoords, Eps_Rel = 1.0e-3_dp, Eps_Abs=1.0e-3_dp )	
+                  TempCoordinates, LocalCoords, GlobalEps = 1.0e-3_dp, LocalEps=1.0e-4_dp )	
           ELSE
 	    Hit = PointInElement( CurrentElement, ElementNodes, &
-                  TempCoordinates, LocalCoords, Eps_Rel = 1.0_dp, Eps_Abs=1.0_dp )	
+                  TempCoordinates, LocalCoords, GlobalEps = 1.0_dp, LocalEps=0.1_dp )	
           END IF
-	  print *,'LocalCoords:',LocalCoords
+	  PRINT *,'LocalCoords:',LocalCoords
         END IF
 
         IF( Hit ) THEN
