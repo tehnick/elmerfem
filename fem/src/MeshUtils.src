@@ -5536,6 +5536,221 @@ CONTAINS
  !---------------------------------------------------------------
 
 
+
+
+!---------------------------------------------------------------
+! This partitions the mesh into a given number of partitions in each 
+! direction. It may be used in clustering multigrid or similar. 
+! It is not easily applicable to parallel computation as this 
+! partitioning should be done outside ElmerSolver in advance.
+!---------------------------------------------------------------
+  SUBROUTINE ClusterNodesByDirection(Solver,Mesh,Clustering,MaskPerm)
+
+    USE GeneralUtils
+
+    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER, POINTER :: Clustering(:)
+    INTEGER, POINTER, OPTIONAL :: MaskPerm(:)
+!---------------------------------------------------------------
+
+    LOGICAL :: MaskExists,GotIt,Hit
+    REAL(KIND=dp), ALLOCATABLE :: Measure(:)
+    INTEGER :: i,j,k,k0,l,ind,n,dim,dir,divs,nsize,elemsinpart,clusters
+    INTEGER, POINTER :: Iarray(:),Order(:),NodePart(:),NoPart(:)
+    INTEGER :: Divisions(3)
+    REAL(KIND=dp), POINTER :: PArray(:,:), Arrange(:)
+    REAL(KIND=dp) :: Normal(3), Tangent1(3), Tangent2(3), Coord(3), Weights(3)
+!---------------------------------------------------------------
+
+    CALL Info('ClusterNodesByDirection','')
+
+    MaskExists = PRESENT(MaskPerm)
+    IF( MaskExists ) THEN
+      nsize = MAXVAL( MaskPerm ) 
+    ELSE
+      nsize = Mesh % NumberOfNodes
+    END IF
+    
+    dim = Mesh % MeshDim
+    Parray => ListGetConstRealArray( Solver % Values,'Clustering Normal Vector',GotIt )
+    IF( GotIt ) THEN
+      Normal = Parray(1:3,1)
+    ELSE
+      Normal(1) = 1.0
+      Normal(2) = 1.0e-2
+      IF( dim == 3) Normal(3) = 1.0e-4
+    END IF
+    Normal = Normal / SQRT( SUM( Normal ** 2) )
+
+    CALL LocalTangentDirections( Normal,Tangent1,Tangent2 )
+    
+
+    IF( .FALSE. ) THEN
+      PRINT *,'Normal:',Normal
+      PRINT *,'Tangent1:',Tangent1
+      PRINT *,'Tangent2:',Tangent2
+    END IF
+
+
+    Iarray => ListGetIntegerArray( Solver % Values,'Cluster Divisions' )
+    Divisions = Iarray(1:3)
+
+    Clusters = Divisions(1) * Divisions(2) * Divisions(3)
+
+    IF( .FALSE. ) THEN
+      PRINT *,'clusters:',clusters
+      PRINT *,'nsize:',nsize
+    END IF
+
+    ALLOCATE(Order(nsize),Arrange(nsize),NodePart(nsize),NoPart(Clusters))
+    
+
+    ! These are needed as an initial value for the loop over dimension
+    elemsinpart = nsize
+    nodepart = 1
+    
+
+    ! Go through each direction and cumulatively add to the clusters
+    !-----------------------------------------------------------
+
+    DO dir = 1,dim      
+      divs = Divisions(dir)
+      IF( divs <= 1 ) CYCLE
+      
+      ! Use the three principal directions as the weight
+      !-------------------------------------------------
+      IF( dir == 1 ) THEN
+        Weights = Normal
+      ELSE IF( dir == 2 ) THEN
+        Weights = Tangent1
+      ELSE 
+        Weights = Tangent2
+      END IF
+
+      ! Initialize ordering for the current direction
+      !----------------------------------------------
+      DO i=1,nsize
+        Order(i) = i
+      END DO
+      
+
+      ! Now compute the weights for each node
+      !----------------------------------------
+      DO i=1,Mesh % NumberOfNodes
+        j = i
+        IF( MaskExists ) j = MaskPerm(j)
+        IF( j == 0 ) CYCLE
+        
+        Coord(1) = Mesh % Nodes % x(i)
+        Coord(2) = Mesh % Nodes % y(i)
+        Coord(3) = Mesh % Nodes % z(i)
+
+        Arrange(j) = SUM( Weights * Coord )
+      END DO
+
+      PRINT *,'Range:',MINVAL( Arrange ), MAXVAL( Arrange )
+
+      ! Order the nodes for given direction
+      !----------------------------------------------
+      CALL SortR(nsize,Order,Arrange)
+
+      ! For each direction the number of elements in cluster becomes smaller
+      elemsinpart = elemsinpart / divs
+
+      ! initialize the counter partition
+      nopart = 0
+
+
+      ! Go through each node and locate it to a cluster taking into consideration
+      ! the previous clustering (for 1st direction all one)
+      !------------------------------------------------------------------------
+      j = 1
+      DO i = 1,nsize
+        ind = Order(i)
+        
+        ! the initial partition offset depends on previous partitioning
+        k0 = (nodepart(ind)-1) * divs
+
+        ! Find the correct new partitioning, this loop is just long enough
+        DO l=1,divs
+          Hit = .FALSE.
+          
+          ! test for increase of local partition
+          IF( j < divs ) THEN
+            IF( nopart(k0+j) >= elemsinpart ) THEN
+              j = j + 1
+              Hit = .TRUE.
+            END IF
+          END IF
+          
+          ! test for decrease of local partition
+          IF( j > 1 )  THEN            
+            IF( nopart(k0+j-1) < elemsinpart ) THEN
+              j = j - 1
+              Hit = .TRUE.
+            END IF
+          END IF
+          
+          ! If either increase or decrease is needed, this must be ok 
+          IF(.NOT. Hit) EXIT
+        END DO
+          
+        k = k0 + j
+        nopart(k) = nopart(k) + 1
+        nodepart(ind) = k
+      END DO
+
+    END DO
+
+
+    IF( ASSOCIATED(Clustering)) THEN
+      Clustering = Nodepart 
+      DEALLOCATE(Nodepart)
+    ELSE
+      Clustering => Nodepart
+      NULLIFY( Nodepart ) 
+    END IF
+    
+    DEALLOCATE(Order,Arrange,NoPart)
+
+    
+  CONTAINS
+    
+
+!------------------------------------------------------------------------------
+    SUBROUTINE LocalTangentDirections( Normal,Tangent1,Tangent2 )
+!------------------------------------------------------------------------------
+      REAL(KIND=dp) :: Normal(3),Tangent1(3),Tangent2(3)
+!------------------------------------------------------------------------------
+      REAL(KIND=dp) :: n1,n2,n3
+!------------------------------------------------------------------------------
+      n1 = ABS(Normal(1))
+      n2 = ABS(Normal(2))
+      n3 = ABS(Normal(3))
+      
+      IF ( n1 <= n3 .AND. n2 <= n3 ) THEN
+        Tangent1(1) =  0.0_dp
+        Tangent1(2) = -Normal(3)
+        Tangent1(3) =  Normal(2)
+      ELSE
+        Tangent1(1) = -Normal(2)
+        Tangent1(2) =  Normal(1)
+        Tangent1(3) =  0.0_dp
+      END IF
+      
+      Tangent1 = Tangent1 / SQRT(SUM(Tangent1**2))
+      Tangent2(1) = Normal(2)*Tangent1(3) - Normal(3)*Tangent1(2)
+      Tangent2(2) = Normal(3)*Tangent1(1) - Normal(1)*Tangent1(3)
+      Tangent2(3) = Normal(1)*Tangent1(2) - Normal(2)*Tangent1(1)
+      Tangent2 = Tangent2 / SQRT(SUM(Tangent2**2))
+!------------------------------------------------------------------------------
+    END SUBROUTINE LocalTangentDirections
+!------------------------------------------------------------------------------
+
+  END SUBROUTINE ClusterNodesByDirection
+
+
 !------------------------------------------------------------------------------
 END MODULE MeshUtils
 !------------------------------------------------------------------------------
