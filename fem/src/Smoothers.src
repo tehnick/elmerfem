@@ -51,7 +51,8 @@ MODULE Smoothers
 CONTAINS
 
 !------------------------------------------------------------------------------
-    FUNCTION MGSmooth( Solver, A, Mesh, x, b, r, Level, DOFs, PreSmooth, CF) RESULT(RNorm)
+    FUNCTION MGSmooth( Solver, A, Mesh, x, b, r, Level, DOFs, &
+        PreSmooth, LowestSmooth, CF) RESULT(RNorm)
 !------------------------------------------------------------------------------
       USE ParallelUtils
       TYPE(Solver_t), POINTER :: Solver
@@ -59,11 +60,11 @@ CONTAINS
       TYPE(Mesh_t) :: Mesh
       INTEGER :: Level, DOFs
       REAL(KIND=dp), TARGET :: x(:),b(:),r(:),RNorm, rphi=5.0_dp
-      LOGICAL PreSmooth
+      LOGICAL, OPTIONAL :: PreSmooth, LowestSmooth
       INTEGER, POINTER, OPTIONAL :: CF(:)
 !------------------------------------------------------------------------------
       CHARACTER(LEN=MAX_NAME_LEN) :: IterMethod, im
-      LOGICAL :: Parallel, Found
+      LOGICAL :: Parallel, Found, Lowest, Pre
       TYPE(Matrix_t), POINTER :: M
       INTEGER :: n, Rounds, InvLevel
       INTEGER, POINTER :: Iters(:)
@@ -91,10 +92,23 @@ CONTAINS
       n = M % NumberOfRows
       InvLevel = 1 + Solver % MultiGridTotal - Level
 
+      Lowest = .FALSE.
+      IF( PRESENT( LowestSmooth ) ) Lowest = LowestSmooth
+
+      Pre = .FALSE.
+      IF( PRESENT( PreSmooth ) ) Pre = PreSmooth
+      
+
 !      Smoothing iterative method:
 !      ---------------------------
-      IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
-      
+      IF( Lowest )THEN
+        IterMethod = ListGetString( Solver % Values, 'MG Lowest Smoother', Found )
+      ELSE
+        Found = .FALSE.
+      END IF
+      IF(.NOT. Found) THEN
+        IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
+      END IF
       IF ( .NOT. Found ) THEN
         IterMethod = ListGetString( Solver % Values, &
             'Linear System Iterative Method', Found )
@@ -107,7 +121,11 @@ CONTAINS
         END IF
       END IF
 
-      IF(Presmooth) THEN
+      
+      IF(Lowest) THEN
+        Rounds = ListGetInteger( Solver % Values,'MG Lowest Smoothing Iterations',Found)
+      END IF
+      IF(Pre .OR. (Lowest .AND. .NOT. Found)) THEN
         Iters => ListGetIntegerArray( Solver % Values,'MG Pre Smoothing Iterations',Found)
         IF(Found) THEN
           Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
@@ -1264,6 +1282,9 @@ USE linearalgebra
     END FUNCTION MGSmooth
 
 
+
+
+
 !------------------------------------------------------------------------------
 ! NOTE: The following could rather be placed in a new module called 
 !       ClusteringMethods or something. 
@@ -1277,38 +1298,108 @@ USE linearalgebra
 
   SUBROUTINE ChooseClusterNodes(Amat, Solver, Components, EliminateDir, CF)
     
+    USE MeshUtils
+
     TYPE(Matrix_t), POINTER  :: Amat
     TYPE(solver_t), TARGET :: Solver
     INTEGER :: Components
     LOGICAL :: EliminateDir
     INTEGER, POINTER :: CF(:)
 
-    INTEGER :: matsize, nodesize, Component1
+    INTEGER :: matsize, nodesize, Component1, method
     LOGICAL, POINTER :: Bonds(:), Fixed(:)
     INTEGER, POINTER :: Cols(:),Rows(:)
     LOGICAL :: GotIt
 
-    Component1 = 1
-    IF(Components > 1) THEN
-      Component1 = ListGetInteger(Solver % Values,'MG Determining Component',&
-          GotIt,minv=1,maxv=Components)
-      IF(.NOT. GotIt) Component1 = 1
+    TYPE(Solver_t), POINTER :: PSolver
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER, POINTER :: MaskPerm(:)
+    
+
+    method = ListGetInteger( Solver % Values,'Clustering Method',GotIt)
+
+    IF(method == 0) THEN
+      Component1 = 1
+      IF(Components > 1) THEN
+        Component1 = ListGetInteger(Solver % Values,'MG Determining Component',&
+            GotIt,minv=1,maxv=Components)
+        IF(.NOT. GotIt) Component1 = 1
+      END IF
+
+      Rows => Amat % Rows
+      Cols => Amat % Cols
+      matsize = Amat % NumberOfRows
+      nodesize = matsize / Components
+      ALLOCATE( Bonds(SIZE(Amat % Cols)), Fixed(nodesize), CF(nodesize) )
+
+      CALL CMGBonds(Amat, Bonds, Fixed, Components,Component1)      
+      CALL CMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
+      DEALLOCATE(Bonds, Fixed)
+    ELSE IF(method == 1) THEN
+      PSolver => Solver
+      Mesh => Solver % Mesh 
+      MaskPerm => Solver % Variable % Perm
+      IF( Amat % NumberOfRows /= Components * Mesh % NumberOfNodes ) THEN
+        CALL Fatal('ChoosClusterNodes','Mismatch in dimensions, method 1 is suited only for two levels!')
+      END IF
+      CALL ClusterNodesByDirection(PSolver,Mesh,CF,MaskPerm)
+    ELSE IF(method == 2) THEN
+      Mesh => Solver % Mesh 
+      MaskPerm => Solver % Variable % Perm
+      IF( Amat % NumberOfRows /= Components * Mesh % NumberOfNodes ) THEN
+        CALL Fatal('ChoosClusterNodes','Mismatch in dimensions, method 2 is suited only for two levels!')
+      END IF      
+      CALL ClusterExtrudedMesh()
+    ELSE
+      CALL Fatal('ChooseClusterNodes','Unknown clustering method')
     END IF
 
-    Rows => Amat % Rows
-    Cols => Amat % Cols
-    matsize = Amat % NumberOfRows
-    nodesize = matsize / Components
-    ALLOCATE( Bonds(SIZE(Amat % Cols)), Fixed(nodesize), CF(nodesize) )
-
-    CALL CMGBonds(Amat, Bonds, Fixed, Components,Component1)      
-    CALL CMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
-
-    DEALLOCATE(Bonds, Fixed)
 
     IF(.FALSE.) CALL Info('ChooseClusterNodes','Clusters chosen')
 
   CONTAINS
+
+
+    SUBROUTINE ClusterExtrudedMesh()
+
+
+      REAL(KIND=dp) :: UnitVector(3)
+      INTEGER, POINTER :: TopPointer(:), TopPerm(:)
+      INTEGER :: TopNodes, i, j, nsize
+
+      UnitVector = 0.0_dp
+      UnitVector( Mesh % MeshDim ) = 1.0_dp
+
+      CALL DetectExtrudedStructure( Mesh, UnitVector, MaskPerm = MaskPerm, &
+          TopNodePointer = TopPointer)
+
+      nsize = SIZE( MaskPerm )
+
+      ALLOCATE( TopPerm( nsize ), CF( nsize) )
+      TopPerm = 0
+      CF = 0
+      TopNodes = 0
+
+      ! Order the top nodes, they will determine the cluster index
+      DO i=1,nsize
+        IF( TopPointer(i) == 0 ) CYCLE
+        IF( TopPointer(i) == i ) THEN
+          TopNodes = TopNodes + 1
+          TopPerm(i) = TopNodes
+        END IF
+      END DO
+
+      ! set the clustering index
+      DO i=1,nsize
+        j = TopPointer(i)
+        IF( j == 0 ) CYCLE
+        CF( MaskPerm(i) ) = TopPerm(j)
+      END DO
+
+      DEALLOCATE( TopPerm, TopPointer )
+
+    END SUBROUTINE ClusterExtrudedMesh
+
 
 
 !------------------------------------------------------------------------------
