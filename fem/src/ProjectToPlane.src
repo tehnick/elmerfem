@@ -204,7 +204,6 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
     END IF
 
     IF(Dofs2D /= Dofs3D) THEN
-      PRINT *,'dofs2d',dofs2d,dofs3d
       CALL Fatal('ProjectToPlane','Number of Dofs must be the same in 2D and 3D')
     END IF
 
@@ -486,13 +485,7 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
           n = GetElementNOFNodes(Element)
 
           ElementNodes % x(1:n) = VolumeX( Element % NodeIndexes(1:n) )
-          IF( MINVAL(ElementNodes % x(1:n)) > x0 ) CYCLE
-          IF( MAXVAL(ElementNodes % x(1:n)) < x0 ) CYCLE
-
           ElementNodes % y(1:n) = VolumeY( Element % NodeIndexes(1:n) )
-          IF( MINVAL(ElementNodes % y(1:n)) > y0 ) CYCLE
-          IF( MAXVAL(ElementNodes % y(1:n)) < y0 ) CYCLE
-
           ElementNodes % z(1:n) = VolumeZ( Element % NodeIndexes(1:n) )
         
           IF ( PointInElement( Element, ElementNodes, LocalPoint, LocalCoords ) ) THEN
@@ -783,6 +776,36 @@ END SUBROUTINE ProjectToPlane
 !------------------------------------------------------------------------------
 
 
+SUBROUTINE ParallelProjectToPlane_init( Model,Solver,dt,TransientSimulation )
+  USE DefUtils
+  USE Lists
+
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+
+  CHARACTER(LEN=MAX_NAME_LEN) :: Name, Str
+  LOGICAL :: Found
+  INTEGER :: i
+
+  IF(.NOT. ListCheckPresent(Solver % Values,'Variable')) THEN
+    Name = ListGetString(Solver % Values,'Variable 1',Found)
+    IF( Found ) CALL ListAddString( Solver % Values,'Variable','ave_'//TRIM(Name))
+  END IF
+  
+  DO i=2,9
+    WRITE( Str,'(A,I2)') 'Variable',i
+    Name = ListGetString( Solver % Values,Str,Found)
+    IF( Found ) THEN
+      WRITE( Str,'(A,I2)') 'Exported Variable',i-1
+      CALL ListAddString( Solver % Values,TRIM(Str),'ave_'//TRIM(Name))
+    ELSE
+      EXIT
+    END IF
+  END DO
+
+END SUBROUTINE ParallelProjectToPlane_init
 
 
 SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
@@ -818,13 +841,13 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
 
-  TYPE(Solver_t), POINTER :: Solver3D
   TYPE(Element_t), POINTER :: Element, FaceElement
   TYPE(Element_t), TARGET :: TriangleElement
   TYPE(Nodes_t) :: Nodes, LineNodes, FaceNodes, ElementNodes
-  TYPE(Variable_t), POINTER :: Variable2D, Variable3D
+  TYPE(Variable_t), POINTER :: Variable2D, Variable3D, Var
+  TYPE(Mesh_t), POINTER :: Mesh2D, Mesh3D, Mesh
 
-  REAL(KIND=dp), POINTER :: Values2D(:), Values3D(:), Vals(:), Vals0(:)
+  REAL(KIND=dp), POINTER :: Vals(:), Vals0(:)
   REAL(KIND=dp), POINTER :: Basis(:)
   REAL(KIND=dp), POINTER :: PlaneX(:), PlaneY(:), PlaneZ(:)
   REAL(KIND=dp), POINTER :: VolumeX(:), VolumeY(:), VolumeZ(:)
@@ -840,16 +863,22 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
   INTEGER :: MaxInt, Int
   INTEGER, POINTER :: Perm2D(:), Perm3D(:), PlanePerm(:), VolumePerm(:)
   INTEGER :: i,j,k,k2,l,n,t,lnode,node
-  INTEGER :: PlaneNodes, VolumeElements, Dofs3D, Dofs2D, corners, face, Intersections
+  INTEGER :: PlaneNodes, VolumeElements, Dofs, corners, face, Intersections
   INTEGER :: Loops(8), inds(3), MinimumHits, AxisHits 
   INTEGER, POINTER :: Order2D(:), Order3D(:)
   INTEGER, POINTER :: IntOrder(:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: ConvertFromName, ConvertFromVar, EqName
+  CHARACTER(LEN=MAX_NAME_LEN) :: ConvertFromName, ConvertFromVar, Name, Str
   LOGICAL :: AllocationsDone = .FALSE., stat, GotIt, Rotate, LimitRadius, Found
 
   INTEGER :: pe, myNodes, myStart, peNodes, peNodesn, peStart, peEnd, &
           totcount, curr, ierr, status(MPI_STATUS_SIZE), nn
+
+  TYPE ValueTable_t
+    REAL(KIND=dp), POINTER :: Values(:) 
+  END TYPE ValueTable_t
+  TYPE(ValueTable_t) :: ValueTable3D(10), ValueTable2D(10)
+
   TYPE PointStore_t
     INTEGER :: Int
     REAL(KIND=dp),POINTER :: IntExtent(:), IntValues(:,:)
@@ -859,13 +888,14 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
   INTEGER, ALLOCATABLE :: cm_int(:), cm_int0(:), icount(:), icount0(:)
   REAL(KIND=dp), ALLOCATABLE :: cm_values(:), cm_values0(:), cm_extent(:)
 
-  SAVE :: Solver3D, Variable2D, Variable3D, Values2D, Values3D, &
+  SAVE :: Variable2D, Variable3D, &
       VolumeElements, PlaneNodes, VolumeX, VolumeY, VolumeZ, PlaneX, PlaneY, &
       PlaneZ, MaxInt, IntBasis, IntValues, IntExtent, IntOrder, &
       MinHeight3D, MaxHeight3D, MinWidth3D, MaxWidth3D, &
       Basis, ElementNodes, LineNodes, FaceNodes, Vals, Eps, Rotate, &
       LimitRadius, MaxRelativeRadius, MinimumHits, AxisHits, Rmax3D, &
-      Perm2D, Perm3D, Dofs2D, Dofs3D
+      Mesh2D, Mesh3D, Perm2D, Perm3D, Dofs, ValueTable2D, &
+      ValueTable3D
 
 
 !------------------------------------------------------------------------------
@@ -877,109 +907,139 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
   CALL Info( 'ProjectToPlane', ' Projecting 3D solution to 2D ' )
   CALL Info( 'ProjectToPlane', '-----------------------------------' )
   CALL Info( 'ProjectToPlane', ' ' )
-
+  
+!------------------------------------------------------------------------------
   IF ( .NOT. AllocationsDone ) THEN
     IF ( GetLogical( Model % Simulation, 'Output Version Numbers', stat ) ) THEN
       CALL Info( 'ProjectToPlane', 'Version 1.0 by raback (05-02-2007)', LEVEL=4 )
     END IF
     
-    ! 3D variables
-    !-------------
-
-    ConvertFromName = GetString( Solver % Values, 'Convert From Equation Name', GotIt )
-    IF ( .NOT. GotIt )  ConvertFromName = 'induction'
-    
-    NULLIFY( Solver3D )
-    DO i = 1, Model % NumberOfSolvers
-      EqName = GetString( Model % Solvers(i) % Values, 'Equation' )
-      IF ( TRIM( EqName ) == TRIM( ConvertFromName ) ) THEN
-        Solver3D => Model % Solvers(i) 
-        EXIT
+    !------------------------------------------------------------------------------
+    ! Find the 2D and 3D meshes, assume just one of each
+    !------------------------------------------------------------------------------
+    NULLIFY(Mesh2D)
+    NULLIFY(Mesh3D)
+    Mesh => Model % Meshes
+    DO WHILE( ASSOCIATED(Mesh) )
+      IF ( .NOT. Mesh % OutputActive ) THEN
+        Mesh => Mesh % next
+        CYCLE
       END IF
+      IF( Mesh % MeshDim == 3 ) THEN
+        CALL Info('ProjectToPlane','3D mesh: '//TRIM(Mesh % Name) )
+        Mesh3D => Mesh
+      ELSE IF( Mesh % MeshDim == 2 ) THEN
+        CALL Info('ProjectToPlane','2D mesh: '//TRIM(Mesh % Name) )
+        Mesh2D => Mesh
+      END IF
+      Mesh => Mesh % next
     END DO
     
-    IF ( .NOT. ASSOCIATED( Solver3D ) ) THEN
-      WRITE( Message, * ) 'Cannot find Solver called ', TRIM( ConvertFromName )
-      CALL Error( 'ProjectToPlane', Message )
-      CALL Fatal( 'ProjectToPlane','Possibly missing "Convert From Equation Name" field' )
+    IF(.NOT. ASSOCIATED(Mesh2D)) THEN
+      CALL Fatal('ProjectToPlane','Did not find 2D mesh')
+    END IF
+    IF(.NOT. ASSOCIATED(Mesh3D)) THEN
+      CALL Fatal('ProjectToPlane','Did not find 3D mesh')
     END IF
     
-    ConvertFromVar = GetString( Solver % Values, 'Convert From Variable', GotIt )
-    IF ( GotIt ) THEN
-      Variable3D => VariableGet( Model % Variables, ConvertFromVar, .TRUE.) 
-    ELSE
-      Variable3D => Solver3D % Variable 
+    IF(.NOT. ASSOCIATED(Mesh2D, Solver % Mesh)) THEN
+      CALL Fatal('ProjectToPlane','2D mesh not same as Solver mesh')
     END IF
 
-    Values3D => Variable3D % Values
+
+    !------------------------------------------------------------------------------
+    ! Make the list of 2D and 3D variables 
+    !------------------------------------------------------------------------------
+    DO i=1,9
+      WRITE( Str,'(A,I2)') 'Variable',i      
+      Name = ListGetString( Solver % Values,Str,Found)
+      IF(.NOT. Found) EXIT
+      
+      Var => VariableGet( Mesh3D % Variables, TRIM(Name) )
+      IF( .NOT. ASSOCIATED(Var)) EXIT
+
+      IF( Var % DOFs > 1 ) THEN
+        CALL Fatal('ProjectToPlane','Only scalar variables may be mapped')
+      END IF
+      IF( i == 1 ) Variable3D => Var
+      ValueTable3D(i) % Values => Var % Values
+      
+      IF( i == 1 ) THEN
+        Var => Solver % Variable
+        IF(.NOT. ASSOCIATED(Var)) &
+            Var => VariableGet( Mesh2D % Variables, 'ave_'//TRIM(Name) )
+      ELSE
+        Var => VariableGet( Mesh2D % Variables, 'ave_'//TRIM(Name) )        
+      END IF
+
+      IF( .NOT. ASSOCIATED(Var)) EXIT
+
+      IF( Var % DOFs > 1 ) THEN
+        CALL Fatal('ProjectToPlane','Only scalar variables may be mapped')
+      END IF
+      IF( i == 1 ) Variable2D => Var
+      ValueTable2D(i) % Values => Var % Values
+    END DO
+    Dofs = i-1
+    IF( Dofs == 0 ) THEN
+      CALL Fatal('ProjectToPlane','No variables to work with')
+    END IF
+
+    !------------------------------------------------------------------------------
+    ! The permutation are assumed to be constant 
+    !------------------------------------------------------------------------------
     Perm3D => Variable3D % Perm
-    Dofs3D = Variable3D % Dofs
-    VolumeElements = Solver3D % NumberOfActiveElements
-
-    VolumeX => Solver3D % Mesh % Nodes % x
-    VolumeY => Solver3D % Mesh % Nodes % y      
-    VolumeZ => Solver3D % Mesh % Nodes % z      
-
-    VolumePerm => ListGetIntegerArray( Solver % Values,'Volume Permutation',GotIt)
-    IF ( gotIt ) THEN
-      IF(VolumePerm(1) == 2) VolumeX => Solver3D % Mesh % Nodes % y
-      IF(VolumePerm(1) == 3) VolumeX => Solver3D % Mesh % Nodes % z
-      IF(VolumePerm(2) == 1) VolumeY => Solver3D % Mesh % Nodes % x
-      IF(VolumePerm(2) == 3) VolumeY => Solver3D % Mesh % Nodes % z
-      IF(VolumePerm(3) == 1) VolumeZ => Solver3D % Mesh % Nodes % x
-      IF(VolumePerm(3) == 2) VolumeZ => Solver3D % Mesh % Nodes % y
-    END IF
-   
-    WRITE( Message, * ) 'Converting from "', TRIM( Variable3D % Name ), &
-        '" with ', Dofs3D, 'degrees of freedom'
-    CALL Info( 'ProjectToPlane', Message, LEVEL=7 )
-
-
-    ! 2D variables
-    !-------------
-    
-    Variable2D => Solver % Variable
-    Values2D => Variable2D % Values
-    Dofs2D = Variable2D % Dofs
     Perm2D => Variable2D % Perm
-    PlaneNodes = COUNT(Perm2D>0)
-
-    PlaneX => Solver % Mesh % Nodes % x
-    PlaneY => Solver % Mesh % Nodes % y      
-    PlaneZ => Solver % Mesh % Nodes % z      
-
-    PlanePerm => ListGetIntegerArray( Solver % Values,'Plane Permutation',GotIt)
-    IF ( gotIt ) THEN
-      IF(PlanePerm(1) == 2) PlaneX => Solver % Mesh % Nodes % y
-      IF(PlanePerm(1) == 3) PlaneX => Solver % Mesh % Nodes % z
-      IF(PlanePerm(2) == 1) PlaneY => Solver % Mesh % Nodes % x
-      IF(PlanePerm(2) == 3) PlaneY => Solver % Mesh % Nodes % z
-      IF(PlanePerm(3) == 1) PlaneZ => Solver % Mesh % Nodes % x
-      IF(PlanePerm(3) == 2) PlaneZ => Solver % Mesh % Nodes % y
-    END IF
-
-
-    IF(Dofs2D /= Dofs3D) THEN
-      PRINT *,'dofs2d',dofs2d,dofs3d
-      CALL Fatal('ProjectToPlane','Number of Dofs must be the same in 2D and 3D')
-    END IF
+  
+    PlaneNodes = COUNT(Perm2D>0)    
+    VolumeElements = Mesh3D % NumberOfBulkElements
 
     WRITE( Message, * ) 'Number of mesh nodes in 2D and 3D: ', &
-       Solver % Mesh % NumberOfNodes, Solver3D % Mesh % NumberOfNodes
+        Mesh2d % NumberOfNodes, Mesh3D % NumberOfNodes
     CALL Info( 'ProjectToPlane', Message, LEVEL=16 )
+
+    !------------------------------------------------------------------------------
+    ! Possible permutation of coorinate directions
+    !------------------------------------------------------------------------------
+    VolumeX => Mesh3D % Nodes % x
+    VolumeY => Mesh3D % Nodes % y      
+    VolumeZ => Mesh3D % Nodes % z      
+    
+    VolumePerm => ListGetIntegerArray( Solver % Values,'Volume Permutation',GotIt)
+    IF ( gotIt ) THEN
+      IF(VolumePerm(1) == 2) VolumeX => Mesh3D % Nodes % y
+      IF(VolumePerm(1) == 3) VolumeX => Mesh3D % Nodes % z
+      IF(VolumePerm(2) == 1) VolumeY => Mesh3D % Nodes % x
+      IF(VolumePerm(2) == 3) VolumeY => Mesh3D % Nodes % z
+      IF(VolumePerm(3) == 1) VolumeZ => Mesh3D % Nodes % x
+      IF(VolumePerm(3) == 2) VolumeZ => Mesh3D % Nodes % y
+    END IF
+      
+    PlaneX => Mesh2d % Nodes % x
+    PlaneY => Mesh2d % Nodes % y      
+    PlaneZ => Mesh2d % Nodes % z      
+    
+    PlanePerm => ListGetIntegerArray( Solver % Values,'Plane Permutation',GotIt)
+    IF ( gotIt ) THEN
+      IF(PlanePerm(1) == 2) PlaneX => Mesh2d % Nodes % y
+      IF(PlanePerm(1) == 3) PlaneX => Mesh2d % Nodes % z
+      IF(PlanePerm(2) == 1) PlaneY => Mesh2d % Nodes % x
+      IF(PlanePerm(2) == 3) PlaneY => Mesh2d % Nodes % z
+      IF(PlanePerm(3) == 1) PlaneZ => Mesh2d % Nodes % x
+      IF(PlanePerm(3) == 2) PlaneZ => Mesh2d % Nodes % y
+    END IF
+      
 !------------------------------------------------------------------------------
 !   Allocate stuff
 !------------------------------------------------------------------------------
 
     ALLOCATE( MinHeight3D(VolumeElements), MaxHeight3D(VolumeElements))
     ALLOCATE( MinWidth3D(VolumeElements), MaxWidth3D(VolumeElements))
-
-    n = Solver3D % Mesh % MaxElementNodes
+    
+    n = Mesh3D % MaxElementNodes
     ALLOCATE(ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), Basis(n) )
     ALLOCATE(LineNodes % x(2), LineNodes % y(2), LineNodes % z(2)  )
-    ALLOCATE(FaceNodes % x(3), FaceNodes % y(3), FaceNodes % z(3), Vals(Dofs2D), Vals0(Dofs2D)  )
-
-!   AllocationsDone = .TRUE.
+    ALLOCATE(FaceNodes % x(3), FaceNodes % y(3), FaceNodes % z(3), Vals(Dofs), Vals0(Dofs))
 
 !------------------------------------------------------------------------------
 !   Find the scale of the 2D mesh
@@ -1023,8 +1083,9 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
 !   To improve search speed, tabulate values for min and max values of element nodes
 !------------------------------------------------------------------------------
    
-    DO t = 1, Solver3D % NumberOfActiveElements
-      Element => GetActiveElement( t, Solver3D )
+    DO t = 1, VolumeElements
+      Element => Mesh3D % Elements( t )
+      Model % CurrentElement => Element
       n = GetElementNOFNodes(Element)
       
       ElementNodes % x(1:n) = VolumeX(Element % NodeIndexes(1:n))
@@ -1036,16 +1097,16 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
       
       IF(Rotate) THEN
         MinWidth3D(t) = SQRT( MINVAL(ElementNodes % x(1:n)**2 + &
-                     ElementNodes % y(1:n)**2) )
+            ElementNodes % y(1:n)**2) )
         MaxWidth3D(t) = SQRT( MAXVAL(ElementNodes % x(1:n)**2 + &
-                     ElementNodes % y(1:n)**2) )
+            ElementNodes % y(1:n)**2) )
       ELSE
         MinWidth3D(t) = MINVAL(ElementNodes % x(1:n))
         MaxWidth3D(t) = MAXVAL(ElementNodes % x(1:n))
       END  IF
     END DO
     rmax3d = ParallelReduction(MAXVAL(MaxWidth3D),2)
- 
+    
     AllocationsDone = .TRUE.
   END IF
 
@@ -1055,7 +1116,7 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
   MaxInt =  100
   ALLOCATE( PointStore(PlaneNodes) )
   DO i=1,PlaneNodes
-    ALLOCATE( PointStore(i) % IntValues(Dofs3D,MaxInt), &
+    ALLOCATE( PointStore(i) % IntValues(Dofs,MaxInt), &
               PointStore(i) % IntExtent(MaxInt) )
     PointStore(i) % Int = 0
     PointStore(i) % IntExtent = 0
@@ -1071,9 +1132,10 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
   FaceElement => TriangleElement
   Loops = 0
 
+
   !   Loop over 2D nodes:
   !   -------------------
-  DO node = 1, Solver % Mesh % NumberOfNodes
+  DO node = 1, Mesh2d % NumberOfNodes
 
     Loops(1) = Loops(1) + 1
     lnode = Perm2D(node)
@@ -1107,7 +1169,8 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
       Loops(3) = Loops(3) + 1
 
 !------------------------------------------------------------------------------
-      Element => GetActiveElement( t, Solver3D )
+      Element => Mesh3D % Elements( t )
+      Model % CurrentElement => Element
       IF(.NOT. ASSOCIATED(Element)) CYCLE
 
       n = GetElementNOFNodes(Element)
@@ -1166,14 +1229,16 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
         PointStore(lnode) % Int = PointStore(lnode) % Int + 1
         curr=PointStore(lnode) % Int
         IF (curr>SIZE(PointStore(lnode) % IntExtent)) &
-          CALL AllocateMoreSpace(PointStore(lnode), MaxInt)
+            CALL AllocateMoreSpace(PointStore(lnode), MaxInt)
 
         PointStore(lnode) % IntExtent(curr) = cp
-        DO l=1,Dofs3D
+
+        DO l=1,Dofs
           PointStore(lnode) % IntValues(l,curr) = &
-            SUM(Basis(1:corners)* Values3D(Dofs3D*(Perm3D( &
-                Element % NodeIndexes(inds(1:corners)))-1)+l))
+              SUM(Basis(1:corners)* ValueTable3D(l) % &
+              Values(Perm3D( Element % NodeIndexes(inds(1:corners)) )) )
         END DO
+
       END DO
 
       IF(Intersections /= 0 .AND. Intersections /= 2) Loops(6)=Loops(6)+1
@@ -1187,7 +1252,7 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
   myNodes  = PlaneNodes / ParEnv % PEs
   myStart=ParEnv % myPE*myNodes+1
   IF ( ParEnv % mype==Parenv % PEs-1) &
-    myNodes = myNodes + (PlaneNodes-Parenv % Pes*myNodes)
+      myNodes = myNodes + (PlaneNodes-Parenv % Pes*myNodes)
 
   IF ( Parenv % PEs>1 ) THEN
     CALL SendPoints()
@@ -1210,18 +1275,18 @@ SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
     DEALLOCATE(PointStore(i) % IntValues, PointStore(i) % IntExtent)
   END DO
   DEALLOCATE( PointStore )
-
-  Solver % Variable % Norm = SQRT( SUM(Values2D**2) / SIZE(Perm2D) )
-
-  WRITE( Message, * ) 'Basic search loops: ',Loops(2:5)
+  
+!  Solver % Variable % Norm = SQRT( SUM(Values2D**2) / SIZE(Perm2D) )
+  
+  WRITE( Message,'(A,4I8)' ) 'Basic search loops: ',Loops(2:5)
   CALL Info( 'ProjectToPlane', Message, LEVEL=4 )
-
+  
   IF(Loops(5) > 0) THEN    
-    WRITE( Message, * ) 'Special cases loops: ',Loops(6:8)
+    WRITE( Message,'(A,3I8)' ) 'Special cases loops: ',Loops(6:8)
     CALL Info( 'ProjectToPlane', Message, LEVEL=4 )
   END IF
-
-  WRITE( Message, * ) 'Total CPU time used: ', CPUTime() - totcpu
+  
+  WRITE( Message,'(A,F8.2)' ) 'Total CPU time used: ', CPUTime() - totcpu
   CALL INFO( 'ProjectToPlane', Message, LEVEL=8 )
   CALL Info( 'ProjectToPlane', ' ' )
   CALL Info( 'ProjectToPlane', 'All done' )
@@ -1251,7 +1316,7 @@ CONTAINS
 
       IF ( totcount>0 ) THEN
         ALLOCATE( cm_extent(totcount), &
-              cm_values(Dofs3D*totcount) )
+              cm_values(Dofs*totcount) )
 
         j=0; totcount=0
         DO lnode=peStart,peEnd
@@ -1259,9 +1324,9 @@ CONTAINS
           cm_int(j) = PointStore(lnode) % Int
           DO k=1,cm_int(j)
             totcount=totcount+1
-            int=Dofs3D*(totcount-1)
-            cm_values(int+1:int+Dofs3D) = &
-               PointStore(lnode) % IntValues(1:Dofs3D,k)
+            int=Dofs*(totcount-1)
+            cm_values(int+1:int+Dofs) = &
+               PointStore(lnode) % IntValues(1:Dofs,k)
             cm_extent(totcount) = PointStore(lnode) % IntExtent(k)
            END DO
         END DO  
@@ -1269,7 +1334,7 @@ CONTAINS
       CALL MPI_BSEND( cm_int, peNodes, MPI_INTEGER, pe, &
                 100, MPI_COMM_WORLD, ierr )
       IF (totcount>0 ) THEN
-        CALL MPI_BSEND( cm_values, Dofs3D*totcount, &
+        CALL MPI_BSEND( cm_values, Dofs*totcount, &
            MPI_DOUBLE_PRECISION, pe, 101, MPI_COMM_WORLD, ierr )
 
         CALL MPI_BSEND( cm_extent, totcount, &
@@ -1298,9 +1363,9 @@ CONTAINS
       totcount=SUM(cm_int(1:myNodes))
 
       IF ( totcount>0 ) THEN
-        ALLOCATE( cm_values(Dofs3D*totcount), cm_extent(totcount) )
+        ALLOCATE( cm_values(Dofs*totcount), cm_extent(totcount) )
 
-        CALL MPI_RECV( cm_values, Dofs3D*totcount, &
+        CALL MPI_RECV( cm_values, Dofs*totcount, &
           MPI_DOUBLE_PRECISION, pe, 101, MPI_COMM_WORLD, status, ierr )
 
         CALL MPI_RECV( cm_extent, totcount, &
@@ -1317,9 +1382,9 @@ CONTAINS
           DO k=1,cm_int(j)
             totcount=totcount+1
             curr=curr+1
-            int = Dofs3D*(totcount-1)
+            int = Dofs*(totcount-1)
             PointStore(lnode) % IntExtent(curr) = cm_extent(totcount)
-            PointStore(lnode) % IntValues(:,curr) = cm_values(int+1:int+Dofs3D)
+            PointStore(lnode) % IntValues(:,curr) = cm_values(int+1:int+Dofs)
           END DO
           PointStore(lnode) % Int=curr
         END DO
@@ -1335,7 +1400,7 @@ CONTAINS
   SUBROUTINE ComputeIntegrals()
 !------------------------------------------------------------------------------
 
-    DO node=1,Solver % Mesh % NumberOfNodes
+    DO node=1,Mesh2d % NumberOfNodes
       lnode = Perm2D(node)
       IF(lnode<myStart .OR. lnode>myStart+myNodes-1) CYCLE
 
@@ -1348,7 +1413,7 @@ CONTAINS
       Loops(7) = Loops(7) + 1
 
       IF( Int == 1 ) THEN
-        DO i=1,Dofs2D
+        DO i=1,Dofs
           Vals(l) = IntValues(l,1)
         END DO
       ELSE
@@ -1359,7 +1424,7 @@ CONTAINS
         DO j=1,Int-1
           k = IntOrder(j)
           k2 = IntOrder(j+1)
-          DO l=1,Dofs2D
+          DO l=1,Dofs
             Field1 = IntValues(l,k)
             Field2 = IntValues(l,k2)
             Vals(l) = Vals(l)+0.5d0*(Field1+Field2)*(IntExtent(j)-IntExtent(j+1))
@@ -1370,7 +1435,7 @@ CONTAINS
           cf = 2*PI-(IntExtent(1) - IntExtent(Int))
           k = IntOrder(Int)
           k2 = IntOrder(1)      
-          DO l=1,Dofs2D         
+          DO l=1,Dofs         
             Field1 = IntValues(l,k)
             Field2 = IntValues(l,k2)
             Vals(l) = Vals(l) + 0.5d0 * (Field1 + Field2) * cf
@@ -1383,8 +1448,8 @@ CONTAINS
         DEALLOCATE(IntOrder)
       END IF
 
-      DO l=1,Dofs2D
-        Values2D(Dofs2D*(lnode-1)+l) = Vals(l)
+      DO l=1,Dofs
+        ValueTable2D(l) % Values(lnode) = Vals(l)
       END DO
     END DO
 !------------------------------------------------------------------------------
@@ -1409,12 +1474,12 @@ CONTAINS
         MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr )
 
       nn=COUNT(cm_int<=MinimumHits)
-      ALLOCATE(cm_values0(dofs2d*nn), cm_values(dofs2d*nn), &
+      ALLOCATE(cm_values0(dofs*nn), cm_values(dofs*nn), &
                icount0(nn), icount(nn))
     END IF 
 
     nn = 0
-    DO node=1,Solver % Mesh % NumberOfNodes
+    DO node=1,Mesh2d % NumberOfNodes
       lnode = Perm2D(node)
       IF ( lnode<=0 ) CYCLE
 
@@ -1457,7 +1522,8 @@ CONTAINS
           IF(z0 > MaxHeight3D(t) + Eps) CYCLE
           IF(z0 < MinHeight3D(t) - Eps) CYCLE
 
-          Element => GetActiveElement( t,Solver3D )
+          Element => Mesh3D % Elements(t)
+          Model % CurrentElement => Element
           n = GetElementNOFNodes(Element)
 
           ElementNodes % x(1:n) = VolumeX(Element % NodeIndexes(1:n))
@@ -1470,16 +1536,15 @@ CONTAINS
 
           ElementNodes % z(1:n) = VolumeZ( Element % NodeIndexes(1:n) )
     
-          IF (PointInElement(Element,ElementNodes, & 
-              LocalPoint,LocalCoords,eps_abs=0.035_dp)) THEN
+          IF (PointInElement(Element,ElementNodes,LocalPoint,LocalCoords)) THEN
             j = j + 1
             up = LocalCoords(1)
             vp = LocalCoords(2)
             wp = LocalCoords(3)
             stat = ElementInfo(Element,ElementNodes,up,vp,wp,detJ,Basis)
-            DO l=1,Dofs2D
-              Field1 = SUM(Basis(1:n)*Values3D(Dofs3D*( &
-                    Perm3D(Element % NodeIndexes(1:n))-1)+l))
+            DO l=1,Dofs
+              Field1 = SUM(Basis(1:n)*ValueTable3D(l) % Values( &
+                    Perm3D(Element % NodeIndexes(1:n)) ) )
               Vals(l) = Vals(l) + Field1
             END DO
             EXIT
@@ -1490,15 +1555,15 @@ CONTAINS
       IF (ParEnv % PEs>1) THEN
         nn=nn+1
         icount0(nn)=j
-        DO l=1,Dofs2D
-          cm_values0(Dofs2D*(nn-1)+l) = Vals(l)
+        DO l=1,Dofs
+          cm_values0(Dofs*(nn-1)+l) = Vals(l)
         END DO
       ELSE
-        DO l=1,Dofs2D
+        DO l=1,Dofs
           IF ( j>0 ) THEN
-            Values2D(Dofs2D*(lnode-1)+l) = Vals(l)/j
+            ValueTable2D(l) % Values(lnode) = Vals(l)/j
           ELSE
-            Values2D(Dofs2D*(lnode-1)+l) = 0._dp
+            ValueTable2D(l) % Values(lnode) = 0._dp
           END IF
         END DO
       END IF
@@ -1509,24 +1574,24 @@ CONTAINS
         CALL MPI_ALLREDUCE( icount0, icount, nn, &
              MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr )
 
-        CALL MPI_ALLREDUCE( cm_values0, cm_values, Dofs2D*nn, &
+        CALL MPI_ALLREDUCE( cm_values0, cm_values, Dofs*nn, &
              MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ierr )
 
         nn = 0
-        DO node=1,Solver % Mesh % NumberOfNodes
+        DO node=1,Mesh2d % NumberOfNodes
           lnode = Perm2D(node)
           IF ( lnode<=0 ) CYCLE
 
           IF ( cm_int(lnode)<=MinimumHits ) THEN
             nn=nn+1
             IF ( icount(nn)>0 ) THEN
-              DO l=1,Dofs2D
-                Values2D(Dofs2D*(lnode-1)+l) = &
-                        cm_values(Dofs2D*(nn-1)+l)/icount(nn)
+              DO l=1,Dofs
+                ValueTable2D(l) % Values(lnode) = &
+                    cm_values(Dofs*(nn-1)+l)/icount(nn)
               END DO
             ELSE
-              IF ( Parenv % myPe==0 ) print*,lnode, 'No hits: ', &
-                    node,planex(node),planey(node),planez(node)
+              IF ( Parenv % myPe==0 ) PRINT*,lnode, 'No hits: ', &
+                  node,planex(node),planey(node),planez(node)
             END IF
           END IF
         END DO
@@ -1541,7 +1606,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE GatherResults()
 !------------------------------------------------------------------------------
-    INTEGER :: j,k,pe,peNodes,peNodesn,peStart
+    INTEGER :: j,k,l,pe,peNodes,peNodesn,peStart
 
     IF ( ParEnv % mype==0 ) THEN
       peNodes  = PlaneNodes / ParEnv % PEs
@@ -1551,17 +1616,21 @@ CONTAINS
         peStart = pe*peNodes+1 
         IF ( pe==Parenv % Pes-1 ) peNodes=peNodesn
 
-        j = Dofs2D*(peStart-1)+1
-        k = j+Dofs2D*peNodes-1
-        CALL MPI_RECV( Values2D(j:k), Dofs2D*peNodes, &
-          MPI_DOUBLE_PRECISION, pe, 104, MPI_COMM_WORLD, status, ierr )
+        j = peStart
+        k = j+peNodes-1
+        DO l=1,Dofs
+          CALL MPI_RECV( ValueTable2D(l) % Values(j:k), peNodes, &
+            MPI_DOUBLE_PRECISION, pe, 104, MPI_COMM_WORLD, status, ierr )
+        END DO
       END DO
     ELSE
-      j = Dofs2D*(myStart-1)+1
-      k = j+Dofs2D*myNodes-1
-      CALL MPI_BSEND( Values2D(j:k), Dofs2D*myNodes, &
-         MPI_DOUBLE_PRECISION, 0, 104, MPI_COMM_WORLD, ierr )
-      Solver % Mesh % OutputActive = .FALSE.
+      j = myStart
+      k = j+myNodes-1
+      DO l=1,Dofs
+        CALL MPI_BSEND( ValueTable2D(l) % Values(j:k), myNodes, &
+            MPI_DOUBLE_PRECISION, 0, 104, MPI_COMM_WORLD, ierr )
+      END DO
+      Mesh2d % OutputActive = .FALSE.
     END IF
     CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
 !------------------------------------------------------------------------------
@@ -1580,13 +1649,13 @@ CONTAINS
     
     olds = SIZE(PS % IntExtent)
     
-    ALLOCATE(TmpValues(Dofs3D,olds),TmpExtent(olds))
+    ALLOCATE(TmpValues(Dofs,olds),TmpExtent(olds))
     TmpExtent(1:olds) = PS % IntExtent(1:olds)
     TmpValues(:,1:olds) = PS % IntValues(:,1:olds) 
     DEALLOCATE(PS % IntValues, PS % IntExtent )
 
     news = olds + incr
-    ALLOCATE( PS % IntValues(Dofs3D,news), PS % IntExtent(news) )
+    ALLOCATE( PS % IntValues(Dofs,news), PS % IntExtent(news) )
     PS % IntValues = 0
     PS % IntExtent = 0
     
@@ -1615,7 +1684,8 @@ CONTAINS
     INTEGER, TARGET  :: TetraFaceMap(4,3), BrickFaceMap(12,3), &
                 WedgeFaceMap(8,3), PyramidFaceMap(6,3)    
 
-    SAVE Visited, TetraFaceMap, BrickFaceMap, WedgeFaceMap, PyramidFaceMap, FaceMap, faces
+    SAVE Visited, TetraFaceMap, BrickFaceMap, WedgeFaceMap, PyramidFaceMap, &
+        FaceMap, faces, elemfamily
 
 !------------------------------------------------------------------------------
 
@@ -1675,7 +1745,7 @@ CONTAINS
         FaceMap => BrickFaceMap
       CASE DEFAULT
         WRITE(Message,*) 'Element type',Element % TYPE % ElementCode,'not implemented.' 
-        CALL Fatal('FindMeshFaces',Message)
+        CALL Fatal('GetLinearTriangleFaces',Message)
       END SELECT
     END IF
     
