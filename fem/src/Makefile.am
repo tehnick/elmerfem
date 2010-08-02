@@ -242,6 +242,7 @@ EXTRA_DIST = \
 	ArtificialCompressibility.src \
 	BandMatrix.src \
 	BandwidthOptimize.src \
+	ClusteringMethods.src \
 	CoordinateSystems.src \
 	CPUTime.c \
 	CRSMatrix.src \
