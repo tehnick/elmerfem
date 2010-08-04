@@ -489,7 +489,8 @@ void SifGenerator::makeEquationBlocks()
   }
   
   // generate equation blocks:
-  int* solverActive = new int[solverParameterEditor.size()];
+  // int* solverActive = new int[solverParameterEditor.size()];
+  QMap<int, bool> solverActive;
 
   int sifIndex = 0;
   for(int index = 0; index < equationEditor.size(); index++) {
@@ -569,7 +570,7 @@ void SifGenerator::makeEquationBlocks()
 
   }
 
-  delete [] solverActive;
+  // delete [] solverActive;
 
   delete [] snum;
   delete [] sname;
