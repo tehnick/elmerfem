@@ -3776,7 +3776,7 @@ END FUNCTION SearchNodeL
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp), POINTER :: SaveValues(:)
-    REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:)
+    REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:), TempRHS(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm,Energy
     TYPE(Matrix_t), POINTER :: Aaid
 
@@ -4094,7 +4094,9 @@ END FUNCTION SearchNodeL
       Aaid % Values => Aaid % BulkValues
 
       IF ( ParEnv % PEs > 1 ) THEN
-        CALL ParallelInitSolve( Aaid, x, Aaid % BulkRHS, Tempvector )
+        ALLOCATE(TempRHS(SIZE(AAid % BulkRHS)))
+        TempRHS = Aaid % BulkRHS
+        CALL ParallelInitSolve( Aaid, x, TempRHS, Tempvector )
         CALL ParallelMatrixVector( Aaid, x, TempVector, .TRUE. )
       ELSE
         CALL MatrixVectorMultiply( Aaid, x, TempVector )
@@ -4121,8 +4123,19 @@ END FUNCTION SearchNodeL
       END IF
 
       Aaid % Values => SaveValues
-      TempVector = TempVector - Aaid % BulkRHS
-      IF ( ParEnv % PEs>1 ) CALL ParallelSumVector( AAid, Tempvector )
+      IF ( ParEnv % PEs>1 ) THEN
+        DO i=1,Aaid % NumberOfRows
+          IF ( AAid % ParallelInfo % NeighbourList(i) % Neighbours(1) == ParEnv % Mype ) THEN
+            TempVector(i)=TempVector(i)-TempRHS(i)
+          ELSE
+            TempVector(i) = 0
+          END IF
+        END DO
+        DEALLOCATE(TempRHS)
+        CALL ParallelSumVector( AAid, Tempvector )
+      ELSE
+        TempVector = TempVector - Aaid % BulkRHS
+      END IF
       DO i=1,SIZE( NodalLoads % Perm )
         IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
            DO j=1,DOFs
