@@ -133,7 +133,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
       param = section.firstChildElement("Parameter");
       
-      for( ; !param.isNull(); param=param.nextSiblingElement(), params++ ) {
+      for( ; !param.isNull(); param=param.nextSiblingElement("Parameter"), params++ ) { // ML: Added "parameter" 5. August 2010
 
         // label
         QString widget_type = param.attribute("Widget","Edit");
@@ -248,7 +248,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
    }
 
     tabs++;
-    element = element.nextSiblingElement();
+    element = element.nextSiblingElement("PDE"); // ML: Added "PDE" 5. August 2010
   }
 
   // Buttons:
@@ -606,7 +606,7 @@ void DynamicEditor::populateHash(QDomElement *item)
 {
   QDomElement widget = item->firstChildElement("widget");
   
-  for(; !widget.isNull(); widget = widget.nextSiblingElement()) {  
+  for(; !widget.isNull(); widget = widget.nextSiblingElement("widget")) {  // ML: Added "widget" 5. August 2010
     QString type = widget.attribute("type").trimmed();
     QString key = widget.firstChildElement("key").text().trimmed();
     QString value = widget.firstChildElement("value").text().trimmed();

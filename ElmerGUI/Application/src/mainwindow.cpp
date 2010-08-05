@@ -6814,6 +6814,9 @@ void MainWindow::loadDefinitions()
   elmerGuiHome = getenv("ELMERGUI_HOME");
   if(elmerGuiHome != NULL) 
     generalDefs = QString(elmerGuiHome) + "/edf/edf.xml";
+
+  // ML 5. August 2010
+  generalDefs.replace('\\', '/');
 #endif
 
   // Load general definitions file:
@@ -6876,6 +6879,9 @@ void MainWindow::loadDefinitions()
 
   while (iterator.hasNext()) {
     QString fileName = iterator.next();
+
+    // ML 5. August 2010
+    fileName.replace('\\', '/');
 
     QFileInfo fileInfo(fileName);
     QString fileSuffix = fileInfo.suffix();
