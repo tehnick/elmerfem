@@ -15,9 +15,9 @@ Simulation
 
 ! About 50 timesteps converge nicely with the default mesh
 ! Here only 3 steps are used to minimize cpu time
-  Timestep Intervals = 3
+  Timestep Intervals = 2
   Timestep Sizes = 1
-  Steady State Max Iterations = 1
+  Steady State Max Iterations = 20
   Steady State Min Iterations = 2
   Output Intervals = 1
 !  Post File = "case.ep"
@@ -74,7 +74,7 @@ Solver 1
   Nonlinear System Newton After Tolerance = 0.0e-5
   Nonlinear System Newton After Iterations = 100
   Nonlinear System Relaxation Factor = $ relax
-  Steady State Convergence Tolerance = 1.0e-5
+  Steady State Convergence Tolerance = 1.0e-4
   Calculate Loads = Logical True
 End
 
@@ -94,8 +94,8 @@ Solver 2
   !Nonlinear System Max Iterations = 100
   Nonlinear System Max Iterations = 1
   Nonlinear System Convergence Tolerance = 1.0e-5
-  Nonlinear System Relaxation Factor = 0.5
-  Steady State Convergence Tolerance = $ relax
+  Nonlinear System Relaxation Factor = $ relax
+  Steady State Convergence Tolerance = 1.0e-4
   !Calculate Stresses = Logical True
   !Calculate Strains  = Logical True
   !Calculate Loads = Logical True
@@ -216,7 +216,7 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=0.30062854E-07\n");
+$fprintf( stderr, "END TEST CASE 1: Target NRM=3.43299851740606671E-008\n");
 
 
 
