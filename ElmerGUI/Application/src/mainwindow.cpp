@@ -2054,7 +2054,7 @@ void MainWindow::loadProjectSlot()
     if(spe->generalOptions == NULL) 
       spe->generalOptions = new DynamicEditor;
 
-    spe->generalOptions->setupTabs(*elmerDefs, "Solver", id);
+    spe->generalOptions->setupTabs(elmerDefs, "Solver", id);
     spe->generalOptions->populateHash(&item);
     spe->ui.solverControlTabs->insertTab(0, spe->generalOptions->tabWidget->widget(id), "Solver specific options");	
   }
@@ -2185,7 +2185,7 @@ void MainWindow::loadProjectContents(QDomElement projectElement,
     //------------------------------------
     QString itemName = item.firstChildElement("name").text().trimmed();
 
-    de->setupTabs(*elmerDefs, Mname, index);
+    de->setupTabs(elmerDefs, Mname, index);
     de->nameEdit->setText(itemName);
     de->applyButton->setText("Update");
     de->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -2527,7 +2527,7 @@ void MainWindow::addEquationSlot()
   equationEditor.append(pe);
   int current = equationEditor.size() - 1;
 
-  pe->setupTabs(*elmerDefs, "Equation", current);
+  pe->setupTabs(elmerDefs, "Equation", current);
 
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
@@ -2589,7 +2589,7 @@ void MainWindow::editNumericalMethods(int current, int id)
 
   if(spe->generalOptions == NULL) {
     spe->generalOptions = new DynamicEditor(spe);
-    spe->generalOptions->setupTabs(*elmerDefs, "Solver", current );
+    spe->generalOptions->setupTabs(elmerDefs, "Solver", current );
     spe->ui.solverControlTabs->insertTab(0, spe->generalOptions->tabWidget->widget(current), "Solver specific options");
     
 #if 0
@@ -2736,7 +2736,7 @@ void MainWindow::addMaterialSlot()
   materialEditor.append(pe);
   int current = materialEditor.size() - 1;
 
-  pe->setupTabs(*elmerDefs, "Material", current );
+  pe->setupTabs(elmerDefs, "Material", current );
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
   pe->discardButton->setText("Cancel");
@@ -2884,7 +2884,7 @@ void MainWindow::addBodyForceSlot()
   bodyForceEditor.append(pe);
   int current = bodyForceEditor.size() - 1;
 
-  pe->setupTabs(*elmerDefs, "BodyForce", current );
+  pe->setupTabs(elmerDefs, "BodyForce", current );
 
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
@@ -3013,7 +3013,7 @@ void MainWindow::addInitialConditionSlot()
   initialConditionEditor.append(pe);
   int current = initialConditionEditor.size() - 1;
   
-  pe->setupTabs(*elmerDefs, "InitialCondition", current );
+  pe->setupTabs(elmerDefs, "InitialCondition", current );
 
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
@@ -3212,7 +3212,7 @@ void MainWindow::addBoundaryConditionSlot()
   boundaryConditionEditor.append(pe);
   int current = boundaryConditionEditor.size() - 1;
 
-  pe->setupTabs(*elmerDefs, "BoundaryCondition", current );
+  pe->setupTabs(elmerDefs, "BoundaryCondition", current );
   
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
@@ -3979,7 +3979,7 @@ void MainWindow::selectDefinedEdgesSlot()
       
       // *** TODO ***
       //
-      // This is wrong: Comparing body indices with boundary indexes
+      // This is wrong: Comparing body indices with boundary indices
       if( activeboundary[j] ) l->setSelected(true);
     }
   }
@@ -6860,7 +6860,7 @@ void MainWindow::loadDefinitions()
     }
   }
 
-  edfEditor->setupEditor(*elmerDefs);
+  edfEditor->setupEditor(elmerDefs);
   file.close();
 
   cout << "done" << endl;
@@ -6925,7 +6925,6 @@ void MainWindow::loadDefinitions()
       // add new elements to the document
       QDomElement root = elmerDefs->documentElement();
       QDomElement tmpRoot = tmpDoc.documentElement();
-      
       QDomElement element = tmpRoot.firstChildElement();
 
       while(!element.isNull()) {
@@ -6933,7 +6932,7 @@ void MainWindow::loadDefinitions()
 	element = tmpRoot.firstChildElement();
       }
       
-      edfEditor->setupEditor(*elmerDefs);
+      edfEditor->setupEditor(elmerDefs);
 
       file.close();
 

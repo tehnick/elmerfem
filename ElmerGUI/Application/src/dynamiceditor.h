@@ -104,7 +104,7 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  void setupTabs(QDomDocument&, QString, int);
+  void setupTabs(QDomDocument *doc, const QString &Section, int ID);
 
   QTabWidget *tabWidget;
   QLineEdit *nameEdit;

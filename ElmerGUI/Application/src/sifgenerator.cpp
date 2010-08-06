@@ -595,7 +595,7 @@ void SifGenerator::makeSolverBlocks(const QString &solverName)
 
   if ( !tmp->generalOptions ) {
     tmp->generalOptions = new DynamicEditor;
-    tmp->generalOptions->setupTabs(*elmerDefs, "Solver", current );
+    tmp->generalOptions->setupTabs(elmerDefs, "Solver", current );
   }
 
   bool hasMatrix = parseSolverSpecificTab(tmp->generalOptions, solverName);

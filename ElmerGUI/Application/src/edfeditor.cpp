@@ -193,65 +193,65 @@ void EdfEditor::previewButtonClicked()
   sandBox->setWindowTitle(tr("Preview definitions"));
   sandBox->show();
 
-  delete dynamicEditorSimulation;
+  if(dynamicEditorSimulation) delete dynamicEditorSimulation;
   dynamicEditorSimulation = new DynamicEditor;
-  dynamicEditorSimulation->setupTabs(*elmerDefs, "Simulation",1);
+  dynamicEditorSimulation->setupTabs(elmerDefs, "Simulation",1);
   QMdiSubWindow *simulationSubWindow = new QMdiSubWindow;
   simulationSubWindow->setWidget(dynamicEditorSimulation);
   mdiArea->addSubWindow(simulationSubWindow);
   simulationSubWindow->show();
 
-  delete dynamicEditorConstants;
+  if(dynamicEditorConstants) delete dynamicEditorConstants;
   dynamicEditorConstants = new DynamicEditor;
-  dynamicEditorConstants->setupTabs(*elmerDefs, "Constants",1);
+  dynamicEditorConstants->setupTabs(elmerDefs, "Constants",1);
   QMdiSubWindow *constantsSubWindow = new QMdiSubWindow;
   constantsSubWindow->setWidget(dynamicEditorConstants);
   mdiArea->addSubWindow(constantsSubWindow);
   constantsSubWindow->show();
 
-  delete dynamicEditorEquation;
+  if(dynamicEditorEquation) delete dynamicEditorEquation;
   dynamicEditorEquation = new DynamicEditor;
-  dynamicEditorEquation->setupTabs(*elmerDefs, "Equation",1);
+  dynamicEditorEquation->setupTabs(elmerDefs, "Equation",1);
   QMdiSubWindow *equationSubWindow = new QMdiSubWindow;
   equationSubWindow->setWidget(dynamicEditorEquation);
   mdiArea->addSubWindow(equationSubWindow);
   equationSubWindow->show();
 
-  delete dynamicEditorSolver;
+  if(dynamicEditorSolver) delete dynamicEditorSolver;
   dynamicEditorSolver = new DynamicEditor;
-  dynamicEditorSolver->setupTabs(*elmerDefs, "Solver",1 );
+  dynamicEditorSolver->setupTabs(elmerDefs, "Solver",1 );
   QMdiSubWindow *solverSubWindow = new QMdiSubWindow;
   solverSubWindow->setWidget(dynamicEditorSolver);
   mdiArea->addSubWindow(solverSubWindow);
   solverSubWindow->show();
 
-  delete dynamicEditorMaterial;
+  if(dynamicEditorMaterial) delete dynamicEditorMaterial;
   dynamicEditorMaterial = new DynamicEditor;
-  dynamicEditorMaterial->setupTabs(*elmerDefs, "Material",1 );
+  dynamicEditorMaterial->setupTabs(elmerDefs, "Material",1 );
   QMdiSubWindow *materialSubWindow = new QMdiSubWindow;
   materialSubWindow->setWidget(dynamicEditorMaterial);
   mdiArea->addSubWindow(materialSubWindow);
   materialSubWindow->show();
 
-  delete dynamicEditorBodyForce;
+  if(dynamicEditorBodyForce) delete dynamicEditorBodyForce;
   dynamicEditorBodyForce = new DynamicEditor;
-  dynamicEditorBodyForce->setupTabs(*elmerDefs, "BodyForce",1 );
+  dynamicEditorBodyForce->setupTabs(elmerDefs, "BodyForce",1 );
   QMdiSubWindow *bodyForceSubWindow = new QMdiSubWindow;
   bodyForceSubWindow->setWidget(dynamicEditorBodyForce);
   mdiArea->addSubWindow(bodyForceSubWindow);
   bodyForceSubWindow->show();
 
-  delete dynamicEditorIC;
+  if(dynamicEditorIC) delete dynamicEditorIC;
   dynamicEditorIC = new DynamicEditor;
-  dynamicEditorIC->setupTabs(*elmerDefs, "InitialCondition",1 );
+  dynamicEditorIC->setupTabs(elmerDefs, "InitialCondition",1 );
   QMdiSubWindow *initialConditionSubWindow = new QMdiSubWindow;
   initialConditionSubWindow->setWidget(dynamicEditorIC);
   mdiArea->addSubWindow(initialConditionSubWindow);
   initialConditionSubWindow->show();
 
-  delete dynamicEditorBC;
+  if(dynamicEditorBC) delete dynamicEditorBC;
   dynamicEditorBC = new DynamicEditor;
-  dynamicEditorBC->setupTabs(*elmerDefs, "BoundaryCondition",1 );
+  dynamicEditorBC->setupTabs(elmerDefs, "BoundaryCondition",1 );
   QMdiSubWindow *bcSubWindow = new QMdiSubWindow;
   bcSubWindow->setWidget(dynamicEditorBC);
   mdiArea->addSubWindow(bcSubWindow);
@@ -309,9 +309,9 @@ void EdfEditor::insertItemForElement(QDomElement element,
 
 // Construct tree view...
 //----------------------------------------------------------------------------
-void EdfEditor::setupEditor(QDomDocument &elmerDefs)
+void EdfEditor::setupEditor(QDomDocument *elmerDefs)
 {
-  this->elmerDefs = &elmerDefs;
+  this->elmerDefs = elmerDefs;
 
   disconnect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
 	     this, SLOT(updateElement(QTreeWidgetItem*, int)));
@@ -321,7 +321,7 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
   elementForItem.clear(); 
 
   // get root entry & recursively add items to the tree:
-  QDomElement root = elmerDefs.documentElement();
+  QDomElement root = elmerDefs->documentElement();
   insertItemForElement(root, NULL);
   edfTree->setCurrentItem(NULL);
 
@@ -556,7 +556,7 @@ void EdfEditor::openButtonClicked()
     }
   }
   
-  setupEditor(*elmerDefs);
+  setupEditor(elmerDefs);
 
   edfTree->setCurrentItem(NULL);
 }
@@ -611,7 +611,7 @@ void EdfEditor::appendButtonClicked()
     element = tmpRoot.firstChildElement();
   }
   
-  setupEditor(*elmerDefs);
+  setupEditor(elmerDefs);
 
   edfTree->setCurrentItem(NULL);
 }
@@ -678,7 +678,7 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   lastActiveItemElement.clear();
 
   // rebuild tree & hash:
-  setupEditor(*elmerDefs);
+  setupEditor(elmerDefs);
 
   // set focus back to the last selected item:
   lastActiveItem = NULL;

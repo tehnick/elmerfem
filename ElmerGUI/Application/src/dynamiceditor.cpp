@@ -81,7 +81,7 @@ DynamicEditor::~DynamicEditor()
 }
 
 //----------------------------------------------------------------------------
-void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
+void DynamicEditor::setupTabs(QDomDocument *elmerDefs, const QString &Section, int ID)
 {
   // Clear:
   //-------
@@ -103,7 +103,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
   // Get root element of elmerDefs:
   //-------------------------------
-  root = elmerDefs.documentElement();
+  root = elmerDefs->documentElement();
 
   tabWidget = new QTabWidget;
   //tabWidget->setTabShape(QTabWidget::Triangular);

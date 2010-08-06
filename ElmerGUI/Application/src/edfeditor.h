@@ -61,7 +61,7 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  void setupEditor(QDomDocument&);
+  void setupEditor(QDomDocument *elmerDefs);
 
 signals:
 
