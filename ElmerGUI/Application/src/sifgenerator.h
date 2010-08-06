@@ -67,30 +67,29 @@ class SifGenerator  {
   SifGenerator();
   ~SifGenerator();
 
-  void setMesh(mesh_t*);
-  void setTextEdit(QTextEdit*);
-  void setDim(int);
-  void setCdim(int);
-  void setElmerDefs(QDomDocument*);
-  void setGeneralSetup(GeneralSetup*);
-  void setEquationEditor(QVector<DynamicEditor*>&);
-  void setMaterialEditor(QVector<DynamicEditor*>&);
-  void setBodyForceEditor(QVector<DynamicEditor*>&);
-  void setInitialConditionEditor(QVector<DynamicEditor*>&);
-  void setBoundaryConditionEditor(QVector<DynamicEditor*>&);
-  void setSolverParameterEditor(QVector<SolverParameterEditor*>&);
-  //?? void setBoundaryPropertyEditor(BoundaryPropertyEditor*);
-  void setBoundaryPropertyEditor(QVector<BoundaryPropertyEditor*>&);
-  void setBodyPropertyEditor(QVector<BodyPropertyEditor*>&);
-  void setMeshControl(MeshControl*);
-  void setLimit(Limit*);
+  void setMesh(mesh_t *mesh);
+  void setTextEdit(QTextEdit *textEdit);
+  void setDim(int dim);
+  void setCdim(int cdim);
+  void setElmerDefs(QDomDocument *doc);
+  void setGeneralSetup(GeneralSetup *setup);
+  void setEquationEditor(const QVector<DynamicEditor*> &d);
+  void setMaterialEditor(const QVector<DynamicEditor*> &d);
+  void setBodyForceEditor(const QVector<DynamicEditor*> &d);
+  void setInitialConditionEditor(const QVector<DynamicEditor*> &d);
+  void setBoundaryConditionEditor(const QVector<DynamicEditor*> &d);
+  void setSolverParameterEditor(const QVector<SolverParameterEditor*> &d);
+  void setBoundaryPropertyEditor(const QVector<BoundaryPropertyEditor*> &d);
+  void setBodyPropertyEditor(const QVector<BodyPropertyEditor*> &d);
+  void setMeshControl(MeshControl *meshControl);
+  void setLimit(Limit *limit);
 
   void makeHeaderBlock();
   void makeSimulationBlock();
   void makeConstantsBlock();
   void makeBodyBlocks();
   void makeEquationBlocks();
-  void makeSolverBlocks(QString);
+  void makeSolverBlocks(const QString &name);
   void makeMaterialBlocks();
   void makeBodyForceBlocks();
   void makeInitialConditionBlocks();
@@ -113,25 +112,23 @@ class SifGenerator  {
   QVector<SolverParameterEditor*> solverParameterEditor;
   QVector<BoundaryPropertyEditor*> boundaryPropertyEditor;
   QVector<BodyPropertyEditor*> bodyPropertyEditor;
-  MeshControl* meshControl;
-  Limit* limit;
+  MeshControl *meshControl;
+  Limit *limit;
 
-  int  sort_index(int,int [],QString []);
-  int  findHashValue(DynamicEditor*,QString,QString);
-  bool parseSolverSpecificTab(DynamicEditor *, QString);
+  int  sort_index(int, int [], QString []);
+  int  findHashValue(DynamicEditor*, const QString&, const QString&);
+  bool parseSolverSpecificTab(DynamicEditor *, const QString&);
   void parseGeneralTab(Ui::solverParameterEditor);
   void parseSteadyStateTab(Ui::solverParameterEditor);
   void parseNonlinearSystemTab(Ui::solverParameterEditor);
   void parseLinearSystemTab(Ui::solverParameterEditor);
   void parseParallelTab(Ui::solverParameterEditor);
-
   void addSifLine(const QString&, const QString&);
   void addSifLineBool(const QString&, bool);
-
-  void handleBCLineEdit(QDomElement, QWidget*,int *);
-  void handleLineEdit(QDomElement, QWidget*);
-  void handleComboBox(QDomElement, QWidget*);
-  void handleCheckBox(QDomElement, QWidget*);
+  void handleBCLineEdit(const QDomElement&, QWidget*, const QMap<int, int>&);
+  void handleLineEdit(const QDomElement&, QWidget*);
+  void handleComboBox(const QDomElement&, QWidget*);
+  void handleCheckBox(const QDomElement&, QWidget*);
 };
 
 #endif // SIFGENERATOR_H
