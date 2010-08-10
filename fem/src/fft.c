@@ -397,8 +397,7 @@ BitReverseArray( N, T )
  *       another (integer) array accordingly. the latter can be used as track
  *       keeper of where an element in the sorted order at position (k) was in
  *       in the original order (Ord[k]), if it is initialized to contain
- *       numbers (0..N-1) before calling sort. routine from the numerical
- *       recepies (with slight modifications).
+ *       numbers (0..N-1) before calling sort. 
  *
  * Parameters:
  *
@@ -406,60 +405,55 @@ BitReverseArray( N, T )
  * Key:    double[N]             / array to be sorted.
  * Ord:    int[N]               / change this accordingly.
  */
+void sort_swap(int i,int j,double *Key,int *Ord)
+{
+   int ival;
+   double dval;
+
+   dval=Key[i];
+   Key[i]=Key[j];
+   Key[j]=dval;
+
+   ival=Ord[i];
+   Ord[i]=Ord[j];
+   Ord[j]=ival;
+}
+
+void sort_shift(int lbeg,int lend,double *Key,int *Ord)
+{
+   int i,j;
+
+   i = lbeg;
+   while( 2*i+1<=lend )
+   {
+      j=2*i+1;
+      if ( j<lend && Key[j]<Key[j+1]) j=j+1;
+      if ( Key[i]<Key[j]) {
+         sort_swap(i,j,Key,Ord);
+         i = j;
+      } else break;
+   }
+
+}
 sort( N, Key, Ord )
     int N;
     int *Ord;
     double *Key;
 {
-    double CurrentKey;
+  int lend,lbeg;
 
-    int CurrentOrd;
+  lend  = N-1;
+  lbeg = (lend-1)/2;
 
-    int CurLastPos;
-    int CurHalfPos;
+  while(lbeg>=0)
+  {
+     sort_shift( lbeg--,lend,Key,Ord );
+  }
 
-    int i;
-    int j;
- 
-    --Key;     /* sorting uses indexes 1..N */
-    --Ord;
-    CurHalfPos = N / 2 + 1;
-    CurLastPos = N;
-    while( 1 ) {
-        if ( CurHalfPos > 1 ) {
-            CurHalfPos--;
-            CurrentKey = Key[CurHalfPos];
-            CurrentOrd = Ord[CurHalfPos];
-        } else {
-            CurrentKey = Key[CurLastPos];
-            CurrentOrd = Ord[CurLastPos];
-            Key[CurLastPos] = Key[1];
-            Ord[CurLastPos] = Ord[1];
-            CurLastPos--;
-            if ( CurLastPos == 1 ) {
-                Key[1] = CurrentKey;
-                Ord[1] = CurrentOrd;
-                return;
-                }
-            }
-        i = CurHalfPos;
-        j = 2 * CurHalfPos;
-        while( j <= CurLastPos ) {
-            if ( j < CurLastPos && Key[j] < Key[j + 1] ) {
-                j++;
-                }
-            if ( CurrentKey < Key[j] ) {
-                Key[i] = Key[j];
-                Ord[i] = Ord[j];
-                i  = j;
-                j += i;
-            } else {
-                j = CurLastPos + 1;
-                }
-            }
-        Key[i] = CurrentKey;
-        Ord[i] = CurrentOrd;
-        }
+  while( lend>0) {
+     sort_swap( 0,lend,Key,Ord );
+     sort_shift( 0,--lend,Key,Ord );
+  }
 }
 
 /*
