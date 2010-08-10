@@ -115,7 +115,6 @@ class SifGenerator  {
   MeshControl *meshControl;
   Limit *limit;
 
-  int  sort_index(int, int [], QString []);
   int  findHashValue(DynamicEditor*, const QString&, const QString&);
   bool parseSolverSpecificTab(DynamicEditor *, const QString&);
   void parseGeneralTab(Ui::solverParameterEditor);

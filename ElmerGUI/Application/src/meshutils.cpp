@@ -38,6 +38,7 @@
  *                                                                           *
  *****************************************************************************/
 
+#include <QtCore>
 #include <iostream>
 #include <stdlib.h>
 #include <cmath>
@@ -1357,47 +1358,16 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
 
 void Meshutils::sort_index(int n, double *a, int *b)
 {
-   int i,j,l,ir,rb;
-   double ra;
+  QList<QPair<double, int> > list;
 
-   if ( n <= 1 ) return;
+  for(int i = 0; i < n; i++)
+    list << qMakePair(a[i], b[i]);
 
-   l = n / 2 +1;
-   ir = n-1;
-   while( true ) {
-     if ( l >= 1 ) {
-       l = l - 1;
-       ra = a[l];
-       rb = b[l];
-     } else {
-       ra = a[ir];
-       rb = b[ir];
-       a[ir] = a[0];
-       b[ir] = b[0];
-       ir = ir - 1;
-       if ( ir == 0 ) {
-         a[0] = ra;
-         b[0] = rb;
-         return;
-       }
-     }
-     i = l;
-     j = l + l;
-     while( j <= ir ) {
-       if ( j<ir  ) {
-          if ( a[j]<a[j+1] ) j = j+1;
-       }
-       if ( ra<a[j] ) {
-         a[i] = a[j];
-         b[i] = b[j];
-         i = j;
-         j =  j + i;
-       } else {
-         j = ir + 1;
-       }
-       a[i] = ra;
-       b[i] = rb;
-    }
+  qSort(list);
+
+  for(int i = 0; i < n; i++) {
+    a[i] = list[i].first;
+    b[i] = list[i].second;
   }
 }
 

@@ -45,9 +45,9 @@
 #include "meshtype.h"
 #include "helpers.h"
 
-#define SHARPEDGE  0
-#define UNKNOWN   -1
-#define MYPI 3.14159
+#define SHARPEDGE     0
+#define UNKNOWN      -1
+#define MYPI 3.14159265
 
 class Meshutils
 {
