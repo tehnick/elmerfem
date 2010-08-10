@@ -19,6 +19,18 @@ int MemoryUsage()
 }
 #endif
 
+
+/* The following routines are copied from the book
+   "Numerical Recipes in C, The art of scientific computing" 
+   by Cambridge University Press and include the following
+
+   Non-Copyright Notice: This appendix and its utility routines are 
+   herewith placed into the public domain. Anyone may copy them freely
+   for any purpose. We of course accept no liability whatsoever for 
+   any such use. */
+   
+
+
 void nrerror(char error_text[])
 /* standerd error handler */
 {

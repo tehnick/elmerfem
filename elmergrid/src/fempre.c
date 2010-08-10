@@ -680,6 +680,10 @@ int main(int argc, char *argv[])
     }
   }
 
+  if(1) for(k=0;k<nomeshes;k++) 
+    RotateTranslateScale(&data[k],&eg,info);
+
+
   /* Rotate may apply to 2d and 3d geometries as well */
   for(k=0;k<nomeshes;k++) 
     if(eg.rotatecurve) 
@@ -768,7 +772,7 @@ int main(int argc, char *argv[])
 #endif
   }
 
-  for(k=0;k<nomeshes;k++) 
+  if(0) for(k=0;k<nomeshes;k++) 
     RotateTranslateScale(&data[k],&eg,info);
 
   if(eg.removelowdim) 

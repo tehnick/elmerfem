@@ -2194,10 +2194,10 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info)
 {
-  int i,j,k,ind,minpart,maxpart;
+  int i,j,k,k0,l,ind,minpart,maxpart;
   int noknots, noelements,nonodes,elemsinpart,periodic;
   int partitions1,partitions2,partitions3,partitions;
-  int vpartitions1,vpartitions2,vpartitions3,vpartitions;
+  int vpartitions1,vpartitions2,vpartitions3,vpartitions,hit;
   int *indx,*part1,*nopart,*inpart,*nodepart;
   Real *arrange;
   Real x,y,z,cx,cy,cz;
@@ -2271,11 +2271,11 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
     for(j=1;j<=noknots;j++) {
       x = data->x[j];
       y = data->y[j];
-      if(data->dim==3) z = data->z[k];
+      if(data->dim==3) z = data->z[j];
       arrange[j] = cx*x + cy*y + cz*z;
     }
     SortIndex(noknots,arrange,indx);
-    
+
     for(i=1;i<=noknots;i++) {
       ind = indx[i];
       k = (i*vpartitions1-1)/noknots+1;
@@ -2298,17 +2298,29 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
       nopart[i] = 0;
     
     elemsinpart = noknots / (vpartitions1*vpartitions2);
+    j = 1;
     for(i=1;i<=noknots;i++) {
-      j = 0;
       ind = indx[i];
-      do {
-	j++;
-	k = (nodepart[ind]-1) * vpartitions2 + j;
+      k0 = (nodepart[ind]-1) * vpartitions2;
+      for(l=1;l<=vpartitions2;l++) {
+	hit = FALSE;
+	if( j < vpartitions ) {
+	  if( nopart[k0+j] >= elemsinpart ) {
+	    j += 1;
+	    hit = TRUE;
+	  }
+	}
+	if( j > 1 ) {
+	  if( nopart[k0+j-1] < elemsinpart ) {
+	    j -= 1;
+	    hit = TRUE;
+	  }
+	}
+	if( !hit ) break;
       }
-      while(nopart[k] >= elemsinpart && j < vpartitions2);
-      
+      k = k0 + j;
       nopart[k] += 1;
-      nodepart[ind] = (nodepart[ind]-1)*vpartitions2 + j;
+      nodepart[ind] = k;
     }
   }  
 
@@ -2327,17 +2339,30 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
       nopart[i] = 0;
     
     elemsinpart = noknots / (vpartitions1*vpartitions2*vpartitions3);
+    j = 1;
     for(i=1;i<=noknots;i++) {
-      j = 0;
       ind = indx[i];
-      do {
-	j++;
-	k = (nodepart[ind]-1)*vpartitions3 + j;
+      k0 = (nodepart[ind]-1)*vpartitions3;
+
+      for(l=1;l<=vpartitions;l++) {
+	hit = FALSE;
+	if( j < vpartitions3 ) {
+	  if( nopart[k0+j] >= elemsinpart ) {
+	    j += 1;
+	    hit = TRUE;
+	  }
+	}
+	if( j > 1 ) {
+	  if( nopart[k0+j-1] < elemsinpart ) {
+	    j -= 1;
+	    hit = TRUE;
+	  }
+	}
+	if( !hit ) break;
       }
-      while(nopart[k] >= elemsinpart && j < vpartitions3);
-    
+      k = k0 + j;
       nopart[k] += 1;
-      nodepart[ind] = (nodepart[ind]-1)*vpartitions3 + j;
+      nodepart[ind] = k;
     }
   }
   

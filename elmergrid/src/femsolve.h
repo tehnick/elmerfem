@@ -4,8 +4,6 @@
    normalizing matrices. These are needed to correct the 
    discretization errors of the view factor calculations. */
 
-void SortIndex(int n,double *arr,int *indx);
-void ludcmp(Real **a, int n, int *indx, Real *d);
-void lubksb(Real **a, int n, int *indx, Real b[]);
+void SortIndex( int N, Real *Key, int *Ord );
 void Symmetrize(Real **vf,int sides);
 void Normalize(Real **vf, const Real *b,int sides);

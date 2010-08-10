@@ -38,85 +38,6 @@
 #include "femsolve.h"
 
 
-/* LU Decomposition */
-#define TINY 1.0e-20;
-
-void ludcmp(Real **a, int n, int *indx, Real *d)
-{
-  int i,imax,j,k;
-  Real big,dum,sum,temp;
-  Real *vv;
-
-  vv=Rvector(1,n);
-  *d=1.0;
-
-  for(i=1;i<=n;i++) {
-    big=0.0;
-    for(j=1;j<=n;j++)
-      if ((temp=fabs(a[i][j])) > big) big=temp;
-    if (big == 0.0) nrerror("Singular matrix in routine ludcmp.");
-    vv[i]=1.0/big;
-  }
-  for (j=1;j<=n;j++) {
-    for (i=1;i<j;i++) {
-      sum=a[i][j];
-      for (k=1;k<i;k++) sum -= a[i][k]*a[k][j];
-      a[i][j]=sum;
-    }
-    big=0.0;
-    for (i=j;i<=n;i++) {
-      sum=a[i][j];
-      for (k=1;k<j;k++) sum -= a[i][k]*a[k][j];
-      a[i][j]=sum;
-      if( (dum=vv[i]*fabs(sum)) >= big ) {
-        big=dum;
-	imax=i;
-      }
-    }
-    if (j != imax) {
-      for (k=1;k<=n;k++) {
-	dum=a[imax][k];
-	a[imax][k]=a[j][k];
-	a[j][k]=dum;
-      }
-      *d = -(*d);
-      vv[imax]=vv[j];
-    }
-    indx[j]=imax;
-    if (a[j][j] == 0.0) a[j][j]=TINY;
-    if (j != n) {
-      dum=1.0/(a[j][j]);
-      for (i=j+1;i<=n;i++) a[i][j] *= dum;
-    }
-  }
-
-  free_Rvector(vv,1,n);
-}
-
-
-
-
-void lubksb(Real **a, int n, int *indx, Real b[])
-{
-  int i,ii=0,ip,j;
-  Real sum;
-
-  for (i=1;i<=n;i++) {
-    ip=indx[i];
-    sum=b[ip];
-    b[ip]=b[i];
-    if (ii)
-      for (j=ii; j<=i-1; j++) sum -= a[i][j]*b[j];
-    else if (sum) ii=i;
-    b[i]=sum;
-  }
-  for (i=n;i>=1;i--) {
-    sum=b[i];
-    for (j=i+1; j<=n; j++) sum -= a[i][j]*b[j];
-    b[i]=sum/a[i][i];
-  }
-}
-
 
 /*******************************************************************************/
 
@@ -151,6 +72,10 @@ void Normalize(Real **vf, const Real *b,int sides)
   int i,j,k,it;
   int *indx;
   Real evenodd;
+
+  printf("Normalization of matrices is currently not supported\n");
+  printf("If you want to reactivate it, rewrite the LU decomposition\n");
+  return;
 
   jac = Rmatrix(1,sides,1,sides);
   rest = Rvector(1,sides);
@@ -187,8 +112,7 @@ void Normalize(Real **vf, const Real *b,int sides)
     }
 
     /* Solve the equation jac * x = rest using Numerical Recipes routines. */     
-    ludcmp(jac,sides,indx,&evenodd);
-    lubksb(jac,sides,indx,rest);
+    /* These have been removed due to copyright violiation */
 
     /* New approximation. */
     for (i=1; i<=sides; i++)
@@ -208,80 +132,73 @@ void Normalize(Real **vf, const Real *b,int sides)
 
 
 
-/* Indexing algorithm, Creates an index table */
-#define SWAPI(a,b) itemp=(a);(a)=(b);(b)=itemp;
-#define M 7
-#define NSTACK 50
-
-void SortIndex(int n,double *arr,int *indx)
+/*
+ * sort: sort an (double) array to ascending order, and move the elements of
+ *       another (integer) array accordingly. the latter can be used as track
+ *       keeper of where an element in the sorted order at position (k) was in
+ *       in the original order (Ord[k]), if it is initialized to contain
+ *       numbers (0..N-1) before calling sort. 
+ *
+ * Parameters:
+ *
+ * N:      int                  / number of entries in the arrays.
+ * Key:    double[N]             / array to be sorted.
+ * Ord:    int[N]               / change this accordingly.
+ */
+void SortIndex( int N, double *Key, int *Ord )
 {
-  int i,indxt,ir,itemp,j,k,l;
-  int jstack,*istack;
-  double a;
+    double CurrentKey;
 
-  ir = n;
-  l = 1;
-  jstack = 0;  
-  istack = ivector(1,NSTACK);
+    int CurrentOrd;
 
-  for(j=1;j<=n;j++) 
-    indx[j] = j;
+    int CurLastPos;
+    int CurHalfPos;
 
-  for(;;) {
-    if (ir-l < M) {
-      for(j=l+1;j<=ir;j++) {
-	indxt = indx[j];
-	a = arr[indxt];
-	for(i=j-1;i>=1;i--) {
-	  if(arr[indx[i]] <= a) break;
-	  indx[i+1] = indx[i];
-	}
-	indx[i+1] = indxt;
-      }
-      if(jstack == 0) break;
-      ir = istack[jstack--];
-      l = istack[jstack--];
-    } 
-    else {
-      k = (l+ir) >>  1;
-      SWAPI(indx[k],indx[l+1]);
-      if(arr[indx[l+1]] > arr[indx[ir]]) {
-	SWAPI(indx[l+1],indx[ir]);
-      }
-      if(arr[indx[l]] > arr[indx[ir]]) {
-	SWAPI(indx[l],indx[ir]);
-      }
-      if(arr[indx[l+1]] > arr[indx[l]]) {
-	SWAPI(indx[l+1],indx[l]);
-      }
-      i = l+1;
-      j = ir;
-      indxt = indx[l];
-      a = arr[indxt];
-      for(;;) {
-	do i++; while(arr[indx[i]] < a);
-	do j--; while(arr[indx[j]] > a);
-	if(j < i) break;
-	SWAPI(indx[i],indx[j]);
-      }
-      indx[l] = indx[j];
-      indx[j] = indxt;
-      jstack += 2;
-      if(jstack > NSTACK) printf("NSTACK too small in SortIndex.");
-      if(ir-i+1 >= j-l) {
-	istack[jstack]   = ir;
-	istack[jstack-1] = i;
-	ir = j-1;
-      } else {
-	istack[jstack] = j-1;
-	istack[jstack-1] = l;
-	l = i;
-      }
-    }
-  }
-  free_ivector(istack,1,NSTACK);
+    int i;
+    int j; 
+ 
+    /* Initialize order */
+    for(i=1;i<=N;i++)
+      Ord[i] = i;
+
+    CurHalfPos = N / 2 + 1;
+    CurLastPos = N;
+    while( 1 ) {
+        if ( CurHalfPos > 1 ) {
+            CurHalfPos--;
+            CurrentKey = Key[CurHalfPos];
+            CurrentOrd = Ord[CurHalfPos];
+        } else {
+            CurrentKey = Key[CurLastPos];
+            CurrentOrd = Ord[CurLastPos];
+            Key[CurLastPos] = Key[1];
+            Ord[CurLastPos] = Ord[1];
+            CurLastPos--;
+            if ( CurLastPos == 1 ) {
+	      Key[1] = CurrentKey;
+	      Ord[1] = CurrentOrd;
+	      return;
+	      }
+            }
+        i = CurHalfPos;
+        j = 2 * CurHalfPos;
+        while( j <= CurLastPos ) {
+            if ( j < CurLastPos && Key[j] < Key[j + 1] ) {
+                j++;
+                }
+            if ( CurrentKey < Key[j] ) {
+                Key[i] = Key[j];
+                Ord[i] = Ord[j];
+                i  = j;
+                j += i;
+            } else {
+                j = CurLastPos + 1;
+                }
+            }
+        Key[i] = CurrentKey;
+        Ord[i] = CurrentOrd;
+        }
+
 }
-
-
 
 
