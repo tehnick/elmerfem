@@ -423,30 +423,32 @@ void SifGenerator::makeEquationBlocks()
       }
     }
   }
-  
-  int n = numberForSolver.count();
-  int j = 0;
-  int *snum = new int[n];
-  QString *sname = new QString[n];
-  
-  QMapIterator<QString, int> map_it(numberForSolver);
-  
-  while(map_it.hasNext()) {
-    map_it.next();
-    snum[j] = map_it.value(); 
-    sname[j] = map_it.key(); 
-    j++;
+
+  // Sort and enumerate solvers according to their priority:
+  //---------------------------------------------------------
+  QList<QPair<int, QString> > tmpList;
+
+  foreach(const QString &key, numberForSolver.keys()) {
+    int value = numberForSolver.value(key);
+    tmpList << qMakePair(value, key);
   }
-  
-  sort_index(n, snum, sname);
-  
+
+  qSort(tmpList);
+
   numberForSolver.clear();
-  
-  for(int i=0; i<n; i++ ) {
-    numberForSolver.insert(sname[i], n-i);
-    snum[i] = 0;
+
+  int n = tmpList.count();
+
+  for(int i = 0; i < n; i++) {
+    const QPair<int, QString> &pair = tmpList[i];
+    const QString &key = pair.second;
+    numberForSolver.insert(key, n-i);
   }
-  
+
+  // Generate solver blocks:
+  //-------------------------
+  QMap<int, int> handled;
+
   for(int index = 0; index < equationEditor.size(); index++) {
     DynamicEditor *eqEditor = equationEditor[index];
     if(eqEditor->menuAction != NULL) {
@@ -464,9 +466,9 @@ void SifGenerator::makeEquationBlocks()
 	  if(labelName=="Active" && elem.attribute("Widget", "")=="CheckBox") {
 	    QCheckBox *checkBox = static_cast<QCheckBox*>(widget);
 	    if(checkBox->isChecked()) {
-	      solverNumber=numberForSolver.find(solverName).value();
-	      if(solverNumber>0 && snum[solverNumber-1]==0 ) {
-		snum[solverNumber-1]=1; 
+	      solverNumber = numberForSolver.value(solverName);
+	      if((solverNumber>0) && (handled[solverNumber]==0)) {
+		handled[solverNumber] = 1; 
 		te->append("Solver " + QString::number(solverNumber));
 		te->append("  Equation = " + solverName);
 		makeSolverBlocks(solverName);
@@ -559,9 +561,6 @@ void SifGenerator::makeEquationBlocks()
       te->append("End\n");
     }
   }
-
-  delete [] snum;
-  delete [] sname;
 }
 
 //-------------------------------------------------------------------------
