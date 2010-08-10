@@ -1019,7 +1019,7 @@
         IF(.NOT. TransientHeaterControl) THEN
  
           CALL ListAddLogical(SolverParams, &
-              'Skip Compute Change',.TRUE.)
+              'Skip Compute Nonlinear Change',.TRUE.)
 
           Relax = GetCReal( SolverParams, &
               'Nonlinear System Relaxation Factor', Found )
@@ -1037,7 +1037,7 @@
           CALL SolveSystem( Solver % Matrix, ParMatrix, &
               Solver % Matrix % RHS, YY, Norm, 1, Solver )
 
-          CALL ListAddLogical(SolverParams,'Skip Compute Change',.FALSE.)
+          CALL ListAddLogical(SolverParams,'Skip Compute Nonlinear Change',.FALSE.)
         ELSE          
           CALL SolveSystem( Solver % Matrix, ParMatrix, &
               Solver % Matrix % RHS, Temperature, Norm, 1, Solver )
