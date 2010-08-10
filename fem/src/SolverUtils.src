@@ -3282,6 +3282,9 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
 
     IF(SteadyState) THEN
+	
+      IF( ListGetLogical( Solver % Values,'Skip Compute Steady State Change',Stat)) RETURN
+
       Relaxation = ListGetCReal( Solver % Values, &
           'Steady State Relaxation Factor', Relax )
       Relax = Relax .AND. (Relaxation /= 1.0d0)
@@ -3299,6 +3302,8 @@ END FUNCTION SearchNodeL
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
     ELSE
+      IF( ListGetLogical( Solver % Values,'Skip Compute Nonlinear Change',Stat)) RETURN
+
       Relaxation = ListGetCReal( Solver % Values, &
           'Nonlinear System Relaxation Factor', Relax )
 
@@ -4156,10 +4161,8 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 ! Compute the change of the solution with different methods 
 !------------------------------------------------------------------------------
-   IF( .NOT. ListGetLogical(Solver % Values,'Skip Compute Change',GotIt) ) THEN
-     CALL ComputeChange(Solver,.FALSE.,n, x)
-     Norm = Solver % Variable % Norm
-   END IF
+   CALL ComputeChange(Solver,.FALSE.,n, x)
+   Norm = Solver % Variable % Norm
 
 !------------------------------------------------------------------------------
  
