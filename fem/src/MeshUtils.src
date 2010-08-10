@@ -5787,6 +5787,121 @@ CONTAINS
   END SUBROUTINE ClusterNodesByDirection
 
 
+
+!------------------------------------------------------------------------------
+  FUNCTION CreateLineMesh( Params ) RESULT( Mesh )
+!------------------------------------------------------------------------------
+!   Create a 1D mesh, may be used in 1D outlet conditions
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: Params 
+    TYPE(Mesh_t), POINTER :: Mesh
+!------------------------------------------------------------------------------
+    REAL(KIND=dp), POINTER :: x(:),y(:),z(:)
+    INTEGER :: i, j, k, n, NoNodes, NoElements, ActiveDirection, Order
+    LOGICAL :: Found
+    TYPE(Element_t), POINTER :: Element
+    TYPE(ElementType_t),POINTER :: elmt
+    REAL(KIND=dp) :: MeshVector(3), Length, Coord(3)
+
+!------------------------------------------------------------------------------
+    IF ( .NOT. ASSOCIATED( Params ) ) RETURN
+    Mesh => AllocateMesh()
+
+    CALL Info('CreateLineMesh','Starting')
+
+
+!   Read in the parameters defining a uniform 1D mesh
+!--------------------------------------------------------------    
+    Order = ListGetInteger( Params,'1D Element Order',Found,minv=1,maxv=2)
+    NoElements = ListGetInteger( Params,'1D Number Of Elements',minv=1)
+    Length = ListGetConstReal( Params,'1D Mesh Length')    
+    ActiveDirection = ListGetInteger( Params,'1D Active Direction',minv=-3,maxv=3)
+
+    
+!   Compute the resulting mesh parameters
+!--------------------------------------------------------------
+    NoNodes = NoElements + 1 + NoElements * (Order - 1)    
+    MeshVector = 0.0_dp
+    MeshVector( ABS( ActiveDirection ) ) = 1.0_dp
+    IF( ActiveDirection < 0 ) MeshVector = -MeshVector
+    MeshVector = MeshVector * Length
+
+!   Define nodal coordinates
+!   -------------------------------
+    CALL AllocateVector( Mesh % Nodes % x, NoNodes )
+    CALL AllocateVector( Mesh % Nodes % y, NoNodes )
+    CALL AllocateVector( Mesh % Nodes % z, NoNodes )
+
+    x => Mesh % Nodes % x
+    y => Mesh % Nodes % y
+    z => Mesh % Nodes % z
+   
+    DO i=1, NoNodes
+      Coord = MeshVector * (i-1) / (NoNodes-1)
+
+      x(i) = Coord(1)
+      y(i) = Coord(2)
+      z(i) = Coord(3)
+    END DO
+    
+    CALL Info('CreateLineMesh','Nodes created')
+
+!   Define elements
+!   -------------------------------
+    CALL AllocateVector( Mesh % Elements, NoElements )
+
+    IF( Order == 1 ) THEN
+      Elmt => GetElementType( 202 )
+    ELSE
+      Elmt => GetElementType( 203 )
+    END IF
+
+    DO i=1,NoElements
+      Element => Mesh % Elements(i)      
+      Element % Type => Elmt
+      Element % EdgeIndexes => NULL()
+      Element % FaceIndexes => NULL()     
+      Element % ElementIndex = i
+      IF( Order == 1 ) THEN
+        CALL AllocateVector( Element % NodeIndexes, 2 )
+        Element % Ndofs = 2
+        Element % NodeIndexes(1) = i
+        Element % NodeIndexes(2) = i + 1
+      ELSE IF( Order == 2 ) THEN
+        CALL AllocateVector( Element % NodeIndexes, 3 )
+        Element % Ndofs = 3
+        Element % NodeIndexes(1) = 2*i-1
+        Element % NodeIndexes(2) = 2*i+1
+        Element % NodeIndexes(3) = 2*i
+      END IF
+    END DO
+
+    CALL Info('CreateLineMesh','Elements created')
+
+!   Update new mesh node count:
+!   ---------------------------
+
+    Mesh % NumberOfNodes = NoNodes
+    Mesh % Nodes % NumberOfNodes = NoNodes
+    Mesh % NumberOfBulkElements = NoElements
+    Mesh % MaxElementNodes = 1 + Order
+    Mesh % MaxElementDOFs = 1 + Order
+
+
+    PRINT *,'NoNodes:',NoNodes
+    PRINT *,'NoElements:',NoElements
+ 
+    CALL Info('CreateLineMesh','All done')
+
+  END FUNCTION CreateLineMesh
+
+
 !------------------------------------------------------------------------------
 END MODULE MeshUtils
 !------------------------------------------------------------------------------
+
+
+
+
+
+
