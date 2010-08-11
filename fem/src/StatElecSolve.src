@@ -38,6 +38,66 @@
 ! *
 ! *****************************************************************************/
 
+
+!------------------------------------------------------------------------------
+SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL ::  TransientSimulation
+    REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+    LOGICAL :: Found, Calculate
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+    INTEGER :: dim
+
+    Params => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF (ListGetLogical(Params,'Calculate Electric Energy',Found)) &
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+        'Electric Energy Density' )
+    
+    IF (ListGetLogical(Params,'Calculate Surface Charge',Found)) &
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+        'Surface Charge Density' )
+    
+    Calculate = ListGetLogical(Params,'Calculate Electric Field',Found)
+    IF(.NOT. Found) Calculate = .TRUE.
+    IF( Calculate ) THEN
+      IF( Dim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 2 Electric Field' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 3 Electric Field' )
+      END IF
+    END IF
+    
+    Calculate = ListGetLogical(Params,'Calculate Electric Flux',Found)
+    IF(.NOT. Found) Calculate = .TRUE.
+    IF( Calculate ) THEN
+      IF( Dim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 2 Electric Flux' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 3 Electric Flux' )
+      END IF
+    END IF
+
+!------------------------------------------------------------------------------
+END SUBROUTINE StatElecSolver_Init
+!------------------------------------------------------------------------------
+
+
+
+
+
 SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -93,14 +153,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   
   REAL (KIND=DP), POINTER :: ForceVector(:), Potential(:), Displacement(:,:)
-  REAL (KIND=DP), POINTER :: FieldOne(:), FieldTwo(:), FieldThree(:)
-  REAL (KIND=DP), POINTER :: FieldOneTemp(:), FieldTwoTemp(:), FieldThreeTemp(:)
-  REAL (KIND=DP), POINTER :: FluxOne(:), FluxTwo(:), FluxThree(:)
-  REAL (KIND=DP), POINTER :: FluxOneTemp(:), FluxTwoTemp(:), FluxThreeTemp(:)
-  REAL (KIND=DP), POINTER :: Ex(:), Ey(:), Ez(:), Dx(:), Dy(:), Dz(:)
-  REAL (KIND=DP), POINTER :: We(:), WeTemp(:), Energy(:), SurfCh(:)
-  REAL (KIND=dp), POINTER :: SurfChTemp(:), SurfaceCharge(:), PValues(:)
-  REAL (KIND=dp), POINTER :: Charges(:)
+  REAL (KIND=DP), POINTER :: Field(:),Flux(:),Energy(:)
+  REAL (KIND=dp), POINTER :: SurfaceCharge(:), PValues(:),Charges(:)
   REAL (KIND=DP), POINTER :: Pwrk(:,:,:), Pz_w(:,:,:)
   REAL (KIND=DP), ALLOCATABLE :: CapMatrix(:,:)
   REAL (KIND=DP), ALLOCATABLE ::  Permittivity(:,:,:), PiezoCoeff(:,:,:), &
@@ -115,8 +169,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   
   INTEGER, POINTER :: NodeIndexes(:), CapBodyIndex(:), Ivals(:)
   INTEGER, POINTER :: PotentialPerm(:), EnergyPerm(:), SurfPerm(:)
-  INTEGER, POINTER :: FieldPermOne(:), FieldPermTwo(:), FieldPermThree(:)
-  INTEGER, POINTER :: FluxPermOne(:), FluxPermTwo(:), FluxPermThree(:)
+  INTEGER, POINTER :: FieldPerm(:), FluxPerm(:)
   INTEGER :: CapBodies, CapBody, Permi, Permj, iter, MaxIterations
   INTEGER :: i, j, k, l, m, n, t, istat, bf_id, LocalNodes, DIM, NonlinearIter
   
@@ -132,12 +185,11 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
       ElementNodes, CalculateFlux, CalculateEnergy, &
-      AllocationsDone, FieldOne, FieldTwo, FieldThree, &
-      FluxOne, FluxTwo, FluxThree, We, Permittivity, &
-      CapBodies, CalculateCapMatrix, Charges, CapBodyIndex, &
+      AllocationsDone, Permittivity, &
+      CapBodies, CalculateCapMatrix, CapBodyIndex, &
       CapMatrix, CalculateField, CapMatrixFile, ConstantWeights, &
       PiezoCoeff, PiezoMaterial, Displacement, Pz_w, CalculateSurfCharge, &
-      SurfCh,ConstantBulk
+      ConstantBulk
   
   
   INTERFACE
@@ -170,7 +222,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   END INTERFACE
   
 !------------------------------------------------------------------------------
- 
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
@@ -205,66 +256,30 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       CALL Fatal( 'StatElecSolve', 'Memory allocation error 1' )
     END IF
     
-    IF ( DIM == 2 ) THEN
-      ALLOCATE( PiezoCoeff(2,4,N), STAT=istat )
-      IF ( istat /= 0 ) THEN
-        CALL Fatal( 'StatElecSolve', 'Memory allocation error 1a' )
-      END IF
-    ELSE
-      ALLOCATE( PiezoCoeff(3,6,N), STAT=istat )
-      IF ( istat /= 0 ) THEN
-        CALL Fatal( 'StatElecSolve', 'Memory allocation error 1b' )
-      END IF
+    ALLOCATE( PiezoCoeff(DIM,2*DIM,N), STAT=istat )
+    IF ( istat /= 0 ) THEN
+      CALL Fatal( 'StatElecSolve', 'Memory allocation error 2' )
     END IF
     
     CalculateField = ListGetLogical( Solver % Values, &
         'Calculate Electric Field', GotIt )
     IF ( .NOT. GotIt )  CalculateField = .TRUE.
-    IF ( CalculateField )  &
-        ALLOCATE( FieldOneTemp( Model % NumberOfNodes ), &
-        FieldTwoTemp( Model % NumberOfNodes ), &
-        FieldThreeTemp( Model % NumberOfNodes ), &
-        STAT=istat )
-    IF ( istat /= 0 ) THEN
-      CALL Fatal( 'StatElecSolve', 'Memory allocation error 2' )
-    END IF
     
     CalculateFlux = ListGetLogical( Solver % Values, &
         'Calculate Electric Flux', GotIt )
     IF ( .NOT. GotIt )  CalculateFlux = .TRUE.
-    IF ( CalculateFlux )  &
-        ALLOCATE( FluxOneTemp( Model % NumberOfNodes ), &
-        FluxTwoTemp( Model % NumberOfNodes ), &
-        FluxThreeTemp( Model % NumberOfNodes ), &
-        STAT=istat )
-    IF ( istat /= 0 ) THEN
-      CALL Fatal( 'StatElecSolve', 'Memory allocation error 3' )
-    END IF
     
-    DO i = 1, Model % NumberOfEquations
-      CalculateEnergy = ListGetLogical( Model % Equations(i) % Values, &
-          'Calculate Electric Energy', GotIt )
-      IF ( GotIt ) EXIT
-    END DO
-    IF ( .NOT. GotIt )  CalculateEnergy = ListGetLogical( Solver % Values, &
+    CalculateEnergy = ListGetLogical( Solver % Values, &
         'Calculate Electric Energy', GotIt )
-    IF ( CalculateEnergy ) THEN
-      ALLOCATE( WeTemp( Model%NumberOfNodes ), STAT=istat )
-      IF ( istat /= 0 ) CALL Fatal( 'StatElecSolve', 'Memory allocation error 4' )
-    END IF
+    
+    CalculateSurfCharge = GetLogical( Solver % Values, &
+        'Calculate Surface Charge', GotIt )
 
     ConstantBulk = ListGetLogical( Solver % Values,'Save Bulk System',GotIt)
     SaveBulk = ConstantBulk .OR. ListGetLogical( Solver % Values,'Save Bulk System',GotIt)
-  
-    CalculateSurfCharge = GetLogical( Solver % Values, 'Calculate Surface Charge', &
-         GotIt )
-    IF ( CalculateSurfCharge ) THEN
-       ALLOCATE( SurfChTemp( Model % NumberOfNodes ), STAT=istat )
-       IF ( istat /= 0 ) CALL Fatal( 'StatElecSolve', 'Memory allocation error 6' )
-    END IF
 
     ConstantWeights = ListGetLogical( Solver % Values,'Constant Weights', GotIt )
-    
+
     DO i = 1, Model % NumberOfEquations 
       CalculateCapMatrix = ListGetLogical( Model % Equations(i) % Values, &
           'Calculate Capacitance Matrix', GotIt )
@@ -285,136 +300,66 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
           CapMatrix(CapBodies,CapBodies), &
           STAT = istat)
       IF ( istat /= 0 ) THEN
-        CALL Fatal( 'StatElecSolve', 'Memory allocation error 5' )
+        CALL Fatal( 'StatElecSolve', 'Memory allocation error 3' )
       END IF
       
       CapMatrix = 0.0d0
       CapBodyIndex = 0
     END IF
-    
-!------------------------------------------------------------------------------
 
     IF ( .NOT.ASSOCIATED( StiffMatrix % MassValues ) ) THEN
       ALLOCATE( StiffMatrix % Massvalues( Model % NumberOfNodes ) )
       StiffMatrix % MassValues = 0.0d0
     END IF
 
-!------------------------------------------------------------------------------
-!      Add electric field to the variable list
-!------------------------------------------------------------------------------
-    IF(CalculateField) THEN         
-      Ex => FieldOneTemp
-      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-          'Electric Field 1', 1, Ex, PotentialPerm)
-      
-      Ey => FieldTwoTemp
-      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-          'Electric Field 2', 1, Ey, PotentialPerm)
-      
-      IF(DIM == 3) THEN
-        Ez => FieldThreeTemp
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-            'Electric Field 3', 1, Ez, PotentialPerm)
-      END IF
-    END IF
-       
-!------------------------------------------------------------------------------
-!      Add electric flux to the variable list
-!------------------------------------------------------------------------------
-
-    IF ( CalculateFlux ) THEN
-      Dx => FluxOneTemp
-      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-          Solver, 'Electric Flux 1', 1, Dx, PotentialPerm)
-      
-      Dy => FluxTwoTemp
-      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-          Solver, 'Electric Flux 2', 1, Dy, PotentialPerm)
-      
-      IF(DIM == 3) THEN
-        Dz => FluxThreeTemp
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-            Solver, 'Electric Flux 3', 1, Dz, PotentialPerm)
-      END IF
-    END IF
-    
-    IF ( CalculateEnergy ) THEN
-      WeTemp = 0.0d0
-      Energy => WeTemp
-      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-          Solver, 'Electric Energy Density', 1, Energy, PotentialPerm )
-    END IF
-
-    IF ( CalculateSurfCharge ) THEN
-       SurfChTemp = 0.0d0
-       SurfaceCharge => SurfChTemp
-       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-           Solver, 'Surface Charge Density', 1, SurfaceCharge, PotentialPerm )
-    END IF
-    
     NULLIFY( Pwrk )
     NULLIFY( Pz_w )
     
     AllocationsDone = .TRUE.
   END IF
 
-!---------------------------------------------------------------------------------
-!    Update arrays for derived vars. Rather cumbersome due to possible adaptivity
-!---------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
+!  Get the result fields
+!  These should have been automatically created by the 
+!  'Exported Variables' defined in the _init section
+!------------------------------------------------------------------------------
 
-  IF ( CalculateSurfCharge ) THEN
-     Var => VariableGet( Model % Variables, 'Surface Charge Density' )
-     SurfCh => Var % Values
-     SurfPerm => Var % Perm
-     SurfCh = 0.0d0
-  END IF
-
-  IF ( CalculateEnergy ) THEN
-    Var => VariableGet( Model % Variables, 'Electric Energy Density' )
-    We => Var % Values
-    EnergyPerm => Var % Perm
-    We = 0.0d0
-  END IF
-  
   IF ( CalculateField ) THEN
-    Var => VariableGet( Model % Variables, 'Electric Field 1' )
-    FieldOne => Var % Values
-    FieldPermOne => Var % Perm
-    FieldOne = 0.0d0
-    
-    Var => VariableGet( Model % Variables, 'Electric Field 2' )
-    FieldTwo => Var % Values
-    FieldPermTwo => Var % Perm
-    FieldTwo = 0.0d0
-    
-    IF ( DIM == 3 ) THEN
-      Var => VariableGet( Model % Variables, 'Electric Field 3' )
-      FieldThree => Var % Values
-      FieldPermThree => Var % Perm
-      FieldThree = 0.0d0
+    Var => VariableGet( Solver % Mesh % Variables,'Electric Field')
+    IF( ASSOCIATED( Var) ) THEN
+      Field => Var % Values
+    ELSE
+      CALL Fatal('StatElecSolver','Electric Field does not exist')
     END IF
-    
   END IF
   
   IF ( CalculateFlux ) THEN
-    Var => VariableGet( Model % Variables, 'Electric Flux 1' )
-    FluxOne => Var % Values
-    FluxPermOne => Var % Perm
-    FluxOne = 0.0d0
-    
-    Var => VariableGet( Model % Variables, 'Electric Flux 2' )
-    FluxTwo => Var % Values
-    FluxPermTwo => Var % Perm
-    FluxTwo = 0.0d0
-    
-    IF ( DIM == 3 ) THEN
-      Var => VariableGet( Model % Variables, 'Electric Flux 3' )
-      FluxThree => Var % Values
-      FluxPermThree => Var % Perm
-      FluxThree = 0.0d0
+    Var => VariableGet( Solver % Mesh % Variables,'Electric Flux')
+    IF( ASSOCIATED( Var ) ) THEN
+      Flux => Var % Values
+    ELSE
+      CALL Fatal('StatElecSolver','Electric Flux does not exist')
     END IF
-    
   END IF
+
+  IF ( CalculateEnergy ) THEN
+    Var => VariableGet( Solver % Mesh % Variables,'Electric Energy Density')
+    IF( ASSOCIATED( Var ) ) THEN    
+      Energy => Var % Values
+    ELSE
+      CALL Fatal('StatElecSolver','Electric Energy Density does not exist')
+    END IF
+  END IF
+
+  IF ( CalculateSurfCharge ) THEN
+    Var => VariableGet( Solver % Mesh % Variables,'Surface Charge Density')
+    IF( ASSOCIATED( Var ) ) THEN    
+      SurfaceCharge => Var % Values
+    ELSE
+      CALL Fatal('StatElecSolver','Surface Charge Density does not exist')
+    END IF
+  END IF
+   
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -459,7 +404,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       Solver % Matrix % Values = Solver % Matrix % BulkValues
       GOTO 1000
     END IF
-    
     
     DO t = 1, Solver % NumberOfActiveElements
       
@@ -906,23 +850,19 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
    
    CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Potential')
    IF ( CalculateField ) THEN
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 1')
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 2')
-     IF ( Dim == 3 )   CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 3')
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field')
    END IF
    
    IF ( CalculateFlux ) THEN
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 1')
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 2')
-     IF ( Dim == 3 )  CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 3')
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux')
    END IF
    
    IF ( CalculateEnergy ) THEN
      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Energy Density')
    END IF
-
+   
    IF ( CalculateSurfCharge ) THEN
-      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Surface Charge Density' )
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Surface Charge Density' )
    END IF
 
 
@@ -947,7 +887,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
      Parent => Element % BoundaryInfo % Left
      CALL GetElementNodes( PNodes, Parent )
-     pn = Parent % Type % NumberOfNodes
+     pn = Parent % TYPE % NumberOfNodes
 
      IntegStuff = GaussPoints(Element)
 
@@ -996,11 +936,12 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     REAL(KIND=dp) :: ElementPot(Model % MaxElementNodes)
     REAL(KIND=dp) :: Dirichlet(Model % MaxElementNodes)
     REAL(KIND=dp) :: EnergyDensity, Sigma, Normal(3)
-    REAL(KIND=dp) :: Flux(3), Field(3), ElemVol
+    REAL(KIND=dp) :: NodalFlux(3), NodalField(3), ElemVol
     REAL(KIND=dp) :: s, ug, vg, wg, Grad(3), EpsGrad(3)
     REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
     REAL(KIND=dp) :: xpos, ypos, zpos
     INTEGER, POINTER :: NodeIndexes(:)
+    INTEGER :: PotIndexes(Model % MaxElementNodes)
     INTEGER :: n, N_Integ, t, tg, i, j, k, DIM, p, nPar, matId
     LOGICAL :: Stat
 
@@ -1036,10 +977,11 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       IF ( .NOT. CheckElementEquation( Model, Element, EquationName ) ) CYCLE
 
       n = Element % TYPE % NumberOfNodes
+      PotIndexes(1:n) = Reorder(NodeIndexes(1:n))
 
-      IF ( ANY(Reorder(NodeIndexes) == 0) ) CYCLE
+      IF ( ANY(PotIndexes(1:n) == 0) ) CYCLE
 
-      ElementPot(1:n) = Potential( Reorder( NodeIndexes(1:n) ) )
+      ElementPot(1:n) = Potential( PotIndexes(1:n) )
 
       Nodes % x(1:n) = Model % Nodes % x( NodeIndexes )
       Nodes % y(1:n) = Model % Nodes % y( NodeIndexes )
@@ -1084,8 +1026,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       END IF
       
       EnergyDensity = 0.0d0
-      Flux = 0.0d0
-      Field = 0.0d0
+      NodalFlux = 0.0d0
+      NodalField = 0.0d0
       ElemVol = 0.0d0
 
 !------------------------------------------------------------------------------
@@ -1134,8 +1076,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
         EnergyDensity = EnergyDensity + &
              s * SUM(Grad(1:DIM) * EpsGrad(1:DIM))
         DO j = 1,DIM
-          Flux(j) = Flux(j) - EpsGrad(j) * s
-          Field(j) = Field(j) - Grad(j) * s
+          NodalFlux(j) = NodalFlux(j) - EpsGrad(j) * s
+          NodalField(j) = NodalField(j) - Grad(j) * s
         END DO
 
         ElemVol = ElemVol + s
@@ -1147,46 +1089,38 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
        IF ( ConstantWeights ) THEN
          EnergyDensity = EnergyDensity / ElemVol
-         Flux(1:DIM) = Flux(1:DIM) / ElemVol
-         Field(1:DIM) = Field(1:DIM) / ElemVol
-         SumOfWeights( Reorder( NodeIndexes(1:n) ) ) = &
-             SumOfWeights( Reorder( NodeIndexes(1:n) ) ) + 1
+         NodalFlux(1:DIM) = NodalFlux(1:DIM) / ElemVol
+         NodalField(1:DIM) = NodalField(1:DIM) / ElemVol
+         SumOfWeights( PotIndexes(1:n) ) = &
+             SumOfWeights( PotIndexes(1:n) ) + 1
        ELSE
-         SumOfWeights( Reorder( NodeIndexes(1:n) ) ) = &
-             SumOfWeights( Reorder( NodeIndexes(1:n) ) ) + ElemVol
+         SumOfWeights( PotIndexes(1:n) )  = &
+             SumOfWeights( PotIndexes(1:n) ) + ElemVol
        END IF
 
 !------------------------------------------------------------------------------
 
-      IF(CalculateEnergy) THEN
-        We( EnergyPerm(NodeIndexes(1:n)) ) = &
-            We( EnergyPerm(NodeIndexes(1:n)) ) + EnergyDensity
-      END IF
-      
+       IF(CalculateEnergy) THEN
+         Energy( PotIndexes(1:n) ) = Energy( PotIndexes(1:n) ) + EnergyDensity
+       END IF
+       
       IF(CalculateFlux) THEN
-         Flux = Flux * PermittivityOfVacuum
-         FluxOne( FluxPermOne( NodeIndexes(1:n) ) ) = &
-              FluxOne( FluxPermOne( NodeIndexes(1:n) ) ) + Flux(1)
-         FluxTwo( FluxPermTwo( NodeIndexes(1:n) ) ) = &
-              FluxTwo( FluxPermTwo( NodeIndexes(1:n) ) ) + Flux(2)
-         IF ( DIM == 3 )  &
-              FluxThree( FluxPermThree( NodeIndexes(1:n) ) ) = &
-              FluxThree( FluxPermThree( NodeIndexes(1:n) ) ) + Flux(3)
+        NodalFlux = NodalFlux * PermittivityOfVacuum
+        DO i=1,DIM
+          Flux( DIM * ( PotIndexes(1:n)-1) + i ) = &
+          Flux( DIM * ( PotIndexes(1:n)-1) + i ) + NodalFlux(i)
+        END DO
       END IF
 
       IF(CalculateField) THEN
-         FieldOne( FieldPermOne( NodeIndexes(1:n) ) ) = &
-              FieldOne( FieldPermOne( NodeIndexes(1:n) ) ) + Field(1)
-         FieldTwo( FieldPermTwo( NodeIndexes(1:n) ) ) = &
-              FieldTwo( FieldPermTwo( NodeIndexes(1:n) ) ) + Field(2)
-         IF ( DIM == 3 )  &
-              FieldThree( FieldPermThree( NodeIndexes(1:n) ) ) = &
-              FieldThree( FieldPermThree( NodeIndexes(1:n) ) ) + Field(3)
+        DO i=1,DIM
+          Field( DIM * ( PotIndexes(1:n)-1) + i ) = &
+          Field( DIM * ( PotIndexes(1:n)-1) + i ) + NodalField(i)
+        END DO
       END IF
 
     END DO
-
-! of the bulk elements
+    ! of the bulk elements
 
 
     IF ( CalculateSurfCharge ) THEN
@@ -1323,20 +1257,17 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
                 Normal = Normalvector( Element, BoundaryNodes, ug, vg, .TRUE. )
 !------------------------------------------------------------------------------
-!
-! Need parent element basis etc., for computing normal derivatives
-! on boundary.
-!
+! Need parent element basis etc., for computing normal derivatives on boundary.
 !------------------------------------------------------------------------------
                 DO i = 1, n
-                   DO j = 1, nPar
-                      IF ( NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
-                         x(i) = Parent % TYPE % NodeU(j)
-                         y(i) = Parent % TYPE % NodeV(j)
-                         z(i) = Parent % TYPE % NodeW(j)
-                         EXIT
-                      END IF
-                   END DO
+                  DO j = 1, nPar
+                    IF ( NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
+                      x(i) = Parent % TYPE % NodeU(j)
+                      y(i) = Parent % TYPE % NodeV(j)
+                      z(i) = Parent % TYPE % NodeW(j)
+                      EXIT
+                    END IF
+                  END DO
                 END DO
 
                 ug = SUM( Basis(1:n) * x(1:n) )
@@ -1350,15 +1281,14 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
                 EpsGrad = 0.0d0
                 DO j = 1, Dim
-                   DO i = 1, Dim
-                      EpsGrad(j) = EpsGrad(j) + &
-                           SUM( Permittivity(j,i,1:nPar) * ParentBasis(1:nPar) ) * &
-                           SUM( ParentdBasisdx(1:nPar,i) * ElementPot(1:nPar) )
-                   END DO
+                  DO i = 1, Dim
+                    EpsGrad(j) = EpsGrad(j) + &
+                        SUM( Permittivity(j,i,1:nPar) * ParentBasis(1:nPar) ) * &
+                        SUM( ParentdBasisdx(1:nPar,i) * ElementPot(1:nPar) )
+                  END DO
                 END DO
 
                 Sigma = Sigma + s * SUM( EpsGrad(1:Dim) * Normal(1:Dim) )
-
                 ElemVol = ElemVol + s 
 
 !------------------------------------------------------------------------------
@@ -1379,8 +1309,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
 !------------------------------------------------------------------------------
 
-             SurfCh( SurfPerm(NodeIndexes(1:n)) ) = &
-                  SurfCh( SurfPerm(NodeIndexes(1:n)) ) + Sigma
+             SurfaceCharge( PotentialPerm(NodeIndexes(1:n)) ) = &
+                  SurfaceCharge( PotentialPerm(NodeIndexes(1:n)) ) + Sigma
 
           END DO
        END DO
@@ -1393,42 +1323,32 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
    DO i = 1, Model % NumberOfNodes
-     IF ( Reorder(i) == 0 )  CYCLE
-     IF ( ABS( SumOfWeights(Reorder(i)) ) > 0.0d0 ) THEN
-       IF ( CalculateEnergy )  We(EnergyPerm(i)) = &
-            We(EnergyPerm(i)) / SumOfWeights(Reorder(i))
-
+     j = Reorder(i)
+     IF( j == 0 ) CYCLE
+     IF ( ABS( SumOfWeights(j) ) > 0.0d0 ) THEN
+       IF ( CalculateEnergy )  Energy(j) = Energy(j) / SumOfWeights( j )
        IF ( CalculateField ) THEN
-          FieldOne( FieldPermOne(i) ) = FieldOne( FieldPermOne(i) ) / &
-               SumOfWeights( Reorder(i) )
-          FieldTwo( FieldPermTwo(i) ) = FieldTwo( FieldPermTwo(i) ) / &
-               SumOfWeights( Reorder(i) )
-          IF ( DIM == 3 )  &
-               FieldThree( FieldPermThree(i) ) = FieldThree( FieldPermThree(i) ) / &
-               SumOfWeights( Reorder(i) )
+         DO k=1,DIM
+           Field( DIM*(j-1)+k ) = Field( DIM*(j-1)+k) / SumOfWeights( j )
+         END DO
        END IF
 
        IF ( CalculateFlux ) THEN
-          FluxOne( FluxPermOne(i) ) = FluxOne( FluxPermOne(i) ) / &
-               SumOfWeights( Reorder(i) )
-          FluxTwo( FluxPermTwo(i) ) = FluxTwo( FluxPermTwo(i) ) / &
-               SumOfWeights( Reorder(i) )
-          IF ( DIM == 3 )  &
-               FluxThree( FluxPermThree(i) ) = FluxThree( FluxPermThree(i) ) / &
-               SumOfWeights( Reorder(i) )
+         DO k=1,DIM
+           Flux( DIM*(j-1)+k ) = Flux( DIM*(j-1)+k) / SumOfWeights( j )
+         END DO
        END IF
-
      END IF
 
      IF ( CalculateSurfCharge ) THEN
-        IF ( ABS( SurfWeights(Reorder(i)) ) > 0.0d0 )  &
-             SurfCh( SurfPerm(i) ) = &
-             SurfCh( SurfPerm(i) ) / SurfWeights( Reorder(i) )
+       IF ( ABS( SurfWeights(Reorder(i)) ) > 0.0d0 ) THEN
+         SurfaceCharge( j ) = SurfaceCharge( j ) / SurfWeights( j )
+       END IF
      END IF
    END DO
 
    Wetot = PermittivityOfVacuum * Wetot / 2.0d0
-   IF(CalculateEnergy) We = PermittivityOfVacuum * We / 2.0d0
+   IF(CalculateEnergy) Energy = PermittivityOfVacuum * Energy / 2.0d0
    
    DEALLOCATE( Nodes % x, &
        Nodes % y, &
@@ -1436,10 +1356,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        SumOfWeights)
 
    IF ( CalculateSurfCharge )  THEN
-      DEALLOCATE( BoundaryNodes % x, &
-           BoundaryNodes % y, BoundaryNodes % z, &
-           SurfWeights, x, y, z )
-      SurfCh = SurfCh * PermittivityOfVacuum
+     DEALLOCATE( BoundaryNodes % x, &
+         BoundaryNodes % y, BoundaryNodes % z, &
+         SurfWeights, x, y, z )
+     SurfaceCharge = SurfaceCharge * PermittivityOfVacuum
    END IF
 
 

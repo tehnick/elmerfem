@@ -40,6 +40,7 @@
 ! *
 ! *****************************************************************************/
 
+
 !------------------------------------------------------------------------------
    SUBROUTINE StatMagSolver( Model, Solver, dt, Transient )
 !------------------------------------------------------------------------------
@@ -194,21 +195,14 @@
        
       IF(CalculateMagneticFlux) THEN
         
-        ALLOCATE( MFD(3*Model%NumberofNodes), STAT=istat)
+        ALLOCATE( MFD (Model%NumberofNodes ), STAT=istat)
+        IF ( istat /= 0 ) CALL Fatal( 'StatMagSolve', 'Memory allocation error')
 
-        Br => MFD(1:3*LocalNodes-2:3) !Bx
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-            'Magnetic Flux Density 1', 1, Br, MagneticPerm)
+        Br => MFD(1::3) ! Bx
+        Bz => MFD(2::3) ! By
+        Bp => MFD(3::3) ! Bz
         
-        Bz => MFD(2:3*LocalNodes-1:3) !By
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-            'Magnetic Flux Density 2', 1, Bz, MagneticPerm)
-        
-        Bp => MFD(3:3*LocalNodes:3)   !Bz
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-            'Magnetic Flux Density 3', 1, Bp, MagneticPerm)
-        
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+        CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
             'Magnetic Flux Density', 3, MFD, MagneticPerm)
       END IF
 

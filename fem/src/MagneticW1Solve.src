@@ -222,19 +222,7 @@
 !    To hold vector components of H
 !------------------------------------------------------------------------------
        
-      Hx => MFD(1:3*LocalNodes-2:3)
-      CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-          'Magnetic Flux Density 1', 1, Hx, MagneticPerm)
-
-      Hy => MFD(2:3*LocalNodes-1:3)
-      CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-          'Magnetic Flux Density 2', 1, Hy, MagneticPerm)
-
-      Hz => MFD(3:3*LocalNodes:3)
-      CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-          'Magnetic Flux Density 3', 1, Hz, MagneticPerm)
-
-      CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
+      CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
           'Magnetic Flux Density', 3, MFD, MagneticPerm)
 
 !------------------------------------------------------------------------------
@@ -637,18 +625,18 @@
     END DO
 
 !
-    M1 => MagneticField(1:3*LocalNodes-2:3)
-    M2 => MagneticField(2:3*LocalNodes-1:3)
-    M3 => MagneticField(3:3*LocalNodes-0:3)
+    M1 => MagneticField(1::3)
+    M2 => MagneticField(2::3)
+    M3 => MagneticField(3::3)
 
 !------------------------------------------------------------------------------
 !   Compute the magnetic flux density from the vector potential: B = curl A
 !------------------------------------------------------------------------------
     MFD=0.0d0
     H => MagneticField
-    Hx => MFD(1:3*LocalNodes-2:3)
-    Hy => MFD(2:3*LocalNodes-1:3)
-    Hz => MFD(3:3*LocalNodes:3)
+    Hx => MFD(1::3)
+    Hy => MFD(2::3)
+    Hz => MFD(3::3)
 
 !#if 1
 ! Compute (Hx,Hy,Hz) for visualization

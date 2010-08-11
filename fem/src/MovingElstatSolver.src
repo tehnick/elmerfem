@@ -186,12 +186,7 @@
        IF(SaveCoords) THEN
          ALLOCATE(Coords(3*MeshNodes))
          Coords = 0.0d0
-         Component => Coords( 1 : 3*MeshNodes : 3)
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, 'dCoords 1',1,Component)
-         Component => Coords( 2 : 3*MeshNodes : 3)
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, 'dCoords 2',1,Component)
-         Component => Coords( 3 : 3*MeshNodes : 3)
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, 'dCoords 3',1,Component)
+         CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, Solver, 'dCoords',3,Coords)
        END IF
 
        AllocationsDone = .TRUE.      

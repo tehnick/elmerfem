@@ -319,9 +319,7 @@ CONTAINS
         Perm => Solver % Variable % Perm
       ELSE
         ALLOCATE( Perm(Ndeg), STAT=istat )
-        IF ( istat /= 0 ) THEN
-          CALL Fatal( 'AddEquation', 'Memory allocation error.' )
-        END IF
+        IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
       END IF
       
       Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, Perm, &
@@ -331,6 +329,7 @@ CONTAINS
       IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
       IF ( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
         ALLOCATE( Solution(Nrows), STAT=istat )
+        IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
         
         ! First add components to the variable list separately (must be done
         ! this way for the output routines to work properly...):
@@ -378,9 +377,7 @@ CONTAINS
         Perm => Solver % Variable % Perm
       ELSE
         ALLOCATE( Perm(NDeg),STAT=istat )
-        IF ( istat /= 0 ) THEN
-          CALL Fatal( 'AddEquation', 'Elmer Solver: Memory allocation error.' )
-        END IF
+        IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
       END IF
       
       Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
@@ -389,48 +386,18 @@ CONTAINS
       Nrows = 3*Ndeg
       IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
       IF ( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
-        ALLOCATE( Solution(Nrows), STAT=istat )
-        
-        Component => Solution( 1 : Nrows : 3 )
-        CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh,Solver, &
-            'Magnetic Field 1', 1, Component, Perm,Output=VariableOutput )
+        ALLOCATE( Solution (Nrows), STAT=istat)
+        IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
 
-        Component => Solution( 2 : Nrows : 3 )
-        CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh,Solver, &
-            'Magnetic Field 2', 1, Component, Perm,Output=VariableOutput )
-
-        Component => Solution( 3 : Nrows : 3 )
-        CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh,Solver, &
-            'Magnetic Field 3', 1, Component, Perm,Output=VariableOutput )
-        !------------------------------------------------------------------------------
-        !         Then add the thing itself
-        !------------------------------------------------------------------------------
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver, &
-            'Magnetic Field',3,Solution,Perm,Output=VariableOutput )
-        
-        Solver % Variable => VariableGet( Solver % Mesh % Variables, 'Magnetic Field' )
-        
+        CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh,Solver, &
+            'Magnetic Field',3,Solution,Perm,Output=VariableOutput )        
+        Solver % Variable => VariableGet( Solver % Mesh % Variables, 'Magnetic Field' )        
         Solution = 0.0d0
-        !------------------------------------------------------------------------------
-        !         Add first components to the variable list separately...
-        !------------------------------------------------------------------------------
-        ALLOCATE( Solution(Nrows), STAT=istat )
-        
-        Component => Solution( 1 : Nrows : 3 )
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver, &
-            'Electric Current 1', 1, Component, Perm,Output=VariableOutput )
-        
-        Component => Solution( 2 : Nrows : 3 )
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver, &
-            'Electric Current 2', 1, Component, Perm,Output=VariableOutput )
-        
-        Component => Solution( 3 : Nrows : 3 )
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver, &
-            'Electric Current 3', 1, Component, Perm,Output=VariableOutput )
-        !------------------------------------------------------------------------------
-        !         Then add the thing itself
-        !------------------------------------------------------------------------------
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver,&
+
+	NULLIFY( Solution )	
+        ALLOCATE( Solution ( Nrows ), STAT=istat)
+        IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
+        CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh,Solver,&
             'Electric Current', 3, Solution, Perm, Output=VariableOutput )
         Solution = 0.0d0
       END IF
@@ -460,31 +427,11 @@ CONTAINS
       Nrows = DOFs * Ndeg
       IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
       IF ( .NOT.ASSOCIATED( Solver % Variable ) ) THEN
-        ALLOCATE( Solution(Nrows), STAT=istat )
-        
-        ! First add the components to the variable list separately:
-        !----------------------------------------------------------
-        Component => Solution( 1 : Nrows : DOFs )
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver, &
-            'Displacement 1',1, Component, Perm,Output=VariableOutput )
-        
-        Component => Solution( 2 : Nrows : DOFs )
-        CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh,Solver, &
-            'Displacement 2', 1, Component, Perm,Output=VariableOutput )
-        
-        IF ( CoordinateSystemDimension() >= 3 ) THEN
-          Component => Solution( 3 : Nrows : DOFs )
-          CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh,Solver,  &
-              'Displacement 3', 1, Component, Perm, Output=VariableOutput )
-        END IF
-        
-        ! Then add the thing itself:
-        !---------------------------
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver,&
-            'Displacement',DOFs,Solution,Perm,Output=VariableOutput )
-        
-        Solver % Variable => VariableGet(Solver % Mesh % Variables, 'Displacement')
-        
+        ALLOCATE( Solution ( Nrows ), STAT=istat)
+        IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
+        CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh,Solver,&
+            'Displacement',DOFs,Solution,Perm,Output=VariableOutput )        
+        Solver % Variable => VariableGet(Solver % Mesh % Variables, 'Displacement')        
         Solution = 0.0D0
       END IF
       CALL AddSolverProcedure( Solver, StressSolver )
@@ -513,27 +460,9 @@ CONTAINS
       Nrows = DOFs * Ndeg
       IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
       IF (.NOT. ASSOCIATED( Solver % Variable ) ) THEN
-        ALLOCATE( Solution(Nrows), STAT=istat )
-        
-        ! First add the components to the variable list separately:
-        !----------------------------------------------------------
-        Component => Solution( 1 : Nrows : DOFs )
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver, &
-            'Mesh Update 1',1, Component, Perm,Output=VariableOutput )
-        
-        Component => Solution( 2 : Nrows : DOFs )
-        CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh,Solver, &
-            'Mesh Update 2', 1, Component, Perm,Output=VariableOutput )
-        
-        IF ( CoordinateSystemDimension() >= 3 ) THEN
-          Component => Solution( 3 : Nrows : DOFs )
-          CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh,Solver,  &
-              'Mesh Update 3', 1, Component, Perm,Output=VariableOutput )
-        END IF
-        
-        !      Then add the thing itself...
-        !------------------------------------------------------------------------------
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver,&
+        ALLOCATE( Solution (Nrows), STAT=istat)
+        IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
+        CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh,Solver,&
             'Mesh Update',DOFs,Solution,Perm,Output=VariableOutput )
         Solution = 0.0d0
         Solver % Variable => VariableGet( Solver % Mesh % Variables, 'Mesh Update' )
@@ -542,28 +471,10 @@ CONTAINS
       Var =>  VariableGet( Solver % Mesh % Variables, 'Mesh Velocity')
       IF ( .NOT. ASSOCIATED(Var) ) THEN
         IF ( Transient ) THEN
-          ALLOCATE( Solution(Nrows), STAT=istat )
-          IF ( istat /= 0 ) THEN
-            CALL Fatal( 'AddEquation', 'Memory allocation error.' )
-          END IF
-          
-          Component => Solution( 1 : Nrows : DOFs )
-          CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh, &
-              Solver, 'Mesh Velocity 1',1, Component, Perm,Output=VariableOutput)
-          
-          Component => Solution( 2 : Nrows : DOFs )
-          CALL VariableAdd( Solver % Mesh % Variables,Solver % Mesh, &
-              Solver, 'Mesh Velocity 2', 1, Component, Perm,Output=VariableOutput)
-          
-          IF ( CoordinateSystemDimension() >= 3 ) THEN
-            Component => Solution( 3 : Nrows : DOFs )
-            CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh, &
-                Solver, 'Mesh Velocity 3', 1, Component, Perm,Output=VariableOutput)
-          END IF
-          
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh,Solver,&
-              'Mesh Velocity',DOFs,Solution,Perm,Output=VariableOutput )
-          
+          ALLOCATE( Solution ( Nrows ), STAT=istat) 
+	  IF ( istat /= 0 ) CALL Fatal( 'AddEquation', 'Memory allocation error.' )
+          CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh,Solver,&
+              'Mesh Velocity',DOFs,Solution,Perm,Output=VariableOutput )          
           Solution = 0.0D0
         END IF
       END IF

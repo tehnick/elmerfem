@@ -609,6 +609,7 @@ END SUBROUTINE ResultOutputSolver
         END IF
         VarName = ListGetString( Solver % Values, TRIM(Txt) )
 
+	VarName(1:1) = CHAR(ICHAR(VarName(1:1))-ICHAR('a')+ICHAR('A'))
         k = LEN_TRIM(VarName)
         DO j=1,k
           IF ( VarName(j:j) == ' ' ) VarName(j:j) = '.'
@@ -624,12 +625,14 @@ END SUBROUTINE ResultOutputSolver
           WRITE(Txt,'(A,I3)') 'Vector Field',Vari
         END IF
 
+        VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
+
+	VarName(1:1) = CHAR(ICHAR(VarName(1:1))-ICHAR('a')+ICHAR('A'))
         k = LEN_TRIM(VarName)
         DO j=1,k
           IF ( VarName(j:j) == ' ' ) VarName(j:j) = '.'
         END DO
 
-        VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         WRITE(PostFileUnit,'(a)',ADVANCE='NO' ) ' vector: '//TRIM(VarName)
       END DO
       

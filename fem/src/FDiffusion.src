@@ -179,20 +179,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
      Var => VariableGet(Model % Variables, 'Lorentz Force')
      IF (.NOT. ASSOCIATED(Var) ) THEN
         SolverPointer => Solver
-
-        LrFr => LrF(1:3*LocalNodes-2:3)
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-             SolverPointer, 'Lorentz Force 1', 1, LrFr, SomeQuantityPerm)
-
-        LrFz => LrF(2:3*LocalNodes-1:3)
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-             SolverPointer, 'Lorentz Force 2', 1, LrFz, SomeQuantityPerm)
-
-        LrFp => LrF(3:3*LocalNodes:3)
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-             SolverPointer, 'Lorentz Force 3', 1, LrFp, SomeQuantityPerm)
-
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
+        CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, &
               SolverPointer, 'Lorentz Force', 3, LrF, SomeQuantityPerm)
       END IF
 !#endif
@@ -478,12 +465,12 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
 !#if 1
-    LrFr => LrF(1:3*LocalNodes-2:3)
-    LrFz => LrF(2:3*LocalNodes-1:3)
-    LrFp => LrF(3:3*LocalNodes:3)
+    LrFr => LrF(1::3)
+    LrFz => LrF(2::3)
+    LrFp => LrF(3::3)
 
-    BRe => SomeQuantity(1:2*LocalNodes-1:2)
-    BIm => SomeQuantity(2:2*LocalNodes:2)
+    BRe => SomeQuantity(1::2)
+    BIm => SomeQuantity(2::2)
 
     CALL LorentzForceAve(LrFr,LrFz,LrFp,BRe,BIm,SomeQuantityPerm)
 !#endif

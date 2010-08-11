@@ -39,6 +39,7 @@
 ! *
 ! *****************************************************************************/
  
+
 !------------------------------------------------------------------------------
 SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -87,45 +88,26 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes, ParentNodes
   TYPE(Element_t), POINTER   :: CurrentElement, Parent
   TYPE(ValueList_t), POINTER :: Material
-  REAL(KIND=dp), ALLOCATABLE :: Potential(:), Permittivity(:,:,:) 
-  REAL(KIND=dp), POINTER :: Pwrk(:,:,:), ForceDensity(:)
-  REAL(KIND=dp), POINTER :: Fdx(:), Fdy(:), Fdz(:)
+  REAL(KIND=dp), ALLOCATABLE :: LocalPotential(:), Permittivity(:,:,:) 
+  REAL(KIND=dp), POINTER :: Potential(:), Pwrk(:,:,:), ForceDensity(:)
   REAL(KIND=dp) :: Force(3), MomentAbout(3), Moment(3), &
     Area, PermittivityOfVacuum, sf
-  INTEGER, POINTER :: NodeIndexes(:), Visited(:)
-  INTEGER :: DIM, t, pn, n, k, s, i, j
+  INTEGER, POINTER :: NodeIndexes(:), Visited(:), PotentialPerm(:)
+  INTEGER :: DIM, t, pn, n, k, s, i, j, istat
   LOGICAL :: stat, CalculateMoment, ActiveBoundary, DoDisplacedBoundaries, FirstTime = .TRUE.
-  CHARACTER(LEN=MAX_NAME_LEN) :: EqName1, EqName2, VariableName
+  CHARACTER(LEN=MAX_NAME_LEN) :: PotName, VariableName
 
   SAVE FirstTime, ForceDensity, Pwrk
 !------------------------------------------------------------------------------
 
+  CALL Info('StatElecForce','Computing electric force on boundaries')
+  
 
   DIM = CoordinateSystemDimension()
 
   IF ( FirstTime ) THEN
-
-     Mesh => Solver % Mesh
-     ALLOCATE( ForceDensity( Dim * Mesh % NumberOfNodes ) )
-     ForceDensity = 0.0d0
-
-    Fdx => ForceDensity( 1: Dim*Mesh % NumberOfNodes-Dim+1: Dim )
-    CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-        'Electric Force Density 1', 1, Fdx )
-    Fdy => ForceDensity( 2: Dim*Mesh % NumberOfNodes-Dim+2: Dim )
-    CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-        'Electric Force Density 2', 1, Fdy )
-    IF ( Dim == 3 ) THEN
-       Fdz => ForceDensity( 3: Dim*Mesh % NumberOfNodes: Dim )
-       CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-            'Electric Force Density 3', 1, Fdz )
-    END IF
-
-    CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-         'Electric Force Density', Dim, ForceDensity )
-
+    Mesh => Solver % Mesh
     NULLIFY( Pwrk )
-
     FirstTime = .FALSE.
   END IF
 
@@ -133,43 +115,34 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 !    Figure out the mesh that potential solver is using
 !------------------------------------------------------------------------------
 
-  i = ListGetInteger( Solver % Values, 'Potential Solver ID', stat )
+
+  PotName = ListGetString( Solver % Values, 'Potential Field Name', stat )
+  IF(.NOT. Stat) PotName = 'Potential'
   IF ( .NOT. stat ) THEN
-     EqName1 = ListGetString( Solver % Values, 'Equation' )
-
-     !  stat = .FALSE.
-     DO i = 1, Model % NumberOfSolvers
-        EqName2 = ListGetString( Model % Solvers(i) % Values, 'Equation' )
-
-        IF ( EqName1 == EqName2 ) THEN
-           stat = .TRUE.
-           EXIT
-        END IF
-     END DO
-
-     IF ( .NOT. stat )  CALL Fatal( 'StatElecForce', &
-          'No potential solver found (1): Give potential solver id' )
-     IF ( i == 1 )  CALL Fatal( 'StatElecForce', &
-          'No potential solver found (2): Give potential solver id' )
-
-     ! Assume potential solver id is one smaller than elec force solver id
-     i = i-1
+    Var => VariableGet( Mesh % Variables, PotName ) 
+    IF(ASSOCIATED(Var)) THEN
+      Potential => Var % Values
+      PotentialPerm => Var % Perm
+    ELSE
+      CALL Fatal('ElectricForce','Potential field does not exist:'//TRIM(PotName))
+    END IF
   END IF
 
-  Mesh => Model % Solvers(i) % Mesh
-  CALL SetCurrentMesh( Model, Mesh )
 
   Var => VariableGet( Mesh % Variables, 'Electric Force Density' )
-  IF ( .NOT. ASSOCIATED ( Var ) )  &
-       CALL Fatal( 'StatElecForce', 'Fatal error of the 1st kind' )
+  IF(.NOT. ASSOCIATED(Var) ) THEN
+    n = SIZE( Potential )
+
+    ALLOCATE( ForceDensity ( Dim * n ), STAT=istat)
+    IF ( istat /= 0 ) CALL Fatal( 'ElectricForce', 'Memory allocation error')	
+    ForceDensity = 0.0d0
+    
+    CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
+        'Electric Force Density', Dim, ForceDensity, PotentialPerm )
+    Var => VariableGet( Mesh % Variables, 'Electric Force Density' )
+  END IF
   ForceDensity => Var % Values
 
-  Var => VariableGet( Mesh % Variables, 'Potential' )
-  
-  IF ( .NOT.ASSOCIATED( Var ) ) THEN
-    WRITE( Message, * ) 'No electric potential found!'
-    CALL Fatal( 'StatElecForce', Message )
-  END IF
 
   ALLOCATE( ElementNodes % x( Mesh % MaxElementNodes ) )
   ALLOCATE( ElementNodes % y( Mesh % MaxElementNodes ) )
@@ -182,7 +155,7 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   ParentNodes % y = 0.0d0
   ParentNodes % z = 0.0d0
 
-  ALLOCATE( Potential( Mesh % MaxElementNodes ) )
+  ALLOCATE( LocalPotential( Mesh % MaxElementNodes ) )
   ALLOCATE( Permittivity( 3, 3, Mesh % MaxElementNodes ) )
   ALLOCATE( Visited( Mesh % NumberOfNodes ) )
 
@@ -334,8 +307,8 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 
 !------------------------------------------------------------------------------
       
-    Potential = 0.0d0
-    Potential(1:pn) = Var % Values( Var % Perm( Parent % NodeIndexes ) )
+    LocalPotential = 0.0d0
+    LocalPotential(1:pn) = Potential( PotentialPerm( Parent % NodeIndexes ) )
     
     CALL MaxwellStressTensorIntegrate( Force, Moment, Area )
       
@@ -344,11 +317,11 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   DO i= 1, Mesh % NumberOfNodes
     IF ( Visited(i) > 0 ) THEN
       DO j = 1, Dim
-        ForceDensity(Dim*i-Dim+j) = ForceDensity(Dim*i-Dim+j) / Visited(i)
+        ForceDensity(Dim*(i-1)+j) = ForceDensity(Dim*i-Dim+j) / Visited(i)
       END DO
     ELSE
       DO j = 1, Dim
-        ForceDensity(Dim*i-Dim+j) = 0.0d0
+        ForceDensity(Dim*(i-1)+j) = 0.0d0
       END DO
     END IF
   END DO
@@ -388,7 +361,7 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   DEALLOCATE( ParentNodes % y )
   DEALLOCATE( ParentNodes % z )
   
-  DEALLOCATE( Potential )
+  DEALLOCATE( LocalPotential )
   DEALLOCATE( Permittivity )
   DEALLOCATE( Visited )
   
@@ -491,9 +464,9 @@ CONTAINS
       EField = 0.0d0
       DFlux = 0.0d0
       DO i=1,DIM
-        EField(i) = SUM( ParentdBasisdx(1:pn,i) * Potential(1:pn) )
+        EField(i) = SUM( ParentdBasisdx(1:pn,i) * LocalPotential(1:pn) )
         DO j=1,DIM
-          DFlux(i) = DFlux(i)+ SUM( ParentdBasisdx(1:pn,j) *Potential(1:pn) ) &
+          DFlux(i) = DFlux(i)+ SUM( ParentdBasisdx(1:pn,j) * LocalPotential(1:pn) ) &
               * SUM( Permittivity(i,j,1:n) * Basis(1:n) )
         END DO
       END DO
@@ -532,15 +505,13 @@ CONTAINS
 
     ElementForce = ElementForce / ElementArea
     DO i=1, n
-       DO j = 1, Dim
-          ForceDensity( Dim*(CurrentElement % NodeIndexes(i))-Dim+j ) = &
-               ForceDensity(Dim*(CurrentElement % NodeIndexes(i))-Dim+j) &
-               + ElementForce(j)
-       END DO
+      k = PotentialPerm( CurrentElement % NodeIndexes(i))
+      DO j = 1, Dim
+        ForceDensity( Dim*(k-1)+j ) = ForceDensity(Dim*(k-1)+j) &
+            + ElementForce(j)
+      END DO
+      Visited( k ) = Visited( k ) + 1
     END DO
-
-    Visited( CurrentElement % NodeIndexes ) = &
-        Visited( CurrentElement % NodeIndexes ) + 1
 
 !------------------------------------------------------------------------------
   END SUBROUTINE MaxwellStressTensorIntegrate
