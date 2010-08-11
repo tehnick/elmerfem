@@ -91,41 +91,40 @@ void Helpers::crossProduct(double *a, double *b, double *c)
 //====================================================================
 void Helpers::invertMatrix(const double *a, double *inva)
 {
-#define E4(A, i, j) (A)[4*i+j]
-#define E8(A, i, j) (A)[8*i+j]
+#define ENTRY(A, i, j) (A)[4*(i)+(j)]
 
   int i, j, k;
-  double c[32];
+  double c[4][8];
   double cik, ckk;
-
+  
   // Initialize:
   //-------------
-  memset(c, 0, 32*sizeof(double));
-
   for(i = 0; i < 4; i++) {
-    E8(c, i, i + 4) = 1.0;
+    for(j = 0; j < 4; j++) {
+      c[i][j] = ENTRY(a, i, j);
+      c[i][j+4] = 0.0;
+    }
 
-    for(j = 0; j < 4; j++)
-      E8(c, i, j) = E4(a, i, j);
+    c[i][i+4] = 1.0;
   }
 
   // Eliminate:
   //------------
   for(k = 0; k < 4; k++) {
-    ckk = E8(c, k, k);
+    ckk = c[k][k];
 
     if(ckk == 0.0) return;
 
     for(j = 0; j < 8; j++)
-      E8(c, k, j) /= ckk;
+      c[k][j] /= ckk;
 
     for(i = 0; i < 4; i++) {
       if(i == k) continue;
 
-      cik = E8(c, i, k);
+      cik = c[i][k];
 
       for(j = 0; j < 8; j++)
-	E8(c, i, j) -= cik * E8(c, k, j);
+	c[i][j] -= cik * c[k][j];
     }
   }
 
@@ -133,9 +132,8 @@ void Helpers::invertMatrix(const double *a, double *inva)
   //---------
   for(i = 0; i < 4; i++) {
     for(j = 0; j < 4; j++)
-      E4(inva, i, j) = E8(c, i, j + 4);
+      ENTRY(inva, i, j) = c[i][j+4];
   }
 
-#undef E8
-#undef E4
+#undef ENTRY
 }
