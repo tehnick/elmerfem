@@ -1187,8 +1187,10 @@
 
         RelaxBefore = GetLogical( Solver % Values, &
               'Nonlinear system Relaxation Before', gotIt )
-        IF ( .NOT.gotIt .OR. RelaxBefore ) &
+        IF ( .NOT.gotIt .OR. RelaxBefore ) THEN
+          CALL ListAddLogical( Solver % Values, 'Skip Compute Nonlinear Change', .FALSE. )
           CALL ComputeChange( Solver, .FALSE., n, FlowSolution, PSolution )
+        END IF
       END IF
       RelativeChange = Solver % Variable % NonlinChange
 

@@ -3276,14 +3276,15 @@ END FUNCTION SearchNodeL
     INTEGER, POINTER :: Indexes(:)
     TYPE(Variable_t), POINTER :: iterV, VeloVar, TimestepVar
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, str
-    LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore, DoIt
+    LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore, DoIt, Skip
 
     TYPE(Matrix_t), POINTER :: MMatrix
     REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
 
     IF(SteadyState) THEN
 	
-      IF( ListGetLogical( Solver % Values,'Skip Compute Steady State Change',Stat)) RETURN
+      Skip = ListGetLogical( Solver % Values,'Skip Compute Steady State Change',Stat)
+      IF( Skip ) RETURN
 
       Relaxation = ListGetCReal( Solver % Values, &
           'Steady State Relaxation Factor', Relax )
@@ -3302,7 +3303,8 @@ END FUNCTION SearchNodeL
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
     ELSE
-      IF( ListGetLogical( Solver % Values,'Skip Compute Nonlinear Change',Stat)) RETURN
+      Skip = ListGetLogical( Solver % Values,'Skip Compute Nonlinear Change',Stat)
+      IF(Skip) RETURN
 
       Relaxation = ListGetCReal( Solver % Values, &
           'Nonlinear System Relaxation Factor', Relax )
