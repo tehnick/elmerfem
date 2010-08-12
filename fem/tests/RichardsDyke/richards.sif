@@ -1,0 +1,132 @@
+Header
+  CHECK KEYWORDS Warn
+!  Mesh DB "." "dyke_303"
+  Mesh DB "." "land_dyke"
+End
+
+Simulation
+  Max Output Level = 4
+  Coordinate System = "Cartesian 2D"
+  Coordinate Mapping(3) = 1 2 3
+  Simulation Type = Steady
+  Steady State Max Iterations = 1
+  Output Intervals = 0
+  Post File = richards.ep
+End
+
+Constants
+End
+
+Body 1
+  Name = "dyke"
+  Equation   = 1
+  Material   = 1
+  Body force = 1
+End
+
+Equation 1
+  Active Solvers(2) = 1 2
+End
+
+Material 1
+  Porosity Model = String "van Genuchten"
+  van Genuchten Alpha = Real 100.0
+  van Genuchten N = Real 1.4
+  van Genuchten M = Real 0.3
+  Saturated Hydraulic Conductivity = Real 5.0e-7
+End
+
+
+Solver 1
+  Equation = "RichardsSolver"
+  Procedure = File "RichardsSolver" "RichardsSolver"
+  Variable = Head
+
+!  Discontinuous Galerkin = Logical True ! not operational 
+
+  Linear System Solver = Iterative
+  Linear System Solver = Direct
+
+  Linear System Direct Method = umfpack
+
+
+  Linear System Iterative Method = BiCGStab
+  Linear System Max Iterations  = 1000
+  Linear System Preconditioning = ILU1
+  Linear System Convergence Tolerance = 1.0e-14
+  Linear System Residual Output = 10
+
+  Nonlinear System Max Iterations = 100
+  Nonlinear System Convergence Tolerance = 1.0e-6
+  Nonlinear System Convergence Measure = solution
+  Nonlinear System Relaxation Factor = 1.0
+
+! Create an additional variable and ask for it to be updated 
+! This could easily be made within the code as well...
+! Now it is defined in body force section
+  Exported Variable 1 = Total Head
+  Update Exported Variables = Logical True
+
+! Uses saturated conditions (pure Darcy flow) for the 1st iteration
+  Saturated Initial Guess = Logical True
+
+!  Bubbles = Logical True
+End
+
+Solver 2
+  Exec Solver = never
+  Equation = "RichardsFlux"
+  Procedure = File "RichardsSolver" "RichardsFlux"
+
+  Flux Variable = String "Head"
+  Flux Multiplier = Real 1.0e9
+
+  Linear System Convergence Tolerance = 1.0e-12
+End
+
+Body Force 1
+  Total Head = Variable Head, Coordinate 2
+    Real MATC "tx(1)-tx(0)"
+End
+
+Boundary Condition 1
+  Target Boundaries = 1
+  Name = "Bottom"
+End
+
+Boundary Condition 2
+  Target Boundaries = 2 
+  Name = "RightWall"
+End
+
+Boundary Condition 3
+  Target Boundaries = 3 
+  Name = "WetRight"
+  Head = Real 0.0
+End
+
+Boundary Condition 4
+  Target Boundaries = 4 
+  Name = "DryDyke"
+End
+
+Boundary Condition 5
+  Target Boundaries(2) = 5 6 
+  Name = "WetLeft"
+  
+  Head = Variable Coordinate 2
+    Real MATC "tx-8.5"
+End
+
+Boundary Condition 6
+  Target Boundaries = 7 
+  Name = "LeftWall"
+End
+
+
+$fprintf( stderr, "TEST CASE 1\n");
+RUN
+$fprintf( stderr, "END TEST CASE 1: Target NRM=4.7815692\n");
+
+
+
