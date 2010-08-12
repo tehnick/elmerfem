@@ -93,7 +93,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Change, Norm = 0.0_dp, PrevNorm, EpsAbs
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
-  REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:)
+  REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:), WrkPntr(:)
   INTEGER, ALLOCATABLE :: BoundaryHits(:)
   INTEGER, POINTER :: PointIndex(:), CoordinateIndex(:), CoordinatesElemNo(:), &
       NodeIndexes(:), MPIOper(:)
@@ -182,7 +182,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ExactCoordinates = ListGetLogical(Solver % Values,'Exact Coordinates',GotIt )      
 
       EpsAbs = ListGetConstReal( Solver % Values,'Coordinate Eps Abs',GotEpsAbs )
-PRINT *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
 
       IF( ParallelReduce ) THEN
         IF(.NOT. ExactCoordinates) THEN
@@ -280,7 +279,6 @@ PRINT *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
         END DO       
 
 	IF( .NOT. Hit ) THEN
-	  PRINT *,'Trying with the closest so far',MinDist,l
           CurrentElement => Mesh % Elements(l)
           n = CurrentElement % TYPE % NumberOfNodes
           NodeIndexes => CurrentElement % NodeIndexes
@@ -296,7 +294,6 @@ PRINT *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
 	    Hit = PointInElement( CurrentElement, ElementNodes, &
                   TempCoordinates, LocalCoords, GlobalEps = 1.0_dp, LocalEps=0.1_dp )	
           END IF
-	  PRINT *,'LocalCoords:',LocalCoords
         END IF
 
         IF( Hit ) THEN
@@ -959,6 +956,31 @@ PRINT *,'NoDims',NoDims,'NoCoords',SIZE(PointCoordinates,1)
   DO No=1,NoValues
     CALL ListAddConstReal(Model % Simulation,TRIM(ValueNames(No)),Values(No))
   END DO
+
+  !------------------------------------------------------------------------------
+  ! If requested, create variable of the result
+  !------------------------------------------------------------------------------
+  DO No=1,NoValues
+	
+    IF(No < 10) THEN 
+      WRITE (Name,'(A,I2)') 'Target Variable',No
+    ELSE
+      WRITE (Name,'(A,I3)') 'Target Variable',No
+    END IF
+    VariableName = ListGetString( Solver % Values, TRIM(Name), GotIt )
+    IF( GotIt ) THEN
+      Var => VariableGet( Model % Variables, TRIM(VariableName) )
+      IF(.NOT. ASSOCIATED(Var)) THEN
+        NULLIFY(WrkPntr)
+        ALLOCATE(WrkPntr(1))
+        CALL VariableAdd( Model % Variables, Mesh, Solver, &
+               TRIM(VariableName), 1, WrkPntr )
+        Var => VariableGet( Model % Variables, TRIM(VariableName) )       
+      END IF
+      Var % Values(1) = Values(No)
+      CALL Info('SaveScalars','Defining: '//TRIM(VariableName)//' = '//TRIM(ValueNames(No)))
+    END IF
+   END DO
 
   !------------------------------------------------------------------------------
   ! For consistancy checks one may print out a value imitating ComputeChange
