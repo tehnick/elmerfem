@@ -52,7 +52,7 @@
 !------------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: SolverParams
     INTEGER :: dim
-    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VorName
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, DivName
     LOGICAL :: GotIt
 !------------------------------------------------------------------------------
     SolverParams => GetSolverParams()
@@ -60,14 +60,14 @@
 
     VarName = GetString(SolverParams,'Divergence Variable',GotIt )
     IF(gotIt) THEN
-      VorName = 'Div '//TRIM(VarName)
+      DivName = 'Div '//TRIM(VarName)
     ELSE
-      VorName = 'Divergence'
+      DivName = 'Divergence'
     END IF
 
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
-      CALL ListAddString( SolverParams, 'Variable', VorName )
+      CALL ListAddString( SolverParams, 'Variable', DivName )
     END IF
     CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
 
@@ -185,6 +185,7 @@ SUBROUTINE DivergenceSolver( Model,Solver,dt,Transient )
 
   CALL BulkAssembly()
   CALL DefaultFinishAssembly()
+  CALL DefaultDirichletBCs()
 
   at1 = RealTime()
   WRITE(Message,* ) 'Assembly Time: ',at1-at0
