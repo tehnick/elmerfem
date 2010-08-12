@@ -149,6 +149,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
         MaxParam(i) = ListGetConstReal(Solver % Values,'Max '//TRIM(ParamStr))       
       END IF
       dParam(i) = ListGetConstReal(Solver % Values,'Scale '//TRIM(ParamStr),GotIt)
+      IF(.NOT. GotIt) dParam(i) = 1.0_dp
     END DO
     
     NoFreeParam = NoParam - COUNT(FixedParam)
@@ -180,7 +181,9 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   IF( OptimizationsDone > 0 ) THEN
     Cost = GetCReal(Model % Simulation,'Cost Function',GotIt)
+
     IF(.NOT. GotIt) Cost = GetCReal(Solver % Values,'Cost Function',GotIt)
+
     IF(.NOT. GotIt) THEN
       Name = ListGetString(Solver % Values,'Cost Function Name',GotIt)
       IF(.NOT. GotIt) CALL Fatal('FindOptimum','Give Cost Function or its name')
@@ -233,7 +236,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
         OPEN (10, FILE=HistoryFile,POSITION='APPEND')
       END IF
       
-      WRITE (10,'(ES17.8E3)',advance='no') Cost
+      WRITE (10,'(I8,ES17.8E3)',advance='no') OptimizationsDone, Cost
       DO i=1,NoParam
         WRITE (10,'(ES17.8E3)',advance='no') Param(i)
       END DO
@@ -298,7 +301,6 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     CALL Info( 'FindOptimum', Message, Level=4 )
   END IF
   CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
-
 
 
 100 OptimizationsDone = OptimizationsDone + 1
@@ -558,14 +560,12 @@ CONTAINS
     no = no + 1
 
     IF(no == 1) THEN
-      maxstep = ListGetConstReal(Solver % Values,'Maximum Step Size',GotIt)
+      maxstep = ListGetConstReal(Solver % Values,'Max Step Size',GotIt)
       step = ListGetConstReal(Solver % Values,'Step Size',GotIt)
       IF(.NOT. GotIt) step = 1.0d-3*(MaxParam(j)-MinParam(j))
       relax = ListGetConstReal(Solver % Values,'Relaxation Factor',GotIt)
       IF(.NOT. GotIt) Relax = 1.0_dp
     END IF
-
-print *,'step:',no,step,maxstep,relax
 
     x0 = x1
     x1 = x2
@@ -576,21 +576,13 @@ print *,'step:',no,step,maxstep,relax
       x2 = Param(j) + (no-1)*step
     ELSE
       dx = relax * f1 * (x1-x0) / (f1-f0)      
-
-
       IF( abs( dx ) > maxstep ) THEN
-print *,'regulating',dx,maxstep
-
         dx = SIGN( maxstep, dx )
       END IF	
       x2 = x1 - dx 
     END IF
 
     Param(j) = x2
-    
-
-print *,'design',no,x2,x1,x0,f1,f0
-
 
   END SUBROUTINE SecantSearch
 
@@ -615,7 +607,7 @@ print *,'design',no,x2,x1,x0,f1,f0
 
     no = no + 1
 
-    PRINT *,'Simplex: ',no,mode,maxratio,Cost,ratio
+!    PRINT *,'Simplex: ',no,mode,maxratio,Cost,ratio
     
 
     ! Initialize the unit vectors
