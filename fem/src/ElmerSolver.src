@@ -278,9 +278,14 @@
                                'Timestep Sizes', GotIt )
 
          IF ( .NOT.GotIt ) THEN
-           CALL Fatal( ' ', 'Keyword [Timestep Sizes] MUST be ' //  &
-                   'defined for time dependent simulations' )
-           STOP
+           IF( Scanning ) THEN
+             ALLOCATE(TimestepSizes(1,1))
+             TimestepSizes(1,1) = 1.0_dp
+           ELSE
+             CALL Fatal( ' ', 'Keyword [Timestep Sizes] MUST be ' //  &
+                 'defined for time dependent simulations' )
+             STOP
+           END IF
          END IF 
 
          TimeIntervals = SIZE(Timesteps)
