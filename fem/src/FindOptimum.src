@@ -69,6 +69,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   USE Integration
   USE ElementDescription
   USE SolverUtils
+  USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -178,20 +179,23 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   ! If visiting for the second time inspect how good the previous solution was
   !------------------------------------------------------------------------------
   IF( OptimizationsDone > 0 ) THEN
-    Cost = ListGetConstReal(Model % Simulation,'Cost Function',GotIt)
+    Cost = GetCReal(Model % Simulation,'Cost Function',GotIt)
+    IF(.NOT. GotIt) Cost = GetCReal(Solver % Values,'Cost Function',GotIt)
     IF(.NOT. GotIt) THEN
       Name = ListGetString(Solver % Values,'Cost Function Name',GotIt)
       IF(.NOT. GotIt) CALL Fatal('FindOptimum','Give Cost Function or its name')
       Cost = ListGetConstReal(Model % Simulation,Name,GotIt)     
       IF(.NOT. GotIt) CALL Fatal('FindOptimum','Cost with the given name was not found')
     END IF
-    CostTarget = ListGetConstReal( Solver % Values,'Cost Function Offset',GotIt)    
+
+    CostTarget = ListGetConstReal( Solver % Values,'Cost Function Target',GotIt)    
     IF( GotIt ) Cost = Cost - CostTarget 
     IF( ListGetLogical( Solver % Values,'Cost Function Absolute',GotIt)) THEN
       Cost = ABS( Cost )
-    ELSE IF( ListGetLogical( Solver % Values,'Cost Function Opposite',GotIt)) THEN
+    ELSE IF( ListGetLogical( Solver % Values,'Cost Function Maximize',GotIt)) THEN
       Cost = -Cost
     END IF
+
 
     ! Found a new best point
     !-----------------------
@@ -253,7 +257,6 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
   END IF
   WRITE( Message, '(A,ES15.6E3)' ) 'Lowest cost so far: ',MinCost
 
-
   
 
   SELECT CASE(Method)
@@ -263,7 +266,10 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
     
   CASE ('scanning')
     CALL ScanParameter()
-    
+
+  CASE ('secant')
+    CALL SecantSearch()
+
   CASE ('genetic')
     CALL GeneticOptimize(NoParam, Param, Cost)
     
@@ -451,11 +457,9 @@ CONTAINS
   SUBROUTINE BisectOptimize()
 
     INTEGER :: j, no = 0
-    REAL(KIND=dp) :: step, eps 
+    REAL(KIND=dp) :: step 
 
     SAVE j, no, step
-
-!    Eps = ListGetConstReal(Solver % Values,'Optimization Accuracy')
 
     IF(NoFreeParam /= 1) CALL Fatal('FindOptimum',&
         'Option bisect implemented only for one parameter')
@@ -527,6 +531,68 @@ CONTAINS
     END IF
 
   END SUBROUTINE BisectOptimize
+
+!-------------------------------------------------------------------------------
+! Choose next parameter set from secant method
+! This only works for design problems where the target cost is known.
+!-------------------------------------------------------------------------------
+
+  SUBROUTINE SecantSearch()
+
+    INTEGER :: j, no = 0
+    REAL(KIND=dp) :: step, maxstep, relax
+    REAL(KIND=dp) :: x0=0.0,x1=0.0,x2=0.0,f0=0.0,f1=0.0,dx
+
+    SAVE j, no, step, maxstep, relax, x0,x1,x2,f0,f1
+
+    IF(NoFreeParam /= 1) CALL Fatal('FindOptimum',&
+        'Secant search implemented only for one parameter')
+    IF( no == 0 ) THEN
+      DO j=1,NoParam
+        IF(.NOT. FixedParam(j)) EXIT
+      END DO
+      WRITE(Message,'(A,I3)') 'Applying bisection search to parameter',j
+      CALL Info('FindOptimum',Message)
+    END IF
+    
+    no = no + 1
+
+    IF(no == 1) THEN
+      maxstep = ListGetConstReal(Solver % Values,'Maximum Step Size',GotIt)
+      step = ListGetConstReal(Solver % Values,'Step Size',GotIt)
+      IF(.NOT. GotIt) step = 1.0d-3*(MaxParam(j)-MinParam(j))
+      relax = ListGetConstReal(Solver % Values,'Relaxation Factor',GotIt)
+      IF(.NOT. GotIt) Relax = 1.0_dp
+    END IF
+
+print *,'step:',no,step,maxstep,relax
+
+    x0 = x1
+    x1 = x2
+    f0 = f1 
+    f1 = Cost
+       
+    IF(no <= 2) THEN
+      x2 = Param(j) + (no-1)*step
+    ELSE
+      dx = relax * f1 * (x1-x0) / (f1-f0)      
+
+
+      IF( abs( dx ) > maxstep ) THEN
+print *,'regulating',dx,maxstep
+
+        dx = SIGN( maxstep, dx )
+      END IF	
+      x2 = x1 - dx 
+    END IF
+
+    Param(j) = x2
+    
+
+print *,'design',no,x2,x1,x0,f1,f0
+
+
+  END SUBROUTINE SecantSearch
 
 
 !--------------------------------------------------------------------------------------
