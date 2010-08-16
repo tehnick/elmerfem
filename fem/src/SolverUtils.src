@@ -3265,7 +3265,7 @@ END FUNCTION SearchNodeL
     LOGICAL :: SteadyState
     INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
-    INTEGER :: n
+    INTEGER :: n, RelaxAfter
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER :: x0(:)
@@ -3281,10 +3281,17 @@ END FUNCTION SearchNodeL
     TYPE(Matrix_t), POINTER :: MMatrix
     REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
 
-    IF(SteadyState) THEN
-	
+    IF(SteadyState) THEN	
       Skip = ListGetLogical( Solver % Values,'Skip Compute Steady State Change',Stat)
       IF( Skip ) RETURN
+
+      ConvergenceType = ListGetString(Solver % Values,&
+          'Steady State Convergence Measure',Stat)
+      IF(.NOT. stat) ConvergenceType = 'norm' 
+      ConvergenceAbsolute = &
+          ListGetLogical(Solver % Values,'Steady State Convergence Absolute',Stat)
+      IF(.NOT. Stat) ConvergenceAbsolute = &
+          ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
 
       Relaxation = ListGetCReal( Solver % Values, &
           'Steady State Relaxation Factor', Relax )
@@ -3294,27 +3301,9 @@ END FUNCTION SearchNodeL
           'Steady State Relaxation Before', Stat )      
           IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
-
-      ConvergenceType = ListGetString(Solver % Values,&
-          'Steady State Convergence Measure',Stat)
-      IF(.NOT. stat) ConvergenceType = 'norm' 
-      ConvergenceAbsolute = &
-          ListGetLogical(Solver % Values,'Steady State Convergence Absolute',Stat)
-      IF(.NOT. Stat) ConvergenceAbsolute = &
-          ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
     ELSE
       Skip = ListGetLogical( Solver % Values,'Skip Compute Nonlinear Change',Stat)
       IF(Skip) RETURN
-
-      Relaxation = ListGetCReal( Solver % Values, &
-          'Nonlinear System Relaxation Factor', Relax )
-
-      Relax = Relax .AND. (Relaxation /= 1.0d0)
-      IF(Relax) THEN
-        RelaxBefore = ListGetLogical( Solver % Values, &
-        'Nonlinear System Relaxation Before', Stat )
-        IF (.NOT. Stat ) RelaxBefore = .TRUE.
-      END IF
 
       ConvergenceType = ListGetString(Solver % Values,&
           'Nonlinear System Convergence Measure',Stat)
@@ -3327,6 +3316,20 @@ END FUNCTION SearchNodeL
       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
       Solver % Variable % NonlinIter = iterV % Values(1)
       iterV % Values(1) = iterV % Values(1) + 1 
+
+      Relaxation = ListGetCReal( Solver % Values, &
+          'Nonlinear System Relaxation Factor', Relax )
+      IF( Relax ) THEN
+        RelaxAfter = ListGetInteger(Solver % Values,'Nonlinear System Relaxation After',Stat)
+        IF( Stat .AND. RelaxAfter >= Solver % Variable % NonlinIter ) Relax = .FALSE.
+      END IF	
+
+      Relax = Relax .AND. (Relaxation /= 1.0d0)
+      IF(Relax) THEN
+        RelaxBefore = ListGetLogical( Solver % Values, &
+        'Nonlinear System Relaxation Before', Stat )
+        IF (.NOT. Stat ) RelaxBefore = .TRUE.
+      END IF
     END IF
 
     IF(PRESENT(values)) THEN
