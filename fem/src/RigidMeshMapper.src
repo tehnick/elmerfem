@@ -39,6 +39,8 @@
 ! *
 ! *****************************************************************************/
 
+
+
 !------------------------------------------------------------------------------
 SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -61,25 +63,28 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-  TYPE(ValueList_t),POINTER :: SolverParams
-  INTEGER :: i,j,k,n,dim,elem,bf_id,prev_bf_id
-  INTEGER, POINTER :: NodeIndexes(:)
+  TYPE(ValueList_t),POINTER :: SolverParams, BC
+  INTEGER :: i,j,k,n,m,t,dim,elem,bf_id,prev_bf_id,istat
+  INTEGER :: NonlinIter, MaxNonlinIter
+  INTEGER, POINTER :: NodeIndexes(:), RelaxPerm(:)
   REAL(KIND=dp), POINTER :: PArray(:,:) => NULL()
   REAL(KIND=dp) :: x0(4), x1(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
-      TrfMatrix(4,4),Identity(4,4), Origin(4),Angles(3),alpha, dCoord
-  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
+      TrfMatrix(4,4),Identity(4,4), Origin(4),Angles(3),alpha, dCoord, Norm, &
+      NonlinTol, dx(3)
+  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime,Coeff
   REAL(KIND=dp), POINTER :: Xorig(:),Yorig(:),Zorig(:),Xnew(:),Ynew(:),Znew(:),&
-      Relax(:)
-  LOGICAL :: Found,GotMatrix,GotRotate,GotTranslate,GotScale,AllocationsDone=.FALSE.,&
-      UseOriginalMesh, Cumulative
+      Relax(:), RelaxField(:),MeshDisplace(:,:)
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+  LOGICAL :: Found,GotMatrix,GotRotate,GotTranslate,GotScale,Visited=.FALSE.,&
+      UseOriginalMesh, Cumulative, GotDisplace, GotRelaxField=.FALSE.
   LOGICAL, POINTER :: NodeDone(:)
   TYPE(Element_t), POINTER :: Element
   TYPE(Nodes_t), SAVE :: Nodes
   TYPE(ValueList_t),POINTER :: BodyForce
 
   
-  SAVE Xorig,Yorig,Zorig,Parray,AllocationsDone
- 
+  SAVE Xorig,Yorig,Zorig,Parray,STIFF,FORCE,MeshDisplace,Visited
+   
   CALL Info( 'RigidMeshMapper','---------------------------------------',Level=4 )
   CALL Info( 'RigidMeshMapper','Performing analytic mesh mapping ',Level=4 )
   CALL Info( 'RigidMeshMapper','---------------------------------------',Level=4 )
@@ -94,22 +99,22 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   Ynew => Solver % Mesh % Nodes % y
   Znew => Solver % Mesh % Nodes % z
   n = SIZE( Xnew )
+  m = Solver % Mesh % MaxElementNodes
 
-  ALLOCATE( NodeDone(n), Relax(Solver % Mesh % MaxElementNodes))
+  ALLOCATE( NodeDone(n), Relax(m), MeshDisplace(3,m) )
   NodeDone = .FALSE.
 
   ! If using original mesh as a reference mesh it must be saved,
   ! otherwise the analytic mapping does not require two meshes
   !------------------------------------------------------------
   IF( UseOriginalMesh ) THEN
-    IF( .NOT. AllocationsDone ) THEN
+    IF( .NOT. Visited ) THEN
       WRITE(Message,* ) 'Allocating new nodes of size: ',n
       CALL Info('RigidMeshMapper',Message)
       ALLOCATE(Xorig(n),Yorig(n),Zorig(n))      
       Xorig = Xnew
       Yorig = Ynew
       Zorig = Znew
-      AllocationsDone = .TRUE.
     END IF
   ELSE
     Xorig => Xnew
@@ -117,25 +122,75 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
     Zorig => Znew
   END IF
 
+
+  IF( .NOT. Visited .AND. ASSOCIATED(Solver % Matrix)) THEN
+    N = Solver % Mesh % MaxElementNodes 
+    ALLOCATE( FORCE(N), STIFF(N,N), STAT=istat )
+
+    ! Implement moving and fixed BCs
+    ! ------------------------------
+    DO i=1,Model % NumberOFBCs
+      BC => Model % BCs(i) % Values
+      IF ( GetLogical(  BC, 'Moving Boundary', Found ) ) THEN
+        CALL ListAddConstReal( BC,Solver % Variable % Name, 1.0_dp )
+      ELSE IF ( GetLogical(  BC, 'Fixed Boundary', Found ) ) THEN
+        CALL ListAddConstReal( BC,Solver % Variable % Name, 0.0_dp )
+      END IF
+    END DO
+
+    GotRelaxField = .TRUE.
+    RelaxField => Solver % Variable % Values
+    RelaxPerm => Solver % Variable % Perm
+  END IF
+
+
+  IF( ASSOCIATED(Solver % Matrix)) THEN
+    CALL Info('RigidMeshMapper','Solving mesh relaxation field using Laplace')
+    
+    MaxNonlinIter = GetInteger( SolverParams,&
+       'Nonlinear System Max Iterations',Found)
+    IF(.NOT. Found) MaxNonlinIter = 1
+    
+    Coeff = GetCReal( SolverParams,'Nonlinear Conductivity Coeffient',Found)
+    NonlinTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',Found)
+
+    DO NonlinIter = 1, MaxNonlinIter
+      CALL DefaultInitialize()
+      
+      DO t=1, GetNOFActive()
+        Element => GetActiveElement(t)
+        n = GetElementNOFNodes()
+        CALL LocalMatrix(  STIFF, FORCE, Element, n )
+        CALL DefaultUpdateEquations( STIFF, FORCE )
+      END DO
+      
+      CALL DefaultFinishAssembly()
+      CALL DefaultDirichletBCs()
+      Norm = DefaultSolve()      
+      
+      IF( Solver % Variable % NonlinChange < NonlinTol ) EXIT
+    END DO
+  END IF
+
+    
   ! Initialize the mapping matrices
   Identity = 0.0d0
   DO i=1,4
     Identity(i,i) = 1.0d0
   END DO
-
+  
   prev_bf_id = -1
   GotRotate = .FALSE.
   GotTranslate = .FALSE.
   GotScale = .FALSE.
   GotMatrix = .FALSE.
-
+  
   at0 = CPUTime()
-  CALL Info('RigidMeshMapper','Starting mesh mapping' ) 
-
+  
   DO elem = 1,Solver % Mesh % NumberOfBulkElements      
     Element => Solver % Mesh % Elements(elem)
     CurrentModel % CurrentElement => Element
-
+    
     NodeIndexes => Element % NodeIndexes
     Model % CurrentElement => Element
     CALL GetElementNodes( Nodes )
@@ -143,18 +198,14 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
     
     bf_id = ListGetInteger( Model % Bodies(Element % BodyId) % Values,'Body Force',Found )
     IF(.NOT. Found) CYCLE
-
+    
     IF( ALL ( NodeDone(NodeIndexes(1:n)) ) ) CYCLE
     BodyForce => Model % BodyForces(bf_id) % Values
-  
-    Relax(1:n) = GetReal( BodyForce,'Mesh Relax',Found)
-    IF(.NOT. Found ) Relax = 1.0_dp
-!    DO i=1,n
-!      Relax(i) = MIN( MAX( Relax(i), 0.0_dp ), 1.0_dp )
-!    END DO
+    
 
+    
     IF( bf_id /= prev_bf_id ) THEN
-
+      
       prev_bf_id = bf_id
       NULLIFY(Parray)
       
@@ -173,30 +224,30 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
         TrsMatrix = Identity
         RotMatrix = Identity
         SclMatrix = Identity
-	Angles = 0.0_dp
-	        
+        Angles = 0.0_dp
+        
         ! Rotations around main axis:
         !---------------------------
-
+        
         Parray => ListGetConstRealArray( BodyForce,'Mesh Rotate', GotRotate )      
         
         IF ( GotRotate ) THEN
           DO i=1,SIZE(Parray,1)
             Angles(1) = Parray(i,1) 
           END DO
-	ELSE 
-	  Angles(1) = ListGetCReal( BodyForce,'Mesh Rotate 1', Found )
-	  IF( Found ) GotRotate = .TRUE.
-	  Angles(2) = ListGetCReal( BodyForce,'Mesh Rotate 2', Found )
-	  IF( Found ) GotRotate = .TRUE.
-	  Angles(3) = ListGetCReal( BodyForce,'Mesh Rotate 3', Found )
-	  IF( Found ) GotRotate = .TRUE.
+        ELSE 
+          Angles(1) = ListGetCReal( BodyForce,'Mesh Rotate 1', Found )
+          IF( Found ) GotRotate = .TRUE.
+          Angles(2) = ListGetCReal( BodyForce,'Mesh Rotate 2', Found )
+          IF( Found ) GotRotate = .TRUE.
+          Angles(3) = ListGetCReal( BodyForce,'Mesh Rotate 3', Found )
+          IF( Found ) GotRotate = .TRUE.
         END IF
-
-	IF( GotRotate ) THEN
+        
+        IF( GotRotate ) THEN
           DO i=1,3
             Alpha = Angles(i) * PI / 180.0_dp
-
+            
             IF( ABS(Alpha) < TINY(Alpha) ) CYCLE
             TrfMatrix = Identity
             
@@ -222,7 +273,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           END DO
         END IF
         
-
+        
         ! Translations:
         !---------------
         Parray => ListGetConstRealArray( BodyForce,'Mesh Translate', GotTranslate )
@@ -247,9 +298,9 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           GotTranslate = .TRUE.
         END IF
         
-!        PRINT *,'Translate',bf_id,GotTranslate,TrsMatrix(1:2,4)
-
-
+        !        PRINT *,'Translate',bf_id,GotTranslate,TrsMatrix(1:2,4)
+        
+        
         ! Scaling:
         !---------
         Parray => ListGetConstRealArray( BodyForce,'Mesh Scale', GotScale )
@@ -281,43 +332,115 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
       END IF
     END IF
 
-    IF(.NOT. GotMatrix ) CYCLE
+    IF( .NOT. GotMatrix ) THEN
+      MeshDisplace(1,1:n) = GetReal( BodyForce,'Mesh Displacement 1',GotDisplace)
+      MeshDisplace(2,1:n) = GetReal( BodyForce,'Mesh Displacement 2',Found)
+      GotDisplace = GotDisplace .OR. Found
+      MeshDisplace(3,1:n) = GetReal( BodyForce,'Mesh Displacement 3',Found)
+      GotDisplace = GotDisplace .OR. Found
+    END IF
+
+    IF(.NOT. (GotMatrix .OR. GotDisplace)) CYCLE
+
+    ! Find the relaxation parameters that may interpolate the displacement between 
+    ! moving and fixed walls.
+    !------------------------------------------------------------------------------
+    Relax(1:n) = GetReal( BodyForce,'Mesh Relax',Found)
+    IF(.NOT. Found) THEN
+      IF( GotRelaxField ) THEN
+        IF( ALL ( RelaxPerm( NodeIndexes(1:n) ) /= 0 ) ) THEN
+          Relax(1:n) = RelaxField( RelaxPerm( NodeIndexes(1:n) ) )
+          Found = .TRUE.
+        END IF
+      END IF
+    END IF
+    IF(.NOT. Found ) Relax = 1.0_dp    
+
 
     DO i=1,n
       j = NodeIndexes(i)
       IF(NodeDone(j)) CYCLE
+      
+      IF( GotMatrix ) THEN        
+        x0(1) = Xorig(j)
+        x0(2) = Yorig(j)
+        x0(3) = Zorig(j)
+        x0(4) = 1.0_dp
+        
+        x1 = MATMUL( TrfMatrix, x0 - Origin ) + Origin
+        dx(1:3) = x1(1:3) / x1(4) - x0(1:3)
+      ELSE
+        dx(1:3) = MeshDisplace(1:3,i)
+      END IF
 
-      x0(1) = Xorig(j)
-      x0(2) = Yorig(j)
-      x0(3) = Zorig(j)
-      x0(4) = 1.0_dp
-
-      x1 = MATMUL( TrfMatrix, x0 - Origin ) + Origin
-      x1(1:3) = x1(1:3) / x1(4)
-
-      x1 = Relax(i) * x1 + (1-Relax(i)) * x0
- 
-!PRINT *,'dx',bf_id,j,x1(1:2)-x0(1:2),x1(4)
-
-      Xnew(j) = x1(1)
-      Ynew(j) = x1(2)
-      Znew(j) = x1(3)
+      Xnew(j) = Relax(i) * dx(1) + Xorig(j)
+      Ynew(j) = Relax(i) * dx(2) + Yorig(j)
+      Znew(j) = Relax(i) * dx(3) + Zorig(j)
 
       NodeDone(j) = .TRUE.
     END DO
 
   END DO
 
+
   WRITE(Message,* ) 'Number of nodes mapped: ',COUNT( NodeDone )
   CALL Info('RigidMeshMapper',Message)
-
+  
   at1 = CPUTime()
   WRITE(Message,* ) 'Coordinate mapping time: ',at1-at0
   CALL Info('RigidMeshMapper',Message)
-
+  
   DEALLOCATE( Relax, NodeDone )
-
+  
   CALL Info('RigidMeshMapper','All done' ) 
+  
+  Visited = .TRUE.
+
+
+CONTAINS
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix(  STIFF, FORCE, Element, n )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
+    INTEGER :: n
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,Grad(3),Cond,LocalRelax(n)
+    LOGICAL :: Stat
+    INTEGER :: i,j,t
+    TYPE(GaussIntegrationPoints_t) :: IP
+    TYPE(Nodes_t) :: Nodes
+    SAVE Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+    STIFF = 0.0d0
+    FORCE = 0.0d0
+    
+    CALL GetScalarLocalSolution( LocalRelax )
+
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints( Element )
+    DO t=1,IP % n
+      ! Basis function values & derivatives at the integration point:
+      !--------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+          IP % W(t),  detJ, Basis, dBasisdx )
+      DO i=1,3
+        Grad(i) = SUM( dBasisdx(:,i) * LocalRelax(1:n) )
+      END DO
+      Cond = 1.0_dp + Coeff * SQRT( SUM( Grad * Grad ) )
+
+      ! Laplace operator
+      !------------------
+      STIFF(1:n,1:n) = Cond * STIFF(1:n,1:n) + IP % s(t) * DetJ * &
+          MATMUL( dBasisdx, TRANSPOSE( dBasisdx ) )
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 END SUBROUTINE RigidMeshMapper
