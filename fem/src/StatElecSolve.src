@@ -67,7 +67,7 @@ SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
         'Surface Charge Density' )
     
     Calculate = ListGetLogical(Params,'Calculate Electric Field',Found)
-    IF(.NOT. Found) Calculate = .TRUE.
+!    IF(.NOT. Found) Calculate = .TRUE.
     IF( Calculate ) THEN
       IF( Dim == 2 ) THEN
         CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
@@ -79,7 +79,7 @@ SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
     END IF
     
     Calculate = ListGetLogical(Params,'Calculate Electric Flux',Found)
-    IF(.NOT. Found) Calculate = .TRUE.
+!    IF(.NOT. Found) Calculate = .TRUE.
     IF( Calculate ) THEN
       IF( Dim == 2 ) THEN
         CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
@@ -263,11 +263,11 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     
     CalculateField = ListGetLogical( Solver % Values, &
         'Calculate Electric Field', GotIt )
-    IF ( .NOT. GotIt )  CalculateField = .TRUE.
+!    IF ( .NOT. GotIt )  CalculateField = .TRUE.
     
     CalculateFlux = ListGetLogical( Solver % Values, &
         'Calculate Electric Flux', GotIt )
-    IF ( .NOT. GotIt )  CalculateFlux = .TRUE.
+!    IF ( .NOT. GotIt )  CalculateFlux = .TRUE.
     
     CalculateEnergy = ListGetLogical( Solver % Values, &
         'Calculate Electric Energy', GotIt )
@@ -291,7 +291,15 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     IF(CalculateCapMatrix) THEN
       SaveBulk = .TRUE.
       ConstantBulk = .TRUE.
-      CapBodies = ListGetInteger( Solver % Values, 'Capacitance Bodies')
+      CapBodies = ListGetInteger( Solver % Values, 'Capacitance Bodies',GotIt)
+      IF(.NOT. GotIt) THEN
+        DO i = 1, Model % NumberOfBCs
+          j = ListGetInteger( Model % BCs(i) % Values, &
+            'Capacitance Body', GotIt )
+          IF( j > CapBodies ) CapBodies = j
+        END DO
+      END IF	
+
       CapMatrixFile = ListGetString(Solver % Values,'Capacitance Matrix Filename',GotIt )
       IF(.NOT. GotIt) CapMatrixFile = 'cmatrix.dat'
       
