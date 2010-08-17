@@ -6,5 +6,5 @@ run:
 
 
 clean:
-	/bin/rm test.log temp.log mon.out
+	/bin/rm test.log temp.log mon.out cmatrix.dat
 	/bin/rm -r plates
