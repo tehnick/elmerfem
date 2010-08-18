@@ -5584,7 +5584,7 @@ CONTAINS
     END IF
     Normal = Normal / SQRT( SUM( Normal ** 2) )
 
-    CALL LocalTangentDirections( Normal,Tangent1,Tangent2 )
+    CALL TangentDirections( Normal,Tangent1,Tangent2 )
     
 
     IF( .FALSE. ) THEN
@@ -5598,7 +5598,7 @@ CONTAINS
     IF( GotIt ) THEN
       Divisions = Iarray(1:3)
     ELSE
-      clustersize = ListGetInteger( Solver % Values,'Cluster Size',GotIt)
+      clustersize = ListGetInteger( Solver % Values,'MG Cluster Size',GotIt)
       IF( GotIt ) THEN
         IF( dim == 2 ) THEN
           Divisions(1) = ( nsize / clustersize ) ** 0.5
@@ -5750,39 +5750,6 @@ CONTAINS
     
     DEALLOCATE(Order,Arrange,NoPart)
 
-    
-  CONTAINS
-    
-
-!------------------------------------------------------------------------------
-    SUBROUTINE LocalTangentDirections( Normal,Tangent1,Tangent2 )
-!------------------------------------------------------------------------------
-      REAL(KIND=dp) :: Normal(3),Tangent1(3),Tangent2(3)
-!------------------------------------------------------------------------------
-      REAL(KIND=dp) :: n1,n2,n3
-!------------------------------------------------------------------------------
-      n1 = ABS(Normal(1))
-      n2 = ABS(Normal(2))
-      n3 = ABS(Normal(3))
-      
-      IF ( n1 <= n3 .AND. n2 <= n3 ) THEN
-        Tangent1(1) =  0.0_dp
-        Tangent1(2) = -Normal(3)
-        Tangent1(3) =  Normal(2)
-      ELSE
-        Tangent1(1) = -Normal(2)
-        Tangent1(2) =  Normal(1)
-        Tangent1(3) =  0.0_dp
-      END IF
-      
-      Tangent1 = Tangent1 / SQRT(SUM(Tangent1**2))
-      Tangent2(1) = Normal(2)*Tangent1(3) - Normal(3)*Tangent1(2)
-      Tangent2(2) = Normal(3)*Tangent1(1) - Normal(1)*Tangent1(3)
-      Tangent2(3) = Normal(1)*Tangent1(2) - Normal(2)*Tangent1(1)
-      Tangent2 = Tangent2 / SQRT(SUM(Tangent2**2))
-!------------------------------------------------------------------------------
-    END SUBROUTINE LocalTangentDirections
-!------------------------------------------------------------------------------
 
   END SUBROUTINE ClusterNodesByDirection
 
