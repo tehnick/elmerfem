@@ -1,5 +1,6 @@
 MODULE ClusteringMethods
-
+  
+  USE Lists
   USE CRSMatrix
 
 CONTAINS
@@ -10,6 +11,7 @@ CONTAINS
 
   SUBROUTINE ChooseClusterNodes(Amat, Solver, Components, EliminateDir, CF)
     
+    USE ModelDescription
     USE MeshUtils
 
     TYPE(Matrix_t), POINTER  :: Amat
@@ -18,7 +20,7 @@ CONTAINS
     LOGICAL :: EliminateDir
     INTEGER, POINTER :: CF(:)
 
-    INTEGER :: matsize, nodesize, Component1, method
+    INTEGER :: matsize, nodesize, Component1
     LOGICAL, POINTER :: Bonds(:), Fixed(:)
     INTEGER, POINTER :: Cols(:),Rows(:)
     LOGICAL :: GotIt
@@ -26,46 +28,52 @@ CONTAINS
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER, POINTER :: MaskPerm(:)
-    
+    CHARACTER(LEN=MAX_NAME_LEN) :: ClusterMethod 
 
-    method = ListGetInteger( Solver % Values,'Clustering Method',GotIt)
+    ClusterMethod = ListGetString( Solver % Values,'MG Cluster Method',GotIt)
+    IF(.NOT. GotIt ) ClusterMethod = 'default'
 
-    IF(method == 0) THEN
+    SELECT CASE ( ClusterMethod ) 
+      
+    CASE( 'geometric' )      
+      CALL Info('ChooseClusterNodes','Using geometric clustering')
+      PSolver => Solver
+      Mesh => Solver % Mesh 
+      MaskPerm => Solver % Variable % Perm
+      IF( Amat % NumberOfRows /= Components * Mesh % NumberOfNodes ) THEN
+        CALL Fatal('ChoosClusterNodes','Mismatch in dimensions, geometric clustering works only for two levels!')
+      END IF
+      CALL ClusterNodesByDirection(PSolver,Mesh,CF,MaskPerm)
+      
+    CASE( 'unextrude' )
+      CALL Info('ChooseClusterNodes','Using dimensional reduction of extruded meshes for clustering')
+      Mesh => Solver % Mesh 
+      MaskPerm => Solver % Variable % Perm
+      IF( Amat % NumberOfRows /= Components * Mesh % NumberOfNodes ) THEN
+        CALL Fatal('ChoosClusterNodes','Mismatch in dimensions, extruded clustering works only for two levels!')
+      END IF
+      CALL ClusterExtrudedMesh()
+
+    CASE DEFAULT
+      CALL Info('ChooseClusterNodes','Using clustering based on matrix connections')       
       Component1 = 1
       IF(Components > 1) THEN
         Component1 = ListGetInteger(Solver % Values,'MG Determining Component',&
             GotIt,minv=1,maxv=Components)
         IF(.NOT. GotIt) Component1 = 1
       END IF
-
+      
       Rows => Amat % Rows
       Cols => Amat % Cols
       matsize = Amat % NumberOfRows
       nodesize = matsize / Components
       ALLOCATE( Bonds(SIZE(Amat % Cols)), Fixed(nodesize), CF(nodesize) )
-
+      
       CALL CMGBonds(Amat, Bonds, Fixed, Components,Component1)      
       CALL CMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
       DEALLOCATE(Bonds, Fixed)
-    ELSE IF(method == 1) THEN
-      PSolver => Solver
-      Mesh => Solver % Mesh 
-      MaskPerm => Solver % Variable % Perm
-      IF( Amat % NumberOfRows /= Components * Mesh % NumberOfNodes ) THEN
-        CALL Fatal('ChoosClusterNodes','Mismatch in dimensions, method 1 is suited only for two levels!')
-      END IF
-      CALL ClusterNodesByDirection(PSolver,Mesh,CF,MaskPerm)
-    ELSE IF(method == 2) THEN
-      Mesh => Solver % Mesh 
-      MaskPerm => Solver % Variable % Perm
-      IF( Amat % NumberOfRows /= Components * Mesh % NumberOfNodes ) THEN
-        CALL Fatal('ChoosClusterNodes','Mismatch in dimensions, method 2 is suited only for two levels!')
-      END IF      
-      CALL ClusterExtrudedMesh()
-    ELSE
-      CALL Fatal('ChooseClusterNodes','Unknown clustering method')
-    END IF
 
+    END SELECT
 
     IF(.FALSE.) CALL Info('ChooseClusterNodes','Clusters chosen')
 

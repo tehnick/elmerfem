@@ -5622,10 +5622,7 @@ CONTAINS
       Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon',GotIt)
       IF(.NOT. GotIt) Epsilon = SQRT(TINY(Epsilon))
 
-      Normalize = ListGetLogical( Solver % Values,'MG Matrix Enforce Zero Rowsum',GotIt )
-      IF( Normalize ) CALL Info('CRS_ClusterMatrixCreate','Enforcing rowsum to zero')
-
-
+ 
       ! Order the dofs in the order of the clusters
       Sizes = 0
       DO i=1,NnodA
@@ -5659,6 +5656,17 @@ CONTAINS
       B % RHS = 0.0d0
       B % Diag = 0
       B % Rows(1) = 1
+
+
+      IF(.FALSE.) THEN
+        PRINT *,'Initial Matrix'
+        DO i=1,NnodA
+          PRINT *,'i',i
+          DO j=A % Rows(i),A % Rows(i+1)-1          
+            PRINT *,'j',A % Cols(j),A % Values(j)
+          END DO
+        END DO
+      END IF
 
 
 
@@ -5781,14 +5789,26 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
         GOTO 10 
       END IF
 
-      IF( Normalize ) THEN
+      IF(.FALSE.) THEN
+        PRINT *,'Created Matrix'
+        DO i=1,NB
+          PRINT *,'i',i
+          DO j=B % Rows(i),B % Rows(i+1)-1          
+            PRINT *,'j',B % Cols(j),B % Values(j)
+          END DO
+        END DO
+      END IF
 
-PRINT *,'Normalizing',B % NumberOfRows
+      Normalize = ListGetLogical( Solver % Values,'MG Matrix Enforce Zero Rowsum',GotIt )
+      IF( Normalize ) THEN
+        CALL Info('CRS_ClusterMatrixCreate','Enforcing rowsum to zero')
+
         DO j = 1, B % NumberOfRows
           rowsum = 0.0_dp
           DO i = B % Rows(j),B % Rows(j+1)-1
             rowsum = rowsum + B % Values( i ) 
           END DO
+
           k = B % Diag(j)
           IF( ABS( rowsum - B % Values(k) ) < 1.0e-3 * ABS( rowsum ) ) THEN
             PRINT *,'Dirichlet node:',j
