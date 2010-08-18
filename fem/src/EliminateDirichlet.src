@@ -90,9 +90,9 @@
 
   TYPE(Matrix_t), POINTER :: Bmatrix, Cmatrix, SaveMatrix
   REAL(KIND=dp), POINTER :: F(:), U(:)
-  REAL(KIND=dp) ::  CPUtime, TotTime, at,s,r
+  REAL(KIND=dp) ::  CPUtime, TotTime, LinTime, at,s,r
 
-  LOGICAL :: stat, GotIt, EigAnal
+  LOGICAL :: stat, GotIt, EigAnal, DoChange
 
   INTEGER :: istat, ii, i, j, k, l, m, t, Dirichlet, Level = 0, DOF, zz
   INTEGER, POINTER :: Permutation(:), DCount(:), PermSave(:)
@@ -105,7 +105,7 @@
 
 !------------------------------------------------------------------------------
 
-  TotTime = CPUtime()
+   TotTime = CPUtime()
 
 !------------------------------------------------------------------------------
    BMatrix => A % EMatrix
@@ -374,9 +374,18 @@ if ( .not. add ) zz=zz+1
 
 
   at = CPUtime()
+
+! Eliminate calling of ComputeChange since the it is better to make it for the original system matrix
+!----------------------------------------------------------------------------------------------
+  DoChange = ListGetLogical( Solver % Values,'Skip Compute Nonlinear Change',GotIt)
+  CALL ListAddLogical( Solver % Values,'Skip Compute Nonlinear Change',.TRUE.)
+
   CALL SolveLinearSystem( Bmatrix, F, U, Norm, DOFs, Solver )
-  at = CPUtime() - at
-  WRITE( Message, * ) 'Time used in SolveLinearSystem (CPU): ', at
+
+  CALL ListAddLogical( Solver % Values,'Skip Compute Nonlinear Change',DoChange)
+
+  LinTime = CPUtime() - at
+  WRITE( Message, * ) 'Time used in SolveLinearSystem (CPU): ', LinTime
   CALL Info( 'Dirichlet', Message, Level=5 )
 
   IF ( ParEnv % PEs > 1 ) THEN
@@ -440,10 +449,16 @@ if ( .not. add ) zz=zz+1
 ! CALL FreeMatrix( Bmatrix )
   DEALLOCATE( U )
 
-  TotTime = CPUtime() - TotTime
+  at = CPUTime()
 
-  WRITE( Message, * ) 'Total time spent in DirichletReduction (CPU): ', TotTime
-  CALL Info( 'Dirichlet', ' ', Level=5 )
+  CALL ComputeChange(Solver, .FALSE.)
+  LinTime = LinTime + CPUTime() - at   
+  TotTime = CPUTime(Solver,.FALSE.) - TotTime
+
+
+  WRITE( Message, * ) 'Total time spent in DirichletReduction (CPU): ', TotTime 
+  CALL Info( 'Dirichlet', Message, Level=5 )
+  WRITE( Message, * ) 'Additional time spent in DirichletReduction (CPU): ', TotTime - LinTime
   CALL Info( 'Dirichlet', Message, Level=5 )
   CALL Info( 'Dirichlet', ' ', Level=5 )
 
