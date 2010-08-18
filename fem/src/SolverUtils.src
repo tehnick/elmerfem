@@ -3352,10 +3352,10 @@ END FUNCTION SearchNodeL
     IF(PRESENT(nsize)) THEN
       n = nsize
     ELSE
-      n = SIZE(x)
+      n = SIZE( x )
     END IF
 
-    IF(Relax .OR. ConvergenceType /= 'norm') THEN
+    IF(Relax .OR. ConvergenceType == 'residual' .OR. ConvergenceType == 'solution') THEN
       IF(PRESENT(values0)) THEN
         x0 => values0
       ELSE IF(SteadyState) THEN
@@ -3781,7 +3781,8 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis,NeedSol
+    LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis
+!NeedSol
     INTEGER :: n,i,j,k,l,istat
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
@@ -3976,28 +3977,28 @@ END FUNCTION SearchNodeL
        RETURN
      END IF
 
-    Relaxation = ListGetConstReal( Solver % Values, &
-      'Nonlinear System Relaxation Factor', Relax )
-    Relax = Relax .AND. (Relaxation /= 1.0d0)
+!    Relaxation = ListGetConstReal( Solver % Values, &
+!      'Nonlinear System Relaxation Factor', Relax )
+!    Relax = Relax .AND. (Relaxation /= 1.0d0)
 
-    NeedSol = ( ListGetString( Solver % Values, &
-        'Nonlinear System Convergence Measure', GotIt ) /= 'norm')  
-    NeedSol = NeedSol .AND. GotIt
+!    Method = ListGetString( Solver % Values, &
+!        'Nonlinear System Convergence Measure', GotIt ) 
+!    NeedSol = ( Method == 'residual' .OR. Method == 'solution' )
 
-    IF ( Relax .OR. NeedSol ) THEN
-      Stat = ASSOCIATED(Solver % Variable % NonlinValues)
-      IF( Stat ) THEN
-        IF ( SIZE(Solver % Variable % NonlinValues) /= n) THEN
-          DEALLOCATE(Solver % Variable % NonlinValues)
-          Stat = .FALSE.
-        END IF
-      END IF
-      IF(.NOT. Stat) THEN
-        ALLOCATE( Solver % Variable % NonlinValues(n), STAT=istat ) 
-        IF ( istat /= 0 ) CALL Fatal( 'SolveSystem', 'Memory allocation error.' )
-      END IF
-      Solver % Variable % NonlinValues = x(1:n)
-    END IF
+!    IF ( Relax .OR. NeedSol ) THEN
+!      Stat = ASSOCIATED(Solver % Variable % NonlinValues)
+!      IF( Stat ) THEN
+!        IF ( SIZE(Solver % Variable % NonlinValues) /= n) THEN
+!          DEALLOCATE(Solver % Variable % NonlinValues)
+!          Stat = .FALSE.
+!        END IF
+!      END IF
+!      IF(.NOT. Stat) THEN
+!        ALLOCATE( Solver % Variable % NonlinValues(n), STAT=istat ) 
+!        IF ( istat /= 0 ) CALL Fatal( 'SolveSystem', 'Memory allocation error.' )
+!      END IF
+!      Solver % Variable % NonlinValues = x(1:n)
+!    END IF
 
 !------------------------------------------------------------------------------
 !  These definitions are needed if chanching the iterative solver on-the-fly
@@ -4252,7 +4253,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
-    LOGICAL :: Relax, Found, ConstrainedSolve
+    LOGICAL :: Relax, Found, ConstrainedSolve, NeedPrevSol
     INTEGER :: n,i,j,k,l,istat,nrows,ncols
     TYPE(Matrix_t), POINTER :: SaveMatrix, Atmp, Btmp
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
@@ -4279,6 +4280,38 @@ END FUNCTION SearchNodeL
     END IF
 
     n = A % NumberOfRows
+
+
+!------------------------------------------------------------------------------
+! The allocation of previous values has to be here in order to 
+! work properly with the Dirichlet elimination.
+!------------------------------------------------------------------------------
+    Relaxation = ListGetConstReal( Solver % Values, &
+      'Nonlinear System Relaxation Factor', Found )
+    NeedPrevSol = Found .AND. (Relaxation /= 1.0d0)
+
+    IF(.NOT. NeedPrevSol ) THEN
+      Method = ListGetString( Solver % Values, &
+        'Nonlinear System Convergence Measure', Found ) 
+      NeedPrevSol = ( Method == 'residual' .OR. Method == 'solution' )
+    END IF
+
+    IF( NeedPrevSol ) THEN
+      Found = ASSOCIATED(Solver % Variable % NonlinValues)
+      IF( Found ) THEN
+        IF ( SIZE(Solver % Variable % NonlinValues) /= n) THEN
+          DEALLOCATE(Solver % Variable % NonlinValues)
+          Found = .FALSE.
+        END IF
+      END IF
+      IF(.NOT. Found) THEN
+        ALLOCATE( Solver % Variable % NonlinValues(n), STAT=istat ) 
+        IF ( istat /= 0 ) CALL Fatal( 'SolveSystem', 'Memory allocation error.' )
+      END IF
+      Solver % Variable % NonlinValues = x(1:n)
+    END IF
+
+
 
     IF ( Solver % LinBeforeProc /= 0 ) THEN
        istat = ExecLinSolveProcs( Solver % LinBeforeProc,CurrentModel,Solver, &
