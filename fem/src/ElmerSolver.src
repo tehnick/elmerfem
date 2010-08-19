@@ -770,7 +770,15 @@
                  str = ListGetString( Solver % Values, 'Namespace', Found )
                  IF (Found) CALL ListSetNamespace(TRIM(str))
 
-                 IF ( Var % DOFs <= 1 ) THEN
+
+! Note: this is for global variables but it is not fully generic yet 
+                 IF( SIZE( Var % Values ) == Var % DOFs ) THEN
+
+                    Var % Values = ListGetCReal( CurrentModel % ICs(j) % Values, &
+                             Var % Name, GotIt )
+
+
+                 ELSE IF ( Var % DOFs <= 1 ) THEN
                     Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
                            Var % Name, GotIt )
                     IF ( GotIt ) THEN

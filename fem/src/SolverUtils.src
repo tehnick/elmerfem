@@ -4583,7 +4583,7 @@ SUBROUTINE UpdateExportedVariables( Solver )
   CHARACTER(LEN=MAX_NAME_LEN) :: str, var_name,tmpname,condname
   REAL(KIND=dp), POINTER :: Values(:), Solution(:), LocalSol(:), LocalCond(:)
   INTEGER, POINTER :: Indexes(:), Perm(:)
-  LOGICAL :: Found, AllocationsDone, Conditional, GotIt
+  LOGICAL :: Found, AllocationsDone, Conditional, GotIt, StateVariable
   LOGICAL, POINTER :: ActivePart(:),ActiveCond(:)
   TYPE(Variable_t), POINTER :: ExpVariable
   TYPE(ValueList_t), POINTER :: ValueList
@@ -4626,6 +4626,28 @@ SUBROUTINE UpdateExportedVariables( Solver )
     Values => ExpVariable % Values
     Perm => ExpVariable % Perm
     n = LEN_TRIM( var_name )
+
+    StateVariable = ( SIZE( Values ) == DOFs )
+    IF( StateVariable ) THEN
+      IF( Dofs > 1 ) THEN
+        tmpname = ComponentName( var_name(1:n), j )
+        Solution => Values( j:j )
+      ELSE
+        tmpname = var_name(1:n)
+        Solution => Values
+      END IF
+ 
+      DO bf_id=1,CurrentModel % NumberOFBodyForces
+        IF( ListCheckPresent( &
+            CurrentModel % BodyForces(bf_id) % Values,TmpName ) ) THEN
+          CALL Info('UpdateExportedVariables','Found a proper definition for state variable')
+          Solution = ListGetCReal( CurrentModel % BodyForces(bf_id) % Values,TmpName)
+          EXIT
+        END IF
+      END DO
+      CYCLE
+    END IF	
+
     
     DO j=1,DOFs
       
@@ -4657,6 +4679,7 @@ SUBROUTINE UpdateExportedVariables( Solver )
       IF ( .NOT. ANY( ActivePart ) ) CYCLE
 
       CALL Info('UpdateExportedVariables','Found a proper definition in body forces')
+
 
       DO t = 1, Solver % NumberOfActiveElements 
         Element => CurrentModel % Elements(Solver % ActiveElements(t) )
