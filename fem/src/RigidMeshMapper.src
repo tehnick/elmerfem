@@ -281,24 +281,23 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           DO i=1,SIZE(Parray,1)
             TrsMatrix(i,4) = Parray(i,1)
           END DO
-        END IF
-        dCoord = ListGetCReal( BodyForce,'Mesh Translate 1', Found) 
-        IF( Found ) THEN
-          TrsMatrix(1,4) = dCoord
-          GotTranslate = .TRUE.
-        END IF
-        dCoord = ListGetCReal( BodyForce,'Mesh Translate 2', Found) 
-        IF( Found ) THEN
-          TrsMatrix(2,4) = dCoord
-          GotTranslate = .TRUE.
-        END IF
-        dCoord = ListGetCReal( BodyForce,'Mesh Translate 3', Found) 
-        IF( Found ) THEN
-          TrsMatrix(3,4) = dCoord
-          GotTranslate = .TRUE.
-        END IF
-        
-        !        PRINT *,'Translate',bf_id,GotTranslate,TrsMatrix(1:2,4)
+        ELSE 
+          dCoord = ListGetCReal( BodyForce,'Mesh Translate 1', Found) 
+          IF( Found ) THEN
+            TrsMatrix(1,4) = dCoord
+            GotTranslate = .TRUE.
+          END IF
+          dCoord = ListGetCReal( BodyForce,'Mesh Translate 2', Found) 
+          IF( Found ) THEN
+            TrsMatrix(2,4) = dCoord
+            GotTranslate = .TRUE.
+          END IF
+          dCoord = ListGetCReal( BodyForce,'Mesh Translate 3', Found) 
+          IF( Found ) THEN
+            TrsMatrix(3,4) = dCoord
+            GotTranslate = .TRUE.
+          END IF
+        END IF        
         
         
         ! Scaling:
@@ -308,19 +307,39 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           DO i=1,SIZE(Parray,1)
             SclMatrix(i,i) = Parray(i,1)
           END DO
-        END IF
+        ELSE 
+          dCoord = ListGetCReal( BodyForce,'Mesh Scale 1', Found) 
+          IF( Found ) THEN
+            SclMatrix(1,1) = dCoord
+            GotScale = .TRUE.
+          END IF
+          dCoord = ListGetCReal( BodyForce,'Mesh Scale 2', Found) 
+          IF( Found ) THEN
+            SclMatrix(2,2) = dCoord
+            GotScale = .TRUE.
+          END IF
+          dCoord = ListGetCReal( BodyForce,'Mesh Scale 3', Found) 
+          IF( Found ) THEN
+            SclMatrix(3,3) = dCoord
+            GotScale = .TRUE.
+          END IF
+        END IF 
+
         
         GotMatrix = GotRotate .OR. GotTranslate .OR. GotScale
         IF(GotMatrix) THEN
           ! Origin:
           !---------
+          Origin = 0.0_dp
           Parray => ListGetConstRealArray( BodyForce,'Mesh Origin', Found )
           IF ( Found ) THEN
             DO i=1,SIZE(Parray,1)
               Origin(i) = Parray(i,1)
             END DO
-          ELSE 
-            Origin = 0.0_dp
+          ELSE
+            Origin(1) = ListGetCReal( BodyForce,'Mesh Origin 1', Found) 
+            Origin(2) = ListGetCReal( BodyForce,'Mesh Origin 1', Found) 
+            Origin(3) = ListGetCReal( BodyForce,'Mesh Origin 1', Found) 
           END IF
           
           TrfMatrix = MATMUL( TrsMatrix, RotMatrix )
@@ -355,7 +374,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
       END IF
     END IF
     IF(.NOT. Found ) Relax = 1.0_dp    
-
+ 
 
     DO i=1,n
       j = NodeIndexes(i)
