@@ -43,6 +43,7 @@
 #include <string.h>
 #include <math.h>
 #include "helpers.h"
+#include <QMatrix4x4>
 
 Helpers :: Helpers()
 {
@@ -91,49 +92,14 @@ void Helpers::crossProduct(double *a, double *b, double *c)
 //====================================================================
 void Helpers::invertMatrix(const double *a, double *inva)
 {
-#define ENTRY(A, i, j) (A)[4*(i)+(j)]
+  QMatrix4x4 matrix(a);
 
-  int i, j, k;
-  double c[4][8];
-  double cik, ckk;
-  
-  // Initialize:
-  //-------------
-  for(i = 0; i < 4; i++) {
-    for(j = 0; j < 4; j++) {
-      c[i][j] = ENTRY(a, i, j);
-      c[i][j+4] = 0.0;
-    }
+  bool ok(true);
 
-    c[i][i+4] = 1.0;
-  }
+  QMatrix4x4 inverse(matrix.transposed().inverted(&ok));
 
-  // Eliminate:
-  //------------
-  for(k = 0; k < 4; k++) {
-    ckk = c[k][k];
+  if(!ok) fprintf(stderr, "Error: Singular 4x4 matrix\n");
 
-    if(ckk == 0.0) return;
-
-    for(j = 0; j < 8; j++)
-      c[k][j] /= ckk;
-
-    for(i = 0; i < 4; i++) {
-      if(i == k) continue;
-
-      cik = c[i][k];
-
-      for(j = 0; j < 8; j++)
-	c[i][j] -= cik * c[k][j];
-    }
-  }
-
-  // Result:
-  //---------
-  for(i = 0; i < 4; i++) {
-    for(j = 0; j < 4; j++)
-      ENTRY(inva, i, j) = c[i][j+4];
-  }
-
-#undef ENTRY
+  for(int i = 0; i < 16; ++i)
+    inva[i] = double(inverse.data()[i]);
 }
