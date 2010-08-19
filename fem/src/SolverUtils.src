@@ -1576,7 +1576,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-! Set dirichlet boundary condition for given dof
+! At fisrt pass sum together the rows related to the periodic dofs.
 !
 ! TYPE(Model_t) :: Model
 !   INPUT: the current model structure
@@ -1613,25 +1613,56 @@ CONTAINS
     LOGICAL :: GotIt, Found
     REAL(KIND=dp) :: Scale
     TYPE(Matrix_t), POINTER :: A, B, Projector, Projector1
+    TYPE(Variable_t), POINTER :: Var
 !------------------------------------------------------------------------------
 
     nlen = LEN_TRIM(Name)
 
-    Scale = -1.0d0
-    IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
+    IF ( ListGetLogical( Model % BCs(This) % Values, &
        'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
-       IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
-          'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) RETURN
-       Scale = 1.0d0
+      Scale = -1.0_dp
+    ELSE IF ( ListGetLogical( Model % BCs(This) % Values, &
+        'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
+      Scale = 1.0d0
+    ELSE 
+      Scale = ListGetConstReal( Model % BCs(This) % Values, &
+          'Periodic BC Scale ' // Name(1:nlen), GotIt) 
+      IF(.NOT. GotIt ) RETURN      
     END IF
 
     Projector => Model % BCs(This) % PMatrix
     IF ( .NOT. ASSOCIATED(Projector) ) RETURN
 
-!
-!   Do the assembly of the projector:
+!   For explicit conditions just create the dependency almost like a normal Dirichlet BC, 
+!   For implicit one (otherwise) do the assembly of the projector:
 !   ---------------------------------
     IF ( ListGetLogical( Model % BCs(This) % Values,  &
+        'Periodic BC Explicit', Found ) ) THEN
+
+      Var => VariableGet( Model % Variables,Name(1:nlen) ) 
+
+      DO i=1,Projector % NumberOfRows
+        ii = Projector % InvPerm(i)
+        k = Perm(ii)
+        IF ( .NOT. Done(ii) .AND. k>0 ) THEN
+          k = NDOFs * (k-1) + DOF
+          CALL ZeroRow( StiffMatrix,k )
+          CALL AddToMatrixElement( StiffMatrix, k, k, 1.0_dp )
+          ForceVector(k) = 0.0_dp
+
+          DO l = Projector % Rows(i), Projector % Rows(i+1)-1
+            IF ( Projector % Cols(l) <= 0 ) CYCLE
+            m = Perm( Projector % Cols(l) )
+            IF ( m > 0 ) THEN
+              m = NDOFs * (m-1) + DOF
+              ForceVector(k) = ForceVector(k) - Scale * Projector % Values(l) * &
+                  Var % Values( m  )
+             END IF
+          END DO
+        END IF
+      END DO
+
+    ELSE IF ( ListGetLogical( Model % BCs(This) % Values,  &
          'Periodic BC Use Lagrange Coefficient', Found ) ) THEN
 
       B => NULL()
@@ -1743,7 +1774,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-! Set dirichlet boundary condition for given dof
+! At second pass add the [...1 .. -1 ...] row structure that results to the 
+! equality of the periodic dofs. 
 !
 ! TYPE(Model_t) :: Model
 !   INPUT: the current model structure
@@ -1784,19 +1816,27 @@ CONTAINS
 
     nlen = LEN_TRIM(Name)
 
-    Scale = -1.0d0
-    IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
+    IF ( ListGetLogical( Model % BCs(This) % Values, &
        'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
-       IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
-          'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) RETURN
-       Scale = 1.0d0
+      Scale = -1.0_dp
+    ELSE IF ( ListGetLogical( Model % BCs(This) % Values, &
+        'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
+      Scale = 1.0d0
+    ELSE 
+      Scale = ListGetConstReal( Model % BCs(This) % Values, &
+          'Periodic BC Scale ' // Name(1:nlen), GotIt) 
+      IF(.NOT. GotIt ) RETURN      
     END IF
+
 
     Projector => Model % BCs(This) % PMatrix
     IF ( .NOT. ASSOCIATED(Projector) ) RETURN
 !
     IF ( ListGetLogical( Model % BCs(This) % Values,  &
          'Periodic BC Use Lagrange Coefficient', GotIt ) ) RETURN
+
+    IF ( ListGetLogical( Model % BCs(This) % Values,  &
+         'Periodic BC Explicit', GotIt ) ) RETURN
 
 !   Do the assembly of the projector:
 !   ---------------------------------
@@ -3296,10 +3336,17 @@ END FUNCTION SearchNodeL
       Relaxation = ListGetCReal( Solver % Values, &
           'Steady State Relaxation Factor', Relax )
       Relax = Relax .AND. (Relaxation /= 1.0d0)
+
+      IF( Relax ) THEN
+        iterV => VariableGet( Solver % Mesh % Variables, 'coupled iter' )
+        RelaxAfter = ListGetInteger(Solver % Values,'Steady State Relaxation After',Stat)
+        IF( Stat .AND. RelaxAfter >= iterV % Values(1) ) Relax = .FALSE.
+      END IF	
+
       IF(Relax) THEN
-         RelaxBefore = ListGetLogical( Solver % Values, &
-          'Steady State Relaxation Before', Stat )      
-          IF (.NOT. Stat ) RelaxBefore = .TRUE.
+        RelaxBefore = ListGetLogical( Solver % Values, &
+            'Steady State Relaxation Before', Stat )      
+        IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
     ELSE
       Skip = ListGetLogical( Solver % Values,'Skip Compute Nonlinear Change',Stat)
@@ -3319,15 +3366,15 @@ END FUNCTION SearchNodeL
 
       Relaxation = ListGetCReal( Solver % Values, &
           'Nonlinear System Relaxation Factor', Relax )
+      Relax = Relax .AND. (Relaxation /= 1.0d0)
       IF( Relax ) THEN
         RelaxAfter = ListGetInteger(Solver % Values,'Nonlinear System Relaxation After',Stat)
         IF( Stat .AND. RelaxAfter >= Solver % Variable % NonlinIter ) Relax = .FALSE.
       END IF	
 
-      Relax = Relax .AND. (Relaxation /= 1.0d0)
       IF(Relax) THEN
         RelaxBefore = ListGetLogical( Solver % Values, &
-        'Nonlinear System Relaxation Before', Stat )
+            'Nonlinear System Relaxation Before', Stat )
         IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
     END IF
@@ -3350,7 +3397,7 @@ END FUNCTION SearchNodeL
 
 
     IF(PRESENT(nsize)) THEN
-      n = nsize
+      n = nsize 
     ELSE
       n = SIZE( x )
     END IF
