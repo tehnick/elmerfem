@@ -303,6 +303,7 @@ SUBROUTINE WhitneyAVSolver_Init0(Model,Solver,dt,Transient)
   REAL(KIND=dp) :: dt
   LOGICAL :: Transient
 !------------------------------------------------------------------------------
+  LOGICAL :: Found
   TYPE(ValueList_t), POINTER :: SolverParams
 
   SolverParams => GetSolverParams()
@@ -310,7 +311,11 @@ SUBROUTINE WhitneyAVSolver_Init0(Model,Solver,dt,Transient)
     IF ( Transient ) THEN
       CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
     ELSE
-      CALL ListAddString( SolverParams, "Element", "n:0 e:1" )
+      IF ( GetLogical( SolverParams, "Fix Input Current Density", Found ) ) THEN
+        CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
+      ELSE
+        CALL ListAddString( SolverParams, "Element", "n:0 e:1" )
+      END IF
     ENDIF
   END IF
 !------------------------------------------------------------------------------
@@ -373,7 +378,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   INTEGER, ALLOCATABLE, SAVE :: FluxMap(:)
   LOGICAL, ALLOCATABLE, SAVE :: TreeEdges(:)
   LOGICAL :: Stat, EigenAnalysis, TG, DoneAssembly=.FALSE., &
-         SkipAssembly, ConstantSystem, ConstantBulk
+         SkipAssembly, ConstantSystem, ConstantBulk, FixJ
 
   TYPE(Variable_t), POINTER :: Var
   TYPE(Matrix_t), POINTER :: A
@@ -405,6 +410,8 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
        'Constant Bulk System', Found )
 
   SkipAssembly = DoneAssembly.AND.(ConstantBulk.OR.ConstantSystem)
+
+  FixJ = GetLogical( GetSolverParams(), 'Fix Input Current Density', Found )
 
   !System assembly:
   !----------------
@@ -971,6 +978,20 @@ CONTAINS
                  SUM(WBasis(j,:)*dBasisdx(i,:))*detJ*IP % s(t)
            END DO
          END DO
+       ELSE IF ( FixJ ) THEN
+         DO i=1,np
+           p = i
+           DO j=1,np
+             q = j
+             STIFF(p,q) = STIFF(p,q) + &
+               SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+           END DO
+           DO j=1,nd-np
+             q = j+np
+             STIFF(q,p) = STIFF(q,p) + &
+                 SUM(WBasis(j,:)*dBasisdx(i,:))*detJ*IP % s(t)
+           END DO
+         END DO
        END IF
 
        !
@@ -989,6 +1010,11 @@ CONTAINS
                   SUM(WBasis(i,:)*WBasis(j,:))*detJ*IP % s(t)
          END DO
        END DO
+       IF ( FixJ ) THEN
+         DO p=1,np
+           FORCE(p) = FORCE(p) + SUM(L*dBasisdx(p,:))*detJ*IP % s(t)
+         END DO
+       END IF
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
