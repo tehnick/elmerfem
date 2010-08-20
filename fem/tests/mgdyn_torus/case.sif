@@ -1,15 +1,13 @@
 Header
   CHECK KEYWORDS Warn
   Mesh DB "." "torus2"
-  Include Path ""
-  Results Directory ""
 End
 
 Simulation
   Coordinate System = Cartesian
   Coordinate Mapping(3) = 1 2 3
 
-  Simulation Type = steady
+  Simulation Type = Steady
   Steady State Max Iterations = 1
 End
 
@@ -67,8 +65,6 @@ Solver 1
 
   Fix Input Current density = Logical  True
 
-  Exec Solver = Always
-
   Steady State Convergence Tolerance = 1.0e-5
   Nonlinear System Convergence Tolerance = 1.0e-8
   Nonlinear System Max Iterations = 20
@@ -88,21 +84,17 @@ End
 
 Equation 1
   Name = "MGDyn"
-  Active Solvers(4) = 1 2 3 4
+  Active Solvers(2) = 1 2
 End
-
-!equation 2 :: active solvers = 4
 
 Material 1
   Name = "Space"
   Permeability = real 1
-  Relative Permittivity = 1
 End
 
 Material 2
   Name = "Conductor"
   Permeability = real 1
-  Relative Permittivity = 1
 End
 
 Body Force 1
@@ -110,16 +102,13 @@ Body Force 1
 
   Current Density 1 = Variable coordinate
     Real MATC " -0.32e5*tx(2)"
-
-  Current Density 2 = 0
-
   Current Density 3 = Variable coordinate
     Real MATC " 0.32e5*tx(0)"
 End
 
 Boundary Condition 1
   Target Boundaries(6) = 1 2 3 4 5 6
-  Name = "E0"
+  Name = "far"
   P {e} = real 0
 End
 
