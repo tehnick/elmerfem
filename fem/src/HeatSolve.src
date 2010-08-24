@@ -102,7 +102,7 @@
 
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles,NewtonLinearization = .FALSE., &
-         Found, GotIt, HeatFluxBC, HeatGapBC, GotMeltPoint
+         Found, GotIt, HeatFluxBC, HeatGapBC, GotMeltPoint, IsRadiation
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, ConvectionField
      INTEGER :: CompressibilityModel
@@ -189,12 +189,24 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
+
+! Newton lineariarization option is needed only when there is radiation
+
+     IsRadiation = .FALSE.
+     DO i=1,Model % NumberOfBCs
+       IsRadiation = ListCheckPresent( Model % BCs(i) % Values,'Radiation')
+       IF( IsRadiation ) EXIT
+     END DO
 !------------------------------------------------------------------------------
 !    The View and Gebhardt factors may change. If this is necessary, this is 
 !    done within this subroutine. The routine is called in the
 !    start as it may affect the matrix topology.
 !------------------------------------------------------------------------------
-     CALL RadiationFactors( Solver, .FALSE.)
+
+     IF( IsRadiation ) THEN
+       CALL RadiationFactors( Solver, .FALSE.)
+     END IF
+
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
@@ -347,8 +359,11 @@
 !------------------------------------------------------------------------------
      dt = Timestep
      Constants => GetConstants()
-     StefanBoltzmann = ListGetConstReal( Model % Constants, &
+     IF( IsRadiation ) THEN
+       StefanBoltzmann = ListGetConstReal( Model % Constants, &
                      'Stefan Boltzmann' )
+     END IF
+
 !------------------------------------------------------------------------------
      Stabilize = GetLogical( SolverParams,'Stabilize',Found )
 
@@ -376,11 +391,16 @@
 
      NonlinearTol  = GetConstReal( SolverParams, &
                      'Nonlinear System Convergence Tolerance',    Found )
-     NewtonTol     = GetConstReal( SolverParams, &
-                      'Nonlinear System Newton After Tolerance',  Found )
 
-     NewtonIter    = GetInteger(   SolverParams, &
+     IF( IsRadiation ) THEN
+       NewtonTol     = GetConstReal( SolverParams, &
+                      'Nonlinear System Newton After Tolerance',  Found )
+       NewtonIter    = GetInteger(   SolverParams, &
                       'Nonlinear System Newton After Iterations', Found )
+     ELSE
+       NewtonTol = 1.0_dp
+       NewtonIter =  0
+     END IF
      IF ( NewtonIter == 0) NewtonLinearization = .TRUE.
 
      Relax = GetCReal( SolverParams, &
@@ -508,8 +528,11 @@
 
         SmartTol  = GetConstReal( SolverParams, &
              'Smart Heater Control After Tolerance',  Found )
-        IF(.NOT. Found) SmartTol = 1.0
-        
+        IF(.NOT. Found) THEN
+          SmartTolReached = .TRUE.
+          SmartTol = 1.0
+        END IF   
+     
         PowerTimeScale = ListGetConstReal(Solver % Values, &
              'Smart Heater Time Scale',Found)
 
