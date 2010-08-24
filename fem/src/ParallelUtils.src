@@ -332,10 +332,11 @@ CONTAINS
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelSumVector( Matrix, x )
+    SUBROUTINE ParallelSumVector( Matrix, x, Op )
 !-------------------------------------------------------------------------------
        TYPE(Matrix_t) :: Matrix
        REAL(KIND=dp) :: x(:)
+       INTEGER, OPTIONAL :: op
 !-------------------------------------------------------------------------------
 
        GlobalData => Matrix % ParMatrix
@@ -343,7 +344,7 @@ CONTAINS
        ParEnv % ActiveComm = Matrix % Comm
 
        CALL ExchangeSourceVec( Matrix, Matrix % ParMatrix % SplittedMatrix, &
-              Matrix % ParallelInfo, x )
+              Matrix % ParallelInfo, x, op )
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelSumVector
 !-------------------------------------------------------------------------------

@@ -2871,17 +2871,18 @@ END SUBROUTINE ExchangeIfValues
 
 !*********************************************************************
 SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
-            ParallelInfo, SourceVec )
+            ParallelInfo, SourceVec, op )
 !*********************************************************************
   TYPE (SplittedMatrixT) :: SplittedMatrix
   TYPE (Matrix_t) :: SourceMatrix
   TYPE (ParallelInfo_t) :: ParallelInfo
   REAL(KIND=dp), DIMENSION(:) :: SourceVec
+  INTEGER, OPTIONAL :: op
 
   TYPE(vBuff_t), ALLOCATABLE :: recv_buf(:), send_buf(:)
 
   ! Local variables
-  INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt
+  INTEGER :: i, j, k, n, datalen, ierr, sproc, destproc, ind, req_cnt,oper
   INTEGER :: owner, request, totalsize
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
 
@@ -2890,6 +2891,10 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
   !*********************************************************************
   n = ParEnv % NumOfNeighbours
   IF ( n<= 0 ) RETURN
+
+  oper = 0 ! 0=sum, 1=min, 2=max
+  IF ( PRESENT(op) ) oper=op
+
   ALLOCATE( neigh(n) )
 
   n = 0
@@ -3015,8 +3020,16 @@ SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
        Ind = SearchNode( ParallelInfo, recv_buf(i) % Ind(j) )
        IF ( Ind /= -1 ) THEN
           Ind = SourceMatrix % Perm(Ind)
-          IF ( Ind > 0 ) &
-             SourceVec(Ind) = SourceVec(Ind) + recv_buf(i) % vec(j)
+          IF ( Ind > 0 ) THEN
+             SELECT CASE(oper)
+             CASE(0)
+               SourceVec(Ind) = SourceVec(Ind) + recv_buf(i) % vec(j)
+             CASE(1)
+               SourceVec(Ind) = MIN(SourceVec(Ind),recv_buf(i) % vec(j))
+             CASE(2)
+               SourceVec(Ind) = MAX(SourceVec(Ind),recv_buf(i) % vec(j))
+             END SELECT
+          END IF
        END IF
     END DO
   END DO
