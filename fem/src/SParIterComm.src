@@ -51,16 +51,16 @@ MODULE SParIterComm
   INCLUDE "mpif.h"
 
   TYPE Buff_t
-    REAL(KIND=dp), POINTER :: rbuf(:) => Null()
+    REAL(KIND=dp), ALLOCATABLE :: rbuf(:)
   END TYPE Buff_t
 
   TYPE iBuff_t
-    INTEGER, POINTER :: ibuf(:) => Null()
+    INTEGER, ALLOCATABLE :: ibuf(:)
   END TYPE iBuff_t
 
   TYPE vBuff_t
-    INTEGER, POINTER :: ind(:) => Null()
-    REAL(KIND=dp), POINTER :: vec(:) => Null()
+    INTEGER, ALLOCATABLE :: ind(:)
+    REAL(KIND=dp), ALLOCATABLE :: vec(:)
   END TYPE vBuff_t
 CONTAINS
 
@@ -3455,7 +3455,6 @@ tt = CPUTime()
   END DO
 
   DO i=1,n
-    sbuf(i) % ibuf => NULL()
     IF ( L(i) > 0 ) ALLOCATE( sbuf(i) % ibuf(L(i)) )
   END DO
 
@@ -3524,7 +3523,7 @@ tt = CPUTime()
   END DO
 
   DO i=1,n
-     IF ( ASSOCIATED(sbuf(i) % ibuf) ) DEALLOCATE(sbuf(i) % ibuf)
+     IF ( ALLOCATED(sbuf(i) % ibuf) ) DEALLOCATE(sbuf(i) % ibuf)
   END DO
   DEALLOCATE(neigh, sbuf,L)
 !print*,parenv % mype, 'secnd recv: ', CPUTime()-tt
@@ -3770,7 +3769,7 @@ SUBROUTINE Send_LocIf( SplittedMatrix,n,neigh )
   ELSE
     IF ( SIZE(Vecl)<n ) THEN
       DO i=1,SIZE(Vecl)
-        IF ( ASSOCIATED(Vecl(i) % rbuf) ) &
+        IF ( ALLOCATED(Vecl(i) % rbuf) ) &
           DEALLOCATE( Vecl(i) % rbuf )
       END DO
       DEALLOCATE( Vecl )
@@ -3781,7 +3780,7 @@ SUBROUTINE Send_LocIf( SplittedMatrix,n,neigh )
       END DO
     ELSE
       DO i=1,n
-        IF ( .NOT. ASSOCIATED(Vecl(i) % rbuf) ) THEN
+        IF ( .NOT. ALLOCATED(Vecl(i) % rbuf) ) THEN
           ALLOCATE( Vecl(i) % rbuf(L(i)) )
         ELSE IF ( SIZE(Vecl(i) % rbuf) < L(i) ) THEN
           DEALLOCATE( Vecl(i) % rbuf )
