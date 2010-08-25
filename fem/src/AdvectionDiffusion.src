@@ -341,11 +341,11 @@
            eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
                       minv=1,maxv=Model % NumberOfEquations )
            ConvectionFlag = ListGetString( Model % Equations(eq_id) % Values, &
-                         'Convection', GotIt )
+                         TRIM(ComponentName(Solver % Variable)) // &
+                         ' Convection', GotIt )
            IF ( .NOT. GotIt ) &
              ConvectionFlag = ListGetString( Model % Equations(eq_id) % Values, &
-                           TRIM(ComponentName(Solver % Variable)) // &
-                           ' Convection', GotIt )
+                           'Convection', GotIt )
 
            ScaledToSolubility = .FALSE.
            ConcentrationUnits = ListGetString( Model % Equations(eq_id) % &
@@ -380,11 +380,11 @@
              END IF
            END IF
 
-           ConvectName = ListGetString( Material, &
-               'Convection Field Variable', GotIt )
+           ConvectName = ListGetString( Model % Equations(eq_id) % Values, &
+               TRIM(ComponentName(Solver % Variable)) // &
+               ' Convection Field Variable', GotIt )
            IF ( .NOT. GotIt ) &
-             ConvectName = ListGetString( Model % Equations(eq_id) % Values, &
-                 TRIM(ComponentName(Solver % Variable)) // &
+             ConvectName = ListGetString( Material, &
                  'Convection Field Variable', GotIt )
            IF ( GotIt ) THEN
              FlowSol => VariableGet( Solver % Mesh % Variables, &
@@ -534,21 +534,21 @@
 !------------------------------------------------------------------------------
 
          IF ( ConvectionFlag == 'constant' ) THEN
-           U = ListGetReal( Material,'Convection Velocity 1',n,NodeIndexes, GotIt)
+           U = ListGetReal( Model % Equations(eq_id) % Values, &
+                TRIM(ComponentName(Solver % Variable)) // &
+                ' Convection Velocity 1',n,NodeIndexes )
            IF ( .NOT. GotIt ) &
-             U = ListGetReal( Model % Equations(eq_id) % Values, &
-                  TRIM(ComponentName(Solver % Variable)) // &
-                  ' Convection Velocity 1',n,NodeIndexes )
-           V = ListGetReal( Material,'Convection Velocity 2',n,NodeIndexes, GotIt)
+             U = ListGetReal( Material,'Convection Velocity 1',n,NodeIndexes, GotIt)
+           V = ListGetReal( Model % Equations(eq_id) % Values, &
+                TRIM(ComponentName(Solver % Variable)) // &
+                ' Convection Velocity 2',n,NodeIndexes )
            IF ( .NOT. GotIt ) &
-             V = ListGetReal( Model % Equations(eq_id) % Values, &
-                  TRIM(ComponentName(Solver % Variable)) // &
-                  ' Convection Velocity 2',n,NodeIndexes )
-           W = ListGetReal( Material,'Convection Velocity 3',n,NodeIndexes, GotIt)
+             V = ListGetReal( Material,'Convection Velocity 2',n,NodeIndexes, GotIt)
+           W = ListGetReal( Model % Equations(eq_id) % Values, &
+                TRIM(ComponentName(Solver % Variable)) // &
+                ' Convection Velocity 3',n,NodeIndexes )
            IF ( .NOT. GotIt ) &
-             W = ListGetReal( Model % Equations(eq_id) % Values, &
-                  TRIM(ComponentName(Solver % Variable)) // &
-                  ' Convection Velocity 3',n,NodeIndexes )
+             W = ListGetReal( Material,'Convection Velocity 3',n,NodeIndexes, GotIt)
            IF (.NOT. AbsoluteMass) THEN
               C1 = Density
               DO i=1,3
