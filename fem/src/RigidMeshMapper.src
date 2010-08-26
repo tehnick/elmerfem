@@ -83,7 +83,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   TYPE(ValueList_t),POINTER :: BodyForce
 
   
-  SAVE Xorig,Yorig,Zorig,Parray,STIFF,FORCE,MeshDisplace,Visited
+  SAVE Xorig,Yorig,Zorig,Parray,MeshDisplace,Visited
    
   CALL Info( 'RigidMeshMapper','---------------------------------------',Level=4 )
   CALL Info( 'RigidMeshMapper','Performing analytic mesh mapping ',Level=4 )
@@ -123,7 +123,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   END IF
 
 
-  IF( .NOT. Visited .AND. ASSOCIATED(Solver % Matrix)) THEN
+  IF( .NOT. Visited .AND. ASSOCIATED(Solver % Matrix) ) THEN
     N = Solver % Mesh % MaxElementNodes 
     ALLOCATE( FORCE(N), STIFF(N,N), STAT=istat )
 
@@ -138,13 +138,6 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
       END IF
     END DO
 
-    GotRelaxField = .TRUE.
-    RelaxField => Solver % Variable % Values
-    RelaxPerm => Solver % Variable % Perm
-  END IF
-
-
-  IF( ASSOCIATED(Solver % Matrix)) THEN
     CALL Info('RigidMeshMapper','Solving mesh relaxation field using Laplace')
     
     MaxNonlinIter = GetInteger( SolverParams,&
@@ -170,6 +163,14 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
       
       IF( Solver % Variable % NonlinChange < NonlinTol ) EXIT
     END DO
+
+    DEALLOCATE( FORCE, STIFF )
+  END IF
+
+  IF( ASSOCIATED( Solver % Variable ) ) THEN
+    GotRelaxField = .TRUE.
+    RelaxField => Solver % Variable % Values
+    RelaxPerm => Solver % Variable % Perm
   END IF
 
     
@@ -298,8 +299,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
             GotTranslate = .TRUE.
           END IF
         END IF        
-        
-        
+
         ! Scaling:
         !---------
         Parray => ListGetConstRealArray( BodyForce,'Mesh Scale', GotScale )
@@ -409,7 +409,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   WRITE(Message,* ) 'Coordinate mapping time: ',at1-at0
   CALL Info('RigidMeshMapper',Message)
   
-  DEALLOCATE( Relax, NodeDone )
+  DEALLOCATE( Relax, MeshDisplace, NodeDone )
   
   CALL Info('RigidMeshMapper','All done' ) 
   
