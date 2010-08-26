@@ -999,29 +999,15 @@ CONTAINS
           ALLOCATE( Solution( SIZE( Solver % Variable % Values) ) )
           Solution = 0.0_dp
           str = TRIM( Solver % Variable % Name ) // ' Velocity'
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+          CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, Solver, &
               str, Solver % Variable % Dofs, Solution, Solver % Variable % Perm )
-          
-          DO k=1,Solver % Variable % DOFs
-            Component => Solution(k::Solver % Variable % DOFs )
-            str = ComponentName( Solver % Variable % Name) // ' Velocity ' // CHAR(i+ICHAR('0'))
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                str, 1, Component, Solver % Variable % Perm )
-          END DO
           NULLIFY( Solution )
         ELSE IF ( Solver % TimeOrder >= 2 ) THEN
           Component => Solver % Variable % PrevValues(:,1)
           str = TRIM( Solver % Variable % Name ) // ' Velocity'
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+          CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, Solver, &
               str, Solver % Variable % Dofs, Component, Solver % Variable % Perm, &
               Secondary = .TRUE. )
-          
-          DO k=1,Solver % Variable % DOFs
-            Component => Solver % Variable % PrevValues(k::Solver % Variable % DOFs,1)          
-            str = ComponentName( Solver % Variable % Name) // ' Velocity ' // CHAR(i+ICHAR('0'))
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
-                str, 1, Component, Solver % Variable % Perm, Secondary = .TRUE. )
-          END DO
         END IF
       END IF
 
@@ -1047,6 +1033,19 @@ CONTAINS
 
     ELSE
       Solver % TimeOrder = 0
+
+      IF( ListGetLogical( Solver % Values,'Calculate Derivative',Found) ) THEN
+PRINT *,'adding derivative'
+
+        NULLIFY( Solution ) 
+        ALLOCATE( Solution( SIZE( Solver % Variable % Values) ) )
+        Solution = 0.0_dp
+        str = TRIM( Solver % Variable % Name ) // ' Derivative'
+        CALL VariableAddVector( Solver % Mesh % Variables, Solver % Mesh, Solver, &
+            str, Solver % Variable % Dofs, Solution, Solver % Variable % Perm )
+        NULLIFY( Solution )
+      END IF
+
       IF ( EigAnal ) THEN
         ComplexFlag = ListGetLogical( Solver % Values,  'Eigen System Complex', Found )
         IF ( .NOT. Found ) ComplexFlag = .FALSE.
@@ -1247,7 +1246,7 @@ CONTAINS
     REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
     INTEGER :: i,j,k,l,n,ierr,istat
     LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
-       Relax, NeedSol, IsCoupledSolver, IsAssemblySolver
+       NeedSol, IsCoupledSolver, IsAssemblySolver, CalculateDerivative, TestConvergence
     LOGICAL, ALLOCATABLE :: DoneThis(:), AfterConverged(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
@@ -1378,16 +1377,25 @@ CONTAINS
             Solver % Variable % PrevNorm = Solver % Variable % Norm
           END IF
 
-!------------------------------------------------------------------------------
-          Relaxation = ListGetConstReal( Solver % Values, &
-              'Steady State Relaxation Factor', Relax )
-          Relax = Relax .AND. (Relaxation /= 1.0d0)
-          
-          NeedSol = ( ListGetString( Solver % Values, &
-              'Steady State Convergence Measure', Stat ) /= 'norm')  
-          NeedSol = NeedSol .AND. Stat
+          ! There are some operations that require that the previous steady state values
+          ! are present. Check for these operations.
+          !------------------------------------------------------------------------------
+          CalculateDerivative = ListGetLogical( Solver % Values, &
+                'Calculate Derivative', Stat )
 
-          IF ( ( Relax .OR. NeedSol ) .AND. n>0 ) THEN
+          NeedSol = CalculateDerivative
+          IF(.NOT. NeedSol ) THEN
+            NeedSol = ( ListGetString( Solver % Values, &
+                'Steady State Convergence Measure', Stat ) /= 'norm')  
+            NeedSol = NeedSol .AND. Stat
+          END IF
+          IF(.NOT. NeedSol ) THEN
+            Relaxation = ListGetConstReal( Solver % Values, &
+                'Steady State Relaxation Factor', Stat )
+            NeedSol = Stat .AND. (Relaxation /= 1.0d0)
+          END IF
+
+          IF ( NeedSol .AND. n > 0 ) THEN
             Stat = ASSOCIATED(Solver % Variable % SteadyValues)
             IF(Stat .AND. SIZE(Solver % Variable % SteadyValues) /= n) THEN
               DEALLOCATE(Solver % Variable % SteadyValues)
@@ -1449,58 +1457,67 @@ CONTAINS
 !------------------------------------------------------------------------------
 
            IF ( Scanning ) THEN
+             
+             TestConvergence = ( i >= CoupledMinIter .AND. i /= CoupledMaxIter )
 
-              IF ( i >= CoupledMinIter ) THEN
-                 IF ( i /= CoupledMaxIter ) THEN
+             IF ( TestConvergence .OR. CalculateDerivative ) THEN
+               IF ( ParEnv % PEs>1 ) THEN
+                 IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
+                     CALL ComputeChange(Solver,.TRUE., n)
+               ELSE
+                 CALL ComputeChange(Solver,.TRUE.)
+                 !                 CALL ComputeChange(Solver,.TRUE.,n)
+               END IF
 
-                    IF ( ParEnv % PEs>1 ) THEN
-                       IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
-                            CALL ComputeChange(Solver,.TRUE., n)
-                    ELSE
-                       CALL ComputeChange(Solver,.TRUE.)
-                       !                 CALL ComputeChange(Solver,.TRUE.,n)
-                    END IF
-                    RelativeChange = Solver % Variable % SteadyChange
-                    Tolerance = ListGetConstReal( Solver % Values,   &
-                         'Steady State Convergence Tolerance', Found ) 
-                    
-                    IF ( Found ) THEN
-                       DoneThis(k) = (RelativeChange < Tolerance)
-                    ELSE
-                       DoneThis(k) = .TRUE.
-                    END IF
-                 END IF
-              END IF
-	
-           ELSE
+               ! The ComputeChange subroutine sets a flag to zero if not yet converged (otherwise -1/1)
+               !----------------------------------------------------------------------
+               IF( TestConvergence ) THEN
+                 IF( Solver % Variable % SteadyConverged == 0 ) THEN
+                   DoneThis(k) = .FALSE.
+                 ELSE                   
+                   DoneThis(k) = .TRUE.
+                 END IF                   
+               END IF
+             END IF
+             
+           ELSE IF( TransientSimulation ) THEN
+             
+             TestConvergence = ( i >= CoupledMinIter .AND. i /= CoupledMaxIter )
+             IF ( TestConvergence ) THEN
+               IF ( ParEnv % PEs>1 ) THEN
+                 IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
+                     CALL ComputeChange(Solver,.TRUE., n)
+               ELSE
+                 CALL ComputeChange(Solver,.TRUE.)
+                 !                 CALL ComputeChange(Solver,.TRUE.,n)
+               END IF
+               IF( Solver % Variable % SteadyConverged == 0 ) THEN
+                 DoneThis(k) = .FALSE.
+               ELSE                   
+                 DoneThis(k) = .TRUE.
+               END IF
+             END IF
 
-              IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
-                 IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
+           ELSE    ! Steady-state
+             IF ( ParEnv % PEs > 1 ) THEN
+               IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
+                   CALL ComputeChange(Solver,.TRUE., n)
+             ELSE
+               CALL ComputeChange(Solver,.TRUE.)
+               !                 CALL ComputeChange(Solver,.TRUE.,n)
+             END IF             
 
-                    IF ( ParEnv % PEs>1 ) THEN
-                       IF ( ParEnv % Active(ParEnv % MyPE+1) ) &
-                            CALL ComputeChange(Solver,.TRUE., n)
-                    ELSE
-                       CALL ComputeChange(Solver,.TRUE.)
-                       !                 CALL ComputeChange(Solver,.TRUE.,n)
-                    END IF
-                    RelativeChange = Solver % Variable % SteadyChange
-                    Tolerance = ListGetConstReal( Solver % Values,   &
-                         'Steady State Convergence Tolerance', Found ) 
-
-                    IF ( Found ) THEN
-                       DoneThis(k) = (RelativeChange < Tolerance)
-                    ELSE
-                       DoneThis(k) = .TRUE.
-                    END IF
-                 END IF
-              END IF
+             IF( Solver % Variable % SteadyConverged == 0 ) THEN
+               DoneThis(k) = .FALSE.
+             ELSE                   
+               DoneThis(k) = .TRUE.
+             END IF
            END IF
-
-          CALL ParallelAllReduceAnd( DoneThis(k) )
-          IF( ALL(DoneThis) ) EXIT
+           
+           CALL ParallelAllReduceAnd( DoneThis(k) )
+           IF( ALL(DoneThis) ) EXIT
 !------------------------------------------------------------------------------
-       END DO
+         END DO
 !------------------------------------------------------------------------------
        Model % Mesh % Changed = .FALSE.
        IF ( ALL(DoneThis) ) EXIT

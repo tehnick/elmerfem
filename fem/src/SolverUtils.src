@@ -3305,12 +3305,12 @@ END FUNCTION SearchNodeL
     LOGICAL :: SteadyState
     INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
-    INTEGER :: n, RelaxAfter
+    INTEGER :: n, RelaxAfter, IterNo
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER :: x0(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt, &
-        Tolerance, MaxNorm
+        Tolerance, MaxNorm, eps
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
@@ -3321,13 +3321,15 @@ END FUNCTION SearchNodeL
     TYPE(Matrix_t), POINTER :: MMatrix
     REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
 
+
     IF(SteadyState) THEN	
       Skip = ListGetLogical( Solver % Values,'Skip Compute Steady State Change',Stat)
       IF( Skip ) RETURN
 
       ConvergenceType = ListGetString(Solver % Values,&
           'Steady State Convergence Measure',Stat)
-      IF(.NOT. stat) ConvergenceType = 'norm' 
+      IF(.NOT. Stat) ConvergenceType = 'norm' 
+
       ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Steady State Convergence Absolute',Stat)
       IF(.NOT. Stat) ConvergenceAbsolute = &
@@ -3337,10 +3339,11 @@ END FUNCTION SearchNodeL
           'Steady State Relaxation Factor', Relax )
       Relax = Relax .AND. (Relaxation /= 1.0d0)
 
+      iterV => VariableGet( Solver % Mesh % Variables, 'coupled iter' )
+      IterNo = iterV % Values(1)
       IF( Relax ) THEN
-        iterV => VariableGet( Solver % Mesh % Variables, 'coupled iter' )
         RelaxAfter = ListGetInteger(Solver % Values,'Steady State Relaxation After',Stat)
-        IF( Stat .AND. RelaxAfter >= iterV % Values(1) ) Relax = .FALSE.
+        IF( Stat .AND. RelaxAfter >= IterNo ) Relax = .FALSE.
       END IF	
 
       IF(Relax) THEN
@@ -3355,12 +3358,14 @@ END FUNCTION SearchNodeL
       ConvergenceType = ListGetString(Solver % Values,&
           'Nonlinear System Convergence Measure',Stat)
       IF(.NOT. stat) ConvergenceType = 'norm' 
+
       ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Nonlinear System Convergence Absolute',Stat)
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
 
       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      IterNo = iterV % Values(1)
       Solver % Variable % NonlinIter = iterV % Values(1)
       iterV % Values(1) = iterV % Values(1) + 1 
 
@@ -3402,20 +3407,22 @@ END FUNCTION SearchNodeL
       n = SIZE( x )
     END IF
 
-    IF(Relax .OR. ConvergenceType == 'residual' .OR. ConvergenceType == 'solution') THEN
-      IF(PRESENT(values0)) THEN
-        x0 => values0
-      ELSE IF(SteadyState) THEN
-        IF(.NOT. ASSOCIATED(Solver % Variable % SteadyValues)) &
-            CALL Fatal('ComputeChange','Previous steady state solution is needed!')       
+    Stat = .FALSE.
+    IF(PRESENT(values0)) THEN
+      x0 => values0
+      Stat = .TRUE.
+    ELSE IF(SteadyState) THEN
+      IF( ASSOCIATED(Solver % Variable % SteadyValues) ) THEN
         x0 => Solver % Variable % SteadyValues
-      ELSE
-        IF(.NOT. ASSOCIATED(Solver % Variable % NonlinValues)) &
-            CALL Fatal('ComputeChange','Previous nonlinear solution is needed')       
-        x0 => Solver % Variable % NonlinValues
+        Stat = .TRUE.
       END IF
-      IF(SIZE(x0) /= SIZE(x)) CALL Warn('ComputeChange','Possible mismatch in length of vectors!')
+    ELSE 
+      IF( ASSOCIATED(Solver % Variable % NonlinValues)) THEN
+        x0 => Solver % Variable % NonlinValues
+        Stat = .TRUE.
+      END IF
     END IF
+    IF(Stat .AND. SIZE(x0) /= SIZE(x)) CALL Warn('ComputeChange','Possible mismatch in length of vectors!')
 
     IF(Relax .AND. RelaxBefore) THEN
       x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)
@@ -3435,19 +3442,17 @@ END FUNCTION SearchNodeL
     ! The norm should be bounded in order to reach convergence
     !--------------------------------------------------------------------------
 
-     MaxNorm = ListGetCReal( Solver % Values, &
-          'Nonlinear System Max Norm', Stat )
+    MaxNorm = ListGetCReal( Solver % Values, &
+        'Nonlinear System Max Norm', Stat )
     IF( .NOT. Stat) MaxNorm = HUGE( Norm )
 
     IF( ISNAN( Norm ) .OR. Norm > MaxNorm ) THEN
      CALL Fatal('ComputeChange','Norm of solution exceeded given bounds')
     END IF
   
-
-
-
+      
     SELECT CASE( ConvergenceType )
-
+        
     CASE('residual')
       !--------------------------------------------------------------------------
       ! x is solution of A(x0)x=b(x0), thus residual should be reall r=b(x)-A(x)x 
@@ -3455,7 +3460,7 @@ END FUNCTION SearchNodeL
       !--------------------------------------------------------------------------
       A => Solver % Matrix
       b => Solver % Matrix % rhs
-
+      
       ALLOCATE(r(n))
       CALL MatrixVectorMultiply( A, x0, r)
       r = r - b
@@ -3467,7 +3472,7 @@ END FUNCTION SearchNodeL
         END IF
       END IF
       DEALLOCATE(r)
-
+      
     CASE('linear system residual')
       !--------------------------------------------------------------------------
       ! Here the true linear system residual r=b(x0)-A(x0)x is computed.
@@ -3475,11 +3480,11 @@ END FUNCTION SearchNodeL
       !--------------------------------------------------------------------------
       A => Solver % Matrix
       b => Solver % Matrix % rhs
- 
+      
       IF (ParEnv % Pes > 1) THEN
         MMatrix => ParallelMatrix( A, Mx, Mb, Mr )
         CALL ParallelMatrixVector( A,Mx,Mr )
-	Mr(1:MMatrix % NumberOfRows) = Mb(1:MMatrix % NumberOfRows) - Mr(1:MMatrix % NumberOfRows)
+        Mr(1:MMatrix % NumberOfRows) = Mb(1:MMatrix % NumberOfRows) - Mr(1:MMatrix % NumberOfRows)
         Change = ParallelNorm( MMatrix % NumberOfRows, Mr )		
         IF(.NOT. ConvergenceAbsolute) THEN
           bNorm = ParallelNorm(MMatrix % NumberOfRows, Mb)
@@ -3499,8 +3504,8 @@ END FUNCTION SearchNodeL
           END IF
         END IF
         DEALLOCATE(r)	
-      END IF      
-
+      END IF
+      
     CASE('solution')      
       ALLOCATE(r(n))
       r = x-x0
@@ -3509,18 +3514,21 @@ END FUNCTION SearchNodeL
         Change = Change * 2.0/ (Norm+PrevNorm)
       END IF
       DEALLOCATE(r)      
-
+      
     CASE('norm')
       Change = ABS( Norm-PrevNorm )
       IF( .NOT. ConvergenceAbsolute .AND. Norm + PrevNorm > 0.0) THEN
         Change = Change * 2.0/ (Norm+PrevNorm)
       END IF
-
+      
     CASE DEFAULT
       CALL Warn('ComputeChange','Unknown convergence measure: '//TRIM(ConvergenceType))    
       
     END SELECT
-
+    
+    !--------------------------------------------------------------------------
+    ! Check for convergence: 0/1
+    !--------------------------------------------------------------------------
     IF(SteadyState) THEN
       Solver % Variable % SteadyChange = Change
       Tolerance = ListGetConstReal( Solver % Values,'Steady State Convergence Tolerance',Stat)
@@ -3548,25 +3556,20 @@ END FUNCTION SearchNodeL
       Solver % Variable % Norm = ComputeNorm(Solver,n,x)
     END IF
 
-    ! Steady state output is done within MainUtils
+    ! Steady state output is done in MainUtils
     SolverName = ListGetString( Solver % Values, 'Equation',Stat)
     IF(.NOT. Stat) SolverName = Solver % Variable % Name
 
     IF(SteadyState) THEN        
-      iterV => VariableGet( Solver % Mesh % Variables, 'coupled iter' )
-      n = NINT(iterV % Values(1))
       WRITE( Message, '(a,g15.8,g15.8,a)') &
-         'SS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
+         'SS (ITER='//TRIM(i2s(IterNo))//') (NRM,RELC): (',Norm, Change,&
           ' ) :: '// TRIM(SolverName)
-      CALL Info( 'ComputeChange', Message, Level=3 )
     ELSE
-      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
-      n = NINT(iterV % Values(1))-1
       WRITE( Message, '(a,g15.8,g15.8,a)') &
-         'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
+         'NS (ITER='//TRIM(i2s(IterNo))//') (NRM,RELC): (',Norm, Change,&
           ' ) :: '// TRIM(SolverName)
-      CALL Info( 'ComputeChange', Message, Level=3 )
     END IF
+    CALL Info( 'ComputeChange', Message, Level=3 )
 
 
     ! The update of exported variables may be done internally to allow some nonlinear features	   
@@ -3599,6 +3602,35 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+    ! Calculate derivative a.k.a. sensitivity
+    IF( SteadyState ) THEN
+
+      IF( ListGetLogical( Solver % Values,'Calculate Derivative',Stat) ) THEN
+
+        IF( IterNo > 1 ) THEN
+          TimestepVar => VariableGet( Solver % Mesh % Variables, 'derivative eps' )
+          IF( ASSOCIATED( TimestepVar ) ) THEN
+            eps = TimestepVar % Values(1)
+            Stat = .TRUE.
+          ELSE
+            eps = ListGetCReal( Solver % Values,'derivative eps',Stat)
+          END IF
+          IF(.NOT. Stat) THEN
+            CALL Warn('ComputeChange','Derivative Eps not given, using one')
+            Eps = 1.0_dp
+          END IF
+
+          str = TRIM( Solver % Variable % Name ) // ' Derivative'
+          VeloVar => VariableGet( Solver % Mesh % Variables, str )
+          IF( ASSOCIATED( VeloVar ) ) THEN
+            CALL Info('ComputeChange','Computing variable:'//TRIM(str))
+            VeloVar % Values = (x - x0) / eps
+          ELSE
+            CALL Warn('ComputeChange','Derivative variable not present')
+          END IF
+        END IF
+      END IF
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE ComputeChange
 !------------------------------------------------------------------------------
