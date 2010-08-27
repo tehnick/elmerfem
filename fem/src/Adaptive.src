@@ -485,6 +485,13 @@ CONTAINS
     CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
                      'Timestep size', 1, Var % Values )
 
+    Var => VariableGet( RefMesh % Variables,'Timestep size',ThisOnly=.TRUE. )
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
+                 'Timestep size', 1, Var % Values )
+
+    NewVar => VariableGet( NewMesh % Variables,'Timestep size',ThisOnly=.TRUE. )
+    NewVar % PrevValues => Var % PrevValues
+
     Var => VariableGet( RefMesh % Variables,'Timestep interval',ThisOnly=.TRUE. )
     CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
                  'Timestep interval', 1, Var % Values )

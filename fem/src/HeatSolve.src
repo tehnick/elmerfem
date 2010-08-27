@@ -151,7 +151,7 @@
        FORCE, ElementNodes, HeatConductivity, HeatCapacity, HeatTransferCoeff, &
        Enthalpy, Density, LatentHeat, PhaseVelocity, AllocationsDone, Viscosity, TimeForce, &
        LocalNodes, LocalTemperature, Work, ElectricConductivity, &
-       NodalEmissivity, Permeability, TSolution, TSolution1, C0, dPressuredt, Pressure, &
+       NodalEmissivity, Permeability, C0, dPressuredt, Pressure, &
        GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea, HeaterTarget, &
        HeaterScaling, HeaterDensity, HeaterSource, SmartHeaters, IntegralHeaters, SmartTolReached,    &
        ReferenceTemperature, HeatExpansionCoeff, PrevPowerScaling, PowerScaling, &
@@ -585,6 +585,10 @@
 !    Save current solution
 !------------------------------------------------------------------------------
      PrevSolution = Temperature(1:LocalNodes)
+     IF ( TransientSimulation ) THEN
+       ALLOCATE( TSolution(LocalNodes), TSolution1(LocalNodes) )
+       TSolution = Solver % Variable % PrevValues(:,1)
+     END IF
 !------------------------------------------------------------------------------
 
      totat = 0.0d0
@@ -1223,18 +1227,6 @@ print *,'MeltPoint',MeltPoint,yave
         Temperature = Temperature * (1 + PowerRelax * (MeltPoint/yave - 1.0d0)   )     
       END IF
       YY = Temperature
-    END IF
-
-
-    IF ( TransientSimulation .AND. PhaseChange ) THEN
-      IF ( .NOT.ALLOCATED(TSolution) ) THEN
-        ALLOCATE( TSolution(LocalNodes),TSolution1(LocalNodes),STAT=istat )
- 
-        IF ( istat /= 0 ) THEN
-           CALL Fatal( 'HeatSolve', 'Memory allocation error.' )
-         END IF
-      END IF
-      TSolution(1:LocalNodes) = PrevSolution(1:LocalNodes)
     END IF
 
 !------------------------------------------------------------------------------
