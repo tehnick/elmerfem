@@ -956,11 +956,11 @@ CONTAINS
 
       REAL(KIND=dp), POINTER :: Atx(:,:,:), ATt(:)
 
-      CHARACTER(LEN=MAX_NAME_LEN) :: TypeString
-      LOGICAL :: ReturnType, ScanOnly
+      CHARACTER(LEN=MAX_NAME_LEN) :: TypeString,Keyword
       CHARACTER(LEN=MAX_PATH_LEN) :: Name
+      LOGICAL :: ReturnType, ScanOnly, String_literal
 
-      INTEGER :: LEN
+      INTEGER :: slen, str_beg, str_end
 
       DO WHILE( ReadAndTrim( InFileUnit,name,Echo ) )
 
@@ -986,21 +986,41 @@ CONTAINS
         N1   = 1
         N2   = 1
         SizeGiven = .FALSE.
-        DO WHILE( ReadAndTrim(InFileUnit,str,echo) ) 
+        DO WHILE( ReadAndTrim(InFileUnit,str,echo,string_literal) ) 
+
+          IF ( string_literal ) THEN
+            ReturnType = .TRUE.
+            CALL CheckKeyWord( Name, TypeString, ReturnType )
+            IF ( .NOT. ReturnType ) THEN
+              CALL SyntaxError( Section, Name,str )
+            ELSE IF (TypeString/='string' .AND. TypeString/='file') THEN 
+              CALL SyntaxError( Section, Name,str )
+            ELSE
+              str = TRIM(TypeString) // ' ' // str
+            END IF
+          END IF
+
 
 20        CONTINUE
 
-          LEN = LEN_TRIM(str)
+          slen = len_trim(str)
+          j = slen
+          DO i=1,slen
+            IF ( str(i:i)==' ') EXIT
+            j = i
+          END DO
+          Keyword=str(1:j)
+          str_beg = j+2
 
-          IF ( str(1:4) == 'real' ) THEN
-
+          SELECT CASE(Keyword)
+          CASE('real')
              CALL CheckKeyWord( Name,'real' )
 
              Proc = 0
-             IF ( str(6:14) == 'procedure' ) THEN
+             IF ( str(str_beg:str_beg+9) == 'procedure ' ) THEN
 
                IF ( .NOT. ScanOnly ) THEN
-                  Proc = GetProcAddr( str(16:) )
+                  Proc = GetProcAddr( str(str_beg+10:) )
 
                   SELECT CASE( TYPE )
                   CASE( LIST_TYPE_CONSTANT_SCALAR )
@@ -1023,7 +1043,7 @@ CONTAINS
                   END SELECT
                END IF
 
-             ELSE IF ( str(6:9) == 'matc' ) THEN
+             ELSE IF ( str(str_beg:str_beg+4) == 'matc ' ) THEN
 
                IF ( .NOT. ScanOnly ) THEN
 
@@ -1031,18 +1051,18 @@ CONTAINS
                   CASE( LIST_TYPE_CONSTANT_SCALAR )
 
                     IF ( SizeGiven ) THEN
-                       CALL ListAddConstRealArray( List,Name,N1,N2, ATx(1:N1,1:N2,1), Proc, str(11:) )
+                       CALL ListAddConstRealArray( List,Name,N1,N2, ATx(1:N1,1:N2,1), Proc, str(str_beg+5:) )
                     ELSE
-                      CALL ListAddConstReal( List,Name,Value,Proc, str(11:) )
+                      CALL ListAddConstReal( List,Name,Value,Proc, str(str_beg+5:) )
                     END IF
    
                   CASE( LIST_TYPE_VARIABLE_SCALAR )
 
                     IF ( SizeGiven ) THEN
                       CALL ListAddDepRealArray( List,Name,Depname,1,ATt, &
-                            N1,N2,ATx(1:N1,1:N2,1:n),Proc, str(11:) )
+                            N1,N2,ATx(1:N1,1:N2,1:n),Proc, str(str_beg+5:) )
                     ELSE
-                      CALL ListAddDepReal( List,Name,Depname,1,ATt,ATx,Proc, str(11:) )
+                      CALL ListAddDepReal( List,Name,Depname,1,ATt,ATx,Proc, str(str_beg+5:) )
                     END IF
                   END SELECT
                END IF
@@ -1055,17 +1075,17 @@ CONTAINS
                      k = 0
                      DO i=1,N1
                         DO j=1,N2
-                           DO WHILE( k <= LEN )
+                           DO WHILE( k <= slen )
                               k = k + 1
                               IF ( str(k:k) == ' ' ) EXIT
                            END DO
  
-                           DO WHILE( k <= LEN )
+                           DO WHILE( k <= slen )
                              k = k + 1
                              IF ( str(k:k) /= ' ' ) EXIT
                            END DO
  
-                           IF ( k > LEN ) CALL SyntaxError( Section, Name,str )
+                           IF ( k > slen ) CALL SyntaxError( Section, Name,str )
  
                            READ( str(k:),* ) ATx(i,j,1)
                         END DO
@@ -1087,7 +1107,7 @@ CONTAINS
                    IF ( str(1:1) == ' '  ) CYCLE
  
                    IF ( .NOT. ScanOnly ) THEN
-                      LEN = LEN_TRIM(str)
+                      slen = LEN_TRIM(str)
  
                       n = n + 1
                       IF ( n > SIZE(ATt) ) THEN
@@ -1107,17 +1127,17 @@ CONTAINS
                       k = 0
                       DO i=1,N1
                         DO j=1,N2
-                          DO WHILE( k <= LEN )
+                          DO WHILE( k <= slen )
                             k = k + 1
                             IF ( str(k:k) == ' ') EXIT
                           END DO
  
-                          DO WHILE( k <= LEN )
+                          DO WHILE( k <= slen )
                             k = k + 1
                             IF ( str(k:k) /= ' ') EXIT
                           END DO
  
-                          IF ( k > LEN ) CALL SyntaxError( Section, Name,str )
+                          IF ( k > slen ) CALL SyntaxError( Section, Name,str )
  
                           READ( str(k:),* ) ATx(i,j,n)
                         END DO
@@ -1138,12 +1158,12 @@ CONTAINS
              END IF
              EXIT
 
-          ELSE IF ( str(1:7) == 'logical' ) THEN
+          CASE('logical')
 
             CALL CheckKeyWord( Name,'logical' )
 
             IF ( .NOT. ScanOnly ) THEN
-               IF ( str(9:12) == 'true' .OR. str(9:9) == '1' ) THEN
+               IF ( str(str_beg:str_beg+3) == 'true' .OR. str(str_beg:str_beg) == '1' ) THEN
                  CALL ListAddLogical( List,Name,.TRUE. )
                ELSE 
                  CALL ListAddLogical( List,Name,.FALSE. )
@@ -1151,14 +1171,14 @@ CONTAINS
             END IF
             EXIT
 
-          ELSE IF ( str(1:7) == 'integer' ) THEN
+          CASE('integer')
 
             CALL CheckKeyWord( Name,'integer' )
 
             IF ( .NOT. ScanOnly ) THEN
                Proc = 0
-               IF ( str(9:17) == 'procedure' ) THEN
-                 Proc = GetProcAddr( str(19:) )
+               IF ( str(str_beg:str_beg+9) == 'procedure ' ) THEN
+                 Proc = GetProcAddr( str(str_beg+11:) )
                  IF ( SizeGiven ) THEN
                    CALL ListAddIntegerArray( List,Name,N1,IValues,Proc )
                  ELSE
@@ -1168,54 +1188,54 @@ CONTAINS
                  IF ( SizeGiven ) THEN
                    k = 0
                    DO i=1,N1
-                     DO WHILE( k <= LEN )
+                     DO WHILE( k <= slen )
                         k = k + 1
                         IF ( str(k:k) == ' ') EXIT
                      END DO
 
-                     DO WHILE( k <= LEN )
+                     DO WHILE( k <= slen )
                        k = k + 1
                        IF ( str(k:k) /= ' ') EXIT
                      END DO
 
-                     IF ( k > LEN ) CALL SyntaxError( Section, Name,str )
+                     IF ( k > slen ) CALL SyntaxError( Section, Name,str )
 
                      READ( str(k:),* ) IValues(i)
                    END DO
                    CALL ListAddIntegerArray( List,Name,N1,IValues )
                  ELSE
-                   READ( str(9:),* ) k 
+                   READ( str(str_beg:),* ) k 
                    CALL ListAddInteger( List,Name,k )
                  END IF
                END IF
             END IF
             EXIT
 
-          ELSE IF ( str(1:6) == 'string' ) THEN
+          CASE('string')
 
             CALL CheckKeyWord( Name,'string' )
 
-            IF ( .NOT. ScanOnly ) CALL ListAddString( List,Name,str(8:) )
+            IF ( .NOT. ScanOnly ) CALL ListAddString( List,Name,str(str_beg:) )
             EXIT
 
-          ELSE IF ( str(1:4) == 'file' ) THEN
+          CASE('file')
 
             CALL CheckKeyWord( Name,'file' )
 
-            IF ( .NOT. ScanOnly ) CALL ListAddString( List,Name,str(6:),.FALSE. )
+            IF ( .NOT. ScanOnly ) CALL ListAddString( List,Name,str(str_beg:),.FALSE. )
             EXIT
 
-          ELSE IF ( str(1:8) == 'variable' ) THEN
+          CASE('variable')
 
             DO k=MAX_NAME_LEN,1,-1
               IF ( str(k:k) /= ' ' ) EXIT 
             END DO
 
             Depname = ' '
-            Depname(1:k-9) = str(10:k)
+            Depname(1:k-9) = str(str_beg:k)
             TYPE = LIST_TYPE_VARIABLE_SCALAR
 
-          ELSE IF ( str(1:6) == 'equals' ) THEN
+          CASE('equals')
 
             IF ( .NOT. ScanOnly ) THEN
                DO k=MAX_NAME_LEN,1,-1
@@ -1223,7 +1243,7 @@ CONTAINS
                END DO
 
                Depname = ' '
-               Depname(1:k-7) = str(8:k)
+               Depname(1:k-7) = str(str_beg:k)
 
                n = 2
                IF ( n > SIZE( ATt ) ) THEN
@@ -1239,10 +1259,10 @@ CONTAINS
             END IF
             EXIT
 
-          ELSE IF ( str(1:4) == 'size' ) THEN
+          CASE('size')
             N1 = 1
             N2 = 1
-            READ( str(5:),*,err=1,END=1) N1,N2
+            READ( str(str_beg:),*,err=1,END=1) N1,N2
 1           CONTINUE
 
             IF ( .NOT. ScanOnly ) THEN
@@ -1254,22 +1274,21 @@ CONTAINS
 
             SizeGiven = .TRUE.
 
-          ELSE IF ( str(1:7) == '-remove' ) THEN
+          CASE('-remove')
 
             IF ( .NOT. ScanOnly ) CALL ListRemove( List, Name )
             EXIT
 
-          ELSE 
+          CASE DEFAULT
 
             ReturnType = .TRUE.
             CALL CheckKeyWord( Name, TypeString, ReturnType )
             IF ( ReturnType ) THEN 
-               str = TRIM( TypeString ) // ' ' // str
-               GOTO 20
+              str = TRIM(TypeString) // ' ' // str
+              GOTO 20
             END IF
             CALL SyntaxError( Section, Name,str )
-
-          END IF
+          END SELECT
 !------------------------------------------------------------------------------
         END DO
 !------------------------------------------------------------------------------
