@@ -272,7 +272,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       GapHeight(1:n) = GetReal( Material,'Gap Height')
       Viscosity(1:n) = GetReal( Material, 'Viscosity')
       Admittance(1:n) = GetReal( Material, 'Flow Admittance', GotIt)
-      
+
       IF(mat_id /= mat_idold) THEN                  
 
         mat_idold = mat_id
@@ -386,6 +386,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         Material => Model % Materials(mat_id) % Values
         
         GapHeight(1:n) = GetReal(Material,'Gap Height')
+
         Viscosity(1:n) = GetReal( Material, 'Viscosity')
         
         STIFF = 0.0d0
@@ -767,8 +768,10 @@ END SUBROUTINE ReynoldsSolver
 !------------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found, Calculate
+    INTEGER :: Dim,GivenDim
 !------------------------------------------------------------------------------
     Params => GetSolverParams()
+    Dim = CoordinateSystemDimension()
 
     ! If the heating is not computed use a temp variable for the scalar equations
     !-------------------------------------------------------------------
@@ -781,22 +784,35 @@ END SUBROUTINE ReynoldsSolver
           '-nooutput ReynoldsTmp' )      
     END IF
 
-    ! The dofs of force is fixed to 3 since there is a normal component
+    ! The dofs of force is fixed by default to 3 since there is a normal component
     ! as well as tangential components of force.
     !-------------------------------------------------------------------
     Calculate = ListGetLogical(Params,'Calculate Force',Found)
+  
     IF( Calculate ) THEN
-      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-          '-dofs 3 FilmPressure Force' )
+      GivenDim = ListGetInteger(Params,'Calculate Force Dim',Found)
+      IF( Dim == 1 .OR. GivenDim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+            '-dofs 2 FilmPressure Force' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+            '-dofs 3 FilmPressure Force' )
+      END IF
     END IF
 
-    ! The dofs of flux is fixed to 3 since there can be leakage due to perforation
-    ! even in 2d case.
+    ! The dofs of flux is fixed by default 3 since there can be leakage 
+    ! due to perforation even in 2d case.
     !-------------------------------------------------------------------
     Calculate = ListGetLogical(Params,'Calculate Flux',Found)
     IF( Calculate ) THEN
-      CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-          '-dofs 3 FilmPressure Flux' )
+      GivenDim = ListGetInteger(Params,'Calculate Flux Dim',Found)
+      IF( Dim == 1 .OR. GivenDim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 2 FilmPressure Flux' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 3 FilmPressure Flux' )
+      END IF
     END IF
 
     CALL ListAddInteger( Params, 'Time derivative order', 0 )
@@ -871,9 +887,9 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
 !    Check if version number output is requested
 !------------------------------------------------------------------------------
 
-  CALL Info('ReynoldsPostprocess','------------------------------------------------',Level=5)
+  CALL Info('ReynoldsPostprocess','--------------------------------------------------',Level=5)
   CALL Info('ReynoldsPostprocess','Computing postprocessing fields from film pressure',Level=5)
-  CALL Info('ReynoldsPostprocess','------------------------------------------------',Level=5)
+  CALL Info('ReynoldsPostprocess','--------------------------------------------------',Level=5)
 
 !------------------------------------------------------------------------------
 ! Get variables needed for solution
@@ -1194,7 +1210,7 @@ CONTAINS
         IF( OpposingWall ) Spres = -Spres
         Spres = Spres - Gap * GradPres( Component ) / 2
         
-        Sslide = Sslide + Visc * TangentVelo(Component ) / Gap
+        Sslide = -Visc * TangentVelo(Component ) / Gap
         
         source = Spres + Sslide
         
@@ -1211,8 +1227,8 @@ CONTAINS
         source = Spres + Sslide 
       ELSE      
         ! heating effect of pressure gradient and sliding
-        Spres = (Gap**3 / (12 * Visc) ) * SUM(GradPres(1:dim)*GradPres(1:dim))
-        Sslide = (Visc / Gap) * SUM(TangentVelo(1:dim) * TangentVelo(1:dim)) 
+        Spres = (Gap**3 / (12 * Visc) ) * SUM(GradPres *GradPres )
+        Sslide = (Visc / Gap) * SUM(TangentVelo * TangentVelo )
         
         source = Spres + Sslide
         
