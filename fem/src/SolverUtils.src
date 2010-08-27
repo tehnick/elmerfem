@@ -3447,7 +3447,9 @@ END FUNCTION SearchNodeL
     IF( .NOT. Stat) MaxNorm = HUGE( Norm )
 
     IF( ISNAN( Norm ) .OR. Norm > MaxNorm ) THEN
-     CALL Fatal('ComputeChange','Norm of solution exceeded given bounds')
+      WRITE( Message, *) 'Computed Norm:',Norm
+      CALL Info('ComputeChange',Message)
+      CALL Fatal('ComputeChange','Norm of solution exceeded given bounds')
     END IF
   
       
