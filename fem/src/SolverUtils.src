@@ -3749,34 +3749,6 @@ END FUNCTION SearchNodeL
     
 
 !------------------------------------------------------------------------------
-  FUNCTION i2s(value) RESULT(string)
-!------------------------------------------------------------------------------
-    INTEGER :: value
-    CHARACTER(LEN=16) :: string
-!------------------------------------------------------------------------------
-    INTEGER :: val
-    INTEGER :: i,n,t
-!------------------------------------------------------------------------------
-
-     string = ' '
-     val = value
-     IF ( value > 0 ) THEN
-       n = LOG10(REAL(value))+1
-     ELSE
-       n = 1
-     END IF
-
-     DO i=n-1,0,-1
-      t = val / 10**i
-      val = val - t*10**i
-      string(n-i:n-i) = CHAR(t+ICHAR('0'))
-     END DO
-!------------------------------------------------------------------------------
-  END FUNCTION i2s
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
 ! Computing nodal weight may be good when one needs to transform nodal 
 ! information back to continous fields by dividing with the nodal weight. 
 ! Only active if the variable with name Variable % Name // ' Weights' exist.

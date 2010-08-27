@@ -1826,6 +1826,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
            CALL Fatal( 'ListGetInteger', Message )
         END IF
      END IF
+!------------------------------------------------------------------------------
    END FUNCTION ListGetInteger
 !------------------------------------------------------------------------------
 
@@ -1861,6 +1862,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
          Ivalues(i) = ExecIntFunction( ptr % PROCEDURE,CurrentModel )
        END DO
      END IF
+!------------------------------------------------------------------------------
    END FUNCTION ListGetIntegerArray
 !------------------------------------------------------------------------------
 
@@ -1961,11 +1963,14 @@ CALL Info( 'VariableGet', Message, Level=7 )
            CALL Fatal( 'ListGetInteger', Message )
         END IF
      END IF
+!------------------------------------------------------------------------------
    END FUNCTION ListGetConstReal
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   RECURSIVE FUNCTION ListGetCReal( List, Name, Found ) RESULT(s)
+!------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL, OPTIONAL :: Found
@@ -1999,6 +2004,87 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 #define MAX_FNC 32
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ListParseStrToValues( str, slen, ind, name, T, count )
+!------------------------------------------------------------------------------
+     CHARACTER(LEN=*) :: str, name
+     REAL(KIND=dp)  :: T(:)
+     INTEGER :: slen, count, ind
+!------------------------------------------------------------------------------
+     INTEGER :: i,j,k,k1,l,l0,l1
+     TYPE(Variable_t), POINTER :: Variable, CVar
+
+     count=0
+     l0=1
+
+     DO WHILE( .TRUE. )
+       DO WHILE( str(l0:l0) == ' ' )
+         l0 = l0 + 1
+       END DO
+       IF ( l0 > slen ) EXIT
+
+       l1 = INDEX( str(l0:slen),',')
+       IF ( l1 > 0 ) THEN
+         l1=l0+l1-2
+       ELSE
+         l1=slen
+       END IF
+
+       IF ( str(l0:l1) /= 'coordinate' ) THEN
+          Variable => VariableGet( CurrentModel % Variables,TRIM(str(l0:l1)) )
+          IF ( .NOT. ASSOCIATED( Variable ) ) THEN
+             WRITE( Message, * ) 'Can''t find independent variable:[', &
+                 TRIM(str(l0:l1)),']' // &
+                  'for dependent variable:[', TRIM(Name),']'
+             CALL Fatal( 'ListGetReal', Message )
+          END IF
+       ELSE
+          Variable => VariableGet( CurrentModel % Variables,'Coordinate 1' )
+       END IF
+
+       k1 = ind
+       IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
+
+       IF ( k1>0 .AND. k1<=SIZE(Variable % Values) ) THEN
+         IF ( str(l0:l1) == 'coordinate' ) THEN
+           CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
+           count = count + 1
+           T(1) = CVar % Values(k1)
+           CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
+           count = count + 1
+           T(2) = CVar % Values(k1)
+           CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
+           count = count + 1
+           T(3) = CVar % Values(k1)
+         ELSE
+           IF ( Variable % DOFs == 1 ) THEN
+              count = count + 1
+              T(count) = Variable % Values(k1)
+           ELSE
+              DO l=1,Variable % DOFs
+                 count = count + 1
+                 T(count) = Variable % Values(Variable % DOFs*(k1-1)+l)
+              END DO
+           END IF
+         END IF
+       ELSE
+         count = count + 1
+         IF ( ASSOCIATED(Variable % Perm) ) THEN
+            T(count) = HUGE(1.0_dp)
+            EXIT
+         ELSE
+            T(count) = Variable % Values(1)
+         END IF
+       END IF
+
+       l0 = l1+2
+       IF ( l0 > slen ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE ListParseStrToValues
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetReal( List,Name,N,NodeIndexes,Found,minv,maxv ) RESULT(F)
@@ -2043,73 +2129,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
        DO i=1,n
          k = NodeIndexes(i)
-
-         j=0
-         l0=1
-         lsize = Ptr % DepNameLen
-         DO WHILE( .TRUE. )
-           DO WHILE( Ptr % DependName(l0:l0) == ' ' )
-             l0 = l0 + 1
-           END DO
-           IF ( l0 > lsize ) EXIT
-
-           l1 = INDEX( ptr % DependName(l0:ptr % DepNameLen),',')
-           IF ( l1 > 0 ) THEN
-             l1=l0+l1-2
-           ELSE
-             l1=lsize
-           END IF
-
-           IF ( ptr % DependName(l0:l1) /= 'coordinate' ) THEN
-              Variable => VariableGet( CurrentModel % Variables,TRIM(ptr % DependName(l0:l1)) )
-              IF ( .NOT. ASSOCIATED( Variable ) ) THEN
-                 WRITE( Message, * ) 'Can''t find independent variable:[', &
-                     TRIM(ptr % DependName(l0:l1)),']' // &
-                      'for dependent variable:[', TRIM(Name),']'
-                 CALL Fatal( 'ListGetReal', Message )
-              END IF
-           ELSE
-              Variable => VariableGet( CurrentModel % Variables,'Coordinate 1' )
-           END IF
-
-           k1 = k
-           IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
-
-           IF ( k1>0 .AND. k1<=SIZE(Variable % Values) ) THEN
-             IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
-               j = j + 1
-               T(1) = CVar % Values(k1)
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
-               j = j + 1
-               T(2) = CVar % Values(k1)
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
-               j = j + 1
-               T(3) = CVar % Values(k1)
-             ELSE
-               IF ( Variable % DOFs == 1 ) THEN
-                  j = j + 1
-                  T(j) = Variable % Values(k1)
-               ELSE
-                  DO l=1,Variable % DOFs
-                     j = j + 1
-                     T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
-                  END DO
-               END IF
-             END IF
-           ELSE
-             j = j + 1
-             IF ( ASSOCIATED(Variable % Perm) ) THEN
-                T(j) = HUGE(1.0_dp)
-                EXIT
-             ELSE
-                T(j) = Variable % Values(1)
-             END IF
-           END IF
-
-           l0 = l1+2
-           IF ( l0 > lsize ) EXIT
-         END DO
+         CALL ListParseStrToValues( Ptr % DependName, Ptr % DepNameLen, k, Name, T, j)
 
          IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
            IF ( ptr % PROCEDURE /= 0 ) THEN
@@ -2148,76 +2168,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
        DO i=1,n
          k = NodeIndexes(i)
-
-         j=0
-         l0=1
-         lsize = Ptr % DepNamelen
-         DO WHILE( .TRUE. )
-           DO WHILE( Ptr % DependName(l0:l0) == ' ' )
-             l0 = l0 + 1
-           END DO
-           IF ( l0 > lsize ) EXIT
-
-           l1 = INDEX( ptr % DependName(l0:Ptr % DepNameLen),',')
-           IF ( l1 > 0 ) THEN
-             l1=l0+l1-2
-           ELSE
-             l1=lsize
-           END IF
-
-           IF ( ptr % DependName(l0:l1) /= 'coordinate' ) THEN
-              Variable => VariableGet( CurrentModel % Variables,ptr % DependName(l0:l1) )
-              IF ( .NOT. ASSOCIATED( Variable ) ) THEN
-                 WRITE( Message, * ) 'Can''t find independent variable:[', &
-                     TRIM(ptr % DependName(l0:l1)),']' // &
-                      'for dependent variable:[', TRIM(Name),']'
-                 CALL Fatal( 'ListGetReal', Message )
-              END IF
-           ELSE
-              Variable => VariableGet( CurrentModel % Variables,'Coordinate 1' )
-           END IF
-
-           k1 = k
-           IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
-
-           IF ( k1 > 0 .AND. SIZE(Variable % Values) >= k1 ) THEN
-              IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
-                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
-                j = j + 1
-                T(j) = CVar % Values(k1)
-                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
-                j = j + 1
-                T(j) = CVar % Values(k1)
-                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
-                j = j + 1
-                T(j) = CVar % Values(k1)
-              ELSE
-                IF ( Variable % DOFs == 1 ) THEN
-                  j = j + 1
-                  T(j) = Variable % Values(k1)
-                ELSE
-                  DO l=1,Variable % DOFs
-                   j = j + 1
-                     T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
-                  END DO
-                END IF
-              END IF
-           ELSE
-             j = j + 1
-             IF ( ASSOCIATED(Variable % Perm) ) THEN
-               T(j) = HUGE(1.0_dp)
-               EXIT
-             ELSE
-               T(j) = Variable % Values(1)
-             END IF
-           END IF
-           l0 = l1+2
-           IF ( l0 > lsize ) EXIT
-         END DO
-
+         CALL ListParseStrToValues( Ptr % DependName, Ptr % DepNameLen, k, Name, T, j)
          IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
            DO l=1,j
-             WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
+             WRITE( cmd, * ) 'tx('//trim(i2s(l-1))//')=', T(l)
              k1 = LEN_TRIM(cmd)
              CALL matc( cmd, tmp_str, k1 )
            END DO
@@ -2298,10 +2252,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
 
-     TYPE(Variable_t), POINTER :: Variable, CVar
+     TYPE(Variable_t), POINTER :: Variable, CVar, TVar
 
      REAL(KIND=dp) :: T(MAX_FNC)
-     INTEGER :: i,j,k,nlen,N1,N2
+     INTEGER :: i,j,k,nlen,N1,N2,k1,l
+     CHARACTER(LEN=MAX_NAME_LEN) :: tmp_str, cmd
 !------------------------------------------------------------------------------
      ptr => ListFind(List,Name,Found)
      IF ( .NOT.ASSOCIATED(ptr) ) RETURN
@@ -2339,55 +2294,38 @@ CALL Info( 'VariableGet', Message, Level=7 )
        END IF
    
      
-     CASE( LIST_TYPE_VARIABLE_TENSOR )
-       IF ( ptr % DependName /= 'coordinate' ) THEN
-          Variable => VariableGet( CurrentModel % Variables,ptr % DependName ) 
-          IF ( .NOT. ASSOCIATED( Variable ) ) THEN
-             WRITE( Message, * ) 'Can''t find independent variable:[', &
-                TRIM(ptr % DependName),']' // &
-                  'for dependent variable:[', TRIM(Name),']'
-             CALL Fatal( 'ListGetReal', Message )
-          END IF
-       ELSE
-          Variable => VariableGet( CurrentModel % Variables,'Coordinate 1' )
-       END IF
+     CASE( LIST_TYPE_VARIABLE_TENSOR,LIST_TYPE_VARIABLE_TENSOR_STR )
+       TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
+       WRITE( cmd, '(a,e15.8)' ) 'st = ', TVar % Values(1)
+       k = LEN_TRIM(cmd)
+       CALL matc( cmd, tmp_str, k )
 
        DO i=1,n
          k = NodeIndexes(i)
-         IF ( ASSOCIATED(Variable % Perm) ) k = Variable % Perm( k )
-         IF ( k > 0 ) THEN
-           IF ( SIZE( Variable % Values ) >= k ) THEN
+         CALL ListParseStrToValues( Ptr % DependName, Ptr % DepNameLen, k, Name, T, j)
+         IF ( ANY(T(1:j)==HUGE(1._dP)) ) CYCLE
 
-             IF ( ptr % DependName == 'coordinate' ) THEN
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
-               T(1) = CVar % Values(k)
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
-               T(2) = CVar % Values(k)
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
-               T(3) = CVar % Values(k)
-             ELSE
-               IF ( Variable % DOFs == 1 ) THEN
-                  T = Variable % Values(k)
-               ELSE
-                  DO j=1,Variable % DOFs
-                     T(j) = Variable % Values(Variable % DOFs*(k-1)+j)
-                  END DO
-               END IF
-             END IF
-           ELSE
-             T(1) = Variable % Values(1)
-           END IF
-           IF ( ptr % PROCEDURE /= 0 ) THEN
-             G => F(:,:,i)
-             CALL ExecRealArrayFunction( ptr % PROCEDURE,CurrentModel, &
-                       NodeIndexes(i), T, G )
-           ELSE
-             DO j=1,N1
-               DO k=1,N2
-                 F(j,k,i) = InterpolateCurve(ptr % TValues, ptr % FValues(j,k,:),T(1))
-               END DO
+         IF ( ptr % Type==LIST_TYPE_VARIABLE_TENSOR_STR) THEN
+           DO l=1,j
+             WRITE( cmd, '(a,g19.12)' ) 'tx('//trim(i2s(l-1))//')=', T(l)
+             k1 = LEN_TRIM(cmd)
+             CALL matc( cmd, tmp_str, k1 )
+           END DO
+
+           cmd = ptr % CValue
+           k1 = LEN_TRIM(cmd)
+           CALL matc( cmd, tmp_str, k1 )
+           READ( tmp_str(1:k1), * ) ((F(j,k,i),k=1,N2),j=1,N1)
+         ELSE IF ( ptr % PROCEDURE /= 0 ) THEN
+           G => F(:,:,i)
+           CALL ExecRealArrayFunction( ptr % PROCEDURE,CurrentModel, &
+                     NodeIndexes(i), T, G )
+         ELSE
+           DO j=1,N1
+             DO k=1,N2
+               F(j,k,i) = InterpolateCurve(ptr % TValues, ptr % FValues(j,k,:),T(1))
              END DO
-           END IF
+           END DO
          END IF
        END DO
 
