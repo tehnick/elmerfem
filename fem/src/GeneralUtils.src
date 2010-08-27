@@ -533,7 +533,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ReadAndTrim( Unit,str,echo ) RESULT(l)
+   RECURSIVE FUNCTION ReadAndTrim( Unit,str,echo,literal ) RESULT(l)
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -560,7 +560,7 @@ CONTAINS
      INTEGER :: Unit
      CHARACTER(LEN=*) :: str
 
-     LOGICAL, OPTIONAL :: Echo
+     LOGICAL, OPTIONAL :: Echo, literal
  
      LOGICAL :: l
 
@@ -575,6 +575,8 @@ CONTAINS
      INTEGER, PARAMETER :: A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A'),Tab=9
 
      SAVE ReadStr, ValueStarts, Prefix, OpenSection
+
+     IF ( PRESENT(literal) ) literal=.FALSE.
 
      l = .TRUE.
      outlen = LEN(str)
@@ -715,6 +717,10 @@ CONTAINS
 
      InsideQuotes = .FALSE.
      str = ' '
+
+     IF ( PRESENT(literal) ) THEN
+       IF ( readstr(i:i) == '"' ) literal=.TRUE.
+     END IF
 
      k = 1
      DO WHILE( i<=inlen )
