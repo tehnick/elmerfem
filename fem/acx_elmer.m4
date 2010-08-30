@@ -772,7 +772,7 @@ for acx_cxx_ldflag in $acx_cxx_verbose_out; do
 	   acx_cxx_libs="$acx_cxx_libs $acx_cxx_ldflag"
 	;;
         # Ignore these flags.
-        -lang* | -lcrt*.o | -lc | -lgcc | -libmil | -LANG:=*)
+        -lang* | -lcrt*.o | -lc | -lgcc | -libmil | -little | -LANG:=*)
 	;;
 	-[[lLR]]*)
 dnl	   echo "$acx_cxx_ldflag"
