@@ -2,7 +2,8 @@ all:
 
 install:
 	R CMD build elmerparam
-	R CMD INSTALL -l @prefix@/lib/R elmerparam
+	test -z "$(DESTDIR)@prefix@/lib/R" || mkdir -p $(DESTDIR)@prefix@/lib/R
+	R CMD INSTALL -l $(DESTDIR)@prefix@/lib/R elmerparam
 
 distdir: clean
 	cp -r ./* $(distdir)/

@@ -31,9 +31,9 @@ include_HEADERS = elmerparam.h
 
 if UPPERCASEMODS
 install-exec-local:
-	$(INSTALL) ELMERPARAM.mod $(includedir)
+	$(INSTALL) ELMERPARAM.mod $(DESTDIR)$(includedir)
 else
 install-exec-local:
-	$(INSTALL) elmerparam.mod $(includedir)
+	$(INSTALL) elmerparam.mod $(DESTDIR)$(includedir)
 endif
 MOSTLYCLEANFILES = $(nodist_include_HEADERS)
