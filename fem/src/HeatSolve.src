@@ -586,7 +586,8 @@
 !------------------------------------------------------------------------------
      PrevSolution = Temperature(1:LocalNodes)
      IF ( TransientSimulation ) THEN
-       ALLOCATE( TSolution(LocalNodes), TSolution1(LocalNodes) )
+       IF ( .NOT. ALLOCATED(TSolution) ) &
+         ALLOCATE( TSolution(LocalNodes), TSolution1(LocalNodes) )
        TSolution = Solver % Variable % PrevValues(:,1)
      END IF
 !------------------------------------------------------------------------------
