@@ -11,7 +11,7 @@ Simulation
   Simulation Type = Steady
   Steady State Max Iterations = 1
   Output Intervals = 0
-  Post File = richards.ep
+!  Post File = richards.ep
 End
 
 Constants
@@ -40,32 +40,27 @@ End
 Solver 1
   Equation = "RichardsSolver"
   Procedure = File "RichardsSolver" "RichardsSolver"
-  Variable = Head
+  Variable = Total Head
 
-!  Discontinuous Galerkin = Logical True ! not operational 
+!  Discontinuous Galerkin = Logical True ! not operational yet
 
   Linear System Solver = Iterative
-  Linear System Solver = Direct
-
-  Linear System Direct Method = umfpack
-
-
   Linear System Iterative Method = BiCGStab
   Linear System Max Iterations  = 1000
   Linear System Preconditioning = ILU1
-  Linear System Convergence Tolerance = 1.0e-14
+  Linear System Convergence Tolerance = 1.0e-12
   Linear System Residual Output = 10
+
+!  Linear System Solver = Direct
+  Linear System Direct Method = umfpack
 
   Nonlinear System Max Iterations = 100
   Nonlinear System Convergence Tolerance = 1.0e-6
   Nonlinear System Convergence Measure = solution
   Nonlinear System Relaxation Factor = 1.0
 
-! Create an additional variable and ask for it to be updated 
-! This could easily be made within the code as well...
-! Now it is defined in body force section
-  Exported Variable 1 = Total Head
-  Update Exported Variables = Logical True
+! Compute matric suction (=z-H) to external variable if requested
+  Calculate Matric Suction = Logical True
 
 ! Uses saturated conditions (pure Darcy flow) for the 1st iteration
   Saturated Initial Guess = Logical True
@@ -78,16 +73,12 @@ Solver 2
   Equation = "RichardsFlux"
   Procedure = File "RichardsSolver" "RichardsFlux"
 
-  Flux Variable = String "Head"
+  Flux Variable = String "Total Head"
   Flux Multiplier = Real 1.0e9
 
   Linear System Convergence Tolerance = 1.0e-12
 End
 
-Body Force 1
-  Total Head = Variable Head, Coordinate 2
-    Real MATC "tx(1)-tx(0)"
-End
 
 Boundary Condition 1
   Target Boundaries = 1
@@ -102,7 +93,7 @@ End
 Boundary Condition 3
   Target Boundaries = 3 
   Name = "WetRight"
-  Head = Real 0.0
+  Total Head = Real 6.0
 End
 
 Boundary Condition 4
@@ -114,8 +105,7 @@ Boundary Condition 5
   Target Boundaries(2) = 5 6 
   Name = "WetLeft"
   
-  Head = Variable Coordinate 2
-    Real MATC "tx-8.5"
+  Total Head = Real 8.5
 End
 
 Boundary Condition 6
@@ -126,7 +116,8 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=4.7815692\n");
+$fprintf( stderr, "END TEST CASE 1: Target NRM=7.4644288\n");
+
 
 
 
