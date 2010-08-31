@@ -312,11 +312,17 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
                 LocalCoords(1), LocalCoords(2), LocalCoords(3) )
             ElementValues(q) = 0.0d0
           END DO
+        END IF
+
+	IF( Hit ) THEN
+	  ParallelHit = 1.0_dp
         ELSE
-          IF(.NOT. IsParallel ) THEN
-            WRITE( Message, * ) 'Coordinate not found in any of the elements!',j
-            CALL Warn( 'SaveScalars', Message )
-          END IF
+          ParallelHit = 0.0_dp
+        END IF
+	ParallelHit = ParallelReduction( ParallelHit )
+	IF( ParallelHit < 0.5_dp ) THEN
+          WRITE( Message, * ) 'Coordinate not found in any of the elements!',j
+          CALL Warn( 'SaveScalars', Message )
         END IF
         
       END DO
