@@ -88,7 +88,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Mean, Variance, Dist, MinDist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
       IntSquare, LocalCoords(3), TempCoordinates(3), Value, Value2, &
-      Change, Norm = 0.0_dp, PrevNorm, EpsAbs, ParallelHit
+      Change, Norm = 0.0_dp, PrevNorm, EpsAbs, ParallelHits, ParallelCands
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:), WrkPntr(:)
@@ -276,30 +276,47 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           IF( Hit ) EXIT
         END DO       
 
-
-	IF( Hit ) THEN
-	  ParallelHit = 1.0_dp
-        ELSE
-          ParallelHit = 0.0_dp
-        END IF
-	ParallelHit = ParallelReduction( ParallelHit )
         
+	IF( Hit ) THEN
+	  ParallelHits = 1.0_dp
+        ELSE
+          ParallelHits = 0.0_dp
+        END IF
+	ParallelHits = ParallelReduction( ParallelHits )
+        
+        ! If there was no proper hit go through the best candidates so far and 
+        ! see if they would give a acceptable hit
+        !----------------------------------------------------------------------
+	IF( ParallelHits < 0.5_dp ) THEN	  
 
-	IF( ParallelHit < 0.5_dp ) THEN
-          CurrentElement => Mesh % Elements(l)
-          n = CurrentElement % TYPE % NumberOfNodes
-          NodeIndexes => CurrentElement % NodeIndexes
-          
-          ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
-          ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
-          ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
-          
-	  IF( IsParallel ) THEN
-   	    Hit = PointInElement( CurrentElement, ElementNodes, &
-                  TempCoordinates, LocalCoords, GlobalEps = 1.0e-3_dp, LocalEps=1.0e-4_dp )	
+          ! Compute the number of parallel candidates
+          !------------------------------------------
+	  IF( l > 0 ) THEN
+	    ParallelCands = 1.0_dp
           ELSE
-	    Hit = PointInElement( CurrentElement, ElementNodes, &
-                  TempCoordinates, LocalCoords, GlobalEps = 1.0_dp, LocalEps=0.1_dp )	
+            ParallelCands = 0.0_dp
+          END IF
+	  ParallelCands = ParallelReduction( ParallelCands ) 
+
+          IF( l > 0 ) THEN
+            CurrentElement => Mesh % Elements(l)
+            n = CurrentElement % TYPE % NumberOfNodes
+            NodeIndexes => CurrentElement % NodeIndexes
+          
+            ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+            ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+            ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+          
+            ! If there are more than two competing parallel hits then use more stringent conditions
+            ! since afterwords there is no way of deciding which one was closer.
+            !--------------------------------------------------------------------------------------
+	    IF( ParallelCands > 1.5_dp ) THEN
+   	      Hit = PointInElement( CurrentElement, ElementNodes, &
+                    TempCoordinates, LocalCoords, GlobalEps = 1.0e-3_dp, LocalEps=1.0e-4_dp )	
+            ELSE
+	      Hit = PointInElement( CurrentElement, ElementNodes, &
+                    TempCoordinates, LocalCoords, GlobalEps = 1.0_dp, LocalEps=0.1_dp )	
+            END IF
           END IF
         END IF
 
@@ -314,15 +331,18 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           END DO
         END IF
 
-	IF( Hit ) THEN
-	  ParallelHit = 1.0_dp
-        ELSE
-          ParallelHit = 0.0_dp
-        END IF
-	ParallelHit = ParallelReduction( ParallelHit )
-	IF( ParallelHit < 0.5_dp ) THEN
-          WRITE( Message, * ) 'Coordinate not found in any of the elements!',j
-          CALL Warn( 'SaveScalars', Message )
+
+        IF( ParallelHits < 0.5_dp ) THEN
+	  IF( Hit ) THEN
+	    ParallelHits = 1.0_dp
+          ELSE
+            ParallelHits = 0.0_dp
+          END IF
+	  ParallelHits = ParallelReduction( ParallelHits )
+          IF( ParallelHits < 0.5_dp ) THEN
+            WRITE( Message, * ) 'Coordinate not found in any of the elements!',j
+            CALL Warn( 'SaveScalars', Message )
+          END IF
         END IF
         
       END DO
@@ -901,7 +921,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ELSE 
         OPEN (10,FILE=ScalarParFile)
       END IF
-    ELSE 
+    ELSE IF( WriteCore ) THEN 
       IF(SubroutineVisited .OR. FileAppend) THEN 
         OPEN (10, FILE=ScalarsFile,POSITION='APPEND')
       ELSE 
@@ -928,62 +948,63 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ELSE
         WRITE (10,'(ES22.12E3)') Values(NoValues)
       END IF
-    END IF
-    CLOSE(10)
-    
-    !------------------------------------------------------------------------------
-    ! Save comments by line in a metadata file
-    !------------------------------------------------------------------------------
-    IF( .NOT. SubroutineVisited .AND. FileAppend .AND. LineInd /= 0 ) THEN
-      Message = ListGetString(Solver % Values,'Comment',GotIt)
-      Name = TRIM(ScalarsFile) // '.' // TRIM("marker")
-      IF( GotIt ) THEN
-        OPEN (10, FILE=Name,POSITION='APPEND')
-        WRITE(10,'(I6,A,A)') LineInd,': ',TRIM(Message)
-      END IF
-    END IF
-    
-    !------------------------------------------------------------------------------
-    ! Save data in livegraph format
-    !------------------------------------------------------------------------------
-    
-    IF(LiveGraph) THEN
-      ! Save data as comma-separated-values (cvs-file)
-      IF(SubroutineVisited .OR. FileAppend) THEN 
-        OPEN (10, FILE=TRIM(ScalarsFile)//'.csv',POSITION='APPEND')      
-      ELSE 
-        OPEN (10, FILE=TRIM(ScalarsFile)//'.csv')
-        DO No=1,NoValues-1
-          WRITE (10,'(A)',advance='no') TRIM(ValueNames(No))//","
-        END DO
-        WRITE (10,'(A)') TRIM(ValueNames(NoValues))
-      END IF
-      
-      DO No=1,NoValues-1
-        WRITE (10,'(ES22.12E3,A)',advance='no') Values(No),","
-      END DO
-      WRITE (10,'(ES22.12E3)') Values(NoValues)
       CLOSE(10)
-    END IF
     
+      !------------------------------------------------------------------------------
+      ! Save comments by line in a metadata file
+      !------------------------------------------------------------------------------
+      IF( .NOT. SubroutineVisited .AND. FileAppend .AND. LineInd /= 0 ) THEN
+      
+        Message = ListGetString(Solver % Values,'Comment',GotIt)
+        Name = TRIM(ScalarsFile) // '.' // TRIM("marker")
+        IF( GotIt ) THEN
+          OPEN (10, FILE=Name,POSITION='APPEND')
+          WRITE(10,'(I6,A,A)') LineInd,': ',TRIM(Message)
+        END IF
+      END IF
+    
+      !------------------------------------------------------------------------------
+      ! Save data in livegraph format
+      !------------------------------------------------------------------------------
+    
+      IF(LiveGraph) THEN
+        ! Save data as comma-separated-values (cvs-file)
+        IF(SubroutineVisited .OR. FileAppend) THEN 
+          OPEN (10, FILE=TRIM(ScalarsFile)//'.csv',POSITION='APPEND')      
+        ELSE 
+          OPEN (10, FILE=TRIM(ScalarsFile)//'.csv')
+          DO No=1,NoValues-1
+            WRITE (10,'(A)',advance='no') TRIM(ValueNames(No))//","
+          END DO
+          WRITE (10,'(A)') TRIM(ValueNames(NoValues))
+        END IF
+      
+        DO No=1,NoValues-1
+          WRITE (10,'(ES22.12E3,A)',advance='no') Values(No),","
+        END DO
+        WRITE (10,'(ES22.12E3)') Values(NoValues)
+        CLOSE(10)
+      END IF
+    END IF   
   END IF ! of SaveFile
   
-
   !------------------------------------------------------------------------------
   ! If saving is not requested, echo the data on output
+  ! In parallel only echo for the 1st partition
   !------------------------------------------------------------------------------
-  IF(SaveToFile ) THEN
-    i = 5
-  ELSE
-    i = 3
+  IF( WriteCore ) THEN
+    IF(SaveToFile ) THEN
+      i = 5
+    ELSE
+      i = 3
+    END IF
+
+    CALL Info( 'SaveScalars','Showing computed results:', Level=i)
+    DO No=1,NoValues
+      WRITE(Message,'(I4,": ",A,ES22.12E3)') No,TRIM(ValueNames(No)),Values(No)
+      CALL Info('SaveScalars',Message,Level=i)
+    END DO
   END IF
-
-  CALL Info( 'SaveScalars','Showing computed results:', Level=i)
-  DO No=1,NoValues
-    WRITE(Message,'(I4,": ",A,ES22.12E3)') No,TRIM(ValueNames(No)),Values(No)
-    CALL Info('SaveScalars',Message,Level=i)
-  END DO
-
 
   !------------------------------------------------------------------------------
   ! Add data to the Simulation block for possible future use
@@ -1022,7 +1043,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
 
   NormInd = ListGetInteger( Solver % Values,'Show Norm Index',GotIt)
-  IF( NormInd > 0 .AND. NormInd <= NoValues ) THEN
+  IF( WriteCore .AND. NormInd > 0 .AND. NormInd <= NoValues ) THEN
     PrevNorm = Norm
     Norm = Values( NormInd )
     IF( ABS( Norm ) + ABS( PrevNorm ) > 0.0_dp ) THEN
