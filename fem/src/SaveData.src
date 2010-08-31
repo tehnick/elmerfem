@@ -88,7 +88,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Mean, Variance, Dist, MinDist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
       IntSquare, LocalCoords(3), TempCoordinates(3), Value, Value2, &
-      Change, Norm = 0.0_dp, PrevNorm, EpsAbs
+      Change, Norm = 0.0_dp, PrevNorm, EpsAbs, ParallelHit
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:),BoundaryAreas(:)
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:), WrkPntr(:)
@@ -276,7 +276,16 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           IF( Hit ) EXIT
         END DO       
 
-	IF( .NOT. Hit ) THEN
+
+	IF( Hit ) THEN
+	  ParallelHit = 1.0_dp
+        ELSE
+          ParallelHit = 0.0_dp
+        END IF
+	ParallelHit = ParallelReduction( ParallelHit )
+        
+
+	IF( ParallelHit < 0.5_dp ) THEN
           CurrentElement => Mesh % Elements(l)
           n = CurrentElement % TYPE % NumberOfNodes
           NodeIndexes => CurrentElement % NodeIndexes
