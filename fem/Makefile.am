@@ -17,6 +17,4 @@ dist-hook:
 #	  sh nodist.sh;                        \
 #	fi
 
-
-
-
+CLEANFILES = a.out

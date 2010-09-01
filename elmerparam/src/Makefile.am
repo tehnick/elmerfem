@@ -37,3 +37,5 @@ install-exec-local:
 	$(INSTALL) elmerparam.mod $(DESTDIR)$(includedir)
 endif
 MOSTLYCLEANFILES = $(nodist_include_HEADERS)
+
+CLEANFILES = *.mod
