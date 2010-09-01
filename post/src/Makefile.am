@@ -33,6 +33,9 @@ clean-local:
 
 EXTRA_DIST=screensave.c
 
+screensave.$(OBJEXT): screensave.c
+	$(COMPILE) -c $< -fPIC
+
 screensave.so: screensave.$(OBJEXT)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< $(LIBS)
 
