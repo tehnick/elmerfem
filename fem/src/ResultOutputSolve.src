@@ -128,11 +128,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   DO WHILE( ASSOCIATED(Mesh) )
     IF ( .NOT.Mesh % OutputActive ) THEN
       Mesh => Mesh % next
-      CYCLE
+      CYCLE 
     END IF
     
     CALL SetCurrentMesh( Model, Mesh )
     CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(Mesh % Name) )
+    WRITE(Message,'(A,I1)') 'Dimension of mesh: ',Mesh % MeshDim 
+    CALL Info('ResultOutputSolver',Message)
 
     IF( .NOT. ListSet ) THEN
       CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
@@ -547,7 +549,7 @@ END SUBROUTINE ResultOutputSolver
       MaskExists = ASSOCIATED(MaskPerm)
     END IF
     IF(MaskExists) THEN
-      CALL Info('ElmerPostOutputSolver','Using '// TRIM(Str) // ' as mask variable')
+      CALL Info('ElmerPostOutputSolver','Using > '// TRIM(Str) // ' < as mask variable')
       NumberOfNodes = MAXVAL(MaskPerm)
       ALLOCATE(MaskOrder(NumberOfNodes))
       DO i=1,SIZE(MaskPerm)
@@ -3105,10 +3107,17 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Variable_t), POINTER :: Var
-  INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet
+  INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, MeshDim
   CHARACTER(MAX_NAME_LEN) :: Dir
-!  TYPE( ValueList_t ), POINTER :: SaveList
- 
+  LOGICAL :: Visited = .FALSE.
+
+  LOGICAL :: MaskExists, MaskAllocated
+  CHARACTER(MAX_NAME_LEN) :: Str
+  TYPE(Variable_t), POINTER :: MaskVar
+  INTEGER, POINTER :: MaskPerm(:), MaskOrder(:)
+  INTEGER :: NumberOfNodes, NumberOfElements, ParallelNodes, ParallelElements
+  TYPE(Element_t), POINTER :: CurrentElement
+
 
   ExtCount = ListGetInteger( Solver % Values,'Output Count',GotIt)
   IF( GotIt ) THEN
@@ -3129,8 +3138,70 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   Parallel = (Partitions > 1) .OR. ListGetLogical(Solver % Values,'Enforce Parallel format',GotIt)
 
   FixedMesh = ListGetLogical(Solver % Values,'Fixed Mesh',GotIt)
-
   Mesh => Model % Mesh
+  MeshDim = Mesh % MeshDim
+
+
+  !------------------------------------------------------------------------------
+  ! Initialize stuff for masked saving
+  !------------------------------------------------------------------------------
+  MaskAllocated = .FALSE.
+  Str = ListGetString( Solver % Values,'Mask Variable',MaskExists)
+  IF( MaskExists ) THEN
+    MaskVar => VariableGet(Model % Variables,TRIM(Str))
+    IF( ASSOCIATED(MaskVar)) MaskPerm => MaskVar % Perm
+    MaskExists = ASSOCIATED(MaskPerm)
+  ELSE
+    IF( MeshDim == 2 ) THEN
+      Str = ListGetString( Solver % Values,'2D Mask Name',GotIt)    
+    ELSE IF( MeshDim == 3 ) THEN  
+      Str = ListGetString( Solver % Values,'3D Mask Name',GotIt)    
+    END IF
+    IF(.NOT. GotIt) Str = ListGetString( Solver % Values,'Mask Name',GotIt) 
+    IF( GotIt ) THEN
+      ALLOCATE( MaskPerm( Model % NumberOfNodes ) ) 
+      CALL MakePermUsingMask( Model,Solver,Mesh,Str, &
+          .FALSE., MaskPerm, NumberOfNodes )
+      ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
+      IF( ParallelNodes > 0 ) THEN
+        MaskExists = .TRUE.
+        MaskAllocated = .TRUE.
+      ELSE
+        CALL Warn('VtuOutputSolver','Given mask not active: '//TRIM(Str) )
+        DEALLOCATE( MaskPerm )
+      END IF
+    END IF
+  END IF
+  
+  IF(MaskExists) THEN
+    CALL Info('VtuOutputSolver','Using > '// TRIM(Str) // ' < as mask variable')
+    NumberOfNodes = MAXVAL(MaskPerm)
+    NumberOfElements = 0
+    IF( NumberOfNodes > 0 ) THEN
+      ALLOCATE(MaskOrder(NumberOfNodes))
+      DO i=1,SIZE(MaskPerm)
+        j = MaskPerm(i)
+        IF(j > 0) MaskOrder(j) = i
+      END DO
+      DO i=1,Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+        CurrentElement => Model % Elements(i)
+        IF( ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0) ) THEN
+          NumberOfElements = NumberOfElements + 1
+        END IF
+      END DO
+      IF( nTime == 1 ) THEN
+        ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
+        ParallelElements = NINT( ParallelReduction( 1.0_dp * NumberOfElements ) )
+        WRITE( Message,'(A,I8)') 'Total number of masked nodes:',ParallelNodes
+        CALL Info('VtuOutputSolver',Message)
+        WRITE( Message,'(A,I8)') 'Total number of masked elements:',ParallelElements
+        CALL Info('VtuOutputSolver',Message)
+      END IF
+    END IF
+  ELSE
+    NumberOfNodes = Model % NumberOfNodes
+    NumberOfElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+  END IF
 
   IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
     Dir = TRIM(Mesh % Name) // "/"
@@ -3149,6 +3220,9 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
   END IF
   CALL WriteVtuFile( VtuFile, Model, FixedMesh )
+
+
+  IF( MaskAllocated ) DEALLOCATE( MaskPerm ) 
   
 
 CONTAINS
@@ -3161,7 +3235,7 @@ CONTAINS
     INTEGER, PARAMETER :: VtuUnit = 58
     TYPE(Variable_t), POINTER :: Var,Var1
     CHARACTER(LEN=512) :: str
-    INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs,dispdofs, disp2dofs
+    INTEGER :: i,ii,j,k,dofs,Rank,cumn,n,dim,vari,sdofs,dispdofs, disp2dofs
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName, FieldName2
     LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2, ThisOnly
     TYPE(Variable_t), POINTER :: Solution
@@ -3179,8 +3253,8 @@ CONTAINS
     
     WRITE( VtuUnit,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
     WRITE( VtuUnit,'(A)') '  <UnstructuredGrid>'
-    WRITE( VtuUnit,'(A,I0,A,I0,A)') '    <Piece NumberOfPoints="',Model % NumberOfNodes,&
-        '" NumberOfCells="',Model%NumberOfBulkElements + Model%NumberOfBoundaryElements,'">'
+    WRITE( VtuUnit,'(A,I0,A,I0,A)') '    <Piece NumberOfPoints="',NumberOfNodes,&
+        '" NumberOfCells="',NumberOfElements,'">'
     
     ! nodewise information
     !-------------------------------------
@@ -3309,7 +3383,9 @@ CONTAINS
         IF( Rank == 0) THEN
           WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
               //'" NumberOfComponents="1" format="ascii">'    
-          DO i = 1, Model % Mesh % NumberOfNodes
+          DO ii = 1, NumberOfNodes
+            i = ii
+            IF( MaskExists ) i = MaskOrder(i)
             j = Perm(i)
             Use2 = (j == 0) .AND. ComplementExists 
             IF( Use2 ) j = Perm2(i)
@@ -3328,7 +3404,9 @@ CONTAINS
           WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
               //'" NumberOfComponents="',sdofs,'" format="ascii">'    
           
-          DO i = 1, Model % Mesh % NumberOfNodes
+          DO ii = 1, NumberOfNodes
+            i = ii
+            IF( MaskExists ) i = MaskOrder(i)
             j = Perm(i)
             Use2 = (j == 0) .AND. ComplementExists 
             IF( Use2 ) j = Perm2(i)
@@ -3362,10 +3440,13 @@ CONTAINS
     IF(.FALSE.) THEN
       WRITE( VtuUnit,'(A)') '      <CellData>'
       WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="body" format="ascii">'
-      DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+      DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
         CurrentElement => Model % Elements(i)
-        IF( i <= Model % NumberOfBulkElements) THEN
-          n = CurrentElement % BodyId
+        IF(MaskExists) THEN
+          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+        END IF
+        IF( i <= Model % NumberOfBulkElements ) THEN
+          n = CurrentElement % BodyId 
         ELSE
           n = 0
         END IF
@@ -3381,7 +3462,9 @@ CONTAINS
     WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
 
 
-    DO i = 1, Model % Mesh % NumberOfNodes
+    DO ii = 1, NumberOfNodes
+      i = ii
+      IF( MaskExists ) i = MaskOrder(i)
       x = Model % Mesh % Nodes % x(i)
       y = Model % Mesh % Nodes % y(i)
       z = Model % Mesh % Nodes % z(i)
@@ -3422,16 +3505,24 @@ CONTAINS
     !-------------------------------------
     WRITE( VtuUnit,'(A)') '      <Cells>'
     WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
-    DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+    DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
       CurrentElement => Model % Elements(i)
-      WRITE( VtuUnit, '(50(" ",I0))') CurrentElement % NodeIndexes-1
+      IF(MaskExists) THEN
+        IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+        WRITE( VtuUnit, '(50(" ",I0))') MaskPerm( CurrentElement % NodeIndexes ) - 1
+      ELSE
+        WRITE( VtuUnit, '(50(" ",I0))') CurrentElement % NodeIndexes - 1
+      END IF
     END DO
     WRITE( VtuUnit,'(A)') '        </DataArray>'
 
     cumn = 0
     WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
-    DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+    DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
       CurrentElement => Model % Elements(i)
+      IF(MaskExists) THEN
+        IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+      END IF
       n = CurrentElement % TYPE % NumberOfNodes
       cumn = cumn + n
       WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') cumn
@@ -3440,8 +3531,11 @@ CONTAINS
     WRITE( VtuUnit,'(A)') '        </DataArray>'
 
     WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="types" format="ascii">'
-    DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+    DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
       CurrentElement => Model % Elements(i)
+      IF(MaskExists) THEN
+        IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+      END IF
       n = Elmer2VTKElement(CurrentElement % TYPE % ElementCode)
       WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') n
     END DO
