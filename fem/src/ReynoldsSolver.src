@@ -40,6 +40,41 @@
 ! *
 ! *****************************************************************************/
 
+SUBROUTINE ReynoldsSolver_init( Model,Solver,dt,TransientSimulation )
+
+  USE DefUtils
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+  LOGICAL :: Cavitation, Found
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+
+
+  Cavitation = ListGetLogical( Solver % Values,'Cavitation',Found)
+  IF(.NOT. Found ) THEN
+    Cavitation = ListCheckPresent(Solver % Values,'Cavitation Pressure')
+    IF( Cavitation ) THEN
+      CALL Warn('ReynoldsSolver_init','If you want to activate cavitation set >Cavitation = True<')
+      CALL ListAddLogical(Solver % Values,'Cavitation',.TRUE.)
+    END IF
+  END IF
+  IF( Cavitation ) THEN
+    VarName = ListGetString( Solver % Values,'Variable',Found)
+    IF(.NOT. Found) THEN
+      CALL Warn('ReynoldsSolver_init','Variable is required!')
+      RETURN
+    END IF
+    CALL ListAddString( Solver % Values,'Exported Variables 1',TRIM(VarName)//' Cavitation')
+    CALL ListAddLogical( Solver % Values,'Calculate Loads',.TRUE.)
+  END IF
+
+END SUBROUTINE ReynoldsSolver_init
+
+
 
 SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -104,7 +139,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
   Bubbles = GetLogical( Solver % Values, 'Bubbles', GotIt )
   PartIntSliding = GetLogical(Solver % Values,'Partial Integrate Sliding',GotIt)
-  CavitationPressure = GetCReal(Solver % Values,'Cavitation Pressure',Cavitation)
+  Cavitation = GetLogical( Solver % Values,'Cavitation',GotIt) 
   
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
   IF(Solver % Variable % Dofs /= 1) THEN
@@ -131,6 +166,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
   IF(Cavitation) THEN
+    CavitationPressure = GetCReal( Solver % Values,'Cavitation Pressure')
     VarTemp => VariableGet( Model % Mesh % Variables, &
            GetVarName(Solver % Variable) // ' Cavitation' )
     IF (.NOT.ASSOCIATED(VarTemp)) THEN
@@ -1206,11 +1242,11 @@ CONTAINS
       IF( Mode == 1 ) THEN
         ! Forces resulting from pressure and shear
         
-        Spres = TotPres * Normal( Component ) 
+        Spres = -TotPres * Normal( Component ) 
         IF( OpposingWall ) Spres = -Spres
         Spres = Spres - Gap * GradPres( Component ) / 2
         
-        Sslide = -Visc * TangentVelo(Component ) / Gap
+        Sslide = Visc * TangentVelo(Component ) / Gap
         
         source = Spres + Sslide
         
