@@ -81,7 +81,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotParOper, GotVar, ExactCoordinates, VariablesExist, &
       ComplexEigen, IsParallel, ParallelWrite, LiveGraph, FileAppend, SaveEigenValue, &
-      SaveEigenFreq, IsInteger, ParallelReduce, WriteCore, Hit, GotEpsAbs, SaveToFile
+      SaveEigenFreq, IsInteger, ParallelReduce, WriteCore, Hit, GotEpsAbs, SaveToFile, &
+      EchoValues
   LOGICAL, POINTER :: ValuesInteger(:)
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
@@ -107,7 +108,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
       Values, ValueNames, ValuesInteger, NoCoordinates, ScalarsFile, ScalarNamesFile, &
-      ExactCoordinates, CoordinatesElemNo, NoElements, ElementNodes, &
+      ExactCoordinates, CoordinatesElemNo, NoElements, ElementNodes, EchoValues, &
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, SaveToFile, &
       BoundaryFluxes, BoundaryAreas, BoundaryHits, VariablesExist, NoLines, &
       LineCoordinates, ScalarParFile, IsParallel, ParallelWrite, ParSolver, PrevNoValues, &
@@ -156,6 +157,10 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ScalarNamesFile = TRIM(ScalarsFile) // '.' // TRIM("names")
       LiveGraph = ListGetLogical(Solver % Values,'Live Graph',GotIt) 
     END IF    
+
+    EchoValues = ListGetLogical( Solver % Values,'Echo Values',GotIt)
+    IF(.NOT. GotIt) EchoValues = .NOT. SaveToFile
+    EchoValues = EchoValues .AND. WriteCore
 
 
     ResultPrefix = ListGetString(Solver % Values,'Scalars Prefix',GotIt )
@@ -989,20 +994,13 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   END IF ! of SaveFile
   
   !------------------------------------------------------------------------------
-  ! If saving is not requested, echo the data on output
-  ! In parallel only echo for the 1st partition
+  ! Echo values if requested, this is the default if no output to file
   !------------------------------------------------------------------------------
-  IF( WriteCore ) THEN
-    IF(SaveToFile ) THEN
-      i = 5
-    ELSE
-      i = 3
-    END IF
-
-    CALL Info( 'SaveScalars','Showing computed results:', Level=i)
+  IF( EchoValues ) THEN
+    CALL Info( 'SaveScalars','Showing computed results:')
     DO No=1,NoValues
       WRITE(Message,'(I4,": ",A,ES22.12E3)') No,TRIM(ValueNames(No)),Values(No)
-      CALL Info('SaveScalars',Message,Level=i)
+      CALL Info('SaveScalars',Message)
     END DO
   END IF
 
