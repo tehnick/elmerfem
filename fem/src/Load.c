@@ -498,7 +498,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
     strcpy( Value, (char *)ptr );
     *len = strlen(Value)-1; /* ignore linefeed! */
 
-    if ( strncmp( Value, "MATC ERROR:", 11 ) == 0 ) {
+    if ( strncmp(Value, "MATC ERROR:",11)==0 || strncmp(Value,"WARNING:",8)==0 ) {
         fprintf( stderr, "Solver input file error: %s\n", Value );
         exit(0);
     }
