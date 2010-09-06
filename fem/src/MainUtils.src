@@ -2727,12 +2727,14 @@ END SUBROUTINE CoupledSolver
      IF ( ASSOCIATED(Solver % Matrix) ) THEN
        ParEnv % ActiveComm = Solver % Matrix % Comm
        IF ( ParEnv % PEs>1 .AND. MeActive ) THEN
-         IF (.NOT. ASSOCIATED(Solver % Matrix % ParMatrix) ) &
-           CALL ParallelInitMatrix(Solver, Solver % Matrix )
+         IF ( ASSOCIATED(Solver % Mesh % ParallelInfo % Interface) ) THEN
+           IF (.NOT. ASSOCIATED(Solver % Matrix % ParMatrix) ) &
+             CALL ParallelInitMatrix(Solver, Solver % Matrix )
 
-         Solver % Matrix % ParMatrix % ParEnv % ActiveComm = &
-                  Solver % Matrix % Comm
-         ParEnv = Solver % Matrix % ParMatrix % ParEnv
+           Solver % Matrix % ParMatrix % ParEnv % ActiveComm = &
+                    Solver % Matrix % Comm
+           ParEnv = Solver % Matrix % ParMatrix % ParEnv
+         END IF
        END IF
      END IF
      str = ListGetString( Solver  % Values,'Procedure', Found )
