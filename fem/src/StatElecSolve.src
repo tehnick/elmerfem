@@ -182,6 +182,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL, ALLOCATABLE :: Done(:)
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
+  TYPE(ValueList_t), POINTER :: Params 
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
       ElementNodes, CalculateFlux, CalculateEnergy, &
@@ -226,6 +227,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
+
+  Params => GetSolverParams()
+
   Potential     => Solver % Variable % Values
   PotentialPerm => Solver % Variable % Perm
   
@@ -261,37 +265,37 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       CALL Fatal( 'StatElecSolve', 'Memory allocation error 2' )
     END IF
     
-    CalculateField = ListGetLogical( Solver % Values, &
+    CalculateField = ListGetLogical( Params, &
         'Calculate Electric Field', GotIt )
 !    IF ( .NOT. GotIt )  CalculateField = .TRUE.
     
-    CalculateFlux = ListGetLogical( Solver % Values, &
+    CalculateFlux = ListGetLogical( Params, &
         'Calculate Electric Flux', GotIt )
 !    IF ( .NOT. GotIt )  CalculateFlux = .TRUE.
     
-    CalculateEnergy = ListGetLogical( Solver % Values, &
+    CalculateEnergy = ListGetLogical( Params, &
         'Calculate Electric Energy', GotIt )
-    
-    CalculateSurfCharge = GetLogical( Solver % Values, &
+     
+    CalculateSurfCharge = GetLogical( Params, &
         'Calculate Surface Charge', GotIt )
 
-    ConstantBulk = ListGetLogical( Solver % Values,'Save Bulk System',GotIt)
-    SaveBulk = ConstantBulk .OR. ListGetLogical( Solver % Values,'Save Bulk System',GotIt)
+    ConstantBulk = ListGetLogical( Params,'Save Bulk System',GotIt)
+    SaveBulk = ConstantBulk .OR. ListGetLogical( Params,'Save Bulk System',GotIt)
 
-    ConstantWeights = ListGetLogical( Solver % Values,'Constant Weights', GotIt )
+    ConstantWeights = ListGetLogical( Params,'Constant Weights', GotIt )
 
     DO i = 1, Model % NumberOfEquations 
       CalculateCapMatrix = ListGetLogical( Model % Equations(i) % Values, &
           'Calculate Capacitance Matrix', GotIt )
       IF ( GotIt ) EXIT
     END DO
-    IF ( .NOT. GotIt )  CalculateCapMatrix = ListGetLogical( Solver % Values, &
+    IF ( .NOT. GotIt )  CalculateCapMatrix = ListGetLogical( Params, &
         'Calculate Capacitance Matrix', GotIt )
         
     IF(CalculateCapMatrix) THEN
       SaveBulk = .TRUE.
       ConstantBulk = .TRUE.
-      CapBodies = ListGetInteger( Solver % Values, 'Capacitance Bodies',GotIt)
+      CapBodies = ListGetInteger( Params, 'Capacitance Bodies',GotIt)
       IF(.NOT. GotIt) THEN
         DO i = 1, Model % NumberOfBCs
           j = ListGetInteger( Model % BCs(i) % Values, &
@@ -300,7 +304,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
         END DO
       END IF	
 
-      CapMatrixFile = ListGetString(Solver % Values,'Capacitance Matrix Filename',GotIt )
+      CapMatrixFile = ListGetString(Params,'Capacitance Matrix Filename',GotIt )
       IF(.NOT. GotIt) CapMatrixFile = 'cmatrix.dat'
       
       ALLOCATE(CapBodyIndex(Model % NumberOfNodes), &
@@ -377,13 +381,13 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       'Permittivity Of Vacuum',gotIt )
   IF ( .NOT.gotIt ) PermittivityOfVacuum = 1.0d0
   
-  NonlinearIter = ListGetInteger( Solver % Values, &
+  NonlinearIter = ListGetInteger( Params, &
       'Nonlinear System Max Iterations', GotIt )
   IF ( .NOT. GotIt ) NonlinearIter = 1
  
   IF(CalculateCapMatrix) NonlinearIter = CapBodies
 
-  EquationName = ListGetString( Solver % Values, 'Equation' )
+  EquationName = ListGetString( Params, 'Equation' )
   Norm = Solver % Variable % Norm
   
   at  = CPUTime()
@@ -548,12 +552,12 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       ALLOCATE( Done(Solver % Mesh % NumberOfNodes) )
       Done = .FALSE.
 
-      Ivals => ListGetIntegerArray( Solver % Values, &
+      Ivals => ListGetIntegerArray( Params, &
              'Constraint DOF 1 Body', Gotit )
       IF ( .NOT. ASSOCIATED(Ivals) ) CYCLE
 
       Solver % Matrix % ConstraintMatrix % RHS(1) = &
-        GetCReal( Solver % Values, 'Constraint DOF 1 Value', GotIt )
+        GetCReal( Params, 'Constraint DOF 1 Value', GotIt )
 
       DO i=1,GetNOFBoundaryElements()
         CurrentElement => GetBoundaryElement(i)
@@ -753,7 +757,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
     IF ( .NOT. CalculateCapMatrix ) THEN      
-      PotentialDifference = ListGetConstReal( Solver % Values, &
+      PotentialDifference = ListGetConstReal( Params, &
            'Potential Difference',gotIt )
       IF ( .NOT.gotIt )  PotentialDifference = ListGetConstReal( &
           Model % Simulation, 'Potential Difference',gotIt )
@@ -852,7 +856,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
    END IF
    
 
-   IF ( ListGetLogical( Solver % Values, 'Adaptive Mesh Refinement', GotIt ) ) &
+   IF ( ListGetLogical( Params, 'Adaptive Mesh Refinement', GotIt ) ) &
        CALL RefineMesh( Model, Solver, Potential, PotentialPerm, &
        ElectricInsideResidual, ElectricEdgeResidual, ElectricBoundaryResidual )
    

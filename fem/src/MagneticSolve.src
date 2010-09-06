@@ -472,24 +472,14 @@
      IF ( RelativeChange < NonLinearTol ) EXIT
     END DO
 
-!------------------------
-! Calculate div B
-!#if 0
-!    M1 => ExB(1:3*Model%NumberOfNodes-2:3)
-!    M2 => ExB(2:3*Model%NumberOfNodes-1:3)
-!    M3 => ExB(3:3*Model%NumberOfNodes-0:3)
-!    CALL Divergence(divB,M1,M2,M3,ExMagPerm)
-!#endif
-!---------------------------
-
-    M1 => Solver % Variable %  Values(1:3*LocalNodes-2:3)
-    M2 => Solver % Variable %  Values(2:3*LocalNodes-1:3)
-    M3 => Solver % Variable %  Values(3:3*LocalNodes-0:3)
+    M1 => Solver % Variable %  Values(1::3)
+    M2 => Solver % Variable %  Values(2::3)
+    M3 => Solver % Variable %  Values(3::3)
 
     IF ( ASSOCIATED( ElectricSol ) ) THEN
-      E1 => ElectricCurrent(1:3*LocalNodes-2:3)
-      E2 => ElectricCurrent(2:3*LocalNodes-1:3)
-      E3 => ElectricCurrent(3:3*LocalNodes-0:3)
+      E1 => ElectricCurrent(1::3)
+      E2 => ElectricCurrent(2::3)
+      E3 => ElectricCurrent(3::3)
 
       ! Compute the electric current from the magnetic field
       !------------------------------------------------------
@@ -506,12 +496,11 @@
 !------------------------------------------------------------------------------
 
     IF ( ASSOCIATED( ForceSol ) ) THEN
-       LrF1 => LrF(1:3*LocalNodes-2:3)
-       LrF2 => LrF(2:3*LocalNodes-1:3)
-       LrF3 => LrF(3:3*LocalNodes:3)
+       LrF1 => LrF(1::3)
+       LrF2 => LrF(2::3)
+       LrF3 => LrF(3::3)
 
        CALL LorentzForceNodal( LrF1,LrF2,LrF3,M1,M2,M3,Solver % Variable % Perm )
-
     END IF
 
 !------------------------------------------------------------------------------
@@ -522,9 +511,9 @@
 
        IF ( ASSOCIATED( ElectricSol ) ) THEN
 
-          Field1 => ElecField(1:3*LocalNodes-2:3)
-          Field2 => ElecField(2:3*LocalNodes-1:3)
-          Field3 => ElecField(3:3*LocalNodes:3)
+          Field1 => ElecField(1::3)
+          Field2 => ElecField(2::3)
+          Field3 => ElecField(3::3)
 
           CALL ComputeNodalField( Field1, Field2, Field3, &
                M1, M2, M3, E1, E2, E3, Solver % Variable % Perm )
@@ -536,7 +525,6 @@
 
     END IF
 
-!------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 
   CONTAINS
