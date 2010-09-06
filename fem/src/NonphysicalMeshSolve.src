@@ -1,4 +1,4 @@
-!/*****************************************************************************/
+!/*****************************************prevme************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
@@ -74,12 +74,11 @@
 !    Local variables
 !------------------------------------------------------------------------------
   INTEGER :: i,j,k,n,nd,nb,t,ind,STDOFs,LocalNodes,istat,dim
-  INTEGER :: VisitedTimes = 0
+  INTEGER :: VisitedTimes = 0, iter
 
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t),POINTER :: Material, BC
-
-  REAL(KIND=dp) :: RelativeChange, UNorm, maxu, TargetCoeff
+  REAL(KIND=dp) :: RelativeChange, UNorm, maxu, TargetCoeff, val, Relax
   TYPE(Variable_t), POINTER :: MeshSol, TargetSol
   REAL(KIND=dp), POINTER :: MeshUpdate(:), PrevMeshUpdate(:)
   INTEGER, POINTER :: MeshPerm(:), NodeIndexes(:)
@@ -90,7 +89,7 @@
 			
   REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
        LOAD(:,:),FORCE(:), ElasticModulus(:),PoissonRatio(:), &
-		Alpha(:,:), Beta(:), Gamma(:,:)
+		Alpha(:,:), Beta(:), Gamma(:)
   REAL(KIND=dp), POINTER :: OrigX(:), OrigY(:), OrigZ(:), &
       TrueX(:), TrueY(:), TrueZ(:)
 
@@ -104,7 +103,11 @@
   REAL(KIND=dp) :: at,at0,CPUTime,RealTime
 !------------------------------------------------------------------------------
 
-
+ CALL Info( 'MeshSolve', '-------------------------------------', Level=4 )
+ CALL Info( 'MeshSolve', 'Nonphysical Mesh Solver:', Level=4 )
+ CALL Info( 'MeshSolve', '-------------------------------------', Level=4 )
+ 
+ 
 !------------------------------------------------------------------------------
 ! Get variables needed for solution
 !------------------------------------------------------------------------------
@@ -117,11 +120,12 @@
   MeshPerm => MeshSol % Perm
   STDOFs =  MeshSol % DOFs
   MeshUpdate => MeshSol % Values
-
+  
   LocalNodes = COUNT( MeshPerm > 0 )
+  
   IF ( LocalNodes <= 0 ) RETURN
   Cumulative = ListGetLogical( Solver % Values,'Cumulative Displacement',Found)
-
+  
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
@@ -134,7 +138,7 @@
     END IF
     
     ALLOCATE( &
-        Alpha(3,N), Beta(N), Gamma(3,N), &
+        Alpha(3,N), Beta(N), Gamma(N), &
         ElasticModulus( N ), PoissonRatio( N ), &
         FORCE( STDOFs*N ), STIFF( STDOFs*N,STDOFs*N ),  &
         LOAD( 4,N ),STAT=istat )
@@ -165,7 +169,7 @@
     Solver % Mesh % Nodes % y => OrigY
     Solver % Mesh % Nodes % z => OrigZ
   END IF
-	
+  
   MovingMesh = ListGetLogical( Solver % Values,'Moving Mesh', Found ) 
   IF(.NOT. Found) MovingMesh = .TRUE.
   MovingMesh = MovingMesh .AND. ( VisitedTimes > 1 )
@@ -182,6 +186,7 @@
     END IF
     PrevMeshUpdate = MeshUpdate
   END IF
+  
 
 !------------------------------------------------------------------------------
 ! Do some additional initialization, and go for it
@@ -189,26 +194,24 @@
   at  = CPUTime()
   at0 = RealTime()
 
+  
   CALL Info( 'MeshSolve', ' ', Level=4 )
-  CALL Info( 'MeshSolve', '-------------------------------------', Level=4 )
-  CALL Info( 'MeshSolve', 'Nonphysical Mesh Solver:', Level=4 )
-  CALL Info( 'MeshSolve', '-------------------------------------', Level=4 )
-  CALL Info( 'MeshSolve', ' ', Level=4 )
+  IF( iter > 1 ) THEN
+    WRITE( Message, * ) 'Iteration   : ',iter
+    CALL Info( 'MeshSolve', Message, Level=4 )
+  END IF
   CALL Info( 'MeshSolve', 'Starting assembly...', Level=4 )
-!------------------------------------------------------------------------------
+  
+  
+  !------------------------------------------------------------------------------
   CALL DefaultInitialize()
-!------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------
+
+  CALL StartAdvanceOutput( 'NonphysicalMeshSolve', 'Assembly: ' )
+  
   DO t=1,Solver % NumberOfActiveElements
     
-    IF ( RealTime() - at0 > 1.0 ) THEN
-      WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-          (Solver % NumberOfActiveElements-t) / &
-          (1.0*Solver % NumberOfActiveElements)), ' % done'
-      
-      CALL Info( 'MeshSolve', Message, Level=5 )
-      
-      at0 = RealTime()
-    END IF
+    CALL AdvanceOutput( t,GetNOFActive() )
     
     Element => GetActiveElement(t)
     nd = GetElementNOFDOFs()
@@ -246,14 +249,14 @@
 ! for the displacements.
 !------------------------------------------------------------------------------
 
-   TargetFieldName = GetString(Solver % Values,'Target Field',GotTargetField )
-   IF( GotTargetField ) THEN
-     TargetSol => VariableGet( Model % Variables, TargetFieldName )     
-     IF( .NOT. ASSOCIATED(TargetSol)) THEN
-       CALL Fatal('NonphysicalMeshSolve','No Target Field')
-     END IF
-   END IF
-
+  TargetFieldName = GetString(Solver % Values,'Target Field',GotTargetField )
+  IF( GotTargetField ) THEN
+    TargetSol => VariableGet( Model % Variables, TargetFieldName )     
+    IF( .NOT. ASSOCIATED(TargetSol)) THEN
+      CALL Fatal('NonphysicalMeshSolve','No Target Field')
+    END IF
+  END IF
+  
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
@@ -272,14 +275,14 @@
     nd = GetElementNOFDOFs()
     n  = GetElementNOFNodes()
     nb = GetElementNOFBDOFs()
-
+    
     NodeIndexes => Element % NodeIndexes
-
+    
     LOAD = 0.0_dp
     Alpha = 0.0_dp
     Beta = 0.0_dp
     Gamma = 0.0_dp    
-
+    
     Alpha(1,1:n) =  GetReal( BC, 'Mesh Coefficient 1', Found )
     GotForceBC = Found
     Alpha(2,1:n) =  GetReal( BC, 'Mesh Coefficient 2', Found )
@@ -296,18 +299,14 @@
     
     Beta(1:n) = GetReal( BC, 'Mesh Normal Force',Found )
     GotForceBC = GotForceBC .OR. Found
-
-    Gamma(1,1:n) =  GetReal( BC, 'Mesh Penalty Factor 1', Found )
-    GotForceBC = GotForceBC .OR. Found
-    Alpha(2,1:n) =  GetReal( BC, 'Mesh Penalty Factor 2', Found )
-    GotForceBC = GotForceBC .OR. Found
-    Alpha(3,1:n) =  GetReal( BC, 'Mesh Penalty Factor 3', Found )
+    
+    Gamma(1:n) =  GetReal( BC, 'Mesh Penalty Factor', Found )
     GotForceBC = GotForceBC .OR. Found
     
     IF ( .NOT. GotForceBC ) CYCLE
     
-    CALL MeshBoundary( STIFF,FORCE, LOAD,Alpha,Beta,Gamma,Element,n,nd,nb )
-
+    CALL MeshBoundary( STIFF,FORCE,LOAD,Alpha,Beta,Gamma,Element,n,nd,nb )
+    
 !------------------------------------------------------------------------------
 
      CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -318,22 +317,22 @@
 ! Set the nodal coordinates by penalty
 !------------------------------------------------------------
    IF(GotTargetField) THEN
-     TargetCoeff = GetCReal(Solver % Values,'Target Coefficient',Found)     
-     IF( Found) THEN
+     TargetCoeff = GetCReal(Solver % Values,'Nodal Penalty Factor',Found)     
+     IF( ABS( TargetCoeff ) > TINY(TargetCoeff) ) THEN
        DO i=1,Solver % Mesh % NumberOfNodes
          j = TargetSol % Perm(i)
          IF(j==0) CYCLE
          DO k=1,dim
            ind = 3 * (j-1) + k
            Solver % Matrix % rhs(ind) = Solver % Matrix % rhs(ind) + &
-             TargetCoeff * TargetSol % Values(ind)
+               TargetCoeff * TargetSol % Values(ind)
            CALL CRS_AddToMatrixElement( Solver % Matrix,ind,ind,TargetCoeff )
          END DO
        END DO
      END IF
    END IF
    
-
+   
    CALL DefaultFinishAssembly()
    CALL Info( 'MeshSolve', 'Assembly done', Level=4 )
 
@@ -341,7 +340,7 @@
 ! Dirichlet boundary conditions
 !------------------------------------------------------------------------------
    CALL DefaultDirichletBCs()
-
+   
 !------------------------------------------------------------------------------
    CALL Info( 'MeshSolve', 'Set boundaries done', Level=4 )
 !------------------------------------------------------------------------------
@@ -359,6 +358,9 @@
    n = SIZE( MeshPerm )
    
    IF( MovingMesh ) THEN
+     Relax = ListGetConstReal( Solver % Values,'Relax')
+     MeshUpdate = Relax * MeshUpdate + (1-Relax) * PrevMeshUpdate
+     
      DO i=1,n
        j = MeshPerm(i)
        IF( j == 0 ) CYCLE
@@ -392,6 +394,7 @@
      Solver % Mesh % Nodes % z => TrueZ
    END IF
    
+   
 
   CONTAINS
 
@@ -412,7 +415,7 @@
      REAL(KIND=dp) :: dBasisdx(nd,3),detJ
 
      REAL(KIND=dp) :: NodalLame1(n),NodalLame2(n),Lame1,Lame2, &
-                      Poisson, Young
+                      Poisson, Young, Coeff
 
      REAL(KIND=dp), POINTER :: A(:,:)
      REAL(KIND=dp) :: s,u,v,w
@@ -427,6 +430,8 @@
      CALL GetElementNodes( Nodes )
      dim = CoordinateSystemDimension()
 
+     Coeff = ListGetConstReal( Solver % Values,'Coeff')
+     
      IF ( PlaneStress ) THEN
         NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) / &
                ((1.0d0 - NodalPoisson(1:n)**2))
@@ -475,7 +480,8 @@
                 A(i,i) = A(i,i) + s * Lame2 * dBasisdx(q,j) * dBasisdx(p,j)
                 A(i,j) = A(i,j) + s * Lame2 * dBasisdx(q,i) * dBasisdx(p,j)
              END DO
-          END DO
+             A(i,i) = A(i,i) + s * Coeff * dBasisdx(q,i) * dBasisdx(p,i)
+	  END DO
        END DO
        END DO
      END DO 
@@ -508,14 +514,14 @@
 	Element,n,nd,nb )
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: STIFF(:,:),FORCE(:)
-   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),NodalGamma(:,:),LOAD(:,:)
+   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),NodalGamma(:),LOAD(:,:)
    TYPE(Element_t),POINTER  :: Element
    INTEGER :: n,nd,nb
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Basis(nd)
    REAL(KIND=dp) :: dBasisdx(nd,3),detJ
    REAL(KIND=dp) :: u,v,w,s
-   REAL(KIND=dp) :: Alpha(3),Beta,Gamma(3),Normal(3),LoadAtIP(3),Disp
+   REAL(KIND=dp) :: Alpha(3),Beta,Gamma,Normal(3),LoadAtIP(3),ExtDisp(3)
 
    INTEGER :: i,t,q,p,dim
    LOGICAL :: stat
@@ -552,18 +558,20 @@
      DO i=1,dim
        LoadAtIP(i) = SUM( LOAD(i,1:n)*Basis )
        Alpha(i) = SUM( NodalAlpha(i,1:n)*Basis )
-       Gamma(i) = SUM( NodalGamma(i,1:n)*Basis )
-     END DO
+     END DO    
 
      Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
      LoadAtIP = LoadAtIP + SUM( NodalBeta(1:n) * Basis ) * Normal
 
      IF( GotTargetField ) THEN
+       Gamma = SUM( NodalGamma(1:n)*Basis )
        DO i=1,dim
-         Disp = SUM( Basis * TargetSol % Values( &
+         ExtDisp(i) = SUM( Basis * TargetSol % Values( &
 	        dim * ( TargetSol % Perm( NodeIndexes(1:n) ) - 1) +  i ) )
-         LoadAtIP = LoadAtIP + Disp * Gamma(i)
-       END DO	
+       END DO
+       LoadAtIP = LoadAtIP + ExtDisp * Gamma
+     ELSE
+       Gamma = 0.0_dp
      END IF
 
 
@@ -572,7 +580,7 @@
          DO i=1,dim
            STIFF((p-1)*dim+i,(q-1)*dim+i) =  &
              STIFF((p-1)*dim+i,(q-1)*dim+i) + &
-               s * ( Alpha(i) + Gamma(i) ) * Basis(q) * Basis(p)
+               s * ( Alpha(i) + Gamma ) * Basis(q) * Basis(p)
          END DO
        END DO
      END DO
@@ -601,6 +609,7 @@
 !------------------------------------------------------------------------------
  END SUBROUTINE MeshBoundary
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
 END SUBROUTINE MeshSolver
