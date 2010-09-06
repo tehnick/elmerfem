@@ -43,6 +43,15 @@
 SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
+  USE Types
+  USE Lists
+  USE Integration
+  USE ElementDescription
+  USE ElementUtils
+  USE SolverUtils
+  USE MeshUtils
+  USE BandwidthOptimize
+
   USE CoordinateSystems
   USE DefUtils
 
@@ -77,30 +86,34 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
 !    Local variables
 !------------------------------------------------------------------------------
   TYPE(ValueList_t),POINTER :: SolverParams
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
-  INTEGER :: i,j,k,n,dim,DOFs,itop,ibot,ii,jj,Rounds,BotMode,TopMode,nsize, &
-      ActiveDirection,elem,FlowDofs,DispDofs
-  INTEGER, POINTER :: MaskPerm(:),TopPerm(:),BotPerm(:),TopPointer(:),&
+  TYPE(Solver_t), POINTER :: PSolver
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, MaskName
+  INTEGER :: i,j,k,l,n,dim,DOFs,itop,ibot,ii,jj,Rounds,BotMode,TopMode,nsize, &
+      ActiveDirection,elem,FlowDofs,DispDofs,Hits,Shots, VisitedTimes = 0, &
+	  AveMode, AveOrder
+  INTEGER, POINTER :: TopPerm(:),BotPerm(:),TopPointer(:),MaskPerm(:),&
       BotPointer(:),UpPointer(:),DownPointer(:),NodeIndexes(:),FlowPerm(:),&
-      DispPerm(:)
-  LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
-      DisplacementMode, MaskExist
+      DispPerm(:), HitPerm(:)
+  LOGICAL :: GotIt, Found, Initialized = .FALSE., MaskExist, &
+      DisplacementMode, TrueLines, OutOfMesh, GotHitStyle
   REAL(KIND=dp) :: UnitVector(3),x0loc,x0bot,x0top,xloc,wtop,BotVal,TopVal,&
-      ElemVector(3),DotPro,Eps,Length
-  REAL(KIND=dp) :: r1(3),r2(3),v1(3),v2(3),dr(3),dv(3),drproj(3),r2new(3),&
+      ElemVector(3),DotPro,Eps,Length,sumds
+  REAL(KIND=dp) :: r1(3),r2(3),v1(3),v2(3),dr(3),vave(3),drproj(3),VelCor(3),&
       CoordMax,CoordMin,sumdr(3),Relax,Alpha
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: Coord(:),BotField(:),TopField(:),Field(:),Surface(:),Flow(:), &
-      HardDisp(:)
+      HardDisp(:), HitField(:)
+  REAL(KIND=dp) :: VeloAtPoint(3), GradVeloAtPoint(3,3),GlobalCoords(3)
   TYPE(Variable_t), POINTER :: Var
   TYPE(Element_t), POINTER :: Element
   TYPE(Nodes_t), SAVE :: Nodes
+  TYPE(Mesh_t),POINTER :: Mesh
   TYPE(ValueList_t),POINTER :: BC
   
   
-  SAVE Visited,Initialized,UnitVector,Coord,MaskExist,MaskPerm,TopPointer,BotPointer,&
+  SAVE VisitedTimes,Initialized,UnitVector,Coord,TopPointer,BotPointer,&
       DownPointer,UpPointer,TopMode,BotMode,TopField,BotField,TopPerm,BotPerm,Field,&
-      Surface,Dim,HardDisp,DispPerm,ActiveDirection
+      Surface,Dim,HardDisp,DispPerm,MaskPerm,ActiveDirection
   
   CALL Info( 'StructuredFlowLine','---------------------------------------',Level=4 )
   CALL Info( 'StructuredFlowLine','Performing mapping on a structured mesh ',Level=4 )
@@ -111,8 +124,23 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
   SolverParams => GetSolverParams()
-  
+  Mesh => Solver % Mesh 
+   
+  ! the mesh is chanching, thus always rebuild the quadrant tree
+  CALL FreeQuadrantTree( Mesh % RootQuadrant )
+  Solver % Mesh % RootQuadrant => Null()
 
+  i = GetInteger( SolverParams,'True Flow Line Iterations')
+  TrueLines = ( i > VisitedTimes )
+
+  ! one is a good default
+  AveOrder = GetInteger( SolverParams,'Averaging Order',GotIt)
+  IF( TrueLines ) AveOrder = MAX( 1, AveOrder )
+  
+  ! zero is a good default
+  AveMode = GetInteger( SolverParams,'Averaging Method',GotIt)
+  
+  
   IF( .NOT. Initialized ) THEN
     
     at0 = CPUTime()
@@ -149,19 +177,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
       BotPointer(i) = i
       DownPointer(i) = i
     END DO
-    
-    ! If mask variable is provided only those nodes will be moved
-    !-----------------------------------------------------------   
-    VarName = GetString(SolverParams,'Mapping Mask Variable',GotIt )
-    MaskExist = .FALSE.
-    IF(GotIt) THEN
-      Var => VariableGet( Model % Variables,  VarName )
-      IF(ASSOCIATED(Var)) THEN
-        MaskPerm => Var % Perm
-        MaskExist = ASSOCIATED(MaskPerm)
-      END IF
-    END IF
-    
+        
     ! Determine the pointer up and down using dot product as criterion
     !-----------------------------------------------------------------
     Eps = GetConstReal(SolverParams,'Dot Product Tolerance',GotIt)
@@ -169,8 +185,8 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     
     IF(.FALSE.) PRINT *,'determine up and down pointers'
     
-    DO elem = 1,Solver % Mesh % NumberOfBulkElements      
-      Element => Solver % Mesh % Elements(elem)
+    DO elem = 1,Mesh % NumberOfBulkElements      
+      Element => Mesh % Elements(elem)
       NodeIndexes => Element % NodeIndexes
       Model % CurrentElement => Element
       CALL GetElementNodes( Nodes )
@@ -232,7 +248,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     
     WRITE(Message,* ) 'Top and bottom pointer init rounds: ',Rounds
     CALL Info('StructuredFlowLine',Message)
-    WRITE(Message,* ) 'Top and bottom pointer init time: ',at1-at0
+    WRITE(Message,'(A,F8.3)') 'Top and bottom pointer init time: ',at1-at0
     CALL Info('StructuredFlowLine',Message)
     
     Initialized = .TRUE.
@@ -256,21 +272,65 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     CALL Fatal('StructuredFlowLine','Velocity variable is missing: '//TRIM(VarName))
   END IF
   
+  
+  ! Get or create the result field
+  !-------------------------------------------------------
   VarName = GetString(SolverParams,'Hard Displacement Name',GotIt )
-  IF(.NOT. GotIt) VarName = 'Hard Disp'
-  Var => VariableGet( Solver % Mesh % Variables,  VarName )
+  IF(.NOT. GotIt) VarName = 'HardDisp'
+  Var => VariableGet( Mesh % Variables,  VarName )
   IF(ASSOCIATED(Var)) THEN
     HardDisp => Var % Values
     DispPerm => Var % Perm
     DispDofs = Var % DOFs
   ELSE
-    CALL Fatal('StructuredFlowLine','Hard displacement variable is missing: '//TRIM(VarName))
-  END IF
+    MaskName = 'Flow Line'
+    n = Mesh % NumberOfNodes
+    ALLOCATE( DispPerm(n) )
+    n = 0
+    DispPerm = 0
+    Psolver => Solver
+    CALL MakePermUsingMask( Model,PSolver,Mesh,TRIM(MaskName), &
+          .FALSE., DispPerm, n )
+    WRITE(Message,'(A,I6)') 'Number of nodes on '//TRIM(MaskName),n
+    CALL Info('StructuredFlowLine',Message) 
+    IF( n == 0 ) THEN
+      n = Mesh % NumberOfNodes
+      DO i=1,n
+        DispPerm(i) = i
+      END DO
+    END IF
+    dispdofs = dim
+    ALLOCATE( HardDisp(3*n))
+    HardDisp = 0.0_dp
+
+    CALL VariableAddVector( Mesh % Variables, Mesh, &
+          Solver,TRIM(VarName),3,HardDisp,DispPerm)
+    CALL Info('StructuredFlowLine','Created hard displacement variable: '//TRIM(VarName))
+  END IF    
   
   IF( DispDofs /= DIM ) THEN 
     CALL Fatal('StructuredFlowLine','Displacement variable of wrong size')
   END IF
   
+  ! This is just for testing purposes to mark hits 'inside' and 'outside'
+  !-----------------------------------------------------------------------
+  VarName = GetString(SolverParams,'Hit Style Name',GotIt )
+  IF(.NOT. GotIt) VarName = 'HitStyle'
+  Var => VariableGet( Solver % Mesh % Variables,  VarName )
+  GotHitStyle = ASSOCIATED(Var)
+  IF( GotHitStyle ) THEN
+    HitField => Var % Values
+    HitPerm => Var % Perm
+  END IF
+  
+
+  ! For more complicated geometries one may mark the domain of free flow
+  !-----------------------------------------------------------------------
+  MaskName = 'Free Flow'
+  CALL MakePermUsingMask( Model,Solver,Mesh,MaskName, &
+          .FALSE., MaskPerm, n )
+  MaskExist = ( n > 0 )
+
   
   DisplacementMode = GetLogical(SolverParams,'Displacement Mode',Found)
   
@@ -278,15 +338,19 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   !-------------------------------------------------------------------
   IF(.FALSE.) PRINT *,'perform linear mapping'
   Alpha = 0.5_dp
-  Relax = ListGetConstReal( Solver % Values,'Nonlinear System Relaxation Factor',GotIt)
-  IF(.NOT. GotIt) Relax = 1.0_dp
   CoordMin = ListGetConstReal( Solver % Values,'Min Coordinate',GotIt)
   IF(.NOT. GotIt) CoordMin = -HUGE(CoordMin)
   CoordMax = ListGetConstReal( Solver % Values,'Max Coordinate',GotIt)
   IF(.NOT. GotIt) CoordMax = HUGE(CoordMax)
   
   nsize = SIZE( Coord )
+  
+  Shots = 0
+  Hits = 0
+  
+  
   DO i=1,nsize
+    IF( DispPerm(i) == 0 ) CYCLE
     IF( MaskExist ) THEN
       IF( MaskPerm(i) == 0) CYCLE
     END IF
@@ -310,53 +374,339 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     
     DO j=1,nsize
       k = DownPointer(k)
-      
-      v2(1) = Flow( FlowDofs*(FlowPerm(k)-1) + 1 ) 
+      IF( DispPerm(k) == 0 ) CYCLE      
+
+      r2(1) = Solver % Mesh % Nodes % x(k)
+      r2(2) = Solver % Mesh % Nodes % y(k)
+      r2(3) = Solver % Mesh % Nodes % z(k)
+      dr = r2 - r1
+      r1 = r2
+
+	  v2(1) = Flow( FlowDofs*(FlowPerm(k)-1) + 1 ) 
       v2(2) = Flow( FlowDofs*(FlowPerm(k)-1) + 2 ) 
       IF( DIM == 3 ) THEN
         v2(3) = Flow( FlowDofs*(FlowPerm(k)-1) + 3 ) 
       END IF
+
+! Check the passive regions
+! For no-slip condition the surface is always fixed
+      IF( r2( ActiveDirection) > CoordMax .OR.  &
+          r2( ActiveDirection) < CoordMin .OR.  &
+          ABS( v2( ActiveDirection) ) < TINY( CoordMin ) ) THEN
+	    v1 = v2 
+		CYCLE
+	  END IF 
+	  	  
+
+! the simple average velocity from the mean of surface velocities 		  
+      vave = Alpha*v2 + (1-Alpha)*v1	  
+	  	  
+	  IF( TrueLines ) THEN 
+        drproj = 0.0_dp
+	    sumds = SQRT( SUM ( sumdr ** 2) )
+
+        DO l=1,AveOrder
+		  IF( sumds > 1.0d-20 ) THEN
+! Averaging of velocity could be done in two ways:
+! 1) taking velocity at average of r1 and r2
+! 2) taking average of velocities at r1 and r2
+
+            IF( AveMode == 1 ) THEN
+		      GlobalCoords = 0.5*(r1 + r2) + sumdr + 0.5*drproj
+		    ELSE
+			  GlobalCoords = r2 + sumdr + drproj 
+            END IF
+		    CALL ComputeVeloAtPoint(GlobalCoords, k, OutOfMesh, VeloAtPoint ) 
+	        Shots = Shots + 1
+			
+		    IF( OutOfMesh ) THEN
+              IF( AveMode == 1 ) THEN
+	   	        GlobalCoords = 0.5*(r1 + r2) 
+		      ELSE
+			    GlobalCoords = r2 + sumdr + drproj 
+              END IF
+
+			  CALL ComputeVeloAtPoint(GlobalCoords, k, OutOfMesh, VeloAtPoint, &
+				  GradVeloAtPoint ) 
+		      IF( .NOT. OutOfMesh ) THEN
+			    IF( GotHitStyle ) HitField( HitPerm(k) ) = -1.0_dp * l
+				VelCor = 0
+				DO n=1,3
+				  IF( n == ActiveDirection ) CYCLE
+				  VelCor = VelCor + GradVeloAtPoint(1:3,n) * dr(n)
+				END DO
+				IF( AveMode == 1 ) THEN
+			      vave = VeloAtPoint  + VelCor 
+                ELSE
+			      v2 = VeloAtPoint + VelCor
+			      vave = Alpha * v2 + (1-Alpha) * v1
+			    END IF
+			  END IF
+			ELSE  
+			  IF( GotHitStyle ) HitField( HitPerm(k) ) = 1.0_dp * l
+			  
+			  Hits = Hits + 1
+		      IF( AveMode == 1 ) THEN
+			    vave = VeloAtPoint  
+              ELSE
+			    v2 = VeloAtPoint 
+			    vave = Alpha * v2 + (1-Alpha) * v1
+			  END IF
+	        END IF
+          END IF
+          drproj = vave * ABS( dr(ActiveDirection) ) / ABS( vave(ActiveDirection) ) - dr
+	      sumds = SQRT( SUM (( sumdr + drproj ) ** 2) )
+		END DO
+	  ELSE
+        drproj = vave * ABS( dr(ActiveDirection) ) / ABS( vave(ActiveDirection) ) - dr
+	  END IF
+	  
       
-      r2(1) = Solver % Mesh % Nodes % x(k)
-      r2(2) = Solver % Mesh % Nodes % y(k)
-      r2(3) = Solver % Mesh % Nodes % z(k)
-      
-      dv = Alpha*v2 + (1-Alpha)*v1	  
-      dr = r2 - r1
-      r1 = r2
-      v1 = v2
-      
-      IF( r2( ActiveDirection) > CoordMax ) CYCLE
-      IF( r2( ActiveDirection) < CoordMin ) CYCLE
-      IF( ABS( dv( ActiveDirection) ) < TINY( CoordMin ) ) CYCLE  
-      
-      drproj = dv * ABS( dr(ActiveDirection) ) / ABS( dv(ActiveDirection) )
-      sumdr = sumdr + (drproj - dr)	  
-      
-      r2new = r2 + Relax * sumdr
-      
-      IF( DisplacementMode ) THEN
-        Solver % Mesh % Nodes % x(k) = r2new(1)
-        Solver % Mesh % Nodes % y(k) = r2new(2)
-        Solver % Mesh % Nodes % z(k) = r2new(3)
-      ELSE
-        HardDisp( DispDofs*(DispPerm(k)-1)+1) = r2new(1) - r2(1)
-        HardDisp( DispDofs*(DispPerm(k)-1)+2) = r2new(2) - r2(2)
-        IF(dim == 3) HardDisp( DispDofs*(DispPerm(k)-1)+3) = r2new(3) - r2(3)
-      END IF
-      
+      sumdr = sumdr + drproj 	  
+      sumdr( ActiveDirection ) = 0.0_dp
+	  
+	  DO l=1,dim	  
+        HardDisp( DispDofs*(DispPerm(k)-1)+l) = sumdr(l)
+      END DO
+	  
+	  v1 = v2
+	  
       ! This is the bottom and we're done?
       IF( k == BotPointer(k) ) EXIT
       
     END DO
   END DO
+
+  Relax = GetCReal( Solver % Values,'Nonlinear System Relaxation Factor',GotIt)
+  IF( GotIt .AND. ABS(Relax - 1.0_dp) > TINY(Relax) ) THEN
+    HardDisp = Relax * HardDisp 
+  END IF
+  
+  IF( DisplacementMode ) THEN
+    DO k=1,nsize
+      IF( MaskExist ) THEN
+        IF( MaskPerm(i) == 0) CYCLE
+      END IF
+    
+      Mesh % Nodes % x(k) = Mesh % Nodes % x(k) + &
+	      HardDisp( DispDofs*(DispPerm(k)-1)+1) 
+      Mesh % Nodes % y(k) = Mesh % Nodes % y(k) + &
+	      HardDisp( DispDofs*(DispPerm(k)-1)+2) 
+      IF(dim == 3) Mesh % Nodes % z(k) = Mesh % Nodes % z(k) + &
+	      HardDisp( DispDofs*(DispPerm(k)-1)+3) 
+    END DO
+  END IF	
   
   at1 = CPUTime()
   
-  WRITE(Message,* ) 'Streamline mapping time: ',at1-at0
+  IF( TrueLines ) THEN
+    print *,'Shots:',Shots
+    print *,'Hits:',Hits
+  END IF
+  
+  WRITE(Message,'(A,F8.3)' ) 'Streamline mapping time: ',at1-at0
   CALL Info('StructuredFlowLine',Message)
   
+  VisitedTimes = VisitedTimes + 1
   
+   CONTAINS
+  
+  !------------------------------------------------------------------------
+  ! Compute field values at the given points in the FE mesh. 
+  !-------------------------------------------------------------------------
+  SUBROUTINE ComputeVeloAtPoint(GlobalCoords, node, OutOfScope, VeloAtPoint, &
+       GradVeloAtPoint, ElementSize ) 
+
+    INTEGER :: node
+    LOGICAL :: OutOfScope
+    REAL(KIND=dp) :: GlobalCoords(3), GradientAtPoint(3),VeloAtPoint(3)
+    REAL(KIND=dp), OPTIONAL :: GradVeloAtPoint(3,3), ElementSize
+
+
+    LOGICAL :: Stat, Visited = .FALSE., Hit, DummySearch
+    INTEGER :: i,j,k,n
+    REAL(KIND=dp) :: u,v,w,LocalCoords(3),SqrtElementMetric
+    REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+    TYPE(Nodes_t) :: ElementNodes
+    INTEGER, POINTER :: NodeIndexes(:)
+    TYPE(Element_t), POINTER :: CurrentElement
+
+    TYPE ElementP
+      TYPE(Element_t), POINTER :: Element => Null()
+    END TYPE ElementP
+    
+    TYPE(ElementP), ALLOCATABLE, SAVE :: Elements(:)
+
+    TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
+    REAL(kind=dp) :: BoundingBox(6), eps2, eps1 = 1e-3
+
+
+    SAVE :: CurrentElement, ElementNodes, Basis, dBasisdx
+
+    IF( .NOT. Visited ) THEN
+       n = Solver % Mesh % MaxElementNodes
+       ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
+       ALLOCATE( Basis(n), dBasisdx(n, 3) )
+	   ALLOCATE( Elements(Mesh % NumberOfNodes) )
+	   NULLIFY( CurrentElement )
+       Visited = .TRUE.
+    END IF
+      
+    GradientAtPoint = 0.0_dp
+    VeloAtPoint = 0.0_dp
+    Hit = .FALSE.
+    DummySearch = .FALSE.
+
+
+    ! Check that the previous hit is not hit even now
+    !-------------------------------------------------
+	
+    Currentelement => elements(node) % element
+    IF ( ASSOCIATED(CurrentElement) ) THEN
+      n = CurrentElement % TYPE % NumberOfNodes
+      NodeIndexes => CurrentElement % NodeIndexes
+      
+      ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+      ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+      ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+      
+      IF ( PointInElement( CurrentElement, ElementNodes, &
+          GlobalCoords, LocalCoords ) ) THEN
+        Hit = .TRUE.
+      END IF
+    END IF
+
+
+    IF(.NOT. Hit) THEN
+
+      IF( DummySearch ) THEN
+        
+        !----------------------------------------------------------
+        ! Go through all bulk elements in a dummy search.
+        ! This algorithm is mainly here for debugging purposes.
+        !----------------------------------------------------------
+        DO k=1,Solver % Mesh % NumberOfBulkElements
+          CurrentElement => Mesh % Elements(k)
+          n = CurrentElement % TYPE % NumberOfNodes
+          NodeIndexes => CurrentElement % NodeIndexes
+          
+          ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+          ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+          ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+          
+          IF ( PointInElement( CurrentElement, ElementNodes, &
+              GlobalCoords, LocalCoords ) ) THEN
+            Hit = .TRUE.
+            EXIT
+          END IF
+        END DO
+        
+      ELSE
+
+        !-----------------------------------------------
+        ! Find the right element using an octree search
+        ! This is the preferred algorithms of the two.
+        !-----------------------------------------------
+        IF ( .NOT.ASSOCIATED( Mesh % RootQuadrant ) ) THEN
+          BoundingBox(1) = MINVAL( Mesh % Nodes % x )
+          BoundingBox(2) = MINVAL( Mesh % Nodes % y )
+          BoundingBox(3) = MINVAL( Mesh % Nodes % z )
+          BoundingBox(4) = MAXVAL( Mesh % Nodes % x )
+          BoundingBox(5) = MAXVAL( Mesh % Nodes % y )
+          BoundingBox(6) = MAXVAL( Mesh % Nodes % z )
+          
+          eps2 = eps1 * MAXVAL( BoundingBox(4:6) - BoundingBox(1:3) )
+          BoundingBox(1:3) = BoundingBox(1:3) - eps2
+          BoundingBox(4:6) = BoundingBox(4:6) + eps2
+          
+          CALL BuildQuadrantTree( Mesh,BoundingBox,Mesh % RootQuadrant)
+        END IF
+
+        RootQuadrant => Mesh % RootQuadrant
+        IF ( ASSOCIATED(RootQuadrant) ) THEN
+          NULLIFY(CurrentElement)
+          CALL FindLeafElements(GlobalCoords, dim, RootQuadrant, LeafQuadrant)
+          IF ( ASSOCIATED(LeafQuadrant) ) THEN
+            DO k=1, LeafQuadrant % NElemsInQuadrant
+              CurrentElement => Mesh % Elements(LeafQuadrant % Elements(k))
+              
+              n = CurrentElement % TYPE % NumberOfNodes
+              NodeIndexes => CurrentElement % NodeIndexes
+              
+              ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+              ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+              ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+              
+              IF ( PointInElement( CurrentElement, ElementNodes, &
+                  GlobalCoords, LocalCoords ) ) THEN
+                Hit = .TRUE.
+                EXIT
+              END IF
+            END DO
+          END IF
+        END IF
+        
+      END IF
+    END IF
+
+!------------------------------------------------------------------------------
+
+
+    IF ( Hit ) THEN
+      
+      Elements(node) % Element => CurrentElement
+      
+      u = LocalCoords(1)
+      v = LocalCoords(2)
+      w = LocalCoords(3)
+     
+	 
+      stat = ElementInfo( CurrentElement, ElementNodes, U, V, W, SqrtElementMetric, &
+          Basis, dBasisdx )
+      
+      ! Compute the representative size of the elements
+      IF( PRESENT(ElementSize) ) ElementSize = SqrtElementMetric ** ( 1.0_dp / DIM )
+      
+!      IF( GotPotField ) THEN
+!        IF( ALL ( PotFieldPerm( NodeIndexes) > 0 )) THEN
+!          DO i=1,DIM
+!            GradientAtPoint(i) = &
+!                SUM( dBasisdx(1:n,i) * PotField( PotFieldPerm( NodeIndexes ) ) )
+!          END DO
+!        END IF
+!      END IF
+      
+!      IF( GotVeloField ) THEN
+        IF( ALL ( FlowPerm( NodeIndexes) > 0 )) THEN
+          DO i=1,DIM
+            VeloAtPoint(i) = SUM( Basis(1:n) * &
+                Flow( FlowDofs*( FlowPerm( NodeIndexes )-1)+i ) )
+            
+            IF( PRESENT(GradVeloAtPoint) ) THEN
+              DO j=1,DIM
+                GradVeloAtPoint(i,j) = SUM( dBasisdx(1:n,j) * &
+                    Flow( FlowDofs*( FlowPerm( NodeIndexes )-1)+i ) )                  
+              END DO
+            END IF
+          END DO
+        END IF
+!      END IF
+      
+      ! for debugging purposes
+      IF(.FALSE.) THEN
+        PRINT *,'x:',SUM( Basis(1:n) * Mesh % Nodes % x( NodeIndexes ) )
+        PRINT *,'y:',SUM( Basis(1:n) * Mesh % Nodes % y( NodeIndexes ) )
+        PRINT *,'z:',SUM( Basis(1:n) * Mesh % Nodes % z( NodeIndexes ) )
+        PRINT *,'GradAtPoint:',GradientAtPoint
+        PRINT *,'VeloAtPoint:i',VeloAtPoint
+        CALL flush(6)
+      END IF
+    END IF
+    
+    OutOfScope = .NOT. Hit
+    
+  END SUBROUTINE ComputeVeloAtPoint
+ 
 !------------------------------------------------------------------------------
 END SUBROUTINE StructuredFlowLine
 !------------------------------------------------------------------------------
