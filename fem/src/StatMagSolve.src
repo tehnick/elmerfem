@@ -1,4 +1,4 @@
-!/*****************************************************************************/
+/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
@@ -24,7 +24,8 @@
 !/******************************************************************************
 ! *
 ! *  Solver for static or harmonic magnetic field with vector potential
-! *  formulation
+! *  formulation. Note that this solver has a long history and all choices
+! *  do not reflect the current best practices.
 ! *
 ! ******************************************************************************
 ! *
@@ -39,6 +40,38 @@
 ! *  Original Date: 12 May 2000
 ! *
 ! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+   SUBROUTINE StatMagSolver_Init( Model, Solver, dt, Transient )
+
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: dt
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: Params
+    LOGICAL :: Found, Calculate
+    INTEGER :: Dim,GivenDim
+!------------------------------------------------------------------------------
+    Params => GetSolverParams()
+    Dim = CoordinateSystemDimension()
+
+    Calculate = ListGetLogical(Params,'Calculate Magnetic Flux',Found)  
+    IF( Calculate ) THEN
+      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+          '-dofs 3 Magnetic Flux Density' )
+    END IF
+    Calculate = ListGetLogical( Params, 'Calculate Joule Heating', Found )
+    IF( Calculate ) THEN
+      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+          'Joule Heating' )
+      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+          'Joule Field' )
+    END IF
+  END SUBROUTINE StatMagSolver_Init
 
 
 !------------------------------------------------------------------------------
@@ -88,7 +121,7 @@
     TYPE(Nodes_t) :: ElementNodes
     TYPE(Element_t),POINTER :: CurrentElement
 
-    TYPE(Variable_t), POINTER :: MagneticSol, BVar
+    TYPE(Variable_t), POINTER :: MagneticSol, BVar, TempVar
 
     INTEGER, POINTER :: NodeIndexes(:),MagneticPerm(:)
 
@@ -96,17 +129,15 @@
         LocalMassMatrix(:,:),LocalStiffMatrix(:,:),LocalForce(:), &
         Ap(:),Permeability(:), Conductivity(:), Ae(:),VecLoadVector(:,:)
 
-    REAL (KIND=DP) :: UNorm,PrevUNorm,NonlinearTol,RelativeChange, &
+    REAL (KIND=DP) :: UNorm,RelativeChange, &
         at,at0,RealTime,CPUTime, AngularFrequency, jc, jre, jim, &
         TotalHeating, DesiredHeating, TotalVolume, PermeabilityOfVacuum
 
     INTEGER :: body_id, eq_id, bf_id, LocalNodes, NonlinearIter
-    INTEGER :: t,n,k,istat,i,iter,nedges,nfaces,q,j,dofs,dim
+    INTEGER :: t,n,k,istat,i,iter,q,j,dofs,dim
 
     LOGICAL :: GotIt, HarmonicSimulation, CalculateJouleHeating, &
         CalculateMagneticFlux, AllocationsDone = .FALSE.
-
-    CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
 
     SAVE LocalMassMatrix,LocalStiffMatrix,CurrentDensity,LocalForce, &
         ElementNodes,Reluctivity,AllocationsDone,Ap,MFD, &
@@ -118,10 +149,10 @@
 !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
-    dim = CoordinateSystemDimension()
+    dim = Solver % Mesh % MeshDim
 
     PermeabilityOfVacuum = GetConstReal( Model % Simulation,'Permeability Of Vacuum',GotIt)
-    IF(.NOT. GotIt) PermeabilityOfVacuum = PI*4.0d-7
+    IF(.NOT. GotIt) PermeabilityOfVacuum = PI * 4.0d-7 
 
     MagneticSol => Solver % Variable 
     MagneticPerm  => MagneticSol % Perm
@@ -132,30 +163,40 @@
 
     StiffMatrix => Solver % Matrix
     ForceVector => StiffMatrix % RHS
-
-    UNorm = Solver % Variable % Norm
+    dofs = Solver % Variable % DOFs
 
     HarmonicSimulation = ListGetLogical( Solver % Values, &      
               'Harmonic Simulation',gotIt )
-    IF (.NOT.gotIt) HarmonicSimulation = .FALSE.
-    IF ( Solver % Variable % DOFs == 2 ) HarmonicSimulation = .TRUE.
+    IF (.NOT.gotIt) HarmonicSimulation = ( dofs == 2 )
 
-    IF(HarmonicSimulation) THEN
-      dofs = 2
-      Solver % Matrix % Complex = .TRUE.
-      AngularFrequency = ListGetConstReal( Solver % Values, 'Angular Frequency')
-      CalculateJouleHeating = &
-          ListGetLogical( Solver % Values, 'Calculate Joule Heating', GotIt )
-      IF(.Not. GotIt) CalculateJouleHeating = .True.
-   ELSE IF ( Coordinates == Cartesian ) THEN
-      dofs = 3
+    IF( Dim == 3 ) THEN
+      IF ( dofs /= 3 ) THEN
+        CALL Fatal('StatMagSolver','In 3D there must be three components for the vector potential!')
+        CalculateJouleHeating = .FALSE.      
+      END IF
     ELSE
-      dofs = 1
+      IF(HarmonicSimulation) THEN
+        IF( dofs /= 2 ) THEN
+          CALL Fatal('StatMagSolver','For harmonic simulation there must be two components for the vector potential!')
+        END IF
+        Solver % Matrix % COMPLEX = .TRUE.
+        AngularFrequency = ListGetConstReal( Solver % Values, 'Angular Frequency')
+      ELSE 
+        IF( dofs /= 1) THEN
+          CALL Fatal('StatMagSolver','For 2d steady-state cases there should be just one component for vector potential!')
+        END IF
+      END IF
     END IF
 
     CalculateMagneticFlux = &
         ListGetLogical( Solver % Values, 'Calculate Magnetic Flux', GotIt )
-    IF(.NOT. GotIt) CalculateMagneticFlux = .True.
+    CalculateJouleHeating = &
+        ListGetLogical( Solver % Values, 'Calculate Joule Heating', GotIt )
+    IF( CalculateJouleHeating .AND. .NOT. HarmonicSimulation ) THEN
+      CALL Warn('StatMagSolver','Computation of Joule heating is only relevan for harmonic systems!')
+      CalculateJouleHeating = .FALSE.
+    END IF
+
 
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
@@ -163,14 +204,6 @@
 
     IF (.NOT. AllocationsDone) THEN
 
-      IF ( dim == 3 ) THEN
-! Hack for tetras
-        nedges=6 ! 12 for bricks
-        nfaces=4 !  6 for bricks
-      ELSE
-        nedges=0
-      END IF
-      
       N = Model % MaxElementNodes
 
       ALLOCATE(Reluctivity(N), &
@@ -186,7 +219,7 @@
           LocalForce(dofs*N), &
           Ap(n), &
           Ae(n), &
-          VecLoadVector(3,n), & !only n-nedges corner nodes used
+          VecLoadVector(3,n), & 
           STAT=istat)
 
 !------------------------------------------------------------------------------
@@ -194,54 +227,35 @@
 !------------------------------------------------------------------------------        
        
       IF(CalculateMagneticFlux) THEN
-        
-        ALLOCATE( MFD (Model%NumberofNodes ), STAT=istat)
-        IF ( istat /= 0 ) CALL Fatal( 'StatMagSolve', 'Memory allocation error')
-
+        TempVar => VariableGet( Solver % Mesh % Variables,'Magnetic Flux Density')
+        MFD => TempVar % Values
         Br => MFD(1::3) ! Bx
         Bz => MFD(2::3) ! By
         Bp => MFD(3::3) ! Bz
-        
-        CALL VariableAddVector(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-            'Magnetic Flux Density', 3, MFD, MagneticPerm)
-      END IF
 
-      IF(HarmonicSimulation) THEN
-        IF ( CalculateJouleHeating )  THEN
-          ALLOCATE( Joule( Model%NumberOfNodes ), STAT=istat )
-          IF ( istat /= 0 ) CALL Fatal( 'StatMagSolve', 'Memory allocation error.' )
-          CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-              'Joule Heating', 1, Joule, MagneticPerm)
-        END IF
-        IF(CalculateMagneticFlux) THEN
+        IF( HarmonicSimulation ) THEN
           ALLOCATE( Brim( Model%NumberOfNodes ), Bzim( Model%NumberOfNodes ), STAT=istat )
           IF ( istat /= 0 ) CALL Fatal( 'StatMagSolve', 'Memory allocation error.' )
         END IF
-        IF(CalculateJouleHeating) THEN
-          ALLOCATE( absJoule( Model%NumberOfNodes ), STAT=istat )
-          IF ( istat /= 0 ) CALL Fatal( 'StatMagSolve', 'Memory allocation error.' )
-          absJoule = 0.0d0
-          CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, Solver, &
-              'Joule Field', 1, absJoule, MagneticPerm)
-        END IF
+      END IF
+
+      IF ( CalculateJouleHeating )  THEN
+        TempVar => VariableGet( Solver % Mesh % Variables,'Joule Heating')
+        Joule => TempVar % Values
+
+        TempVar => VariableGet( Solver % Mesh % Variables,'Joule Field')
+        absJoule => TempVar % Values
       END IF
 
       AllocationsDone = .TRUE.
     END IF
 
-    IF( HarmonicSimulation .AND. CalculateJouleHeating) THEN
-      Joule = 0.0d0
-    END IF
+
 
 !--------------------------------------------------------------
 
-    NonlinearTol = ListGetConstReal( Solver % Values, &
-        'Nonlinear System Convergence Tolerance' )
-
     NonlinearIter = ListGetInteger( Solver % Values, &
         'Nonlinear System Max Iterations' )
-
-    EquationName = ListGetString( Solver % Values, 'Equation' )
 
 !---------------------------------------------------------------
 
@@ -266,7 +280,7 @@
 
        CALL DefaultInitialize()
        
-       DO t=1, Model % NumberOfBulkElements 
+       DO t=1, Solver % NumberOfActiveElements 
          IF ( RealTime() - at0 > 1.0 ) THEN
            WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
                (Model % NumberOfBulkElements-t) / &
@@ -281,31 +295,15 @@
 !        should be calculated
 !------------------------------------------------------------------------------
 
-         CurrentElement => Solver % Mesh % Elements(t)
-         
+         CurrentElement => GetActiveElement(t)
          NodeIndexes => CurrentElement % NodeIndexes
-         
-         IF ( .NOT.CheckElementEquation( Model, &
-             CurrentElement,EquationName ) ) CYCLE
+         n  = GetElementNOFNodes()
 
-!------------------------------------------------------------------------------
-!        ok, we´ve got one for Maxwell equations
-!------------------------------------------------------------------------------
-!
-!------------------------------------------------------------------------------
-!        Set also the current element pointer in the model structure to
-!        reflect the element being processed
-!------------------------------------------------------------------------------
-         Model % CurrentElement => CurrentElement
-
-         body_id = CurrentElement % BodyId
-         
-         n = CurrentElement % TYPE % NumberOfNodes
-         
          ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes(1:n))
          ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes(1:n))
          ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes(1:n))
          
+         body_id = CurrentElement % BodyId
          k = ListGetInteger( Model % Bodies(body_id) % Values, 'Material', &
                   minv=1, maxv=Model % NumberOFMaterials )
          Material => Model % Materials(k) % Values
@@ -320,7 +318,7 @@
            IF(.NOT. GotIt) Permeability = PermeabilityOfVacuum
          END IF
 
-         Reluctivity(1:n) = 1.0/Permeability(1:n)
+         Reluctivity(1:n) = 1.0 / Permeability(1:n)
          
          IF(HarmonicSimulation) THEN
            Conductivity(1:n) = ListGetReal(Material, &
@@ -360,7 +358,6 @@
          END IF
 
          IF ( dim == 3) THEN
-! Get VecLoadVector in 3D
            VecLoadVector=0.0_dp
            IF ( bf_id > 0  ) THEN
              VecLoadVector(1,1:n) = VecLoadVector(1,1:n) + ListGetReal( &
@@ -377,32 +374,10 @@
            END IF
          END IF
 
-!         IF (iter==1) THEN
-!           IF ( dim == 3) THEN
-!             Ae(:)=0._dp
-!           ELSE
-!             Ap(:)=0
-!           END IF
-!         ELSE
-!#if 0
-!         IF (dim == 3) THEN
-!! For W1
-!           DO i=n-nedges+1,n
-!             Ae(i) = MVP(MagneticPerm(NodeIndexes(i)))
-!           END DO
-!         ELSE
-!           DO i=1,n
-!             Ap(i) = MVP(MagneticPerm(NodeIndexes(i)))
-!           END DO
-!         END IF
-!#endif
-!      END IF
-
 !------------------------------------------------------------------------------
 !        Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
        IF ( dim < 3 ) THEN
-! For axisymmetric problem, use regular elements
          IF(HarmonicSimulation) THEN
            CALL HarmMagAxisCompose( &
                LocalStiffMatrix,LocalForce,CurrentDensity,PhaseAngle,Reluctivity, &
@@ -412,47 +387,19 @@
                LocalMassMatrix,LocalStiffMatrix,LocalForce, &
                CurrentDensity,Reluctivity,Ap,CurrentElement,n,ElementNodes )
          END IF
-         
-! OLD: For 3D problem, use Whitney elements
        ELSE
-          CALL StatMagGeneralCompose( &
+         ! Note: this formulation is far from general
+          CALL StatMagCartesianCompose( &
                LocalStiffMatrix, LocalForce, VecLoadVector, Reluctivity, &
                CurrentElement, n, ElementNodes )
-
-! W1 and edge DOFs
-!         CALL StatMagCompose( &
-!             LocalMassMatrix,LocalStiffMatrix,LocalForce, &
-!             VecLoadVector(:,1:n-nedges),Reluctivity,Ae,CurrentElement,&
-!             n-nedges,nedges,ElementNodes )
-! W2 and face DOFs
-!        CALL StatMagCompose2( &
-!            LocalMassMatrix,LocalStiffMatrix,LocalForce, &
-!            VecLoadVector,Reluctivity,Ae,CurrentElement,&
-!            n-nfaces,nfaces,ElementNodes )
        END IF
-!------------------------------------------------------------------------------
-!        If time dependent simulation, add mass matrix to global 
-!        matrix and global RHS vector
-!------------------------------------------------------------------------------
-!      IF ( Transient ) THEN
-!------------------------------------------------------------------------------
-!          NOTE: This will replace LocalStiffMatrix and LocalForce with the
-!                combined information...
-!------------------------------------------------------------------------------
-!        CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-!            LocalForce,dt,n,1,MagneticPerm(NodeIndexes),Solver )
-!      END IF
 
-!      CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-!          ForceVector, LocalForce, n, Solver % Variable % DOFs, &
-!          MagneticPerm(NodeIndexes) )
        CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
        
      END DO
       
      CALL Info( 'StatMagSolve', 'Assembly done', Level=4 )
 
-!    CALL FinishAssembly( Solver,ForceVector )
      CALL DefaultFinishAssembly()
 
 !------------------------------------------------------------------------------
@@ -464,22 +411,9 @@
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
-     PrevUNorm = UNorm
-     
-!    CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-!        MVP, UNorm, Solver % Variable % DOFs, Solver )
      UNorm = DefaultSolve()
-     
-     IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
-       RelativeChange = 2.0d0 * ABS(PrevUNorm-UNorm)/ (PrevUNorm + UNorm)
-     ELSE
-       RelativeChange = 0.0d0
-     END IF
-     
-     WRITE( Message, * ) 'RelativeChange',RelativeChange,PrevUNorm,UNorm,NonLinearTol
-     CALL Info( 'StatMagSolve', Message, Level = 4 )
-     
-     IF ( RelativeChange < NonLinearTol ) THEN
+
+     IF( Solver % Variable % NonlinConverged == 1 ) THEN
        WRITE( Message, * ) 'Convergence after ',iter,' iterations'
        CALL Info( 'StatMagSolve', Message, Level = 4 )
        EXIT
@@ -497,16 +431,17 @@
      
      MFD = 0.0d0
      IF(HarmonicSimulation) THEN
-       A => MVP(2:2*LocalNodes:2)     
+       A => MVP(2::2)     
        CALL AxiSCurl(Bp,Bp,A,Brim,Bzim,Bp,MagneticPerm)
 
-       A => MVP(1:2*LocalNodes-1:2)
+       A => MVP(1::2)
        CALL AxiSCurl(Bp,Bp,A,Br,Bz,Bp,MagneticPerm)
        
        DO i=1, Model%NumberofNodes
-         IF(MagneticPerm(i) > 0) THEN
-           Br(MagneticPerm(i)) = SQRT( Br(MagneticPerm(i))**2 + Brim(MagneticPerm(i))**2 )
-           Bz(MagneticPerm(i)) = SQRT( Bz(MagneticPerm(i))**2 + Bzim(MagneticPerm(i))**2 )
+         j = MagneticPerm(i)
+         IF(j > 0) THEN
+           Br(j) = SQRT( Br(j)**2 + Brim(j)**2 )
+           Bz(j) = SQRT( Bz(j)**2 + Bzim(j)**2 )
            Brim(MagneticPerm(i)) = 0.0d0
            Bzim(MagneticPerm(i)) = 0.0d0
          END IF
@@ -516,22 +451,14 @@
          A => MVP
          CALL AxiSCurl(Bp,Bp,A,Br,Bz,Bp,MagneticPerm)
        ELSE
-          Ax => MVP(1:3*LocalNodes-2:3)
-          Ay => MVP(2:3*LocalNodes-1:3)
-          Az => MVP(3:3*LocalNodes:3)
-
-          Br = 0.0d0
-          Bp = 0.0d0
-          Bz = 0.0d0
-          CALL Curl( Ax, Ay, Az, Br, Bz, Bp, MagneticPerm )
-!         Br=0
-!         Bz=0
-!         Bp=0
-!         CALL WhitneyCurl( A,Br,Bz,Bp,MagneticPerm,nedges )
-
-! Bx=Br, By=Bz, Bz=Bp
-! Compute (Ax,Ay,Az) [or (Bx,By,Bz)] for visualization
-!      CALL CompVecPot( A,Br,Bz,Bp,n-nfaces,nfaces,2 )
+         Ax => MVP(1::3)
+         Ay => MVP(2::3)
+         Az => MVP(3::3)
+         
+         Br = 0.0d0
+         Bp = 0.0d0
+         Bz = 0.0d0
+         CALL Curl( Ax, Ay, Az, Br, Bz, Bp, MagneticPerm )
        END IF
      END IF
 
@@ -545,13 +472,14 @@
 
    IF(HarmonicSimulation .AND. CalculateJouleHeating) THEN
     
-     jc = 0.5d0 * (2.0*PI*AngularFrequency)**2
+     jc = 0.5_dp * (2.0*PI*AngularFrequency)**2
      
-     DO i=1, Model%NumberofNodes
-       IF(MagneticPerm(i) > 0) THEN
-         jre = MVP(2*MagneticPerm(i)-1)
-         jim = MVP(2*MagneticPerm(i))
-         absJoule(MagneticPerm(i)) = jc * (jre*jre+jim*jim)
+     DO i=1, Model % NumberofNodes
+       j = MagneticPerm(i) 
+       IF(j > 0) THEN
+         jre = MVP(2*j-1)
+         jim = MVP(2*j)
+         absJoule(j) = jc * (jre*jre+jim*jim)
        END IF
      END DO
      
@@ -559,23 +487,17 @@
      TotalVolume = 0.0d0
 
     
-     DO t=1, Model % NumberOfBulkElements 
+     DO t=1, Solver % NumberOfActiveElements
        
-       CurrentElement => Solver % Mesh % Elements(t)
-       
+       CurrentElement => GetActiveElement(t)    
        NodeIndexes => CurrentElement % NodeIndexes
-       
-       IF ( .NOT.CheckElementEquation( Model, &
-           CurrentElement,EquationName ) ) CYCLE
-       
-       Model % CurrentElement => CurrentElement
-       body_id = CurrentElement % BodyId
-       n = CurrentElement % TYPE % NumberOfNodes
+       n  = GetElementNOFNodes()
        
        ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
        ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
        ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
        
+       body_id = CurrentElement % BodyId
        k = ListGetInteger( Model % Bodies(body_id) % Values, 'Material', &
                minv=1, maxv=Model % NumberOFMaterials )
        Material => Model % Materials(k) % Values
@@ -583,12 +505,12 @@
        Conductivity(1:n) = ListGetReal(Material, &
            'Electrical Conductivity',n,NodeIndexes,GotIt)
        IF( GotIt ) THEN
-          CALL Warn('StatMagSolve','Use electric conductivity instead of electrical')
-        ELSE
-          Conductivity(1:n) = ListGetReal(Material, &
+         CALL Warn('StatMagSolve','Use electric conductivity instead of electrical')
+       ELSE
+         Conductivity(1:n) = ListGetReal(Material, &
              'Electric Conductivity',n,NodeIndexes)
-        END IF       
-
+       END IF
+       
        Ae(1:n) = absJoule(MagneticPerm(NodeIndexes(1:n)))
        CALL JouleIntegrate(Ae,Conductivity,TotalHeating,TotalVolume,&
            CurrentElement,n,ElementNodes )
@@ -621,16 +543,16 @@ CONTAINS
 !/*******************************************************************************
 ! *
 ! * Subroutine for computing local matrices for static magnetic field
-! *in cylindrical coordinates with axisymmetry.
+! * in cylindrical coordinates with axisymmetry.
 ! *
 ! *                     Author:       Jussi Heikonen
 ! *
 ! ******************************************************************************/
 
 !------------------------------------------------------------------------------
-    SUBROUTINE StatMagAxisCompose( &
-        MassMatrix,StiffMatrix,ForceVector,LoadVector,NodalReluctivity, &
-        Ap,Element,n,Nodes)
+  SUBROUTINE StatMagAxisCompose( &
+      MassMatrix,StiffMatrix,ForceVector,LoadVector,NodalReluctivity, &
+      Ap,Element,n,Nodes)
 
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -692,20 +614,14 @@ CONTAINS
 
       REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
       REAL (KIND=DP) :: SqrtElementMetric
-
       REAL (KIND=DP) :: Force,r,Br,Bz,Babs,mat
-
       REAL (KIND=DP), POINTER :: A(:,:),M(:,:),Load(:)
-
       INTEGER :: DIM,t,i,j,p,q
-
       REAL (KIND=DP) :: s,u,v,w
-
       TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
       INTEGER :: N_Integ
       REAL (KIND=DP), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,&
           S_Integ
-
       LOGICAL :: stat
 
 !***********************************************************************!
@@ -743,7 +659,6 @@ CONTAINS
                  Basis,dBasisdx,ddBasisddx,.FALSE. )
 
        r = SUM( Basis(1:n) * Nodes%x(1:n))
-
        s = SqrtElementMetric * S_Integ(t)
        
 !------------------------------------------------------------------------------
@@ -751,7 +666,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
        Force = SUM( LoadVector(1:n) * Basis(1:n) )
-
        Reluctivity = SUM( NodalReluctivity(1:n) * Basis(1:n) )
 
 !------------------------------------------------------------------------------
@@ -787,9 +701,7 @@ CONTAINS
 !    The righthand side...
 !------------------------------------------------------------------------------
        DO p=1,N
-
          ForceVector(p) = ForceVector(p) + Force*Basis(p)*r*s
-
        END DO
 
      END DO
@@ -834,15 +746,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
-     REAL (KIND=DP) :: SqrtElementMetric
-     
+     REAL (KIND=DP) :: SqrtElementMetric     
      REAL (KIND=DP) :: Force,r,wang,a11,a21,a12,a22
      REAL (KIND=DP), POINTER :: A(:,:),M(:,:),Load(:)
      
-     INTEGER :: DIM,t,i,j,p,q
-     
+     INTEGER :: DIM,t,i,j,p,q     
      REAL (KIND=DP) :: s,u,v,w
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      INTEGER :: N_Integ
      REAL (KIND=DP), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,&
@@ -886,7 +795,6 @@ CONTAINS
                  Basis,dBasisdx,ddBasisddx,.FALSE. )
 
        r = SUM( basis*nodes%x(1:n))
-
        s = SqrtElementMetric * S_Integ(t)
        
 !------------------------------------------------------------------------------
@@ -929,11 +837,6 @@ CONTAINS
          END DO
        END DO
 
-!       IF(Force > 0.0) THEN
-!         PRINT *,'Force',Force,'w',wang,'cond',conductivity
-!         PRINT *,'Angle',Angle,'sin',SIN(Angle),'cos',COS(Angle)
-!       END IF
-
 !------------------------------------------------------------------------------
 !    The righthand side...
 !------------------------------------------------------------------------------
@@ -964,7 +867,6 @@ CONTAINS
      
      REAL (KIND=DP) :: NodalConductivity(:), NodalField(:)
      REAL (KIND=DP) :: TotalHeating, TotalVolume, Conductivity, Field
-
      INTEGER :: n
      
      TYPE(Nodes_t) :: Nodes
@@ -975,12 +877,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
-     REAL (KIND=DP) :: SqrtElementMetric
-     
-     INTEGER :: DIM,t,i,j,p,q
-     
+     REAL (KIND=DP) :: SqrtElementMetric     
+     INTEGER :: DIM,t,i,j,p,q     
      REAL (KIND=DP) :: r,s,u,v,w
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      INTEGER :: N_Integ
      REAL (KIND=DP), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
@@ -1018,7 +917,6 @@ CONTAINS
                  Basis,dBasisdx,ddBasisddx,.FALSE. )
 
        r = SUM( basis*nodes%x(1:n))
-
        s = SqrtElementMetric * S_Integ(t)
        
 !------------------------------------------------------------------------------
@@ -1029,10 +927,8 @@ CONTAINS
        Conductivity = SUM( NodalConductivity(1:n)*Basis(1:n) )
 
        DO p=1,N
-
          TotalVolume = TotalVolume + 2.0d0 * PI * r * s * Basis(p) 
          TotalHeating = TotalHeating + 2.0d0 * PI * r * s * Basis(p) * Field * Conductivity
-
        END DO
 
      END DO
@@ -1050,12 +946,11 @@ CONTAINS
 ! ******************************************************************************/
 
 !------------------------------------------------------------------------------
-    SUBROUTINE StatMagGeneralCompose( &
+    SUBROUTINE StatMagCartesianCompose( &
         StiffMatrix,ForceVector,LoadVector,NodalReluctivity, &
         Element,n,Nodes)
 
 !------------------------------------------------------------------------------
-!******************************************************************************
 !
 !  Return element local matrices and RHS vector for static magnetic field
 !
@@ -1083,7 +978,6 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
       USE Types
       USE Integration
@@ -1114,7 +1008,7 @@ CONTAINS
       INTEGER :: t,p,q
       LOGICAL :: stat
 
-!***********************************************************************!
+!------------------------------------------------------------------------------
 
      ForceVector = 0.0D0
      StiffMatrix = 0.0D0
@@ -1153,7 +1047,7 @@ CONTAINS
 
        DO i = 1, 3
           Force(i) = SUM( LoadVector(i,1:n) * Basis(1:n) )
-       ENd DO
+       END DO
 
        Reluctivity = SUM( NodalReluctivity(1:n) * Basis(1:n) )
 
@@ -1191,542 +1085,8 @@ CONTAINS
 
      END DO
 
-   END SUBROUTINE StatMagGeneralCompose
-!==============================================================================
-
-
-
-!/*******************************************************************************
-! *
-! * Subroutine for computing local matrices for static magnetic field
-! * in cartesian 3D coordinates with Whitney elements
-! *
-! *                     Author:       Ville Savolainen
-! *
-! ******************************************************************************/
-
-!------------------------------------------------------------------------------
-    SUBROUTINE StatMagCompose( &
-        MassMatrix,StiffMatrix,ForceVector,LoadVector,NodalReluctivity, &
-        Ae,ElementOrig,n,nedges,Nodes)
-
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RHS vector for static magnetic field
-!
-!  ARGUMENTS:
-!
-!  REAL (KIND=DP) :: MassMatrix(:,:)
-!     OUTPUT: time derivative coefficient matrix
-!
-!  REAL (KIND=DP) :: StiffMatrix(:,:)
-!     OUTPUT: rest of the equation coefficients
-!
-!  REAL (KIND=DP) :: ForceVector(:)
-!     OUTPUT: RHS vector
-!
-!  REAL (KIND=DP) :: LoadVector(:)
-!     INPUT:
-!
-!  REAL (KIND=DP) :: NodalReluctivity(:)
-!     INPUT: Nodal values of relucitivity ( 1 / permeability )
-!
-!  REAL (KIND=DP) :: Ae(:)
-!     INPUT: Vector potential (edge degrees of freedom)
-!            from the previous iteration for computing
-!            the "reluctivity" in a nonlinear material
-
-!  TYPE(Element_t) :: Element
-!       INPUT: Structure describing the element (dimension,nof nodes,
-!               interpolation degree, etc...)
-!
-!  INTEGER :: n
-!       INPUT: Number of element corner nodes
-!
-!  INTEGER :: nedges
-!       INPUT: Number of element edges
-!
-!  TYPE(Nodes_t) :: Nodes
-!       INPUT: Element node coordinates
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-      USE Types
-      USE Integration
-      USE ElementDescription
-
-      IMPLICIT NONE
-     
-      REAL (KIND=DP),TARGET :: MassMatrix(:,:),StiffMatrix(:,:),&
-          ForceVector(:)
-      REAL (KIND=DP) :: NodalReluctivity(:), Reluctivity
-      REAL (KIND=DP) :: LoadVector(:,:),Ae(:)
-
-      INTEGER :: n,nedges
-
-      TYPE(Nodes_t) :: Nodes
-      TYPE(Element_t) :: ElementOrig, Element
-
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-
-      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
-      REAL (KIND=DP) :: SqrtElementMetric
-      REAL (KIND=DP) :: WhitneyBasis(nedges,3), &
-          dWhitneyBasisdx(nedges,3,3)
-
-      REAL (KIND=DP) :: Force(3)
-
-      INTEGER :: DIM,t,i,j,p,q,k
-
-      REAL (KIND=DP) :: s,u,v,w
-
-      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-      INTEGER :: N_Integ
-      REAL (KIND=DP), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,&
-          S_Integ
-
-      LOGICAL :: stat
-
-!***********************************************************************!
-
-     DIM=3
-
-     ForceVector = 0.0D0
-     MassMatrix  = 0.0D0
-     StiffMatrix = 0.0D0
-
-!------------------------------------------------------------------------------
-!    Integration stuff
-!------------------------------------------------------------------------------
-     Element = ElementOrig
-     IF (nedges == 6) THEN
-       Element % TYPE => GetElementType( 504 )
-     ELSE
-       IF (nedges == 12) THEN
-         Element % TYPE => GetElementType( 808 )
-       ELSE
-         CALL Fatal( 'StatMagCompose', &
-             'Not appropriate number of edges for Whitney elements' )
-       END IF
-     END IF
-! N.B. Have integration pts appropriate for linear elements
-     IntegStuff = GaussPoints( Element )
-     U_Integ => IntegStuff % u
-     V_Integ => IntegStuff % v
-     W_Integ => IntegStuff % w
-     S_Integ => IntegStuff % s
-     N_Integ =  IntegStuff % n
-
-!------------------------------------------------------------------------------
-!   Now we start integrating
-!------------------------------------------------------------------------------
-     DO t=1,N_Integ
-
-       u = U_Integ(t)
-       v = V_Integ(t)
-       w = W_Integ(t)
-
-!------------------------------------------------------------------------------
-!     Basis function values & derivatives at the integration point
-!------------------------------------------------------------------------------
-! N.B. Use _linear_ tetra/brick element data for next two calls
-       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
-
-       stat = WhitneyElementInfo( Element,Basis,dBasisdx,&
-                 nedges,WhitneyBasis,dWhitneyBasisdx )
-
-       s = SqrtElementMetric * S_Integ(t)
-       
-!------------------------------------------------------------------------------
-!     Force at integration point
-!------------------------------------------------------------------------------
-       Force = 0.0_dp
-       DO i=1,DIM
-         Force(i) = SUM( LoadVector(i,1:n)*Basis(1:n) )
-       END DO
-
-       Reluctivity = SUM( NodalReluctivity(1:n)*Basis )
-!------------------------------------------------------------------------------
-!    Negative reluctivity indicates nonlinear material: reluctivity = H / B is
-!    then computed from the previous value of B with using a given function 
-!    Rel
-!----------------------------------------------------------------------------
-
-       IF (Reluctivity<0) THEN
-         CALL Fatal( 'StatMagCompose', 'Iron permeability not implemented for 3D' )
-! Either change the hack to include 3D fields, or omit altogether
-       END IF
-
-!------------------------------------------------------------------------------
-!    Loop over edge basis functions (of both unknowns and weights)
-!------------------------------------------------------------------------------
-       DO p=1,nedges
-         DO q=1,nedges
-!------------------------------------------------------------------------------
-!      The equation for the vector potential
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-!      Mass matrix:
-!------------------------------------------------------------------------------
-! This is not used for anything in static solver
-!           DO i=1,dim
-!             MassMatrix(n+p,n+q) = MassMatrix(n+p,n+q) + & 
-!                 WhitneyBasis(p,i)*WhitneyBasis(q,i) * s
-!           END DO
-
-!------------------------------------------------------------------------------
-!      Stiffness matrix:
-!------------------------------
-           DO i=1,DIM
-             DO j=1,DIM
-               StiffMatrix(n+p,n+q) = StiffMatrix(n+p,n+q) + Reluctivity* & 
-                   (dWhitneyBasisdx(p,i,j)*dWhitneyBasisdx(q,i,j)) * s
-             END DO
-           END DO
-
-         END DO
-       END DO
-
-!------------------------------------------------------------------------------
-!    The righthand side...
-!------------------------------------------------------------------------------
-       DO p=1,nedges
-
-         ForceVector(n+p) = ForceVector(n+p) + &
-             s * DOT_PRODUCT(Force,WhitneyBasis(p,:))
-       END DO
-
-     END DO
-
-     DO i=1,n
-!       MassMatrix(i,i) = 1.0_dp
-       StiffMatrix(i,i) = 1.0_dp
-       ForceVector(i) = 0._dp
-     END DO
-
-!     PRINT*,SIZE(StiffMatrix)
-!     DO i=1,10
-!       PRINT*,'Matrix:',StiffMatrix(i,:)
-!     END DO
-!     PRINT*,'Force:',Forcevector
-!     STOP
-
-   END SUBROUTINE StatMagCompose
-
-!------------------------------------------------------------------------------
-   SUBROUTINE StatMagCompose2( MassMatrix,StiffMatrix,ForceVector,LoadVector, &
-       NodalReluctivity,Ae,ElementOrig,n,nfaces,Nodes )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RHS vector for static magnetic field
-!
-!  ARGUMENTS:
-!
-!  REAL (KIND=DP) :: MassMatrix(:,:)
-!     OUTPUT: time derivative coefficient matrix
-!
-!  REAL (KIND=DP) :: StiffMatrix(:,:)
-!     OUTPUT: rest of the equation coefficients
-!
-!  REAL (KIND=DP) :: ForceVector(:)
-!     OUTPUT: RHS vector
-!
-!  REAL (KIND=DP) :: LoadVector(:)
-!     INPUT:
-!
-!  REAL (KIND=DP) :: NodalReluctivity(:)
-!     INPUT: Nodal values of relucitivity ( 1 / permeability )
-!
-!  REAL (KIND=DP) :: Ae(:)
-!     INPUT: Vector potential (edge degrees of freedom)
-!            from the previous iteration for computing
-!            the "reluctivity" in a nonlinear material
-
-!  TYPE(Element_t) :: Element
-!       INPUT: Structure describing the element (dimension,nof nodes,
-!               interpolation degree, etc...)
-!
-!  INTEGER :: n
-!       INPUT: Number of element corner nodes
-!
-!  INTEGER :: nedges
-!       INPUT: Number of element edges
-!
-!  TYPE(Nodes_t) :: Nodes
-!       INPUT: Element node coordinates
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-      USE Types
-      USE Integration
-      USE ElementDescription
-
-      IMPLICIT NONE
-     
-      REAL (KIND=DP),TARGET :: MassMatrix(:,:),StiffMatrix(:,:),&
-          ForceVector(:)
-      REAL (KIND=DP) :: NodalReluctivity(:), Reluctivity
-      REAL (KIND=DP) :: LoadVector(:,:),Ae(:)
-
-      INTEGER :: n,nfaces
-
-      TYPE(Nodes_t) :: Nodes
-      TYPE(Element_t) :: ElementOrig,Element
-
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-
-      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
-      REAL (KIND=DP) :: SqrtElementMetric
-      REAL (KIND=DP) :: WhitneyBasis(nfaces,3),dWhitneyBasisdx(nfaces,3,3)
-
-      REAL (KIND=DP) :: Force(3)
-
-      INTEGER :: DIM,t,i,j,p,q,k
-
-      REAL (KIND=DP) :: s,u,v,w
-
-      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-      INTEGER :: N_Integ
-      REAL (KIND=DP), DIMENSION(:), POINTER :: U_Integ, V_Integ, W_Integ, &
-          S_Integ
-
-      LOGICAL :: stat
-
-!***********************************************************************!
-
-     DIM=3
-
-     ForceVector = 0.0d0
-     MassMatrix  = 0.0d0
-     StiffMatrix = 0.0d0
-
-!------------------------------------------------------------------------------
-!    Integration stuff
-!------------------------------------------------------------------------------
-     Element = ElementOrig
-     Element % TYPE => GetElementType( 504 )
-
-! N.B. Have integration pts appropriate for linear elements
-     IntegStuff = GaussPoints( Element,4 )
-     U_Integ => IntegStuff % u
-     V_Integ => IntegStuff % v
-     W_Integ => IntegStuff % w
-     S_Integ => IntegStuff % s
-     N_Integ =  IntegStuff % n
-
-!------------------------------------------------------------------------------
-!   Now we start integrating
-!------------------------------------------------------------------------------
-     DO t=1,N_Integ
-
-       u = U_Integ(t)
-       v = V_Integ(t)
-       w = W_Integ(t)
-
-!------------------------------------------------------------------------------
-!     Basis function values & derivatives at the integration point
-!------------------------------------------------------------------------------
-! N.B. Use _linear_ tetra/brick element data for next two calls
-       stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
-                 Basis, dBasisdx, ddBasisddx, .FALSE. )
-
-       stat = Whitney2ElementInfo( Element, Basis, dBasisdx, &
-              nfaces, WhitneyBasis, dWhitneyBasisdx )
-
-       s = SqrtElementMetric * S_Integ(t)
-!------------------------------------------------------------------------------
-!     Force at integration point
-!------------------------------------------------------------------------------
-       Force = 0.0_dp
-       DO i=1,DIM
-          Force(i) = SUM( LoadVector(i,1:n)*Basis(1:n) )
-       END DO
-
-       Reluctivity = SUM( NodalReluctivity(1:n)*Basis )
-!------------------------------------------------------------------------------
-!    Negative reluctivity indicates nonlinear material: reluctivity = H / B is
-!    then computed from the previous value of B with using a given function 
-!    Rel
-!----------------------------------------------------------------------------
-
-       IF ( Reluctivity < 0 ) THEN
-         CALL Fatal( 'StatMagCompose', 'Iron permeability not implemented for 3D' )
-! Either change the hack to include 3D fields, or omit altogether
-       END IF
-
-!------------------------------------------------------------------------------
-!    Loop over edge basis functions (of both unknowns and weights)
-!------------------------------------------------------------------------------
-       DO p=1,nfaces
-         DO q=1,nfaces
-!------------------------------------------------------------------------------
-!      The equation for the vector potential
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-!      Mass matrix:
-!------------------------------------------------------------------------------
-! This is not used for anything in static solver
-!           DO i=1,dim
-!             MassMatrix(n,n) = MassMatrix(n,n) + & 
-!                 WhitneyBasis(p,i)*WhitneyBasis(q,i) * s
-!           END DO
-!
-!------------------------------------------------------------------------------
-!      Stiffness matrix:
-!------------------------------
-!#if 0
-!           StiffMatrix(p+n,q+n) = StiffMatrix(p+n,q+n) + &
-!               s * SUM( WhitneyBasis(p,:) * WhitneyBasis(q,:) )
-!#else
-           StiffMatrix(p,q) = StiffMatrix(p,q) + &
-               s * (dWhitneyBasisdx(p,2,3)-dWhitneyBasisdx(p,3,2)) &
-                      * WhitneyBasis(q,1)
-
-           StiffMatrix(p,q) = StiffMatrix(p,q) + &
-               s * (dWhitneyBasisdx(p,3,1)-dWhitneyBasisdx(p,1,3)) &
-                      * WhitneyBasis(q,2)
-
-           StiffMatrix(p,q) = StiffMatrix(p,q) + &
-               s * (dWhitneyBasisdx(p,1,2)-dWhitneyBasisdx(p,2,1)) &
-                      * WhitneyBasis(q,3)
-!#endif
-
-         END DO
-       END DO
-
-!------------------------------------------------------------------------------
-!    The righthand side...
-!------------------------------------------------------------------------------
-       DO p=1,n
-          ForceVector(p+n) = ForceVector(p+n) + &
-              s * SUM( Force * WhitneyBasis(p,:) )
-       END DO
-
-     END DO
-
-     DO i=1,n
-        StiffMatrix(i,i) = 1.0d0
-        ForceVector(i)   = 0.0d0
-     END DO
-
-   END SUBROUTINE StatMagCompose2
-
-
-!------------------------------------------------------------------------------
-   FUNCTION Rel(b) RESULT(r)
-!------------------------------------------------------------------------------
-!  Rel returns reluctivity = H / B for a nonlinear material
-!
-!  REAL (KIND=DP) :: b
-!    INPUT: Absolute value of magnetic flux density
-!
-!  REAL (KIND=DP) :: r
-!    INPUT: reluctivity = H / B for a nonlinear material
-!------------------------------------------------------------------------------
-     IMPLICIT NONE
-     REAL (KIND=DP) :: b,r
-!------------------------------------------------------------------------------
-
-     r=0.3188d4*b**6 &
-         -1.7109d4*b**5+ &
-         3.8493d4*b**4 &
-         -4.5478d4*b**3+ &
-         2.92d4*b**2 &
-         -0.9509d4*b+ &
-         0.1631d4
-
-!     r=1000
-
-!------------------------------------------------------------------------------
-   END FUNCTION rel
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
-   SUBROUTINE CompVecPot( A,Ax,Ay,Az,n,nedges,w12 )
-!------------------------------------------------------------------------------
-    REAL(KIND=dp) :: A(:),Ax(:),Ay(:),Az(:)
-
-    INTEGER :: n,nedges,w12
-    INTEGER, ALLOCATABLE :: Visited(:)
-
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-
-      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
-      REAL (KIND=DP) :: SqrtElementMetric
-      REAL (KIND=DP) :: WhitneyBasis(NEdges,3), &
-          dWhitneyBasisdx(NEdges,3,3)
-
-      INTEGER :: DIM,t,i,j,p,q
-
-      REAL (KIND=DP) :: s,u,v,w
-
-      LOGICAL :: stat
-
-      TYPE(Element_t) :: Element
-
-      ALLOCATE (Visited(Model % NumberOfNodes))
-      Visited = 0
-
-      ElementNodes % x = 0
-      ElementNodes % y = 0
-      ElementNodes % z = 0
-
-      DO t=1, Model % NumberOfBulkElements 
-        Element = Model % Elements (t)
-        Element % TYPE => GetElementType( 504 )
-
-        ElementNodes % x(1:n) = Model % Nodes % x(Element % NodeIndexes(1:n))
-        ElementNodes % y(1:n) = Model % Nodes % y(Element % NodeIndexes(1:n))
-        ElementNodes % z(1:n) = Model % Nodes % z(Element % NodeIndexes(1:n))
-
-        stat = ElementInfo( Element, ElementNodes, 0.25d0,0.25d0,0.25d0, &
-              SqrtElementMetric, Basis, dBasisdx, ddBasisddx, .FALSE. )
-
-        IF ( w12 == 1 ) THEN
-           stat = WhitneyElementInfo( Element, Basis, dBasisdx,&
-                 Nedges, WhitneyBasis, dWhitneyBasisdx )
-        ELSE
-           stat = Whitney2ElementInfo( Element, Basis, dBasisdx,&
-                 Nedges, WhitneyBasis, dWhitneyBasisdx )
-        END IF
-
-        Ax(MagneticPerm(Element % NodeIndexes)) = &
-            Ax(MagneticPerm(Element % NodeIndexes)) + &
-            SUM( WhitneyBasis(:,1) * A( MagneticPerm( &
-            Element % NodeIndexes(n+1:n+nedges) ) ) )
-        
-        Ay(MagneticPerm(Element % NodeIndexes)) = &
-            Ay(MagneticPerm(Element % NodeIndexes)) + &
-            SUM( WhitneyBasis(:,2) * A( MagneticPerm( &
-            Element % NodeIndexes(n+1:n+nedges) ) ) )
-        
-        Az(MagneticPerm(Element % NodeIndexes)) = &
-            Az(MagneticPerm(Element % NodeIndexes)) + &
-            SUM( WhitneyBasis(:,3) * A( MagneticPerm( &
-            Element % NodeIndexes(n+1:n+nedges) ) ) )
-        
-        Visited(MagneticPerm(Element % NodeIndexes)) = &
-            Visited(MagneticPerm(Element % NodeIndexes)) + 1
-     END DO
-
-     WHERE( Visited > 1 )
-       Ax = Ax / Visited
-       Ay = Ay / Visited
-       Az = Az / Visited
-     END WHERE
-
-     DEALLOCATE (Visited)
-
-   END SUBROUTINE CompVecPot
+   END SUBROUTINE StatMagCartesianCompose
+!-----------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   END SUBROUTINE StatMagSolver
