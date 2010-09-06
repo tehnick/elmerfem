@@ -62,9 +62,11 @@
         CALL ListAddString( SolverParams, 'Variable','-nooutput flux_temp' )
         CALL ListAddString(SolverParams, 'Flux Result Variable','F')
         IF(dim == 2) THEN
-          CALL ListAddString(SolverParams, 'Exported Variable 1','F[Flux:2]')
+          CALL ListAddString( SolverParams,&
+               NextFreeKeyword('Exported Variable',SolverParams),'F[Flux:2]')
         ELSE IF(dim == 3) THEN
-          CALL ListAddString(SolverParams, 'Exported Variable 1','F[Flux:3]')
+          CALL ListAddString( SolverParams,&
+               NextFreeKeyword('Exported Variable',SolverParams),'F[Flux:3]')
         ELSE
           CALL Fatal('VortictySolver_init','Flux computation makes sense only in 2D and 3D')
         END IF
