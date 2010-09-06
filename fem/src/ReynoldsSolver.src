@@ -52,24 +52,27 @@ SUBROUTINE ReynoldsSolver_init( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   LOGICAL :: Cavitation, Found
   CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  TYPE(ValueList_t), POINTER :: Params 
 
 
-  Cavitation = ListGetLogical( Solver % Values,'Cavitation',Found)
+  Params => GetSolverParams()
+  Cavitation = ListGetLogical( Params,'Cavitation',Found)
   IF(.NOT. Found ) THEN
-    Cavitation = ListCheckPresent(Solver % Values,'Cavitation Pressure')
+    Cavitation = ListCheckPresent(Params,'Cavitation Pressure')
     IF( Cavitation ) THEN
       CALL Warn('ReynoldsSolver_init','If you want to activate cavitation set >Cavitation = True<')
-      CALL ListAddLogical(Solver % Values,'Cavitation',.TRUE.)
+      CALL ListAddLogical(Params,'Cavitation',.TRUE.)
     END IF
   END IF
   IF( Cavitation ) THEN
-    VarName = ListGetString( Solver % Values,'Variable',Found)
+    VarName = ListGetString( Params,'Variable',Found)
     IF(.NOT. Found) THEN
       CALL Warn('ReynoldsSolver_init','Variable is required!')
       RETURN
     END IF
-    CALL ListAddString( Solver % Values,'Exported Variable 1',TRIM(VarName)//' Cavitation')
-    CALL ListAddLogical( Solver % Values,'Calculate Loads',.TRUE.)
+    CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+	TRIM(VarName)//' Cavitation')
+    CALL ListAddLogical( Params,'Calculate Loads',.TRUE.)
   END IF
 
 END SUBROUTINE ReynoldsSolver_init
@@ -97,7 +100,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE(Nodes_t) :: ElementNodes
   TYPE(Element_t),POINTER :: Element, Parent
-  TYPE(ValueList_t), POINTER :: Material, Equation, BC 
+  TYPE(ValueList_t), POINTER :: Params, Material, Equation, BC 
   TYPE(Variable_t), POINTER :: VarTemp
 
   INTEGER, PARAMETER :: Compressibility_None = 1, Compressibility_Weak = 2, &
@@ -137,9 +140,10 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 ! Get variables needed for solution
 !------------------------------------------------------------------------------
 
-  Bubbles = GetLogical( Solver % Values, 'Bubbles', GotIt )
-  PartIntSliding = GetLogical(Solver % Values,'Partial Integrate Sliding',GotIt)
-  Cavitation = GetLogical( Solver % Values,'Cavitation',GotIt) 
+  Params => GetSolverParams()
+  Bubbles = GetLogical( Params, 'Bubbles', GotIt )
+  PartIntSliding = GetLogical(Params,'Partial Integrate Sliding',GotIt)
+  Cavitation = GetLogical( Params,'Cavitation',GotIt) 
   
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
   IF(Solver % Variable % Dofs /= 1) THEN
@@ -159,14 +163,14 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
     IF(stat) SideCorrection = .TRUE.
   END DO
 
-  NoIterations = GetInteger( Solver % Values,'Nonlinear System Max Iterations',GotIt)
+  NoIterations = GetInteger( Params,'Nonlinear System Max Iterations',GotIt)
   IF(.NOT. GotIt) NoIterations = 1
   
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
   IF(Cavitation) THEN
-    CavitationPressure = GetCReal( Solver % Values,'Cavitation Pressure')
+    CavitationPressure = GetCReal( Params,'Cavitation Pressure')
     VarTemp => VariableGet( Model % Mesh % Variables, &
            GetVarName(Solver % Variable) // ' Cavitation' )
     IF (.NOT.ASSOCIATED(VarTemp)) THEN
@@ -492,7 +496,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
     Converged = ( Solver % Variable % NonlinConverged == 1 )
 
-    IF( Converged .AND. (added + removed <= GetInteger(Solver % Values,&
+    IF( Converged .AND. (added + removed <= GetInteger(Params,&
         'Cavitation Set Maximum Change',Stat)) ) EXIT
   END DO
   
@@ -896,7 +900,7 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: PressureVar, VarResult, SolverVar
   TYPE(Nodes_t) :: ElementNodes
   TYPE(Element_t),POINTER :: Element, Parent
-  TYPE(ValueList_t), POINTER :: Material, Equation
+  TYPE(ValueList_t), POINTER :: Params, Material, Equation
 
   INTEGER, PARAMETER :: Viscosity_Newtonian = 1, Viscosity_Rarefied = 2
 
@@ -931,12 +935,14 @@ SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
 ! Get variables needed for solution
 !------------------------------------------------------------------------------
 
+  Params => GetSolverParams()
+
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
   IF(Solver % Variable % Dofs /= 1) THEN
     CALL Fatal('ReynoldsPostprocess','Impossible number of dofs! (should be 1)')    
   END IF
 
-  PressureName = GetString(Solver % Values,'Reynolds Pressure Variable Name',GotIt)
+  PressureName = GetString(Params,'Reynolds Pressure Variable Name',GotIt)
   IF(.NOT. GotIt) PressureName = 'FilmPressure'
 
   PressureVar => VariableGet( Solver % Mesh % Variables, PressureName)
