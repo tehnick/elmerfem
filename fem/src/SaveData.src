@@ -73,7 +73,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
   TYPE(Solver_t), POINTER :: ParSolver
-  TYPE(ValueList_t), POINTER :: Lst
+  TYPE(ValueList_t), POINTER :: Lst, SolverParams
   TYPE(Variable_t), POINTER :: Var, OldVar
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t),POINTER :: CurrentElement
@@ -127,7 +127,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   CALL SetCurrentMesh( Model, Mesh )
 
   DIM = CoordinateSystemDimension()
- 
+  SolverParams => GetSolverParams()	
 
   IF(.NOT.SubroutineVisited) THEN
     
@@ -138,7 +138,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
     IF( ParEnv % PEs > 1 ) THEN
       IsParallel = .TRUE.
-      ParallelReduce = GetLogical( Solver % Values,'Parallel Reduce',GotIt)
+      ParallelReduce = GetLogical( SolverParams,'Parallel Reduce',GotIt)
       ParallelWrite = .NOT. ParallelReduce
       IF (ParEnv % MYPe > 0) WriteCore = .FALSE.
       OutputPE = ParEnv % MYPe
@@ -146,45 +146,45 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       IF( ParallelWrite ) CALL Info('SaveScalars','Parallel results will be written to separate files')      
     END IF
 
-    FileAppend = ListGetLogical( Solver % Values,'File Append',GotIt)
+    FileAppend = ListGetLogical( SolverParams,'File Append',GotIt)
 
 
-    ScalarsFile = ListGetString(Solver % Values,'Filename',SaveToFile )
+    ScalarsFile = ListGetString(SolverParams,'Filename',SaveToFile )
     IF( SaveToFile ) THEN
-      IF(ListGetLogical(Solver % Values,'Filename Numbering',GotIt)) THEN
+      IF(ListGetLogical(SolverParams,'Filename Numbering',GotIt)) THEN
         ScalarsFile = NextFreeFilename( ScalarsFile ) 
       END IF
       ScalarNamesFile = TRIM(ScalarsFile) // '.' // TRIM("names")
-      LiveGraph = ListGetLogical(Solver % Values,'Live Graph',GotIt) 
+      LiveGraph = ListGetLogical(SolverParams,'Live Graph',GotIt) 
     END IF    
 
-    EchoValues = ListGetLogical( Solver % Values,'Echo Values',GotIt)
+    EchoValues = ListGetLogical( SolverParams,'Echo Values',GotIt)
     IF(.NOT. GotIt) EchoValues = .NOT. SaveToFile
     EchoValues = EchoValues .AND. WriteCore
 
 
-    ResultPrefix = ListGetString(Solver % Values,'Scalars Prefix',GotIt )
+    ResultPrefix = ListGetString(SolverParams,'Scalars Prefix',GotIt )
     IF(.NOT. gotIt) ResultPrefix = 'res:'
     
     NoLines = 0
-    LineCoordinates => ListGetConstRealArray(Solver % Values,'Polyline Coordinates',gotIt)
+    LineCoordinates => ListGetConstRealArray(SolverParams,'Polyline Coordinates',gotIt)
     IF(gotIt) THEN
       NoLines = SIZE(LineCoordinates,1) / 2
       NoDims = SIZE(LineCoordinates,2)
     END IF
 
     NoPoints = 0
-    PointIndex => ListGetIntegerArray( Solver % Values,'Save Points',GotIt)
+    PointIndex => ListGetIntegerArray( SolverParams,'Save Points',GotIt)
     IF ( gotIt ) NoPoints = SIZE(PointIndex)
     
     NoCoordinates = 0
     NoElements = 0
-    PointCoordinates => ListGetConstRealArray(Solver % Values,'Save Coordinates',gotIt)
+    PointCoordinates => ListGetConstRealArray(SolverParams,'Save Coordinates',gotIt)
     IF(gotIt) THEN
       NoDims = SIZE(PointCoordinates,2)
-      ExactCoordinates = ListGetLogical(Solver % Values,'Exact Coordinates',GotIt )      
+      ExactCoordinates = ListGetLogical(SolverParams,'Exact Coordinates',GotIt )      
 
-      EpsAbs = ListGetConstReal( Solver % Values,'Coordinate Eps Abs',GotEpsAbs )
+      EpsAbs = ListGetConstReal( SolverParams,'Coordinate Eps Abs',GotEpsAbs )
 
       IF( ParallelReduce ) THEN
         IF(.NOT. ExactCoordinates) THEN
@@ -215,8 +215,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   END IF
 
 
-  ComplexEigen = ListGetLogical(Solver % Values,'Complex Eigen Vectors',GotIt)
-  MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt )
+  ComplexEigen = ListGetLogical(SolverParams,'Complex Eigen Vectors',GotIt)
+  MovingMesh = ListGetLogical(SolverParams,'Moving Mesh',GotIt )
   
   IF(.NOT.SubroutineVisited .OR. MovingMesh) THEN
     
@@ -378,7 +378,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       WRITE (Name,'(A,I3)') 'Variable',NoVar
     END IF
   
-    VariableName = ListGetString( Solver % Values, TRIM(Name), GotVar )
+    VariableName = ListGetString( SolverParams, TRIM(Name), GotVar )
 
     IF(TRIM(VariableName) == 'cpu time' .OR. TRIM(VariableName) == 'cpu memory') THEN
       CALL Warn('SaveScalars','This variable should now be invoked as a operator:'//TRIM(VariableName))
@@ -423,7 +423,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     ELSE
       WRITE (Name,'(A,I3)') 'Operator',NoOper    
     END IF
-    Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
+    Oper = ListGetString(SolverParams,TRIM(Name),GotOper)
     IF(.NOT. (GotOper .OR. GotVar ) ) CYCLE
 
     
@@ -432,14 +432,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     ELSE
       WRITE (Name,'(A,I3)') 'Coefficient',NoOper    
     END IF
-    CoefficientName = ListGetString(Solver % Values,TRIM(Name),GotCoeff )
+    CoefficientName = ListGetString(SolverParams,TRIM(Name),GotCoeff )
 
     IF(NoOper < 10) THEN
       WRITE (Name,'(A,I2)') 'Parallel Operator',NoOper
     ELSE
       WRITE (Name,'(A,I3)') 'Parallel Operator',NoOper    
     END IF
-    ParOper = ListGetString(Solver % Values,TRIM(Name),GotParOper)
+    ParOper = ListGetString(SolverParams,TRIM(Name),GotParOper)
     IF(.NOT. GotParOper) ParOper = OperToParOperMap(Oper)
 
 
@@ -605,10 +605,10 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !   Add eigenvalues on the list if told to
   !------------------------------------------------------------------------------
 
-  SaveEigenValue = ListGetLogical( Solver % Values, 'Save Eigenvalues', GotIt )
-  SaveEigenFreq = ListGetLogical( Solver % Values, 'Save Eigenfrequencies', GotIt )
+  SaveEigenValue = ListGetLogical( SolverParams, 'Save Eigenvalues', GotIt )
+  SaveEigenFreq = ListGetLogical( SolverParams, 'Save Eigenfrequencies', GotIt )
   IF(.NOT. GotIt) &
-    SaveEigenFreq = ListGetLogical( Solver % Values, 'Save Eigen Frequencies', GotIt ) 
+    SaveEigenFreq = ListGetLogical( SolverParams, 'Save Eigen Frequencies', GotIt ) 
 
   IF ( SaveEigenValue .OR. SaveEigenFreq ) THEN
     l = 0
@@ -864,7 +864,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
   IF( SaveToFile ) THEN
 
-    LineInd = ListGetInteger( Solver % Values,'Line Marker',GotIt)
+    LineInd = ListGetInteger( SolverParams,'Line Marker',GotIt)
     
     IF(WriteCore .AND. NoValues /= PrevNoValues) THEN 
       WRITE( Message, * ) 'Saving names of values to file ', TRIM(ScalarNamesFile)
@@ -881,7 +881,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       IF( GotIt ) THEN
         WRITE(10,'(A)') TRIM(Message)
       END IF
-      Message = ListGetString(Solver % Values,'Comment',GotIt)
+      Message = ListGetString(SolverParams,'Comment',GotIt)
       IF( GotIt ) THEN
         WRITE(10,'(A)') TRIM(Message)
       END IF
@@ -960,7 +960,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       !------------------------------------------------------------------------------
       IF( .NOT. SubroutineVisited .AND. FileAppend .AND. LineInd /= 0 ) THEN
       
-        Message = ListGetString(Solver % Values,'Comment',GotIt)
+        Message = ListGetString(SolverParams,'Comment',GotIt)
         Name = TRIM(ScalarsFile) // '.' // TRIM("marker")
         IF( GotIt ) THEN
           OPEN (10, FILE=Name,POSITION='APPEND')
@@ -1021,7 +1021,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     ELSE
       WRITE (Name,'(A,I3)') 'TARGET Variable',No
     END IF
-    VariableName = ListGetString( Solver % Values, TRIM(Name), GotIt )
+    VariableName = ListGetString( SolverParams, TRIM(Name), GotIt )
     IF( GotIt ) THEN
       Var => VariableGet( Model % Variables, TRIM(VariableName) )
       IF(.NOT. ASSOCIATED(Var)) THEN
@@ -1040,7 +1040,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   ! For consistancy checks one may print out a value imitating ComputeChange
   !------------------------------------------------------------------------------
 
-  NormInd = ListGetInteger( Solver % Values,'Show Norm Index',GotIt)
+  NormInd = ListGetInteger( SolverParams,'Show Norm Index',GotIt)
   IF( WriteCore .AND. NormInd > 0 .AND. NormInd <= NoValues ) THEN
     PrevNorm = Norm
     Norm = Values( NormInd )
@@ -1050,7 +1050,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Change = 0.0_dp
     END IF
 
-    Name = ListGetString( Solver % Values, 'Equation',GotIt)
+    Name = ListGetString( SolverParams, 'Equation',GotIt)
     IF(.NOT. GotIt) Name = Solver % Variable % Name
 
     ! Here the name is ComputeChange in order to get the change also to ElmerGUI
@@ -1064,7 +1064,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   ! One may also export desired data as a cost function for FindOptimum solver
   !------------------------------------------------------------------------------
 
-  CostInd = ListGetInteger( Solver % Values,'Cost FUNCTION Index',GotIt)
+  CostInd = ListGetInteger( SolverParams,'Cost FUNCTION Index',GotIt)
   IF( CostInd > 0 .AND. CostInd <= NoValues ) THEN
     CALL ListAddConstReal( Model % Simulation,'Cost FUNCTION',Values(CostInd) )
   END IF
@@ -1206,7 +1206,7 @@ CONTAINS
         ELSE
           WRITE (Name,'(A,I3)') 'Parallel OPERATOR',n
         END IF
-        ParOper = ListGetString(Solver % Values,TRIM(Name),GotParOper)
+        ParOper = ListGetString(SolverParams,TRIM(Name),GotParOper)
       END IF
 
       IF( GotParOper ) THEN
@@ -2577,7 +2577,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t), POINTER :: ParSolver
   TYPE(Variable_t), POINTER :: Var
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(ValueList_t), POINTER :: Material
+  TYPE(ValueList_t), POINTER :: Material, SolverParams
   TYPE(Nodes_t) :: ElementNodes, LineNodes
   TYPE(Element_t), POINTER   :: CurrentElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, Name, CondName, &
@@ -2594,6 +2594,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
 !------------------------------------------------------------------------------
 
+  SolverParams => GetSolverParams()
+
   Mesh => Model % Meshes
   DO WHILE( ASSOCIATED(Mesh) )
     IF (Mesh % OutputActive) EXIT 
@@ -2608,6 +2610,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
           LineNodes % x(2), LineNodes % y(2), LineNodes % z(2), &
           Basis(n), SavePerm(Mesh % NumberOfNodes) )     
      Parallel = ( ParEnv % PEs > 1) 
+     IF( GetLogical( SolverParams,'Enforce Parallel Mode',GotIt) ) Parallel = .TRUE.	
   END IF
 
   DIM = CoordinateSystemDimension()
@@ -2620,47 +2623,47 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TimesVisited = TimesVisited + 1
   
 
-  SideFile = ListGetString(Solver % Values,'Filename',GotIt )
+  SideFile = ListGetString(SolverParams,'Filename',GotIt )
   IF(.NOT. GotIt) SideFile = DefaultSideFile
   
-  IF(ListGetLogical(Solver % Values,'Filename Numbering',GotIt)) THEN
+  IF(ListGetLogical(SolverParams,'Filename Numbering',GotIt)) THEN
     SideFile = NextFreeFilename( SideFile ) 
   END IF
   
-  FileAppend = ListGetLogical(Solver % Values,'File Append',GotIt )
-  MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt )
+  FileAppend = ListGetLogical(SolverParams,'File Append',GotIt )
+  MovingMesh = ListGetLogical(SolverParams,'Moving Mesh',GotIt )
  
-  IntersectEdge = ListGetLogical(Solver % Values,'Intersect Edge',GotIt )
+  IntersectEdge = ListGetLogical(SolverParams,'Intersect Edge',GotIt )
   IF(IntersectEdge) THEN
-     IntersectCoordinate = ListGetInteger(Solver % Values,'Intersect Coordinate')
-     IntersectEpsilon = ListGetConstReal(Solver % Values,'Intersect Epsilon')
+     IntersectCoordinate = ListGetInteger(SolverParams,'Intersect Coordinate')
+     IntersectEpsilon = ListGetConstReal(SolverParams,'Intersect Epsilon')
   ELSE 
      IntersectCoordinate = 0
   END IF
   
-  CalculateFlux = ListGetLogical(Solver % Values,'Save Heat Flux',GotIt )
+  CalculateFlux = ListGetLogical(SolverParams,'Save Heat Flux',GotIt )
   IF(.NOT. CalculateFlux) THEN
-     CalculateFlux = ListGetLogical(Solver % Values,'Save Flux',GotIt )
+     CalculateFlux = ListGetLogical(SolverParams,'Save Flux',GotIt )
   END IF
   
   IF(CalculateFlux) THEN
-     TempName = ListGetString(Solver % Values,'Flux Variable',GotIt )
+     TempName = ListGetString(SolverParams,'Flux Variable',GotIt )
      IF(.NOT. gotIt) TempName = TRIM('Temperature')
-     CondName = ListGetString(Solver % Values,'Flux Coefficient',GotIt )
+     CondName = ListGetString(SolverParams,'Flux Coefficient',GotIt )
      IF(.NOT. gotIt) CondName = TRIM('Heat Conductivity')
   END IF
   
-  SaveAxis(1) = ListGetLogical(Solver % Values,'Save Axis',GotIt)
+  SaveAxis(1) = ListGetLogical(SolverParams,'Save Axis',GotIt)
   IF(GotIt) THEN
      SaveAxis(2:3) = SaveAxis(1)
   ELSE
-     SaveAxis(1) = ListGetLogical(Solver % Values,'Save Axis 1',GotIt)
-     SaveAxis(2) = ListGetLogical(Solver % Values,'Save Axis 2',GotIt)
-     SaveAxis(3) = ListGetLogical(Solver % Values,'Save Axis 3',GotIt)    
+     SaveAxis(1) = ListGetLogical(SolverParams,'Save Axis 1',GotIt)
+     SaveAxis(2) = ListGetLogical(SolverParams,'Save Axis 2',GotIt)
+     SaveAxis(3) = ListGetLogical(SolverParams,'Save Axis 3',GotIt)    
   END IF
   NoAxis = DIM
   
-  PointCoordinates => ListGetConstRealArray(Solver % Values,'Polyline Coordinates',gotIt)
+  PointCoordinates => ListGetConstRealArray(SolverParams,'Polyline Coordinates',gotIt)
   IF(gotIt) THEN
      NoLines = SIZE(PointCoordinates,1) / 2
      NoDims = SIZE(PointCoordinates,2)
@@ -2680,7 +2683,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      ELSE
         WRITE (Name,'(A,I3)') 'Variable',i
      END IF
-     VarName = ListGetString( Solver % Values, TRIM(Name), Found )
+     VarName = ListGetString( SolverParams, TRIM(Name), Found )
      IF(.NOT. Found) EXIT
      Var => VariableGet( Model % Variables, TRIM(VarName) )
      IF ( .NOT. ASSOCIATED( Var ) )  EXIT
@@ -2706,7 +2709,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
            ELSE
               WRITE (Name,'(A,I3)') 'Variable',i
            END IF
-           VarName = ListGetString( Solver % Values, TRIM(Name) )
+           VarName = ListGetString( SolverParams, TRIM(Name) )
            IF( TRIM(VarName) == TRIM(Var % Name) ) THEN
               Found = .TRUE.
               EXIT 
@@ -2763,7 +2766,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 ! Find out which nodes should be saved and optimize their order 
 !------------------------------------------------------------------------------
 
-  MaskName = ListGetString(Solver % Values,'Save Mask',GotIt) 
+  MaskName = ListGetString(SolverParams,'Save Mask',GotIt) 
   IF(.NOT. GotIt) MaskName = 'Save Line'
 
   IF( SubroutineVisited ) THEN
@@ -2777,7 +2780,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      SavePerm = 0
      SaveNodes = 0
 
-     OptimizeOrder = ListGetLogical(Solver % Values,'Optimize Node Ordering',GotIt)
+     OptimizeOrder = ListGetLogical(SolverParams,'Optimize Node Ordering',GotIt)
      IF(.NOT. GotIt) OptimizeOrder = .TRUE.
 
      CALL MakePermUsingMask( Model,Solver,Mesh,MaskName, &
@@ -2913,7 +2916,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
                  ELSE
                     WRITE (Name,'(A,I3)') 'Variable',i
                  END IF
-                 VarName = ListGetString( Solver % Values, TRIM(Name) )
+                 VarName = ListGetString( SolverParams, TRIM(Name) )
                  IF( TRIM(VarName) == TRIM(Var % Name) ) THEN
                     Found = .TRUE.
                     EXIT 
@@ -2942,6 +2945,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
               No = No + 1
               IF ( ASSOCIATED(Var % Perm) ) l = Var % Perm(l)
               IF(l > 0) Values(No) = Var % Values(l)          
+
            END IF
            Var => Var % Next          
         END DO
@@ -3074,7 +3078,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
                     ELSE
                        WRITE (Name,'(A,I3)') 'Variable',i
                     END IF
-                    VarName = ListGetString( Solver % Values, TRIM(Name) )
+                    VarName = ListGetString( SolverParams, TRIM(Name) )
                     IF( TRIM(VarName) == TRIM(Var % Name) ) THEN
                        Found = .TRUE.
                        EXIT 
@@ -3116,7 +3120,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
            IF ( CalculateFlux ) Values(No+1:No+3) = 0.0
            
            IF(NoResults > 0) THEN
-              DO i=1,NoResults
+              DO i=1,NoResults-1
                  WRITE(10,'(ES20.11E3)',ADVANCE='NO') Values(i)
               END DO
               WRITE(10,'(ES20.11E3)') Values(NoResults)
@@ -3156,7 +3160,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
               ELSE
                  WRITE (Name,'(A,I3)') 'Variable',i
               END IF
-              VarName = ListGetString( Solver % Values, TRIM(Name) )
+              VarName = ListGetString( SolverParams, TRIM(Name) )
               IF( TRIM(VarName) == TRIM(Var % Name) ) THEN
                  Found = .TRUE.
                  EXIT 
@@ -3203,7 +3207,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      IF( GotIt ) THEN
        WRITE(10,'(A)') TRIM(Message)
      END IF
-     Message = ListGetString(Solver % Values,'Comment',GotIt)
+     Message = ListGetString(SolverParams,'Comment',GotIt)
      IF( GotIt ) THEN
        WRITE(10,'(A)') TRIM(Message)
      END IF 
@@ -3618,6 +3622,7 @@ END SUBROUTINE SaveLine
 !------------------------------------------------------------------------------
 
 SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
+  USE DefUtils
   USE Types
   USE Lists
   USE Integration
@@ -3637,7 +3642,7 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t), POINTER :: PointerToSolver
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t),POINTER :: CurrentElement
-  TYPE(ValueList_t), POINTER :: Material
+  TYPE(ValueList_t), POINTER :: Material, SolverParams
   TYPE(Variable_t), POINTER :: Var
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, body_id, material_id,&
        n, j, i, elementNumber, FieldNodes
@@ -3651,6 +3656,7 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
 
 
   CALL Info('SaveMaterials','Saving selected parameters as dofs')
+  SolverParams => GetSolverParams()
 
 
   !-----------------------------------
@@ -3683,7 +3689,7 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
        ELSE IF(NoParams < 100) THEN
          WRITE (Name,'(A,I3)') 'Parameter',NoParams    
        END IF
-       ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
+       ParamName(NoParams) = ListGetString( SolverParams, TRIM(Name), GotVar )
        IF(GotVar) THEN
          WRITE(Message,'(A,A,A)') TRIM(Name),': ', ParamName(NoParams)
          CALL INFO('SaveMaterials',Message,Level=3)
@@ -3812,7 +3818,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t), POINTER :: PointerToSolver
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t),POINTER :: BoundaryElement
-  TYPE(ValueList_t), POINTER :: BC
+  TYPE(ValueList_t), POINTER :: BC, SolverParams
   TYPE(Variable_t), POINTER :: Var
   TYPE(RealPointerList_t), POINTER :: PPParam(:)
 
@@ -3830,6 +3836,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
 
 
   CALL Info('SaveBoundaryValues','Saving selected boundary values as dofs')
+  SolverParams => GetSolverParams()
 
   !-----------------------------------
   ! get pointers to Solver information
@@ -3862,7 +3869,7 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
        ELSE
          CALL FATAL('SaveBoundaryValues','Number of parameters cannot exceed 99')
        END IF
-       ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
+       ParamName(NoParams) = ListGetString( SolverParams, TRIM(Name), GotVar )
        IF(GotVar) THEN
           WRITE(Message,'(A,A,A)') TRIM(Name),': ', ParamName(NoParams)
           CALL INFO('SaveBoundaryValues',Message,Level=3)
