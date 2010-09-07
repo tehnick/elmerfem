@@ -227,7 +227,7 @@ CONTAINS
 
     INTEGER(KIND=AddrInt) :: Proc
 
-    CHARACTER(LEN=1024) :: name,depname,str,section
+    CHARACTER(LEN=2048) :: name,depname,str,section
 
     LOGICAL :: SizeGiven
     LOGICAL :: FreeNames, Echo = .FALSE.
@@ -1071,26 +1071,31 @@ CONTAINS
 
                SELECT CASE( TYPE )
                CASE( LIST_TYPE_CONSTANT_SCALAR )
-                  IF ( .NOT. ScanOnly ) THEN
-                     k = 0
-                     DO i=1,N1
-                        DO j=1,N2
-                           DO WHILE( k <= slen )
-                              k = k + 1
-                              IF ( str(k:k) == ' ' ) EXIT
-                           END DO
- 
-                           DO WHILE( k <= slen )
-                             k = k + 1
-                             IF ( str(k:k) /= ' ' ) EXIT
-                           END DO
- 
-                           IF ( k > slen ) CALL SyntaxError( Section, Name,str )
- 
-                           READ( str(k:),* ) ATx(i,j,1)
+                  k = 0
+                  DO i=1,N1
+                     DO j=1,N2
+                        DO WHILE( k <= slen )
+                           k = k + 1
+                           IF ( str(k:k) == ' ' ) EXIT
                         END DO
+
+                        DO WHILE( k <= slen )
+                          k = k + 1
+                             IF ( str(k:k) /= ' ' ) EXIT
+                        END DO
+
+                        IF ( k > slen ) THEN
+                          IF ( .NOT. ReadAndTrim( InFileUnit,str,Echo) ) &
+                            CALL SyntaxError( Section,Name,str )
+                          k = 0
+                          slen = LEN_TRIM(str)
+                        END IF
+
+                        IF (.NOT.ScanOnly ) READ( str(k:),* ) ATx(i,j,1)
                      END DO
+                  END DO
  
+                  IF ( .NOT. ScanOnly ) THEN
                      IF ( SizeGiven ) THEN
                        CALL ListAddConstRealArray( List,Name,N1,N2, &
                               ATx(1:N1,1:N2,1) )
@@ -1106,43 +1111,48 @@ CONTAINS
                    IF ( str(1:3) == 'end' ) EXIT
                    IF ( str(1:1) == ' '  ) CYCLE
  
+                   slen = LEN_TRIM(str)
+ 
                    IF ( .NOT. ScanOnly ) THEN
-                      slen = LEN_TRIM(str)
- 
-                      n = n + 1
-                      IF ( n > SIZE(ATt) ) THEN
-                         ALLOCATE( ATtBuf( SIZE(ATt)+512) )
-                         ATtBuf(1:n-1) = ATt(1:n-1)
-                         DEALLOCATE( ATt )
-                         ATt => ATtBuf
- 
-                         ALLOCATE( ATxBuf( n1,n2,SIZE(ATt)+512) )
-                         ATxBuf(1:n1,1:n2,1:n-1) = ATx(1:n1,1:n2,1:n-1)
-                         DEALLOCATE( ATx )
-                         ATx => ATxBuf
-                      END IF
- 
-                      READ( str,* ) ATt(n)
- 
-                      k = 0
-                      DO i=1,N1
-                        DO j=1,N2
-                          DO WHILE( k <= slen )
-                            k = k + 1
-                            IF ( str(k:k) == ' ') EXIT
-                          END DO
- 
-                          DO WHILE( k <= slen )
-                            k = k + 1
-                            IF ( str(k:k) /= ' ') EXIT
-                          END DO
- 
-                          IF ( k > slen ) CALL SyntaxError( Section, Name,str )
- 
-                          READ( str(k:),* ) ATx(i,j,n)
-                        END DO
-                      END DO
+                     n = n + 1
+                     IF ( n > SIZE(ATt) ) THEN
+                        ALLOCATE( ATtBuf( SIZE(ATt)+512) )
+                        ATtBuf(1:n-1) = ATt(1:n-1)
+                        DEALLOCATE( ATt )
+                        ATt => ATtBuf
+
+                        ALLOCATE( ATxBuf( n1,n2,SIZE(ATt)+512) )
+                        ATxBuf(1:n1,1:n2,1:n-1) = ATx(1:n1,1:n2,1:n-1)
+                        DEALLOCATE( ATx )
+                        ATx => ATxBuf
+                     END IF
+
+                     READ( str,* ) ATt(n)
                    END IF
+
+                   k = 0
+                   DO i=1,N1
+                     DO j=1,N2
+                       DO WHILE( k <= slen )
+                         k = k + 1
+                         IF ( str(k:k) == ' ' ) EXIT
+                       END DO
+
+                       DO WHILE( k <= slen )
+                         k = k + 1
+                         IF ( str(k:k) /= ' ' ) EXIT
+                       END DO
+
+                       IF ( k > slen ) THEN
+                          IF ( .NOT. ReadAndTrim( InFileUnit,str,Echo) ) &
+                            CALL SyntaxError( Section,Name,str )
+                          k = 0
+                          slen = LEN_TRIM(str)
+                       END IF
+
+                       IF ( .NOT. ScanOnly ) READ( str(k:),* ) ATx(i,j,n)
+                     END DO
+                   END DO
                  END DO
  
                  IF (.NOT. ScanOnly ) THEN

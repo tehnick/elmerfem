@@ -500,6 +500,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 
     if ( strncmp(Value, "MATC ERROR:",11)==0 || strncmp(Value,"WARNING:",8)==0 ) {
         fprintf( stderr, "Solver input file error: %s\n", Value );
+        fprintf( stderr, "...offending input line: %s\n", cmd );
         exit(0);
     }
   } else {
