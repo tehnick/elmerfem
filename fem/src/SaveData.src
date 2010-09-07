@@ -2571,7 +2571,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
       SaveAxis(3), Inside, MovingMesh, IntersectEdge, OptimizeOrder, Found, GotVar
   INTEGER :: i,j,k,l,n,m,t,DIM,mat_id, TimesVisited=0, SaveThis, PrevDoneTime=-1, &
       Side, SaveNodes, SaveNodes2, node, NoResults, LocalNodes, NoVar, &
-      No, axis, maxboundary, NoDims, NoLines, NoAxis, Line, NoFaces, &
+      No, axis, maxboundary, NoDims, MeshDim, NoLines, NoAxis, Line, NoFaces, &
       NoEigenValues, IntersectCoordinate, ElemCorners, ElemDim, FluxBody
   INTEGER, POINTER :: NodeIndexes(:), SavePerm(:), InvPerm(:), BoundaryIndex(:)
   TYPE(Solver_t), POINTER :: ParSolver
@@ -2594,15 +2594,20 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
 !------------------------------------------------------------------------------
 
+  CALL Info('SaveLine','-----------------------------------------', Level=4 )
+  CALL Info('SaveLine','Saving data on given lines',Level=4)
+
+
   SolverParams => GetSolverParams()
 
   Mesh => Model % Meshes
   DO WHILE( ASSOCIATED(Mesh) )
-    IF (Mesh % OutputActive) EXIT 
+    IF (Mesh % OutputActive) THEN
+      CALL SetCurrentMesh( Model, Mesh )	
+      EXIT 
+    END IF
     Mesh => Mesh % Next
   END DO
-
-  CALL SetCurrentMesh( Model, Mesh )
 
   IF(.NOT. SubroutineVisited) THEN
      n = Mesh % MaxElementNodes
@@ -2670,7 +2675,10 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   ELSE 
      NoLines = 0
   END IF
-  
+  IF( NoDims < MeshDim ) THEN
+    CALL Warn('SaveLine','Dimension of points smaller than that of mesh')
+  END IF  
+
 
 !----------------------------------------------
 ! Calculate the number of given entries, if any
