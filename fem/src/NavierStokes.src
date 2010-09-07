@@ -148,7 +148,7 @@ MODULE NavierStokes
      REAL(KIND=dp) :: Velo(3),UVelo(3),Grad(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
 
      REAL(KIND=dp), POINTER :: A(:,:),M(:,:),Load(:)
-     REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3)
+     REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3), VC(6,6), B(6,3), G(3,6)
 
      REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2,GasC, hScale
      REAL(KIND=dp) :: VNorm,hK,mK,mu,dmudx(3),Temperature
@@ -171,9 +171,10 @@ MODULE NavierStokes
   
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      INTEGER :: N_Integ, NBasis, deg(100), Order
+     REAL(KIND=dp), POINTER :: NodalC(:,:,:)
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
 
-     LOGICAL :: Found, Transient, stat, Bubbles, PBubbles, Stabilize, VMS, P2P1
+     LOGICAL :: Found, Transient, stat, Bubbles, PBubbles, Stabilize, VMS, P2P1, Isotropic
 !------------------------------------------------------------------------------
 
      dim = CoordinateSystemDimension()
@@ -186,11 +187,11 @@ MODULE NavierStokes
 !     IF ( ASSOCIATED( LESVar ) ) THEN
 !        k = 0
 !        DO i=1,dim
-!        DO j=i,dim
-!           k = k + 1
-!           LES(i,j,1:n) = LESVar % Values( LESVar % DOFs*(LESVar % Perm( &
-!                       Element % NodeIndexes)-1)+k )
-!        END DO
+!          DO j=i,dim
+!             k = k + 1
+!             LES(i,j,1:n) = LESVar % Values(LESVar % DOFs*(LESVar % Perm( &
+!                         Element % NodeIndexes)-1)+k)
+!          END DO
 !        END DO
 !        DO i=1,dim
 !        DO j=1,i-1
@@ -213,6 +214,12 @@ MODULE NavierStokes
      PBubbles  = .FALSE.
      P2P1      = .FALSE.
      VMS =  StabilizeFlag == 'vms'
+
+     Isotropic=GetString( GetMaterial(), 'Viscosity Model', Found )/='anisotropic'
+     IF ( .NOT. Isotropic ) THEN
+       CALL ListGetRealArray( GetMaterial(), 'Visocity', &
+            NodalC,n,Element % NodeIndexes,Found )
+     END IF
 
      Transient = GetString(GetSimulation(),'Simulation Type',Found)=='transient'
      IF ( VMS .AND. Transient ) THEN
@@ -432,7 +439,15 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
       mu = SUM( Nodalmu(1:n) * Basis(1:n) )
       mu = EffectiveViscosity( mu, rho, Ux, Uy, Uz, &
-                 Element, Nodes, n, n, u, v, w )
+              Element, Nodes, n, n, u, v, w )
+
+      IF ( .NOT. Isotropic ) THEN
+        DO i=1,6
+        DO j=1,6
+          VC(i,j) = SUM(NodalC(i,j,1:n)*Basis(1:n))
+        END DO
+        END DO
+      END IF
 
 
       IF ( Stabilize ) THEN
@@ -580,15 +595,29 @@ MODULE NavierStokes
 !    Loop over basis functions (of both unknowns and weights)
 !------------------------------------------------------------------------------
      DO p=1,NBasis
+        IF (.Not.Isotropic) THEN
+          G = 0.0d0
+          G(1,1) = dBasisdx(p,1)
+          G(2,2) = dBasisdx(p,2)
+          G(3,3) = dBasisdx(p,3)
+          G(1,4) = dBasisdx(p,2)
+          G(2,4) = dBasisdx(p,1)
+          G(2,5) = dBasisdx(p,3)
+          G(3,5) = dBasisdx(p,2)
+          G(1,6) = dBasisdx(p,3)
+          G(3,6) = dBasisdx(p,1)
+          G = MATMUL( G, VC )
+        END IF
+
      DO q=1,NBasis
+         i = c*(p-1)
+         j = c*(q-1)
+         M => MassMatrix ( i+1:i+c,j+1:j+c )
+         A => StiffMatrix( i+1:i+c,j+1:j+c )
 !------------------------------------------------------------------------------
 !      First plain Navier-Stokes
 !------------------------------------------------------------------------------
 
-       i = c*(p-1)
-       j = c*(q-1)
-       M => MassMatrix ( i+1:i+c,j+1:j+c )
-       A => StiffMatrix( i+1:i+c,j+1:j+c )
 
        IF ( P2P1 .AND. p<=LinearBasis ) THEN
           BaseP = PBasis(p)
@@ -624,24 +653,41 @@ MODULE NavierStokes
 !      Diffusive terms
 !      Convection terms, Picard linearization
 !------------------------------------------------------------------------------
+       IF (.Not.Isotropic) THEN
+         B = 0.0d0
+         B(1,1) = dBasisdx(q,1)
+         B(2,2) = dBasisdx(q,2)
+         B(3,3) = dBasisdx(q,3)
+         B(4,1) = dBasisdx(q,2)
+         B(4,2) = dBasisdx(q,1)
+         B(5,2) = dBasisdx(q,3)
+         B(5,3) = dBasisdx(q,2)
+         B(6,1) = dBasisdx(q,3)
+         B(6,3) = dBasisdx(q,1)
+         A(1:3,1:3) = MATMUL( G, B )
+       END IF
+
        DO i=1,dim
          DO j = 1,dim
-           A(i,i) = A(i,i) + s * mu * dBasisdx(q,j) * dBasisdx(p,j)
-           IF ( divDiscretization ) THEN
-              A(i,j) = A(i,j) + s * mu * dBasisdx(q,j) * dBasisdx(p,i)
-           ELSE
-              A(i,j) = A(i,j) + s * mu * dBasisdx(q,i) * dBasisdx(p,j)
+           IF ( Isotropic ) THEN
+             A(i,i) = A(i,i) + s * mu * dBasisdx(q,j) * dBasisdx(p,j)
+             IF ( divDiscretization ) THEN
+                A(i,j) = A(i,j) + s * mu * dBasisdx(q,j) * dBasisdx(p,i)
+             ELSE
+                A(i,j) = A(i,j) + s * mu * dBasisdx(q,i) * dBasisdx(p,j)
+             END IF
+
+!------------------------------------------------------------------------------
+!  For compressible flow add grad((2/3) \mu div(u))
+!------------------------------------------------------------------------------
+             IF ( Compressible1 .OR. Compressible2 ) THEN
+               A(i,j) = A(i,j) - s * ( 2.0d0 / 3.0d0 ) * mu * &
+                          dBasisdx(q,j) * dBasisdx(p,i)
+             END IF
            END IF
 
            IF ( Convect ) THEN
               A(i,i) = A(i,i) + s * rho * dBasisdx(q,j) * Velo(j) * Basis(p)
-           END IF
-!------------------------------------------------------------------------------
-!  For compressible flow add grad((2/3) \mu div(u))
-!------------------------------------------------------------------------------
-           IF ( Compressible1 .OR. Compressible2 ) THEN
-             A(i,j) = A(i,j) - s * ( 2.0d0 / 3.0d0 ) * mu * &
-                        dBasisdx(q,j) * dBasisdx(p,i)
            END IF
          END DO
 !------------------------------------------------------------------------------
