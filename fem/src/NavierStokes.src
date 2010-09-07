@@ -437,11 +437,11 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 !     Effective viscosity & derivatives at integration point
 !------------------------------------------------------------------------------
-      mu = SUM( Nodalmu(1:n) * Basis(1:n) )
-      mu = EffectiveViscosity( mu, rho, Ux, Uy, Uz, &
-              Element, Nodes, n, n, u, v, w )
-
-      IF ( .NOT. Isotropic ) THEN
+      IF ( isotropic ) THEN
+        mu = SUM( Nodalmu(1:n) * Basis(1:n) )
+        mu = EffectiveViscosity( mu, rho, Ux, Uy, Uz, &
+                Element, Nodes, n, n, u, v, w )
+      ELSE
         DO i=1,6
         DO j=1,6
           VC(i,j) = SUM(NodalC(i,j,1:n)*Basis(1:n))
