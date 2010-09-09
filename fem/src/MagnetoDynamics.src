@@ -215,11 +215,21 @@ CONTAINS
     INTEGER :: n
     REAL(KIND=dp) :: Acoef(:)
 !------------------------------------------------------------------------------
-    LOGICAL :: Found
+    LOGICAL :: Found, FirstTime = .TRUE.
+    REAL(KIND=dp) :: Avacuum
 
+    SAVE Avacuum 
+
+    IF ( FirstTime ) THEN
+      Avacuum = GetConstReal( CurrentModel % Constants, &
+              'Permeability of Vacuum', Found )
+      IF(.NOT. Found ) Avacuum = PI * 4.0d-7
+      FirstTime = .FALSE.
+    END IF
+  
     Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found )
     IF ( Found ) THEN
-      Acoef(1:n) = PI * 4.d-7 * Acoef(1:n)
+      Acoef(1:n) = Avacuum * Acoef(1:n)
     ELSE
       Acoef(1:n) = GetReal( Material, 'Permeability', Found )
     END IF
@@ -240,11 +250,21 @@ CONTAINS
     INTEGER :: n
     COMPLEX(KIND=dp) :: Acoef(:)
 !------------------------------------------------------------------------------
-    LOGICAL :: Found
+    LOGICAL :: Found, FirstTime = .TRUE.
+    REAL(KIND=dp) :: Avacuum
+
+    SAVE Avacuum 
+
+    IF ( FirstTime ) THEN
+      Avacuum = GetConstReal( CurrentModel % Constants, &
+              'Permeability of Vacuum', Found )
+      IF(.NOT. Found ) Avacuum = PI * 4.0d-7
+      FirstTime = .FALSE.
+    END IF
 
     Acoef(1:n) = GetReal( Material, 'Relative Permeability', Found )
     IF ( Found ) THEN
-      Acoef(1:n) = PI * 4.d-7 * Acoef(1:n)
+      Acoef(1:n) = Avacuum * Acoef(1:n)
     ELSE
       Acoef(1:n) = GetReal( Material, 'Permeability', Found )
     END IF
@@ -272,6 +292,7 @@ CONTAINS
     IF ( FirstTime ) THEN
       Pvacuum = GetConstReal( CurrentModel % Constants, &
               'Permittivity of Vacuum', Found )
+      FirstTime = .FALSE.
     END IF
     
 
@@ -1491,13 +1512,13 @@ CONTAINS
      TYPE(Element_t), POINTER :: Parent
      TYPE(Nodes_t), SAVE :: Nodes, pNodes
 
-     OPEN(unit=10, file='ratkaisu.ep')
+     OPEN(unit=10, file='solution.ep')
 
      Active = GetNOFBoundaryElements()
      t = Active * (CoordinateSystemDimension()) ! nurkkasolmujen lukumäärä
      write(10,'(4i10,A)') t, Active, 3, 1,' vector: RotU'
 
-     !  Kirjoitetaan solmukoordinaatit:
+     !  Write the nodal coordinates
      !  -------------------------------
      DO i = 1, Active
        Element => GetBoundaryElement(i)
@@ -1509,7 +1530,7 @@ CONTAINS
        END DO
      END DO
 
-     !  Kirjoitetaan elementit:
+     !  Write the elements:
      !  -----------------------
      WRITE(10,'(a)') '#group all'
      DO i = 1, Active
@@ -1523,7 +1544,7 @@ CONTAINS
      END DO
      WRITE(10,'(a)') '#endgroup all'
 
-     ! Kirjoitetaan tulokset:
+     ! Write the results:
      ! ----------------------
      Var => Solver % Variable
      WRITE(10,'(a)') '#time 1   1  1  1.0'
@@ -1538,7 +1559,7 @@ CONTAINS
        CALL GetElementNodes(pNodes, Parent )
        nd = GetElementDOFs(Indexes,Parent )
 
-       ! Luuppi nurkkapisteiden yli:
+       ! Loop over cornernodes:
        ! ---------------------------
        DO j = 1,n
          u = Element % Type % NodeU(j)
@@ -1660,8 +1681,8 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
 
-  !Allocate some permanent storage, this is done first time only:
-  !--------------------------------------------------------------
+  ! Allocate some permanent storage, this is done first time only:
+  !---------------------------------------------------------------
   Mesh => GetMesh()
   nNodes = Mesh % NumberOfNodes
   Perm => Solver % Variable % Perm
@@ -1679,9 +1700,10 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
   END IF
   
   Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
-  
-  !System assembly:
-  !----------------
+  IF(.NOT. Found) Omega = GetCReal( Model % Simulation,'Angular Frequency')  
+
+  ! System assembly:
+  !-----------------
   CALL DefaultInitialize()
   Active = GetNOFActive()
   DO t=1,active
@@ -2926,6 +2948,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    SOL = 0._dp; PSOL=0._dp
 
    Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
+   IF(.NOT. Found) Omega = GetCReal( Model % Simulation,'Angular Frequency')  
 
    C = 0._dp; R=0._dp; PR=0._dp
    Magnetization = 0._dp
