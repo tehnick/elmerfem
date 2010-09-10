@@ -53,16 +53,26 @@
     LOGICAL :: Transient
 !------------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: Params
-    LOGICAL :: Found, Calculate
+    LOGICAL :: Found, Calculate, CalculateAbs
     INTEGER :: Dim,GivenDim
 !------------------------------------------------------------------------------
     Params => GetSolverParams()
     Dim = CoordinateSystemDimension()
 
-    Calculate = ListGetLogical(Params,'Calculate Magnetic Flux',Found)  
+    Calculate = ListGetLogical(Params,'Calculate Magnetic Flux',Found)
+    CalculateAbs = ListGetLogical( Params, 'Calculate Magnetic Flux Abs',Found)
+  
+    IF( CalculateAbs .AND. .NOT. Calculate ) THEN
+      CALL Warn('StatMagSolver_init','Cannot compute Abs without computing field')
+    END IF
+
     IF( Calculate ) THEN
       CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
           '-dofs 3 Magnetic Flux Density' )
+      IF( CalculateAbs ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+            'Magnetic Flux Density_abs' )	
+      END IF
     END IF
     Calculate = ListGetLogical( Params, 'Calculate Joule Heating', Found )
     IF( Calculate ) THEN
@@ -71,6 +81,7 @@
       CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
           'Joule Field' )
     END IF
+
   END SUBROUTINE StatMagSolver_Init
 
 
@@ -114,7 +125,7 @@
 
     TYPE(Matrix_t),POINTER :: StiffMatrix
     REAL (KIND=DP), POINTER :: ForceVector(:),MVP(:),MFD(:), PhaseAngle(:)
-    REAL (KIND=DP), POINTER :: A(:), Br(:), Bz(:), Bp(:), Brim(:), Bzim(:), &
+    REAL (KIND=DP), POINTER :: A(:), Br(:), Bz(:), Bp(:), Brim(:), Bzim(:), Babs(:), &
         Joule(:), absJoule(:), Ax(:), Ay(:), Az(:)
     
     TYPE(ValueList_t),POINTER :: Material
@@ -137,7 +148,7 @@
     INTEGER :: t,n,k,istat,i,iter,q,j,dofs,dim
 
     LOGICAL :: GotIt, HarmonicSimulation, CalculateJouleHeating, &
-        CalculateMagneticFlux, AllocationsDone = .FALSE.
+        CalculateMagneticFlux, CalculateMagneticFluxAbs, AllocationsDone = .FALSE.
 
     SAVE LocalMassMatrix,LocalStiffMatrix,CurrentDensity,LocalForce, &
         ElementNodes,Reluctivity,AllocationsDone,Ap,MFD, &
@@ -148,6 +159,10 @@
 !    Get variables needed for solving the system
 !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+
+    CALL Info( 'StatMagSolve', ' ', Level=4 )
+    CALL Info( 'StatMagSolve','------------------------------------------------', Level=4 )
+    CALL Info( 'StatMagSolve', 'Starting simulation', Level=4 )
 
     dim = Solver % Mesh % MeshDim
 
@@ -168,6 +183,12 @@
     HarmonicSimulation = ListGetLogical( Solver % Values, &      
               'Harmonic Simulation',gotIt )
     IF (.NOT.gotIt) HarmonicSimulation = ( dofs == 2 )
+
+    IF(HarmonicSimulation) THEN
+      WRITE( Message, * ) 'Assuming harmonic simulation'
+    ELSE
+      WRITE( Message, * ) 'Assuming steady-state simulation'
+    END IF
 
     IF( Dim == 3 ) THEN
       IF ( dofs /= 3 ) THEN
@@ -190,6 +211,8 @@
 
     CalculateMagneticFlux = &
         ListGetLogical( Solver % Values, 'Calculate Magnetic Flux', GotIt )
+    CalculateMagneticFluxAbs = &
+        ListGetLogical( Solver % Values, 'Calculate Magnetic Flux Abs', GotIt )
     CalculateJouleHeating = &
         ListGetLogical( Solver % Values, 'Calculate Joule Heating', GotIt )
     IF( CalculateJouleHeating .AND. .NOT. HarmonicSimulation ) THEN
@@ -233,6 +256,11 @@
         Bz => MFD(2::3) ! By
         Bp => MFD(3::3) ! Bz
 
+        IF(CalculateMagneticFluxAbs) THEN
+          TempVar => VariableGet( Solver % Mesh % Variables,'Magnetic Flux Density_abs')
+          Babs => TempVar % Values
+        END IF
+
         IF( HarmonicSimulation ) THEN
           ALLOCATE( Brim( Model%NumberOfNodes ), Bzim( Model%NumberOfNodes ), STAT=istat )
           IF ( istat /= 0 ) CALL Fatal( 'StatMagSolve', 'Memory allocation error.' )
@@ -250,33 +278,20 @@
       AllocationsDone = .TRUE.
     END IF
 
-
-
 !--------------------------------------------------------------
 
     NonlinearIter = ListGetInteger( Solver % Values, &
-        'Nonlinear System Max Iterations' )
+        'Nonlinear System Max Iterations', GotIt )
+    IF(.NOT. GotIt) NonlinearIter = 1
 
 !---------------------------------------------------------------
 
     DO iter=1,NonlinearIter
-
+  
+       WRITE( Message, * ) 'Magnetic Field Iteration: ', iter
+      
        at  = CPUTime()
        at0 = RealTime()
-
-       CALL Info( 'StatMagSolve', ' ', Level=4 )
-       CALL Info( 'StatMagSolve', ' ', Level=4 )
-       CALL Info( 'StatMagSolve', &
-               '-------------------------------------', Level=4 )
-       IF(HarmonicSimulation) THEN
-         WRITE( Message, * ) 'Harmonic Magnetic Field Iteration: ', iter
-       ELSE
-         WRITE( Message, * ) 'Static Magnetic Field Iteration: ', iter
-       END IF
-       CALL Info( 'StatMagSolve', Message, Level=4 )
-       CALL Info( 'StatMagSolve', &
-               '-------------------------------------', Level=4 )
-       CALL Info( 'StatMagSolve', ' ', Level=4 )
 
        CALL DefaultInitialize()
        
@@ -413,58 +428,68 @@
 !------------------------------------------------------------------------------
      UNorm = DefaultSolve()
 
-     IF( Solver % Variable % NonlinConverged == 1 ) THEN
-       WRITE( Message, * ) 'Convergence after ',iter,' iterations'
-       CALL Info( 'StatMagSolve', Message, Level = 4 )
-       EXIT
-     END IF
-     
-   END DO
-
 !---------------------------------------------------------------------
 ! Compute the magnetic flux density from the potential: B = curl A
 ! Here A = A_phi e_phi and B = B_rho e_rho + B_z e_z due to axisymmetry
 !---------------------------------------------------------------------
 
-
-   IF(CalculateMagneticFlux) THEN
-     
-     MFD = 0.0d0
-     IF(HarmonicSimulation) THEN
-       A => MVP(2::2)     
-       CALL AxiSCurl(Bp,Bp,A,Brim,Bzim,Bp,MagneticPerm)
-
-       A => MVP(1::2)
-       CALL AxiSCurl(Bp,Bp,A,Br,Bz,Bp,MagneticPerm)
+     IF(CalculateMagneticFlux) THEN
        
-       DO i=1, Model%NumberofNodes
-         j = MagneticPerm(i)
-         IF(j > 0) THEN
-           Br(j) = SQRT( Br(j)**2 + Brim(j)**2 )
-           Bz(j) = SQRT( Bz(j)**2 + Bzim(j)**2 )
-           Brim(MagneticPerm(i)) = 0.0d0
-           Bzim(MagneticPerm(i)) = 0.0d0
-         END IF
-       END DO
-     ELSE
-       IF ( dim < 3 ) THEN
-         A => MVP
-         CALL AxiSCurl(Bp,Bp,A,Br,Bz,Bp,MagneticPerm)
-       ELSE
-         Ax => MVP(1::3)
-         Ay => MVP(2::3)
-         Az => MVP(3::3)
+       MFD = 0.0d0
+       IF(HarmonicSimulation) THEN
+         A => MVP(2::2)     
+         CALL AxiSCurl(Bp,Bp,A,Brim,Bzim,Bp,MagneticPerm)
          
-         Br = 0.0d0
-         Bp = 0.0d0
-         Bz = 0.0d0
-         CALL Curl( Ax, Ay, Az, Br, Bz, Bp, MagneticPerm )
+         A => MVP(1::2)
+         CALL AxiSCurl(Bp,Bp,A,Br,Bz,Bp,MagneticPerm)
+         
+         DO i=1, Model%NumberofNodes
+           j = MagneticPerm(i)
+           IF(j > 0) THEN
+             Br(j) = SQRT( Br(j)**2 + Brim(j)**2 )
+             Bz(j) = SQRT( Bz(j)**2 + Bzim(j)**2 )
+             Brim(j) = 0.0d0
+             Bzim(j) = 0.0d0
+           END IF
+         END DO
+       ELSE
+         IF ( dim < 3 ) THEN
+           A => MVP
+           CALL AxiSCurl(Bp,Bp,A,Br,Bz,Bp,MagneticPerm)
+         ELSE
+           Ax => MVP(1::3)
+           Ay => MVP(2::3)
+           Az => MVP(3::3)
+           
+           Br = 0.0d0
+           Bp = 0.0d0
+           Bz = 0.0d0
+           CALL Curl( Ax, Ay, Az, Br, Bz, Bp, MagneticPerm )
+         END IF
+       END IF
+       
+       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, &
+         'Magnetic Flux Density')
+              
+       IF( CalculateMagneticFluxAbs ) THEN
+         DO i=1,SIZE(Babs)
+           Babs(i) = SQRT( Br(i)**2 + Bz(i)**2 + Bp(i)**2 )
+         END DO
+
+         CALL InvalidateVariable( Model % Meshes, Solver % Mesh, &
+             'Magnetic Flux Density_abs')
        END IF
      END IF
+     
 
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, &
-         'Magnetic Flux Density')
-   END IF
+     IF( Solver % Variable % NonlinConverged == 1 ) THEN
+       WRITE( Message, * ) 'Convergence after ',iter,' iterations'
+       CALL Info( 'StatMagSolve', Message, Level = 4 )
+       EXIT
+     END IF
+
+   END DO
+
 
 !---------------------------------------------------------------------
 ! In case of harmonic simulation it is possible to compute the Joule losses
@@ -536,6 +561,10 @@
      CALL Info('StatMagSolve',Message,Level=4)
      CALL ListAddConstReal( Model % Simulation, 'res: Joule heating',TotalHeating)
    END IF
+
+   CALL Info( 'StatMagSolve', 'All done, exiting')
+   CALL Info( 'StatMagSolve','------------------------------------------------')
+   CALL Info( 'StatMagSolve', ' ')
 
 
 CONTAINS
