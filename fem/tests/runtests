@@ -31,7 +31,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/wrk/jpr/ff/bin:$PATH
+    export PATH=/fs/proj1/elmer/raback/elmerbin/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "ELMER_HOME=%s\n" $ELMER_HOME
@@ -48,8 +48,8 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-#export F90="gfortran -O -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
-#export LD="gfortran -shared  "
+#export F90="gfortran -O -m64 -fPIC -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+#export LD="gfortran -shared -m64 -fPIC "
 export LD=elmerld
 export F90=elmerf90-nosh
 export LIBS="-L$ELMER_LIB "
@@ -72,7 +72,7 @@ for dir in $dirs; do
       total=`expr $total + 1`
       cwd=`pwd`
       cd $dir
-      printf "testing:  %20s " $dir
+      printf "test $total : %25s " $dir
       make  > test.log 2>&1
 
       success=`grep "ALL DONE" test.log | wc -l`
