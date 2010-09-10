@@ -6,9 +6,9 @@ Header
 End
 
 Simulation
-  Max Output Level = 9
+  Max Output Level = 4
 
-  Coordinate System = "Cartesian 2D"
+  Coordinate System = "Cartesian"
   Coordinate Mapping(3) = 1 2 3
 
   Simulation Type = "Steady State"
@@ -25,15 +25,14 @@ Constants
 End
 
 Body 1
-  Name = "Body1"
+  Name = "Body"
   Body Force = 1
   Equation = 1
   Material = 1
 End
 
 Equation 1
-  Name = "Equation1"
-
+  Name = "Equations"
   Active Solvers(2) = 1 2
 End
 
@@ -63,11 +62,8 @@ Solver 2
   Equation = ComputeFlux
   Procedure = "FluxSolver" "FluxSolver"
 
-! to compute just one component give its name:
-! ------------------------------
-!  Flux Component = Integer 1
-
-  Flux Variable = String Temperature
+  Calculate Flux = Logical True
+  Target Variable = String Temperature
   Flux Coefficient = String "Heat Conductivity"
 
 ! these are taken care by the defaults
@@ -81,18 +77,18 @@ End
 
 
 Material 1
-  Name = "Material1"
+  Name = "Material"
   Density = 1
   Heat Conductivity = 3
 End
 
 Body Force 1
-  Name = "BodyForce1"
+  Name = "BodyForce"
   Heat Source = 1
 End
 
 Boundary Condition 1
-  Name = "Constraint1"
+  Name = "Constraint"
   Target Boundaries(1) = 1 
   Temperature = 0
 End
