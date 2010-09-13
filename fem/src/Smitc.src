@@ -229,7 +229,7 @@
         ! Get element local matrix, and rhs vector
         !-----------------------------------------
        CALL LocalMatrix(  STIFF, DAMP, MASS, FORCE, Load, &
-        Element,n,ElementNodes, DampingCoef, SpringCoef )
+        Element,n, DOFs, ElementNodes, DampingCoef, SpringCoef )
 
        IF( TransientSimulation ) &
           CALL Default2ndOrderTime( MASS,DAMP,STIFF,FORCE )
@@ -273,11 +273,11 @@
 
 !------------------------------------------------------------------------------
      SUBROUTINE LocalMatrix( STIFF, DAMP, MASS, &
-          Force, Load, Element, n, Nodes, DampingCoef, SpringCoef )
+          Force, Load, Element, n, DOFs, Nodes, DampingCoef, SpringCoef )
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: STIFF(:,:), DAMP(:,:), &
             MASS(:,:), Force(:), Load(:), DampingCoef(:), SpringCoef(:)
-       INTEGER :: n
+       INTEGER :: n, DOFs
        TYPE(Nodes_t) :: Nodes
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
