@@ -188,6 +188,7 @@ SH_LINKING_TO_FLAGS = @SH_LINKING_TO_FLAGS@
 SOLVER_LIBS = @SOLVER_LIBS@
 SOLVER_MPI_LIBS = @SOLVER_MPI_LIBS@
 SONAME_FLAGS = @SONAME_FLAGS@
+STDCXX_LIBS = @STDCXX_LIBS@
 STRIP = @STRIP@
 TEMPLATE_AR = @TEMPLATE_AR@
 TEMPLATE_ARFLAGS = @TEMPLATE_ARFLAGS@
@@ -415,6 +416,7 @@ NORMAL_TARGETS = mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES)
 MPI_TARGETS = ElmerSolver_mpi$(EXE_EXT)
 @USE_MPI_FALSE@ELMER_TARGETS = $(NORMAL_TARGETS)
 @USE_MPI_TRUE@ELMER_TARGETS = $(NORMAL_TARGETS) $(MPI_TARGETS)
+@USE_MPI_TRUE@INCLUDES = -I$(MPI_INCLUDE_DIR)
 ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
 @HAVE_WINDRES_FALSE@SC2Elmer_SOURCES = SC2Elmer.c
 @HAVE_WINDRES_TRUE@SC2Elmer_SOURCES = SC2Elmer.c Sico2Elmer-res.rc
@@ -569,7 +571,6 @@ EXTRA_DIST = \
 	elmerf90.in  \
 	elmerld.in  \
 	elmerf90-nosh.in  \
-	_muldc3.oo   \
 	umf4_f77wrapper.c \
 	SOLVER.KEYWORDS
 
@@ -976,7 +977,7 @@ ExchangeCorrelations.$(OBJEXT): ExchangeCorrelations.f90
 FDiffusion3D.$(OBJEXT): FDiffusion3D.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) LinearAlgebra.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 FDiffusion.$(OBJEXT): FDiffusion.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) LinearAlgebra.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 FilterTimeSeries.$(OBJEXT): FilterTimeSeries.f90 DefUtils.$(OBJEXT)
-FindOptimum.$(OBJEXT): FindOptimum.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
+FindOptimum.$(OBJEXT): FindOptimum.f90 DefUtils.$(OBJEXT)
 FlowSolve.$(OBJEXT): FlowSolve.f90 NavierStokes.$(OBJEXT) NavierStokesCylindrical.$(OBJEXT) DefUtils.$(OBJEXT) NavierStokesGeneral.$(OBJEXT) FreeSurface.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT)
 FluidicForce.$(OBJEXT): FluidicForce.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 FluxSolver.$(OBJEXT): FluxSolver.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
@@ -1125,12 +1126,10 @@ fdeps:
 
 @USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 @USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(RM) $@
-@USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(CP) _muldc3.oo _muldc3.o
-@USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) _muldc3.o -L. -Lbinio -lbinio
+@USE_MPI_TRUE@@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) -L. -Lbinio -lbinio
 @USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT) binio/libbinio.a
 @USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@	$(RM) $@
-@USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@	$(CP) _muldc3.oo _muldc3.o
-@USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) mpi_stubs$(OBJ_EXT) _muldc3.o -L. -Lbinio -lbinio
+@USE_MPI_FALSE@@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) mpi_stubs$(OBJ_EXT) -L. -Lbinio -lbinio
 
 @USE_WINDOWS_COMPILER_FALSE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 @USE_WINDOWS_COMPILER_FALSE@	$(RM) $@
@@ -1185,7 +1184,7 @@ $(SOLVEROBJS): mpif
 @HAVE_WINDRES_FALSE@ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
 @HAVE_WINDRES_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
 @HAVE_WINDRES_FALSE@	      -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
-@HAVE_WINDRES_FALSE@	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
+@HAVE_WINDRES_FALSE@	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS) $(BLAS_LIBS) $(STDCXX_LIBS)
 
 @HAVE_WINDRES_FALSE@GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
 @HAVE_WINDRES_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
