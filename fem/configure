@@ -687,8 +687,6 @@ am__untar
 MAINTAINER_MODE_TRUE
 MAINTAINER_MODE_FALSE
 MAINT
-HAVE_WINDRES_TRUE
-HAVE_WINDRES_FALSE
 CC
 CFLAGS
 LDFLAGS
@@ -807,6 +805,7 @@ LN
 MV
 MKDIR
 SOLVER_LIBS
+STDCXX_LIBS
 SOLVER_MPI_LIBS
 OFF_KIND
 LONG_KIND
@@ -2506,15 +2505,6 @@ fi
 
   MAINT=$MAINTAINER_MODE_TRUE
 
-
-
- if test `which windres` != ""; then
-  HAVE_WINDRES_TRUE=
-  HAVE_WINDRES_FALSE='#'
-else
-  HAVE_WINDRES_TRUE='#'
-  HAVE_WINDRES_FALSE=
-fi
 
 
 DEPDIR="${am__leading_dot}deps"
@@ -6335,7 +6325,7 @@ for acx_cxx_ldflag in $acx_cxx_verbose_out; do
 	   acx_cxx_libs="$acx_cxx_libs $acx_cxx_ldflag"
 	;;
         # Ignore these flags.
-        -lang* | -lcrt*.o | -lc | -lgcc | -libmil | -LANG:=*)
+        -lang* | -lcrt*.o | -lc | -lgcc | -libmil | -little | -LANG:=*)
 	;;
 	-[lLR]*)
 	   acx_cxx_libs="$acx_cxx_libs $acx_cxx_ldflag"
@@ -16538,6 +16528,7 @@ echo "${ECHO_T}defining LONG_KIND to be $LONG_KIND" >&6; }
 
 
 
+
 cat >>confdefs.h <<_ACEOF
 #define ELMER_SOLVER_HOME "${prefix}/share/elmersolver"
 _ACEOF
@@ -16657,13 +16648,6 @@ if test -z "${MAINTAINER_MODE_TRUE}" && test -z "${MAINTAINER_MODE_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"MAINTAINER_MODE\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"MAINTAINER_MODE\" was never defined.
-Usually this means the macro was only invoked conditionally." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-if test -z "${HAVE_WINDRES_TRUE}" && test -z "${HAVE_WINDRES_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"HAVE_WINDRES\" was never defined.
-Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"HAVE_WINDRES\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -17376,8 +17360,6 @@ am__untar!$am__untar$ac_delim
 MAINTAINER_MODE_TRUE!$MAINTAINER_MODE_TRUE$ac_delim
 MAINTAINER_MODE_FALSE!$MAINTAINER_MODE_FALSE$ac_delim
 MAINT!$MAINT$ac_delim
-HAVE_WINDRES_TRUE!$HAVE_WINDRES_TRUE$ac_delim
-HAVE_WINDRES_FALSE!$HAVE_WINDRES_FALSE$ac_delim
 CC!$CC$ac_delim
 CFLAGS!$CFLAGS$ac_delim
 LDFLAGS!$LDFLAGS$ac_delim
@@ -17399,6 +17381,8 @@ IBM_AIX_TRUE!$IBM_AIX_TRUE$ac_delim
 IBM_AIX_FALSE!$IBM_AIX_FALSE$ac_delim
 CXX!$CXX$ac_delim
 CXXFLAGS!$CXXFLAGS$ac_delim
+ac_ct_CXX!$ac_ct_CXX$ac_delim
+CXXDEPMODE!$CXXDEPMODE$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -17440,8 +17424,6 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
-ac_ct_CXX!$ac_ct_CXX$ac_delim
-CXXDEPMODE!$CXXDEPMODE$ac_delim
 am__fastdepCXX_TRUE!$am__fastdepCXX_TRUE$ac_delim
 am__fastdepCXX_FALSE!$am__fastdepCXX_FALSE$ac_delim
 FC!$FC$ac_delim
@@ -17537,6 +17519,8 @@ LN!$LN$ac_delim
 MV!$MV$ac_delim
 MKDIR!$MKDIR$ac_delim
 SOLVER_LIBS!$SOLVER_LIBS$ac_delim
+STDCXX_LIBS!$STDCXX_LIBS$ac_delim
+SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -17578,14 +17562,13 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
-SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
 OFF_KIND!$OFF_KIND$ac_delim
 LONG_KIND!$LONG_KIND$ac_delim
 LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 5; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 4; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5

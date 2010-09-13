@@ -30,20 +30,7 @@ COMMON_SRCS =  \
 
 bin_PROGRAMS = matc
 
-if HAVE_WINDRES
-
-.rc.o:
-	windres $^ -o $@
-%.o : %.rc
-	windres $^ -o $@
-
-matc_SOURCES = main.c matc-res.rc
-
-else
-
 matc_SOURCES = main.c
-
-endif
 
 matc_LDADD = libmatc.a
 

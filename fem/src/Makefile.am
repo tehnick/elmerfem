@@ -21,20 +21,7 @@ endif
 
 all-local: $(ELMER_TARGETS)
 
-if HAVE_WINDRES
-SUFFIXES: .f90 .so .src .rc
-else
 SUFFIXES: .f90 .so .src 
-endif
-
-
-if HAVE_WINDRES
-.rc.o:
-	windres $^ -o $@
-%.o : %.rc
-	windres $^ -o $@
-endif
-
 
 if USE_CPP
 # Use basic CPP
@@ -122,33 +109,6 @@ endif
 
 
 
-if HAVE_WINDRES
-
-# Take resource files into account in case of windres:
-
-ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT) ElmerSolver-res.o
-	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) \
-		ElmerSolver-res.o \
-	      -L. -lelmersolver $(EXTRA_LIBS) 
-
-ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) ViewFactors-res.o
-	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-	      -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) \
-		ViewFactors-res.o \
-	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
-
-GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) GebhardtFactors-res.o
-	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) \
-		GebhardtFactors-res.o \
-	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
-
-
-else
-
-# not windows - no resource files:
-
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
 	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
@@ -163,11 +123,6 @@ GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mp
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
 	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
 	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
-
-
-endif
-
-
 
 
 
@@ -215,13 +170,8 @@ clean-local:
 	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi GebhardtFactors ResultToResult ViewFactors
 
 
-if HAVE_WINDRES
-bin_PROGRAMS = SC2Elmer 
-SC2Elmer_SOURCES = SC2Elmer.c Sico2Elmer-res.rc
-else
 bin_PROGRAMS = SC2Elmer 
 SC2Elmer_SOURCES = SC2Elmer.c
-endif
 
 
 if USE_LOCAL_MPIF_H

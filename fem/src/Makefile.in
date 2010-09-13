@@ -36,8 +36,7 @@ target_triplet = @target@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/elmerf90-nosh.in $(srcdir)/elmerf90.in \
 	$(srcdir)/elmerld.in $(srcdir)/make.bin $(srcdir)/make.dep
-@HAVE_WINDRES_FALSE@bin_PROGRAMS = SC2Elmer$(EXEEXT)
-@HAVE_WINDRES_TRUE@bin_PROGRAMS = SC2Elmer$(EXEEXT)
+bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_elmer.m4 \
@@ -51,10 +50,7 @@ CONFIG_CLEAN_FILES = elmerf90 elmerf90-nosh elmerld
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am__SC2Elmer_SOURCES_DIST = SC2Elmer.c Sico2Elmer-res.rc
-@HAVE_WINDRES_FALSE@am_SC2Elmer_OBJECTS = SC2Elmer.$(OBJEXT)
-@HAVE_WINDRES_TRUE@am_SC2Elmer_OBJECTS = SC2Elmer.$(OBJEXT) \
-@HAVE_WINDRES_TRUE@	Sico2Elmer-res.$(OBJEXT)
+am_SC2Elmer_OBJECTS = SC2Elmer.$(OBJEXT)
 SC2Elmer_OBJECTS = $(am_SC2Elmer_OBJECTS)
 SC2Elmer_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
@@ -65,7 +61,7 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(SC2Elmer_SOURCES)
-DIST_SOURCES = $(am__SC2Elmer_SOURCES_DIST)
+DIST_SOURCES = $(SC2Elmer_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-dvi-recursive install-exec-recursive \
@@ -418,8 +414,7 @@ MPI_TARGETS = ElmerSolver_mpi$(EXE_EXT)
 @USE_MPI_TRUE@ELMER_TARGETS = $(NORMAL_TARGETS) $(MPI_TARGETS)
 @USE_MPI_TRUE@INCLUDES = -I$(MPI_INCLUDE_DIR)
 ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
-@HAVE_WINDRES_FALSE@SC2Elmer_SOURCES = SC2Elmer.c
-@HAVE_WINDRES_TRUE@SC2Elmer_SOURCES = SC2Elmer.c Sico2Elmer-res.rc
+SC2Elmer_SOURCES = SC2Elmer.c
 EXTRA_DIST = \
 	Adaptive.src \
 	AdvectionDiffusion.src \
@@ -577,7 +572,7 @@ EXTRA_DIST = \
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .$(OBJEXT) .$(SHLEXT) .c .f90 .o .obj .rc .src
+.SUFFIXES: .$(OBJEXT) .$(SHLEXT) .c .f90 .o .obj .src
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.dep $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -1088,13 +1083,7 @@ Walls.$(OBJEXT): Walls.f90
 
 all-local: $(ELMER_TARGETS)
 
-@HAVE_WINDRES_TRUE@SUFFIXES: .f90 .so .src .rc
-@HAVE_WINDRES_FALSE@SUFFIXES: .f90 .so .src 
-
-@HAVE_WINDRES_TRUE@.rc.o:
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
-@HAVE_WINDRES_TRUE@%.o : %.rc
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
+SUFFIXES: .f90 .so .src 
 
 # Use basic CPP
 @USE_CPP_TRUE@.src.f90:
@@ -1154,42 +1143,20 @@ $(SOLVEROBJS): mpif
 @IBM_AIX_FALSE@@USE_MPI_TRUE@	      -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) \
 @IBM_AIX_FALSE@@USE_MPI_TRUE@	      -L. -lelmersolver $(MPI_LIBS) $(EXTRA_LIBS)
 
-# Take resource files into account in case of windres:
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
+	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
+	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
+	      -L. -lelmersolver $(EXTRA_LIBS) 
 
-@HAVE_WINDRES_TRUE@ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT) ElmerSolver-res.o
-@HAVE_WINDRES_TRUE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@HAVE_WINDRES_TRUE@	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) \
-@HAVE_WINDRES_TRUE@		ElmerSolver-res.o \
-@HAVE_WINDRES_TRUE@	      -L. -lelmersolver $(EXTRA_LIBS) 
+ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
+	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
+	      -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
+	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS) $(BLAS_LIBS) $(STDCXX_LIBS)
 
-@HAVE_WINDRES_TRUE@ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) ViewFactors-res.o
-@HAVE_WINDRES_TRUE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@HAVE_WINDRES_TRUE@	      -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) \
-@HAVE_WINDRES_TRUE@		ViewFactors-res.o \
-@HAVE_WINDRES_TRUE@	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
-
-@HAVE_WINDRES_TRUE@GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) GebhardtFactors-res.o
-@HAVE_WINDRES_TRUE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@HAVE_WINDRES_TRUE@	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) \
-@HAVE_WINDRES_TRUE@		GebhardtFactors-res.o \
-@HAVE_WINDRES_TRUE@	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
-
-# not windows - no resource files:
-
-@HAVE_WINDRES_FALSE@ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
-@HAVE_WINDRES_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@HAVE_WINDRES_FALSE@	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
-@HAVE_WINDRES_FALSE@	      -L. -lelmersolver $(EXTRA_LIBS) 
-
-@HAVE_WINDRES_FALSE@ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
-@HAVE_WINDRES_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@HAVE_WINDRES_FALSE@	      -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
-@HAVE_WINDRES_FALSE@	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS) $(BLAS_LIBS) $(STDCXX_LIBS)
-
-@HAVE_WINDRES_FALSE@GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
-@HAVE_WINDRES_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@HAVE_WINDRES_FALSE@	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
-@HAVE_WINDRES_FALSE@	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
+GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
+	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
+	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
+	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
 
 @USE_WINDOWS_COMPILER_FALSE@ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
 @USE_WINDOWS_COMPILER_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
@@ -1221,7 +1188,7 @@ install-exec-local:
 @USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(DESTDIR)$(prefix)/bin
 
 clean-local:
-	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi
+	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi GebhardtFactors ResultToResult ViewFactors
 
 @USE_LOCAL_MPIF_H_TRUE@mpif: mpif_stub.h
 @USE_LOCAL_MPIF_H_TRUE@	$(CP) mpif_stub.h mpif.h

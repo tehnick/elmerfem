@@ -47,19 +47,11 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am__ElmerGrid_SOURCES_DIST = common.h femdef.h femelmer.h femfact.h \
-	femfilein.h femfileout.h feminfo.h femknot.h femmesh.h \
-	femsolve.h femtools.h femtypes.h nrutil.h common.c femelmer.c \
-	femfact.c femfilein.c femfileout.c feminfo.c femknot.c \
-	femmesh.c fempre.c femsolve.c femtools.c nrutil.c \
-	ElmerGrid-res.rc
 am__objects_1 = common.$(OBJEXT) femelmer.$(OBJEXT) femfact.$(OBJEXT) \
 	femfilein.$(OBJEXT) femfileout.$(OBJEXT) feminfo.$(OBJEXT) \
 	femknot.$(OBJEXT) femmesh.$(OBJEXT) fempre.$(OBJEXT) \
 	femsolve.$(OBJEXT) femtools.$(OBJEXT) nrutil.$(OBJEXT)
-@HAVE_WINDRES_FALSE@am_ElmerGrid_OBJECTS = $(am__objects_1)
-@HAVE_WINDRES_TRUE@am_ElmerGrid_OBJECTS = $(am__objects_1) \
-@HAVE_WINDRES_TRUE@	ElmerGrid-res.$(OBJEXT)
+am_ElmerGrid_OBJECTS = $(am__objects_1)
 ElmerGrid_OBJECTS = $(am_ElmerGrid_OBJECTS)
 ElmerGrid_DEPENDENCIES =
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
@@ -70,7 +62,7 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(ElmerGrid_SOURCES)
-DIST_SOURCES = $(am__ElmerGrid_SOURCES_DIST)
+DIST_SOURCES = $(ElmerGrid_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-dvi-recursive install-exec-recursive \
@@ -215,15 +207,14 @@ COMMON_SRCS = \
 	femtools.c \
 	nrutil.c 
 
-@HAVE_WINDRES_FALSE@ElmerGrid_SOURCES = $(COMMON_SRCS) 
-@HAVE_WINDRES_TRUE@ElmerGrid_SOURCES = $(COMMON_SRCS) ElmerGrid-res.rc
+ElmerGrid_SOURCES = $(COMMON_SRCS) 
 ElmerGrid_LDADD = \
 	-Lmetis/ -lmetis
 
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .c .o .obj .rc
+.SUFFIXES: .c .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -594,11 +585,6 @@ uninstall-am: uninstall-binPROGRAMS
 	ps ps-am tags tags-recursive uninstall uninstall-am \
 	uninstall-binPROGRAMS
 
-
-@HAVE_WINDRES_TRUE@.rc.o:
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
-@HAVE_WINDRES_TRUE@%.o : %.rc
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

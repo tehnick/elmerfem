@@ -47,14 +47,6 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am__ElmerMesh2D_SOURCES_DIST = BGGridMesh.cpp BGTriangleMesh.cpp \
-	BGVertex.cpp Body.cpp BoundaryElement.cpp BoundaryLayer.cpp \
-	Connect.cpp Element.cpp GeometryEdge.cpp main.cpp Mesh.cpp \
-	MeshNode.cpp MeshParser.cpp Node.cpp PQ.cpp QuadElement.cpp \
-	QuadLayer.cpp SSMFVoronoiSegment.cpp SSSFVoronoiSegment.cpp \
-	TriangleElement.cpp TriangleNELayer.cpp Vertex.cpp \
-	VoronoiSegment.cpp VoronoiVertex.cpp VSVertex.cpp \
-	ElmerMesh2D-res.rc
 am__objects_1 = BGGridMesh.$(OBJEXT) BGTriangleMesh.$(OBJEXT) \
 	BGVertex.$(OBJEXT) Body.$(OBJEXT) BoundaryElement.$(OBJEXT) \
 	BoundaryLayer.$(OBJEXT) Connect.$(OBJEXT) Element.$(OBJEXT) \
@@ -65,22 +57,10 @@ am__objects_1 = BGGridMesh.$(OBJEXT) BGTriangleMesh.$(OBJEXT) \
 	TriangleElement.$(OBJEXT) TriangleNELayer.$(OBJEXT) \
 	Vertex.$(OBJEXT) VoronoiSegment.$(OBJEXT) \
 	VoronoiVertex.$(OBJEXT) VSVertex.$(OBJEXT)
-@HAVE_WINDRES_FALSE@am_ElmerMesh2D_OBJECTS = $(am__objects_1)
-@HAVE_WINDRES_TRUE@am_ElmerMesh2D_OBJECTS = $(am__objects_1) \
-@HAVE_WINDRES_TRUE@	ElmerMesh2D-res.$(OBJEXT)
+am_ElmerMesh2D_OBJECTS = $(am__objects_1)
 ElmerMesh2D_OBJECTS = $(am_ElmerMesh2D_OBJECTS)
 ElmerMesh2D_DEPENDENCIES =
-am__Mesh2D_SOURCES_DIST = BGGridMesh.cpp BGTriangleMesh.cpp \
-	BGVertex.cpp Body.cpp BoundaryElement.cpp BoundaryLayer.cpp \
-	Connect.cpp Element.cpp GeometryEdge.cpp main.cpp Mesh.cpp \
-	MeshNode.cpp MeshParser.cpp Node.cpp PQ.cpp QuadElement.cpp \
-	QuadLayer.cpp SSMFVoronoiSegment.cpp SSSFVoronoiSegment.cpp \
-	TriangleElement.cpp TriangleNELayer.cpp Vertex.cpp \
-	VoronoiSegment.cpp VoronoiVertex.cpp VSVertex.cpp \
-	Mesh2D-res.rc
-@HAVE_WINDRES_FALSE@am_Mesh2D_OBJECTS = $(am__objects_1)
-@HAVE_WINDRES_TRUE@am_Mesh2D_OBJECTS = $(am__objects_1) \
-@HAVE_WINDRES_TRUE@	Mesh2D-res.$(OBJEXT)
+am_Mesh2D_OBJECTS = $(am__objects_1)
 Mesh2D_OBJECTS = $(am_Mesh2D_OBJECTS)
 Mesh2D_DEPENDENCIES =
 DEFAULT_INCLUDES = -I. -I$(top_builddir)@am__isrc@
@@ -92,8 +72,7 @@ CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
 SOURCES = $(ElmerMesh2D_SOURCES) $(Mesh2D_SOURCES)
-DIST_SOURCES = $(am__ElmerMesh2D_SOURCES_DIST) \
-	$(am__Mesh2D_SOURCES_DIST)
+DIST_SOURCES = $(ElmerMesh2D_SOURCES) $(Mesh2D_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-dvi-recursive install-exec-recursive \
@@ -237,10 +216,8 @@ COMMON_SRCS = \
 	VoronoiVertex.cpp \
 	VSVertex.cpp 
 
-@HAVE_WINDRES_FALSE@ElmerMesh2D_SOURCES = $(COMMON_SRCS)
-@HAVE_WINDRES_TRUE@ElmerMesh2D_SOURCES = $(COMMON_SRCS) ElmerMesh2D-res.rc
-@HAVE_WINDRES_FALSE@Mesh2D_SOURCES = $(COMMON_SRCS)
-@HAVE_WINDRES_TRUE@Mesh2D_SOURCES = $(COMMON_SRCS) Mesh2D-res.rc
+ElmerMesh2D_SOURCES = $(COMMON_SRCS)
+Mesh2D_SOURCES = $(COMMON_SRCS)
 ElmerMesh2D_LDADD = \
 	$(MESHGEN2D_LIBS)
 
@@ -250,7 +227,7 @@ Mesh2D_LDADD = \
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .cpp .o .obj .rc
+.SUFFIXES: .cpp .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -637,11 +614,6 @@ uninstall-am: uninstall-binPROGRAMS
 	ps ps-am tags tags-recursive uninstall uninstall-am \
 	uninstall-binPROGRAMS
 
-
-@HAVE_WINDRES_TRUE@.rc.o:
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
-@HAVE_WINDRES_TRUE@%.o : %.rc
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

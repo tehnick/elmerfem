@@ -31,20 +31,7 @@ COMMON_SRCS =  \
 	femtools.c \
 	nrutil.c 
 
-if HAVE_WINDRES
-
-.rc.o:
-	windres $^ -o $@
-%.o : %.rc
-	windres $^ -o $@
-
-ElmerGrid_SOURCES = $(COMMON_SRCS) ElmerGrid-res.rc
-
-else
-
 ElmerGrid_SOURCES = $(COMMON_SRCS) 
-
-endif
 
 ElmerGrid_LDADD = \
 	-Lmetis/ -lmetis
