@@ -42,6 +42,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 /* #include <elmer/matc.h> maybe in the future */
 
 /* eg. FC_CHAR_PTR and FC_FUNC is defined here */
@@ -70,9 +71,9 @@ void corename_()
 
 /* pc needs more bits on 64bit arch  */
 #ifdef ARCH_32_BITS
-#define f_ptr int *
+#define f_ptr int32_t *
 #else 
-#define f_ptr long int *
+#define f_ptr int64_t *
 #endif
 
 #if defined(MINGW32)
