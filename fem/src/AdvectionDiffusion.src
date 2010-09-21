@@ -536,17 +536,17 @@
          IF ( ConvectionFlag == 'constant' ) THEN
            U = ListGetReal( Model % Equations(eq_id) % Values, &
                 TRIM(ComponentName(Solver % Variable)) // &
-                ' Convection Velocity 1',n,NodeIndexes )
+                ' Convection Velocity 1',n,NodeIndexes,GotIt )
            IF ( .NOT. GotIt ) &
              U = ListGetReal( Material,'Convection Velocity 1',n,NodeIndexes, GotIt)
            V = ListGetReal( Model % Equations(eq_id) % Values, &
                 TRIM(ComponentName(Solver % Variable)) // &
-                ' Convection Velocity 2',n,NodeIndexes )
+                ' Convection Velocity 2',n,NodeIndexes,GotIt )
            IF ( .NOT. GotIt ) &
              V = ListGetReal( Material,'Convection Velocity 2',n,NodeIndexes, GotIt)
            W = ListGetReal( Model % Equations(eq_id) % Values, &
                 TRIM(ComponentName(Solver % Variable)) // &
-                ' Convection Velocity 3',n,NodeIndexes )
+                ' Convection Velocity 3',n,NodeIndexes,GotIt )
            IF ( .NOT. GotIt ) &
              W = ListGetReal( Material,'Convection Velocity 3',n,NodeIndexes, GotIt)
            IF (.NOT. AbsoluteMass) THEN
