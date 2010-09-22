@@ -337,7 +337,7 @@ CONTAINS
 
     INTEGER :: popsize, i0, i1, i2, i3 
     REAL(KIND=dp) :: popcoeff, popcross
-    REAL(KIND=dp), ALLOCATABLE :: pars(:,:), vals(:) 
+    REAL(KIND=dp), ALLOCATABLE :: pars(:,:), vals(:) ,rnds(:)
     LOGICAL, ALLOCATABLE :: mask(:)
 
     SAVE no, i0, pars, vals, mask, popsize, popcoeff, popcross
@@ -352,7 +352,7 @@ CONTAINS
       IF(.NOT. GotIt) popcoeff = 0.7
       popcross = ListGetConstReal(Solver % Values,'Population Crossover',GotIt)
       IF(.NOT. GotIt) popcross = 0.1
-      ALLOCATE(pars(parsize,popsize),vals(popsize),mask(parsize))
+      ALLOCATE(pars(parsize,popsize),vals(popsize),mask(parsize),rnds(parsize))
       IF(.FALSE.) THEN
         PRINT *,'popsize',popsize,'parsize',parsize
         PRINT *,'popcoeff',popcoeff,'popcross',popcross
@@ -394,7 +394,8 @@ CONTAINS
         IF (ALL(i3 /= (/i0,i1,i2/))) EXIT
       END DO
       
-      mask = (rnd(parsize) < popcross)
+      rnds = rnd(parsize)
+      mask = (rnds < popcross)
       
       WHERE (mask)
         parameters = pars(:,i3) + popcoeff*(pars(:,i1)-pars(:,i2))
