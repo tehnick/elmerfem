@@ -54,7 +54,7 @@
 !    Local variables
 !------------------------------------------------------------------------------
 
-     INTEGER :: i,j,k,n,l,t,k1,k2,iter,Ndeg,Time,istat,nproc
+     INTEGER :: i,j,k,n,l,t,k1,k2,iter,Ndeg,istat,nproc
 
      REAL(KIND=dp) :: s,dt,dtfunc
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
@@ -74,8 +74,7 @@
 
      INTEGER(KIND=AddrInt) :: ControlProcedure
 
-     LOGICAL :: KEModelSolved = .FALSE., SteadyStateReached = .FALSE., InitDirichlet, &
-          ExecThis
+     LOGICAL :: InitDirichlet, ExecThis
 
      TYPE(ElementType_t),POINTER :: elmt
 
@@ -91,11 +90,7 @@
 
      REAL(KIND=dp) :: RealTime,tt
 
-     REAL(KIND=dp) :: CumTime, ddt, MaxErr, AdaptiveLimit, &
-           AdaptiveMinTimestep, AdaptiveMaxTimestep, StartTime
-     INTEGER :: SmallestCount, AdaptiveKeepSmallest, StepControl=-1
-     LOGICAL :: AdaptiveTime = .TRUE., FirstLoad = .TRUE., FirstTime=.TRUE.
-     REAL(KIND=dp), POINTER :: xx(:,:), xxnrm(:), yynrm(:), PrevXX(:,:,:)
+     LOGICAL :: FirstLoad = .TRUE., FirstTime=.TRUE.
 
      INTEGER :: iargc
 
@@ -314,11 +309,10 @@
          ALLOCATE( sTime(1), sStep(1), sInterval(1), sSize(1), &
              steadyIt(1), nonLinit(1), sPrevSizes(1,5) )
 
-       Time = 0
        dt   = 0._dp
 
        sTime = 0._dp
-       sStep = Time
+       sStep = 0
 
        sSize = dt
        sPrevSizes = 0_dp
@@ -390,7 +384,6 @@
        IF ( Initialize==1 ) EXIT
 
 !if ( parenv % mype==0 ) print*,'INIT TIME: ', realtime()-tt; tt = realtime()
-
 !------------------------------------------------------------------------------
 !      Here we actually start the simulation ....
 !      First go trough timeintervals
@@ -401,7 +394,8 @@
           ControlProcedure = GetProcAddr( ExecCommand )
           CALL ExecSimulationProc( ControlProcedure, CurrentModel )
        ELSE
-          CALL ExecSimulation
+          CALL ExecSimulation( TimeIntervals, CoupledMinIter, &
+              CoupledMaxIter, OutputIntervals, Transient, Scanning)
        END IF
 !if ( parenv % mype == 0 ) print*,'SOLVE TIME: ', realtime()-tt
 !------------------------------------------------------------------------------
@@ -863,8 +857,8 @@
    SUBROUTINE Restart
 !------------------------------------------------------------------------------
      USE DefUtils
-     INTEGER :: k
      LOGICAL :: Gotit
+     INTEGER :: k,StartTime
 !------------------------------------------------------------------------------
 
 
@@ -907,15 +901,26 @@
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE ExecSimulation
+   SUBROUTINE ExecSimulation(TimeIntervals,  CoupledMinIter, &
+              CoupledMaxIter, OutputIntervals, Transient, Scanning)
+      INTEGER :: TimeIntervals,CoupledMinIter, CoupledMaxIter,OutputIntervals(:)
+      LOGICAL :: Transient,Scanning
 !------------------------------------------------------------------------------
      INTEGER :: interval, timestep, i, j, k, n
      REAL(KIND=dp) :: dt, ddt, dtfunc
-     INTEGER :: timeleft
-     LOGICAL :: ExecThis
+     INTEGER :: timeleft,cum_timestep
      INTEGER, SAVE ::  stepcount=0
+     LOGICAL :: ExecThis,SteadyStateReached=.FALSE.
+
+     REAL(KIND=dp) :: CumTime, MaxErr, AdaptiveLimit, &
+           AdaptiveMinTimestep, AdaptiveMaxTimestep
+     INTEGER :: SmallestCount, AdaptiveKeepSmallest, StepControl=-1
+     LOGICAL :: AdaptiveTime = .TRUE.
+
+     TYPE(Solver_t), POINTER :: Solver
 
      REAL(KIND=dp) :: RealTime, newtime, prevtime=0, maxtime
+     REAL(KIND=dp), ALLOCATABLE :: xx(:,:), xxnrm(:), yynrm(:), PrevXX(:,:,:)
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
@@ -925,12 +930,14 @@
         END IF
      END DO
 
-       DO interval = 1, TimeIntervals
+     DO interval = 1, TimeIntervals
         stepcount = stepcount + Timesteps(interval)
-       END DO 
+     END DO 
 
+     cum_Timestep = 0
      ddt = 0.0d0
      DO interval = 1,TimeIntervals
+
 !------------------------------------------------------------------------------
        IF ( Transient .OR. Scanning ) THEN
          dt = TimestepSizes(interval,1)
@@ -947,9 +954,9 @@
          IF(GotIt) dt = dtfunc
 
 !------------------------------------------------------------------------------
-         Time = Time + 1
+         cum_Timestep = cum_Timestep + 1
          sTime(1) = sTime(1) + dt
-         sStep(1) = Time
+         sStep(1) = cum_Timestep
 
          ! Move the old timesteps one step down the ladder
          IF(timestep > 1 .OR. interval > 1) THEN
@@ -968,19 +975,19 @@
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
            IF ( Transient .OR. Scanning ) THEN
-             WRITE( Message, * ) 'Time: ',TRIM(IntegerToString(Time)),'/', &
+             WRITE( Message, * ) 'Time: ',TRIM(IntegerToString(cum_Timestep)),'/', &
                    TRIM(IntegerToString(stepcount)), sTime(1)
              CALL Info( 'MAIN', Message, Level=3 )
 
              newtime= RealTime()
 
-             IF( Time > 1 ) THEN
+             IF( cum_Timestep > 1 ) THEN
                maxtime = ListGetConstReal( CurrentModel % Simulation,'Real Time Max',GotIt)
                IF( GotIt ) THEN
                   WRITE( Message,'(A,F8.3)') 'Fraction of real time left: ',&
                               1.0_dp-RealTime() / maxtime
                ELSE             
-                 timeleft = NINT((stepcount-(Time-1))*(newtime-prevtime)/60._dp);
+                 timeleft = NINT((stepcount-(cum_Timestep-1))*(newtime-prevtime)/60._dp);
                  IF (timeleft > 120) THEN
                    WRITE( Message, *) 'Estimated time left: ', &
                      TRIM(IntegerToString(timeleft/60)),' hours.'
@@ -998,7 +1005,7 @@
              END IF
              prevtime = newtime
            ELSE
-             WRITE( Message, * ) 'Steady state iteration: ',Time
+             WRITE( Message, * ) 'Steady state iteration: ',cum_Timestep
              CALL Info( 'MAIN', Message, Level=3 )
            END IF
 
@@ -1012,7 +1019,7 @@
          AdaptiveTime = ListGetLogical( CurrentModel % Simulation, &
                   'Adaptive Timestepping', GotIt )
 
-         IF ( Transient .AND. AdaptiveTime ) THEN
+         IF ( Transient .AND. AdaptiveTime ) THEN 
             AdaptiveLimit = ListGetConstReal( CurrentModel % Simulation, &
                         'Adaptive Time Error', GotIt )
  
@@ -1096,7 +1103,6 @@
                sTime(1) = s + CumTime + ddt/2
                CALL SolveEquations( CurrentModel, ddt/2, Transient, &
                   CoupledMinIter, CoupledMaxIter, SteadyStateReached )
-
                sTime(1) = s + CumTime + ddt
                CALL SolveEquations( CurrentModel, ddt/2, Transient, &
                   CoupledMinIter, CoupledMaxIter, SteadyStateReached )
@@ -1156,6 +1162,7 @@
 !------------------------------------------------------------------------------
 !        Save results to disk, if requested
 !------------------------------------------------------------------------------
+
          LastSaved = .FALSE.
          IF( OutputIntervals(Interval) /= 0 ) THEN
 
@@ -1322,7 +1329,8 @@
             END DO
 
             IF ( .NOT. EigAnal ) THEN
-               SavedSteps = SaveResult( OutputName,Mesh,Time, sTime(1), BinaryOutput, SaveAll )
+               SavedSteps = SaveResult( OutputName,Mesh, NINT(sStep(1)), &
+                     sTime(1), BinaryOutput, SaveAll )
             END IF
          END IF
          Mesh => Mesh % Next

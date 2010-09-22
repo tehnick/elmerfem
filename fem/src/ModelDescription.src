@@ -230,7 +230,7 @@ CONTAINS
     CHARACTER(LEN=2048) :: name,depname,str,section
 
     LOGICAL :: SizeGiven
-    LOGICAL :: FreeNames, Echo = .FALSE.
+    LOGICAL :: FreeNames=.FALSE., Echo = .FALSE.
     INTEGER :: CheckAbort = 0
 
     TYPE(Solver_t), POINTER :: ASolvers(:)
@@ -265,7 +265,7 @@ CONTAINS
     IF ( FirstTime ) THEN
        FirstTime = .FALSE.
        Section = 'simulation'
-       CALL CheckKeyword( 'coordinate system', 'string' )
+       CALL CheckKeyword( 'coordinate system', 'string',CheckAbort,FreeNames,Section )
     END IF
  
     IF ( BaseLoad ) THEN
@@ -331,16 +331,16 @@ CONTAINS
         END IF
       END DO
 
-      NULLIFY( Model % BCs )
-      NULLIFY( Model % ICs )
-      NULLIFY( Model % Bodies )
-      NULLIFY( Model % Solvers )
-      NULLIFY( Model % Equations )
-      NULLIFY( Model % Materials )
-      NULLIFY( Model % Constants )
-      NULLIFY( Model % Simulation )
-      NULLIFY( Model % BodyForces )
-      NULLIFY( Model % Boundaries )
+      Model % BCs => Null()
+      Model % ICs => Null()
+      Model % Bodies => Null()
+      Model % Solvers => Null()
+      Model % Equations => Null()
+      Model % Materials => Null()
+      Model % Constants => Null()
+      Model % Simulation => Null()
+      Model % BodyForces => Null()
+      Model % Boundaries => Null()
     END IF
 
 
@@ -700,7 +700,32 @@ CONTAINS
 !------------------------------------------------------------------------------
       IF ( .NOT. ScanOnly .AND. ArrayN == 0 ) CYCLE
 
-      CALL SectionContents( InFileUnit, ScanOnly, Atx, Att )
+      CALL SectionContents( Model, List, CheckAbort, FreeNames, &
+                Section, InFileUnit, ScanOnly, Echo, Atx, Att )
+
+      IF ( .NOT. ScanOnly ) THEN
+           IF ( Section(1:9) == 'constants' ) THEN
+             Model % Constants => List
+           ELSE IF ( Section(1:10) == 'simulation' ) THEN
+             Model % Simulation => List
+           ELSE IF ( Section(1:18) == 'boundary condition' ) THEN
+             Model % BCs(Arrayn) % Values => List
+           ELSE IF ( Section(1:8) == 'boundary' ) THEN
+             Model % Boundaries(BoundaryIndex) % Values => List
+           ELSE IF ( Section(1:17) == 'initial condition' ) THEN
+             Model % ICs(Arrayn) % Values => List
+           ELSE IF ( Section(1:8) == 'material' ) THEN
+             Model % Materials(Arrayn) % Values => List
+           ELSE IF ( Section(1:10) == 'body force' ) THEN
+             Model % BodyForces(Arrayn) % Values => List
+           ELSE IF ( Section(1:8) == 'equation' ) THEN
+             Model % Equations(Arrayn) % Values  => List
+           ELSE IF ( Section(1:4) == 'body' ) THEN
+             Model % Bodies(Arrayn) % Values => List
+           ELSE IF ( Section(1:6) == 'solver' ) THEN
+             Model % Solvers(Arrayn) % Values => List
+           END IF
+      END IF
 !------------------------------------------------------------------------------
     END DO
 !------------------------------------------------------------------------------
@@ -765,16 +790,17 @@ CONTAINS
 
 CONTAINS
 
-    SUBROUTINE CheckKeyWord( Name,TYPE,ReturnType )
+    SUBROUTINE CheckKeyWord( Name,Type,CheckAbort,FreeNames,Section,ReturnType )
        USE HashTable
 
-       CHARACTER(LEN=*) :: Name,TYPE
-       LOGICAL, OPTIONAL :: ReturnType
-       INTEGER :: i,j, n, istat
-       TYPE(HashTable_t), POINTER :: Hash
+       CHARACTER(LEN=*) :: Name,Type,Section
+       INTEGER :: CheckAbort
+       LOGICAL, OPTIONAL :: ReturnType,FreeNames
+
+       INTEGER :: i,j, k,n, istat
+       TYPE(HashTable_t), POINTER :: Hash =>Null()
        TYPE(HashValue_t), POINTER :: Value
        LOGICAL :: FirstTime = .TRUE.,lstat
-       SAVE FirstTime, Hash
        CHARACTER(LEN=MAX_PATH_LEN) :: str,str1
        EXTERNAL ENVIR
 
@@ -943,30 +969,36 @@ CONTAINS
                  ' database not available.' )
        END IF
 !------------------------------------------------------------------------------
-    END SUBROUTINE
+    END SUBROUTINE CheckKeyword
 !------------------------------------------------------------------------------
 
 
 
 !------------------------------------------------------------------------------
-    RECURSIVE SUBROUTINE SectionContents( InFileUnit, ScanOnly, ATx, Att )
+    RECURSIVE SUBROUTINE SectionContents( Model,List, CheckAbort,FreeNames, &
+              Section, InFileUnit, ScanOnly, Echo, ATx, Att )
 !------------------------------------------------------------------------------
-
-      INTEGER :: InFileUnit
+      TYPE(ValueList_t), POINTER :: List,ll
+      INTEGER :: InFileUnit,CheckAbort
+      TYPE(Model_t) :: Model
+      LOGICAL :: FreeNames,Echo
+      CHARACTER(LEN=*)  :: Section
 
       REAL(KIND=dp), POINTER :: Atx(:,:,:), ATt(:)
 
       CHARACTER(LEN=MAX_NAME_LEN) :: TypeString,Keyword
-      CHARACTER(LEN=MAX_PATH_LEN) :: Name
-      LOGICAL :: ReturnType, ScanOnly, String_literal
+      CHARACTER(LEN=MAX_PATH_LEN) :: Name,str, Depname
+      LOGICAL :: ReturnType, ScanOnly, String_literal,  SizeGiven
 
-      INTEGER :: slen, str_beg, str_end
+      INTEGER(KIND=AddrInt) :: Proc
+      INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, type
 
       DO WHILE( ReadAndTrim( InFileUnit,name,Echo ) )
 
         IF ( Name(1:7) == 'include' ) THEN
           OPEN( InFileUnit-1,FILE=TRIM(Name(9:)),STATUS='OLD',ERR=10 )
-          CALL SectionContents( InFileUnit-1,ScanOnly,Atx,Att )
+          CALL SectionContents( Model,List,CheckAbort,FreeNames, &
+                  Section,InFileUnit-1,ScanOnly, Echo,Atx,Att )
           CLOSE( InFileUnit-1 )
           CYCLE
 
@@ -986,20 +1018,20 @@ CONTAINS
         N1   = 1
         N2   = 1
         SizeGiven = .FALSE.
+        str = ''
         DO WHILE( ReadAndTrim(InFileUnit,str,echo,string_literal) ) 
 
           IF ( string_literal ) THEN
             ReturnType = .TRUE.
-            CALL CheckKeyWord( Name, TypeString, ReturnType )
+            CALL CheckKeyWord( Name, TypeString, CheckAbort,FreeNames,Section,ReturnType )
             IF ( .NOT. ReturnType ) THEN
               CALL SyntaxError( Section, Name,str )
             ELSE IF (TypeString/='string' .AND. TypeString/='file') THEN 
               CALL SyntaxError( Section, Name,str )
             ELSE
-              str = TRIM(TypeString) // ' ' // str
+              str = TRIM(TypeString) // ' ' // TRIM(str)
             END IF
           END IF
-
 
 20        CONTINUE
 
@@ -1014,7 +1046,7 @@ CONTAINS
 
           SELECT CASE(Keyword)
           CASE('real')
-             CALL CheckKeyWord( Name,'real' )
+             CALL CheckKeyWord( Name,'real',CheckAbort,FreeNames,Section )
 
              Proc = 0
              IF ( str(str_beg:str_beg+9) == 'procedure ' ) THEN
@@ -1170,7 +1202,7 @@ CONTAINS
 
           CASE('logical')
 
-            CALL CheckKeyWord( Name,'logical' )
+            CALL CheckKeyWord( Name,'logical',CheckAbort,FreeNames,Section )
 
             IF ( .NOT. ScanOnly ) THEN
                IF ( str(str_beg:str_beg+3) == 'true' .OR. str(str_beg:str_beg) == '1' ) THEN
@@ -1183,7 +1215,7 @@ CONTAINS
 
           CASE('integer')
 
-            CALL CheckKeyWord( Name,'integer' )
+            CALL CheckKeyWord( Name,'integer',CheckAbort,FreeNames,Section )
 
             IF ( .NOT. ScanOnly ) THEN
                Proc = 0
@@ -1223,14 +1255,14 @@ CONTAINS
 
           CASE('string')
 
-            CALL CheckKeyWord( Name,'string' )
+            CALL CheckKeyWord( Name,'string',CheckAbort,FreeNames,Section )
 
             IF ( .NOT. ScanOnly ) CALL ListAddString( List,Name,str(str_beg:) )
             EXIT
 
           CASE('file')
 
-            CALL CheckKeyWord( Name,'file' )
+            CALL CheckKeyWord( Name,'file',CheckAbort,FreeNames,Section )
 
             IF ( .NOT. ScanOnly ) CALL ListAddString( List,Name,str(str_beg:),.FALSE. )
             EXIT
@@ -1292,7 +1324,7 @@ CONTAINS
           CASE DEFAULT
 
             ReturnType = .TRUE.
-            CALL CheckKeyWord( Name, TypeString, ReturnType )
+            CALL CheckKeyWord( Name, TypeString, CheckAbort,FreeNames,Section,ReturnType )
             IF ( ReturnType ) THEN 
               str = TRIM(TypeString) // ' ' // str
               GOTO 20
@@ -1301,33 +1333,6 @@ CONTAINS
           END SELECT
 !------------------------------------------------------------------------------
         END DO
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-        IF ( .NOT. ScanOnly ) THEN
-           IF ( Section(1:9) == 'constants' ) THEN
-             Model % Constants => List
-           ELSE IF ( Section(1:10) == 'simulation' ) THEN
-             Model % Simulation => List
-           ELSE IF ( Section(1:18) == 'boundary condition' ) THEN
-             Model % BCs(Arrayn) % Values => List
-           ELSE IF ( Section(1:8) == 'boundary' ) THEN
-             Model % Boundaries(BoundaryIndex) % Values => List
-           ELSE IF ( Section(1:17) == 'initial condition' ) THEN
-             Model % ICs(Arrayn) % Values => List
-           ELSE IF ( Section(1:8) == 'material' ) THEN
-             Model % Materials(Arrayn) % Values => List
-           ELSE IF ( Section(1:10) == 'body force' ) THEN
-             Model % BodyForces(Arrayn) % Values => List
-           ELSE IF ( Section(1:8) == 'equation' ) THEN
-             Model % Equations(Arrayn) % Values  => List
-           ELSE IF ( Section(1:4) == 'body' ) THEN
-             Model % Bodies(Arrayn) % Values => List
-           ELSE IF ( Section(1:6) == 'solver' ) THEN
-             Model % Solvers(Arrayn) % Values => List
-           END IF
-        END IF
 !------------------------------------------------------------------------------
       END DO
 !------------------------------------------------------------------------------
