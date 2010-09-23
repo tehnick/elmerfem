@@ -518,7 +518,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     return(1);
   }
   else 
-    printf("Loading Elmer header from %s\n",filename);
+    printf("Loading header from %s\n",filename);
 
   getline;
   sscanf(line,"%d %d %d",&noknots,&noelements,&nosides);
@@ -570,14 +570,19 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     return(3);
   }
   else 
-    if(info) printf("Loading %d Elmer elements from %s\n",noelements,filename);
+    if(info) printf("Loading %d bulk elements from %s\n",noelements,filename);
 
   for(i=1; i <= noelements; i++) {
     fscanf(in,"%d",&j);
     if(0 && i != j) printf("LoadElmerInput: i=%d element=%d\n",i,dummyint);
     fscanf(in,"%d",&(data->material[j]));
-    fscanf(in,"%d",&(data->elementtypes[j]));
-    for(k=0;k< data->elementtypes[j]%100 ;k++) 
+    fscanf(in,"%d",&elementtype);
+    if(elementtype > maxelemtype ) {
+      printf("Invalid bulk elementtype: %d\n",elementtype);
+      bigerror("Cannot continue with invalid elements");
+    }
+    data->elementtypes[j] = elementtype;
+    for(k=0;k< elementtype%100 ;k++) 
       fscanf(in,"%d",&(data->topology[j][k]));
   }
   fclose(in);
@@ -590,7 +595,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     return(4);
   }
   else {
-    if(info) printf("Loading %d Elmer boundaries from %s\n",nosides,filename);
+    if(info) printf("Loading %d boundary elements from %s\n",nosides,filename);
   }
 
   AllocateBoundary(bound,nosides);
@@ -608,6 +613,11 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     fscanf(in,"%d",&(bound->parent[i]));
     fscanf(in,"%d",&(bound->parent2[i]));
     fscanf(in,"%d",&elementtype);
+
+    if(elementtype > maxelemtype ) {
+      printf("Invalid boundary elementtype: %d\n",elementtype);
+      bigerror("Cannot continue with invalid elements");
+    }
     for(j=0;j< elementtype%100 ;j++) 
       fscanf(in,"%d",&(sideind[j]));
 
@@ -634,6 +644,8 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
   fclose(in); 
 
   if(!cdstat) chdir("..");
+
+  printf("All done\n");
 
   return(0);
 }
