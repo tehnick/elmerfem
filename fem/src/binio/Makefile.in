@@ -186,6 +186,7 @@ SH_LINKING_TO_FLAGS = @SH_LINKING_TO_FLAGS@
 SOLVER_LIBS = @SOLVER_LIBS@
 SOLVER_MPI_LIBS = @SOLVER_MPI_LIBS@
 SONAME_FLAGS = @SONAME_FLAGS@
+STDCXX_LIBS = @STDCXX_LIBS@
 STRIP = @STRIP@
 TEMPLATE_AR = @TEMPLATE_AR@
 TEMPLATE_ARFLAGS = @TEMPLATE_ARFLAGS@
@@ -265,6 +266,7 @@ AM_FCFLAGS = @INCLUDE_MODULE_FLAG@.  @INCLUDE_MODULE_FLAG@..
 noinst_LIBRARIES = libbinio.a
 libbinio_a_SOURCES = binio.c kinds.f90 biniomod.f90
 ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
+CLEANFILES = *.mod
 all: all-recursive
 
 .SUFFIXES:
@@ -532,6 +534,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
