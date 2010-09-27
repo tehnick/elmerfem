@@ -5510,7 +5510,6 @@ void MainWindow::generateSifSlot()
 }
 
 
-
 // Boundady selected by double clicking (signaled by glWidget::select):
 //-----------------------------------------------------------------------------
 void MainWindow::boundarySelectedSlot(list_t *l)

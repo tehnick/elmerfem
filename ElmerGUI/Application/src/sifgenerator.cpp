@@ -142,14 +142,18 @@ void SifGenerator::makeHeaderBlock()
   if(ui.checkKeywordsWarn->isChecked())
     te->append("  CHECK KEYWORDS Warn");
 
-  const QString &qs1 = ui.meshDBEdit1->text().trimmed(); 
-  const QString &qs2 = ui.meshDBEdit2->text().trimmed(); 
-  const QString &qs3 = ui.includePathEdit->text().trimmed(); 
-  const QString &qs4 = ui.resultsDirectoryEdit->text().trimmed(); 
-  
+  QString qs1 = ui.meshDBEdit1->text().trimmed();
+  QString qs2 = ui.meshDBEdit2->text().trimmed(); 
+  QString qs3 = ui.includePathEdit->text().trimmed(); 
+  QString qs4 = ui.resultsDirectoryEdit->text().trimmed(); 
+  QString qs5 = ui.headerFreeTextEdit->toPlainText();
+
   te->append("  Mesh DB \"" +  qs1 + "\" \"" + qs2 + "\"");
   te->append("  Include Path \"" + qs3 + "\"");
   te->append("  Results Directory \"" + qs4 + "\"");
+
+  if(!qs5.isEmpty())
+    te->append(qs5);
 
   te->append("End\n");
 }
@@ -187,6 +191,11 @@ void SifGenerator::makeSimulationBlock()
   addSifLine("  Post File = ", 
 	     ui.postFileEdit->text().trimmed());
 
+  QString qs = ui.simulationFreeTextEdit->toPlainText();
+
+  if(!qs.isEmpty())
+    te->append(qs);
+
   te->append("End\n");
 }
 
@@ -208,6 +217,11 @@ void SifGenerator::makeConstantsBlock()
 	     ui.boltzmannEdit->text().trimmed());
   addSifLine("  Unit Charge = ",
 	     ui.unitChargeEdit->text().trimmed());
+
+  QString qs = ui.constantsFreeTextEdit->toPlainText();
+
+  if(!qs.isEmpty())
+    te->append(qs);
 
   te->append("End\n");
 }
