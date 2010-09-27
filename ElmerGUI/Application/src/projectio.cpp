@@ -149,6 +149,37 @@ void ProjectIO::appendToProject(QDomDocument *projectDoc, QDomElement *item)
     widget.appendChild(text);
   }
 
+  // Text edits:
+  //-------------
+  QList<QTextEdit *> allTextEdits = parentWidget->findChildren<QTextEdit *>();
+  
+  for(int i = 0; i < allTextEdits.size(); i++) {
+    QTextEdit *te = allTextEdits.at(i);
+
+    if(!te)
+      continue;
+
+    QString teObjectName = te->objectName();
+    QString teValue = te->toPlainText();
+
+    if(teObjectName.isEmpty())
+      continue;
+
+    QDomElement widget = projectDoc->createElement("widget");
+    widget.setAttribute("type", "TextEdit");
+    item->appendChild(widget);
+    
+    QDomElement objectName = projectDoc->createElement("objectName");
+    QDomText objectNameValue = projectDoc->createTextNode(teObjectName);
+    objectName.appendChild(objectNameValue);
+    widget.appendChild(objectName);
+
+    QDomElement text = projectDoc->createElement("text");
+    QDomText textValue = projectDoc->createTextNode(teValue);
+    text.appendChild(textValue);
+    widget.appendChild(text);
+  }
+
   // Combo boxes:
   //--------------
   QList<QComboBox *> allComboBoxes = parentWidget->findChildren<QComboBox *>(); 
@@ -276,13 +307,49 @@ void ProjectIO::readFromProject(QDomDocument *projectDoc, QDomElement *item)
     int index = leObjectNames.indexOf(objectName);
     
     if(index < 0) {
-      cout << "Load project: Line edit: mismatch with object name" << endl;
+      cout << "Load project: LineEdit: mismatch with object name" << endl;
       cout << "*** " << string(objectName.toAscii()) << " ***" << endl;
       return;
     }
 
     QLineEdit *le = allLineEdits.at(index);
     le->setText(text);
+  }
+
+  // Text edits:
+  //-------------
+  QList<QTextEdit *> allTextEdits = parentWidget->findChildren<QTextEdit *>(); 
+
+  QList<QString> teObjectNames;
+
+  for(int i = 0; i < allTextEdits.size(); i++)
+    teObjectNames.append(allTextEdits.at(i)->objectName());
+
+  widget = item->firstChildElement("widget");
+  for( ; !widget.isNull(); widget = widget.nextSiblingElement()) {
+
+    QString type = widget.attribute("type").trimmed();
+
+    if(type != "TextEdit")
+      continue;
+
+    QString objectName = widget.firstChildElement("objectName").text().trimmed();
+    QString text = widget.firstChildElement("text").text().trimmed();
+
+    if(objectName.isEmpty())
+      continue;
+
+    int index = teObjectNames.indexOf(objectName);
+    
+    if(index < 0) {
+      cout << "Load project: TextEdit: mismatch with object name" << endl;
+      cout << "*** " << string(objectName.toAscii()) << " ***" << endl;
+      return;
+    }
+
+    QTextEdit *te = allTextEdits.at(index);
+    te->clear();
+    te->append(text);
   }
 
   // Combo boxes:

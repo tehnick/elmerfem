@@ -502,6 +502,9 @@ void SifGenerator::makeEquationBlocks()
 	  
 	  if(elem.attribute("Widget", "") == "Combo")
 	    handleComboBox(elem, widget);
+
+	  if(elem.attribute("Widget", "") == "TextEdit")
+	    handleTextEdit(elem, widget);
         }
       }
 
@@ -601,6 +604,9 @@ void SifGenerator::makeMaterialBlocks()
 	
 	 if(elem.attribute("Widget", "") == "Combo")
 	   handleComboBox(elem, widget);
+
+	 if(elem.attribute("Widget", "") == "TextEdit")
+	   handleTextEdit(elem, widget);
         }
       }
       te->append("End\n");
@@ -640,6 +646,9 @@ void SifGenerator::makeBodyForceBlocks()
 	  
 	  if(elem.attribute("Widget", "") == "Combo")
 	    handleComboBox(elem, widget);
+
+	  if(elem.attribute("Widget", "") == "TextEdit")
+	    handleTextEdit(elem, widget);
         }
       }
       te->append("End\n");
@@ -679,6 +688,9 @@ void SifGenerator::makeInitialConditionBlocks()
 	  
 	  if(elem.attribute("Widget", "") == "Combo")
 	    handleComboBox(elem, widget);
+
+	  if(elem.attribute("Widget", "") == "TextEdit")
+	    handleTextEdit(elem, widget);
         }
       }
       te->append("End\n");
@@ -751,6 +763,9 @@ void SifGenerator::makeBoundaryBlocks()
 		
 		if(elem.attribute("Widget", "") == "Combo")
 		  handleComboBox(elem, widget);
+
+		if(elem.attribute("Widget", "") == "TextEdit")
+		  handleTextEdit(elem, widget);
 	      }
 	    }
 	  }
@@ -760,8 +775,6 @@ void SifGenerator::makeBoundaryBlocks()
     }
   }
 }
-
-
 
 // Parse "Solver specific tab"
 //-----------------------------------------------------------------------------
@@ -862,6 +875,9 @@ bool SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, const QStrin
 
      if(elem.attribute("Widget", "") == "Combo")
        handleComboBox(elem, widget);
+
+     if(elem.attribute("Widget", "") == "TextEdit")
+       handleTextEdit(elem, widget);
     }
   }
 
@@ -1093,6 +1109,13 @@ void SifGenerator::handleLineEdit(const QDomElement &elem, QWidget *widget)
   QLineEdit *lineEdit = static_cast<QLineEdit*>(widget);
   QString value = lineEdit->text().trimmed();
   addSifLine("  " + name + " = ", value);
+}
+
+void SifGenerator::handleTextEdit(const QDomElement &elem, QWidget *widget)
+{
+  QTextEdit *textEdit = static_cast<QTextEdit*>(widget);
+  QString value = textEdit->toPlainText();
+  if(!value.isEmpty()) te->append(value);
 }
 
 void SifGenerator::handleComboBox(const QDomElement &elem, QWidget *widget)

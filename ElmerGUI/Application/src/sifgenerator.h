@@ -128,6 +128,7 @@ class SifGenerator  {
   void handleLineEdit(const QDomElement&, QWidget*);
   void handleComboBox(const QDomElement&, QWidget*);
   void handleCheckBox(const QDomElement&, QWidget*);
+  void handleTextEdit(const QDomElement&, QWidget*);
 };
 
 #endif // SIFGENERATOR_H

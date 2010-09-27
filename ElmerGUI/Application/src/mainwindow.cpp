@@ -1714,7 +1714,8 @@ void MainWindow::saveProjectSlot()
 
 // Helper function for saveProject
 //-----------------------------------------------------------------------------
-void MainWindow::saveProjectContents(QDomDocument projectDoc, QString blockName, 
+void MainWindow::saveProjectContents(QDomDocument projectDoc,
+				     QString blockName, 
 				     QVector<DynamicEditor*>& editor)
 {
   int Nmax = editor.size();
