@@ -393,84 +393,84 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
       IF( r2( ActiveDirection) > CoordMax .OR.  &
           r2( ActiveDirection) < CoordMin .OR.  &
           ABS( v2( ActiveDirection) ) < TINY( CoordMin ) ) THEN
-	    v1 = v2 
-		CYCLE
-	  END IF 
+        v1 = v2 
+        CYCLE
+      END IF
 	  	  
 
 ! the simple average velocity from the mean of surface velocities 		  
       vave = Alpha*v2 + (1-Alpha)*v1	  
-	  	  
-	  IF( TrueLines ) THEN 
+      
+      IF( TrueLines ) THEN 
         drproj = 0.0_dp
-	    sumds = SQRT( SUM ( sumdr ** 2) )
-
+        sumds = SQRT( SUM ( sumdr ** 2) )
+        
         DO l=1,AveOrder
-		  IF( sumds > 1.0d-20 ) THEN
+          IF( sumds > 1.0d-20 ) THEN
 ! Averaging of velocity could be done in two ways:
 ! 1) taking velocity at average of r1 and r2
 ! 2) taking average of velocities at r1 and r2
 
             IF( AveMode == 1 ) THEN
-		      GlobalCoords = 0.5*(r1 + r2) + sumdr + 0.5*drproj
-		    ELSE
-			  GlobalCoords = r2 + sumdr + drproj 
+              GlobalCoords = 0.5*(r1 + r2) + sumdr + 0.5*drproj
+            ELSE
+              GlobalCoords = r2 + sumdr + drproj 
             END IF
-		    CALL ComputeVeloAtPoint(GlobalCoords, k, OutOfMesh, VeloAtPoint ) 
-	        Shots = Shots + 1
-			
-		    IF( OutOfMesh ) THEN
+            CALL ComputeVeloAtPoint(GlobalCoords, k, OutOfMesh, VeloAtPoint ) 
+            Shots = Shots + 1
+            
+            IF( OutOfMesh ) THEN
               IF( AveMode == 1 ) THEN
-	   	        GlobalCoords = 0.5*(r1 + r2) 
-		      ELSE
-			    GlobalCoords = r2 + sumdr + drproj 
-              END IF
-
-			  CALL ComputeVeloAtPoint(GlobalCoords, k, OutOfMesh, VeloAtPoint, &
-				  GradVeloAtPoint ) 
-		      IF( .NOT. OutOfMesh ) THEN
-			    IF( GotHitStyle ) HitField( HitPerm(k) ) = -1.0_dp * l
-				VelCor = 0
-				DO n=1,3
-				  IF( n == ActiveDirection ) CYCLE
-				  VelCor = VelCor + GradVeloAtPoint(1:3,n) * dr(n)
-				END DO
-				IF( AveMode == 1 ) THEN
-			      vave = VeloAtPoint  + VelCor 
-                ELSE
-			      v2 = VeloAtPoint + VelCor
-			      vave = Alpha * v2 + (1-Alpha) * v1
-			    END IF
-			  END IF
-			ELSE  
-			  IF( GotHitStyle ) HitField( HitPerm(k) ) = 1.0_dp * l
-			  
-			  Hits = Hits + 1
-		      IF( AveMode == 1 ) THEN
-			    vave = VeloAtPoint  
+                GlobalCoords = 0.5*(r1 + r2) 
               ELSE
-			    v2 = VeloAtPoint 
-			    vave = Alpha * v2 + (1-Alpha) * v1
-			  END IF
-	        END IF
+                GlobalCoords = r2 + sumdr + drproj 
+              END IF
+              
+              CALL ComputeVeloAtPoint(GlobalCoords, k, OutOfMesh, VeloAtPoint, &
+                  GradVeloAtPoint ) 
+              IF( .NOT. OutOfMesh ) THEN
+                IF( GotHitStyle ) HitField( HitPerm(k) ) = -1.0_dp * l
+                VelCor = 0
+                DO n=1,3
+                  IF( n == ActiveDirection ) CYCLE
+                  VelCor = VelCor + GradVeloAtPoint(1:3,n) * dr(n)
+                END DO
+                IF( AveMode == 1 ) THEN
+                  vave = VeloAtPoint  + VelCor 
+                ELSE
+                  v2 = VeloAtPoint + VelCor
+                  vave = Alpha * v2 + (1-Alpha) * v1
+                END IF
+              END IF
+            ELSE  
+              IF( GotHitStyle ) HitField( HitPerm(k) ) = 1.0_dp * l
+              
+              Hits = Hits + 1
+              IF( AveMode == 1 ) THEN
+                vave = VeloAtPoint  
+              ELSE
+                v2 = VeloAtPoint 
+                vave = Alpha * v2 + (1-Alpha) * v1
+              END IF
+            END IF
           END IF
           drproj = vave * ABS( dr(ActiveDirection) ) / ABS( vave(ActiveDirection) ) - dr
-	      sumds = SQRT( SUM (( sumdr + drproj ) ** 2) )
-		END DO
-	  ELSE
+          sumds = SQRT( SUM (( sumdr + drproj ) ** 2) )
+        END DO
+      ELSE
         drproj = vave * ABS( dr(ActiveDirection) ) / ABS( vave(ActiveDirection) ) - dr
-	  END IF
-	  
+      END IF
+      
       
       sumdr = sumdr + drproj 	  
       sumdr( ActiveDirection ) = 0.0_dp
-	  
-	  DO l=1,dim	  
+      
+      DO l=1,dim	  
         HardDisp( DispDofs*(DispPerm(k)-1)+l) = sumdr(l)
       END DO
-	  
-	  v1 = v2
-	  
+      
+      v1 = v2
+      
       ! This is the bottom and we're done?
       IF( k == BotPointer(k) ) EXIT
       
@@ -500,8 +500,8 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   at1 = CPUTime()
   
   IF( TrueLines ) THEN
-    print *,'Shots:',Shots
-    print *,'Hits:',Hits
+    PRINT *,'Shots:',Shots
+    PRINT *,'Hits:',Hits
   END IF
   
   WRITE(Message,'(A,F8.3)' ) 'Streamline mapping time: ',at1-at0
