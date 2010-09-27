@@ -602,6 +602,26 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
 
   !------------------------------------------------------------------------------
+  !   Add free form expressions with GetCReal
+  !------------------------------------------------------------------------------
+
+
+  NoVar = 0
+  GotVar = .TRUE.
+  DO WHILE( GotVar )
+    NoVar = NoVar + 1    
+    IF(NoVar < 10) THEN 
+      WRITE (Name,'(A,I2)') 'Expression',NoVar
+    ELSE
+      WRITE (Name,'(A,I3)') 'Expression',NoVar
+    END IF
+
+    Value = ListGetCReal( SolverParams, TRIM(Name), GotVar )
+    IF( GotVar ) CALL AddToSaveList(TRIM(Name),Value)
+  END DO
+
+
+  !------------------------------------------------------------------------------
   !   Add eigenvalues on the list if told to
   !------------------------------------------------------------------------------
 
