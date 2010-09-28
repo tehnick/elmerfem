@@ -39,20 +39,56 @@
 ! *
 ! *****************************************************************************/
 
+
+!------------------------------------------------------------------------------
+SUBROUTINE StructuredFlowLine_init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+  USE Types
+  USE DefUtils
+  USE Lists
+
+  IMPLICIT NONE
+
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL ::  Transient
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+  INTEGER :: dim
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  TYPE(ValueList_t),POINTER :: SolverParams
+  LOGICAL :: GotIt
+
+
+  DIM = CoordinateSystemDimension()
+  SolverParams => GetSolverParams()
+  
+  CALL ListAddLogical( SolverParams,'No Matrix',.TRUE.)
+  
+  VarName = GetString(SolverParams,'Flow Line Displacement Name',GotIt )
+  IF(.NOT. GotIt) VarName = 'FlowLineDisp'
+
+  CALL ListAddString( SolverParams,'Variable',VarName )
+  CALL ListAddInteger( SolverParams,'Variable Dofs',dim )
+
+END SUBROUTINE StructuredFlowLine_init
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
 SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
   USE Types
   USE Lists
-  USE Integration
-  USE ElementDescription
-  USE ElementUtils
-  USE SolverUtils
-  USE MeshUtils
-  USE BandwidthOptimize
+!  USE Integration
+!  USE ElementDescription
+!  USE ElementUtils
+!  USE SolverUtils
+!  USE MeshUtils
+!  USE BandwidthOptimize
 
-  USE CoordinateSystems
+!  USE CoordinateSystems
   USE DefUtils
 
   IMPLICIT NONE
@@ -99,7 +135,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   REAL(KIND=dp) :: UnitVector(3),x0loc,x0bot,x0top,xloc,wtop,BotVal,TopVal,&
       ElemVector(3),DotPro,Eps,Length,sumds
   REAL(KIND=dp) :: r1(3),r2(3),v1(3),v2(3),dr(3),vave(3),drproj(3),VelCor(3),&
-      CoordMax,CoordMin,sumdr(3),Relax,Alpha
+      CoordMax,CoordMin,sumdr(3),Relax,Alpha,Norm
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: Coord(:),BotField(:),TopField(:),Field(:),Surface(:),Flow(:), &
       HardDisp(:), HitField(:)
@@ -113,10 +149,11 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   
   SAVE VisitedTimes,Initialized,UnitVector,Coord,TopPointer,BotPointer,&
       DownPointer,UpPointer,TopMode,BotMode,TopField,BotField,TopPerm,BotPerm,Field,&
-      Surface,Dim,HardDisp,DispPerm,MaskPerm,ActiveDirection
+      Surface,Dim,HardDisp,DispPerm,MaskPerm,MaskExist,ActiveDirection
   
+
   CALL Info( 'StructuredFlowLine','---------------------------------------',Level=4 )
-  CALL Info( 'StructuredFlowLine','Performing mapping on a structured mesh ',Level=4 )
+  CALL Info( 'StructuredFlowLine','Setting edges to follow the streamlines ',Level=4 )
   CALL Info( 'StructuredFlowLine','---------------------------------------',Level=4 )
 
 !------------------------------------------------------------------------------
@@ -133,23 +170,23 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   i = GetInteger( SolverParams,'True Flow Line Iterations')
   TrueLines = ( i > VisitedTimes )
 
-  ! one is a good default
+  ! one is a good default for the averaging order
   AveOrder = GetInteger( SolverParams,'Averaging Order',GotIt)
   IF( TrueLines ) AveOrder = MAX( 1, AveOrder )
   
   ! zero is a good default
   AveMode = GetInteger( SolverParams,'Averaging Method',GotIt)
+  DIM = CoordinateSystemDimension()
   
-  
+
   IF( .NOT. Initialized ) THEN
     
     at0 = CPUTime()
-    
+
     NULLIFY(Field)
     
     ! Choose active direction coordinate and set corresponding unit vector
     !---------------------------------------------------------------------
-    DIM = CoordinateSystemDimension()
     ActiveDirection = GetInteger(SolverParams,'Active Coordinate')
     IF(ActiveDirection == 1) THEN
       Coord => Solver % Mesh % Nodes % x
@@ -163,6 +200,26 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     UnitVector = 0.0_dp
     UnitVector(ActiveDirection) = 1.0_dp
     
+    ! Make the mask used in matrix structures and permulation
+    !-------------------------------------------------------  
+
+    MaskName = 'Flow Line'
+    n = Mesh % NumberOfNodes
+    ALLOCATE( MaskPerm(n) )
+    n = 0
+    MaskPerm = 0
+    Psolver => Solver
+    CALL MakePermUsingMask( Model,PSolver,Mesh,TRIM(MaskName), &
+        .FALSE., MaskPerm, n )
+    IF( n == 0 ) THEN
+      MaskExist = .FALSE.
+      DEALLOCATE( MaskPerm )
+    ELSE
+      MaskExist = .TRUE.
+      WRITE(Message,'(A,I6)') 'Number of nodes on '//TRIM(MaskName),n
+      CALL Info('StructuredFlowLine',Message) 
+    END IF
+
     ! Allocate pointers to top and bottom, and temporary pointers up and down
     !------------------------------------------------------------------------
     nsize = SIZE( Coord )
@@ -188,18 +245,26 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     DO elem = 1,Mesh % NumberOfBulkElements      
       Element => Mesh % Elements(elem)
       NodeIndexes => Element % NodeIndexes
+
+      IF( MaskExist ) THEN
+        IF( ALL(MaskPerm(NodeIndexes) == 0) ) CYCLE
+      END IF
+
       Model % CurrentElement => Element
       CALL GetElementNodes( Nodes )
       n  = GetElementNOFNodes()
-      
-      IF( MaskExist ) THEN
-        IF( ANY(MaskPerm(NodeIndexes) == 0) ) CYCLE
-      END IF
-      
+            
       DO i=1,n
         ii = NodeIndexes(i)
+        IF( MaskExist ) THEN
+          IF( MaskPerm(ii) == 0 ) CYCLE          
+        END IF
+
         DO j=i+1,n
           jj = NodeIndexes(j)
+          IF( MaskExist ) THEN
+            IF( MaskPerm(jj) == 0 ) CYCLE          
+          END IF
           
           ElemVector(1) = Nodes % x(j) - Nodes % x(i)
           ElemVector(2) = Nodes % y(j) - Nodes % y(i)
@@ -259,7 +324,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   !-------------------------------------------------------
 
 
-  ! Get the variables
+  ! Get the velocity variables
   !-------------------------------------------------------
   VarName = GetString(SolverParams,'Velocity Variable Name',GotIt )
   IF(.NOT. GotIt) VarName = 'Flow Solution'
@@ -272,40 +337,20 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     CALL Fatal('StructuredFlowLine','Velocity variable is missing: '//TRIM(VarName))
   END IF
   
-  
-  ! Get or create the result field
+
+  ! Get result field for suggested displacement
   !-------------------------------------------------------
-  VarName = GetString(SolverParams,'Hard Displacement Name',GotIt )
-  IF(.NOT. GotIt) VarName = 'HardDisp'
-  Var => VariableGet( Mesh % Variables,  VarName )
+  VarName = GetString(SolverParams,'Flow Line Displacement Name',GotIt )
+  IF(.NOT. GotIt) VarName = 'FlowLineDisp'
+
+  NULLIFY(Var)
+  Var => VariableGet( Solver % Mesh % Variables, VarName, ThisOnly = .TRUE. )
   IF(ASSOCIATED(Var)) THEN
     HardDisp => Var % Values
     DispPerm => Var % Perm
     DispDofs = Var % DOFs
   ELSE
-    MaskName = 'Flow Line'
-    n = Mesh % NumberOfNodes
-    ALLOCATE( DispPerm(n) )
-    n = 0
-    DispPerm = 0
-    Psolver => Solver
-    CALL MakePermUsingMask( Model,PSolver,Mesh,TRIM(MaskName), &
-          .FALSE., DispPerm, n )
-    WRITE(Message,'(A,I6)') 'Number of nodes on '//TRIM(MaskName),n
-    CALL Info('StructuredFlowLine',Message) 
-    IF( n == 0 ) THEN
-      n = Mesh % NumberOfNodes
-      DO i=1,n
-        DispPerm(i) = i
-      END DO
-    END IF
-    dispdofs = dim
-    ALLOCATE( HardDisp(3*n))
-    HardDisp = 0.0_dp
-
-    CALL VariableAddVector( Mesh % Variables, Mesh, &
-          Solver,TRIM(VarName),3,HardDisp,DispPerm)
-    CALL Info('StructuredFlowLine','Created hard displacement variable: '//TRIM(VarName))
+    CALL Fatal('StructuredFlowLine','Flow line displacement variable does not exist!')
   END IF    
   
   IF( DispDofs /= DIM ) THEN 
@@ -316,21 +361,13 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   !-----------------------------------------------------------------------
   VarName = GetString(SolverParams,'Hit Style Name',GotIt )
   IF(.NOT. GotIt) VarName = 'HitStyle'
-  Var => VariableGet( Solver % Mesh % Variables,  VarName )
+  Var => VariableGet( Solver % Mesh % Variables,VarName )
   GotHitStyle = ASSOCIATED(Var)
   IF( GotHitStyle ) THEN
     HitField => Var % Values
     HitPerm => Var % Perm
   END IF
   
-
-  ! For more complicated geometries one may mark the domain of free flow
-  !-----------------------------------------------------------------------
-  MaskName = 'Free Flow'
-  CALL MakePermUsingMask( Model,Solver,Mesh,MaskName, &
-          .FALSE., MaskPerm, n )
-  MaskExist = ( n > 0 )
-
   
   DisplacementMode = GetLogical(SolverParams,'Displacement Mode',Found)
   
@@ -358,8 +395,9 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     
     IF( i /= itop ) CYCLE	
 
-    k = i
     ! First node of streamline is initilized	
+    !-------------------------------------------------------------------
+    k = i
     v1(1) = Flow( FlowDofs*(FlowPerm(k)-1) + 1 ) 
     v1(2) = Flow( FlowDofs*(FlowPerm(k)-1) + 2 ) 
     IF( DIM == 3 ) THEN
@@ -388,8 +426,9 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
         v2(3) = Flow( FlowDofs*(FlowPerm(k)-1) + 3 ) 
       END IF
 
-! Check the passive regions
-! For no-slip condition the surface is always fixed
+      ! Check the passive regions
+      ! For no-slip condition the surface is always fixed
+      !-------------------------------------------------------------------
       IF( r2( ActiveDirection) > CoordMax .OR.  &
           r2( ActiveDirection) < CoordMin .OR.  &
           ABS( v2( ActiveDirection) ) < TINY( CoordMin ) ) THEN
@@ -398,19 +437,25 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
       END IF
 	  	  
 
-! the simple average velocity from the mean of surface velocities 		  
+      ! Simple average velocity from the mean of surface velocities 		  
+      !-------------------------------------------------------------------
       vave = Alpha*v2 + (1-Alpha)*v1	  
       
+
+      ! A more complex velocity estimation is preferable in the start
+      !-------------------------------------------------------------------
       IF( TrueLines ) THEN 
         drproj = 0.0_dp
         sumds = SQRT( SUM ( sumdr ** 2) )
         
         DO l=1,AveOrder
           IF( sumds > 1.0d-20 ) THEN
-! Averaging of velocity could be done in two ways:
-! 1) taking velocity at average of r1 and r2
-! 2) taking average of velocities at r1 and r2
 
+            ! Averaging of velocity may be done in two ways:
+            ! 1) taking velocity at average of r1 and r2
+            ! 2) taking average of velocities at r1 and r2
+            !-------------------------------------------------
+            
             IF( AveMode == 1 ) THEN
               GlobalCoords = 0.5*(r1 + r2) + sumdr + 0.5*drproj
             ELSE
@@ -477,17 +522,23 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
     END DO
   END DO
 
+  Norm = SQRT( SUM(HardDisp**2) / MAXVAL( DispPerm  ) )
+  WRITE( Message,* ) 'Result Norm: ',Norm
+  CALL Info('StructuredFlowLine', Message ) 
+
+
   Relax = GetCReal( Solver % Values,'Nonlinear System Relaxation Factor',GotIt)
   IF( GotIt .AND. ABS(Relax - 1.0_dp) > TINY(Relax) ) THEN
     HardDisp = Relax * HardDisp 
   END IF
   
   IF( DisplacementMode ) THEN
+    CALL Info('StructuredFlowLine','Moving the nodes')
     DO k=1,nsize
       IF( MaskExist ) THEN
         IF( MaskPerm(i) == 0) CYCLE
       END IF
-    
+
       Mesh % Nodes % x(k) = Mesh % Nodes % x(k) + &
 	      HardDisp( DispDofs*(DispPerm(k)-1)+1) 
       Mesh % Nodes % y(k) = Mesh % Nodes % y(k) + &
@@ -500,8 +551,10 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
   at1 = CPUTime()
   
   IF( TrueLines ) THEN
-    PRINT *,'Shots:',Shots
-    PRINT *,'Hits:',Hits
+    WRITE(Message,*) 'Velocity estimations, total: ',Shots
+    CALL Info('StructuredFlowLine',Message)
+    WRITE(Message,*) 'Velocity estimations, inside: ',Hits
+    CALL Info('StructuredFlowLine',Message)
   END IF
   
   WRITE(Message,'(A,F8.3)' ) 'Streamline mapping time: ',at1-at0
@@ -579,7 +632,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
 
     IF(.NOT. Hit) THEN
 
-      IF( DummySearch ) THEN
+      IF( dim == 2 .OR. DummySearch ) THEN
         
         !----------------------------------------------------------
         ! Go through all bulk elements in a dummy search.
@@ -621,7 +674,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
           
           CALL BuildQuadrantTree( Mesh,BoundingBox,Mesh % RootQuadrant)
         END IF
-
+        
         RootQuadrant => Mesh % RootQuadrant
         IF ( ASSOCIATED(RootQuadrant) ) THEN
           NULLIFY(CurrentElement)
@@ -658,8 +711,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
       
       u = LocalCoords(1)
       v = LocalCoords(2)
-      w = LocalCoords(3)
-     
+      w = LocalCoords(3)     
 	 
       stat = ElementInfo( CurrentElement, ElementNodes, U, V, W, SqrtElementMetric, &
           Basis, dBasisdx )
@@ -667,37 +719,25 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
       ! Compute the representative size of the elements
       IF( PRESENT(ElementSize) ) ElementSize = SqrtElementMetric ** ( 1.0_dp / DIM )
       
-!      IF( GotPotField ) THEN
-!        IF( ALL ( PotFieldPerm( NodeIndexes) > 0 )) THEN
-!          DO i=1,DIM
-!            GradientAtPoint(i) = &
-!                SUM( dBasisdx(1:n,i) * PotField( PotFieldPerm( NodeIndexes ) ) )
-!          END DO
-!        END IF
-!      END IF
-      
-!      IF( GotVeloField ) THEN
-        IF( ALL ( FlowPerm( NodeIndexes) > 0 )) THEN
-          DO i=1,DIM
-            VeloAtPoint(i) = SUM( Basis(1:n) * &
-                Flow( FlowDofs*( FlowPerm( NodeIndexes )-1)+i ) )
-            
-            IF( PRESENT(GradVeloAtPoint) ) THEN
-              DO j=1,DIM
-                GradVeloAtPoint(i,j) = SUM( dBasisdx(1:n,j) * &
-                    Flow( FlowDofs*( FlowPerm( NodeIndexes )-1)+i ) )                  
-              END DO
-            END IF
-          END DO
-        END IF
-!      END IF
+      IF( ALL ( FlowPerm( NodeIndexes) > 0 )) THEN
+        DO i=1,DIM
+          VeloAtPoint(i) = SUM( Basis(1:n) * &
+              Flow( FlowDofs*( FlowPerm( NodeIndexes )-1)+i ) )
+          
+          IF( PRESENT(GradVeloAtPoint) ) THEN
+            DO j=1,DIM
+              GradVeloAtPoint(i,j) = SUM( dBasisdx(1:n,j) * &
+                  Flow( FlowDofs*( FlowPerm( NodeIndexes )-1)+i ) )                  
+            END DO
+          END IF
+        END DO
+      END IF
       
       ! for debugging purposes
       IF(.FALSE.) THEN
         PRINT *,'x:',SUM( Basis(1:n) * Mesh % Nodes % x( NodeIndexes ) )
         PRINT *,'y:',SUM( Basis(1:n) * Mesh % Nodes % y( NodeIndexes ) )
         PRINT *,'z:',SUM( Basis(1:n) * Mesh % Nodes % z( NodeIndexes ) )
-        PRINT *,'GradAtPoint:',GradientAtPoint
         PRINT *,'VeloAtPoint:i',VeloAtPoint
         CALL flush(6)
       END IF

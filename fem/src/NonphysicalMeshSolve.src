@@ -74,7 +74,7 @@
 !    Local variables
 !------------------------------------------------------------------------------
   INTEGER :: i,j,k,n,nd,nb,t,ind,STDOFs,LocalNodes,istat,dim
-  INTEGER :: VisitedTimes = 0, iter
+  INTEGER :: VisitedTimes = 0
 
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t),POINTER :: Material, BC
@@ -194,20 +194,10 @@
   at  = CPUTime()
   at0 = RealTime()
 
-  
-  CALL Info( 'MeshSolve', ' ', Level=4 )
-  IF( iter > 1 ) THEN
-    WRITE( Message, * ) 'Iteration   : ',iter
-    CALL Info( 'MeshSolve', Message, Level=4 )
-  END IF
-  CALL Info( 'MeshSolve', 'Starting assembly...', Level=4 )
-  
-  
-  !------------------------------------------------------------------------------
   CALL DefaultInitialize()
-  !------------------------------------------------------------------------------
-
   CALL StartAdvanceOutput( 'NonphysicalMeshSolve', 'Assembly: ' )
+!------------------------------------------------------------------------------
+
   
   DO t=1,Solver % NumberOfActiveElements
     
@@ -430,7 +420,7 @@
      CALL GetElementNodes( Nodes )
      dim = CoordinateSystemDimension()
 
-     Coeff = ListGetConstReal( Solver % Values,'Coeff')
+     Coeff = ListGetConstReal( Solver % Values,'Mass Coefficient',Stat)
      
      IF ( PlaneStress ) THEN
         NodalLame1(1:n) = NodalYoung(1:n) * NodalPoisson(1:n) / &
