@@ -53,6 +53,16 @@ GeneralSetup::GeneralSetup(QWidget *parent)
 	  this, SLOT(acceptButtonClicked()));
 
   setWindowIcon(QIcon(":/icons/Mesh3D.png"));
+
+  // Set minimum height for free text editors:
+  QTextEdit *te = ui.headerFreeTextEdit;
+  QFont currentFont = te->currentFont();
+  QFontMetrics fontMetrics(currentFont);
+  int fontHeight = fontMetrics.height();
+
+  ui.headerFreeTextEdit->setMinimumHeight(3*fontHeight);
+  ui.simulationFreeTextEdit->setMinimumHeight(3*fontHeight);
+  ui.constantsFreeTextEdit->setMinimumHeight(3*fontHeight);  
 }
 
 GeneralSetup::~GeneralSetup()

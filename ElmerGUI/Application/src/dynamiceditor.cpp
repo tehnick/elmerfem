@@ -155,11 +155,19 @@ void DynamicEditor::setupTabs(QDomDocument *elmerDefs, const QString &Section, i
           h.widget = edit->lineEdit;
           edit->lineEdit->setText(paramDefault);
           edit->name = fullName;
-          connect(edit->lineEdit, SIGNAL(returnPressed()), edit, SLOT(editSlot()));
-          connect(edit->lineEdit, SIGNAL(textChanged(QString)), this, SLOT(textChangedSlot(QString)));
+          connect(edit->lineEdit, SIGNAL(returnPressed()),
+		  edit, SLOT(editSlot()));
+          connect(edit->lineEdit, SIGNAL(textChanged(QString)),
+		  this, SLOT(textChangedSlot(QString)));
 
         } else if (widget_type == "TextEdit") {
 	  QTextEdit *textEdit = new QTextEdit;
+	  // set height to 5..8 lines of current font:
+	  QFont currentFont = textEdit->currentFont();
+	  QFontMetrics fontMetrics(currentFont);
+	  int fontHeight = fontMetrics.height();
+	  textEdit->setMinimumHeight(5*fontHeight);
+	  textEdit->setMaximumHeight(8*fontHeight);
 	  h.widget = textEdit;
 
 	} else if ( widget_type == "Combo" ) {
@@ -239,25 +247,26 @@ void DynamicEditor::setupTabs(QDomDocument *elmerDefs, const QString &Section, i
         }
       }
     }
-    // add a dummy widget in the left bottom corner of grid for stretching:
+
+    // add a dummy widget in the left bottom corner:
     QWidget *dummyWidget = new QWidget;
     grid->addWidget(dummyWidget, params, 0);
-
+    grid->setRowStretch(params, 1);
+    
     // put the grid in a widget:
     QWidget *frmWidget = new QWidget;
     frmWidget->setLayout(grid);
-
+    
     // set up the scroll area:
     QScrollArea *src = new QScrollArea;
     src->setWidget(frmWidget);
     src->setMinimumHeight(300);
     src->setWidgetResizable(true);
- 
-   // add the scroll area to tab:
-   if (params>0) {
-     tabWidget->addTab(src, name.text().trimmed());
-   }
-
+    
+    // add the scroll area to the tab:
+    if (params>0)
+      tabWidget->addTab(src, name.text().trimmed());
+    
     tabs++;
     element = element.nextSiblingElement("PDE"); // ML: Added "PDE" 5. August 2010
   }
@@ -504,7 +513,7 @@ QSize DynamicEditor::minimumSizeHint() const
 //----------------------------------------------------------------------------
 QSize DynamicEditor::sizeHint() const
 {
-  return QSize(400, 300);
+  return QSize(400, 500);
 }
 
 //----------------------------------------------------------------------------

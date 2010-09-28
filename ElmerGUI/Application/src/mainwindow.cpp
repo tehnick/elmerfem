@@ -275,14 +275,12 @@ MainWindow::MainWindow()
   this->resize(defW, defH);
 }
 
-
 // dtor...
 //-----------------------------------------------------------------------------
 MainWindow::~MainWindow()
 {
+  qApp->closeAllWindows();
 }
-
-
 
 // Set limits for dynamic editors, materials, bcs, etc...
 //-----------------------------------------------------------------------------
