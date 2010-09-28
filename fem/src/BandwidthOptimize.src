@@ -295,7 +295,6 @@ use spariterglobals
          INTEGER :: stackp
          TYPE(Stack_t), POINTER :: stack(:), copystack(:)
 !-------------------------------------------------------------------------------
-
          n = nin
          Level=Levelin
 
@@ -303,40 +302,42 @@ use spariterglobals
          stackp = 0
 
          p=>ListMatrix(n) % Head
-
-10       IF ( stackp>=SIZE(stack) ) THEN
-           ALLOCATE( copystack(stackp*2) )
-           copystack(1:stackp) = stack(1:stackp)
-           DEALLOCATE(stack)
-           stack => copystack
-         END IF
-
-         stackp = stackp+1
-         stack(stackp) % p => p
-
-         ListMatrix(n) % Level = Level
-         DoneAlready(n) = .TRUE.
-         MaxLevel = MAX( MaxLevel,Level )
-
-         p => ListMatrix(n) % Head
-
-20       IF ( .NOT. ASSOCIATED(p) ) GOTO 40
-         k = p % Index
-         IF ( k <= LocalNodes ) THEN
-           IF ( .NOT.DoneAlready(k) ) THEN
-             n=k
-             Level=Level+1
-             GOTO 10
+         DO WHILE(ASSOCIATED(p))
+           IF ( stackp>=SIZE(stack) ) THEN
+             ALLOCATE( copystack(stackp*2) )
+             copystack(1:stackp) = stack(1:stackp)
+             DEALLOCATE(stack)
+             stack => copystack
            END IF
-         END IF
-30       p => p % Next
-         GOTO 20
+           stackp = stackp+1
+           stack(stackp) % p => p
 
-40       p => stack(stackp) % p
-         Level = Level-1
-         stackp = stackp-1
-         IF ( stackp>=1 ) GOTO 30
-         DEALLOCATE(stack)
+           ListMatrix(n) % Level = Level
+           DoneAlready(n) = .TRUE.
+           MaxLevel = MAX( MaxLevel,Level )
+
+           p => ListMatrix(n) % Head
+
+           DO WHILE(.TRUE.)
+             IF ( ASSOCIATED(p) ) THEN
+               n = p % Index
+               IF ( n <= LocalNodes ) THEN
+                 IF ( .NOT.DoneAlready(n) ) THEN
+                   Level = Level+1; EXIT
+                 END IF
+               END IF
+             ELSE IF ( stackp>=1 ) THEN
+               p => stack(stackp) % p
+               Level  = Level-1
+               Stackp = Stackp-1
+             ELSE
+               EXIT
+             END IF
+             p => p % Next
+           END DO
+         END DO
+
+         DEALLOCATE(Stack)
 !-------------------------------------------------------------------------------
        END SUBROUTINE Levelize
 !-------------------------------------------------------------------------------
