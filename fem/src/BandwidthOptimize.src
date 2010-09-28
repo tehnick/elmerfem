@@ -162,6 +162,7 @@ use spariterglobals
      MaxLevel = 0
      DoneAlready = .FALSE.
  
+#if 0
      CALL Levelize( StartNode,0 )
  
      NewRoot = .TRUE.
@@ -192,6 +193,7 @@ use spariterglobals
          END IF
        END IF
      END DO
+#endif
 !-------------------------------------------------------------------------------
      ALLOCATE( PermLocal(SIZE(Perm)), DoneIndex(LocalNodes) )
      PermLocal = 0
@@ -281,28 +283,66 @@ use spariterglobals
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-       RECURSIVE SUBROUTINE Levelize(n,Level)
+       SUBROUTINE Levelize(nin,Levelin)
 !-------------------------------------------------------------------------------
-         INTEGER :: n,Level
+         INTEGER :: nin,Levelin
 !-------------------------------------------------------------------------------
-         INTEGER :: j,k
+         INTEGER :: j,k,n, Level
          TYPE(ListMatrixEntry_t), POINTER :: p
+
+         TYPE Stack_t
+           TYPE(ListMatrixEntry_t), POINTER :: p
+         END TYPE Stack_t
+
+         INTEGER :: stackp
+         TYPE(Stack_t), POINTER :: stack(:), copystack(:)
 !-------------------------------------------------------------------------------
+
+         n = nin
+         Level=Levelin
+
+         ALLOCATE(stack(512))
+         stackp = 0
+
+10       CONTINUE
+
+         IF ( stackp>=SIZE(stack) ) THEN
+           ALLOCATE( copystack(stackp*2) )
+           copystack(1:stackp) = stack
+           DEALLOCATE(stack)
+           stack => copystack
+         END IF
+
+         stackp = stackp+1
+         Stack(stackp) % p => p
+
          ListMatrix(n) % Level = Level
          DoneAlready(n) = .TRUE.
          MaxLevel = MAX( MaxLevel,Level )
 
          p => ListMatrix(n) % Head
-         DO WHILE( ASSOCIATED(p) )
-           k = p % Index
-           IF ( k <= LocalNodes ) THEN
-             IF ( .NOT.DoneAlready(k) ) CALL Levelize(k,Level+1)
+
+30       IF ( .NOT. ASSOCIATED(p) ) GOTO 40
+         k = p % Index
+         IF ( k <= LocalNodes ) THEN
+           IF ( .NOT.DoneAlready(k) ) THEN
+             n=k
+             Level=Level+1
+             GOTO 10
            END IF
-           p => p % Next
-         END DO
+         END IF
+20       p => p % Next
+         GOTO 30
+
+40       p => Stack(Stackp) % p
+         Level = Level-1
+         Stackp = stackp-1
+         IF ( Stackp>=1 ) GOTO 20
+         DEALLOCATE(Stack)
 !-------------------------------------------------------------------------------
        END SUBROUTINE Levelize
 !-------------------------------------------------------------------------------
+
 
 !-------------------------------------------------------------------------------
    END FUNCTION OptimizeBandwidth
