@@ -302,13 +302,9 @@ use spariterglobals
          ALLOCATE(stack(512))
          stackp = 0
 
-10       ListMatrix(n) % Level = Level
-         DoneAlready(n) = .TRUE.
-         MaxLevel = MAX( MaxLevel,Level )
+         p=>ListMatrix(n) % Head
 
-         p => ListMatrix(n) % Head
-
-         IF ( stackp>=SIZE(stack) ) THEN
+10       IF ( stackp>=SIZE(stack) ) THEN
            ALLOCATE( copystack(stackp*2) )
            copystack(1:stackp) = stack(1:stackp)
            DEALLOCATE(stack)
@@ -317,6 +313,12 @@ use spariterglobals
 
          stackp = stackp+1
          stack(stackp) % p => p
+
+         ListMatrix(n) % Level = Level
+         DoneAlready(n) = .TRUE.
+         MaxLevel = MAX( MaxLevel,Level )
+
+         p => ListMatrix(n) % Head
 
 20       IF ( .NOT. ASSOCIATED(p) ) GOTO 40
          k = p % Index
