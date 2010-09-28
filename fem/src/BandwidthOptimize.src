@@ -286,7 +286,7 @@ use spariterglobals
          INTEGER :: nin,Levelin
 !-------------------------------------------------------------------------------
          INTEGER :: j,k,n, Level
-         TYPE(ListMatrixEntry_t), POINTER :: p
+         TYPE(ListMatrixEntry_t), POINTER :: p=>Null()
 
          TYPE Stack_t
            TYPE(ListMatrixEntry_t), POINTER :: p
@@ -302,7 +302,13 @@ use spariterglobals
          ALLOCATE(stack(512))
          stackp = 0
 
-10       IF ( stackp>=SIZE(stack) ) THEN
+10       ListMatrix(n) % Level = Level
+         DoneAlready(n) = .TRUE.
+         MaxLevel = MAX( MaxLevel,Level )
+
+         p => ListMatrix(n) % Head
+
+         IF ( stackp>=SIZE(stack) ) THEN
            ALLOCATE( copystack(stackp*2) )
            copystack(1:stackp) = stack(1:stackp)
            DEALLOCATE(stack)
@@ -312,13 +318,7 @@ use spariterglobals
          stackp = stackp+1
          stack(stackp) % p => p
 
-         ListMatrix(n) % Level = Level
-         DoneAlready(n) = .TRUE.
-         MaxLevel = MAX( MaxLevel,Level )
-
-         p => ListMatrix(n) % Head
-
-30       IF ( .NOT. ASSOCIATED(p) ) GOTO 40
+20       IF ( .NOT. ASSOCIATED(p) ) GOTO 40
          k = p % Index
          IF ( k <= LocalNodes ) THEN
            IF ( .NOT.DoneAlready(k) ) THEN
@@ -327,13 +327,13 @@ use spariterglobals
              GOTO 10
            END IF
          END IF
-20       p => p % Next
-         GOTO 30
+30       p => p % Next
+         GOTO 20
 
 40       p => stack(stackp) % p
          Level = Level-1
          stackp = stackp-1
-         IF ( stackp>=1 ) GOTO 20
+         IF ( stackp>=1 ) GOTO 30
          DEALLOCATE(stack)
 !-------------------------------------------------------------------------------
        END SUBROUTINE Levelize
