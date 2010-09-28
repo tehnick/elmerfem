@@ -162,7 +162,6 @@ use spariterglobals
      MaxLevel = 0
      DoneAlready = .FALSE.
  
-#if 0
      CALL Levelize( StartNode,0 )
  
      NewRoot = .TRUE.
@@ -193,7 +192,6 @@ use spariterglobals
          END IF
        END IF
      END DO
-#endif
 !-------------------------------------------------------------------------------
      ALLOCATE( PermLocal(SIZE(Perm)), DoneIndex(LocalNodes) )
      PermLocal = 0
@@ -304,17 +302,15 @@ use spariterglobals
          ALLOCATE(stack(512))
          stackp = 0
 
-10       CONTINUE
-
-         IF ( stackp>=SIZE(stack) ) THEN
+10       IF ( stackp>=SIZE(stack) ) THEN
            ALLOCATE( copystack(stackp*2) )
-           copystack(1:stackp) = stack
+           copystack(1:stackp) = stack(1:stackp)
            DEALLOCATE(stack)
            stack => copystack
          END IF
 
          stackp = stackp+1
-         Stack(stackp) % p => p
+         stack(stackp) % p => p
 
          ListMatrix(n) % Level = Level
          DoneAlready(n) = .TRUE.
@@ -334,11 +330,11 @@ use spariterglobals
 20       p => p % Next
          GOTO 30
 
-40       p => Stack(Stackp) % p
+40       p => stack(stackp) % p
          Level = Level-1
-         Stackp = stackp-1
-         IF ( Stackp>=1 ) GOTO 20
-         DEALLOCATE(Stack)
+         stackp = stackp-1
+         IF ( stackp>=1 ) GOTO 20
+         DEALLOCATE(stack)
 !-------------------------------------------------------------------------------
        END SUBROUTINE Levelize
 !-------------------------------------------------------------------------------
