@@ -4929,7 +4929,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: InvPerm(:)
     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
-    INTEGER :: t,i,j,k,l,m,k1,k2,n,p,q,e1,e2,f1,f2,This    
+    INTEGER :: t,i,j,k,l,m,k1,k2,n,p,q,e1,e2,f1,f2,This,bf_id   
     LOGICAL :: Flag, Found, FirstRound
     INTEGER :: Indexes(30), ElemStart, ElemFin, Width
     TYPE(ListMatrixEntry_t), POINTER :: CList, Lptr
@@ -4940,8 +4940,8 @@ CONTAINS
     ! First check if there are active elements for this mask
     ElemStart = HUGE(ElemStart) 
     ElemFin = 0     
-    DO l = 1, Model % NumberOfBodies
-       IF(ListCheckPresent( Model % Bodies(l) % Values,MaskName) ) THEN
+    DO l = 1, Model % NumberOfBodyForces
+       IF(ListCheckPresent( Model % BodyForces(l) % Values,MaskName) ) THEN
           ElemStart = 1
           ElemFin = Mesh % NumberOfBulkElements
           EXIT
@@ -4976,7 +4976,10 @@ CONTAINS
        Found = .FALSE.
        IF(t <= Mesh % NumberOfBulkElements) THEN
           l = CurrentElement % BodyId
-          IF(ListCheckPresent( Model % Bodies(l) % Values, MaskName )) Found = .TRUE.
+	  bf_id = ListGetInteger( Model % Bodies(l) % Values, 'Body Force',Found)
+	  IF( Found ) THEN
+            IF(ListCheckPresent( Model % BodyForces(bf_id) % Values, MaskName )) Found = .TRUE.
+	  END IF 
        ELSE
           DO l=1, Model % NumberOfBCs
              IF ( Model % BCs(l) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
