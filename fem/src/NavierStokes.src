@@ -55,6 +55,7 @@ MODULE NavierStokes
        Convect, StabilizeFlag, Compressible1, Compressible2,                    &
        PseudoCompressible, NodalCompressibility, NodalGasC, Porous, NodalDrag,  &
        PotentialForce, PotentialField, PotentialCoefficient, MagneticForce,     &
+       Rotating, Omega, &
        DivDiscretization,  gradPDiscretization, NewtonLinearization,            &
        Element, n, Nodes )
 !------------------------------------------------------------------------------
@@ -104,6 +105,12 @@ MODULE NavierStokes
 !  LOGICAL :: MagneticForce
 !      INPUT: Should Lorentz force for magnetohydrodynamics be included
 !
+!  LOGICAL :: Rotating
+!      INPUT: Is the coordinate system rotating
+!  
+!  REAL(KIND=dp) :: Omega(:)
+!      INPUT: If previous is True, components of angular velocity
+!
 !  LOGICAL :: NewtonLinearization
 !      INPUT: Picard or Newton linearization of the convetion term ?
 !
@@ -121,10 +128,10 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp),TARGET :: MassMatrix(:,:),StiffMatrix(:,:),ForceVector(:)
-     REAL(KIND=dp), DIMENSION(:) :: Ux,Uy,Uz,MUx,MUy,MUz
+     REAL(KIND=dp), DIMENSION(:) :: Ux,Uy,Uz,MUx,MUy,MUz,Omega
      LOGICAL :: Compressible1, Compressible2, PseudoCompressible, Porous, &
          NewtonLinearization, Convect, DivDiscretization, gradPDiscretization, &
-         PotentialForce, MagneticForce
+         PotentialForce, MagneticForce, Rotating
      CHARACTER(LEN=*) :: StabilizeFlag
      REAL(KIND=dp) :: Nodalmu(:),Nodalrho(:), &
        NodalPressure(:), LoadVector(:,:), NodalTemperature(:), &
@@ -145,7 +152,7 @@ MODULE NavierStokes
      REAL(KIND=dp) :: detJ, NodalBasis(n), dLBasisdx(n,3)
      REAL(KIND=dp) :: PBasis(n), pdBasisdx(n,3),BaseP, dNodalBasisdx(n,n,3)
 
-     REAL(KIND=dp) :: Velo(3),UVelo(3),Grad(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
+     REAL(KIND=dp) :: Velo(3),UVelo(3),Grad(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3), Coord(3)
 
      REAL(KIND=dp), POINTER :: A(:,:),M(:,:),Load(:)
      REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3), VC(6,6), B(6,3), G(3,6)
@@ -153,7 +160,7 @@ MODULE NavierStokes
      REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2,GasC, hScale
      REAL(KIND=dp) :: VNorm,hK,mK,mu,dmudx(3),Temperature
      REAL(KIND=dp) :: drhodx(3), rho, Pressure, dTemperaturedx(3), &
-                      dPressuredx(3),dPrevPressuredx(3), Compress
+                      dPressuredx(3),dPrevPressuredx(3), Compress, masscoeff
 
 
      REAL(KIND=dp) :: Tau_M, Tau_C, Gmat(3,3),Gvec(3), dt=0._dp, C1, NodalVelo(4,n), &
@@ -233,7 +240,7 @@ MODULE NavierStokes
        IF ( PBubbles ) THEN
           NBasis = n + Element % BDOFs
        ELSE IF ( StabilizeFlag == 'bubbles' .OR. &
-              Element % Type % BasisFunctionDegree<=1 ) THEN
+              Element % TYPE % BasisFunctionDegree<=1 ) THEN
           NBasis    = 2 * n
           Bubbles   = .TRUE.
        ELSE
@@ -244,14 +251,14 @@ MODULE NavierStokes
 
      LinearBasis = 0
      IF ( P2P1 ) THEN
-        SaveType => Element % Type
+        SaveType => Element % TYPE
         j = GetElementFamily()
         LinearType => GetElementType(LinearCode(j))
         LinearBasis = LinearType % NumberOFNodes
      END IF
 
      IF ( Bubbles ) THEN
-       IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
+       IntegStuff = GaussPoints( Element, Element % TYPE % GaussPoints2 )
      ELSE
        IntegStuff = GaussPoints( Element )
      END IF
@@ -270,9 +277,9 @@ MODULE NavierStokes
      IF ( Stabilize ) THEN
        dNodalBasisdx = 0._dp
        DO p=1,n
-         u = Element % Type % NodeU(p)
-         v = Element % Type % NodeV(p)
-         w = Element % Type % NodeW(p)
+         u = Element % TYPE % NodeU(p)
+         v = Element % TYPE % NodeV(p)
+         w = Element % TYPE % NodeW(p)
          stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
          dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
        END DO
@@ -285,9 +292,9 @@ MODULE NavierStokes
       dNodalBasisdx = 0._dp
       GradNodal = 0._dp
       DO p=1,n
-         u = Element % Type % NodeU(p)
-         v = Element % Type % NodeV(p)
-         w = Element % Type % NodeW(p)
+         u = Element % TYPE % NodeU(p)
+         v = Element % TYPE % NodeV(p)
+         w = Element % TYPE % NodeW(p)
          stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
 
          dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
@@ -309,11 +316,11 @@ MODULE NavierStokes
       END IF
 
       C1 = 2._dp/mK
-      LC(1,1:n) = Element % Type % NodeU(1:n)
-      LC(2,1:n) = Element % Type % NodeV(1:n)
-      LC(3,1:n) = Element % Type % NodeW(1:n)
+      LC(1,1:n) = Element % TYPE % NodeU(1:n)
+      LC(2,1:n) = Element % TYPE % NodeV(1:n)
+      LC(3,1:n) = Element % TYPE % NodeW(1:n)
 
-      DO i=1,Element % Type % Dimension
+      DO i=1,Element % TYPE % DIMENSION
         minl=MINVAL(LC(i,1:n))
         maxl=MAXVAL(LC(i,1:n))
         LC(i,1:n) = 2*(LC(i,1:n)-minl)/(maxl-minl)-1
@@ -332,9 +339,9 @@ MODULE NavierStokes
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       IF ( P2P1 ) THEN
-         Element % Type => LinearType
+         Element % TYPE => LinearType
          stat = ElementInfo( Element, Nodes, u, v, w, detJ,pBasis,pdBasisdx )
-         Element % Type => SaveType
+         Element % TYPE => SaveType
       END IF
 
       stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
@@ -401,6 +408,20 @@ MODULE NavierStokes
          LrF = LorentzForce( Element,Nodes,u,v,w,n )
          Force(1:DIM) = Force(1:DIM) + Lrf(1:DIM) / rho
       END IF
+
+      IF( Rotating ) THEN
+        Coord(1) = SUM( Basis(1:n) * Nodes % x(1:n) )
+        Coord(2) = SUM( Basis(1:n) * Nodes % y(1:n) )
+        Coord(3) = SUM( Basis(1:n) * Nodes % z(1:n) )
+        
+        ! langranges formula is used to simplify the triple product
+        ! omega x ( omega x coord ) = omega(omega.coord) - coord(omega.omega)
+
+        ! This will be multiplied by density later on
+        Force(1:dim) = Force(1:dim) - Omega(1:dim) * SUM( Omega * Coord )
+        Force(1:dim) = Force(1:dim) + Coord(1:dim) * SUM( Omega * Omega )
+      END IF
+
 
 !------------------------------------------------------------------------------
 !     Additional forces due to gradient forces (electrokinetic flow) and
@@ -595,7 +616,7 @@ MODULE NavierStokes
 !    Loop over basis functions (of both unknowns and weights)
 !------------------------------------------------------------------------------
      DO p=1,NBasis
-        IF (.Not.Isotropic) THEN
+        IF (.NOT.Isotropic) THEN
           G = 0.0d0
           G(1,1) = dBasisdx(p,1)
           G(2,2) = dBasisdx(p,2)
@@ -632,13 +653,28 @@ MODULE NavierStokes
          M(i,i) = M(i,i) + s*rho*Basis(q)*Basis(p)
        END DO
 
-       ! Mass for the tontinuity equation (in terms of pressure)
+       ! Mass for the continuity equation (in terms of pressure)
        IF ( Compressible1 ) THEN
          M(c,c) = M(c,c) + s * ( rho / Pressure ) * Basis(q) * BaseP
        END IF
 
 !------------------------------------------------------------------------------
 !      Stiffness matrix:
+!------------------------------
+! Rotating coordinates
+!------------------------------------------------------------------------------
+       IF( Rotating ) THEN
+         masscoeff = 2 * s * rho * Basis(q) * Basis(p)
+         A(1,2) = A(1,2) - masscoeff * Omega(3)
+         A(2,1) = A(2,1) + masscoeff * Omega(3)
+         IF( dim == 3) THEN
+           A(1,3) = A(1,3) + masscoeff * Omega(2)          
+           A(2,3) = A(2,3) - masscoeff * Omega(1)
+           A(3,2) = A(3,2) + masscoeff * Omega(1)
+           A(3,1) = A(3,1) - masscoeff * Omega(2)
+         END IF
+       END IF
+
 !------------------------------
 ! Possible Porous media effects
 !------------------------------------------------------------------------------
@@ -653,7 +689,7 @@ MODULE NavierStokes
 !      Diffusive terms
 !      Convection terms, Picard linearization
 !------------------------------------------------------------------------------
-       IF (.Not.Isotropic) THEN
+       IF (.NOT.Isotropic) THEN
          B = 0.0d0
          B(1,1) = dBasisdx(q,1)
          B(2,2) = dBasisdx(q,2)
@@ -1051,7 +1087,7 @@ MODULE NavierStokes
 
 !------------------------------------------------------------------------------
 
-     SELECT CASE( Element % Type % Dimension )
+     SELECT CASE( Element % TYPE % DIMENSION )
      CASE(1)
         Tangent(1) =  Normal(2)
         Tangent(2) = -Normal(1)

@@ -81,11 +81,11 @@
 
      INTEGER :: i,j,k,n,nb,nd,t,iter,LocalNodes,istat
 
-     TYPE(ValueList_t),POINTER :: Material, BC
+     TYPE(ValueList_t),POINTER :: Material, BC, BodyForce, Equation
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Element_t),POINTER :: Element
 
-     REAL(KIND=dp) :: RelativeChange,UNorm,Gravity(3), &
+     REAL(KIND=dp) :: RelativeChange,UNorm,Gravity(3),AngularVelocity(3), &
        Tdiff,s,Relaxation,NewtonTol,NonlinearTol, &
        ReferencePressure=0.0, SpecificHeatRatio, &
        PseudoCompressibilityScale=1.0, NonlinearRelax,FreeSTol
@@ -106,7 +106,7 @@
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE., GotForceBC, GotIt, &
                   MBFlag, Convect  = .TRUE., NormalTangential, RelaxBefore, &
                   divDiscretization, GradPDiscretization, ComputeFree=.FALSE., &
-                  Transient
+                  Transient, Rotating
 
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag, VarName
@@ -186,23 +186,23 @@
 
      IF ( UseLocalCoords ) THEN
         ModelCoords = Coordinates
-        ModelDim = Model % Dimension
+        ModelDim = Model % DIMENSION
         SELECT CASE ( LocalCoords )
            CASE( 'cartesian 2d' )
               Coordinates = 1
-              Model % Dimension = 2
+              Model % DIMENSION = 2
               CALL Info( 'FlowSolve', 'Solver Coordinate System is cartesian 2d', LEVEL=31 )
            CASE( 'cartesian 3d' )
               Coordinates = 1
-              Model % Dimension = 3
+              Model % DIMENSION = 3
               CALL Info( 'FlowSolve', 'Solver Coordinate System is cartesian 3d', LEVEL=31 )
            CASE( 'axi symmetric' )
               Coordinates = 4
-              Model % Dimension = 2
+              Model % DIMENSION = 2
               CALL Info( 'FlowSolve', 'Solver Coordinate System is axi symmetric', LEVEL=31 )
            CASE( 'cylindric symmetric' )
               Coordinates = 3
-              Model % Dimension = 3
+              Model % DIMENSION = 3
               CALL Info( 'FlowSolve', 'Solver Coordinate System is cylindric symmetric', LEVEL=31 )
            CASE DEFAULT
               CALL Warn( 'FlowSolve', 'Solver coordinate system not recognised, using original' )
@@ -500,13 +500,16 @@
 
            eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
                    minv=1, maxv=Model % NumberOfEquations )
+           Equation => Model % Equations(eq_id) % Values
 
            bf_id = ListGetInteger( Model % Bodies(body_id) % Values, &
               'Body Force', gotIt, 1, Model % NumberOfBodyForces )
+           IF( bf_id > 0 ) THEN
+             BodyForce => Model % BodyForces(bf_id) % Values
+           END IF
 
            IF ( FlowModel == 'full' ) THEN
-             Convect = ListGetLogical( Model % Equations(eq_id) % Values, &
-                       'NS Convect', GotIt )
+             Convect = ListGetLogical( Equation,'NS Convect', GotIt )
              IF ( .NOT. GotIt ) Convect = .TRUE.
            ENDIF
 
@@ -546,16 +549,30 @@
 
            Gotit = .FALSE.
            IF ( bf_id > 0 ) THEN
-             MagneticForce = ListGetLogical( Model % BodyForces(bf_id) % Values, &
-                        'Lorentz Force', gotIt )
-
-             Hydrostatic = ListGetLogical( Model % BodyForces(bf_id) % Values, &
-                        'Hydrostatic Pressure',gotIt )
+             MagneticForce = ListGetLogical( BodyForce,'Lorentz Force', gotIt )
+             Hydrostatic = ListGetLogical( BodyForce,'Hydrostatic Pressure',gotIt )
            END IF
            IF ( .NOT. GotIt ) THEN
-             Hydrostatic = ListGetLogical( Model % Equations(eq_id) % Values, &
-                      'Hydrostatic Pressure',gotIt )
+             Hydrostatic = ListGetLogical( Equation,'Hydrostatic Pressure',gotIt )
            END IF
+!------------------------------------------------------------------------------
+           
+           Rotating = .FALSE.
+           IF( bf_id > 0 ) THEN
+             gWork => ListGetConstRealArray( BodyForce,'Angular Velocity',GotIt)
+             IF ( GotIt ) THEN
+               IF( Coordinates == Cartesian ) THEN
+                 AngularVelocity = gWork(1:3,1)
+                 Rotating = .TRUE.
+               ELSE
+                 CALL Fatal('FlowSolve','Rotating coordinate implemented only for cartesian coodinates')
+               END IF
+             ELSE
+               AngularVelocity = 0.0_dp
+             END IF
+           END IF
+
+
          END IF
 
 !------------------------------------------------------------------------------
@@ -741,21 +758,20 @@
 !------------------------------------------------------------------------------
          LoadVector = 0.0D0
 
-         IF ( bf_id>0 ) THEN
+         IF ( bf_id > 0 ) THEN
            HeatExpansionCoeff   = 0.0D0
            ReferenceTemperature = 0.0D0
 
 !------------------------------------------------------------------------------
 !          Boussinesq body force & gravity
 !------------------------------------------------------------------------------
-           IF ( ListGetLogical( Model % BodyForces(bf_id) % Values, &
-                        'Boussinesq',gotIt) ) THEN
+           IF ( ListGetLogical( BodyForce,'Boussinesq',gotIt) ) THEN
 
              HeatExpansionCoeff(1:n) = GetReal( Material, &
-               'Heat Expansion Coefficient' )
-
+                 'Heat Expansion Coefficient' )
+             
              ReferenceTemperature(1:n) = GetReal( Material, &
-                  'Reference Temperature' )
+                 'Reference Temperature' )
 
              DO i=1,n
                k = TempPerm(NodeIndexes(i))
@@ -785,30 +801,28 @@
              IF ( NSDOFs > 3 ) LoadVector(3,1:n) = Gravity(3)
            END IF
 !------------------------------------------------------------------------------
-           LoadVector(1,1:n) = LoadVector(1,1:n) + ListGetReal( &
-               Model % BodyForces(bf_id) % Values, &
+           LoadVector(1,1:n) = LoadVector(1,1:n) + ListGetReal( BodyForce, &
                'Flow Bodyforce 1',n,NodeIndexes,gotIt )
            
-           LoadVector(2,1:n) = LoadVector(2,1:n) + ListGetReal( &
-               Model % BodyForces(bf_id) % Values, &
+           LoadVector(2,1:n) = LoadVector(2,1:n) + ListGetReal( BodyForce, &
                'Flow Bodyforce 2',n,NodeIndexes,gotIt )
-
+           
            IF ( NSDOFs > 3 ) THEN
-             LoadVector(3,1:n) = LoadVector(3,1:n) + ListGetReal( &
-                 Model % BodyForces(bf_id) % Values, &
+             LoadVector(3,1:n) = LoadVector(3,1:n) + ListGetReal( BodyForce, &
                  'Flow Bodyforce 3',n,NodeIndexes,gotIt )
            END IF
 
 !------------------------------------------------------------------------------
            
-           PotentialForce = ListGetLogical( Model % BodyForces(bf_id) % Values, &
-               'Potential Force',gotIt) 
+           PotentialForce = ListGetLogical( BodyForce,'Potential Force',gotIt) 
            IF(PotentialForce) THEN
-             PotentialField(1:n) = ListGetReal( Model % BodyForces(bf_id) % Values, &
+             PotentialField(1:n) = ListGetReal( BodyForce, &
                  'Potential Field',n,NodeIndexes)             
-             PotentialCoefficient(1:n) = ListGetReal( Model % BodyForces(bf_id) % Values, &
+             PotentialCoefficient(1:n) = ListGetReal( BodyForce, &
                  'Potential Coefficient',n,NodeIndexes)
            END IF
+
+
         
 !------------------------------------------------------------------------------
          END IF ! of body forces
@@ -859,7 +873,7 @@
                    CompressibilityModel == UserDefined1, &
                    PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, & 
                    PotentialForce, PotentialField, PotentialCoefficient, &
-                   MagneticForce, &
+                   MagneticForce, Rotating, AngularVelocity, &
                    DivDiscretization, GradPDiscretization, NewtonLinearization, &
                    Element,n,ElementNodes)
 !------------------------------------------------------------------------------
@@ -906,7 +920,7 @@
             Bubbles = .TRUE.
             StabilizeFlag = 'bubbles'
          END IF
-         IF ( Element % Type % BasisFunctionDegree <= 1 .AND. &
+         IF ( Element % TYPE % BasisFunctionDegree <= 1 .AND. &
               StabilizeFlag == 'p2/p1' ) THEN
             Bubbles = .TRUE.
             StabilizeFlag = 'bubbles'
@@ -1240,7 +1254,7 @@
 
     IF ( UseLocalCoords ) THEN
        Coordinates = ModelCoords
-       Model % Dimension = ModelDim
+       Model % DIMENSION = ModelDim
     END IF
 
 CONTAINS
