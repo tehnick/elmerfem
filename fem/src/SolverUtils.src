@@ -3220,9 +3220,10 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), TARGET, OPTIONAL :: values(:)
     
     INTEGER :: NormDim, NormDofs, Dofs,i,j,k,totn
+    INTEGER, POINTER :: NormComponents(:)
     REAL(KIND=dp) :: Norm, nscale
     REAL(KIND=dp), POINTER :: x(:)
-    LOGICAL :: Stat
+    LOGICAL :: Stat, ComponentsAllocated
 
     IF(PRESENT(values)) THEN
       x => values
@@ -3234,50 +3235,55 @@ END FUNCTION SearchNodeL
     IF(.NOT. Stat) NormDim = 2
 
     Dofs = Solver % Variable % Dofs
-    NormDofs = ListGetInteger(Solver % Values,'Nonlinear System Norm Dofs',Stat)
-    IF(.NOT. Stat) NormDofs = Dofs
+
+    ComponentsAllocated = .FALSE.
+    NormComponents => ListGetIntegerArray(Solver % Values,&
+        'Nonlinear System Norm Components',Stat)
+    IF(Stat) THEN
+      NormDofs = SIZE( NormComponents ) 
+    ELSE
+      NormDofs = ListGetInteger(Solver % Values,'Nonlinear System Norm Dofs',Stat)
+      IF(Stat) THEN
+        ALLOCATE(NormComponents(NormDofs))
+        ComponentsAllocated = .TRUE.
+        DO i=1,NormDofs
+          NormComponents(i) = i
+        END DO
+      ELSE
+        NormDofs = Dofs        
+      END IF
+    END IF
 
     totn = ParallelReduction(1._dp*n)
     nscale = NormDOFs*totn/(1._dp*DOFs)
 
-    ! Zero is used instead of infinity as the sign for max norm!
-    !----------------------------------------------------------
+
     IF( NormDofs < Dofs ) THEN        
+      Norm = 0.0_dp
+
       SELECT CASE(NormDim)
       CASE(0)
-        Norm = 0.0d0
-        DO i=1,n/Dofs
-          DO j=1,NormDofs
-            k = Dofs*(i-1) + j
-            Norm = MAX(Norm, ABS(x(k)))
-          END DO
+        DO i=1,NormDofs
+          j = NormComponents(i)
+          Norm = MAX(Norm, MAXVAL( ABS(x(j::Dofs))) )
         END DO
         Norm = ParallelReduction(Norm,2)
       CASE(1)
-        Norm = 0.0d0
-        DO i=1,n/Dofs
-          DO j=1,NormDofs
-            k = Dofs*(i-1) + j
-            Norm = Norm + ABS(x(k))
-          END DO
+        DO i=1,NormDofs
+          j = NormComponents(i)
+          Norm = Norm + SUM( ABS(x(j::Dofs)) )
         END DO
         Norm = ParallelReduction(Norm)/nscale
       CASE(2)
-        Norm = 0.0d0
-        DO i=1,n/Dofs
-          DO j=1,NormDofs
-            k = Dofs*(i-1) + j
-            Norm = Norm + x(k)**2
-          END DO
+        DO i=1,NormDofs
+          j = NormComponents(i)
+          Norm = Norm + SUM( x(j::Dofs)**2 )
         END DO
         Norm = SQRT(ParallelReduction(Norm)/nscale)
       CASE DEFAULT
-        Norm = 0.0d0
-        DO i=1,n/Dofs
-          DO j=1,NormDofs
-            k = Dofs*(i-1) + j
-            Norm = Norm + x(k)**NormDim
-          END DO
+        DO i=1,NormDofs
+          j = NormComponents(i)
+          Norm = Norm + SUM( x(j::Dofs)**NormDim )
         END DO
         Norm = (ParallelReduction(Norm)/nscale)**(1.0d0/NormDim)
       END SELECT
@@ -3292,6 +3298,10 @@ END FUNCTION SearchNodeL
       CASE DEFAULT
         Norm = (ParallelReduction(SUM(x(1:n)**NormDim))/nscale)**(1.0d0/NormDim)
       END SELECT
+    END IF
+
+    IF( ComponentsAllocated ) THEN
+      DEALLOCATE( NormComponents ) 
     END IF
 !------------------------------------------------------------------------------
   END FUNCTION ComputeNorm
