@@ -2,7 +2,7 @@
    ElmerGrid - A simple mesh generation and manipulation utility  
    Copyright (C) 1995- , CSC - IT Center for Science Ltd.   
 
-   Author:  Peter Råback
+   Author:  Peter Rï¿½back
    Email:   Peter.Raback@csc.fi
    Address: CSC - IT Center for Science Ltd.
             Keilaranta 14
@@ -2494,9 +2494,9 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,Real relh,int
       else {
 	sscanf(params,"%ld",&code);
 	if(code == 210903) 
-	  printf("Loading ElmerGrid file version: %d\n",code);
+	  printf("Loading ElmerGrid file version: %ld\n",code);
 	else {
-	  printf("Unknown ElmerGrid file version: %d\n",code);
+	  printf("Unknown ElmerGrid file version: %ld\n",code);
 	  return(2);
 	}
       }

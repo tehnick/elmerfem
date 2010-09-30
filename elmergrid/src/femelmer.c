@@ -2745,7 +2745,7 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
 			&numflag,&nparts,&options[0],&edgecut,npart);
   }
   else 
-    printf("Unknown Metis option\n",metisopt);
+    printf("Unknown Metis option %d\n",metisopt);
 
   if(info) printf("Finished Metis graph partitioning call.\n");
 
@@ -2823,7 +2823,7 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
 #endif  
 
 
-static int CheckPartitioning(struct FemType *data,int info)
+static void CheckPartitioning(struct FemType *data,int info)
 {
   int i,j,partitions,part,part2,noknots,noelements,mini,maxi,sumi,hit,ind,nodesd2,elemtype;
   int *elempart, *nodepart,*elemsinpart,*nodesinpart,*sharedinpart;
@@ -2948,7 +2948,7 @@ static int CheckPartitioning(struct FemType *data,int info)
 	if(hit && !part) break;
     }
     if(!hit) {
-      printf("***** Node %d in partition %d is not in partition list\n",i,part,j);
+      printf("***** Node %d in partition %d is not in partition list\n",i,part);
     }
   }
 }
@@ -3207,7 +3207,7 @@ static int RenumberCuthillMckee( int nrows, int *rows, int *cols, int *iperm )
 
 
 
-static int RenumberPartitions(struct FemType *data,int info)
+static void RenumberPartitions(struct FemType *data,int info)
 {
   int i,j,k,l,n,m,hit,con,totcon,noelements,noknots,partitions;
   int maxneededtimes,totneededtimes;

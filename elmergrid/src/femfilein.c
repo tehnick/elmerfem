@@ -2440,7 +2440,7 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
       if(markers)
 	sscanf(line,"%d %d %d %d",&j,&ind1,&ind2,&bctype);
       else 
-	sscanf(line,"%d %d %d %d",&j,&ind1,&ind2);
+	sscanf(line,"%d %d %d",&j,&ind1,&ind2);
      
       /* find an element which owns both the nodes */
       for(j=1;j<=data->maxinvtopo;j++) {
