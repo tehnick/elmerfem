@@ -394,6 +394,12 @@
       END DO   ! Neumann BCs
 !------------------------------------------------------------------------------
 
+     ! parallel reduction needed
+     IF ( ParEnv % PEs > 1) THEN
+       MinPotential = ParallelReduction(MinPotential,1)
+       MaxPotential = ParallelReduction(MaxPotential,2)
+     END IF
+      
      CALL SetNodalLoads( Model,StiffMatrix,ForceVector, &
                ComponentName(Solver % Variable),1,1,PotentialPerm )
 
@@ -697,6 +703,11 @@
        END IF
 
     END DO! of the bulk elements
+
+    IF ( ParEnv % PEs > 1) THEN
+      VolTot     = ParallelReduction(VolTot)
+      HeatingTot = ParallelReduction(HeatingTot)
+    END IF
 
 !------------------------------------------------------------------------------
 !   Finally, compute average of the fluxes at nodes
