@@ -92,7 +92,7 @@
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter,FreeSIter
 
-     TYPE(Variable_t), POINTER :: DensitySol
+     TYPE(Variable_t), POINTER :: DensitySol, TimeVar
      TYPE(Variable_t), POINTER :: FlowSol, TempSol, MeshSol
 
      INTEGER, POINTER :: FlowPerm(:),TempPerm(:), MeshPerm(:)
@@ -114,6 +114,10 @@
      INTEGER :: CompressibilityModel, ModelCoords, ModelDim
      INTEGER :: body_id,bf_id,eq_id,DIM
      INTEGER, POINTER :: NodeIndexes(:), Indexes(:)
+
+
+     INTEGER, SAVE :: Timestep, SaveTimestep=-1
+     REAL(KIND=dp), ALLOCATABLE, SAVE :: pDensity0(:), pDensity1(:)
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, &
          PseudoPressureExists, PseudoCompressible, Bubbles, &
@@ -349,6 +353,14 @@
        AllocationsDone = .TRUE.
      END IF
 !------------------------------------------------------------------------------
+
+
+     TimeVar => VariableGet( Solver % Mesh % Variables, 'Timestep')
+     Timestep = NINT(Timevar % Values(1))
+     IF ( SaveTimestep /= Timestep ) THEN
+       IF ( ALLOCATED(pDensity0) ) pDensity0 = pDensity1
+       SaveTimestep=Timestep
+     END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -705,7 +717,17 @@
                 END IF
              ELSE
                Density(1:n) = GetReal( Material,'Density' )
-               PrevDensity(1:n) = Density(1:n)
+               IF ( Transient ) THEN
+                 IF (.NOT.ALLOCATED(pDensity0))  THEN
+                   ALLOCATE(pDensity0(LocalNodes), &
+                            pDensity1(LocalNodes))
+                 END IF
+
+                 IF ( Timestep==1 ) &
+                     pDensity0(Indexes(1:n)) = Density(1:n)
+                 pDensity1(Indexes(1:n)) = Density(1:n)
+                 PrevDensity(1:n) = pDensity0(Indexes(1:n))
+               END IF
              END IF
 
            CASE( Thermal )
@@ -718,12 +740,13 @@
                'Reference Temperature' )
 
              Density(1:n) = GetReal( Material,'Density' )
+
+             IF( Transient ) THEN
+               PrevDensity(1:n) = Density(1:n) * ( 1 - HeatExpansionCoeff(1:n)  * &
+                  ( LocalTempPrev(1:n) - ReferenceTemperature(1:n) ) )
+             END IF
              Density(1:n) = Density(1:n) * ( 1 - HeatExpansionCoeff(1:n)  * &
                   ( LocalTemperature(1:n) - ReferenceTemperature(1:n) ) )
-             IF ( Transient ) THEN
-                PrevDensity(1:n) = Density(1:n) * ( 1 - HeatExpansionCoeff(1:n) * &
-                   ( LocalTempPrev(1:n) - ReferenceTemperature(1:n) )  )
-             END IF
 !------------------------------------------------------------------------------
          END SELECT
 !------------------------------------------------------------------------------
