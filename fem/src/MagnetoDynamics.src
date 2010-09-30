@@ -396,8 +396,8 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
 
   INTEGER, POINTER :: Perm(:)
-  INTEGER, ALLOCATABLE, SAVE :: FluxMap(:)
-  LOGICAL, ALLOCATABLE, SAVE :: TreeEdges(:)
+  INTEGER, ALLOCATABLE :: FluxMap(:)
+  LOGICAL, ALLOCATABLE :: TreeEdges(:)
   LOGICAL :: Stat, EigenAnalysis, TG, DoneAssembly=.FALSE., &
          SkipAssembly, ConstantSystem, ConstantBulk, FixJ
 
@@ -575,6 +575,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   Norm = DefaultSolve()
 
   IF ( Found .AND. dt /= PrevDT ) THEN
+stop
     CALL ListAddLogical( GetSolverParams(), &
        'Linear System Refactorize', LFact )
   END IF
@@ -596,7 +597,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     IF ( .NOT. ALLOCATED(TreeEdges) ) THEN
-      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges=.FALSE.
+      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges = .FALSE.
     END IF
 
     n = Mesh % NumberOfNodes
@@ -676,7 +677,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Edge, Boundary
 !------------------------------------------------------------------------------
     IF ( .NOT. ALLOCATED(TreeEdges) ) THEN
-      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges=.FALSE.
+      ALLOCATE(TreeEdges(Mesh % NumberOfEdges)); TreeEdges = .FALSE.
     END IF
 
     n = Mesh % NumberOfNodes
@@ -1193,8 +1194,9 @@ CONTAINS
       DEALLOCATE(FluxBoundaryEdge); RETURN
     END IF
 
-    ALLOCATE(FluxMap(FluxCount))
+    IF (.NOT.ALLOCATED(FluxMap) ) ALLOCATE(FluxMap(FluxCount))
     FluxCount = 0
+    FluxMap   = 0
     DO i=1,Mesh % NumberOfEdges
       IF ( FluxBoundaryEdge(i) ) THEN
         FluxCount = FluxCount+1
@@ -1671,8 +1673,8 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
 
   LOGICAL :: Stat, EigenAnalysis, TG
   INTEGER, POINTER :: Perm(:)
-  INTEGER, ALLOCATABLE, SAVE :: FluxMap(:)
-  LOGICAL, ALLOCATABLE, SAVE :: TreeEdges(:)
+  INTEGER, ALLOCATABLE :: FluxMap(:)
+  LOGICAL, ALLOCATABLE :: TreeEdges(:)
 
   TYPE(Matrix_t), POINTER :: A
   TYPE(ListMatrix_t), POINTER :: BasicCycles(:)
@@ -2446,7 +2448,7 @@ CONTAINS
       DEALLOCATE(FluxBoundaryEdge); RETURN
     END IF
 
-    ALLOCATE(FluxMap(FluxCount))
+    IF (.NOT. ALLOCATED(FluxMap) ) ALLOCATE(FluxMap(FluxCount))
     FluxCount = 0
     DO i=1,Mesh % NumberOfEdges
       IF ( FluxBoundaryEdge(i) ) THEN
@@ -2948,7 +2950,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    SOL = 0._dp; PSOL=0._dp
 
    Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
-   IF(.NOT. Found) Omega = GetCReal( Model % Simulation,'Angular Frequency')  
+   IF(.NOT. Found) Omega = GetCReal( Model % Simulation,'Angular Frequency', Found)
 
    C = 0._dp; R=0._dp; PR=0._dp
    Magnetization = 0._dp
