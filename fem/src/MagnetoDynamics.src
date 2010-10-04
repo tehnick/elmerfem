@@ -943,7 +943,7 @@ CONTAINS
     REAL(KIND=dp) :: Aloc(nd), JAC(nd,nd), mu, muder, B_ip(3), Babs
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ, L(3), G(3), M(3)
     REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), A, C, Acoefder(n)
-    LOGICAL :: Stat, Found, Newton
+    LOGICAL :: Stat, Found, Newton, Cubic
     INTEGER :: t, i, j, p, q, np, siz
     TYPE(GaussIntegrationPoints_t) :: IP
 
@@ -961,7 +961,8 @@ CONTAINS
 
     CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
     IF ( ASSOCIATED(HB) ) THEN
-      IF (ASSOCIATED(CubicCoeff) ) THEN
+      Cubic = GetLogical( Material, 'Cubic spline for H-B curve',Found)
+      IF (Cubic.AND..NOT.ASSOCIATED(CubicCoeff) ) THEN
         siz = SIZE(HB,1)
         ALLOCATE(CubicCoeff(siz))
         CALL CubicSpline(siz,HB(:,1),HB(:,2),CubicCoeff)
@@ -2935,7 +2936,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Solver_t), POINTER :: pSolver
    CHARACTER(LEN=MAX_NAME_LEN) :: Pname
 
-   LOGICAL :: Found, stat
+   LOGICAL :: Found, stat, Cubic
    TYPE(ValueList_t), POINTER :: Material
 
    TYPE(GaussIntegrationPoints_t) :: IP
@@ -2943,7 +2944,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Element_t), POINTER :: Element
 
 
-   REAL(KIND=dp), POINTER :: Fsave(:), HB(:,:)
+   REAL(KIND=dp), POINTER :: Fsave(:), HB(:,:)=>Null(), CubicCoeff(:)=>Null()
    REAL(KIND=dp) :: Babs
    TYPE(Mesh_t), POINTER :: Mesh
    REAL(KIND=dp), ALLOCATABLE, TARGET :: Gforce(:,:), MASS(:,:), FORCE(:,:)
@@ -3025,8 +3026,16 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      C(1:n) = GetReal(Material,'Electric Conductivity',Found)
 
      CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
-     IF ( .NOT. ASSOCIATED(HB) ) &
-      CALL GetReluctivity(Material,R,n)
+     IF ( ASSOCIATED(HB) ) THEN
+      Cubic = GetLogical( Material, 'Cubic spline for H-B curve', Found)
+      IF (Cubic.AND..NOT.ASSOCIATED(CubicCoeff) ) THEN
+        l = SIZE(HB,1)
+        ALLOCATE(CubicCoeff(l))
+        CALL CubicSpline(l,HB(:,1),HB(:,2),CubicCoeff)
+      END IF
+     ELSE
+       CALL GetReluctivity(Material,R,n)
+     END IF
 
      ! Luuppi nurkkapisteiden yli:
      ! ---------------------------
@@ -3059,7 +3068,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        C_ip = SUM( Basis(1:n)*C(1:n) )
        IF ( ASSOCIATED(HB) ) THEN
          Babs=SQRT(SUM(B(1,:)**2))
-         R_ip = InterpolateCurve(HB(:,1),HB(:,2),Babs)/Babs
+         R_ip = InterpolateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)/Babs
        ELSE
          R_ip = SUM( Basis(1:n)*R(1:n) )
        END IF
