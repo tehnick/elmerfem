@@ -1350,6 +1350,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      ptr % NameLen = 0
      ptr % CValue = ' '
      ptr % LValue = .FALSE.
+     NULLIFY( ptr % CubicCoeff )
      NULLIFY( ptr % Next )
      NULLIFY( ptr % FValues )
      NULLIFY( ptr % TValues )
@@ -1364,6 +1365,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
 
+     IF ( ASSOCIATED(ptr % CubicCoeff) ) DEALLOCATE(ptr % CubicCoeff)
      IF ( ASSOCIATED(ptr % FValues) ) DEALLOCATE(ptr % FValues)
      IF ( ASSOCIATED(ptr % TValues) ) DEALLOCATE(ptr % TValues)
      IF ( ASSOCIATED(ptr % IValues) ) DEALLOCATE(ptr % IValues)
@@ -1682,12 +1684,14 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE ListAddDepReal(List,Name,DependName,N,TValues,FValues,Proc,CValue)
+    SUBROUTINE ListAddDepReal(List,Name,DependName,N,TValues, &
+               FValues,Proc,CValue,CubicTable)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name,DependName
      CHARACTER(LEN=*), OPTIONAL :: Cvalue
      INTEGER :: N
+     LOGICAL, OPTIONAL :: CubicTable
      REAL(KIND=dp) :: FValues(N)
      REAL(KIND=dp) :: TValues(N)
      INTEGER(KIND=AddrInt), OPTIONAL :: Proc
@@ -1702,6 +1706,14 @@ CALL Info( 'VariableGet', Message, Level=7 )
      ptr % TValues = TValues(1:N)
      ptr % FValues(1,1,:) = FValues(1:N)
      ptr % TYPE = LIST_TYPE_VARIABLE_SCALAR
+
+     IF ( n>3 .AND. PRESENT(CubicTable)) THEN
+       IF ( CubicTable ) THEN
+         ALLOCATE(ptr % CubicCoeff(n))
+         CALL CubicSpline(n,ptr % TValues,Ptr % Fvalues(1,1,:), &
+                    Ptr % CubicCoeff )
+       END IF
+     END IF
 
      ptr % NameLen = StringToLowerCase( ptr % Name,Name )
      ptr % DepNameLen = StringToLowerCase( ptr % DependName,DependName )
@@ -2142,7 +2154,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
                CALL Fatal( 'ListGetReal', Message )
                RETURN
              END IF
-             F(i) = InterpolateCurve( ptr % TValues,ptr % FValues(1,1,:),T(1) )
+             F(i) = InterpolateCurve( ptr % TValues,ptr % FValues(1,1,:), &
+                            T(1), ptr % CubicCoeff )
            END IF
          END IF
        END DO
@@ -2323,7 +2336,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
          ELSE
            DO j=1,N1
              DO k=1,N2
-               F(j,k,i) = InterpolateCurve(ptr % TValues, ptr % FValues(j,k,:),T(1))
+               F(j,k,i) = InterpolateCurve(ptr % TValues, ptr % FValues(j,k,:), &
+                                T(1), ptr % CubicCoeff )
              END DO
            END DO
          END IF
@@ -2376,7 +2390,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
            IF ( ASSOCIATED(Variable % Perm) ) k = Variable % Perm(K)
            IF ( k > 0 ) THEN
              T = Variable % Values(k)
-             F(i) = DerivateCurve(ptr % TValues,ptr % FValues(1,1,:),T)
+             F(i) = DerivateCurve(ptr % TValues,ptr % FValues(1,1,:), &
+                               T, ptr % CubicCoeff )
            END IF
          END DO
      END SELECT
