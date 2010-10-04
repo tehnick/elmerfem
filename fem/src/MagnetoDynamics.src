@@ -941,19 +941,35 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), A, C
+    REAL(KIND=dp) :: Aloc(nd), JAC(nd,nd), mu, muder, B_ip(3), Babs
     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ, L(3), G(3), M(3)
-    LOGICAL :: Stat
-    INTEGER :: t, i, j, p, q, np
+    REAL(KIND=dp) :: WBasis(nd,3), RotWBasis(nd,3), A, C, Acoefder(n)
+    LOGICAL :: Stat, Found, Newton
+    INTEGER :: t, i, j, p, q, np, siz
     TYPE(GaussIntegrationPoints_t) :: IP
 
     TYPE(Nodes_t), SAVE :: Nodes
+    REAL(KIND=dp), POINTER, SAVE :: HB(:,:)=>Null(), CubicCoeff(:)=>Null()
 !------------------------------------------------------------------------------
     CALL GetElementNodes( Nodes )
 
     STIFF = 0.0d0
     FORCE = 0.0d0
     MASS  = 0.0d0
+
+    JAC = 0._dp
+    Newton = .FALSE.
+
+    CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
+    IF ( ASSOCIATED(HB) ) THEN
+      IF (ASSOCIATED(CubicCoeff) ) THEN
+        siz = SIZE(HB,1)
+        ALLOCATE(CubicCoeff(siz))
+        CALL CubicSpline(siz,HB(:,1),HB(:,2),CubicCoeff)
+      END IF
+      CALL GetScalarLocalSolution(Aloc)
+      Newton = GetLogical( GetSolverParams(),'Newton-Raphson iteration',Found)
+    END IF
 
     !Numerical integration:
     !----------------------
@@ -966,11 +982,21 @@ CONTAINS
        CALL EdgeBasis(Element, WBasis, RotWBasis, Basis, dBasisdx)
 
        A = SUM( Basis(1:n) * Acoef(1:n) )
+       mu = A
        C = SUM( Basis(1:n) * Tcoef(1:n) )
 
        M = MATMUL( LOAD(4:6,1:n), Basis(1:n) )
        L = MATMUL( LOAD(1:3,1:n), Basis(1:n) )
        L = L-C*MATMUL(LOAD(7,1:n), dBasisdx(1:n,:))
+
+       IF ( ASSOCIATED(HB) ) THEN
+         B_ip = MATMUL( Aloc(np+1:nd), RotWBasis(1:nd-np,:) )
+         babs = MAX( SQRT(SUM(B_ip**2)), 1.d-8 )
+         mu = InterpolateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)/babs
+         IF ( Newton ) THEN
+           muder=(DerivateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)-mu)/babs
+         END IF
+       END IF
 
        ! Compute element stiffness matrix and force vector:
        ! --------------------------------------------------
@@ -1026,8 +1052,12 @@ CONTAINS
             SUM(M*RotWBasis(i,:)))*detJ*IP%s(t) 
          DO j = 1,nd-np
            q = j+np
-           STIFF(p,q) = STIFF(p,q) + A * &
+           STIFF(p,q) = STIFF(p,q) + mu * &
               SUM(RotWBasis(i,:)*RotWBasis(j,:))*detJ*IP%s(t)
+           IF ( Newton ) THEN
+             JAC(p,q) = JAC(p,q) + muder * SUM(B_ip(:)*RotWBasis(j,:)) * &
+                 SUM(B_ip(:)*RotWBasis(i,:))*detJ*IP % s(t)/Babs
+           END IF
            MASS(p,q) = MASS(p,q) + C * &
                   SUM(WBasis(i,:)*WBasis(j,:))*detJ*IP % s(t)
          END DO
@@ -1038,6 +1068,10 @@ CONTAINS
          END DO
        END IF
     END DO
+    IF ( Newton ) THEN
+      STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + JAC
+      FORCE(1:nd) = FORCE(1:nd) + MATMUL(JAC,Aloc)
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
@@ -2909,7 +2943,9 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Nodes_t), SAVE :: Nodes
    TYPE(Element_t), POINTER :: Element
 
-   REAL(KIND=dp), POINTER :: Fsave(:)
+
+   REAL(KIND=dp), POINTER :: Fsave(:), HB(:,:)
+   REAL(KIND=dp) :: Babs
    TYPE(Mesh_t), POINTER :: Mesh
    REAL(KIND=dp), ALLOCATABLE, TARGET :: Gforce(:,:), MASS(:,:), FORCE(:,:)
 
@@ -2987,8 +3023,11 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      END IF
 
      CALL GetPermittivity(Material,PR,n)
-     CALL GetReluctivity(Material,R,n)
      C(1:n) = GetReal(Material,'Electric Conductivity',Found)
+
+     CALL GetConstRealArray( Material, HB, 'H-B curve', Found )
+     IF ( .NOT. ASSOCIATED(HB) ) &
+      CALL GetReluctivity(Material,R,n)
 
      ! Luuppi nurkkapisteiden yli:
      ! ---------------------------
@@ -3019,7 +3058,12 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        END IF
 
        C_ip = SUM( Basis(1:n)*C(1:n) )
-       R_ip = SUM( Basis(1:n)*R(1:n) )
+       IF ( ASSOCIATED(HB) ) THEN
+         Babs=SQRT(SUM(B(1,:)**2))
+         R_ip = InterpolateCurve(HB(:,1),HB(:,2),Babs)/Babs
+       ELSE
+         R_ip = SUM( Basis(1:n)*R(1:n) )
+       END IF
        PR_ip = SUM( Basis(1:n)*PR(1:n) )
 
        IF ( ASSOCIATED(MFS) ) THEN
@@ -3117,6 +3161,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    DO i=1,3*vDOFs
      DOFs = DOFs+1
      Solver % Matrix % RHS => Gforce(:,Dofs)
+     Solver % Variable % Values=0
      Norm = DefaultSolve()
      MFD % Values(i::3*vDOFs) = Solver % Variable % Values
    END DO
@@ -3125,6 +3170,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      DO i=1,3*vDOFs
        DOFs = DOFs+1
        Solver % Matrix % RHS => Gforce(:,DOFs)
+       Solver % Variable % Values=0
        Norm = DefaultSolve()
        MFS % Values(i::3*vDOFs) = Solver % Variable % Values
      END DO
@@ -3134,6 +3180,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      DO i=1,3*vDOFs
        DOFs = DOFs+1
        Solver % Matrix % RHS => Gforce(:,DOFs)
+       Solver % Variable % Values=0
        Norm = DefaultSolve()
        EF % Values(i::3*vDOFs) = Solver % Variable % Values
      END DO
@@ -3143,6 +3190,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      DO i=1,3*vDOFs
        DOFs = DOFs+1
        Solver % Matrix % RHS => Gforce(:,DOFs)
+       Solver % Variable % Values=0
        Norm = DefaultSolve()
        CD % Values(i::3*vDOFs) = Solver % Variable % Values
      END DO
@@ -3151,6 +3199,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    IF ( ASSOCIATED(JH) ) THEN
      DOFs = DOFs+1
      Solver % Matrix % RHS => Gforce(:,DOFs)
+     Solver % Variable % Values=0
      Norm = DefaultSolve()
      JH % Values = Solver % Variable % Values
    END IF
@@ -3159,6 +3208,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
      DO i=1,6*vDOFs
        DOFs = DOFs+1
        Solver % Matrix % RHS => Gforce(:,DOFs)
+       Solver % Variable % Values=0
        Norm = DefaultSolve()
        MST % Values(i::6*vDOFs) = Solver % Variable % Values
      END DO
