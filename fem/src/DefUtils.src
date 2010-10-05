@@ -2080,7 +2080,10 @@ CONTAINS
      BUpd = .FALSE.
      IF ( PRESENT(BulkUpdate) ) THEN
        BUpd=BulkUpdate 
-       IF ( .NOT. BUpd ) RETURN
+       IF ( .NOT. BUpd ) THEN
+         DEALLOCATE(G,F)
+         RETURN
+       END IF
      ELSE IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
        DEALLOCATE(G,F)
        RETURN
