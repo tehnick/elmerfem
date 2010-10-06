@@ -454,7 +454,7 @@ END SUBROUTINE ResultOutputSolver
     INTEGER :: TimeCount
     CHARACTER(LEN=512) :: PostFile, FilePrefix
     TYPE(Element_t), POINTER :: CurrentElement
-    TYPE(Variable_t), POINTER :: Var,Var1,Displacement,MeshUpdate,MaskVar
+    TYPE(Variable_t), POINTER :: Var,Var1,Displacement=>Null(),MeshUpdate=>Null(),MaskVar
     
     CHARACTER(LEN=512) :: Row
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr, VarName, Txt
@@ -552,9 +552,11 @@ END SUBROUTINE ResultOutputSolver
     Str = ListGetString( Solver % Values,'Mask Variable',MaskExists)
     MaskAllocated = .FALSE.
     IF( MaskExists ) THEN
-      MaskVar => VariableGet(Model % Variables,TRIM(Str))
-      IF( ASSOCIATED(MaskVar)) MaskPerm => MaskVar % Perm
-      MaskExists = ASSOCIATED(MaskPerm)
+      MaskVar => VariableGet(Solver % Mesh % Variables,TRIM(Str))
+      IF( ASSOCIATED(MaskVar)) THEN
+        MaskPerm => MaskVar % Perm
+        MaskExists = ASSOCIATED(MaskPerm)
+      END IF
     ELSE
       IF( MeshDim == 2 ) THEN
         Str = ListGetString( Solver % Values,'2D Mask Name',GotIt)    
