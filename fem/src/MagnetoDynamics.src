@@ -1550,14 +1550,24 @@ CONTAINS
 
      OPEN(unit=10, file='solution.ep')
 
-     Active = GetNOFBoundaryElements()
-     t = Active * (CoordinateSystemDimension()) ! nurkkasolmujen lukumäärä
-     write(10,'(4i10,A)') t, Active, 3, 1,' vector: RotU'
+!    Active = GetNOFBoundaryElements()
+     Active = GetNOFActive()
+j = 0
+do i=1,active
+ element => getactiveelement(i)
+ if ( element % bodyid /= 2 ) cycle
+  j = j + 1
+end do
+
+     t = j * (CoordinateSystemDimension()+1) ! nurkkasolmujen lukumäärä
+     write(10,'(4i10,A)') t, j, 3, 1,' vector: RotU'
 
      !  Write the nodal coordinates
      !  -------------------------------
      DO i = 1, Active
-       Element => GetBoundaryElement(i)
+!      Element => GetBoundaryElement(i)
+       Element => GetActiveElement(i)
+if ( element % bodyid /= 2 ) cycle
        n = GetElementNOFNodes(Element)
        DO j = 1,n
          k = Element % NodeIndexes(j)
@@ -1569,13 +1579,17 @@ CONTAINS
      !  Write the elements:
      !  -----------------------
      WRITE(10,'(a)') '#group all'
+     j = 0
      DO i = 1, Active
-       Element => GetBoundaryElement(i)
+!      Element => GetBoundaryElement(i)
+       Element => GetActiveElement(i)
+if ( element % bodyid /= 2 ) cycle
+       j = j + 1
        SELECT CASE( GetElementFamily(Element))
        CASE(3)
-         WRITE(10,*) 'body1   303', 3*(i-1)+0,3*(i-1)+1,3*(i-1)+2
+         WRITE(10,*) 'body1   303', 3*(j-1)+0,3*(j-1)+1,3*(j-1)+2
        CASE(5)
-         WRITE(10,*) 'body1   504', 4*(i-1)+0,4*(i-1)+1,4*(i-1)+2,4*(i-1)+3
+         WRITE(10,*) 'body1   504', 4*(j-1)+0,4*(j-1)+1,4*(j-1)+2,4*(j-1)+3
        END SELECT
      END DO
      WRITE(10,'(a)') '#endgroup all'
@@ -1585,15 +1599,18 @@ CONTAINS
      Var => Solver % Variable
      WRITE(10,'(a)') '#time 1   1  1  1.0'
      DO i = 1, Active
-       Element => GetBoundaryElement(i)
-       k=GetBoundaryFaceIndex(Element); Element=>Mesh % Faces(k)
+!      Element => GetBoundaryElement(i)
+!      k=GetBoundaryFaceIndex(Element); Element=>Mesh % Faces(k)
+element => getactiveelement(i)
+if ( element % bodyid /= 2 ) cycle
        n = GetElementNOFNodes(Element)
        np = n*Solver % Def_dofs(1)
        CALL GetElementNodes(Nodes, Element)
 
-       Parent => Element % Boundaryinfo % Left
-       CALL GetElementNodes(pNodes, Parent )
-       nd = GetElementDOFs(Indexes,Parent )
+!      Parent => Element % Boundaryinfo % Left
+!      CALL GetElementNodes(pNodes, Parent )
+!      nd = GetElementDOFs(Indexes,Parent )
+    nd = GetElementDOFs(Indexes)
 
        ! Loop over cornernodes:
        ! ---------------------------
@@ -1604,15 +1621,16 @@ CONTAINS
 
          stat=ElementInfo(Element,Nodes,u,v,w,detJ,Basis,dBasisdx)
 
-         CALL GetParentUVW(Element,n,Parent,4,u,v,w,Basis)
-         stat=ElementInfo(parent,pNodes,u,v,w,detJ,Basis,dBasisdx)
-         CALL EdgeBasis(Parent,WBasis,RotWBasis,Basis,dBasisdx)
+!        CALL GetParentUVW(Element,n,Parent,4,u,v,w,Basis)
+!        stat=ElementInfo(parent,pNodes,u,v,w,detJ,Basis,dBasisdx)
+!        CALL EdgeBasis(Parent,WBasis,RotWBasis,Basis,dBasisdx)
+         CALL EdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
 
          Rot = 0.0_dp
          DO k = 1,nd-np
            q = k+np
            m = Var % Perm(Indexes(q))
-           IF ( m>0 ) Rot = Rot + WBasis(k,:)*Var % Values(m)
+           IF ( m>0 ) Rot = Rot + rotWBasis(k,:)*Var % Values(m)
          END DO
          WRITE(10,*) rot
        END DO
@@ -2840,7 +2858,13 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
     CALL Fatal( "MagnetoDynamicsCalcFields", "potential variable nat available")
   ENDIF
 
-  i = 1
+  i=1
+  DO WHILE(.TRUE.)
+    IF ( .NOT.ListCheckPresent(SolverParams, &
+          "Exported Variable "//TRIM(i2s(i))) ) EXIT
+    i = i + 1
+  END DO
+
   IF ( Var % DOFs == 1 ) THEN
     CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
              "Magnetic Flux Density[Magnetic Flux Density:3]" )
