@@ -2985,7 +2985,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    INTEGER, PARAMETER :: ind1(6) = [1,2,3,1,2,1]
    INTEGER, PARAMETER :: ind2(6) = [1,2,3,2,3,3]
 
-   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH
+   TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH, EL_B, EL_H
    INTEGER :: Active, Indexes(12), i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs
 
    TYPE(Solver_t), POINTER :: pSolver
@@ -3046,6 +3046,9 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    C = 0._dp; R=0._dp; PR=0._dp
    Magnetization = 0._dp
 
+   EL_B => VariableGet( Mesh % Variables, 'Magnetic Flux Density E')
+   EL_H => VariableGet( Mesh % Variables, 'Magnetic Field Strength E')
+
    Power = 0._dp; Energy = 0._dp
    CALL DefaultInitialize()
    DO i = 1, GetNOFActive()
@@ -3092,8 +3095,39 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        CALL GetReluctivity(Material,R,n)
      END IF
 
-     ! Luuppi nurkkapisteiden yli:
-     ! ---------------------------
+     IF ( ASSOCIATED(EL_B) .OR. ASSOCIATED(EL_H) ) THEN
+       DO j=1,n
+         u = Element % Type % NodeU(j)
+         v = Element % Type % NodeV(j)
+         w = Element % Type % NodeW(j)
+
+         stat=ElementInfo(Element,Nodes,u,v,w,detJ,Basis,dBasisdx)
+         CALL EdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
+
+         B(1,:) = MATMUL( SOL(1,np+1:nd), RotWBasis(1:nd-np,:) )
+         IF ( ASSOCIATED(EL_B) ) THEN
+           DO k=1,EL_B % DOFs
+             EL_B % Values( EL_B % DOFs*(EL_B % Perm( &
+                   Element % DGIndexes(j))-1)+k) = B(1,k)
+           END DO
+         END IF
+         IF ( ASSOCIATED(EL_H) ) THEN
+           IF ( ASSOCIATED(HB) ) THEN
+             Babs=SQRT(SUM(B(1,:)**2))
+             R_ip = InterpolateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)/Babs
+           ELSE
+             R_ip = SUM( Basis(1:n)*R(1:n) )
+           END IF
+
+           DO k=1,EL_H % DOFs
+             EL_H % Values( EL_H % DOFs*(EL_H % Perm( &
+                   Element % DGIndexes(j))-1)+k) = B(1,k)
+           END DO
+         END IF
+       END DO
+     END IF
+
+
      IP = GaussPoints(Element)
      MASS  = 0._dp
      FORCE = 0._dp
