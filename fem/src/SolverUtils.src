@@ -3212,18 +3212,20 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  FUNCTION ComputeNorm(Solver, n, values) RESULT (Norm)
+  FUNCTION ComputeNorm(Solver, nin, values) RESULT (Norm)
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     TYPE(Solver_t), TARGET :: Solver
-    INTEGER :: n
+    INTEGER :: nin
     REAL(KIND=dp), TARGET, OPTIONAL :: values(:)
     
-    INTEGER :: NormDim, NormDofs, Dofs,i,j,k,totn
+    INTEGER :: NormDim, NormDofs, Dofs,i,j,k,n,totn,PermStart
     INTEGER, POINTER :: NormComponents(:)
+    INTEGER, ALLOCATABLE :: iPerm(:)
     REAL(KIND=dp) :: Norm, nscale
-    REAL(KIND=dp), POINTER :: x(:)
     LOGICAL :: Stat, ComponentsAllocated
+    REAL(KIND=dp), POINTER :: x(:)
+    REAL(KIND=dp), ALLOCATABLE, TARGET :: y(:)
 
     IF(PRESENT(values)) THEN
       x => values
@@ -3253,12 +3255,29 @@ END FUNCTION SearchNodeL
         NormDofs = Dofs        
       END IF
     END IF
+ 
+    n = nin
+
+    PermStart = ListGetInteger(Solver % Values,'Norm Permutation',Stat)
+    IF ( Stat ) THEN
+      ALLOCATE(iPerm(SIZE(Solver % Variable % Perm))); iPerm=0
+      n = 0
+      DO i=PermStart,SIZE(iPerm)
+        IF ( Solver % Variable % Perm(i)>0 ) THEN
+          n = n + 1
+          iPerm(n) = Solver % Variable % Perm(i)
+        END IF
+      END DO
+      ALLOCATE(y(n))
+      y = x(iPerm(1:n))
+      x => y
+      DEALLOCATE(iPerm)
+    END IF
 
     totn = ParallelReduction(1._dp*n)
     nscale = NormDOFs*totn/(1._dp*DOFs)
 
-
-    IF( NormDofs < Dofs ) THEN        
+    IF( NormDofs < Dofs ) THEN
       Norm = 0.0_dp
 
       SELECT CASE(NormDim)
@@ -3287,7 +3306,7 @@ END FUNCTION SearchNodeL
         END DO
         Norm = (ParallelReduction(Norm)/nscale)**(1.0d0/NormDim)
       END SELECT
-    ELSE 
+    ELSE
       SELECT CASE(NormDim)
       CASE(0)
         Norm = ParallelReduction(MAXVAL(ABS(x(1:n))),2)

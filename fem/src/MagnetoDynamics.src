@@ -386,12 +386,14 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   LOGICAL :: AllocationsDone = .FALSE., Found, Lfact
   TYPE(Element_t),POINTER :: Element, Edge
 
-  REAL(KIND=dp) :: Norm, PrevDT=-1
+  REAL(KIND=dp) :: Norm, PrevDT=-1, RelChange
   TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
 
-  INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0
+  INTEGER :: n,nb,nd,t,istat,i,j,k,l,nNodes,Active,FluxCount=0, &
+          NoIterations, nsize
 
   TYPE(Mesh_t), POINTER :: Mesh
+  REAL(KIND=dp), POINTER :: VecPot(:)
   REAL(KIND=dp), ALLOCATABLE :: LOAD(:,:), Acoef(:), Tcoef(:)
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
 
@@ -413,6 +415,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   Mesh => GetMesh()
   nNodes = Mesh % NumberOfNodes
   Perm => Solver % Variable % Perm
+  Vecpot => Solver % Variable % Values
 
   IF ( .NOT. AllocationsDone ) THEN
      N = Mesh % MaxElementDOFs  ! just big enough
@@ -434,6 +437,28 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 
   FixJ = GetLogical( GetSolverParams(), 'Fix Input Current Density', Found )
 
+  ! 
+  ! Use vec.pot. dofs only for convergence:
+  ! ----------------------------------------
+  CALL ListAddInteger(GetSolverParams(),'Norm Permutation',nNodes+1)
+
+  ! 
+  ! Resolve internal non.linearities, if requeted:
+  ! ----------------------------------------------
+  NoIterations = GetInteger( GetSolverParams(), &
+              'Nonlinear System Max Iterations',Found)
+  IF(.NOT. Found) NoIterations = 1
+
+  DO i=1,NoIterations
+    IF( DoSolve() ) EXIT
+  END DO
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+  LOGICAL FUNCTION DoSolve() RESULT(Converged)
+!------------------------------------------------------------------------------
+
   !System assembly:
   !----------------
 
@@ -441,7 +466,6 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   IF ( SkipAssembly) THEN
     A % RHS = A % BulkRHS
     A % Values = A % BulkValues
-
     IF ( ConstantBulk    ) GOTO 100
     IF ( ConstantSystem  ) GOTO 200
   END IF
@@ -572,7 +596,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
         'Linear System Refactorize', .TRUE. )
   END IF
 
-  Norm = DefaultSolve()
+    Norm = DefaultSolve()
 
   IF ( Found .AND. dt /= PrevDT ) THEN
     CALL ListAddLogical( GetSolverParams(), &
@@ -580,9 +604,16 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
   END IF
   PrevDT = dt
 
+  IF ( ALLOCATED(FluxMap) ) DEALLOCATE(FluxMap)
+  IF ( ALLOCATED(TreeEdges) ) DEALLOCATE(TreeEdges)
+
 ! CALL WriteResults  ! debugging helper
 
-CONTAINS
+  Converged = Solver % Variable % NonLinConverged==1
+!------------------------------------------------------------------------------
+ END FUNCTION DoSolve
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE GaugeTree()
