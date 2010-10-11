@@ -172,8 +172,6 @@
      NonlinearTol  = GetConstReal( SolverParams, &
           'Nonlinear System Convergence Tolerance',    Found )
 
-     
-
 
      ExpVariableName = GetString(SolverParams , 'Exported Variable 1', Found )
      IF (.NOT.Found) &
@@ -428,6 +426,7 @@
        n1 = Mesh % NumberOfNodes
        ALLOCATE( Ref(n1) )
        Ref = 0
+       Var % Type = Variable_on_nodes
 
        IF ( ASSOCIATED( Var % Perm, Solver % Variable % Perm ) ) THEN
          ALLOCATE( Var % Perm(SIZE(Solver % Variable % Perm))  )

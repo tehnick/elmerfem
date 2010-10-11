@@ -686,8 +686,12 @@ CONTAINS
       !------------------------------------------------------------------------------
     END SELECT
 
-    IF ( ASSOCIATED(Solver % Matrix) ) Solver % Matrix % Comm = MPI_COMM_WORLD
- 
+    IF ( ASSOCIATED(Solver % Matrix) ) THEN
+      Solver % Matrix % Comm = MPI_COMM_WORLD
+      IF ( Solver % Matrix % DGMatrix ) &
+          Solver % Variable % Type=Variable_on_nodes_on_elements
+    END IF
+
     !------------------------------------------------------------------------------
     ! Add the exported variables which are typically auxiliary variables derived
     ! from the solution without their own matrix equation.  
@@ -760,10 +764,11 @@ CONTAINS
         Solution = 0.0d0
         IF( ASSOCIATED(Perm) ) THEN
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-              var_name, DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
+              var_name, DOFs, Solution, Solver % Variable % Perm, &
+                 Output=VariableOutput, Type=Solver % Variable % Type )
         ELSE          
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-              var_name, DOFs, Solution )
+              var_name, DOFs, Solution, Type=Solver % Variable % Type )
         END IF
         
         IF ( DOFs > 1 .AND. .NOT. VariableGlobal ) THEN
@@ -773,10 +778,11 @@ CONTAINS
             Component => Solution( j:nSize-DOFs+j:DOFs )
             IF( ASSOCIATED(Perm) ) THEN
               CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                  tmpname, 1, Component, Perm, Output=VariableOutput )
+                  tmpname, 1, Component, Perm,  &
+                     Output=VariableOutput, Type=Solver % Variable % Type )
             ELSE
               CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                  tmpname, 1, Component )               
+                  tmpname, 1, Component, Type=Solver % Variable % Type )
             END IF
           END DO
         END IF

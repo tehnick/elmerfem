@@ -463,13 +463,14 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     SUBROUTINE VariableAdd( Variables,Mesh,Solver,Name,DOFs,Values,&
-      Perm,Output,Secondary )
+      Perm,Output,Secondary, Type )
 !------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
       TYPE(Mesh_t),   TARGET :: Mesh
       TYPE(Solver_t), TARGET :: Solver
       CHARACTER(LEN=*) :: Name
       INTEGER :: DOFs
+      INTEGER, OPTIONAL :: Type
       REAL(KIND=dp), POINTER :: Values(:)
       LOGICAL, OPTIONAL :: Output
       INTEGER, OPTIONAL, POINTER :: Perm(:)
@@ -537,6 +538,7 @@ CONTAINS
         ptr % Secondary = Secondary
       END IF
 
+      IF ( PRESENT( Type ) ) ptr % Type = Type
       IF ( PRESENT( Output ) ) ptr % Output = Output
 !------------------------------------------------------------------------------
     END SUBROUTINE VariableAdd
@@ -2024,8 +2026,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
      REAL(KIND=dp)  :: T(:)
      INTEGER :: slen, count, ind
 !------------------------------------------------------------------------------
-     INTEGER :: i,j,k,k1,l,l0,l1
+     TYPE(Element_t), POINTER :: Element
+     INTEGER :: i,j,k,n,k1,l,l0,l1
      TYPE(Variable_t), POINTER :: Variable, CVar
+
 
      count=0
      l0=1
@@ -2056,6 +2060,22 @@ CALL Info( 'VariableGet', Message, Level=7 )
        END IF
 
        k1 = ind
+       IF ( Variable % Type == Variable_on_nodes_on_elements ) THEN
+         Element => CurrentModel % CurrentElement
+         IF ( ASSOCIATED(Element) ) THEN
+           IF ( ASSOCIATED(Element % DGIndexes) ) THEN
+             n = Element % Type % NumberOfNodes
+             IF ( SIZE(Element % DGIndexes)==n ) THEN
+               DO i=1,n
+                 IF ( Element % NodeIndexes(i)==ind ) THEN
+                   k1 = Element % DGIndexes(i)
+                   EXIT
+                 END IF
+               END DO
+             END IF
+           END IF
+         END IF
+       END IF
        IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
 
        IF ( k1>0 .AND. k1<=SIZE(Variable % Values) ) THEN

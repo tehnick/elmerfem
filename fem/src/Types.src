@@ -324,11 +324,10 @@ MODULE Types
 !   END TYPE SimulationInfo_t
 
 !------------------------------------------------------------------------------
-   INTEGER, PARAMETER :: Variable_type_scalar    = 0
-   INTEGER, PARAMETER :: Variable_type_2vector   = 1
-   INTEGER, PARAMETER :: Variable_type_3vector   = 2
-   INTEGER, PARAMETER :: Variable_type_2x2tensor = 3
-   INTEGER, PARAMETER :: Variable_type_3x3tensor = 4
+   INTEGER, PARAMETER :: Variable_on_nodes  = 0
+   INTEGER, PARAMETER :: Variable_on_edges  = 1
+   INTEGER, PARAMETER :: Variable_on_faces  = 2
+   INTEGER, PARAMETER :: Variable_on_nodes_on_elements   = 3
 
 !  TYPE Variable_Component_t
 !     CHARACTER(LEN=MAX_NAME_LEN) :: Name
@@ -348,6 +347,8 @@ MODULE Types
 
 ! Some variables are created from pointers to the primary variables
      LOGICAL :: Secondary
+
+     INTEGER :: Type = Variable_on_nodes
 
      INTEGER :: DOFs
      INTEGER, POINTER          :: Perm(:)

@@ -61,7 +61,18 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: SubroutineVisited=.FALSE.,Found
     
   SAVE SubroutineVisited, OutputCount, ListSet, MeshDim
-
+  INTERFACE
+    RECURSIVE SUBROUTINE ElmerPostOutputSolver( Model, Solver,dt,TransientSimulation,ONOEfound )
+      USE DefUtils
+      IMPLICIT NONE
+!------------------------------------------------------------------------------
+      TYPE(Solver_t) :: Solver
+      TYPE(Model_t) :: Model
+      REAL(KIND=dp) :: dt
+      LOGICAL, OPTIONAL :: ONOEfound
+      LOGICAL :: TransientSimulation
+    END SUBROUTINE ElmerPostOutputSolver
+  END INTERFACE
 
   CALL Info( 'ResultOutputSolver', '-------------------------------------')
   t0 = CPUTime()
@@ -441,7 +452,7 @@ END SUBROUTINE ResultOutputSolver
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE ElmerPostOutputSolver( Model, Solver,dt,TransientSimulation )
+  RECURSIVE SUBROUTINE ElmerPostOutputSolver( Model, Solver,dt,TransientSimulation,ONOEfound )
 !------------------------------------------------------------------------------
     USE DefUtils
     IMPLICIT NONE
@@ -449,41 +460,44 @@ END SUBROUTINE ResultOutputSolver
     TYPE(Solver_t) :: Solver
     TYPE(Model_t) :: Model
     REAL(KIND=dp) :: dt
+    LOGICAL, OPTIONAL :: ONOEfound
     LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
     INTEGER :: TimeCount
     CHARACTER(LEN=512) :: PostFile, FilePrefix
-    TYPE(Element_t), POINTER :: CurrentElement
+    TYPE(Element_t), POINTER :: CurrentElement, Parent
     TYPE(Variable_t), POINTER :: Var,Var1,Displacement=>Null(),MeshUpdate=>Null(),MaskVar
     
     CHARACTER(LEN=512) :: Row
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr, VarName, Txt
     
-    LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists
-    INTEGER :: ScalarFields, VectorFields
+    LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved, MaskExists, Found
+    INTEGER :: ScalarFields, VectorFields, ONOECount
     REAL(KIND=dp) :: Time,MeshScale, NodeCoords(3)
     REAL(KIND=dp), POINTER :: Values(:), Values2(:), Values3(:)
-    INTEGER :: ii,i,j,k,l,n,m,q,Node,DOFs,TimeStep, &
+    INTEGER :: jj,n1,n2,ii,i,j,k,l,n,m,q,Node,DOFs,TimeStep, On_nodes_on_elements, &
          NumberOfNodes, NumberOfElements, ind, Vari, MeshDim, ExtCount
     INTEGER, POINTER :: MaskPerm(:), MaskOrder(:), TimeSteps(:)
     LOGICAL :: MaskAllocated 
     TYPE(Mesh_t), POINTER :: Mesh
 
     INTEGER, SAVE :: ParallelNodes, SavedCount = 0
-    LOGICAL :: Visited 
+    LOGICAL, SAVE :: Visited = .FALSE.
 !------------------------------------------------------------------------------
     
     MeshDim = Model % Mesh % MeshDim
     Mesh => Model % Mesh
 
-    ExtCount = ListGetInteger( Solver % Values,'Output Count',GotIt)
+    IF ( .NOT.PRESENT(ONOEfound) ) THEN
+      ExtCount = ListGetInteger( Solver % Values,'Output Count',GotIt)
     
-    IF( GotIt ) THEN
-      SavedCount = ExtCount 
-    ELSE
-      SavedCount = SavedCount + 1
+      IF( GotIt ) THEN
+        SavedCount = ExtCount 
+      ELSE
+        SavedCount = SavedCount + 1
+      END IF
+      Visited = ( SavedCount > 1 )
     END IF
-    Visited = ( SavedCount > 1 )
 
     Timesteps => ListGetIntegerArray( CurrentModel % Simulation, &
         'Timestep Intervals', GotIt )
@@ -501,6 +515,8 @@ END SUBROUTINE ResultOutputSolver
     ELSE
       PostFile = FilePrefix
     END IF
+
+    IF ( PRESENT(ONOEfound) ) PostFile = TRIM(Postfile) // ".el"
     
     IF ( INDEX( PostFile, ':') == 0 .AND. PostFile(1:1) /= '/' .AND. &
         PostFile(1:1) /= Backslash ) THEN
@@ -589,31 +605,52 @@ END SUBROUTINE ResultOutputSolver
         IF(j > 0) MaskOrder(j) = i
       END DO
       NumberOfElements = 0
+      IF ( PRESENT(ONOEfound) ) NumberOfNodes=0
       DO i=1,Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
         CurrentElement => Model % Elements(i)
-        IF( ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) THEN
+        IF( ALL(MaskPerm(CurrentElement % NodeIndexes)>0)) THEN
           NumberOfElements = NumberOfElements + 1
         END IF
+        IF ( PRESENT(ONOEfound) ) &
+          NumberOfNodes=NumberOfNodes+CurrentElement % Type % NumberOfNodes
       END DO
     ELSE
       NumberOfNodes = Model % NumberOfNodes
       NumberOfElements =  Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+      IF ( PRESENT(ONOEfound) ) THEN
+        NumberOfNodes=0
+        DO i=1,Model % NumberOfBulkElements+Model % NumberOfBoundaryElements
+          CurrentElement => Model % Elements(i)
+          NumberOfNodes=NumberOfNodes+CurrentElement % Type % NumberOfNodes
+        END DO
+      END IF
     END IF
  
 !------------------------------------------------------------------------------
 !   Count degrees of freedom to be saved
 !------------------------------------------------------------------------------
     
+    ScalarFields = 0
+    On_nodes_on_elements=0
     DO Vari = 1, 99
       IF( Vari < 10 ) THEN
         WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
       ELSE
         WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
       END IF
-      IF( .NOT. ListCheckPresent( Solver % Values, TRIM(Txt)) ) EXIT
+      VarName=ListGetString( Solver % Values, Txt, Found )
+      IF ( .NOT. Found ) EXIT
+      Var => VariableGet( Solver % Mesh % Variables, Varname )
+      IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+        On_Nodes_on_elements=On_Nodes_on_elements+1
+        IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+      ELSE
+        IF ( PRESENT(ONOEfound) ) CYCLE
+      END IF
+      ScalarFields = ScalarFields + 1
     END DO
-    ScalarFields = Vari - 1
     
+    VectorFields = 0
     DO Vari = 1, 99
       IF( Vari < 10 ) THEN
         WRITE(Txt,'(A,I2)') 'Vector Field',Vari
@@ -621,10 +658,19 @@ END SUBROUTINE ResultOutputSolver
         WRITE(Txt,'(A,I3)') 'Vector Field',Vari
       END IF
       IF( .NOT. ListCheckPresent( Solver % Values, TRIM(Txt)) ) EXIT
+      VarName=ListGetString( Solver % Values, Txt, Found )
+      IF ( .NOT. Found ) EXIT
+      Var => VariableGet( Solver % Mesh % Variables, Varname )
+      IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+        On_Nodes_on_elements=On_Nodes_on_elements+1
+        IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+      ELSE
+        IF ( PRESENT(ONOEfound) ) CYCLE
+      END IF
+      VectorFields = VectorFields+1
     END DO
-    VectorFields = Vari - 1
     
-    IF( ScalarFields + VectorFields == 0 ) RETURN
+    IF( ScalarFields + VectorFields == 0 ) GOTO 10
     
     Dofs = ScalarFields + 3 * VectorFields
 
@@ -642,6 +688,12 @@ END SUBROUTINE ResultOutputSolver
           WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
         END IF
         VarName = ListGetString( Solver % Values, TRIM(Txt) )
+        Var => VariableGet( Solver % Mesh % Variables,VarName )
+        IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+          IF ( .NOT.PRESENT(ONOEfound) ) CYCLE
+        ELSE
+          IF ( PRESENT(ONOEfound) ) CYCLE
+        END IF
 
 	VarName(1:1) = CHAR(ICHAR(VarName(1:1))-ICHAR('a')+ICHAR('A'))
         k = LEN_TRIM(VarName)
@@ -660,6 +712,13 @@ END SUBROUTINE ResultOutputSolver
         END IF
 
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
+        Var => VariableGet( Solver % Mesh % Variables,VarName )
+        IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+          IF ( .NOT.PRESENT(ONOEfound) ) CYCLE
+        ELSE
+          IF ( PRESENT(ONOEfound) ) CYCLE
+        END IF
+
 
 	VarName(1:1) = CHAR(ICHAR(VarName(1:1))-ICHAR('a')+ICHAR('A'))
         k = LEN_TRIM(VarName)
@@ -689,59 +748,78 @@ END SUBROUTINE ResultOutputSolver
         END IF
       END DO
       
-      
-      DO ii=1,NumberOfNodes
-        
-        i = ii
-        IF(MaskExists) i = MaskOrder(i)
+      IF ( PRESENT(ONOEfound) ) THEN
+        DO i=1,Model % NumberOfBulkElements+Model % NumberOfBoundaryElements
+          CurrentElement => Model % Elements(i)
+          IF(MaskExists) THEN
+            IF( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0)) CYCLE
+          END IF
 
-        NodeCoords(1) = Model % Nodes % x(i)
-        NodeCoords(2) = Model % Nodes % y(i)
-        NodeCoords(3) = Model % Nodes % z(i)
+          DO j=1,CurrentElement % Type % NumberOfNodes
+            NodeCoords(1) = Model % Nodes % x(CurrentElement % NodeIndexes(j))
+            NodeCoords(2) = Model % Nodes % y(CurrentElement % NodeIndexes(j))
+            NodeCoords(3) = Model % Nodes % z(CurrentElement % NodeIndexes(j))
+
+            IF( MeshDim <= 2 ) THEN           
+              WRITE(PostFileUnit,'(2ES16.7E3 A)') NodeCoords(1:2), ' 0.0'
+            ELSE
+              WRITE(PostFileUnit,'(3ES16.7E3 A)') NodeCoords(1:3)
+            END IF
+          END DO
+        END DO
+      ELSE
+        DO ii=1,NumberOfNodes
+          i = ii
+          IF(MaskExists) i = MaskOrder(i)
+
+          NodeCoords(1) = Model % Nodes % x(i)
+          NodeCoords(2) = Model % Nodes % y(i)
+          NodeCoords(3) = Model % Nodes % z(i)
         
-        IF ( ASSOCIATED(Displacement) ) THEN
-          k = Displacement % Perm(i)
+          IF ( ASSOCIATED(Displacement) ) THEN
+            k = Displacement % Perm(i)
           
-          IF ( k > 0 ) THEN
-            k = Displacement % DOFs * (k-1)
-            NodeCoords(1) = NodeCoords(1) - MeshScale*Displacement % Values(k+1)
-            IF( Displacement % DOFs >= 2) THEN
-              NodeCoords(2) = NodeCoords(2) - MeshScale*Displacement % Values(k+2)
-            END IF
-            IF( Displacement % DOFs == 3) THEN
-              NodeCoords(3) = NodeCoords(3) - MeshScale*Displacement % Values(k+3)
-            END IF
-          ELSE
-            IF ( ASSOCIATED( MeshUpdate ) ) k = MeshUpdate % Perm(i)
+            IF ( k > 0 ) THEN
+              k = Displacement % DOFs * (k-1)
+              NodeCoords(1) = NodeCoords(1) - MeshScale*Displacement % Values(k+1)
+              IF( Displacement % DOFs >= 2) THEN
+                NodeCoords(2) = NodeCoords(2) - MeshScale*Displacement % Values(k+2)
+                END IF
+              IF( Displacement % DOFs == 3) THEN
+                NodeCoords(3) = NodeCoords(3) - MeshScale*Displacement % Values(k+3)
+              END IF
+            ELSE
+              IF ( ASSOCIATED( MeshUpdate ) ) k = MeshUpdate % Perm(i)
             
-            k = MeshUpdate % DOFs * (k-1)
-            NodeCoords(1) = NodeCoords(1) - MeshUpdate % Values(k+1)
-            IF( MeshUpdate % DOFs >= 2) THEN
-              NodeCoords(2) = NodeCoords(2) - MeshUpdate % Values(k+2)
-            END IF
-            IF( MeshUpdate % DOFs == 3) THEN
-              NodeCoords(3) = NodeCoords(3) - MeshUpdate % Values(k+3)
+              k = MeshUpdate % DOFs * (k-1)
+              NodeCoords(1) = NodeCoords(1) - MeshUpdate % Values(k+1)
+              IF( MeshUpdate % DOFs >= 2) THEN
+                NodeCoords(2) = NodeCoords(2) - MeshUpdate % Values(k+2)
+              END IF
+              IF( MeshUpdate % DOFs == 3) THEN
+                NodeCoords(3) = NodeCoords(3) - MeshUpdate % Values(k+3)
+              END IF
             END IF
           END IF
-        END IF
 
-        IF( MeshDim <= 2 ) THEN           
-          WRITE(PostFileUnit,'(2ES16.7E3 A)') NodeCoords(1:2), ' 0.0'
-        ELSE
-          WRITE(PostFileUnit,'(3ES16.7E3 A)') NodeCoords(1:3)
-        END IF
-
-      END DO
+          IF( MeshDim <= 2 ) THEN           
+            WRITE(PostFileUnit,'(2ES16.7E3 A)') NodeCoords(1:2), ' 0.0'
+          ELSE
+            WRITE(PostFileUnit,'(3ES16.7E3 A)') NodeCoords(1:3)
+          END IF
+        END DO
+      END IF
 
 !------------------------------------------------------------------------------
 ! Elements
 !------------------------------------------------------------------------------
       WRITE(PostFileUnit,'(a)') '#group all'
+      ONOECount=0
       DO i=1,Model % NumberOfBulkElements
         CurrentElement => Model % Elements(i)
         
         IF(MaskExists) THEN
-          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+          IF( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0)) CYCLE
         END IF
         
         k = CurrentElement % BodyId
@@ -773,7 +851,12 @@ END SUBROUTINE ResultOutputSolver
           DO k=1,MIN(4,CurrentElement % TYPE % NumberOfNodes-n)
             n = n + 1
             ind = CurrentElement % NodeIndexes(n)
-            IF(MaskExists) ind = MaskPerm(ind)
+            IF(PRESENT(ONOEfound)) THEN
+              ONOECount = ONOECount+1
+              ind = ONOECount
+            ELSE IF(MaskExists) THEN
+              ind = MaskPerm(ind)
+            END IF
             WRITE(PostFileUnit, '(i8)', ADVANCE='NO')  ind - 1
           END DO
           WRITE( PostFileUnit,'(a)' ) ''
@@ -786,7 +869,7 @@ END SUBROUTINE ResultOutputSolver
         CurrentElement => Model % Elements(i)
         
         IF(MaskExists) THEN
-          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+          IF( ANY(MaskPerm(CurrentElement % NodeIndexes) <= 0)) CYCLE
         END IF
         
         k = CurrentElement % BoundaryInfo % Constraint
@@ -816,7 +899,12 @@ END SUBROUTINE ResultOutputSolver
         WRITE(PostFileUnit,'(i5)', ADVANCE='NO') CurrentElement % TYPE % ElementCode
         DO k=1,CurrentElement % TYPE % NumberOfNodes
           ind = CurrentElement % NodeIndexes(k)
-          IF(MaskExists) ind = MaskPerm(ind)
+          IF(PRESENT(ONOEfound)) THEN
+            ONOECount=ONOECount+1
+            ind = ONOECount
+          ELSE IF(MaskExists) THEN
+            ind = MaskPerm(ind)
+          END IF
           WRITE( PostFileUnit, '(i8)', ADVANCE='NO' )  ind-1
         END DO
         WRITE( PostFileUnit,'(a)' ) ''
@@ -836,10 +924,52 @@ END SUBROUTINE ResultOutputSolver
     
     WRITE( PostFileUnit,'(a,i7,i7,ES16.7E3)' ) '#time ',SavedCount,Timestep,Time
 
-    DO ii=1,NumberOfNodes
+    IF ( PRESENT(ONOEfound) ) THEN
+       n1=Model % NumberOfBulkElements+Model % NumberOfBoundaryElements
+    ELSE
+       n1=1
+       n2=NumberOfNodes
+    END IF
+    DO jj=1,n1
+    IF( PRESENT(ONOEfound) ) THEN
+      CurrentElement => Model % Elements(jj)
+      IF(MaskExists) THEN
+        IF ( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0) ) CYCLE
+      END IF
+      n2=CurrentElement % Type % NumberOfNodes
+
+      Parent => Null()
+      IF ( ASSOCIATED(CurrentElement % BoundaryInfo) ) THEN
+        n = 0
+        Parent => CurrentElement % BoundaryInfo % Left
+        DO l=1,Parent % Type % NumberOfNodes
+          DO m=1,n2
+            IF ( CurrentElement % NodeIndexes(m)==Parent % NodeIndexes(l)) n=n+1
+          END DO
+        END DO
+        IF ( n/=n2 ) &
+          Parent => CurrentElement % BoundaryInfo % Right
+      END IF
+    END IF
+
+    DO ii=1,n2
       
-      i = ii
-      IF(MaskExists) i = MaskOrder(i)
+      IF ( PRESENT(ONOEfound) ) THEN
+        IF ( ASSOCIATED(Parent) ) THEN
+          DO l=1,Parent % Type % NumberOfNodes
+            DO m=1,n2
+              IF ( CurrentElement % NodeIndexes(m)==Parent % NodeIndexes(l)) EXIT
+            END DO
+            IF ( m<=n2 ) EXIT
+          END DO
+          i = Parent % DGIndexes(l)
+        ELSE
+          i = CurrentElement % DGIndexes(ii)
+        END IF
+      ELSE
+        i = ii
+        IF(MaskExists) i = MaskOrder(i)
+      END IF
       
       DO Vari = 1, ScalarFields
         IF( Vari < 10 ) THEN
@@ -849,6 +979,11 @@ END SUBROUTINE ResultOutputSolver
         END IF
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Model % Variables, TRIM(VarName) ) 
+        IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+          CYCLE
+        ELSE IF ( PRESENT(ONOEfound) ) THEN
+          CYCLE
+        END IF
         Values => Var % Values
 
         k = i
@@ -871,6 +1006,11 @@ END SUBROUTINE ResultOutputSolver
         Var => VariableGet( Model % Variables, VarName ) 
 
         IF( ASSOCIATED(Var) ) THEN
+          IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+            IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+          ELSE IF ( PRESENT(ONOEfound) ) THEN
+            CYCLE
+          END IF
           k = i
           Dofs = Var% Dofs
           IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
@@ -938,17 +1078,22 @@ END SUBROUTINE ResultOutputSolver
           END IF
         END IF
       END DO
-      
       WRITE(PostFileUnit,'()')
+      END DO
     END DO
 
 !------------------------------------------------------------------------------
 !   We are done here close the files and deallocate
 !------------------------------------------------------------------------------
+10  CONTINUE
+
     CLOSE(PostFileUnit)
     
     IF(MaskExists) DEALLOCATE(MaskOrder)
     IF(MaskAllocated) DEALLOCATE( MaskPerm )
+
+    IF ( .NOT. PRESENT(ONOEfound) .AND. On_nodes_on_elements>0 ) &
+      CALL ElmerPostOutputSolver(Model,Solver,dt,TransientSimulation,.TRUE.)
 
   END SUBROUTINE ElmerPostOutputSolver
 !------------------------------------------------------------------------------
@@ -3275,7 +3420,7 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:), Perm2(:), DispPerm(:), Disp2Perm(:)
     REAL(KIND=dp), POINTER :: Values(:), DispValues(:), Disp2Values(:), Values2(:), Values3(:)
-    REAL(KIND=dp) :: x,y,z
+    REAL(KIND=dp) :: x,y,z, ElemVectVal(3)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Element_t), POINTER :: CurrentElement
 
@@ -3360,6 +3505,7 @@ CONTAINS
             CYCLE
           END IF
         END IF
+        IF ( Solution % Type == Variable_on_nodes_on_elements ) CYCLE
         
         IF( ASSOCIATED(Solution % EigenVectors)) THEN
           CALL Warn('WriteVtuXMLFile','Do the eigen values')
@@ -3469,24 +3615,128 @@ CONTAINS
       WRITE( VtuUnit,'(A)') '      </PointData>'
     END IF
     
+    
     ! Elementwise information
     !-------------------------------------
-    IF(.FALSE.) THEN
+    FieldName = GetString( Solver % Values,'Vector Field Elemental 1',VectorsExist)
+    FieldName = GetString( Solver % Values,'Scalar Field Elemental 1',ScalarsExist)
+
+    IF( VectorsExist .OR. ScalarsExist ) THEN
+      
       WRITE( VtuUnit,'(A)') '      <CellData>'
-      WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="body" format="ascii">'
-      DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-        CurrentElement => Model % Elements(i)
-        IF(MaskExists) THEN
-          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-        END IF
-        IF( i <= Model % NumberOfBulkElements ) THEN
-          n = CurrentElement % BodyId 
+      
+      IF ( .FALSE. ) THEN
+        WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="body" format="ascii">'
+        DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+          CurrentElement => Model % Elements(i)
+          IF(MaskExists) THEN
+            IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+          END IF
+          IF( i <= Model % NumberOfBulkElements ) THEN
+            n = CurrentElement % BodyId 
+          ELSE
+              n = 0
+          END IF
+          WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') n
+        END DO
+        WRITE( VtuUnit,'(A)') ' '
+        WRITE( VtuUnit,'(A)') '        </DataArray>'
+      END IF
+      
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          WRITE(Txt,'(A,I2)') 'Scalar Field Elemental',Vari
         ELSE
-          n = 0
+          WRITE(Txt,'(A,I3)') 'Scalar Field Elemental',Vari
         END IF
-        WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') n
-      END DO
-      WRITE( VtuUnit,'(A)') '        </DataArray>'
+        
+        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        !---------------------------------------------------------------------
+        ! Find the variable with the given name in the normal manner 
+        !---------------------------------------------------------------------
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
+
+        IF(.NOT. ASSOCIATED(Solution)) THEN
+          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+          CALL Warn('WriteVtuXMLFile', Txt)
+          CYCLE
+        END IF
+        
+        Perm => Solution % Perm
+        Dofs = Solution % DOFs
+        Values => Solution % Values
+  
+        WRITE(Txt, '(A,A,A)') 'Write variable: "',TRIM(FieldName), "'"
+        CALL Info('WriteVtuXMLFile', Txt)
+  
+        WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+               //'" NumberOfComponents="1" format="ascii">'    
+        DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+           ElemVectVal = 0.0
+           IF( i <= Model % NumberOfBulkElements ) THEN
+              CurrentElement => Model % Elements(i)
+              IF ( ALL(Perm(CurrentElement % DGIndexes)>0)) THEN
+                n = GetElementNOFNodes()
+                ElemVectVal(1) = SUM(Values(perm(CurrentElement % DGIndexes)))/n
+              END IF
+           END IF
+           WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ElemVectVal(1)
+        END DO
+        WRITE( VtuUnit,'(A)') ' '
+        WRITE( VtuUnit,'(A)') '        </DataArray>'
+      END DO  
+
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          WRITE(Txt,'(A,I2)') 'Vector Field Elemental',Vari
+        ELSE
+          WRITE(Txt,'(A,I3)') 'Vector Field Elemental',Vari
+        END IF
+        
+        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        !---------------------------------------------------------------------
+        ! Find the variable with the given name in the normal manner 
+        !---------------------------------------------------------------------
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
+
+        IF(.NOT. ASSOCIATED(Solution)) THEN
+          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+          CALL Warn('WriteVtuXMLFile', Txt)
+          CYCLE
+        END IF
+        
+        Perm => Solution % Perm
+        Dofs = Solution % DOFs
+        Values => Solution % Values
+  
+        WRITE(Txt, '(A,A,A)') 'Write variable: "',TRIM(FieldName), "'"
+        CALL Info('WriteVtuXMLFile', Txt)
+  
+        WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+               //'" NumberOfComponents="3" format="ascii">'    
+        DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+           ElemVectVal = 0.0
+           IF( i <= Model % NumberOfBulkElements ) THEN
+              CurrentElement => Model % Elements(i)
+              IF ( ALL(Perm(CurrentElement % DGIndexes)>0)) THEN
+                n = GetElementNOFNodes()
+                DO j=1,dofs
+                  ElemVectVal(j) = SUM(Values(dofs*(perm(CurrentElement % DGIndexes)-1)+j))/n
+                END DO
+              END IF
+           END IF
+           DO k=1,3
+              WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ElemVectVal(k)
+           END DO                  
+        END DO
+        WRITE( VtuUnit,'(A)') ' '
+        WRITE( VtuUnit,'(A)') '        </DataArray>'
+      END DO  
+      
       WRITE( VtuUnit,'(A)') '      </CellData>'
     END IF
 

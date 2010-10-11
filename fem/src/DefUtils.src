@@ -290,36 +290,34 @@ CONTAINS
 
      Element => GetCurrentElement(UElement)
 
-     IF ( ASSOCIATED( Variable ) ) THEN
-        Indexes => GetIndexStore()
-        IF ( ASSOCIATED(Variable % Solver ) ) THEN
-          n = GetElementDOFs( Indexes, Element, Variable % Solver )
-        ELSE
-          n = GetElementDOFs( Indexes, Element, Solver )
-        END IF
-        n = MIN( n, SIZE(x) )
+     Indexes => GetIndexStore()
+     IF ( ASSOCIATED(Variable % Solver) ) THEN
+       n = GetElementDOFs( Indexes, Element, Variable % Solver )
+     ELSE
+       n = GetElementDOFs( Indexes, Element, Solver )
+     END IF
+     n = MIN( n, SIZE(x) )
 
-        Values => Variable % Values
-        IF ( PRESENT(tStep) ) THEN
-          IF ( tStep<0 ) THEN
-            IF ( ASSOCIATED(Variable % PrevValues) .AND. -tStep<=SIZE(Variable % PrevValues,2)) &
-              Values => Variable % PrevValues(:,-tStep)
-          END IF
-        END IF
+     Values => Variable % Values
+     IF ( PRESENT(tStep) ) THEN
+       IF ( tStep<0 ) THEN
+         IF ( ASSOCIATED(Variable % PrevValues) .AND. -tStep<=SIZE(Variable % PrevValues,2)) &
+           Values => Variable % PrevValues(:,-tStep)
+       END IF
+     END IF
 
-        IF ( ASSOCIATED( Variable % Perm ) ) THEN
-           IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
-             DO i=1,n
-                IF ( Indexes(i) <= SIZE(Variable % Perm) ) &
-                  x(i) = Values(Variable % Perm(Indexes(i)))
-             END DO
-           END IF
-        ELSE
-           DO i=1,n
-             IF ( Indexes(i) <= SIZE(Variable % Values) ) &
-               x(i) = Values(Indexes(i))
-           END DO
+     IF ( ASSOCIATED( Variable % Perm ) ) THEN
+        IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
+          DO i=1,n
+             IF ( Indexes(i) <= SIZE(Variable % Perm) ) &
+               x(i) = Values(Variable % Perm(Indexes(i)))
+          END DO
         END IF
+     ELSE
+        DO i=1,n
+          IF ( Indexes(i) <= SIZE(Variable % Values) ) &
+            x(i) = Values(Indexes(i))
+        END DO
      END IF
   END SUBROUTINE GetScalarLocalSolution
 
