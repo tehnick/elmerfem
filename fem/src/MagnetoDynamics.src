@@ -2882,12 +2882,12 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
 
   n = Model % NumberOfSolvers
   DO i=1,Model % NumberOFEquations
-    Active => ListGetIntegerArray(Model % Equations(i) % Values, 'Active Solvers', Found)
+    Active => ListGetIntegerArray(Model % Equations(i) % Values, &
+                'Active Solvers', Found)
     m = SIZE(Active)
-    IF ( ANY(Active==mysolver) ) THEN
+    IF ( ANY(Active==mysolver) ) &
       CALL ListAddIntegerArray( Model % Equations(i) % Values,  &
-       'Active Solvers('//TRIM(I2S(m+1))//')', m+1, [Active, n+1] )
-    END IF
+           'Active Solvers', m+1, [Active, n+1] )
   END DO
 
   ALLOCATE(Solvers(n+1))
