@@ -1601,7 +1601,8 @@ type(valuelist_t), pointer :: lst
     ALLOCATE( Def_Dofs(6) )
     Def_Dofs = -1; Def_Dofs(1)=1
 
-    DO i=1,Model % NumberOfSolvers
+    i = 1
+    DO WHILE(i<=Model % NumberOFSolvers)
 
       Solver => Model % Solvers(i)
       Model % Solver => Solver
@@ -1610,8 +1611,11 @@ type(valuelist_t), pointer :: lst
       IF ( Found ) THEN
         InitProc = GetProcAddr( TRIM(Name)//'_Init0', abort=.FALSE. )
         IF ( InitProc /= 0 ) THEN
-          CALL ExecSolver( InitProc, CurrentModel, Solver, &
+          CALL ExecSolver( InitProc, Model, Solver, &
                   Solver % dt, Transient )
+
+          Solver => Model % Solvers(i)
+          Model % Solver => Solver
         END IF
       END IF
 
@@ -1701,6 +1705,8 @@ type(valuelist_t), pointer :: lst
         Solver % Def_Dofs(6) = l
         IF ( .NOT. GotMesh ) Def_Dofs(6) = MAX(Def_Dofs(6), l )
       END IF
+
+      i = i + 1
     END DO
 
     Name = ListGetString( Model % Simulation, 'Mesh', GotIt )

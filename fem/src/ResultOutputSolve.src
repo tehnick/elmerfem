@@ -630,6 +630,7 @@ END SUBROUTINE ResultOutputSolver
 !   Count degrees of freedom to be saved
 !------------------------------------------------------------------------------
     
+    Dofs = 0
     ScalarFields = 0
     On_nodes_on_elements=0
     DO Vari = 1, 99
@@ -643,9 +644,9 @@ END SUBROUTINE ResultOutputSolver
       Var => VariableGet( Solver % Mesh % Variables, Varname )
       IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
         On_Nodes_on_elements=On_Nodes_on_elements+1
-        IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+        IF ( PRESENT(ONOEfound) ) Dofs=Dofs+1
       ELSE
-        IF ( PRESENT(ONOEfound) ) CYCLE
+        IF ( .NOT.PRESENT(ONOEfound) ) Dofs=Dofs+1
       END IF
       ScalarFields = ScalarFields + 1
     END DO
@@ -657,23 +658,20 @@ END SUBROUTINE ResultOutputSolver
       ELSE
         WRITE(Txt,'(A,I3)') 'Vector Field',Vari
       END IF
-      IF( .NOT. ListCheckPresent( Solver % Values, TRIM(Txt)) ) EXIT
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
       Var => VariableGet( Solver % Mesh % Variables, Varname )
       IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
         On_Nodes_on_elements=On_Nodes_on_elements+1
-        IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+        IF ( PRESENT(ONOEfound) ) Dofs=Dofs+3
       ELSE
-        IF ( PRESENT(ONOEfound) ) CYCLE
+        IF ( .NOT.PRESENT(ONOEfound) ) Dofs=Dofs+3
       END IF
       VectorFields = VectorFields+1
     END DO
     
     IF( ScalarFields + VectorFields == 0 ) GOTO 10
     
-    Dofs = ScalarFields + 3 * VectorFields
-
 !------------------------------------------------------------------------------
 ! Write header to output
 !------------------------------------------------------------------------------
