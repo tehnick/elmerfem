@@ -177,12 +177,13 @@ this ise not in USE
 
 !------------------------------------------------------------------------------
    FUNCTION EffectiveViscosity( Viscosity,Density,Ux,Uy,Uz,Element, &
-                      Nodes,n,nd,u,v,w ) RESULT(PVisc)
+                      Nodes,n,nd,u,v,w, muder ) RESULT(mu)
 !------------------------------------------------------------------------------
 
      USE ModelDescription
 
-     REAL(KIND=dp)  :: Viscosity,Density,u,v,w,PVisc,Ux(:),Uy(:),Uz(:)
+     REAL(KIND=dp)  :: Viscosity,Density,u,v,w,mu,Ux(:),Uy(:),Uz(:)
+     REAL(KIND=dp), OPTIONAL :: muder
      TYPE(Nodes_t)  :: Nodes
      INTEGER :: n,nd
      TYPE(Element_t),POINTER :: Element
@@ -229,7 +230,7 @@ this ise not in USE
        END FUNCTION MaterialUserFunction
      END INTERFACE
 !------------------------------------------------------------------------------
-     PVisc = Viscosity
+     mu = Viscosity
       
      k = ListGetInteger( CurrentModel % Bodies(Element % BodyId) % Values, 'Material', &
                    minv=1, maxv=CurrentModel % NumberOFMaterials )
@@ -262,25 +263,32 @@ this ise not in USE
      Velo(2) = SUM( Basis(1:nd) * Uy(1:nd) )
      Velo(3) = SUM( Basis(1:nd) * Uz(1:nd) )
      
-     ss = SecondInvariant( Velo,dVelodx,Metric,Symb ) / 2
+     ss=SecondInvariant(Velo,dVelodx,Metric,Symb)/2
 
+     IF ( PRESENT(muder) ) muder = 0._dp
      SELECT CASE( ViscosityFlag )
 
        CASE('power law')
-         s = SQRT(ss)
          c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis(1:n) * c2n(1:n) )
+
+         s = ss
+         IF (PRESENT(muder)) muder = Viscosity * (c2-1)/2 * s**((c2-1)/2-1)
+
          c3n = ListGetReal( Material, 'Critical Shear Rate',n, Element % NodeIndexes,gotIt )
          IF (GotIt) THEN
            c3 = SUM( Basis(1:n) * c3n(1:n) )
-           IF(s < c3) s = c3
+           IF(s < c3**2) THEN
+             s = c3**2
+             IF (PRESENT(muder)) muder = 0._dp
+           END IF
          END IF
-         PVisc = Viscosity * (s ** (c2-1.0D0))
+         mu = Viscosity * s**((c2-1)/2)
 
        CASE('power law too')
          c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis(1:n) * c2n(1:n) )
-         PVisc = Viscosity **(-1.0d0/c2)* ss**(-(c2-1)/(2*c2)) / 2
+         mu = Viscosity **(-1.0d0/c2)* ss**(-(c2-1)/(2*c2)) / 2
        
        CASE ('carreau')
          c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes )
@@ -292,9 +300,9 @@ this ise not in USE
          c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
          IF(gotIt) THEN
            s = SQRT(ss)
-           PVisc = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
+           mu = Viscosity + c1 * (1 + (c3*s)**c4)**((c2-1)/c4) 
          ELSE
-           PVisc = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
+           mu = Viscosity + c1 * (1 + (c3*c3*ss))**((c2-1)/2.0) 
          END IF
 
        CASE ('cross')
@@ -304,7 +312,7 @@ this ise not in USE
          c2 = SUM( Basis(1:n) * c2n(1:n) )
          c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes )
          c3 = SUM( Basis(1:n) * c3n(1:n) )
-         PVisc = Viscosity + c1 / (1.0d0 + c3*ss**(c2/2.0))
+         mu = Viscosity + c1 / (1 + c3*ss**(c2/2))
        
        CASE ('powell eyring')
          c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
@@ -312,9 +320,9 @@ this ise not in USE
          c2 = ListGetConstReal( Material, 'Viscosity Transition')
          s = SQRT(ss)
          IF(c2*s < 1.0d-5) THEN
-           Pvisc = Viscosity + c1
+           mu = Viscosity + c1
          ELSE
-           PVisc = Viscosity + c1 * LOG(c2*s+SQRT(c2*c2*ss+1.0d0))/(c2*s)
+           mu = Viscosity + c1 * LOG(c2*s+SQRT(c2*c2*ss+1))/(c2*s)
          END IF
 
        CASE ('thermal carreau')
@@ -343,9 +351,9 @@ this ise not in USE
 
          IF(gotIt) THEN
            s = SQRT(ss)
-           PVisc = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
+           mu = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
          ELSE
-           PVisc = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
+           mu = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
          END IF
 
        CASE( 'smagorinsky' )
@@ -373,7 +381,7 @@ this ise not in USE
            ELSE
              Cmu = 0.09_dp 
            END IF
-           PVisc = Viscosity + Cmu*Density*KE_K**2 / KE_E
+           mu = Viscosity + Cmu*Density*KE_K**2 / KE_E
          ELSE
            Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
            IF ( .NOT. ASSOCIATED( Var ) ) &
@@ -397,21 +405,21 @@ this ise not in USE
            Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
            Cmu = SUM( Basis(1:n) * Vals(1:n) )
 
-           PVisc = Viscosity + Cmu*Density*KE_Z*TimeScale
+           mu = Viscosity + Cmu*Density*KE_Z*TimeScale
          END IF
 
        CASE( 'rng k-epsilon' )
          Var => VariableGet( CurrentModel % Variables, 'Effective Viscosity')
-         PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
+         mu = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
 
        CASE( 'spalart-allmaras' )
          Var => VariableGet( CurrentModel % Variables, 'Turbulent Viscosity')
          IF ( .NOT. ASSOCIATED( Var ) ) &
            CALL Fatal( 'Viscosity Model', 'The turbulent viscosity variable not defined?' )
-         PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
-         c1 = Pvisc/(Viscosity/Density)
+         mu = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
+         c1 = mu/(Viscosity/Density)
          c1 = c1**3 / (c1**3 + 7.1_dp**3) 
-         Pvisc = Viscosity + pvisc*Density*c1
+         mu = Viscosity + mu*Density*c1
  
        CASE( 'k-omega' )
          Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
@@ -424,7 +432,7 @@ this ise not in USE
            CALL Fatal( 'Viscosity Model', 'The kinetic dissipation rate variable not defined?' )
          KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
 
-         PVisc = Viscosity + Density * KE_K / KE_E
+         mu = Viscosity + Density * KE_K / KE_E
 
        CASE( 'sst k-omega' )
          Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
@@ -448,7 +456,7 @@ this ise not in USE
 !        F3 = 1-TANH((150*Viscosity/Density/KE_E/Dist**2)**4)
          F3 = 1
 
-         PVisc = Viscosity+0.31_dp*Density*KE_K/MAX(0.31_dp*KE_E,SQRT(ss)*F2*F3)
+         mu = Viscosity+0.31_dp*Density*KE_K/MAX(0.31_dp*KE_E,SQRT(ss)*F2*F3)
 
        CASE( 'levelset' )
          TempSol => VariableGet( CurrentModel % Variables, 'Surface' )
@@ -473,12 +481,12 @@ this ise not in USE
            c3 = 0.75d0 * (Temp - Temp**3/3) + 0.5d0
          END IF
       
-         Pvisc = Viscosity + c3 * c1 
+         mu = Viscosity + c3 * c1 
 
        CASE( 'user function' )
          str = ListGetString( Material, 'Viscosity Function' )
          Fnc = GetProcAddr( str, Quiet=.TRUE. )
-         PVisc = MaterialUserFunction( Fnc, CurrentModel, Element, Nodes, n, nd, &
+         mu = MaterialUserFunction( Fnc, CurrentModel, Element, Nodes, n, nd, &
                 Basis, dBasisdx, Viscosity, Velo, dVelodx )
        
      CASE DEFAULT 
