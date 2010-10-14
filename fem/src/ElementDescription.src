@@ -4843,39 +4843,46 @@ END IF
 
 
 !------------------------------------------------------------------------------
-!
-!
+! Gives the normal vector of a boundary element.
+! For noncurved elements the normal vector does not depend on the local coordinate
+! while otherwise it does. There are different uses of the function where some
+! do not have the luxury of knowing the local coordinates and hence the center
+! point is used as default.
 !------------------------------------------------------------------------------
-  FUNCTION NormalVector( Boundary,BoundaryNodes,u,v,Check ) RESULT(Normal)
+  FUNCTION NormalVector( Boundary,BoundaryNodes,u0,v0,Check ) RESULT(Normal)
 !------------------------------------------------------------------------------
-    Type(Element_t), POINTER :: Boundary
-    Type(Nodes_t)   :: BoundaryNodes
-    REAL(KIND=dp) :: u,v
+    TYPE(Element_t), POINTER :: Boundary
+    TYPE(Nodes_t)   :: BoundaryNodes
+    REAL(KIND=dp), OPTIONAL :: u0,v0
     LOGICAL, OPTIONAL :: Check 
     REAL(KIND=dp) :: Normal(3)
 !------------------------------------------------------------------------------
     LOGICAL :: DoCheck
 
-    Type(ElementType_t),POINTER :: elt
+    TYPE(ElementType_t),POINTER :: elt
 
-    REAL(KIND=dp) :: Auu,Auv,Avu,Avv,detA,x,y,z
+    REAL(KIND=dp) :: u,v,Auu,Auv,Avu,Avv,detA,x,y,z
     REAL(KIND=dp) :: dxdu,dxdv,dydu,dydv,dzdu,dzdv
-
     REAL(KIND=dp), DIMENSION(:), POINTER :: nx,ny,nz
 
-    REAL(KIND=dp) :: Metric(3,3),SqrtMetric,Symbols(3,3,3),dSymbols(3,3,3,3)
 !------------------------------------------------------------------------------
 
     nx => BoundaryNodes % x
     ny => BoundaryNodes % y
     nz => BoundaryNodes % z
 
-    IF ( Boundary % Type % Dimension == 1 ) THEN
+    IF ( Boundary % TYPE % DIMENSION == 1 ) THEN
+      IF( PRESENT( u0 ) ) THEN
+        u = u0
+      ELSE
+        u = 0.0_dp
+      END IF
+
       dxdu = FirstDerivative1D( Boundary,nx,u )
       dydu = FirstDerivative1D( Boundary,ny,u )
  
       detA = dxdu*dxdu + dydu*dydu
-      IF ( detA<=0._dp ) THEN
+      IF ( detA <= 0._dp ) THEN
         Normal = 0._dp
         RETURN
       END IF
@@ -4884,6 +4891,18 @@ END IF
       Normal(2) =  dxdu * detA
       Normal(3) =  0.0d0
     ELSE
+      IF( PRESENT( u0 ) ) THEN
+        u = u0
+        v = v0
+      ELSE
+        IF( Boundary % TYPE % ElementCode / 100 == 3 ) THEN
+          u = 1.0_dp/3
+          v = 1.0_dp/3
+        ELSE
+          u = 0.0_dp
+          v = 0.0_dp
+        END IF
+      END IF
 
       dxdu = FirstDerivativeInU2D( Boundary,nx,u,v )
       dydu = FirstDerivativeInU2D( Boundary,ny,u,v )
@@ -4908,7 +4927,7 @@ END IF
     IF ( PRESENT(Check) ) DoCheck = Check
 
     IF ( DoCheck ) THEN
-      SELECT CASE( Boundary % Type % ElementCode / 100 ) 
+      SELECT CASE( Boundary % TYPE % ElementCode / 100 ) 
       CASE(2,4)
         x = InterpolateInElement( Boundary,nx,0.0d0,0.0d0,0.0d0 )
         y = InterpolateInElement( Boundary,ny,0.0d0,0.0d0,0.0d0 )
@@ -4924,6 +4943,49 @@ END IF
 
 !------------------------------------------------------------------------------
   END FUNCTION NormalVector
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  FUNCTION SurfaceVector( Boundary,BoundaryNodes,u,v ) RESULT(Surface)
+!------------------------------------------------------------------------------
+! Returns a point that is most importantly supposed to be on the surface
+! For noncurved elements this may simply be the mean while otherwise
+! there may be a need to find the surface node using the local coordinates.
+! Hence the optional parameters. Typically the NormalVector and SurfaceVector
+! should be defined at the same position.
+!------------------------------------------------------------------------------
+    TYPE(Element_t), POINTER :: Boundary
+    TYPE(Nodes_t)   :: BoundaryNodes
+    REAL(KIND=dp),OPTIONAL :: u,v
+    REAL(KIND=dp) :: Surface(3)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp), DIMENSION(:), POINTER :: nx,ny,nz
+    INTEGER :: i,n
+!------------------------------------------------------------------------------
+
+    nx => BoundaryNodes % x
+    ny => BoundaryNodes % y
+    nz => BoundaryNodes % z
+    n = Boundary % Type % NumberOfNodes
+
+    IF( .NOT. PRESENT( u ) ) THEN
+      Surface(1) = SUM( nx ) / n
+      Surface(2) = SUM( ny ) / n
+      Surface(3) = SUM( nz ) / n
+    ELSE
+      IF( Boundary % TYPE % DIMENSION == 1 ) THEN
+        Surface(1) = InterpolateInElement( Boundary,nx,u,0.0_dp,0.0_dp)
+        Surface(2) = InterpolateInElement( Boundary,ny,u,0.0_dp,0.0_dp)
+        Surface(3) = InterpolateInElement( Boundary,nz,u,0.0_dp,0.0_dp)
+      ELSE 
+        Surface(1) = InterpolateInElement( Boundary,nx,u,v,0.0_dp)
+        Surface(2) = InterpolateInElement( Boundary,ny,u,v,0.0_dp)
+        Surface(3) = InterpolateInElement( Boundary,nz,u,v,0.0_dp)        
+      END IF
+    END IF
+
+!------------------------------------------------------------------------------
+  END FUNCTION SurfaceVector
 !------------------------------------------------------------------------------
 
 
