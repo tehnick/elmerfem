@@ -60,7 +60,7 @@ MODULE ElementDescription
    ! Module global variables
    !
    LOGICAL, PRIVATE :: TypeListInitialized = .FALSE.
-   Type(ElementType_t), PRIVATE, POINTER :: ElementTypeList
+   TYPE(ElementType_t), PRIVATE, POINTER :: ElementTypeList
 
 CONTAINS
 
@@ -85,11 +85,11 @@ CONTAINS
 !******************************************************************************
 
       INTEGER, DIMENSION(:) :: BasisTerms
-      Type(ElementType_t), TARGET :: element
+      TYPE(ElementType_t), TARGET :: element
 !------------------------------------------------------------------------------
 !     Local variables
 !------------------------------------------------------------------------------
-      Type(ElementType_t), POINTER :: temp
+      TYPE(ElementType_t), POINTER :: temp
 
       INTEGER, DIMENSION(MaxDeg3) :: s
       INTEGER :: i,j,k,l,m,n,upow,vpow,wpow,i1,i2,ii(9),jj
@@ -224,7 +224,7 @@ CONTAINS
         DO j = 1,n
           k = BasisTerms(j) - 1
 
-          SELECT CASE( Element % Dimension ) 
+          SELECT CASE( Element % DIMENSION ) 
           CASE(1)
              upow = k
           CASE(2)
@@ -398,7 +398,7 @@ CONTAINS
       INTEGER :: k
       INTEGER, DIMENSION(MaxDeg3) :: BasisTerms
 
-      Type(ElementType_t) :: element
+      TYPE(ElementType_t) :: element
 
       LOGICAL :: gotit
 !------------------------------------------------------------------------------
@@ -463,7 +463,7 @@ ELMER_SOLVER_HOME,&
           DO WHILE( ReadAndTrim(1,str) )
 
             IF ( str(1:9) == 'dimension' ) THEN
-              READ( str(10:MAX_PATH_LEN), * ) element % Dimension
+              READ( str(10:MAX_PATH_LEN), * ) element % DIMENSION
 
             ELSE IF ( str(1:4) == 'code' ) THEN
               READ( str(5:MAX_PATH_LEN), * ) element % ElementCode
@@ -545,12 +545,12 @@ ELMER_SOLVER_HOME,&
 !
       INTEGER :: code
       LOGICAL, OPTIONAL :: CompStabFlag
-      Type(ElementType_t), POINTER :: element
+      TYPE(ElementType_t), POINTER :: element
 !------------------------------------------------------------------------------
 !     Local variables
 !------------------------------------------------------------------------------
-      Type(Nodes_t) :: Nodes
-      Type(Element_t), POINTER :: Elm
+      TYPE(Nodes_t) :: Nodes
+      TYPE(Element_t), POINTER :: Elm
 !------------------------------------------------------------------------------
       element => ElementTypeList
 
@@ -572,7 +572,7 @@ ELMER_SOLVER_HOME,&
 
       IF ( Element % StabilizationMK == 0.0d0 ) THEN
         ALLOCATE( Elm )
-        Elm % Type => element
+        Elm % TYPE => element
         Elm % BDOFs  = 0
         Elm % DGDOFs = 0
         NULLIFY( Elm % PDefs )
@@ -609,9 +609,9 @@ ELMER_SOLVER_HOME,&
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
-      Type(Element_t), POINTER :: Element
+      TYPE(Element_t), POINTER :: Element
       INTEGER :: n
-      Type(Nodes_t) :: Nodes
+      TYPE(Nodes_t) :: Nodes
       REAL(KIND=dp) :: mK
       REAL(KIND=dp), OPTIONAL :: hK
 !------------------------------------------------------------------------------
@@ -621,10 +621,10 @@ ELMER_SOLVER_HOME,&
       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),detJ
 
       LOGICAL :: stat
-      Type(GaussIntegrationPoints_t) :: IntegStuff
+      TYPE(GaussIntegrationPoints_t) :: IntegStuff
 
-      IF ( Element % Type % BasisFunctionDegree <= 1 ) THEN
-         SELECT CASE( Element % Type % ElementCode ) 
+      IF ( Element % TYPE % BasisFunctionDegree <= 1 ) THEN
+         SELECT CASE( Element % TYPE % ElementCode ) 
            CASE( 202, 303, 404, 504, 605, 706  )
               mK = 1.0d0 / 3.0d0
            CASE( 808 )
@@ -636,9 +636,9 @@ ELMER_SOLVER_HOME,&
 
       dNodalBasisdx = 0._dp
       DO p=1,n
-        u = Element % Type % NodeU(p)
-        v = Element % Type % NodeV(p)
-        w = Element % Type % NodeW(p)
+        u = Element % TYPE % NodeU(p)
+        v = Element % TYPE % NodeV(p)
+        w = Element % TYPE % NodeW(p)
         stat = ElementInfo( Element, Nodes, u,v,w, detJ, Basis, dBasisdx )
         dNodalBasisdx(1:n,p,:) = dBasisdx(1:n,:)
       END DO
@@ -692,10 +692,10 @@ ELMER_SOLVER_HOME,&
       END IF
 
       IF ( PRESENT( hK ) ) THEN
-        hK = SQRT( 2.0d0 / (mK * Element % Type % StabilizationMK) )
-        mK = MIN( 1.0d0 / 3.0d0, Element % Type % StabilizationMK )
+        hK = SQRT( 2.0d0 / (mK * Element % TYPE % StabilizationMK) )
+        mK = MIN( 1.0d0 / 3.0d0, Element % TYPE % StabilizationMK )
       ELSE
-        SELECT CASE(Element % Type % ElementCode / 100)
+        SELECT CASE(Element % TYPE % ElementCode / 100)
         CASE(2,4,8) 
           mK = 4 * mK
         END SELECT
@@ -735,7 +735,7 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
 
-     Type(Element_t) :: element
+     TYPE(Element_t) :: element
      REAL(KIND=dp) :: u
      REAL(KIND=dp), DIMENSION(:) :: x
 
@@ -746,14 +746,14 @@ ELMER_SOLVER_HOME,&
 
      INTEGER :: i,j,k,n
 
-     Type(ElementType_t), POINTER :: elt
+     TYPE(ElementType_t), POINTER :: elt
 
      REAL(KIND=dp), POINTER :: Coeff(:)
      INTEGER, POINTER :: p(:)
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
 
-     elt => element % Type
+     elt => element % TYPE
      k = Elt % NumberOfNodes
      BasisFunctions => elt % BasisFunctions
 
@@ -794,7 +794,7 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
 
-     Type(Element_t) :: element
+     TYPE(Element_t) :: element
      REAL(KIND=dp) :: u,y(:)
 
 !------------------------------------------------------------------------------
@@ -804,14 +804,14 @@ ELMER_SOLVER_HOME,&
 
      INTEGER :: i,n
 
-     Type(ElementType_t), POINTER :: elt
+     TYPE(ElementType_t), POINTER :: elt
 
      REAL(KIND=dp), POINTER :: Coeff(:)
      INTEGER, POINTER :: p(:)
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
 
-     elt => element % Type
+     elt => element % TYPE
      BasisFunctions => elt % BasisFunctions
 
      DO n=1,Elt % NumberOfNodes
@@ -856,7 +856,7 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
 
-     Type(Element_t) :: element
+     TYPE(Element_t) :: element
      REAL(KIND=dp) :: u
      REAL(KIND=dp), DIMENSION(:) :: x
 !------------------------------------------------------------------------------
@@ -866,7 +866,7 @@ ELMER_SOLVER_HOME,&
 
      INTEGER :: i,j,k,n,l
 
-     Type(ElementType_t), POINTER :: elt
+     TYPE(ElementType_t), POINTER :: elt
 
      REAL(KIND=dp) :: s
 
@@ -874,7 +874,7 @@ ELMER_SOLVER_HOME,&
      INTEGER, POINTER :: p(:)
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
-     elt => element % Type
+     elt => element % TYPE
      k = Elt % NumberOfNodes
      BasisFunctions => elt % BasisFunctions
 
@@ -920,11 +920,11 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
      REAL(KIND=dp) :: u, y(:,:)
-     Type(Element_t) :: element
+     TYPE(Element_t) :: element
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-     Type(ElementType_t), POINTER :: elt
+     TYPE(ElementType_t), POINTER :: elt
      INTEGER :: i,n
      REAL(KIND=dp) :: s
 
@@ -932,7 +932,7 @@ ELMER_SOLVER_HOME,&
      INTEGER, POINTER :: p(:)
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
-     elt => element % Type
+     elt => element % TYPE
      BasisFunctions => elt % BasisFunctions
 
      DO n=1, Elt % NumberOfNodes
@@ -977,7 +977,7 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
 
-     Type(Element_t) :: element
+     TYPE(Element_t) :: element
      REAL(KIND=dp) :: u
      REAL(KIND=dp), DIMENSION(:) :: x
 !------------------------------------------------------------------------------
@@ -987,7 +987,7 @@ ELMER_SOLVER_HOME,&
 
      INTEGER :: i,j,k,n
 
-     Type(ElementType_t), POINTER :: elt
+     TYPE(ElementType_t), POINTER :: elt
 
      INTEGER, POINTER :: p(:),q(:)
      REAL(KIND=dp), POINTER :: Coeff(:)
@@ -995,7 +995,7 @@ ELMER_SOLVER_HOME,&
      REAL(KIND=dp) :: s
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
-     elt => element % Type
+     elt => element % TYPE
      k = Elt % NumberOfNodes
      BasisFunctions => elt % BasisFunctions
 
@@ -1051,7 +1051,7 @@ ELMER_SOLVER_HOME,&
    !
    !
    !
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp) :: u,v
       REAL(KIND=dp), DIMENSION(:) :: x
@@ -1062,13 +1062,13 @@ ELMER_SOLVER_HOME,&
 
       INTEGER :: i,j,k,m,n
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       REAL(KIND=dp), POINTER :: Coeff(:)
       INTEGER, POINTER :: p(:),q(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
 
-      elt => element % Type
+      elt => element % TYPE
       BasisFunctions => elt % BasisFunctions
 
       y = 0.0d0
@@ -1110,7 +1110,7 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
 
-     Type(Element_t) :: element
+     TYPE(Element_t) :: element
      REAL(KIND=dp) :: u,v,y(:)
 
 !------------------------------------------------------------------------------
@@ -1120,14 +1120,14 @@ ELMER_SOLVER_HOME,&
 
      INTEGER :: i,n
 
-     Type(ElementType_t), POINTER :: elt
+     TYPE(ElementType_t), POINTER :: elt
 
      REAL(KIND=dp), POINTER :: Coeff(:)
      INTEGER, POINTER :: p(:),q(:)
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
 
-     elt => element % Type
+     elt => element % TYPE
      BasisFunctions => elt % BasisFunctions
 
      DO n=1,Elt % NumberOfNodes
@@ -1180,7 +1180,7 @@ ELMER_SOLVER_HOME,&
    !
    !
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp) :: u,v
       REAL(KIND=dp), DIMENSION(:) :: x
@@ -1191,14 +1191,14 @@ ELMER_SOLVER_HOME,&
 
       REAL(KIND=dp) :: y,s,t
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       REAL(KIND=dp), POINTER :: Coeff(:)
       INTEGER, POINTER :: p(:),q(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
       INTEGER :: i,j,k,m,n
 
-      elt => element % Type
+      elt => element % TYPE
       BasisFunctions => elt % BasisFunctions
 
       y = 0.0d0
@@ -1254,7 +1254,7 @@ ELMER_SOLVER_HOME,&
     !
     !
     !
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp), DIMENSION(:) :: x
       REAL(KIND=dp) :: u,v
@@ -1264,14 +1264,14 @@ ELMER_SOLVER_HOME,&
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: y,s,t
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       REAL(KIND=dp), POINTER :: Coeff(:)
       INTEGER, POINTER :: p(:),q(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
       INTEGER :: i,j,k,m,n
 
-      elt => element % Type
+      elt => element % TYPE
       BasisFunctions => elt % BasisFunctions
 
       y = 0.0d0
@@ -1322,7 +1322,7 @@ ELMER_SOLVER_HOME,&
    !
    !
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
       REAL(KIND=dp) :: u,v,y(:,:)
 
 !------------------------------------------------------------------------------
@@ -1331,14 +1331,14 @@ ELMER_SOLVER_HOME,&
 
       REAL(KIND=dp) :: s,t
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       REAL(KIND=dp), POINTER :: Coeff(:)
       INTEGER, POINTER :: p(:),q(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
       INTEGER :: i,n
 
-      elt => element % Type
+      elt => element % TYPE
       BasisFunctions => elt % BasisFunctions
 
       DO n = 1,elt % NumberOfNodes
@@ -1389,7 +1389,7 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp), DIMENSION(:) :: x
       REAL(KIND=dp) :: u,v
@@ -1397,7 +1397,7 @@ ELMER_SOLVER_HOME,&
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       REAL(KIND=dp), DIMENSION (2,2) :: ddx
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
@@ -1408,7 +1408,7 @@ ELMER_SOLVER_HOME,&
       INTEGER :: i,j,k,n,m
 
 !------------------------------------------------------------------------------
-      elt => element % Type
+      elt => element % TYPE
       k = elt % NumberOfNodes
       BasisFunctions => elt % BasisFunctions
 
@@ -1491,7 +1491,7 @@ ELMER_SOLVER_HOME,&
    !
    ! Return value of a quantity x at point u,v,w
    !
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp) :: u,v,w
       REAL(KIND=dp), DIMENSION(:) :: x
@@ -1500,7 +1500,7 @@ ELMER_SOLVER_HOME,&
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: y
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
 
       INTEGER :: i,j,k,l,n,m
 
@@ -1510,7 +1510,7 @@ ELMER_SOLVER_HOME,&
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
 
-      elt => element % Type
+      elt => element % TYPE
       l = elt % BasisFunctionDegree
       BasisFunctions => elt % BasisFunctions
 
@@ -1587,7 +1587,7 @@ ELMER_SOLVER_HOME,&
 !    
 !******************************************************************************
 
-     Type(Element_t) :: element
+     TYPE(Element_t) :: element
      REAL(KIND=dp) :: u,v,w,y(:)
 
 !------------------------------------------------------------------------------
@@ -1597,14 +1597,14 @@ ELMER_SOLVER_HOME,&
 
      INTEGER :: i,n
 
-     Type(ElementType_t), POINTER :: elt
+     TYPE(ElementType_t), POINTER :: elt
 
      REAL(KIND=dp), POINTER :: Coeff(:)
      INTEGER, POINTER :: p(:),q(:),r(:)
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
 
-     elt => element % Type
+     elt => element % TYPE
      BasisFunctions => elt % BasisFunctions
 
      DO n=1,Elt % NumberOfNodes
@@ -1654,7 +1654,7 @@ ELMER_SOLVER_HOME,&
    ! Return first partial derivative in u of a quantity x at point u,v,w
    !
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp) :: u,v,w
       REAL(KIND=dp), DIMENSION(:) :: x
@@ -1664,7 +1664,7 @@ ELMER_SOLVER_HOME,&
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: y
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       INTEGER :: i,j,k,l,n,m
 
       REAL(KIND=dp) :: s,t
@@ -1673,7 +1673,7 @@ ELMER_SOLVER_HOME,&
       REAL(KIND=dp), POINTER :: Coeff(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
-      elt => element % Type
+      elt => element % TYPE
       l = elt % BasisFunctionDegree
       BasisFunctions => elt % BasisFunctions
 
@@ -1772,7 +1772,7 @@ END IF
    ! Return first partial derivative in v of a quantity x at point u,v,w
    !
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp) :: u,v,w
       REAL(KIND=dp), DIMENSION(:) :: x
@@ -1782,7 +1782,7 @@ END IF
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: y
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
 
       INTEGER :: i,j,k,l,n,m
 
@@ -1792,7 +1792,7 @@ END IF
       REAL(KIND=dp), POINTER :: Coeff(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
-      elt => element % Type
+      elt => element % TYPE
       l = elt % BasisFunctionDegree
       BasisFunctions => elt % BasisFunctions
 
@@ -1891,7 +1891,7 @@ END IF
    !
    !
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp) :: u,v,w
       REAL(KIND=dp), DIMENSION(:) :: x
@@ -1901,7 +1901,7 @@ END IF
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: y
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       INTEGER :: i,j,k,l,n,m
 
       REAL(KIND=dp) :: s,t
@@ -1910,7 +1910,7 @@ END IF
       REAL(KIND=dp), POINTER :: Coeff(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 !------------------------------------------------------------------------------
-      elt => element % Type
+      elt => element % TYPE
       l = elt % BasisFunctionDegree
       BasisFunctions => elt % BasisFunctions
 
@@ -2010,7 +2010,7 @@ END IF
    ! Return first partial derivative in u of a quantity x at point u,v
    !
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
       REAL(KIND=dp) :: u,v,w,y(:,:)
 
 !------------------------------------------------------------------------------
@@ -2019,14 +2019,14 @@ END IF
 
       REAL(KIND=dp) :: s,t,z
 
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       REAL(KIND=dp), POINTER :: Coeff(:)
       INTEGER, POINTER :: p(:),q(:),r(:)
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
       INTEGER :: i,n
 
-      elt => element % Type
+      elt => element % TYPE
       BasisFunctions => elt % BasisFunctions
 
       DO n = 1,elt % NumberOfNodes
@@ -2083,7 +2083,7 @@ END IF
    !
 !------------------------------------------------------------------------------
 
-      Type(Element_t) :: element
+      TYPE(Element_t) :: element
 
       REAL(KIND=dp), DIMENSION(:) :: x
       REAL(KIND=dp) :: u,v,w
@@ -2091,7 +2091,7 @@ END IF
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-      Type(ElementType_t),POINTER :: elt
+      TYPE(ElementType_t),POINTER :: elt
       REAL(KIND=dp), DIMENSION (3,3) :: ddx
       TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
@@ -2102,7 +2102,7 @@ END IF
       INTEGER :: i,j,k,l,n,m
 
 !------------------------------------------------------------------------------
-      elt => element % Type
+      elt => element % TYPE
       k = elt % NumberOfNodes
       BasisFunctions => elt % BasisFunctions
 
@@ -2201,7 +2201,7 @@ END IF
      INTEGER   :: i, q, dim
      REAL(KIND=dp) :: NodalBasis(n)
 
-     dim = Element % Type % Dimension
+     dim = Element % TYPE % DIMENSION
 
      IF ( isPElement(Element) ) THEN
        SELECT CASE(dim)
@@ -2243,7 +2243,7 @@ END IF
        CASE(2)
          CALL NodalBasisFunctions2D( Basis, element, u,v )
        CASE(3)
-         IF ( Element % Type % ElementCode/100==6 ) THEN
+         IF ( Element % TYPE % ElementCode/100==6 ) THEN
            NodalBasis=0
            DO q=1,n
              NodalBasis(q)  = 1.0d0
@@ -2270,7 +2270,7 @@ END IF
      INTEGER   :: i, q, dim
      REAL(KIND=dp) :: NodalBasis(n)
 
-     dim = Element % Type % Dimension
+     dim = Element % TYPE % DIMENSION
 
      IF ( IsPElement(Element) ) THEN
        SELECT CASE(dim)
@@ -2312,7 +2312,7 @@ END IF
        CASE(2)
          CALL NodalFirstDerivatives2D( dLBasisdx, element, u,v )
        CASE(3)
-         IF ( Element % Type % ElementCode / 100 == 6 ) THEN
+         IF ( Element % TYPE % ElementCode / 100 == 6 ) THEN
            NodalBasis=0
            DO q=1,n
              NodalBasis(q)  = 1.0d0
@@ -2382,8 +2382,8 @@ END IF
 !------------------------------------------------------------------------------
      IMPLICIT NONE
 
-     Type(Element_t), TARGET :: Element
-     Type(Nodes_t)   :: Nodes
+     TYPE(Element_t), TARGET :: Element
+     TYPE(Nodes_t)   :: Nodes
      REAL(KIND=dp) :: u,v,w,detJ
      REAL(KIND=dp) :: Basis(:)
      REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:),ddBasisddx(:,:,:)
@@ -2400,20 +2400,20 @@ END IF
           tmp(4), direction(4)
      REAL(KIND=dp) :: LinBasis(8), dLinBasisdx(8,3), ElmMetric(3,3)
 
-     REAL(KIND=dp) :: NodalBasis(Element % Type % NumberOfNodes), &
+     REAL(KIND=dp) :: NodalBasis(Element % TYPE % NumberOfNodes), &
              dLBasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3)
 
-     Type(Element_t) :: Bubble
+     TYPE(Element_t) :: Bubble
      TYPE(Element_t), POINTER :: Edge, Face
 
      LOGICAL :: stat
 !------------------------------------------------------------------------------
      stat = .TRUE.
-     n    = Element % Type % NumberOfNodes
-     dim  = Element % Type % Dimension
+     n    = Element % TYPE % NumberOfNodes
+     dim  = Element % TYPE % DIMENSION
      cdim = CoordinateSystemDimension()
 
-     IF ( Element % Type % ElementCode == 101 ) THEN
+     IF ( Element % TYPE % ElementCode == 101 ) THEN
         detJ = 1.0d0
         Basis(1) = 1.0d0
         IF ( PRESENT(dBasisdx) ) dBasisdx(1,:) = 0.0d0
@@ -2443,7 +2443,7 @@ END IF
       END IF
 
 !------------------------------------------------------------------------------
-     SELECT CASE( Element % Type % ElementCode ) 
+     SELECT CASE( Element % TYPE % ElementCode ) 
 !------------------------------------------------------------------------------
 
      ! P element code for line element:
@@ -3128,14 +3128,14 @@ END IF
 
        IF ( Bubbles .AND. SIZE(Basis) >= 2*n ) THEN
 
-         SELECT CASE(Element % Type % ElementCode / 100)
+         SELECT CASE(Element % TYPE % ElementCode / 100)
            CASE(2)
 
-              IF ( Element % Type % ElementCode == 202 ) THEN
+              IF ( Element % TYPE % ElementCode == 202 ) THEN
                 LinBasis(1:n) = Basis(1:n)
                 dLinBasisdx(1:n,1:cdim) = dBasisdx(1:n,1:cdim)
               ELSE
-                Bubble % Type => GetElementType(202)
+                Bubble % TYPE => GetElementType(202)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
                           LinBasis, dLinBasisdx )
@@ -3158,11 +3158,11 @@ END IF
 
            CASE(3)
 
-              IF ( Element % Type % ElementCode == 303 ) THEN
+              IF ( Element % TYPE % ElementCode == 303 ) THEN
                 LinBasis(1:n) = Basis(1:n)
                 dLinBasisdx(1:n,1:cdim) = dBasisdx(1:n,1:cdim)
               ELSE
-                Bubble % Type => GetElementType(303)
+                Bubble % TYPE => GetElementType(303)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
                             LinBasis, dLinBasisdx )
@@ -3188,11 +3188,11 @@ END IF
 
            CASE(4)
 
-              IF ( Element % Type % ElementCode == 404 ) THEN
+              IF ( Element % TYPE % ElementCode == 404 ) THEN
                 LinBasis(1:n) = Basis(1:n)
                 dLinBasisdx(1:n,1:cdim) = dBasisdx(1:n,1:cdim)
               ELSE
-                Bubble % Type => GetElementType(404)
+                Bubble % TYPE => GetElementType(404)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
                              LinBasis, dLinBasisdx )
@@ -3215,11 +3215,11 @@ END IF
 
            CASE(5)
 
-              IF ( Element % Type % ElementCode == 504 ) THEN
+              IF ( Element % TYPE % ElementCode == 504 ) THEN
                 LinBasis(1:n) = Basis(1:n)
                 dLinBasisdx(1:n,1:cdim) = dBasisdx(1:n,1:cdim)
               ELSE
-                Bubble % Type => GetElementType(504)
+                Bubble % TYPE => GetElementType(504)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
                             LinBasis, dLinBasisdx )
@@ -3247,11 +3247,11 @@ END IF
 
            CASE(8)
 
-              IF ( Element % Type % ElementCode == 808 ) THEN
+              IF ( Element % TYPE % ElementCode == 808 ) THEN
                 LinBasis(1:n) = Basis(1:n)
                 dLinBasisdx(1:n,1:cdim) = dBasisdx(1:n,1:cdim)
               ELSE
-                Bubble % Type => GetElementType(808)
+                Bubble % TYPE => GetElementType(808)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
                   LinBasis, dLinBasisdx )
@@ -3275,7 +3275,7 @@ END IF
          CASE DEFAULT
  
               WRITE( Message, '(a,i4,a)' ) 'Bubbles for element: ', &
-               Element % Type % ElementCode, ' are not implemented.'
+               Element % TYPE % ElementCode, ' are not implemented.'
               CALL Error( 'ElementInfo', Message )
               CALL Fatal( 'ElementInfo', 'Please use p-element basis instead.' )
 
@@ -3322,7 +3322,7 @@ END IF
 !******************************************************************************
 !------------------------------------------------------------------------------
 
-     Type(Element_t) :: Element
+     TYPE(Element_t) :: Element
 
      REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),WhitneyBasis(:,:),dWhitneyBasisdx(:,:,:)
      INTEGER :: nedges
@@ -3335,8 +3335,8 @@ END IF
 
 !------------------------------------------------------------------------------
 
-     n    = Element % Type % NumberOfNodes
-     dim  = Element % Type % Dimension
+     n    = Element % TYPE % NumberOfNodes
+     dim  = Element % TYPE % DIMENSION
      cdim = CoordinateSystemDimension()
 
      IF ( (dim /= 3) .OR. (cdim /= 3 ) ) THEN
@@ -3477,7 +3477,7 @@ END IF
 !******************************************************************************
 !------------------------------------------------------------------------------
 
-     Type(Element_t) :: Element
+     TYPE(Element_t) :: Element
      REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),WhitneyBasis(:,:),dWhitneyBasisdx(:,:,:)
      INTEGER :: nfaces
      LOGICAL :: stat
@@ -3491,8 +3491,8 @@ END IF
      REAL (KIND=dp) :: Edge(3,3)
 !------------------------------------------------------------------------------
 
-     n    = Element % Type % NumberOfNodes
-     dim  = Element % Type % DIMENSION
+     n    = Element % TYPE % NumberOfNodes
+     dim  = Element % TYPE % DIMENSION
      cdim = CoordinateSystemDimension()
 
      IF ( (dim /= 3) .OR. (cdim /= 3 ) ) THEN
@@ -3534,7 +3534,7 @@ END IF
 
 ! Guess the face direction is defined between elements (not internal)
      Ind => Element % Nodeindexes
-     IF ( (Ind(i) < Ind(j)) .and. (Ind(i) < Ind(k)) ) THEN
+     IF ( (Ind(i) < Ind(j)) .AND. (Ind(i) < Ind(k)) ) THEN
        ip = i
        IF  ( Ind(j) < Ind(k) ) THEN
          jp = j
@@ -3543,7 +3543,7 @@ END IF
          jp = k
          kp = j
        END IF
-     ELSE IF ( ( Ind(j) < Ind(i) ) .and. ( Ind(j) < Ind(k) ) ) THEN
+     ELSE IF ( ( Ind(j) < Ind(i) ) .AND. ( Ind(j) < Ind(k) ) ) THEN
        ip = j
        IF ( Ind(i) < Ind(k) ) THEN
          jp = i
@@ -3626,8 +3626,8 @@ END IF
 !------------------------------------------------------------------------------
 
       INTEGER :: nDOFs
-      Type(Element_t)  :: Elm
-      Type(Nodes_t)    :: Nodes
+      TYPE(Element_t)  :: Elm
+      TYPE(Nodes_t)    :: Nodes
       REAL(KIND=dp) :: Metric(:,:),dLBasisdx(:,:),DetG, LtoGMap(3,3)
 !------------------------------------------------------------------------------
 !    Local variables
@@ -3647,7 +3647,7 @@ END IF
 
      cdim = CoordinateSystemDimension()
      n = MIN( SIZE(x), nDOFs )
-     dim  = elm % Type % Dimension
+     dim  = elm % TYPE % DIMENSION
 
 !------------------------------------------------------------------------------
 !    Partial derivatives of global coordinates with respect to local coordinates
@@ -3793,8 +3793,8 @@ END IF
    ! Return value of first derivatives of a quantity f in global
    ! coordinates at point (u,v) in gx,gy and gz.
    !
-     Type(Element_t) :: elm
-     Type(Nodes_t) :: nodes
+     TYPE(Element_t) :: elm
+     TYPE(Nodes_t) :: nodes
  
      REAL(KIND=dp) :: df(:),Metric(:,:)
      REAL(KIND=dp) :: gx,gy,gz
@@ -3810,8 +3810,8 @@ END IF
      INTEGER :: cdim,dim,i,j,n,NB
 !------------------------------------------------------------------------------
 
-     n    = elm % Type % NumberOfNodes
-     dim  = elm % Type % Dimension
+     n    = elm % TYPE % NumberOfNodes
+     dim  = elm % TYPE % DIMENSION
      cdim = CoordinateSystemDimension()
 
      x => nodes % x
@@ -3916,8 +3916,8 @@ END IF
 !
 !******************************************************************************
 
-     Type(Element_t) :: elm
-     Type(Nodes_t) :: nodes
+     TYPE(Element_t) :: elm
+     TYPE(Nodes_t) :: nodes
 
      REAL(KIND=dp) :: gx,gy,gz
      REAL(KIND=dp) :: dLBasisdx(:,:),Metric(:,:),df(:)
@@ -3966,7 +3966,7 @@ END IF
 !    
 !******************************************************************************
 
-     Type(Element_t) :: elm
+     TYPE(Element_t) :: elm
      REAL(KIND=dp) :: u,v,w
      REAL(KIND=dp) :: f(:)
      REAL(KIND=dp), OPTIONAL :: Basis(:)
@@ -3981,13 +3981,13 @@ END IF
 !------------------------------------------------------------------------------
 !      Basis function values given, just sum the result ...
 !------------------------------------------------------------------------------
-       n = elm % Type % NumberOfNodes
+       n = elm % TYPE % NumberOfNodes
        value = SUM( f(1:n)*Basis(1:n) )
      ELSE
 !------------------------------------------------------------------------------
 !      ... otherwise compute from the definition.
 !------------------------------------------------------------------------------
-       SELECT CASE (elm % Type % Dimension)
+       SELECT CASE (elm % TYPE % DIMENSION)
          CASE (1)
            value = InterpolateInElement1D( elm,f,u )
          CASE (2)
@@ -4022,8 +4022,8 @@ END IF
 !  
 !*****************************************************************************
 
-     Type(Nodes_t)   :: nodes
-     Type(Element_t) :: elm
+     TYPE(Nodes_t)   :: nodes
+     TYPE(Element_t) :: elm
  
      REAL(KIND=dp) :: u,v,w
      REAL(KIND=dp) ::  f(:),Metric(:,:)
@@ -4047,22 +4047,22 @@ END IF
 !
 ! This is actually not quite correct...
 !
-     IF ( elm % Type % BasisFunctionDegree <= 1 ) RETURN
+     IF ( elm % TYPE % BasisFunctionDegree <= 1 ) RETURN
 #else
 !
 ! this is ...
 !
-     IF ( elm % Type % ElementCode <= 202 .OR. &
-          elm % Type % ElementCode == 303 .OR. &
-          elm % Type % ElementCode == 504 ) RETURN
+     IF ( elm % TYPE % ElementCode <= 202 .OR. &
+          elm % TYPE % ElementCode == 303 .OR. &
+          elm % TYPE % ElementCode == 504 ) RETURN
 #endif
 
-     n  = elm % Type % NumberOfNodes
+     n  = elm % TYPE % NumberOfNodes
      x => nodes % x
      y => nodes % y
      z => nodes % z
 
-     dim  = elm % Type % DIMENSION
+     dim  = elm % TYPE % DIMENSION
      cdim = CoordinateSystemDimension()
 
 !------------------------------------------------------------------------------
@@ -4337,8 +4337,8 @@ END IF
 !     REAL(KIND=dp) :: hK
 !    
 !******************************************************************************
-     Type(Element_t) :: elm
-     Type(Nodes_t) :: nodes
+     TYPE(Element_t) :: elm
+     TYPE(Nodes_t) :: nodes
 
 !------------------------------------------------------------------------------
 !    Local variables
@@ -4354,7 +4354,7 @@ END IF
      Y => Nodes % y
      Z => Nodes % z
 
-     Family = Elm % Type % ElementCode / 100
+     Family = Elm % TYPE % ElementCode / 100
      SELECT CASE( Family )
 
        CASE(1)
@@ -4748,13 +4748,13 @@ END IF
   SUBROUTINE CheckNormalDirection( Boundary,Normal,x,y,z,turn )
 !------------------------------------------------------------------------------
 
-    Type(Element_t), POINTER :: Boundary
-    Type(Nodes_t) :: Nodes
+    TYPE(Element_t), POINTER :: Boundary
+    TYPE(Nodes_t) :: Nodes
     REAL(KIND=dp) :: Normal(3),x,y,z
     LOGICAL, OPTIONAL :: turn
 !------------------------------------------------------------------------------
 
-    Type (Element_t), POINTER :: Element,LeftElement,RightElement
+    TYPE (Element_t), POINTER :: Element,LeftElement,RightElement
 
     INTEGER :: LMat,RMat,n,k
 
@@ -4793,13 +4793,13 @@ END IF
 
     IF ( .NOT. ASSOCIATED(Element) ) RETURN
 
-    n = Element % Type % NumberOfNodes
+    n = Element % TYPE % NumberOfNodes
     ALLOCATE( nx(n), ny(n), nz(n) )
     nx(1:n) = CurrentModel % Nodes % x(Element % NodeIndexes)
     ny(1:n) = CurrentModel % Nodes % y(Element % NodeIndexes)
     nz(1:n) = CurrentModel % Nodes % z(Element % NodeIndexes)
 
-    SELECT CASE( Element % Type % ElementCode / 100 )
+    SELECT CASE( Element % TYPE % ElementCode / 100 )
     CASE(2,4,8)
        x1 = InterpolateInElement( Element, nx, 0.0d0, 0.0d0, 0.0d0 )
        y1 = InterpolateInElement( Element, ny, 0.0d0, 0.0d0, 0.0d0 )
@@ -4966,7 +4966,7 @@ END IF
     nx => BoundaryNodes % x
     ny => BoundaryNodes % y
     nz => BoundaryNodes % z
-    n = Boundary % Type % NumberOfNodes
+    n = Boundary % TYPE % NumberOfNodes
 
     IF( .NOT. PRESENT( u ) ) THEN
       Surface(1) = SUM( nx ) / n
@@ -4989,6 +4989,76 @@ END IF
 !------------------------------------------------------------------------------
 
 
+  FUNCTION LineFaceIntersection(BoundaryElement,BoundaryNodes,&
+      Rinit,Rfin,u,v) RESULT ( Lambda )
+!---------------------------------------------------------------------------
+! This subroutine tests where the intersection between the line defined by two 
+! points and a plane (or line) defined by a boundary element meet. There is
+! an intersection if ( 0 < Lambda < 1 ). Of all intersections the first one is 
+! that with the smallest lambda. 
+!---------------------------------------------------------------------------
+
+    TYPE(Nodes_t) :: BoundaryNodes, LineNodes
+    TYPE(Element_t), POINTER   :: BoundaryElement
+    REAL(KIND=dp) :: Rinit(3),Rfin(3)
+    REAL(KIND=dp),OPTIONAL :: u,v
+    REAL(KIND=dp) :: Lambda
+
+    REAL (KIND=dp) :: Surface(3),t1(3),t2(3),Normal(3),Rproj
+
+    ! For higher order elements this may be a necessity
+    IF( PRESENT( u ) .AND. PRESENT(v) ) THEN
+      Surface = SurfaceVector( BoundaryElement, BoundaryNodes, u, v )
+      Normal = NormalVector( BoundaryElement, BoundaryNodes, u, v )
+
+    ELSE IF( BoundaryElement % TYPE % DIMENSION == 2 ) THEN
+      ! Any point known to be at the surface, even corner node
+      Surface(1) = BoundaryNodes % x(1)
+      Surface(2) = BoundaryNodes % y(1)
+      Surface(3) = BoundaryNodes % z(1)
+
+      ! Tangent vector, nor normalized to unity!
+      t1(1) = BoundaryNodes % x(2) - Surface(1)
+      t1(2) = BoundaryNodes % y(2) - Surface(2)
+      t1(3) = BoundaryNodes % z(2) - Surface(3)
+
+      t2(1) = BoundaryNodes % x(3) - Surface(1)
+      t2(2) = BoundaryNodes % y(3) - Surface(2)
+      t2(3) = BoundaryNodes % z(3) - Surface(3)
+
+      ! Normal vector obtained from the cross product of tangent vectoes
+      ! This is not normalized to unity as value of lambda does not depend on its magnitude
+      Normal(1) = t1(2)*t2(3) - t1(3)*t2(2)
+      Normal(2) = t1(3)*t2(1) - t1(1)*t2(3)
+      Normal(3) = t1(1)*t2(2) - t1(2)*t2(1)
+    ELSE
+      Surface(1) = BoundaryNodes % x(1)
+      Surface(2) = BoundaryNodes % y(1)
+      Surface(3) = 0.0_dp
+
+      t1(1) = BoundaryNodes % x(2) - Surface(1)
+      t1(2) = BoundaryNodes % y(2) - Surface(2)
+      t1(3) = 0.0_dp
+
+      Normal(1) = -t1(2)
+      Normal(2) = t1(1)
+      Normal(3) = 0.0_dp      
+    END IF
+
+    ! Project of the line to the face normal
+    Rproj = SUM( (Rfin - Rinit) * Normal )
+    
+    IF( ABS( Rproj ) < TINY( Rproj ) ) THEN
+      ! if the intersection cannot be defined make it an impossible one
+      Lambda = -HUGE( Lambda ) 
+    ELSE
+      Lambda = SUM( ( Surface - Rinit ) * Normal ) / Rproj
+    END IF
+
+  END FUNCTION LineFaceIntersection
+  
+
+
 !------------------------------------------------------------------------------
 ! @todo Change to support p elements
   SUBROUTINE GlobalToLocal( u,v,w,x,y,z,Element,ElementNodes )
@@ -4999,9 +5069,9 @@ END IF
 !
 !------------------------------------------------------------------------------
 
-    Type(Nodes_t) :: ElementNodes
+    TYPE(Nodes_t) :: ElementNodes
     REAL(KIND=dp) :: x,y,z,u,v,w
-    Type(Element_t), POINTER :: Element
+    TYPE(Element_t), POINTER :: Element
 
 !------------------------------------------------------------------------------
 
@@ -5016,7 +5086,7 @@ END IF
     u = 0._dp
     v = 0._dp
     w = 0._dp
-    n = Element % Type % NumberOfNodes
+    n = Element % TYPE % NumberOfNodes
 
     ! @todo Not supported yet
 !   IF (ASSOCIATED(Element % PDefs)) THEN
@@ -5034,7 +5104,7 @@ END IF
 
       delta = 0.d0
 
-      SELECT CASE( Element % Type % Dimension )
+      SELECT CASE( Element % TYPE % DIMENSION )
       CASE(1)
 
         J(1,1) = FirstDerivative1D( Element, ElementNodes % x, u )
@@ -5095,11 +5165,11 @@ END IF
 
     IF ( i > MaxIter ) THEN
        CALL Warn( 'GlobalToLocal', 'did not converge.')
-	print *,'dim',Element % Type % Dimension,'delta',delta,'uvw',u,v,w
-	print *,'rst',r,s,t,EPSILON(1.0_dp) 
-	print *,'x:',x,ElementNodes % X
-	print *,'x:',y,ElementNodes % X
-	print *,'x:',z,ElementNodes % X
+	PRINT *,'dim',Element % TYPE % DIMENSION,'delta',delta,'uvw',u,v,w
+	PRINT *,'rst',r,s,t,EPSILON(1.0_dp) 
+	PRINT *,'x:',x,ElementNodes % X
+	PRINT *,'x:',y,ElementNodes % X
+	PRINT *,'x:',z,ElementNodes % X
 
     END IF
 !------------------------------------------------------------------------------
@@ -5155,7 +5225,7 @@ END IF
 !------------------------------------------------------------------------------
     IMPLICIT NONE
 
-    Type(Element_t) :: Element
+    TYPE(Element_t) :: Element
     INTEGER :: i, FaceMap(3), globalDir(3), nodes(3)
 
     nodes = 0
@@ -5167,7 +5237,7 @@ END IF
     globalDir = 0
     ! Find local numbers of sorted nodes. These local nodes 
     ! span continuous functions over element boundaries
-    DO i=1,Element % Type % NumberOfNodes
+    DO i=1,Element % TYPE % NumberOfNodes
        IF (nodes(1) == Element % NodeIndexes(i)) THEN
           globalDir(1) = i
        ELSE IF (nodes(2) == Element % NodeIndexes(i)) THEN
@@ -5203,7 +5273,7 @@ END IF
 !------------------------------------------------------------------------------
     IMPLICIT NONE
 
-    Type(Element_t) :: Element
+    TYPE(Element_t) :: Element
     INTEGER :: i, A,B,C,D, FaceMap(4), globalDir(4), nodes(4), minGlobal
 
     ! Get global nodes 
@@ -5234,7 +5304,7 @@ END IF
     ! define a global face so that basis functions are continuous 
     ! over element boundaries
     globalDir = 0
-    DO i=1,Element % Type % NumberOfNodes
+    DO i=1,Element % TYPE % NumberOfNodes
        IF (nodes(A) == Element % NodeIndexes(i)) THEN
           globalDir(1) = i
        ELSE IF (nodes(B) == Element % NodeIndexes(i)) THEN
