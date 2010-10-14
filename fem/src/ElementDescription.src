@@ -4843,13 +4843,13 @@ END IF
 
 
 !------------------------------------------------------------------------------
+  FUNCTION NormalVector( Boundary,BoundaryNodes,u0,v0,Check ) RESULT(Normal)
+!------------------------------------------------------------------------------
 ! Gives the normal vector of a boundary element.
 ! For noncurved elements the normal vector does not depend on the local coordinate
 ! while otherwise it does. There are different uses of the function where some
 ! do not have the luxury of knowing the local coordinates and hence the center
 ! point is used as default.
-!------------------------------------------------------------------------------
-  FUNCTION NormalVector( Boundary,BoundaryNodes,u0,v0,Check ) RESULT(Normal)
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: Boundary
     TYPE(Nodes_t)   :: BoundaryNodes
@@ -4998,7 +4998,7 @@ END IF
 ! that with the smallest lambda. 
 !---------------------------------------------------------------------------
 
-    TYPE(Nodes_t) :: BoundaryNodes, LineNodes
+    TYPE(Nodes_t) :: BoundaryNodes
     TYPE(Element_t), POINTER   :: BoundaryElement
     REAL(KIND=dp) :: Rinit(3),Rfin(3)
     REAL(KIND=dp),OPTIONAL :: u,v
