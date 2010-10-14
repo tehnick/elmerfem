@@ -5077,7 +5077,7 @@ END IF
   TYPE(Element_t), POINTER   :: BoundaryElement
   TYPE(Nodes_t), POINTER :: BoundaryNodes
   REAL(KIND=dp) :: Lambda, Epsilon
-  INTEGER :: i,nosides
+  INTEGER :: i
   LOGICAL :: AtBoundary 
 
   
@@ -5086,9 +5086,22 @@ END IF
   Epsilon = TINY( Lambda ) 
   
   IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
-    nosides = BulkElement % TYPE % NumberOfFaces      
-    DO i=1,nosides
+    DO i=1, BulkElement % TYPE % NumberOfFaces  
       BoundaryElement => Mesh % Faces( BulkElement % FaceIndexes(i) )
+      Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
+          Rinit,Rfin) 
+      IF( Lambda > Epsilon ) THEN
+        IF( Lambda < MinLambda ) THEN
+          MinLambda = Lambda
+          FaceIndex = i
+        END IF
+      ELSE IF( Lambda > -Epsilon ) THEN
+        AtBoundary = .TRUE.
+      END IF
+    END DO
+  ELSE
+    DO i=1, BulkElement % TYPE % NumberOfEdges  
+      BoundaryElement => Mesh % Edges( BulkElement % EdgeIndexes(i) )
       Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
           Rinit,Rfin) 
       IF( Lambda > Epsilon ) THEN
