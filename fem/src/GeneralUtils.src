@@ -1162,7 +1162,7 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
       ALLOCATE( Matrix )
 
-      Matrix % Format = MATRIX_CRS
+      Matrix % FORMAT = MATRIX_CRS
 
 
       NULLIFY( Matrix % Child )
@@ -1214,7 +1214,7 @@ END FUNCTION ComponentNameVar
 
       Matrix % Lumped    = .FALSE.
       Matrix % Ordered   = .FALSE. 
-      Matrix % Complex   = .FALSE.
+      Matrix % COMPLEX   = .FALSE.
       Matrix % Symmetric = .FALSE.
       Matrix % SolveCount   = 0
       Matrix % NumberOfRows = 0
@@ -1580,13 +1580,51 @@ END FUNCTION ComponentNameVar
       IF(.NOT. FileIs) EXIT
     END DO
 
-    IF( Present(LastExisting)) THEN
+    IF( PRESENT(LastExisting)) THEN
       IF( LastExisting ) Filename = PrevFilename
     END IF
 
 !------------------------------------------------------------------------------
   END FUNCTION NextFreeFilename
 !------------------------------------------------------------------------------
+
+
+  !---------------------------------------------------------
+  ! Returns values from a normal distribution to be used in 
+  ! thermal velocity distribution, for example.
+  !---------------------------------------------------------
+  
+  FUNCTION NormalRandom() RESULT ( normalrand ) 
+    
+    REAL(KIND=dp) :: normalrand,tmp, mean,sigma 
+    INTEGER :: flag = 0
+    REAL(KIND=dp) :: fac,gsave,rsq,r1,r2 
+    
+    SAVE flag,gsave 
+    
+    IF (flag == 0) THEN 
+      rsq=2.0_dp 
+      
+      DO WHILE(rsq >= 1.0_dp .OR. rsq == 0.0_dp ) 
+        CALL RANDOM_NUMBER(r1)
+        CALL RANDOM_NUMBER(r2)
+        r1 = 2.0_dp * r1 - 1.0_dp
+        r2 = 2.0_dp * r2 - 1.0_dp
+        rsq = r1*r1 + r2*r2 
+      ENDDO
+      
+      fac = SQRT(-2.0_dp * LOG(rsq) / rsq) 
+      gsave = r1 * fac 
+      normalrand = r2 * fac 
+      flag = 1 
+    ELSE 
+      normalrand = gsave 
+      flag = 0 
+    ENDIF
+    
+  END FUNCTION NormalRandom
+
+
     
 
 END MODULE GeneralUtils
