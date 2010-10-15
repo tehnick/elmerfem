@@ -5061,62 +5061,6 @@ END IF
 
 
 
-!---------------------------------------------------------------------------
-  SUBROUTINE SegmentElementIntersection(Mesh,BoundaryElement,&
-      Rinit,Rfin,MinLambda,FaceIndex) 
-!---------------------------------------------------------------------------
-! This subroutine finds the possible intersection between elementfaces 
-! and a line segment.
-!---------------------------------------------------------------------------
-
-  TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Element_t), POINTER   :: BulkElement
-  REAL(KIND=dp) :: Rinit(3), Rfin(3), MinLambda
-  INTEGER :: FaceIndex
-  
-  TYPE(Element_t), POINTER   :: BoundaryElement
-  TYPE(Nodes_t), POINTER :: BoundaryNodes
-  REAL(KIND=dp) :: Lambda, Epsilon
-  INTEGER :: i
-  LOGICAL :: AtBoundary 
-
-  
-  MinLambda = HUGE( MinLambda ) 
-  FaceIndex = 0
-  Epsilon = TINY( Lambda ) 
-  
-  IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
-    DO i=1, BulkElement % TYPE % NumberOfFaces  
-      BoundaryElement => Mesh % Faces( BulkElement % FaceIndexes(i) )
-      Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
-          Rinit,Rfin) 
-      IF( Lambda > Epsilon ) THEN
-        IF( Lambda < MinLambda ) THEN
-          MinLambda = Lambda
-          FaceIndex = i
-        END IF
-      ELSE IF( Lambda > -Epsilon ) THEN
-        AtBoundary = .TRUE.
-      END IF
-    END DO
-  ELSE
-    DO i=1, BulkElement % TYPE % NumberOfEdges  
-      BoundaryElement => Mesh % Edges( BulkElement % EdgeIndexes(i) )
-      Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
-          Rinit,Rfin) 
-      IF( Lambda > Epsilon ) THEN
-        IF( Lambda < MinLambda ) THEN
-          MinLambda = Lambda
-          FaceIndex = i
-        END IF
-      ELSE IF( Lambda > -Epsilon ) THEN
-        AtBoundary = .TRUE.
-      END IF
-    END DO
-  END IF
-
-END SUBROUTINE SegmentElementIntersection
-
 
 
 !------------------------------------------------------------------------------
