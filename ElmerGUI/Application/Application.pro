@@ -21,6 +21,9 @@ INSTALLS += target
 edf.path = $${ELMERGUI_HOME}/edf
 edf.files = edf/*
 INSTALLS += edf
+edf-extra.path = $${ELMERGUI_HOME}/edf-extra
+edf-extra.files = edf-extra/*
+INSTALLS += edf-extra
 
 #------------------------------------------------------------------------------
 # Compiler flags:
