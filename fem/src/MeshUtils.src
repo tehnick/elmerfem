@@ -42,6 +42,7 @@ MODULE MeshUtils
 
     USE ElementUtils
     USE ElementDescription
+    USE Interpolation
     USE ParallelUtils
     USE Types
 
@@ -6354,7 +6355,7 @@ SUBROUTINE InitializeParticles( Solver, Particles, InitParticles, AppendParticle
 
 !---------------------------------------------------------------------------
   SUBROUTINE SegmentElementIntersection(Mesh,BulkElement,&
-      Rinit,Rfin,MinLambda,FaceIndex) 
+      Rinit,Rfin,MinLambda,FaceElement)
 !---------------------------------------------------------------------------
 ! This subroutine finds the possible intersection between elementfaces 
 ! and a line segment.
@@ -6363,28 +6364,47 @@ SUBROUTINE InitializeParticles( Solver, Particles, InitParticles, AppendParticle
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t), POINTER   :: BulkElement
   REAL(KIND=dp) :: Rinit(3), Rfin(3), MinLambda
-  INTEGER :: FaceIndex
-  
+  TYPE(Element_t), POINTER :: FaceElement
+
   TYPE(Element_t), POINTER   :: BoundaryElement
-  TYPE(Nodes_t), POINTER :: BoundaryNodes
+  TYPE(Nodes_t) :: BoundaryNodes
   REAL(KIND=dp) :: Lambda, Epsilon
-  INTEGER :: i
-  LOGICAL :: AtBoundary 
+  INTEGER :: i,j,n
+  INTEGER, POINTER :: NodeIndexes(:)
+  LOGICAL :: AtBoundary, Visited = .FALSE.
+
+
+  SAVE BoundaryNodes, Visited
+
+  IF( .NOT. Visited ) THEN
+    n = BulkElement % TYPE % NumberOfNodes
+    ALLOCATE( BoundaryNodes % x(n) )
+    ALLOCATE( BoundaryNodes % y(n) )
+    ALLOCATE( BoundaryNodes % z(n) )
+  END IF
 
   
   MinLambda = HUGE( MinLambda ) 
-  FaceIndex = 0
   Epsilon = TINY( Lambda ) 
-  
+  NULLIFY( FaceElement ) 
+
   IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
     DO i=1, BulkElement % TYPE % NumberOfFaces  
-      BoundaryElement => Mesh % Faces( BulkElement % FaceIndexes(i) )
+      j = BulkElement % FaceIndexes(i)
+      BoundaryElement => Mesh % Faces( j )
+
+      n = BoundaryElement % Type % NumberOfNodes
+      NodeIndexes => BoundaryElement % NodeIndexes
+      BoundaryNodes % x(1:n) = Mesh % Nodes % x( NodeIndexes )
+      BoundaryNodes % y(1:n) = Mesh % Nodes % y( NodeIndexes )
+      BoundaryNodes % z(1:n) = Mesh % Nodes % z( NodeIndexes )
+
       Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
           Rinit,Rfin) 
       IF( Lambda > Epsilon ) THEN
         IF( Lambda < MinLambda ) THEN
           MinLambda = Lambda
-          FaceIndex = i
+          FaceElement => BoundaryElement
         END IF
       ELSE IF( Lambda > -Epsilon ) THEN
         AtBoundary = .TRUE.
@@ -6392,13 +6412,25 @@ SUBROUTINE InitializeParticles( Solver, Particles, InitParticles, AppendParticle
     END DO
   ELSE
     DO i=1, BulkElement % TYPE % NumberOfEdges  
-      BoundaryElement => Mesh % Edges( BulkElement % EdgeIndexes(i) )
+      j = BulkElement % EdgeIndexes(i)
+
+print *,'ij',i,j,ASSOCIATED(Mesh % Edges ) 
+      BoundaryElement => Mesh % Edges( j )
+
+      n = BoundaryElement % Type % NumberOfNodes
+      NodeIndexes => BoundaryElement % NodeIndexes
+      BoundaryNodes % x(1:n) = Mesh % Nodes % x( NodeIndexes )
+      BoundaryNodes % y(1:n) = Mesh % Nodes % y( NodeIndexes )
+      BoundaryNodes % z(1:n) = Mesh % Nodes % z( NodeIndexes )
+     
       Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
           Rinit,Rfin) 
+print *,'lambda',lambda
+
       IF( Lambda > Epsilon ) THEN
         IF( Lambda < MinLambda ) THEN
           MinLambda = Lambda
-          FaceIndex = i
+          FaceElement => BoundaryElement
         END IF
       ELSE IF( Lambda > -Epsilon ) THEN
         AtBoundary = .TRUE.
@@ -6415,50 +6447,58 @@ END SUBROUTINE SegmentElementIntersection
 
 !------------------------------------------------------------------------
 ! Compute field values at the given points in the FE mesh. 
+! Differs from the PointInMesh category in that the particle may
+! have initial information about its location making marching 
+! routines more feasible. These are also more attractive for 
+! parallel implementation point of view.
 !-------------------------------------------------------------------------
 SUBROUTINE LocateParticleInMesh(Solver, ElementIndex, Rinit, Rfin, &
-    LocalCoords, Hit, Lambda )
+    Init, LocalCoords, Hit, Lambda )
   
   TYPE(Solver_t), POINTER :: Solver
   INTEGER :: ElementIndex
   REAL(KIND=dp) :: Rinit(3), Rfin(3),LocalCoords(3)
-  LOGICAL :: Hit
+  LOGICAL :: Init, Hit
   REAL(KIND=dp), OPTIONAL :: Lambda
 
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(ValueList_t), POINTER :: Params
   REAL(KIND=dp) :: Rtmp(3), MinLambda 
-  LOGICAL :: Stat, CheckFirst, StopAtFace, Visited = .FALSE.
-  INTEGER :: i,j,k,n,FaceIndex,SearchMethod
+  LOGICAL :: Stat, CheckFirst, StopAtFace, AtWall, Visited = .FALSE.,Debug,DoInit
+  INTEGER :: i,j,k,n,FaceIndex,SearchMethod,Cnt,MaxTrials
   TYPE(Nodes_t) :: ElementNodes
   INTEGER, POINTER :: NodeIndexes(:)
-  TYPE(Element_t), POINTER :: CurrentElement
+  TYPE(Element_t), POINTER :: CurrentElement, FaceElement, LeftElement, RightElement, &
+      NextElement
   TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
   REAL(kind=dp) :: BoundingBox(6), eps2, eps1 = 1e-3
   
 
-  SAVE :: Mesh, ElementNodes, CheckFirst, SearchMethod
-  
+  SAVE :: Mesh, ElementNodes, CheckFirst, StopAtFace, SearchMethod, Debug, Visited, &
+	MaxTrials, Cnt
+
   IF( .NOT. Visited ) THEN
     Mesh => Solver % Mesh
     n = Mesh % MaxElementNodes
     ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
-
-    Params = Solver % Values
-    CheckFirst = ListGetLogical( Params,'Particle Element Search Check',Stat)
-    SearchMethod = ListGetInteger( Params,'Particle Element Search Method',Stat)
-    StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
-
+    CheckFirst = ListGetLogical( Solver % Values,'Particle Element Search Check',Stat)
+    StopAtFace = ListGetLogical( Solver % Values,'Particle Stop At Face',Stat)
+    SearchMethod = ListGetInteger( Solver % Values,'Particle Element Search Method',Stat)
+    MaxTrials = ListGetInteger( Solver % Values,'Particle Search Max Trials',Stat)
+    IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements
+    Debug = .FALSE.
     Visited = .TRUE.
   END IF
-  
+
+
   Hit = .FALSE.
+  DoInit = Init
   IF( PRESENT( Lambda ) ) Lambda = 1.0_dp
-  
   
   ! Check that the previous hit is not hit even now
   !-------------------------------------------------
   IF( ElementIndex > 0 .AND. CheckFirst) THEN
+    print *,'Checking element'
+
     CurrentElement => Mesh % Elements( ElementIndex ) 
     n = CurrentElement % TYPE % NumberOfNodes
     NodeIndexes => CurrentElement % NodeIndexes
@@ -6472,10 +6512,11 @@ SUBROUTINE LocateParticleInMesh(Solver, ElementIndex, Rinit, Rfin, &
       Hit = .TRUE.
     END IF
   END IF
-  
+
   IF( Hit ) RETURN
   
-  
+  Cnt = 0
+
   SELECT CASE ( SearchMethod )
     
   CASE( 1 ) 
@@ -6492,6 +6533,8 @@ SUBROUTINE LocateParticleInMesh(Solver, ElementIndex, Rinit, Rfin, &
       ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
       ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
       
+      Cnt = Cnt + 1
+
       IF ( PointInElement( CurrentElement, ElementNodes, &
           Rfin, LocalCoords ) ) THEN
         Hit = .TRUE.
@@ -6500,10 +6543,11 @@ SUBROUTINE LocateParticleInMesh(Solver, ElementIndex, Rinit, Rfin, &
     END DO
     
   CASE( 2 )        
-    !-----------------------------------------------
+    !-----------------------------------------------------------
     ! Find the right element using an octree search
-    ! This is the preferred algorithms of the two.
-    !-----------------------------------------------
+    ! This is optimal when the particles are searched only once.
+    !-----------------------------------------------------------
+
     IF ( .NOT.ASSOCIATED( Mesh % RootQuadrant ) ) THEN
       BoundingBox(1) = MINVAL( Mesh % Nodes % x )
       BoundingBox(2) = MINVAL( Mesh % Nodes % y )
@@ -6518,72 +6562,125 @@ SUBROUTINE LocateParticleInMesh(Solver, ElementIndex, Rinit, Rfin, &
       
       CALL BuildQuadrantTree( Mesh,BoundingBox,Mesh % RootQuadrant)
     END IF
-    
     RootQuadrant => Mesh % RootQuadrant
-    IF ( ASSOCIATED(RootQuadrant) ) THEN
-      NULLIFY(CurrentElement)
-      CALL FindLeafElements(Rfin, Mesh % MeshDim, &
-          RootQuadrant, LeafQuadrant)
-      IF ( ASSOCIATED(LeafQuadrant) ) THEN
-        DO k=1, LeafQuadrant % NElemsInQuadrant
-          CurrentElement => Mesh % Elements(LeafQuadrant % Elements(k))
-          
-          n = CurrentElement % TYPE % NumberOfNodes
-          NodeIndexes => CurrentElement % NodeIndexes
-          
-          ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
-          ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
-          ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
-          
-          IF ( PointInElement( CurrentElement, ElementNodes, &
-              Rfin, LocalCoords ) ) THEN
-            Hit = .TRUE.
-            EXIT
-          END IF
-        END DO
-      END IF
+      
+    NULLIFY(CurrentElement)
+    CALL FindLeafElements(Rfin, Mesh % MeshDim, &
+        RootQuadrant, LeafQuadrant)
+    IF ( ASSOCIATED(LeafQuadrant) ) THEN
+      DO k=1, LeafQuadrant % NElemsInQuadrant
+        CurrentElement => Mesh % Elements(LeafQuadrant % Elements(k))
+        
+        n = CurrentElement % TYPE % NumberOfNodes
+        NodeIndexes => CurrentElement % NodeIndexes
+        
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+        
+	Cnt = Cnt + 1
+
+        IF ( PointInElement( CurrentElement, ElementNodes, Rfin, LocalCoords ) ) THEN
+          Hit = .TRUE.
+          EXIT
+        END IF
+      END DO
+    ELSE
+      CALL Info('LocateParticleInMesh','No leaf quadrant associated!')
     END IF
     
     
   CASE DEFAULT
-    !-----------------------------------------------
+    !--------------------------------------------------------------------
     ! This is a recursive algorithm that checks the intersections 
     ! of line segments and points until correct element is found.
-    !-----------------------------------------------
-    
-    IF( ElementIndex == 0 ) ElementIndex = 1
+    ! This is optimal when the stepsize is small and there are many steps.
+    !--------------------------------------------------------------------
+    CALL FindMeshEdges( Mesh, .FALSE.)
+    IF( ElementIndex == 0 ) THEN
+      ElementIndex = 1
+      DoInit = .TRUE.
+    END IF
     Hit = .FALSE.
-    
-    DO WHILE( .TRUE. ) 
+
+    print *,'DoInit',DoInit,MaxTrials
+
+    DO i=1,MaxTrials
       CurrentElement => Mesh % Elements( ElementIndex ) 
       n = CurrentElement % TYPE % NumberOfNodes
       NodeIndexes => CurrentElement % NodeIndexes
-      
+
+      ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+      ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+      ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+
+      IF( DoInit ) THEN
+        Rtmp(1) = SUM( ElementNodes % x(1:n) ) / n
+        Rtmp(2) = SUM( ElementNodes % y(1:n) ) / n
+        Rtmp(3) = SUM( ElementNodes % z(1:n) ) / n
+	print *,'Rinit',n,Rtmp
+      ELSE
+        Rtmp = Rinit
+      END IF
+print *,'dist',i,CurrentElement % ElementIndex,SQRT( SUM((Rtmp - Rfin)**2) )
+
+      Cnt = Cnt + 1
+
       CALL SegmentElementIntersection(Mesh,CurrentElement,&
-          Rinit,Rfin,MinLambda,FaceIndex) 
-      IF( FaceIndex == 0 ) THEN
+          Rtmp,Rfin,MinLambda,FaceElement )
+
+print *,'Lambda: ',MinLambda
+      IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
         CALL Warn('LocateParticleInMesh','No intersection found?')
       ELSE IF( MinLambda > 1.0 ) THEN
         Hit = .TRUE.
         Rtmp = Rfin
         EXIT
-      ELSE IF( StopAtFace ) THEN
-        Hit = .TRUE.
-        IF( PRESENT( Lambda ) ) Lambda = MinLambda
-        Rtmp = Rinit + MinLambda * (Rfin - Rinit) 
-        EXIT
-      ELSE      
-        ! ElementIndex = OtherSideOfTheFace(Mesh, ElementIndex, FaceIndex )
+      ELSE 
+        LeftElement => FaceElement % BoundaryInfo % Left
+        RightElement => FaceElement % BoundaryInfo % Right
+
+        IF( ASSOCIATED( LeftElement) .AND. ASSOCIATED(RightElement)) THEN
+          IF( ASSOCIATED(CurrentElement, LeftElement)) THEN
+            NextElement => RightElement
+          ELSE
+            NextElement => LeftElement
+          END IF
+        ELSE IF( ASSOCIATED( CurrentElement, LeftElement ) ) THEN
+          AtWall = .TRUE.
+        ELSE IF( ASSOCIATED( CurrentElement, RightElement ) ) THEN
+          AtWall = .TRUE.
+        ELSE
+          CALL Warn('LocateParticleInMesh','CurrentElement is neither left or right!')
+          EXIT
+        END IF
+
+        IF( AtWall .OR. StopAtFace ) THEN
+          Hit = .TRUE.
+          Hit = .TRUE.
+          IF( PRESENT( Lambda ) ) Lambda = MinLambda
+          Rtmp = Rinit + MinLambda * (Rfin - Rinit) 
+          EXIT
+        ELSE
+          CurrentElement => NextElement
+        END IF
       END IF
     END DO
     
-    Hit = PointInElement( CurrentElement, ElementNodes, &
-        Rtmp, LocalCoords ) 
+    ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+    ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+    ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+
+    Hit = PointInElement( CurrentElement, ElementNodes, Rtmp, LocalCoords ) 
     IF( .NOT. Hit ) THEN
       CALL Warn('LocateParticleInMesh','Should have found the point in element!')
     END IF
+    ElementIndex = CurrentElement % ElementIndex
+
     
   END SELECT
+
+  IF( Debug ) Print *,'Test count: ',Cnt
   
 END SUBROUTINE LocateParticleInMesh
 
