@@ -706,6 +706,94 @@ else
 fi
 ])dnl ACX_HYPRE
 
+dnl
+dnl @synopsis ACX_MUMPS([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl
+dnl Look for MUMPS library
+dnl
+AC_DEFUN([ACX_MUMPS], [
+AC_PREREQ(2.50)
+AC_REQUIRE([ACX_MPI])
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
+acx_mumps_ok=no
+
+AC_ARG_WITH(mumps,
+	[AC_HELP_STRING([--with-mumps=<lib>], [Specify location of MUMPS])])
+case $with_mumps in
+	yes | "") ;;
+	no) acx_mumps_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) MUMPS_LIBS="$with_mumps" ;;
+	*) MUMPS_LIBS="-l$with_mumps" ;;
+esac
+
+# Get fortran linker names of MUMPS functions to check for.
+#AC_FC_FUNC(mumps_function)
+mumps_function="dmumps_"
+
+acx_mumps_save_LIBS="$LIBS"
+
+LIBS="$MPI_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
+
+# First, check MUMPS_LIBS environment variable
+if test $acx_mumps_ok = no; then
+if test "x$MUMPS_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$MUMPS_LIBS $LIBS"
+	AC_MSG_CHECKING([for $mumps_function in $MUMPS_LIBS])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $mumps_function(1);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_mumps_ok=yes
+		],
+		[
+	 	        MUMPS_LIBS=""
+		])
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($mumps_function, [acx_mumps_ok=yes], [MUMPS_LIBS=""])
+	fi
+
+	AC_MSG_RESULT($acx_mumps_ok)
+	LIBS="$save_LIBS"
+fi
+fi
+
+# General MUMPS test
+if test $acx_mumps_ok = no; then
+	AC_CHECK_LIB(dmumps, $mumps_function, [acx_mumps_ok=yes; MUMPS_LIBS="-ldmumps $MPI_LIBS"],,[-lm])
+	if test $acx_mumps_ok = no; then
+		save_LIBS="$LIBS"; LIBS="-lmumps_common -lpord -lscalapack -lblacs $LIBS"
+		AC_CHECK_LIB(dmumps, $mumps_function, [acx_mumps_ok=yes; MUMPS_LIBS="-ldmumps -lmumps_common -lpord -lscalapack -lblacs $MPI_LIBS"],,[-lm])
+		LIBS="$save_LIBS"
+	fi
+fi
+
+AC_SUBST(MUMPS_LIBS)
+
+LIBS="$acx_mumps_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_mumps_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_MUMPS,1,[Define if you have a MUMPS library.]),[$1])
+	FCPPFLAGS="$FCPPFLAGS -DHAVE_MUMPS"
+	FCFLAGS="$FCFLAGS -I/usr/include"
+        :
+else
+        acx_mumps_ok=no
+        $2
+fi
+])dnl ACX_MUMPS
+
 dnl 
 dnl look for the std c libraries:
 dnl
