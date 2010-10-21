@@ -6,20 +6,27 @@ MODULE ParticleUtils
 CONTAINS
 
 
-SUBROUTINE AllocateParticles(Particles,NoParticles,dim)
+SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
 
   TYPE(Particle_t) :: Particles
   INTEGER :: NoParticles
   INTEGER, OPTIONAL :: dim
+  INTEGER, OPTIONAL :: TimeOrder
 
   REAL(KIND=dp), POINTER :: Velocity(:,:), Coordinate(:,:), Distance(:)
-  INTEGER, POINTER :: Status(:), ElementIndex(:)
+  INTEGER, POINTER :: Status(:), ElementIndex(:), PartIndex(:)
   INTEGER :: PrevNoParticles, dofs
-
+  
   IF( NoParticles <= Particles % MaxNumberOfParticles ) THEN
     CALL Info('AllocateParticles','There are already enough particles')
     RETURN
   END IF
+  IF(PRESENT(TimeOrder)) THEN
+    Particles % TimeOrder = TimeOrder
+  ELSE
+    Particles % TimeOrder = 1
+  END IF
+
   IF( .NOT. PRESENT( dim ) ) THEN
     dofs = 3 
   ELSE
@@ -30,20 +37,34 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim)
       RETURN
     END IF
   END IF
-
+  
   IF( Particles % MaxNumberOfParticles == 0 ) THEN
-    ALLOCATE( Particles % Velocity(NoParticles,dim))
     ALLOCATE( Particles % Coordinate(NoParticles,dim))
     ALLOCATE( Particles % Distance(NoParticles))
     ALLOCATE( Particles % Status(NoParticles))
     ALLOCATE( Particles % ElementIndex(NoParticles))
 
-    Particles % Velocity = 0.0_dp
     Particles % Coordinate = 0.0_dp
     Particles % Distance = 0.0_dp
     Particles % Status = PARTICLE_ALLOCATED
     Particles % ElementIndex = 0
     Particles % MaxNumberOfParticles = NoParticles
+
+    IF( Particles % TimeOrder >= 1 ) THEN
+      ALLOCATE( Particles % Velocity(NoParticles,dim))
+      Particles % Velocity = 0.0_dp
+    END IF
+
+    IF( Particles % TimeOrder >= 2 ) THEN
+      ALLOCATE( Particles % Acceleration(NoParticles,dim) )
+      Particles % Acceleration = 0.0_dp
+    END IF
+
+    IF(  ParEnv % PEs > 1 ) THEN
+      ALLOCATE( Particles % PartIndex(NoParticles))
+      Particles % PartIndex = ParEnv % myPE 
+    END IF
+
   ELSE 
     PrevNoParticles = Particles % MaxNumberOfParticles 
 
@@ -72,6 +93,14 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim)
     Particles % Status(PrevNoParticles+1:NoParticles) = PARTICLE_ALLOCATED
     Particles % ElementIndex(PrevNoParticles+1:NoParticles) = 0
 
+    IF(  ParEnv % PEs > 1 ) THEN
+      PartIndex => Particles % PartIndex 
+      ALLOCATE( Particles % PartIndex(NoParticles))
+      Particles % PartIndex(1:PrevNoParticles) = PartIndex
+      DEALLOCATE( PartIndex )
+      Particles % PartIndex(PrevNoParticles+1:NoParticles) = ParEnv % myPE
+    END IF
+
     Particles % MaxNumberOfParticles = NoParticles
   END IF
 END SUBROUTINE AllocateParticles
@@ -86,10 +115,37 @@ SUBROUTINE DestroyParticles(Particles)
   DEALLOCATE( Particles % Distance ) 
   DEALLOCATE( Particles % Status ) 
   DEALLOCATE( Particles % ElementIndex ) 
+  IF(  ParEnv % PEs > 1 ) THEN
+    DEALLOCATE( Particles % PartIndex )
+  END IF
   Particles % MaxNumberOfParticles = 0
   Particles % NumberOfParticles = 0
   
 END SUBROUTINE DestroyParticles
+
+
+SUBROUTINE ChangeParticlePartition(Particles) 
+  TYPE(Particle_t) :: Particles
+  INTEGER i,j
+
+  IF( ParEnv% PEs == 1 ) RETURN
+
+  j = 0
+  DO i=1,Particles % NumberOfParticles
+    IF( Particles % Status(i) == PARTICLE_LOST ) CYCLE
+    IF( Particles % PartIndex(i) /= ParEnv % myPE ) THEN
+
+      ! As partitioning is not implemented the particle is practically lost
+      Particles % Status(i) = PARTICLE_LOST 
+      j = j + 1
+    END IF
+  END DO
+
+  PRINT *,'Implement change in partition!'
+  PRINT *,'Partition lost particles:',ParEnv % myPE, j
+
+
+END SUBROUTINE ChangeParticlePartition
 
 
 
@@ -560,19 +616,21 @@ END SUBROUTINE SegmentElementIntersection
 ! routines more feasible. These are also more attractive for 
 ! parallel implementation point of view.
 !-------------------------------------------------------------------------
-SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
-    Init, LocalCoords, Hit, Lambda )
+SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
+    LocalCoords, ParticleStatus, StopFaceElement, Lambda )
   
   INTEGER :: ElementIndex
   REAL(KIND=dp) :: Rinit(3), Rfin(3),LocalCoords(3)
-  LOGICAL :: Init, Hit
+  LOGICAL :: Init
+  INTEGER :: ParticleStatus
+  TYPE(Element_t), POINTER, OPTIONAL :: StopFaceElement
   REAL(KIND=dp), OPTIONAL :: Lambda
 
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp) :: Rtmp(3), MinLambda 
-  LOGICAL :: Stat, CheckFirst, StopAtFace, AtWall, Visited = .FALSE.,Debug,DoInit
-  INTEGER :: i,j,k,n,FaceIndex,SearchMethod,Cnt,MaxTrials
+  LOGICAL :: Hit, DoInit, Stat, CheckFirst, StopAtFace, AtWall, Visited = .FALSE.,Debug,UseCenter
+  INTEGER :: i,j,k,n,FaceIndex,SearchMethod,MaxTrials
   TYPE(Nodes_t), SAVE :: ElementNodes
   INTEGER, POINTER :: NodeIndexes(:)
   TYPE(Element_t), POINTER :: Element, FaceElement, LeftElement, RightElement, &
@@ -581,7 +639,7 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
   REAL(kind=dp) :: BoundingBox(6), eps2, eps1
   
 
-  SAVE :: Mesh, CheckFirst, StopAtFace, SearchMethod, Debug, MaxTrials, Cnt
+  SAVE :: Mesh, CheckFirst, StopAtFace, SearchMethod, Debug, MaxTrials
 
   Mesh => GetMesh()
 
@@ -597,28 +655,27 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
   END IF
 
 
-  Hit = .FALSE.
-  DoInit = Init
+  ParticleStatus = PARTILCE_LOST
+  IF( PRESENT (StopFaceElement) ) NULLIFY( StopFaceElement ) 
+
   IF( PRESENT( Lambda ) ) Lambda = 1.0_dp
   
   ! Check that the previous hit is not hit even now
   !-------------------------------------------------
   IF( ElementIndex > 0 .AND. CheckFirst) THEN
-    PRINT *,'Checking element',ElementIndex
-
     Element => Mesh % Elements( ElementIndex ) 
     n = GetElementNOFNodes(Element)
     CALL GetElementNodes(ElementNodes,Element)
     
     IF ( PointInElement( Element, ElementNodes, &
         Rfin, LocalCoords ) ) THEN
-      Hit = .TRUE.
+      ParticleStatus = PARTICLE_HIT
+      RETURN
     END IF
   END IF
 
-  IF( Hit ) RETURN
-  
-  Cnt = 0
+  ! Different search method, only the default one treats face jumps in a proper way
+  !--------------------------------------------------------------------------------
 
   SELECT CASE ( SearchMethod )
     
@@ -627,26 +684,24 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
     ! Go through all bulk elements in a dummy search.
     ! This algorithm is mainly here for debugging purposes.
     !----------------------------------------------------------
-    DO k=1, Mesh % NumberOfBulkElements
-      Element => Mesh % Elements(k)
+    DO i = 1, Mesh % NumberOfBulkElements
+      Element => Mesh % Elements(i)
       n = GetElementNOFNodes(Element)
       CALL GetElementNodes(ElementNodes,Element)
-      
-      Cnt = Cnt + 1
-
       IF ( PointInElement( Element, ElementNodes, &
           Rfin, LocalCoords ) ) THEN
-        Hit = .TRUE.
-        EXIT
+        ElementIndex = i
+        ParticleStatus = PARTICLE_HIT
+        RETURN
       END IF
     END DO
+    RETURN
     
   CASE( 2 )        
     !-----------------------------------------------------------
     ! Find the right element using an octree search
     ! This is optimal when the particles are searched only once.
     !-----------------------------------------------------------
-
     IF ( .NOT.ASSOCIATED(Mesh % RootQuadrant) ) THEN
       BoundingBox(1) = MINVAL( Mesh % Nodes % x )
       BoundingBox(2) = MINVAL( Mesh % Nodes % y )
@@ -667,23 +722,22 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
     Element => Null()
     CALL FindLeafElements(Rfin, Mesh % MeshDim, RootQuadrant, LeafQuadrant)
     IF ( ASSOCIATED(LeafQuadrant) ) THEN
-      DO k=1, LeafQuadrant % NElemsInQuadrant
-        Element => Mesh % Elements(LeafQuadrant % Elements(k))
+      DO i = 1, LeafQuadrant % NElemsInQuadrant
+        j = LeafQuadrant % Elements(i)
+        Element => Mesh % Elements(j)
         
-        n = GetElementNOFNodes()
+        n = GetElementNOFNodes( Element )
         CALL GetElementNodes( ElementNodes, Element)
-        
-	Cnt = Cnt + 1
 
         IF ( PointInElement( Element, ElementNodes, Rfin, LocalCoords ) ) THEN
-          Hit = .TRUE.
-          EXIT
+          ElementIndex = j
+          ParticleStatus = PARTICLE_HIT
+          RETURN
         END IF
       END DO
-    ELSE
-      CALL Info('LocateParticleInMesh','No leaf quadrant associated!')
     END IF
-    
+    RETURN
+
     
   CASE DEFAULT
     !--------------------------------------------------------------------
@@ -692,12 +746,15 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
     ! This is optimal when the stepsize is small and there are many steps.
     !--------------------------------------------------------------------
     CALL FindMeshEdges( Mesh, .FALSE.)
+
+    DoInit = Init
     IF( ElementIndex == 0 ) THEN
-      ElementIndex = 1
       DoInit = .TRUE.
+      ElementIndex = 1
+      UseCenter = .TRUE.
+    ELSE	
+      UseCenter = .NOT. StopAtFace
     END IF
-    DoInit = .TRUE.
-    Hit = .FALSE.
 
     Element => Mesh % Elements( ElementIndex ) 
     eps1 = 1.0d-10
@@ -706,33 +763,27 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
       n = GetElementNOFNOdes(Element)
       CALL GetElementNodes(ElementNodes,Element)
 
-      IF( DoInit ) THEN
+      ! Use the previous element center if the true path is of no importance
+      !---------------------------------------------------------------------	
+      IF( UseCenter ) THEN
         Rtmp(1) = SUM( ElementNodes % x(1:n) ) / n
         Rtmp(2) = SUM( ElementNodes % y(1:n) ) / n
         Rtmp(3) = SUM( ElementNodes % z(1:n) ) / n
-!	PRINT *,'Rinit',n,Rtmp
       ELSE
         Rtmp = Rinit
       END IF
-
-      IF( i == 1 .AND. Debug ) THEN
-        PRINT *,'initial dist',SQRT( SUM((Rtmp - Rfin)**2) )
-      END IF
-
-      Cnt = Cnt + 1
-
+      
       CALL SegmentElementIntersection(Mesh,Element,&
           Rtmp,Rfin,MinLambda,FaceElement )
-
-      !PRINT *,'MinLambda: ',MinLambda
+      
       IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
         CALL Warn('LocateParticleInMesh','No intersection found?')
+        EXIT
       ELSE IF( MinLambda > 1.0 - eps1 ) THEN
-        Hit = .TRUE.
+        ParticleStatus = PARTICLE_HIT
         Rtmp = Rfin
         EXIT
       ELSE 
-        AtWall = .FALSE.
         LeftElement => FaceElement % BoundaryInfo % Left
         RightElement => FaceElement % BoundaryInfo % Right
 
@@ -742,24 +793,32 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
           ELSE
             NextElement => LeftElement
           END IF
-        ELSE IF( ASSOCIATED( Element, LeftElement ) ) THEN
-           AtWall = .TRUE.
-        ELSE IF( ASSOCIATED( Element, RightElement ) ) THEN
-          AtWall = .TRUE.
+
+          IF( StopAtFace .AND. .NOT. DoInit ) ParticleStatus = PARTICLE_FACEBOUNDARY
+
+	  IF( ParEnv % PEs > 1 ) THEN
+            IF( Element % PartIndex /= NextElement % PartIndex ) THEN
+              ParticleStatus = PARTICLE_PARTBOUNDARY 
+            END IF
+          END IF
         ELSE
-          CALL Warn('LocateParticleInMesh','Element is neither left or right!')
-          EXIT
+          ParticleStatus = PARTICLE_WALLBOUNDARY
         END IF
 
-        IF( AtWall .OR. StopAtFace ) THEN
-          Hit = .TRUE.
+        ! There are different reasons why the particle is only integrated until the face
+        IF( ParticleStatus == PARTICLE_WALLBOUNDARY .OR. &
+            ParticleStatus == PARTICLE_PARTBOUNDARY .OR. &
+            ParticleStatus == PARTICLE_FACEBOUNDARY ) THEN
+          
           IF( PRESENT( Lambda ) ) Lambda = MinLambda
           Rtmp = Rinit + MinLambda * (Rfin - Rinit) 
-          EXIT
-        ELSE
-          Element => NextElement
+          StopFaceElement => FaceElement
+          EXIT                      
         END IF
       END IF
+
+      ! continue the search to new elements
+      Element => NextElement
     END DO
     
     Hit = PointInElement( Element, ElementNodes, Rtmp, LocalCoords ) 
@@ -775,13 +834,162 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, &
 
     
   END SELECT
-
-  IF( Debug ) PRINT *,'Test count: ',Cnt
   
 END SUBROUTINE LocateParticleInMesh
 
 
 
+
+SUBROUTINE CreateNeighbourTables( Particles ) 
+
+  TYPE(Particle_t) :: Particles
+  
+  INTEGER :: ElementIndex, dim
+  REAL(KIND=dp) :: Coord(3), dist, mindist
+  TYPE(ValueList_t), POINTER :: Params
+  TYPE(Mesh_t), POINTER :: Mesh
+  INTEGER :: i,j,k,n
+  TYPE(Nodes_t), SAVE :: ElementNodes
+  INTEGER, POINTER :: NodeIndexes(:)
+  TYPE(Element_t), POINTER :: Element
+  INTEGER :: NoNodes, NoParticles, MaxClosest  
+
+
+
+  Mesh => GetMesh()
+  NoNodes = Mesh % NumberOfNodes
+
+  NoParticles = Particles % NumberOfParticles
+
+  IF( .NOT. Particles % NeighbourTable ) THEN
+    ALLOCATE( Particles % ClosestNode( NoParticles ) )
+    ALLOCATE( Particles % ClosestParticle( NoNodes ) )
+    ALLOCATE( Particles % NoClosestParticle( NoNodes ) ) 
+    ALLOCATE( Particles % CumClosestParticle( NoNodes+1 ) ) 
+    Particles % NeighbourTable = .TRUE.
+  END IF
+
+  
+  dim = Particles % dim 
+
+
+  ! First find the closest node to each particle
+  !-----------------------------------------------
+  Particles % ClosestNode = 0
+  Particles % NoClosestParticle = 0
+  DO i=1,NoParticles 
+    IF( Particles % Status(i) == PARTICLE_LOST ) CYCLE
+
+    ElementIndex = Particles % ElementIndex(i)
+    Element => Mesh % Elements( ElementIndex )
+    n = GetElementNOFNodes(Element)
+    CALL GetElementNodes(ElementNodes,Element)    
+    Coord = Particles % Coordinate(No,1:dim)
+
+    ! Find the minimum distance node (using squares is faster)
+    mindist = HUGE( mindist ) 
+    DO j=1,n
+      dist = ( ElementNodes % x(j) - Coord(1) )**2
+      dist = dist +  ( ElementNodes % y(j) - Coord(2) )**2
+      IF( dim == 3 ) THEN
+        dist = dist +  ( ElementNodes % z(j) - Coord(3) )**2
+      END IF
+      IF( dist < mindist ) THEN
+        mindist = dist 
+        k = j
+      END IF
+    END DO
+    
+    node = Element % NodeIndexes(k)
+    Particles % ClosestNode(i) = node
+    Particles % NoClosestParticle(node) = Particles % NoClosestParticle(node) + 1
+  END DO
+
+  ! Count the cumulative number of closest particles for given node
+  !-----------------------------------------------------------------
+  Particles % CumClosestParticle(1) = 1
+  MaxClosest = 0
+  DO i=1,NoNodes
+    j = Particles % NoClosestParticle(i)
+    MaxClosest = MAX( MaxClosest, j )
+    Particles % CumClosestParticle(i+1) = Particles % CumClosestParticle(i) + j
+  END DO
+  PRINT *,'Maximum number of closest particles:',MaxClosest
+  Particles % MaxClosestParticles = MaxClosest
+
+
+  ! And finally, add the closest neigbours to the table 
+  !----------------------------------------------------------------
+  Particles % NoClosestParticle = 0
+  DO i=1,NoParticles     
+    node = Particles % ClosestNode(i) 
+    IF( node == 0 ) CYCLE
+
+    j = Particles % NoClosestParticle(node) + 1
+    Particles % NoClosestParticle(node) = j
+
+    k = Particles % CumClosestParticle(node)
+    Particles % ClosestParticle(k+j) = i
+  END DO
+END SUBROUTINE CreateNeighbourTables
+
+
+
+FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
+  IMPLICIT NONE
+
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, No2
+
+  INTEGER :: PrevNo = 0
+  INTEGER, POINTER :: NodeIndexes(:), NeighbourList(:) => NULL()
+  INTEGER :: i,j,k,n,ListSize,NoNeighbours,ElementIndex,Cnt
+  LOGICAL :: Visited = .FALSE.
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Element_t), POINTER :: Element
+  
+  SAVE PrevNo,NeighbourList,ListSize,NoNeighbours,Cnt
+
+  IF( PrevNo /= No ) THEN
+    PrevNo = No
+    IF( .NOT. Visited ) THEN
+      Mesh => GetMesh()
+      n = Mesh % MaxElementNodes 
+      ListSize = n * Particles % MaxClosestParticles
+      ALLOCATE( NeighbourList( ListSize ) )
+      NeighbourList = 0 
+      Mesh => GetMesh()
+    END IF
+
+    Mesh => GetMesh()
+    ElementIndex = Particles % ElementIndex(No)
+    Element => Mesh % Elements( ElementIndex )
+    n = GetElementNOFNodes(Element)
+    NodeIndexes => Element % NodeIndexes
+    
+    NoNeighbours = 0
+    DO i=1,n
+      j = NodeIndexes(i)
+      DO k=Particles % CumClosestParticle(i),Particles % CumClosestParticle(i)-1 
+        No2 = Particles % ClosestParticle(k)
+        IF( No2 /= No ) THEN
+          NoNeighbours = NoNeighbours + 1
+          NeighbourList(NoNeighbours) = No2
+        END IF
+      END DO
+    END DO
+    Cnt = 0
+  END IF
+
+  
+  Cnt = Cnt + 1
+  IF( Cnt > NoNeighbours ) THEN
+    No2 = 0
+  ELSE
+    No2 = NeighbourList( Cnt ) 
+  END IF
+
+END FUNCTION GetNextNeighbour
 
 
 !------------------------------------------------------------------------------
