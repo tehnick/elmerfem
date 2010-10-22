@@ -787,11 +787,17 @@ CONTAINS
         Var => OldVariables
         nvars = 0
         DO WHILE(ASSOCIATED(Var))
-          IF ( Var % DOFs==1 .AND. ASSOCIATED(Var % Perm) ) THEN
+          IF ( Var % DOFs==1 .AND. ASSOCIATED(Var % Perm).AND..NOT.Var % Secondary ) THEN
             ALLOCATE(store(n)); store=0
             nvars = nvars+1
             CALL VariableAdd(nMesh % Variables,nMesh,Var % Solver, &
                      Var % Name,1,store,nperm )
+            IF ( ASSOCIATED(Var % PrevValues) ) THEN
+              j = SIZE(Var % PrevValues,2)
+              nvars = nvars+j
+              Nvar => VariableGet( Nmesh % Variables,Var % Name,ThisOnly=.TRUE.)
+              ALLOCATE(Nvar % PrevValues(n,j))
+            END IF
           END IF
           Var => Var % Next
         END DO
@@ -819,10 +825,16 @@ CONTAINS
             Var => OldVariables
             nvars = 0
             DO WHILE(ASSOCIATED(Var))
-              IF ( Var % DOFs==1  .AND. ASSOCIATED(Var % Perm)) THEN
+              IF ( Var % DOFs==1  .AND. ASSOCIATED(Var % Perm).AND..NOT.Var % Secondary) THEN
                 Nvar => VariableGet( Nmesh % Variables,Var % Name,ThisOnly=.TRUE.)
                 nvars=nvars+1
                 vstore(k,nvars)=Nvar % Values(j)
+                IF ( ASSOCIATED(Var % PrevValues) ) THEN
+                  DO l=1,SIZE(Var % PrevValues,2)
+                    nvars = nvars+1
+                    vstore(k,nvars)=Nvar % PrevValues(j,l)
+                  END DO
+                END IF
               END IF
               Var => Var % Next
             END DO
@@ -846,6 +858,7 @@ CONTAINS
         Var => Nmesh % Variables
         DO WHILE(ASSOCIATED(Var))
           DEALLOCATE(Var % Values)
+          IF (ASSOCIATED(Var % PrevValues)) DEALLOCATE(Var % PrevValues)
           nVar => Var
           Var => Var % Next
           DEALLOCATE(nVar)
@@ -883,19 +896,37 @@ CONTAINS
         Var => OldVariables
         nvars=0
         DO WHILE(ASSOCIATED(Var))
-          IF ( Var % DOFs==1 .AND. ASSOCIATED(Var % Perm) ) THEN
+          IF ( Var % DOFs==1 .AND. ASSOCIATED(Var % Perm) .AND..NOT.Var % Secondary ) THEN
+
             nvars=nvars+1
             CALL MPI_RECV( store, n, MPI_DOUBLE_PRECISION, proc, &
                 2002+nvars, MPI_COMM_WORLD, status, ierr )
 
             Nvar => VariableGet( NewMesh % Variables,Var % Name,ThisOnly=.TRUE.)
-            IF ( .NOT.ASSOCIATED(Nvar) ) CYCLE
 
-            DO j=1,n
-              k=perm(ProcSend(proc+1) % Perm(vperm(j)))
-              IF ( Nvar % perm(k)>0 ) &
-                Nvar % Values(Nvar % Perm(k)) = store(j)
-            END DO
+            IF ( ASSOCIATED(Nvar) ) THEN
+              DO j=1,n
+                k=perm(ProcSend(proc+1) % Perm(vperm(j)))
+                IF ( Nvar % perm(k)>0 ) &
+                  Nvar % Values(Nvar % Perm(k)) = store(j)
+              END DO
+            END IF
+
+            IF ( ASSOCIATED(Var % PrevValues) ) THEN
+              DO l=1,SIZE(Var % PrevValues,2)
+                nvars=nvars+1
+                CALL MPI_RECV( store, n, MPI_DOUBLE_PRECISION, proc, &
+                    2002+nvars, MPI_COMM_WORLD, status, ierr )
+
+                IF ( ASSOCIATED(Nvar) ) THEN
+                  DO j=1,n
+                    k=perm(ProcSend(proc+1) % Perm(vperm(j)))
+                    IF ( Nvar % perm(k)>0 ) &
+                      Nvar % PrevValues(Nvar % Perm(k),l) = store(j)
+                  END DO
+                END IF
+              END DO
+            END IF
           END IF
           Var => Var % Next
         END DO
@@ -1226,7 +1257,7 @@ CONTAINS
              IF( Var % Secondary ) THEN
                Var => Var % Next
                CYCLE
-             END IF          
+             END IF
 
              IF ( Var % DOFs == 1 .AND. &
                  Var % Name(1:10) /= 'coordinate') THEN
@@ -1241,33 +1272,36 @@ CONTAINS
                    Var => Var % Next
                    CYCLE
                 END IF
-                NewValue => NewSol % Values
-
                 OldSol => VariableGet( OldMesh % Variables, Var % Name, .TRUE. )
-                OldPerm  => OldSol % Perm
-                OldValue => OldSol % Values
 
 
-! Check that the node was found in the old mesh
+                ! Check that the node was found in the old mesh:
+                ! ----------------------------------------------
                 IF ( ASSOCIATED (Element) ) THEN
 !------------------------------------------------------------------------------
 !
 !                  Check for rounding errors:
 !                  --------------------------
-                   WHERE( OldPerm(NodeIndexes)>0 )
-                      ElementValues(1:n) = OldValue(OldPerm(NodeIndexes))
-                   ELSEWHERE
-                      ElementValues(1:n) = 0.0d0
-                   END WHERE
+                   NodeIndexes => Element % NodeIndexes
+                   IF ( ALL(OldSol % Perm(NodeIndexes)>0) ) THEN
+                     IF ( NewSol % Perm(i) /= 0 ) THEN
+                       ElementValues(1:n) = & 
+                              OldSol % Values(OldSol % Perm(NodeIndexes))
+                       NewSol % Values(NewSol % Perm(i)) = InterpolateInElement( &
+                            Element, ElementValues, LocalCoordinates(1), &
+                                LocalCoordinates(2), LocalCoordinates(3) )
 
-!------------------------------------------------------------------------------
-!
-!                  Check that the variable is available for this node:
-!                  ---------------------------------------------------
-                   IF ( NewSol % Perm(i) /= 0 ) THEN
-                      NewValue(NewSol % Perm(i)) = InterpolateInElement( &
-                           Element, ElementValues, LocalCoordinates(1), &
-                           LocalCoordinates(2), LocalCoordinates(3) )
+                       IF ( ASSOCIATED( OldSol % PrevValues ) ) THEN
+                         DO j=1,SIZE(OldSol % PrevValues,2)
+                           ElementValues(1:n) = &
+                               OldSol % PrevValues(OldSol % Perm(NodeIndexes),j)
+                           NewSol % PrevValues(NewSol % Perm(i),j) = &
+                             InterpolateInElement( Element, ElementValues, &
+                               LocalCoordinates(1), &
+                                  LocalCoordinates(2), LocalCoordinates(3) )
+                         END DO
+                       END IF
+                     END IF
                    END IF
                 ELSE
                    IF ( NewSol % Perm(i)/=0 ) NewValue(NewSol % Perm(i))=0.0_dp
