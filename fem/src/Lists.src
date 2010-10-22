@@ -620,18 +620,20 @@ CONTAINS
        TYPE(ProcSend_t),  ALLOCATABLE :: ProcSend(:)
 !-------------------------------------------------------------------------------
 
-       IF ( ParEnv % PEs<=1 ) THEN
+      IF ( ParEnv % PEs<=1 ) THEN
          CALL InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
             NewVariables, UseQuadrantTree, Projector, MaskName )
          RETURN
       END IF
 
+      ! Interpolate within our own partition, flag the points
+      ! we found:
+      ! -----------------------------------------------------
       ALLOCATE( FoundNodes(NewMesh % NumberOfNodes) ); FoundNodes=.FALSE.
       CALL InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
          NewVariables, UseQuadrantTree, MaskName=MaskName, FoundNodes=FoundNodes )
 
-
-      ! exchange partition bounding boxes:
+      ! Exchange partition bounding boxes:
       ! ----------------------------------
       myBB(1) = MINVAL(OldMesh % Nodes % x)
       myBB(2) = MINVAL(OldMesh % Nodes % y)
@@ -649,6 +651,8 @@ CONTAINS
                BB, 6, MPI_DOUBLE_PRECISION, ParEnv % ActiveComm, ierr )
 
 
+      ! Extract nodes that we didn't find from our own partition...
+      ! ------------------------------------------------------------
       n = COUNT(.NOT.FoundNodes)
       ALLOCATE( Perm(n), nodes_x(n), nodes_y(n),nodes_z(n) ); Perm=0
       j = 0
@@ -662,12 +666,16 @@ CONTAINS
       END DO
       DEALLOCATE(FoundNodes)
 
-
+      ! ...and ask those from others
+      ! -------------------------------
       ALLOCATE(ProcSend(ParEnv % PEs))
       DO i=1,ParEnv % PEs
         IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
         proc = i-1
 
+        ! extract those of the missing nodes that are within the other
+        ! partions bounding box:
+        ! ------------------------------------------------------------
         myBB = BB(:,i)
         npart = 0
         DO j=1,n
@@ -692,11 +700,15 @@ CONTAINS
           END DO
         END IF
 
+        ! send count...
+        ! -------------
         CALL MPI_BSEND( npart, 1, MPI_INTEGER, proc, &
                 1001, MPI_COMM_WORLD, ierr )
 
         IF ( npart==0 ) CYCLE
 
+        ! ...and points
+        ! -------------
         CALL MPI_BSEND( xpart, npart, MPI_DOUBLE_PRECISION, proc, &
                 1002, MPI_COMM_WORLD, ierr )
         CALL MPI_BSEND( ypart, npart, MPI_DOUBLE_PRECISION, proc, &
@@ -708,6 +720,8 @@ CONTAINS
       END DO
       DEALLOCATE(nodes_x,nodes_y,nodes_z, BB)
 
+      ! receive points from others:
+      ! ----------------------------
       ALLOCATE(ProcRecv(Parenv % Pes))
       DO i=1,COUNT(ParEnv % Active)-1
         CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
@@ -718,7 +732,8 @@ CONTAINS
 
         IF ( n<=0 ) CYCLE
 
-        ALLOCATE(ProcRecv(proc+1) % Nodes_x(n),ProcRecv(proc+1) % Nodes_y(n),ProcRecv(proc+1) % Nodes_z(n))
+        ALLOCATE(ProcRecv(proc+1) % Nodes_x(n), &
+              ProcRecv(proc+1) % Nodes_y(n),ProcRecv(proc+1) % Nodes_z(n))
 
         CALL MPI_RECV( ProcRecv(proc+1) % nodes_x, n, MPI_DOUBLE_PRECISION, proc, &
                1002, MPI_COMM_WORLD, status, ierr )
@@ -728,18 +743,23 @@ CONTAINS
                1004, MPI_COMM_WORLD, status, ierr )
       END DO
 
-
+      ! Check the received points and extract values for the to-be-interpolated-
+      ! variables, if we have the points within our domain: 
+      ! ------------------------------------------------------------------------
       DO i=1,ParEnv % PEs
         IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
 
         proc = i-1
         n = ProcRecv(i) % n
+
         IF ( n==0 ) THEN
           CALL MPI_BSEND( n, 1, MPI_INTEGER, proc, &
                 2001, MPI_COMM_WORLD, ierr )
           CYCLE
         END IF
       
+        ! construct temporary mesh structure for the received points:
+        ! -----------------------------------------------------------
         Nmesh => AllocateMesh()
         Nmesh % Nodes % x => ProcRecv(i) % nodes_x
         Nmesh % Nodes % y => ProcRecv(i) % nodes_y
@@ -763,6 +783,8 @@ CONTAINS
           Var => Var % Next
         END DO
 
+        ! try interpolating values for the points:
+        ! ----------------------------------------
         ALLOCATE( FoundNodes(n) ); FoundNodes=.FALSE.
         CALL InterpolateMeshToMeshQ( OldMesh, nMesh, OldVariables, &
            nMesh % Variables, UseQuadrantTree, MaskName=MaskName, FoundNodes=FoundNodes )
@@ -772,6 +794,8 @@ CONTAINS
         CALL MPI_BSEND( nfound, 1, MPI_INTEGER, proc, &
                 2001, MPI_COMM_WORLD, ierr )
 
+        ! send interpolated values back to the owner:
+        ! -------------------------------------------
         IF ( nfound>0 ) THEN
           ALLOCATE(vstore(nfound,nvars), vperm(nfound)); vstore=0
           k = 0
@@ -809,6 +833,8 @@ CONTAINS
       END DO
       DEALLOCATE(ProcRecv)
 
+     ! Receive interpolated values:
+     ! ----------------------------
       DO i=1,COUNT(ParEnv % Active)-1
         CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
               2001, MPI_COMM_WORLD, status, ierr )
@@ -822,9 +848,13 @@ CONTAINS
 
         ALLOCATE(store(n),vperm(n))
 
+        ! recv count:
+        ! -----------
         CALL MPI_RECV( vperm, n, MPI_INTEGER, proc, &
               2002, MPI_COMM_WORLD, status, ierr )
 
+        ! recv values and store:
+        ! ----------------------
         Var => OldVariables
         nvars=0
         DO WHILE(ASSOCIATED(Var))
@@ -1376,6 +1406,7 @@ CONTAINS
      END SUBROUTINE ApplyProjector
 !------------------------------------------------------------------------------
   END SUBROUTINE InterpolateMeshToMeshQ
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
