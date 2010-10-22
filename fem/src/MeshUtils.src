@@ -1527,6 +1527,56 @@ CONTAINS
             IF ( .NOT.ASSOCIATED( Mesh % Edges) ) CALL FindMeshEdges3D( Mesh )
           END IF
      END SELECT
+
+     CALL AssingConstraints()
+
+CONTAINS
+
+    SUBROUTINE AssingConstraints()
+
+      INTEGER, POINTER :: FaceInd(:)
+      INTEGER :: i,j,k,l,n
+      TYPE(Element_t), POINTER :: Element, Boundary, Face, Faces(:)
+
+      DO i=1,Mesh % NumberOfBoundaryElements
+        Boundary => Mesh % Elements(Mesh % NumberOfBulkElements+i)
+
+        Element  => Boundary % BoundaryInfo % Left
+        IF (.NOT.ASSOCIATED(Element) ) &
+          Element  => Boundary % BoundaryInfo % Right
+
+        SELECT CASE(Boundary % Type % Dimension)
+        CASE(1)
+          Faces   => Mesh % Edges
+          FaceInd => Element % EdgeIndexes
+        CASE(2)
+          Faces   => Mesh % Faces
+          FaceInd => Element % FaceIndexes
+        CASE DEFAULT
+          Faces => Null()
+          FaceInd => Null()
+        END SELECT
+
+        IF ( .NOT. ASSOCIATED(Faces) .OR. .NOT. ASSOCIATED(FaceInd) ) CYCLE
+
+        DO j=1,SIZE(FaceInd)
+          Face => Faces(FaceInd(j))
+          IF ( .NOT.ASSOCIATED(Face % Type,Boundary % Type) ) CYCLE
+
+          n = 0
+          DO k=1,Boundary % Type % NumberOfNodes
+            DO l=1,Face % Type % NumberOfNodes
+              IF ( Boundary % NodeIndexes(k)==Face % NodeIndexes(l)) n=n+1
+            END DO
+          END DO
+          IF ( n==Boundary % Type % NumberOfNodes) THEN
+            Face % BoundaryInfo % Constraint = &
+                 Boundary % BoundaryInfo % Constraint
+            EXIT
+          END IF
+        END DO
+      END DO
+    END SUBROUTINE AssingConstraints
 !------------------------------------------------------------------------------
   END SUBROUTINE FindMeshEdges
 !------------------------------------------------------------------------------
