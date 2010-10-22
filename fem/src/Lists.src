@@ -758,7 +758,7 @@ CONTAINS
           CYCLE
         END IF
       
-        ! construct temporary mesh structure for the received points:
+        ! Construct temporary mesh structure for the received points:
         ! -----------------------------------------------------------
         Nmesh => AllocateMesh()
         Nmesh % Nodes % x => ProcRecv(i) % nodes_x
@@ -829,6 +829,14 @@ CONTAINS
         DEALLOCATE(Nmesh % nodes % x, &
                    Nmesh % nodes % y, &
                    Nmesh % nodes % z )
+
+        Var => Nmesh % Variables
+        DO WHILE(ASSOCIATED(Var))
+          DEALLOCATE(Var % Values)
+          nVar => Var
+          Var => Var % Next
+          DEALLOCATE(nVar)
+        END DO
         DEALLOCATE(nperm,foundnodes, Nmesh)
       END DO
       DEALLOCATE(ProcRecv)
