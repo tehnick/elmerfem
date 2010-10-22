@@ -615,7 +615,7 @@ CONTAINS
 
        TYPE ProcSend_t
          INTEGER :: n = 0
-         REAL(KIND=dp), ALLOCATABLE :: perm(:)
+         INTEGER, ALLOCATABLE :: perm(:)
        END TYPE ProcSend_t
        TYPE(ProcSend_t),  ALLOCATABLE :: ProcSend(:)
 !-------------------------------------------------------------------------------
@@ -772,38 +772,35 @@ CONTAINS
         CALL MPI_BSEND( nfound, 1, MPI_INTEGER, proc, &
                 2001, MPI_COMM_WORLD, ierr )
 
-        IF ( nfound<=0 ) GOTO 10
-        ALLOCATE(vstore(nfound,nvars), vperm(nfound)); vstore=0
-
-       
-        k = 0
-        DO j=1,n
-          IF ( .NOT.FoundNodes(j)) CYCLE   
-          k = k + 1
-          vperm(k) = j
-          Var => OldVariables
-          nvars = 0
-          DO WHILE(ASSOCIATED(Var))
-            IF ( Var % DOFs==1  .AND. ASSOCIATED(Var % Perm)) THEN
-              Nvar => VariableGet( Nmesh % Variables,Var % Name,ThisOnly=.TRUE.)
-              nvars=nvars+1
-              vstore(k,nvars)=Nvar % Values(j)
-            END IF
-            Var => Var % Next
+        IF ( nfound>0 ) THEN
+          ALLOCATE(vstore(nfound,nvars), vperm(nfound)); vstore=0
+          k = 0
+          DO j=1,n
+            IF ( .NOT.FoundNodes(j)) CYCLE   
+            k = k + 1
+            vperm(k) = j
+            Var => OldVariables
+            nvars = 0
+            DO WHILE(ASSOCIATED(Var))
+              IF ( Var % DOFs==1  .AND. ASSOCIATED(Var % Perm)) THEN
+                Nvar => VariableGet( Nmesh % Variables,Var % Name,ThisOnly=.TRUE.)
+                nvars=nvars+1
+                vstore(k,nvars)=Nvar % Values(j)
+              END IF
+              Var => Var % Next
+            END DO
           END DO
-        END DO
 
-        CALL MPI_BSEND( vperm, nfound, MPI_INTEGER, proc, &
-              2002, MPI_COMM_WORLD, status, ierr )
+          CALL MPI_BSEND( vperm, nfound, MPI_INTEGER, proc, &
+                2002, MPI_COMM_WORLD, status, ierr )
 
-        DO j=1,nvars
-          CALL MPI_BSEND( vstore(:,j), nfound,MPI_DOUBLE_PRECISION, proc, &
-                     2002+j, MPI_COMM_WORLD,ierr )
-        END DO
+          DO j=1,nvars
+            CALL MPI_BSEND( vstore(:,j), nfound,MPI_DOUBLE_PRECISION, proc, &
+                       2002+j, MPI_COMM_WORLD,ierr )
+          END DO
 
-        DEALLOCATE(vstore, vperm)
-
-10      CONTINUE
+          DEALLOCATE(vstore, vperm)
+        END IF
 
         DEALLOCATE(Nmesh % nodes % x, &
                    Nmesh % nodes % y, &
@@ -818,7 +815,8 @@ CONTAINS
 
         proc = status(MPI_SOURCE)
         IF ( n<=0 ) THEN
-          IF ( ALLOCATED(ProcSend(proc+1) % Perm)) DEALLOCATE(ProcSend(proc+1) % Perm)
+          IF ( ALLOCATED(ProcSend(proc+1) % Perm)) &
+                     DEALLOCATE(ProcSend(proc+1) % Perm)
           CYCLE
         END IF
 
@@ -839,9 +837,9 @@ CONTAINS
             IF ( .NOT.ASSOCIATED(Nvar) ) CYCLE
 
             DO j=1,n
-              k=ProcSend(proc+1) % Perm(vperm(j))
-              IF ( Nvar % perm(perm(k))>0 ) &
-                Nvar % Values(Nvar % Perm(perm(k))) = store(j)
+              k=perm(ProcSend(proc+1) % Perm(vperm(j)))
+              IF ( Nvar % perm(k)>0 ) &
+                Nvar % Values(Nvar % Perm(k)) = store(j)
             END DO
           END IF
           Var => Var % Next
@@ -850,8 +848,7 @@ CONTAINS
       END DO
       DEALLOCATE(Perm,ProcSend)
 
-      CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
-
+      CALL MPI_BARRIER(ParEnv % ActiveComm,ierr)
 
 CONTAINS
 
