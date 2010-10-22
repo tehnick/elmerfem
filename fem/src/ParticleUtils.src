@@ -20,6 +20,9 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
   IF( NoParticles <= Particles % MaxNumberOfParticles ) THEN
     CALL Info('AllocateParticles','There are already enough particles')
     RETURN
+  ELSE
+    WRITE(Message,*) 'Allocating number of particles:',NoParticles
+    CALL Info('AllocateParticles',Message)    
   END IF
   IF(PRESENT(TimeOrder)) THEN
     Particles % TimeOrder = TimeOrder
@@ -37,9 +40,10 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
       RETURN
     END IF
   END IF
-  
+  Particles % dim = dofs
+
   IF( Particles % MaxNumberOfParticles == 0 ) THEN
-    ALLOCATE( Particles % Coordinate(NoParticles,dim))
+    ALLOCATE( Particles % Coordinate(NoParticles,dofs))
     ALLOCATE( Particles % Distance(NoParticles))
     ALLOCATE( Particles % Status(NoParticles))
     ALLOCATE( Particles % ElementIndex(NoParticles))
@@ -51,12 +55,12 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
     Particles % MaxNumberOfParticles = NoParticles
 
     IF( Particles % TimeOrder >= 1 ) THEN
-      ALLOCATE( Particles % Velocity(NoParticles,dim))
+      ALLOCATE( Particles % Velocity(NoParticles,dofs))
       Particles % Velocity = 0.0_dp
     END IF
 
     IF( Particles % TimeOrder >= 2 ) THEN
-      ALLOCATE( Particles % Acceleration(NoParticles,dim) )
+      ALLOCATE( Particles % Acceleration(NoParticles,dofs) )
       Particles % Acceleration = 0.0_dp
     END IF
 
@@ -74,8 +78,8 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
     Status => Particles % Status
     ElementIndex => Particles % ElementIndex
 
-    ALLOCATE( Particles % Velocity(NoParticles,dim) )
-    ALLOCATE( Particles % Coordinate(NoParticles,dim) )
+    ALLOCATE( Particles % Velocity(NoParticles,dofs) )
+    ALLOCATE( Particles % Coordinate(NoParticles,dofs) )
     ALLOCATE( Particles % Distance(NoParticles) )
     ALLOCATE( Particles % Status(NoParticles) )
     ALLOCATE( Particles % ElementIndex(NoParticles) )
@@ -205,16 +209,18 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
   TYPE(ValueList_t), POINTER :: Params 
   TYPE(Variable_t), POINTER :: Var
+  TYPE(Element_t), POINTER :: CurrentElement
   TYPE(Mesh_t), POINTER :: Mesh
   INTEGER :: Offset, NewParticles,LastParticle
   INTEGER :: dim
   REAL(KIND=dp), POINTER :: Coords(:,:), Velo(:,:)
   CHARACTER(LEN=MAX_NAME_LEN) :: InitMethod, MaskVariable    
   INTEGER :: i,j,k,nonodes
-  INTEGER, POINTER :: MaskPerm(:), InvPerm(:)
+  INTEGER, POINTER :: MaskPerm(:), InvPerm(:), NodeIndexes(:)
   LOGICAL :: GotIt, GotMask
   REAL(KIND=dp), POINTER :: InitialValues(:,:)
   REAL(KIND=dp) :: mass,boltz,temp,coeff 
+  REAL(KIND=dp) :: MinCoord(3), MaxCoord(3)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
   
 
@@ -230,11 +236,13 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   END IF
 
   LastParticle = Offset + NewParticles
+  Particles % NumberOfParticles = LastParticle
+
 
   Mesh => GetMesh()
   dim = Mesh % MeshDim
-  CALL AllocateParticles( Particles, LastParticle, dim ) 
 
+  CALL AllocateParticles( Particles, LastParticle, dim ) 
   Velo => Particles % Velocity
   Coords => Particles % Coordinate
   
@@ -271,19 +279,58 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   ! coordinates to initalize positions.
   !-------------------------------------------------------------------------
   
-  InitMethod = ListGetString( Params,'Position Initialization Method',gotIt ) 
+  InitMethod = ListGetString( Params,'Coordinate Initialization Method',gotIt ) 
   
   SELECT CASE ( InitMethod ) 
     
   CASE ('nodal ordered')
     DO i=1,NewParticles
       k = Offset + i
+      j = (nonodes-1)*(i-1)/(NewParticles-1)+1
       j = MODULO( i * NewParticles -1 , nonodes ) + 1
       IF( GotMask ) j = InvPerm(j)
       Coords(k,1) = Mesh % Nodes % x(j)
       Coords(k,2) = Mesh % Nodes % y(j)
       IF( dim == 3 ) Coords(k,3) = Mesh % Nodes % z(j)
     END DO
+
+  CASE ('element ordered')
+
+    NoElements = Mesh % NumberOfBulkElements
+    DO i=1,NewParticles
+      k = Offset + i
+      j = (NoElements-1)*(i-1)/(NewParticles-1)+1
+      CurrentElement => Mesh % Elements(j)
+      NodeIndexes =>  CurrentElement % NodeIndexes
+      n = CurrentElement % TYPE % NumberOfNodes
+      Coords(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n
+      Coords(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n
+      IF( dim == 3 ) Coords(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
+      Particles % ElementIndex(i) = j
+    END DO
+
+  CASE ('box random')
+    MinCoord(1) = MINVAL( Mesh % Nodes % x )
+    MaxCoord(1) = MAXVAL( Mesh % Nodes % x )
+
+    MinCoord(2) = MINVAL( Mesh % Nodes % y )
+    MaxCoord(2) = MAXVAL( Mesh % Nodes % y )
+
+    IF( dim == 3 ) THEN
+      MinCoord(3) = MINVAL( Mesh % Nodes % z )
+      MaxCoord(3) = MAXVAL( Mesh % Nodes % z )    
+    END IF
+
+    DO i=1,NewParticles
+      k = Offset + i
+      
+      Coords(k,1) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
+      Coords(k,2) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
+      IF( dim == 3 ) THEN
+        Coords(k,3) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
+      END IF
+    END DO
+
     
   CASE DEFAULT 
     
@@ -341,7 +388,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
     SELECT CASE ( InitMethod ) 
       
-    CASE ('thermal')  
+    CASE ('thermal random')  
       
       mass = ListGetConstReal( Params,'Particle Mass')
       temp = ListGetConstReal( Params,'Particle Temperature')
@@ -355,12 +402,33 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
         IF( dim == 3 ) Velo(k,3) = Velo(k,3) + coeff * NormalRandom()
       END DO
 
+    CASE ('even random')  
+
+      coeff = ListGetConstReal( Params,'Random Velocity Amplitude')
+
+      DO i=1,NewParticles
+        k = Offset + i
+        Velo(k,1) = Velo(k,1) + coeff * (2*EvenRandom()-1)
+        Velo(k,2) = Velo(k,2) + coeff * (2*EvenRandom()-1)
+        IF( dim == 3 ) Velo(k,3) = Velo(k,3) + coeff * (2*EvenRandom()-1)
+      END DO
+
     CASE DEFAULT
 
     END SELECT
 
 
     IF( GotMask ) DEALLOCATE( InvPerm ) 
+
+
+    IF(.TRUE.) THEN
+      DO i=1,NewParticles
+        PRINT *,'Init Coords',i,Coords(i,1:dim)
+      END DO
+      DO i=1,NewParticles
+        PRINT *,'Init Velo',i,Velo(i,1:dim)
+      END DO
+    END IF
 
 
   END SUBROUTINE InitializeParticles
@@ -382,19 +450,27 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     REAL(KIND=dp) :: time
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER, POINTER :: Status(:)
-    INTEGER :: i,j,dim, MinSaveStatus
+    INTEGER :: i,j,dim, NoParticles, MinSaveStatus
     INTEGER :: VisitedTimes = 0
 
     SAVE :: VisitedTimes, Params, FilePrefix, NumberFilesByParticles, NumberFilesBySteps, &
         MinSaveStatus, TimeVar
 
-    Mesh => GetMesh()
+    VisitedTimes = VisitedTimes + 1
 
-    IF( VisitedTimes == 0 ) THEN
+    Mesh => GetMesh()
+    dim = Particles % dim
+
+    Coord => Particles % Coordinate
+    Velo => Particles % Velocity 
+    Dist => Particles % Distance
+    Status => Particles % Status
+
+    IF( VisitedTimes == 1 ) THEN
       Params => GetSolverParams()
       FilePrefix = ListGetString(Params,'Filename Prefix',Found )
       IF(.NOT. Found) FilePrefix = 'track'
-      CALL WriteParticleFileNames(FilePrefix)
+      CALL WriteParticleFileNames(FilePrefix, dim)
 
       NumberFilesByParticles = ListGetLogical( Params,'File Numbering By Particles',Found) 
       NumberFilesBySteps = ListGetLogical( Params,'File Numbering By Steps',Found) 
@@ -407,16 +483,8 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       TimeVar => VariableGet( Mesh % Variables,'time')
     END IF
 
-    VisitedTimes = VisitedTimes + 1 
     time = TimeVar % Values(1)
-
-
-    dim = Particles % dim
-    Coord => Particles % Coordinate
-    Velo => Particles % Velocity 
-    Dist => Particles % Distance
-    Status => Particles % Status
-
+    NoParticles = Particles % NumberOfParticles
 
     IF(.NOT. NumberFilesByParticles ) THEN
       IF( NumberFilesBySteps ) THEN
@@ -424,13 +492,13 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       ELSE
         CALL OpenParticleFile(FilePrefix, 0 )        
       END IF
-      DO i = 1, Particles % NumberOfParticles
+      DO i = 1, NoParticles
         IF( Particles % Status(i) < MinSaveStatus ) CYCLE
         CALL WriteParticleLine( dim, i )        
       END DO
       CALL CloseParticleFile()
     ELSE
-      DO i = 1, Particles % NumberOfParticles
+      DO i = 1, NoParticles
         IF( Particles % Status(i) < MinSaveStatus ) CYCLE
         CALL OpenParticleFile(FilePrefix, i)
         CALL WriteParticleLine( dim, i ) 
@@ -445,9 +513,12 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     ! Write the names file for user information. Remember to update this if 
     ! SaveParticleStep is modified.
     !-------------------------------------------------------------------------
-    SUBROUTINE WriteParticleFileNames( Prefix ) 
+    SUBROUTINE WriteParticleFileNames( Prefix, Dim ) 
       
-      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix, FileName
+      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix
+      INTEGER :: dim
+
+      CHARACTER(LEN=MAX_NAME_LEN) :: FileName
       INTEGER :: i,j
       
       WRITE( FileName,'(A,A)') TRIM(FilePrefix),'.dat.names'
@@ -455,6 +526,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       OPEN (10, FILE=FileName )
       
       WRITE( 10, '(A)' ) 'Variables in file: '//TRIM(FilePrefix)//'*.dat'
+      WRITE( 10, '(A,I2)' ) 'Dimension of particle set is',dim
       i = 1
       WRITE( 10, '(I2,A)' )  i,': time'
       WRITE( 10, '(I2,A)' )  i+1,': Coordinate_1'
@@ -482,14 +554,18 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       
       CHARACTER(LEN=MAX_NAME_LEN) :: Prefix
       INTEGER :: FileNo
+      LOGICAL, SAVE :: Visited = .FALSE.
+
 
       CHARACTER(LEN=MAX_NAME_LEN) :: FileName
       
       IF( FileNo == 0 ) THEN
         WRITE( FileName,'(A,A)') TRIM(FilePrefix),'.dat'
-        CALL Info( 'ParticleTracker', 'Saving particle paths to file: '//TRIM(FileName), Level=4 )
+        IF( .NOT. Visited ) THEN
+          CALL Info( 'ParticleTracker', 'Saving particle paths to file: '//TRIM(FileName), Level=4 )
+        END IF
       ELSE IF( FileNo < 10 ) THEN
-        IF( FileNo == 1 ) THEN
+        IF( FileNo == 1 .AND. .NOT. Visited ) THEN
           WRITE( Message, * ) 'Saving particle paths to files: ', TRIM(FilePrefix)//'_*.dat'
           CALL Info( 'ParticleTracker', Message, Level=4 )
         END IF
@@ -500,11 +576,13 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
         WRITE( FileName,'(A,A,I3,A)') TRIM(FilePrefix),'_',fileno,'.dat'
       END IF
       
-      IF( VisitedTimes == 0 .OR. NumberFilesBySteps ) THEN
+      IF( VisitedTimes == 1 .OR. NumberFilesBySteps ) THEN
         OPEN (10, FILE=FileName )
       ELSE
         OPEN (10, FILE=FileName,POSITION='APPEND' )
       END IF
+
+      Visited = .TRUE.
 
     END SUBROUTINE OpenParticleFile
     
@@ -515,12 +593,14 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     SUBROUTINE WriteParticleLine( Dim, No )
       INTEGER :: Dim, No
       
-      IF( dim == 2 ) THEN
-        WRITE( 10, * ) time, Coord(No,1:2), Velo(No,1:2), Dist(No) 
-      ELSE
-        WRITE( 10, * ) time, Coord(No,1:3), Velo(No,1:3), Dist(No) 
+      IF( NumberFilesBySteps ) THEN
+        WRITE( 10, * ) time, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
+      ELSE IF( NumberFilesByParticles ) THEN
+        WRITE( 10, * ) time, VisitedTimes, Coord(No,1:Dim), Velo(No,1:dim), Dist(No) 
+      ELSE       
+        WRITE( 10, * ) time, VisitedTimes, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
       END IF
-      
+
     END SUBROUTINE WriteParticleLine
     
     
@@ -839,8 +919,12 @@ END SUBROUTINE LocateParticleInMesh
 
 
 
-
-SUBROUTINE CreateNeighbourTables( Particles ) 
+!-------------------------------------------------------------
+! This routine cretates the nearest neighbours for all nodes
+! The particle-particle connections may then be found by going
+! through all the nodes of elements
+!-------------------------------------------------------------
+SUBROUTINE CreateNeighbourList( Particles ) 
 
   TYPE(Particle_t) :: Particles
   
@@ -931,12 +1015,17 @@ SUBROUTINE CreateNeighbourTables( Particles )
     k = Particles % CumClosestParticle(node)
     Particles % ClosestParticle(k+j) = i
   END DO
-END SUBROUTINE CreateNeighbourTables
+END SUBROUTINE CreateNeighbourList
 
 
 
+
+!------------------------------------------------------------
+! For the first call of given node do the list, thereafter 
+! Return the index until the list is finished
+!------------------------------------------------------------
 FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
-  IMPLICIT NONE
+   IMPLICIT NONE
 
   TYPE(Particle_t) :: Particles
   INTEGER :: No, No2
@@ -972,16 +1061,20 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
       j = NodeIndexes(i)
       DO k=Particles % CumClosestParticle(i),Particles % CumClosestParticle(i)-1 
         No2 = Particles % ClosestParticle(k)
-        IF( No2 /= No ) THEN
-          NoNeighbours = NoNeighbours + 1
-          NeighbourList(NoNeighbours) = No2
-        END IF
+
+        ! No self coupling in this list	
+        IF( No2 == No ) CYCLE
+
+        ! Set symmetric forces Fij=-Fij so no need to go through twice
+        IF ( No2 < No ) CYCLE
+
+        NoNeighbours = NoNeighbours + 1
+        NeighbourList(NoNeighbours) = No2
       END DO
     END DO
     Cnt = 0
-  END IF
+  END IF 
 
-  
   Cnt = Cnt + 1
   IF( Cnt > NoNeighbours ) THEN
     No2 = 0
