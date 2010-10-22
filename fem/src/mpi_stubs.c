@@ -31,6 +31,8 @@ void STDCALLBULL FC_FUNC_(mpi_test,MPI_TEST) () {}
 void STDCALLBULL FC_FUNC_(mpi_cancel,MPI_CANCEL) () {}
 void STDCALLBULL FC_FUNC_(mpi_ibsend,MPI_IBSEND) () {}
 
+void STDCALLBULL FC_FUNC_(mpi_allgather,MPI_ALLGATHER) () {}
+
 void STDCALLBULL FC_FUNC_(mpi_wtick,MPI_WTICK) () {}
 void STDCALLBULL FC_FUNC_(pmpi_wtime,PMPI_WTIME) () {}
 void STDCALLBULL FC_FUNC_(pmpi_wtick,PMPI_WTICK) () {}
