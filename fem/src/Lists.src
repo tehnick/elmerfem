@@ -549,7 +549,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE VariableAddVector( Variables,Mesh,Solver,Name,DOFs,Values,&
       Perm,Output,Secondary )
-
+!------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
       TYPE(Mesh_t),   TARGET :: Mesh
       TYPE(Solver_t), TARGET :: Solver
@@ -577,14 +577,294 @@ CONTAINS
       CALL VariableAdd( Variables,Mesh,Solver,Name,DOFs,Values,&
             Perm,Output,Secondary )
 
-
+!------------------------------------------------------------------------------
     END SUBROUTINE VariableAddVector
-
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
      SUBROUTINE InterpolateMeshToMesh( OldMesh, NewMesh, OldVariables, &
-                NewVariables, UseQuadrantTree, Projector, MaskName )
+            NewVariables, UseQuadrantTree, Projector, MaskName )
+!------------------------------------------------------------------------------
+       USE SParIterComm
+       USE Interpolation
+       USE CRSMatrix
+       USE CoordinateSystems
+!-------------------------------------------------------------------------------
+       TYPE(Mesh_t), TARGET  :: OldMesh, NewMesh
+       TYPE(Variable_t), POINTER, OPTIONAL :: OldVariables, NewVariables
+       LOGICAL, OPTIONAL :: UseQuadrantTree
+       TYPE(Projector_t), POINTER, OPTIONAL :: Projector
+       CHARACTER(LEN=*),OPTIONAL :: MaskName
+!-------------------------------------------------------------------------------
+       INTEGER, POINTER :: perm(:), vperm(:), nperm(:)
+       LOGICAL, ALLOCATABLE :: FoundNodes(:)
+       TYPE(Mesh_t), POINTER :: nMesh
+       TYPE(VAriable_t), POINTER :: Var, nVar
+       INTEGER :: i,j,k,l,nfound,n,ierr,nvars,proc,status(MPI_STATUS_SIZE)
+       REAL(KIND=dp), POINTER :: store(:)
+       REAL(KIND=dp), ALLOCATABLE, TARGET :: vstore(:,:),nodes_x(:),nodes_y(:),nodes_z(:)
+
+       TYPE Procm_t
+         INTEGER :: n = 0
+         REAL(KIND=dp), POINTER :: nodes_x(:),nodes_y(:),nodes_z(:)
+       END TYPE Procm_t
+       TYPE(Procm_t),  ALLOCATABLE :: Procm(:)
+!-------------------------------------------------------------------------------
+
+       IF ( ParEnv % PEs<=1 ) THEN
+         CALL InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
+            NewVariables, UseQuadrantTree, Projector, MaskName )
+         RETURN
+      END IF
+
+      ALLOCATE( FoundNodes(NewMesh % NumberOfNodes) ); FoundNodes=.FALSE.
+      CALL InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
+         NewVariables, UseQuadrantTree, MaskName=MaskName, FoundNodes=FoundNodes )
+
+
+      n = COUNT(.NOT.FoundNodes)
+      ALLOCATE( Perm(n), nodes_x(n), nodes_y(n),nodes_z(n) ); Perm=0
+      j = 0
+      DO i=1,NewMesh % NumberOfNodes
+        IF ( FoundNodes(i) ) CYCLE
+        j = j + 1
+        perm(j) = i
+        nodes_x(j) = NewMesh % Nodes % x(i)
+        nodes_y(j) = NewMesh % Nodes % y(i)
+        nodes_z(j) = NewMesh % Nodes % z(i)
+      END DO
+      DEALLOCATE(FoundNodes)
+
+
+      DO i=1,ParEnv % PEs
+        IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
+  
+        proc = i-1
+        CALL MPI_BSEND( n, 1, MPI_INTEGER, proc, &
+                1001, MPI_COMM_WORLD, ierr )
+
+        IF ( n==0 ) CYCLE
+
+        CALL MPI_BSEND( nodes_x, n, MPI_DOUBLE_PRECISION, proc, &
+                1002, MPI_COMM_WORLD, ierr )
+        CALL MPI_BSEND( nodes_y, n, MPI_DOUBLE_PRECISION, proc, &
+                1003, MPI_COMM_WORLD, ierr )
+        CALL MPI_BSEND( nodes_z, n, MPI_DOUBLE_PRECISION, proc, &
+                1004, MPI_COMM_WORLD, ierr )
+      END DO
+      DEALLOCATE(nodes_x,nodes_y,nodes_z)
+
+      ALLOCATE(Procm(Parenv % Pes))
+      DO i=1,COUNT(ParEnv % Active)-1
+        CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
+              1001, MPI_COMM_WORLD, status, ierr )
+
+        proc = status(MPI_SOURCE)
+        Procm(proc+1) % n = n
+
+        IF ( n<=0 ) CYCLE
+
+        ALLOCATE(procm(proc+1) % Nodes_x(n),procm(proc+1) % Nodes_y(n),procm(proc+1) % Nodes_z(n))
+
+        CALL MPI_RECV( procm(proc+1) % nodes_x, n, MPI_DOUBLE_PRECISION, proc, &
+               1002, MPI_COMM_WORLD, status, ierr )
+        CALL MPI_RECV( procm(proc+1) % nodes_y, n, MPI_DOUBLE_PRECISION, proc, &
+               1003, MPI_COMM_WORLD, status, ierr )
+        CALL MPI_RECV( procm(proc+1) % nodes_z, n, MPI_DOUBLE_PRECISION, proc, &
+               1004, MPI_COMM_WORLD, status, ierr )
+      END DO
+
+
+      DO i=1,ParEnv % PEs
+        IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
+
+        proc = i-1
+        n = procm(i) % n
+        IF ( n==0 ) THEN
+          CALL MPI_BSEND( n, 1, MPI_INTEGER, proc, &
+                2001, MPI_COMM_WORLD, ierr )
+          CYCLE
+        END IF
+      
+        Nmesh => AllocateMesh()
+        Nmesh % Nodes % x => procm(i) % nodes_x
+        Nmesh % Nodes % y => procm(i) % nodes_y
+        Nmesh % Nodes % z => procm(i) % nodes_z
+        Nmesh % NumberOfNodes = n
+
+        ALLOCATE(nperm(n))
+        DO j=1,n
+          nPerm(j)=j
+        END DO
+
+        Var => OldVariables
+        nvars = 0
+        DO WHILE(ASSOCIATED(Var))
+          IF ( Var % DOFs==1 .AND. ASSOCIATED(Var % Perm) ) THEN
+            ALLOCATE(store(n)); store=0
+            nvars = nvars+1
+            CALL VariableAdd(nMesh % Variables,nMesh,Var % Solver, &
+                     Var % Name,1,store,nperm )
+          END IF
+          Var => Var % Next
+        END DO
+
+        ALLOCATE( FoundNodes(n) ); FoundNodes=.FALSE.
+        CALL InterpolateMeshToMeshQ( OldMesh, nMesh, OldVariables, &
+           nMesh % Variables, UseQuadrantTree, MaskName=MaskName, FoundNodes=FoundNodes )
+
+        nfound = COUNT(FoundNodes)
+
+        CALL MPI_BSEND( nfound, 1, MPI_INTEGER, proc, &
+                2001, MPI_COMM_WORLD, ierr )
+
+        IF ( nfound<=0 ) GOTO 10
+        ALLOCATE(vstore(nfound,nvars), vperm(nfound)); vstore=0
+
+       
+        k = 0
+        DO j=1,n
+          IF ( .NOT.FoundNodes(j)) CYCLE   
+          k = k + 1
+          vperm(k) = j
+          Var => OldVariables
+          nvars = 0
+          DO WHILE(ASSOCIATED(Var))
+            IF ( Var % DOFs==1  .AND. ASSOCIATED(Var % Perm)) THEN
+              Nvar => VariableGet( Nmesh % Variables,Var % Name,ThisOnly=.TRUE.)
+              nvars=nvars+1
+              vstore(k,nvars)=Nvar % Values(j)
+            END IF
+            Var => Var % Next
+          END DO
+        END DO
+
+        CALL MPI_BSEND( vperm, nfound, MPI_INTEGER, proc, &
+              2002, MPI_COMM_WORLD, status, ierr )
+
+        DO j=1,nvars
+          CALL MPI_BSEND( vstore(:,j), nfound,MPI_DOUBLE_PRECISION, proc, &
+                     2002+j, MPI_COMM_WORLD,ierr )
+        END DO
+
+        DEALLOCATE(vstore, vperm)
+
+10      CONTINUE
+
+        DEALLOCATE(Nmesh % nodes % x, &
+                   Nmesh % nodes % y, &
+                   Nmesh % nodes % z )
+        DEALLOCATE(nperm,foundnodes, Nmesh)
+      END DO
+      DEALLOCATE(procm)
+
+      DO i=1,COUNT(ParEnv % Active)-1
+        CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
+              2001, MPI_COMM_WORLD, status, ierr )
+
+        IF ( n<=0 ) CYCLE
+
+        proc = status(MPI_SOURCE)
+        ALLOCATE(store(n),vperm(n))
+
+        CALL MPI_RECV( vperm, n, MPI_INTEGER, proc, &
+              2002, MPI_COMM_WORLD, status, ierr )
+
+        Var => OldVariables
+        nvars=0
+        DO WHILE(ASSOCIATED(Var))
+          IF ( Var % DOFs==1 .AND. ASSOCIATED(Var % Perm) ) THEN
+            nvars=nvars+1
+            CALL MPI_RECV( store, n, MPI_DOUBLE_PRECISION, proc, &
+                2002+nvars, MPI_COMM_WORLD, status, ierr )
+
+            Nvar => VariableGet( NewMesh % Variables,Var % Name,ThisOnly=.TRUE.)
+            IF ( .NOT.ASSOCIATED(Nvar) ) CYCLE
+
+            DO j=1,n
+              k=vperm(j)
+              IF ( Nvar % perm(perm(k))>0 ) &
+                Nvar % Values(Nvar % Perm(perm(k))) = store(j)
+            END DO
+          END IF
+          Var => Var % Next
+        END DO
+        DEALLOCATE(store,vperm)
+      END DO
+      DEALLOCATE(perm)
+
+      CALL MPI_BARRIER(MPI_COMM_WORLD,ierr)
+
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+   FUNCTION AllocateMesh() RESULT(Mesh)
+!------------------------------------------------------------------------------
+     TYPE(Mesh_t), POINTER :: Mesh
+!------------------------------------------------------------------------------
+     INTEGER :: istat
+
+     ALLOCATE( Mesh, STAT=istat )
+     IF ( istat /= 0 ) &
+        CALL Fatal( 'AllocateMesh', 'Unable to allocate a few bytes of memory?' )
+
+!    Nothing computed on this mesh yet!
+!    ----------------------------------
+     Mesh % SavesDone    = 0
+     Mesh % OutputActive = .FALSE.
+
+     Mesh % AdaptiveDepth = 0
+     Mesh % Changed   = .FALSE. !  TODO: Change this sometime
+
+     Mesh % Stabilize = .FALSE.
+
+     Mesh % Variables => Null()
+     Mesh % Parent => Null()
+     Mesh % Child => Null()
+     Mesh % Next => Null()
+     Mesh % RootQuadrant => Null()
+     Mesh % Elements => Null()
+     Mesh % Edges => Null()
+     Mesh % Faces => Null()
+     Mesh % Projector => Null()
+     Mesh % NumberOfEdges = 0
+     Mesh % NumberOfFaces = 0
+     Mesh % NumberOfNodes = 0
+     Mesh % NumberOfBulkElements = 0
+     Mesh % NumberOfBoundaryElements = 0
+
+     Mesh % MaxFaceDOFs = 0
+     Mesh % MaxEdgeDOFs = 0
+     Mesh % MaxBDOFs = 0
+     Mesh % MaxElementDOFs  = 0
+     Mesh % MaxElementNodes = 0
+
+     Mesh % ViewFactors => Null()
+
+     ALLOCATE( Mesh % Nodes, STAT=istat )
+     IF ( istat /= 0 ) &
+        CALL Fatal( 'AllocateMesh', 'Unable to allocate a few bytes of memory?' )
+     NULLIFY( Mesh % Nodes % x )
+     NULLIFY( Mesh % Nodes % y )
+     NULLIFY( Mesh % Nodes % z )
+     Mesh % Nodes % NumberOfNodes = 0
+
+     Mesh % ParallelInfo % NumberOfIfDOFs =  0
+     NULLIFY( Mesh % ParallelInfo % GlobalDOFs )
+     NULLIFY( Mesh % ParallelInfo % INTERFACE )
+     NULLIFY( Mesh % ParallelInfo % NeighbourList )
+
+  END FUNCTION AllocateMesh
+!-------------------------------------------------------------------------------
+     END SUBROUTINE InterpolateMeshToMesh
+!-------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+     SUBROUTINE InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
+            NewVariables, UseQuadrantTree, Projector, MaskName, FoundNodes )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !  DESCRIPTION:
@@ -616,6 +896,7 @@ CONTAINS
        LOGICAL, OPTIONAL :: UseQuadrantTree
        TYPE(Projector_t), POINTER, OPTIONAL :: Projector
        CHARACTER(LEN=*),OPTIONAL :: MaskName
+       LOGICAL, OPTIONAL :: FoundNodes(:)
 !------------------------------------------------------------------------------
        INTEGER :: dim
        TYPE(Nodes_t) :: ElementNodes
@@ -645,6 +926,7 @@ CONTAINS
        
        INTEGER, ALLOCATABLE:: RInd(:)
        LOGICAL :: Found, EpsAbsGiven,EpsRelGiven, MaskExists
+       INTEGER :: eps_tries
        REAL(KIND=dp) :: eps1 = 0.1, eps2, eps_global, eps_local
        REAL(KIND=dp), POINTER :: Values(:), LocalU(:), LocalV(:), LocalW(:)
 !------------------------------------------------------------------------------
@@ -682,17 +964,18 @@ CONTAINS
        ELSE
          UseQTree = UseQuadrantTree
        ENDIF
+!useqtree=.false.
        
        IF ( UseQTree ) THEN
          IF ( .NOT.ASSOCIATED( RootQuadrant ) ) THEN
-           BoundingBox(1) = MINVAL( OldMesh % Nodes % x )
-           BoundingBox(2) = MINVAL( OldMesh % Nodes % y )
-           BoundingBox(3) = MINVAL( OldMesh % Nodes % z )
-           BoundingBox(4) = MAXVAL( OldMesh % Nodes % x )
-           BoundingBox(5) = MAXVAL( OldMesh % Nodes % y )
-           BoundingBox(6) = MAXVAL( OldMesh % Nodes % z )
+           BoundingBox(1) = MINVAL(OldMesh % Nodes % x)
+           BoundingBox(2) = MINVAL(OldMesh % Nodes % y)
+           BoundingBox(3) = MINVAL(OldMesh % Nodes % z)
+           BoundingBox(4) = MAXVAL(OldMesh % Nodes % x)
+           BoundingBox(5) = MAXVAL(OldMesh % Nodes % y)
+           BoundingBox(6) = MAXVAL(OldMesh % Nodes % z)
            
-           eps2 = eps1 * MAXVAL( BoundingBox(4:6) - BoundingBox(1:3) )
+           eps2 = 0.1_dp * MAXVAL(BoundingBox(4:6)-BoundingBox(1:3))
            BoundingBox(1:3) = BoundingBox(1:3) - eps2
            BoundingBox(4:6) = BoundingBox(4:6) + eps2
            
@@ -718,6 +1001,10 @@ CONTAINS
        eps_local = ListGetConstReal( CurrentModel % Simulation,  &
            'Interpolation Local Epsilon', Stat )
        IF(.NOT. Stat) eps_local = 1.0e-10
+
+       eps_tries = ListGetInteger( CurrentModel % Simulation,  &
+           'Interpolation Max Iterations', Stat )
+       IF(.NOT. Stat) eps_tries = 12
        
 !------------------------------------------------------------------------------
 ! Loop over all nodes in the new mesh
@@ -730,22 +1017,22 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Find in which old mesh bulk element the point belongs to
 !------------------------------------------------------------------------------
+         Found = .FALSE.
          IF ( ASSOCIATED(RootQuadrant) .AND. UseQTree ) THEN
 !------------------------------------------------------------------------------
 ! Find the last existing quadrant that the point belongs to
 !------------------------------------------------------------------------------
-           NULLIFY(Element)
+           Element => Null()
            CALL FindLeafElements(Point, dim, RootQuadrant, LeafQuadrant)
            IF ( ASSOCIATED(LeafQuadrant) ) THEN
              ! Go through the bulk elements in the last ChildQuadrant
              ! only.  Try to find matching element with progressively
              ! sloppier tests. Allow at most 100 % of slack:
              ! -------------------------------------------------------
-             Found = .FALSE.
              Eps1 = eps_global
              Eps2 = eps_local
              
-             DO j=1,12
+             DO j=1,eps_tries
                DO k=1, LeafQuadrant % NElemsInQuadrant
                  Element => OldMesh % Elements(LeafQuadrant % Elements(k))
                  
@@ -796,11 +1083,14 @@ CONTAINS
          END IF
          
          IF (.NOT.Found) THEN
-           NULLIFY(Element)
-           WRITE( Message, * ) 'Point was not found in any of the elements!',i
-           CALL Warn( 'InterpolateMeshToMesh', Message )
+           Element => Null()
+           IF (.NOT.PRESENT(FoundNodes) ) THEN
+             WRITE( Message, * ) 'Point was not found in any of the elements!',i
+             CALL Warn( 'InterpolateMeshToMesh', Message )
+           END IF
            CYCLE
          END IF
+         IF ( PRESENT(FoundNodes) ) FoundNodes(i) = .TRUE.
 
 !------------------------------------------------------------------------------
 !
@@ -839,14 +1129,14 @@ CONTAINS
 !               Interpolate variable at Point in Element:
 !               ------------------------------------------------
 
-                NewSol => VariableGet( NewMesh % Variables, TRIM(Var % Name), .TRUE. )
+                NewSol => VariableGet( NewMesh % Variables, Var % Name, .TRUE. )
                 IF ( .NOT. ASSOCIATED( NewSol ) ) THEN
                    Var => Var % Next
                    CYCLE
                 END IF
                 NewValue => NewSol % Values
 
-                OldSol => VariableGet( OldMesh % Variables, TRIM(Var % Name), .TRUE. )
+                OldSol => VariableGet( OldMesh % Variables, Var % Name, .TRUE. )
                 OldPerm  => OldSol % Perm
                 OldValue => OldSol % Values
 
@@ -996,7 +1286,6 @@ CONTAINS
 !------------------------------------------------------------------------------
         Var => OldVariables
         DO WHILE( ASSOCIATED(Var) )
-
            IF( SIZE( Var % Values ) == Var % DOFs ) THEN   
              Var => Var % Next
              CYCLE
@@ -1034,7 +1323,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      END SUBROUTINE ApplyProjector
 !------------------------------------------------------------------------------
-  END SUBROUTINE InterpolateMeshToMesh
+  END SUBROUTINE InterpolateMeshToMeshQ
 
 
 !------------------------------------------------------------------------------
