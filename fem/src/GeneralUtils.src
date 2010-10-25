@@ -872,7 +872,18 @@ CONTAINS
 !------------------------------------------------------------------------------
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
-    str = ComponentName(Var % Name, Component)
+    IF ( Var % Name == 'flow solution' ) THEN
+      str='flow solution'
+      IF ( .NOT. PRESENT(Component) ) RETURN
+      IF ( Component == Var % DOFs ) THEN
+        str = 'pressure'
+        RETURN
+      ELSE
+        str = 'velocity ' // TRIM(IntegerToString(Component))
+      END IF
+    ELSE
+      str = ComponentName(Var % Name, Component)
+    END IF
 !------------------------------------------------------------------------------
 END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
@@ -880,6 +891,8 @@ END FUNCTION ComponentNameVar
 
 !------------------------------------------------------------------------------
   FUNCTION ComponentNameStr( BaseName, Component_arg ) RESULT(str)
+!------------------------------------------------------------------------------
+     USE CoordinateSystems
 !------------------------------------------------------------------------------
     INTEGER, OPTIONAL :: Component_arg
     CHARACTER(LEN=*) :: BaseName
@@ -894,8 +907,9 @@ END FUNCTION ComponentNameVar
 
     IF ( ind<=0 ) THEN
       str = BaseName
-      IF ( Component > 0 ) &
+      IF ( Component > 0 ) THEN
         str = TRIM(str) // ' ' // TRIM( IntegerToString(Component) )
+      END IF
     ELSE
       DOFsTot = 0
       DO WHILE( .TRUE. )
