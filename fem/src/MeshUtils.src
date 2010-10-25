@@ -1538,7 +1538,7 @@ CONTAINS
     SUBROUTINE AssignConstraints()
 
       INTEGER, POINTER :: FaceInd(:)
-      INTEGER :: i,j,k,l,n
+      INTEGER :: i,j,k,l,n,nfound
       TYPE(Element_t), POINTER :: Element, Boundary, Face, Faces(:)
 
       DO i=1,Mesh % NumberOfBoundaryElements
@@ -1567,16 +1567,16 @@ CONTAINS
           Face => Faces(FaceInd(j))
           IF ( .NOT.ASSOCIATED(Face % Type,Boundary % Type) ) CYCLE
 
-          n = 0
-          DO k=1,Boundary % Type % NumberOfNodes
-            DO l=1,Face % Type % NumberOfNodes
-              IF ( Boundary % NodeIndexes(k)==Face % NodeIndexes(l)) n=n+1
+          n = Boundary % Type % NumberOfNodes
+          nfound = 0
+          DO k=1,n
+            DO l=1,n
+              IF ( Boundary % NodeIndexes(k)==Face % NodeIndexes(l) ) &
+                nfound = nfound+1
             END DO
           END DO
-          IF ( n==Boundary % Type % NumberOfNodes) THEN
-            Face % BoundaryInfo % Constraint = &
-                 Boundary % BoundaryInfo % Constraint
-            EXIT
+          IF ( nfound==n ) THEN
+            Face % BoundaryInfo = Boundary % BoundaryInfo; EXIT
           END IF
         END DO
       END DO
