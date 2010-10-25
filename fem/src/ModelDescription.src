@@ -2392,7 +2392,8 @@ type(valuelist_t), pointer :: lst
         EXIT
       END IF
 
-      k = INDEX(Row,':')
+      k = INDEX(Row,']')+1
+      k = k+INDEX(Row(k:),':')-1
 
       NULLIFY(Solver)
       DO i = 1,CurrentModel % NumberOfSolvers
@@ -2408,7 +2409,12 @@ type(valuelist_t), pointer :: lst
         IF ( Row(k:k) == ' ' ) EXIT
       END DO
 
-      Var => VariableGet( Mesh % Variables, TRIM(Row(1:k-1)),.TRUE. )
+      j = INDEX(Row,'[')
+      IF ( j>0 ) THEN
+        Var => VariableGet( Mesh % Variables, TRIM(Row(1:j-1)),.TRUE. )
+      ELSE
+        Var => VariableGet( Mesh % Variables, TRIM(Row(1:k-1)),.TRUE. )
+      END IF
 
       IF ( .NOT.ASSOCIATED(Var) ) THEN
 
