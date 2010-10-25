@@ -1,4 +1,4 @@
-
+ 
 MODULE ParticleUtils
 
    USE DefUtils
@@ -421,14 +421,10 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     IF( GotMask ) DEALLOCATE( InvPerm ) 
 
 
-    IF(.TRUE.) THEN
-      DO i=1,NewParticles
-        PRINT *,'Init Coords',i,Coords(i,1:dim)
-      END DO
-      DO i=1,NewParticles
-        PRINT *,'Init Velo',i,Velo(i,1:dim)
-      END DO
-    END IF
+    DO i=1,NewParticles
+      k = Offset + i
+      Particles % Status(k) = PARTICLE_INITIATED
+    END DO
 
 
   END SUBROUTINE InitializeParticles
@@ -709,7 +705,8 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp) :: Rtmp(3), MinLambda 
-  LOGICAL :: Hit, DoInit, Stat, CheckFirst, StopAtFace, AtWall, Visited = .FALSE.,Debug,UseCenter
+  LOGICAL :: Hit, DoInit, Stat, CheckFirst, StopAtFace, AtWall, Visited = .FALSE.,&
+      Debug,UseCenter,Rough
   INTEGER :: i,j,k,n,FaceIndex,SearchMethod,MaxTrials
   TYPE(Nodes_t), SAVE :: ElementNodes
   INTEGER, POINTER :: NodeIndexes(:)
@@ -719,7 +716,7 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
   REAL(kind=dp) :: BoundingBox(6), eps2, eps1
   
 
-  SAVE :: Mesh, CheckFirst, StopAtFace, SearchMethod, Debug, MaxTrials
+  SAVE :: Mesh, CheckFirst, StopAtFace, SearchMethod, Debug, Rough, MaxTrials
 
   Mesh => GetMesh()
 
@@ -727,7 +724,8 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
     Params => GetSolverParams()
     CheckFirst = ListGetLogical( Params,'Particle Element Search Check',Stat)
     StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
-    SearchMethod = ListGetInteger( Params,'Particle Element Search Method',Stat)
+    SearchMethod = ListGetInteger( Params,'Particle Search Method',Stat)
+    Rough = ListGetLogical( Params,'Particle Search Rough',Stat)
     MaxTrials = ListGetInteger( Params,'Particle Search Max Trials',Stat)
     IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements
     Debug = .FALSE.
@@ -901,21 +899,26 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
       Element => NextElement
     END DO
     
-    Hit = PointInElement( Element, ElementNodes, Rtmp, LocalCoords ) 
-    IF( Hit ) THEN
-      IF( Debug ) THEN
-        CALL Info('LocateParticleInMesh','Point found!')
-        PRINT *,'Dist',i,SQRT( SUM((Rtmp - Rfin)**2) )
+    IF( .NOT. Rough ) THEN 
+      Hit = PointInElement( Element, ElementNodes, Rtmp, LocalCoords ) 
+      IF( Hit ) THEN
+        IF( Debug ) THEN
+          CALL Info('LocateParticleInMesh','Point found!')
+          PRINT *,'Dist',i,SQRT( SUM((Rtmp - Rfin)**2) )
+        END IF
+      ELSE
+        CALL Warn('LocateParticleInMesh','Should have found the point in element!')
       END IF
-    ELSE
-      CALL Warn('LocateParticleInMesh','Should have found the point in element!')
     END IF
+
     ElementIndex = Element % ElementIndex
 
     
   END SELECT
   
 END SUBROUTINE LocateParticleInMesh
+
+
 
 
 
@@ -938,8 +941,6 @@ SUBROUTINE CreateNeighbourList( Particles )
   TYPE(Element_t), POINTER :: Element
   INTEGER :: NoNodes, NoParticles, MaxClosest  
 
-
-
   Mesh => GetMesh()
   NoNodes = Mesh % NumberOfNodes
 
@@ -947,15 +948,13 @@ SUBROUTINE CreateNeighbourList( Particles )
 
   IF( .NOT. Particles % NeighbourTable ) THEN
     ALLOCATE( Particles % ClosestNode( NoParticles ) )
-    ALLOCATE( Particles % ClosestParticle( NoNodes ) )
+    ALLOCATE( Particles % ClosestParticle( NoParticles ) )
     ALLOCATE( Particles % NoClosestParticle( NoNodes ) ) 
     ALLOCATE( Particles % CumClosestParticle( NoNodes+1 ) ) 
     Particles % NeighbourTable = .TRUE.
   END IF
-
   
   dim = Particles % dim 
-
 
   ! First find the closest node to each particle
   !-----------------------------------------------
@@ -968,7 +967,7 @@ SUBROUTINE CreateNeighbourList( Particles )
     Element => Mesh % Elements( ElementIndex )
     n = GetElementNOFNodes(Element)
     CALL GetElementNodes(ElementNodes,Element)    
-    Coord = Particles % Coordinate(No,1:dim)
+    Coord(1:dim) = Particles % Coordinate(i,1:dim)
 
     ! Find the minimum distance node (using squares is faster)
     mindist = HUGE( mindist ) 
@@ -982,8 +981,7 @@ SUBROUTINE CreateNeighbourList( Particles )
         mindist = dist 
         k = j
       END IF
-    END DO
-    
+    END DO    
     node = Element % NodeIndexes(k)
     Particles % ClosestNode(i) = node
     Particles % NoClosestParticle(node) = Particles % NoClosestParticle(node) + 1
@@ -998,23 +996,20 @@ SUBROUTINE CreateNeighbourList( Particles )
     MaxClosest = MAX( MaxClosest, j )
     Particles % CumClosestParticle(i+1) = Particles % CumClosestParticle(i) + j
   END DO
-  PRINT *,'Maximum number of closest particles:',MaxClosest
   Particles % MaxClosestParticles = MaxClosest
-
 
   ! And finally, add the closest neigbours to the table 
   !----------------------------------------------------------------
   Particles % NoClosestParticle = 0
+  Particles % ClosestParticle = 0
   DO i=1,NoParticles     
     node = Particles % ClosestNode(i) 
-    IF( node == 0 ) CYCLE
-
-    j = Particles % NoClosestParticle(node) + 1
-    Particles % NoClosestParticle(node) = j
-
+    j = Particles % NoClosestParticle(node) 
     k = Particles % CumClosestParticle(node)
     Particles % ClosestParticle(k+j) = i
+    Particles % NoClosestParticle(node) = j + 1
   END DO
+
 END SUBROUTINE CreateNeighbourList
 
 
@@ -1031,20 +1026,21 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
   INTEGER :: No, No2
 
   INTEGER :: PrevNo = 0
-  INTEGER, POINTER :: NodeIndexes(:), NeighbourList(:) => NULL()
+  INTEGER, POINTER :: NodeIndexes(:), NeighbourList(:) => NULL(), TmpList(:) => NULL()
   INTEGER :: i,j,k,n,ListSize,NoNeighbours,ElementIndex,Cnt
   LOGICAL :: Visited = .FALSE.
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t), POINTER :: Element
   
-  SAVE PrevNo,NeighbourList,ListSize,NoNeighbours,Cnt
+  SAVE Visited,PrevNo,NeighbourList,ListSize,NoNeighbours,Cnt
 
   IF( PrevNo /= No ) THEN
     PrevNo = No
     IF( .NOT. Visited ) THEN
+      Visited = .TRUE.
       Mesh => GetMesh()
       n = Mesh % MaxElementNodes 
-      ListSize = n * Particles % MaxClosestParticles
+      ListSize = n * Particles % MaxClosestParticles + 10
       ALLOCATE( NeighbourList( ListSize ) )
       NeighbourList = 0 
       Mesh => GetMesh()
@@ -1055,11 +1051,12 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
     Element => Mesh % Elements( ElementIndex )
     n = GetElementNOFNodes(Element)
     NodeIndexes => Element % NodeIndexes
-    
+
     NoNeighbours = 0
     DO i=1,n
       j = NodeIndexes(i)
-      DO k=Particles % CumClosestParticle(i),Particles % CumClosestParticle(i)-1 
+
+      DO k=Particles % CumClosestParticle(j),Particles % CumClosestParticle(j+1)-1 
         No2 = Particles % ClosestParticle(k)
 
         ! No self coupling in this list	
@@ -1069,6 +1066,17 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
         IF ( No2 < No ) CYCLE
 
         NoNeighbours = NoNeighbours + 1
+
+        IF( NoNeighbours > ListSize ) THEN
+          ALLOCATE( TmpList( ListSize + 20 ) )
+          TmpList(1:ListSize) = NeighbourList
+          DEALLOCATE( NeighbourList ) 
+          NeighbourList => TmpList
+          ListSize = ListSize + 20
+          NULLIFY( TmpList ) 
+          CALL Info('GetNextNeighbour','Allocating more space')
+        END IF
+
         NeighbourList(NoNeighbours) = No2
       END DO
     END DO
