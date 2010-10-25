@@ -597,12 +597,13 @@ CONTAINS
        TYPE(Projector_t), POINTER, OPTIONAL :: Projector
        CHARACTER(LEN=*),OPTIONAL :: MaskName
 !-------------------------------------------------------------------------------
-       INTEGER, POINTER :: perm(:), vperm(:), nperm(:)
+       INTEGER, ALLOCATABLE :: perm(:), vperm(:)
+       INTEGER, POINTER :: nperm(:)
        LOGICAL, ALLOCATABLE :: FoundNodes(:)
        TYPE(Mesh_t), POINTER :: nMesh
        TYPE(VAriable_t), POINTER :: Var, nVar
        INTEGER :: i,j,k,l,nfound,n,ierr,nvars,npart,proc,status(MPI_STATUS_SIZE)
-       REAL(KIND=dp) :: myBB(6), eps2
+       REAL(KIND=dp) :: myBB(6), eps2, dn
        REAL(KIND=dp), POINTER :: store(:)
        REAL(KIND=dp), ALLOCATABLE, TARGET :: vstore(:,:), BB(:,:), &
              nodes_x(:),nodes_y(:),nodes_z(:), xpart(:), ypart(:), zpart(:)
@@ -633,6 +634,12 @@ CONTAINS
       CALL InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
          NewVariables, UseQuadrantTree, MaskName=MaskName, FoundNodes=FoundNodes )
 
+      ! special case "all found":
+      !--------------------------
+      n = COUNT(.NOT.FoundNodes); dn = n
+      CALL SParActiveSUM(dn,2)
+      IF ( dn==0 ) RETURN
+
       ! Exchange partition bounding boxes:
       ! ----------------------------------
       myBB(1) = MINVAL(OldMesh % Nodes % x)
@@ -647,8 +654,6 @@ CONTAINS
       myBB(4:6) = myBB(4:6) + eps2
 
       ALLOCATE(BB(6,ParEnv % PEs))
-!     CALL MPI_ALLGATHER( myBB, 6, MPI_DOUBLE_PRECISION, &
-!              BB, 6, MPI_DOUBLE_PRECISION, ParEnv % ActiveComm, ierr )
       DO i=1,ParEnv % PEs
         IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
         proc = i-1
@@ -662,76 +667,84 @@ CONTAINS
         BB(:,proc+1) = myBB
       END DO
 
-
-
-      ! Extract nodes that we didn't find from our own partition...
-      ! ------------------------------------------------------------
-      n = COUNT(.NOT.FoundNodes)
-      ALLOCATE( Perm(n), nodes_x(n), nodes_y(n),nodes_z(n) ); Perm=0
-      j = 0
-      DO i=1,NewMesh % NumberOfNodes
-        IF ( FoundNodes(i) ) CYCLE
-        j = j + 1
-        perm(j) = i
-        nodes_x(j) = NewMesh % Nodes % x(i)
-        nodes_y(j) = NewMesh % Nodes % y(i)
-        nodes_z(j) = NewMesh % Nodes % z(i)
-      END DO
-      DEALLOCATE(FoundNodes)
-
-      ! ...and ask those from others
-      ! -------------------------------
-      ALLOCATE(ProcSend(ParEnv % PEs))
-      DO i=1,ParEnv % PEs
-        IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
-        proc = i-1
-
-        ! extract those of the missing nodes that are within the other
-        ! partions bounding box:
-        ! ------------------------------------------------------------
-        myBB = BB(:,i)
-        npart = 0
-        DO j=1,n
-          IF ( nodes_x(j)<myBB(1) .OR. nodes_x(j)>myBB(4) .OR. &
-               nodes_y(j)<myBB(2) .OR. nodes_y(j)>myBB(5) .OR. &
-               nodes_z(j)<myBB(3) .OR. nodes_z(j)>myBB(6) ) CYCLE
-          npart = npart+1
+      IF ( n==0 ) THEN
+        DEALLOCATE(FoundNodes, BB)
+        DO i=1,ParEnv % PEs
+          IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
+          proc = i-1
+          CALL MPI_BSEND( n, 1, MPI_INTEGER, proc, &
+                1001, MPI_COMM_WORLD, ierr )
         END DO
-        ProcSend(proc+1) % n = npart
-        IF ( npart>0 ) THEN
-          ALLOCATE( xpart(npart),ypart(npart),zpart(npart),ProcSend(proc+1) % perm(npart) )
+      ELSE
+        ! Extract nodes that we didn't find from our own partition...
+        ! ------------------------------------------------------------
+        ALLOCATE( Perm(n), nodes_x(n), nodes_y(n),nodes_z(n) ); Perm=0
+        j = 0
+        DO i=1,NewMesh % NumberOfNodes
+          IF ( FoundNodes(i) ) CYCLE
+          j = j + 1
+          perm(j) = i
+          nodes_x(j) = NewMesh % Nodes % x(i)
+          nodes_y(j) = NewMesh % Nodes % y(i)
+          nodes_z(j) = NewMesh % Nodes % z(i)
+        END DO
+        DEALLOCATE(FoundNodes)
+
+        ! ...and ask those from others
+        ! -------------------------------
+        ALLOCATE(ProcSend(ParEnv % PEs))
+        DO i=1,ParEnv % PEs
+          IF ( Parenv % mype == i-1 .OR. .NOT. ParEnv % Active(i) ) CYCLE
+          proc = i-1
+
+          ! extract those of the missing nodes that are within the other
+          ! partions bounding box:
+          ! ------------------------------------------------------------
+          myBB = BB(:,i)
           npart = 0
           DO j=1,n
             IF ( nodes_x(j)<myBB(1) .OR. nodes_x(j)>myBB(4) .OR. &
                  nodes_y(j)<myBB(2) .OR. nodes_y(j)>myBB(5) .OR. &
                  nodes_z(j)<myBB(3) .OR. nodes_z(j)>myBB(6) ) CYCLE
-            npart=npart+1
-            ProcSend(proc+1) % perm(npart)=j
-            xpart(npart) = Nodes_x(j)
-            ypart(npart) = Nodes_y(j)
-            zpart(npart) = Nodes_z(j)
+            npart = npart+1
           END DO
-        END IF
+          ProcSend(proc+1) % n = npart
+          IF ( npart>0 ) THEN
+            ALLOCATE( xpart(npart),ypart(npart),zpart(npart),ProcSend(proc+1) % perm(npart) )
+            npart = 0
+            DO j=1,n
+              IF ( nodes_x(j)<myBB(1) .OR. nodes_x(j)>myBB(4) .OR. &
+                   nodes_y(j)<myBB(2) .OR. nodes_y(j)>myBB(5) .OR. &
+                   nodes_z(j)<myBB(3) .OR. nodes_z(j)>myBB(6) ) CYCLE
+              npart=npart+1
+              ProcSend(proc+1) % perm(npart)=j
+              xpart(npart) = Nodes_x(j)
+              ypart(npart) = Nodes_y(j)
+              zpart(npart) = Nodes_z(j)
+            END DO
+          END IF
 
-        ! send count...
-        ! -------------
-        CALL MPI_BSEND( npart, 1, MPI_INTEGER, proc, &
-                1001, MPI_COMM_WORLD, ierr )
+          ! send count...
+          ! -------------
+          CALL MPI_BSEND( npart, 1, MPI_INTEGER, proc, &
+                  1001, MPI_COMM_WORLD, ierr )
 
-        IF ( npart==0 ) CYCLE
+          IF ( npart==0 ) CYCLE
 
-        ! ...and points
-        ! -------------
-        CALL MPI_BSEND( xpart, npart, MPI_DOUBLE_PRECISION, proc, &
-                1002, MPI_COMM_WORLD, ierr )
-        CALL MPI_BSEND( ypart, npart, MPI_DOUBLE_PRECISION, proc, &
-                1003, MPI_COMM_WORLD, ierr )
-        CALL MPI_BSEND( zpart, npart, MPI_DOUBLE_PRECISION, proc, &
-                1004, MPI_COMM_WORLD, ierr )
+          ! ...and points
+          ! -------------
+          CALL MPI_BSEND( xpart, npart, MPI_DOUBLE_PRECISION, proc, &
+                  1002, MPI_COMM_WORLD, ierr )
+          CALL MPI_BSEND( ypart, npart, MPI_DOUBLE_PRECISION, proc, &
+                  1003, MPI_COMM_WORLD, ierr )
+          CALL MPI_BSEND( zpart, npart, MPI_DOUBLE_PRECISION, proc, &
+                  1004, MPI_COMM_WORLD, ierr )
 
-        DEALLOCATE(xpart,ypart,zpart)
-      END DO
-      DEALLOCATE(nodes_x,nodes_y,nodes_z, BB)
+          DEALLOCATE(xpart,ypart,zpart)
+        END DO
+        DEALLOCATE(nodes_x,nodes_y,nodes_z,BB)
+      END IF
+       
 
       ! receive points from others:
       ! ----------------------------
@@ -878,8 +891,10 @@ CONTAINS
 
         proc = status(MPI_SOURCE)
         IF ( n<=0 ) THEN
-          IF ( ALLOCATED(ProcSend(proc+1) % Perm)) &
-                     DEALLOCATE(ProcSend(proc+1) % Perm)
+          IF ( ALLOCATED(ProcSend) ) THEN
+            IF ( ALLOCATED(ProcSend(proc+1) % Perm)) &
+                       DEALLOCATE(ProcSend(proc+1) % Perm)
+          END IF
           CYCLE
         END IF
 
@@ -932,7 +947,7 @@ CONTAINS
         END DO
         DEALLOCATE(store,vperm,ProcSend(proc+1) % perm)
       END DO
-      DEALLOCATE(Perm,ProcSend)
+      IF ( ALLOCATED(Perm) ) DEALLOCATE(Perm,ProcSend)
 
       CALL MPI_BARRIER(ParEnv % ActiveComm,ierr)
 
