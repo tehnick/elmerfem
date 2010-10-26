@@ -510,7 +510,7 @@ MODULE NavierStokes
            Tau = hK * Re / (2 * rho * VNorm)
            Delta = rho * Lambda * Re * hK * VNorm
         ELSE
-           Delta = 2 * mu / mK
+           Delta = 0._dp
            Tau   = mK * hK**2  / ( 8 * mu )
         END IF
 !------------------------------------------------------------------------------
@@ -755,7 +755,7 @@ MODULE NavierStokes
 !  For compressible flow add grad((2/3) \mu div(u))
 !------------------------------------------------------------------------------
              IF ( Compressible ) THEN
-               A(i,j) = A(i,j) - s * ( 2.0d0 / 3.0d0 ) * mu * &
+               A(i,j) = A(i,j) - s * ( 2._dp / 3._dp ) * mu * &
                           dBasisdx(q,j) * dBasisdx(p,i)
              END IF
            END IF
@@ -973,23 +973,23 @@ MODULE NavierStokes
      DO i=j+1,j+SIZE(EdgeMap,1)
        p = EdgeMap(i-j,1)
        q = EdgeMap(i-j,2)
-       StiffMatrix( c*i, : ) = 0.0d0
-       MassMatrix(  c*i, : ) = 0.0d0
-       ForceVector( c*i ) = 0.0d0
-       StiffMatrix( c*i, c*i ) =  1.0d0
-       StiffMatrix( c*i, c*p ) = -1.0d0/2.0d0
-       StiffMatrix( c*i, c*q ) = -1.0d0/2.0d0
+       StiffMatrix( c*i, : ) = 0._dp
+       MassMatrix(  c*i, : ) = 0._dp
+       ForceVector( c*i ) = 0._dp
+       StiffMatrix( c*i, c*i ) =  1._dp
+       StiffMatrix( c*i, c*p ) = -0.5_dp
+       StiffMatrix( c*i, c*q ) = -0.5_dp
      END DO
    END IF
 
    IF ( PBubbles ) THEN
       DO i=n+1,nBasis
-        StiffMatrix( c*i, : ) = 0.0d0
-        MassMatrix(  c*i, : ) = 0.0d0
-        StiffMatrix( :, c*i ) = 0.0d0
-        MassMatrix(  :, c*i ) = 0.0d0
-        ForceVector( c*i ) = 0.0d0
-        StiffMatrix( c*i, c*i ) =  1.0d0
+        StiffMatrix( c*i, : ) = 0._dp
+        MassMatrix(  c*i, : ) = 0._dp
+        StiffMatrix( :, c*i ) = 0._dp
+        MassMatrix(  :, c*i ) = 0._dp
+        ForceVector( c*i ) = 0._dp
+        StiffMatrix( c*i, c*i ) = 1._dp
      END DO
    END IF
 !------------------------------------------------------------------------------
