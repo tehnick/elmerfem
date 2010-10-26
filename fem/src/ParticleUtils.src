@@ -45,11 +45,13 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
   IF( Particles % MaxNumberOfParticles == 0 ) THEN
     ALLOCATE( Particles % Coordinate(NoParticles,dofs))
     ALLOCATE( Particles % Distance(NoParticles))
+    ALLOCATE( Particles % Dt(NoParticles))
     ALLOCATE( Particles % Status(NoParticles))
     ALLOCATE( Particles % ElementIndex(NoParticles))
 
     Particles % Coordinate = 0.0_dp
     Particles % Distance = 0.0_dp
+    Particles % Dt = 0.0_dp
     Particles % Status = PARTICLE_ALLOCATED
     Particles % ElementIndex = 0
     Particles % MaxNumberOfParticles = NoParticles
@@ -71,6 +73,8 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
 
   ELSE 
     PrevNoParticles = Particles % MaxNumberOfParticles 
+
+    CALL Warn('AllocateParticles','Check some of the components!')
 
     Coordinate => Particles % Coordinate
     Velocity => Particles % Velocity
@@ -117,6 +121,7 @@ SUBROUTINE DestroyParticles(Particles)
   DEALLOCATE( Particles % Velocity ) 
   DEALLOCATE( Particles % Coordinate ) 
   DEALLOCATE( Particles % Distance ) 
+  DEALLOCATE( Particles % Dt ) 
   DEALLOCATE( Particles % Status ) 
   DEALLOCATE( Particles % ElementIndex ) 
   IF(  ParEnv % PEs > 1 ) THEN
@@ -429,189 +434,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
   END SUBROUTINE InitializeParticles
 
-
-
-  !------------------------------------------------------------------------
-  ! Write particles in an ascii format 
-  !-------------------------------------------------------------------------
-  SUBROUTINE ParticleOutput( Particles ) 
-    
-    TYPE(Particle_t) :: Particles
-
-    TYPE(Variable_t), POINTER :: TimeVar
-    TYPE(ValueList_t), POINTER :: Params 
-    CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, FileName
-    LOGICAL :: Found, NumberFilesByParticles, NumberFilesBySteps
-    REAL(KIND=dp), POINTER :: Coord(:,:), Velo(:,:), Dist(:)
-    REAL(KIND=dp) :: time
-    TYPE(Mesh_t), POINTER :: Mesh
-    INTEGER, POINTER :: Status(:)
-    INTEGER :: i,j,dim, NoParticles, MinSaveStatus
-    INTEGER :: VisitedTimes = 0
-
-    SAVE :: VisitedTimes, Params, FilePrefix, NumberFilesByParticles, NumberFilesBySteps, &
-        MinSaveStatus, TimeVar
-
-    VisitedTimes = VisitedTimes + 1
-
-    Mesh => GetMesh()
-    dim = Particles % dim
-
-    Coord => Particles % Coordinate
-    Velo => Particles % Velocity 
-    Dist => Particles % Distance
-    Status => Particles % Status
-
-    IF( VisitedTimes == 1 ) THEN
-      Params => GetSolverParams()
-      FilePrefix = ListGetString(Params,'Filename Prefix',Found )
-      IF(.NOT. Found) FilePrefix = 'track'
-      CALL WriteParticleFileNames(FilePrefix, dim)
-
-      NumberFilesByParticles = ListGetLogical( Params,'File Numbering By Particles',Found) 
-      NumberFilesBySteps = ListGetLogical( Params,'File Numbering By Steps',Found) 
-      IF( NumberFilesByParticles .AND. NumberFilesBySteps ) THEN
-        CALL Fatal('ParticleTracker','Files may be numbered either by steps or particles')
-      END IF
-      
-      MinSaveStatus = ListGetInteger( Params,'Min Status for Saving',Found)
-      
-      TimeVar => VariableGet( Mesh % Variables,'time')
-    END IF
-
-    time = TimeVar % Values(1)
-    NoParticles = Particles % NumberOfParticles
-
-    IF(.NOT. NumberFilesByParticles ) THEN
-      IF( NumberFilesBySteps ) THEN
-        CALL OpenParticleFile(FilePrefix, VisitedTimes )
-      ELSE
-        CALL OpenParticleFile(FilePrefix, 0 )        
-      END IF
-      DO i = 1, NoParticles
-        IF( Particles % Status(i) < MinSaveStatus ) CYCLE
-        CALL WriteParticleLine( dim, i )        
-      END DO
-      CALL CloseParticleFile()
-    ELSE
-      DO i = 1, NoParticles
-        IF( Particles % Status(i) < MinSaveStatus ) CYCLE
-        CALL OpenParticleFile(FilePrefix, i)
-        CALL WriteParticleLine( dim, i ) 
-        CALL CloseParticleFile()
-      END DO
-    END IF
-
-
-  CONTAINS
-
-    !------------------------------------------------------------------------
-    ! Write the names file for user information. Remember to update this if 
-    ! SaveParticleStep is modified.
-    !-------------------------------------------------------------------------
-    SUBROUTINE WriteParticleFileNames( Prefix, Dim ) 
-      
-      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix
-      INTEGER :: dim
-
-      CHARACTER(LEN=MAX_NAME_LEN) :: FileName
-      INTEGER :: i,j
-      
-      WRITE( FileName,'(A,A)') TRIM(FilePrefix),'.dat.names'
-      
-      OPEN (10, FILE=FileName )
-      
-      WRITE( 10, '(A)' ) 'Variables in file: '//TRIM(FilePrefix)//'*.dat'
-      WRITE( 10, '(A,I2)' ) 'Dimension of particle set is',dim
-      i = 1
-      WRITE( 10, '(I2,A)' )  i,': time'
-      WRITE( 10, '(I2,A)' )  i+1,': Coordinate_1'
-      WRITE( 10, '(I2,A)' )  i+2,': Coordinate_2'
-      IF(dim == 3) WRITE( 10, '(I2,A)' )  i+3,': Coordinate_3'
-      i = i + DIM
-      WRITE( 10, '(I2,A)' )  i+1,': Velocity_1'
-      WRITE( 10, '(I2,A)' )  i+2,': Velocity_2'
-      IF(dim == 3) WRITE( 10, '(I2,A)' )  i+3,': Velocity_3'
-      i = i + DIM
-      WRITE( 10, '(I2,A)' )  i+1,': Distance'
-      i = i + 1
-      
-      CLOSE( 10 )
-      
-    END SUBROUTINE WriteParticleFileNames
-
-
-
-    !------------------------------------------------------------------------
-    ! Open a numbered file for each particle. These must be separate since the 
-    ! number of steps for each particle may vary greatly
-    !-------------------------------------------------------------------------
-    SUBROUTINE OpenParticleFile( Prefix, FileNo ) 
-      
-      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix
-      INTEGER :: FileNo
-      LOGICAL, SAVE :: Visited = .FALSE.
-
-
-      CHARACTER(LEN=MAX_NAME_LEN) :: FileName
-      
-      IF( FileNo == 0 ) THEN
-        WRITE( FileName,'(A,A)') TRIM(FilePrefix),'.dat'
-        IF( .NOT. Visited ) THEN
-          CALL Info( 'ParticleTracker', 'Saving particle paths to file: '//TRIM(FileName), Level=4 )
-        END IF
-      ELSE IF( FileNo < 10 ) THEN
-        IF( FileNo == 1 .AND. .NOT. Visited ) THEN
-          WRITE( Message, * ) 'Saving particle paths to files: ', TRIM(FilePrefix)//'_*.dat'
-          CALL Info( 'ParticleTracker', Message, Level=4 )
-        END IF
-        WRITE( FileName,'(A,A,I1,A)') TRIM(FilePrefix),'_',fileno,'.dat'
-      ELSE IF( FileNo < 100 ) THEN
-        WRITE( FileName,'(A,A,I2,A)') TRIM(FilePrefix),'_',fileno,'.dat'
-      ELSE IF( FileNo < 1000 ) THEN
-        WRITE( FileName,'(A,A,I3,A)') TRIM(FilePrefix),'_',fileno,'.dat'
-      END IF
-      
-      IF( VisitedTimes == 1 .OR. NumberFilesBySteps ) THEN
-        OPEN (10, FILE=FileName )
-      ELSE
-        OPEN (10, FILE=FileName,POSITION='APPEND' )
-      END IF
-
-      Visited = .TRUE.
-
-    END SUBROUTINE OpenParticleFile
-    
-    
-    !------------------------------------------------------------------------
-    ! Save one line in the particle file
-    !-------------------------------------------------------------------------
-    SUBROUTINE WriteParticleLine( Dim, No )
-      INTEGER :: Dim, No
-      
-      IF( NumberFilesBySteps ) THEN
-        WRITE( 10, * ) time, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
-      ELSE IF( NumberFilesByParticles ) THEN
-        WRITE( 10, * ) time, VisitedTimes, Coord(No,1:Dim), Velo(No,1:dim), Dist(No) 
-      ELSE       
-        WRITE( 10, * ) time, VisitedTimes, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
-      END IF
-
-    END SUBROUTINE WriteParticleLine
-    
-    
-    !------------------------------------------------------------------------
-    ! Close the particle file
-    !-------------------------------------------------------------------------
-    SUBROUTINE CloseParticleFile( )
-      
-      CLOSE( 10 )
-      
-    END SUBROUTINE CloseParticleFile
-    
-       
-  END SUBROUTINE ParticleOutput
-
+ 
 
 !---------------------------------------------------------------------------
   SUBROUTINE SegmentElementIntersection(Mesh,BulkElement,&
@@ -1091,6 +914,537 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
   END IF
 
 END FUNCTION GetNextNeighbour
+
+
+
+ !------------------------------------------------------------------------
+  ! Write particles in an ascii format 
+  !-------------------------------------------------------------------------
+  SUBROUTINE ParticleOutput( Particles ) 
+    
+    TYPE(Particle_t) :: Particles
+    LOGICAL :: Visited = .FALSE.
+    TYPE(ValueList_t), POINTER :: Params     
+    CHARACTER(LEN=MAX_NAME_LEN) :: FileFormat
+    LOGICAL :: VtuFormat, TableFormat, Found
+
+    SAVE :: TableFormat, VtuFormat, VisitedTimes 
+    
+    IF( .NOT. Visited ) THEN
+      Params => GetSolverParams()
+      VisitedTimes = VisitedTimes + 1
+      TableFormat = GetLogical( Params,'Table Format',Found)
+      VtuFormat = GetLogical( Params,'Vtu Format',Found)
+      FileFormat = GetString( Params,'Output Format',Found) 
+      IF( Found ) THEN
+        IF( FileFormat == 'vtu') VtuFormat = .TRUE.
+        IF( FileFormat == 'table') TableFormat = .TRUE.
+      END IF
+      Visited = .TRUE.
+    END IF
+
+    IF( TableFormat ) CALL ParticleOutputTable( Particles )
+    IF( VtuFormat ) CALL ParticleOutputVtu( Particles ) 
+
+  END SUBROUTINE ParticleOutput
+
+
+  !------------------------------------------------------------------------
+  ! Write particles in an ascii format 
+  !-------------------------------------------------------------------------
+  SUBROUTINE ParticleOutputTable( Particles ) 
+    
+    TYPE(Particle_t) :: Particles
+
+    TYPE(Variable_t), POINTER :: TimeVar
+    TYPE(ValueList_t), POINTER :: Params 
+    CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, FileName
+    LOGICAL :: Found, NumberFilesByParticles, NumberFilesBySteps
+    REAL(KIND=dp), POINTER :: Coord(:,:), Velo(:,:), Dist(:)
+    REAL(KIND=dp) :: time
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER, POINTER :: Status(:)
+    INTEGER :: i,j,dim, NoParticles, MinSaveStatus
+    INTEGER :: VisitedTimes = 0
+
+    SAVE :: VisitedTimes, Params, FilePrefix, NumberFilesByParticles, NumberFilesBySteps, &
+        MinSaveStatus, TimeVar
+
+    VisitedTimes = VisitedTimes + 1
+
+    Mesh => GetMesh()
+    dim = Particles % dim
+
+    Coord => Particles % Coordinate
+    Velo => Particles % Velocity 
+    Dist => Particles % Distance
+    Status => Particles % Status
+
+    IF( VisitedTimes == 1 ) THEN
+      Params => GetSolverParams()
+      FilePrefix = ListGetString(Params,'Filename Prefix',Found )
+      IF(.NOT. Found) FilePrefix = 'track'
+      CALL WriteParticleFileNames(FilePrefix, dim)
+
+      NumberFilesByParticles = ListGetLogical( Params,'File Numbering By Particles',Found) 
+      NumberFilesBySteps = ListGetLogical( Params,'File Numbering By Steps',Found) 
+      IF( NumberFilesByParticles .AND. NumberFilesBySteps ) THEN
+        CALL Fatal('ParticleTracker','Files may be numbered either by steps or particles')
+      END IF
+      
+      MinSaveStatus = ListGetInteger( Params,'Min Status for Saving',Found)
+      
+      TimeVar => VariableGet( Mesh % Variables,'time')
+    END IF
+
+    time = TimeVar % Values(1)
+    NoParticles = Particles % NumberOfParticles
+
+    IF(.NOT. NumberFilesByParticles ) THEN
+      IF( NumberFilesBySteps ) THEN
+        CALL OpenParticleFile(FilePrefix, VisitedTimes )
+      ELSE
+        CALL OpenParticleFile(FilePrefix, 0 )        
+      END IF
+      DO i = 1, NoParticles
+        IF( Particles % Status(i) < MinSaveStatus ) CYCLE
+        CALL WriteParticleLine( dim, i )        
+      END DO
+      CALL CloseParticleFile()
+    ELSE
+      DO i = 1, NoParticles
+        IF( Particles % Status(i) < MinSaveStatus ) CYCLE
+        CALL OpenParticleFile(FilePrefix, i)
+        CALL WriteParticleLine( dim, i ) 
+        CALL CloseParticleFile()
+      END DO
+    END IF
+
+
+  CONTAINS
+
+    !------------------------------------------------------------------------
+    ! Write the names file for user information. Remember to update this if 
+    ! SaveParticleStep is modified.
+    !-------------------------------------------------------------------------
+    SUBROUTINE WriteParticleFileNames( Prefix, Dim ) 
+      
+      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix
+      INTEGER :: dim
+
+      CHARACTER(LEN=MAX_NAME_LEN) :: FileName
+      INTEGER :: i,j
+      
+      WRITE( FileName,'(A,A)') TRIM(FilePrefix),'.dat.names'
+      
+      OPEN (10, FILE=FileName )
+      
+      WRITE( 10, '(A)' ) 'Variables in file: '//TRIM(FilePrefix)//'*.dat'
+      WRITE( 10, '(A,I2)' ) 'Dimension of particle set is',dim
+      i = 1
+      WRITE( 10, '(I2,A)' )  i,': time'
+      WRITE( 10, '(I2,A)' )  i+1,': Coordinate_1'
+      WRITE( 10, '(I2,A)' )  i+2,': Coordinate_2'
+      IF(dim == 3) WRITE( 10, '(I2,A)' )  i+3,': Coordinate_3'
+      i = i + DIM
+      WRITE( 10, '(I2,A)' )  i+1,': Velocity_1'
+      WRITE( 10, '(I2,A)' )  i+2,': Velocity_2'
+      IF(dim == 3) WRITE( 10, '(I2,A)' )  i+3,': Velocity_3'
+      i = i + DIM
+      WRITE( 10, '(I2,A)' )  i+1,': Distance'
+      i = i + 1
+      
+      CLOSE( 10 )
+      
+    END SUBROUTINE WriteParticleFileNames
+
+
+
+    !------------------------------------------------------------------------
+    ! Open a numbered file for each particle. These must be separate since the 
+    ! number of steps for each particle may vary greatly
+    !-------------------------------------------------------------------------
+    SUBROUTINE OpenParticleFile( Prefix, FileNo ) 
+      
+      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix
+      INTEGER :: FileNo
+      LOGICAL, SAVE :: Visited = .FALSE.
+
+
+      CHARACTER(LEN=MAX_NAME_LEN) :: FileName
+      
+      IF( FileNo == 0 ) THEN
+        WRITE( FileName,'(A,A)') TRIM(FilePrefix),'.dat'
+        IF( .NOT. Visited ) THEN
+          CALL Info( 'ParticleTracker', 'Saving particle paths to file: '//TRIM(FileName), Level=4 )
+        END IF
+      ELSE IF( FileNo < 10 ) THEN
+        IF( FileNo == 1 .AND. .NOT. Visited ) THEN
+          WRITE( Message, * ) 'Saving particle paths to files: ', TRIM(FilePrefix)//'_*.dat'
+          CALL Info( 'ParticleTracker', Message, Level=4 )
+        END IF
+        WRITE( FileName,'(A,A,I1,A)') TRIM(FilePrefix),'_',fileno,'.dat'
+      ELSE IF( FileNo < 100 ) THEN
+        WRITE( FileName,'(A,A,I2,A)') TRIM(FilePrefix),'_',fileno,'.dat'
+      ELSE IF( FileNo < 1000 ) THEN
+        WRITE( FileName,'(A,A,I3,A)') TRIM(FilePrefix),'_',fileno,'.dat'
+      END IF
+      
+      IF( VisitedTimes == 1 .OR. NumberFilesBySteps ) THEN
+        OPEN (10, FILE=FileName )
+      ELSE
+        OPEN (10, FILE=FileName,POSITION='APPEND' )
+      END IF
+
+      Visited = .TRUE.
+
+    END SUBROUTINE OpenParticleFile
+    
+    
+    !------------------------------------------------------------------------
+    ! Save one line in the particle file
+    !-------------------------------------------------------------------------
+    SUBROUTINE WriteParticleLine( Dim, No )
+      INTEGER :: Dim, No
+      
+      IF( NumberFilesBySteps ) THEN
+        WRITE( 10, * ) time, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
+      ELSE IF( NumberFilesByParticles ) THEN
+        WRITE( 10, * ) time, VisitedTimes, Coord(No,1:Dim), Velo(No,1:dim), Dist(No) 
+      ELSE       
+        WRITE( 10, * ) time, VisitedTimes, No, Coord(No,1:dim), Velo(No,1:dim), Dist(No) 
+      END IF
+
+    END SUBROUTINE WriteParticleLine
+    
+    
+    !------------------------------------------------------------------------
+    ! Close the particle file
+    !-------------------------------------------------------------------------
+    SUBROUTINE CloseParticleFile( )
+      
+      CLOSE( 10 )
+      
+    END SUBROUTINE CloseParticleFile
+           
+  END SUBROUTINE ParticleOutputTable
+
+
+
+
+SUBROUTINE ParticleOutputVtu( Particles )
+!------------------------------------------------------------------------------
+
+  USE DefUtils 
+  USE MeshUtils
+  USE ElementDescription
+  
+  IMPLICIT NONE
+  TYPE(Particle_t) :: Particles  
+  
+  TYPE(ValueList_t),POINTER :: Params
+  INTEGER, SAVE :: nTime = 0
+  LOGICAL :: GotIt, Parallel, FixedMesh
+  CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
+  CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Variable_t), POINTER :: Var
+  INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet
+  CHARACTER(MAX_NAME_LEN) :: Dir
+  LOGICAL :: Visited = .FALSE.
+
+  CHARACTER(MAX_NAME_LEN) :: Str
+  INTEGER :: NumberOfNodes, ParallelNodes, Dim
+
+  Params => GetSolverParams()
+  Mesh => GetMesh()
+
+  ExtCount = ListGetInteger( Params,'Output Count',GotIt)
+  IF( GotIt ) THEN
+    nTime = ExtCount
+  ELSE
+    nTime = nTime + 1
+  END IF
+  FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
+
+  IF ( nTime == 1 ) THEN
+    CALL Info('ParticleOutputVtu','Saving results in VTK XML format')
+    FilePrefix = GetString( Params,'Filename Prefix',GotIt )
+    IF ( .NOT.GotIt ) FilePrefix = "Particles"
+  END IF
+  
+  Partitions = ParEnv % PEs
+  Part = ParEnv % MyPE
+  Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
+
+  Dim = Particles % dim
+  NumberOfNodes = Particles % NumberOfParticles
+
+  IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
+    Dir = TRIM(Mesh % Name) // "/"
+  ELSE
+    Dir = "./"
+  END IF
+  
+  IF(Parallel .AND. Part == 0) THEN
+    WRITE( PvtuFile,'(A,A,I4.4,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+    CALL WritePvtuFile( PvtuFile )
+  END IF
+  
+  IF ( Parallel ) THEN
+    WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",nTime
+  ELSE
+    WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+  END IF
+  CALL WriteVtuFile( VtuFile )
+
+
+CONTAINS
+
+  
+  SUBROUTINE WriteVtuFile( VtuFile )
+    CHARACTER(LEN=*), INTENT(IN) :: VtuFile
+    INTEGER, PARAMETER :: VtuUnit = 58
+    TYPE(Variable_t), POINTER :: Var
+    CHARACTER(LEN=512) :: str
+    INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
+    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
+    LOGICAL :: ScalarsExist, VectorsExist, Found
+    INTEGER, POINTER :: Perm(:)
+    REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
+    REAL(KIND=dp) :: x,y,z
+
+    
+    OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
+    
+    WRITE( VtuUnit,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+    WRITE( VtuUnit,'(A)') '  <UnstructuredGrid>'
+    WRITE( VtuUnit,'(A,I0,A)') '    <Piece NumberOfPoints="',NumberOfNodes,&
+        '" NumberOfCells="0">'
+
+
+    
+    ! nodewise information
+    !-------------------------------------
+    ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
+    VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+    IF( ScalarsExist .AND. VectorsExist) THEN
+      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
+          //'" Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE IF( ScalarsExist ) THEN
+      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'
+    ELSE IF( VectorsExist ) THEN
+      WRITE( VtuUnit,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE
+      CALL Warn('WriteVtkXMLFile','Are there really no scalars or vectors?')
+    END IF
+    
+    DO Rank = 0,1
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+        ELSE
+          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+        END IF
+        
+        FieldName = GetString( Params, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        !---------------------------------------------------------------------
+        ! Find the variable with the given name in the normal manner 
+        !---------------------------------------------------------------------
+        IF( FieldName == 'velocity' ) THEN
+          VectorValues => Particles % Velocity
+        ELSE IF( FieldName == 'acceleration') THEN
+          VectorValues => Particles % Acceleration 
+        ELSE IF( FieldName == 'distance') THEN
+          ScalarValues => Particles % Distance
+        ELSE IF( FieldName == 'dt') THEN
+          ScalarValues => Particles % dt
+        ELSE
+          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+          CALL Warn('WriteVtuXMLFile', Txt)
+          CYCLE
+        END IF
+
+        !---------------------------------------------------------------------
+        ! Finally save the field values 
+        !---------------------------------------------------------------------
+        IF( Rank == 0) THEN
+          WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="1" format="ascii">'    
+          DO i = 1, NumberOfNodes
+            j = i
+            IF(j > 0) THEN
+              WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ScalarValues(j)              
+            ELSE
+              WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
+            END IF
+          END DO
+          WRITE( VtuUnit,'(A)') ' '
+          WRITE( VtuUnit,'(A)') '        </DataArray>'
+        ELSE
+          sdofs = 3
+          WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="',sdofs,'" format="ascii">'    
+          
+          DO i = 1, NumberOfNodes
+            j = i
+            IF( dim == 2 ) THEN
+              IF( j > 0 ) THEN
+                WRITE( VtuUnit,'(2ES16.7E3,A)', ADVANCE='no') VectorValues(j,1:dim),' 0.0'
+              ELSE
+                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
+              END IF
+            ELSE
+              IF( j > 0 ) THEN
+                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VectorValues(j,1:dim)
+              ELSE
+                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
+              END IF              
+            END IF
+          END DO
+          WRITE( VtuUnit,'(A)') ' '
+          WRITE( VtuUnit,'(A)') '        </DataArray>'
+        END IF
+      END DO
+    END DO
+    
+    IF( ScalarsExist .OR. VectorsExist) THEN
+      WRITE( VtuUnit,'(A)') '      </PointData>'
+    END IF
+    
+    
+    ! Coordinates of each point
+    !-------------------------------------
+    WRITE( VtuUnit,'(A)') '      <Points>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
+
+
+    DO i = 1, NumberOfNodes
+      DO j=1,dim
+        WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') Particles % Coordinate(i,j)
+      END DO
+      IF( dim == 3 ) THEN
+        WRITE(VtuUnit,'(A)') ' '
+      ELSE
+        WRITE(VtuUnit,'(A)') ' 0.0'
+      END IF
+    END DO
+
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    WRITE( VtuUnit,'(A)') '      </Points>'
+
+
+    WRITE( VtuUnit,'(A)') '      <Cells>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="types" format="ascii">'
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    WRITE( VtuUnit,'(A)') '      </Cells>'
+
+    WRITE( VtuUnit,'(A)') '    </Piece>'
+    WRITE( VtuUnit,'(A)') '  </UnstructuredGrid>'
+    WRITE( VtuUnit,'(A)') '</VTKFile>'
+
+    CLOSE( VtuUnit )
+  
+  END SUBROUTINE WriteVtuFile
+    
+
+
+  SUBROUTINE WritePvtuFile( VtuFile )
+    CHARACTER(LEN=*), INTENT(IN) :: VtuFile
+    INTEGER, PARAMETER :: VtuUnit = 58
+    TYPE(Variable_t), POINTER :: Var
+    CHARACTER(LEN=512) :: str
+    INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
+    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
+    LOGICAL :: ScalarsExist, VectorsExist, Found
+    REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
+
+    
+    OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
+    
+    WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+    WRITE( VtuUnit,'(A)') '  <PUnstructuredGrid>'
+    
+    ! nodewise information
+    !-------------------------------------
+    ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
+    VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+    IF( ScalarsExist .AND. VectorsExist) THEN
+      WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)&
+          //'" Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE IF( ScalarsExist ) THEN
+      WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)//'">'
+    ELSE IF( VectorsExist ) THEN
+      WRITE( VtuUnit,'(A)') '    <PPointData Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE
+      CALL Warn('WriteVtkXMLFile','Are there really no scalars or vectors?')
+    END IF
+
+    
+    DO Rank = 0,1
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+        ELSE
+          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+        END IF
+        
+        FieldName = GetString( Params, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+      
+        IF( FieldName /= 'velocity' .AND. FieldName /= 'acceleration' .AND. &
+            FieldName /= 'distance' .AND. FieldName /= 'dt' ) THEN
+          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+          CALL Warn('WriteVtuXMLFile', Txt)
+          CYCLE
+        END IF
+
+        IF( Rank == 0) THEN
+          WRITE( VtuUnit,'(A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="1" format="ascii"/>'    
+        ELSE
+          sdofs = 3
+          WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="',sdofs,'" format="ascii"/>'    
+        END IF
+      END DO
+    END DO
+    WRITE( VtuUnit,'(A)') '    </PPointData>'
+
+    ! Coordinates of each point
+    !-------------------------------------
+    WRITE( VtuUnit,'(A)') '      <PPoints>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii"/>'    
+    WRITE( VtuUnit,'(A)') '      </PPoints>' 
+
+    DO i=1,Partitions
+      WRITE( VtuUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
+          TRIM(FilePrefix),i,"par",nTime,'.vtu"/>'
+    END DO
+
+    WRITE( VtuUnit,'(A)') '  </PUnstructuredGrid>'
+    WRITE( VtuUnit,'(A)') '</VTKFile>'
+
+    CLOSE( VtuUnit )
+  
+  END SUBROUTINE WritePvtuFile
+
+
+
+!------------------------------------------------------------------------------
+END SUBROUTINE ParticleOutputVtu
+!------------------------------------------------------------------------------
+  
 
 
 !------------------------------------------------------------------------------
