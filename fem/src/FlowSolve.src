@@ -549,6 +549,9 @@
              CASE( 'user defined' )
                CompressibilityModel = UserDefined1
 
+             CASE( 'pressure dependent' )
+               CompressibilityModel = UserDefined2
+
              CASE( 'artificial compressible' )
                CompressibilityModel = Incompressible 
                PseudoCompressible = .TRUE.
@@ -730,6 +733,10 @@
                END IF
              END IF
 
+           CASE( UserDefined2 )
+             Density(1:n) = GetReal( Material,'Density' )
+             Pressure(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd)))
+
            CASE( Thermal )
              Pressure(1:n) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd)))
 
@@ -882,23 +889,17 @@
 !------------------------------------------------------------------------------
            SELECT CASE( CompressibilityModel )
 !------------------------------------------------------------------------------
-             CASE( Incompressible,PerfectGas1,UserDefined1,Thermal)
+             CASE( Incompressible,PerfectGas1,UserDefined1,UserDefined2,Thermal)
 !------------------------------------------------------------------------------
 ! Density needed for steady-state, also pressure for transient
 !------------------------------------------------------------------------------
-               CALL NavierStokesCompose( &
-                   MASS,STIFF,FORCE, LoadVector, &
-                   Viscosity,Density,U,V,W,MU,MV,MW, &
-                   ReferencePressure+Pressure(1:n), &
-                   LocalTemperature, Convect, StabilizeFlag, &
-                   CompressibilityModel == PerfectGas1,  &
-                   CompressibilityModel == Thermal  .OR. &
-                   CompressibilityModel == UserDefined1, &
-                   PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, & 
-                   PotentialForce, PotentialField, PotentialCoefficient, &
-                   MagneticForce, Rotating, AngularVelocity, &
-                   DivDiscretization, GradPDiscretization, NewtonLinearization, &
-                   Element,n,ElementNodes)
+               CALL NavierStokesCompose( MASS,STIFF,FORCE, LoadVector, &
+                   Viscosity,Density,U,V,W,MU,MV,MW,ReferencePressure+Pressure(1:n), &
+                   LocalTemperature, Convect, StabilizeFlag, CompressibilityModel, &
+                   PseudoCompressible, PseudoCompressibility, GasConstant, Porous, &
+                   Drag, PotentialForce, PotentialField, PotentialCoefficient,  &
+                   MagneticForce, Rotating, AngularVelocity, DivDiscretization, &
+                   GradPDiscretization, NewtonLinearization, Element,n,ElementNodes)
 !------------------------------------------------------------------------------
            END SELECT
 !------------------------------------------------------------------------------

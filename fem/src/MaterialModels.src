@@ -231,6 +231,7 @@ this ise not in USE
      END INTERFACE
 !------------------------------------------------------------------------------
      mu = Viscosity
+     IF ( PRESENT(muder) ) muder=0
       
      k = ListGetInteger( CurrentModel % Bodies(Element % BodyId) % Values, 'Material', &
                    minv=1, maxv=CurrentModel % NumberOFMaterials )
@@ -265,7 +266,6 @@ this ise not in USE
      
      ss=SecondInvariant(Velo,dVelodx,Metric,Symb)/2
 
-     IF ( PRESENT(muder) ) muder = 0._dp
      SELECT CASE( ViscosityFlag )
 
        CASE('power law')
