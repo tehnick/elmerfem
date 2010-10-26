@@ -315,24 +315,33 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     END DO
 
   CASE ('box random')
-    MinCoord(1) = MINVAL( Mesh % Nodes % x )
-    MaxCoord(1) = MAXVAL( Mesh % Nodes % x )
+    MinCoord(1) = GetCReal( Params,'Min Coordinate 1',GotIt) 
+    IF(.NOT. GotIt) MinCoord(1) = MINVAL( Mesh % Nodes % x )
 
-    MinCoord(2) = MINVAL( Mesh % Nodes % y )
-    MaxCoord(2) = MAXVAL( Mesh % Nodes % y )
+    MaxCoord(1) = GetCReal( Params,'Max Coordinate 1',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(1) = MAXVAL( Mesh % Nodes % x )
+
+    MinCoord(2) = GetCReal( Params,'Min Coordinate 2',GotIt) 
+    IF(.NOT. GotIt) MinCoord(2) = MINVAL( Mesh % Nodes % y )
+
+    MaxCoord(2) = GetCReal( Params,'Max Coordinate 2',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(2) = MAXVAL( Mesh % Nodes % y )
 
     IF( dim == 3 ) THEN
-      MinCoord(3) = MINVAL( Mesh % Nodes % z )
-      MaxCoord(3) = MAXVAL( Mesh % Nodes % z )    
+      MinCoord(3) = GetCReal( Params,'Min Coordinate 3',GotIt) 
+      IF(.NOT. GotIt) MinCoord(3) = MINVAL( Mesh % Nodes % z )
+      
+      MaxCoord(3) = GetCReal( Params,'Max Coordinate 3',GotIt) 
+      IF(.NOT. GotIt) MaxCoord(3) = MAXVAL( Mesh % Nodes % z )
     END IF
 
     DO i=1,NewParticles
       k = Offset + i
       
       Coords(k,1) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
-      Coords(k,2) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
+      Coords(k,2) = MinCoord(2) + (MaxCoord(2)-MinCoord(2)) * EvenRandom()
       IF( dim == 3 ) THEN
-        Coords(k,3) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
+        Coords(k,3) = MinCoord(3) + (MaxCoord(3)-MinCoord(3)) * EvenRandom()
       END IF
     END DO
 
@@ -673,7 +682,8 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
       ELSE
         Rtmp = Rinit
       END IF
-      
+
+
       CALL SegmentElementIntersection(Mesh,Element,&
           Rtmp,Rfin,MinLambda,FaceElement )
       
@@ -721,7 +731,7 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
       ! continue the search to new elements
       Element => NextElement
     END DO
-    
+
     IF( .NOT. Rough ) THEN 
       Hit = PointInElement( Element, ElementNodes, Rtmp, LocalCoords ) 
       IF( Hit ) THEN
@@ -731,6 +741,7 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
         END IF
       ELSE
         CALL Warn('LocateParticleInMesh','Should have found the point in element!')
+        PRINT *,'LocalCoords',LocalCoords,Rtmp,ASSOCIATED( Element )
       END IF
     END IF
 
