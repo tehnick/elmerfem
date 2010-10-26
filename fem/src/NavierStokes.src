@@ -735,7 +735,8 @@ MODULE NavierStokes
          DO i=1,dim
            muder = 2*muder0*SUM(Strain(i,:)*dBasisdx(q,:))
            DO j=1,dim
-             Jac(i,j)=JAc(i,j) + s*muder*Strain(i,j)*dBasisdx(p,j)
+             Jac(i,i)=Jac(i,i) + s*muder*Grad(i,j)*dBasisdx(p,j)
+             Jac(j,i)=Jac(j,i) + s*muder*Grad(i,j)*dBasisdx(p,i)
            END DO
          END DO
        END IF
