@@ -2,6 +2,20 @@
 MODULE ParticleUtils
 
    USE DefUtils
+   USE ElementDescription
+
+   IMPLICIT NONE
+
+   INTEGER, PARAMETER :: PARTICLE_ALLOCATED = 1, &
+	                 PARTICLE_WAITING = 2, &
+                         PARTICLE_INITIATED = 3, &
+                         PARTICLE_LOCATED = 4, &
+                         PARTICLE_FACEBOUNDARY = 5, &
+                         PARTICLE_WALLBOUNDARY = 6, &
+                         PARTICLE_PARTBOUNDARY = 7, &
+                         PARTICLE_HIT = 8, & 
+                         PARTICLE_READY = 9, &
+	                 PARTICLE_LOST = 10
 
 CONTAINS
 
@@ -133,6 +147,56 @@ SUBROUTINE DestroyParticles(Particles)
 END SUBROUTINE DestroyParticles
 
 
+SUBROUTINE ReleaseWaitingParticles(Particles) 
+!---------------------------------------------------------
+! Subroutine for releaseing initiated but waiting particles.
+!---------------------------------------------------------
+  TYPE(Particle_t) :: Particles
+
+  TYPE(ValueList_t), POINTER :: Params
+  INTEGER, POINTER :: Status(:)
+  INTEGER :: i,j,NoParticles,ReleaseCount=0,ReleaseSet
+  REAL(KIND=dp) :: ReleaseFraction
+  LOGICAL :: Found,Visited = .FALSE.
+  
+  SAVE Visited, ReleaseCount
+  
+  ! Check whether all particles have already been released
+  !-------------------------------------------------------
+  NoParticles = Particles % NumberOfParticles
+  IF( ReleaseCount >= NoParticles ) RETURN
+
+  ! Get the size of the current release set
+  !-------------------------------------------------------
+  Params => GetSolverParams()
+  ReleaseSet = GetInteger( Params,'Particle Release Set',Found)
+  IF( .NOT. Found ) THEN
+    ReleaseFraction = GetCReal( Params,'Particle Release Fraction',Found )
+    IF(.NOT. Found ) THEN
+      RETURN
+    ELSE
+      ReleaseSet = NINT( ReleaseFraction * NoParticles ) 
+    END IF
+  END IF
+  IF( ReleaseSet <= 0 ) RETURN
+
+  ! Release some waiting particles
+  !-------------------------------------------------------
+  Status => Particles % Status
+  j = 0
+  DO i=1,NoParticles
+    IF( Status(i) == PARTICLE_WAITING ) THEN      
+      Status(i) = PARTICLE_INITIATED 
+      j = j + 1
+      IF( j == ReleaseSet ) EXIT
+    END IF
+  END DO
+  ReleaseCount = ReleaseCount + j
+
+END SUBROUTINE ReleaseWaitingParticles
+
+
+
 SUBROUTINE ChangeParticlePartition(Particles) 
   TYPE(Particle_t) :: Particles
   INTEGER i,j
@@ -155,6 +219,74 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
 
 END SUBROUTINE ChangeParticlePartition
+
+
+
+FUNCTION MeanParticleCoordinate( Particles, Absolute ) RESULT ( MeanCoord )
+  TYPE(Particle_t) :: Particles
+  LOGICAL :: Absolute
+  REAL(KIND=dp) :: MeanCoord(3)
+  
+  INTEGER :: i,Cnt,NoParticles,dim
+  REAL(KIND=dp), POINTER :: Coordinate(:,:)
+  INTEGER, POINTER :: Status(:)
+
+  MeanCoord = 0.0_dp
+  Cnt = 0
+  NoParticles =  Particles % NumberOfParticles
+  dim = Particles % dim
+
+  Coordinate => Particles % Coordinate
+  Status => Particles % Status
+
+  DO i=1,NoParticles
+    IF( Status(i) == PARTICLE_LOST ) CYCLE
+    IF( Absolute ) THEN
+      MeanCoord(1:dim) = MeanCoord(1:dim) + ABS( Particles % Coordinate(i,1:dim) )
+    ELSE
+      MeanCoord(1:dim) = MeanCoord(1:dim) + Particles % Coordinate(i,1:dim)
+    END IF
+    Cnt = Cnt + 1
+  END DO
+
+  IF( Cnt > 0 ) MeanCoord = MeanCoord / Cnt
+
+END FUNCTION MeanParticleCoordinate
+
+
+FUNCTION MeanParticleVelocity( Particles, Absolute ) RESULT ( MeanVelo )
+  TYPE(Particle_t) :: Particles
+  LOGICAL :: Absolute
+  REAL(KIND=dp) :: MeanVelo(3)
+  
+  INTEGER :: i,Cnt,NoParticles,dim
+  REAL(KIND=dp), POINTER :: Velocity(:,:)
+  INTEGER, POINTER :: Status(:)
+
+  MeanVelo = 0.0_dp
+  Cnt = 0
+  NoParticles =  Particles % NumberOfParticles
+  dim = Particles % dim
+
+  Velocity => Particles % Velocity
+  Status => Particles % Status
+
+  DO i=1,NoParticles
+    IF( Status(i) == PARTICLE_LOST ) CYCLE
+    IF( Absolute ) THEN
+      MeanVelo(1:dim) = MeanVelo(1:dim) + ABS ( Velocity(i,1:dim) )
+    ELSE
+      MeanVelo(1:dim) = MeanVelo(1:dim) + Velocity(i,1:dim) 
+    END IF
+    Cnt = Cnt + 1
+  END DO
+
+  IF( Cnt > 0 ) MeanVelo = MeanVelo / Cnt
+
+END FUNCTION MeanParticleVelocity
+
+
+
 
 
 
@@ -216,11 +348,11 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   TYPE(Variable_t), POINTER :: Var
   TYPE(Element_t), POINTER :: CurrentElement
   TYPE(Mesh_t), POINTER :: Mesh
-  INTEGER :: Offset, NewParticles,LastParticle
+  INTEGER :: Offset, NewParticles,LastParticle,NoElements
   INTEGER :: dim
   REAL(KIND=dp), POINTER :: Coords(:,:), Velo(:,:)
   CHARACTER(LEN=MAX_NAME_LEN) :: InitMethod, MaskVariable    
-  INTEGER :: i,j,k,nonodes
+  INTEGER :: i,j,k,n,nonodes, InitStatus
   INTEGER, POINTER :: MaskPerm(:), InvPerm(:), NodeIndexes(:)
   LOGICAL :: GotIt, GotMask
   REAL(KIND=dp), POINTER :: InitialValues(:,:)
@@ -253,12 +385,13 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   
 
   Params => GetSolverParams()
+
+
   
   !------------------------------------------------------------------------
   ! The user may use a mask to initialize the particles only at a part of the 
   ! domain, or to utilize the ordeing of the permutation vector.
-  !-------------------------------------------------------------------------
-  
+  !-------------------------------------------------------------------------  
   GotMask = .FALSE.
   nonodes = Mesh % NumberOfNodes
   
@@ -434,10 +567,20 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
     IF( GotMask ) DEALLOCATE( InvPerm ) 
 
-
+    !------------------------------------------------------
+    ! The initial status of particles is different if using 
+    ! gradual release strategy. 
+    !-------------------------------------------------------
+    IF( ListCheckPresent( Params,'Particle Release Set') .OR. &
+      ListCheckPresent( Params,'Particle Release Fraction') ) THEN
+      InitStatus = PARTICLE_WAITING
+    ELSE
+      InitStatus = PARTICLE_INITIATED
+    END IF
+    
     DO i=1,NewParticles
       k = Offset + i
-      Particles % Status(k) = PARTICLE_INITIATED
+      Particles % Status(k) = InitStatus
     END DO
 
 
@@ -518,17 +661,99 @@ END SUBROUTINE SegmentElementIntersection
 
 
 !------------------------------------------------------------------------
-! Compute field values at the given points in the FE mesh. 
-! Differs from the PointInMesh category in that the particle may
-! have initial information about its location making marching 
-! routines more feasible. These are also more attractive for 
-! parallel implementation point of view.
-!-------------------------------------------------------------------------
-SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
-    LocalCoords, ParticleStatus, StopFaceElement, Lambda )
+! Find the particle in the mesh using actree based search. 
+! This could be preferred in the initial finding of the correct elements.
+! The major downside of the method is that there is no controlled face
+! detection needed for wall interaction, for example.
+!------------------------------------------------------------------------
+SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
+    LocalCoords, ParticleStatus )
   
   INTEGER :: ElementIndex
-  REAL(KIND=dp) :: Rinit(3), Rfin(3),LocalCoords(3)
+  REAL(KIND=dp) :: GlobalCoords(3),LocalCoords(3)
+  INTEGER :: ParticleStatus
+
+  TYPE(ValueList_t), POINTER :: Params
+  TYPE(Mesh_t), POINTER :: Mesh
+  LOGICAL :: Hit, Stat
+  INTEGER :: i,j,k,n
+  TYPE(Nodes_t), SAVE :: ElementNodes
+  INTEGER, POINTER :: NodeIndexes(:)
+  TYPE(Element_t), POINTER :: Element
+  TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
+  REAL(kind=dp) :: BoundingBox(6), eps2, eps1
+  
+
+  Mesh => GetMesh()
+  ParticleStatus = PARTICLE_LOST
+
+  ! Check that the previous hit is not hit even now
+  !-------------------------------------------------
+  IF( ElementIndex > 0 ) THEN
+    Element => Mesh % Elements( ElementIndex ) 
+    n = GetElementNOFNodes(Element)
+    CALL GetElementNodes(ElementNodes,Element)
+    
+    IF ( PointInElement( Element, ElementNodes, &
+        GlobalCoords, LocalCoords ) ) THEN
+      ParticleStatus = PARTICLE_HIT
+      RETURN
+    END IF
+  END IF
+
+  !-----------------------------------------------------------
+  ! Find the right element using an octree search
+  ! This is optimal when the particles are searched only once.
+  !-----------------------------------------------------------
+  IF ( .NOT.ASSOCIATED(Mesh % RootQuadrant) ) THEN
+    BoundingBox(1) = MINVAL( Mesh % Nodes % x )
+    BoundingBox(2) = MINVAL( Mesh % Nodes % y )
+    BoundingBox(3) = MINVAL( Mesh % Nodes % z )
+    BoundingBox(4) = MAXVAL( Mesh % Nodes % x )
+    BoundingBox(5) = MAXVAL( Mesh % Nodes % y )
+    BoundingBox(6) = MAXVAL( Mesh % Nodes % z )
+    
+    eps1 = 1.0e-3
+    eps2 = eps1 * MAXVAL( BoundingBox(4:6) - BoundingBox(1:3) )
+    BoundingBox(1:3) = BoundingBox(1:3) - eps2
+    BoundingBox(4:6) = BoundingBox(4:6) + eps2
+    
+    CALL BuildQuadrantTree( Mesh,BoundingBox,Mesh % RootQuadrant)
+  END IF
+  RootQuadrant => Mesh % RootQuadrant
+  
+  Element => Null()
+  CALL FindLeafElements(GlobalCoords, Mesh % MeshDim, RootQuadrant, LeafQuadrant)
+  IF ( ASSOCIATED(LeafQuadrant) ) THEN
+    DO i = 1, LeafQuadrant % NElemsInQuadrant
+      j = LeafQuadrant % Elements(i)
+      Element => Mesh % Elements(j)
+      
+      n = GetElementNOFNodes( Element )
+      CALL GetElementNodes( ElementNodes, Element)
+      
+      IF ( PointInElement( Element, ElementNodes, GlobalCoords, LocalCoords ) ) THEN
+        ElementIndex = j
+        ParticleStatus = PARTICLE_HIT
+        RETURN
+      END IF
+    END DO
+  END IF
+  
+END SUBROUTINE LocateParticleInMeshOctree
+
+
+!------------------------------------------------------------------------
+! Locate the particle using controlled marching from element to element.
+! The crossing point between given trajectory and all face elements is 
+! computed. The one that is passed at first is associated to the next 
+! bulk element.
+!-------------------------------------------------------------------------
+SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
+    ParticleStatus, StopFaceElement, Lambda )
+  
+  INTEGER :: ElementIndex
+  REAL(KIND=dp) :: Rinit(3), Rfin(3)
   LOGICAL :: Init
   INTEGER :: ParticleStatus
   TYPE(Element_t), POINTER, OPTIONAL :: StopFaceElement
@@ -536,19 +761,17 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
 
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
-  REAL(KIND=dp) :: Rtmp(3), MinLambda 
+  REAL(KIND=dp) :: Rtmp(3), MinLambda, eps 
   LOGICAL :: Hit, DoInit, Stat, CheckFirst, StopAtFace, AtWall, Visited = .FALSE.,&
-      Debug,UseCenter,Rough
-  INTEGER :: i,j,k,n,FaceIndex,SearchMethod,MaxTrials
+      Debug,UseCenter
+  INTEGER :: i,j,k,n,FaceIndex,MaxTrials
   TYPE(Nodes_t), SAVE :: ElementNodes
   INTEGER, POINTER :: NodeIndexes(:)
   TYPE(Element_t), POINTER :: Element, FaceElement, LeftElement, RightElement, &
       NextElement
-  TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
-  REAL(kind=dp) :: BoundingBox(6), eps2, eps1
   
 
-  SAVE :: Mesh, CheckFirst, StopAtFace, SearchMethod, Debug, Rough, MaxTrials
+  SAVE :: Mesh, CheckFirst, StopAtFace, Debug, MaxTrials
 
   Mesh => GetMesh()
 
@@ -556,203 +779,348 @@ SUBROUTINE LocateParticleInMesh( ElementIndex, Rinit, Rfin, Init, &
     Params => GetSolverParams()
     CheckFirst = ListGetLogical( Params,'Particle Element Search Check',Stat)
     StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
-    SearchMethod = ListGetInteger( Params,'Particle Search Method',Stat)
-    Rough = ListGetLogical( Params,'Particle Search Rough',Stat)
     MaxTrials = ListGetInteger( Params,'Particle Search Max Trials',Stat)
     IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements
+
+    CALL FindMeshEdges( Mesh, .FALSE.)
+
     Debug = .FALSE.
     Visited = .TRUE.
   END IF
 
 
-  ParticleStatus = PARTILCE_LOST
+  ParticleStatus = PARTICLE_LOST
   IF( PRESENT (StopFaceElement) ) NULLIFY( StopFaceElement ) 
 
   IF( PRESENT( Lambda ) ) Lambda = 1.0_dp
   
-  ! Check that the previous hit is not hit even now
-  !-------------------------------------------------
-  IF( ElementIndex > 0 .AND. CheckFirst) THEN
-    Element => Mesh % Elements( ElementIndex ) 
-    n = GetElementNOFNodes(Element)
+  !--------------------------------------------------------------------
+  ! This is a recursive algorithm that checks the intersections 
+  ! of line segments and points until correct element is found.
+  ! This is optimal when the stepsize is small and there are many steps.
+  !--------------------------------------------------------------------
+  DoInit = Init
+  IF( ElementIndex == 0 ) THEN
+    DoInit = .TRUE.
+    ElementIndex = 1
+    UseCenter = .TRUE.
+  ELSE	
+    UseCenter = .NOT. StopAtFace
+  END IF
+  
+  Element => Mesh % Elements( ElementIndex ) 
+  eps = 1.0d-10
+  
+  DO i=1,MaxTrials
+    n = GetElementNOFNOdes(Element)
     CALL GetElementNodes(ElementNodes,Element)
     
-    IF ( PointInElement( Element, ElementNodes, &
-        Rfin, LocalCoords ) ) THEN
-      ParticleStatus = PARTICLE_HIT
-      RETURN
+    ! Use the previous element center if the true path is of no importance
+    !---------------------------------------------------------------------	
+    IF( UseCenter ) THEN
+      Rtmp(1) = SUM( ElementNodes % x(1:n) ) / n
+      Rtmp(2) = SUM( ElementNodes % y(1:n) ) / n
+      Rtmp(3) = SUM( ElementNodes % z(1:n) ) / n
+    ELSE
+      Rtmp = Rinit
     END IF
+    
+    
+    CALL SegmentElementIntersection(Mesh,Element,&
+        Rtmp,Rfin,MinLambda,FaceElement )
+    
+    IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
+      CALL Warn('LocateParticleInMesh','No intersection found?')
+      EXIT
+    ELSE IF( MinLambda > 1.0 - eps ) THEN
+      ParticleStatus = PARTICLE_HIT
+      Rtmp = Rfin
+      EXIT
+    ELSE 
+      LeftElement => FaceElement % BoundaryInfo % Left
+      RightElement => FaceElement % BoundaryInfo % Right
+      
+      IF( ASSOCIATED( LeftElement) .AND. ASSOCIATED(RightElement)) THEN
+        IF( ASSOCIATED(Element, LeftElement)) THEN
+          NextElement => RightElement
+        ELSE
+          NextElement => LeftElement
+        END IF
+        
+        IF( StopAtFace .AND. .NOT. DoInit ) ParticleStatus = PARTICLE_FACEBOUNDARY
+        
+        IF( ParEnv % PEs > 1 ) THEN
+          IF( Element % PartIndex /= NextElement % PartIndex ) THEN
+            ParticleStatus = PARTICLE_PARTBOUNDARY 
+          END IF
+        END IF
+      ELSE
+        ParticleStatus = PARTICLE_WALLBOUNDARY
+      END IF
+      
+      ! There are different reasons why the particle is only integrated until the face
+      IF( ParticleStatus == PARTICLE_WALLBOUNDARY .OR. &
+          ParticleStatus == PARTICLE_PARTBOUNDARY .OR. &
+          ParticleStatus == PARTICLE_FACEBOUNDARY ) THEN
+        
+        IF( PRESENT( Lambda ) ) Lambda = MinLambda
+        Rtmp = Rinit + MinLambda * (Rfin - Rinit) 
+        StopFaceElement => FaceElement
+        EXIT                      
+      END IF
+    END IF
+    
+    ! continue the search to new elements
+    Element => NextElement
+  END DO
+    
+  ElementIndex = Element % ElementIndex
+
+  
+END SUBROUTINE LocateParticleInMeshMarch
+
+
+
+!--------------------------------------------------------------------------
+! Given the element & global coordinates returns the local coordinates.
+! The idea of this routine is to transparently block the local coordinate
+! search from the user by directly giving the basis function values related
+! to a global coordinate.
+!--------------------------------------------------------------------------
+FUNCTION GlobalElementInfo( CurrentElement, GlobalCoord, &
+    SqrtElementMetric, Basis, dBasisdx ) RESULT ( stat )
+  
+  TYPE(Element_t), POINTER :: CurrentElement
+  REAL(KIND=dp) :: GlobalCoord(:), SqrtElementMetric
+  REAL(KIND=dp) :: Basis(:)
+  REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:)
+  LOGICAL :: Stat
+
+  TYPE(Nodes_t) :: ElementNodes
+  REAL(KIND=dp) :: LocalCoord(3),u,v,w
+  INTEGER :: n
+
+  SAVE ElementNodes
+
+  n = CurrentElement % TYPE % NumberOfNodes
+  CALL GetElementNodes(ElementNodes,CurrentElement)
+  
+  Stat = PointInElement( CurrentElement, ElementNodes, &
+      GlobalCoord, LocalCoord ) 
+  IF( .NOT. Stat ) THEN
+    CALL Warn('GlobalElementInfo','Should have found the node!')
+    RETURN
+  END IF
+  
+  u = LocalCoord(1)
+  v = LocalCoord(2)
+  w = LocalCoord(3)
+    
+  stat = ElementInfo( CurrentElement, ElementNodes, U, V, W, SqrtElementMetric, &
+      Basis, dBasisdx )
+
+END FUNCTION GlobalElementInfo
+
+
+
+!-------------------------------------------------------------------------
+! The routine returns velocity and optionally a gradient of velocity.
+! These kind of functions are needed repeated and therefore to reduced the 
+! size of individual solvers it has been hard coded here. 
+! This may seem stupid but probably there are just a few fields where this
+! has to be done...
+!--------------------------------------------------------------------------
+
+SUBROUTINE GetVelocityInMesh(CurrentElement, Basis, Velo, dBasisdx, GradVelo )
+  
+  TYPE(Element_t) :: CurrentElement
+  REAL(KIND=dp) :: Basis(:), Velo(:) 
+  REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradVelo(:,:)
+
+  INTEGER, POINTER :: NodeIndexes(:)
+  TYPE(ValueList_t), POINTER :: Params
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Variable_t), POINTER :: Var
+  CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+  INTEGER :: VeloFieldDofs
+  INTEGER, POINTER :: VeloFieldPerm(:)
+  REAL(KIND=dp), POINTER :: VeloField(:)
+  INTEGER :: i,j,n,dim
+  LOGICAL :: GotIt,GotVeloField
+  LOGICAL :: Visited
+
+
+  SAVE :: Visited, Dim,GotVeloField, VeloField, VeloFieldPerm, VeloFieldDofs
+
+  IF(.NOT. Visited ) THEN
+    GotVeloField = .FALSE.
+    Params => GetSolverParams()
+    VariableName = ListGetString( Params,'Velocity Field Name',GotIt )
+    IF(GotIt) THEN
+      Mesh => GetMesh()
+      Dim = Mesh % MeshDim
+      Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
+      GotVeloField = ASSOCIATED( Var )
+      IF ( GotVeloField )  THEN
+        VeloField => Var % Values
+        VeloFieldPerm => Var % Perm
+        VeloFieldDofs = Var % DOFs
+      ELSE
+        CALL Warn('GetVelocityInMesh','Velocity field variable does not exist: '//TRIM(VariableName))
+      END IF
+    END IF
+    Visited = .TRUE.
   END IF
 
-  ! Different search method, only the default one treats face jumps in a proper way
-  !--------------------------------------------------------------------------------
+  Velo = 0.0_dp
+  IF( PRESENT( GradVelo ) ) GradVelo = 0.0_dp
+  IF(.NOT. GotVeloField ) RETURN
 
-  SELECT CASE ( SearchMethod )
-    
-  CASE( 1 ) 
-    !----------------------------------------------------------
-    ! Go through all bulk elements in a dummy search.
-    ! This algorithm is mainly here for debugging purposes.
-    !----------------------------------------------------------
-    DO i = 1, Mesh % NumberOfBulkElements
-      Element => Mesh % Elements(i)
-      n = GetElementNOFNodes(Element)
-      CALL GetElementNodes(ElementNodes,Element)
-      IF ( PointInElement( Element, ElementNodes, &
-          Rfin, LocalCoords ) ) THEN
-        ElementIndex = i
-        ParticleStatus = PARTICLE_HIT
-        RETURN
-      END IF
-    END DO
-    RETURN
-    
-  CASE( 2 )        
-    !-----------------------------------------------------------
-    ! Find the right element using an octree search
-    ! This is optimal when the particles are searched only once.
-    !-----------------------------------------------------------
-    IF ( .NOT.ASSOCIATED(Mesh % RootQuadrant) ) THEN
-      BoundingBox(1) = MINVAL( Mesh % Nodes % x )
-      BoundingBox(2) = MINVAL( Mesh % Nodes % y )
-      BoundingBox(3) = MINVAL( Mesh % Nodes % z )
-      BoundingBox(4) = MAXVAL( Mesh % Nodes % x )
-      BoundingBox(5) = MAXVAL( Mesh % Nodes % y )
-      BoundingBox(6) = MAXVAL( Mesh % Nodes % z )
-      
-      eps1 = 1.0e-3
-      eps2 = eps1 * MAXVAL( BoundingBox(4:6) - BoundingBox(1:3) )
-      BoundingBox(1:3) = BoundingBox(1:3) - eps2
-      BoundingBox(4:6) = BoundingBox(4:6) + eps2
-      
-      CALL BuildQuadrantTree( Mesh,BoundingBox,Mesh % RootQuadrant)
-    END IF
-    RootQuadrant => Mesh % RootQuadrant
-      
-    Element => Null()
-    CALL FindLeafElements(Rfin, Mesh % MeshDim, RootQuadrant, LeafQuadrant)
-    IF ( ASSOCIATED(LeafQuadrant) ) THEN
-      DO i = 1, LeafQuadrant % NElemsInQuadrant
-        j = LeafQuadrant % Elements(i)
-        Element => Mesh % Elements(j)
-        
-        n = GetElementNOFNodes( Element )
-        CALL GetElementNodes( ElementNodes, Element)
+  NodeIndexes => CurrentElement % NodeIndexes
+  IF( .NOT. ALL ( VeloFieldPerm( NodeIndexes) > 0 )) RETURN
 
-        IF ( PointInElement( Element, ElementNodes, Rfin, LocalCoords ) ) THEN
-          ElementIndex = j
-          ParticleStatus = PARTICLE_HIT
-          RETURN
-        END IF
+  n = CurrentElement % TYPE % NumberOfNodes
+  DO i=1,dim
+    Velo(i) = SUM( Basis(1:n) * &
+        VeloField( VeloFieldDofs*( VeloFieldPerm( NodeIndexes )-1)+i) )
+  END DO
+  IF( PRESENT( GradVelo ) ) THEN
+    DO i=1,dim
+      DO j=1,dim
+        GradVelo(i,j) = SUM( dBasisdx(1:n,j) * &
+            VeloField( VeloFieldDofs*( VeloFieldPerm( NodeIndexes )-1)+i) )
       END DO
-    END IF
-    RETURN
-
-    
-  CASE DEFAULT
-    !--------------------------------------------------------------------
-    ! This is a recursive algorithm that checks the intersections 
-    ! of line segments and points until correct element is found.
-    ! This is optimal when the stepsize is small and there are many steps.
-    !--------------------------------------------------------------------
-    CALL FindMeshEdges( Mesh, .FALSE.)
-
-    DoInit = Init
-    IF( ElementIndex == 0 ) THEN
-      DoInit = .TRUE.
-      ElementIndex = 1
-      UseCenter = .TRUE.
-    ELSE	
-      UseCenter = .NOT. StopAtFace
-    END IF
-
-    Element => Mesh % Elements( ElementIndex ) 
-    eps1 = 1.0d-10
-
-    DO i=1,MaxTrials
-      n = GetElementNOFNOdes(Element)
-      CALL GetElementNodes(ElementNodes,Element)
-
-      ! Use the previous element center if the true path is of no importance
-      !---------------------------------------------------------------------	
-      IF( UseCenter ) THEN
-        Rtmp(1) = SUM( ElementNodes % x(1:n) ) / n
-        Rtmp(2) = SUM( ElementNodes % y(1:n) ) / n
-        Rtmp(3) = SUM( ElementNodes % z(1:n) ) / n
-      ELSE
-        Rtmp = Rinit
-      END IF
-
-
-      CALL SegmentElementIntersection(Mesh,Element,&
-          Rtmp,Rfin,MinLambda,FaceElement )
-      
-      IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
-        CALL Warn('LocateParticleInMesh','No intersection found?')
-        EXIT
-      ELSE IF( MinLambda > 1.0 - eps1 ) THEN
-        ParticleStatus = PARTICLE_HIT
-        Rtmp = Rfin
-        EXIT
-      ELSE 
-        LeftElement => FaceElement % BoundaryInfo % Left
-        RightElement => FaceElement % BoundaryInfo % Right
-
-        IF( ASSOCIATED( LeftElement) .AND. ASSOCIATED(RightElement)) THEN
-          IF( ASSOCIATED(Element, LeftElement)) THEN
-            NextElement => RightElement
-          ELSE
-            NextElement => LeftElement
-          END IF
-
-          IF( StopAtFace .AND. .NOT. DoInit ) ParticleStatus = PARTICLE_FACEBOUNDARY
-
-	  IF( ParEnv % PEs > 1 ) THEN
-            IF( Element % PartIndex /= NextElement % PartIndex ) THEN
-              ParticleStatus = PARTICLE_PARTBOUNDARY 
-            END IF
-          END IF
-        ELSE
-          ParticleStatus = PARTICLE_WALLBOUNDARY
-        END IF
-
-        ! There are different reasons why the particle is only integrated until the face
-        IF( ParticleStatus == PARTICLE_WALLBOUNDARY .OR. &
-            ParticleStatus == PARTICLE_PARTBOUNDARY .OR. &
-            ParticleStatus == PARTICLE_FACEBOUNDARY ) THEN
-          
-          IF( PRESENT( Lambda ) ) Lambda = MinLambda
-          Rtmp = Rinit + MinLambda * (Rfin - Rinit) 
-          StopFaceElement => FaceElement
-          EXIT                      
-        END IF
-      END IF
-
-      ! continue the search to new elements
-      Element => NextElement
     END DO
+  END IF
 
-    IF( .NOT. Rough ) THEN 
-      Hit = PointInElement( Element, ElementNodes, Rtmp, LocalCoords ) 
-      IF( Hit ) THEN
-        IF( Debug ) THEN
-          CALL Info('LocateParticleInMesh','Point found!')
-          PRINT *,'Dist',i,SQRT( SUM((Rtmp - Rfin)**2) )
-        END IF
+
+END SUBROUTINE GetVelocityInMesh
+
+!-------------------------------------------------------------------------
+! The routine returns velocity and optionally a gradient of velocity.
+! These kind of functions are needed repeated and therefore to reduced the 
+! size of individual solvers it has been hard coded here. 
+! This may seem stupid but probably there are just a few fields where this
+! has to be done...
+!--------------------------------------------------------------------------
+
+SUBROUTINE GetPotentialInMesh(CurrentElement, Basis, Pot, dBasisdx, GradPot )
+  
+  TYPE(Element_t) :: CurrentElement
+  REAL(KIND=dp) :: Basis(:), Pot 
+  REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradPot(:)
+
+  INTEGER, POINTER :: NodeIndexes(:)
+  TYPE(ValueList_t), POINTER :: Params
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Variable_t), POINTER :: Var
+  CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+  INTEGER, POINTER :: PotFieldPerm(:)
+  REAL(KIND=dp), POINTER :: PotField(:)
+  INTEGER :: i,j,n,dim
+  LOGICAL :: GotIt,GotPotField
+  LOGICAL :: Visited
+
+
+  SAVE :: Visited, Mesh, Dim, GotPotField, PotField, PotFieldPerm
+
+  IF(.NOT. Visited ) THEN
+    GotPotField = .FALSE.
+    Params => GetSolverParams()
+    VariableName = ListGetString( Params,'Potential Field Name',GotIt )
+    IF(GotIt) THEN
+      Mesh => GetMesh()
+      Dim = Mesh % MeshDim
+      Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
+      GotPotField = ASSOCIATED( Var )
+      IF ( GotPotField )  THEN
+        PotField => Var % Values
+        PotFieldPerm => Var % Perm
       ELSE
-        CALL Warn('LocateParticleInMesh','Should have found the point in element!')
-        PRINT *,'LocalCoords',LocalCoords,Rtmp,ASSOCIATED( Element )
+        CALL Warn('GetPotentialInMesh','Potential field variable does not exist: '//TRIM(VariableName))
       END IF
     END IF
+    Visited = .TRUE.
+  END IF
 
-    ElementIndex = Element % ElementIndex
+  Pot = 0.0_dp
+  IF( PRESENT( GradPot ) ) GradPot = 0.0_dp
+  IF(.NOT. GotPotField ) RETURN
 
-    
-  END SELECT
+  NodeIndexes => CurrentElement % NodeIndexes
+  IF( .NOT. ALL ( PotFieldPerm( NodeIndexes) > 0 )) RETURN
+
+  n = CurrentElement % TYPE % NumberOfNodes
+  Pot = SUM( Basis(1:n) * PotField( PotFieldPerm( NodeIndexes ) ) )
+
+  IF( PRESENT( GradPot ) ) THEN
+    DO i=1,dim
+      GradPot(i) = SUM( dBasisdx(1:n,i) * &
+        PotField( PotFieldPerm( NodeIndexes )-1+i) ) 
+    END DO
+  END IF
+
+END SUBROUTINE GetPotentialInMesh
+
+
+
+!-------------------------------------------------------------
+! This subroutine may be used to enquire position dependent data,
+! for example, by using the GetReal() function and evaluating the
+! result at the coordinate point. Note this this is bound to
+! be expensive compared to the above strategies.
+!-------------------------------------------------------------
+FUNCTION GetMaterialPropertyInMesh(List, Name, GlobalCoord, CurrentElement, &
+    Found ) RESULT ( ValueAtPoint ) 
   
-END SUBROUTINE LocateParticleInMesh
+  TYPE(ValueList_t), POINTER :: List
+  CHARACTER(LEN=*)  :: Name
+  REAL(KIND=dp) :: GlobalCoord(3)
+  TYPE(Element_t), POINTER :: CurrentElement
+  LOGICAL, OPTIONAL :: Found
+  REAL(KIND=dp) :: ValueAtPoint
+  
+  REAL(KIND=dp), POINTER :: Basis(:), Values(:)
+  INTEGER, POINTER :: NodeIndexes(:)
+  REAL(KIND=dp) :: SqrtElementMetric
+  TYPE(Mesh_t), POINTER :: Mesh
+  LOGICAL :: Visited = .FALSE., Stat
+  INTEGER :: n
+  TYPE(ValueList_t), POINTER :: Material
 
 
+  SAVE Visited, Basis, Values
+
+  IF(.NOT. Visited ) THEN
+    Mesh => GetMesh()
+    n = Mesh % MaxElementNodes
+    ALLOCATE( Basis(n), Values(n) )
+    Visited = .TRUE.
+  END IF
+
+  IF(PRESENT(Found)) Found = .FALSE.
+  ValueAtPoint = 0.0_dp
+
+  ! First check that there is material
+  Material => GetMaterial(  CurrentElement, Stat )
+  IF(.NOT. Stat ) RETURN
+
+  ! Then check that the keyword is present
+  NodeIndexes => CurrentElement % NodeIndexes
+  n = CurrentElement % TYPE % NumberOfNodes
+  CurrentModel % CurrentElement => CurrentElement
+  Values(1:n) = ListGetReal( Material, Name, n, NodeIndexes, Stat )
+  IF(.NOT. Stat ) RETURN
+  
+  ! Then find the local basis functions
+  Stat = GlobalElementInfo( CurrentElement, GlobalCoord, &
+      SqrtElementMetric, Basis )
+  IF( .NOT. Stat ) RETURN
+  
+  ValueAtPoint = SUM( Basis(1:n) * Values(1:n) )
+  IF(PRESENT(Found)) Found = .TRUE.
+
+END FUNCTION GetMaterialPropertyInMesh
 
 
 
@@ -769,7 +1137,7 @@ SUBROUTINE CreateNeighbourList( Particles )
   REAL(KIND=dp) :: Coord(3), dist, mindist
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
-  INTEGER :: i,j,k,n
+  INTEGER :: i,j,k,n,node
   TYPE(Nodes_t), SAVE :: ElementNodes
   INTEGER, POINTER :: NodeIndexes(:)
   TYPE(Element_t), POINTER :: Element
@@ -927,6 +1295,89 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
 END FUNCTION GetNextNeighbour
 
 
+! Checks the boundaries for rectangular and cubic shapes and 
+! enforces elastic reflection or periodic BCs. 
+! This is alternative and computationally more econimic way 
+! of enforcing some boundary conditions for the particle that 
+! may at best be use for testing purposes.
+!---------------------------------------------------------------    
+SUBROUTINE ParticleBoxLimits(Coord,Velo)
+  
+  TYPE(Solver_t), POINTER :: Solver
+  REAL(KIND=dp) :: Coord(3), Velo(3)
+  
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(ValueList_t), POINTER :: Params
+  REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), Ymin, Ymax, Zmin, Zmax
+  INTEGER :: i,j,dim
+  LOGICAL :: Mapped,Reflect,Periodic,Visited = .FALSE.
+  INTEGER :: Operations
+  
+  SAVE Visited, Reflect, Periodic, MinCoord, MaxCoord, dim
+  
+  IF( .NOT. Visited ) THEN
+    Mesh => GetMesh()
+    Params => GetSolverParams()
+    dim = Mesh % Meshdim
+    
+    Reflect = GetLogical( Params,'Reflection BC')
+    Periodic = GetLogical( Params,'Periodic BC')
+    IF(Reflect) Periodic = .FALSE.
+    
+    MinCoord(1) = MINVAL( Mesh % Nodes % x ) 
+    MinCoord(2) = MINVAL( Mesh % Nodes % y ) 
+    MinCoord(3) = MINVAL( Mesh % Nodes % z ) 
+    
+    MaxCoord(1) = MAXVAL( Mesh % Nodes % x ) 
+    MaxCoord(2) = MAXVAL( Mesh % Nodes % y ) 
+    MaxCoord(3) = MAXVAL( Mesh % Nodes % z ) 
+    
+    Visited = .TRUE.
+  END IF
+  
+  
+  ! Boundary conditions for reflection. 
+  ! Multiple reflections may be carried out.
+  !------------------------------------------
+  IF( Reflect ) THEN
+    DO i=1,dim
+      Mapped = .FALSE.
+      DO j=1,dim
+        IF( Coord(j) < MinCoord(j) ) THEN
+          Coord(j) = 2 * MinCoord(j) - Coord(j)
+          Velo(j) = -Velo(j)
+          Mapped = .TRUE.
+        ELSE IF ( Coord(j) > MaxCoord(j) ) THEN
+          Coord(j) = 2 * MaxCoord(j) - Coord(j)
+          Velo(j) = -Velo(j)
+          Mapped = .TRUE.
+        END IF
+      END DO
+      IF(.NOT. Mapped ) EXIT
+    END DO
+  END IF
+  
+  ! Boundary conditions for periodic BCs
+    !------------------------------------------
+  IF( Periodic ) THEN
+    DO i=1,dim
+      Mapped = .FALSE.
+      DO j=1,dim
+        IF( Coord(j) < MinCoord(j) ) THEN
+          Coord(j) = MaxCoord(j) - MinCoord(j) + Coord(j)
+          Mapped = .TRUE.
+        ELSE IF ( Coord(j) > MaxCoord(j) ) THEN
+          Coord(j) = MinCoord(j) - MaxCoord(j) + Coord(j)
+          Mapped = .TRUE.
+        END IF
+      END DO
+      IF(.NOT. Mapped ) EXIT
+    END DO
+  END IF
+  
+END SUBROUTINE ParticleBoxLimits
+
+
 
  !------------------------------------------------------------------------
   ! Write particles in an ascii format 
@@ -939,11 +1390,10 @@ END FUNCTION GetNextNeighbour
     CHARACTER(LEN=MAX_NAME_LEN) :: FileFormat
     LOGICAL :: VtuFormat, TableFormat, Found
 
-    SAVE :: TableFormat, VtuFormat, VisitedTimes 
+    SAVE :: TableFormat, VtuFormat, Visited
     
     IF( .NOT. Visited ) THEN
       Params => GetSolverParams()
-      VisitedTimes = VisitedTimes + 1
       TableFormat = GetLogical( Params,'Table Format',Found)
       VtuFormat = GetLogical( Params,'Vtu Format',Found)
       FileFormat = GetString( Params,'Output Format',Found) 
