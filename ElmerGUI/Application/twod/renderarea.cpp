@@ -377,10 +377,10 @@ QPointF RenderArea::mapToRenderport(QPointF point) const
 
 void RenderArea::fitSlot()
 {
-  double xmin = 9e9;
-  double xmax = -9e9;
-  double ymin = 9e9;
-  double ymax = -9e9;
+  qreal xmin = 9e9;
+  qreal xmax = -9e9;
+  qreal ymin = 9e9;
+  qreal ymax = -9e9;
 
   for(int i = 0; i < points.keys().size(); i++) {
     int idx = points.keys().at(i);
