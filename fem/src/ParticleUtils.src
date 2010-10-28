@@ -20,6 +20,9 @@ MODULE ParticleUtils
 CONTAINS
 
 
+!---------------------------------------------------------
+! Allocate particles before launching them
+!---------------------------------------------------------
 SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
 
   TYPE(Particle_t) :: Particles
@@ -147,10 +150,11 @@ SUBROUTINE DestroyParticles(Particles)
 END SUBROUTINE DestroyParticles
 
 
-SUBROUTINE ReleaseWaitingParticles(Particles) 
+
 !---------------------------------------------------------
 ! Subroutine for releaseing initiated but waiting particles.
 !---------------------------------------------------------
+SUBROUTINE ReleaseWaitingParticles(Particles) 
   TYPE(Particle_t) :: Particles
 
   TYPE(ValueList_t), POINTER :: Params
@@ -197,6 +201,10 @@ END SUBROUTINE ReleaseWaitingParticles
 
 
 
+!---------------------------------------------------------
+! Subroutine for chanching the partition of particles that 
+! croess the partition boundary.
+!---------------------------------------------------------
 SUBROUTINE ChangeParticlePartition(Particles) 
   TYPE(Particle_t) :: Particles
   INTEGER i,j
@@ -217,79 +225,93 @@ SUBROUTINE ChangeParticlePartition(Particles)
   PRINT *,'Implement change in partition!'
   PRINT *,'Partition lost particles:',ParEnv % myPE, j
 
-
 END SUBROUTINE ChangeParticlePartition
 
 
 
-FUNCTION MeanParticleCoordinate( Particles, Absolute ) RESULT ( MeanCoord )
+!---------------------------------------------------------
+! Computes the means of coordinates / velocities / acceleration. 
+! The statistics could be made more detailed...
+!---------------------------------------------------------
+SUBROUTINE ParticleStatistics( Particles, DerOrder ) 
   TYPE(Particle_t) :: Particles
-  LOGICAL :: Absolute
-  REAL(KIND=dp) :: MeanCoord(3)
+  INTEGER :: DerOrder
+
+  REAL(KIND=dp) :: Coord(3),MeanCoord(3),AbsCoord(3),VarCoord(3), &
+      MinCoord(3), MaxCoord(3)
   
-  INTEGER :: i,Cnt,NoParticles,dim
-  REAL(KIND=dp), POINTER :: Coordinate(:,:)
+  INTEGER :: i,j,Cnt,NoParticles,dim
+  REAL(KIND=dp), POINTER :: TargetVector(:,:)
   INTEGER, POINTER :: Status(:)
 
   MeanCoord = 0.0_dp
+  AbsCoord = 0.0_dp
+  VarCoord = 0.0_dp
+  MinCoord = HUGE( MinCoord )
+  MaxCoord = -HUGE( MaxCoord )
+
   Cnt = 0
   NoParticles =  Particles % NumberOfParticles
   dim = Particles % dim
+  Coord = 0.0_dp
 
-  Coordinate => Particles % Coordinate
+  IF( DerOrder == 0 ) THEN
+    TargetVector => Particles % Coordinate
+  ELSE IF( DerOrder == 1 ) THEN
+    TargetVector => Particles % Velocity
+  ELSE IF( DerOrder == 2 ) THEN
+    TargetVector => Particles % Acceleration
+  ELSE
+    CALL Fatal('ParticleStatistics','Unknown value for DerOrder!')
+  END IF
+
   Status => Particles % Status
 
   DO i=1,NoParticles
-    IF( Status(i) == PARTICLE_LOST ) CYCLE
-    IF( Absolute ) THEN
-      MeanCoord(1:dim) = MeanCoord(1:dim) + ABS( Particles % Coordinate(i,1:dim) )
-    ELSE
-      MeanCoord(1:dim) = MeanCoord(1:dim) + Particles % Coordinate(i,1:dim)
-    END IF
-    Cnt = Cnt + 1
+    IF( Status(i) >= PARTICLE_LOST ) CYCLE
+    IF( Status(i) < PARTICLE_INITIATED ) CYCLE
+
+    Coord(1:dim) = TargetVector(i,1:dim)
+
+    MeanCoord = MeanCoord + Coord
+    AbsCoord = AbsCoord + ABS( Coord )
+    VarCoord = VarCoord + Coord ** 2
+    DO j=1,dim
+      MinCoord(j) = MIN( MinCoord(j), Coord(j) )
+      MaxCoord(j) = MAX( MaxCoord(j), Coord(j) )
+      Cnt = Cnt + 1
+    END DO
   END DO
 
-  IF( Cnt > 0 ) MeanCoord = MeanCoord / Cnt
+  IF( Cnt > 0 ) THEN
+    MeanCoord = MeanCoord / Cnt
+    AbsCoord = AbsCoord / Cnt
+    VarCoord = SQRT( VarCoord / Cnt - MeanCoord**2 ) 
 
-END FUNCTION MeanParticleCoordinate
-
-
-FUNCTION MeanParticleVelocity( Particles, Absolute ) RESULT ( MeanVelo )
-  TYPE(Particle_t) :: Particles
-  LOGICAL :: Absolute
-  REAL(KIND=dp) :: MeanVelo(3)
-  
-  INTEGER :: i,Cnt,NoParticles,dim
-  REAL(KIND=dp), POINTER :: Velocity(:,:)
-  INTEGER, POINTER :: Status(:)
-
-  MeanVelo = 0.0_dp
-  Cnt = 0
-  NoParticles =  Particles % NumberOfParticles
-  dim = Particles % dim
-
-  Velocity => Particles % Velocity
-  Status => Particles % Status
-
-  DO i=1,NoParticles
-    IF( Status(i) == PARTICLE_LOST ) CYCLE
-    IF( Absolute ) THEN
-      MeanVelo(1:dim) = MeanVelo(1:dim) + ABS ( Velocity(i,1:dim) )
-    ELSE
-      MeanVelo(1:dim) = MeanVelo(1:dim) + Velocity(i,1:dim) 
+    IF( DerOrder == 0 ) THEN
+      PRINT *,'Statistical info on coordinate values:'
+    ELSE IF( DerOrder == 1 ) THEN
+      PRINT *,'Statistical info on velocity values:'
+    ELSE IF( DerOrder == 2 ) THEN
+      PRINT *,'Statistical info on acceleration values:'
     END IF
-    Cnt = Cnt + 1
-  END DO
+      
+    PRINT *,'Mean:',MeanCoord(1:dim)
+    PRINT *,'Abs: ',AbsCoord(1:dim)
+    PRINT *,'Var: ',VarCoord(1:dim)
+    PRINT *,'Min: ',MinCoord(1:dim)
+    PRINT *,'Max: ',MaxCoord(1:dim)
+  ELSE
+    CALL Warn('MeanParticleCoordinate','No active particles!')
+  END IF
 
-  IF( Cnt > 0 ) MeanVelo = MeanVelo / Cnt
-
-END FUNCTION MeanParticleVelocity
-
+END SUBROUTINE ParticleStatistics
+   
 
 
-
-
-
+!---------------------------------------------------------
+! This is really not used and is maybe obsolite...
+!---------------------------------------------------------
 SUBROUTINE GetParticleLocation(Particles,No,Coord,Velo,Dist,Status,ElementIndex)
   TYPE(Particle_t) :: Particles
   INTEGER :: No
@@ -312,6 +334,9 @@ SUBROUTINE GetParticleLocation(Particles,No,Coord,Velo,Dist,Status,ElementIndex)
 END SUBROUTINE GetParticleLocation
 
 
+!---------------------------------------------------------
+! This is really not used and is maybe obsolite...
+!---------------------------------------------------------
 SUBROUTINE SetParticleLocation(Particles,No,Coord,Velo,Dist,Status,ElementIndex)
   TYPE(Particle_t) :: Particles
   INTEGER :: No
@@ -351,12 +376,12 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   INTEGER :: Offset, NewParticles,LastParticle,NoElements
   INTEGER :: dim
   REAL(KIND=dp), POINTER :: Coords(:,:), Velo(:,:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: InitMethod, MaskVariable    
+  CHARACTER(LEN=MAX_NAME_LEN) :: InitMethod
   INTEGER :: i,j,k,n,nonodes, InitStatus
   INTEGER, POINTER :: MaskPerm(:), InvPerm(:), NodeIndexes(:)
   LOGICAL :: GotIt, GotMask
   REAL(KIND=dp), POINTER :: InitialValues(:,:)
-  REAL(KIND=dp) :: mass,boltz,temp,coeff 
+  REAL(KIND=dp) :: mass,boltz,temp,coeff,eps 
   REAL(KIND=dp) :: MinCoord(3), MaxCoord(3)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
   
@@ -383,45 +408,84 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   Velo => Particles % Velocity
   Coords => Particles % Coordinate
   
-
   Params => GetSolverParams()
 
-
-  
-  !------------------------------------------------------------------------
-  ! The user may use a mask to initialize the particles only at a part of the 
-  ! domain, or to utilize the ordeing of the permutation vector.
-  !-------------------------------------------------------------------------  
-  GotMask = .FALSE.
-  nonodes = Mesh % NumberOfNodes
-  
-  MaskVariable = ListGetString( Params,'Mask Variable Name',GotIt )
-  IF(GotIt) THEN
-    Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
-    IF( ASSOCIATED( Var ) ) THEN
-      MaskPerm => Var % Perm
-      IF( ASSOCIATED(MaskPerm) ) THEN
-        GotMask = .TRUE.
-        nonodes = MAXVAL( MaskPerm ) 
-        ALLOCATE( InvPerm(nonodes) )
-        DO i=1,SIZE(MaskPerm)
-          j = MaskPerm(i)
-          IF( j > 0 ) InvPerm(j) = i
-        END DO
-      END IF
-    END IF
-  END IF
-  
   !------------------------------------------------------------------------
   ! Position may be initialized using a given list, or using the nodal
   ! coordinates to initalize positions.
   !-------------------------------------------------------------------------
   
   InitMethod = ListGetString( Params,'Coordinate Initialization Method',gotIt ) 
+
+
+  !------------------------------------------------------------------------
+  ! The user may use a mask to initialize the particles only at a part of the 
+  ! domain, or to utilize the ordeing of the permutation vector.
+  !-------------------------------------------------------------------------  
+  GotMask = .FALSE.
+  VariableName = ListGetString( Params,'Initialization Mask Variable',GotIt )
+  IF(GotIt) THEN
+    Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
+    IF( ASSOCIATED( Var ) ) THEN
+      MaskPerm => Var % Perm
+      IF( ASSOCIATED(MaskPerm) ) THEN
+        IF( MAXVAL( MaskPerm ) == 0 ) THEN
+          CALL Fatal('InitializeParticles','Size of mask variable is zero!')
+        END IF
+
+        GotMask = .TRUE.
+        IF( InitMethod(1:5) == 'nodal') THEN
+          nonodes = MAXVAL( MaskPerm ) 
+          ALLOCATE( InvPerm(nonodes) )
+          DO i=1,SIZE(MaskPerm)
+            j = MaskPerm(i)
+            IF( j > 0 ) InvPerm(j) = i
+          END DO
+        ELSE IF( InitMethod(1:9) == 'elemental') THEN
+          j = 0
+          ! first, calculate the number of active elements
+          DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+            CurrentElement => Mesh % Elements(i)
+            NodeIndexes =>  CurrentElement % NodeIndexes
+            n = CurrentElement % TYPE % NumberOfNodes
+            IF( ALL( MaskPerm( NodeIndexes ) > 0 ) ) j = j + 1
+            IF( i == Mesh % NumberOfBulkElements ) THEN
+              IF( j > 0 ) EXIT
+            END IF
+          END DO
+          noelements = j
+
+          ! then create an inverse table for their indexes
+          ALLOCATE( InvPerm(noelements) )
+          j = 0
+          DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+            CurrentElement => Mesh % Elements(i)
+            NodeIndexes => CurrentElement % NodeIndexes
+            n = CurrentElement % TYPE % NumberOfNodes
+            IF( ALL( MaskPerm( NodeIndexes ) > 0 ) ) THEN
+              j = j + 1
+              InvPerm(j) = i
+            END IF
+            IF( i == Mesh % NumberOfBulkElements ) THEN
+              IF( j > 0 ) EXIT
+            END IF
+          END DO
+        END IF
+      ELSE
+        CALL Fatal('InitializeParticles','Mask variable does not exist: '&
+            //TRIM(VariableName) )          
+      END IF
+    END IF
+  ELSE
+    nonodes = Mesh % NumberOfNodes
+    noelements = Mesh % NumberOfBulkElements
+  END IF
   
   SELECT CASE ( InitMethod ) 
     
+
   CASE ('nodal ordered')
+    PRINT *,'Initializing particles in nodes:',NewParticles,nonodes
     DO i=1,NewParticles
       k = Offset + i
       j = (nonodes-1)*(i-1)/(NewParticles-1)+1
@@ -432,12 +496,12 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       IF( dim == 3 ) Coords(k,3) = Mesh % Nodes % z(j)
     END DO
 
-  CASE ('element ordered')
-
-    NoElements = Mesh % NumberOfBulkElements
+  CASE ('elemental ordered')
+    PRINT *,'Initializing particles in elements:',NewParticles,noelements
     DO i=1,NewParticles
       k = Offset + i
       j = (NoElements-1)*(i-1)/(NewParticles-1)+1
+      IF( GotMask ) j = InvPerm(j)
       CurrentElement => Mesh % Elements(j)
       NodeIndexes =>  CurrentElement % NodeIndexes
       n = CurrentElement % TYPE % NumberOfNodes
@@ -446,26 +510,29 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       IF( dim == 3 ) Coords(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
       Particles % ElementIndex(i) = j
     END DO
+    PRINT *,'done inint'
 
   CASE ('box random')
+    eps = 1.0d-8
+
     MinCoord(1) = GetCReal( Params,'Min Coordinate 1',GotIt) 
-    IF(.NOT. GotIt) MinCoord(1) = MINVAL( Mesh % Nodes % x )
+    IF(.NOT. GotIt) MinCoord(1) = MINVAL( Mesh % Nodes % x ) + eps
 
     MaxCoord(1) = GetCReal( Params,'Max Coordinate 1',GotIt) 
-    IF(.NOT. GotIt) MaxCoord(1) = MAXVAL( Mesh % Nodes % x )
+    IF(.NOT. GotIt) MaxCoord(1) = MAXVAL( Mesh % Nodes % x ) - eps
 
     MinCoord(2) = GetCReal( Params,'Min Coordinate 2',GotIt) 
-    IF(.NOT. GotIt) MinCoord(2) = MINVAL( Mesh % Nodes % y )
+    IF(.NOT. GotIt) MinCoord(2) = MINVAL( Mesh % Nodes % y ) + eps
 
     MaxCoord(2) = GetCReal( Params,'Max Coordinate 2',GotIt) 
-    IF(.NOT. GotIt) MaxCoord(2) = MAXVAL( Mesh % Nodes % y )
+    IF(.NOT. GotIt) MaxCoord(2) = MAXVAL( Mesh % Nodes % y ) - eps
 
     IF( dim == 3 ) THEN
       MinCoord(3) = GetCReal( Params,'Min Coordinate 3',GotIt) 
-      IF(.NOT. GotIt) MinCoord(3) = MINVAL( Mesh % Nodes % z )
+      IF(.NOT. GotIt) MinCoord(3) = MINVAL( Mesh % Nodes % z ) + eps
       
       MaxCoord(3) = GetCReal( Params,'Max Coordinate 3',GotIt) 
-      IF(.NOT. GotIt) MaxCoord(3) = MAXVAL( Mesh % Nodes % z )
+      IF(.NOT. GotIt) MaxCoord(3) = MAXVAL( Mesh % Nodes % z ) - eps
     END IF
 
     DO i=1,NewParticles
@@ -503,11 +570,12 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       END IF
     END SELECT
 
+    IF( GotMask ) DEALLOCATE( InvPerm ) 
 
     !------------------------------------------------------------------------
     ! Velocities may be initialized using a given list, or obtaining them
-    ! from a thermal maxwell boltzmann distribution. These are additive to 
-    ! allow bulk velocities with the thermal one.
+    ! from random even or maxwell boltzmann distributions. These are additive to 
+    ! allow bulk velocities with the random one.
     !-------------------------------------------------------------------------
 
     InitialValues => ListGetConstRealArray(Params,'Initial Velocities',gotIt)
@@ -528,7 +596,6 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
         END DO
       END IF
     END IF
-
 
 
     InitMethod = ListGetString( Params,'Velocity Initialization Method',gotIt ) 
@@ -565,7 +632,6 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     END SELECT
 
 
-    IF( GotMask ) DEALLOCATE( InvPerm ) 
 
     !------------------------------------------------------
     ! The initial status of particles is different if using 
@@ -589,13 +655,12 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
  
 
 !---------------------------------------------------------------------------
-  SUBROUTINE SegmentElementIntersection(Mesh,BulkElement,&
-      Rinit,Rfin,MinLambda,FaceElement)
-!---------------------------------------------------------------------------
 ! This subroutine finds the possible intersection between elementfaces 
 ! and a line segment.
 !---------------------------------------------------------------------------
-
+  SUBROUTINE SegmentElementIntersection(Mesh,BulkElement,&
+      Rinit,Rfin,MinLambda,FaceElement)
+!---------------------------------------------------------------------------
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t), POINTER   :: BulkElement
   REAL(KIND=dp) :: Rinit(3), Rfin(3), MinLambda
@@ -762,7 +827,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp) :: Rtmp(3), MinLambda, eps 
-  LOGICAL :: Hit, DoInit, Stat, CheckFirst, StopAtFace, AtWall, Visited = .FALSE.,&
+  LOGICAL :: Hit, DoInit, Stat, StopAtFace, AtWall, Visited = .FALSE.,&
       Debug,UseCenter
   INTEGER :: i,j,k,n,FaceIndex,MaxTrials
   TYPE(Nodes_t), SAVE :: ElementNodes
@@ -771,13 +836,12 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
       NextElement
   
 
-  SAVE :: Mesh, CheckFirst, StopAtFace, Debug, MaxTrials
+  SAVE :: Mesh, StopAtFace, Debug, MaxTrials
 
   Mesh => GetMesh()
 
   IF( .NOT. Visited ) THEN
     Params => GetSolverParams()
-    CheckFirst = ListGetLogical( Params,'Particle Element Search Check',Stat)
     StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
     MaxTrials = ListGetInteger( Params,'Particle Search Max Trials',Stat)
     IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements
@@ -830,8 +894,17 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
         Rtmp,Rfin,MinLambda,FaceElement )
     
     IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
-      CALL Warn('LocateParticleInMesh','No intersection found?')
-      EXIT
+      ! The likely cause for unsuccessful operation is that the 
+      ! initial node and target node are the same
+      IF( SUM ( ( Rtmp - Rfin )**2 ) < eps**2 ) THEN
+        ParticleStatus = PARTICLE_HIT
+        EXIT
+      ELSE
+        CALL Warn('LocateParticleInMesh','No intersection found?')
+        PRINT *,'Rtmp',Rtmp
+        PRINT *,'Rfin',Rfin
+        EXIT
+      END IF
     ELSE IF( MinLambda > 1.0 - eps ) THEN
       ParticleStatus = PARTICLE_HIT
       Rtmp = Rfin
@@ -1295,6 +1368,7 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
 END FUNCTION GetNextNeighbour
 
 
+!---------------------------------------------------------------    
 ! Checks the boundaries for rectangular and cubic shapes and 
 ! enforces elastic reflection or periodic BCs. 
 ! This is alternative and computationally more econimic way 
