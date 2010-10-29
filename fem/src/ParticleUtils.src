@@ -379,8 +379,8 @@ SUBROUTINE ChangeParticlePartition(Particles)
       DO j=1,SIZE(Neighbours)
         IF ( ParEnv % Mype /= Neighbours(j) ) THEN
           Particles % Status(i) = PARTICLE_PARTBOUNDARY
-          NextPart = Neighbours(j);
-          Info(perm(NextPart)) % n=Info(perm(NextPart)) % n+1
+          nextPart = Neighbours(j);
+          Info(perm(nextPart)) % n=Info(perm(nextPart)) % n+1
           EXIT
         END IF
       END DO
@@ -397,6 +397,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
   DO i=1,Particles % NumberOfParticles
     IF( Particles % Status(i) /= PARTICLE_PARTBOUNDARY ) CYCLE
+    Face => Particles % StopFace(i)
 
     IF ( Face % TYPE % DIMENSION==1 ) THEN
        FaceInterface  => Mesh % ParallelInfo % EdgeInterface
