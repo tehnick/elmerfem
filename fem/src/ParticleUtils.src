@@ -1306,6 +1306,57 @@ END SUBROUTINE LocateParticleInMeshMarch
 
 
 
+!------------------------------------------------------------------------
+! Locate all the new elements of the particles
+!-------------------------------------------------------------------------
+SUBROUTINE LocateParticles( Particles )
+
+  TYPE(Particle_t) :: Particles
+
+  INTEGER :: Status, ElementIndex, No, NoParticles, dim, PartChanges
+  REAL(KIND=dp) :: Rinit(3), Rfin(3)
+  LOGICAL :: InitLocation
+  TYPE(Element_t), POINTER :: FaceElement
+  REAL(KIND=dp) :: Lambda
+
+  
+  PartChanges = 0
+  NoParticles = Particles % NumberOfParticles
+  dim = Particles % dim
+  
+  DO No = 1, NoParticles
+    Status = Particles % Status( No )
+    IF( Status == PARTICLE_LOST ) CYCLE
+    IF( Status < PARTICLE_INITIATED ) CYCLE
+    
+    ElementIndex = Particles % ElementIndex( No )
+    
+    ! We only need to find the right element, path is not of importance
+    InitLocation = ( Status < PARTICLE_LOCATED ) 
+    Rfin(1:dim) = GetParticleCoord( Particles, No, 0 )
+    ElementIndex = GetParticleElement( Particles, No )
+    
+    ! Note that if we want proper collisions with the boundary done within this
+    ! routine the initial coordinates should really not be rfin!!
+
+    CALL LocateParticleInMeshMarch(ElementIndex, Rfin, Rfin, InitLocation, &
+        Status, FaceElement, Lambda )
+
+    Particles % Status(No) = Status
+    Particles % ElementIndex(No) = ElementIndex
+    
+    IF( Status == PARTICLE_PARTBOUNDARY ) THEN
+      PartChanges = PartChanges + 1
+    END IF
+  END DO
+  IF( PartChanges > 0 ) THEN
+    PRINT *,'Number of PartitionChanges',PartChanges
+  END IF
+
+END SUBROUTINE LocateParticles
+
+
+
 !--------------------------------------------------------------------------
 ! Given the element & global coordinates returns the local coordinates.
 ! The idea of this routine is to transparently block the local coordinate
@@ -1751,17 +1802,18 @@ END SUBROUTINE ParticleAdvanceTime
 ! of enforcing some boundary conditions for the particle that 
 ! may at best be use for testing purposes.
 !---------------------------------------------------------------    
-SUBROUTINE ParticleBoxLimits(Coord,Velo)
+SUBROUTINE ParticleBoxLimits(Particles)
   
+  TYPE(Particle_t) :: Particles
+
   TYPE(Solver_t), POINTER :: Solver
-  REAL(KIND=dp) :: Coord(3), Velo(3)
-  
+  REAL(KIND=dp) :: Coord(3), Velo(3)  
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Params
   REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), Ymin, Ymax, Zmin, Zmax
   INTEGER :: i,j,dim
   LOGICAL :: Mapped,Reflect,Periodic,Visited = .FALSE.
-  INTEGER :: Operations
+  INTEGER :: Operations, No, NoParticles, Status
   
   SAVE Visited, Reflect, Periodic, MinCoord, MaxCoord, dim
   
@@ -1785,45 +1837,58 @@ SUBROUTINE ParticleBoxLimits(Coord,Velo)
     Visited = .TRUE.
   END IF
   
-  
-  ! Boundary conditions for reflection. 
-  ! Multiple reflections may be carried out.
-  !------------------------------------------
-  IF( Reflect ) THEN
-    DO i=1,dim
-      Mapped = .FALSE.
-      DO j=1,dim
-        IF( Coord(j) < MinCoord(j) ) THEN
-          Coord(j) = 2 * MinCoord(j) - Coord(j)
-          Velo(j) = -Velo(j)
-          Mapped = .TRUE.
-        ELSE IF ( Coord(j) > MaxCoord(j) ) THEN
-          Coord(j) = 2 * MaxCoord(j) - Coord(j)
-          Velo(j) = -Velo(j)
-          Mapped = .TRUE.
-        END IF
-      END DO
-      IF(.NOT. Mapped ) EXIT
-    END DO
-  END IF
-  
-  ! Boundary conditions for periodic BCs
+  NoParticles = Particles % NumberOfParticles
+
+  DO No = 1, NoParticles
+    Status = Particles % Status(No) 
+    IF( Status == PARTICLE_LOST ) CYCLE
+    IF( Status < PARTICLE_INITIATED ) CYCLE
+
+    Coord(1:dim) = Particles % Coordinate(No,1:dim)
+    Velo(1:dim) = Particles % Velocity(No,1:dim)
+    
+    ! Boundary conditions for reflection. 
+    ! Multiple reflections may be carried out.
     !------------------------------------------
-  IF( Periodic ) THEN
-    DO i=1,dim
-      Mapped = .FALSE.
-      DO j=1,dim
-        IF( Coord(j) < MinCoord(j) ) THEN
-          Coord(j) = MaxCoord(j) - MinCoord(j) + Coord(j)
-          Mapped = .TRUE.
-        ELSE IF ( Coord(j) > MaxCoord(j) ) THEN
-          Coord(j) = MinCoord(j) - MaxCoord(j) + Coord(j)
-          Mapped = .TRUE.
-        END IF
+    IF( Reflect ) THEN
+      DO i=1,dim
+        Mapped = .FALSE.
+        DO j=1,dim
+          IF( Coord(j) < MinCoord(j) ) THEN
+            Coord(j) = 2 * MinCoord(j) - Coord(j)
+            Velo(j) = -Velo(j)
+            Mapped = .TRUE.
+          ELSE IF ( Coord(j) > MaxCoord(j) ) THEN
+            Coord(j) = 2 * MaxCoord(j) - Coord(j)
+            Velo(j) = -Velo(j)
+            Mapped = .TRUE.
+          END IF
+        END DO
+        IF(.NOT. Mapped ) EXIT
       END DO
-      IF(.NOT. Mapped ) EXIT
-    END DO
-  END IF
+    END IF
+    
+    ! Boundary conditions for periodic BCs
+    !------------------------------------------
+    IF( Periodic ) THEN
+      DO i=1,dim
+        Mapped = .FALSE.
+        DO j=1,dim
+          IF( Coord(j) < MinCoord(j) ) THEN
+            Coord(j) = MaxCoord(j) - MinCoord(j) + Coord(j)
+            Mapped = .TRUE.
+          ELSE IF ( Coord(j) > MaxCoord(j) ) THEN
+            Coord(j) = MinCoord(j) - MaxCoord(j) + Coord(j)
+            Mapped = .TRUE.
+          END IF
+        END DO
+        IF(.NOT. Mapped ) EXIT
+      END DO
+    END IF
+    
+    Particles % Coordinate(No,1:dim) = Coord(1:dim)
+    Particles % Velocity(No,1:dim) = Velo(1:dim)
+  END DO
   
 END SUBROUTINE ParticleBoxLimits
 
