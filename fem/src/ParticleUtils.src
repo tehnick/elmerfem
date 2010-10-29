@@ -19,6 +19,111 @@ MODULE ParticleUtils
 CONTAINS
 
 
+
+!---------------------------------------------------------
+! The following subroutines make the data structure 
+! transparent in the user subrouines and thereby make
+! them more recilient to time.
+!---------------------------------------------------------
+FUNCTION GetParticleCoord(Particles,No,DerOrder) RESULT ( Coord )
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, DerOrder
+  REAL(KIND=dp) :: Coord(3) 
+
+  INTEGER :: dim
+
+  Coord(3) = 0.0_dp
+  dim = Particles % dim
+
+  IF( DerOrder == 0 ) THEN
+    Coord(1:dim) = Particles % Coordinate(no,:)
+  ELSE IF( DerOrder == 1 ) THEN
+    Coord(1:dim) = Particles % Velocity(no,:)
+  ELSE IF( DerOrder == 2 ) THEN
+    Coord(1:dim) = Particles % Acceleration(no,:)
+  END IF
+END FUNCTION GetParticleCoord
+
+
+SUBROUTINE SetParticleCoord(Particles,No,DerOrder,Coord)
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, DerOrder
+  REAL(KIND=dp) :: Coord(3) 
+
+  INTEGER :: dim
+
+  dim = Particles % dim
+
+  IF( DerOrder == 0 ) THEN
+    Particles % Coordinate(no,:) = Coord(1:dim)
+  ELSE IF( DerOrder == 1 ) THEN
+    Particles % Velocity(no,:) = Coord(1:dim)
+  ELSE IF( DerOrder == 2 ) THEN
+    Particles % Acceleration(no,:) = Coord(1:dim)
+  END IF
+END SUBROUTINE SetParticleCoord
+
+
+SUBROUTINE AddParticleCoord(Particles,No,DerOrder,Coord)
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, DerOrder
+  REAL(KIND=dp) :: Coord(3) 
+
+  INTEGER :: dim
+
+  dim = Particles % dim
+
+  IF( DerOrder == 0 ) THEN
+    Particles % Coordinate(no,:) = &
+        Particles % Coordinate(no,:) + Coord(1:dim)
+  ELSE IF( DerOrder == 1 ) THEN
+    Particles % Velocity(no,:) = &
+        Particles % Velocity(no,:) + Coord(1:dim)
+  ELSE IF( DerOrder == 2 ) THEN
+    Particles % Acceleration(no,:) = &
+        Particles % Acceleration(no,:) + Coord(1:dim)
+  END IF
+END SUBROUTINE AddParticleCoord
+
+
+
+FUNCTION GetParticleStatus(Particles,No) RESULT ( Status )
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, DerOrder
+  INTEGER :: Status
+
+  Status = Particles % Status(No)
+END FUNCTION GetParticleStatus
+
+
+SUBROUTINE SetParticleStatus(Particles,No,Status )
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, DerOrder
+  INTEGER :: Status
+
+  Particles % Status(No) = Status
+END SUBROUTINE SetParticleStatus
+
+
+FUNCTION GetParticleElement(Particles,No) RESULT ( Index ) 
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, DerOrder
+  INTEGER :: Index
+
+  Index = Particles % ElementIndex(No)
+END FUNCTION GetParticleElement
+
+
+SUBROUTINE SetParticleElement(Particles,No,Index )
+  TYPE(Particle_t) :: Particles
+  INTEGER :: No, DerOrder
+  INTEGER :: Index
+
+  Particles % ElementIndex(No) = Index
+END SUBROUTINE SetParticleElement
+
+
+
 !---------------------------------------------------------
 ! Allocate particles before launching them
 !---------------------------------------------------------
@@ -256,7 +361,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
     IF( Particles % Status(i)/=PARTICLE_WALLBOUNDARY ) CYCLE
     Face => Particles % StopFace(i)
 
-    IF ( Face % Type % Dimension==1 ) THEN
+    IF ( Face % TYPE % DIMENSION==1 ) THEN
        FaceInterface  => Mesh % ParallelInfo % EdgeInterface
        Neighbours => Mesh % ParallelInfo %  &
           EdgeNeighbourList(Face % ElementIndex) % Neighbours
@@ -286,14 +391,14 @@ SUBROUTINE ChangeParticlePartition(Particles)
   ! Collect particles to be sent to neighbours:
   ! -------------------------------------------
   DO i=1,NoPartitions
-    ALLOCATE( Info(i) % Gindex(Info % n), Info(i) % Particles(Info % n) )
+    ALLOCATE( Info(i) % Gindex(Info(i) % n), Info(i) % Particles(Info(i) % n) )
     Info(i) % n = 0
   END DO
 
   DO i=1,Particles % NumberOfParticles
     IF( Particles % Status(i) /= PARTICLE_PARTBOUNDARY ) CYCLE
 
-    IF ( Face % Type % Dimension==1 ) THEN
+    IF ( Face % TYPE % DIMENSION==1 ) THEN
        FaceInterface  => Mesh % ParallelInfo % EdgeInterface
        Neighbours => Mesh % ParallelInfo %  &
           EdgeNeighbourList(Face % ElementIndex) % Neighbours
@@ -541,54 +646,7 @@ END SUBROUTINE ParticleStatistics
    
 
 
-!---------------------------------------------------------
-! This is really not used and is maybe obsolite...
-!---------------------------------------------------------
-SUBROUTINE GetParticleLocation(Particles,No,Coord,Velo,Dist,Status,ElementIndex)
-  TYPE(Particle_t) :: Particles
-  INTEGER :: No
-  REAL(KIND=dp) :: Coord(:),Velo(:)
-  REAL(KIND=dp), OPTIONAL :: Dist
-  INTEGER, OPTIONAL :: Status
-  INTEGER, OPTIONAL :: ElementIndex
 
-  IF( Particles % dim == 3 ) THEN
-    Coord = Particles % Coordinate(no,:)
-    Velo = Particles % Velocity(no,:)
-  ELSE
-    Velo(1:2) = Particles % Velocity(no,:)
-    Coord(1:2) = Particles % Coordinate(no,:)
-  END IF
-  IF( PRESENT(Dist) )   Dist = Particles % Distance(No)
-  IF( PRESENT(Status) ) Status = Particles % Status(No)
-  IF( PRESENT(ElementIndex) ) Status = Particles % ElementIndex(No)
-
-END SUBROUTINE GetParticleLocation
-
-
-!---------------------------------------------------------
-! This is really not used and is maybe obsolite...
-!---------------------------------------------------------
-SUBROUTINE SetParticleLocation(Particles,No,Coord,Velo,Dist,Status,ElementIndex)
-  TYPE(Particle_t) :: Particles
-  INTEGER :: No
-  REAL(KIND=dp) :: Coord(:),Velo(:)
-  REAL(KIND=dp), OPTIONAL :: Dist
-  INTEGER, OPTIONAL :: Status
-  INTEGER, OPTIONAL :: ElementIndex
-
-  IF( Particles % dim == 3 ) THEN
-    Particles % Coordinate(No,:) = Coord
-    Particles % Velocity(No,:) = Velo
-  ELSE
-    Particles % Velocity(No,1:2) = Velo(1:2)
-    Particles % Coordinate(No,1:2) = Coord(1:2)
-  END IF
-  IF( PRESENT(Dist) )   Particles % Distance(No) = Dist
-  IF( PRESENT(Status) ) Particles % Status(No) = Status
-  IF( PRESENT(ElementIndex) ) Particles % ElementIndex(No) = ElementIndex
-
-END SUBROUTINE SetParticleLocation
 
 
 
@@ -614,7 +672,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   LOGICAL :: GotIt, GotMask
   REAL(KIND=dp), POINTER :: InitialValues(:,:)
   REAL(KIND=dp) :: mass,boltz,temp,coeff,eps 
-  REAL(KIND=dp) :: MinCoord(3), MaxCoord(3)
+  REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Diam
+  INTEGER :: nx,ny,nz,ix,iy,iz,ind
+  LOGICAL, POINTER :: DoneParticle(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
   
 
@@ -712,6 +772,34 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     nonodes = Mesh % NumberOfNodes
     noelements = Mesh % NumberOfBulkElements
   END IF
+
+  
+  IF( InitMethod(1:5) == 'box') THEN
+    Eps = GetCReal( Params,'Box Particle Boundary Thickness',GotIt)
+    IF(.NOT. GotIt) eps = 1.0d-8
+    
+    MinCoord(1) = GetCReal( Params,'Min Coordinate 1',GotIt) 
+    IF(.NOT. GotIt) MinCoord(1) = MINVAL( Mesh % Nodes % x ) + eps
+    
+    MaxCoord(1) = GetCReal( Params,'Max Coordinate 1',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(1) = MAXVAL( Mesh % Nodes % x ) - eps
+
+    MinCoord(2) = GetCReal( Params,'Min Coordinate 2',GotIt) 
+    IF(.NOT. GotIt) MinCoord(2) = MINVAL( Mesh % Nodes % y ) + eps
+    
+    MaxCoord(2) = GetCReal( Params,'Max Coordinate 2',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(2) = MAXVAL( Mesh % Nodes % y ) - eps
+    
+    IF( dim == 3 ) THEN
+      MinCoord(3) = GetCReal( Params,'Min Coordinate 3',GotIt) 
+      IF(.NOT. GotIt) MinCoord(3) = MINVAL( Mesh % Nodes % z ) + eps
+      
+      MaxCoord(3) = GetCReal( Params,'Max Coordinate 3',GotIt) 
+      IF(.NOT. GotIt) MaxCoord(3) = MAXVAL( Mesh % Nodes % z ) - eps
+    END IF
+  END IF
+
+
   
   SELECT CASE ( InitMethod ) 
     
@@ -745,37 +833,65 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     PRINT *,'done inint'
 
   CASE ('box random')
-    eps = 1.0d-8
-
-    MinCoord(1) = GetCReal( Params,'Min Coordinate 1',GotIt) 
-    IF(.NOT. GotIt) MinCoord(1) = MINVAL( Mesh % Nodes % x ) + eps
-
-    MaxCoord(1) = GetCReal( Params,'Max Coordinate 1',GotIt) 
-    IF(.NOT. GotIt) MaxCoord(1) = MAXVAL( Mesh % Nodes % x ) - eps
-
-    MinCoord(2) = GetCReal( Params,'Min Coordinate 2',GotIt) 
-    IF(.NOT. GotIt) MinCoord(2) = MINVAL( Mesh % Nodes % y ) + eps
-
-    MaxCoord(2) = GetCReal( Params,'Max Coordinate 2',GotIt) 
-    IF(.NOT. GotIt) MaxCoord(2) = MAXVAL( Mesh % Nodes % y ) - eps
-
-    IF( dim == 3 ) THEN
-      MinCoord(3) = GetCReal( Params,'Min Coordinate 3',GotIt) 
-      IF(.NOT. GotIt) MinCoord(3) = MINVAL( Mesh % Nodes % z ) + eps
-      
-      MaxCoord(3) = GetCReal( Params,'Max Coordinate 3',GotIt) 
-      IF(.NOT. GotIt) MaxCoord(3) = MAXVAL( Mesh % Nodes % z ) - eps
-    END IF
 
     DO i=1,NewParticles
-      k = Offset + i
-      
+      k = Offset + i      
       Coords(k,1) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
       Coords(k,2) = MinCoord(2) + (MaxCoord(2)-MinCoord(2)) * EvenRandom()
       IF( dim == 3 ) THEN
         Coords(k,3) = MinCoord(3) + (MaxCoord(3)-MinCoord(3)) * EvenRandom()
       END IF
     END DO
+
+  CASE ('box random cubic')
+
+    Diam = GetCReal( Params,'Box Particle Unit Cell',GotIt)
+    IF(.NOT. GotIt ) THEN
+      Diam = 2 * GetCReal( Params,'Particle Radius',GotIt)
+    END IF
+    IF(.NOT. GotIt ) THEN
+      CALL Fatal('InitializeParticles','Size of unit cell not given')
+    END IF
+
+    nx = ( MaxCoord(1) - MinCoord(1) ) / Diam
+    ny = ( MaxCoord(2) - MinCoord(2) ) / Diam
+    IF( dim == 3 ) THEN
+      nz = ( MaxCoord(3) - MinCoord(3) ) / Diam
+    ELSE
+      nz = 1
+    END IF
+
+    IF( nx * ny * nz < NewParticles ) THEN
+      PRINT *,'Max places:',nx*ny*nz
+      CALL Fatal('InitializeParticles','More particles than places in unit cell')
+    END IF
+
+    ALLOCATE( DoneParticle(nx*ny*nz) )
+    DoneParticle = .FALSE.
+
+    i = 0
+    DO WHILE (.TRUE.) 
+      ix = NINT( nx * EvenRandom() + 0.5 )
+      iy = NINT( ny * EvenRandom() + 0.5 )
+      IF( dim == 3 ) THEN
+        iz = NINT( nz * EvenRandom() + 0.5 )
+      ELSE
+        iz = 1
+      END IF
+      ind = nx*ny*(nz-1) + nx*(iy-1) + ix
+      IF( DoneParticle(ind) ) CYCLE
+      
+      i = i + 1
+      DoneParticle(ind) = .TRUE.
+
+      k = Offset + i      
+      Coords(k,1) = MinCoord(1) + ( 1.0_dp*ix - 0.5) * Diam 
+      Coords(k,2) = MinCoord(2) + ( 1.0_dp*iy - 0.5) * Diam 
+      IF( dim == 3 ) THEN
+        Coords(k,3) = MinCoord(3) + ( 1.0_dp*iz - 0.5) * Diam 
+      END IF
+    END DO
+    DEALLOCATE( DoneParticle ) 
 
     
   CASE DEFAULT 
@@ -1600,6 +1716,30 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
   END IF
 
 END FUNCTION GetNextNeighbour
+
+!---------------------------------------------------------
+! Take a time step
+!---------------------------------------------------------
+SUBROUTINE ParticleInitializeTime( Particles )
+  TYPE(Particle_t) :: Particles
+
+  Particles % Acceleration = 0.0_dp
+END SUBROUTINE ParticleInitializeTime
+
+!---------------------------------------------------------
+! Take a time step
+!---------------------------------------------------------
+SUBROUTINE ParticleAdvanceTime( Particles, dtime )
+  TYPE(Particle_t) :: Particles
+  REAL(KIND=dp) :: dtime
+
+  Particles % Velocity = Particles % Velocity + &
+      dtime * Particles % Acceleration
+  Particles % Acceleration = 0.0_dp
+  
+  Particles % Coordinate = Particles % Coordinate + &
+      dtime * Particles % Velocity
+END SUBROUTINE ParticleAdvanceTime
 
 
 !---------------------------------------------------------------    
