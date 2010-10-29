@@ -313,6 +313,10 @@ SUBROUTINE ChangeParticlePartition(Particles)
       END DO
       Particles % Status(i) = PARTICLE_LOST
       j = Perm(nextPart)
+      IF ( j==0 ) THEN
+        CALL Warn( 'ChangeParticlePartition', 'Neighbouring partition not found?')
+        CYCLE
+      END IF
       Info(j) % n = Info(j) % n+1
       n = Info(j) % n
       Info(j) % Particles(n) = i
@@ -361,7 +365,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
   DO i=1,NoPartitions
     CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-             1000, MPI_COMM_WORLD, status, ierr )
+          1000, MPI_COMM_WORLD, status, ierr )
     IF ( n<=0 ) CYCLE
 
     IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
