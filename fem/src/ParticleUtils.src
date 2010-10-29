@@ -201,7 +201,7 @@ END SUBROUTINE ReleaseWaitingParticles
 
 !---------------------------------------------------------
 ! Subroutine for chanching the partition of particles that
-! croess the partition boundary.
+! cross the partition boundary.
 !---------------------------------------------------------
 SUBROUTINE ChangeParticlePartition(Particles) 
 !---------------------------------------------------------
@@ -254,8 +254,8 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
   DO i=1,Particles % NumberOfParticles
     IF( Particles % Status(i)/=PARTICLE_WALLBOUNDARY ) CYCLE
-
     Face => Particles % StopFace(i)
+
     IF ( Face % Type % Dimension==1 ) THEN
        FaceInterface  => Mesh % ParallelInfo % EdgeInterface
        Neighbours => Mesh % ParallelInfo %  &
@@ -267,6 +267,9 @@ SUBROUTINE ChangeParticlePartition(Particles)
     END IF
 
     IF ( FaceInterface(Face % ElementIndex) ) THEN
+      IF ( Face % BoundaryInfo % Constraint > 0 ) &
+        CALL Warn("ChangeParticlePartition", "is this a BC after all?")
+
       NextPart = ParEnv % MyPE
       DO j=1,SIZE(Neighbours)
         IF ( ParEnv % Mype /= Neighbours(j) ) THEN
@@ -289,7 +292,6 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
   DO i=1,Particles % NumberOfParticles
     IF( Particles % Status(i) /= PARTICLE_PARTBOUNDARY ) CYCLE
-    Particles % Status(i) = PARTICLE_LOST
 
     IF ( Face % Type % Dimension==1 ) THEN
        FaceInterface  => Mesh % ParallelInfo % EdgeInterface
@@ -305,12 +307,12 @@ SUBROUTINE ChangeParticlePartition(Particles)
       NextPart = ParEnv % MyPE
       DO j=1,SIZE(Neighbours)
         IF ( ParEnv % Mype /= Neighbours(j) ) THEN
-          Particles % Status(i) = PARTICLE_PARTBOUNDARY
-          NextPart = Neighbours(j);
+          nextPart = Neighbours(j);
           EXIT
         END IF
       END DO
-      j = perm(NextPart)
+      Particles % Status(i) = PARTICLE_LOST
+      j = Perm(nextPart)
       Info(j) % n = Info(j) % n+1
       n = Info(j) % n
       Info(j) % Particles(n) = i
@@ -334,6 +336,9 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
       CALL MPI_BSEND( Particles % Coordinate(Info(j) % Particles,1:dim), &
           n*dim, MPI_DOUBLE_PRECISION, i-1, 1002, MPI_COMM_WORLD, ierr )
+
+      CALL MPI_BSEND( Particles % Dt(Info(j) % Particles), &
+              n, MPI_DOUBLE_PRECISION, i-1, 1003, MPI_COMM_WORLD, ierr )
     END IF
   END DO
 
@@ -387,6 +392,9 @@ SUBROUTINE ChangeParticlePartition(Particles)
     n_part=Particles % NumberOfParticles
     CALL MPI_RECV( Particles % Coordinate(n_part+1:n_part+n,1:dim),  n*dim, &
         MPI_DOUBLE_PRECISION, proc, 1002, MPI_COMM_WORLD, status, ierr )
+
+    CALL MPI_RECV( Particles % Dt(n_part+1:n_part+n),  n, &
+        MPI_DOUBLE_PRECISION, proc, 1003, MPI_COMM_WORLD, status, ierr )
 
     Particles % NumberOfParticles = n_part+n
     DEALLOCATE(Indexes)
