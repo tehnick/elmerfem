@@ -475,7 +475,8 @@ SUBROUTINE ChangeParticlePartition(Particles)
     IF ( n<=0 ) CYCLE
 
     IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
-!  TODO: do something here....
+       n_part = Particles % NumberOfParticles+n*4
+      CALL AllocateParticles(Particles,n_part,dim,Particles % TimeOrder)
     END IF
 
     ALLOCATE(Indexes(n))
