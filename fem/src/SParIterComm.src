@@ -875,6 +875,7 @@ real(kind=dp) :: realtime,tt
       Mesh % ParallelInfo % EdgeInterface(i) = Edgen(i) % Interface
       Mesh % ParallelInfo % EdgeNeighbourList(i) % Neighbours => &
              Edgen(i) % Neighbours
+      Mesh % Edges(i) % ElementIndex = i
     END DO
 
     DEALLOCATE( gorder, grevorder, gdofs, edgen )
@@ -1234,6 +1235,7 @@ real(kind=dp) :: realtime,tt
       gorder(grevorder(k)) = k
     END DO
 
+
     DO i=1,Mesh % NumberOfEdges
       Mesh % Edges(i) % BoundaryInfo % Left  => Null()
       Mesh % Edges(i) % BoundaryInfo % Right => Null()
@@ -1249,6 +1251,7 @@ real(kind=dp) :: realtime,tt
           Edge % BoundaryInfo % Right => Mesh % Faces(i)
         END IF
       END DO
+      Element % ElementIndex = i
     END DO
 
     ALLOCATE( Mesh % ParallelInfo % FaceInterface(n), &
