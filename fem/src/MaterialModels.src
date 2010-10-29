@@ -288,7 +288,9 @@ this ise not in USE
        CASE('power law too')
          c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis(1:n) * c2n(1:n) )
-         mu = Viscosity **(-1.0d0/c2)* ss**(-(c2-1)/(2*c2)) / 2
+         mu = Viscosity **(-1/c2)* ss**(-(c2-1)/(2*c2)) / 2
+         IF ( PRESENT(muder) )  muder = &
+            Viscosity**(-1/c2)*(-(c2-1)/(2*c2))*ss*(-(c2-1)/(2*c2)-1) / 2
        
        CASE ('carreau')
          c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes )
@@ -300,9 +302,13 @@ this ise not in USE
          c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
          IF(gotIt) THEN
            s = SQRT(ss)
-           mu = Viscosity + c1 * (1 + (c3*s)**c4)**((c2-1)/c4) 
+           mu = Viscosity + c1 * (1 + c3**c4*ss**(c4/2))**((c2-1)/c4) 
+           IF ( PRESENT(muder ) ) muder =  &
+              c1*(1+c3**c4*ss**(c4/2))**((c2-1)/c4-1)*(c2-1)/2*c3**c4*ss**(c4/2-1)
          ELSE
-           mu = Viscosity + c1 * (1 + (c3*c3*ss))**((c2-1)/2.0) 
+           mu = Viscosity + c1 * (1 + c3*c3*ss)**((c2-1)/2) 
+           IF ( PRESENT(muder) ) muder = &
+               c1*(c2-1)/2*c3**2*(1+c3**2*ss)**((c2-1)/2-1)
          END IF
 
        CASE ('cross')
@@ -313,6 +319,8 @@ this ise not in USE
          c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes )
          c3 = SUM( Basis(1:n) * c3n(1:n) )
          mu = Viscosity + c1 / (1 + c3*ss**(c2/2))
+         IF ( PRESENT(muder) ) muder = &
+             -c1*c3*ss**(c2/2)*c2 / (2*(1+c3*ss**(c2/2))**2*ss)
        
        CASE ('powell eyring')
          c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
@@ -323,6 +331,9 @@ this ise not in USE
            mu = Viscosity + c1
          ELSE
            mu = Viscosity + c1 * LOG(c2*s+SQRT(c2*c2*ss+1))/(c2*s)
+           IF ( PRESENT(muder) ) muder = &
+             c1*(c2/(2*s)+c2**2/(2*SQRT(c2**2*ss+1)))/((c2*s+SQRT(c2*ss+1))*c2*s) - &
+                c1*LOG(c2*s+SQRT(c2**2*ss+1))/(c2*s**3)/2
          END IF
 
        CASE ('thermal carreau')
@@ -352,8 +363,12 @@ this ise not in USE
          IF(gotIt) THEN
            s = SQRT(ss)
            mu = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
+           IF ( PRESENT(muder) ) muder = &
+             c1*(1+(c3*s)**c4)**((c2-1)/c4-1)*(c2-1)*(c3*s)**c4/(2*ss)
          ELSE
            mu = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
+           IF ( PRESENT(muder) ) muder = &
+             c1*(1+c3**2*ss)**((c2-1)/2-1)*(c2-1)/2*c3**2
          END IF
 
        CASE( 'smagorinsky' )
@@ -361,7 +376,9 @@ this ise not in USE
              n, Element % NodeIndexes,gotit )
          c2 = SUM( Basis(1:n) * c2n(1:n) )
          h  = ElementDiameter( Element, Nodes )
-         Viscosity = Viscosity + Density * c2 * h**2 * SQRT( 2*ss ) / 2
+         Viscosity = Viscosity + Density * c2 * h**2 * SQRT(2*ss) / 2
+         IF ( PRESENT(muder) ) muder = &
+              Density*c2*h**2*SQRT(2._dp)/(4*SQRT(ss))
          
        CASE( 'ke','k-epsilon' )
          IF (ListGetString(Material,'KE Model',gotIt)/='v2-f' ) THEN
