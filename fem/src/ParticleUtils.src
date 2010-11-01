@@ -123,7 +123,6 @@ SUBROUTINE SetParticleElement(Particles,No,Index )
 END SUBROUTINE SetParticleElement
 
 
-
 !---------------------------------------------------------
 ! Allocate particles before launching them
 !---------------------------------------------------------
@@ -134,10 +133,10 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
   INTEGER, OPTIONAL :: dim
   INTEGER, OPTIONAL :: TimeOrder
 
-  REAL(KIND=dp), POINTER :: Velocity(:,:), Coordinate(:,:), Distance(:)
-  INTEGER, POINTER :: Status(:), ElementIndex(:)
+  REAL(KIND=dp), POINTER :: Velocity(:,:), Acceleration(:,:), &
+       Coordinate(:,:), Distance(:),Dt(:)
+  INTEGER, POINTER :: Status(:), ElementIndex(:), FaceIndex(:)
   INTEGER :: PrevNoParticles, dofs
-  TYPE(Element_t), POINTER :: StopFace(:)
   
   IF( NoParticles <= Particles % MaxNumberOfParticles ) THEN
     CALL Info('AllocateParticles','There are already enough particles')
@@ -188,10 +187,8 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
       Particles % Acceleration = 0.0_dp
     END IF
 
-    IF(  ParEnv % PEs > 1 ) THEN
-      ALLOCATE( Particles % StopFace(NoParticles))
-      Particles % StopFace => Null()
-    END IF
+    ALLOCATE( Particles % FaceIndex(NoParticles))
+    Particles % FaceIndex = 0
 
   ELSE 
     PrevNoParticles = Particles % MaxNumberOfParticles 
@@ -200,35 +197,49 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
 
     Coordinate => Particles % Coordinate
     Velocity => Particles % Velocity
+    Acceleration => Particles % Acceleration
     Distance => Particles % Distance
     Status => Particles % Status
+    Dt => Particles % Dt
     ElementIndex => Particles % ElementIndex
 
-    ALLOCATE( Particles % Velocity(NoParticles,dofs) )
+    IF ( ASSOCIATED(Velocity) ) &
+      ALLOCATE( Particles % Velocity(NoParticles,dofs) )
+    IF ( ASSOCIATED(Acceleration) ) &
+      ALLOCATE( Particles % Acceleration(NoParticles,dofs) )
     ALLOCATE( Particles % Coordinate(NoParticles,dofs) )
     ALLOCATE( Particles % Distance(NoParticles) )
     ALLOCATE( Particles % Status(NoParticles) )
+    ALLOCATE( Particles % Dt(NoParticles) )
     ALLOCATE( Particles % ElementIndex(NoParticles) )
 
     Particles % Coordinate(1:PrevNoParticles,:) = Coordinate
-    Particles % Velocity(1:PrevNoParticles,:) = Velocity 
+    IF ( ASSOCIATED(Velocity) ) & 
+        Particles % Velocity(1:PrevNoParticles,:) = Velocity 
+    IF ( ASSOCIATED(Acceleration) ) & 
+        Particles % Acceleration(1:PrevNoParticles,:) = Acceleration
     Particles % Distance(1:PrevNoParticles) = Distance
+    Particles % Dt(1:PrevNoParticles) = Dt
     Particles % Status(1:PrevNoParticles) = Status
     Particles % ElementIndex(1:PrevNoParticles) = ElementIndex
-    DEALLOCATE(Velocity, Coordinate, Distance, Status, ElementIndex ) 
+    IF ( ASSOCIATED(Velocity) ) DEALLOCATE(Velocity)
+    IF ( ASSOCIATED(Acceleration) ) DEALLOCATE(Acceleration)
+    DEALLOCATE(Coordinate, Distance, Status, ElementIndex, Dt) 
 
-    Particles % Velocity(PrevNoParticles+1:NoParticles,:) = 0.0_dp
+    IF ( ASSOCIATED(Velocity) ) & 
+       Particles % Velocity(PrevNoParticles+1:NoParticles,:) = 0.0_dp
+    IF ( ASSOCIATED(Acceleration) ) &
+       Particles % Acceleration(PrevNoParticles+1:NoParticles,:) = 0.0_dp
     Particles % Coordinate(PrevNoParticles+1:NoParticles,:) = 0.0_dp
+    Particles % Dt(PrevNoParticles+1:NoParticles) = 0.0_dp
     Particles % Distance(PrevNoParticles+1:NoParticles) = 0.0_dp
-    Particles % Status(PrevNoParticles+1:NoParticles) = PARTICLE_ALLOCATED
     Particles % ElementIndex(PrevNoParticles+1:NoParticles) = 0
+    Particles % Status(PrevNoParticles+1:NoParticles) = PARTICLE_ALLOCATED
 
-    IF(  ParEnv % PEs > 1 ) THEN
-      StopFace => Particles % StopFace
-      ALLOCATE( Particles % StopFace(NoParticles))
-      Particles % StopFace(1:PrevNoParticles) = StopFace
-      DEALLOCATE( StopFace )
-    END IF
+    FaceIndex => Particles % FaceIndex
+    ALLOCATE( Particles % FaceIndex(NoParticles))
+    Particles % FaceIndex(1:PrevNoParticles) = FaceIndex
+    DEALLOCATE( FaceIndex )
 
     Particles % MaxNumberOfParticles = NoParticles
   END IF
@@ -245,9 +256,7 @@ SUBROUTINE DestroyParticles(Particles)
   DEALLOCATE( Particles % Dt ) 
   DEALLOCATE( Particles % Status ) 
   DEALLOCATE( Particles % ElementIndex ) 
-  IF(  ParEnv % PEs > 1 ) THEN
-    DEALLOCATE( Particles % StopFace )
-  END IF
+  DEALLOCATE( Particles % FaceIndex )
   Particles % MaxNumberOfParticles = 0
   Particles % NumberOfParticles = 0
   
@@ -327,6 +336,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
     INTEGER :: n
     INTEGER, POINTER :: Gindex(:), Particles(:)
   END TYPE ExchgInfo_t
+real(kind=dp), allocatable :: buf(:)
 
   TYPE(ExchgInfo_t), ALLOCATABLE :: Info(:)
 !---------------------------------------------------------
@@ -359,13 +369,14 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
   DO i=1,Particles % NumberOfParticles
     IF( Particles % Status(i)/=PARTICLE_WALLBOUNDARY ) CYCLE
-    Face => Particles % StopFace(i)
 
-    IF ( Face % TYPE % DIMENSION==1 ) THEN
+    IF ( dim==2 ) THEN
+       Face => Mesh % Edges(Particles % FaceIndex(i))
        FaceInterface  => Mesh % ParallelInfo % EdgeInterface
        Neighbours => Mesh % ParallelInfo %  &
           EdgeNeighbourList(Face % ElementIndex) % Neighbours
     ELSE
+      Face => Mesh % Faces(Particles % FaceIndex(i))
       FaceInterface => Mesh % ParallelInfo % FaceInterface
       Neighbours => Mesh % ParallelInfo %  &
          FaceNeighbourList(Face % ElementIndex) % Neighbours
@@ -375,12 +386,12 @@ SUBROUTINE ChangeParticlePartition(Particles)
       IF ( Face % BoundaryInfo % Constraint > 0 ) &
         CALL Warn("ChangeParticlePartition", "is this a BC after all?")
 
-      NextPart = ParEnv % MyPE
+      nextPart = ParEnv % MyPE
       DO j=1,SIZE(Neighbours)
         IF ( ParEnv % Mype /= Neighbours(j) ) THEN
           Particles % Status(i) = PARTICLE_PARTBOUNDARY
           nextPart = Neighbours(j);
-          Info(perm(nextPart)) % n=Info(perm(nextPart)) % n+1
+          Info(perm(nextPart+1)) % n=Info(perm(nextPart+1)) % n+1
           EXIT
         END IF
       END DO
@@ -390,6 +401,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
   !
   ! Collect particles to be sent to neighbours:
   ! -------------------------------------------
+
   DO i=1,NoPartitions
     ALLOCATE( Info(i) % Gindex(Info(i) % n), Info(i) % Particles(Info(i) % n) )
     Info(i) % n = 0
@@ -397,20 +409,21 @@ SUBROUTINE ChangeParticlePartition(Particles)
 
   DO i=1,Particles % NumberOfParticles
     IF( Particles % Status(i) /= PARTICLE_PARTBOUNDARY ) CYCLE
-    Face => Particles % StopFace(i)
 
-    IF ( Face % TYPE % DIMENSION==1 ) THEN
+    IF ( dim==2 ) THEN
+       Face => Mesh % Edges(Particles % FaceIndex(i))
        FaceInterface  => Mesh % ParallelInfo % EdgeInterface
        Neighbours => Mesh % ParallelInfo %  &
           EdgeNeighbourList(Face % ElementIndex) % Neighbours
     ELSE
+      Face => Mesh % Faces(Particles % FaceIndex(i))
       FaceInterface => Mesh % ParallelInfo % FaceInterface
       Neighbours => Mesh % ParallelInfo %  &
          FaceNeighbourList(Face % ElementIndex) % Neighbours
     END IF
 
     IF ( FaceInterface(Face % ElementIndex) ) THEN
-      NextPart = ParEnv % MyPE
+      nextPart = ParEnv % MyPE
       DO j=1,SIZE(Neighbours)
         IF ( ParEnv % Mype /= Neighbours(j) ) THEN
           nextPart = Neighbours(j);
@@ -418,7 +431,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
         END IF
       END DO
       Particles % Status(i) = PARTICLE_LOST
-      j = Perm(nextPart)
+      j = Perm(nextPart+1)
       IF ( j==0 ) THEN
         CALL Warn( 'ChangeParticlePartition', 'Neighbouring partition not found?')
         CYCLE
@@ -444,11 +457,32 @@ SUBROUTINE ChangeParticlePartition(Particles)
       CALL MPI_BSEND( Info(j) % Gindex, n, MPI_INTEGER, i-1, &
                 1001, MPI_COMM_WORLD, ierr )
 
-      CALL MPI_BSEND( Particles % Coordinate(Info(j) % Particles,1:dim), &
+      ALLOCATE(Buf(n*dim))
+      DO k=1,dim
+        DO l=1,n
+          Buf(n*(k-1)+l) = Particles % Coordinate(Info(j) % Particles(l),k)
+        END DO
+      END DO
+      CALL MPI_BSEND( buf, &
           n*dim, MPI_DOUBLE_PRECISION, i-1, 1002, MPI_COMM_WORLD, ierr )
 
-      CALL MPI_BSEND( Particles % Dt(Info(j) % Particles), &
+      DO l=1,n
+        Buf(l) = Particles % Dt(Info(j) % Particles(l))
+      END DO
+      CALL MPI_BSEND( buf, &
               n, MPI_DOUBLE_PRECISION, i-1, 1003, MPI_COMM_WORLD, ierr )
+
+      IF ( ASSOCIATED(Particles % Velocity) ) then
+        DO k=1,dim
+          DO l=1,n
+            Buf(n*(k-1)+l) = Particles % Velocity(Info(j) % Particles(l),k)
+          END DO
+        END DO
+
+        CALL MPI_BSEND( buf, &
+            n*dim, MPI_DOUBLE_PRECISION, i-1, 1004, MPI_COMM_WORLD, ierr )
+      END IF
+      DEALLOCATE(Buf)
     END IF
   END DO
 
@@ -470,9 +504,12 @@ SUBROUTINE ChangeParticlePartition(Particles)
   END IF
 
   DO i=1,NoPartitions
+
     CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
           1000, MPI_COMM_WORLD, status, ierr )
     IF ( n<=0 ) CYCLE
+
+    proc = status(MPI_SOURCE)
 
     IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
        n_part = Particles % NumberOfParticles+n*4
@@ -480,7 +517,6 @@ SUBROUTINE ChangeParticlePartition(Particles)
     END IF
 
     ALLOCATE(Indexes(n))
-    proc = status(MPI_SOURCE)
 
     CALL MPI_RECV( Indexes, n, MPI_INTEGER, proc, &
           1001, MPI_COMM_WORLD, status, ierr )
@@ -488,7 +524,10 @@ SUBROUTINE ChangeParticlePartition(Particles)
     n_part=Particles % NumberOfParticles
     DO j=1,n
       k=SearchIAItem( nFaces, Faces, Indexes(j) )
-      IF ( k<=0 ) STOP 'failed'
+      IF ( k<=0 ) THEN
+         print*,parenv % mype, 'failed'
+         cycle
+      END IF
 
       Face => Faces(k) 
       Parent => Face % BoundaryInfo % Left
@@ -500,12 +539,36 @@ SUBROUTINE ChangeParticlePartition(Particles)
       Particles % ElementIndex(n_part) = Parent % ElementIndex
     END DO
 
+    ALLOCATE(Buf(n*dim))
+
     n_part=Particles % NumberOfParticles
-    CALL MPI_RECV( Particles % Coordinate(n_part+1:n_part+n,1:dim),  n*dim, &
+    CALL MPI_RECV( buf, n*dim, &
         MPI_DOUBLE_PRECISION, proc, 1002, MPI_COMM_WORLD, status, ierr )
 
-    CALL MPI_RECV( Particles % Dt(n_part+1:n_part+n),  n, &
+    DO k=1,dim
+      DO l=1,n
+        Particles % Coordinate(n_part+l,k)=Buf(n*(k-1)+l)
+      END DO
+    END DO
+
+    CALL MPI_RECV( Buf, n, &
         MPI_DOUBLE_PRECISION, proc, 1003, MPI_COMM_WORLD, status, ierr )
+
+    DO l=1,n
+      Particles % Dt(n_part+l) = Buf(l)
+    END DO
+
+    IF ( ASSOCIATED(Particles % Velocity) ) then
+      CALL MPI_RECV( buf,  n*dim, &
+          MPI_DOUBLE_PRECISION, proc, 1004, MPI_COMM_WORLD, status, ierr )
+
+      DO k=1,dim
+        DO l=1,n
+          Particles % Velocity(n_part+l,k)=Buf(n*(k-1)+l)
+        END DO
+      END DO
+    END IF
+    DEALLOCATE(Buf)
 
     Particles % NumberOfParticles = n_part+n
     DEALLOCATE(Indexes)
@@ -776,7 +839,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   END IF
 
   
-  IF( InitMethod(1:5) == 'box') THEN
+  IF( InitMethod(1:3) == 'box') THEN
     Eps = GetCReal( Params,'Box Particle Boundary Thickness',GotIt)
     IF(.NOT. GotIt) eps = 1.0d-8
     
@@ -1049,9 +1112,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       END IF
     END DO
   ELSE
-    DO i=1, BulkElement % TYPE % NumberOfEdges  
+    DO i=1, BulkElement % Type % NumberOfEdges  
       j = BulkElement % EdgeIndexes(i)
-      BoundaryElement => Mesh % Edges( j )
+      BoundaryElement => Mesh % Edges(j)
       CALL GetElementNodes(BoundaryNodes,BoundaryElement)
      
       Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
@@ -1165,14 +1228,14 @@ END SUBROUTINE LocateParticleInMeshOctree
 ! bulk element.
 !-------------------------------------------------------------------------
 SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
-    ParticleStatus, StopFaceElement, Lambda )
+    ParticleStatus, StopFaceIndex, Lambda )
   
   INTEGER :: ElementIndex
   REAL(KIND=dp) :: Rinit(3), Rfin(3)
   LOGICAL :: Init
   REAL(KIND=dp), OPTIONAL :: Lambda
   INTEGER :: ParticleStatus
-  TYPE(Element_t), POINTER, OPTIONAL :: StopFaceElement
+  INTEGER, OPTIONAL :: StopFaceIndex
 
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
@@ -1211,7 +1274,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
 
 
   ParticleStatus = PARTICLE_LOST
-  IF( PRESENT (StopFaceElement) ) NULLIFY( StopFaceElement ) 
+  IF( PRESENT (StopFaceIndex) ) StopFaceIndex=0
 
   IF( PRESENT( Lambda ) ) Lambda = 1.0_dp
   
@@ -1246,7 +1309,6 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
       Rtmp = Rinit
     END IF
     
-    
     CALL SegmentElementIntersection(Mesh,Element,&
         Rtmp,Rfin,MinLambda,FaceElement )
     
@@ -1267,7 +1329,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
       Rtmp = Rfin
       EXIT
     ELSE 
-      LeftElement => FaceElement % BoundaryInfo % Left
+      LeftElement  => FaceElement % BoundaryInfo % Left
       RightElement => FaceElement % BoundaryInfo % Right
       
       IF( ASSOCIATED( LeftElement) .AND. ASSOCIATED(RightElement)) THEN
@@ -1280,7 +1342,6 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
         IF( StopAtFace .AND. .NOT. DoInit ) ParticleStatus = PARTICLE_FACEBOUNDARY
       ELSE
         ParticleStatus = PARTICLE_WALLBOUNDARY
-! TODO: add particle face element pointer...
       END IF
       
       ! There are different reasons why the particle is only integrated until the face
@@ -1290,7 +1351,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
         
         IF( PRESENT( Lambda ) ) Lambda = MinLambda
         Rtmp = Rinit + MinLambda * (Rfin - Rinit) 
-        StopFaceElement => FaceElement
+        StopFaceIndex = FaceElement % ElementIndex
         EXIT                      
       END IF
     END IF
@@ -1316,7 +1377,7 @@ SUBROUTINE LocateParticles( Particles )
   INTEGER :: Status, ElementIndex, No, NoParticles, dim, PartChanges
   REAL(KIND=dp) :: Rinit(3), Rfin(3)
   LOGICAL :: InitLocation
-  TYPE(Element_t), POINTER :: FaceElement
+  INTEGER :: FaceIndex
   REAL(KIND=dp) :: Lambda
 
   
@@ -1340,8 +1401,9 @@ SUBROUTINE LocateParticles( Particles )
     ! routine the initial coordinates should really not be rfin!!
 
     CALL LocateParticleInMeshMarch(ElementIndex, Rfin, Rfin, InitLocation, &
-        Status, FaceElement, Lambda )
+        Status, FaceIndex, Lambda )
 
+    Particles % FaceIndex(No) = FaceIndex
     Particles % Status(No) = Status
     Particles % ElementIndex(No) = ElementIndex
     
@@ -1786,12 +1848,18 @@ SUBROUTINE ParticleAdvanceTime( Particles, dtime )
   TYPE(Particle_t) :: Particles
   REAL(KIND=dp) :: dtime
 
-  Particles % Velocity = Particles % Velocity + &
-      dtime * Particles % Acceleration
-  Particles % Acceleration = 0.0_dp
+  INTEGER :: No
+
+  DO No=1,Particles % NumberOfParticles
+    IF ( Particles % Status(No)==PARTICLE_LOST ) CYCLE
+
+    Particles % Velocity(No,:) = Particles % Velocity(No,:) + &
+        dtime * Particles % Acceleration(No,:)
+    Particles % Acceleration(No,:)= 0.0_dp
   
-  Particles % Coordinate = Particles % Coordinate + &
-      dtime * Particles % Velocity
+    Particles % Coordinate(No,:) = Particles % Coordinate(No,:) + &
+        dtime * Particles % Velocity(No,:)
+  END DO
 END SUBROUTINE ParticleAdvanceTime
 
 
@@ -1807,11 +1875,11 @@ SUBROUTINE ParticleBoxLimits(Particles)
   TYPE(Particle_t) :: Particles
 
   TYPE(Solver_t), POINTER :: Solver
-  REAL(KIND=dp) :: Coord(3), Velo(3)  
+  REAL(KIND=dp) :: Coord(3), Velo(3)  , s
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Params
   REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), Ymin, Ymax, Zmin, Zmax
-  INTEGER :: i,j,dim
+  INTEGER :: i,j,dim, ierr
   LOGICAL :: Mapped,Reflect,Periodic,Visited = .FALSE.
   INTEGER :: Operations, No, NoParticles, Status
   
@@ -1826,13 +1894,33 @@ SUBROUTINE ParticleBoxLimits(Particles)
     Periodic = GetLogical( Params,'Periodic BC')
     IF(Reflect) Periodic = .FALSE.
     
-    MinCoord(1) = MINVAL( Mesh % Nodes % x ) 
-    MinCoord(2) = MINVAL( Mesh % Nodes % y ) 
-    MinCoord(3) = MINVAL( Mesh % Nodes % z ) 
+    MinCoord(1) = MINVAL(Mesh % Nodes % x)
+    MinCoord(2) = MINVAL(Mesh % Nodes % y)
+    MinCoord(3) = MINVAL(Mesh % Nodes % z)
     
-    MaxCoord(1) = MAXVAL( Mesh % Nodes % x ) 
-    MaxCoord(2) = MAXVAL( Mesh % Nodes % y ) 
-    MaxCoord(3) = MAXVAL( Mesh % Nodes % z ) 
+    MaxCoord(1) = MAXVAL(Mesh % Nodes % x)
+    MaxCoord(2) = MAXVAL(Mesh % Nodes % y)
+    MaxCoord(3) = MAXVAL(Mesh % Nodes % z)
+
+     s = mincoord(1)
+     CALL MPI_ALLREDUCE( s, mincoord(1), 1, MPI_DOUBLE_PRECISION, &
+            MPI_MIN, MPI_COMM_WORLD, ierr )
+     s = mincoord(2)
+     CALL MPI_ALLREDUCE( s, mincoord(2), 1, MPI_DOUBLE_PRECISION, &
+            MPI_MIN, MPI_COMM_WORLD, ierr )
+     s = mincoord(3)
+     CALL MPI_ALLREDUCE( s, mincoord(3), 1, MPI_DOUBLE_PRECISION, &
+            MPI_MIN, MPI_COMM_WORLD, ierr )
+
+     s = maxcoord(1)
+     CALL MPI_ALLREDUCE( s, maxcoord(1), 1, MPI_DOUBLE_PRECISION, &
+            MPI_MAX, MPI_COMM_WORLD, ierr )
+     s = maxcoord(2)
+     CALL MPI_ALLREDUCE( s, maxcoord(2), 1, MPI_DOUBLE_PRECISION, &
+            MPI_MAX, MPI_COMM_WORLD, ierr )
+     s = maxcoord(3)
+     CALL MPI_ALLREDUCE( s, maxcoord(3), 1, MPI_DOUBLE_PRECISION, &
+            MPI_MAX, MPI_COMM_WORLD, ierr )
     
     Visited = .TRUE.
   END IF
@@ -1984,6 +2072,7 @@ END SUBROUTINE ParticleBoxLimits
       END IF
       DO i = 1, NoParticles
         IF( Particles % Status(i) < MinSaveStatus ) CYCLE
+if ( particles % status(i) == PARTICLE_LOST ) cycle
         CALL WriteParticleLine( dim, i )        
       END DO
       CALL CloseParticleFile()
@@ -2054,17 +2143,15 @@ END SUBROUTINE ParticleBoxLimits
         IF( .NOT. Visited ) THEN
           CALL Info( 'ParticleTracker', 'Saving particle paths to file: '//TRIM(FileName), Level=4 )
         END IF
-      ELSE IF( FileNo < 10 ) THEN
-        IF( FileNo == 1 .AND. .NOT. Visited ) THEN
+      ELSE
+        IF ( FileNo==1 .AND.  .NOT. Visited ) THEN
           WRITE( Message, * ) 'Saving particle paths to files: ', TRIM(FilePrefix)//'_*.dat'
           CALL Info( 'ParticleTracker', Message, Level=4 )
         END IF
-        WRITE( FileName,'(A,A,I1,A)') TRIM(FilePrefix),'_',fileno,'.dat'
-      ELSE IF( FileNo < 100 ) THEN
-        WRITE( FileName,'(A,A,I2,A)') TRIM(FilePrefix),'_',fileno,'.dat'
-      ELSE IF( FileNo < 1000 ) THEN
-        WRITE( FileName,'(A,A,I3,A)') TRIM(FilePrefix),'_',fileno,'.dat'
+        FileName=TRIM(FilePrefix)//'_'//TRIM(i2s(fileno))//'.dat'
       END IF
+      IF ( ParEnv % Pes>1 ) FileName=TRIM(FileName)//TRIM(i2s(ParEnv % myPE))
+
       
       IF( VisitedTimes == 1 .OR. NumberFilesBySteps ) THEN
         OPEN (10, FILE=FileName )
