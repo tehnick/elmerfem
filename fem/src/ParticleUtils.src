@@ -328,14 +328,14 @@ END SUBROUTINE ReleaseWaitingParticles
 ! Subroutine for chanching the partition of particles that
 ! cross the partition boundary.
 !---------------------------------------------------------
-SUBROUTINE ChangeParticlePartition(Particles) 
+FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
 !---------------------------------------------------------
   TYPE(Particle_t) :: Particles
 !---------------------------------------------------------
   TYPE(Element_t), POINTER :: Face, Parent, Faces(:)
 
   INTEGER i,j,k,l,m,n,dim,NoPartitions, nextPart, nFaces, &
-      Proc, ierr, status(MPI_STATUS_SIZE), n_part
+      Proc, ierr, status(MPI_STATUS_SIZE), n_part, nReceived
 
   INTEGER, ALLOCATABLE :: Perm(:), Indexes(:), Neigh(:), &
            Recv_parts(:), Requests(:)
@@ -353,6 +353,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
   TYPE(ExchgInfo_t), ALLOCATABLE :: Info(:)
 !---------------------------------------------------------
 
+  nReceived = 0
   IF( ParEnv% PEs == 1 ) RETURN
 
   Mesh => GetMesh()
@@ -556,7 +557,7 @@ SUBROUTINE ChangeParticlePartition(Particles)
         Parent => Face % BoundaryInfo % Right
 
       n_part = n_part+1
-      Particles % Status(n_part) = PARTICLE_FACEBOUNDARY
+      Particles % Status(n_part) = PARTICLE_PARTBOUNDARY
       Particles % ElementIndex(n_part) = Parent % ElementIndex
     END DO
 
@@ -594,6 +595,11 @@ SUBROUTINE ChangeParticlePartition(Particles)
     Particles % NumberOfParticles = n_part+n
     DEALLOCATE(Indexes)
   END DO
+
+  n = SUM(Recv_Parts)
+  CALL MPI_ALLREDUCE( n, nReceived, 1, MPI_INTEGER, &
+          MPI_SUM, MPI_COMM_WORLD, ierr )
+
   DEALLOCATE(Recv_Parts,Neigh,Requests)
 ! CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
   
@@ -649,7 +655,7 @@ CONTAINS
       END IF
     END DO
   END FUNCTION SearchIAItem
-END SUBROUTINE ChangeParticlePartition
+END FUNCTION ChangeParticlePartition
   
 
 !---------------------------------------------------------
@@ -1391,9 +1397,10 @@ END SUBROUTINE LocateParticleInMeshMarch
 !------------------------------------------------------------------------
 ! Locate all the new elements of the particles
 !-------------------------------------------------------------------------
-SUBROUTINE LocateParticles( Particles )
+SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
 
   TYPE(Particle_t) :: Particles
+  LOGICAL, OPTIONAL :: PartitionChangesOnly
 
   INTEGER :: Status, ElementIndex, No, NoParticles, dim, PartChanges
   REAL(KIND=dp) :: Rinit(3), Rfin(3)
@@ -1410,6 +1417,10 @@ SUBROUTINE LocateParticles( Particles )
     Status = Particles % Status( No )
     IF( Status == PARTICLE_LOST ) CYCLE
     IF( Status < PARTICLE_INITIATED ) CYCLE
+
+    IF ( PRESENT(PartitionChangesOnly) ) THEN
+      IF ( PartitionChangesOnly .AND. Status /= PARTICLE_PARTBOUNDARY ) CYCLE
+    END IF
     
     ElementIndex = Particles % ElementIndex( No )
     
