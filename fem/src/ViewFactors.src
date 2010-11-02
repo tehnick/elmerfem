@@ -312,6 +312,7 @@
 	 LeftEmis = .FALSE.
          Parent => Element % BoundaryInfo % Left
          IF ( ASSOCIATED(Parent) ) THEN
+
            LeftBody  = Parent % BodyId
            DO i=1,Parent % TYPE % NumberOfNodes
              gotIt =.TRUE.
@@ -326,8 +327,15 @@
                EXIT
              END IF
            END DO
-           MatId = ListGetInteger( Model % Bodies(LeftBody) % Values, &
-            'Material', GotIt)
+	   IF( LeftBody > 0 ) THEN 
+             MatId = ListGetInteger( Model % Bodies(LeftBody) % Values, &
+              'Material', GotIt)
+	     IF( MatId == 0 ) THEN
+               CALL Warn('ViewFactors','Invalid material index in body, perhaps none')
+             END IF 
+           ELSE
+             CALL Warn('ViewFactors','LeftBody not associated')
+           END IF
            LeftEmis = ListCheckPresent( Model % Materials(MatId) % Values,&
 	    'Emissivity') 
          END IF
@@ -358,7 +366,9 @@
 	    'Emissivity') 
          END IF
 
-! If emissivity given in either side then make the radiation target body to be the other.
+
+	! If emissivity given in either side then make the radiation target body to be the other.
+        !----------------------------------------------------------------------------------------
 	 GotIt = .FALSE.
 	 IF( RightEmis .AND. LeftEmis ) THEN
 	   CALL Warn('ViewFactors','Emissivity defined on both sides!')
@@ -478,7 +488,7 @@
            s = s + Factors((i-1)*N+j)
          END DO
          
-	 IF( s < 0.1 ) THEN
+	 IF( .NOT. RadiationOpen .AND. s < 0.1 ) THEN
 	  print *,'Problematic row sum',i,s,n
 	  j = Surfaces(2*i-1)
 	  print *,'coord 1:',j,Coords(2*j-1),Coords(2*j)
