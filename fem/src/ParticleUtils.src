@@ -334,21 +334,22 @@ SUBROUTINE ChangeParticlePartition(Particles)
 !---------------------------------------------------------
   TYPE(Element_t), POINTER :: Face, Parent, Faces(:)
 
-  INTEGER i,j,k,l,n,dim,NoPartitions, nextPart, nFaces, &
+  INTEGER i,j,k,l,m,n,dim,NoPartitions, nextPart, nFaces, &
       Proc, ierr, status(MPI_STATUS_SIZE), n_part
 
-  INTEGER, ALLOCATABLE :: Perm(:), Indexes(:)
+  INTEGER, ALLOCATABLE :: Perm(:), Indexes(:), Neigh(:), &
+           Recv_parts(:), Requests(:)
   TYPE(Mesh_t), POINTER :: Mesh
 
   INTEGER, POINTER :: Neighbours(:)
   LOGICAL, POINTER :: FaceInterface(:)
 
   TYPE ExchgInfo_t
-    INTEGER :: n
+    INTEGER :: n=0
     INTEGER, POINTER :: Gindex(:), Particles(:)
   END TYPE ExchgInfo_t
-real(kind=dp), allocatable :: buf(:)
 
+  REAL(KIND=dp), ALLOCATABLE :: Buf(:)
   TYPE(ExchgInfo_t), ALLOCATABLE :: Info(:)
 !---------------------------------------------------------
 
@@ -357,10 +358,10 @@ real(kind=dp), allocatable :: buf(:)
   Mesh => GetMesh()
   dim = Particles % dim
 
-
   ! Count & Identify neighbouring partitions:
   ! -----------------------------------------
-  ALLOCATE(Perm(ParEnv % PEs))
+  NoPartitions = COUNT(ParEnv % IsNeighbour)
+  ALLOCATE(Perm(ParEnv % PEs), Neigh(NoPartitions) )
   Perm = 0
 
   NoPartitions=0
@@ -369,6 +370,7 @@ real(kind=dp), allocatable :: buf(:)
     IF ( ParEnv % IsNeighbour(i) ) THEN
       NoPartitions=NoPartitions+1
       Perm(i) = NoPartitions
+      Neigh(NoPartitions) = i-1
     END IF
   END DO
 
@@ -408,6 +410,26 @@ real(kind=dp), allocatable :: buf(:)
       END DO
     END IF
   END DO
+
+  !
+  ! Receive interface sizes:
+  !--------------------------
+  ALLOCATE( Recv_Parts(NoPartitions), Requests(NoPartitions) )
+  DO i=1,NoPartitions
+    CALL MPI_iRECV( Recv_Parts(i),1, MPI_INTEGER, Neigh(i), &
+         1000, MPI_COMM_WORLD, requests(i), ierr )
+  END DO
+
+  DO i=1,NoPartitions
+    CALL MPI_BSEND( Info(i) % n, 1, MPI_INTEGER, Neigh(i), &
+            1000, MPI_COMM_WORLD, ierr )
+  END DO
+  CALL MPI_WaitAll( NoPartitions, Requests, MPI_STATUSES_IGNORE, ierr )
+
+  n = SUM(Recv_Parts)
+  IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
+    CALL AllocateParticles(Particles,Particles % NumberOfParticles+n*2,dim)
+  END IF
 
   !
   ! Collect particles to be sent to neighbours:
@@ -457,44 +479,39 @@ real(kind=dp), allocatable :: buf(:)
 
   ! Send particles:
   ! ---------------
-  DO i=1,ParEnv % PEs
-    j = Perm(i)
-    IF ( j==0 ) CYCLE
-
+  DO j=1,NoPartitions
     n = Info(j) % n
-    CALL MPI_BSEND( n, 1, MPI_INTEGER, i-1, &
-           1000, MPI_COMM_WORLD, ierr )
-    IF ( n>0 ) THEN
-      CALL MPI_BSEND( Info(j) % Gindex, n, MPI_INTEGER, i-1, &
-                1001, MPI_COMM_WORLD, ierr )
+    IF ( n<=0 ) CYCLE
 
-      ALLOCATE(Buf(n*dim))
+    CALL MPI_BSEND( Info(j) % Gindex, n, MPI_INTEGER, Neigh(j), &
+               1001, MPI_COMM_WORLD, ierr )
+
+    ALLOCATE(Buf(2*n*dim+n))
+    m = 0
+    DO k=1,dim
+      DO l=1,n
+        m = m + 1
+        Buf(m) = Particles % Coordinate(Info(j) % Particles(l),k)
+      END DO
+    END DO
+    DO l=1,n
+      m = m + 1
+      Buf(m) = Particles % Dt(Info(j) % Particles(l))
+    END DO
+
+    IF ( ASSOCIATED(Particles % Velocity) ) THEN
       DO k=1,dim
         DO l=1,n
-          Buf(n*(k-1)+l) = Particles % Coordinate(Info(j) % Particles(l),k)
+          m = m + 1
+          Buf(m) = Particles % Velocity(Info(j) % Particles(l),k)
         END DO
       END DO
-      CALL MPI_BSEND( buf, &
-          n*dim, MPI_DOUBLE_PRECISION, i-1, 1002, MPI_COMM_WORLD, ierr )
-
-      DO l=1,n
-        Buf(l) = Particles % Dt(Info(j) % Particles(l))
-      END DO
-      CALL MPI_BSEND( buf, &
-              n, MPI_DOUBLE_PRECISION, i-1, 1003, MPI_COMM_WORLD, ierr )
-
-      IF ( ASSOCIATED(Particles % Velocity) ) then
-        DO k=1,dim
-          DO l=1,n
-            Buf(n*(k-1)+l) = Particles % Velocity(Info(j) % Particles(l),k)
-          END DO
-        END DO
-
-        CALL MPI_BSEND( buf, &
-            n*dim, MPI_DOUBLE_PRECISION, i-1, 1004, MPI_COMM_WORLD, ierr )
-      END IF
-      DEALLOCATE(Buf)
     END IF
+
+    CALL MPI_BSEND( Buf, m, MPI_DOUBLE_PRECISION, &
+        Neigh(j), 1002, MPI_COMM_WORLD, ierr )
+
+    DEALLOCATE(Buf)
   END DO
 
   DEALLOCATE(Perm)
@@ -514,18 +531,12 @@ real(kind=dp), allocatable :: buf(:)
     nFaces = Mesh % NumberOfFaces
   END IF
 
-  DO i=1,NoPartitions
 
-    CALL MPI_RECV( n, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-          1000, MPI_COMM_WORLD, status, ierr )
+  DO i=1,NoPartitions
+    n = Recv_Parts(i)
     IF ( n<=0 ) CYCLE
 
-    proc = status(MPI_SOURCE)
-
-    IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
-      CALL AllocateParticles(Particles,Particles % NumberOfParticles+n*4,dim)
-    END IF
-
+    proc = Neigh(i)
     ALLOCATE(Indexes(n))
 
     CALL MPI_RECV( Indexes, n, MPI_INTEGER, proc, &
@@ -549,32 +560,32 @@ real(kind=dp), allocatable :: buf(:)
       Particles % ElementIndex(n_part) = Parent % ElementIndex
     END DO
 
-    ALLOCATE(Buf(n*dim))
-
+    ALLOCATE(Buf(2*n*dim+n))
     n_part=Particles % NumberOfParticles
-    CALL MPI_RECV( buf, n*dim, &
-        MPI_DOUBLE_PRECISION, proc, 1002, MPI_COMM_WORLD, status, ierr )
 
+    m = n*dim+n
+    IF ( ASSOCIATED(Particles % Velocity) ) m=m+n*dim
+    CALL MPI_RECV( Buf, m, MPI_DOUBLE_PRECISION, proc, &
+           1002, MPI_COMM_WORLD, status, ierr )
+
+    m = 0
     DO k=1,dim
       DO l=1,n
-        Particles % Coordinate(n_part+l,k)=Buf(n*(k-1)+l)
+        m = m + 1
+        Particles % Coordinate(n_part+l,k)=Buf(m)
       END DO
     END DO
 
-    CALL MPI_RECV( Buf, n, &
-        MPI_DOUBLE_PRECISION, proc, 1003, MPI_COMM_WORLD, status, ierr )
-
     DO l=1,n
-      Particles % Dt(n_part+l) = Buf(l)
+      m = m + 1
+      Particles % Dt(n_part+l) = Buf(m)
     END DO
 
-    IF ( ASSOCIATED(Particles % Velocity) ) then
-      CALL MPI_RECV( buf,  n*dim, &
-          MPI_DOUBLE_PRECISION, proc, 1004, MPI_COMM_WORLD, status, ierr )
-
+    IF ( ASSOCIATED(Particles % Velocity) ) THEN
       DO k=1,dim
         DO l=1,n
-          Particles % Velocity(n_part+l,k)=Buf(n*(k-1)+l)
+          m = m + 1
+          Particles % Velocity(n_part+l,k)=Buf(m)
         END DO
       END DO
     END IF
@@ -583,8 +594,8 @@ real(kind=dp), allocatable :: buf(:)
     Particles % NumberOfParticles = n_part+n
     DEALLOCATE(Indexes)
   END DO
-
-  CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+  DEALLOCATE(Recv_Parts,Neigh,Requests)
+! CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
   
 
 ! PRINT *,'Implement change in partition!'
