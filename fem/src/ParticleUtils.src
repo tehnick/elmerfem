@@ -136,7 +136,7 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
   REAL(KIND=dp), POINTER :: Velocity(:,:), Acceleration(:,:), &
        Coordinate(:,:), Distance(:),Dt(:)
   INTEGER, POINTER :: Status(:), ElementIndex(:), FaceIndex(:)
-  INTEGER :: PrevNoParticles, dofs
+  INTEGER :: PrevNoParticles, dofs, No, n
   
   IF( NoParticles <= Particles % MaxNumberOfParticles ) THEN
     CALL Info('AllocateParticles','There are already enough particles')
@@ -145,6 +145,7 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
     WRITE(Message,*) 'Allocating number of particles:',NoParticles
     CALL Info('AllocateParticles',Message)    
   END IF
+
   IF(PRESENT(TimeOrder)) THEN
     Particles % TimeOrder = TimeOrder
   ELSE
@@ -191,55 +192,59 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
     Particles % FaceIndex = 0
 
   ELSE 
-    PrevNoParticles = Particles % MaxNumberOfParticles 
-
-    CALL Warn('AllocateParticles','Check some of the components!')
-
+    PrevNoParticles = Particles % NumberOfParticles 
+    
     Coordinate => Particles % Coordinate
     Velocity => Particles % Velocity
     Acceleration => Particles % Acceleration
     Distance => Particles % Distance
     Status => Particles % Status
     Dt => Particles % Dt
+    FaceIndex => Particles % FaceIndex
     ElementIndex => Particles % ElementIndex
 
+    ALLOCATE( Particles % Coordinate(NoParticles,dofs) )
     IF ( ASSOCIATED(Velocity) ) &
       ALLOCATE( Particles % Velocity(NoParticles,dofs) )
     IF ( ASSOCIATED(Acceleration) ) &
       ALLOCATE( Particles % Acceleration(NoParticles,dofs) )
-    ALLOCATE( Particles % Coordinate(NoParticles,dofs) )
     ALLOCATE( Particles % Distance(NoParticles) )
     ALLOCATE( Particles % Status(NoParticles) )
     ALLOCATE( Particles % Dt(NoParticles) )
+    ALLOCATE( Particles % FaceIndex(NoParticles))
     ALLOCATE( Particles % ElementIndex(NoParticles) )
 
-    Particles % Coordinate(1:PrevNoParticles,:) = Coordinate
-    IF ( ASSOCIATED(Velocity) ) & 
-        Particles % Velocity(1:PrevNoParticles,:) = Velocity 
-    IF ( ASSOCIATED(Acceleration) ) & 
-        Particles % Acceleration(1:PrevNoParticles,:) = Acceleration
-    Particles % Distance(1:PrevNoParticles) = Distance
-    Particles % Dt(1:PrevNoParticles) = Dt
-    Particles % Status(1:PrevNoParticles) = Status
-    Particles % ElementIndex(1:PrevNoParticles) = ElementIndex
-    IF ( ASSOCIATED(Velocity) ) DEALLOCATE(Velocity)
-    IF ( ASSOCIATED(Acceleration) ) DEALLOCATE(Acceleration)
-    DEALLOCATE(Coordinate, Distance, Status, ElementIndex, Dt) 
+    ! Delete lost particles...
+    ! ------------------------
+    n = 0
+    DO No=1,PrevNoParticles
+      IF ( Status(No) == PARTICLE_LOST ) CYCLE
+      n=n+1
+      Particles % Coordinate(n,:) = Coordinate(No,:)
+      IF ( ASSOCIATED(Velocity) ) Particles % Velocity(n,:)=Velocity(No,:)
+      IF ( ASSOCIATED(Acceleration) ) Particles % Acceleration(n,:)=Acceleration(No,:)
+      Particles % Distance(n) = Distance(No)
+      Particles % Status(n) = Status(No)
+      Particles % Dt(n) = Dt(No)
+      Particles % FaceIndex(n) = FaceIndex(No)
+      Particles % ElementIndex(n) = ElementIndex(No)
+    END DO
+    PrevNoParticles = n
+    Particles % NumberOfParticles = n
 
-    IF ( ASSOCIATED(Velocity) ) & 
+    IF ( ASSOCIATED(Acceleration) ) DEALLOCATE(Acceleration)
+    IF ( ASSOCIATED(Velocity) ) DEALLOCATE(Velocity)
+    DEALLOCATE(Coordinate, Distance, Status, ElementIndex, Dt, FaceIndex) 
+
+    IF ( ASSOCIATED(Particles % Velocity) ) & 
        Particles % Velocity(PrevNoParticles+1:NoParticles,:) = 0.0_dp
-    IF ( ASSOCIATED(Acceleration) ) &
+    IF ( ASSOCIATED(Particles % Acceleration) ) &
        Particles % Acceleration(PrevNoParticles+1:NoParticles,:) = 0.0_dp
     Particles % Coordinate(PrevNoParticles+1:NoParticles,:) = 0.0_dp
     Particles % Dt(PrevNoParticles+1:NoParticles) = 0.0_dp
     Particles % Distance(PrevNoParticles+1:NoParticles) = 0.0_dp
     Particles % ElementIndex(PrevNoParticles+1:NoParticles) = 0
     Particles % Status(PrevNoParticles+1:NoParticles) = PARTICLE_ALLOCATED
-
-    FaceIndex => Particles % FaceIndex
-    ALLOCATE( Particles % FaceIndex(NoParticles))
-    Particles % FaceIndex(1:PrevNoParticles) = FaceIndex
-    DEALLOCATE( FaceIndex )
 
     Particles % MaxNumberOfParticles = NoParticles
   END IF
@@ -250,15 +255,21 @@ END SUBROUTINE AllocateParticles
 SUBROUTINE DestroyParticles(Particles) 
   TYPE(Particle_t) :: Particles
 
-  DEALLOCATE( Particles % Velocity ) 
+  IF ( ASSOCIATED(Particles % Velocity) ) &
+       DEALLOCATE( Particles % Velocity ) 
+
+  IF ( ASSOCIATED(Particles % Acceleration) ) &
+       DEALLOCATE( Particles % Acceleration )
+
   DEALLOCATE( Particles % Coordinate ) 
   DEALLOCATE( Particles % Distance ) 
   DEALLOCATE( Particles % Dt ) 
   DEALLOCATE( Particles % Status ) 
-  DEALLOCATE( Particles % ElementIndex ) 
   DEALLOCATE( Particles % FaceIndex )
-  Particles % MaxNumberOfParticles = 0
+  DEALLOCATE( Particles % ElementIndex ) 
+
   Particles % NumberOfParticles = 0
+  Particles % MaxNumberOfParticles = 0
   
 END SUBROUTINE DestroyParticles
 
@@ -512,8 +523,7 @@ real(kind=dp), allocatable :: buf(:)
     proc = status(MPI_SOURCE)
 
     IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
-       n_part = Particles % NumberOfParticles+n*4
-      CALL AllocateParticles(Particles,n_part,dim,Particles % TimeOrder)
+      CALL AllocateParticles(Particles,Particles % NumberOfParticles+n*4,dim)
     END IF
 
     ALLOCATE(Indexes(n))
@@ -1875,7 +1885,7 @@ SUBROUTINE ParticleBoxLimits(Particles)
   TYPE(Particle_t) :: Particles
 
   TYPE(Solver_t), POINTER :: Solver
-  REAL(KIND=dp) :: Coord(3), Velo(3)  , s
+  REAL(KIND=dp) :: Coord(3), Velo(3)  , s(3)
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Params
   REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), Ymin, Ymax, Zmin, Zmax
@@ -1902,24 +1912,12 @@ SUBROUTINE ParticleBoxLimits(Particles)
     MaxCoord(2) = MAXVAL(Mesh % Nodes % y)
     MaxCoord(3) = MAXVAL(Mesh % Nodes % z)
 
-     s = mincoord(1)
-     CALL MPI_ALLREDUCE( s, mincoord(1), 1, MPI_DOUBLE_PRECISION, &
-            MPI_MIN, MPI_COMM_WORLD, ierr )
-     s = mincoord(2)
-     CALL MPI_ALLREDUCE( s, mincoord(2), 1, MPI_DOUBLE_PRECISION, &
-            MPI_MIN, MPI_COMM_WORLD, ierr )
-     s = mincoord(3)
-     CALL MPI_ALLREDUCE( s, mincoord(3), 1, MPI_DOUBLE_PRECISION, &
+     s = mincoord
+     CALL MPI_ALLREDUCE( s, mincoord, 3, MPI_DOUBLE_PRECISION, &
             MPI_MIN, MPI_COMM_WORLD, ierr )
 
-     s = maxcoord(1)
-     CALL MPI_ALLREDUCE( s, maxcoord(1), 1, MPI_DOUBLE_PRECISION, &
-            MPI_MAX, MPI_COMM_WORLD, ierr )
-     s = maxcoord(2)
-     CALL MPI_ALLREDUCE( s, maxcoord(2), 1, MPI_DOUBLE_PRECISION, &
-            MPI_MAX, MPI_COMM_WORLD, ierr )
-     s = maxcoord(3)
-     CALL MPI_ALLREDUCE( s, maxcoord(3), 1, MPI_DOUBLE_PRECISION, &
+     s = maxcoord
+     CALL MPI_ALLREDUCE( s, maxcoord, 3, MPI_DOUBLE_PRECISION, &
             MPI_MAX, MPI_COMM_WORLD, ierr )
     
     Visited = .TRUE.
@@ -2026,7 +2024,7 @@ END SUBROUTINE ParticleBoxLimits
     LOGICAL :: Found, NumberFilesByParticles, NumberFilesBySteps
     REAL(KIND=dp), POINTER :: Coord(:,:), Velo(:,:), Dist(:)
     REAL(KIND=dp) :: time
-    TYPE(Mesh_t), POINTER :: Mesh
+    TYpe(Mesh_t), POINTER :: Mesh
     INTEGER, POINTER :: Status(:)
     INTEGER :: i,j,dim, NoParticles, MinSaveStatus
     INTEGER :: VisitedTimes = 0
