@@ -495,11 +495,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = 1.0_dp * SIZE(Var % Values)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.,ParOper)
 
-      CASE ('sum')
-        Value = VectorStatistics(Var,Oper)
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.FALSE.,ParOper)
-
-      CASE ('max','max abs','min','min abs','mean','variance')
+      CASE ('sum','sum abs','mean abs','max','max abs','min','min abs','mean','variance')
         Value = VectorStatistics(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.FALSE.,ParOper)
 
@@ -1114,8 +1110,9 @@ CONTAINS
 
     SELECT CASE(LocalOper)
       
-    CASE('nodes','elements','dofs','sum','int','volume','potential energy','convective energy','diffusive energy',&
-        'boundary sum','boundary dofs','boundary int','area','diffusive flux','convective flux')
+    CASE('nodes','elements','dofs','sum','sum abs','int','volume','potential energy','convective energy',&
+        'diffusive energy','boundary sum','boundary dofs','boundary int','area','diffusive flux',&
+        'convective flux')
       ParOper = 'sum'
             
     CASE('max','max abs','boundary max','boundary max abs')
@@ -1260,7 +1257,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: OperName
     REAL(KIND=dp) :: operx
     REAL(KIND=dp) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
-        Mean, Variance, sumx, sumxx, x, Variance2
+        Mean, Variance, sumx, sumxx, sumabsx, x, Variance2
     INTEGER :: Nonodes, i, j, k, l, NoDofs, sumi
     LOGICAL :: Initialized 
 
@@ -1268,6 +1265,7 @@ CONTAINS
     sumi = 0
     sumx = 0.0
     sumxx = 0.0
+    sumabsx = 0.0
 
     NoDofs = Var % Dofs
     IF(ASSOCIATED (Var % Perm)) THEN
@@ -1299,6 +1297,7 @@ CONTAINS
         sumi = sumi + 1
         sumx = sumx + x
         sumxx = sumxx + x*x
+        sumabsx = sumabsx + ABS( x )
         Maximum = MAX(x,Maximum)
         Minimum = MIN(x,Minimum)
         IF(ABS(x) > ABS(AbsMaximum) ) AbsMaximum = x
@@ -1325,6 +1324,9 @@ CONTAINS
       
     CASE ('sum')
       operx = sumx
+
+    CASE ('sum abs')
+      operx = sumabsx
       
     CASE ('max')
       operx = Maximum
@@ -1341,6 +1343,9 @@ CONTAINS
     CASE ('mean')
       operx = Mean
       
+    CASE ('mean abs')
+      operx = sumabsx / sumi
+
     CASE ('variance')
       operx = Variance
       
