@@ -1,4 +1,4 @@
-# Flow-structure interaction (FSI) test in 2D
+# Flow-structure interaction (FSI) test in 2D, bending beam
 #
 run:
 	$(F90) -c FsiStuff.f90
