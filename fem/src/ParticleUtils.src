@@ -1377,9 +1377,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
       
       ! There are different reasons why the particle is only integrated until the face
       IF( ParticleStatus == PARTICLE_WALLBOUNDARY .OR. &
-          ParticleStatus == PARTICLE_PARTBOUNDARY .OR. &
           ParticleStatus == PARTICLE_FACEBOUNDARY ) THEN
-        
         IF( PRESENT( Lambda ) ) Lambda = MinLambda
         Rtmp = Rinit + MinLambda * (Rfin - Rinit) 
         StopFaceIndex = FaceElement % ElementIndex
@@ -1390,9 +1388,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
     ! continue the search to new elements
     Element => NextElement
   END DO
-    
   ElementIndex = Element % ElementIndex
-
   
 END SUBROUTINE LocateParticleInMeshMarch
 
@@ -1442,10 +1438,6 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
     Particles % FaceIndex(No) = FaceIndex
     Particles % Status(No) = Status
     Particles % ElementIndex(No) = ElementIndex
-    
-    IF( Status == PARTICLE_PARTBOUNDARY ) THEN
-      PartChanges = PartChanges + 1
-    END IF
   END DO
   IF( PartChanges > 0 ) THEN
     PRINT *,'Number of PartitionChanges',PartChanges
