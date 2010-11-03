@@ -251,6 +251,75 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
 END SUBROUTINE AllocateParticles
 
 
+!----------------------------------------------------
+! Delete lost particles:
+!----------------------------------------------------
+SUBROUTINE DeleteLostParticles(Particles)
+  TYPE(Particle_t) :: Particles
+
+  INTEGER :: No, n, PrevNoParticles
+
+  PrevNoParticles = Particles % NumberOfParticles
+
+  n = 0
+  DO No=1,PrevNoParticles
+    IF ( Particles % Status(No) == PARTICLE_LOST ) CYCLE
+    n=n+1
+    IF ( n==No ) CYCLE
+
+    Particles % Coordinate(n,:) = Particles % Coordinate(No,:)
+    IF ( ASSOCIATED(Particles % Velocity) ) &
+      Particles % Velocity(n,:)=Particles % Velocity(No,:)
+    IF ( ASSOCIATED(Particles % Acceleration) ) &
+      Particles % Acceleration(n,:)=Particles % Acceleration(No,:)
+    Particles % Distance(n) = Particles % Distance(No)
+    Particles % Status(n) = Particles % Status(No)
+    Particles % Dt(n) = Particles % Dt(No)
+    Particles % FaceIndex(n) = Particles % FaceIndex(No)
+    Particles % ElementIndex(n) = Particles % ElementIndex(No)
+  END DO
+  Particles % NumberOfParticles = n
+
+  IF ( n<PrevNoParticles ) THEN
+    IF ( ASSOCIATED(Particles % Velocity) ) & 
+       Particles % Velocity(n+1:PrevNoParticles,:) = 0.0_dp
+
+    IF ( ASSOCIATED(Particles % Acceleration) ) &
+       Particles % Acceleration(n+1:PrevNoParticles,:) = 0._dp
+
+    Particles % Coordinate(n+1:PrevNoParticles,:) = 0._dp
+    Particles % Dt(n+1:PrevNoParticles) = 0._dp
+    Particles % Distance(n+1:PrevNoParticles) = 0._dp
+    Particles % ElementIndex(n+1:PrevNoParticles) = 0
+    Particles % Status(n+1:PrevNoParticles) = PARTICLE_ALLOCATED
+  END IF
+END SUBROUTINE DeleteLostParticles
+
+
+!----------------------------------------------------
+! Increase particle array size by given amount:
+!----------------------------------------------------
+SUBROUTINE IncreaseParticles(Particles,NoParticles)
+
+  TYPE(Particle_t) :: Particles
+  INTEGER :: NoParticles
+
+  INTEGER :: Maxn
+
+  ! Garbage collection:
+  ! -------------------
+  CALL DeleteLostParticles(Particles)
+  
+  ! Check if really need to allocate more space:
+  ! --------------------------------------------
+  Maxn = Particles % NumberOfParticles+NoParticles
+  IF ( Maxn > Particles % MaxNumberOfParticles ) &
+    CALL AllocateParticles( Particles,Maxn, &
+          Particles % Dim, Particles % TimeOrder )
+
+END SUBROUTINE IncreaseParticles
+
+
 
 SUBROUTINE DestroyParticles(Particles) 
   TYPE(Particle_t) :: Particles
@@ -529,7 +598,8 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
   ! ---------------
   n = SUM(Recv_Parts)
   IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
-    CALL AllocateParticles(Particles,Particles % NumberOfParticles+n*2,dim)
+    CALL IncreaseParticles( Particles, Particles % NumberOfParticles+2*n - &
+               Particles % MaxNumberOfParticles )
   END IF
 
   IF(Particles % dim==2 ) THEN
@@ -555,8 +625,8 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
     DO j=1,n
       k=SearchIAItem( nFaces, Faces, Indexes(j) )
       IF ( k<=0 ) THEN
-         print*,parenv % mype, 'failed'
-         cycle
+         PRINT*,ParEnv % myPE, 'failed'
+         CYCLE
       END IF
 
       Face => Faces(k) 
@@ -1402,7 +1472,7 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
   TYPE(Particle_t) :: Particles
   LOGICAL, OPTIONAL :: PartitionChangesOnly
 
-  INTEGER :: Status, ElementIndex, No, NoParticles, dim, PartChanges
+  INTEGER :: Status, ElementIndex, No, NoParticles, dim
   REAL(KIND=dp) :: Rinit(3), Rfin(3)
   LOGICAL :: InitLocation
   INTEGER :: FaceIndex
@@ -1410,7 +1480,6 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
 
   
   NoParticles = Particles % NumberOfParticles
-  PartChanges = 0
   dim = Particles % dim
   
   DO No = 1, NoParticles
@@ -1439,9 +1508,6 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
     Particles % Status(No) = Status
     Particles % ElementIndex(No) = ElementIndex
   END DO
-  IF( PartChanges > 0 ) THEN
-    PRINT *,'Number of PartitionChanges',PartChanges
-  END IF
 
 END SUBROUTINE LocateParticles
 
