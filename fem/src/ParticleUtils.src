@@ -550,6 +550,13 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
   END DO
 
 
+  n = 0
+  DO i=1,NoPartitions
+    n = n + Info(i) % n
+  END DO
+  n = 2*(n + 2*(2*n*dim+n) + MPI_BSEND_OVERHEAD*2*NoPartitions)
+  CALL CheckBuffer(n)
+
   ! Send particles:
   ! ---------------
   DO j=1,NoPartitions
