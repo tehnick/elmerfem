@@ -70,14 +70,14 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       Coord2(3), Accel2(3), Velo2(3), &
       Lambda, LocalCoords(3), Rinit(3),Rfin(3)
   REAL(KIND=dp) :: cput1,cput2,RealTime,CPUTime, Norm
-  REAL(KIND=dp), POINTER :: RhsVector(:), WeightVector(:)
+  REAL(KIND=dp), POINTER :: RhsVector(:), WeightVector(:), ForceVector(:)
 
   TYPE(Particle_t) :: Particles
 
 
   SAVE CollisionInteraction, FieldInteraction, ContactInteraction, &
       ParticlesToField, AnyInteraction, OutputInterval, Nstep, VisitedTimes, &
-      RhsVector, WeightVector
+      RhsVector, WeightVector, ForceVector, TimeOrder, ParticleInBox, Particles
 
 
 !------------------------------------------------------------------------------
@@ -133,15 +133,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       END IF
       RhsVector => Solver % Matrix % Rhs
       ALLOCATE( WeightVector( SIZE( RhsVector ) ) )
+      ALLOCATE( ForceVector( SIZE( RhsVector ) ) )      
     END IF
   END IF
 
+
+  Debug = ( VisitedTimes == 2 )
 
   ! If there is a variable to be solved, initialize the equation
   !----------------------------------------------------------------------
   IF( ParticlesToField ) THEN
     CALL DefaultInitialize()  
-    WeightVector = 0.0_dp
+    IF( VisitedTimes == 1 ) THEN
+      ForceVector = 0.0_dp
+      WeightVector = 0.0_dp
+    END IF
   END IF
 
 
@@ -193,6 +199,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     !--------------------------------------------------------------
     CALL ParticleInitializeTime( Particles )
 
+
+
     ! For testing purposes there are some BCs for rectangular boxes
     ! that ensure that particles are within the box
     !---------------------------------------------------------------
@@ -212,7 +220,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       END DO
       NoParticles = Particles % NumberOfParticles
     END IF
-
 
     
     ! Calculate the acceleration resulting from external fields in mesh
@@ -234,7 +241,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         CALL AddParticleCoord( Particles, No, 2, Accel )
       END DO
     END IF
-
 
     ! Add acceleration resulting from particle-particle interaction
     ! To perform this a list of nearest neighbours must be updated.
@@ -282,7 +288,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         
       END DO
     END IF
-
 
     ! Add the constant acceleration terms, if present
     !---------------------------------------------------------------
@@ -456,17 +461,17 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      LOGICAL :: Stat, Visited = .FALSE.
      INTEGER :: i,j,k,n
      REAL(KIND=dp) :: SqrtElementMetric
-     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:), ElemRhs(:), ElemWeight(:)
+     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:), ElemForce(:), ElemWeight(:)
      LOGICAL :: GotIt
      REAL(KIND=dp) :: mass, charge, dragcoeff, val
      
      
-     SAVE :: Visited, Basis, dBasisdx, mass, charge, dragcoeff, ElemRhs, ElemWeight
+     SAVE :: Visited, Basis, dBasisdx, mass, charge, dragcoeff, ElemForce, ElemWeight
      
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
        n = Mesh % MaxElementNodes
-       ALLOCATE( Basis(n), dBasisdx(n, 3), ElemRhs(n), ElemWeight(n) )
+       ALLOCATE( Basis(n), dBasisdx(n, 3), ElemForce(n), ElemWeight(n) )
        
        ! These physical parameters could basically vary from call to call
        !-------------------------------------------------------------------------
@@ -506,14 +511,18 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        n = CurrentElement % TYPE % NumberOfNodes
        
        ElemWeight(1:n) = SqrtElementMetric * Basis(1:n)
+       ElemForce(1:n) = val * ElemWeight(1:n)
+
        Solver % Matrix % rhs => WeightVector    
        CALL DefaultUpdateForce( ElemWeight, CurrentElement )
        
-       ElemRhs(1:n) = val * ElemWeight(1:n)
-       Solver % Matrix % rhs => RhsVector
-       CALL DefaultUpdateForce( ElemRhs, CurrentElement )
+       Solver % Matrix % rhs => ForceVector
+       CALL DefaultUpdateForce( ElemForce, CurrentElement )
      END IF
      
+     Solver % Matrix % rhs => RhsVector
+     
+
 
    END SUBROUTINE ParticleFieldInteraction
    
@@ -609,7 +618,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        STIFF(1,1) = WeightVector(i)
        CALL CRS_GlueLocalMatrix( StiffMatrix,1,1,OneIndex,STIFF)
      END DO
-     
+     StiffMatrix % rhs = ForceVector
+
+
    END SUBROUTINE BulkAssembly
 
 
