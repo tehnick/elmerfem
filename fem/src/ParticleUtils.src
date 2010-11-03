@@ -404,8 +404,8 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
       DO j=1,SIZE(Neighbours)
         IF ( ParEnv % Mype /= Neighbours(j) ) THEN
           Particles % Status(i) = PARTICLE_PARTBOUNDARY
-          nextPart = Neighbours(j);
-          Info(perm(nextPart+1)) % n=Info(perm(nextPart+1)) % n+1
+          nextPart = Perm(Neighbours(j)+1);
+          Info(nextPart) % n=Info(nextPart) % n+1
           EXIT
         END IF
       END DO
@@ -423,19 +423,22 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
 
   DO i=1,NoPartitions
     CALL MPI_BSEND( Info(i) % n, 1, MPI_INTEGER, Neigh(i), &
-            1000, MPI_COMM_WORLD, ierr )
+             1000, MPI_COMM_WORLD, ierr )
   END DO
   CALL MPI_WaitAll( NoPartitions, Requests, MPI_STATUSES_IGNORE, ierr )
 
   n = SUM(Recv_Parts)
-  IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
-    CALL AllocateParticles(Particles,Particles % NumberOfParticles+n*2,dim)
+  CALL MPI_ALLREDUCE( n, nReceived, 1, MPI_INTEGER, &
+          MPI_SUM, MPI_COMM_WORLD, ierr )
+
+  IF ( nReceived==0 ) THEN
+    DEALLOCATE(Recv_Parts, Requests, Info, Perm, Neigh)
+    RETURN
   END IF
 
   !
   ! Collect particles to be sent to neighbours:
   ! -------------------------------------------
-
   DO i=1,NoPartitions
     ALLOCATE( Info(i) % Gindex(Info(i) % n), Info(i) % Particles(Info(i) % n) )
     Info(i) % n = 0
@@ -524,6 +527,11 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
 
   ! Recv particles:
   ! ---------------
+  n = SUM(Recv_Parts)
+  IF ( Particles % NumberOfParticles+n > Particles % MaxNumberOfParticles ) THEN
+    CALL AllocateParticles(Particles,Particles % NumberOfParticles+n*2,dim)
+  END IF
+
   IF(Particles % dim==2 ) THEN
     nFaces = Mesh % NumberOfEdges
     Faces => Mesh % Edges
@@ -562,13 +570,13 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
     END DO
 
     ALLOCATE(Buf(2*n*dim+n))
-    n_part=Particles % NumberOfParticles
 
     m = n*dim+n
     IF ( ASSOCIATED(Particles % Velocity) ) m=m+n*dim
     CALL MPI_RECV( Buf, m, MPI_DOUBLE_PRECISION, proc, &
            1002, MPI_COMM_WORLD, status, ierr )
 
+    n_part=Particles % NumberOfParticles
     m = 0
     DO k=1,dim
       DO l=1,n
@@ -592,16 +600,12 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
     END IF
     DEALLOCATE(Buf)
 
-    Particles % NumberOfParticles = n_part+n
+    Particles % NumberOfParticles = Particles % NumberOfParticles+n
     DEALLOCATE(Indexes)
   END DO
 
-  n = SUM(Recv_Parts)
-  CALL MPI_ALLREDUCE( n, nReceived, 1, MPI_INTEGER, &
-          MPI_SUM, MPI_COMM_WORLD, ierr )
-
   DEALLOCATE(Recv_Parts,Neigh,Requests)
-! CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+  CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
   
 
 ! PRINT *,'Implement change in partition!'
@@ -1409,8 +1413,8 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
   REAL(KIND=dp) :: Lambda
 
   
-  PartChanges = 0
   NoParticles = Particles % NumberOfParticles
+  PartChanges = 0
   dim = Particles % dim
   
   DO No = 1, NoParticles
@@ -1934,11 +1938,11 @@ SUBROUTINE ParticleBoxLimits(Particles)
     MaxCoord(2) = MAXVAL(Mesh % Nodes % y)
     MaxCoord(3) = MAXVAL(Mesh % Nodes % z)
 
-     s = mincoord
+     s = MinCoord
      CALL MPI_ALLREDUCE( s, mincoord, 3, MPI_DOUBLE_PRECISION, &
             MPI_MIN, MPI_COMM_WORLD, ierr )
 
-     s = maxcoord
+     s = MaxCoord
      CALL MPI_ALLREDUCE( s, maxcoord, 3, MPI_DOUBLE_PRECISION, &
             MPI_MAX, MPI_COMM_WORLD, ierr )
     
@@ -2091,15 +2095,16 @@ END SUBROUTINE ParticleBoxLimits
         CALL OpenParticleFile(FilePrefix, 0 )        
       END IF
       DO i = 1, NoParticles
-        IF( Particles % Status(i) < MinSaveStatus ) CYCLE
-if ( particles % status(i) == PARTICLE_LOST ) cycle
+        IF ( Particles % Status(i) == PARTICLE_LOST .OR. &
+             Particles % Status(i) < MinSaveStatus )  CYCLE
         CALL WriteParticleLine( dim, i )        
       END DO
       CALL CloseParticleFile()
     ELSE
       DO i = 1, NoParticles
-        IF( Particles % Status(i) < MinSaveStatus ) CYCLE
         CALL OpenParticleFile(FilePrefix, i)
+        IF ( Particles % Status(i) == PARTICLE_LOST .OR. &
+             Particles % Status(i) < MinSaveStatus )  CYCLE
         CALL WriteParticleLine( dim, i ) 
         CALL CloseParticleFile()
       END DO
@@ -2175,6 +2180,7 @@ if ( particles % status(i) == PARTICLE_LOST ) cycle
       
       IF( VisitedTimes == 1 .OR. NumberFilesBySteps ) THEN
         OPEN (10, FILE=FileName )
+        WRITE( 10, '()', ADVANCE='no' ) ! delete old contents
       ELSE
         OPEN (10, FILE=FileName,POSITION='APPEND' )
       END IF
