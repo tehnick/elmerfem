@@ -779,11 +779,6 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
   MinCoord = HUGE( MinCoord )
   MaxCoord = -HUGE( MaxCoord )
 
-  Cnt = 0
-  NoParticles =  Particles % NumberOfParticles
-  dim = Particles % dim
-  Coord = 0.0_dp
-
   IF( DerOrder == 0 ) THEN
     TargetVector => Particles % Coordinate
   ELSE IF( DerOrder == 1 ) THEN
@@ -795,11 +790,17 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
   END IF
 
   Status => Particles % Status
+  NoParticles =  Particles % NumberOfParticles
+  dim = Particles % dim
+
+  Cnt = 0
+  Coord = 0.0_dp
 
   DO i=1,NoParticles
     IF( Status(i) >= PARTICLE_LOST ) CYCLE
     IF( Status(i) < PARTICLE_INITIATED ) CYCLE
 
+    Cnt = Cnt + 1
     Coord(1:dim) = TargetVector(i,1:dim)
 
     MeanCoord = MeanCoord + Coord
@@ -808,7 +809,6 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
     DO j=1,dim
       MinCoord(j) = MIN( MinCoord(j), Coord(j) )
       MaxCoord(j) = MAX( MaxCoord(j), Coord(j) )
-      Cnt = Cnt + 1
     END DO
   END DO
   
@@ -822,9 +822,11 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
     ! Compute parallel sums?
     IF( ParEnv % PEs > 1 ) THEN
       DO j=1,dim
-        MeanCoord = ParallelReduction( MeanCoord(j) )
-        AbsCoord = ParallelReduction( AbsCoord(j) ) 
-        VarCoord = ParallelReduction( varCoord(j) )
+        MeanCoord(j) = ParallelReduction( MeanCoord(j) )
+        AbsCoord(j) = ParallelReduction( AbsCoord(j) ) 
+        VarCoord(j) = ParallelReduction( varCoord(j) )
+        MinCoord(j) = ParallelReduction( MinCoord(j), 1 )
+        MaxCoord(j) = ParallelReduction( MaxCoord(j), 2 )
       END DO
     END IF
 
@@ -916,7 +918,7 @@ FUNCTION CharacteristicSpeed( Particles, No ) RESULT ( CharSpeed )
   END IF
   CharSpeed = SQRT( CharSpeed ) 
 
-  WRITE( Message,'(A,E12.6)') 'Characteristic Speed',CharSpeed
+  WRITE( Message,'(A,E12.6)') 'Speed for timestep control: ',CharSpeed
   CALL Info('CharacteristicSpeed',Message )
 
 END FUNCTION CharacteristicSpeed
@@ -932,7 +934,52 @@ FUNCTION CharacteristicElementTime( Particles, No ) RESULT ( CharTime )
   REAL(KIND=dp) :: CharTime
   INTEGER, OPTIONAL :: No
 
-  CALL Fatal('CharacteristicElementTime','Code the computation of time spent in element!')
+  REAL(KIND=dp) :: CharSpeed, ElementSize, u, v, w, DetJ
+  REAL(KIND=dp), POINTER :: Basis(:)
+  LOGICAL :: Stat, Visited = .FALSE.
+  TYPE(Element_t), POINTER :: Element
+  TYPE(Nodes_t) :: Nodes
+  TYPE(Mesh_t), POINTER :: Mesh
+  INTEGER :: n, dim, ElementFamily
+
+  SAVE Visited, ElementSize
+  
+  IF( .NOT. Visited ) THEN
+    Visited = .TRUE.
+
+    ! Note: the elements are assumed to be of equal size!!!
+    Mesh => GetMesh()
+    dim = Mesh % MeshDim
+    Element => Mesh % Elements(1)
+
+    CALL GetElementNodes( Nodes, Element ) 
+    n = Element % TYPE % NumberOfNodes
+    ALLOCATE( Basis(n) )
+    ElementFamily  = GetElementFamily( Element )
+
+    u = 0.0_dp
+    v = 0.0_dp
+    w = 0.0_dp
+
+    IF( ElementFamily == 3 ) THEN
+      u = 1.0/3.0_dp
+      v = 1.0/3.0_dp
+      w = 0.0_dp
+    ELSEIF( ElementFamily == 5 ) THEN
+      u = 0.25_dp
+      v = 0.25_dp
+      w = 0.25_dp
+    END IF
+
+    stat = ElementInfo( Element, Nodes, U, V, W, detJ, Basis )
+    ElementSize = detJ ** ( 1.0_dp / dim )
+
+    DEALLOCATE( Basis )
+    PRINT *,'ElementSize:',ElementSize
+  END IF
+
+  CharSpeed = CharacteristicSpeed( Particles, No ) 
+  CharTime = ElementSize / CharSpeed
   
 END FUNCTION CharacteristicElementTime
 
@@ -2041,7 +2088,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
     IF ( Particles % Status(i) == PARTICLE_LOST ) CYCLE
 
     node = Particles % ClosestNode(i)
-    IF ( .NOT. PI % Interface(node) ) CYCLE
+    IF ( .NOT. PI % INTERFACE(node) ) CYCLE
     Neighbours => PI % NeighbourList(node) % Neighbours
     DO j=1,SIZE(Neighbours)
       proc = Neighbours(j)
@@ -2070,7 +2117,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
     IF ( Particles % Status(i) == PARTICLE_LOST ) CYCLE
 
     node = Particles % ClosestNode(i)
-    IF ( .NOT. PI % Interface(node) ) CYCLE
+    IF ( .NOT. PI % INTERFACE(node) ) CYCLE
     Neighbours => PI % NeighbourList(node) % Neighbours
     DO j=1,SIZE(Neighbours)
       proc = Neighbours(j)
@@ -2149,7 +2196,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
       n_part = n_part+1
       Particles % Status(n_part) = PARTICLE_GHOST
       node = SearchNode(PI,Indexes(j))
-      if ( node<=0 ) stop 'a'
+      IF ( node<=0 ) STOP 'a'
       Particles % ClosestNode(n_part) = node
       Particles % NoClosestParticle(node) = &
               Particles % NoClosestParticle(node) + 1
