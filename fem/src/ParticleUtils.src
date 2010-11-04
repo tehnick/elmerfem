@@ -918,8 +918,10 @@ FUNCTION CharacteristicSpeed( Particles, No ) RESULT ( CharSpeed )
   END IF
   CharSpeed = SQRT( CharSpeed ) 
 
-  WRITE( Message,'(A,E12.6)') 'Speed for timestep control: ',CharSpeed
-  CALL Info('CharacteristicSpeed',Message )
+  IF(.FALSE.) THEN
+    WRITE( Message,'(A,E12.6)') 'Speed for timestep control: ',CharSpeed
+    CALL Info('CharacteristicSpeed',Message )
+  END IF
 
 END FUNCTION CharacteristicSpeed
 
@@ -2370,12 +2372,12 @@ SUBROUTINE ParticleBoxLimits(Particles)
   TYPE(Particle_t) :: Particles
 
   TYPE(Solver_t), POINTER :: Solver
-  REAL(KIND=dp) :: Coord(3), Velo(3)  , s(3)
+  REAL(KIND=dp) :: Coord(3), Velo(3), Rad, s(3)
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Params
   REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), Ymin, Ymax, Zmin, Zmax
   INTEGER :: i,j,dim, ierr
-  LOGICAL :: Mapped,Reflect,Periodic,Visited = .FALSE.
+  LOGICAL :: Mapped,Reflect,Periodic,Found,Visited = .FALSE.
   INTEGER :: Operations, No, NoParticles, Status
   
   SAVE Visited, Reflect, Periodic, MinCoord, MaxCoord, dim
@@ -2397,14 +2399,21 @@ SUBROUTINE ParticleBoxLimits(Particles)
     MaxCoord(2) = MAXVAL(Mesh % Nodes % y)
     MaxCoord(3) = MAXVAL(Mesh % Nodes % z)
 
-     s = MinCoord
-     CALL MPI_ALLREDUCE( s, mincoord, 3, MPI_DOUBLE_PRECISION, &
-            MPI_MIN, MPI_COMM_WORLD, ierr )
-
-     s = MaxCoord
-     CALL MPI_ALLREDUCE( s, maxcoord, 3, MPI_DOUBLE_PRECISION, &
-            MPI_MAX, MPI_COMM_WORLD, ierr )
+    s = MinCoord
+    CALL MPI_ALLREDUCE( s, mincoord, 3, MPI_DOUBLE_PRECISION, &
+        MPI_MIN, MPI_COMM_WORLD, ierr )
     
+    s = MaxCoord
+    CALL MPI_ALLREDUCE( s, maxcoord, 3, MPI_DOUBLE_PRECISION, &
+        MPI_MAX, MPI_COMM_WORLD, ierr )
+    
+     
+    Rad = GetCReal( Params,'Box Particle Boundary Thickness',Found)
+    IF( Found ) THEN
+      MaxCoord = MaxCoord - Rad
+      MinCoord = MinCoord + Rad
+    END IF
+
     Visited = .TRUE.
   END IF
   
