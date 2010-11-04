@@ -230,9 +230,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 
   Params => GetSolverParams()
 
-  Potential     => Solver % Variable % Values
   PotentialPerm => Solver % Variable % Perm
-  
+  IF ( COUNT(PotentialPerm>0)==0 ) RETURN
+
+  Potential     => Solver % Variable % Values
   StiffMatrix => Solver % Matrix
   ForceVector => StiffMatrix % RHS
   
