@@ -1181,6 +1181,8 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
   CASE ('box random cubic')
 
+PRINT *,'a1'
+
     Diam = GetCReal( Params,'Box Particle Unit Cell',GotIt)
     IF(.NOT. GotIt ) THEN
       Diam = 2 * GetCReal( Params,'Particle Radius',GotIt)
@@ -1205,6 +1207,8 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     ALLOCATE( DoneParticle(nx*ny*nz) )
     DoneParticle = .FALSE.
 
+PRINT *,'nx',nx,ny,nz,nx*ny*nz
+
     i = 0
     DO WHILE (.TRUE.) 
       ix = NINT( nx * EvenRandom() + 0.5 )
@@ -1226,8 +1230,11 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       IF( dim == 3 ) THEN
         Coords(k,3) = MinCoord(3) + ( 1.0_dp*iz - 0.5) * Diam 
       END IF
+
+      IF( i == NewParticles ) EXIT
     END DO
     DEALLOCATE( DoneParticle ) 
+PRINT *,'a2'
 
     
   CASE DEFAULT 
