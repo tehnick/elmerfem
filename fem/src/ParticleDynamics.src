@@ -61,11 +61,11 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: Var
   LOGICAL :: GotIt, Debug, Hit, InitLocation, CollisionInteraction, &
       FieldInteraction, ContactInteraction, ParticlesToField, AnyInteraction, &
-      ParticleInBox, Absolute
+      ParticleInBox, Absolute, InitTimestep
   INTEGER :: i,j,k,dim,No,No2,nodims,NoParticles = 0,&
        ElementIndex, VisitedTimes = 0, nstep, OutputInterval, &
-       Status,TimeOrder, PartitionChanges, estindexes(6) 
-  REAL(KIND=dp) :: dtime, tottime, &
+       Status,TimeOrder, PartitionChanges, StepsTaken=0,estindexes(6) 
+  REAL(KIND=dp) :: dtime, tottime = 0.0, &
       Coord(3), Accel(3), Velo(3), &
       Coord2(3), Accel2(3), Velo2(3), &
       Lambda, LocalCoords(3), Rinit(3),Rfin(3)
@@ -77,7 +77,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
   SAVE CollisionInteraction, FieldInteraction, ContactInteraction, &
       ParticlesToField, AnyInteraction, OutputInterval, Nstep, VisitedTimes, &
-      RhsVector, WeightVector, ForceVector, TimeOrder, ParticleInBox, Particles
+      RhsVector, WeightVector, ForceVector, TimeOrder, ParticleInBox, Particles, &
+      tottime, StepsTaken 
 
 
 !------------------------------------------------------------------------------
@@ -102,7 +103,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   Velo2 = 0.0_dp
   Accel = 0.0_dp
   Accel2 = 0.0_dp
-
 
   ! Do some initalialization: allocate space, check fields  
   !------------------------------------------------------------------------
@@ -137,9 +137,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
-
-  Debug = ( VisitedTimes == 2 )
-
   ! If there is a variable to be solved, initialize the equation
   !----------------------------------------------------------------------
   IF( ParticlesToField ) THEN
@@ -158,25 +155,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     CALL InitializeParticles( Particles ) 
   END IF
 
-
-  
-  ! Set up the trackinig problem for this calling, tottime could vary
-  !-------------------------------------------------------------------------
-  dtime = GetCReal(Params,'Internal Timestep Size',GotIt)
-  IF( GotIt ) THEN
-    tottime = dtime * nstep
-  ELSE
-    tottime = GetCReal(Params,'Tracking Time',GotIt)
-    IF(.NOT. GotIt ) THEN
-      IF( TransientSimulation ) THEN
-        tottime = dt
-      ELSE   
-        CALL Fatal('ParticleDynamics','Give Tracking Time')
-      END IF
-    END IF
-    dtime = tottime / nstep
-  END IF
-
   IF(.FALSE.) THEN
     CALL ParticleStatistics( Particles, 0 )
     CALL ParticleStatistics( Particles, 1 )
@@ -190,15 +168,27 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     estindexes(i+1) = estindexes(i) / 10
   END DO
 
+  InitTimestep = .TRUE.
+
   DO i=1,nstep
 
-    IF(.FALSE.) CALL ParticleStatistics( Particles, 0 )
-    IF(.FALSE.) CALL ParticleStatistics( Particles, 1 )
+    ! Get the timestep size, initialize at 1st round
+    !--------------------------------------------------------------
+
+    dtime = GetParticlesTimeStep( Particles, InitTimestep )
+
+PRINT *,'dtime',dtime
+
+    IF( dtime < TINY( dtime ) ) EXIT	
+
+    tottime = tottime + dtime
+    stepstaken = stepstaken + 1
+
+    InitTimeStep = .FALSE.
 
     ! Initialize the timestep, set just acceleration to zero
     !--------------------------------------------------------------
     CALL ParticleInitializeTime( Particles )
-
 
 
     ! For testing purposes there are some BCs for rectangular boxes
@@ -330,13 +320,15 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   END IF
 
 
-  IF(.FALSE.) THEN
+  IF(.TRUE.) THEN
     CALL ParticleStatistics( Particles, 0 )
     CALL ParticleStatistics( Particles, 1 )
   END IF
   
   IF( OutputInterval == 0) CALL ParticleOutput( Particles ) 
   
+  PRINT *,'total time',tottime,stepstaken
+
   CALL Info('ParticleDynamics','All done')
   CALL Info('ParticleDynamics', '-----------------------------------------', Level=4 )
   

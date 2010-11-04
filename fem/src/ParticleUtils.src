@@ -750,7 +750,7 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
   REAL(KIND=dp) :: Coord(3),MeanCoord(3),AbsCoord(3),VarCoord(3), &
       MinCoord(3), MaxCoord(3)
   
-  INTEGER :: i,j,Cnt,NoParticles,dim
+  INTEGER :: i,j,Cnt,NoParticles,TotParticles,dim
   REAL(KIND=dp), POINTER :: TargetVector(:,:)
   INTEGER, POINTER :: Status(:)
 
@@ -792,25 +792,42 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
       Cnt = Cnt + 1
     END DO
   END DO
+  
+  IF( ParEnv % PEs > 1 ) THEN
+    TotParticles = NINT( ParallelReduction( 1.0_dp * Cnt ) )
+  ELSE
+    TotParticles = Cnt
+  END IF
 
-  IF( Cnt > 0 ) THEN
-    MeanCoord = MeanCoord / Cnt
-    AbsCoord = AbsCoord / Cnt
-    VarCoord = SQRT( VarCoord / Cnt - MeanCoord**2 ) 
-
-    IF( DerOrder == 0 ) THEN
-      PRINT *,'Statistical info on coordinate values:'
-    ELSE IF( DerOrder == 1 ) THEN
-      PRINT *,'Statistical info on velocity values:'
-    ELSE IF( DerOrder == 2 ) THEN
-      PRINT *,'Statistical info on acceleration values:'
+  IF( TotParticles > 0 ) THEN
+    ! Compute parallel sums?
+    IF( ParEnv % PEs > 1 ) THEN
+      DO j=1,dim
+        MeanCoord = ParallelReduction( MeanCoord(j) )
+        AbsCoord = ParallelReduction( AbsCoord(j) ) 
+        VarCoord = ParallelReduction( varCoord(j) )
+      END DO
     END IF
+
+    MeanCoord = MeanCoord / TotParticles
+    AbsCoord = AbsCoord / TotParticles
+    VarCoord = SQRT( VarCoord / TotParticles - MeanCoord**2 ) 
+
+    IF( ParEnv % myPE == 0 .OR. ParEnv % PEs == 1 ) THEN
+      IF( DerOrder == 0 ) THEN
+        PRINT *,'Statistical info on coordinate values:'
+      ELSE IF( DerOrder == 1 ) THEN
+        PRINT *,'Statistical info on velocity values:'
+      ELSE IF( DerOrder == 2 ) THEN
+        PRINT *,'Statistical info on acceleration values:'
+      END IF
       
-    PRINT *,'Mean:',MeanCoord(1:dim)
-    PRINT *,'Abs: ',AbsCoord(1:dim)
-    PRINT *,'Var: ',VarCoord(1:dim)
-    PRINT *,'Min: ',MinCoord(1:dim)
-    PRINT *,'Max: ',MaxCoord(1:dim)
+      PRINT *,'Mean:',MeanCoord(1:dim)
+      PRINT *,'Abs: ',AbsCoord(1:dim)
+      PRINT *,'Var: ',VarCoord(1:dim)
+      PRINT *,'Min: ',MinCoord(1:dim)
+      PRINT *,'Max: ',MaxCoord(1:dim)
+    END IF
   ELSE
     CALL Warn('MeanParticleCoordinate','No active particles!')
   END IF
@@ -819,8 +836,86 @@ END SUBROUTINE ParticleStatistics
    
 
 
+!---------------------------------------------------------
+! Computes the characterestic speed for time integration
+!---------------------------------------------------------
+FUNCTION CharacteristicSpeed( Particles, No ) RESULT ( CharSpeed )
+  TYPE(Particle_t) :: Particles
+  REAL(KIND=dp) :: CharSpeed
+  INTEGER, OPTIONAL :: No
+
+  REAL(KIND=dp) :: Velo(3),Speed,SumSpeed,MaxSpeed
+  INTEGER :: i,j,Cnt,NoParticles,dim,ParallelParticles
+  REAL(KIND=dp), POINTER :: Velocity(:,:)
+  INTEGER, POINTER :: Status(:)
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: UseMax, Visited = .FALSE.
+
+  SAVE Visited, UseMax
+
+  IF(.NOT. Visited ) THEN
+    Params => GetSolverParams()
+    UseMax = GetLogical( Params,'Characteristic Speed Max')
+    Visited = .TRUE.
+  END IF
 
 
+  dim = Particles % dim
+  Velocity => Particles % Velocity
+
+  IF( PRESENT(No)) THEN
+    Velo(1:dim) = Velocity(No,1:dim)
+    CharSpeed = SQRT( SUM( Velo(1:dim) ** 2 ) )
+    RETURN
+  END IF
+
+  NoParticles =  Particles % NumberOfParticles
+  Status => Particles % Status
+  CharSpeed = 0.0_dp
+  Velo = 0.0_dp
+  Cnt = 0
+
+  ! Compute characteristic speed for square since it avoids taking the sqrt
+  DO i=1,NoParticles
+    IF( Status(i) >= PARTICLE_LOST ) CYCLE
+    IF( Status(i) < PARTICLE_INITIATED ) CYCLE
+
+    Cnt = Cnt + 1
+    Velo(1:dim) = Velocity(i,1:dim)
+    Speed = SUM( Velo(1:dim) ** 2 ) 
+    SumSpeed = SumSpeed + Speed
+    MaxSpeed = MAX( MaxSpeed, Speed ) 
+  END DO
+
+  IF( Cnt == 0 ) RETURN
+  
+  IF( UseMax ) THEN 
+    CharSpeed = ParallelReduction( MaxSpeed, 2 )
+  ELSE
+    ParallelParticles = NINT( ParallelReduction( 1.0_dp * Cnt ) )
+    CharSpeed = ParallelReduction( SumSpeed ) / ParallelParticles
+  END IF
+  CharSpeed = SQRT( CharSpeed ) 
+
+  WRITE( Message,'(A,E12.6)') 'Characteristic Speed',CharSpeed
+  CALL Info('CharacteristicSpeed',Message )
+
+END FUNCTION CharacteristicSpeed
+
+
+
+!---------------------------------------------------------
+! Computes the characterestic time spent in an element
+!---------------------------------------------------------
+FUNCTION CharacteristicElementTime( Particles, No ) RESULT ( CharTime )
+    
+  TYPE(Particle_t) :: Particles
+  REAL(KIND=dp) :: CharTime
+  INTEGER, OPTIONAL :: No
+
+  CALL Fatal('CharacteristicElementTime','Code the computation of time spent in element!')
+  
+END FUNCTION CharacteristicElementTime
 
 
 !------------------------------------------------------------------------
@@ -1220,7 +1315,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       END IF
     END DO
   ELSE
-    DO i=1, BulkElement % Type % NumberOfEdges  
+    DO i=1, BulkElement % TYPE % NumberOfEdges  
       j = BulkElement % EdgeIndexes(i)
       BoundaryElement => Mesh % Edges(j)
       CALL GetElementNodes(BoundaryNodes,BoundaryElement)
@@ -2115,7 +2210,7 @@ END SUBROUTINE ParticleBoxLimits
     LOGICAL :: Found, NumberFilesByParticles, NumberFilesBySteps
     REAL(KIND=dp), POINTER :: Coord(:,:), Velo(:,:), Dist(:)
     REAL(KIND=dp) :: time
-    TYpe(Mesh_t), POINTER :: Mesh
+    TYPE(Mesh_t), POINTER :: Mesh
     INTEGER, POINTER :: Status(:)
     INTEGER :: i,j,dim, NoParticles, MinSaveStatus
     INTEGER :: VisitedTimes = 0
@@ -2598,8 +2693,131 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE ParticleOutputVtu
 !------------------------------------------------------------------------------
-  
 
+
+
+!--------------------------------------------------------------------------
+! Set a the timestep for the particles in two possible modes
+! 1) "No" is given => define step for each particle separately
+! 2) "No" is not given => define the same step size for all particles
+!-------------------------------------------------------------------------
+FUNCTION GetParticlesTimeStep(Particles, InitInterval, No, tinit ) RESULT ( dt )
+  
+  TYPE(Particle_t) :: Particles
+  LOGICAL :: InitInterval
+  INTEGER, OPTIONAL :: No
+  REAL(KIND=dp), OPTIONAL :: tinit
+  REAL(KIND=dp) :: dt
+
+  REAL(KIND=dp) :: dt0,tfin,tprev,dsmax,dsmin,hmax,hmin,dtmax,dtmin,dtup,dtlow, &
+      CharSpeed, CharTime
+  LOGICAL :: GotIt,TfinIs,NStepIs,DsMaxIs,DsMinIs,HmaxIs,HminIs
+  INTEGER :: nstep, TimeStep, PrevTimeStep = -1
+  TYPE(ValueList_t), POINTER :: Params
+
+  SAVE dt0,dsmax,dsmin,hmax,hmin,dtmax,dtmin,dtup,dtlow,&
+      tprev,Tfin,TfinIs,DsMaxIs,DsMinIs,HmaxIs,HminIs,PrevTimeStep
+  
+  IF( InitInterval ) THEN
+    Params => GetSolverParams()
+    
+    ! directly defined timestep
+    dt0 = GetCReal(Params,'Internal Timestep Size',GotIt)
+
+    ! Constraint timestep directly
+    dtmax = GetCReal( Params,'Max Timestep Size',GotIt)
+    IF(.NOT. GotIt ) dtmax = HUGE( dtmax ) 
+    dtmin = GetCReal( Params,'Min Timestep Size',GotIt)
+    IF(.NOT. GotIt ) dtmin = -HUGE( dtmin ) 
+    
+    ! Constraint by absolute step size taken (in length units)
+    dsmax = GetCReal( Params,'Max Timestep Distance',DsMaxIs)
+    dsmin = GetCReal( Params,'Min Timestep Distance',DsMinIs)
+    
+    ! Constraint by relative step size taken (1 means size of the element)
+    hmax = GetCReal( Params,'Max Timestep Courant',HMaxIs)
+    hmin = GetCReal( Params,'Min Timestep Courant',HMinIs)
+    
+    TfinIs = .FALSE.
+    IF( GetLogical(Params,'Use External Timestep Size',GotIt) ) THEN
+      tfin = GetTimeStepsize()
+      TfinIs = .TRUE.
+    ELSE
+      tfin = GetCReal(Params,'Max Cumulative Time',TfinIs)
+    END IF
+    
+    Nstep = GetInteger( Params,'Internal Timestep Interval',NstepIs)
+
+    tprev = 0.0_dp
+  END IF
+
+  IF( TfinIs .AND. ABS( tprev - tfin ) < TINY ( tfin ) ) THEN
+    dt = 0.0_dp
+    RETURN
+  END IF
+
+
+  ! Get upper and lower constraints for timestep size
+  ! These generally depend on the velocity field and mesh
+  !--------------------------------------------------------------------
+  dtlow = dtmin
+  dtup = dtmax 
+
+  IF( DsMaxIs .OR. DsMinIs ) THEN
+    CharSpeed = CharacteristicSpeed( Particles, No )     
+    IF( DsMinIs ) THEN
+      IF( CharSpeed * dtlow < dsmin ) dtlow = dsmin / CharSpeed
+    END IF
+    IF( DsMaxIs ) THEN
+      IF( CharSpeed * dtup > dsmax  ) dtup = dsmax / CharSpeed
+    END IF
+  END IF
+
+  IF( HmaxIs .OR. HminIs ) THEN
+    CharTime = CharacteristicElementTime( Particles, No )     
+    IF( HminIs ) THEN
+      IF( dtlow < HMin * CharTime ) dtlow = HMin * CharTime ! ElementH / Speed
+    END IF
+    IF( HmaxIs ) THEN
+      IF( dtup > HMax * CharTime ) dtup = HMax * CharTime ! ElementH / Speed
+    END IF
+  END IF
+
+  IF( dtlow > dtup ) THEN
+    CALL Warn('GetParticlesTimeStep','Upper and lower limits tangled')
+  END IF
+
+  ! Constrain the timestep
+  !------------------------------------------------------------------
+  dt = dt0
+  IF( dt > dtup ) THEN
+    ! PRINT *,'upper constraint',dtup
+    dt = dtup
+  END IF
+  IF( dt < dtlow ) THEN
+    ! PRINT *,'lower constaint',dtlow
+    dt = dtlow
+  END IF
+  
+  IF( dt < TINY(dt) ) THEN
+    IF( TfinIs .AND. NstepIs ) THEN
+      dt = tfin / Nstep
+    ELSE
+      ! PRINT *,'dt',dt
+      CALL Fatal('GetParticlesTimeStep','Could not determine timestep size!')
+    END IF
+  END IF
+  
+  ! Do not exceed the total integration time
+  !-------------------------------------------
+  IF( PRESENT( tinit ) ) tprev = tinit
+  IF( TfinIs .AND. dt + tprev > tfin ) THEN
+    dt = tfin - tprev
+  END IF
+  tprev = tprev + dt
+
+  
+END FUNCTION GetParticlesTimeStep
 
 !------------------------------------------------------------------------------
 END MODULE ParticleUtils
