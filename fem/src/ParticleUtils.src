@@ -491,14 +491,17 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
       nextPart = ParEnv % MyPE
       DO j=1,SIZE(Neighbours)
         IF ( ParEnv % Mype /= Neighbours(j) ) THEN
-          nextPart = Perm(Neighbours(j)+1);
-          IF ( nextPart<=0 ) CYCLE
-          Info(nextPart) % n=Info(nextPart) % n+1
-          Particles % Status(i) = PARTICLE_PARTBOUNDARY
+          nextPart = Neighbours(j)
+          k = Perm(nextPart+1)
+          IF ( k>0 ) THEN
+            Info(k) % n=Info(k) % n+1
+            Particles % Status(i) = PARTICLE_PARTBOUNDARY
+          ELSE 
+            Particles % Status(i)=PARTICLE_LOST
+          END IF
           EXIT
         END IF
       END DO
-      IF ( nextPart == ParEnv % mype ) Particles % Status(i)=PARTICLE_LOST
     END IF
   END DO
 
@@ -511,15 +514,19 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
          1000, MPI_COMM_WORLD, requests(i), ierr )
   END DO
 
+  DO i=1,NoPartitions
+    CALL MPI_BSEND( Info(i) % n, 1, MPI_INTEGER, Neigh(i), &
+             1000, MPI_COMM_WORLD, ierr )
+  END DO
+  CALL MPI_WaitAll( NoPartitions, Requests, MPI_STATUSES_IGNORE, ierr )
 
-! n = SUM(Recv_Parts)
-! CALL MPI_ALLREDUCE( n, nReceived, 1, MPI_INTEGER, &
-!         MPI_SUM, MPI_COMM_WORLD, ierr )
-
-! IF ( nReceived==0 ) THEN
-!   DEALLOCATE(Recv_Parts, Requests, Info, Perm, Neigh)
-!   RETURN
-! END IF
+  n = SUM(Recv_Parts)
+  CALL MPI_ALLREDUCE( n, nReceived, 1, MPI_INTEGER, &
+          MPI_SUM, MPI_COMM_WORLD, ierr )
+  IF ( nReceived==0 ) THEN
+    DEALLOCATE(Recv_Parts, Requests, Info, Perm, Neigh)
+    RETURN
+  END IF
 
   !
   ! Collect particles to be sent to neighbours:
@@ -610,11 +617,6 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
     DEALLOCATE(Buf)
   END DO
 
-  DO i=1,NoPartitions
-    CALL MPI_BSEND( Info(i) % n, 1, MPI_INTEGER, Neigh(i), &
-             1000, MPI_COMM_WORLD, ierr )
-  END DO
-  CALL MPI_WaitAll( NoPartitions, Requests, MPI_STATUSES_IGNORE, ierr )
 
   DEALLOCATE(Perm)
   DO i=1,NoPartitions
@@ -704,8 +706,8 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
     DEALLOCATE(Indexes)
   END DO
 
-  DEALLOCATE(Recv_Parts,Neigh,Requests)
-! CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+  DEALLOCATE(Recv_Parts, Neigh, Requests)
+  CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 
 CONTAINS
   
@@ -779,6 +781,11 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
   MinCoord = HUGE( MinCoord )
   MaxCoord = -HUGE( MaxCoord )
 
+  Cnt = 0
+  NoParticles =  Particles % NumberOfParticles
+  dim = Particles % dim
+  Coord = 0.0_dp
+
   IF( DerOrder == 0 ) THEN
     TargetVector => Particles % Coordinate
   ELSE IF( DerOrder == 1 ) THEN
@@ -790,51 +797,40 @@ SUBROUTINE ParticleStatistics( Particles, DerOrder )
   END IF
 
   Status => Particles % Status
-  NoParticles =  Particles % NumberOfParticles
-  dim = Particles % dim
-
-  Cnt = 0
-  Coord = 0.0_dp
 
   DO i=1,NoParticles
     IF( Status(i) >= PARTICLE_LOST ) CYCLE
     IF( Status(i) < PARTICLE_INITIATED ) CYCLE
 
-    Cnt = Cnt + 1
     Coord(1:dim) = TargetVector(i,1:dim)
 
     MeanCoord = MeanCoord + Coord
     AbsCoord = AbsCoord + ABS( Coord )
-    VarCoord = VarCoord + Coord ** 2
+    VarCoord = VarCoord + Coord**2
     DO j=1,dim
       MinCoord(j) = MIN( MinCoord(j), Coord(j) )
       MaxCoord(j) = MAX( MaxCoord(j), Coord(j) )
     END DO
+    Cnt = Cnt + 1
   END DO
   
-  IF( ParEnv % PEs > 1 ) THEN
-    TotParticles = NINT( ParallelReduction( 1.0_dp * Cnt ) )
-  ELSE
-    TotParticles = Cnt
-  END IF
+  TotParticles = NINT( ParallelReduction( 1.0_dp * Cnt ) )
 
   IF( TotParticles > 0 ) THEN
     ! Compute parallel sums?
-    IF( ParEnv % PEs > 1 ) THEN
-      DO j=1,dim
-        MeanCoord(j) = ParallelReduction( MeanCoord(j) )
-        AbsCoord(j) = ParallelReduction( AbsCoord(j) ) 
-        VarCoord(j) = ParallelReduction( varCoord(j) )
-        MinCoord(j) = ParallelReduction( MinCoord(j), 1 )
-        MaxCoord(j) = ParallelReduction( MaxCoord(j), 2 )
-      END DO
-    END IF
+    DO j=1,dim
+      MeanCoord(j) = ParallelReduction( MeanCoord(j) )
+      AbsCoord(j) = ParallelReduction( AbsCoord(j) ) 
+      VarCoord(j) = ParallelReduction( varCoord(j) )
+      MinCoord(j) = ParallelReduction( MinCoord(j),1 )
+      MaxCoord(j) = ParallelReduction( MaxCoord(j),2 )
+    END DO
 
     MeanCoord = MeanCoord / TotParticles
     AbsCoord = AbsCoord / TotParticles
     VarCoord = SQRT( VarCoord / TotParticles - MeanCoord**2 ) 
 
-    IF( ParEnv % myPE == 0 .OR. ParEnv % PEs == 1 ) THEN
+    IF( ParEnv % myPE == 0 ) THEN
       IF( DerOrder == 0 ) THEN
         PRINT *,'Statistical info on coordinate values:'
       ELSE IF( DerOrder == 1 ) THEN
@@ -926,7 +922,6 @@ FUNCTION CharacteristicSpeed( Particles, No ) RESULT ( CharSpeed )
 END FUNCTION CharacteristicSpeed
 
 
-
 !---------------------------------------------------------
 ! Computes the characterestic time spent in an element
 !---------------------------------------------------------
@@ -984,6 +979,7 @@ FUNCTION CharacteristicElementTime( Particles, No ) RESULT ( CharTime )
   CharTime = ElementSize / CharSpeed
   
 END FUNCTION CharacteristicElementTime
+
 
 
 !------------------------------------------------------------------------
@@ -1181,8 +1177,6 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
   CASE ('box random cubic')
 
-PRINT *,'a1'
-
     Diam = GetCReal( Params,'Box Particle Unit Cell',GotIt)
     IF(.NOT. GotIt ) THEN
       Diam = 2 * GetCReal( Params,'Particle Radius',GotIt)
@@ -1206,8 +1200,6 @@ PRINT *,'a1'
 
     ALLOCATE( DoneParticle(nx*ny*nz) )
     DoneParticle = .FALSE.
-
-PRINT *,'nx',nx,ny,nz,nx*ny*nz
 
     i = 0
     DO WHILE (.TRUE.) 
@@ -1234,7 +1226,6 @@ PRINT *,'nx',nx,ny,nz,nx*ny*nz
       IF( i == NewParticles ) EXIT
     END DO
     DEALLOCATE( DoneParticle ) 
-PRINT *,'a2'
 
     
   CASE DEFAULT 
@@ -1253,7 +1244,7 @@ PRINT *,'a2'
         ELSE
           DO i=1,NewParticles
             k = Offset + i
-            Coords(k,1:dim) = InitialValues(i,1:DIM)
+            Coords(k,1:dim) = InitialValues(i,1:dim)
           END DO
         END IF
       ELSE
@@ -1283,7 +1274,7 @@ PRINT *,'a2'
       ELSE
         DO i=1,NewParticles
           k = Offset + i
-          Velo(k,1:dim) = InitialValues(i,1:DIM)
+          Velo(k,1:dim) = InitialValues(i,1:dim)
         END DO
       END IF
     END IF
@@ -2097,7 +2088,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
     IF ( Particles % Status(i) == PARTICLE_LOST ) CYCLE
 
     node = Particles % ClosestNode(i)
-    IF ( .NOT. PI % INTERFACE(node) ) CYCLE
+    IF ( .NOT. PI % Interface(node) ) CYCLE
     Neighbours => PI % NeighbourList(node) % Neighbours
     DO j=1,SIZE(Neighbours)
       proc = Neighbours(j)
@@ -2126,7 +2117,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
     IF ( Particles % Status(i) == PARTICLE_LOST ) CYCLE
 
     node = Particles % ClosestNode(i)
-    IF ( .NOT. PI % INTERFACE(node) ) CYCLE
+    IF ( .NOT. PI % Interface(node) ) CYCLE
     Neighbours => PI % NeighbourList(node) % Neighbours
     DO j=1,SIZE(Neighbours)
       proc = Neighbours(j)
@@ -2205,7 +2196,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
       n_part = n_part+1
       Particles % Status(n_part) = PARTICLE_GHOST
       node = SearchNode(PI,Indexes(j))
-      IF ( node<=0 ) STOP 'a'
+      if ( node<=0 ) stop 'a'
       Particles % ClosestNode(n_part) = node
       Particles % NoClosestParticle(node) = &
               Particles % NoClosestParticle(node) + 1
@@ -2406,21 +2397,20 @@ SUBROUTINE ParticleBoxLimits(Particles)
     MaxCoord(2) = MAXVAL(Mesh % Nodes % y)
     MaxCoord(3) = MAXVAL(Mesh % Nodes % z)
 
-    s = MinCoord
-    CALL MPI_ALLREDUCE( s, mincoord, 3, MPI_DOUBLE_PRECISION, &
-        MPI_MIN, MPI_COMM_WORLD, ierr )
-    
-    s = MaxCoord
-    CALL MPI_ALLREDUCE( s, maxcoord, 3, MPI_DOUBLE_PRECISION, &
-        MPI_MAX, MPI_COMM_WORLD, ierr )
-    
-     
+     s = MinCoord
+     CALL MPI_ALLREDUCE( s, mincoord, 3, MPI_DOUBLE_PRECISION, &
+            MPI_MIN, MPI_COMM_WORLD, ierr )
+
+     s = MaxCoord
+     CALL MPI_ALLREDUCE( s, maxcoord, 3, MPI_DOUBLE_PRECISION, &
+            MPI_MAX, MPI_COMM_WORLD, ierr )
+
     Rad = GetCReal( Params,'Box Particle Boundary Thickness',Found)
     IF( Found ) THEN
       MaxCoord = MaxCoord - Rad
       MinCoord = MinCoord + Rad
     END IF
-
+    
     Visited = .TRUE.
   END IF
   
