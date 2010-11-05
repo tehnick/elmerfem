@@ -519,11 +519,34 @@ CONTAINS
   END SUBROUTINE AddToCommonList
 !-----------------------------------------------------------------------  
 
+!-----------------------------------------------------------------------  
+  FUNCTION MeshNeighbours(Mesh,IsNeighbour) RESULT(num)
+!-----------------------------------------------------------------------  
+      INTEGER :: i,j,num
+      TYPE(Mesh_t) :: Mesh
+      LOGICAL :: IsNeighbour(:)
+
+      IsNeighbour = .FALSE.
+      DO i=1,Mesh % Nodes % NumberOfNodes
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
+          DO j=1,SIZE(Mesh % ParallelInfo % NeighbourList(i) % Neighbours)
+            IsNeighbour(Mesh % ParallelInfo % &
+              NeighbourList(i) % Neighbours(j)+1) = .TRUE.
+          END DO
+        END IF
+      END DO
+      IsNeighbour(ParEnv % myPE+1) = .FALSE.
+      num = COUNT(IsNeighbour)
+!-----------------------------------------------------------------------  
+  END FUNCTION MeshNeighbours
+!-----------------------------------------------------------------------  
+
 
 !-----------------------------------------------------------------------  
-   SUBROUTINE SParEdgeNumbering( Mesh )
+   SUBROUTINE SParEdgeNumbering( Mesh, Allmesh )
      USE GeneralUtils
      TYPE(Mesh_t) :: Mesh
+     LOGICAL, OPTIONAL :: Allmesh
 !-----------------------------------------------------------------------
 
      TYPE Edgen_t 
@@ -544,6 +567,7 @@ CONTAINS
 
      INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs
 
+     LOGICAL :: AllM
      LOGICAL, POINTER :: IsNeighbour(:)
      TYPE(Element_t), POINTER :: Element
 
@@ -554,20 +578,15 @@ real(kind=dp) :: realtime,tt
 
     CALL CheckBuffer(1000000)
 
-    IF ( ASSOCIATED(ParEnv % IsNeighbour) ) THEN
-      IsNeighbour => ParEnv % IsNeighbour
-    ELSE
+    AllM = .FALSE.
+    IF ( PRESENT(Allmesh) ) AllM=Allmesh
+    IF ( AllM .OR. .NOT. ASSOCIATED(ParEnv % IsNeighbour) ) THEN
+      AllM = .TRUE.
       ALLOCATE(IsNeighbour(ParEnv % PEs))
-      IsNeighbour = .FALSE.
-      DO i=1,Mesh % Nodes % NumberOfNodes
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-          DO j=1,SIZE(Mesh % ParallelInfo % NeighbourList(i) % Neighbours)
-            IsNeighbour(Mesh % ParallelInfo % &
-              NeighbourList(i) % Neighbours(j)+1) = .TRUE.
-          END DO
-        END IF
-      END DO
-      IsNeighbour(ParEnv % myPE+1) = .FALSE.
+      n = MeshNeighbours(Mesh,IsNeighbour)
+    ELSE
+      AllM = .FALSE.
+      IsNeighbour => ParEnv % IsNeighbour
     END IF
 
     n = Mesh % NumberOfEdges
@@ -879,6 +898,7 @@ real(kind=dp) :: realtime,tt
     END DO
 
     DEALLOCATE( gorder, grevorder, gdofs, edgen )
+    IF ( AllM ) DEALLOCATE(IsNeighbour)
     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 !--------------------------------------------------------------------  
   END SUBROUTINE SParEdgeNumbering
@@ -886,9 +906,10 @@ real(kind=dp) :: realtime,tt
 
 
 !-----------------------------------------------------------------------  
-   SUBROUTINE SParFaceNumbering( Mesh )
+   SUBROUTINE SParFaceNumbering( Mesh, Allmesh )
      USE GeneralUtils
      TYPE(Mesh_t) :: Mesh
+     LOGICAL, OPTIONAL :: Allmesh
 !-----------------------------------------------------------------------
 
      TYPE Facen_t 
@@ -910,6 +931,7 @@ real(kind=dp) :: realtime,tt
      INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs, &
                 p,q,r,datasize, ierr,status(MPI_STATUS_SIZE)
 
+     LOGICAL :: AllM
      LOGICAL, POINTER :: IsNeighbour(:)
      TYPE(Element_t), POINTER :: Element, Edge
 
@@ -920,20 +942,15 @@ real(kind=dp) :: realtime,tt
 
     CALL CheckBuffer(1000000)
 
-    IF ( ASSOCIATED(ParEnv % IsNeighbour) ) THEN
-      IsNeighbour => ParEnv % IsNeighbour
-    ELSE
+    AllM = .FALSE.
+    IF ( PRESENT(Allmesh) ) AllM=Allmesh
+    IF ( AllM .OR. .NOT. ASSOCIATED(ParEnv % IsNeighbour) ) THEN
+      AllM = .TRUE.
       ALLOCATE(IsNeighbour(ParEnv % PEs))
-      IsNeighbour = .FALSE.
-      DO i=1,Mesh % Nodes % NumberOfNodes
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-          DO j=1,SIZE(Mesh % ParallelInfo % NeighbourList(i) % Neighbours)
-            IsNeighbour(Mesh % ParallelInfo % &
-              NeighbourList(i) % Neighbours(j)+1) = .TRUE.
-          END DO
-        END IF
-      END DO
-      IsNeighbour(ParEnv % myPE+1) = .FALSE.
+      n = MeshNeighbours(Mesh,IsNeighbour)
+    ELSE
+      AllM = .FALSE.
+      IsNeighbour => ParEnv % IsNeighbour
     END IF
 
     n = Mesh % NumberOfFaces
@@ -1264,6 +1281,7 @@ real(kind=dp) :: realtime,tt
     END DO
 
     DEALLOCATE( gorder, grevorder, gdofs, facen )
+    IF ( ALLM ) DEALLOCATE(IsNeighbour)
     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 !--------------------------------------------------------------------  
   END SUBROUTINE SParFaceNumbering
