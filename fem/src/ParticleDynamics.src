@@ -107,13 +107,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   ! Do some initalialization: allocate space, check fields  
   !------------------------------------------------------------------------
   IF( VisitedTimes == 1 ) THEN
-    NoParticles = GetInteger( Params,'Number of Particles') 
-    IF( NoParticles == 0 ) THEN
-      CALL Fatal('ParticleDynamics','Give Number of Particles for tracking')
-    END IF
     TimeOrder = 2
 
-    CALL AllocateParticles( Particles, NoParticles, dim, TimeOrder )
+    CALL SetParticleDimensions( Particles, dim, TimeOrder )
 
     CollisionInteraction = GetLogical( Params,'Collision Interaction')
     ContactInteraction = GetLogical( Params,'Contact Interaction')
@@ -174,9 +170,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
     ! Get the timestep size, initialize at 1st round
     !--------------------------------------------------------------
-
     dtime = GetParticlesTimeStep( Particles, InitTimestep )
-!PRINT *,'dtime',dtime
 
     IF( dtime < TINY( dtime ) ) EXIT	
 

@@ -127,17 +127,51 @@ END SUBROUTINE SetParticleElement
 !---------------------------------------------------------
 ! Allocate particles before launching them
 !---------------------------------------------------------
-SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
+SUBROUTINE SetParticleDimensions(Particles,dim,TimeOrder)
+
+  TYPE(Particle_t) :: Particles
+  INTEGER, OPTIONAL :: dim
+  INTEGER, OPTIONAL :: TimeOrder
+
+  TYPE(Mesh_t), POINTER :: Mesh
+
+
+  IF(PRESENT(TimeOrder)) THEN
+    Particles % TimeOrder = TimeOrder
+  ELSE
+    Particles % TimeOrder = 2
+  END IF
+  
+  IF( PRESENT( dim ) ) THEN
+    IF( dim == 2 .OR. dim == 3 ) THEN
+      Particles % dim = dim
+    ELSE
+      CALL Fatal('SetParticleDimensions','Invalid dimension')
+    END IF
+  ELSE
+    Mesh => GetMesh()
+    IF( ASSOCIATED( Mesh ) ) THEN
+      Particles % dim = Mesh % Meshdim
+    ELSE
+      CALL Fatal('SetParticleDimensions','No Mesh associated')
+    END IF
+  END IF
+
+END SUBROUTINE SetParticleDimensions
+
+
+!---------------------------------------------------------
+! Allocate particles before launching them
+!---------------------------------------------------------
+SUBROUTINE AllocateParticles(Particles,NoParticles)
 
   TYPE(Particle_t) :: Particles
   INTEGER :: NoParticles
-  INTEGER, OPTIONAL :: dim
-  INTEGER, OPTIONAL :: TimeOrder
 
   REAL(KIND=dp), POINTER :: Velocity(:,:), Acceleration(:,:), &
        Coordinate(:,:), Distance(:),Dt(:)
   INTEGER, POINTER :: Status(:), ElementIndex(:), FaceIndex(:), Closest(:)
-  INTEGER :: PrevNoParticles, dofs, No, n
+  INTEGER :: PrevNoParticles, dofs, No, n, dim, TimeOrder
   
   IF( NoParticles <= Particles % MaxNumberOfParticles ) THEN
     CALL Info('AllocateParticles','There are already enough particles')
@@ -147,23 +181,9 @@ SUBROUTINE AllocateParticles(Particles,NoParticles,dim,TimeOrder)
     CALL Info('AllocateParticles',Message)    
   END IF
 
-  IF(PRESENT(TimeOrder)) THEN
-    Particles % TimeOrder = TimeOrder
-  ELSE
-    Particles % TimeOrder = 1
-  END IF
-
-  IF( .NOT. PRESENT( dim ) ) THEN
-    dofs = 3 
-  ELSE
-    IF( dim == 2 .OR. dim == 3 ) THEN
-      dofs = dim
-    ELSE
-      CALL Warn('AllocateParticles','Invalid dimension')
-      RETURN
-    END IF
-  END IF
-  Particles % dim = dofs
+  TimeOrder = Particles % TimeOrder
+  dim = Particles % dim 
+  dofs = dim
 
   IF( Particles % MaxNumberOfParticles == 0 ) THEN
     ALLOCATE( Particles % Coordinate(NoParticles,dofs))
@@ -333,8 +353,7 @@ SUBROUTINE IncreaseParticles(Particles,NoParticles)
   ! --------------------------------------------
   Maxn = Particles % NumberOfParticles+NoParticles
   IF ( Maxn > Particles % MaxNumberOfParticles ) &
-    CALL AllocateParticles( Particles,Maxn, &
-          Particles % Dim, Particles % TimeOrder )
+    CALL AllocateParticles( Particles,Maxn )
 
 END SUBROUTINE IncreaseParticles
 
@@ -999,40 +1018,20 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   INTEGER :: dim
   REAL(KIND=dp), POINTER :: Coords(:,:), Velo(:,:)
   CHARACTER(LEN=MAX_NAME_LEN) :: InitMethod
-  INTEGER :: i,j,k,n,nonodes, InitStatus
+  INTEGER :: i,j,k,n,nonodes, InitStatus, TotParticles
   INTEGER, POINTER :: MaskPerm(:), InvPerm(:), NodeIndexes(:)
   LOGICAL :: GotIt, GotMask
   REAL(KIND=dp), POINTER :: InitialValues(:,:)
-  REAL(KIND=dp) :: mass,boltz,temp,coeff,eps 
+  REAL(KIND=dp) :: mass,boltz,temp,coeff,eps,frac 
   REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Diam
   INTEGER :: nx,ny,nz,ix,iy,iz,ind
   LOGICAL, POINTER :: DoneParticle(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
   
 
-  IF( PRESENT( AppendParticles ) ) THEN
-    Offset = Particles % NumberOfParticles
-  ELSE
-    Offset = 0
-  END IF
-  IF( PRESENT( InitParticles ) ) THEN
-    NewParticles = InitParticles
-  ELSE
-    NewParticles = Particles % MaxNumberOfParticles
-  END IF
-
-  LastParticle = Offset + NewParticles
-  Particles % NumberOfParticles = LastParticle
-
-
   Mesh => GetMesh()
-  dim = Mesh % MeshDim
-
-  CALL AllocateParticles( Particles, LastParticle, dim ) 
-  Velo => Particles % Velocity
-  Coords => Particles % Coordinate
-  
   Params => GetSolverParams()
+  dim = Particles % Dim
 
   !------------------------------------------------------------------------
   ! Position may be initialized using a given list, or using the nodal
@@ -1041,10 +1040,10 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   
   InitMethod = ListGetString( Params,'Coordinate Initialization Method',gotIt ) 
 
-
   !------------------------------------------------------------------------
   ! The user may use a mask to initialize the particles only at a part of the 
   ! domain, or to utilize the ordeing of the permutation vector.
+  ! Create the mask before deciding on the number which may be relative
   !-------------------------------------------------------------------------  
   GotMask = .FALSE.
   VariableName = ListGetString( Params,'Initialization Mask Variable',GotIt )
@@ -1058,8 +1057,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
         END IF
 
         GotMask = .TRUE.
+        nonodes = MAXVAL( MaskPerm ) 
+
         IF( InitMethod(1:5) == 'nodal') THEN
-          nonodes = MAXVAL( MaskPerm ) 
           ALLOCATE( InvPerm(nonodes) )
           DO i=1,SIZE(MaskPerm)
             j = MaskPerm(i)
@@ -1106,6 +1106,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   END IF
 
   
+  !------------------------------------------------------------------------
+  ! Use a simple bounding box for initializatin
+  !-------------------------------------------------------------------------  
   IF( InitMethod(1:3) == 'box') THEN
     Eps = GetCReal( Params,'Box Particle Boundary Thickness',GotIt)
     IF(.NOT. GotIt) eps = 1.0d-8
@@ -1132,10 +1135,67 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   END IF
 
 
+  !------------------------------------------------------------------------
+  ! Now decide on the number of particles.
+  !-------------------------------------------------------------------------  
+  IF( PRESENT( AppendParticles ) ) THEN
+    Offset = Particles % NumberOfParticles
+  ELSE
+    Offset = 0
+  END IF
   
+  IF( PRESENT( InitParticles ) ) THEN
+    NewParticles = InitParticles
+  ELSE
+    NewParticles = GetInteger( Params,'Number of Particles',GotIt) 
+    frac = GetCReal( Params,'Particles per Node Fraction',GotIt)
+    IF( GotIt ) NewParticles = NINT( frac * nonodes )
+    frac = GetCReal( Params,'Particles per Element Fraction',GotIt)
+    IF( GotIt ) NewParticles = NINT( frac * noelements )
+  END IF
+
+  IF( NewParticles == 0 ) THEN    
+    IF( ParEnv% PEs == 1 ) THEN
+      TotParticles = NewParticles
+    ELSE
+      TotParticles = NINT( ParallelReduction( 1.0_dp * NewParticles ) )
+      IF( TotParticles == 0 ) THEN
+        CALL Warn('InitializeParticles','No Particles to Initialize')
+      ELSE IF( NewParticles == 0 ) THEN
+        PRINT *,'No particles to initialize in partition:',ParEnv % myPE
+      END IF
+    END IF
+    
+    RETURN
+  END IF
+
+    
+  !------------------------------------------------------------------------
+  ! Interval of particles
+  !-------------------------------------------------------------------------  
+  IF( PRESENT( AppendParticles ) ) THEN
+    Offset = Particles % NumberOfParticles
+  ELSE
+    Offset = 0
+  END IF
+  LastParticle = Offset + NewParticles
+
+
+  !------------------------------------------------------------------------
+  ! Allocate particles
+  !-------------------------------------------------------------------------    
+  CALL AllocateParticles( Particles, LastParticle )
+
+  Particles % NumberOfParticles = LastParticle
+
+  Velo => Particles % Velocity
+  Coords => Particles % Coordinate
+  
+
+
+
   SELECT CASE ( InitMethod ) 
     
-
   CASE ('nodal ordered')
     NewParticles = MIN(NoElements,NewParticles)
     Particles % NumberOfParticles = NewParticles
@@ -1189,16 +1249,15 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       CALL Fatal('InitializeParticles','Size of unit cell not given')
     END IF
 
-    nx = ( MaxCoord(1) - MinCoord(1) ) / Diam
-    ny = ( MaxCoord(2) - MinCoord(2) ) / Diam
+    nx = NINT ( ( MaxCoord(1) - MinCoord(1) ) / Diam )
+    ny = NINT( ( MaxCoord(2) - MinCoord(2) ) / Diam )
     IF( dim == 3 ) THEN
-      nz = ( MaxCoord(3) - MinCoord(3) ) / Diam
+      nz = NINT( ( MaxCoord(3) - MinCoord(3) ) / Diam )
     ELSE
       nz = 1
     END IF
 
     IF( nx * ny * nz < NewParticles ) THEN
-      PRINT *,'Max places:',nx*ny*nz
       CALL Fatal('InitializeParticles','More particles than places in unit cell')
     END IF
 
@@ -1214,7 +1273,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       ELSE
         iz = 1
       END IF
-      ind = nx*ny*(nz-1) + nx*(iy-1) + ix
+      ind = nx*ny*(iz-1) + nx*(iy-1) + ix
       IF( DoneParticle(ind) ) CYCLE
       
       i = i + 1
@@ -2092,7 +2151,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
     IF ( Particles % Status(i) == PARTICLE_LOST ) CYCLE
 
     node = Particles % ClosestNode(i)
-    IF ( .NOT. PI % Interface(node) ) CYCLE
+    IF ( .NOT. PI % INTERFACE(node) ) CYCLE
     Neighbours => PI % NeighbourList(node) % Neighbours
     DO j=1,SIZE(Neighbours)
       proc = Neighbours(j)
@@ -2121,7 +2180,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
     IF ( Particles % Status(i) == PARTICLE_LOST ) CYCLE
 
     node = Particles % ClosestNode(i)
-    IF ( .NOT. PI % Interface(node) ) CYCLE
+    IF ( .NOT. PI % INTERFACE(node) ) CYCLE
     Neighbours => PI % NeighbourList(node) % Neighbours
     DO j=1,SIZE(Neighbours)
       proc = Neighbours(j)
@@ -2200,7 +2259,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
       n_part = n_part+1
       Particles % Status(n_part) = PARTICLE_GHOST
       node = SearchNode(PI,Indexes(j))
-      if ( node<=0 ) stop 'a'
+      IF ( node<=0 ) STOP 'a'
       Particles % ClosestNode(n_part) = node
       Particles % NoClosestParticle(node) = &
               Particles % NoClosestParticle(node) + 1
