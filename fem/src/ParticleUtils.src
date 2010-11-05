@@ -449,7 +449,7 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
   TYPE(Mesh_t), POINTER :: Mesh
 
   INTEGER, POINTER :: Neighbours(:)
-  LOGICAL, POINTER :: FaceInterface(:)
+  LOGICAL, POINTER :: FaceInterface(:), IsNeighbour(:)
 
   TYPE ExchgInfo_t
     INTEGER :: n=0
@@ -468,19 +468,21 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
 
   ! Count & Identify neighbouring partitions:
   ! -----------------------------------------
-  NoPartitions = COUNT(ParEnv % IsNeighbour)
+  ALLOCATE(IsNeighbour(ParEnv % PEs))
+  NoPartitions = MeshNeighbours(Mesh,IsNeighbour)
   ALLOCATE(Perm(ParEnv % PEs), Neigh(NoPartitions) )
   Perm = 0
 
   NoPartitions=0
   DO i=1,ParEnv % PEs
     IF ( i-1==ParEnv % Mype ) CYCLE
-    IF ( ParEnv % IsNeighbour(i) ) THEN
+    IF ( IsNeighbour(i) ) THEN
       NoPartitions=NoPartitions+1
       Perm(i) = NoPartitions
       Neigh(NoPartitions) = i-1
     END IF
   END DO
+  DEALLOCATE(IsNeighbour)
 
   !
   ! Count particles to be sent to neighbours:
@@ -1052,11 +1054,14 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     IF( ASSOCIATED( Var ) ) THEN
       MaskPerm => Var % Perm
       IF( ASSOCIATED(MaskPerm) ) THEN
-        IF( MAXVAL( MaskPerm ) == 0 ) THEN
-          CALL Fatal('InitializeParticles','Size of mask variable is zero!')
-        END IF
-
         GotMask = .TRUE.
+        IF( MAXVAL( MaskPerm ) == 0 ) THEN
+!         CALL Fatal('InitializeParticles','Size of mask variable is zero!')
+           nonodes = 0
+           noelements = 0
+           InvPerm => Null()
+        ELSE
+
         nonodes = MAXVAL( MaskPerm ) 
 
         IF( InitMethod(1:5) == 'nodal') THEN
@@ -1094,6 +1099,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
               IF( j > 0 ) EXIT
             END IF
           END DO
+        END IF
         END IF
       ELSE
         CALL Fatal('InitializeParticles','Mask variable does not exist: '&
@@ -1315,7 +1321,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       END IF
     END SELECT
 
-    IF( GotMask ) DEALLOCATE( InvPerm ) 
+    IF( GotMask .AND. ASSOCIATED(InvPerm) ) DEALLOCATE( InvPerm ) 
 
     !------------------------------------------------------------------------
     ! Velocities may be initialized using a given list, or obtaining them
@@ -1594,12 +1600,6 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
     MaxTrials = ListGetInteger( Params,'Particle Search Max Trials',Stat)
     IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements
 
-    CALL FindMeshEdges( Mesh, .FALSE.)
-    IF ( ParEnv % PEs>1 ) THEN
-      CALL SParEdgeNumbering(Mesh)
-      CALL SParFaceNumbering(Mesh)
-    END IF
-
     Debug = .FALSE.
     Visited = .TRUE.
   END IF
@@ -1705,11 +1705,21 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
 
   INTEGER :: Status, ElementIndex, No, NoParticles, dim
   REAL(KIND=dp) :: Rinit(3), Rfin(3)
-  LOGICAL :: InitLocation
+  LOGICAL :: InitLocation, Visited=.FALSE.
   INTEGER :: FaceIndex
   REAL(KIND=dp) :: Lambda
+  TYPE(Mesh_t), POINTER :: Mesh
 
-  
+  IF ( .NOT. Visited ) THEN
+    Mesh => GetMesh()
+    CALL FindMeshEdges( Mesh, .FALSE.)
+    IF ( ParEnv % PEs>1 ) THEN
+      CALL SParEdgeNumbering(Mesh,Allmesh=.TRUE.)
+      CALL SParFaceNumbering(Mesh,Allmesh=.TRUE.)
+    END IF
+    Visited = .TRUE.
+  END IF
+
   NoParticles = Particles % NumberOfParticles
   dim = Particles % dim
   
@@ -2097,6 +2107,7 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
 
   TYPE(ParallelInfo_t), POINTER :: PI
 
+  LOGICAL, ALLOCATABLE :: IsNeighbour(:)
   INTEGER, POINTER :: Neighbours(:), Closest(:)
 
   TYPE ExchgInfo_t
@@ -2116,19 +2127,21 @@ SUBROUTINE ExchangeNeighbourParticles(Particles)
 
   ! Count & Identify neighbouring partitions:
   ! -----------------------------------------
-  NoPartitions = COUNT(ParEnv % IsNeighbour)
+  ALLOCATE(IsNeighbour(ParEnv % PEs))
+  NoPartitions = MeshNeighbours(Mesh,IsNeighbour)
   ALLOCATE(Perm(ParEnv % PEs), Neigh(NoPartitions) )
   Perm = 0
 
   NoPartitions=0
   DO i=1,ParEnv % PEs
     IF ( i-1==ParEnv % Mype ) CYCLE
-    IF ( ParEnv % IsNeighbour(i) ) THEN
+    IF ( IsNeighbour(i) ) THEN
       NoPartitions=NoPartitions+1
       Perm(i) = NoPartitions
       Neigh(NoPartitions) = i-1
     END IF
   END DO
+  DEALLOCATE(IsNeighbour)
 
   ! Receive interface sizes:
   !--------------------------
