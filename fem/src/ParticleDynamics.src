@@ -74,6 +74,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
   TYPE(Particle_t) :: Particles
 
+  REAL(KIND=dp), SAVE :: MinCoord(3), MaxCoord(3)
 
   SAVE CollisionInteraction, FieldInteraction, ContactInteraction, &
       ParticlesToField, AnyInteraction, OutputInterval, Nstep, VisitedTimes, &
@@ -84,8 +85,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   CALL Info('ParticleDynamics','-----------------------------------------', Level=4 )
-  CALL Info('ParticleDynamics','Tracking the path of the particle',Level=4)
-
+  CALL Info('ParticleDynamics','Tracking the path of the particle',Level=4) 
 
   VisitedTimes = VisitedTimes + 1
 
@@ -131,6 +131,14 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       ALLOCATE( WeightVector( SIZE( RhsVector ) ) )
       ALLOCATE( ForceVector( SIZE( RhsVector ) ) )      
     END IF
+
+    MinCoord(1) = ParallelReduction(MINVAL(Mesh % Nodes % x ),1)
+    MinCoord(2) = ParallelReduction(MINVAL(Mesh % Nodes % y ),1)
+    MinCoord(3) = ParallelReduction(MINVAL(Mesh % Nodes % y ),2)
+
+    MaxCoord(1) = ParallelReduction(MAXVAL(Mesh % Nodes % x ),2)
+    MaxCoord(2) = ParallelReduction(MAXVAL(Mesh % Nodes % y ),2)
+    MaxCoord(3) = ParallelReduction(MAXVAL(Mesh % Nodes % y ),2)
   END IF
 
   ! If there is a variable to be solved, initialize the equation
@@ -842,13 +850,13 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(ValueList_t), POINTER :: Params
-     REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), rn(3), vn(3), Force(3), speed
+     REAL(KIND=dP) :: rn(3), vn(3), Force(3), speed
      INTEGER :: i,j,dim, Radius, Spring, Damping,Friction
      REAL(KIND=dp) :: eta,damp_force, spring_force, Mass, Rad
      INTEGER :: Mapped
      LOGICAL :: Visited = .FALSE.
      
-     SAVE Visited, MinCoord, MaxCoord, dim, Mass, Rad, Spring, Damping, Friction
+     SAVE Visited, dim, Mass, Rad, Spring, Damping, Friction
 
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
@@ -860,14 +868,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        Spring = GetCReal(Params,'Particle Spring')        
        Damping = GetCReal(Params,'Particle Damping')
        Friction = GetCReal(Params,'Particle Friction')
-       
-       MinCoord(1) = ParallelReduction( MINVAL( Mesh % Nodes % x ), 1)
-       MinCoord(2) = ParallelReduction( MINVAL( Mesh % Nodes % y ), 1)
-       MinCoord(3) = ParallelReduction( MINVAL( Mesh % Nodes % y ), 2)
-
-       MaxCoord(1) = ParallelReduction( MAXVAL( Mesh % Nodes % x ), 2)
-       MaxCoord(2) = ParallelReduction( MAXVAL( Mesh % Nodes % y ), 2)
-       MaxCoord(3) = ParallelReduction( MAXVAL( Mesh % Nodes % y ), 2)
        
        
        Visited = .TRUE.
