@@ -155,7 +155,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     CALL InitializeParticles( Particles ) 
   END IF
 
-  IF(.TRUE.) THEN
+  IF(.FALSE.) THEN
     CALL ParticleStatistics( Particles, 0 )
     CALL ParticleStatistics( Particles, 1 )
   END IF
@@ -176,7 +176,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     !--------------------------------------------------------------
 
     dtime = GetParticlesTimeStep( Particles, InitTimestep )
-
 !PRINT *,'dtime',dtime
 
     IF( dtime < TINY( dtime ) ) EXIT	
@@ -227,7 +226,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         Velo = GetParticleCoord( Particles, No, 1 )
         
         CALL ParticleFieldInteraction(CurrentElement, Rfin, Velo, Accel ) 
-        
         CALL AddParticleCoord( Particles, No, 2, Accel )
       END DO
     END IF
@@ -238,8 +236,11 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     IF( CollisionInteraction .OR. ContactInteraction ) THEN
 
       CALL CreateNeighbourList( Particles )
+      NoParticles = Particles % NumberOfParticles
 
       DO No=1,NoParticles
+        IF ( Particles % Status(no) == PARTICLE_GHOST ) EXIT
+        IF ( Particles % Status(no) == PARTICLE_LOST  ) CYCLE
 
         Coord = GetParticleCoord( Particles, No, 0 )
         Velo  = GetParticleCoord( Particles, No, 1 )
@@ -275,8 +276,16 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
             CALL AddParticleCoord( Particles, No, 2, Accel )
           END IF
         END IF
-        
       END DO
+
+      IF ( No<=NoParticles ) THEN
+        Particles % NumberOfParticles=No-1
+        DO WHILE(No<=NoParticles)
+          Particles % Status(No) = PARTICLE_LOST
+          No = No+1
+        END DO
+        NoParticles = Particles % NumberOfParticles
+      END IF
     END IF
 
     ! Add the constant acceleration terms, if present
@@ -327,7 +336,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   
   IF( OutputInterval == 0) CALL ParticleOutput( Particles ) 
   
-  PRINT *,'total time',tottime,stepstaken
+  IF ( ParEnv % mype==0 ) PRINT *,'total time',tottime,stepstaken
 
   CALL Info('ParticleDynamics','All done')
   CALL Info('ParticleDynamics', '-----------------------------------------', Level=4 )
@@ -364,10 +373,12 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        END IF       
        damping = GetCReal( Params,'Particle Velocity Damping',GotDamping)
          
-       PRINT *,'Using the following constant fields:'
-       PRINT *,'Particle Acceleration = ',Gravity
-       PRINT *,'Particle Velocity Damping = ',damping
-
+       IF ( ParEnv % myPE==0 ) THEN
+         PRINT *,'Using the following constant fields:'
+         PRINT *,'Particle Acceleration = ',Gravity
+         PRINT *,'Particle Velocity Damping = ',damping
+       END IF
+  
        Visited = .TRUE.
      END IF
      
@@ -510,12 +521,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        
        Solver % Matrix % rhs => ForceVector
        CALL DefaultUpdateForce( ElemForce, CurrentElement )
+
+       Solver % Matrix % rhs => RhsVector
      END IF
-     
-     Solver % Matrix % rhs => RhsVector
-     
-
-
    END SUBROUTINE ParticleFieldInteraction
    
 
