@@ -1137,6 +1137,8 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     
 
   CASE ('nodal ordered')
+    NewParticles = MIN(NoElements,NewParticles)
+    Particles % NumberOfParticles = NewParticles
     PRINT *,'Initializing particles in nodes:',NewParticles,nonodes
     DO i=1,NewParticles
       k = Offset + i
@@ -1149,6 +1151,8 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     END DO
 
   CASE ('elemental ordered')
+    NewParticles = MIN(NoElements,NewParticles)
+    Particles % NumberOfParticles = NewParticles
     PRINT *,'Initializing particles in elements:',NewParticles,noelements
     DO i=1,NewParticles
       k = Offset + i

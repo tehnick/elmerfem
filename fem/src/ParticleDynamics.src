@@ -800,6 +800,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      ! relative displacement 
      dr = Coord - Coord2
      dist = SQRT( SUM( dr * dr ) ) 
+
+     ! if they overlap, what to do?
+     IF ( dist==0._dp ) RETURN
      
      ! no contact if the distance is too large
      eta = 2 * Rad - dist
