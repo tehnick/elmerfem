@@ -1022,10 +1022,11 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   CHARACTER(LEN=MAX_NAME_LEN) :: InitMethod
   INTEGER :: i,j,k,n,nonodes, InitStatus, TotParticles
   INTEGER, POINTER :: MaskPerm(:), InvPerm(:), NodeIndexes(:)
-  LOGICAL :: GotIt, GotMask
+  LOGICAL :: GotIt, GotMask, RequirePositivity
   REAL(KIND=dp), POINTER :: InitialValues(:,:)
-  REAL(KIND=dp) :: mass,boltz,temp,coeff,eps,frac 
+  REAL(KIND=dp) :: mass,boltz,temp,coeff,eps,frac,meanval 
   REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Diam
+  REAL(KIND=dp), POINTER :: MaskVal(:)
   INTEGER :: nx,ny,nz,ix,iy,iz,ind
   LOGICAL, POINTER :: DoneParticle(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
@@ -1048,62 +1049,69 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   ! Create the mask before deciding on the number which may be relative
   !-------------------------------------------------------------------------  
   GotMask = .FALSE.
-  VariableName = ListGetString( Params,'Initialization Mask Variable',GotIt )
+  VariableName = ListGetString( Params,'Initialization Condition Variable',GotIt )
+  IF(GotIt) THEN
+    RequirePositivity = .TRUE.
+  ELSE
+    VariableName = ListGetString( Params,'Initialization Condition Variable',GotIt )
+    RequirePositivity = .FALSE.
+  END IF
+  
   IF(GotIt) THEN
     Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
+    
     IF( ASSOCIATED( Var ) ) THEN
       MaskPerm => Var % Perm
-      IF( ASSOCIATED(MaskPerm) ) THEN
-        GotMask = .TRUE.
-        IF( MAXVAL( MaskPerm ) == 0 ) THEN
-!         CALL Fatal('InitializeParticles','Size of mask variable is zero!')
-           nonodes = 0
-           noelements = 0
-           InvPerm => Null()
-        ELSE
-
-        nonodes = MAXVAL( MaskPerm ) 
-
+      MaskVal => Var % Values
+      
+      IF(.NOT. ( ASSOCIATED( MaskPerm ) .AND. ASSOCIATED(MaskVal)) ) THEN
+        CALL Warn('InitializeParticles','Initialization variable does not exist?')
+      ELSE IF( MAXVAL( MaskPerm ) == 0 ) THEN
+        CALL Warn('InitializeParticles','Initialization variable of size zero?')
+	nonodes = 0
+	noelements = 0
+	InvPerm => NULL()
+      ELSE
         IF( InitMethod(1:5) == 'nodal') THEN
-          ALLOCATE( InvPerm(nonodes) )
-          DO i=1,SIZE(MaskPerm)
-            j = MaskPerm(i)
-            IF( j > 0 ) InvPerm(j) = i
-          END DO
-        ELSE IF( InitMethod(1:9) == 'elemental') THEN
+          ALLOCATE( InvPerm(SIZE(MaskPerm)) )
+          InvPerm = 0
           j = 0
-          ! first, calculate the number of active elements
+          DO i=1,SIZE(MaskPerm)
+            k = MaskPerm(i)
+            IF( k == 0 ) CYCLE
+            IF( RequirePositivity ) THEN
+              IF( MaskVal( k ) < 0.0_dp ) CYCLE
+            END IF
+            j = j + 1
+            InvPerm(j) = i
+          END DO
+          nonodes = j
+        ELSE IF( InitMethod(1:9) == 'elemental') THEN
+          ALLOCATE( InvPerm( MAX( Mesh % NumberOfBulkElements, Mesh % NumberOfBoundaryElements ) ) ) 
+          InvPerm = 0
+          
+          j = 0
           DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
             CurrentElement => Mesh % Elements(i)
             NodeIndexes =>  CurrentElement % NodeIndexes
             n = CurrentElement % TYPE % NumberOfNodes
-            IF( ALL( MaskPerm( NodeIndexes ) > 0 ) ) j = j + 1
+            IF( ANY( MaskPerm( NodeIndexes ) == 0 ) ) CYCLE
+            
+            IF( RequirePositivity ) THEN
+              meanval = SUM( MaskVal( MaskPerm( NodeIndexes ) ) ) 
+              IF( meanval < 0.0_dp ) CYCLE
+            END IF
+            
+            ! If some of bulk elements have been found avtive
+            j = j + 1
+            InvPerm(j) = i
+            
             IF( i == Mesh % NumberOfBulkElements ) THEN
               IF( j > 0 ) EXIT
             END IF
           END DO
           noelements = j
-
-          ! then create an inverse table for their indexes
-          ALLOCATE( InvPerm(noelements) )
-          j = 0
-          DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-            CurrentElement => Mesh % Elements(i)
-            NodeIndexes => CurrentElement % NodeIndexes
-            n = CurrentElement % TYPE % NumberOfNodes
-            IF( ALL( MaskPerm( NodeIndexes ) > 0 ) ) THEN
-              j = j + 1
-              InvPerm(j) = i
-            END IF
-            IF( i == Mesh % NumberOfBulkElements ) THEN
-              IF( j > 0 ) EXIT
-            END IF
-          END DO
         END IF
-        END IF
-      ELSE
-        CALL Fatal('InitializeParticles','Mask variable does not exist: '&
-            //TRIM(VariableName) )          
       END IF
     END IF
   ELSE
@@ -1235,7 +1243,6 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     PRINT *,'done inint'
 
   CASE ('box random')
-
     DO i=1,NewParticles
       k = Offset + i      
       Coords(k,1) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
@@ -1246,7 +1253,6 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     END DO
 
   CASE ('box random cubic')
-
     Diam = GetCReal( Params,'Box Particle Unit Cell',GotIt)
     IF(.NOT. GotIt ) THEN
       Diam = 2 * GetCReal( Params,'Particle Radius',GotIt)
