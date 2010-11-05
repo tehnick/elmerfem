@@ -2736,7 +2736,9 @@ SUBROUTINE ParticleOutputVtu( Particles )
   Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
 
   Dim = Particles % dim
-  NumberOfNodes = Particles % NumberOfParticles
+
+  CALL DeleteLostParticles(Particles)
+  NumberOFNodes = Particles % NumberOfParticles
 
   IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
     Dir = TRIM(Mesh % Name) // "/"
