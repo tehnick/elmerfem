@@ -1053,7 +1053,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   IF(GotIt) THEN
     RequirePositivity = .TRUE.
   ELSE
-    VariableName = ListGetString( Params,'Initialization Condition Variable',GotIt )
+    VariableName = ListGetString( Params,'Initialization Mask Variable',GotIt )
     RequirePositivity = .FALSE.
   END IF
   
@@ -1063,7 +1063,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     IF( ASSOCIATED( Var ) ) THEN
       MaskPerm => Var % Perm
       MaskVal => Var % Values
-      
+
       IF(.NOT. ( ASSOCIATED( MaskPerm ) .AND. ASSOCIATED(MaskVal)) ) THEN
         CALL Warn('InitializeParticles','Initialization variable does not exist?')
       ELSE IF( MAXVAL( MaskPerm ) == 0 ) THEN
@@ -1072,6 +1072,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 	noelements = 0
 	InvPerm => NULL()
       ELSE
+        GotMask = .TRUE.
         IF( InitMethod(1:5) == 'nodal') THEN
           ALLOCATE( InvPerm(SIZE(MaskPerm)) )
           InvPerm = 0
@@ -1086,6 +1087,8 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
             InvPerm(j) = i
           END DO
           nonodes = j
+
+          PRINT *,'Total nodes vs. masked',Mesh % NumberOfNodes,nonodes
         ELSE IF( InitMethod(1:9) == 'elemental') THEN
           ALLOCATE( InvPerm( MAX( Mesh % NumberOfBulkElements, Mesh % NumberOfBoundaryElements ) ) ) 
           InvPerm = 0
@@ -1095,6 +1098,11 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
             CurrentElement => Mesh % Elements(i)
             NodeIndexes =>  CurrentElement % NodeIndexes
             n = CurrentElement % TYPE % NumberOfNodes
+
+            IF( i == Mesh % NumberOfBulkElements ) THEN
+              IF( j > 0 ) EXIT
+            END IF
+
             IF( ANY( MaskPerm( NodeIndexes ) == 0 ) ) CYCLE
             
             IF( RequirePositivity ) THEN
@@ -1106,11 +1114,10 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
             j = j + 1
             InvPerm(j) = i
             
-            IF( i == Mesh % NumberOfBulkElements ) THEN
-              IF( j > 0 ) EXIT
-            END IF
           END DO
           noelements = j
+
+          PRINT *,'Total elements vs. masked',Mesh % NumberOfBulkElements,noelements
         END IF
       END IF
     END IF
@@ -1232,15 +1239,25 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       k = Offset + i
       j = (NoElements-1)*(i-1)/(NewParticles-1)+1
       IF( GotMask ) j = InvPerm(j)
+
+
+      IF( j > Mesh % NumberOfBulkElements ) THEN
+        PRINT *,'j too large',j,i,k,(NoElements-1)*(i-1)/(NewParticles-1)+1
+      END IF
+
       CurrentElement => Mesh % Elements(j)
       NodeIndexes =>  CurrentElement % NodeIndexes
       n = CurrentElement % TYPE % NumberOfNodes
       Coords(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n
       Coords(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n
       IF( dim == 3 ) Coords(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
-      Particles % ElementIndex(i) = j
+
+      ! Only a bulk element may own a particle
+      IF( j <= Mesh % NumberOfBulkElements ) THEN
+        Particles % ElementIndex(i) = j
+      END IF
     END DO
-    PRINT *,'done inint'
+    PRINT *,'done init'
 
   CASE ('box random')
     DO i=1,NewParticles
@@ -1405,6 +1422,8 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       k = Offset + i
       Particles % Status(k) = InitStatus
     END DO
+
+PRINT *,'done init all'
 
 
   END SUBROUTINE InitializeParticles
@@ -1610,7 +1629,6 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
     Visited = .TRUE.
   END IF
 
-
   ParticleStatus = PARTICLE_LOST
   IF( PRESENT (StopFaceIndex) ) StopFaceIndex=0
 
@@ -1636,7 +1654,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
   DO i=1,MaxTrials
     n = GetElementNOFNOdes(Element)
     CALL GetElementNodes(ElementNodes,Element)
-    
+
     ! Use the previous element center if the true path is of no importance
     !---------------------------------------------------------------------	
     IF( UseCenter ) THEN
@@ -1646,7 +1664,7 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
     ELSE
       Rtmp = Rinit
     END IF
-    
+
     CALL SegmentElementIntersection(Mesh,Element,&
         Rtmp,Rfin,MinLambda,FaceElement )
     
@@ -1744,7 +1762,7 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
     InitLocation = ( Status < PARTICLE_LOCATED ) 
     Rfin(1:dim) = GetParticleCoord( Particles, No, 0 )
     ElementIndex = GetParticleElement( Particles, No )
-    
+
     ! Note that if we want proper collisions with the boundary done within this
     ! routine the initial coordinates should really not be rfin!!
 
@@ -2551,6 +2569,127 @@ SUBROUTINE ParticleBoxLimits(Particles)
   
 END SUBROUTINE ParticleBoxLimits
 
+!---------------------------------------------------------------    
+! Checks the boundaries for general limits. 
+! The radius is still assumed to be constant.
+!---------------------------------------------------------------    
+SUBROUTINE ParticleWallIntercation(Particles )
+  
+  TYPE(Particle_t) :: Particles
+!  INTEGER :: No
+!  REAL(KIND=dp) :: Rad
+
+  TYPE(Solver_t), POINTER :: Solver
+  REAL(KIND=dp) :: Coord(3), Velo(3), Rad, Dist, Normal(3)
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(ValueList_t), POINTER :: Params
+  INTEGER :: i,j,k,dim, ierr, imax
+  LOGICAL :: Reflect,Periodic,Contact,Found,Hit,Visited = .FALSE.
+  INTEGER :: No, NoParticles, Status, ElementIndex
+  TYPE(Element_t), POINTER :: BulkElement, BoundaryElement
+  TYPE(Nodes_t)   :: ElementNodes, BoundaryNodes
+  
+  SAVE Visited, dim, Rad, Mesh, ElementNodes, BoundaryNodes
+  
+  IF( .NOT. Visited ) THEN
+    Mesh => GetMesh()
+    Params => GetSolverParams()
+    dim = Mesh % Meshdim
+
+! One may need a different radius if the mesh leaks.
+    Rad = GetCReal( Params,'Particle Boundary Radius',Found)
+    IF(.NOT. Found) Rad = GetCReal( Params,'Particle Radius',Found)
+    Visited = .TRUE.
+  END IF
+  
+  NoParticles = Particles % NumberOfParticles
+  
+  DO No = 1, NoParticles
+    Status = Particles % Status(No) 
+    IF( Status >= PARTICLE_LOST ) CYCLE
+    IF( Status < PARTICLE_INITIATED ) CYCLE
+    
+    ElementIndex = Particles % ElementIndex( No ) 
+    BulkElement => Mesh % Elements( ElementIndex )
+    
+    IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
+      imax =  BulkElement % TYPE % NumberOfFaces 
+    ELSE
+      imax = BulkElement % TYPE % NumberOfEdges  
+    END IF
+    
+    DO i=1, imax
+      IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
+        j = BulkElement % FaceIndexes(i)
+        BoundaryElement => Mesh % Faces( j )
+      ELSE
+        j = BulkElement % EdgeIndexes(i)
+        BoundaryElement => Mesh % Edges(j)
+      END IF
+      
+      IF( .NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
+      Hit = .FALSE.
+      
+      DO k=1,CurrentModel % NumberOfBCs
+        IF ( BoundaryElement % BoundaryInfo % Constraint /= &
+            CurrentModel % BCs(k) % Tag ) CYCLE
+        
+        Reflect = GetLogical( CurrentModel % BCs(k) % Values,&
+            'Particle Reflection',Found)
+        Periodic = GetLogical( CurrentModel % BCs(k) % Values,&
+            'Particle Periodic',Found)
+        Contact = GetLogical( CurrentModel % BCs(k) % Values,&
+            'Particle Contact',Found)
+        
+        IF(.NOT. (Reflect .OR. Periodic .OR. Contact )) EXIT
+
+        CALL GetElementNodes(BoundaryNodes,BoundaryElement)
+        Coord(1:dim) = Particles % Coordinate(No,1:dim)
+        
+        Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
+
+!        PRINT *,'face',j,k,Dist
+!        PRINT *,'Dist',Dist,Rad
+
+        Dist = Dist - Rad
+        IF( Dist > 0.0_dp ) EXIT
+        Hit = .TRUE.
+        
+        Velo(1:dim) = Particles % Velocity(No,1:dim)
+        
+        ! Boundary conditions for reflection. 
+        !------------------------------------------
+        IF( Reflect ) THEN
+!PRINT *,'No',No,Dim
+!PRINT *,'reflect:',dist
+!PRINT *,'velo',velo(1:dim)
+!PRINT *,'coord',Coord(1:dim)
+!PRINT *,'Normal',Normal
+
+          Coord = Coord + 2 * Dist * Normal
+          Velo = Velo - 2 * Normal * SUM(Velo*Normal)
+        ELSE IF( Contact ) THEN
+          CALL Warn('ParticleWallLimits','Implement boundary contact')
+        ELSE IF( Periodic ) THEN 
+          CALL Warn('ParticleWallLimits','Implement boundary periodicty')
+        END IF
+
+!        PRINT *,'Coord2',Coord
+!        PRINT *,'Velo2',Velo
+        
+      END DO
+      
+      IF( Hit ) THEN
+        Particles % Coordinate(No,1:dim) = Coord(1:dim)
+        Particles % Velocity(No,1:dim) = Velo(1:dim)
+      END IF
+
+    END DO
+  END DO
+END SUBROUTINE ParticleWallIntercation
+
+
+
 
 
  !------------------------------------------------------------------------
@@ -2804,9 +2943,9 @@ SUBROUTINE ParticleOutputVtu( Particles )
   FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
 
   IF ( nTime == 1 ) THEN
-    CALL Info('ParticleOutputVtu','Saving results in VTK XML format')
     FilePrefix = GetString( Params,'Filename Prefix',GotIt )
     IF ( .NOT.GotIt ) FilePrefix = "Particles"
+    CALL Info('ParticleOutputVtu','Saving results in VTK XML format to file'//TRIM(FilePrefix))
   END IF
   
   Partitions = ParEnv % PEs

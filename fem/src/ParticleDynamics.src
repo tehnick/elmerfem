@@ -61,7 +61,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: Var
   LOGICAL :: GotIt, Debug, Hit, InitLocation, CollisionInteraction, &
       FieldInteraction, ContactInteraction, ParticlesToField, AnyInteraction, &
-      ParticleInBox, Absolute, InitTimestep
+      ParticleInBox, ParticleWall, Absolute, InitTimestep
   INTEGER :: i,j,k,dim,No,No2,nodims,NoParticles = 0,&
        ElementIndex, VisitedTimes = 0, nstep, OutputInterval, &
        Status,TimeOrder, PartitionChanges, StepsTaken=0,estindexes(6) 
@@ -79,7 +79,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   SAVE CollisionInteraction, FieldInteraction, ContactInteraction, &
       ParticlesToField, AnyInteraction, OutputInterval, Nstep, VisitedTimes, &
       RhsVector, WeightVector, ForceVector, TimeOrder, ParticleInBox, Particles, &
-      tottime, StepsTaken 
+      tottime, StepsTaken, ParticleWall
 
 
 !------------------------------------------------------------------------------
@@ -122,6 +122,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     OutputInterval = GetInteger( Params,'Internal Output Interval')
     Nstep = GetInteger( Params,'Internal Timestep Interval')
     ParticleInBox = GetLogical( Params,'Particle In Box')
+    ParticleWall = GetLogical( Params,'Wall Interaction')
 
     IF( ParticlesToField ) THEN
       IF( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
@@ -191,12 +192,17 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     !--------------------------------------------------------------
     CALL ParticleInitializeTime( Particles )
 
-
     ! For testing purposes there are some BCs for rectangular boxes
     ! that ensure that particles are within the box
     !---------------------------------------------------------------
     IF( ParticleInBox ) THEN
       CALL ParticleBoxLimits( Particles )
+    END IF
+
+    IF( ParticleWall ) THEN
+      IF( i > 1 .OR. VisitedTimes > 1 ) THEN
+        CALL ParticleWallIntercation( Particles )
+      END IF
     END IF
 
     ! Find the elements (and only the elements) in which the particles are in 
@@ -211,8 +217,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       END DO
       NoParticles = Particles % NumberOfParticles
     END IF
-
-    
+   
     ! Calculate the acceleration resulting from external fields in mesh
     !------------------------------------------------------------------
     IF( FieldInteraction ) THEN

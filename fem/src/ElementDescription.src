@@ -5037,12 +5037,8 @@ END IF
       Surface(2) = BoundaryNodes % y(1)
       Surface(3) = 0.0_dp
 
-      t1(1) = BoundaryNodes % x(2) - Surface(1)
-      t1(2) = BoundaryNodes % y(2) - Surface(2)
-      t1(3) = 0.0_dp
-
-      Normal(1) = -t1(2)
-      Normal(2) = t1(1)
+      Normal(1) = Surface(2) - BoundaryNodes % y(2)
+      Normal(2) = BoundaryNodes % x(2) - Surface(1)
       Normal(3) = 0.0_dp      
     END IF
 
@@ -5059,7 +5055,41 @@ END IF
   END FUNCTION LineFaceIntersection
   
 
+!---------------------------------------------------------------------------
+  FUNCTION PointFaceDistance(BoundaryElement,BoundaryNodes,&
+      Coord,Normal,u0,v0) RESULT ( Dist )
+!---------------------------------------------------------------------------
+! This subroutine computes the signed distance of a point from a surface.
+!---------------------------------------------------------------------------
 
+    TYPE(Nodes_t) :: BoundaryNodes
+    TYPE(Element_t), POINTER   :: BoundaryElement
+    REAL(KIND=dp) :: Coord(3),Normal(3)
+    REAL(KIND=dp),OPTIONAL :: u0,v0
+    REAL(KIND=dp) :: Dist
+
+    REAL (KIND=dp) :: Surface(3),t1(3),t2(3),u,v
+
+    ! For higher order elements this may be a necessity
+    IF( PRESENT( u0 ) .AND. PRESENT(v0) ) THEN
+      u = u0
+      v = v0
+      Surface = SurfaceVector( BoundaryElement, BoundaryNodes, u, v )
+    ELSE
+      u = 0.0_dp
+      v = 0.0_dp
+
+      ! Any point known to be at the surface, even corner node
+      Surface(1) = BoundaryNodes % x(1)
+      Surface(2) = BoundaryNodes % y(1)
+      Surface(3) = BoundaryNodes % z(1)
+    END IF
+
+    Normal = NormalVector( BoundaryElement, BoundaryNodes, u, v, .TRUE. )
+
+    ! Project of the line to the face normal
+    Dist = SUM( (Surface - Coord ) * Normal ) 
+END FUNCTION PointFaceDistance
 
 
 
