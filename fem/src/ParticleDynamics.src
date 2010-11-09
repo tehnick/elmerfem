@@ -16,6 +16,43 @@
 ! *
 ! *****************************************************************************/
 
+
+SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
+
+  USE DefUtils
+  USE Interpolation
+  USE MeshUtils
+  USE ElementUtils
+  USE ParticleUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------
+  
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Found
+
+  Params => Solver % Values
+
+  IF( GetLogical( Params,'Particles To Field',Found ) ) THEN
+    CALL ListAddString( Params,&
+        NextFreeKeyword('Exported Variable',Params),'Particle Trace')
+    CALL ListAddString( Params,&
+        NextFreeKeyword('Exported Variable',Params),'Particle Weight')
+    IF( .NOT. ListCheckPresent( Params,'Variable') ) THEN
+      CALL ListAddString( Params,'Variable','Particle Field')
+    END IF
+  END IF
+
+END SUBROUTINE ParticleDynamics_Init
+
+
 !------------------------------------------------------------------------------
 SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -126,11 +163,17 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     ParticleWall = GetLogical( Params,'Wall Interaction')
 
     IF( ParticlesToField ) THEN
-      IF( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
-        CALL Fatal('ParticleDynamics','Variable should exist for averaging')
+      Var => VariableGet( Mesh % Variables,'Particle Trace')      
+      IF(.NOT. ASSOCIATED(Var)) THEN
+        CALL Fatal('ParticleDynamics','Trace Variable should exist!')
       END IF
-      n = SIZE( Solver % Matrix % rhs )
-      ALLOCATE( WeightVector( n ), ForceVector( n ) )
+      ForceVector => Var % Values
+
+      Var => VariableGet( Mesh % Variables,'Particle Weight')      
+      IF(.NOT. ASSOCIATED(Var)) THEN
+        CALL Fatal('ParticleDynamics','Weight Variable should exist!')
+      END IF
+      WeightVector => Var % Values
     END IF
 
     MinCoord(1) = ParallelReduction(MINVAL(Mesh % Nodes % x ),1)
@@ -141,14 +184,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     MaxCoord(2) = ParallelReduction(MAXVAL(Mesh % Nodes % y ),2)
     MaxCoord(3) = ParallelReduction(MAXVAL(Mesh % Nodes % y ),2)
   END IF
-
-  ! If there is a variable to be solved, initialize the equation
-  !----------------------------------------------------------------------
-  IF( ParticlesToField .AND. VisitedTimes == 1 ) THEN
-    ForceVector = 0.0_dp
-    WeightVector = 0.0_dp
-  END IF
-
 
   ! Initialize particles at first time visiting, or each time if requested
   !-------------------------------------------------------------------------
@@ -218,7 +253,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
    
     ! Calculate the acceleration resulting from external fields in mesh
     !------------------------------------------------------------------
-    IF( FieldInteraction ) THEN
+    IF( FieldInteraction .OR. ParticlesToField ) THEN
       DO No = 1, NoParticles
         Status = GetParticleStatus( Particles, No )
         IF( Status == PARTICLE_LOST ) CYCLE
@@ -230,7 +265,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         Rfin = GetParticleCoord( Particles, No, 0 )
         Velo = GetParticleCoord( Particles, No, 1 )
         
-        CALL ParticleFieldInteraction(CurrentElement, Rfin, Velo, Accel ) 
+        CALL ParticleFieldInteraction(CurrentElement, No, Rfin, Velo, Accel ) 
         CALL AddParticleCoord( Particles, No, 2, Accel )
       END DO
     END IF
@@ -476,24 +511,26 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
    !------------------------------------------------------------------------
    ! Compute field values at the given points in the FE mesh. 
    !-------------------------------------------------------------------------
-   SUBROUTINE ParticleFieldInteraction(CurrentElement,Coord,Velo, Accel )
+   SUBROUTINE ParticleFieldInteraction(CurrentElement,No,Coord,Velo, Accel )
      
      TYPE(Element_t), POINTER :: CurrentElement
+     Integer :: No
      REAL(KIND=dp) :: Coord(3),Velo(3), Accel(3)
      
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Valuelist_t), POINTER :: Params
      REAL(KIND=dp) :: PotAtPoint, GradPotAtPoint(3),VeloAtPoint(3)
      LOGICAL :: Stat, Visited = .FALSE.
-     INTEGER :: i,j,k,n
+     INTEGER :: i,j,k,n,FieldMode
      INTEGER, POINTER :: NodeIndexes(:), FieldPerm(:),FieldIndexes(:)
-     REAL(KIND=dp) :: SqrtElementMetric, Weight
+     REAL(KIND=dp) :: SqrtElementMetric, Weight, Decay, Dist
      REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
      LOGICAL :: GotIt
      REAL(KIND=dp) :: mass, charge, dragcoeff, val
      
      
-     SAVE :: Visited, Basis, dBasisdx, mass, charge, dragcoeff, FieldPerm
+     SAVE :: Visited, Basis, dBasisdx, mass, charge, dragcoeff, FieldPerm, &
+         FieldMode
      
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
@@ -511,6 +548,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          CALL Fatal('ParticleAccelAtPoint','Zero mass will lead to division bt zero!')
        END IF
        
+       FieldMode = GetInteger( Params,'Particles To Field Mode')
+       Decay = GetCReal( Params,'Particle Decay Distance')
+
        IF( ParticlesToField ) THEN
          FieldPerm => Solver % Variable % Perm
        END IF
@@ -527,17 +567,27 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      Accel = dragcoeff * ( VeloAtPoint - Velo ) / Mass &
          + charge * GradPotAtPoint / Mass
      
-
      ! the value at point is obtained from a property of the particles
      ! which may be accumulated with time. Note that the weight could
      ! be also ~1/r^2 from the nodes etc. 
      IF( ParticlesToField ) THEN
 
-       ! the kinetic energy
-       ! val = 0.5 * mass * SUM( Velo ** 2 ) 
-       
-       ! potential energy at point
-       val = PotAtPoint
+       IF( FieldMode == 1) THEN
+         ! the kinetic energy
+         val = 0.5 * mass * SUM( Velo ** 2 ) 
+       ELSE IF( FieldMode == 2 ) THEN       
+         ! potential energy at point (for testing)
+         val = PotAtPoint
+       ELSE IF( FieldMode == 3 ) THEN       
+         ! exteranl speed at point (for testing)
+         val = SQRT( SUM( VeloAtPoint ** 2 ) )
+       ELSE IF( FieldMode == 4 ) THEN 
+         ! exponential decay, e.g. volumetric heat sourcer
+         dist = Particles % Distance( No ) 
+         val = EXP(-dist/decay)
+       ELSE
+         CALL Warn('ParticleFieldInteraction','Unknown field mode')
+       END IF
 
        n = CurrentElement % TYPE % NumberOfNodes
        NodeIndexes => CurrentElement % NodeIndexes

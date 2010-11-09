@@ -1022,8 +1022,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   TYPE(Element_t), POINTER :: CurrentElement
   TYPE(Mesh_t), POINTER :: Mesh
   INTEGER :: Offset, NewParticles,LastParticle,NoElements
-  INTEGER :: dim
-  REAL(KIND=dp), POINTER :: Coords(:,:), Velo(:,:)
+  INTEGER :: dim, ElementIndex
+  REAL(KIND=dp), POINTER :: rWork(:,:),Coordinate(:,:), Velocity(:,:)
+  REAL(KIND=dp) :: Velo(3), Coord(3), Center(3), time0, dist
   CHARACTER(LEN=MAX_NAME_LEN) :: InitMethod
   INTEGER :: i,j,k,n,nonodes, InitStatus, TotParticles
   INTEGER, POINTER :: MaskPerm(:), InvPerm(:), NodeIndexes(:)
@@ -1214,11 +1215,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
   Particles % NumberOfParticles = LastParticle
 
-  Velo => Particles % Velocity
-  Coords => Particles % Coordinate
+  Velocity => Particles % Velocity
+  Coordinate => Particles % Coordinate
   
-
-
 
   SELECT CASE ( InitMethod ) 
     
@@ -1231,9 +1230,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       j = (nonodes-1)*(i-1)/(NewParticles-1)+1
       j = MODULO( i * NewParticles -1 , nonodes ) + 1
       IF( GotMask ) j = InvPerm(j)
-      Coords(k,1) = Mesh % Nodes % x(j)
-      Coords(k,2) = Mesh % Nodes % y(j)
-      IF( dim == 3 ) Coords(k,3) = Mesh % Nodes % z(j)
+      Coordinate(k,1) = Mesh % Nodes % x(j)
+      Coordinate(k,2) = Mesh % Nodes % y(j)
+      IF( dim == 3 ) Coordinate(k,3) = Mesh % Nodes % z(j)
     END DO
 
   CASE ('elemental ordered')
@@ -1253,9 +1252,9 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       CurrentElement => Mesh % Elements(j)
       NodeIndexes =>  CurrentElement % NodeIndexes
       n = CurrentElement % TYPE % NumberOfNodes
-      Coords(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n
-      Coords(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n
-      IF( dim == 3 ) Coords(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
+      Coordinate(k,1) = SUM( Mesh % Nodes % x(NodeIndexes ) ) / n
+      Coordinate(k,2) = SUM( Mesh % Nodes % y(NodeIndexes ) ) / n
+      IF( dim == 3 ) Coordinate(k,3) = SUM( Mesh % Nodes % z(NodeIndexes ) ) / n
 
       ! Only a bulk element may own a particle
       IF( j <= Mesh % NumberOfBulkElements ) THEN
@@ -1264,14 +1263,36 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     END DO
     PRINT *,'done init'
 
+  CASE ('sphere random')
+    Diam = GetCReal( Params,'Initial Sphere Radius')
+    rWork => ListGetConstRealArray( Params,'Initial Sphere Center')
+    IF ( ASSOCIATED(rwork) ) THEN
+      Center = rWork(1:3,1)
+    ELSE
+      Center = 0.0_dp
+    END IF
+
+    i = 0
+    DO WHILE (.TRUE.) 
+      DO j=1,dim
+        Coord(j) = Diam*(2*EvenRandom()-1)
+      END DO
+      ! Is the point within sphere (or circle in 2d)
+      IF( SUM( Coord(1:dim)**2 ) > Diam*Diam ) CYCLE
+
+      i = i + 1
+      k = Offset + i      
+      Coordinate(k,:) = Center + Coord(1:dim)
+      IF( i == NewParticles ) EXIT
+    END DO
+
   CASE ('box random')
     DO i=1,NewParticles
       k = Offset + i      
-      Coords(k,1) = MinCoord(1) + (MaxCoord(1)-MinCoord(1)) * EvenRandom()
-      Coords(k,2) = MinCoord(2) + (MaxCoord(2)-MinCoord(2)) * EvenRandom()
-      IF( dim == 3 ) THEN
-        Coords(k,3) = MinCoord(3) + (MaxCoord(3)-MinCoord(3)) * EvenRandom()
-      END IF
+      DO j=1,dim
+        Coord(j) = MinCoord(j) + (MaxCoord(j)-MinCoord(j)) * EvenRandom()
+      END DO
+      Coordinate(k,:) = Coord(1:dim)
     END DO
 
   CASE ('box random cubic')
@@ -1314,10 +1335,10 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       DoneParticle(ind) = .TRUE.
 
       k = Offset + i      
-      Coords(k,1) = MinCoord(1) + ( 1.0_dp*ix - 0.5) * Diam 
-      Coords(k,2) = MinCoord(2) + ( 1.0_dp*iy - 0.5) * Diam 
+      Coordinate(k,1) = MinCoord(1) + ( 1.0_dp*ix - 0.5) * Diam 
+      Coordinate(k,2) = MinCoord(2) + ( 1.0_dp*iy - 0.5) * Diam 
       IF( dim == 3 ) THEN
-        Coords(k,3) = MinCoord(3) + ( 1.0_dp*iz - 0.5) * Diam 
+        Coordinate(k,3) = MinCoord(3) + ( 1.0_dp*iz - 0.5) * Diam 
       END IF
 
       IF( i == NewParticles ) EXIT
@@ -1334,14 +1355,14 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
         ELSE IF( SIZE(InitialValues,1) == 1 ) THEN
           DO i=1,NewParticles
             k = offset + i
-            Coords(k,1:dim) = InitialValues(1,1:dim)
+            Coordinate(k,1:dim) = InitialValues(1,1:dim)
           END DO
         ELSE IF( SIZE(InitialValues,1) /= NewParticles ) THEN
           CALL Fatal('ParticleTracker','Wrong number of particles in Initial Coordinates')
         ELSE
           DO i=1,NewParticles
             k = Offset + i
-            Coords(k,1:dim) = InitialValues(i,1:dim)
+            Coordinate(k,1:dim) = InitialValues(i,1:dim)
           END DO
         END IF
       ELSE
@@ -1364,14 +1385,14 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       ELSE IF( SIZE(InitialValues,1) == 1 ) THEN
         DO i=1,NewParticles
           k = Offset + i
-          Velo(k,1:dim) = InitialValues(1,1:DIM)
+          Velocity(k,1:dim) = InitialValues(1,1:DIM)
         END DO
       ELSE IF( SIZE(InitialValues,1) /= NewParticles ) THEN
         CALL Fatal('ParticleTracker','Wrong number of particles in Initial Velocities')
       ELSE
         DO i=1,NewParticles
           k = Offset + i
-          Velo(k,1:dim) = InitialValues(i,1:dim)
+          Velocity(k,1:dim) = InitialValues(i,1:dim)
         END DO
       END IF
     END IF
@@ -1383,27 +1404,42 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
       
     CASE ('thermal random')  
       
-      mass = ListGetConstReal( Params,'Particle Mass')
-      temp = ListGetConstReal( Params,'Particle Temperature')
-      boltz = ListGetConstReal( CurrentModel % Constants,'Boltzmann constant')
-      coeff = SQRT(boltz * temp / mass )
+      coeff = ListGetConstReal( Params,'Initial Velocity Amplitude',GotIt)
+      IF(.NOT. GotIt) THEN
+        mass = ListGetConstReal( Params,'Particle Mass')
+        temp = ListGetConstReal( Params,'Particle Temperature')
+        boltz = ListGetConstReal( CurrentModel % Constants,'Boltzmann constant')
+        coeff = SQRT(boltz * temp / mass )
+      END IF
 
       DO i=1,NewParticles
         k = Offset + i
-        Velo(k,1) = Velo(k,1) + coeff * NormalRandom()
-        Velo(k,2) = Velo(k,2) + coeff * NormalRandom()
-        IF( dim == 3 ) Velo(k,3) = Velo(k,3) + coeff * NormalRandom()
+        DO j=1,dim
+          Velo(j) = coeff * NormalRandom()
+        END DO
+        Velocity(k,:) = Velocity(k,:) + Velo(1:dim)
       END DO
 
-    CASE ('even random')  
-
-      coeff = ListGetConstReal( Params,'Random Velocity Amplitude')
-
+    CASE ('even random')
+      coeff = ListGetConstReal( Params,'Initial Velocity Amplitude')
       DO i=1,NewParticles
         k = Offset + i
-        Velo(k,1) = Velo(k,1) + coeff * (2*EvenRandom()-1)
-        Velo(k,2) = Velo(k,2) + coeff * (2*EvenRandom()-1)
-        IF( dim == 3 ) Velo(k,3) = Velo(k,3) + coeff * (2*EvenRandom()-1)
+        DO j=1,dim
+          Velo(j) = coeff * (2*EvenRandom()-1)
+        END DO
+        Velocity(k,:) = Velocity(k,:) + Velo(1:dim)
+      END DO
+
+    CASE ('constant random')
+      coeff = ListGetConstReal( Params,'Initial Velocity Amplitude')
+      Velo = 0.0_dp
+      DO i=1,NewParticles
+        k = Offset + i
+        DO j=1,dim
+          Velo(j) =  coeff * (2*EvenRandom()-1)
+        END DO
+        Velo = Velo / SQRT(SUM(Velo**2))
+        Velocity(k,:) = Velocity(k,:) + Velo(1:dim)
       END DO
 
     CASE DEFAULT
@@ -1411,7 +1447,37 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     END SELECT
 
 
+    ! There may be a timestep related to initial velocity,
+    ! which may be used to have the initial status developed
+    ! from the initial coordinates.
+    !-------------------------------------------------------
+    time0 = ListGetCReal(Params,'Initial Velocity Time',gotIt)
+    IF( GotIt ) THEN
+      DO i=1,NewParticles
+        k = Offset + i
+        Coord(1:dim) = time0 * Velocity(k,:)
+        Coordinate(k,:) = Coordinate(k,:) + Coord(1:dim)
 
+        dist = SQRT( SUM( Coord(1:dim)**2 ) )
+        Particles % Distance(k) = dist
+      END DO
+    END IF
+
+    ! Initialize coordinate with octree if requested
+    !-------------------------------------------------------
+    IF( ListGetLogical(Params,'Initial Coordinate Search',gotIt) ) THEN
+      Coord = 0.0_dp
+      ElementIndex = 0
+      DO i=1,NewParticles
+        k = Offset + i
+        IF( Particles % ElementIndex(k) > 0 ) CYCLE
+        
+        Coord(1:dim) = Coordinate(k,:) 
+        CALL LocateParticleInMeshOctree( ElementIndex, Coord )
+        Particles % ElementIndex(k) = ElementIndex
+      END DO
+    END IF
+    
     !------------------------------------------------------
     ! The initial status of particles is different if using 
     ! gradual release strategy. 
@@ -1513,11 +1579,11 @@ END SUBROUTINE SegmentElementIntersection
 ! detection needed for wall interaction, for example.
 !------------------------------------------------------------------------
 SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
-    LocalCoords, ParticleStatus )
+    LocalCoords )
   
   INTEGER :: ElementIndex
-  REAL(KIND=dp) :: GlobalCoords(3),LocalCoords(3)
-  INTEGER :: ParticleStatus
+  REAL(KIND=dp) :: GlobalCoords(3)
+  REAL(KIND=dp), OPTIONAL :: LocalCoords(3)
 
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
@@ -1527,11 +1593,10 @@ SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
   INTEGER, POINTER :: NodeIndexes(:)
   TYPE(Element_t), POINTER :: Element
   TYPE(Quadrant_t), POINTER, SAVE :: RootQuadrant =>Null(), LeafQuadrant
-  REAL(kind=dp) :: BoundingBox(6), eps2, eps1
+  REAL(kind=dp) :: BoundingBox(6), eps2, eps1, uvw(3)
   
 
   Mesh => GetMesh()
-  ParticleStatus = PARTICLE_LOST
 
   ! Check that the previous hit is not hit even now
   !-------------------------------------------------
@@ -1541,10 +1606,7 @@ SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
     CALL GetElementNodes(ElementNodes,Element)
     
     IF ( PointInElement( Element, ElementNodes, &
-        GlobalCoords, LocalCoords ) ) THEN
-      ParticleStatus = PARTICLE_HIT
-      RETURN
-    END IF
+        GlobalCoords, LocalCoords ) ) RETURN
   END IF
 
   !-----------------------------------------------------------
@@ -1569,6 +1631,7 @@ SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
   RootQuadrant => Mesh % RootQuadrant
   
   Element => Null()
+  ElementIndex = 0
   CALL FindLeafElements(GlobalCoords, Mesh % MeshDim, RootQuadrant, LeafQuadrant)
   IF ( ASSOCIATED(LeafQuadrant) ) THEN
     DO i = 1, LeafQuadrant % NElemsInQuadrant
@@ -1578,12 +1641,16 @@ SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
       n = GetElementNOFNodes( Element )
       CALL GetElementNodes( ElementNodes, Element)
       
-      IF ( PointInElement( Element, ElementNodes, GlobalCoords, LocalCoords ) ) THEN
+      IF ( PointInElement( Element, ElementNodes, GlobalCoords, uvw ) ) THEN
+        IF( PRESENT( LocalCoords) ) LocalCoords = uvw
         ElementIndex = j
-        ParticleStatus = PARTICLE_HIT
         RETURN
       END IF
     END DO
+  END IF
+
+  IF( ElementIndex == 0 ) THEN
+    CALL Warn('LocateParticleInMeshOctree','Could not locate particle in the mesh!')
   END IF
   
 END SUBROUTINE LocateParticleInMeshOctree
@@ -2446,19 +2513,26 @@ END SUBROUTINE ParticleInitializeTime
 !---------------------------------------------------------
 SUBROUTINE ParticleAdvanceTime( Particles, dtime )
   TYPE(Particle_t) :: Particles
-  REAL(KIND=dp) :: dtime
+  REAL(KIND=dp) :: dtime, ds, dCoord(3)
+  INTEGER :: dim
 
   INTEGER :: No
 
+  dim = Particles % dim
   DO No=1,Particles % NumberOfParticles
-    IF ( Particles % Status(No)==PARTICLE_LOST ) CYCLE
+    IF ( Particles % Status(No) == PARTICLE_LOST ) CYCLE
+    IF ( Particles % Status(No) < PARTICLE_INITIATED ) CYCLE
 
     Particles % Velocity(No,:) = Particles % Velocity(No,:) + &
         dtime * Particles % Acceleration(No,:)
     Particles % Acceleration(No,:)= 0.0_dp
   
+    dCoord(1:dim) = dtime * Particles % Velocity(No,:)
     Particles % Coordinate(No,:) = Particles % Coordinate(No,:) + &
-        dtime * Particles % Velocity(No,:)
+        dCoord(1:dim)
+
+    ds = SQRT( SUM( dCoord(1:dim)**2 ) )
+    Particles % Distance(No) = Particles % Distance(No) + ds    
   END DO
 END SUBROUTINE ParticleAdvanceTime
 
@@ -2920,7 +2994,6 @@ END SUBROUTINE ParticleWallIntercation
     REAL(KIND=dp) :: Norm
 
 
-    
     CALL DefaultInitialize()  
     CALL BulkAssembly()
     CALL DefaultFinishAssembly()
@@ -2949,7 +3022,7 @@ END SUBROUTINE ParticleWallIntercation
       REAL(KIND=dp) :: Coeff, detJ
       INTEGER, POINTER :: OneIndex(:)
       TYPE(Matrix_t), POINTER :: StiffMatrix 
-      LOGICAL :: stat, Visited = .FALSE.
+      LOGICAL :: stat, Normalize, Visited = .FALSE.
       
       
       SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx, OneIndex
@@ -2971,10 +3044,16 @@ END SUBROUTINE ParticleWallIntercation
       END IF
       
 
+PRINT *,'a1'
       ! Assembly the diffusion part used for regularization
       !----------------------------------------------------------
       Coeff = GetCReal( Solver % Values,'Particle Property Diffusion Coefficient')
       active = GetNOFActive()
+      StiffMatrix => Solver % Matrix
+
+      Normalize = GetLogical( Solver % Values,'Particle Property Normalize')
+      
+PRINT *,'a2',Normalize
       
       DO t=1,active
         Element => GetActiveElement(t)
@@ -3004,29 +3083,38 @@ END SUBROUTINE ParticleWallIntercation
             DO j=1,n
               STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
                   SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
+
+              IF(.NOT. Normalize ) THEN
+                STIFF(i,j) = STIFF(i,j) + IP % s(k) * DetJ * Basis(i) * Basis(j)
+              END IF
             END DO
           END DO
         END DO
         
         CALL DefaultUpdateEquations( STIFF, FORCE )
       END DO
+PRINT *,'diag',STIFF(1,1),STIFF(2,2),STIFF(3,3)
+PRINT *,'row',STIFF(1,:)
       
+
       ! Set the weight to the diagonal i.e. make the mass matrix contribution  
       ! its more economical to make it only at the end.
-      StiffMatrix => Solver % Matrix
-      STIFF = 0.0_dp
-      n = 1
-      DO i=1,SIZE( WeightVector ) 
-! weight and force are assumed to be equally numbered
-!        j = Solver % Variable % Perm(i)
-!        IF( j == 0 ) CYCLE
-        j = i
-        OneIndex(1) = j
-        STIFF(1,1) = WeightVector(i)
-        CALL CRS_GlueLocalMatrix( StiffMatrix,1,1,OneIndex,STIFF)
-        StiffMatrix % rhs(j) = ForceVector(i)
-      END DO
-      
+      IF( Normalize ) THEN
+        StiffMatrix => Solver % Matrix
+        n = 1
+        DO i=1,SIZE( WeightVector ) 
+          ! weight and force are assumed to be equally numbered
+          OneIndex(1) = i
+          STIFF(1,1) = WeightVector(i)
+          CALL CRS_GlueLocalMatrix( StiffMatrix,1,1,OneIndex,STIFF)
+        END DO
+      END IF
+PRINT *,'sizes',SIZE( StiffMatrix % rhs), SIZE( ForceVector )
+
+      StiffMatrix % rhs = ForceVector
+
+PRINT *,'done'
+
     END SUBROUTINE BulkAssembly
 
   END SUBROUTINE ParticleToFieldSolver
