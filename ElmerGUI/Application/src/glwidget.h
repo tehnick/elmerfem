@@ -183,8 +183,8 @@ private:
 
   GLuint makeLists();
   
-  GLdouble matrix[16];
-  GLdouble invmatrix[16];
+  qreal matrix[16];
+  qreal invmatrix[16];
   void getMatrix();
   
   QPoint lastPos;

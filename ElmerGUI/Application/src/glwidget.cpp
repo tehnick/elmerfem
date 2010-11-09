@@ -53,6 +53,12 @@ using namespace std;
 #define MY_PI 3.14159265
 #define ZSHIFT -5.0
 
+// Get qreal regardless of whether it's float or double
+static inline void glGetQrealv(GLenum e, GLfloat* data) { glGetFloatv(e,data); }
+static inline void glGetQrealv(GLenum e, GLdouble* data) { glGetDoublev(e,data); }
+static inline void glMultMatrixq( const GLdouble *m ) { glMultMatrixd(m); }
+static inline void glMultMatrixq( const GLfloat *m ) { glMultMatrixf(m); }
+
 list_t::list_t()
 {
   nature = PDE_UNKNOWN;
@@ -730,7 +736,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     double az = 0.0;
     glLoadIdentity();
     glTranslated(ax, ay, az);
-    glMultMatrixd(matrix);
+    glMultMatrixq(matrix);
     updateGL();
   }
 
@@ -1011,7 +1017,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::getMatrix()
 {
-  glGetDoublev(GL_MODELVIEW_MATRIX, matrix);
+  glGetQrealv(GL_MODELVIEW_MATRIX, matrix);
   helpers->invertMatrix(matrix, invmatrix);
 }
 

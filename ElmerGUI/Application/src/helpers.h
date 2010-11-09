@@ -42,6 +42,7 @@
 #define HELPERS_H
 
 #include "meshtype.h"
+#include <QMatrix4x4>
 
 class Helpers
 {
@@ -49,10 +50,10 @@ class Helpers
   Helpers();
   ~Helpers();
 
-  void invertMatrix(const double *a, double *b);
-  void crossProduct(double *a, double *b, double *c);
-  double vlen(double *a);
-  void normalize(double *a);
+  void invertMatrix(const qreal *a, qreal *b);
+  void crossProduct(qreal *a, qreal *b, qreal *c);
+  qreal vlen(qreal *a);
+  void normalize(qreal *a);
 
  private:
 

@@ -1062,7 +1062,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 //-----------------------------------------------------------------------------
 void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
 {
-  double t0[3], t1[3];
+  qreal t0[3], t1[3];
 
   cout << "Limit: " << limit << " degrees" << endl;
   cout.flush();
@@ -1569,7 +1569,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
 //-----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 {
-  static double a[3], b[3], c[3];
+  static qreal a[3], b[3], c[3];
   double center_surface[3], center_element[3], center_difference[3];
   Helpers *helpers = new Helpers;
   int u, v, w, e0, e1, i0, i1, bigger;
