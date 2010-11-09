@@ -62,9 +62,10 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   LOGICAL :: GotIt, Debug, Hit, InitLocation, CollisionInteraction, &
       FieldInteraction, ContactInteraction, ParticlesToField, AnyInteraction, &
       ParticleInBox, ParticleWall, Absolute, InitTimestep
-  INTEGER :: i,j,k,dim,No,No2,nodims,NoParticles = 0,&
+  INTEGER :: i,j,k,n,dim,No,No2,nodims,NoParticles = 0,&
        ElementIndex, VisitedTimes = 0, nstep, OutputInterval, &
-       Status,TimeOrder, PartitionChanges, StepsTaken=0,estindexes(6) 
+       Status,TimeOrder, PartitionChanges, TimeStepsTaken=0,estindexes(6),&
+       ParticleStepsTaken=0, TotParticleStepsTaken, TotNoParticles
   REAL(KIND=dp) :: dtime, tottime = 0.0, &
       Coord(3), Accel(3), Velo(3), &
       Coord2(3), Accel2(3), Velo2(3), &
@@ -79,7 +80,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   SAVE CollisionInteraction, FieldInteraction, ContactInteraction, &
       ParticlesToField, AnyInteraction, OutputInterval, Nstep, VisitedTimes, &
       RhsVector, WeightVector, ForceVector, TimeOrder, ParticleInBox, Particles, &
-      tottime, StepsTaken, ParticleWall
+      tottime, TimeStepsTaken, ParticleStepsTaken,ParticleWall
 
 
 !------------------------------------------------------------------------------
@@ -128,9 +129,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       IF( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
         CALL Fatal('ParticleDynamics','Variable should exist for averaging')
       END IF
-      RhsVector => Solver % Matrix % Rhs
-      ALLOCATE( WeightVector( SIZE( RhsVector ) ) )
-      ALLOCATE( ForceVector( SIZE( RhsVector ) ) )      
+      n = SIZE( Solver % Matrix % rhs )
+      ALLOCATE( WeightVector( n ), ForceVector( n ) )
     END IF
 
     MinCoord(1) = ParallelReduction(MINVAL(Mesh % Nodes % x ),1)
@@ -144,12 +144,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
   ! If there is a variable to be solved, initialize the equation
   !----------------------------------------------------------------------
-  IF( ParticlesToField ) THEN
-    CALL DefaultInitialize()  
-    IF( VisitedTimes == 1 ) THEN
-      ForceVector = 0.0_dp
-      WeightVector = 0.0_dp
-    END IF
+  IF( ParticlesToField .AND. VisitedTimes == 1 ) THEN
+    ForceVector = 0.0_dp
+    WeightVector = 0.0_dp
   END IF
 
 
@@ -184,7 +181,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     IF( dtime < TINY( dtime ) ) EXIT	
 
     tottime = tottime + dtime
-    stepstaken = stepstaken + 1
+    TimeStepsTaken = TimeStepsTaken + 1
+    ParticleStepsTaken = ParticleStepsTaken + Particles % NumberOfParticles
 
     InitTimeStep = .FALSE.
 
@@ -329,12 +327,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
   
   IF( ParticlesToField ) THEN
-    CALL BulkAssembly()
-    CALL DefaultFinishAssembly()
-    CALL DefaultDirichletBCs()
-    Norm = DefaultSolve()
+    CALL ParticleToFieldSolver( Solver, WeightVector, ForceVector )
   END IF
-
 
   IF(.TRUE.) THEN
     CALL ParticleStatistics( Particles, 0 )
@@ -342,17 +336,39 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   END IF
   
   IF( OutputInterval == 0) CALL ParticleOutput( Particles ) 
-  
-  IF ( ParEnv % mype==0 ) PRINT *,'total time',tottime,stepstaken
+
+
+  IF(.TRUE.) THEN
+    IF( ParEnv % PEs > 1 ) THEN
+      TotNoParticles =  NINT( ParallelReduction( 1.0_dp * Particles % NumberOfParticles ) )
+      TotParticleStepsTaken = NINT( ParallelReduction( 1.0_dp * ParticleStepsTaken) )
+    ELSE
+      TotNoParticles = Particles % NumberOfParticles 
+      TotParticleStepsTaken =  ParticleStepsTaken
+    END IF
+    
+    IF ( ParEnv % mype==0 ) THEN
+      WRITE (Message,'(A,T22,I12)') 'Active particles:',TotNoParticles
+      CALL Info('ParticleDynamics',Message)
+      WRITE (Message,'(A,T22,F12.2)') 'Elapsed time:',tottime
+      CALL Info('ParticleDynamics',Message)
+      WRITE (Message,'(A,T22,I12)') 'Time steps taken:',TimeStepsTaken
+      CALL Info('ParticleDynamics',Message)
+      WRITE (Message,'(A,T22,I12)') 'Particle steps taken:',TotParticleStepsTaken
+      CALL Info('ParticleDynamics',Message)
+    END IF
+  END IF
+
+!  DO i=1,Particles % NumberOfParticles
+!    Coord = GetParticleCoord( Particles, No, 0 )
+!  END DO
+
 
   CALL Info('ParticleDynamics','All done')
   CALL Info('ParticleDynamics', '-----------------------------------------', Level=4 )
   
 
  CONTAINS
-
-
-
 
 
 
@@ -380,7 +396,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        END IF       
        damping = GetCReal( Params,'Particle Velocity Damping',GotDamping)
          
-       IF ( ParEnv % myPE==0 ) THEN
+       IF ( ParEnv % myPE == 0 ) THEN
          PRINT *,'Using the following constant fields:'
          PRINT *,'Particle Acceleration = ',Gravity
          PRINT *,'Particle Velocity Damping = ',damping
@@ -470,18 +486,19 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      REAL(KIND=dp) :: PotAtPoint, GradPotAtPoint(3),VeloAtPoint(3)
      LOGICAL :: Stat, Visited = .FALSE.
      INTEGER :: i,j,k,n
-     REAL(KIND=dp) :: SqrtElementMetric
-     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:), ElemForce(:), ElemWeight(:)
+     INTEGER, POINTER :: NodeIndexes(:), FieldPerm(:),FieldIndexes(:)
+     REAL(KIND=dp) :: SqrtElementMetric, Weight
+     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
      LOGICAL :: GotIt
      REAL(KIND=dp) :: mass, charge, dragcoeff, val
      
      
-     SAVE :: Visited, Basis, dBasisdx, mass, charge, dragcoeff, ElemForce, ElemWeight
+     SAVE :: Visited, Basis, dBasisdx, mass, charge, dragcoeff, FieldPerm
      
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
        n = Mesh % MaxElementNodes
-       ALLOCATE( Basis(n), dBasisdx(n, 3), ElemForce(n), ElemWeight(n) )
+       ALLOCATE( Basis(n), dBasisdx(n, 3) )
        
        ! These physical parameters could basically vary from call to call
        !-------------------------------------------------------------------------
@@ -494,6 +511,10 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          CALL Fatal('ParticleAccelAtPoint','Zero mass will lead to division bt zero!')
        END IF
        
+       IF( ParticlesToField ) THEN
+         FieldPerm => Solver % Variable % Perm
+       END IF
+
        Visited = .TRUE.
      END IF
           
@@ -519,116 +540,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        val = PotAtPoint
 
        n = CurrentElement % TYPE % NumberOfNodes
+       NodeIndexes => CurrentElement % NodeIndexes
        
-       ElemWeight(1:n) = SqrtElementMetric * Basis(1:n)
-       ElemForce(1:n) = val * ElemWeight(1:n)
+       DO i = 1,n
+         j = FieldPerm( NodeIndexes(i) )
+         IF( j == 0 ) CYCLE
+         
+         weight = SqrtElementMetric * Basis(i)
 
-       Solver % Matrix % rhs => WeightVector    
-       CALL DefaultUpdateForce( ElemWeight, CurrentElement )
-       
-       Solver % Matrix % rhs => ForceVector
-       CALL DefaultUpdateForce( ElemForce, CurrentElement )
-
-       Solver % Matrix % rhs => RhsVector
+         WeightVector( j ) = WeightVector( j ) + weight 
+         ForceVector( j ) = ForceVector( j ) + weight * val
+       END DO
      END IF
    END SUBROUTINE ParticleFieldInteraction
    
 
-   !------------------------------------------------------------------------
-   ! Assemblies by Galerkin method the problem where a continuous field is 
-   ! fitted to the data by discrete particles. The particles have a contribution
-   ! on r.h.s. and a corresponding mass matrix for the weights is used. 
-   ! Additionally diffusion is used for regularization.
-   !-------------------------------------------------------------------------
-   SUBROUTINE BulkAssembly()
-
-     INTEGER, POINTER :: BoundaryPerm(:), Indexes(:)
-     INTEGER :: i,j,k,t,n,istat,active,BoundaryNodes
-     TYPE(Element_t), POINTER :: Element
-     TYPE(GaussIntegrationPoints_t) :: IP
-     CHARACTER(LEN=MAX_NAME_LEN) :: BoundaryName
-     TYPE(Nodes_t) :: Nodes
-     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
-     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
-     REAL(KIND=dp) :: Coeff, detJ
-     INTEGER, POINTER :: OneIndex(:)
-     TYPE(Matrix_t), POINTER :: StiffMatrix 
-     LOGICAL :: stat, Visited = .FALSE.
-
-
-     SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx, OneIndex
-
-     IF(.NOT. Visited ) THEN
-       Visited = .TRUE.
-       N = Solver % Mesh % MaxElementNodes 
-       ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), STAT=istat )
-       ALLOCATE( OneIndex(1) )
-
-       N = Solver % Mesh % NumberOfNodes
-       ALLOCATE( BoundaryPerm(n) )
-       BoundaryPerm = 0
-       BoundaryNodes = 0
-       BoundaryName = 'Free Point Boundary'
-       CALL MakePermUsingMask( Model,Solver,Solver % Mesh,BoundaryName, &
-           .FALSE., BoundaryPerm, BoundaryNodes )
-       PRINT *,'Number of nodes on free boundary:',BoundaryNodes
-     END IF
- 
-
-     ! Assembly the diffusion part used for regularization
-     !----------------------------------------------------------
-     Coeff = GetCReal( Solver % Values,'Particle Property Diffusion Coefficient')
-     active = GetNOFActive()
-
-     DO t=1,active
-       Element => GetActiveElement(t)
-       n = GetElementNOFNodes(Element)
-       Indexes => Element % NodeIndexes
-       
-       CALL GetElementNodes( Nodes, Element )
-       STIFF = 0.0d0
-       FORCE = 0.0d0
-       
-       ! Numerical integration:
-       !----------------------
-       IP = GaussPoints( Element )
-       DO k=1,IP % n
-         ! Basis function values & derivatives at the integration point:
-         !--------------------------------------------------------------
-         stat = ElementInfo( Element, Nodes, IP % U(k), IP % V(k), &
-             IP % W(k),  detJ, Basis, dBasisdx )
-         
-         ! Finally, the elemental matrix & vector:
-         !----------------------------------------
-         DO i=1,n
-           ! This removes the natural boundary condition that would try to fix 
-           ! the normal gradient of the field to zero.
-           !--------------------------------------------------------------------
-           IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
-           DO j=1,n
-             STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
-                 SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
-           END DO
-         END DO
-       END DO
-
-       CALL DefaultUpdateEquations( STIFF, FORCE )
-     END DO
-
-     ! Set the weight to the diagonal i.e. make the mass matrix contribution  
-     ! its more economical to make it only at the end.
-     StiffMatrix => Solver % Matrix
-     STIFF = 0.0_dp
-     n = 1
-     DO i=1,SIZE( WeightVector ) 
-       OneIndex(1) = i
-       STIFF(1,1) = WeightVector(i)
-       CALL CRS_GlueLocalMatrix( StiffMatrix,1,1,OneIndex,STIFF)
-     END DO
-     StiffMatrix % rhs = ForceVector
-
-
-   END SUBROUTINE BulkAssembly
 
 
 
@@ -834,6 +760,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
    
      spring_force = eta * Spring 
      damp_force = MIN( speed * Damping, spring_force * Friction )
+     damp_force = 0.0_dp
 
      force = spring_force * rn - damp_force * vn
      

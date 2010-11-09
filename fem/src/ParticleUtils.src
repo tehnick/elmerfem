@@ -288,8 +288,9 @@ END SUBROUTINE AllocateParticles
 !----------------------------------------------------
 ! Delete lost particles:
 !----------------------------------------------------
-SUBROUTINE DeleteLostParticles(Particles)
+SUBROUTINE DeleteLostParticles(Particles,DeleteBC)
   TYPE(Particle_t) :: Particles
+  LOGICAL, OPTIONAL :: DeleteBC
 
   INTEGER :: No, n, PrevNoParticles
 
@@ -298,6 +299,10 @@ SUBROUTINE DeleteLostParticles(Particles)
   n = 0
   DO No=1,PrevNoParticles
     IF ( Particles % Status(No) == PARTICLE_LOST ) CYCLE
+    IF ( PRESENT(DeleteBC)) THEN
+      IF( DeleteBC .AND. Particles % Status(No) == PARTICLE_WALLBOUNDARY ) CYCLE
+    END IF
+
     n=n+1
     IF ( n==No ) CYCLE
 
@@ -2907,6 +2912,229 @@ END SUBROUTINE ParticleWallIntercation
 
 
 
+  SUBROUTINE ParticleToFieldSolver( Solver,WeightVector,ForceVector)
+    
+    TYPE(Solver_t), POINTER :: Solver
+    REAL(KIND=dp), POINTER :: WeightVector(:),ForceVector(:)
+    
+    REAL(KIND=dp) :: Norm
+
+
+    
+    CALL DefaultInitialize()  
+    CALL BulkAssembly()
+    CALL DefaultFinishAssembly()
+    CALL DefaultDirichletBCs()
+    Norm = DefaultSolve()
+    
+    
+  CONTAINS 
+    
+    !------------------------------------------------------------------------
+    ! Assemblies by Galerkin method the problem where a continuous field is 
+    ! fitted to the data by discrete particles. The particles have a contribution
+    ! on r.h.s. and a corresponding mass matrix for the weights is used. 
+    ! Additionally diffusion is used for regularization.
+    !-------------------------------------------------------------------------
+    SUBROUTINE BulkAssembly()
+      
+      INTEGER, POINTER :: BoundaryPerm(:), Indexes(:)
+      INTEGER :: i,j,k,t,n,istat,active,BoundaryNodes
+      TYPE(Element_t), POINTER :: Element
+      TYPE(GaussIntegrationPoints_t) :: IP
+      CHARACTER(LEN=MAX_NAME_LEN) :: BoundaryName
+      TYPE(Nodes_t) :: Nodes
+      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+      REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+      REAL(KIND=dp) :: Coeff, detJ
+      INTEGER, POINTER :: OneIndex(:)
+      TYPE(Matrix_t), POINTER :: StiffMatrix 
+      LOGICAL :: stat, Visited = .FALSE.
+      
+      
+      SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx, OneIndex
+      
+      IF(.NOT. Visited ) THEN
+        Visited = .TRUE.
+        N = Solver % Mesh % MaxElementNodes 
+        ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), STAT=istat )
+        ALLOCATE( OneIndex(1) )
+        
+        N = Solver % Mesh % NumberOfNodes
+        ALLOCATE( BoundaryPerm(n) )
+        BoundaryPerm = 0
+        BoundaryNodes = 0
+        BoundaryName = 'Free Point Boundary'
+        CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,BoundaryName, &
+            .FALSE., BoundaryPerm, BoundaryNodes )
+        PRINT *,'Number of nodes on free boundary:',BoundaryNodes
+      END IF
+      
+
+      ! Assembly the diffusion part used for regularization
+      !----------------------------------------------------------
+      Coeff = GetCReal( Solver % Values,'Particle Property Diffusion Coefficient')
+      active = GetNOFActive()
+      
+      DO t=1,active
+        Element => GetActiveElement(t)
+        n = GetElementNOFNodes(Element)
+        Indexes => Element % NodeIndexes
+        
+        CALL GetElementNodes( Nodes, Element )
+        STIFF = 0.0d0
+        FORCE = 0.0d0
+        
+        ! Numerical integration:
+        !----------------------
+        IP = GaussPoints( Element )
+        DO k=1,IP % n
+          ! Basis function values & derivatives at the integration point:
+          !--------------------------------------------------------------
+          stat = ElementInfo( Element, Nodes, IP % U(k), IP % V(k), &
+              IP % W(k),  detJ, Basis, dBasisdx )
+          
+          ! Finally, the elemental matrix & vector:
+          !----------------------------------------
+          DO i=1,n
+            ! This removes the natural boundary condition that would try to fix 
+            ! the normal gradient of the field to zero.
+            !--------------------------------------------------------------------
+            IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
+            DO j=1,n
+              STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
+                  SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
+            END DO
+          END DO
+        END DO
+        
+        CALL DefaultUpdateEquations( STIFF, FORCE )
+      END DO
+      
+      ! Set the weight to the diagonal i.e. make the mass matrix contribution  
+      ! its more economical to make it only at the end.
+      StiffMatrix => Solver % Matrix
+      STIFF = 0.0_dp
+      n = 1
+      DO i=1,SIZE( WeightVector ) 
+! weight and force are assumed to be equally numbered
+!        j = Solver % Variable % Perm(i)
+!        IF( j == 0 ) CYCLE
+        j = i
+        OneIndex(1) = j
+        STIFF(1,1) = WeightVector(i)
+        CALL CRS_GlueLocalMatrix( StiffMatrix,1,1,OneIndex,STIFF)
+        StiffMatrix % rhs(j) = ForceVector(i)
+      END DO
+      
+    END SUBROUTINE BulkAssembly
+
+  END SUBROUTINE ParticleToFieldSolver
+
+
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE CreateParticleVariable( Particles, Name, DOFs, Category, Output ) 
+!------------------------------------------------------------------------------
+      TYPE(Particle_t) :: Particles
+      CHARACTER(LEN=*) :: Name
+      INTEGER, OPTIONAL :: DOFs
+      INTEGER, OPTIONAL :: Category
+      LOGICAL, OPTIONAL :: Output
+!------------------------------------------------------------------------------
+      TYPE(ParticleVariable_t), POINTER :: Variables
+      REAL(KIND=dp), POINTER :: Values(:)
+      LOGICAL :: stat
+      TYPE(ParticleVariable_t), POINTER :: ptr,ptr1,ptr2
+      INTEGER :: NoParticles
+!------------------------------------------------------------------------------
+
+      Variables => Particles % Variables
+      IF ( .NOT.ASSOCIATED(Variables) ) THEN
+        ALLOCATE(Variables)
+        ptr => Variables
+      ELSE
+        ALLOCATE( ptr )
+      END IF
+
+      ! note: sets confusinly also ptr % name 
+      ptr % NameLen = StringToLowerCase( ptr % Name,Name )
+
+      ! get the next free handle?
+      IF ( .NOT. ASSOCIATED(ptr, Variables) ) THEN
+        ptr1 => Variables
+        ptr2 => Variables
+        DO WHILE( ASSOCIATED( ptr1 ) )
+           IF ( ptr % Name == ptr1 % Name ) THEN
+              DEALLOCATE( ptr )
+              RETURN
+           END IF
+           ptr2 => ptr1
+           ptr1 => ptr1 % Next
+         END DO
+         ptr2 % Next => ptr
+      END IF
+      ptr % Next => Null()
+
+      ptr % Norm = 0.0d0
+      ptr % PrevNorm = 0.0d0
+      ptr % DOFs = 1
+      ptr % Valid  = .TRUE.
+      ptr % Output = .TRUE.
+      ptr % ValuesChanged = .TRUE.
+
+      IF( PRESENT( DOFs ) ) ptr % DOFs = DOFs
+      IF ( PRESENT( Category ) ) ptr % Category = Category
+      IF ( PRESENT( Output ) ) ptr % Output = Output
+
+      NoParticles = Particles % MaxNumberOfParticles
+      ALLOCATE( Values( NoParticles * ptr % Dofs ) )
+      Values = 0.0_dp
+      ptr % Values => Values
+
+!------------------------------------------------------------------------------
+    END SUBROUTINE CreateParticleVariable
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!  Given a variable name, get handle to it
+!------------------------------------------------------------------------------
+    FUNCTION GetParticleVariable( Particles, Name ) RESULT ( Var )
+      
+      TYPE(Particle_t) :: Particles
+      CHARACTER(LEN=*) :: Name
+      TYPE(ParticleVariable_t), POINTER :: Var
+!------------------------------------------------------------------------------
+      TYPE(ParticleVariable_t), POINTER :: Tmp
+      CHARACTER(LEN=LEN_TRIM(Name)) :: str
+      INTEGER :: k
+      
+!------------------------------------------------------------------------------
+      k = StringToLowerCase( str,Name,.TRUE. )
+
+      Tmp => Particles % Variables
+      DO WHILE( ASSOCIATED(tmp) )
+        IF ( Tmp % NameLen == k ) THEN
+          IF ( Tmp % Name(1:k) == str(1:k) ) THEN
+
+            IF ( Tmp % Valid ) THEN
+               Var => Tmp
+               RETURN
+            END IF
+            EXIT
+
+          END IF
+        END IF
+        Tmp => Tmp % Next
+      END DO
+      Var => Tmp
+
+    END FUNCTION GetParticleVariable
+
+
+
 SUBROUTINE ParticleOutputVtu( Particles )
 !------------------------------------------------------------------------------
 
@@ -2919,7 +3147,7 @@ SUBROUTINE ParticleOutputVtu( Particles )
   
   TYPE(ValueList_t),POINTER :: Params
   INTEGER, SAVE :: nTime = 0
-  LOGICAL :: GotIt, Parallel, FixedMesh
+  LOGICAL :: GotIt, Parallel, FixedMesh, DeleteBC
   CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
   CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
   TYPE(Mesh_t), POINTER :: Mesh
@@ -2942,6 +3170,8 @@ SUBROUTINE ParticleOutputVtu( Particles )
   END IF
   FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
 
+  DeleteBC = ListGetLogical( Params,'Delete Wall Particles',GotIt)
+
   IF ( nTime == 1 ) THEN
     FilePrefix = GetString( Params,'Filename Prefix',GotIt )
     IF ( .NOT.GotIt ) FilePrefix = "Particles"
@@ -2954,7 +3184,7 @@ SUBROUTINE ParticleOutputVtu( Particles )
 
   Dim = Particles % dim
 
-  CALL DeleteLostParticles(Particles)
+  CALL DeleteLostParticles(Particles,DeleteBC)
   NumberOFNodes = Particles % NumberOfParticles
 
   IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
