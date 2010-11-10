@@ -62,19 +62,21 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
        firstTime=.TRUE., Found, AllocationsDone = .FALSE., stat, &
        NeedOldValues, LimitDisp,  Bubbles = .TRUE.,&
        NormalFlux = .TRUE., SubstantialSurface = .TRUE.,&
-       UseBodyForce = .TRUE., ApplyDirichlet=.FALSE.
+       UseBodyForce = .TRUE., ApplyDirichlet=.FALSE.,  ALEFormulation=.FALSE.
   LOGICAL, ALLOCATABLE ::  LimitedSolution(:,:), ActiveNode(:,:)
 
   INTEGER :: & 
-       i,j,K,L,t,N,NMAX,MMAX,Nmatrix,bf_id,DIM,istat,LocalNodes,&
+       i,j,K,L, p, q, R, t,N,NMAX,MMAX,nfamily, deg, Nmatrix,&
+       edge, bf_id,DIM,istat,LocalNodes,nocorr,&
        NSDOFs,NonlinearIter,iter, numberofsurfacenodes
   INTEGER, POINTER ::&
-       FreeSurfPerm(:), FlowPerm(:), NodeIndexes(:)
+       FreeSurfPerm(:), FlowPerm(:), NodeIndexes(:), EdgeMap(:,:)
+
 
   REAL(KIND=dp) :: &
        at,st,totat,totst,CPUTime,Norm,PrevNorm,LocalBottom, cv, &
        Relax, MaxDisp, maxdh,LinearTol,NonlinearTol,RelativeChange,&
-       smallestpossiblenumber
+       smallestpossiblenumber, rr, ss
   REAL(KIND=dp), POINTER ::&
        FreeSurf(:), PreFreeSurf(:,:), TimeForce(:),ForceVector(:),&
        FlowSolution(:), PrevFlowSol(:,:), ElemFreeSurf(:), OldFreeSurf(:),&
@@ -82,7 +84,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), ALLOCATABLE :: &          
        STIFF(:,:),SourceFunc(:),FORCE(:), &
        MASS(:,:), Velo(:,:), Flux(:,:), LowerLimit(:), UpperLimit(:), &
-       OldValues(:), OldRHS(:),StiffVector(:)
+       OldValues(:), OldRHS(:),StiffVector(:),MeshVelocity(:,:)
 
   CHARACTER(LEN=MAX_NAME_LEN)  :: SolverName, VariableName, EquationName, FlowSolName,ConvectionFlag, StabilizeFlag
 
@@ -98,13 +100,37 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
        ElementNodes, AllocationsDone, Velo, OldFreeSurf, TimeForce, &
        ElemFreeSurf, Flux, SubstantialSurface, NormalFlux,&
        UseBodyForce, LimitedSolution, LowerLimit, UpperLimit, ActiveNode, OldValues, OldRHS, &
-       ResidualVector, StiffVector
+       ResidualVector, StiffVector, MeshVelocity
+  !------------------------------------------------------------------------------
+  !    Get variables for the solution
+  !------------------------------------------------------------------------------
+  FreeSurf     => Solver % Variable % Values     ! Nodal values for free surface displacement
+  IF (.NOT.ASSOCIATED(FreeSurf)) CALL FATAL(SolverName,'Variable values not associated')
+  FreeSurfPerm => Solver % Variable % Perm       ! Permutations for free surface displacement
+  PreFreeSurf  => Solver % Variable % PrevValues ! Nodal values for free surface displacement
 
   !------------------------------------------------------------------------------
-  !    Get constants and solver params
+  !    Get variabel/solver name
   !------------------------------------------------------------------------------
   VariableName = TRIM(Solver % Variable % Name)
   SolverName = 'FreeSurfaceSolver ('// TRIM(Solver % Variable % Name) // ')'
+  !------------------------------------------------------------------------------
+  !    if this partition (or the serial problem) has no free surface,
+  !    then nothing to be doneGet variabel/solver name
+  !------------------------------------------------------------------------------
+  IF ( COUNT(FreeSurfPerm/=0)==0) THEN
+     IF (ParEnv % PEs > 1) THEN
+        WRITE(Message,'(A,I6,A)'), 'Partition ', ParEnv % myPE, 'has no free surface'
+        CALL WARN(SolverName,Message)
+        CALL WARN(SolverName,'This is not good for load balance!')
+     ELSE
+        CALL WARN(SolverName,'A serial run without a free surface, but the solver switched in - weird!')
+     END IF
+     RETURN
+  END IF
+  !------------------------------------------------------------------------------
+  !    Get constants and solver params
+  !------------------------------------------------------------------------------
   DIM = CoordinateSystemDimension()
   smallestpossiblenumber = TINY(smallestpossiblenumber)
   SolverParams => GetSolverParams()
@@ -138,12 +164,31 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
        'Apply Dirichlet', Found)
   IF ( .NOT.Found ) THEN
      ApplyDirichlet = .FALSE.
+     CALL INFO(SolverName, 'No keyword >Apply Dirichlet< found. No limitation of solution',Level=1)
   ELSE
-     CALL INFO(SolverName, 'Using Dirichlet method for limitation',Level=1)
+     IF (ApplyDirichlet) THEN
+        CALL INFO(SolverName, 'Using Dirichlet method for limitation',Level=1)
+        IF (NonlinearIter < 2) THEN
+           CALL WARN(SolverName, 'Keyword >Apply Dirichlet< set, but >Nonlinear System Max Iterations< set to lower than 2')
+        END IF
+     ELSE
+        CALL INFO(SolverName, 'No limitation of solution',Level=1)
+     END IF
+  END IF
+
+  ALEFormulation = GetLogical( SolverParams, &
+       'ALE Formulation', Found)
+  IF ( .NOT.Found ) THEN
+     ALEFormulation = .FALSE.
+  END IF
+  IF (ALEFormulation) THEN 
+     CALL INFO(SolverName, 'Using horizontal ALE Formulation',Level=1)
+  ELSE
+     CALL INFO(SolverName, 'Using horizontal Eulerian Formulation',Level=1)     
   END IF
 
   StabilizeFlag = GetString( SolverParams, &
-          'Stabilization Method',Found )
+       'Stabilization Method',Found )
   SELECT CASE(StabilizeFlag)
   CASE('stabilized')
      Bubbles = .FALSE.
@@ -171,26 +216,27 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
 
      IF ( AllocationsDone ) THEN
         DEALLOCATE( ElementNodes % x,    &
-          ElementNodes % y,    &
-          ElementNodes % z,    &
-          TimeForce,        &
-          FORCE,    &
-          STIFF, &
-          MASS,  &
-          Velo, &
-          Flux, &
-          ElemFreeSurf,&
-          SourceFunc, &
-          LowerLimit,                      &
-          UpperLimit, &
-          LimitedSolution,  &
-          ActiveNode,                      & 
-          ResidualVector, &
-          StiffVector,  &
-          OldValues, &
-          OldRHS)
+             ElementNodes % y,    &
+             ElementNodes % z,    &
+             TimeForce,        &
+             FORCE,    &
+             STIFF, &
+             MASS,  &
+             Velo,  &
+             MeshVelocity, &
+             Flux, &
+             ElemFreeSurf,&
+             SourceFunc, &
+             LowerLimit,                      &
+             UpperLimit, &
+             LimitedSolution,  &
+             ActiveNode,                      & 
+             ResidualVector, &
+             StiffVector,  &
+             OldValues, &
+             OldRHS)
      END IF
-     
+
 
      IF (Bubbles) THEN
         Nmatrix = 2*NMAX
@@ -206,6 +252,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
           STIFF( Nmatrix, Nmatrix ), &
           MASS( Nmatrix, Nmatrix ),  &
           Velo( 3, NMAX ), &
+          MeshVelocity( 3,NMAX ), &
           Flux( 3, NMAX), &
           ElemFreeSurf( NMAX ),&
           SourceFunc( NMAX ), &
@@ -223,7 +270,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
      END IF
 
      IF(NeedOldValues) THEN
-        ALLOCATE(OldFreeSurf(Model % Mesh % NumberOfNodes), STAT=istat)
+        ALLOCATE(OldFreeSurf(SIZE(FreeSurf)), STAT=istat)
 
         IF ( istat /= 0 ) THEN
            CALL Fatal(SolverName,'Memory allocation error, Aborting.')
@@ -236,14 +283,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
      ResidualVector = 0.0_dp
   END IF
 
-  !------------------------------------------------------------------------------
-  !    Get variables for the solution
-  !------------------------------------------------------------------------------
 
-  FreeSurf     => Solver % Variable % Values     ! Nodal values for free surface displacement
-  IF (.NOT.ASSOCIATED(FreeSurf)) CALL FATAL(SolverName,'Variable values not associated')
-  FreeSurfPerm => Solver % Variable % Perm       ! Permutations for free surface displacement
-  PreFreeSurf  => Solver % Variable % PrevValues ! Nodal values for free surface displacement
 
   !                     from previous timestep
   IF( NeedOldValues) THEN
@@ -323,7 +363,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         UpperLimit(CurrentElement % Nodeindexes(1:N)) = &
              ListGetReal(Material,'Max ' // TRIM(VariableName),n,CurrentElement % NodeIndexes, Found)              
         LimitedSolution(CurrentElement % Nodeindexes(1:N), 2) = Found
-        
+
         ! get flow soulution and velocity field from it
         !----------------------------------------------
         ConvectionFlag = GetString( Equation, 'Convection', Found )
@@ -335,15 +375,15 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         IF ( ConvectionFlag == 'constant' ) THEN
            Velo(1,1:N) = GetReal( Material, 'Convection Velocity 1', Found )
            IF ( .NOT.Found ) &
-             Velo(1,1:N) = GetReal( Equation, 'Convection Velocity 1', Found )
+                Velo(1,1:N) = GetReal( Equation, 'Convection Velocity 1', Found )
 
            Velo(2,1:N) = GetReal( Material, 'Convection Velocity 2', Found )
            IF ( .NOT.Found ) &
-             Velo(2,1:N) = GetReal( Equation, 'Convection Velocity 2', Found )
+                Velo(2,1:N) = GetReal( Equation, 'Convection Velocity 2', Found )
 
            Velo(3,1:N) = GetReal( Material, 'Convection Velocity 3', Found )
            IF ( .NOT.Found ) &
-             Velo(3,1:N) = GetReal( Equation, 'Convection Velocity 3', Found )
+                Velo(3,1:N) = GetReal( Equation, 'Convection Velocity 3', Found )
            ! computed velocity
            !------------------
         ELSE IF (ConvectionFlag == 'computed' ) THEN
@@ -416,6 +456,11 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            Velo=0.0_dp  
         END IF
         !------------------------------------------------------------------------------
+        ! Get mesh velocity
+        !------------------------------------------------------------------------------
+        MeshVelocity = 0.0_dp
+        CALL GetVectorLocalSolution( MeshVelocity, 'Mesh Velocity',CurrentElement)
+        !------------------------------------------------------------------------------
         !      get the accumulation/ablation rate (i.e. normal surface flux)
         !      from the body force section
         !------------------------------------------------------------------------------
@@ -428,7 +473,7 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            ! Accumulation/ablation is given in normal direction of surface:
            !---------------------------------------------------------------
            SourceFunc(1:n) = GetReal( BodyForce, &
-                TRIM(VariableName) // ' Accumulation',NormalFlux ) 
+                TRIM(VariableName) // ' Accumulation', NormalFlux ) 
            ! Accumulation/ablation has to be computed from given flux:
            !----------------------------------------------------------
            IF (.NOT.NormalFlux) THEN
@@ -458,9 +503,9 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
         !      Get element local matrix, and rhs vector
         !------------------------------------------------------------------------------
         CALL LocalMatrix( STIFF, MASS, FORCE,&
-             SourceFunc, ElemFreeSurf, Velo, CurrentElement,&
+             SourceFunc, ElemFreeSurf, Velo, MeshVelocity, CurrentElement,&
              n, ElementNodes, NodeIndexes, TransientSimulation,&
-             Flux, NormalFlux, SubstantialSurface)
+             Flux, NormalFlux, SubstantialSurface, ALEFormulation)
 
         !------------------------------------------------------------------------------
         !      If time dependent simulation add mass matrix to stiff matrix
@@ -502,7 +547,9 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
      CALL DefaultFinishAssembly()
      CALL DefaultDirichletBCs()
 
-
+     !------------------------------------------------------------------------------
+     !    Manipulation of the assembled matrix due to limits
+     !------------------------------------------------------------------------------
      OldValues = SystemMatrix % Values
      OldRHS = ForceVector
 
@@ -522,327 +569,366 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
            END IF
         END DO
      END IF
-     CALL INFO( SolverName, 'Assembly done', Level=4 )
-     !------------------------------------------------------------------------------
-     !    Solve System  and check for convergence
-     !------------------------------------------------------------------------------
-     at = CPUTime() - at
-     st = CPUTime() 
 
-     PrevNorm = Solver % Variable % Norm
+        CALL INFO( SolverName, 'Assembly done', Level=4 )
+        !------------------------------------------------------------------------------
+        !    Solve System  and check for convergence
+        !------------------------------------------------------------------------------
+        at = CPUTime() - at
+        st = CPUTime() 
 
-     Norm = DefaultSolve()
-     
-     IF ( PrevNorm + Norm /= 0.0_dp ) THEN
-        RelativeChange = 2.0_dp * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
-     ELSE
-        RelativeChange = 0.0_dp
-     END IF
+        PrevNorm = Solver % Variable % Norm
 
-     WRITE( Message, * ) 'Result Norm   : ',Norm
-     CALL INFO( SolverName, Message, Level=4 )
-     WRITE( Message, * ) 'Relative Change : ',RelativeChange
-     CALL INFO( SolverName, Message, Level=4 )
+        Norm = DefaultSolve()
 
-     !------------------------------------------------------------------------------
-     ! compute residual
-     !------------------------------------------------------------------------------ 
-     SystemMatrix % Values = OldValues
-     ForceVector = OldRHS
+        IF ( PrevNorm + Norm /= 0.0_dp ) THEN
+           RelativeChange = 2.0_dp * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
+        ELSE
+           RelativeChange = 0.0_dp
+        END IF
 
-     IF ( ParEnv % PEs > 1 ) THEN !!!!!!!!!!!!!!!!!!!!!! we have a parallel run
-        CALL ParallelInitSolve( SystemMatrix, FreeSurf, ForceVector, ResidualVector )
-        CALL ParallelMatrixVector( SystemMatrix, FreeSurf, StiffVector, .TRUE. )
-        ResidualVector =  StiffVector - ForceVector
-        CALL ParallelSumVector( SystemMatrix, ResidualVector )
-     ELSE !!!!!!!!!!!!!!!!!!!!!! serial run 
-        CALL CRS_MatrixVectorMultiply( SystemMatrix, FreeSurf, StiffVector)
-        ResidualVector =  StiffVector - ForceVector
-     END IF
-     !-----------------------------
-     ! determine "active" nodes set
-     !-----------------------------
-     IF (ApplyDirichlet) THEN
-        numberofsurfacenodes = 0
-        DO i=1,Model % NumberOfNodes
-           l= FreeSurfPerm(i)  
-           IF (l<1) CYCLE
-           numberofsurfacenodes = numberofsurfacenodes + 1
-           !---------------------------------------------------------
-           ! if upper limit is exceeded, manipulate matrix in any case
-           !----------------------------------------------------------
-           IF ((LimitedSolution(i,1)) .AND.  (FreeSurf(l) - LowerLimit(i) <= 0.0_dp )) THEN
-              ActiveNode(i,1) = .TRUE.
-           ELSE IF ((LimitedSolution(i,2)) .AND.  (FreeSurf(l) - UpperLimit(i) >= 0.0_dp )) THEN
-              ActiveNode(i,2) = .TRUE.
+        WRITE( Message, * ) 'Result Norm   : ',Norm
+        CALL INFO( SolverName, Message, Level=4 )
+        WRITE( Message, * ) 'Relative Change : ',RelativeChange
+        CALL INFO( SolverName, Message, Level=4 )
+
+        !------------------------------------------------------------------------------
+        ! compute residual
+        !------------------------------------------------------------------------------ 
+        SystemMatrix % Values = OldValues
+        ForceVector = OldRHS
+
+        IF ( ParEnv % PEs > 1 ) THEN !!!!!!!!!!!!!!!!!!!!!! we have a parallel run
+           CALL ParallelInitSolve( SystemMatrix, FreeSurf, ForceVector, ResidualVector )
+           CALL ParallelMatrixVector( SystemMatrix, FreeSurf, StiffVector, .TRUE. )
+           ResidualVector =  StiffVector - ForceVector
+           CALL ParallelSumVector( SystemMatrix, ResidualVector )
+        ELSE !!!!!!!!!!!!!!!!!!!!!! serial run 
+           CALL CRS_MatrixVectorMultiply( SystemMatrix, FreeSurf, StiffVector)
+           ResidualVector =  StiffVector - ForceVector
+        END IF
+        !-----------------------------
+        ! determine "active" nodes set
+        !-----------------------------
+        IF (ApplyDirichlet) THEN
+           numberofsurfacenodes = 0
+           DO i=1,Model % NumberOfNodes
+              l= FreeSurfPerm(i)  
+              IF (l<1) CYCLE
+              numberofsurfacenodes = numberofsurfacenodes + 1
+              !---------------------------------------------------------
+              ! if upper limit is exceeded, manipulate matrix in any case
+              !----------------------------------------------------------
+              IF ((LimitedSolution(i,1)).AND.(FreeSurf(l)-LowerLimit(i)<0.0_dp )) THEN
+                 ActiveNode(i,1) = .TRUE.
+              END IF
+              IF ((LimitedSolution(i,2)).AND.(FreeSurf(l)-UpperLimit(i)>0.0_dp )) THEN
+                 ActiveNode(i,2) = .TRUE.
+              END IF
+
+              IF ( LimitedSolution(i,1) .AND. ResidualVector(l) < -LinearTol & 
+                       .AND. iter>1 ) ActiveNode(i,1) = .FALSE.
+              IF ( LimitedSolution(i,2) .AND. ResidualVector(l) >  LinearTol & 
+                       .AND. iter>1 ) ActiveNode(i,2) = .FALSE.
+
+              IF( .NOT.ActiveNode(i,1) .AND. .NOT.ActiveNode(i,2) ) THEN
+                 PointerToResidualVector(VarSurfResidual % Perm(i)) = 0.0_dp
+              ELSE
+                 PointerToResidualVector(VarSurfResidual % Perm(i)) = ResidualVector(l)
+              END IF
+            END DO
+        END IF
+        !------------------------------------------
+        ! special treatment for periodic boundaries
+        !------------------------------------------
+
+        !------------------------------------------------------------------------------
+        ! Relaxation
+        !------------------------------------------------------------------------------
+        IF(NeedOldValues) THEN
+           IF(LimitDisp) THEN 
+              maxdh = -HUGE(maxdh)         
+              DO i=1, Model % NumberOfNodes
+                 j = FreeSurfPerm(i)
+                 IF(j > 0) THEN
+                    maxdh = MAX(maxdh, ABS(FreeSurf(j)-OldFreeSurf(j)))
+                 END IF
+              END DO
+              IF(maxdh > MaxDisp) THEN
+                 Relax = Relax * MaxDisp/maxdh
+              END IF
+              WRITE(Message,'(a,E8.2)') 'Maximum displacement ',maxdh
+              CALL INFO( SolverName, Message, Level=4 )
            END IF
-           !---------------------------------------------------
-           ! if there is the "wrong" sign of the residual,
-           ! don't manipulate the matrix
-           !---------------------------------------------------
-           IF ((LimitedSolution(i,1)) .AND. (ResidualVector(l) <  LinearTol &
-                .AND. iter>1)) ActiveNode(i,1) = .FALSE.
-           IF ((LimitedSolution(i,2)) .AND. (ResidualVector(l) >  LinearTol &
-                .AND. iter>1)) ActiveNode(i,2) = .FALSE.
-
-           IF( .NOT.ActiveNode(i,1) .AND. .NOT.ActiveNode(i,2) ) THEN
-              PointerToResidualVector(VarSurfResidual % Perm(i)) = 0.0_dp
-           ELSE
-              PointerToResidualVector(VarSurfResidual % Perm(i)) = ResidualVector(l)
-           END IF
-        END DO
-     END IF
-     !------------------------------------------
-     ! special treatment for periodic boundaries
-     !------------------------------------------
-
-     !------------------------------------------------------------------------------
-     ! Relaxation
-     !------------------------------------------------------------------------------
-     IF(NeedOldValues) THEN
-        IF(LimitDisp) THEN 
-           maxdh = -HUGE(maxdh)         
+           WRITE(Message,'(a,F8.2)') 'pp Relaxation factor',Relax
+           CALL INFO( SolverName, Message, Level=4 )
            DO i=1, Model % NumberOfNodes
               j = FreeSurfPerm(i)
               IF(j > 0) THEN
-                 maxdh = MAX(maxdh, ABS(FreeSurf(j)-OldFreeSurf(j)))
+                 FreeSurf(j) = Relax * FreeSurf(j) + (1-Relax) * OldFreeSurf(j)
               END IF
            END DO
-           IF(maxdh > MaxDisp) THEN
-              Relax = Relax * MaxDisp/maxdh
-           END IF
-           WRITE(Message,'(a,E8.2)') 'Maximum displacement ',maxdh
-           CALL INFO( SolverName, Message, Level=4 )
         END IF
-        WRITE(Message,'(a,F8.2)') 'pp Relaxation factor',Relax
+
+        st = CPUTIme()-st
+        totat = totat + at
+        totst = totst + st
+
+        WRITE(Message,'(a,F8.2,F8.2)') 'Assembly: (s)', at, totat
         CALL INFO( SolverName, Message, Level=4 )
-        DO i=1, Model % NumberOfNodes
-           j = FreeSurfPerm(i)
-           IF(j > 0) THEN
-              FreeSurf(j) = Relax * FreeSurf(j) + (1-Relax) * OldFreeSurf(j)
-           END IF
-        END DO
-     END IF
+        WRITE(Message,'(a,F8.2,F8.2)') ' Solve:    (s)', st, totst
+        CALL INFO( SolverName, Message, Level=4 )
+        !------------------------------------------------------------------------------
+        ! write some info on max/min values
+        !------------------------------------------------------------------------------
+        WRITE(Message,'(a,e13.6,a,e13.6)') &
+             'Max/min values surface:', MAXVAL(FreeSurf(:)),'/',MINVAL( FreeSurf(:))
+        CALL INFO(SolverName,Message,Level=4)
+        IF (ApplyDirichlet) THEN
+           !           WRITE(Message,'(a,i10)') 'Deactivated Periodic BC nodes:', k
+           !          CALL INFO(SolverName,Message,Level=1)
+           WRITE(Message,'(a,i10)') 'Number of surface nodes: ', numberofsurfacenodes
+           CALL INFO(SolverName,Message,Level=1)
+           WRITE(Message,'(a,i10)') 'Number of constrained points (lower limit):', COUNT(ActiveNode(:,1))
+           CALL INFO(SolverName,Message,Level=1)
+           WRITE(Message,'(a,i10)') 'Number of constrained points (upper limit):', COUNT(ActiveNode(:,2))
+           CALL INFO(SolverName,Message,Level=1)
+        END IF
+        !----------------------
+        ! check for convergence
+        !----------------------
+        IF ( RelativeChange < NonlinearTol ) THEN
+           WRITE(Message,'(a,i10,a)') 'Converged after', iter, ' iterations'
+           CALL INFO(SolverName,Message,Level=1)
+           EXIT
+        ELSE
 
-     st = CPUTIme()-st
-     totat = totat + at
-     totst = totst + st
-
-     WRITE(Message,'(a,F8.2,F8.2)') 'Assembly: (s)', at, totat
-     CALL INFO( SolverName, Message, Level=4 )
-     WRITE(Message,'(a,F8.2,F8.2)') ' Solve:    (s)', st, totst
-     CALL INFO( SolverName, Message, Level=4 )
+        END IF
+     END DO ! End loop non-linear iterations
      !------------------------------------------------------------------------------
-     ! write some info on max/min values
+   CONTAINS
+
      !------------------------------------------------------------------------------
-     WRITE(Message,'(a,e13.6,a,e13.6)') &
-          'Max/min values surface:', MAXVAL(FreeSurf(:)),'/',MINVAL( FreeSurf(:))
-     CALL INFO(SolverName,Message,Level=4)
-     IF (ApplyDirichlet) THEN
-        !           WRITE(Message,'(a,i10)') 'Deactivated Periodic BC nodes:', k
-        !          CALL INFO(SolverName,Message,Level=1)
-        WRITE(Message,'(a,i10)') 'Number of surface nodes: ', numberofsurfacenodes
-        CALL INFO(SolverName,Message,Level=1)
-        WRITE(Message,'(a,i10)') 'Number of constrained points (lower limit):', COUNT(ActiveNode(:,1))
-        CALL INFO(SolverName,Message,Level=1)
-        WRITE(Message,'(a,i10)') 'Number of constrained points (upper limit):', COUNT(ActiveNode(:,2))
-        CALL INFO(SolverName,Message,Level=1)
-     END IF
-     !----------------------
-     ! check for convergence
-     !----------------------
-     IF ( RelativeChange < NonlinearTol ) THEN
-        WRITE(Message,'(a,i10,a)') 'Converged after', iter, ' iterations'
-        CALL INFO(SolverName,Message,Level=1)
-        EXIT
-     ELSE
-
-     END IF
-  END DO ! End loop non-linear iterations
-  !------------------------------------------------------------------------------
-CONTAINS
-
-  !------------------------------------------------------------------------------
-  !==============================================================================
-  SUBROUTINE LocalMatrix( STIFF, MASS, FORCE,&
-       SourceFunc, OldFreeSurf, Velo, &
-       Element, nCoord, Nodes, NodeIndexes, TransientSimulation,&
-       Flux, NormalFlux, SubstantialSurface)
-    !------------------------------------------------------------------------------
-    !    INPUT:  SourceFunc(:)   nodal values of the accumulation/ablation function
-    !            
-    !            Element         current element
-    !            n               number of nodes
-    !            Nodes           current node points
-    !
-    !    OUTPUT: STIFF(:,:)
-    !            MASS(:,:)
-    !            FORCE(:)
-    !------------------------------------------------------------------------------
-    !      external variables:
-    !      ------------------------------------------------------------------------
-    REAL(KIND=dp) ::&
-         STIFF(:,:), MASS(:,:), FORCE(:), SourceFunc(:), &
-         Velo(:,:), OldFreeSurf(:), Flux(:,:)
-
-    INTEGER :: nCoord, NodeIndexes(:)
-    TYPE(Nodes_t) :: Nodes
-    TYPE(Element_t), POINTER :: Element
-    LOGICAL :: TransientSimulation,NormalFlux,SubstantialSurface
-    !------------------------------------------------------------------------------
-    !      internal variables:
-    !      ------------------------------------------------------------------------
-    REAL(KIND=dp) ::&
-         Basis(2*nCoord),dBasisdx(2*nCoord,3), &
-         Vgauss(3), VMeshGauss(3), Source, gradFreeSurf(3), normGradFreeSurf,&
-         FluxGauss(3),X,Y,Z,U,V,W,S,SqrtElementMetric, SU(2*nCoord),SW(2*nCoord),Tau,hK,UNorm
-    LOGICAL :: Stat
-    INTEGER :: i,j,t,p,q, n
-    TYPE(GaussIntegrationPoints_t) :: IntegStuff
-    !------------------------------------------------------------------------------
-
-    FORCE = 0.0_dp
-    STIFF = 0.0_dp
-    MASS  = 0.0_dp
-
-    IF (Bubbles) THEN
-       n = nCoord * 2
-    ELSE
-       n = nCoord
-    END IF
-
-    hK = ElementDiameter( Element, Nodes )
-
-    !
-    !      Numerical integration:
-    !      ----------------------
-    IF (Bubbles) THEN
-       IntegStuff = GaussPoints( Element, Element % type % gausspoints2)
-    ELSE
-       IntegStuff = GaussPoints( Element )
-    END IF
-
-    SU = 0.0_dp
-    SW = 0.0_dp
-
-    DO t = 1,IntegStuff % n
-       U = IntegStuff % u(t)
-       V = IntegStuff % v(t)
-       W = IntegStuff % w(t)
-       S = IntegStuff % s(t)
+     !==============================================================================
+     SUBROUTINE LocalMatrix( STIFF, MASS, FORCE,&
+          SourceFunc, OldFreeSurf, Velo, MeshVelo, &
+          Element, nCoord, Nodes, NodeIndexes, TransientSimulation,&
+          Flux, NormalFlux, SubstantialSurface, ALEFormulation)
+       !------------------------------------------------------------------------------
+       !    INPUT:  SourceFunc(:)   nodal values of the accumulation/ablation function
+       !            
+       !            Element         current element
+       !            n               number of nodes
+       !            Nodes           current node points
        !
-       !        Basis function values & derivatives at the integration point:
-       !        -------------------------------------------------------------
-       stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
-            Basis,dBasisdx, Bubbles=Bubbles )
+       !    OUTPUT: STIFF(:,:)
+       !            MASS(:,:)
+       !            FORCE(:)
+       !------------------------------------------------------------------------------
+       !      external variables:
+       !      ------------------------------------------------------------------------
+       REAL(KIND=dp) ::&
+            STIFF(:,:), MASS(:,:), FORCE(:), SourceFunc(:), &
+            Velo(:,:), MeshVelo(:,:), OldFreeSurf(:), Flux(:,:)
 
-       !        Correction from metric
-       !        ----------------------
-       S = S * SqrtElementMetric
+       INTEGER :: nCoord, NodeIndexes(:)
+       TYPE(Nodes_t) :: Nodes
+       TYPE(Element_t), POINTER :: Element
+       LOGICAL :: TransientSimulation,NormalFlux,SubstantialSurface,ALEFormulation
+       !------------------------------------------------------------------------------
+       !      internal variables:
+       !      ------------------------------------------------------------------------
+       REAL(KIND=dp) ::&
+            Basis(2*nCoord),dBasisdx(2*nCoord,3), &
+            Vgauss(3), VMeshGauss(3), Source, gradFreeSurf(3), normGradFreeSurf,&
+            FluxGauss(3),X,Y,Z,U,V,W,S,SqrtElementMetric, SU(2*nCoord),SW(2*nCoord),Tau,hK,UNorm
 
-       IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
-          X = SUM( Nodes % x(1:nCoord) * Basis(1:nCoord) )
-          Y = SUM( Nodes % y(1:nCoord) * Basis(1:nCoord) )
-          Z = SUM( Nodes % z(1:nCoord) * Basis(1:nCoord) )
-          S = S * X
+       TYPE(ElementType_t), POINTER :: SaveElementType
+       INTEGER :: LinType(2:4) = [202,303,404]
+
+       LOGICAL :: Stat, UseLinear
+       INTEGER :: i,j,t,p,q, n
+       TYPE(GaussIntegrationPoints_t) :: IntegStuff
+       !------------------------------------------------------------------------------
+
+       FORCE = 0.0_dp
+       STIFF = 0.0_dp
+       MASS  = 0.0_dp
+
+       IF (Bubbles) THEN
+          n = nCoord * 2
+       ELSE
+          n = nCoord
        END IF
+
+       UseLinear = GetLogical( GetSolverParams(), 'Use linear elements', Stat )
+       UseLinear = UseLinear .OR. ANY(ActiveNode(NodeIndexes,:))
+       UseLinear = UseLinear .AND. Element % Type % BasisFunctionDegree==2
+
+       IF ( UseLinear ) THEN
+         SaveElementType => Element % Type
+         Element % Type => GetElementType(LinType(GetElementFamily()))
+       END IF
+
+       hK = ElementDiameter( Element, Nodes )
+
        !
-       !        Velocities and (norm of) gradient of free surface and source function 
-       !        at Gauss point
-       !        ---------------------------------------------------------------------
-
-       gradFreeSurf=0.0_dp
-       Vgauss=0.0_dp
-       VMeshGauss=0.0_dp
-
-       DO i=1,DIM-1
-          gradFreeSurf(i) = SUM(dBasisdx(1:nCoord,i)*OldFreeSurf(1:nCoord))
-       END DO
-
-       gradFreeSurf(DIM) = 1.0_dp
-
-       DO i=1,DIM
-          Vgauss(i) = SUM( Basis(1:nCoord)*Velo(i,1:nCoord) )
-       END DO
-
-       IF (DIM==3) THEN
-          normGradFreeSurf = SQRT(1.0_dp + gradFreeSurf(1)**2 + &
-               gradFreeSurf(2)**2)
+       !      Numerical integration:
+       !      ----------------------
+       IF (Bubbles) THEN
+          IntegStuff = GaussPoints( Element, Element % type % gausspoints2)
        ELSE
-          normGradFreeSurf = SQRT(1.0_dp + gradFreeSurf(1)**2)
+          IntegStuff = GaussPoints( Element )
        END IF
 
-       UNorm = SQRT( SUM( Vgauss(1:dim-1)**2 ) )
-       IF (UNorm .NE. 0.0_dp) THEN
-          Tau = hK / ( 2*Unorm )
-       ELSE
-          Tau = 0.0_dp
-       END IF
+       SU = 0.0_dp
+       SW = 0.0_dp
 
-       IF ( .NOT. Bubbles ) THEN
-          DO p=1,n
-             SU(p) = 0.0_dp
-             DO i=1,dim-1
-                SU(p) = SU(p) + Vgauss(i) * dBasisdx(p,i)
-             END DO
+       DO t = 1,IntegStuff % n
+          U = IntegStuff % u(t)
+          V = IntegStuff % v(t)
+          W = IntegStuff % w(t)
+          S = IntegStuff % s(t)
+          !
+          !        Basis function values & derivatives at the integration point:
+          !        -------------------------------------------------------------
+          stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
+               Basis,dBasisdx, Bubbles=Bubbles )
 
-             SW(p) = 0.0_dp
-             DO i=1,dim-1
-                SW(p) = SW(p) + Vgauss(i) * dBasisdx(p,i)
-             END DO
+          !        Correction from metric
+          !        ----------------------
+          S = S * SqrtElementMetric
+
+          IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
+             X = SUM( Nodes % x(1:nCoord) * Basis(1:nCoord) )
+             Y = SUM( Nodes % y(1:nCoord) * Basis(1:nCoord) )
+             Z = SUM( Nodes % z(1:nCoord) * Basis(1:nCoord) )
+             S = S * X
+          END IF
+          !
+          !        Velocities and (norm of) gradient of free surface and source function 
+          !        at Gauss point
+          !        ---------------------------------------------------------------------
+
+          gradFreeSurf=0.0_dp
+          Vgauss=0.0_dp
+          VMeshGauss=0.0_dp
+
+          DO i=1,DIM-1
+             gradFreeSurf(i) = SUM(dBasisdx(1:nCoord,i)*OldFreeSurf(1:nCoord))
           END DO
-       END IF
 
-       !        Stiffness matrix:
-       !        -----------------
-       DO p=1,n
-          DO q=1,n
-             DO i=1,DIM-1
-                STIFF(p,q) = STIFF(p,q) + &
-                     s * Vgauss(i) * dBasisdx(q,i) * Basis(p)
+          gradFreeSurf(DIM) = 1.0_dp
+
+          
+          IF (.NOT.ALEFormulation) THEN
+             DO i=1,DIM
+                Vgauss(i) = SUM( Basis(1:nCoord)*(Velo(i,1:nCoord)))
              END DO
-             STIFF(p,q) =  STIFF(p,q) + s * Tau * SU(q) * SW(p)
-          END DO
-       END DO
+          ELSE
+             MeshVelo(DIM,1:nCoord) = 0.0_dp
+             DO i=1,DIM
+                Vgauss(i) = SUM( Basis(1:nCoord)*(Velo(i,1:nCoord) - MeshVelo(i,1:nCoord)))
+             END DO
+          END IF
 
+          IF (DIM==3) THEN
+             normGradFreeSurf = SQRT(1.0_dp + gradFreeSurf(1)**2 + &
+                  gradFreeSurf(2)**2)
+          ELSE
+             normGradFreeSurf = SQRT(1.0_dp + gradFreeSurf(1)**2)
+          END IF
 
-       !        Mass Matrix:
-       !        ------------
-       IF ( TransientSimulation ) THEN
+          UNorm = SQRT( SUM( Vgauss(1:dim-1)**2 ) )
+          IF (UNorm .NE. 0.0_dp) THEN
+             Tau = hK / ( 2*Unorm )
+          ELSE
+             Tau = 0.0_dp
+          END IF
+
+          IF ( .NOT. Bubbles ) THEN
+             DO p=1,n
+                SU(p) = 0.0_dp
+                DO i=1,dim-1
+                   SU(p) = SU(p) + Vgauss(i) * dBasisdx(p,i)
+                END DO
+
+                SW(p) = 0.0_dp
+                DO i=1,dim-1
+                   SW(p) = SW(p) + Vgauss(i) * dBasisdx(p,i)
+                END DO
+             END DO
+          END IF
+
+          !        Stiffness matrix:
+          !        -----------------
           DO p=1,n
              DO q=1,n
-                MASS(p,q) = MASS(p,q) +  &
-                     S * Basis(q) * (Basis(p) + Tau*SW(p))
+                DO i=1,DIM-1
+                   STIFF(p,q) = STIFF(p,q) + &
+                        s * Vgauss(i) * dBasisdx(q,i) * Basis(p)
+                END DO
+                STIFF(p,q) =  STIFF(p,q) + s * Tau * SU(q) * SW(p)
              END DO
           END DO
-       END IF
 
-       !        Get accumulation/ablation function if flux input is given
-       !        (i.e., calculate vector product between flux and normal)
-       !        --------------------------------------------------------- 
-       IF (.NOT.(SubstantialSurface)) THEN
-          IF (NormalFlux) THEN 
-             Source = normGradFreeSurf * SUM( SourceFunc(1:nCoord) &
-                  * Basis(1:nCoord) )
-          ELSE
-             DO i=1,dim
-                FluxGauss(i) = SUM(Basis(1:nCoord)*Flux(i,1:nCoord))
+
+          !        Mass Matrix:
+          !        ------------
+          IF ( TransientSimulation ) THEN
+             DO p=1,n
+                DO q=1,n
+                   MASS(p,q) = MASS(p,q) +  &
+                        S * Basis(q) * (Basis(p) + Tau*SW(p))
+                END DO
              END DO
-             Source = SUM(FluxGauss(1:DIM)*gradFreeSurf(1:DIM))
           END IF
-       ELSE
-          Source = 0.0_dp
+
+          !        Get accumulation/ablation function if flux input is given
+          !        (i.e., calculate vector product between flux and normal)
+          !        --------------------------------------------------------- 
+          IF (.NOT.(SubstantialSurface)) THEN
+             IF (NormalFlux) THEN 
+                Source = normGradFreeSurf * SUM( SourceFunc(1:nCoord) &
+                     * Basis(1:nCoord) )
+             ELSE
+                DO i=1,dim
+                   FluxGauss(i) = SUM(Basis(1:nCoord)*Flux(i,1:nCoord))
+                END DO
+                Source = SUM(FluxGauss(1:DIM)*gradFreeSurf(1:DIM))
+             END IF
+          ELSE
+             Source = 0.0_dp
+          END IF
+
+          !        Assemble force vector:
+          !        ---------------------
+          FORCE(1:n) = FORCE(1:n) &
+               + (Vgauss(dim)+Source) * (Basis(1:n) + Tau*SW(1:n)) * s
+       END DO
+
+       IF (UseLinear) THEN
+         EdgeMap => GetEdgeMap(GetElementFamily())
+         n = ELement % Type % NumberOfNodes
+         DO i=n+1,n+SIZE(EdgeMap,1)
+           j=EdgeMap(i-n,1)
+           k=EdgeMap(i-n,2)
+           STIFF(i,:) =  0._dp
+           STIFF(:,i) =  0._dp
+           MASS(i,:)  =  0._dp
+           MASS(:,i)  =  0._dp
+           STIFF(i,i) =  1._dp
+           STIFF(i,j) = -0.5_dp
+           STIFF(i,k) = -0.5_dp
+           FORCE(i) = 0._dp
+           Element % Type => SaveElementType
+         END DO
        END IF
 
-       !        Assemble force vector:
-       !        ---------------------
-       FORCE(1:n) = FORCE(1:n) &
-            + (Vgauss(dim)+Source) * (Basis(1:n) + Tau*SW(1:n)) * s
-    END DO
-    !------------------------------------------------------------------------------
-  END SUBROUTINE LocalMatrix
+       !------------------------------------------------------------------------------
+     END SUBROUTINE LocalMatrix
 
-  !==============================================================================
-  !------------------------------------------------------------------------------
-END SUBROUTINE FreeSurfaceSolver
+     !==============================================================================
+     !------------------------------------------------------------------------------
+   END SUBROUTINE FreeSurfaceSolver
 !------------------------------------------------------------------------------
