@@ -514,7 +514,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
    SUBROUTINE ParticleFieldInteraction(CurrentElement,No,Coord,Velo, Accel )
      
      TYPE(Element_t), POINTER :: CurrentElement
-     Integer :: No
+     INTEGER :: No
      REAL(KIND=dp) :: Coord(3),Velo(3), Accel(3)
      
      TYPE(Mesh_t), POINTER :: Mesh
@@ -530,7 +530,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      
      
      SAVE :: Visited, Basis, dBasisdx, mass, charge, dragcoeff, FieldPerm, &
-         FieldMode
+         FieldMode, Decay
      
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
@@ -582,7 +582,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          ! exteranl speed at point (for testing)
          val = SQRT( SUM( VeloAtPoint ** 2 ) )
        ELSE IF( FieldMode == 4 ) THEN 
-         ! exponential decay, e.g. volumetric heat sourcer
+         ! exponential decay, e.g. volumetric heat source
          dist = Particles % Distance( No ) 
          val = EXP(-dist/decay)
        ELSE

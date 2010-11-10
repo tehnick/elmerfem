@@ -3242,6 +3242,7 @@ SUBROUTINE ParticleOutputVtu( Particles )
   TYPE(Variable_t), POINTER :: Var
   INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet
   CHARACTER(MAX_NAME_LEN) :: Dir
+  REAL(KIND=dp) :: SaveNodeFraction
   LOGICAL :: Visited = .FALSE.
 
   CHARACTER(MAX_NAME_LEN) :: Str
@@ -3273,7 +3274,10 @@ SUBROUTINE ParticleOutputVtu( Particles )
   Dim = Particles % dim
 
   CALL DeleteLostParticles(Particles,DeleteBC)
+
   NumberOFNodes = Particles % NumberOfParticles
+  SaveNodeFraction = ListGetCReal( Params,'Save Particle Fraction',GotIt)
+  IF(GotIt) NumberOfNodes = NINT( SaveNodeFraction * NumberOfNodes )
 
   IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
     Dir = TRIM(Mesh % Name) // "/"
