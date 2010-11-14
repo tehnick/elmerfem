@@ -41,6 +41,8 @@
 
 Preview::Preview(QWidget *parent) : QLabel(parent)
 {
+  setMinimumSize(400, 400);
+
   setAlignment(Qt::AlignCenter);
 
   setAcceptDrops(true);
@@ -117,5 +119,30 @@ void Preview::showInfo()
 
   setWindowTitle("ElmerClips");
 
-  setText("Drag and drop image files and/or folders here\n\nSupported formats: png, jpg (jpeg), tiff, gif\nAutomatic ordering: first integer in file name");
+  QPixmap video(":/img/500px-Crystal_Clear_mimetype_video.svg.png");
+
+  video = video.scaledToWidth(200, Qt::SmoothTransformation);
+
+  QPixmap splash(400, 400);
+
+  splash.fill(Qt::transparent);
+
+  QPainter painter(&splash);
+
+  QRectF target(100, 50, 200, 200);
+
+  QRectF source(0, 0, 200, 244);
+
+  painter.drawPixmap(target, video, source);
+
+  painter.drawText(QRect(0, 280, 400, 12), Qt::AlignCenter,
+		   "Drag and drop image files/folders here");
+
+  painter.drawText(QRect(0, 320, 400, 12), Qt::AlignCenter,
+		   "Supported formats: png, jpg (jpeg), tiff, gif");
+
+  painter.drawText(QRect(0, 340, 400, 12), Qt::AlignCenter,
+		   "Automatic ordering: first integer in file name");
+
+  setPixmap(splash);
 }
