@@ -86,8 +86,7 @@ void Preview::dropEvent(QDropEvent *event)
 void Preview::closeEvent(QCloseEvent *event)
 {
   Q_UNUSED(event);
-
-  qApp->quit();
+  exit(0);
 }
 
 void Preview::drawThumbnail(const QString &fileName)
@@ -102,7 +101,7 @@ void Preview::drawThumbnail(const QString &fileName)
     setAcceptDrops(true);
 
     if(qApp->arguments().count() > 1)
-      qApp->quit();
+      exit(0);
 
     return;
   }
