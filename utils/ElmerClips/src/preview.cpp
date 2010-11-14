@@ -135,13 +135,13 @@ void Preview::showInfo()
 
   painter.drawPixmap(target, video, source);
 
-  painter.drawText(QRect(0, 280, 400, 12), Qt::AlignCenter,
+  painter.drawText(QRect(0, 280, 400, 20), Qt::AlignCenter,
 		   "Drag and drop image files/folders here");
 
-  painter.drawText(QRect(0, 320, 400, 12), Qt::AlignCenter,
+  painter.drawText(QRect(0, 320, 400, 20), Qt::AlignCenter,
 		   "Supported formats: png, jpg (jpeg), tiff, gif");
 
-  painter.drawText(QRect(0, 340, 400, 12), Qt::AlignCenter,
+  painter.drawText(QRect(0, 340, 400, 20), Qt::AlignCenter,
 		   "Automatic ordering: first integer in file name");
 
   setPixmap(splash);
