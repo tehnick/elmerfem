@@ -42,11 +42,9 @@
 
 #include <QtGui>
 
-#ifdef Q_OS_WIN
 #ifndef INT64_C
 #define INT64_C(c) (c ## LL)
 #define UINT64_C(c) (c ## ULL)
-#endif
 #endif
 
 extern "C" {
@@ -71,7 +69,7 @@ class Encoder : public QThread
   bool isImage(const QFileInfo &info) const;
   void sortImages();
   void compressImages(int targetWidth);
-  bool convertToYUV(const QPixmap &pixmapRGB, int widthYUV, int heightYUV);
+  bool convertToYUV(const QImage &image, int widthYUV, int heightYUV);
 
   QList<QUrl> urls;
   QStringList imageFileList;

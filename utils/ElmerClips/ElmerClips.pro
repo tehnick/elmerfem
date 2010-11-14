@@ -10,6 +10,10 @@ win32 {
    DESTDIR = ElmerClips
 }
 
+unix {
+  LIBS += -lavcodec -lavutil -lswscale
+}
+
 CONFIG += release
 
 HEADERS += src/preview.h src/encoder.h

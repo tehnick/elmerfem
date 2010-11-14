@@ -59,7 +59,7 @@ void Encoder::run()
     fileNameList << url.toLocalFile();
   
   findImages(fileNameList);
-
+  
   compressImages(640);
   compressImages(720);
   compressImages(1280);
@@ -77,7 +77,6 @@ void Encoder::findImages(const QStringList &fileNameList)
     
     if(fileInfo.isFile() && isImage(fileInfo))
       imageFileList << fileName;
-    
     
     if(fileInfo.isDir()) {
       QDirIterator iterator(fileName, QDirIterator::Subdirectories);
@@ -146,11 +145,11 @@ void Encoder::compressImages(int targetWidth)
 
   widthYUV -= widthYUV % 2;
 
-  QPixmap pixmap(imageFileList[0]);
+  QImage tmpImage(imageFileList[0]);
 
-  pixmap = pixmap.scaledToWidth(widthYUV);
+  tmpImage = tmpImage.scaledToWidth(widthYUV);
 
-  int heightYUV = pixmap.height();
+  int heightYUV = tmpImage.height();
 
   heightYUV -= heightYUV % 2;
 
@@ -181,7 +180,7 @@ void Encoder::compressImages(int targetWidth)
   AVCodecContext *context = avcodec_alloc_context();
 
   if(!context) {
-    av_free(codec);
+    // av_free(codec);
     qDebug() << "Unable to initialize codec context";
     return;
   }
@@ -199,8 +198,8 @@ void Encoder::compressImages(int targetWidth)
 
   if(avcodec_open(context, codec) < 0) {
     avcodec_close(context);
-    av_free(context);
-    av_free(codec);
+    // av_free(context);
+    // av_free(codec);
     qDebug() << "Unable to open codec";
     return;
   }
@@ -219,8 +218,8 @@ void Encoder::compressImages(int targetWidth)
 
   if(!file.open(QFile::WriteOnly)) {
     avcodec_close(context);
-    av_free(context);
-    av_free(codec);
+    // av_free(context);
+    // av_free(codec);
     qDebug() << "Unable to open output file";
     return;
   }
@@ -232,9 +231,9 @@ void Encoder::compressImages(int targetWidth)
   foreach(const QString &imageFile, imageFileList) {
     emit drawThumbnail(imageFile);
 
-    QPixmap pixmap(imageFile);
+    QImage image(imageFile);
 
-    if(!convertToYUV(pixmap, widthYUV, heightYUV))
+    if(!convertToYUV(image, widthYUV, heightYUV))
       continue;
     
     bytes = avcodec_encode_video(context, (uint8_t *)bufferMPG.data(),
@@ -266,17 +265,17 @@ void Encoder::compressImages(int targetWidth)
   file.close();
 
   avcodec_close(context);
-  av_free(codec);
-  av_free(context);
+  // av_free(context);
+  // av_free(codec);
 }
 
-bool Encoder::convertToYUV(const QPixmap &pixmapRGB,
+bool Encoder::convertToYUV(const QImage &image,
 			   int widthYUV, int heightYUV)
 {
   // Allocate scaler context:
   //--------------------------
-  int widthRGB = pixmapRGB.width();
-  int heightRGB = pixmapRGB.height();
+  int widthRGB = image.width();
+  int heightRGB = image.height();
 
   SwsContext *context = sws_getContext(widthRGB, heightRGB, PIX_FMT_RGB24,
 				       widthYUV, heightYUV, PIX_FMT_YUV420P,
@@ -286,7 +285,7 @@ bool Encoder::convertToYUV(const QPixmap &pixmapRGB,
 
   // Prepare the RGB frame:
   //------------------------
-  QImage imageRGB = pixmapRGB.toImage().convertToFormat(QImage::Format_RGB888);
+  QImage imageRGB = image.convertToFormat(QImage::Format_RGB888);
 
   frameRGB->data[0] = imageRGB.bits();
   frameRGB->data[1] = imageRGB.bits();

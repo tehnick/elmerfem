@@ -68,7 +68,7 @@ void Preview::checkCommandLine()
 
 void Preview::dragEnterEvent(QDragEnterEvent *event)
 {
-  if(event->mimeData()->hasFormat("text/uri-list"))
+  if(event->mimeData()->hasUrls())
     event->acceptProposedAction();
 }
 
