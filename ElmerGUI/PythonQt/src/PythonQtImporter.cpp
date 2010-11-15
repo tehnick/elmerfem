@@ -233,7 +233,7 @@ PythonQtImporter_load_module(PyObject *obj, PyObject *args)
   Py_DECREF(code);
   if (Py_VerboseFlag)
     PySys_WriteStderr("import %s # loaded from %s\n",
-          fullname, modpath);
+          fullname, (char*)modpath.toLatin1().data());
   return mod;
 error:
   Py_DECREF(code);
