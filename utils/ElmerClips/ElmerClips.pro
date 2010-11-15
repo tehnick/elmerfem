@@ -6,12 +6,12 @@ INCLUDEPATH += . src
 win32 {
    INCLUDEPATH += C:/Source/ffmpeg/include src/win32
    QMAKE_LIBDIR += C:/Source/ffmpeg/bin
-   LIBS += -lavcodec -lavutil -lswscale
+   LIBS += -lavcodec -lavcore -lavutil -lswscale
    DESTDIR = ElmerClips
 }
 
 unix {
-  LIBS += -lavcodec -lavutil -lswscale
+  LIBS += -lavcodec -lavcore -lavutil -lswscale
 }
 
 CONFIG += release

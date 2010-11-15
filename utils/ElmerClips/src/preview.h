@@ -58,10 +58,23 @@ class Preview : public QLabel
   void dragEnterEvent(QDragEnterEvent *event);
   void dropEvent(QDropEvent *event);
   void closeEvent(QCloseEvent *event);
+  void contextMenuEvent(QContextMenuEvent *event);
+
+ private slots:
+  void quitSlot();
 
  private:
   void showInfo();
+  QList<int> getResolutions() const;
+
   Encoder encoder;
+  QMenu *resolutionMenu;
+  QMenu *contextMenu;
+  QAction *smallAction;
+  QAction *mediumAction;
+  QAction *bigAction;
+  QAction *hugeAction;
+  QAction *quitAction;
 };
 
 #endif // PREVIEW_H

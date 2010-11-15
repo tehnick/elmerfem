@@ -41,29 +41,62 @@
 
 Preview::Preview(QWidget *parent) : QLabel(parent)
 {
-  setMinimumSize(400, 400);
+  setWindowIcon(QIcon(":/img/ElmerClips.ico"));
 
   setAlignment(Qt::AlignCenter);
 
-  setAcceptDrops(true);
+  setMinimumSize(400, 400);
 
   showInfo();
 
   connect(&encoder, SIGNAL(drawThumbnail(const QString &)),
 	  this, SLOT(drawThumbnail(const QString &)),
 	  Qt::BlockingQueuedConnection);
+
+  smallAction = new QAction(QIcon(""), "Small (width 640 pixels)", this);
+  smallAction->setCheckable(true);
+  smallAction->setChecked(true);
+
+  mediumAction = new QAction(QIcon(""), "Medium (width 720 pixels)", this);
+  mediumAction->setCheckable(true);
+  mediumAction->setChecked(true);
+
+  bigAction = new QAction(QIcon(""), "Big (width 1280 pixels)", this);
+  bigAction->setCheckable(true);
+  bigAction->setChecked(true);
+
+  hugeAction = new QAction(QIcon(""), "Huge (width 1920 pixels)", this);
+  hugeAction->setCheckable(true);
+  hugeAction->setChecked(true);
+
+  quitAction = new QAction(QIcon(""), "Quit", this);
+
+  connect(quitAction, SIGNAL(triggered()),
+	  this, SLOT(quitSlot()));
+
+  resolutionMenu = new QMenu("Resolution", this);
+  resolutionMenu->addAction(smallAction);
+  resolutionMenu->addAction(mediumAction);
+  resolutionMenu->addAction(bigAction);
+  resolutionMenu->addAction(hugeAction);
+
+  contextMenu = new QMenu(this);
+  contextMenu->addMenu(resolutionMenu);
+  contextMenu->addAction(quitAction);
 }
 
 void Preview::checkCommandLine()
 {
+  QList<QUrl> urls;
+
   if(qApp->arguments().count() > 1) {
-    QList<QUrl> urls;
+    setAcceptDrops(false);
 
     foreach(const QString &arg, qApp->arguments())
       urls << QUrl(arg);
 
-    setAcceptDrops(false);
     encoder.setUrls(urls);
+    encoder.setResolutions(getResolutions());
     encoder.start();
   }
 }
@@ -78,7 +111,9 @@ void Preview::dropEvent(QDropEvent *event)
 {
   if(!encoder.isRunning()) {
     setAcceptDrops(false);
+
     encoder.setUrls(event->mimeData()->urls());
+    encoder.setResolutions(getResolutions());
     encoder.start();
   }  
 
@@ -88,7 +123,13 @@ void Preview::dropEvent(QDropEvent *event)
 void Preview::closeEvent(QCloseEvent *event)
 {
   Q_UNUSED(event);
-  exit(0);
+
+  quitSlot();
+}
+
+void Preview::contextMenuEvent(QContextMenuEvent *event)
+{
+  contextMenu->popup(event->globalPos());
 }
 
 void Preview::drawThumbnail(const QString &fileName)
@@ -100,10 +141,9 @@ void Preview::drawThumbnail(const QString &fileName)
 
   if(fileName.startsWith("DONE")) {
     showInfo();
-    setAcceptDrops(true);
 
     if(qApp->arguments().count() > 1)
-      exit(0);
+      quitSlot();
 
     return;
   }
@@ -121,7 +161,11 @@ void Preview::showInfo()
 
   QPixmap video(":/img/500px-Crystal_Clear_mimetype_video.svg.png");
 
-  video = video.scaledToWidth(200, Qt::SmoothTransformation);
+  int videoHeight = 250;
+
+  video = video.scaledToHeight(videoHeight, Qt::SmoothTransformation);
+
+  int videoWidth = video.width();
 
   QPixmap splash(400, 400);
 
@@ -129,20 +173,60 @@ void Preview::showInfo()
 
   QPainter painter(&splash);
 
-  QRectF target(100, 50, 200, 200);
+  QRectF target((400-videoWidth)/2, 25, videoWidth, videoHeight);
 
-  QRectF source(0, 0, 200, 244);
+  QRectF source(0, 0, videoWidth, videoHeight);
 
   painter.drawPixmap(target, video, source);
 
-  painter.drawText(QRect(0, 280, 400, 20), Qt::AlignCenter,
+  QFont defaultFont = painter.font();
+
+  QFont boldFont = defaultFont;
+
+  boldFont.setBold(true);
+
+  painter.setFont(boldFont);
+
+  painter.drawText(QRect(0, videoHeight+40, 400, 20), Qt::AlignCenter,
 		   "Drag and drop image files/folders here");
 
-  painter.drawText(QRect(0, 320, 400, 20), Qt::AlignCenter,
+  painter.setFont(defaultFont);
+
+  painter.drawText(QRect(0, videoHeight+70, 400, 20), Qt::AlignCenter,
 		   "Supported formats: png, jpg (jpeg), tiff, gif");
 
-  painter.drawText(QRect(0, 340, 400, 20), Qt::AlignCenter,
+  painter.drawText(QRect(0, videoHeight+90, 400, 20), Qt::AlignCenter,
 		   "Automatic ordering: first integer in file name");
 
+
+  painter.drawText(QRect(0, videoHeight+110, 400, 20), Qt::AlignCenter,
+		   "Right-click for more details");
+
   setPixmap(splash);
+
+  setAcceptDrops(true);
+}
+
+void Preview::quitSlot()
+{
+  exit(0);
+}
+
+QList<int> Preview::getResolutions() const
+{
+  QList<int> resolutions;
+
+  if(smallAction->isChecked())
+    resolutions << 640;
+
+  if(mediumAction->isChecked())
+    resolutions << 720;
+
+  if(bigAction->isChecked())
+    resolutions << 1280;
+
+  if(hugeAction->isChecked())
+    resolutions << 1920;
+
+  return resolutions;
 }

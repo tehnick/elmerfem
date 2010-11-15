@@ -44,8 +44,16 @@ int main(int argc, char *argv[])
 {
   QApplication app(argc, argv);
 
+  QStringList arguments = qApp->arguments();
+
+  if(arguments.contains("-h") || arguments.contains("--help")) {
+    printf("ElmerClips\n\n");
+    printf("Generates video clips from imgage files\n\n");
+    printf("Usage: ElmerClips [image files and/or folders]\n");
+    return 0;
+  }
+
   Preview preview;
-  preview.resize(400, 400);
   preview.show();
   preview.checkCommandLine();
 

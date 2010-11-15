@@ -51,6 +51,11 @@ void Encoder::setUrls(const QList<QUrl> &urls)
   this->urls = urls;
 }
 
+void Encoder::setResolutions(const QList<int> &resolutions)
+{
+  this->resolutions = resolutions;
+}
+
 void Encoder::run()
 {
   QStringList fileNameList;
@@ -60,10 +65,8 @@ void Encoder::run()
   
   findImages(fileNameList);
   
-  compressImages(640);
-  compressImages(720);
-  compressImages(1280);
-  compressImages(1920);
+  foreach(int resolution, resolutions)
+    compressImages(resolution);
 
   emit drawThumbnail("DONE");
 }

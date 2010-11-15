@@ -59,6 +59,7 @@ class Encoder : public QThread
  public:
   Encoder(QObject *parent = 0);
   void setUrls(const QList<QUrl> &urls);
+  void setResolutions(const QList<int> &resolutions);
   void run();
 
  signals:
@@ -72,6 +73,7 @@ class Encoder : public QThread
   bool convertToYUV(const QImage &image, int widthYUV, int heightYUV);
 
   QList<QUrl> urls;
+  QList<int> resolutions;
   QStringList imageFileList;
   AVFrame *frameYUV;
   AVFrame *frameRGB;
