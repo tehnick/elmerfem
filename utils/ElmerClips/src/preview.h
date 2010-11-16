@@ -53,6 +53,7 @@ class Preview : public QLabel
 
  public slots:
   void drawThumbnail(const QString &fileName);
+  void progress(int value);
 
  protected:
   void dragEnterEvent(QDragEnterEvent *event);
@@ -75,6 +76,7 @@ class Preview : public QLabel
   QAction *bigAction;
   QAction *hugeAction;
   QAction *quitAction;
+  int currentProgress;
 };
 
 #endif // PREVIEW_H

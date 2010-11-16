@@ -54,6 +54,7 @@ int main(int argc, char *argv[])
   }
 
   Preview preview;
+  preview.resize(600, 400);
   preview.show();
   preview.checkCommandLine();
 

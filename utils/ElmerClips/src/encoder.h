@@ -64,6 +64,7 @@ class Encoder : public QThread
 
  signals:
   void drawThumbnail(const QString &fileName);
+  void progress(int value);
 
  private:
   void findImages(const QStringList &list);
@@ -79,6 +80,8 @@ class Encoder : public QThread
   AVFrame *frameRGB;
   QByteArray bufferYUV;
   QByteArray bufferMPG;
+  int totalFrames;
+  int currentFrame;
 };
 
 #endif // ENCODER_H

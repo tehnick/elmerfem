@@ -39,7 +39,7 @@
  *****************************************************************************/
 #include "preview.h"
 
-Preview::Preview(QWidget *parent) : QLabel(parent)
+Preview::Preview(QWidget *parent) : QLabel(parent), currentProgress(0)
 {
   setWindowIcon(QIcon(":/img/ElmerClips.ico"));
 
@@ -51,6 +51,10 @@ Preview::Preview(QWidget *parent) : QLabel(parent)
 
   connect(&encoder, SIGNAL(drawThumbnail(const QString &)),
 	  this, SLOT(drawThumbnail(const QString &)),
+	  Qt::BlockingQueuedConnection);
+
+  connect(&encoder, SIGNAL(progress(int)),
+	  this, SLOT(progress(int)),
 	  Qt::BlockingQueuedConnection);
 
   smallAction = new QAction(QIcon(""), "Small (width 640 pixels)", this);
@@ -135,7 +139,9 @@ void Preview::contextMenuEvent(QContextMenuEvent *event)
 void Preview::drawThumbnail(const QString &fileName)
 {
   if(fileName.startsWith("FILE")) {
-    setWindowTitle(fileName);
+    QString text = fileName;
+    text.replace("FILE: ", "");
+    setWindowTitle(text);
     return;
   }
 
@@ -148,9 +154,23 @@ void Preview::drawThumbnail(const QString &fileName)
     return;
   }
 
-  QPixmap pixmap(fileName);
+  QPixmap background(size());
+  background.fill(Qt::transparent);
 
-  setPixmap(pixmap.scaledToWidth(width(), Qt::SmoothTransformation));
+  QPainter painter(&background);
+
+  QPixmap pixmap(fileName);
+  QPixmap scaled = pixmap.scaledToWidth(width(), Qt::SmoothTransformation);
+  painter.drawPixmap(0, (background.height()-scaled.height())/2, scaled);
+
+  QFont font = painter.font();
+  font.setPixelSize(16);
+  painter.setFont(font);
+
+  painter.drawText(background.rect(), Qt::AlignRight | Qt::AlignBottom,
+		   QString::number(currentProgress) + "%");
+
+  setPixmap(background);
 }
 
 void Preview::showInfo()
@@ -160,31 +180,22 @@ void Preview::showInfo()
   setWindowTitle("ElmerClips");
 
   QPixmap video(":/img/500px-Crystal_Clear_mimetype_video.svg.png");
-
   int videoHeight = 250;
-
   video = video.scaledToHeight(videoHeight, Qt::SmoothTransformation);
-
   int videoWidth = video.width();
 
-  QPixmap splash(400, 400);
+  QPixmap background(400, 400);
+  background.fill(Qt::transparent);
 
-  splash.fill(Qt::transparent);
-
-  QPainter painter(&splash);
+  QPainter painter(&background);
 
   QRectF target((400-videoWidth)/2, 25, videoWidth, videoHeight);
-
   QRectF source(0, 0, videoWidth, videoHeight);
-
   painter.drawPixmap(target, video, source);
 
   QFont defaultFont = painter.font();
-
   QFont boldFont = defaultFont;
-
   boldFont.setBold(true);
-
   painter.setFont(boldFont);
 
   painter.drawText(QRect(0, videoHeight+40, 400, 20), Qt::AlignCenter,
@@ -200,9 +211,9 @@ void Preview::showInfo()
 
 
   painter.drawText(QRect(0, videoHeight+110, 400, 20), Qt::AlignCenter,
-		   "Right-click for more details");
+		   "Right-click for preferences");
 
-  setPixmap(splash);
+  setPixmap(background);
 
   setAcceptDrops(true);
 }
@@ -229,4 +240,9 @@ QList<int> Preview::getResolutions() const
     resolutions << 1920;
 
   return resolutions;
+}
+
+void Preview::progress(int value)
+{
+  currentProgress = value;
 }

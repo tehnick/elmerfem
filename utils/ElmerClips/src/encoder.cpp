@@ -65,10 +65,18 @@ void Encoder::run()
   
   findImages(fileNameList);
   
+  totalFrames = imageFileList.count() * resolutions.count();
+
+  currentFrame = 0;
+
+  emit progress(0);
+
   foreach(int resolution, resolutions)
     compressImages(resolution);
 
   emit drawThumbnail("DONE");
+
+  emit progress(0);
 }
 
 void Encoder::findImages(const QStringList &fileNameList)
@@ -139,8 +147,15 @@ void Encoder::sortImages()
 
 void Encoder::compressImages(int targetWidth)
 {
-  if(imageFileList.isEmpty())
+  if(imageFileList.isEmpty()) {
+    qDebug() << "No image files";
     return;
+  }
+
+  if((!frameRGB) || (!frameYUV)) {
+    qDebug() << "Memory allocation error";
+    return;
+  }
 
   // Load first image to determine the frame size:
   //-----------------------------------------------
@@ -158,8 +173,10 @@ void Encoder::compressImages(int targetWidth)
 
   int pixels = widthYUV * heightYUV;
 
-  if(pixels < 1)
+  if(pixels < 1) {
+    qDebug() << "Illegal image size";
     return;
+  }
 
   // Initialize avcodec:
   //---------------------
@@ -183,7 +200,6 @@ void Encoder::compressImages(int targetWidth)
   AVCodecContext *context = avcodec_alloc_context();
 
   if(!context) {
-    // av_free(codec);
     qDebug() << "Unable to initialize codec context";
     return;
   }
@@ -200,10 +216,8 @@ void Encoder::compressImages(int targetWidth)
   context->pix_fmt = PIX_FMT_YUV420P;
 
   if(avcodec_open(context, codec) < 0) {
-    avcodec_close(context);
-    // av_free(context);
-    // av_free(codec);
     qDebug() << "Unable to open codec";
+    avcodec_close(context);
     return;
   }
 
@@ -220,10 +234,8 @@ void Encoder::compressImages(int targetWidth)
   QFile file(fileName);
 
   if(!file.open(QFile::WriteOnly)) {
-    avcodec_close(context);
-    // av_free(context);
-    // av_free(codec);
     qDebug() << "Unable to open output file";
+    avcodec_close(context);
     return;
   }
 
@@ -232,17 +244,28 @@ void Encoder::compressImages(int targetWidth)
   int bytes = 0;
 
   foreach(const QString &imageFile, imageFileList) {
+    ++currentFrame;
+
+    emit progress(100 * double(currentFrame) / totalFrames);
+
     emit drawThumbnail(imageFile);
 
     QImage image(imageFile);
 
-    if(!convertToYUV(image, widthYUV, heightYUV))
+    if(!convertToYUV(image, widthYUV, heightYUV)) {
+      qDebug() << "Unable to scale image";
       continue;
+    }
     
     bytes = avcodec_encode_video(context, (uint8_t *)bufferMPG.data(),
 				 bufferMPG.size(), frameYUV);
 
-    file.write(bufferMPG, bytes);
+    if(file.write(bufferMPG, bytes) != bytes) {
+      qDebug() << "Unable to write file";
+      file.close();
+      avcodec_close(context);
+      return;
+    }
   }
 
   // Get the delayed frames:
@@ -251,7 +274,12 @@ void Encoder::compressImages(int targetWidth)
     bytes = avcodec_encode_video(context, (uint8_t *)bufferMPG.data(),
 				 bufferMPG.size(), NULL);
 
-    file.write(bufferMPG, bytes);
+    if(file.write(bufferMPG, bytes) != bytes) {
+      qDebug() << "Unable to write file";
+      file.close();
+      avcodec_close(context);
+      return;
+    }
   }
 
   // MPEG1 end code:
@@ -261,15 +289,13 @@ void Encoder::compressImages(int targetWidth)
   bufferMPG[2] = (char)0x01;
   bufferMPG[3] = (char)0xb7;
 
-  file.write(bufferMPG, 4);
+  if(file.write(bufferMPG, 4) != 4)
+    qDebug() << "Unable to write file";
 
   // Done:
   //-------
   file.close();
-
   avcodec_close(context);
-  // av_free(context);
-  // av_free(codec);
 }
 
 bool Encoder::convertToYUV(const QImage &image,
@@ -283,8 +309,10 @@ bool Encoder::convertToYUV(const QImage &image,
   SwsContext *context = sws_getContext(widthRGB, heightRGB, PIX_FMT_RGB24,
 				       widthYUV, heightYUV, PIX_FMT_YUV420P,
 				       SWS_BICUBIC, NULL, NULL, NULL);
-  if(!context)
+  if(!context) {
+    qDebug() << "Memory allocation error";
     return false;
+  }
 
   // Prepare the RGB frame:
   //------------------------
