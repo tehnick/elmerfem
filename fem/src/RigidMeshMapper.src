@@ -66,17 +66,20 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   TYPE(ValueList_t),POINTER :: SolverParams, BC
   INTEGER :: i,j,k,n,m,t,dim,elem,bf_id,prev_bf_id,istat
   INTEGER :: NonlinIter, MaxNonlinIter
-  INTEGER, POINTER :: NodeIndexes(:), RelaxPerm(:)
+  INTEGER, POINTER :: NodeIndexes(:), RelaxPerm(:), VeloPerm(:)
   REAL(KIND=dp), POINTER :: PArray(:,:) => NULL()
   REAL(KIND=dp) :: x0(4), x1(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
       TrfMatrix(4,4),Identity(4,4), Origin(4),Angles(3),alpha, dCoord, Norm, &
       NonlinTol, dx(3)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime,Coeff
   REAL(KIND=dp), POINTER :: Xorig(:),Yorig(:),Zorig(:),Xnew(:),Ynew(:),Znew(:),&
-      Relax(:), RelaxField(:),MeshDisplace(:,:)
+      Relax(:), RelaxField(:),MeshDisplace(:,:),VeloVal(:)
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+  TYPE(Variable_t), POINTER :: VeloVar, RelaxVar
+  TYPE(Mesh_t), POINTER :: Mesh
   LOGICAL :: Found,GotMatrix,GotRotate,GotTranslate,GotScale,Visited=.FALSE.,&
-      UseOriginalMesh, Cumulative, GotDisplace, GotRelaxField=.FALSE.
+      UseOriginalMesh, Cumulative, GotDisplace, GotRelaxField=.FALSE., &
+      CalculateVelocity
   LOGICAL, POINTER :: NodeDone(:)
   TYPE(Element_t), POINTER :: Element
   TYPE(Nodes_t), SAVE :: Nodes
@@ -90,19 +93,39 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   CALL Info( 'RigidMeshMapper','---------------------------------------',Level=4 )
 
   SolverParams => GetSolverParams()
+  Mesh => Solver % Mesh
+
   Cumulative = GetLogical( SolverParams,'Cumulative Displacements',Found)
   UseOriginalMesh = .NOT. Cumulative
 
   dim = CoordinateSystemDimension()
   
-  Xnew => Solver % Mesh % Nodes % x
-  Ynew => Solver % Mesh % Nodes % y
-  Znew => Solver % Mesh % Nodes % z
+  Xnew => Mesh % Nodes % x
+  Ynew => Mesh % Nodes % y
+  Znew => Mesh % Nodes % z
   n = SIZE( Xnew )
-  m = Solver % Mesh % MaxElementNodes
+  m = Mesh % MaxElementNodes
 
   ALLOCATE( NodeDone(n), Relax(m), MeshDisplace(3,m) )
   NodeDone = .FALSE.
+
+  CalculateVelocity = GetLogical( SolverParams,'Calculate Mesh Velocity',Found)
+  IF( CalculateVelocity ) THEN
+    VeloVar => VariableGet( Mesh % Variables,'Mesh Velo')
+    IF(ASSOCIATED(VeloVar)) THEN
+      VeloVal => VeloVar % Values
+      VeloPerm => VeloVar % Perm
+    ELSE
+      n = SIZE( Xnew )
+      ALLOCATE( VeloVal(dim*n), VeloPerm(n))
+      VeloVal = 0.0_dp
+      DO i=1,n
+        VeloPerm(i) = i
+      END DO
+      CALL VariableAddVector( Mesh % variables, Mesh, Solver,'Mesh Velo',&
+                              dim, VeloVal, VeloPerm ) 
+    END IF
+  END IF
 
   ! If using original mesh as a reference mesh it must be saved,
   ! otherwise the analytic mapping does not require two meshes
@@ -167,10 +190,15 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
     DEALLOCATE( FORCE, STIFF )
   END IF
 
-  IF( ASSOCIATED( Solver % Variable ) ) THEN
-    GotRelaxField = .TRUE.
-    RelaxField => Solver % Variable % Values
-    RelaxPerm => Solver % Variable % Perm
+  RelaxVar => Solver % Variable
+  IF( ASSOCIATED( RelaxVar ) ) THEN
+    IF( ASSOCIATED( RelaxVar % Values ) ) THEN
+      IF( SIZE( RelaxVar % Values ) > 0 ) THEN
+        GotRelaxField = .TRUE.
+        RelaxField => Solver % Variable % Values
+        RelaxPerm => Solver % Variable % Perm
+      END IF
+    END IF
   END IF
 
     
@@ -187,6 +215,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   GotMatrix = .FALSE.
   
   at0 = CPUTime()
+
   
   DO elem = 1,Solver % Mesh % NumberOfBulkElements      
     Element => Solver % Mesh % Elements(elem)
@@ -204,7 +233,6 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
     BodyForce => Model % BodyForces(bf_id) % Values
     
 
-    
     IF( bf_id /= prev_bf_id ) THEN
       
       prev_bf_id = bf_id
@@ -274,7 +302,6 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           END DO
         END IF
         
-        
         ! Translations:
         !---------------
         Parray => ListGetConstRealArray( BodyForce,'Mesh Translate', GotTranslate )
@@ -325,7 +352,6 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
           END IF
         END IF 
 
-        
         GotMatrix = GotRotate .OR. GotTranslate .OR. GotScale
         IF(GotMatrix) THEN
           ! Origin:
@@ -373,8 +399,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
         END IF
       END IF
     END IF
-    IF(.NOT. Found ) Relax = 1.0_dp    
- 
+    IF(.NOT. Found ) Relax(1:n) = 1.0_dp    
 
     DO i=1,n
       j = NodeIndexes(i)
@@ -392,23 +417,40 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
         dx(1:3) = MeshDisplace(1:3,i)
       END IF
 
-      Xnew(j) = Relax(i) * dx(1) + Xorig(j)
-      Ynew(j) = Relax(i) * dx(2) + Yorig(j)
-      Znew(j) = Relax(i) * dx(3) + Zorig(j)
+      dx = Relax(i) * dx
+      IF( CalculateVelocity ) THEN
+        k = j
+        IF( ASSOCIATED( VeloPerm) ) k = VeloPerm(j)
+        IF( k > 0 ) THEN  
+	  IF( dim == 2 ) THEN
+	    VeloVal(2*k-1) = ( Xorig(j) + dx(1) - Xnew(j) ) / dt
+	    VeloVal(2*k) = ( Yorig(j) + dx(2) - Ynew(j) ) / dt	
+          ELSE
+	    VeloVal(3*k-2) = ( Xorig(j) + dx(1) - Xnew(j) ) / dt
+	    VeloVal(3*k-1) = ( Yorig(j) + dx(2) - Ynew(j) ) / dt	
+	    VeloVal(3*k) = ( Zorig(j) + dx(3) - Znew(j) ) / dt		
+          END IF
+        END IF
+      END IF
+
+      Xnew(j) = dx(1) + Xorig(j)
+      Ynew(j) = dx(2) + Yorig(j)
+      Znew(j) = dx(3) + Zorig(j)
 
       NodeDone(j) = .TRUE.
     END DO
 
   END DO
 
-
   WRITE(Message,* ) 'Number of nodes mapped: ',COUNT( NodeDone )
   CALL Info('RigidMeshMapper',Message)
   
   at1 = CPUTime()
-  WRITE(Message,* ) 'Coordinate mapping time: ',at1-at0
-  CALL Info('RigidMeshMapper',Message)
-  
+  IF( at1-at0 > 0.1_dp ) THEN
+    WRITE(Message,* ) 'Coordinate mapping time: ',at1-at0
+    CALL Info('RigidMeshMapper',Message)
+  END IF  
+
   DEALLOCATE( Relax, MeshDisplace, NodeDone )
   
   CALL Info('RigidMeshMapper','All done' ) 
