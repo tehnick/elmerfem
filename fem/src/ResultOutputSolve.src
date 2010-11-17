@@ -52,12 +52,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt, t0, t1, CPUTime
   LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, &
-      SaveVTU, SaveEP, ListSet = .FALSE.
+      SaveVTU, SaveEP, SaveAny, ListSet = .FALSE.
   INTEGER :: nInterval=1, nstep=0, OutputCount = 0, MeshDim
   INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
 
   TYPE(Mesh_t), POINTER :: Mesh
   CHARACTER(10) :: OutputFormat
+  CHARACTER(LEN=512) :: FilePrefix	
   LOGICAL :: SubroutineVisited=.FALSE.,Found
     
   SAVE SubroutineVisited, OutputCount, ListSet, MeshDim
@@ -111,19 +112,26 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( .NOT. SubroutineVisited ) THEN
     IF ( ListGetLogical(Solver % Values,'Show Variables',Found) ) THEN
       CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
-      RETURN
     END IF
   END IF
 
-  IF(.NOT. (SaveGid .OR. SaveGmsh .OR. SaveVTK .OR. SaveVTU .OR. SaveOpenDx .OR. SaveEP)) THEN
+  SaveAny = SaveGid .OR. SaveVTK .OR. SaveVTU .OR. SaveOpenDX .OR. SaveGmsh .OR. SaveEp
+  IF(.NOT. SaveAny ) THEN
     CALL Warn('ResultOutputSolver','No output format was defined')
     RETURN
   END IF
 
-  IF( .NOT. ListCheckPresent( Solver % Values,'Output File Name' ) ) THEN
-    CALL ListAddString( Solver % Values,'Output File Name','Case')
+  FilePrefix = ListGetString( Solver % Values,'Output File Name',Found)
+  IF(.NOT. Found) THEN
+    FilePrefix = 'Case'
+    CALL ListAddString( Solver % Values,'Output File Name',FilePrefix)
   END IF
   
+  IF( .NOT. SubroutineVisited ) THEN
+    CALL Info('ResultOutputSolve','Saving results with prefix: '//TRIM(FilePrefix))
+  END IF	
+
+
   ! The idea of this is that the independent subroutines may be called 
   ! with different data sets and still maintaining the standard output calling convention
   OutputCount = OutputCount + 1
@@ -138,12 +146,10 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   Mesh => Model % Meshes
   DO WHILE( ASSOCIATED(Mesh) )
     
-    PRINT *,'MeshName:',TRIM(Mesh % Name) 
     IF ( .NOT.Mesh % OutputActive ) THEN
       Mesh => Mesh % next
       CYCLE 
-    END IF
-    
+    END IF    
 
     CALL SetCurrentMesh( Model, Mesh )
     CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(Mesh % Name) )
