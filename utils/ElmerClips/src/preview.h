@@ -67,6 +67,7 @@ class Preview : public QLabel
  private:
   void showInfo();
   QList<int> getResolutions() const;
+  QPixmap sub(const QString &text) const;
 
   Encoder encoder;
   QMenu *resolutionMenu;

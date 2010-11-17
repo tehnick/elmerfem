@@ -225,9 +225,11 @@ void Encoder::compressImages(int targetWidth)
   //-----------------------
   QFileInfo info(imageFileList[0]);
 
-  QString fileName = info.absolutePath() 
-    + "/ElmerClips_" + QString::number(widthYUV) 
-    + "x" + QString::number(heightYUV) + ".mpg";
+  QString fileName = info.absolutePath()
+    + "/" + info.dir().dirName()
+    + "_" + QString::number(widthYUV)
+    + "x" + QString::number(heightYUV)
+    + ".mpg";
 
   emit drawThumbnail("FILE: " + fileName);
 

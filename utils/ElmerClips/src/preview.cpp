@@ -163,12 +163,10 @@ void Preview::drawThumbnail(const QString &fileName)
   QPixmap scaled = pixmap.scaledToWidth(width(), Qt::SmoothTransformation);
   painter.drawPixmap(0, (background.height()-scaled.height())/2, scaled);
 
-  QFont font = painter.font();
-  font.setPixelSize(16);
-  painter.setFont(font);
-
-  painter.drawText(background.rect(), Qt::AlignRight | Qt::AlignBottom,
-		   QString::number(currentProgress) + "%");
+  QPixmap overlay = sub(QString::number(currentProgress) + "%");
+  painter.drawPixmap((background.width()-overlay.width())/2,
+		     (background.height()-overlay.height())/2,
+		     overlay);
 
   setPixmap(background);
 }
@@ -189,8 +187,8 @@ void Preview::showInfo()
 
   QPainter painter(&background);
 
-  QRectF target((400-videoWidth)/2, 25, videoWidth, videoHeight);
-  QRectF source(0, 0, videoWidth, videoHeight);
+  QRect target((400-videoWidth)/2, 25, videoWidth, videoHeight);
+  QRect source(0, 0, videoWidth, videoHeight);
   painter.drawPixmap(target, video, source);
 
   QFont defaultFont = painter.font();
@@ -245,4 +243,34 @@ QList<int> Preview::getResolutions() const
 void Preview::progress(int value)
 {
   currentProgress = value;
+}
+
+QPixmap Preview::sub(const QString &text) const
+{
+  QFont font = this->font();
+  font.setPixelSize(40);
+  font.setBold(true);
+
+  QFontMetrics fm(font);
+  int w = fm.width(text);
+  int h = fm.height();
+
+  QPixmap pixmap(w+4, h+4);
+  pixmap.fill(Qt::transparent);
+
+  QPainter painter(&pixmap);
+  painter.setFont(font);
+  painter.setPen(QPen(Qt::black));
+
+  for(int x = -2; x < 3; x += 2) {
+    for(int y = -2; y < 3; y += 2) {
+      painter.drawText(QRect(x+2, y+2, w, h), text);
+    }
+  }
+
+  painter.setPen(QPen(Qt::white));
+
+  painter.drawText(QRect(2, 2, w, h), text);
+
+  return pixmap;
 }
