@@ -39,7 +39,7 @@
  *****************************************************************************/
 #include "encoder.h"
 
-Encoder::Encoder(QObject *parent) : QThread(parent)
+Encoder::Encoder(QObject *parent) : QThread(parent), quality(2)
 {
   frameRGB = avcodec_alloc_frame();
   frameYUV = avcodec_alloc_frame();
@@ -54,6 +54,11 @@ void Encoder::setUrls(const QList<QUrl> &urls)
 void Encoder::setResolutions(const QList<int> &resolutions)
 {
   this->resolutions = resolutions;
+}
+
+void Encoder::setQuality(int quality)
+{
+  this->quality = quality;
 }
 
 void Encoder::run()
@@ -209,7 +214,8 @@ void Encoder::compressImages(int targetWidth)
 
   context->codec_id = codec_id;
   context->codec_type = CODEC_TYPE_VIDEO;
-  context->bit_rate = 5 * pixels;
+  context->qmin = 2;
+  context->qmax = qMax(2, qMin(31, quality));
   context->width = widthYUV;
   context->height = heightYUV;
   context->time_base.num = 1;

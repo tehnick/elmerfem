@@ -65,18 +65,27 @@ class Preview : public QLabel
   void quitSlot();
 
  private:
+  void setupContextMenu();
   void showInfo();
   QList<int> getResolutions() const;
+  int getQuality() const;
   QPixmap sub(const QString &text) const;
 
   Encoder encoder;
   QMenu *resolutionMenu;
+  QMenu *qualityMenu;
   QMenu *contextMenu;
   QAction *smallAction;
   QAction *mediumAction;
   QAction *bigAction;
   QAction *hugeAction;
   QAction *quitAction;
+  QAction *lowQualityAction;
+  QAction *mediumQualityAction;
+  QAction *highQualityAction;
+  QAction *bestQualityAction;
+  QActionGroup *resolutionActionGroup;
+  QActionGroup *qualityActionGroup;
   int currentProgress;
 };
 

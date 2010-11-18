@@ -60,6 +60,7 @@ class Encoder : public QThread
   Encoder(QObject *parent = 0);
   void setUrls(const QList<QUrl> &urls);
   void setResolutions(const QList<int> &resolutions);
+  void setQuality(int quality);
   void run();
 
  signals:
@@ -75,6 +76,7 @@ class Encoder : public QThread
 
   QList<QUrl> urls;
   QList<int> resolutions;
+  int quality;
   QStringList imageFileList;
   AVFrame *frameYUV;
   AVFrame *frameRGB;

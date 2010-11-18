@@ -57,6 +57,11 @@ Preview::Preview(QWidget *parent) : QLabel(parent), currentProgress(0)
 	  this, SLOT(progress(int)),
 	  Qt::BlockingQueuedConnection);
 
+  setupContextMenu();
+}
+
+void Preview::setupContextMenu()
+{
   smallAction = new QAction(QIcon(""), "Small (width 640 pixels)", this);
   smallAction->setCheckable(true);
   smallAction->setChecked(true);
@@ -73,10 +78,38 @@ Preview::Preview(QWidget *parent) : QLabel(parent), currentProgress(0)
   hugeAction->setCheckable(true);
   hugeAction->setChecked(true);
 
-  quitAction = new QAction(QIcon(""), "Quit", this);
+  resolutionActionGroup = new QActionGroup(this);
+  resolutionActionGroup->addAction(smallAction);
+  resolutionActionGroup->addAction(mediumAction);
+  resolutionActionGroup->addAction(bigAction);
+  resolutionActionGroup->addAction(hugeAction);
+  resolutionActionGroup->setExclusive(false);;  
 
-  connect(quitAction, SIGNAL(triggered()),
-	  this, SLOT(quitSlot()));
+  lowQualityAction = new QAction(QIcon(""), "Low (qmax = 16)", this);
+  lowQualityAction->setCheckable(true);
+  lowQualityAction->setChecked(false);
+
+  mediumQualityAction = new QAction(QIcon(""), "Medium (qmax = 8)", this);
+  mediumQualityAction->setCheckable(true);
+  mediumQualityAction->setChecked(false);
+
+  highQualityAction = new QAction(QIcon(""), "High (qmax = 4)", this);
+  highQualityAction->setCheckable(true);
+  highQualityAction->setChecked(true);
+
+  bestQualityAction = new QAction(QIcon(""), "Best (qmax = 2)", this);
+  bestQualityAction->setCheckable(true);
+  bestQualityAction->setChecked(false);
+
+  qualityActionGroup = new QActionGroup(this);
+  qualityActionGroup->addAction(lowQualityAction);
+  qualityActionGroup->addAction(mediumQualityAction);
+  qualityActionGroup->addAction(highQualityAction);
+  qualityActionGroup->addAction(bestQualityAction);
+  qualityActionGroup->setExclusive(true);
+
+  quitAction = new QAction(QIcon(""), "Quit", this);
+  connect(quitAction, SIGNAL(triggered()), this, SLOT(quitSlot()));
 
   resolutionMenu = new QMenu("Resolution", this);
   resolutionMenu->addAction(smallAction);
@@ -84,8 +117,15 @@ Preview::Preview(QWidget *parent) : QLabel(parent), currentProgress(0)
   resolutionMenu->addAction(bigAction);
   resolutionMenu->addAction(hugeAction);
 
+  qualityMenu = new QMenu("Quality", this);
+  qualityMenu->addAction(lowQualityAction);
+  qualityMenu->addAction(mediumQualityAction);
+  qualityMenu->addAction(highQualityAction);
+  qualityMenu->addAction(bestQualityAction);
+
   contextMenu = new QMenu(this);
   contextMenu->addMenu(resolutionMenu);
+  contextMenu->addMenu(qualityMenu);
   contextMenu->addAction(quitAction);
 }
 
@@ -98,6 +138,7 @@ void Preview::checkCommandLine()
 
   } else {
     resolutionMenu->setEnabled(false);
+    qualityMenu->setEnabled(false);
     setAcceptDrops(false);
 
     foreach(const QString &arg, qApp->arguments())
@@ -105,6 +146,7 @@ void Preview::checkCommandLine()
 
     encoder.setUrls(urls);
     encoder.setResolutions(getResolutions());
+    encoder.setQuality(getQuality());
     setWindowTitle("Starting...");
     encoder.start();
   }
@@ -120,10 +162,12 @@ void Preview::dropEvent(QDropEvent *event)
 {
   if(!encoder.isRunning()) {
     resolutionMenu->setEnabled(false);
+    qualityMenu->setEnabled(false);
     setAcceptDrops(false);
 
     encoder.setUrls(event->mimeData()->urls());
     encoder.setResolutions(getResolutions());
+    encoder.setQuality(getQuality());
     setWindowTitle("Starting...");
     encoder.start();
   }  
@@ -227,6 +271,7 @@ void Preview::showInfo()
   setPixmap(background);
 
   resolutionMenu->setEnabled(true);
+  qualityMenu->setEnabled(true);
   setAcceptDrops(true);
 }
 
@@ -252,6 +297,20 @@ QList<int> Preview::getResolutions() const
     resolutions << 1920;
 
   return resolutions;
+}
+
+int Preview::getQuality() const
+{
+  if(lowQualityAction->isChecked())
+    return 16;
+
+  if(mediumQualityAction->isChecked())
+    return 8;
+
+  if(highQualityAction->isChecked())
+    return 4;
+
+  return 2; // best
 }
 
 void Preview::progress(int value)
