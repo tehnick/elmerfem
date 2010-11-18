@@ -101,7 +101,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       VariableName, ResultPrefix, Oper, ParOper, Name, CoefficientName, ScalarParFile
   INTEGER :: i,j,k,l,q,n,ierr,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
       NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
-      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd      
+      MaxVars, NoEigenValues, Ind, EigenDofs, LineInd, NormInd, CostInd, istat
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
 
@@ -197,21 +197,25 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         NoElements = SIZE(PointCoordinates,1)
         n = Mesh % MaxElementNodes
         ALLOCATE( CoordinatesElemNo(NoElements), ElementValues(n), &
-            CoordinatesBasis(NoElements,n) )
+            CoordinatesBasis(NoElements,n), STAT=istat )
+	IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 1') 
         CoordinatesElemNo = 0
         CoordinatesBasis = 0.0_dp
       ELSE
         NoCoordinates = SIZE(PointCoordinates,1)
-        ALLOCATE(CoordinateIndex(NoCoordinates), CoordinateDist(NoCoordinates))
+        ALLOCATE(CoordinateIndex(NoCoordinates), CoordinateDist(NoCoordinates),STAT=istat)
+	IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 2') 
       END IF
     END IF
 
 !------------------------------------------------------------------------------
     n = Mesh % MaxElementNodes
-    ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
+    ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), STAT=istat)
+    IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 3') 	
 
     n = MAX( Model % NumberOfBodies, MAX(Model % NumberOfBCs, NoLines))
-    ALLOCATE( BoundaryFluxes(n), BoundaryAreas(n), BoundaryHits(n) )
+    ALLOCATE( BoundaryFluxes(n), BoundaryAreas(n), BoundaryHits(n), STAT=istat )
+    IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 4') 	
   END IF
 
 
@@ -1042,7 +1046,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       Var => VariableGet( Model % Variables, TRIM(VariableName) )
       IF(.NOT. ASSOCIATED(Var)) THEN
         NULLIFY(WrkPntr)
-        ALLOCATE(WrkPntr(1))
+        ALLOCATE(WrkPntr(1),STAT=istat)
+	IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 5') 	
+
         CALL VariableAdd( Model % Variables, Mesh, Solver, &
                TRIM(VariableName), 1, WrkPntr )
         Var => VariableGet( Model % Variables, TRIM(VariableName) )       
@@ -1150,6 +1156,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: TmpValueNames(:)
     LOGICAL, POINTER :: TmpValuesInteger(:)     
     INTEGER, POINTER :: TmpMPIOper(:)
+    INTEGER :: istat
     LOGICAL :: GotParOper
 
     SAVE TmpValues, TmpValueNames, TmpMPIOper
@@ -1158,9 +1165,11 @@ CONTAINS
     ! For the first time allocate some space
     IF(.NOT. ALLOCATED(Values)) THEN
       n = 20
-      ALLOCATE( Values(n), ValueNames(n), ValuesInteger(n) )
+      ALLOCATE( Values(n), ValueNames(n), ValuesInteger(n), STAT=istat )
+      IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 6') 	
       IF( ParallelReduce ) THEN
-        ALLOCATE( MPIOper(n) )
+        ALLOCATE( MPIOper(n),STAT = istat )
+        IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 7') 		
         MPIOper = 0
       END IF
     END IF
@@ -1169,24 +1178,31 @@ CONTAINS
 
     ! If vectors are too small make some more room in a rather dummy way
     IF(n >= SIZE(Values) ) THEN
-      ALLOCATE(TmpValues(n), TmpValueNames(n), TmpValuesInteger(n))
+      ALLOCATE(TmpValues(n), TmpValueNames(n), TmpValuesInteger(n),STAT=istat)
+      IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 8') 		
+	
       TmpValues(1:n) = Values(1:n)
       TmpValuesInteger(1:n) = ValuesInteger(1:n)
       TmpValueNames(1:n) = ValueNames(1:n)
       DEALLOCATE(Values,ValueNames,ValuesInteger)
 
-      ALLOCATE(Values(n+10), ValueNames(n+10), ValuesInteger(n+10) )
+      ALLOCATE(Values(n+10), ValueNames(n+10), ValuesInteger(n+10), STAT=istat )
+      IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 9') 		
+
       Values(1:n) = TmpValues(1:n)
       ValuesInteger(1:n) = TmpValuesInteger(1:n)
       ValueNames(1:n) = TmpValueNames(1:n)
-
       DEALLOCATE(TmpValues,TmpValueNames,TmpValuesInteger)
 
       IF( ParallelReduce ) THEN
-        ALLOCATE(TmpMPIOper(n))
+        ALLOCATE(TmpMPIOper(n),STAT=istat)
+        IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 10') 		
+
         TmpMPIOper(1:n) = MPIOper(1:n)
         DEALLOCATE(MPIOper)
-        ALLOCATE(MPIOper(n+10))
+        ALLOCATE(MPIOper(n+10),STAT=istat)
+        IF( istat /= 0 ) CALL Fatal('SaveScalars','Memory allocation error 11') 		
+
         MPIOper(1:n) = TmpMPIOper(1:n)
         MPIOper(n+1:n+10) = 0
         DEALLOCATE(TmpMPIOper)
@@ -1669,7 +1685,7 @@ CONTAINS
     INTEGER, POINTER :: ParentIndexes(:), PermIndexes(:)
 
     LOGICAL :: Stat, Permutated    
-    INTEGER :: i,j,k,p,q,DIM,bc,NoDofs,pn,hits
+    INTEGER :: i,j,k,p,q,DIM,bc,NoDofs,pn,hits,istat
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
     TYPE(Nodes_t) :: ParentNodes
 
@@ -1677,7 +1693,9 @@ CONTAINS
 
     DIM = CoordinateSystemDimension()
 
-    ALLOCATE(ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n), PermIndexes(n) )
+    ALLOCATE(ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n), PermIndexes(n), STAT=istat )
+    IF( istat /= 0 ) CALL Fatal('BoundaryIntegrals','Memory allocation error') 
+
 
     Minimum = HUGE(minimum)
     Maximum = -HUGE(maximum)
@@ -2029,10 +2047,12 @@ CONTAINS
     INTEGER, POINTER :: PermIndexes(:)
 
     LOGICAL :: Stat, Permutated    
-    INTEGER :: i,j,k,p,q,t,DIM,bc,n,hits
+    INTEGER :: i,j,k,p,q,t,DIM,bc,n,hits,istat
 
 
-    ALLOCATE(NodesComputed(SIZE(Var % Perm)))
+    ALLOCATE(NodesComputed(SIZE(Var % Perm)),STAT=istat)
+    IF( istat /= 0 ) CALL Fatal('BoundaryStatistics','Memory allocation error') 
+	
     NodesComputed = .FALSE.
     hits = 0
 
@@ -2151,17 +2171,18 @@ CONTAINS
     INTEGER, POINTER :: ParentIndexes(:), PermIndexes(:), SideIndexes(:), OnLine(:,:)
 
     LOGICAL :: Stat, Permutated, Inside    
-    INTEGER :: i,j,k,p,q,DIM,bc,NoDofs,pn,Line, NoSides, Side, NodeNumber, LineNode(2)
+    INTEGER :: i,j,k,p,q,DIM,bc,NoDofs,pn,Line, NoSides, Side, NodeNumber, LineNode(2), istat
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
     TYPE(Nodes_t) :: ParentNodes, LineNodes, SideNodes
 
 
     n = Model % MaxElementNodes
 
-    ALLOCATE(ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n), PermIndexes(n) )
-    ALLOCATE(SideNodes % x(n), SideNodes % y(n), SideNodes % z(n), SideIndexes(n)  )
-    ALLOCATE(LineNodes % x(n), LineNodes % y(n), LineNodes % z(n)  )
-    ALLOCATE(OnLine(Mesh % NumberOfNodes,2))
+    ALLOCATE(ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n), PermIndexes(n), &
+	SideNodes % x(n), SideNodes % y(n), SideNodes % z(n), SideIndexes(n), &
+	LineNodes % x(n), LineNodes % y(n), LineNodes % z(n), &
+	OnLine(Mesh % NumberOfNodes,2), STAT=istat )
+    IF( istat /= 0 ) CALL Fatal('PolylineIntegrals','Memory allocation error') 
 
 
     CALL Info('PolylineIntegrals','OPERATOR: '//TRIM(OperName))
@@ -2598,7 +2619,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   INTEGER :: i,j,k,l,n,m,t,DIM,mat_id, TimesVisited=0, SaveThis, PrevDoneTime=-1, &
       Side, SaveNodes, SaveNodes2, node, NoResults, LocalNodes, NoVar, &
       No, axis, maxboundary, NoDims, MeshDim, NoLines, NoAxis, Line, NoFaces, &
-      NoEigenValues, IntersectCoordinate, ElemCorners, ElemDim, FluxBody
+      NoEigenValues, IntersectCoordinate, ElemCorners, ElemDim, FluxBody, istat
   INTEGER, POINTER :: NodeIndexes(:), SavePerm(:), InvPerm(:), BoundaryIndex(:)
   TYPE(Solver_t), POINTER :: ParSolver
   TYPE(Variable_t), POINTER :: Var
@@ -2639,7 +2660,9 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      n = Mesh % MaxElementNodes
      ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), &
           LineNodes % x(2), LineNodes % y(2), LineNodes % z(2), &
-          Basis(n), SavePerm(Mesh % NumberOfNodes) )     
+          Basis(n), SavePerm(Mesh % NumberOfNodes), STAT=istat )     
+     IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 1') 
+
      Parallel = ( ParEnv % PEs > 1) 
      IF( GetLogical( SolverParams,'Enforce Parallel Mode',GotIt) ) Parallel = .TRUE.	
   END IF
@@ -2766,7 +2789,9 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   END DO
   IF ( CalculateFlux ) NoResults = NoResults + 3
      
-  ALLOCATE( Values(NoResults) )
+  ALLOCATE( Values(NoResults), STAT=istat )
+  IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 2') 
+
  
   CALL Info( 'SaveLine', '------------------------------------------', Level=4 )
   WRITE( Message, * ) 'Saving line data to file ', TRIM(SideFile)
@@ -2784,18 +2809,14 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
     ELSE
       WRITE( SideParFile, '(A,i3)' ) TRIM(SideFile)//'.',ParEnv % MyPE
     END IF
-    
-    IF(SubroutineVisited .OR. FileAppend) THEN 
-      OPEN (10, FILE=SideParFile,POSITION='APPEND')
-    ELSE 
-      OPEN (10,FILE=SideParFile)
-    END IF
-  ELSE
-    IF(SubroutineVisited .OR. FileAppend) THEN 
-      OPEN (10, FILE=SideFile, POSITION='APPEND')
-    ELSE 
-      OPEN (10,FILE=SideFile)
-    END IF
+  ELSE	
+    WRITE( SideParFile, '(A)') TRIM(SideFile)   
+  END IF
+
+  IF(SubroutineVisited .OR. FileAppend) THEN 
+    OPEN (10, FILE=SideParFile,POSITION='APPEND')
+  ELSE 
+    OPEN (10,FILE=SideParFile)
   END IF
 
 !------------------------------------------------------------------------------
@@ -2834,7 +2855,9 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   maxboundary = 0
   IF( SaveNodes > 0 ) THEN
 
-     ALLOCATE( InvPerm(SaveNodes), BoundaryIndex(SaveNodes) )
+     ALLOCATE( InvPerm(SaveNodes), BoundaryIndex(SaveNodes), STAT=istat )
+     IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 3') 
+
      BoundaryIndex = 0
      InvPerm = 0
      DO i=1,SIZE(SavePerm)
@@ -2849,7 +2872,9 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      END DO
 
      IF(CalculateFlux) THEN
-        ALLOCATE(PointFluxes(SaveNodes,3),PointWeight(SaveNodes))    
+        ALLOCATE(PointFluxes(SaveNodes,3),PointWeight(SaveNodes), STAT=istat)    
+	IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 4') 
+
         PointFluxes = 0.0d0
         PointWeight = 0.0d0
      END IF
@@ -3010,8 +3035,10 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   SaveNodes2 = 0
   IF(NoLines > 0  .OR. ANY(SaveAxis(1:DIM)) ) THEN
      
-     ALLOCATE( LineTag(Mesh % NumberOfNodes) )
-     
+     ALLOCATE( LineTag(Mesh % NumberOfNodes), STAT=istat )
+     IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 5') 
+
+
      IF(.NOT. SubroutineVisited) THEN 
         CALL FindMeshEdges( Mesh, .FALSE.)
      END IF
@@ -3176,9 +3203,11 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
   ! Finally save the names of the variables to help to identify the 
   ! columns in the result matrix.
-  IF(.NOT. SubroutineVisited) THEN
-     ALLOCATE( ValueNames(NoResults) )
-   
+  !-----------------------------------------------------------------
+  IF(.NOT. SubroutineVisited .AND. NoResults > 0 ) THEN
+     ALLOCATE( ValueNames(NoResults), STAT=istat )
+     IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 6') 
+  
      No = 0
      Var => Model % Variables
      DO WHILE( ASSOCIATED( Var ) )    
@@ -3236,7 +3265,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      END IF
 
   
-     SideNamesFile = TRIM(SideFile) // '.' // TRIM("names")
+     SideNamesFile = TRIM(SideParFile) // '.' // TRIM("names")
      OPEN (10, FILE=SideNamesFile)
 
      Message = ListGetString(Model % Simulation,'Comment',GotIt)
@@ -3247,7 +3276,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      IF( GotIt ) THEN
        WRITE(10,'(A)') TRIM(Message)
      END IF 
-     WRITE(10,'(A,A)') 'Variables in file: ',TRIM(SideFile)
+     WRITE(10,'(A,A)') 'Variables in file: ',TRIM(SideParFile)
 
      DateStr = FormatDate()
      WRITE( 10,'(A,A)') 'File started at: ',TRIM(DateStr)
@@ -3710,7 +3739,8 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      LocalNodes = Model % NumberOfNodes
 
      n = Solver % Mesh % MaxElementNodes
-     ALLOCATE( LocalParam(n) )
+     ALLOCATE( LocalParam(n), STAT=istat )
+     IF( istat /= 0 ) CALL Fatal('SaveMaterials','Memory allocation error 1') 
 
      ! Find out how many variables should we saved
      NoParams = 0
@@ -3743,7 +3773,9 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      DO ParamNo = 1, NoParams
        Var => VariableGet( Model % Variables, TRIM(ParamName(ParamNo)), .TRUE.)     
        IF(.NOT. ASSOCIATED( Var ) ) THEN
-         ALLOCATE(Field(LocalNodes))
+         ALLOCATE(Field(LocalNodes),STAT=istat)
+	 IF( istat /= 0 ) CALL Fatal('SaveLine','Memory allocation error 2') 
+
          Field = 0._dp
          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
              TRIM(ParamName(ParamNo)), 1, Field, FieldPerm )         
@@ -3888,7 +3920,9 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   IF(.NOT.SubroutineVisited) THEN
      DIM = CoordinateSystemDimension()
      n = Solver % Mesh % MaxElementNodes
-     ALLOCATE( LocalParam(n) )
+
+     ALLOCATE( LocalParam(n), STAT=istat )
+     IF( istat /= 0 ) CALL Fatal('SaveBoundaryValues','Memory allocation error 1') 
 
      LocalNodes = Model % NumberOfNodes
      NoParams = 0
@@ -3921,14 +3955,16 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      ! Allocate space for new variables to be added
      ! --------------------------------------------
      ALLOCATE( PPParam(NoParams),  STAT=istat )
-     IF (istat /= 0) CALL FATAL('SaveBoundaryValues', 'Allocation Error')
+     IF (istat /= 0) CALL FATAL('SaveBoundaryValues', 'Allocation Error 2')
      SubroutineVisited = .TRUE.
 
      !------------------
      ! Add new Variables
      ! -----------------
      DO ParamNo = 1, NoParams
-       ALLOCATE( PParam(LocalNodes) )
+       ALLOCATE( PParam(LocalNodes), STAT=istat )
+       IF (istat /= 0) CALL FATAL('SaveBoundaryValues', 'Allocation Error 3')
+
        PParam = 0._dp
        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
              TRIM(ParamName(ParamNo)), 1, PParam )
