@@ -1061,7 +1061,7 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   REAL(KIND=dp) :: mass,boltz,temp,coeff,eps,frac,meanval 
   REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Diam
   REAL(KIND=dp), POINTER :: MaskVal(:)
-  INTEGER :: nx,ny,nz,ix,iy,iz,ind
+  INTEGER :: nx,ny,nz,nmax,ix,iy,iz,ind
   LOGICAL, POINTER :: DoneParticle(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
   
@@ -1192,6 +1192,25 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   END IF
 
 
+  IF( InitMethod == 'box random cubic') THEN
+    Diam = 2 * GetCReal( Params,'Particle Cell Radius',GotIt)
+    IF(.NOT. GotIt ) THEN
+      Diam = 2 * GetCReal( Params,'Particle Radius',GotIt)
+    END IF
+    IF(.NOT. GotIt ) THEN
+      CALL Fatal('InitializeParticles','Size of unit cell not given')
+    END IF
+    
+    nx = NINT ( ( MaxCoord(1) - MinCoord(1) ) / Diam )
+    ny = NINT( ( MaxCoord(2) - MinCoord(2) ) / Diam )
+    IF( dim == 3 ) THEN
+      nz = NINT( ( MaxCoord(3) - MinCoord(3) ) / Diam )
+    ELSE
+      nz = 1
+    END IF
+  END IF
+
+
   !------------------------------------------------------------------------
   ! Now decide on the number of particles.
   !-------------------------------------------------------------------------  
@@ -1214,7 +1233,12 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
         IF( GotIt ) THEN
           NewParticles = NINT( frac * noelements )
         ELSE
-          CALL Fatal('InitializeParticles','Could not determine the number of new particles!')
+          frac = GetCReal( Params,'Particle Cell Fraction',GotIt)
+          IF( GotIt ) THEN
+            NewParticles = NINT( frac * nx * ny * nz )
+          ELSE
+            CALL Fatal('InitializeParticles','Could not determine the number of new particles!')
+          END IF
         END IF
       END IF
     END IF
@@ -1338,52 +1362,59 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     END DO
 
   CASE ('box random cubic')
-    Diam = 2 * GetCReal( Params,'Particle Cell Radius',GotIt)
-    IF(.NOT. GotIt ) THEN
-      Diam = 2 * GetCReal( Params,'Particle Radius',GotIt)
-    END IF
-    IF(.NOT. GotIt ) THEN
-      CALL Fatal('InitializeParticles','Size of unit cell not given')
-    END IF
-
-    nx = NINT ( ( MaxCoord(1) - MinCoord(1) ) / Diam )
-    ny = NINT( ( MaxCoord(2) - MinCoord(2) ) / Diam )
-    IF( dim == 3 ) THEN
-      nz = NINT( ( MaxCoord(3) - MinCoord(3) ) / Diam )
-    ELSE
-      nz = 1
-    END IF
-
-    IF( nx * ny * nz < NewParticles ) THEN
+    nmax = nx * ny * nz
+    IF( nmax < NewParticles ) THEN
       CALL Fatal('InitializeParticles','More particles than places in unit cell')
     END IF
 
     ALLOCATE( DoneParticle(nx*ny*nz) )
-    DoneParticle = .FALSE.
 
+    IF( NewParticles == nmax ) THEN
+      ! if the list is full just set all true
+      DoneParticle = .TRUE.
+    ELSE IF( NewParticles < nmax / 2 ) THEN
+      ! If there are few particles start from an empty list and count upwards
+      DoneParticle = .FALSE.
+      i =  0
+      DO WHILE(.TRUE.) 
+        ind = NINT( NewParticles * EvenRandom() + 0.5 )
+        IF( .NOT. DoneParticle(i) ) THEN
+          DoneParticle(ind) = .TRUE.
+          i = i + 1
+          IF( i == NewParticles ) EXIT
+        END IF
+      END DO
+    ELSE    
+      ! if there are many particles start from a full list and count downwards
+      DoneParticle = .TRUE.
+      i = nmax
+      DO WHILE(.TRUE.) 
+        ind = NINT( NewParticles * EvenRandom() + 0.5 )
+        IF( DoneParticle(i) ) THEN
+          DoneParticle(ind) = .FALSE.
+          i = i - 1
+          IF( i == NewParticles ) EXIT
+        END IF
+      END DO
+    END IF
+
+    ! set the coordinates 
     i = 0
-    DO WHILE (.TRUE.) 
-      ix = NINT( nx * EvenRandom() + 0.5 )
-      iy = NINT( ny * EvenRandom() + 0.5 )
-      IF( dim == 3 ) THEN
-        iz = NINT( nz * EvenRandom() + 0.5 )
-      ELSE
-        iz = 1
-      END IF
-      ind = nx*ny*(iz-1) + nx*(iy-1) + ix
-      IF( DoneParticle(ind) ) CYCLE
-      
-      i = i + 1
-      DoneParticle(ind) = .TRUE.
-
-      k = Offset + i      
-      Coordinate(k,1) = MinCoord(1) + ( 1.0_dp*ix - 0.5) * Diam 
-      Coordinate(k,2) = MinCoord(2) + ( 1.0_dp*iy - 0.5) * Diam 
-      IF( dim == 3 ) THEN
-        Coordinate(k,3) = MinCoord(3) + ( 1.0_dp*iz - 0.5) * Diam 
-      END IF
-
-      IF( i == NewParticles ) EXIT
+    DO ix = 1, nx
+      DO iy = 1, ny
+        DO iz = 1, nz
+          ind = nx*ny*(iz-1) + nx*(iy-1) + ix
+          IF( DoneParticle(ind) ) THEN
+            i = i + 1
+            k = Offset + i
+            Coordinate(k,1) = MinCoord(1) + ( 1.0_dp*ix - 0.5) * Diam 
+            Coordinate(k,2) = MinCoord(2) + ( 1.0_dp*iy - 0.5) * Diam 
+            IF( dim == 3 ) THEN
+              Coordinate(k,3) = MinCoord(3) + ( 1.0_dp*iz - 0.5) * Diam 
+            END IF
+          END IF
+        END DO
+      END DO
     END DO
     DEALLOCATE( DoneParticle ) 
 
@@ -1730,6 +1761,9 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
 
   Mesh => GetMesh()
 
+
+  IF( ANY( ISNAN( Rfin ) ) ) PRINT *,'Rfin:',Rfin,'Index',ElementIndex
+
   IF( .NOT. Visited ) THEN
     Params => GetSolverParams()
     StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
@@ -1950,14 +1984,15 @@ SUBROUTINE GetVelocityInMesh(CurrentElement, Basis, Velo, dBasisdx, GradVelo )
   TYPE(Variable_t), POINTER :: Var
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
   INTEGER :: VeloFieldDofs
-  INTEGER, POINTER :: VeloFieldPerm(:)
+  INTEGER, POINTER :: VeloFieldPerm(:), LocalPerm(:)
   REAL(KIND=dp), POINTER :: VeloField(:)
-  INTEGER :: i,j,n,dim
+  REAL(KIND=dp) :: SumBasis
+  INTEGER :: i,j,k,n,npos,ind,dim
   LOGICAL :: GotIt,GotVeloField
   LOGICAL :: Visited
 
 
-  SAVE :: Visited, Dim,GotVeloField, VeloField, VeloFieldPerm, VeloFieldDofs
+  SAVE :: Visited, Dim,GotVeloField, VeloField, VeloFieldPerm, VeloFieldDofs, LocalPerm
 
   IF(.NOT. Visited ) THEN
     GotVeloField = .FALSE.
@@ -1976,6 +2011,11 @@ SUBROUTINE GetVelocityInMesh(CurrentElement, Basis, Velo, dBasisdx, GradVelo )
         CALL Fatal('GetVelocityInMesh','Velocity field variable does not exist: '//TRIM(VariableName))
       END IF
     END IF
+
+    n = Mesh % MaxElementNodes
+    ALLOCATE( LocalPerm( n) )
+    LocalPerm = 0
+
     Visited = .TRUE.
   END IF
 
@@ -1984,24 +2024,169 @@ SUBROUTINE GetVelocityInMesh(CurrentElement, Basis, Velo, dBasisdx, GradVelo )
   IF(.NOT. GotVeloField ) RETURN
 
   NodeIndexes => CurrentElement % NodeIndexes
-  IF( .NOT. ALL ( VeloFieldPerm( NodeIndexes) > 0 )) RETURN
-
   n = CurrentElement % TYPE % NumberOfNodes
-  DO i=1,dim
-    Velo(i) = SUM( Basis(1:n) * &
-        VeloField( VeloFieldDofs*( VeloFieldPerm( NodeIndexes )-1)+i) )
-  END DO
-  IF( PRESENT( GradVelo ) ) THEN
+  LocalPerm(1:n) = VeloFieldPerm( NodeIndexes)
+  
+  npos = COUNT( LocalPerm(1:n) > 0 )
+
+  IF( npos == n ) THEN
     DO i=1,dim
-      DO j=1,dim
-        GradVelo(i,j) = SUM( dBasisdx(1:n,j) * &
-            VeloField( VeloFieldDofs*( VeloFieldPerm( NodeIndexes )-1)+i) )
+      Velo(i) = SUM( Basis(1:n) * &
+          VeloField( VeloFieldDofs*( LocalPerm(1:n)-1)+i) )
+    END DO
+    IF( PRESENT( GradVelo ) ) THEN
+      DO i=1,dim
+        DO j=1,dim
+          GradVelo(i,j) = SUM( dBasisdx(1:n,j) * &
+              VeloField( VeloFieldDofs* ( LocalPerm(1:n)-1)+i) )
+        END DO
+      END DO
+    END IF
+  ELSE IF ( npos > 0 ) THEN
+    !-----------------------------------------------------------------
+    ! compute the velocity also for case when the particle
+    ! has just crossed the boundary. For example, its floating on the 
+    ! fluid boundary. This is a little bit fishy and could perhaps 
+    ! only be done conditionally....
+    ! Can't really determine the gradient here
+    !-----------------------------------------------------------------
+    SumBasis = 0.0_dp
+    DO k=1,n
+      ind = LocalPerm(k)
+      IF( ind == 0 ) CYCLE
+      SumBasis = SumBasis + Basis(k)
+      DO i=1,dim
+        Velo(i) = Velo(i) + Basis(k) * VeloField( VeloFieldDofs*(ind-1)+i)
       END DO
     END DO
+    Velo = Velo / SumBasis
   END IF
 
-
 END SUBROUTINE GetVelocityInMesh
+
+
+
+!-------------------------------------------------------------------------
+! The routine returns a density of mesh
+!--------------------------------------------------------------------------
+
+SUBROUTINE GetFluidPropertiesInMesh(BulkElement, Basis, Coord, Radius, Density, Viscosity ) 
+  
+  TYPE(Element_t), POINTER :: BulkElement
+  REAL(KIND=dp) :: Basis(:)
+  REAL(KIND=dp) :: Coord(3), Radius
+  REAL(KIND=dp) :: Density, Viscosity
+
+  INTEGER, POINTER :: NodeIndexes(:)
+  TYPE(Mesh_t), POINTER :: Mesh
+  REAL(KIND=dp), POINTER :: ElemDensity(:), ElemViscosity(:)
+  REAL(KIND=dp) :: Dist, Density2, Viscosity2, VolumeFraction, Normal(3), SumBasis
+  TYPE(ValueList_t), POINTER :: Material, Material2, BC
+  TYPE(Element_t), POINTER :: BoundaryElement, BulkElement2
+  TYPE(Nodes_t) :: BoundaryNodes
+  INTEGER :: i,j,k,n,imax,mat_id,mat_id2,dim,ind
+  LOGICAL :: Lift, Found, InterfaceIs, Visited
+
+
+  SAVE :: Visited, Mesh, Dim, ElemDensity, ElemViscosity, BoundaryNodes, InterfaceIs
+
+
+  IF(.NOT. Visited ) THEN
+    Mesh => GetMesh()
+    Dim = Mesh % MeshDim
+    n = Mesh % MaxElementNodes
+    ALLOCATE( ElemDensity( n ), ElemViscosity( n ) )
+    ElemDensity = 0.0_dp
+    ElemViscosity = 0.0_dp
+    Visited = .TRUE.    
+  END IF
+
+  NodeIndexes => BulkElement % NodeIndexes
+  n = BulkElement % TYPE % NumberOfNodes
+  mat_id = ListGetInteger( CurrentModel % Bodies(BulkElement % BodyId) % Values,'Material' )
+  Material => CurrentModel % Materials(mat_id) % Values
+
+  ElemDensity(1:n) = ListGetReal( Material,'Density',n,NodeIndexes) 
+  Density = SUM( Basis(1:n) * ElemDensity(1:n) )
+
+  ElemViscosity(1:n) = ListGetReal( Material,'Viscosity',n,NodeIndexes) 
+  Viscosity = SUM( Basis(1:n) * ElemViscosity(1:n) )
+    
+  ! If the radius of the particle is zero then it sees only the properties of one point
+  IF( Radius < TINY( Radius ) ) RETURN
+
+  IF( dim == 3 ) THEN
+    imax = BulkElement % TYPE % NumberOfFaces 
+  ELSE
+    imax = BulkElement % TYPE % NumberOfEdges  
+  END IF
+  
+  DO i=1, imax
+    IF( dim == 3 ) THEN
+      j = BulkElement % FaceIndexes(i)
+      BoundaryElement => Mesh % Faces( j )
+    ELSE
+      j = BulkElement % EdgeIndexes(i)
+      BoundaryElement => Mesh % Edges(j)
+    END IF
+    
+    IF( .NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
+    
+    IF( ASSOCIATED( BulkElement, BoundaryElement % BoundaryInfo % Right ) ) THEN
+      BulkElement2 => BoundaryElement % BoundaryInfo % Left
+    ELSE
+      BulkElement2 => BoundaryElement % BoundaryInfo % Right
+    END IF
+    
+    IF( ASSOCIATED( BulkElement2 ) ) THEN
+      mat_id2 = ListGetInteger( CurrentModel % Bodies(BulkElement2 % BodyId) % Values,'Material' )
+    ELSE
+      mat_id2 = 0
+    END IF
+    
+    ! If the materials are the same the density is ok
+    IF( mat_id2 == mat_id ) CYCLE
+    
+    ! If there is an material interface, check for distance
+    CALL GetElementNodes(BoundaryNodes,BoundaryElement)
+    Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
+    Dist = ABS( Dist )       
+    
+    ! Is is assumed that each element may only have one density interface
+    IF( Dist > Radius ) RETURN
+    
+    IF( mat_id2 == 0 ) THEN
+      Density2 = 0.0_dp
+    ELSE
+      NodeIndexes => BulkElement2 % NodeIndexes
+      n = BulkElement2 % TYPE % NumberOfNodes
+      Material2 => CurrentModel % Materials(mat_id2) % Values
+
+      ElemDensity(1:n) = ListGetReal( Material,'Density',n,NodeIndexes) 
+      ElemViscosity(1:n) = ListGetReal( Material,'Viscosity',n,NodeIndexes) 
+      Density2 = SUM( Basis(1:n) * ElemDensity(1:n) )
+      Viscosity2 = SUM( Basis(1:n) * ElemViscosity(1:n) )
+    END IF
+    
+    IF( dim == 3 ) THEN
+      ! based on the formula of sphere-sphere intersection as in Wolfram MathWorld
+      VolumeFraction = (Radius + Dist / 2 ) * (Radius - Dist)**2 / Radius**3
+    ELSE
+      ! based on the formula of circle-circle intersection as in Wolfram MathWorld
+      VolumeFraction = ( ( Radius ** 2) * ACOS( Dist / Radius ) &
+          - Dist * SQRT( Radius ** 2 - Dist ** 2 ) ) / (PI * Radius**2) 
+    END IF
+    
+    Density = VolumeFraction * Density2 + (1-VolumeFraction) * Density
+    Viscosity = VolumeFraction * Viscosity2 + (1-VolumeFraction) * Viscosity
+    
+    !     PRINT *,'VolumeFraction:',VolumeFraction, Density
+    RETURN
+  END DO
+
+END SUBROUTINE GetFluidPropertiesInMesh
+
+
 
 !-------------------------------------------------------------------------
 ! The routine returns a potential and its gradient.
@@ -2064,6 +2249,8 @@ SUBROUTINE GetPotentialInMesh(CurrentElement, Basis, Pot, dBasisdx, GradPot )
   END IF
 
 END SUBROUTINE GetPotentialInMesh
+
+
 
 !-------------------------------------------------------------------------
 ! The routine returns .TRUE. if velocity should be fixed
@@ -2635,7 +2822,8 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
           NeighbourList => TmpList
           ListSize = ListSize + 20
           NULLIFY( TmpList ) 
-          CALL Info('GetNextNeighbour','Allocating more space')
+          WRITE(Message,'(A,I6)') 'Allocating more space:',ListSize
+          CALL Info('GetNextNeighbour',Message)
         END IF
 
         NeighbourList(NoNeighbours) = No2
@@ -2656,45 +2844,77 @@ END FUNCTION GetNextNeighbour
 !---------------------------------------------------------
 ! Take a time step
 !---------------------------------------------------------
-SUBROUTINE ParticleInitializeTime( Particles )
+SUBROUTINE ParticleInitializeTime( Particles, No )
   TYPE(Particle_t) :: Particles
+  INTEGER, OPTIONAL :: No
 
-  Particles % Force = 0.0_dp
+  IF( PRESENT( No ) ) THEN
+    Particles % Force( No, : ) = 0.0_dp
+  ELSE
+    Particles % Force = 0.0_dp
+  END IF
+
 END SUBROUTINE ParticleInitializeTime
 
 !---------------------------------------------------------
 ! Take a time step
 !---------------------------------------------------------
-SUBROUTINE ParticleAdvanceTime( Particles, dtime )
+SUBROUTINE ParticleAdvanceTime( Particles, dtime, ind )
   TYPE(Particle_t) :: Particles
   REAL(KIND=dp) :: dtime
+  INTEGER, OPTIONAL :: ind
 
   REAL(KIND=dp) :: Drag, Mass, ds, dCoord(3)
   INTEGER :: dim
   INTEGER :: Status, TimeOrder, No
   TYPE(ValueList_t), POINTER :: Params
-  LOGICAL :: Found
+  INTEGER :: NoStart, NoFin
+  LOGICAL :: Found, Visited = .FALSE.
+  
+  SAVE TimeOrder, dim, Mass, Drag, Visited
 
 
-  Params => GetSolverParams()
-  TimeOrder = Particles % TimeOrder
-  IF( TimeOrder == 2 ) THEN
-    Mass = ListGetConstReal( Params,'Particle Mass',Found)
-    IF(.NOT. Found) CALL Fatal('ParticleAdvanceTime',&
-        '> Particle Mass < should be given!')
-  ELSE 
-    Drag = ListGetConstReal( Params,'Particle Drag Coefficient',Found)
-    IF(.NOT. Found) CALL Fatal('ParticleAdvanceTime',&
-        '> Particle Drag Coefficient < should be given!')
+  IF(.NOT. Visited ) THEN
+    Params => GetSolverParams()
+    TimeOrder = Particles % TimeOrder
+    dim = Particles % dim
+
+    IF( TimeOrder == 2 ) THEN
+      Mass = ListGetConstReal( Params,'Particle Mass',Found)
+      IF(.NOT. Found) CALL Fatal('ParticleAdvanceTime',&
+          '> Particle Mass < should be given!')
+    ELSE 
+      Drag = ListGetConstReal( Params,'Particle Drag Coefficient',Found)
+      IF(.NOT. Found) CALL Fatal('ParticleAdvanceTime',&
+          '> Particle Drag Coefficient < should be given!')
+    END IF
+    
+    dCoord = 0.0_dp
+    Visited = .TRUE.
   END IF
 
-  dim = Particles % dim
-  DO No=1,Particles % NumberOfParticles
+  IF( PRESENT( ind ) ) THEN
+    NoStart = ind
+    NoFin = ind
+  ELSE
+    NoStart = 1
+    NoFin = Particles % NumberOfParticles
+  END IF
+
+
+  DO No=NoStart,NoFin
     Status = Particles % Status(No)
 
     IF ( Status >= PARTICLE_LOST ) CYCLE
     IF ( Status <= PARTICLE_INITIATED ) CYCLE
    
+   IF( ANY( ISNAN( Particles % Force(No,:) ) ) ) THEN
+      PRINT *,'dCoord',dCoord(1:dim),dtime
+      PRINT *,'velo',Particles % Velocity(No,:)
+      PRINT *,'coord',Particles % Coordinate(No,:)
+      PRINT *,'force',Particles % Force(No,:)
+    END IF
+
     IF ( Status == PARTICLE_FIXEDCOORD ) THEN
       Particles % Velocity(No,:) = 0.0_dp
     ELSE IF( Status == PARTICLE_FIXEDVELO ) THEN
@@ -2706,7 +2926,6 @@ SUBROUTINE ParticleAdvanceTime( Particles, dtime )
       Particles % Velocity(No,:) = Particles % Force(No,:) / Drag      
     END IF
 
-    Particles % Force(No,:)= 0.0_dp
     dCoord(1:dim) = dtime * Particles % Velocity(No,:)
     Particles % Coordinate(No,:) = Particles % Coordinate(No,:) + &
         dCoord(1:dim)
@@ -2714,6 +2933,7 @@ SUBROUTINE ParticleAdvanceTime( Particles, dtime )
     ds = SQRT( SUM( (dCoord(1:dim))**2 ) )
     Particles % Distance(No) = Particles % Distance(No) + ds    
     
+    Particles % Force(No,:)= 0.0_dp
     Particles % Status(No) = PARTICLE_READY
   END DO
 END SUBROUTINE ParticleAdvanceTime
@@ -2724,9 +2944,10 @@ END SUBROUTINE ParticleAdvanceTime
 ! enforces periodic BCs. Currently the only supported way
 ! for setting periodic BCs.
 !---------------------------------------------------------------    
-SUBROUTINE ParticleBoxPeriodic( Particles )
+SUBROUTINE ParticleBoxPeriodic( Particles, ind )
   
   TYPE(Particle_t) :: Particles
+  INTEGER, OPTIONAL :: ind
 
   TYPE(Solver_t), POINTER :: Solver
   REAL(KIND=dp) :: Coord, Rad
@@ -2735,7 +2956,7 @@ SUBROUTINE ParticleBoxPeriodic( Particles )
   REAL(KIND=dP) :: MinCoord(3), MaxCoord(3)
   INTEGER :: i,j,k,dim, ierr, PeriodicDir(3),NoPeriodic
   LOGICAL :: Mapped,Reflect,Found,Visited = .FALSE.
-  INTEGER :: Operations, No, NoParticles, Status
+  INTEGER :: Operations, No, NoStart, NoFin, Status
   INTEGER, POINTER :: TmpInteger(:)
   
   SAVE Visited, Reflect, PeriodicDir, NoPeriodic, MinCoord, MaxCoord, dim
@@ -2762,16 +2983,23 @@ SUBROUTINE ParticleBoxPeriodic( Particles )
         PeriodicDir(i) = i
       END DO
     END IF
+
+    MinCoord = Particles % GlobalMinCoord
+    MaxCoord = Particles % GlobalMaxCoord
   END IF
 
   IF( NoPeriodic == 0 ) RETURN
 
-  NoParticles = Particles % NumberOfParticles
-  MinCoord = Particles % GlobalMinCoord
-  MaxCoord = Particles % GlobalMaxCoord
-  
+  IF( PRESENT( ind ) ) THEN
+    NoStart = ind
+    Nofin = ind
+  ELSE
+    NoStart = 1
+    NoFin = Particles % NumberOfParticles
+  END IF
 
-  DO No = 1, NoParticles
+
+  DO No = NoStart, NoFin
     Status = Particles % Status(No) 
     IF( Status >= PARTICLE_LOST ) CYCLE
     IF( Status < PARTICLE_INITIATED ) CYCLE
@@ -2806,9 +3034,10 @@ END SUBROUTINE ParticleBoxPeriodic
 ! computationally more econimic way and is ideal for testing
 ! purposes, at least.
 !---------------------------------------------------------------    
-SUBROUTINE ParticleBoxContact(Particles)
+SUBROUTINE ParticleBoxContact(Particles, ind)
   
   TYPE(Particle_t) :: Particles
+  INTEGER, OPTIONAL :: ind
 
   TYPE(Solver_t), POINTER :: Solver
   REAL(KIND=dp) :: Coord, Velo, Rad, Spring
@@ -2817,7 +3046,7 @@ SUBROUTINE ParticleBoxContact(Particles)
   REAL(KIND=dP) :: MinCoord(3), MaxCoord(3), eta
   INTEGER :: i,j,k,dim, ierr,ContactDir(3)
   LOGICAL :: Mapped,Found,CollisionBC,ContactBC,Visited = .FALSE.
-  INTEGER :: No, NoParticles, Status, NoContact
+  INTEGER :: No, NoStart, NoFin, Status, NoContact
   INTEGER, POINTER :: TmpInteger(:)
   
   SAVE Visited, NoContact, ContactDir, MinCoord, MaxCoord, dim, &
@@ -2875,9 +3104,15 @@ SUBROUTINE ParticleBoxContact(Particles)
   
   IF( NoContact == 0) RETURN
 
-  NoParticles = Particles % NumberOfParticles
+  IF( PRESENT( ind ) ) THEN
+    NoStart = ind
+    Nofin = ind
+  ELSE
+    NoStart = 1
+    NoFin = Particles % NumberOfParticles
+  END IF
   
-  DO No = 1, NoParticles
+  DO No = NoStart, NoFin
     Status = Particles % Status(No) 
     IF( Status >= PARTICLE_LOST ) CYCLE
     IF( Status < PARTICLE_INITIATED ) CYCLE
