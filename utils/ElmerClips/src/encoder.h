@@ -63,7 +63,7 @@ class Encoder : public QThread
   void run();
 
  signals:
-  void drawThumbnail(const QString &fileName);
+  void information(const QString &fileName);
   void progress(int value);
 
  private:

@@ -41,16 +41,16 @@
 
 Preview::Preview(QWidget *parent) : QLabel(parent), currentProgress(0)
 {
+  setWindowTitle("ElmerClips");
+
   setWindowIcon(QIcon(":/img/ElmerClips.ico"));
 
   setAlignment(Qt::AlignCenter);
 
   setMinimumSize(400, 400);
 
-  showInfo();
-
-  connect(&encoder, SIGNAL(drawThumbnail(const QString &)),
-	  this, SLOT(drawThumbnail(const QString &)),
+  connect(&encoder, SIGNAL(information(const QString &)),
+	  this, SLOT(information(const QString &)),
 	  Qt::BlockingQueuedConnection);
 
   connect(&encoder, SIGNAL(progress(int)),
@@ -93,7 +93,11 @@ void Preview::checkCommandLine()
 {
   QList<QUrl> urls;
 
-  if(qApp->arguments().count() > 1) {
+  if(qApp->arguments().count() < 2) {
+    showInfo();
+
+  } else {
+    resolutionMenu->setEnabled(false);
     setAcceptDrops(false);
 
     foreach(const QString &arg, qApp->arguments())
@@ -101,6 +105,7 @@ void Preview::checkCommandLine()
 
     encoder.setUrls(urls);
     encoder.setResolutions(getResolutions());
+    setWindowTitle("Starting...");
     encoder.start();
   }
 }
@@ -114,10 +119,12 @@ void Preview::dragEnterEvent(QDragEnterEvent *event)
 void Preview::dropEvent(QDropEvent *event)
 {
   if(!encoder.isRunning()) {
+    resolutionMenu->setEnabled(false);
     setAcceptDrops(false);
 
     encoder.setUrls(event->mimeData()->urls());
     encoder.setResolutions(getResolutions());
+    setWindowTitle("Starting...");
     encoder.start();
   }  
 
@@ -136,8 +143,15 @@ void Preview::contextMenuEvent(QContextMenuEvent *event)
   contextMenu->popup(event->globalPos());
 }
 
-void Preview::drawThumbnail(const QString &fileName)
+void Preview::information(const QString &fileName)
 {
+  if(fileName.startsWith("ERROR")) {
+    QString text = fileName;
+    text.replace("ERROR: ", "");
+    setWindowTitle(text);
+    return;
+  }
+
   if(fileName.startsWith("FILE")) {
     QString text = fileName;
     text.replace("FILE: ", "");
@@ -160,8 +174,11 @@ void Preview::drawThumbnail(const QString &fileName)
   QPainter painter(&background);
 
   QPixmap pixmap(fileName);
-  QPixmap scaled = pixmap.scaledToWidth(width(), Qt::SmoothTransformation);
-  painter.drawPixmap(0, (background.height()-scaled.height())/2, scaled);
+  QPixmap scaled = pixmap.scaled(size(), Qt::KeepAspectRatio,
+				 Qt::SmoothTransformation);
+  painter.drawPixmap((background.width()-scaled.width())/2,
+		     (background.height()-scaled.height())/2,
+		     scaled);
 
   QPixmap overlay = sub(QString::number(currentProgress) + "%");
   painter.drawPixmap((background.width()-overlay.width())/2,
@@ -175,44 +192,41 @@ void Preview::showInfo()
 {
   clear();
 
-  setWindowTitle("ElmerClips");
-
-  QPixmap video(":/img/500px-Crystal_Clear_mimetype_video.svg.png");
-  int videoHeight = 250;
-  video = video.scaledToHeight(videoHeight, Qt::SmoothTransformation);
-  int videoWidth = video.width();
-
   QPixmap background(400, 400);
   background.fill(Qt::transparent);
 
   QPainter painter(&background);
 
-  QRect target((400-videoWidth)/2, 25, videoWidth, videoHeight);
-  QRect source(0, 0, videoWidth, videoHeight);
-  painter.drawPixmap(target, video, source);
+  QPixmap overlay(":/img/500px-Crystal_Clear_mimetype_video.svg.png");
+  int overlayHeight = 250;
+  overlay = overlay.scaledToHeight(overlayHeight, Qt::SmoothTransformation);
+  int overlayWidth = overlay.width();
+  QRect targetRect((400-overlayWidth)/2, 25, overlayWidth, overlayHeight);
+  painter.drawPixmap(targetRect, overlay, overlay.rect());
 
-  QFont defaultFont = painter.font();
+  QFont defaultFont = font();
   QFont boldFont = defaultFont;
   boldFont.setBold(true);
   painter.setFont(boldFont);
 
-  painter.drawText(QRect(0, videoHeight+40, 400, 20), Qt::AlignCenter,
+  painter.drawText(QRect(0, overlayHeight+40, 400, 20), Qt::AlignCenter,
 		   "Drag and drop image files/folders here");
 
   painter.setFont(defaultFont);
 
-  painter.drawText(QRect(0, videoHeight+70, 400, 20), Qt::AlignCenter,
+  painter.drawText(QRect(0, overlayHeight+70, 400, 20), Qt::AlignCenter,
 		   "Supported formats: png, jpg (jpeg), tiff, gif");
 
-  painter.drawText(QRect(0, videoHeight+90, 400, 20), Qt::AlignCenter,
-		   "Automatic ordering: first integer in file name");
+  painter.drawText(QRect(0, overlayHeight+90, 400, 20), Qt::AlignCenter,
+		   "Sorting: first integer in file name");
 
 
-  painter.drawText(QRect(0, videoHeight+110, 400, 20), Qt::AlignCenter,
+  painter.drawText(QRect(0, overlayHeight+110, 400, 20), Qt::AlignCenter,
 		   "Right-click for preferences");
 
   setPixmap(background);
 
+  resolutionMenu->setEnabled(true);
   setAcceptDrops(true);
 }
 
@@ -247,30 +261,29 @@ void Preview::progress(int value)
 
 QPixmap Preview::sub(const QString &text) const
 {
-  QFont font = this->font();
-  font.setPixelSize(40);
-  font.setBold(true);
+  QFont defaultFont = font();
+  defaultFont.setPixelSize(60);
+  defaultFont.setBold(true);
 
-  QFontMetrics fm(font);
-  int w = fm.width(text);
-  int h = fm.height();
+  QFontMetrics fontMetrics(defaultFont);
+  int w = fontMetrics.width(text);
+  int h = fontMetrics.height();
 
-  QPixmap pixmap(w+4, h+4);
-  pixmap.fill(Qt::transparent);
+  QPixmap background(w+4, h+4);
+  background.fill(Qt::transparent);
 
-  QPainter painter(&pixmap);
-  painter.setFont(font);
+  QPainter painter(&background);
+  painter.setRenderHint(QPainter::Antialiasing);
+  painter.setFont(defaultFont);
   painter.setPen(QPen(Qt::black));
 
-  for(int x = -2; x < 3; x += 2) {
-    for(int y = -2; y < 3; y += 2) {
+  for(int x = -2; x <= 2; x += 2) {
+    for(int y = -2; y <= 2; y += 2)
       painter.drawText(QRect(x+2, y+2, w, h), text);
-    }
   }
-
+  
   painter.setPen(QPen(Qt::white));
-
   painter.drawText(QRect(2, 2, w, h), text);
-
-  return pixmap;
+  
+  return background;
 }

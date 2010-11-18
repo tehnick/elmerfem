@@ -74,7 +74,7 @@ void Encoder::run()
   foreach(int resolution, resolutions)
     compressImages(resolution);
 
-  emit drawThumbnail("DONE");
+  emit information("DONE");
 
   emit progress(0);
 }
@@ -99,6 +99,11 @@ void Encoder::findImages(const QStringList &fileNameList)
 	  imageFileList << current;
       }
     }
+  }
+
+  if(imageFileList.isEmpty()) {
+    emit information("ERROR: No image files found");
+    return;
   }
 
   sortImages();
@@ -132,7 +137,7 @@ void Encoder::sortImages()
     int index = rx.indexIn(fileName);
 
     if(index < 0) {
-      qDebug() << "Unable to sort image files";
+      emit information("ERROR: Unable to sort images");
       imageFileList.clear();
       return;
     }
@@ -147,13 +152,11 @@ void Encoder::sortImages()
 
 void Encoder::compressImages(int targetWidth)
 {
-  if(imageFileList.isEmpty()) {
-    qDebug() << "No image files";
+  if(imageFileList.isEmpty())
     return;
-  }
 
   if((!frameRGB) || (!frameYUV)) {
-    qDebug() << "Memory allocation error";
+    emit information("ERROR: Out of resources");
     return;
   }
 
@@ -174,7 +177,7 @@ void Encoder::compressImages(int targetWidth)
   int pixels = widthYUV * heightYUV;
 
   if(pixels < 1) {
-    qDebug() << "Illegal image size";
+    emit information("ERROR: Illegal image size");
     return;
   }
 
@@ -191,7 +194,7 @@ void Encoder::compressImages(int targetWidth)
   AVCodec *codec = avcodec_find_encoder(codec_id);
 
   if(!codec) {
-    qDebug() << "Unable to initialize codec";
+    emit information("ERROR: Unable to initialize encoder");
     return;
   }
 
@@ -200,7 +203,7 @@ void Encoder::compressImages(int targetWidth)
   AVCodecContext *context = avcodec_alloc_context();
 
   if(!context) {
-    qDebug() << "Unable to initialize codec context";
+    emit information("ERROR: Unable to initialize encoder");
     return;
   }
 
@@ -216,7 +219,7 @@ void Encoder::compressImages(int targetWidth)
   context->pix_fmt = PIX_FMT_YUV420P;
 
   if(avcodec_open(context, codec) < 0) {
-    qDebug() << "Unable to open codec";
+    emit information("ERROR: Unable to initialize encoder");
     avcodec_close(context);
     return;
   }
@@ -231,12 +234,12 @@ void Encoder::compressImages(int targetWidth)
     + "x" + QString::number(heightYUV)
     + ".mpg";
 
-  emit drawThumbnail("FILE: " + fileName);
+  emit information("FILE: " + fileName);
 
   QFile file(fileName);
 
   if(!file.open(QFile::WriteOnly)) {
-    qDebug() << "Unable to open output file";
+    emit information("ERROR: Unable to open output file");
     avcodec_close(context);
     return;
   }
@@ -250,12 +253,12 @@ void Encoder::compressImages(int targetWidth)
 
     emit progress(100 * double(currentFrame) / totalFrames);
 
-    emit drawThumbnail(imageFile);
+    emit information(imageFile);
 
     QImage image(imageFile);
 
     if(!convertToYUV(image, widthYUV, heightYUV)) {
-      qDebug() << "Unable to scale image";
+      emit information("ERROR: Unable to scale image");
       continue;
     }
     
@@ -263,7 +266,7 @@ void Encoder::compressImages(int targetWidth)
 				 bufferMPG.size(), frameYUV);
 
     if(file.write(bufferMPG, bytes) != bytes) {
-      qDebug() << "Unable to write file";
+      emit information("ERROR: Unable to write to output file");
       file.close();
       avcodec_close(context);
       return;
@@ -277,7 +280,7 @@ void Encoder::compressImages(int targetWidth)
 				 bufferMPG.size(), NULL);
 
     if(file.write(bufferMPG, bytes) != bytes) {
-      qDebug() << "Unable to write file";
+      emit information("ERROR: Unable to write to output file");
       file.close();
       avcodec_close(context);
       return;
@@ -292,7 +295,7 @@ void Encoder::compressImages(int targetWidth)
   bufferMPG[3] = (char)0xb7;
 
   if(file.write(bufferMPG, 4) != 4)
-    qDebug() << "Unable to write file";
+      emit information("ERROR: Unable to write to output file");
 
   // Done:
   //-------
@@ -310,9 +313,9 @@ bool Encoder::convertToYUV(const QImage &image,
 
   SwsContext *context = sws_getContext(widthRGB, heightRGB, PIX_FMT_RGB24,
 				       widthYUV, heightYUV, PIX_FMT_YUV420P,
-				       SWS_BICUBIC, NULL, NULL, NULL);
+				       SWS_LANCZOS, NULL, NULL, NULL);
   if(!context) {
-    qDebug() << "Memory allocation error";
+    emit information("ERROR: Out of resources");
     return false;
   }
 

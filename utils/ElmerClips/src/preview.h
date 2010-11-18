@@ -52,7 +52,7 @@ class Preview : public QLabel
   void checkCommandLine();
 
  public slots:
-  void drawThumbnail(const QString &fileName);
+  void information(const QString &fileName);
   void progress(int value);
 
  protected:
