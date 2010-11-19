@@ -1215,6 +1215,217 @@ MODULE NavierStokes
  END SUBROUTINE NavierStokesBoundary
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+ SUBROUTINE VMSWalls( BoundaryMatrix,BoundaryVector,LayerThickness,&
+    SurfaceRoughness,Nodalmu,Nodalrho,Ux,Uy,Uz,Element,n,Nodes )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Return element local matrices and RSH vector for Navier-Stokes-equations
+!  boundary conditions.
+!
+!  ARGUMENTS:
+!
+!  REAL(KIND=dp) :: BoundaryMatrix(:,:)
+!     OUTPUT: time derivative coefficient matrix
+!
+!  REAL(KIND=dp) :: BoundaryVector(:)
+!     OUTPUT: RHS vector
+!
+!  REAL(KIND=dp) :: LayerThickness
+!     INPUT: Boundary layer thickness
+!
+!  REAL(KIND=dp) :: SurfaceRoughness
+!     INPUT: Measure of surface roughness (f.ex. 9)
+!
+!  REAL(KIND=dp) :: Nodalmu(:)
+!     INPUT: Nodal values of viscosity
+!
+!  REAL(KIND=dp) :: Nodalrho(:,:)
+!     INPUT: Nodal values of density
+!
+!  REAL(KIND=dp) :: Ux(:),Uy(:),Uz(:)
+!     INPUT: Nodal values of velocity from previous iteration
+!
+!  TYPE(Element_t) :: Element
+!       INPUT: Structure describing the element (dimension,nof nodes,
+!               interpolation degree, etc...)
+!
+!  INTEGER :: n
+!       INPUT: Number of boundary element nodes
+!
+!  TYPE(Nodes_t) :: Nodes
+!       INPUT: Element node coordinates
+!
+!******************************************************************************
+!------------------------------------------------------------------------------
+
+   IMPLICIT NONE
+
+   REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:), &
+     Nodalmu(:),Nodalrho(:),Ux(:),Uy(:),Uz(:)
+
+   REAL(KIND=dp) :: LayerThickness(:),SurfaceRoughness(:)
+
+   INTEGER :: n
+
+   TYPE(Element_t),POINTER  :: Element
+   TYPE(Nodes_t)    :: Nodes
+
+!------------------------------------------------------------------------------
+!  Local variables
+!------------------------------------------------------------------------------
+   REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+   REAL(KIND=dp) :: detJ
+
+   REAL(KIND=dp) :: u,v,w,s,r,rho,mu,Dist,Roughness,SlipCoeff,Vect(3),vabs
+   REAL(KIND=dp) :: x,y,z,h
+   REAL(KIND=dp) :: Velo(3),Normal(3),Tangent(3), Tangent2(3)
+   REAL(KIND=dp) :: TangentialVelocity(2), FrictionVelocity,DFX,DKERR
+   REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
+
+   INTEGER, POINTER :: Ind(:)
+   TYPE(Mesh_t), POINTER :: Mesh
+   INTEGER :: i,j,k,k1,k2,t,q,p,c,dim,N_Integ
+
+   LOGICAL :: stat
+
+   TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+
+   INTERFACE
+     SUBROUTINE SOLVE_UFRIC(DENSIT,VISCOS,DIST,ROUGH,UT,UFRIC,DFX)
+         DOUBLE PRECISION :: Densit, Viscos,Dist, Rough, Ut, Ufric, DFX
+     END SUBROUTINE SOLVE_UFRIC
+   END INTERFACE
+!------------------------------------------------------------------------------
+
+   IF ( GetString(GetSolverParams(), 'Stabilization Method' )/='vms' ) RETURN
+
+   dim = CoordinateSystemDimension()
+   c = dim + 1
+
+   Mesh => GetMesh()
+   Ind => Element % BoundaryInfo % Left % NodeIndexes
+   k = 0
+   x = 0; y=0; z=0
+   DO i=1,SIZE(ind)
+     DO j=1,n
+       IF ( ind(i)==Element % NodeIndexes(j) ) EXIT
+     END DO
+     IF ( j>n ) THEN
+       x = x+Mesh % Nodes % x(Ind(i))
+       y = y+Mesh % Nodes % y(Ind(i))
+       z = z+Mesh % Nodes % z(Ind(i))
+       k = k + 1
+     END IF
+   END DO
+
+   IF ( k>0 ) THEN
+     x = x/k - SUM(Nodes % x)/n
+     y = y/k - SUM(Nodes % y)/n
+     z = z/k - SUM(Nodes % z)/n
+   END IF
+   h = SQRT(x**2 + y**2 + z**2)
+
+!------------------------------------------------------------------------------
+!  Integration stuff
+!------------------------------------------------------------------------------
+   IntegStuff = GaussPoints( element )
+   U_Integ => IntegStuff % u
+   V_Integ => IntegStuff % v
+   W_Integ => IntegStuff % w
+   S_Integ => IntegStuff % s
+   N_Integ =  IntegStuff % n
+
+!------------------------------------------------------------------------------
+!  Now we start integrating
+!------------------------------------------------------------------------------
+   DO t=1,N_Integ
+
+     u = U_Integ(t)
+     v = V_Integ(t)
+     w = W_Integ(t)
+!------------------------------------------------------------------------------
+!    Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+     stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis,dBasisdx )
+
+     s = detJ * S_Integ(t)
+!------------------------------------------------------------------------------
+!    rho and viscosity at integration point
+!------------------------------------------------------------------------------
+     rho   = SUM( Nodalrho(1:n)*Basis(1:n) )
+     mu = SUM( Nodalmu(1:n)*Basis(1:n) )
+!------------------------------------------------------------------------------
+!    Velocity from previous iteration at the integration point
+!------------------------------------------------------------------------------
+     Velo = 0.0d0
+     Velo(1) = SUM( Ux(1:n)*Basis(1:n) )
+     Velo(2) = SUM( Uy(1:n)*Basis(1:n) )
+     IF ( dim > 2 ) Velo(3) = SUM( Uz(1:n)*Basis(1:n) )
+!------------------------------------------------------------------------------
+!    Normal & tangent directions
+!------------------------------------------------------------------------------
+     Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
+ 
+     IF ( dim <= 2 ) THEN
+       Tangent(1) =  Normal(2)
+       Tangent(2) = -Normal(1)
+       Tangent(3) =  0.0d0
+     ELSE
+       CALL TangentDirections( Normal, Tangent, Tangent2 ) 
+     END IF
+     TangentialVelocity(1) = SUM( Velo(1:dim) * Tangent(1:dim) )
+
+     IF ( dim==3 ) THEN
+       TangentialVelocity(2) = SUM( Velo(1:dim) * Tangent2(1:dim) )
+     END IF
+
+     Dist = SUM( LayerThickness(1:n) * Basis(1:n) )
+     IF ( Dist == 0 ) Dist = h
+     Roughness = SUM( SurfaceRoughness(1:n) * Basis(1:n) )
+
+!------------------------------------------------------------------------------
+!    Solve friction velocity and its derivative with respect to
+!    the tangential velocity:
+!------------------------------------------------------------------------------
+     FrictionVelocity=0
+     DKERR=0
+     Vabs = MAX( SQRT(SUM(Velo**2)), 1.d-8 )
+     CALL Solve_UFric( rho,mu,Dist,Roughness, &
+          Vabs,FrictionVelocity,DFX )
+     DKERR = rho*FrictionVelocity**2
+
+!------------------------------------------------------------------------------
+    DO p=1,n
+    DO q=1,n
+      DO i=1,dim
+        k1 = c*(p-1)+i
+        k2 = c*(q-1)+i
+        BoundaryMatrix(k1,k2) = BoundaryMatrix(k1,k2) - &
+              s*2*mu*SUM(dBasisdx(q,:)*Normal)*Basis(p)
+
+        BoundaryMatrix(k1,k2) = BoundaryMatrix(k1,k2) - &
+              s*2*mu*SUM(dBasisdx(p,:)*Normal)*Basis(q)
+      END DO
+    END DO
+    END DO
+
+
+     DO p=1,n
+       DO q=1,n
+         DO i=1,dim
+           k1 = c*(p-1)+i
+           k2 = c*(q-1)+i
+           BoundaryMatrix(k1,k2) = BoundaryMatrix(k1,k2) + &
+                  s * DKERR * Basis(q) * Basis(p)
+         END DO
+       END DO
+     END DO
+   END DO
+!------------------------------------------------------------------------------
+ END SUBROUTINE VmsWalls
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
  SUBROUTINE NavierStokesWallLaw( BoundaryMatrix,BoundaryVector,LayerThickness,&
@@ -1279,12 +1490,12 @@ MODULE NavierStokes
    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
    REAL(KIND=dp) :: detJ
 
-   REAL(KIND=dp) :: u,v,w,s,r,rho,mu,Dist,Roughness
+   REAL(KIND=dp) :: u,v,w,s,r,rho,mu,Dist,Roughness,SlipCoeff,Vect(3),vabs
    REAL(KIND=dp) :: Velo(3),Normal(3),Tangent(3), Tangent2(3)
-   REAL(KIND=dp) :: TangentialVelocity(2), FrictionVelocity(2),DFX(2),DKERR(2)
+   REAL(KIND=dp) :: TangentialVelocity(2), FrictionVelocity,DFX,DKERR
    REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
 
-   INTEGER :: i,j,k1,k2,t,q,p,c,dim,N_Integ
+   INTEGER :: i,j,k,k1,k2,t,q,p,c,dim,N_Integ
 
    LOGICAL :: stat
 
@@ -1337,31 +1548,24 @@ MODULE NavierStokes
      Velo(1) = SUM( Ux(1:n)*Basis(1:n) )
      Velo(2) = SUM( Uy(1:n)*Basis(1:n) )
      IF ( dim > 2 ) Velo(3) = SUM( Uz(1:n)*Basis(1:n) )
+     vabs = MAX(1.d-9,SQRT(SUM(Velo**2)))
 !------------------------------------------------------------------------------
 !    Normal & tangent directions
 !------------------------------------------------------------------------------
      Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
  
      IF ( dim <= 2 ) THEN
-       Tangent(1) = -Normal(2)
-       Tangent(2) =  Normal(1)
+       Tangent(1) =  Normal(2)
+       Tangent(2) = -Normal(1)
        Tangent(3) =  0.0d0
      ELSE
-        CALL TangentDirections( Normal, Tangent, Tangent2 ) 
+       CALL TangentDirections( Normal, Tangent, Tangent2 ) 
      END IF
+
 
      TangentialVelocity(1) = SUM( Velo(1:dim) * Tangent(1:dim) )
-     IF ( TangentialVelocity(1) < 0 ) THEN
-       Tangent = -Tangent
-       TangentialVelocity(1) = -TangentialVelocity(1)
-     END IF
-
      IF ( dim==3 ) THEN
        TangentialVelocity(2) = SUM( Velo(1:dim) * Tangent2(1:dim) )
-       IF ( TangentialVelocity(2) < 0 ) THEN
-         Tangent2 = -Tangent2
-         TangentialVelocity(2) = -TangentialVelocity(2)
-       END IF
      END IF
 
      Dist = SUM( LayerThickness(1:n) * Basis(1:n) )
@@ -1373,19 +1577,11 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
      FrictionVelocity=0
      DKERR=0
-     IF ( TangentialVelocity(1) > 0 ) THEN
-       CALL Solve_UFric( rho,mu,Dist,Roughness, &
-            TangentialVelocity(1),FrictionVelocity(1),DFX(1) )
-       DKERR(1) = 2.0d0 * rho * FrictionVelocity(1) / DFX(1)
-     END IF
+     Vabs = MAX( SQRT(SUM(Velo**2)), 1.d-8 )
+     CALL Solve_UFric( rho,mu,Dist,Roughness, &
+         Vabs,FrictionVelocity,DFX )
+     DKERR = 2.0d0 * rho * FrictionVelocity / DFX
 
-     IF ( dim==3 ) THEN
-        IF ( TangentialVelocity(2) > 0 ) THEN
-          CALL Solve_UFric( rho,mu,Dist,Roughness, &
-            TangentialVelocity(2),FrictionVelocity(2),DFX(2) )
-          DKERR(2) = 2.0d0 * rho * FrictionVelocity(2) / DFX(2)
-        END IF
-     END IF
 !------------------------------------------------------------------------------
      DO p=1,n
        DO q=1,n
@@ -1394,10 +1590,10 @@ MODULE NavierStokes
              k1 = (p-1)*c + i
              k2 = (q-1)*c + j
              BoundaryMatrix(k1,k2) = BoundaryMatrix(k1,k2) + &
-               s * DKERR(1) * Tangent(i) * Tangent(j) * Basis(q) * Basis(p)
+               s * DKERR * Tangent(i) * Tangent(j) * Basis(q) * Basis(p)
              IF ( dim==3 ) THEN
                BoundaryMatrix(k1,k2) = BoundaryMatrix(k1,k2) + &
-                 s * DKERR(2) * Tangent2(i) * Tangent2(j) * Basis(q) * Basis(p)
+                 s * DKERR * Tangent2(i) * Tangent2(j) * Basis(q) * Basis(p)
              END IF
            END DO
          END DO
@@ -1408,12 +1604,12 @@ MODULE NavierStokes
        DO i=1,dim
          k1 = (q-1)*c + i
          BoundaryVector(k1) = BoundaryVector(k1) + &
-           s * ( DKERR(1) * TangentialVelocity(1) - &
-             rho * FrictionVelocity(1)**2 ) * Tangent(i) * Basis(q)
+           s * ( DKERR * TangentialVelocity(1) - &
+             rho * FrictionVelocity**2 ) * Tangent(i) * Basis(q)
          IF ( dim==3 ) THEN
            BoundaryVector(k1) = BoundaryVector(k1) + &
-             s * ( DKERR(2) * TangentialVelocity(2) - &
-               rho * FrictionVelocity(2)**2 ) * Tangent2(i) * Basis(q)
+             s * ( DKERR * TangentialVelocity(2) - &
+               rho * FrictionVelocity**2 ) * Tangent2(i) * Basis(q)
          END IF
        END DO
      END DO
@@ -1423,3 +1619,4 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 
 END MODULE NavierStokes
+
