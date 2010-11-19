@@ -709,7 +709,7 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
 
     n_part=Particles % NumberOfParticles
     DO j=1,n
-      k=SearchIAItem( nFaces, Faces, Indexes(j) )
+      k=SearchElement( nFaces, Faces, Indexes(j) )
       IF ( k<=0 ) THEN
          PRINT*,ParEnv % myPE, 'failed'
          CYCLE
@@ -769,7 +769,7 @@ CONTAINS
   ! Search an element Item from an ordered Element_t array(N) and return
   ! Index to that array element. Return value -1 means Item was not found.
   !
-  FUNCTION SearchIAItem( N, IArray, Item ) RESULT(Indx)
+  FUNCTION SearchElement( N, IArray, Item ) RESULT(Indx)
     IMPLICIT NONE
   
     INTEGER :: Item, Indx, i
@@ -810,7 +810,7 @@ CONTAINS
         EXIT
       END IF
     END DO
-  END FUNCTION SearchIAItem
+  END FUNCTION SearchElement
 END FUNCTION ChangeParticlePartition
   
 
