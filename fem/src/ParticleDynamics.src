@@ -105,7 +105,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        Status,TimeOrder, PartitionChanges, TimeStepsTaken=0,estindexes(6),&
        ParticleStepsTaken=0, TotParticleStepsTaken, TotNoParticles, &
        FirstGhost
-  REAL(KIND=dp) :: dtime, tottime = 0.0, &
+  REAL(KIND=dp) :: dtime, tottime = 0.0, Tchar, Cchar, &
       Coord(3), Velo(3), &
       Coord2(3), Velo2(3), Force(3), Force2(3), &
       Lambda, LocalCoords(3), Rinit(3),Rfin(3)
@@ -151,7 +151,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     TimeOrder = GetInteger( Params,'Time Order',GotIt)
     IF(.NOT. GotIt) TimeOrder = 2
 
-    CALL SetParticleDimensions( Particles, dim, TimeOrder )
+    CALL SetParticlePreliminaries( Particles, dim, TimeOrder )
 
     CollisionInteraction = GetLogical( Params,'Particle Particle Collision')
     ContactInteraction = GetLogical( Params,'Particle Particle Contact')
@@ -201,6 +201,12 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     CALL InitializeParticles( Particles ) 
   END IF
 
+  IF( ParticleToField .AND. GetLogical( Params,'Reinitialize Field',GotIt) ) THEN
+    WeightVector = 0.0_dp
+    ForceVector = 0.0_dp
+  END IF
+  
+
   IF(StatInfo) THEN
     CALL ParticleStatistics( Particles, 0 )
     CALL ParticleStatistics( Particles, 1 )
@@ -236,6 +242,17 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     !--------------------------------------------------------------
     CALL ParticleInitializeTime( Particles )
 
+    ! If there is a decay time for the trace use it
+    !--------------------------------------------------------------
+    IF( ParticleToField ) THEN
+      Tchar = GetCReal( Params,'Particle To Field Decay Time',GotIt)
+      IF( GotIt ) THEN
+        Cchar = EXP( -dtime / Tchar ) 
+        WeightVector = Cchar * WeightVector 
+        ForceVector = Cchar * ForceVector 
+      END IF
+    END IF
+
     ! If there are periodic BCs apply them just before locating the particles
     !------------------------------------------------------------------------
     CALL ParticleBoxPeriodic( Particles )
@@ -244,15 +261,19 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     ! This might also not be done for some particle-only problems but those 
     ! are probably not relevant in conjunction with Elmer.
     !------------------------------------------------------------------------
+
     PartitionChanges = 0
+
     CALL LocateParticles(Particles) 
+
     PartitionChanges = ChangeParticlePartition(Particles)
+
     DO WHILE(PartitionChanges > 0)
       CALL LocateParticles(Particles,PartitionChangesOnly=.TRUE.) 
       PartitionChanges=ChangeParticlePartition(Particles)
     END DO
     NoParticles = Particles % NumberOfParticles
-   
+
     ! Calculate the force resulting from external fields in mesh
     ! and / or cumpulate the r.h.s. of matrix equation with data 
     !------------------------------------------------------------------
@@ -292,10 +313,10 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     ! If there is either collisions or contacts between particles
     ! create the structures for closest neighbours
     !------------------------------------------------------------
+    FirstGhost = 0
     IF( CollisionInteraction .OR. ContactInteraction ) THEN
       CALL CreateNeighbourList( Particles )
       NoParticles = Particles % NumberOfParticles
-      FirstGhost = 0
     END IF
 
     ! Add the forces in case of collision contacts where the
@@ -327,9 +348,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       IF( No < NoParticles ) FirstGhost = No
     END IF
 
-    IF( ANY( ISNAN( Particles % force ) ) ) PRINT *,'NAN4'
-
-
     ! Add contact interaction, for example due to granular forces
     !------------------------------------------------------------
     IF( ContactInteraction ) THEN
@@ -355,7 +373,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       END DO
       IF( No < NoParticles ) FirstGhost = No
     END IF
-    IF( ANY( ISNAN( Particles % force ) ) ) PRINT *,'NAN5'
 
     ! This assumes that the real particles are followed by ghost particles. 
     ! which are destroyed before leaving this configuration.
@@ -389,7 +406,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       WRITE( Message,'(A,F8.3)') 'Remaining time (s) :',(cput2-cput1)*(nstep-i)/i
       CALL Info('ParticleDynamics',Message)
     END IF
-
   END DO
 
   ! In the end, compute the fields
@@ -532,7 +548,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          UseGradVelo = GetLogical( Params,'Velocity Gradient Correction',Found)
        END IF
     
-      VeloCond = ListCheckPresent(Params,'Velocity Condition Variable Name')
+       VeloCond = ListCheckPresent(Params,'Velocity Condition Variable Name')
        CoordCond = ListCheckPresent(Params,'Coordinate Condition Variable Name')
 
        FieldMode = GetInteger( Params,'Particle To Field Mode',Found)
@@ -618,7 +634,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      END IF
 
      IF( GotBuoyancy ) THEN
-       CALL GetFluidPropertiesInMesh(CurrentElement, Basis, Coord, Rad, &
+       CALL GetFluidPropertiesInMesh(Particles, CurrentElement, Basis, Coord, Rad, &
            FluidDensity, FluidViscosity ) 
        Force = Force - Gravity * ParticleVolume * FluidDensity
      END IF

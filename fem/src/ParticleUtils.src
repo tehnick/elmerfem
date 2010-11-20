@@ -131,7 +131,7 @@ END SUBROUTINE SetParticleElement
 !---------------------------------------------------------
 ! Set the dimensions and bounding box related to particles
 !---------------------------------------------------------
-SUBROUTINE SetParticleDimensions(Particles,dim,TimeOrder)
+SUBROUTINE SetParticlePreliminaries(Particles,dim,TimeOrder)
 
   TYPE(Particle_t) :: Particles
   INTEGER, OPTIONAL :: dim
@@ -189,7 +189,20 @@ SUBROUTINE SetParticleDimensions(Particles,dim,TimeOrder)
   Particles % GlobalMaxCoord = MaxCoord
   
 
-END SUBROUTINE SetParticleDimensions
+  ! Create list of faces / edges 
+  !-------------------------------------------------------------------------
+  Mesh => GetMesh()
+  CALL FindMeshEdges( Mesh, .FALSE.)
+  IF ( ParEnv % PEs>1 ) THEN
+    CALL SParEdgeNumbering(Mesh,Allmesh=.TRUE.)
+    CALL SParFaceNumbering(Mesh,Allmesh=.TRUE.)
+  END IF
+
+  ! Mark elements that are not on boundary to make life faster in the future
+  !-------------------------------------------------------------------------
+  CALL MarkInternalElements( Particles )
+
+END SUBROUTINE SetParticlePreliminaries
 
 
 
@@ -1762,8 +1775,6 @@ SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
   Mesh => GetMesh()
 
 
-  IF( ANY( ISNAN( Rfin ) ) ) PRINT *,'Rfin:',Rfin,'Index',ElementIndex
-
   IF( .NOT. Visited ) THEN
     Params => GetSolverParams()
     StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
@@ -1878,22 +1889,16 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
   REAL(KIND=dp) :: Lambda
   TYPE(Mesh_t), POINTER :: Mesh
 
-  IF ( .NOT. Visited ) THEN
-    Mesh => GetMesh()
-    CALL FindMeshEdges( Mesh, .FALSE.)
-    IF ( ParEnv % PEs>1 ) THEN
-      CALL SParEdgeNumbering(Mesh,Allmesh=.TRUE.)
-      CALL SParFaceNumbering(Mesh,Allmesh=.TRUE.)
-    END IF
-    Visited = .TRUE.
-  END IF
 
   NoParticles = Particles % NumberOfParticles
   dim = Particles % dim
   
+
   DO No = 1, NoParticles
+
     Status = Particles % Status( No )
-    IF( Status == PARTICLE_LOST ) CYCLE
+
+    IF( Status >= PARTICLE_LOST ) CYCLE
     IF( Status < PARTICLE_INITIATED ) CYCLE
 
     IF ( PRESENT(PartitionChangesOnly) ) THEN
@@ -1909,7 +1914,7 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
 
     ! Note that if we want proper collisions with the boundary done within this
     ! routine the initial coordinates should really not be rfin!!
-
+    !---------------------------------------------------------------------------
     CALL LocateParticleInMeshMarch(ElementIndex, Rfin, Rfin, InitLocation, &
         Status, FaceIndex, Lambda )
 
@@ -1919,6 +1924,106 @@ SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
   END DO
 
 END SUBROUTINE LocateParticles
+
+
+
+
+
+SUBROUTINE MarkInternalElements( Particles )
+  
+  TYPE(Particle_t) :: Particles
+  TYPE(Element_t), POINTER :: BulkElement, BulkElement2, BoundaryElement
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(ValueList_t), POINTER :: Body, Body2
+  INTEGER :: t,i,j,imax,body_id,body_id2,mat_id,mat_id2,bf_id,bf_id2,dim
+  INTEGER :: NumberOfElements
+  LOGICAL, POINTER :: InternalElements(:)
+  LOGICAL :: Found,Hit
+
+  Mesh => GetMesh()
+  Dim = Mesh % MeshDim
+  NumberOfElements = Mesh % NumberOfBulkElements
+
+  IF(.NOT. ASSOCIATED( Particles % InternalElements )) THEN
+    ALLOCATE( Particles % InternalElements(NumberOfElements) )
+  END IF
+
+  InternalElements => Particles % InternalElements
+  InternalElements = .TRUE.
+
+  DO t=1,NumberOfElements
+    BulkElement => Mesh % Elements(t)
+
+    body_id = BulkElement % BodyId
+    Body => CurrentModel % Bodies(body_id) % Values
+    mat_id = ListGetInteger( Body,'Material')
+    bf_id = ListGetInteger( Body,'Body Force',Found)
+
+    IF( dim == 3 ) THEN
+      imax = BulkElement % TYPE % NumberOfFaces 
+    ELSE
+      imax = BulkElement % TYPE % NumberOfEdges  
+    END IF
+
+    Hit = .FALSE.
+
+    DO i=1, imax
+      IF( dim == 3 ) THEN
+        j = BulkElement % FaceIndexes(i)
+        BoundaryElement => Mesh % Faces( j )
+      ELSE
+        j = BulkElement % EdgeIndexes(i)
+        BoundaryElement => Mesh % Edges(j)
+      END IF
+
+      IF( .NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
+      
+      IF( ASSOCIATED( BulkElement, BoundaryElement % BoundaryInfo % Right ) ) THEN
+        BulkElement2 => BoundaryElement % BoundaryInfo % Left
+      ELSE
+        BulkElement2 => BoundaryElement % BoundaryInfo % Right
+      END IF
+      
+      IF( ASSOCIATED( BulkElement2 )) THEN
+        body_id2 = BulkElement2 % BodyId
+      ELSE      
+        body_id2 = 0
+      END IF
+
+      ! If the bodies are the same then there is no boundary
+      IF( body_id2 == body_id ) CYCLE
+
+      ! if the other body does not exist then there is boundary 
+      IF( mat_id2 /= 0 ) THEN
+        Hit = .TRUE.
+        EXIT
+      END IF
+
+      Body2 => CurrentModel % Bodies(body_id2) % Values
+
+      mat_id2 = ListGetInteger( Body,'Material')
+      IF( mat_id2 /= mat_id ) THEN
+        Hit = .TRUE.
+        EXIT
+      END IF
+
+      bf_id2 = ListGetInteger( Body,'Body Force',Found)
+      IF( bf_id2 /= bf_id ) THEN
+        Hit = .TRUE.
+        EXIT
+      END IF
+    END DO
+
+    IF( Hit ) InternalElements(t) = .FALSE.
+  END DO
+  
+  i = COUNT( InternalElements )
+  j = NumberOfElements - i
+
+  PRINT *,'Internal Elements',i,j
+
+
+END SUBROUTINE MarkInternalElements
 
 
 
@@ -2070,8 +2175,10 @@ END SUBROUTINE GetVelocityInMesh
 ! The routine returns a density of mesh
 !--------------------------------------------------------------------------
 
-SUBROUTINE GetFluidPropertiesInMesh(BulkElement, Basis, Coord, Radius, Density, Viscosity ) 
+SUBROUTINE GetFluidPropertiesInMesh(Particles, BulkElement, Basis, Coord, &
+    Radius, Density, Viscosity ) 
   
+  TYPE(Particle_t) :: Particles
   TYPE(Element_t), POINTER :: BulkElement
   REAL(KIND=dp) :: Basis(:)
   REAL(KIND=dp) :: Coord(3), Radius
@@ -2114,6 +2221,9 @@ SUBROUTINE GetFluidPropertiesInMesh(BulkElement, Basis, Coord, Radius, Density, 
     
   ! If the radius of the particle is zero then it sees only the properties of one point
   IF( Radius < TINY( Radius ) ) RETURN
+
+  ! This element has no boundary / material interface
+  IF( Particles % InternalElements( BulkElement % ElementIndex ) ) RETURN
 
   IF( dim == 3 ) THEN
     imax = BulkElement % TYPE % NumberOfFaces 
@@ -3371,6 +3481,9 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
   ElementIndex = Particles % ElementIndex( No ) 
   IF( ElementIndex == 0 ) RETURN
   
+  IF( Particles % InternalElements(  ElementIndex ) ) RETURN
+
+
   BulkElement => Mesh % Elements( ElementIndex )
   
   IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
@@ -3756,7 +3869,7 @@ END SUBROUTINE ParticleWallContact
       TYPE(Nodes_t) :: Nodes
       REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
       REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
-      REAL(KIND=dp) :: Coeff, detJ
+      REAL(KIND=dp) :: Coeff, detJ, RealWeightSum, IdealWeightSum, WeightCorr, val
       TYPE(Matrix_t), POINTER :: StiffMatrix 
       LOGICAL :: stat, Normalize, Visited = .FALSE.
       
@@ -3785,6 +3898,7 @@ END SUBROUTINE ParticleWallContact
       StiffMatrix => Solver % Matrix
 
       Normalize = GetLogical( Solver % Values,'Particle Property Normalize')
+      IdealWeightSum = 0.0_dp
       
       DO t=1,active
         Element => GetActiveElement(t)
@@ -3807,8 +3921,10 @@ END SUBROUTINE ParticleWallContact
           ! Finally, the elemental matrix & vector:
           !----------------------------------------
           DO i=1,n
+            val = IP % s(k) * DetJ * Basis(i) 
+            IdealWeightSum = IdealWeightSum + val
             IF(.NOT. Normalize ) THEN
-              STIFF(i,i) = STIFF(i,i) + IP % s(k) * DetJ * Basis(i) 
+              STIFF(i,i) = STIFF(i,i) + val
             END IF
             
             ! This condition removes the natural boundary condition that would 
@@ -3825,15 +3941,24 @@ END SUBROUTINE ParticleWallContact
         CALL DefaultUpdateEquations( STIFF, FORCE )
       END DO
 
-      ! Set the weight to the diagonal i.e. make the mass matrix contribution  
       IF( Normalize ) THEN
+        ! Set the weight to the diagonal i.e. make the mass matrix contribution  
+        ! The data is normalized so that if it would be constant it would yield the 
+        ! same equation as the normal one and the weights would also be constant.
+        ! This way diffusion will not depend on the amount of data, whether
+        ! that is desirable, or not, I don't know. 
+        !-----------------------------------------------------------------------
+        RealWeightSum = SUM( WeightVector ) 
+        WeightCorr = IdealWeightSum / RealWeightSum 
         StiffMatrix => Solver % Matrix
         DO i=1,SIZE( WeightVector ) 
-          CALL AddToMatrixElement( StiffMatrix,i,i,WeightVector(i))
+          val = WeightCorr * WeightVector(i)  
+          CALL AddToMatrixElement( StiffMatrix,i,i,val )
         END DO
+        StiffMatrix % rhs = WeightCorr * ForceVector        
+      ELSE
+        StiffMatrix % rhs = ForceVector
       END IF
-
-      StiffMatrix % rhs = ForceVector
 
     END SUBROUTINE BulkAssembly
 
