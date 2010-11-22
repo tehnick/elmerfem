@@ -984,7 +984,7 @@ CONTAINS
       LOGICAL :: ReturnType, ScanOnly, String_literal,  SizeGiven, Cubic
 
       INTEGER(KIND=AddrInt) :: Proc
-      INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, TYPE, abuflen=0
+      INTEGER :: i,j,k,l,n,slen, str_beg, str_end, n1,n2, TYPE, abuflen=0,maxbuflen=0
 
       ALLOCATE( ATt(1), ATx(1,1,1), IValues(1) )
 
@@ -1140,7 +1140,7 @@ CONTAINS
                    AbufLen=0
                  ELSE
                    IF (ALLOCATED(ATt) ) DEALLOCATE(ATt,ATx)
-                   ALLOCATE( ATt(ABufLen), ATx(n1,n2,AbufLen) )
+                   ALLOCATE( ATt(MaxBufLen), ATx(n1,n2,MaxBufLen) )
                  END IF
  
                  Cubic = str(str_beg:str_beg+4)=='cubic'
@@ -1193,6 +1193,7 @@ CONTAINS
                                    ATx(1,1,1:n),CubicTable=Cubic )
                    END IF
                  END IF
+                 MaxBufLen = MAX(MaxBuflen, Abuflen)
                END SELECT
              END IF
              EXIT
