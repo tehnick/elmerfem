@@ -1564,8 +1564,16 @@ MODULE NavierStokes
 
 
      TangentialVelocity(1) = SUM( Velo(1:dim) * Tangent(1:dim) )
+     IF ( TangentialVelocity(1) < 0 ) THEN
+       Tangent = -Tangent
+       TangentialVelocity(1) = -TangentialVelocity(1)
+     END IF
      IF ( dim==3 ) THEN
        TangentialVelocity(2) = SUM( Velo(1:dim) * Tangent2(1:dim) )
+       IF ( TangentialVelocity(2) < 0 ) THEN
+         Tangent2 = -Tangent2
+         TangentialVelocity(2) = -TangentialVelocity(2)
+       END IF
      END IF
 
      Dist = SUM( LayerThickness(1:n) * Basis(1:n) )
@@ -1577,7 +1585,7 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
      FrictionVelocity=0
      DKERR=0
-     Vabs = MAX( SQRT(SUM(Velo**2)), 1.d-8 )
+     Vabs = MAX( SQRT(SUM(Velo**2)), 1.d-18 )
      CALL Solve_UFric( rho,mu,Dist,Roughness, &
          Vabs,FrictionVelocity,DFX )
      DKERR = 2.0d0 * rho * FrictionVelocity / DFX
