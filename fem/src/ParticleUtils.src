@@ -447,9 +447,8 @@ END SUBROUTINE AllocateParticles
 !----------------------------------------------------
 ! Delete lost particles:
 !----------------------------------------------------
-SUBROUTINE DeleteLostParticles(Particles,DeleteBC)
+SUBROUTINE DeleteLostParticles(Particles)
   TYPE(Particle_t) :: Particles
-  LOGICAL, OPTIONAL :: DeleteBC
 
   INTEGER :: No, n, PrevNoParticles
 
@@ -458,9 +457,6 @@ SUBROUTINE DeleteLostParticles(Particles,DeleteBC)
   n = 0
   DO No=1,PrevNoParticles
     IF ( Particles % Status(No) == PARTICLE_LOST ) CYCLE
-    IF ( PRESENT(DeleteBC)) THEN
-      IF( DeleteBC .AND. Particles % Status(No) == PARTICLE_WALLBOUNDARY ) CYCLE
-    END IF
 
     n=n+1
     IF ( n==No ) CYCLE
@@ -497,6 +493,56 @@ SUBROUTINE DeleteLostParticles(Particles,DeleteBC)
     Particles % Status(n+1:PrevNoParticles) = PARTICLE_ALLOCATED
   END IF
 END SUBROUTINE DeleteLostParticles
+
+
+
+SUBROUTINE EliminateExitingParticles( Particles )
+  
+  TYPE(Particle_t) :: Particles
+  INTEGER :: NoParticles, No, DeletedParticles, dim, CumDeleted = 0, LimDeleted
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Element_t), POINTER :: Face
+
+  SAVE CumDeleted 
+
+  NoParticles = Particles % NumberOfParticles
+  dim = Particles % dim
+  Mesh => GetMesh()
+
+  
+  ! Some heuristics is used when to activate the deleting of particles
+  ! Check for co-operation with parallel stuff.
+  !-------------------------------------------------------------------
+  LimDeleted = MAX( NINT( SQRT( 1.0_dp * NoParticles ) ), 20 )
+!  LimDeleted = 0
+
+  DeletedParticles = 0
+  DO No=1, NoParticles
+    IF( Particles % Status(No) == PARTICLE_WALLBOUNDARY ) THEN
+
+      ! This is to prepare for the boundary assembly routine 
+      ! of lost particles.
+      !-----------------------------------------------------
+      IF ( dim==2 ) THEN
+        Face => Mesh % Edges(Particles % FaceIndex(No))
+      ELSE
+        Face => Mesh % Faces(Particles % FaceIndex(No))
+      END IF
+
+      DeletedParticles = DeletedParticles + 1
+      Particles % Status(No) = PARTICLE_LOST
+    END IF
+  END DO
+
+  CumDeleted = CumDeleted + DeletedParticles
+
+  IF( CumDeleted > LimDeleted ) THEN
+    PRINT *,'Number of deleted particles:',CumDeleted, DeletedParticles, LimDeleted
+    CALL DeleteLostParticles( Particles ) 
+    CumDeleted = 0
+  END IF
+
+END SUBROUTINE EliminateExitingParticles
 
 
 !----------------------------------------------------
@@ -565,6 +611,7 @@ SUBROUTINE ReleaseWaitingParticles(Particles)
   NoParticles = Particles % NumberOfParticles
   IF( ReleaseCount >= NoParticles ) RETURN
 
+
   ! Get the size of the current release set
   !-------------------------------------------------------
   Params => GetSolverParams()
@@ -577,6 +624,9 @@ SUBROUTINE ReleaseWaitingParticles(Particles)
       ReleaseSet = NINT( ReleaseFraction * NoParticles ) 
     END IF
   END IF
+PRINT *,'Releasing:',NoParticles,ReleaseCount, ReleaseSet
+
+
   IF( ReleaseSet <= 0 ) RETURN
 
   ! Release some waiting particles
@@ -591,6 +641,7 @@ SUBROUTINE ReleaseWaitingParticles(Particles)
     END IF
   END DO
   ReleaseCount = ReleaseCount + j
+  
 
 END SUBROUTINE ReleaseWaitingParticles
 
@@ -655,7 +706,7 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
   Info % n = 0
 
   DO i=1,Particles % NumberOfParticles
-    IF( Particles % Status(i)/=PARTICLE_WALLBOUNDARY ) CYCLE
+    IF( Particles % Status(i) /= PARTICLE_WALLBOUNDARY ) CYCLE
 
     IF ( dim==2 ) THEN
        Face => Mesh % Edges(Particles % FaceIndex(i))
@@ -682,7 +733,7 @@ FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
             Info(k) % n=Info(k) % n+1
             Particles % Status(i) = PARTICLE_PARTBOUNDARY
           ELSE 
-            Particles % Status(i)=PARTICLE_LOST
+            Particles % Status(i) = PARTICLE_LOST
           END IF
           EXIT
         END IF
@@ -2506,19 +2557,21 @@ SUBROUTINE CreateNeighbourList( Particles )
 
   Mesh => GetMesh()
   NoNodes = Mesh % NumberOfNodes
-
   NoParticles = Particles % NumberOfParticles
+  dim = Particles % dim 
+  
   IF( .NOT. Particles % NeighbourTable ) THEN
+    PRINT *,'allocate'
     ALLOCATE( Particles % NoClosestParticle( NoNodes ) ) 
     ALLOCATE( Particles % CumClosestParticle( NoNodes+1 ) ) 
+    ALLOCATE( Particles % ClosestNode(NoParticles) )
     Particles % NeighbourTable = .TRUE.
   END IF
 
-  IF ( ASSOCIATED(Particles % ClosestNode) ) &
-   DEALLOCATE(Particles % ClosestNode )
-  ALLOCATE( Particles % ClosestNode(Particles % MaxNumberOfParticles) )
-  
-  dim = Particles % dim 
+  IF( SIZE( Particles % ClosestNode ) < NoParticles ) THEN
+    PRINT *,'sizes:',NoParticles,SIZE(Particles % ClosestNode ) 
+    CALL Fatal('CreateNeighbourList','ClosestNode vector of wrong size')
+  END IF
 
   ! First find the closest node to each particle
   !-----------------------------------------------
@@ -2581,6 +2634,7 @@ SUBROUTINE CreateNeighbourList( Particles )
     Particles % ClosestParticle(k+j) = i
     Particles % NoClosestParticle(node) = j + 1
   END DO
+
 END SUBROUTINE CreateNeighbourList
 
 
@@ -4056,7 +4110,8 @@ END SUBROUTINE ParticleWallContact
     
     TYPE(ValueList_t),POINTER :: Params
     INTEGER, SAVE :: nTime = 0
-    LOGICAL :: GotIt, Parallel, FixedMesh, DeleteBC
+    LOGICAL :: GotIt, Parallel, FixedMeshend
+    
     CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
     CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
     TYPE(Mesh_t), POINTER :: Mesh
@@ -4083,8 +4138,6 @@ END SUBROUTINE ParticleWallContact
     END IF
     FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
     
-    DeleteBC = ListGetLogical( Params,'Delete Wall Particles',GotIt)
-    
     IF ( nTime == 1 ) THEN
       FilePrefix = GetString( Params,'Filename Prefix')
       CALL Info('ParticleOutputVtu','Saving results in VTK XML format to file:'//TRIM(FilePrefix))
@@ -4102,10 +4155,7 @@ END SUBROUTINE ParticleWallContact
     Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
     
     Dim = Particles % dim
-    
-    CALL DeleteLostParticles(Particles,DeleteBC)
-    
-    
+        
     NumberOfNodes = 0
     DO i=1,Particles % NumberOfParticles
       IF ( Particles % Status(i) > MaxSaveStatus .OR. &
@@ -4263,6 +4313,7 @@ END SUBROUTINE ParticleWallContact
       WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
       
       
+      j = 0
       DO i = 1, Particles % NumberOfParticles
         IF ( Particles % Status(i) > MaxSaveStatus .OR. &
             Particles % Status(i) < MinSaveStatus )  CYCLE
