@@ -496,18 +496,33 @@ END SUBROUTINE DeleteLostParticles
 
 
 
+!----------------------------------------------------
+! Set particles that are still sitting on boundary to 
+! leave the premises and call for their delition.
+!----------------------------------------------------
 SUBROUTINE EliminateExitingParticles( Particles )
   
   TYPE(Particle_t) :: Particles
   INTEGER :: NoParticles, No, DeletedParticles, dim, CumDeleted = 0, LimDeleted
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Element_t), POINTER :: Face
+  TYPE(Element_t), POINTER :: BoundaryElement
+  REAL(KIND=dp) :: Dist, Coord(3), Normal(3), SqrtElementMetric
+  REAL(KIND=dp), POINTER :: Basis(:)
+  TYPE(Nodes_t) :: BoundaryNodes
+  INTEGER :: n
+  LOGICAL :: Stat, Visited = .FALSE.
 
-  SAVE CumDeleted 
+  SAVE Visited, CumDeleted, BoundaryNodes, Basis
 
   NoParticles = Particles % NumberOfParticles
   dim = Particles % dim
   Mesh => GetMesh()
+
+  IF(.NOT. Visited ) THEN
+    Visited = .TRUE.
+    n = Mesh % MaxElementNodes
+    ALLOCATE( Basis(n) )
+  END IF
 
   
   ! Some heuristics is used when to activate the deleting of particles
@@ -524,9 +539,24 @@ SUBROUTINE EliminateExitingParticles( Particles )
       ! of lost particles.
       !-----------------------------------------------------
       IF ( dim==2 ) THEN
-        Face => Mesh % Edges(Particles % FaceIndex(No))
+        BoundaryElement => Mesh % Edges(Particles % FaceIndex(No))
       ELSE
-        Face => Mesh % Faces(Particles % FaceIndex(No))
+        BoundaryElement => Mesh % Faces(Particles % FaceIndex(No))
+      END IF
+
+      Coord(1:dim) = Particles % Coordinate(No,1:dim)
+      CALL GetElementNodes(BoundaryNodes,BoundaryElement)
+
+      Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
+
+      Coord(1:dim) = Coord(1:dim) + Dist * Normal(1:dim)
+      stat = ParticleElementInfo( BoundaryElement, Coord, &
+          SqrtElementMetric, Basis ) 
+      
+      IF( .NOT. Stat ) THEN
+        PRINT *,'Coord(1:dim)',Coord
+        PRINT *,'BoundaryNodes',BoundaryNodes % x(1:2), BoundaryNodes % y(1:2)
+        PRINT *,'Basis',Basis(1:2)
       END IF
 
       DeletedParticles = DeletedParticles + 1
@@ -2578,7 +2608,8 @@ SUBROUTINE CreateNeighbourList( Particles )
   Particles % ClosestNode = 0
   Particles % NoClosestParticle = 0
   DO i=1,NoParticles 
-    IF( Particles % Status(i) == PARTICLE_LOST ) CYCLE
+    IF( Particles % Status(i) >= PARTICLE_LOST ) CYCLE
+    IF( Particles % Status(i) < PARTICLE_INITIATED ) CYCLE
 
     ElementIndex = Particles % ElementIndex(i)
     Element => Mesh % Elements( ElementIndex )
@@ -2628,6 +2659,7 @@ SUBROUTINE CreateNeighbourList( Particles )
   Particles % ClosestParticle = 0
   DO i=1,NoParticles     
     IF ( Particles % Status(i) == PARTICLE_LOST ) CYCLE
+    IF ( Particles % Status(i) < PARTICLE_INITIATED ) CYCLE
     node = Particles % ClosestNode(i) 
     j = Particles % NoClosestParticle(node) 
     k = Particles % CumClosestParticle(node)
