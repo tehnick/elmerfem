@@ -128,8 +128,126 @@ SUBROUTINE SetParticleElement(Particles,No,Index )
 END SUBROUTINE SetParticleElement
 
 
+
 !---------------------------------------------------------
-! Set the dimensions and bounding box related to particles
+! The subroutine marks the elements which are not on the 
+! boundary, either internal or external one. 
+! This information may be used to speed up different 
+! loops where particle-boundary interaction is needed.
+!---------------------------------------------------------
+SUBROUTINE MarkInternalElements( Particles )
+ 
+  TYPE(Particle_t) :: Particles
+  TYPE(Element_t), POINTER :: BulkElement, BulkElement2, BoundaryElement
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(ValueList_t), POINTER :: Body, Body2
+  INTEGER :: t,i,j,imax,body_id,body_id2,mat_id,mat_id2,bf_id,bf_id2,dim,istat
+  INTEGER :: NumberOfElements
+  LOGICAL, POINTER :: InternalElements(:)
+  LOGICAL :: Found,Hit
+
+  Mesh => GetMesh()
+  Dim = Mesh % MeshDim
+  NumberOfElements = Mesh % NumberOfBulkElements
+
+  IF(.NOT. ASSOCIATED( Particles % InternalElements )) THEN
+    ALLOCATE( Particles % InternalElements(NumberOfElements),STAT=istat )
+    IF( istat /= 0 ) THEN
+      CALL Fatal('MarkInternalElements','Allocation error 1')
+    END IF
+  END IF
+
+  InternalElements => Particles % InternalElements
+  InternalElements = .TRUE.
+
+  DO t=1,NumberOfElements
+
+   BulkElement => Mesh % Elements(t)
+
+    body_id = BulkElement % BodyId
+
+    IF(.FALSE.) THEN
+      Body => CurrentModel % Bodies(body_id) % Values
+      mat_id = ListGetInteger( Body,'Material',Found)
+      bf_id = ListGetInteger( Body,'Body Force',Found)
+    END IF
+
+    IF( dim == 3 ) THEN
+      imax = BulkElement % TYPE % NumberOfFaces 
+    ELSE
+      imax = BulkElement % TYPE % NumberOfEdges  
+    END IF
+
+    Hit = .FALSE.
+
+    DO i=1, imax
+      IF( dim == 3 ) THEN
+        j = BulkElement % FaceIndexes(i)
+        BoundaryElement => Mesh % Faces( j )
+      ELSE
+        j = BulkElement % EdgeIndexes(i)
+        BoundaryElement => Mesh % Edges(j)
+      END IF
+
+      IF( .NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
+      
+      IF( ASSOCIATED( BulkElement, BoundaryElement % BoundaryInfo % Right ) ) THEN
+        BulkElement2 => BoundaryElement % BoundaryInfo % Left
+      ELSE
+        BulkElement2 => BoundaryElement % BoundaryInfo % Right
+      END IF
+      
+      ! A true boundary element
+      IF( .NOT. ASSOCIATED( BulkElement2 )) THEN
+        Hit = .TRUE.
+        EXIT
+      END IF
+       
+      body_id2 = BulkElement2 % BodyId
+      IF( body_id2 == body_id ) CYCLE
+
+      ! If the bodies are the same then there is no boundary
+      IF(.TRUE.) THEN
+        IF( body_id2 /= body_id ) THEN
+          Hit = .TRUE.
+          EXIT
+        END IF
+      ELSE        
+        Body2 => CurrentModel % Bodies(body_id2) % Values
+        
+        mat_id2 = ListGetInteger( Body2,'Material')
+        IF( mat_id2 /= mat_id ) THEN
+          Hit = .TRUE.
+          EXIT
+        END IF
+
+        bf_id2 = ListGetInteger( Body2,'Body Force',Found)
+        IF( bf_id2 /= bf_id ) THEN
+          Hit = .TRUE.
+          EXIT
+        END IF
+      END IF
+    END DO
+
+    IF( Hit ) InternalElements(t) = .FALSE.
+  END DO
+
+  i = COUNT( InternalElements )
+  j = NumberOfElements - i
+
+  PRINT *,'Internal Elements',i
+  PRINT *,'Interface Elements',j
+
+
+END SUBROUTINE MarkInternalElements
+
+
+
+
+!---------------------------------------------------------
+! Set up some preliminary information needed for the 
+! particler tracker: timeorder, space dimension, 
+! bounding box, and mesh edges/faces.
 !---------------------------------------------------------
 SUBROUTINE SetParticlePreliminaries(Particles,dim,TimeOrder)
 
@@ -140,7 +258,6 @@ SUBROUTINE SetParticlePreliminaries(Particles,dim,TimeOrder)
   TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), s(3)
   INTEGER :: ierr
-
 
   Mesh => GetMesh()
   IF( .NOT. ASSOCIATED( Mesh ) ) THEN
@@ -174,6 +291,7 @@ SUBROUTINE SetParticlePreliminaries(Particles,dim,TimeOrder)
   Particles % LocalMinCoord = MinCoord
   Particles % LocalMaxCoord = MaxCoord
  
+
   ! Make a parallel reduction
   IF( ParEnv % PEs > 1 ) THEN
     s = MinCoord
@@ -193,7 +311,7 @@ SUBROUTINE SetParticlePreliminaries(Particles,dim,TimeOrder)
   !-------------------------------------------------------------------------
   Mesh => GetMesh()
   CALL FindMeshEdges( Mesh, .FALSE.)
-  IF ( ParEnv % PEs>1 ) THEN
+  IF ( ParEnv % PEs > 1 ) THEN
     CALL SParEdgeNumbering(Mesh,Allmesh=.TRUE.)
     CALL SParFaceNumbering(Mesh,Allmesh=.TRUE.)
   END IF
@@ -921,7 +1039,9 @@ END SUBROUTINE ParticleStatistics
 
 
 !---------------------------------------------------------
-! Computes the characterestic speed for time integration
+! Computes the characterestic speed for time integration.
+! The speed may be either computed for the whole set or
+! alternatively to just one particle.
 !---------------------------------------------------------
 FUNCTION CharacteristicSpeed( Particles, No ) RESULT ( CharSpeed )
   TYPE(Particle_t) :: Particles
@@ -991,6 +1111,8 @@ END FUNCTION CharacteristicSpeed
 
 !---------------------------------------------------------
 ! Computes the characterestic time spent in an element
+! Currently computed just for one element as computing the 
+! size of element is a timeconsuming operation.
 !---------------------------------------------------------
 FUNCTION CharacteristicElementTime( Particles, No ) RESULT ( CharTime )
     
@@ -1195,13 +1317,11 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     MaxCoord(2) = GetCReal( Params,'Max Initial Coordinate 2',GotIt) 
     IF(.NOT. GotIt) MaxCoord(2) = Particles % LocalMaxCoord(2) - eps
     
-    IF( dim == 3 ) THEN
-      MinCoord(3) = GetCReal( Params,'Min Initial Coordinate 3',GotIt) 
-      IF(.NOT. GotIt) MinCoord(3) = Particles % LocalMinCoord(3) 
-      
-      MaxCoord(3) = GetCReal( Params,'Max Initial Coordinate 3',GotIt) 
-      IF(.NOT. GotIt) MaxCoord(3) = Particles % LocalMaxCoord(3) - eps
-    END IF
+    MinCoord(3) = GetCReal( Params,'Min Initial Coordinate 3',GotIt) 
+    IF(.NOT. GotIt) MinCoord(3) = Particles % LocalMinCoord(3) 
+    
+    MaxCoord(3) = GetCReal( Params,'Max Initial Coordinate 3',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(3) = Particles % LocalMaxCoord(3) - eps
   END IF
 
 
@@ -1221,6 +1341,10 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     ELSE
       nz = 1
     END IF
+
+    PRINT *,'n:',nx,ny,nz,nx*ny*nz
+    PRINT *,'Min:',MinCoord
+    PRINT *,'Max:',MaxCoord
   END IF
 
 
@@ -1550,11 +1674,10 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
     !-------------------------------------------------------
     IF( ListGetLogical(Params,'Initial Coordinate Search',gotIt) ) THEN
       Coord = 0.0_dp
-      ElementIndex = 0
       DO i=1,NewParticles
         k = Offset + i
-        IF( Particles % ElementIndex(k) > 0 ) CYCLE
-        
+        ElementIndex = Particles % ElementIndex(k)
+        IF( ElementIndex > 0 ) CYCLE       
         Coord(1:dim) = Coordinate(k,:) 
         CALL LocateParticleInMeshOctree( ElementIndex, Coord )
         Particles % ElementIndex(k) = ElementIndex
@@ -1604,7 +1727,6 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
 
   SAVE  Visited
 
-  
   MinLambda = HUGE( MinLambda ) 
   Epsilon = TINY( Lambda ) 
   FaceElement => Null()
@@ -1647,10 +1769,6 @@ SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles )
   END IF
 
 END SUBROUTINE SegmentElementIntersection
-
-
-
-
 
 
 !------------------------------------------------------------------------
@@ -1712,7 +1830,7 @@ SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
     CALL BuildQuadrantTree( Mesh,BoundingBox,Mesh % RootQuadrant)
   END IF
   RootQuadrant => Mesh % RootQuadrant
-  
+
   Element => Null()
   ElementIndex = 0
   CALL FindLeafElements(GlobalCoords, Mesh % MeshDim, RootQuadrant, LeafQuadrant)
@@ -1879,6 +1997,8 @@ END SUBROUTINE LocateParticleInMeshMarch
 !-------------------------------------------------------------------------
 SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
 
+  USE Lists
+
   TYPE(Particle_t) :: Particles
   LOGICAL, OPTIONAL :: PartitionChangesOnly
 
@@ -1927,113 +2047,13 @@ END SUBROUTINE LocateParticles
 
 
 
-
-
-SUBROUTINE MarkInternalElements( Particles )
-  
-  TYPE(Particle_t) :: Particles
-  TYPE(Element_t), POINTER :: BulkElement, BulkElement2, BoundaryElement
-  TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(ValueList_t), POINTER :: Body, Body2
-  INTEGER :: t,i,j,imax,body_id,body_id2,mat_id,mat_id2,bf_id,bf_id2,dim
-  INTEGER :: NumberOfElements
-  LOGICAL, POINTER :: InternalElements(:)
-  LOGICAL :: Found,Hit
-
-  Mesh => GetMesh()
-  Dim = Mesh % MeshDim
-  NumberOfElements = Mesh % NumberOfBulkElements
-
-  IF(.NOT. ASSOCIATED( Particles % InternalElements )) THEN
-    ALLOCATE( Particles % InternalElements(NumberOfElements) )
-  END IF
-
-  InternalElements => Particles % InternalElements
-  InternalElements = .TRUE.
-
-  DO t=1,NumberOfElements
-    BulkElement => Mesh % Elements(t)
-
-    body_id = BulkElement % BodyId
-    Body => CurrentModel % Bodies(body_id) % Values
-    mat_id = ListGetInteger( Body,'Material')
-    bf_id = ListGetInteger( Body,'Body Force',Found)
-
-    IF( dim == 3 ) THEN
-      imax = BulkElement % TYPE % NumberOfFaces 
-    ELSE
-      imax = BulkElement % TYPE % NumberOfEdges  
-    END IF
-
-    Hit = .FALSE.
-
-    DO i=1, imax
-      IF( dim == 3 ) THEN
-        j = BulkElement % FaceIndexes(i)
-        BoundaryElement => Mesh % Faces( j )
-      ELSE
-        j = BulkElement % EdgeIndexes(i)
-        BoundaryElement => Mesh % Edges(j)
-      END IF
-
-      IF( .NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
-      
-      IF( ASSOCIATED( BulkElement, BoundaryElement % BoundaryInfo % Right ) ) THEN
-        BulkElement2 => BoundaryElement % BoundaryInfo % Left
-      ELSE
-        BulkElement2 => BoundaryElement % BoundaryInfo % Right
-      END IF
-      
-      IF( ASSOCIATED( BulkElement2 )) THEN
-        body_id2 = BulkElement2 % BodyId
-      ELSE      
-        body_id2 = 0
-      END IF
-
-      ! If the bodies are the same then there is no boundary
-      IF( body_id2 == body_id ) CYCLE
-
-      ! if the other body does not exist then there is boundary 
-      IF( mat_id2 /= 0 ) THEN
-        Hit = .TRUE.
-        EXIT
-      END IF
-
-      Body2 => CurrentModel % Bodies(body_id2) % Values
-
-      mat_id2 = ListGetInteger( Body,'Material')
-      IF( mat_id2 /= mat_id ) THEN
-        Hit = .TRUE.
-        EXIT
-      END IF
-
-      bf_id2 = ListGetInteger( Body,'Body Force',Found)
-      IF( bf_id2 /= bf_id ) THEN
-        Hit = .TRUE.
-        EXIT
-      END IF
-    END DO
-
-    IF( Hit ) InternalElements(t) = .FALSE.
-  END DO
-  
-  i = COUNT( InternalElements )
-  j = NumberOfElements - i
-
-  PRINT *,'Internal Elements',i,j
-
-
-END SUBROUTINE MarkInternalElements
-
-
-
 !--------------------------------------------------------------------------
 ! Given the element & global coordinates returns the local coordinates.
 ! The idea of this routine is to transparently block the local coordinate
 ! search from the user by directly giving the basis function values related
 ! to a global coordinate.
 !--------------------------------------------------------------------------
-FUNCTION GlobalElementInfo( CurrentElement, GlobalCoord, &
+FUNCTION ParticleElementInfo( CurrentElement, GlobalCoord, &
     SqrtElementMetric, Basis, dBasisdx ) RESULT ( stat )
   
   TYPE(Element_t), POINTER :: CurrentElement
@@ -2055,6 +2075,7 @@ FUNCTION GlobalElementInfo( CurrentElement, GlobalCoord, &
       GlobalCoord, LocalCoord ) 
   IF( .NOT. Stat ) THEN
     CALL Warn('GlobalElementInfo','Should have found the node!')
+    PRINT *,'GlobalCoord:',GlobalCoord
     RETURN
   END IF
   
@@ -2065,7 +2086,7 @@ FUNCTION GlobalElementInfo( CurrentElement, GlobalCoord, &
   stat = ElementInfo( CurrentElement, ElementNodes, U, V, W, SqrtElementMetric, &
       Basis, dBasisdx )
 
-END FUNCTION GlobalElementInfo
+END FUNCTION ParticleElementInfo
 
 
 
@@ -2077,153 +2098,189 @@ END FUNCTION GlobalElementInfo
 ! has to be done...
 !--------------------------------------------------------------------------
 
-SUBROUTINE GetVelocityInMesh(CurrentElement, Basis, Velo, dBasisdx, GradVelo )
+SUBROUTINE GetVectorFieldInMesh(Var, CurrentElement, Basis, Velo, dBasisdx, GradVelo )
   
+  TYPE(Variable_t), POINTER :: Var
   TYPE(Element_t) :: CurrentElement
   REAL(KIND=dp) :: Basis(:), Velo(:) 
   REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradVelo(:,:)
 
+  INTEGER, POINTER :: LocalPerm(:)
+  REAL(KIND=dp), POINTER :: LocalVelo(:,:)
   INTEGER, POINTER :: NodeIndexes(:)
-  TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Variable_t), POINTER :: Var
-  CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
   INTEGER :: VeloFieldDofs
-  INTEGER, POINTER :: VeloFieldPerm(:), LocalPerm(:)
-  REAL(KIND=dp), POINTER :: VeloField(:)
   REAL(KIND=dp) :: SumBasis
   INTEGER :: i,j,k,n,npos,ind,dim
-  LOGICAL :: GotIt,GotVeloField
+  LOGICAL :: GotIt
   LOGICAL :: Visited
 
 
-  SAVE :: Visited, Dim,GotVeloField, VeloField, VeloFieldPerm, VeloFieldDofs, LocalPerm
+  SAVE :: Visited, Dim, LocalVelo, LocalPerm
 
   IF(.NOT. Visited ) THEN
-    GotVeloField = .FALSE.
-    Params => GetSolverParams()
-    VariableName = ListGetString( Params,'Velocity Variable Name',GotIt )
-    IF(GotIt) THEN
-      Mesh => GetMesh()
-      Dim = Mesh % MeshDim
-      Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
-      GotVeloField = ASSOCIATED( Var )
-      IF ( GotVeloField )  THEN
-        VeloField => Var % Values
-        VeloFieldPerm => Var % Perm
-        VeloFieldDofs = Var % DOFs
-      ELSE
-        CALL Fatal('GetVelocityInMesh','Velocity field variable does not exist: '//TRIM(VariableName))
-      END IF
-    END IF
-
+    Mesh => GetMesh()
     n = Mesh % MaxElementNodes
-    ALLOCATE( LocalPerm( n) )
+    ALLOCATE( LocalPerm(n), LocalVelo(n,3) )
     LocalPerm = 0
-
+    LocalVelo = 0.0_dp
+    Dim = Mesh % MeshDim
     Visited = .TRUE.
   END IF
 
   Velo = 0.0_dp
   IF( PRESENT( GradVelo ) ) GradVelo = 0.0_dp
-  IF(.NOT. GotVeloField ) RETURN
 
-  NodeIndexes => CurrentElement % NodeIndexes
   n = CurrentElement % TYPE % NumberOfNodes
-  LocalPerm(1:n) = VeloFieldPerm( NodeIndexes)
-  
-  npos = COUNT( LocalPerm(1:n) > 0 )
+  LocalPerm(1:n) = Var % Perm( CurrentElement % NodeIndexes )
+  npos = COUNT ( LocalPerm(1:n) > 0 )
 
+
+  IF( npos == 0 ) RETURN
+
+  !-----------------------------------------------------------------
+  ! compute the velocity also for case when the particle
+  ! has just crossed the boundary. For example, its floating on the 
+  ! fluid boundary. This is a little bit fishy and could perhaps 
+  ! only be done conditionally....
+  ! Can't really determine the gradient here
+  !-----------------------------------------------------------------
+  VeloFieldDofs = Var % Dofs
   IF( npos == n ) THEN
-    DO i=1,dim
-      Velo(i) = SUM( Basis(1:n) * &
-          VeloField( VeloFieldDofs*( LocalPerm(1:n)-1)+i) )
+    DO i=1,n
+      j = LocalPerm(i)
+      LocalVelo(i,1:dim) = Var % Values( VeloFieldDofs*(j-1)+1:dim)
     END DO
-    IF( PRESENT( GradVelo ) ) THEN
-      DO i=1,dim
-        DO j=1,dim
-          GradVelo(i,j) = SUM( dBasisdx(1:n,j) * &
-              VeloField( VeloFieldDofs* ( LocalPerm(1:n)-1)+i) )
-        END DO
-      END DO
-    END IF
-  ELSE IF ( npos > 0 ) THEN
-    !-----------------------------------------------------------------
-    ! compute the velocity also for case when the particle
-    ! has just crossed the boundary. For example, its floating on the 
-    ! fluid boundary. This is a little bit fishy and could perhaps 
-    ! only be done conditionally....
-    ! Can't really determine the gradient here
-    !-----------------------------------------------------------------
+  ELSE    
     SumBasis = 0.0_dp
-    DO k=1,n
-      ind = LocalPerm(k)
-      IF( ind == 0 ) CYCLE
-      SumBasis = SumBasis + Basis(k)
-      DO i=1,dim
-        Velo(i) = Velo(i) + Basis(k) * VeloField( VeloFieldDofs*(ind-1)+i)
-      END DO
+    DO i=1,n
+      j = LocalPerm(i)
+      IF( j > 0 ) THEN
+        SumBasis = SumBasis + Basis(i)
+        LocalVelo(i,1:dim) = Var % Values( VeloFieldDofs*(j-1)+1:dim)
+      ELSE
+        LocalVelo(i,1:dim) = 0.0_dp
+      END IF
     END DO
-    Velo = Velo / SumBasis
   END IF
 
-END SUBROUTINE GetVelocityInMesh
+  DO i=1,dim
+    Velo(i) = SUM( Basis(1:n) * LocalVelo(1:n,i) )
+    IF( PRESENT( GradVelo ) ) THEN
+      DO j=1,dim
+        GradVelo(i,j) = SUM( dBasisdx(1:n,j) * LocalVelo(1:n,i) )
+      END DO
+    END IF
+  END DO
+
+  IF( npos < n ) THEN
+    Velo = Velo / SumBasis
+    GradVelo = GradVelo / SumBasis
+  END IF
+
+END SUBROUTINE GetVectorFieldInMesh
+
+
+!-------------------------------------------------------------------------
+! The routine returns a potential and its gradient.
+!--------------------------------------------------------------------------
+
+SUBROUTINE GetScalarFieldInMesh(Var, CurrentElement, Basis, Pot, dBasisdx, GradPot )
+   
+  TYPE(Variable_t), POINTER :: Var
+  TYPE(Element_t) :: CurrentElement
+  REAL(KIND=dp) :: Basis(:), Pot 
+  REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradPot(:)
+
+  TYPE(Mesh_t), POINTER :: Mesh
+  INTEGER, POINTER :: LocalPerm(:)
+  REAL(KIND=dp), POINTER :: LocalField(:)
+  INTEGER :: i,j,n,dim
+  LOGICAL :: Visited
+
+
+  SAVE :: Visited, Mesh, Dim, LocalPerm, LocalField
+
+  IF(.NOT. Visited ) THEN
+    Mesh => GetMesh()
+    n = Mesh % MaxElementNodes
+    ALLOCATE( LocalPerm(n), LocalField(n) )
+    LocalPerm = 0
+    LocalField = 0.0_dp
+    Dim = Mesh % MeshDim
+    Visited = .TRUE.
+  END IF
+
+  Pot = 0.0_dp
+  IF( PRESENT( GradPot ) ) GradPot = 0.0_dp
+
+  IF(.NOT. ASSOCIATED( Var ) ) RETURN
+
+  n = CurrentElement % TYPE % NumberOfNodes
+  LocalPerm(1:n) = Var % Perm( CurrentElement % NodeIndexes )
+
+  IF( .NOT. ALL ( LocalPerm(1:n) > 0 )) RETURN
+
+  LocalField(1:n) = Var % Values( LocalPerm(1:n) )
+  Pot = SUM( Basis(1:n) * LocalField(1:n) )
+
+  IF( PRESENT( GradPot ) ) THEN
+    DO i=1,dim
+      GradPot(i) = SUM( dBasisdx(1:n,i) * LocalField(1:n) )
+    END DO
+  END IF
+
+END SUBROUTINE GetScalarFieldInMesh
 
 
 
 !-------------------------------------------------------------------------
-! The routine returns a density of mesh
+! The routine returns the possible intersection of a secondary element 
+! with a different material property and the circle / sphere.
+! For example, the buoyancy at the interface will depend on the weighted
+! sum of the densities of the two materials. 
 !--------------------------------------------------------------------------
 
-SUBROUTINE GetFluidPropertiesInMesh(Particles, BulkElement, Basis, Coord, &
-    Radius, Density, Viscosity ) 
+FUNCTION GetParticleElementIntersection(Particles,BulkElement, Basis, Coord, &
+    Radius, BulkElement2, VolumeFraction, AreaFraction ) RESULT ( Intersect )
   
   TYPE(Particle_t) :: Particles
-  TYPE(Element_t), POINTER :: BulkElement
+  TYPE(Element_t), POINTER :: BulkElement, BulkElement2
   REAL(KIND=dp) :: Basis(:)
-  REAL(KIND=dp) :: Coord(3), Radius
-  REAL(KIND=dp) :: Density, Viscosity
+  REAL(KIND=dp) :: Coord(3), Radius, VolumeFraction
+  REAL(KIND=dp), OPTIONAL :: AreaFraction
+  LOGICAL :: Intersect
 
   INTEGER, POINTER :: NodeIndexes(:)
   TYPE(Mesh_t), POINTER :: Mesh
-  REAL(KIND=dp), POINTER :: ElemDensity(:), ElemViscosity(:)
-  REAL(KIND=dp) :: Dist, Density2, Viscosity2, VolumeFraction, Normal(3), SumBasis
+  REAL(KIND=dp) :: Dist, Normal(3), SumBasis
   TYPE(ValueList_t), POINTER :: Material, Material2, BC
-  TYPE(Element_t), POINTER :: BoundaryElement, BulkElement2
+  TYPE(Element_t), POINTER :: BoundaryElement, Left, Right
   TYPE(Nodes_t) :: BoundaryNodes
-  INTEGER :: i,j,k,n,imax,mat_id,mat_id2,dim,ind
-  LOGICAL :: Lift, Found, InterfaceIs, Visited
+  INTEGER :: i,j,k,n,imax,body_id,body_id2,mat_id,mat_id2,dim,ind
+  LOGICAL :: Visited
 
 
-  SAVE :: Visited, Mesh, Dim, ElemDensity, ElemViscosity, BoundaryNodes, InterfaceIs
-
+  SAVE :: Visited, Mesh, Dim
 
   IF(.NOT. Visited ) THEN
     Mesh => GetMesh()
     Dim = Mesh % MeshDim
-    n = Mesh % MaxElementNodes
-    ALLOCATE( ElemDensity( n ), ElemViscosity( n ) )
-    ElemDensity = 0.0_dp
-    ElemViscosity = 0.0_dp
     Visited = .TRUE.    
   END IF
 
-  NodeIndexes => BulkElement % NodeIndexes
-  n = BulkElement % TYPE % NumberOfNodes
-  mat_id = ListGetInteger( CurrentModel % Bodies(BulkElement % BodyId) % Values,'Material' )
-  Material => CurrentModel % Materials(mat_id) % Values
-
-  ElemDensity(1:n) = ListGetReal( Material,'Density',n,NodeIndexes) 
-  Density = SUM( Basis(1:n) * ElemDensity(1:n) )
-
-  ElemViscosity(1:n) = ListGetReal( Material,'Viscosity',n,NodeIndexes) 
-  Viscosity = SUM( Basis(1:n) * ElemViscosity(1:n) )
-    
-  ! If the radius of the particle is zero then it sees only the properties of one point
-  IF( Radius < TINY( Radius ) ) RETURN
+  Intersect = .FALSE.
+  VolumeFraction = 0.0_dp
 
   ! This element has no boundary / material interface
   IF( Particles % InternalElements( BulkElement % ElementIndex ) ) RETURN
+
+  ! If the radius of the particle is zero then it sees only the properties of one point
+  IF( Radius < TINY( Radius ) ) RETURN
+
+  n = BulkElement % TYPE % NumberOfNodes
+  body_id = BulkElement % BodyId
+  mat_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values,'Material' )
 
   IF( dim == 3 ) THEN
     imax = BulkElement % TYPE % NumberOfFaces 
@@ -2232,31 +2289,49 @@ SUBROUTINE GetFluidPropertiesInMesh(Particles, BulkElement, Basis, Coord, &
   END IF
   
   DO i=1, imax
-    IF( dim == 3 ) THEN
+ 
+   IF( dim == 3 ) THEN
       j = BulkElement % FaceIndexes(i)
       BoundaryElement => Mesh % Faces( j )
     ELSE
       j = BulkElement % EdgeIndexes(i)
       BoundaryElement => Mesh % Edges(j)
     END IF
-    
+   
     IF( .NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
     
-    IF( ASSOCIATED( BulkElement, BoundaryElement % BoundaryInfo % Right ) ) THEN
-      BulkElement2 => BoundaryElement % BoundaryInfo % Left
-    ELSE
-      BulkElement2 => BoundaryElement % BoundaryInfo % Right
+    Left => BoundaryElement % BoundaryInfo % Left
+    Right => BoundaryElement % BoundaryInfo % Right
+
+    IF(.NOT. (ASSOCIATED( Left ) .AND. ASSOCIATED( Right ) ) ) CYCLE
+
+    IF( ASSOCIATED( BulkElement, Right ) ) THEN
+      BulkElement2 => Left
+    ELSE 
+      BulkElement2 => Right 
     END IF
     
-    IF( ASSOCIATED( BulkElement2 ) ) THEN
-      mat_id2 = ListGetInteger( CurrentModel % Bodies(BulkElement2 % BodyId) % Values,'Material' )
-    ELSE
-      mat_id2 = 0
+    IF( .NOT. ASSOCIATED( BulkElement2 ) ) CYCLE
+
+    body_id2 = BulkElement2 % BodyId
+
+    IF( body_id2 > CurrentModel % NumberOfBodies ) THEN
+      PRINT *,'BodyIds:',body_id,body_id2,CurrentModel % NumberOfBodies
+      PRINT *,'ElemIds:',BulkElement % ElementIndex, BulkElement2 % ElementIndex
+      PRINT *,'Types:',BulkElement % TYPE % NumberOfNodes, &
+          BulkElement2 % TYPE % NumberOfNodes
+      body_id2 = 0
     END IF
+
+    IF( body_id2 == 0 ) CYCLE
+
+    mat_id2 = ListGetInteger( CurrentModel % Bodies(body_id2) % Values,'Material' )
     
     ! If the materials are the same the density is ok
     IF( mat_id2 == mat_id ) CYCLE
     
+
+
     ! If there is an material interface, check for distance
     CALL GetElementNodes(BoundaryNodes,BoundaryElement)
     Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
@@ -2264,283 +2339,150 @@ SUBROUTINE GetFluidPropertiesInMesh(Particles, BulkElement, Basis, Coord, &
     
     ! Is is assumed that each element may only have one density interface
     IF( Dist > Radius ) RETURN
-    
-    IF( mat_id2 == 0 ) THEN
-      Density2 = 0.0_dp
-    ELSE
-      NodeIndexes => BulkElement2 % NodeIndexes
-      n = BulkElement2 % TYPE % NumberOfNodes
-      Material2 => CurrentModel % Materials(mat_id2) % Values
-
-      ElemDensity(1:n) = ListGetReal( Material,'Density',n,NodeIndexes) 
-      ElemViscosity(1:n) = ListGetReal( Material,'Viscosity',n,NodeIndexes) 
-      Density2 = SUM( Basis(1:n) * ElemDensity(1:n) )
-      Viscosity2 = SUM( Basis(1:n) * ElemViscosity(1:n) )
-    END IF
-    
+        
     IF( dim == 3 ) THEN
       ! based on the formula of sphere-sphere intersection as in Wolfram MathWorld
       VolumeFraction = (Radius + Dist / 2 ) * (Radius - Dist)**2 / Radius**3
+      IF( PRESENT( AreaFraction ) ) THEN
+        AreaFraction = ( 1.0_dp - Dist/Radius )/2.0_dp
+      END IF
     ELSE
       ! based on the formula of circle-circle intersection as in Wolfram MathWorld
       VolumeFraction = ( ( Radius ** 2) * ACOS( Dist / Radius ) &
           - Dist * SQRT( Radius ** 2 - Dist ** 2 ) ) / (PI * Radius**2) 
+      IF( PRESENT( AreaFraction ) ) THEN
+        AreaFraction = ACOS( Dist / Radius ) / PI
+      END IF
     END IF
-    
-    Density = VolumeFraction * Density2 + (1-VolumeFraction) * Density
-    Viscosity = VolumeFraction * Viscosity2 + (1-VolumeFraction) * Viscosity
-    
+
     !     PRINT *,'VolumeFraction:',VolumeFraction, Density
     RETURN
   END DO
 
-END SUBROUTINE GetFluidPropertiesInMesh
+END FUNCTION GetParticleElementIntersection
 
 
-
-!-------------------------------------------------------------------------
-! The routine returns a potential and its gradient.
-!--------------------------------------------------------------------------
-
-SUBROUTINE GetPotentialInMesh(CurrentElement, Basis, Pot, dBasisdx, GradPot )
+!-------------------------------------------------------------
+! This subroutine may be used to enquire position dependent material data.
+! Also if the particle is splitted between two elements then this 
+! routine can assess the data on the secondary mesh.
+!-------------------------------------------------------------
+FUNCTION GetMaterialPropertyInMesh(PropertyName, BulkElement, Basis, &
+    BulkElement2, VolumeFraction ) RESULT ( Property )
   
-  TYPE(Element_t) :: CurrentElement
-  REAL(KIND=dp) :: Basis(:), Pot 
-  REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradPot(:)
+  CHARACTER(LEN=MAX_NAME_LEN) :: PropertyName
+  TYPE(Element_t), POINTER :: BulkElement
+  REAL(KIND=dp) :: Basis(:)
+  TYPE(Element_t), POINTER, OPTIONAL :: BulkElement2
+  REAL(KIND=dp), OPTIONAL :: VolumeFraction
+  REAL(KIND=dp) :: Property
 
   INTEGER, POINTER :: NodeIndexes(:)
-  TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Variable_t), POINTER :: Var
-  CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
-  INTEGER, POINTER :: PotFieldPerm(:)
-  REAL(KIND=dp), POINTER :: PotField(:)
-  INTEGER :: i,j,n,dim
-  LOGICAL :: GotIt,GotPotField
+  REAL(KIND=dp), POINTER :: ElemProperty(:)
+  REAL(KIND=dp) :: Property2
+  TYPE(ValueList_t), POINTER :: Material, Material2
+  INTEGER :: i,j,k,n,mat_id,mat_id2
   LOGICAL :: Visited
 
 
-  SAVE :: Visited, Mesh, Dim, GotPotField, PotField, PotFieldPerm
+  SAVE :: Visited, Mesh, ElemProperty
 
   IF(.NOT. Visited ) THEN
-    GotPotField = .FALSE.
-    Params => GetSolverParams()
-    VariableName = ListGetString( Params,'Potential Variable Name',GotIt )
-    IF(GotIt) THEN
-      Mesh => GetMesh()
-      Dim = Mesh % MeshDim
-      Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
-      GotPotField = ASSOCIATED( Var )
-      IF ( GotPotField )  THEN
-        PotField => Var % Values
-        PotFieldPerm => Var % Perm
-      ELSE
-        CALL Fatal('GetPotentialInMesh','Potential field variable does not exist: '//TRIM(VariableName))
-      END IF
-    END IF
-    Visited = .TRUE.
+    Mesh => GetMesh()
+    n = Mesh % MaxElementNodes
+    ALLOCATE( ElemProperty( n ) )
+    ElemProperty = 0.0_dp
+    Visited = .TRUE.    
   END IF
 
-  Pot = 0.0_dp
-  IF( PRESENT( GradPot ) ) GradPot = 0.0_dp
-  IF(.NOT. GotPotField ) RETURN
+  NodeIndexes => BulkElement % NodeIndexes
+  n = BulkElement % TYPE % NumberOfNodes
+  mat_id = ListGetInteger( CurrentModel % Bodies(BulkElement % BodyId) % Values,'Material' )
+  Material => CurrentModel % Materials(mat_id) % Values
 
-  NodeIndexes => CurrentElement % NodeIndexes
-  IF( .NOT. ALL ( PotFieldPerm( NodeIndexes) > 0 )) RETURN
+  ElemProperty(1:n) = ListGetReal( Material,PropertyName,n,NodeIndexes) 
+  Property = SUM( Basis(1:n) * ElemProperty(1:n) )
 
-  n = CurrentElement % TYPE % NumberOfNodes
-  Pot = SUM( Basis(1:n) * PotField( PotFieldPerm( NodeIndexes ) ) )
+  IF( .NOT. PRESENT ( VolumeFraction ) ) RETURN
+  IF( .NOT. PRESENT ( BulkElement2 ) ) RETURN
+  IF( VolumeFraction < TINY( VolumeFraction) ) RETURN
+      
+  IF( ASSOCIATED( BulkElement2 ) ) THEN
+    mat_id2 = ListGetInteger( CurrentModel % Bodies(BulkElement2 % BodyId) % Values,'Material' )
+  ELSE
+    mat_id2 = 0
+  END IF
+    
+  ! If the materials are the same the density is ok
+  IF( mat_id2 == mat_id ) RETURN
+  
+  ! If there is an material interface, check for distance
+  IF( mat_id2 == 0 ) THEN
+    Property2 = 0.0_dp
+  ELSE
+    NodeIndexes => BulkElement2 % NodeIndexes
+    n = BulkElement2 % TYPE % NumberOfNodes
+    Material2 => CurrentModel % Materials(mat_id2) % Values
+    
+    ElemProperty(1:n) = ListGetReal( Material,PropertyName,n,NodeIndexes) 
 
-  IF( PRESENT( GradPot ) ) THEN
-    DO i=1,dim
-      GradPot(i) = SUM( dBasisdx(1:n,i) * &
-        PotField( PotFieldPerm( NodeIndexes )-1+i) ) 
-    END DO
+    ! One cannot use the basis functions of the primary element. 
+    ! and this is valid for cases with constant material parameters.
+    !------------------------------------------------------------------
+    Property2 = SUM( ElemProperty(1:n) ) / n
   END IF
 
-END SUBROUTINE GetPotentialInMesh
+  Property = VolumeFraction * Property2 + (1-VolumeFraction) * Property
+  !     PRINT *,'VolumeFraction:',VolumeFraction, Property
+  RETURN
 
+END FUNCTION GetMaterialPropertyInMesh
 
 
 !-------------------------------------------------------------------------
 ! The routine returns .TRUE. if velocity should be fixed
 !--------------------------------------------------------------------------
 
-FUNCTION GetVelocityConditionInMesh(CurrentElement, Basis ) RESULT ( Cond )
+FUNCTION GetConditionInMesh(Var, CurrentElement, Basis ) RESULT ( Cond )
   
+  TYPE(Variable_t), POINTER :: Var
   TYPE(Element_t) :: CurrentElement
   REAL(KIND=dp) :: Basis(:)
   LOGICAL :: Cond
 
-  INTEGER, POINTER :: NodeIndexes(:)
-  TYPE(ValueList_t), POINTER :: Params
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Variable_t), POINTER :: Var
-  CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
-  INTEGER, POINTER :: CondFieldPerm(:)
-  REAL(KIND=dp), POINTER :: CondField(:)
+  INTEGER, POINTER :: LocalPerm(:)
+  REAL(KIND=dp), POINTER :: LocalValues(:)
   REAL(KIND=dp) :: val
-  INTEGER :: i,j,n,dim
-  LOGICAL :: GotIt,GotCondField
+  INTEGER :: i,j,n
   LOGICAL :: Visited
 
-
-  SAVE :: Visited, Mesh, Dim, GotCondField, CondField, CondFieldPerm
-
-  IF(.NOT. Visited ) THEN
-    GotCondField = .FALSE.
-    Params => GetSolverParams()
-    VariableName = ListGetString( Params,'Velocity Condition Variable Name',GotIt )
-    IF(GotIt) THEN
-      Mesh => GetMesh()
-      Dim = Mesh % MeshDim
-      Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
-      GotCondField = ASSOCIATED( Var )
-      IF ( GotCondField )  THEN
-        CondField => Var % Values
-        CondFieldPerm => Var % Perm
-      ELSE
-        CALL Fatal('GetVelocityConditionInMesh',&
-            'Velocity Condition Variable variable does not exist: '//TRIM(VariableName))
-      END IF
-    END IF
-    Visited = .TRUE.
-  END IF
-
-  Cond = .FALSE.
-  IF(.NOT. GotCondField ) RETURN
-
-  NodeIndexes => CurrentElement % NodeIndexes
-  IF( ASSOCIATED( CondFieldPerm ) ) THEN
-    IF( .NOT. ALL ( CondFieldPerm( NodeIndexes) > 0 )) RETURN
-  END IF
-
-  n = CurrentElement % TYPE % NumberOfNodes
-  val = SUM( Basis(1:n) * CondField( CondFieldPerm( NodeIndexes ) ) )
-  
-  IF( val > 0.0_dp ) Cond = .TRUE.
-
-END FUNCTION GetVelocityConditionInMesh
-
-
-!-------------------------------------------------------------------------
-! The routine returns .TRUE. if coordinate should be fixed
-!--------------------------------------------------------------------------
-
-FUNCTION GetCoordinateConditionInMesh(CurrentElement, Basis ) RESULT ( Cond )
-  
-  TYPE(Element_t) :: CurrentElement
-  REAL(KIND=dp) :: Basis(:)
-  LOGICAL :: Cond
-
-  INTEGER, POINTER :: NodeIndexes(:)
-  TYPE(ValueList_t), POINTER :: Params
-  TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Variable_t), POINTER :: Var
-  CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
-  INTEGER, POINTER :: CondFieldPerm(:)
-  REAL(KIND=dp), POINTER :: CondField(:)
-  REAL(KIND=dp) :: val
-  INTEGER :: i,j,n,dim
-  LOGICAL :: GotIt,GotCondField
-  LOGICAL :: Visited
-
-
-  SAVE :: Visited, Mesh, Dim, GotCondField, CondField, CondFieldPerm
-
-  IF(.NOT. Visited ) THEN
-    GotCondField = .FALSE.
-    Params => GetSolverParams()
-    VariableName = ListGetString( Params,'Coordinate Condition Variable Name',GotIt )
-    IF(GotIt) THEN
-      Mesh => GetMesh()
-      Dim = Mesh % MeshDim
-      Var => VariableGet( Mesh % Variables, TRIM(VariableName) )
-      GotCondField = ASSOCIATED( Var )
-      IF ( GotCondField )  THEN
-        CondField => Var % Values
-        CondFieldPerm => Var % Perm
-      ELSE
-        CALL Fatal('GetCoordinateConditionInMesh',&
-            'Coordinate Condition Variable variable does not exist: '//TRIM(VariableName))
-      END IF
-    END IF
-    Visited = .TRUE.
-  END IF
-
-  Cond = .FALSE.
-  IF(.NOT. GotCondField ) RETURN
-
-  NodeIndexes => CurrentElement % NodeIndexes
-  IF( ASSOCIATED( CondFieldPerm ) ) THEN
-    IF( .NOT. ALL ( CondFieldPerm( NodeIndexes) > 0 )) RETURN
-  END IF
-
-  n = CurrentElement % TYPE % NumberOfNodes
-  val = SUM( Basis(1:n) * CondField( CondFieldPerm( NodeIndexes ) ) )
-  
-  IF( val > 0.0_dp ) Cond = .TRUE.
-
-END FUNCTION GetCoordinateConditionInMesh
-
-
-!-------------------------------------------------------------
-! This subroutine may be used to enquire position dependent data,
-! for example, by using the GetReal() function and evaluating the
-! result at the coordinate point. Note this this is bound to
-! be expensive compared to the above strategies.
-!-------------------------------------------------------------
-FUNCTION GetMaterialPropertyInMesh(List, Name, GlobalCoord, CurrentElement, &
-    Found ) RESULT ( ValueAtPoint ) 
-  
-  TYPE(ValueList_t), POINTER :: List
-  CHARACTER(LEN=*)  :: Name
-  REAL(KIND=dp) :: GlobalCoord(3)
-  TYPE(Element_t), POINTER :: CurrentElement
-  LOGICAL, OPTIONAL :: Found
-  REAL(KIND=dp) :: ValueAtPoint
-  
-  REAL(KIND=dp), POINTER :: Basis(:), Values(:)
-  INTEGER, POINTER :: NodeIndexes(:)
-  REAL(KIND=dp) :: SqrtElementMetric
-  TYPE(Mesh_t), POINTER :: Mesh
-  LOGICAL :: Visited = .FALSE., Stat
-  INTEGER :: n
-  TYPE(ValueList_t), POINTER :: Material
-
-
-  SAVE Visited, Basis, Values
+  SAVE :: Visited, LocalValues, LocalPerm
 
   IF(.NOT. Visited ) THEN
     Mesh => GetMesh()
     n = Mesh % MaxElementNodes
-    ALLOCATE( Basis(n), Values(n) )
+    ALLOCATE( LocalPerm(n), LocalValues(n) )
+    LocalPerm = 0
+    LocalValues = 0.0_dp
     Visited = .TRUE.
   END IF
 
-  IF(PRESENT(Found)) Found = .FALSE.
-  ValueAtPoint = 0.0_dp
+  Cond = .FALSE.
+  IF(.NOT. ASSOCIATED(Var) ) RETURN
 
-  ! First check that there is material
-  Material => GetMaterial(  CurrentElement, Stat )
-  IF(.NOT. Stat ) RETURN
-
-  ! Then check that the keyword is present
-  NodeIndexes => CurrentElement % NodeIndexes
   n = CurrentElement % TYPE % NumberOfNodes
-  CurrentModel % CurrentElement => CurrentElement
-  Values(1:n) = ListGetReal( Material, Name, n, NodeIndexes, Stat )
-  IF(.NOT. Stat ) RETURN
+  LocalPerm(1:n) = Var % Perm( CurrentElement % NodeIndexes )
+  IF(.NOT. ALL(LocalPerm(1:n) > 0 )) RETURN 
   
-  ! Then find the local basis functions
-  Stat = GlobalElementInfo( CurrentElement, GlobalCoord, &
-      SqrtElementMetric, Basis )
-  IF( .NOT. Stat ) RETURN
+  LocalValues(1:n) = Var % Values( LocalPerm(1:n) ) 
+  val = SUM( Basis(1:n) * LocalValues(1:n) )
   
-  ValueAtPoint = SUM( Basis(1:n) * Values(1:n) )
-  IF(PRESENT(Found)) Found = .TRUE.
+  IF( val > 0.0_dp ) Cond = .TRUE.
 
-END FUNCTION GetMaterialPropertyInMesh
+END FUNCTION GetConditionInMesh
+
 
 
 !-------------------------------------------------------------
@@ -2951,8 +2893,10 @@ FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
 
 END FUNCTION GetNextNeighbour
 
+
+
 !---------------------------------------------------------
-! Take a time step
+! Initialize the time for next time integration step
 !---------------------------------------------------------
 SUBROUTINE ParticleInitializeTime( Particles, No )
   TYPE(Particle_t) :: Particles
@@ -2965,6 +2909,7 @@ SUBROUTINE ParticleInitializeTime( Particles, No )
   END IF
 
 END SUBROUTINE ParticleInitializeTime
+
 
 !---------------------------------------------------------
 ! Take a time step
@@ -3050,7 +2995,7 @@ END SUBROUTINE ParticleAdvanceTime
 
 
 !---------------------------------------------------------------    
-! Checks the boundaries for rectangular and cubic shapes and 
+! Checks the boundaries for rectangular and hexahedral shapes and 
 ! enforces periodic BCs. Currently the only supported way
 ! for setting periodic BCs.
 !---------------------------------------------------------------    
@@ -3139,9 +3084,9 @@ END SUBROUTINE ParticleBoxPeriodic
 
 
 !---------------------------------------------------------------    
-! Checks the boundaries for rectangular and cubic shapes and 
+! Checks the boundaries for rectangular and hexahedral shapes and 
 ! enforces elastic reflection. This is alternative and 
-! computationally more econimic way and is ideal for testing
+! computationally more economic way and is ideal for testing
 ! purposes, at least.
 !---------------------------------------------------------------    
 SUBROUTINE ParticleBoxContact(Particles, ind)
@@ -3405,22 +3350,23 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
   REAL(KIND=dp) :: dt
 
   LOGICAL :: Hit
-  REAL(KIND=dp) :: Coord(3), Velo(3), WallVelo(3), Rad, Dist, Mass, Normal(3), Force(3), Coeff
+  REAL(KIND=dp) :: Coord(3), Velo(3), WallVelo(3), Rad, Dist, Mass, Normal(3), Force(3), &
+      Coeff, Spring
   REAL(KIND=dp), POINTER :: NodalVelo(:,:)
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Params, BC
   INTEGER :: i,j,k,n,dim, ierr, imax
-  LOGICAL :: Collision,CollisionAny,Contact,Found,WallVeloIs,CollisionIs,Visited = .FALSE., &
+  LOGICAL :: Collision,ContactAny,Contact,Found,WallVeloAny,CollisionAny,Visited = .FALSE., &
       TrueCollision, Debug
   INTEGER :: NoParticles, Status, ElementIndex
   INTEGER, POINTER :: NodeIndexes(:)
   TYPE(Element_t), POINTER :: BulkElement, BoundaryElement
   TYPE(Nodes_t) :: ElementNodes, BoundaryNodes
-  REAL(KIND=dp) :: vn, dta, dtb, rn(3), v1na, v1nb, v2na
+  REAL(KIND=dp) :: vn, dta, dtb, rn(3), v1na, v1nb, v2na, eta
 
 
-  SAVE Visited, dim, Rad, Mass, Mesh, WallVeloIs, CollisionIs,BoundaryNodes, &
-      TrueCollision, WallVelo, Coeff, Velo, NodalVelo
+  SAVE Visited, dim, Rad, Mass, Mesh, WallVeloAny, CollisionAny,ContactAny, BoundaryNodes, &
+      TrueCollision, WallVelo, Coeff, Velo, NodalVelo, Coord, Spring
  
   IF( .NOT. Visited ) THEN
     Mesh => GetMesh()
@@ -3439,39 +3385,56 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
       CALL Fatal('ParticleWallContact','> Particle Radius < needed!')
     END IF
 
-    Mass = GetCReal( Params,'Particle Mass',Found)
-    IF(.NOT. Found) THEN
-      CALL Fatal('ParticleWallContact','> Particle Mass < needed!')
-    END IF
     
-    Coeff = GetCReal( Params,'Wall Particle Bounciness', Found ) 
-    IF(.NOT. Found) Coeff = 1.0_dp       
-
-    TrueCollision = GetLogical( Params,'True Collision Mode',Found)
-    
-    WallVeloIs = .FALSE.
-    CollisionIs = .FALSE. 
+    WallVeloAny = .FALSE.
+    CollisionAny = .FALSE. 
+    ContactAny = .FALSE.
 
     DO k=1,CurrentModel % NumberOfBCs
       BC => CurrentModel % BCs(k) % Values
       Collision = GetLogical( BC,'Wall Particle Collision',Found) 
-      IF(.NOT. Collision) CYCLE
-      CollisionIs = Collision .OR. CollisionIs
+      Contact = GetLogical( BC,'Wall Particle Contact',Found) 
 
-      WallVeloIs = &
-          ListCheckPresent( BC,'Wall Velocity 1') .OR. &
-          ListCheckPresent( BC,'Wall Velocity 2') .OR. &
-          ListCheckPresent( BC,'Wall Velocity 3')
-      IF( WallVeloIs ) EXIT
+      IF( Contact ) THEN
+        ContactAny = .TRUE.
+      ELSE IF( Collision ) THEN
+        CollisionAny = .TRUE.
+        WallVeloAny = WallVeloAny .AND. &
+            ListCheckPresent( BC,'Wall Velocity 1') .OR. &
+            ListCheckPresent( BC,'Wall Velocity 2') .OR. &
+            ListCheckPresent( BC,'Wall Velocity 3')
+      END IF
     END DO
+
+    IF( ContactAny ) THEN
+      Spring = GetCReal( Params,'Wall Particle Spring',Found)      
+      IF(.NOT. Found) THEN
+        CALL Fatal('ParticleWallContact','> Wall Particle Spring < needed!')
+      END IF
+    END IF
+
+    IF( CollisionAny ) THEN
+      Mass = GetCReal( Params,'Particle Mass',Found)
+      IF(.NOT. Found) THEN
+        CALL Fatal('ParticleWallContact','> Particle Mass < needed!')
+      END IF
+      
+      Coeff = GetCReal( Params,'Wall Particle Bounciness', Found ) 
+      IF(.NOT. Found) Coeff = 1.0_dp       
+      
+      TrueCollision = GetLogical( Params,'True Collision Mode',Found)      
+    END IF
+
+    PRINT *,'Flags:',ContactAny,CollisionAny,WallVeloAny
     
     WallVelo = 0.0_dp
     Velo = 0.0_dp
+    Coord = 0.0_dp
 
     Visited = .TRUE.
   END IF
 
-  IF(.NOT. CollisionIs ) RETURN
+  IF(.NOT. (CollisionAny .OR. ContactAny) ) RETURN
 
   Hit = .FALSE.
   Status = Particles % Status(No) 
@@ -3482,6 +3445,7 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
   IF( ElementIndex == 0 ) RETURN
   
   IF( Particles % InternalElements(  ElementIndex ) ) RETURN
+
 
 
   BulkElement => Mesh % Elements( ElementIndex )
@@ -3501,30 +3465,44 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
       BoundaryElement => Mesh % Edges(j)
     END IF
     
-    IF( .NOT. ASSOCIATED( BoundaryElement ) ) CYCLE
-    IF( .NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
-    Hit = .FALSE.
-    
+    Found = .FALSE.
     DO k=1,CurrentModel % NumberOfBCs
-      IF ( BoundaryElement % BoundaryInfo % Constraint /= &
-          CurrentModel % BCs(k) % Tag ) CYCLE
-      
-      BC => CurrentModel % BCs(k) % Values
-      Collision = GetLogical( BC,'Wall Particle Collision',Found)      
-      IF(.NOT. Collision ) CYCLE
-      
-      Coord(1:dim) = Particles % Coordinate(No,1:dim)
-      Velo(1:dim) = Particles % Velocity(No,1:dim)
-      
-      CALL GetElementNodes(BoundaryNodes,BoundaryElement)
-      Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
+      IF(.NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
+      IF ( BoundaryElement % BoundaryInfo % Constraint == &
+          CurrentModel % BCs(k) % Tag ) THEN
+        Found = .TRUE.
+        EXIT
+      END IF
+    END DO
+    IF( .NOT. Found ) CYCLE
 
-      n = BoundaryElement % TYPE % NumberOfNodes          
+    BC => CurrentModel % BCs(k) % Values
+    Collision = GetLogical( BC,'Wall Particle Collision',Found)      
+    Contact = GetLogical( BC,'Wall Particle Contact',Found)      
+    IF(.NOT. (Collision .OR. Contact) ) CYCLE
+    
+    Coord(1:dim) = Particles % Coordinate(No,1:dim)
+    CALL GetElementNodes(BoundaryNodes,BoundaryElement)
+    Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
+    
+    Debug = .FALSE.
+    
 
-      Debug = .FALSE.
-      
+    IF( Contact ) THEN
+
+      eta = Dist - Rad
+      IF( eta > 0.0 ) CYCLE
+
+      Force = eta * Spring * Normal 
+
+!      PRINT *,'Force:',Coord(1:dim),eta,Dist,Rad
+!      PRINT *,'Normal',Normal,Force
+
+      Particles % Force(No,1:dim) = Particles % Force(No,1:dim) + Force(1:dim)         
+
+    ELSE
       ! Note this should rather be really computed at the true point of contact!
-      IF( WallVeloIs ) THEN
+      IF( WallVeloAny ) THEN
         NodeIndexes => BoundaryElement % NodeIndexes
         n = BoundaryElement % TYPE % NumberOfNodes          
         NodalVelo(1,1:n) = ListGetReal( BC,'Wall Velocity 1',n, NodeIndexes, Found )
@@ -3543,18 +3521,18 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
       dta = ( Dist - Rad ) / vn
       
       IF( dta >= dt ) CYCLE        
-
+      
       ! A historical collision but the distance is growing
       IF( dta < 0.0 .AND. Dist - Rad > 0.0 ) CYCLE
-
-
+      
+      
       IF( dta < 0.0 ) THEN
         PRINT *,'Coord:',Coord(1:dim)
         PRINT *,'Velo:',Velo(1:dim)
         PRINT *,'Dist',Dist,Rad
         PRINT *,'vn',vn,dta,dt
       END IF
-
+      
       
       ! these are defined as is so that we could reuse the binary particle collision stuff
       ! at the limit Mass2 -> infinity
@@ -3585,12 +3563,7 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
         PRINT *,'Coord2',Coord
         PRINT *,'Force2',Force
       END IF
-
-      Hit = .TRUE.
-      EXIT
-    END DO
-
-    IF( Hit ) THEN
+      
       IF( TrueCollision ) THEN
         Particles % Coordinate(No,1:dim) = Coord(1:dim)
         Particles % Velocity(No,1:dim) = Velo(1:dim)
@@ -3598,8 +3571,11 @@ SUBROUTINE ParticleWallContact(Particles, dt, No )
         Particles % Coordinate(No,1:dim) = Coord(1:dim)
         Particles % Force(No,1:dim) = Particles % Force(No,1:dim) + Force(1:dim)         
       END IF
+
+      ! Only one collision for each particle & element
+      EXIT
     END IF
-    
+
   END DO
 
 END SUBROUTINE ParticleWallContact
@@ -3968,449 +3944,446 @@ END SUBROUTINE ParticleWallContact
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE CreateParticleVariable( Particles, Name, DOFs, Category, Output ) 
+  SUBROUTINE CreateParticleVariable( Particles, Name, DOFs, Category, Output ) 
 !------------------------------------------------------------------------------
-      TYPE(Particle_t) :: Particles
-      CHARACTER(LEN=*) :: Name
-      INTEGER, OPTIONAL :: DOFs
-      INTEGER, OPTIONAL :: Category
-      LOGICAL, OPTIONAL :: Output
+    TYPE(Particle_t) :: Particles
+    CHARACTER(LEN=*) :: Name
+    INTEGER, OPTIONAL :: DOFs
+    INTEGER, OPTIONAL :: Category
+    LOGICAL, OPTIONAL :: Output
 !------------------------------------------------------------------------------
-      TYPE(ParticleVariable_t), POINTER :: Variables
-      REAL(KIND=dp), POINTER :: Values(:)
-      LOGICAL :: stat
-      TYPE(ParticleVariable_t), POINTER :: ptr,ptr1,ptr2
-      INTEGER :: NoParticles
+    TYPE(ParticleVariable_t), POINTER :: Variables
+    REAL(KIND=dp), POINTER :: Values(:)
+    LOGICAL :: stat
+    TYPE(ParticleVariable_t), POINTER :: ptr,ptr1,ptr2
+    INTEGER :: NoParticles
 !------------------------------------------------------------------------------
 
-      Variables => Particles % Variables
-      IF ( .NOT.ASSOCIATED(Variables) ) THEN
-        ALLOCATE(Variables)
-        ptr => Variables
-      ELSE
-        ALLOCATE( ptr )
-      END IF
-
-      ! note: sets confusinly also ptr % name 
-      ptr % NameLen = StringToLowerCase( ptr % Name,Name )
-
-      ! get the next free handle?
-      IF ( .NOT. ASSOCIATED(ptr, Variables) ) THEN
-        ptr1 => Variables
-        ptr2 => Variables
-        DO WHILE( ASSOCIATED( ptr1 ) )
-           IF ( ptr % Name == ptr1 % Name ) THEN
-              DEALLOCATE( ptr )
-              RETURN
-           END IF
-           ptr2 => ptr1
-           ptr1 => ptr1 % Next
-         END DO
-         ptr2 % Next => ptr
-      END IF
-      ptr % Next => Null()
-
-      ptr % Norm = 0.0d0
-      ptr % PrevNorm = 0.0d0
-      ptr % DOFs = 1
-      ptr % Valid  = .TRUE.
-      ptr % Output = .TRUE.
-      ptr % ValuesChanged = .TRUE.
-
-      IF( PRESENT( DOFs ) ) ptr % DOFs = DOFs
-      IF ( PRESENT( Category ) ) ptr % Category = Category
-      IF ( PRESENT( Output ) ) ptr % Output = Output
-
-      NoParticles = Particles % MaxNumberOfParticles
-      ALLOCATE( Values( NoParticles * ptr % Dofs ) )
-      Values = 0.0_dp
-      ptr % Values => Values
+    Variables => Particles % Variables
+    IF ( .NOT.ASSOCIATED(Variables) ) THEN
+      ALLOCATE(Variables)
+      ptr => Variables
+    ELSE
+      ALLOCATE( ptr )
+    END IF
+    
+    ! note: sets confusinly also ptr % name 
+    ptr % NameLen = StringToLowerCase( ptr % Name,Name )
+    
+    ! get the next free handle?
+    IF ( .NOT. ASSOCIATED(ptr, Variables) ) THEN
+      ptr1 => Variables
+      ptr2 => Variables
+      DO WHILE( ASSOCIATED( ptr1 ) )
+        IF ( ptr % Name == ptr1 % Name ) THEN
+          DEALLOCATE( ptr )
+          RETURN
+        END IF
+        ptr2 => ptr1
+        ptr1 => ptr1 % Next
+      END DO
+      ptr2 % Next => ptr
+    END IF
+    ptr % Next => Null()
+    
+    ptr % Norm = 0.0d0
+    ptr % PrevNorm = 0.0d0
+    ptr % DOFs = 1
+    ptr % Valid  = .TRUE.
+    ptr % Output = .TRUE.
+    ptr % ValuesChanged = .TRUE.
+    
+    IF( PRESENT( DOFs ) ) ptr % DOFs = DOFs
+    IF ( PRESENT( Category ) ) ptr % Category = Category
+    IF ( PRESENT( Output ) ) ptr % Output = Output
+    
+    NoParticles = Particles % MaxNumberOfParticles
+    ALLOCATE( Values( NoParticles * ptr % Dofs ) )
+    Values = 0.0_dp
+    ptr % Values => Values
 
 !------------------------------------------------------------------------------
-    END SUBROUTINE CreateParticleVariable
+  END SUBROUTINE CreateParticleVariable
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
 !  Given a variable name, get handle to it
 !------------------------------------------------------------------------------
-    FUNCTION GetParticleVariable( Particles, Name ) RESULT ( Var )
+  FUNCTION GetParticleVariable( Particles, Name ) RESULT ( Var )
+    
+    TYPE(Particle_t) :: Particles
+    CHARACTER(LEN=*) :: Name
+    TYPE(ParticleVariable_t), POINTER :: Var
+!------------------------------------------------------------------------------
+    TYPE(ParticleVariable_t), POINTER :: Tmp
+    CHARACTER(LEN=LEN_TRIM(Name)) :: str
+    INTEGER :: k
       
-      TYPE(Particle_t) :: Particles
-      CHARACTER(LEN=*) :: Name
-      TYPE(ParticleVariable_t), POINTER :: Var
 !------------------------------------------------------------------------------
-      TYPE(ParticleVariable_t), POINTER :: Tmp
-      CHARACTER(LEN=LEN_TRIM(Name)) :: str
-      INTEGER :: k
-      
-!------------------------------------------------------------------------------
-      k = StringToLowerCase( str,Name,.TRUE. )
-
-      Tmp => Particles % Variables
-      DO WHILE( ASSOCIATED(tmp) )
-        IF ( Tmp % NameLen == k ) THEN
-          IF ( Tmp % Name(1:k) == str(1:k) ) THEN
-
-            IF ( Tmp % Valid ) THEN
-               Var => Tmp
-               RETURN
-            END IF
-            EXIT
-
-          END IF
-        END IF
-        Tmp => Tmp % Next
-      END DO
-      Var => Tmp
-
-    END FUNCTION GetParticleVariable
-
-
-
-SUBROUTINE ParticleOutputVtu( Particles )
-!------------------------------------------------------------------------------
-
-  USE DefUtils 
-  USE MeshUtils
-  USE ElementDescription
-  
-  IMPLICIT NONE
-  TYPE(Particle_t) :: Particles  
-  
-  TYPE(ValueList_t),POINTER :: Params
-  INTEGER, SAVE :: nTime = 0
-  LOGICAL :: GotIt, Parallel, FixedMesh, DeleteBC
-  CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
-  CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
-  TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Variable_t), POINTER :: Var
-  INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, &
-      Status, MinSaveStatus, MaxSaveStatus
-  CHARACTER(MAX_NAME_LEN) :: Dir
-  REAL(KIND=dp) :: SaveNodeFraction
-  LOGICAL :: Found,Visited = .FALSE.
-
-  CHARACTER(MAX_NAME_LEN) :: Str
-  INTEGER :: NumberOfNodes, ParallelNodes, Dim
-
-  SAVE :: MinSaveStatus, MaxSaveStatus
-
-  Params => GetSolverParams()
-  Mesh => GetMesh()
-
-  ExtCount = ListGetInteger( Params,'Output Count',GotIt)
-  IF( GotIt ) THEN
-    nTime = ExtCount
-  ELSE
-    nTime = nTime + 1
-  END IF
-  FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
-
-  DeleteBC = ListGetLogical( Params,'Delete Wall Particles',GotIt)
-
-  IF ( nTime == 1 ) THEN
-    FilePrefix = GetString( Params,'Filename Prefix')
-    CALL Info('ParticleOutputVtu','Saving results in VTK XML format to file:'//TRIM(FilePrefix))
+    k = StringToLowerCase( str,Name,.TRUE. )
     
-    MinSaveStatus = ListGetInteger( Params,'Min Status for Saving',Found)
-    IF(.NOT. Found ) MinSaveStatus = PARTICLE_INITIATED
-    
-    MaxSaveStatus = ListGetInteger( Params,'Max Status for Saving',Found)
-    IF(.NOT. Found ) MaxSaveStatus = PARTICLE_LOST-1
-    
-  END IF
-  
-  Partitions = ParEnv % PEs
-  Part = ParEnv % MyPE
-  Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
-
-  Dim = Particles % dim
-
-  CALL DeleteLostParticles(Particles,DeleteBC)
-
-  
-  NumberOfNodes = 0
-  DO i=1,Particles % NumberOfParticles
-    IF ( Particles % Status(i) > MaxSaveStatus .OR. &
-        Particles % Status(i) < MinSaveStatus )  CYCLE
-    NumberOfNodes = NumberOfNodes + 1
-  END DO
-
-  SaveNodeFraction = ListGetCReal( Params,'Particle Save Fraction',GotIt)
-  IF(GotIt) NumberOfNodes = NINT( SaveNodeFraction * NumberOfNodes )
-
-  IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
-    Dir = TRIM(Mesh % Name) // "/"
-  ELSE
-    Dir = "./"
-  END IF
-  
-  IF(Parallel .AND. Part == 0) THEN
-    WRITE( PvtuFile,'(A,A,I4.4,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
-    CALL WritePvtuFile( PvtuFile )
-  END IF
-  
-  IF ( Parallel ) THEN
-    WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",nTime
-  ELSE
-    WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
-  END IF
-  CALL WriteVtuFile( VtuFile )
-
-
-CONTAINS
-
-  
-  SUBROUTINE WriteVtuFile( VtuFile )
-    CHARACTER(LEN=*), INTENT(IN) :: VtuFile
-    INTEGER, PARAMETER :: VtuUnit = 58
-    TYPE(Variable_t), POINTER :: Var
-    CHARACTER(LEN=512) :: str
-    INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
-    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
-    LOGICAL :: ScalarsExist, VectorsExist, Found
-    INTEGER, POINTER :: Perm(:)
-    REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
-    REAL(KIND=dp) :: x,y,z
-
-    
-    OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
-    
-    WRITE( VtuUnit,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
-    WRITE( VtuUnit,'(A)') '  <UnstructuredGrid>'
-    WRITE( VtuUnit,'(A,I0,A)') '    <Piece NumberOfPoints="',NumberOfNodes,&
-        '" NumberOfCells="0">'
-
-
-    
-    ! nodewise information
-    !-------------------------------------
-    ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
-    VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
-    IF( ScalarsExist .AND. VectorsExist) THEN
-      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
-          //'" Vectors="'//TRIM(VectorFieldName)//'">'
-    ELSE IF( ScalarsExist ) THEN
-      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'
-    ELSE IF( VectorsExist ) THEN
-      WRITE( VtuUnit,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'
-    END IF
-    
-    DO Rank = 0,1
-      DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        ELSE
-          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        END IF
-        
-        FieldName = GetString( Params, TRIM(Txt), Found )
-        IF(.NOT. Found) EXIT
-        
-        !---------------------------------------------------------------------
-        ! Find the variable with the given name in the normal manner 
-        !---------------------------------------------------------------------
-        IF( FieldName == 'velocity' ) THEN
-          VectorValues => Particles % Velocity
-        ELSE IF( FieldName == 'force') THEN
-          VectorValues => Particles % Force 
-        ELSE IF( FieldName == 'distance') THEN
-          ScalarValues => Particles % Distance
-        ELSE IF( FieldName == 'dt') THEN
-          ScalarValues => Particles % dt
-        ELSE
-          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
-          CALL Warn('WriteVtuXMLFile', Txt)
-          CYCLE
-        END IF
-
-        !---------------------------------------------------------------------
-        ! Finally save the field values 
-        !---------------------------------------------------------------------
-        j = 0
-        IF( Rank == 0) THEN
-          WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-              //'" NumberOfComponents="1" format="ascii">'    
-          DO i = 1, Particles % NumberOfParticles
-
-            IF ( Particles % Status(i) > MaxSaveStatus .OR. &
-                Particles % Status(i) < MinSaveStatus )  CYCLE
-            j = j + 1
-            IF(.TRUE.) THEN
-              WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ScalarValues(i)              
-            ELSE
-              WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
-            END IF
-            IF( j == NumberOfNodes ) EXIT            
-          END DO
-          WRITE( VtuUnit,'(A)') ' '
-          WRITE( VtuUnit,'(A)') '        </DataArray>'
-        ELSE
-          sdofs = 3
-          WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-              //'" NumberOfComponents="',sdofs,'" format="ascii">'    
+    Tmp => Particles % Variables
+    DO WHILE( ASSOCIATED(tmp) )
+      IF ( Tmp % NameLen == k ) THEN
+        IF ( Tmp % Name(1:k) == str(1:k) ) THEN
           
-          DO i = 1, Particles % NumberOfParticles
-            IF ( Particles % Status(i) > MaxSaveStatus .OR. &
-                Particles % Status(i) < MinSaveStatus )  CYCLE
-            j = j + 1
-            IF( dim == 2 ) THEN
-              IF( .TRUE. ) THEN
-                WRITE( VtuUnit,'(2ES16.7E3,A)', ADVANCE='no') VectorValues(i,1:dim),' 0.0'
-              ELSE
-                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
-              END IF
-            ELSE
-              IF( .TRUE. ) THEN
-                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VectorValues(i,1:dim)
-              ELSE
-                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
-              END IF              
-            END IF
-            IF( j == NumberOfNodes ) EXIT            
-          END DO
-          WRITE( VtuUnit,'(A)') ' '
-          WRITE( VtuUnit,'(A)') '        </DataArray>'
+          IF ( Tmp % Valid ) THEN
+            Var => Tmp
+            RETURN
+          END IF
+          EXIT
+          
         END IF
-      END DO
+      END IF
+      Tmp => Tmp % Next
     END DO
+    Var => Tmp
+
+  END FUNCTION GetParticleVariable
+
+
+
+  SUBROUTINE ParticleOutputVtu( Particles )
+!------------------------------------------------------------------------------
+
+    USE DefUtils 
+    USE MeshUtils
+    USE ElementDescription
     
-    IF( ScalarsExist .OR. VectorsExist) THEN
-      WRITE( VtuUnit,'(A)') '      </PointData>'
+    IMPLICIT NONE
+    TYPE(Particle_t) :: Particles  
+    
+    TYPE(ValueList_t),POINTER :: Params
+    INTEGER, SAVE :: nTime = 0
+    LOGICAL :: GotIt, Parallel, FixedMesh, DeleteBC
+    CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
+    CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Variable_t), POINTER :: Var
+    INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, &
+        Status, MinSaveStatus, MaxSaveStatus
+    CHARACTER(MAX_NAME_LEN) :: Dir
+    REAL(KIND=dp) :: SaveNodeFraction
+    LOGICAL :: Found,Visited = .FALSE.
+    
+    CHARACTER(MAX_NAME_LEN) :: Str
+    INTEGER :: NumberOfNodes, ParallelNodes, Dim
+    
+    SAVE :: MinSaveStatus, MaxSaveStatus
+    
+    Params => GetSolverParams()
+    Mesh => GetMesh()
+    
+    ExtCount = ListGetInteger( Params,'Output Count',GotIt)
+    IF( GotIt ) THEN
+      nTime = ExtCount
+    ELSE
+      nTime = nTime + 1
+    END IF
+    FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
+    
+    DeleteBC = ListGetLogical( Params,'Delete Wall Particles',GotIt)
+    
+    IF ( nTime == 1 ) THEN
+      FilePrefix = GetString( Params,'Filename Prefix')
+      CALL Info('ParticleOutputVtu','Saving results in VTK XML format to file:'//TRIM(FilePrefix))
+      
+      MinSaveStatus = ListGetInteger( Params,'Min Status for Saving',Found)
+      IF(.NOT. Found ) MinSaveStatus = PARTICLE_INITIATED
+      
+      MaxSaveStatus = ListGetInteger( Params,'Max Status for Saving',Found)
+      IF(.NOT. Found ) MaxSaveStatus = PARTICLE_LOST-1
+      
     END IF
     
+    Partitions = ParEnv % PEs
+    Part = ParEnv % MyPE
+    Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
     
-    ! Coordinates of each point
-    !-------------------------------------
-    WRITE( VtuUnit,'(A)') '      <Points>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
-
+    Dim = Particles % dim
     
-    DO i = 1, Particles % NumberOfParticles
+    CALL DeleteLostParticles(Particles,DeleteBC)
+    
+    
+    NumberOfNodes = 0
+    DO i=1,Particles % NumberOfParticles
       IF ( Particles % Status(i) > MaxSaveStatus .OR. &
           Particles % Status(i) < MinSaveStatus )  CYCLE
-      j = j + 1
-      DO k=1,dim
-        WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') Particles % Coordinate(i,k)
-      END DO
-      IF( dim == 3 ) THEN
-        WRITE(VtuUnit,'(A)') ' '
-      ELSE
-        WRITE(VtuUnit,'(A)') ' 0.0'
-      END IF
-      IF( j == NumberOfNodes ) EXIT
+      NumberOfNodes = NumberOfNodes + 1
     END DO
-
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
-    WRITE( VtuUnit,'(A)') '      </Points>'
-
-
-    WRITE( VtuUnit,'(A)') '      <Cells>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="types" format="ascii">'
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
-    WRITE( VtuUnit,'(A)') '      </Cells>'
-
-    WRITE( VtuUnit,'(A)') '    </Piece>'
-    WRITE( VtuUnit,'(A)') '  </UnstructuredGrid>'
-    WRITE( VtuUnit,'(A)') '</VTKFile>'
-
-    CLOSE( VtuUnit )
-  
-  END SUBROUTINE WriteVtuFile
     
-
-
-  SUBROUTINE WritePvtuFile( VtuFile )
-    CHARACTER(LEN=*), INTENT(IN) :: VtuFile
-    INTEGER, PARAMETER :: VtuUnit = 58
-    TYPE(Variable_t), POINTER :: Var
-    CHARACTER(LEN=512) :: str
-    INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
-    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
-    LOGICAL :: ScalarsExist, VectorsExist, Found
-    REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
-
+    SaveNodeFraction = ListGetCReal( Params,'Particle Save Fraction',GotIt)
+    IF(GotIt) NumberOfNodes = NINT( SaveNodeFraction * NumberOfNodes )
     
-    OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
-    
-    WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
-    WRITE( VtuUnit,'(A)') '  <PUnstructuredGrid>'
-    
-    ! nodewise information
-    !-------------------------------------
-    ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
-    VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
-    IF( ScalarsExist .AND. VectorsExist) THEN
-      WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)&
-          //'" Vectors="'//TRIM(VectorFieldName)//'">'
-    ELSE IF( ScalarsExist ) THEN
-      WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)//'">'
-    ELSE IF( VectorsExist ) THEN
-      WRITE( VtuUnit,'(A)') '    <PPointData Vectors="'//TRIM(VectorFieldName)//'">'
+    IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
+      Dir = TRIM(Mesh % Name) // "/"
+    ELSE
+      Dir = "./"
     END IF
-
     
-    DO Rank = 0,1
-      DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        ELSE
-          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        END IF
-        
-        FieldName = GetString( Params, TRIM(Txt), Found )
-        IF(.NOT. Found) EXIT
-      
-        IF( FieldName /= 'velocity' .AND. FieldName /= 'force' .AND. &
-            FieldName /= 'distance' .AND. FieldName /= 'dt' ) THEN
-          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
-          CALL Warn('WriteVtuXMLFile', Txt)
-          CYCLE
-        END IF
+    IF(Parallel .AND. Part == 0) THEN
+      WRITE( PvtuFile,'(A,A,I4.4,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+      CALL WritePvtuFile( PvtuFile )
+    END IF
+    
+    IF ( Parallel ) THEN
+      WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",nTime
+    ELSE
+      WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+    END IF
+    CALL WriteVtuFile( VtuFile )
+    
 
-        IF( Rank == 0) THEN
-          WRITE( VtuUnit,'(A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
-              //'" NumberOfComponents="1" format="ascii"/>'    
-        ELSE
-          sdofs = 3
-          WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
-              //'" NumberOfComponents="',sdofs,'" format="ascii"/>'    
-        END IF
-      END DO
-    END DO
-    WRITE( VtuUnit,'(A)') '    </PPointData>'
+  CONTAINS
 
-    ! Coordinates of each point
-    !-------------------------------------
-    WRITE( VtuUnit,'(A)') '      <PPoints>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii"/>'    
-    WRITE( VtuUnit,'(A)') '      </PPoints>' 
-
-    DO i=1,Partitions
-      WRITE( VtuUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
-          TRIM(FilePrefix),i,"par",nTime,'.vtu"/>'
-    END DO
-
-    WRITE( VtuUnit,'(A)') '  </PUnstructuredGrid>'
-    WRITE( VtuUnit,'(A)') '</VTKFile>'
-
-    CLOSE( VtuUnit )
   
-  END SUBROUTINE WritePvtuFile
+    SUBROUTINE WriteVtuFile( VtuFile )
+      CHARACTER(LEN=*), INTENT(IN) :: VtuFile
+      INTEGER, PARAMETER :: VtuUnit = 58
+      TYPE(Variable_t), POINTER :: Var
+      CHARACTER(LEN=512) :: str
+      INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
+      CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
+      LOGICAL :: ScalarsExist, VectorsExist, Found
+      INTEGER, POINTER :: Perm(:)
+      REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
+      REAL(KIND=dp) :: x,y,z
+      
+      
+      OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
+      
+      WRITE( VtuUnit,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+      WRITE( VtuUnit,'(A)') '  <UnstructuredGrid>'
+      WRITE( VtuUnit,'(A,I0,A)') '    <Piece NumberOfPoints="',NumberOfNodes,&
+          '" NumberOfCells="0">'
+    
+      ! nodewise information
+      !-------------------------------------
+      ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
+      VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+      IF( ScalarsExist .AND. VectorsExist) THEN
+        WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
+            //'" Vectors="'//TRIM(VectorFieldName)//'">'
+      ELSE IF( ScalarsExist ) THEN
+        WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'
+      ELSE IF( VectorsExist ) THEN
+        WRITE( VtuUnit,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'
+      END IF
+      
+      DO Rank = 0,1
+        DO Vari = 1, 99
+          IF( Vari < 10 ) THEN
+            IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+            IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+          ELSE
+            IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+            IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+          END IF
+          
+          FieldName = GetString( Params, TRIM(Txt), Found )
+          IF(.NOT. Found) EXIT
+        
+          !---------------------------------------------------------------------
+          ! Find the variable with the given name in the normal manner 
+          !---------------------------------------------------------------------
+          IF( FieldName == 'velocity' ) THEN
+            VectorValues => Particles % Velocity
+          ELSE IF( FieldName == 'force') THEN
+            VectorValues => Particles % Force 
+          ELSE IF( FieldName == 'distance') THEN
+            ScalarValues => Particles % Distance
+          ELSE IF( FieldName == 'dt') THEN
+            ScalarValues => Particles % dt
+          ELSE
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
+            CYCLE
+          END IF
+          
+          !---------------------------------------------------------------------
+          ! Finally save the field values 
+          !---------------------------------------------------------------------
+          j = 0
+          IF( Rank == 0) THEN
+            WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+                //'" NumberOfComponents="1" format="ascii">'    
+            DO i = 1, Particles % NumberOfParticles
+              
+              IF ( Particles % Status(i) > MaxSaveStatus .OR. &
+                  Particles % Status(i) < MinSaveStatus )  CYCLE
+              j = j + 1
+              IF(.TRUE.) THEN
+                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ScalarValues(i)              
+              ELSE
+                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
+              END IF
+              IF( j == NumberOfNodes ) EXIT            
+            END DO
+            WRITE( VtuUnit,'(A)') ' '
+            WRITE( VtuUnit,'(A)') '        </DataArray>'
+          ELSE
+            sdofs = 3
+            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+                //'" NumberOfComponents="',sdofs,'" format="ascii">'    
+            
+            DO i = 1, Particles % NumberOfParticles
+              IF ( Particles % Status(i) > MaxSaveStatus .OR. &
+                  Particles % Status(i) < MinSaveStatus )  CYCLE
+              j = j + 1
+              IF( dim == 2 ) THEN
+                IF( .TRUE. ) THEN
+                  WRITE( VtuUnit,'(2ES16.7E3,A)', ADVANCE='no') VectorValues(i,1:dim),' 0.0'
+                ELSE
+                  WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
+                END IF
+              ELSE
+                IF( .TRUE. ) THEN
+                  WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VectorValues(i,1:dim)
+                ELSE
+                  WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
+                END IF
+              END IF
+              IF( j == NumberOfNodes ) EXIT            
+            END DO
+            WRITE( VtuUnit,'(A)') ' '
+            WRITE( VtuUnit,'(A)') '        </DataArray>'
+          END IF
+        END DO
+      END DO
+      
+      IF( ScalarsExist .OR. VectorsExist) THEN
+        WRITE( VtuUnit,'(A)') '      </PointData>'
+      END IF
+      
+    
+      ! Coordinates of each point
+      !-------------------------------------
+      WRITE( VtuUnit,'(A)') '      <Points>'
+      WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
+      
+      
+      DO i = 1, Particles % NumberOfParticles
+        IF ( Particles % Status(i) > MaxSaveStatus .OR. &
+            Particles % Status(i) < MinSaveStatus )  CYCLE
+        j = j + 1
+        DO k=1,dim
+          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') Particles % Coordinate(i,k)
+        END DO
+        IF( dim == 3 ) THEN
+          WRITE(VtuUnit,'(A)') ' '
+        ELSE
+          WRITE(VtuUnit,'(A)') ' 0.0'
+        END IF
+        IF( j == NumberOfNodes ) EXIT
+      END DO
+      
+      WRITE( VtuUnit,'(A)') '        </DataArray>'
+      WRITE( VtuUnit,'(A)') '      </Points>'
+      
+
+      WRITE( VtuUnit,'(A)') '      <Cells>'
+      WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
+      WRITE( VtuUnit,'(A)') '        </DataArray>'
+      WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
+      WRITE( VtuUnit,'(A)') '        </DataArray>'
+      WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="types" format="ascii">'
+      WRITE( VtuUnit,'(A)') '        </DataArray>'
+      WRITE( VtuUnit,'(A)') '      </Cells>'
+      
+      WRITE( VtuUnit,'(A)') '    </Piece>'
+      WRITE( VtuUnit,'(A)') '  </UnstructuredGrid>'
+      WRITE( VtuUnit,'(A)') '</VTKFile>'
+      
+      CLOSE( VtuUnit )
+      
+    END SUBROUTINE WriteVtuFile
+    
 
 
+    SUBROUTINE WritePvtuFile( VtuFile )
+      CHARACTER(LEN=*), INTENT(IN) :: VtuFile
+      INTEGER, PARAMETER :: VtuUnit = 58
+      TYPE(Variable_t), POINTER :: Var
+      CHARACTER(LEN=512) :: str
+      INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
+      CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
+      LOGICAL :: ScalarsExist, VectorsExist, Found
+      REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
+      
+      
+      OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
+      
+      WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+      WRITE( VtuUnit,'(A)') '  <PUnstructuredGrid>'
+      
+      ! nodewise information
+      !-------------------------------------
+      ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
+      VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+      IF( ScalarsExist .AND. VectorsExist) THEN
+        WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)&
+            //'" Vectors="'//TRIM(VectorFieldName)//'">'
+      ELSE IF( ScalarsExist ) THEN
+        WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)//'">'
+      ELSE IF( VectorsExist ) THEN
+        WRITE( VtuUnit,'(A)') '    <PPointData Vectors="'//TRIM(VectorFieldName)//'">'
+      END IF
+      
+    
+      DO Rank = 0,1
+        DO Vari = 1, 99
+          IF( Vari < 10 ) THEN
+            IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+            IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+          ELSE
+            IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+            IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+          END IF
+          
+          FieldName = GetString( Params, TRIM(Txt), Found )
+          IF(.NOT. Found) EXIT
+          
+          IF( FieldName /= 'velocity' .AND. FieldName /= 'force' .AND. &
+              FieldName /= 'distance' .AND. FieldName /= 'dt' ) THEN
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
+            CYCLE
+          END IF
+          
+          IF( Rank == 0) THEN
+            WRITE( VtuUnit,'(A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
+                //'" NumberOfComponents="1" format="ascii"/>'    
+          ELSE
+            sdofs = 3
+            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
+                //'" NumberOfComponents="',sdofs,'" format="ascii"/>'    
+          END IF
+        END DO
+      END DO
+      WRITE( VtuUnit,'(A)') '    </PPointData>'
+      
+      ! Coordinates of each point
+      !-------------------------------------
+      WRITE( VtuUnit,'(A)') '      <PPoints>'
+      WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii"/>'    
+      WRITE( VtuUnit,'(A)') '      </PPoints>' 
+      
+      DO i=1,Partitions
+        WRITE( VtuUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
+            TRIM(FilePrefix),i,"par",nTime,'.vtu"/>'
+      END DO
+      
+      WRITE( VtuUnit,'(A)') '  </PUnstructuredGrid>'
+      WRITE( VtuUnit,'(A)') '</VTKFile>'
+      
+      CLOSE( VtuUnit )
+      
+    END SUBROUTINE WritePvtuFile
+   
 
 !------------------------------------------------------------------------------
-END SUBROUTINE ParticleOutputVtu
+  END SUBROUTINE ParticleOutputVtu
 !------------------------------------------------------------------------------
 
 

@@ -12,7 +12,7 @@
 ! *           Keilaranta 14
 ! *           02101 Espoo, Finland 
 ! *
-! *  Original Date: 26.5.2010
+! *  Original Date: 26.5. 2010
 ! *
 ! *****************************************************************************/
 
@@ -144,7 +144,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   Force = 0.0_dp
   Force2 = 0.0_dp
 
-
   ! Do some initalialization: allocate space, check fields  
   !------------------------------------------------------------------------
   IF( VisitedTimes == 1 ) THEN
@@ -224,6 +223,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
   DO i=1,nstep
 
+PRINT *,'step:',i
     ! Get the timestep size, initialize at 1st round
     !--------------------------------------------------------------
     dtime = GetParticleTimeStep( Particles, InitTimestep )
@@ -291,6 +291,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
    
       CALL ParticleFieldInteraction(CurrentElement, dtime, No, Status, &
           Rfin, Velo, Force ) 
+
       CALL AddParticleCoord( Particles, No, 2, Force )
 
       CALL SetParticleStatus( Particles, No, Status )      
@@ -468,13 +469,14 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
    !------------------------------------------------------------------------
    ! Compute field values at the given points in the FE mesh. 
    !-------------------------------------------------------------------------
-   SUBROUTINE ParticleFieldInteraction(CurrentElement,dtime,No,&
+   SUBROUTINE ParticleFieldInteraction(BulkElement,dtime,No,&
        Status,Coord,Velo, Force )
      
-     TYPE(Element_t), POINTER :: CurrentElement
+     TYPE(Element_t), POINTER :: BulkElement
      INTEGER :: No, Status
      REAL(KIND=dp) :: dtime, Coord(3),Velo(3), Force(3)
      
+     TYPE(Element_t), POINTER :: BulkElement2
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Valuelist_t), POINTER :: Params
      REAL(KIND=dp) :: PotAtPoint, GradPotAtPoint(3),VeloAtPoint(3), &
@@ -484,19 +486,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      INTEGER :: i,j,k,n,dim,FieldMode,TimeOrder
      INTEGER, POINTER :: NodeIndexes(:), FieldPerm(:),FieldIndexes(:)
      REAL(KIND=dp) :: SqrtElementMetric, Weight, Decay, Dist, ParticleVolume, &
-         FluidDensity, FluidViscosity, Rad
+         FluidDensity, FluidViscosity, Rad, VolumeFraction
      REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
      LOGICAL :: GotIt
      REAL(KIND=dp) :: mass, charge, dragcoeff, val
      REAL(KIND=dp) :: damping, Gravity(3)
      REAL(KIND=dp), POINTER :: gWork(:,:)
+     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, DensityName
+     TYPE(Variable_t), POINTER :: VeloVar, PotVar, VeloCondVar, CoordCondVar
      LOGICAL :: GotGravity, GotDamping, GotBuoyancy, GotField
 
 
      SAVE :: Visited, dim, Basis, dBasisdx, mass, charge, dragcoeff, FieldPerm, &
          FieldMode, Decay, UseGradVelo, TimeOrder, GotGravity, GotDamping, &
          GotPot, GotVelo, Gravity, Damping, VeloCond, CoordCond, GotBuoyancy, &
-         ParticleVolume, GotField, Rad
+         ParticleVolume, GotField, Rad, CoordCondVar, VeloCondVar, DensityName
   
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
@@ -533,23 +537,44 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          END IF
        END IF
 
-       GotPot = ListCheckPresent(Params,'Potential Variable Name')
+       VariableName = ListGetString(Params,'Potential Variable Name',GotPot)
        IF( GotPot ) THEN
+         PotVar => VariableGet( Mesh % Variables, TRIM(VariableName) )
+         IF(.NOT. ASSOCIATED( PotVar ) ) THEN
+           CALL Fatal('ParticleFieldInteraction','Potential field variable does not exist: '//TRIM(VariableName))           
+         END IF
          charge = GetCReal( Params,'Particle Charge',Found)
          IF(.NOT. Found) CALL Fatal('ParticleFieldInteraction',&
              '> Particle Charge < not given!')
        END IF
 
        dragcoeff = GetCReal( Params,'Particle Drag Coefficient',Found)
-       GotVelo = ListCheckPresent(Params,'Velocity Variable Name')
+       VariableName = ListGetString(Params,'Velocity Variable Name',GotVelo)
        IF( GotVelo ) THEN
+         VeloVar => VariableGet( Mesh % Variables, TRIM(VariableName) )
+         IF(.NOT. ASSOCIATED( VeloVar ) ) THEN
+           CALL Fatal('ParticleFieldInteraction','Velocity field variable does not exist: '//TRIM(VariableName))           
+         END IF         
          IF(.NOT. Found) CALL Fatal('ParticleFieldInteraction',&
              '> Particle Drag Coefficient < not given!')        
          UseGradVelo = GetLogical( Params,'Velocity Gradient Correction',Found)
        END IF
     
-       VeloCond = ListCheckPresent(Params,'Velocity Condition Variable Name')
-       CoordCond = ListCheckPresent(Params,'Coordinate Condition Variable Name')
+       VariableName = ListGetString(Params,'Velocity Condition Variable Name',VeloCond)
+       IF( VeloCond ) THEN
+         VeloCondVar => VariableGet( Mesh % Variables, TRIM(VariableName) )
+         IF(.NOT. ASSOCIATED( VeloCondVar ) ) THEN
+           CALL Fatal('ParticleFieldInteraction','Velocity condition field variable does not exist: '//TRIM(VariableName))           
+         END IF                  
+       END IF
+
+       VariableName = ListGetString(Params,'Coordinate Condition Variable Name',CoordCond)
+       IF( CoordCond ) THEN
+         CoordCondVar => VariableGet( Mesh % Variables, TRIM(VariableName) )
+         IF(.NOT. ASSOCIATED( CoordCondVar ) ) THEN
+           CALL Fatal('ParticleFieldInteraction','Coordinate condition field variable does not exist: '//TRIM(VariableName))           
+         END IF                  
+       END IF
 
        FieldMode = GetInteger( Params,'Particle To Field Mode',Found)
        IF( FieldMode == 4 ) THEN
@@ -562,6 +587,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          FieldPerm => Solver % Variable % Perm
        END IF
 
+       DensityName = 'Density'
+
        GotField = ParticleToField .OR. GotVelo .OR. GotPot .OR. &
            VeloCond .OR. CoordCond .OR. GotBuoyancy
 
@@ -569,7 +596,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      END IF
      
      Force = 0.0_dp
-     
+
      !-------------------------------------------------------------------------
      ! Add constant fields i.e. gravity and constant damping force
      !-------------------------------------------------------------------------
@@ -582,11 +609,10 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        Force = Force - damping * Velo * Mass 
      END IF
      
-     
 
      IF(.NOT. GotField ) RETURN
      
-     stat = GlobalElementInfo( CurrentElement, Coord, &
+     stat = ParticleElementInfo( BulkElement, Coord, &
          SqrtElementMetric, Basis, dBasisdx )
 
 
@@ -596,14 +622,13 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      ! appropriate place to set this flag.
      !-------------------------------------------------------------------------
      IF( VeloCond ) THEN
-       IF( GetVelocityConditionInMesh(CurrentElement, Basis ) ) &
+       IF( GetConditionInMesh(VeloCondVar, BulkElement, Basis ) ) &
            Status = PARTICLE_FIXEDVELO
      END IF
      IF( CoordCond ) THEN
-       IF( GetCoordinateConditionInMesh(CurrentElement, Basis ) ) &
+       IF( GetConditionInMesh(CoordCondVar, BulkElement, Basis ) ) &
            Status = PARTICLE_FIXEDCOORD
      END IF
-
 
      !-------------------------------------------------------------------------
      ! Add interaction with fields i.e. fluidic, electrostatic forces etc.
@@ -612,14 +637,14 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      !-------------------------------------------------------------------------
      IF( GotVelo ) THEN
        IF( UseGradVelo ) THEN       
-         CALL GetVelocityInMesh(CurrentElement, Basis, VeloAtPoint, &
+         CALL GetVectorFieldInMesh(VeloVar,BulkElement, Basis, VeloAtPoint, &
              dBasisdx, GradVeloAtPoint )
          DO i=1,dim
            VeloAtPoint(i) = VeloAtPoint(i) + &
                0.5_dp * SUM( GradVeloAtPoint(i,1:dim) * Velo(1:dim) ) * dtime        
          END DO
        ELSE
-         CALL GetVelocityInMesh(CurrentElement, Basis, VeloAtPoint )
+         CALL GetVectorFieldInMesh(VeloVar, BulkElement, Basis, VeloAtPoint )
        END IF
        IF( TimeOrder == 2 ) THEN
          Force = Force + dragcoeff * ( VeloAtPoint - Velo )  
@@ -629,16 +654,20 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      END IF
 
      IF( GotPot ) THEN
-       CALL GetPotentialInMesh(CurrentElement, Basis, PotAtPoint, dBasisdx, GradPotAtPoint )
+       CALL GetScalarFieldInMesh(PotVar, BulkElement, Basis, PotAtPoint, dBasisdx, GradPotAtPoint )
        Force = Force + charge * GradPotAtPoint 
      END IF
 
      IF( GotBuoyancy ) THEN
-       CALL GetFluidPropertiesInMesh(Particles, CurrentElement, Basis, Coord, Rad, &
-           FluidDensity, FluidViscosity ) 
+       IF( GetParticleElementIntersection( Particles, BulkElement, Basis, Coord, &
+           Rad, BulkElement2, VolumeFraction ) ) THEN
+         FluidDensity = GetMaterialPropertyInMesh(DensityName, BulkElement, Basis, &
+             BulkElement2, VolumeFraction ) 
+       ELSE
+         FluidDensity = GetMaterialPropertyInMesh(DensityName, BulkElement, Basis )
+       END IF
        Force = Force - Gravity * ParticleVolume * FluidDensity
      END IF
-
 
      IF( ANY( ISNAN( Force ) ) ) THEN
        PRINT *,'Gravity',Gravity,ParticleVolume,FluidDensity
@@ -679,8 +708,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          val = SQRT( SUM( Force(1:dim) ** 2 ) )
        END IF
 
-       n = CurrentElement % TYPE % NumberOfNodes
-       NodeIndexes => CurrentElement % NodeIndexes
+       n = BulkElement % TYPE % NumberOfNodes
+       NodeIndexes => BulkElement % NodeIndexes
        
        DO i = 1,n
          j = FieldPerm( NodeIndexes(i) )
@@ -711,7 +740,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      REAL(KIND=dp) :: dist,dr(3),dv(3),eta,rn(3),vn(3),speed,tn1(3),tn2(3)
      REAL(KIND=dp) :: damp_force, spring_force
      TYPE(ValueList_t), POINTER :: Params
-     LOGICAL :: Visited=.FALSE.
+     LOGICAL :: Found, Visited=.FALSE.
      
      SAVE Visited, Rad, Mass, Spring, Damping, Friction
      
@@ -722,7 +751,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        Mass = GetCReal(Params,'Particle Mass')         
        Spring = GetCReal(Params,'Particle Spring')        
        Damping = GetCReal(Params,'Particle Damping')
-       Friction = GetCReal(Params,'Particle Friction')
+       Friction = GetCReal(Params,'Particle Friction',Found)
        Visited = .TRUE.
      END IF
      
@@ -738,7 +767,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      ! no contact if the distance is too large
      eta = 2 * Rad - dist
      IF( eta < 0 ) RETURN
-     
+
      ! normal vector for contact
      IF( dist > TINY( dist ) ) THEN
        rn = dr / dist
@@ -789,7 +818,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        PRINT *,'vn',vn
        PRINT *,'damp_force',damp_force
      END IF
-
 
      Contact = .TRUE.
      
