@@ -1493,7 +1493,7 @@ MODULE NavierStokes
    REAL(KIND=dp) :: u,v,w,s,r,rho,mu,Dist,Roughness,SlipCoeff,Vect(3),vabs
    REAL(KIND=dp) :: Velo(3),Normal(3),Tangent(3), Tangent2(3)
    REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
-   REAL(KIND=dp) :: TangentialVelocity(2), FrictionVelocity(2),DFX,DKERR(2)
+   REAL(KIND=dp) :: TangentialVelocity(2), FrictionVelocity(2),DFX(2),DKERR(2)
 
    INTEGER :: i,j,k,k1,k2,t,q,p,c,dim,N_Integ
 
@@ -1585,14 +1585,18 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
      FrictionVelocity=0
      DKERR=0
-     CALL Solve_UFric( rho,mu,Dist,Roughness, &
-         TangentialVelocity(1),FrictionVelocity(1),DFX(1) )
-     DKERR(1) = 2.0d0 * rho * FrictionVelocity(1) / DFX(1)
+     IF ( TangentialVelocity(1) > 1.d-9 ) THEN
+       CALL Solve_UFric( rho,mu,Dist,Roughness, &
+           TangentialVelocity(1),FrictionVelocity(1),DFX(1) )
+       DKERR(1) = 2.0d0 * rho * FrictionVelocity(1) / DFX(1)
+     END IF
 
      IF ( dim==3 ) THEN
-       CALL Solve_UFric( rho,mu,Dist,Roughness, &
-           TangentialVelocity(2),FrictionVelocity(2),DFX(2) )
-       DKERR(2) = 2.0d0 * rho * FrictionVelocity(2) / DFX(2)
+       IF ( TangentialVelocity(2) > 1.d-9 ) THEN
+         CALL Solve_UFric( rho,mu,Dist,Roughness, &
+             TangentialVelocity(2),FrictionVelocity(2),DFX(2) )
+         DKERR(2) = 2.0d0 * rho * FrictionVelocity(2) / DFX(2)
+       END IF
      END IF
 
 !------------------------------------------------------------------------------
