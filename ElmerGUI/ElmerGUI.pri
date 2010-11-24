@@ -77,9 +77,21 @@ macx {
 unix {
    VTK_INCLUDEPATH = /usr/include/vtk-5.2
    VTK_LIBPATH = /usr/lib
-   VTK_LIBS = -lvtkHybrid \
-              -lvtkWidgets \
-    	      -lQVTK
+   VTK_LIBS = -lQVTK \
+              -lvtkCommon \
+              -lvtkDICOMParser \
+              -lvtkFiltering \
+              -lvtkGenericFiltering \
+              -lvtkGraphics \
+              -lvtkHybrid \
+              -lvtkIO \
+              -lvtkImaging \
+              -lvtkInfovis \
+              -lvtkNetCDF \
+              -lvtkRendering \
+              -lvtkViews \
+              -lvtkVolumeRendering \
+              -lvtkWidgets
 }
 
 win32 {
@@ -129,7 +141,23 @@ macx {
 unix {
    OCC_INCLUDEPATH = /usr/include/opencascade
    OCC_LIBPATH = /usr/lib
-   OCC_LIBS = -lTKBRep -lTKSTL -lTKSTEP -lTKIGES
+   OCC_LIBS = -lTKSTL \
+              -lTKBRep \
+              -lTKernel \
+              -lTKG2d \
+              -lTKG3d \
+              -lTKGeomAlgo \
+              -lTKGeomBase \
+              -lTKMath \
+              -lTKMesh \
+              -lTKShHealing \
+              -lTKSTEP \
+              -lTKSTEP209 \
+              -lTKSTEPAttr \
+              -lTKSTEPBase \
+              -lTKIGES \
+              -lTKTopAlgo \
+              -lTKXSBase
 }
 
 win32 {
