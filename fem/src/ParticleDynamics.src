@@ -111,6 +111,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       Lambda, LocalCoords(3), Rinit(3),Rfin(3)
   REAL(KIND=dp) :: cput1,cput2,dcput,RealTime,CPUTime, Norm
   REAL(KIND=dp), POINTER :: RhsVector(:), WeightVector(:), ForceVector(:)
+  CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
 
   TYPE(Particle_t) :: Particles
 
@@ -193,6 +194,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       END IF
       WeightVector => Var % Values
     END IF
+
+    
+
   END IF
 
   ! Initialize particles at first time visiting, or each time if requested
@@ -632,19 +636,18 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      stat = ParticleElementInfo( BulkElement, Coord, &
          SqrtElementMetric, Basis, dBasisdx )
 
-
      !-------------------------------------------------------------------------
      ! Set Dirichlet conditions for velocity / coordinate
      ! The condition is computed from an external field and hence this is the 
      ! appropriate place to set this flag.
      !-------------------------------------------------------------------------
      IF( VeloCond ) THEN
-       IF( GetConditionInMesh(VeloCondVar, BulkElement, Basis ) ) &
-           Status = PARTICLE_FIXEDVELO
+       CALL GetScalarFieldInMesh(VeloCondVar, BulkElement, Basis, val ) 
+       if( val > TINY( val ) ) Status = PARTICLE_FIXEDVELO
      END IF
      IF( CoordCond ) THEN
-       IF( GetConditionInMesh(CoordCondVar, BulkElement, Basis ) ) &
-           Status = PARTICLE_FIXEDCOORD
+       CALL GetScalarFieldInMesh(CoordCondVar, BulkElement, Basis, val ) 
+       IF( val > TINY( val ) ) Status = PARTICLE_FIXEDCOORD
      END IF
 
      !-------------------------------------------------------------------------
@@ -732,7 +735,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          j = FieldPerm( NodeIndexes(i) )
          IF( j == 0 ) CYCLE
          
-         weight = SqrtElementMetric * Basis(i)
+         ! As the weight should be proporpotional to the particle amount rather than
+         ! element volume this is not multiplied with local element size!
+         weight = Basis(i)
 
          WeightVector( j ) = WeightVector( j ) + weight 
          ForceVector( j ) = ForceVector( j ) + weight * val
@@ -741,6 +746,391 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
    END SUBROUTINE ParticleFieldInteraction
    
+
+
+   
+   !---------------------------------------------------------------    
+   ! Checks the boundaries for general limits. 
+   ! The radius is still assumed to be constant.
+   !---------------------------------------------------------------    
+   SUBROUTINE ParticleWallContact(Particles, dt, No ) 
+     
+     IMPLICIT NONE
+     
+     TYPE(Particle_t) :: Particles
+     INTEGER :: No
+     REAL(KIND=dp) :: dt
+     
+     REAL(KIND=dp) :: Coord(3), Velo(3), WallVelo(3), GradVelo(3,3), Rad, Dist, &
+         Mass, Normal(3), Force(3), Coeff, Spring
+     REAL(KIND=dp), POINTER :: NodalVelo(:,:)
+     TYPE(Mesh_t), POINTER :: Mesh
+     TYPE(ValueList_t), POINTER :: Params, BC
+     TYPE(Variable_t), POINTER :: VeloVar, WallVar
+     INTEGER :: i,j,k,n,dim, ierr, imax
+     LOGICAL :: Collision,Contact,MovingWall,AnyInteraction,Found,GotVeloVar,Visited = .FALSE., &
+         TrueCollision, Debug, Accumulation, AccumulationLimit, WallTrace, Stat, Hit 
+     INTEGER :: NoParticles, Status, ElementIndex, WallNodes
+     INTEGER, POINTER :: NodeIndexes(:), WallPerm(:)
+     TYPE(Element_t), POINTER :: BulkElement, BoundaryElement
+     TYPE(Nodes_t) :: ElementNodes, BoundaryNodes
+     REAL(KIND=dp) :: vn, dta, dtb, rn(3), v1na, v1nb, v2na, eta, AccumulationShear, ShearRate, &
+         SqrtElementMetric, Weight, val, SumBasis
+     REAL(KIND=dp), POINTER :: WallValues(:), Basis(:), dBasisdx(:,:)
+
+     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+     
+     
+     SAVE Visited, dim, Rad, Mass, Mesh, VeloVar, AnyInteraction, BoundaryNodes, &
+         TrueCollision, WallVelo, Coeff, Velo, NodalVelo, Coord, Spring, WallTrace, &
+         WallVar, Basis, dBasisdx, GotVeloVar
+     
+     IF( .NOT. Visited ) THEN
+       Mesh => GetMesh()
+       Params => GetSolverParams()
+       dim = Mesh % Meshdim
+       n = Mesh % MaxElementNodes
+       
+       ALLOCATE( Basis(n), dBasisdx(n,3) )
+       
+       ! Currently, one may need a different radius if the mesh leaks i.e. is 
+       ! include triangles or tetrahedrans with nodes, but no faces on the surface
+       !---------------------------------------------------------------    
+       Rad = GetCReal( Params,'Wall Particle Radius',Found)
+       IF(.NOT. Found) Rad = GetCReal( Params,'Particle Radius',Found)
+       IF(.NOT. Found) THEN
+         CALL Fatal('ParticleWallContact','> Particle Radius < needed!')
+       END IF
+       
+       ! check what kind of interaction models are prescribed in the BCs
+       !-----------------------------------------------------------------------
+       Collision = .FALSE. 
+       Contact = .FALSE.
+       MovingWall = .FALSE.
+       Accumulation = .FALSE.
+       AccumulationLimit = .FALSE.
+       WallTrace = .FALSE.
+
+       DO k=1,CurrentModel % NumberOfBCs
+         BC => CurrentModel % BCs(k) % Values
+         Collision = Collision .OR. GetLogical( BC,'Wall Particle Collision',Found) 
+         Contact = Contact .OR. GetLogical( BC,'Wall Particle Contact',Found) 
+         MovingWall = MovingWall .OR. GetLogical( BC,'Moving Wall',Found)  
+         Accumulation = Accumulation .OR. ListGetLogical( BC,'Particle Accumulation',Found)
+         AccumulationLimit = AccumulationLimit .OR. ListCheckPresent( BC,'Particle Accumulation Max Shear')
+         WallTrace = WallTrace .OR. ListGetLogical( BC,'Particle Trace',Found)
+       END DO
+       
+       IF( Contact ) THEN
+         Spring = GetCReal( Params,'Wall Particle Spring',Found)      
+         IF(.NOT. Found) THEN
+           CALL Fatal('ParticleWallContact','> Wall Particle Spring < needed!')
+         END IF
+       END IF
+       
+       IF( Collision ) THEN
+         Mass = GetCReal( Params,'Particle Mass',Found)
+         IF(.NOT. Found) THEN
+           CALL Fatal('ParticleWallContact','> Particle Mass < needed!')
+         END IF         
+         Coeff = GetCReal( Params,'Wall Particle Bounciness', Found ) 
+         IF(.NOT. Found) Coeff = 1.0_dp                
+         TrueCollision = GetLogical( Params,'True Collision Mode',Found)      
+       END IF
+       
+
+       ! Moving wall and strain based accumulation limit both require velocity. 
+       ! Currently it is assumed that there can be only one velocity at a time.
+       !--------------------------------------------------------------------------       
+       GotVeloVar = .FALSE.
+       IF( MovingWall .OR. AccumulationLimit ) THEN
+         IF( MovingWall ) THEN
+           IF( Collision ) THEN
+             VariableName = ListGetString(Params,'Wall Velocity Variable Name',Found)
+             IF( .NOT. Found ) THEN
+               CALL Fatal('ParticleWallContact','Moving wall needs > Wall Velocity Variable Name <')                    
+             END IF
+           ELSE
+             CALL Fatal('ParticleWallContact','Moving Wall assumes > Wall Particle Collision <')
+           END IF
+         END IF
+         
+         IF( AccumulationLimit ) THEN
+           IF( Contact ) THEN
+             VariableName = ListGetString(Params,'Velocity Variable Name',Found)
+             IF( .NOT. Found ) THEN
+               CALL Fatal('ParticleWallContact','Particle Accumulation needs > Velocity Variable Name <')                    
+             END IF
+           ELSE
+             CALL Warn('ParticleWallContact','Particle Accumulation assumes > Wall Particle Collision <')
+           END IF
+         END IF
+         
+         GotVeloVar = .TRUE.
+         VeloVar => VariableGet( Mesh % Variables, TRIM(VariableName) )
+         IF(.NOT. ASSOCIATED( VeloVar ) ) THEN
+           CALL Fatal('ParticleWallContact','Velocity field variable does not exist: '//TRIM(VariableName))           
+         END IF
+       END IF
+       
+
+       ! If trace is requested create the variable if it does not exist
+       !---------------------------------------------------------------------
+       IF( WallTrace ) THEN
+         VariableName = 'Particle Trace'
+         WallVar => VariableGet( Mesh % Variables,VariableName)
+         IF(.NOT. ASSOCIATED(WallVar)) THEN
+           ALLOCATE( WallPerm( Mesh % NumberOfNodes ) ) 
+           WallPerm = 0
+           CALL MakePermUsingMask(Model,Solver,Mesh,VariableName,.FALSE.,&
+               WallPerm,WallNodes )
+
+           PRINT *,'WallNodes:',WallNodes
+           IF( WallNodes > 0 ) THEN
+             ALLOCATE( WallValues( WallNodes ) )
+             WallValues = 0.0_dp
+             CALL VariableAdd( Mesh % Variables, Mesh, Solver, VariableName, 1, WallValues, WallPerm )
+           END IF
+         END IF
+         WallVar => VariableGet( Mesh % Variables,VariableName)
+         IF(.NOT. ASSOCIATED(WallVar)) THEN
+           PRINT *,'johan on kumma'
+           CALL Fatal('a','b')
+         END IF
+       END IF
+       
+              
+       PRINT *,'Flags:',Contact,Collision,GotVeloVar,MovingWall, Accumulation, AccumulationLimit, WallTrace
+       
+       AnyInteraction = Contact .OR. Collision
+       
+       GradVelo = 0.0_dp
+       WallVelo = 0.0_dp
+       Velo = 0.0_dp
+       Coord = 0.0_dp
+       
+       Visited = .TRUE.
+     END IF
+     
+     IF(.NOT. AnyInteraction ) RETURN
+
+     
+     Hit = .FALSE.
+     val = 0.0_dp
+     
+     Status = Particles % Status(No) 
+     IF( Status >= PARTICLE_LOST ) RETURN
+     IF( Status < PARTICLE_INITIATED ) RETURN
+     
+     ElementIndex = Particles % ElementIndex( No ) 
+     IF( ElementIndex == 0 ) RETURN
+     
+     IF( Particles % InternalElements(  ElementIndex ) ) RETURN
+
+     BulkElement => Mesh % Elements( ElementIndex )
+     
+     IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
+       imax =  BulkElement % TYPE % NumberOfFaces 
+     ELSE
+       imax = BulkElement % TYPE % NumberOfEdges  
+     END IF
+     
+     DO i=1, imax
+       IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
+         j = BulkElement % FaceIndexes(i)
+         BoundaryElement => Mesh % Faces( j )
+       ELSE
+         j = BulkElement % EdgeIndexes(i)
+         BoundaryElement => Mesh % Edges(j)
+       END IF
+       
+       Found = .FALSE.
+       DO j=1,CurrentModel % NumberOfBCs
+         IF(.NOT. ASSOCIATED( BoundaryElement % BoundaryInfo ) ) CYCLE
+         IF ( BoundaryElement % BoundaryInfo % Constraint == &
+             CurrentModel % BCs(j) % Tag ) THEN
+           Found = .TRUE.
+           EXIT
+         END IF
+       END DO
+       IF( .NOT. Found ) CYCLE
+       
+       BC => CurrentModel % BCs(j) % Values
+       Collision = GetLogical( BC,'Wall Particle Collision',Found)      
+       Contact = GetLogical( BC,'Wall Particle Contact',Found)      
+       IF(.NOT. (Collision .OR. Contact) ) CYCLE
+       
+       Coord(1:dim) = Particles % Coordinate(No,1:dim)
+       CALL GetElementNodes(BoundaryNodes,BoundaryElement)
+       Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
+
+       Debug = .FALSE.
+       
+
+       ! This includes contact models using springs and possible accumulation
+       ! which may be controlled by shear rate. 
+       !-----------------------------------------------------------------------
+       IF( Contact ) THEN
+         eta = Dist - Rad
+         IF( eta > 0.0 ) CYCLE
+
+         Force = eta * Spring * Normal 
+         Particles % Force(No,1:dim) = Particles % Force(No,1:dim) + Force(1:dim)         
+         
+         ! Accumulate particles that are on the boundary and then make them lost
+         !-----------------------------------------------------------------------
+         Accumulation = GetLogical( BC,'Particle Accumulation',Found)
+         IF( Accumulation ) THEN
+           AccumulationShear = GetCReal( BC,'Particle Accumulation Max Shear',Found)
+           IF( Found .AND. GotVeloVar ) THEN
+             stat = ParticleElementInfo( BulkElement, Coord, &
+                 SqrtElementMetric, Basis, dBasisdx )
+             CALL GetVectorFieldInMesh(VeloVar,BulkElement, Basis, WallVelo, &
+                 dBasisdx, GradVelo )
+             ShearRate = 0.0_dp
+             DO k=1,dim
+               ShearRate = ShearRate + SUM( GradVelo(k,1:dim) * GradVelo(1:dim,k) ) 
+             END DO
+             ShearRate = SQRT( 0.5 * ABS( ShearRate ) ) 
+             IF( ShearRate > AccumulationShear ) Accumulation = .FALSE.
+           ELSE
+             stat = ParticleElementInfo( BulkElement, Coord, &
+                 SqrtElementMetric, Basis )
+           END IF
+
+           IF( Accumulation ) THEN
+             Status = PARTICLE_LOST
+             Particles % Status(No) = Status
+
+             Hit = .TRUE.
+             WallTrace = GetLogical( BC,'Particle Trace',Found)
+             val = 1.0_dp
+             EXIT
+           END IF
+
+         END IF
+
+       END IF
+       
+
+       ! This includes elastic and inelastic collisions that may give rise to 
+       ! a contact force.
+       !-----------------------------------------------------------------------
+       IF( Collision ) THEN
+         Velo(1:dim) = Particles % Velocity(No,1:dim)
+         vn = SUM( Normal(1:dim) * Velo(1:dim) )
+         
+         MovingWall = GetLogical( BC,'Moving Wall',Found)
+         IF( MovingWall ) THEN
+           stat = ParticleElementInfo( BulkElement, Coord, &
+               SqrtElementMetric, Basis, dBasisdx )
+           CALL GetVectorFieldInMesh(VeloVar,BulkElement, Basis, WallVelo )
+           vn = vn - SUM( Normal(1:dim) * WallVelo(1:dim) )
+         END IF
+         
+         dta = ( Dist - Rad ) / vn
+         
+         IF( dta >= dt ) CYCLE        
+         
+         ! A historical collision but the distance is growing
+         IF( dta < 0.0 .AND. Dist - Rad > 0.0 ) CYCLE      
+         
+         IF( dta < 0.0 ) THEN
+           PRINT *,'Coord:',Coord(1:dim)
+           PRINT *,'Velo:',Velo(1:dim)
+           PRINT *,'Dist',Dist,Rad
+           PRINT *,'vn',vn,dta,dt
+         END IF
+         
+         ! these are defined as is so that we could reuse the binary particle collision stuff
+         ! at the limit Mass2 -> infinity
+         dtb = dt - dta
+         rn = -Normal
+         v1na = SUM( Velo(1:dim) * rn(1:dim) )
+         v2na = SUM( WallVelo(1:dim) * rn(1:dim) ) 
+         
+         v1nb = Coeff * (v2na - v1na) + v2na 
+                  
+         ! Set either force or velocity directly 
+         ! only the normal component of velocity/force is affected by collisions    
+         IF( TrueCollision ) THEN
+           ! compute the path until the collision
+           Coord = Coord + dta * Velo
+           Velo = Velo + (v1nb-v1na) * rn
+           ! compute the path after the collision
+           Coord = Coord + dtb * Velo
+         ELSE
+           Coord = Coord + (v1na-v1nb) * rn * dta
+           Force = Mass * (v1nb-v1na) * rn / dt
+         END IF
+         
+         IF( dta < 0.0 ) THEN
+           PRINT *,'dtb',dtb
+           PRINT *,'rn',rn
+           PRINT *,'na',v1na,v2na,v1nb
+           PRINT *,'Coord2',Coord
+           PRINT *,'Force2',Force
+         END IF
+         
+         IF( TrueCollision ) THEN
+           Particles % Coordinate(No,1:dim) = Coord(1:dim)
+           Particles % Velocity(No,1:dim) = Velo(1:dim)
+         ELSE
+           Particles % Coordinate(No,1:dim) = Coord(1:dim)
+           Particles % Force(No,1:dim) = Particles % Force(No,1:dim) + Force(1:dim)         
+         END IF
+         
+         Hit = .TRUE.
+         WallTrace = GetLogical( Params,'Particle Trace',Found)
+         IF( WallTrace) THEN
+           IF( .NOT. MovingWall ) THEN
+             ! we need the local basis functions but they haven't been computed
+             stat = ParticleElementInfo( BulkElement, Coord, &
+                 SqrtElementMetric, Basis, dBasisdx )
+           END IF
+           val = Mass * (v1nb - v1na ) / dt
+         END IF
+
+         ! Only one collision for each particle & element
+         EXIT
+       END IF
+     END DO
+       
+
+     IF(.NOT. Hit) RETURN
+
+     ! If requested populate a result vector that shows the 
+     ! total hits or forces on the boundary.
+     !------------------------------------------------------
+     IF( WallTrace ) THEN
+       n = BulkElement % TYPE % NumberOfNodes
+       NodeIndexes => BulkElement % NodeIndexes
+       SumBasis = 0.0_dp
+       DO i = 1, n
+         j = WallVar % Perm( NodeIndexes(i) )
+         IF( j > 0 ) SumBasis = SumBasis + Basis(i)
+       END DO
+       
+       ! only populate the vector if there really where some 
+       ! hits resulting to nonzero sum of the basis vectors.
+       ! The sum at boundary is normalized to one.
+       !----------------------------------------------------
+       IF( SumBasis > TINY( SumBasis ) ) THEN
+         val = val / SumBasis
+         DO i = 1,n
+           j = WallVar % Perm( NodeIndexes(i) )
+           IF( j > 0 ) THEN
+             weight = Basis(i)
+             WallVar % Values( j ) = WallVar % Values( j ) + weight * val
+           END IF
+         END DO
+       END IF
+     END IF
+   
+   END SUBROUTINE ParticleWallContact
+
+
+
 
    
    !--------------------------------------------------------------------------------------    
