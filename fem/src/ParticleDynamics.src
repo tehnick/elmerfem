@@ -504,7 +504,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          GradVeloAtPoint(3,3)
      LOGICAL :: Stat, UseGradVelo, CoordCond, VeloCond, Visited = .FALSE., &
          GotPot, GotVelo
-     INTEGER :: i,j,k,n,dim,FieldMode,TimeOrder
+     INTEGER :: i,j,k,l,n,dim,FieldMode,TimeOrder
      INTEGER, POINTER :: NodeIndexes(:), FieldPerm(:),FieldIndexes(:)
      REAL(KIND=dp) :: SqrtElementMetric, Weight, Decay, Dist, ParticleVolume, &
          FluidDensity, FluidViscosity, Rad, VolumeFraction
@@ -643,7 +643,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      !-------------------------------------------------------------------------
      IF( VeloCond ) THEN
        CALL GetScalarFieldInMesh(VeloCondVar, BulkElement, Basis, val ) 
-       if( val > TINY( val ) ) Status = PARTICLE_FIXEDVELO
+       IF( val > TINY( val ) ) Status = PARTICLE_FIXEDVELO
      END IF
      IF( CoordCond ) THEN
        CALL GetScalarFieldInMesh(CoordCondVar, BulkElement, Basis, val ) 
@@ -761,13 +761,13 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      INTEGER :: No
      REAL(KIND=dp) :: dt
      
-     REAL(KIND=dp) :: Coord(3), Velo(3), WallVelo(3), GradVelo(3,3), Rad, Dist, &
+     REAL(KIND=dp) :: Coord(3), Velo(3), Speed, WallVelo(3), GradVelo(3,3), Rad, Dist, &
          Mass, Normal(3), Force(3), Coeff, Spring
      REAL(KIND=dp), POINTER :: NodalVelo(:,:)
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(ValueList_t), POINTER :: Params, BC
      TYPE(Variable_t), POINTER :: VeloVar, WallVar
-     INTEGER :: i,j,k,n,dim, ierr, imax
+     INTEGER :: i,j,k,l,n,dim, ierr, imax
      LOGICAL :: Collision,Contact,MovingWall,AnyInteraction,Found,GotVeloVar,Visited = .FALSE., &
          TrueCollision, Debug, Accumulation, AccumulationLimit, WallTrace, Stat, Hit 
      INTEGER :: NoParticles, Status, ElementIndex, WallNodes
@@ -775,7 +775,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      TYPE(Element_t), POINTER :: BulkElement, BoundaryElement
      TYPE(Nodes_t) :: ElementNodes, BoundaryNodes
      REAL(KIND=dp) :: vn, dta, dtb, rn(3), v1na, v1nb, v2na, eta, AccumulationShear, ShearRate, &
-         SqrtElementMetric, Weight, val, SumBasis
+         SqrtElementMetric, Weight, val, SumBasis, s
      REAL(KIND=dp), POINTER :: WallValues(:), Basis(:), dBasisdx(:,:)
 
      CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
@@ -981,21 +981,29 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          !-----------------------------------------------------------------------
          Accumulation = GetLogical( BC,'Particle Accumulation',Found)
          IF( Accumulation ) THEN
+           stat = ParticleElementInfo( BulkElement, Coord, &
+               SqrtElementMetric, Basis, dBasisdx )
+
+           AccumulationShear = GetCReal( BC,'Particle Accumulation Max Speed',Found)
+           IF( Found ) THEN
+             Velo(1:dim) = Particles % Velocity(No,1:dim)
+             Speed = SQRT( SUM( Velo(1:dim) ** 2) )
+             IF( Speed > AccumulationShear ) Accumulation = .FALSE.
+           END IF
+             
            AccumulationShear = GetCReal( BC,'Particle Accumulation Max Shear',Found)
            IF( Found .AND. GotVeloVar ) THEN
-             stat = ParticleElementInfo( BulkElement, Coord, &
-                 SqrtElementMetric, Basis, dBasisdx )
              CALL GetVectorFieldInMesh(VeloVar,BulkElement, Basis, WallVelo, &
                  dBasisdx, GradVelo )
              ShearRate = 0.0_dp
              DO k=1,dim
-               ShearRate = ShearRate + SUM( GradVelo(k,1:dim) * GradVelo(1:dim,k) ) 
+               DO l=1,dim
+                 s = 0.5 * ( GradVelo(k,l) + GradVelo(l,k) )
+                 ShearRate = ShearRate + s * s
+               END DO
              END DO
-             ShearRate = SQRT( 0.5 * ABS( ShearRate ) ) 
+             ShearRate = SQRT( ShearRate  ) 
              IF( ShearRate > AccumulationShear ) Accumulation = .FALSE.
-           ELSE
-             stat = ParticleElementInfo( BulkElement, Coord, &
-                 SqrtElementMetric, Basis )
            END IF
 
            IF( Accumulation ) THEN
