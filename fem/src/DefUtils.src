@@ -1089,10 +1089,7 @@ CONTAINS
      GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
      IF (.NOT.Found) GB = .TRUE.
 
-     IF ( ASSOCIATED(Element % BoundaryInfo) .AND. .NOT. &
-        ( ASSOCIATED(Element % EdgeIndexes) .OR. &
-          ASSOCIATED(Element % FaceIndexes) ) ) THEN
-
+     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
        Parent => Element % BoundaryInfo % Left
        IF (.NOT.ASSOCIATED(Parent) ) &
          Parent => Element % BoundaryInfo % Right
@@ -1150,7 +1147,7 @@ CONTAINS
          END IF
        END SELECT
      ELSE IF ( GB ) THEN
-        IF ( ASSOCIATED( Element % BubbleIndexes ) ) THEN
+        IF ( ASSOCIATED(Element % BubbleIndexes) ) THEN
            DO i=1,Element % BDOFs
               NB = NB + 1
               Indexes(NB) = FaceDOFs*Solver % Mesh % NumberOfFaces + &
