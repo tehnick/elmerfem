@@ -1222,7 +1222,7 @@
       IF(.NOT. GotIt) PowerSensitivity = 4.0_dp
       PowerScaling = PowerScaling * (1 + PowerSensitivity * PowerRelax * (MeltPoint/yave - 1.0d0) ) 
 
-print *,'MeltPoint',MeltPoint,yave
+PRINT *,'MeltPoint',MeltPoint,yave
 
       IF( ListGetLogical( Solver % Values,'Smart Heater Transient Speedup',GotIt ) ) THEN
         Temperature = Temperature * (1 + PowerRelax * (MeltPoint/yave - 1.0d0)   )     
@@ -1552,7 +1552,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     SUBROUTINE EffectiveHeatCapacity
-      LOGICAL :: Found
+      LOGICAL :: Found, Specific
 !------------------------------------------------------------------------------
 !     See if temperature gradient indside the element is large enough 
 !     to use  the c_p = SQRT( (dH/dx)^2 / (dT/dx)^2 ), otherwise
@@ -1607,6 +1607,8 @@ CONTAINS
       END IF
       PhaseSpatial = ( PhaseChangeModel == PHASE_SPATIAL_2 )
 
+      Specific = ListCheckPresent( Material,'Specific Enthalpy')
+
 !------------------------------------------------------------------------------
       SELECT CASE( PhaseChangeModel )
 !------------------------------------------------------------------------------
@@ -1614,21 +1616,45 @@ CONTAINS
         HeatCapacity(1:n) = ListGetReal( Material, &
              'Effective Heat Capacity', n,Element % NodeIndexes, Found )
         IF ( .NOT. Found ) THEN
-          HeatCapacity(1:n) = ListGetDerivValue( Material, &
-               'Enthalpy', n,Element % NodeIndexes )
+          IF( Specific ) THEN
+            HeatCapacity(1:n) = ListGetDerivValue( Material, &
+                'Specific Enthalpy', n,Element % NodeIndexes )
+            HeatCapacity(1:n) = Density(1:n) * HeatCapacity(1:n)
+          ELSE
+            HeatCapacity(1:n) = ListGetDerivValue( Material, &
+                'Enthalpy', n,Element % NodeIndexes )            
+          END IF
         END IF
+          
 !------------------------------------------------------------------------------
       CASE( PHASE_SPATIAL_2 )
-        Enthalpy(1:n) = ListGetReal(Material,'Enthalpy',n,Element % NodeIndexes)
+        IF( Specific ) THEN
+          Enthalpy(1:n) = ListGetReal(Material,'Specific Enthalpy',n,Element % NodeIndexes)
+          Enthalpy(1:n) = Density(1:n) * Enthalpy(1:n)
+        ELSE
+          Enthalpy(1:n) = ListGetReal(Material,'Enthalpy',n,Element % NodeIndexes)          
+        END IF
+          
 !------------------------------------------------------------------------------
       CASE( PHASE_TEMPORAL )
         TSolution1 = Temperature(1:LocalNodes)
-        Work(1:n) = ListGetReal( Material,'Enthalpy',n,Element % NodeIndexes )
-        Temperature(1:LocalNodes) = TSolution
-        Work(1:n) = Work(1:n) - ListGetReal( Material,'Enthalpy', &
-                     n,Element % NodeIndexes )
+        IF( Specific ) THEN
+          Work(1:n) = ListGetReal( Material,'Specific Enthalpy',n,Element % NodeIndexes )
+          Temperature(1:LocalNodes) = TSolution
+          Work(1:n) = Work(1:n) - ListGetReal( Material,'Specific Enthalpy', &
+              n,Element % NodeIndexes )          
+        ELSE
+          Work(1:n) = ListGetReal( Material,'Enthalpy',n,Element % NodeIndexes )
+          Temperature(1:LocalNodes) = TSolution
+          Work(1:n) = Work(1:n) - ListGetReal( Material,'Enthalpy', &
+              n,Element % NodeIndexes )
+        END IF
         Temperature(1:LocalNodes) = TSolution1
         HeatCapacity(1:n) = Work(1:n) / HeatCapacity(1:n)
+
+        IF( Specific ) THEN
+          HeatCapacity(1:n) = Density(1:n) * HeatCapacity(1:n)          
+        END IF
 !------------------------------------------------------------------------------
       END SELECT
 !------------------------------------------------------------------------------
