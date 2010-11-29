@@ -229,8 +229,13 @@
         n = GetElementNOFNodes()
         BC => GetBC()
         IF ( .NOT. ASSOCIATED(BC) ) CYCLE
+
         IF (GetLogical(BC, 'Omega Wall BC', gotIt ) .OR. &
             GetLogical(BC, 'Noslip Wall BC',  gotIt)) CALL OmegaWall(Element,n)
+
+        IF ( GetLogical( BC, 'Wall Law',gotIt ) ) THEN
+          CALL KomegaWallLaw(n)
+        END IF
       END DO
 
       CALL DefaultDirichletBCs()
@@ -269,6 +274,44 @@
 !------------------------------------------------------------------------------
 
 CONTAINS
+
+!------------------------------------------------------------------------------
+   SUBROUTINE KomegaWallLaw(n)
+!------------------------------------------------------------------------------
+     INTEGER :: n
+     LOGICAL :: GotIt
+     INTEGER :: i,j,k,DOF
+     REAL(KIND=dp) :: Density(n),Viscosity(n),SurfaceRoughness(n),LayerThickness(n), &
+             U(n), V(n), W(n), Kin, Eps, Omega
+
+     Density(1:n)   = GetParentMatProp( 'Density' )
+     Viscosity(1:n) = GetParentMatProp( 'Viscosity' )
+
+     SurfaceRoughness(1:n) = GetReal( BC, 'Surface Roughness', gotIt )
+     LayerThickness(1:n)   = GetReal( BC, 'Boundary Layer Thickness' )
+
+     CALL GetScalarLocalSolution(U, 'Velocity 1')
+     CALL GetScalarLocalSolution(V, 'Velocity 2')
+     CALL GetScalarLocalSolution(W, 'Velocity 3')
+
+     DOFs = Solver % Variable % DOFs
+     DO j=1,n
+      CALL KEWall( Kin, Eps, Omega, SQRT(U(j)**2+V(j)**2+W(j)**2), &
+       LayerThickness(j), SurfaceRoughness(j), Viscosity(j), &
+         Density(j) )
+
+       k = DOFs*(Solver % Variable % Perm(Element % NodeIndexes(j))-1)
+       Solver % Matrix % RHS(k+1) = Kin
+       CALL ZeroRow( Solver % Matrix,k+1 )
+       CALL SetMatrixElement( Solver % Matrix,k+1,k+1,1.0d0 )
+
+       Solver % Matrix % RHS(k+2) = Omega
+       CALL ZeroRow( Solver % Matrix,k+2 )
+       CALL SetMatrixElement( Solver % Matrix,k+2,k+2,1.0d0 )
+     END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE KomegaWallLaw
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, LOAD, Element,n,Nodes )
@@ -620,12 +663,12 @@ CONTAINS
        CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
      END DO
 
-!    DO i=1,n
-!      j = 2*Solver % Variable % Perm(Element % NodeIndexes(i))
-!      Solver % Matrix % RHS(j) = 10*omega_wall
-!      CALL ZeroRow( Solver % Matrix, j )
-!      CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
-!    END DO
+     DO i=1,n
+       j = 2*Solver % Variable % Perm(Element % NodeIndexes(i))
+       Solver % Matrix % RHS(j) = 10*omega_wall
+       CALL ZeroRow( Solver % Matrix, j )
+       CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
+     END DO
 
 !------------------------------------------------------------------------------
    END SUBROUTINE OmegaWall

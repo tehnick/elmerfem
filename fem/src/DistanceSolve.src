@@ -268,7 +268,7 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
-  LOGICAL :: AllocationsDone = .FALSE., Found
+  LOGICAL :: AllocationsDone = .FALSE., Found, Found1
   TYPE(Element_t),POINTER :: Element
 
   TYPE(ValueList_t), POINTER :: SolverParams, BC
@@ -278,7 +278,7 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: BodyForce
 
-  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), buf(:) ,xp(:),yp(:),zp(:)
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), buf(:) ,xp(:),yp(:),zp(:),bdist(:),bd(:)
   REAL(KIND=dp), POINTER :: distance(:)
   INTEGER, POINTER :: gPerm(:), ibuf(:), aperm(:),bperm(:),cperm(:)
 
@@ -292,7 +292,7 @@ REAL(kind=dp) :: cputime, st
 
   Mesh => GetMesh()
   n = Mesh % NumberOfNodes
-  ALLOCATE( aperm(n), bperm(n) ); aperm = 0; bperm = 0
+  ALLOCATE( aperm(n), bperm(n), bdist(n) ); aperm = 0; bperm = 0; bdist=0
 
   nb = 0
   DO t=1,Mesh % NumberOfBoundaryElements
@@ -300,8 +300,8 @@ REAL(kind=dp) :: cputime, st
     IF ( .NOT. ActiveBoundaryElement() ) CYCLE
 
     BC => GetBC()
-    IF ( ListCheckPresent(BC,ComponentName(Solver % Variable)).OR. &
-         GetLogical( BC, 'Noslip Wall BC', Found ) ) THEN
+    dist = GetCReal(BC, Solver % Variable % Name, Found )
+    IF ( Found .OR. GetLogical( BC, 'Noslip Wall BC', Found1 ) ) THEN
       nd = GetElementNOFNodes()
       DO i=1,nd
         j = Element % NodeIndexes(i)
@@ -309,10 +309,12 @@ REAL(kind=dp) :: cputime, st
           nb = nb + 1
           aperm(nb) = j
           bperm(j)  = nb
+          bdist(j) = dist
         END IF
       END DO
     END IF
   END DO
+print*,bdist(600)
   
   IF ( ParEnv % PEs > 1 ) THEN
     comm = Solver % Matrix % Comm
@@ -334,7 +336,7 @@ REAL(kind=dp) :: cputime, st
      END IF
     END DO
 
-    ALLOCATE( xp(nnb), yp(nnb), zp(nnb), buf(nnb) )
+    ALLOCATE( xp(nnb), yp(nnb), zp(nnb), bd(nnb), buf(nnb) )
 
     buf=0._dp
     buf(cperm(gperm(aperm(1:nb)))) = Mesh % Nodes % x(aperm(1:nb))
@@ -351,14 +353,20 @@ REAL(kind=dp) :: cputime, st
     CALL MPI_ALLREDUCE(buf, zp, nnb, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
     zp(1:nnb) = zp(1:nnb)/ibuf(1:nnb)
 
+    buf=0._dp
+    buf(cperm(gperm(aperm(1:nb)))) = bdist(aperm(1:nb))
+    CALL MPI_ALLREDUCE(buf, bd, nnb, MPI_DOUBLE_PRECISION, MPI_SUM, comm, i)
+    bd(1:nnb) = bd(1:nnb)/ibuf(1:nnb)
+
     nb = nnb
     DEALLOCATE(ibuf,buf,cperm)
   ELSE
-    ALLOCATE( xp(nb),yp(nb),zp(nb) )
+    ALLOCATE( xp(nb),yp(nb),zp(nb),bd(nb) )
     DO i=1,nb
       xp(i) = Solver % Mesh % Nodes % x(aperm(i))
       yp(i) = Solver % Mesh % Nodes % y(aperm(i))
       zp(i) = Solver % Mesh % Nodes % z(aperm(i))
+      bd(i) = bdist(aperm(i))
     END DO
   END IF
 
@@ -372,10 +380,7 @@ REAL(kind=dp) :: cputime, st
 ! if ( parenv % mype==0) print*,'algo 1:', cputime()-st
 
   DEALLOCATE(xp,yp,zp,aperm,bperm)
-
-  Solver % Variable % Norm = SQRT(SUM(distance))
-  distance = SQRT(distance)
-
+  Solver % Variable % Norm = SQRT(SUM(distance**2))
 
   CALL Info('DistanceSolver1','All done')
 
@@ -407,24 +412,26 @@ CONTAINS
 
   SUBROUTINE distcomp
 
-    REAL(KIND=dp), ALLOCATABLE :: xxp(:),yyp(:),zzp(:),d(:),dd(:)
-    REAL(KIND=dp) :: xl,yl,zl,dl,c(3)
-    INTEGER :: i,j,k,l,nnb,cnt
+    REAL(KIND=dp), ALLOCATABLE :: xxp(:),yyp(:),zzp(:),d(:),dd(:), bbd(:)
+    REAL(KIND=dp) :: xl,yl,zl,dl,c(3),ldist
+    INTEGER :: i,j,k,l,nnb,cnt,minl
     INTEGER, ALLOCATABLE :: dperm(:), near(:)
 
     nnb = n+nb
     ALLOCATE( xxp(nnb), yyp(nnb), zzp(nnb), d(nnb), dperm(nnb), &
-              near(nnb), dd(nb) )
+              near(nnb), dd(nb), bbd(nnb) )
 
     CALL RANDOM_NUMBER(c)
 
     xxp(1:n) = Mesh % Nodes % x
     yyp(1:n) = Mesh % Nodes % y
     zzp(1:n) = Mesh % Nodes % z
+    bbd(1:n) = bdist(1:n)
 
     xxp(n+1:nnb) = xp
     yyp(n+1:nnb) = yp
     zzp(n+1:nnb) = zp
+    bbd(n+1:nnb) = bd
  
     xl = MAXVAL(xxp)-MINVAL(xxp)
     yl = MAXVAL(yyp)-MINVAL(yyp)
@@ -447,6 +454,7 @@ CONTAINS
         yp(j)=yyp(dperm(i))
         zp(j)=zzp(dperm(i))
         dd(j)=d(i)
+        bd(j)=bbd(dperm(i))
       END IF
     END DO
 
@@ -458,7 +466,7 @@ CONTAINS
       IF ( k <= 0 ) CYCLE
 
       IF ( bperm(j)/=0 ) THEN
-        distance(k) = 0._dp
+        distance(k) = bdist(j)
       ELSE
         dl = d(i)
         xl = xxp(j)
@@ -467,17 +475,23 @@ CONTAINS
         dist = HUGE(1._dp)
         DO l=near(i)+1,nb
           IF( (dd(l)-dl)**2>dist ) EXIT
-          dist = MIN(dist,(xp(l)-xl)**2+(yp(l)-yl)**2+(zp(l)-zl)**2)
+          ldist = (xp(l)-xl)**2+(yp(l)-yl)**2+(zp(l)-zl)**2
+          IF ( dist>ldist) THEN
+            minl = l; dist=ldist
+          END IF
         END DO
 
         DO l=near(i),1,-1
           IF( (dd(l)-dl)**2>dist ) EXIT
-          dist = MIN(dist,(xp(l)-xl)**2+(yp(l)-yl)**2+(zp(l)-zl)**2)
+          ldist = (xp(l)-xl)**2+(yp(l)-yl)**2+(zp(l)-zl)**2
+          IF ( dist>ldist) THEN
+            minl = l; dist=ldist
+          END IF
         END DO
-        distance(k) = dist
+        distance(k) = SQRT(dist)+bd(minl)
       END  IF
     END DO
-    DEALLOCATE( xxp, yyp, zzp, d, dperm, near, dd )
+    DEALLOCATE( xxp, yyp, zzp, d, dperm, near, dd, bbd )
   END SUBROUTINE distcomp
 !------------------------------------------------------------------------------
 END SUBROUTINE DistanceSolver1

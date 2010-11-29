@@ -221,11 +221,11 @@
 !             TEPS   - Turbulent kinetic energy dissipation
 !
 !******************************************************************************
-      SUBROUTINE KEWALL (TK, TEPS, UT, DIST, ROUGH, VISCOS, DENSIT )
+      SUBROUTINE KEWALL (TK, TEPS, TOMG, UT, DIST, ROUGH, VISCOS, DENSIT )
 
       IMPLICIT NONE
 
-      DOUBLE PRECISION TK, TEPS, UT, DIST, VISCOS, DENSIT, ROUGH
+      DOUBLE PRECISION TK, TEPS, TOMG, UT, DIST, VISCOS, DENSIT, ROUGH
       DOUBLE PRECISION UFRIC, DFX, UTLOCAL
       DOUBLE PRECISION :: CMYY   = 0.09D0
       DOUBLE PRECISION :: KARMAN = 0.41D0
@@ -235,6 +235,7 @@
       CALL SOLVE_UFRIC(DENSIT,VISCOS,DIST,ROUGH,UTLOCAL,UFRIC,DFX)
       TK   = ( UFRIC**2 ) /  DSQRT( CMYY )
       TEPS = ( UFRIC**3 ) / ( KARMAN * DIST )
+      TOMG = UFRIC / ( SQRT(CMYY) * KARMAN * DIST )
 
       RETURN
       END

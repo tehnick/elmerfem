@@ -408,58 +408,53 @@
         IF ( ASSOCIATED( BC ) ) THEN
           IF ( GetLogical( BC, 'Wall Law',gotIt ) ) THEN
 
-!             /*
-!              * NOTE: that the following is not really valid, the pointer to
-!              * the Material structure is from the remains of the last of the
-!              * bulk elements.
-!              */
-              Density(1:n)   = GetReal( Material,'Density' )
-              Viscosity(1:n) = GetReal( Material,'Viscosity' )
+            Density(1:n)   = GetParentMatProp( 'Density' )
+            Viscosity(1:n) = GetParentMatProp( 'Viscosity' )
 
-              SurfaceRoughness(1:n) = GetReal( BC, 'Surface Roughness', gotIt )
-              LayerThickness(1:n)   = GetReal( BC, 'Boundary Layer Thickness' )
+            SurfaceRoughness(1:n) = GetReal( BC, 'Surface Roughness', gotIt )
+            LayerThickness(1:n)   = GetReal( BC, 'Boundary Layer Thickness' )
 
-              DO j=1,n
-                k = FlowPerm(NodeIndexes(j))
-                IF ( k > 0 ) THEN
-                  SELECT CASE( NSDOFs )
-                    CASE(3)
-                      U(j) = FlowSolution( NSDOFs*k-2 )
-                      V(j) = FlowSolution( NSDOFs*k-1 )
-                      W(j) = 0.0D0
+            DO j=1,n
+              k = FlowPerm(NodeIndexes(j))
+              IF ( k > 0 ) THEN
+                SELECT CASE( NSDOFs )
+                  CASE(3)
+                    U(j) = FlowSolution( NSDOFs*k-2 )
+                    V(j) = FlowSolution( NSDOFs*k-1 )
+                    W(j) = 0.0D0
 
-                    CASE(4)
-                      U(j) = FlowSolution( NSDOFs*k-3 )
-                      V(j) = FlowSolution( NSDOFs*k-2 )
-                      W(j) = FlowSolution( NSDOFs*k-1 )
-                  END SELECT
-                ELSE
-                  U(j) = 0.0d0
-                  V(j) = 0.0d0
-                  W(j) = 0.0d0
-                END IF
-              END DO
+                  CASE(4)
+                    U(j) = FlowSolution( NSDOFs*k-3 )
+                    V(j) = FlowSolution( NSDOFs*k-2 )
+                    W(j) = FlowSolution( NSDOFs*k-1 )
+                END SELECT
+              ELSE
+                U(j) = 0.0d0
+                V(j) = 0.0d0
+                W(j) = 0.0d0
+              END IF
+            END DO
 
-              DO j=1,n
-                CALL KEWall( Work(1), Work(2), SQRT(U(j)**2+V(j)**2+W(j)**2), &
-                 LayerThickness(j), SurfaceRoughness(j), Viscosity(j), &
-                   Density(j) )
+            DO j=1,n
+              CALL KEWall( Work(1), Work(2), Work(3), SQRT(U(j)**2+V(j)**2+W(j)**2), &
+               LayerThickness(j), SurfaceRoughness(j), Viscosity(j), &
+                 Density(j) )
 
-                k = DOFs*(KinPerm(NodeIndexes(j))-1)
-                ForceVector(k+1) = Work(1)
-                CALL ZeroRow( StiffMatrix,k+1 )
-                CALL SetMatrixElement( StiffMatrix,k+1,k+1,1.0d0 )
+              k = DOFs*(KinPerm(NodeIndexes(j))-1)
+              ForceVector(k+1) = Work(1)
+              CALL ZeroRow( StiffMatrix,k+1 )
+              CALL SetMatrixElement( StiffMatrix,k+1,k+1,1.0d0 )
 
-                ForceVector(k+2) = Work(2)
-                CALL ZeroRow( StiffMatrix,k+2 )
-                CALL SetMatrixElement( StiffMatrix,k+2,k+2,1.0d0 )
-              END DO
-            END IF
+              ForceVector(k+2) = Work(2)
+              CALL ZeroRow( StiffMatrix,k+2 )
+              CALL SetMatrixElement( StiffMatrix,k+2,k+2,1.0d0 )
+            END DO
+          END IF
 
-            IF ( GetLogical( BC, 'Epsilon Wall BC', gotIt ) .OR. &
-                 GetLogical( BC, 'Noslip Wall BC',  gotIt ) ) THEN
-              CALL EpsilonWall( Element, n, STIFF, FORCE )
-            END IF
+          IF ( GetLogical( BC, 'Epsilon Wall BC', gotIt ) .OR. &
+               GetLogical( BC, 'Noslip Wall BC',  gotIt ) ) THEN
+            CALL EpsilonWall( Element, n, STIFF, FORCE )
+          END IF
         END IF
       END DO
 !------------------------------------------------------------------------------
