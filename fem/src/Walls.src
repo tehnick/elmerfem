@@ -136,7 +136,7 @@
 !         WALL_LAW=UFRIC*YPLUS-UT
 !      ENDIF
 
-! Reichardt´s law:
+! Reichardts law:
       WALL_LAW=(UFRIC/DKAPPA)*DLOG(1.0D0+0.4D0*YPLUS)  &
             + UFRIC*7.8D0  &
               *(           &
@@ -230,13 +230,33 @@
       DOUBLE PRECISION :: CMYY   = 0.09D0
       DOUBLE PRECISION :: KARMAN = 0.41D0
       DOUBLE PRECISION :: SMALL  = 1.0D-10
+      DOUBLE PRECISION :: OmegaWallPlus,Yplus, KsPlus, OmegaPlus, TomgL,TomgT,t,Alpha
 
       UTLOCAL = DMAX1( UT,SMALL )
       CALL SOLVE_UFRIC(DENSIT,VISCOS,DIST,ROUGH,UTLOCAL,UFRIC,DFX)
-      TK   = ( UFRIC**2 ) /  DSQRT( CMYY )
-      TEPS = ( UFRIC**3 ) / ( KARMAN * DIST )
-      TOMG = UFRIC / ( SQRT(CMYY) * KARMAN * DIST )
+
+      yplus = densit*ufric*dist/viscos
+      alpha = MIN(1.0d0, yplus/10)
+
+      TK   = ( UFRIC**2 ) /  DSQRT( CMYY ) * alpha
+      TEPS = ( UFRIC**3 ) / ( KARMAN * DIST ) * &
+            MIN(1d0,alpha+0.2d0*Karman*(1-alpha**2)/SQRT(CMYY))
+
+      OmegaPlus = 6/(0.072d0*yplus**2)
+      TOMGL = Densit*Ufric**2*OmegaPlus/Viscos
+      TOMGT = UFRIC / ( SQRT(CMYY) * KARMAN * DIST )
+
+      IF (yplus<4 ) THEN
+        TOMG = TOMGL
+      ELSE IF ( yplus<32 ) THEN
+        TOMG = SQRT(tomgL**2+tomgT**2)
+      ELSE
+        TOMG = TOMGT
+      END IF
 
       RETURN
       END
+
+
+
 !******************************************************************************
