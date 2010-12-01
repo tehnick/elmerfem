@@ -1,3 +1,4 @@
+
 !/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
@@ -1321,10 +1322,12 @@ PRINT *,'adding derivative'
 !------------------------------------------------------------------------------
     DO i=1,CoupledMaxIter
        IF ( TransientSimulation .OR. Scanning ) THEN
-         CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )
-         WRITE( Message, * ) 'Coupled system iteration: ', i
-         CALL Info( 'SolveEquations', Message, Level=3 )
-         CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )         
+         IF( CoupledMaxIter > 1 ) THEN
+           CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )
+           WRITE( Message, * ) 'Coupled system iteration: ', i
+           CALL Info( 'SolveEquations', Message, Level=3 )
+           CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )         
+         END IF
          steadyIt = i
        END IF
 
