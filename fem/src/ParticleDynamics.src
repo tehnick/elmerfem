@@ -99,7 +99,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   LOGICAL :: GotIt, Debug, Hit, InitLocation, CollisionInteraction, &
       ContactInteraction, ParticleToField, &
       ParticleInBox, ParticleWall, Absolute, InitTimestep, &
-      TrueCollision, StatInfo, TimingInfo, Found
+      TrueCollision, StatInfo, TimingInfo, Found, OutputActive
   INTEGER :: i,j,k,n,dim,No,No2,nodims,NoParticles = 0,&
        ElementIndex, VisitedTimes = 0, nstep, OutputInterval, ExtOutputInterval, &
        Status,TimeOrder, PartitionChanges, TimeStepsTaken=0,estindexes(6),&
@@ -409,7 +409,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     CALL ParticleAdvanceTime( Particles, dtime )
     !---------------------------------------------------------------
 
-    IF( OutputInterval > 0 ) THEN
+    IF( OutputInterval > 0 .AND. ExtOutputInterval == 0 ) THEN
       IF( MOD(i,OutputInterval) == 0) CALL ParticleOutput( Particles ) 
     END IF
 
@@ -444,18 +444,18 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     CALL ParticleStatistics( Particles, 1 )
   END IF
   
-  IF( VisitedTimes == 1 ) THEN
-    CALL ParticleOutput( Particles ) 
-  ELSE IF( ExtOutputInterval > 0) THEN
-    IF( MOD(VisitedTimes,ExtOutputInterval) == 0) THEN
-      CALL ParticleOutput( Particles ) 
-    END IF
-  ELSE IF( OutputInterval == 0) THEN
-    CALL ParticleOutput( Particles ) 
+  IF( OutputInterval /= 0) THEN
+    OutputActive = .FALSE.    
+  ELSE IF( VisitedTimes == 1 .OR. ExtOutputInterval == 0 ) THEN
+    OutputActive = .TRUE.
+  ELSE 
+    OutputActive = ( MOD(VisitedTimes,ExtOutputInterval) == 0)
   END IF
 
+  IF( OutputActive ) CALL ParticleOutput( Particles ) 
 
-  IF(.TRUE.) THEN
+
+  IF( OutputActive .OR. OutputInterval /= 0) THEN
     IF( ParEnv % PEs > 1 ) THEN
       TotNoParticles =  NINT( ParallelReduction( 1.0_dp * Particles % NumberOfParticles ) )
       TotParticleStepsTaken = NINT( ParallelReduction( 1.0_dp * ParticleStepsTaken) )
@@ -550,7 +550,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
        GotGravity = GotBuoyancy .OR. ListGetLogical( Params,'Particle Gravity',Found)
        IF( GotGravity ) THEN
-         gWork => ListGetConstRealArray( CurrentModel % Constants,'Gravity',GotGravity)
+         gWork => ListGetConstRealArray( CurrentModel % Constants,'Gravity',Found)
          IF ( ASSOCIATED(gwork) ) THEN
            Gravity = gWork(4,1) * gWork(1:3,1)
          ELSE
@@ -1036,6 +1036,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
            vn = vn - SUM( Normal(1:dim) * WallVelo(1:dim) )
          END IF
          
+	 IF( ABS( vn ) < TINY( vn ) ) CYCLE
+
          dta = ( Dist - Rad ) / vn
          
          IF( dta >= dt ) CYCLE        
