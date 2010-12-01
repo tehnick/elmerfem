@@ -133,7 +133,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
   IF( UseOriginalMesh ) THEN
     IF( .NOT. Visited ) THEN
       WRITE(Message,* ) 'Allocating new nodes of size: ',n
-      CALL Info('RigidMeshMapper',Message)
+      CALL Info('RigidMeshMapper',Message,Level=6)
       ALLOCATE(Xorig(n),Yorig(n),Zorig(n))      
       Xorig = Xnew
       Yorig = Ynew
@@ -161,7 +161,7 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
       END IF
     END DO
 
-    CALL Info('RigidMeshMapper','Solving mesh relaxation field using Laplace')
+    CALL Info('RigidMeshMapper','Solving mesh relaxation field using Laplace',Level=6)
     
     MaxNonlinIter = GetInteger( SolverParams,&
        'Nonlinear System Max Iterations',Found)
@@ -442,18 +442,19 @@ SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
 
   END DO
 
-  WRITE(Message,* ) 'Number of nodes mapped: ',COUNT( NodeDone )
-  CALL Info('RigidMeshMapper',Message)
-  
-  at1 = CPUTime()
-  IF( at1-at0 > 0.1_dp ) THEN
-    WRITE(Message,* ) 'Coordinate mapping time: ',at1-at0
+
+  IF(.NOT. Visited ) THEN
+    WRITE(Message,* ) 'Number of nodes mapped: ',COUNT( NodeDone )
     CALL Info('RigidMeshMapper',Message)
-  END IF  
+    at1 = CPUTime()
+    IF( at1-at0 > 0.1_dp ) THEN
+      WRITE(Message,* ) 'Coordinate mapping time: ',at1-at0
+      CALL Info('RigidMeshMapper',Message)
+    END IF  
+    CALL Info('RigidMeshMapper','All done' ) 
+  END IF
 
   DEALLOCATE( Relax, MeshDisplace, NodeDone )
-  
-  CALL Info('RigidMeshMapper','All done' ) 
   
   Visited = .TRUE.
 
