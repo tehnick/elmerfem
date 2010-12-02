@@ -67,26 +67,24 @@ SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
         'Surface Charge Density' )
     
     Calculate = ListGetLogical(Params,'Calculate Electric Field',Found)
-!    IF(.NOT. Found) Calculate = .TRUE.
     IF( Calculate ) THEN
       IF( Dim == 2 ) THEN
         CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            '-dofs 2 Electric Field' )
+            'elfield[Electric Field:2]' )
       ELSE
         CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            '-dofs 3 Electric Field' )
+            'elfield[Electric Field:3]' )
       END IF
     END IF
     
     Calculate = ListGetLogical(Params,'Calculate Electric Flux',Found)
-!    IF(.NOT. Found) Calculate = .TRUE.
     IF( Calculate ) THEN
       IF( Dim == 2 ) THEN
         CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            '-dofs 2 Electric Flux' )
+            'elflux[Electric Flux:2]' )
       ELSE
         CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            '-dofs 3 Electric Flux' )
+            'elflux[Electric Flux:3]' )
       END IF
     END IF
 
@@ -268,11 +266,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     
     CalculateField = ListGetLogical( Params, &
         'Calculate Electric Field', GotIt )
-!    IF ( .NOT. GotIt )  CalculateField = .TRUE.
     
     CalculateFlux = ListGetLogical( Params, &
         'Calculate Electric Flux', GotIt )
-!    IF ( .NOT. GotIt )  CalculateFlux = .TRUE.
     
     CalculateEnergy = ListGetLogical( Params, &
         'Calculate Electric Energy', GotIt )
@@ -338,7 +334,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   IF ( CalculateField ) THEN
-    Var => VariableGet( Solver % Mesh % Variables,'Electric Field')
+    Var => VariableGet( Solver % Mesh % Variables,'elfield')
     IF( ASSOCIATED( Var) ) THEN
       Field => Var % Values
     ELSE
@@ -347,7 +343,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   END IF
   
   IF ( CalculateFlux ) THEN
-    Var => VariableGet( Solver % Mesh % Variables,'Electric Flux')
+    Var => VariableGet( Solver % Mesh % Variables,'elflux')
     IF( ASSOCIATED( Var ) ) THEN
       Flux => Var % Values
     ELSE
