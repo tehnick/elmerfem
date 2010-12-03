@@ -909,7 +909,7 @@
      INTEGER :: interval, timestep, i, j, k, n
      REAL(KIND=dp) :: dt, ddt, dtfunc
      INTEGER :: timeleft,cum_timestep
-     INTEGER, SAVE ::  stepcount=0
+     INTEGER, SAVE ::  stepcount=0, RealTimestep
      LOGICAL :: ExecThis,SteadyStateReached=.FALSE.
 
      REAL(KIND=dp) :: CumTime, MaxErr, AdaptiveLimit, &
@@ -947,6 +947,7 @@
 !------------------------------------------------------------------------------
 !      go trough number of timesteps within an interval
 !------------------------------------------------------------------------------
+       RealTimestep = 1
        DO timestep = 1,Timesteps(interval)
 
          dtfunc = ListGetConstReal( CurrentModel % Simulation, &
@@ -1079,7 +1080,7 @@
                sTime(1) = s + CumTime + ddt
                sSize(1) = ddt
                CALL SolveEquations( CurrentModel, ddt, Transient, &
-                 CoupledMinIter, CoupledMaxIter, SteadyStateReached )
+                 CoupledMinIter, CoupledMaxIter, SteadyStateReached, RealTimestep )
 
 
                MaxErr = ListGetConstReal( CurrentModel % Simulation, &
@@ -1102,10 +1103,10 @@
                sStep(1) = ddt / 2
                sTime(1) = s + CumTime + ddt/2
                CALL SolveEquations( CurrentModel, ddt/2, Transient, &
-                  CoupledMinIter, CoupledMaxIter, SteadyStateReached )
+                  CoupledMinIter, CoupledMaxIter, SteadyStateReached, RealTimestep )
                sTime(1) = s + CumTime + ddt
                CALL SolveEquations( CurrentModel, ddt/2, Transient, &
-                  CoupledMinIter, CoupledMaxIter, SteadyStateReached )
+                  CoupledMinIter, CoupledMaxIter, SteadyStateReached, RealTimestep )
 
                MaxErr = ABS( MaxErr - ListGetConstReal( CurrentModel % Simulation, &
                            'Adaptive Error Measure', GotIt ) )
@@ -1124,6 +1125,7 @@
 
                IF ( MaxErr < AdaptiveLimit .OR. ddt <= AdaptiveMinTimestep ) THEN
                  CumTime = CumTime + ddt
+                 RealTimestep = RealTimestep+1
                  IF ( SmallestCount >= AdaptiveKeepSmallest .OR. StepControl > 0 ) THEN
                     ddt = MIN( 2*ddt, AdaptiveMaxTimeStep )
                     StepControl   = 1
@@ -1157,7 +1159,8 @@
             DEALLOCATE( xx, xxnrm, yynrm, prevxx )
          ELSE ! Adaptive timestepping
             CALL SolveEquations( CurrentModel, dt, Transient, &
-              CoupledMinIter, CoupledMaxIter, SteadyStateReached )
+              CoupledMinIter, CoupledMaxIter, SteadyStateReached, RealTimestep )
+            RealTimestep = RealTimestep+1
          END IF
 !------------------------------------------------------------------------------
 !        Save results to disk, if requested

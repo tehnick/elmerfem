@@ -1248,37 +1248,45 @@ PRINT *,'adding derivative'
 
 !------------------------------------------------------------------------------
   SUBROUTINE SolveEquations( Model, dt, TransientSimulation, &
-      CoupledMinIter, CoupledMaxIter, SteadyStateReached )
+      CoupledMinIter, CoupledMaxIter, SteadyStateReached, RealTimestep )
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     REAL(KIND=dp) :: dt
+    INTEGER, OPTIONAL :: RealTimestep
     INTEGER :: CoupledMinIter, CoupledMaxIter
     LOGICAL :: TransientSimulation, SteadyStateReached
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
-    INTEGER :: i,j,k,l,n,ierr,istat
+    INTEGER :: i,j,k,l,n,ierr,istat,Visited=0, RGorder=0, nSolvers
     LOGICAL :: Found, Stat, AbsNorm, Scanning, Convergence, RungeKutta, MeActive, &
        NeedSol, IsCoupledSolver, IsAssemblySolver, CalculateDerivative, TestConvergence
     LOGICAL, ALLOCATABLE :: DoneThis(:), AfterConverged(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
     CHARACTER(LEN=max_name_len) :: When
-    TYPE(Variable_t), POINTER :: IterV
+    TYPE(Variable_t), POINTER :: IterV, TimestepV
     REAL(KIND=dp), POINTER :: steadyIt,nonlnIt
-    REAL(KIND=dp), ALLOCATABLE :: k1(:), k2(:), k3(:), k4(:), Values0(:)
+    REAL(KIND=dp), POINTER :: k1(:), k2(:), k3(:), k4(:)
+
+    TYPE RungeKutta_t
+      REAL(KIND=dp), ALLOCATABLE :: k1(:),k2(:),k3(:),k4(:)
+    END TYPE RungeKutta_t
+    TYPE(RungeKutta_t), ALLOCATABLE, TARGET :: RGCoeff(:)
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
 !   Intialize equation solvers for new timestep
 !------------------------------------------------------------------------------
+    nSolvers = Model % NumberOfSolvers
+
     Scanning = &
       ListGetString( CurrentModel % Simulation, 'Simulation Type', Found ) == 'scanning'
 
     IF ( TransientSimulation ) THEN
-       DO k=1,Model % NumberOfSolvers
+       DO k=1,nSolvers
           Solver => Model % Solvers(k)
-          IF ( Solver % PROCEDURE /= 0 ) CALL InitializeTimestep( Solver )
+          IF ( Solver % PROCEDURE /= 0 ) CALL InitializeTimestep(Solver)
        END DO
     END IF
 
@@ -1288,7 +1296,7 @@ PRINT *,'adding derivative'
     END IF
 !------------------------------------------------------------------------------
 
-    DO k=1,Model % NumberOfSolvers
+    DO k=1,nSolvers
       Solver => Model % Solvers(k)
       IF ( Solver % PROCEDURE==0 ) CYCLE
 
@@ -1306,19 +1314,147 @@ PRINT *,'adding derivative'
       END IF
     END DO
 
-
 !------------------------------------------------------------------------------
 
-    ALLOCATE( DoneThis( Model % NumberOfSolvers ), &
-         AfterConverged( Model % NumberOfSolvers ) )
+    ALLOCATE( DoneThis(nSolvers), AfterConverged(nSolvers) )
 
-    DO i=1,Model % NumberOfSolvers
+    DO i=1,nSolvers
       Solver => Model % Solvers(i)
       AfterConverged(i) = ListGetLogical( Solver % Values, &
              'Coupled System After Others Converged', Found )
     END DO
 
-    IF ( PrevDT == 0.0d0 ) PrevDT = dt
+    IF ( PrevDT==0 ) PrevDT = dt
+
+    IF ( RealTimestep>2 ) THEN
+      DO i=1,nSolvers
+        Solver => Model % Solvers(i)
+        IF ( Solver % Procedure==0 ) CYCLE
+            Solver % Variable % PrevNorm = Solver % Variable % Norm
+
+        RungeKutta = .FALSE.
+        IF ( TransientSimulation .AND. Solver % TimeOrder == 1 ) THEN
+            RungeKutta = ListGetString( Solver % Values, &
+               'Timestepping Method', Found ) == 'runge-kutta'
+        END IF
+
+        IF ( .NOT. RungeKutta ) CYCLE
+
+        IF ( .NOT. ALLOCATED(RGCoeff) ) ALLOCATE(RGCoeff(nSolvers))
+
+        n = SIZE(Solver % Variable % Values)
+        ALLOCATE(RGCoeff(i) % k1(n), RGCoeff(i) % k2(n), RGCoeff(i) % k3(n), &
+                  RGCoeff(i) % k4(n) )
+
+        k1 => RGCoeff(i) % k1
+        k1 = Solver % Variable % PrevValues(:,1)-Solver % Variable % PrevValues(:,2)
+        k1 = dt * k1 / PrevDT
+        RGorder = Solver % Order
+        SELECT CASE(RGOrder)
+        CASE(2)
+          Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k1
+        CASE(4)
+          Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k1/2
+        END SELECT
+      END DO
+      IF ( RGorder==4 ) dt = dt/2
+    END IF
+
+    CALL SolveCoupled()
+
+    IF ( ALLOCATED(RGCoeff) ) THEN
+      DO i=1,nSolvers
+        Solver => Model % Solvers(i)
+        IF ( .NOT. ALLOCATED(RGCoeff(i) % k1)) CYCLE
+
+        k1 => RGCoeff(i) % k1
+        k2 => RGCoeff(i) % k2
+        RGorder = Solver % Order
+        SELECT CASE(RGorder)
+        CASE(2)
+          k2 = Solver % Variable % Values - Solver % Variable % PrevValues(:,1)
+          Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + &
+                         ( k1 + k2 )/2
+          Solver % Variable % Norm = &
+              ComputeNorm(Solver, n, Solver % Variable % Values)
+        CASE(4)
+          k2 = 2*(Solver % Variable % Values - Solver % Variable % PrevValues(:,1))
+          Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k2/2
+        END SELECT
+      END DO
+
+      IF ( RGorder>2 ) THEN
+        CALL SolveCoupled()
+
+        DO i=1,nSolvers
+          Solver => Model % Solvers(i)
+          IF ( .NOT. ALLOCATED(RGCoeff(i) % k1)) CYCLE
+
+          k3 => RGCoeff(i) % k3
+          k3 = 2*(Solver % Variable % Values - Solver % Variable % PrevValues(:,1))
+          Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k3
+        END DO
+        dt = 2 * dt
+        CALL SolveCoupled()
+
+        DO i=1,nSolvers
+          Solver => Model % Solvers(i)
+          IF ( .NOT. ALLOCATED(RGCoeff(i) % k1)) CYCLE
+
+          k1 => RGCoeff(i) % k1
+          k2 => RGCoeff(i) % k2
+          k3 => RGCoeff(i) % k3
+          k4 => RGCoeff(i) % k4
+          k4 = Solver % Variable % Values - Solver % Variable % PrevValues(:,1)
+
+          Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + &
+                             ( k1 + 2*k2 + 2*k3 + k4 ) / 6
+
+          Solver % Variable % Norm = &
+              ComputeNorm(Solver, n, Solver % Variable % Values)
+        END DO
+      END IF
+        
+      DO i=1,nSolvers
+        Solver => Model % Solvers(i)
+        IF ( ALLOCATED(RGCoeff(i) % k1) ) THEN
+          DEALLOCATE(RGCoeff(i) % k1, RGCoeff(i) % k2, RGCoeff(i) % k3, RGCoeff(i) % k4)
+        END IF
+      END DO
+      DEALLOCATE(RgCoeff)
+    END IF
+
+    PrevDt = dt
+
+!------------------------------------------------------------------------------
+
+    DO k=1,nSolvers
+      Solver => Model % Solvers(k)
+      IF ( Solver % PROCEDURE==0 ) CYCLE
+
+      When = ListGetString( Solver % Values, 'Exec Solver', Found )
+      IF (  Found ) THEN
+         IF ( When == 'after timestep' ) THEN
+           CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+           CALL ParallelBarrier
+         END IF
+      ELSE
+         IF ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_TIME ) THEN
+           CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+           CALL ParallelBarrier
+         END IF
+      END IF
+    END DO
+
+!------------------------------------------------------------------------------
+    IF ( .NOT.TransientSimulation ) SteadyStateReached = ALL(DoneThis)
+!------------------------------------------------------------------------------
+    DEALLOCATE( DoneThis, AfterConverged )
+!------------------------------------------------------------------------------
+
+CONTAINS
+
+    SUBROUTINE SolveCoupled()
 !------------------------------------------------------------------------------
     DO i=1,CoupledMaxIter
        IF ( TransientSimulation .OR. Scanning ) THEN
@@ -1341,8 +1477,6 @@ PRINT *,'adding derivative'
           Mesh % OutputActive = .FALSE.
           Mesh => Mesh % Next
        END DO
-
-
 
 !------------------------------------------------------------------------------
 !      Go trough number of solvers (heat,laminar or turbulent flow, etc...)
@@ -1378,17 +1512,11 @@ PRINT *,'adding derivative'
           IF ( AfterConverged(k) .AND. .NOT. ALL(AfterConverged .OR. DoneThis) ) CYCLE
 !------------------------------------------------------------------------------
 
-          RungeKutta = .FALSE.
-          IF ( TransientSimulation .AND. Solver % TimeOrder == 1 ) THEN
-            RungeKutta = ListGetString( Solver % Values, &
-                'Timestepping Method', Found ) == 'runge-kutta'
-          END IF
-          
           n = 0
           IF ( ASSOCIATED(Solver % Variable) ) THEN
             IF ( ASSOCIATED(Solver % Variable % Values) ) &
                 n = SIZE(Solver % Variable % Values)
-            Solver % Variable % PrevNorm = Solver % Variable % Norm
+!           Solver % Variable % PrevNorm = Solver % Variable % Norm
           END IF
 
           ! There are some operations that require that the previous steady state values
@@ -1422,50 +1550,7 @@ PRINT *,'adding derivative'
             Solver % Variable % SteadyValues(1:n) = Solver % Variable % Values(1:n)
           END IF
 
-
-          IF ( RungeKutta .AND. n > 0 ) THEN
-
-            SELECT CASE( Solver % Order )
-            CASE(2)
-              ALLOCATE( k1(n), k2(n) )
-
-              k1 = Solver % Variable % PrevValues(:,1)-Solver % Variable % PrevValues(:,2)
-              k1 = dt * k1 / PrevDT
-              Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k1
-              CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-              k2 = Solver % Variable % Values - Solver % Variable % PrevValues(:,1)
-
-              Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + &
-                                  ( k1 + k2 ) / 2
-              DEALLOCATE( k1, k2 )
-
-
-            CASE DEFAULT
-              ALLOCATE( k1(n), k2(n), k3(n), k4(n) )
-
-              k1 = Solver % Variable % PrevValues(:,1)-Solver % Variable % PrevValues(:,2)
-              k1 = dt * k1 / PrevDT
-              Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k1/2
-              CALL SolverActivate( Model,Solver,dt/2,TransientSimulation )
-              k2 = 2*(Solver % Variable % Values - Solver % Variable % PrevValues(:,1))
-
-              Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k2
-              CALL SolverActivate( Model,Solver,dt/2,TransientSimulation )
-              k3 = 2*(Solver % Variable % Values - Solver % Variable % PrevValues(:,1))
-
-              Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + k3
-              CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-              k4 = Solver % Variable % Values - Solver % Variable % PrevValues(:,1)
-
-              Solver % Variable % Values = Solver % Variable % PrevValues(:,1) + &
-                                ( k1 + 2*k2 + 2*k3 + k4 ) / 6
-              DEALLOCATE( k1, k2, k3, k4 )
-            END SELECT
-            Solver % Variable % Norm = &
-                ComputeNorm(Solver, n, Solver % Variable % Values)
-           ELSE
-             CALL SolverActivate(Model,Solver,dt,TransientSimulation)
-           END IF
+          CALL SolverActivate(Model,Solver,dt,TransientSimulation)
 !------------------------------------------------------------------------------
 !         check for coupled system convergence
 !------------------------------------------------------------------------------
@@ -1483,8 +1568,9 @@ PRINT *,'adding derivative'
                  !                 CALL ComputeChange(Solver,.TRUE.,n)
                END IF
 
-               ! The ComputeChange subroutine sets a flag to zero if not yet converged (otherwise -1/1)
-               !----------------------------------------------------------------------
+               ! The ComputeChange subroutine sets a flag to zero if not yet
+               ! converged (otherwise -1/1)
+               !------------------------------------------------------------
                IF( TestConvergence ) THEN
                  IF( Solver % Variable % SteadyConverged == 0 ) THEN
                    DoneThis(k) = .FALSE.
@@ -1536,7 +1622,6 @@ PRINT *,'adding derivative'
        Model % Mesh % Changed = .FALSE.
        IF ( ALL(DoneThis) ) EXIT
     END DO
-    PrevDT = dt
 
     IF ( TransientSimulation .AND. .NOT. ALL(DoneThis) ) THEN
        IF ( ListGetLogical( Model % Simulation,  &
@@ -1553,32 +1638,7 @@ PRINT *,'adding derivative'
        END IF
     END IF
 
-!------------------------------------------------------------------------------
-
-    DO k=1,Model % NumberOfSolvers
-      Solver => Model % Solvers(k)
-      IF ( Solver % PROCEDURE==0 ) CYCLE
-
-      When = ListGetString( Solver % Values, 'Exec Solver', Found )
-      IF (  Found ) THEN
-         IF ( When == 'after timestep' ) THEN
-           CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-           CALL ParallelBarrier
-         END IF
-      ELSE
-         IF ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_TIME ) THEN
-           CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-           CALL ParallelBarrier
-         END IF
-      END IF
-    END DO
-
-!------------------------------------------------------------------------------
-    IF ( .NOT.TransientSimulation ) SteadyStateReached = ALL(DoneThis)
-!------------------------------------------------------------------------------
-    DEALLOCATE( DoneThis, AfterConverged )
-!------------------------------------------------------------------------------
-
+    END SUBROUTINE SolveCoupled
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveEquations
 !------------------------------------------------------------------------------
