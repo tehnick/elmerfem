@@ -485,7 +485,7 @@ MODULE NavierStokes
             Element, Nodes, n, n, u, v, w,  muder0 )
 
         ViscNewtonLin = NewtonLinearization .AND. muder0/=0._dp
-        IF ( ViscNewtonLin )  Strain = Grad+TRANSPOSE(Grad)
+        IF ( ViscNewtonLin )  Strain = (Grad+TRANSPOSE(Grad))/2
 
       ELSE
         DO i=1,6
@@ -733,7 +733,7 @@ MODULE NavierStokes
 
        IF ( ViscNewtonLin ) THEN
          DO i=1,dim
-           muder = 2*muder0*SUM(Strain(i,:)*dBasisdx(q,:))
+           muder = muder0*SUM(Strain(i,:)*dBasisdx(q,:))
            DO j=1,dim
              Jac(i,i)=Jac(i,i) + s*muder*Grad(i,j)*dBasisdx(p,j)
              Jac(j,i)=Jac(j,i) + s*muder*Grad(i,j)*dBasisdx(p,i)
@@ -956,15 +956,15 @@ MODULE NavierStokes
    END DO 
 
 
-!  IF ( ViscNewtonLin ) THEN
-!    SOL=0._dp
-!    SOL(1:c*n:c) = Ux(1:n)
-!    SOL(2:c*n:c) = Uy(1:n)
-!    IF ( dim>2 ) SOL(3:c*n:c) = Uz(1:n)
-!    p = c*nBasis
-!    StiffMatrix(1:p,1:p) = StiffMatrix(1:p,1:p)+JacM(1:p,1:p)
-!    FORCEvector(1:p)=Forcevector(1:p)+MATMUL(JacM(1:p,1:p),SOL(1:p))
-!  END IF
+   IF ( ViscNewtonLin ) THEN
+     SOL=0._dp
+     SOL(1:c*n:c) = Ux(1:n)
+     SOL(2:c*n:c) = Uy(1:n)
+     IF ( dim>2 ) SOL(3:c*n:c) = Uz(1:n)
+     p = c*nBasis
+     StiffMatrix(1:p,1:p) = StiffMatrix(1:p,1:p)+JacM(1:p,1:p)
+     FORCEvector(1:p)=Forcevector(1:p)+MATMUL(JacM(1:p,1:p),SOL(1:p))
+   END IF
 
    IF (  P2P1 ) THEN
      j = GetElementFamily()
