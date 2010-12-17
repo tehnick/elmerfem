@@ -1029,7 +1029,10 @@ END FUNCTION CRS_RowSum
     TYPE(Matrix_t) :: A
 
 !------------------------------------------------------------------------------
+!    INTEGER, POINTER, CONTIGUOUS :: Cols(:),Rows(:)
      INTEGER, POINTER :: Cols(:),Rows(:)
+
+!    REAL(KIND=dp), POINTER, CONTIGUOUS :: Values(:)
      REAL(KIND=dp), POINTER :: Values(:)
 
      INTEGER :: i,j,n
@@ -1040,6 +1043,11 @@ END FUNCTION CRS_RowSum
      Rows   => A % Rows
      Cols   => A % Cols
      Values => A % Values
+
+    IF  ( A % MatvecSubr /= 0 ) THEN
+      CALL MatVecSubr(A % MatVecSubr,n,Rows,Cols,Values,u,v)
+      RETURN
+   END IF
 
 !$omp parallel do private(j,rsum)
      DO i=1,n
@@ -2669,8 +2677,8 @@ END FUNCTION CRS_RowSum
     REAL(KIND=dp) :: u(HUTI_NDIM),v(HUTI_NDIM)
 
 !------------------------------------------------------------------------------
-    INTEGER, POINTER :: Cols(:),Rows(:)
-    REAL(KIND=dp), POINTER :: Values(:)
+    INTEGER, POINTER, CONTIGUOUS :: Cols(:),Rows(:)
+    REAL(KIND=dp), POINTER, CONTIGUOUS :: Values(:)
 
     INTEGER :: i,j,n
     REAL(KIND=dp) :: s
@@ -2681,6 +2689,10 @@ END FUNCTION CRS_RowSum
     Cols   => GlobalMatrix % Cols
     Values => GlobalMatrix % Values
 
+    IF  ( GlobalMatrix % MatVecSubr /= 0 ) THEN
+      CALL MatVecSubr(GlobalMatrix % MatVecSubr,n,Rows,Cols,Values,u,v)
+      RETURN
+   END IF
 !***********************************************************************
 ! The following #ifdefs  seem really necessery, if speed is an issue:
 ! SGI compiler optimizer  wants to know the sizes of the arrays very

@@ -2108,10 +2108,15 @@ END SUBROUTINE SParIfMatrixVector
 
   INTEGER :: nneigh
 
-  REAL(KIND=dp), POINTER :: Vals(:)
   TYPE(Buff_t), POINTER ::  buffer(:)
 
+
+! REAL(KIND=dp), POINTER, CONTIGUOUS :: Vals(:)
+  REAL(KIND=dp), POINTER :: Vals(:)
+
+! INTEGER, POINTER, CONTIGUOUS :: Cols(:),Rows(:)
   INTEGER, POINTER :: Cols(:),Rows(:)
+
   INTEGER, ALLOCATABLE :: neigh(:), recv_size(:), requests(:)
 
 real(kind=dp) :: s, RealTime
@@ -2180,11 +2185,15 @@ real(kind=dp) :: s, RealTime
   Cols => InsideMatrix % Cols
   Vals => InsideMatrix % Values
 
-  DO i = 1, n
-    DO j = Rows(i), Rows(i+1) - 1
-      v(i) = v(i) + Vals(j) * u(Cols(j))
+  IF  ( GlobalMatrix % MatvecSubr /= 0 ) THEN
+    CALL MatVecSubr(GlobalMatrix % MatVecSubr,n,Rows,Cols,Vals,u,v)
+  ELSE
+    DO i = 1, n
+      DO j = Rows(i), Rows(i+1) - 1
+        v(i) = v(i) + Vals(j) * u(Cols(j))
+      END DO
     END DO
-  END DO
+  END IF
 
   CALL Recv_LocIf_Wait( GlobalData % SplittedMatrix, n, v,  &
        nneigh, neigh, recv_size, requests, buffer )
