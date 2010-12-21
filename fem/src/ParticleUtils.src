@@ -1624,17 +1624,17 @@ CONTAINS
       
     CASE DEFAULT 
       
-      InitialValues => ListGetConstRealArray(Params,'Initial Coordinates',gotIt)    
+      InitialValues => ListGetConstRealArray(Params,'Initial Coordinate',gotIt)    
       IF(gotIt) THEN
         IF( SIZE(InitialValues,2) /= dim ) THEN
-          CALL Fatal('ParticleTracker','Wrong dimension in Initial Coordinates')
+          CALL Fatal('ParticleTracker','Wrong dimension in > Initial Coordinate <')
         ELSE IF( SIZE(InitialValues,1) == 1 ) THEN
           DO i=1,NewParticles
             k = offset + i
             Coordinate(k,1:dim) = InitialValues(1,1:dim)
           END DO
         ELSE IF( SIZE(InitialValues,1) /= NewParticles ) THEN
-          CALL Fatal('ParticleTracker','Wrong number of particles in Initial Coordinates')
+          CALL Fatal('ParticleTracker','Wrong number of particles in > Initial Coordinate <')
         ELSE
           DO i=1,NewParticles
             k = Offset + i
@@ -1642,7 +1642,7 @@ CONTAINS
           END DO
         END IF
       ELSE
-        CALL Fatal('ParticleTracker','Initial Coordinates not given')
+        CALL Fatal('ParticleTracker','> Initial Coordinate < not given')
       END IF
     END SELECT
 
@@ -1654,17 +1654,17 @@ CONTAINS
     ! allow bulk velocities with the random one.
     !-------------------------------------------------------------------------
 
-    InitialValues => ListGetConstRealArray(Params,'Initial Velocities',gotIt)
+    InitialValues => ListGetConstRealArray(Params,'Initial Velocity',gotIt)
     IF(gotIt) THEN
       IF( SIZE(InitialValues,2) /= DIM ) THEN
-        CALL Fatal('ParticleTracker','Wrong dimension in Initial Velocities')
+        CALL Fatal('ParticleTracker','Wrong dimension in Initial Velocity')
       ELSE IF( SIZE(InitialValues,1) == 1 ) THEN
         DO i=1,NewParticles
           k = Offset + i
           Velocity(k,1:dim) = InitialValues(1,1:DIM)
         END DO
       ELSE IF( SIZE(InitialValues,1) /= NewParticles ) THEN
-        CALL Fatal('ParticleTracker','Wrong number of particles in Initial Velocities')
+        CALL Fatal('ParticleTracker','Wrong number of particles in Initial Velocity')
       ELSE
         DO i=1,NewParticles
           k = Offset + i
