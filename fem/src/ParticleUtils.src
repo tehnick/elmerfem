@@ -2991,13 +2991,14 @@ CONTAINS
       
       IF ( Status >= PARTICLE_LOST ) CYCLE
       IF ( Status <= PARTICLE_INITIATED ) CYCLE
-      
-      IF( ANY( ISNAN( Particles % Force(No,:) ) ) ) THEN
-        PRINT *,'dCoord',dCoord(1:dim),dtime
-        PRINT *,'velo',Particles % Velocity(No,:)
-        PRINT *,'coord',Particles % Coordinate(No,:)
-        PRINT *,'force',Particles % Force(No,:)
-      END IF
+ 
+! This is just for debugging so commented away for the moment 
+!      IF( ANY( ISNAN( Particles % Force(No,:) ) ) ) THEN
+!        PRINT *,'dCoord',dCoord(1:dim),dtime
+!        PRINT *,'velo',Particles % Velocity(No,:)
+!        PRINT *,'coord',Particles % Coordinate(No,:)
+!        PRINT *,'force',Particles % Force(No,:)
+!      END IF
       
       IF ( Status == PARTICLE_FIXEDCOORD ) THEN
         Particles % Velocity(No,:) = 0.0_dp
