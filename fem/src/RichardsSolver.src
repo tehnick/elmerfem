@@ -676,7 +676,7 @@ END MODULE PorousMaterials
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE RichardsFlux_Init( Model,Solver,dt,Transient )
+  SUBROUTINE RichardsPostprocess_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
 
@@ -718,13 +718,13 @@ END MODULE PorousMaterials
       CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE RichardsFlux_Init
+  END SUBROUTINE RichardsPostprocess_Init
 !------------------------------------------------------------------------------
 
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE RichardsFlux( Model,Solver,dt,Transient )
+SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
   USE CoordinateSystems
@@ -759,9 +759,9 @@ SUBROUTINE RichardsFlux( Model,Solver,dt,Transient )
   TYPE(Variable_t), POINTER :: FluxSol
   
  
-  CALL Info( 'RichardsFlux', '-------------------------------------',Level=4 )
-  CALL Info( 'RichardsFlux','Computing the flux',Level=4 )
-  CALL Info( 'RichardsFlux', '-------------------------------------',Level=4 )
+  CALL Info( 'RichardsPostprocess', '-------------------------------------',Level=4 )
+  CALL Info( 'RichardsPostprocess','Computing the flux',Level=4 )
+  CALL Info( 'RichardsPostprocess', '-------------------------------------',Level=4 )
 
   dim = CoordinateSystemDimension()
 !------------------------------------------------------------------------------
@@ -783,10 +783,10 @@ SUBROUTINE RichardsFlux( Model,Solver,dt,Transient )
   IF(ASSOCIATED(FluxSol)) THEN
     Dofs = FluxSol % DOFs
     IF(Dofs /= DIM) THEN
-      CALL Fatal('RichardsFlux','The flux should have DOFs equal to DIM')
+      CALL Fatal('RichardsPostprocess','The flux should have DOFs equal to DIM')
     END IF
   ELSE
-    CALL Fatal('RichardsFlux','Flux Result Variable is missing: '//TRIM(VarName))      
+    CALL Fatal('RichardsPostprocess','Flux Result Variable is missing: '//TRIM(VarName))      
   END IF
   
   CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
@@ -818,7 +818,7 @@ SUBROUTINE RichardsFlux( Model,Solver,dt,Transient )
   
   at1 = RealTime()
   WRITE(Message,* ) 'Assembly Time: ',at1-at0
-  CALL Info( 'RichardsFlux', Message, Level=5 )
+  CALL Info( 'RichardsPostprocess', Message, Level=5 )
 
 !------------------------------------------------------------------------------     
 
@@ -852,10 +852,10 @@ SUBROUTINE RichardsFlux( Model,Solver,dt,Transient )
 
   at2 = RealTime()
   WRITE(Message,* ) 'Solution Time: ',at2-at1
-  CALL Info( 'RichardsFlux', Message, Level=5 )
+  CALL Info( 'RichardsPostprocess', Message, Level=5 )
   
   WRITE( Message, * ) 'Result Norm: ',TotNorm
-  CALL Info( 'RichardsFlux', Message, Level=4 )
+  CALL Info( 'RichardsPostprocess', Message, Level=4 )
   
 CONTAINS
 
@@ -960,7 +960,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-END SUBROUTINE RichardsFlux
+END SUBROUTINE RichardsPostprocess
 !------------------------------------------------------------------------------
 
 
