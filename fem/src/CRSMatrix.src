@@ -1045,7 +1045,7 @@ END FUNCTION CRS_RowSum
      Values => A % Values
 
     IF  ( A % MatvecSubr /= 0 ) THEN
-      CALL MatVecSubr(A % MatVecSubr,n,Rows,Cols,Values,u,v)
+      CALL MatVecSubr(A % MatVecSubr,A % SpMV, n,Rows,Cols,Values,u,v,0)
       RETURN
    END IF
 
@@ -2692,7 +2692,9 @@ END FUNCTION CRS_RowSum
     Values => GlobalMatrix % Values
 
     IF  ( GlobalMatrix % MatVecSubr /= 0 ) THEN
-      CALL MatVecSubr(GlobalMatrix % MatVecSubr,n,Rows,Cols,Values,u,v)
+      CALL MatVecSubr(GlobalMatrix % MatVecSubr, &
+                  GlobalMatrix % SpMV, n,Rows,Cols,Values,u,v,0)
+print*,globalmatrix % spMV
       RETURN
    END IF
 !***********************************************************************

@@ -2187,7 +2187,8 @@ real(kind=dp) :: s, RealTime
   Vals => InsideMatrix % Values
 
   IF  ( GlobalMatrix % MatvecSubr /= 0 ) THEN
-    CALL MatVecSubr(GlobalMatrix % MatVecSubr,n,Rows,Cols,Vals,u,v)
+    CALL MatVecSubr(GlobalMatrix % MatVecSubr, &
+            GlobalMatrix % SpMV, n,Rows,Cols,Vals,u,v,0)
   ELSE
     DO i = 1, n
       DO j = Rows(i), Rows(i+1) - 1
