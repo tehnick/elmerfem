@@ -46,8 +46,8 @@ MODULE PorousMaterials
   USE SolverUtils
   IMPLICIT NONE
 
-  INTEGER, PARAMETER :: POROSITY_VAN_GENUCHTEN = 1, &
-     POROSITY_CONSTANT = 2 
+  INTEGER, PARAMETER :: POROSITY_DEFAULT=0, &
+      POROSITY_VAN_GENUCHTEN = 1
 
 CONTAINS
 
@@ -57,123 +57,138 @@ CONTAINS
 ! More materials models could be added.
 !--------------------------------------------------------------------
 
-  FUNCTION HydraulicConductivity(Material,psy) RESULT ( kw )
+  FUNCTION HydraulicConductivity(Element,Material,Basis,elempsy) RESULT ( kw )
+    TYPE(Element_t), POINTER :: Element
     TYPE(ValueList_t), POINTER :: Material
+    REAL(KIND=dp) :: Basis(:),elempsy(:)
     REAL(KIND=dp) :: psy, kw
     REAL(KIND=dp) :: kwsat, a, m, n
+    REAL(KIND=dp), ALLOCATABLE :: nodalkw(:)
     TYPE(ValueList_t), POINTER :: PrevMaterial => NULL()
+    TYPE(Element_t), POINTER :: PrevElement => NULL()
     CHARACTER(LEN=MAX_NAME_LEN) :: PorosityModel
-    INTEGER :: PorosityModelIndex
-    LOGICAL :: Found
+    INTEGER :: nnodes, PorosityModelIndex
+    LOGICAL :: Found, SameParameters 
     
-    SAVE PrevMaterial,PorosityModelIndex,kwsat,a,n,m
+    SAVE PrevMaterial,PrevElement,nnodes,PorosityModelIndex,kwsat,a,n,m,nodalkw
     
     ! Parameters for the certain model are assumed to be 
     ! constant within a material
     !--------------------------------------------------------
-    IF( .NOT. ASSOCIATED(Material, PrevMaterial) ) THEN
+    SameParameters = .FALSE.
+    IF( ASSOCIATED(Material, PrevMaterial) ) THEN
+      IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN ) THEN
+        SameParameters = .TRUE.
+      ELSE IF( ASSOCIATED(Element,PrevElement)) THEN
+        SameParameters = .TRUE.
+      END IF
+    ELSE
       PrevMaterial => Material 
       PorosityModel = GetString( Material,'Porosity Model',Found)
-      IF(.NOT. Found) PorosityModel = 'van Genuchten'
-      
-      SELECT CASE( PorosityModel )
-        
-      CASE('van genuchten')
-        PorosityModelIndex = POROSITY_VAN_GENUCHTEN
+      IF( PorosityModel == 'van genuchten') THEN
+        PorosityModelIndex = POROSITY_VAN_GENUCHTEN        
+      ELSE
+        PorosityModelIndex = POROSITY_DEFAULT                
+      END IF      
+      IF( .NOT. ALLOCATED( nodalkw ) ) THEN
+        ALLOCATE( nodalkw(CurrentModel % Mesh % MaxElementNodes))
+        nodalkw = 0.0_dp
+      END IF
+    END IF
+
+
+    IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN ) THEN
+      IF(.NOT. SameParameters) THEN
         kwsat = GetConstReal( Material,'Saturated Hydraulic Conductivity')
         a = GetConstReal( Material,'van Genuchten Alpha')
         n = GetConstReal( Material,'van Genuchten N')
         m = GetConstReal( Material,'van Genuchten M')
-        
-      CASE('constant')
-        PorosityModelIndex = POROSITY_CONSTANT
-        kwsat = GetConstReal( Material,'Hydraulic Conductivity')
-       
-      CASE DEFAULT
-        CALL Fatal('HydraulicConductivity',&
-            'Unknown porosity model:'//TRIM(PorosityModel))
-      END SELECT
-    END IF
-    
-
-    SELECT CASE( PorosityModelIndex ) 
-      
-    CASE( POROSITY_VAN_GENUCHTEN ) 
-        
+      END IF
+      nnodes = Element % TYPE % NumberOfNodes
+      psy = SUM( Basis(1:nnodes) * elemPsy(1:nnodes) )
       IF( psy <= 0.0_dp ) THEN
         kw = kwsat
       ELSE
         kw=kwsat*(1-(a*psy)**(n*m)*(1+(a*psy)**n)**(-m))**2*(1+(a*psy)**n)**(-m/2)
       END IF
-      
-    CASE( POROSITY_CONSTANT ) 
-
-       kw = kwsat
-  
-    CASE DEFAULT
-      CALL Fatal('HydraulicConductivity','Unknown porosity function')
-    END SELECT
-   
+    ELSE
+      IF(.NOT. SameParameters ) THEN
+        nnodes = Element % Type % NumberOfNodes
+        nodalkw = ListGetReal( Material,'Hydraulic Conductivity',&
+            nnodes,Element % NodeIndexes)
+      END IF
+      kw = SUM( Basis(1:nnodes) * nodalkw(1:nnodes) )
+    END IF
+       
   END FUNCTION HydraulicConductivity
 
 
 
-  FUNCTION WaterContent( Material, psy ) RESULT ( teta )
+  FUNCTION WaterContent( Element, Material, Basis, elemPsy ) RESULT ( teta )
+    TYPE(Element_t), POINTER :: Element
     TYPE(ValueList_t), POINTER :: Material
+    REAL(KIND=dp) :: Basis(:),ElemPsy(:)
     REAL(KIND=dp) :: psy, teta
-    REAL(KIND=dp) :: tetaR, tetaS, a, m, n
+    REAL(KIND=dp) :: tetaR, tetaS, a, m, n    
+    REAL(KIND=dp), ALLOCATABLE :: Nodalteta(:)
     TYPE(ValueList_t), POINTER :: PrevMaterial => NULL()
+    TYPE(Element_t), POINTER :: PrevElement => NULL()
     CHARACTER(LEN=MAX_NAME_LEN) :: PorosityModel
-    INTEGER :: PorosityModelIndex
-    LOGICAL :: Found
+    INTEGER :: PorosityModelIndex, nnodes
+    LOGICAL :: SameParameters, Found
 
-    SAVE PrevMaterial,PorosityModelIndex,tetaR,tetaS,a,n,m
+    SAVE PrevMaterial,PrevElement,nnodes,PorosityModelIndex,nodalteta,tetaR,tetaS,a,n,m
     
     ! Parameters for the certain model are assumed to be 
     ! constant within a material
     !--------------------------------------------------------
-    IF( .NOT. ASSOCIATED(Material, PrevMaterial) ) THEN
+    SameParameters = .FALSE.
+    IF( ASSOCIATED(Material, PrevMaterial) ) THEN
+      IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN ) THEN
+        SameParameters = .TRUE.
+      ELSE IF( ASSOCIATED(Element,PrevElement)) THEN
+        SameParameters = .TRUE.
+      END IF
+    ELSE
       PrevMaterial => Material 
       PorosityModel = GetString( Material,'Porosity Model',Found)
-      IF(.NOT. Found) PorosityModel = 'van Genuchten'
-      
-      SELECT CASE( PorosityModel )
-        
-      CASE('van genuchten')
-        PorosityModelIndex = POROSITY_VAN_GENUCHTEN
+      IF( PorosityModel == 'van genuchten') THEN
+        PorosityModelIndex = POROSITY_VAN_GENUCHTEN        
+      ELSE
+        PorosityModelIndex = POROSITY_DEFAULT                
+        IF( .NOT. ALLOCATED( nodalteta ) ) THEN
+          ALLOCATE( nodalteta(CurrentModel % Mesh % MaxElementNodes))
+          nodalteta = 0.0_dp
+        END IF
+      END IF
+    END IF
+
+
+    IF( PorosityModelIndex == POROSITY_VAN_GENUCHTEN ) THEN
+      IF(.NOT. SameParameters) THEN
         tetaR = GetConstReal( Material,'Residual Water Content')
         tetaS = GetConstReal( Material,'Saturated Water Content')
         a = GetConstReal( Material,'van Genuchten Alpha')
         n = GetConstReal( Material,'van Genuchten N')
         m = GetConstReal( Material,'van Genuchten M')
-  
-      CASE('constant')
-        PorosityModelIndex = POROSITY_CONSTANT       
-        tetaS = GetConstReal( Material,'Water Content')
-         
-      CASE DEFAULT
-        CALL Fatal('WaterContent',&
-            'Unknown porosity model:'//TRIM(PorosityModel))
-      END SELECT
-      
-    END IF
-    
-    SELECT CASE( PorosityModelIndex ) 
-      
-    CASE( POROSITY_VAN_GENUCHTEN ) 
-        
+      END IF
+
+      nnodes = Element % TYPE % NumberOfNodes
+      psy = SUM( Basis(1:nnodes) * elemPsy(1:nnodes) )
+
       IF( psy <= 0.0 ) THEN
         teta = tetaS
       ELSE
         teta=tetaR+(tetaS-tetaR)/((1+(a*psy)**n)**m)
       END IF
-      
-    CASE( POROSITY_CONSTANT ) 
-      teta = tetaS
-
-    CASE DEFAULT
-      CALL Fatal('WaterContent','Unknown porosity function')
-    END SELECT
+    ELSE  
+      IF(.NOT. SameParameters) THEN
+        nnodes = Element % Type % NumberOfNodes
+        nodalteta = ListGetReal( Material,'Water Content',&
+            nnodes,Element % NodeIndexes)
+      END IF
+      teta = SUM( Basis(1:nnodes) * nodalteta(1:nnodes) )
+    END IF
     
   END FUNCTION WaterContent
 
@@ -207,11 +222,8 @@ END MODULE PorousMaterials
           'Nodal PressureHead')
     END IF
     
-    Calculate = ListGetLogical(Params,'Calculate Matric Suction',Found)  
-    IF( Calculate ) THEN
-      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+    CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
             'Matric Suction' )
-    END IF
     
   END SUBROUTINE RichardsSolver_Init
 
@@ -243,10 +255,12 @@ END MODULE PorousMaterials
     LOGICAL :: AllocationsDone = .FALSE., Found, Stat, Bubbles, UseDG
     INTEGER :: NumberOfFAces
     REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), STIFF(:,:), FORCE(:), TimeForce(:), &
-        ElemHead(:),ElemPrevHead(:),ElemSource(:),ElemFlux(:)
-    REAL(KIND=dp), POINTER :: Hcoord(:)
+        ElemHead(:),ElemPrevHead(:),ElemMatric(:),ElemPrevMatric(:),&
+        ElemSource(:),ElemFlux(:)
+    REAL(KIND=dp), POINTER :: Hcoord(:), TotalHead(:), MatricSuction(:)
     TYPE(Mesh_t), POINTER :: Mesh
-    
+    INTEGER, POINTER :: TotalHeadPerm(:)
+
     LOGICAL :: SubroutineVisited = .FALSE.,InitSolution, ResetRelax, IsBoundaryReview
     INTEGER :: i,j,n, nd, t, istat, iter, dim, Active, NonlinearIterMax, &
         ActiveCoordinate
@@ -256,7 +270,7 @@ END MODULE PorousMaterials
     
     
     SAVE MASS, STIFF, FORCE, TimeForce, &
-        ElemHead, ElemPrevHead, ElemSource, ElemFlux, &
+        ElemHead, ElemPrevHead, ElemMatric,ElemPrevMatric,ElemSource, ElemFlux, &
         AllocationsDone,SubroutineVisited
     
      !----------------------------------------------------------------------------
@@ -272,7 +286,8 @@ END MODULE PorousMaterials
     IF ( .NOT. AllocationsDone ) THEN
       N = 2 * MAX(Mesh % MaxElementDOFs, Mesh % MaxElementNodes )
       ALLOCATE( FORCE(N), MASS(n,n), STIFF(N,N), TimeForce(N), &
-          ElemHead(N),ElemPrevHead(N),ElemSource(N), ElemFlux(N), &
+          ElemHead(N),ElemPrevHead(N),ElemMatric(N),ElemPrevMatric(N), &
+          ElemSource(N), ElemFlux(N), &
           STAT = istat )
       
       IF ( istat /= 0 ) CALL FATAL('RichardsSolver','Memory allocation error.' )
@@ -289,6 +304,23 @@ END MODULE PorousMaterials
     
     ActiveCoordinate = GetInteger( SolverParams,'Active Coordinate',Found)
     IF(.NOT. Found) ActiveCoordinate = DIM
+    IF( ActiveCoordinate == 1 ) THEN
+      Hcoord => Solver % Mesh % Nodes % x
+    ELSE IF( ActiveCoordinate == 2 ) THEN
+      Hcoord => Solver % Mesh % Nodes % y
+    ELSE
+      Hcoord => Solver % Mesh % Nodes % z
+    END IF
+
+    !------------------------------------------------------------------------------
+    ! Field variables 
+    !------------------------------------------------------------------------------
+    TotalHead => Solver % Variable % Values
+    TotalHeadPerm => Solver % Variable % Perm
+
+    Var => VariableGet( Solver % Mesh % Variables,'Matric Suction')
+    MatricSuction => Var % Values
+
     
     UseDG = GetLogical( SolverParams,'Discontinuous Galerkin',Found)
     IF( UseDG ) THEN
@@ -374,9 +406,11 @@ END MODULE PorousMaterials
         IF( Transient ) THEN
           CALL GetScalarLocalSolution( ElemPrevHead, tStep = -1 )
         END IF
-        
+        ElemMatric(1:n) = Hcoord(Element % NodeIndexes ) - ElemHead(1:n)
+        ElemPrevMatric(1:n) = Hcoord(Element % NodeIndexes) - ElemPrevHead(1:n)
+
         CALL LocalBulkMatrix( MASS, STIFF, FORCE, &
-            ElemHead, ElemPrevHead, ElemSource, Element, n, nd ) 
+            ElemMatric, ElemPrevMatric, ElemSource, Element, n, nd ) 
         
         TimeForce  = 0.0_dp
         IF ( Transient ) CALL Default1stOrderTime( MASS, STIFF, FORCE )
@@ -451,6 +485,13 @@ END MODULE PorousMaterials
         EXIT
       END IF
       
+      ! Update matric suction which may be used in the nonlinear iteration as 
+      DO i = 1, Solver % Mesh % NumberOfNodes
+        j = TotalHeadPerm( i )
+        IF( j == 0 ) CYCLE
+        MatricSuction(j) = Hcoord(i) - TotalHead(j)
+      END DO
+
       SubroutineVisited = .TRUE.
       
     END DO ! End of nonlinear iteration loop
@@ -460,23 +501,6 @@ END MODULE PorousMaterials
       CALL WARN('RichardsSolver','Maximum nonlinear iterations reached, but system not converged')       
     END IF
 
-    Var => VariableGet( Solver % Mesh % Variables,'Matric Suction')
-    IF( ASSOCIATED( Var ) ) THEN
-      CALL Info('RichardsSolver','Computing field >matric suction<')
-      IF( ActiveCoordinate == 1 ) THEN
-        Hcoord => Solver % Mesh % Nodes % x
-      ELSE IF( ActiveCoordinate == 2 ) THEN
-        Hcoord => Solver % Mesh % Nodes % y
-      ELSE
-        Hcoord => Solver % Mesh % Nodes % z
-      END IF
-
-      DO i = 1, Solver % Mesh % NumberOfNodes
-        j = Solver % Variable % Perm( i )
-        IF( j == 0 ) CYCLE
-        Var % Values(j) = Hcoord(i) - Solver % Variable % Values(j)
-      END DO
-    END IF
 
 
 
@@ -488,24 +512,27 @@ END MODULE PorousMaterials
 ! differential of water content with time will be consistant.
 !------------------------------------------------------------------------------------
 
-    FUNCTION WaterContentDerivative( Material, matric, prevmatric ) RESULT ( dtetadmatric )
+    FUNCTION WaterContentDerivative( Element, Material, Basis, elemMatric, elemPrevMatric ) RESULT ( dtetadmatric )
       
+      TYPE(Element_t), POINTER :: Element
       TYPE(ValueList_t), POINTER :: Material
+      REAL(KIND=dp) :: Basis(:),ElemMatric(:),ElemPrevMatric(:)
       REAL(KIND=dp) :: matric, prevmatric, dtetadmatric, &
-          teta1, teta2, matric1, matric2, eps = 1.0d-6
+          teta, prevteta, eps = 1.0d-6
       
-      IF( ABS( matric - prevmatric ) < eps ) THEN
-        matric1 = matric - eps / 2
-        matric2 = matric + eps / 2
+      teta = WaterContent( Element, Material, Basis, elemmatric ) 
+
+      n = Element % TYPE % NumberOfNodes 
+      matric = SUM( Basis(1:n) * elemMatric(1:n) ) 
+      prevmatric = SUM( Basis(1:n) * elemPrevMatric(1:n) )
+
+      IF( ABS( matric - prevmatric ) > eps ) THEN
+        prevteta = WaterContent( Element, Material, Basis, elemPrevMatric ) 
+        dtetadmatric = (teta - prevteta) / (matric - prevmatric)
       ELSE
-        matric1 = prevmatric
-        matric2 = matric
+        prevteta = WaterContent( Element, Material, Basis, elemMatric - eps ) 
+        dtetadmatric = (teta - prevteta) / eps 
       END IF
-      
-      teta1 = WaterContent( Material, matric1 ) 
-      teta2 = WaterContent( Material, matric2 ) 
-      
-      dtetadmatric = (teta2 - teta1) / (matric2 - matric1)
       
     END FUNCTION WaterContentDerivative
     
@@ -513,16 +540,16 @@ END MODULE PorousMaterials
 
 !------------------------------------------------------------------------------      
      SUBROUTINE LocalBulkMatrix(MASS, STIFF, FORCE, &
-         ElemHead, ElemPrevHead, ElemSource, Element, n, nd)
+         ElemMatric, ElemPrevMatric, ElemSource, Element, n, nd)
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: MASS(:,:), STIFF(:,:), FORCE(:), &
-           ElemHead(:), ElemPrevHead(:), ElemSource(:)
+           ElemMatric(:), ElemPrevMatric(:), ElemSource(:)
        INTEGER :: n, nd
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3)
        REAL(KIND=dp) :: x,y,z,detJ,SqrtMetric
-       REAL(KIND=dp) :: U,V,W,S,ipHead,ipZ,ipMatric,ipPrevMatric,ipCond,&
+       REAL(KIND=dp) :: U,V,W,S,ipMatric,ipPrevMatric,ipCond,&
            ipSource,ipContent
        LOGICAL :: Stat
        INTEGER :: i,j,p,q,t,dim,Nbasis, CoordSys
@@ -536,10 +563,10 @@ END MODULE PorousMaterials
        STIFF = 0.0d0
        MASS  = 0.0d0
        CALL GetElementNodes( Nodes, Element )
+
 !------------------------------------------------------------------------------
 !      Numerical integration
 !------------------------------------------------------------------------------
-
        NBasis = n
        IF ( Bubbles ) THEN
          NBasis = 2 * n
@@ -562,29 +589,15 @@ END MODULE PorousMaterials
          
          S = S * detJ
 
-         X = SUM( Nodes % X(1:n) * Basis(1:n) )
-         Y = SUM( Nodes % Y(1:n) * Basis(1:n) )
-         Z = SUM( Nodes % Z(1:n) * Basis(1:n) )
          IF ( CoordSys /= Cartesian ) THEN
-           s = s * X
+           X = SUM( Nodes % X(1:n) * Basis(1:n) )
+           S = S * X
          END IF
 
-         IF( ActiveCoordinate == 3 ) THEN
-           ipZ = Z
-         ELSE IF( ActiveCoordinate == 2 ) THEN
-           ipZ = Y
-         ELSE
-           ipZ = X
-         END IF
+         ipCond = HydraulicConductivity(Element,Material,Basis,elemMatric)
 
-         ipHead = SUM( elemHead(1:n) * Basis(1:n) )
-         ipMatric = ipZ - ipHead
-
-         ipCond = HydraulicConductivity(Material,ipMatric)
-         
          IF( Transient .AND. .NOT. InitSolution ) THEN
-           ipPrevMatric = ipZ - SUM( ElemPrevHead(1:n) * Basis(1:n) )
-           ipContent = WaterContentDerivative(Material,ipMatric,ipPrevMatric)
+           ipContent = WaterContentDerivative(Element,Material,Basis,elemMatric,elemPrevMatric)
          ELSE
            ipContent = 0.0_dp
          END IF
@@ -694,11 +707,10 @@ END MODULE PorousMaterials
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
       CALL ListAddString( SolverParams, 'Variable','-nooutput flux_temp' )
-      CALL ListAddString(SolverParams, 'Flux Result Variable','F')
       IF(dim == 2) THEN
-        CALL ListAddString(SolverParams, 'Exported Variable 1','F[Richards Flux:2]')
+        CALL ListAddString(SolverParams, 'Exported Variable 1','Richards Flux[Richards Flux:2]')
       ELSE IF(dim == 3) THEN
-        CALL ListAddString(SolverParams, 'Exported Variable 1','F[Richards Flux:3]')
+        CALL ListAddString(SolverParams, 'Exported Variable 1','Richards Flux[Richards Flux:3]')
       END IF
     END IF
     CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
@@ -778,8 +790,8 @@ SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
 ! Use an auxiliary variable to store all the dimensions
 !-------------------------------------------------------------------------------
   VarName = GetString(SolverParams,'Flux Result Variable',Found )
-  IF(.NOT. Found) VarName = 'Flux'
-  FluxSol => VariableGet( Solver % Mesh % Variables, VarName )
+  IF(.NOT. Found) VarName = 'Richards Flux'
+  FluxSol => VariableGet( Solver % Mesh % Variables,VarName)
   IF(ASSOCIATED(FluxSol)) THEN
     Dofs = FluxSol % DOFs
     IF(Dofs /= DIM) THEN
@@ -792,7 +804,7 @@ SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
   CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
       CurrentCoordinateSystem() == CylindricSymmetric
   
-  VarName = GetString(SolverParams,'Flux Variable',Found )
+  VarName = GetString(SolverParams,'Target Variable',Found )
   IF(.NOT. Found) VarName = 'Total Head'
 
   at0 = RealTime()
@@ -870,9 +882,9 @@ CONTAINS
     TYPE(Nodes_t) :: Nodes
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: Element
-    REAL(KIND=dp) :: weight,grad(3),ipCond,ipHead,ipMatric,ipZ,coeff,detJ,z
+    REAL(KIND=dp) :: weight,grad(3),ipCond,ipMatric,ipZ,coeff,detJ,z
     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
-    REAL(KIND=dp), ALLOCATABLE :: ElemHead(:)
+    REAL(KIND=dp), ALLOCATABLE :: ElemMatric(:),ElemHead(:)
     LOGICAL :: Found
     TYPE(ValueList_t), POINTER :: Material
     
@@ -880,7 +892,7 @@ CONTAINS
     
     n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
     ALLOCATE( STIFF(n,n), FORCE(dim,n) )
-    ALLOCATE( ElemHead(n), Basis(n), dBasisdx(n,3) )
+    ALLOCATE( ElemMatric(n), ElemHead(n), Basis(n), dBasisdx(n,3) )
 
     DO elem = 1,Solver % NumberOFActiveElements
          
@@ -893,7 +905,9 @@ CONTAINS
       n  = GetElementNOFNodes()
       Material => GetMaterial()
       
+      CALL GetScalarLocalSolution( elemMatric,'matric suction')
       CALL GetScalarLocalSolution( elemHead, VarName )
+      
 
       ! Integrate local stresses:
       ! -------------------------
@@ -916,18 +930,7 @@ CONTAINS
           END DO
         END IF
         
-        IF( ActiveCoordinate == 2 ) THEN
-          ipZ = SUM( Basis(1:n) * Nodes % y(1:n) )
-        ELSE IF( ActiveCoordinate == 3 ) THEN
-          ipZ = SUM( Basis(1:n) * Nodes % z(1:n) )
-        ELSE 
-          ipZ = SUM( Basis(1:n) * Nodes % x(1:n) )
-        END IF
-
-        ipHead = SUM( elemHead(1:n) * Basis(1:n) )
-        ipMatric = ipZ - ipHead
-        ipCond = HydraulicConductivity(Material,ipMatric)
-
+        ipCond = HydraulicConductivity(Element,Material,Basis,elemMatric)
         Grad(1:dim) = MATMUL( elemHead(1:nd), dBasisdx(1:nd,1:dim) )
         
         DO i=1,dim
@@ -953,7 +956,7 @@ CONTAINS
       END DO
     END DO
     
-    DEALLOCATE( elemHead, STIFF, FORCE, Basis, dBasisdx )
+    DEALLOCATE( elemMatric, STIFF, FORCE, Basis, dBasisdx )
 !------------------------------------------------------------------------------
   END SUBROUTINE BulkAssembly
 !------------------------------------------------------------------------------
