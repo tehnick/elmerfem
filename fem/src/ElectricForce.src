@@ -128,7 +128,6 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
-
   Var => VariableGet( Mesh % Variables, 'Electric Force Density' )
   IF(.NOT. ASSOCIATED(Var) ) THEN
     n = SIZE( Potential )
@@ -142,7 +141,6 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
     Var => VariableGet( Mesh % Variables, 'Electric Force Density' )
   END IF
   ForceDensity => Var % Values
-
 
   ALLOCATE( ElementNodes % x( Mesh % MaxElementNodes ) )
   ALLOCATE( ElementNodes % y( Mesh % MaxElementNodes ) )
@@ -319,23 +317,23 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
       DO j = 1, Dim
         ForceDensity(Dim*(i-1)+j) = ForceDensity(Dim*i-Dim+j) / Visited(i)
       END DO
-    ELSE
-      DO j = 1, Dim
-        ForceDensity(Dim*(i-1)+j) = 0.0d0
-      END DO
     END IF
   END DO
 
 !------------------------------------------------------------------------------
 
   CALL Info( 'StatElecForce', ' ', Level=4 )
-  WRITE( Message, '("Net electric force  : ", 3ES15.6E2 )' ) Force
+  IF(dim == 2 ) THEN
+    WRITE( Message, '("Net electric force  : ", 3ES15.6E2 )' ) Force(1:2)
+  ELSE
+    WRITE( Message, '("Net electric force  : ", 3ES15.6E2 )' ) Force
+  END IF
   CALL Info( 'StatElecForce', Message, Level=4 )
   
   sf = SQRT(SUM( Force**2 ) )
   WRITE( Message, '("Resultant force  : ", ES15.6 )' ) sf
   CALL Info( 'StatElecForce', Message, Level=4 )
-  
+
   IF(CalculateMoment) THEN
     CALL ListAddConstReal( Model % Simulation, &
         'res: Electric Moment 3', Moment(3)  )    
@@ -352,7 +350,6 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   CALL ListAddConstReal( Model % Simulation, &
       'res: Electric Force 1', Force(1)  )
    
-  
   DEALLOCATE( ElementNodes % x )
   DEALLOCATE( ElementNodes % y )
   DEALLOCATE( ElementNodes % z )
@@ -364,7 +361,7 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   DEALLOCATE( LocalPotential )
   DEALLOCATE( Permittivity )
   DEALLOCATE( Visited )
-  
+
   Var => VariableGet( Mesh % Variables, 'Electric Force Density' ,ThisOnly=.TRUE. )
   Var % PrimaryMesh => Mesh
   CALL InvalidateVariable( Model % Meshes,  Mesh, 'Electric Force Density' )

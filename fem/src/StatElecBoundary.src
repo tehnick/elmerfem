@@ -76,7 +76,7 @@ CONTAINS
     SAVE :: AllocationsDone, n, NodeIndexes, List, CurrentElement, &
         PotentialDifference, Permittivity, LayerExists, Thickness, &
         PermittivityOfVacuum, LayerThickness, LayerPermittivity, &
-        HoleSize, HoleFraction, ElemAperture
+        HoleSize, HoleFraction, HoleCorrection, ElemAperture
 
     IF(.NOT. AllocationsDone ) THEN      
       n = Model % Mesh % MaxElementNodes
@@ -158,20 +158,25 @@ CONTAINS
     SELECT CASE ( Mode )
       
     CASE( 1 ) ! energy
-      value = 0.5d0 * Alpha * (PotentialDifference(i) ** 2.0d0) * &
+      value = 0.5d0 * (PotentialDifference(i) ** 2.0d0) * &
           Permittivity(i) / EffectiveAperture            
+      IF( HoleCorrection ) value = Alpha * value
+
       
     CASE ( 2 ) ! force
-      value = -0.5d0 * Beta * (PotentialDifference(i) ** 2.0d0) * &
+      value = -0.5d0 * (PotentialDifference(i) ** 2.0d0) * &
           Permittivity(i) /  EffectiveAperture**2.0            
-      
+      IF( HoleCorrection ) value = Beta * value      
+
     CASE ( 3 ) ! charge
-      value = Beta * PotentialDifference(i) * &
+      value = PotentialDifference(i) * &
           Permittivity(i) /  EffectiveAperture**2.0            
+      IF( HoleCorrection ) value = Beta * value      
       
     CASE ( 4 ) ! spring
-      value = Gamma * (PotentialDifference(i) ** 2.0d0) * &
+      value = (PotentialDifference(i) ** 2.0d0) * &
           Permittivity(i) /  EffectiveAperture**3.0
+      IF( HoleCorrection ) value = Gamma * value      
       
     CASE DEFAULT
       CALL Fatal('StatElecBoundaryGeneric','Unknown mode for electrostatic boundary')
