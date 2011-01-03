@@ -47,12 +47,12 @@ End
 ! these initial guesses ensure that there is no contact at the start i.e.
 ! cavitation pressure is not set anywhere.
 Initial Condition 1
-  FilmPressure = Real 1.0
-  FilmPressure Loads = Real 1.0
+  FilmPressure = 1.0
+  FilmPressure Loads = 1.0
 End 
 
 Body Force 1
-  FilmPressure = Real 0.0
+  FilmPressure = 0.0
   FilmPressure Condition = Variable "FilmPressure Cavitation"
     Real MATC "tx"
 End 
@@ -78,11 +78,8 @@ Solver 1
   Nonlinear System Newton After Tolerance = 1.0e-2
   Nonlinear System Relaxation Factor = 1.0
 
-  Cavitation Pressure = Real $ pcav
-
-! reserve room for the extra variables in the cavitation model
-  Exported Variable 1 = FilmPressure Loads
-  Exported Variable 2 = FilmPressure Cavitation 
+  Cavitation = True
+  Cavitation Pressure = $ pcav
 End
 
 
@@ -114,15 +111,15 @@ Material 1
 
   Density = 1
   Viscosity = 0.01
-  Compressibility Model = String "weakly compressible"
-  Bulk Modulus = Real 1.0e4
+  Compressibility Model = "weakly compressible"
+  Bulk Modulus = 1.0e4
 
 !  Compressibility Model = String "isothermal ideal gas"
-!  Specific Heat Ratio = Real 1.4
+!  Specific Heat Ratio = 1.4
 !  Reference Pressure = 1e4
 
 !  Viscosity Model = String "rarefied"
-!  Mean Free Path = Real 1.0e-4
+!  Mean Free Path = 1.0e-4
 !  Reference Pressure = 1.0e6
 End
 
@@ -130,7 +127,7 @@ Boundary Condition 1
   Name = "edges"
 
   Target Boundaries(2) = 1 2
-  FilmPressure = Real 0.0
+  FilmPressure = 0.0
 End
 
 $fprintf( stderr, "TEST CASE 1\n");
