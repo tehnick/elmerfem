@@ -1520,6 +1520,23 @@ void MainWindow::saveProjectSlot()
   //===========================================================================
   progressBar->setValue(3);
 
+#ifdef Q_OS_LINUX
+  QFileInfo fileInfo(geometryInputFileName);
+  QString pathName(fileInfo.absolutePath());
+  QString baseName(fileInfo.baseName());
+
+  // System copy command:
+  QString cmd("cp -f " + pathName + "/" + baseName + ".* "+ projectDirName);
+
+  if(system(cmd.toLatin1().data()))
+    logMessage("Geometry input file(s) not copied");
+
+  QDomElement geomInput(projectDoc.createElement("geometryinputfile"));
+  QDomText geomInputValue(projectDoc.createTextNode(fileInfo.fileName()));
+  geomInput.appendChild(geomInputValue);
+  contents.appendChild(geomInput);
+
+#else
   QFileInfo geometryInputFileInfo(geometryInputFileName);
   QString baseName(geometryInputFileInfo.baseName());
 
@@ -1570,6 +1587,7 @@ void MainWindow::saveProjectSlot()
   QDomText geomInputValue = projectDoc.createTextNode(geometryInputFileInfo.fileName());
   geomInput.appendChild(geomInputValue);
   contents.appendChild(geomInput);
+#endif
 
   //===========================================================================
   //                               SAVE OPERATIONS
