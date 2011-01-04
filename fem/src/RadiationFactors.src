@@ -82,7 +82,7 @@
 
      REAL (KIND=dp) :: SimulationTime,dt,MinFactor,MaxOmittedFactor, ConsideredSum
      REAL (KIND=dp) :: s,Norm,PrevNorm,Emissivity,maxds,refds,ds,x,y,z,&
-         dx,dy,dz,x0(2),y0(2),MeshU(TSolver % Mesh % MaxElementNodes)
+         dx,dy,dz,x0(1),y0(1),MeshU(TSolver % Mesh % MaxElementNodes)
      REAL (KIND=dp), POINTER :: Vals(:)
      REAL (KIND=dp), ALLOCATABLE :: SOL(:), RHS(:), Fac(:)
      REAL (KIND=dp) :: MinSum, MaxSum, SolSum, PrevSelf, FactorSum, &
@@ -183,10 +183,8 @@
      ConstantEmissivity = FirstTime .AND. ( UpdateGebhardtFactors .OR. UpdateViewFactors )
 
      IF(GeometryFixedAfter == TimesVisited) THEN
-       x0(1) = 0.0
-       x0(2) = 1.0
-       y0(1) = 0.0
-       y0(2) = 1.0
+       x0(1) = 1.0
+       y0(1) = 1.0
      END IF
 
      FullMatrix =  ListGetLogical( TSolver % Values,  &
@@ -235,14 +233,14 @@
                    WRITE (Message,'(A,I3)') 'Freezing Mesh Update 1 for bc',i
                    CALL Info('RadiationFactors',Message)
                    CALL ListAddDepReal( Model % BCs(i) % Values,'Mesh Update 1', &
-                       'Mesh Update 1',2, x0, y0 )
+                       'Mesh Update 1',1, x0, y0 )
                  END IF
                  MeshU(1:n) = ListGetReal(Model % BCs(i) % Values,'Mesh Update 2',n,NodeIndexes,GotIt)
                  IF(.NOT. GotIt) THEN
                    WRITE (Message,'(A,I3)') 'Freezing Mesh Update 2 for bc',i
                    CALL Info('RadiationFactors',Message)
                    CALL ListAddDepReal( Model % BCs(i) % Values,'Mesh Update 2', &
-                       'Mesh Update 2',2, x0, y0 )
+                       'Mesh Update 2',1, x0, y0 )
                  END IF
                END IF
              END IF

@@ -1301,16 +1301,38 @@ CONTAINS
                Depname = ' '
                Depname(1:k-7) = str(str_beg:k)
 
-               n = 2
+               n = 1
                IF ( n > SIZE( ATt ) ) THEN
                   DEALLOCATE( ATt, ATx )
-                  ALLOCATE( ATt(2), ATx(1,1,2) )
+                  ALLOCATE( ATt(n), ATx(1,1,n) )
                END IF
 
-               ATt(1) = 0
-               ATt(2) = 1
-               ATx(1,1,1) = 0
-               ATx(1,1,2) = 1
+               ATt(1) = 1.0_dp
+               ATx(1,1,1) = 1.0_dp
+
+               CALL ListAddDepReal(List,Name,Depname,n,ATt(1:n),ATx(1,1,1:n))
+            END IF
+            EXIT
+
+          CASE('opposes')
+
+           IF ( .NOT. ScanOnly ) THEN
+               DO k=MAX_NAME_LEN,1,-1
+                 IF ( str(k:k) /= ' ' ) EXIT 
+               END DO
+
+               Depname = ' '
+               Depname(1:k-7) = str(str_beg:k)
+
+               n = 1
+               IF ( n > SIZE( ATt ) ) THEN
+                  DEALLOCATE( ATt, ATx )
+                  ALLOCATE( ATt(n), ATx(1,1,n) )
+               END IF
+
+               ATt(1) = 1.0_dp
+               ATx(1,1,1) = -1.0_dp
+
                CALL ListAddDepReal(List,Name,Depname,n,ATt(1:n),ATx(1,1,1:n))
             END IF
             EXIT

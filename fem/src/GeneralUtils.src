@@ -1031,6 +1031,14 @@ END FUNCTION ComponentNameVar
 
      n = SIZE(TValues)
 
+     ! This is a misuse of the interpolation in case of standard dependency
+     ! of type y=a*x.  
+     IF( n == 1 ) THEN
+       F = FValues(1) * T
+       RETURN
+     END IF
+    
+
      DO i=1,n
         IF ( TValues(i) >= T ) EXIT
      END DO
