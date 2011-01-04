@@ -1516,44 +1516,52 @@ void MainWindow::saveProjectSlot()
   saveElmerMesh(projectDirName);
 
   //===========================================================================
-  //                          SAVE GEOMETRY INPUT FILE
+  //                        SAVE GEOMETRY INPUT FILE(S)
   //===========================================================================
   progressBar->setValue(3);
+
   QFileInfo geometryInputFileInfo(geometryInputFileName);
-  QString baseName = geometryInputFileInfo.baseName();
+  QString baseName(geometryInputFileInfo.baseName());
 
-  QString p_path = projectDirName;
-  QString g_path = geometryInputFileInfo.path();
-
-  while(p_path.at(p_path.size()-1) == '/')  p_path.chop(1);
-  while(p_path.at(p_path.size()-1) == '\\') p_path.chop(1);
-  while(g_path.at(g_path.size()-1) == '/')  g_path.chop(1);
-  while(g_path.at(g_path.size()-1) == '\\') g_path.chop(1);
+  QString srcPathName(geometryInputFileInfo.absolutePath());
+  QString dstPathName(QDir(projectDirName).absolutePath());
 
   // Avoid copying file(s) into it self:
 
-  if( g_path  != p_path ) {
-    QDirIterator iterator(geometryInputFileInfo.path());
-    while(iterator.hasNext()) {
-      QString fileName = iterator.next();
-      QFileInfo fileInfo(fileName);
-      if(fileInfo.baseName() == baseName) {
-	logMessage("Copying: " + fileName);
+  if( srcPathName  != dstPathName ) {
+    QDirIterator srcDirIterator(srcPathName);
 
-	QFile src(fileName);
-	src.open(QIODevice::ReadOnly);
+    while(srcDirIterator.hasNext()) {
+      QString srcFileName(srcDirIterator.next());
+      QFileInfo srcFileInfo(srcDirIterator.fileInfo());
+
+      if(srcFileInfo.baseName() == baseName) {
+	logMessage("Copying: " + srcFileName);
+
+	QFile src(srcFileName);
+
+	if(!src.open(QFile::ReadOnly)) {
+	  logMessage("Unable to read: " + src.fileName());
+	  continue;
+	}
+
+	QFile dst(dstPathName + "/" + srcFileInfo.fileName());
+
+	if(!dst.open(QFile::WriteOnly)) {
+	  logMessage("Unable to write: " + dst.fileName());
+	  src.close();
+	  continue;
+	}
+
 	QTextStream srcStream(&src);
-	
-	QFile dst(fileInfo.fileName());
-	dst.open(QIODevice::WriteOnly);
 	QTextStream dstStream(&dst);
-	
 	dstStream << srcStream.readAll();
 	
 	dst.close();
 	src.close();
       }
     }
+
   } else {
     logMessage("Geometry input file(s) not copied");
   }
