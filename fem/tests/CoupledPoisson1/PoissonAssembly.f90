@@ -4,13 +4,7 @@ SUBROUTINE BulkAssembly( Model,Solver,dt,Transient, &
     Mass, Damp, Stiff, Force, InElement, nrow, ncol )
 !------------------------------------------------------------------------------
 
-  USE CoordinateSystems
-  USE DefUtils
-  USE Integration
-  USE Types
-  USE Lists
-  USE ElementDescription
-  USE SolverUtils
+   USE DefUtils
 
  
   IMPLICIT NONE
@@ -28,13 +22,13 @@ SUBROUTINE BulkAssembly( Model,Solver,dt,Transient, &
 
   TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
   TYPE(Nodes_t) :: Nodes
-  REAL(KIND=dp), POINTER :: Source(:), Cond(:), React(:)
-  REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+  REAL(KIND=dp), ALLOCATABLE :: Source(:), Cond(:), React(:)
+  REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
   REAL(KIND=dp) :: SourceAtIP, CondAtIP, ReactAtIp, Weight, DetJ
   INTEGER :: i,j,t,p,q,n
   LOGICAL :: Visited = .FALSE., Found
-  TYPE(ValueList_t), POINTER :: Material
   TYPE(Element_t), POINTER :: Element
+  TYPE(ValueList_t), POINTER :: Material
 
   
   SAVE Visited, Source, Cond, React, Nodes, Basis, dBasisdx
@@ -91,14 +85,7 @@ SUBROUTINE BoundaryAssembly( Model,Solver,dt,Transient, &
             Mass, Damp, Stiff, Force, InElement, nrow, ncol )
 !------------------------------------------------------------------------------
 
-  USE CoordinateSystems
   USE DefUtils
-  USE Integration
-  USE Types
-  USE Lists
-  USE ElementDescription
-  USE SolverUtils
-
  
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -115,8 +102,8 @@ SUBROUTINE BoundaryAssembly( Model,Solver,dt,Transient, &
 
   TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
   TYPE(Nodes_t) :: Nodes
-  REAL(KIND=dp), POINTER :: Flux(:), Text(:), Coeff(:)
-  REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+  REAL(KIND=dp), ALLOCATABLE :: Flux(:), Text(:), Coeff(:)
+  REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
   REAL(KIND=dp) :: FluxAtIP, TextAtIP, CoeffAtIP, Weight, DetJ
   INTEGER :: i,j,t,p,q,n
   LOGICAL :: Visited = .FALSE., Found, Found2
