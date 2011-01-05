@@ -1333,7 +1333,6 @@ PRINT *,'adding derivative'
       DO i=1,nSolvers
         Solver => Model % Solvers(i)
         IF ( Solver % Procedure==0 ) CYCLE
-            Solver % Variable % PrevNorm = Solver % Variable % Norm
 
         RungeKutta = .FALSE.
         IF ( TransientSimulation .AND. Solver % TimeOrder == 1 ) THEN
@@ -1519,7 +1518,7 @@ CONTAINS
           IF ( ASSOCIATED(Solver % Variable) ) THEN
             IF ( ASSOCIATED(Solver % Variable % Values) ) &
                 n = SIZE(Solver % Variable % Values)
-!           Solver % Variable % PrevNorm = Solver % Variable % Norm
+            Solver % Variable % PrevNorm = Solver % Variable % Norm
           END IF
 
           ! There are some operations that require that the previous steady state values
