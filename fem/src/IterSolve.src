@@ -381,17 +381,21 @@ CONTAINS
                  IF ( Blocks <= 1 ) THEN
                    Condition = CRS_IncompleteLU(A,ILUn)
                  ELSE
-                   Adiag => AllocateMatrix()
-                   CALL CRS_BlockDiagonal(A,Adiag,Blocks)
-                   Condition = CRS_IncompleteLU(Adiag,ILUn)
-                   A % ILURows   => Adiag % ILURows
-                   A % ILUCols   => Adiag % ILUCols
-                   A % ILUValues => Adiag % ILUValues
-                   A % ILUDiag   => Adiag % ILUDiag                 
-                   IF (ILUn > 0) THEN
-                     DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Diag, Adiag % Values)
+	           IF( .NOT. ASSOCIATED( A % ILUValues ) ) THEN
+                     Adiag => AllocateMatrix()
+                     CALL CRS_BlockDiagonal(A,Adiag,Blocks)
+                     Condition = CRS_IncompleteLU(Adiag,ILUn)
+                     A % ILURows   => Adiag % ILURows
+                     A % ILUCols   => Adiag % ILUCols
+                     A % ILUValues => Adiag % ILUValues
+                     A % ILUDiag   => Adiag % ILUDiag                 
+                     IF (ILUn > 0) THEN
+                       DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Diag, Adiag % Values)
+                     END IF
+                     DEALLOCATE( Adiag )
+                   ELSE
+                     Condition = CRS_IncompleteLU(A,ILUn)
                    END IF
-                   DEALLOCATE( Adiag )
                  END IF
                CASE(PRECOND_VANKA)
 !                CALL VankaCreate( A, SolverParam )
