@@ -121,13 +121,15 @@
 
      CHARACTER(LEN=MAX_NAME_LEN) :: eqname
 
-     REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:,:), &
+     REAL(KIND=dp), POINTER :: Temperature(:),Work(:,:,:), &
        VonMises(:), NodalStress(:), NodalStrain(:), StressComp(:), StrainComp(:), ContactPressure(:), &
        PrincipalStress(:), PrincipalStrain(:), Tresca(:), &   ! needed for principal strain calculation
        PrincipalAngle(:), PrincipalAngleComp(:), &            ! needed for principal angle calculation
        PrincipalStressComp(:), PrincipalStrainComp(:), &
        NormalDisplacement(:), TransformMatrix(:,:), UWrk(:,:), &
        RayleighAlpha(:), RayleighBeta(:), SaveRHS(:)
+
+     REAL(KIND=dp), POINTER CONTIG :: Displacement(:)
 
      REAL(KIND=dp) :: UnitNorm, Unit1(3), Unit2(3), Unit3(3), Prevdt=-1, PrevTime=-1
 
@@ -2028,7 +2030,8 @@ CONTAINS
          xp(maxnodes), yp(maxnodes), zp(maxnodes), KmatMin(6,6), KvecAtIP(6), &
          Strain(3,3),Stress(3,3), dFii, Dx, &
          ForceAtIp(3), MomentAtIp(3), Coord(3),Normal(3)
-     REAL(KIND=dp), POINTER :: NodalLoads(:), PValues(:)
+     REAL(KIND=dp), POINTER :: PValues(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalLoads(:)
      LOGICAL, POINTER :: NodeVisited(:)
      INTEGER :: N_Integ, pn
      INTEGER, POINTER :: Indexes(:)

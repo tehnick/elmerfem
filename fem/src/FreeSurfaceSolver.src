@@ -77,14 +77,14 @@ SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
        at,st,totat,totst,CPUTime,Norm,PrevNorm,LocalBottom, cv, &
        Relax, MaxDisp, maxdh,LinearTol,NonlinearTol,RelativeChange,&
        smallestpossiblenumber, rr, ss
-  REAL(KIND=dp), POINTER ::&
-       FreeSurf(:), PreFreeSurf(:,:), TimeForce(:),ForceVector(:),&
-       FlowSolution(:), PrevFlowSol(:,:), ElemFreeSurf(:), OldFreeSurf(:),&
-       PointerToResidualVector(:), ResidualVector(:)
-  REAL(KIND=dp), ALLOCATABLE :: &          
-       STIFF(:,:),SourceFunc(:),FORCE(:), &
+
+  REAL(KIND=dp), POINTER CONTIG :: ForceVector(:), FreeSurf(:), PreFreeSurf(:,:), &
+       FlowSolution(:), PrevFlowSol(:,:), PointerToResidualVector(:)
+
+  REAL(KIND=dp), ALLOCATABLE :: ResidualVector(:), OldFreeSurf(:), &
+       STIFF(:,:),SourceFunc(:),FORCE(:), TimeForce(:), &
        MASS(:,:), Velo(:,:), Flux(:,:), LowerLimit(:), UpperLimit(:), &
-       OldValues(:), OldRHS(:),StiffVector(:),MeshVelocity(:,:)
+       OldValues(:), OldRHS(:),StiffVector(:),MeshVelocity(:,:), ElemFreeSurf(:)
 
   CHARACTER(LEN=MAX_NAME_LEN)  :: SolverName, VariableName, EquationName, FlowSolName,ConvectionFlag, StabilizeFlag
 
