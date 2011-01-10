@@ -2835,9 +2835,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE DefaultDirichletBCs( USolver,Ux,UOffset )
+  SUBROUTINE DefaultDirichletBCs( USolver,Ux,UOffset,OffDiagonalMatrix )
 !------------------------------------------------------------------------------
      INTEGER, OPTIONAL :: UOffset
+     LOGICAL, OPTIONAL :: OffDiagonalMatrix
      TYPE(Variable_t), OPTIONAL, TARGET :: Ux
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
 
@@ -2951,7 +2952,7 @@ CONTAINS
         END DO
         CurrentModel % CurrentElement => SaveElement
      END DO
-
+ 
 
    ! Set Dirichlet dofs for edges and faces
      DO DOF=1,x % DOFs
@@ -2962,7 +2963,7 @@ CONTAINS
             Name,DOF,x % DOFs,x % Perm ) ! , Offset ) not yet ?
 
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
-             Name, DOF, x % DOFs, x % Perm, Offset )
+             Name, DOF, x % DOFs, x % Perm, Offset, OffDiagonalMatrix )
 
 !       Dirichlet BCs for face & edge DOFs:
 !       -----------------------------------

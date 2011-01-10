@@ -994,10 +994,10 @@ CONTAINS
    END SUBROUTINE UpdateMassMatrix
 !------------------------------------------------------------------------------
  
-
+  
 !------------------------------------------------------------------------------
    SUBROUTINE SetDirichletBoundaries( Model, A, b, Name, DOF, NDOFs, Perm, &
-       PermOffSet )
+       PermOffSet, OffDiagonalMatrix )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1027,6 +1027,11 @@ CONTAINS
 !   INPUT: If the matrix and permutation vectors are not in sync the offset may
 !          used as a remedy. Needed in fully coupled systems.
 !
+! LOGICA :: OffDiagonalMatrix
+!  INPUT: For block systems the only the diagonal matrix should be given non-zero
+!         entries for matrix and r.h.s., for off-diagonal matrices just set the row
+!         to zero.
+!
 !******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
@@ -1035,6 +1040,7 @@ CONTAINS
     CHARACTER(LEN=*) :: Name 
     INTEGER :: DOF, NDOFs, Perm(:)
     INTEGER, OPTIONAL :: PermOffSet
+    LOGICAL, OPTIONAL :: OffDiagonalMatrix
 !------------------------------------------------------------------------------
 
     TYPE(Element_t), POINTER :: Element
@@ -1054,7 +1060,7 @@ CONTAINS
     REAL(KIND=dp) :: MinDist,Dist, Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
     TYPE(ValueList_t), POINTER :: ValueList
-    LOGICAL :: NodesFound, Passive
+    LOGICAL :: NodesFound, Passive, OffDiagonal
  
 !------------------------------------------------------------------------------
 ! These logical vectors are used to minimize extra effort in setting up different BCs
@@ -1066,7 +1072,9 @@ CONTAINS
     CondName = Name(1:nlen) // ' Condition'
     PassName = Name(1:nlen) // ' Passive'
     OffSet = 0
+    OffDiagonal = .FALSE.
     IF( PRESENT( PermOffSet) ) OffSet = PermOffSet
+    IF( PRESENT( OffDiagonalMatrix ) ) OffDiagonal = OffDiagonalMatrix
 
     ALLOCATE( Indexes(Model % Mesh % MaxElementDOFs) )
 !------------------------------------------------------------------------------
@@ -1464,10 +1472,14 @@ CONTAINS
                       IF ( .NOT. NTZeroing_done(m,k) ) THEN
                         b(l) = 0._dp
                         CALL ZeroRow( A,l )
-                        CALL SetMatrixElement( A,l,l,1.0_dp)
+	                IF( .NOT. OffDiagonal ) THEN
+                          CALL SetMatrixElement( A,l,l,1.0_dp)
+                        END IF
                         NTZeroing_done(m,k) = .TRUE.
                       END IF
-                      b(l) = b(l) + RotVec(k) * Work(j)
+	              IF( .NOT. OffDiagonal ) THEN
+                        b(l) = b(l) + RotVec(k) * Work(j)
+	              END IF
                     END IF
                   END IF
                 END DO
@@ -1478,9 +1490,11 @@ CONTAINS
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
                   CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
                 ELSE
-                  b(k) = Work(j)
                   CALL ZeroRow( A,k )
-                  CALL SetMatrixElement( A,k,k,1.0d0 )
+                  IF( .NOT. OffDiagonal ) THEN
+                    CALL SetMatrixElement( A,k,k,1.0d0 )
+                    b(k) = Work(j)
+                  END IF
                 END IF
               END IF
             ELSE
@@ -1489,11 +1503,15 @@ CONTAINS
                 IF ( A % FORMAT == MATRIX_SBAND ) THEN
                   CALL SBand_SetDirichlet( A,b,k1,WorkA(l,1,j) )
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-                  CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
+                  IF( .NOT. OffDiagonal ) THEN
+                    CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
+                  END IF
                 ELSE
-                  b(k1) = WorkA(l,1,j)
                   CALL ZeroRow( A,k1 )
-                  CALL SetMatrixElement( A,k1,k1,1.0d0 )
+	          IF( .NOT. OffDiagonal ) THEN
+                    CALL SetMatrixElement( A,k1,k1,1.0d0 )
+                    b(k1) = WorkA(l,1,j)
+                  END IF
                 END IF
               END DO
             END IF
@@ -1542,9 +1560,11 @@ CONTAINS
               ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
                 CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
               ELSE
-                b(k) = Work(j)
                 CALL ZeroRow( A,k )
-                CALL SetMatrixElement( A,k,k,1.0d0 )
+                IF( .NOT. OffDiagonal ) THEN
+                  CALL SetMatrixElement( A,k,k,1.0d0 )
+                  b(k) = Work(j)
+                END IF
               END IF
             ELSE
               DO l=1,MIN( NDOFs, SIZE(Worka,1) )
@@ -1552,11 +1572,15 @@ CONTAINS
                 IF ( A % FORMAT == MATRIX_SBAND ) THEN
                   CALL SBand_SetDirichlet( A,b,k1,WorkA(l,1,j) )
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-                  CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
+                  IF( .NOT. OffDiagonal ) THEN
+                    CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
+                  END IF
                 ELSE
-                  b(k1) = WorkA(l,1,j)
                   CALL ZeroRow( A,k1 )
-                  CALL SetMatrixElement( A,k1,k1,1.0d0 )
+                  IF(.NOT. OffDiagonal ) THEN
+                    CALL SetMatrixElement( A,k1,k1,1.0d0 )
+                    b(k1) = WorkA(l,1,j)
+                  END IF
                 END IF
               END DO
             END IF
@@ -1648,6 +1672,7 @@ CONTAINS
         IF ( .NOT. Done(ii) .AND. k>0 ) THEN
           k = NDOFs * (k-1) + DOF
           CALL ZeroRow( StiffMatrix,k )
+
           CALL AddToMatrixElement( StiffMatrix, k, k, 1.0_dp )
           ForceVector(k) = 0.0_dp
 
@@ -5420,5 +5445,6 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 
   END SUBROUTINE SolveWithLinearRestriction
 !------------------------------------------------------------------------------
+      
 
 END MODULE SolverUtils
