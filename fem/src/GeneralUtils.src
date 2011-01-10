@@ -935,7 +935,7 @@ END FUNCTION ComponentNameVar
     SUBROUTINE SolveTriDiag( n, y, h, r )
 !------------------------------------------------------------------------------
        INTEGER :: n
-       REAL(KIND=dp) :: y(n), h(n), r(n)
+       REAL(KIND=dp) :: y(:), h(:), r(:)
        REAL(KIND=dp) :: s,b(n)
        INTEGER :: i
 
@@ -984,7 +984,7 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
    FUNCTION CubicSplineVal(x,y,r,t) RESULT(s)
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: x(2),y(2),r(2),s,t
+      REAL(KIND=dp) :: x(:),y(:),r(:),s,t
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: a,b,c,d,h,lt
 
@@ -1003,7 +1003,7 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
    FUNCTION CubicSplinedVal(x,y,r,t) RESULT(s)
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: x(2),y(2),r(2),s,t
+      REAL(KIND=dp) :: x(:),y(:),r(:),s,t
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: a,b,c,h,lt
 
@@ -1096,7 +1096,7 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
    SUBROUTINE SolveLinSys2x2( A, x, b )
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: A(2,2),x(2),b(2),detA
+     REAL(KIND=dp) :: A(:,:),x(:),b(:),detA
 !------------------------------------------------------------------------------
      detA = A(1,1) * A(2,2) - A(1,2) * A(2,1)
 
@@ -1117,7 +1117,7 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
    SUBROUTINE SolveLinSys3x3( A, x, b )
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: A(3,3),x(3),b(3)
+     REAL(KIND=dp) :: A(:,:),x(:),b(:)
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: C(2,2),y(2),g(2),s,t,q
 !------------------------------------------------------------------------------
@@ -1196,7 +1196,6 @@ END FUNCTION ComponentNameVar
       NULLIFY( Matrix % Cols )
       NULLIFY( Matrix % Rows )
       NULLIFY( Matrix % Diag )
-      NULLIFY( Matrix % GRows )
  
       NULLIFY( Matrix % RHS )
       NULLIFY( Matrix % Force )
@@ -1217,7 +1216,6 @@ END FUNCTION ComponentNameVar
       NULLIFY( Matrix % CRHS )
       NULLIFY( Matrix % CForce )
 
-      NULLIFY( Matrix % RowOwner )
       NULLIFY( Matrix % ParMatrix )
 
       NULLIFY( Matrix % CValues )
@@ -1225,9 +1223,9 @@ END FUNCTION ComponentNameVar
       NULLIFY( Matrix % CMassValues )
       NULLIFY( Matrix % CDampValues )
 
-      NULLIFY( Matrix % GRows )
+!     NULLIFY( Matrix % GRows )
+!     NULLIFY( Matrix % RowOwner )
       NULLIFY( Matrix % GOrder )
-      NULLIFY( Matrix % RowOwner )
 
       NULLIFY( Matrix % ParMatrix )
       Matrix % UMFPack_Numeric = 0

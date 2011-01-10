@@ -753,6 +753,7 @@ EIOF_LIBS
 ARPACK_LIBS
 PARPACK_LIBS
 HYPRE_LIBS
+MUMPS_LIBS
 UMFPACK_LIBS
 MATC_LIBS
 FORTRAN_CPP_FLAG
@@ -1431,6 +1432,7 @@ Optional Packages:
   --with-arpack=<lib>     Specify location of ARPACK
   --with-parpack=<lib>    Specify location of PARPACK
   --with-hypre=<lib>      Specify location of HYPRE
+  --with-mumps=<lib>      Specify location of MUMPS
   --with-umfpack=<lib>    Specify location of UMFPACK
   --with-matc=<lib>       use MATC library <lib>
 
@@ -4058,6 +4060,10 @@ acx_revision=`svnversion src`
 cat >>confdefs.h <<_ACEOF
 #define REVISION "$acx_revision"
 _ACEOF
+
+
+
+
 
 
 
@@ -9594,6 +9600,7 @@ esac
 # fi
 
 
+
 { echo "$as_me:$LINENO: result: $acx_cv_fc_char_mangling" >&5
 echo "${ECHO_T}$acx_cv_fc_char_mangling" >&6; }
 
@@ -9632,6 +9639,61 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
+
+
+
+
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+{ echo "$as_me:$LINENO: checking if fortran implements CONTIGUOUS attribute" >&5
+echo $ECHO_N "checking if fortran implements CONTIGUOUS attribute... $ECHO_C" >&6; }
+cat >conftest.$ac_ext <<_ACEOF
+        program test_contiguous
+          integer, pointer, contiguous :: x(:)
+        end program test_contiguous
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_fc_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+   acx_cv_fc_contig=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	 acx_cv_fc_contig=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+{ echo "$as_me:$LINENO: result: $acx_cv_fc_contig" >&5
+echo "${ECHO_T}$acx_cv_fc_contig" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+if test "$acx_cv_fc_contig" ==  yes ; then
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG=,CONTIGUOUS"
+else
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG"
+fi
 
 
 { echo "$as_me:$LINENO: checking for fortran intrinsic etime" >&5
@@ -14611,6 +14673,355 @@ fi
 
 
 
+
+acx_mumps_ok=no
+
+
+# Check whether --with-mumps was given.
+if test "${with_mumps+set}" = set; then
+  withval=$with_mumps;
+fi
+
+case $with_mumps in
+	yes | "") ;;
+	no) acx_mumps_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) MUMPS_LIBS="$with_mumps" ;;
+	*) MUMPS_LIBS="-l$with_mumps" ;;
+esac
+
+# Get fortran linker names of MUMPS functions to check for.
+#AC_FC_FUNC(mumps_function)
+mumps_function="dmumps_"
+
+acx_mumps_save_LIBS="$LIBS"
+
+LIBS="$MPI_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
+
+# First, check MUMPS_LIBS environment variable
+if test $acx_mumps_ok = no; then
+if test "x$MUMPS_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$MUMPS_LIBS $LIBS"
+	{ echo "$as_me:$LINENO: checking for $mumps_function in $MUMPS_LIBS" >&5
+echo $ECHO_N "checking for $mumps_function in $MUMPS_LIBS... $ECHO_C" >&6; }
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $mumps_function(1);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+
+	      		acx_mumps_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        MUMPS_LIBS=""
+
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+		CFLAGS="$save_CFLAGS"
+	else
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char $mumps_function ();
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+return $mumps_function ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  acx_mumps_ok=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	MUMPS_LIBS=""
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+	fi
+
+	{ echo "$as_me:$LINENO: result: $acx_mumps_ok" >&5
+echo "${ECHO_T}$acx_mumps_ok" >&6; }
+	LIBS="$save_LIBS"
+fi
+fi
+
+# General MUMPS test
+if test $acx_mumps_ok = no; then
+	as_ac_Lib=`echo "ac_cv_lib_dmumps_$mumps_function" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $mumps_function in -ldmumps" >&5
+echo $ECHO_N "checking for $mumps_function in -ldmumps... $ECHO_C" >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldmumps -lm $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char $mumps_function ();
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+return $mumps_function ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  eval "$as_ac_Lib=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval echo '${'$as_ac_Lib'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_Lib'}'` = yes; then
+  acx_mumps_ok=yes; MUMPS_LIBS="-ldmumps $MPI_LIBS"
+fi
+
+	if test $acx_mumps_ok = no; then
+		save_LIBS="$LIBS"; LIBS="-lmumps_common -lpord -lscalapack -lblacs $LIBS"
+		as_ac_Lib=`echo "ac_cv_lib_dmumps_$mumps_function" | $as_tr_sh`
+{ echo "$as_me:$LINENO: checking for $mumps_function in -ldmumps" >&5
+echo $ECHO_N "checking for $mumps_function in -ldmumps... $ECHO_C" >&6; }
+if { as_var=$as_ac_Lib; eval "test \"\${$as_var+set}\" = set"; }; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ldmumps -lm $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char $mumps_function ();
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+return $mumps_function ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  eval "$as_ac_Lib=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	eval "$as_ac_Lib=no"
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+ac_res=`eval echo '${'$as_ac_Lib'}'`
+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
+echo "${ECHO_T}$ac_res" >&6; }
+if test `eval echo '${'$as_ac_Lib'}'` = yes; then
+  acx_mumps_ok=yes; MUMPS_LIBS="-ldmumps -lmumps_common -lpord -lscalapack -lblacs $MPI_LIBS"
+fi
+
+		LIBS="$save_LIBS"
+	fi
+fi
+
+
+
+LIBS="$acx_mumps_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_mumps_ok" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_MUMPS 1
+_ACEOF
+
+	FCPPFLAGS="$FCPPFLAGS -DHAVE_MUMPS"
+	FCFLAGS="$FCFLAGS -I/usr/include"
+        :
+else
+        acx_mumps_ok=no
+        { echo "$as_me:$LINENO: WARNING: MUMPS not found, some functionaly will be disabled." >&5
+echo "$as_me: WARNING: MUMPS not found, some functionaly will be disabled." >&2;}
+fi
+
+
+
+
+
 acx_umfpack_ok=no
 
 
@@ -16383,7 +16794,7 @@ echo "$as_me: WARNING: sizeof(long) = $ac_cv_sizeof_long !? What kind of weird s
   fi
 fi
 
-SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $MUMPS_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
  if 0; then
   MAC_OSX_TRUE=
@@ -17467,6 +17878,7 @@ EIOF_LIBS!$EIOF_LIBS$ac_delim
 ARPACK_LIBS!$ARPACK_LIBS$ac_delim
 PARPACK_LIBS!$PARPACK_LIBS$ac_delim
 HYPRE_LIBS!$HYPRE_LIBS$ac_delim
+MUMPS_LIBS!$MUMPS_LIBS$ac_delim
 UMFPACK_LIBS!$UMFPACK_LIBS$ac_delim
 MATC_LIBS!$MATC_LIBS$ac_delim
 FORTRAN_CPP_FLAG!$FORTRAN_CPP_FLAG$ac_delim
@@ -17520,7 +17932,6 @@ MV!$MV$ac_delim
 MKDIR!$MKDIR$ac_delim
 SOLVER_LIBS!$SOLVER_LIBS$ac_delim
 STDCXX_LIBS!$STDCXX_LIBS$ac_delim
-SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -17562,13 +17973,14 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
+SOLVER_MPI_LIBS!$SOLVER_MPI_LIBS$ac_delim
 OFF_KIND!$OFF_KIND$ac_delim
 LONG_KIND!$LONG_KIND$ac_delim
 LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 4; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 5; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
@@ -18198,6 +18610,7 @@ Libs:
   BLAS                      $BLAS_LIBS
   LAPACK                    $LAPACK_LIBS
   HYPRE                     $HYPRE_LIBS
+  MUMPS                     $MUMPS_LIBS
   UMFPACK                   $UMFPACK_LIBS
   ARPACK		    $ARPACK_LIBS
   PARPACK		    $PARPACK_LIBS
@@ -18235,6 +18648,7 @@ Libs:
   BLAS                      $BLAS_LIBS
   LAPACK                    $LAPACK_LIBS
   HYPRE                     $HYPRE_LIBS
+  MUMPS                     $MUMPS_LIBS
   UMFPACK                   $UMFPACK_LIBS
   ARPACK		    $ARPACK_LIBS
   PARPACK		    $PARPACK_LIBS

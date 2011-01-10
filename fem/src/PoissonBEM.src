@@ -42,7 +42,7 @@
    MODULE GlobMat
 !------------------------------------------------------------------------------
       USE Types
-      REAL(KIND=dp), POINTER :: Matrix(:,:)
+      REAL(KIND=dp), ALLOCATABLE :: Matrix(:,:)
 !------------------------------------------------------------------------------
    END MODULE GlobMat
 !------------------------------------------------------------------------------
@@ -97,7 +97,7 @@
 
      LOGICAL :: AllocationsDone = .FALSE., GotIt
  
-     REAL(KIND=dp), POINTER :: Potential(:),ForceVector(:), &
+     REAL(KIND=dp), POINTER CONTIG :: Potential(:),ForceVector(:), &
                 VolumeSource(:), Diagonal(:)
      INTEGER, POINTER :: PotentialPerm(:), BoundaryPerm(:)
 
@@ -674,7 +674,7 @@ at = CPUTime()
 !------------------------------------------------------------------------------
        TYPE(Solver_t) :: SolverParam
        INTEGER :: N
-       REAL(KIND=dp), DIMENSION(:) :: x,b
+       REAL(KIND=dp), DIMENSION(:) CONTIG :: x,b
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: dpar(50)
 

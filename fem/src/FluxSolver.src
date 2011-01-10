@@ -195,7 +195,8 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
   LOGICAL :: CalculateFluxMag, CalculateFlux, CalculateGradMag, CalculateGrad, &
       EnforcePositiveMagnitude
   REAL(KIND=dp) :: Unorm, Totnorm, val
-  REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
+  REAL(KIND=dp), ALLOCATABLE, TARGET :: ForceVector(:,:)
+  REAL(KIND=dp), POINTER :: SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: FluxSol
   TYPE FieldTable_t
@@ -316,7 +317,7 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
     CALL DefaultInitialize()
   END IF
   
-  ALLOCATE(ForceVector(Dofs,SIZE(Solver % Matrix % RHS)))  
+  ALLOCATE(ForceVector(SIZE(Solver % Matrix % RHS),DOFs))  
   ForceVector = 0.0_dp
   SaveRHS => Solver % Matrix % RHS
   
@@ -333,7 +334,7 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
       
   TotNorm = 0.0_dp
   DO i=1,Dofs
-    Solver % Matrix % RHS => ForceVector(i,:)
+    Solver % Matrix % RHS => ForceVector(:,i)
     UNorm = DefaultSolve()
 
     TotNorm = TotNorm + Unorm ** 2
@@ -517,7 +518,7 @@ CONTAINS
       END IF
 
       DO i=1,Dofs
-        Solver % Matrix % RHS => ForceVector(i,:)
+        Solver % Matrix % RHS => ForceVector(:,i)
         CALL DefaultUpdateForce( FORCE(i,1:nd) )
       END DO
       

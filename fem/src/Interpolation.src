@@ -384,11 +384,11 @@ MODULE Interpolation
 ! Create Mother of All Quadrants
     ALLOCATE ( RootQuadrant )
 
-    RootQuadrant % BoundingBox = (/ XMin, YMin, ZMin, XMax, YMax, ZMax /)
+    RootQuadrant % BoundingBox = [ XMin, YMin, ZMin, XMax, YMax, ZMax ]
     RootQuadrant % NElemsInQuadrant = Mesh % NumberOfBulkElements
 
     ALLOCATE ( RootQuadrant % Elements( Mesh % NumberOfBulkElements ) )
-    RootQuadrant % Elements = (/ (i, i=1,Mesh % NumberOfBulkElements) /)
+    RootQuadrant % Elements = [ (i, i=1,Mesh % NumberOfBulkElements) ]
 
 ! Start building the quadrant tree
     CALL Info( 'BuildQuandrantTree', 'Start', Level=4 )
@@ -433,32 +433,32 @@ MODULE Interpolation
     ZMax = MotherQuadrant % BoundingBox(6)
     MotherQuadrant % Size = MAX ( MAX( XMax-XMin, YMax-YMin), ZMax-ZMin )
 
-    ChildQuadrant(1) % Quadrant % BoundingBox = (/ XMin, YMin, ZMin, &
-      (XMin + XMax)/2.d0, (YMin + YMax)/2.d0, (ZMin + ZMax)/2.d0 /)
+    ChildQuadrant(1) % Quadrant % BoundingBox = [ XMin, YMin, ZMin, &
+      (XMin + XMax)/2.d0, (YMin + YMax)/2.d0, (ZMin + ZMax)/2.d0 ]
 
-    ChildQuadrant(2) % Quadrant % BoundingBox = (/ (XMin+XMax)/2.d0, &
-        YMin, ZMin, XMax, (YMin+YMax)/2.d0, (ZMin+ZMax)/2.d0 /)
+    ChildQuadrant(2) % Quadrant % BoundingBox = [ (XMin+XMax)/2.d0, &
+        YMin, ZMin, XMax, (YMin+YMax)/2.d0, (ZMin+ZMax)/2.d0 ]
 
     IF ( dim >= 2 ) THEN
-       ChildQuadrant(3) % Quadrant % BoundingBox = (/ XMin, (YMin+YMax)/2.d0, &
-               ZMin, (XMin+XMax)/2.d0, YMax, (ZMin+ZMax)/2.d0 /)
+       ChildQuadrant(3) % Quadrant % BoundingBox = [ XMin, (YMin+YMax)/2.d0, &
+               ZMin, (XMin+XMax)/2.d0, YMax, (ZMin+ZMax)/2.d0 ]
 
-       ChildQuadrant(4) % Quadrant % BoundingBox = (/ (XMin+XMax)/2.d0, &
-           (YMin+YMax)/2.d0, ZMin, XMax, YMax, (ZMin+ZMax)/2.d0 /)
+       ChildQuadrant(4) % Quadrant % BoundingBox = [ (XMin+XMax)/2.d0, &
+           (YMin+YMax)/2.d0, ZMin, XMax, YMax, (ZMin+ZMax)/2.d0 ]
     END IF
 
     IF ( dim == 3 ) THEN
-       ChildQuadrant(5) % Quadrant % BoundingBox = (/ XMin, YMin, &
-          (ZMin+ZMax)/2.d0, (XMin+XMax)/2.d0, (YMin+YMax)/2.d0, ZMax /)
+       ChildQuadrant(5) % Quadrant % BoundingBox = [ XMin, YMin, &
+          (ZMin+ZMax)/2.d0, (XMin+XMax)/2.d0, (YMin+YMax)/2.d0, ZMax ]
 
-       ChildQuadrant(6) % Quadrant % BoundingBox = (/ (XMin+XMax)/2.d0, YMin, &
-               (ZMin+ZMax)/2.d0, XMax, (YMin+YMax)/2.d0, ZMax /)
+       ChildQuadrant(6) % Quadrant % BoundingBox = [ (XMin+XMax)/2.d0, YMin, &
+               (ZMin+ZMax)/2.d0, XMax, (YMin+YMax)/2.d0, ZMax ]
 
-       ChildQuadrant(7) % Quadrant % BoundingBox = (/ XMin, (YMin+YMax)/2.d0, &
-               (ZMin+ZMax)/2.d0, (XMin+XMax)/2.d0, YMax, ZMax /)
+       ChildQuadrant(7) % Quadrant % BoundingBox = [ XMin, (YMin+YMax)/2.d0, &
+               (ZMin+ZMax)/2.d0, (XMin+XMax)/2.d0, YMax, ZMax ]
 
-       ChildQuadrant(8) % Quadrant % BoundingBox = (/ (XMin+XMax)/2.d0, &
-             (YMin+YMax)/2.d0, (ZMin+ZMax)/2.d0, XMax, YMax, ZMax /)
+       ChildQuadrant(8) % Quadrant % BoundingBox = [ (XMin+XMax)/2.d0, &
+             (YMin+YMax)/2.d0, (ZMin+ZMax)/2.d0, XMax, YMax, ZMax ]
     END IF
 !-------------------------------------------------------------------------------
 

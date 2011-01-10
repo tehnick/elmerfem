@@ -430,7 +430,7 @@ MODULE PElementBase
       REAL (KIND=dp), INTENT(IN) :: u,v
       
       ! Variables
-      INTEGER :: nodes(2)
+      INTEGER :: nodes(2),tmp
       REAL (KIND=dp) :: Na, Nb, La, Lb, value
       LOGICAL :: invert 
       
@@ -449,7 +449,9 @@ MODULE PElementBase
       
       ! Invert edge direction if needed
       IF (invert) THEN
-         nodes(1:2) = nodes(2:1:-1)
+         tmp = nodes(1)
+         nodes(1) = nodes(2)
+         nodes(2) = tmp
       END IF
 
       ! Get affine function values for edge direction
@@ -580,7 +582,7 @@ MODULE PElementBase
       REAL (KIND=dp), INTENT(IN) :: u,v
 
       ! Variables
-      INTEGER :: nodes(2)
+      INTEGER :: nodes(2), tmp
       REAL (KIND=dp) :: Na, Nb, La, Lb, vPhi
       REAL (KIND=dp), DIMENSION(2) :: dNa, dNb, dLa, dLb, grad
       LOGICAL :: invert
@@ -602,7 +604,9 @@ MODULE PElementBase
 
       ! Invert edge direction if needed
       IF (invert) THEN
-         nodes(1:2) = nodes(2:1:-1)
+         tmp = nodes(1)
+         nodes(1) = nodes(2)
+         nodes(2) = tmp
       END IF
 
       ! Get affine function values and their gradients for edge direction
@@ -800,13 +804,13 @@ MODULE PElementBase
       
       SELECT CASE (which)
       CASE (1)
-         grad(1:2) = (/ -1d0/2, -1d0/2 /)
+         grad(1:2) = [ -1d0/2, -1d0/2 ]
       CASE (2)
-         grad(1:2) = (/ 1d0/2, -1d0/2 /)
+         grad(1:2) = [ 1d0/2, -1d0/2 ]
       CASE (3)
-         grad(1:2) = (/ 1d0/2, 1d0/2 /)
+         grad(1:2) = [ 1d0/2, 1d0/2 ]
       CASE (4)
-         grad(1:2) = (/ -1d0/2, 1d0/2 /)
+         grad(1:2) = [ -1d0/2, 1d0/2 ]
       CASE DEFAULT
          CALL Fatal('PElementBase::dQuadL', 'Unknown helper function dL for quad')
       END SELECT
@@ -1125,7 +1129,7 @@ MODULE PElementBase
          local(1:3) = localNumbers(1:3)
       ELSE
       ! Local numbering not present. Use default numbering
-         local(1:3) = (/ 1,2,3 /)
+         local(1:3) = [ 1,2,3 ]
       END IF
 
       La = TriangleNodalPBasis(local(1),u,v)
@@ -1150,7 +1154,7 @@ MODULE PElementBase
          local(1:3) = localNumbers(1:3)
       ELSE
       ! Local numbering not present. Use default numbering
-         local(1:3) = (/ 1,2,3 /)
+         local(1:3) = [ 1,2,3 ]
       END IF
 
       La = TriangleNodalPBasis(local(1),u,v)
@@ -1203,7 +1207,7 @@ MODULE PElementBase
          local(1:3) = localNumbers(1:3)
       ELSE
          ! Local numbering not present. Use default numbering
-         local(1:3) = (/ 1,2,3 /)
+         local(1:3) = [ 1,2,3 ]
       END IF
 
       La = TriangleNodalPBasis(local(1),u,v)
@@ -1239,7 +1243,7 @@ MODULE PElementBase
          local(1:3) = localNumbers(1:3)
       ELSE
          ! Local numbering not present. Use default numbering
-         local(1:3) = (/ 1,2,3 /)
+         local(1:3) = [ 1,2,3 ]
       END IF
 
       La = TriangleNodalPBasis(local(1),u,v)
@@ -1698,7 +1702,7 @@ MODULE PElementBase
       LOGICAL :: invert
       REAL (KIND=dp) :: Na,Nb,La,Lb, vPhi
       REAL (KIND=dp), DIMENSION(3) :: dNa, dNb, dLa, dLb, grad
-      INTEGER :: nodes(2)
+      INTEGER :: nodes(2), tmp
 
       ! By default do not invert edges
       invert = .FALSE.
@@ -1719,7 +1723,9 @@ MODULE PElementBase
 
       ! For inverted edges swap direction
       IF (invert) THEN
-         nodes(1:2)=nodes(2:1:-1)
+         tmp=nodes(1)
+         nodes(1) = nodes(2)
+         nodes(2) = tmp
       END IF
 
       ! Affine functions and their derivatives for edge direction
@@ -1866,22 +1872,22 @@ MODULE PElementBase
       SELECT CASE(face)
       CASE(1)
          Lh = (1-w)
-         dLh = (/ 0d0,0d0,-1d0 /)
+         dLh = [ 0d0,0d0,-1d0 ]
       CASE(2)
          Lh = (1+w)
-         dLh = (/ 0d0,0d0,1d0 /)
+         dLh = [ 0d0,0d0,1d0 ]
       CASE(3)
          Lh = (1-v)
-         dLh = (/ 0d0,-1d0,0d0 /)
+         dLh = [ 0d0,-1d0,0d0 ]
       CASE(4)
          Lh = (1+u)
-         dLh = (/ 1d0, 0d0, 0d0/)
+         dLh = [ 1d0, 0d0, 0d0]
       CASE(5)
          Lh = (1+v)
-         dLh = (/ 0d0,1d0,0d0 /)
+         dLh = [ 0d0,1d0,0d0 ]
       CASE(6)
          Lh = (1-u)
-         dLh = (/ -1d0,0d0,0d0 /)
+         dLh = [ -1d0,0d0,0d0 ]
       CASE DEFAULT
          CALL Fatal('PElementBase::dBrickFacePBasis','Unknown face for brick')
       END SELECT
@@ -3245,7 +3251,7 @@ MODULE PElementBase
       REAL(KIND=dp), DIMENSION(3) :: dL1, dL2, dL3, dW, grad
       
       ! Initialize derivative of w
-      dW = (/ 0,0,1 /)
+      dW = [ 0,0,1 ]
       ! Values of function L
       L1 = WedgeL(1,u,v)
       L2 = WedgeL(2,u,v)
@@ -3923,11 +3929,11 @@ MODULE PElementBase
       dP3 = dPyramidNodalPBasis(3,u,v,w)
       dP5 = dPyramidNodalPBasis(5,u,v,w)
       legI = LegendreP(i,u/(1-w/SQRT(2d0)))
-      dLegIPar = (/ 1d0/(1-w/SQRT(2d0)), 0d0, u*SQRT(2d0)/(2*(1-w/SQRT(2d0))**2) /)
+      dLegIPar = [ 1d0/(1-w/SQRT(2d0)), 0d0, u*SQRT(2d0)/(2*(1-w/SQRT(2d0))**2) ]
       legJ = LegendreP(j,v/(1-w/SQRT(2d0)))
-      dLegJPar = (/ 0d0, 1d0/(1-w/SQRT(2d0)), v*SQRT(2d0)/(2*(1-w/SQRT(2d0))**2) /)
+      dLegJPar = [ 0d0, 1d0/(1-w/SQRT(2d0)), v*SQRT(2d0)/(2*(1-w/SQRT(2d0))**2) ]
       legK = LegendreP(k,w/SQRT(2d0))
-      dLegKPar = (/ 0d0, 0d0, 1d0/SQRT(2d0) /)
+      dLegKPar = [ 0d0, 0d0, 1d0/SQRT(2d0) ]
 
       ! Calculate value of gradient
       grad = 0
@@ -4016,13 +4022,13 @@ MODULE PElementBase
 
       SELECT CASE (which)
       CASE (1)
-         grad = (/ -1d0/2,-1d0/2,0d0 /)
+         grad = [ -1d0/2,-1d0/2,0d0 ]
       CASE (2)
-         grad = (/ 1d0/2,-1d0/2,0d0 /)
+         grad = [ 1d0/2,-1d0/2,0d0 ]
       CASE (3)
-         grad = (/ 1d0/2,1d0/2,0d0 /)
+         grad = [ 1d0/2,1d0/2,0d0 ]
       CASE (4)
-         grad = (/ -1d0/2,1d0/2,0d0 /)
+         grad = [ -1d0/2,1d0/2,0d0 ]
       CASE DEFAULT
          CALL Fatal('PElementBase::dPyramidL','Unknown affine coordinate for square face')
       END SELECT

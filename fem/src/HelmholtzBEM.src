@@ -42,7 +42,7 @@
    MODULE GlobMat
 !------------------------------------------------------------------------------
       USE Types
-      COMPLEX(KIND=dp), POINTER :: Matrix(:,:)
+      COMPLEX(KIND=dp), ALLOCATABLE :: Matrix(:,:)
 !------------------------------------------------------------------------------
    END MODULE GlobMat
 !------------------------------------------------------------------------------
@@ -97,7 +97,7 @@
 
      LOGICAL :: AllocationsDone = .FALSE., GotIt
  
-     COMPLEX(KIND=dp), POINTER :: Potential(:),ForceVector(:), &
+     COMPLEX(KIND=dp), POINTER CONTIG :: Potential(:),ForceVector(:), &
                Diagonal(:)
      INTEGER, POINTER :: PotentialPerm(:), BoundaryPerm(:)
 
@@ -705,13 +705,13 @@
           SUBROUTINE SolveLapack_cmplx( N,A,x )
              USE Types
              INTEGER N
-             COMPLEX(KIND=dp) :: a(n*n), x(n)
+             COMPLEX(KIND=dp) :: a(n,n), x(n)
            END SUBROUTINE SolveLapack_cmplx
         END INTERFACE
 !------------------------------------------------------------------------------
        INTEGER ::  N
  
-       COMPLEX(KIND=dp) ::  A(n*n),x(n),b(n)
+       COMPLEX(KIND=dp) CONTIG ::  A(:,:),x(:),b(:)
 !------------------------------------------------------------------------------
 
        SELECT CASE( ListGetString( Solver % Values, 'Linear System Solver' ) )
@@ -740,7 +740,7 @@
 !------------------------------------------------------------------------------
        TYPE(Solver_t) :: SolverParam
        INTEGER :: N
-       COMPLEX(KIND=dp), DIMENSION(N) :: x,b
+       COMPLEX(KIND=dp), DIMENSION(:) CONTIG :: x,b
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: dpar(50)
 

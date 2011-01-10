@@ -2515,7 +2515,7 @@ END IF
            IF (Element % PDefs % isEdge) THEN
               direction = 0
               ! Get direction of this face (mask for face = boundary element nodes)
-              direction(1:3) = getTriangleFaceDirection(Element, (/ 1,2,3 /))
+              direction(1:3) = getTriangleFaceDirection(Element, [ 1,2,3 ])
            END IF
 
            DO i = 0,p-3
@@ -2591,7 +2591,7 @@ END IF
            ! For boundary element direction needs to be calculated
            IF (Element % PDefs % isEdge) THEN
               direction = 0
-              direction = getSquareFaceDirection(Element, (/ 1,2,3,4 /))
+              direction = getSquareFaceDirection(Element, [ 1,2,3,4 ])
            END IF
           
            ! For each bubble calculate value of p basis function
@@ -4255,61 +4255,61 @@ END IF
          EdgeMap(1,1) = 1
 
        CASE(2)
-         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(1,:) = [ 1,2 ]
 
        CASE(3)
-         EdgeMap(1,:) = (/ 1,2 /)
-         EdgeMap(2,:) = (/ 2,3 /)
-         EdgeMap(3,:) = (/ 3,1 /)
+         EdgeMap(1,:) = [ 1,2 ]
+         EdgeMap(2,:) = [ 2,3 ]
+         EdgeMap(3,:) = [ 3,1 ]
 
        CASE(4)
-         EdgeMap(1,:) = (/ 1,2 /)
-         EdgeMap(2,:) = (/ 2,3 /)
-         EdgeMap(3,:) = (/ 3,4 /)
-         EdgeMap(4,:) = (/ 4,1 /)
+         EdgeMap(1,:) = [ 1,2 ]
+         EdgeMap(2,:) = [ 2,3 ]
+         EdgeMap(3,:) = [ 3,4 ]
+         EdgeMap(4,:) = [ 4,1 ]
 
        CASE(5)
-         EdgeMap(1,:) = (/ 1,2 /)
-         EdgeMap(2,:) = (/ 2,3 /)
-         EdgeMap(3,:) = (/ 3,1 /)
-         EdgeMap(4,:) = (/ 1,4 /)
-         EdgeMap(5,:) = (/ 2,4 /)
-         EdgeMap(6,:) = (/ 3,4 /)
+         EdgeMap(1,:) = [ 1,2 ]
+         EdgeMap(2,:) = [ 2,3 ]
+         EdgeMap(3,:) = [ 3,1 ]
+         EdgeMap(4,:) = [ 1,4 ]
+         EdgeMap(5,:) = [ 2,4 ]
+         EdgeMap(6,:) = [ 3,4 ]
 
        CASE(6)
-         EdgeMap(1,:) = (/ 1,2 /)
-         EdgeMap(2,:) = (/ 2,3 /)
-         EdgeMap(3,:) = (/ 4,3 /)
-         EdgeMap(4,:) = (/ 1,4 /)
-         EdgeMap(5,:) = (/ 1,5 /)
-         EdgeMap(6,:) = (/ 2,5 /)
-         EdgeMap(7,:) = (/ 3,5 /)
-         EdgeMap(8,:) = (/ 4,5 /)
+         EdgeMap(1,:) = [ 1,2 ]
+         EdgeMap(2,:) = [ 2,3 ]
+         EdgeMap(3,:) = [ 4,3 ]
+         EdgeMap(4,:) = [ 1,4 ]
+         EdgeMap(5,:) = [ 1,5 ]
+         EdgeMap(6,:) = [ 2,5 ]
+         EdgeMap(7,:) = [ 3,5 ]
+         EdgeMap(8,:) = [ 4,5 ]
  
        CASE(7)
-         EdgeMap(1,:) = (/ 1,2 /)
-         EdgeMap(2,:) = (/ 2,3 /)
-         EdgeMap(3,:) = (/ 3,1 /)
-         EdgeMap(4,:) = (/ 4,5 /)
-         EdgeMap(5,:) = (/ 5,6 /)
-         EdgeMap(6,:) = (/ 6,4 /)
-         EdgeMap(7,:) = (/ 1,4 /)
-         EdgeMap(8,:) = (/ 2,5 /)
-         EdgeMap(9,:) = (/ 3,6 /)
+         EdgeMap(1,:) = [ 1,2 ]
+         EdgeMap(2,:) = [ 2,3 ]
+         EdgeMap(3,:) = [ 3,1 ]
+         EdgeMap(4,:) = [ 4,5 ]
+         EdgeMap(5,:) = [ 5,6 ]
+         EdgeMap(6,:) = [ 6,4 ]
+         EdgeMap(7,:) = [ 1,4 ]
+         EdgeMap(8,:) = [ 2,5 ]
+         EdgeMap(9,:) = [ 3,6 ]
 
        CASE(8)
-         EdgeMap(1,:)  = (/ 1,2 /)
-         EdgeMap(2,:)  = (/ 2,3 /)
-         EdgeMap(3,:)  = (/ 4,3 /)
-         EdgeMap(4,:)  = (/ 1,4 /)
-         EdgeMap(5,:)  = (/ 5,6 /)
-         EdgeMap(6,:)  = (/ 6,7 /)
-         EdgeMap(7,:)  = (/ 8,7 /)
-         EdgeMap(8,:)  = (/ 5,8 /)
-         EdgeMap(9,:)  = (/ 1,5 /)
-         EdgeMap(10,:) = (/ 2,6 /)
-         EdgeMap(11,:) = (/ 3,7 /)
-         EdgeMap(12,:) = (/ 4,8 /)
+         EdgeMap(1,:)  = [ 1,2 ]
+         EdgeMap(2,:)  = [ 2,3 ]
+         EdgeMap(3,:)  = [ 4,3 ]
+         EdgeMap(4,:)  = [ 1,4 ]
+         EdgeMap(5,:)  = [ 5,6 ]
+         EdgeMap(6,:)  = [ 6,7 ]
+         EdgeMap(7,:)  = [ 8,7 ]
+         EdgeMap(8,:)  = [ 5,8 ]
+         EdgeMap(9,:)  = [ 1,5 ]
+         EdgeMap(10,:) = [ 2,6 ]
+         EdgeMap(11,:) = [ 3,7 ]
+         EdgeMap(12,:) = [ 4,8 ]
        END SELECT
      END IF
 !------------------------------------------------------------------------------
@@ -4714,8 +4714,8 @@ END IF
 
     INTEGER :: map(3,12)
 !------------------------------------------------------------------------------
-    map = RESHAPE( (/ 0,1,2,   0,2,3,   4,5,6,   4,6,7,   3,2,6,   3,6,7,  &
-     1,5,6,   1,6,2,   0,4,7,   0,7,3,   0,1,5,   0,5,4 /), (/ 3,12 /) ) + 1
+    map = RESHAPE( [ 0,1,2,   0,2,3,   4,5,6,   4,6,7,   3,2,6,   3,6,7,  &
+     1,5,6,   1,6,2,   0,4,7,   0,7,3,   0,1,5,   0,5,4 ], [ 3,12 ] ) + 1
     
     inside = .FALSE.
 
@@ -5171,7 +5171,7 @@ END FUNCTION PointFaceDistance
               delta(3)   = 0.0d0
          END SELECT
 
-         CALL SolveLinSys2x2( J(1:2,1:2), delta(1:2), (/ r, s/) )
+         CALL SolveLinSys2x2( J(1:2,1:2), delta(1:2), [ r, s] )
 
       CASE(3)
         J(1,1) = FirstDerivativeInU3D( Element, ElementNodes % x, u, v, w )
@@ -5186,7 +5186,7 @@ END FUNCTION PointFaceDistance
         J(3,2) = FirstDerivativeInV3D( Element, ElementNodes % z, u, v, w )
         J(3,3) = FirstDerivativeInW3D( Element, ElementNodes % z, u, v, w )
 
-        CALL SolveLinSys3x3( J, delta, (/ r, s, t /) )
+        CALL SolveLinSys3x3( J, delta, [ r, s, t ] )
 
       END SELECT
 

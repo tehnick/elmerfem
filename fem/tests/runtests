@@ -31,7 +31,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/fs/proj1/elmer/raback/elmerbin/bin:$PATH
+    export PATH=/wrk/jpr/ff/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "ELMER_HOME=%s\n" $ELMER_HOME
@@ -48,8 +48,8 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-#export F90="gfortran -O -m64 -fPIC -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
-#export LD="gfortran -shared -m64 -fPIC "
+#export F90="gfortran -O -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+#export LD="gfortran -shared  "
 export LD=elmerld
 export F90=elmerf90-nosh
 export LIBS="-L$ELMER_LIB "
@@ -83,7 +83,7 @@ for dir in $dirs; do
 
       if test $success -ge 1; then
 	  passed=`expr $passed + 1`
-          printf "			[PASSED], Cumulative CPU time=$cputime\n"
+          printf "		[PASSED], CPU time=$cputime\n"
 	  make -i clean > /dev/null 2>&1
       else
           printf "look at [%s/test.log] for details\n" $dir
@@ -92,3 +92,4 @@ for dir in $dirs; do
 done
 
 echo "Tests completed, passed: $passed out of total $total tests"
+echo "Cumulative CPU time used in test: $cputime s"

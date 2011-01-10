@@ -81,11 +81,10 @@ MODULE Types
 
   TYPE BasicMatrix_t
     INTEGER :: NumberOfRows
-    INTEGER, POINTER :: Rows(:), Cols(:), Diag(:)
-    INTEGER, POINTER :: GRows(:), RowOwner(:)
-    REAL(KIND=dp), POINTER :: Values(:),MassValues(:),DampValues(:),ILUValues(:)
+    INTEGER, ALLOCATABLE :: Rows(:), Cols(:), Diag(:)
+    INTEGER, ALLOCATABLE :: GRows(:), RowOwner(:)
+    REAL(KIND=dp), ALLOCATABLE :: Values(:),MassValues(:),DampValues(:),ILUValues(:)
   END  TYPE BasicMatrix_t
-
 
   TYPE Matrix_t
     TYPE(Matrix_t), POINTER :: Child, Parent, ConstraintMatrix, EMatrix
@@ -96,9 +95,9 @@ MODULE Types
 
     TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => NULL()
 
-    INTEGER, POINTER :: Perm(:),InvPerm(:),RowOwner(:)
-    INTEGER, POINTER :: GRows(:), GOrder(:)
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:)
+    INTEGER, POINTER :: Perm(:),InvPerm(:)
+    INTEGER, ALLOCATABLE :: GRows(:), RowOwner(:)
+    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:), Gorder(:)
 
     REAL(KIND=dp), POINTER :: RHS(:),BulkRHS(:),RHS_im(:),Force(:,:)
 
@@ -179,8 +178,8 @@ MODULE Types
 
 
   TYPE ResBufferT
-     REAL(KIND=dp), DIMENSION(:), POINTER :: ResVal
-     INTEGER, DIMENSION(:), POINTER :: ResInd
+     REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: ResVal
+     INTEGER, DIMENSION(:), ALLOCATABLE :: ResInd
   END TYPE ResBufferT
 
 

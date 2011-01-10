@@ -1830,7 +1830,7 @@ END SUBROUTINE ReynoldsHeatingSolver
        CALL DefaultInitialize()
     END IF
     
-    ALLOCATE(ForceVector(Dofs-1,SIZE(Solver % Matrix % RHS)))  
+    ALLOCATE(ForceVector(SIZE(Solver % Matrix % RHS),Dofs-1))  
     ForceVector = 0.0_dp
     SaveRHS => Solver % Matrix % RHS
     
@@ -1848,7 +1848,7 @@ END SUBROUTINE ReynoldsHeatingSolver
        IF(i==1) THEN
           Solver % Matrix % RHS => SaveRHS
        ELSE
-          Solver % Matrix % RHS => ForceVector(i-1,:)
+          Solver % Matrix % RHS => ForceVector(:,i-1)
        END IF
        
        ! The solution of the linear equation
@@ -2084,7 +2084,7 @@ END SUBROUTINE ReynoldsHeatingSolver
          END IF
      
          DO i=2,Dofs
-            Solver % Matrix % RHS => ForceVector(i-1,:)
+            Solver % Matrix % RHS => ForceVector(:,i-1)
             CALL DefaultUpdateForce( FORCE(i,1:nd) )
          END DO
       END DO

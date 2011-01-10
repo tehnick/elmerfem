@@ -107,7 +107,7 @@ INCLUDE "mpif.h"
 !
       TYPE(Matrix_t), POINTER :: PMatrix
       REAL(KIND=dp), TARGET :: WORKD(3*N), RESID(N),bb(N),xx(N)
-      REAL(KIND=dp), POINTER :: x(:), b(:)
+      REAL(KIND=dp), POINTER CONTIG :: x(:), b(:)
       INTEGER :: IPARAM(11), IPNTR(14)
       INTEGER, ALLOCATABLE :: Perm(:)
       LOGICAL, ALLOCATABLE :: Choose(:)
@@ -414,7 +414,9 @@ INCLUDE "mpif.h"
                x => WORKD(IPNTR(1):IPNTR(1)+PN-1)
                b => WORKD(IPNTR(2):IPNTR(2)+PN-1)
                CALL MGmv( Matrix, x, b, .FALSE., .TRUE. )
-               x = b
+               DO i=1,PN
+                 x(i) = b(i)
+               END DO
                x => WORKD(IPNTR(2):IPNTR(2)+PN-1)
                b => WORKD(IPNTR(1):IPNTR(1)+PN-1)
 
@@ -656,7 +658,7 @@ INCLUDE "mpif.h"
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: A, M
        INTEGER :: Rounds
-       REAL(KIND=dp) :: x(:),b(:),r(:)
+       REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
        INTEGER :: i,n
 !------------------------------------------------------------------------------
@@ -677,13 +679,13 @@ INCLUDE "mpif.h"
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: A
        INTEGER :: Rounds
-       REAL(KIND=dp) :: x(:),b(:),r(:)
+       REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
        REAL(KIND=dp) :: alpha,rho,oldrho, Conv
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: M
        INTEGER :: i,n
-       REAL(KIND=dp), POINTER :: Mx(:),Mb(:),Mr(:), Z(:), P(:), Q(:)
+       REAL(KIND=dp), POINTER CONTIG :: Mx(:),Mb(:),Mr(:), Z(:), P(:), Q(:)
        REAL(KIND=dp) :: RNorm
 !------------------------------------------------------------------------------
        M => ParallelMatrix( A, Mx, Mb, Mr )
@@ -734,12 +736,14 @@ INCLUDE "mpif.h"
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: A,M
        INTEGER :: Rounds
-       REAL(KIND=dp) :: x(:),b(:),r(:), Conv
+       REAL(KIND=dp) :: Conv
+       REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
        INTEGER :: i,n
        REAL(KIND=dp) :: RNorm
        REAL(KIND=dp) :: alpha,beta,omega,rho,oldrho
-       REAL(KIND=dp),POINTER :: Ri(:),P(:),V(:),T(:),T1(:),T2(:),S(:),Mx(:),Mb(:),Mr(:)
+       REAL(KIND=dp), ALLOCATABLE :: Ri(:),P(:),V(:),T(:),T1(:),T2(:),S(:)
+       REAL(KIND=dp), POINTER CONTIG :: Mx(:),Mb(:),Mr(:)
 !------------------------------------------------------------------------------
        M => ParallelMatrix( A, Mx, Mb, Mr )
        n = M % NumberOfRows
@@ -802,7 +806,8 @@ INCLUDE "mpif.h"
     FUNCTION MGnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       REAL(KIND=dp) :: s,x(:)
+       REAL(KIND=dp) :: s
+       REAL(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        s = ParallelNorm( n, x )
 !------------------------------------------------------------------------------
@@ -814,7 +819,8 @@ INCLUDE "mpif.h"
     FUNCTION MGdot( n, x, y ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       REAL(KIND=dp) :: s,x(:),y(:)
+       REAL(KIND=dp) :: s
+       REAL(KIND=dp) CONTIG :: x(:),y(:)
 !------------------------------------------------------------------------------
        s = ParallelDot( n, x, y )
 !------------------------------------------------------------------------------
@@ -825,7 +831,7 @@ INCLUDE "mpif.h"
 !------------------------------------------------------------------------------
     SUBROUTINE MGmv( A, x, b, Update, UseMass )
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: x(:), b(:)
+       REAL(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update, UseMass
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------

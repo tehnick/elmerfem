@@ -156,7 +156,7 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
     CALL DefaultInitialize()
   END IF
 
-  ALLOCATE(ForceVector(dim,SIZE(Solver % Matrix % RHS)))  
+  ALLOCATE(ForceVector(SIZE(Solver % Matrix % RHS),dim))  
   ForceVector = 0.0_dp
   SaveRHS => Solver % Matrix % RHS
 !    
@@ -175,7 +175,7 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
     Values = Solver % Matrix % Values
   END IF
   DO i=1,dim
-    Solver % Matrix % RHS => ForceVector(i,:)
+    Solver % Matrix % RHS => ForceVector(:,i)
 
     IF ( SetD ) THEN
       Solver % Variable % Name = TRIM(VarName) // ' ' // TRIM(I2S(i))
@@ -287,7 +287,7 @@ CONTAINS
       END IF
 
       DO i=1,dim
-        Solver % Matrix % RHS => ForceVector(i,:)
+        Solver % Matrix % RHS => ForceVector(:,i)
         CALL DefaultUpdateForce( FORCE(i,1:nd) )
       END DO
     END DO

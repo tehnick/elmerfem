@@ -48,6 +48,7 @@ MODULE Multigrid
 
    IMPLICIT NONE
 
+
 CONTAINS
 
 !------------------------------------------------------------------------------
@@ -62,7 +63,7 @@ CONTAINS
        INTEGER :: DOFs, Level
        LOGICAL, OPTIONAL :: NewSystem
        TYPE(Solver_t) :: Solver
-       REAL(KIND=dp) :: ForceVector(:), Solution(:)
+       REAL(KIND=dp) CONTIG :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
        LOGICAL :: Found, Algebraic, Cluster, Geometric, Pelement
        CHARACTER(LEN=MAX_NAME_LEN) :: MGMethod    
@@ -106,7 +107,7 @@ CONTAINS
        INTEGER :: DOFs, Level
        LOGICAL, OPTIONAL :: NewSystem
        TYPE(Solver_t), TARGET :: Solver       
-       REAL(KIND=dp), TARGET :: ForceVector(:), Solution(:)
+       REAL(KIND=dp), TARGET CONTIG :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
        TYPE(Variable_t), POINTER :: Variable1, TimeVar, SaveVariable
        TYPE(Mesh_t), POINTER   :: Mesh1, Mesh2, SaveMesh
@@ -119,9 +120,10 @@ CONTAINS
        LOGICAL :: Condition, Found, Parallel, Project,Transient, LIter
 
        TYPE(Matrix_t), POINTER :: ProjPN, ProjQT
-       INTEGER, POINTER :: Permutation(:), Permutation2(:)
+       INTEGER, POINTER CONTIG :: Permutation(:), Permutation2(:)
 
-       REAL(KIND=dp), POINTER :: Residual(:), Residual2(:), Solution2(:)
+       REAL(KIND=dp), POINTER CONTIG :: Residual2(:), Solution2(:)
+       REAL(KIND=dp), ALLOCATABLE, TARGET :: Residual(:)
        REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL, tmp
 
        REAL(KIND=dp) :: CPUTime, tt
@@ -757,7 +759,8 @@ CONTAINS
     FUNCTION MGnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       REAL(KIND=dp) :: s,x(:)
+       REAL(KIND=dp) :: s
+       REAL(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        IF ( .NOT. Parallel ) THEN
           s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
@@ -772,7 +775,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE MGmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: x(:), b(:)
+       REAL(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -794,7 +797,8 @@ CONTAINS
     FUNCTION MGCnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       COMPLEX(KIND=dp) :: s,x(:)
+       REAL(KIND=dp) :: s
+       COMPLEX(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
 !------------------------------------------------------------------------------
@@ -805,7 +809,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE MGCmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       COMPLEX(KIND=dp) :: x(:), b(:)
+       COMPLEX(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -830,7 +834,7 @@ CONTAINS
        INTEGER :: DOFs, Level
        LOGICAL, OPTIONAL :: NewSystem
        TYPE(Solver_t), TARGET :: Solver       
-       REAL(KIND=dp), TARGET :: ForceVector(:), Solution(:)
+       REAL(KIND=dp), TARGET CONTIG :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
        TYPE(Variable_t), POINTER :: Variable1, TimeVar, SaveVariable
        TYPE(Mesh_t), POINTER   :: Mesh1, Mesh2, SaveMesh
@@ -842,11 +846,11 @@ CONTAINS
        CHARACTER(LEN=MAX_NAME_LEN) :: Path,str,mgname
 
        TYPE(Matrix_t), POINTER :: ProjPN, ProjQT
-       INTEGER, POINTER :: Permutation(:), Permutation2(:), Indexes(:), Deg(:), &
+       INTEGER, POINTER CONTIG :: Permutation(:), Permutation2(:), Indexes(:), Deg(:), &
                 PatLevel(:)
 
        REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
-       REAL(KIND=dp), POINTER :: Residual(:), Residual2(:), Solution2(:), &
+       REAL(KIND=dp), POINTER CONTIG :: Residual(:), Residual2(:), Solution2(:), &
                SaveVals(:), Basis(:)
 
        REAL(KIND=dp), POINTER, SAVE :: SolutionStore(:,:), Degree(:)
@@ -1332,7 +1336,8 @@ CONTAINS
     FUNCTION MGnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       REAL(KIND=dp) :: s,x(:)
+       REAL(KIND=dp)  :: s
+       REAL(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        IF ( .NOT. Parallel ) THEN
           s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
@@ -1346,7 +1351,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE MGmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: x(:), b(:)
+       REAL(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -1395,7 +1400,7 @@ CONTAINS
     INTEGER :: DOFs, Level
     LOGICAL, OPTIONAL :: NewSystem
     TYPE(Solver_t), TARGET :: Solver
-    REAL(KIND=dp) :: ForceVector(:), Solution(:)
+    REAL(KIND=dp) CONTIG :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
     TYPE AMG_t
       INTEGER, POINTER :: CF(:)
@@ -1415,7 +1420,8 @@ CONTAINS
     INTEGER, POINTER :: CF(:), InvCF(:)
     LOGICAL, POINTER :: Fixed(:)
     
-    REAL(KIND=dp), POINTER :: Residual(:), Residual2(:), Work2(:),  Solution2(:)
+    REAL(KIND=dp), ALLOCATABLE, TARGET :: Residual(:), Solution2(:), Work2(:)
+    REAL(KIND=dp), POINTER CONTIG :: Residual2(:)
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
     REAL(KIND=dp) :: CPUTime, tt
 
@@ -1781,7 +1787,8 @@ CONTAINS
     FUNCTION MGnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       REAL(KIND=dp) :: s,x(:)
+       REAL(KIND=dp) :: s
+       REAL(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        IF ( .NOT. Parallel ) THEN
           s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
@@ -1797,7 +1804,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE MGmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: x(:), b(:)
+       REAL(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -1819,7 +1826,8 @@ CONTAINS
     FUNCTION MGCnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       COMPLEX(KIND=dp) :: s,x(:)
+       REAL(KIND=dp) :: s
+       COMPLEX(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
 !------------------------------------------------------------------------------
@@ -1830,7 +1838,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE MGCmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       COMPLEX(KIND=dp) :: x(:), b(:)
+       COMPLEX(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -4526,11 +4534,11 @@ CONTAINS
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: A
        INTEGER :: Rounds, f(:)
-       REAL(KIND=dp) :: x0(:),x1(:)
+       REAL(KIND=dp) CONTIG :: x0(:),x1(:)
        INTEGER :: i,j,k,n
        REAL(KIND=dp) :: s
-       INTEGER, POINTER :: Cols(:),Rows(:)
-       REAL(KIND=dp), POINTER :: Values(:)
+       INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+       REAL(KIND=dp), POINTER CONTIG :: Values(:)
      
        n = A % NumberOfRows
        Rows   => A % Rows
@@ -4568,12 +4576,12 @@ CONTAINS
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: A
        INTEGER :: n, Rounds, f(:)
-       REAL(KIND=dp) :: rx0(:),rx1(:)
+       REAL(KIND=dp) CONTIG :: rx0(:),rx1(:)
 
        COMPLEX(KIND=dp) :: x0(n/2),x1(n/2), s
        INTEGER :: i,j,k,j2,diag,l
-       INTEGER, POINTER :: Cols(:),Rows(:)
-       REAL(KIND=dp), POINTER :: Values(:)
+       INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+       REAL(KIND=dp), POINTER CONTIG :: Values(:)
      
        n = A % NumberOfRows
        Rows   => A % Rows
@@ -4653,9 +4661,9 @@ CONTAINS
     LOGICAL, OPTIONAL :: Trans
 !-------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,n
-    REAL(KIND=dp), POINTER :: Values(:)
+    REAL(KIND=dp), POINTER CONTIG :: Values(:)
     LOGICAL :: LTrans
-    INTEGER, POINTER :: Rows(:), Cols(:)
+    INTEGER, POINTER CONTIG :: Rows(:), Cols(:)
 !-------------------------------------------------------------------------------
     LTrans = .FALSE.
     IF ( PRESENT( Trans ) ) LTrans = Trans
@@ -4723,14 +4731,14 @@ CONTAINS
   SUBROUTINE CRS_ClusterProject( CF, u, v, DOFs, Trans )
 !-------------------------------------------------------------------------------
     INTEGER, POINTER :: CF(:)
-    REAL(KIND=dp), POINTER :: u(:),v(:)
+    REAL(KIND=dp), POINTER CONTIG :: u(:),v(:)
     INTEGER :: DOFs
     LOGICAL, OPTIONAL :: Trans
 !-------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,nv,nu
-    REAL(KIND=dp), POINTER :: Values(:)
+    REAL(KIND=dp), POINTER CONTIG :: Values(:)
     LOGICAL :: LTrans
-    INTEGER, POINTER :: Rows(:), Cols(:)
+    INTEGER, POINTER CONTIG :: Rows(:), Cols(:)
 !-------------------------------------------------------------------------------
     LTrans = .FALSE.
     IF ( PRESENT( Trans ) ) LTrans = Trans
@@ -5039,7 +5047,7 @@ CONTAINS
     INTEGER :: DOFs, Level
     LOGICAL, OPTIONAL :: NewSystem
     TYPE(Solver_t), TARGET :: Solver
-    REAL(KIND=dp) :: ForceVector(:), Solution(:)
+    REAL(KIND=dp) CONTIG :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER   :: Mesh
     TYPE(Matrix_t), POINTER :: Matrix2, Pmatrix
@@ -5051,7 +5059,8 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: str,str2,str3,FileName,LowestSolver
     INTEGER, POINTER :: CF(:), InvCF(:), Iters(:)
     
-    REAL(KIND=dp), POINTER :: Residual(:), Residual2(:), Solution2(:), TmpArray(:,:)
+    REAL(KIND=dp), ALLOCATABLE, TARGET :: Residual(:),  Solution2(:)
+    REAL(KIND=dp), POINTER CONTIG :: TmpArray(:,:), Residual2(:)
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL, Alpha, Rnorm
     REAL(KIND=dp) :: CPUTime, tt, tmp
 
@@ -5228,10 +5237,10 @@ CONTAINS
       ! Make a table showing the clustering
       IF(CoarseSave) THEN
         IF(OrigSize == 0) OrigSize = SIZE(CF)
-        ALLOCATE( InvCF(OrigSize) )
+        ALLOCATE( Matrix1 % GRows(OrigSize) )
+        InvCF => Matrix1 % GRows
         InvCF = 0
 
-        Matrix1 % Grows => InvCF           
         IF(Level ==  Solver % MultiGridTotal) THEN
           InvCF = CF 
         ELSE
@@ -5246,7 +5255,7 @@ CONTAINS
       ! .NOT. new linear system
       Matrix2 => Matrix1 % Parent      
       CF => Matrix1 %  Gorder 
-      IF(ASSOCIATED(Matrix1 % Grows)) InvCF => Matrix1 % Grows
+      IF(ALLOCATED(Matrix1 % Grows)) InvCF => Matrix1 % Grows
    END IF  
  
     n  = Matrix1 % NumberOfRows
@@ -5377,7 +5386,8 @@ CONTAINS
 !------------------------------------------------------------------------------
       INTEGER :: Sweeps
       INTEGER, POINTER :: Iters(:)
-      REAL(KIND=dp), POINTER :: R1(:),R2(:), Work2(:)
+      REAL(KIND=dp), POINTER :: R1(:),R2(:)
+      REAL(KIND=dp), ALLOCATABLE :: Work2(:)
 
 !------------------------------------------------------------------------------
 
@@ -5455,7 +5465,8 @@ CONTAINS
     FUNCTION MGnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       REAL(KIND=dp) :: s,x(:)
+       REAL(KIND=dp) :: s
+       REAL(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        IF ( .NOT. Parallel ) THEN
           s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
@@ -5470,7 +5481,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE MGmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: x(:), b(:)
+       REAL(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -5492,7 +5503,8 @@ CONTAINS
     FUNCTION MGCnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       COMPLEX(KIND=dp) :: s,x(:)
+       COMPLEX(KIND=dp) :: s
+       COMPLEX(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
        s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
 !------------------------------------------------------------------------------
@@ -5504,7 +5516,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     SUBROUTINE MGCmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-       COMPLEX(KIND=dp) :: x(:), b(:)
+       COMPLEX(KIND=dp) CONTIG :: x(:), b(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -5528,9 +5540,9 @@ CONTAINS
     LOGICAL, OPTIONAL :: Trans
 !-------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,nv,nu
-    REAL(KIND=dp), POINTER :: Values(:)
+    REAL(KIND=dp), POINTER CONTIG :: Values(:)
     LOGICAL :: LTrans
-    INTEGER, POINTER :: Rows(:), Cols(:)
+    INTEGER, POINTER CONTIG :: Rows(:), Cols(:)
 !-------------------------------------------------------------------------------
     LTrans = .FALSE.
     IF ( PRESENT( Trans ) ) LTrans = Trans
@@ -5855,7 +5867,7 @@ IF(newrow < prevnewrow ) PRINT *,'problem:',indi,i,newrow,prevnewrow
         DO j=Solver % MultiGridTotal, MinLevel,-1
           k = Solver % MultiGridTotal - j + 1
 
-	  IF( .NOT. ASSOCIATED(TmpMatrix % Grows)) CYCLE
+	  IF( .NOT. ALLOCATED(TmpMatrix % Grows)) CYCLE
 
           NULLIFY( Clustering ) 
           ALLOCATE( Clustering(OrigSize), STAT=istat)

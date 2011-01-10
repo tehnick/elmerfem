@@ -284,23 +284,20 @@ CONTAINS
       INTEGER :: map(4)
 
       IF (.NOT. MInit) CALL InitializeMappings()
+      map = 0
 
       ! Function is not defined for non p elements
       IF (.NOT. ASSOCIATED(Element % PDefs)) THEN
          CALL Warn('PElementMaps::getElementBoundaryMap','Element not p element') 
-         map = 0
          RETURN
       END IF
 
       SELECT CASE(Element % Type % ElementCode / 100)
       CASE (3)
-         map = 0
          map(1:2) = getTriangleEdgeMap(i)
       CASE (4)
-         map = 0
          map(1:2) = getQuadEdgeMap(i)
       CASE (5)
-         map = 0
          map(1:3) = getTetraFaceMap(i,Element % PDefs % TetraType)
       CASE (6)
          map(1:4) = getPyramidFaceMap(i)

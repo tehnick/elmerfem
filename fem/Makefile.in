@@ -148,6 +148,7 @@ MKOCTFILE_DL_LDFLAGS = @MKOCTFILE_DL_LDFLAGS@
 MPI_F90 = @MPI_F90@
 MPI_INCLUDE_DIR = @MPI_INCLUDE_DIR@
 MPI_LIBS = @MPI_LIBS@
+MUMPS_LIBS = @MUMPS_LIBS@
 MV = @MV@
 NO_OCT_FILE_STRIP = @NO_OCT_FILE_STRIP@
 OBJEXT = @OBJEXT@
@@ -182,6 +183,7 @@ SH_LINKING_TO_FLAGS = @SH_LINKING_TO_FLAGS@
 SOLVER_LIBS = @SOLVER_LIBS@
 SOLVER_MPI_LIBS = @SOLVER_MPI_LIBS@
 SONAME_FLAGS = @SONAME_FLAGS@
+STDCXX_LIBS = @STDCXX_LIBS@
 STRIP = @STRIP@
 TEMPLATE_AR = @TEMPLATE_AR@
 TEMPLATE_ARFLAGS = @TEMPLATE_ARFLAGS@
@@ -256,6 +258,10 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 SUBDIRS = src tests 
 EXTRA_DIST = autogen.sh acx_elmer.m4 acx_blas.m4 acx_lapack.m4 acx_mpi.m4 GPL-2 LICENSES
+#	if test `ls nodist.sh` != ""; then     \
+#	  sh nodist.sh;                        \
+#	fi
+CLEANFILES = a.out
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -611,6 +617,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -705,9 +712,6 @@ dist-hook:
 	rm -rf `find $(distdir)/ -name \#*`
 	rm -rf `find $(distdir)/ -name \*~`
 	rm -rf `find $(distdir)/ -name \*.so`
-#	if test `ls nodist.sh` != ""; then     \
-#	  sh nodist.sh;                        \
-#	fi
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -821,7 +821,7 @@ SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
   END IF
 
   ! We need DIM r.h.s. vectors, allocated DIM-1 additional ones  
-  ALLOCATE(ForceVector(Dofs-1,SIZE(Solver % Matrix % RHS)))  
+  ALLOCATE(ForceVector(SIZE(Solver % Matrix % RHS),Dofs-1))  
   ForceVector = 0.0_dp
   SaveRHS => Solver % Matrix % RHS
   
@@ -839,7 +839,7 @@ SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
     IF(i==1) THEN
       Solver % Matrix % RHS => SaveRHS
     ELSE
-      Solver % Matrix % RHS => ForceVector(i-1,:)
+      Solver % Matrix % RHS => ForceVector(:,i-1)
     END IF
     UNorm = DefaultSolve()
     TotNorm = TotNorm + Unorm ** 2
@@ -951,7 +951,7 @@ CONTAINS
       END IF
 
       DO i=2,Dofs
-        Solver % Matrix % RHS => ForceVector(i-1,:)
+        Solver % Matrix % RHS => ForceVector(:,i-1)
         CALL DefaultUpdateForce( FORCE(i,1:nd) )
       END DO
     END DO

@@ -55,12 +55,14 @@ CONTAINS
 !-------------------------------------------------------------------------------
   FUNCTION List_EnlargeMatrix(Matrix,N) RESULT(NewMatrix)
 !-------------------------------------------------------------------------------
-    INTEGER :: n
+    INTEGER :: i,n
     TYPE(ListMatrix_t), POINTER :: Matrix(:), NewMatrix(:)
 
     NewMatrix => List_AllocateMatrix(n)
     IF ( ASSOCIATED(Matrix) ) THEN
-      NewMatrix(1:SIZE(Matrix))=Matrix
+       DO i=1,SIZE(Matrix)
+        NewMatrix(i)=Matrix(i)
+      END DO
       DEALLOCATE(Matrix)
     END IF
 !-------------------------------------------------------------------------------

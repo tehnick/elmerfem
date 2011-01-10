@@ -1847,7 +1847,7 @@ CONTAINS
 
     TYPE(Matrix_t), POINTER   :: A
     TYPE(Variable_t), POINTER :: x
-    REAL(KIND=dp), POINTER    :: b(:)
+    REAL(KIND=dp), POINTER CONTIG    :: b(:), SOL(:)
 
     LOGICAL :: Found
 
@@ -1862,6 +1862,7 @@ CONTAINS
     A => Solver % Matrix
     b => A % RHS
     x => Solver % Variable
+    SOL => x % Values
 
     CALL SolveSystem( A, ParMatrix, b, x % Values, x % Norm, x % DOFs, Solver )
 

@@ -24,16 +24,19 @@
 
         DO i=1,ParEnv % PEs
           IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-            SaveIF(i) % Values => SP % IfMatrix(i) % Values
-            SP % IfMatrix(i) % Values => SP % IfMatrix(i) % ILUValues
+            ALLOCATE(SaveIF(i) % Values(SIZE(SP % IfMatrix(i) % Values)))
+            SaveIF(i) % Values = SP % IfMatrix(i) % Values
+            SP % IfMatrix(i) % Values = SP % IfMatrix(i) % ILUValues
           END IF
         END DO
 
         CALL SParMatrixVector(v,u,ipar)
 
         DO i=1,ParEnv % PEs
-          IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
-            SP % IfMatrix(i) % Values => SaveIF(i) % Values
+          IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+            SP % IfMatrix(i) % Values = SaveIF(i) % Values
+            DEALLOCATE(SaveIf(i) % Values)
+          END IF
         END DO
 
         DEALLOCATE(SaveIF)
@@ -63,8 +66,8 @@
      INTEGER, ALLOCATABLE :: cnt(:), rrow(:),rcol(:)
 
      TYPE Buf_t
-        REAL(KIND=dp), POINTER :: gval(:)
-        INTEGER, POINTER :: grow(:),gcol(:)
+        REAL(KIND=dp), ALLOCATABLE :: gval(:)
+        INTEGER, ALLOCATABLE :: grow(:),gcol(:)
      END TYPE Buf_t
      TYPE(Buf_t), POINTER :: buf(:)
 

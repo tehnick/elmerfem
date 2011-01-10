@@ -317,7 +317,7 @@ CONTAINS
 !-------------------------------------------------------------------------------
     SUBROUTINE ParallelInitSolve( Matrix, x, b, r, Update )
 !-------------------------------------------------------------------------------
-       REAL(KIND=dp) :: x(:), b(:), r(:)
+       REAL(KIND=dp) CONTIG :: x(:), b(:), r(:)
        LOGICAL, OPTIONAL :: Update
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
@@ -335,8 +335,8 @@ CONTAINS
     SUBROUTINE ParallelSumVector( Matrix, x, Op )
 !-------------------------------------------------------------------------------
        TYPE(Matrix_t) :: Matrix
-       REAL(KIND=dp) :: x(:)
        INTEGER, OPTIONAL :: op
+       REAL(KIND=dp) CONTIG :: x(:)
 !-------------------------------------------------------------------------------
 
        GlobalData => Matrix % ParMatrix
@@ -353,7 +353,7 @@ CONTAINS
 !-------------------------------------------------------------------------------
     SUBROUTINE ParallelUpdateSolve( Matrix, x, r )
 !-------------------------------------------------------------------------------
-       REAL(KIND=dp) :: x(:), r(:)
+       REAL(KIND=dp) CONTIG :: x(:), r(:)
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
@@ -367,15 +367,16 @@ CONTAINS
 !-------------------------------------------------------------------------------
     SUBROUTINE ParallelMatrixVector( Matrix, x, b, Update, UseMassVals )
 !-------------------------------------------------------------------------------
-      REAL(KIND=dp) :: x(:), b(:)
+      REAL(KIND=dp) CONTIG :: x(:), b(:)
       LOGICAL, OPTIONAL :: Update, UseMassVals
       TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
       INTEGER :: i,ipar(1)
-      REAL(KIND=dp), POINTER :: Mx(:), Mr(:), Mb(:), r(:)
+      REAL(KIND=dp), POINTER CONTIG :: Mx(:), Mr(:), Mb(:), r(:)
 
       TYPE(SplittedMatrixT), POINTER :: SP
-      TYPE(Matrix_t), POINTER :: SavePtrIF(:), SavePtrNB(:), SavePtrIN
+      TYPE(Matrix_t), POINTER :: SavePtrIN
+      TYPE(BasicMatrix_t), POINTER :: SavePtrIF(:), SavePtrNB(:)
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
       GlobalData => Matrix % ParMatrix
@@ -391,19 +392,23 @@ CONTAINS
                   ALLOCATE( SavePtrNB( ParEnv % PEs ) )
                   ALLOCATE( SavePtrIn )
                   DO i=1,ParEnv % PEs
-                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
-                       SavePtrIF(i) % Values => SP % IfMatrix(i) % Values
-                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
-                       SavePtrNB(i) % Values => SP % NbsIfMatrix(i) % Values
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+                       ALLOCATE(SavePtrIF(i) % Values(SIZE(SP % IfMatrix(i) % Values)))
+                       SavePtrIF(i) % Values = SP % IfMatrix(i) % Values
+                    END IF
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
+                       ALLOCATE(SavePtrNB(i) % Values(SIZE(SP % NbsIfMatrix(i) % Values)))
+                       SavePtrNB(i) % Values = SP % NbsIfMatrix(i) % Values
+                    END IF
                   END DO
                   SavePtrIN % Values => SP % InsideMatrix % Values
 
                   DO i=1,ParEnv % PEs
                     IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
-                      SP % IfMatrix(i) % Values => SP % IfMatrix(i) % MassValues
+                      SP % IfMatrix(i) % Values = SP % IfMatrix(i) % MassValues
 
                     IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
-                       SP % NbsIfMatrix(i) % Values => SP % NbsIfMatrix(i) % MassValues 
+                       SP % NbsIfMatrix(i) % Values = SP % NbsIfMatrix(i) % MassValues 
                   END DO
                   SP % InsideMatrix % Values => SP % InsideMatrix % MassValues
                END IF
@@ -422,11 +427,15 @@ CONTAINS
             IF ( PRESENT(UseMassVals) ) THEN
                IF ( UseMassVals ) THEN
                   DO i=1,ParEnv % PEs
-                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
-                       SP % IfMatrix(i) % Values =>  SavePtrIF(i) % Values
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+                       ALLOCATE(SP % IfMatrix(i) % Values(SIZE(SavePtrIF(i) % Values)))
+                       SP % IfMatrix(i) % Values =  SavePtrIF(i) % Values
+                    END IF
 
-                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
-                       SP % NbsIfMatrix(i) % Values =>  SavePtrNB(i) % Values 
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
+                       ALLOCATE(SP % NbsIfMatrix(i) % Values(SIZE(SavePtrNB(i) % Values)))
+                       SP % NbsIfMatrix(i) % Values =  SavePtrNB(i) % Values 
+                    END IF
                   END DO
                   SP % InsideMatrix % Values => SavePtrIN % Values 
                   DEALLOCATE( SavePtrIF )
@@ -442,20 +451,24 @@ CONTAINS
                   ALLOCATE( SavePtrNB( ParEnv % PEs ) )
                   ALLOCATE( SavePtrIn )
                   DO i=1,ParEnv % PEs
-                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
-                       SavePtrIF(i) % Values => SP % IfMatrix(i) % Values
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+                       ALLOCATE(SavePtrIF(i) % Values(SIZE(SP % IfMatrix(i) % Values)))
+                       SavePtrIF(i) % Values = SP % IfMatrix(i) % Values
+                    END IF
 
-                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
-                       SavePtrNB(i) % Values => SP % NbsIfMatrix(i) % Values
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
+                       ALLOCATE(SavePtrNB(i) % Values(SIZE(SP % NbsIfMatrix(i) % Values)))
+                       SavePtrNB(i) % Values = SP % NbsIfMatrix(i) % Values
+                    END IF
                   END DO
                   SavePtrIN % Values => SP % InsideMatrix % Values
 
                   DO i=1,ParEnv % PEs
                     IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
-                       SP % IfMatrix(i) % Values => SP % IfMatrix(i) % MassValues
+                       SP % IfMatrix(i) % Values = SP % IfMatrix(i) % MassValues
 
                     IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
-                       SP % NbsIfMatrix(i) % Values => SP % NbsIfMatrix(i) % MassValues 
+                       SP % NbsIfMatrix(i) % Values = SP % NbsIfMatrix(i) % MassValues 
                   END DO
                   SP % InsideMatrix % Values => SP % InsideMatrix % MassValues
                END IF
@@ -466,11 +479,15 @@ CONTAINS
             IF ( PRESENT(UseMassVals) ) THEN
               IF ( UseMassVals ) THEN
                 DO i=1,ParEnv % PEs
-                  IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
-                     SP % IfMatrix(i) % Values =>  SavePtrIF(i) % Values
+                  IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+                     SP % IfMatrix(i) % Values = SavePtrIF(i) % Values
+                     DEALLOCATE(SavePtrIF(i) % Values)
+                  END IF
 
-                  IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
-                     SP % NbsIfMatrix(i) % Values =>  SavePtrNB(i) % Values 
+                  IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
+                     SP % NbsIfMatrix(i) % Values = SavePtrNB(i) % Values 
+                     DEALLOCATE(SavePtrNB(i) % Values)
+                  END IF
                 END DO
                 SP % InsideMatrix % Values => SavePtrIN % Values 
                 DEALLOCATE( SavePtrIF )
@@ -563,7 +580,8 @@ CONTAINS
     FUNCTION ParallelNorm( n, x ) RESULT(s)
 !-------------------------------------------------------------------------------
       INTEGER :: n
-      REAL(KIND=dp) :: x(:),s
+      REAL(KIND=dp) :: s
+      REAL(KIND=dp) CONTIG :: x(:)
 !-------------------------------------------------------------------------------
       s = 0.0d0
 #ifdef PARALLEL_FOR_REAL
@@ -578,7 +596,8 @@ CONTAINS
     FUNCTION ParallelDOT( n, x, y ) RESULT(s)
 !-------------------------------------------------------------------------------
       INTEGER :: n
-      REAL(KIND=dp) :: x(:),y(:),s
+      REAL(KIND=dp) :: s
+      REAL(KIND=dp) CONTIG :: x(:),y(:)
 !-------------------------------------------------------------------------------
       s = 0.0d0
 #ifdef PARALLEL_FOR_REAL

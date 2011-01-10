@@ -59,16 +59,17 @@ CONTAINS
       TYPE(Matrix_t), POINTER :: A
       TYPE(Mesh_t) :: Mesh
       INTEGER :: Level, DOFs
-      REAL(KIND=dp), TARGET :: x(:),b(:),r(:),RNorm, rphi=5.0_dp
+      REAL(KIND=dp), TARGET CONTIG :: x(:),b(:),r(:)
+      REAL(KIND=dp) :: RNorm, rphi=5.0_dp
       LOGICAL, OPTIONAL :: PreSmooth, LowestSmooth
       INTEGER, POINTER, OPTIONAL :: CF(:)
 !------------------------------------------------------------------------------
       CHARACTER(LEN=MAX_NAME_LEN) :: IterMethod, im
       LOGICAL :: Parallel, Found, Lowest, Pre
       TYPE(Matrix_t), POINTER :: M
-      INTEGER :: n, Rounds, InvLevel
+      INTEGER :: i, n, Rounds, InvLevel
       INTEGER, POINTER :: Iters(:)
-      REAL(KIND=dp), POINTER :: Mx(:),Mb(:),Mr(:)
+      REAL(KIND=dp), POINTER CONTIG :: Mx(:),Mb(:),Mr(:)
       REAL(KIND=dp) :: Omega, Bnorm
       REAL(KIND=dp), POINTER :: TmpArray(:,:)
       REAL(KIND=dp), ALLOCATABLE :: Q(:), Z(:), Ri(:), T(:), &
@@ -220,7 +221,11 @@ CONTAINS
 
       CALL MGmv( A, x, r, .TRUE. )
       r = b - r
-      IF ( Parallel ) Mr = Mb - Mr
+      IF ( Parallel ) THEN
+        DO i=1,SIZE(Mr)
+          Mr(i) = Mb(i) - Mr(i)
+        END DO
+      END IF
      
       RNorm = MGnorm( n, Mr ) 
 
@@ -240,7 +245,8 @@ CONTAINS
       FUNCTION MGnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
         INTEGER :: n
-        REAL(KIND=dp) :: s,x(:)
+        REAL(KIND=dp)  :: s
+        REAL(KIND=dp) CONTIG :: x(:)
 !------------------------------------------------------------------------------
         IF ( .NOT. Parallel ) THEN
           s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
@@ -256,7 +262,8 @@ CONTAINS
       FUNCTION MGdot( n, x, y ) RESULT(s)
 !------------------------------------------------------------------------------
         INTEGER :: n
-        REAL(KIND=dp) :: s,x(:),y(:)
+        REAL(KIND=dp)  :: s
+        REAL(KIND=dp) CONTIG :: x(:),y(:)
 !------------------------------------------------------------------------------
         IF ( .NOT. Parallel ) THEN
           s = DOT_PRODUCT( x(1:n), y(1:n) )
@@ -272,7 +279,8 @@ CONTAINS
     FUNCTION MGCdot( n, x, y ) RESULT(s)
 !------------------------------------------------------------------------------
        INTEGER :: n
-       COMPLEX(KIND=dp) :: s,x(:),y(:)
+       COMPLEX(KIND=dp)  :: s
+       COMPLEX(KIND=dp) CONTIG :: x(:),y(:)
 !------------------------------------------------------------------------------
        s = DOT_PRODUCT( x(1:n), y(1:n) )
 !------------------------------------------------------------------------------
@@ -283,7 +291,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       SUBROUTINE MGmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-        REAL(KIND=dp) :: x(:), b(:)
+        REAL(KIND=dp) CONTIG :: x(:), b(:)
         LOGICAL, OPTIONAL :: Update
         TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -304,7 +312,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       SUBROUTINE MGCmv( A, x, b, Update )
 !------------------------------------------------------------------------------
-        COMPLEX(KIND=dp) :: x(:), b(:)
+        COMPLEX(KIND=dp) CONTIG :: x(:), b(:)
         LOGICAL, OPTIONAL :: Update
         TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
@@ -319,14 +327,16 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
-        INTEGER :: i,n
+        INTEGER :: i,j,n
 !------------------------------------------------------------------------------
         DO i=1,Rounds
           CALL MGmv( A, x, r )
-          r(1:n) = b(1:n) - r(1:n)
-          x(1:n) = x(1:n) + r(1:n) / M % Values(M % Diag(1:n))
+          DO j=1,n
+            r(j) = b(j) - r(j)
+            x(j) = x(j) + r(j) / M % Values(M % Diag(j))
+          END DO
         END DO
 !------------------------------------------------------------------------------
       END SUBROUTINE Jacobi
@@ -338,14 +348,17 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: w, x(:),b(:),r(:)
+        REAL(KIND=dp) :: w
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
-        INTEGER :: i,n
+        INTEGER :: i,j,n
 !------------------------------------------------------------------------------
         DO i=1,Rounds
           CALL MGmv( A, x, r )
-          r(1:n) = b(1:n) - r(1:n)
-          x(1:n) = x(1:n) + w * r(1:n) / M % Values(M % Diag)
+          DO j=1,n
+            r(j) = b(j) - r(j)
+            x(j) = x(j) + w * r(j) / M % Values(M % Diag(j))
+          END DO
         END DO
 !------------------------------------------------------------------------------
       END SUBROUTINE SmoothedJacobi
@@ -357,7 +370,7 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: n,Rounds
-        REAL(KIND=dp) :: rx(:),rb(:),rr(:)
+        REAL(KIND=dp) CONTIG :: rx(:),rb(:),rr(:)
 !------------------------------------------------------------------------------
         COMPLEX(KIND=dp) :: x(n/2),b(n/2),r(n/2)
         INTEGER :: i,j,diag
@@ -399,7 +412,7 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG  :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,j,k,n
         REAL(KIND=dp) :: s
@@ -434,12 +447,12 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: DOFs, Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,j,k,n,id,dof
         REAL(KIND=dp) :: s(DOFs)
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
 !------------------------------------------------------------------------------
      
         n = A % NumberOfRows
@@ -474,12 +487,13 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: w, x(:),b(:),r(:)
+        REAL(KIND=dp) :: w
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,j,k,n
         REAL(KIND=dp) :: s
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
 !------------------------------------------------------------------------------
      
         n = A % NumberOfRows
@@ -509,11 +523,11 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
         INTEGER :: i,j,k,n
         REAL(KIND=dp) :: s
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
         
         Rows   => M % Rows
         Cols   => M % Cols
@@ -549,11 +563,11 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: DOFs, Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
         INTEGER :: i,j,k,n,id,dof
         REAL(KIND=dp) :: s(DOFs)
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG  :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
         
         n = A % NumberOfRows
         Rows   => A % Rows
@@ -600,11 +614,12 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: w, x(:),b(:),r(:)
+        REAL(KIND=dp) :: w
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
         INTEGER :: i,j,k,n
         REAL(KIND=dp) :: s
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
         
         n = A % NumberOfRows
         Rows   => A % Rows
@@ -639,10 +654,10 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: rx(:),rb(:),rr(:)
+        REAL(KIND=dp) CONTIG :: rx(:),rb(:),rr(:)
         INTEGER :: i,j,k,n,l
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
         COMPLEX(KIND=dp) :: r(n/2),b(n/2),x(n/2),s
         
         DO i=1,n/2
@@ -701,11 +716,11 @@ CONTAINS
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
         INTEGER, POINTER :: f(:)
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
         INTEGER :: i,j,k,n
         REAL(KIND=dp) :: s
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
         
         n = A % NumberOfRows
         Rows   => A % Rows
@@ -763,7 +778,7 @@ CONTAINS
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A,M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
         REAL(KIND=dp) :: alpha,rho,oldrho
 !------------------------------------------------------------------------------
         INTEGER :: i,n
@@ -799,7 +814,7 @@ CONTAINS
 !------------------------------------------------------------------------------
         INTEGER :: i,n, Rounds
         TYPE(Matrix_t), POINTER :: A,M
-        REAL(KIND=dp) :: rx(:),rb(:),rr(:)
+        REAL(KIND=dp) CONTIG :: rx(:),rb(:),rr(:)
         COMPLEX(KIND=dp) :: alpha,rho,oldrho
         COMPLEX(KIND=dp) :: r(n/2),b(n/2),x(n/2)
         COMPLEX(KIND=dp) :: Z(n), Pc(n), Q(n)
@@ -852,7 +867,7 @@ CONTAINS
 
         TYPE(Matrix_t), POINTER :: A,M
         INTEGER :: Rounds, n
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,j,k,l,t,k0,k1,dofs,nn,elem,it
         INTEGER, POINTER :: ind(:)
@@ -953,7 +968,7 @@ END DO
 !------------------------------------------------------------------------------
         TYPE(Matrix_t) :: A
         INTEGER :: i,j,k,n,q,dofs=3
-        REAL(KIND=dp) :: x(:),b(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:)
         REAL(KIND=dp), ALLOCATABLE :: temp(:)
 !------------------------------------------------------------------------------
          n = A % NumberOfRows
@@ -1001,7 +1016,7 @@ END DO
      SUBROUTINE UzawaPcond( A, b )
 !------------------------------------------------------------------------------
         TYPE(Matrix_t) :: A
-        REAL(KIND=dp) :: b(:)
+        REAL(KIND=dp) CONTIG :: b(:)
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: s
        INTEGER :: i,k,dofs=3,n
@@ -1023,7 +1038,7 @@ END DO
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A,M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,n
         REAL(KIND=dp) :: alpha,beta,omega,rho,oldrho, reps
@@ -1080,7 +1095,7 @@ END DO
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A,M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,n
         REAL(KIND=dp) :: alpha,beta,omega,rho,oldrho
@@ -1132,7 +1147,7 @@ END DO
 USE linearalgebra
         TYPE(Matrix_t), POINTER :: A,M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,j,k,l,n,t,nn,k1,k2,elem,nsize,it
         REAL(KIND=dp) :: s
@@ -1224,12 +1239,12 @@ USE linearalgebra
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
         INTEGER :: Rounds
-        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) CONTIG :: x(:),b(:),r(:)
 !------------------------------------------------------------------------------
         INTEGER :: i,j,k,l,n,o,nsize
         REAL(KIND=dp) :: s
-        INTEGER, POINTER :: Cols(:),Rows(:)
-        REAL(KIND=dp), POINTER :: Values(:)
+        INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER CONTIG :: Values(:)
 !------------------------------------------------------------------------------
      
         n = A % NumberOfRows

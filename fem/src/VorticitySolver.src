@@ -204,7 +204,7 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
 
   ! If vorticity has many components, compute them one-by-one
   IF(Dofs > 1) THEN
-    ALLOCATE(ForceVectors(Dofs-1,SIZE(Solver % Matrix % RHS)))  
+    ALLOCATE(ForceVectors(SIZE(Solver % Matrix % RHS),Dofs-1))  
     ForceVectors = 0.0_dp
     SaveRHS => Solver % Matrix % RHS
   END IF
@@ -223,7 +223,7 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
       IF(i==1) THEN
         Solver % Matrix % RHS => SaveRHS
       ELSE
-        Solver % Matrix % RHS => ForceVectors(i-1,:)
+        Solver % Matrix % RHS => ForceVectors(:,i-1)
       END IF
       UNorm = DefaultSolve()
       TotNorm = TotNorm + Unorm ** 2
@@ -346,7 +346,7 @@ CONTAINS
 
       ! Assembly the 2nd and 3rd r.h.s. in 3D case
       DO i=2,Dofs
-        Solver % Matrix % RHS => ForceVectors(i-1,:)
+        Solver % Matrix % RHS => ForceVectors(:,i-1)
         CALL DefaultUpdateForce( FORCE(i,1:nd) )
       END DO
     END DO

@@ -1400,6 +1400,7 @@ esac
 # fi
 
 
+
 AC_MSG_RESULT($acx_cv_fc_char_mangling)
 
 rm testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext],
@@ -1442,6 +1443,26 @@ case "$ac_cv_fc_mangling" in
 esac
 
 ])
+
+AC_DEFUN([ACX_FC_CONTIG], [
+AC_PREREQ(2.50)
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
+AC_LANG_PUSH(Fortran)
+AC_MSG_CHECKING([if fortran implements CONTIGUOUS attribute])
+AC_COMPILE_IFELSE(
+[        program test_contiguous
+          integer, pointer, contiguous :: x(:)
+        end program test_contiguous ],
+[ acx_cv_fc_contig=yes ], [ acx_cv_fc_contig=no ] )
+AC_MSG_RESULT([$acx_cv_fc_contig])
+AC_LANG_POP(Fortran)
+if test "$acx_cv_fc_contig" ==  yes ; then
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG=,CONTIGUOUS"
+else
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG"
+fi
+])
+
 
 AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG],[
 

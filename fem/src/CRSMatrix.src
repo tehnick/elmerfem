@@ -246,7 +246,7 @@ CONTAINS
 !
 !******************************************************************************
 !------------------------------------------------------------------------------
-    TYPE(BasicMatrix_t) :: A
+    TYPE(BasicMatrix_t), TARGET :: A
     LOGICAL, OPTIONAL :: ValuesToo
 
     INTEGER :: i,j,n
@@ -1029,11 +1029,11 @@ END FUNCTION CRS_RowSum
     TYPE(Matrix_t) :: A
 
 !------------------------------------------------------------------------------
-!    INTEGER, POINTER, CONTIGUOUS :: Cols(:),Rows(:)
-     INTEGER, POINTER :: Cols(:),Rows(:)
+     INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
+!    INTEGER, POINTER :: Cols(:),Rows(:)
 
-!    REAL(KIND=dp), POINTER, CONTIGUOUS :: Values(:)
-     REAL(KIND=dp), POINTER :: Values(:)
+     REAL(KIND=dp), POINTER  CONTIG :: Values(:)
+!    REAL(KIND=dp), POINTER :: Values(:)
 
      INTEGER :: i,j,n
      REAL(KIND=dp) :: rsum
@@ -2117,14 +2117,18 @@ END FUNCTION CRS_RowSum
                IF ( istat /= 0 ) THEN
                   CALL Fatal( 'CRS_ILUT', 'Memory allocation error.' )
                END IF
-               IWork( 1:ILURows(i+1)-1 ) = ILUCols( 1:ILURows(i+1)-1 )
+               DO j=1,ILURows(i+1)-1
+                 IWork(j) = ILUCols(j)
+               END DO
                DEALLOCATE( ILUCols )
 
                ALLOCATE( CWork(k), STAT=istat )
                IF ( istat /= 0 ) THEN
                   CALL Fatal( 'CRS_ILUT', 'Memory allocation error.' )
                END IF
-               CWork( 1:ILURows(i+1)-1 ) = ILUValues( 1:ILURows(i+1)-1 )
+               DO j=1,ILURows(i+1)-1
+                 CWork(j) = ILUValues(j)
+               END DO
                DEALLOCATE( ILUValues )
 
                ILUCols   => IWork
@@ -2336,14 +2340,18 @@ END FUNCTION CRS_RowSum
                IF ( istat /= 0 ) THEN
                   CALL Fatal( 'CRS_ComplexILUT', 'Memory allocation error.' )
                END IF
-               IWork( 1:ILURows(i+1)-1 ) = ILUCols( 1:ILURows(i+1)-1 )
+               DO j=1,ILURows(i+1)-1
+                 IWork(j) = ILUCols(j)
+               END DO
                DEALLOCATE( ILUCols )
 
                ALLOCATE( CWork(k), STAT=istat )
                IF ( istat /= 0 ) THEN
                   CALL Fatal( 'CRS_ComplexILUT', 'Memory allocation error.' )
                END IF
-               CWork( 1:ILURows(i+1)-1 ) = ILUValues( 1:ILURows(i+1)-1 )
+               DO j=1,ILURows(i+1)-1
+                 CWork(j) = ILUValues(j)
+               END DO
                DEALLOCATE( ILUValues )
 
                ILUCols   => IWork
@@ -2473,7 +2481,9 @@ END FUNCTION CRS_RowSum
 !   if no ilu provided do diagonal solve:
 !   -------------------------------------
     IF ( .NOT. ASSOCIATED( Values ) ) THEN
-       b = b / A % Values( A % Diag )
+       DO i=1,n
+         b(i) = b(i) / A % Values( A % Diag(i) )
+       END DO
        RETURN
     END IF
 
@@ -2677,10 +2687,10 @@ END FUNCTION CRS_RowSum
     REAL(KIND=dp) :: u(HUTI_NDIM),v(HUTI_NDIM)
 
 !------------------------------------------------------------------------------
-!   INTEGER, POINTER, CONTIGUOUS :: Cols(:),Rows(:)
-    INTEGER, POINTER :: Cols(:),Rows(:)
-!   REAL(KIND=dp), POINTER, CONTIGUOUS :: Values(:)
-    REAL(KIND=dp), POINTER :: Values(:)
+    INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
+!   INTEGER, POINTER :: Cols(:),Rows(:)
+    REAL(KIND=dp), POINTER  CONTIG :: Values(:)
+!   REAL(KIND=dp), POINTER :: Values(:)
 
     INTEGER :: i,j,n
     REAL(KIND=dp) :: s

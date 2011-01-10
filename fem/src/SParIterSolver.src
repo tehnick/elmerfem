@@ -352,13 +352,13 @@ real(kind=dp) :: realtime,st
         ALLOCATE( NbsIfMatrix(i) % Values(NbsIfMCols(i)) )
         ALLOCATE( NbsIfMatrix(i) % RowOwner(NbsIfMRows(i)) )
 
-        NULLIFY( NbsIfMatrix(i) % MassValues )
+!       NULLIFY( NbsIfMatrix(i) % MassValues )
         IF ( NeedMass ) ALLOCATE( NbsIfMatrix(i) % MassValues( NbsIfMCols(i) ) )
 
-        NULLIFY( NbsIfMatrix(i) % DampValues )
+!       NULLIFY( NbsIfMatrix(i) % DampValues )
         IF ( NeedDamp ) ALLOCATE( NbsIfMatrix(i) % DampValues( NbsIfMCols(i) ) )
 
-        NULLIFY( NbsIfMatrix(i) % ILUValues )
+!       NULLIFY( NbsIfMatrix(i) % ILUValues )
         IF ( NeedPrec ) ALLOCATE( NbsIfMatrix(i) % ILUValues( NbsIfMCols(i) ) )
      END IF
 
@@ -371,13 +371,13 @@ real(kind=dp) :: realtime,st
         ALLOCATE( OwnIfMatrix(i) % Values(OwnIfMCols(i)) )
         ALLOCATE( OwnIfMatrix(i) % RowOwner(OwnIfMRows(i)) )
 
-        NULLIFY( OwnIfMatrix(i) % MassValues )
+!       NULLIFY( OwnIfMatrix(i) % MassValues )
         IF ( NeedMass ) ALLOCATE( OwnIfMatrix(i) % MassValues(OwnIfMCols(i)) )
 
-        NULLIFY( OwnIfMatrix(i) % DampValues )
+!       NULLIFY( OwnIfMatrix(i) % DampValues )
         IF ( NeedDamp ) ALLOCATE( OwnIfMatrix(i) % DampValues(OwnIfMCols(i)) )
 
-        NULLIFY( OwnIfMatrix(i) % ILUValues )
+!       NULLIFY( OwnIfMatrix(i) % ILUValues )
         IF ( NeedPrec ) ALLOCATE( OwnIfMatrix(i) % ILUValues(OwnIfMCols(i)) )
      END IF
   END DO
@@ -812,21 +812,21 @@ real(kind=dp) :: realtime,st
         SplittedMatrix % IfVecs(i) % IfVec    = 0
         SplittedMatrix % IfMatrix(i) % Values = 0.0d0
 
-        NULLIFY( SplittedMatrix % IfMatrix(i) % MassValues )
+!       NULLIFY( SplittedMatrix % IfMatrix(i) % MassValues )
         IF ( NeedMass ) THEN
            ALLOCATE( SplittedMatrix % IfMatrix(i) % MassValues(  &
               SIZE(SplittedMatrix % IfMatrix(i) % Cols) ) )
            SplittedMatrix % IfMatrix(i) % MassValues = 0.0d0
         END IF
 
-        NULLIFY( SplittedMatrix % IfMatrix(i) % DampValues )
+!       NULLIFY( SplittedMatrix % IfMatrix(i) % DampValues )
         IF ( NeedDamp ) THEN
            ALLOCATE( SplittedMatrix % IfMatrix(i) % DampValues(  &
               SIZE(SplittedMatrix % IfMatrix(i) % Cols) ) )
            SplittedMatrix % IfMatrix(i) % DampValues = 0.0d0
         END IF
 
-        NULLIFY( SplittedMatrix % IfMatrix(i) % ILUValues )
+!       NULLIFY( SplittedMatrix % IfMatrix(i) % ILUValues )
         IF ( NeedPrec ) THEN
            ALLOCATE( SplittedMatrix % IfMatrix(i) % ILUValues(  &
               SIZE(SplittedMatrix % IfMatrix(i) % Cols) ) )
@@ -920,7 +920,7 @@ SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
 
      IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows /= 0 ) THEN
        SplittedMatrix % IfMatrix(i) % Values = 0.0d0
-       NeedPrec = ASSOCIATED(SplittedMatrix % IfMatrix(i) % ILUValues)
+       NeedPrec = ALLOCATED(SplittedMatrix % IfMatrix(i) % ILUValues)
        IF ( NeedPrec ) SplittedMatrix % IfMatrix(i) % ILUValues  = 0.0d0
        IF ( NeedMass ) SplittedMatrix % IfMatrix(i) % MassValues = 0.0d0
        IF ( NeedDamp ) SplittedMatrix % IfMatrix(i) % DampValues = 0.0d0
@@ -981,7 +981,7 @@ END SUBROUTINE ZeroSplittedMatrix
       NeedPrec = .FALSE.
       DO i=1,ParEnv % PEs
         IF (SplittedMatrix % IfMatrix(i) % NumberOfRows>0) THEN
-          NeedPrec = ASSOCIATED(SplittedMatrix % IfMatrix(i) % ILUValues)
+          NeedPrec = ALLOCATED(SplittedMatrix % IfMatrix(i) % ILUValues)
           EXIT
         END IF
       END DO
@@ -1637,7 +1637,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   NeedPrec = .FALSE.
   DO i=1,ParEnv % PEs
     IF ( SplittedMatrix % IfMatrix(i) % NumberOFRows>0 ) THEN
-      NeedPrec = ASSOCIATED( SplittedMatrix % IfMatrix(i) % ILUValues )
+      NeedPrec = ALLOCATED( SplittedMatrix % IfMatrix(i) % ILUValues )
       EXIT
     END IF
   END DO
@@ -2112,11 +2112,11 @@ END SUBROUTINE SParIfMatrixVector
   TYPE(Buff_t), POINTER ::  buffer(:)
 
 
-! REAL(KIND=dp), POINTER, CONTIGUOUS :: Vals(:)
-  REAL(KIND=dp), POINTER :: Vals(:)
+  REAL(KIND=dp), POINTER CONTIG :: Vals(:)
+! REAL(KIND=dp), POINTER :: Vals(:)
 
-! INTEGER, POINTER, CONTIGUOUS :: Cols(:),Rows(:)
-  INTEGER, POINTER :: Cols(:),Rows(:)
+  INTEGER, POINTER CONTIG :: Cols(:),Rows(:)
+! INTEGER, POINTER :: Cols(:),Rows(:)
 
   INTEGER, ALLOCATABLE :: neigh(:), recv_size(:), requests(:)
 
@@ -2471,8 +2471,8 @@ SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo )
         ALLOCATE( SplittedMatrix % RHS(i) % RHSind( RHSEperNB(i) ) )
      END IF
 
-     NULLIFY( SplittedMatrix % ResBuf(i) % ResVal )
-     NULLIFY( SplittedMatrix % ResBuf(i) % ResInd )
+!    NULLIFY( SplittedMatrix % ResBuf(i) % ResVal )
+!    NULLIFY( SplittedMatrix % ResBuf(i) % ResInd )
      IF ( ResEPerNB(i) /= 0 ) THEN
         ALLOCATE( SplittedMatrix % ResBuf(i) % ResVal( ResEPerNB(i) ) )
         ALLOCATE( SplittedMatrix % ResBuf(i) % ResInd( ResEPerNB(i) ) )
@@ -2674,9 +2674,9 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
 
   ALLOCATE(Cols(col-1))
   Cols(1:col-1) = DMat % Cols(1:col-1)
-  DEALLOCATE( DMat % Cols )
-  DMAT % Cols => Cols
-  DEALLOCATE( Done )
+  ALLOCATE(DMAT % Cols(col-1))
+  DMAT % Cols = Cols
+  DEALLOCATE( Done, Cols )
 !*********************************************************************
 END SUBROUTINE CombineCRSMatIndices
 !*********************************************************************
@@ -2725,7 +2725,7 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
   NeedPrec = .FALSE.
   DO i=1,Parenv % PEs
     IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows>0 ) THEN
-      NeedPrec = ASSOCIATED(SplittedMatrix % IfMatrix(i) % ILUValues)
+      NeedPrec = ALLOCATED(SplittedMatrix % IfMatrix(i) % ILUValues)
       EXIT
     END IF
   END DO
@@ -2846,13 +2846,13 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
        DEALLOCATE( RecvdIfMatrix(i) % Rows,  RecvdIfMatrix(i) % Cols,  &
             RecvdIfMatrix(i) % GRows, RecvdIfMatrix(i) % Values )
 
-       IF (ASSOCIATED(RecvdIfMatrix(i) % ILUValues)) &
+       IF (ALLOCATED(RecvdIfMatrix(i) % ILUValues)) &
          DEALLOCATE(RecvdIfMatrix(i) % ILUValues)
 
-       IF (ASSOCIATED(RecvdIfMatrix(i) % MassValues)) &
+       IF (ALLOCATED(RecvdIfMatrix(i) % MassValues)) &
          DEALLOCATE(RecvdIfMatrix(i) % MassValues)
 
-       IF (ASSOCIATED(RecvdIfMatrix(i) % DampValues)) &
+       IF (ALLOCATED(RecvdIfMatrix(i) % DampValues)) &
          DEALLOCATE(RecvdIfMatrix(i) % DampValues)
      END IF
   END DO

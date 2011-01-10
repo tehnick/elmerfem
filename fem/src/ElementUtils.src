@@ -84,7 +84,6 @@ CONTAINS
         DEALLOCATE( Matrix % Diag )
      END IF
 
-     IF ( ASSOCIATED( Matrix % GRows ) )       DEALLOCATE( Matrix % GRows )
   
      IF ( ASSOCIATED( Matrix % RHS   ) )       DEALLOCATE( Matrix % RHS )
      IF ( ASSOCIATED( Matrix % Force ) )       DEALLOCATE( Matrix % Force )
@@ -108,9 +107,9 @@ CONTAINS
      IF ( ASSOCIATED(Matrix % CMassValues) )  DEALLOCATE( Matrix % CMassValues )
      IF ( ASSOCIATED(Matrix % CDampValues) )  DEALLOCATE( Matrix % CDampValues )
 
-     IF ( ASSOCIATED( Matrix % GRows ) )      DEALLOCATE( Matrix % GRows )
+     IF ( ALLOCATED( Matrix % GRows ) )      DEALLOCATE( Matrix % GRows )
+     IF ( ALLOCATED( Matrix % RowOwner ) )   DEALLOCATE( Matrix % RowOwner )
      IF ( ASSOCIATED( Matrix % GOrder) )      DEALLOCATE( Matrix % GOrder )
-     IF ( ASSOCIATED( Matrix % RowOwner ) )   DEALLOCATE( Matrix % RowOwner )
 
      CALL FreeMatrix( Matrix % EMatrix )
      CALL FreeMatrix( Matrix % ConstraintMatrix )
@@ -1416,9 +1415,9 @@ CONTAINS
 ! Find in which bulk element the Gauss point belongs to
        IF ( QuadrantTreeExists ) THEN
 ! Find the last existing quadrant that the point belongs to
-         Point = (/ SUM( ElementNodes % x(1:n) * Basis), &
+         Point = [ SUM( ElementNodes % x(1:n) * Basis), &
              SUM( ElementNodes % y(1:n) * Basis), &
-             SUM( ElementNodes % z(1:n) * Basis) /)
+             SUM( ElementNodes % z(1:n) * Basis) ]
 !         PRINT*,'Point:', Point
          CALL FindLeafElements(Point, DIM, RootQuadrant, LeafQuadrant)         
 !         PRINT*,'Elems in LeafQuadrant',LeafQuadrant % NElemsInQuadrant
@@ -1437,9 +1436,9 @@ CONTAINS
            BulkElementNodes % y(1:nBulk) = Model % Nodes % y(NodeIndexes)
            BulkElementNodes % z(1:nBulk) = Model % Nodes % z(NodeIndexes)
            IF ( PointInElement( BulkElement,BulkElementNodes, &
-               (/ SUM( ElementNodes % x(1:n) * Basis), &
+               [ SUM( ElementNodes % x(1:n) * Basis), &
                SUM( ElementNodes % y(1:n) * Basis), &
-               SUM( ElementNodes % z(1:n) * Basis) /), &
+               SUM( ElementNodes % z(1:n) * Basis) ], &
                LocalCoordsInBulkElem) ) EXIT
          END DO
 !         PRINT*,'Point in Element: ', LeafQuadrant % Elements(k)
@@ -1458,9 +1457,9 @@ CONTAINS
            BulkElementNodes % y(1:nBulk) = Model % Nodes % y(NodeIndexes)
            BulkElementNodes % z(1:nBulk) = Model % Nodes % z(NodeIndexes)
            IF ( PointInElement(BulkElement,BulkElementNodes, &
-               (/ SUM( ElementNodes % x(1:n) * Basis), &
-               SUM( ElementNodes % y(1:n) * Basis), &
-               SUM( ElementNodes % z(1:n) * Basis) /), &
+               [ SUM(ElementNodes % x(1:n) * Basis), &
+                 SUM(ElementNodes % y(1:n) * Basis), &
+                 SUM(ElementNodes % z(1:n) * Basis) ], &
                LocalCoordsInBulkElem) ) EXIT
          END DO
 !         PRINT*,'Point in Element: ', k

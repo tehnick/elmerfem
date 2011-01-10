@@ -64,6 +64,7 @@ MODULE SolverUtils
    SAVE BoundaryReorder, NormalTangentialNOFNodes, BoundaryNormals, &
               BoundaryTangent1, BoundaryTangent2, NormalTangentialName
 
+
 CONTAINS
 
 !------------------------------------------------------------------------------
@@ -341,7 +342,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
      INTEGER :: n
-     REAL(KIND=dp), DIMENSION(:) :: u,v
+     REAL(KIND=dp), DIMENSION(:) CONTIG :: u,v
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
@@ -2299,11 +2300,11 @@ CONTAINS
     REAL(KIND=dp), ALLOCATABLE :: Condition(:)
 
     TYPE buff_t
-      INTEGER, POINTER :: buff(:)
+      INTEGER, ALLOCATABLE :: buff(:)
     END TYPE buff_t
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     INTEGER, POINTER :: nlist(:)
-    TYPE(Buff_t), ALLOCATABLE :: n_index(:)
+    TYPE(Buff_t), ALLOCATABLE, TARGET :: n_index(:)
     INTEGER, ALLOCATABLE :: n_count(:), gbuff(:)
 !------------------------------------------------------------------------------
 
@@ -2519,8 +2520,8 @@ CONTAINS
     REAL(KIND=dp), TARGET :: z(Model % MaxElementNodes)
 
     TYPE buff_t
-      INTEGER, POINTER :: buff(:)
-      REAL(KIND=dp), POINTER :: normals(:)
+      INTEGER, ALLOCATABLE :: buff(:)
+      REAL(KIND=dp), ALLOCATABLE :: normals(:)
     END TYPE buff_t
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     INTEGER, POINTER :: nlist(:)
@@ -3334,10 +3335,10 @@ END FUNCTION SearchNodeL
     LOGICAL :: SteadyState
     INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
-    INTEGER :: n, RelaxAfter, IterNo
+    INTEGER :: i, n, RelaxAfter, IterNo
     TYPE(Matrix_t), POINTER :: A
-    REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
-    REAL(KIND=dp), POINTER :: x0(:)
+    REAL(KIND=dp), POINTER CONTIG :: b(:), x(:), r(:)
+    REAL(KIND=dp), POINTER CONTIG :: x0(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt, &
         Tolerance, MaxNorm, eps
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
@@ -3349,7 +3350,7 @@ END FUNCTION SearchNodeL
     LOGICAL :: IsNAN
 
     TYPE(Matrix_t), POINTER :: MMatrix
-    REAL(KIND=dp), POINTER :: Mx(:), Mb(:), Mr(:)
+    REAL(KIND=dp), POINTER CONTIG :: Mx(:), Mb(:), Mr(:)
 
 
     IF(SteadyState) THEN	
@@ -3495,7 +3496,9 @@ END FUNCTION SearchNodeL
       
       ALLOCATE(r(n))
       CALL MatrixVectorMultiply( A, x0, r)
-      r = r - b
+      DO i=1,n
+        r(i) = r(i) - b(i)
+      END DO
       Change = ComputeNorm(Solver, n, r)
       IF(.NOT. ConvergenceAbsolute) THEN
         bNorm = ComputeNorm(Solver, n, b)
@@ -3527,7 +3530,9 @@ END FUNCTION SearchNodeL
       ELSE	
         ALLOCATE(r(n)) 
         CALL MatrixVectorMultiply( A, x, r)
-        r = r - b
+        DO i=1,n
+          r(i) = r(i) - b(i)
+        END DO
         Change = ComputeNorm(Solver, n, r)
         IF(.NOT. ConvergenceAbsolute) THEN
           bNorm = ComputeNorm(Solver, n, b)
@@ -3678,9 +3683,9 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
     LOGICAL :: FirstTrial,Success
 !------------------------------------------------------------------------------
-    INTEGER :: n
+    INTEGER :: i,n
     TYPE(Matrix_t), POINTER :: A
-    REAL(KIND=dp), POINTER :: b(:), x(:), x0(:), r(:)
+    REAL(KIND=dp), POINTER CONTIG :: b(:), x(:), x0(:), r(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
@@ -3712,7 +3717,9 @@ END FUNCTION SearchNodeL
     
     ALLOCATE(r(n))
     CALL MatrixVectorMultiply( A, x, r)      
-    r = r - b
+    DO i=1,n
+      r(i) = r(i) - b(i)
+    END DO
     Residual = ComputeNorm(Solver, n, r)
     DEALLOCATE(r)
 
@@ -3856,7 +3863,8 @@ END FUNCTION SearchNodeL
   RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
        x, Norm, DOFs, Solver, BulkMatrix )
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: b(:), x(:), Norm
+    REAL(KIND=dp) CONTIG :: b(:), x(:)
+    REAL(KIND=dp) :: Norm
     TYPE(Matrix_t), POINTER :: A
     INTEGER :: DOFs
     TYPE(Solver_t), TARGET :: Solver
@@ -4328,7 +4336,8 @@ END FUNCTION SearchNodeL
 ! 
 !******************************************************************************
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: b(:), x(:), Norm
+    REAL(KIND=dp) CONTIG :: b(:), x(:)
+    REAL(KIND=dp) :: Norm
     TYPE(Matrix_t), POINTER :: A
     INTEGER :: DOFs
     TYPE(Solver_t), TARGET :: Solver
@@ -5056,7 +5065,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   TYPE(Solver_t), POINTER :: SolverPointer
   TYPE(Matrix_t), POINTER :: CollectionMatrix, RestMatrix, &
        RestMatrixTranspose
-  REAL(KIND=dp), POINTER :: CollectionVector(:), RestVector(:), MultiplierValues(:)
+  REAL(KIND=dp), POINTER CONTIG :: CollectionVector(:), RestVector(:), MultiplierValues(:)
   REAL(KIND=dp), ALLOCATABLE :: CollectionSolution(:)
   INTEGER, ALLOCATABLE :: TmpRow(:)
   INTEGER :: NumberOfRows, NumberOfValues, MultiplierDOFs, istat

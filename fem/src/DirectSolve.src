@@ -65,6 +65,9 @@ CONTAINS
      INTEGER :: i,j,k,istat,Subband,N
      COMPLEX(KIND=dp), ALLOCATABLE :: BA(:,:)
 
+     REAL(KIND=dp), POINTER CONTIG :: Values(:)
+     INTEGER, POINTER CONTIG :: Rows(:), Cols(:), Diag(:)
+
      SAVE BA
 !------------------------------------------------------------------------------
 
@@ -75,6 +78,11 @@ CONTAINS
        END IF
      END IF
 
+     Rows => A % Rows
+     Cols => A % Cols
+     Diag => A % Diag
+     Values => A % Values
+
      n = A % NumberOfRows
      x(1:n) = b(1:n)
      n = n / 2
@@ -82,8 +90,8 @@ CONTAINS
      IF ( A % Format == MATRIX_CRS .AND. .NOT. A % Symmetric ) THEN
        Subband = 0
        DO i=1,N
-         DO j=A % Rows(2*i-1),A % Rows(2*i)-1,2
-           Subband = MAX(Subband,ABS((A % Cols(j)+1)/2-i))
+         DO j=Rows(2*i-1),Rows(2*i)-1,2
+           Subband = MAX(Subband,ABS((Cols(j)+1)/2-i))
          END DO
        END DO
 
@@ -108,9 +116,9 @@ CONTAINS
 
        BA = 0.0D0
        DO i=1,N
-         DO j=A % Rows(2*i-1),A % Rows(2*i)-1,2
-           k = i - (A % Cols(j)+1)/2 + 2*Subband + 1
-           BA(k,(A % Cols(j)+1)/2) = CMPLX( A % Values(j), -A % Values(j+1), KIND=dp )
+         DO j=Rows(2*i-1),Rows(2*i)-1,2
+           k = i - (Cols(j)+1)/2 + 2*Subband + 1
+           BA(k,(Cols(j)+1)/2) = CMPLX(Values(j), -Values(j+1), KIND=dp )
          END DO
        END DO
 
@@ -120,8 +128,8 @@ CONTAINS
 
        Subband = 0
        DO i=1,N
-         DO j=A % Rows(2*i-1),A % Diag(2*i-1)
-           Subband = MAX(Subband,ABS((A % Cols(j)+1)/2-i))
+         DO j=Rows(2*i-1),Diag(2*i-1)
+           Subband = MAX(Subband,ABS((Cols(j)+1)/2-i))
          END DO
        END DO
 
@@ -146,9 +154,9 @@ CONTAINS
 
        BA = 0.0D0
        DO i=1,N
-         DO j=A % Rows(2*i-1),A % Diag(2*i-1)
-           k = i - (A % Cols(j)+1)/2 + 1
-           BA(k,(A % Cols(j)+1)/2) = CMPLX( A % Values(j), -A % Values(j+1), KIND=dp )
+         DO j=Rows(2*i-1),Diag(2*i-1)
+           k = i - (Cols(j)+1)/2 + 1
+           BA(k,(Cols(j)+1)/2) = CMPLX(Values(j), -Values(j+1), KIND=dp )
          END DO
        END DO
 
@@ -171,6 +179,9 @@ CONTAINS
      INTEGER :: i,j,k,istat,Subband,N
      REAL(KIND=dp), ALLOCATABLE :: BA(:,:)
 
+     REAL(KIND=dp), POINTER CONTIG :: Values(:)
+     INTEGER, POINTER CONTIG :: Rows(:), Cols(:), Diag(:)
+
      SAVE BA
 !------------------------------------------------------------------------------
      IF ( PRESENT(Free_Fact) ) THEN
@@ -184,11 +195,16 @@ CONTAINS
 
      x(1:n) = b(1:n)
 
+     Rows => A % Rows
+     Cols => A % Cols
+     Diag => A % Diag
+     Values => A % Values
+
      IF ( A % Format == MATRIX_CRS ) THEN ! .AND. .NOT. A % Symmetric ) THEN
         Subband = 0
         DO i=1,N
-          DO j=A % Rows(i),A % Rows(i+1)-1
-            Subband = MAX(Subband,ABS(A % Cols(j)-i))
+          DO j=Rows(i),Rows(i+1)-1
+            Subband = MAX(Subband,ABS(Cols(j)-i))
           END DO
         END DO
 
@@ -213,9 +229,9 @@ CONTAINS
 
        BA = 0.0D0
        DO i=1,N
-         DO j=A % Rows(i),A % Rows(i+1)-1
-           k = i - A % Cols(j) + 2*Subband + 1
-           BA(k,A % Cols(j)) = A % Values(j)
+         DO j=Rows(i),Rows(i+1)-1
+           k = i - Cols(j) + 2*Subband + 1
+           BA(k,Cols(j)) = Values(j)
          END DO
        END DO
 
@@ -225,8 +241,8 @@ CONTAINS
 
        Subband = 0
        DO i=1,N
-         DO j=A % Rows(i),A % Diag(i)
-           Subband = MAX(Subband,ABS(A % Cols(j)-i))
+         DO j=Rows(i),Diag(i)
+           Subband = MAX(Subband,ABS(Cols(j)-i))
          END DO
        END DO
 
@@ -251,23 +267,18 @@ CONTAINS
 
        BA = 0.0D0
        DO i=1,N
-         DO j=A % Rows(i),A % Diag(i)
-           k = i - A % Cols(j) + 1
-           BA(k,A % Cols(j)) = A % Values(j)
+         DO j=Rows(i),Diag(i)
+           k = i - Cols(j) + 1
+           BA(k,Cols(j)) = Values(j)
          END DO
        END DO
 
        CALL SolveSBandLapack( N,1,BA,x,Subband,Subband+1 )
 
      ELSE IF ( A % Format == MATRIX_BAND ) THEN
-
-       CALL SolveBandLapack( N,1,A % Values(1:N*(3*A % Subband+1)), &
-                     x,A % Subband,3*A % Subband+1 )
-
+       CALL SolveBandLapack( N,1,Values,x,Subband,3*Subband+1 )
      ELSE IF ( A % Format == MATRIX_SBAND ) THEN
-
-       CALL SolveSBandLapack( N,1,A % Values,x,A % Subband,A % Subband+1 )
-
+       CALL SolveSBandLapack( N,1,Values,x,Subband,Subband+1 )
      END IF
 
 !------------------------------------------------------------------------------
@@ -281,6 +292,9 @@ CONTAINS
     TYPE(Matrix_t), POINTER :: A
     TYPE(Solver_t) :: Solver
     REAL(KIND=dp), TARGET :: x(*), b(*)
+
+    REAL(KIND=dp), POINTER CONTIG :: Values(:)
+    INTEGER, POINTER CONTIG :: Rows(:), Cols(:), Diag(:)
 
 #include "../config.h"
 #ifdef HAVE_UMFPACK
@@ -338,7 +352,7 @@ CONTAINS
     END SUBROUTINE umf4_l_sol
   END INTERFACE
 
-  INTEGER :: n, status, sys
+  INTEGER :: i, n, status, sys
   REAL(KIND=dp) :: iInfo(90), Control(20)
   INTEGER(KIND=AddrInt) :: symbolic, zero=0, ln, lsys
   INTEGER(KIND=AddrInt), ALLOCATABLE :: LRows(:), LCols(:)
@@ -365,6 +379,11 @@ CONTAINS
   IF ( .NOT. stat ) Factorize = .TRUE.
 
   n = A % NumberofRows
+  Rows => A % Rows
+  Cols => A % Cols
+  Diag => A % Diag
+  Values => A % Values
+
   IF ( Factorize .OR. A% UmfPack_Numeric==0 ) THEN
     IF ( A % UMFPack_Numeric /= 0 ) THEN
       IF( BigMode ) THEN
@@ -376,17 +395,19 @@ CONTAINS
     END IF
 
     IF ( BigMode ) THEN
-      ALLOCATE( LRows(SIZE(A % Rows)), LCols(SIZE(A % Cols)) )
-      LRows = A % Rows-1
-      LCols = A % Cols-1
+      ALLOCATE( LRows(SIZE(Rows)), LCols(SIZE(Cols)) )
+      DO i=1,n
+        LRows(i) = Rows(i)-1
+        LCols(i) = Cols(i)-1
+      END DO
       ln = n
       CALL umf4_l_def( Control )
-      CALL umf4_l_sym( ln,ln, LRows, LCols, A % Values, Symbolic, Control, iInfo )
+      CALL umf4_l_sym( ln,ln, LRows, LCols, Values, Symbolic, Control, iInfo )
     ELSE
-      A % Rows = A % Rows-1
-      A % Cols = A % Cols-1
+      Rows = Rows-1
+      Cols = Cols-1
       CALL umf4def( Control )
-      CALL umf4sym( n,n, A % Rows, A % Cols, A % Values, Symbolic, Control, iInfo )
+      CALL umf4sym( n,n, Rows, Cols, Values, Symbolic, Control, iInfo )
     END IF
 
     IF (iinfo(1)<0) THEN
@@ -395,9 +416,9 @@ CONTAINS
     END IF
 
     IF ( BigMode ) THEN
-      CALL umf4_l_num(LRows, LCols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+      CALL umf4_l_num(LRows, LCols, Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
     ELSE
-      CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+      CALL umf4num( Rows, Cols, Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
     END IF
 
     IF (iinfo(1)<0) THEN

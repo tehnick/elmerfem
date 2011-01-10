@@ -122,7 +122,8 @@ CONTAINS
       REAL(KIND=dp) :: Omega
       INTEGER :: i,j,k,n
       INTEGER, POINTER :: Cols(:),Rows(:)
-      REAL(KIND=dp), POINTER :: Values(:), R(:)
+      REAL(KIND=dp), POINTER :: Values(:)
+      REAL(KIND=dp), ALLOCATABLE :: R(:)
       LOGICAL :: Converged, Diverged
       INTEGER :: OutputInterval
       REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual, bnorm,rnorm,w,s
@@ -232,9 +233,9 @@ CONTAINS
       REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
       INTEGER :: OutputInterval
       REAL(KIND=dp) :: bnorm,rnorm
-      REAL(KIND=dp), POINTER :: R(:)
+      REAL(KIND=dp), ALLOCATABLE :: R(:)
 !------------------------------------------------------------------------------
-      INTEGER :: i,n
+      INTEGER :: i,j,n
 !------------------------------------------------------------------------------
       
       Converged = .FALSE.
@@ -254,7 +255,9 @@ CONTAINS
       IF( Converged .OR. Diverged) RETURN
       
       DO i=1,Rounds
-        x(1:n) = x(1:n) + r(1:n) / A % Values(A % diag(1:n))
+        DO j=1,n
+          x(j) = x(j) + r(j) / A % Values(A % diag(j))
+        END DO
         CALL matvecsubr( x, r, ipar )
         
         r(1:n) = b(1:n) - r(1:n)
@@ -618,7 +621,7 @@ CONTAINS
       REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
       INTEGER :: n, OutputInterval, m
       REAL(KIND=dp) :: bnorm,rnorm
-      REAL(KIND=dp), POINTER :: R(:)
+      REAL(KIND=dp), ALLOCATABLE :: R(:)
 
       REAL(KIND=dp), ALLOCATABLE :: S(:,:), V(:,:), T1(:), T2(:)
 
@@ -792,7 +795,7 @@ CONTAINS
       REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
       INTEGER :: n, OutputInterval, m
       REAL(KIND=dp) :: bnorm,rnorm
-      COMPLEX(KIND=dp), POINTER :: R(:)
+      COMPLEX(KIND=dp), ALLOCATABLE :: R(:)
 
       COMPLEX(KIND=dp), ALLOCATABLE :: S(:,:), V(:,:), T1(:), T2(:)
 

@@ -135,6 +135,9 @@
 /* ... */
 /* #undef HAVE_MPI */
 
+/* Define if you have a MUMPS library. */
+/* #undef HAVE_MUMPS */
+
 /* Define if you have a PARPACK library. */
 /* #undef HAVE_PARPACK */
 
@@ -199,7 +202,7 @@
 #define PACKAGE_VERSION ""
 
 /* svn revision */
-#define REVISION "4420M"
+#define REVISION "4897M"
 
 /* Detected platform. */
 /* #undef SGI */
@@ -229,7 +232,7 @@
 /* #undef SUNOS */
 
 /* Version number of package */
-#define VERSION "6.0"
+#define VERSION "6.1"
 
 /* Detected platform2. */
 /* #undef WIN32 */
