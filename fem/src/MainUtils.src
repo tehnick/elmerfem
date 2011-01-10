@@ -2903,10 +2903,11 @@ CONTAINS
           Amat % FORMAT = MATRIX_LIST      
           
           CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar)
-          
+
           CALL List_ToCRSMatrix(Amat)
           CALL AddEquationSolution(PSolver, Transient )            
         END DO
+
       END DO
       IsListMatrix = .FALSE.
     END IF
@@ -3067,15 +3068,17 @@ CONTAINS
 
       CALL Info( 'BlockSolver', 'Setting block system Dirichlet conditions', Level=4 )
       
+      Solver % Matrix => BlockMatrix % SubMatrix( NoRow, NoCol ) 
+      IF( Solver % Matrix % NumberOfRows == 0 ) RETURN
+       
       WRITE (str,'(A,I2)') 'Variable',NoRow
       VarName = ListGetString( SolverParams, TRIM(str), GotIt )
       IF(.NOT. GotIt) RETURN
 
       Var => VariableGet( Mesh % Variables, TRIM(VarName) )
       IF (.NOT. ASSOCIATED(Var)) RETURN
-
-      Solver % Matrix => BlockMatrix % SubMatrix( NoRow, NoCol ) 
-      
+ 
+      Solver % Variable => Var
       OffDiagonal = ( NoRow /= NoCol )
       CALL DefaultDirichletBCs( Ux=Var, OffDiagonalMatrix = OffDiagonal )
  
@@ -3130,7 +3133,9 @@ CONTAINS
           Var => BlockMatrix % SubVariable(NoCol)        
           x => Var % Values
           n = SIZE( x )
+
           A => BlockMatrix % SubMatrix( NoRow, NoCol ) 
+          IF( A % NumberOfRows == 0 ) CYCLE
           b => A % rhs
           
           CALL MatrixVectorMultiply( A, x, r)      
@@ -3192,8 +3197,6 @@ CONTAINS
         x => Var % Values
         n = SIZE( x )
         
-        A => BlockMatrix % SubMatrix( NoRow, NoRow ) 
-        
         ! The residual is used only as a temporary vector
         r => BlockMatrix % Residual(NoRow) % r
         r = 0.0_dp
@@ -3211,6 +3214,7 @@ CONTAINS
           Var => BlockMatrix % SubVariable(NoCol)        
           x => Var % Values
           A => BlockMatrix % SubMatrix( NoRow, NoCol ) 
+          IF( A % NumberOfRows == 0 ) CYCLE
           
           CALL MatrixVectorMultiply( A, x, r)      
           
