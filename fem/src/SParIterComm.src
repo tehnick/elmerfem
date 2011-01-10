@@ -2685,15 +2685,15 @@ END SUBROUTINE ExchangeInterfaces
        ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(rows) )
        ALLOCATE( RecvdIfMatrix(sproc+1) % Values(cols) )
 
-       RecvdIfMatrix(sproc+1) % MassValues => NULL()
+!      RecvdIfMatrix(sproc+1) % MassValues => NULL()
        IF ( NeedMass ) &
          ALLOCATE( RecvdIfMatrix(sproc+1) % MassValues(Cols) )
 
-       RecvdIfMatrix(sproc+1) % DampValues => NULL()
+!      RecvdIfMatrix(sproc+1) % DampValues => NULL()
        IF ( NeedDamp ) &
          ALLOCATE( RecvdIfMatrix(sproc+1) % DampValues(Cols) )
 
-       RecvdIfMatrix(sproc+1) % ILUValues => NULL()
+!      RecvdIfMatrix(sproc+1) % ILUValues => NULL()
        IF ( NeedPrec ) &
          ALLOCATE( RecvdIfMatrix(sproc+1) % ILUValues(Cols) )
 
@@ -3297,7 +3297,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
      totalsize = totalsize + 1
      IF ( ParEnv % IsNeighbour(i) ) THEN
        CurrRBuf => SplittedMatrix % ResBuf(i)
-       IF ( ASSOCIATED(CurrRBuf % ResInd) ) THEN
+       IF ( ALLOCATED(CurrRBuf % ResInd) ) THEN
          datalen = SIZE(CurrRBuf % ResInd)
          totalsize = totalsize + 1 + 3*datalen
        END IF
@@ -3315,7 +3315,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
     CurrRBuf => SplittedMatrix % ResBuf(destproc+1)
 
     datalen = 0
-    IF ( ASSOCIATED(CurrRBuf % ResInd) ) &
+    IF ( ALLOCATED(CurrRBuf % ResInd) ) &
       datalen = SIZE(CurrRBuf % ResInd)
 
     CALL MPI_BSEND( datalen, 1, MPI_INTEGER, &
@@ -3340,7 +3340,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
   DO i = 1, n
     destproc = neigh(i)
     CurrRBuf => SplittedMatrix % ResBuf(destproc+1)
-    IF ( ASSOCIATED(CurrRBuf % ResInd) ) THEN
+    IF ( ALLOCATED(CurrRBuf % ResInd) ) THEN
       datalen = SIZE(CurrRBuf % Resind)
       IF ( datalen > 0 ) THEN
          CALL MPI_BSEND( CurrRBuf % resind, datalen, &
@@ -3367,7 +3367,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
   DO i = 1, n
     destproc = neigh(i)
     CurrRBuf => SplittedMatrix % ResBuf(destproc+1)
-    IF ( ASSOCIATED(CurrRBuf % ResInd) ) THEN
+    IF ( ALLOCATED(CurrRBuf % ResInd) ) THEN
       datalen = SIZE(CurrRBuf % Resind)
       IF ( datalen > 0 ) THEN
          CALL MPI_BSEND( CurrRBuf % resval, datalen, &
