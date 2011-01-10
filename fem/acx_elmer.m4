@@ -1457,9 +1457,9 @@ AC_COMPILE_IFELSE(
 AC_MSG_RESULT([$acx_cv_fc_contig])
 AC_LANG_POP(Fortran)
 if test "$acx_cv_fc_contig" ==  yes ; then
-  FCPPFLAGS="$FCPPFLAGS -DCONTIG=,CONTIGUOUS"
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG=\",CONTIGUOUS\""
 else
-  FCPPFLAGS="$FCPPFLAGS -DCONTIG"
+  FCPPFLAGS="$FCPPFLAGS -DCONTIG==\"\""
 fi
 ])
 
