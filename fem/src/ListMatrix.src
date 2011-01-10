@@ -131,6 +131,13 @@ CONTAINS
     END IF
     
     L => A % ListMatrix
+
+    IF( .NOT. ASSOCIATED( L ) ) THEN
+      CALL Warn('ListToCRSMatrix','List not associated')
+      A % Format = MATRIX_CRS      
+      A % NumberOfRows = 0
+      RETURN
+    END IF 
     
     DO n=SIZE(L),1,-1
       IF ( L(n) % Degree > 0 ) EXIT
