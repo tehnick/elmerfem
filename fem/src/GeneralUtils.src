@@ -1175,14 +1175,10 @@ END FUNCTION ComponentNameVar
    END SUBROUTINE SolveLinSys3x3
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-   FUNCTION AllocateMatrix() RESULT(Matrix)
-!------------------------------------------------------------------------------
-      TYPE(Matrix_t), POINTER :: Matrix
-!------------------------------------------------------------------------------
-      ALLOCATE( Matrix )
-
-      Matrix % FORMAT = MATRIX_CRS
+   SUBROUTINE ClearMatrix( Matrix ) 
+     TYPE(Matrix_t), POINTER :: Matrix
+  
+     Matrix % FORMAT = MATRIX_CRS
 
 
       NULLIFY( Matrix % Child )
@@ -1236,6 +1232,18 @@ END FUNCTION ComponentNameVar
       Matrix % Symmetric = .FALSE.
       Matrix % SolveCount   = 0
       Matrix % NumberOfRows = 0
+
+   END SUBROUTINE ClearMatrix
+
+
+!------------------------------------------------------------------------------
+   FUNCTION AllocateMatrix() RESULT(Matrix)
+!------------------------------------------------------------------------------
+      TYPE(Matrix_t), POINTER :: Matrix
+!------------------------------------------------------------------------------
+      ALLOCATE( Matrix )
+      CALL ClearMatrix( Matrix )
+
 !------------------------------------------------------------------------------
    END FUNCTION AllocateMatrix
 !------------------------------------------------------------------------------
