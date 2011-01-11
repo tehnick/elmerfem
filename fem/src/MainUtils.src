@@ -153,7 +153,7 @@ CONTAINS
     LOGICAL :: Transient
     CHARACTER(LEN=*) :: Name
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), POINTER :: Solution(:), Component(:)
+    REAL(KIND=dp), POINTER :: Solution(:)
 
     INTEGER, POINTER :: Perm(:)
 
@@ -178,6 +178,7 @@ CONTAINS
 
     REAL(KIND=dp) :: tt, CPUTime, InitValue
     REAL(KIND=dp), POINTER :: freqv(:,:)
+    REAL(KIND=dp), POINTER :: Component(:)
 
     EXTERNAL FlowSolver, HeatSolver, MagneticSolver, StressSolver, MeshSolver
     INTEGER :: FlowSolver, HeatSolver, MagneticSolver, StressSolver, MeshSolver
@@ -767,10 +768,11 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Var
     CHARACTER(LEN=MAX_NAME_LEN) :: str, var_name, tmpname
     INTEGER :: i,j,k,n,nrows,DOFs
-    REAL(KIND=dp), POINTER :: Solution(:), Component(:)
+    REAL(KIND=dp), POINTER :: Solution(:)
     INTEGER, POINTER :: Perm(:)
     LOGICAL :: Found, Stat, ComplexFlag, HarmonicAnal,EigAnal,VariableOutput, &
         MGAlgebraic,MultigridActive
+    REAL(KIND=dp), POINTER :: Component(:)
     REAL(KIND=dp), POINTER :: freqv(:,:)
     TYPE(Mesh_t),   POINTER :: NewMesh,OldMesh
     TYPE(Element_t), POINTER :: CurrentElement
@@ -1745,7 +1747,7 @@ CONTAINS
     AssemblySymmetric = ListGetLogical( SolverParams,'Symmetric Assembly',GotIt)
     AssemblyAntiSymmetric = ListGetLogical( SolverParams,'AntiSymmetric Assembly',GotIt)
 
-    IsListMatrix = ( Solver % Matrix % Format == MATRIX_LIST ) 
+    IsListMatrix = ( Solver % Matrix % FORMAT == MATRIX_LIST ) 
 
 
     N = Mesh % MaxElementDOFs
@@ -1980,28 +1982,26 @@ CONTAINS
     TYPE(Element_t),POINTER :: Element
     INTEGER :: i,j,k,l,t,n,nd,NoIterations,NoTests,iter,istat,tests
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
-    CHARACTER(LEN=MAX_NAME_LEN) :: ProcName
     LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint, &
         IsCoupledSolver, IsAssemblySolver, IsListMatrix
-    INTEGER(KIND=AddrInt) :: ProcPntr    
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
          VarSizes(20),VarDofs(20)
-    INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id, solver_id
+    INTEGER :: ElementsFirst, ElementsLast, bf_id, bc_id, body_id, eq_id
     INTEGER, POINTER :: VarPerm(:), ColPerm(:), RowPerm(:), ColInds(:), RowInds(:), DirPerm(:)
-    REAL(KIND=dp), POINTER :: ConsValues(:), Component(:)
+    REAL(KIND=dp), POINTER :: ConsValues(:)
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, ConsValue, ConsCoeff, ConsVolume, &
         Residual, PrevResidual
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
     LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric, &
         AllDirFlag, Robust, ErrorReduced
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:),ActiveVariables(:)
+    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
     REAL(KIND=dp), POINTER :: ForceVector(:),AllValues(:)
     LOGICAL, POINTER :: AllDir(:)
     TYPE (Matrix_t), POINTER :: Amat
+    REAL(KIND=dp), POINTER :: Component(:)
     INTEGER, POINTER :: VarInds(:)
-
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: SolverParams
 
@@ -2054,15 +2054,6 @@ CONTAINS
 
     IF( IsCoupledSolver ) THEN
 
-      solver_id = 0
-      DO i = 1, Model % NumberOfSolvers
-        PSolver2 => Model % Solvers(i)
-        IF( ASSOCIATED( PSolver2, PSolver ) ) THEN
-          solver_id = i
-          EXIT
-        END IF
-      END DO
-      
       DO i = 1,9
         WRITE (str,'(A,I2)') 'Variable',i
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
@@ -2778,7 +2769,7 @@ CONTAINS
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var
     INTEGER :: i,j,k,l,t,n,nd,NoIterations,tests,NoTests,iter
-    CHARACTER(LEN=MAX_NAME_LEN) :: ProcName, BlockMethod
+    CHARACTER(LEN=MAX_NAME_LEN) :: BlockMethod
     LOGICAL :: GotIt, IsListMatrix = .TRUE.
     INTEGER :: ColVar, RowVar, NoVar
 
@@ -2875,11 +2866,7 @@ CONTAINS
       IF(.NOT. GotIt) NoTests = NoIterations
       CALL ListAddString(Solver % Values,'Nonlinear System Convergence Measure','residual')
       CALL ListAddLogical(Solver % Values,'Skip Compute Nonlinear Change',.TRUE.)
-    END IF
-       
-!------------------------------------------------------------------------------
-! Iterate over any nonlinearity of material or source
-!------------------------------------------------------------------------------
+    END IF       
 
     CALL Info('BlockSolver','-------------------------------------------------',Level=5)
     Residual = -1.0_dp
@@ -2928,22 +2915,25 @@ CONTAINS
 100   DO RowVar=1,NoVar
 
         Solver % Variable => TotMatrix % SubVariable(RowVar)
-        
+
         DO ColVar=1,NoVar            
-          Solver % Variable => TotMatrix % SubVariable(ColVar)         
+
           Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar)
-          
-          ! Zeros the matrix values and the r.h.s.
-          CALL DefaultInitialize()
+          IF( Solver % Matrix % NumberOfRows == 0 ) CYCLE
+
+          Solver % Variable => TotMatrix % SubVariable(ColVar)         
+
+          CALL InitializeToZero( Solver % Matrix, Solver % Matrix % rhs )
 
           CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar)
-          
+
           ! Mainly sets the r.h.s. in transient case correctly
           CALL DefaultFinishAssembly()                    
+
           CALL BlockSystemDirichlet(TotMatrix,RowVar,ColVar)
         END DO
       END DO
-                  
+       
 !------------------------------------------------------------------------------
 !    Check the stepsize of nonlinear iteration using the Armijo-GoldStein 
 !    criterion for the stepsize.
@@ -2969,6 +2959,7 @@ CONTAINS
           END IF
         END IF
       END IF
+
 
 !------------------------------------------------------------------------------
 !   Finally solve the system
@@ -3203,10 +3194,11 @@ CONTAINS
         
         ! The r.h.s. of the initial system
         rhs => BlockMatrix % Residual(NoRow) % rhs
+
+        A => BlockMatrix % SubMatrix( NoRow, NoRow )
         rhs = A % rhs
 
         DO NoCol = 1,NoVar           
-          
           ! This ensures that the diagonal itself is not subtracted
           ! Otherwise the linear system should be solved for dx rather than x
           IF( NoCol == NoRow ) CYCLE
@@ -3217,7 +3209,6 @@ CONTAINS
           IF( A % NumberOfRows == 0 ) CYCLE
           
           CALL MatrixVectorMultiply( A, x, r)      
-          
           rhs = rhs - r
         END DO
 
