@@ -1824,6 +1824,11 @@ CONTAINS
       CALL Info('BlockSystemAssembly','Using assembly routine: '//TRIM(ProcName))
     END IF
     
+    ! These may be fetched within the assembly routine, if needed
+    CALL ListAddInteger( SolverParams,'Block Matrix Row',RowVar )
+    CALL ListAddInteger( SolverParams,'Block Matrix Column',ColVar )
+
+
     ! The assembly loop for a submatrix starts here
     !------------------------------------------------------------------------------             
     DO t=ElementsFirst,ElementsLast
