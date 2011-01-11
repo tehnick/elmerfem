@@ -527,11 +527,14 @@
          IonCharge = ListGetConstReal( Material, &
               TRIM(ComponentName(Solver % Variable)) // &
               ' Ion Charge', GotIt )
-         IF ( .NOT. GotIt ) IonCharge = 0.0d0
-
-         NEConst(1:n) = IonCharge / LocalTemperature(1:n) * &
-              ListGetConstReal( Model % Constants,'Unit Charge') / &
-              ListGetConstReal( Model % Constants,'Boltzmann Constant')
+         IF ( .NOT. GotIt ) THEN
+           NEConst   = 0._dp
+           IonCharge = 0._dp
+         ELSE
+           NEConst(1:n) = IonCharge / LocalTemperature(1:n) * &
+                ListGetConstReal( Model % Constants,'Unit Charge') / &
+                ListGetConstReal( Model % Constants,'Boltzmann Constant')
+         END IF
 
          HeatCapacity(1:n) = ListGetReal( Material,'Heat Capacity', &
              n,NodeIndexes,GotIt )
