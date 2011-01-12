@@ -3712,14 +3712,13 @@ END FUNCTION SearchNodeL
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER CONTIG :: b(:), x(:), x0(:), r(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy
-    INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
     TYPE(Variable_t), POINTER :: iterV
     LOGICAL :: Stat
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
 
 
-    SAVE Alpha
+    SAVE Alpha, Myy, Relaxation
 
     IF(PRESENT(values)) THEN
       x => values
@@ -3755,17 +3754,20 @@ END FUNCTION SearchNodeL
       RETURN
     END IF
 
-    ! Negative (impossible) value may be used as indicator that's its the 1st step
+    ! At firs time set the line search parameters
     !-----------------------------------------------------------------------------
     IF( FirstTrial ) THEN
       Alpha = 1.0_dp
+      Myy = ListGetConstReal( Solver % Values, &
+          'Nonlinear System Linesearch Limit', Stat )
+      IF(.NOT. Stat) Myy = 0.5_dp
+      Relaxation = ListGetConstReal( Solver % Values, &
+          'Nonlinear System Linesearch Factor', Stat )
+      IF(.NOT. Stat) Relaxation = 0.5_dp
     END IF
 
     ! Armijo GoldStein Criterion for accepting stepsize
     !-----------------------------------------------------------------
-    Myy = ListGetConstReal( Solver % Values, &
-          'Nonlinear System Linesearch Limit', Stat )
-    IF(.NOT. Stat) Myy = 0.5_dp
     Success = ( PrevResidual - Residual > Myy * Alpha * PrevResidual)
 
     IF( Success ) THEN      
@@ -3796,9 +3798,6 @@ END FUNCTION SearchNodeL
       END IF
       IF(SIZE(x0) /= SIZE(x)) CALL Warn('CheckStepSize','Possible mismatch in length of vectors!')
 
-      Relaxation = ListGetConstReal( Solver % Values, &
-          'Nonlinear System Linesearch Factor', Stat )
-      IF(.NOT. Stat) Relaxation = 0.5_dp
       x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)      
       Alpha = Alpha * Relaxation
 

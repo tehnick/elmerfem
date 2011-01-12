@@ -1748,10 +1748,7 @@ CONTAINS
     AssemblyAntiSymmetric = ListGetLogical( SolverParams,'AntiSymmetric Assembly',GotIt)
 
     IsListMatrix = ( Solver % Matrix % FORMAT == MATRIX_LIST ) 
-
-
-    N = Mesh % MaxElementDOFs
-    
+    N = Mesh % MaxElementDOFs    
 
     IF( AllocationsDone ) THEN
       IF( RowDofs * n > AllocRows .OR. ColDofs * n > AllocCols )  THEN
@@ -2756,8 +2753,7 @@ CONTAINS
 
     TYPE SubVector_t 
       TYPE(Variable_t), POINTER :: Var 
-      REAL(KIND=dp),POINTER :: r(:)
-      REAL(KIND=dp),POINTER :: rhs(:)
+      REAL(KIND=dp),POINTER :: r(:),rtmp(:),rhs(:)
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
     END TYPE SubVector_t
     
@@ -2782,7 +2778,7 @@ CONTAINS
         TotNorm, MaxChange
     REAL(KIND=dp), POINTER :: rhs_save(:)
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
-    LOGICAL :: Robust, ErrorReduced
+    LOGICAL :: Robust, LinearSearch, ErrorReduced
     
     TYPE (Matrix_t), POINTER :: Amat
     TYPE(Mesh_t), POINTER :: Mesh
@@ -2806,7 +2802,7 @@ CONTAINS
     PSolver => Solver
     
     BlockMethod = GetString( SolverParams,'Linear System Block Method',GotIt)
-    IF(.NOT. GotIt ) BlockMethod = 'block jacobi'
+    IF(.NOT. GotIt ) BlockMethod = 'jacobi'
 
     !------------------------------------------------------------------------------
     ! Check out which variables the coupled model includes
@@ -2819,8 +2815,6 @@ CONTAINS
     NoVar = i-1
 
     CALL InitializeBlockMatrix( TotMatrix, NoVar )
-
-
     
     WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
     CALL Info('BlockSolver',Message)
@@ -2832,8 +2826,10 @@ CONTAINS
     NoIterations = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',gotIt)
+
     Robust = ListGetLogical(Solver % Values,'Nonlinear System Linesearch',GotIt)
     IF( Robust ) THEN
+      LinearSearch = ListGetLogical( Solver % Values,'Nonlinear System Linesearch Linear')
       NoTests = GetInteger( SolverParams,'Nonlinear System Linesearch Iterations',GotIt)
       IF(.NOT. GotIt) NoTests = NoIterations
       CALL ListAddString(Solver % Values,'Nonlinear System Convergence Measure','residual')
@@ -2911,12 +2907,11 @@ CONTAINS
 !    criterion for the stepsize.
 !------------------------------------------------------------------------------          
       IF( Robust  ) THEN   
-        ErrorReduced = CheckStepSize(Solver,tests==0,PrevResidual,Residual)
+200     ErrorReduced = CheckStepSizeBlock(TotMatrix,tests==0,PrevResidual,Residual)
         tests = tests + 1
         
         IF( tests >  NoTests ) THEN
-          CALL Warn('BlockSolver','Maximum number of linesearch steps exceeded')
-          ErrorReduced = .TRUE.
+          CALL Fatal('BlockSolver','Maximum number of linesearch steps exceeded')
         END IF
         
         ! Update the reference residual only when new step is accepted
@@ -2927,7 +2922,11 @@ CONTAINS
             PrevResidual = Residual
             IF(Solver % Variable % NonlinChange < NonlinearTol) EXIT
           ELSE
-            GOTO 100
+            IF( LinearSearch ) THEN
+              GOTO 100
+            ELSE
+              GOTO 200
+            END IF
           END IF
         END IF
       END IF
@@ -2940,11 +2939,11 @@ CONTAINS
       TotNorm = 0.0_dp
       MaxChange = 0.0_dp
 
-      IF( BlockMethod == 'block jacobi' .OR. BlockMethod == 'block gauss-seidel') THEN
+      IF( BlockMethod == 'jacobi' .OR. BlockMethod == 'gauss-seidel') THEN
         
         ! In block Jacobi the r.h.s. is not updated during the iteration cycle
         !----------------------------------------------------------------------
-        IF( BlockMethod == 'block jacobi') THEN
+        IF( BlockMethod == 'jacobi') THEN
           CALL UpdateBlockRhs(TotMatrix)
         END IF
         
@@ -2954,7 +2953,7 @@ CONTAINS
 
           ! In gauss-seidel the partial update is immediately taken into account
           !---------------------------------------------------------------------
-          IF( BlockMethod == 'block gauss-seidel') THEN
+          IF( BlockMethod == 'gauss-seidel') THEN
             CALL UpdateBlockRhs(TotMatrix,RowVar)
           END IF
           
@@ -2965,6 +2964,9 @@ CONTAINS
 
           TotNorm = TotNorm + Norm
           MaxChange = MAX( MaxChange, Solver % Variable % NonlinChange )
+
+	  PRINT *,'LocalChange:',MaxChange,Solver % Variable % NonlinChange,&
+	                    Norm, TotNorm
         END DO
       ELSE
         CALL Fatal('BlockSolver','Unknown block solution method!')
@@ -3044,8 +3046,10 @@ CONTAINS
         BlockMatrix % SubVector(i) % Var => Var
         n = SIZE( Var % Values )
         ALLOCATE( BlockMatrix % SubVector(i) % r(n) )
+        ALLOCATE( BlockMatrix % SubVector(i) % rtmp(n) )
         ALLOCATE( BlockMatrix % SubVector(i) % rhs(n) )
         BlockMatrix % SubVector(i) % r = 0.0_dp
+        BlockMatrix % SubVector(i) % rtmp = 0.0_dp
         BlockMatrix % SubVector(i) % rhs = 0.0_dp
       END DO
       
@@ -3098,35 +3102,44 @@ CONTAINS
       REAL(KIND=dp) :: Residual
 
       REAL(KIND=dp) :: rnorm, xnorm, bnorm, TotXnorm, TotRnorm, TotBnorm, TotRelNorm
-      TYPE(Matrix_t), POINTER :: A
-      REAL(KIND=dp), POINTER :: x(:),r(:),b(:)
+      REAL(KIND=dp), POINTER :: x(:),r(:),b(:),rtmp(:)
       INTEGER :: n, NoRow,NoCol, NoVar
+      TYPE(Matrix_t), POINTER :: A
 
 
       CALL Info('BlockSolver','Computing block matrix norm',Level=5)
       
-      TotXnorm = 0.0_dp
-      TotRnorm = 0.0_dp
-      TotBnorm = 0.0_dp
-
       NoVar = BlockMatrix % NoVar
 
       DO NoRow = 1,NoVar 
-        
         Var => BlockMatrix % SubVector(NoRow) % Var
         n = SIZE( Var % Values )
 
-        r => BlockMatrix % SubVector(NoVar) % r
-        r = 0.0_dp
-        
         x => Var % Values
+        xNorm = ComputeNorm(Solver, n, x)
+
+
+        A => BlockMatrix % SubMatrix(NoRow,NoRow)
+        Solver % Matrix => A
         b => A % rhs
         
         xNorm = ComputeNorm(Solver, n, x)
         bNorm = ComputeNorm(Solver, n, b)
-        
-        TotXnorm = TotXnorm + xNorm
-        TotBnorm = TotBnorm + bNorm
+      
+
+        r => BlockMatrix % SubVector(NoRow) % r
+        IF( PRESENT( MatrixOnly ) ) THEN
+          IF( MatrixOnly ) THEN              
+            r = 0.0_dp
+          ELSE
+            r = r - b
+          END IF
+        ELSE
+          r = r - b
+        END IF
+                
+        rtmp => BlockMatrix % SubVector(NoRow) % rtmp
+        rtmp = 0.0_dp  
         
         DO NoCol = 1,NoVar           
           IF( PRESENT( DiagonalOnly ) ) THEN
@@ -3135,38 +3148,38 @@ CONTAINS
           
           Var => BlockMatrix % SubVector(NoCol) % Var
           x => Var % Values
-          n = SIZE( x )
 
           A => BlockMatrix % SubMatrix( NoRow, NoCol ) 
           IF( A % NumberOfRows == 0 ) CYCLE
           b => A % rhs
           
-          CALL MatrixVectorMultiply( A, x, r)      
-          
-          IF( PRESENT( MatrixOnly ) ) THEN
-            IF( .NOT. MatrixOnly ) THEN              
-              r = r - b
-            END IF
-          ELSE
-            r = r - b
-          END IF
-          
+          CALL MatrixVectorMultiply( A, x, rtmp)      
+          r = r + rtmp
         END DO
         
         rNorm = ComputeNorm(Solver, n, r)
+
+        PRINT *,'comp norms:',NoRow,Rnorm,Xnorm
+
 
         BlockMatrix % SubVector(NoRow) % rnorm = rnorm
         BlockMatrix % SubVector(NoRow) % xnorm = xnorm
         BlockMatrix % SubVector(NoRow) % bnorm = bnorm
       END DO
 
-      BlockMatrix % Rnorm = SUM( BlockMatrix % SubVector(1:NoVar) % rnorm ** 2) 
-      BlockMatrix % Xnorm = SUM( BlockMatrix % SubVector(1:NoVar) % xnorm ** 2) 
-      BlockMatrix % Bnorm = SUM( BlockMatrix % SubVector(1:NoVar) % bnorm ** 2) 
+      TotRnorm = SUM( BlockMatrix % SubVector(1:NoVar) % rnorm ** 2) 
+      TotXnorm = SUM( BlockMatrix % SubVector(1:NoVar) % xnorm ** 2) 
+      TotBnorm = SUM( BlockMatrix % SubVector(1:NoVar) % bnorm ** 2) 
 
-      BlockMatrix % Rnorm = SQRT( BlockMatrix % Rnorm / NoVar )
-      BlockMatrix % Xnorm = SQRT( BlockMatrix % Rnorm / NoVar )
-      BlockMatrix % Bnorm = SQRT( BlockMatrix % Rnorm / NoVar )
+      TotRnorm = SQRT( TotRnorm / NoVar )
+      TotXnorm = SQRT( TotXnorm / NoVar )
+      TotBnorm = SQRT( TotBnorm / NoVar )
+
+      BlockMatrix % Rnorm = TotRNorm
+      BlockMatrix % Xnorm = TotXnorm
+      BlockMatrix % Bnorm = TotBnorm
+
+      PRINT *,'tot norms:',TotRnorm,TotXnorm
 
       Residual = BlockMatrix % Rnorm
 
@@ -3230,13 +3243,115 @@ CONTAINS
         END DO
 
       END DO
+
     END SUBROUTINE UpdateBlockRhs
+
+
+!------------------------------------------------------------------------------
+    FUNCTION CheckStepSizeBlock(BlockMatrix,FirstTrial,PrevResidual,Residual) &
+        RESULT (Success) 
+!------------------------------------------------------------------------------
+      TYPE(BlockMatrix_t) :: BlockMatrix
+      REAL(KIND=dp) :: PrevResidual, Residual
+      LOGICAL :: FirstTrial,Success
+!------------------------------------------------------------------------------
+      INTEGER :: i,n,niter
+      TYPE(Matrix_t), POINTER :: A
+      REAL(KIND=dp), POINTER CONTIG :: b(:), x(:), x0(:), r(:)
+      REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Relaxation, Alpha, Myy
+      TYPE(Variable_t), POINTER :: iterV
+      LOGICAL :: Stat
+      CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+      
+      
+      SAVE Alpha, Relaxation, Myy
+      
+      !--------------------------------------------------------------------------
+      ! This is the real residual r=b-Ax
+      !--------------------------------------------------------------------------
+      Residual = ComputeBlockNorm( BlockMatrix ) 
+      
+      
+      ! Negative (impossible) value may be used as indicator that's its the 1st step
+      !-----------------------------------------------------------------------------
+      IF( PrevResidual < 0.0 ) THEN
+        Success = .FALSE.
+        RETURN
+      END IF
+      
+      ! At the first step set the relaxation
+      !-----------------------------------------------------------------------------
+      IF( FirstTrial ) THEN
+        Alpha = 1.0_dp
+        Relaxation = ListGetConstReal( Solver % Values, &
+            'Nonlinear System Linesearch Factor', Stat )
+        IF(.NOT. Stat) Relaxation = 0.5_dp
+        Myy = ListGetConstReal( Solver % Values, &
+            'Nonlinear System Linesearch Limit', Stat )
+        IF(.NOT. Stat) Myy = 0.5_dp
+      END IF
+      
+      ! Armijo GoldStein Criterion for accepting stepsize
+      !-----------------------------------------------------------------
+      Success = ( PrevResidual - Residual > Myy * Alpha * PrevResidual)
+      
+      IF( Success ) THEN      
+        iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+        niter = NINT(iterV % Values(1))
+        
+        DO i=1,BlockMatrix % NoVar
+          Var => BlockMatrix % SubVector(i) % Var
+          b => BlockMatrix % SubMatrix(i,i) % rhs
+          x => Var % Values
+          n = SIZE( b )
+          
+          Solver % Variable => Var
+          bNorm = ComputeNorm(Solver, n, b)
+          
+          Var % NonlinChange = Residual / bNorm
+          
+          Norm = ComputeNorm(Solver, n, x)
+          Solver % Variable % Norm = Norm
+          
+          SolverName = ListGetString( Solver % Values, 'Equation',Stat)
+          IF(.NOT. Stat) SolverName = Solver % Variable % Name
+          
+          WRITE( Message, '(a,g15.8,g15.8,a)') &
+              'NS (ITER='//TRIM(i2s(niter))//') (NRM,RELC): (',Norm, Residual / bNorm,&
+              ' ) :: '// TRIM(SolverName)
+          CALL Info( 'CheckStepSize', Message, Level=3 )       
+        END DO
+        iterV % Values(1) = niter + 1 
+      ELSE
+        
+        DO i=1,BlockMatrix % NoVar
+          Var => BlockMatrix % SubVector(i) % Var
+          IF(.NOT. ASSOCIATED(Var % NonlinValues)) &
+              CALL Fatal('CheckStepSize','Previous nonlinear solution is needed')       
+          x0 => Var % NonlinValues
+          x => Var % Values
+          x = (1-Relaxation) * x0 + Relaxation * x
+        END DO
+        
+        Alpha = Alpha * Relaxation
+        CALL Info( 'CheckStepSize','Step rejected, increasing relaxation', Level=3 )      
+        PRINT *,'Residual',Residual,PrevResidual,Alpha
+
+      END IF
+      
+ !------------------------------------------------------------------------------
+    END FUNCTION CheckStepSizeBlock
+ !------------------------------------------------------------------------------
+    
 
    
 !------------------------------------------------------------------------------
   END SUBROUTINE BlockSolver
 !------------------------------------------------------------------------------
  
+
+
+
 
   
 
