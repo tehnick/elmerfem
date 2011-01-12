@@ -3372,7 +3372,6 @@ END FUNCTION SearchNodeL
     TYPE(Variable_t), POINTER :: iterV, VeloVar, TimestepVar
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, str
     LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore, DoIt, Skip
-    LOGICAL :: IsNAN
 
     TYPE(Matrix_t), POINTER :: MMatrix
     REAL(KIND=dp), POINTER CONTIG :: Mx(:), Mb(:), Mr(:)
@@ -3502,7 +3501,8 @@ END FUNCTION SearchNodeL
         'Nonlinear System Max Norm', Stat )
     IF( .NOT. Stat) MaxNorm = HUGE( Norm )
 
-    IF( ISNAN( Norm ) .OR. Norm > MaxNorm ) THEN
+!   IF( ISNAN(Norm) .OR. Norm > MaxNorm ) THEN ! ISNAN not avaiable in all compilers
+    IF(  Norm > MaxNorm ) THEN
       WRITE( Message, *) 'Computed Norm:',Norm
       CALL Info('ComputeChange',Message)
       CALL Fatal('ComputeChange','Norm of solution exceeded given bounds')
