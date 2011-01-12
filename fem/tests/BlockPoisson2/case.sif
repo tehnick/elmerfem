@@ -13,11 +13,11 @@ Simulation
   Coordinate Mapping(3) = 1 2 3
 
   Simulation Type = "Steady State"
-  Steady State Max Iterations = 1
+  Steady State Max Iterations = 10
   Steady State Min Iterations = 1
   Output Intervals = 1
 
-!  Post File = "case.ep"
+   Post File = "case.ep"
 End
 
 Constants
@@ -33,8 +33,8 @@ End
 
 Body 2
   Name = "Body2"
-  Equation = 2
   Material = 1
+  Equation = 2
 End
 
 Equation 1
@@ -44,7 +44,7 @@ End
 
 Equation 2
   Name = "Other"
-  Active Variables(1) = Integer 2
+  Active Variables(2) = Integer 1 2
 End
 
 
@@ -69,6 +69,8 @@ Solver 1
   Linear System Preconditioning = ILU1
 
   Bulk Assembly Procedure 11 = File "./PoissonAssembly" "BulkAssembly"
+  Bulk Assembly Procedure 12 = File "./PoissonAssembly" "BulkAssembly1"
+  Bulk Assembly Procedure 21 = File "./PoissonAssembly" "BulkAssembly2"
   Bulk Assembly Procedure 22 = File "./PoissonAssembly" "BulkAssembly"
 End  
 
