@@ -954,8 +954,6 @@ CONTAINS
       Solver % TimeOrder = 0
 
       IF( ListGetLogical( Solver % Values,'Calculate Derivative',Found) ) THEN
-PRINT *,'adding derivative'
-
         NULLIFY( Solution ) 
         ALLOCATE( Solution( SIZE( Solver % Variable % Values) ) )
         Solution = 0.0_dp
@@ -2965,8 +2963,8 @@ CONTAINS
           TotNorm = TotNorm + Norm
           MaxChange = MAX( MaxChange, Solver % Variable % NonlinChange )
 
-	  PRINT *,'LocalChange:',MaxChange,Solver % Variable % NonlinChange,&
-	                    Norm, TotNorm
+	  ! PRINT *,'LocalChange:',MaxChange,Solver % Variable % NonlinChange,&
+	  !                  Norm, TotNorm
         END DO
       ELSE
         CALL Fatal('BlockSolver','Unknown block solution method!')
@@ -3118,14 +3116,12 @@ CONTAINS
         x => Var % Values
         xNorm = ComputeNorm(Solver, n, x)
 
-
         A => BlockMatrix % SubMatrix(NoRow,NoRow)
         Solver % Matrix => A
         b => A % rhs
         
         xNorm = ComputeNorm(Solver, n, x)
         bNorm = ComputeNorm(Solver, n, b)
-      
 
         r => BlockMatrix % SubVector(NoRow) % r
         IF( PRESENT( MatrixOnly ) ) THEN
@@ -3159,7 +3155,7 @@ CONTAINS
         
         rNorm = ComputeNorm(Solver, n, r)
 
-        PRINT *,'comp norms:',NoRow,Rnorm,Xnorm
+        ! PRINT *,'comp norms:',NoRow,Rnorm,Xnorm
 
 
         BlockMatrix % SubVector(NoRow) % rnorm = rnorm
@@ -3179,13 +3175,12 @@ CONTAINS
       BlockMatrix % Xnorm = TotXnorm
       BlockMatrix % Bnorm = TotBnorm
 
-      PRINT *,'tot norms:',TotRnorm,TotXnorm
+      ! PRINT *,'tot norms:',TotRnorm,TotXnorm
 
       Residual = BlockMatrix % Rnorm
 
     END FUNCTION ComputeBlockNorm
     
-
 
     !------------------------------------------------------------------------------          
     ! Compute the rhs for the block matrix system which is solved
@@ -3316,9 +3311,9 @@ CONTAINS
           SolverName = ListGetString( Solver % Values, 'Equation',Stat)
           IF(.NOT. Stat) SolverName = Solver % Variable % Name
           
-          WRITE( Message, '(a,g15.8,g15.8,a)') &
+          WRITE( Message, '(a,g15.8,g15.8,a,I2)') &
               'NS (ITER='//TRIM(i2s(niter))//') (NRM,RELC): (',Norm, Residual / bNorm,&
-              ' ) :: '// TRIM(SolverName)
+              ' ) :: '// TRIM(SolverName),i
           CALL Info( 'CheckStepSize', Message, Level=3 )       
         END DO
         iterV % Values(1) = niter + 1 
@@ -3329,15 +3324,28 @@ CONTAINS
           IF(.NOT. ASSOCIATED(Var % NonlinValues)) &
               CALL Fatal('CheckStepSize','Previous nonlinear solution is needed')       
           x0 => Var % NonlinValues
+
           x => Var % Values
+
+          ! PRINT *,'Before Range:',i,MINVAL(x),MAXVAL(x),MINVAL(x0),MAXVAL(x0)
+
           x = (1-Relaxation) * x0 + Relaxation * x
+
+          ! PRINT *,'After Range:',i,MINVAL(x),MAXVAL(x),MINVAL(x0),MAXVAL(x0)
+
         END DO
         
         Alpha = Alpha * Relaxation
         CALL Info( 'CheckStepSize','Step rejected, increasing relaxation', Level=3 )      
-        PRINT *,'Residual',Residual,PrevResidual,Alpha
+        ! PRINT *,'Residual',Residual,PrevResidual,Alpha
 
       END IF
+
+      RowVar = ListGetInteger( SolverParams,'Primary Variable',GotIt)
+      IF(.NOT. GotIt) RowVar = 1
+      Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar)
+      Solver % Variable => TotMatrix % SubVector(RowVar) % Var
+
       
  !------------------------------------------------------------------------------
     END FUNCTION CheckStepSizeBlock
