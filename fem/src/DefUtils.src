@@ -1629,6 +1629,7 @@ CONTAINS
   END SUBROUTINE Default1stOrderTimeC
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE Default1stOrderTimeGlobal(USolver)
 !------------------------------------------------------------------------------
@@ -1714,6 +1715,61 @@ CONTAINS
    END DO
 !----------------------------------------------------------------------------
   END SUBROUTINE Default1stOrderTimeGlobal
+!----------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE Default2ndOrderTimeGlobal(USolver)
+!------------------------------------------------------------------------------
+   TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+!------------------------------------------------------------------------------
+   TYPE(Solver_t), POINTER :: Solver
+   INTEGER :: i,j,k,l,n
+   REAL(KIND=dp), POINTER :: SaveValues(:) => NULL()
+   REAL(KIND=dp) :: FORCE(1)
+   LOGICAL :: Found
+   REAL(KIND=dp), ALLOCATABLE, SAVE :: STIFF(:,:),MASS(:,:), DAMP(:,:), X(:,:)
+
+   IF ( PRESENT(USolver) ) THEN
+     Solver => Usolver
+   ELSE
+     Solver => CurrentModel % solver
+   END IF
+
+   IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
+      IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,DAMP,X )
+      n = 0
+      DO i=1,Solver % Matrix % NumberOfRows
+        n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
+      END DO
+      k = SIZE(Solver % Variable % PrevValues,2)
+      ALLOCATE( STIFF(1,n),MASS(1,n),DAMP(1,n),X(n,k) )
+      SaveValues => Solver % Variable % Values
+   END IF
+
+   DO i=1,Solver % Matrix % NumberOFRows
+     n = 0
+     DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+       n=n+1
+       MASS(1,n)  = Solver % Matrix % MassValues(j)
+       DAMP(1,n)  = Solver % Matrix % DampValues(j)
+       STIFF(1,n) = Solver % Matrix % Values(j)
+       X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
+     END DO
+     FORCE(1) = Solver % Matrix % RHS(i)
+     Solver % Matrix % Force(i,1) = FORCE(1)
+
+     CALL Bossak2ndOrder( n, Solver % dt, MASS, DAMP, STIFF, &
+      FORCE, X(1:n,3), X(1:n,4), X(1:n,5), Solver % Alpha )
+
+     n = 0
+     DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+       n=n+1
+       Solver % Matrix % Values(j) = STIFF(1,n)
+     END DO
+     Solver % Matrix % RHS(i) = FORCE(1)
+   END DO
+!----------------------------------------------------------------------------
+  END SUBROUTINE Default2ndOrderTimeGlobal
 !----------------------------------------------------------------------------
 
 
