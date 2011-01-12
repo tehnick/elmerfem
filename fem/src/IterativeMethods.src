@@ -118,9 +118,9 @@ CONTAINS
  !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A
       INTEGER :: Rounds
+      INTEGER :: i,j,k,n
       REAL(KIND=dp) :: x(n),b(n)
       REAL(KIND=dp) :: Omega
-      INTEGER :: i,j,k,n
       INTEGER, POINTER :: Cols(:),Rows(:)
       REAL(KIND=dp), POINTER :: Values(:)
       REAL(KIND=dp), ALLOCATABLE :: R(:)
@@ -1005,10 +1005,10 @@ CONTAINS
 
       IF ( ALL(x == CMPLX(0.0d0,0.0d0,kind=dp)) ) x = b
 
-      zzero = dcmplx( 0.0d0,0.0d0)
-      zone =  dcmplx( 1.0d0,0.0d0)
-      work = dcmplx( 0.0d0, 0.0d0 )
-      rwork = dcmplx( 0.0d0, 0.0d0 )
+      zzero = cmplx( 0.0d0,0.0d0, KIND=dp)
+      zone =  cmplx( 1.0d0,0.0d0, KIND=dp)
+      work = cmplx( 0.0d0, 0.0d0, KIND=dp )
+      rwork = cmplx( 0.0d0, 0.0d0, KIND=dp )
 
       rr = 1
       r = rr+1
@@ -1134,15 +1134,15 @@ CONTAINS
 
          CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
               rwork(1:l+1,y0), 1, zzero, rwork(1:l+1,y), 1)
-         kappa0 = SQRT( ZABS(zdotc(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1)) ) ! replace zdotc
+         kappa0 = SQRT( ABS(zdotc(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1)) ) ! replace zdotc
          CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
               rwork(1:l+1,yl), 1, zzero, rwork(1:l+1,y), 1)
-         kappal = SQRT( ZABS(zdotc(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1)) )  ! replace zdotc
+         kappal = SQRT( ABS(zdotc(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1)) )  ! replace zdotc
          CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
               rwork(1:l+1,y0), 1, zzero, rwork(1:l+1,y), 1)
          varrho = zdotc(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1) / &            ! replace zdotc
               (kappa0*kappal)
-         hatgamma = varrho/ZABS(varrho) * MAX(ZABS(varrho),7d-1) * &
+         hatgamma = varrho/ABS(varrho) * MAX(ABS(varrho),7d-1) * &
               kappa0/kappal
          rwork(1:l+1,y0) = rwork(1:l+1,y0) - hatgamma * rwork(1:l+1,yl)
 
@@ -1157,7 +1157,7 @@ CONTAINS
 
          CALL zhemv ('u', l+1, zone, rwork(1:l+1,z:z+l), l+1, &
               rwork(1:l+1,y0), 1, zzero, rwork(1:l+1,y), 1)
-         rnrm = SQRT( ZABS(zdotc(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1)) )
+         rnrm = SQRT( ABS(zdotc(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1)) )
 
          !---------------------------------------
          !  --- The reliable update part ---
