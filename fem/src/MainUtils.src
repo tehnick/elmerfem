@@ -2725,7 +2725,6 @@ CONTAINS
  
 
 
-
   
 
 
@@ -2767,14 +2766,14 @@ CONTAINS
 
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var
-    INTEGER :: i,j,k,l,t,n,nd,NoIterations,tests,NoTests,iter
+    INTEGER :: i,j,k,l,n,nd,NoIterations,tests,NoTests,iter
     CHARACTER(LEN=MAX_NAME_LEN) :: BlockMethod
     LOGICAL :: GotIt, IsListMatrix = .TRUE.
     INTEGER :: ColVar, RowVar, NoVar
 
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
-        TotNorm, MaxChange
-    REAL(KIND=dp), POINTER :: rhs_save(:)
+        TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm
+    REAL(KIND=dp), POINTER :: rhs_save(:), sol_save(:)
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
     LOGICAL :: Robust, LinearSearch, ErrorReduced
     
@@ -2967,7 +2966,8 @@ CONTAINS
 	  !                  Norm, TotNorm
         END DO
       ELSE
-        CALL Fatal('BlockSolver','Unknown block solution method!')
+!       CALL Fatal('BlockSolver','Unknown block solution method!')
+        CALL IterC()
       END IF
 
       IF(.NOT. Robust) THEN
@@ -2992,7 +2992,127 @@ CONTAINS
 
   CONTAINS 
 
- 
+#include "huti_fdefs.h"
+#ifndef HUTI_MAXTOLERANCE
+#define HUTI_MAXTOLERANCE dpar(2)
+#endif
+#ifndef HUTI_SGSPARAM
+#define HUTI_SGSPARAM dpar(3)
+#endif
+#ifndef HUTI_BICGSTABL_L
+#define HUTI_BICGSTABL_L ipar(16)
+#endif
+#ifndef HUTI_DIVERGENCE
+#define HUTI_DIVERGENCE 3
+#endif
+#ifndef HUTI_GCR_RESTART
+#define HUTI_GCR_RESTART ipar(17)
+#endif
+
+
+    SUBROUTINE IterC
+      USE IterSolve
+
+      INTEGER(KIND=AddrInt) :: AddrFunc, iterProc,precProc, mvProc,dotProc,nmrProc, zero=0
+      INTEGER :: ipar(20)
+      REAL(KIND=dp) :: dpar(20)
+      EXTERNAL :: ddot, dnrm2, HUTI_D_BICGSTAB
+      REAL(KIND=dp), ALLOCATABLE :: x(:),b(:),work(:,:)
+
+      INTEGER :: ndim, offset(10), maxsize
+      LOGICAL :: Converged, Diverged
+      INTEGER :: Rounds, OutputInterval, PolynomialDegree
+
+      offset(1) = 1
+      DO i=1,NoVar
+        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
+      END DO
+      ndim =  offset(NoVar+1)-1
+      ALLOCATE(x(ndim), b(ndim))
+      DO i=1,NoVar
+        x(offset(i):offset(i+1)-1) = TotMatrix % SubVector(i) % Var % Values
+        b(offset(i):offset(i+1)-1) = TotMatrix % SubMatrix(i,i) % rhs
+      END DO
+
+      HUTI_NDIM = ndim
+      HUTI_MAXIT = 1000
+      HUTI_TOLERANCE = NonLinearTol
+      HUTI_MAXTOLERANCE = 1.d9
+      HUTI_DBUGLVL = 1
+      HUTI_WRKDIM = 1
+      HUTI_BICGSTABL_L = 2
+
+      ALLOCATE(work(ndim,HUTI_WRKDIM))
+      iterProc = AddrFunc(itermethod_bicgstabl)
+      precProc = AddrFunc(BlockMatrixPrec)
+      mvProc = AddrFunc(BlockMatrixVectorProd)
+      dotProc = AddrFunc(ddot)
+      nmrProc = AddrFunc(dnrm2)
+
+      CALL IterCall(iterProc, x, b, ipar, dpar, work, &
+        mvProc, precProc, zero, dotProc, nmrProc, zero )
+
+      DO i=1,NoVar
+        TotMatrix % SubVector(i) % Var % Values = x(offset(i):offset(i+1)-1)
+      END DO
+    END SUBROUTINE IterC
+
+
+    SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
+      REAL(KIND=dp) :: u(*), v(*)
+      INTEGER :: i,j,k,ipar(*)
+      INTEGER, SAVE :: maxsize, offset(10)
+      REAL(KIND=dp), ALLOCATABLE :: tmp(:)
+    
+      offset(1) = 1
+      maxsize = 0
+      DO i=1,NoVar
+        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
+        maxsize = MAX(maxsize,offset(i+1)-offset(i))
+      END DO
+      ALLOCATE(tmp(maxsize))
+
+      v(1:offset(NoVar+1)-1) = 0
+      DO i=1,NoVar
+         DO j=1,NoVar
+           CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j), &
+                    u(offset(j):offset(j+1)-1), tmp )
+           DO k=1,offset(i+1)-offset(i)
+             v(k+offset(i)-1) = v(k+offset(i)-1) + tmp(k)
+           END DO
+         END DO
+       END DO
+    END SUBROUTINE BlockMatrixVectorProd
+
+
+    SUBROUTINE BlockMatrixPrec( u,v,ipar )
+      REAL(KIND=dp), TARGET :: u(*), v(*)
+      INTEGER :: ipar(*)
+      INTEGER, SAVE :: offset(10)
+    
+      offset(1) = 1
+      DO i=1,NoVar
+        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
+      END DO
+
+      u(1:offset(NoVar+1)-1) = v(1:offset(NoVar+1)-1)
+      DO i=1,NoVar
+        Solver % Variable => TotMatrix % SubVector(i) % Var
+        sol_save => Solver % Variable % Values
+        Solver % Variable % Values => u(offset(i):offset(i+1)-1)
+
+        Solver % Matrix => TotMatrix % Submatrix(i,i)
+        rhs_save => Solver % Matrix % rhs
+        Solver % Matrix % Rhs => v(offset(i):offset(i+1)-1)
+
+        Norm = DefaultSolve()
+
+        Solver % Matrix % rhs => rhs_save
+        Solver % Variable % Values  => sol_save
+      END DO
+    END SUBROUTINE BlockMatrixPrec
+
+
     !-------------------------------------------------------------------
     ! This subroutine initializes the block matrix structure so that the 
     ! matrices and vectors have a natural location to save.
@@ -3194,8 +3314,8 @@ CONTAINS
       INTEGER, OPTIONAL :: ThisRow
       
       TYPE(Matrix_t), POINTER :: A
-      REAL(KIND=dp), POINTER :: x(:),r(:),rhs(:)
       INTEGER :: n, NoRow,NoCol, NoVar
+      REAL(KIND=dp), POINTER :: x(:),r(:),rhs(:)
       
       CALL Info('BlockSolver','Computing block r.h.s',Level=5)
       
@@ -3240,6 +3360,66 @@ CONTAINS
       END DO
 
     END SUBROUTINE UpdateBlockRhs
+
+
+    !------------------------------------------------------------------------------          
+    ! Compute the rhs for the block matrix system which is solved
+    ! accounting only the diagonal entries i.e. subtract the non-diagonal 
+    ! matrix-vector results from the original r.h.s. vectors.
+    ! After this the block diagonal problem Ax=b may be solved.
+    !----------------------------------------------------------------------------------
+    SUBROUTINE UpdateBlockRhsAll( BlockMatrix, ThisRow )
+      
+      TYPE(BlockMatrix_t) :: BlockMatrix
+      INTEGER, OPTIONAL :: ThisRow
+      
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: n, NoRow,NoCol, NoVar
+      REAL(KIND=dp), POINTER :: x(:),r(:),rhs(:)
+      
+      CALL Info('BlockSolver','Computing block r.h.s',Level=5)
+      
+      
+      NoVar = BlockMatrix % NoVar
+
+      DO NoRow = 1,NoVar 
+
+        ! Optionally only one diagonal block may be updated for
+        IF( PRESENT( ThisRow ) ) THEN
+          IF( NoRow /= ThisRow ) CYCLE 
+        END IF
+        
+        Var => BlockMatrix % SubVector(NoRow) % Var
+        x => Var % Values
+        n = SIZE( x )
+        
+        ! The residual is used only as a temporary vector
+        r => BlockMatrix % SubVector(NoRow) % r
+        r = 0.0_dp
+        
+        ! The r.h.s. of the initial system
+        rhs => BlockMatrix % SubVector(NoRow) % rhs
+
+        A => BlockMatrix % SubMatrix( NoRow, NoRow )
+        rhs = A % rhs
+
+        DO NoCol = 1,NoVar           
+          ! This ensures that the diagonal itself is not subtracted
+          ! Otherwise the linear system should be solved for dx rather than x
+!         IF( NoCol == NoRow ) CYCLE
+          
+          Var => BlockMatrix % SubVector(NoCol) % Var
+          x => Var % Values
+          A => BlockMatrix % SubMatrix( NoRow, NoCol ) 
+          IF( A % NumberOfRows == 0 ) CYCLE
+          
+          CALL MatrixVectorMultiply( A, x, r)      
+          rhs = rhs - r
+        END DO
+
+      END DO
+
+    END SUBROUTINE UpdateBlockRhsAll
 
 
 !------------------------------------------------------------------------------
