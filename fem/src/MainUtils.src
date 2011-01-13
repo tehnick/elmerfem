@@ -50,6 +50,23 @@ MODULE MainUtils
   IMPLICIT NONE
 !------------------------------------------------------------------------------
 
+    TYPE SubVector_t 
+      TYPE(Variable_t), POINTER :: Var 
+      REAL(KIND=dp) :: rnorm, bnorm, xnorm
+      REAL(KIND=dp),POINTER :: r(:),rtmp(:),rhs(:)
+    END TYPE SubVector_t
+    
+    TYPE BlockMatrix_t
+      INTEGER :: NoVar
+      TYPE(Solver_t), POINTER :: Solver
+      REAL(KIND=dp) :: rnorm, bnorm, xnorm
+      TYPE(Matrix_t), POINTER :: SubMatrix(:,:)
+      LOGICAL, POINTER :: SubMatrixActive(:,:)
+      TYPE(SubVector_t), POINTER :: SubVector(:)
+    END TYPE BlockMatrix_t
+    
+    TYPE(BlockMatrix_t) :: TotMatrix
+
 CONTAINS
 
 !------------------------------------------------------------------------------
@@ -2729,6 +2746,72 @@ CONTAINS
 
 
 ! THIS IS STILL HEAVILY UNDER DEVELOPMENT
+    SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
+      INTEGER :: i,j,k,NoVar,ipar(*)
+      REAL(KIND=dp) :: u(*), v(*)
+      REAL(KIND=dp), ALLOCATABLE :: tmp(:)
+      INTEGER :: maxsize, offset(TotMatrix % NoVar+1)
+
+      NoVAr = TotMatrix % NoVar
+    
+      offset(1) = 1
+      maxsize = 0
+      DO i=1,NoVar
+        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
+        maxsize = MAX(maxsize,offset(i+1)-offset(i))
+      END DO
+      ALLOCATE(tmp(maxsize))
+
+      v(1:offset(NoVar+1)-1) = 0
+      DO i=1,NoVar
+         DO j=1,NoVar
+           CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j), &
+                    u(offset(j):offset(j+1)-1), tmp )
+           DO k=1,offset(i+1)-offset(i)
+             v(k+offset(i)-1) = v(k+offset(i)-1) + tmp(k)
+           END DO
+         END DO
+       END DO
+    END SUBROUTINE BlockMatrixVectorProd
+
+
+    SUBROUTINE BlockMatrixPrec( u,v,ipar )
+      USE DefUtils
+
+      INTEGER :: offset(TotMatrix % NoVar+1)
+      REAL(KIND=dp), TARGET :: u(*), v(*)
+      REAL(KIND=dp) :: Norm
+      INTEGER :: i,j,NoVar,ipar(*)
+      TYPE(Solver_t), POINTER :: Solver
+      REAL(KIND=dp), POINTER :: sol_save(:),rhs_save(:)
+
+      NoVAr = TotMatrix % NoVar
+    
+      offset(1) = 1
+      DO i=1,NoVar
+        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
+      END DO
+
+      Solver => TotMatrix % Solver
+
+      u(1:offset(NoVar+1)-1) = v(1:offset(NoVar+1)-1)
+      DO i=1,NoVar
+        Solver % Variable => TotMatrix % SubVector(i) % Var
+        sol_save => CurrentModel % Solver % Variable % Values
+        Solver % Variable % Values => u(offset(i):offset(i+1)-1)
+
+        Solver % Matrix => TotMatrix % Submatrix(i,i)
+        rhs_save => CurrentModel % Solver % Matrix % rhs
+        Solver % Matrix % Rhs => v(offset(i):offset(i+1)-1)
+
+        Norm = DefaultSolve()
+
+        Solver % Matrix % rhs => rhs_save
+        Solver % Variable % Values  => sol_save
+      END DO
+    END SUBROUTINE BlockMatrixPrec
+
+
 !------------------------------------------------------------------------------
 ! This is a line of solvers where a matrix is matrices and a vector of vectors 
 ! are created to allow different kinds of block strategies for the solvers.
@@ -2748,21 +2831,6 @@ CONTAINS
 ! Local variables
 !------------------------------------------------------------------------------
 
-    TYPE SubVector_t 
-      TYPE(Variable_t), POINTER :: Var 
-      REAL(KIND=dp),POINTER :: r(:),rtmp(:),rhs(:)
-      REAL(KIND=dp) :: rnorm, bnorm, xnorm
-    END TYPE SubVector_t
-    
-    TYPE BlockMatrix_t
-      INTEGER :: NoVar
-      REAL(KIND=dp) :: rnorm, bnorm, xnorm
-      TYPE(Matrix_t), POINTER :: SubMatrix(:,:)
-      LOGICAL, POINTER :: SubMatrixActive(:,:)
-      TYPE(SubVector_t), POINTER :: SubVector(:)
-    END TYPE BlockMatrix_t
-    
-    TYPE(BlockMatrix_t) :: TotMatrix
 
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var
@@ -2812,6 +2880,7 @@ CONTAINS
     NoVar = i-1
 
     CALL InitializeBlockMatrix( TotMatrix, NoVar )
+    TotMatrix % Solver => Solver
     
     WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
     CALL Info('BlockSolver',Message)
@@ -3043,7 +3112,7 @@ CONTAINS
       HUTI_BICGSTABL_L = 2
 
       ALLOCATE(work(ndim,HUTI_WRKDIM))
-      iterProc = AddrFunc(itermethod_bicgstabl)
+      itERproc = AddrFunc(itermethod_bicgstabl)
       precProc = AddrFunc(BlockMatrixPrec)
       mvProc = AddrFunc(BlockMatrixVectorProd)
       dotProc = AddrFunc(ddot)
@@ -3056,61 +3125,6 @@ CONTAINS
         TotMatrix % SubVector(i) % Var % Values = x(offset(i):offset(i+1)-1)
       END DO
     END SUBROUTINE IterC
-
-
-    SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
-      REAL(KIND=dp) :: u(*), v(*)
-      INTEGER :: i,j,k,ipar(*)
-      INTEGER, SAVE :: maxsize, offset(10)
-      REAL(KIND=dp), ALLOCATABLE :: tmp(:)
-    
-      offset(1) = 1
-      maxsize = 0
-      DO i=1,NoVar
-        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
-        maxsize = MAX(maxsize,offset(i+1)-offset(i))
-      END DO
-      ALLOCATE(tmp(maxsize))
-
-      v(1:offset(NoVar+1)-1) = 0
-      DO i=1,NoVar
-         DO j=1,NoVar
-           CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j), &
-                    u(offset(j):offset(j+1)-1), tmp )
-           DO k=1,offset(i+1)-offset(i)
-             v(k+offset(i)-1) = v(k+offset(i)-1) + tmp(k)
-           END DO
-         END DO
-       END DO
-    END SUBROUTINE BlockMatrixVectorProd
-
-
-    SUBROUTINE BlockMatrixPrec( u,v,ipar )
-      REAL(KIND=dp), TARGET :: u(*), v(*)
-      INTEGER :: ipar(*)
-      INTEGER, SAVE :: offset(10)
-    
-      offset(1) = 1
-      DO i=1,NoVar
-        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
-      END DO
-
-      u(1:offset(NoVar+1)-1) = v(1:offset(NoVar+1)-1)
-      DO i=1,NoVar
-        Solver % Variable => TotMatrix % SubVector(i) % Var
-        sol_save => Solver % Variable % Values
-        Solver % Variable % Values => u(offset(i):offset(i+1)-1)
-
-        Solver % Matrix => TotMatrix % Submatrix(i,i)
-        rhs_save => Solver % Matrix % rhs
-        Solver % Matrix % Rhs => v(offset(i):offset(i+1)-1)
-
-        Norm = DefaultSolve()
-
-        Solver % Matrix % rhs => rhs_save
-        Solver % Variable % Values  => sol_save
-      END DO
-    END SUBROUTINE BlockMatrixPrec
 
 
     !-------------------------------------------------------------------
