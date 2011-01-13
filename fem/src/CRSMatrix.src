@@ -786,14 +786,17 @@ CONTAINS
                  Col  = Col0 + ColDofs * ColInds(j) - l
 
 ! If Diag does not exist then one cannot separate the gluing into two parts
-                IF( .FALSE. ) THEN
+! In fact this cannot be guarateed for the off-diagonal block matrices and hence 
+! this condition is set active.
+                IF( .TRUE. ) THEN
                     DO c=Rows(Row),Rows(Row+1)-1
                        IF ( Cols(c) == Col ) THEN
+!$omp atomic
                            Values(c) = Values(c) + LocalMatrix(RowDofs*i-k,ColDofs*j-l)
                            EXIT
                         END IF
                      END DO
-                     IF( Cols(c) /= Col ) print *,'NO HIT 1',Row,Col
+                     IF( Cols(c) /= Col ) PRINT *,'NO HIT 1',Row,Col
                  ELSE IF ( Col >= Row ) THEN
                     DO c=Diag(Row),Rows(Row+1)-1
                        IF ( Cols(c) == Col ) THEN
@@ -802,7 +805,7 @@ CONTAINS
                           EXIT
                        END IF
                     END DO
-                    IF( Cols(c) /= Col ) print *,'NO HIT 2',Row,Col
+                    IF( Cols(c) /= Col ) PRINT *,'NO HIT 2',Row,Col
                  ELSE
                     DO c=Rows(Row),Diag(Row)-1
                        IF ( Cols(c) == Col ) THEN
@@ -811,7 +814,7 @@ CONTAINS
                            EXIT
                         END IF
                      END DO
-                     IF( Cols(c) /= Col ) print *,'NO HIT 3',Row,Col
+                     IF( Cols(c) /= Col ) PRINT *,'NO HIT 3',Row,Col
                   END IF
                END DO
             END DO
@@ -2704,7 +2707,7 @@ END FUNCTION CRS_RowSum
     IF  ( GlobalMatrix % MatVecSubr /= 0 ) THEN
       CALL MatVecSubr(GlobalMatrix % MatVecSubr, &
                   GlobalMatrix % SpMV, n,Rows,Cols,Values,u,v,0)
-print*,globalmatrix % spMV
+PRINT*,globalmatrix % spMV
       RETURN
    END IF
 !***********************************************************************
