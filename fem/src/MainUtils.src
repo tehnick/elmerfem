@@ -57,7 +57,8 @@ MODULE MainUtils
     END TYPE SubVector_t
     
     TYPE BlockMatrix_t
-      INTEGER :: NoVar
+      INTEGER :: NoVar = 0, MaxSize, TotSize
+      INTEGER, POINTER :: Offset(:)
       TYPE(Solver_t), POINTER :: Solver
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
       TYPE(Matrix_t), POINTER :: SubMatrix(:,:)
@@ -1706,7 +1707,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: ProcName, RowName, ColName, str
     INTEGER(KIND=AddrInt) :: ProcPntr    
     LOGICAL :: BulkMode, AssemblySymmetric, AssemblyAntiSymmetric, IsListMatrix
-    LOGICAL :: AllocationsDone = .FALSE.
+    LOGICAL :: AllocationsDone = .FALSE., Diagonal
 
     INTERFACE 
       SUBROUTINE ExecLocalAssembly( Proc, Model, Solver, dt, Transient, &
@@ -1821,9 +1822,11 @@ CONTAINS
       END IF
       ProcName = ListGetString( SolverParams, TRIM(str), GotIt )
     END IF
+
+    Diagonal = (RowVar == ColVar) 
     
     IF( .NOT. GotIt ) THEN
-      IF( BulkMode .AND. RowVar == ColVar) THEN
+      IF( BulkMode .AND. Diagonal ) THEN
         CALL Warn('BlockSystemAssembly','Diagonal bulk entries should be assembled!')
       END IF
       RETURN
@@ -2750,25 +2753,22 @@ CONTAINS
       INTEGER :: i,j,k,NoVar,ipar(*)
       REAL(KIND=dp) :: u(*), v(*)
       REAL(KIND=dp), ALLOCATABLE :: tmp(:)
-      INTEGER :: maxsize, offset(TotMatrix % NoVar+1)
+      INTEGER :: maxsize
+      INTEGER, POINTER :: Offset(:)
 
-      NoVAr = TotMatrix % NoVar
-    
-      offset(1) = 1
-      maxsize = 0
-      DO i=1,NoVar
-        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
-        maxsize = MAX(maxsize,offset(i+1)-offset(i))
-      END DO
+      NoVar = TotMatrix % NoVar
+      Offset => TotMatrix % Offset
+      MaxSize = TotMatrix % MaxSize
+
       ALLOCATE(tmp(maxsize))
 
-      v(1:offset(NoVar+1)-1) = 0
+      v(1:offset(NoVar+1)) = 0
       DO i=1,NoVar
          DO j=1,NoVar
            CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j), &
-                    u(offset(j):offset(j+1)-1), tmp )
+                    u(offset(j)+1:offset(j+1)), tmp )
            DO k=1,offset(i+1)-offset(i)
-             v(k+offset(i)-1) = v(k+offset(i)-1) + tmp(k)
+             v(k+offset(i)) = v(k+offset(i)) + tmp(k)
            END DO
          END DO
        END DO
@@ -2778,31 +2778,25 @@ CONTAINS
     SUBROUTINE BlockMatrixPrec( u,v,ipar )
       USE DefUtils
 
-      INTEGER :: offset(TotMatrix % NoVar+1)
       REAL(KIND=dp), TARGET :: u(*), v(*)
       REAL(KIND=dp) :: Norm
       INTEGER :: i,j,NoVar,ipar(*)
       TYPE(Solver_t), POINTER :: Solver
       REAL(KIND=dp), POINTER :: sol_save(:),rhs_save(:)
+      INTEGER, POINTER :: Offset(:)
 
       NoVAr = TotMatrix % NoVar
-    
-      offset(1) = 1
-      DO i=1,NoVar
-        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
-      END DO
-
       Solver => TotMatrix % Solver
 
-      u(1:offset(NoVar+1)-1) = v(1:offset(NoVar+1)-1)
+      u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
       DO i=1,NoVar
         Solver % Variable => TotMatrix % SubVector(i) % Var
         sol_save => CurrentModel % Solver % Variable % Values
-        Solver % Variable % Values => u(offset(i):offset(i+1)-1)
+        Solver % Variable % Values => u(offset(i)+1:offset(i+1))
 
         Solver % Matrix => TotMatrix % Submatrix(i,i)
         rhs_save => CurrentModel % Solver % Matrix % rhs
-        Solver % Matrix % Rhs => v(offset(i):offset(i+1)-1)
+        Solver % Matrix % Rhs => v(offset(i)+1:offset(i+1))
 
         Norm = DefaultSolve()
 
@@ -2836,7 +2830,7 @@ CONTAINS
     TYPE(Variable_t), POINTER :: Var
     INTEGER :: i,j,k,l,n,nd,NoIterations,tests,NoTests,iter
     CHARACTER(LEN=MAX_NAME_LEN) :: BlockMethod
-    LOGICAL :: GotIt, IsListMatrix = .TRUE.
+    LOGICAL :: GotIt
     INTEGER :: ColVar, RowVar, NoVar
 
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
@@ -2848,9 +2842,6 @@ CONTAINS
     TYPE (Matrix_t), POINTER :: Amat
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: SolverParams
-
-    SAVE :: IsListMatrix
-
 
 
     CALL Info('BlockSolver','---------------------------------------',Level=5)
@@ -2873,20 +2864,52 @@ CONTAINS
     ! Check out which variables the coupled model includes
     ! and compure size information related to the new coupled dof.
     !------------------------------------------------------------------------------
-    DO i = 1,9
-      WRITE (str,'(A,I2)') 'Variable',i
-      IF(.NOT. ListCheckPresent( SolverParams, TRIM(str)) ) EXIT
-    END DO
-    NoVar = i-1
+    NoVar = TotMatrix % NoVar
 
-    CALL InitializeBlockMatrix( TotMatrix, NoVar )
-    TotMatrix % Solver => Solver
-    
-    WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
-    CALL Info('BlockSolver',Message)
+    IF( NoVar == 0 ) THEN
+      DO i = 1,9
+        WRITE (str,'(A,I2)') 'Variable',i
+        IF(.NOT. ListCheckPresent( SolverParams, TRIM(str)) ) EXIT
+      END DO
+      NoVar = i-1
+      
+      CALL InitializeBlockMatrix( TotMatrix, NoVar )
+      TotMatrix % Solver => Solver
+      
+      WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
+      CALL Info('BlockSolver',Message)
+
+      !------------------------------------------------------------------------------
+      ! On the first round create the matrix structures using the list structure as 
+      ! the aid. 
+      !------------------------------------------------------------------------------    
+      CALL Info('BlockSolver','Creating matrix structured using list matrices')
+      DO RowVar=1,NoVar
+        Solver % Variable => TotMatrix % SubVector(RowVar) % Var
+        
+        DO ColVar=1,NoVar            
+          Solver % Variable => TotMatrix % SubVector(ColVar) % Var        
+          Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar)
+
+          Amat => Solver % Matrix        
+          Amat % ListMatrix => NULL()
+          Amat % FORMAT = MATRIX_LIST      
+          Amat % NumberOfRows = 0
+
+          CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar)
+
+          IF( .NOT. ASSOCIATED( Amat % ListMatrix ) ) THEN
+            Amat % Format = MATRIX_CRS
+          ELSE
+            CALL List_ToCRSMatrix(Amat)
+            CALL AddEquationSolution(PSolver, Transient )            
+          END IF
+        END DO
+      END DO
+    END IF
 
 !------------------------------------------------------------------------------
-! Do some initial stuff common for both modes
+! Get some parameters
 !------------------------------------------------------------------------------
       
     NoIterations = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
@@ -2908,33 +2931,6 @@ CONTAINS
 
 
     !------------------------------------------------------------------------------
-    ! On the first round create the matrix structures using the list structure as 
-    ! the aid. 
-    !------------------------------------------------------------------------------    
-    IF( IsListMatrix ) THEN
-      DO RowVar=1,NoVar
-        Solver % Variable => TotMatrix % SubVector(RowVar) % Var
-        
-        DO ColVar=1,NoVar            
-          Solver % Variable => TotMatrix % SubVector(ColVar) % Var        
-          Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar)
-          
-          Amat => Solver % Matrix           
-          Amat % ListMatrix => NULL()
-          Amat % FORMAT = MATRIX_LIST      
-          
-          CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar)
-
-          CALL List_ToCRSMatrix(Amat)
-          CALL AddEquationSolution(PSolver, Transient )            
-        END DO
-
-      END DO
-      IsListMatrix = .FALSE.
-    END IF
-
-
-    !------------------------------------------------------------------------------
     ! This is the nonlinear loop that may currently be used either for true 
     ! nonlinearities or to those iterative features stemming up from the block
     ! solution strategy
@@ -2951,6 +2947,7 @@ CONTAINS
         Solver % Variable => TotMatrix % SubVector(RowVar) % Var
 
         DO ColVar=1,NoVar            
+
 
           Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar)
           IF( Solver % Matrix % NumberOfRows == 0 ) CYCLE
@@ -3005,7 +3002,19 @@ CONTAINS
       TotNorm = 0.0_dp
       MaxChange = 0.0_dp
 
-      IF( BlockMethod == 'jacobi' .OR. BlockMethod == 'gauss-seidel') THEN
+      
+      CALL Info('BlockSolver','Using block method:'//TRIM(BlockMethod))
+
+
+      IF( NoVar == 1 ) THEN
+        Solver % Variable => TotMatrix % SubVector(1) % Var
+        Solver % Matrix => TotMatrix % Submatrix(1,1)
+
+        TotNorm = DefaultSolve()
+        MaxChange = Solver % Variable % NonlinChange 
+       
+
+      ELSE IF( BlockMethod == 'jacobi' .OR. BlockMethod == 'gauss-seidel') THEN
         
         ! In block Jacobi the r.h.s. is not updated during the iteration cycle
         !----------------------------------------------------------------------
@@ -3088,19 +3097,17 @@ CONTAINS
       EXTERNAL :: ddot, dnrm2, HUTI_D_BICGSTAB
       REAL(KIND=dp), ALLOCATABLE :: x(:),b(:),work(:,:)
 
-      INTEGER :: ndim, offset(10), maxsize
+      INTEGER :: ndim, maxsize
       LOGICAL :: Converged, Diverged
       INTEGER :: Rounds, OutputInterval, PolynomialDegree
+      INTEGER, POINTER :: Offset(:)
 
-      offset(1) = 1
-      DO i=1,NoVar
-        offset(i+1) = offset(i)+SIZE(TotMatrix % SubVector(i) % Var % Values)
-      END DO
-      ndim =  offset(NoVar+1)-1
+      Offset => TotMatrix % Offset
+      ndim = TotMatrix % TotSize 
       ALLOCATE(x(ndim), b(ndim))
       DO i=1,NoVar
-        x(offset(i):offset(i+1)-1) = TotMatrix % SubVector(i) % Var % Values
-        b(offset(i):offset(i+1)-1) = TotMatrix % SubMatrix(i,i) % rhs
+        x(offset(i)+1:offset(i+1)) = TotMatrix % SubVector(i) % Var % Values
+        b(offset(i)+1:offset(i+1)) = TotMatrix % SubMatrix(i,i) % rhs
       END DO
 
       HUTI_NDIM = ndim
@@ -3122,7 +3129,7 @@ CONTAINS
         mvProc, precProc, zero, dotProc, nmrProc, zero )
 
       DO i=1,NoVar
-        TotMatrix % SubVector(i) % Var % Values = x(offset(i):offset(i+1)-1)
+        TotMatrix % SubVector(i) % Var % Values = x(offset(i)+1:offset(i+1))
       END DO
     END SUBROUTINE IterC
 
@@ -3152,7 +3159,9 @@ CONTAINS
       BlockMatrix % SubMatrixActive = .FALSE.
 
       ALLOCATE( BlockMatrix % SubVector(NoVar))
-
+      ALLOCATE( BlockMatrix % Offset(NoVar+1))
+      BlockMatrix % Offset = 0
+      BlockMatrix % maxsize = 0
 
       DO i = 1,NoVar
         WRITE (str,'(A,I2)') 'Variable',i
@@ -3177,6 +3186,9 @@ CONTAINS
         
         BlockMatrix % SubVector(i) % Var => Var
         n = SIZE( Var % Values )
+
+        BlockMatrix % Offset(i+1) = BlockMatrix % Offset(i) + n
+        BlockMatrix % MaxSize = MAX( BlockMatrix % MaxSize, n )
         ALLOCATE( BlockMatrix % SubVector(i) % r(n) )
         ALLOCATE( BlockMatrix % SubVector(i) % rtmp(n) )
         ALLOCATE( BlockMatrix % SubVector(i) % rhs(n) )
@@ -3184,7 +3196,9 @@ CONTAINS
         BlockMatrix % SubVector(i) % rtmp = 0.0_dp
         BlockMatrix % SubVector(i) % rhs = 0.0_dp
       END DO
-      
+
+      BlockMatrix % TotSize = BlockMatrix % Offset( NoVar + 1 )
+
             
     END SUBROUTINE InitializeBlockMatrix
 
