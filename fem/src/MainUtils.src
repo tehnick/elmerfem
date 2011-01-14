@@ -3094,7 +3094,7 @@ CONTAINS
 
       INTEGER(KIND=AddrInt) :: AddrFunc, iterProc,precProc, mvProc,dotProc,nmrProc, zero=0
       INTEGER :: ipar(20)
-      REAL(KIND=dp) :: dpar(20)
+      REAL(KIND=dp) :: dpar(20), xMaxChange
       EXTERNAL :: ddot, dnrm2, HUTI_D_BICGSTAB
       REAL(KIND=dp), ALLOCATABLE :: x(:),b(:),work(:,:)
 
@@ -3113,7 +3113,7 @@ CONTAINS
 
       HUTI_NDIM = ndim
       HUTI_MAXIT = 1000
-      HUTI_TOLERANCE = NonLinearTol
+      HUTI_TOLERANCE = NonLinearTol/100._dp
       HUTI_MAXTOLERANCE = 1.d9
       HUTI_DBUGLVL = 1
       HUTI_WRKDIM = 1
@@ -3126,8 +3126,13 @@ CONTAINS
       dotProc = AddrFunc(ddot)
       nmrProc = AddrFunc(dnrm2)
 
+      xMaxChange = SQRT(SUM(x**2))
+
       CALL IterCall(iterProc, x, b, ipar, dpar, work, &
         mvProc, precProc, zero, dotProc, nmrProc, zero )
+
+      MaxChange = SQRT(SUM(x**2))
+      MaxChange = 2*ABS(xMaxChange-MaxChange)/(xMaxChange+MaxChange)
 
       DO i=1,NoVar
         TotMatrix % SubVector(i) % Var % Values = x(offset(i)+1:offset(i+1))
