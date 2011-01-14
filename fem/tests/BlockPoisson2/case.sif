@@ -13,7 +13,7 @@ Simulation
   Coordinate Mapping(3) = 1 2 3
 
   Simulation Type = "Steady State"
-  Steady State Max Iterations = 10
+  Steady State Max Iterations = 1
   Steady State Min Iterations = 1
   Output Intervals = 1
 
@@ -39,7 +39,7 @@ End
 
 Equation 1
   Name = "TempA"
-  Active Variables(1) = Integer 1 
+  Active Variables(1) = Integer 2
 End
 
 Equation 2
@@ -69,12 +69,12 @@ Solver 1
   Linear System Preconditioning = ILU1
 
   Bulk Assembly Procedure 11 = File "./PoissonAssembly" "BulkAssembly"
-  Bulk Assembly Procedure 12 = File "./ZeroAssembly" "BulkAssembly"
-  Bulk Assembly Procedure 21 = File "./ZeroAssembly" "BulkAssembly"
+!  Bulk Assembly Procedure 12 = File "./ZeroAssembly" "BulkAssembly"
+!  Bulk Assembly Procedure 21 = File "./ZeroAssembly" "BulkAssembly"
   Bulk Assembly Procedure 22 = File "./PoissonAssembly" "BulkAssembly"
 
   Linear System Block Method = String "gauss-seidel"
-  Primary Variable = Integer 2
+  Primary Variable = Integer 1
 End  
 
 Solver 2
@@ -100,7 +100,7 @@ End
 Boundary Condition 1
   Name = "BC1"
   Target Boundaries(1) = 1 
-  TempA = Real 0
+  TempB = Real 0
 End
 
 Boundary Condition 2
@@ -113,7 +113,7 @@ End
 Boundary Condition 3
   Name = "BC3"
   Target Boundaries(1) = 3
-  TempB = Real 0
+  TempA = Real 0
 End
 
 
