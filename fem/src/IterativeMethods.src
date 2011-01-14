@@ -555,7 +555,7 @@ CONTAINS
         errorind = rnrm / bnrm
         IF( MOD(Round,OutputInterval) == 0) THEN
           WRITE (Message, '(I8, 2E11.4)') Round, rnrm, errorind
-          CALL Info( '', Message, Level=6 )
+          CALL Info( '', Message, Level=4 )
         END IF
     
         Converged = (errorind < Tol) 
@@ -565,7 +565,7 @@ CONTAINS
 
       IF(OutputInterval/=HUGE(OutputInterval)) THEN
         WRITE (Message, '(I8, 2E11.4)') Round, rnrm, errorind
-        CALL Info( '', Message, Level=6 )
+        CALL Info( '', Message, Level=4 )
       END IF
     
       !------------------------------------------------------------
@@ -656,8 +656,6 @@ CONTAINS
          S(1:n,1:m-1) = 0.0d0
       end if	
       
-      x(1:n) = b(1:n)
-
       CALL matvecsubr( x, r, ipar )
       r(1:n) = b(1:n) - r(1:n)
       
@@ -831,8 +829,6 @@ CONTAINS
          S(1:n,1:m-1) = CMPLX( 0.0d0, 0.0d0, kind=dp)
       end if	
       
-      x(1:n) = b(1:n)
-
       CALL matvecsubr( x, r, ipar )
       r(1:n) = b(1:n) - r(1:n)
       
