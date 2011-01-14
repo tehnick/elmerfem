@@ -131,7 +131,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE IterSolver( A,x,b,SolverParam,DotF,NormF,MatvecF )
+  RECURSIVE SUBROUTINE IterSolver( A,x,b,SolverParam,ndim,DotF,NormF,MatvecF,PrecF )
 !------------------------------------------------------------------------------
 
     USE SParIterGlobals
@@ -141,7 +141,8 @@ CONTAINS
     TYPE(Solver_t) :: SolverParam
     REAL(KIND=dp), DIMENSION(:) CONTIG :: x,b
     TYPE(Matrix_t), POINTER :: A, Adiag
-    INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF
+    INTEGER, OPTIONAL :: ndim
+    INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF, PrecF
 !------------------------------------------------------------------------------
 
     REAL(KIND=dp) :: dpar(50),stopfun
@@ -191,6 +192,7 @@ CONTAINS
     END INTERFACE
 !------------------------------------------------------------------------------
     N = A % NumberOfRows
+    IF ( PRESENT(ndim) ) n=ndim
 
     ipar = 0
     dpar = 0.0D0
@@ -293,8 +295,7 @@ CONTAINS
      IF ( .NOT.Gotit ) HUTI_DBUGLVL = 1
 
      IF ( Parenv % myPE /= 0 ) HUTI_DBUGLVL=0
-     IF ( .NOT. OutputLevelMask(6) )  HUTI_DBUGLVL = 0
-
+!    IF ( .NOT. OutputLevelMask(6) )  HUTI_DBUGLVL = 0
 
      HUTI_MAXIT = ListGetInteger( SolverParam % Values, &
          'Linear System Max Iterations', minv=1 )
@@ -317,98 +318,99 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
-     str = ListGetString( SolverParam % Values, &
-      'Linear System Preconditioning',gotit )
+     IF ( .NOT. PRESENT(PrecF) ) THEN
+       str = ListGetString( SolverParam % Values, &
+        'Linear System Preconditioning',gotit )
+       IF ( .NOT.gotit ) str = 'none'
 
-     IF ( .NOT.gotit ) str = 'none'
-
-     IF ( str(1:4) == 'none' ) THEN
-       PCondType = PRECOND_NONE
-     ELSE IF ( str(1:8) == 'diagonal' ) THEN
-       PCondType = PRECOND_DIAGONAL
-     ELSE IF ( str(1:4) == 'ilut' ) THEN
-       ILUT_TOL = ListGetCReal( SolverParam % Values, &
-           'Linear System ILUT Tolerance',GotIt )
-       PCondType = PRECOND_ILUT
-     ELSE IF ( str(1:3) == 'ilu' ) THEN
-       ILUn = NINT(ListGetCReal( SolverParam % Values, &
-          'Linear System ILU Order', gotit ))
-       IF ( .NOT.gotit ) &
-         ILUn = ICHAR(str(4:4)) - ICHAR('0')
-       IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
-       PCondType = PRECOND_ILUn
-     ELSE IF ( str(1:4) == 'bilu' ) THEN
-       ILUn = ICHAR(str(5:5)) - ICHAR('0')
-       IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
-       IF( SolverParam % Variable % Dofs == 1) THEN
-         CALL Warn('IterSolver','BILU for one dofs is equal to ILU!')
+       IF ( str(1:4) == 'none' ) THEN
+         PCondType = PRECOND_NONE
+       ELSE IF ( str(1:8) == 'diagonal' ) THEN
+         PCondType = PRECOND_DIAGONAL
+       ELSE IF ( str(1:4) == 'ilut' ) THEN
+         ILUT_TOL = ListGetCReal( SolverParam % Values, &
+             'Linear System ILUT Tolerance',GotIt )
+         PCondType = PRECOND_ILUT
+       ELSE IF ( str(1:3) == 'ilu' ) THEN
+         ILUn = NINT(ListGetCReal( SolverParam % Values, &
+            'Linear System ILU Order', gotit ))
+         IF ( .NOT.gotit ) &
+           ILUn = ICHAR(str(4:4)) - ICHAR('0')
+         IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
          PCondType = PRECOND_ILUn
+       ELSE IF ( str(1:4) == 'bilu' ) THEN
+         ILUn = ICHAR(str(5:5)) - ICHAR('0')
+         IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
+         IF( SolverParam % Variable % Dofs == 1) THEN
+           CALL Warn('IterSolver','BILU for one dofs is equal to ILU!')
+           PCondType = PRECOND_ILUn
+         ELSE
+           PCondType = PRECOND_BILUn
+         END IF
+       ELSE IF ( str(1:9) == 'multigrid' ) THEN
+         PCondType = PRECOND_MG
+       ELSE IF ( str(1:5) == 'vanka' ) THEN
+         PCondType = PRECOND_VANKA
        ELSE
-         PCondType = PRECOND_BILUn
+         PCondType = PRECOND_NONE
+         CALL Warn( 'IterSolve', 'Unknown preconditioner type, feature disabled.' )
        END IF
-     ELSE IF ( str(1:9) == 'multigrid' ) THEN
-       PCondType = PRECOND_MG
-     ELSE IF ( str(1:5) == 'vanka' ) THEN
-       PCondType = PRECOND_VANKA
-     ELSE
-       PCondType = PRECOND_NONE
-       CALL Warn( 'IterSolve', 'Unknown preconditioner type, feature disabled.' )
-     END IF
 
-     IF ( .NOT. ListGetLogical( SolverParam % Values, 'No Precondition Recompute',GotIt ) ) THEN
-        n = ListGetInteger( SolverParam % Values, 'Linear System Precondition Recompute', GotIt )
-        IF ( n <= 0 ) n = 1
+       IF ( .NOT. ListGetLogical( SolverParam % Values, 'No Precondition Recompute',GotIt ) ) THEN
+          n = ListGetInteger( SolverParam % Values, 'Linear System Precondition Recompute', GotIt )
+          IF ( n <= 0 ) n = 1
 
-        Refactorize = ListGetLogical( SolverParam % Values, 'Linear System Refactorize', Gotit )
-        IF ( .NOT. Gotit ) Refactorize = .TRUE.
+          Refactorize = ListGetLogical( SolverParam % Values, 'Linear System Refactorize', Gotit )
+          IF ( .NOT. Gotit ) Refactorize = .TRUE.
 
-        IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize.AND.MOD(A % SolveCount, n)==0) ) THEN
-           IF ( A % FORMAT == MATRIX_CRS ) THEN
-             IF ( A % COMPLEX ) THEN
-                IF ( PCondType == PRECOND_ILUn ) THEN
-                   Condition = CRS_ComplexIncompleteLU(A,ILUn)
-                ELSE IF ( PCondType == PRECOND_ILUT ) THEN
-                   Condition = CRS_ComplexILUT( A,ILUT_TOL )
-                END IF
-             ELSE
-               SELECT CASE(PCondType)
-               CASE(PRECOND_ILUn)
-                 Condition = CRS_IncompleteLU(A,ILUn)
-               CASE(PRECOND_ILUT)
-                 Condition = CRS_ILUT( A,ILUT_TOL )
-               CASE(PRECOND_BILUn)
-                 Blocks = SolverParam % Variable % Dofs
-                 IF ( Blocks <= 1 ) THEN
+          IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize.AND.MOD(A % SolveCount, n)==0) ) THEN
+             IF ( A % FORMAT == MATRIX_CRS ) THEN
+               IF ( A % COMPLEX ) THEN
+                  IF ( PCondType == PRECOND_ILUn ) THEN
+                     Condition = CRS_ComplexIncompleteLU(A,ILUn)
+                  ELSE IF ( PCondType == PRECOND_ILUT ) THEN
+                     Condition = CRS_ComplexILUT( A,ILUT_TOL )
+                  END IF
+               ELSE
+                 SELECT CASE(PCondType)
+                 CASE(PRECOND_ILUn)
                    Condition = CRS_IncompleteLU(A,ILUn)
-                 ELSE
-	           IF( .NOT. ASSOCIATED( A % ILUValues ) ) THEN
-                     Adiag => AllocateMatrix()
-                     CALL CRS_BlockDiagonal(A,Adiag,Blocks)
-                     Condition = CRS_IncompleteLU(Adiag,ILUn)
-                     A % ILURows   => Adiag % ILURows
-                     A % ILUCols   => Adiag % ILUCols
-                     A % ILUValues => Adiag % ILUValues
-                     A % ILUDiag   => Adiag % ILUDiag                 
-                     IF (ILUn > 0) THEN
-                       DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Diag, Adiag % Values)
-                     END IF
-                     DEALLOCATE( Adiag )
-                   ELSE
+                 CASE(PRECOND_ILUT)
+                   Condition = CRS_ILUT( A,ILUT_TOL )
+                 CASE(PRECOND_BILUn)
+                   Blocks = SolverParam % Variable % Dofs
+                   IF ( Blocks <= 1 ) THEN
                      Condition = CRS_IncompleteLU(A,ILUn)
+                   ELSE
+  	           IF( .NOT. ASSOCIATED( A % ILUValues ) ) THEN
+                       Adiag => AllocateMatrix()
+                       CALL CRS_BlockDiagonal(A,Adiag,Blocks)
+                       Condition = CRS_IncompleteLU(Adiag,ILUn)
+                       A % ILURows   => Adiag % ILURows
+                       A % ILUCols   => Adiag % ILUCols
+                       A % ILUValues => Adiag % ILUValues
+                       A % ILUDiag   => Adiag % ILUDiag                 
+                       IF (ILUn > 0) THEN
+                         DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Diag, Adiag % Values)
+                       END IF
+                       DEALLOCATE( Adiag )
+                     ELSE
+                       Condition = CRS_IncompleteLU(A,ILUn)
+                     END IF
                    END IF
-                 END IF
-               CASE(PRECOND_VANKA)
-!                CALL VankaCreate( A, SolverParam )
-               END SELECT
+                 CASE(PRECOND_VANKA)
+!                  CALL VankaCreate( A, SolverParam )
+                 END SELECT
+               END IF
+             ELSE
+               IF ( PCondType == PRECOND_ILUn ) THEN
+                 CALL Warn( 'IterSolve', 'No ILU Preconditioner for Band Matrix format,' )
+                 CALL Warn( 'IterSolve', 'using Diagonal preconditioner instead...' )
+                 PCondType = PRECOND_DIAGONAL
+               END IF
              END IF
-           ELSE
-             IF ( PCondType == PRECOND_ILUn ) THEN
-               CALL Warn( 'IterSolve', 'No ILU Preconditioner for Band Matrix format,' )
-               CALL Warn( 'IterSolve', 'using Diagonal preconditioner instead...' )
-               PCondType = PRECOND_DIAGONAL
-             END IF
-           END IF
-        END IF
+          END IF
+       END IF
      END IF
 
      A % SolveCount = A % SolveCount + 1
@@ -444,33 +446,37 @@ CONTAINS
      END IF
 
 
-     SELECT CASE( PCondType )
-       CASE (PRECOND_NONE)
-         pcondProc = AddrFunc( pcond_dummy )
+     IF ( PRESENT(PrecF) ) THEN
+       pcondProc = PrecF
+     ELSE
+       SELECT CASE( PCondType )
+         CASE (PRECOND_NONE)
+           pcondProc = AddrFunc( pcond_dummy )
 
-       CASE (PRECOND_DIAGONAL)
-         IF ( .NOT. A % COMPLEX ) THEN
-           pcondProc = AddrFunc( CRS_DiagPrecondition )
-         ELSE
-           pcondProc = AddrFunc( CRS_ComplexDiagPrecondition )
-         END IF
+         CASE (PRECOND_DIAGONAL)
+           IF ( .NOT. A % COMPLEX ) THEN
+             pcondProc = AddrFunc( CRS_DiagPrecondition )
+           ELSE
+             pcondProc = AddrFunc( CRS_ComplexDiagPrecondition )
+           END IF
 
-       CASE (PRECOND_ILUn, PRECOND_ILUT, PRECOND_BILUn )
-         IF ( .NOT. A % COMPLEX ) THEN
-           pcondProc = AddrFunc( CRS_LUPrecondition )
-         ELSE
-           pcondProc = AddrFunc( CRS_ComplexLUPrecondition )
-         END IF
+         CASE (PRECOND_ILUn, PRECOND_ILUT, PRECOND_BILUn )
+           IF ( .NOT. A % COMPLEX ) THEN
+             pcondProc = AddrFunc( CRS_LUPrecondition )
+           ELSE
+             pcondProc = AddrFunc( CRS_ComplexLUPrecondition )
+           END IF
 
-       CASE (PRECOND_MG)
-         pcondProc = AddrFunc( MultiGridPrec )
+         CASE (PRECOND_MG)
+           pcondProc = AddrFunc( MultiGridPrec )
 
-       CASE (PRECOND_VANKA)
-         pcondProc = AddrFunc( VankaPrec )
+         CASE (PRECOND_VANKA)
+           pcondProc = AddrFunc( VankaPrec )
 
-       CASE DEFAULT
-         pcondProc = 0
-     END SELECT
+         CASE DEFAULT
+           pcondProc = 0
+       END SELECT
+     END IF
 
      IF ( .NOT. A % COMPLEX ) THEN
        SELECT CASE ( IterType )

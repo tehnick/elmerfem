@@ -2789,6 +2789,9 @@ CONTAINS
       REAL(KIND=dp), POINTER :: sol_save(:),rhs_save(:)
       INTEGER, POINTER :: Offset(:)
 
+      LOGICAL :: l
+      TYPE(Varying_string) :: namesp
+
       NoVar = TotMatrix % NoVar
       Solver => TotMatrix % Solver
       offset => TotMatrix % Offset
@@ -2803,7 +2806,10 @@ CONTAINS
         rhs_save => Solver % Matrix % rhs
         Solver % Matrix % Rhs => v(offset(i)+1:offset(i+1))
 
+        L = ListGetNameSpace(namesp)
+        CALL ListSetNameSpace('')
         Norm = DefaultSolve()
+        CALL ListSetNameSpace(char(namesp))
 
         Solver % Matrix % rhs => rhs_save
         Solver % Variable % Values  => sol_save
@@ -3073,37 +3079,19 @@ CONTAINS
 
   CONTAINS 
 
-#include "huti_fdefs.h"
-#ifndef HUTI_MAXTOLERANCE
-#define HUTI_MAXTOLERANCE dpar(2)
-#endif
-#ifndef HUTI_SGSPARAM
-#define HUTI_SGSPARAM dpar(3)
-#endif
-#ifndef HUTI_BICGSTABL_L
-#define HUTI_BICGSTABL_L ipar(16)
-#endif
-#ifndef HUTI_DIVERGENCE
-#define HUTI_DIVERGENCE 3
-#endif
-#ifndef HUTI_GCR_RESTART
-#define HUTI_GCR_RESTART ipar(17)
-#endif
-
-
     SUBROUTINE IterC
       USE IterSolve
 
       INTEGER(KIND=AddrInt) :: AddrFunc, iterProc,precProc, mvProc,dotProc,nmrProc, zero=0
-      INTEGER :: ipar(20)
       REAL(KIND=dp) :: dpar(20), xMaxChange
-      EXTERNAL :: ddot, dnrm2, HUTI_D_BICGSTAB
-      REAL(KIND=dp), ALLOCATABLE :: x(:),b(:),work(:,:)
+      REAL(KIND=dp), ALLOCATABLE :: x(:),b(:)
 
       INTEGER :: ndim, maxsize
       LOGICAL :: Converged, Diverged
       INTEGER :: Rounds, OutputInterval, PolynomialDegree
       INTEGER, POINTER :: Offset(:)
+      LOGICAL :: l
+      TYPE(Varying_string) :: namesp
 
       Offset => TotMatrix % Offset
       ndim = TotMatrix % TotSize 
@@ -3113,26 +3101,16 @@ CONTAINS
         b(offset(i)+1:offset(i+1)) = TotMatrix % SubMatrix(i,i) % Mat % rhs
       END DO
 
-      HUTI_NDIM = ndim
-      HUTI_MAXIT = 1000
-      HUTI_TOLERANCE = NonLinearTol/100._dp
-      HUTI_MAXTOLERANCE = 1.d9
-      HUTI_DBUGLVL = 1
-      HUTI_WRKDIM = 1
-      HUTI_BICGSTABL_L = 2
-      HUTI_GCR_RESTART = 25
-
-      ALLOCATE(work(ndim,HUTI_WRKDIM))
-      iterProc = AddrFunc(itermethod_gcr)
       precProc = AddrFunc(BlockMatrixPrec)
       mvProc = AddrFunc(BlockMatrixVectorProd)
-      dotProc = AddrFunc(ddot)
-      nmrProc = AddrFunc(dnrm2)
 
       xMaxChange = SQRT(SUM(x**2))
 
-      CALL IterCall(iterProc, x, b, ipar, dpar, work, &
-        mvProc, precProc, zero, dotProc, nmrProc, zero )
+      L = ListGetNameSpace(namesp)
+      CALL ListSetNameSpace('outer:')
+      CALL IterSolver( TotMatrix % SubMatrix(1,1) % Mat,x,b, &
+         Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
+      CALL ListSetNameSpace(char(namesp))
 
       MaxChange = SQRT(SUM(x**2))
       MaxChange = 2*ABS(xMaxChange-MaxChange)/(xMaxChange+MaxChange)
