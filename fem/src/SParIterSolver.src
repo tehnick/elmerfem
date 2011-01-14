@@ -1868,12 +1868,12 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
 
   IF ( .NOT. SourceMatrix % Complex ) THEN
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
-        TmpRHSVec, Solver, AddrFunc(SParDotProd), AddrFunc(SParNorm), &
-          AddrFunc(SParMatrixVector) )
+        TmpRHSVec, Solver, DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm), &
+          matVecF=AddrFunc(SParMatrixVector) )
   ELSE
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
-       TmpRHSVec, Solver, AddrFunc(SParCDotProd), AddrFunc(SParCNorm), &
-         AddrFunc(SParCMatrixVector) )
+       TmpRHSVec, Solver, DotF=AddrFunc(SParCDotProd), NormF=AddrFunc(SParCNorm), &
+         MatVecF=AddrFunc(SParCMatrixVector) )
   END IF
 
   !----------------------------------------------------------------------
