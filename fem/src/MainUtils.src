@@ -55,13 +55,18 @@ MODULE MainUtils
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
       REAL(KIND=dp),POINTER :: r(:),rtmp(:),rhs(:)
     END TYPE SubVector_t
+
     
+    TYPE SubMatrix_t
+       TYPE(Matrix_t), POINTER :: Mat
+    END TYPE SubMatrix_t
+
     TYPE BlockMatrix_t
       INTEGER :: NoVar = 0, MaxSize, TotSize
       INTEGER, POINTER :: Offset(:)
       TYPE(Solver_t), POINTER :: Solver
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
-      TYPE(Matrix_t), POINTER :: SubMatrix(:,:)
+      TYPE(SubMatrix_t), POINTER :: SubMatrix(:,:)
       LOGICAL, POINTER :: SubMatrixActive(:,:)
       TYPE(SubVector_t), POINTER :: SubVector(:)
     END TYPE BlockMatrix_t
@@ -2765,7 +2770,7 @@ CONTAINS
       v(1:offset(NoVar+1)) = 0
       DO i=1,NoVar
          DO j=1,NoVar
-           CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j), &
+           CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
                     u(offset(j)+1:offset(j+1)), tmp )
            DO k=1,offset(i+1)-offset(i)
              v(k+offset(i)) = v(k+offset(i)) + tmp(k)
@@ -2792,11 +2797,11 @@ CONTAINS
       u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
       DO i=1,NoVar
         Solver % Variable => TotMatrix % SubVector(i) % Var
-        sol_save => CurrentModel % Solver % Variable % Values
+        sol_save => Solver % Variable % Values
         Solver % Variable % Values => u(offset(i)+1:offset(i+1))
 
-        Solver % Matrix => TotMatrix % Submatrix(i,i)
-        rhs_save => CurrentModel % Solver % Matrix % rhs
+        Solver % Matrix => TotMatrix % Submatrix(i,i) % Mat
+        rhs_save => Solver % Matrix % rhs
         Solver % Matrix % Rhs => v(offset(i)+1:offset(i+1))
 
         Norm = DefaultSolve()
@@ -2890,7 +2895,7 @@ CONTAINS
         
         DO ColVar=1,NoVar            
           Solver % Variable => TotMatrix % SubVector(ColVar) % Var        
-          Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar)
+          Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar) % Mat
 
           Amat => Solver % Matrix        
           Amat % ListMatrix => NULL()
@@ -2950,7 +2955,7 @@ CONTAINS
         DO ColVar=1,NoVar            
 
 
-          Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar)
+          Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar) % Mat
           IF( Solver % Matrix % NumberOfRows == 0 ) CYCLE
 
           Solver % Variable => TotMatrix % SubVector(ColVar) % Var
@@ -2965,7 +2970,6 @@ CONTAINS
           CALL BlockSystemDirichlet(TotMatrix,RowVar,ColVar)
         END DO
       END DO
-       
 !------------------------------------------------------------------------------
 !    Check the stepsize of nonlinear iteration using the Armijo-GoldStein 
 !    criterion for the stepsize.
@@ -3009,7 +3013,7 @@ CONTAINS
 
       IF( NoVar == 1 ) THEN
         Solver % Variable => TotMatrix % SubVector(1) % Var
-        Solver % Matrix => TotMatrix % Submatrix(1,1)
+        Solver % Matrix => TotMatrix % Submatrix(1,1) % Mat
 
         TotNorm = DefaultSolve()
         MaxChange = Solver % Variable % NonlinChange 
@@ -3025,7 +3029,7 @@ CONTAINS
         
         DO RowVar=1,NoVar
           Solver % Variable => TotMatrix % SubVector(RowVar) % Var
-          Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar)
+          Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
 
           ! In gauss-seidel the partial update is immediately taken into account
           !---------------------------------------------------------------------
@@ -3061,7 +3065,7 @@ CONTAINS
     !---------------------------------------------------------------------------
     RowVar = ListGetInteger( SolverParams,'Primary Variable',GotIt)
     IF(.NOT. GotIt) RowVar = 1
-    Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar)
+    Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
     Solver % Variable => TotMatrix % SubVector(RowVar) % Var
 
 
@@ -3108,7 +3112,7 @@ CONTAINS
       ALLOCATE(x(ndim), b(ndim))
       DO i=1,NoVar
         x(offset(i)+1:offset(i+1)) = TotMatrix % SubVector(i) % Var % Values
-        b(offset(i)+1:offset(i+1)) = TotMatrix % SubMatrix(i,i) % rhs
+        b(offset(i)+1:offset(i+1)) = TotMatrix % SubMatrix(i,i) % Mat % rhs
       END DO
 
       HUTI_NDIM = ndim
@@ -3118,9 +3122,10 @@ CONTAINS
       HUTI_DBUGLVL = 1
       HUTI_WRKDIM = 1
       HUTI_BICGSTABL_L = 2
+      HUTI_GCR_RESTART = 25
 
       ALLOCATE(work(ndim,HUTI_WRKDIM))
-      itERproc = AddrFunc(itermethod_bicgstabl)
+      iterProc = AddrFunc(itermethod_gcr)
       precProc = AddrFunc(BlockMatrixPrec)
       mvProc = AddrFunc(BlockMatrixVectorProd)
       dotProc = AddrFunc(ddot)
@@ -3154,10 +3159,11 @@ CONTAINS
       ALLOCATE( BlockMatrix % SubMatrix(NoVar,NoVar) )
       DO i=1,NoVar
         DO j=1,NoVar
-          Amat => BlockMatrix % Submatrix(i,j)
-          CALL ClearMatrix( Amat )
+          ALLOCATE(Amat)
+          CALL ClearMatrix(Amat)
           Amat % ListMatrix => NULL()
           Amat % FORMAT = MATRIX_LIST      
+          BlockMatrix % Submatrix(i,j) % Mat => Amat
         END DO
       END DO
       
@@ -3227,7 +3233,7 @@ CONTAINS
 
       CALL Info( 'BlockSolver', 'Setting block system Dirichlet conditions', Level=4 )
       
-      Solver % Matrix => BlockMatrix % SubMatrix( NoRow, NoCol ) 
+      Solver % Matrix => BlockMatrix % SubMatrix( NoRow, NoCol ) % Mat
       IF( Solver % Matrix % NumberOfRows == 0 ) RETURN
        
       WRITE (str,'(A,I2)') 'Variable',NoRow
@@ -3270,7 +3276,7 @@ CONTAINS
         x => Var % Values
         xNorm = ComputeNorm(Solver, n, x)
 
-        A => BlockMatrix % SubMatrix(NoRow,NoRow)
+        A => BlockMatrix % SubMatrix(NoRow,NoRow) % Mat
         Solver % Matrix => A
         b => A % rhs
         
@@ -3299,7 +3305,7 @@ CONTAINS
           Var => BlockMatrix % SubVector(NoCol) % Var
           x => Var % Values
 
-          A => BlockMatrix % SubMatrix( NoRow, NoCol ) 
+          A => BlockMatrix % SubMatrix( NoRow, NoCol )  % Mat
           IF( A % NumberOfRows == 0 ) CYCLE
           b => A % rhs
           
@@ -3374,7 +3380,7 @@ CONTAINS
         ! The r.h.s. of the initial system
         rhs => BlockMatrix % SubVector(NoRow) % rhs
 
-        A => BlockMatrix % SubMatrix( NoRow, NoRow )
+        A => BlockMatrix % SubMatrix( NoRow, NoRow ) % Mat
         rhs = A % rhs
 
         DO NoCol = 1,NoVar           
@@ -3384,7 +3390,7 @@ CONTAINS
           
           Var => BlockMatrix % SubVector(NoCol) % Var
           x => Var % Values
-          A => BlockMatrix % SubMatrix( NoRow, NoCol ) 
+          A => BlockMatrix % SubMatrix( NoRow, NoCol ) % Mat
           IF( A % NumberOfRows == 0 ) CYCLE
           
           CALL MatrixVectorMultiply( A, x, r)      
@@ -3450,7 +3456,7 @@ CONTAINS
         
         DO i=1,BlockMatrix % NoVar
           Var => BlockMatrix % SubVector(i) % Var
-          b => BlockMatrix % SubMatrix(i,i) % rhs
+          b => BlockMatrix % SubMatrix(i,i) % Mat % rhs
           x => Var % Values
           n = SIZE( b )
           
@@ -3497,7 +3503,7 @@ CONTAINS
 
       RowVar = ListGetInteger( SolverParams,'Primary Variable',GotIt)
       IF(.NOT. GotIt) RowVar = 1
-      Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar)
+      Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
       Solver % Variable => TotMatrix % SubVector(RowVar) % Var
 
       
