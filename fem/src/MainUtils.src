@@ -2785,7 +2785,7 @@ CONTAINS
       REAL(KIND=dp), POINTER :: sol_save(:),rhs_save(:)
       INTEGER, POINTER :: Offset(:)
 
-      NoVAr = TotMatrix % NoVar
+      NoVar = TotMatrix % NoVar
       Solver => TotMatrix % Solver
       offset => TotMatrix % Offset
 
@@ -3389,66 +3389,6 @@ CONTAINS
       END DO
 
     END SUBROUTINE UpdateBlockRhs
-
-
-    !------------------------------------------------------------------------------          
-    ! Compute the rhs for the block matrix system which is solved
-    ! accounting only the diagonal entries i.e. subtract the non-diagonal 
-    ! matrix-vector results from the original r.h.s. vectors.
-    ! After this the block diagonal problem Ax=b may be solved.
-    !----------------------------------------------------------------------------------
-    SUBROUTINE UpdateBlockRhsAll( BlockMatrix, ThisRow )
-      
-      TYPE(BlockMatrix_t) :: BlockMatrix
-      INTEGER, OPTIONAL :: ThisRow
-      
-      TYPE(Matrix_t), POINTER :: A
-      INTEGER :: n, NoRow,NoCol, NoVar
-      REAL(KIND=dp), POINTER :: x(:),r(:),rhs(:)
-      
-      CALL Info('BlockSolver','Computing block r.h.s',Level=5)
-      
-      
-      NoVar = BlockMatrix % NoVar
-
-      DO NoRow = 1,NoVar 
-
-        ! Optionally only one diagonal block may be updated for
-        IF( PRESENT( ThisRow ) ) THEN
-          IF( NoRow /= ThisRow ) CYCLE 
-        END IF
-        
-        Var => BlockMatrix % SubVector(NoRow) % Var
-        x => Var % Values
-        n = SIZE( x )
-        
-        ! The residual is used only as a temporary vector
-        r => BlockMatrix % SubVector(NoRow) % r
-        r = 0.0_dp
-        
-        ! The r.h.s. of the initial system
-        rhs => BlockMatrix % SubVector(NoRow) % rhs
-
-        A => BlockMatrix % SubMatrix( NoRow, NoRow )
-        rhs = A % rhs
-
-        DO NoCol = 1,NoVar           
-          ! This ensures that the diagonal itself is not subtracted
-          ! Otherwise the linear system should be solved for dx rather than x
-!         IF( NoCol == NoRow ) CYCLE
-          
-          Var => BlockMatrix % SubVector(NoCol) % Var
-          x => Var % Values
-          A => BlockMatrix % SubMatrix( NoRow, NoCol ) 
-          IF( A % NumberOfRows == 0 ) CYCLE
-          
-          CALL MatrixVectorMultiply( A, x, r)      
-          rhs = rhs - r
-        END DO
-
-      END DO
-
-    END SUBROUTINE UpdateBlockRhsAll
 
 
 !------------------------------------------------------------------------------
