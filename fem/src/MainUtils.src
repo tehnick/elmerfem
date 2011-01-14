@@ -53,9 +53,8 @@ MODULE MainUtils
     TYPE SubVector_t 
       TYPE(Variable_t), POINTER :: Var 
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
-      REAL(KIND=dp),POINTER :: r(:),rtmp(:),rhs(:)
+      REAL(KIND=dp), ALLOCATABLE :: r(:),rtmp(:),rhs(:)
     END TYPE SubVector_t
-
     
     TYPE SubMatrix_t
        TYPE(Matrix_t), POINTER :: Mat
@@ -66,12 +65,12 @@ MODULE MainUtils
       INTEGER, POINTER :: Offset(:)
       TYPE(Solver_t), POINTER :: Solver
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
-      TYPE(SubMatrix_t), POINTER :: SubMatrix(:,:)
-      LOGICAL, POINTER :: SubMatrixActive(:,:)
-      TYPE(SubVector_t), POINTER :: SubVector(:)
+      TYPE(SubMatrix_t), ALLOCATABLE :: SubMatrix(:,:)
+      LOGICAL, ALLOCATABLE :: SubMatrixActive(:,:)
+      TYPE(SubVector_t), ALLOCATABLE :: SubVector(:)
     END TYPE BlockMatrix_t
     
-    TYPE(BlockMatrix_t) :: TotMatrix
+    TYPE(BlockMatrix_t), TARGET :: TotMatrix
 
 CONTAINS
 
@@ -3065,9 +3064,8 @@ CONTAINS
     !---------------------------------------------------------------------------
     RowVar = ListGetInteger( SolverParams,'Primary Variable',GotIt)
     IF(.NOT. GotIt) RowVar = 1
-    Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
     Solver % Variable => TotMatrix % SubVector(RowVar) % Var
-
+    Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
 
     CALL Info('BlockSolver','All done')
     CALL Info('BlockSolver','-------------------------------------------------',Level=5)
@@ -3255,7 +3253,7 @@ CONTAINS
     !----------------------------------------------------------------------------------
     FUNCTION ComputeBlockNorm(BlockMatrix, DiagonalOnly, MatrixOnly ) RESULT ( Residual )
       
-      TYPE(BlockMatrix_t) :: BlockMatrix
+      TYPE(BlockMatrix_t), TARGET :: BlockMatrix
       LOGICAL, OPTIONAL :: DiagonalOnly, MatrixOnly
       REAL(KIND=dp) :: Residual
 
@@ -3350,7 +3348,7 @@ CONTAINS
     !----------------------------------------------------------------------------------
     SUBROUTINE UpdateBlockRhs( BlockMatrix, ThisRow )
       
-      TYPE(BlockMatrix_t) :: BlockMatrix
+      TYPE(BlockMatrix_t), TARGET :: BlockMatrix
       INTEGER, OPTIONAL :: ThisRow
       
       TYPE(Matrix_t), POINTER :: A
