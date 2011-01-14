@@ -1948,18 +1948,18 @@ CALL Info( 'VariableGet', Message, Level=7 )
      TYPE(Varying_string) :: strn
      CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
-     INTEGER :: k, n
+     INTEGER :: k, k1, n
 
      k = StringToLowerCase( str,Name,.TRUE. )
 
      ptr => Null()
      IF ( ListGetNamespace(strn) ) THEN
        strn = strn //' '//str(1:k)
-       k = LEN(strn)
+       k1 = LEN(strn)
        ptr => List
        DO WHILE( ASSOCIATED(ptr) )
           n = ptr % NameLen
-          IF ( n==k ) THEN
+          IF ( n==k1 ) THEN
             IF ( ptr % Name(1:n) == strn ) EXIT
           END IF
           ptr => ptr % Next
