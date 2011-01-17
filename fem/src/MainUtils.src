@@ -1583,6 +1583,8 @@ CONTAINS
   !-----------------------------------------------------------------------------------
   FUNCTION CreateBlockVariable( Solver, VariableNo ) RESULT ( Var )
 
+    USE DefUtils
+
     TYPE(Solver_t), POINTER :: Solver
     INTEGER :: VariableNo
     TYPE(Variable_t), POINTER :: Var
@@ -1590,17 +1592,55 @@ CONTAINS
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(Element_t), POINTER :: Element
-    INTEGER :: i,j,t,n,body_id,body_id_prev,eq_id,solver_id,Dofs
-    INTEGER, POINTER :: VarPerm(:), ActiveVariables(:), Indexes(:)
+    INTEGER :: i,j,t,n,ndeg,body_id,body_id_prev,eq_id,solver_id,Dofs
+    INTEGER, POINTER :: VarPerm(:), ActiveVariables(:)
+    INTEGER, ALLOCATABLE :: Indexes(:)
     REAL(KIND=dp), POINTER :: Values(:)
     LOGICAL :: Hit, GotIt
-    CHARACTER(LEN=max_name_len) :: str, VarName
+    CHARACTER(LEN=max_name_len) :: str, VarName, eq
+
+    LOGICAL :: GlobalBubbles, Found
+    INTEGER :: MaxNDOFs, MaxDGDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
 
 
     Mesh => Solver % Mesh
-    n = Solver % Mesh % NumberOfNodes
-    NULLIFY( VarPerm )
-    ALLOCATE( VarPerm(n) )
+
+    Ndeg = 0
+    MaxNDOFs  = 0
+    MaxBDOFs = 0
+    MaxDGDOFs = 0
+    DO i=1, Mesh % NumberOFBulkElements
+      Element => Mesh % Elements(i)
+      MaxNDOFs  = MAX( MaxNDOFs,  Element % NDOFs )
+      MaxBDOFs  = MAX( MaxBDOFs,  Element % BDOFs )
+      MaxDGDOFs = MAX( MaxDGDOFs, Element % DGDOFs )
+    END DO
+
+    MaxEDOFs = 0
+    DO i=1, Mesh % NumberOFEdges
+      Element => Solver % Mesh % Edges(i)
+      MaxEDOFs  = MAX( MaxEDOFs,  Element % BDOFs )
+    END DO
+
+    MaxFDOFs = 0
+    DO i=1, Mesh % NumberOFFaces
+      Element => Solver % Mesh % Faces(i)
+      MaxFDOFs  = MAX( MaxFDOFs,  Element % BDOFs )
+    END DO
+
+    GlobalBubbles = GetLogical( GetSolverParams(), 'Bubbles in Global System', Found )
+    IF (.NOT.Found) GlobalBubbles = .TRUE.
+
+    Ndeg = Ndeg + Mesh % NumberOfNodes
+    IF ( MaxEDOFs > 0 ) Ndeg = Ndeg + MaxEDOFs * Mesh % NumberOFEdges
+    IF ( MaxFDOFs > 0 ) Ndeg = Ndeg + MaxFDOFs * Mesh % NumberOFFaces
+    IF ( GlobalBubbles ) &
+        Ndeg = Ndeg + MaxBDOFs * Mesh % NumberOfBulkElements
+    IF ( GetLogical( GetSolverParams(), 'Discontinuous Galerkin', Found ) ) &
+        Ndeg = MAX( NDeg, MaxDGDOFs * ( Mesh % NumberOfBulkElements + &
+                        Mesh % NumberOfBoundaryElements) )
+
+    ALLOCATE( VarPerm(ndeg) )
     VarPerm = 0
         
     WRITE (str,'(A,I2)') 'Variable',VariableNo
@@ -1615,23 +1655,22 @@ CONTAINS
       END IF
     END DO
  
+    ALLOCATE(Indexes(Mesh % MaxElementDOFs))
     DO t=1,Mesh % NumberOfBulkElements + Mesh % NumberOFBoundaryElements
-      
       Element => Mesh % Elements(t)
       CurrentModel % CurrentElement => Element
       
       body_id = Element % BodyId 
-      
       IF( body_id /= body_id_prev ) THEN
-        body_id_prev = body_id
         Hit = .FALSE.
+        body_id_prev = body_id
         
         IF( body_id < 1 ) CYCLE
-        eq_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values,'Equation')
+        eq_id = GetInteger( CurrentModel % Bodies(body_id) % Values,'Equation')
         IF( eq_id < 1 ) CYCLE
         
-        WRITE (str,'(A,I1,A)') 'Active Variables[',solver_id,']'            
-        ActiveVariables => ListGetIntegerArray( CurrentModel % Equations(eq_id) % Values, str)
+        str='Active Variables['//TRIM(i2s(solver_id))//']'            
+        ActiveVariables => ListGetIntegerArray(CurrentModel % Equations(eq_id) % Values, str)
         IF(.NOT. ASSOCIATED(ActiveVariables)) THEN
           ActiveVariables => ListGetIntegerArray( CurrentModel % Equations(eq_id) % Values, &
               'Active Variables')
@@ -1642,9 +1681,8 @@ CONTAINS
       END IF
           
       IF( Hit ) THEN
-        n  = Element % TYPE % NumberOfNodes
-        Indexes => Element % NodeIndexes
-        VarPerm( Indexes(1:n) ) = 1
+        n=GetElementDOFs(Indexes)
+        VarPerm(Indexes(1:n)) = 1
       END IF
     END DO
         
@@ -1661,8 +1699,7 @@ CONTAINS
       Dofs = ListGetInteger( Solver % Values, TRIM(str), GotIt )
       IF(.NOT. GotIt) Dofs = 1
       
-      NULLIFY(Values)
-      ALLOCATE(Values(Dofs * j))
+      ALLOCATE(Values(Dofs*j))
       Values = 0.0_dp
           
       CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
@@ -1729,7 +1766,7 @@ CONTAINS
     END INTERFACE
 
     SAVE :: AllocationsDone, AllocCols, AllocRows, &
-        FORCE, STIFF, DAMP, MASS, ColInds, RowInds
+        FORCE, STIFF, DAMP, MASS, ColInds, RowInds, indexes
 
     Mesh => Solver % Mesh
     SolverParams => Solver % Values
@@ -1780,6 +1817,7 @@ CONTAINS
     IF( .NOT. AllocationsDone ) THEN
       AllocRows = RowDofs * n
       AllocCols = ColDofs * n
+      ALLOCATE(Indexes(AllocRows))
 
       ALLOCATE( FORCE( AllocRows ),      &
           STIFF( AllocRows, AllocCols ), &
@@ -1856,11 +1894,11 @@ CONTAINS
       CurrentModel % CurrentElement => Element
       
       !-----------------------------------------------------------------
-      !      n  = GetElementNOFNodes()
-      !      nd = GetElementDOFs(Indexes)
-      Indexes => Element % NodeIndexes
-      n = Element % TYPE % NumberOfnodes
-      nd = n
+      n  = GetElementNOFNodes()
+      nd = GetElementDOFs(Indexes)
+!     Indexes => Element % NodeIndexes
+!     n = Element % TYPE % NumberOfnodes
+!     nd = n
       Nrow = nd
 
       RowInds(1:Nrow) = RowPerm(Indexes(1:nd))
@@ -3082,7 +3120,7 @@ CONTAINS
 
   CONTAINS 
 
-    sUBROUTINE IterC
+    SUBROUTINE IterC
       USE IterSolve
 
       INTEGER(KIND=AddrInt) :: AddrFunc, iterProc,precProc, mvProc,dotProc,nmrProc, zero=0
