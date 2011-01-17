@@ -2278,7 +2278,7 @@ CONTAINS
       DO RowVar = 1,NoVar 
         DO ColVar = 1,NoVar          
           CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar,&
-              Offset(RowVar),Offset(ColVar))
+                   Offset(RowVar),Offset(ColVar))
         END DO
       END DO
     
@@ -2960,14 +2960,13 @@ CONTAINS
 
         DO ColVar=1,NoVar            
 
-
           Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar) % Mat
           IF( Solver % Matrix % NumberOfRows == 0 ) CYCLE
 
+          CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(ColVar))//':')
+
           Solver % Variable => TotMatrix % SubVector(ColVar) % Var
-
-          CALL InitializeToZero( Solver % Matrix, Solver % Matrix % rhs )
-
+          CALL InitializeToZero(Solver % Matrix, Solver % Matrix % rhs)
           CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar)
 
           ! Mainly sets the r.h.s. in transient case correctly
@@ -2976,6 +2975,7 @@ CONTAINS
           CALL BlockSystemDirichlet(TotMatrix,RowVar,ColVar)
         END DO
       END DO
+      CALL ListSetNameSpace('')
 !------------------------------------------------------------------------------
 !    Check the stepsize of nonlinear iteration using the Armijo-GoldStein 
 !    criterion for the stepsize.
@@ -3045,6 +3045,7 @@ CONTAINS
           
           rhs_save => Solver % Matrix % rhs
           Solver % Matrix % rhs => TotMatrix % SubVector(RowVar) % rhs
+          CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(RowVar))//':')
           Norm = DefaultSolve()
           Solver % Matrix % rhs => rhs_save
 
@@ -3054,6 +3055,7 @@ CONTAINS
 	  ! PRINT *,'LocalChange:',MaxChange,Solver % Variable % NonlinChange,&
 	  !                  Norm, TotNorm
         END DO
+        CALL ListSetNameSpace('')
       ELSE
 !       CALL Fatal('BlockSolver','Unknown block solution method!')
         CALL IterC()
@@ -3080,7 +3082,7 @@ CONTAINS
 
   CONTAINS 
 
-    SUBROUTINE IterC
+    sUBROUTINE IterC
       USE IterSolve
 
       INTEGER(KIND=AddrInt) :: AddrFunc, iterProc,precProc, mvProc,dotProc,nmrProc, zero=0
