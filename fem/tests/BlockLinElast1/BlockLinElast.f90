@@ -26,7 +26,7 @@ SUBROUTINE BulkAssembly( Model,Solver,dt,Transient, &
   REAL(KIND=dp), ALLOCATABLE :: Source(:)
   REAL(KIND=dp) :: Young, Poisson, Lame1, Lame2
   REAL(KIND=dp) :: SourceAtIP, Weight, DetJ
-  INTEGER :: i,j,k,t,p,q,n, dim
+  INTEGER :: i,j,k,t,p,q,n, nd,dim
   LOGICAL :: Visited = .FALSE., Found
   TYPE(Element_t), POINTER :: Element
   TYPE(ValueList_t), POINTER :: Material, Params
@@ -43,7 +43,8 @@ SUBROUTINE BulkAssembly( Model,Solver,dt,Transient, &
      Visited = .TRUE.
   END IF
 
-  n = Nrow 
+  n  = GetElementNOFNodes()
+  nd = GetElementNOFDOFs()
   CALL GetElementNodes( Nodes ) 
   Material => GetMaterial()  
 
@@ -67,16 +68,16 @@ SUBROUTINE BulkAssembly( Model,Solver,dt,Transient, &
 
     Weight = IntegStuff % s(t) * detJ
 
-    SourceAtIP = SUM( Basis(1:Nrow) * Source(1:Nrow) )
+    SourceAtIP = SUM( Basis(1:n) * Source(1:n) )
 
     IF ( i==j ) THEN
-      STIFF(1:n,1:n) = STIFF(1:n,1:n) + &
+      STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + &
             Weight*Lame2*MATMUL(dBasisdx,TRANSPOSE(dBasisdx))
-      FORCE(1:n) = FORCE(1:n) + Weight * SourceAtIP * Basis(1:n)
+      FORCE(1:nd) = FORCE(1:nd) + Weight * SourceAtIP * Basis(1:nd)
     END IF
     
-    DO p=1,n
-      DO q=1,n
+    DO p=1,nd
+      DO q=1,nd
         STIFF(p,q) = STIFF(p,q) + &
               Weight*Lame1*dBasisdx(q,j)*dBasisdx(p,i)
         STIFF(p,q) = STIFF(p,q) + &

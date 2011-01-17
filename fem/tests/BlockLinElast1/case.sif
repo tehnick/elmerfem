@@ -9,7 +9,7 @@ Header
 End
 
 Simulation
-  Max Output Level = 4
+  Max Output Level = 7
   Coordinate System = "Cartesian"
   Coordinate Mapping(3) = 1 2 3
 
@@ -43,6 +43,8 @@ Solver 1
   Block Solver = Logical True
   Equation = "lin.elast"
 
+  Element = "p:2"
+
   Variable 1 = U
   Variable 2 = V
 
@@ -58,16 +60,16 @@ Solver 1
 !  Nonlinear System Linesearch = Logical True
 !  Nonlinear System Linesearch Linear = Logical True
 
-  Linear System Solver = string "Iterative"
+  Linear System Solver = string "iterative"
   Linear System Direct Method = Umfpack
   Linear System Refactorize = Logical False
-  Linear System Convergence Tolerance = real 0.1
-  Linear System Iterative Method = string CG
+  Linear System Convergence Tolerance = real 0.025
+  Linear System Iterative Method = string cg
   Linear System Max Iterations = integer 500
   Linear System Symmetric = Logical True
   Linear System Residual Output = integer 0
   Linear System Timing = True
-  Linear System Preconditioning = String Ilu0
+  Linear System Preconditioning = String Ilu2
 
   Linear System Block Method = String "other"
   Outer: Linear System Solver = string "Iterative"
@@ -105,4 +107,4 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n")
 RUN
-$fprintf( stderr,"END TEST CASE 1: Target NRM=1.1630996\n");
+$fprintf( stderr,"END TEST CASE 1: Target NRM= 0.70851516\n");
