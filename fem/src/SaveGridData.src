@@ -1,0 +1,374 @@
+!/******************************************************************************
+! *
+! * Subroutine for tracking a particle under the influence of collisions,
+! * contacts and external fields.
+! *
+! ******************************************************************************
+! *
+! *  Authors: Peter Råback & Juha Ruokolainen
+! *  Email:   Peter.Raback@csc.fi & Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 26.5. 2010
+! *
+! *****************************************************************************/
+
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  This subroutine saves scalar values to a matrix.
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh, materials, BCs, etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear & nonlinear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations
+!
+!  LOGICAL :: TransientSimulation
+!     INPUT: Steady state or transient simulation
+!
+!******************************************************************************
+  USE DefUtils
+  USE Interpolation
+  USE MeshUtils
+  USE ElementUtils
+  USE ParticleUtils
+  USE Lists
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Particle_t) :: Particles
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Visited = .FALSE.
+  
+
+  SAVE Visited
+
+!------------------------------------------------------------------------------
+
+  CALL Info('SaveGridData','-----------------------------------------', Level=4 )
+  CALL Info('SaveGridData','Saving data an uniform grid point        ', Level=4 )
+
+  
+  Params => Solver % Values
+  Mesh => Solver % Mesh
+
+  ! Initialize the particles on the first calling
+  !------------------------------------------------------------------------
+  IF( .NOT. Visited ) THEN
+    Particles % TimeOrder = 0
+    Particles % dim = CoordinateSystemDimension()
+    CALL CreateGridParticles( Particles ) 
+
+    CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
+
+    Visited = .TRUE.
+  END IF
+  
+  CALL ParticleOutput( Particles ) 
+  
+  CALL Info('SaveGridData','All done',Level=4)
+  CALL Info('SaveGridData', '-----------------------------------------', Level=4 )
+  
+
+CONTAINS
+
+
+  !---------------------------------------------------------
+  ! Allocate particles for visualization
+  !---------------------------------------------------------
+  SUBROUTINE AllocateGridParticles(Particles,NoParticles)
+    
+    TYPE(Particle_t) :: Particles
+    INTEGER :: NoParticles   
+    REAL(KIND=dp), POINTER :: Coordinate(:,:), UVW(:,:)
+    INTEGER, POINTER :: Status(:), ElementIndex(:)
+    INTEGER :: PrevNoParticles, dim, No, n
+    
+
+    IF( NoParticles <= Particles % MaxNumberOfParticles ) THEN
+      ! CALL Info('AllocateParticles','There are already enough particles')
+      RETURN
+    ELSE
+      !WRITE(Message,*) 'Allocating number of particles:',NoParticles
+      !CALL Info('AllocateParticles',Message)    
+    END IF
+    
+    dim = Particles % dim 
+    
+    IF( Particles % MaxNumberOfParticles == 0 ) THEN
+      ALLOCATE( Particles % Coordinate(NoParticles,dim))
+      ALLOCATE( Particles % uvw(NoParticles,dim))
+      ALLOCATE( Particles % ElementIndex(NoParticles))
+      ALLOCATE( Particles % Status(NoParticles))
+      
+      Particles % Coordinate = 0.0_dp
+      Particles % uvw = 0.0_dp
+      Particles % ElementIndex = 0
+      Particles % MaxNumberOfParticles = NoParticles
+    ELSE
+      Coordinate => Particles % Coordinate
+      UVW => Particles % UVW
+      Status => Particles % Status
+      ElementIndex => Particles % ElementIndex
+      
+      ALLOCATE( Particles % Coordinate(NoParticles,dim) )
+      ALLOCATE( Particles % UVW(NoParticles,dim) )
+      ALLOCATE( Particles % Status(NoParticles) )
+      ALLOCATE( Particles % ElementIndex(NoParticles) )
+      
+      ! ------------------------
+
+      PrevNoParticles = Particles % MaxNumberOfParticles
+      Particles % NumberOfParticles = n
+      
+
+      Particles % Coordinate(1:PrevNoParticles,:) = Coordinate
+      Particles % UVW(1:PrevNoParticles,:) = UVW
+      Particles % ElementIndex(1:PrevNoParticles) = ElementIndex
+      Particles % Status(1:PrevNoParticles) = Status
+
+
+      DEALLOCATE(Coordinate, uvw, Status, ElementIndex)
+      
+      Particles % Coordinate(PrevNoParticles+1:NoParticles,:) = 0.0_dp
+      Particles % UVW(PrevNoParticles+1:NoParticles,:) = 0.0_dp
+      Particles % ElementIndex(PrevNoParticles+1:NoParticles) = 0
+      Particles % Status(PrevNoParticles+1:NoParticles) = PARTICLE_ALLOCATED
+      
+      Particles % MaxNumberOfParticles = NoParticles
+    END IF
+  END SUBROUTINE AllocateGridParticles
+  
+
+  !-----------------------------------------------------------------
+  ! Add one single particle to list, allocating more space if needed
+  !------------------------------------------------------------------
+
+  SUBROUTINE AddGridParticle(Particles,ElementIndex,GlobalCoords,LocalCoords)
+
+    TYPE(Particle_t) :: Particles
+    INTEGER :: ElementIndex
+    REAL(KIND=dp) :: GlobalCoords(3),LocalCoords(3)
+    
+    INTEGER :: i,j,n,m,dim
+
+    n = Particles % NumberOfParticles 
+    IF( n == Particles % MaxNumberOfParticles ) THEN
+      m = MAX( 100, n / 10 ) 
+      CALL AllocateGridParticles( Particles, n + m )
+    END IF
+    
+    dim = Particles % dim
+    n = n + 1
+    
+    Particles % NumberOfParticles = n
+    Particles % ElementIndex(n) = ElementIndex
+    Particles % Status(n) = PARTICLE_READY
+    
+    Particles % Coordinate(n,1:dim) = GlobalCoords(1:dim)
+    Particles % uvw(n,1:dim) = LocalCoords(1:dim)
+
+    
+  END SUBROUTINE AddGridParticle
+
+
+  !-----------------------------------------------------------------
+  ! Find grid particles in a uniform grid
+  !------------------------------------------------------------------     
+  SUBROUTINE CreateGridParticles(Particles)
+     
+    TYPE(Particle_t) :: Particles
+
+    TYPE(Mesh_t), POINTER :: Mesh
+    REAL(KIND=dp) :: MinCoord(3), MaxCoord(3)
+    REAL(KIND=dp) :: LocalCoords(3), GlobalCoords(3)
+    REAL(KIND=dp) :: x,y,z,u,v,w,dx,dy,dz
+    INTEGER :: dim,t,i,j,k,n,nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax
+    INTEGER :: ioff,joff,koff,cands1, cands2
+    TYPE(Nodes_t) :: Nodes
+    TYPE(ValueList_t), POINTER :: Params
+    TYPE(ELement_t), POINTER :: Element
+    LOGICAL, POINTER :: GridPointActive(:,:,:)
+    LOGICAL :: CheckForDuplicates, GotIt
+
+    Mesh => GetMesh()
+    IF( .NOT. ASSOCIATED( Mesh ) ) THEN
+      CALL Fatal('FindGridParticles','No Mesh associated')
+    END IF
+
+    dim = Particles % dim
+    Params => Solver % Values
+
+    MinCoord(1) = MINVAL(Mesh % Nodes % x )
+    MinCoord(2) = MINVAL(Mesh % Nodes % y )
+    MinCoord(3) = MINVAL(Mesh % Nodes % z )
+    
+    MaxCoord(1) = MAXVAL(Mesh % Nodes % x )
+    MaxCoord(2) = MAXVAL(Mesh % Nodes % y )
+    MaxCoord(3) = MAXVAL(Mesh % Nodes % z )
+
+    ! print *,'Bounding box min:',MinCoord
+    ! print *,'Bounding box max:',MaxCoord
+
+
+    ! Get the grid resolution assuming that the grid is cartesian and uniform with
+    ! one point sitting at (0,0,0)
+    !----------------------------------------------------------------------------
+    dx = GetCReal( Params,'Grid dx',GotIt) 
+    IF(.NOT. GotIt ) THEN
+      nx = GetInteger( Params,'Grid nx',GotIt) 
+      IF( GotIt) THEN
+        dx = ( MaxCoord(1) - MinCoord(1) ) / nx 
+      ELSE
+        CALL Fatal('FindGridParticles','Give either > Grid dx < or > Grid nx <')
+      END IF
+    END IF
+
+    dy = GetCReal( Params,'Grid dy',GotIt) 
+    IF(.NOT. GotIt ) THEN
+      ny = GetInteger( Params,'Grid nx',GotIt) 
+      IF( GotIt) THEN
+        dy = ( MaxCoord(2) - MinCoord(2) ) / ny
+      ELSE
+        dy = dx
+      END IF
+    END IF
+
+    IF( dim == 3 ) THEN
+      dz = GetCReal( Params,'Grid dz',GotIt) 
+      IF(.NOT. GotIt ) THEN
+        nz = GetInteger( Params,'Grid nz',GotIt) 
+        IF( GotIt) THEN
+          dz = ( MaxCoord(1) - MinCoord(1) ) / nz
+        ELSE
+          dz = dx
+        END IF
+      END IF
+    END IF
+
+
+    ! Create a table for checking active gridpoints
+    !----------------------------------------------------------------------------
+    imin = CEILING( MinCoord(1) ) 
+    imax = FLOOR( MaxCoord(1) ) 
+    
+    jmin = CEILING( MinCoord(2) ) 
+    jmax = FLOOR( MaxCoord(2) ) 
+    
+    IF( dim == 3 ) THEN 
+      kmin = CEILING( MinCoord(3) ) 
+      kmax = FLOOR( MaxCoord(3) ) 
+    ELSE
+      kmin = 1
+      kmax = 1
+    END IF
+
+    CheckForDuplicates = GetLogical( Params,'Check for Duplicates')
+    IF( CheckForDuplicates ) THEN
+      ioff = imin-1
+      joff = jmin-1
+      koff = kmin-1
+
+      ALLOCATE( GridPointActive(imax-ioff,jmax-joff,kmax-koff) )
+      GridPointActive = .FALSE.
+    END IF
+
+
+    ! Create particles in the uniform grid
+    !----------------------------------------------------------------------------
+    
+    cands1 = 0
+    cands2 = 0
+
+    DO t=1,Mesh % NumberOfBulkElements
+      
+      Element => Mesh % Elements(t)
+      n = GetElementNOFNodes(Element)
+      CALL GetElementNodes(Nodes,Element)
+      
+      imin = CEILING( MINVAL( Nodes % x(1:n) ) / dx )
+      imax = FLOOR( MAXVAL( Nodes % x(1:n) ) / dx )
+
+      jmin = CEILING( MINVAL( Nodes % y(1:n) ) / dy )
+      jmax = FLOOR( MAXVAL( Nodes % y(1:n) ) / dy )
+
+      IF( dim == 3 ) THEN 
+        kmin = CEILING( MINVAL( Nodes % z(1:n) ) / dz )
+        kmax = FLOOR( MAXVAL( Nodes % z(1:n) ) / dz )
+      ELSE
+        kmin = 0
+        kmax = 0
+      END IF
+
+
+      ! The loop is ordered in this way since more often 
+      ! nz < ny < nx than any other way minimizing the cost
+      !-----------------------------------------------------
+      DO k=kmin,kmax
+        GlobalCoords(3) = k * dz
+        
+        DO j=jmin,jmax
+          GlobalCoords(2) = j * dy
+          
+          DO i=imin,imax
+            GlobalCoords(1) = i * dx
+ 
+            cands1 = cands1 + 1
+
+            IF( CheckForDuplicates ) THEN
+              IF( GridPointActive(i-ioff,j-joff,k-koff) ) CYCLE
+              cands2 = cands2 + 1
+            END IF
+            
+            IF ( PointInElement( Element, Nodes, &
+                GlobalCoords, LocalCoords ) ) THEN
+             
+              IF( CheckForDuplicates ) THEN
+                GridPointActive(i-ioff,j-joff,k-koff) = .TRUE.
+              END IF
+              CALL AddGridParticle(Particles,t,GlobalCoords,LocalCoords)
+            END IF
+            
+          END DO
+        END DO
+      END DO
+    END DO
+
+    PRINT *,'Candidate nodes:',cands1
+    IF( CheckForDuplicates ) THEN
+      PRINT *,'Duplicate nodes:',cands1-cands2
+      DEALLOCATE( GridPointActive )
+    END IF
+    PRINT *,'Final nodes:',Particles % NumberOfParticles    
+    PRINT *,'Hit rate:',1.0_dp * Particles % NumberOfParticles / cands1
+
+
+  END SUBROUTINE CreateGridParticles
+     
+!------------------------------------------------------------------------------
+END SUBROUTINE SaveGridData
+!------------------------------------------------------------------------------
+
+

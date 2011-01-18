@@ -2898,4 +2898,264 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+
+!------------------------------------------------------------------------------
+! Elmer may include scalar and vector variables which may be known by their
+! original name or have an alias. For historical reasons they are introduced
+! by two quite separate ways. This subroutine tries to make the definition of
+! variables for saving more straight-forward.
+!------------------------------------------------------------------------------
+  SUBROUTINE CreateListForSaving( Model, List, ShowVariables, ClearList )
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t) :: Model
+    TYPE(ValueList_t),POINTER  :: List
+    LOGICAL :: ShowVariables
+    LOGICAL, OPTIONAL :: ClearList
+!------------------------------------------------------------------------------
+    INTEGER :: i,j,k,l,LoopDim, VarDim,DOFs,dim
+    TYPE(Variable_t), POINTER :: Var, Var1
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VarStr, VarStrComp, VarStrExt, str
+    LOGICAL :: IsVector, Set, GotIt, ComponentVector, ThisOnly
+    INTEGER :: Nvector, Nscalar
+    TYPE(ValueList_t), POINTER :: Params
+
+    Params => Model % Solver % Values
+
+!------------------------------------------------------------------------------
+! Sometimes the list must be cleared in order to use it for a different mesh
+!-----------------------------------------------------------------------------
+    IF( PRESENT( ClearList ) ) THEN
+      IF( ClearList ) THEN
+        DO i=1,99
+          IF( i < 10 ) THEN
+            WRITE(VarStr,'(A,I2)') 'Scalar Field',i
+          ELSE
+            WRITE(VarStr,'(A,I3)') 'Scalar Field',i
+          END IF
+          IF( ListCheckPresent( List, VarStr ) ) THEN
+            CALL ListRemove( List, VarStr )
+          ELSE
+            EXIT
+          END IF
+        END DO
+
+        DO i=1,99
+          IF( i < 10 ) THEN
+            WRITE(VarStr,'(A,I2)') 'Vector Field',i
+          ELSE
+            WRITE(VarStr,'(A,I3)') 'Vector Field',i
+          END IF
+          IF( ListCheckPresent( List, VarStr ) ) THEN
+            CALL ListRemove( List, VarStr )
+          ELSE
+            EXIT
+          END IF
+
+          IF( i < 10 ) THEN
+            WRITE(VarStr,'(A,I2,A)') 'Vector Field',i,' Component'
+          ELSE
+            WRITE(VarStr,'(A,I3,A)') 'Vector Field',i,' Component'
+          END IF
+          IF( ListCheckPresent( List, VarStr ) ) THEN
+            CALL ListRemove( List, VarStr )
+          END IF
+        END DO
+      END IF
+    END IF
+    
+    !-------------------------------------------------------------------
+    ! First check that there is a need to create the list i.e. it is not
+    ! already manually defined
+    !-------------------------------------------------------------------
+    IF( ListCheckPresent( List,'Scalar Field 1' ) ) RETURN
+    IF( ListCheckPresent( List,'Vector Field 1' ) ) RETURN
+
+    Nscalar = 0
+    Nvector = 0
+
+
+    ThisOnly = .NOT. ListGetLogical( Params,'Interpolate Fields',GotIt)
+    dim = Model % Mesh % MeshDim
+    
+    Var => Model % Variables
+    DO WHILE( ASSOCIATED( Var ) )
+      
+      IF ( .NOT. Var % Output ) THEN
+        Var => Var % Next
+        CYCLE
+      END IF
+      
+      IF ( SIZE( Var % Values ) == Var % DOFs ) THEN
+        Var => Var % Next
+        CYCLE
+      END IF
+
+      VarDim = Var % Dofs
+      IsVector = (VarDim > 1)
+      Set = .FALSE.
+
+      WRITE(VarName,'(A)') TRIM(Var % Name)
+
+      SELECT CASE(Var % Name)
+
+      CASE( 'coordinate 1','coordinate 2','coordinate 3' )
+        ! These are treated separatetely as coordinates are not typically saved
+
+
+      CASE( 'mesh update' )
+        ! Mesh update is treated separately because its special connection to displacement
+
+        Var1 => Model % Variables
+        DO WHILE( ASSOCIATED( Var1 ) )
+          IF ( TRIM(Var1 % Name) == 'displacement' ) EXIT
+          Var1 => Var1 % Next
+        END DO
+        IF ( .NOT. ASSOCIATED( Var1 ) ) THEN
+          Set = .TRUE.
+        END IF
+        
+      CASE('mesh update 1','mesh update 2', 'mesh update 3' )
+        
+      CASE( 'displacement' )
+        Set = .TRUE.
+        ! mesh update is by default the complement to displacement 
+        Var1 => Model % Variables
+        DO WHILE( ASSOCIATED( Var1 ) )
+          IF ( TRIM(Var1 % Name) == 'mesh update' ) EXIT
+          Var1 => Var1 % Next
+        END DO
+        IF ( ASSOCIATED( Var1 ) ) THEN
+          IF( Nvector < 9 ) THEN
+            WRITE(VarStrComp,'(A,I2,A)') 'Vector Field',Nvector+1,' Complement'
+          ELSE
+            WRITE(VarStrComp,'(A,I3,A)') 'Vector Field',Nvector+1,' Complement'            
+          END IF
+          CALL ListAddString( List ,TRIM(VarStrComp),'mesh update')
+        END IF
+        
+      CASE( 'displacement 1','displacement 2','displacement 3')
+        
+
+      CASE DEFAULT
+  
+        ! All vector variables are assumed to be saved using its components
+        ! rather than vector itself.
+
+        IF ( Var % DOFs == 1 ) THEN
+          Set = .TRUE. 
+          
+	  str =  ' '
+          j = LEN_TRIM(Var % Name)
+          DO i=1,j
+            str(i:i) = Var % Name(i:i)
+          END DO
+          
+          ! Check that there are exactly dim number of components
+          ! If so save the quantity as a vector, otherwise componentwise
+          IF( str(j:j) == '1') THEN
+            IF(dim == 2) THEN
+              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 2',ThisOnly)		
+              IF( ASSOCIATED(Var1)) THEN
+                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
+                IsVector = .NOT. ASSOCIATED(Var1)
+              END IF
+            END IF
+            IF(dim == 3) THEN
+              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
+              IF( ASSOCIATED(Var1)) THEN
+                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
+                IsVector = .NOT. ASSOCIATED(Var1)
+              END IF
+            END IF
+	    IF( IsVector ) THEN
+              WRITE(VarName,'(A)') TRIM(str(1:j-2))
+              ! Loop over the 2nd (and 3rd) components as they are already accounted for
+	      DO k=2,dim
+                Var => Var % Next
+              END DO
+            END IF
+          END IF
+        END IF
+      END SELECT
+      
+      !---------------------------------------------------------------------------
+      ! Set the default variable names that have not been set
+      !------------------------------------------------------------------------
+      IF( Set ) THEN
+        IF( IsVector ) THEN
+          Nvector = Nvector + 1
+          IF( Nvector < 10 ) THEN 
+            WRITE(VarStr,'(A,I2)') 'Vector Field',Nvector
+          ELSE 
+            WRITE(VarStr,'(A,I3)') 'Vector Field',Nvector
+          END IF
+        ELSE 
+          Nscalar = Nscalar + 1
+          IF( Nscalar < 10 ) THEN
+            WRITE(VarStr,'(A,I2)') 'Scalar Field',Nscalar
+          ELSE            
+            WRITE(VarStr,'(A,I3)') 'Scalar Field',Nscalar
+          END IF
+        END IF
+        CALL ListAddString( List,TRIM(VarStr),TRIM(VarName) )
+      END IF
+
+      Var => Var % Next
+    END DO
+
+
+    IF( ShowVariables ) THEN
+      CALL Info('CreateListForSaving','Field Variables for Saving')
+      DO i=1,Nscalar
+        IF( i < 10 ) THEN
+          WRITE(VarStr,'(A,I2)') 'Scalar Field',i
+        ELSE
+          WRITE(VarStr,'(A,I3)') 'Scalar Field',i
+        END IF
+        VarName = ListGetString( List, VarStr,GotIt )
+        IF( GotIt ) THEN
+          WRITE( Message,'(A)') TRIM(VarStr)//': '//TRIM(VarName)
+          CALL Info('CreateListForSaving',Message)
+        END IF
+      END DO
+
+      DO i=1,Nvector
+        IF( i < 10 ) THEN
+          WRITE(VarStr,'(A,I2)') 'Vector Field',i
+        ELSE
+          WRITE(VarStr,'(A,I3)') 'Vector Field',i
+        END IF
+        VarName = ListGetString( List, VarStr,GotIt )
+        IF( GotIt ) THEN
+          WRITE( Message,'(A)') TRIM(VarStr)//': '//TRIM(VarName)
+          CALL Info('CreateListForSaving',Message)
+        END IF
+      END DO
+
+      DO i=1,Nvector
+        IF( i < 10 ) THEN
+          WRITE(VarStr,'(A,I2,A)') 'Vector Field',i,' Complement'
+        ELSE
+          WRITE(VarStr,'(A,I3,A)') 'Vector Field',i,' Complement'
+        END IF
+        VarName = ListGetString( List, VarStr, GotIt )
+        IF( GotIt ) THEN
+          WRITE( Message,'(A)') TRIM(VarStr)//': '//TRIM(VarName)
+          CALL Info('CreateListForSaving',Message)
+        END IF
+      END DO
+    END IF
+
+
+  END SUBROUTINE CreateListForSaving
+  
+
+
+
+
+
+
 END MODULE Lists

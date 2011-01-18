@@ -69,6 +69,48 @@ CONTAINS
     END IF
   END SUBROUTINE SetParticleCoord
   
+
+  SUBROUTINE GetParticleUVW(Particles,No, u, v, w )
+    TYPE(Particle_t) :: Particles
+    INTEGER :: No
+    REAL(KIND=dp) :: u,v
+    REAL(KIND=dp), OPTIONAL :: w
+    INTEGER :: dim
+    
+    dim = Particles % dim
+    
+    u = Particles % UVW(no,1)
+    v = Particles % UVW(no,2)
+    IF( PRESENT( w ) ) THEN
+      IF( dim == 3 ) THEN
+        w = Particles % UVW(no,3)
+      ELSE
+        w = 0.0_dp
+      END IF
+    END IF
+  END SUBROUTINE GetParticleUVW
+  
+
+  SUBROUTINE SetParticleUVW(Particles,No,u,v,w)
+    TYPE(Particle_t) :: Particles
+    INTEGER :: No
+    REAL(KIND=dp) :: u,v
+    REAL(KIND=dp), OPTIONAL :: w
+    
+    INTEGER :: dim
+    
+    dim = Particles % dim
+    
+    Particles % UVW(no,1) = u
+    Particles % UVW(no,2) = v
+    IF( PRESENT( w ) ) THEN
+      IF( dim == 3 ) THEN
+        Particles % UVW(no,1) = w
+      END IF
+    END IF
+  END SUBROUTINE SetParticleUVW
+
+
   
   SUBROUTINE AddParticleCoord(Particles,No,DerOrder,Coord)
     TYPE(Particle_t) :: Particles
@@ -3384,9 +3426,9 @@ CONTAINS
     
     IF( .NOT. Visited ) THEN
       Params => GetSolverParams()
-      TableFormat = GetLogical( Params,'Table Format',Found)
-      VtuFormat = GetLogical( Params,'Vtu Format',Found)
-      FileFormat = GetString( Params,'Output Format',Found) 
+      TableFormat = ListGetLogical( Params,'Table Format',Found)
+      VtuFormat = ListGetLogical( Params,'Vtu Format',Found)
+      FileFormat = ListGetString( Params,'Output Format',Found) 
       IF( Found ) THEN
         IF( FileFormat == 'vtu') VtuFormat = .TRUE.
         IF( FileFormat == 'table') TableFormat = .TRUE.
@@ -3649,7 +3691,6 @@ CONTAINS
         BoundaryName = 'Free Point Boundary'
         CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,BoundaryName, &
             .FALSE., BoundaryPerm, BoundaryNodes )
-        PRINT *,'Number of nodes on free boundary:',BoundaryNodes
       END IF
       
       ! Assembly the diffusion part used for regularization
@@ -3852,7 +3893,8 @@ CONTAINS
     CHARACTER(MAX_NAME_LEN) :: Dir
     REAL(KIND=dp) :: SaveNodeFraction
     LOGICAL :: Found,Visited = .FALSE.
-    
+  
+
     CHARACTER(MAX_NAME_LEN) :: Str
     INTEGER :: NumberOfNodes, ParallelNodes, Dim
     
@@ -3870,15 +3912,14 @@ CONTAINS
     FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
     
     IF ( nTime == 1 ) THEN
-      FilePrefix = GetString( Params,'Filename Prefix')
-      CALL Info('ParticleOutputVtu','Saving results in VTK XML format to file:'//TRIM(FilePrefix))
+      FilePrefix = ListGetString( Params,'Filename Prefix')
+      CALL Info('ParticleOutputVtu','Saving results in VTK XML format to file: '//TRIM(FilePrefix))
       
       MinSaveStatus = ListGetInteger( Params,'Min Status for Saving',Found)
       IF(.NOT. Found ) MinSaveStatus = PARTICLE_INITIATED
       
       MaxSaveStatus = ListGetInteger( Params,'Max Status for Saving',Found)
-      IF(.NOT. Found ) MaxSaveStatus = PARTICLE_LOST-1
-      
+      IF(.NOT. Found ) MaxSaveStatus = PARTICLE_LOST-1      
     END IF
     
     Partitions = ParEnv % PEs
@@ -3893,7 +3934,7 @@ CONTAINS
           Particles % Status(i) < MinSaveStatus )  CYCLE
       NumberOfNodes = NumberOfNodes + 1
     END DO
-    
+
     SaveNodeFraction = ListGetCReal( Params,'Particle Save Fraction',GotIt)
     IF(GotIt) NumberOfNodes = NINT( SaveNodeFraction * NumberOfNodes )
     
@@ -3918,19 +3959,28 @@ CONTAINS
 
   CONTAINS
 
-  
+    
     SUBROUTINE WriteVtuFile( VtuFile )
       CHARACTER(LEN=*), INTENT(IN) :: VtuFile
       INTEGER, PARAMETER :: VtuUnit = 58
-      TYPE(Variable_t), POINTER :: Var
+      TYPE(Variable_t), POINTER :: Var, Solution
       CHARACTER(LEN=512) :: str
       INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
-      CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
-      LOGICAL :: ScalarsExist, VectorsExist, Found
-      INTEGER, POINTER :: Perm(:)
-      REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
-      REAL(KIND=dp) :: x,y,z
-      
+      CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName, &
+          FieldName2
+      LOGICAL :: ScalarsExist, VectorsExist, Found, ParticleMode, ComponentVector, &
+          ComplementExists, ThisOnly, Stat
+      INTEGER, POINTER :: Perm(:), Perm2(:), Indexes(:)
+      REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:),Values(:),Values2(:),&
+          Values3(:),Basis(:)
+      REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,value
+      TYPE(Nodes_t) :: Nodes      
+      TYPE(Element_t), POINTER :: Element
+
+
+      n = Mesh % MaxElementNodes
+      ALLOCATE( Basis(n), Nodes % x(n), Nodes % y(n), Nodes % z(n) )
+      ThisOnly = .TRUE.
       
       OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
       
@@ -3939,10 +3989,11 @@ CONTAINS
       WRITE( VtuUnit,'(A,I0,A)') '    <Piece NumberOfPoints="',NumberOfNodes,&
           '" NumberOfCells="0">'
     
-      ! nodewise information
-      !-------------------------------------
-      ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
-      VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+      !---------------------------------------------------------------------
+      ! Header information for nodewise data
+      !---------------------------------------------------------------------
+      ScalarFieldName = ListGetString( Params,'Scalar Field 1',ScalarsExist)
+      VectorFieldName = ListGetString( Params,'Vector Field 1',VectorsExist)
       IF( ScalarsExist .AND. VectorsExist) THEN
         WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
             //'" Vectors="'//TRIM(VectorFieldName)//'">'
@@ -3952,27 +4003,73 @@ CONTAINS
         WRITE( VtuUnit,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'
       END IF
       
-      DO Rank = 0,1
-        DO Vari = 1, 99
-          IF( Vari < 10 ) THEN
-            IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-            IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-          ELSE
-            IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-            IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+
+      !---------------------------------------------------------------------
+      ! do the scalars
+      !--------------------------------- -----------------------------------
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+        ELSE
+          WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+        END IF
+        FieldName = ListGetString( Params, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        !---------------------------------------------------------------------
+        ! Find the variable with the given name in the normal manner 
+        !---------------------------------------------------------------------
+        
+        ParticleMode = .TRUE.
+        IF( ASSOCIATED( Particles % uvw ) ) THEN
+
+          Solution => VariableGet( Mesh % Variables, &
+              TRIM(FieldName),ThisOnly )
+          ComponentVector = .FALSE.
+          IF(.NOT. ASSOCIATED(Solution)) THEN
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
+            CYCLE
           END IF
           
-          FieldName = GetString( Params, TRIM(Txt), Found )
-          IF(.NOT. Found) EXIT
-        
+          IF( ASSOCIATED(Solution % EigenVectors)) THEN
+            CALL Warn('WriteVtuXMLFile','Do the eigen values')
+          END IF
+          
+          Perm => Solution % Perm
+          dofs = Solution % DOFs
+          Values => Solution % Values
+
           !---------------------------------------------------------------------
-          ! Find the variable with the given name in the normal manner 
+          ! There may be special complementary variables such as 
+          ! displacement & mesh update 
           !---------------------------------------------------------------------
-          IF( FieldName == 'velocity' ) THEN
-            VectorValues => Particles % Velocity
-          ELSE IF( FieldName == 'force') THEN
-            VectorValues => Particles % Force 
-          ELSE IF( FieldName == 'distance') THEN
+          ComplementExists = .FALSE.
+          IF( Vari < 10 ) THEN
+            WRITE(Txt,'(A,I2,A)') 'Scalar Field',Vari,' Complement'
+          ELSE
+            WRITE(Txt,'(A,I3,A)') 'Scalar Field',Vari,' Complement'
+          END IF
+          FieldName2 = ListGetString( Params, TRIM(Txt), Found )
+          IF( Found ) THEN
+            Solution => VariableGet( Mesh % Variables, &
+                TRIM(FieldName2), ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN 
+              Values2 => Solution % Values
+              Perm2 => Solution % Perm 
+              ComplementExists = .TRUE.
+            ELSE
+              CALL Warn('WriteVTUFile','Complement does not exist:'//TRIM(FieldName2))
+            END IF
+          END IF
+          ParticleMode = .FALSE.
+        END IF
+
+        !---------------------------------------------------------------------
+        ! Get the values assuming particle mode
+        !---------------------------------------------------------------------
+        IF( ParticleMode ) THEN
+          IF( FieldName == 'distance') THEN
             ScalarValues => Particles % Distance
           ELSE IF( FieldName == 'dt') THEN
             ScalarValues => Particles % dt
@@ -3981,68 +4078,246 @@ CONTAINS
             CALL Warn('WriteVtuXMLFile', Txt)
             CYCLE
           END IF
+        END IF
+
+        !---------------------------------------------------------------------
+        ! Finally save the field values for scalars
+        !---------------------------------------------------------------------
+        j = 0
+        WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+            //'" NumberOfComponents="1" format="ascii">'    
+
+        DO i = 1, Particles % NumberOfParticles
+
+          IF ( Particles % Status(i) > MaxSaveStatus .OR. &
+              Particles % Status(i) < MinSaveStatus )  CYCLE
+          j = j + 1
+          
+          IF( ParticleMode ) THEN
+            WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ScalarValues(i)              
+          ELSE
+
+            Element => Mesh % Elements( Particles % ElementIndex(i) )            
+            n = Element % Type % NumberOfNodes
+            Indexes => Element % NodeIndexes
+            
+            Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
+            Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
+            Nodes % z(1:n) = Mesh % Nodes % z( Indexes ) 
+            
+            u = Particles % uvw(i,1)
+            v = Particles % uvw(i,2)
+            IF( dim == 3 ) THEN
+              w = Particles % uvw(i,3)
+            ELSE
+              w = 0.0_dp
+            END IF
+
+            stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
+            
+            value = 0.0_dp
+            IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+              value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+            ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
+              value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+            END IF
+          END IF
+          
+          IF( ABS( value ) > TINY( value ) ) THEN
+            WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Value             
+          ELSE
+            WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
+          END IF
+
+          IF( j == NumberOfNodes ) EXIT            
+
+        END DO
+        WRITE( VtuUnit,'(A)') ' '
+        WRITE( VtuUnit,'(A)') '        </DataArray>'
+      END DO
+      
+
+      !---------------------------------------------------------------------
+      ! do the vectors
+      !--------------------------------- -----------------------------------
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+        ELSE
+          WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+        END IF
+        
+        FieldName = ListGetString( Params, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        !---------------------------------------------------------------------
+        ! Find the variable with the given name in the normal manner 
+        !---------------------------------------------------------------------
+        ParticleMode = .TRUE.
+        IF( ASSOCIATED( Particles % uvw ) ) THEN
+          Solution => VariableGet( Mesh % Variables, TRIM(FieldName), ThisOnly )
+          ComponentVector = .FALSE.
+          IF(.NOT. ASSOCIATED(Solution)) THEN
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 1', ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN 
+              ComponentVector = .TRUE.
+            ELSE
+              WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+              CALL Warn('WriteVtuXMLFile', Txt)
+              CYCLE
+            END IF
+          END IF
+          
+          IF( ASSOCIATED(Solution % EigenVectors)) THEN
+            CALL Warn('WriteVtuXMLFile','Do the eigen values')
+          END IF
+          
+          Perm => Solution % Perm
+          dofs = Solution % DOFs
+          Values => Solution % Values
           
           !---------------------------------------------------------------------
-          ! Finally save the field values 
+          ! Some vectors are defined by a set of components (either 2 or 3)
           !---------------------------------------------------------------------
-          j = 0
-          IF( Rank == 0) THEN
-            WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-                //'" NumberOfComponents="1" format="ascii">'    
-            DO i = 1, Particles % NumberOfParticles
-              
-              IF ( Particles % Status(i) > MaxSaveStatus .OR. &
-                  Particles % Status(i) < MinSaveStatus )  CYCLE
-              j = j + 1
-              IF(.TRUE.) THEN
-                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ScalarValues(i)              
-              ELSE
-                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
-              END IF
-              IF( j == NumberOfNodes ) EXIT            
-            END DO
-            WRITE( VtuUnit,'(A)') ' '
-            WRITE( VtuUnit,'(A)') '        </DataArray>'
-          ELSE
-            sdofs = 3
-            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-                //'" NumberOfComponents="',sdofs,'" format="ascii">'    
-            
-            DO i = 1, Particles % NumberOfParticles
-              IF ( Particles % Status(i) > MaxSaveStatus .OR. &
-                  Particles % Status(i) < MinSaveStatus )  CYCLE
-              j = j + 1
-              IF( dim == 2 ) THEN
-                IF( .TRUE. ) THEN
-                  WRITE( VtuUnit,'(2ES16.7E3,A)', ADVANCE='no') VectorValues(i,1:dim),' 0.0'
-                ELSE
-                  WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
-                END IF
-              ELSE
-                IF( .TRUE. ) THEN
-                  WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VectorValues(i,1:dim)
-                ELSE
-                  WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0 0.0 0.0'  
-                END IF
-              END IF
-              IF( j == NumberOfNodes ) EXIT            
-            END DO
-            WRITE( VtuUnit,'(A)') ' '
-            WRITE( VtuUnit,'(A)') '        </DataArray>'
+          IF( ComponentVector ) THEN
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN
+              Values2 => Solution % Values
+              dofs = 2
+            END IF
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN
+              Values3 => Solution % Values
+              dofs = 3
+            END IF
           END IF
+          
+          !---------------------------------------------------------------------
+          ! There may be special complementary variables such as 
+          ! displacement & mesh update 
+          !---------------------------------------------------------------------
+          ComplementExists = .FALSE.
+          IF( Vari < 10 ) THEN
+            WRITE(Txt,'(A,I2,A)') 'Vector Field',Vari,' Complement'
+          ELSE
+            WRITE(Txt,'(A,I3,A)') 'Vector Field',Vari,' Complement'
+          END IF
+          FieldName2 = ListGetString( Params, TRIM(Txt), Found )
+          IF( Found ) THEN
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName2), ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN 
+              Values2 => Solution % Values
+              Perm2 => Solution % Perm 
+              ComplementExists = .TRUE.
+            ELSE
+              CALL Warn('WriteVTUFile','Complement does not exist:'//TRIM(FieldName2))
+            END IF
+          END IF
+          
+          ParticleMode = .FALSE.
+        END IF
+
+
+        !---------------------------------------------------------------------
+        ! Get the values assuming particle mode
+        !---------------------------------------------------------------------
+        IF( ParticleMode ) THEN
+          IF( FieldName == 'velocity' ) THEN
+            VectorValues => Particles % Velocity
+          ELSE IF( FieldName == 'force') THEN
+            VectorValues => Particles % Force 
+          ELSE
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
+            CYCLE
+          END IF
+        END IF
+        
+
+        !---------------------------------------------------------------------
+        ! Finally save the field values for vectors
+        !---------------------------------------------------------------------
+        j = 0
+        sdofs = MAX(dofs,3)
+        WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+            //'" NumberOfComponents="',sdofs,'" format="ascii">'    
+        
+        DO i = 1, Particles % NumberOfParticles                
+          IF ( Particles % Status(i) > MaxSaveStatus .OR. &
+              Particles % Status(i) < MinSaveStatus )  CYCLE
+          j = j + 1
+          
+          IF( ParticleMode ) THEN
+            IF( dim == 2 ) THEN
+              WRITE( VtuUnit,'(2ES16.7E3,A)', ADVANCE='no') VectorValues(i,1:dim),' 0.0'
+            ELSE
+              WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') VectorValues(i,1:dim)
+            END IF
+          ELSE
+            Element => Mesh % Elements( Particles % ElementIndex(i) )
+            
+            Indexes => Element % NodeIndexes
+            n = Element % Type % NumberOfNodes
+ 
+            Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
+            Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
+            Nodes % z(1:n) = Mesh % Nodes % z( Indexes ) 
+            
+            u = Particles % uvw(i,1)
+            v = Particles % uvw(i,2)
+            IF( dim == 3 ) THEN
+              w = Particles % uvw(i,3)
+            ELSE
+              w = 0.0_dp
+            END IF
+            
+            stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
+
+            DO k=1,sdofs                  
+              value = 0.0_dp
+              IF( k <= dofs ) THEN
+                IF( ComponentVector ) THEN
+                  IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                    IF( k == 1 ) THEN
+                      value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                    ELSE IF( k == 2 ) THEN
+                      value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+                    ELSE
+                      value = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
+                    END IF
+                  END IF
+                ELSE 
+                  IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                    value = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+k) )
+                  ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
+                    value = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+k) )
+                  END IF
+                END IF
+              END IF
+              
+              IF( ABS( value ) < TINY( value ) ) THEN
+                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
+              ELSE 
+                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+              END IF
+              
+            END DO
+          END IF
+
+          IF( j == NumberOfNodes ) EXIT            
         END DO
+        WRITE( VtuUnit,'(A)') ' '
+        WRITE( VtuUnit,'(A)') '        </DataArray>'
       END DO
       
       IF( ScalarsExist .OR. VectorsExist) THEN
         WRITE( VtuUnit,'(A)') '      </PointData>'
       END IF
-      
-    
+          
       ! Coordinates of each point
       !-------------------------------------
       WRITE( VtuUnit,'(A)') '      <Points>'
       WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
-      
       
       j = 0
       DO i = 1, Particles % NumberOfParticles
@@ -4078,6 +4353,10 @@ CONTAINS
       WRITE( VtuUnit,'(A)') '</VTKFile>'
       
       CLOSE( VtuUnit )
+
+     DEALLOCATE( Basis, Nodes % x, Nodes % y, Nodes % z )
+
+
       
     END SUBROUTINE WriteVtuFile
     
@@ -4086,11 +4365,12 @@ CONTAINS
     SUBROUTINE WritePvtuFile( VtuFile )
       CHARACTER(LEN=*), INTENT(IN) :: VtuFile
       INTEGER, PARAMETER :: VtuUnit = 58
-      TYPE(Variable_t), POINTER :: Var
+      TYPE(Variable_t), POINTER :: Var, Solution
       CHARACTER(LEN=512) :: str
       INTEGER :: i,j,k,dofs,Rank,cumn,n,vari,sdofs
-      CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName
-      LOGICAL :: ScalarsExist, VectorsExist, Found
+      CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName, &
+          FieldName2
+      LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ThisOnly
       REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:)
       
       
@@ -4101,8 +4381,8 @@ CONTAINS
       
       ! nodewise information
       !-------------------------------------
-      ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
-      VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
+      ScalarFieldName = ListGetString( Params,'Scalar Field 1',ScalarsExist)
+      VectorFieldName = ListGetString( Params,'Vector Field 1',VectorsExist)
       IF( ScalarsExist .AND. VectorsExist) THEN
         WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)&
             //'" Vectors="'//TRIM(VectorFieldName)//'">'
@@ -4111,38 +4391,94 @@ CONTAINS
       ELSE IF( VectorsExist ) THEN
         WRITE( VtuUnit,'(A)') '    <PPointData Vectors="'//TRIM(VectorFieldName)//'">'
       END IF
-      
-    
-      DO Rank = 0,1
-        DO Vari = 1, 99
-          IF( Vari < 10 ) THEN
-            IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-            IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-          ELSE
-            IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-            IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+
+
+      !-------------------------------------------------------      
+      ! Do the scalars
+      !-------------------------------------------------------          
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+        ELSE
+          WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+        END IF
+        
+        FieldName = ListGetString( Params, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        IF( ASSOCIATED( Particles % uvw ) ) THEN
+          Solution => VariableGet( Mesh % Variables, TRIM(FieldName), ThisOnly )
+          
+          IF( .NOT. ASSOCIATED(Solution ) ) THEN
+            CALL Warn('WritePvtuFile','Solution not associated!')
           END IF
-          
-          FieldName = GetString( Params, TRIM(Txt), Found )
-          IF(.NOT. Found) EXIT
-          
-          IF( FieldName /= 'velocity' .AND. FieldName /= 'force' .AND. &
-              FieldName /= 'distance' .AND. FieldName /= 'dt' ) THEN
+        ELSE
+          IF( FieldName /= 'distance' .AND. FieldName /= 'dt' ) THEN
             WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
             CALL Warn('WriteVtuXMLFile', Txt)
             CYCLE
           END IF
-          
-          IF( Rank == 0) THEN
-            WRITE( VtuUnit,'(A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
-                //'" NumberOfComponents="1" format="ascii"/>'    
-          ELSE
-            sdofs = 3
-            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
-                //'" NumberOfComponents="',sdofs,'" format="ascii"/>'    
-          END IF
-        END DO
+        END IF
+        
+        WRITE( VtuUnit,'(A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
+            //'" NumberOfComponents="1" format="ascii"/>'    
       END DO
+
+
+      !-------------------------------------------------------      
+      ! Do the vectors
+      !-------------------------------------------------------          
+
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+        ELSE
+          WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+        END IF
+          
+        FieldName = ListGetString( Params, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        IF( ASSOCIATED( Particles % uvw ) ) THEN
+          Solution => VariableGet( Mesh % Variables, TRIM(FieldName), ThisOnly )
+          ComponentVector = .FALSE.
+          
+          IF(.NOT. ASSOCIATED(Solution)) THEN
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 1',ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN 
+              ComponentVector = .TRUE.
+            ELSE
+              WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+              CALL Warn('WriteVtuXMLFile', Txt)
+              CYCLE
+            END IF
+          END IF
+          
+          IF( ASSOCIATED(Solution % EigenVectors)) THEN
+            CALL Warn('WritePvtuFile','Do the eigen values')
+          END IF
+          
+          dofs = Solution % DOFs
+          IF( ComponentVector ) THEN
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
+            IF( ASSOCIATED(Solution)) dofs = 2
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
+            IF( ASSOCIATED(Solution)) dofs = 3
+          END IF
+        ELSE
+          dofs = 3
+          IF( FieldName /= 'velocity' .AND. FieldName /= 'force') THEN
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
+            CYCLE
+          END IF
+        END IF
+
+        sdofs = dofs
+        WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float64" Name="'//TRIM(FieldName)&
+            //'" NumberOfComponents="',sdofs,'" format="ascii"/>'    
+      END DO
+  
       WRITE( VtuUnit,'(A)') '    </PPointData>'
       
       ! Coordinates of each point
