@@ -293,6 +293,7 @@ EXTRA_DIST = \
 	RigidBodyReduction.src \
 	RigidMeshMapper.src \
 	SaveData.src \
+	SaveGridData.src \
 	ScalarPotentialSolver.src \
 	ShellSolve.src \
 	Smitc.src \
@@ -313,6 +314,7 @@ EXTRA_DIST = \
 	SparseMatrix.src \
 	SSTKomega.src \
 	StatCurrentSolve.src \
+	StatElecBoundary.src \
 	StatElecSolve.src \
 	StatMagSolve.src \
 	SteadyPhaseChange.src \

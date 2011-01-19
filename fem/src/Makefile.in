@@ -330,7 +330,9 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
         NonphysicalMeshSolve$(SHL_EXT) \
         DivergenceSolver$(SHL_EXT) \
         RichardsSolver$(SHL_EXT) \
-        StructuredFlowLine$(SHL_EXT)
+        StructuredFlowLine$(SHL_EXT) \
+        StatElecBoundary$(SHL_EXT) \
+        SaveGridData$(SHL_EXT)
 
 SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
@@ -521,6 +523,7 @@ EXTRA_DIST = \
 	RigidBodyReduction.src \
 	RigidMeshMapper.src \
 	SaveData.src \
+	SaveGridData.src \
 	ScalarPotentialSolver.src \
 	ShellSolve.src \
 	Smitc.src \
@@ -541,6 +544,7 @@ EXTRA_DIST = \
 	SparseMatrix.src \
 	SSTKomega.src \
 	StatCurrentSolve.src \
+	StatElecBoundary.src \
 	StatElecSolve.src \
 	StatMagSolve.src \
 	SteadyPhaseChange.src \
@@ -1043,6 +1047,7 @@ RichardsSolver.$(OBJEXT): RichardsSolver.f90 DefUtils.$(OBJEXT) CoordinateSystem
 RigidBodyReduction.$(OBJEXT): RigidBodyReduction.f90 DefUtils.$(OBJEXT) GeneralUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) CRSMatrix.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 RigidMeshMapper.$(OBJEXT): RigidMeshMapper.f90 ParallelUtils.$(OBJEXT) DefUtils.$(OBJEXT) ElementUtils.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Types.$(OBJEXT)
 SaveData.$(OBJEXT): SaveData.f90 DefUtils.$(OBJEXT) ElementUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) BandwidthOptimize.$(OBJEXT) MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) SolverUtils.$(OBJEXT) Types.$(OBJEXT) Interpolation.$(OBJEXT)
+SaveGridData.$(OBJEXT): SaveGridData.f90 DefUtils.$(OBJEXT) ParticleUtils.$(OBJEXT)
 ScalarPotentialSolver.$(OBJEXT): ScalarPotentialSolver.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 ShellSolve.$(OBJEXT): ShellSolve.f90 DefUtils.$(OBJEXT)
 Smitc.$(OBJEXT): Smitc.f90 DefUtils.$(OBJEXT)
@@ -1062,6 +1067,7 @@ SParIterSolver.$(OBJEXT): SParIterSolver.f90 SParIterGlobals.$(OBJEXT) Lists.$(O
 SparseMatrix.$(OBJEXT): SparseMatrix.f90 GeneralUtils.$(OBJEXT)
 SSTKomega.$(OBJEXT): SSTKomega.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 StatCurrentSolve.$(OBJEXT): StatCurrentSolve.f90 DefUtils.$(OBJEXT) Differentials.$(OBJEXT)
+StatElecBoundary.$(OBJEXT): StatElecBoundary.f90 DefUtils.$(OBJEXT)
 StatElecSolve.$(OBJEXT): StatElecSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 StatMagSolve.$(OBJEXT): StatMagSolve.f90 DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT)
 SteadyPhaseChange.$(OBJEXT): SteadyPhaseChange.f90 DefUtils.$(OBJEXT)
