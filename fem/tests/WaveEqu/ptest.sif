@@ -7,13 +7,14 @@ End
 Simulation
   Coordinate System = "Cartesian 2D"
   Simulation Type = Transient
-  Timestep Sizes = 0.05
-  Timestep Intervals = 1000
+  Timestep Sizes = 0.01
+  Timestep Intervals = 10
   Output Intervals(1) = 1
-  Post File   = "ptest.ep"
   Steady State Max Iterations = 1
 
   Max Output Level = 3
+
+! Post File   = "ptest.ep"
 ! Output File = "ptest.dat"
 End
 
@@ -23,7 +24,7 @@ Body 1
 End
 
 Initial Condition 1
-  Potential Velocity = Real -1
+  Potential Velocity = Real 1
 End
 
 Equation 1
@@ -37,11 +38,8 @@ Solver 1
   Variable DOFs = 1
   Procedure = "WaveEq" "WaveSolver"
 
-! Element = "p:1"
-
   Linear System Solver = "Direct"
   Linear System Direct Method = Umfpack
-  Linear System Refactorize = False
 
   Steady State Convergence Tolerance = 1e-09
 End
