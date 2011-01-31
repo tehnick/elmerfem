@@ -2615,7 +2615,8 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 	f1, f2, fn, weight
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), PointFluxes(:,:), PointWeight(:)
   LOGICAL :: Stat, GotIt, SubroutineVisited = .FALSE., FileAppend, CalculateFlux, &
-      SaveAxis(3), Inside, MovingMesh, IntersectEdge, OptimizeOrder, Found, GotVar
+      SaveAxis(3), Inside, MovingMesh, IntersectEdge, OptimizeOrder, Found, GotVar, &
+      SkipBoundaryInfo
   INTEGER :: i,j,k,ivar,l,n,m,t,DIM,mat_id, TimesVisited=0, SaveThis, PrevDoneTime=-1, &
       Side, SaveNodes, SaveNodes2, node, NoResults, LocalNodes, NoVar, &
       No, axis, maxboundary, NoDims, MeshDim, NoLines, NoAxis, Line, NoFaces, &
@@ -2731,6 +2732,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
     NoLines = 0
   END IF
 
+  SkipBoundaryInfo = ListGetLogical(SolverParams,'Skip Boundary Info',GotIt)
   !----------------------------------------------
   ! Calculate the number of given entries, if any
   !---------------------------------------------- 
@@ -2944,7 +2946,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      DO t = 1, SaveNodes    
        
        node = InvPerm(t)
-       IF( NoVar == 0) THEN
+       IF( .NOT. SkipBoundaryInfo ) THEN
          IF(TransientSimulation) WRITE(10,'(I6)',ADVANCE='NO') Solver % DoneTime
          WRITE(10,'(I6,I4,I8)',ADVANCE='NO') TimesVisited,BoundaryIndex(t),node
        END IF
@@ -3076,7 +3078,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
         
         SaveNodes2 = SaveNodes2 + 1
         
-        IF( NoVar == 0) THEN
+        IF( .NOT. SkipBoundaryInfo ) THEN
           IF(TransientSimulation) WRITE(10,'(I6)',ADVANCE='NO') Solver % DoneTime
           WRITE(10,'(I6,I4,I8)',ADVANCE='NO') TimesVisited,maxboundary+Line,NodeIndexes(i)
         END IF
@@ -3190,7 +3192,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      WRITE(10,'(I7,A)') SaveNodes,' boundary nodes for each step'
      WRITE(10,'(I7,A)') SaveNodes2,' polyline nodes for each step'
      j = 0
-     IF( NoVar == 0 ) THEN
+     IF( .NOT. SkipBoundaryInfo ) THEN
         IF(TransientSimulation) THEN
            WRITE(10,'(I3,": ",A)') 1,'Time step'
            j = 1
