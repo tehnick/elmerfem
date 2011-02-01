@@ -1726,6 +1726,8 @@ END SUBROUTINE CheckResiduals
          END IF
       END IF
 
+      KMatrix % Cholesky = ListGetLogical( Solver % Values,  &
+              'Linear System Symmetric ILU', Stat )
       Stat = CRS_IncompleteLU( KMatrix, ILU )
       IF ( .NOT. UseI ) Stat = CRS_IncompleteLU( MMatrix, ILU )
 

@@ -1383,15 +1383,15 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
     LOGICAL :: Status
 
-    INTEGER :: i,j,k,l,n,istat
+    INTEGER :: i,j,k,l,m,n,istat
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     REAL(KIND=dp), POINTER :: ILUValues(:), Values(:)
 
-    REAL(KIND=dp) :: CPUTime, t
+    REAL(KIND=dp) :: CPUTime, st
 
-    LOGICAL, ALLOCATABLE :: C(:)
-    REAL(KIND=dp), ALLOCATABLE ::  S(:)
+    LOGICAL, ALLOCATABLE :: C(:), D(:)
+    REAL(KIND=dp), ALLOCATABLE ::  S(:), T(:)
 
     INTEGER, POINTER :: ILUCols(:),ILURows(:),ILUDiag(:)
 
@@ -1400,7 +1400,8 @@ END FUNCTION CRS_RowSum
     WRITE(Message,'(a,i1,a)')  &
          'ILU(',ILUn,') (Real), Starting Factorization:'
     CALL Info( 'CRS_IncompleteLU', Message, Level = 5 )
-    t = CPUTime()
+    st = CPUTime()
+
 
     N = A % NumberOfRows
     Diag   => A % Diag
@@ -1451,17 +1452,75 @@ END FUNCTION CRS_RowSum
 !
 !   Allocate space for storing one full row:
 !   ----------------------------------------
-    ALLOCATE( C(n), S(n) )
+    ALLOCATE( C(n), S(n), D(n), T(n) )
     C = .FALSE.
     S =  0.0d0
-!
-!   The factorization row by row:
-!   -----------------------------
-    DO i=1,N
-!
-!      Convert current row to full form for speed,
-!      only flagging the nonzero entries:
-!      -------------------------------------------
+    D = .FALSE.
+    T =  0.0d0
+
+    IF ( A % Cholesky ) THEN
+
+     !
+     ! The factorization row by row:
+     ! -----------------------------
+     DO i=1,N
+
+       ! Convert current row to full form for speed,
+       ! only flagging the nonzero entries:
+       ! -------------------------------------------
+       DO j=Rows(i), Diag(i)
+          D(Cols(j)) = .TRUE.
+          T(Cols(j)) = Values(j)
+       END DO
+
+       DO j=ILURows(i), ILUDiag(i)
+          C(ILUCols(j)) = .TRUE.
+          S(ILUCols(j)) = ILUValues(j)
+       END DO
+
+       ! This is the factorization part for the current row:
+       ! ---------------------------------------------------
+       S(i) = T(i)
+       DO m=ILURows(i),ILUDiag(i)-1
+         j = ILUCols(m)
+         S(j) = T(j)
+         DO l = ILURows(j),ILUDiag(j)-1
+           k = ILUCols(l)
+           S(j) = S(j) - S(k) * ILUValues(l)
+         END DO
+         S(j) = S(j) * ILUValues(ILUDiag(j))
+         S(i) = S(i) - S(j)**2
+       END DO
+
+       IF ( S(i) <= AEPS ) THEN
+         S(i) = 1._dp
+       ELSE
+         S(i) = 1._dp / SQRT(S(i))
+       END IF
+
+       ! Convert the row back to  CRS format:
+       ! ------------------------------------
+       DO k=Rows(i), Diag(i)
+         T(Cols(k)) =  0._dp
+         D(Cols(k)) = .FALSE.
+       END DO
+
+       DO k=ILURows(i), ILUDiag(i)
+         ILUValues(k)  = S(ILUCols(k))
+         S(ILUCols(k)) =  0._dp
+         C(ILUCols(k)) = .FALSE.
+       END DO
+     END DO
+
+    ELSE
+
+     ! The factorization row by row:
+     ! -----------------------------
+     DO i=1,N
+
+       ! Convert current row to full form for speed,
+       ! only flagging the nonzero entries:
+       ! -------------------------------------------
        DO k=Rows(i), Rows(i+1)-1
           S(Cols(k)) = Values(k)
        END DO
@@ -1472,44 +1531,44 @@ END FUNCTION CRS_RowSum
 !
 !      This is the factorization part for the current row:
 !      ---------------------------------------------------
-       DO k=ILUCols(ILURows(i)),i-1
-          IF ( C(k) ) THEN
-             IF ( ABS(ILUValues(ILUDiag(k))) > AEPS ) &
-               S(k) = S(k) / ILUValues(ILUDiag(k)) 
+       DO m=ILURows(i),ILUDiag(i)-1
+         k = ILUCols(m)
+         IF ( S(k) == 0._dp ) CYCLE
 
-             DO l = ILUDiag(k)+1, ILURows(k+1)-1
-                j = ILUCols(l)
-                IF ( C(j) ) THEN
-                   S(j) = S(j) - S(k) * ILUValues(l)
-                END IF
-             END DO
-          END IF
+         IF ( ABS(ILUValues(ILUDiag(k))) > AEPS ) &
+           S(k) = S(k) / ILUValues(ILUDiag(k)) 
+
+         DO l = ILUDiag(k)+1, ILURows(k+1)-1
+           j = ILUCols(l)
+           IF ( C(j) ) THEN
+             S(j) = S(j) - S(k) * ILUValues(l)
+           END IF
+         END DO
        END DO
 
 !
 !      Convert the row back to  CRS format:
 !      ------------------------------------
        DO k=ILURows(i), ILURows(i+1)-1
-          IF ( C(ILUCols(k)) ) THEN
-             ILUValues(k)  = S(ILUCols(k))
-             S(ILUCols(k)) =  0.0d0
-             C(ILUCols(k)) = .FALSE.
-          END IF
+         IF ( C(ILUCols(k)) ) THEN
+           ILUValues(k)  = S(ILUCols(k))
+           S(ILUCols(k)) =  0.0d0
+           C(ILUCols(k)) = .FALSE.
+         END IF
        END DO
-    END DO
+     END DO
 
-    DEALLOCATE( S, C )
-
-!
-!   Prescale the diagonal for the LU solve:
-!   ---------------------------------------
-    DO i=1,N
+     !
+     ! Prescale the diagonal for the LU solve:
+     ! ---------------------------------------
+     DO i=1,N
        IF ( ABS(ILUValues(ILUDiag(i))) < AEPS ) THEN
-          ILUValues(ILUDiag(i)) = 1.0d0
+         ILUValues(ILUDiag(i)) = 1.0d0
        ELSE
-          ILUValues(ILUDiag(i)) = 1.0d0 / ILUValues(ILUDiag(i))
+         ILUValues(ILUDiag(i)) = 1.0d0 / ILUValues(ILUDiag(i))
        END IF
-    END DO
+     END DO
+    END IF
 
 !------------------------------------------------------------------------------
     WRITE(Message,'(a,i1,a,i9)') 'ILU(', ILUn, &
@@ -1522,7 +1581,7 @@ END FUNCTION CRS_RowSum
     CALL Info( 'CRS_IncompleteLU', Message, Level=5 )
 
     WRITE(Message,'(A,I1,A,F8.2)') 'ILU(',ILUn, &
-        ') (Real), Factorization ready at (s): ', CPUTime()-t
+        ') (Real), Factorization ready at (s): ', CPUTime()-st
     CALL Info( 'CRS_IncompleteLU', Message, Level=5 )
 
     Status = .TRUE.
@@ -1662,7 +1721,7 @@ END FUNCTION CRS_RowSum
 
     LOGICAL :: Status
 
-    INTEGER :: i,j,k,l,n,istat
+    INTEGER :: i,j,k,l,m,n,istat
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     REAL(KIND=dp), POINTER ::  Values(:)
@@ -1672,15 +1731,15 @@ END FUNCTION CRS_RowSum
 
     TYPE(Matrix_t), POINTER :: A1
 
-    REAL(KIND=dp) :: t, CPUTime
+    REAL(KIND=dp) :: st, CPUTime
 
-    LOGICAL, ALLOCATABLE :: C(:)
-    COMPLEX(KIND=dp), ALLOCATABLE :: S(:)
+    LOGICAL, ALLOCATABLE :: C(:), D(:)
+    COMPLEX(KIND=dp), ALLOCATABLE :: S(:), T(:)
 !------------------------------------------------------------------------------
 
     WRITE(Message,'(a,i1,a)') 'ILU(',ILUn,') (Complex), Starting Factorization:'
     CALL Info( 'CRS_ComplexIncompleteLU', Message, Level=5 )
-    t = CPUTime()
+    st = CPUTime()
 
     N = A % NumberOfRows
     Diag   => A % Diag
@@ -1760,66 +1819,114 @@ END FUNCTION CRS_RowSum
 !
 !   Allocate space for storing one full row:
 !   ----------------------------------------
-    ALLOCATE( C(n/2), S(n/2) )
+    ALLOCATE( C(n/2), S(n/2), D(n/2), T(n/2) )
     C = .FALSE.
     S =  0.0d0
-!
-!   The factorization row by row:
-!   -----------------------------
-    DO i=1,N/2
-!
-!      Convert the current row to full form for speed,
-!      only flagging the nonzero entries:
-!      -----------------------------------------------
+    D = .FALSE.
+    T =  0.0d0
+
+    IF ( A % Cholesky ) THEN
+     !
+     ! The factorization row by row:
+     ! -----------------------------
+     DO i=1,N/2
+
+       ! Convert current row to full form for speed,
+       ! only flagging the nonzero entries:
+       ! -------------------------------------------
+       DO k = Rows(2*i-1), Rows(2*i)-1,2
+          D((Cols(k)+1)/2) = .TRUE.
+          T((Cols(k)+1)/2) = CMPLX( Values(k), -Values(k+1), KIND=dp )
+       END DO
+
+       DO j=ILURows(i), ILUDiag(i)
+          C(ILUCols(j)) = .TRUE.
+          S(ILUCols(j)) = ILUValues(j)
+       END DO
+
+       ! This is the factorization part for the current row:
+       ! ---------------------------------------------------
+       S(i) = T(i)
+       DO m=ILURows(i),ILUDiag(i)-1
+         j = ILUCols(m)
+         S(j) = T(j)
+         DO l = ILURows(j),ILUDiag(j)-1
+           k = ILUCols(l)
+           S(j) = S(j) - S(k) * CONJG(ILUValues(l))
+         END DO
+         S(j) = S(j) * ILUValues(ILUDiag(j))
+         S(i) = S(i) - S(j)*CONJG(S(j))
+       END DO
+
+       S(i) = 1._dp / SQRT(S(i))
+
+       ! Convert the row back to  CRS format:
+       ! ------------------------------------
+       DO k = Rows(2*i-1), Rows(2*i)-1,2
+         T((Cols(k)+1)/2) =  0._dp
+         D((Cols(k)+1)/2) = .FALSE.
+       END DO
+
+       DO k=ILURows(i), ILUDiag(i)
+         ILUValues(k)  = S(ILUCols(k))
+         S(ILUCols(k)) =  0._dp
+         C(ILUCols(k)) = .FALSE.
+       END DO
+     END DO
+
+    ELSE
+
+     ! The factorization row by row:
+     ! -----------------------------
+     DO i=1,N/2
+
+       ! Convert the current row to full form for speed,
+       ! only flagging the nonzero entries:
+       ! -----------------------------------------------
        DO k = ILURows(i), ILURows(i+1)-1
-          C(ILUCols(k)) = .TRUE.
+         C(ILUCols(k)) = .TRUE.
        END DO
 
        DO k = Rows(2*i-1), Rows(2*i)-1,2
-          S((Cols(k)+1)/2) = CMPLX( Values(k), -Values(k+1), KIND=dp )
+         S((Cols(k)+1)/2) = CMPLX( Values(k), -Values(k+1), KIND=dp )
        END DO
 
-!
-!      This is the factorization part for the current row:
-!      ---------------------------------------------------
-       DO k=ILUCols(ILURows(i)),i-1
-          IF ( C(k) ) THEN
-             IF ( ABS(ILUValues(ILUDiag(k))) > AEPS ) &
-               S(k) = S(k) / ILUValues(ILUDiag(k)) 
+       ! This is the factorization part for the current row:
+       ! ---------------------------------------------------
+       DO m=ILURows(i),ILUDiag(i)-1
+         k = ILUCols(m)
+         IF ( S(k) == 0._dp ) CYCLE
 
-             DO l = ILUDiag(k)+1, ILURows(k+1)-1
-                j = ILUCols(l)
-                IF ( C(j) ) THEN
-                   S(j) = S(j) - S(k) * ILUValues(l)
-                END IF
-             END DO
-          END IF
+         IF ( ABS(ILUValues(ILUDiag(k))) > AEPS ) &
+           S(k) = S(k) / ILUValues(ILUDiag(k)) 
+
+         DO l = ILUDiag(k)+1, ILURows(k+1)-1
+           j = ILUCols(l)
+           IF ( C(j) ) THEN
+             S(j) = S(j) - S(k) * ILUValues(l)
+           END IF
+         END DO
        END DO
 
-!
-!      Convert the row back to  CRS format:
-!      ------------------------------------
+       ! Convert the row back to  CRS format:
+       ! ------------------------------------
        DO k=ILURows(i), ILURows(i+1)-1
-          IF ( C(ILUCols(k)) ) THEN
-             ILUValues(k)  = S(ILUCols(k))
-             S(ILUCols(k)) =  0.0d0
-             C(ILUCols(k)) = .FALSE.
-          END IF
+         ILUValues(k)  = S(ILUCols(k))
+         S(ILUCols(k)) =  0._dp
+         C(ILUCols(k)) = .FALSE.
        END DO
-    END DO
+     END DO
 
-    DEALLOCATE( S, C )
-
-!
-!   Prescale the diagonal for the LU solve:
-!   ---------------------------------------
-    DO i=1,n/2
+     ! Prescale the diagonal for the LU solve:
+     ! ---------------------------------------
+     DO i=1,n/2
        IF ( ABS(ILUValues(ILUDiag(i))) < AEPS ) THEN
-          ILUValues(ILUDiag(i)) = 1.0d0
+         ILUValues(ILUDiag(i)) = 1._dp
        ELSE
-          ILUValues(ILUDiag(i)) = 1.0d0 / ILUValues(ILUDiag(i))
+         ILUValues(ILUDiag(i)) = 1._dp / ILUValues(ILUDiag(i))
        END IF
-    END DO
+     END DO
+    END IF
 
 !------------------------------------------------------------------------------
 
@@ -1833,7 +1940,7 @@ END FUNCTION CRS_RowSum
     CALL Info( 'CRS_ComplexIncompleteLU', Message, Level=5 )
 
     WRITE(Message,'(A,I1,A,F8.2)') 'ILU(',ILUn, &
-        ') (Complex), Factorization ready at (s): ', CPUTime()-t
+        ') (Complex), Factorization ready at (s): ', CPUTime()-st
     CALL Info( 'CRS_ComplexIncompleteLU', Message, Level=5 )
 
     Status = .TRUE.
@@ -2497,25 +2604,46 @@ END FUNCTION CRS_RowSum
 ! arrays on the subroutine call (destroying performance).
 !***********************************************************************
 #ifndef SGI
-    !
-    ! Forward substitute (solve z from Lz = b)
-    DO i=1,n
-       s = b(i)
-       DO j=Rows(i),Diag(i)-1
-          s = s - Values(j) * b(Cols(j))
-       END DO
-       b(i) = s 
-    END DO
+    IF ( A % Cholesky ) THEN
+      !
+      ! Forward substitute (solve z from Lz = b)
+      DO i=1,n
+        s = b(i)
+        DO j=Rows(i),Diag(i)-1
+           s = s - Values(j) * b(Cols(j))
+        END DO
+        b(i) = s * Values(Diag(i))
+      END DO
 
-    !
-    ! Backward substitute (solve x from UDx = z)
-    DO i=n,1,-1
-       s = b(i)
-       DO j=Diag(i)+1,Rows(i+1)-1
-          s = s - Values(j) * b(Cols(j))
-       END DO
-       b(i) = Values(Diag(i)) * s
-    END DO
+      !
+      ! Backward substitute (solve x from UDx = z)
+      DO i=n,1,-1
+        b(i) = b(i) * Values(Diag(i))
+        DO j=Rows(i),Diag(i)-1
+           b(Cols(j)) = b(Cols(j)) - Values(j) * b(i)
+        END DO
+      END DO
+    ELSE
+      !
+      ! Forward substitute (solve z from Lz = b)
+      DO i=1,n
+         s = b(i)
+         DO j=Rows(i),Diag(i)-1
+            s = s - Values(j) * b(Cols(j))
+         END DO
+         b(i) = s 
+      END DO
+
+      !
+      ! Backward substitute (solve x from UDx = z)
+      DO i=n,1,-1
+         s = b(i)
+         DO j=Diag(i)+1,Rows(i+1)-1
+            s = s - Values(j) * b(Cols(j))
+         END DO
+         b(i) = Values(Diag(i)) * s
+      END DO
+    END IF
 #else
     CALL LUSolve( n,SIZE(Cols),Rows,Cols,Diag,Values,b )
 
@@ -2613,25 +2741,46 @@ END FUNCTION CRS_RowSum
 ! arrays on the subroutine call (destroying performance).
 !***********************************************************************
 #ifndef SGI
-    !
-    ! Forward substitute
-    DO i=1,n
-       s = b(i)
-       DO j=Rows(i),Diag(i)-1
-          s = s - Values(j) * b(Cols(j))
-       END DO
-       b(i) = s
-    END DO
+    IF ( A % Cholesky ) THEN
+      !
+      ! Forward substitute
+      DO i=1,n
+         s = b(i)
+         DO j=Rows(i),Diag(i)-1
+            s = s - Values(j) * b(Cols(j))
+         END DO
+         b(i) = s * Values(Diag(i))
+      END DO
 
-    !
-    ! Backward substitute
-    DO i=n,1,-1
-       s = b(i)
-       DO j=Diag(i)+1,Rows(i+1)-1
-          s = s - Values(j) * b(Cols(j))
-       END DO
-       b(i) = Values(Diag(i)) * s
-    END DO
+      !
+      ! Backward substitute
+      DO i=n,1,-1
+         b(i) = b(i) * Values(Diag(i))
+         DO j=Rows(i),Diag(i)-1
+           b(Cols(j)) = b(Cols(j)) - Values(j) * b(i)
+         END DO
+      END DO
+    ELSE
+      !
+      ! Forward substitute
+      DO i=1,n
+         s = b(i)
+         DO j=Rows(i),Diag(i)-1
+            s = s - Values(j) * b(Cols(j))
+         END DO
+         b(i) = s
+      END DO
+
+      !
+      ! Backward substitute
+      DO i=n,1,-1
+         s = b(i)
+         DO j=Diag(i)+1,Rows(i+1)-1
+            s = s - Values(j) * b(Cols(j))
+         END DO
+         b(i) = Values(Diag(i)) * s
+      END DO
+    END IF
 #else
     CALL ComplexLUSolve( n,SIZE(Cols),Rows,Cols,Diag,Values,b )
 

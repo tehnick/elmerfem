@@ -318,10 +318,14 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
+
      IF ( .NOT. PRESENT(PrecF) ) THEN
        str = ListGetString( SolverParam % Values, &
         'Linear System Preconditioning',gotit )
        IF ( .NOT.gotit ) str = 'none'
+
+       A % Cholesky = ListGetLogical( SolverParam % Values, &
+           'Linear System Symmetric ILU', Gotit )
 
        IF ( str(1:4) == 'none' ) THEN
          PCondType = PRECOND_NONE
