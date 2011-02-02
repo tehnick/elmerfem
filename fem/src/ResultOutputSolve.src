@@ -512,9 +512,9 @@ END SUBROUTINE ResultOutputSolver
             NodeCoords(3) = Model % Nodes % z(CurrentElement % NodeIndexes(j))
 
             IF( MeshDim <= 2 ) THEN           
-              WRITE(PostFileUnit,'(2ES16.7E3 A)') NodeCoords(1:2), ' 0.0'
+              WRITE(PostFileUnit,'(2ES16.7E3,A)') NodeCoords(1:2), ' 0.0'
             ELSE
-              WRITE(PostFileUnit,'(3ES16.7E3 A)') NodeCoords(1:3)
+              WRITE(PostFileUnit,'(3ES16.7E3)') NodeCoords(1:3)
             END IF
           END DO
         END DO
@@ -554,9 +554,9 @@ END SUBROUTINE ResultOutputSolver
           END IF
 
           IF( MeshDim <= 2 ) THEN           
-            WRITE(PostFileUnit,'(2ES16.7E3 A)') NodeCoords(1:2), ' 0.0'
+            WRITE(PostFileUnit,'(2ES16.7E3,A)') NodeCoords(1:2), ' 0.0'
           ELSE
-            WRITE(PostFileUnit,'(3ES16.7E3 A)') NodeCoords(1:3)
+            WRITE(PostFileUnit,'(3ES16.7E3)') NodeCoords(1:3)
           END IF
         END DO
       END IF
@@ -2085,7 +2085,7 @@ CONTAINS
           END IF
 
           IF( dim <= 2 ) THEN
-            WRITE( IOUnit,'(2ES16.7E3 A)' ) Coord,' 0.0' 
+            WRITE( IOUnit,'(2ES16.7E3,A)' ) Coord,' 0.0' 
           ELSE
             WRITE( IOUnit,'(3ES16.7E3)' ) Coord 
           END IF
