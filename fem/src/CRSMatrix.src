@@ -1381,14 +1381,14 @@ END FUNCTION CRS_RowSum
     TYPE(Matrix_t) :: A
     INTEGER :: ILUn
 !------------------------------------------------------------------------------
-    LOGICAL :: Status
+    LOGICAL :: Status, Warned
 
     INTEGER :: i,j,k,l,m,n,istat
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     REAL(KIND=dp), POINTER :: ILUValues(:), Values(:)
 
-    REAL(KIND=dp) :: CPUTime, st
+    REAL(KIND=dp) :: CPUTime, st, tx
 
     LOGICAL, ALLOCATABLE :: C(:), D(:)
     REAL(KIND=dp), ALLOCATABLE ::  S(:), T(:)
@@ -1452,30 +1452,32 @@ END FUNCTION CRS_RowSum
 !
 !   Allocate space for storing one full row:
 !   ----------------------------------------
-    ALLOCATE( C(n), S(n), D(n), T(n) )
+    ALLOCATE( C(n), S(n) )
     C = .FALSE.
     S =  0.0d0
-    D = .FALSE.
-    T =  0.0d0
 
     IF ( A % Cholesky ) THEN
 
+      ALLOCATE( T(n) )
+      T =  0._dp
      !
      ! The factorization row by row:
      ! -----------------------------
+     Warned = .FALSE.
      DO i=1,N
 
        ! Convert current row to full form for speed,
        ! only flagging the nonzero entries:
        ! -------------------------------------------
-       DO j=Rows(i), Diag(i)
-          D(Cols(j)) = .TRUE.
-          T(Cols(j)) = Values(j)
+       DO k=Rows(i), Diag(i)
+         j = Cols(k)
+         T(j) = Values(k)
        END DO
 
-       DO j=ILURows(i), ILUDiag(i)
-          C(ILUCols(j)) = .TRUE.
-          S(ILUCols(j)) = ILUValues(j)
+       DO k=ILURows(i), ILUDiag(i)
+         j = ILUCols(k)
+         C(j) = .TRUE.
+         S(j) = ILUValues(k)
        END DO
 
        ! This is the factorization part for the current row:
@@ -1494,6 +1496,11 @@ END FUNCTION CRS_RowSum
 
        IF ( S(i) <= AEPS ) THEN
          S(i) = 1._dp
+         IF ( .NOT. Warned )  THEN
+           CALL Warn( 'Cholesky factorization:', &
+               'Negative diagonal: not pos.def. or badly conditioned matrix' )
+           Warned = .TRUE.
+         END IF
        ELSE
          S(i) = 1._dp / SQRT(S(i))
        END IF
@@ -1501,14 +1508,15 @@ END FUNCTION CRS_RowSum
        ! Convert the row back to  CRS format:
        ! ------------------------------------
        DO k=Rows(i), Diag(i)
-         T(Cols(k)) =  0._dp
-         D(Cols(k)) = .FALSE.
+         j = Cols(k) 
+         T(j) = 0._dp
        END DO
 
        DO k=ILURows(i), ILUDiag(i)
-         ILUValues(k)  = S(ILUCols(k))
-         S(ILUCols(k)) =  0._dp
-         C(ILUCols(k)) = .FALSE.
+         j = ILUCols(k)
+         ILUValues(k) = S(j)
+         S(j) =  0._dp
+         C(j) = .FALSE.
        END DO
      END DO
 
@@ -1733,7 +1741,7 @@ END FUNCTION CRS_RowSum
 
     REAL(KIND=dp) :: st, CPUTime
 
-    LOGICAL, ALLOCATABLE :: C(:), D(:)
+    LOGICAL, ALLOCATABLE :: C(:)
     COMPLEX(KIND=dp), ALLOCATABLE :: S(:), T(:)
 !------------------------------------------------------------------------------
 
@@ -1819,13 +1827,13 @@ END FUNCTION CRS_RowSum
 !
 !   Allocate space for storing one full row:
 !   ----------------------------------------
-    ALLOCATE( C(n/2), S(n/2), D(n/2), T(n/2) )
+    ALLOCATE( C(n/2), S(n/2), )
     C = .FALSE.
     S =  0.0d0
-    D = .FALSE.
-    T =  0.0d0
 
     IF ( A % Cholesky ) THEN
+      ALLOCATE( T(n/2) )
+      T =  0.0d0
      !
      ! The factorization row by row:
      ! -----------------------------
@@ -1835,7 +1843,6 @@ END FUNCTION CRS_RowSum
        ! only flagging the nonzero entries:
        ! -------------------------------------------
        DO k = Rows(2*i-1), Rows(2*i)-1,2
-          D((Cols(k)+1)/2) = .TRUE.
           T((Cols(k)+1)/2) = CMPLX( Values(k), -Values(k+1), KIND=dp )
        END DO
 
@@ -1864,7 +1871,6 @@ END FUNCTION CRS_RowSum
        ! ------------------------------------
        DO k = Rows(2*i-1), Rows(2*i)-1,2
          T((Cols(k)+1)/2) =  0._dp
-         D((Cols(k)+1)/2) = .FALSE.
        END DO
 
        DO k=ILURows(i), ILUDiag(i)
@@ -2616,7 +2622,7 @@ END FUNCTION CRS_RowSum
       END DO
 
       !
-      ! Backward substitute (solve x from UDx = z)
+      ! Backward substitute (solve x from L^Tx = z)
       DO i=n,1,-1
         b(i) = b(i) * Values(Diag(i))
         DO j=Rows(i),Diag(i)-1
