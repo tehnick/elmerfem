@@ -201,21 +201,25 @@ CONTAINS
     REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Origin(3)
     REAL(KIND=dp) :: LocalCoords(3), GlobalCoords(3)
     REAL(KIND=dp) :: x,y,z,u,v,w,dx,dy,dz
+    INTEGER, POINTER :: MaskPerm(:)
     INTEGER :: dim,t,i,j,k,n,nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax, &
-        imintot,imaxtot,jmintot,jmaxtot,kmintot,kmaxtot
+        imintot,imaxtot,jmintot,jmaxtot,kmintot,kmaxtot,elemdim
     INTEGER :: ioff,joff,koff,cands1, cands2
+    INTEGER :: ParallelNodes, NumberOfNodes
     TYPE(Nodes_t) :: Nodes
     TYPE(ValueList_t), POINTER :: Params
     TYPE(ELement_t), POINTER :: Element
     LOGICAL, POINTER :: GridPointActive(:,:,:)
-    LOGICAL :: CheckForDuplicates, GotIt
+    LOGICAL :: CheckForDuplicates, LowerDimensional, MaskExist, GotIt
+    CHARACTER(MAX_NAME_LEN) :: Str
+
 
     Mesh => GetMesh()
     IF( .NOT. ASSOCIATED( Mesh ) ) THEN
       CALL Fatal('FindGridParticles','No Mesh associated')
     END IF
 
-    dim = Particles % dim
+    dim = Mesh % MeshDim
     Params => Solver % Values
 
 
@@ -285,8 +289,6 @@ CONTAINS
       END IF
     END IF
 
-    ! PRINT *,'dx:',dx,dy,dz
-
 
     ! Set limits for the global indexes. These are used particularly if the 
     ! bounding box has been manually reduced. 
@@ -294,9 +296,14 @@ CONTAINS
     imintot = CEILING( MinCoord(1) / dx ) 
     imaxtot = FLOOR( MaxCoord(1) / dx ) 
     
-    jmintot = CEILING( MinCoord(2) / dy ) 
-    jmaxtot = FLOOR( MaxCoord(2) / dy ) 
-    
+    IF( dim >= 2 ) THEN
+      jmintot = CEILING( MinCoord(2) / dy ) 
+      jmaxtot = FLOOR( MaxCoord(2) / dy ) 
+    ELSE
+      jmintot = 0
+      jmaxtot = 0
+    END IF
+
     IF( dim == 3 ) THEN 
       kmintot = CEILING( MinCoord(3) / dz ) 
       kmaxtot = FLOOR( MaxCoord(3) / dz ) 
@@ -320,46 +327,89 @@ CONTAINS
     END IF
 
 
+    ! Create a mask for saving only part of data
+    !---------------------------------------------------------------
+    MaskExist = .FALSE.
+    Str = ListGetString( Params,'Mask Name',GotIt) 
+    IF( GotIt ) THEN
+      ALLOCATE( MaskPerm( Model % NumberOfNodes ) ) 
+      CALL MakePermUsingMask( Model,Solver,Mesh,Str, &
+          .FALSE., MaskPerm, Mesh % NumberOfNodes )
+      NumberOfNodes = MAXVAL( MaskPerm ) 
+      ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
+      IF( ParallelNodes == 0 ) THEN
+        CALL Fatal('ElmerPostOutputSolver','Given mask not active: '//TRIM(Str) )
+      ELSE
+        MaskExist = .TRUE.
+        CALL Info('SaveGridData','Using > '// TRIM(Str) // ' < as mask variable')
+      END IF
+    END IF
+
+
     ! Create particles in the uniform grid
     !----------------------------------------------------------------------------
     
     cands1 = 0
     cands2 = 0
 
-    DO t=1,Mesh % NumberOfBulkElements
-      
+    LowerDimensional = .FALSE.
+
+    DO t=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+
       Element => Mesh % Elements(t)
       n = GetElementNOFNodes(Element)
       CALL GetElementNodes(Nodes,Element)
-      
+
+      IF( MaskExist ) THEN
+        IF( ANY( MaskPerm( Element % NodeIndexes ) == 0 ) ) CYCLE
+      END IF
+      elemdim = Element % Type % Dimension
+
       imin = CEILING( ( MINVAL( Nodes % x(1:n) ) - Origin(1) ) / dx )
       imax = FLOOR( ( MAXVAL( Nodes % x(1:n) ) - Origin(1) ) / dx )
       imin = MAX( imin, imintot )
       imax = MIN( imax, imaxtot )
 
-      jmin = CEILING( ( MINVAL( Nodes % y(1:n) ) - Origin(2) ) / dy )
-      jmax = FLOOR( ( MAXVAL( Nodes % y(1:n) ) - Origin(2) ) / dy )
-      jmin = MAX( jmin, jmintot )
-      jmax = MIN( jmax, jmaxtot )
+      IF( elemdim >= 2 ) THEN
+        jmin = CEILING( ( MINVAL( Nodes % y(1:n) ) - Origin(2) ) / dy )
+        jmax = FLOOR( ( MAXVAL( Nodes % y(1:n) ) - Origin(2) ) / dy )
+        jmin = MAX( jmin, jmintot )
+        jmax = MIN( jmax, jmaxtot )
+      ELSE
+        jmin = jmintot
+        jmax = jmintot
 
-      IF( dim == 3 ) THEN 
+        ! If the element is of reduced order the flatten it in order to make 
+        ! PointInElement function better.
+        !-------------------------------------------------------------------
+        IF( dim >= 2 ) THEN
+          Nodes % y(1:n) = 0.0_dp
+        END IF
+      END IF
+
+      IF( elemdim == 3 ) THEN 
         kmin = CEILING( ( MINVAL( Nodes % z(1:n) ) - Origin(3) ) / dz )
         kmax = FLOOR( ( MAXVAL( Nodes % z(1:n) ) - Origin(3) ) / dz )
         kmin = MAX( kmin, kmintot )
         kmax = MIN( kmax, kmaxtot )     
       ELSE
-        kmin = 0
-        kmax = 0
+        kmin = kmintot
+        kmax = kmaxtot
+        IF( dim == 3 ) THEN
+          Nodes % z(1:n) = 0.0_dp
+        END IF
       END IF
 
       ! The loop is ordered in this way since more often 
       ! nz < ny < nx than any other way minimizing the cost
       !-----------------------------------------------------
+      GlobalCoords = 0.0_dp
+
       DO k=kmin,kmax
-        GlobalCoords(3) = k * dz + Origin(3)
+        IF( elemdim == 3 ) GlobalCoords(3) = k * dz + Origin(3)
         
         DO j=jmin,jmax
-          GlobalCoords(2) = j * dy + Origin(2)
+          IF( elemdim >= 2 ) GlobalCoords(2) = j * dy + Origin(2)
           
           DO i=imin,imax
             GlobalCoords(1) = i * dx + Origin(1)
@@ -383,7 +433,18 @@ CONTAINS
           END DO
         END DO
       END DO
+	
+      IF( t == Mesh % NumberOfBulkElements ) THEN        
+        IF( Particles % NumberOfParticles > 0 ) EXIT
+        LowerDimensional = .TRUE.
+      END IF
+	
     END DO
+
+    IF( MaskExist ) THEN
+      DEALLOCATE( MaskPerm )
+    END IF
+
 
     WRITE( Message,'(A,I8)') 'Number of candidate nodes:',cands1
     CALL Info('CreateGridParticles',Message)

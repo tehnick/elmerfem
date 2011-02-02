@@ -3981,6 +3981,10 @@ CONTAINS
       n = Mesh % MaxElementNodes
       ALLOCATE( Basis(n), Nodes % x(n), Nodes % y(n), Nodes % z(n) )
       ThisOnly = .TRUE.
+
+
+      ParticleMode = .NOT. ASSOCIATED( Particles % UVW ) 
+
       
       OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
       
@@ -4020,8 +4024,7 @@ CONTAINS
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
         
-        ParticleMode = .TRUE.
-        IF( ASSOCIATED( Particles % uvw ) ) THEN
+        IF(.NOT. ParticleMode ) THEN
 
           Solution => VariableGet( Mesh % Variables, &
               TRIM(FieldName),ThisOnly )
@@ -4062,7 +4065,6 @@ CONTAINS
               CALL Warn('WriteVTUFile','Complement does not exist:'//TRIM(FieldName2))
             END IF
           END IF
-          ParticleMode = .FALSE.
         END IF
 
         !---------------------------------------------------------------------
@@ -4153,8 +4155,7 @@ CONTAINS
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
-        ParticleMode = .TRUE.
-        IF( ASSOCIATED( Particles % uvw ) ) THEN
+        IF( .NOT. ParticleMode ) THEN
           Solution => VariableGet( Mesh % Variables, TRIM(FieldName), ThisOnly )
           ComponentVector = .FALSE.
           IF(.NOT. ASSOCIATED(Solution)) THEN
@@ -4213,8 +4214,6 @@ CONTAINS
               CALL Warn('WriteVTUFile','Complement does not exist:'//TRIM(FieldName2))
             END IF
           END IF
-          
-          ParticleMode = .FALSE.
         END IF
 
 
@@ -4324,9 +4323,43 @@ CONTAINS
         IF ( Particles % Status(i) > MaxSaveStatus .OR. &
             Particles % Status(i) < MinSaveStatus )  CYCLE
         j = j + 1
-        DO k=1,dim
-          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') Particles % Coordinate(i,k)
-        END DO
+
+
+	IF( ParticleMode ) THEN
+          DO k=1,dim
+            WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') Particles % Coordinate(i,k)
+          END DO
+        ELSE
+	  Element => Mesh % Elements( Particles % ElementIndex(i) )
+          Indexes => Element % NodeIndexes
+          n = Element % Type % NumberOfNodes
+ 
+          Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
+          Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
+          Nodes % z(1:n) = Mesh % Nodes % z( Indexes ) 
+            
+          u = Particles % uvw(i,1)
+          v = Particles % uvw(i,2)
+          IF( dim == 3 ) THEN
+            w = Particles % uvw(i,3)
+          ELSE
+            w = 0.0_dp
+          END IF
+            
+          stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
+
+          value = SUM( Basis(1:n) * Nodes % x(1:n) )
+          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+
+          value = SUM( Basis(1:n) * Nodes % y(1:n) )
+          WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+
+	  IF( dim == 3 ) THEN
+            value = SUM( Basis(1:n) * Nodes % z(1:n) )
+            WRITE(VtuUnit,'(ES16.7E3)', ADVANCE='no') value
+          END IF
+        END IF
+
         IF( dim == 3 ) THEN
           WRITE(VtuUnit,'(A)') ' '
         ELSE
