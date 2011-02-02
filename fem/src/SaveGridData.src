@@ -1,7 +1,7 @@
 !/******************************************************************************
 ! *
-! * Subroutine for tracking a particle under the influence of collisions,
-! * contacts and external fields.
+! * Subroutine for saving data on a uniform mesh. This could be of use for 
+! * light-weight visualization of glyphs in a otherwise heavy simulation.
 ! *
 ! ******************************************************************************
 ! *
@@ -198,10 +198,11 @@ CONTAINS
     TYPE(Particle_t) :: Particles
 
     TYPE(Mesh_t), POINTER :: Mesh
-    REAL(KIND=dp) :: MinCoord(3), MaxCoord(3)
+    REAL(KIND=dp) :: MinCoord(3), MaxCoord(3), Origin(3)
     REAL(KIND=dp) :: LocalCoords(3), GlobalCoords(3)
     REAL(KIND=dp) :: x,y,z,u,v,w,dx,dy,dz
-    INTEGER :: dim,t,i,j,k,n,nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax
+    INTEGER :: dim,t,i,j,k,n,nx,ny,nz,imin,imax,jmin,jmax,kmin,kmax, &
+        imintot,imaxtot,jmintot,jmaxtot,kmintot,kmaxtot
     INTEGER :: ioff,joff,koff,cands1, cands2
     TYPE(Nodes_t) :: Nodes
     TYPE(ValueList_t), POINTER :: Params
@@ -217,20 +218,40 @@ CONTAINS
     dim = Particles % dim
     Params => Solver % Values
 
-    MinCoord(1) = MINVAL(Mesh % Nodes % x )
-    MinCoord(2) = MINVAL(Mesh % Nodes % y )
-    MinCoord(3) = MINVAL(Mesh % Nodes % z )
-    
-    MaxCoord(1) = MAXVAL(Mesh % Nodes % x )
-    MaxCoord(2) = MAXVAL(Mesh % Nodes % y )
-    MaxCoord(3) = MAXVAL(Mesh % Nodes % z )
+
+    ! The bounding box may be given, otherwise it is taken to include the whole mesh
+    !-------------------------------------------------------------------------------
+    MinCoord(1) = GetCReal( Params,'Min Coordinate 1',GotIt) 
+    IF(.NOT. GotIt) MinCoord(1) = MINVAL(Mesh % Nodes % x )
+    MinCoord(2) = GetCReal( Params,'Min Coordinate 2',GotIt) 
+    IF(.NOT. GotIt) MinCoord(2) = MINVAL(Mesh % Nodes % y )
+    MinCoord(3) = GetCReal( Params,'Min Coordinate 3',GotIt) 
+    IF(.NOT. GotIt) MinCoord(3) = MINVAL(Mesh % Nodes % z )
+
+    MaxCoord(1) = GetCReal( Params,'Max Coordinate 1',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(1) = MAXVAL(Mesh % Nodes % x )
+    MaxCoord(2) = GetCReal( Params,'Max Coordinate 2',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(2) = MAXVAL(Mesh % Nodes % y )    
+    MaxCoord(3) = GetCReal( Params,'Max Coordinate 3',GotIt) 
+    IF(.NOT. GotIt) MaxCoord(3) = MAXVAL(Mesh % Nodes % z )
 
     ! print *,'Bounding box min:',MinCoord
     ! print *,'Bounding box max:',MaxCoord
 
+    ! Optionally the mesh origin may be moved to guarantee that there is 
+    ! a node at (x0,y0,z0) always.
+    !--------------------------------------------------------------------
+    Origin(1) = GetCReal( Params,'Grid Origin 1',GotIt) 
+    Origin(2) = GetCReal( Params,'Grid Origin 2',GotIt) 
+    Origin(3) = GetCReal( Params,'Grid Origin 3',GotIt) 
 
-    ! Get the grid resolution assuming that the grid is cartesian and uniform with
-    ! one point sitting at (0,0,0)
+    ! print *,'Origin:',Origin
+
+    MinCoord = MinCoord - Origin
+    MaxCoord = MaxCoord - Origin
+
+
+    ! Get the grid resolution assuming that the grid is cartesian and uniform.
     !----------------------------------------------------------------------------
     dx = GetCReal( Params,'Grid dx',GotIt) 
     IF(.NOT. GotIt ) THEN
@@ -264,30 +285,37 @@ CONTAINS
       END IF
     END IF
 
+    ! PRINT *,'dx:',dx,dy,dz
+
+
+    ! Set limits for the global indexes. These are used particularly if the 
+    ! bounding box has been manually reduced. 
+    !----------------------------------------------------------------------------
+    imintot = CEILING( MinCoord(1) / dx ) 
+    imaxtot = FLOOR( MaxCoord(1) / dx ) 
+    
+    jmintot = CEILING( MinCoord(2) / dy ) 
+    jmaxtot = FLOOR( MaxCoord(2) / dy ) 
+    
+    IF( dim == 3 ) THEN 
+      kmintot = CEILING( MinCoord(3) / dz ) 
+      kmaxtot = FLOOR( MaxCoord(3) / dz ) 
+    ELSE
+      kmintot = 0
+      kmaxtot = 0
+    END IF
+
+    ! PRINT *,'indexes:',imintot,imaxtot,jmintot,jmaxtot,kmintot,kmaxtot
 
     ! Create a table for checking active gridpoints
     !----------------------------------------------------------------------------
-    imin = CEILING( MinCoord(1) ) 
-    imax = FLOOR( MaxCoord(1) ) 
-    
-    jmin = CEILING( MinCoord(2) ) 
-    jmax = FLOOR( MaxCoord(2) ) 
-    
-    IF( dim == 3 ) THEN 
-      kmin = CEILING( MinCoord(3) ) 
-      kmax = FLOOR( MaxCoord(3) ) 
-    ELSE
-      kmin = 1
-      kmax = 1
-    END IF
-
     CheckForDuplicates = GetLogical( Params,'Check for Duplicates')
     IF( CheckForDuplicates ) THEN
-      ioff = imin-1
-      joff = jmin-1
-      koff = kmin-1
+      ioff = imintot-1
+      joff = jmintot-1
+      koff = kmintot-1
 
-      ALLOCATE( GridPointActive(imax-ioff,jmax-joff,kmax-koff) )
+      ALLOCATE( GridPointActive(imaxtot-ioff,jmaxtot-joff,kmaxtot-koff) )
       GridPointActive = .FALSE.
     END IF
 
@@ -304,32 +332,37 @@ CONTAINS
       n = GetElementNOFNodes(Element)
       CALL GetElementNodes(Nodes,Element)
       
-      imin = CEILING( MINVAL( Nodes % x(1:n) ) / dx )
-      imax = FLOOR( MAXVAL( Nodes % x(1:n) ) / dx )
+      imin = CEILING( ( MINVAL( Nodes % x(1:n) ) - Origin(1) ) / dx )
+      imax = FLOOR( ( MAXVAL( Nodes % x(1:n) ) - Origin(1) ) / dx )
+      imin = MAX( imin, imintot )
+      imax = MIN( imax, imaxtot )
 
-      jmin = CEILING( MINVAL( Nodes % y(1:n) ) / dy )
-      jmax = FLOOR( MAXVAL( Nodes % y(1:n) ) / dy )
+      jmin = CEILING( ( MINVAL( Nodes % y(1:n) ) - Origin(2) ) / dy )
+      jmax = FLOOR( ( MAXVAL( Nodes % y(1:n) ) - Origin(2) ) / dy )
+      jmin = MAX( jmin, jmintot )
+      jmax = MIN( jmax, jmaxtot )
 
       IF( dim == 3 ) THEN 
-        kmin = CEILING( MINVAL( Nodes % z(1:n) ) / dz )
-        kmax = FLOOR( MAXVAL( Nodes % z(1:n) ) / dz )
+        kmin = CEILING( ( MINVAL( Nodes % z(1:n) ) - Origin(3) ) / dz )
+        kmax = FLOOR( ( MAXVAL( Nodes % z(1:n) ) - Origin(3) ) / dz )
+        kmin = MAX( kmin, kmintot )
+        kmax = MIN( kmax, kmaxtot )     
       ELSE
         kmin = 0
         kmax = 0
       END IF
 
-
       ! The loop is ordered in this way since more often 
       ! nz < ny < nx than any other way minimizing the cost
       !-----------------------------------------------------
       DO k=kmin,kmax
-        GlobalCoords(3) = k * dz
+        GlobalCoords(3) = k * dz + Origin(3)
         
         DO j=jmin,jmax
-          GlobalCoords(2) = j * dy
+          GlobalCoords(2) = j * dy + Origin(2)
           
           DO i=imin,imax
-            GlobalCoords(1) = i * dx
+            GlobalCoords(1) = i * dx + Origin(1)
  
             cands1 = cands1 + 1
 
@@ -352,13 +385,20 @@ CONTAINS
       END DO
     END DO
 
-    PRINT *,'Candidate nodes:',cands1
+    WRITE( Message,'(A,I8)') 'Number of candidate nodes:',cands1
+    CALL Info('CreateGridParticles',Message)
+
     IF( CheckForDuplicates ) THEN
-      PRINT *,'Duplicate nodes:',cands1-cands2
+      WRITE( Message,'(A,I8)') 'Number of duplicate nodes:',cands1-cands2
+      CALL Info('CreateGridParticles',Message)
       DEALLOCATE( GridPointActive )
     END IF
-    PRINT *,'Final nodes:',Particles % NumberOfParticles    
-    PRINT *,'Hit rate:',1.0_dp * Particles % NumberOfParticles / cands1
+
+    WRITE( Message,'(A,I8)') 'Number of created nodes:',Particles % NumberOfParticles
+    CALL Info('CreateGridParticles',Message)
+    
+    WRITE( Message,'(A,F8.2)') 'Search hit fraction:',1.0_dp * Particles % NumberOfParticles / cands1
+    CALL Info('CreateGridParticles',Message)
 
 
   END SUBROUTINE CreateGridParticles
