@@ -295,12 +295,11 @@
        DO t=1,N
 
          Element => RadElements(t)
-         k = Element % Type % NumberOfNodes
-         ElementNodes % x(1:k) = Model % Nodes % x(Element % NodeIndexes)
-         ElementNodes % y(1:k) = Model % Nodes % y(Element % NodeIndexes)
-         ElementNodes % z(1:k) = Model % Nodes % z(Element % NodeIndexes)
+         Model % CurrentElement => Element
+         k = GetElementNOFNodes()
+         CALL GetElementNodes(ElementNodes)
          
-         IF ( Element % Type % ElementCode / 100 == 3 ) THEN
+         IF ( GetElementFamily() == 3 ) THEN
            nrm = NormalVector( Element,ElementNodes, &
                1.0d0 / 3.0d0, 1.0d0 / 3.0d0 )
          ELSE
@@ -312,7 +311,6 @@
 	 LeftEmis = .FALSE.
          Parent => Element % BoundaryInfo % Left
          IF ( ASSOCIATED(Parent) ) THEN
-
            LeftBody  = Parent % BodyId
            DO i=1,Parent % TYPE % NumberOfNodes
              gotIt =.TRUE.
@@ -328,16 +326,14 @@
              END IF
            END DO
 	   IF( LeftBody > 0 ) THEN 
-             MatId = ListGetInteger( Model % Bodies(LeftBody) % Values, &
-              'Material', GotIt)
+             MatId = GetInteger( Model % Bodies(LeftBody) % Values,'Material', GotIt)
 	     IF( MatId == 0 ) THEN
                CALL Warn('ViewFactors','Invalid material index in body, perhaps none')
              END IF 
            ELSE
              CALL Warn('ViewFactors','LeftBody not associated')
            END IF
-           LeftEmis = ListCheckPresent( Model % Materials(MatId) % Values,&
-	    'Emissivity') 
+           LeftEmis=ListCheckPresent(Model % Materials(MatId) % Values,'Emissivity') 
          END IF
          
          RightBody = 0
@@ -349,7 +345,7 @@
            DO i=1,Parent % TYPE % NumberOfNodes
              gotIt =.TRUE.
              DO j=1,Element % TYPE % NumberOfNodes
-               IF ( Element % NodeIndexes(j)==Parent % NodeIndexes(i)) THEN
+               IF (Element % NodeIndexes(j)==Parent % NodeIndexes(i)) THEN
                  gotIt=.FALSE.
                  EXIT
                END IF
@@ -360,37 +356,33 @@
              END IF
            END DO
 	   
-           MatId = ListGetInteger( Model % Bodies(RightBody) % Values, &
-            'Material', GotIt)
-           RightEmis = ListCheckPresent( Model % Materials(MatId) % Values,&
-	    'Emissivity') 
+           MatId = GetInteger( Model % Bodies(RightBody) % Values,'Material', GotIt)
+           RightEmis=ListCheckPresent(Model % Materials(MatId) % Values,'Emissivity') 
          END IF
 
 
-	! If emissivity given in either side then make the radiation target body to be the other.
-        !----------------------------------------------------------------------------------------
-	 GotIt = .FALSE.
-	 IF( RightEmis .AND. LeftEmis ) THEN
-	   CALL Warn('ViewFactors','Emissivity defined on both sides!')
-           WRITE(Message,'(A,I3,I3,A,I3,A,I5)') 'Bodies:',RightBody,LeftBody,' BC:',GetBCId( Element ),' Ind:',t
-	   CALL Info('ViewFactors',Message)
-           IF( ASSOCIATED(Element % BoundaryInfo % Left, Element % BoundaryInfo % Right)) THEN
-	     CALL Warn('ViewFactors','Parents of the boundary element are the same')
+         BC => GetBC()
+         RadBody = GetInteger( BC, 'Radiation Target Body',GotIt )
+         IF ( .NOT. GotIt ) RadBody = GetInteger( BC, 'Normal Target Body',GotIt )
+
+         IF ( .NOT. Gotit ) THEN
+	   ! If emissivity given in either side then make the radiation target body to be the other.
+           !----------------------------------------------------------------------------------------
+           IF( RightEmis .AND. LeftEmis ) THEN
+             CALL Warn('ViewFactors','Emissivity defined on both sides!')
+             WRITE(Message,'(A,I3,I3,A,I3,A,I5)') 'Bodies:',RightBody,LeftBody,' BC:', &
+                            GetBCId( Element ),' Ind:',t
+             CALL Info('ViewFactors',Message)
+             IF( ASSOCIATED(Element % BoundaryInfo % Left, Element % BoundaryInfo % Right)) THEN
+              CALL Warn('ViewFactors','Parents of the boundary element are the same')
+              RadBody = LeftBody
+             END IF
+           ELSE IF( RightEmis ) THEN
              RadBody = LeftBody
+           ELSE IF( LeftEmis ) THEN
+             RadBody = RightBody
            END IF
-         ELSE IF( RightEmis ) THEN
-           RadBody = LeftBody
-	   GotIt = .TRUE.
-         ELSE IF( LeftEmis ) THEN
-	   RadBody = RightBody
-           GotIt = .TRUE.
          END IF
- 
-         IF( .NOT. GotIt ) RadBody = ListGetInteger( Model % BCs( Element %  &
-             BoundaryInfo % Constraint) % Values, 'Radiation Target Body',GotIt )
-         
-         IF ( .NOT. GotIt ) RadBody = ListGetInteger( Model % BCs( Element %  &
-             BoundaryInfo % Constraint) % Values, 'Normal Target Body',GotIt )
 
          IF ( RadBody < 0 ) RadBody = 0
          
@@ -405,14 +397,9 @@
          Normal_in = -1.0
          IF ( RadBody <= 0 ) Normal_in = 1.0
          
-         nx = SUM(Model % Nodes % x(Element % NodeIndexes)) / k - &
-                     Model % Nodes % x(LeftNode)
-
-         ny = SUM(Model % Nodes % y(Element % NodeIndexes)) / k - &
-                     Model % Nodes % y(LeftNode)
-
-         nz = SUM(Model % Nodes % z(Element % NodeIndexes)) / k - &
-                     Model % Nodes % z(LeftNode)
+         nx = SUM(ElementNodes % x)/k - Model % Nodes % x(LeftNode)
+         ny = SUM(ElementNodes % y)/k - Model % Nodes % y(LeftNode)
+         nz = SUM(ElementNodes % z)/k - Model % Nodes % z(LeftNode)
          
          IF ( CylindricSymmetry ) THEN
            IF ( Normal_in * (Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz) > 0 ) THEN
