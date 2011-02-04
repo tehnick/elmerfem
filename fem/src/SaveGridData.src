@@ -59,10 +59,10 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
   LOGICAL :: GotIt, Structured, Visited = .FALSE.
   INTEGER :: Extent(6)
   REAL(KIND=dp) :: Origin(3), Dx(3)
-  INTEGER, POINTER, SAVE :: GridIndex(:,:,:)
+  INTEGER, POINTER :: GridIndex(:,:,:)
   
 
-  SAVE Visited
+  SAVE Visited, GridIndex, Origin, Dx, Extent, Particles
 
 !------------------------------------------------------------------------------
 
@@ -80,9 +80,7 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
     Particles % TimeOrder = 0
     Particles % dim = CoordinateSystemDimension()
     CALL CreateGridParticles( Particles ) 
-
     CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
-
     Visited = .TRUE.
   END IF
   
@@ -96,7 +94,6 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
     CALL ParticleOutput( Particles )     
   END IF
 
-  
   CALL Info('SaveGridData','All done',Level=4)
   CALL Info('SaveGridData', '-----------------------------------------', Level=4 )
   
