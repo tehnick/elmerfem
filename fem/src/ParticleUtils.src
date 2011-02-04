@@ -3911,7 +3911,8 @@ CONTAINS
     
     IF ( nTime == 1 ) THEN
       FilePrefix = ListGetString( Params,'Filename Prefix')
-      CALL Info('ParticleOutputVtu','Saving results in VTK XML format to file: '//TRIM(FilePrefix))
+      CALL Info('ParticleOutputVtu','Saving in VTK XML unstructured format to file: ' &
+	//TRIM(FilePrefix)//'.vtu')
       
       MinSaveStatus = ListGetInteger( Params,'Min Status for Saving',Found)
       IF(.NOT. Found ) MinSaveStatus = PARTICLE_INITIATED
@@ -4676,7 +4677,8 @@ CONTAINS
     
     IF ( nTime == 1 ) THEN
       FilePrefix = ListGetString( Params,'Filename Prefix')
-      CALL Info('ParticleOutputVti','Saving results in VTK XML format to file: '//TRIM(FilePrefix))
+      CALL Info('ParticleOutputVti','Saving in VTK XML imagedata format to file: ' &
+	//TRIM(FilePrefix)//'.vti')
     END IF
     
     Partitions = ParEnv % PEs
