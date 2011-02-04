@@ -38,6 +38,8 @@
 ! *
 ! *****************************************************************************/
 
+#include "../config.h"
+
 MODULE GeneralUtils
 
 USE Types
@@ -1224,7 +1226,9 @@ END FUNCTION ComponentNameVar
       NULLIFY( Matrix % GOrder )
 
       NULLIFY( Matrix % ParMatrix )
+#ifdef HAVE_UMFPACK
       Matrix % UMFPack_Numeric = 0
+#endif
 
       Matrix % Lumped    = .FALSE.
       Matrix % Ordered   = .FALSE. 
