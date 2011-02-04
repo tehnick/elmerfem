@@ -4966,7 +4966,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE MakePermUsingMask( Model,Solver,Mesh,MaskName, &
-       OptimizeBW, Perm, LocalNodes )
+       OptimizeBW, Perm, LocalNodes, MaskOnBulk )
 !------------------------------------------------------------------------------
 ! Creates a permutation table for bodies or boundaries using a free chosen string
 ! as mask. The resulting permutation is optimized in order, if requested. The
@@ -4979,8 +4979,9 @@ CONTAINS
     TYPE(SOlver_t) :: Solver
     INTEGER :: LocalNodes
     LOGICAL :: OptimizeBW
-    INTEGER, OPTIONAL :: Perm(:)
-    CHARACTER(LEN=*), OPTIONAL :: MaskName
+    INTEGER :: Perm(:)
+    CHARACTER(LEN=*) :: MaskName
+    LOGICAL, OPTIONAL :: MaskOnBulk
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: InvPerm(:)
     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
@@ -4993,12 +4994,14 @@ CONTAINS
 !------------------------------------------------------------------------------
     
     ! First check if there are active elements for this mask
+    IF( PRESENT( MaskOnBulk ) ) MaskOnBulk = .FALSE.
     ElemStart = HUGE(ElemStart) 
     ElemFin = 0     
     DO l = 1, Model % NumberOfBodyForces
        IF(ListCheckPresent( Model % BodyForces(l) % Values,MaskName) ) THEN
           ElemStart = 1
           ElemFin = Mesh % NumberOfBulkElements
+          IF( PRESENT( MaskOnBulk ) ) MaskOnBulk = .TRUE.
           EXIT
        END IF
     END DO
