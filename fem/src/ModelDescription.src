@@ -3052,7 +3052,7 @@ CONTAINS
 
     DOFs = 0
     Var => Model % Variables
-    DO WHILE( ASSOCIATED( Var ) )
+    DO WHILE( ASSOCIATED(Var) )
 
       IF ( .NOT. Var % Output ) THEN
          Var => Var % Next
@@ -3064,11 +3064,13 @@ CONTAINS
         CYCLE
       END IF
 
-      SELECT CASE(Var % Name)
+print*,'here: ', var % name(1:var % namelen)
+
+      SELECT CASE(Var % Name(1:Var % NameLen))
         CASE( 'mesh update' )
            Var1 => Model % Variables
            DO WHILE( ASSOCIATED( Var1 ) )
-             IF ( TRIM(Var1 % Name) == 'displacement' ) EXIT
+             IF ( Var1 % Name == 'displacement' ) EXIT
              Var1 => Var1 % Next
            END DO
            IF ( .NOT. ASSOCIATED( Var1 ) ) THEN
@@ -3158,7 +3160,7 @@ CONTAINS
           CYCLE
         END IF
 
-        SELECT CASE(Var % Name)
+        SELECT CASE(Var % Name(1:Var % Namelen))
           CASE( 'mesh update' )
 
              Var1 => Model % Variables
@@ -3516,12 +3518,12 @@ CONTAINS
              CYCLE
            END IF
 
-           SELECT CASE(Var % Name)
+           SELECT CASE(Var % Name(1:Var % Namelen))
               
            CASE( 'mesh update' )
               Var1 => Model % Variables
               DO WHILE( ASSOCIATED( Var1 ) )
-                 IF ( TRIM(Var1 % Name) == 'displacement' ) EXIT
+                 IF ( Var1 % Name(1:Var1 % NameLen) == 'displacement' ) EXIT
                  Var1 => Var1 % Next
               END DO
               IF ( .NOT. ASSOCIATED( Var1 ) ) THEN
@@ -3565,7 +3567,7 @@ CONTAINS
               ELSE
                  Var1 => Model % Variables
                  DO WHILE( ASSOCIATED( Var1 ) )
-                    IF ( TRIM(Var1 % Name) == 'mesh update' ) EXIT
+                    IF ( Var1 % Name(1:Var1 % Namelen) == 'mesh update' ) EXIT
                     Var1 => Var1 % Next
                  END DO
                  IF ( ASSOCIATED( Var1 ) ) THEN

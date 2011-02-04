@@ -322,7 +322,7 @@ CONTAINS
     CASE('magnetic induction')
       !------------------------------------------------------------------------------
       IF( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN        
-        CALL ListAddString( SolverParams,'Variable','Magnetic Field[Magnetic Field:3]')
+        CALL ListAddString( SolverParams,'Variable','-dofs 3 Magnetic Field')
         CALL ListAddString( SolverParams,&
             NextFreeKeyword('Exported Variable',SolverParams),&
             'Electric Current[Electric Current:3]')                  
@@ -337,9 +337,9 @@ CONTAINS
       !------------------------------------------------------------------------------
       IF( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
         IF( Dofs == 2 ) THEN
-          CALL ListAddString( SolverParams,'Variable','Displacement[Displacement:2]')
+          CALL ListAddString( SolverParams,'Variable','-dofs 2 Displacement')
         ELSE
-          CALL ListAddString( SolverParams,'Variable','Displacement[Displacement:3]')
+          CALL ListAddString( SolverParams,'Variable','-dofs 3 Displacement')
         END IF
       END IF
       IF( .NOT. ListCheckPresent( SolverParams,'Procedure') ) THEN      
@@ -352,9 +352,9 @@ CONTAINS
       !------------------------------------------------------------------------------
       IF( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN        
         IF( Dofs == 2 ) THEN
-          CALL ListAddString( SolverParams,'Variable','Mesh Update[Mesh Update:2]')
+          CALL ListAddString( SolverParams,'Variable','-dofs 2 Mesh Update')
         ELSE
-          CALL ListAddString( SolverParams,'Variable','Mesh Update[Mesh Update:3]')
+          CALL ListAddString( SolverParams,'Variable','-dofs 3 Mesh Update')
         END IF
       END IF
 
@@ -362,11 +362,11 @@ CONTAINS
         IF( Dofs == 2 ) THEN
           CALL ListAddString( SolverParams,&
               NextFreeKeyword('Exported Variable',SolverParams),&
-              'Mesh Velocity[Mesh Velocity:2]')        
+              '-dofs 2 Mesh Velocity')        
         ELSE
           CALL ListAddString( SolverParams,&
               NextFreeKeyword('Exported Variable',SolverParams),&
-              'Mesh Velocity[Mesh Velocity:3]')                  
+              '-dofs 3 Mesh Velocity')                  
         END IF
       END IF
 
