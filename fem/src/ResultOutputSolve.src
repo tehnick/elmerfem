@@ -128,7 +128,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
   
   IF( .NOT. SubroutineVisited ) THEN
-    CALL Info('ResultOutputSolve','Saving results with prefix: '//TRIM(FilePrefix))
+    CALL Info('ResultOutputSolve','Saving with prefix: '//TRIM(FilePrefix))
   END IF	
 
 
@@ -165,27 +165,27 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     MeshDim = Model % Mesh % MeshDim
 
     IF( SaveGid ) THEN
-      CALL Info( 'ResultOutputSolver','Saving results in GiD format' )    
+      CALL Info( 'ResultOutputSolver','Saving in GiD format' )    
       CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF( SaveGmsh ) THEN
-      CALL Info( 'ResultOutputSolver','Saving results in new gmsh format' )        
+      CALL Info( 'ResultOutputSolver','Saving in new gmsh format' )        
       CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF( SaveVTK ) THEN
-      CALL Info( 'ResultOutputSolver','Saving results in legacy vtk format' )            
+      CALL Info( 'ResultOutputSolver','Saving in legacy VTK format' )            
       CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF( SaveVTU ) THEN
-      CALL Info( 'ResultOutputSolver','Saving results in xml vtu format' )               
+      CALL Info( 'ResultOutputSolver','Saving in Unstructured VTK XML (.vtu) format' )               
       CALL VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF( SaveOpenDx ) THEN
-      CALL Info( 'ResultOutputSolver','Saving results in OpenDX format' )                   
+      CALL Info( 'ResultOutputSolver','Saving in OpenDX format' )                   
       CALL DXOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF( SaveEP ) THEN
-      CALL Info( 'ResultOutputSolver','Saving results in ElmerPost format' )                   
+      CALL Info( 'ResultOutputSolver','Saving in ElmerPost format' )                   
       CALL ElmerPostOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
 
@@ -365,7 +365,7 @@ END SUBROUTINE ResultOutputSolver
           NumberOfElements = NumberOfElements + 1
         END IF
         IF ( PRESENT(ONOEfound) ) &
-          NumberOfNodes=NumberOfNodes+CurrentElement % Type % NumberOfNodes
+          NumberOfNodes=NumberOfNodes+CurrentElement % TYPE % NumberOfNodes
       END DO
     ELSE
       NumberOfNodes = Model % NumberOfNodes
@@ -374,7 +374,7 @@ END SUBROUTINE ResultOutputSolver
         NumberOfNodes=0
         DO i=1,Model % NumberOfBulkElements+Model % NumberOfBoundaryElements
           CurrentElement => Model % Elements(i)
-          NumberOfNodes=NumberOfNodes+CurrentElement % Type % NumberOfNodes
+          NumberOfNodes=NumberOfNodes+CurrentElement % TYPE % NumberOfNodes
         END DO
       END IF
     END IF
@@ -395,7 +395,7 @@ END SUBROUTINE ResultOutputSolver
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
       Var => VariableGet( Solver % Mesh % Variables, Varname )
-      IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+      IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
         On_Nodes_on_elements=On_Nodes_on_elements+1
         IF ( PRESENT(ONOEfound) ) Dofs=Dofs+1
       ELSE
@@ -414,7 +414,7 @@ END SUBROUTINE ResultOutputSolver
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
       Var => VariableGet( Solver % Mesh % Variables, Varname )
-      IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+      IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
         On_Nodes_on_elements=On_Nodes_on_elements+1
         IF ( PRESENT(ONOEfound) ) Dofs=Dofs+3
       ELSE
@@ -440,7 +440,7 @@ END SUBROUTINE ResultOutputSolver
         END IF
         VarName = ListGetString( Solver % Values, TRIM(Txt) )
         Var => VariableGet( Solver % Mesh % Variables,VarName )
-        IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+        IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
           IF ( .NOT.PRESENT(ONOEfound) ) CYCLE
         ELSE
           IF ( PRESENT(ONOEfound) ) CYCLE
@@ -464,7 +464,7 @@ END SUBROUTINE ResultOutputSolver
 
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Solver % Mesh % Variables,VarName )
-        IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+        IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
           IF ( .NOT.PRESENT(ONOEfound) ) CYCLE
         ELSE
           IF ( PRESENT(ONOEfound) ) CYCLE
@@ -506,7 +506,7 @@ END SUBROUTINE ResultOutputSolver
             IF( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0)) CYCLE
           END IF
 
-          DO j=1,CurrentElement % Type % NumberOfNodes
+          DO j=1,CurrentElement % TYPE % NumberOfNodes
             NodeCoords(1) = Model % Nodes % x(CurrentElement % NodeIndexes(j))
             NodeCoords(2) = Model % Nodes % y(CurrentElement % NodeIndexes(j))
             NodeCoords(3) = Model % Nodes % z(CurrentElement % NodeIndexes(j))
@@ -687,13 +687,13 @@ END SUBROUTINE ResultOutputSolver
       IF(MaskExists) THEN
         IF ( ANY(MaskPerm(CurrentElement % NodeIndexes)<=0) ) CYCLE
       END IF
-      n2=CurrentElement % Type % NumberOfNodes
+      n2=CurrentElement % TYPE % NumberOfNodes
 
       Parent => Null()
       IF ( ASSOCIATED(CurrentElement % BoundaryInfo) ) THEN
         n = 0
         Parent => CurrentElement % BoundaryInfo % Left
-        DO l=1,Parent % Type % NumberOfNodes
+        DO l=1,Parent % TYPE % NumberOfNodes
           DO m=1,n2
             IF ( CurrentElement % NodeIndexes(m)==Parent % NodeIndexes(l)) n=n+1
           END DO
@@ -707,7 +707,7 @@ END SUBROUTINE ResultOutputSolver
       
       IF ( PRESENT(ONOEfound) ) THEN
         IF ( ASSOCIATED(Parent) ) THEN
-          DO l=1,Parent % Type % NumberOfNodes
+          DO l=1,Parent % TYPE % NumberOfNodes
             DO m=1,n2
               IF ( CurrentElement % NodeIndexes(m)==Parent % NodeIndexes(l)) EXIT
             END DO
@@ -730,7 +730,7 @@ END SUBROUTINE ResultOutputSolver
         END IF
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Model % Variables, TRIM(VarName) ) 
-        IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+        IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
           CYCLE
         ELSE IF ( PRESENT(ONOEfound) ) THEN
           CYCLE
@@ -757,7 +757,7 @@ END SUBROUTINE ResultOutputSolver
         Var => VariableGet( Model % Variables, VarName ) 
 
         IF( ASSOCIATED(Var) ) THEN
-          IF ( Var % Type == Variable_on_nodes_on_elements ) THEN
+          IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
             IF (.NOT.PRESENT(ONOEfound) ) CYCLE
           ELSE IF ( PRESENT(ONOEfound) ) THEN
             CYCLE
@@ -3040,33 +3040,40 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   CHARACTER(MAX_NAME_LEN) :: Dir
   LOGICAL :: Visited = .FALSE.
 
-  LOGICAL :: MaskExists, MaskAllocated
+  LOGICAL :: MaskExists, MaskAllocated, BinaryOutput, AsciiOutput, SinglePrec
   CHARACTER(MAX_NAME_LEN) :: Str
   TYPE(Variable_t), POINTER :: MaskVar
   INTEGER, POINTER :: MaskPerm(:), MaskOrder(:)
   INTEGER :: NumberOfNodes, NumberOfElements, ParallelNodes, ParallelElements
   TYPE(Element_t), POINTER :: CurrentElement
+  TYPE(ValueList_t),POINTER :: Params
 
+  Params => GetSolverParams()
 
-  ExtCount = ListGetInteger( Solver % Values,'Output Count',GotIt)
+  ExtCount = ListGetInteger( Params,'Output Count',GotIt)
   IF( GotIt ) THEN
     nTime = ExtCount
   ELSE
     nTime = nTime + 1
   END IF
-  FileIndexOffset = ListGetInteger( Solver % Values,'Fileindex offset',GotIt)
+  FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
+
+  BinaryOutput = GetLogical( Params,'Binary Output',GotIt)
+  AsciiOutput = .NOT. BinaryOutput
+  SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
+
 
   IF ( nTime == 1 ) THEN
     CALL Info('VtuOutputSolver','Saving results in VTK XML format')
-    FilePrefix = GetString( Solver % Values,'Output File Name',GotIt )
+    FilePrefix = GetString( Params,'Output File Name',GotIt )
     IF ( .NOT.GotIt ) FilePrefix = "Output"
   END IF
   
   Partitions = ParEnv % PEs
   Part = ParEnv % MyPE
-  Parallel = (Partitions > 1) .OR. ListGetLogical(Solver % Values,'Enforce Parallel format',GotIt)
+  Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
 
-  FixedMesh = ListGetLogical(Solver % Values,'Fixed Mesh',GotIt)
+  FixedMesh = ListGetLogical(Params,'Fixed Mesh',GotIt)
   Mesh => Model % Mesh
   MeshDim = Mesh % MeshDim
 
@@ -3075,18 +3082,18 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   ! Initialize stuff for masked saving
   !------------------------------------------------------------------------------
   MaskAllocated = .FALSE.
-  Str = ListGetString( Solver % Values,'Mask Variable',MaskExists)
+  Str = ListGetString( Params,'Mask Variable',MaskExists)
   IF( MaskExists ) THEN
     MaskVar => VariableGet(Model % Variables,TRIM(Str))
     IF( ASSOCIATED(MaskVar)) MaskPerm => MaskVar % Perm
     MaskExists = ASSOCIATED(MaskPerm)
   ELSE
     IF( MeshDim == 2 ) THEN
-      Str = ListGetString( Solver % Values,'2D Mask Name',GotIt)    
+      Str = ListGetString( Params,'2D Mask Name',GotIt)    
     ELSE IF( MeshDim == 3 ) THEN  
-      Str = ListGetString( Solver % Values,'3D Mask Name',GotIt)    
+      Str = ListGetString( Params,'3D Mask Name',GotIt)    
     END IF
-    IF(.NOT. GotIt) Str = ListGetString( Solver % Values,'Mask Name',GotIt) 
+    IF(.NOT. GotIt) Str = ListGetString( Params,'Mask Name',GotIt) 
     IF( GotIt ) THEN
       ALLOCATE( MaskPerm( Model % NumberOfNodes ) ) 
       CALL MakePermUsingMask( Model,Solver,Mesh,Str, &
@@ -3157,6 +3164,21 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 
 CONTAINS
 
+
+  ! The writing of xml strings is done here to allow easier modification
+  ! of output strategies.
+  !-------------------------------------------------------------------------
+  
+  SUBROUTINE StrWrite( Str )
+    
+    CHARACTER(LEN=1024) :: Str 
+    INTEGER, PARAMETER :: VtuUnit = 58
+    
+    WRITE( VtuUnit ) TRIM(Str)        
+    
+  END SUBROUTINE StrWrite
+
+
   
   SUBROUTINE WriteVtuFile( VtuFile, Model, RemoveDisp )
     CHARACTER(LEN=*), INTENT(IN) :: VtuFile
@@ -3165,41 +3187,68 @@ CONTAINS
     INTEGER, PARAMETER :: VtuUnit = 58
     TYPE(Variable_t), POINTER :: Var,Var1
     CHARACTER(LEN=512) :: str
-    INTEGER :: i,ii,j,k,dofs,Rank,cumn,n,dim,vari,sdofs,dispdofs, disp2dofs
-    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName, FieldName2
+    INTEGER :: i,ii,j,k,dofs,Rank,cumn,n,dim,vari,sdofs,dispdofs, disp2dofs, Offset
+    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, &
+        FieldName, FieldName2, OutStr
+    CHARACTER :: lf
     LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2, ThisOnly
+    LOGICAL :: WriteData, WriteXML
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:), Perm2(:), DispPerm(:), Disp2Perm(:)
     REAL(KIND=dp), POINTER :: Values(:), DispValues(:), Disp2Values(:), Values2(:), Values3(:)
-    REAL(KIND=dp) :: x,y,z, ElemVectVal(3)
+    REAL(KIND=dp) :: x,y,z, ElemVectVal(3),value
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Element_t), POINTER :: CurrentElement
 
+    ! single prec value
+    REAL :: fvalue, xf, yf, zf
+
+    ! Linefeed character
+    !-----------------------------------
+    lf = CHAR(10)
+
+
+    Offset = 0
+    WriteXML = .TRUE.
+    WriteData = AsciiOutput
+
+    ! This format works both for ascii and binary output
+    !-------------------------------------------------------------------------
+    OPEN( UNIT=VtuUnit, FILE=VtuFile, FORM = 'unformatted', ACCESS = 'stream', STATUS='unknown' )
     
-    OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
     Solver => Model % Solver
     dim = Model % Mesh % MeshDim
     ThisOnly = .TRUE.
     
-    WRITE( VtuUnit,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
-    WRITE( VtuUnit,'(A)') '  <UnstructuredGrid>'
-    WRITE( VtuUnit,'(A,I0,A,I0,A)') '    <Piece NumberOfPoints="',NumberOfNodes,&
-        '" NumberOfCells="',NumberOfElements,'">'
+    WRITE( OutStr,'(A)') '<?xml version="1.0"?>'//lf
+    CALL StrWrite( OutStr ) 
+
+    WRITE( OutStr,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'//lf
+    CALL StrWrite( OutStr )
+    WRITE( OutStr,'(A)') '  <UnstructuredGrid>'//lf
+    CALL StrWrite( OutStr )
+    WRITE( OutStr,'(A,I0,A,I0,A)') '    <Piece NumberOfPoints="',NumberOfNodes,&
+        '" NumberOfCells="',NumberOfElements,'">'//lf
+    CALL StrWrite( OutStr )
     
     ! nodewise information
     !-------------------------------------
     ScalarFieldName = GetString( Solver % Values,'Scalar Field 1',ScalarsExist)
     VectorFieldName = GetString( Solver % Values,'Vector Field 1',VectorsExist)
     IF( ScalarsExist .AND. VectorsExist) THEN
-      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
-          //'" Vectors="'//TRIM(VectorFieldName)//'">'
+      WRITE( OutStr,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
+          //'" Vectors="'//TRIM(VectorFieldName)//'">'//lf
     ELSE IF( ScalarsExist ) THEN
-      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'
+      WRITE( OutStr,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'//lf
     ELSE IF( VectorsExist ) THEN
-      WRITE( VtuUnit,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'
+      WRITE( OutStr,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'//lf
     ELSE
-      CALL Warn('WriteVtkXMLFile','Are there really no scalars or vectors?')
+      CALL Warn('WriteVtuFile','Are there really no scalars or vectors?')
     END IF
+    IF( ScalarsExist .OR. VectorsExist ) THEN
+      CALL StrWrite( OutStr )
+    END IF
+
 
     DispDofs = 0
     Disp2Dofs = 0
@@ -3219,6 +3268,8 @@ CONTAINS
       END IF
     END IF
     
+
+100 Offset = 0
     
     DO Rank = 0,2
       DO Vari = 1, 99
@@ -3240,7 +3291,6 @@ CONTAINS
           EXIT
         END IF
         
-
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
@@ -3256,7 +3306,7 @@ CONTAINS
             CYCLE
           END IF
         END IF
-        IF ( Solution % Type == Variable_on_nodes_on_elements ) CYCLE
+        IF ( Solution % TYPE == Variable_on_nodes_on_elements ) CYCLE
         
         IF( ASSOCIATED(Solution % EigenVectors)) THEN
           CALL Warn('WriteVtuXMLFile','Do the eigen values')
@@ -3308,32 +3358,50 @@ CONTAINS
           END IF
         END IF
 
+        IF( dofs > 1 ) THEN
+          sdofs = MAX(dofs,3)
+        ELSE
+          sdofs = dofs
+        END IF
+
         !---------------------------------------------------------------------
         ! Finally save the field values 
         !---------------------------------------------------------------------
-        IF( Rank == 0) THEN
-          WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-              //'" NumberOfComponents="1" format="ascii">'    
-          DO ii = 1, NumberOfNodes
-            i = ii
-            IF( MaskExists ) i = MaskOrder(i)
-            j = Perm(i)
-            Use2 = (j == 0) .AND. ComplementExists 
-            IF( Use2 ) j = Perm2(i)
-            IF( Use2 .AND. j > 0) THEN
-              WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Values2(j)              
-            ELSE IF(j > 0) THEN
-              WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Values(j)              
-            ELSE
-              WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
-            END IF
-          END DO
-          WRITE( VtuUnit,'(A)') ' '
-          WRITE( VtuUnit,'(A)') '        </DataArray>'
-        ELSE
-          sdofs = MAX(dofs,3)
-          WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-              //'" NumberOfComponents="',sdofs,'" format="ascii">'    
+        IF( WriteXML ) THEN
+          IF( SinglePrec ) THEN
+            WRITE( OutStr,'(A,I1,A)') '        <DataArray type="Float32" Name="'//TRIM(FieldName)
+          ELSE
+             WRITE( OutStr,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)
+          END IF
+          CALL StrWrite( OutStr )
+
+          WRITE( OutStr,'(A,I1,A)') '" NumberOfComponents="',sdofs,'"'          
+          CALL StrWrite( OutStr ) 
+          
+          IF( AsciiOutput ) THEN
+            WRITE( OutStr,'(A)') ' format="ascii">'//lf
+            CALL StrWrite( OutStr ) 
+          ELSE
+            WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+            CALL StrWrite( OutStr ) 
+          END IF
+        END IF
+
+        IF( BinaryOutput ) THEN
+          IF( SinglePrec ) THEN
+            k = NumberOfNodes * SIZEOF( fvalue ) * sdofs
+          ELSE
+            k = NumberOfNodes * SIZEOF( value ) * sdofs
+          END IF
+          Offset = Offset + SIZEOF( i ) + k
+        END IF
+         
+        !---------------------------------------------------------------------
+        ! Data may also be appended and then its saved on the second sweep
+        !---------------------------------------------------------------------
+        IF( WriteData ) THEN
+
+          IF( BinaryOutput ) WRITE( VtuUnit ) k
           
           DO ii = 1, NumberOfNodes
             i = ii
@@ -3342,30 +3410,52 @@ CONTAINS
             Use2 = (j == 0) .AND. ComplementExists 
             IF( Use2 ) j = Perm2(i)
             
-            DO k=1,sdofs
+            DO k=1,sdofs              
               IF(j==0 .OR. k > dofs) THEN
-                WRITE( VtuUnit,'(A)', ADVANCE='no') ' 0.0'  
+                value = 0.0_dp
               ELSE IF( ComponentVector ) THEN
-                IF( k == 1 ) WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Values(j)
-                IF( k == 2 ) WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Values2(j)
-                IF( k == 3 ) WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Values3(j)
+                IF( k == 1 ) value = Values(j)
+                IF( k == 2 ) value = Values2(j)
+                IF( k == 3 ) value = Values3(j)
               ELSE IF( Use2 ) THEN
-                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Values2(dofs*(j-1)+k)              
+                value = Values2(dofs*(j-1)+k)              
               ELSE
-                WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') Values(dofs*(j-1)+k)              
+                value = Values(dofs*(j-1)+k)              
+              END IF
+              
+              IF( BinaryOutput ) THEN
+                IF( SinglePrec ) THEN
+                  fvalue = value
+                  WRITE( VtuUnit ) fvalue
+                ELSE
+                  WRITE( VtuUnit ) value
+                END IF
+              ELSE
+                IF( ABS( value ) <= TINY ( value ) ) THEN
+                  WRITE(OutStr,'(A)') " 0.0"
+                ELSE
+                  WRITE( OutStr,'(ES16.7E3)') value
+                END IF
+                CALL StrWrite( OutStr ) 
               END IF
             END DO
           END DO
-          WRITE( VtuUnit,'(A)') ' '
-          WRITE( VtuUnit,'(A)') '        </DataArray>'
+        END IF
+
+        IF( AsciiOutput ) THEN
+          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+          CALL StrWrite( OutStr ) 
         END IF
       END DO
     END DO
-    
-    IF( ScalarsExist .OR. VectorsExist) THEN
-      WRITE( VtuUnit,'(A)') '      </PointData>'
+
+    IF( WriteXML ) THEN
+      IF( ScalarsExist .OR. VectorsExist) THEN
+        WRITE( OutStr,'(A)') '      </PointData>'//lf
+        CALL StrWrite( OutStr ) 
+      END IF
     END IF
-    
+
     
     ! Elementwise information
     !-------------------------------------
@@ -3373,25 +3463,40 @@ CONTAINS
     FieldName = GetString( Solver % Values,'Scalar Field Elemental 1',ScalarsExist)
 
     IF( VectorsExist .OR. ScalarsExist ) THEN
-      
-      WRITE( VtuUnit,'(A)') '      <CellData>'
-      
+      IF( WriteXML ) THEN
+        WRITE( OutStr,'(A)') '      <CellData>'//lf
+        CALL StrWrite( OutStr ) 
+      END IF
+
       IF ( .FALSE. ) THEN
-        WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="body" format="ascii">'
-        DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-          CurrentElement => Model % Elements(i)
-          IF(MaskExists) THEN
-            IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-          END IF
-          IF( i <= Model % NumberOfBulkElements ) THEN
-            n = CurrentElement % BodyId 
-          ELSE
+        IF( WriteXml ) THEN
+          WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="body" format="ascii">'
+          CALL StrWrite( OutStr ) 
+        END IF
+        IF( WriteData ) THEN
+          DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+            CurrentElement => Model % Elements(i)
+            IF(MaskExists) THEN
+              IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+            END IF
+            IF( i <= Model % NumberOfBulkElements ) THEN
+              n = CurrentElement % BodyId 
+            ELSE
               n = 0
-          END IF
-          WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') n
-        END DO
-        WRITE( VtuUnit,'(A)') ' '
-        WRITE( VtuUnit,'(A)') '        </DataArray>'
+            END IF
+
+            IF( BinaryOutput ) THEN
+              WRITE( VtuUnit ) n
+            ELSE
+              WRITE( OutStr, '(I0," ")') n
+              CALL StrWrite( OutStr )
+            END IF
+          END DO
+        END IF
+        IF( AsciiOutput ) THEN
+          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+          CALL StrWrite( OutStr ) 
+        END IF
       END IF
       
       DO Vari = 1, 99
@@ -3420,25 +3525,41 @@ CONTAINS
         Values => Solution % Values
   
         WRITE(Txt, '(A,A,A)') 'Write variable: "',TRIM(FieldName), "'"
-        CALL Info('WriteVtuXMLFile', Txt)
+        CALL Info('WriteVtuFile', Txt)
   
-        WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-               //'" NumberOfComponents="1" format="ascii">'    
-        DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-           ElemVectVal = 0.0
-           IF( i <= Model % NumberOfBulkElements ) THEN
+        IF( WriteXML ) THEN
+          WRITE( OutStr,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="1" format="ascii">'    
+        END IF
+
+        IF( WriteData ) THEN
+          DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+            ElemVectVal = 0.0
+            IF( i <= Model % NumberOfBulkElements ) THEN
               CurrentElement => Model % Elements(i)
-              IF ( ALL(Perm(CurrentElement % DGIndexes)>0)) THEN
+              IF ( ALL(Perm(CurrentElement % DGIndexes) > 0)) THEN
                 n = GetElementNOFNodes()
                 ElemVectVal(1) = SUM(Values(perm(CurrentElement % DGIndexes)))/n
               END IF
-           END IF
-           WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ElemVectVal(1)
-        END DO
-        WRITE( VtuUnit,'(A)') ' '
-        WRITE( VtuUnit,'(A)') '        </DataArray>'
-      END DO  
+            END IF
+            IF( BinaryOutput ) THEN
+              WRITE( VtuUnit ) ElemVectVal(1)
+            ELSE
+              WRITE( OutStr,'(ES16.7E3)') ElemVectVal(1)
+              CALL StrWrite( OutStr ) 
+            END IF
+          END DO
+        END IF
 
+        IF( AsciiOutput ) THEN
+          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+          CALL StrWrite( OutStr )
+        END IF
+      END DO
+
+      !---------------------------------------------------------------------
+      ! Elemental fields
+      !---------------------------------------------------------------------
       DO Vari = 1, 99
         IF( Vari < 10 ) THEN
           WRITE(Txt,'(A,I2)') 'Vector Field Elemental',Vari
@@ -3465,13 +3586,18 @@ CONTAINS
         Values => Solution % Values
   
         WRITE(Txt, '(A,A,A)') 'Write variable: "',TRIM(FieldName), "'"
-        CALL Info('WriteVtuXMLFile', Txt)
-  
-        WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-               //'" NumberOfComponents="3" format="ascii">'    
-        DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-           ElemVectVal = 0.0
-           IF( i <= Model % NumberOfBulkElements ) THEN
+        CALL Info('WriteVtuFile', Txt)
+
+        IF( WriteXML ) THEN
+          WRITE( OutStr,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="3" format="ascii">'//lf
+          CALL StrWrite( OutStr )
+        END IF
+
+        IF( WriteData ) THEN
+          DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+            ElemVectVal = 0.0
+            IF( i <= Model % NumberOfBulkElements ) THEN
               CurrentElement => Model % Elements(i)
               IF ( ALL(Perm(CurrentElement % DGIndexes)>0)) THEN
                 n = GetElementNOFNodes()
@@ -3479,109 +3605,304 @@ CONTAINS
                   ElemVectVal(j) = SUM(Values(dofs*(perm(CurrentElement % DGIndexes)-1)+j))/n
                 END DO
               END IF
-           END IF
-           DO k=1,3
-              WRITE( VtuUnit,'(ES16.7E3)', ADVANCE='no') ElemVectVal(k)
-           END DO                  
-        END DO
-        WRITE( VtuUnit,'(A)') ' '
-        WRITE( VtuUnit,'(A)') '        </DataArray>'
-      END DO  
+            END IF
+
+            DO j=1,dofs                
+              IF( BinaryOutput ) THEN
+                WRITE( VtuUnit ) ElemVectVal(j) 
+              ELSE
+                WRITE( OutStr,'(ES16.7E3)') ElemVectVal(j)
+                CALL StrWrite( OutStr ) 
+              END IF
+            END DO
+
+          END DO
+        END IF
+
+        IF( AsciiOutput ) THEN
+          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+          CALL StrWrite( OutStr ) 
+        END IF
+      END DO
       
-      WRITE( VtuUnit,'(A)') '      </CellData>'
+      IF( WriteXML ) THEN
+        WRITE( OutStr,'(A)') '      </CellData>'//lf
+        CALL StrWrite( OutStr ) 
+      END IF
+        
     END IF
 
     ! Coordinates of each point
     !-------------------------------------
-    WRITE( VtuUnit,'(A)') '      <Points>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" NumberOfComponents="3" format="ascii">'    
+    IF( WriteXML ) THEN
+      WRITE( OutStr,'(A)') '      <Points>'//lf
+      CALL StrWrite( OutStr ) 
 
-
-    DO ii = 1, NumberOfNodes
-      i = ii
-      IF( MaskExists ) i = MaskOrder(i)
-      x = Model % Mesh % Nodes % x(i)
-      y = Model % Mesh % Nodes % y(i)
-      z = Model % Mesh % Nodes % z(i)
-        
-      ! If displacement field is active remove the displacement from the coordinates
-      IF( dispdofs > 0 .OR. disp2dofs > 0) THEN
-        j = 0
-        IF(dispdofs > 0) THEN
-          j = DispPerm(i)
-          IF( j > 0 ) THEN
-            x = x - DispValues(dispdofs*(j-1)+1)
-            y = y - DispValues(dispdofs*(j-1)+2)
-            IF(dispdofs == 3) z = z - DispValues(dispdofs*(j-1)+3)
-          END IF
-        END IF
-        IF(disp2dofs > 0 .AND. j==0) THEN
-          j = Disp2Perm(i)
-          IF( j > 0 ) THEN
-            x = x - Disp2Values(disp2dofs*(j-1)+1)
-            y = y - Disp2Values(disp2dofs*(j-1)+2)
-            IF(disp2dofs == 3) z = z - Disp2Values(disp2dofs*(j-1)+3)
-          END IF
-        END IF
-      END IF
-
-      IF(dim == 3) THEN
-        WRITE(VtuUnit,'(3ES16.7E3)') x, y, z
+      IF( SinglePrec ) THEN
+        WRITE( OutStr,'(A)') '        <DataArray type="Float32" NumberOfComponents="3"'
       ELSE
-        WRITE(VtuUnit,'(2ES16.7E3," 0.0")') x, y
+        WRITE( OutStr,'(A)') '        <DataArray type="Float64" NumberOfComponents="3"'
       END IF
-    END DO
+      CALL StrWrite( OutStr )       
 
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
-    WRITE( VtuUnit,'(A)') '      </Points>'
+      IF( AsciiOutput ) THEN
+        WRITE( OutStr,'(A)') ' format="ascii">'//lf
+        CALL StrWrite( OutStr ) 
+      ELSE
+        WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+        CALL StrWrite( OutStr ) 
+      END IF
+    END IF
+
+    IF( BinaryOutput ) THEN
+      IF( SinglePrec ) THEN
+        k = 3 * NumberOfNodes * SIZEOF( fvalue )
+      ELSE      
+        k = 3 * NumberOfNodes * SIZEOF( value )
+      END IF
+      Offset = Offset + SIZEOF( i ) + k
+    END IF
+
+
+    IF( WriteData ) THEN
+      IF( BinaryOutput ) WRITE( VtuUnit ) k 
+
+      DO ii = 1, NumberOfNodes
+        i = ii
+        IF( MaskExists ) i = MaskOrder(i)
+        x = Model % Mesh % Nodes % x(i)
+        y = Model % Mesh % Nodes % y(i)
+        z = Model % Mesh % Nodes % z(i)
+        
+        ! If displacement field is active remove the displacement from the coordinates
+        IF( dispdofs > 0 .OR. disp2dofs > 0) THEN
+          j = 0
+          IF(dispdofs > 0) THEN
+            j = DispPerm(i)
+            IF( j > 0 ) THEN
+              x = x - DispValues(dispdofs*(j-1)+1)
+              y = y - DispValues(dispdofs*(j-1)+2)
+              IF(dispdofs == 3) z = z - DispValues(dispdofs*(j-1)+3)
+            END IF
+          END IF
+          IF(disp2dofs > 0 .AND. j==0) THEN
+            j = Disp2Perm(i)
+            IF( j > 0 ) THEN
+              x = x - Disp2Values(disp2dofs*(j-1)+1)
+              y = y - Disp2Values(disp2dofs*(j-1)+2)
+              IF(disp2dofs == 3) z = z - Disp2Values(disp2dofs*(j-1)+3)
+            END IF
+          END IF
+        END IF
+        
+        IF( BinaryOutput ) THEN
+          IF( SinglePrec ) THEN
+            xf = x
+            yf = y
+            zf = z
+            WRITE( VtuUnit ) xf, yf, zf
+          ELSE
+            WRITE( VtuUnit ) x, y, z 
+          END IF
+        ELSE        
+          IF(dim == 3) THEN
+            WRITE(OutStr,'(3ES16.7E3)') x, y, z
+          ELSE
+            WRITE(OutStr,'(2ES16.7E3," 0.0")') x, y
+          END IF
+          CALL StrWrite( OutStr ) 
+        END IF
+      END DO
+    END IF
+
+    IF( AsciiOutput ) THEN   
+      WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF
+    IF( WriteXML ) THEN
+      WRITE( OutStr,'(A)') '      </Points>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF
 
 
     ! Write out the mesh
     !-------------------------------------
-    WRITE( VtuUnit,'(A)') '      <Cells>'
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
-    DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-      CurrentElement => Model % Elements(i)
-      IF(MaskExists) THEN
-        IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
-        WRITE( VtuUnit, '(50(" ",I0))') MaskPerm( CurrentElement % NodeIndexes ) - 1
+    IF( WriteXML ) THEN
+      WRITE( OutStr,'(A)') '      <Cells>'//lf
+      CALL StrWrite( OutStr ) 
+      
+      WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="connectivity"'
+      CALL StrWrite( OutStr ) 
+
+      IF( AsciiOutput ) THEN
+        WRITE( OutStr,'(A)') ' format="ascii">'//lf
+        CALL StrWrite( OutStr ) 
       ELSE
-        WRITE( VtuUnit, '(50(" ",I0))') CurrentElement % NodeIndexes - 1
+        WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+        CALL StrWrite( OutStr ) 
       END IF
-    END DO
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    END IF
 
-    cumn = 0
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
-    DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-      CurrentElement => Model % Elements(i)
-      IF(MaskExists) THEN
-        IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+    IF( BinaryOutput ) THEN
+      ! The offset needs to be summed over all elements, this is just the size factor
+      k = 0
+      DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+        CurrentElement => Model % Elements(i)
+        IF(MaskExists) THEN
+          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+        END IF
+        k = k + CurrentElement % TYPE % NumberOfNodes * SIZEOF( i ) 
+      END DO
+      Offset = Offset + k + SIZEOF( i ) 
+    END IF
+
+
+    IF( WriteData ) THEN
+      IF( BinaryOutput ) WRITE( VtuUnit ) k
+
+      DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+        CurrentElement => Model % Elements(i)
+        IF(MaskExists) THEN
+          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+          IF( BinaryOutput ) THEN
+            WRITE( VtuUnit ) MaskPerm( CurrentElement % NodeIndexes ) - 1
+          ELSE
+            WRITE( OutStr, '(50(" ",I0))') MaskPerm( CurrentElement % NodeIndexes ) - 1
+            CALL StrWrite( OutStr ) 
+          END IF
+        ELSE
+          IF( BinaryOutput ) THEN
+            WRITE( VtuUnit ) CurrentElement % NodeIndexes - 1
+          ELSE
+            WRITE( OutStr, '(50(" ",I0))') CurrentElement % NodeIndexes - 1
+            CALL StrWrite( OutStr ) 
+          END IF
+        END IF
+      END DO
+    END IF
+    
+    IF( AsciiOutput ) THEN
+      WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF
+
+    ! Offsets for element indexes 
+    !-------------------------------------------------------------------
+
+    IF( WriteXML ) THEN
+      WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="offsets"'
+      CALL StrWrite( OutStr ) 
+      
+      IF( AsciiOutput ) THEN
+        WRITE( OutStr,'(A)') ' format="ascii">'//lf
+        CALL StrWrite( OutStr ) 
+      ELSE
+        WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+        CALL StrWrite( OutStr ) 
       END IF
-      n = CurrentElement % TYPE % NumberOfNodes
-      cumn = cumn + n
-      WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') cumn
-    END DO
-    WRITE( VtuUnit,'(A)') ' '
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    END IF
 
-    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="types" format="ascii">'
-    DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-      CurrentElement => Model % Elements(i)
-      IF(MaskExists) THEN
-        IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+    IF( BinaryOutput ) THEN
+      k = NumberOfElements * SIZEOF( i ) 
+      Offset = Offset + SIZEOF( i ) + k
+    END IF
+
+
+    IF( WriteData ) THEN
+      IF( BinaryOutput ) WRITE( VtuUnit ) k 
+
+      cumn = 0
+      DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+        CurrentElement => Model % Elements(i)
+        IF(MaskExists) THEN
+          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+        END IF
+        n = CurrentElement % TYPE % NumberOfNodes
+        cumn = cumn + n
+        IF( BinaryOutput ) THEN
+          WRITE( VtuUnit ) cumn
+        ELSE
+          WRITE( OutStr, '(" ",I0)') cumn
+          CALL StrWrite( OutStr ) 
+        END IF
+      END DO
+    END IF
+
+    IF( AsciiOutput ) THEN   
+      WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF
+    IF( WriteXML ) THEN
+      WRITE( OutStr,'(A)') '        <DataArray type="Int32" Name="types"'
+      CALL StrWrite( OutStr ) 
+
+      IF( AsciiOutput ) THEN
+        WRITE( OutStr,'(A)') ' FORMAT="ascii">'//lf
+        CALL StrWrite( OutStr ) 
+      ELSE
+        WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+        CALL StrWrite( OutStr ) 
       END IF
-      n = Elmer2VTKElement(CurrentElement % TYPE % ElementCode)
-      WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') n
-    END DO
-    WRITE( VtuUnit,'(A)') ' '
-    WRITE( VtuUnit,'(A)') '        </DataArray>'
-    WRITE( VtuUnit,'(A)') '      </Cells>'
+    END IF
+
+    IF( BinaryOutput ) THEN
+      k = NumberOfElements * SIZEOF( i )
+      Offset = Offset + SIZEOF( i ) + k
+    END IF
 
 
-    WRITE( VtuUnit,'(A)') '    </Piece>'
-    WRITE( VtuUnit,'(A)') '  </UnstructuredGrid>'
-    WRITE( VtuUnit,'(A)') '</VTKFile>'
+    IF( WriteData ) THEN
+      IF( BinaryOutput ) WRITE( VtuUnit ) k
+
+      DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+        CurrentElement => Model % Elements(i)
+        IF(MaskExists) THEN
+          IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
+        END IF
+        n = Elmer2VTKElement(CurrentElement % TYPE % ElementCode)
+        IF( BinaryOutput ) THEN
+          WRITE( VtuUnit ) n          
+        ELSE
+          WRITE( OutStr, '(" ",I0)') n
+          CALL StrWrite( OutStr ) 
+        END IF
+      END DO
+    END IF
+
+    IF( AsciiOutput ) THEN
+      WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF
+    IF( WriteXml ) THEN
+      WRITE( OutStr,'(A)') '      </Cells>'//lf
+      CALL StrWrite( OutStr ) 
+      WRITE( OutStr,'(A)') '    </Piece>'//lf
+      CALL StrWrite( OutStr ) 
+      WRITE( OutStr,'(A)') '  </UnstructuredGrid>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF
+
+
+    IF( BinaryOutput ) THEN
+      IF( WriteXML ) THEN
+        WRITE( OutStr,'(A)') '<AppendedData encoding="raw">'//lf                    
+        CALL StrWrite( OutStr )           
+        WRITE( VtuUnit ) '_'
+        
+        WriteXML = .FALSE.
+        WriteData = .TRUE.
+        GOTO 100
+      ELSE
+        WRITE( OutStr,'(A)') lf//'</AppendedData>'//lf
+        CALL StrWrite( OutStr ) 
+      END IF
+    END IF
+    
+    WRITE( OutStr,'(A)') '</VTKFile>'//lf
+    CALL StrWrite( OutStr ) 
+
+    WRITE( OutStr,'(A)') ' '
+    CALL StrWrite( OutStr ) 
 
     CLOSE( VtuUnit )
   

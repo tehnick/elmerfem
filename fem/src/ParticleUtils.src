@@ -4650,7 +4650,6 @@ CONTAINS
     REAL(KIND=dp) :: GridOrigin(3), GridDx(3)
     INTEGER, POINTER :: GridIndex(:,:,:)
 
-
     TYPE(ValueList_t),POINTER :: Params
     INTEGER, SAVE :: nTime = 0
     LOGICAL :: GotIt, Parallel, FixedMeshend
@@ -4664,7 +4663,6 @@ CONTAINS
     REAL(KIND=dp) :: SaveNodeFraction
     LOGICAL :: Found,BinaryOutput,AsciiOutput,SinglePrec,Visited = .FALSE.
   
-
     CHARACTER(MAX_NAME_LEN) :: Str
     INTEGER :: NumberOfNodes, ParallelNodes, Dim
     
@@ -4687,7 +4685,7 @@ CONTAINS
  
     IF ( nTime == 1 ) THEN
       FilePrefix = ListGetString( Params,'Filename Prefix')
-      CALL Info('ParticleOutputVti','Saving in VTK XML imagedata format to file: ' &
+      CALL Info('ParticleOutputVti','Saving in ImageData VTK XML format to file: ' &
 	//TRIM(FilePrefix)//'.vti')
     END IF
     
@@ -4802,10 +4800,13 @@ CONTAINS
         WRITE( OutStr,'(A)') '    <PointData Scalars="'//TRIM(ScalarFieldName)//'">'//lf
       ELSE IF( VectorsExist ) THEN
         WRITE( OutStr,'(A)') '    <PointData Vectors="'//TRIM(VectorFieldName)//'">'//lf
+      ELSE
+        CALL Warn('WriteVtiFile','Are there really no scalars or vectors?')
       END IF
-      CALL StrWrite( OutStr ) 
+      IF( ScalarsExist .OR. VectorsExist ) THEN
+        CALL StrWrite( OutStr ) 
+      END IF
       
-
       Offset = 0
       WriteXML = .TRUE.
       WriteData = AsciiOutput
