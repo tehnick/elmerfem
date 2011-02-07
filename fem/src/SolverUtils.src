@@ -1596,6 +1596,54 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+  SUBROUTINE SetDirichletPoint( StiffMatrix, ForceVector,DOF, NDOFs, &
+      Perm, NodeIndex, NodeValue) 
+!------------------------------------------------------------------------------
+
+    IMPLICIT NONE
+
+    TYPE(Matrix_t), POINTER :: StiffMatrix
+    REAL(KIND=dp) :: ForceVector(:), NodeValue
+    INTEGER :: DOF, NDOFs, Perm(:), NodeIndex
+!------------------------------------------------------------------------------
+
+    INTEGER :: PermIndex
+    REAL(KIND=dp) :: s
+
+!------------------------------------------------------------------------------
+
+    PermIndex = Perm(NodeIndex)
+    
+    IF ( PermIndex > 0 ) THEN
+      PermIndex = NDOFs * (PermIndex-1) + DOF
+      
+      IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
+        
+        CALL SBand_SetDirichlet( StiffMatrix,ForceVector,PermIndex,NodeValue )
+        
+      ELSE IF ( StiffMatrix % FORMAT == MATRIX_CRS .AND. &
+          StiffMatrix % Symmetric ) THEN
+        
+        CALL CRS_SetSymmDirichlet(StiffMatrix,ForceVector,PermIndex,NodeValue)
+        
+      ELSE                  
+        
+        s = StiffMatrix % Values(StiffMatrix % Diag(PermIndex))
+        ForceVector(PermIndex) = NodeValue * s
+        CALL ZeroRow( StiffMatrix,PermIndex )
+        CALL SetMatrixElement( StiffMatrix,PermIndex,PermIndex,1.0d0*s )
+        
+      END IF
+    END IF
+    
+!------------------------------------------------------------------------------
+  END SUBROUTINE SetDirichletPoint
+!------------------------------------------------------------------------------
+
+
+
+
+!------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass1( Model, StiffMatrix, ForceVector, &
                       Name, DOF, NDOFs, Perm, This, Done )
 !------------------------------------------------------------------------------

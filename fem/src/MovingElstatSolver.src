@@ -542,7 +542,7 @@
                      
                      val = Displace(coord)                    
 
-                     CALL SetDirichtletPoint( StiffMatrix, ForceVector,1,1, &
+                     CALL SetDirichletPoint( StiffMatrix, ForceVector,1,1, &
                          CoordinatePerm, NodeIndexes(i), val)           
                    END DO
                  END IF
@@ -550,7 +550,7 @@
                  IF( ElementNormals(k) == 0 .OR. ElementNormals(k) == coord ) THEN
                    val = 0.0d0
                    DO i = 1, n
-                     CALL SetDirichtletPoint( StiffMatrix, ForceVector,1,1, &
+                     CALL SetDirichletPoint( StiffMatrix, ForceVector,1,1, &
                          CoordinatePerm, NodeIndexes(i), val)                
                    END DO
                  END IF
@@ -582,7 +582,7 @@
                  val = 0.0d0
                END IF
                
-               CALL SetDirichtletPoint( StiffMatrix, ForceVector,1,1, &
+               CALL SetDirichletPoint( StiffMatrix, ForceVector,1,1, &
                    CoordinatePerm, i, val)                          
              END IF
            END DO
@@ -674,14 +674,14 @@
                  'Moving Boundary',gotIt) ) THEN
                val = 1.0d0
                DO i = 1, n                 
-                CALL SetDirichtletPoint( StiffMatrix, ForceVector,1,1, &
+                CALL SetDirichletPoint( StiffMatrix, ForceVector,1,1, &
                      CoordinatePerm, NodeIndexes(i), val)                
                END DO
              ELSE IF( ListGetLogical(Model % BCs(j) % Values, &
                  'Fixed Boundary',gotIt) ) THEN
                val = 0.0d0
                DO i = 1, n                 
-                 CALL SetDirichtletPoint( StiffMatrix, ForceVector,1,1, &
+                 CALL SetDirichletPoint( StiffMatrix, ForceVector,1,1, &
                      CoordinatePerm, NodeIndexes(i), val)                
                END DO
              END IF
@@ -1143,53 +1143,6 @@
 
 !------------------------------------------------------------------------------
      END SUBROUTINE ElectricForceIntegrate
-!------------------------------------------------------------------------------
-
-
-
-!------------------------------------------------------------------------------
-  SUBROUTINE SetDirichtletPoint( StiffMatrix, ForceVector,DOF, NDOFs, &
-      Perm, NodeIndex, NodeValue) 
-!------------------------------------------------------------------------------
-
-    IMPLICIT NONE
-
-    TYPE(Matrix_t), POINTER :: StiffMatrix
-    REAL(KIND=dp) :: ForceVector(:), NodeValue
-    INTEGER :: DOF, NDOFs, Perm(:), NodeIndex
-!------------------------------------------------------------------------------
-
-    INTEGER :: PermIndex
-    REAL(KIND=dp) :: s
-
-!------------------------------------------------------------------------------
-
-    PermIndex = Perm(NodeIndex)
-    
-    IF ( PermIndex > 0 ) THEN
-      PermIndex = NDOFs * (PermIndex-1) + DOF
-      
-      IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
-        
-        CALL SBand_SetDirichlet( StiffMatrix,ForceVector,PermIndex,NodeValue )
-        
-      ELSE IF ( StiffMatrix % FORMAT == MATRIX_CRS .AND. &
-          StiffMatrix % Symmetric ) THEN
-        
-        CALL CRS_SetSymmDirichlet(StiffMatrix,ForceVector,PermIndex,NodeValue)
-        
-      ELSE                  
-        
-        s = StiffMatrix % Values(StiffMatrix % Diag(PermIndex))
-        ForceVector(PermIndex) = NodeValue * s
-        CALL ZeroRow( StiffMatrix,PermIndex )
-        CALL SetMatrixElement( StiffMatrix,PermIndex,PermIndex,1.0d0*s )
-        
-      END IF
-    END IF
-    
-!------------------------------------------------------------------------------
-  END SUBROUTINE SetDirichtletPoint
 !------------------------------------------------------------------------------
 
 
