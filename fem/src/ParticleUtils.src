@@ -4657,7 +4657,7 @@ CONTAINS
     INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet
     CHARACTER(MAX_NAME_LEN) :: Dir
     REAL(KIND=dp) :: SaveNodeFraction
-    LOGICAL :: Found,BinaryOutput,AsciiOutput,Visited = .FALSE.
+    LOGICAL :: Found,BinaryOutput,AsciiOutput,SinglePrec,Visited = .FALSE.
   
 
     CHARACTER(MAX_NAME_LEN) :: Str
@@ -4677,6 +4677,8 @@ CONTAINS
     
     BinaryOutput = GetLogical( Params,'Binary Output',GotIt)
     AsciiOutput = .NOT. BinaryOutput
+
+    SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
 
     IF ( nTime == 1 ) THEN
       FilePrefix = ListGetString( Params,'Filename Prefix')
@@ -4699,8 +4701,11 @@ CONTAINS
     END IF
     
     IF(Parallel .AND. Part == 0) THEN
-      WRITE( PvtiFile,'(A,A,I4.4,".pvti")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
-      CALL WritePvtiFile( PvtiFile )
+      CALL Warn('WriteVtiFile','VTK ImageFile not yet in parallel')
+      IF(.FALSE.) THEN
+        WRITE( PvtiFile,'(A,A,I4.4,".pvti")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+        CALL WritePvtiFile( PvtiFile )
+      END IF
     END IF
     
     IF ( Parallel ) THEN
@@ -4720,7 +4725,7 @@ CONTAINS
       CHARACTER(LEN=1024) :: Str 
       INTEGER, PARAMETER :: VtiUnit = 58
 
-      IF( .FALSE. .AND. BinaryOutput ) THEN
+      IF( BinaryOutput ) THEN
         WRITE( VtiUnit ) TRIM(Str)        
       ELSE
         WRITE( VtiUnit,'(A)', ADVANCE = 'no' ) TRIM(Str)
@@ -4730,13 +4735,12 @@ CONTAINS
 
 
 
-    
     SUBROUTINE WriteVtiFile( VtiFile )
       CHARACTER(LEN=*), INTENT(IN) :: VtiFile
       INTEGER, PARAMETER :: VtiUnit = 58
       TYPE(Variable_t), POINTER :: Var, Solution
       CHARACTER(LEN=512) :: str
-      INTEGER :: i,j,k,l,dofs,Rank,cumn,n,vari,sdofs,ind,IsVector,IsAppend,Offset
+      INTEGER :: i,j,k,l,dofs,Rank,cumn,n,vari,sdofs,ind,IsVector,IsAppend,GridPoints,Offset
       CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName, &
           FieldName2, BaseString, OutStr
       CHARACTER :: lf
@@ -4756,20 +4760,18 @@ CONTAINS
 
       ! Linefeed character
       !-----------------------------------
-      lf = char(10)
+      lf = CHAR(10)
 
       IF( BinaryOutput ) THEN      
-PRINT *,'bin open'
-        OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM = 'formatted' )
+        OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM = 'unformatted', ACCESS = 'stream' )
       ELSE      
-PRINT *,'ascii open'
         OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM='formatted' ) 
       END IF
 
       WRITE( OutStr,'(A)') '<?xml version="1.0"?>'//lf
       CALL StrWrite( OutStr ) 
             
-      WRITE( OutStr,'(A)') '<VTKFile type="ImageData" version="0.1" byte_order="LittleEndian">'
+      WRITE( OutStr,'(A)') '<VTKFile type="ImageData" version="0.1" byte_order="LittleEndian">'//lf
       CALL StrWrite( OutStr ) 
 
       WRITE( OutStr,'(A,6I4,A,3ES16.7E3,A,3ES16.7E3,A)') &
@@ -4778,7 +4780,7 @@ PRINT *,'ascii open'
           '"  Spacing = "',GridDx(1:3),'">'//lf
       CALL StrWrite( OutStr )  
 
-      WRITE( OutStr,'(A,6I4,A)') '<Piece Extent="',GridExtent,'">'//lf
+      WRITE( OutStr,'(A,6I4,A)') '  <Piece Extent="',GridExtent,'">'//lf
       CALL StrWrite( OutStr ) 
 
       
@@ -4788,12 +4790,12 @@ PRINT *,'ascii open'
       ScalarFieldName = ListGetString( Params,'Scalar Field 1',ScalarsExist)
       VectorFieldName = ListGetString( Params,'Vector Field 1',VectorsExist)
       IF( ScalarsExist .AND. VectorsExist) THEN
-        WRITE( OutStr,'(A)') '<PointData Scalars="'//TRIM(ScalarFieldName)&
+        WRITE( OutStr,'(A)') '    <PointData Scalars="'//TRIM(ScalarFieldName)&
             //'" Vectors="'//TRIM(VectorFieldName)//'">'//lf
       ELSE IF( ScalarsExist ) THEN
-        WRITE( OutStr,'(A)') '<PointData Scalars="'//TRIM(ScalarFieldName)//'">'//lf
+        WRITE( OutStr,'(A)') '    <PointData Scalars="'//TRIM(ScalarFieldName)//'">'//lf
       ELSE IF( VectorsExist ) THEN
-        WRITE( OutStr,'(A)') '<PointData Vectors="'//TRIM(VectorFieldName)//'">'//lf
+        WRITE( OutStr,'(A)') '    <PointData Vectors="'//TRIM(VectorFieldName)//'">'//lf
       END IF
       CALL StrWrite( OutStr ) 
       
@@ -4801,6 +4803,11 @@ PRINT *,'ascii open'
       Offset = 0
       WriteXML = .TRUE.
       WriteData = AsciiOutput
+      GridPoints = 1
+      DO i = 1,3
+        GridPoints = GridPoints * ( GridExtent(2*i)-GridExtent(2*i-1)+1 )
+      END DO
+
       
   
 100   DO IsVector = 0, 1        
@@ -4905,7 +4912,7 @@ PRINT *,'ascii open'
           END IF
           
           IF( WriteXML ) THEN
-            WRITE( OutStr,'(A)') '<DataArray type="Float64" Name="'//TRIM(FieldName)//'"'
+            WRITE( OutStr,'(A)') '      <DataArray type="Float64" Name="'//TRIM(FieldName)//'"'
             CALL StrWrite( OutStr ) 
 
             WRITE( OutStr,'(A,I1,A)') ' NumberOfComponents="',sdofs,'"'          
@@ -4915,17 +4922,18 @@ PRINT *,'ascii open'
               WRITE( OutStr,'(A)') ' format="ascii">'//lf
               CALL StrWrite( OutStr ) 
             ELSE
-              WRITE( OutStr,'(A)') ' format="appendid"'
+              WRITE( OutStr,'(A)') ' format="appended"'
               CALL StrWrite( OutStr ) 
               WRITE( OutStr,'(A,I8,A)') ' offset="',Offset,'"/>'//lf
               CALL StrWrite( OutStr ) 
-              Offset = Offset + sdofs * SIZE(Perm) * SIZEOF( value ) + SIZEOF( i ) ! where does the extra offset come from?
+
+              Offset = Offset + sdofs * GridPoints * SIZEOF( value ) + SIZEOF( i ) 
             END IF
           END IF
           
           IF( WriteData ) THEN
             IF( BinaryOutput ) THEN
-              k = SIZE(Perm) * SIZEOF( value )
+              k = GridPoints * SIZEOF( value ) * sdofs
               WRITE( VtiUnit ) k
             END IF
 
@@ -4938,11 +4946,11 @@ PRINT *,'ascii open'
                   
                   IF( ind == 0 ) THEN
                     value = 0.0_dp
-                    WRITE( OutStr,'(A)') ' 0.0'  
                     DO l=1,sdofs                  
                       IF( BinaryOutput ) THEN
-                        WRITE( VtiUnit ) value
+                        WRITE( VtiUnit ) value                          
                       ELSE
+                        WRITE( OutStr,'(A)') ' 0.0'  
                         CALL StrWrite( OutStr )
                       END IF
                     END DO
@@ -5016,17 +5024,17 @@ PRINT *,'ascii open'
 
       IF( WriteXML ) THEN
         IF( ScalarsExist .OR. VectorsExist) THEN
-          WRITE( OutStr,'(A)') '</PointData>'//lf
+          WRITE( OutStr,'(A)') '    </PointData>'//lf
           CALL StrWrite( OutStr ) 
         END IF
         
-        WRITE( OutStr,'(A)') '<CellData>'//lf
+        WRITE( OutStr,'(A)') '    <CellData>'//lf
         CALL StrWrite( OutStr ) 
 
-        WRITE( OutStr,'(A)') '</CellData>'//lf
+        WRITE( OutStr,'(A)') '    </CellData>'//lf
         CALL StrWrite( OutStr ) 
        
-        WRITE( OutStr,'(A)') '</Piece>'//lf
+        WRITE( OutStr,'(A)') '  </Piece>'//lf
         CALL StrWrite( OutStr ) 
 
         WRITE( OutStr,'(A)') '</ImageData>'//lf
@@ -5034,32 +5042,15 @@ PRINT *,'ascii open'
       END IF
 
       IF( BinaryOutput ) THEN
-        PRINT *,'reopen',WriteXML,WriteData
-
         IF( WriteXML ) THEN
-          WRITE( OutStr,'(A)') '<AppendedData encoding="raw">'                    
-          CALL StrWrite( OutStr ) 
-!          WRITE( OutStr,'(A)') '_'
-!          CALL StrWrite( OutStr ) 
-          
- 
-
-          CLOSE( VtiUnit )
-          OPEN( UNIT=VtiUnit, FILE=VtiFile, POSITION = 'append', FORM = 'unformatted' )
-
-!          WRITE( VtiUnit ) CHAR(95)
-!          WRITE( VtiUnit ) 
-          
-          OutStr = '_'
-          WRITE( VtiUnit ) TRIM( OutStr ) 
+          WRITE( OutStr,'(A)') '<AppendedData encoding="raw">'//lf                    
+          CALL StrWrite( OutStr )           
+          WRITE( VtiUnit ) '_'
           
           WriteXML = .FALSE.
           WriteData = .TRUE.
           GOTO 100
         ELSE
-          CLOSE( VtiUnit )
-          OPEN( UNIT=VtiUnit, FILE=VtiFile, POSITION = 'append', FORM = 'formatted' )
-
           WRITE( OutStr,'(A)') lf//'</AppendedData>'//lf
           CALL StrWrite( OutStr ) 
         END IF
