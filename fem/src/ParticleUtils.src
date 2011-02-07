@@ -4085,7 +4085,7 @@ CONTAINS
         ! Finally save the field values for scalars
         !---------------------------------------------------------------------
         j = 0
-        WRITE( VtuUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
+        WRITE( VtuUnit,'(A)') '<DataArray type="Float64" Name="'//TRIM(FieldName)&
             //'" NumberOfComponents="1" format="ascii">'    
 
         DO i = 1, Particles % NumberOfParticles
@@ -4099,7 +4099,7 @@ CONTAINS
           ELSE
 
             Element => Mesh % Elements( Particles % ElementIndex(i) )            
-            n = Element % Type % NumberOfNodes
+            n = Element % TYPE % NumberOfNodes
             Indexes => Element % NodeIndexes
             
             Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
@@ -4255,7 +4255,7 @@ CONTAINS
             Element => Mesh % Elements( Particles % ElementIndex(i) )
             
             Indexes => Element % NodeIndexes
-            n = Element % Type % NumberOfNodes
+            n = Element % TYPE % NumberOfNodes
  
             Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
             Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
@@ -4331,7 +4331,7 @@ CONTAINS
         ELSE
 	  Element => Mesh % Elements( Particles % ElementIndex(i) )
           Indexes => Element % NodeIndexes
-          n = Element % Type % NumberOfNodes
+          n = Element % TYPE % NumberOfNodes
  
           Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
           Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
@@ -4657,7 +4657,7 @@ CONTAINS
     INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet
     CHARACTER(MAX_NAME_LEN) :: Dir
     REAL(KIND=dp) :: SaveNodeFraction
-    LOGICAL :: Found,Visited = .FALSE.
+    LOGICAL :: Found,BinaryOutput,AsciiOutput,Visited = .FALSE.
   
 
     CHARACTER(MAX_NAME_LEN) :: Str
@@ -4675,6 +4675,9 @@ CONTAINS
     END IF
     FileIndexOffset = ListGetInteger( Params,'Fileindex offset',GotIt)
     
+    BinaryOutput = GetLogical( Params,'Binary Output',GotIt)
+    AsciiOutput = .NOT. BinaryOutput
+
     IF ( nTime == 1 ) THEN
       FilePrefix = ListGetString( Params,'Filename Prefix')
       CALL Info('ParticleOutputVti','Saving in VTK XML imagedata format to file: ' &
@@ -4711,17 +4714,34 @@ CONTAINS
 
   CONTAINS
 
+
+    SUBROUTINE StrWrite( Str )
+      
+      CHARACTER(LEN=1024) :: Str 
+      INTEGER, PARAMETER :: VtiUnit = 58
+
+      IF( .FALSE. .AND. BinaryOutput ) THEN
+        WRITE( VtiUnit ) TRIM(Str)        
+      ELSE
+        WRITE( VtiUnit,'(A)', ADVANCE = 'no' ) TRIM(Str)
+      END IF
+
+    END SUBROUTINE StrWrite
+
+
+
     
     SUBROUTINE WriteVtiFile( VtiFile )
       CHARACTER(LEN=*), INTENT(IN) :: VtiFile
       INTEGER, PARAMETER :: VtiUnit = 58
       TYPE(Variable_t), POINTER :: Var, Solution
       CHARACTER(LEN=512) :: str
-      INTEGER :: i,j,k,l,dofs,Rank,cumn,n,vari,sdofs,ind
+      INTEGER :: i,j,k,l,dofs,Rank,cumn,n,vari,sdofs,ind,IsVector,IsAppend,Offset
       CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, FieldName, &
-          FieldName2
+          FieldName2, BaseString, OutStr
+      CHARACTER :: lf
       LOGICAL :: ScalarsExist, VectorsExist, Found, ParticleMode, ComponentVector, &
-          ComplementExists, ThisOnly, Stat
+          ComplementExists, ThisOnly, Stat, WriteData, WriteXML
       INTEGER, POINTER :: Perm(:), Perm2(:), Indexes(:)
       REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:),Values(:),Values2(:),&
           Values3(:),Basis(:)
@@ -4733,18 +4753,34 @@ CONTAINS
       n = Mesh % MaxElementNodes
       ALLOCATE( Basis(n), Nodes % x(n), Nodes % y(n), Nodes % z(n) )
       ThisOnly = .TRUE.
-      
-      
-      OPEN( UNIT=VtiUnit, FILE=VtiFile, STATUS='UNKNOWN' )
-      
-      WRITE( VtiUnit,'(A)') '<VTKFile type="ImageData" version="0.1" byte_order="LittleEndian">'
-      WRITE( VtiUnit,'(A)'),'<ImageData '
-      WRITE( VtiUnit,'(A,6I4,A)') '  WholeExtent = "',GridExtent,'"'
-      WRITE( VtiUnit,'(A,3ES16.7E3,A)') '  Origin = "',GridOrigin(1:3),'"'
-      WRITE( VtiUnit,'(A,3ES16.7E3,A)') '  Spacing = "',GridDx(1:3),'">'
 
+      ! Linefeed character
+      !-----------------------------------
+      lf = char(10)
 
-      WRITE( VtiUnit,'(A,6I4,A)') '    <Piece Extent="',GridExtent,'">'
+      IF( BinaryOutput ) THEN      
+PRINT *,'bin open'
+        OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM = 'formatted' )
+      ELSE      
+PRINT *,'ascii open'
+        OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM='formatted' ) 
+      END IF
+
+      WRITE( OutStr,'(A)') '<?xml version="1.0"?>'//lf
+      CALL StrWrite( OutStr ) 
+            
+      WRITE( OutStr,'(A)') '<VTKFile type="ImageData" version="0.1" byte_order="LittleEndian">'
+      CALL StrWrite( OutStr ) 
+
+      WRITE( OutStr,'(A,6I4,A,3ES16.7E3,A,3ES16.7E3,A)') &
+          '<ImageData WholeExtent = "',GridExtent,&          
+          '"  Origin = "',GridOrigin(1:3), &          
+          '"  Spacing = "',GridDx(1:3),'">'//lf
+      CALL StrWrite( OutStr )  
+
+      WRITE( OutStr,'(A,6I4,A)') '<Piece Extent="',GridExtent,'">'//lf
+      CALL StrWrite( OutStr ) 
+
       
       !---------------------------------------------------------------------
       ! Header information for nodewise data
@@ -4752,283 +4788,286 @@ CONTAINS
       ScalarFieldName = ListGetString( Params,'Scalar Field 1',ScalarsExist)
       VectorFieldName = ListGetString( Params,'Vector Field 1',VectorsExist)
       IF( ScalarsExist .AND. VectorsExist) THEN
-        WRITE( VtiUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
-            //'" Vectors="'//TRIM(VectorFieldName)//'">'
+        WRITE( OutStr,'(A)') '<PointData Scalars="'//TRIM(ScalarFieldName)&
+            //'" Vectors="'//TRIM(VectorFieldName)//'">'//lf
       ELSE IF( ScalarsExist ) THEN
-        WRITE( VtiUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'
+        WRITE( OutStr,'(A)') '<PointData Scalars="'//TRIM(ScalarFieldName)//'">'//lf
       ELSE IF( VectorsExist ) THEN
-        WRITE( VtiUnit,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'
+        WRITE( OutStr,'(A)') '<PointData Vectors="'//TRIM(VectorFieldName)//'">'//lf
       END IF
+      CALL StrWrite( OutStr ) 
       
-      !---------------------------------------------------------------------
-      ! do the scalars
-      !--------------------------------- -----------------------------------
-      DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-        END IF
-        FieldName = ListGetString( Params, TRIM(Txt), Found )
-        IF(.NOT. Found) EXIT
-                
-        Solution => VariableGet( Mesh % Variables, &
-            TRIM(FieldName),ThisOnly )
-        ComponentVector = .FALSE.
-        IF(.NOT. ASSOCIATED(Solution)) THEN
-          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
-          CALL Warn('WriteVtiXMLFile', Txt)
-          CYCLE
-        END IF
-        
-        IF( ASSOCIATED(Solution % EigenVectors)) THEN
-          CALL Warn('WriteVtiXMLFile','Do the eigen values')
-        END IF
-        
-        Perm => Solution % Perm
-        dofs = Solution % DOFs
-        Values => Solution % Values
-        
-        !---------------------------------------------------------------------
-        ! There may be special complementary variables such as 
-        ! displacement & mesh update 
-        !---------------------------------------------------------------------
-        ComplementExists = .FALSE.
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2,A)') 'Scalar Field',Vari,' Complement'
-        ELSE
-          WRITE(Txt,'(A,I3,A)') 'Scalar Field',Vari,' Complement'
-        END IF
-        FieldName2 = ListGetString( Params, TRIM(Txt), Found )
-        IF( Found ) THEN
-          Solution => VariableGet( Mesh % Variables, &
-              TRIM(FieldName2), ThisOnly )
-          IF( ASSOCIATED(Solution)) THEN 
-            Values2 => Solution % Values
-            Perm2 => Solution % Perm 
-            ComplementExists = .TRUE.
+
+      Offset = 0
+      WriteXML = .TRUE.
+      WriteData = AsciiOutput
+      
+  
+100   DO IsVector = 0, 1        
+
+        DO Vari = 1, 99
+
+          !---------------------------------------------------------------------
+          ! do the scalars
+          !--------------------------------- -----------------------------------
+          IF( IsVector == 0 ) THEN
+            BaseString = 'Scalar Field'
           ELSE
-            CALL Warn('WriteVTIFile','Complement does not exist:'//TRIM(FieldName2))
+            BaseString = 'Vector Field'
           END IF
-        END IF
-        
-        !---------------------------------------------------------------------
-        ! Finally save the field values for scalars
-        !---------------------------------------------------------------------
-        j = 0
-        WRITE( VtiUnit,'(A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-            //'" NumberOfComponents="1" format="ascii">'    
-        
-        
-        DO k = 1,GridExtent(6)-GridExtent(5)+1
-          DO j = 1,GridExtent(4)-GridExtent(3)+1
-            DO i = 1,GridExtent(2)-GridExtent(1)+1
-              
-              ind = GridIndex( i, j, k ) 
-              
-              IF( ind == 0 ) THEN
-                WRITE( VtiUnit,'(A)', ADVANCE='no') ' 0.0'  
-              ELSE
-                Element => Mesh % Elements( Particles % ElementIndex(ind) )            
-                n = Element % TYPE % NumberOfNodes
-                Indexes => Element % NodeIndexes
-                
-                Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
-                Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
-                Nodes % z(1:n) = Mesh % Nodes % z( Indexes ) 
-                
-                u = Particles % uvw(ind,1)
-                v = Particles % uvw(ind,2)
-                IF( dim == 3 ) THEN
-                  w = Particles % uvw(ind,3)
-                ELSE
-                  w = 0.0_dp
-                END IF
-                
-                stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
-                
-                value = 0.0_dp
-                IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-                  value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
-                ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-                  value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
-                END IF
-                
-                IF( ABS( value ) > TINY( value ) ) THEN
-                  WRITE( VtiUnit,'(ES16.7E3)', ADVANCE='no') Value             
-                ELSE
-                  WRITE( VtiUnit,'(A)', ADVANCE='no') ' 0.0'  
-                END IF
-              END IF
-
-            END DO ! i
-          END DO ! j
-        END DO ! k
-
-        WRITE( VtiUnit,'(A)') ' '
-        WRITE( VtiUnit,'(A)') '        </DataArray>'
-      END DO
-      
-      !---------------------------------------------------------------------
-      ! do the vectors
-      !--------------------------------- -----------------------------------
-      DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        END IF
-        
-        FieldName = ListGetString( Params, TRIM(Txt), Found )
-        IF(.NOT. Found) EXIT
-        
-        !---------------------------------------------------------------------
-        ! Find the variable with the given name in the normal manner 
-        !---------------------------------------------------------------------
-        Solution => VariableGet( Mesh % Variables, TRIM(FieldName), ThisOnly )
-        ComponentVector = .FALSE.
-        IF(.NOT. ASSOCIATED(Solution)) THEN
-          Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 1', ThisOnly )
-          IF( ASSOCIATED(Solution)) THEN 
-            ComponentVector = .TRUE.
+          
+          IF( Vari < 10 ) THEN
+            WRITE(Txt,'(A,I2)') TRIM(BaseString),Vari
           ELSE
+            WRITE(Txt,'(A,I3)') TRIM(BaseString),Vari
+          END IF
+          
+          FieldName = ListGetString( Params, TRIM(Txt), Found )
+          IF(.NOT. Found) EXIT
+          
+          !---------------------------------------------------------------------
+          ! Find the variable with the given name in the normal manner 
+          !---------------------------------------------------------------------
+          Solution => VariableGet( Mesh % Variables,TRIM(FieldName),ThisOnly )
+          ComponentVector = .FALSE.
+          IF( IsVector == 1 ) THEN
+            IF(.NOT. ASSOCIATED(Solution)) THEN
+              Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 1', ThisOnly )
+              ComponentVector = ASSOCIATED( Solution ) 
+            END IF
+          END IF
+          IF( .NOT. ASSOCIATED( Solution ) ) THEN
             WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
             CALL Warn('WriteVtiXMLFile', Txt)
             CYCLE
           END IF
-        END IF
-        
-        IF( ASSOCIATED(Solution % EigenVectors)) THEN
-          CALL Warn('WriteVtiXMLFile','Do the eigen values')
-        END IF
-        
-        Perm => Solution % Perm
-        dofs = Solution % DOFs
-        Values => Solution % Values
-        
-        !---------------------------------------------------------------------
-        ! Some vectors are defined by a set of components (either 2 or 3)
-        !---------------------------------------------------------------------
-        IF( ComponentVector ) THEN
-          Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
-          IF( ASSOCIATED(Solution)) THEN
-            Values2 => Solution % Values
-            dofs = 2
-          END IF
-          Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
-          IF( ASSOCIATED(Solution)) THEN
-            Values3 => Solution % Values
-            dofs = 3
-          END IF
-        END IF
-        
-        !---------------------------------------------------------------------
-        ! There may be special complementary variables such as 
-        ! displacement & mesh update 
-        !---------------------------------------------------------------------
-        ComplementExists = .FALSE.
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2,A)') 'Vector Field',Vari,' Complement'
-        ELSE
-          WRITE(Txt,'(A,I3,A)') 'Vector Field',Vari,' Complement'
-        END IF
-        FieldName2 = ListGetString( Params, TRIM(Txt), Found )
-        IF( Found ) THEN
-          Solution => VariableGet( Mesh % Variables, TRIM(FieldName2), ThisOnly )
-          IF( ASSOCIATED(Solution)) THEN 
-            Values2 => Solution % Values
-            Perm2 => Solution % Perm 
-            ComplementExists = .TRUE.
-          ELSE
-            CALL Warn('WriteVTIFile','Complement does not exist:'//TRIM(FieldName2))
-          END IF
-        END IF
-        
-        !---------------------------------------------------------------------
-        ! Finally save the field values for vectors
-        !---------------------------------------------------------------------
-        sdofs = MAX(dofs,3)
-        WRITE( VtiUnit,'(A,I1,A)') '        <DataArray type="Float64" Name="'//TRIM(FieldName)&
-            //'" NumberOfComponents="',sdofs,'" format="ascii">'    
-        
-        
-        DO k = 1,GridExtent(6)-GridExtent(5)+1
-          DO j = 1,GridExtent(4)-GridExtent(3)+1
-            DO i = 1,GridExtent(2)-GridExtent(1)+1
-              
-              ind = GridIndex( i, j, k ) 
-              
-              IF( ind == 0 ) THEN
-                DO l=1,sdofs                  
-                  WRITE( VtiUnit,'(A)', ADVANCE='no') ' 0.0'  
-                END DO
-              ELSE
-                Element => Mesh % Elements( Particles % ElementIndex(ind) )            
-                Indexes => Element % NodeIndexes
-                n = Element % TYPE % NumberOfNodes
-                
-                Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
-                Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
-                Nodes % z(1:n) = Mesh % Nodes % z( Indexes ) 
-                
-                u = Particles % uvw(ind,1)
-                v = Particles % uvw(ind,2)
-                IF( dim == 3 ) THEN
-                  w = Particles % uvw(ind,3)
-                ELSE
-                  w = 0.0_dp
-                END IF
+
+          Perm => Solution % Perm
+          dofs = Solution % DOFs
+          Values => Solution % Values
           
-                stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
-                
-                DO l=1,sdofs                  
-                  value = 0.0_dp
-                  IF( l <= dofs ) THEN
-                    IF( ComponentVector ) THEN
-                      IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-                        IF( l == 1 ) THEN
-                          value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
-                        ELSE IF( l == 2 ) THEN
-                          value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
-                        ELSE
-                          value = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
+          !---------------------------------------------------------------------
+          ! Eigenmodes have not yet been implemented
+          !---------------------------------------------------------------------
+          IF( ASSOCIATED(Solution % EigenVectors)) THEN
+            CALL Warn('WriteVtiXMLFile','Do the eigen values')
+          END IF
+
+          !---------------------------------------------------------------------
+          ! Some vectors are defined by a set of components (either 2 or 3)
+          !---------------------------------------------------------------------
+          IF( ComponentVector ) THEN
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN
+              Values2 => Solution % Values
+              dofs = 2
+            END IF
+            Solution => VariableGet( Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN
+              Values3 => Solution % Values
+              dofs = 3
+            END IF
+          END IF
+          
+          !---------------------------------------------------------------------
+          ! There may be special complementary variables such as 
+          ! displacement & mesh update 
+          !---------------------------------------------------------------------
+          ComplementExists = .FALSE.
+          IF( Vari < 10 ) THEN
+            WRITE(Txt,'(A,I2,A)') TRIM(BaseString),Vari,' Complement'
+          ELSE
+            WRITE(Txt,'(A,I3,A)') TRIM(BaseString),Vari,' Complement'
+          END IF
+          FieldName2 = ListGetString( Params, TRIM(Txt), Found )
+          IF( Found ) THEN
+            Solution => VariableGet( Mesh % Variables, &
+                TRIM(FieldName2), ThisOnly )
+            IF( ASSOCIATED(Solution)) THEN 
+              Values2 => Solution % Values
+              Perm2 => Solution % Perm 
+              ComplementExists = .TRUE.
+            ELSE
+              CALL Warn('WriteVTIFile','Complement does not exist:'//TRIM(FieldName2))
+            END IF
+          END IF
+          
+          
+          !---------------------------------------------------------------------
+          ! Finally save the field values for scalars
+          !---------------------------------------------------------------------
+          j = 0
+          
+          IF( dofs == 1 ) THEN
+            sdofs = 1
+          ELSE
+            sdofs = MAX(dofs,3)
+          END IF
+          
+          IF( WriteXML ) THEN
+            WRITE( OutStr,'(A)') '<DataArray type="Float64" Name="'//TRIM(FieldName)//'"'
+            CALL StrWrite( OutStr ) 
+
+            WRITE( OutStr,'(A,I1,A)') ' NumberOfComponents="',sdofs,'"'          
+            CALL StrWrite( OutStr ) 
+
+            IF( AsciiOutput ) THEN
+              WRITE( OutStr,'(A)') ' format="ascii">'//lf
+              CALL StrWrite( OutStr ) 
+            ELSE
+              WRITE( OutStr,'(A)') ' format="appendid"'
+              CALL StrWrite( OutStr ) 
+              WRITE( OutStr,'(A,I8,A)') ' offset="',Offset,'"/>'//lf
+              CALL StrWrite( OutStr ) 
+              Offset = Offset + sdofs * SIZE(Perm) * SIZEOF( value ) + SIZEOF( i ) ! where does the extra offset come from?
+            END IF
+          END IF
+          
+          IF( WriteData ) THEN
+            IF( BinaryOutput ) THEN
+              k = SIZE(Perm) * SIZEOF( value )
+              WRITE( VtiUnit ) k
+            END IF
+
+
+            DO k = 1,GridExtent(6)-GridExtent(5)+1
+              DO j = 1,GridExtent(4)-GridExtent(3)+1
+                DO i = 1,GridExtent(2)-GridExtent(1)+1
+                  
+                  ind = GridIndex( i, j, k ) 
+                  
+                  IF( ind == 0 ) THEN
+                    value = 0.0_dp
+                    WRITE( OutStr,'(A)') ' 0.0'  
+                    DO l=1,sdofs                  
+                      IF( BinaryOutput ) THEN
+                        WRITE( VtiUnit ) value
+                      ELSE
+                        CALL StrWrite( OutStr )
+                      END IF
+                    END DO
+                  ELSE
+                    Element => Mesh % Elements( Particles % ElementIndex(ind) )            
+                    Indexes => Element % NodeIndexes
+                    n = Element % TYPE % NumberOfNodes
+                    
+                    Nodes % x(1:n) = Mesh % Nodes % x( Indexes ) 
+                    Nodes % y(1:n) = Mesh % Nodes % y( Indexes ) 
+                    Nodes % z(1:n) = Mesh % Nodes % z( Indexes ) 
+                    
+                    u = Particles % uvw(ind,1)
+                    v = Particles % uvw(ind,2)
+                    IF( dim == 3 ) THEN
+                      w = Particles % uvw(ind,3)
+                    ELSE
+                      w = 0.0_dp
+                    END IF
+                    
+                    stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis)
+                    
+                    DO l=1,sdofs                  
+                      value = 0.0_dp
+                      IF( l <= dofs ) THEN
+                        IF( ComponentVector ) THEN
+                          IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                            IF( l == 1 ) THEN
+                              value = SUM( Basis(1:n) * Values(Perm(Indexes)) )
+                            ELSE IF( l == 2 ) THEN
+                              value = SUM( Basis(1:n) * Values2(Perm(Indexes)) )
+                            ELSE
+                              value = SUM( Basis(1:n) * Values3(Perm(Indexes)) )
+                            END IF
+                          END IF
+                        ELSE 
+                          IF( ALL( Perm( Indexes ) > 0 ) ) THEN
+                            value = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+l) )
+                          ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
+                            value = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+l) )
+                          END IF
                         END IF
                       END IF
-                    ELSE 
-                      IF( ALL( Perm( Indexes ) > 0 ) ) THEN
-                        value = SUM( Basis(1:n) * Values(dofs*(Perm(Indexes)-1)+l) )
-                      ELSE IF( ALL( Perm2( Indexes ) > 0 ) ) THEN
-                        value = SUM( Basis(1:n) * Values2(dofs*(Perm(Indexes)-1)+l) )
+                      
+                      IF( BinaryOutput ) THEN
+                        WRITE( VtiUnit ) value
+                      ELSE
+                        IF( ABS( value ) < TINY( value ) ) THEN
+                          WRITE( OutStr,'(A)') ' 0.0'  
+                        ELSE 
+                          WRITE( OutStr,'(ES16.7E3)') value
+                        END IF
+                        CALL StrWrite( OutStr )
                       END IF
-                    END IF
+                    END DO
                   END IF
                   
-                  IF( ABS( value ) < TINY( value ) ) THEN
-                    WRITE( VtiUnit,'(A)', ADVANCE='no') ' 0.0'  
-                  ELSE 
-                    WRITE( VtiUnit,'(ES16.7E3)', ADVANCE='no') value
-                  END IF
-                END DO
-              END IF
+                END DO ! i
+              END DO ! j
+            END DO ! k
+          END IF
 
-            END DO ! i
-          END DO ! j
-        END DO ! k
+          IF( AsciiOutput ) THEN
+            WRITE( OutStr,'(A)') lf//'</DataArray>'//lf
+            CALL StrWrite( OutStr ) 
+          END IF
 
-        WRITE( VtiUnit,'(A)') ' '
-        WRITE( VtiUnit,'(A)') '        </DataArray>'
+        END DO
       END DO
+        
 
-      IF( ScalarsExist .OR. VectorsExist) THEN
-        WRITE( VtiUnit,'(A)') '      </PointData>'
+      IF( WriteXML ) THEN
+        IF( ScalarsExist .OR. VectorsExist) THEN
+          WRITE( OutStr,'(A)') '</PointData>'//lf
+          CALL StrWrite( OutStr ) 
+        END IF
+        
+        WRITE( OutStr,'(A)') '<CellData>'//lf
+        CALL StrWrite( OutStr ) 
+
+        WRITE( OutStr,'(A)') '</CellData>'//lf
+        CALL StrWrite( OutStr ) 
+       
+        WRITE( OutStr,'(A)') '</Piece>'//lf
+        CALL StrWrite( OutStr ) 
+
+        WRITE( OutStr,'(A)') '</ImageData>'//lf
+        CALL StrWrite( OutStr )         
       END IF
-      
-      WRITE( VtiUnit,'(A)') '      <CellData>'
-      WRITE( VtiUnit,'(A)') '      </CellData>'
-      
-      WRITE( VtiUnit,'(A)') '    </Piece>'
-      WRITE( VtiUnit,'(A)') '  </ImageData>'
-      WRITE( VtiUnit,'(A)') '</VTKFile>'
+
+      IF( BinaryOutput ) THEN
+        PRINT *,'reopen',WriteXML,WriteData
+
+        IF( WriteXML ) THEN
+          WRITE( OutStr,'(A)') '<AppendedData encoding="raw">'                    
+          CALL StrWrite( OutStr ) 
+!          WRITE( OutStr,'(A)') '_'
+!          CALL StrWrite( OutStr ) 
+          
+ 
+
+          CLOSE( VtiUnit )
+          OPEN( UNIT=VtiUnit, FILE=VtiFile, POSITION = 'append', FORM = 'unformatted' )
+
+!          WRITE( VtiUnit ) CHAR(95)
+!          WRITE( VtiUnit ) 
+          
+          OutStr = '_'
+          WRITE( VtiUnit ) TRIM( OutStr ) 
+          
+          WriteXML = .FALSE.
+          WriteData = .TRUE.
+          GOTO 100
+        ELSE
+          CLOSE( VtiUnit )
+          OPEN( UNIT=VtiUnit, FILE=VtiFile, POSITION = 'append', FORM = 'formatted' )
+
+          WRITE( OutStr,'(A)') lf//'</AppendedData>'//lf
+          CALL StrWrite( OutStr ) 
+        END IF
+      END IF
+
+
+      WRITE( OutStr,'(A)') '</VTKFile>'//lf
+      CALL StrWrite( OutStr ) 
       
       CLOSE( VtiUnit )
       
