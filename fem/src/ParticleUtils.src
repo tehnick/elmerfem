@@ -4632,7 +4632,12 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
   SUBROUTINE ParticleOutputVti( Particles, GridExtent, GridOrigin, GridDx, GridIndex )
+!------------------------------------------------------------------------------
+! Writes data out in XML VTK ImageData format which assumes a uniform grid where
+! the position of each point is defined by the origin and the grid density. 
+! Also binary output and single precision therein is supported. 
 !------------------------------------------------------------------------------
 
     USE DefUtils 
@@ -4679,7 +4684,7 @@ CONTAINS
     AsciiOutput = .NOT. BinaryOutput
 
     SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
-
+ 
     IF ( nTime == 1 ) THEN
       FilePrefix = ListGetString( Params,'Filename Prefix')
       CALL Info('ParticleOutputVti','Saving in VTK XML imagedata format to file: ' &
@@ -4720,16 +4725,16 @@ CONTAINS
   CONTAINS
 
 
+    ! The writing of xml strings is done here to allow easier modification
+    ! of output strategies.
+    !-------------------------------------------------------------------------
+
     SUBROUTINE StrWrite( Str )
       
       CHARACTER(LEN=1024) :: Str 
       INTEGER, PARAMETER :: VtiUnit = 58
 
-      IF( BinaryOutput ) THEN
-        WRITE( VtiUnit ) TRIM(Str)        
-      ELSE
-        WRITE( VtiUnit,'(A)', ADVANCE = 'no' ) TRIM(Str)
-      END IF
+      WRITE( VtiUnit ) TRIM(Str)        
 
     END SUBROUTINE StrWrite
 
@@ -4750,6 +4755,7 @@ CONTAINS
       REAL(KIND=dp), POINTER :: ScalarValues(:), VectorValues(:,:),Values(:),Values2(:),&
           Values3(:),Basis(:)
       REAL(KIND=dp) :: x,y,z,u,v,w,DetJ,value
+      REAL :: fvalue
       TYPE(Nodes_t) :: Nodes      
       TYPE(Element_t), POINTER :: Element
 
@@ -4762,11 +4768,11 @@ CONTAINS
       !-----------------------------------
       lf = CHAR(10)
 
-      IF( BinaryOutput ) THEN      
-        OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM = 'unformatted', ACCESS = 'stream' )
-      ELSE      
-        OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM='formatted' ) 
-      END IF
+
+      ! This format works both for ascii and binary output
+      !-------------------------------------------------------------------------
+      OPEN( UNIT=VtiUnit, FILE=VtiFile, FORM = 'unformatted', ACCESS = 'stream' )
+
 
       WRITE( OutStr,'(A)') '<?xml version="1.0"?>'//lf
       CALL StrWrite( OutStr ) 
@@ -4912,7 +4918,11 @@ CONTAINS
           END IF
           
           IF( WriteXML ) THEN
-            WRITE( OutStr,'(A)') '      <DataArray type="Float64" Name="'//TRIM(FieldName)//'"'
+            IF( SinglePrec ) THEN
+              WRITE( OutStr,'(A)') '      <DataArray type="Float32" Name="'//TRIM(FieldName)//'"'
+            ELSE
+              WRITE( OutStr,'(A)') '      <DataArray type="Float64" Name="'//TRIM(FieldName)//'"'
+            END IF
             CALL StrWrite( OutStr ) 
 
             WRITE( OutStr,'(A,I1,A)') ' NumberOfComponents="',sdofs,'"'          
@@ -4927,13 +4937,21 @@ CONTAINS
               WRITE( OutStr,'(A,I8,A)') ' offset="',Offset,'"/>'//lf
               CALL StrWrite( OutStr ) 
 
-              Offset = Offset + sdofs * GridPoints * SIZEOF( value ) + SIZEOF( i ) 
+              IF( SinglePrec ) THEN
+                Offset = Offset + sdofs * GridPoints * SIZEOF( fvalue ) + SIZEOF( i ) 
+              ELSE
+                Offset = Offset + sdofs * GridPoints * SIZEOF( value ) + SIZEOF( i ) 
+              END IF
             END IF
           END IF
           
           IF( WriteData ) THEN
             IF( BinaryOutput ) THEN
-              k = GridPoints * SIZEOF( value ) * sdofs
+              IF( SinglePrec ) THEN
+                k = GridPoints * SIZEOF( fvalue ) * sdofs
+              ELSE
+                k = GridPoints * SIZEOF( value ) * sdofs
+              END IF
               WRITE( VtiUnit ) k
             END IF
 
@@ -4945,10 +4963,15 @@ CONTAINS
                   ind = GridIndex( i, j, k ) 
                   
                   IF( ind == 0 ) THEN
-                    value = 0.0_dp
                     DO l=1,sdofs                  
                       IF( BinaryOutput ) THEN
-                        WRITE( VtiUnit ) value                          
+                        IF( SinglePrec ) THEN
+                          fvalue = 0.0
+                          WRITE( VtiUnit ) fvalue                          
+                        ELSE
+                          value = 0.0_dp
+                          WRITE( VtiUnit ) value                          
+                        END IF
                       ELSE
                         WRITE( OutStr,'(A)') ' 0.0'  
                         CALL StrWrite( OutStr )
@@ -4996,7 +5019,12 @@ CONTAINS
                       END IF
                       
                       IF( BinaryOutput ) THEN
-                        WRITE( VtiUnit ) value
+                        IF( SinglePrec ) THEN
+                          fvalue = value
+                          WRITE( VtiUnit ) fvalue
+                        ELSE
+                          WRITE( VtiUnit ) value
+                        END IF
                       ELSE
                         IF( ABS( value ) < TINY( value ) ) THEN
                           WRITE( OutStr,'(A)') ' 0.0'  
@@ -5014,7 +5042,7 @@ CONTAINS
           END IF
 
           IF( AsciiOutput ) THEN
-            WRITE( OutStr,'(A)') lf//'</DataArray>'//lf
+            WRITE( OutStr,'(A)') lf//'      </DataArray>'//lf
             CALL StrWrite( OutStr ) 
           END IF
 
