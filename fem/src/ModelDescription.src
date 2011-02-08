@@ -134,9 +134,7 @@ CONTAINS
      INTEGER :: k,k0,k1,l
 !------------------------------------------------------------------------------
 
-     IF ( INDEX(FileName,':') == 0 .AND. FileName(1:1) /= '/' .AND. &
-               FileName(1:1) /= Backslash ) THEN
-
+     IF ( .NOT. FileNameQualified(FileName) ) THEN
        k0 = 1
        k1 = INDEX( IncludePath, ';' )
        DO WHILE( k1 >= k0 )
@@ -1950,7 +1948,6 @@ TYPE(valuelist_t), POINTER :: lst
         IF ( MeshDir(i:i) == CHAR(0) ) EXIT
         OutputPath(i:i) = MeshDir(i:i)
       END DO
-      OutputPath = TRIM(OutputPath)
     END IF
 
     Mesh => Model % Meshes
@@ -1992,8 +1989,7 @@ TYPE(valuelist_t), POINTER :: lst
 !   If first time here, count number of variables
 !------------------------------------------------------------------------------
     FName = FileName
-    IF ( INDEX( FileName, ':') == 0 .AND. FileName(1:1) /= '/' .AND. &
-             FileName(1:1) /= Backslash ) THEN
+    IF ( .NOT. FileNameQualified(FileName) ) THEN
       IF ( LEN_TRIM(OutputPath) > 0 ) THEN
         FName = TRIM(OutputPath) // '/' // TRIM(FileName)
       END IF
@@ -2355,8 +2351,7 @@ TYPE(valuelist_t), POINTER :: lst
 
     IF ( Cont .AND. RestartFileOpen ) GOTO 30
 
-    IF ( INDEX( RestartFile, ':') == 0 .AND. RestartFile(1:1) /= '/' &
-         .AND. RestartFile(1:1) /= Backslash .AND. LEN_TRIM(OutputPath) > 0 ) THEN
+    IF ( .NOT. FileNameQualified(RestartFile) .AND. LEN_TRIM(OutputPath)>0 ) THEN
       FName = TRIM(OutputPath) // '/' // TRIM(RestartFile)
     ELSE
       FName = RestartFile
@@ -2955,9 +2950,7 @@ CONTAINS
     END IF
 
 
-    IF ( INDEX( PostFile, ':') == 0 .AND. PostFile(1:1) /= '/' .AND. &
-             PostFile(1:1) /= Backslash ) THEN
-
+    IF ( .NOT. FileNameQualified(PostFile) ) THEN
       IF ( LEN_TRIM(OutputPath) > 0 ) THEN
         IF ( AppendFlag .AND. Model % Mesh % SavesDone /= 0 )  THEN
           OPEN( PostFileUnit,File=TRIM(OutputPath) // '/' // &
@@ -2982,8 +2975,7 @@ CONTAINS
     END IF
 
     IF ( .NOT.AppendFlag ) THEN
-      IF ( INDEX( ResultFile, ':') == 0 .AND. ResultFile(1:1) /= '/' .AND. &
-               ResultFile(1:1) /= Backslash ) THEN
+      IF ( .NOT. FileNameQualified(ResultFile) ) THEN
         IF ( LEN_TRIM(OutputPath) > 0 ) THEN
           OPEN( OutputUnit,File=TRIM(OutputPath) // '/' &
               // TRIM(ResultFile),STATUS='OLD' )

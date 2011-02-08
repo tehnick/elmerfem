@@ -1392,12 +1392,16 @@
 
           IF ( Mesh % OutputActive ) THEN
              nlen = LEN_TRIM(Mesh % Name)
-             IF ( nlen  > 0 )  THEN
-                OutputName = Mesh % Name(1:nlen) // '/' // TRIM(OutputFile)
-                Postname   = Mesh % Name(1:nlen) // '/' // TRIM(PostFile)
-             ELSE
-                PostName   = PostFile
+             IF ( nlen==0 .OR. FileNameQualified(OutputFile) ) THEN
                 OutputName = OutputFile
+             ELSE
+                OutputName = Mesh % Name(1:nlen)//'/'//TRIM(OutputFile)
+             END IF
+
+             IF ( nlen==0 .OR. FileNameQualified(PostFile) ) THEN
+                PostName = PostFile
+             ELSE
+                Postname = Mesh % Name(1:nlen)//'/'//TRIM(PostFile)
              END IF
 
             IF ( ListGetLogical( CurrentModel % Simulation,'Filename Numbering',&
