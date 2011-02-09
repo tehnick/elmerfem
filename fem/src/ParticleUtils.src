@@ -3949,7 +3949,8 @@ CONTAINS
     END IF
     
     IF ( Parallel ) THEN
-      WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",nTime
+      WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
+          nTime+FileindexOffset
     ELSE
       WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
     END IF
@@ -4521,7 +4522,7 @@ CONTAINS
       
       DO i=1,Partitions
         WRITE( VtuUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
-            TRIM(FilePrefix),i,"par",nTime,'.vtu"/>'
+            TRIM(FilePrefix),i,"par",nTime+FileIndexOffset,'.vtu"/>'
       END DO
       
       WRITE( VtuUnit,'(A)') '  </PUnstructuredGrid>'
@@ -4661,7 +4662,8 @@ CONTAINS
     INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet
     CHARACTER(MAX_NAME_LEN) :: Dir
     REAL(KIND=dp) :: SaveNodeFraction
-    LOGICAL :: Found,BinaryOutput,AsciiOutput,SinglePrec,Visited = .FALSE.
+    LOGICAL :: Found,BinaryOutput,AsciiOutput,SinglePrec,NoFileIndex, &
+        Visited = .FALSE.
   
     CHARACTER(MAX_NAME_LEN) :: Str
     INTEGER :: NumberOfNodes, ParallelNodes, Dim
@@ -4680,8 +4682,8 @@ CONTAINS
     
     BinaryOutput = GetLogical( Params,'Binary Output',GotIt)
     AsciiOutput = .NOT. BinaryOutput
-
     SinglePrec = GetLogical( Params,'Single Precision',GotIt) 
+    NoFileindex = GetLogical( Params,'No Fileindex',GotIt)
  
     IF ( nTime == 1 ) THEN
       FilePrefix = ListGetString( Params,'Filename Prefix')
@@ -4712,9 +4714,18 @@ CONTAINS
     END IF
     
     IF ( Parallel ) THEN
-      WRITE( VtiFile,'(A,A,I4.4,A,I4.4,".vti")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",nTime
+      IF( NoFileindex ) THEN
+        WRITE( VtiFile,'(A,A,I4.4,A,".vti")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par"
+      ELSE
+        WRITE( VtiFile,'(A,A,I4.4,A,I4.4,".vti")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
+            nTime+FileIndexOffset
+      END IF
     ELSE
-      WRITE( VtiFile,'(A,A,I4.4,".vti")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+      IF( NoFileIndex ) THEN
+        WRITE( VtiFile,'(A,A,".vti")' ) TRIM(Dir),TRIM(FilePrefix)
+      ELSE
+        WRITE( VtiFile,'(A,A,I4.4,".vti")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+      END IF
     END IF
 
     CALL WriteVtiFile( VtiFile )
@@ -4937,26 +4948,21 @@ CONTAINS
               CALL StrWrite( OutStr ) 
               WRITE( OutStr,'(A,I8,A)') ' offset="',Offset,'"/>'//lf
               CALL StrWrite( OutStr ) 
-
-              IF( SinglePrec ) THEN
-                Offset = Offset + sdofs * GridPoints * SIZEOF( fvalue ) + SIZEOF( i ) 
-              ELSE
-                Offset = Offset + sdofs * GridPoints * SIZEOF( value ) + SIZEOF( i ) 
-              END IF
             END IF
           END IF
           
-          IF( WriteData ) THEN
-            IF( BinaryOutput ) THEN
-              IF( SinglePrec ) THEN
-                k = GridPoints * SIZEOF( fvalue ) * sdofs
-              ELSE
-                k = GridPoints * SIZEOF( value ) * sdofs
-              END IF
-              WRITE( VtiUnit ) k
+          IF( BinaryOutput ) THEN
+            IF( SinglePrec ) THEN
+              k = GridPoints * SIZEOF( fvalue ) * sdofs
+            ELSE
+              k = GridPoints * SIZEOF( value ) * sdofs
             END IF
+            Offset = Offset + SIZEOF(i) + k
+            IF( WriteData ) WRITE( VtiUnit ) k
+          END IF
 
 
+          IF( WriteData ) THEN
             DO k = 1,GridExtent(6)-GridExtent(5)+1
               DO j = 1,GridExtent(4)-GridExtent(3)+1
                 DO i = 1,GridExtent(2)-GridExtent(1)+1
@@ -4965,17 +4971,15 @@ CONTAINS
                   
                   IF( ind == 0 ) THEN
                     DO l=1,sdofs                  
-                      IF( BinaryOutput ) THEN
-                        IF( SinglePrec ) THEN
-                          fvalue = 0.0
-                          WRITE( VtiUnit ) fvalue                          
-                        ELSE
-                          value = 0.0_dp
-                          WRITE( VtiUnit ) value                          
-                        END IF
-                      ELSE
+                      IF( AsciiOutput ) THEN
                         WRITE( OutStr,'(A)') ' 0.0'  
                         CALL StrWrite( OutStr )
+                      ELSE IF( SinglePrec ) THEN
+                        fvalue = 0.0
+                        WRITE( VtiUnit ) fvalue                          
+                      ELSE
+                        value = 0.0_dp
+                        WRITE( VtiUnit ) value                          
                       END IF
                     END DO
                   ELSE
@@ -5019,21 +5023,20 @@ CONTAINS
                         END IF
                       END IF
                       
-                      IF( BinaryOutput ) THEN
-                        IF( SinglePrec ) THEN
-                          fvalue = value
-                          WRITE( VtiUnit ) fvalue
-                        ELSE
-                          WRITE( VtiUnit ) value
-                        END IF
-                      ELSE
+                      IF( AsciiOutput ) THEN
                         IF( ABS( value ) < TINY( value ) ) THEN
                           WRITE( OutStr,'(A)') ' 0.0'  
                         ELSE 
                           WRITE( OutStr,'(ES16.7E3)') value
                         END IF
                         CALL StrWrite( OutStr )
+                      ELSE IF( SinglePrec ) THEN
+                        fvalue = value
+                        WRITE( VtiUnit ) fvalue
+                      ELSE
+                        WRITE( VtiUnit ) value
                       END IF
+
                     END DO
                   END IF
                   
@@ -5206,8 +5209,13 @@ CONTAINS
       WRITE( VtiUnit,'(A)') '      </PPoints>' 
       
       DO i=1,Partitions
-        WRITE( VtiUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
-            TRIM(FilePrefix),i,"par",nTime,'.vti"/>'
+        IF( NoFileindex ) THEN
+          WRITE( VtiUnit,'(A,I4.4,A,A)' ) '    <Piece Source="'//&
+              TRIM(FilePrefix),i,"par",'.vti"/>'
+        ELSE
+          WRITE( VtiUnit,'(A,I4.4,A,I4.4,A)' ) '    <Piece Source="'//&
+              TRIM(FilePrefix),i,"par",nTime+FileindexOffset,'.vti"/>'
+        END IF
       END DO
       
       WRITE( VtiUnit,'(A)') '  </PImageData>'
