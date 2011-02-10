@@ -274,7 +274,7 @@ CONTAINS
      TYPE(Solver_t)  , POINTER :: Solver
      TYPE(Element_t),  POINTER :: Element
 
-     INTEGER :: i, n
+     INTEGER :: i, j, n
      INTEGER, POINTER :: Indexes(:)
 
      Solver => CurrentModel % Solver
@@ -306,16 +306,19 @@ CONTAINS
        END IF
      END IF
 
+
      IF ( ASSOCIATED( Variable % Perm ) ) THEN
-        IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
-          DO i=1,n
-             IF ( Indexes(i) <= SIZE(Variable % Perm) ) &
-               x(i) = Values(Variable % Perm(Indexes(i)))
-          END DO
-        END IF
+       DO i=1,n
+         j = Indexes(i)
+         IF ( j>0 .AND. j<=SIZE(Variable % Perm) ) THEN
+           j = Variable % Perm(j)
+           IF ( j>0 ) x(i) = Values(j)
+         END IF
+       END DO
      ELSE
         DO i=1,n
-          IF ( Indexes(i) <= SIZE(Variable % Values) ) &
+          j = Indexes(i)
+          IF ( j>0 .AND. j<=SIZE(Variable % Values) ) &
             x(i) = Values(Indexes(i))
         END DO
      END IF
@@ -334,7 +337,7 @@ CONTAINS
      TYPE(Solver_t)  , POINTER :: Solver
      TYPE(Element_t),  POINTER :: Element
 
-     INTEGER :: i, j, n
+     INTEGER :: i, j, k, n
      INTEGER, POINTER :: Indexes(:)
      REAL(KIND=dp), POINTER ::  Values(:)
 
@@ -370,14 +373,13 @@ CONTAINS
 
         DO i=1,Variable % DOFs
            IF ( ASSOCIATED( Variable % Perm ) ) THEN
-              IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
-                DO j=1,n
-                  IF ( Indexes(j) <= SIZE( Variable % Perm ) ) THEN
-                    x(i,j) = Values( Variable % DOFs * &
-                        (Variable % Perm(Indexes(j))-1)+i )
-                  END IF
-                END DO
-              END IF
+             DO j=1,n
+               k = Indexes(j)
+               IF ( k>0 .AND. k<=SIZE(Variable % Perm) ) THEN
+                 k = Variable % Perm(k)
+                 IF (k>0) x(i,j) = Values(Variable % DOFs*(k-1)+i)
+               END IF
+             END DO
            ELSE
               DO j=1,n
                 IF ( Variable % DOFs*(Indexes(j)-1)+i <= &
@@ -437,7 +439,7 @@ CONTAINS
      TYPE(Element_t),  POINTER :: Element
      LOGICAL :: IsComplex
 
-     INTEGER :: i, n
+     INTEGER :: i, j, n
      INTEGER, POINTER :: Indexes(:)
 
      Solver => CurrentModel % Solver
@@ -469,13 +471,19 @@ CONTAINS
         Values => Variable % EigenVectors( :, NoEigen )
 
         IF ( ASSOCIATED( Variable % Perm ) ) THEN
-           IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
-             IF( IsComplex ) THEN
-               x(1:n) = CMPLX( Values(Variable % Perm(Indexes(1:n))) )
-             ELSE
-               x(1:n) = REAL( Values(Variable % Perm(Indexes(1:n))) )
-             END IF	
-           END IF
+          DO i=1,n
+            j = Indexes(i)
+            IF ( j>0 .AND. j<= SIZE(Variable % Perm)) THEN
+              j = Variable % Perm(j)
+              IF ( j>0 ) THEN 
+                IF ( IsComplex ) THEN
+                  x(i) = AIMAG(Values(j))
+                ELSE
+                  x(i) =  REAL(Values(j))
+                END IF
+              END IF
+            END IF
+          END DO
         ELSE
 	  x(1:n) = Values(Indexes(1:n))
         END IF
@@ -497,7 +505,7 @@ CONTAINS
      TYPE(Element_t),  POINTER :: Element
      LOGICAL :: IsComplex
 
-     INTEGER :: i, j, n
+     INTEGER :: i, j, k, n
      INTEGER, POINTER :: Indexes(:)
      COMPLEX(KIND=dp), POINTER ::  Values(:)
 
@@ -528,17 +536,19 @@ CONTAINS
 
         DO i=1,Variable % DOFs
            IF ( ASSOCIATED( Variable % Perm ) ) THEN
-              IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
-                DO j=1,n
-	          IF( IsComplex ) THEN
-                    x(i,j) = AIMAG( Values( Variable % DOFs * &
-                        (Variable % Perm(Indexes(j))-1)+i ) )
-                  ELSE
-                    x(i,j) = REAL( Values( Variable % DOFs * &
-                        (Variable % Perm(Indexes(j))-1)+i ) )
-                  END IF
-                END DO
-              END IF
+             DO j=1,n
+               k = Indexes(j)
+               IF ( k>0 .AND. k<= SIZE(Variable % Perm)) THEN
+                 k = Variable % Perm(k)
+                 IF ( k>0 ) THEN
+                   IF ( IsComplex ) THEN
+                     x(i,j) = AIMAG(Values(Variable % DOFs*(k-1)+i))
+                   ELSE
+                     x(i,j) =  REAL(Values(Variable % DOFs*(k-1)+i))
+                   END IF
+                 END IF
+               END IF
+             END DO
            ELSE
               DO j=1,n
                 IF( IsComplex ) THEN
@@ -918,6 +928,8 @@ CONTAINS
 
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
+     IF (IsPelement(Element)) n=GetElementNOFNOdes()
+
      l = ALL( Solver % Variable % Perm(Indexes(1:n)) > 0)
   END FUNCTION ActiveBoundaryElement
 
@@ -964,7 +976,7 @@ CONTAINS
      TYPE(Element_t), POINTER :: Element
      TYPE(Solver_t),  POINTER :: Solver
 
-     INTEGER :: i,j
+     INTEGER :: i,j, id
      LOGICAL :: Found, GB
 
      IF ( PRESENT( UElement ) ) THEN
@@ -982,11 +994,20 @@ CONTAINS
      n = 0
      IF ( ListGetLogical( Solver % Values, 'Discontinuous Galerkin', Found )) THEN
         n = Element % DGDOFs
-        IF ( n > 0 ) RETURN
+        IF ( n>0 ) RETURN
      END IF
 
-     IF ( Solver % Def_Dofs(1)>0 ) n = Element % NDOFs
-     IF ( ALL(Solver % Def_Dofs(2:)<0) ) RETURN
+     id =Element % BodyId
+     IF ( Id==0 .AND. ASSOCIATED(Element % BoundaryInfo) ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo % Left) ) &
+         id = Element % BoundaryInfo % Left % BodyId
+
+       IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
+         id = Element % BoundaryInfo % Right % BodyId
+     END IF
+
+     IF ( Solver % Def_Dofs(id,1)>0 ) n = Element % NDOFs
+     IF ( ALL(Solver % Def_Dofs(id,2:)<0) ) RETURN
 
      IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
         DO j=1,Element % TYPE % NumberOFEdges
@@ -1016,7 +1037,7 @@ CONTAINS
      TYPE(Element_t), POINTER :: Element, Parent, Edge, Face
 
      LOGICAL :: Found, GB
-     INTEGER :: nb,i,j,k,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs, Ind
+     INTEGER :: nb,i,j,k,id,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs, Ind
 
      Element => GetCurrentElement(UElement)
 
@@ -1052,13 +1073,22 @@ CONTAINS
         IF ( NB > 0 ) RETURN
      END IF
 
-     IF ( Solver % Def_Dofs(1)>0 ) THEN
+     id =Element % BodyId
+     IF ( Id==0 .AND. ASSOCIATED(Element % BoundaryInfo) ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo % Left) ) &
+         id = Element % BoundaryInfo % Left % BodyId
+
+       IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
+         id = Element % BoundaryInfo % Right % BodyId
+     END IF
+
+     IF ( Solver % Def_Dofs(id,1)>0 ) THEN
        DO i=1,Element % NDOFs
           NB = NB + 1
           Indexes(NB) = Element % NodeIndexes(i)
        END DO
      END IF
-     IF ( ALL(Solver % Def_Dofs(2:)<0) ) RETURN
+     IF ( ALL(Solver % Def_Dofs(id,2:)<0) ) RETURN
 
      FaceDOFs   = Solver % Mesh % MaxFaceDOFs
      EdgeDOFs   = Solver % Mesh % MaxEdgeDOFs
@@ -3010,7 +3040,7 @@ CONTAINS
      END DO
  
 
-   ! Set Dirichlet dofs for edges and faces
+     ! Set Dirichlet dofs for edges and faces
      DO DOF=1,x % DOFs
         name = x % name
         IF (x % DOFs>1) name=ComponentName(name,DOF)
@@ -3062,7 +3092,7 @@ CONTAINS
                  CALL LocalBcIntegral(BC,Edge,n,Parent,nb,TRIM(Name)//' {e}',Work(1))
 
                  n=GetElementDOFs(gInd,Edge)
-                 DO k=Solver % Def_Dofs(1)*Edge % NDOFs+1,n
+                 DO k=Solver % Def_Dofs(Parent % BodyId,1)*Edge % NDOFs+1,n
                    nb = x % Perm(gInd(k))
                    IF ( nb <= 0 ) CYCLE
                    nb = Offset + x % DOFs*(nb-1) + DOF
@@ -3096,7 +3126,7 @@ CONTAINS
                           n, TRIM(Name)//' {e}', Work(1) )
 
                    n=GetElementDOFs(gInd,Edge)
-                   DO k=Solver % Def_Dofs(1)*Edge % NDOFs+1,n
+                   DO k=Solver % Def_Dofs(Parent % BodyId,1)*Edge % NDOFs+1,n
                      nb = x % Perm(gInd(k))
                      IF ( nb <= 0 ) CYCLE
                      nb = Offset + x % DOFs*(nb-1) + DOF

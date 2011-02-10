@@ -3250,7 +3250,11 @@ CONTAINS
     WRITE( OutStr,'(A)') '<?xml version="1.0"?>'//lf
     CALL StrWrite( OutStr ) 
 
-    WRITE( OutStr,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'//lf
+    IF ( LittleEndian() ) THEN
+      OutStr = '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'//lf
+    ELSE
+      OutStr = '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="BigEndian">'//lf
+    END IF
     CALL StrWrite( OutStr )
     WRITE( OutStr,'(A)') '  <UnstructuredGrid>'//lf
     CALL StrWrite( OutStr )
@@ -3960,7 +3964,11 @@ CONTAINS
     dim = Model % Mesh % MeshDim
     ThisOnly = .TRUE.
 
-    WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+    IF ( LittleEndian() ) THEN
+      WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+    ELSE
+      WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="BigEndian">'
+    END IF
     WRITE( VtuUnit,'(A)') '  <PUnstructuredGrid>'
     
     ! nodewise information

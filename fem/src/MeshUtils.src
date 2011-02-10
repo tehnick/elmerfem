@@ -165,6 +165,100 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+   SUBROUTINE GetMaxDefs(Model, Mesh, Element, ElementDef, SolverId, BodyId, Def_Dofs)
+!------------------------------------------------------------------------------
+     CHARACTER(*) :: ElementDef
+     TYPE(Model_t) :: Model
+     TYPE(MEsh_t) :: Mesh
+     TYPE(Element_t) :: Element
+     INTEGER :: SolverId, BodyId, Def_Dofs(:)
+
+     TYPE(ValueList_t), POINTER :: Params
+     INTEGER :: i, j,k,l, n, slen
+     INTEGER, POINTER :: Body_Dofs(:)
+     LOGICAL  :: stat
+     REAL(KIND=dp) :: x,y,z
+     TYPE(Solver_t), POINTER  :: Solver
+     CHARACTER(MAX_NAME_LEN) :: str, result
+
+     Solver => Model % Solvers(SolverId)
+     Params => Solver % Values
+
+     IF ( .NOT. ALLOCATED(Solver % Def_Dofs) ) THEN
+       ALLOCATE(Solver % Def_Dofs(Model % NumberOfBodies,6))
+       Solver % Def_Dofs=-1
+       Solver % Def_Dofs(:,1)=1
+     END IF
+     Body_Dofs => Solver % Def_Dofs(BodyId,:)
+
+
+     j = INDEX( ElementDef, 'n:' )
+     IF ( j>0 ) THEN
+       READ( ElementDef(j+2:), * ) l
+       Body_Dofs(1) = l
+       Def_Dofs(1) = MAX(Def_Dofs(1), l)
+     END IF
+          
+      j = INDEX( ElementDef, 'e:' )
+      IF ( j>0 ) THEN
+        READ( ElementDef(j+2:), * ) l
+        Body_Dofs(2) = l
+        Def_Dofs(2) = MAX(Def_Dofs(2), l )
+      END IF
+          
+      j = INDEX( ElementDef, 'f:' )
+      IF ( j>0 ) THEN
+        READ( ElementDef(j+2:), * ) l
+        Body_Dofs(3) = l
+        Def_Dofs(3) = MAX(Def_Dofs(3), l )
+      END IF
+          
+      j = INDEX( ElementDef, 'd:' )
+      IF ( j>0 ) THEN
+        READ( ElementDef(j+2:), * ) l
+        Body_Dofs(4) = l
+        Def_Dofs(4) = MAX(Def_Dofs(4), l )
+      ELSE 
+        IF ( ListGetLogical( Solver % Values, &
+            'Discontinuous Galerkin', stat ) ) THEN
+          Body_Dofs(4) = 0
+          Def_Dofs(4) = MAX(Def_Dofs(4),0 )
+        END IF
+      END IF
+          
+      j = INDEX( ElementDef, 'b:' )
+      IF ( j>0 ) THEN
+        READ( ElementDef(j+2:), * ) l
+        Body_Dofs(5) = l
+        Def_Dofs(5) = MAX(Def_Dofs(5), l )
+      END IF
+          
+      j = INDEX( ElementDef, 'p:' )
+      IF ( j>0 ) THEN
+        IF ( ElementDef(j+2:j+2) == '%' ) THEN
+          n = Element % Type % NumberOfNodes
+          x = SUM(Mesh % Nodes % x(Element % NodeIndexes))/n
+          y = SUM(Mesh % Nodes % y(Element % NodeIndexes))/n
+          z = SUM(Mesh % Nodes % z(Element % NodeIndexes))/n
+          WRITE( str, * ) 'cx= ',TRIM(i2s(Element % ElementIndex)),x,y,z
+          str = TRIM(str) // '; ' // TRIM(ElementDef(j+3:))//'(cx)'
+          slen = LEN_TRIM(str)
+          CALL matc(str,result,slen)
+          READ(result,*) x
+          Body_Dofs(6) = 0
+          Def_Dofs(6)  = MAX(Def_Dofs(6),NINT(x))
+        ELSE
+          READ( ElementDef(j+2:), * ) l
+          Body_Dofs(6) = l
+          Def_Dofs(6) = MAX(Def_Dofs(6), l )
+        END IF
+      END IF
+
+!------------------------------------------------------------------------------
+END SUBROUTINE GetMaxDefs
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
 ! Function to load mesh from disk
 !------------------------------------------------------------------------------
   FUNCTION LoadMesh( Model, MeshDirPar, MeshNamePar,&
@@ -193,9 +287,9 @@ CONTAINS
 
     INTEGER :: bodies,body_forces,body_equations,materials, &
       boundary_conditions,initial_conditions, mesh_parameters,bndry, &
-       name,n,linsys,procs,CountByType(64),Types(64),TypeCount,partn
+       name,n,linsys,procs,CountByType(64),Types(64),TypeCount,partn,id
 
-    LOGICAL :: GotIt, NeedEdges, FoundDG
+    LOGICAL :: GotIt, NeedEdges, FoundDG, Found
 
     INTEGER :: MinIndex,MaxIndex,MinEIndex,MaxEIndex, &
         BDOFs, EDOFs,FDOFs,inDOFs(7), DGIndex, istat, mesh_dim, save_dim
@@ -205,7 +299,9 @@ CONTAINS
 
 
     LOGICAL, POINTER :: iface(:)
+    TYPE(ValueList_t), POINTER :: Vlist
 
+    CHARACTER(MAX_NAME_LEN) :: ElementDef0, ElementDef
     TYPE(Nodes_t) :: ElementNodes
     TYPE(Element_t), POINTER :: Element, Edge, Face, Parent
 
@@ -399,7 +495,13 @@ CONTAINS
       NULLIFY( Element % BoundaryInfo )
       Element % TYPE => GetElementType( TYPE )
 
-      IF ( ASSOCIATED( Element % TYPE ) ) THEN
+      IF ( ASSOCIATED(Element % Type) ) THEN
+        n = Element % TYPE % NumberOfNodes
+        CALL AllocateVector( Element % NodeIndexes, n )
+        DO j=1,n
+          Element % NodeIndexes(j) = LocalPerm(nodes(j) - MinIndex + 1)
+        END DO
+
         Element % BodyId = body
         DO j=1,Model % NumberOfBodies
           BList => ListGetIntegerArray( Model % Bodies(j) % Values, &
@@ -411,11 +513,22 @@ CONTAINS
           END IF
         END DO
 
-        n = Element % TYPE % NumberOfNodes
-        CALL AllocateVector( Element % NodeIndexes, n )
-        DO j=1,n
-          Element % NodeIndexes(j) = LocalPerm(nodes(j) - MinIndex + 1)
-        END DO
+        id = Element % BodyId
+        Vlist => Model % Bodies(id) % Values
+        j = ListGetInteger(Vlist,'Equation',gotIt)
+        IF( gotIt ) THEN
+          Vlist => Model % Equations(j) % Values
+          ElementDef0=ListGetString(Vlist,'Element',Found )
+          DO j=1,Model % NumberOfSolvers
+            IF (.NOT. Found) ElementDef0=ListGetString(Model % Solvers(j) % Values,'Element',GotIt)
+            ElementDef=ListGetString(Vlist,'Element{'//TRIM(i2s(j))//'}',GotIt)
+            IF ( GotIt ) THEN
+              CALL GetMaxDefs( Model, Mesh, Element, ElementDef, j, id, Indofs )
+            ELSE
+              CALL GetMaxDefs( Model, Mesh, Element, ElementDef0, j, id, Indofs )
+            END IF
+          END DO
+        END IF
 
         IF ( inDOFs(1) /= 0 ) THEN
           Element % NDOFs = n

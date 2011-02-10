@@ -1579,7 +1579,7 @@ CONTAINS
     TYPE(Solver_t), POINTER :: Solver
     INTEGER(KIND=AddrInt) :: InitProc
     INTEGER, POINTER :: ActiveSolvers(:)
-    INTEGER, ALLOCATABLE :: Def_Dofs(:)
+    INTEGER :: Def_Dofs(6)
     CHARACTER(LEN=MAX_NAME_LEN) :: Name,ElementDef
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir,MeshName
 TYPE(valuelist_t), POINTER :: lst
@@ -1619,7 +1619,6 @@ TYPE(valuelist_t), POINTER :: lst
     Transient=ListGetString(Model % Simulation, &
                      'Simulation Type',Found)=='transient'
 
-    ALLOCATE( Def_Dofs(6) )
     Def_Dofs = -1; Def_Dofs(1)=1
 
     i = 1
@@ -1642,8 +1641,8 @@ TYPE(valuelist_t), POINTER :: lst
 
       GotMesh = ListCheckPresent(Solver % Values, 'Mesh')
 
-      ALLOCATE(Solver % Def_Dofs(6))
-      Solver % Def_Dofs = -1; Solver % Def_Dofs(1)=1
+      ALLOCATE(Solver % Def_Dofs(Model % NumberOfBodies,6))
+      Solver % Def_Dofs = -1; Solver % Def_Dofs(:,1)=1
       ElementDef = ListGetString( Solver % Values, 'Element', stat )
    
       IF (.NOT.stat) THEN
@@ -1651,16 +1650,14 @@ TYPE(valuelist_t), POINTER :: lst
         DO j=1,Model % NumberOfEquations
           IF (ListCheckPresent(Model % Equations(j) % Values, 'Element') ) THEN
             IF (ListGetLogical(Model % Equations(j) % Values,Name,Found) ) THEN
-              ElementDef = ListGetString(  &
-                    Model % Equations(J) % Values, 'Element', stat )
+              ElementDef=ListGetString(Model % Equations(J) % Values, 'Element',stat)
               EXIT
             END IF
             ActiveSolvers => ListGetIntegerArray(Model % Equations(j) % Values, &
                     'Active Solvers', Found )
             IF ( Found ) THEN
               IF ( ANY(ActiveSolvers==i) ) THEN
-                ElementDef = ListGetString(  &
-                    Model % Equations(J) % Values, 'Element', stat )
+                ElementDef=ListGetString(Model % Equations(J) % Values,'Element',stat)
                 EXIT
               END IF
             END IF
@@ -1671,7 +1668,7 @@ TYPE(valuelist_t), POINTER :: lst
       IF ( .NOT. stat ) THEN
         IF ( ListGetLogical( Solver % Values, &
              'Discontinuous Galerkin', stat ) ) THEN
-           Solver % Def_Dofs(4) = 0
+           Solver % Def_Dofs(:,4) = 0
            IF ( .NOT. GotMesh ) Def_Dofs(4) = MAX(Def_Dofs(4),0 )
            CYCLE
         ELSE
@@ -1682,33 +1679,33 @@ TYPE(valuelist_t), POINTER :: lst
       j = INDEX( ElementDef, 'n:' )
       IF ( j>0 ) THEN
         READ( ElementDef(j+2:), * ) l
-        Solver % Def_Dofs(1) = l
+        Solver % Def_Dofs(:,1) = l
         IF (.NOT. GotMesh ) Def_Dofs(1) = MAX(Def_Dofs(1), l)
       END IF
           
       j = INDEX( ElementDef, 'e:' )
       IF ( j>0 ) THEN
         READ( ElementDef(j+2:), * ) l
-        Solver % Def_Dofs(2) = l
+        Solver % Def_Dofs(:,2) = l
         IF ( .NOT. GotMesh ) Def_Dofs(2) = MAX(Def_Dofs(2), l )
       END IF
           
       j = INDEX( ElementDef, 'f:' )
       IF ( j>0 ) THEN
         READ( ElementDef(j+2:), * ) l
-        Solver % Def_Dofs(3) = l
+        Solver % Def_Dofs(:,3) = l
         IF ( .NOT. GotMesh ) Def_Dofs(3) = MAX(Def_Dofs(3), l )
       END IF
           
       j = INDEX( ElementDef, 'd:' )
       IF ( j>0 ) THEN
         READ( ElementDef(j+2:), * ) l
-        Solver % Def_Dofs(4) = l
+        Solver % Def_Dofs(:,4) = l
         IF ( .NOT. GotMesh ) Def_Dofs(4) = MAX(Def_Dofs(4), l )
       ELSE 
         IF ( ListGetLogical( Solver % Values, &
             'Discontinuous Galerkin', stat ) ) THEN
-          Solver % Def_Dofs(4) = 0
+          Solver % Def_Dofs(:,4) = 0
           IF ( .NOT. GotMesh ) Def_Dofs(4) = MAX(Def_Dofs(4),0 )
         END IF
       END IF
@@ -1716,15 +1713,19 @@ TYPE(valuelist_t), POINTER :: lst
       j = INDEX( ElementDef, 'b:' )
       IF ( j>0 ) THEN
         READ( ElementDef(j+2:), * ) l
-        Solver % Def_Dofs(5) = l
+        Solver % Def_Dofs(:,5) = l
         IF ( .NOT. GotMesh ) Def_Dofs(5) = MAX(Def_Dofs(5), l )
       END IF
           
       j = INDEX( ElementDef, 'p:' )
       IF ( j>0 ) THEN
-        READ( ElementDef(j+2:), * ) l
-        Solver % Def_Dofs(6) = l
-        IF ( .NOT. GotMesh ) Def_Dofs(6) = MAX(Def_Dofs(6), l )
+        IF ( ElementDef(j+2:j+2)=='%' ) THEN
+          Solver % Def_Dofs(:,6) = 0
+        ELSE
+          READ( ElementDef(j+2:), * ) l
+          Solver % Def_Dofs(:,6) = l
+          IF ( .NOT. GotMesh ) Def_Dofs(6) = MAX(Def_Dofs(6), l )
+         END IF
       END IF
 
       i = i + 1
@@ -1886,7 +1887,9 @@ TYPE(valuelist_t), POINTER :: lst
           CYCLE
         END IF
 
-        Def_Dofs = Model % Solvers(s) % Def_Dofs
+        DO i=1,6
+          Def_Dofs(i) = MAXVAL(Model % Solvers(s) % Def_Dofs(:,i))
+        END DO
 
         IF ( Single ) THEN
           Model % Solvers(s) % Mesh => &
@@ -1955,7 +1958,6 @@ TYPE(valuelist_t), POINTER :: lst
        CALL MeshStabParams( Mesh )
        Mesh => Mesh % Next
     END DO
-    DEALLOCATE( Def_Dofs )
 !------------------------------------------------------------------------------
   END FUNCTION LoadModel
 !------------------------------------------------------------------------------

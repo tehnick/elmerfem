@@ -152,7 +152,7 @@ CONTAINS
     TYPE(ListMatrixEntry_t), POINTER :: CList, Lptr
 
     TYPE(Matrix_t),POINTER :: PMatrix
-    TYPE(Element_t), POINTER :: CurrentElement,Elm, Edge1, Edge2, Face1, Face2
+    TYPE(Element_t), POINTER :: Element,Elm, Edge1, Edge2, Face1, Face2
 !------------------------------------------------------------------------------
 
    GB = .FALSE.
@@ -243,22 +243,22 @@ CONTAINS
     IF ( .NOT. FoundDG ) THEN
       t = 1
       DO WHILE( t<=Mesh % NumberOfBulkElements+Mesh % NumberOFBoundaryElements )
-         CurrentElement => Mesh % Elements(t)
+         Element => Mesh % Elements(t)
 
          IF ( PRESENT(Equation) ) THEN
            DO WHILE( t<=Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements )
-             CurrentElement => Mesh % Elements(t)
-             IF ( CheckElementEquation(Model,CurrentElement,Equation) ) EXIT
+             Element => Mesh % Elements(t)
+             IF ( CheckElementEquation(Model,Element,Equation) ) EXIT
              t = t + 1
            END DO
            IF ( t > Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements ) EXIT
          END IF
 
-         n = CurrentElement % NDOFs + &
-             CurrentElement % TYPE % NumberOfEdges * EDOFs + &
-             CurrentElement % TYPE % NumberOfFaces * FDOFs
+         n = Element % NDOFs + &
+             Element % TYPE % NumberOfEdges * EDOFs + &
+             Element % TYPE % NumberOfFaces * FDOFs
 
-         IF ( GB ) n = n + CurrentElement % BDOFs
+         IF ( GB ) n = n + Element % BDOFs
 
          IF ( n > IndexSize ) THEN
             IndexSize = n
@@ -267,17 +267,17 @@ CONTAINS
          END IF
 
          n = 0
-         DO i=1,CurrentElement % NDOFs
+         DO i=1,Element % NDOFs
             n = n + 1
-            Indexes(n) = CurrentElement % NodeIndexes(i)
+            Indexes(n) = Element % NodeIndexes(i)
          END DO
 
          IF ( ASSOCIATED(Mesh % Edges) ) THEN
-            IF ( ASSOCIATED(CurrentElement % EdgeIndexes) ) THEN
-              DO j=1,CurrentElement % TYPE % NumberOFEdges
-                 DO i=1, Mesh % Edges(CurrentElement % EdgeIndexes(j)) % BDOFs
+            IF ( ASSOCIATED(Element % EdgeIndexes) ) THEN
+              DO j=1,Element % TYPE % NumberOFEdges
+                 DO i=1, Mesh % Edges(Element % EdgeIndexes(j)) % BDOFs
                    n = n + 1
-                   Indexes(n) = EDOFs * (CurrentElement % EdgeIndexes(j)-1) + i &
+                   Indexes(n) = EDOFs * (Element % EdgeIndexes(j)-1) + i &
                                 + Mesh % NumberOfNodes
                 END DO
              END DO
@@ -285,23 +285,23 @@ CONTAINS
          END IF
 
          IF ( ASSOCIATED( Mesh % Faces ) ) THEN
-           IF ( ASSOCIATED(CurrentElement % FaceIndexes) ) THEN
-             DO j=1,CurrentElement % TYPE % NumberOFFaces
-               DO i=1, Mesh % Faces(CurrentElement % FaceIndexes(j)) % BDOFs
+           IF ( ASSOCIATED(Element % FaceIndexes) ) THEN
+             DO j=1,Element % TYPE % NumberOFFaces
+               DO i=1, Mesh % Faces(Element % FaceIndexes(j)) % BDOFs
                  n = n + 1
-                 Indexes(n) = FDOFs*(CurrentElement % FaceIndexes(j)-1) + i + &
+                 Indexes(n) = FDOFs*(Element % FaceIndexes(j)-1) + i + &
                      Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges
                END DO
              END DO
            END IF
          END IF
 
-         IF ( GB .AND. ASSOCIATED(CurrentElement % BubbleIndexes) ) THEN
-            DO i=1,CurrentElement % BDOFs
+         IF ( GB .AND. ASSOCIATED(Element % BubbleIndexes) ) THEN
+            DO i=1,Element % BDOFs
               n = n + 1
               Indexes(n) = FDOFs*Mesh % NumberOfFaces + &
                    Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges + &
-                        CurrentElement % BubbleIndexes(i)
+                        Element % BubbleIndexes(i)
             END DO
          END IF
 
@@ -329,19 +329,19 @@ CONTAINS
         DO i = Mesh % NumberOfBulkElements+1, &
           Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
 
-          CurrentElement => Mesh % Elements(i)
-          IF ( ASSOCIATED(CurrentElement % BoundaryInfo % GebhardtFactors) ) THEN
-             DO j=1,CurrentElement % TYPE % NumberOfNodes
-                k1 = Reorder(CurrentElement % NodeIndexes(j))
+          Element => Mesh % Elements(i)
+          IF ( ASSOCIATED(Element % BoundaryInfo % GebhardtFactors) ) THEN
+             DO j=1,Element % TYPE % NumberOfNodes
+                k1 = Reorder(Element % NodeIndexes(j))
 
-                NumberOfFactors = CurrentElement % BoundaryInfo % &
+                NumberOfFactors = Element % BoundaryInfo % &
                   GebhardtFactors % NumberOfImplicitFactors
-!                IF(NumberOfFactors == 0) NumberOfFactors = CurrentElement % BoundaryInfo % &
+!                IF(NumberOfFactors == 0) NumberOfFactors = Element % BoundaryInfo % &
 !                  GebhardtFactors % NumberOfFactors
 
                 DO n=1,NumberOfFactors
 
-                  Elm => Mesh % Elements( CurrentElement % BoundaryInfo % &
+                  Elm => Mesh % Elements( Element % BoundaryInfo % &
                               GebhardtFactors % Elements(n) )
 
                   DO k=1,Elm % TYPE % NumberOfNodes

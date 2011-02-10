@@ -1005,7 +1005,7 @@ CONTAINS
     !Numerical integration:
     !----------------------
     IP = GaussPoints( Element )
-    np = n*Solver % Def_Dofs(1)
+    np = n*Solver % Def_Dofs(Element % BodyId,1)
     DO t=1,IP % n
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
                   IP % W(t), detJ, Basis, dBasisdx )
@@ -1135,7 +1135,7 @@ CONTAINS
     !-----------------------
     IP = GaussPoints(Element)
 
-    np = n*Solver % Def_Dofs(1)
+    np = n*MAXVAL(Solver % Def_Dofs(:,1))
     DO t=1,IP % n
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
                   IP % W(t), detJ, Basis, dBasisdx )
@@ -1635,7 +1635,7 @@ if ( element % bodyid /= 2 ) cycle
 element => getactiveelement(i)
 if ( element % bodyid /= 2 ) cycle
        n = GetElementNOFNodes(Element)
-       np = n*Solver % Def_dofs(1)
+!      np = n*Solver % Def_dofs(1)
        CALL GetElementNodes(Nodes, Element)
 
 !      Parent => Element % Boundaryinfo % Left
@@ -2309,7 +2309,7 @@ CONTAINS
     !----------------------
     IP = GaussPoints( Element )
 
-    np = n*Solver % Def_dofs(1)
+    np = n*Solver % Def_Dofs(Element % BodyId,1)
     DO t=1,IP % n
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
                   IP % W(t), detJ, Basis, dBasisdx )
@@ -2401,7 +2401,7 @@ CONTAINS
     !-----------------------
     IP = GaussPoints(Element)
 
-    np = n*Solver % Def_dofs(1)
+    np = n*MAXVAL(Solver % Def_Dofs(:,1))
     DO t=1,IP % n
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
                   IP % W(t), detJ, Basis, dBasisdx )
@@ -3168,7 +3168,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    DO i = 1, GetNOFActive()
      Element => GetActiveElement(i)
      n = GetElementNOFNodes()
-     np = n*pSolver % Def_Dofs(1)
+     np = n*pSolver % Def_Dofs(Element % BodyId,1)
      nd = GetElementNOFDOFs(uSolver=pSolver)
 
      CALL GetElementNodes( Nodes )

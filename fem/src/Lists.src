@@ -133,7 +133,7 @@ CONTAINS
      USE PElementMaps
      TYPE(Model_t)  :: Model
      TYPE(Mesh_t)   :: Mesh
-     TYPE(Solver_t) :: Solver
+     TYPE(Solver_t), TARGET :: Solver
      INTEGER :: Perm(:)
      INTEGER :: k
      CHARACTER(LEN=*) :: Equation
@@ -166,8 +166,8 @@ CONTAINS
              IF ( CheckElementEquation(Model,Element,Equation) ) THEN
                 FoundDG = FoundDG .OR. Element % DGDOFs > 0
                 DO j=1,Element % DGDOFs
-                   n = n + 1
-                   Indexes(n) = Element % DGIndexes(j)
+                  n = n + 1
+                  Indexes(n) = Element % DGIndexes(j)
                 END DO
              END IF
          END IF
@@ -177,8 +177,8 @@ CONTAINS
              IF ( CheckElementEquation(Model,Element,Equation) ) THEN
                 FoundDG = FoundDG .OR. Element % DGDOFs > 0
                 DO j=1,Element % DGDOFs
-                   n = n + 1
-                   Indexes(n) = Element % DGIndexes(j)
+                  n = n + 1
+                  Indexes(n) = Element % DGIndexes(j)
                 END DO
              END IF
          END IF
@@ -186,8 +186,8 @@ CONTAINS
          DO i=1,n
             j = Indexes(i)
             IF ( Perm(j) == 0 ) THEN
-                k = k + 1
-               Perm(j) = k
+               k = k + 1
+              Perm(j) = k
             END IF
          END DO
        END DO
@@ -231,7 +231,7 @@ CONTAINS
      END IF
 
 
-     IF ( Solver % Def_Dofs(6)>=0 ) THEN
+     IF ( ANY(Solver % Def_Dofs(:,6)>=0) ) THEN
        IF ( Mesh % NumberOFEdges>0 ) THEN
           ALLOCATE(EdgeDOFs(Mesh % NumberOfEdges))
           EdgeDOFs=0;
@@ -252,7 +252,7 @@ CONTAINS
          END DO
          IF ( t>n ) EXIT
 
-         Def_Dofs => Solver % Def_Dofs
+         Def_Dofs => Solver % Def_Dofs(Element % BodyId,:)
          IF ( ASSOCIATED(Element % EdgeIndexes) ) THEN
            DO i=1,Element % TYPE % NumberOfEdges
              j = Element % EdgeIndexes(i)
@@ -282,8 +282,7 @@ CONTAINS
 
        IF ( t > n ) EXIT
 
-       Def_Dofs => Solver % Def_Dofs
-
+       Def_Dofs => Solver % Def_Dofs(Element % BodyId,:)
        ndofs = Element % NDOFs
        IF ( Def_Dofs(1) >= 0 ) ndofs=Def_Dofs(1)*Element % TYPE % NumberOfNodes
        DO i=1,ndofs
@@ -301,7 +300,8 @@ CONTAINS
              IF ( Def_Dofs(2) >= 0) THEN
                ndofs = Def_Dofs(2)
              ELSE IF (Def_Dofs(6)>=0) THEN
-               ndofs = MAX(Edge % BDOFs,EdgeDOFs(Element % EdgeIndexes(i)))
+               ndofs = EdgeDOFs(Element % EdgeIndexes(i))
+               IF (Def_Dofs(6)==0) ndofs = MAX(Edge % BDOFs,ndofs)
              END IF
 
              DO e=1,ndofs
@@ -322,7 +322,7 @@ CONTAINS
                ndofs = Def_Dofs(3)
              ELSE IF (Def_Dofs(6)>=0) THEN
                ndofs = FaceDOFs(Element % FaceIndexes(i))
-               ndofs = MAX(Face % BDOFs,FaceDOFs(Element % FaceIndexes(i)))
+               IF ( Def_Dofs(6)==0 ) ndofs = MAX(Face % BDOFs,ndofs)
              END IF
              DO e=1,ndofs
                 j = Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges + &
@@ -335,12 +335,13 @@ CONTAINS
           END DO
        END IF
 
-       IF ( GB .AND. ASSOCIATED( Element % BubbleIndexes ) ) THEN
+       IF ( GB .AND. ASSOCIATED(Element % BubbleIndexes) ) THEN
          ndofs = 0
          IF ( Def_Dofs(5) >= 0) THEN
             ndofs = Def_Dofs(5)
          ELSE IF (Def_Dofs(6)>=0) THEN
-            ndofs = MAX(Element % BDOFs,GetBubbleDOFs(Element, Def_Dofs(6)))
+            ndofs = GetBubbleDOFs(Element, Def_Dofs(6))
+            IF ( Def_Dofs(6)==0 ) ndofs = MAX(Element % BDOFs,ndofs)
          END IF
 
          DO i=1,ndofs
