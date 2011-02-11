@@ -101,7 +101,7 @@ MODULE Types
     INTEGER :: Subband, Format, SolveCount, Comm=-1
     LOGICAL :: Ordered, Lumped, Symmetric, Complex, DGMatrix, Cholesky
 
-    TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => NULL()
+    TYPE(ListMatrix_t), POINTER :: ListMatrix(:) => Null()
 
     INTEGER, POINTER :: Perm(:),InvPerm(:)
     INTEGER, ALLOCATABLE :: GRows(:), RowOwner(:)
@@ -113,11 +113,11 @@ MODULE Types
     REAL(KIND=dp),  POINTER :: MassValues(:),DampValues(:),BulkValues(:)
 
 #ifdef HAVE_MUMPS
-    TYPE(dmumps_struc), POINTER :: MumpsID => NULL()
+    TYPE(dmumps_struc), POINTER :: MumpsID => Null()
 #endif
 #ifdef HAVE_PARDISO
-    INTEGER, POINTER :: PardisoParam(:) => NULL()
-    INTEGER(KIND=AddrInt), POINTER :: PardisoID(:) => NULL()
+    INTEGER, POINTER :: PardisoParam(:) => Null()
+    INTEGER(KIND=AddrInt), POINTER :: PardisoID(:) => Null()
 #endif
 #ifdef HAVE_SUPERLU
     INTEGER(KIND=AddrInt) :: SuperLU_Factors=0
@@ -367,7 +367,7 @@ MODULE Types
      COMPLEX(KIND=dp), POINTER :: EigenValues(:),EigenVectors(:,:)
      REAL(KIND=dp),    POINTER :: Values(:),PrevValues(:,:),PValues(:),&
        NonlinValues(:), SteadyValues(:)
-     COMPLEX(KIND=dp), POINTER :: CValues(:) => NULL()
+     COMPLEX(KIND=dp), POINTER :: CValues(:) => Null()
    END TYPE Variable_t
 
 !------------------------------------------------------------------------------
@@ -392,17 +392,17 @@ MODULE Types
 !-------------------------------------------------------------------------------
 
    TYPE BoundaryInfo_t
-     TYPE(Factors_t), POINTER :: GebhardtFactors=>NULL()
+     TYPE(Factors_t), POINTER :: GebhardtFactors=>Null()
      INTEGER :: Constraint = 0, OutBody = -1
-     TYPE(Element_t), POINTER :: Left =>NULL(), Right=>NULL()
+     TYPE(Element_t), POINTER :: Left =>Null(), Right=>Null()
    END TYPE BoundaryInfo_t
 
 !-------------------------------------------------------------------------------
 
    TYPE ElementData_t
-     TYPE(ElementData_t), POINTER :: Next=>NULL()
+     TYPE(ElementData_t), POINTER :: Next=>Null()
      TYPE(varying_string) :: Name
-     REAL(KIND=dp), POINTER :: Values(:)=>NULL()
+     REAL(KIND=dp), POINTER :: Values(:)=>Null()
    END TYPE ElementData_t
 
 !-------------------------------------------------------------------------------
@@ -421,8 +421,8 @@ MODULE Types
          FaceIndexes => Null(), BubbleIndexes => Null(), &
          DGIndexes   => Null()
 
-     TYPE(PElementDefs_t), POINTER :: PDefs=>NULL()
-     TYPE(ElementData_t),  POINTER :: PropertyData=>NULL()
+     TYPE(PElementDefs_t), POINTER :: PDefs=>Null()
+     TYPE(ElementData_t),  POINTER :: PropertyData=>Null()
    END TYPE Element_t
 
 !-------------------------------------------------------------------------------
@@ -515,7 +515,7 @@ MODULE Types
      TYPE(Element_t), DIMENSION(:), POINTER :: Elements, Edges, Faces
 
      INTEGER :: NumberOfNodes, NumberOfBulkElements, NumberOfEdges, &
-                NumberOfFaces, NumberOfBoundaryElements, MeshDim
+                NumberOfFaces, NumberOfBoundaryElements, MeshDim, PassBCcnt=0
      INTEGER :: MaxElementNodes, MaxElementDOFs, MaxEdgeDOFs, MaxFaceDOFs, MaxBDOFs
    END TYPE Mesh_t
 
@@ -571,70 +571,70 @@ MODULE Types
 !
 !     Simulation input data, that concern the model as a whole
 !
-      TYPE(ValueList_t), POINTER :: Simulation => NULL()
+      TYPE(ValueList_t), POINTER :: Simulation => Null()
 !
 !     Variables
 !
-      TYPE(Variable_t), POINTER  :: Variables => NULL()
+      TYPE(Variable_t), POINTER  :: Variables => Null()
 !
 !     Some physical constants, that will be read from the database or set by
 !     other means: gravity direction/intensity and Stefan-Boltzmann constant)
 !
-      TYPE(ValueList_t), POINTER :: Constants => NULL()
+      TYPE(ValueList_t), POINTER :: Constants => Null()
 !
 !     Types  of  equations (flow,heat,...) and  some  parameters (for example
 !     laminar or turbulent flow or type of convection model for heat equation,
 !     etc.)
 !
       INTEGER :: NumberOfEquations = 0
-      TYPE(EquationArray_t), POINTER :: Equations(:) => NULL()
+      TYPE(EquationArray_t), POINTER :: Equations(:) => Null()
 !
 !     Active bodyforces: (bussinesq approx., heatsource, freele chosen
 !     bodyforce...)
 !
       INTEGER :: NumberOfBodyForces = 0
-      TYPE(BodyForceArray_t), POINTER :: BodyForces(:) => NULL()
+      TYPE(BodyForceArray_t), POINTER :: BodyForces(:) => Null()
 !
 !     Initial conditions for field variables
 !
       INTEGER :: NumberOfICs = 0
-      TYPE(InitialConditionArray_t), POINTER :: ICs(:) => NULL()
+      TYPE(InitialConditionArray_t), POINTER :: ICs(:) => Null()
 !
 !     Boundary conditions
 !
       INTEGER :: NumberOfBCs = 0
-      TYPE(BoundaryConditionArray_t), POINTER :: BCs(:) => NULL()
+      TYPE(BoundaryConditionArray_t), POINTER :: BCs(:) => Null()
 !
 !     For free surfaces the curvatures...
 !
-      INTEGER, POINTER :: FreeSurfaceNodes(:) => NULL()
-      REAL(KIND=dp), POINTER :: BoundaryCurvatures(:) => NULL()
+      INTEGER, POINTER :: FreeSurfaceNodes(:) => Null()
+      REAL(KIND=dp), POINTER :: BoundaryCurvatures(:) => Null()
 !
 !     Material parameters
 !
       INTEGER :: NumberOfMaterials = 0
-      TYPE(MaterialArray_t), POINTER :: Materials(:) => NULL()
+      TYPE(MaterialArray_t), POINTER :: Materials(:) => Null()
 !
 !     Active bodies, every element has a pointer to a body, body has
 !     material,ICs,bodyforces and equations
 !
       INTEGER :: NumberOfBodies  = 0
-      TYPE(BodyArray_t), POINTER :: Bodies(:) => NULL()
+      TYPE(BodyArray_t), POINTER :: Bodies(:) => Null()
 !
 !      Boundary to boundary condition mapping
 !
       INTEGER :: NumberOfBoundaries = 0
-      INTEGER, POINTER :: BoundaryId(:) => NULL()
-      TYPE(BoundaryArray_t), POINTER :: Boundaries(:) => NULL()
+      INTEGER, POINTER :: BoundaryId(:) => Null()
+      TYPE(BoundaryArray_t), POINTER :: Boundaries(:) => Null()
 !
 !     Linear equation solvers
 !
       INTEGER :: NumberOfSolvers = 0
-      TYPE(Solver_t), POINTER :: Solvers(:) => NULL()
+      TYPE(Solver_t), POINTER :: Solvers(:) => Null()
 !
 !     Node coordinates + info for parallel computations
 !
-      TYPE(Nodes_t), POINTER :: Nodes => NULL()
+      TYPE(Nodes_t), POINTER :: Nodes => Null()
 !
 !     Max number of nodes in any one element in this model
 !
@@ -642,23 +642,23 @@ MODULE Types
 !
 !     Elements
 !
-      TYPE(Element_t), POINTER :: Elements(:) => NULL()
+      TYPE(Element_t), POINTER :: Elements(:) => Null()
 !
 !     For reference the current element in process   
 !
-      TYPE(Element_t), POINTER :: CurrentElement => NULL()
+      TYPE(Element_t), POINTER :: CurrentElement => Null()
 !
 !     These are for internal use,   number of potentially nonzero elements
 !     in stiffness and mass matrices (with one dof), and number of nonzero
 !     elements in rows of the matrices.
 !
       INTEGER :: TotalMatrixElements = 0
-      INTEGER, POINTER :: RowNonzeros(:) => NULL()
+      INTEGER, POINTER :: RowNonzeros(:) => Null()
 
       TYPE(Mesh_t), POINTER :: Meshes
 
-      TYPE(Mesh_t),   POINTER :: Mesh   => NULL()
-      TYPE(Solver_t), POINTER :: Solver => NULL()
+      TYPE(Mesh_t),   POINTER :: Mesh   => Null()
+      TYPE(Solver_t), POINTER :: Solver => Null()
     END TYPE Model_t
 
     TYPE(Model_t),  POINTER :: CurrentModel
@@ -696,20 +696,20 @@ MODULE Types
      REAL(KIND=dp), POINTER :: Coordinate(:,:) => Null()
      REAL(KIND=dp), POINTER :: Distance(:) => Null()
      REAL(KIND=dp), POINTER :: Velocity(:,:) => Null()
-     REAL(KIND=dp), POINTER :: Force(:,:) => NULL()
+     REAL(KIND=dp), POINTER :: Force(:,:) => Null()
      REAL(KIND=dp), POINTER :: Dt(:) => Null()     
-     REAL(KIND=dp), POINTER :: uvw(:,:) => NULL()
+     REAL(KIND=dp), POINTER :: uvw(:,:) => Null()
 
      INTEGER, POINTER :: FaceIndex(:) => Null()
      INTEGER, POINTER :: Status(:) => Null()
      INTEGER, POINTER :: ElementIndex(:) => Null()
 
-     INTEGER, POINTER :: ClosestNode(:) => NULL()
-     INTEGER, POINTER :: ClosestParticle(:) => NULL()
-     INTEGER, POINTER :: NoClosestParticle(:) => NULL()
-     INTEGER, POINTER :: CumClosestParticle(:) => NULL()
+     INTEGER, POINTER :: ClosestNode(:) => Null()
+     INTEGER, POINTER :: ClosestParticle(:) => Null()
+     INTEGER, POINTER :: NoClosestParticle(:) => Null()
+     INTEGER, POINTER :: CumClosestParticle(:) => Null()
 
-     LOGICAL, POINTER :: InternalElements(:) => NULL()
+     LOGICAL, POINTER :: InternalElements(:) => Null()
 
      REAL(KIND=dp) :: LocalMinCoord(3), LocalMaxCoord(3)
      REAL(KIND=dp) :: GlobalMinCoord(3), GlobalMaxCoord(3)

@@ -360,6 +360,101 @@ CONTAINS
    END SUBROUTINE MatrixVectorMultiply
 !------------------------------------------------------------------------------
 
+
+
+!
+!
+! Search faces between passive / non-passive domains; add to boundary elements
+! with given bc-id
+!------------------------------------------------------------------------------
+  SUBROUTINE GetPassiveBoundary(Model,Mesh,BcId)
+!------------------------------------------------------------------------------
+    TYPE(Model_t) :: Model
+    INTEGER :: BcId
+    TYPE(Mesh_t) :: Mesh 
+
+    INTEGER, ALLOCATABLE :: arr(:)
+    INTEGER :: i,j,n,cnt,ind, sz
+    LOGICAL :: L1,L2
+    TYPE(Element_t), POINTER :: Faces(:), Telems(:), Face, P1, P2
+
+    CALL FindMeshEdges(Mesh,.FALSE.)
+    SELECT CASE(Mesh % MeshDim)
+    CASE(2)
+      Faces => Mesh % Edges
+      n = Mesh % NumberOfEdges
+    CASE(3)
+      Faces => Mesh % Faces
+      n = Mesh % NumberOfFaces
+    END SELECT
+
+    ALLOCATE(arr(n)); cnt=0
+    DO i=1,n
+      P2 => Faces(i) % BoundaryInfo % Right
+      P1 => Faces(i) % BoundaryInfo % Left
+      IF ( .NOT. ASSOCIATED(P1) .OR. .NOT. ASSOCIATED(P2) ) CYCLE
+
+      L1 = CheckPassiveElement(P1)
+      L2 = CheckPassiveElement(P2)
+      IF ( L1.NEQV.L2) THEN
+        cnt = cnt+1
+        arr(cnt) = i
+      END IF
+    END DO
+
+    sz = SIZE(Mesh % Elements)
+    IF ( cnt>Mesh % PassBCcnt ) THEN
+      Telems => Mesh % Elements
+      ALLOCATE(Mesh % Elements(sz+cnt-Mesh % PassBCcnt))
+      IF ( ASSOCIATED(Model % Elements,Telems) ) &
+        Model % Elements => Mesh % Elements
+
+      Mesh % Elements(1:sz) = Telems
+
+      ! fix boundary element parent pointers to use new array ...
+      ! --------------------------------------------------------
+      DO i=1,Mesh % NumberOfBoundaryElements-Mesh % PassBCcnt
+        ind = i+Mesh % NumberOfBulkElements
+        Face => Mesh % Elements(ind)
+        IF ( ASSOCIATED(Face % BoundaryInfo % Left) ) &
+          Face % BoundaryInfo % Left  => &
+             Mesh % Elements(Face % BoundaryInfo % Left % ElementIndex)
+        IF ( ASSOCIATED(Face % BoundaryInfo % Right ) ) &
+          Face % BoundaryInfo % Right => &
+             Mesh % Elements(Face % BoundaryInfo % Right % ElementIndex)
+      END DO
+
+      ! ...likewise for  faces (edges).
+      ! -------------------------------
+      DO i=1,n
+        Face => Faces(i)
+        IF ( ASSOCIATED(Face % BoundaryInfo % Left) ) &
+          Face % BoundaryInfo % Left  => &
+             Mesh % Elements(Face % BoundaryInfo % Left % ElementIndex)
+        IF ( ASSOCIATED(Face % BoundaryInfo % Right ) ) &
+          Face % BoundaryInfo % Right => &
+             Mesh % Elements(Face % BoundaryInfo % Left % ElementIndex)
+      END DO
+
+      DEALLOCATE(Telems)
+    END IF
+
+    ind = sz-Mesh % PassBCcnt
+    DO i=1,cnt
+      ind = ind+1
+
+   Mesh % Elements(ind) = Faces(arr(i))
+   Mesh % Elements(ind) % BoundaryInfo % Constraint = BcId
+    END DO
+    Mesh % NumberOfBoundaryElements = Mesh % NumberOfBoundaryElements - &
+                Mesh % PassBCcnt + cnt
+    Mesh % PassBCcnt = cnt
+    IF ( ASSOCIATED(Model % Elements,Mesh % Elements) ) &
+      Model % NumberOfBoundaryElements = Mesh % NumberOfBoundaryElements
+!------------------------------------------------------------------------------
+  END SUBROUTINE GetPassiveBoundary
+!------------------------------------------------------------------------------
+
    
 !------------------------------------------------------------------------------
    FUNCTION CheckPassiveElement( UElement )  RESULT( IsPassive )
