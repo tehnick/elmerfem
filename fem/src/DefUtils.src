@@ -1005,6 +1005,7 @@ CONTAINS
        IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
          id = Element % BoundaryInfo % Right % BodyId
      END IF
+     IF ( Id==0 ) id=1
 
      IF ( Solver % Def_Dofs(id,1)>0 ) n = Element % NDOFs
      IF ( ALL(Solver % Def_Dofs(id,2:)<0) ) RETURN
@@ -1081,6 +1082,7 @@ CONTAINS
        IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
          id = Element % BoundaryInfo % Right % BodyId
      END IF
+     IF ( id == 0 ) id=1
 
      IF ( Solver % Def_Dofs(id,1)>0 ) THEN
        DO i=1,Element % NDOFs
@@ -1284,10 +1286,10 @@ CONTAINS
      INTEGER :: bf_id, body_id
 
      CurrElement => GetCurrentElement(Element)
-     body_id = CurrElement % BodyId 
+	body_id = CurrElement % BodyId 
 
-     IF ( PRESENT( Found ) ) THEN
-        bf_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
+	IF ( PRESENT( Found ) ) THEN
+	bf_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
            'Body Force', Found, minv=1,maxv=CurrentModel % NumberOfBodyForces )
      ELSE
         bf_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
