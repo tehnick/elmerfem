@@ -2976,6 +2976,14 @@ CONTAINS
           CALL Fatal('DefUtils::DefaultDirichletBCs','Memory allocation failed.' )
      END IF
 
+
+     ! Create soft limiters to be later applied by the Dirichlet conditions
+     !---------------------------------------------------------------------
+     IF( ListGetLogical( Solver % Values,'Apply Limiters',Found) ) THEN
+       CALL DeterminSoftLimiters( Solver )	
+     END IF
+
+	
      IF ( x % DOFs > 1 ) THEN
         ! TEMP!!!
         CALL SetDirichletBoundaries( CurrentModel,A, b, x % Name,-1,x % DOFs,x % Perm )

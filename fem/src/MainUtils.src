@@ -805,7 +805,15 @@ CONTAINS
     IF ( .NOT. ASSOCIATED( Solver % Variable ) ) RETURN
     IF ( .NOT. ASSOCIATED(Solver % Variable % Values) ) RETURN
     !------------------------------------------------------------------------------
-    
+
+	
+    !------------------------------------------------------------------------------
+    ! If soft limiters are applied then also loads must be computed
+    !------------------------------------------------------------------------------
+     IF( ListGetLogical( Solver % Values,'Apply Limiters',Found) ) THEN
+       CALL ListAddLogical( Solver % Values,'Calculate Loads',.TRUE.)
+     END IF
+	    
     !------------------------------------------------------------------------------
     ! Create the variable needed for the computation of nodal loads: r=b-Ax
     !------------------------------------------------------------------------------

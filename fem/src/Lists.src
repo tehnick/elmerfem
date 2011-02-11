@@ -464,14 +464,14 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     SUBROUTINE VariableAdd( Variables,Mesh,Solver,Name,DOFs,Values,&
-      Perm,Output,Secondary, Type )
+      Perm,Output,Secondary, TYPE )
 !------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
       TYPE(Mesh_t),   TARGET :: Mesh
       TYPE(Solver_t), TARGET :: Solver
       CHARACTER(LEN=*) :: Name
       INTEGER :: DOFs
-      INTEGER, OPTIONAL :: Type
+      INTEGER, OPTIONAL :: TYPE
       REAL(KIND=dp), POINTER :: Values(:)
       LOGICAL, OPTIONAL :: Output
       INTEGER, OPTIONAL, POINTER :: Perm(:)
@@ -539,7 +539,7 @@ CONTAINS
         ptr % Secondary = Secondary
       END IF
 
-      IF ( PRESENT( Type ) ) ptr % Type = Type
+      IF ( PRESENT( TYPE ) ) ptr % TYPE = TYPE
       IF ( PRESENT( Output ) ) ptr % Output = Output
 !------------------------------------------------------------------------------
     END SUBROUTINE VariableAdd
@@ -2508,11 +2508,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
        END IF
 
        k1 = ind
-       IF ( Variable % Type == Variable_on_nodes_on_elements ) THEN
+       IF ( Variable % TYPE == Variable_on_nodes_on_elements ) THEN
          Element => CurrentModel % CurrentElement
          IF ( ASSOCIATED(Element) ) THEN
            IF ( ASSOCIATED(Element % DGIndexes) ) THEN
-             n = Element % Type % NumberOfNodes
+             n = Element % TYPE % NumberOfNodes
              IF ( SIZE(Element % DGIndexes)==n ) THEN
                DO i=1,n
                  IF ( Element % NodeIndexes(i)==ind ) THEN
@@ -2652,7 +2652,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
          CALL ListParseStrToValues( Ptr % DependName, Ptr % DepNameLen, k, Name, T, j)
          IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
            DO l=1,j
-             WRITE( cmd, * ) 'tx('//trim(i2s(l-1))//')=', T(l)
+             WRITE( cmd, * ) 'tx('//TRIM(i2s(l-1))//')=', T(l)
              k1 = LEN_TRIM(cmd)
              CALL matc( cmd, tmp_str, k1 )
            END DO
@@ -2786,9 +2786,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
          CALL ListParseStrToValues( Ptr % DependName, Ptr % DepNameLen, k, Name, T, j)
          IF ( ANY(T(1:j)==HUGE(1._dP)) ) CYCLE
 
-         IF ( ptr % Type==LIST_TYPE_VARIABLE_TENSOR_STR) THEN
+         IF ( ptr % TYPE==LIST_TYPE_VARIABLE_TENSOR_STR) THEN
            DO l=1,j
-             WRITE( cmd, '(a,g19.12)' ) 'tx('//trim(i2s(l-1))//')=', T(l)
+             WRITE( cmd, '(a,g19.12)' ) 'tx('//TRIM(i2s(l-1))//')=', T(l)
              k1 = LEN_TRIM(cmd)
              CALL matc( cmd, tmp_str, k1 )
            END DO
@@ -2897,6 +2897,65 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
   END FUNCTION NextFreeKeyword
 !------------------------------------------------------------------------------
+ 
+
+!------------------------------------------------------------------------------
+   FUNCTION ListCheckPresentAnyBC( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found
+!------------------------------------------------------------------------------
+     INTEGER :: bc
+     
+     Found = .FALSE.
+     DO bc = 1,Model % NumberOfBCs
+       Found = ListCheckPresent( Model % BCs(bc) % Values, Name )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListCheckPresentAnyBC
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   FUNCTION ListCheckPresentAnyBodyForce( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found
+!------------------------------------------------------------------------------
+     INTEGER :: bf
+     
+     Found = .FALSE.
+     DO bf = 1,Model % NumberOfBodyForces
+       Found = ListCheckPresent( Model % BodyForces(bf) % Values, Name )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListCheckPresentAnyBodyForce
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   FUNCTION ListCheckPresentAnyMaterial( Model, Name ) RESULT(Found)
+!------------------------------------------------------------------------------
+     TYPE(Model_t) :: Model
+     CHARACTER(LEN=*) :: Name
+     LOGICAL :: Found
+!------------------------------------------------------------------------------
+     INTEGER :: mat
+     
+     Found = .FALSE.
+     DO mat = 1,Model % NumberOfMaterials
+       Found = ListCheckPresent( Model % Materials(mat) % Values, Name )
+       IF( Found ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ListCheckPresentAnyMaterial
+!------------------------------------------------------------------------------
+
+
+
 
 
 

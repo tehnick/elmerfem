@@ -1088,7 +1088,244 @@ CONTAINS
    END SUBROUTINE UpdateMassMatrix
 !------------------------------------------------------------------------------
  
-  
+!------------------------------------------------------------------------------
+   SUBROUTINE DeterminSoftLimiters( Solver )
+!------------------------------------------------------------------------------
+! Determine soft limiters set
+! Currently the implementation is nonideal as almost the same thing is done
+! twice: the second time in setting the Dirichlet conditions.
+!------------------------------------------------------------------------------
+     TYPE(Solver_t) :: Solver
+
+     TYPE(Model_t), POINTER :: Model
+     TYPE(variable_t), POINTER :: Var, LoadVar
+     TYPE(Element_t), POINTER :: Element
+     INTEGER :: i,j,k,n,t,ind,dofs, dof, bf, bc, Upper, Removed, Added, &
+         ElemFirst, ElemLast, totsize
+     REAL(KIND=dp), POINTER :: FieldValues(:), LoadValues(:), ElemLimit(:)
+     REAL(KIND=dp) :: LimitSign, Eps
+     INTEGER, POINTER :: FieldPerm(:), NodeIndexes(:)
+     LOGICAL :: Found,AnyLimitBC, AnyLimitBF, Set
+     LOGICAL, ALLOCATABLE :: LimitDone(:)
+     LOGICAL, POINTER :: LimitActive(:)
+     TYPE(ValueList_t), POINTER :: Params
+     CHARACTER(LEN=MAX_NAME_LEN) :: Name, LimitName
+
+
+     ! CALL Info('DetermineSoftLimiters','Starting')
+
+     Model => CurrentModel
+     Var => Solver % Variable
+     
+     LoadVar => VariableGet( Model % Variables, &
+         GetVarName(Var) // ' Loads',ThisOnly = .TRUE. )
+     IF( .NOT. ASSOCIATED( LoadVar ) ) THEN
+       CALL Warn('DetermineSoftLimiters', &
+           'No Loads associated with variable '//GetVarName(Var) )
+       RETURN
+     END IF
+     LoadValues => LoadVar % Values
+
+
+     dofs = Var % Dofs
+     FieldValues => Var % Values
+     FieldPerm => Var % Perm
+     totsize = SIZE( FieldValues )
+
+     Params => Solver % Values
+     
+     ! Loop through upper and lower limits     
+     !------------------------------------------------------------------------
+     DO Upper=0,1
+       Removed = 0
+       Added = 0
+       
+       !------------------------------------------------------------------------
+       ! If the limiter already exists then check the corresponding load
+       ! to determine whether the node needs to be released from the set.
+       !------------------------------------------------------------------------
+       NULLIFY( LimitActive ) 
+       IF( Upper == 0 ) THEN
+         IF( ASSOCIATED( Var % LowerLimitActive ) ) LimitActive => Var % LowerLimitActive
+       ELSE
+         IF( ASSOCIATED( Var % UpperLimitActive ) ) LimitActive => Var % UpperLimitActive
+       END IF
+ 
+       IF( ASSOCIATED( LimitActive ) ) THEN
+         Eps = ListGetConstReal(Params,'Limiter Load Tolerance',Found ) 
+         IF(.NOT. Found ) Eps = EPSILON( Eps )
+         
+         IF(.NOT. ALLOCATED( LimitDone) ) THEN
+           n = Model % MaxElementNodes
+           ALLOCATE( LimitDone( totsize ), ElemLimit(n) )
+           LimitDone = .FALSE.
+         END IF
+
+         ! These are the default sign that come from standard formulation
+         ! of Laplace equation.
+         !----------------------------------------------------------------------       
+         IF( Upper == 0 ) THEN
+           LimitSign = -1.0_dp
+         ELSE
+           LimitSign = 1.0_dp
+         END IF
+
+         ! The user may want to toggle the sign for other kinds of equations
+         !----------------------------------------------------------------------       
+         IF( ListGetLogical( Params,'Swich Limiter Load Sign',Found) ) &
+             LimitSign = -1.0_dp * LimitSign
+
+         ! Go through the active set and free nodes with wrong sign
+         !----------------------------------------------------------------------       
+         DO i=1,totsize
+           IF( LimitActive(i) ) THEN
+             IF( LimitSign * LoadValues(i) > LimitSign * Eps ) THEN
+               removed = removed + 1
+               LimitActive(i) = .FALSE.
+               LimitDone(i) = .TRUE.
+             END IF
+           END IF
+         END DO
+       END IF
+       
+       
+       ! Go through the field variables one dof at a time since 
+       ! typically for vector valued field the limiter is given componentwise.
+       !---------------------------------------------------------------------      
+       DO DOF = 1,dofs
+         name = Var % name
+         IF ( Var % DOFs > 1 ) name = ComponentName(name,DOF)
+         
+         IF( Upper == 0 ) THEN
+           LimitName = TRIM(name)//' Lower Limit' 
+         ELSE
+           LimitName = TRIM(name)//' Upper Limit' 
+         END IF
+         
+         ! Check whether limiters exist at all
+         !---------------------------------------------------------------------
+         AnyLimitBC = ListCheckPresentAnyBC( Model, LimitName )
+         AnyLimitBF = ListCheckPresentAnyBodyForce( Model, LimitName )
+         
+         IF( .NOT. ( AnyLimitBC .OR. AnyLimitBF ) ) CYCLE
+
+
+         ! Check that active set vectors for limiters exist, otherwise allocate
+         !---------------------------------------------------------------------
+         IF( Upper == 0 ) THEN
+           IF( .NOT. ASSOCIATED(Var % LowerLimitActive ) ) THEN
+             ALLOCATE( Var % LowerLimitActive( totsize ) )
+             Var % LowerLimitActive = .FALSE.
+           END IF
+           LimitActive => Var % LowerLimitActive
+         ELSE
+           IF( .NOT. ASSOCIATED( Var % UpperLimitActive ) ) THEN
+             ALLOCATE( Var % UpperLimitActive( totsize ) )
+             Var % UpperLimitActive = .FALSE.
+           END IF
+           LimitActive => Var % UpperLimitActive
+         END IF
+
+         IF(.NOT. ALLOCATED( LimitDone) ) THEN
+           n = Model % MaxElementNodes
+           ALLOCATE( LimitDone( totsize ), ElemLimit(n) )
+           LimitDone = .FALSE.
+         END IF
+
+         Eps = ListGetConstReal(Params,'Limiter Limit Tolerance',Found ) 
+         IF(.NOT. Found ) Eps = EPSILON( Eps )
+
+
+         ! Define the range of elements for which the limiters are active
+         !---------------------------------------------------------------
+         ElemFirst = Model % NumberOfBulkElements + 1           
+         ElemLast = Model % NumberOfBulkElements 
+        
+         IF( AnyLimitBF) ElemFirst = 1
+         IF( AnyLimitBC ) ElemLast = Model % NumberOfBulkElements + &
+             Model % NumberOfBoundaryElements 
+
+
+         ! Go through the elements 
+         !---------------------------------------------------------------
+         DO t = ElemFirst, ElemLast
+
+           Element => Model % Elements(t)
+           Model % CurrentElement => Element
+           n = Element % TYPE % NumberOfNodes
+           NodeIndexes => Element % NodeIndexes
+
+
+           IF( t > Model % NumberOfBulkElements ) THEN
+             Found = .FALSE.
+             DO bc = 1,Model % NumberOfBCs
+               IF ( Element % BoundaryInfo % Constraint == Model % BCs(bc) % Tag ) THEN
+                 ElemLimit(1:n) = ListGetReal( Model % BCs(bc) % Values, &
+                     LimitName, n, NodeIndexes, Found)
+                 EXIT
+               END IF
+             END DO
+             IF(.NOT. Found) CYCLE
+           ELSE             
+             bf = ListGetInteger( Model % Bodies(Element % bodyid) % Values, &
+                 'Body Force', Found)
+             IF(.NOT. Found ) CYCLE
+             ElemLimit(1:n) = ListGetReal( Model % BodyForces(bf) % Values, &
+                 LimitName, n, NodeIndexes, Found)
+             IF(.NOT. Found) CYCLE
+           END IF
+
+           DO i=1,n
+             j = FieldPerm( NodeIndexes(i) )
+             IF( j == 0 ) CYCLE
+             ind = Dofs * ( j - 1) + Dof
+             
+             IF( LimitDone(ind) ) CYCLE
+
+             IF( Upper == 0 ) THEN
+               Set = ( ElemLimit(i) > Var % Values(ind) + Eps )
+             ELSE
+               Set = ( ElemLimit(i) < Var % Values(ind) - Eps )
+             END IF
+
+             IF( Set ) THEN
+               IF( .NOT. LimitActive(ind)) added = added + 1
+               LimitActive(ind) = .TRUE.
+               LimitDone(ind) = .TRUE.
+             END IF
+
+           END DO
+         END DO
+       END DO
+       
+       ! Output some information before exiting
+       !---------------------------------------------------------------------
+        IF( Upper == 0 ) THEN
+         CALL Info('ApplySoftLimiters','Determined lower soft limit set',Level=5)
+       ELSE
+         CALL Info('ApplySoftLimiters','Determined upper soft limit set',Level=5)
+       END IF
+       IF(added > 0) THEN
+         WRITE(Message,'(A,I0,A)') 'Added ',added,' nodes to the set'
+         CALL Info('ApplySoftLimiters',Message,Level=5)
+       END IF
+       IF(removed > 0) THEN
+         WRITE(Message,'(A,I0,A)') 'Removed ',removed,' nodes from the set'
+         CALL Info('ApplySoftLimiters',Message,Level=5)
+       END IF
+     END DO
+
+
+     IF( ALLOCATED( LimitDone ) ) THEN
+       DEALLOCATE( LimitDone, ElemLimit ) 
+     END IF
+
+     ! CALL Info('DetermineSoftLimiters','All done')
+
+   END SUBROUTINE DeterminSoftLimiters
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
    SUBROUTINE SetDirichletBoundaries( Model, A, b, Name, DOF, NDOFs, Perm, &
        PermOffSet, OffDiagonalMatrix )
@@ -1149,13 +1386,16 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: DonePeriodic(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: CondName, PassName
 
-    INTEGER :: NoNodes,NoDims,bf_id,nlen, NOFNodesFound, dim, bndry_start, bndry_end
+    INTEGER :: NoNodes,NoDims,bf_id,nlen, NOFNodesFound, dim, &
+        bndry_start, bndry_end, Upper
     REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:)
     REAL(KIND=dp) :: MinDist,Dist, Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
     TYPE(ValueList_t), POINTER :: ValueList
     LOGICAL :: NodesFound, Passive, OffDiagonal
- 
+    LOGICAL, POINTER :: LimitActive(:)
+    TYPE(Variable_t), POINTER :: Var
+
 !------------------------------------------------------------------------------
 ! These logical vectors are used to minimize extra effort in setting up different BCs
 !------------------------------------------------------------------------------
@@ -1449,6 +1689,64 @@ CONTAINS
       END IF
     END DO
 
+
+!------------------------------------------------------------------------------
+!   Go through soft upper and lower limits
+!------------------------------------------------------------------------------
+    IF( ListGetLogical( Model % Solver % Values,'Apply Limiters',GotIt) ) THEN
+      DO Upper=0,1
+        
+        ! The limiters have been implemented only componentwise
+        !-------------------------------------------------------
+        IF( Dof == 0 ) CYCLE
+        
+        NULLIFY( LimitActive ) 
+        Var => Model % Solver % Variable
+        IF( Upper == 0 ) THEN
+          IF( ASSOCIATED( Var % LowerLimitActive ) ) &
+              LimitActive => Var % LowerLimitActive
+        ELSE
+          IF( ASSOCIATED( Var % UpperLimitActive ) ) &
+              LimitActive => Var % UpperLimitActive
+        END IF
+        
+        IF( .NOT. ASSOCIATED( LimitActive ) ) CYCLE
+        
+        IF( Upper == 0 ) THEN
+          CondName = TRIM(name)//' Lower Limit' 
+        ELSE
+          CondName = TRIM(name)//' Upper Limit' 
+        END IF
+        
+        ! check and set some flags for nodes belonging to n-t boundaries
+        ! getting set by other bcs:
+        ! --------------------------------------------------------------
+        DO t = 1, Model % NumberOfBulkElements+Model % NumberOfBoundaryElements
+          Element => Model % Elements(t)
+          Model % CurrentElement => Element
+          n = Element % TYPE % NumberOfNodes
+          NodeIndexes => Element % NodeIndexes
+          
+          IF( .NOT. ANY( LimitActive( NDofs*( Perm( NodeIndexes(1:n) )-1)+dof) ) ) CYCLE
+          
+          IF( t > Model % NumberOfBulkElements ) THEN
+            DO bc = 1,Model % NumberOfBCs
+              IF ( Element % BoundaryInfo % Constraint /= CurrentModel % BCs(bc) % Tag ) CYCLE
+              ValueList => Model % BCs(BC) % Values
+              CALL SetLimiterValues(n)
+            END DO
+          ELSE             
+            bf_id = ListGetInteger( Model % Bodies(Element % bodyid) % Values, &
+                'Body Force', GotIt)
+            IF(.NOT. GotIt ) CYCLE
+            ValueList => Model % Bodyforces(bf_id) % Values
+            CALL SetLimiterValues(n)
+          END IF
+        END DO
+      END DO
+    END IF
+    
+
 !------------------------------------------------------------------------------
 !   Take care of the matrix entries of passive elements
 !------------------------------------------------------------------------------
@@ -1683,6 +1981,40 @@ CONTAINS
       END IF
 
     END SUBROUTINE SetPointValues
+
+!------------------------------------------------------------------------------
+! Set values related to upper and lower limiters
+!------------------------------------------------------------------------------
+  
+    SUBROUTINE SetLimiterValues(n)
+      INTEGER :: n
+      REAL(KIND=dp) :: Work(n)
+
+      Work(1:n)  = ListGetReal( ValueList, CondName, n, NodeIndexes, gotIt )
+
+      IF ( gotIt ) THEN
+        DO j=1,n
+          k = Perm(NodeIndexes(j))
+          IF( k == 0 ) CYCLE
+
+          IF( .NOT. LimitActive( nDofs * (k-1) + dof) ) CYCLE
+
+          k = OffSet + NDOFs * (k-1) + DOF
+          IF ( A % FORMAT == MATRIX_SBAND ) THEN
+            CALL SBand_SetDirichlet( A,b,k,Work(j) )
+          ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
+            CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
+          ELSE
+            CALL ZeroRow( A,k )
+            IF( .NOT. OffDiagonal ) THEN
+              CALL SetMatrixElement( A,k,k,1.0d0 )
+              b(k) = Work(j)
+            END IF
+          END IF
+        END DO
+      END IF
+
+    END SUBROUTINE SetLimiterValues
 
 !------------------------------------------------------------------------------
   END SUBROUTINE SetDirichletBoundaries
@@ -4047,6 +4379,7 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:), TempRHS(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm,Energy
     TYPE(Matrix_t), POINTER :: Aaid
+    TYPE(ValueList_t), POINTER :: Params
 
     INTERFACE 
        SUBROUTINE VankaCreate(A,Solver)
@@ -4056,10 +4389,12 @@ END FUNCTION SearchNodeL
        END SUBROUTINE VankaCreate
     END INTERFACE
 !------------------------------------------------------------------------------
+
+    Params => Solver % Values
     n = A % NumberOfRows
 
     IF ( Solver % Matrix % Lumped .AND. Solver % TimeOrder == 1 ) THEN
-       Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
+       Method = ListGetString( Params, 'Timestepping Method', GotIt)
        IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
           DO i=1,n
              IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) &
@@ -4071,14 +4406,14 @@ END FUNCTION SearchNodeL
        END IF
     END IF
     
-    ScaleSystem = ListGetLogical( Solver % Values, 'Linear System Scaling', GotIt )
+    ScaleSystem = ListGetLogical( Params, 'Linear System Scaling', GotIt )
     IF ( .NOT. GotIt  ) ScaleSystem = .TRUE.
 
     EigenAnalysis = Solver % NOFEigenValues > 0 .AND. &
-          ListGetLogical( Solver % Values, 'Eigen Analysis',GotIt )
+          ListGetLogical( Params, 'Eigen Analysis',GotIt )
 
     HarmonicAnalysis = Solver % NOFEigenValues>0 .AND. &
-          ListGetLogical( Solver % Values, 'Harmonic Analysis',GotIt )
+          ListGetLogical( Params, 'Harmonic Analysis',GotIt )
 
 
     IF ( .NOT. HarmonicAnalysis .AND. .NOT. EigenAnalysis ) THEN
@@ -4234,11 +4569,11 @@ END FUNCTION SearchNodeL
        RETURN
      END IF
 
-!    Relaxation = ListGetConstReal( Solver % Values, &
+!    Relaxation = ListGetConstReal( Params, &
 !      'Nonlinear System Relaxation Factor', Relax )
 !    Relax = Relax .AND. (Relaxation /= 1.0d0)
 
-!    Method = ListGetString( Solver % Values, &
+!    Method = ListGetString( Params, &
 !        'Nonlinear System Convergence Measure', GotIt ) 
 !    NeedSol = ( Method == 'residual' .OR. Method == 'solution' )
 
@@ -4260,10 +4595,10 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 !  These definitions are needed if chanching the iterative solver on-the-fly
 
-    Solver % MultiGridSolver = ( ListGetString( Solver % Values, &
+    Solver % MultiGridSolver = ( ListGetString( Params, &
                   'Linear System Solver', GotIt ) == 'multigrid' )
     Solver % MultiGridTotal = MAX( Solver % MultiGridTotal, &
-        ListGetInteger( Solver % Values,'MG Levels', GotIt, minv=1 ) )
+        ListGetInteger( Params,'MG Levels', GotIt, minv=1 ) )
     Solver % MultiGridLevel = Solver % MultigridTotal
 !------------------------------------------------------------------------------
 ! 
@@ -4277,9 +4612,9 @@ END FUNCTION SearchNodeL
       x(1:n) = x(1:n) / Diag(1:n) / bnorm
     END IF
 
-    Method = ListGetString(Solver % Values,'Linear System Solver',GotIt)
+    Method = ListGetString(Params,'Linear System Solver',GotIt)
     IF (Method=='multigrid' .OR. Method=='iterative' ) THEN
-      Prec = ListGetString(Solver % Values,'Linear System Preconditioning',GotIt)
+      Prec = ListGetString(Params,'Linear System Preconditioning',GotIt)
       IF ( Prec=='vanka' ) CALL VankaCreate(A,Solver)
     END IF
 
@@ -4371,7 +4706,7 @@ END FUNCTION SearchNodeL
       END IF
 
 
-      IF( ListGetLogical(Solver % Values, 'Calculate Energy Norm', gotIt) ) THEN
+      IF( ListGetLogical(Params, 'Calculate Energy Norm', gotIt) ) THEN
         Energy = 0._dp
         DO i=1,Aaid % NumberOfRows
           IF ( ParEnv % Pes>1 ) THEN
@@ -4382,7 +4717,7 @@ END FUNCTION SearchNodeL
           Energy = Energy + x(i)*TempVector(i)
         END DO
         Energy = ParallelReduction(Energy)
-        CALL ListAddConstReal( Solver % Values, 'Energy norm', Energy )
+        CALL ListAddConstReal( Params, 'Energy norm', Energy )
 
         WRITE( Message,'(A,A,A)') 'res: ',GetVarname(Solver % Variable),' Energy Norm'
         CALL ListAddConstReal( CurrentModel % Simulation, Message, Energy )
@@ -4415,6 +4750,7 @@ END FUNCTION SearchNodeL
          END IF
       END DO
       DEALLOCATE( TempVector )
+
       CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
     END IF
    CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
@@ -4443,7 +4779,7 @@ END FUNCTION SearchNodeL
 ! In order to be able to change the preconditoners or solvers the old matrix structures
 ! must be deallocated on request.
 
-    IF( ListGetLogical( Solver % Values, 'Linear System Preconditioning Deallocate', GotIt) ) THEN
+    IF( ListGetLogical( Params, 'Linear System Preconditioning Deallocate', GotIt) ) THEN
        ! ILU preconditioning
        IF( ASSOCIATED(A % ILUValues) ) THEN
           IF(  SIZE( A % ILUValues) /= SIZE(A % Values) ) &
@@ -4511,7 +4847,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
-    LOGICAL :: Relax, Found, ConstrainedSolve, NeedPrevSol
+    LOGICAL :: Relax, Found, ConstrainedSolve, NeedPrevSol, Timing
     INTEGER :: n,i,j,k,l,istat,nrows,ncols
     TYPE(Matrix_t), POINTER :: SaveMatrix, Atmp, Btmp
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
@@ -4519,6 +4855,7 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp) :: Relaxation,Beta,Gamma
     REAL(KIND=dp), ALLOCATABLE :: Diag(:), TempVector(:)
     REAL(KIND=dp) :: t0,rt0,rst,st,ct,CPUTime,RealTime
+    TYPE(ValueList_t), POINTER :: Params
 
     INTERFACE ExecLinSolveProcs
       INTEGER FUNCTION ExecLinSolveProcs( Proc,Model,Solver,A,b,x,n,DOFs,Norm )
@@ -4533,7 +4870,10 @@ END FUNCTION SearchNodeL
     END INTERFACE
 
 !------------------------------------------------------------------------------
-    IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
+    Params => Solver % Values
+
+    Timing = ListGetLogical(Params,'Linear System Timing',Found)
+    IF( Timing ) THEN
       t0 = CPUTime(); rt0 = RealTime()
     END IF
 
@@ -4544,12 +4884,12 @@ END FUNCTION SearchNodeL
 ! The allocation of previous values has to be here in order to 
 ! work properly with the Dirichlet elimination.
 !------------------------------------------------------------------------------
-    Relaxation = ListGetConstReal( Solver % Values, &
+    Relaxation = ListGetConstReal( Params, &
       'Nonlinear System Relaxation Factor', Found )
     NeedPrevSol = Found .AND. (Relaxation /= 1.0d0)
 
     IF(.NOT. NeedPrevSol ) THEN
-      Method = ListGetString( Solver % Values, &
+      Method = ListGetString( Params, &
         'Nonlinear System Convergence Measure', Found ) 
       NeedPrevSol = ( Method == 'residual' .OR. Method == 'solution' )
     END IF
@@ -4670,7 +5010,7 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
-    IF( ListGetLogical(Solver % Values,'Linear System Timing',Found)) THEN
+    IF( Timing ) THEN
       st  = CPUTime() - t0;
       rst = RealTime() - rt0
 
@@ -4682,7 +5022,7 @@ END FUNCTION SearchNodeL
       //TRIM(Solver % Variable % Name)//': ',st,rst,' (s)'
       CALL Info('SolveSystem',Message)    
 
-      IF( ListGetLogical(Solver % Values,'Linear System Timing Cumulative',Found)) THEN
+      IF( ListGetLogical(Params,'Linear System Timing Cumulative',Found)) THEN
         ct = ListGetConstReal(CurrentModel % Simulation,'res: cum cpu time '&
                 //TRIM(Solver % Variable % Name),Found)
         st = st + ct
