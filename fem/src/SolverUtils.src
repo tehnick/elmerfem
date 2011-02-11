@@ -1089,7 +1089,7 @@ CONTAINS
 !------------------------------------------------------------------------------
  
 !------------------------------------------------------------------------------
-   SUBROUTINE DeterminSoftLimiters( Solver )
+   SUBROUTINE DeterminSoftLimiter( Solver )
 !------------------------------------------------------------------------------
 ! Determine soft limiters set
 ! Currently the implementation is nonideal as almost the same thing is done
@@ -1112,7 +1112,7 @@ CONTAINS
      CHARACTER(LEN=MAX_NAME_LEN) :: Name, LimitName
 
 
-     ! CALL Info('DetermineSoftLimiters','Starting')
+     ! CALL Info('DetermineSoftLimiter','Starting')
 
      Model => CurrentModel
      Var => Solver % Variable
@@ -1120,7 +1120,7 @@ CONTAINS
      LoadVar => VariableGet( Model % Variables, &
          GetVarName(Var) // ' Loads',ThisOnly = .TRUE. )
      IF( .NOT. ASSOCIATED( LoadVar ) ) THEN
-       CALL Warn('DetermineSoftLimiters', &
+       CALL Warn('DetermineSoftLimiter', &
            'No Loads associated with variable '//GetVarName(Var) )
        RETURN
      END IF
@@ -1301,17 +1301,17 @@ CONTAINS
        ! Output some information before exiting
        !---------------------------------------------------------------------
         IF( Upper == 0 ) THEN
-         CALL Info('ApplySoftLimiters','Determined lower soft limit set',Level=5)
+         CALL Info('ApplySoftLimiter','Determined lower soft limit set',Level=5)
        ELSE
-         CALL Info('ApplySoftLimiters','Determined upper soft limit set',Level=5)
+         CALL Info('ApplySoftLimiter','Determined upper soft limit set',Level=5)
        END IF
        IF(added > 0) THEN
          WRITE(Message,'(A,I0,A)') 'Added ',added,' nodes to the set'
-         CALL Info('ApplySoftLimiters',Message,Level=5)
+         CALL Info('ApplySoftLimiter',Message,Level=5)
        END IF
        IF(removed > 0) THEN
          WRITE(Message,'(A,I0,A)') 'Removed ',removed,' nodes from the set'
-         CALL Info('ApplySoftLimiters',Message,Level=5)
+         CALL Info('ApplySoftLimiter',Message,Level=5)
        END IF
      END DO
 
@@ -1320,9 +1320,9 @@ CONTAINS
        DEALLOCATE( LimitDone, ElemLimit ) 
      END IF
 
-     ! CALL Info('DetermineSoftLimiters','All done')
+     ! CALL Info('DetermineSoftLimiter','All done')
 
-   END SUBROUTINE DeterminSoftLimiters
+   END SUBROUTINE DeterminSoftLimiter
 !------------------------------------------------------------------------------
 
 
@@ -1693,7 +1693,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Go through soft upper and lower limits
 !------------------------------------------------------------------------------
-    IF( ListGetLogical( Model % Solver % Values,'Apply Limiters',GotIt) ) THEN
+    IF( ListGetLogical( Model % Solver % Values,'Apply Limiter',GotIt) ) THEN
       DO Upper=0,1
         
         ! The limiters have been implemented only componentwise
