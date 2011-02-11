@@ -363,9 +363,8 @@ CONTAINS
 
 
 !
-!
-! Search faces between passive / non-passive domains; add to boundary elements
-! with given bc-id
+! Search faces between passive / non-passive domains; add to boundary
+! elements with given bc-id.
 !------------------------------------------------------------------------------
   SUBROUTINE GetPassiveBoundary(Model,Mesh,BcId)
 !------------------------------------------------------------------------------
@@ -442,9 +441,9 @@ CONTAINS
     ind = sz-Mesh % PassBCcnt
     DO i=1,cnt
       ind = ind+1
-
-   Mesh % Elements(ind) = Faces(arr(i))
-   Mesh % Elements(ind) % BoundaryInfo % Constraint = BcId
+      Mesh % Elements(ind) % ElementIndex = ind
+      Mesh % Elements(ind) = Faces(arr(i))
+      Mesh % Elements(ind) % BoundaryInfo % Constraint = BcId
     END DO
     Mesh % NumberOfBoundaryElements = Mesh % NumberOfBoundaryElements - &
                 Mesh % PassBCcnt + cnt
