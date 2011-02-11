@@ -441,8 +441,8 @@ CONTAINS
     ind = sz-Mesh % PassBCcnt
     DO i=1,cnt
       ind = ind+1
-      Mesh % Elements(ind) % ElementIndex = ind
       Mesh % Elements(ind) = Faces(arr(i))
+      Mesh % Elements(ind) % ElementIndex = ind
       Mesh % Elements(ind) % BoundaryInfo % Constraint = BcId
     END DO
     Mesh % NumberOfBoundaryElements = Mesh % NumberOfBoundaryElements - &
@@ -506,7 +506,7 @@ CONTAINS
        Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
            PassName, NbrNodes, Element % NodeIndexes, Found )
        IF ( Found ) THEN
-         IF ( COUNT(Passive(1:NbrNodes)>0) > COUNT(Passive(1:NbrNodes)<0) )  IsPassive = .TRUE.
+         IF (COUNT(Passive(1:NbrNodes)>0)>COUNT(Passive(1:NbrNodes)<0))  IsPassive = .TRUE.
        END IF
      END IF
    
