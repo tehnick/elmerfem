@@ -5,183 +5,166 @@ dnl TODO: test fortran-mpi linkage...
 dnl
 
 AC_DEFUN([ACX_MPI], [
-AC_PREREQ(2.50) dnl for AC_LANG_CASE
+  AC_PREREQ(2.50) dnl for AC_LANG_CASE
 
-dnl ac_mpi_save_LIBS=$LIBS
-acx_mpi_ok=disabled
+  dnl ac_mpi_save_LIBS=$LIBS
+  acx_mpi_ok=disabled
 
-echo $host
-case  $host in 
- rs6000-ibm-aix* | powerpc-ibm-aix*)
-     acx_mpi_try_c_compile=no
- ;;
-esac
-
-
-dnl Letting user specify MPI-Library directories
-AC_ARG_WITH(mpi,
-  [  --with-mpi[=yes]  Use mpi (by default disabled)],
-     acx_mpi_ok=no, acx_mpi_ok=disabled)
-
-AC_MSG_CHECKING([for mpi-directory])
-AC_ARG_WITH(mpi_dir,
-  [  --with-mpi-dir=MPIDIR   give the path for MPI [/usr/local/mpich]],
-  acx_mpi_ok=no; mpi_dir="$withval", mpi_dir="/usr/local/mpich")
-AC_MSG_RESULT([$mpi_dir])
-AC_SUBST([mpi_dir])
-
-AC_MSG_CHECKING([for mpi-lib-directory])
-AC_ARG_WITH(mpi_lib_dir,
-  [  --with-mpi-lib-dir=dir  give the path for MPI-libraries [MPI_DIR/lib]],
-  acx_mpi_ok=no; mpi_lib_dir="$withval", mpi_lib_dir="$mpi_dir/lib")
-AC_MSG_RESULT([$mpi_lib_dir])
-AC_SUBST([mpi_lib_dir])
-
-AC_MSG_CHECKING([for mpi-inc-directory])
-AC_ARG_WITH(mpi_inc_dir,
-  [  --with-mpi-inc-dir=dir  give the path for MPI-include-files [MPI_DIR/include]],
-  acx_mpi_ok=no; mpi_inc_dir="$withval", mpi_inc_dir="$mpi_dir/include")
-AC_MSG_RESULT([$mpi_inc_dir])
-AC_SUBST([mpi_inc_dir])
-
-AC_MSG_CHECKING([for mpi-library])
-AC_ARG_WITH(mpi_library,
-  [  --with-mpi-library=library  give MPI-libraray-files []],
-  acx_mpi_ok=no; mpi_library="$withval", mpi_library="")
-AC_MSG_RESULT([$mpi_library])
-AC_SUBST([mpi_library])
-
-AC_MSG_CHECKING([for mpi-include])
-AC_ARG_WITH(mpi_include,
-  [  --with-mpi-include=include  give MPI-include-files []],
-  acx_mpi_ok=no; mpi_include="$withval", mpi_include="")
-AC_MSG_RESULT([$mpi_include])
-AC_SUBST([mpi_include])
+  acx_mpi_try_c_compile=yes
+  case  $host in 
+   rs6000-ibm-aix* | powerpc-ibm-aix*)
+       acx_mpi_try_c_compile=no
+   ;;
+  esac
 
 
+  dnl Letting user specify MPI-Library directories
+  AC_ARG_WITH(mpi,
+    [  --with-mpi[=yes]  Use mpi (by default disabled)],
+       acx_mpi_ok=no, acx_mpi_ok=disabled)
 
-if test "$acx_mpi_ok" != disabled; then
+  AC_MSG_CHECKING([for mpi-directory])
+  AC_ARG_WITH(mpi_dir,
+    [  --with-mpi-dir=MPIDIR   give the path for MPI [/usr/local/mpich]],
+    acx_mpi_ok=no; mpi_dir="$withval", mpi_dir="/usr/local/mpich")
+  AC_MSG_RESULT([$mpi_dir])
+  AC_SUBST([mpi_dir])
 
-# Checking for MPIrun-executable name (depends on variables $mpi_dir)
+  AC_MSG_CHECKING([for mpi-lib-directory])
+  AC_ARG_WITH(mpi_lib_dir,
+    [  --with-mpi-lib-dir=dir  give the path for MPI-libraries [MPI_DIR/lib]],
+    acx_mpi_ok=no; mpi_lib_dir="$withval", mpi_lib_dir="$mpi_dir/lib")
+  AC_MSG_RESULT([$mpi_lib_dir])
+  AC_SUBST([mpi_lib_dir])
 
-#
-# 
-#
-#AC_MSG_CHECKING([for the mpirun command])
-#mpirun_cmd="Not found"
-#if test -x "$mpi_dir/bin/mpirun" ; then
-#  mpirun_cmd="mpirun"
-#elif test -x "$mpi_dir/bin/mprun" ; then
-#  mpirun_cmd="mprun"
-#fi
-#AC_MSG_RESULT($mpirun_cmd)
-#AC_SUBST(mpirun_cmd)
+  AC_MSG_CHECKING([for mpi-inc-directory])
+  AC_ARG_WITH(mpi_inc_dir,
+    [  --with-mpi-inc-dir=dir  give the path for MPI-include-files [MPI_DIR/include]],
+    acx_mpi_ok=no; mpi_inc_dir="$withval", mpi_inc_dir="$mpi_dir/include")
+  AC_MSG_RESULT([$mpi_inc_dir])
+  AC_SUBST([mpi_inc_dir])
 
-# MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
+  AC_MSG_CHECKING([for mpi-library])
+  AC_ARG_WITH(mpi_library,
+    [  --with-mpi-library=library  give MPI-libraray-files []],
+    acx_mpi_ok=no; mpi_library="$withval", mpi_library="")
+  AC_MSG_RESULT([$mpi_library])
+  AC_SUBST([mpi_library])
 
-if test "mpi_library" == ""; then
+  AC_MSG_CHECKING([for mpi-include])
+  AC_ARG_WITH(mpi_include,
+    [  --with-mpi-include=include  give MPI-include-files []],
+    acx_mpi_ok=no; mpi_include="$withval", mpi_include="")
+  AC_MSG_RESULT([$mpi_include])
+  AC_SUBST([mpi_include])
 
-AC_MSG_CHECKING([for MPI library])
-case "$host" in
-  *-ibm-aix*)                # IBM/SP2 machines
-    # checking whether to use signal-based MPI
+  if test "$acx_mpi_ok" != disabled; then
 
-    AC_MSG_CHECKING([whether to use signal-based MPI library])
-    AC_MSG_RESULT([$PACX_SIGNAL])
-    if test "x$PACX_SIGNAL" = "xyes" ; then
-      if test -f "$mpi_lib_dir/libmpi.a" ; then
-        lib_mpi="-lmpi"
-      elif test -f "$mpi_lib_dir/libmpi.so" ; then
-        lib_mpi="-lmpi"
-      elif test -f "$mpi_lib_dir/libmpich.a" ; then
-        lib_mpi="-lmpich"
-      else
-        AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
-      fi
+    # MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
+    if test "mpi_library" == ""; then
+
+      AC_MSG_CHECKING([for MPI library])
+      case "$host" in
+        *-ibm-aix*)                # IBM/SP2 machines
+          # checking whether to use signal-based MPI
+
+          AC_MSG_CHECKING([whether to use signal-based MPI library])
+          AC_MSG_RESULT([$PACX_SIGNAL])
+          if test "x$PACX_SIGNAL" = "xyes" ; then
+            if test -f "$mpi_lib_dir/libmpi.a" ; then
+              lib_mpi="-lmpi"
+            elif test -f "$mpi_lib_dir/libmpi.so" ; then
+              lib_mpi="-lmpi"
+            elif test -f "$mpi_lib_dir/libmpich.a" ; then
+              lib_mpi="-lmpich"
+            else
+              AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+            fi
+          else
+            if test -f "$mpi_lib_dir/libmpi_r.a" ; then
+               lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+            elif test -f "/usr/lpp/ppe.poe/lib/libmpi_r.a" ; then
+               mpi_dir="/usr/lpp/ppe.poe/"
+               mpi_lib_dir="$mpi_dir/lib"
+               mpi_inc_dir="$mpi_dir/include/thread64"
+               lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+            else
+               AC_MSG_ERROR([libmpi_r not found; check path for MPI package...])
+            fi
+          fi
+          AC_MSG_RESULT(found $lib_mpi)
+        ;;
+        *)                         # All other machines
+          if test -f "$mpi_lib_dir/libmpi.a" ; then
+            lib_mpi="-lmpi"
+          elif test -f "$mpi_lib_dir/libmpi.so" ; then
+            lib_mpi="-lmpi"
+          elif test -f "$mpi_lib_dir/libmpich.a" ; then
+            lib_mpi="-lmpich"
+          else
+            AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+          fi
+          AC_MSG_RESULT(found $lib_mpi)
+        ;;
+      esac
     else
-      if test -f "$mpi_lib_dir/libmpi_r.a" ; then
-         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
-      elif test -f "/usr/lpp/ppe.poe//lib/libmpi_r.a" ; then
-	 mpi_dir="/usr/lpp/ppe.poe/"
-	 mpi_lib_dir="$mpi_dir/lib"
-	 mpi_inc_dir="$mpi_dir/include/thread64"
-         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
-      else
-         AC_MSG_ERROR([libmpi_r not found; check path for MPI package...])
-      fi
+     lib_mpi=$mpi_library
     fi
-    AC_MSG_RESULT(found $lib_mpi)
-  ;;
-  *)                         # All other machines
-    if test -f "$mpi_lib_dir/libmpi.a" ; then
-      lib_mpi="-lmpi"
-    elif test -f "$mpi_lib_dir/libmpi.so" ; then
-      lib_mpi="-lmpi"
-    elif test -f "$mpi_lib_dir/libmpich.a" ; then
-      lib_mpi="-lmpich"
-    else
-      AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+
+    if test "$MPI_LIBS" == ""; then
+      MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
     fi
-    AC_MSG_RESULT(found $lib_mpi)
-  ;;
-esac
-else
- lib_mpi=$mpi_library
-fi
 
-echo "ss: ", $lib_mpi
+    AC_SUBST(lib_mpi)
 
-if test "$MPI_LIBS" == ""; then
-  MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
-fi
-
-AC_SUBST(lib_mpi)
-
-# Compilation of a MPI program (depends on above macro)
-if test "$acx_mpi_try_c_compile" != "no"; then
-	AC_LANG_PUSH(C)
+    # Compilation of a MPI program (depends on above macro)
+    if test "$acx_mpi_try_c_compile" != "no"; then
+	AC_LANG_PUSH(Fortran 77)
 	AC_MSG_CHECKING([for compilation of an MPI program])
 	old_CFLAGS=${CFLAGS}
 	old_LIBS=${LIBS}
 	CFLAGS="-I$mpi_inc_dir $mpi_include"
 	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
-	AC_TRY_COMPILE([#include <mpi.h>],
-	[{
-	  MPI_Finalize();
-	  exit(0);
-	}],[AC_MSG_RESULT([seems ok])
+	AC_COMPILE_IFELSE(
+	[        PROGRAM test
+                 INCLUDE "mpif.h"
+                 CALL MPI_Finalize(ierr)
+                 END
+	],[AC_MSG_RESULT([seems ok])
 	    AC_DEFINE([HAVE_MPI],[1],[...])
 	    acx_mpi_ok=yes],
 	[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])])
 
 	CFLAGS=${old_CFLAGS}
 	LIBS=${old_LIBS}
-	AC_LANG_POP(C)
-else
-	acx_mpi_ok=yes
-fi
+	AC_LANG_POP(Fortran 77)
+    else
+  	acx_mpi_ok=yes
+    fi
 
-MPI_INCLUDE=""
-MPI_INCLUDE_DIR=""
+    MPI_INCLUDE=""
+    MPI_INCLUDE_DIR=""
 
-if test "$mpi_include" == ""; then
-  AC_CHECK_FILE($mpi_inc_dir/mpif.h, 
-  [acx_mpif_h_found=yes
-   MPI_INCLUDE_DIR=$mpi_inc_dir], 
-  [acx_mpif_h_found=no
-   MPI_INCLUDE_DIR=""])
-else
-   MPI_INCLUDE=$mpi_include
-fi
+    if test "$mpi_include" == ""; then
+      if test "$acx_mpi_ok" /= "yes"; then
+        AC_CHECK_FILE($mpi_inc_dir/mpif.h, 
+        [acx_mpif_h_found=yes
+         MPI_INCLUDE_DIR=$mpi_inc_dir], 
+        [acx_mpif_h_found=no
+         MPI_INCLUDE_DIR=""])
+      fi
+    else
+       MPI_INCLUDE=$mpi_include
+    fi
 
-else  
-   # use local mpif.h
-   acx_mpif_h_found=no
-   MPI_LIBS=""
-fi
+  else  
+     # use local mpif.h
+     acx_mpif_h_found=no
+     MPI_LIBS=""
+  fi
 
-AC_SUBST(MPI_LIBS)
-AC_SUBST(MPI_INCLUDE_DIR)
+  AC_SUBST(MPI_LIBS)
+  AC_SUBST(MPI_INCLUDE_DIR)
 
 ])# ACX_MPI
 

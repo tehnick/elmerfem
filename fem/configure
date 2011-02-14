@@ -10617,7 +10617,7 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 
     acx_mpi_ok=disabled
 
-  echo $host
+  acx_mpi_try_c_compile=yes
   case  $host in
    rs6000-ibm-aix* | powerpc-ibm-aix*)
        acx_mpi_try_c_compile=no
@@ -10768,8 +10768,6 @@ echo "${ECHO_T}found $lib_mpi" >&6; }
      lib_mpi=$mpi_library
     fi
 
-    echo "ss: ", $lib_mpi
-
     if test "$MPI_LIBS" == ""; then
       MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
     fi
@@ -10848,7 +10846,8 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
     MPI_INCLUDE_DIR=""
 
     if test "$mpi_include" == ""; then
-      as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
+      if test "$acx_mpi_ok" != yes; then
+        as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $mpi_inc_dir/mpif.h" >&5
 echo $ECHO_N "checking for $mpi_inc_dir/mpif.h... $ECHO_C" >&6; }
 if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
@@ -10869,12 +10868,15 @@ ac_res=`eval echo '${'$as_ac_File'}'`
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_File'}'` = yes; then
   acx_mpif_h_found=yes
-       MPI_INCLUDE_DIR=$mpi_inc_dir
+         MPI_INCLUDE_DIR=$mpi_inc_dir
 else
   acx_mpif_h_found=no
-       MPI_INCLUDE_DIR=""
+         MPI_INCLUDE_DIR=""
 fi
 
+      else
+        acx_mpif_h_found=yes
+      fi
     else
        MPI_INCLUDE=$mpi_include
     fi

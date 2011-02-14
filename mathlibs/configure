@@ -5375,14 +5375,15 @@ esac
 
 
 
-acx_mpi_ok=disabled
 
-echo $host
-case  $host in
- rs6000-ibm-aix* | powerpc-ibm-aix*)
-     acx_mpi_try_c_compile=no
- ;;
-esac
+    acx_mpi_ok=disabled
+
+  acx_mpi_try_c_compile=yes
+  case  $host in
+   rs6000-ibm-aix* | powerpc-ibm-aix*)
+       acx_mpi_try_c_compile=no
+   ;;
+  esac
 
 
 
@@ -5394,7 +5395,7 @@ else
 fi
 
 
-{ echo "$as_me:$LINENO: checking for mpi-directory" >&5
+  { echo "$as_me:$LINENO: checking for mpi-directory" >&5
 echo $ECHO_N "checking for mpi-directory... $ECHO_C" >&6; }
 
 # Check whether --with-mpi_dir was given.
@@ -5404,11 +5405,11 @@ else
   mpi_dir="/usr/local/mpich"
 fi
 
-{ echo "$as_me:$LINENO: result: $mpi_dir" >&5
+  { echo "$as_me:$LINENO: result: $mpi_dir" >&5
 echo "${ECHO_T}$mpi_dir" >&6; }
 
 
-{ echo "$as_me:$LINENO: checking for mpi-lib-directory" >&5
+  { echo "$as_me:$LINENO: checking for mpi-lib-directory" >&5
 echo $ECHO_N "checking for mpi-lib-directory... $ECHO_C" >&6; }
 
 # Check whether --with-mpi_lib_dir was given.
@@ -5418,11 +5419,11 @@ else
   mpi_lib_dir="$mpi_dir/lib"
 fi
 
-{ echo "$as_me:$LINENO: result: $mpi_lib_dir" >&5
+  { echo "$as_me:$LINENO: result: $mpi_lib_dir" >&5
 echo "${ECHO_T}$mpi_lib_dir" >&6; }
 
 
-{ echo "$as_me:$LINENO: checking for mpi-inc-directory" >&5
+  { echo "$as_me:$LINENO: checking for mpi-inc-directory" >&5
 echo $ECHO_N "checking for mpi-inc-directory... $ECHO_C" >&6; }
 
 # Check whether --with-mpi_inc_dir was given.
@@ -5432,11 +5433,11 @@ else
   mpi_inc_dir="$mpi_dir/include"
 fi
 
-{ echo "$as_me:$LINENO: result: $mpi_inc_dir" >&5
+  { echo "$as_me:$LINENO: result: $mpi_inc_dir" >&5
 echo "${ECHO_T}$mpi_inc_dir" >&6; }
 
 
-{ echo "$as_me:$LINENO: checking for mpi-library" >&5
+  { echo "$as_me:$LINENO: checking for mpi-library" >&5
 echo $ECHO_N "checking for mpi-library... $ECHO_C" >&6; }
 
 # Check whether --with-mpi_library was given.
@@ -5446,11 +5447,11 @@ else
   mpi_library=""
 fi
 
-{ echo "$as_me:$LINENO: result: $mpi_library" >&5
+  { echo "$as_me:$LINENO: result: $mpi_library" >&5
 echo "${ECHO_T}$mpi_library" >&6; }
 
 
-{ echo "$as_me:$LINENO: checking for mpi-include" >&5
+  { echo "$as_me:$LINENO: checking for mpi-include" >&5
 echo $ECHO_N "checking for mpi-include... $ECHO_C" >&6; }
 
 # Check whether --with-mpi_include was given.
@@ -5460,107 +5461,86 @@ else
   mpi_include=""
 fi
 
-{ echo "$as_me:$LINENO: result: $mpi_include" >&5
+  { echo "$as_me:$LINENO: result: $mpi_include" >&5
 echo "${ECHO_T}$mpi_include" >&6; }
 
 
+  if test "$acx_mpi_ok" != disabled; then
 
+    # MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs)
+    if test "mpi_library" == ""; then
 
-if test "$acx_mpi_ok" != disabled; then
-
-# Checking for MPIrun-executable name (depends on variables $mpi_dir)
-
-#
-#
-#
-#AC_MSG_CHECKING([for the mpirun command])
-#mpirun_cmd="Not found"
-#if test -x "$mpi_dir/bin/mpirun" ; then
-#  mpirun_cmd="mpirun"
-#elif test -x "$mpi_dir/bin/mprun" ; then
-#  mpirun_cmd="mprun"
-#fi
-#AC_MSG_RESULT($mpirun_cmd)
-#AC_SUBST(mpirun_cmd)
-
-# MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs)
-
-if test "mpi_library" == ""; then
-
-{ echo "$as_me:$LINENO: checking for MPI library" >&5
+      { echo "$as_me:$LINENO: checking for MPI library" >&5
 echo $ECHO_N "checking for MPI library... $ECHO_C" >&6; }
-case "$host" in
-  *-ibm-aix*)                # IBM/SP2 machines
-    # checking whether to use signal-based MPI
+      case "$host" in
+        *-ibm-aix*)                # IBM/SP2 machines
+          # checking whether to use signal-based MPI
 
-    { echo "$as_me:$LINENO: checking whether to use signal-based MPI library" >&5
+          { echo "$as_me:$LINENO: checking whether to use signal-based MPI library" >&5
 echo $ECHO_N "checking whether to use signal-based MPI library... $ECHO_C" >&6; }
-    { echo "$as_me:$LINENO: result: $PACX_SIGNAL" >&5
+          { echo "$as_me:$LINENO: result: $PACX_SIGNAL" >&5
 echo "${ECHO_T}$PACX_SIGNAL" >&6; }
-    if test "x$PACX_SIGNAL" = "xyes" ; then
-      if test -f "$mpi_lib_dir/libmpi.a" ; then
-        lib_mpi="-lmpi"
-      elif test -f "$mpi_lib_dir/libmpi.so" ; then
-        lib_mpi="-lmpi"
-      elif test -f "$mpi_lib_dir/libmpich.a" ; then
-        lib_mpi="-lmpich"
-      else
-        { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
+          if test "x$PACX_SIGNAL" = "xyes" ; then
+            if test -f "$mpi_lib_dir/libmpi.a" ; then
+              lib_mpi="-lmpi"
+            elif test -f "$mpi_lib_dir/libmpi.so" ; then
+              lib_mpi="-lmpi"
+            elif test -f "$mpi_lib_dir/libmpich.a" ; then
+              lib_mpi="-lmpich"
+            else
+              { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
 echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
    { (exit 1); exit 1; }; }
-      fi
-    else
-      if test -f "$mpi_lib_dir/libmpi_r.a" ; then
-         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
-      elif test -f "/usr/lpp/ppe.poe//lib/libmpi_r.a" ; then
-	 mpi_dir="/usr/lpp/ppe.poe/"
-	 mpi_lib_dir="$mpi_dir/lib"
-	 mpi_inc_dir="$mpi_dir/include/thread64"
-         lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
-      else
-         { { echo "$as_me:$LINENO: error: libmpi_r not found; check path for MPI package..." >&5
+            fi
+          else
+            if test -f "$mpi_lib_dir/libmpi_r.a" ; then
+               lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+            elif test -f "/usr/lpp/ppe.poe/lib/libmpi_r.a" ; then
+               mpi_dir="/usr/lpp/ppe.poe/"
+               mpi_lib_dir="$mpi_dir/lib"
+               mpi_inc_dir="$mpi_dir/include/thread64"
+               lib_mpi="-lmpi_r -bautoload:\"$mpi_lib_dir/libmpi_r.a\(mpifort64_r.o\)\""
+            else
+               { { echo "$as_me:$LINENO: error: libmpi_r not found; check path for MPI package..." >&5
 echo "$as_me: error: libmpi_r not found; check path for MPI package..." >&2;}
    { (exit 1); exit 1; }; }
-      fi
-    fi
-    { echo "$as_me:$LINENO: result: found $lib_mpi" >&5
+            fi
+          fi
+          { echo "$as_me:$LINENO: result: found $lib_mpi" >&5
 echo "${ECHO_T}found $lib_mpi" >&6; }
-  ;;
-  *)                         # All other machines
-    if test -f "$mpi_lib_dir/libmpi.a" ; then
-      lib_mpi="-lmpi"
-    elif test -f "$mpi_lib_dir/libmpi.so" ; then
-      lib_mpi="-lmpi"
-    elif test -f "$mpi_lib_dir/libmpich.a" ; then
-      lib_mpi="-lmpich"
-    else
-      { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
+        ;;
+        *)                         # All other machines
+          if test -f "$mpi_lib_dir/libmpi.a" ; then
+            lib_mpi="-lmpi"
+          elif test -f "$mpi_lib_dir/libmpi.so" ; then
+            lib_mpi="-lmpi"
+          elif test -f "$mpi_lib_dir/libmpich.a" ; then
+            lib_mpi="-lmpich"
+          else
+            { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
 echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
    { (exit 1); exit 1; }; }
-    fi
-    { echo "$as_me:$LINENO: result: found $lib_mpi" >&5
+          fi
+          { echo "$as_me:$LINENO: result: found $lib_mpi" >&5
 echo "${ECHO_T}found $lib_mpi" >&6; }
-  ;;
-esac
-else
- lib_mpi=$mpi_library
-fi
+        ;;
+      esac
+    else
+     lib_mpi=$mpi_library
+    fi
 
-echo "ss: ", $lib_mpi
-
-if test "$MPI_LIBS" == ""; then
-  MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
-fi
+    if test "$MPI_LIBS" == ""; then
+      MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
+    fi
 
 
 
-# Compilation of a MPI program (depends on above macro)
-if test "$acx_mpi_try_c_compile" != "no"; then
-	ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
+    # Compilation of a MPI program (depends on above macro)
+    if test "$acx_mpi_try_c_compile" != "no"; then
+	ac_ext=f
+ac_compile='$F77 -c $FFLAGS conftest.$ac_ext >&5'
+ac_link='$F77 -o conftest$ac_exeext $FFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_f77_compiler_gnu
 
 	{ echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
@@ -5569,22 +5549,11 @@ echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
 	CFLAGS="-I$mpi_inc_dir $mpi_include"
 	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
 	cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <mpi.h>
-int
-main ()
-{
-{
-	  MPI_Finalize();
-	  exit(0);
-	}
-  ;
-  return 0;
-}
+        PROGRAM test
+                 INCLUDE "mpif.h"
+                 CALL MPI_Finalize(ierr)
+                 END
+
 _ACEOF
 rm -f conftest.$ac_objext
 if { (ac_try="$ac_compile"
@@ -5600,7 +5569,7 @@ eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
   cat conftest.err >&5
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
+	 test -z "$ac_f77_werror_flag" ||
 	 test ! -s conftest.err
        } && test -s conftest.$ac_objext; then
   { echo "$as_me:$LINENO: result: seems ok" >&5
@@ -5630,15 +5599,16 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-else
-	acx_mpi_ok=yes
-fi
+    else
+  	acx_mpi_ok=yes
+    fi
 
-MPI_INCLUDE=""
-MPI_INCLUDE_DIR=""
+    MPI_INCLUDE=""
+    MPI_INCLUDE_DIR=""
 
-if test "$mpi_include" == ""; then
-  as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
+    if test "$mpi_include" == ""; then
+      if test "$acx_mpi_ok" /= "yes"; then
+        as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $mpi_inc_dir/mpif.h" >&5
 echo $ECHO_N "checking for $mpi_inc_dir/mpif.h... $ECHO_C" >&6; }
 if { as_var=$as_ac_File; eval "test \"\${$as_var+set}\" = set"; }; then
@@ -5659,21 +5629,22 @@ ac_res=`eval echo '${'$as_ac_File'}'`
 echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_File'}'` = yes; then
   acx_mpif_h_found=yes
-   MPI_INCLUDE_DIR=$mpi_inc_dir
+         MPI_INCLUDE_DIR=$mpi_inc_dir
 else
   acx_mpif_h_found=no
-   MPI_INCLUDE_DIR=""
+         MPI_INCLUDE_DIR=""
 fi
 
-else
-   MPI_INCLUDE=$mpi_include
-fi
+      fi
+    else
+       MPI_INCLUDE=$mpi_include
+    fi
 
-else
-   # use local mpif.h
-   acx_mpif_h_found=no
-   MPI_LIBS=""
-fi
+  else
+     # use local mpif.h
+     acx_mpif_h_found=no
+     MPI_LIBS=""
+  fi
 
 
 
@@ -6876,7 +6847,7 @@ echo "$as_me: executing $ac_file commands" >&6;}
   # each Makefile.in and add a new line on top of each file to say so.
   # Grep'ing the whole file is not good either: AIX grep has a line
   # limit of 2048, but all sed's we know have understand at least 4000.
-  if sed -n 's,^#.*generated by automake.*,X,p' "$mf" | grep X >/dev/null 2>&1; then
+  if sed 10q "$mf" | grep '^#.*generated by automake' > /dev/null 2>&1; then
     dirpart=`$as_dirname -- "$mf" ||
 $as_expr X"$mf" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
 	 X"$mf" : 'X\(//\)[^/]' \| \
