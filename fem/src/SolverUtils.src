@@ -401,10 +401,11 @@ CONTAINS
       END IF
     END DO
 
-    sz = SIZE(Mesh % Elements)
-    IF ( cnt>Mesh % PassBCcnt ) THEN
+    sz = Mesh % NumberOfBoundaryElements + Mesh % NumberOFBoundaryElements - &
+             Mesh % PassBCcnt
+    IF ( sz+cnt>SIZE(Mesh % Elements) ) THEN
       Telems => Mesh % Elements
-      ALLOCATE(Mesh % Elements(sz+cnt-Mesh % PassBCcnt))
+      ALLOCATE(Mesh % Elements(sz+cnt))
       IF ( ASSOCIATED(Model % Elements,Telems) ) &
         Model % Elements => Mesh % Elements
 
@@ -438,12 +439,11 @@ CONTAINS
       DEALLOCATE(Telems)
     END IF
 
-    ind = sz-Mesh % PassBCcnt
     DO i=1,cnt
-      ind = ind+1
-      Mesh % Elements(ind) = Faces(arr(i))
-      Mesh % Elements(ind) % ElementIndex = ind
-      Mesh % Elements(ind) % BoundaryInfo % Constraint = BcId
+      sz = sz+1
+      Mesh % Elements(sz) = Faces(arr(i))
+      Mesh % Elements(sz) % ElementIndex = sz
+      Mesh % Elements(sz) % BoundaryInfo % Constraint = BcId
     END DO
     Mesh % NumberOfBoundaryElements = Mesh % NumberOfBoundaryElements - &
                 Mesh % PassBCcnt + cnt
@@ -3400,6 +3400,7 @@ END FUNCTION SearchNodeL
 
      ELSE
 
+       Solver % Beta = 1._dp
        SELECT CASE( Method )
          CASE('implicit euler')
            Solver % Beta = 1.0d0
