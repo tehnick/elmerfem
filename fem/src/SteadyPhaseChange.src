@@ -121,7 +121,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
   ELSE
     VariableName = ListGetString( Solver % Values, 'Surface Variable', Stat )
     IF(.NOT. Stat) VariableName = 'Surface'
-    SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(VariableName) )
+    SurfSol => VariableGet( Solver % Mesh % Variables, VariableName )
     Surface  => SurfSol % Values
     SurfPerm => SurfSol % Perm
     IF(.NOT. ASSOCIATED (Surface) .OR. ALL(SurfPerm <= 0)) THEN
@@ -131,7 +131,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
 
 ! The change in surface variable
   HelpSol => VariableGet( Solver % Mesh % Variables, &
-       TRIM(VariableName )//'Diff', stat)
+       TRIM(VariableName )//'Diff' )
   IF(ASSOCIATED(HelpSol)) THEN
     SurfaceMove => HelpSol % Values
   ELSE
@@ -146,7 +146,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
   VariableName = ListGetString( Solver % Values, 'Phase Change Variable', Stat )
   IF( .NOT. Stat ) VariableName = 'Temperature'
 
-  TempSol => VariableGet( Solver % Mesh % Variables, TRIM(VariableName) )
+  TempSol => VariableGet( Solver % Mesh % Variables, VariableName )
   TempPerm => TempSol % Perm
   Temperature => TempSol % Values
   IF(.NOT. ASSOCIATED (Temperature) ) THEN
@@ -667,7 +667,7 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
   CALL ListAddConstReal( Model % Simulation,'res: triple point movement',dpos)
 
   ! Add the coordinate y to the list of variables to save
-  HelpSol => VariableGet( Solver % Mesh % Variables,'newy', stat)
+  HelpSol => VariableGet( Solver % Mesh % Variables,'newy', ThisOnly=.TRUE.)
   IF(.NOT. ASSOCIATED(HelpSol)) THEN
      newy => Solver % Mesh % Nodes % y
      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &

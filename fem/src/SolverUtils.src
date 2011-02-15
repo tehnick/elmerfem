@@ -1391,7 +1391,7 @@ CONTAINS
     REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:)
     REAL(KIND=dp) :: MinDist,Dist, Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
-    TYPE(ValueList_t), POINTER :: ValueList
+    TYPE(ValueList_t), POINTER :: ValueList, Params
     LOGICAL :: NodesFound, Passive, OffDiagonal
     LOGICAL, POINTER :: LimitActive(:)
     TYPE(Variable_t), POINTER :: Var
@@ -1579,13 +1579,12 @@ CONTAINS
     ActivePartAll = .FALSE.
     Passive = .FALSE.
     DO bf_id=1,Model % NumberOFBodyForces
-      ActivePart(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values, Name ) 
-      ActivePartAll(bf_id) = ListCheckPresent( &
-           Model % BodyForces(bf_id) % Values, Name(1:nlen) // ' DOFs' ) 
-      ActiveCond(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values,CondName )      
+      ValueList => Model % BodyForces(bf_id) % Values
+      ActivePart(bf_id) = ListCheckPresent( ValueList, Name ) 
+      ActivePartAll(bf_id) = ListCheckPresent(ValueList, Name(1:nlen) // ' DOFs' ) 
+      ActiveCond(bf_id) = ListCheckPresent( ValueList,CondName )      
 
-      Passive = Passive .OR. ListCheckPresent( Model % BodyForces(bf_id) % Values, &
-           PassName )
+      Passive = Passive .OR. ListCheckPresent( ValueList, PassName )
     END DO
 
     
@@ -1617,19 +1616,19 @@ CONTAINS
 ! the right variable. Otherwise it could point to nodes that are not active.
 !------------------------------------------------------------------------------
 
+     
     DO BC=1,Model % NumberOfBCs
       
-      IF( .NOT. ListCheckPresent( Model % BCs(BC) % Values,Name )) CYCLE
-      NodesFound = ListCheckPresent( Model % BCs(BC) % Values,'Target Nodes' )
+      ValueList => Model % BCs(BC) % Values
+      IF( .NOT. ListCheckPresent( ValueList,Name )) CYCLE
+      NodesFound = ListCheckPresent( ValueList,'Target Nodes' )
       
       ! The coordinates are only requested for a body that has no list of nodes. 
       ! At the first calling the list of coorinates is transformed to list of nodes. 
       IF(.NOT. NodesFound) THEN
-        CoordNodes => ListGetConstRealArray(Model % BCs(BC) % Values, &
-                    'Target Coordinates',GotIt)
+        CoordNodes => ListGetConstRealArray(ValueList,'Target Coordinates',GotIt)
         IF(GotIt) THEN
-          Eps = ListGetConstReal( Model % BCs(BC) % Values, &
-                      'Target Coordinates Eps', Gotit )
+          Eps = ListGetConstReal( ValueList, 'Target Coordinates Eps', Gotit )
           IF ( .NOT. GotIt ) THEN
             Eps = HUGE(Eps)
           ELSE
@@ -1670,7 +1669,7 @@ CONTAINS
             
             ! In the first time add the found nodes to the list structure
             IF ( NOFNodesFound > 0 ) THEN
-              CALL ListAddIntegerArray( Model % BCs(BC) % Values,'Target Nodes', &
+              CALL ListAddIntegerArray( ValueList,'Target Nodes', &
                   NOFNodesFound, IndNodes) 
               DEALLOCATE(IndNodes)
               NodesFound = .TRUE.               
@@ -1680,11 +1679,9 @@ CONTAINS
       END IF
       
       IF(NodesFound) THEN           
-        Conditional = ListCheckPresent( Model % BCs(bc) % Values, CondName )      
-        NodeIndexes => ListGetIntegerArray( Model % BCs(BC) % Values,'Target Nodes')
+        Conditional = ListCheckPresent( ValueList, CondName )      
+        NodeIndexes => ListGetIntegerArray( ValueList,'Target Nodes')
         n = SIZE(NodeIndexes)
-        ValueList => Model % BCs(BC) % Values
-        
         CALL SetPointValues(n)
       END IF
     END DO
@@ -1693,12 +1690,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Go through soft upper and lower limits
 !------------------------------------------------------------------------------
-    IF( ListGetLogical( Model % Solver % Values,'Apply Limiter',GotIt) ) THEN
+    Params => Model % Solver % Values
+    IF( Dof/=0 .AND. ListGetLogical( Params,'Apply Limiter',GotIt) ) THEN
       DO Upper=0,1
         
         ! The limiters have been implemented only componentwise
         !-------------------------------------------------------
-        IF( Dof == 0 ) CYCLE
         
         NULLIFY( LimitActive ) 
         Var => Model % Solver % Variable
@@ -1727,11 +1724,12 @@ CONTAINS
           n = Element % TYPE % NumberOfNodes
           NodeIndexes => Element % NodeIndexes
           
-          IF( .NOT. ANY( LimitActive( NDofs*( Perm( NodeIndexes(1:n) )-1)+dof) ) ) CYCLE
+          ! should check perm/=0 first + compatible check in the SetLimiterValues:
+          ! IF( .NOT. ANY(LimitActive( NDofs*(Perm(NodeIndexes(1:n) )-1)+dof) ) ) CYCLE
           
           IF( t > Model % NumberOfBulkElements ) THEN
             DO bc = 1,Model % NumberOfBCs
-              IF ( Element % BoundaryInfo % Constraint /= CurrentModel % BCs(bc) % Tag ) CYCLE
+              IF ( Element % BoundaryInfo % Constraint /= Model % BCs(bc) % Tag ) CYCLE
               ValueList => Model % BCs(BC) % Values
               CALL SetLimiterValues(n)
             END DO
@@ -1997,7 +1995,7 @@ CONTAINS
           k = Perm(NodeIndexes(j))
           IF( k == 0 ) CYCLE
 
-          IF( .NOT. LimitActive( nDofs * (k-1) + dof) ) CYCLE
+          IF( .NOT. LimitActive(nDofs*(k-1)+dof)) CYCLE
 
           k = OffSet + NDOFs * (k-1) + DOF
           IF ( A % FORMAT == MATRIX_SBAND ) THEN
