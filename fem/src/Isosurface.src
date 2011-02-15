@@ -23,7 +23,7 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for extracting isosurfaces
+! *  Module for extracting isosurfaces in 3d / isolines in 2d
 ! *
 ! ******************************************************************************
 ! *
@@ -52,8 +52,7 @@
     TYPE(ValueList_t), POINTER :: SolverParams
 !------------------------------------------------------------------------------
     SolverParams => GetSolverParams()
-    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) &
-      CALL ListAddString( SolverParams,  'Variable', '-nooutput iso_tmp' )
+
 !------------------------------------------------------------------------------
   END SUBROUTINE IsosurfaceSolver_Init
 !------------------------------------------------------------------------------
@@ -95,43 +94,52 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
   CHARACTER(LEN=MAX_NAME_LEN) :: LevelVariableName
   TYPE(Mesh_t), POINTER :: Mesh, IsoMesh => Null(), Pmesh
-  INTEGER :: i,j,k,l,n
-  REAL(KIND=dp) :: LevelValue
+  INTEGER :: i,j,k,l,n, dim,NoLevels,Level
+  REAL(KIND=dp) :: LevelValue, LevelDiff
 
   INTEGER, TARGET :: TetraToTetraMap(1,4), PyramidToTetraMap(2,4), &
-             WedgeToTetraMap(3,4), BrickToTetraMap(5,4)
-  INTEGER, POINTER :: Map(:,:)
-  INTEGER :: SaveNOFactive, SaveNOFBulk,calls=0
-  INTEGER :: total, tetras, pyramids, wedges, bricks
+             WedgeToTetraMap(3,4), BrickToTetraMap(5,4), &
+             TriangleToTriangleMap(1,3), QuadToTriangleMap(2,3)
+  INTEGER, POINTER :: Map(:,:), Indexes(:)
+  INTEGER :: SaveNOFBulk,calls=0
 
   TYPE(Variable_t), POINTER :: LevelVariable
-  LOGICAL :: Found
+  LOGICAL :: CreateNewMesh, ElementsAllocated, Found
+  LOGICAL, ALLOCATABLE :: ElemSplit(:)
   INTEGER, ALLOCATABLE :: eperm(:)
-  INTEGER, POINTER :: SaveActive(:)
+  INTEGER :: NewElemType, NewElemNodes
   REAL(KIND=dp), ALLOCATABLE :: x(:),y(:),z(:)
+  REAL(KIND=dp), POINTER :: LevelFun(:), LevelValues(:,:)
+  INTEGER, POINTER :: LevelPerm(:)
   TYPE(Element_t), POINTER  :: SaveElements(:), NewElements(:), Element
+  TYPE(ValueList_t), POINTER :: Params
+
  
-  CALL Info( 'IsosurfaceSolver', '-------------------------------------',Level=4 )
-  CALL Info( 'IsosurfaceSolver','Computing the isosurface',Level=4 )
-  CALL Info( 'IsosurfaceSolver', '-------------------------------------',Level=4 )
+  CALL Info( 'IsosurfaceSolver','-------------------------------------',Level=4 )
+  CALL Info( 'IsosurfaceSolver','Determining the isosurface',Level=4 )
+  CALL Info( 'IsosurfaceSolver','-------------------------------------',Level=4 )
 
   Mesh => GetMesh()
+  dim = Mesh % MeshDim
 
-  LevelVariableName = GetString( GetSolverParams(), &
-            'Isosurface Variable')
+  Params => GetSolverParams()
 
-  LevelVariable => VariableGet( Mesh % Variables, & 
-            LevelVariableName )
+  LevelVariableName = GetString( Params,'Isosurface Variable')
+  LevelVariable => VariableGet( Mesh % Variables, LevelVariableName )
 
   IF (.NOT.ASSOCIATED(LevelVariable)) THEN
     CALL Error( 'Isosurface', 'The isosurface variable: ' // &
-          TRIM(LevelVariableName) // ' not present' )
+        TRIM(LevelVariableName) // ' not present' )
     RETURN
   END IF
 
-  LevelValue = GetCReal( GetSolverParams(), &
-     'Isosurface threshold', Found )
+  Levelfun => LevelVariable % Values
+  LevelPerm => LevelVariable % Perm
 
+
+  !---------------------------------------------------------------
+  ! Map any element to tetrahedron or triangle
+  !---------------------------------------------------------------
   TetraToTetraMap(1,:) = [1,2,3,4]
 
   PyramidToTetraMap(1,:) = [3,5,4,1]
@@ -147,92 +155,175 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   BrickToTetraMap(4,:) = [8,7,5,4]
   BrickToTetraMap(5,:) = [2,4,5,7]
 
-  tetras=0; pyramids=0; wedges=0; bricks=0
-  DO i=1,Solver % NumberOfActiveElements
-    Element => GetActiveElement(i)
-    SELECT CASE(GetElementFamily())
-      CASE(5); tetras=tetras+1
-      CASE(6); pyramids=pyramids+1
-      CASE(7); wedges=wedges+1
-      CASE(8); bricks=bricks+1
-    END SELECT
+  TriangleToTriangleMap(1,:) = [1,2,3]
+  QuadToTriangleMap(1,:) = [1,2,3]
+  QuadToTriangleMap(2,:) = [1,3,4]
+
+  !---------------------------------------------------------------
+  ! Check whether mesh is all-tets or all-triangles
+  !---------------------------------------------------------------
+  CreateNewMesh = .FALSE.
+  DO i=1,Mesh % NumberOfBulkElements
+    Element => Mesh % Elements(i)
+    j = GetElementFamily()
+    IF( dim == 2 .AND. j /= 3 ) THEN
+      CreateNewMesh = .TRUE.
+      EXIT
+    END IF
+    IF( dim == 3 .AND. j /= 5 ) THEN
+      CreateNewMesh = .TRUE.
+      EXIT
+    END IF
   END DO
-  total = tetras+2*pyramids+3*wedges+5*bricks
 
-  IF ( total/=tetras ) THEN
+  IF( dim == 2 ) THEN
+    NewElemType = 303
+    NewElemNodes = 3
+  ELSE
+    NewElemType = 504
+    NewElemNodes = 4
+  END IF
+
+
+  !---------------------------------------------------------------
+  ! Check the isosurface values
+  !---------------------------------------------------------------
+  NoLevels = 0
+  LevelValues => ListGetConstRealArray( Params,'Isosurface values',Found)
+  IF( Found ) THEN
+    NoLevels = SIZE(LevelValues,1)
+    LevelValue = LevelValues(1,1)
+  ELSE
+    LevelValue = ListGetCReal( Params,'Isosurface value',Found)
+    IF( Found ) NoLevels = 1
+  END IF
+
+  IF(.NOT. Found ) THEN
+    CALL Warn('IsosurfaceSolver','Could not determine Isosurface value')
+    RETURN
+  END IF
+
+  !---------------------------------------------------------------
+  ! Create a temporary mesh consisting only of tets (or triangles)
+  ! in where the isosurface (or isoline) will be determined.
+  ! The temporal mesh includes only potential master elements.
+  !---------------------------------------------------------------
+  IF ( CreateNewMesh ) THEN
+    CALL Info('IsoSurfaceSolver','Creating a temporal mesh')
+
     SaveNOFBulk = Mesh % NumberOfBulkElements
-    SaveActive => Solver % ACtiveElements
     SaveElements => Mesh % Elements
-    SaveNOFActive = Solver % NumberOFActiveElements
+    ElementsAllocated = .FALSE.
 
-    ALLOCATE(NewElements(total))
+    IF( NoLevels > 1 ) &
+      ALLOCATE( ElemSplit( Mesh % NumberOfBulkElements ) )
 
-    j = 0
-    DO i=1,Solver % NumberOfActiveElements
-      Element => GetActiveElement(i)
+100 j = 0
+    IF( NoLevels > 1 ) ElemSplit = .FALSE.
 
-      SELECT CASE(GetElementFamily())
+    DO Level = 1, NoLevels
+      IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
+
+      DO i=1,Mesh % NumberOfBulkElements
+        Element => Mesh % Elements(i)
+        Indexes => Element % NodeIndexes
+        
+        IF( NoLevels > 1 ) THEN
+          IF( ElemSplit(i) ) CYCLE
+        END IF
+
+        IF( ANY ( LevelPerm( Indexes) == 0 ) ) CYCLE
+        
+        SELECT CASE(GetElementFamily())
+        CASE(3); Map => TriangleToTriangleMap
+        CASE(4); Map => QuadToTriangleMap
         CASE(5); Map => TetraToTetraMap
         CASE(6); Map => PyramidToTetraMap
         CASE(7); Map => WedgeToTetraMap
         CASE(8); Map => BrickToTetraMap
-      END SELECT
+        END SELECT
+        
+        IF( ALL ( LevelFun( LevelPerm( Indexes ) ) < LevelValue ) ) CYCLE
+        IF( ALL ( LevelFun( LevelPerm( Indexes ) ) > LevelValue ) ) CYCLE
 
-      DO k=1,SIZE(Map,1)
-        j = j + 1
-        NewElements(j)=Element
-        NewElements(j) % Type => GetElementType(504)
-        ALLOCATE(NewElements(j) % NodeIndexes(4))
-        DO l=1,4
-           NewElements(j) % NodeIndexes(l) = &
-              Element % NodeIndexes(Map(k,l))
+        IF( NoLevels > 1 ) THEN
+          IF( ElemSplit(i) ) CYCLE
+        END IF
+        
+        IF( .NOT. ElementsAllocated ) THEN
+          j = j + SIZE(Map,1)
+          CYCLE
+        END IF
+        
+        DO k=1,SIZE(Map,1)
+          j = j + 1
+          NewElements(j) = Element
+          NewElements(j) % TYPE => GetElementType(NewElemType)
+          ALLOCATE(NewElements(j) % NodeIndexes(NewElemNodes))
+          DO l=1,NewElemNodes
+            NewElements(j) % NodeIndexes(l) = &
+                Element % NodeIndexes(Map(k,l))
+          END DO
         END DO
-      END DO
+      END DO      
     END DO
-    Mesh % NumberOfBulkElements = total
-    Mesh % Elements => NewElements
-    ALLOCATE( Solver % ActiveElements(total) )
-    DO i=1,total
-      Solver % ActiveElements(i) = i
-    END DO
-    Solver % NumberOfActiveElements=total
-  END IF
 
-  IF (.NOT.ASSOCIATED(Mesh % Edges)) CALL FindMeshEdges3D(Mesh)
+    IF( .NOT. ElementsAllocated ) THEN
+      PRINT *,'Size of new mesh:',j
+      ALLOCATE(NewElements(j))
+      ElementsAllocated = .TRUE.      
+      GOTO 100
+    END IF
+
+    IF( NoLevels > 1 ) DEALLOCATE( ElemSplit ) 
+    
+    Mesh % NumberOfBulkElements = j
+    Mesh % Elements => NewElements
+  END IF
+  
+  ! Find mesh edges in order to define the intersection points
+  !-----------------------------------------------------------
+  IF (.NOT.ASSOCIATED(Mesh % Edges)) THEN
+    IF( dim == 2 ) THEN
+      CALL FindMeshEdges2D(Mesh)
+    ELSE
+      CALL FindMeshEdges3D(Mesh)
+    END IF     
+  END IF
   n = Mesh % NumberOfEdges
 
+  ! If the mesh was previously created release it before recreating
+  !----------------------------------------------------------------
   IF(ASSOCIATED(IsoMesh)) THEN
     Pmesh => Model % Meshes
     DO WHILE(ASSOCIATED(Pmesh % Next))
       IF ( ASSOCIATED(Pmesh % next, Isomesh)) THEN
-        Pmesh % next=>Isomesh % Next
+        Pmesh % next => Isomesh % Next
         EXIT
       END IF
     END DO
     CALL ReleaseMesh(Isomesh)
   END IF
-
+  
   Isomesh => AllocateMesh()
-  IsoMesh % Name = GetString( GetSolverParams(), & 
-      'Isosurface output directory', Found )
+  IsoMesh % Name = GetString( Params, &
+      'Output directory', Found )
   IF (.NOT. Found ) IsoMesh % Name = "isosurf"
-
+  
   Calls = Calls + 1
   Isomesh % name = TRIM(Isomesh % name) // TRIM(i2s(calls))
   CALL MakeDirectory( TRIM(Isomesh % name) // CHAR(0) )
-
+  
   Isomesh % Changed = .TRUE.
   Isomesh % OutputActive  = .TRUE.
   
   CALL CreateNodes()
   CALL CreateSurfaces()
-
-  IF ( total/=tetras ) THEN
-    DEALLOCATE(NewElements, Solver % ActiveElements)
+  
+  IF ( CreateNewMesh ) THEN
+    DEALLOCATE( NewElements )
     Mesh % NumberOfBulkElements = SaveNOFBulk
     Mesh % Elements => SaveElements
-    Solver % ActiveElements => SaveActive
-    Solver % NumberOfActiveElements = SaveNOFActive
   END IF
 
   Mesh => Model % Meshes
@@ -240,16 +331,19 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
     Mesh => Mesh % Next
   END DO
   Mesh % Next => Isomesh 
-
+  
   CALL ReleaseMeshEdgeTables(Mesh)
+  
 
 CONTAINS
 
-
+  !----------------------------------------------------------------
+  ! Create nodes for the isosurface / isoline
+  !----------------------------------------------------------------
   SUBROUTINE CreateNodes()
 
     TYPE(Element_t), POINTER :: Edge
-    INTEGER :: i,j,k,l,n1,n2,ints,comps
+    INTEGER :: i,j,k,l,n1,n2,m1,m2,ints,comps
     REAL(KIND=dp) :: t,t1,t2,x1,x2,y1,y2,z1,z2
 
     CHARACTER(LEN=MAX_NAME_LEN) :: Vname(32)
@@ -264,21 +358,26 @@ CONTAINS
     TYPE(Varr_t), POINTER :: Varr(:)
 
 
+    n = Mesh % NumberOfEdges
     ALLOCATE(x(n), y(n), z(n), eperm(n) )
     x = 0; y = 0; z = 0; eperm = 0;
 
+    ! Make a table of the field variables and allocate space
+    !----------------------------------------------------------------
     ints = 0
     DO WHILE(.TRUE.)
       ints = ints+1
       Vname(ints) = GetString( GetSolverParams(), &
           ComponentName('Isosurface interpolant',ints), Found )
+      IF(.NOT. Found) Vname(ints) = GetString( GetSolverParams(), &
+          ComponentName('Variable',ints), Found )
       IF ( .NOT. Found ) THEN
         ints = ints-1
         EXIT
       END IF
     END DO
 
-    IF ( ints>0 ) THEN
+    IF ( ints > 0 ) THEN
       ALLOCATE(Varr(ints))
       DO i=1,ints
         V => VariableGet( Mesh % Variables, Vname(i) )
@@ -289,54 +388,72 @@ CONTAINS
       END DO
     END IF
 
+    ! Loop over edges and check for different signs
+    !----------------------------------------------------------------
     j = 0
-    DO i=1,n
-      Edge => Mesh % Edges(i)
 
-      n1 = Edge % NodeIndexes(1)
-      n2 = Edge % NodeIndexes(2)
 
-      IF ( LevelVariable % Perm(n1)<=0 .OR. &
-           LevelVariable % Perm(n2)<=0 ) CYCLE
+    DO Level = 1, NoLevels
+      IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
 
-      t1 = LevelVariable % Values(LevelVariable % Perm(n1))
-      t2 = LevelVariable % Values(LevelVariable % Perm(n2))
+      DO i=1,n
+        Edge => Mesh % Edges(i)
+        
+        n1 = Edge % NodeIndexes(1)
+        n2 = Edge % NodeIndexes(2)
+        
+        m1 = LevelPerm(n1)
+        m2 = LevelPerm(n2)
+        
+        IF ( m1 <= 0 .OR. m2 <= 0 ) CYCLE
+        
+        t1 = LevelFun(m1)
+        t2 = LevelFun(m2)
+        
+        IF ( t1 > LevelValue .AND. t2 > LevelValue .OR. &
+            t1 < LevelValue .AND. t2 < LevelValue) CYCLE 
+        
+        IF( ABS( t1 - t2 ) < TINY( t1 ) ) CYCLE
+        
+        x1 = Mesh % Nodes % x(n1)
+        x2 = Mesh % Nodes % x(n2)
+        
+        y1 = Mesh % Nodes % y(n1)
+        y2 = Mesh % Nodes % y(n2)
+        
+        z1 = Mesh % Nodes % z(n1)
+        z2 = Mesh % Nodes % z(n2)
+        
+        t = (LevelValue-t1)/(t2-t1)
+        j = j + 1
 
-      IF ( t1>LevelValue .AND. t2>LevelValue.OR. &
-           t1<LevelValue .AND. t2<LevelValue) CYCLE 
-
-      x1 = Mesh % Nodes % x(n1)
-      x2 = Mesh % Nodes % x(n2)
-
-      y1 = Mesh % Nodes % y(n1)
-      y2 = Mesh % Nodes % y(n2)
-
-      z1 = Mesh % Nodes % z(n1)
-      z2 = Mesh % Nodes % z(n2)
-
-      t = (LevelValue-t1)/(t2-t1)
-      j = j+1
-      eperm(i)=j
-      x(j) = (1-t)*x1 + t*x2
-      y(j) = (1-t)*y1 + t*y2
-      z(j) = (1-t)*z1 + t*z2
-
-      DO k=1,ints
-        V => VariableGet(Mesh % Variables, Vname(ints))
-        IF (ASSOCIATED(V)) THEN
-          DO l=1,V % DOFs
-            x1 = 0; x2 = 0;
-            IF ( V % Perm(n1)>0 .AND. V % Perm(n2)>0 ) THEN
-              x1  = V % Values(V % DOFs*(V % Perm(n1)-1)+l)
-              x2  = V % Values(V % DOFs*(V % Perm(n2)-1)+l)
-              Varr(k) % Vals(V % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
-            END IF
-          END DO
+        IF( j > n ) THEN
+          CALL Fatal('CreateNodes','Too many nodes on isosurface')
         END IF
+        
+        eperm(i) = j
+        x(j) = (1-t) * x1 + t * x2
+        y(j) = (1-t) * y1 + t * y2
+        z(j) = (1-t) * z1 + t * z2
+        
+        
+        DO k=1,ints
+          V => VariableGet(Mesh % Variables, Vname(k))
+          IF (ASSOCIATED(V)) THEN
+            DO l=1,V % DOFs
+              x1 = 0; x2 = 0;
+              IF ( V % Perm(n1)>0 .AND. V % Perm(n2)>0 ) THEN
+                x1  = V % Values(V % DOFs*(V % Perm(n1)-1)+l)
+                x2  = V % Values(V % DOFs*(V % Perm(n2)-1)+l)
+                Varr(k) % Vals(V % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
+              END IF
+            END DO
+          END IF
+        END DO
       END DO
     END DO
 
-    
+
     ALLOCATE( IsoMesh % Nodes )
     Isomesh % NumberOfNodes = j
     Isomesh % Nodes % NumberOfNodes = j
@@ -363,16 +480,17 @@ CONTAINS
     CALL VariableAdd( Isomesh % Variables, Isomesh, Solver, 'Time', 1, &
         V % Values )
 
-    IF ( ints>0 ) THEN
-      DO i=1,ints
-        V => VariableGet( Mesh % Variables, Vname(ints) )
+    IF ( ints > 0 ) THEN
+      DO k=1,ints
+        V => VariableGet( Mesh % Variables, Vname(k) )
         IF (ASSOCIATED(V)) THEN
+          NULLIFY( Vperm, Vals )
           ALLOCATE( Vperm(j),Vals(V % DOFs*j) )
           Vperm = [(i,i=1,j)]
-          Vals = Varr(i) % Vals(1:V % DOFs*j)
-          DEALLOCATE( Varr(i) % Vals )
+          Vals = Varr(k) % Vals(1:V % DOFs*j)
+          DEALLOCATE( Varr(k) % Vals )
           CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
-               TRIM(Vname(i)), V % DOFs, Vals, Vperm )
+               TRIM(Vname(k)), V % DOFs, Vals, Vperm )
         END IF
       END DO
       DEALLOCATE(Varr)
@@ -380,28 +498,55 @@ CONTAINS
   END SUBROUTINE CreateNodes
 
 
+  !----------------------------------------------------------------
+  ! Create the isosurfaces or isolines
+  !----------------------------------------------------------------
   SUBROUTINE CreateSurfaces()
      TYPE(Element_t), POINTER :: Element, DefElement
      REAL(KIND=dp) :: F(4)
-     INTEGER :: i,j,k,n,Triangles(2,3)
-     INTEGER, ALLOCATABLE :: TriangleStore(:,:)
+     INTEGER :: i,j,k,n,Triangles(2,3),Line(2)
+     INTEGER :: NewElemType, NewElemNodes
+     INTEGER, ALLOCATABLE :: ElemStore(:,:)
 
-     ALLOCATE(TriangleStore(2*Solver % NumberOfActiveElements,3))
+     IF( dim == 3 ) THEN
+       ALLOCATE(ElemStore(2*Mesh % NumberOfBulkElements,3))
+       NewElemType = 303
+       NewElemNodes = 3
+     ELSE
+       ALLOCATE(ElemStore(Mesh % NumberOfBulkElements,2))
+       NewElemType = 202
+       NewElemNodes = 2
+     END IF
+
      k = 0
-     DO i=1,Solver % NumberOfActiveElements
-       Element => GetActiveElement(i)
-       F(1:4) = LevelVariable % Values( &
-           LevelVariable % Perm(Element % NodeIndexes) )
-       n=CreateSurfaceFromTetra(Element,F,LevelValue,Triangles)
 
-       DO j=1,n
-         IF ( ANY(Triangles(j,:)<=0) ) CYCLE
-         k = k + 1
-         TriangleStore(k,:) = Triangles(j,:)
+     DO Level = 1, NoLevels
+       IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
+       
+       DO i=1,Mesh % NumberOfBulkElements
+         Element => Mesh % Elements(i)
+         IF( dim == 2 ) THEN
+           F(1:3) = LevelFun( LevelPerm(Element % NodeIndexes) )
+           IF( CreateLineFromTriangle(Element,F,LevelValue,Line) ) THEN
+             k = k + 1
+             ElemStore(k,:) = Line
+           END IF
+         ELSE
+           F(1:4) = LevelFun( LevelPerm(Element % NodeIndexes) )
+           n = CreateSurfaceFromTetra(Element,F,LevelValue,Triangles)
+           DO j=1,n
+             IF ( ALL (Triangles(j,:) > 0 ) ) THEN
+               k = k + 1
+               ElemStore(k,:) = Triangles(j,:)
+             END IF
+           END DO
+         END IF
        END DO
      END DO
+
      ALLOCATE( Isomesh % Elements(k) )
 
+     Isomesh % MeshDim = dim 
      Isomesh % NumberOfBulkElements = k
      Isomesh % NumberOfFaces = 0
      Isomesh % NumberOfEdges = 0
@@ -410,22 +555,27 @@ CONTAINS
      DefElement => AllocateElement()
      DO i=1,k
        Isomesh % Elements(i) = DefElement
-       Isomesh % Elements(i) % Type => GetElementType(303)
        Isomesh % Elements(i) % Bodyid = 1
-       ALLOCATE(Isomesh % Elements(i) % NodeIndexes(3))
-       Isomesh % Elements(i) % NodeIndexes = TriangleStore(i,:)
+       Isomesh % Elements(i) % TYPE => GetElementType(NewElemType)
+       ALLOCATE(Isomesh % Elements(i) % NodeIndexes(NewElemNodes))
+       Isomesh % Elements(i) % NodeIndexes = ElemStore(i,:)
      END DO
-     DEALLOCATE(DefElement, TriangleStore)
+
+     DEALLOCATE(DefElement, ElemStore ) 
+
   END SUBROUTINE CreateSurfaces
 
 
+  !----------------------------------------------------------------
+  ! Create isosurfaces related to one tetrahedral element
+  !----------------------------------------------------------------
   FUNCTION CreateSurfaceFromTetra(Tetra,F,K,Surf) RESULT(scount)
     TYPE(Element_t) :: Tetra
     REAL(KIND=dp) :: F(4), K
     INTEGER :: scount, Surf(2,3)
 
     LOGICAL :: S1,S2,S3,S4
-    integer :: S,H,i,j,l,Indexes(6)
+    INTEGER :: S,H,i,j,l,Indexes(6)
 
     scount = 0
     Indexes = eperm(Tetra % EdgeIndexes)
@@ -436,31 +586,31 @@ CONTAINS
     S4 = F(4) > K;
 
     S = 0
-    IF ( S1 ) S=S+1
-    IF ( S2 ) S=S+1
-    IF ( S3 ) S=S+1
-    IF ( S4 ) S=S+1
+    IF ( S1 ) S = S + 1
+    IF ( S2 ) S = S + 1
+    IF ( S3 ) S = S + 1
+    IF ( S4 ) S = S + 1
 
     IF ( S==0 .OR. S==4 ) RETURN
 
     IF ( S==1 .OR. S==3 ) THEN
       scount = 1
       IF ( (S==1 .AND. S1) .OR. (S==3 .AND. .NOT.S1) ) THEN
-        Surf(1,1)=Indexes(1)
-        Surf(1,2)=Indexes(3)
-        Surf(1,3)=Indexes(4)
+        Surf(1,1) = Indexes(1)
+        Surf(1,2) = Indexes(3)
+        Surf(1,3) = Indexes(4)
       ELSE IF ( (S==1 .AND. S2) .OR. (S==3 .AND. .NOT.S2) ) THEN
-        Surf(1,1)=Indexes(1)
-        Surf(1,2)=Indexes(2)
-        Surf(1,3)=Indexes(5)
+        Surf(1,1) = Indexes(1)
+        Surf(1,2) = Indexes(2)
+        Surf(1,3) = Indexes(5)
       ELSE IF ( (S==1 .AND. S3) .OR. (S==3 .AND. .NOT.S3) ) THEN
-        Surf(1,1)=Indexes(2)
-        Surf(1,2)=Indexes(3)
-        Surf(1,3)=Indexes(6)
+        Surf(1,1) = Indexes(2)
+        Surf(1,2) = Indexes(3)
+        Surf(1,3) = Indexes(6)
       ELSE IF ( (S==1 .AND. S4) .OR. (S==3 .AND. .NOT.S4) ) THEN
-        Surf(1,1)=Indexes(4)
-        Surf(1,2)=Indexes(5)
-        Surf(1,3)=Indexes(6)
+        Surf(1,1) = Indexes(4)
+        Surf(1,2) = Indexes(5)
+        Surf(1,3) = Indexes(6)
       ELSE
         scount=0
       END IF
@@ -495,6 +645,61 @@ CONTAINS
       END IF
     END IF
   END FUNCTION CreateSurfaceFromTetra
+
+  
+  !----------------------------------------------------------------
+  ! Create isoline related to one triangular element
+  !----------------------------------------------------------------
+  FUNCTION CreateLineFromTriangle(Triangle,F,K,Line) RESULT(GotLine)
+    TYPE(Element_t) :: Triangle
+    REAL(KIND=dp) :: F(3), K
+    INTEGER :: Line(2)
+    LOGICAL :: GotLine
+
+    LOGICAL :: S1,S2,S3
+    INTEGER :: S,H,i,j,l,Indexes(3)
+
+    GotLine = .FALSE.
+    Indexes = eperm(Triangle % EdgeIndexes)
+
+    S1 = F(1) > K;
+    S2 = F(2) > K;
+    S3 = F(3) > K;
+
+    S = 0
+    IF ( S1 ) S = S + 1
+    IF ( S2 ) S = S + 1
+    IF ( S3 ) S = S + 1
+
+    IF ( S==0 .OR. S==3 ) RETURN
+
+    GotLine = .TRUE.
+
+    IF ( S == 1 ) THEN
+      IF ( S1 ) THEN
+        Line(1) = Indexes(1)
+        Line(2) = Indexes(3)
+      ELSE IF( S2 ) THEN
+        Line(1) = Indexes(1)
+        Line(2) = Indexes(2)
+      ELSE
+        Line(1) = Indexes(2)
+        Line(2) = Indexes(3)
+      END IF
+    ELSE
+      IF ( .NOT. S1 ) THEN
+        Line(1)=Indexes(1)
+        Line(2)=Indexes(3)
+      ELSE IF( .NOT. S2 ) THEN
+        Line(1) = Indexes(1)
+        Line(2) = Indexes(2)
+      ELSE
+        Line(1) = Indexes(2)
+        Line(2) = Indexes(3)
+      END IF
+    END IF
+
+  END FUNCTION CreateLineFromTriangle
 
 !------------------------------------------------------------------------------
 END SUBROUTINE IsosurfaceSolver
