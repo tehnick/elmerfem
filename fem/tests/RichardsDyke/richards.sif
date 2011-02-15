@@ -6,7 +6,7 @@ End
 
 Simulation
   Max Output Level = 4
-  Coordinate System = "Cartesian 2D"
+  Coordinate System = "Cartesian"
   Coordinate Mapping(3) = 1 2 3
   Simulation Type = Steady
   Steady State Max Iterations = 1
@@ -45,11 +45,13 @@ Solver 1
 !  Discontinuous Galerkin = Logical True ! not operational yet
 
   Linear System Solver = Iterative
-  Linear System Iterative Method = BiCGStab
+  Linear System Iterative Method = BiCGStabl
+  Bicgstabl polynomial Degree = 4
   Linear System Max Iterations  = 1000
-  Linear System Preconditioning = ILU1
+  Linear System Preconditioning = ILU0
   Linear System Convergence Tolerance = 1.0e-12
   Linear System Residual Output = 10
+!  Linear System Convergence Measure = String solution
 
 !  Linear System Solver = Direct
   Linear System Direct Method = umfpack
@@ -113,7 +115,8 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=7.4644288\n");
+$fprintf( stderr, "END TEST CASE 1: Target NRM=7.5654956\n");
+
 
 
 
