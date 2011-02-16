@@ -22,8 +22,8 @@ Simulation
     Real Procedure "LevelSet" "LevelSetTimestep"
   LevelSet Courant Number = Real 1.0
 
-  Steady State Max Iterations = Integer 2
-  Output Intervals = Integer 5
+  Steady State Max Iterations = 2
+  Output Intervals = 0
 
 ! Output File = File "data.dat"
 ! Post File = File "data.ep"
@@ -64,49 +64,48 @@ Equation 1
 End
 
 Solver 1
-  Equation = String "Level Set"
-  Variable = String Surface
-  Variable DOFs = Integer 1
-  Procedure = File "LevelSet" "LevelSetSolver"
-  Steady State Convergence Tolerance = Real 1e-6
+  Equation = "Level Set"
+  Variable = Surface
+  Variable DOFs = 1
+  Procedure = "LevelSet" "LevelSetSolver"
+  Steady State Convergence Tolerance = 1e-6
 
-  Stabilize = Logical True
-  Nonlinear System Relaxation Factor = Real 1.0
-  Nonlinear System Max Iterations = Integer 1
-  Nonlinear System Convergence Tolerance = Real 1.0e-6
+  Stabilize = True
+  Nonlinear System Relaxation Factor = 1.0
+  Nonlinear System Max Iterations = 1
+  Nonlinear System Convergence Tolerance = 1.0e-6
 
   Linear System Solver = direct
   Linear System Direct Method = umfpack
 End
 
 Solver 2
-  Equation = String "Reinitialize"
+  Equation = "Reinitialize"
+  Variable = Renorm
+  Variable DOFs = 1
+  Procedure = "LevelSet" "LevelSetDistance"
 
-  Variable = String Renorm
-  Variable DOFs = Integer 1
-  Procedure = File "LevelSet" "LevelSetDistance"
-
-  Extract Interval = Integer 5
-  Reinitialize Interval = Integer 5
+  Extract Interval = 5
+  Reinitialize Interval = 5
 
 !  Filename = File "ls.dat"
 !  File Append = Logical True
 End
 
 Solver 3
-  Equation = String "Integrate"
+  Equation = "Integrate"
 
-  Procedure = File "LevelSet" "LevelSetIntegrate"
+  Procedure = "LevelSet" "LevelSetIntegrate"
   Levelset Bandwidth = Real 0.03
   Conserve Volume = Logical True
   Conserve Volume Relaxation = Real 0.5
 End
 
 Solver 4
-  Equation = String "Curvature"
-  Variable = String Curvature
+  Equation = "Curvature"
+  Variable = Curvature
   Variable DOFs = Integer 1
-  Procedure = File "LevelSet" "LevelSetCurvature"
+  Procedure = "LevelSet" "LevelSetCurvature"
 
   Linear System Solver = direct
   Linear System Direct Method = umfpack
@@ -137,9 +136,9 @@ Solver 6
   Equation = String "SaveScalars"
 
   Exec Solver = After timestep
-  Procedure = File "SaveData" "SaveScalars"
-  Filename = File "f.dat"
-  Variable 1 = String time
+  Procedure = "SaveData" "SaveScalars"
+  Filename = "f.dat"
+  Variable 1 = time
 End
 
 
