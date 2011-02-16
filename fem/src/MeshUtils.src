@@ -4567,6 +4567,8 @@ CONTAINS
         DO i=1,Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
 !          Boundaryinfo structure for boundary elements
 !          ---------------------------------------------
+           IF ( Mesh % Elements(i) % Copy ) CYCLE
+
            IF ( i > Mesh % NumberOfBulkElements ) THEN
               IF ( ASSOCIATED( Mesh % Elements(i) % BoundaryInfo ) ) THEN
                  IF (ASSOCIATED(Mesh % Elements(i) % BoundaryInfo % GebhardtFactors)) THEN
