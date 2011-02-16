@@ -1106,7 +1106,7 @@ CONTAINS
      REAL(KIND=dp), POINTER :: FieldValues(:), LoadValues(:), ElemLimit(:)
      REAL(KIND=dp) :: LimitSign, Eps
      INTEGER, POINTER :: FieldPerm(:), NodeIndexes(:)
-     LOGICAL :: Found,AnyLimitBC, AnyLimitBF, Set
+     LOGICAL :: Found,AnyLimitBC, AnyLimitBF, Set, AnyDofActive
      LOGICAL, ALLOCATABLE :: LimitDone(:)
      LOGICAL, POINTER :: LimitActive(:)
      TYPE(ValueList_t), POINTER :: Params
@@ -1152,7 +1152,7 @@ CONTAINS
          IF( ASSOCIATED( Var % UpperLimitActive ) ) LimitActive => Var % UpperLimitActive
        END IF
  
-       IF( ASSOCIATED( LimitActive ) ) THEN
+       IF( ASSOCIATED( LimitActive) ) THEN
          Eps = ListGetConstReal(Params,'Limiter Load Tolerance',Found ) 
          IF(.NOT. Found ) Eps = EPSILON( Eps )
          
@@ -1193,6 +1193,7 @@ CONTAINS
        ! Go through the field variables one dof at a time since 
        ! typically for vector valued field the limiter is given componentwise.
        !---------------------------------------------------------------------      
+       AnyDofActive = .FALSE.
        DO DOF = 1,dofs
          name = Var % name
          IF ( Var % DOFs > 1 ) name = ComponentName(name,DOF)
@@ -1209,7 +1210,7 @@ CONTAINS
          AnyLimitBF = ListCheckPresentAnyBodyForce( Model, LimitName )
          
          IF( .NOT. ( AnyLimitBC .OR. AnyLimitBF ) ) CYCLE
-
+         AnyDofActive = .TRUE.
 
          ! Check that active set vectors for limiters exist, otherwise allocate
          !---------------------------------------------------------------------
@@ -1298,6 +1299,8 @@ CONTAINS
            END DO
          END DO
        END DO
+       IF(.NOT. AnyDofActive ) CYCLE
+	
        
        ! Output some information before exiting
        !---------------------------------------------------------------------
@@ -1306,12 +1309,15 @@ CONTAINS
        ELSE
          CALL Info('ApplySoftLimiter','Determined upper soft limit set',Level=5)
        END IF
+       WRITE(Message,'(A,I0)') 'Number of dofs in set is ',COUNT( LimitActive )
+       CALL Info('ApplySoftLimiter',Message,Level=5)
+
        IF(added > 0) THEN
-         WRITE(Message,'(A,I0,A)') 'Added ',added,' nodes to the set'
+         WRITE(Message,'(A,I0,A)') 'Added ',added,' dofs to the set'
          CALL Info('ApplySoftLimiter',Message,Level=5)
        END IF
        IF(removed > 0) THEN
-         WRITE(Message,'(A,I0,A)') 'Removed ',removed,' nodes from the set'
+         WRITE(Message,'(A,I0,A)') 'Removed ',removed,' dofs from the set'
          CALL Info('ApplySoftLimiter',Message,Level=5)
        END IF
      END DO

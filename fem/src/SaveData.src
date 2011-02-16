@@ -105,7 +105,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
 
-  SAVE SubroutineVisited, NumberOfVars, &
+  SAVE SubroutineVisited, NumberOfVars, FileAppend, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
       Values, ValueNames, ValuesInteger, NoCoordinates, ScalarsFile, ScalarNamesFile, &
       ExactCoordinates, CoordinatesElemNo, NoElements, ElementNodes, EchoValues, &
@@ -1076,8 +1076,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     IF(.NOT. GotIt) Name = Solver % Variable % Name
 
     ! Here the name is ComputeChange in order to get the change also to ElmerGUI
+    ! albeit in a very dirt style. One could also edit ElmerGUI....
     WRITE( Message, '(a,g15.8,g15.8,a)') &
-        'SS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
+        'SS (ITER=1) (NRM,RELC): (',Norm, Change,&
         ' ) :: '//TRIM( Name )
     CALL Info( 'ComputeChange', Message, Level=3 )
   END IF
