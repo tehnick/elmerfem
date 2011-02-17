@@ -65,34 +65,52 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   CHARACTER(LEN=MAX_NAME_LEN) :: Str
   REAL(KIND=dp) :: RealTime, StartTime, TotalTime
   LOGICAL :: Found
-  INTEGER, TARGET :: Order820(20)
+  INTEGER:: Order203(3), Order510(10), Order820(20)
+  REAL(KIND=dp), ALLOCATABLE :: TimeValues(:), dtmp(:)
   INTEGER :: Counter = 1
-  SAVE BaseFileName, NofScalarFields, ScalarFieldNames, Counter
+  SAVE TimeValues, Counter
 !------------------------------------------------------------------------------
   StartTime = RealTime()
   Mesh => GetMesh()
   PEs = ParEnv % PEs
   MyPE = ParEnv % MyPE + 1
 
-  ! Determine file names and fields variables:
-  !--------------------------------------------
+  ! Record simulation time values:
+  !--------------------------------
   IF(Counter == 1) THEN
-     BaseFileName = ListGetString(Solver % Values, 'base file name', Found)
-     IF(.NOT.Found) BaseFileName = 'results'
-     CALL INFO('XdmfWriter', 'Base file name: '//TRIM(BaseFileName))
-
-     CALL FindScalarFields(NofScalarFields, ScalarFieldNames)
-     DO i = 1, NofScalarFields
-        CALL INFO('Xdmfwriter', 'Scalar field: '//TRIM(ScalarFieldNames(i)))
-     END DO
-
-     CALL FindVectorFields(NofVectorFields, VectorFieldNames)
-     DO i = 1, NofVectorFields
-        CALL INFO('Xdmfwriter', 'Vector field: '//TRIM(VectorFieldNames(i)))
-     END DO
-
-     Order820(:) = (/ 1,2,3,4,5,6,7,8,9,10,11,12,17,18,19,20,13,14,15,16 /)
+     ALLOCATE(TimeValues(1))
+     TimeValues(1) = GetTime()
+  ELSE
+     ALLOCATE(dtmp(SIZE(TimeValues)))
+     dtmp = TimeValues
+     DEALLOCATE(TimeValues)
+     ALLOCATE(TimeValues(SIZE(dtmp)+1))
+     TimeValues(1:SIZE(dtmp)) = dtmp
+     TimeValues(SIZE(dtmp)+1) = GetTime()
+     DEALLOCATE(dtmp)
   END IF
+
+  ! Determine the base file name and fields variables:
+  !----------------------------------------------------
+  BaseFileName = ListGetString(Solver % Values, 'base file name', Found)
+  IF(.NOT.Found) BaseFileName = 'results'
+  CALL INFO('XdmfWriter', 'Base file name: '//TRIM(BaseFileName))
+
+  CALL FindScalarFields(NofScalarFields, ScalarFieldNames)
+  DO i = 1, NofScalarFields
+     CALL INFO('XdmfWriter', 'Scalar field: '//TRIM(ScalarFieldNames(i)))
+  END DO
+  
+  CALL FindVectorFields(NofVectorFields, VectorFieldNames)
+  DO i = 1, NofVectorFields
+     CALL INFO('XdmfWriter', 'Vector field: '//TRIM(VectorFieldNames(i)))
+  END DO
+  
+  ! Set up the permutation vectors:
+  !---------------------------------
+  Order203(:) = (/ 1,3,2 /)
+  Order510(:) = (/ 1,2,4,3,5,9,8,7,6,10/)
+  Order820(:) = (/ 1,2,3,4,5,6,7,8,9,10,11,12,17,18,19,20,13,14,15,16 /)
 
   ! Determine Nof nodes, Nof elements and mixed xdmf storage size for all PEs:
   !----------------------------------------------------------------------------
@@ -184,7 +202,7 @@ CONTAINS
        Variable => VariableGet(Solver % Mesh % Variables, TRIM(RHS))
 
        IF(.NOT.ASSOCIATED(Variable)) THEN
-          CALL INFO('Xdmfwriter', 'Bad scalar field: '//TRIM(RHS))
+          CALL INFO('XdmfWriter', 'Bad scalar field: '//TRIM(RHS))
           CYCLE
        END IF
 
@@ -221,7 +239,7 @@ CONTAINS
        Variable => VariableGet(Solver % Mesh % Variables, TRIM(RHS))
 
        IF(.NOT.ASSOCIATED(Variable)) THEN
-          CALL INFO('Xdmfwriter', 'Bad vector field: '//TRIM(RHS))
+          CALL INFO('XdmfWriter', 'Bad vector field: '//TRIM(RHS))
           CYCLE
        END IF
 
@@ -247,13 +265,43 @@ CONTAINS
        XdmfCode = 5 ! linear quadrilateral
     CASE(504)
        XdmfCode = 6 ! linear tetrahedron
+    CASE(510)
+       XdmfCode = 38 ! quadratic tetrahedron
     CASE(808)
        XdmfCode = 9 ! linear hexahedron
     CASE(820)
-       XdmfCode = 48 ! quadratic hexahedron (XDMF_HEX_20)
+       XdmfCode = 48 ! quadratic hexahedron
     CASE DEFAULT
        XdmfCode = -1 ! not supported, yet
     END SELECT
+
+!XDMF_NOTOPOLOGY     0x0
+!XDMF_POLYVERTEX     0x1
+!XDMF_POLYLINE       0x2
+!XDMF_POLYGON        0x3
+!XDMF_TRI            0x4
+!XDMF_QUAD           0x5
+!XDMF_TET            0x6
+!XDMF_PYRAMID        0x7
+!XDMF_WEDGE          0x8
+!XDMF_HEX            0x9
+!XDMF_EDGE_3         0x0022
+!XDMF_TRI_6          0x0024
+!XDMF_QUAD_8         0x0025
+!XDMF_TET_10         0x0026
+!XDMF_PYRAMID_13     0x0027
+!XDMF_WEDGE_15       0x0028
+!XDMF_WEDGE_18       0x0029
+!XDMF_HEX_20         0x0030
+!XDMF_HEX_24         0x0031
+!XDMF_HEX_27         0x0032
+!XDMF_MIXED          0x0070
+!XDMF_2DSMESH        0x0100
+!XDMF_2DRECTMESH     0x0101
+!XDMF_2DCORECTMESH   0x0102
+!XDMF_3DSMESH        0x1100
+!XDMF_3DRECTMESH     0x1101
+!XDMF_3DCORECTMESH   0x1102
 
 !------------------------------------------------------------------------------
   END FUNCTION GetXdmfCode
@@ -391,15 +439,22 @@ CONTAINS
        DO k = 1, GetElementNofNodes()
           j = j + 1
 
-          IF(Element % Type % ElementCode == 820) THEN
-             data(1, j) = Element % NodeIndexes(Order820(k)) - 1 
-          ELSE
-             data(1, j) = Element % NodeIndexes(k) - 1 ! C-style numbering
-          END IF
+          ! Permuted C-style numbering
+          SELECT CASE(Element % Type % ElementCode)
+          CASE(203)
+             data(1, j) = Element % NodeIndexes(Order203(k)) - 1
+          CASE(510)
+             data(1, j) = Element % NodeIndexes(Order510(k)) - 1
+          CASE(820)
+             data(1, j) = Element % NodeIndexes(Order820(k)) - 1
+          CASE DEFAULT
+             data(1, j) = Element % NodeIndexes(k) - 1
+          END SELECT
+
        END DO
     END DO
 
-    IF(j /= NofStorage(MyPE)) CALL Fatal('XdmfWriter', 'Element numbering failed')
+    IF(j /= NofStorage(MyPE)) CALL Fatal('XdmfWriter', 'Bad element numbering')
     
     CALL h5screate_simple_f(2, dims, memspace, ierr)
     CALL h5dget_space_f(dset_id(MyPE), filespace, ierr)
@@ -553,7 +608,7 @@ CONTAINS
     INTEGER :: file_id, PEs, MyPE, NofNodes(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: VectorFieldName
 
-    INTEGER :: i, j, ierr
+    INTEGER :: i, j, k, ierr, dofs
     INTEGER(HSIZE_T) :: dims(2)
     INTEGER(HID_T) :: dset_id(PEs), filespace, memspace, plist_id
     REAL(KIND=dp) :: data(3, NofNodes(MyPE))
@@ -583,12 +638,17 @@ CONTAINS
     
     Var => VariableGet(Solver % Mesh % Variables, TRIM(VectorFieldName))
     IF(.NOT.ASSOCIATED(Var)) CALL INFO('XdmfWriter', 'Vector not found')
+    dofs = Var % DOFs
     
+    data = 0.0d0
     DO i = 1, dims(2)
        j = Var % Perm(i)
-       data(1, i) = Var % Values(3 * j - 2)
-       data(2, i) = Var % Values(3 * j - 1)
-       data(3, i) = Var % Values(3 * j - 0)
+       DO k = 1, dofs
+          data(k, i) = Var % Values(dofs*(j - 1) + k)
+       END DO
+!          data(1, i) = Var % Values(3 * j - 2)
+!          data(2, i) = Var % Values(3 * j - 1)
+!          data(3, i) = Var % Values(3 * j - 0)
     END DO
     
     CALL h5screate_simple_f(2, dims, memspace, ierr)
@@ -645,7 +705,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: ScalarFieldNames(:), VectorFieldNames(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: BaseFileName
 
-    CHARACTER(LEN=MAX_NAME_LEN) :: Tmp1, Tmp2, Tmp3, Tmp4, Tmp5
+    CHARACTER(LEN=MAX_NAME_LEN) :: Tmp1, Tmp2, Tmp3, Tmp4, Tmp5, Tmp6
     CHARACTER(LEN=MAX_NAME_LEN) :: FileName
     CHARACTER(LEN=MAX_NAME_LEN) :: H5FileName
     INTEGER :: i, j, k
@@ -667,10 +727,11 @@ CONTAINS
     ok = Dmp(10, 4, '<Grid Name="mesh" GridType="Collection" CollectionType="Temporal">')
 
     DO j = 1, Counter
-       WRITE(Tmp1, *) j; WRITE(Tmp1, '(A)') TRIM(ADJUSTL(Tmp1))
+       WRITE(Tmp1, *) j;             WRITE(Tmp1, '(A)') TRIM(ADJUSTL(Tmp1))
+       WRITE(Tmp2, *) TimeValues(j); WRITE(Tmp2, '(A)') TRIM(ADJUSTL(Tmp2))
 
        ok = Dmp(10, 6, '<Grid Name="mesh_'//TRIM(Tmp1)//'" GridType="Collection" CollectionType="Spatial">')
-       ok = Dmp(10, 8, '<Time Value="'//TRIM(Tmp1)//'" />')
+       ok = Dmp(10, 8, '<Time Value="'//TRIM(Tmp2)//'" />')
 
        DO i = 1, PEs
           WRITE(Tmp1, *) i;              WRITE(Tmp1, '(A)') TRIM(ADJUSTL(Tmp1))
@@ -678,11 +739,12 @@ CONTAINS
           WRITE(Tmp3, *) NofStorage(i);  WRITE(Tmp3, '(A)') TRIM(ADJUSTL(Tmp3))
           WRITE(Tmp4, *) NofNodes(i);    WRITE(Tmp4, '(A)') TRIM(ADJUSTL(Tmp4))
           WRITE(Tmp5, *) j;              WRITE(Tmp5, '(A)') TRIM(ADJUSTL(Tmp5))
+          WRITE(Tmp6, *) TimeValues(j);  WRITE(Tmp6, '(A)') TRIM(ADJUSTL(Tmp6))
           
           ! Init part:
           !------------
           ok = Dmp(10, 8, '<Grid Name="mesh_'//TRIM(Tmp5)//'_'//TRIM(Tmp1)//'">')
-          ok = Dmp(10, 10, '<Time Value="'//TRIM(Tmp5)//'" />')
+          ok = Dmp(10, 10, '<Time Value="'//TRIM(Tmp6)//'" />')
           
           ! Write elements:
           !-----------------
@@ -702,7 +764,7 @@ CONTAINS
           
           ! Write part number:
           !--------------------
-          ok = Dmp(10, 10, ' <Attribute Name="part_number" Center="Node">')
+          ok = Dmp(10, 10, ' <Attribute Name="part_number" AttributeType="Scalar" Center="Node">')
           ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 1">')
           ok = Dmp(10, 14, TRIM(H5FileName)//':/part_number_'//TRIM(Tmp1))
           ok = Dmp(10, 12, '</DataItem>')
