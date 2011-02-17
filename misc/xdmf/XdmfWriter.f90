@@ -1,15 +1,48 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *                               EXPERIMENTAL
+! *
+! *  Module for exporting parallel results in Xdmf/HDF5 file format
+! *
+! ******************************************************************************
+! *
+! *  Authors: Mikko Lyly
+! *
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 11 Feb 2011
+! *
+! *****************************************************************************/
+!
 !------------------------------------------------------------------------------
 SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
-!------------------------------------------------------------------------------
-! EXPERIMENTAL
-!
-! Writes results in xdmf/hdf5 format.
-!
-! Only linear elements and scalar functions are supprted at the moment.
-!
-! See README.txt within this directory for more information.
-!
-! Written by: Mikko Lyly, 11 Feb 2011
 !------------------------------------------------------------------------------
   USE HDF5
   USE DefUtils
@@ -20,9 +53,10 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
-  INTEGER, PARAMETER :: MaxScalarFields = 1000
-  INTEGER :: NofScalarFields
-  CHARACTER(LEN=MAX_NAME_LEN) :: ScalarFieldNames(MaxScalarFields)
+  INTEGER, PARAMETER :: MaxFields = 1000
+  INTEGER :: NofScalarFields, NofVectorFields
+  CHARACTER(LEN=MAX_NAME_LEN) :: ScalarFieldNames(MaxFields)
+  CHARACTER(LEN=MAX_NAME_LEN) :: VectorFieldNames(MaxFields)
   CHARACTER(LEN=MAX_NAME_LEN) :: BaseFileName
   TYPE(Mesh_t), POINTER :: Mesh
   INTEGER :: PEs, MyPE, i, ierr
@@ -31,6 +65,7 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   CHARACTER(LEN=MAX_NAME_LEN) :: Str
   REAL(KIND=dp) :: RealTime, StartTime, TotalTime
   LOGICAL :: Found
+  INTEGER, TARGET :: Order820(20)
   INTEGER :: Counter = 1
   SAVE BaseFileName, NofScalarFields, ScalarFieldNames, Counter
 !------------------------------------------------------------------------------
@@ -44,12 +79,19 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   IF(Counter == 1) THEN
      BaseFileName = ListGetString(Solver % Values, 'base file name', Found)
      IF(.NOT.Found) BaseFileName = 'results'
-     CALL INFO('XdmfWriter', 'Base file name = '//TRIM(BaseFileName))
+     CALL INFO('XdmfWriter', 'Base file name: '//TRIM(BaseFileName))
 
      CALL FindScalarFields(NofScalarFields, ScalarFieldNames)
      DO i = 1, NofScalarFields
         CALL INFO('Xdmfwriter', 'Scalar field: '//TRIM(ScalarFieldNames(i)))
      END DO
+
+     CALL FindVectorFields(NofVectorFields, VectorFieldNames)
+     DO i = 1, NofVectorFields
+        CALL INFO('Xdmfwriter', 'Vector field: '//TRIM(VectorFieldNames(i)))
+     END DO
+
+     Order820(:) = (/ 1,2,3,4,5,6,7,8,9,10,11,12,17,18,19,20,13,14,15,16 /)
   END IF
 
   ! Determine Nof nodes, Nof elements and mixed xdmf storage size for all PEs:
@@ -91,12 +133,19 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
      CALL WriteParts(file_id, PEs, MyPE, NofNodes)
   END IF
 
+  ! Export results:
+  !-----------------
   DO i = 1, NofScalarFields
      CALL WriteScalars(file_id, PEs, MyPE, NofNodes, ScalarFieldNames(i))
   END DO
 
+  DO i = 1, NofVectorFields
+     CALL WriteVectors(file_id, PEs, MyPE, NofNodes, VectorFieldNames(i))
+  END DO
+
   IF(MyPE == 1) CALL WriteXdmfFile(PEs, NofNodes, NofElements, &
-       NofStorage, NofScalarFields, ScalarFieldNames, BaseFileName)
+       NofStorage, NofScalarFields, ScalarFieldNames, NofVectorFields, &
+       VectorFieldNames, BaseFileName)
 
   ! Finalize:
   !-----------
@@ -104,7 +153,7 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   DEALLOCATE(NofElements, NofNodes, NofStorage)
   TotalTime = RealTime() - StartTime
   WRITE(Str, *) TotalTime
-  CALL INFO('XdmfWriter', 'Total write time (REAL) = '//TRIM(ADJUSTL(Str)))
+  CALL INFO('XdmfWriter', 'Total write time (REAL): '//TRIM(ADJUSTL(Str)))
   Counter = Counter + 1
 
 CONTAINS
@@ -147,6 +196,43 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+  SUBROUTINE FindVectorFields(NofVectorFields, VectorFieldNames)
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+    INTEGER, INTENT(OUT) :: NofVectorFields
+    CHARACTER(LEN=MAX_NAME_LEN), INTENT(OUT) :: VectorFieldNames(:)
+
+    INTEGER :: id
+    LOGICAL :: Found
+    CHARACTER(LEN=MAX_NAME_LEN) :: LHS, RHS, Tmp1
+    TYPE(Variable_t), POINTER :: Variable
+
+    NofVectorFields = 0
+
+    DO id = 1, SIZE(VectorFieldNames)
+       WRITE(Tmp1, *) id
+
+       WRITE(LHS, '(A)') 'vector field '//TRIM(ADJUSTL(Tmp1))
+
+       RHS = ListGetString(Solver % Values, TRIM(LHS), Found)
+
+       IF(.NOT.Found) CYCLE
+
+       Variable => VariableGet(Solver % Mesh % Variables, TRIM(RHS))
+
+       IF(.NOT.ASSOCIATED(Variable)) THEN
+          CALL INFO('Xdmfwriter', 'Bad vector field: '//TRIM(RHS))
+          CYCLE
+       END IF
+
+       NofVectorFields = NofVectorFields + 1
+       VectorFieldNames(NofVectorFields) = TRIM(RHS)
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE FindVectorFields
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
   INTEGER FUNCTION GetXdmfCode(ElementCode) RESULT(XdmfCode)
 !------------------------------------------------------------------------------
     IMPLICIT NONE
@@ -163,6 +249,8 @@ CONTAINS
        XdmfCode = 6 ! linear tetrahedron
     CASE(808)
        XdmfCode = 9 ! linear hexahedron
+    CASE(820)
+       XdmfCode = 48 ! quadratic hexahedron (XDMF_HEX_20)
     CASE DEFAULT
        XdmfCode = -1 ! not supported, yet
     END SELECT
@@ -302,7 +390,12 @@ CONTAINS
 
        DO k = 1, GetElementNofNodes()
           j = j + 1
-          data(1, j) = Element % NodeIndexes(k) - 1 ! C-style numbering
+
+          IF(Element % Type % ElementCode == 820) THEN
+             data(1, j) = Element % NodeIndexes(Order820(k)) - 1 
+          ELSE
+             data(1, j) = Element % NodeIndexes(k) - 1 ! C-style numbering
+          END IF
        END DO
     END DO
 
@@ -454,6 +547,74 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+  SUBROUTINE WriteVectors(file_id, PEs, MyPE, NofNodes, VectorFieldName)
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+    INTEGER :: file_id, PEs, MyPE, NofNodes(:)
+    CHARACTER(LEN=MAX_NAME_LEN) :: VectorFieldName
+
+    INTEGER :: i, j, ierr
+    INTEGER(HSIZE_T) :: dims(2)
+    INTEGER(HID_T) :: dset_id(PEs), filespace, memspace, plist_id
+    REAL(KIND=dp) :: data(3, NofNodes(MyPE))
+    CHARACTER(LEN=MAX_NAME_LEN) :: Str, Tmp1, Tmp2
+    TYPE(Variable_t), POINTER :: Var
+
+    ! Create the datasets collectively:
+    !-----------------------------------
+    DO i = 1, PEs
+       dims(1) = SIZE(data, 1)
+       dims(2) = NofNodes(i)
+       
+       WRITE(Tmp1, *) i
+       WRITE(Tmp2, *) Counter
+       
+       WRITE(Str, '(A)') TRIM(VectorFieldName)//'_'//TRIM(ADJUSTL(Tmp2))//'_'//TRIM(ADJUSTL(Tmp1))
+       
+       CALL h5screate_simple_f(2, dims, filespace, ierr)
+       CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       CALL h5sclose_f(filespace, ierr)
+    END DO
+    
+    ! Write the data independently:
+    !-------------------------------
+    dims(1) = SIZE(data, 1)
+    dims(2) = SIZE(data, 2)
+    
+    Var => VariableGet(Solver % Mesh % Variables, TRIM(VectorFieldName))
+    IF(.NOT.ASSOCIATED(Var)) CALL INFO('XdmfWriter', 'Vector not found')
+    
+    DO i = 1, dims(2)
+       j = Var % Perm(i)
+       data(1, i) = Var % Values(3 * j - 2)
+       data(2, i) = Var % Values(3 * j - 1)
+       data(3, i) = Var % Values(3 * j - 0)
+    END DO
+    
+    CALL h5screate_simple_f(2, dims, memspace, ierr)
+    CALL h5dget_space_f(dset_id(MyPE), filespace, ierr)
+    
+    CALL h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
+    CALL h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, ierr)
+    
+    CALL h5dwrite_f(dset_id(MyPE), H5T_NATIVE_DOUBLE, data, dims, ierr, &
+         file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
+    
+    ! Finalize:
+    !-----------
+    CALL h5pclose_f(plist_id, ierr)
+    CALL h5sclose_f(filespace, ierr)
+    CALL h5sclose_f(memspace, ierr)
+    
+    DO i = 1, PEs
+       CALL h5dclose_f(dset_id(i), ierr)
+    END DO
+    
+!------------------------------------------------------------------------------
+  END SUBROUTINE WriteVectors
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
   LOGICAL FUNCTION Dmp(fid, indent, str) RESULT(ok)
 !------------------------------------------------------------------------------
     IMPLICIT NONE
@@ -468,25 +629,26 @@ CONTAINS
     
     WRITE(fid) TRIM(line)
 
-    ok = .TRUE.
+    ok = .TRUE. ! TODO: Return false when WRITE fails
 !------------------------------------------------------------------------------
   END FUNCTION Dmp
 !------------------------------------------------------------------------------
   
 !------------------------------------------------------------------------------
   SUBROUTINE WriteXdmfFile(PEs, NofNodes, NofElements, &
-       NofStorage, NofScalarFields, ScalarFieldNames, BaseFileName)
+       NofStorage, NofScalarFields, ScalarFieldNames, &
+       NofVectorFields, VectorFieldNames, BaseFileName)
 !------------------------------------------------------------------------------
     IMPLICIT NONE
-    INTEGER :: PEs, NofScalarFields
+    INTEGER :: PEs, NofScalarFields, NofVectorFields
     INTEGER :: NofElements(:), NofNodes(:), NofStorage(:)
-    CHARACTER(LEN=MAX_NAME_LEN) :: ScalarFieldNames(:), BaseFileName
+    CHARACTER(LEN=MAX_NAME_LEN) :: ScalarFieldNames(:), VectorFieldNames(:)
+    CHARACTER(LEN=MAX_NAME_LEN) :: BaseFileName
 
-    CHARACTER(LEN=MAX_NAME_LEN) :: Line, Tmp1, Tmp2, Tmp3, Tmp4, Tmp5
+    CHARACTER(LEN=MAX_NAME_LEN) :: Tmp1, Tmp2, Tmp3, Tmp4, Tmp5
     CHARACTER(LEN=MAX_NAME_LEN) :: FileName
     CHARACTER(LEN=MAX_NAME_LEN) :: H5FileName
-    CHARACTER(LEN=MAX_NAME_LEN) :: ScalarName
-    INTEGER :: i, j, k, ScalarId
+    INTEGER :: i, j, k
     LOGICAL :: ok
 
     ! Initialize:
@@ -549,9 +711,19 @@ CONTAINS
           ! Write scalar fields:
           !----------------------
           DO k = 1, NofScalarFields
-             ok = Dmp(10, 10, ' <Attribute Name="'//TRIM(ScalarFieldNames(k))//'" Center="Node">')
+             ok = Dmp(10, 10, ' <Attribute Name="'//TRIM(ScalarFieldNames(k))//'" AttributeType="Scalar" Center="Node">')
              ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 1">')
              ok = Dmp(10, 14, TRIM(H5FileName)//':/'//TRIM(ScalarFieldNames(k))//'_'//TRIM(Tmp5)//'_'//TRIM(Tmp1))
+             ok = Dmp(10, 12, '</DataItem>')
+             ok = Dmp(10, 10, '</Attribute>')
+          END DO
+          
+          ! Write vector fields:
+          !----------------------
+          DO k = 1, NofVectorFields
+             ok = Dmp(10, 10, ' <Attribute Name="'//TRIM(VectorFieldNames(k))//'" AttributeType="Vector" Center="Node">')
+             ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 3">')
+             ok = Dmp(10, 14, TRIM(H5FileName)//':/'//TRIM(VectorFieldNames(k))//'_'//TRIM(Tmp5)//'_'//TRIM(Tmp1))
              ok = Dmp(10, 12, '</DataItem>')
              ok = Dmp(10, 10, '</Attribute>')
           END DO
