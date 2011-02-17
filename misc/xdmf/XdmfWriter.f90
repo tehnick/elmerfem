@@ -90,8 +90,8 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
      DEALLOCATE(dtmp)
   END IF
 
-  ! Determine the base file name and fields variables:
-  !----------------------------------------------------
+  ! Determine the base file name and field variables:
+  !---------------------------------------------------
   BaseFileName = ListGetString(Solver % Values, 'base file name', Found)
   IF(.NOT.Found) BaseFileName = 'results'
   CALL INFO('XdmfWriter', 'Base file name: '//TRIM(BaseFileName))
@@ -643,12 +643,9 @@ CONTAINS
     data = 0.0d0
     DO i = 1, dims(2)
        j = Var % Perm(i)
-       DO k = 1, dofs
+       DO k = 1, MIN(dims(1), dofs) ! no more than 3 components
           data(k, i) = Var % Values(dofs*(j - 1) + k)
        END DO
-!          data(1, i) = Var % Values(3 * j - 2)
-!          data(2, i) = Var % Values(3 * j - 1)
-!          data(3, i) = Var % Values(3 * j - 0)
     END DO
     
     CALL h5screate_simple_f(2, dims, memspace, ierr)
@@ -689,7 +686,7 @@ CONTAINS
     
     WRITE(fid) TRIM(line)
 
-    ok = .TRUE. ! TODO: Return false when WRITE fails
+    ok = .TRUE. ! TODO: Return false if WRITE fails
 !------------------------------------------------------------------------------
   END FUNCTION Dmp
 !------------------------------------------------------------------------------

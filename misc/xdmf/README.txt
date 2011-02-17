@@ -12,6 +12,7 @@ Sample usage:
      ElmerGrid 1 2 angle3d
      ElmerGrid 2 2 angle3d -metis 8
 
+     rm results.*
      mpirun -np 8 ElmerSolver_mpi
 
 The results are stored in the files
