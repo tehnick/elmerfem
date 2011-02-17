@@ -612,13 +612,13 @@ CONTAINS
 
        DO i=1,n
          A % RHS(i:i) = ListGetConstReal( Solver % Values,  &
-           'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Value' )
+           'Constraint DOF ' // TRIM(i2s(i)) // ' Value' )
        END DO
 
        Cols = 0
        A % Rows(1) = 1
        DO i=1,n
-         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Body' 
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(i2s(i)) // ' Body' 
          ivals => ListGetIntegerArray( Solver % Values, str, Found )
          IF ( ASSOCIATED(ivals) ) THEN
            InvInitialReorder=0
@@ -631,7 +631,7 @@ CONTAINS
            Cols = Cols+DOFs*COUNT(InvInitialReorder==1)
          END IF
 
-         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' BC'
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(i2s(i)) // ' BC'
          Ivals => ListGetIntegerArray( Solver % Values, str, Found )
          IF ( ASSOCIATED(Ivals) ) THEN
            InvInitialReorder=0
@@ -652,7 +652,7 @@ CONTAINS
        A % Values = 0
 
        DO i=1,n
-         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' Body' 
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(i2s(i)) // ' Body' 
          ivals => ListGetIntegerArray( Solver % Values, str, Found )
          IF ( ASSOCIATED(ivals) ) THEN
            DO k=1,Solver % Mesh % NumberOfBulkElements
@@ -671,7 +671,7 @@ CONTAINS
            END DO
          END IF
 
-         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(IntegerToString(i)) // ' BC'
+         WRITE( str, '(a)' ) 'Constraint DOF ' // TRIM(i2s(i)) // ' BC'
          ivals => ListGetIntegerArray( Solver % Values, str, Found )
          IF ( ASSOCIATED(ivals) ) THEN
            DO k=Solver % Mesh % NumberOfBulkElements+1, &

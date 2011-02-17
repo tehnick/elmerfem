@@ -117,7 +117,7 @@
 #endif
        IF ( ParEnv % PEs > 1 ) &
          CALL Info( 'MAIN', ' Running in parallel using ' // &
-          TRIM(IntegerToString(ParEnv % PEs)) // ' tasks.', Level=3 )
+          TRIM(i2s(ParEnv % PEs)) // ' tasks.', Level=3 )
 #ifdef HAVE_HYPRE
        CALL Info( 'MAIN', ' HYPRE library linked in.', Level=3 )
 #endif
@@ -977,8 +977,8 @@
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
            IF ( Transient .OR. Scanning ) THEN
-             WRITE( Message, * ) 'Time: ',TRIM(IntegerToString(cum_Timestep)),'/', &
-                   TRIM(IntegerToString(stepcount)), sTime(1)
+             WRITE( Message, * ) 'Time: ',TRIM(i2s(cum_Timestep)),'/', &
+                   TRIM(i2s(stepcount)), sTime(1)
              CALL Info( 'MAIN', Message, Level=3 )
 
              newtime= RealTime()
@@ -992,13 +992,13 @@
                  timeleft = NINT((stepcount-(cum_Timestep-1))*(newtime-prevtime)/60._dp);
                  IF (timeleft > 120) THEN
                    WRITE( Message, *) 'Estimated time left: ', &
-                     TRIM(IntegerToString(timeleft/60)),' hours.'
+                     TRIM(i2s(timeleft/60)),' hours.'
                  ELSE IF(timeleft > 60) THEN
                    WRITE( Message, *) 'Estimated time left: 1 hour ', &
-                     TRIM(IntegerToSTring(MOD(timeleft,60))), ' minutes.'
+                     TRIM(i2s(MOD(timeleft,60))), ' minutes.'
                  ELSE IF(timeleft >= 1) THEN
                    WRITE( Message, *) 'Estimated time left: ', &
-                     TRIM(IntegerToString(timeleft)),' minutes.'
+                     TRIM(i2s(timeleft)),' minutes.'
                  ELSE
                    WRITE( Message, *) 'Estimated time left: less than a minute.'
                  END IF

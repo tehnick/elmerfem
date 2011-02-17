@@ -124,36 +124,38 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION i2s(value) RESULT(string)
+  PURE FUNCTION i2s(value) RESULT(string)
 !------------------------------------------------------------------------------
-    INTEGER :: value
-    CHARACTER(LEN=16) :: string
+    INTEGER, INTENT(in) :: value
+    CHARACTER(LEN=12) :: string
 !------------------------------------------------------------------------------
-    INTEGER :: val
-    INTEGER :: i,j,n,t
+    INTEGER :: i,j,n,m,t,v
     CHARACTER, PARAMETER :: digits(0:9)=['0','1','2','3','4','5','6','7','8','9']
 !------------------------------------------------------------------------------
+     string = ' '
+
      IF ( value>=0 ) THEN
        j=0
-       val=value
+       v=value
      ELSE
+       string(1:1)='-'
        j=1
-       val=-value
+       v=-value
      END IF
 
-     IF ( val==0 ) THEN
-       n = 1
+     IF (v<10) THEN
+       string(j+1:j+1)=digits(v)
      ELSE
-       n = LOG10(REAL(val))+1
-     END IF
+       n = LOG10(REAL(v))+1
+       m = 10**(n-1)
 
-     string = ' '
-     DO i=n-1,0,-1
-      t = val / 10**i
-      val = val - t*10**i
-      string(n-i+j:n-i+j) = digits(t)
-     END DO
-     IF (value<0) string(1:1)='-'
+       DO i=j+1,j+n
+         t = v / m
+         string(i:i) = digits(t)
+         v = v - t*m
+         m = m / 10
+       END DO
+     END IF
 !------------------------------------------------------------------------------
   END FUNCTION i2s
 !------------------------------------------------------------------------------
@@ -170,7 +172,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION FileNameQualified(file) RESULT(L)
+  PURE FUNCTION FileNameQualified(file) RESULT(L)
 !------------------------------------------------------------------------------
     LOGICAL :: L
     CHARACTER(*), INTENT(IN) :: file
@@ -181,7 +183,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-   FUNCTION LittleEndian() RESULT(L)
+   PURE FUNCTION LittleEndian() RESULT(L)
 !------------------------------------------------------------------------------
      LOGICAL :: L
 !------------------------------------------------------------------------------
@@ -869,25 +871,6 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION IntegerToString( input ) RESULT(str)
-!------------------------------------------------------------------------------
-    CHARACTER(LEN=16) :: str
-    INTEGER :: i,j,k,n,input
-
-    str = ' '
-    i = input
-    n = LOG10(i+0.5d0)
-    k = n
-    DO j=1,n+1
-       str(j:j) = CHAR(i/10**k+ICHAR('0'))
-       i = i - 10**k * (i/10**k)
-       k = k - 1
-    END DO
-!------------------------------------------------------------------------------
-  END FUNCTION IntegerToString
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
   FUNCTION GetVarName(Var) RESULT(str)
 !------------------------------------------------------------------------------
     TYPE(Variable_t) :: Var
@@ -902,8 +885,8 @@ CONTAINS
 !------------------------------------------------------------------------------
   FUNCTION ComponentNameVar( Var, Component ) RESULT(str)
 !------------------------------------------------------------------------------
-    TYPE(Variable_t) :: Var
-    INTEGER, OPTIONAL :: Component
+    TYPE(Variable_t),INTENT(in) :: Var
+    INTEGER, OPTIONAL,intent(in) :: Component
 !------------------------------------------------------------------------------
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
@@ -914,7 +897,7 @@ CONTAINS
         str = 'pressure'
         RETURN
       ELSE
-        str = 'velocity ' // TRIM(IntegerToString(Component))
+        str = 'velocity ' // TRIM(i2s(Component))
       END IF
     ELSE
       str = ComponentName(Var % Name, Component)
@@ -941,7 +924,7 @@ END FUNCTION ComponentNameVar
     IF ( ind<=0 ) THEN
       str = BaseName
       IF ( Component > 0 ) THEN
-        str = TRIM(str) // ' ' // TRIM( IntegerToString(Component) )
+        str = TRIM(str) // ' ' // TRIM(i2s(Component) )
       END IF
     ELSE
       DOFsTot = 0
@@ -958,7 +941,7 @@ END FUNCTION ComponentNameVar
       str = BaseName(ind+1:ind1-1)
       IF ( DOFs>1 ) THEN
         DOFs = Component - DOFsTot + DOFs
-        str = TRIM(str) // ' ' // TRIM( IntegerToString(DOFs) )
+        str = TRIM(str) // ' ' // TRIM(i2s(DOFs) )
       END IF
     END IF
 !------------------------------------------------------------------------------
