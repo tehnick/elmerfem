@@ -1090,7 +1090,7 @@ CONTAINS
 !------------------------------------------------------------------------------
  
 !------------------------------------------------------------------------------
-   SUBROUTINE DeterminSoftLimiter( Solver )
+   SUBROUTINE DetermineSoftLimiter( Solver )
 !------------------------------------------------------------------------------
 ! Determine soft limiters set
 ! Currently the implementation is nonideal as almost the same thing is done
@@ -1285,9 +1285,9 @@ CONTAINS
              IF( LimitDone(ind) ) CYCLE
 
              IF( Upper == 0 ) THEN
-               Set = ( ElemLimit(i) > Var % Values(ind) + Eps )
+               Set = ( Var % Values(ind) < ElemLimit(i) - Eps )
              ELSE
-               Set = ( ElemLimit(i) < Var % Values(ind) - Eps )
+               Set = ( Var % Values(ind) > ElemLimit(i) + Eps )
              END IF
 
              IF( Set ) THEN
@@ -1305,20 +1305,20 @@ CONTAINS
        ! Output some information before exiting
        !---------------------------------------------------------------------
         IF( Upper == 0 ) THEN
-         CALL Info('ApplySoftLimiter','Determined lower soft limit set',Level=5)
+         CALL Info('DetermineSoftLimiter','Determined lower soft limit set',Level=5)
        ELSE
-         CALL Info('ApplySoftLimiter','Determined upper soft limit set',Level=5)
+         CALL Info('DetermineSoftLimiter','Determined upper soft limit set',Level=5)
        END IF
        WRITE(Message,'(A,I0)') 'Number of dofs in set is ',COUNT( LimitActive )
-       CALL Info('ApplySoftLimiter',Message,Level=5)
+       CALL Info('DetermineSoftLimiter',Message,Level=5)
 
        IF(added > 0) THEN
          WRITE(Message,'(A,I0,A)') 'Added ',added,' dofs to the set'
-         CALL Info('ApplySoftLimiter',Message,Level=5)
+         CALL Info('DetermineSoftLimiter',Message,Level=5)
        END IF
        IF(removed > 0) THEN
          WRITE(Message,'(A,I0,A)') 'Removed ',removed,' dofs from the set'
-         CALL Info('ApplySoftLimiter',Message,Level=5)
+         CALL Info('DetermineSoftLimiter',Message,Level=5)
        END IF
      END DO
 
@@ -1329,7 +1329,7 @@ CONTAINS
 
      ! CALL Info('DetermineSoftLimiter','All done')
 
-   END SUBROUTINE DeterminSoftLimiter
+  END SUBROUTINE DetermineSoftLimiter
 !------------------------------------------------------------------------------
 
 

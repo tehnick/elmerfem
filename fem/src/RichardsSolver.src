@@ -224,6 +224,11 @@ END MODULE PorousMaterials
     
     CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
             'Matric Suction' )
+
+    ! The sign of total head is different that the default convention of diffusion equations
+    IF( .NOT. ListCheckPresent( Params, 'Limiter Load Sign Negative') ) THEN
+      CALL ListAddLogical( Params,'Limiter Load Sign Negative',.TRUE.) 	
+    END IF
     
   END SUBROUTINE RichardsSolver_Init
 
@@ -261,7 +266,7 @@ END MODULE PorousMaterials
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER, POINTER :: TotalHeadPerm(:)
 
-    LOGICAL :: SubroutineVisited = .FALSE.,InitSolution, ResetRelax, IsBoundaryReview
+    LOGICAL :: SubroutineVisited = .FALSE.,InitSolution, ResetRelax
     INTEGER :: i,j,n, nd, t, istat, iter, dim, Active, NonlinearIterMax, &
         ActiveCoordinate
     REAL(KIND=dp) :: at,st,totst,totat,CPUTime
@@ -300,7 +305,6 @@ END MODULE PorousMaterials
     SolverParams => GetSolverParams()
     
     Bubbles = GetLogical( SolverParams, 'Bubbles', Found )
-    IsBoundaryReview = .FALSE.
     
     ActiveCoordinate = GetInteger( SolverParams,'Active Coordinate',Found)
     IF(.NOT. Found) ActiveCoordinate = DIM
@@ -420,7 +424,7 @@ END MODULE PorousMaterials
           CALL Condensate( N, STIFF, FORCE, TimeForce )
         END IF
         
-        CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate = IsBoundaryReview )
+        CALL DefaultUpdateEquations( STIFF, FORCE )
       END DO
 
       
