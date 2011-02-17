@@ -4,13 +4,13 @@ Header
 End
 
 Simulation
-  Max Output Level = 32
+  Max Output Level = 4
   Coordinate System = "Cartesian"
   Coordinate Mapping(3) = 1 2 3
   Simulation Type = Steady
   Steady State Max Iterations = 1
   Output Intervals = 0
-  Post File = richards.ep
+!  Post File = richards.ep
 End
 
 Constants
@@ -85,11 +85,10 @@ Solver 2
 
 ! These definitions are used to apply for a limiter on the r.h.s. 
 ! so that there can never be a pond of water.
-  Calculate Loads = Logical True
-  Apply Limiter = Logical True
-  Limiter Load Tolerance = Real 1.0e-10
-  Limiter Value Tolerance = Real 1.0e-5
-  Limiter Load Sign Negative = Logical True
+
+  Apply Limiter = True
+  Limiter Load Tolerance = 1.0e-12
+  Limiter Value Tolerance = 1.0e-5
 
 !  Bubbles = Logical True
 End
@@ -136,6 +135,7 @@ Boundary Condition 4
 ! On the r.h.s. the pond is assumed always to vanish 
 ! and hence the maximum total head equals the y-coordinate
   TotalHead Upper Limit = Equals Coordinate 2
+
 End
 
 
