@@ -887,7 +887,7 @@ CONTAINS
        Material => GetMaterial()
        Density(1:n) = GetReal( Material, 'Density', Found )
        IF ( .NOT. Found )  THEN
-         IF ( Transient .OR. Solver % NOFEigenValues > 0 ) &
+         IF ( Transient .OR. EigenOrHarmonicAnalysis() ) &
             CALL Fatal( 'StressSolve', 'No value for density found.' )
        END IF
        Damping(1:n) = GetReal( Material, 'Damping', Found )
@@ -1058,7 +1058,7 @@ CONTAINS
 !      matrix and global RHS vector
 !------------------------------------------------------------------------------
        IF ( .NOT. (ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem) ) THEN
-         IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
+         IF ( Transient .AND. .NOT. EigenOrHarmonicAnalysis() ) THEN
             CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
          END IF
        END IF
@@ -1112,7 +1112,7 @@ CONTAINS
            Solver % Matrix % RHS => SaveRHS
          END IF
 
-         IF ( Solver % NOFEigenValues>0 .OR. &
+         IF ( EigenOrHarmonicAnalysis() .OR. &
            ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem ) THEN
            CALL DefaultUpdateMass( MASS )
            CALL DefaultUpdateDamp( DAMP )
@@ -1207,7 +1207,7 @@ CONTAINS
           END SELECT
 
           IF ( .NOT. (ConstantSystem .OR. ConstantBulkSystem .OR. ConstantBulkMatrix ) ) THEN
-            IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
+            IF ( Transient .AND. .NOT.EigenOrHarmonicAnalysis() )  THEN
                MASS = 0.0d0
                CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
             END IF
@@ -1222,9 +1222,8 @@ CONTAINS
             CALL DefaultUpdateForce( FORCE_im, BulkUpdate=.FALSE. )
             Solver % Matrix % RHS => SaveRHS
           END IF
-          IF ( Solver % NOFEigenValues>0 .OR. ConstantSystem.AND.Transient ) THEN
+          IF ( EigenOrHarmonicAnalysis() .OR. ConstantSystem.AND.Transient ) &
              CALL DefaultUpdateDamp( DAMP )
-          END IF
 !------------------------------------------------------------------------------
          END IF
       END DO

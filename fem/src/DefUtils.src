@@ -1441,6 +1441,23 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+  FUNCTION EigenOrHarmonicAnalysis(Usolver) RESULT(L)
+    LOGICAL :: L
+    TYPE(Solver_t), OPTIONAL,TARGET :: USolver
+!------------------------------------------------------------------------------
+    TYPE(Solver_t), POINTER :: Solver
+
+    IF (PRESENT(USolver)) THEN
+      Solver => USolver
+    ELSE
+      Solver => CurrentModel % Solver
+    END IF
+    L  = Solver % NOFEigenValues > 0
+!------------------------------------------------------------------------------
+  END FUNCTION EigenOrHarmonicAnalysis
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   FUNCTION GetEquation( Element, Found ) RESULT(Equation)

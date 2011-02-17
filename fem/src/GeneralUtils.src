@@ -146,8 +146,12 @@ CONTAINS
      IF (v<10) THEN
        string(j+1:j+1)=digits(v)
      ELSE
-       n = LOG10(REAL(v))+1
-       m = 10**(n-1)
+       n=2
+       m=10
+       DO WHILE(10*m<=v)
+         n=n+1
+         m=m*10
+       END DO
 
        DO i=j+1,j+n
          t = v / m

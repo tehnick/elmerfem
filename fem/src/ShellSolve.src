@@ -392,7 +392,7 @@
   StressComputation = StressComputation .OR. &
             GetLogical( SolverParams, 'Calculate Stresses', GotIt )
 
-  IF( StressComputation .AND. Solver % NOFEigenValues <= 0  ) THEN
+  IF( StressComputation .AND. .NOT. EigenOrHarmonicAnalysis() ) THEN
     CALL Info('ShellSolve','Entering stress calculation routines...')
     CALL CalculateStresses()
   END IF ! If Stress Calculation
@@ -486,7 +486,7 @@
 !      Update global matrix and rhs vector from local matrix & vector:
 !      ---------------------------------------------------------------
        CALL DefaultUpdateEquations( STIFF, FORCE )
-       IF ( Solver % NOFEigenValues > 0 ) CALL DefaultUpdateMass( MASS )
+       IF ( EigenOrHarmonicAnalysis() ) CALL DefaultUpdateMass( MASS )
      END DO
 !-----------------------------------------------------------------------------
     END SUBROUTINE BulkAssembly
