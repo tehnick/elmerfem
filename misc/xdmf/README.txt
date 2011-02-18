@@ -1,14 +1,12 @@
 This folder contains an experimental Xdmf/HDF5 result writer module for Elmer
 
-Limitations: Only scalar fields and linear elements are supported at the moment
+Only parallel version (ElmerSolver_mpi) is supported at the moment
 
-Sample usage:
+Sample usage (for more details, refer to the solver-blocks in *.sif):
 
      ./compile.sh
 
-     ElmerGrid 1 2 beam3d
-     ElmerGrid 2 2 beam3d -metis 8
-
+     ElmerGrid 1 2 angle3d
      ElmerGrid 1 2 angle3d
      ElmerGrid 2 2 angle3d -metis 8
 
@@ -21,3 +19,10 @@ The results are stored in the files
      results.h5
 
 The file "results.xmf" can be opened with in Paraview.
+
+Keywords for the solver block (here N in an integer between 1-1000):
+
+     Base File Name = String "filename"      (default: "results")
+     Single Precision = Logical true/false   (default: false)
+     Vector Field N = String "vectorname"    (default: none)
+     Scalar Field N = String "scalarname"    (default: none)
