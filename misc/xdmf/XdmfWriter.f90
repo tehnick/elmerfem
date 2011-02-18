@@ -64,7 +64,7 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   INTEGER(HID_T) :: file_id, plist_id
   CHARACTER(LEN=MAX_NAME_LEN) :: Str
   REAL(KIND=dp) :: RealTime, StartTime, TotalTime
-  LOGICAL :: Found
+  LOGICAL :: Found, UseDoublePrecision = .TRUE.
   INTEGER:: Order203(3), Order510(10), Order820(20)
   REAL(KIND=dp), ALLOCATABLE :: TimeValues(:), dtmp(:)
   TYPE(Variable_t), POINTER :: Var
@@ -106,6 +106,9 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   DO i = 1, NofVectorFields
      CALL INFO('XdmfWriter', 'Vector field: '//TRIM(VectorFieldNames(i)))
   END DO
+
+  UseDoublePrecision = ListGetLogical(Solver % Values, 'double precision', Found)
+  IF(.NOT.Found) UseDoublePrecision = .TRUE.
   
   ! Set up node permutation vectors for quadratic elements:
   !---------------------------------------------------------
@@ -360,7 +363,11 @@ CONTAINS
        WRITE(Str, '(A)') 'nodes_'//TRIM(ADJUSTL(Str))
 
        CALL h5screate_simple_f(2, dims, filespace, ierr)
-       CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       IF(UseDoublePrecision) THEN
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       ELSE
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_REAL, filespace, dset_id(i), ierr)
+       END IF
        CALL h5sclose_f(filespace, ierr)
     END DO
 
@@ -383,7 +390,7 @@ CONTAINS
     
     CALL h5dwrite_f(dset_id(MyPE), H5T_NATIVE_DOUBLE, data, dims, ierr, &
          file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
-    
+
     ! Finalize:
     !-----------
     CALL h5pclose_f(plist_id, ierr)
@@ -510,7 +517,11 @@ CONTAINS
        WRITE(Str, '(A)') 'part_number_'//TRIM(ADJUSTL(Str))
 
        CALL h5screate_simple_f(2, dims, filespace, ierr)
-       CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       IF(UseDoublePrecision) THEN
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       ELSE
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_REAL, filespace, dset_id(i), ierr)
+       END IF
        CALL h5sclose_f(filespace, ierr)
     END DO
 
@@ -526,10 +537,10 @@ CONTAINS
     
     CALL h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
     CALL h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, ierr)
-    
+
     CALL h5dwrite_f(dset_id(MyPE), H5T_NATIVE_DOUBLE, data, dims, ierr, &
          file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
-    
+
     ! Finalize:
     !-----------
     CALL h5pclose_f(plist_id, ierr)
@@ -570,7 +581,11 @@ CONTAINS
        WRITE(Str, '(A)') TRIM(ScalarFieldName)//'_'//TRIM(ADJUSTL(Tmp2))//'_'//TRIM(ADJUSTL(Tmp1))
        
        CALL h5screate_simple_f(2, dims, filespace, ierr)
-       CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       IF(UseDoublePrecision) THEN
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       ELSE
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_REAL, filespace, dset_id(i), ierr)
+       END IF
        CALL h5sclose_f(filespace, ierr)
     END DO
     
@@ -592,7 +607,7 @@ CONTAINS
     
     CALL h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
     CALL h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, ierr)
-    
+
     CALL h5dwrite_f(dset_id(MyPE), H5T_NATIVE_DOUBLE, data, dims, ierr, &
          file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
     
@@ -636,7 +651,11 @@ CONTAINS
        WRITE(Str, '(A)') TRIM(VectorFieldName)//'_'//TRIM(ADJUSTL(Tmp2))//'_'//TRIM(ADJUSTL(Tmp1))
        
        CALL h5screate_simple_f(2, dims, filespace, ierr)
-       CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       IF(UseDoublePrecision) THEN
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_id(i), ierr)
+       ELSE
+          CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_REAL, filespace, dset_id(i), ierr)
+       END IF
        CALL h5sclose_f(filespace, ierr)
     END DO
     
@@ -681,10 +700,10 @@ CONTAINS
     
     CALL h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
     CALL h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, ierr)
-    
+
     CALL h5dwrite_f(dset_id(MyPE), H5T_NATIVE_DOUBLE, data, dims, ierr, &
          file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
-    
+
     ! Finalize:
     !-----------
     CALL h5pclose_f(plist_id, ierr)
@@ -782,7 +801,11 @@ CONTAINS
           ! Write nodes:
           !--------------
           ok = Dmp(10, 10, '<Geometry Type="XYZ">')
-          ok = Dmp(10, 12, '<DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 3">')
+          IF(UseDoublePrecision) THEN
+             ok = Dmp(10, 12, '<DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 3">')
+          ELSE
+             ok = Dmp(10, 12, '<DataItem Format="HDF" DataType="Float" Precision="4" Dimensions="'//TRIM(Tmp4)//' 3">')
+          END IF
           ok = Dmp(10, 14, TRIM(H5FileName)//':/nodes_'//TRIM(Tmp1))
           ok = Dmp(10, 12, '</DataItem>')
           ok = Dmp(10, 10, '</Geometry>')
@@ -790,7 +813,11 @@ CONTAINS
           ! Write part number:
           !--------------------
           ok = Dmp(10, 10, ' <Attribute Name="part_number" AttributeType="Scalar" Center="Node">')
-          ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 1">')
+          IF(UseDoublePrecision) THEN
+             ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 1">')
+          ELSE
+             ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="4" Dimensions="'//TRIM(Tmp4)//' 1">')
+          END IF
           ok = Dmp(10, 14, TRIM(H5FileName)//':/part_number_'//TRIM(Tmp1))
           ok = Dmp(10, 12, '</DataItem>')
           ok = Dmp(10, 10, '</Attribute>')
@@ -799,7 +826,11 @@ CONTAINS
           !----------------------
           DO k = 1, NofScalarFields
              ok = Dmp(10, 10, ' <Attribute Name="'//TRIM(ScalarFieldNames(k))//'" AttributeType="Scalar" Center="Node">')
-             ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 1">')
+             IF(UseDoublePrecision) THEN
+                ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 1">')
+             ELSE
+                ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="4" Dimensions="'//TRIM(Tmp4)//' 1">')
+             END IF
              ok = Dmp(10, 14, TRIM(H5FileName)//':/'//TRIM(ScalarFieldNames(k))//'_'//TRIM(Tmp5)//'_'//TRIM(Tmp1))
              ok = Dmp(10, 12, '</DataItem>')
              ok = Dmp(10, 10, '</Attribute>')
@@ -809,7 +840,11 @@ CONTAINS
           !----------------------
           DO k = 1, NofVectorFields
              ok = Dmp(10, 10, ' <Attribute Name="'//TRIM(VectorFieldNames(k))//'" AttributeType="Vector" Center="Node">')
-             ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 3">')
+             IF(UseDoublePrecision) THEN
+                ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 3">')
+             ELSE
+                ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="4" Dimensions="'//TRIM(Tmp4)//' 3">')
+             END IF
              ok = Dmp(10, 14, TRIM(H5FileName)//':/'//TRIM(VectorFieldNames(k))//'_'//TRIM(Tmp5)//'_'//TRIM(Tmp1))
              ok = Dmp(10, 12, '</DataItem>')
              ok = Dmp(10, 10, '</Attribute>')
