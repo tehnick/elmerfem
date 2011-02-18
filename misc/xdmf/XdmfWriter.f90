@@ -64,7 +64,7 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   INTEGER(HID_T) :: file_id, plist_id
   CHARACTER(LEN=MAX_NAME_LEN) :: Str
   REAL(KIND=dp) :: RealTime, StartTime, TotalTime
-  LOGICAL :: Found, FlowSolutionPresent = .TRUE.
+  LOGICAL :: Found
   INTEGER:: Order203(3), Order510(10), Order820(20)
   REAL(KIND=dp), ALLOCATABLE :: TimeValues(:), dtmp(:)
   TYPE(Variable_t), POINTER :: Var
@@ -97,22 +97,12 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   IF(.NOT.Found) BaseFileName = 'results'
   CALL INFO('XdmfWriter', 'Base file name: '//TRIM(BaseFileName))
 
-  FlowSolutionPresent = ListGetLogical(Solver % Values, 'flow solution', Found)
-  IF(.NOT.Found) FlowSolutionPresent = .TRUE.
-  Var => VariableGet(Solver % Mesh % Variables, 'flow solution')
-  IF(.NOT.ASSOCIATED(Var)) FlowSolutionPresent = .FALSE.
-
-  IF(FlowSolutionPresent) THEN
-     CALL INFO('XdmfWriter', 'Scalar field: pressure (flow solution)')
-     CALL INFO('XdmfWriter', 'Vector field: velocity (flow solution)')
-  END IF
-
-  CALL FindScalarFields(NofScalarFields, ScalarFieldNames, FlowSolutionPresent)
+  CALL FindScalarFields(NofScalarFields, ScalarFieldNames)
   DO i = 1, NofScalarFields
      CALL INFO('XdmfWriter', 'Scalar field: '//TRIM(ScalarFieldNames(i)))
   END DO
   
-  CALL FindVectorFields(NofVectorFields, VectorFieldNames, FlowSolutionPresent)
+  CALL FindVectorFields(NofVectorFields, VectorFieldNames)
   DO i = 1, NofVectorFields
      CALL INFO('XdmfWriter', 'Vector field: '//TRIM(VectorFieldNames(i)))
   END DO
@@ -154,8 +144,8 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
 
   CALL h5pclose_f(plist_id, ierr)
 
-  ! Write nodes, elements and data (first time only):
-  !---------------------------------------------------
+  ! Write nodes, elements and part numbers (first time only):
+  !-----------------------------------------------------------
   IF(Counter == 1) THEN
      CALL WriteNodes(file_id, PEs, MyPE, NofNodes)
      CALL WriteElements(file_id, PEs, MyPE, NofStorage)
@@ -172,8 +162,6 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
      CALL WriteVectors(file_id, PEs, MyPE, NofNodes, VectorFieldNames(i))
   END DO
 
-  IF(FlowSolutionPresent) CALL WriteFlowSolution(file_id, PEs, MyPE, NofNodes)
-  
   ! Rewrite the xdmf-file:
   !------------------------
   IF(MyPE == 1) CALL WriteXdmfFile(PEs, NofNodes, NofElements, &
@@ -192,12 +180,11 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
 CONTAINS
 
 !------------------------------------------------------------------------------
-  SUBROUTINE FindScalarFields(NofScalarFields, ScalarFieldNames, FlowPresent)
+  SUBROUTINE FindScalarFields(NofScalarFields, ScalarFieldNames)
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     INTEGER, INTENT(OUT) :: NofScalarFields
     CHARACTER(LEN=MAX_NAME_LEN), INTENT(OUT) :: ScalarFieldNames(:)
-    LOGICAL :: FlowPresent
 
     INTEGER :: id
     LOGICAL :: Found
@@ -215,8 +202,6 @@ CONTAINS
 
        IF(.NOT.Found) CYCLE
 
-       IF(FlowPresent.AND.(TRIM(RHS) == 'pressure')) CYCLE
-
        Variable => VariableGet(Solver % Mesh % Variables, TRIM(RHS))
 
        IF(.NOT.ASSOCIATED(Variable)) THEN
@@ -232,12 +217,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  SUBROUTINE FindVectorFields(NofVectorFields, VectorFieldNames, FlowPresent)
+  SUBROUTINE FindVectorFields(NofVectorFields, VectorFieldNames)
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     INTEGER, INTENT(OUT) :: NofVectorFields
     CHARACTER(LEN=MAX_NAME_LEN), INTENT(OUT) :: VectorFieldNames(:)
-    LOGICAL :: FlowPresent
 
     INTEGER :: id
     LOGICAL :: Found
@@ -255,13 +239,17 @@ CONTAINS
 
        IF(.NOT.Found) CYCLE
 
-       IF(FlowPresent.AND.(TRIM(RHS) == 'velocity')) CYCLE
-
        Variable => VariableGet(Solver % Mesh % Variables, TRIM(RHS))
 
        IF(.NOT.ASSOCIATED(Variable)) THEN
-          CALL INFO('XdmfWriter', 'Bad vector field: '//TRIM(RHS))
-          CYCLE
+          ! Try componentwise:
+          !--------------------
+          WRITE(Tmp1, '(A)') TRIM(RHS)//' 1'
+          Variable => VariableGet(Solver % Mesh % Variables, TRIM(Tmp1))
+          IF(.NOT.ASSOCIATED(Variable)) THEN
+             CALL INFO('XdmfWriter', 'Bad vector field: '//TRIM(RHS))
+             CYCLE
+          END IF
        END IF
 
        NofVectorFields = NofVectorFields + 1
@@ -656,19 +644,38 @@ CONTAINS
     !-------------------------------
     dims(1) = SIZE(data, 1)
     dims(2) = SIZE(data, 2)
+
+    data = 0.0d0
     
     Var => VariableGet(Solver % Mesh % Variables, TRIM(VectorFieldName))
-    IF(.NOT.ASSOCIATED(Var)) CALL INFO('XdmfWriter', 'Vector not found')
-    dofs = Var % DOFs
-    
-    data = 0.0d0
-    DO i = 1, dims(2)
-       j = Var % Perm(i)
-       DO k = 1, MIN(dims(1), dofs) ! no more than 3 components
-          data(k, i) = Var % Values(dofs*(j - 1) + k)
+
+    IF(ASSOCIATED(Var)) THEN
+       ! Storage type: multiple DOFs per node:
+       !---------------------------------------
+       dofs = Var % DOFs
+       DO i = 1, dims(2)
+          j = Var % Perm(i)
+          DO k = 1, MIN(3, dofs)
+             data(k, i) = Var % Values(dofs*(j - 1) + k)
+          END DO
        END DO
-    END DO
-    
+    ELSE
+       ! Storage type: multiple scalars per node:
+       !-----------------------------------------
+       DO k = 1, 3
+          WRITE(Tmp1, *) k
+          WRITE(Tmp2, '(A)') TRIM(VectorFieldName)//' '//TRIM(ADJUSTL(Tmp1))
+          Var => VariableGet(Solver % Mesh % Variables, TRIM(Tmp2))
+          IF(.NOT.ASSOCIATED(Var)) CYCLE
+          dofs = Var % DOFs
+          IF(dofs /= 1) CYCLE
+          DO i = 1, dims(2)
+             j = Var % Perm(i)
+             data(k, i) = Var % Values(j)
+          END DO
+       END DO
+    END IF
+
     CALL h5screate_simple_f(2, dims, memspace, ierr)
     CALL h5dget_space_f(dset_id(MyPE), filespace, ierr)
     
@@ -690,117 +697,6 @@ CONTAINS
     
 !------------------------------------------------------------------------------
   END SUBROUTINE WriteVectors
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
-  SUBROUTINE WriteFlowSolution(file_id, PEs, MyPE, NofNodes)
-!------------------------------------------------------------------------------
-    IMPLICIT NONE
-    INTEGER :: file_id, PEs, MyPE, NofNodes(:)
-
-    INTEGER :: i, j, k, ierr, dofs
-    INTEGER(HSIZE_T) :: dims(2)
-    INTEGER(HID_T) :: dset_p_id(PEs), dset_v_id(PEs), filespace, memspace, plist_id
-    REAL(KIND=dp) :: pressure(1, NofNodes(MyPE)), velocity(3, NofNodes(MyPE))
-    CHARACTER(LEN=MAX_NAME_LEN) :: Str, Tmp1, Tmp2
-    TYPE(Variable_t), POINTER :: Var
-
-    Var => VariableGet(Solver % Mesh % Variables, 'flow solution')
-    IF(.NOT.ASSOCIATED(Var)) RETURN
-    dofs = Var % DOFs
-
-    ! Create the datasets collectively:
-    !-----------------------------------
-    DO i = 1, PEs
-       WRITE(Tmp1, *) i
-       WRITE(Tmp2, *) Counter
-       
-       ! Pressure:
-       !----------
-       dims(1) = 1
-       dims(2) = NofNodes(i)
-       
-       WRITE(Str, '(A)') 'pressure_'//TRIM(ADJUSTL(Tmp2))//'_'//TRIM(ADJUSTL(Tmp1))
-       
-       CALL h5screate_simple_f(2, dims, filespace, ierr)
-       CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_p_id(i), ierr)
-       CALL h5sclose_f(filespace, ierr)
-
-       ! Velocity:
-       !-----------
-       dims(1) = 3
-       dims(2) = NofNodes(i)
-       
-       WRITE(Str, '(A)') 'velocity_'//TRIM(ADJUSTL(Tmp2))//'_'//TRIM(ADJUSTL(Tmp1))
-       
-       CALL h5screate_simple_f(2, dims, filespace, ierr)
-       CALL h5dcreate_f(file_id, TRIM(ADJUSTL(Str)), H5T_NATIVE_DOUBLE, filespace, dset_v_id(i), ierr)
-       CALL h5sclose_f(filespace, ierr)
-    END DO
-    
-    ! Write the pressure independently:
-    !-----------------------------------
-    dims(1) = SIZE(pressure, 1)
-    dims(2) = SIZE(pressure, 2)
-    
-    DO i = 1, dims(2)
-       j = Var % Perm(i)
-       pressure(1, j) = Var % Values(dofs * j)
-    END DO
-    
-    CALL h5screate_simple_f(2, dims, memspace, ierr)
-    CALL h5dget_space_f(dset_p_id(MyPE), filespace, ierr)
-    
-    CALL h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
-    CALL h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, ierr)
-    
-    CALL h5dwrite_f(dset_p_id(MyPE), H5T_NATIVE_DOUBLE, pressure, dims, ierr, &
-         file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
-    
-    ! Finalize:
-    !-----------
-    CALL h5pclose_f(plist_id, ierr)
-    CALL h5sclose_f(filespace, ierr)
-    CALL h5sclose_f(memspace, ierr)
-    
-    DO i = 1, PEs
-       CALL h5dclose_f(dset_p_id(i), ierr)
-    END DO
-
-    ! Write the velocity independently:
-    !----------------------------------
-    dims(1) = SIZE(velocity, 1)
-    dims(2) = SIZE(velocity, 2)
-    
-    velocity = 0.0d0
-    DO i = 1, dims(2)
-       j = Var % Perm(i)
-       DO k = 1, MIN(dims(1), dofs-1)
-          velocity(k, i) = Var % Values(dofs*(j-1) + k)
-       END DO
-    END DO
-    
-    CALL h5screate_simple_f(2, dims, memspace, ierr)
-    CALL h5dget_space_f(dset_v_id(MyPE), filespace, ierr)
-    
-    CALL h5pcreate_f(H5P_DATASET_XFER_F, plist_id, ierr)
-    CALL h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, ierr)
-    
-    CALL h5dwrite_f(dset_v_id(MyPE), H5T_NATIVE_DOUBLE, velocity, dims, ierr, &
-         file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
-    
-    ! Finalize:
-    !-----------
-    CALL h5pclose_f(plist_id, ierr)
-    CALL h5sclose_f(filespace, ierr)
-    CALL h5sclose_f(memspace, ierr)
-    
-    DO i = 1, PEs
-       CALL h5dclose_f(dset_v_id(i), ierr)
-    END DO
-    
-!------------------------------------------------------------------------------
-  END SUBROUTINE WriteFlowSolution
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -919,28 +815,12 @@ CONTAINS
              ok = Dmp(10, 10, '</Attribute>')
           END DO
           
-          ! Write flow solution:
-          !----------------------
-          IF(FlowSolutionPresent) THEN
-             ok = Dmp(10, 10, ' <Attribute Name="pressure" AttributeType="Scalar" Center="Node">')
-             ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 1">')
-             ok = Dmp(10, 14, TRIM(H5FileName)//':/pressure_'//TRIM(Tmp5)//'_'//TRIM(Tmp1))
-             ok = Dmp(10, 12, '</DataItem>')
-             ok = Dmp(10, 10, '</Attribute>')
-             
-             ok = Dmp(10, 10, ' <Attribute Name="velocity" AttributeType="Vector" Center="Node">')
-             ok = Dmp(10, 12, ' <DataItem Format="HDF" DataType="Float" Precision="8" Dimensions="'//TRIM(Tmp4)//' 3">')
-             ok = Dmp(10, 14, TRIM(H5FileName)//':/velocity_'//TRIM(Tmp5)//'_'//TRIM(Tmp1))
-             ok = Dmp(10, 12, '</DataItem>')
-             ok = Dmp(10, 10, '</Attribute>')
-          END IF
-
           ! Finalize part:
           !----------------
           ok = Dmp(10, 8, '</Grid>') ! part
        END DO
 
-    ok = Dmp(10, 6, '</Grid>') ! spatial collection
+       ok = Dmp(10, 6, '</Grid>') ! spatial collection
 
     END DO
 
