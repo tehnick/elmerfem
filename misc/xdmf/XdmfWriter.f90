@@ -147,7 +147,8 @@ SUBROUTINE XdmfWriter(Model, Solver, dt, TransientSimulation)
   ! Determine output precision for reals:
   !---------------------------------------
   fill_type_id = H5T_NATIVE_DOUBLE
-  IF(ListGetLogical(Solver % Values, 'single precision')) fill_type_id = H5T_NATIVE_REAL
+  IF(ListGetLogical(Solver % Values, 'single precision', Found)) fill_type_id = H5T_NATIVE_REAL
+  IF(.NOT.Found) fill_type_id = H5T_NATIVE_DOUBLE
 
   ! Write nodes, elements and part numbers (first time only):
   !-----------------------------------------------------------
