@@ -222,7 +222,9 @@
 
      MeshDisplacementActive = ListGetLogical( Solver % Values,  &
                'Displace Mesh', Found )
-     IF ( .NOT. Found ) MeshDisplacementActive = .TRUE.
+
+     IF ( .NOT. Found ) &
+       MeshDisplacementActive = .NOT.EigenOrHarmonicAnalysis()
 
      IF ( AllocationsDone .AND. MeshDisplacementActive ) THEN
         CALL DisplaceMesh( Solver % Mesh, Displacement, -1, DisplPerm, STDOFs )

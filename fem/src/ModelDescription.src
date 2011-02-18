@@ -3281,7 +3281,11 @@ CONTAINS
         ELSE
           MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
                  'Output Mesh Deformation', Gotit )
-          IF ( MeshMoved ) MeshScale = 0.0_dp
+          IF ( GotIt ) THEN
+            IF (MeshMoved ) MeshScale = 0.0_dp
+          ELSE
+            IF (Model % Solvers(i) % NofEigenValues>0) MeshScale=0._dp
+          END IF
         END IF
       END DO
 

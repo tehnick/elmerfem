@@ -495,7 +495,11 @@ END SUBROUTINE ResultOutputSolver
             (1:Model % Solvers(i) % Variable % NameLen) == 'displacement') THEN
           MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
               'Displace Mesh', Gotit )
-          IF ( Gotit .AND. .NOT. MeshMoved ) MeshScale = 0.0_dp
+
+          IF ( .NOT. GotIt ) &
+            MeshMoved=.NOT.EigenOrHarmonicAnalysis(Model % Solvers(i))
+
+          IF ( .NOT.MeshMoved ) MeshScale = 0.0_dp
         END IF
       END DO
       
@@ -3209,7 +3213,7 @@ CONTAINS
         FieldName, FieldName2, OutStr
     CHARACTER :: lf
     LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2, ThisOnly
-    LOGICAL :: WriteData, WriteXML
+    LOGICAL :: WriteData, WriteXML, L
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:), Perm2(:), DispPerm(:), Disp2Perm(:)
     REAL(KIND=dp), POINTER :: Values(:), DispValues(:), Disp2Values(:), Values2(:), Values3(:)
@@ -3285,9 +3289,14 @@ CONTAINS
     IF(RemoveDisp) THEN
       Solution => VariableGet( Model % Mesh % Variables, 'Displacement', ThisOnly )     
       IF( ASSOCIATED( Solution ) ) THEN
-        DispPerm => Solution % Perm
-        DispValues => Solution % Values
-        DispDofs = Solution % Dofs
+        Solver => Solution % Solver
+        L = GetLogical( GetSolverParams(Solver),'Displace Mesh',Found)
+        IF(.NOT.Found) L=.NOT.EigenOrHarmonicAnalysis(Solver)
+        IF (L) THEN
+          DispPerm => Solution % Perm
+          DispValues => Solution % Values
+          DispDofs = Solution % Dofs
+        END IF
       END IF
       
       Solution => VariableGet( Model % Mesh % Variables, 'Mesh Update', ThisOnly )     
