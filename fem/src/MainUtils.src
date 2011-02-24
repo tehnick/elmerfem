@@ -3681,25 +3681,27 @@ CONTAINS
      LOGICAL :: TransientSimulation, UpdateExported
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, TimeDerivativeActive
+     LOGICAL :: stat, Found, TimeDerivativeActive, Timing
      INTEGER :: i, j, n, BDOFs, execi, timestep
-     REAL(KIND=dp) :: st, tcond
+     REAL(KIND=dp) :: tcond, t0, rt0, st, rst, ct, CPUTime,RealTime
      TYPE(Variable_t), POINTER :: TimeVar, IterV
      CHARACTER(LEN=MAX_NAME_LEN) :: str
+     TYPE(ValueList_t), POINTER :: Params
 
      SAVE TimeVar
 !------------------------------------------------------------------------------
 
      CALL SetCurrentMesh( Model, Solver % Mesh )
      Model % Solver => Solver
+     Params => Solver % Values
 
-     st = ListGetConstReal( Solver % Values, 'Start Time', Found )
+     st = ListGetConstReal( Params, 'Start Time', Found )
      IF ( Found ) THEN
        TimeVar => VariableGet( Model % Variables, 'Time' )
        IF ( TimeVar % Values(1) < st ) RETURN
      END IF
 
-     execi = ListGetInteger( Solver % Values, 'Exec Interval', Found )
+     execi = ListGetInteger( Params, 'Exec Interval', Found )
      IF ( Found ) THEN
        TimeVar => VariableGet( Model % Variables, 'Timestep' )
        execi = MOD( NINT(Timevar % Values(1))-1, execi )
@@ -3707,23 +3709,29 @@ CONTAINS
      END IF
 
 !------------------------------------------------------------------------------
+
+     Timing = ListGetLogical(Params,'Solver Timing',Found)
+     IF( Timing ) THEN
+       t0 = CPUTime(); rt0 = RealTime()
+     END IF
+
      Solver % Mesh % OutputActive = .TRUE.
      TimeDerivativeActive = TransientSimulation
 
      ! This is to avoid resetting of certain info that could be interesting
      ! when saving data.
-     IF(.NOT. ListGetLogical( Solver % Values,'Auxiliary Solver',Found)) THEN
-       DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
+     IF(.NOT. ListGetLogical( Params,'Auxiliary Solver',Found)) THEN
+       DTScal = ListGetConstReal( Params, 'Timestep Scale', Found )
        IF ( .NOT. Found ) DTScal = 1.0_dp
        Solver % dt = DtScal * dt 
 
        IF ( TransientSimulation ) THEN
          TimeDerivativeActive = &
-           ListGetLogical( Solver % Values, 'Time Derivative Active', Found )
+           ListGetLogical( Params, 'Time Derivative Active', Found )
 
          IF ( .NOT. Found ) THEN
            TimeDerivativeActive = .TRUE.
-           tcond = ListGetCReal(Solver % Values,'Time Derivative Condition',Found)
+           tcond = ListGetCReal(Params,'Time Derivative Condition',Found)
            IF ( Found ) TimeDerivativeActive = TimeDerivativeActive .AND. tcond>0
          END IF
        END IF
@@ -3731,7 +3739,7 @@ CONTAINS
        iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
        iterV % Values(1) = 1
 
-       str = ListGetString( Solver % Values, 'Namespace', Found )
+       str = ListGetString( Params, 'Namespace', Found )
        IF (Found) CALL ListSetNamespace(TRIM(str))
      END IF
 
@@ -3746,6 +3754,35 @@ CONTAINS
    
      CALL ListSetNamespace('')
      Solver % dt = dt
+
+
+!------------------------------------------------------------------------------
+     IF( Timing ) THEN
+       st  = CPUTime() - t0;
+       rst = RealTime() - rt0
+
+       str = ListGetString( Params,'Equation',Found)
+       CALL ListAddConstReal(CurrentModel % Simulation,'res: solver cpu time '&
+              //TRIM(str),st)
+       CALL ListAddConstReal(CurrentModel % Simulation,'res: solver real time '&
+              //TRIM(str),rst)
+       WRITE(Message,'(a,f8.2,f8.2,a)') 'Solver time (CPU,REAL) for '&
+        //TRIM(str)//': ',st,rst,' (s)'
+       CALL Info('SolverActivate',Message)    
+
+       IF( ListGetLogical(Params,'Solver Timing Cumulative',Found)) THEN
+          ct = ListGetConstReal(CurrentModel % Simulation,'res: cum solver cpu time '&
+                //TRIM(str),Found)
+          st = st + ct
+          ct = ListGetConstReal(CurrentModel % Simulation,'res: cum solver real time '&
+                //TRIM(str),Found)
+          rst = rst + ct
+          CALL ListAddConstReal(CurrentModel % Simulation,'res: cum solver cpu time '&
+              //TRIM(str),st)
+          CALL ListAddConstReal(CurrentModel % Simulation,'res: cum solver real time '&
+              //TRIM(str),rst)
+        END IF 
+      END IF
 
 !------------------------------------------------------------------------------
    END SUBROUTINE SolverActivate
