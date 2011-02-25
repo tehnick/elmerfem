@@ -481,13 +481,15 @@ CONTAINS
   INCLUDE 'mpif.h'
 
   INTEGER, ALLOCATABLE :: Owner(:)
-  INTEGER :: i,j,n,ip,ierr
+  INTEGER :: i,j,n,ip,ierr,icntlft
   LOGICAL :: Factorize, FreeFactorize, stat
 
   INTEGER, ALLOCATABLE :: memb(:)
   INTEGER :: Comm_active, Group_active, Group_world
 
   REAL(KIND=dp), ALLOCATABLE :: dbuf(:)
+      
+
 
   IF ( PRESENT(Free_Fact) ) THEN
     IF ( Free_Fact ) THEN
@@ -561,6 +563,11 @@ CONTAINS
     A % MumpsID % icntl(3)  = 0 ! supress statistics
     A % MumpsID % icntl(4)  = 1 ! the same as the two above, but doesn't seem to work.
     A % MumpsID % icntl(5)  = 0 ! matrix format 'assembled'
+
+    icntlft=ListGetConstReal(Solver % Values, 'mumps percentage increase working space', stat)
+    IF (stat) THEN
+       A % MumpsID % icntl(14) = icntlft
+    END IF
     A % MumpsID % icntl(18) = 3 ! 'distributed' matrix 
     A % MumpsID % icntl(21) = 1 ! 'distributed' solution phase
 
