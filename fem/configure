@@ -1420,7 +1420,7 @@ Optional Packages:
   --with-stdcxxlib=<lib>  use std c++ library <lib>
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
   --with-mpi=yes  Use mpi (by default disabled)
-  --with-mpi-dir=MPIDIR   give the path for MPI /usr/local/mpich
+  --with-mpi-dir=MPIDIR   give the path for MPI
   --with-mpi-lib-dir=dir  give the path for MPI-libraries MPI_DIR/lib
   --with-mpi-inc-dir=dir  give the path for MPI-include-files MPI_DIR/include
   --with-mpi-library=library  give MPI-libraray-files
@@ -10641,7 +10641,7 @@ echo $ECHO_N "checking for mpi-directory... $ECHO_C" >&6; }
 if test "${with_mpi_dir+set}" = set; then
   withval=$with_mpi_dir; acx_mpi_ok=no; mpi_dir="$withval"
 else
-  mpi_dir="/usr/local/mpich"
+  mpi_dir=""
 fi
 
   { echo "$as_me:$LINENO: result: $mpi_dir" >&5
@@ -10655,7 +10655,10 @@ echo $ECHO_N "checking for mpi-lib-directory... $ECHO_C" >&6; }
 if test "${with_mpi_lib_dir+set}" = set; then
   withval=$with_mpi_lib_dir; acx_mpi_ok=no; mpi_lib_dir="$withval"
 else
-  mpi_lib_dir="$mpi_dir/lib"
+  if test "$mpi_dir" != ""; then
+     mpi_lib_dir="$mpi_dir/lib"
+    fi
+
 fi
 
   { echo "$as_me:$LINENO: result: $mpi_lib_dir" >&5
@@ -10669,7 +10672,10 @@ echo $ECHO_N "checking for mpi-inc-directory... $ECHO_C" >&6; }
 if test "${with_mpi_inc_dir+set}" = set; then
   withval=$with_mpi_inc_dir; acx_mpi_ok=no; mpi_inc_dir="$withval"
 else
-  mpi_inc_dir="$mpi_dir/include"
+  if test "$mpi_dir" != ""; then
+     mpi_inc_dir="$mpi_dir/include"
+    fi
+
 fi
 
   { echo "$as_me:$LINENO: result: $mpi_inc_dir" >&5
@@ -10783,10 +10789,16 @@ ac_compiler_gnu=$ac_cv_f77_compiler_gnu
 
 	{ echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
-	old_CFLAGS=${CFLAGS}
+	old_FFLAGS=${FFLAGS}
 	old_LIBS=${LIBS}
-	CFLAGS="-I$mpi_inc_dir $mpi_include"
-	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
+	FFLAGS="$mpi_include"
+        if test "$mpi_inc_dir" != ""; then
+	  FFLAGS="-I$mpi_inc_dir $FFLAGS"
+        fi
+	LIBS="$lib_mpi $SYS_LDFLAGS"
+        if test "$mpi_inc_dir" != ""; then
+	  LIBS="-L$mpi_lib_dir $LIBS"
+        fi
 	cat >conftest.$ac_ext <<_ACEOF
         PROGRAM test
                  INCLUDE "mpif.h"
@@ -10830,7 +10842,7 @@ fi
 
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
-	CFLAGS=${old_CFLAGS}
+	FFLAGS=${old_FFLAGS}
 	LIBS=${old_LIBS}
 	ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -10876,6 +10888,7 @@ fi
 
       else
         acx_mpif_h_found=yes
+        MPI_INCLUDE_DIR=$mpi_inc_dir
       fi
     else
        MPI_INCLUDE=$mpi_include
@@ -10943,6 +10956,7 @@ done
 
 if test "$MPI_INCLUDE_DIR" != ""; then
    FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
+   CPPFLAGS="$CPPFLAGS -I$MPI_INCLUDE_DIR"
    FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
    CFLAGS="$CFLAGS -I$MPI_INCLUDE_DIR"
    FCFLAGS="$FCFLAGS -I$MPI_INCLUDE_DIR"
@@ -10950,6 +10964,7 @@ fi
 
 if test "$MPI_INCLUDE" != ""; then
    FCPPFLAGS="$FCPPFLAGS $MPI_INCLUDE"
+   CPPFLAGS="$CPPFLAGS $MPI_INCLUDE"
    FFLAGS="$FFLAGS $MPI_INCLUDE"
    CFLAGS="$CFLAGS $MPI_INCLUDE"
    FCFLAGS="$FCFLAGS $MPI_INCLUDE"
