@@ -25,22 +25,30 @@ AC_DEFUN([ACX_MPI], [
 
   AC_MSG_CHECKING([for mpi-directory])
   AC_ARG_WITH(mpi_dir,
-    [  --with-mpi-dir=MPIDIR   give the path for MPI [/usr/local/mpich]],
-    acx_mpi_ok=no; mpi_dir="$withval", mpi_dir="/usr/local/mpich")
+    [  --with-mpi-dir=MPIDIR   give the path for MPI []],
+    acx_mpi_ok=no; mpi_dir="$withval", mpi_dir="")
   AC_MSG_RESULT([$mpi_dir])
   AC_SUBST([mpi_dir])
 
   AC_MSG_CHECKING([for mpi-lib-directory])
   AC_ARG_WITH(mpi_lib_dir,
     [  --with-mpi-lib-dir=dir  give the path for MPI-libraries [MPI_DIR/lib]],
-    acx_mpi_ok=no; mpi_lib_dir="$withval", mpi_lib_dir="$mpi_dir/lib")
+    acx_mpi_ok=no; mpi_lib_dir="$withval", 
+    if test "$mpi_dir" != ""; then
+     mpi_lib_dir="$mpi_dir/lib"
+    fi
+    )
   AC_MSG_RESULT([$mpi_lib_dir])
   AC_SUBST([mpi_lib_dir])
 
   AC_MSG_CHECKING([for mpi-inc-directory])
   AC_ARG_WITH(mpi_inc_dir,
     [  --with-mpi-inc-dir=dir  give the path for MPI-include-files [MPI_DIR/include]],
-    acx_mpi_ok=no; mpi_inc_dir="$withval", mpi_inc_dir="$mpi_dir/include")
+    acx_mpi_ok=no; mpi_inc_dir="$withval", 
+    if test "$mpi_dir" != ""; then
+     mpi_inc_dir="$mpi_dir/include"
+    fi
+  )
   AC_MSG_RESULT([$mpi_inc_dir])
   AC_SUBST([mpi_inc_dir])
 
@@ -121,10 +129,16 @@ AC_DEFUN([ACX_MPI], [
     if test "$acx_mpi_try_c_compile" != "no"; then
 	AC_LANG_PUSH(Fortran 77)
 	AC_MSG_CHECKING([for compilation of an MPI program])
-	old_CFLAGS=${CFLAGS}
+	old_FFLAGS=${FFLAGS}
 	old_LIBS=${LIBS}
-	CFLAGS="-I$mpi_inc_dir $mpi_include"
-	LIBS="-L$mpi_lib_dir $lib_mpi $SYS_LDFLAGS"
+	FFLAGS="$mpi_include"
+        if test "$mpi_inc_dir" != ""; then
+	  FFLAGS="-I$mpi_inc_dir $FFLAGS"
+        fi
+	LIBS="$lib_mpi $SYS_LDFLAGS"
+        if test "$mpi_inc_dir" != ""; then
+	  LIBS="-L$mpi_lib_dir $LIBS"
+        fi
 	AC_COMPILE_IFELSE(
 	[        PROGRAM test
                  INCLUDE "mpif.h"
@@ -135,7 +149,7 @@ AC_DEFUN([ACX_MPI], [
 	    acx_mpi_ok=yes],
 	[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])])
 
-	CFLAGS=${old_CFLAGS}
+	FFLAGS=${old_FFLAGS}
 	LIBS=${old_LIBS}
 	AC_LANG_POP(Fortran 77)
     else
@@ -146,12 +160,15 @@ AC_DEFUN([ACX_MPI], [
     MPI_INCLUDE_DIR=""
 
     if test "$mpi_include" == ""; then
-      if test "$acx_mpi_ok" /= "yes"; then
+      if test "$acx_mpi_ok" != yes; then
         AC_CHECK_FILE($mpi_inc_dir/mpif.h, 
         [acx_mpif_h_found=yes
          MPI_INCLUDE_DIR=$mpi_inc_dir], 
         [acx_mpif_h_found=no
          MPI_INCLUDE_DIR=""])
+      else
+        acx_mpif_h_found=yes
+        MPI_INCLUDE_DIR=$mpi_inc_dir 
       fi
     else
        MPI_INCLUDE=$mpi_include
