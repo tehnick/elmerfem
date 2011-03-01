@@ -3681,8 +3681,8 @@ CONTAINS
      LOGICAL :: TransientSimulation, UpdateExported
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, TimeDerivativeActive, Timing
-     INTEGER :: i, j, n, BDOFs, execi, timestep
+     LOGICAL :: stat, Found, TimeDerivativeActive, Timing, IsPassiveBC
+     INTEGER :: i, j, n, BDOFs, execi, timestep, PassiveBcId
      REAL(KIND=dp) :: tcond, t0, rt0, st, rst, ct, CPUTime,RealTime
      TYPE(Variable_t), POINTER :: TimeVar, IterV
      CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -3742,6 +3742,31 @@ CONTAINS
        str = ListGetString( Params, 'Namespace', Found )
        IF (Found) CALL ListSetNamespace(TRIM(str))
      END IF
+
+     !------------------------------------------------------------------------------
+     !     Check for passive-active boundaries
+     !------------------------------------------------------------------------------
+     PassiveBcId = 0
+     IsPassiveBC = .FALSE.
+     DO j=1,Model % NumberOfBCs
+        IsPassiveBC = ListGetLogical( Model % BCs(j) % Values, &
+             'Passive Target',Found)
+        IF (.NOT.Found) IsPassiveBC = .FALSE.
+        IF (IsPassiveBC) THEN
+           PassiveBcId = j
+           EXIT
+        END IF
+     END DO
+     IF (PassiveBcId /= 0 .AND. IsPassiveBC) THEN
+        CALL GetPassiveBoundary( Model, Model % Mesh, PassiveBcId )
+        WRITE(Message, '(A,I2,A,I2,A)' ) &
+             'Passive element BC no. ',j, ' assigned to BC-ID no. ', &
+             PassiveBcId
+        CALL INFO('MainUtils',Message,Level=9)
+     ELSE
+        CALL INFO('Mainutils','No Passive element boundary found', Level=9)
+     END IF
+     !-------------------------------------------------------------------
 
      IF( Solver % SolverMode == SOLVER_MODE_COUPLED .OR. &
          Solver % SolverMode == SOLVER_MODE_ASSEMBLY ) THEN
