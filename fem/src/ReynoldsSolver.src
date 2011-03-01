@@ -111,7 +111,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       NoIterations, ViscosityType, CompressibilityType, added, removed
   INTEGER, POINTER :: NodeIndexes(:), PressurePerm(:)
 
-  LOGICAL, POINTER :: PeriodicNodes(:)
+!  LOGICAL, POINTER :: PeriodicNodes(:)
   LOGICAL :: GotIt, GotIt2, GotIt3, stat, AllocationsDone = .FALSE., SubroutineVisited = .FALSE., &
       UseVelocity, SideCorrection, Bubbles, PartIntSliding, Cavitation, Converged
   REAL(KIND=dp), POINTER :: Pressure(:), CavitationValues(:), LoadValues(:)
@@ -125,7 +125,8 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
   SAVE ElementNodes, Viscosity, GapHeight, Velocity, NormalVelocity, &
       Admittance, FORCE, STIFF, MASS, TimeForce, ElemPressure, AllocationsDone, &
-      PeriodicNodes, CavitationValues, LoadValues
+!      PeriodicNodes, &
+	CavitationValues, LoadValues
 
 
   CALL Info('ReynoldsSolver','---------------------------------------',Level=5)
@@ -217,25 +218,25 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         IF( ABS(CavitationValues(i)) < 1.0d-20 ) CavitationValues(i) = -1.0
       END DO
 
-      ALLOCATE(PeriodicNodes(SIZE(Pressure)))
-      PeriodicNodes = .FALSE.
+!      ALLOCATE(PeriodicNodes(SIZE(Pressure)))
+!      PeriodicNodes = .FALSE.
       
-      DO t=1, Solver % Mesh % NumberOfBoundaryElements
-        Element => GetBoundaryElement(t)
-        IF ( .NOT. ActiveBoundaryElement() ) CYCLE
-        
-        n  = GetElementNOFNodes()
-        IF ( GetElementFamily() == 1 ) CYCLE
-        
-        IF ( ANY( PressurePerm(Element % NodeIndexes(1:n)) == 0 ) ) CYCLE
-        
-        BC => GetBC()
-        IF ( ASSOCIATED( BC ) ) THEN    
-          IF( GetLogical(BC,'Periodic BC ' // TRIM(ComponentName(Solver % Variable)),GotIt) ) THEN
-            PeriodicNodes( PressurePerm(Element % NodeIndexes(1:n))) = .TRUE.
-          END IF
-        END IF
-      END DO
+!      DO t=1, Solver % Mesh % NumberOfBoundaryElements
+!        Element => GetBoundaryElement(t)
+!        IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+!        
+!        n  = GetElementNOFNodes()
+!        IF ( GetElementFamily() == 1 ) CYCLE
+!        
+!        IF ( ANY( PressurePerm(Element % NodeIndexes(1:n)) == 0 ) ) CYCLE
+!        
+!        BC => GetBC()
+!        IF ( ASSOCIATED( BC ) ) THEN    
+!          IF( GetLogical(BC,'Periodic BC ' // TRIM(ComponentName(Solver % Variable)),GotIt) ) THEN
+!            PeriodicNodes( PressurePerm(Element % NodeIndexes(1:n))) = .TRUE.
+!          END IF
+!        END IF
+!      END DO
     END IF
 
     AllocationsDone = .TRUE.
@@ -470,9 +471,10 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
     removed = 0
     IF(Cavitation) THEN
       DO i=1,SIZE(Pressure)
-        IF( PeriodicNodes(i)) THEN
-          CavitationValues(i) = -1.0
-        ELSE IF( CavitationValues(i) > 0.0 ) THEN
+!        IF( PeriodicNodes(i)) THEN
+!          CavitationValues(i) = -1.0
+!        ELSE IF( CavitationValues(i) > 0.0 ) THEN
+        IF( CavitationValues(i) > 0.0 ) THEN
           IF( LoadValues(i) > 1.0d-20 ) THEN
             removed = removed + 1
             CavitationValues(i) = -1.0
