@@ -2246,6 +2246,10 @@ CONTAINS
         END DO
       END DO
     ELSE
+      ALLOCATE(A)
+      A = StiffMatrix
+      A % RHS => A % BulkRHS
+      A % Values => A % BulkValues
       DO i=1,Projector % NumberOfRows
          ii = Projector % InvPerm(i)
          k = Perm(ii)
@@ -2260,13 +2264,21 @@ CONTAINS
                 DO nn=StiffMatrix % Rows(k),StiffMatrix % Rows(k+1)-1
                    CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
                           Projector % Values(l) * StiffMatrix % Values(nn) )
+                   IF (ASSOCIATED(A % Values)) THEN
+                     CALL AddToMatrixElement( A, m, A % Cols(nn), &
+                           Projector % Values(l) * A % Values(nn) )
+                   END IF
                 END DO
                 ForceVector(m)=ForceVector(m)+Projector % Values(l)*ForceVector(k)
+                IF (ASSOCIATED(A % RHS)) THEN
+                  A % RHS(m) = A % RHS(m) + Projector % Values(l)*A % RHS(k)
+                END IF
               END IF
             END DO
          END IF
          Done(ii) = .TRUE.
       END DO
+      DEALLOCATE(A)
     END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE SetPeriodicBoundariesPass1
@@ -2359,8 +2371,8 @@ CONTAINS
                CALL AddToMatrixElement( StiffMatrix,k,m,Projector % Values(l) )
              END IF
           END DO
-          ForceVector(k) = 0.0d0
-          CALL AddToMatrixElement( StiffMatrix, k, k, scale )
+          ForceVector(k)=0._dp
+          CALL AddToMatrixElement( StiffMatrix,k,k,scale )
        END IF
        Done(ii) = .TRUE.
     END DO
@@ -4378,14 +4390,14 @@ END FUNCTION SearchNodeL
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis
 !NeedSol
-    INTEGER :: n,i,j,k,l,istat
+    INTEGER :: n,i,j,k,l,ii,m,DOF,istat,this
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp), POINTER :: SaveValues(:)
     REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:), TempRHS(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm,Energy
-    TYPE(Matrix_t), POINTER :: Aaid
     TYPE(ValueList_t), POINTER :: Params
+    TYPE(Matrix_t), POINTER :: Aaid, Projector
 
     INTERFACE 
        SUBROUTINE VankaCreate(A,Solver)
@@ -4747,6 +4759,31 @@ END FUNCTION SearchNodeL
       ELSE
         TempVector = TempVector - Aaid % BulkRHS
       END IF
+
+      DO This=1,CurrentModel % NumberOfBCs
+        Projector=>CurrentModel  % BCs(This) % PMatrix
+        IF (ASSOCIATED(Projector))THEN
+          DO DOF=1,DOFs
+            DO i=1,Projector % NumberOfRows
+              ii = Projector % InvPerm(i)
+              k = Solver % Variable % Perm(ii)
+              IF(k<=0) CYCLE
+              k = DOFs * (k-1) + DOF
+              TempVector(k)=0
+
+              DO l = Projector % Rows(i), Projector % Rows(i+1)-1
+                IF ( Projector % Cols(l) <= 0 ) CYCLE
+                m = Solver % Variable % Perm( Projector % Cols(l) )
+                IF ( m > 0 ) THEN
+                  m = DOFs * (m-1) + DOF
+                  TempVector(k) = TempVector(k) + Projector % Values(l)*TempVector(m)
+                 END IF
+              END DO
+            END DO
+          END DO
+        END IF
+      END DO
+
       DO i=1,SIZE( NodalLoads % Perm )
         IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
            DO j=1,DOFs
