@@ -996,31 +996,6 @@
 
 1000  CONTINUE
 
-
-!------------------------------------------------------------------------------
-!     Check for passive-active boundaries
-!------------------------------------------------------------------------------
-      PassiveBcId = 0
-      IsPassiveBC = .FALSE.
-      DO j=1,Model % NumberOfBCs
-         IsPassiveBC = GetLogical( Model % BCs(j) % Values, &
-                 'Passive Target',GotIt)
-         IF (.NOT.GotIt) IsPassiveBC = .FALSE.
-         IF (IsPassiveBC) THEN
-            PassiveBcId = j
-            EXIT
-         END IF
-      END DO
-      IF (PassiveBcId /= 0 .AND. IsPassiveBC) THEN
-         CALL GetPassiveBoundary( Model, Model % Mesh, PassiveBcId )
-         WRITE(Message, '(A,I2,A,I2,A)' ) &
-              'Passive element BC no. ',j, ' assigned to BC-ID no. ', &
-              PassiveBcId
-         CALL INFO('HeatSolve',Message,Level=9)
-      ELSE
-         CALL INFO('HeatSolve','No Passive element boundary found', Level=9)
-      END IF
-
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
