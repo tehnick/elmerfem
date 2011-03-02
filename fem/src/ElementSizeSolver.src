@@ -47,6 +47,8 @@ SUBROUTINE ElementSizeSolver( Model,Solver,dt,TransientSimulation )
   SAVE STIFF, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
 
+  CALL Info('ElementSizeSolver','Computing nodal element size indicator')
+
   Mesh => GetMesh()
   Params => Solver % Values
 
@@ -133,9 +135,9 @@ CONTAINS
        !------------------------------------------
        LoadAtIP = DetJ ** Power
        IF( NoWeight ) THEN
-         Weight = IP % s(t) * DetJ
+         Weight = IP % s(t) 
        ELSE
-         Weight = IP % s(t)
+         Weight = IP % s(t) * DetJ
        END IF
 
        ElemMin = MIN( ElemMin, LoadAtIP )
