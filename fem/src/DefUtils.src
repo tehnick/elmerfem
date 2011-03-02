@@ -230,6 +230,61 @@ CONTAINS
      v => VariableGet( v, 'timestep size')
      st = v % Values(1)
   END FUNCTION GetTimestepSize
+  
+  FUNCTION GetAngularFrequency(ValueList,Found) RESULT(w)
+    REAL(KIND=dp) :: w
+    TYPE(ValueList_t), POINTER, OPTIONAL :: ValueList
+    LOGICAL, OPTIONAL :: Found
+    LOGICAL :: GotIt
+    TYPE(Element_t), POINTER :: Element
+    INTEGER :: elem_id,eq_id
+
+    ! This is rather complicated since it should replace all the various strategies
+    ! that have been used in different solvers.
+    !------------------------------------------------------------------------------
+
+    ! The only way frequency may depend on element is that it sits in equation block
+    !--------------------------------------------------------------------------------
+    IF( PRESENT( ValueList ) ) THEN
+      w = 2 * PI * ListGetCReal( ValueList,'Frequency',GotIt)
+      IF(.NOT. GotIt) w = ListGetCReal( ValueList,'Angular Frequency',GotIt)
+    ELSE
+      GotIt = .FALSE.
+    END IF
+
+
+    ! Normally the constant frequency is given in Simulation (or solver) block
+    !-------------------------------------------------------------------------
+    IF(.NOT. GotIt) w = 2 * PI * ListGetCReal( &
+        CurrentModel % Simulation,'Frequency',GotIt)
+    IF(.NOT. GotIt ) w = ListGetCReal( &
+        CurrentModel % Simulation,'Angular Frequency',GotIt)
+
+    IF(.NOT. GotIt ) w = 2 * PI * ListGetCReal( &
+        CurrentModel % Solver % Values,'Frequency',GotIt)
+    IF(.NOT. GotIt ) w = ListGetCReal( &
+        CurrentModel % Solver % Values,'Angular Frequency',GotIt)
+
+    ! It seems that the equation section is used to allow compliance with ElmerGUI
+    !------------------------------------------------------------------------------
+    IF( .NOT. GotIt ) THEN
+      elem_id = CurrentModel % Solver % ActiveElements(1)
+      Element => CurrentModel % Elements(elem_id)
+      eq_id = ListGetInteger( CurrentModel % Bodies(Element % bodyid) % Values,'Equation')
+      w = 2 * PI * ListGetCReal( &
+          CurrentModel % Equations(eq_id) % Values,'Frequency',GotIt)
+      IF(.NOT. GotIt) w = ListGetCReal( &
+          CurrentModel % Equations(eq_id) % Values,'Angular Frequency',GotIt)
+    END IF
+
+    IF( PRESENT( Found ) ) THEN
+      Found = GotIt
+    ELSE IF(.NOT. GotIt ) THEN
+      CALL Info('GetAngularFrequency','Angular frequency could not be determined!')
+    END IF
+
+  END FUNCTION GetAngularFrequency
+
 
   FUNCTION GetCoupledIter() RESULT(st)
      INTEGER :: st
@@ -724,7 +779,7 @@ CONTAINS
     
     Element => GetCurrentElement(Uelement)
 
-    IF( Present(UParent) ) NULLIFY( UParent )
+    IF( PRESENT(UParent) ) NULLIFY( UParent )
 
     n = GetElementNOFNodes(Element)
     Indexes => Element % NodeIndexes
@@ -744,14 +799,14 @@ CONTAINS
          Material => GetMaterial(Parent)
          IF ( ListCheckPresent( Material,Name) ) THEN
            x(1:n) = ListGetReal(Material, Name, n, Indexes)
-           IF( Present( UParent ) ) UParent => Parent
+           IF( PRESENT( UParent ) ) UParent => Parent
            Gotit = .TRUE.
            EXIT
          END IF
        END IF
     END DO
     
-    IF( Present( Found ) ) THEN
+    IF( PRESENT( Found ) ) THEN
        Found = GotIt
     ELSE IF(.NOT. GotIt) THEN
        CALL Warn('GetParentMatProp','Property '//TRIM(Name)//' not in either parents!')
@@ -941,7 +996,7 @@ CONTAINS
      TYPE(Element_t), POINTER :: CurrElement
 
      CurrElement => GetCurrentElement(Element)
-     etype = CurrElement % Type % ElementCode
+     etype = CurrElement % TYPE % ElementCode
   END FUNCTION GetElementCode
 
 
@@ -963,7 +1018,7 @@ CONTAINS
      TYPE(Element_t), POINTER :: CurrElement
 
      CurrElement => GetCurrentElement(Element)
-     n = CurrElement % Type % NumberOfNodes
+     n = CurrElement % TYPE % NumberOfNodes
   END FUNCTION GetELementNOFNodes
 
 
@@ -1133,15 +1188,15 @@ CONTAINS
            IF ( isPElement(Element) ) THEN
              Ind=Element % PDefs % LocalNumber
            ELSE
-             DO Ind=1,Parent % Type % NumberOfEdges
+             DO Ind=1,Parent % TYPE % NumberOfEdges
                Edge => Solver % Mesh % Edges(Parent % EdgeIndexes(ind))
                k = 0
-               DO i=1,Edge % Type % NumberOfNodes
-                 DO j=1,Element % Type % NumberOfNodes
+               DO i=1,Edge % TYPE % NumberOfNodes
+                 DO j=1,Element % TYPE % NumberOfNodes
                    IF ( Edge % NodeIndexes(i)==Element % NodeIndexes(j) ) k=k+1
                  END DO
                END DO
-               IF ( k==Element % Type % NumberOfNodes) EXIT
+               IF ( k==Element % TYPE % NumberOfNodes) EXIT
              END DO
            END IF
 
@@ -1158,15 +1213,15 @@ CONTAINS
            IF ( isPElement(Element) ) THEN
              Ind=Element % PDefs % LocalNumber
            ELSE
-             DO Ind=1,Parent % Type % NumberOfFaces
+             DO Ind=1,Parent % TYPE % NumberOfFaces
                Face => Solver % Mesh % Faces(Parent % FaceIndexes(ind))
                k = 0
-               DO i=1,Face % Type % NumberOfNodes
-                 DO j=1,Element % Type % NumberOfNodes
+               DO i=1,Face % TYPE % NumberOfNodes
+                 DO j=1,Element % TYPE % NumberOfNodes
                    IF ( Face % NodeIndexes(i)==Element % NodeIndexes(j)) k=k+1
                  END DO
                END DO
-               IF ( k==Element % Type % NumberOfNodes) EXIT
+               IF ( k==Element % TYPE % NumberOfNodes) EXIT
              END DO
            END IF
 
@@ -1246,7 +1301,7 @@ CONTAINS
        ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
      END IF
 
-     n = Element % Type % NumberOfNodes
+     n = Element % TYPE % NumberOfNodes
      ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(Element % NodeIndexes)
      ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(Element % NodeIndexes)
      ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(Element % NodeIndexes)
@@ -3038,8 +3093,8 @@ CONTAINS
            ptr => ListFind(BC, Name,Found )
            IF ( .NOT. ASSOCIATED(ptr) ) CYCLE
 
-           ConstantValue =  ptr % Procedure == 0 .AND. &
-             ptr % type == LIST_TYPE_CONSTANT_SCALAR
+           ConstantValue =  ptr % PROCEDURE == 0 .AND. &
+             ptr % TYPE == LIST_TYPE_CONSTANT_SCALAR
            
            ! Get indexes for boundary and values for dofs associated to them
            n = GetElementNOFNodes()
@@ -3103,19 +3158,19 @@ CONTAINS
              IF ( ASSOCIATED( Solver % Mesh % Edges ) ) THEN
                SELECT CASE(GetElementFamily())
                CASE(1,2)
-                 DO j=1,Parent % Type % NumberOfEdges
+                 DO j=1,Parent % TYPE % NumberOfEdges
                    Edge => Solver % Mesh % Edges(Parent % EdgeIndexes(j))
                    n = 0
-                   DO k=1,Element % Type % NumberOfNodes
-                     DO l=1,Edge % Type % NumberOfNodes
+                   DO k=1,Element % TYPE % NumberOfNodes
+                     DO l=1,Edge % TYPE % NumberOfNodes
                        IF ( Element % NodeIndexes(k)==Edge % NodeIndexes(l)) n=n+1
                      END DO
                    END DO
-                   IF ( n==Element % Type % NumberOfNodes ) EXIT
+                   IF ( n==Element % TYPE % NumberOfNodes ) EXIT
                  END DO
 
-                 nb = Parent % Type % NumberOfNodes
-                 n  =  Edge % Type % NumberOfNodes
+                 nb = Parent % TYPE % NumberOfNodes
+                 n  =  Edge % TYPE % NumberOfNodes
                  CALL LocalBcIntegral(BC,Edge,n,Parent,nb,TRIM(Name)//' {e}',Work(1))
 
                  n=GetElementDOFs(gInd,Edge)
@@ -3132,23 +3187,23 @@ CONTAINS
                    END IF
                  END DO
                CASE(3,4)
-                 DO j=1,Parent % Type % NumberOfFaces
+                 DO j=1,Parent % TYPE % NumberOfFaces
                    Face => Solver % Mesh % Faces(Parent % FaceIndexes(j))
-                   IF (Element % Type % ElementCode==Face % Type % ElementCode) THEN
+                   IF (Element % TYPE % ElementCode==Face % TYPE % ElementCode) THEN
                      n = 0
-                     DO k=1,Element % Type % NumberOfNodes
-                       DO l=1,Face % Type % NumberOfNodes
+                     DO k=1,Element % TYPE % NumberOfNodes
+                       DO l=1,Face % TYPE % NumberOfNodes
                          IF ( Element % NodeIndexes(k)==Face % NodeIndexes(l)) n=n+1
                        END DO
                      END DO
-                     IF ( n==Element % Type % NumberOfNodes ) EXIT
+                     IF ( n==Element % TYPE % NumberOfNodes ) EXIT
                    END IF
                  END DO
 
-                 DO j=1,Face % Type % NumberOfEdges
+                 DO j=1,Face % TYPE % NumberOfEdges
                    Edge => Solver % Mesh % Edges(Face % EdgeIndexes(j))
-                   nb = Edge % Type % NumberOfNodes
-                   n  = Parent % Type % NumberOfNodes
+                   nb = Edge % TYPE % NumberOfNodes
+                   n  = Parent % TYPE % NumberOfNodes
                    CALL LocalBcIntegral( BC, Edge, nb, Parent, &
                           n, TRIM(Name)//' {e}', Work(1) )
 
@@ -3169,7 +3224,7 @@ CONTAINS
                END SELECT
              END IF
            ELSE IF ( ListCheckPresent(BC, TRIM(Name)//' {f}') ) THEN
-             n = Element % Type % NumberOfNodes
+             n = Element % TYPE % NumberOfNodes
 !            CALL LocalBcIntegral( BC, Element, n, Name//' {f}', Work(1),Work(2) )
 
              n=GetElementDOFs(gInd)
@@ -3187,11 +3242,11 @@ CONTAINS
            IF ( .NOT. ASSOCIATED( Parent % pDefs ) ) CYCLE
 
            ptr => ListFind(BC, Name,Found )
-           ConstantValue =  ptr % Procedure == 0 .AND. &
-             ptr % type == LIST_TYPE_CONSTANT_SCALAR
+           ConstantValue =  ptr % PROCEDURE == 0 .AND. &
+             ptr % TYPE == LIST_TYPE_CONSTANT_SCALAR
            IF ( ConstantValue ) CYCLE
 
-           SELECT CASE(Parent % Type % Dimension)
+           SELECT CASE(Parent % TYPE % DIMENSION)
            CASE(2)
               ! If no edges do not try to set boundary conditions
               ! @todo This should changed to EXIT
@@ -3201,7 +3256,7 @@ CONTAINS
               IF (Element % BDOFs <= 0) CYCLE
 
               ! Number of nodes for this element
-              n = Element % Type % NumberOfNodes
+              n = Element % TYPE % NumberOfNodes
               
               ! Get indexes for boundary and values for dofs associated to them
               CALL getBoundaryIndexes( Solver % Mesh, Element, Parent, gInd, numEdgeDofs )
@@ -3262,7 +3317,7 @@ CONTAINS
               IF ( .NOT. ASSOCIATED( Solver % Mesh % Faces ) ) CYCLE
 
               ! Parameters of element
-              n = Element % Type % NumberOfNodes
+              n = Element % TYPE % NumberOfNodes
               
               ! Get global boundary indexes and solve dofs associated to them
               CALL getBoundaryIndexes( Solver % Mesh, Element,  &
@@ -3417,8 +3472,8 @@ CONTAINS
     G(3) = PNodes % z(k) - PNodes % z(j)
     G = G/SQRT(SUM(G**2))
 
-    SavedType => Element % Type
-    IF ( GetElementFamily()==1 ) Element % Type=>GetElementType(202)
+    SavedType => Element % TYPE
+    IF ( GetElementFamily()==1 ) Element % TYPE=>GetElementType(202)
       
     Integral = 0._dp
     IP = GaussPoints(Element)
@@ -3431,7 +3486,7 @@ CONTAINS
       VL = MATMUL(Vload(:,1:nd),Basis(1:nd))
       Integral=Integral+s*(L+SUM(VL*G))
     END DO
-    Element % Type => SavedType
+    Element % TYPE => SavedType
 
     j = Parent % NodeIndexes(j)
     IF ( ParEnv % PEs>1 ) &

@@ -69,6 +69,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
+  USE DefUtils
   USE Types
   USE Lists
 
@@ -206,22 +207,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------
 ! Figure out angular frequency:
 !------------------------------
-  AngularFrequency = 0.0d0
-
-  NodeIndexes => Solver % Mesh % Elements(1) % NodeIndexes
-
-  Work(1:1) = ListGetReal( Model % Simulation, &
-     'Angular Frequency', 1, NodeIndexes, GotIt )
-
-  IF ( GotIt ) THEN
-     AngularFrequency = Work(1)
-  ELSE
-     Work(1:1) = ListGetReal( Model % Simulation, &
-            'Frequency', 1, NodeIndexes )
-
-     AngularFrequency = 2*PI*Work(1)
-  END IF
-
+  AngularFrequency = GetAngularFrequency()
 
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source

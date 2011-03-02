@@ -201,7 +201,7 @@
           CALL Fatal('StatMagSolver','For harmonic simulation there must be two components for the vector potential!')
         END IF
         Solver % Matrix % COMPLEX = .TRUE.
-        AngularFrequency = ListGetConstReal( Solver % Values, 'Angular Frequency')
+        AngularFrequency = GetAngularFrequency()
       ELSE 
         IF( dofs /= 1) THEN
           CALL Fatal('StatMagSolver','For 2d steady-state cases there should be just one component for vector potential!')
@@ -497,7 +497,7 @@
 
    IF(HarmonicSimulation .AND. CalculateJouleHeating) THEN
     
-     jc = 0.5_dp * (2.0*PI*AngularFrequency)**2
+     jc = 0.5_dp * AngularFrequency**2
      
      DO i=1, Model % NumberofNodes
        j = MagneticPerm(i) 
@@ -750,7 +750,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE HarmMagAxisCompose( &
        StiffMatrix,ForceVector,CurrentDensity,NodalAngle,NodalReluctivity, NodalConductivity,&
-       Frequency,Element,n,Nodes)
+       Wang,Element,n,Nodes)
 
 !------------------------------------------------------------------------------
 
@@ -763,7 +763,7 @@ CONTAINS
      REAL (KIND=DP),TARGET :: StiffMatrix(:,:), ForceVector(:)
      REAL (KIND=DP) :: NodalReluctivity(:), NodalAngle(:), Reluctivity, &
          NodalConductivity(:), Conductivity, Angle
-     REAL (KIND=DP) :: CurrentDensity(:), Frequency
+     REAL (KIND=DP) :: CurrentDensity(:),Wang
      
      INTEGER :: n
      
@@ -776,7 +776,7 @@ CONTAINS
 
      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
      REAL (KIND=DP) :: SqrtElementMetric     
-     REAL (KIND=DP) :: Force,r,wang,a11,a21,a12,a22
+     REAL (KIND=DP) :: Force,r,a11,a21,a12,a22
      REAL (KIND=DP), POINTER :: A(:,:),M(:,:),Load(:)
      
      INTEGER :: DIM,t,i,j,p,q     
@@ -794,8 +794,6 @@ CONTAINS
 
      ForceVector = 0.0D0
      StiffMatrix = 0.0D0
-
-     wang = 2.0*PI*Frequency
 
 !------------------------------------------------------------------------------
 !    Integration stuff

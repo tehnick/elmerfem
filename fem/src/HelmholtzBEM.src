@@ -185,19 +185,7 @@
 !------------------------------------------------------------------------------
 ! Figure out angular frequency:
 !------------------------------------------------------------------------------
-  AngularFrequency = 0.0d0
-
-  NodeIndexes => Solver % Mesh % Elements(1) % NodeIndexes
-
-  Work(1:1) = ListGetReal( Model % Simulation, &
-     'Angular Frequency', 1, NodeIndexes, GotIt )
-
-  AngularFrequency = Work(1)
-
-  IF ( .NOT. GotIt ) THEN
-     Work(1:1) = ListGetReal( Model % Simulation, 'Frequency', 1, NodeIndexes )
-     AngularFrequency = 2*PI*Work(1)
-  END IF
+     AngularFrequency = GetAngularFrequency()
 
 
 !------------------------------------------------------------------------------

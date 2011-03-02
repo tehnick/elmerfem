@@ -154,29 +154,11 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !
 ! Figure out angular frequency:
 !------------------------------
-  AngularFrequency = 0.0d0
 
-  Element => GetActiveElement(1)
   n = GetElementNOFNodes()
   Simulation => GetSimulation()
-  Work(1:n) = GetReal( Simulation, 'Angular Frequency', Found )
 
-  IF ( Found ) THEN
-     AngularFrequency = Work(1)
-  ELSE
-     Work(1:n) = GetReal( GetSimulation(), 'Frequency', Found )
-     IF ( Found ) THEN
-        AngularFrequency = 2*PI*Work(1)
-     ELSE
-        Work(1:n) = GetReal( GetEquation(), 'Angular Frequency', Found )
-        IF (  Found ) THEN
-           AngularFrequency = Work(1)
-        ELSE
-           Work(1:n) = GetReal( GetEquation(), 'Frequency', Found )
-           AngularFrequency = 2*PI*Work(1)
-        END IF
-     END IF
-  END IF
+  AngularFrequency = GetAngularFrequency()
 
   ! This is for Save Data:
   ! ----------------------
@@ -233,15 +215,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !       Get equation & material parameters:
 !       -----------------------------------
         Equation => GetEquation()
-        Work(1:n) = GetReal( Equation, 'Angular Frequency', Found )
-        IF ( Found ) THEN
-           AngularFrequency = Work(1)
-        ELSE
-           Work(1:n) = GetReal(  Equation, 'Frequency', Found )
-           Work(1:n) = 2 * PI * Work(1:n)
-        END IF
-
         Material => GetMaterial()
+
         Damping(1:n)    = GetReal( Material, 'Sound Damping', Found )
         SoundSpeed(1:n) = GetReal( Material, 'Sound Speed', Found )
 

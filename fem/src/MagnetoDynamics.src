@@ -1784,8 +1784,7 @@ SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
      AllocationsDone = .TRUE.
   END IF
   
-  Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
-  IF(.NOT. Found) Omega = GetCReal( Model % Simulation,'Angular Frequency')  
+  Omega = GetAngularFrequency()
 
   ! System assembly:
   !-----------------
@@ -3158,8 +3157,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    ALLOCATE( MASS(n,n), FORCE(n,DOFs) ) 
    SOL = 0._dp; PSOL=0._dp
 
-   Omega = GetCReal( GetSolverParams(), 'Angular Frequency', Found )
-   IF(.NOT. Found) Omega = GetCReal( Model % Simulation,'Angular Frequency', Found)
+   Omega = GetAngularFrequency()
 
    C = 0._dp; R=0._dp; PR=0._dp
    Magnetization = 0._dp
