@@ -1384,7 +1384,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     INTEGER, POINTER :: NodeIndexes(:), IndNodes(:)
     INTEGER, ALLOCATABLE :: Indexes(:)
-    INTEGER :: BC,i,j,k,l,n,t,k1,k2,OffSet
+    INTEGER :: BC,i,j,k,l,m,n,t,k1,k2,OffSet
     LOGICAL :: GotIt, periodic, OrderByBCNumbering
     REAL(KIND=dp), POINTER :: WorkA(:,:,:) => NULL()
     REAL(KIND=dp) ::  s
@@ -1557,6 +1557,7 @@ CONTAINS
           DO BC=1,Model % NumberOfBCs
             IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
             Conditional = ActiveCond(BC)
+print*,conditional,bc
             
             Element => Model % Elements(t)
             IF ( Element % BoundaryInfo % Constraint /= &
@@ -1591,7 +1592,7 @@ CONTAINS
       ActivePartAll(bf_id) = ListCheckPresent(ValueList, Name(1:nlen) // ' DOFs' ) 
       ActiveCond(bf_id) = ListCheckPresent( ValueList,CondName )      
 
-      Passive = Passive .OR. ListCheckPresent( ValueList, PassName )
+      Passive = Passive .OR. ListCheckPresent(ValueList, PassName)
     END DO
 
     
@@ -1615,7 +1616,7 @@ CONTAINS
         CALL SetElementValues( n,t )
       END DO
     END IF
-    DEALLOCATE(ActivePart, ActiveCond, Indexes)
+    DEALLOCATE(ActivePart, ActiveCond)
 
 !------------------------------------------------------------------------------
 ! Go through the pointwise Dirichlet BCs that are created on-the-fly
@@ -1757,10 +1758,28 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     IF ( Passive ) THEN
-      DO i = 1, A % NumberOfRows
-        IF ( ABS(A % Values( A % Diag(i) ) ) < 1.0e-14 ) THEN
-          A % Values( A % Diag(i) ) = 1.0d0
-          b(i) = Model % Solver % Variable % Values(i)
+!     DO i = 1, A % NumberOfRows
+!       IF ( ABS(A % Values(A % Diag(i)))<=EPSILON(1._dp) ) THEN
+!         A % Values(A % Diag(i)) = 1.0_dp
+!         b(i) = Model % Solver % Variable % Values(i)
+!       END IF
+!     END DO
+      DO i=1,Model % Solver % NumberOfActiveElements
+        Element => Model % Elements(Model % Solver % ActiveElements(i))
+        IF (CheckPassiveElement(Element)) THEN
+          n=sGetElementDOFs(Indexes,UElement=Element)
+          DO j=1,n
+            k=Indexes(j)
+            IF (k<=0) CYCLE
+            k=Model % Solver % Variable % Perm(k)
+            IF (k<=0) CYCLE
+            DO l=1,Model % Solver % Variable % DOFs
+              m=Model % Solver % Variable % DOFs*(k-1)+l
+              CALL ZeroRow(a,m)
+              A % Values(a % diag(m))=1._dp
+              b(m)=Model  % Solver % Variable % Values(m)
+            END DO
+          END DO
         END IF
       END DO
     END IF
