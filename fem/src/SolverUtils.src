@@ -389,12 +389,13 @@ CONTAINS
 
     ALLOCATE(arr(n)); cnt=0
     DO i=1,n
-      P2 => Faces(i) % BoundaryInfo % Right
-      P1 => Faces(i) % BoundaryInfo % Left
+      P1 => Faces(i) % BoundaryInfo % Right
+      P2 => Faces(i) % BoundaryInfo % Left
       IF ( .NOT. ASSOCIATED(P1) .OR. .NOT. ASSOCIATED(P2) ) CYCLE
 
       L1 = CheckPassiveElement(P1)
       L2 = CheckPassiveElement(P2)
+
       IF ( L1.NEQV.L2) THEN
         cnt = cnt+1
         arr(cnt) = i
@@ -433,7 +434,7 @@ CONTAINS
              Mesh % Elements(Face % BoundaryInfo % Left % ElementIndex)
         IF ( ASSOCIATED(Face % BoundaryInfo % Right ) ) &
           Face % BoundaryInfo % Right => &
-             Mesh % Elements(Face % BoundaryInfo % Left % ElementIndex)
+             Mesh % Elements(Face % BoundaryInfo % Right % ElementIndex)
       END DO
 
       DEALLOCATE(Telems)
@@ -1557,7 +1558,6 @@ CONTAINS
           DO BC=1,Model % NumberOfBCs
             IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
             Conditional = ActiveCond(BC)
-print*,conditional,bc
             
             Element => Model % Elements(t)
             IF ( Element % BoundaryInfo % Constraint /= &
@@ -1764,6 +1764,7 @@ print*,conditional,bc
 !         b(i) = Model % Solver % Variable % Values(i)
 !       END IF
 !     END DO
+ 
       DO i=1,Model % Solver % NumberOfActiveElements
         Element => Model % Elements(Model % Solver % ActiveElements(i))
         IF (CheckPassiveElement(Element)) THEN
@@ -1771,13 +1772,22 @@ print*,conditional,bc
           DO j=1,n
             k=Indexes(j)
             IF (k<=0) CYCLE
+
             k=Model % Solver % Variable % Perm(k)
             IF (k<=0) CYCLE
-            DO l=1,Model % Solver % Variable % DOFs
-              m=Model % Solver % Variable % DOFs*(k-1)+l
-              CALL ZeroRow(a,m)
-              A % Values(a % diag(m))=1._dp
-              b(m)=Model  % Solver % Variable % Values(m)
+
+            s=0._dp
+            DO l=1,NDOFs
+              m=NDOFs*(k-1)+l
+              s=s+ABS(A % Values(A % diag(m)))
+            END DO
+            IF (s>EPSILON(s)) CYCLE
+ 
+            DO l=1,NDOFs
+              m=NDOFs*(k-1)+l
+              CALL ZeroRow(A,m)
+              A % Values(A % Diag(m))=1._dp
+              b(m)=Model % Solver % Variable % Values(m)
             END DO
           END DO
         END IF
