@@ -5109,24 +5109,24 @@ END FUNCTION SearchNodeL
       rst = RealTime() - rt0
 
       CALL ListAddConstReal(CurrentModel % Simulation,'res: linsys cpu time '&
-              //TRIM(Solver % Variable % Name),st)
+              //GetVarName(Solver % Variable),st)
       CALL ListAddConstReal(CurrentModel % Simulation,'res: linsys real time '&
-              //TRIM(Solver % Variable % Name),rst)
+              //GetVarName(Solver % Variable),rst)
       WRITE(Message,'(a,f8.2,f8.2,a)') 'Linear system time (CPU,REAL) for '&
-      //TRIM(Solver % Variable % Name)//': ',st,rst,' (s)'
+      //GetVarName(Solver % Variable)//': ',st,rst,' (s)'
       CALL Info('SolveSystem',Message)    
 
       IF( ListGetLogical(Params,'Linear System Timing Cumulative',Found)) THEN
         ct = ListGetConstReal(CurrentModel % Simulation,'res: cum linsys cpu time '&
-                //TRIM(Solver % Variable % Name),Found)
+                //GetVarName(Solver % Variable),Found)
         st = st + ct
         ct = ListGetConstReal(CurrentModel % Simulation,'res: cum linsys real time '&
-                //TRIM(Solver % Variable % Name),Found)
+                //GetVarName(Solver % Variable),Found)
         rst = rst + ct
         CALL ListAddConstReal(CurrentModel % Simulation,'res: cum linsys cpu time '&
-              //TRIM(Solver % Variable % Name),st)
+              //GetVarName(Solver % Variable),st)
         CALL ListAddConstReal(CurrentModel % Simulation,'res: cum linsys real time '&
-              //TRIM(Solver % Variable % Name),rst)
+              //GetVarName(Solver % Variable),rst)
       END IF 
 
     END IF
