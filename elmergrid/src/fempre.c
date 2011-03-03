@@ -100,6 +100,7 @@ static void Instructions()
 #if 0
   printf("16) .unv      : Universal mesh file format\n");
   printf("17) .msh      : Nastran format\n");
+  printf("19) .geo      : Geo format\n");
 #endif 
 
   printf("\nThe second parameter defines the output file format:\n");
@@ -501,6 +502,20 @@ int main(int argc, char *argv[])
     nomeshes++;
     break;
 
+
+  case 19:
+    printf("a1\n");
+
+    boundaries[nofile] = (struct BoundaryType*)
+      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
+    if (LoadGeoInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
+      Goodbye();
+    nomeshes++;
+    break;
 
   default:
     Instructions();

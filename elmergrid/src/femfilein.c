@@ -3694,7 +3694,153 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
 }
 
 
+int LoadGeoInput(struct FemType *data,struct BoundaryType *bound,
+		 char *filename,int info)
+{
+  int noknots = 0,noelements = 0,maxnodes,elematts,nodeatts,nosides,dim,notags;
+  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
+  int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
+  int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype,elemtype0,elemdim;
+  int usetaggeom,tagmat,verno;
+  FILE *in;
+  char *cp,line[MAXLINESIZE];
 
+
+  if ((in = fopen(filename,"r")) == NULL) {
+    printf("LoadGeoInput: The opening of the mesh file %s failed!\n",filename);
+    return(1);
+  }
+  if(info) printf("Loading mesh in geo format from file %s\n",filename);
+
+  allocated = FALSE;
+  dim = 3;
+  maxnodes = 0;
+  maxindx = 0;
+  maxelemtype = 0;
+  usetaggeom = FALSE;
+
+omstart:
+
+
+  for(;;) {
+    if(Getrow(line,in,FALSE)) goto end;
+    if(!line) goto end;
+    if(strstr(line,"$End")) continue;
+
+    if(strstr(line,"TYPES")) {
+      if(!strstr(line,"ALL=TET04")) {
+	printf("Only all tets implemnted at the monment!\n");
+	return;
+      }
+      elemtype0 = 504;
+      getline;
+    }
+    else if(strstr(line,"COORDINATES")) {
+      i = 0;
+      for(;;) {
+	getline;
+	if( strstr(line,"END_COORDINATES")) break;
+	cp = line;
+	j = next_int(&cp);
+	i = i + 1;
+	if(allocated) {
+	  if(maxindx > noknots) revindx[j] = i;
+	  data->x[i] = next_real(&cp);
+	  data->y[i] = next_real(&cp);
+	  if(dim > 2) data->z[i] = next_real(&cp);
+	}
+	else {
+	  maxindx = MAX(j,maxindx);
+	}
+      }
+      noknots = i;
+    }
+    else if(strstr(line,"ELEMENTS")) {
+      i = 0;
+      elementtype = elemtype0;
+      tagmat = 1;
+
+      for(;;) {
+	getline;
+	if( strstr(line,"END_ELEMENTS")) break;
+	cp = line;
+	j = next_int(&cp);
+	i = i + 1;
+
+	if(allocated) {
+	  elemnodes = elementtype % 100;
+	  data->elementtypes[i] = elementtype;
+	  data->material[i] = tagmat;
+	  for(k=0;k<elemnodes;k++)
+	    elemind[k] = next_int(&cp);
+	  for(k=0;k<elemnodes;k++)
+	    data->topology[i][k] = elemind[k];
+	}
+	else {
+	  maxelemtype = MAX(maxelemtype,elementtype);
+	}
+      }
+      noelements = i;
+    }
+    else if ( strstr(line,"BOUNDARIES")) {
+      for(;;) {
+	getline;	
+	if( strstr(line,"END_BOUNDARIES")) break;
+
+	printf("Implement boundaries!\n");
+      }      
+    }
+  }
+
+ end:
+
+
+  if(!allocated) {
+    maxnodes = maxelemtype % 100;
+    InitializeKnots(data);
+    data->dim = dim;
+    data->maxnodes = maxnodes;
+    data->noelements = noelements;
+    data->noknots = noknots;
+
+    if(info) printf("Allocating for %d knots and %d elements.\n",noknots,noelements);
+    AllocateKnots(data);
+
+    if(maxindx > noknots) {
+      revindx = Ivector(1,maxindx);
+      for(i=1;i<=maxindx;i++) revindx[i] = 0;
+    }
+    rewind(in);
+    allocated = TRUE;
+    goto omstart;
+  }
+
+  if(maxindx > noknots) {
+    printf("Renumbering the Geo nodes from %d to %d\n",maxindx,noknots);
+
+    for(i=1; i <= noelements; i++) {
+      elementtype = data->elementtypes[i];
+      elemnodes = elementtype % 100; 
+
+      for(j=0;j<elemnodes;j++) {
+	k = data->topology[i][j];
+	if(k <= 0 || k > maxindx) 
+	  printf("index out of bounds %d\n",k);
+	else if(revindx[k] <= 0) 
+	  printf("unkonwn node %d %d in element %d\n",k,revindx[k],i);
+	else 
+	  data->topology[i][j] = revindx[k];
+      }      
+    }
+    free_Ivector(revindx,1,maxindx);
+  }
+
+  if(0) ElementsToBoundaryConditions(data,bound,FALSE,info);
+
+  if(info) printf("Succesfully read the mesh from the Geo input file.\n");
+
+  return(0);
+}
 
 
 int UnvToElmerType(int unvtype)
