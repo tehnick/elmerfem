@@ -1384,15 +1384,18 @@ CONTAINS
 
     TYPE(Element_t), POINTER :: Element
     INTEGER, POINTER :: NodeIndexes(:), IndNodes(:)
-    INTEGER, ALLOCATABLE :: Indexes(:)
+    INTEGER, ALLOCATABLE :: Indexes(:), PassPerm(:)
     INTEGER :: BC,i,j,k,l,m,n,t,k1,k2,OffSet
     LOGICAL :: GotIt, periodic, OrderByBCNumbering
     REAL(KIND=dp), POINTER :: WorkA(:,:,:) => NULL()
     REAL(KIND=dp) ::  s
 
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Solver_t), POINTER :: Solver
+
     LOGICAL :: Conditional
     LOGICAL, ALLOCATABLE :: DonePeriodic(:)
-    CHARACTER(LEN=MAX_NAME_LEN) :: CondName, PassName
+    CHARACTER(LEN=MAX_NAME_LEN) :: CondName, PassName, PassCondName
 
     INTEGER :: NoNodes,NoDims,bf_id,nlen, NOFNodesFound, dim, &
         bndry_start, bndry_end, Upper
@@ -1413,6 +1416,8 @@ CONTAINS
     ALLOCATE( ActivePart(n), ActivePartAll(n), ActiveCond(n))
     CondName = Name(1:nlen) // ' Condition'
     PassName = Name(1:nlen) // ' Passive'
+    PassCondName = Name(1:nlen) // ' Condition' // ' Passive'
+
     OffSet = 0
     OffDiagonal = .FALSE.
     IF( PRESENT( PermOffSet) ) OffSet = PermOffSet
@@ -1588,24 +1593,34 @@ CONTAINS
     Passive = .FALSE.
     DO bf_id=1,Model % NumberOFBodyForces
       ValueList => Model % BodyForces(bf_id) % Values
-      ActivePart(bf_id) = ListCheckPresent( ValueList, Name ) 
+
       ActivePartAll(bf_id) = ListCheckPresent(ValueList, Name(1:nlen) // ' DOFs' ) 
       ActiveCond(bf_id) = ListCheckPresent( ValueList,CondName )      
+      ActivePartAll(bf_id) = ListCheckPresent(ValueList, Name(1:nlen) ) 
 
       Passive = Passive .OR. ListCheckPresent(ValueList, PassName)
     END DO
 
-    
-    IF ( ANY( ActivePart ) .OR. ANY(ActivePartAll) ) THEN
-      DO t = 1, Model % NumberOfBulkElements 
-        Element => Model % Elements(t)
+    IF ( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN
+
+      Solver => Model % Solver
+      Mesh   => Solver % Mesh
+      ALLOCATE(PassPerm(Mesh % NumberOfNodes),NodeIndexes(1));PassPerm=0
+      DO i=0,Mesh % PassBCCnt-1
+        j=Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements-i
+        PassPerm(Mesh % Elements(j) % NodeIndexes)=1
+      END DO
+
+      DO t = 1, Mesh % NumberOfBulkElements 
+        Element => Mesh % Elements(t)
         bf_id = ListGetInteger( Model % Bodies(Element % BodyId) % Values,'Body Force', GotIt)
         
         IF(.NOT. GotIt) CYCLE
         IF(.NOT. ActivePart(bf_id) .AND. .NOT. ActivePartAll(bf_id)) CYCLE
         Conditional = ActiveCond(bf_id)
-        
+
         Model % CurrentElement => Element
+        
         IF ( ActivePart(bf_id) ) THEN
           n = Element % TYPE % NumberOfNodes
           Indexes(1:n) = Element % NodeIndexes
@@ -1613,8 +1628,18 @@ CONTAINS
           n = SgetElementDOFs( Indexes )
         END IF
         ValueList => Model % BodyForces(bf_id) % Values
-        CALL SetElementValues( n,t )
+
+        IF (ListGetLogical(ValueList,PassCondName,GotIt)) THEN
+          IF (.NOT.CheckPassiveElement(Element)) CYCLE
+          DO j=1,n
+            NodeIndexes(1) = Indexes(j)
+            IF(PassPerm(NodeIndexes(1))==0) CALL SetPointValues(1)
+          END DO
+        ELSE
+          CALL SetElementValues( n,t )
+        END IF
       END DO
+      DEALLOCATE(NodeIndexes,PassPerm)
     END IF
     DEALLOCATE(ActivePart, ActiveCond)
 
@@ -1758,28 +1783,23 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     IF ( Passive ) THEN
-!     DO i = 1, A % NumberOfRows
-!       IF ( ABS(A % Values(A % Diag(i)))<=EPSILON(1._dp) ) THEN
-!         A % Values(A % Diag(i)) = 1.0_dp
-!         b(i) = Model % Solver % Variable % Values(i)
-!       END IF
-!     END DO
- 
-      DO i=1,Model % Solver % NumberOfActiveElements
-        Element => Model % Elements(Model % Solver % ActiveElements(i))
+      Solver => Model % Solver
+      Mesh => Solver % Mesh
+      DO i=1,Solver % NumberOfActiveElements
+        Element => Mesh % Elements(Solver % ActiveElements(i))
         IF (CheckPassiveElement(Element)) THEN
           n=sGetElementDOFs(Indexes,UElement=Element)
           DO j=1,n
             k=Indexes(j)
             IF (k<=0) CYCLE
 
-            k=Model % Solver % Variable % Perm(k)
+            k=Perm(k)
             IF (k<=0) CYCLE
 
             s=0._dp
             DO l=1,NDOFs
               m=NDOFs*(k-1)+l
-              s=s+ABS(A % Values(A % diag(m)))
+              s=s+ABS(A % Values(A % Diag(m)))
             END DO
             IF (s>EPSILON(s)) CYCLE
  
@@ -1787,7 +1807,7 @@ CONTAINS
               m=NDOFs*(k-1)+l
               CALL ZeroRow(A,m)
               A % Values(A % Diag(m))=1._dp
-              b(m)=Model % Solver % Variable % Values(m)
+              b(m)=Solver % Variable % Values(m)
             END DO
           END DO
         END IF
@@ -1881,8 +1901,8 @@ CONTAINS
         
         DO j=1,n
           IF ( Conditional .AND. Condition(j) < 0.0d0 ) CYCLE
-          k = Perm(Indexes(j))
 
+          k = Perm(Indexes(j))
           IF ( k > 0 ) THEN
             IF ( DOF>0 ) THEN
               m = 0
@@ -1954,6 +1974,8 @@ CONTAINS
     SUBROUTINE SetPointValues(n)
       INTEGER :: n
       REAL(KIND=dp) :: Work(n), Condition(n)        
+
+      INTEGER :: i,j,k,k1,l
 
       IF ( DOF > 0 ) THEN
         Work(1:n)  = ListGetReal( ValueList, Name, n, NodeIndexes, gotIt )
