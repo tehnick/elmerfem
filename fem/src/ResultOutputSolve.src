@@ -158,7 +158,10 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       Mesh => Mesh % Parent
       IF (.NOT.ASSOCIATED(Mesh)) EXIT
     END DO
-    IF (.NOT.ASSOCIATED(Mesh)) CYCLE
+    IF (.NOT.ASSOCIATED(Mesh)) THEN
+      iMesh => iMesh % Next
+      CYCLE
+    END IF
 
     CALL SetCurrentMesh( Model, Mesh )
     CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(Mesh % Name) )
