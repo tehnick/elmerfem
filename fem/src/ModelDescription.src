@@ -820,10 +820,16 @@ CONTAINS
              IF ( k > 0 ) THEN
                 str1 = str1(1:k) // '/share/elmersolver/lib/' // 'SOLVER.KEYWORDS'
              ELSE
-                str1 = ELMER_SOLVER_HOME &
- // "/lib" // "/SOLVER.KEYWORDS"
+
+!                str1 = ELMER_SOLVER_HOME &
+! // "/lib" // "/SOLVER.KEYWORDS"
+
+                 CALL GetSolverHome(str, n)
+                 WRITE(str1, '(a,a)') str(1:n), '/lib/SOLVER.KEYWORDS'
+
              END IF
           END IF
+
           OPEN( 1, FILE=TRIM(str1), STATUS='OLD', ERR=10 )
 
 !
