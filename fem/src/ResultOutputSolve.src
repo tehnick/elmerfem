@@ -50,8 +50,10 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   IMPLICIT NONE
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt, t0, t1, CPUTime
-  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, &
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+
+  LOGICAL :: SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, &
       SaveVTU, SaveEP, SaveAny, ListSet = .FALSE.
   INTEGER :: i,nInterval=1, nstep=0, OutputCount = 0, MeshDim,MeshLevel
   INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
@@ -76,8 +78,8 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   END INTERFACE
 
   CALL Info( 'ResultOutputSolver', '-------------------------------------')
-  t0 = CPUTime()
 
+  CALL ResetTimer('ResultOutputSolver')
 
   SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
   SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
@@ -152,7 +154,18 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       iMesh => iMesh % next
       CYCLE 
     END IF    
+    CALL SetCurrentMesh( Model, iMesh )
 
+    IF( .NOT. ListSet ) THEN
+      CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
+      ListSet = .TRUE.
+    ELSE IF( MeshDim /= Model % Mesh % MeshDim ) THEN
+      CALL CreateListForSaving( Model, Solver % Values,.TRUE.,.TRUE. )    
+    END IF
+    MeshDim = Model % Mesh % MeshDim
+
+    ! In case there are multiple mesh levels one may also save coarser ones
+    !----------------------------------------------------------------------
     Mesh=>iMesh
     DO i=1,MeshLevel
       Mesh => Mesh % Parent
@@ -164,17 +177,10 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
 
     CALL SetCurrentMesh( Model, Mesh )
+
     CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(Mesh % Name) )
     WRITE(Message,'(A,I1)') 'Dimension of mesh: ',Mesh % MeshDim 
     CALL Info('ResultOutputSolver',Message)
-
-    IF( .NOT. ListSet ) THEN
-      CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
-      ListSet = .TRUE.
-    ELSE IF( MeshDim /= Model % Mesh % MeshDim ) THEN
-      CALL CreateListForSaving( Model, Solver % Values,.TRUE.,.TRUE. )    
-    END IF
-    MeshDim = Model % Mesh % MeshDim
 
     IF( SaveGid ) THEN
       CALL Info( 'ResultOutputSolver','Saving in GiD format' )    
@@ -201,13 +207,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL ElmerPostOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
 
-    t1 = CPUTime()
-    
-    WRITE( Message, * ) 'Time used for saving: ',t1-t0
-    CALL Info( 'ResultOutputSolver', Message )
+    CALL CheckTimer('ResultOutputSolver',Delete=.TRUE.)
+
     CALL Info( 'ResultOutputSolver', '-------------------------------------')
 
+
     iMesh => iMesh % Next
+
   END DO
 
 
@@ -3131,11 +3137,15 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   
   IF(MaskExists) THEN
     CALL Info('VtuOutputSolver','Using > '// TRIM(Str) // ' < as mask variable')
-    NumberOfNodes = MAXVAL(MaskPerm)
+    NumberOfNodes = 0
+    DO i=1,Model % NumberOfNodes
+      IF( MaskPerm(i) == 0 ) CYCLE
+      NumberOfNodes = NumberOfNodes +1 
+    END DO
     NumberOfElements = 0
     IF( NumberOfNodes > 0 ) THEN
       ALLOCATE(MaskOrder(NumberOfNodes))
-      DO i=1,SIZE(MaskPerm)
+      DO i=1,Model % NumberOfNodes
         j = MaskPerm(i)
         IF(j > 0) MaskOrder(j) = i
       END DO
@@ -3224,7 +3234,7 @@ CONTAINS
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, &
         FieldName, FieldName2, OutStr
     CHARACTER :: lf
-    LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2, ThisOnly
+    LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2
     LOGICAL :: WriteData, WriteXML, L
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:), Perm2(:), DispPerm(:), Disp2Perm(:)
@@ -3260,7 +3270,6 @@ CONTAINS
     
     Solver => Model % Solver
     dim = Model % Mesh % MeshDim
-    ThisOnly = .TRUE.
     
     WRITE( OutStr,'(A)') '<?xml version="1.0"?>'//lf
     CALL StrWrite( OutStr ) 
@@ -3299,7 +3308,7 @@ CONTAINS
     DispDofs = 0
     Disp2Dofs = 0
     IF(RemoveDisp) THEN
-      Solution => VariableGet( Model % Mesh % Variables, 'Displacement', ThisOnly )     
+      Solution => VariableGet( Model % Mesh % Variables, 'Displacement')
       IF( ASSOCIATED( Solution ) ) THEN
         Solver => Solution % Solver
         L = GetLogical( GetSolverParams(Solver),'Displace Mesh',Found)
@@ -3311,7 +3320,7 @@ CONTAINS
         END IF
       END IF
       
-      Solution => VariableGet( Model % Mesh % Variables, 'Mesh Update', ThisOnly )     
+      Solution => VariableGet( Model % Mesh % Variables, 'Mesh Update')
       IF( ASSOCIATED( Solution ) ) THEN
         Disp2Perm => Solution % Perm
         Disp2Values => Solution % Values
@@ -3347,10 +3356,10 @@ CONTAINS
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
-        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
         ComponentVector = .FALSE.
         IF(.NOT. ASSOCIATED(Solution)) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1', ThisOnly )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1')
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
@@ -3373,12 +3382,12 @@ CONTAINS
         ! Some vectors are defined by a set of components (either 2 or 3)
         !---------------------------------------------------------------------
         IF( ComponentVector ) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2')
           IF( ASSOCIATED(Solution)) THEN
             Values2 => Solution % Values
             dofs = 2
           END IF
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3')
           IF( ASSOCIATED(Solution)) THEN
             Values3 => Solution % Values
             dofs = 3
@@ -3401,7 +3410,7 @@ CONTAINS
         END IF
         FieldName2 = GetString( Solver % Values, TRIM(Txt), Found )
         IF( Found ) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName2), ThisOnly )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName2))
           IF( ASSOCIATED(Solution)) THEN 
             Values2 => Solution % Values
             Perm2 => Solution % Perm 
@@ -3565,7 +3574,7 @@ CONTAINS
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
-        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
 
         IF(.NOT. ASSOCIATED(Solution)) THEN
           WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
@@ -3626,7 +3635,7 @@ CONTAINS
         !---------------------------------------------------------------------
         ! Find the variable with the given name in the normal manner 
         !---------------------------------------------------------------------
-        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
 
         IF(.NOT. ASSOCIATED(Solution)) THEN
           WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
@@ -3971,7 +3980,7 @@ CONTAINS
     CHARACTER(LEN=512) :: str
     INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName
-    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector, ThisOnly
+    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:)
     REAL(KIND=dp), POINTER :: Values(:)
@@ -3982,7 +3991,6 @@ CONTAINS
     OPEN( UNIT=VtuUnit, FILE=VtuFile, form = 'formatted', STATUS='UNKNOWN' )
     Solver => Model % Solver
     dim = Model % Mesh % MeshDim
-    ThisOnly = .TRUE.
 
     IF ( LittleEndian() ) THEN
       WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
@@ -4027,11 +4035,11 @@ CONTAINS
           EXIT
         END IF
         
-        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName), ThisOnly )
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
         ComponentVector = .FALSE.
 
         IF(.NOT. ASSOCIATED(Solution)) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1',ThisOnly )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 1')
           IF( ASSOCIATED(Solution)) THEN 
             ComponentVector = .TRUE.
           ELSE
@@ -4047,9 +4055,9 @@ CONTAINS
 
         dofs = Solution % DOFs
         IF( ComponentVector ) THEN
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2',ThisOnly )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 2')
           IF( ASSOCIATED(Solution)) dofs = 2
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3',ThisOnly )
+          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName)//' 3')
           IF( ASSOCIATED(Solution)) dofs = 3
         END IF
         

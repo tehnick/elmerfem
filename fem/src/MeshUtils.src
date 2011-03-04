@@ -2767,6 +2767,8 @@ END SUBROUTINE FindNeighbourNodes
 
     CALL FindMeshEdges( Mesh )
 
+    CALL ResetTimer('SplitMeshEqual')
+
     CALL Info( 'SplitMeshEqual', '******** Old mesh ********', Level = 6 )
     WRITE( Message, * ) 'Nodes             : ',Mesh % NumberOfNodes
     CALL info( 'SplitMeshEqual', Message, Level=6 )
@@ -2870,6 +2872,7 @@ END SUBROUTINE FindNeighbourNodes
     NewMesh % MaxEdgeDOFs = Mesh % MaxEdgeDOFs
     NewMesh % MaxFaceDOFs = Mesh % MaxFaceDOFs
     NewMesh % MaxElementDOFs = Mesh % MaxElementDOFs
+    NewMesh % MeshDim = Mesh % MeshDim
 
     NewMesh % NumberOfNodes = NodeCnt
     NewMesh % Nodes % NumberOfNodes = NodeCnt
@@ -4006,6 +4009,8 @@ END SUBROUTINE FindNeighbourNodes
     CALL Info( 'SplitMeshEqual', Message, Level=6 )
     WRITE( Message, * ) 'Boundary elements : ',NewMesh % NumberOfBoundaryElements
     CALL Info( 'SplitMeshEqual', Message, Level=6 )
+
+    CALL CheckTimer('SplitMeshEqual',Delete=.TRUE.)
 
 !
 !   Update structures needed for parallel execution:
