@@ -2236,8 +2236,13 @@ static int MPlayer( ClientData cl, Tcl_Interp *interp, int argc, char **argv )
 
 int main(int argc,char **argv)
 {
-    static char init[1024],initcommands[1024],tmp[1024],ephome[512];
-    int i,size[4];
+  static char init[1024],initcommands[1024],tmp[1024],ephome[512];
+  int i,size[4];
+
+  /* For MinGW */
+  static char szAppPath[512] = "";
+  static char szAppDirectory[512] = "";
+  char *exeName;
     
     if((argc > 1) && (!strcmp(argv[1], "-v"))) {
       fprintf(stdout, "ElmerPost v.5.4\n");
@@ -2248,7 +2253,18 @@ int main(int argc,char **argv)
     {
       /* use default installation directory just if nothing is set */
 #if defined(MINGW32)
-      _snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
+      GetModuleFileName(NULL, szAppPath, 512);
+      exeName = strrchr(szAppPath, '\\');
+      i = (int)(exeName-szAppPath);
+      if(i < 0) i = 0;
+      if(i > 512) i = 512;
+      strncpy(szAppDirectory, szAppPath, i);
+
+      _snprintf(ephome, 512,
+		"ELMER_POST_HOME=%s\\..\\share\\elmerpost",
+		szAppDirectory);
+
+      printf("%s\n", ephome);
 #else
       snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
 #endif
