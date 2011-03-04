@@ -124,7 +124,8 @@ MODULE Lists
 
    TYPE(Varying_string), SAVE, PRIVATE :: Namespace
 
-   TYPE(ValueList_t) :: TimerList
+   TYPE(ValueList_t), POINTER, SAVE, PRIVATE  :: TimerList => NULL()
+   LOGICAL, SAVE, PRIVATE :: TimerPassive, TimerResults
 
 CONTAINS
 
@@ -3214,6 +3215,82 @@ CALL Info( 'VariableGet', Message, Level=7 )
   END SUBROUTINE CreateListForSaving
   
 
+  SUBROUTINE ResetTimer(TimerName)
+    CHARACTER(*) :: TimerName
+    REAL(KIND=dp) :: ct, rt
+    REAL(KIND=dp) :: RealTime, CPUTime
+    LOGICAL :: Found
+
+    IF( .NOT. ASSOCIATED( TimerList ) ) THEN
+      TimerList => ListAllocate()
+      TimerPassive = ListGetLogical( CurrentModel % Simulation,'Timer Passive',Found)
+      TimerResults = ListGetLogical( CurrentModel % Simulation,'Timer Results',Found)      
+    END IF
+
+    IF( TimerPassive ) RETURN
+
+    ct = CPUTime()
+    rt = RealTime()
+    CALL ListAddConstReal( TimerList,TRIM(TimerName)//' cpu time',ct )
+    CALL ListAddConstReal( TimerList,TRIM(TimerName)//' real time',rt )
+
+  END SUBROUTINE ResetTimer
+
+  SUBROUTINE DeleteTimer(TimerName) 
+    CHARACTER(*) :: TimerName
+    
+    IF( TimerPassive ) RETURN
+
+    CALL ListRemove( TimerList, TRIM(TimerName)//' cpu time' ) 
+    CALL ListRemove( TimerList, TRIM(TimerName)//' real time' ) 
+
+  END SUBROUTINE DeleteTimer
+ 
+
+  SUBROUTINE CheckTimer(TimerName, Level, Delete, Reset) 
+    CHARACTER(*) :: TimerName
+    INTEGER, OPTIONAL :: Level
+    LOGICAL, OPTIONAL :: Reset, Delete
+    
+    REAL(KIND=dp) :: ct0,rt0,ct, rt
+    REAL(KIND=dp) :: RealTime, CPUTime
+    LOGICAL :: Found
+    
+    IF( TimerPassive ) RETURN
+
+    ct0 = ListGetConstReal( TimerList,TRIM(TimerName)//' cpu time',Found) 
+    IF( Found ) THEN
+      rt0 = ListGetConstReal( TimerList,TRIM(TimerName)//' real time')
+      ct = CPUTime() - ct0
+      rt = RealTime() - rt0 
+      
+      WRITE(Message,'(a,f8.2,f8.2,a)') 'Execution time (CPU,REAL) for '&
+          //TRIM(TimerName)//': ',ct,rt,' (s)'
+      CALL Info('CheckTimer',Message,Level=Level)          
+
+      IF( TimerResults ) THEN
+        CALL ListAddConstReal(CurrentModel % Simulation,&
+            'res: '//TRIM(TimerName)//' cpu time',ct)
+        CALL ListAddConstReal(CurrentModel % Simulation,&
+            'res: '//TRIM(TimerName)//' real time',ct)
+      END IF
+    ELSE
+      CALL Warn('CheckTimer',&
+          'Requesting time from non-existing timer: '//TRIM(TimerName) )
+    END IF
+
+    IF( PRESENT( Reset ) ) THEN
+      IF( Reset ) THEN
+        CALL ListAddConstReal( TimerList,TRIM(TimerName)//' cpu time',ct )
+        CALL ListAddConstReal( TimerList,TRIM(TimerName)//' real time',rt )
+      END IF
+    END IF
+
+    IF( PRESENT( Delete ) ) THEN
+      IF( Delete ) CALL DeleteTimer( TimerName )
+    END IF
+
+  END SUBROUTINE CheckTimer
 
 
 
