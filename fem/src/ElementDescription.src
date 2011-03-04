@@ -395,7 +395,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       CHARACTER(LEN=MAX_PATH_LEN) :: str,elmer_home
 
-      INTEGER :: k
+      INTEGER :: k, n
       INTEGER, DIMENSION(MaxDeg3) :: BasisTerms
 
       TYPE(ElementType_t) :: element
@@ -441,9 +441,14 @@ CONTAINS
            WRITE( str, '(a,a)' ) elmer_home(1:k),&
 '/share/elmersolver/lib/elements.def'
         ELSE
-           WRITE( str, '(a,a)' ) &
-ELMER_SOLVER_HOME,&
-"/lib/elements.def"
+!           WRITE( str, '(a,a)' ) &
+!ELMER_SOLVER_HOME,&
+!"/lib/elements.def"
+
+	   CALL GetSolverHome(elmer_home, n)
+	   WRITE(str, '(a,a)') elmer_home(1:n), &
+              '/lib/elements.def'
+           
         END IF
       END IF
 

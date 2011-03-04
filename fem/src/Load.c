@@ -88,6 +88,47 @@ void STDCALLBULL FC_FUNC_(set_stdio_bufs,SET_STDIO_BUFS) ()
 #endif
 
 /*--------------------------------------------------------------------------
+  This routine will return the home directory of elmer solver.
+  -------------------------------------------------------------------------*/
+void STDCALLBULL FC_FUNC(getsolverhome,GETSOLVERHOME) 
+     ( FC_CHAR_PTR(solverDir, l1), int *len )
+{
+  char *elmer_home = getenv("ELMER_HOME");
+
+  if(elmer_home != NULL) {
+    /* Return solver home relative to ELMER_HOME*/
+    sprintf(solverDir, "%s/share/elmersolver", elmer_home);
+    *len = strlen(elmer_home) + 18;
+    return;
+  }
+
+#if defined(WIN32) || defined(MINGW32)
+  static char appPath[MAX_PATH_LEN] = "";
+  static char appDir[MAX_PATH_LEN] = "";
+  char *exeName = NULL;
+  int n = 0;
+  *len = 0;
+  /* Get the full module file name  */
+  GetModuleFileName(NULL, appPath, MAX_PATH_LEN);
+  if(appPath == NULL) return;
+  exeName = strrchr(appPath, '\\');
+  if(exeName == NULL) return;
+  n = (int)(exeName - appPath);
+  if(n < 0) return; /* play safe */
+  if(n > MAX_PATH_LEN) n = MAX_PATH_LEN;
+  /* This is where the executable resides */
+  strncpy(appDir, appPath, n);
+  /* Return solver home relative to appDir */
+  _snprintf(solverDir, MAX_PATH_LEN, "%s/../share/elmersolver", appDir);
+  *len = n + 21;
+#else
+  /* Use the directory defined in config.h */
+  sprintf(solverDir, "%s", ELMER_SOLVER_HOME);
+  *len = strlen(ELMER_SOLVER_HOME);
+#endif
+}
+
+/*--------------------------------------------------------------------------
   This routine will create a directory given name of the directory.
   -------------------------------------------------------------------------*/
 void STDCALLBULL FC_FUNC(makedirectory,MAKEDIRECTORY) 
