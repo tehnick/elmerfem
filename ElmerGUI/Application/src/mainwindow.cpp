@@ -6826,18 +6826,19 @@ void MainWindow::synchronizeMenuToState()
 //-----------------------------------------------------------------------------
 void MainWindow::loadDefinitions()
 {
-
   // Determine edf-file location and name:
   //--------------------------------------
-  char *elmerGuiHome = NULL;
+  QString elmerGuiHome;
 
 #ifdef __APPLE__
   QString generalDefs = this->homePath +  "/edf/edf.xml";          
 #else
-  QString generalDefs = "edf/edf.xml";
-  elmerGuiHome = getenv("ELMERGUI_HOME");
-  if(elmerGuiHome != NULL) 
-    generalDefs = QString(elmerGuiHome) + "/edf/edf.xml";
+  QString generalDefs = QCoreApplication::applicationDirPath() + "/edf/edf.xml";
+
+  elmerGuiHome = QString(getenv("ELMERGUI_HOME"));
+  
+  if(!elmerGuiHome.isEmpty())
+    generalDefs = elmerGuiHome + "/edf/edf.xml";
 
   // ML 5. August 2010
   generalDefs.replace('\\', '/');
@@ -6895,10 +6896,12 @@ void MainWindow::loadDefinitions()
 #ifdef __APPLE__
   QDirIterator iterator( homePath+"/edf", QDirIterator::Subdirectories);
 #else
-  QString additionalEdfs = "edf";
-  if(elmerGuiHome != NULL) 
-    additionalEdfs = QString(elmerGuiHome) + "/edf";
-  QDirIterator iterator( additionalEdfs, QDirIterator::Subdirectories);
+  QString additionalEdfs = QCoreApplication::applicationDirPath() + "/edf";
+
+  if(!elmerGuiHome.isEmpty()) 
+    additionalEdfs = elmerGuiHome + "/edf";
+
+  QDirIterator iterator(additionalEdfs, QDirIterator::Subdirectories);
 #endif
 
   while (iterator.hasNext()) {
@@ -6967,14 +6970,14 @@ void MainWindow::loadDefinitions()
 
   // Load qss:
   //-----------
-  QString qssFileName = "elmergui.qss";
+  QString qssFileName = QCoreApplication::applicationDirPath() + "/elmergui.qss";
 
-  #ifdef __APPLE__
-	qssFileName = homePath + "/elmergui.qss";
-  #else
-  	if(elmerGuiHome != NULL) 
-    	qssFileName = QString(elmerGuiHome) + "/elmergui.qss";
-  #endif
+#ifdef __APPLE__
+  qssFileName = homePath + "/elmergui.qss";
+#else
+  if(!elmerGuiHome.isEmpty()) 
+    qssFileName = elmerGuiHome + "/elmergui.qss";
+#endif
 
   QFile qssFile(qssFileName);
   

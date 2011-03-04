@@ -50,15 +50,17 @@ EgIni::EgIni(QWidget *parent)
 
   // Determine ini-file location and name:
   //--------------------------------------
-  char *elmerGuiHome = NULL;
+  QString elmerGuiHome;
   
 #ifdef __APPLE__
   QString iniFileName = this->homePath +  "/edf/egini.xml";          
 #else
-  QString iniFileName = "edf/egini.xml";
-  elmerGuiHome = getenv("ELMERGUI_HOME");
-  if(elmerGuiHome != NULL) 
-    iniFileName = QString(elmerGuiHome) + "/edf/egini.xml";
+  QString iniFileName = QCoreApplication::applicationDirPath() + "/edf/egini.xml";
+
+  elmerGuiHome = QString(getenv("ELMERGUI_HOME"));
+
+  if(!elmerGuiHome.isEmpty()) 
+    iniFileName = elmerGuiHome + "/edf/egini.xml";
 #endif
   
   // Load initialization file:
