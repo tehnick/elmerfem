@@ -93,12 +93,19 @@ void STDCALLBULL FC_FUNC_(set_stdio_bufs,SET_STDIO_BUFS) ()
 void STDCALLBULL FC_FUNC(getsolverhome,GETSOLVERHOME) 
      ( FC_CHAR_PTR(solverDir, l1), int *len )
 {
+  *len = 0;
+
   char *elmer_home = getenv("ELMER_HOME");
 
   if(elmer_home != NULL) {
     /* Return solver home relative to ELMER_HOME*/
-    sprintf(solverDir, "%s/share/elmersolver", elmer_home);
+#if defined(WIN32) || defined(MINGW32)
+    _snprintf(solverDir, MAX_PATH_LEN, "%s\\share\\elmersolver", elmer_home);
+#else
+    snprintf(solverDir, MAX_PATH_LEN, "%s/share/elmersolver", elmer_home);
+#endif
     *len = strlen(elmer_home) + 18;
+    if(*len > MAX_PATH_LEN) *len = MAX_PATH_LEN;
     return;
   }
 
@@ -107,7 +114,6 @@ void STDCALLBULL FC_FUNC(getsolverhome,GETSOLVERHOME)
   static char appDir[MAX_PATH_LEN] = "";
   char *exeName = NULL;
   int n = 0;
-  *len = 0;
 
   /* Get the full module file name  */
   GetModuleFileName(NULL, appPath, MAX_PATH_LEN);
@@ -122,13 +128,15 @@ void STDCALLBULL FC_FUNC(getsolverhome,GETSOLVERHOME)
   strncpy(appDir, appPath, n);
 
   /* Return solver home relative to appDir */
-  _snprintf(solverDir, MAX_PATH_LEN, "%s/../share/elmersolver", appDir);
+  _snprintf(solverDir, MAX_PATH_LEN, "%s\\..\\share\\elmersolver", appDir);
   *len = n + 21;
+  if(*len > MAX_PATH_LEN) *len = MAX_PATH_LEN;
 #else
 
   /* Use the directory defined in config.h */
-  sprintf(solverDir, "%s", ELMER_SOLVER_HOME);
+  snprintf(solverDir, MAX_PATH_LEN, "%s", ELMER_SOLVER_HOME);
   *len = strlen(ELMER_SOLVER_HOME);
+  if(*len > MAX_PATH_LEN) *len = MAX_PATH_LEN;
 #endif
 }
 
@@ -263,11 +271,11 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
 	GetModuleFileName(NULL, appPath, MAX_PATH_LEN);
 	exeName = strrchr(appPath, '\\');
 	n = (int)(exeName - appPath);
-	if(n < 0) return; /* play safe */
+	if(n < 0) n = 0;
 	if(n > MAX_PATH_LEN) n = MAX_PATH_LEN;
 	strncpy(ElmerLib, appPath, n);
 	strncat(ElmerLib, "\\..\\share\\elmersolver\\lib\\", 2*MAX_PATH_LEN);
-#else	
+#else
 	strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_PATH_LEN );
 	strncat( ElmerLib, "/lib/", 2*MAX_PATH_LEN );
 #endif
@@ -347,11 +355,11 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
 	GetModuleFileName(NULL, appPath, MAX_PATH_LEN);
 	exeName = strrchr(appPath, '\\');
 	n = (int)(exeName - appPath);
-	if(n < 0) return; /* play safe */
+	if(n < 0) n = 0;
 	if(n > MAX_PATH_LEN) n = MAX_PATH_LEN;
 	strncpy(ElmerLib, appPath, n);
 	strncat(ElmerLib, "\\..\\share\\elmersolver\\lib\\", 2*MAX_PATH_LEN);
-#else	
+#else
 	/* Should not get here unless Posix implements LOADLIBRARY_API */
 	strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_PATH_LEN );
 	strncat( ElmerLib, "/lib/", 2*MAX_PATH_LEN );
