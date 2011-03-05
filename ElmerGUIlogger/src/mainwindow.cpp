@@ -51,13 +51,14 @@
 #include <QPrintDialog>
 #include <QPrinter>
 #include <QByteArray>
+#include <QCoreApplication>
 #include "mainwindow.h"
 
 MainWindow::MainWindow()
 {
   setWindowTitle("ElmerGUI log window");
   setWindowIcon(QIcon(":/icons/ElmerGUI.png"));
-  resize(400, 240);
+  resize(600, 300);
 
   textEdit = new QTextEdit(this);
   setCentralWidget(textEdit);
@@ -69,9 +70,19 @@ MainWindow::MainWindow()
   QString ELMER_HOME = getenv("ELMER_HOME");
   QString ELMERGUI_HOME = getenv("ELMERGUI_HOME");
   QString ELMER_POST_HOME = getenv("ELMER_POST_HOME");
-  textEdit->append("ELMER_HOME: " + ELMER_HOME);
-  textEdit->append("ELMERGUI_HOME: " + ELMERGUI_HOME);
-  textEdit->append("ELMER_POST_HOME: " + ELMER_POST_HOME);
+
+  if(ELMER_HOME.isEmpty())
+    ELMER_HOME = QCoreApplication::applicationDirPath() + "/..";
+
+  if(ELMERGUI_HOME.isEmpty())
+    ELMERGUI_HOME = QCoreApplication::applicationDirPath();
+
+  if(ELMER_POST_HOME.isEmpty())
+    ELMER_POST_HOME = QCoreApplication::applicationDirPath() + "/../share/elmerpost";
+
+  textEdit->append("ELMER_HOME=" + ELMER_HOME);
+  textEdit->append("ELMERGUI_HOME=" + ELMERGUI_HOME);
+  textEdit->append("ELMER_POST_HOME=" + ELMER_POST_HOME);
 
   elmerGUI = new QProcess(this);
 
@@ -130,10 +141,8 @@ void MainWindow::startElmerGUISlot()
 
   if(!elmerGUI->waitForStarted()) {
     textEdit->setTextColor(Qt::darkGreen);
-    textEdit->append("Probably the executable ElmerGUI(.exe) is either missing, or "
-             "then there is no path to it (at least ELMER_HOME/bin and "
-             "ELMERGUI_HOME should be found from path). Please check your Elmer "
-             "installation.");
+    textEdit->append("The executable ElmerGUI(.exe) is either"
+		     "missing, or then there is no path to it");
   }
   else {
     startElmerGUIAct->setEnabled(false);
