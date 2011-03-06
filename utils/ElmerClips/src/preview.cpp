@@ -123,9 +123,13 @@ void Preview::setupContextMenu()
   qualityMenu->addAction(highQualityAction);
   qualityMenu->addAction(bestQualityAction);
 
+  aboutAction = new QAction(QIcon(""), "About...", this);
+  connect(aboutAction, SIGNAL(triggered()), this, SLOT(aboutSlot()));
+
   contextMenu = new QMenu(this);
   contextMenu->addMenu(resolutionMenu);
   contextMenu->addMenu(qualityMenu);
+  contextMenu->addAction(aboutAction);
   contextMenu->addAction(quitAction);
 }
 
@@ -278,6 +282,18 @@ void Preview::showInfo()
 void Preview::quitSlot()
 {
   exit(0);
+}
+
+void Preview::aboutSlot()
+{
+  QMessageBox msg;
+  msg.setText("ElmerClips is a small utility program for making "
+	      "video clips\nfrom image files produced e.g. by ElmerPost.\n\n"
+	      "ElmerClips is open source software (GPL v2):\n"
+	      "http://sourceforge.net/projects/elmerfem/\n\n"
+	      "It uses the mpeg1video encoder from the ffmpeg-project:\n"
+	      "http://www.ffmpeg.org/");
+  msg.exec();
 }
 
 QList<int> Preview::getResolutions() const

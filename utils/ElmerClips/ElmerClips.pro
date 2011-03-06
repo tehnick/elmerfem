@@ -4,9 +4,9 @@ DEPENDPATH += . src
 INCLUDEPATH += . src
 
 win32 {
-   INCLUDEPATH += C:/Source/ffmpeg/include src/win32
-   QMAKE_LIBDIR += C:/Source/ffmpeg/bin
-   LIBS += -lavcodec -lavcore -lavutil -lswscale
+   INCLUDEPATH += C:/Stuff/Elmerfem/include src/win32
+   QMAKE_LIBDIR += C:/Stuff/Elmerfem/bin
+   LIBS += -lavcodec -lavutil -lswscale
    DESTDIR = ElmerClips
 }
 

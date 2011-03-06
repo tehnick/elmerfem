@@ -63,6 +63,7 @@ class Preview : public QLabel
 
  private slots:
   void quitSlot();
+  void aboutSlot();
 
  private:
   void setupContextMenu();
@@ -84,6 +85,7 @@ class Preview : public QLabel
   QAction *mediumQualityAction;
   QAction *highQualityAction;
   QAction *bestQualityAction;
+  QAction *aboutAction;
   QActionGroup *resolutionActionGroup;
   QActionGroup *qualityActionGroup;
   int currentProgress;
