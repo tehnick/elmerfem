@@ -167,14 +167,12 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     ! In case there are multiple mesh levels one may also save coarser ones
     !----------------------------------------------------------------------
     Mesh=>iMesh
+    iMesh => iMesh % Next
     DO i=1,MeshLevel
       Mesh => Mesh % Parent
       IF (.NOT.ASSOCIATED(Mesh)) EXIT
     END DO
-    IF (.NOT.ASSOCIATED(Mesh)) THEN
-      iMesh => iMesh % Next
-      CYCLE
-    END IF
+    IF (.NOT.ASSOCIATED(Mesh)) CYCLE
 
     CALL SetCurrentMesh( Model, Mesh )
 
@@ -210,10 +208,6 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL CheckTimer('ResultOutputSolver',Delete=.TRUE.)
 
     CALL Info( 'ResultOutputSolver', '-------------------------------------')
-
-
-    iMesh => iMesh % Next
-
   END DO
 
 

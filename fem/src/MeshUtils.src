@@ -2745,21 +2745,22 @@ END SUBROUTINE FindNeighbourNodes
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  FUNCTION SplitMeshEqual( Mesh ) RESULT( NewMesh )
+  FUNCTION SplitMeshEqual( Mesh,h ) RESULT( NewMesh )
 !------------------------------------------------------------------------------
 !   h/2 split of  given mesh, currently works only
 !   for linear and bilinear elements
 !------------------------------------------------------------------------------
+    REAL(KIND=dp), OPTIONAL :: h(:)
     TYPE(Mesh_t), POINTER :: Mesh, NewMesh
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), POINTER :: u(:),v(:),w(:),x(:),y(:),z(:)
+    REAL(KIND=dp), POINTER :: u(:),v(:),w(:),x(:),y(:),z(:),xh(:)
     INTEGER :: i, j, k, n, NewElCnt, NodeCnt, EdgeCnt, Node, ParentId, Diag
     LOGICAL :: Found
     TYPE(Element_t), POINTER :: Enew,Eold,Edge,Eptr,Eparent,Face,Faces(:)
     INTEGER, POINTER :: Child(:,:)
     INTEGER :: n1,n2,n3,EoldNodes(4),FaceNodes(4),EdgeNodes(2) ! Only linears so far
     INTEGER :: FaceNumber,Edge1,Edge2,Edge3,Edge4,Node12,Node23,Node34,Node41,Node31
-    REAL(KIND=dp) :: dxyz(3,3),Dist(3)
+    REAL(KIND=dp) :: dxyz(3,3),Dist(3),r,s,t,h1,h2
 !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Mesh ) ) RETURN
 
@@ -2821,10 +2822,14 @@ END SUBROUTINE FindNeighbourNodes
 !
 !   new mesh includes old mesh nodes:
 !   ----------------------------------
-    u => Mesh % Nodes % x
     x(1:Mesh % NumberOfNodes) = u
     y(1:Mesh % NumberOfNodes) = v
     z(1:Mesh % NumberOfNodes) = w
+
+    IF (PRESENT(h)) THEN
+      ALLOCATE(xh(SIZE(x)))
+      xh(1:SIZE(h)) = h
+    END IF
 !
 !   add edge centers:
 !   -----------------
@@ -2832,9 +2837,19 @@ END SUBROUTINE FindNeighbourNodes
        Edge => Mesh % Edges(i)
        k = Edge % TYPE % NumberOfNodes
        j = i + Mesh % NumberOfNodes
-       x(j) = SUM(u(Edge % NodeIndexes)) / k
-       y(j) = SUM(v(Edge % NodeIndexes)) / k
-       z(j) = SUM(w(Edge % NodeIndexes)) / k
+       IF (PRESENT(h)) THEN
+         h1=h(Edge % NodeIndexes(1))
+         h2=h(Edge % NodeIndexes(2))
+         r=1._dp/(1+h1/h2)
+         x(j) = r*u(Edge%NodeIndexes(1))+(1-r)*u(Edge%NodeIndexes(2))
+         y(j) = r*v(Edge%NodeIndexes(1))+(1-r)*v(Edge%NodeIndexes(2))
+         z(j) = r*w(Edge%NodeIndexes(1))+(1-r)*w(Edge%NodeIndexes(2))
+         xh(j)=r*h1+(1-r)*h2
+       ELSE
+         x(j) = SUM(u(Edge % NodeIndexes))/k
+         y(j) = SUM(v(Edge % NodeIndexes))/k
+         z(j) = SUM(w(Edge % NodeIndexes))/k
+       END IF
     END DO
 !
 !   add face centers for bricks:
@@ -2844,9 +2859,23 @@ END SUBROUTINE FindNeighbourNodes
        k = Face % TYPE % NumberOfNodes
        IF( k == 4 ) THEN
           j = i + Mesh % NumberOfNodes + Mesh % NumberOfEdges
-          x(j) = SUM(u(Face % NodeIndexes)) / k
-          y(j) = SUM(v(Face % NodeIndexes)) / k
-          z(j) = SUM(w(Face % NodeIndexes)) / k
+          IF (PRESENT(h)) THEN
+            n=Mesh % NumberOfNodes
+            h1=xh(n+Face % EdgeIndexes(2))
+            h2=xh(n+Face % EdgeIndexes(4))
+            r=2._dp/(1+h1/h2)-1
+            h1=xh(n+Face % EdgeIndexes(1))
+            h2=xh(n+Face % EdgeIndexes(3))
+            s=2._dp/(1+h1/h2)-1
+            x(j) = InterpolateInElement2D(Face,u(Face % NodeIndexes),r,s)
+            y(j) = InterpolateInElement2D(Face,v(Face % NodeIndexes),r,s)
+            z(j) = InterpolateInElement2D(Face,w(Face % NodeIndexes),r,s)
+            xh(j) = InterpolateInElement2D(Face,h(Face % NodeIndexes),r,s)
+          ELSE
+            x(j) = SUM(u(Face % NodeIndexes))/k
+            y(j) = SUM(v(Face % NodeIndexes))/k
+            z(j) = SUM(w(Face % NodeIndexes))/k
+          END IF
        END IF
     END DO
 !
@@ -2854,13 +2883,49 @@ END SUBROUTINE FindNeighbourNodes
 !   ----------------------------------
     DO i=1,Mesh % NumberOfBulkElements
        Eold => Mesh % Elements(i)
-       k = Eold % TYPE % NumberOfNodes
+       k = Eold % Type % NumberOfNodes
+       j = j + 1
        SELECT CASE( Eold % TYPE % ElementCode / 100 )
-       CASE(4,8)
-          j = j + 1
-          x(j) = SUM( u(Eold % NodeIndexes) ) / k
-          y(j) = SUM( v(Eold % NodeIndexes) ) / k
-          z(j) = SUM( w(Eold % NodeIndexes) ) / k
+
+       CASE(4)
+          IF (PRESENT(h)) THEN
+            n=Mesh % NumberOfNodes
+            h1=xh(n+Eold % Edgeindexes(2))
+            h2=xh(n+Eold % Edgeindexes(4))
+            r=2._dp/(1+h1/h2)-1
+            h1=xh(n+Eold % EdgeIndexes(1))
+            h2=xh(n+Eold % EdgeIndexes(3))
+            s=2._dp/(1+h1/h2)-1
+            x(j) = InterpolateInElement2D(Eold,u(Eold % NodeIndexes),r,s)
+            y(j) = InterpolateInElement2D(Eold,v(Eold % NodeIndexes),r,s)
+            z(j) = InterpolateInElement2D(Eold,w(Eold % NodeIndexes),r,s)
+          ELSE
+            x(j) = SUM(u(Eold % NodeIndexes))/k
+            y(j) = SUM(v(Eold % NodeIndexes))/k
+            z(j) = SUM(w(Eold % NodeIndexes))/k
+          END IF
+       CASE(8)
+          IF (PRESENT(h)) THEN
+            n=Mesh % NumberOfNodes+Mesh % NumberOfEdges
+            h1=xh(n+Eold % FaceIndexes(4))
+            h2=xh(n+Eold % FaceIndexes(6))
+            r=2._dp/(1+h1/h2)-1
+
+            h1=xh(n+Eold % FaceIndexes(3))
+            h2=xh(n+Eold % FaceIndexes(5))
+            s=2._dp/(1+h1/h2)-1
+
+            h1=xh(n+Eold % FaceIndexes(1))
+            h2=xh(n+Eold % FaceIndexes(2))
+            t=2._dp/(1+h1/h2)-1
+            x(j) = InterpolateInElement3D(Eold,u(Eold % NodeIndexes),r,s,t)
+            y(j) = InterpolateInElement3D(Eold,v(Eold % NodeIndexes),r,s,t)
+            z(j) = InterpolateInElement3D(Eold,w(Eold % NodeIndexes),r,s,t)
+          ELSE
+            x(j) = SUM(u(Eold % NodeIndexes))/k
+            y(j) = SUM(v(Eold % NodeIndexes))/k
+            z(j) = SUM(w(Eold % NodeIndexes))/k
+          END IF
        END SELECT
     END DO
 !

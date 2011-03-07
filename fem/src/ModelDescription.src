@@ -1583,11 +1583,13 @@ CONTAINS
     TYPE(Mesh_t), POINTER :: Mesh,Mesh1,NewMesh,OldMesh
     INTEGER :: i,j,k,l,s,nlen,eqn,MeshKeep,MeshLevels
     LOGICAL :: GotIt,GotMesh,found,OneMeshName, OpenFile, Transient
-    LOGICAL :: stat, single
+    LOGICAL :: stat, single, MeshGrading
     TYPE(Solver_t), POINTER :: Solver
     INTEGER(KIND=AddrInt) :: InitProc
     INTEGER, POINTER :: ActiveSolvers(:)
     INTEGER :: Def_Dofs(6)
+    REAL(KIND=dp) :: MeshPower
+    REAL(KIND=dp), POINTER :: h(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: Name,ElementDef
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir,MeshName
 TYPE(valuelist_t), POINTER :: lst
@@ -1786,9 +1788,23 @@ TYPE(valuelist_t), POINTER :: lst
       MeshKeep = ListGetInteger( Model % Simulation, 'Mesh keep',  GotIt )
       IF ( .NOT. GotIt ) MeshKeep=MeshLevels
 
+      MeshPower   = ListGetConstReal( Model % Simulation, 'Mesh Grading Power',GotIt)
+      MeshGrading = ListGetLogical( Model % Simulation, 'Mesh Keep Grading', GotIt)
+
       DO i=2,MeshLevels
         OldMesh => Model % Meshes
-        NewMesh => SplitMeshEqual(OldMesh)
+
+        IF (MeshGrading) THEN
+          ALLOCATE(h(OldMesh % NumberOfNodes))
+          Model % Mesh => OldMesh
+          CALL GetNodalElementSize(Model,MeshPower,.FALSE.,h)
+          NewMesh => SplitMeshEqual(OldMesh,h)
+          DEALLOCATE(h)
+        ELSE
+          NewMesh => SplitMeshEqual(OldMesh)
+        END IF
+
+
         IF ( i>MeshLevels-MeshKeep+1 ) THEN
           NewMesh % Next => OldMesh
           NewMesh % Parent => OldMesh
@@ -3768,6 +3784,204 @@ CONTAINS
   IF(MaskExists) DEALLOCATE(MaskOrder)
   
 END SUBROUTINE WritePostFile
+!------------------------------------------------------------------------------
+
+
+SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Solve the ElementSize equation!
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh, materials, BCs, etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear & nonlinear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations
+!
+!  LOGICAL :: TransientSimulation
+!     INPUT: Steady state or transient simulation
+!
+!******************************************************************************
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Model_t) :: Model
+  LOGICAL :: noweight
+  REAL(KIND=dp) :: expo
+  REAL(KIND=Dp), POINTER :: h(:)
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), POINTER :: Solver
+  REAL(KIND=dp) :: dt=1._dp
+  LOGICAL :: TransientSimulation=.FALSE.
+
+  TYPE(Element_t),POINTER :: Element
+
+  LOGICAL :: AllocationsDone = .FALSE., Found
+
+  INTEGER :: n, t, istat, active
+  REAL(KIND=dp) :: Norm, Power
+  TYPE(Mesh_t), POINTER :: Mesh
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+  LOGICAL :: GotIt
+  REAL(KIND=dp) :: ElemMin, ElemMax
+  TYPE(ValueList_t), POINTER :: Params
+
+  TYPE(Matrix_t), POINTER :: A
+  INTEGER, POINTER :: CPerm(:)
+
+  SAVE STIFF, FORCE, AllocationsDone
+!------------------------------------------------------------------------------
+
+  CALL Info('ElementSizeSolver','Computing nodal element size indicator')
+
+
+  ALLOCATE( Solver )
+  Solver % Mesh => Model % Mesh
+  Mesh => Solver % Mesh
+
+  Params => Null()
+  CALL ListAddString( Params,'Linear System Iterative Method', 'CG' )
+  CALL ListAddLogical( Params,'Linear System Symmetric', .TRUE. )
+  CALL ListAddInteger( Params, 'Linear System Max Iterations', 5000 )
+  CALL ListAddString( Params, 'Linear System Preconditioning', 'ILU0' )
+  CALL ListAddInteger( Params, 'Linear System Residual Output', 100 )
+  CALL ListAddConstReal( Params, 'Linear System Convergence Tolerance', 1.0d-9 )
+  Solver % Values=>Params
+
+  ALLOCATE(CPerm(Mesh % NumberOfNodes))
+
+  A => CreateMatrix(Model,Solver, &
+           Solver % Mesh,CPerm,1,MATRIX_CRS,.FALSE. )
+
+  Solver % Matrix => A
+  Model % Solver => Solver
+
+  ALLOCATE(A % RHS(Mesh % NumberOfNodes))
+
+  Solver % TimeOrder = 0
+
+  Mesh % Variables => Null()
+  CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+        'nodal h',1,h)!,Output=.FALSE.)
+  Solver % Variable=>VariableGet(Mesh % Variables,'nodal h',ThisOnly=.TRUE.)
+
+
+  ! Allocate some storage
+  !--------------------------------------------------------------
+  N = Mesh % MaxElementNodes ! just big enough for elemental arrays
+  ALLOCATE( FORCE(N), STIFF(N,N), STAT=istat )
+  IF ( istat /= 0 ) THEN
+    CALL Fatal( 'ElementSizeSolver', 'Memory allocation error.' )
+  END IF
+  
+  ElemMin =  HUGE(ElemMin)
+  ElemMax = -HUGE(ElemMax)
+
+  !Initialize the system and do the assembly:
+  !------------------------------------------
+  CALL DefaultInitialize()
+  Power = 1.0_dp / expo
+
+  active = Mesh % NumberOfBulkElements
+  DO t=1,active
+    Element => Mesh % Elements(t)
+    Model % CurrentElement => Element
+    n = GetElementNOFNodes()
+    
+    !Get element local matrix and rhs vector:
+    !----------------------------------------
+    CALL LocalMatrix(  STIFF, FORCE, Element, n )
+    
+    !Update global matrix and rhs vector from local matrix & vector:
+    !---------------------------------------------------------------
+    CALL UpdateGlobalEquations( A,STIFF,A % RHS,FORCE, &
+       n, 1, Element % NodeIndexes, .FALSE.)
+  END DO
+  
+  h=0
+  CALL IterSolver(A,h,A % RHS,Solver)
+  
+
+  WRITE(Message,'(A,2ES12.4)') 'Minimum Element Size: ',ElemMin, MINVAL(h)
+  CALL Info('ElementSizeSolver',Message)
+  WRITE(Message,'(A,2ES12.4)') 'Maximum Element Size: ',ElemMax, MAXVAL(h)
+  CALL Info('ElementSizeSolver',Message)
+  WRITE(Message,'(A,2ES12.4)') 'Element Size Ratio: ',ElemMax / ElemMin, MAXVAL(h)/MINVAL(h)
+  CALL Info('ElementSizeSolver',Message)
+
+  Model % Solver=>Null()
+  DEALLOCATE(Mesh % Variables)
+  Mesh % Variables => Null()
+
+  CALL FreeMatrix(A)
+  DEALLOCATE( FORCE, STIFF,Cperm )
+ 
+CONTAINS
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix(  STIFF, FORCE, Element, n )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
+    INTEGER :: n
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),DetJ,LoadAtIP,Weight
+    LOGICAL :: Stat
+    INTEGER :: i,j,t
+    TYPE(GaussIntegrationPoints_t) :: IP
+
+    TYPE(Nodes_t) :: Nodes
+    SAVE Nodes
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+    STIFF = 0.0d0
+    FORCE = 0.0d0
+
+    ! Numerical integration:
+    !----------------------
+    IP = GaussPoints( Element )
+
+    DO t=1,IP % n
+       ! Basis function values & derivatives at the integration point:
+       !--------------------------------------------------------------
+       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+               IP % W(t),  detJ, Basis )
+
+       ! The source term at the integration point:
+       !------------------------------------------
+       LoadAtIP = DetJ ** Power
+       IF( NoWeight ) THEN
+         Weight = IP % s(t) 
+       ELSE
+         Weight = IP % s(t) * DetJ
+       END IF
+
+       ElemMin = MIN( ElemMin, LoadAtIP )
+       ElemMax = MAX( ElemMax, LoadAtIP )
+       
+       ! Finally, the elemental matrix & vector:
+       !----------------------------------------
+       DO i = 1, n
+         DO j = 1, n
+           STIFF(i,j) = STIFF(i,j) + Weight * &
+               Basis(i) * Basis(j)
+         END DO
+         FORCE(i) = FORCE(i) + Weight * Basis(i) * LoadAtIp
+       END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+END SUBROUTINE GetNodalElementSize
 !------------------------------------------------------------------------------
 
 END MODULE ModelDescription
