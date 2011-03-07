@@ -818,15 +818,10 @@ CONTAINS
              str = 'ELMER_HOME'; str(11:11) = CHAR(0)
              CALL envir( str,str1,k ) 
              IF ( k > 0 ) THEN
-                str1 = str1(1:k) // '/share/elmersolver/lib/' // 'SOLVER.KEYWORDS'
+               str1 = str1(1:k) // '/share/elmersolver/lib/' // 'SOLVER.KEYWORDS'
              ELSE
-
-!                str1 = ELMER_SOLVER_HOME &
-! // "/lib" // "/SOLVER.KEYWORDS"
-
-                 CALL GetSolverHome(str, n)
-                 WRITE(str1, '(a,a)') str(1:n), '/lib/SOLVER.KEYWORDS'
-
+               CALL GetSolverHome(str, n)
+               WRITE(str1, '(a,a)') str(1:n), '/lib/SOLVER.KEYWORDS'
              END IF
           END IF
 
@@ -1929,9 +1924,23 @@ TYPE(valuelist_t), POINTER :: lst
         MeshKeep = ListGetInteger( Model % Solvers(s) % Values, 'Mesh keep',  GotIt )
         IF ( .NOT. GotIt ) MeshKeep=MeshLevels
 
+        MeshPower   = ListGetConstReal( Model % Simulation, 'Mesh Grading Power',GotIt)
+        MeshGrading = ListGetLogical( Model % Simulation, 'Mesh Keep Grading', GotIt)
+
+
         DO i=2,MeshLevels
           OldMesh => Model % Solvers(s) % Mesh
-          NewMesh => SplitMeshEqual(OldMesh)
+
+          IF (MeshGrading) THEN
+            ALLOCATE(h(OldMesh % NumberOfNodes))
+            Model % Mesh => OldMesh
+            CALL GetNodalElementSize(Model,MeshPower,.FALSE.,h)
+            NewMesh => SplitMeshEqual(OldMesh,h)
+            DEALLOCATE(h)
+          ELSE
+            NewMesh => SplitMeshEqual(OldMesh)
+          END IF
+
           IF ( i>MeshLevels-MeshKeep+1 ) THEN
             NewMesh % Next => OldMesh
             NewMesh % Parent => OldMesh
