@@ -1131,11 +1131,15 @@ CONTAINS
       ! These operators should already be more of less parallel
     CASE('partitions','cpu time','cpu memory','norm','nonlin change','steady state change',&
 	'nonlin iter','nonlin converged','steady converged')
-      ParOper = 'NONE'
+      ParOper = 'none'
 
     CASE DEFAULT
-      CALL Warn('SaveScalars','Reduction not implemented in parallel:'//TRIM(LocalOper))
-      
+      ParOper = ListGetString( SolverParams,'Default Parallel Operator',GotIt)
+      IF( .NOT. GotIt ) THEN
+        ParOper = 'none'
+        CALL Warn('SaveScalars','Reduction not implemented in parallel:'//TRIM(LocalOper))
+      END IF      
+
     END SELECT
 
     CALL Info('OperToParOperMap',TRIM(LocalOper)//' -> '//TRIM(ParOper))
