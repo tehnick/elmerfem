@@ -3817,7 +3817,9 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
-  USE DefUtils
+  USE IterSolve
+  USE Integration
+  USE ElementDescription
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -3880,7 +3882,7 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
 
   Mesh % Variables => Null()
   CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
-        'nodal h',1,h)!,Output=.FALSE.)
+        'nodal h',1,h) !,Output=.FALSE.)
   Solver % Variable=>VariableGet(Mesh % Variables,'nodal h',ThisOnly=.TRUE.)
 
 
@@ -3897,14 +3899,15 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
 
   !Initialize the system and do the assembly:
   !------------------------------------------
-  CALL DefaultInitialize()
   Power = 1.0_dp / expo
-
   active = Mesh % NumberOfBulkElements
+
+  A % RHS=0._dp
+  A % Values=0._dp
   DO t=1,active
     Element => Mesh % Elements(t)
     Model % CurrentElement => Element
-    n = GetElementNOFNodes()
+    n = Element % Type % NumberOfNodes
     
     !Get element local matrix and rhs vector:
     !----------------------------------------
@@ -3912,8 +3915,9 @@ SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
     
     !Update global matrix and rhs vector from local matrix & vector:
     !---------------------------------------------------------------
-    CALL UpdateGlobalEquations( A,STIFF,A % RHS,FORCE, &
-       n, 1, Element % NodeIndexes, .FALSE.)
+    CALL CRS_GlueLocalMatrix( A,n,1,Element % NodeIndexes,STIFF )
+    A % RHS(Element % NodeIndexes) = &
+             A % RHS(Element % NodeIndexes)+FORCE(1:n)
   END DO
   
   h=0
@@ -3951,9 +3955,13 @@ CONTAINS
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
 !------------------------------------------------------------------------------
-    CALL GetElementNodes( Nodes )
-    STIFF = 0.0d0
-    FORCE = 0.0d0
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+
+    ALLOCATE(Nodes % x(n), Nodes % y(n), Nodes % z(n))
+    Nodes % x = Mesh  % Nodes % x(Element % NodeIndexes)
+    Nodes % y = Mesh  % Nodes % y(Element % NodeIndexes)
+    Nodes % z = Mesh  % Nodes % z(Element % NodeIndexes)
 
     ! Numerical integration:
     !----------------------
@@ -3987,6 +3995,7 @@ CONTAINS
          FORCE(i) = FORCE(i) + Weight * Basis(i) * LoadAtIp
        END DO
     END DO
+    DEALLOCATE(Nodes % x, Nodes % y, Nodes % z)
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
