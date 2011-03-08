@@ -2864,8 +2864,8 @@ END SUBROUTINE FindNeighbourNodes
             h1=xh(n+Face % EdgeIndexes(2))
             h2=xh(n+Face % EdgeIndexes(4))
             r=2._dp/(1+h1/h2)-1
-            h1=xh(n+Face % EdgeIndexes(1))
-            h2=xh(n+Face % EdgeIndexes(3))
+            h1=xh(n+Face % EdgeIndexes(3))
+            h2=xh(n+Face % EdgeIndexes(1))
             s=2._dp/(1+h1/h2)-1
             x(j) = InterpolateInElement2D(Face,u(Face % NodeIndexes),r,s)
             y(j) = InterpolateInElement2D(Face,v(Face % NodeIndexes),r,s)
@@ -2879,8 +2879,8 @@ END SUBROUTINE FindNeighbourNodes
        END IF
     END DO
 !
-!   add centerpoint for quad & bricks:
-!   ----------------------------------
+!   add centerpoint for quads & bricks:
+!   -----------------------------------
     DO i=1,Mesh % NumberOfBulkElements
        Eold => Mesh % Elements(i)
        k = Eold % Type % NumberOfNodes
@@ -2893,8 +2893,8 @@ END SUBROUTINE FindNeighbourNodes
             h1=xh(n+Eold % Edgeindexes(2))
             h2=xh(n+Eold % Edgeindexes(4))
             r=2._dp/(1+h1/h2)-1
-            h1=xh(n+Eold % EdgeIndexes(1))
-            h2=xh(n+Eold % EdgeIndexes(3))
+            h1=xh(n+Eold % EdgeIndexes(3))
+            h2=xh(n+Eold % EdgeIndexes(1))
             s=2._dp/(1+h1/h2)-1
             x(j) = InterpolateInElement2D(Eold,u(Eold % NodeIndexes),r,s)
             y(j) = InterpolateInElement2D(Eold,v(Eold % NodeIndexes),r,s)
@@ -2911,12 +2911,12 @@ END SUBROUTINE FindNeighbourNodes
             h2=xh(n+Eold % FaceIndexes(6))
             r=2._dp/(1+h1/h2)-1
 
-            h1=xh(n+Eold % FaceIndexes(3))
-            h2=xh(n+Eold % FaceIndexes(5))
+            h1=xh(n+Eold % FaceIndexes(5))
+            h2=xh(n+Eold % FaceIndexes(3))
             s=2._dp/(1+h1/h2)-1
 
-            h1=xh(n+Eold % FaceIndexes(1))
-            h2=xh(n+Eold % FaceIndexes(2))
+            h1=xh(n+Eold % FaceIndexes(2))
+            h2=xh(n+Eold % FaceIndexes(1))
             t=2._dp/(1+h1/h2)-1
             x(j) = InterpolateInElement3D(Eold,u(Eold % NodeIndexes),r,s,t)
             y(j) = InterpolateInElement3D(Eold,v(Eold % NodeIndexes),r,s,t)
