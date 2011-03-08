@@ -120,7 +120,9 @@ AC_DEFUN([ACX_MPI], [
     fi
 
     if test "$MPI_LIBS" == ""; then
-      MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
+      if test "$mpi_lib_dir" != ""; then
+        MPI_LIBS="-L$mpi_lib_dir $lib_mpi"
+      fi
     fi
 
     AC_SUBST(lib_mpi)
