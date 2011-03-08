@@ -1874,7 +1874,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      LOGICAL :: Found
      TYPE(ValueList_t), POINTER :: ptr, prev
 !------------------------------------------------------------------------------
-     NULLIFY( prev )
+     Prev => Null()
      Found = .FALSE.
 
      NEW => ListAllocate()
@@ -3219,9 +3219,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
     CHARACTER(*) :: TimerName
     REAL(KIND=dp) :: ct, rt
     REAL(KIND=dp) :: RealTime, CPUTime
-    LOGICAL :: Found
+    LOGICAL :: Found,FirstTime=.TRUE.
 
-    IF( .NOT. ASSOCIATED( TimerList ) ) THEN
+    IF( FirstTime ) THEN
+      FirstTime=.FALSE.
       TimerPassive = ListGetLogical( CurrentModel % Simulation,'Timer Passive',Found)
       TimerResults = ListGetLogical( CurrentModel % Simulation,'Timer Results',Found)      
     END IF
