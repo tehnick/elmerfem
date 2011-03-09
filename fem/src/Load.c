@@ -244,6 +244,11 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    char *exeName = NULL;
    int n = 0;
 /*--------------------------------------------------------------------------*/
+   memset(appPath, 0, MAX_PATH_LEN);
+   memset(ElmerLib, 0, 2*MAX_PATH_LEN);
+   memset(NewLibName, 0, 3*MAX_PATH_LEN);
+   memset(NewName, 0, MAX_PATH_LEN);
+/*--------------------------------------------------------------------------*/
    fortranMangle( Name, NewName );
    strncpy( NewLibName, Library, 3*MAX_PATH_LEN );
 
