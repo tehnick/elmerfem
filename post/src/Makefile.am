@@ -29,7 +29,7 @@ QueryGLXExt_SOURCES=QueryGLXExt.c
 
 all-local: screensave.so
 clean-local:
-	rm *.so
+	rm -f *.so
 
 EXTRA_DIST=screensave.c
 
