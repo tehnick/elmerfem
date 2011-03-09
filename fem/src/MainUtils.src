@@ -1857,9 +1857,9 @@ CONTAINS
     ! Load the assembly procudure
     !-----------------------------------------
     IF( BulkMode ) THEN
-      WRITE (str,'(A,I1,I1)') 'Bulk Assembly Procedure ',RowVar,ColVar
+      WRITE (str,'(A,I0,I0)') 'Bulk Assembly Procedure ',RowVar,ColVar
     ELSE
-      WRITE (str,'(A,I1,I1)') 'Boundary Assembly Procedure ',RowVar,ColVar
+      WRITE (str,'(A,I0,I0)') 'Boundary Assembly Procedure ',RowVar,ColVar
     END IF    
     ProcName = ListGetString( SolverParams, TRIM(str), GotIt )
 
@@ -2205,13 +2205,13 @@ CONTAINS
       TotSize = SUM( VarSizes )
       MaxDofs = MAXVAL( VarDofs )
       
-      WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
+      WRITE(Message,'(A,T35,I0)') 'Number of coupled variables: ',NoVar
       CALL Info('CoupledSolver',Message)
       
-      WRITE(Message,'(A,T35,I10)') 'Number of constraints: ',NoCons
+      WRITE(Message,'(A,T35,I0)') 'Number of constraints: ',NoCons
       CALL Info('CoupledSolver',Message)
       
-      WRITE(Message,'(A,T35,I10)') 'Size of coupled system: ',TotSize
+      WRITE(Message,'(A,T35,I0)') 'Size of coupled system: ',TotSize
       CALL Info('CoupledSolver',Message)
       
       ! For the 1st time the matrix should be a list, later CRS
@@ -2934,7 +2934,7 @@ CONTAINS
       CALL InitializeBlockMatrix( TotMatrix, NoVar )
       TotMatrix % Solver => Solver
       
-      WRITE(Message,'(A,T35,I10)') 'Number of coupled variables: ',NoVar
+      WRITE(Message,'(A,T35,I0)') 'Number of coupled variables: ',NoVar
       CALL Info('BlockSolver',Message)
 
       !------------------------------------------------------------------------------
@@ -2996,7 +2996,7 @@ CONTAINS
     
     DO iter = 1,NoIterations
       
-      WRITE(Message,'(A,T35,I5)') 'Coupled iteration:',iter
+      WRITE(Message,'(A,T35,I0)') 'Coupled iteration: ',iter
       CALL Info('BlockSolver',Message,Level=5)
 
       tests = 0

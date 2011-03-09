@@ -247,7 +247,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
 
 
   CALL Info( 'FindOptimum', '-----------------------------------------', Level=4 )
-  WRITE( Message, '(A,I3,A,A)' ) 'Manipulating',NoFreeParam,' parameters using ',TRIM(Method) 
+  WRITE( Message, '(A,I0,A,A)' ) 'Manipulating ',NoFreeParam,' parameters using ',TRIM(Method) 
   CALL Info( 'FindOptimum', Message, Level=4 )
   IF(OptimizationsDone > 0) THEN
     WRITE( Message, '(A,ES15.6E3)' ) 'Last evaluated cost: ',Cost    
@@ -433,7 +433,7 @@ CONTAINS
       DO i=1,NoParam
         IF(.NOT. FixedParam(i)) EXIT
       END DO
-      WRITE(Message,'(A,I3)') 'Applying scanning to parameter',i
+      WRITE(Message,'(A,I0)') 'Applying scanning to parameter ',i
       CALL Info('FindOptimum',Message)
 
       maxno = NoValues 
@@ -464,7 +464,7 @@ CONTAINS
       DO j=1,NoParam
         IF(.NOT. FixedParam(j)) EXIT
       END DO
-      WRITE(Message,'(A,I3)') 'Applying bisection search to parameter',j
+      WRITE(Message,'(A,I0)') 'Applying bisection search to parameter ',j
       CALL Info('FindOptimum',Message)
     END IF
     
@@ -548,7 +548,7 @@ CONTAINS
       DO j=1,NoParam
         IF(.NOT. FixedParam(j)) EXIT
       END DO
-      WRITE(Message,'(A,I3)') 'Applying bisection search to parameter',j
+      WRITE(Message,'(A,I0)') 'Applying bisection search to parameter ',j
       CALL Info('FindOptimum',Message)
     END IF
     

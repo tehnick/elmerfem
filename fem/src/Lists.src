@@ -2885,15 +2885,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
     INTEGER :: No
     
     DO No = 1, 9999
-      IF( No < 10) THEN
-        WRITE( Keyword,'(A,I2)') TRIM(Keyword0),No
-      ELSE IF( No < 100) THEN
-        WRITE( Keyword,'(A,I3)') TRIM(Keyword0),No
-      ELSE IF( No < 1000) THEN
-        WRITE( Keyword,'(A,I4)') TRIM(Keyword0),No
-      ELSE IF( No < 10000) THEN
-        WRITE( Keyword,'(A,I5)') TRIM(Keyword0),No
-      END IF
+      WRITE( Keyword,'(A,I0)') TRIM(Keyword0)//' ',No
       IF( .NOT. ListCheckPresent(List,Keyword)) EXIT
     END DO
 
@@ -2978,12 +2970,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
     LOGICAL, OPTIONAL :: ClearList
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,LoopDim, VarDim,DOFs,dim
-    TYPE(Variable_t), POINTER :: Var, Var1
+    TYPE(Variable_t), POINTER :: Variables, Var, Var1
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VarStr, VarStrComp, VarStrExt, str
     LOGICAL :: IsVector, Set, GotIt, ComponentVector, ThisOnly
     INTEGER :: Nvector, Nscalar
     TYPE(ValueList_t), POINTER :: Params
-    TYPE(VariableType_t), POINTER :: Variables	
 
     Params => Model % Solver % Values
     Variables => Model % Mesh % Variables
@@ -3135,18 +3126,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
       IF( Set ) THEN
         IF( IsVector ) THEN
           Nvector = Nvector + 1
-          IF( Nvector < 10 ) THEN 
-            WRITE(VarStr,'(A,I2)') 'Vector Field',Nvector
-          ELSE 
-            WRITE(VarStr,'(A,I3)') 'Vector Field',Nvector
-          END IF
+          WRITE(VarStr,'(A,I0)') 'Vector Field ',Nvector
         ELSE 
           Nscalar = Nscalar + 1
-          IF( Nscalar < 10 ) THEN
-            WRITE(VarStr,'(A,I2)') 'Scalar Field',Nscalar
-          ELSE            
-            WRITE(VarStr,'(A,I3)') 'Scalar Field',Nscalar
-          END IF
+          WRITE(VarStr,'(A,I0)') 'Scalar Field ',Nscalar
         END IF
         CALL ListAddString( List,TRIM(VarStr),TRIM(VarName) )
       END IF
@@ -3158,11 +3141,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
     IF( ShowVariables ) THEN
       CALL Info('CreateListForSaving','Field Variables for Saving')
       DO i=1,Nscalar
-        IF( i < 10 ) THEN
-          WRITE(VarStr,'(A,I2)') 'Scalar Field',i
-        ELSE
-          WRITE(VarStr,'(A,I3)') 'Scalar Field',i
-        END IF
+        WRITE(VarStr,'(A,I0)') 'Scalar Field ',i
         VarName = ListGetString( List, VarStr,GotIt )
         IF( GotIt ) THEN
           WRITE( Message,'(A)') TRIM(VarStr)//': '//TRIM(VarName)
@@ -3171,11 +3150,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
       END DO
 
       DO i=1,Nvector
-        IF( i < 10 ) THEN
-          WRITE(VarStr,'(A,I2)') 'Vector Field',i
-        ELSE
-          WRITE(VarStr,'(A,I3)') 'Vector Field',i
-        END IF
+        WRITE(VarStr,'(A,I0)') 'Vector Field ',i
         VarName = ListGetString( List, VarStr,GotIt )
         IF( GotIt ) THEN
           WRITE( Message,'(A)') TRIM(VarStr)//': '//TRIM(VarName)
@@ -3184,11 +3159,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
       END DO
 
       DO i=1,Nvector
-        IF( i < 10 ) THEN
-          WRITE(VarStr,'(A,I2,A)') 'Vector Field',i,' Complement'
-        ELSE
-          WRITE(VarStr,'(A,I3,A)') 'Vector Field',i,' Complement'
-        END IF
+        WRITE(VarStr,'(A,I0,A)') 'Vector Field ',i,' Complement'
         VarName = ListGetString( List, VarStr, GotIt )
         IF( GotIt ) THEN
           WRITE( Message,'(A)') TRIM(VarStr)//': '//TRIM(VarName)
