@@ -54,14 +54,15 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: TransientSimulation
 
   LOGICAL :: SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, &
-      SaveVTU, SaveEP, SaveAny, ListSet = .FALSE.
+      SaveVTU, SaveEP, SaveAny, ListSet = .FALSE., ActiveMesh
   INTEGER :: i,nInterval=1, nstep=0, OutputCount = 0, MeshDim,MeshLevel
   INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
 
   TYPE(Mesh_t), POINTER :: Mesh, iMesh
   CHARACTER(10) :: OutputFormat
-  CHARACTER(LEN=512) :: FilePrefix	
+  CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, MeshName
   LOGICAL :: SubroutineVisited=.FALSE.,Found
+  TYPE(ValueList_t), POINTER :: Params
     
   SAVE SubroutineVisited, OutputCount, ListSet, MeshDim
   INTERFACE
@@ -79,16 +80,15 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 
   CALL Info( 'ResultOutputSolver', '-------------------------------------')
 
-  CALL ResetTimer('ResultOutputSolver')
+  Params => Solver % Values
+  SaveGid = ListGetLogical(Params,'Gid Format',Found)
+  SaveGmsh = ListGetLogical(Params,'Gmsh Format',Found)
+  SaveVTK = ListGetLogical(Params,'VTK Format',Found)
+  SaveVTU = ListGetLogical(Params,'VTU Format',Found)
+  SaveOpenDx = ListGetLogical(Params,'Dx Format',Found)
+  SaveEP = ListGetLogical(Params,'Elmerpost Format',Found)
 
-  SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
-  SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
-  SaveVTK = ListGetLogical(Solver % Values,'VTK Format',Found)
-  SaveVTU = ListGetLogical(Solver % Values,'VTU Format',Found)
-  SaveOpenDx = ListGetLogical(Solver % Values,'Dx Format',Found)
-  SaveEP = ListGetLogical(Solver % Values,'Elmerpost Format',Found)
-
-  OutputFormat = GetString( Solver % Values, 'Output Format', Found )
+  OutputFormat = GetString( Params, 'Output Format', Found )
   IF(Found) THEN
     IF( OutputFormat == "gid" )THEN
       SaveGid = .TRUE.
@@ -106,14 +106,14 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL Warn( 'ResultOutputSolver', &
                  'Unknown output format "' // TRIM(OutputFormat) // '"' )
       CALL Warn( 'ResultOutputSolver', &
-                 'Available formats are "GiD", "VTK", "VTU" and "DX"' )
+                 'Available formats are "GiD", "VTK", "VTU", "DX", "gmsh" and "elmerpost"' )
       RETURN
     END IF
   END IF
 
   IF( .NOT. SubroutineVisited ) THEN
-    IF ( ListGetLogical(Solver % Values,'Show Variables',Found) ) THEN
-      CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
+    IF ( ListGetLogical(Params,'Show Variables',Found) ) THEN
+      CALL CreateListForSaving( Model, Params,.TRUE. )    
     END IF
   END IF
 
@@ -123,13 +123,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     RETURN
   END IF
 
-  FilePrefix = ListGetString( Solver % Values,'Output File Name',Found)
+  FilePrefix = ListGetString( Params,'Output File Name',Found)
   IF(.NOT. Found) THEN
     FilePrefix = 'Case'
-    CALL ListAddString( Solver % Values,'Output File Name',FilePrefix)
+    CALL ListAddString( Params,'Output File Name',FilePrefix)
   END IF
   
-  IF( .NOT. SubroutineVisited ) THEN
+  IF( .NOT. SubroutineVisited ) THEN 
     CALL Info('ResultOutputSolve','Saving with prefix: '//TRIM(FilePrefix))
   END IF	
 
@@ -137,48 +137,58 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   ! The idea of this is that the independent subroutines may be called 
   ! with different data sets and still maintaining the standard output calling convention
   OutputCount = OutputCount + 1
-  CALL ListAddInteger( Solver % Values,'Output Count',OutputCount)
-
+  CALL ListAddInteger( Params,'Output Count',OutputCount)
 
 
   ! Finally go for it and write desired data
   ! Some formats requite that the list of variables is explicitely given
   !-----------------------------------------
 
-  MeshLevel = GetInteger( Solver % Values,'Output Mesh Level',Found)
+  MeshLevel = GetInteger( Params,'Output Mesh Level',Found)
 
   iMesh => Model % Meshes
   DO WHILE( ASSOCIATED(iMesh) )
     
-    IF ( .NOT.iMesh % OutputActive ) THEN
+    IF ( .NOT. iMesh % OutputActive ) THEN
       iMesh => iMesh % next
       CYCLE 
     END IF    
-    CALL SetCurrentMesh( Model, iMesh )
 
+    CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(iMesh % Name) )
+    WRITE(Message,'(A,I0)') 'Dimension of mesh: ',iMesh % MeshDim 
+    CALL Info('ResultOutputSolver',Message) 
+
+    ! Optionally skip the writing of given meshes 
+    !---------------------------------------------------------------    
+    MeshName = ListGetString( Params,'Mesh Name',Found )
+    IF(Found) THEN
+      IF( TRIM( MeshName ) /= TRIM( iMesh % Name ) ) THEN
+        iMesh => iMesh % next
+        CYCLE
+      END IF
+    END IF
+
+    CALL SetCurrentMesh( Model, iMesh )
     IF( .NOT. ListSet ) THEN
-      CALL CreateListForSaving( Model, Solver % Values,.TRUE. )    
+      CALL CreateListForSaving( Model, Params,.TRUE. )    
       ListSet = .TRUE.
     ELSE IF( MeshDim /= Model % Mesh % MeshDim ) THEN
-      CALL CreateListForSaving( Model, Solver % Values,.TRUE.,.TRUE. )    
+      CALL CreateListForSaving( Model, Params,.TRUE.)
+!,.TRUE. )    
     END IF
     MeshDim = Model % Mesh % MeshDim
 
     ! In case there are multiple mesh levels one may also save coarser ones
     !----------------------------------------------------------------------
     Mesh=>iMesh
-    iMesh => iMesh % Next
     DO i=1,MeshLevel
       Mesh => Mesh % Parent
       IF (.NOT.ASSOCIATED(Mesh)) EXIT
     END DO
-    IF (.NOT.ASSOCIATED(Mesh)) CYCLE
+    IF ( ASSOCIATED(Mesh)) THEN
+
 
     CALL SetCurrentMesh( Model, Mesh )
-
-    CALL Info('ResultOutputSolver','Working on mesh: '//TRIM(Mesh % Name) )
-    WRITE(Message,'(A,I1)') 'Dimension of mesh: ',Mesh % MeshDim 
-    CALL Info('ResultOutputSolver',Message)
 
     IF( SaveGid ) THEN
       CALL Info( 'ResultOutputSolver','Saving in GiD format' )    
@@ -205,9 +215,10 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL ElmerPostOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
 
-    CALL CheckTimer('ResultOutputSolver',Delete=.TRUE.)
-
     CALL Info( 'ResultOutputSolver', '-------------------------------------')
+    END IF
+
+    iMesh => iMesh % Next
   END DO
 
 
@@ -399,11 +410,7 @@ END SUBROUTINE ResultOutputSolver
     ScalarFields = 0
     On_nodes_on_elements=0
     DO Vari = 1, 99
-      IF( Vari < 10 ) THEN
-        WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-      ELSE
-        WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-      END IF
+      WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
       Var => VariableGet( Solver % Mesh % Variables, Varname )
@@ -418,11 +425,7 @@ END SUBROUTINE ResultOutputSolver
     
     VectorFields = 0
     DO Vari = 1, 99
-      IF( Vari < 10 ) THEN
-        WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-      ELSE
-        WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-      END IF
+      WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
       Var => VariableGet( Solver % Mesh % Variables, Varname )
@@ -445,11 +448,7 @@ END SUBROUTINE ResultOutputSolver
           NumberOfElements, DOFs, TimeCount
       
       DO Vari = 1, ScalarFields
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-        END IF
+        WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
         VarName = ListGetString( Solver % Values, TRIM(Txt) )
         Var => VariableGet( Solver % Mesh % Variables,VarName )
         IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
@@ -468,12 +467,7 @@ END SUBROUTINE ResultOutputSolver
       END DO
       
       DO Vari = 1, VectorFields
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        END IF
-
+        WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Solver % Mesh % Variables,VarName )
         IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
@@ -739,11 +733,7 @@ END SUBROUTINE ResultOutputSolver
       END IF
       
       DO Vari = 1, ScalarFields
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-        END IF
+        WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Model % Variables, TRIM(VarName) ) 
         IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
@@ -764,11 +754,7 @@ END SUBROUTINE ResultOutputSolver
 
       DO Vari = 1, VectorFields
 
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        END IF
+        WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Model % Variables, VarName ) 
 
@@ -784,11 +770,7 @@ END SUBROUTINE ResultOutputSolver
           
           IF( k == 0 ) THEN
             ! Check for the presence of secondary variable (in practice 'mesh update')
-            IF( Vari < 10 ) THEN
-              WRITE(Txt,'(A,I2,A)') 'Vector Field',Vari,' Complement'
-            ELSE
-              WRITE(Txt,'(A,I3,A)') 'Vector Field',Vari,' Complement'
-            END IF
+            WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
             VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
             IF( GotIt ) THEN
               Var => VariableGet( Model % Variables, VarName ) 
@@ -815,11 +797,7 @@ END SUBROUTINE ResultOutputSolver
             IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
 
             IF( k == 0 ) THEN
-              IF( Vari < 10 ) THEN
-                WRITE(Txt,'(A,I2,A)') 'Vector Field',Vari,' Complement'
-              ELSE
-                WRITE(Txt,'(A,I3,A)') 'Vector Field',Vari,' Complement'
-              END IF
+              WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
               VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
               IF( GotIt ) THEN
                 Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
@@ -1017,13 +995,8 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      END IF
      IF( INT(i/100) == 8 ) Family = 'Hexahedra'
 
-     IF( n < 10 ) THEN
-        WRITE(Txt,'(A,I1,A,A,A,I2)') 'MESH "Elmer Mesh" dimension ',&
-             dim,' ElemType ', TRIM(Family),' Nnode', n
-     ELSE
-        WRITE(Txt,'(A,I1,A,A,A,I3)') 'MESH "Elmer Mesh" dimension ',&
-             dim,' ElemType ', TRIM(Family),' Nnode', n
-     END IF
+     WRITE(Txt,'(A,I1,A,A,A,I0)') 'MESH "Elmer Mesh" dimension ',&
+             dim,' ElemType ', TRIM(Family),' Nnode ', n
 
      WRITE(10,'(A)') TRIM(Txt)
 
@@ -1121,11 +1094,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      ! First scalar fields:
      !----------------------
      DO i = 1, 99
-       IF( i<10 ) THEN
-         WRITE(Txt,'(A,I2)') 'Scalar Field',i
-       ELSE
-         WRITE(Txt,'(A,I3)') 'Scalar Field',i
-       END IF
+       WRITE(Txt,'(A,I0)') 'Scalar Field ',i
        
        ScalarFieldName = GetString( Solver % Values, TRIM(Txt), Found )
        IF(.NOT. Found) EXIT
@@ -1177,11 +1146,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      ! Then vector fields:
      !--------------------
      DO i = 1, 99
-       IF( i<10 ) THEN
-         WRITE(Txt,'(A,I2)') 'Vector Field',i
-       ELSE
-         WRITE(Txt,'(A,I3)') 'Vector Field',i
-       END IF
+       WRITE(Txt,'(A,I0)') 'Vector Field ',i
        
        VectorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
        IF(.NOT. Found) EXIT
@@ -1258,12 +1223,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      ! Finally tensor fields:
      !-----------------------
      DO i = 1, 99
-       IF( i<10 ) THEN
-         WRITE(Txt,'(A,I2)') 'Tensor Field',i
-       ELSE
-         WRITE(Txt,'(A,I3)') 'Tensor Field',i
-       END IF
-       
+       WRITE(Txt,'(A,I0)') 'Tensor Field ',i
        TensorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
        IF(.NOT. Found) EXIT
        
@@ -1588,15 +1548,9 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   CALL Info('GmshOutputSolver','Writing the nodal data')
   DO Rank = 0,2
     DO Vari = 1, 99
-      IF( Vari < 10 ) THEN
-        IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-        IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-        IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
-      ELSE
-        IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-        IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-        IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
-      END IF
+      IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+      IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
+      IF(Rank==2) WRITE(Txt,'(A,I0)') 'Tensor Field ',Vari
 
       FieldName = GetString( Solver % Values, TRIM(Txt), Found )
       IF(.NOT. Found) EXIT 
@@ -3115,7 +3069,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF(.NOT. GotIt) Str = ListGetString( Params,'Mask Name',GotIt) 
     IF( GotIt ) THEN
-      ALLOCATE( MaskPerm( Model % NumberOfNodes ) ) 
+      ALLOCATE( MaskPerm( Mesh % NumberOfNodes ) ) 
       CALL MakePermUsingMask( Model,Solver,Mesh,Str, &
           .FALSE., MaskPerm, NumberOfNodes )
       ParallelNodes = NINT( ParallelReduction( 1.0_dp * NumberOfNodes ) )
@@ -3128,23 +3082,23 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       END IF
     END IF
   END IF
-  
+
   IF(MaskExists) THEN
     CALL Info('VtuOutputSolver','Using > '// TRIM(Str) // ' < as mask variable')
     NumberOfNodes = 0
-    DO i=1,Model % NumberOfNodes
+    DO i=1,Mesh % NumberOfNodes
       IF( MaskPerm(i) == 0 ) CYCLE
       NumberOfNodes = NumberOfNodes +1 
     END DO
     NumberOfElements = 0
     IF( NumberOfNodes > 0 ) THEN
       ALLOCATE(MaskOrder(NumberOfNodes))
-      DO i=1,Model % NumberOfNodes
+      DO i=1,Mesh % NumberOfNodes
         j = MaskPerm(i)
         IF(j > 0) MaskOrder(j) = i
       END DO
-      DO i=1,Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-        CurrentElement => Model % Elements(i)
+      DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+        CurrentElement => Mesh % Elements(i)
         IF( ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0) ) THEN
           NumberOfElements = NumberOfElements + 1
         END IF
@@ -3159,8 +3113,8 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
       END IF
     END IF
   ELSE
-    NumberOfNodes = Model % NumberOfNodes
-    NumberOfElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+    NumberOfNodes = Mesh % NumberOfNodes
+    NumberOfElements = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
   END IF
 
   IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
@@ -3169,7 +3123,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     Dir = "./"
   END IF
   
-  IF(Parallel .AND. Part == 0) THEN
+  IF(Parallel) THEN
     IF( NoFileindex ) THEN
       WRITE( PvtuFile,'(A,A,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix)
     ELSE
@@ -3177,22 +3131,24 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     CALL WritePvtuFile( PvtuFile, Model )
   END IF
-  
-  IF ( Parallel ) THEN
-    IF( NoFileindex ) THEN
-      WRITE( VtuFile,'(A,A,I4.4,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par"
+
+  IF( NumberOfNodes > 0 ) THEN
+    IF ( Parallel ) THEN
+      IF( NoFileindex ) THEN
+        WRITE( VtuFile,'(A,A,I4.4,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par"
+      ELSE
+        WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
+            nTime+FileIndexOffset
+      END IF
     ELSE
-      WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",&
-          nTime+FileIndexOffset
+      IF( NoFileindex ) THEN
+        WRITE( VtuFile,'(A,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix)
+      ELSE
+        WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
+      END IF
     END IF
-  ELSE
-    IF( NoFileindex ) THEN
-      WRITE( VtuFile,'(A,A,".vtu")' ) TRIM(Dir),TRIM(FilePrefix)
-    ELSE
-      WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
-    END IF
+    CALL WriteVtuFile( VtuFile, Model, FixedMesh )
   END IF
-  CALL WriteVtuFile( VtuFile, Model, FixedMesh )
 
 
   IF( MaskExists ) DEALLOCATE(MaskOrder)
@@ -3236,6 +3192,7 @@ CONTAINS
     REAL(KIND=dp) :: x,y,z, ElemVectVal(3),value
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Element_t), POINTER :: CurrentElement
+    TYPE(ValueList_t), POINTER :: Params
 
     ! single prec value
     REAL :: fvalue, xf, yf, zf
@@ -3247,6 +3204,7 @@ CONTAINS
     Offset = 0
     WriteXML = .TRUE.
     WriteData = AsciiOutput
+    Params => CurrentModel % Solver % Values
 
     
     ! This is a hack to ensure that the streamed saving will cover the whole file
@@ -3282,8 +3240,8 @@ CONTAINS
     
     ! nodewise information
     !-------------------------------------
-    ScalarFieldName = GetString( Solver % Values,'Scalar Field 1',ScalarsExist)
-    VectorFieldName = GetString( Solver % Values,'Vector Field 1',VectorsExist)
+    ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
+    VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
     IF( ScalarsExist .AND. VectorsExist) THEN
       WRITE( OutStr,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
           //'" Vectors="'//TRIM(VectorFieldName)//'">'//lf
@@ -3329,17 +3287,11 @@ CONTAINS
     
     DO Rank = 0,2
       DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-          IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
-        ELSE
-          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-          IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
-        END IF
+        IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I0)') 'Tensor Field ',Vari
         
-        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        FieldName = GetString( Params, TRIM(Txt), Found )
         IF(.NOT. Found) EXIT
         
         IF(Rank == 2) THEN
@@ -3393,16 +3345,11 @@ CONTAINS
         ! displacement & mesh update 
         !---------------------------------------------------------------------
         ComplementExists = .FALSE.
-        IF( Vari < 10 ) THEN
-          IF(Rank==0) WRITE(Txt,'(A,I2,A)') 'Scalar Field',Vari,' Complement'
-          IF(Rank==1) WRITE(Txt,'(A,I2,A)') 'Vector Field',Vari,' Complement'
-          IF(Rank==2) WRITE(Txt,'(A,I2,A)') 'Tensor Field',Vari,' Complement'
-        ELSE
-          IF(Rank==0) WRITE(Txt,'(A,I3,A)') 'Scalar Field',Vari,' Complement'
-          IF(Rank==1) WRITE(Txt,'(A,I3,A)') 'Vector Field',Vari,' Complement'
-          IF(Rank==2) WRITE(Txt,'(A,I3,A)') 'Tensor Field',Vari,' Complement'
-        END IF
-        FieldName2 = GetString( Solver % Values, TRIM(Txt), Found )
+        IF(Rank==0) WRITE(Txt,'(A,I0,A)') 'Scalar Field ',Vari,' Complement'
+        IF(Rank==1) WRITE(Txt,'(A,I0,A)') 'Vector Field ',Vari,' Complement'
+        IF(Rank==2) WRITE(Txt,'(A,I0,A)') 'Tensor Field ',Vari,' Complement'
+
+        FieldName2 = GetString( Params, TRIM(Txt), Found )
         IF( Found ) THEN
           Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName2))
           IF( ASSOCIATED(Solution)) THEN 
@@ -3515,8 +3462,8 @@ CONTAINS
     
     ! Elementwise information
     !-------------------------------------
-    FieldName = GetString( Solver % Values,'Vector Field Elemental 1',VectorsExist)
-    FieldName = GetString( Solver % Values,'Scalar Field Elemental 1',ScalarsExist)
+    FieldName = GetString( Params,'Vector Field Elemental 1',VectorsExist)
+    FieldName = GetString( Params,'Scalar Field Elemental 1',ScalarsExist)
 
     IF( VectorsExist .OR. ScalarsExist ) THEN
       IF( WriteXML ) THEN
@@ -3556,13 +3503,8 @@ CONTAINS
       END IF
       
       DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Scalar Field Elemental',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Scalar Field Elemental',Vari
-        END IF
-        
-        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
+        FieldName = GetString( Params, TRIM(Txt), Found )
         IF(.NOT. Found) EXIT
         
         !---------------------------------------------------------------------
@@ -3617,13 +3559,8 @@ CONTAINS
       ! Elemental fields
       !---------------------------------------------------------------------
       DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Vector Field Elemental',Vari
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Vector Field Elemental',Vari
-        END IF
-        
-        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        WRITE(Txt,'(A,I0)') 'Vector Field Elemental ',Vari
+        FieldName = GetString( Params, TRIM(Txt), Found )
         IF(.NOT. Found) EXIT
         
         !---------------------------------------------------------------------
@@ -3974,16 +3911,52 @@ CONTAINS
     CHARACTER(LEN=512) :: str
     INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName
-    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector
+    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag, ComponentVector, &
+               AllActive, ThisActive
+    LOGICAL, POINTER :: ActivePartition(:)
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:)
+    INTEGER :: Active, NoActive, ierr
     REAL(KIND=dp), POINTER :: Values(:)
-    TYPE(Solver_t), POINTER :: Solver
     TYPE(Element_t), POINTER :: CurrentElement
 
+    INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     
+
+    ThisActive = ( NumberOfNodes > 0 ) 
+   
+    Active = 0
+    IF( ThisActive ) Active = 1    	
+
+! Why does this not work?
+    NoActive = NINT( ParallelReduction( 1.0_dp * Active ) )
+    IF( NoActive == 0 ) THEN
+!      CALL Warn('WritePvtuFile','No active partitions for saving')
+    END IF
+    AllActive = ( NoActive == Partitions )
+
+    IF(.NOT. AllActive ) THEN
+      IF( Part == 0 ) THEN
+        ALLOCATE( ActivePartition(Partitions))
+        ActivePartition = .FALSE.
+        ActivePartition(1) = ThisActive 
+      END IF
+
+      DO i=2,Partitions
+        IF( i == Part + 1 ) THEN
+          CALL MPI_BSEND(ThisActive, 1, MPI_LOGICAL, &
+	       0, 1000, MPI_COMM_WORLD, ierr )
+        END IF
+        IF( Part == 0 ) THEN
+          CALL MPI_RECV( ActivePartition(i), 1, MPI_LOGICAL, &
+	       i-1, 1000, MPI_COMM_WORLD, status, ierr )
+        END IF
+      END DO
+    END IF
+    
+    IF( Part > 0 ) RETURN
+
     OPEN( UNIT=VtuUnit, FILE=VtuFile, form = 'formatted', STATUS='UNKNOWN' )
-    Solver => Model % Solver
     dim = Model % Mesh % MeshDim
 
     IF ( LittleEndian() ) THEN
@@ -3995,8 +3968,8 @@ CONTAINS
     
     ! nodewise information
     !-------------------------------------
-    ScalarFieldName = GetString( Solver % Values,'Scalar Field 1',ScalarsExist)
-    VectorFieldName = GetString( Solver % Values,'Vector Field 1',VectorsExist)
+    ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
+    VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
     IF( ScalarsExist .AND. VectorsExist) THEN
       WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)&
           //'" Vectors="'//TRIM(VectorFieldName)//'">'
@@ -4005,23 +3978,19 @@ CONTAINS
     ELSE IF( VectorsExist ) THEN
       WRITE( VtuUnit,'(A)') '    <PPointData Vectors="'//TRIM(VectorFieldName)//'">'
     ELSE
-      CALL Warn('WriteVtkXMLFile','Are there really no scalars or vectors?')
+      CALL Warn('WritePvtuFile','Are there really no scalars or vectors?')
+      PRINT *,'Names:',TRIM(ScalarFieldName),'  ',TRIM(VectorFieldName), &
+               ScalarsExist, VectorsExist
     END IF
 
     
     DO Rank = 0,2
       DO Vari = 1, 99
-        IF( Vari < 10 ) THEN
-          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
-          IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
-        ELSE
-          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
-          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
-          IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
-        END IF
+        IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I0)') 'Tensor Field ',Vari
         
-        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        FieldName = GetString( Params, TRIM(Txt), Found )
         IF(.NOT. Found) EXIT
         
         IF(Rank == 2) THEN
@@ -4075,7 +4044,6 @@ CONTAINS
     END DO
     WRITE( VtuUnit,'(A)') '    </PPointData>'
 
-    
     ! Elementwise information
     !-------------------------------------
     IF(.FALSE.) THEN
@@ -4100,7 +4068,11 @@ CONTAINS
     END IF
     WRITE( VtuUnit,'(A)') '      </PPoints>' 
 
+ 
     DO i=1,Partitions
+      IF(.NOT. AllActive ) THEN
+        IF( .NOT. ActivePartition(i)) CYCLE
+      END IF
       IF( NoFileindex ) THEN
         WRITE( VtuUnit,'(A,I4.4,A,A)' ) '    <Piece Source="'//&
             TRIM(FilePrefix),i,"par",'.vtu"/>'
@@ -4114,6 +4086,8 @@ CONTAINS
     WRITE( VtuUnit,'(A)') '</VTKFile>'
 
     CLOSE( VtuUnit )
+
+    IF(.NOT. AllActive ) DEALLOCATE( ActivePartition ) 
   
   END SUBROUTINE WritePvtuFile
 

@@ -106,9 +106,9 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   TYPE(Variable_t), POINTER :: LevelVariable
   LOGICAL :: CreateNewMesh, ElementsAllocated, Found
   LOGICAL, ALLOCATABLE :: ElemSplit(:)
-  INTEGER, ALLOCATABLE :: eperm(:)
-  INTEGER :: NewElemType, NewElemNodes
-  REAL(KIND=dp), ALLOCATABLE :: x(:),y(:),z(:)
+  INTEGER, ALLOCATABLE :: eperm(:), ElemPerm(:)
+  INTEGER :: NewElemType, NewElemNodes, LevelDofs, NoEdges
+  REAL(KIND=dp), ALLOCATABLE :: x(:),y(:),z(:),ElemFun(:)
   REAL(KIND=dp), POINTER :: LevelFun(:), LevelValues(:,:)
   INTEGER, POINTER :: LevelPerm(:)
   TYPE(Element_t), POINTER  :: SaveElements(:), NewElements(:), Element
@@ -122,6 +122,9 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   Mesh => GetMesh()
   dim = Mesh % MeshDim
 
+  ! this is just a temporary hack to live with old library
+  IF(dim < 1 .OR. dim > 3 ) dim = 3
+
   Params => GetSolverParams()
 
   LevelVariableName = GetString( Params,'Isosurface Variable')
@@ -132,10 +135,13 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
         TRIM(LevelVariableName) // ' not present' )
     RETURN
   END IF
+  
+  n = Mesh % MaxElementNodes
+  ALLOCATE(ElemFun(n), ElemPerm(n))
 
   Levelfun => LevelVariable % Values
   LevelPerm => LevelVariable % Perm
-
+  LevelDofs = LevelVariable % Dofs
 
   !---------------------------------------------------------------
   ! Map any element to tetrahedron or triangle
@@ -164,8 +170,8 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   !---------------------------------------------------------------
   CreateNewMesh = .FALSE.
   DO i=1,Mesh % NumberOfBulkElements
-    Element => Mesh % Elements(i)
-    j = GetElementFamily()
+    Element => Mesh % Elements( i ) 
+    j = GetElementFamily( Element )
     IF( dim == 2 .AND. j /= 3 ) THEN
       CreateNewMesh = .TRUE.
       EXIT
@@ -183,7 +189,6 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
     NewElemType = 504
     NewElemNodes = 4
   END IF
-
 
   !---------------------------------------------------------------
   ! Check the isosurface values
@@ -218,8 +223,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
     WRITE ( Message,'(A,I0)') 'Size of initial mesh is ',SaveNOFBulk
     CALL Info('IsosurfaceSolver',Message)
 
-    IF( NoLevels > 1 ) &
-      ALLOCATE( ElemSplit( Mesh % NumberOfBulkElements ) )
+    IF( NoLevels > 1 ) ALLOCATE( ElemSplit( Mesh % NumberOfBulkElements ) )
 
 100 j = 0
     IF( NoLevels > 1 ) ElemSplit = .FALSE.
@@ -230,14 +234,20 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
       DO i=1,Mesh % NumberOfBulkElements
         Element => Mesh % Elements(i)
         Indexes => Element % NodeIndexes
+	n = Element % TYPE % NumberOfNodes
         
         IF( NoLevels > 1 ) THEN
           IF( ElemSplit(i) ) CYCLE
         END IF
 
-        IF( ANY ( LevelPerm( Indexes) == 0 ) ) CYCLE
-        
-        SELECT CASE(GetElementFamily())
+	IF( ASSOCIATED( LevelPerm ) ) THEN
+	  ElemPerm(1:n) = LevelPerm( Indexes ) 
+          IF( ANY ( LevelPerm( Indexes) == 0 ) ) CYCLE
+        ELSE 
+   	  ElemPerm(1:n) = Indexes(1:n)
+        END IF        
+
+        SELECT CASE(GetElementFamily( Element ))
         CASE(3); Map => TriangleToTriangleMap
         CASE(4); Map => QuadToTriangleMap
         CASE(5); Map => TetraToTetraMap
@@ -246,8 +256,19 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
         CASE(8); Map => BrickToTetraMap
         END SELECT
         
-        IF( ALL ( LevelFun( LevelPerm( Indexes ) ) < LevelValue ) ) CYCLE
-        IF( ALL ( LevelFun( LevelPerm( Indexes ) ) > LevelValue ) ) CYCLE
+	IF( LevelDofs == 1 ) THEN
+          ElemFun(1:n) =  LevelFun( ElemPerm(1:n) )
+	ELSE
+          ElemFun(1:n) = 0.0_dp
+          DO l=1,MIN(dim,LevelDofs)
+            ElemFun(1:n) = ElemFun(1:n) + LevelFun( LevelDofs * ( ElemPerm(1:n) - 1) + l )**2
+          END DO
+          ElemFun(1:n) = SQRT( ElemFun(1:n) )
+        END IF
+        ElemFun(1:n) = ElemFun(1:n) - LevelValue
+
+        IF( ALL ( ElemFun(1:n) < 0.0_dp ) ) CYCLE
+        IF( ALL ( ElemFun(1:n) > 0.0_dp ) ) CYCLE
 
         IF( NoLevels > 1 ) THEN
           IF( ElemSplit(i) ) CYCLE
@@ -257,7 +278,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
           j = j + SIZE(Map,1)
           CYCLE
         END IF
-        
+
         DO k=1,SIZE(Map,1)
           j = j + 1
           NewElements(j) = Element
@@ -272,31 +293,42 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
     END DO
 
     IF( .NOT. ElementsAllocated ) THEN
-      WRITE ( Message,'(A,I0,A)') 'Creating temporal mesh with ',&
-          j,' elements'
-      CALL Info('IsosurfaceSolver',Message)
-
-      ALLOCATE(NewElements(j))
-      ElementsAllocated = .TRUE.      
-      GOTO 100
+      IF( j > 0 ) THEN
+        ALLOCATE(NewElements(j))
+        ElementsAllocated = .TRUE.      
+	GOTO 100
+      END IF
     END IF
 
+    IF( j > 0 ) THEN
+      Mesh % NumberOfBulkElements = j
+      Mesh % Elements => NewElements
+     END IF
+
     IF( NoLevels > 1 ) DEALLOCATE( ElemSplit ) 
-    
-    Mesh % NumberOfBulkElements = j
-    Mesh % Elements => NewElements
   END IF
-  
+
+
+  k = NINT( ParallelReduction( 1.0_dp * j ) )
+  WRITE ( Message,'(A,I0,A)') 'Created temporal mesh with ',&
+          k,' elements'
+  CALL Info('IsosurfaceSolver',Message)
+
+
   ! Find mesh edges in order to define the intersection points
   !-----------------------------------------------------------
-  IF (.NOT.ASSOCIATED(Mesh % Edges)) THEN
-    IF( dim == 2 ) THEN
-      CALL FindMeshEdges2D(Mesh)
-    ELSE
-      CALL FindMeshEdges3D(Mesh)
-    END IF     
-  END IF
-  n = Mesh % NumberOfEdges
+  IF( j > 0 ) THEN
+    IF (.NOT.ASSOCIATED(Mesh % Edges)) THEN
+      IF( dim == 2 ) THEN
+        CALL FindMeshEdges2D(Mesh)
+      ELSE
+        CALL FindMeshEdges3D(Mesh)
+      END IF     
+    END IF
+    NoEdges = Mesh % NumberOfEdges
+  ELSE
+    NoEdges = 0
+  END IF 
 
   ! If the mesh was previously created release it before recreating
   !----------------------------------------------------------------
@@ -312,24 +344,35 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   END IF
   
   Isomesh => AllocateMesh()
-  IsoMesh % Name = GetString( Params, &
-      'Output directory', Found )
-  IF (.NOT. Found ) IsoMesh % Name = "isosurf"
+  IsoMesh % Name = GetString( Params,'Mesh Name', Found )
+  IF (.NOT. Found ) THEN
+    IF( dim == 2 ) THEN
+      IsoMesh % Name = "isoline"
+    ELSE
+      IsoMesh % Name = "isosurf"
+    END IF
+  END IF
   
-  Calls = Calls + 1
-  Isomesh % name = TRIM(Isomesh % name) // TRIM(i2s(calls))
+  IF( GetLogical(Params,'Mesh Numbering',Found) ) THEN
+    Calls = Calls + 1
+    Isomesh % name = TRIM(Isomesh % name) // TRIM(i2s(calls))
+  END IF
   CALL MakeDirectory( TRIM(Isomesh % name) // CHAR(0) )
-  
+
   Isomesh % Changed = .TRUE.
   Isomesh % OutputActive  = .TRUE.
-  
+
   CALL CreateNodes()
-  CALL CreateSurfaces()
-  
-  IF ( CreateNewMesh ) THEN
-    DEALLOCATE( NewElements )
-    Mesh % NumberOfBulkElements = SaveNOFBulk
-    Mesh % Elements => SaveElements
+  IF( j > 0 ) THEN
+    CALL CreateSurfaces()
+    IF ( CreateNewMesh ) THEN
+      DEALLOCATE( NewElements )
+      Mesh % NumberOfBulkElements = SaveNOFBulk
+      Mesh % Elements => SaveElements
+    END IF
+  ELSE
+    Isomesh % NumberOfBulkElements = 0
+    Isomesh % NumberOfNodes = 0
   END IF
 
   Mesh => Model % Meshes
@@ -338,15 +381,17 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   END DO
   Mesh % Next => Isomesh 
   
-  CALL ReleaseMeshEdgeTables(Mesh)
-  
+  IF( j > 0 ) CALL ReleaseMeshEdgeTables(Mesh)
+  DEALLOCATE( ElemFun, ElemPerm )  
 
+  j = Isomesh % NumberOfBulkElements
+  k = NINT( ParallelReduction( 1.0_dp * j ) )
   IF( dim == 3 ) THEN
     WRITE ( Message,'(A,I0,A)') 'Isosurfaces created with ',&
-        Isomesh % NumberOfBulkElements,' elements'
+        k,' elements'
   ELSE
     WRITE ( Message,'(A,I0,A)') 'Isolines created with ',&
-        Isomesh % NumberOfBulkElements,' elements'        
+        k,' elements'        
   END IF
   CALL Info('IsosurfaceSolver',Message)
   
@@ -373,11 +418,6 @@ CONTAINS
     END TYPE Varr_t
     TYPE(Varr_t), POINTER :: Varr(:)
 
-
-    n = Mesh % NumberOfEdges
-    ALLOCATE(x(n), y(n), z(n), eperm(n) )
-    x = 0; y = 0; z = 0; eperm = 0;
-
     ! Make a table of the field variables and allocate space
     !----------------------------------------------------------------
     ints = 0
@@ -392,6 +432,29 @@ CONTAINS
         EXIT
       END IF
     END DO
+
+    ! For parallel runs create the variables even though they do not exist since they 
+    ! will in other partitions.
+    !--------------------------------------------------------------------------------
+
+    n = NoEdges
+    IF( n == 0 ) THEN
+      IF ( ints > 0 .AND. ParEnv % PEs > 1 ) THEN
+        DO i=1,ints
+          V => VariableGet( Mesh % Variables, Vname(i) )
+          NULLIFY( Vperm, Vals )
+          ALLOCATE( Vperm(1),Vals(V % DOFs) )
+          Vperm = 0
+          Vals = 0.0_dp
+          CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
+               TRIM(Vname(i)), V % DOFs, Vals, Vperm )
+        END DO
+      END IF
+      RETURN
+    END IF
+
+    ALLOCATE(x(n), y(n), z(n), eperm(n) )
+    x = 0; y = 0; z = 0; eperm = 0;
 
     IF ( ints > 0 ) THEN
       ALLOCATE(Varr(ints))
@@ -414,22 +477,39 @@ CONTAINS
 
       DO i=1,n
         Edge => Mesh % Edges(i)
-        
+
         n1 = Edge % NodeIndexes(1)
         n2 = Edge % NodeIndexes(2)
         
-        m1 = LevelPerm(n1)
-        m2 = LevelPerm(n2)
-        
+	IF( ASSOCIATED( LevelPerm ) ) THEN
+          m1 = LevelPerm( n1 )
+          m2 = LevelPerm( n2 )
+        ELSE
+          m1 = n1
+          m2 = n2
+        END IF    
+    
         IF ( m1 <= 0 .OR. m2 <= 0 ) CYCLE
         
-        t1 = LevelFun(m1)
-        t2 = LevelFun(m2)
-        
-        IF ( t1 > LevelValue .AND. t2 > LevelValue .OR. &
-            t1 < LevelValue .AND. t2 < LevelValue) CYCLE 
+	IF( LevelDofs == 1 ) THEN
+	  t1 = LevelFun( m1 ) 
+	  t2 = LevelFun( m2 ) 
+        ELSE
+	  t1 = 0.0_dp
+          t2 = 0.0_dp
+          DO k=1,MIN(dim,LevelDofs)
+            t1 = t1 + LevelFun( LevelDofs*(m1-1) + k )**2
+            t2 = t2 + LevelFun( LevelDofs*(m2-1) + k )**2
+          END DO
+	  t1 = SQRT( t1 )
+	  t2 = SQRT( t2 )
+        END IF
+
+        t1 = t1 - LevelValue
+        t2 = t2 - LevelValue
         
         IF( ABS( t1 - t2 ) < TINY( t1 ) ) CYCLE
+        IF ( t1 * t2 > 0.0_dp ) CYCLE
         
         x1 = Mesh % Nodes % x(n1)
         x2 = Mesh % Nodes % x(n2)
@@ -440,27 +520,25 @@ CONTAINS
         z1 = Mesh % Nodes % z(n1)
         z2 = Mesh % Nodes % z(n2)
         
-        t = (LevelValue-t1)/(t2-t1)
+        t = ABS( t1/(t2-t1) )
         j = j + 1
 
         IF( j > n ) THEN
           CALL Fatal('CreateNodes','Too many nodes on isosurface')
         END IF
-        
+
         eperm(i) = j
         x(j) = (1-t) * x1 + t * x2
         y(j) = (1-t) * y1 + t * y2
         z(j) = (1-t) * z1 + t * z2
-        
-        
+                
         DO k=1,ints
           V => VariableGet(Mesh % Variables, Vname(k))
           IF (ASSOCIATED(V)) THEN
             DO l=1,V % DOFs
-              x1 = 0; x2 = 0;
-              IF ( V % Perm(n1)>0 .AND. V % Perm(n2)>0 ) THEN
-                x1  = V % Values(V % DOFs*(V % Perm(n1)-1)+l)
-                x2  = V % Values(V % DOFs*(V % Perm(n2)-1)+l)
+              IF ( V % Perm(n1) > 0 .AND. V % Perm(n2) > 0 ) THEN
+                x1 = V % Values(V % DOFs*(V % Perm(n1)-1)+l)
+                x2 = V % Values(V % DOFs*(V % Perm(n2)-1)+l)
                 Varr(k) % Vals(V % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
               END IF
             END DO
@@ -468,7 +546,6 @@ CONTAINS
         END DO
       END DO
     END DO
-
 
     ALLOCATE( IsoMesh % Nodes )
     Isomesh % NumberOfNodes = j
@@ -541,9 +618,28 @@ CONTAINS
        
        DO i=1,Mesh % NumberOfBulkElements
          Element => Mesh % Elements(i)
+	 n = Element % TYPE % NumberOfNodes
+
+         IF( ASSOCIATED( LevelPerm ) ) THEN
+           ElemPerm(1:n) = LevelPerm(Element % NodeIndexes)
+         ELSE
+           ElemPerm(1:n) = Element % NodeIndexes
+         END IF
+
+         IF( LevelDofs == 1 ) THEN
+           F(1:n) = LevelFun( ElemPerm(1:n) )
+         ELSE
+	   F(1:n) = 0.0_dp
+           DO j=1,MIN(dim,LevelDofs)
+             F(1:n) = F(1:n) + LevelFun( LevelDofs*(ElemPerm(1:n)-1)+j)**2
+           END DO 
+           F(1:n) = SQRT( F(1:n) ) 
+         END IF
+	 F(1:n) = F(1:n) - LevelValue
+
+
          IF( dim == 2 ) THEN
-           F(1:3) = LevelFun( LevelPerm(Element % NodeIndexes) )
-           IF( CreateLineFromTriangle(Element,F,LevelValue,Line) ) THEN
+           IF( CreateLineFromTriangle(Element,F,Line) ) THEN
              k = k + 1
              IF( SurfaceAllocated) THEN
                Isomesh % Elements(k) % NodeIndexes = Line
@@ -551,8 +647,7 @@ CONTAINS
              END IF
            END IF
          ELSE
-           F(1:4) = LevelFun( LevelPerm(Element % NodeIndexes) )
-           n = CreateSurfaceFromTetra(Element,F,LevelValue,Triangles)
+           n = CreateSurfaceFromTetra(Element,F,Triangles)
            DO j=1,n
              IF ( ALL (Triangles(j,:) > 0 ) ) THEN
                k = k + 1
@@ -597,9 +692,9 @@ CONTAINS
   !----------------------------------------------------------------
   ! Create isosurfaces related to one tetrahedral element
   !----------------------------------------------------------------
-  FUNCTION CreateSurfaceFromTetra(Tetra,F,K,Surf) RESULT(scount)
+  FUNCTION CreateSurfaceFromTetra(Tetra,F,Surf) RESULT(scount)
     TYPE(Element_t) :: Tetra
-    REAL(KIND=dp) :: F(4), K
+    REAL(KIND=dp) :: F(4)
     INTEGER :: scount, Surf(2,3)
 
     LOGICAL :: S1,S2,S3,S4
@@ -608,10 +703,10 @@ CONTAINS
     scount = 0
     Indexes = eperm(Tetra % EdgeIndexes)
 
-    S1 = F(1) > K;
-    S2 = F(2) > K;
-    S3 = F(3) > K;
-    S4 = F(4) > K;
+    S1 = F(1) > 0.0_dp;
+    S2 = F(2) > 0.0_dp;
+    S3 = F(3) > 0.0_dp;
+    S4 = F(4) > 0.0_dp;
 
     S = 0
     IF ( S1 ) S = S + 1
@@ -643,7 +738,7 @@ CONTAINS
         scount=0
       END IF
     ELSE
-      scount=2
+      scount = 2
       IF ( (S1 .AND. S2) .OR. (.NOT.S1 .AND. .NOT.S2) ) THEN
         Surf(1,1) = Indexes(3)
         Surf(1,2) = Indexes(2)
@@ -672,15 +767,16 @@ CONTAINS
         scount=0
       END IF
     END IF
+
   END FUNCTION CreateSurfaceFromTetra
 
   
   !----------------------------------------------------------------
   ! Create isoline related to one triangular element
   !----------------------------------------------------------------
-  FUNCTION CreateLineFromTriangle(Triangle,F,K,Line) RESULT(GotLine)
+  FUNCTION CreateLineFromTriangle(Triangle,F,Line) RESULT(GotLine)
     TYPE(Element_t) :: Triangle
-    REAL(KIND=dp) :: F(3), K
+    REAL(KIND=dp) :: F(3)
     INTEGER :: Line(2)
     LOGICAL :: GotLine
 
@@ -690,9 +786,9 @@ CONTAINS
     GotLine = .FALSE.
     Indexes = eperm(Triangle % EdgeIndexes)
 
-    S1 = F(1) > K;
-    S2 = F(2) > K;
-    S3 = F(3) > K;
+    S1 = F(1) > 0.0_dp;
+    S2 = F(2) > 0.0_dp;
+    S3 = F(3) > 0.0_dp;
 
     S = 0
     IF ( S1 ) S = S + 1

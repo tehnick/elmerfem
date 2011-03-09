@@ -1651,7 +1651,7 @@ CONTAINS
     ALLOCATE( VarPerm(ndeg) )
     VarPerm = 0
         
-    WRITE (str,'(A,I2)') 'Variable',VariableNo
+    WRITE (str,'(A,I0)') 'Variable ',VariableNo
     VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
 
     solver_id = 0
@@ -1704,7 +1704,7 @@ CONTAINS
     END DO
         
     IF( j > 0 ) THEN
-      WRITE (str,'(A,I2,A)') 'Variable',VariableNo,' Dofs'
+      WRITE (str,'(A,I0,A)') 'Variable ',VariableNo,' Dofs'
       Dofs = ListGetInteger( Solver % Values, TRIM(str), GotIt )
       IF(.NOT. GotIt) Dofs = 1
       
@@ -1713,7 +1713,7 @@ CONTAINS
           
       CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
           VarName, Dofs, Values, VarPerm )          
-      WRITE( Message,'(A,I2,A)') 'Creating variable '//TRIM(VarName)//' with',Dofs,' dofs'
+      WRITE( Message,'(A,I0,A)') 'Creating variable '//TRIM(VarName)//' with ',Dofs,' dofs'
       CALL Info('BlockSolver',Message)
 
       Var => VariableGet( Mesh % Variables, VarName )         
@@ -1789,7 +1789,7 @@ CONTAINS
 
     ! Row Variable
     !-------------------------------------------
-    WRITE (str,'(A,I2)') 'Variable',RowVar
+    WRITE (str,'(A,I0)') 'Variable ',RowVar
     RowName = ListGetString( SolverParams, TRIM(str), GotIt )
     Var => VariableGet( Mesh % Variables, TRIM(RowName) ) 
     IF(.NOT. ASSOCIATED( Var ) .AND. RowVar == 1 .AND. ColVar == 1 ) THEN
@@ -1801,7 +1801,7 @@ CONTAINS
     ! Column variable
     !------------------------------------------
     IF( ColVar /= RowVar ) THEN
-      WRITE (str,'(A,I2)') 'Variable',ColVar
+      WRITE (str,'(A,I0)') 'Variable ',ColVar
       ColName = ListGetString( SolverParams, TRIM(str), GotIt )
       Var => VariableGet( Mesh % Variables, TRIM(ColName) )
     END IF          
@@ -2126,7 +2126,7 @@ CONTAINS
     IF( IsCoupledSolver ) THEN
 
       DO i = 1,9
-        WRITE (str,'(A,I2)') 'Variable',i
+        WRITE (str,'(A,I0)') 'Variable ',i
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         IF(.NOT. GotIt) EXIT
         Var => VariableGet( Mesh % Variables, TRIM(VarName) )
@@ -2149,13 +2149,13 @@ CONTAINS
       ! The size of constraint is deduced directly from its type.
       !-------------------------------------------------------------------------------------
       DO i = 1,9
-        WRITE (str,'(A,I2)') 'Constraint',i
+        WRITE (str,'(A,I0)') 'Constraint ',i
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         IF(.NOT. GotIt) EXIT
         
         NoCons = NoCons + 1      
         
-        WRITE (str,'(A,I2,A)') 'Constraint',i,' Type'
+        WRITE (str,'(A,I0,A)') 'Constraint ',i,' Type'
         ConsType = ListGetString( SolverParams,TRIM(str))
         
         SELECT CASE( ConsType )
@@ -2173,7 +2173,7 @@ CONTAINS
           
         CASE DEFAULT          
           CALL Warn('CoupledSolver','Coupled constraint does not really work yet')
-          WRITE (str,'(A,I2,A)') 'Constraint',i,' DOFs'
+          WRITE (str,'(A,I0,A)') 'Constraint ',i,' DOFs'
           ConDofs = ListGetInteger( SolverParams, str)
 
         END SELECT
@@ -2198,7 +2198,7 @@ CONTAINS
       END DO
 
       DO j=1,NoVar+NoCons
-        WRITE(Message,'(A,I2,A,T35,I10)') 'Permutation offset',j,': ',OffSet(j)
+        WRITE(Message,'(A,I0,A,T35,I0)') 'Permutation offset ',j,': ',OffSet(j)
         CALL Info('CoupledSolver',Message)
       END DO
       
@@ -2458,7 +2458,7 @@ CONTAINS
       CALL Info( 'CoupledSolver', 'Setting coupled system Dirichlet conditions', Level=4 )
       
       DO i = 1,NoVar
-        WRITE (str,'(A,I2)') 'Variable',i
+        WRITE (str,'(A,I0)') 'Variable ',i
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         IF(.NOT. GotIt) EXIT
         
@@ -2482,9 +2482,9 @@ CONTAINS
         IF( VarDofs(i) == 0 ) CYCLE
         
         IF( i <= NoVar ) THEN
-          WRITE (str,'(A,I2)') 'Variable',i
+          WRITE (str,'(A,I0)') 'Variable ',i
         ELSE
-          WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
+          WRITE (str,'(A,I0)') 'Constraint ',i-NoVar        
         END IF
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         Var => VariableGet( Mesh % Variables, TRIM(VarName) )
@@ -2508,9 +2508,9 @@ CONTAINS
         IF( VarDofs(i) == 0 ) CYCLE
         
         IF( i <= NoVar ) THEN
-          WRITE (str,'(A,I2)') 'Variable',i
+          WRITE (str,'(A,I0)') 'Variable ',i
         ELSE
-          WRITE (str,'(A,I2)') 'Constraint',i-NoVar        
+          WRITE (str,'(A,I0)') 'Constraint ',i-NoVar        
         END IF
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         Var => VariableGet( Mesh % Variables, TRIM(VarName) )
@@ -2559,10 +2559,10 @@ CONTAINS
         AssemblySymmetric = .FALSE.
         AssemblyAntiSymmetric = .FALSE.
 
-        WRITE (str,'(A,I2)') 'Constraint',RowVar
+        WRITE (str,'(A,I0)') 'Constraint ',RowVar
         RowName = ListGetString( Solver % Values, TRIM(str), GotIt )
 
-        WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Variables'
+        WRITE (str,'(A,I0,A)') 'Constraint ',RowVar,' Variables'
         VarInds => ListGetIntegerArray( Solver % Values, TRIM(str) )
 
         IF( ASSOCIATED(VarInds)) THEN
@@ -2571,19 +2571,19 @@ CONTAINS
           CALL Fatal('CoupledSolver','Cannot continue without pointer to variables')
         END IF
         
-        WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Components'
+        WRITE (str,'(A,I0,A)') 'Constraint ',RowVar,' Components'
         TargetDof = ListGetInteger( Solver % Values, TRIM(str), GotIt )
       
-        WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Value'
+        WRITE (str,'(A,I0,A)') 'Constraint ',RowVar,' Value'
         ConsValue = GetCReal(Solver % Values,TRIM(str), GotIt)
 
-        WRITE (str,'(A,I2,A)') 'Constraint',RowVar,' Coeff'
+        WRITE (str,'(A,I0,A)') 'Constraint ',RowVar,' Coeff'
         ConsCoeff = GetCReal(Solver % Values,TRIM(str), GotIt)
         IF(.NOT. GotIt) ConsCoeff = 1.0_dp
 
 
         IF ( ConsType == 'equality' ) THEN
-          WRITE (str,'(A,I2)') 'Variable',VarInds(2)
+          WRITE (str,'(A,I0)') 'Variable ',VarInds(2)
           VarName = ListGetString( SolverParams, TRIM(str) )
           Var => VariableGet( Mesh % Variables, TRIM(VarName) ) 
           RowPerm => Var % Perm
@@ -2609,7 +2609,7 @@ CONTAINS
           ConsVolume = 0.0_dp
         END IF
 
-        WRITE (str,'(A,I2)') 'Variable',ColVar
+        WRITE (str,'(A,I0)') 'Variable ',ColVar
         ColName = ListGetString( Solver % Values, TRIM(str), GotIt )
         Var => VariableGet( Mesh % Variables, TRIM(ColName) )
           
@@ -2926,7 +2926,7 @@ CONTAINS
 
     IF( NoVar == 0 ) THEN
       DO i = 1,9
-        WRITE (str,'(A,I2)') 'Variable',i
+        WRITE (str,'(A,I0)') 'Variable ',i
         IF(.NOT. ListCheckPresent( SolverParams, TRIM(str)) ) EXIT
       END DO
       NoVar = i-1
@@ -3203,7 +3203,7 @@ CONTAINS
       BlockMatrix % maxsize = 0
 
       DO i = 1,NoVar
-        WRITE (str,'(A,I2)') 'Variable',i
+        WRITE (str,'(A,I0)') 'Variable ',i
         VarName = ListGetString( SolverParams, TRIM(str), GotIt )
         Var => VariableGet( Mesh % Variables, VarName )
         
@@ -3263,7 +3263,7 @@ CONTAINS
       Solver % Matrix => BlockMatrix % SubMatrix( NoRow, NoCol ) % Mat
       IF( Solver % Matrix % NumberOfRows == 0 ) RETURN
        
-      WRITE (str,'(A,I2)') 'Variable',NoRow
+      WRITE (str,'(A,I0)') 'Variable ',NoRow
       VarName = ListGetString( SolverParams, TRIM(str), GotIt )
       IF(.NOT. GotIt) RETURN
 
@@ -3759,7 +3759,7 @@ CONTAINS
      END DO
      IF (PassiveBcId /= 0 .AND. IsPassiveBC) THEN
         CALL GetPassiveBoundary( Model, Model % Mesh, PassiveBcId )
-        WRITE(Message, '(A,I2,A,I2,A)' ) &
+        WRITE(Message, '(A,I0,A,I0,A)' ) &
              'Passive element BC no. ',j, ' assigned to BC-ID no. ', &
              PassiveBcId
         CALL INFO('MainUtils',Message,Level=9)

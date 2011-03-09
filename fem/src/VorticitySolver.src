@@ -79,6 +79,12 @@
         CALL Fatal('VortictySolver_init','Vorticity computation makes sense only in 2D and 3D')
       END IF
     END IF
+
+    IF( GetLogical( SolverParams,'Calculate Abs',GotIt) ) THEN
+      CALL ListAddString( SolverParams,&
+          NextFreeKeyword('Exported Variable',SolverParams),TRIM(VorName)//'_abs')        
+    END IF	
+
     CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
 
     ! Add linear system defaults: cg+ILU0
@@ -242,7 +248,8 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
     TotNorm = DefaultSolve()
   END IF
 !------------------------------------------------------------------------------     
-  
+
+
   at2 = RealTime()
   WRITE(Message,* ) 'Solution Time: ',at2-at1
   CALL Info( 'VorticitySolver', Message, Level=5 )

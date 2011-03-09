@@ -127,13 +127,7 @@ SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
    
     NoFreeParam = 0
     DO i=1,NoParam
-      IF(i < 10) THEN
-        WRITE( ParamStr,'(A,I2)') 'Parameter',i
-      ELSE IF( i < 100 ) THEN
-        WRITE( ParamStr,'(A,I3)') 'Parameter',i 
-      ELSE IF( i < 1000 ) THEN
-        WRITE( ParamStr,'(A,I4)') 'Parameter',i
-      END IF
+      WRITE( ParamStr,'(A,I0)') 'Parameter ',i
 
       FixedParam(i) = ListGetLogical(Solver % Values,'Fixed '//TRIM(ParamStr),GotIt)
       Param(i) = ListGetConstReal(Solver % Values,'Initial '//TRIM(ParamStr),GotIt)

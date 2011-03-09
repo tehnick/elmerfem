@@ -268,12 +268,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     NoVar = NoVar + 1    
     IF(Debug) PRINT *,'NoVar',NoVar
 
-
-    IF(NoVar < 10) THEN 
-      WRITE (Name,'(A,I2)') 'Variable',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Variable',NoVar
-    END IF    
+    WRITE (Name,'(A,I0)') 'Variable ',NoVar
     VarName = ListGetString( Solver % Values, TRIM(Name), GotVar )
     NULLIFY(Var)    
     IF(GotVar) THEN
@@ -293,20 +288,12 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     Field3d => Var % Values
     Perm3d => Var % Perm
    
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Operator',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Operator',NoVar
-    END IF
+    WRITE (Name,'(A,I0)') 'Operator ',NoVar
     Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
     IF(.NOT. GotOper) CYCLE 
 
     IF(Oper == 'isosurface') THEN
-      IF(NoVar < 10) THEN
-        WRITE (Name,'(A,I2)') 'Isosurface Field',NoVar
-      ELSE
-        WRITE (Name,'(A,I3)') 'Isosurface Field',NoVar
-      END IF
+      WRITE (Name,'(A,I0)') 'Isosurface Field ',NoVar
       LevelsetName = ListGetString(Solver % Values,TRIM(Name),GotIt )
       IF(GotIt) THEN
         Var => VariableGet( Model % Variables, TRIM(LevelsetName) )
@@ -317,11 +304,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
         NULLIFY(LevelsetPerm)
       END IF
       
-      IF(NoVar < 10) THEN
-        WRITE (Name,'(A,I2)') 'Isosurface Value',NoVar
-      ELSE
-        WRITE (Name,'(A,I3)') 'Isosurface Value',NoVar
-      END IF
+      WRITE (Name,'(A,I0)') 'Isosurface Value ',NoVar
       Level = ListGetConstReal(Solver % Values,TRIM(Name),GotIt)
     END IF
 
