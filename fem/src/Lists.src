@@ -2983,8 +2983,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
     LOGICAL :: IsVector, Set, GotIt, ComponentVector, ThisOnly
     INTEGER :: Nvector, Nscalar
     TYPE(ValueList_t), POINTER :: Params
+    TYPE(VariableType_t), POINTER :: Variables	
 
     Params => Model % Solver % Values
+    Variables => Model % Mesh % Variables
 
 !------------------------------------------------------------------------------
 ! Sometimes the list must be cleared in order to use it for a different mesh
@@ -3030,7 +3032,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
     ThisOnly = .NOT. ListGetLogical( Params,'Interpolate Fields',GotIt)
     dim = Model % Mesh % MeshDim
     
-    Var => Model % Variables
+    Var => Variables
     DO WHILE( ASSOCIATED( Var ) )
       
       IF ( .NOT. Var % Output ) THEN
@@ -3058,7 +3060,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
       CASE( 'mesh update' )
         ! Mesh update is treated separately because its special connection to displacement
 
-        Var1 => Model % Variables
+        Var1 => Variables
         DO WHILE( ASSOCIATED( Var1 ) )
           IF ( TRIM(Var1 % Name) == 'displacement' ) EXIT
           Var1 => Var1 % Next
@@ -3072,17 +3074,13 @@ CALL Info( 'VariableGet', Message, Level=7 )
       CASE( 'displacement' )
         Set = .TRUE.
         ! mesh update is by default the complement to displacement 
-        Var1 => Model % Variables
+        Var1 => Variables
         DO WHILE( ASSOCIATED( Var1 ) )
           IF ( TRIM(Var1 % Name) == 'mesh update' ) EXIT
           Var1 => Var1 % Next
         END DO
         IF ( ASSOCIATED( Var1 ) ) THEN
-          IF( Nvector < 9 ) THEN
-            WRITE(VarStrComp,'(A,I2,A)') 'Vector Field',Nvector+1,' Complement'
-          ELSE
-            WRITE(VarStrComp,'(A,I3,A)') 'Vector Field',Nvector+1,' Complement'            
-          END IF
+          WRITE(VarStrComp,'(A,I0,A)') 'Vector Field ',Nvector+1,' Complement'
           CALL ListAddString( List ,TRIM(VarStrComp),'mesh update')
         END IF
         
@@ -3107,16 +3105,16 @@ CALL Info( 'VariableGet', Message, Level=7 )
           ! If so save the quantity as a vector, otherwise componentwise
           IF( str(j:j) == '1') THEN
             IF(dim == 2) THEN
-              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 2',ThisOnly)		
+              Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 2',ThisOnly)		
               IF( ASSOCIATED(Var1)) THEN
-                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
+                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
                 IsVector = .NOT. ASSOCIATED(Var1)
               END IF
             END IF
             IF(dim == 3) THEN
-              Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
+              Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 3',ThisOnly)		
               IF( ASSOCIATED(Var1)) THEN
-                Var1 => VariableGet(Model % Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
+                Var1 => VariableGet(Variables,TRIM(str(1:j-2))//' 4',ThisOnly)		
                 IsVector = .NOT. ASSOCIATED(Var1)
               END IF
             END IF

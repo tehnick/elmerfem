@@ -446,6 +446,7 @@ CONTAINS
           ALLOCATE( Vperm(1),Vals(V % DOFs) )
           Vperm = 0
           Vals = 0.0_dp
+          CALL Info('IsoSurfaceSolver','Creating dummy variable '//TRIM( Vname(i) ) )
           CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
                TRIM(Vname(i)), V % DOFs, Vals, Vperm )
         END DO
@@ -582,6 +583,7 @@ CONTAINS
           Vperm = [(i,i=1,j)]
           Vals = Varr(k) % Vals(1:V % DOFs*j)
           DEALLOCATE( Varr(k) % Vals )
+          CALL Info('IsoSurfaceSolver','Creating variable '//TRIM( Vname(k) ) )
           CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
                TRIM(Vname(k)), V % DOFs, Vals, Vperm )
         END IF

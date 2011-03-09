@@ -63,6 +63,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, MeshName
   LOGICAL :: SubroutineVisited=.FALSE.,Found
   TYPE(ValueList_t), POINTER :: Params
+  TYPE(Variable_t), POINTER :: ModelVariables
     
   SAVE SubroutineVisited, OutputCount, ListSet, MeshDim
   INTERFACE
@@ -169,18 +170,27 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
 
     CALL SetCurrentMesh( Model, iMesh )
+    ModelVariables => Model % Variables
+    Model % Variables => iMesh % variables 
+
     IF( .NOT. ListSet ) THEN
+      CALL Info('ResultOutputSolver','Creating list for saving')
       CALL CreateListForSaving( Model, Params,.TRUE. )    
       ListSet = .TRUE.
     ELSE IF( MeshDim /= Model % Mesh % MeshDim ) THEN
+      CALL Info('ResultOutputSolver','Recreating list for saving')
       CALL CreateListForSaving( Model, Params,.TRUE.)
 !,.TRUE. )    
     END IF
+
+!PRINT *,'Got Scalar:',ListGetLogical( Params,'Scalar Field 1',Found)
+!PRINT *,'Got Vector:',ListGetLogical( Params,'Vector Field 1',Found)
+
     MeshDim = Model % Mesh % MeshDim
 
     ! In case there are multiple mesh levels one may also save coarser ones
     !----------------------------------------------------------------------
-    Mesh=>iMesh
+    Mesh => iMesh
     DO i=1,MeshLevel
       Mesh => Mesh % Parent
       IF (.NOT.ASSOCIATED(Mesh)) EXIT
@@ -189,6 +199,12 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 
 
     CALL SetCurrentMesh( Model, Mesh )
+    Model % Variables => Mesh % variables 
+
+
+!PRINT *,'Got Scalar:',ListGetLogical( Params,'Scalar Field 1',Found)
+!PRINT *,'Got Vector:',ListGetLogical( Params,'Vector Field 1',Found)
+
 
     IF( SaveGid ) THEN
       CALL Info( 'ResultOutputSolver','Saving in GiD format' )    
@@ -220,6 +236,8 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 
     iMesh => iMesh % Next
   END DO
+
+  Model % Variables => ModelVariables
 
 
   SubroutineVisited = .TRUE.
@@ -3204,7 +3222,7 @@ CONTAINS
     Offset = 0
     WriteXML = .TRUE.
     WriteData = AsciiOutput
-    Params => CurrentModel % Solver % Values
+    Params => GetSolverParams()
 
     
     ! This is a hack to ensure that the streamed saving will cover the whole file
