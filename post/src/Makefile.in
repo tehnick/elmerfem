@@ -699,7 +699,10 @@ uninstall-am: uninstall-binPROGRAMS
 
 @NOTWINDOWS_TRUE@all-local: screensave.so
 @NOTWINDOWS_TRUE@clean-local:
-@NOTWINDOWS_TRUE@	rm *.so
+@NOTWINDOWS_TRUE@	rm -f *.so
+
+@NOTWINDOWS_TRUE@screensave.$(OBJEXT): screensave.c
+@NOTWINDOWS_TRUE@	$(COMPILE) -c $< -fPIC
 
 @NOTWINDOWS_TRUE@screensave.so: screensave.$(OBJEXT)
 @NOTWINDOWS_TRUE@	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< $(LIBS)
