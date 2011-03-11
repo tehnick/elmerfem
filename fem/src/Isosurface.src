@@ -93,55 +93,105 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
 !    Local variables
 !------------------------------------------------------------------------------
   CHARACTER(LEN=MAX_NAME_LEN) :: LevelVariableName
-  TYPE(Mesh_t), POINTER :: Mesh, IsoMesh => Null(), Pmesh
-  INTEGER :: i,j,k,l,n, dim,NoLevels,Level
+  TYPE(Mesh_t), POINTER :: Mesh, IsoMesh => Null(), Pmesh, OrigMesh
+  INTEGER :: i,j,k,l,n, dim,NoLevels,Level,NoNewElements
   REAL(KIND=dp) :: LevelValue, LevelDiff
 
   INTEGER, TARGET :: TetraToTetraMap(1,4), PyramidToTetraMap(2,4), &
              WedgeToTetraMap(3,4), BrickToTetraMap(5,4), &
              TriangleToTriangleMap(1,3), QuadToTriangleMap(2,3)
   INTEGER, POINTER :: Map(:,:), Indexes(:)
-  INTEGER :: SaveNOFBulk,calls=0
+  INTEGER :: NoOrigElements,calls=0,ierr
 
   TYPE(Variable_t), POINTER :: LevelVariable
-  LOGICAL :: CreateNewMesh, ElementsAllocated, Found
+  LOGICAL :: CreateDummyMesh, MovingMesh, Found
   LOGICAL, ALLOCATABLE :: ElemSplit(:)
-  INTEGER, ALLOCATABLE :: eperm(:), ElemPerm(:)
-  INTEGER :: NewElemType, NewElemNodes, LevelDofs, NoEdges
+  INTEGER, ALLOCATABLE :: eperm(:), InvPerm(:), ElemPerm(:)
+  INTEGER :: NewElemType, NewElemNodes, LevelDofs, NoEdges, IsAllocated, &
+      NoIsoNodes, NoSurfaces
+  INTEGER :: ParSizes(6), ParTmp(6)
   REAL(KIND=dp), ALLOCATABLE :: x(:),y(:),z(:),ElemFun(:)
-  REAL(KIND=dp), POINTER :: LevelFun(:), LevelValues(:,:)
+  REAL(KIND=dp), POINTER :: LevelFun(:), LevelValues(:,:), Interpolant(:)
   INTEGER, POINTER :: LevelPerm(:)
-  TYPE(Element_t), POINTER  :: SaveElements(:), NewElements(:), Element
+  TYPE(Element_t), POINTER  :: OrigElements(:), NewElements(:), Element
   TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Visited = .FALSE., FixedSurface, SurfaceExist = .FALSE.
 
- 
+  SAVE Visited, FixedSurface, SurfaceExist, Interpolant, InvPerm, Isomesh, &
+	NewElements, NoNewElements
+
+
   CALL Info( 'IsosurfaceSolver','-------------------------------------',Level=4 )
   CALL Info( 'IsosurfaceSolver','Determining the isosurface',Level=4 )
   CALL Info( 'IsosurfaceSolver','-------------------------------------',Level=4 )
 
   Mesh => GetMesh()
+  OrigMesh => Mesh
+  NoOrigElements = Mesh % NumberOfBulkElements
+  OrigElements => Mesh % Elements
+  NoNewElements = 0
+  NewElements => NULL()
   dim = Mesh % MeshDim
-
   ! this is just a temporary hack to live with old library
   IF(dim < 1 .OR. dim > 3 ) dim = 3
 
   Params => GetSolverParams()
+  FixedSurface = GetLogical( Params,'Isosurface Fixed',Found)
+  MovingMesh = GetLogical( Params,'Moving Mesh',Found)
 
+  !---------------------------------------------------------------
+  ! Get the isosurface variable
+  !---------------------------------------------------------------
   LevelVariableName = GetString( Params,'Isosurface Variable')
   LevelVariable => VariableGet( Mesh % Variables, LevelVariableName )
 
   IF (.NOT.ASSOCIATED(LevelVariable)) THEN
-    CALL Error( 'Isosurface', 'The isosurface variable: ' // &
-        TRIM(LevelVariableName) // ' not present' )
+    CALL Error( 'Isosurface', 'Missing isosurface variable: ' // &
+        TRIM(LevelVariableName) )
     RETURN
   END IF
-  
-  n = Mesh % MaxElementNodes
-  ALLOCATE(ElemFun(n), ElemPerm(n))
 
   Levelfun => LevelVariable % Values
   LevelPerm => LevelVariable % Perm
   LevelDofs = LevelVariable % Dofs
+  
+  !---------------------------------------------------------------
+  ! Check the isosurface values
+  !---------------------------------------------------------------
+  NoLevels = 0
+  LevelValues => ListGetConstRealArray( Params,'Isosurface values',Found)
+  IF( Found ) THEN
+    NoLevels = SIZE(LevelValues,1)
+    LevelValue = LevelValues(1,1)
+  ELSE
+    LevelValue = ListGetCReal( Params,'Isosurface value',Found)
+    IF( Found ) NoLevels = 1
+  END IF
+
+  IF(.NOT. Found ) THEN
+    CALL Warn('IsosurfaceSolver','Could not determine Isosurface value')
+    RETURN
+  END IF
+
+  !--------------------------------------------------------------------------
+  ! If the mesh was created and will be fixed make a simplified interpolation
+  !--------------------------------------------------------------------------
+  IF( FixedSurface .AND. SurfaceExist ) THEN
+    CALL Info('IsosurfaceSolver','Remapping the fields')
+
+    Mesh % NumberOfBulkElements = NoNewElements
+    Mesh % Elements => NewElements
+
+    CALL ReMap()
+
+    Mesh % NumberOfBulkElements = NoOrigElements
+    Mesh % Elements => OrigElements
+
+    RETURN
+  END IF
+
+  n = Mesh % MaxElementNodes
+  ALLOCATE(ElemFun(n), ElemPerm(n))
 
   !---------------------------------------------------------------
   ! Map any element to tetrahedron or triangle
@@ -168,16 +218,16 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   !---------------------------------------------------------------
   ! Check whether mesh is all-tets or all-triangles
   !---------------------------------------------------------------
-  CreateNewMesh = .FALSE.
+  CreateDummyMesh = .FALSE.
   DO i=1,Mesh % NumberOfBulkElements
     Element => Mesh % Elements( i ) 
     j = GetElementFamily( Element )
     IF( dim == 2 .AND. j /= 3 ) THEN
-      CreateNewMesh = .TRUE.
+      CreateDummyMesh = .TRUE.
       EXIT
     END IF
     IF( dim == 3 .AND. j /= 5 ) THEN
-      CreateNewMesh = .TRUE.
+      CreateDummyMesh = .TRUE.
       EXIT
     END IF
   END DO
@@ -191,158 +241,131 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
   END IF
 
   !---------------------------------------------------------------
-  ! Check the isosurface values
-  !---------------------------------------------------------------
-  NoLevels = 0
-  LevelValues => ListGetConstRealArray( Params,'Isosurface values',Found)
-  IF( Found ) THEN
-    NoLevels = SIZE(LevelValues,1)
-    LevelValue = LevelValues(1,1)
-  ELSE
-    LevelValue = ListGetCReal( Params,'Isosurface value',Found)
-    IF( Found ) NoLevels = 1
-  END IF
-
-  IF(.NOT. Found ) THEN
-    CALL Warn('IsosurfaceSolver','Could not determine Isosurface value')
-    RETURN
-  END IF
-
-  !---------------------------------------------------------------
   ! Create a temporary mesh consisting only of tets (or triangles)
   ! in where the isosurface (or isoline) will be determined.
   ! The temporal mesh includes only potential master elements.
   !---------------------------------------------------------------
-  IF ( CreateNewMesh ) THEN
+  IF ( CreateDummyMesh ) THEN
     CALL Info('IsoSurfaceSolver','Creating a temporal mesh')
-
-    SaveNOFBulk = Mesh % NumberOfBulkElements
-    SaveElements => Mesh % Elements
-    ElementsAllocated = .FALSE.
-    
-    WRITE ( Message,'(A,I0)') 'Size of initial mesh is ',SaveNOFBulk
-    CALL Info('IsosurfaceSolver',Message)
-
     IF( NoLevels > 1 ) ALLOCATE( ElemSplit( Mesh % NumberOfBulkElements ) )
-
-100 j = 0
-    IF( NoLevels > 1 ) ElemSplit = .FALSE.
-
-    DO Level = 1, NoLevels
-      IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
-
-      DO i=1,Mesh % NumberOfBulkElements
-        Element => Mesh % Elements(i)
-        Indexes => Element % NodeIndexes
-	n = Element % TYPE % NumberOfNodes
+    
+    DO IsAllocated = 0, 1
+      
+      j = 0
+      IF( NoLevels > 1 ) ElemSplit = .FALSE.
+      
+      DO Level = 1, NoLevels
+        IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
         
-        IF( NoLevels > 1 ) THEN
-          IF( ElemSplit(i) ) CYCLE
-        END IF
-
-	IF( ASSOCIATED( LevelPerm ) ) THEN
-	  ElemPerm(1:n) = LevelPerm( Indexes ) 
-          IF( ANY ( LevelPerm( Indexes) == 0 ) ) CYCLE
-        ELSE 
-   	  ElemPerm(1:n) = Indexes(1:n)
-        END IF        
-
-        SELECT CASE(GetElementFamily( Element ))
-        CASE(3); Map => TriangleToTriangleMap
-        CASE(4); Map => QuadToTriangleMap
-        CASE(5); Map => TetraToTetraMap
-        CASE(6); Map => PyramidToTetraMap
-        CASE(7); Map => WedgeToTetraMap
-        CASE(8); Map => BrickToTetraMap
-        END SELECT
-        
-	IF( LevelDofs == 1 ) THEN
-          ElemFun(1:n) =  LevelFun( ElemPerm(1:n) )
-	ELSE
-          ElemFun(1:n) = 0.0_dp
-          DO l=1,MIN(dim,LevelDofs)
-            ElemFun(1:n) = ElemFun(1:n) + LevelFun( LevelDofs * ( ElemPerm(1:n) - 1) + l )**2
-          END DO
-          ElemFun(1:n) = SQRT( ElemFun(1:n) )
-        END IF
-        ElemFun(1:n) = ElemFun(1:n) - LevelValue
-
-        IF( ALL ( ElemFun(1:n) < 0.0_dp ) ) CYCLE
-        IF( ALL ( ElemFun(1:n) > 0.0_dp ) ) CYCLE
-
-        IF( NoLevels > 1 ) THEN
-          IF( ElemSplit(i) ) CYCLE
-        END IF
-        
-        IF( .NOT. ElementsAllocated ) THEN
-          j = j + SIZE(Map,1)
-          CYCLE
-        END IF
-
-        DO k=1,SIZE(Map,1)
-          j = j + 1
-          NewElements(j) = Element
-          NewElements(j) % TYPE => GetElementType(NewElemType)
-          ALLOCATE(NewElements(j) % NodeIndexes(NewElemNodes))
-          DO l=1,NewElemNodes
-            NewElements(j) % NodeIndexes(l) = &
-                Element % NodeIndexes(Map(k,l))
+        DO i=1,Mesh % NumberOfBulkElements
+          
+          Element => Mesh % Elements(i)
+          Indexes => Element % NodeIndexes
+          n = Element % TYPE % NumberOfNodes
+          
+          IF( NoLevels > 1 ) THEN
+            IF( ElemSplit(i) ) CYCLE
+          END IF
+          
+          IF( ASSOCIATED( LevelPerm ) ) THEN
+            ElemPerm(1:n) = LevelPerm( Indexes ) 
+            IF( ANY ( LevelPerm( Indexes) == 0 ) ) CYCLE
+          ELSE 
+            ElemPerm(1:n) = Indexes(1:n)
+          END IF
+          
+          SELECT CASE(GetElementFamily( Element ))
+          CASE(3); Map => TriangleToTriangleMap
+          CASE(4); Map => QuadToTriangleMap
+          CASE(5); Map => TetraToTetraMap
+          CASE(6); Map => PyramidToTetraMap
+          CASE(7); Map => WedgeToTetraMap
+          CASE(8); Map => BrickToTetraMap
+          END SELECT
+          
+          IF( LevelDofs == 1 ) THEN
+            ElemFun(1:n) =  LevelFun( ElemPerm(1:n) )
+          ELSE
+            ElemFun(1:n) = 0.0_dp
+            DO l=1,MIN(dim,LevelDofs)
+              ElemFun(1:n) = ElemFun(1:n) + LevelFun( LevelDofs * ( ElemPerm(1:n) - 1) + l )**2
+            END DO
+            ElemFun(1:n) = SQRT( ElemFun(1:n) )
+          END IF
+          ElemFun(1:n) = ElemFun(1:n) - LevelValue
+          IF( ALL ( ElemFun(1:n) < 0.0_dp ) ) CYCLE
+          IF( ALL ( ElemFun(1:n) > 0.0_dp ) ) CYCLE
+          
+          IF( NoLevels > 1 ) THEN
+            IF( ElemSplit(i) ) CYCLE
+          END IF
+          
+          IF( IsAllocated == 0 ) THEN
+            j = j + SIZE(Map,1)
+            CYCLE
+          END IF
+          
+          DO k=1,SIZE(Map,1)
+            j = j + 1
+            NewElements(j) = Element
+            NewElements(j) % TYPE => GetElementType(NewElemType)
+            ALLOCATE(NewElements(j) % NodeIndexes(NewElemNodes))
+            DO l=1,NewElemNodes
+              NewElements(j) % NodeIndexes(l) = &
+                  Element % NodeIndexes(Map(k,l))
+            END DO
           END DO
         END DO
-      END DO      
-    END DO
-
-    IF( .NOT. ElementsAllocated ) THEN
-      IF( j > 0 ) THEN
-        ALLOCATE(NewElements(j))
-        ElementsAllocated = .TRUE.      
-	GOTO 100
+      END DO
+      
+      NoNewElements = j	
+      
+      IF( NoNewElements == 0 ) EXIT
+      
+      IF( IsAllocated == 0 ) THEN
+        ALLOCATE(NewElements(NoNewElements))
       END IF
-    END IF
-
-    IF( j > 0 ) THEN
-      Mesh % NumberOfBulkElements = j
-      Mesh % Elements => NewElements
-     END IF
-
+    END DO
+    
     IF( NoLevels > 1 ) DEALLOCATE( ElemSplit ) 
+    
+    IF( NoNewElements > 0 ) THEN
+      Mesh % NumberOfBulkElements = NoNewElements
+      Mesh % Elements => NewElements
+    END IF
   END IF
-
-
-  k = NINT( ParallelReduction( 1.0_dp * j ) )
-  WRITE ( Message,'(A,I0,A)') 'Created temporal mesh with ',&
-          k,' elements'
-  CALL Info('IsosurfaceSolver',Message)
-
 
   ! Find mesh edges in order to define the intersection points
   !-----------------------------------------------------------
-  IF( j > 0 ) THEN
+  NoEdges = 0
+  IF( .NOT. CreateDummyMesh .OR. NoNewElements > 0 ) THEN
     IF (.NOT.ASSOCIATED(Mesh % Edges)) THEN
       IF( dim == 2 ) THEN
         CALL FindMeshEdges2D(Mesh)
       ELSE
         CALL FindMeshEdges3D(Mesh)
-      END IF     
+      END IF
     END IF
     NoEdges = Mesh % NumberOfEdges
-  ELSE
-    NoEdges = 0
-  END IF 
+  END IF
 
   ! If the mesh was previously created release it before recreating
   !----------------------------------------------------------------
-  IF(ASSOCIATED(IsoMesh)) THEN
+  IF( SurfaceExist  ) THEN
     Pmesh => Model % Meshes
     DO WHILE(ASSOCIATED(Pmesh % Next))
       IF ( ASSOCIATED(Pmesh % next, Isomesh)) THEN
         Pmesh % next => Isomesh % Next
         EXIT
       END IF
+      Pmesh => Pmesh % next
     END DO
     CALL ReleaseMesh(Isomesh)
+    SurfaceExist = .FALSE.
   END IF
   
+  ! Create a new mesh for isosurface
+  !----------------------------------------------------------------
   Isomesh => AllocateMesh()
   IsoMesh % Name = GetString( Params,'Mesh Name', Found )
   IF (.NOT. Found ) THEN
@@ -352,256 +375,390 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
       IsoMesh % Name = "isosurf"
     END IF
   END IF
+  Isomesh % Changed = .TRUE.
+  Isomesh % OutputActive  = .TRUE.
+  Isomesh % NumberOfBulkElements = 0
+  Isomesh % NumberOfNodes = 0
+  SurfaceExist = .TRUE.
   
+  ! If requested number the output directories
+  ! Alternatively one can number the output files
+  !----------------------------------------------------------------
   IF( GetLogical(Params,'Mesh Numbering',Found) ) THEN
     Calls = Calls + 1
     Isomesh % name = TRIM(Isomesh % name) // TRIM(i2s(calls))
   END IF
   CALL MakeDirectory( TRIM(Isomesh % name) // CHAR(0) )
-
-  Isomesh % Changed = .TRUE.
-  Isomesh % OutputActive  = .TRUE.
-
-  CALL CreateNodes()
-  IF( j > 0 ) THEN
-    CALL CreateSurfaces()
-    IF ( CreateNewMesh ) THEN
-      DEALLOCATE( NewElements )
-      Mesh % NumberOfBulkElements = SaveNOFBulk
-      Mesh % Elements => SaveElements
-    END IF
-  ELSE
-    Isomesh % NumberOfBulkElements = 0
-    Isomesh % NumberOfNodes = 0
+  
+  ! Create nodes and elements on the edge intersections  
+  !----------------------------------------------------------------
+  NoIsoNodes = CreateNodes()    
+  NoSurfaces = CreateSurfaces()
+    
+  ! Release temporary structures and revert original mesh
+  !----------------------------------------------------------------------	
+  IF(.NOT. FixedSurface ) THEN
+    IF( NoEdges > 0 ) CALL ReleaseMeshEdgeTables( Mesh )
+    IF ( CreateDummyMesh .AND. ASSOCIATED( NewElements ) ) DEALLOCATE( NewElements )
   END IF
 
-  Mesh => Model % Meshes
-  DO WHILE( ASSOCIATED(Mesh % Next) )
-    Mesh => Mesh % Next
+  IF( ALLOCATED( ElemFun ) ) DEALLOCATE( ElemFun, ElemPerm )  
+  Mesh % NumberOfBulkElements = NoOrigElements
+  Mesh % Elements => OrigElements
+
+  ! Add the new mesh into the list 
+  !----------------------------------------------------------------------
+  PMesh => Model % Meshes
+  DO WHILE( ASSOCIATED(PMesh % Next) )
+    PMesh => PMesh % Next
   END DO
-  Mesh % Next => Isomesh 
-  
-  IF( j > 0 ) CALL ReleaseMeshEdgeTables(Mesh)
-  DEALLOCATE( ElemFun, ElemPerm )  
+  PMesh % Next => Isomesh 
 
-  j = Isomesh % NumberOfBulkElements
-  k = NINT( ParallelReduction( 1.0_dp * j ) )
-  IF( dim == 3 ) THEN
-    WRITE ( Message,'(A,I0,A)') 'Isosurfaces created with ',&
-        k,' elements'
+  ! Information of the new system size, also in parallel
+  !----------------------------------------------------------------------
+  ParTmp(1) = Mesh % NumberOfNodes
+  ParTmp(2) = NoOrigElements 
+  ParTmp(3) = NoNewElements 
+  ParTmp(4) = NoEdges
+  ParTmp(5) = NoIsoNodes
+  ParTmp(6) = NoSurfaces
+
+  IF( ParEnv % PEs > 1 ) THEN
+    CALL MPI_ALLREDUCE(ParTmp,ParSizes,6,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
   ELSE
-    WRITE ( Message,'(A,I0,A)') 'Isolines created with ',&
-        k,' elements'        
+    ParSizes = ParTmp
   END IF
-  CALL Info('IsosurfaceSolver',Message)
-  
+
+  CALL Info('IsoSurfaceSolver','Information on isosurface mesh sizes')
+
+  WRITE ( Message,'(A,I0,A)') 'Initial mesh has ',ParSizes(1),' nodes'
+  CALL Info('IsoSurfaceSolver',Message)
+  WRITE ( Message,'(A,I0,A)') 'Initial mesh has ',ParSizes(2),' elements'
+  CALL Info('IsoSurfaceSolver',Message)
+  IF( ParSizes(3) > 0 ) THEN
+    WRITE ( Message,'(A,I0,A)') 'Temporal mesh has ',ParSizes(3),' elements'
+    CALL Info('IsoSurfaceSolver',Message)
+  END IF
+  WRITE ( Message,'(A,I0,A)') 'Working mesh has ',ParSizes(4),' edges'
+  CALL Info('IsoSurfaceSolver',Message)
+  WRITE ( Message,'(A,I0,A)') 'Isosurface mesh has ',ParSizes(5),' nodes'
+  CALL Info('IsoSurfaceSolver',Message)
+  WRITE ( Message,'(A,I0,A)') 'Isosurface mesh has ',ParSizes(6),' elements'
+  CALL Info('IsoSurfaceSolver',Message)
 
 CONTAINS
 
   !----------------------------------------------------------------
   ! Create nodes for the isosurface / isoline
   !----------------------------------------------------------------
-  SUBROUTINE CreateNodes()
+  FUNCTION CreateNodes() RESULT ( NoIsoNodes )
 
+    INTEGER :: NoIsoNodes
     TYPE(Element_t), POINTER :: Edge
     INTEGER :: i,j,k,l,n1,n2,m1,m2,ints,comps
     REAL(KIND=dp) :: t,t1,t2,x1,x2,y1,y2,z1,z2
 
     CHARACTER(LEN=MAX_NAME_LEN) :: Vname(32)
     LOGICAL :: Found
-    TYPE(Variable_t), POINTER :: V
+    TYPE(Variable_t), POINTER :: Vfull, Viso
     INTEGER, POINTER :: Vperm(:)
-    REAL(KIND=dp), POINTER :: Vals(:), dummy(:)
+    REAL(KIND=dp), POINTER :: Vals(:)
 
-    TYPE Varr_t
-       REAL(KIND=dp), POINTER :: Vals(:)
-    END TYPE Varr_t
-    TYPE(Varr_t), POINTER :: Varr(:)
 
     ! Make a table of the field variables and allocate space
     !----------------------------------------------------------------
+    NoIsoNodes = 0
     ints = 0
     DO WHILE(.TRUE.)
       ints = ints+1
-      Vname(ints) = GetString( GetSolverParams(), &
+      Vname(ints) = GetString( Params, &
           ComponentName('Isosurface interpolant',ints), Found )
-      IF(.NOT. Found) Vname(ints) = GetString( GetSolverParams(), &
+      IF(.NOT. Found) Vname(ints) = GetString( Params, &
           ComponentName('Variable',ints), Found )
       IF ( .NOT. Found ) THEN
         ints = ints-1
         EXIT
       END IF
+      Vfull => VariableGet( Mesh % Variables, Vname(ints) )
+      IF(.NOT. ASSOCIATED( Vfull ) ) THEN
+        ints = ints - 1
+      END IF
     END DO
 
     ! For parallel runs create the variables even though they do not exist since they 
-    ! will in other partitions.
+    ! will do so in other partitions.
     !--------------------------------------------------------------------------------
-
-    n = NoEdges
-    IF( n == 0 ) THEN
+    NoEdges = Mesh % NumberOfEdges
+    IF( NoEdges == 0 ) THEN
       IF ( ints > 0 .AND. ParEnv % PEs > 1 ) THEN
         DO i=1,ints
-          V => VariableGet( Mesh % Variables, Vname(i) )
+          Vfull => VariableGet( Mesh % Variables, Vname(i) )
           NULLIFY( Vperm, Vals )
-          ALLOCATE( Vperm(1),Vals(V % DOFs) )
+          ALLOCATE( Vperm(1),Vals(Vfull % DOFs) )
           Vperm = 0
           Vals = 0.0_dp
           CALL Info('IsoSurfaceSolver','Creating dummy variable '//TRIM( Vname(i) ) )
           CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
-               TRIM(Vname(i)), V % DOFs, Vals, Vperm )
+               TRIM(Vname(i)), Vfull % DOFs, Vals, Vperm )
         END DO
       END IF
       RETURN
     END IF
 
-    ALLOCATE(x(n), y(n), z(n), eperm(n) )
-    x = 0; y = 0; z = 0; eperm = 0;
-
-    IF ( ints > 0 ) THEN
-      ALLOCATE(Varr(ints))
-      DO i=1,ints
-        V => VariableGet( Mesh % Variables, Vname(i) )
-        IF ( ASSOCIATED(V) ) THEN
-          ALLOCATE(Varr(i) % vals(n*V%DOFs))
-          Varr(i) % Vals = 0._dp
-        END IF
-      END DO
-    END IF
 
     ! Loop over edges and check for different signs
     !----------------------------------------------------------------
-    j = 0
+    DO IsAllocated=0,1
+
+      j = 0            
+      DO Level = 1, NoLevels
+        IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
+        
+        DO i=1,NoEdges
+          Edge => Mesh % Edges(i)
+          
+          n1 = Edge % NodeIndexes(1)
+          n2 = Edge % NodeIndexes(2)
+          
+          IF( ASSOCIATED( LevelPerm ) ) THEN
+            m1 = LevelPerm( n1 )
+            m2 = LevelPerm( n2 )
+          ELSE
+            m1 = n1
+            m2 = n2
+          END IF
+          
+          IF ( m1 <= 0 .OR. m2 <= 0 ) CYCLE
+          
+          IF( LevelDofs == 1 ) THEN
+            t1 = LevelFun( m1 ) 
+            t2 = LevelFun( m2 ) 
+          ELSE
+            t1 = 0.0_dp
+            t2 = 0.0_dp
+            DO k=1,MIN(dim,LevelDofs)
+              t1 = t1 + LevelFun( LevelDofs*(m1-1) + k )**2
+              t2 = t2 + LevelFun( LevelDofs*(m2-1) + k )**2
+            END DO
+            t1 = SQRT( t1 )
+            t2 = SQRT( t2 )
+          END IF
+          
+          t1 = t1 - LevelValue
+          t2 = t2 - LevelValue
+          
+          IF( ABS( t1 - t2 ) < TINY( t1 ) ) CYCLE
+          IF ( t1 * t2 > 0.0_dp ) CYCLE
+          
+          j = j + 1
+          IF( IsAllocated == 0 ) CYCLE
+
+          !---------------------------------------------------------
+          ! Only in the second loop tabulate the values
+          !---------------------------------------------------------
+
+          t = ABS( t1/(t2-t1) )
+
+          IF( FixedSurface ) THEN
+            Interpolant(j) = t
+            InvPerm(j) = i
+          END IF
+          
+          x1 = Mesh % Nodes % x(n1)
+          x2 = Mesh % Nodes % x(n2)
+          
+          y1 = Mesh % Nodes % y(n1)
+          y2 = Mesh % Nodes % y(n2)
+          
+          z1 = Mesh % Nodes % z(n1)
+          z2 = Mesh % Nodes % z(n2)
+          
+          eperm(i) = j
+          Isomesh % Nodes % x(j) = (1-t) * x1 + t * x2
+          Isomesh % Nodes % y(j) = (1-t) * y1 + t * y2
+          Isomesh % Nodes % z(j) = (1-t) * z1 + t * z2
+          
+          DO k=1,ints
+            Vfull => VariableGet(Mesh % Variables, Vname(k))
+            Viso => VariableGet(IsoMesh % Variables, Vname(k))
+
+            IF( ASSOCIATED( Vfull % Perm ) ) THEN
+              m1 = Vfull % Perm( n1 )
+              m2 = Vfull % Perm( n2 )
+            ELSE
+              m1 = n1
+              m2 = n2
+            END IF
+            IF( m1 <= 0 .OR. m2 <= 0 ) CYCLE
+            
+            DO l=1,Vfull % DOFs
+              x1 = Vfull % Values(Vfull % DOFs*(m1-1)+l)
+              x2 = Vfull % Values(Vfull % DOFs*(m2-1)+l)
+              Viso % Values(Vfull % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
+            END DO
+          END DO
+        END DO
+      END DO
+      
+
+      IF( IsAllocated == 0 ) THEN
+        NoIsoNodes = j
+        ALLOCATE( IsoMesh % Nodes )
+        Isomesh % NumberOfNodes = j
+        Isomesh % Nodes % NumberOfNodes = j
+        Isomesh % MeshDim = dim
+       
+        ALLOCATE( IsoMesh % Nodes % x(j) )
+        ALLOCATE( IsoMesh % Nodes % y(j) )
+        ALLOCATE( IsoMesh % Nodes % z(j) )
+
+        ! Gives the index of the node sitting on a edge
+        ALLOCATE( Eperm(NoEdges) ) 
+        Eperm = 0
+        
+        CALL VariableAdd( IsoMesh % Variables, IsoMesh,Solver, &
+            'Coordinate 1',1,IsoMesh % Nodes % x )
+        
+        CALL VariableAdd( IsoMesh % Variables,IsoMesh,Solver, &
+            'Coordinate 2',1,IsoMesh % Nodes % y )
+        
+        CALL VariableAdd( IsoMesh % Variables,IsoMesh,Solver, &
+            'Coordinate 3',1,IsoMesh % Nodes % z )
+        
+        Vfull => VariableGet( Mesh % Variables, 'Time' )
+        CALL VariableAdd( Isomesh % Variables, Isomesh, Solver, 'Time', 1, &
+            Vfull % Values )
+        
+        DO k=1,ints
+          Vfull => VariableGet( Mesh % Variables, Vname(k) )
+          NULLIFY( Vperm, Vals )
+          ALLOCATE( Vperm(j),Vals(Vfull % DOFs*j) )
+          Vperm = [(i,i=1,j)]
+          Vals = 0.0_dp
+          
+          CALL Info('IsoSurfaceSolver','Creating variable '//TRIM( Vname(k) ) )
+          CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
+              TRIM(Vname(k)), Vfull % DOFs, Vals, Vperm )
+        END DO
+	j = 0
+
+        IF( FixedSurface ) THEN
+          ALLOCATE( InvPerm( NoIsonodes ), Interpolant( NoIsoNodes) )
+          InvPerm = 0
+          Interpolant = 0.0_dp
+        END IF
+
+      END IF
+
+    END DO
+
+  END FUNCTION CreateNodes
 
 
+  !----------------------------------------------------------------
+  ! Remap the field values 
+  !----------------------------------------------------------------
+  SUBROUTINE ReMap()
+
+    TYPE(Element_t), POINTER :: Edge
+    INTEGER :: i,j,k,l,n1,n2,m1,m2,ints
+    REAL(KIND=dp) :: t,x1,x2
+
+    CHARACTER(LEN=MAX_NAME_LEN) :: Vname(32)
+    LOGICAL :: Found
+    TYPE(Variable_t), POINTER :: Vfull, Viso
+
+
+    ! If there are no edges then the dummy field has already been created
+    !--------------------------------------------------------------------------------
+    IF( NoEdges == 0 ) RETURN
+
+    ! Make a table of the field variables and allocate space
+    !----------------------------------------------------------------
+    n = NoEdges
+    ints = 0
+    DO WHILE(.TRUE.)
+      ints = ints+1
+      Vname(ints) = GetString( Params, &
+          ComponentName('Isosurface interpolant',ints), Found )
+      IF(.NOT. Found) Vname(ints) = GetString( Params, &
+          ComponentName('Variable',ints), Found )
+      IF ( .NOT. Found ) THEN
+        ints = ints-1
+        EXIT
+      END IF
+      Vfull => VariableGet( Mesh % Variables, Vname(ints) )
+      IF(.NOT. ASSOCIATED( Vfull ) ) THEN
+        ints = ints - 1
+      END IF
+    END DO
+
+    ! Loop over predifined nodes
+    !----------------------------------------------------------------
     DO Level = 1, NoLevels
       IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
 
-      DO i=1,n
-        Edge => Mesh % Edges(i)
+      DO j=1,Isomesh % NumberOfNodes
+        i = InvPerm(j)
 
+        Edge => Mesh % Edges(i)
+        
         n1 = Edge % NodeIndexes(1)
         n2 = Edge % NodeIndexes(2)
         
-	IF( ASSOCIATED( LevelPerm ) ) THEN
-          m1 = LevelPerm( n1 )
-          m2 = LevelPerm( n2 )
-        ELSE
-          m1 = n1
-          m2 = n2
-        END IF    
-    
-        IF ( m1 <= 0 .OR. m2 <= 0 ) CYCLE
-        
-	IF( LevelDofs == 1 ) THEN
-	  t1 = LevelFun( m1 ) 
-	  t2 = LevelFun( m2 ) 
-        ELSE
-	  t1 = 0.0_dp
-          t2 = 0.0_dp
-          DO k=1,MIN(dim,LevelDofs)
-            t1 = t1 + LevelFun( LevelDofs*(m1-1) + k )**2
-            t2 = t2 + LevelFun( LevelDofs*(m2-1) + k )**2
-          END DO
-	  t1 = SQRT( t1 )
-	  t2 = SQRT( t2 )
+        t = Interpolant(j)
+
+        ! If the mesh is moving then remap the also the coordinate values
+        !----------------------------------------------------------------
+        IF( MovingMesh ) THEN
+          Isomesh % Nodes % x(j) = &
+              (1-t) * Mesh % Nodes % x(n1) + t * Mesh % Nodes % x(n2)
+          Isomesh % Nodes % y(j) = &
+              (1-t) * Mesh % Nodes % y(n1) + t * Mesh % Nodes % y(n2)
+          Isomesh % Nodes % z(j) = &
+              (1-t) * Mesh % Nodes % z(n1) + t * Mesh % Nodes % z(n2)
         END IF
 
-        t1 = t1 - LevelValue
-        t2 = t2 - LevelValue
         
-        IF( ABS( t1 - t2 ) < TINY( t1 ) ) CYCLE
-        IF ( t1 * t2 > 0.0_dp ) CYCLE
-        
-        x1 = Mesh % Nodes % x(n1)
-        x2 = Mesh % Nodes % x(n2)
-        
-        y1 = Mesh % Nodes % y(n1)
-        y2 = Mesh % Nodes % y(n2)
-        
-        z1 = Mesh % Nodes % z(n1)
-        z2 = Mesh % Nodes % z(n2)
-        
-        t = ABS( t1/(t2-t1) )
-        j = j + 1
-
-        IF( j > n ) THEN
-          CALL Fatal('CreateNodes','Too many nodes on isosurface')
-        END IF
-
-        eperm(i) = j
-        x(j) = (1-t) * x1 + t * x2
-        y(j) = (1-t) * y1 + t * y2
-        z(j) = (1-t) * z1 + t * z2
-                
         DO k=1,ints
-          V => VariableGet(Mesh % Variables, Vname(k))
-          IF (ASSOCIATED(V)) THEN
-            DO l=1,V % DOFs
-              IF ( V % Perm(n1) > 0 .AND. V % Perm(n2) > 0 ) THEN
-                x1 = V % Values(V % DOFs*(V % Perm(n1)-1)+l)
-                x2 = V % Values(V % DOFs*(V % Perm(n2)-1)+l)
-                Varr(k) % Vals(V % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
-              END IF
-            END DO
+          Vfull => VariableGet(Mesh % Variables, Vname(k))
+          IF (.NOT. ASSOCIATED(Vfull)) CYCLE
+
+          Viso => VariableGet(IsoMesh % Variables, Vname(k))
+          IF (.NOT. ASSOCIATED(Viso)) CYCLE
+
+          IF( ASSOCIATED( Vfull % Perm )) THEN                
+            m1 = Vfull % Perm(n1)
+            m2 = Vfull % Perm(n2)
+          ELSE
+            m1 = n1
+            m2 = n2 
           END IF
+          IF( m1 <= 0 .OR. m2 <= 0 ) CYCLE
+
+          DO l=1,Vfull % DOFs
+            x1 = Vfull % Values(Vfull % DOFs*(m1-1)+l)
+            x2 = Vfull % Values(Vfull % DOFs*(m2-1)+l)
+            Viso % Values(Viso % DOFs*(j-1)+l) = (1-t)*x1 + t*x2
+          END DO
         END DO
       END DO
     END DO
 
-    ALLOCATE( IsoMesh % Nodes )
-    Isomesh % NumberOfNodes = j
-    Isomesh % Nodes % NumberOfNodes = j
-
-    ALLOCATE( IsoMesh % Nodes % x(j) )
-    ALLOCATE( IsoMesh % Nodes % y(j) )
-    ALLOCATE( IsoMesh % Nodes % z(j) )
-
-    IsoMesh % Nodes % x = x(1:j)
-    IsoMesh % Nodes % y = y(1:j)
-    IsoMesh % Nodes % z = z(1:j)
-    DEALLOCATE(x,y,z)
-
-    CALL VariableAdd( IsoMesh % Variables, IsoMesh,Solver, &
-       'Coordinate 1',1,IsoMesh % Nodes % x )
-
-    CALL VariableAdd( IsoMesh % Variables,IsoMesh,Solver, &
-       'Coordinate 2',1,IsoMesh % Nodes % y )
-
-    CALL VariableAdd( IsoMesh % Variables,IsoMesh,Solver, &
-       'Coordinate 3',1,IsoMesh % Nodes % z )
-
-    V => VariableGet( Mesh % Variables, 'Time' )
-    CALL VariableAdd( Isomesh % Variables, Isomesh, Solver, 'Time', 1, &
-        V % Values )
-
-    IF ( ints > 0 ) THEN
-      DO k=1,ints
-        V => VariableGet( Mesh % Variables, Vname(k) )
-        IF (ASSOCIATED(V)) THEN
-          NULLIFY( Vperm, Vals )
-          ALLOCATE( Vperm(j),Vals(V % DOFs*j) )
-          Vperm = [(i,i=1,j)]
-          Vals = Varr(k) % Vals(1:V % DOFs*j)
-          DEALLOCATE( Varr(k) % Vals )
-          CALL Info('IsoSurfaceSolver','Creating variable '//TRIM( Vname(k) ) )
-          CALL VariableAddVector( Isomesh % Variables, Isomesh, Solver, &
-               TRIM(Vname(k)), V % DOFs, Vals, Vperm )
-        END IF
-      END DO
-      DEALLOCATE(Varr)
-    END IF
-  END SUBROUTINE CreateNodes
-
+  END SUBROUTINE ReMap
 
   !----------------------------------------------------------------
   ! Create the isosurfaces or isolines
   !----------------------------------------------------------------
-  SUBROUTINE CreateSurfaces()
+  FUNCTION CreateSurfaces() RESULT ( NoSurfaces )
+     INTEGER :: NoSurfaces
      TYPE(Element_t), POINTER :: Element, DefElement
      REAL(KIND=dp) :: F(4)
      INTEGER :: i,j,k,n,Triangles(2,3),Line(2)
      INTEGER :: NewElemType, NewElemNodes
-     LOGICAL :: SurfaceAllocated 
+
+     NoSurfaces = 0
+     IF( NoIsoNodes == 0 ) RETURN
 
      IF( dim == 3 ) THEN
        NewElemType = 303
@@ -611,84 +768,84 @@ CONTAINS
        NewElemNodes = 2
      END IF
 
-     SurfaceALlocated = .FALSE.
+     DO IsAllocated = 0, 1
+       k = 0
 
-100  k = 0
+       DO Level = 1, NoLevels
+         IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
 
-     DO Level = 1, NoLevels
-       IF( NoLevels > 1 ) LevelValue = LevelValues(Level,1) 
-       
-       DO i=1,Mesh % NumberOfBulkElements
-         Element => Mesh % Elements(i)
-	 n = Element % TYPE % NumberOfNodes
-
-         IF( ASSOCIATED( LevelPerm ) ) THEN
-           ElemPerm(1:n) = LevelPerm(Element % NodeIndexes)
-         ELSE
-           ElemPerm(1:n) = Element % NodeIndexes
-         END IF
-
-         IF( LevelDofs == 1 ) THEN
-           F(1:n) = LevelFun( ElemPerm(1:n) )
-         ELSE
-	   F(1:n) = 0.0_dp
-           DO j=1,MIN(dim,LevelDofs)
-             F(1:n) = F(1:n) + LevelFun( LevelDofs*(ElemPerm(1:n)-1)+j)**2
-           END DO 
-           F(1:n) = SQRT( F(1:n) ) 
-         END IF
-	 F(1:n) = F(1:n) - LevelValue
-
-
-         IF( dim == 2 ) THEN
-           IF( CreateLineFromTriangle(Element,F,Line) ) THEN
-             k = k + 1
-             IF( SurfaceAllocated) THEN
-               Isomesh % Elements(k) % NodeIndexes = Line
-               Isomesh % Elements(k) % BodyId = Level
-             END IF
+         DO i=1,Mesh % NumberOfBulkElements
+           Element => Mesh % Elements(i)
+           n = Element % TYPE % NumberOfNodes
+           
+           IF( ASSOCIATED( LevelPerm ) ) THEN
+             ElemPerm(1:n) = LevelPerm(Element % NodeIndexes)
+           ELSE
+             ElemPerm(1:n) = Element % NodeIndexes
            END IF
-         ELSE
-           n = CreateSurfaceFromTetra(Element,F,Triangles)
-           DO j=1,n
-             IF ( ALL (Triangles(j,:) > 0 ) ) THEN
+           
+           IF( LevelDofs == 1 ) THEN
+             F(1:n) = LevelFun( ElemPerm(1:n) )
+           ELSE
+             F(1:n) = 0.0_dp
+             DO j=1,MIN(dim,LevelDofs)
+               F(1:n) = F(1:n) + LevelFun( LevelDofs*(ElemPerm(1:n)-1)+j)**2
+             END DO
+             F(1:n) = SQRT( F(1:n) ) 
+           END IF
+           F(1:n) = F(1:n) - LevelValue
+                      
+           IF( dim == 2 ) THEN
+             IF( CreateLineFromTriangle(Element,F,Line) ) THEN
                k = k + 1
-               IF( SurfaceAllocated ) THEN
-                 Isomesh % Elements(k) % NodeIndexes = Triangles(j,:)
+               IF( IsAllocated == 1) THEN
+                 Isomesh % Elements(k) % NodeIndexes = Line
                  Isomesh % Elements(k) % BodyId = Level
                END IF
              END IF
-           END DO
-         END IF
+           ELSE
+             n = CreateSurfaceFromTetra(Element,F,Triangles)
+             DO j=1,n
+               IF ( ALL (Triangles(j,:) > 0 ) ) THEN
+                 k = k + 1
+                 IF( IsAllocated == 1) THEN
+                   Isomesh % Elements(k) % NodeIndexes = Triangles(j,:)
+                   Isomesh % Elements(k) % BodyId = Level
+                 END IF
+               END IF
+             END DO
+             
+           END IF
+         END DO
        END DO
+
+       IF( k == 0 ) RETURN
+
+       IF( IsAllocated == 0 ) THEN
+
+	 NoSurfaces = k
+
+         ALLOCATE( Isomesh % Elements(k) )
+         
+         Isomesh % MeshDim = dim 
+         Isomesh % NumberOfBulkElements = k
+         Isomesh % NumberOfFaces = 0
+         Isomesh % NumberOfEdges = 0
+         Isomesh % NumberOfBoundaryElements = 0
+        
+         DefElement => AllocateElement()
+         DefElement % TYPE => GetElementType(NewElemType)
+         DO i=1,k
+           Isomesh % Elements(i) = DefElement
+!           Isomesh % Elements(i) % TYPE => GetElementType(NewElemType)
+           ALLOCATE(Isomesh % Elements(i) % NodeIndexes(NewElemNodes))
+         END DO
+       END IF
      END DO
 
-     IF( .NOT. SurfaceAllocated ) THEN
-
-       ALLOCATE( Isomesh % Elements(k) )
-       SurfaceAllocated = .TRUE.
-       
-       Isomesh % MeshDim = dim 
-       Isomesh % NumberOfBulkElements = k
-       Isomesh % NumberOfFaces = 0
-       Isomesh % NumberOfEdges = 0
-       Isomesh % NumberOfBoundaryElements = 0
-       
-       DefElement => AllocateElement()
-       DO i=1,k
-         Isomesh % Elements(i) = DefElement
-         Isomesh % Elements(i) % TYPE => GetElementType(NewElemType)
-         ALLOCATE(Isomesh % Elements(i) % NodeIndexes(NewElemNodes))
-       END DO
-
-       GOTO 100
-     END IF
-
      DEALLOCATE(DefElement)      
-
-
      
-  END SUBROUTINE CreateSurfaces
+  END FUNCTION CreateSurfaces
 
 
   !----------------------------------------------------------------
