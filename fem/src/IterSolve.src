@@ -131,7 +131,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  RECURSIVE SUBROUTINE IterSolver( A,x,b,SolverParam,ndim,DotF,NormF,MatvecF,PrecF )
+  RECURSIVE SUBROUTINE IterSolver( A,x,b,SolverParam,ndim,DotF, &
+              NormF,MatvecF,PrecF,StopcF )
 !------------------------------------------------------------------------------
 
     USE SParIterGlobals
@@ -142,7 +143,7 @@ CONTAINS
     REAL(KIND=dp), DIMENSION(:) CONTIG :: x,b
     TYPE(Matrix_t), POINTER :: A, Adiag
     INTEGER, OPTIONAL :: ndim
-    INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF, PrecF
+    INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF, PrecF, StopcF
 !------------------------------------------------------------------------------
 
     REAL(KIND=dp) :: dpar(50),stopfun
@@ -175,7 +176,7 @@ CONTAINS
 
 
     INTEGER(KIND=Addrint) :: dotProc, normProc, pcondProc, &
-            pcondrProc=0, mvProc, AddrFunc, iterProc
+            pcondrProc=0, mvProc, AddrFunc, iterProc, StopcProc
 
     INTERFACE
        SUBROUTINE VankaCreate(A,Solver)
@@ -287,7 +288,13 @@ CONTAINS
      END SELECT
 !------------------------------------------------------------------------------
           
-     HUTI_STOPC = HUTI_TRESID_SCALED_BYB
+     IF (PRESENT(StopcF)) THEN
+       StopcProc = StopcF
+       HUTI_STOPC = HUTI_USUPPLIED_STOPC
+     ELSE
+       StopcProc = AddrFunc(Stopc)
+       HUTI_STOPC = HUTI_TRESID_SCALED_BYB
+     END IF
      HUTI_NDIM  = N
 
      HUTI_DBUGLVL  = ListGetInteger( SolverParam % Values, &
@@ -563,7 +570,7 @@ CONTAINS
 
      GlobalMatrix => A
      CALL IterCall( iterProc, x, b, ipar, dpar, work, &
-       mvProc, pcondProc, pcondrProc, dotProc, normProc, STOPC )
+       mvProc, pcondProc, pcondrProc, dotProc, normProc, stopcProc )
 
      IF ( A % COMPLEX ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
