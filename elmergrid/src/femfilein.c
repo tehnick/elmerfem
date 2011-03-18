@@ -3977,7 +3977,7 @@ int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
       return(1);
     }
   }
-
+ 
   printf("Reading mesh from universal mesh file %s.\n",filename);
   InitializeKnots(data);
 
@@ -4015,6 +4015,8 @@ omstart:
 
   for(;;) { 
 
+    if(0) printf("line: %d  %s\n",mode,line);
+
   nextline:
     if( !strncmp(line,"    -1",6)) mode = 0;
     if(Getrow(line,in,FALSE)) goto end;
@@ -4025,12 +4027,15 @@ omstart:
     else if( !strncmp(line,"  2412",6)) mode = 2412;
     else if( !strncmp(line,"  2467",6)) mode = 2467;
     else if( !strncmp(line,"  2435",6)) mode = 2435;
+    else if( !strncmp(line,"   781",6)) mode = 781;
+    else if( !strncmp(line,"   780",6)) mode = 780;
     else if(1 && allocated && strncmp(line,"      ",6)) printf("Unknown mode: %s",line);
+
 
     if(debug && mode) printf("Current mode is %d\n",mode);
 
     /* node definition */
-    if( mode == 2411) {
+    if( mode == 2411 || mode == 781 ) {
       if(debug) printf("Reading nodes\n");
       for(;;) {
 	Getrow(line,in,FALSE);
@@ -4063,7 +4068,7 @@ omstart:
     }
 
 
-    if( mode == 2412) {
+    if( mode == 2412 ) {
       if(debug) printf("Reading elements\n");
       for(;;) {
 	Getrow(line,in,FALSE);
@@ -4097,8 +4102,66 @@ omstart:
 	    printf("new elementtype in elmer: %d (unv: %d)\n",elmertype,unvtype);
 	  }
 
-	  if(elmertype%100 != nonodes)
+	  if(elmertype % 100 != nonodes) {
 	    printf("nonodes = %d elemtype = %d elid = %d\n",nonodes,elmertype,elid);
+	    nonodes = elmertype % 100;
+	  }
+
+	  data->elementtypes[noelements] = elmertype;
+	  for(i=0;i<nonodes;i++)
+	    data->topology[noelements][i] = next_int(&cp);
+
+	  CheckRedundantIndexes(nonodes,data->topology[noelements]);
+
+	  /* should this be physical property or material property? */
+	  data->material[noelements] = physind;
+	}
+      }    
+    }
+
+    if( mode == 780 ) {
+      int physind2,matind2;
+
+      if(debug) printf("Reading elements\n");
+      for(;;) {
+	Getrow(line,in,FALSE);
+	if( !strncmp(line,"    -1",6)) goto nextline;
+	
+	noelements += 1;
+	cp = line;
+	elid = next_int(&cp);
+	unvtype = next_int(&cp);
+
+	physind = next_int(&cp);
+	physind2 = next_int(&cp);
+	matind = next_int(&cp);
+	matind2 = next_int(&cp);
+	colorind = next_int(&cp);
+	nonodes = next_int(&cp);
+	
+	if (!allocated) {
+	  maxnodes = MAX(maxnodes, nonodes);
+	  if(elid != noelements) reorderelements = TRUE;
+	  maxelem = MAX(maxelem, elid);
+	}
+	
+	if(unvtype == 11) Getrow(line,in,FALSE);
+	Getrow(line,in,FALSE);
+	cp = line;
+	if(allocated) {
+	  if(reorderelements) u2eelem[elid] = noelements;
+
+	  elmertype = UnvToElmerType(unvtype); 
+
+	  if(debug && !elementtypes[elmertype]) {
+	    elementtypes[elmertype] = TRUE;
+	    printf("new elementtype in elmer: %d (unv: %d)\n",elmertype,unvtype);
+	  }
+
+	  if(elmertype % 100 != nonodes) {
+	    printf("nonodes = %d elemtype = %d elid = %d\n",nonodes,elmertype,elid);
+	    nonodes = elmertype % 100;
+	  }
 
 	  data->elementtypes[noelements] = elmertype;
 	  for(i=0;i<nonodes;i++)
