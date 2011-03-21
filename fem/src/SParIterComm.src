@@ -563,7 +563,8 @@ CONTAINS
              tosend(:), toreceive(:), gorder(:), grevorder(:)
 
      INTEGER  :: p,q,datasize, ierr,status(MPI_STATUS_SIZE)
-     INTEGER, POINTER :: list1(:),list2(:), commonlist(:), gindices(:), gdofs(:)
+     INTEGER, ALLOCATABLE ::  gindices(:)
+     INTEGER, POINTER :: list1(:),list2(:), commonlist(:), gdofs(:)
 
      INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs
 
@@ -762,38 +763,89 @@ real(kind=dp) :: realtime,tt
        END DO
 
        CALL MPI_BSEND( gindices, DataSize, MPI_INTEGER, &
-           i-1, 400, MPI_COMM_WORLD, ierr )
+           i-1, 101, MPI_COMM_WORLD, ierr )
        DEALLOCATE( gindices )
     END DO
 
     !
     ! Retrieve missing interface node numbers from our neighbours:
     !--------------------------------------------------------------
+    tosend = 0
     DO i = 1, ParEnv % PEs
        IF( i-1 == ParEnv % MyPE ) CYCLE
        IF( .NOT. IsNeighbour(i) ) CYCLE
 
        CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
         i-1, 100, MPI_COMM_WORLD, status, ierr )
-       IF( datasize < 1 ) CYCLE
-
        ALLOCATE( gindices(3*DataSize) )
-       CALL MPI_RECV( gindices, 3*DataSize, MPI_INTEGER, &
-          i-1, 400, MPI_COMM_WORLD, status, ierr )
 
-       DO k = 1,n
-          IF( .NOT. Edgen(k) % Interface .OR. Edgen(k) % n>0 ) CYCLE
-    
-          DO l = 1, datasize
-             m = 3*l-2
+       IF( datasize > 0 ) THEN
+         CALL MPI_RECV( gindices, 3*DataSize, MPI_INTEGER, &
+            i-1, 101, MPI_COMM_WORLD, status, ierr )
+
+         DO l = 1, datasize
+           m = 3*l-2
+           DO k = 1,n
+             IF( .NOT. Edgen(k) % Interface .OR. Edgen(k) % n>0 ) CYCLE
              IF( gdofs(parentnodes(k,1)) == gindices(m+1) .AND. &
                  gdofs(parentnodes(k,2)) == gindices(m+2) ) THEN
-                Edgen(k) % n = gindices(m) ! global DOF number
-                EXIT
+               Edgen(k) % n = gindices(m) ! global DOF number
+               EXIT
              END IF
-          END DO
+           END DO
+           IF (k>n) THEN
+             tosend(i) = tosend(i)+1
+             gindices(tosend(i))=gindices(m)
+           END IF
+         END DO
+       END IF
+
+       !
+       ! we don't have these edges, ask to remove us from
+       ! share lists:
+       ! ------------------------------------------------
+       CALL MPI_BSEND( tosend(i), 1, MPI_INTEGER, &
+            i-1, 200, MPI_COMM_WORLD, ierr )
+
+       IF ( tosend(i)>0 ) THEN
+         CALL MPI_BSEND( gindices, tosend(i), MPI_INTEGER, &
+            i-1, 201, MPI_COMM_WORLD, ierr )
+       END IF
+       DEALLOCATE(gindices)
+    END DO
+
+    DO i = 1, ParEnv % PEs
+       IF( i-1 == ParEnv % MyPE ) CYCLE
+       IF( .NOT. IsNeighbour(i) ) CYCLE
+
+       CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
+        i-1, 200, MPI_COMM_WORLD, status, ierr )
+       IF( datasize < 1 ) CYCLE
+
+       ALLOCATE( gindices(DataSize) )
+       CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
+          i-1, 201, MPI_COMM_WORLD, status, ierr )
+
+       DO j=1,n
+         IF ( .NOT. Edgen(j) % Interface ) CYCLE
+         DO k=1,Datasize
+           IF (Edgen(j) % n==gindices(k)) THEN
+             l = SIZE(Edgen(j) % Neighbours)
+             ALLOCATE(commonlist(l-1))
+             p = 0
+             DO m=1,l
+               IF (Edgen(j) % Neighbours(m)==i-1) CYCLE
+               p = p + 1
+               commonlist(p)=Edgen(j) % Neighbours(m)
+             END DO
+             DEALLOCATE(Edgen(j) % neighbours)
+             Edgen(j) % Neighbours => commonlist
+             IF ( l==2 ) Edgen(j) % Interface=.FALSE.
+             EXIT
+           END IF
+         END DO
        END DO
-       DEALLOCATE( gindices )
+       DEALLOCATE(gindices)
     END DO
 
     !
@@ -1018,8 +1070,10 @@ real(kind=dp) :: realtime,tt
              DO q = 1,SIZE(list2)
                IF ( list1(p)==list2(q) ) THEN
                  DO r = 1,SIZE(list3)
-                   IF( list1(p)==list3(r) ) &
+                   IF( list1(p)==list3(r) ) THEN
                      CALL AddToCommonList( commonlist, list1(p) ) 
+                     EXIT
+                   END IF
                  END DO
                END IF
              END DO
@@ -1135,39 +1189,89 @@ real(kind=dp) :: realtime,tt
       END DO
 
       CALL MPI_BSEND( gindices, DataSize, MPI_INTEGER, &
-            i-1, 400, MPI_COMM_WORLD, ierr )
+            i-1, 101, MPI_COMM_WORLD, ierr )
       DEALLOCATE( gindices )
     END DO
 
     !
     ! Retrieve missing interface node numbers from our neighbours:
     !--------------------------------------------------------------
+    tosend = 0
     DO i = 1, ParEnv % PEs
       IF( i-1 == ParEnv % MyPE ) CYCLE
       IF( .NOT. IsNeighbour(i) ) CYCLE
 
       CALL MPI_RECV( DataSize, 1, MPI_INTEGER, i-1, 100, &
            MPI_COMM_WORLD, status, ierr )
-      IF( datasize < 1 ) CYCLE
 
       ALLOCATE( gindices(4*DataSize) )
-      CALL MPI_RECV( gindices, 4*DataSize, MPI_INTEGER, &
-         i-1, 400, MPI_COMM_WORLD, status, ierr )
+      IF( datasize > 0 ) THEN
+        CALL MPI_RECV( gindices, 4*DataSize, MPI_INTEGER, &
+           i-1, 101, MPI_COMM_WORLD, status, ierr )
 
-      DO k = 1,n
-        IF( .NOT. Facen(k) % Interface .OR. Facen(k) % n>0 ) CYCLE
-    
         DO l = 1, datasize
           m = 4*l-3
-          IF( gdofs(parentnodes(k,1)) == gindices(m+1) .AND. &
-              gdofs(parentnodes(k,2)) == gindices(m+2) .AND. &
-              gdofs(parentnodes(k,3)) == gindices(m+3) ) THEN
-             Facen(k) % n = gindices(m) ! global DOF number
-             EXIT
+          DO k = 1,n
+            IF( .NOT. Facen(k) % Interface .OR. Facen(k) % n>0 ) CYCLE
+            IF( gdofs(parentnodes(k,1)) == gindices(m+1) .AND. &
+                gdofs(parentnodes(k,2)) == gindices(m+2) .AND. &
+                gdofs(parentnodes(k,3)) == gindices(m+3) ) THEN
+               Facen(k) % n = gindices(m) ! global DOF number
+               EXIT
+            END IF
+          END DO
+          IF (k>n) THEN
+            tosend(i) = tosend(i)+1
+            gindices(tosend(i))=gindices(m)
           END IF
         END DO
-      END DO
+      END IF
+      !
+      ! we don't have these edges, ask to remove us from
+      ! share lists:
+      ! ------------------------------------------------
+      CALL MPI_BSEND( tosend(i), 1, MPI_INTEGER, &
+           i-1, 200, MPI_COMM_WORLD, ierr )
+
+      IF ( tosend(i)>0 ) THEN
+        CALL MPI_BSEND( gindices, tosend(i), MPI_INTEGER, &
+           i-1, 201, MPI_COMM_WORLD, ierr )
+      END IF
       DEALLOCATE(gindices)
+    END DO
+
+    DO i = 1, ParEnv % PEs
+       IF( i-1 == ParEnv % MyPE ) CYCLE
+       IF( .NOT. IsNeighbour(i) ) CYCLE
+
+       CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
+        i-1, 200, MPI_COMM_WORLD, status, ierr )
+       IF( datasize < 1 ) CYCLE
+
+       ALLOCATE( gindices(DataSize) )
+       CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
+          i-1, 201, MPI_COMM_WORLD, status, ierr )
+
+       DO j=1,n
+         IF ( .NOT. Facen(j) % Interface ) CYCLE
+         DO k=1,Datasize
+           IF (Facen(j) % n==gindices(k)) THEN
+             l = SIZE(Facen(j) % Neighbours)
+             ALLOCATE(commonlist(l-1))
+             p = 0
+             DO m=1,l
+               IF (Facen(j) % Neighbours(m)==i-1) CYCLE
+               p = p + 1
+               commonlist(p)=Facen(j) % Neighbours(m)
+             END DO
+             DEALLOCATE(Facen(j) % neighbours)
+             Facen(j) % Neighbours => commonlist
+             IF ( l==2 ) Facen(j) % Interface=.FALSE.
+             EXIT
+           END IF
+         END DO
+       END DO
+       DEALLOCATE(gindices)
     END DO
 
     !
@@ -1186,7 +1290,7 @@ real(kind=dp) :: realtime,tt
         commonlist = Facen(i) % Neighbours(2:)
         DEALLOCATE(Facen(i) % Neighbours)
         Facen(i) % Neighbours => commonlist
-        IF ( k==2 ) Facen(i) % Interface=.FALSE.
+	IF ( k==2 ) Facen(i) % Interface=.FALSE.
       END IF
     END DO
 
@@ -4225,7 +4329,7 @@ END FUNCTION SearchNode
 ! Search an element Item from an ordered integer array(N) and return
 ! Index to that array element. Return value -1 means Item was not found.
 !
-FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Indx )
+FUNCTION SearchIAItem( N, IArray, Item, SortOrder, sIndx ) RESULT ( Indx )
 
   USE types
   IMPLICIT NONE
@@ -4233,7 +4337,7 @@ FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Indx )
   INTEGER :: Item, Indx, i
   INTEGER :: N
   INTEGER, DIMENSION(:) :: IArray
-  INTEGER, OPTIONAL :: SortOrder(:)
+  INTEGER, OPTIONAL :: SortOrder(:), sIndx
 
   ! Local variables
 
@@ -4275,7 +4379,8 @@ FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Indx )
      END IF
   END DO
 
- IF (Indx > 0) Indx  = SortOrder(Indx)
+  IF (PRESENT(sIndx) ) sIndx=Indx
+  IF (Indx > 0) Indx  = SortOrder(Indx)
   RETURN
 !*********************************************************************
 END FUNCTION SearchIAItem
