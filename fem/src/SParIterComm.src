@@ -661,7 +661,8 @@ real(kind=dp) :: realtime,tt
           ! Edge i owner of either of the parent nodes:
           !--------------------------------------------
 !         CALL SORT( SIZE(commonlist), commonlist )
-          IF (commonlist(1)/=list1(1).AND.commonlist(1)/=list2(1)) THEN
+          IF (commonlist(1)/=list1(1).AND.commonlist(1)/=list2(1).AND.&
+              SIZE(commonlist)>1) THEN
             j=commonlist(1)
             commonlist(1)=commonlist(2)
             commonlist(2)=j
@@ -1093,7 +1094,7 @@ real(kind=dp) :: realtime,tt
           !-----------------------------------------------------
 !         CALL SORT( SIZE(commonlist), commonlist )
           IF (commonlist(1)/=list1(1) .AND. commonlist(1)/=list2(1) .AND. &
-              commonlist(1)/=list3(1) ) THEN
+              commonlist(1)/=list3(1) .AND. SIZE(commonlist)>1 ) THEN
             j=commonlist(1)
             commonlist(1)=commonlist(2)
             commonlist(2)=j
