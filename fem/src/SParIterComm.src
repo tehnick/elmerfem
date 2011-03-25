@@ -656,11 +656,16 @@ real(kind=dp) :: realtime,tt
           ! Now, we should have a list of PEs common to the parents:
           !----------------------------------------------------------
           IF( .NOT.ASSOCIATED(commonlist) ) CYCLE
-          !
-          ! Edge i is given to the smallest numbered PE common to the parents:
-          !-------------------------------------------------------------------
 
-          CALL SORT( SIZE(commonlist), commonlist )
+          !
+          ! Edge i owner of either of the parent nodes:
+          !--------------------------------------------
+!         CALL SORT( SIZE(commonlist), commonlist )
+          IF (commonlist(1)/=list1(1).AND.commonlist(1)/=list2(1)) THEN
+            j=commonlist(1)
+            commonlist(1)=commonlist(2)
+            commonlist(2)=j
+          END IF
           Edgen(i) % Neighbours => commonlist
         ELSE
           !
@@ -1084,10 +1089,15 @@ real(kind=dp) :: realtime,tt
           !----------------------------------------------------------
           IF( .NOT.ASSOCIATED(commonlist) ) CYCLE
           !
-          ! Face i is given to the smallest numbered PE common to the parents:
-          !-------------------------------------------------------------------
-
-          CALL SORT( SIZE(commonlist), commonlist )
+          ! Face i is given to owner of any of the parent nodes
+          !-----------------------------------------------------
+!         CALL SORT( SIZE(commonlist), commonlist )
+          IF (commonlist(1)/=list1(1) .AND. commonlist(1)/=list2(1) .AND. &
+              commonlist(l)/=list3(1) ) THEN
+            j=commonlist(1)
+            commonlist(1)=commonlist(2)
+            commonlist(2)=j
+          END IF
           Facen(i) % Neighbours => commonlist
         ELSE
           !
