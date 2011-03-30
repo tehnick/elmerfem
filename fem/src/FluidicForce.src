@@ -74,7 +74,6 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
-
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
@@ -83,7 +82,6 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), ALLOCATABLE :: Pressure(:), Velocity(:,:), Viscosity(:)
   REAL(KIND=dp), ALLOCATABLE :: ShearData(:,:)
   REAL(KIND=dp), ALLOCATABLE :: MomentAbout(:,:), Forces(:,:), Moments(:,:), Areas(:)
-  TYPE(Solver_t), POINTER :: FlowSolver
   REAL(KIND=dp) :: Force(3), Moment(3), Area, ShearStress
   LOGICAL :: Stat, CalculateMoment, ViscousForce, Compressible, SumForces
   LOGICAL :: ShearOutput
@@ -97,11 +95,6 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, Parent
   CHARACTER(LEN=MAX_NAME_LEN) :: ShearFilename, MessageL, ViscosityFlag
   CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, BoundaryName, VariableName
-
-  DO i=1,Model % NumberOfSolvers
-     FlowSolver => Model % Solvers(i)
-     IF ( ListGetString( FlowSolver % Values, 'Equation' ) == 'navier-stokes' ) EXIT
-  END DO
 
   Mesh => Model % Meshes
   DO WHILE( ASSOCIATED(Mesh) )
@@ -231,6 +224,7 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
               minv=1, maxv=Model % NumberOFMaterials )
         Material => Model % Materials(j) % Values
 
+	Model % CurrentElement => Parent
         Compressible = .FALSE.
         CompressibilityFlag = ListGetString( Material, &
              'Compressibility Model', stat)
