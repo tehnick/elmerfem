@@ -2754,7 +2754,6 @@ END  SUBROUTINE SParIterAllReduceAnd
      RecvdIfMatrix(sproc+1) % NumberOfRows = rows
 
      IF ( rows>0 ) THEN
-       cols = recv_cols(i)
        req_cnt = req_cnt+1
        CALL MPI_iRECV( RecvdIfmatrix(sproc+1) % Rows, rows+1, MPI_INTEGER, &
             sproc, 1003, MPI_COMM_WORLD, requests(req_cnt), ierr )
@@ -2765,7 +2764,6 @@ END  SUBROUTINE SParIterAllReduceAnd
     destproc = neigh(i)
     rows = NbsIfMatrix(destproc+1) % NumberOfRows
     IF ( rows>0 ) THEN
-       cols = NbsIfMatrix(destproc+1) % Rows(rows+1)-1
        CALL MPI_BSEND( NbsIfMatrix(destproc+1) % Rows, &
             rows+1, MPI_INTEGER, destproc, 1003, MPI_COMM_WORLD, ierr )
     END IF
@@ -3775,7 +3773,7 @@ tt = CPUTime()
     CALL MPI_RECV( veclen, 1, MPI_INTEGER, sproc, &
          4000, MPI_COMM_WORLD, status, ierr )
 
-    SplittedMatrix % VecIndices(sproc+1) % RevInd => NULL()
+    SplittedMatrix % VecIndices(sproc+1) % RevInd => Null()
     IF ( veclen > 0 ) THEN
       ALLOCATE( SplittedMatrix % Vecindices(sproc+1) % RevInd(Veclen) )
       ALLOCATE( Gindices(Veclen) )
@@ -3798,6 +3796,14 @@ tt = CPUTime()
   DO i=1,n
     CurrIf => SplittedMatrix % IfMatrix(neigh(i)+1)
     DO k = 1,CurrIf % NumberOfRows
+      IF ( CurrIf % RowOwner(k) == ParEnv % Mype ) THEN
+
+        Ind = SearchIAItem( InsideMatrix % NumberOfRows, &
+            InsideMatrix % GRows, CurrIf % GRows(k), &
+                  InsideMatrix % Gorder )
+        SplittedMatrix % IfORows(neigh(i)+1) % IfVec(k) = ind
+      END IF
+
       DO m = CurrIf % Rows(k), CurrIf % Rows(k+1) - 1
         Ind = SearchIAItem( InsideMatrix %  NumberOfRows, &
           InsideMatrix % GRows, CurrIf % Cols(m), InsideMatrix % Gorder )
@@ -4119,23 +4125,13 @@ SUBROUTINE Recv_LocIf_size( n, neigh, sizes )
   integer, dimension(MPI_STATUS_SIZE) :: status
 
   INTEGER :: VecLen
-  INTEGER, ALLOCATABLE :: Perm(:)
-
   !*********************************************************************
-  ALLOCATE(perm(0:MAXVAL(neigh)))
-  DO i=1,n
-    perm(neigh(i)) = i
-  END DO
-
   DO i=1, ParEnv % NumOfNeighbours
      CALL MPI_RECV( Veclen, 1, MPI_INTEGER, neigh(i), &
             6000, MPI_COMM_WORLD, status, ierr )
 
-!    sproc = status(MPI_SOURCE)
-!    sizes(perm(sproc)) = Veclen
      sizes(i) = Veclen
   END DO
-  DEALLOCATE(perm)
 !*********************************************************************
 END SUBROUTINE Recv_LocIf_size
 !*********************************************************************

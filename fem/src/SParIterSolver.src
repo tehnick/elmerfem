@@ -104,6 +104,8 @@ real(kind=dp) :: tt,realtime
 !tt=realtime()
     SParMatrixDesc % SplittedMatrix => &
                         SplitMatrix( SourceMatrix, ParallelInfo )
+
+    SParMatrixDesc % ParEnv = ParEnv
 !if ( parenv % mype==0 ) print*,'SPLIT TIME: ', realtime()-tt
 
   END FUNCTION ParInitMatrix
@@ -143,10 +145,13 @@ real(kind=dp) :: tt,realtime
     TYPE (NeighbourList_t), POINTER :: CurrNbsL
 
     TYPE (BasicMatrix_t), DIMENSION(:), ALLOCATABLE :: OwnIfMatrix
-    TYPE (BasicMatrix_t), DIMENSION(:), POINTER :: NbsIfMatrix
+    TYPE (BasicMatrix_t), POINTER :: NbsIfMatrix(:), CurrIf
     TYPE (BasicMatrix_t), DIMENSION(:), ALLOCATABLE :: RecvdIfMatrix
 
     LOGICAL :: NeedMass, NeedDamp, NeedPrec, GotNewCol, Found
+
+logical , allocatable :: neighs(:,:)
+integer :: ierr,status(1000)
 
 real(kind=dp) :: realtime,st
   !******************************************************************
@@ -371,13 +376,8 @@ real(kind=dp) :: realtime,st
         ALLOCATE( OwnIfMatrix(i) % Values(OwnIfMCols(i)) )
         ALLOCATE( OwnIfMatrix(i) % RowOwner(OwnIfMRows(i)) )
 
-!       NULLIFY( OwnIfMatrix(i) % MassValues )
         IF ( NeedMass ) ALLOCATE( OwnIfMatrix(i) % MassValues(OwnIfMCols(i)) )
-
-!       NULLIFY( OwnIfMatrix(i) % DampValues )
         IF ( NeedDamp ) ALLOCATE( OwnIfMatrix(i) % DampValues(OwnIfMCols(i)) )
-
-!       NULLIFY( OwnIfMatrix(i) % ILUValues )
         IF ( NeedPrec ) ALLOCATE( OwnIfMatrix(i) % ILUValues(OwnIfMCols(i)) )
      END IF
   END DO
@@ -556,11 +556,11 @@ real(kind=dp) :: realtime,st
 !if ( parenv % mype==0 ) print*, 'EXCHANGE INTERF TIME: ', realtime()-st; st=realtime()
 
   !----------------------------------------------------------------------
-  ! Insert matrix elements to splittedmatrix if got from the
-  ! exchange operation.
+  !
+  ! sort inside matrix global tags to speed lookup
+  !
   !----------------------------------------------------------------------
   n = SplittedMatrix % InsideMatrix % NumberOfRows
-
   DO i=1,n
     SplittedMatrix % InsideMatrix % Gorder(i) = i
   END DO
@@ -568,200 +568,11 @@ real(kind=dp) :: realtime,st
   CALL SortI( n, SplittedMatrix % InsideMatrix % GRows, &
         SplittedMatrix % InsideMatrix % Gorder )
 
-  ALLOCATE( RowBuffer( n+1 ) )
-  RowBuffer = SplittedMatrix % InsideMatrix % Rows
-
-  NewCol = 0
-  DO i=1,ParEnv % PEs
-     DO j=1,RecvdIfMatrix(i) % NumberOfRows
-!
-!       Search for position of global row in this partitions numbering:
-!       ---------------------------------------------------------------
-        RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
-          RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder)
-
-        IF ( RowInd > 0 ) THEN
-           DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
-              ColInd = -1
-              DO l = RowBuffer(RowInd),  RowBuffer(RowInd+1) - 1
-!
-!                Equation DOF numbering to partition nodal numbering:
-!                ----------------------------------------------------
-                 GCol = SplittedMatrix % InsideMatrix % Cols(l)
-                 GCol = SourceMatrix % INVPerm(GCol)
-!
-!                Partition nodal numbering to global nodal DOF numbering:
-!                --------------------------------------------------------
-                 GCol = ParallelInfo % GlobalDOFs(GCol)
-                 IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
-                    ColInd = GCol
-                    EXIT
-                 END IF
-              END DO
-
-              IF ( ColInd == -1 ) THEN
-                 ColInd = SearchIAItem( n, &
-                      SplittedMatrix % InsideMatrix % GRows, &
-                      RecvdIfMatrix(i) % Cols(k), &
-                      SplittedMatrix % InsideMatrix % Gorder )
-
-                 IF ( ColInd /= -1 )  THEN
-                    NewCol = NewCol+1
-                    DO l = RowInd+1, n+1
-                       SplittedMatrix % InsideMatrix % Rows(l) = &
-                            SplittedMatrix % InsideMatrix % Rows(l) + 1
-                    END DO
-                 END IF
-              END IF
-           END DO
-        END IF
-     END DO
-  END DO
-
-
-  IF ( NewCol > 0 ) THEN
-    ALLOCATE(ColBuffer(SplittedMatrix % InsideMatrix % Rows(n+1)-1))
-    ColBuffer = 0
-    DO i=1,n
-       k = SplittedMatrix % InsideMatrix % Rows(i)
-       DO j = RowBuffer(i), RowBuffer(i+1)-1
-          ColBuffer(k) = SplittedMatrix % InsideMatrix % Cols(j)
-          k = k + 1
-       END DO
-    END DO
-    DEALLOCATE( SplittedMatrix % InsideMatrix % Cols )
-    SplittedMatrix % InsideMatrix % Cols => ColBuffer
-
-    ALLOCATE( ColBuffer(SIZE(SplittedMatrix % InsideMatrix % Cols)) )
-    ColBuffer = 0
-    DO i=1,n
-       k = SplittedMatrix % InsideMatrix % Rows(i)
-       DO j = RowBuffer(i), RowBuffer(i+1)-1
-          Colbuffer(k) = j
-          k = k + 1
-       END DO
-    END DO
-
-    RowBuffer(1:n) = SplittedMatrix % InsideMatrix % Rows(2:n+1)
-    DO i=1,n
-       DO j=SplittedMatrix % InsideMatrix % Rows(i), &
-                    SplittedMatrix % InsideMatrix % Rows(i+1)-1
-         IF ( SplittedMatrix % InsideMatrix % Cols(j) == 0 ) THEN
-            RowBuffer(i) = j
-            EXIT
-         END IF
-       END DO
-    END DO
-
-    NewCol = 0
-    DO i=1,ParEnv % PEs
-       DO j=1,RecvdIfMatrix(i) % NumberOfRows
-
-          RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
-            RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder )
-        
-          IF ( RowInd > 0 ) THEN
-             DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
-                ColInd = -1
-                DO l = SplittedMatrix % InsideMatrix % Rows(RowInd),RowBuffer(RowInd)-1
-!
-!                  Equation DOF numbering to partition nodal numbering:
-!                  ----------------------------------------------------
-                   GCol = SplittedMatrix % InsideMatrix % Cols(l)
-                   GCol = SourceMatrix % INVPerm(GCol)
-!
-!                  Partition nodal numbering to global nodal DOF numbering:
-!                  --------------------------------------------------------
-                   GCol = ParallelInfo % GlobalDOFs(GCol)
-                   IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
-                      ColInd = GCol
-                      EXIT
-                   END IF
-                END DO
-
-                IF ( ColInd == -1 ) THEN
-                   ColInd = SearchIAItem( n, &
-                        SplittedMatrix % InsideMatrix % GRows, RecvdIfMatrix(i) % Cols(k), &
-                                    SplittedMatrix % InsideMatrix % Gorder )
-
-                   IF ( ColInd /= -1 )  THEN
-                      ColInd = SearchNode( ParallelInfo, RecvdIfMatrix(i) % Cols(k) )
-                      ColInd = SourceMatrix % Perm(ColInd)
-                      IF ( ColInd > 0 ) THEN
-                         m = RowBuffer(RowInd)
-                         DO l=SplittedMatrix % InsideMatrix % Rows(RowInd),RowBuffer(RowInd)-1
-                           IF ( SplittedMatrix % InsideMatrix % Cols(l)>ColInd ) THEN
-                             m = l
-                             EXIT
-                           END IF
-                         END DO
-
-                         DO l=RowBuffer(RowInd),m+1,-1
-                           SplittedMatrix % InsideMatrix % Cols(l) = &
-                              SplittedMatrix % InsideMatrix % Cols(l-1)
-                           ColBuffer(l) = ColBuffer(l-1)
-                         END DO
-
-                         RowBuffer(RowInd) = RowBuffer(RowInd)+1
-                         SplittedMatrix % InsideMatrix % Cols(m) = ColInd
-                      END IF
-                   END IF
-                END IF
-             END DO
-          END IF
-       END DO
-    END DO
-    DEALLOCATE( RowBuffer)
-
-    ! Clean zero cols from insidematrix:
-    ! ----------------------------------
-    ALLOCATE( IndBuffer(SIZE(ColBuffer)),RowBuffer(n+1) )
-    IndBuffer = 0
-    RowBuffer = SplittedMatrix % InsideMatrix % Rows
-    k = 1
-    DO i=1,n
-      l = k
-      DO j=RowBuffer(i), RowBuffer(i+1)-1
-         IF ( SplittedMatrix % InsideMatrix % Cols(j)==0 ) THEN
-           EXIT
-         ELSE
-           IndBuffer(k) = SplittedMatrix % InsideMatrix % Cols(j)
-           k = k + 1
-         END IF
-      END DO
-      SplittedMatrix % InsideMatrix % Rows(i) = l
-    END DO
-    SplittedMatrix % InsideMatrix % Rows(n+1) = k
-    DEALLOCATE( SplittedMatrix % InsideMatrix % Cols )
-    SplittedMatrix % InsideMatrix % Cols => IndBuffer
-
-    ALLOCATE( IndBuffer(SIZE(ColBuffer)) )
-    IndBuffer = 0
-    k = 0
-    DO i=1,n
-      l = SplittedMatrix % InsideMatrix % Rows(i+1)- &
-          SplittedMatrix % InsideMatrix % Rows(i)-1
-      DO j=RowBuffer(i), RowBuffer(i)+l
-        k = k + 1
-        IndBuffer(k) = ColBuffer(j)
-      END DO
-    END DO
-    DEALLOCATE(RowBuffer)
-
-    ColBuffer=0
-    DO i=1,SIZE(IndBuffer)
-       IF (IndBuffer(i)>0) ColBuffer(IndBuffer(i))=i
-    END DO
-    DEALLOCATE(IndBuffer)
-
-    DO i=1,SIZE(SplittedMatrix % GlueTable % Inds)
-      IF ( SplittedMatrix % GlueTable % Inds(i) > 0 ) THEN
-        SplittedMatrix % GlueTable % Inds(i) = &
-           ColBuffer( SplittedMatrix % GlueTable % Inds(i) )
-      END IF
-    END DO
-    DEALLOCATE(ColBuffer)
-  END IF
+  !----------------------------------------------------------------------
+  !
+  ! allocate stuff
+  !
+  !----------------------------------------------------------------------
 
   sz = SplittedMatrix % InsideMatrix % Rows(n+1)-1
   ALLOCATE(SplittedMatrix % InsideMatrix % Values(sz))
@@ -778,19 +589,9 @@ real(kind=dp) :: realtime,st
   IF ( NeedPrec ) &
     ALLOCATE(SplittedMatrix % InsideMatrix % ILUValues(sz))
 
-!if ( parenv % mype==0 ) print*, 'INSERT INTERF TIME: ', realtime()-st; st=realtime()
 !-----------------------------------------------------------------------------
 
-  CALL ClearInsideC( SourceMatrix, SplittedMatrix % InsideMatrix, &
-             RecvdIfMatrix, ParallelInfo )
-!if ( parenv % mype==0 ) print*, 'CLEAR INS TIME: ', realtime()-st; st=realtime()
-
   SplittedMatrix % IfMatrix(:) % NumberOfRows = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ( OwnIfMatrix(i) % NumberOfRows   /= 0 ) .OR. &
-          ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) ) THEN
-     END IF
-  END DO
   DO i = 1, ParEnv % PEs
      IF ( ( OwnIfMatrix(i) % NumberOfRows   /= 0 ) .OR. &
           ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) ) THEN
@@ -799,7 +600,30 @@ real(kind=dp) :: realtime,st
      END IF
   END DO
 
-  ALLOCATE( SplittedMatrix % IfLCols(ParEnv % PEs)  )
+!do k=1,parenv % pes
+! do i=1,splittedmatrix % ifmatrix(k) % NUMBEROFROWS
+!if ( splittedmatrix % ifmatrix(k) % rowowner(i)==parenv % mype ) cycle
+!  if (.not. parenv % isneighbour(splittedmatrix % ifmatrix(k) % rowowner(i)+1)) then
+!print*,parenv % mype, ' needs ', splittedmatrix % ifmatrix(k) % rowowner(i), ' as neighbour, but its not...'; flush(6)
+!end if
+! end do
+!end do
+
+  DO i=1,ParEnv % PEs
+    IF ( i-1==Parenv % MyPE ) CYCLE
+    Currif => SplittedMatrix % IfMatrix(i)
+    DO j=1,Currif % NumberOfRows
+      IF ( CurrIf % RowOwner(j)==Parenv % MyPE ) CYCLE
+      IF( .NOT. ParEnv % IsNeighbour(Currif % RowOwner(j)+1) ) THEN
+         ParEnv % NumOfNeighbours=ParEnv % NumOfNeighbours+1
+         ParEnv % isNeighbour(CurrIf % RowOwner(j)+1) = .TRUE.
+      END IF
+    END DO
+  END DO
+
+
+  ALLOCATE(SplittedMatrix % IfLCols(ParEnv % PEs))
+  ALLOCATE(SplittedMatrix % IfORows(ParEnv % PEs))
   DO i = 1, ParEnv % PEs
      IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows /= 0 ) THEN
         ALLOCATE( SplittedMatrix % IfVecs(i) % IfVec( &
@@ -807,30 +631,30 @@ real(kind=dp) :: realtime,st
              SplittedMatrix % IfMatrix(i) % Values( SIZE(  &
              SplittedMatrix % IfMatrix(i) % Cols)), &
              SplittedMatrix % IfLCols(i) % IfVec( SIZE( &
-             SplittedMatrix % IfMatrix(i) % Cols ) )  )
+             SplittedMatrix % IfMatrix(i) % Cols ) ), &
+             SplittedMatrix % IfORows(i) % IfVec( &
+             SplittedMatrix % IfMatrix(i) % NumberOfRows))
+        SplittedMatrix % IfORows(i) % IfVec   = 0
         SplittedMatrix % IfLCols(i) % IfVec   = 0
         SplittedMatrix % IfVecs(i) % IfVec    = 0
-        SplittedMatrix % IfMatrix(i) % Values = 0.0d0
+        SplittedMatrix % IfMatrix(i) % Values = 0._dp
 
-!       NULLIFY( SplittedMatrix % IfMatrix(i) % MassValues )
         IF ( NeedMass ) THEN
            ALLOCATE( SplittedMatrix % IfMatrix(i) % MassValues(  &
               SIZE(SplittedMatrix % IfMatrix(i) % Cols) ) )
-           SplittedMatrix % IfMatrix(i) % MassValues = 0.0d0
+           SplittedMatrix % IfMatrix(i) % MassValues = 0._dp
         END IF
 
-!       NULLIFY( SplittedMatrix % IfMatrix(i) % DampValues )
         IF ( NeedDamp ) THEN
            ALLOCATE( SplittedMatrix % IfMatrix(i) % DampValues(  &
               SIZE(SplittedMatrix % IfMatrix(i) % Cols) ) )
-           SplittedMatrix % IfMatrix(i) % DampValues = 0.0d0
+           SplittedMatrix % IfMatrix(i) % DampValues = 0._dp
         END IF
 
-!       NULLIFY( SplittedMatrix % IfMatrix(i) % ILUValues )
         IF ( NeedPrec ) THEN
            ALLOCATE( SplittedMatrix % IfMatrix(i) % ILUValues(  &
               SIZE(SplittedMatrix % IfMatrix(i) % Cols) ) )
-           SplittedMatrix % IfMatrix(i) % ILUValues = 0.0d0
+           SplittedMatrix % IfMatrix(i) % ILUValues = 0._dp
         END IF
      END IF
   END DO
@@ -1706,7 +1530,6 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
                             SourceMatrix % ILUValues(j)
                     EXIT
                  END IF
-
               END DO
            END IF
 
@@ -1924,161 +1747,6 @@ END SUBROUTINE Solve
 !----------------------------------------------------------------------
 
 
-!----------------------------------------------------------------------
-SUBROUTINE SParPrecondition( u,v,ipar )
-!----------------------------------------------------------------------
-    REAL(KIND=dp) :: u(*),v(*)
-    INTEGER :: ipar(*)
-
-    INTEGER :: i,j,k,n,iter,niters
-
-    REAL(KIND=dp), POINTER :: Values(:)
-    INTEGER, POINTER :: Rows(:),Cols(:)
-
-    REAL(KIND=dp), ALLOCATABLE :: z(:), y(:)
-    SAVE y,z,niters
-
-    n = HUTI_NDIM
-    niters = GlobalData % RelaxIters
-
-    IF ( niters <= 0 ) THEN
-       CALL CRS_LUPrecondition( u,v,ipar )
-       RETURN
-    END IF
-
-    IF ( .NOT. ALLOCATED(z) ) THEN
-       ALLOCATE( z(n), y(n) )
-    ELSE IF ( SIZE(z) /= n ) THEN
-       DEALLOCATE( z, y )
-       ALLOCATE( z(n), y(n) )
-    END IF
-
-    Rows   => GlobalMatrix % Rows
-    Cols   => GlobalMatrix % Cols
-    Values => GlobalMatrix % Values
-
-    u(1:n) = v(1:n)
-    DO iter=1,niters
-
-       z = 0
-       CALL SParIfMatrixVector( u,z,ipar )
-       z = v(1:n) - z
-       CALL CRS_LUPrecondition( u,z,ipar )
-    END DO
-
-!----------------------------------------------------------------------
-END SUBROUTINE SParPrecondition
-!----------------------------------------------------------------------
-
-
-!----------------------------------------------------------------------
-SUBROUTINE SParCPrecondition( u,v,ipar )
-!----------------------------------------------------------------------
-    COMPLEX(KIND=dp) :: u(*),v(*)
-    INTEGER :: ipar(*)
-
-    INTEGER :: i,j,iter,n,niters
-    INTEGER, POINTER :: Rows(:),Cols(:)
-
-    COMPLEX(KIND=dp) :: A
-    REAL(KIND=dp), POINTER :: Values(:)
-
-    COMPLEX(KIND=dp), ALLOCATABLE :: z(:)
-    SAVE z
-
-    n = HUTI_NDIM
-
-    niters = GlobalData % RelaxIters
-
-    IF ( niters <= 0 ) THEN
-       CALL CRS_ComplexLUPrecondition( u,v,ipar )
-       RETURN
-    END IF
-
-    IF ( .NOT. ALLOCATED(z) ) THEN
-       ALLOCATE( z(n) )
-    ELSE IF ( SIZE(z) /= n ) THEN
-       DEALLOCATE( z )
-       ALLOCATE( z(n) )
-    END IF
-
-    Rows   => GlobalMatrix % Rows
-    Cols   => GlobalMatrix % Cols
-    Values => GlobalMatrix % Values
-
-    u(1:n) = v(1:n)
-    DO iter=1,niters
-       z = 0
-       CALL SParIfCMatrixVector( u,z,ipar )
-       z = v(1:n) - z
-       CALL CRS_ComplexLUPrecondition( u,z,ipar )
-    END DO
-!----------------------------------------------------------------------
-END SUBROUTINE SParCPrecondition
-!----------------------------------------------------------------------
-
-
-!*********************************************************************
-!*********************************************************************
-!
-! External Matrix - Vector operations (Parallel real, version)
-!
-! Multiply vector u with the global matrix,  return the result in v
-! Called from HUTIter library
-!
-SUBROUTINE SParIfMatrixVector( u, v, ipar )
-
-  IMPLICIT NONE
-
-  ! Input parameters
-
-  INTEGER, DIMENSION(*) :: ipar
-  REAL(KIND=dp), DIMENSION(*) :: u, v
-
-  ! Local parameters
-
-  INTEGER :: i, j, k, l, colind
-  TYPE( IfVecT), POINTER :: IfV
-  TYPE( IfLColsT), POINTER :: IfL
-  TYPE (BasicMatrix_t), POINTER :: CurrIf
-  TYPE (Matrix_t), POINTER :: InsideMatrix
-
-  INTEGER, POINTER :: Cols(:),Rows(:)
-  REAL(KIND=dp), POINTER :: Vals(:)
-
-  !*******************************************************************
-
-  InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
-
-  !----------------------------------------------------------------------
-  !
-  ! Compute the interface contribution for each neighbour
-  !
-  !----------------------------------------------------------------------
-
-  DO i = 1, ParEnv % PEs
-     CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
-     IfV => GlobalData % SplittedMatrix % IfVecs(i)
-     IfL => GlobalData % SplittedMatrix % IfLCols(i)
-
-     IF ( CurrIf % NumberOfRows /= 0 ) THEN
-        IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
-        DO j = 1, CurrIf % NumberOfRows
-           DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
-              Colind = IfL % IfVec(k)
-              IF ( ColInd > 0 ) &
-                IfV % IfVec(j) = IfV % IfVec(j) + CurrIf % Values(k) * u(colind)
-           END DO
-        END DO
-     END IF
-  END DO
-
-  CALL Send_LocIf_Old( GlobalData % SplittedMatrix )
-  CALL Recv_LocIf_Old( GlobalData % SplittedMatrix, HUTI_NDIM, v )
-!----------------------------------------------------------------------
-END SUBROUTINE SParIfMatrixVector
-!----------------------------------------------------------------------
-
 
 !*********************************************************************
 !*********************************************************************
@@ -2101,9 +1769,9 @@ END SUBROUTINE SParIfMatrixVector
 
   ! Local parameters
 
-  INTEGER :: i, j, k, l, n, colind
+  INTEGER :: i, j, k, l, n, ii, colind, rowind
   TYPE( IfVecT), POINTER :: IfV
-  TYPE( IfLColsT), POINTER :: IfL
+  TYPE( IfLColsT), POINTER :: IfL, IfO
   TYPE (BasicMatrix_t), POINTER :: CurrIf
   TYPE (Matrix_t), POINTER :: InsideMatrix
 
@@ -2148,6 +1816,7 @@ real(kind=dp) :: s, RealTime
   ALLOCATE( recv_size(nneigh) )
   CALL Recv_LocIf_size( nneigh, neigh, recv_size )
 
+
   ALLOCATE( buffer(nneigh) )
   DO i=1,nneigh
     ALLOCATE( buffer(i) % rbuf(recv_size(i)) ) 
@@ -2157,19 +1826,31 @@ real(kind=dp) :: s, RealTime
   CALL Recv_LocIf( GlobalData % SplittedMatrix, &
       nneigh, neigh, recv_size, requests, buffer )
 
+  v(1:n) = 0.0
   DO i = 1, ParEnv % PEs
      CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
      IfV => GlobalData % SplittedMatrix % IfVecs(i)
      IfL => GlobalData % SplittedMatrix % IfLCols(i)
+     IfO => GlobalData % SplittedMatrix % IfORows(i)
 
      IF ( CurrIf % NumberOfRows /= 0 ) THEN
         IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
         DO j = 1, CurrIf % NumberOfRows
-           DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
-             Colind = IfL % IfVec(k)
-             IF ( ColInd > 0 ) &
-               IfV % IfVec(j)=IfV % IfVec(j)+CurrIf % Values(k)*u(colind)
-           END DO
+           IF ( Currif % RowOwner(j) == ParEnv % MyPE ) THEN
+
+             rowind = IfO % IfVec(j)
+             DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
+               Colind = IfL % IfVec(k)
+               IF ( ColInd > 0 ) &
+                 v(rowind)=v(rowind)+CurrIf % Values(k)*u(colind)
+             END DO
+           ELSE
+             DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
+               Colind = IfL % IfVec(k)
+               IF ( ColInd > 0 ) &
+                 IfV % IfVec(j)=IfV % IfVec(j)+CurrIf % Values(k)*u(colind)
+             END DO
+           END IF
         END DO
      END IF
   END DO
@@ -2181,7 +1862,6 @@ real(kind=dp) :: s, RealTime
   !
   !----------------------------------------------------------------------
 
-  v(1:n) = 0.0
   Rows => InsideMatrix % Rows
   Cols => InsideMatrix % Cols
   Vals => InsideMatrix % Values
@@ -2211,86 +1891,6 @@ real(kind=dp) :: s, RealTime
 END SUBROUTINE SParMatrixVector
 !----------------------------------------------------------------------
 
-!*********************************************************************
-!*********************************************************************
-!
-! External Matrix - Vector operations (Parallel, complex version)
-!
-! Multiply vector u with the matrix in A_val return the result in v
-! Called from HUTIter library
-!
-!*********************************************************************
-SUBROUTINE SParIfCMatrixVector( u, v, ipar )
-!*********************************************************************
-  IMPLICIT NONE
-
-  ! Input parameters
-
-  INTEGER, DIMENSION(*) :: ipar
-  COMPLEX(KIND=dp), DIMENSION(*) :: u, v
-
-
-  ! Local parameters
-
-  INTEGER :: i, j, k, l, colind
-  TYPE (BasicMatrix_t), POINTER :: CurrIf
-  TYPE (Matrix_t), POINTER :: InsideMatrix
-  TYPE( IfVecT), POINTER :: IfV
-  TYPE( IfLColsT), POINTER :: IfL
-
-  COMPLEX(KIND=dp) :: A
-
-  INTEGER, POINTER :: Cols(:),Rows(:)
-  REAL(KIND=dp), POINTER :: Vals(:)
-  REAL(KIND=dp), ALLOCATABLE :: buf(:)
-
-  !*******************************************************************
-
-  InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
-
-  !----------------------------------------------------------------------
-  !
-  ! Compute the interface contribution for each neighbour
-  !
-  !----------------------------------------------------------------------
-
-  DO i = 1, ParEnv % PEs
-     CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
-
-     IF ( CurrIf % NumberOfRows /= 0 ) THEN
-        IfV => GlobalData % SplittedMatrix % IfVecs(i)
-        IfL => GlobalData % SplittedMatrix % IfLCols(i)
-
-        IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
-        DO j = 1, CurrIf % NumberOfRows / 2
-           DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
-              IF ( IfL % IfVec(k) > 0 ) THEN
-                ColInd = (IfL % IfVec(k) + 1) / 2
-                A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
-                A = A * u(ColInd)
-                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + REAL(A)
-                IfV % IfVec(2*j-0) = IfV % IfVec(2*j-0) + AIMAG(A)
-              END IF
-           END DO
-        END DO
-     END IF
-  END DO
-
-  CALL Send_LocIf_Old( GlobalData % SplittedMatrix )
-
-  ALLOCATE( buf( 2*HUTI_NDIM ) )
-  buf = 0.0d0
-  CALL Recv_LocIf_Old( GlobalData % SplittedMatrix, 2*HUTI_NDIM, buf )
-
-  DO i=1,HUTI_NDIM
-     v(i) = v(i) + CMPLX( buf(2*i-1), buf(2*i), KIND=dp )
-  END DO
-  DEALLOCATE( buf )
-!*********************************************************************
-END SUBROUTINE SParIfCMatrixVector
-!*********************************************************************
-
-
 
 !*********************************************************************
 !*********************************************************************
@@ -2312,11 +1912,11 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
 
   ! Local parameters
 
-  INTEGER :: i, j, k, l, colind
+  INTEGER :: i, j, k, l, colind, rowind
   TYPE (BasicMatrix_t), POINTER :: CurrIf
   TYPE (Matrix_t), POINTER :: InsideMatrix
   TYPE( IfVecT), POINTER :: IfV
-  TYPE( IfLColsT), POINTER :: IfL
+  TYPE( IfLColsT), POINTER :: IfL, IfO
 
   COMPLEX(KIND=dp) :: A
 
@@ -2334,6 +1934,7 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   !
   !----------------------------------------------------------------------
 
+  v(1:HUTI_NDIM) = 0.0
   DO i = 1, ParEnv % PEs
      CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
 
@@ -2343,15 +1944,26 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
 
         IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
         DO j = 1, CurrIf % NumberOfRows / 2
-           DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
-              IF ( IfL % IfVec(k) > 0 ) THEN
-                ColInd = (IfL % IfVec(k) + 1) / 2
-                A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
-                A = A * u(ColInd)
-                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + REAL(A)
-                IfV % IfVec(2*j-0) = IfV % IfVec(2*j-0) + AIMAG(A)
-              END IF
-           END DO
+           IF ( Currif % RowOwner(j) == ParEnv % MyPE ) THEN
+             rowind = IfO % IfVec(j)
+             DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1,2
+               Colind = (IfL % IfVec(k)+1)/2
+               A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
+               A = A * u(ColInd)
+               v(2*rowind-1)=v(2*rowind-1) + REAL(A)
+               v(2*rowind-0)=v(2*rowind-0) + AIMAG(A)
+             END DO
+          ELSE
+            DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
+               IF ( IfL % IfVec(k) > 0 ) THEN
+                 ColInd = (IfL % IfVec(k) + 1) / 2
+                 A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
+                 A = A * u(ColInd)
+                 IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + REAL(A)
+                 IfV % IfVec(2*j-0) = IfV % IfVec(2*j-0) + AIMAG(A)
+               END IF
+            END DO
+          END IF
         END DO
      END IF
   END DO
@@ -2364,7 +1976,6 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
   !
   !----------------------------------------------------------------------
 
-  v(1:HUTI_NDIM) = 0.0
   Rows => InsideMatrix % Rows
   Cols => InsideMatrix % Cols
   Vals => InsideMatrix % Values
@@ -2770,23 +2381,22 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
               ! Value to be added to IfMatrix
 
               DO  k=RecvdIfMatrix(i) % Rows(j),RecvdIfMatrix(i) % Rows(j+1)-1
-
                 DO l = CurrIf % Rows(RowInd), CurrIf % Rows(RowInd+1)-1
-                    IF ( RecvdIfMatrix(i) % Cols(k) == CurrIf % Cols(l) ) THEN
-                       CurrIf % Values(l) = CurrIf % Values(l) + &
-                             RecvdIfMatrix(i) % Values(k)
-                       IF ( NeedMass ) &
-                          CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
-                                 RecvdIfMatrix(i) % MassValues(k)
-                       IF ( NeedDamp ) &
-                          CurrIf % DampValues(l) = CurrIf % DampValues(l) + &
-                                 RecvdIfMatrix(i) % DampValues(k)
-                       IF ( NeedPrec ) &
-                          CurrIf % ILUValues(l) = CurrIf % ILUValues(l) + &
-                                 RecvdIfMatrix(i) % ILUValues(k)
+                   IF ( RecvdIfMatrix(i) % Cols(k) == CurrIf % Cols(l) ) THEN
+                      CurrIf % Values(l) = CurrIf % Values(l) + &
+                            RecvdIfMatrix(i) % Values(k)
+                      IF ( NeedMass ) &
+                         CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
+                                RecvdIfMatrix(i) % MassValues(k)
+                      IF ( NeedDamp ) &
+                         CurrIf % DampValues(l) = CurrIf % DampValues(l) + &
+                                RecvdIfMatrix(i) % DampValues(k)
+                      IF ( NeedPrec ) &
+                         CurrIf % ILUValues(l) = CurrIf % ILUValues(l) + &
+                                RecvdIfMatrix(i) % ILUValues(k)
                        EXIT
                     END IF
-                 END DO
+                END DO
               END DO
 
            ELSE
@@ -2799,10 +2409,10 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
               IF ( RowInd > 0 ) THEN
                  DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
                     l = RecvdIfMatrix(i) % Cols(k)
-                    ColIndA = SearchNode( ParallelInfo,l )
-                    IF ( ColIndA > 0 ) THEN
+                    ColIndA = SearchNode(ParallelInfo,l)
+                    IF (ColIndA>0) THEN
                       ColIndA = SourceMatrix % Perm(ColIndA)
-                      IF ( ColIndA>0 ) ColIndA = RevDOFList(ColIndA)
+                      IF (ColIndA>0) ColIndA = RevDOFList(ColIndA)
                     END IF
                     IF ( ColIndA  <= 0 ) CYCLE
 
@@ -2929,9 +2539,7 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
                  NC = 1
               END IF
            END DO
-
         ELSE
-
            DO j = RecvdIfMatrix(p) % Rows(i), RecvdIfMatrix(p) % Rows(i+1)-1
               RecvdIfMatrix(p) % Cols(NewCol) = RecvdIfMatrix(p) % Cols(j)
               NewCol = NewCol + 1
