@@ -798,10 +798,11 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-  FUNCTION FetiFloatingDomain(A,Solver) RESULT(Floating)
+  FUNCTION FetiFloatingDomain(A,Solver,TOL) RESULT(Floating)
 !------------------------------------------------------------------------------
     USE EigenSolve
     TYPE(Matrix_t), POINTER :: A
+    REAL(KIND=dp) :: TOL
     LOGICAL :: floating
     TYPE(Solver_t) :: Solver
 !------------------------------------------------------------------------------
@@ -843,11 +844,6 @@ END SUBROUTINE FetiProject
     END IF
 
 
-    ALLOCATE(A % MassValues(SIZE(A % Values)))
-    ALLOCATE(eigVectors(maxnz,n))
-    A % MassValues = 0._dp
-    A % MassValues(A % Diag) = 1._dp
-
     dim = CoordinateSystemDimension()
 
     ! max deficiency for elasticity equation:
@@ -858,8 +854,16 @@ END SUBROUTINE FetiProject
       Neigs=8
     END IF
 
+    ALLOCATE(A % MassValues(SIZE(A % Values)))
+    ALLOCATE(eigVectors(Neigs,n))
+    A % MassValues = 0._dp
+    A % MassValues(A % Diag) = 1._dp
+
     CALL ListAddString( GetSolverParams(), &
            'Linear System Solver', 'Direct' )
+
+    CALL ListAddConstReal( GetSolverParams(), &
+           'Eigen System Convergence Tolerance', TOL/100._dp )
 
     CALL ArpackEigenSolve(Solver, A, n, neigs, EigValues, EigVectors)
 
@@ -933,7 +937,7 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp), ALLOCATABLE :: y(:)
     TYPE(Matrix_t), POINTER :: M
     INTEGER :: i,j,k,l,n,nLC
-    REAL(KIND=dp) :: alpha(maxnz), zz
+    REAL(KIND=dp) :: alpha(maxnz), zz, TOL
 
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Mesh_t), POINTER :: Mesh
@@ -972,7 +976,8 @@ END SUBROUTINE FetiProject
 
     ! Check floating domains, initialize null space z:
     ! ------------------------------------------------
-    Floating = FetiFloatingDomain(A,Solver)
+    TOL=GetCReal( Params,'Linear System Convergence Tolerance')
+    Floating = FetiFloatingDomain(A,Solver,TOL)
     IF (Floating) THEN
 
       ! Fix null space with lagrange coefficients
