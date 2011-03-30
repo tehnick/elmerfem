@@ -501,7 +501,7 @@ CONTAINS
     INTEGER :: ENTRY
 !-----------------------------------------------------------------------
     INTEGER, POINTER :: ptmp(:)
-    INTEGER :: itmp
+    INTEGER :: itmp,i
 !-----------------------------------------------------------------------
     IF( ASSOCIATED(list)) THEN
        itmp = SIZE(list)
@@ -557,7 +557,7 @@ CONTAINS
 
      TYPE(Edgen_t)   :: copyedgen
      TYPE(Element_t) :: copyedge
-     TYPE(Edgen_t), ALLOCATABLE :: edgen(:)
+     TYPE(Edgen_t), ALLOCATABLE :: edgen(:), cccc(:)
 
      INTEGER, ALLOCATABLE :: owned_edges(:), owned_edges2(:), parentnodes(:,:), &
              tosend(:), toreceive(:), gorder(:), grevorder(:)
@@ -566,9 +566,12 @@ CONTAINS
      INTEGER, ALLOCATABLE ::  gindices(:)
      INTEGER, POINTER :: list1(:),list2(:), commonlist(:), gdofs(:)
 
-     INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs
+     INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs,retry
 
-     LOGICAL :: AllM
+     LOGICAL, POINTER :: ig(:)
+     TYPE(NeighbourList_t), POINTER :: nb(:)
+
+     LOGICAL :: AllM, Intf, Found
      LOGICAL, POINTER :: IsNeighbour(:)
      TYPE(Element_t), POINTER :: Element
 
@@ -607,79 +610,119 @@ real(kind=dp) :: realtime,tt
 
     Edgen(:) % n = 0
     gdofs => Mesh % ParallelInfo % GlobalDOFs
+    ig => Mesh % ParallelInfo % Interface
+    nb => Mesh % ParallelInfo % NeighbourList
 
     !
     ! Find neighbours and parent nodes for all new interface edges:
     ! =============================================================
     !
+
     ! Loop over edges:
     !-----------------
     DO i = 1, n
       Element => Mesh % Edges(i)
+      Edgen(i) % Interface = .FALSE.
 
-      IF(.NOT.ALL(Mesh % ParallelInfo % Interface(Element % NodeIndexes(1:2)))) THEN
-        Edgen(i) % Interface = .FALSE.
-        ALLOCATE(Edgen(i) % Neighbours(1))
-        Edgen(i) % Neighbours(1) = ParEnv % myPE
-      ELSE
+      Intf = ALL(ig(Element % NodeIndexes(1:2)))
+      IF ( Mesh % MeshDim==2 ) THEN
+        Intf = Intf.AND..NOT. &
+             (ASSOCIATED(Element % BoundaryInfo % Left) .AND. &
+              ASSOCIATED(Element % BoundaryInfo % Right))
+      END IF
+
+      IF (Intf) THEN
         !
-        ! This is an interface edge:
-        !---------------------------
-        Edgen(i) % Interface = .TRUE.
+        ! This is perhaps an interface edge:
+        !-----------------------------------
 
-        list1 => NULL() ! list of PEs related to parent node 1
-        list2 => NULL() ! list of PEs related to parent node 2
-        commonlist => NULL() ! intersection of list1 and list2
+        commonlist => Null() ! intersection of list1 and list2
 
-        l = Element % NodeIndexes(1)
-        parentnodes(i,1) =  l
+        p = Element % NodeIndexes(1)
+        q = Element % NodeIndexes(2)
+        IF (gdofs(p)>gdofs(q)) THEN
+          parentnodes(i,1) =  p
+          parentnodes(i,2) =  q
+        ELSE
+          parentnodes(i,1) =  q
+          parentnodes(i,2) =  p
+        ENDIF
+
         ! This is the list of PEs sharing parent node 1:
-        list1 => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
+        list1 => nb(parentnodes(i,1)) % Neighbours
 
-        l = Element % NodeIndexes(2)
-        parentnodes(i,2) = l
         ! This is the list of PEs sharing parent node 2:
-        list2 => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
+        list2 => nb(parentnodes(i,2)) % Neighbours
         !
         ! Determine the intersection of the PE-lists:
         !--------------------------------------------
-        IF( ASSOCIATED(list1) .AND. ASSOCIATED(list2) ) THEN
-          commonlist => NULL()
-          DO p = 1,SIZE(list1)
-             DO q = 1,SIZE(list2)
-                IF( list1(p) == list2(q)) &
-                     CALL AddToCommonList( commonlist, list1(p) ) 
-             END DO
+        DO p = 1,SIZE(list1)
+           DO q = 1,SIZE(list2)
+              IF( list1(p) == list2(q)) &
+                 CALL AddToCommonList( commonlist, list1(p) ) 
+           END DO
+        END DO
+        
+        ! in 3D add the rest of the PE's
+        ! ----------------------------------
+        IF ( Mesh % MeshDim==3 ) THEN
+          DO p=1,SIZE(list1)
+            IF (.NOT. ANY(List1(p) == CommonList) ) THEN
+              CALL AddToCommonList(commonlist, list1(p)) 
+            END IF
           END DO
+          DO p=1,SIZE(list2)
+            IF (.NOT. ANY(List2(p) == CommonList) ) THEN
+              CALL AddToCommonList(commonlist, list2(p)) 
+            END IF
+          END DO
+        END IF
 
-          !
-          ! Now, we should have a list of PEs common to the parents:
-          !----------------------------------------------------------
-          IF( .NOT.ASSOCIATED(commonlist) ) CYCLE
+        !
+        ! Now, we should have a list of PEs common to the parents:
+        !----------------------------------------------------------
+        IF ( SIZE(commonlist)<2 ) THEN
+          DEALLOCATE(CommonList);
+          CommonList => Null()
+        END IF
 
+        IF( ASSOCIATED(commonlist)) THEN
+          Edgen(i) % Interface = .TRUE.
           !
-          ! Edge i owner of either of the parent nodes:
-          !--------------------------------------------
-!         CALL SORT( SIZE(commonlist), commonlist )
-          IF (commonlist(1)/=list1(1).AND.commonlist(1)/=list2(1).AND.&
-              SIZE(commonlist)>1) THEN
-            j=commonlist(1)
-            commonlist(1)=commonlist(2)
-            commonlist(2)=j
+          ! Edge i owner is owner of one of the parent nodes:
+          !--------------------------------------------------
+          q = MAX(list1(1),list2(1))
+          DO p=1,SIZE(commonlist)
+            IF (commonlist(p)==q) THEN
+              j=commonlist(1)
+              commonlist(1)=commonlist(p)
+              commonlist(p)=j
+              EXIT
+            END IF
+          END DO
+          IF ( commonlist(1)/=q ) THEN
+            q = MIN(list1(1),list2(1))
+            DO p=1,SIZE(commonlist)
+              IF (commonlist(p)==q) THEN
+                j=commonlist(1)
+                commonlist(1)=commonlist(p)
+                commonlist(p)=j
+                EXIT
+              END IF
+            END DO
           END IF
           Edgen(i) % Neighbours => commonlist
-        ELSE
+
           !
-          ! Either list1 or list2 is empty. Thats really bad:
-            !---------------------------------------------------
-          WRITE(*,'(A,I4,A,I6)') 'SParIterGlobalNumbering: PE:', ParEnv % MyPE+1, &
-               ' Could not determine owner for node(loc)=', i
-          STOP
+          ! Finalize by sorting the parent table:
+          !---------------------------------------
+          CALL Sort(2,parentnodes(i,:))
         END IF
-        !
-        ! Finalize by sorting the parent table:
-        !---------------------------------------
-        CALL Sort(2,parentnodes(i,:))
+      END IF
+
+      IF ( .NOT. Edgen(i) % Interface ) THEN
+        ALLOCATE( Edgen(i) % Neighbours(1) )
+        Edgen(i) % Neighbours(1) = ParEnv % MyPE
       END IF
     END DO
 
@@ -734,7 +777,8 @@ real(kind=dp) :: realtime,tt
           ELSE
              DO j = 2,SIZE(Edgen(i) % Neighbours)
                k = Edgen(i) % Neighbours(j)
-               tosend(k+1) = tosend(k+1)+1
+               IF(k>=0) &
+                 tosend(k+1) = tosend(k+1)+1
              END DO
           END IF
        END IF
@@ -755,6 +799,7 @@ real(kind=dp) :: realtime,tt
        ALLOCATE( gindices(datasize) )
        k = 1
        DO l = 1, n
+          IF( .NOT.Edgen(l) % Interface ) CYCLE
           m = Edgen(l) % Neighbours(1)
           IF( m /= ParEnv % MyPE ) CYCLE
 
@@ -791,20 +836,26 @@ real(kind=dp) :: realtime,tt
 
          DO l = 1, datasize
            m = 3*l-2
+           Found=.FALSE.
            DO k = 1,n
-             IF( .NOT. Edgen(k) % Interface .OR. Edgen(k) % n>0 ) CYCLE
+             IF(.NOT. Edgen(k) % Interface) CYCLE
              IF( gdofs(parentnodes(k,1)) == gindices(m+1) .AND. &
-                 gdofs(parentnodes(k,2)) == gindices(m+2) ) THEN
+                 gdofs(parentnodes(k,2)) == gindices(m+2) .OR.  &
+                 gdofs(parentnodes(k,1)) == gindices(m+2) .AND. &
+                 gdofs(parentnodes(k,2)) == gindices(m+1) ) THEN
+               Found=.TRUE.
                Edgen(k) % n = gindices(m) ! global DOF number
                EXIT
              END IF
            END DO
-           IF (k>n) THEN
+
+           IF (.NOT.Found) THEN
              tosend(i) = tosend(i)+1
              gindices(tosend(i))=gindices(m)
            END IF
          END DO
        END IF
+
 
        !
        ! we don't have these edges, ask to remove us from
@@ -821,37 +872,127 @@ real(kind=dp) :: realtime,tt
     END DO
 
     DO i = 1, ParEnv % PEs
+      IF( i-1 == ParEnv % MyPE ) CYCLE
+      IF( .NOT. IsNeighbour(i) ) CYCLE
+
+      CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
+       i-1, 200, MPI_COMM_WORLD, status, ierr )
+      IF( datasize < 1 ) CYCLE
+
+      ALLOCATE( gindices(DataSize) )
+      CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
+         i-1, 201, MPI_COMM_WORLD, status, ierr )
+
+      DO j=1,n
+        DO k=1,Datasize
+          IF ( .NOT. Edgen(j) % Interface ) CYCLE
+          IF (Edgen(j) % n==gindices(k)) THEN
+            l = SIZE(Edgen(j) % Neighbours)
+            DO m=2,l
+              IF (Edgen(j) % Neighbours(m)==i-1) THEN
+                Edgen(j)%Neighbours(m)=-ABS(Edgen(j)%Neighbours(m))-1
+                EXIT
+              END IF
+            END DO
+            EXIT
+          END IF
+        END DO
+      END DO
+      DEALLOCATE(gindices)
+    END DO
+
+
+    !
+    ! Sync neighbour tables from owners
+    !--------------------------------------------------------------
+    tosend=0
+    DO j=1,n
+      IF (.NOT. Edgen(j) % Interface.OR.Edgen(j) % n==0 ) CYCLE
+      IF (Edgen(j) % Neighbours(1)/=ParEnv % MyPE) CYCLE
+
+      mm=COUNT(Edgen(j) % Neighbours>=0) 
+      commonlist=>Edgen(j) % Neighbours
+      ALLOCATE(Edgen(j) % Neighbours(mm))
+
+      Edgen(j) % Neighbours(1)=ParEnv % MyPE
+      l=1
+      DO k=2,SIZE(commonlist)
+        m=commonlist(k)
+        IF (m>=0) THEN
+          tosend(m+1) = tosend(m+1)+mm
+          l=l+1
+          Edgen(j) % Neighbours(l)=commonlist(k)
+        END IF
+      END DO
+      DEALLOCATE(commonlist)
+      IF(mm==1) Edgen(j) % Interface=.FALSE.
+    END DO
+
+    DO i = 1, ParEnv % PEs
+      IF( i-1 == ParEnv % MyPE ) CYCLE
+      IF( .NOT. IsNeighbour(i) ) CYCLE
+
+      CALL MPI_BSEND( tosend(i), 1, MPI_INTEGER, &
+           i-1, 300, MPI_COMM_WORLD, ierr )
+
+      IF (tosend(i)<=0 ) CYCLE
+
+      ALLOCATE(Gindices(tosend(i)))
+      l=0
+      DO j=1,n
+        IF (.NOT. Edgen(j) % Interface.OR.Edgen(j)%n==0) CYCLE
+        IF (Edgen(j) % Neighbours(1)/=ParEnv % MyPE) CYCLE
+        IF (ANY(Edgen(j) % Neighbours==i-1)) THEN
+          l=l+1
+          gindices(l)=-Edgen(j) % n
+          DO k=2,SIZE(Edgen(j) % Neighbours)
+            l=l+1
+            gindices(l) = Edgen(j) % Neighbours(k)
+          END DO
+        END IF
+      END DO
+
+      CALL MPI_BSEND( gindices, tosend(i), MPI_INTEGER, &
+             i-1, 301, MPI_COMM_WORLD, ierr )
+
+      DEALLOCATE(gindices)
+    END DO
+
+    DO i = 1, ParEnv % PEs
        IF( i-1 == ParEnv % MyPE ) CYCLE
        IF( .NOT. IsNeighbour(i) ) CYCLE
 
        CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-        i-1, 200, MPI_COMM_WORLD, status, ierr )
-       IF( datasize < 1 ) CYCLE
+        i-1, 300, MPI_COMM_WORLD, status, ierr )
 
-       ALLOCATE( gindices(DataSize) )
-       CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
-          i-1, 201, MPI_COMM_WORLD, status, ierr )
+       IF( datasize > 0 ) THEN
+         ALLOCATE( gindices(DataSize) )
+         CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
+            i-1, 301, MPI_COMM_WORLD, status, ierr )
 
-       DO j=1,n
-         IF ( .NOT. Edgen(j) % Interface ) CYCLE
-         DO k=1,Datasize
-           IF (Edgen(j) % n==gindices(k)) THEN
-             l = SIZE(Edgen(j) % Neighbours)
-             ALLOCATE(commonlist(l-1))
-             p = 0
-             DO m=1,l
-               IF (Edgen(j) % Neighbours(m)==i-1) CYCLE
-               p = p + 1
-               commonlist(p)=Edgen(j) % Neighbours(m)
-             END DO
-             DEALLOCATE(Edgen(j) % neighbours)
-             Edgen(j) % Neighbours => commonlist
-             IF ( l==2 ) Edgen(j) % Interface=.FALSE.
-             EXIT
-           END IF
+         j=0
+         DO WHILE(j<Datasize)
+           j=j+1
+           k=-gindices(j)
+           Found=.FALSE.
+           DO l=1,n
+             IF (.NOT.Edgen(l) % Interface.OR.Edgen(l) % n==0) CYCLE
+             IF (Edgen(l) % n==k) THEN
+               DO m=j+1,Datasize
+                 IF (gindices(m)<0) EXIT
+               END DO
+               DEALLOCATE(Edgen(l) % Neighbours)
+               ALLOCATE(Edgen(l) % Neighbours(m-j))
+               Edgen(l) % Neighbours(1)=i-1
+               Edgen(l) % Neighbours(2:)=gindices(j+1:m-1)
+               j=m-1
+               Found=.TRUE.
+               EXIT
+             END IF
+           END DO
          END DO
-       END DO
-       DEALLOCATE(gindices)
+         DEALLOCATE(gindices)
+       END IF
     END DO
 
     !
@@ -870,36 +1011,35 @@ real(kind=dp) :: realtime,tt
         commonlist = Edgen(i) % neighbours(2:)
         DEALLOCATE( Edgen(i) % neighbours )
         Edgen(i) % Neighbours => commonlist
-        IF ( k==2 ) Edgen(i) % Interface=.FALSE.
+        IF (k<=2) Edgen(i) % Interface=.FALSE.
       END IF
     END DO
 
-    CALL MPI_ALLREDUCE( m, mm, 1, &
+    CALL MPI_ALLREDUCE( m, retry, 1, &
         MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr )
 
     ! if some of the edges don't have global numbers, retry.
     ! ------------------------------------------------------
-    IF ( mm>0 ) GOTO 10
+    IF ( retry>0 ) GOTO 10
 
 20  CONTINUE
 
     ! Deallocate temp arrays:
     !------------------------
-    DEALLOCATE( owned_edges, owned_edges2, &
-         parentnodes, tosend, toreceive )
 
+    DEALLOCATE( owned_edges, owned_edges2, &
+      parentnodes, tosend, toreceive )
     !-------------------------------------------------------------------
     ! Now, the numbering should be unique. It remains to sort the edges.
     !-------------------------------------------------------------------
 
     !
-    ! Sort our own edges according to ascending
-    ! global order:
-    ! -----------------------------------------
-    ALLOCATE( gdofs(n), grevorder(n), gorder(n) )
-    gorder = (/ (i,i=1,n) /)
+    ! Sort our own edges according to ascending global order:
+    ! -------------------------------------------------------
+    ALLOCATE(gdofs(n), grevorder(n), gorder(n))
     DO i=1,n
       gdofs(i) = Edgen(i) % n
+      gorder(i) = i
       Mesh % Edges(i) % GelementIndex=gdofs(i)
     END DO
 
@@ -909,10 +1049,10 @@ real(kind=dp) :: realtime,tt
       grevorder(gorder(i)) = i
     END DO
 
-    ! adapt edge indexes of the bulk elements
+    ! Adapt edge indexes of the bulk & boundary elements
     ! to the changed order of edges-array:
-    ! ---------------------------------------
-    DO i=1,Mesh % NumberOfBulkElements
+    ! --------------------------------------------------
+    DO i=1,Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
       Element => Mesh % Elements(i)
       j = Element % Type % NumberOfEdges
       Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
@@ -920,15 +1060,14 @@ real(kind=dp) :: realtime,tt
 
     DO i=1,Mesh % NumberOfFaces
       Element => Mesh % Faces(i)
-      j = Element % Type % NumberOfEdges
+      j = Element % Type % NumberOFEdges
       Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
     END DO
 
     !
-    ! Order the whole of the nodal structure
-    ! according to the changed order of the 
-    ! global numbers:
-    ! --------------------------------------
+    ! Order the whole of the nodal structure according to the changed
+    ! order of the global numbers:
+    ! ----------------------------------------------------------------
     DO i=1,n
       k = gorder(i)
       copyedge = Mesh % Edges(i)
@@ -980,16 +1119,23 @@ real(kind=dp) :: realtime,tt
      TYPE(Element_t) :: copyface
      TYPE(Facen_t), ALLOCATABLE :: facen(:)
 
+     TYPE flist_t
+       INTEGER, POINTER :: Pes(:)
+     END TYPE flist_t
+     TYPE(flist_t) :: list(4)
+
      INTEGER, ALLOCATABLE :: owned_faces(:), owned_faces2(:), &
       parentnodes(:,:), tosend(:), toreceive(:), gorder(:), grevorder(:)
 
-     INTEGER, POINTER :: list1(:),list2(:), list3(:), &
-             commonlist(:), gindices(:), gdofs(:)
+     INTEGER, POINTER :: commonlist(:), gindices(:), gdofs(:)
 
-     INTEGER :: i,j,k,l,m,n,mm,edofs,maxedofs, &
+     INTEGER :: i,j,k,l,m,n,mm,nd,edofs,maxedofs, &
                 p,q,r,datasize, ierr,status(MPI_STATUS_SIZE)
 
-     LOGICAL :: AllM
+     LOGICAL, POINTER :: ig(:)
+     TYPE(NeighbourList_t), POINTER :: nb(:)
+
+     LOGICAL :: AllM, Intf
      LOGICAL, POINTER :: IsNeighbour(:)
      TYPE(Element_t), POINTER :: Element, Edge
 
@@ -1014,7 +1160,7 @@ real(kind=dp) :: realtime,tt
     n = Mesh % NumberOfFaces
 
     ALLOCATE(  &
-         Facen(n), parentnodes(n,3),   &
+         Facen(n), parentnodes(n,4),   &
          owned_faces ( ParEnv % PEs ), &
          owned_faces2( ParEnv % PEs ), &
          tosend( ParEnv % PEs ),       &
@@ -1028,6 +1174,9 @@ real(kind=dp) :: realtime,tt
 
     Facen(:) % n = 0
     gdofs => Mesh % ParallelInfo % GlobalDOFs
+    ig => Mesh % ParallelInfo % Interface
+    nb => Mesh % ParallelInfo % NeighbourList
+
 
     !
     ! Find neighbours and parent nodes for all new interface faces:
@@ -1037,81 +1186,81 @@ real(kind=dp) :: realtime,tt
     !-----------------
     DO i = 1, n
       Element => Mesh % Faces(i)
+      Facen(i) % Interface = .FALSE.
 
-      IF(.NOT.ALL(Mesh % ParallelInfo % Interface(Element % NodeIndexes(1:3)))) THEN
-        Facen(i) % Interface = .FALSE.
-        ALLOCATE(Facen(i) % Neighbours(1))
-        Facen(i) % Neighbours(1) = ParEnv % myPE
-      ELSE
+      nd = Element % Type % ElementCode/100
+
+      Intf = ALL(ig(Element % NodeIndexes(1:nd)))
+      Intf = Intf .AND..NOT. &
+           (ASSOCIATED(Element % BoundaryInfo % Left) .AND. &
+            ASSOCIATED(Element % BoundaryInfo % Right))
+
+      IF ( Intf ) THEN
         !
-        ! This is an interface face:
-        !---------------------------
-        Facen(i) % Interface = .TRUE.
+        ! This is an perhaps an interface face:
+        !--------------------------------------
 
-        list1 => NULL() ! list of PEs related to parent node 1
-        list2 => NULL() ! list of PEs related to parent node 2
-        list3 => NULL() ! list of PEs related to parent node 3
-        commonlist => NULL() ! intersection of lists
-
-        l = Element % NodeIndexes(1)
-        parentnodes(i,1) =  l
-        ! This is the list of PEs sharing parent node 1:
-        list1 => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
-
-        l = Element % NodeIndexes(2)
-        parentnodes(i,2) = l
-        ! This is the list of PEs sharing parent node 2:
-        list2 => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
-
-        l = Element % NodeIndexes(3)
-        parentnodes(i,3) = l
-        ! This is the list of PEs sharing parent node 3:
-        list3 => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
+        commonlist => Null() ! intersection of pe lists
+        DO j=1,nd
+          l = Element % NodeIndexes(j)
+          parentnodes(i,j) =  l
+          list(j) % pes => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
+        END DO
         !
         ! Determine the intersection of the PE-lists:
         !--------------------------------------------
-        IF( ASSOCIATED(list1) .AND. ASSOCIATED(list2) .AND. ASSOCIATED(list3) ) THEN
-          commonlist => NULL()
-          DO p = 1,SIZE(list1)
-             DO q = 1,SIZE(list2)
-               IF ( list1(p)==list2(q) ) THEN
-                 DO r = 1,SIZE(list3)
-                   IF( list1(p)==list3(r) ) THEN
-                     CALL AddToCommonList( commonlist, list1(p) ) 
-                     EXIT
-                   END IF
-                 END DO
-               END IF
-             END DO
+        DO p = 1,SIZE(list(1) % pes)
+          j = 1
+          DO k = 2,nd
+            DO q=1,SIZE(list(k) % pes)
+              IF( list(1)% pes(p)==list(k) % pes(q) ) THEN
+                j=j+1;
+                EXIT
+              END IF
+            END DO
+          END DO
+          IF (j==nd) CALL AddToCommonList(commonlist, list(1) % Pes(p))
+        END DO
+
+        !
+        ! Now, we should have a list of PEs common to the parents:
+        !----------------------------------------------------------
+        IF( ASSOCIATED(commonlist) ) THEN
+          IF ( SIZE(commonlist)<2 ) THEN
+            DEALLOCATE(commonlist); Commonlist=>Null()
+          END IF
+        END IF
+
+        IF( ASSOCIATED(commonlist) ) THEN
+          Facen(i) % Interface = .TRUE.
+          !
+          ! Face i is given to owner of max of the parent nodes
+          !-----------------------------------------------------
+          q = 0
+          DO p=1,nd
+            q = MAX(q,list(p) % Pes(1))
           END DO
 
-          !
-          ! Now, we should have a list of PEs common to the parents:
-          !----------------------------------------------------------
-          IF( .NOT.ASSOCIATED(commonlist) ) CYCLE
-          !
-          ! Face i is given to owner of any of the parent nodes
-          !-----------------------------------------------------
-!         CALL SORT( SIZE(commonlist), commonlist )
-          IF (commonlist(1)/=list1(1) .AND. commonlist(1)/=list2(1) .AND. &
-              commonlist(1)/=list3(1) .AND. SIZE(commonlist)>1 ) THEN
-            j=commonlist(1)
-            commonlist(1)=commonlist(2)
-            commonlist(2)=j
-          END IF
+          DO p=1,SIZE(commonlist)
+            IF (commonlist(p)==q) THEN
+              j=commonlist(1)
+              commonlist(1)=commonlist(p)
+              commonlist(p)=j
+              EXIT
+            END IF
+          END DO
           Facen(i) % Neighbours => commonlist
-        ELSE
+
           !
-          ! Either list1 or list2 is empty. Thats really bad:
-            !---------------------------------------------------
-          WRITE(*,'(A,I4,A,I6)') 'SParIterGlobalNumbering: PE:', ParEnv % MyPE+1, &
-               ' Could not determine owner for node(loc)=', i
-          STOP
+          ! Finalize by sorting the parent table:
+          !---------------------------------------
+          CALL Sort(nd,parentnodes(i,:))
         END IF
-        !
-        ! Finalize by sorting the parent table:
-        !---------------------------------------
-        CALL Sort(3,parentnodes(i,:))
+      END IF
+
+      IF ( .NOT. Facen(i) % Interface ) THEN
+        ALLOCATE(Facen(i) % Neighbours(1))
+        Facen(i) % Neighbours(1) = ParEnv % myPE
       END IF
     END DO
 
@@ -1311,7 +1460,6 @@ real(kind=dp) :: realtime,tt
     ! if some of the faces miss a global number, retry.
     ! -------------------------------------------------
     IF ( mm>0 ) GOTO 10
-
 
     ! Deallocate temp arrays:
     !------------------------
