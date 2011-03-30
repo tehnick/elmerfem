@@ -224,6 +224,7 @@ EXTRA_DIST = \
 	ExchangeCorrelations.src \
 	fft.c \
 	FDiffusion.src \
+	Feti.src \
 	FindOptimum.src \
 	FlowSolve.src \
 	FluidicForce.src \

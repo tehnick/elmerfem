@@ -4456,6 +4456,13 @@ END FUNCTION SearchNodeL
           TYPE(Matrix_t) :: A
           TYPE(Solver_t) :: Solver
        END SUBROUTINE VankaCreate
+
+       SUBROUTINE FetiSolver(A,x,b,Solver)
+          USE Types
+          TYPE(Matrix_t), POINTER :: A
+          TYPE(Solver_t) :: Solver
+          REAL(KIND=dp) :: x(:), b(:)
+       END SUBROUTINE FetiSolver
     END INTERFACE
 !------------------------------------------------------------------------------
 
@@ -4694,6 +4701,9 @@ END FUNCTION SearchNodeL
                   DOFs, Solver, Solver % MultiGridLevel )
        CASE('iterative')
           CALL IterSolver( A, x, b, Solver )
+       CASE('feti')
+          CALL Fatal('SolveLinearSystem', &
+               'Feti solver available only in parallel.')
        CASE DEFAULT
            CALL DirectSolver( A, x, b, Solver )
        END SELECT
@@ -4705,6 +4715,8 @@ END FUNCTION SearchNodeL
        CASE('iterative')
           CALL ParallelIter( A, A % ParallelInfo, DOFs, &
                    x, b, Solver, A % ParMatrix )
+       CASE('feti')
+          CALL FetiSolver( A, x, b, Solver )
        CASE DEFAULT
            CALL DirectSolver( A, x, b, Solver )
        END SELECT
