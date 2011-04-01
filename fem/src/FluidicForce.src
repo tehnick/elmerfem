@@ -96,17 +96,11 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
   CHARACTER(LEN=MAX_NAME_LEN) :: ShearFilename, MessageL, ViscosityFlag
   CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, BoundaryName, VariableName
 
-  Mesh => Model % Meshes
-  DO WHILE( ASSOCIATED(Mesh) )
-     IF ( Mesh % OutputActive ) EXIT 
-     Mesh => Mesh % Next
-  END DO
-
   CALL Info( 'ForceCompute', '-------------------------------------',Level=4 )
   CALL Info( 'ForceCompute', 'Computing Fluidic Force:  ', Level=4 )
   CALL Info( 'ForceCompute', '-------------------------------------',Level=4 )
-
-  CALL SetCurrentMesh( Model, Mesh )
+ 
+  Mesh => GetMesh()
 
   VariableName = GetString( Solver % Values, 'Velocity Field Name', stat )
   IF ( .NOT. stat )  THEN
@@ -115,22 +109,15 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
      Var => VariableGet( Mesh % Variables, VariableName, .TRUE. )
   END IF
 
-  ALLOCATE( ElementNodes % x(Mesh % MaxElementNodes) )
-  ALLOCATE( ElementNodes % y(Mesh % MaxElementNodes) )
-  ALLOCATE( ElementNodes % z(Mesh % MaxElementNodes) )
+  n = Mesh % MaxElementNodes
+  ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
+  ALLOCATE( ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n) )
+  ALLOCATE( Pressure( n ), Viscosity( n ), Velocity( 3, n ) )
+  ALLOCATE( MomentAbout(3,n) )
 
-  ALLOCATE( Pressure(   Mesh % MaxElementNodes ) )
-  ALLOCATE( Viscosity(  Mesh % MaxElementNodes ) )
-  ALLOCATE( Velocity( 3,Mesh % MaxElementNodes ) )
-
-  ALLOCATE( MomentAbout(3,Mesh % MaxElementNodes) )
   ALLOCATE( Forces(Model % NumberOfBCs,3)  )
   ALLOCATE( Moments(Model % NumberOfBCs,3)  )
   ALLOCATE( Areas(Model % NumberOfBCs)  )
-
-  ALLOCATE( ParentNodes % x(Mesh % MaxElementNodes) )
-  ALLOCATE( ParentNodes % y(Mesh % MaxElementNodes) )
-  ALLOCATE( ParentNodes % z(Mesh % MaxElementNodes) )
 
   MomentAbout = 0.0d0
   Forces = 0.0d0
@@ -174,8 +161,7 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
 
 
   DO t = Mesh % NumberOfBulkElements + 1, &
-      Mesh % NumberOfBulkElements + &
-      Mesh % NumberOfBoundaryElements
+      Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
 
 !------------------------------------------------------------------------------
      CurrentElement => Mesh % Elements(t)
@@ -336,8 +322,6 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
 
   IF ( ShearOutput ) THEN
 
-!     IF ( .FALSE. ) THEN
-
      ALLOCATE( Indices( NbrShearValues ) )
      Indices = 0
      Indices = (/ ( i, i= 1,NbrShearValues ) /)
@@ -358,7 +342,6 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
         ShearData(1:NbrShearValues,1) = ShearData(Indices,1)
         ShearData(1:NbrShearValues,2) = ShearData(Indices,2)
      END IF
-!     END IF
 
      OPEN(10, FILE=ShearFilename)
      DO t = 1, NbrShearValues
@@ -382,16 +365,11 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
   END IF
 
 
-  DEALLOCATE( ElementNodes % x )
-  DEALLOCATE( ElementNodes % y )
-  DEALLOCATE( ElementNodes % z )
-
+  DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z )
+  DEALLOCATE( ParentNodes % x, ParentNodes % y, ParentNodes % z )
   DEALLOCATE( Forces, Moments, Areas)
   DEALLOCATE( Pressure, Viscosity, Velocity )
 
-  DEALLOCATE( ParentNodes % x )
-  DEALLOCATE( ParentNodes % y )
-  DEALLOCATE( ParentNodes % z )
 
 CONTAINS
 
