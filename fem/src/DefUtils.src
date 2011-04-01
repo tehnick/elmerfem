@@ -2012,7 +2012,7 @@ CONTAINS
     LOGICAL :: Found
 
     TYPE(Solver_t), POINTER :: Solver
-    CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond
+    CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond, dumpfile
 
     Solver => CurrentModel % Solver
 
@@ -2023,6 +2023,15 @@ CONTAINS
     b => A % RHS
     x => Solver % Variable
     SOL => x % Values
+
+    dumpfile=GetString( GetSolverParams(), 'Dump system matrix', Found)
+    IF ( Found ) THEN
+      OPEN(1,FILE=dumpfile, STATUS='Unknown')
+      CALL CRS_PrintMatrix(A)
+      CLOSE(1)
+    END IF
+
+ 
 
     CALL SolveSystem( A, ParMatrix, b, x % Values, x % Norm, x % DOFs, Solver )
 
