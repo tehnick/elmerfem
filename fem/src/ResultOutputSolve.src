@@ -3058,7 +3058,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     FilePrefix = GetString( Params,'Output File Name',GotIt )
     IF ( .NOT.GotIt ) FilePrefix = "Output"
   END IF
-  
+
   Partitions = ParEnv % PEs
   Part = ParEnv % MyPE
   Parallel = (Partitions > 1) .OR. ListGetLogical(Params,'Enforce Parallel format',GotIt)
@@ -3132,12 +3132,18 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     NumberOfElements = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
   END IF
 
-  IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
-    Dir = TRIM(Mesh % Name) // "/"
-  ELSE
-    Dir = "./"
-  END IF
-  
+  Dir = ListGetString( Params,'Output Directory',GotIt) 
+  IF(.NOT. GotIt ) THEN
+    IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
+      Dir = TRIM(Mesh % Name) 
+    ELSE
+      Dir = "."
+    END IF
+  END IF  
+  CALL MakeDirectory( TRIM(Dir) // CHAR(0) )
+  Dir = TRIM(Dir)// "/"
+
+
   IF(Parallel) THEN
     IF( NoFileindex ) THEN
       WRITE( PvtuFile,'(A,A,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix)
@@ -3164,7 +3170,6 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     CALL WriteVtuFile( VtuFile, Model, FixedMesh )
   END IF
-
 
   IF( MaskExists ) DEALLOCATE(MaskOrder)
   IF( MaskAllocated ) DEALLOCATE( MaskPerm ) 
@@ -3294,6 +3299,7 @@ CONTAINS
         Disp2Dofs = Solution % Dofs
       END IF
     END IF
+
     
     ! When the data is 'appended' two loops will be taken and the data will be written
     ! on the second loop. Offset is the position in the appended data after the '_' mark.
@@ -3424,7 +3430,13 @@ CONTAINS
           DO ii = 1, NumberOfNodes
             i = ii
             IF( MaskExists ) i = MaskOrder(i)
-            j = Perm(i)
+
+	    IF( ASSOCIATED( Perm ) ) THEN
+              j = Perm(i)
+            ELSE
+              j = i
+            END IF
+
             Use2 = (j == 0) .AND. ComplementExists 
             IF( Use2 ) j = Perm2(i)
             
@@ -3473,7 +3485,6 @@ CONTAINS
         CALL StrWrite( OutStr ) 
       END IF
     END IF
-
     
     ! Elementwise information
     !-------------------------------------
@@ -3732,7 +3743,6 @@ CONTAINS
       CALL StrWrite( OutStr ) 
     END IF
 
-
     ! Write out the mesh
     !-------------------------------------
     IF( WriteXML ) THEN
@@ -3788,7 +3798,7 @@ CONTAINS
         END IF
       END DO
     END IF
-    
+
     IF( AsciiOutput ) THEN
       WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
       CALL StrWrite( OutStr ) 
@@ -3889,7 +3899,6 @@ CONTAINS
       WRITE( OutStr,'(A)') '  </UnstructuredGrid>'//lf
       CALL StrWrite( OutStr ) 
     END IF
-
 
     IF( BinaryOutput ) THEN
       IF( WriteXML ) THEN
