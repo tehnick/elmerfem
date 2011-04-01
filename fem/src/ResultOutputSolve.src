@@ -54,13 +54,14 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: TransientSimulation
 
   LOGICAL :: SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, &
-      SaveVTU, SaveEP, SaveAny, ListSet = .FALSE., ActiveMesh
-  INTEGER :: i,nInterval=1, nstep=0, OutputCount = 0, MeshDim,MeshLevel
+      SaveVTU, SaveEP, SaveAny, ListSet = .FALSE., ActiveMesh, &
+      SomeMeshSaved
+  INTEGER :: i,nInterval=1, nstep=0, OutputCount = 0, MeshDim,MeshLevel,nlen
   INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
 
   TYPE(Mesh_t), POINTER :: Mesh, iMesh
   CHARACTER(10) :: OutputFormat
-  CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, MeshName
+  CHARACTER(LEN=MAX_NAME_LEN) :: FilePrefix, MeshName, iMeshName
   LOGICAL :: SubroutineVisited=.FALSE.,Found
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Variable_t), POINTER :: ModelVariables
@@ -146,6 +147,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   !-----------------------------------------
 
   MeshLevel = GetInteger( Params,'Output Mesh Level',Found)
+  SomeMeshSaved = .FALSE.
 
   iMesh => Model % Meshes
   DO WHILE( ASSOCIATED(iMesh) )
@@ -163,7 +165,9 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     !---------------------------------------------------------------    
     MeshName = ListGetString( Params,'Mesh Name',Found )
     IF(Found) THEN
-      IF( TRIM( MeshName ) /= TRIM( iMesh % Name ) ) THEN
+      nlen = StringToLowerCase( iMeshName, iMesh % Name ) 
+      nlen = LEN_TRIM(MeshName)
+      IF( MeshName(1:nlen) /= iMeshName(1:nlen) ) THEN
         iMesh => iMesh % next
         CYCLE
       END IF
@@ -180,11 +184,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     ELSE IF( MeshDim /= Model % Mesh % MeshDim ) THEN
       CALL Info('ResultOutputSolver','Recreating list for saving')
       CALL CreateListForSaving( Model, Params,.TRUE.)
-!,.TRUE. )    
     END IF
-
-!PRINT *,'Got Scalar:',ListGetLogical( Params,'Scalar Field 1',Found)
-!PRINT *,'Got Vector:',ListGetLogical( Params,'Vector Field 1',Found)
 
     MeshDim = Model % Mesh % MeshDim
 
@@ -197,14 +197,9 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     END DO
     IF ( ASSOCIATED(Mesh)) THEN
 
-
     CALL SetCurrentMesh( Model, Mesh )
     Model % Variables => Mesh % variables 
-
-
-!PRINT *,'Got Scalar:',ListGetLogical( Params,'Scalar Field 1',Found)
-!PRINT *,'Got Vector:',ListGetLogical( Params,'Vector Field 1',Found)
-
+    SomeMeshSaved = .TRUE.
 
     IF( SaveGid ) THEN
       CALL Info( 'ResultOutputSolver','Saving in GiD format' )    
@@ -237,6 +232,9 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     iMesh => iMesh % Next
   END DO
 
+  IF( .NOT. SomeMeshSaved ) THEN
+    OutputCount = OutputCount - 1
+  END IF
   Model % Variables => ModelVariables
 
 
@@ -3054,7 +3052,6 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     SinglePrec = .FALSE.
   END IF
   NoFileindex = GetLogical( Params,'No Fileindex',GotIt)
-
 
   IF ( nTime == 1 ) THEN
     CALL Info('VtuOutputSolver','Saving results in VTK XML format')
