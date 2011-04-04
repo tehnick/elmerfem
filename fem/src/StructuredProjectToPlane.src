@@ -293,7 +293,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     IF(.NOT. GotOper) CYCLE 
 
     IF(Oper == 'isosurface') THEN
-      WRITE (Name,'(A,I0)') 'Isosurface Field ',NoVar
+      WRITE (Name,'(A,I0)') 'Isosurface Variable ',NoVar
       LevelsetName = ListGetString(Solver % Values,TRIM(Name),GotIt )
       IF(GotIt) THEN
         Var => VariableGet( Model % Variables, TRIM(LevelsetName) )
@@ -306,7 +306,14 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       
       WRITE (Name,'(A,I0)') 'Isosurface Value ',NoVar
       Level = ListGetConstReal(Solver % Values,TRIM(Name),GotIt)
+    ELSE IF ( Oper == 'layer' ) THEN
+      WRITE (Name,'(A,I0)') 'Layer Index ',NoVar
+      layer = GetInteger( Solver % Values, Name, GotIt )
+      IF (.NOT.GotIt) &
+        CALL FATAL('StructuredProjectToPlane','no >Layer Index< indicated for output')
+      END IF
     END IF
+
 
     ! Create the projected variable if needed
     !-----------------------------------------------
@@ -371,9 +378,6 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END DO
 
     CASE ('layer')
-      layer = GetInteger( Solver % Values, 'Mesh Layer', GotIt )
-      IF (.NOT.GotIt) &
-           CALL FATAL('StructuredProjectToPlane','no >Mesh Layer< indicated for output')
       DO i=1,nsize
         IF( i == TopPointer(i) ) THEN
            l = i
