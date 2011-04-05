@@ -37,24 +37,26 @@
 ! *  Original Date: 30 Mar 2011
 ! *
 ! *****************************************************************************/
-
 MODULE FetiSolve
 
   USE DefUtils
   IMPLICIT NONE
 
-  LOGICAL, PRIVATE, SAVE :: Initialize = .TRUE., CPG
+  LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG
 
-  TYPE tosend_t
+  TYPE toSend_t
     INTEGER :: n
-    INTEGER, ALLOCATABLE :: ifg(:)
     REAL(KIND=dp), ALLOCATABLE :: buf(:)
-  END TYPE tosend_t
+    INTEGER, ALLOCATABLE :: ifg(:), perm(:)
+  END TYPE toSend_t
 
-  TYPE toreceive_t
+  TYPE toReceive_t
     INTEGER :: n
     INTEGER, ALLOCATABLE :: perm(:)
-  END TYPE toreceive_t
+    REAL(KIND=dp), ALLOCATABLE :: buf(:)
+  END TYPE toReceive_t
+
+  TYPE(Matrix_t), POINTER, SAVE :: Bmat=>Null()
 
   INTEGER, PRIVATE, SAVE :: nneigh
   INTEGER, ALLOCATABLE, PRIVATE, SAVE :: lpnum(:), gpnum(:)
@@ -160,12 +162,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE FetiSendReceiveInit(totLC, gdofs, ldofs, &
-           procs, tosend, toreceive, tag)
+   SUBROUTINE FetiSendReceiveInit(sndLC, gdofs, ldofs, &
+           procs, toSend, toReceive, tag)
 !------------------------------------------------------------------------------
-      INTEGER :: totLC, tag, gdofs(:), ldofs(:), procs(:)
-      TYPE(tosend_t) :: tosend(:)  
-      TYPE(toreceive_t) :: toreceive(:)  
+      INTEGER :: sndLC, tag, gdofs(:), ldofs(:), procs(:)
+      TYPE(toSend_t) :: toSend(:)  
+      TYPE(toReceive_t) :: toReceive(:)  
 !------------------------------------------------------------------------------
       INTEGER :: i,j,k,l,n,m,proc,lproc
       LOGICAL :: Found
@@ -174,28 +176,28 @@ CONTAINS
 
       DO i=1,nneigh
         proc = gpnum(i)
-        CALL FetiSend(proc, tosend(i) % n, ifg=tosend(i) % ifg, tag=tag)
+        CALL FetiSend(proc, toSend(i) % n, ifg=toSend(i) % ifg, tag=tag)
       END DO 
 
 
       ! Receive interface parts and store indices
       ! -----------------------------------------
-      ALLOCATE(gorder(totLC), igorder(totLC), ifg(totLC))
-      gorder=[(i,i=1,totLC)]
-      CALL SortI(totLC, gdofs, gorder)
-      igorder(gorder)=[(i,i=1,totLC)]
+      ALLOCATE(gorder(sndLC), igorder(sndLC), ifg(sndLC))
+      gorder=[(i,i=1,sndLC)]
+      CALL SortI(sndLC, gdofs, gorder)
+      igorder(gorder)=[(i,i=1,sndLC)]
 
       DO i=1,nneigh
         CALL FetiRecv(proc, n, ifg=ifg, tag=tag)
 
         lproc=lpnum(proc)
-        toreceive(lproc) % n = n
-        ALLOCATE(toreceive(lproc) % perm(n))
+        toReceive(lproc) % n = n
+        ALLOCATE(toReceive(lproc) % perm(n))
 
         IF (n<=0) CYCLE
-        toreceive(lproc) % perm=0
+        toReceive(lproc) % perm=0
         DO j=1,n
-          k=SearchIAItem(totLC,gdofs,ifg(j),gorder)
+          k=SearchIAItem(sndLC,gdofs,ifg(j),gorder)
           IF ( k<=0 ) THEN
             PRINT*,'should not happen: ', parenv % mype, proc, ifg(j)
             CYCLE
@@ -203,12 +205,11 @@ CONTAINS
 
           IF (proc/=procs(k)) THEN
 
-            ! Account for multiple global dof tags in gdofs;
-            ! they should be adjacent in the original order
-            ! too:
-            ! ----------------------------------------------
+            ! Account for multiple global dof tags in gdofs; they should
+            ! be adjacent in the original order too:
+            ! ----------------------------------------------------------
             Found=.FALSE.
-            DO l=k+1,totLC
+            DO l=k+1,sndLC
               m = igorder(l)
               IF ( gdofs(m)/=ifg(j) ) EXIT
               IF ( proc==procs(l) ) THEN
@@ -229,7 +230,7 @@ CONTAINS
           ELSE
             l=k
           END IF
-          toreceive(lproc) % perm(j)=ldofs(l)
+          toReceive(lproc) % perm(j)=ldofs(l)
         END DO
       END DO
 !------------------------------------------------------------------------------
@@ -238,12 +239,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE FetiSendReceive(f, tosend, toreceive, tag)
+   SUBROUTINE FetiSendReceive(toSend, toReceive, tag, Fsum)
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: f(:)
+      REAL(KIND=dp), OPTIONAL :: Fsum(:)
       INTEGER :: tag
-      TYPE(tosend_t) :: tosend(:)  
-      TYPE(toreceive_t) :: toreceive(:)  
+      TYPE(toSend_t) :: toSend(:)  
+      TYPE(toReceive_t) :: toReceive(:)  
 !------------------------------------------------------------------------------
       INTEGER :: i,j,k,l,n,m,proc, lproc
       LOGICAL :: Found
@@ -251,23 +252,37 @@ CONTAINS
 !------------------------------------------------------------------------------
       DO i=1,nneigh
         proc = gpnum(i)
-        CALL FetiSend(proc, tosend(i) % n, tosend(i) % buf, tag=tag)
+        CALL FetiSend(proc, toSend(i) % n, toSend(i) % buf, tag=tag)
       END DO 
 
       ! Receive interface parts and sum values
       ! --------------------------------------
       n = 0
       DO i=1,nneigh
-        n=MAX(n,toreceive(i) % n)
+        n=MAX(n,toReceive(i) % n)
       END DO
       ALLOCATE(buf(n))
 
       DO i=1,nneigh
         CALL FetiRecv(proc, n, buf, tag=tag)
         lproc=lpnum(proc)
+
+        IF (.NOT.PRESENT(Fsum)) THEN
+          IF(.NOT.ALLOCATED(toReceive(lproc) % buf)) THEN
+            ALLOCATE(toReceive(lproc) % buf(Bmat % NumberOfRows))
+          END IF
+          toReceive(lproc) % buf=0._dp
+        END IF
+
         DO j=1,n
-          l=toreceive(lproc) % perm(j)
-          IF (l>0) f(l)=f(l)-buf(j)
+          l=toReceive(lproc) % perm(j)
+          IF (l>0) THEN
+            IF (PRESENT(Fsum)) THEN
+              Fsum(l)=Fsum(l)+buf(j)
+            ELSE
+              toReceive(lproc) % buf(l)=buf(j)
+            END IF
+          END IF
         END DO
       END DO
 !------------------------------------------------------------------------------
@@ -276,7 +291,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE FetiSendRecvLC(A,f,b,own)
+ SUBROUTINE FetiSendRecvLC(A,f,b)
     !
     ! Given local (owned dofs) interface vector b, send and
     ! receive all partition interface dofs to/from
@@ -285,19 +300,20 @@ CONTAINS
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     TYPE(Matrix_t) :: A
-    LOGICAL, OPTIONAL :: Own
     REAL(KIND=dp) :: f(:),b(:)
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,p,m,n,nrows,proc,lproc,ip
-    INTEGER :: totLC, ownLC
+    INTEGER :: i,j,k,l,p,q,m,n,sz,nrows,proc,lproc
+    INTEGER :: sndLC, ownLC
     LOGICAL :: Found
     INTEGER, POINTER :: gtags(:)
     LOGICAL, POINTER :: ig(:)
     TYPE(NeighbourList_t), POINTER :: nb(:)
     INTEGER, ALLOCATABLE :: gdofs(:), ldofs(:), procs(:)
 
-    TYPE(toreceive_t), ALLOCATABLE, SAVE :: toreceive(:)
-    TYPE(tosend_t), ALLOCATABLE, SAVE :: tosend(:)
+    REAL(KIND=dp) :: val
+
+    TYPE(toReceive_t), ALLOCATABLE, SAVE :: toReceive(:)
+    TYPE(toSend_t), ALLOCATABLE, SAVE :: toSend(:)
     INTEGER, SAVE :: ninterface
     INTEGER, ALLOCATABLE, SAVE :: lint(:)
 !------------------------------------------------------------------------------
@@ -307,126 +323,124 @@ CONTAINS
     ig => A % ParallelInfo % Interface
     nb => A % ParallelInfo % NeighbourList
 
-    IF ( Initialize .OR. .NOT. ALLOCATED(tosend)) THEN
+    IF ( InitializeLC .OR. .NOT. ALLOCATED(toSend)) THEN
 
-      IF ( ALLOCATED(tosend) ) THEN
-        DO i=1,SIZE(tosend)
-          DEALLOCATE(tosend(i) % buf, tosend(i) % ifg, toreceive(i) % perm)
+      IF ( ALLOCATED(toSend) ) THEN
+        DO i=1,SIZE(toSend)
+          DEALLOCATE(toSend(i) % buf, toSend(i) % ifg, &
+           toSend(i) % perm, toReceive(i) % perm)
         END DO
-        DEALLOCATE(tosend,toreceive,lint)
+        DEALLOCATE(toSend,toReceive,lint)
       END IF
  
       ! Count sizes of send & receive buffers:
       ! --------------------------------------
-      ALLOCATE(tosend(nneigh),toreceive(nneigh))
+      ALLOCATE(toSend(nneigh),toReceive(nneigh))
 
       ninterface=COUNT(ig)
       ALLOCATE(lint(ninterface))
 
       ninterface = 0
-      totLC=0
-      tosend(:) % n=0
+      sndLC=0
+      toSend(:) % n=0
       DO i=1,nrows
         p = A % InvPerm(i)
         IF (ig(p)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
-          DO ip=1,SIZE(nb(p) % Neighbours)-1
-            proc=nb(p) % Neighbours(ip)
-            IF (proc == ParEnv % myPE ) THEN
-              DO j=ip+1,SIZE(nb(p) % Neighbours)
-                lproc=lpnum(nb(p) % Neighbours(j))
-                tosend(lproc) % n = tosend(lproc) % n+1
-              END DO
-              EXIT
-            ELSE
-              totLC = totLC+1
-            END IF
-          END DO
+          sz = SIZE(nb(p) % Neighbours)
+          proc=nb(p) % Neighbours(1)
+          IF (proc == ParEnv % myPE ) THEN
+            DO j=2,sz
+              lproc=lpnum(nb(p) % Neighbours(j))
+              toSend(lproc) % n = toSend(lproc) % n+1
+            END DO
+          ELSE
+            sndLC = sndLC+1
+          END IF
         END IF
       END DO
 
       ! Allocate send & receive buffers:
       ! --------------------------------------
       DO i=1,nneigh
-        j=tosend(i) % n
-        ALLOCATE(tosend(i) % buf(j),tosend(i) % ifg(j))
+        j=toSend(i) % n
+        ALLOCATE(toSend(i) % buf(j),toSend(i) % ifg(j), &
+             toSend(i) % perm(ninterface))
+        toSend(i) % perm=0
       END DO
-      ALLOCATE(gdofs(totLC), ldofs(totLC), procs(totLC))
+      ALLOCATE(gdofs(sndLC), ldofs(sndLC), procs(sndLC))
 
       ! Extract send & receive dof tags:
       ! --------------------------------
-      totLC=0
-      tosend(:) % n=0
+      sndLC=0
+      toSend(:) % n=0
       DO i=1,ninterface
         l = lint(i)
         p = A % InvPerm(l)
-        DO ip=1,SIZE(nb(p) % Neighbours)-1
-          proc = nb(p) % Neighbours(ip)
-          IF (proc == ParEnv % myPE ) THEN
-            DO j=ip+1,SIZE(nb(p) % Neighbours)
-              lproc=lpnum(nb(p) % Neighbours(j))
-              k = tosend(lproc) % n+1
-              tosend(lproc) % n = k
-              tosend(lproc) % ifg(k) = gtags(p)
-            END DO
-            EXIT
-          ELSE
-            totLC = totLC+1
-            ldofs(totLC) = l
-            procs(totLC) = proc
-            gdofs(totLC) = gtags(p)
-          END IF
-        END DO
+        proc = nb(p) % Neighbours(1)
+        IF (proc == ParEnv % myPE ) THEN
+          sz = SIZE(nb(p) % Neighbours)
+          DO j=2,sz
+            lproc=lpnum(nb(p) % Neighbours(j))
+            k = toSend(lproc) % n+1
+            toSend(lproc) % perm(i) = k
+            toSend(lproc) % n = k
+            toSend(lproc) % ifg(k) = gtags(p)
+          END DO
+        ELSE
+          sndLC = sndLC+1
+          ldofs(sndLC) = l
+          procs(sndLC) = proc
+          gdofs(sndLC) = gtags(p)
+        END IF
       END DO
 
       ! Send interface parts to neighbours, at initialization
       ! only store local indices of global tags
       ! ------------------------------------------------------
-      CALL FetiSendReceiveInit( totLC, gdofs, ldofs, procs, &
-                tosend, toreceive, tag=100 )
+      CALL FetiSendReceiveInit( sndLC, gdofs, ldofs, procs, &
+                toSend, toReceive, tag=100 )
 
       DEALLOCATE(gdofs,ldofs,procs)
+      InitializeLC = .FALSE.
     END IF
 
     ! Extract send & receive dof values: 
     ! ----------------------------------
-    f = 0._dp
-    ownLC=0
-    tosend(:) % n=0
-    DO i=1,ninterface
-      l = lint(i)
-      p = A % InvPerm(l)
-      DO ip=1,SIZE(nb(p) % Neighbours)-1
-        proc = nb(p) % Neighbours(ip)
-        IF (proc == ParEnv % myPE ) THEN
-          DO j=ip+1,SIZE(nb(p) % Neighbours)
-            ownLC=ownLC+1
-            lproc = lpnum(nb(p) % Neighbours(j))
-            f(l) = f(l) + b(ownLC)
-            k = tosend(lproc) % n+1
-            tosend(lproc) % n = k
-            tosend(lproc) % buf(k) = b(ownLC)
-          END DO
-          EXIT
+    F = 0._dp
+    DO lproc=1,nneigh
+      toSend(lproc) % buf = 0._dp
+    END DO
+
+    DO i=1,Bmat % NumberOfRows
+      l = Bmat % Perm(i)  ! interface DOF number
+      m = lint(l)         ! partition DOF number
+
+      DO j=Bmat % Rows(i),Bmat % Rows(i+1)-1
+        val = Bmat % Values(j) * b(i)
+        IF ( Bmat % Cols(j) == ParEnv % MyPE ) THEN
+          F(m) = F(m) + val
+        ELSE
+          ! fill send buffer position of LC for DOF l (or m):
+          ! -------------------------------------------------
+          lproc = lpnum(Bmat % Cols(j))
+          k = toSend(lproc) % perm(l)
+          toSend(lproc) % buf(k) = toSend(lproc) % buf(k)+val
         END IF
       END DO
     END DO
 
-    IF ( .NOT. PRESENT(own) ) THEN
-      ! Send & reiceive interface parts to neighbours
-      ! ------------------------------------
-      CALL FetiSendReceive(f, tosend, toreceive, tag=110)
-    END IF
-
-    Initialize = .FALSE.
+    ! Send & reiceive interface parts to neighbours
+    ! ------------------------------------
+    CALL FetiSendReceive(toSend, toReceive, tag=110, Fsum=F)
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiSendRecvLC
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-  FUNCTION FetiSendRecvIf(A,f,b,own) RESULT(nLC)
+  FUNCTION FetiSendRecvIf(A,f,b) RESULT(nLC)
   !
   ! Extract interface values from partition vector b; send and
   ! receive  to/from neighbours.  Only 'owned' interface dofs
@@ -435,20 +449,22 @@ CONTAINS
     IMPLICIT NONE
     TYPE(Matrix_t) :: A
     INTEGER :: nLC
-    LOGICAL, OPTIONAL :: own
     REAL(KIND=dp) :: f(:),b(:)
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,m,p,n,nrows,proc,lproc,ip
+    INTEGER :: i,j,k,l,m,p,q,n,sz,nrows,proc,lproc
     TYPE(NeighbourList_t), POINTER :: nb(:)
     LOGICAL :: Found
     INTEGER, POINTER :: gtags(:)
     LOGICAL, POINTER :: ig(:)
     INTEGER, ALLOCATABLE :: gdofs(:), ldofs(:), procs(:)
 
-    TYPE(toreceive_t), ALLOCATABLE, SAVE :: toreceive(:)
-    TYPE(tosend_t), ALLOCATABLE, SAVE :: tosend(:)
+    REAL(KIND=dp) :: val
+    REAL(KIND=dp), POINTER :: Fn(:)
+
+    TYPE(toSend_t), ALLOCATABLE, SAVE :: toSend(:)
     INTEGER, SAVE :: ninterface
     INTEGER, ALLOCATABLE, SAVE :: lint(:)
+    TYPE(toReceive_t), ALLOCATABLE, TARGET, SAVE :: toReceive(:)
 !------------------------------------------------------------------------------
 
     nrows = A % NumberOfRows
@@ -456,15 +472,16 @@ CONTAINS
     ig => A % ParallelInfo % Interface
     nb => A % ParallelInfo % NeighbourList
 
-    IF (Initialize .OR. .NOT. ALLOCATED(tosend) ) THEN
+    IF (InitializeIf .OR. .NOT. ALLOCATED(toSend) ) THEN
 
-      IF ( ALLOCATED(tosend) )THEN
-        DO i=1,SIZE(tosend)
-          DEALLOCATE(tosend(i) % buf, tosend(i) % ifg, toreceive(i) % perm)
+      IF ( ALLOCATED(toSend) )THEN
+        DO i=1,SIZE(toSend)
+          DEALLOCATE(toSend(i) % buf, toSend(i) % ifg, toReceive(i) % perm)
+          IF (ALLOCATED(toReceive(i) % buf)) DEALLOCATE(toReceive(i) % buf)
         END DO
-        DEALLOCATE(tosend,toreceive,lint)
+        DEALLOCATE(toSend,toReceive,lint)
       END IF
-      ALLOCATE(tosend(nneigh),toreceive(nneigh))
+      ALLOCATE(toSend(nneigh),toReceive(nneigh))
 
       ninterface=COUNT(ig)
       ALLOCATE(lint(ninterface))
@@ -473,97 +490,138 @@ CONTAINS
       ! --------------------------------------
       ninterface=0
       nLC=0
-      tosend(:) % n=0
+      toSend(:) % n=0
       DO i=1,nrows
         p = A % InvPerm(i)
         IF (ig(p)) THEN
           ninterface=ninterface+1
           lint(ninterface)=i
 
-          DO ip=1,SIZE(nb(p) % Neighbours)-1
-            proc=nb(p) % Neighbours(ip)
-            IF (proc == ParEnv % myPE ) THEN
-              nLC=nLC+SIZE(nb(p) % Neighbours)-ip
-              EXIT
-            ELSE
-              lproc=lpnum(proc)
-              tosend(lproc) % n = tosend(lproc) % n+1
-            END IF
-          END DO
+          proc=nb(p) % Neighbours(1)
+          IF (proc == ParEnv % myPE ) THEN
+            nLC=nLC+SIZE(nb(p) % Neighbours)-1
+          ELSE
+            lproc=lpnum(proc)
+            toSend(lproc) % n = toSend(lproc) % n+1
+          END IF
         END IF
       END DO
 
       ! Allocate send & receive buffers:
       ! --------------------------------------
       DO i=1,nneigh
-        j=tosend(i) % n
-        ALLOCATE(tosend(i) % buf(j), tosend(i) % ifg(j))
+        j=toSend(i) % n
+        ALLOCATE(toSend(i) % buf(j), toSend(i) % ifg(j) )
       END DO
       ALLOCATE( gdofs(nLC), ldofs(nLC), procs(nLC) )
-      ldofs = [(i,i=1,nLC)]
+      ldofs = [(i,i=1,nLC)];
 
       ! Extract send & receive dof tags:
       ! --------------------------------
+
+      IF (ASSOCIATED(Bmat)) CALL FreeMatrix(Bmat)
+      Bmat => AllocateMatrix()
+      Bmat %  ListMatrix => Null()
+      Bmat % Format = MATRIX_LIST
+      ALLOCATE(Bmat % Perm(nLC))
+
       nLC=0
-      tosend(:) % n=0
+      toSend(:) % n=0
       DO i=1,ninterface
         l = lint(i)
         p = A % InvPerm(l)
-        DO ip=1,SIZE(nb(p) % Neighbours)-1
-          proc = nb(p) % Neighbours(ip)
-          IF (proc == ParEnv % myPE) THEN
-            DO j=ip+1,SIZE(nb(p) % Neighbours)
-              nLC = nLC+1
-              gdofs(nLC)  = gtags(p)
-              procs(nLC)  = nb(p) % Neighbours(j)
-            END DO
-            EXIT
-          ELSE
-            lproc=lpnum(proc)
-            k = tosend(lproc) % n+1
-            tosend(lproc) % n = k
-            tosend(lproc) % ifg(k) = gtags(p)
-          END IF
-        END DO
-      END DO
+        proc  = nb(p) % Neighbours(1)
+        IF (proc == ParEnv % myPE) THEN
+          sz = SIZE(nb(p) % Neighbours)
+          DO j=1,sz-1
+            nLC = nLC+1
+            gdofs(nLC) = gtags(p)
+            procs(nLC) = nb(p) % Neighbours(j+1)
 
+            Bmat % Perm(nLC) = i
+            DO m=1,j
+              proc = nb(p) % Neighbours(m)
+              CALL SetMatrixElement(Bmat,nLC,proc,1._dp/(1._dp*j))
+            END DO
+            proc = nb(p) % Neighbours(j+1)
+            CALL SetMatrixElement(Bmat,nLC,proc,-1._dp)
+          END DO
+        ELSE
+          lproc = lpnum(proc)
+          k = toSend(lproc) % n+1
+          toSend(lproc) % n = k
+          toSend(lproc) % ifg(k) = gtags(p)
+        END IF
+      END DO
+      CALL List_ToCRSMatrix(Bmat)
+
+ 
       ! Send interface parts to neighbours
       ! ------------------------------------
-      CALL FetiSendReceiveInit(nLC, gdofs, ldofs, procs, &
-                  tosend, toreceive, tag=200)
+      CALL FetiSendReceiveInit( nLC, gdofs, ldofs, procs, &
+               toSend, toReceive, tag=200 )
 
       DEALLOCATE(gdofs,ldofs,procs)
+      InitializeIf = .FALSE.
     END IF
 !------------------------------------------------------------------------------
 
     ! Extract send & receive dof values: 
     ! ----------------------------------
-    f = 0._dp
-    nLC=0
-    tosend(:) % n=0
+    toSend(:) % n=0
     DO i=1,ninterface
       l = lint(i)
       p = A % InvPerm(l)
-      DO ip=1,SIZE(nb(p) % Neighbours)-1
-        proc = nb(p) % Neighbours(ip)
-        IF (proc == ParEnv % myPE ) THEN
-          DO j=ip+1,SIZE(nb(p) % Neighbours)
-            nLC = nLC+1
-            f(nLC)=f(nLC) + b(l)
-          END DO
-          EXIT
-        ELSE
-          lproc=lpnum(proc)
-          k = tosend(lproc) % n+1
-          tosend(lproc) % n = k
-          tosend(lproc) % buf(k) = b(l)
-        END IF
-      END DO
+      proc = nb(p) % Neighbours(1)
+      IF (proc /= ParEnv % myPE ) THEN
+        lproc=lpnum(proc)
+        k = toSend(lproc) % n+1
+        toSend(lproc) % n = k
+        toSend(lproc) % buf(k) = b(l)
+      END IF
     END DO
 
     ! Send & reiceive interface parts to neighbours
     ! ---------------------------------------------
-    CALL FetiSendReceive(f, tosend, toreceive, tag=210)
+    CALL FetiSendReceive(toSend, toReceive, tag=210)
+
+    F=0._dp
+
+    DO i=1,Bmat % NumberOfRows
+      m = lint(Bmat % Perm(i))  ! partition dof number
+      DO j=Bmat % Rows(i), Bmat % Rows(i+1)-1
+        IF (Bmat % Cols(j)==ParEnv % myPE) THEN
+          F(i) = F(i) + Bmat % Values(j)*b(m); EXIT
+        END IF
+      END DO
+    END DO
+
+    ! This surely could be simplified....:
+    ! ------------------------------------
+    DO lproc=1,nneigh
+      Fn => toReceive(lproc) % buf
+      nLC=0
+      DO i=1,ninterface
+        l = lint(i)
+        p = A % InvPerm(l)
+        proc = nb(p) % Neighbours(1)
+        IF (proc == ParEnv % myPE ) THEN
+          q=nLC
+          sz=SIZE(nb(p) % Neighbours)
+          DO j=1,sz-1
+            nLC = nLC+1
+            IF (Fn(nLC)==0 ) CYCLE
+            DO m=1,sz-1
+              DO k=Bmat % Rows(q+m),Bmat % Rows(q+m+1)-1
+                IF (Bmat % Cols(k)==gpnum(lproc)) THEN
+                  F(q+m) = F(q+m) + Bmat % Values(k)*Fn(nLC); EXIT
+                END IF
+              END DO
+            END DO
+          END DO
+        END IF
+      END DO
+    END DO
 !------------------------------------------------------------------------------
   END FUNCTION FetiSendRecvIf
 !------------------------------------------------------------------------------
@@ -573,10 +631,10 @@ CONTAINS
   SUBROUTINE FetiProject(A,n,T,OP,TOL)
 !------------------------------------------------------------------------------
     INTEGER :: n, &
-              OP  !=0: T =  (I-R*Rinv*R')T, 
-                  !=1: T = -(R*Rinv*R') T,  note: input size:  nz
-                  !=2: T =  (Rinv*R')T,     note: output size: nz
-                  ! Rinv = (R'*R)^-1
+              OP  !=0: T =  (I-G*Ginv*G')T, 
+                  !=1: T = -(G*Ginv*G') T,  note: input size:  nz
+                  !=2: T =  (Ginv*G')T,     note: output size: nz
+                  ! Rinv = (G'*G)^-1
     REAL(KIND=dp) :: TOL
     REAL(KIND=dp)::T(n)
     TYPE(matrix_t) :: A
@@ -591,7 +649,7 @@ CONTAINS
     IF (OP==1) THEN
       IF (nz>0) b=T(1:nz)
     ELSE
-      CALL Rt(b,T)
+      CALL Gt(b,T)
     END IF
 
     IF (nz>0) x=b
@@ -600,18 +658,18 @@ CONTAINS
     IF (OP==2) THEN
       T(1:nz)=x
     ELSE
-      CALL R(x,S)
+      CALL G(x,S)
       IF (OP==1) THEN
         T=-S
       ELSE
         T=T-S
       END IF
-    ENDIF
+    END IF
 
 CONTAINS
 
 !------------------------------------------------------------------------------
-     SUBROUTINE RtR(u,v)
+     SUBROUTINE GtG(u,v)
 !------------------------------------------------------------------------------
        INTEGER :: nlc
        REAL(KIND=dp) :: u(:),v(:)
@@ -622,24 +680,24 @@ CONTAINS
        CALL FetiSendRecvLC(A,Q,S)
        IF (nz>0) v = MATMUL(z,Q)
 !------------------------------------------------------------------------------
-     END SUBROUTINE RtR
+     END SUBROUTINE GtG
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-     SUBROUTINE Rt(v,u)
+     SUBROUTINE Gt(v,u)
 !------------------------------------------------------------------------------
        REAL(KIND=dp) ::v(:),u(:)
 
        CALL FetiSendRecvLC(A,Q,u)
        IF (nz>0) v = MATMUL(z,Q)
 !------------------------------------------------------------------------------
-     END SUBROUTINE Rt
+     END SUBROUTINE Gt
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE R(u,v)
+    SUBROUTINE G(u,v)
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: u(:),v(:)
       INTEGER :: n
@@ -647,7 +705,7 @@ CONTAINS
       IF (nz>0) P=MATMUL(u,z)
       n = FetiSendRecvIf(A,v,P)
 !------------------------------------------------------------------------------
-    END SUBROUTINE R
+    END SUBROUTINE G
 !------------------------------------------------------------------------------
 
 
@@ -667,7 +725,7 @@ CONTAINS
         x=0; RETURN;
       END IF
 
-      CALL RtR(x,T)
+      CALL GtG(x,T)
       Ri = -(T - b)
 
       err = SparNorm(n,Ri,1)
@@ -684,7 +742,7 @@ CONTAINS
         END IF
         prevrho = rho
 
-        CALL RtR(S,T)
+        CALL GtG(S,T)
         alpha = rho/SparDotProd(n,S,1,T,1)
         x = x + alpha*S
 
@@ -713,18 +771,19 @@ END SUBROUTINE FetiProject
     EXTERNAL matvecsubr, precsubr, dotprodfun, normfun
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err0,err1,err2,TOL
-    INTEGER :: i,j,iter,nnz,nLC,nrows,maxit,ipar(50), output
+    INTEGER :: i,j,iter,nnz,nLC,nrows,maxit,ipar(50), output,Restart,Saven
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found,prec
-    REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:)
+    REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:),Ssave(:,:),Psave(:,:),srho(:)
 !------------------------------------------------------------------------------
     nrows=A % NumberOfRows
 
     Params => GetSolverParams()
     output = GetInteger( Params,'Linear System Residual Output', Found )
     IF (.NOT. Found ) output = 1
-    maxit  = GetInteger( Params,'Linear System Max Iterations')
-    TOL    = GetConstReal( Params,'Linear System Convergence Tolerance')
+    maxit   = GetInteger( Params,'Linear System Max Iterations')
+    Restart = GetInteger( Params,'Linear System CPG Restart', Found)
+    TOL     = GetConstReal( Params,'Linear System Convergence Tolerance')
 
     bnorm = SparNorm(n,b,1)
     IF ( bnorm==0 ) THEN
@@ -735,14 +794,14 @@ END SUBROUTINE FetiProject
 
     x(1:n)=0
     IF (nz>0) x(1:nz)=MATMUL(z,f)
-    CALL FetiProject(A,n,x,OP=1,TOL=TOL/10000)
+    CALL FetiProject(A,n,x,OP=1,TOL=1d-9)
 
     HUTI_NDIM=n
     bnorm = normfun(n,b,1)
 
     CALL matvecsubr(x(1:n),T,ipar)
     Ri = -(T - b(1:n))
-    CALL FetiProject(A,n,Ri,OP=0,TOL=TOL/10000)
+    CALL FetiProject(A,n,Ri,OP=0,TOL=1d-9)
 
     err0 = normfun(n,Ri,1) / bnorm
     IF (err0<TOL) RETURN
@@ -752,11 +811,19 @@ END SUBROUTINE FetiProject
       PRINT*,'         iter     |ax-b|/|b|               |ax-b|';
       PRINT*,'-------------------------------------------------';flush(6)
     END IF
+
+    IF (Restart>0) THEN
+      Saven=0
+      ALLOCATE(Ssave(n,Restart), Psave(n,Restart), P(n), srho(Restart))
+    END IF
+
     beta=0._dp
     DO iter=1,maxit
+        if(restart>0) P=T
+
        IF (Precondition) THEN
          CALL precsubr(T,Ri,ipar)
-         CALL FetiProject(A,n,T,OP=0,TOL=TOL/10000)
+         CALL FetiProject(A,n,T,OP=0,TOL=1d-9)
        ELSE
          T=Ri
        END  IF
@@ -765,8 +832,22 @@ END SUBROUTINE FetiProject
        IF ( iter==1 ) THEN
          S = T
        ELSE
-         beta = rho/prevrho
-         S = T + beta*S
+         IF (Restart>0) THEN
+           IF (Saven>=Restart) Saven=0
+           saven=saven+1
+           Ssave(:,Saven)=S
+           Psave(:,Saven)=P
+           srho(saven)=dotprodfun(n,S,1,P,1)
+           S=T
+           DO i=1,Saven
+             P=Psave(:,i)
+             beta=dotprodfun(n,T,1,P,1)/srho(i)
+             S=S-beta*Ssave(:,i)
+           END DO
+         ELSE
+           beta = rho/prevrho
+           S = T + beta*S
+         END IF
        END IF
        prevrho = rho
 
@@ -774,7 +855,7 @@ END SUBROUTINE FetiProject
        alpha = rho / dotprodfun(n,S,1,T,1)
        x(1:n) = x(1:n) + alpha*S
 
-       CALL FetiProject(A,n,T,OP=0,TOL=TOL/10000)
+       CALL FetiProject(A,n,T,OP=0,TOL=1d-9)
        Ri = Ri - alpha*T
 
        err1 = normfun(n,Ri,1)
@@ -790,7 +871,7 @@ END SUBROUTINE FetiProject
 
     CALL matvecsubr(x(1:n),T,ipar)
     T = -(T - b(1:n))
-    CALL FetiProject(A,n,T,OP=2,TOL=TOL/10000)
+    CALL FetiProject(A,n,T,OP=2,TOL=1d-9)
     IF (nz>0) x(n+1:n+nz) = T(1:nz)
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiCPG
@@ -906,11 +987,11 @@ END SUBROUTINE FetiProject
     n = A % numberofrows
     tx=>x
     tb=>b
-    if (nz>0) then
+    IF (nz>0) THEN
       ALLOCATE(tx(n+nz),tb(n+nz))
       tb=0
       tb(1:n)=b
-    end if
+    END IF
     A % NumberOfRows=A % NumberOfRows+nz
 
     CALL DirectSolver(A,tx,tb,Solver)
@@ -948,7 +1029,7 @@ END SUBROUTINE FetiProject
     REAL(KIND=dp), POINTER :: SaveValues(:)
     INTEGER, POINTER :: SaveCols(:),SaveRows(:)
 
-    Initialize = .TRUE.
+    InitializeLC = .TRUE.;  InitializeIf = .TRUE.
 
     ! Tell 'DirectSolver' to factorize first time only:
     ! -------------------------------------------------
@@ -1027,6 +1108,7 @@ END SUBROUTINE FetiProject
     x = -x
     nLC = FetiSendRecvIf(A,y,x)
 
+
     ! Add lagrange coefficient for the floating level:
     ! ------------------------------------------------
     IF (Floating .AND. .NOT. CPG) THEN
@@ -1055,8 +1137,8 @@ END SUBROUTINE FetiProject
     END IF
 
     ! Solve primary unknowns using L.C.'s:
-    ! x_i =  K_i^-1(b_i + B_i^T\lambda)
-    ! ------------------------------------
+    ! x_i =  K_i^-1(b_i + B_i^T\lambda) + R\alpha
+    ! --------------------------------------------
     IF ( Floating ) THEN
       IF ( CPG ) THEN
         alpha(1:nz)=x(nLC+1:nLC+nz)
