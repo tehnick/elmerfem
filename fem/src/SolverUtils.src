@@ -2245,8 +2245,8 @@ CONTAINS
         A % NumberOfRows = n
 
         ALLOCATE( A % RHS(n), A % Rows(n+1), &
-           A % Cols(SIZE(Projector % Cols)*NDOFs**2+n),  &
-             A % Values(SIZE(Projector % Values)*NDOFs**2+n) )
+            A % Cols(SIZE(Projector % Cols)*NDOFs**2+n),  &
+            A % Values(SIZE(Projector % Values)*NDOFs**2+n) )
 
          A % Rows(1) = 1
          DO i=1,Projector % NumberOfRows
@@ -2378,7 +2378,7 @@ CONTAINS
 
     INTEGER :: i,j,k,l,m,n,nn,ii,nlen
     LOGICAL :: GotIt
-    REAL(KIND=dp) :: Scale,s
+    REAL(KIND=dp) :: Scale,s,ValueOffset
     TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
 
@@ -2391,15 +2391,17 @@ CONTAINS
         'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
       Scale = 1.0d0
     ELSE 
-      Scale = ListGetConstReal( Model % BCs(This) % Values, &
+      Scale = ListGetCReal( Model % BCs(This) % Values, &
           'Periodic BC Scale ' // Name(1:nlen), GotIt) 
       IF(.NOT. GotIt ) RETURN      
     END IF
 
+    ValueOffset = ListGetCReal( Model % BCs(This) % Values, &
+          'Periodic BC Offset ' // Name(1:nlen), GotIt) 
 
     Projector => Model % BCs(This) % PMatrix
     IF ( .NOT. ASSOCIATED(Projector) ) RETURN
-!
+
     IF ( ListGetLogical( Model % BCs(This) % Values,  &
          'Periodic BC Use Lagrange Coefficient', GotIt ) ) RETURN
 
@@ -2410,6 +2412,7 @@ CONTAINS
 !   ---------------------------------
     DO i=1,Projector % NumberOfRows
        ii = Projector % InvPerm(i)
+
        k = Perm( ii )
        IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
           k = NDOFs * (k-1) + DOF
@@ -2422,7 +2425,8 @@ CONTAINS
                CALL AddToMatrixElement( StiffMatrix,k,m,Projector % Values(l) )
              END IF
           END DO
-          ForceVector(k)=0._dp
+
+          ForceVector(k) = -ValueOffset 
           CALL AddToMatrixElement( StiffMatrix,k,k,scale )
        END IF
        Done(ii) = .TRUE.
