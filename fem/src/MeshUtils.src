@@ -2761,6 +2761,7 @@ END SUBROUTINE FindNeighbourNodes
     INTEGER :: n1,n2,n3,EoldNodes(4),FaceNodes(4),EdgeNodes(2) ! Only linears so far
     INTEGER :: FaceNumber,Edge1,Edge2,Edge3,Edge4,Node12,Node23,Node34,Node41,Node31
     REAL(KIND=dp) :: dxyz(3,3),Dist(3),r,s,t,h1,h2
+    INTEGER :: ierr, ParTmp(6), ParSizes(6)
 !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Mesh ) ) RETURN
 
@@ -4074,6 +4075,35 @@ END SUBROUTINE FindNeighbourNodes
     CALL Info( 'SplitMeshEqual', Message, Level=6 )
     WRITE( Message, * ) 'Boundary elements : ',NewMesh % NumberOfBoundaryElements
     CALL Info( 'SplitMeshEqual', Message, Level=6 )
+
+
+    ! Information of the new system size, also in parallel
+    !----------------------------------------------------------------------
+    ParTmp(1) = Mesh % NumberOfNodes
+    ParTmp(2) = Mesh % NumberOfBulkElements
+    ParTmp(3) = Mesh % NumberOfBoundaryElements
+    ParTmp(4) = NewMesh % NumberOfNodes
+    ParTmp(5) = NewMesh % NumberOfBulkElements
+    ParTmp(6) = NewMesh % NumberOfBoundaryElements
+
+    IF( .FALSE. .AND. ParEnv % PEs > 1 ) THEN
+      CALL MPI_ALLREDUCE(ParTmp,ParSizes,6,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,ierr)
+
+      CALL Info('SplitMeshEqual','Information on parallel mesh sizes')
+      WRITE ( Message,'(A,I0,A)') 'Initial mesh has ',ParSizes(1),' nodes'
+      CALL Info('SplitMeshEqual',Message)
+      WRITE ( Message,'(A,I0,A)') 'Initial mesh has ',ParSizes(2),' bulk elements'
+      CALL Info('SplitMeshEqual',Message)
+      WRITE ( Message,'(A,I0,A)') 'Initial mesh has ',ParSizes(3),' boundary elements'
+      CALL Info('SplitMeshEqual',Message)
+      WRITE ( Message,'(A,I0,A)') 'New mesh has ',ParSizes(4),' nodes'
+      CALL Info('SplitMeshEqual',Message)
+      WRITE ( Message,'(A,I0,A)') 'New mesh has ',ParSizes(5),' bulk elements'
+      CALL Info('SplitMeshEqual',Message)
+      WRITE ( Message,'(A,I0,A)') 'New mesh has ',ParSizes(6),' boundary elements'
+      CALL Info('SplitMeshEqual',Message)
+    END IF
+
 
     CALL CheckTimer('SplitMeshEqual',Delete=.TRUE.)
 
@@ -5549,7 +5579,7 @@ CONTAINS
 
 !--------------------------------------------------------------------------
 !  This subroutine finds the structure of an extruded mesh even though it is 
-! given in an unstructured formar. The routine may be used by some special
+! given in an unstructured format. The routine may be used by some special
 ! solvers that employ the special character of the mesh.
 ! The extrusion is found for a given direction and for each node the corresponding 
 ! up and down, and thereafter top and bottom node is computed.
