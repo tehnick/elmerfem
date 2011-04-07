@@ -2036,7 +2036,6 @@ CONTAINS
       CALL CRS_PrintRHS(A)
       CLOSE(1)
     END IF
- 
 
     CALL SolveSystem( A, ParMatrix, b, x % Values, x % Norm, x % DOFs, Solver )
 
@@ -3029,7 +3028,7 @@ CONTAINS
           DOF, local, numEdgeDofs,istat, n_start, Offset
 
      LOGICAL :: Flag,Found, ConstantValue
-     TYPE(ValueList_t), POINTER :: BC, ptr
+     TYPE(ValueList_t), POINTER :: BC, ptr, Params
      TYPE(Element_t), POINTER :: Element, Parent, Edge, Face, SaveElement
 
      CHARACTER(LEN=MAX_NAME_LEN) :: name
@@ -3041,6 +3040,12 @@ CONTAINS
      ELSE
         Solver => CurrentModel % Solver
      END IF
+
+     Params => GetSolverParams(Solver)
+     IF ( GetString(Params,'Linear System Solver',Found)=='feti') THEN
+       IF ( GetLogical(Params,'Total FETI', Found)) RETURN
+     END IF
+
      A => Solver % Matrix
      b => A % RHS
      IF ( PRESENT(Ux) ) THEN
@@ -3146,6 +3151,7 @@ CONTAINS
 
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
              Name, DOF, x % DOFs, x % Perm, Offset, OffDiagonalMatrix )
+
 
 !       Dirichlet BCs for face & edge DOFs:
 !       -----------------------------------
@@ -3328,7 +3334,7 @@ CONTAINS
            CASE(3)
               ! If no faces present do not try to set boundary conditions
               ! @todo This should be changed to EXIT
-              IF ( .NOT. ASSOCIATED( Solver % Mesh % Faces ) ) CYCLE
+              IF ( .NOT. ASSOCIATED(Solver % Mesh % Faces) ) CYCLE
 
               ! Parameters of element
               n = Element % TYPE % NumberOfNodes
@@ -4122,7 +4128,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE GetParentUVW
 !------------------------------------------------------------------------------
-
 
 
 END MODULE DefUtils

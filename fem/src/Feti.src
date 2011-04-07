@@ -61,7 +61,7 @@ MODULE FetiSolve
   INTEGER, PRIVATE, SAVE :: nneigh
   INTEGER, ALLOCATABLE, PRIVATE, SAVE :: lpnum(:), gpnum(:)
 
-  LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE.
+  LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE.
   INTEGER, PRIVATE, SAVE :: nz,maxnz=8
   REAL(KIND=dp), ALLOCATABLE, PRIVATE ::z(:,:)
 
@@ -293,10 +293,10 @@ CONTAINS
 !------------------------------------------------------------------------------
  SUBROUTINE FetiSendRecvLC(A,f,b)
     !
-    ! Given local (owned dofs) interface vector b, send and
-    ! receive all partition interface dofs to/from
-    ! neighbours. Place result to partitionwise vector f.
-    ! ----------------------------------------------------
+    ! Given local (owned dofs) interface vector b, send and receive
+    ! all partition interface dofs to/from neighbours. Place result
+    ! to partitionwise vector f=B^Tb.
+    ! --------------------------------------------------------------
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     TYPE(Matrix_t) :: A
@@ -406,22 +406,27 @@ CONTAINS
       InitializeLC = .FALSE.
     END IF
 
-    ! Extract send & receive dof values: 
-    ! ----------------------------------
+    ! Extract send & receive dof values of f=B^Tb
+    ! -------------------------------------------
     F = 0._dp
     DO lproc=1,nneigh
       toSend(lproc) % buf = 0._dp
     END DO
-
     DO i=1,Bmat % NumberOfRows
-      l = Bmat % Perm(i)  ! interface DOF number
-      m = lint(l)         ! partition DOF number
+
+      l = Bmat % Perm(i)
+
+      IF (l>0) THEN  ! partition DOF number
+        m = lint(l)  ! on interface
+      ELSE
+        m = -l       ! internal D.B.C.
+      END IF
 
       DO j=Bmat % Rows(i),Bmat % Rows(i+1)-1
         val = Bmat % Values(j) * b(i)
         IF ( Bmat % Cols(j) == ParEnv % MyPE ) THEN
           F(m) = F(m) + val
-        ELSE
+        ELSE IF ( l<=SIZE(lint)) THEN
           ! fill send buffer position of LC for DOF l (or m):
           ! -------------------------------------------------
           lproc = lpnum(Bmat % Cols(j))
@@ -434,8 +439,86 @@ CONTAINS
     ! Send & reiceive interface parts to neighbours
     ! ------------------------------------
     CALL FetiSendReceive(toSend, toReceive, tag=110, Fsum=F)
+
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiSendRecvLC
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+! Add Dirichlet BCs to set of Lagrange coefficients described by the 'B' matrix
+! (the total FETI scheme).
+!
+! Some thoughts:
+!
+! Trouble here is that in Elmer the Dirichlet BCs can be really varied and may,
+! for example, include a (large) number of domain internal DOFs. Also, at first
+! thought, P-elements with nontrivial Dirichlet BCs don't fit easily into this
+! scheme as not all the coefficients are known from the input to data directly.
+! At least you'd need multidof constraints...
+!
+! Only most simple cases handled here currently, should call DefaultDirichletBCs()
+! eventually to take care of more details. Even then the Robin type of conditions
+! would not be handled. Actually seems quite hard to ensure all 'floating' domains
+! at all times.
+!------------------------------------------------------------------------------
+  SUBROUTINE FetiAddDtoB(A, B, nLC)
+!------------------------------------------------------------------------------
+    INTEGER :: nLC
+    TYPe(Matrix_t) :: A
+    TYPe(Matrix_t), POINTER :: B
+!------------------------------------------------------------------------------
+    TYPE(Solver_t), POINTER :: Solver
+    INTEGER :: i,j,k,n,d,Active
+    INTEGER, ALLOCATABLE :: Perm(:)
+    INTEGER, POINTER  :: p(:)
+    LOGICAL :: Found
+    REAL(KIND=dp), ALLOCATABLE :: Vals(:)
+    TYPE(ValueList_t), POINTER :: BC
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    Solver => GetSolver()
+
+    ALLOCATE(Perm(A % NumberOfRows),B % RHS(A % NumberOfRows)); B % RHS=0._dp
+    ALLOCATE(Vals(Solver % Mesh % MaxElementNodes))
+
+    Perm(1:nLC) = B % Perm
+    d =  Solver % Variable % DOFs
+    p => Solver % Variable % Perm
+
+    Active = GetNOFBoundaryElements()
+    DO i=1,Active
+      Element => GetBoundaryElement(i)
+      IF (.NOT. ActiveBoundaryElement()) CYCLE
+
+      BC => GetBC()
+      IF (.NOT.ASSOCIATED(BC)) CYCLE
+
+      n = GetElementNOFNodes()
+      DO j=1,d
+        Vals(1:n)=GetReal(BC,ComponentName(Solver % Variable,j),Found)
+        IF (.NOT.Found) CYCLE
+        DO k=1,n
+          nLC = nLC+1
+          ! - sign here to indicate D-condition instead of interface
+          ! compatibility conditions...:
+          ! --------------------------------------------------------
+          Perm(nLC) = -(d*(p(Element % NodeIndexes(k))-1)+j)
+          IF (ASSOCIATED(A % DiagScaling)) THEN
+            B % RHS(nLC) = Vals(k)/A % DiagScaling(-Perm(nLC))
+          ELSE
+            B % RHS(nLC) = Vals(k)
+          END IF
+          CALL SetMatrixElement(B, nLC, ParEnv % myPE, 1._dp)
+        END DO
+      END DO
+    END DO
+
+    DEALLOCATE(B % Perm)
+    ALLOCATE(B % Perm(nLC))
+    B % Perm  = Perm(1:nLC)
+!------------------------------------------------------------------------------
+  END SUBROUTINE FetiAddDtoB
 !------------------------------------------------------------------------------
 
 
@@ -444,14 +527,15 @@ CONTAINS
   !
   ! Extract interface values from partition vector b; send and
   ! receive  to/from neighbours.  Only 'owned' interface dofs
-  ! placed to result vector f.
-  ! ---------------------------------------------------------
+  ! placed to result vector f=Bb. At intialization assemble the
+  ! 'B' connectivity matrix.
+  ! ----------------------------------------------------------
     IMPLICIT NONE
     TYPE(Matrix_t) :: A
     INTEGER :: nLC
     REAL(KIND=dp) :: f(:),b(:)
 !------------------------------------------------------------------------------
-    INTEGER :: i,j,k,l,m,p,q,n,sz,nrows,proc,lproc
+    INTEGER :: i,j,k,l,m,p,q,n,sz,nrows,proc,lproc,totnLC=0
     TYPE(NeighbourList_t), POINTER :: nb(:)
     LOGICAL :: Found
     INTEGER, POINTER :: gtags(:)
@@ -516,14 +600,15 @@ CONTAINS
       ALLOCATE( gdofs(nLC), ldofs(nLC), procs(nLC) )
       ldofs = [(i,i=1,nLC)];
 
-      ! Extract send & receive dof tags:
-      ! --------------------------------
+      ! Extract send & receive dof tags; Allocate, intialize
+      ! and assemble the  'B' connectivity matrix:
+      ! -----------------------------------------------------
 
       IF (ASSOCIATED(Bmat)) CALL FreeMatrix(Bmat)
       Bmat => AllocateMatrix()
       Bmat %  ListMatrix => Null()
-      Bmat % Format = MATRIX_LIST
       ALLOCATE(Bmat % Perm(nLC))
+      Bmat % Format = MATRIX_LIST
 
       nLC=0
       toSend(:) % n=0
@@ -538,6 +623,13 @@ CONTAINS
             gdofs(nLC) = gtags(p)
             procs(nLC) = nb(p) % Neighbours(j+1)
 
+            ! Assemble the 'B' matrix, orthogonal connectivity for
+            ! multiple sharings:
+            ! u_2 = u_1,
+            ! u_3 = (u_1+u_2)/2,
+            ! u_4 = (u_1+u_2+u_3)/3
+            !         ....
+            ! -----------------------------------------------------
             Bmat % Perm(nLC) = i
             DO m=1,j
               proc = nb(p) % Neighbours(m)
@@ -553,18 +645,26 @@ CONTAINS
           toSend(lproc) % ifg(k) = gtags(p)
         END IF
       END DO
-      CALL List_ToCRSMatrix(Bmat)
 
- 
       ! Send interface parts to neighbours
       ! ------------------------------------
       CALL FetiSendReceiveInit( nLC, gdofs, ldofs, procs, &
                toSend, toReceive, tag=200 )
 
+      ! if 'total' feti add D-conditions to 'B':
+      ! ----------------------------------------
+      totnLC=nLC
+      IF (TotalFeti) CALL FetiAddDtoB(A, Bmat, totNLC)
+
+      ! Convert 'B' to CRS format:
+      ! --------------------------
+      CALL List_ToCRSMatrix(Bmat)
+
       DEALLOCATE(gdofs,ldofs,procs)
       InitializeIf = .FALSE.
     END IF
 !------------------------------------------------------------------------------
+
 
     ! Extract send & receive dof values: 
     ! ----------------------------------
@@ -585,10 +685,18 @@ CONTAINS
     ! ---------------------------------------------
     CALL FetiSendReceive(toSend, toReceive, tag=210)
 
-    F=0._dp
+    F = 0._dp
 
+    ! Local contribution to f=Bb
+    ! --------------------------
     DO i=1,Bmat % NumberOfRows
-      m = lint(Bmat % Perm(i))  ! partition dof number
+      l = Bmat % Perm(i)
+      IF (l>0) THEN ! m = Partition DOF number...
+        m = lint(l) ! ...for an interface DOF
+      ELSE
+        m = -l      ! ...for a Dirichlet DOF
+      END IF
+
       DO j=Bmat % Rows(i), Bmat % Rows(i+1)-1
         IF (Bmat % Cols(j)==ParEnv % myPE) THEN
           F(i) = F(i) + Bmat % Values(j)*b(m); EXIT
@@ -596,8 +704,10 @@ CONTAINS
       END DO
     END DO
 
-    ! This surely could be simplified....:
-    ! ------------------------------------
+
+    ! Neighbours contribution to f=Bb (this surely
+    ! could be simplified....):
+    ! ---------------------------------------------
     DO lproc=1,nneigh
       Fn => toReceive(lproc) % buf
       nLC=0
@@ -610,7 +720,7 @@ CONTAINS
           sz=SIZE(nb(p) % Neighbours)
           DO j=1,sz-1
             nLC = nLC+1
-            IF (Fn(nLC)==0 ) CYCLE
+            IF (Fn(nLC)==0) CYCLE
             DO m=1,sz-1
               DO k=Bmat % Rows(q+m),Bmat % Rows(q+m+1)-1
                 IF (Bmat % Cols(k)==gpnum(lproc)) THEN
@@ -622,6 +732,7 @@ CONTAINS
         END IF
       END DO
     END DO
+    nLC = totnLC
 !------------------------------------------------------------------------------
   END FUNCTION FetiSendRecvIf
 !------------------------------------------------------------------------------
@@ -634,7 +745,7 @@ CONTAINS
               OP  !=0: T =  (I-G*Ginv*G')T, 
                   !=1: T = -(G*Ginv*G') T,  note: input size:  nz
                   !=2: T =  (Ginv*G')T,     note: output size: nz
-                  ! Rinv = (G'*G)^-1
+                  ! Ginv = (G'*G)^-1
     REAL(KIND=dp) :: TOL
     REAL(KIND=dp)::T(n)
     TYPE(matrix_t) :: A
@@ -761,6 +872,8 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
+! The C(onjugate) P(rojected) G(radient) iterative solver:
+!------------------------------------------------------------------------------
   SUBROUTINE FetiCPG(A,n,x,b,f,Solver,matvecsubr,precsubr,dotprodfun,normfun)
 !------------------------------------------------------------------------------
     TYPE(Solver_t) :: Solver
@@ -770,8 +883,8 @@ END SUBROUTINE FetiProject
 
     EXTERNAL matvecsubr, precsubr, dotprodfun, normfun
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err0,err1,err2,TOL
     INTEGER :: i,j,iter,nnz,nLC,nrows,maxit,ipar(50), output,Restart,Saven
+    REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err0,err1,err2,TOL
     TYPE(ValueList_t), POINTER :: Params
     LOGICAL :: Found,prec
     REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:),Ssave(:,:),Psave(:,:),srho(:)
@@ -819,7 +932,7 @@ END SUBROUTINE FetiProject
 
     beta=0._dp
     DO iter=1,maxit
-        if(restart>0) P=T
+       IF (Restart>0) P=T
 
        IF (Precondition) THEN
          CALL precsubr(T,Ri,ipar)
@@ -870,7 +983,7 @@ END SUBROUTINE FetiProject
     END DO
 
     CALL matvecsubr(x(1:n),T,ipar)
-    T = -(T - b(1:n))
+    T = -(T-b(1:n))
     CALL FetiProject(A,n,T,OP=2,TOL=1d-9)
     IF (nz>0) x(n+1:n+nz) = T(1:nz)
 !------------------------------------------------------------------------------
@@ -887,8 +1000,8 @@ END SUBROUTINE FetiProject
     LOGICAL :: floating
     TYPE(Solver_t) :: Solver
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), ALLOCATABLE :: x(:)
     COMPLEX(KIND=dp) :: EigValues(maxnz)
+    REAL(KIND=dp), ALLOCATABLE :: x(:)
     INTEGER, POINTER :: p(:)
     INTEGER :: i,j,n,m,dofs,neigs,dim
     COMPLEX(KIND=dp), ALLOCATABLE :: EigVectors(:,:)
@@ -924,22 +1037,23 @@ END SUBROUTINE FetiProject
       RETURN
     END IF
 
-
-    dim = CoordinateSystemDimension()
-
-    ! max deficiency for elasticity equation:
-    ! ---------------------------------------
+    ! max deficiency:
+    ! ---------------
     IF (dim==2) THEN
       Neigs=4
     ELSE
       Neigs=8
     END IF
 
+    ! use identity as 'mass':
+    ! -----------------------
     ALLOCATE(A % MassValues(SIZE(A % Values)))
     ALLOCATE(eigVectors(Neigs,n))
     A % MassValues = 0._dp
     A % MassValues(A % Diag) = 1._dp
 
+    ! solution of few lowest eigenmodes:
+    ! ----------------------------------
     CALL ListAddString( GetSolverParams(), &
            'Linear System Solver', 'Direct' )
 
@@ -1028,18 +1142,24 @@ END SUBROUTINE FetiProject
 
     REAL(KIND=dp), POINTER :: SaveValues(:)
     INTEGER, POINTER :: SaveCols(:),SaveRows(:)
+!------------------------------------------------------------------------------
 
     InitializeLC = .TRUE.;  InitializeIf = .TRUE.
 
+    Params => GetSolverParams()
+
+    ! Check whether to use the 'total' FETI scheme:
+    ! ---------------------------------------------
+    TotalFeti = GetLogical(Params, 'Total Feti', Found)
+
     ! Tell 'DirectSolver' to factorize first time only:
     ! -------------------------------------------------
-    Params => GetSolverParams()
     SaveRefactorize=GetLogical(Params, 'Linear System Refactorize',Found)
     IF (.NOT.Found) SaveRefactorize = .TRUE.
     CALL ListAddLogical(Params,'Linear System Refactorize',.FALSE.)
 
-    ! Check if using local CGP, or GCR from usual iterators
-    ! -----------------------------------------------------
+    ! Check if using local CGP, or (f.ex.) GCR from usual iterators:
+    ! --------------------------------------------------------------
     CPG = GetString(Params,'Linear System Iterative Method') == 'cpg'
 
     n = A % NumberOfRows
@@ -1062,7 +1182,8 @@ END SUBROUTINE FetiProject
     IF (Floating) THEN
 
       ! Fix null space with lagrange coefficients
-      ! (for the time being, at least)...
+      ! (for the time being, at least), l.
+      ! A_fix = [A z; z^T 0] ([x; \lambda]):
       ! ------------------------------------------
       saverows   => a % rows
       savecols   => a % cols
@@ -1108,12 +1229,17 @@ END SUBROUTINE FetiProject
     x = -x
     nLC = FetiSendRecvIf(A,y,x)
 
+    ! add Dirichlet BC contribution to the r.h.s:
+    ! -------------------------------------------
+    IF (TotalFeti) y(1:nLC)=y(1:nLC)+Bmat % RHS(1:nLC)
 
-    ! Add lagrange coefficient for the floating level:
+    ! Add lagrange coefficient for the floating level,
+    ! if not using the C(onjugate)P(rojected)G(radient)
+    ! stuff:
     ! ------------------------------------------------
     IF (Floating .AND. .NOT. CPG) THEN
       y(nLC+1:nLC+nz)=-MATMUL(z,b)
-      nLC=nLC+nz
+      nLC = nLC+nz
     END IF
 
     ! CG iteration for the L.C.'s
@@ -1137,7 +1263,7 @@ END SUBROUTINE FetiProject
     END IF
 
     ! Solve primary unknowns using L.C.'s:
-    ! x_i =  K_i^-1(b_i + B_i^T\lambda) + R\alpha
+    ! x_i =  K_i^-1(b_i + B_i^T\lambda) + R\alpha:
     ! --------------------------------------------
     IF ( Floating ) THEN
       IF ( CPG ) THEN
@@ -1153,22 +1279,13 @@ END SUBROUTINE FetiProject
 
     IF (Floating) THEN
       x = x + MATMUL(alpha(1:nz),z)
+
       DEALLOCATE(z)
       DEALLOCATE(A % Values, A % Rows, A % Cols)
       A % Rows => SaveRows
       A % Cols => SaveCols
       A % Values => SaveValues
     END IF
-
-    M => ParallelMatrix(A,xtmp,btmp,rtmp)
-    n = M % NumberOfRows
-
-    CALL ParallelUpdateRHS(A,b)
-    CALL ParallelUpdateSolve(A,x,y)
-    CALL ParallelMatrixVector(A,x,y,update=.true.)
-    y=y-b
-    zz = ParallelNorm(n,y)/ParallelNorm(n,b)
-    IF (parenv % mype==0) print*,zz
 
     IF ( SaveRefactorize ) THEN
       CALL DirectSolver(A,x,y,Solver,Free_Fact=.TRUE.)
@@ -1206,8 +1323,9 @@ END SUBROUTINE FetiProject
     CALL FetiDirectSolver(A,x,b,Solver)
     nLC = FetiSendRecvIf(A,v,x)
 
-    ! If floating domain, update potential level contributions:
-    ! ---------------------------------------------------------
+    ! If floating domain, update null space contributions
+    ! (if not using CPG):
+    ! ----------------------------------------------------
     IF ( .NOT. CPG ) THEN
       x=0
       IF (nz>0) x=MATMUL(u(nLC+1:nLC+nz),z)
@@ -1252,6 +1370,9 @@ END SUBROUTINE FetiProject
     CALL MatrixVectorMultiply(A,x,b)
     nLC = FetiSendRecvIf(A,u,b)
 
+    ! If floating domain, update null space contributions
+    ! (if not using CPG):
+    ! ----------------------------------------------------
     IF (.NOT. CPG .AND. nz>0) THEN
       u(nLC+1:nLC+nz)=v(nLC+1:nLC+nz)
     END IF

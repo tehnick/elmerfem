@@ -4449,7 +4449,8 @@ END FUNCTION SearchNodeL
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp), POINTER :: SaveValues(:)
-    REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:), TempRHS(:)
+    REAL(KIND=dp), ALLOCATABLE, TARGET :: Px(:), Diag(:), &
+                TempVector(:), TempRHS(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm,Energy
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Matrix_t), POINTER :: Aaid, Projector
@@ -4505,12 +4506,15 @@ END FUNCTION SearchNodeL
       END IF
     END IF
 
+    A % DiagScaling => Null()
     IF ( ScaleSystem .AND. .NOT. HarmonicAnalysis ) THEN
 !
 !     Scale system Ax = b as:
 !       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !     --------------------------------------------------------
       ALLOCATE( Diag(n) )
+      A % DiagScaling => Diag
+
       IF ( Solver % Matrix % COMPLEX ) THEN
         DO i=1,n,2
           j = A % Diag(i)
@@ -4688,8 +4692,9 @@ END FUNCTION SearchNodeL
     bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
 
     IF ( ScaleSystem ) THEN
+      Diag(1:n)=Diag(1:n)*bnorm
       b(1:n) = b(1:n) / bnorm
-      x(1:n) = x(1:n) / Diag(1:n) / bnorm
+      x(1:n) = x(1:n) / Diag(1:n)
     END IF
 
     Method = ListGetString(Params,'Linear System Solver',GotIt)
@@ -4731,7 +4736,8 @@ END FUNCTION SearchNodeL
 ! 
 !      Solve x:  INV(D)x = y, scale b back to orig
 !      -------------------------------------------
-       x(1:n) = x(1:n) * Diag(1:n) * bnorm
+       x(1:n) = x(1:n) * Diag(1:n)
+       Diag(1:n) = Diag(1:n) / bnorm
        b(1:n) = b(1:n) / Diag(1:n) * bnorm
 
 ! 
