@@ -42,26 +42,41 @@ MODULE FetiSolve
   USE DefUtils
   IMPLICIT NONE
 
-  LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG
 
+  ! Communication buffer stuff we send to our neighbours:
+  ! -----------------------------------------------------
   TYPE toSend_t
     INTEGER :: n
     REAL(KIND=dp), ALLOCATABLE :: buf(:)
     INTEGER, ALLOCATABLE :: ifg(:), perm(:)
   END TYPE toSend_t
 
+  ! Communication buffer stuff we receive from our neighbours:
+  ! ----------------------------------------------------------
   TYPE toReceive_t
     INTEGER :: n
     INTEGER, ALLOCATABLE :: perm(:)
     REAL(KIND=dp), ALLOCATABLE :: buf(:)
   END TYPE toReceive_t
 
+  ! The connectivity matrix 'B':
+  ! ----------------------------
   TYPE(Matrix_t), POINTER, SAVE :: Bmat=>Null()
 
+  ! Neighbour identification, local and global numbering of 
+  ! neighbour PEs:
+  ! -------------------------------------------------------
   INTEGER, PRIVATE, SAVE :: nneigh
   INTEGER, ALLOCATABLE, PRIVATE, SAVE :: lpnum(:), gpnum(:)
 
+  ! Some global flags:
+  ! ------------------
   LOGICAL, PRIVATE, SAVE :: Precondition=.FALSE., TotalFETI=.FALSE.
+  LOGICAL, PRIVATE, SAVE :: InitializeIf, InitializeLC, CPG
+
+  ! the null space or kernel of the input system A, also called
+  ! R in the relevant FETI literature:
+  ! ------------------------------------------------------------
   INTEGER, PRIVATE, SAVE :: nz,maxnz=8
   REAL(KIND=dp), ALLOCATABLE, PRIVATE ::z(:,:)
 
@@ -69,6 +84,9 @@ MODULE FetiSolve
 
 CONTAINS
  
+  ! Send given buffer to given neighbour, either 'tags' in ifg 
+  ! (when initializing) or the interface values in buf:
+  ! ------------------------------------------------------------
 !------------------------------------------------------------------------------
   SUBROUTINE FetiSend(proc, nin, buf, ifg, tag)
 !------------------------------------------------------------------------------
@@ -103,6 +121,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+  ! Receive given buffer to given neighbour, either 'tags' to ifg 
+  ! (when initializing) or the interface values to buf:
+  ! ---------------------------------------------------------------
 !------------------------------------------------------------------------------
    SUBROUTINE FetiRecv(proc, n, buf, ifg, tag)
 !------------------------------------------------------------------------------
@@ -161,6 +182,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+  ! First time communication with all neighbours when local
+  ! addresses of global tags are identified:
+  ! --------------------------------------------------------
 !------------------------------------------------------------------------------
    SUBROUTINE FetiSendReceiveInit(sndLC, gdofs, ldofs, &
            procs, toSend, toReceive, tag)
@@ -238,6 +262,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+  ! The neighbour send/receive communication, after initializations:
+  ! ----------------------------------------------------------------
 !------------------------------------------------------------------------------
    SUBROUTINE FetiSendReceive(toSend, toReceive, tag, Fsum)
 !------------------------------------------------------------------------------
@@ -291,12 +317,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE FetiSendRecvLC(A,f,b)
     !
-    ! Given local (owned dofs) interface vector b, send and receive
-    ! all partition interface dofs to/from neighbours. Place result
-    ! to partitionwise vector f=B^Tb.
-    ! --------------------------------------------------------------
+    ! Given local (owned L.C.'s) interface vector b, send and receive
+    ! all partition interface L.C's to/from neighbours. Place result
+    ! to partitionwise vector f. In effect f=B^Tb.
+    ! ---------------------------------------------------------------
+ SUBROUTINE FetiSendRecvLC(A,f,b)
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     TYPE(Matrix_t) :: A
@@ -527,8 +553,8 @@ CONTAINS
   !
   ! Extract interface values from partition vector b; send and
   ! receive  to/from neighbours.  Only 'owned' interface dofs
-  ! placed to result vector f=Bb. At intialization assemble the
-  ! 'B' connectivity matrix.
+  ! placed to result vector f. At intialization assemble the
+  ! 'B' connectivity matrix. In effect f=Bb;
   ! ----------------------------------------------------------
     IMPLICIT NONE
     TYPE(Matrix_t) :: A
@@ -738,6 +764,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+  ! The projection of the vector T to the set of feasible solutions
+  ! ortohonal to the null space of A, defined by the condition:
+  ! z^T(f-B^T\lamda) (OP=0, 'z' aka R). Also handle the initial guess
+  ! and the final extraction of the L.C.'s \alpha related to the above
+  ! condition (OP=1,2).
 !------------------------------------------------------------------------------
   SUBROUTINE FetiProject(A,n,T,OP,TOL)
 !------------------------------------------------------------------------------
@@ -992,6 +1024,8 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
+! Compute null(A), return value is whether null(A) is nonempty set.
+!------------------------------------------------------------------------------
   FUNCTION FetiFloatingDomain(A,Solver,TOL) RESULT(Floating)
 !------------------------------------------------------------------------------
     USE EigenSolve
@@ -1053,7 +1087,7 @@ END SUBROUTINE FetiProject
     A % MassValues = 0._dp
     A % MassValues(A % Diag) = 1._dp
 
-    ! solution of few lowest eigenmodes:
+    ! Solution of few lowest eigenmodes:
     ! ----------------------------------
     CALL ListAddString( GetSolverParams(), &
            'Linear System Solver', 'Direct' )
@@ -1090,14 +1124,16 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
+! Solve x from [A z^T; z 0] [x; \lambda] = [b 0] (pseudoinverse solution)
+!------------------------------------------------------------------------------
   SUBROUTINE FetiDirectSolver(A,x,b,Solver)
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), POINTER :: a
     TYPE(Solver_t) :: Solver
     REAL(KIND=dp), TARGET :: x(:),b(:)
 !------------------------------------------------------------------------------
-    integer :: n
-    real(kind=dp),pointer :: tx(:),tb(:)
+    INTEGER :: n
+    REAL(KIND=dp), POINTER :: tx(:),tb(:)
 
     n = A % numberofrows
     tx=>x
@@ -1121,6 +1157,9 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+! The FETI main routine: solve x from Ax=b using the F(inite) E(lement)
+! T(earing) and I(nterconnect) method.
 !------------------------------------------------------------------------------
   SUBROUTINE  Feti(A,x,b,Solver)
     ! Just basic feti so far...
@@ -1146,8 +1185,8 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
 
     InitializeLC = .TRUE.;  InitializeIf = .TRUE.
-
     Params => GetSolverParams()
+    TOL=GetCReal( Params,'Linear System Convergence Tolerance')
 
     ! Check whether to use the 'total' FETI scheme:
     ! ---------------------------------------------
@@ -1171,20 +1210,21 @@ END SUBROUTINE FetiProject
     CALL FetiGetNeighbours()
 
     ! Initialize parallel matrix for the original system for
-    ! matrix-vector multiply in FetiStopc:
+    ! matrix-vector multiply in FetiStopc (not used at the
+    ! moment)
     ! ------------------------------------------------------
-    y=b
-    CALL ParallelInitSolve(A,x,y,y)
+!   y=b
+!   CALL ParallelInitSolve(A,x,y,y)
 
     ! Check floating domains, initialize null space z:
     ! ------------------------------------------------
-    TOL=GetCReal( Params,'Linear System Convergence Tolerance')
     Floating = FetiFloatingDomain(A,Solver,TOL)
+
     IF (Floating) THEN
 
-      ! Fix null space with lagrange coefficients
+      ! Fix null(A) with Lagrange coefficients
       ! (for the time being, at least), l.
-      ! A_fix = [A z; z^T 0] ([x; \lambda]):
+      ! A_fix = [A z^T; z 0] ([x; \lambda]):
       ! ------------------------------------------
       saverows   => a % rows
       savecols   => a % cols
@@ -1223,9 +1263,9 @@ END SUBROUTINE FetiProject
       a % rows(n+nz+1)=l
     END IF
 
-    ! Compute and distribute RHS for L.C.'s:
+    ! Compute and distribute r.h.s. for L.C.'s:
     ! -SUM_part(B_i K_i^-1 b_i)
-    ! --------------------------------------
+    ! -----------------------------------------
     CALL FetiDirectSolver(A,x,b,Solver)
     x = -x
     nLC = FetiSendRecvIf(A,y,x)
@@ -1234,10 +1274,9 @@ END SUBROUTINE FetiProject
     ! -------------------------------------------
     IF (TotalFeti) y(1:nLC)=y(1:nLC)+Bmat % RHS(1:nLC)
 
-    ! Add lagrange coefficient for the floating level,
-    ! if not using the C(onjugate)P(rojected)G(radient)
-    ! stuff:
-    ! ------------------------------------------------
+    ! Add Lagrange coefficient for the null(A)'s if not
+    ! using the C(onjugate)P(rojected)G(radient) stuff:
+    ! -------------------------------------------------
     IF (Floating .AND. .NOT. CPG) THEN
       y(nLC+1:nLC+nz)=-MATMUL(z,b)
       nLC = nLC+nz
@@ -1432,6 +1471,8 @@ END MODULE FetiSolve
 !------------------------------------------------------------------------------
 
 
+!
+! Just  a handle for SolveLinearSystem():
 !------------------------------------------------------------------------------
 SUBROUTINE FetiSolver(A,x,b,Solver)
 !------------------------------------------------------------------------------
