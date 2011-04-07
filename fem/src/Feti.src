@@ -84,8 +84,8 @@ MODULE FetiSolve
 
 CONTAINS
  
-  ! Send given buffer to given neighbour, either 'tags' in ifg 
-  ! (when initializing) or the interface values in buf:
+  ! Send given buffer to given neighbour, either 'tags' in 'ifg' 
+  ! (when initializing) or the interface values in 'buf':
   ! ------------------------------------------------------------
 !------------------------------------------------------------------------------
   SUBROUTINE FetiSend(proc, nin, buf, ifg, tag)
@@ -121,8 +121,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-  ! Receive given buffer to given neighbour, either 'tags' to ifg 
-  ! (when initializing) or the interface values to buf:
+  ! Receive given buffer from a neighbour, either 'tags' to 'ifg'
+  ! (when initializing) or the interface values to 'buf', the id
+  ! of the sender returned in 'proc':
   ! ---------------------------------------------------------------
 !------------------------------------------------------------------------------
    SUBROUTINE FetiRecv(proc, n, buf, ifg, tag)
@@ -182,7 +183,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-  ! First time communication with all neighbours when local
+  ! First time communication with all neighbours where local
   ! addresses of global tags are identified:
   ! --------------------------------------------------------
 !------------------------------------------------------------------------------
@@ -202,7 +203,6 @@ CONTAINS
         proc = gpnum(i)
         CALL FetiSend(proc, toSend(i) % n, ifg=toSend(i) % ifg, tag=tag)
       END DO 
-
 
       ! Receive interface parts and store indices
       ! -----------------------------------------
@@ -438,8 +438,8 @@ CONTAINS
     DO lproc=1,nneigh
       toSend(lproc) % buf = 0._dp
     END DO
-    DO i=1,Bmat % NumberOfRows
 
+    DO i=1,Bmat % NumberOfRows
       l = Bmat % Perm(i)
 
       IF (l>0) THEN  ! partition DOF number
@@ -677,7 +677,7 @@ CONTAINS
       CALL FetiSendReceiveInit( nLC, gdofs, ldofs, procs, &
                toSend, toReceive, tag=200 )
 
-      ! if 'total' feti add D-conditions to 'B':
+      ! If 'Total' FETI add D-conditions to 'B':
       ! ----------------------------------------
       totnLC=nLC
       IF (TotalFeti) CALL FetiAddDtoB(A, Bmat, totNLC)
@@ -1024,7 +1024,7 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-! Compute null(A), return value is whether null(A) is nonempty set.
+! Compute null(A), return value is whether null(A) is nonempty.
 !------------------------------------------------------------------------------
   FUNCTION FetiFloatingDomain(A,Solver,TOL) RESULT(Floating)
 !------------------------------------------------------------------------------
@@ -1210,19 +1210,19 @@ END SUBROUTINE FetiProject
     CALL FetiGetNeighbours()
 
     ! Initialize parallel matrix for the original system for
-    ! matrix-vector multiply in FetiStopc (not used at the
-    ! moment)
+    ! matrix-vector multiply in FetiStopc. NOT USED at the
+    ! moment.
     ! ------------------------------------------------------
 !   y=b
 !   CALL ParallelInitSolve(A,x,y,y)
 
-    ! Check floating domains, initialize null space z:
-    ! ------------------------------------------------
+    ! Check for floating domains, initialize null space z (a.k.a R):
+    ! --------------------------------------------------------------
     Floating = FetiFloatingDomain(A,Solver,TOL)
 
     IF (Floating) THEN
 
-      ! Fix null(A) with Lagrange coefficients
+      ! Fix z=null(A) with Lagrange coefficients
       ! (for the time being, at least), l.
       ! A_fix = [A z^T; z 0] ([x; \lambda]):
       ! ------------------------------------------
@@ -1274,9 +1274,9 @@ END SUBROUTINE FetiProject
     ! -------------------------------------------
     IF (TotalFeti) y(1:nLC)=y(1:nLC)+Bmat % RHS(1:nLC)
 
-    ! Add Lagrange coefficient for the null(A)'s if not
-    ! using the C(onjugate)P(rojected)G(radient) stuff:
-    ! -------------------------------------------------
+    ! Add Lagrange coefficient(s) for the projection condition
+    ! if not using the C(onjugate)P(rojected)G(radient) stuff:
+    ! --------------------------------------------------------
     IF (Floating .AND. .NOT. CPG) THEN
       y(nLC+1:nLC+nz)=-MATMUL(z,b)
       nLC = nLC+nz
