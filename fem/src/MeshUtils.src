@@ -2885,10 +2885,10 @@ END SUBROUTINE FindNeighbourNodes
     DO i=1,Mesh % NumberOfBulkElements
        Eold => Mesh % Elements(i)
        k = Eold % Type % NumberOfNodes
-       j = j + 1
        SELECT CASE( Eold % TYPE % ElementCode / 100 )
 
        CASE(4)
+          j = j + 1
           IF (PRESENT(h)) THEN
             n=Mesh % NumberOfNodes
             h1=xh(n+Eold % Edgeindexes(2))
@@ -2906,6 +2906,7 @@ END SUBROUTINE FindNeighbourNodes
             z(j) = SUM(w(Eold % NodeIndexes))/k
           END IF
        CASE(8)
+          j = j + 1
           IF (PRESENT(h)) THEN
             n=Mesh % NumberOfNodes+Mesh % NumberOfEdges
             h1=xh(n+Eold % FaceIndexes(4))
