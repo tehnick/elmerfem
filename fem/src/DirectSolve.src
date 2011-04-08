@@ -57,8 +57,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
      LOGICAL, OPTIONAL :: Free_Fact
+     TYPE(Matrix_t) :: A
      REAL(KIND=dp) :: x(*),b(*)
-     TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
 
    
@@ -172,8 +172,8 @@ CONTAINS
    SUBROUTINE BandSolver( A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Free_Fact
+     TYPE(Matrix_t) :: A
      REAL(KIND=dp) :: x(*),b(*)
-     TYPE(Matrix_t), POINTER :: A
 !------------------------------------------------------------------------------
 
      INTEGER :: i,j,k,istat,Subband,N
@@ -289,7 +289,7 @@ CONTAINS
   SUBROUTINE UMFPack_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
     LOGICAL, OPTIONAL :: Free_Fact
-    TYPE(Matrix_t), POINTER :: A
+    TYPE(Matrix_t) :: A
     TYPE(Solver_t) :: Solver
     REAL(KIND=dp), TARGET :: x(*), b(*)
 
@@ -470,10 +470,73 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+  SUBROUTINE Cholmod_SolveSystem( Solver,A,x,b,Free_fact)
+!------------------------------------------------------------------------------
+  LOGICAL, OPTIONAL :: Free_Fact
+  TYPE(Matrix_t) :: A
+  TYPE(Solver_t) :: Solver
+  REAL(KIND=dp) :: x(*), b(*)
+
+  INTEGER(KIND=AddrInt) :: cholmod_ffactorize
+
+  LOGICAL :: Factorize, FreeFactorize, Found
+
+  REAL(KIND=dp), POINTER CONTIG :: Vals(:)
+  INTEGER, POINTER CONTIG :: Rows(:), Cols(:), Diag(:)
+
+#ifdef HAVE_CHOLMOD
+  IF ( PRESENT(Free_Fact) ) THEN
+    IF ( Free_Fact ) THEN
+      IF ( A % Cholmod/=0 ) THEN
+        CALL cholmod_ffree(A % cholmod)
+        A % cholmod = 0
+      END IF
+      RETURN
+    END IF
+  END IF
+
+  Factorize = ListGetLogical( Solver % Values, &
+     'Linear System Refactorize', Found )
+  IF ( .NOT. Found ) Factorize = .TRUE.
+
+  IF ( Factorize .OR. A% cholmod==0 ) THEN
+    IF ( A % cholmod==0 ) THEN
+      CALL cholmod_ffree(A % cholmod)
+      A % cholmod = 0
+    END IF
+
+    Rows => A % Rows
+    Cols => A % Cols
+    Vals => A % Values
+
+    Rows=Rows-1; Cols=Cols-1 ! c numbering
+    A % Cholmod=cholmod_ffactorize(A % NumberOfRows, Rows, Cols, Vals)
+    Rows=Rows+1; Cols=Cols+1 ! fortran numbering
+  END IF
+
+  CALL cholmod_fsolve(A % cholmod, A % NumberOfRows, x, b);
+
+  FreeFactorize = ListGetLogical( Solver % Values, &
+      'Linear System Free Factorization', Found )
+  IF ( .NOT. Found ) FreeFactorize = .TRUE.
+
+  IF ( Factorize .AND. FreeFactorize ) THEN
+    CALL cholmod_ffree(A % cholmod)
+    A % cholmod = 0
+  END IF
+#else
+   CALL Fatal( 'Cholmod_SolveSystem', 'Cholmod Solver has not been installed.' )
+#endif
+!------------------------------------------------------------------------------
+  END SUBROUTINE Cholmod_SolveSystem
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
   SUBROUTINE Mumps_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
   LOGICAL, OPTIONAL :: Free_Fact
-  TYPE(Matrix_t), POINTER :: A
+  TYPE(Matrix_t) :: A
   TYPE(Solver_t) :: Solver
   REAL(KIND=dp), TARGET :: x(*), b(*)
 
@@ -645,7 +708,7 @@ CONTAINS
   SUBROUTINE SuperLU_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
   LOGICAL, OPTIONAL :: Free_fact
-  TYPE(Matrix_t), POINTER :: A
+  TYPE(Matrix_t) :: A
   TYPE(Solver_t) :: Solver
   REAL(KIND=dp), TARGET :: x(*), b(*)
 
@@ -744,8 +807,8 @@ CONTAINS
 
       IMPLICIT NONE
 
-      TYPE(Matrix_t), POINTER :: A
       LOGICAL, OPTIONAL :: Free_fact
+      TYPE(Matrix_t) :: A
       TYPE(Solver_t) :: Solver
       REAL(KIND=dp), TARGET :: x(*), b(*)
 
@@ -940,7 +1003,7 @@ CONTAINS
 
     TYPE(Solver_t) :: Solver
     REAL(KIND=dp) :: x(*),b(*)
-    TYPE(Matrix_t), POINTER :: A
+    TYPE(Matrix_t) :: A
     LOGICAL, OPTIONAL :: Free_Fact
 !------------------------------------------------------------------------------
 
@@ -964,6 +1027,9 @@ CONTAINS
 #ifdef HAVE_UMFPACK
         CALL Umfpack_SolveSystem( Solver, A, x, b, Free_Fact )
 #endif
+#ifdef HAVE_CHOLMOD
+        CALL Cholmod_SolveSystem( Solver, A, x, b, Free_Fact )
+#endif
         RETURN
       END IF
     END IF
@@ -981,6 +1047,9 @@ CONTAINS
 
       CASE( 'umfpack', 'big umfpack' )
         CALL Umfpack_SolveSystem( Solver, A, x, b )
+
+      CASE( 'cholmod' )
+        CALL Cholmod_SolveSystem( Solver, A, x, b )
 
       CASE( 'mumps' )
         CALL Mumps_SolveSystem( Solver, A, x, b )

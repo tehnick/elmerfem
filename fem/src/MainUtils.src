@@ -138,6 +138,10 @@ CONTAINS
 #ifndef HAVE_PARDISO
                    CALL Fatal( 'GetMatrixFormat', 'Pardiso solver has not been installed.' )
 #endif
+                CASE( 'cholmod' )
+#ifndef HAVE_CHOLMOD
+                   CALL Fatal( 'GetMatrixFormat', 'Cholmod solver has not been installed.' )
+#endif
                 CASE DEFAULT
                    CALL Warn( 'GetMatrixFormat', 'Unknown direct solver method: ' // TRIM(str) )
                    CALL Warn( 'GetMatrixFormat', 'band solver (LAPACK) will be used.' )
@@ -3658,7 +3662,6 @@ CONTAINS
          END IF
        END IF
      END IF
-     str = ListGetString( Solver  % Values,'Procedure', Found )
 
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
