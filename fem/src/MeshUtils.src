@@ -179,7 +179,7 @@ CONTAINS
      LOGICAL  :: stat
      REAL(KIND=dp) :: x,y,z
      TYPE(Solver_t), POINTER  :: Solver
-     CHARACTER(MAX_NAME_LEN) :: str, result
+     CHARACTER(MAX_NAME_LEN) :: str, RESULT
 
      Solver => Model % Solvers(SolverId)
      Params => Solver % Values
@@ -236,15 +236,15 @@ CONTAINS
       j = INDEX( ElementDef, 'p:' )
       IF ( j>0 ) THEN
         IF ( ElementDef(j+2:j+2) == '%' ) THEN
-          n = Element % Type % NumberOfNodes
+          n = Element % TYPE % NumberOfNodes
           x = SUM(Mesh % Nodes % x(Element % NodeIndexes))/n
           y = SUM(Mesh % Nodes % y(Element % NodeIndexes))/n
           z = SUM(Mesh % Nodes % z(Element % NodeIndexes))/n
           WRITE( str, * ) 'cx= ',TRIM(i2s(Element % ElementIndex)),x,y,z
           str = TRIM(str) // '; ' // TRIM(ElementDef(j+3:))//'(cx)'
           slen = LEN_TRIM(str)
-          CALL matc(str,result,slen)
-          READ(result,*) x
+          CALL matc(str,RESULT,slen)
+          READ(RESULT,*) x
           Body_Dofs(6) = 0
           Def_Dofs(6)  = MAX(Def_Dofs(6),NINT(x))
         ELSE
@@ -495,7 +495,7 @@ END SUBROUTINE GetMaxDefs
       NULLIFY( Element % BoundaryInfo )
       Element % TYPE => GetElementType( TYPE )
 
-      IF ( ASSOCIATED(Element % Type) ) THEN
+      IF ( ASSOCIATED(Element % TYPE) ) THEN
         n = Element % TYPE % NumberOfNodes
         CALL AllocateVector( Element % NodeIndexes, n )
         DO j=1,n
@@ -1662,7 +1662,7 @@ CONTAINS
           Element  => Boundary % BoundaryInfo % Right
         IF (.NOT.ASSOCIATED(Element) ) CYCLE
 
-        SELECT CASE(Boundary % Type % Dimension)
+        SELECT CASE(Boundary % TYPE % DIMENSION)
         CASE(1)
           Faces   => Mesh % Edges
           FaceInd => Element % EdgeIndexes
@@ -1678,9 +1678,9 @@ CONTAINS
 
         DO j=1,SIZE(FaceInd)
           Face => Faces(FaceInd(j))
-          IF ( .NOT.ASSOCIATED(Face % Type,Boundary % Type) ) CYCLE
+          IF ( .NOT.ASSOCIATED(Face % TYPE,Boundary % TYPE) ) CYCLE
 
-          n = Boundary % Type % NumberOfNodes
+          n = Boundary % TYPE % NumberOfNodes
           nfound = 0
           DO k=1,n
             DO l=1,n
@@ -2884,7 +2884,7 @@ END SUBROUTINE FindNeighbourNodes
 !   -----------------------------------
     DO i=1,Mesh % NumberOfBulkElements
        Eold => Mesh % Elements(i)
-       k = Eold % Type % NumberOfNodes
+       k = Eold % TYPE % NumberOfNodes
        SELECT CASE( Eold % TYPE % ElementCode / 100 )
 
        CASE(4)
@@ -6029,6 +6029,202 @@ CONTAINS
 
 
   END SUBROUTINE ClusterNodesByDirection
+
+
+!---------------------------------------------------------------
+! This find two fixing nodes for each coordinate direction
+! The indexes are returned in order: x1 x2 y1 y2 z1 z2
+!---------------------------------------------------------------
+  SUBROUTINE FindRigidBodyFixingNodes(Solver,FixingNodes,MaskPerm)
+ 
+    USE GeneralUtils
+
+    TYPE(Solver_t), POINTER :: Solver
+    INTEGER, OPTIONAL :: FixingNodes(:)
+    INTEGER, OPTIONAL :: MaskPerm(:)
+
+!---------------------------------------------------------------
+
+    TYPE(Mesh_t), POINTER :: Mesh
+    LOGICAL :: MaskExists,GotIt
+    INTEGER :: i,j,k,l,ind,n,dim,dir,nsize,Sweep,Candidates(6)
+    INTEGER :: PosMeasureIndex, NegMeasureIndex, FixingNodesCoord(6)
+    REAL(KIND=dp), POINTER :: Parray(:,:)
+    REAL(KIND=dp) :: Normal(3), Tangent1(3), Tangent2(3), Coord(3), &
+        SumCoord(3), SumCoord2(3), AveCoord(3), DevCoord(3), Weights(3), &
+        PosMeasure, NegMeasure, OffLineCoeff, InLineCoeff, MinInLine, &
+        MaxInLine, InLine, OffLine, Dist, InLineMeasure
+    CHARACTER(LEN=MAX_NAME_LEN) :: Method
+!---------------------------------------------------------------
+
+    CALL Info('FindRigidBodyFixingNodes','Starting')
+
+    Mesh => Solver % Mesh
+    dim = Mesh % MeshDim 
+    
+PRINT *,'dim',dim
+
+    MaskExists = PRESENT(MaskPerm)
+    IF( MaskExists ) THEN
+      nsize = MAXVAL( MaskPerm ) 
+    ELSE
+      nsize = Mesh % NumberOfNodes
+    END IF    
+
+
+    ! Find the center
+    !-----------------------------------------------------------
+    SumCoord = 0.0_dp
+    SumCoord2 = 0.0_dp
+
+    DO i=1,Mesh % NumberOfNodes
+      j = i
+      IF( MaskExists ) j = MaskPerm(j)
+      IF( j == 0 ) CYCLE
+      
+      Coord(1) = Mesh % Nodes % x(i)
+      Coord(2) = Mesh % Nodes % y(i)
+      Coord(3) = Mesh % Nodes % z(i)
+    
+      SumCoord = SumCoord + Coord
+      SumCoord2 = SumCoord2 + Coord**2
+    END DO
+    AveCoord = SumCoord / nsize
+    DevCoord = SQRT( SumCoord2 / nsize ) - AveCoord
+
+    PRINT *,'AveCoord:',AveCoord
+    PRINT *,'DevCoord:',DevCoord
+
+    ! Parameters of the search
+    !-----------------------------------------------------------
+
+    OffLineCoeff = ListGetConstReal( Solver % Values,'Fixing Nodes Off Line Coefficient',GotIt)
+    IF(.NOT. GotIt) OffLineCoeff = 1.0_dp
+
+    InLineCoeff = ListGetConstReal( Solver % Values,'Fixing Nodes In Line Coefficient',GotIt)
+
+    ! A two-point Gaussian quadrature seems like a good guess
+    IF(.NOT. GotIt) InLineCoeff = 0.577350269
+    
+    Parray => ListGetConstRealArray( Solver % Values,'Fixing Nodes Normal Vector',GotIt )
+    IF( GotIt ) THEN
+      Normal = Parray(1:3,1)
+    ELSE
+      Normal = 0.0_dp
+      Normal(1) = 1.0
+    END IF
+    Normal = Normal / SQRT( SUM( Normal ** 2) )      
+    CALL TangentDirections( Normal,Tangent1,Tangent2 )
+    
+    ! Find the fixing nodes by looping over all nodes
+    !-----------------------------------------------------------
+    Candidates = 0
+    
+    DO dir = 1, dim
+      
+      ! Use the three principal directions as the weight
+      !-------------------------------------------------
+      IF( dir == 1 ) THEN
+        Weights = Normal
+      ELSE IF( dir == 2 ) THEN
+        Weights = Tangent1
+      ELSE 
+        Weights = Tangent2
+      END IF
+      
+      MinInLine = 0.0_dp
+      MaxInLine = 0.0_dp
+      PosMeasure = 0.0_dp
+      PosMeasureIndex = 0
+      NegMeasure = 0.0_dp
+      NegMeasureIndex = 0
+      
+      
+      ! First round define extent, second round choose the nodes
+      !---------------------------------------------------------
+      DO Sweep = 1, 2
+        DO i=1,Mesh % NumberOfNodes
+          j = i
+          IF( MaskExists ) j = MaskPerm(j)
+          IF( j == 0 ) CYCLE
+          
+          Coord(1) = Mesh % Nodes % x(i) 
+          Coord(2) = Mesh % Nodes % y(i)
+          Coord(3) = Mesh % Nodes % z(i)
+          
+          Coord = Coord - AveCoord
+          
+          ! Distance from center
+          Dist = SQRT( SUM( Coord ** 2 ) )
+          
+          ! Signed distance in in-line direction
+          InLine = SUM( Coord * Weights )
+          
+          ! Distance in off-line direction 
+          OffLine = SQRT( Dist**2 - InLine**2 )
+          
+          ! This defines a cone within which nodes are accepted
+          InLineMeasure = ABS( InLine ) - OffLineCoeff * OffLine 
+          IF( InLineMeasure < 0.0_dp ) CYCLE
+          
+          IF( Sweep == 1 ) THEN
+            ! First sweep check the extent of the cone
+            MinInLine = MIN( MinInline, InLine ) 
+            MaxInLine = MAX( MaxInline, InLine )
+          ELSE
+            IF( InLine < InLineCoeff * MinInLine ) CYCLE
+            IF( InLine > InLineCoeff * MaxInLine ) CYCLE
+
+            IF( InLine < 0.0_dp ) THEN
+              Candidates(2*dir-1) = Candidates(2*dir-1) + 1
+              IF( InLineMeasure > NegMeasure ) THEN
+                NegMeasure = InLineMeasure
+                NegMeasureIndex = i
+              END IF
+            ELSE           
+              Candidates(2*dir) = Candidates(2*dir) + 1
+              IF( InLineMeasure > PosMeasure ) THEN
+                PosMeasure = InLineMeasure 
+                PosMeasureIndex = i
+              END IF
+            END IF
+          END IF
+          
+        END DO
+      END DO
+      
+      IF( NegMeasureIndex == 0 ) THEN
+        CALL Warn('RigidBodyFixingNodes','NegMeasureIndex not set')
+        NegMeasureIndex = 1
+      END IF
+      
+      IF( PosMeasureIndex == 0 ) THEN
+        CALL Warn('RigidBodyFixingNodes','PosMeasureIndex not set')
+        PosMeasureIndex = nsize
+      END IF
+      
+      FixingNodesCoord(2*dir-1) = NegMeasureIndex
+      FixingNodesCoord(2*dir) = PosMeasureIndex
+      
+    END DO
+    
+    DO i=1,2*dim
+      j = FixingNodesCoord(i)
+      WRITE(Message,'(A,I0,3ES10.2)') 'Fixing Node: ',j,&
+          Mesh % Nodes % x( j ), &
+          Mesh % Nodes % y( j ), &
+          Mesh % Nodes % z( j ) 
+      CALL Info('FindRigidBodyFixingNodes',Message)
+
+      IF( MaskExists ) j = MaskPerm(j)
+
+      IF( PRESENT( FixingNodes ) ) FixingNodes(i) = j     
+    END DO
+
+    PRINT *,'Candidates:',Candidates
+
+
+  END SUBROUTINE FindRigidBodyFixingNodes
 
 
 
