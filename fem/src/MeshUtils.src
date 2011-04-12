@@ -79,7 +79,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    END FUNCTION AllocateElement
 !------------------------------------------------------------------------------
-
+ 
 !------------------------------------------------------------------------------
    SUBROUTINE AllocatePDefinitions(Element)
 !------------------------------------------------------------------------------
@@ -6054,7 +6054,7 @@ CONTAINS
     REAL(KIND=dp) :: Normal(3), Tangent1(3), Tangent2(3), Coord(3), &
         SumCoord(3), SumCoord2(3), AveCoord(3), DevCoord(3), Weights(3), &
         PosMeasure, NegMeasure, OffLineCoeff, InLineCoeff, MinInLine, &
-        MaxInLine, InLine, OffLine, Dist, InLineMeasure
+        MaxInLine, InLine, OffLine, Dist, MinDist, InLineMeasure
     CHARACTER(LEN=MAX_NAME_LEN) :: Method
 !---------------------------------------------------------------
 
@@ -6092,6 +6092,32 @@ CONTAINS
     AveCoord = SumCoord / nsize
     DevCoord = SQRT( SumCoord2 / nsize ) - AveCoord
 
+
+    ! Find the node closest to center and make that the new center
+    !--------------------------------------------------------------
+    MinDist = HUGE( MinDist ) 
+
+    DO i=1,Mesh % NumberOfNodes
+      j = i
+      IF( MaskExists ) j = MaskPerm(j)
+      IF( j == 0 ) CYCLE
+      
+      Coord(1) = Mesh % Nodes % x(i)
+      Coord(2) = Mesh % Nodes % y(i)
+      Coord(3) = Mesh % Nodes % z(i)
+    
+      Dist = SUM( ( Coord - AveCoord )**2 )
+      IF( Dist < MinDist ) THEN
+        MinDist = Dist
+        k = i  
+      END IF
+    END DO
+
+    AveCoord(1) = Mesh % Nodes % x(k)
+    AveCoord(2) = Mesh % Nodes % y(k)
+    AveCoord(3) = Mesh % Nodes % z(k)
+    
+
 !   PRINT *,'AveCoord:',AveCoord
 !   PRINT *,'DevCoord:',DevCoord
 
@@ -6103,8 +6129,8 @@ CONTAINS
 
     InLineCoeff = ListGetConstReal( Solver % Values,'Fixing Nodes In Line Coefficient',GotIt)
 
-    ! A two-point Gaussian quadrature seems like a good guess
-    IF(.NOT. GotIt) InLineCoeff = 0.577350269
+    ! Just a guess, smaller than one but not too much
+    IF(.NOT. GotIt) InLineCoeff = 0.8
     
     Parray => ListGetConstRealArray( Solver % Values,'Fixing Nodes Normal Vector',GotIt )
     IF( GotIt ) THEN
