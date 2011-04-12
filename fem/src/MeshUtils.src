@@ -6035,11 +6035,12 @@ CONTAINS
 ! This find two fixing nodes for each coordinate direction
 ! The indexes are returned in order: x1 x2 y1 y2 z1 z2
 !---------------------------------------------------------------
+!------------------------------------------------------------------------------
   SUBROUTINE FindRigidBodyFixingNodes(Solver,FixingNodes,MaskPerm)
- 
+!------------------------------------------------------------------------------
     USE GeneralUtils
 
-    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Solver_t) :: Solver
     INTEGER, OPTIONAL :: FixingNodes(:)
     INTEGER, OPTIONAL :: MaskPerm(:)
 
@@ -6062,13 +6063,12 @@ CONTAINS
     Mesh => Solver % Mesh
     dim = Mesh % MeshDim 
     
-PRINT *,'dim',dim
+!PRINT *,'dim',dim
 
     MaskExists = PRESENT(MaskPerm)
+    nsize = Mesh % NumberOfNodes
     IF( MaskExists ) THEN
-      nsize = MAXVAL( MaskPerm ) 
-    ELSE
-      nsize = Mesh % NumberOfNodes
+      nsize = COUNT(MaskPerm(1:nsize)>0) 
     END IF    
 
 
@@ -6092,8 +6092,8 @@ PRINT *,'dim',dim
     AveCoord = SumCoord / nsize
     DevCoord = SQRT( SumCoord2 / nsize ) - AveCoord
 
-    PRINT *,'AveCoord:',AveCoord
-    PRINT *,'DevCoord:',DevCoord
+!   PRINT *,'AveCoord:',AveCoord
+!   PRINT *,'DevCoord:',DevCoord
 
     ! Parameters of the search
     !-----------------------------------------------------------
@@ -6216,16 +6216,14 @@ PRINT *,'dim',dim
           Mesh % Nodes % z( j ) 
       CALL Info('FindRigidBodyFixingNodes',Message)
 
-      IF( MaskExists ) j = MaskPerm(j)
-
+!     IF( MaskExists ) j = MaskPerm(j)
       IF( PRESENT( FixingNodes ) ) FixingNodes(i) = j     
     END DO
 
-    PRINT *,'Candidates:',Candidates
-
-
+!   PRINT *,'Candidates:',Candidates
+!------------------------------------------------------------------------------
   END SUBROUTINE FindRigidBodyFixingNodes
-
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
