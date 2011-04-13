@@ -169,7 +169,7 @@ MODULE NavierStokes
 
      REAL(KIND=dp) :: Tau_M, Tau_C, Gmat(3,3),Gvec(3), dt=0._dp, C1, NodalVelo(4,n), &
        RM(n,4,4),LC(3,n), gradP(n), PRM(4), GradNodal(n,4,3), PVelo(3), NodalPVelo(4,n), &
-       Work(3,n), maxl, minl, Strain(3,3), muder0, muder
+       Work(3,n), maxl, minl, Strain(3,3), muder0, muder, ViscConstantCondition
 
      INTEGER :: i,j,k,l,c,p,q,t,dim
 
@@ -184,9 +184,11 @@ MODULE NavierStokes
      INTEGER :: N_Integ, NBasis, deg(100), Order
      REAL(KIND=dp), POINTER :: NodalC(:,:,:)
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
+     TYPE(ValueList_t), POINTER :: Material
 
      LOGICAL :: Found, Transient, stat, Bubbles, PBubbles, Stabilize, &
-                VMS, P2P1, Isotropic, drhodp_found, Compressible, ViscNewtonLin
+                VMS, P2P1, Isotropic, drhodp_found, Compressible, ViscNewtonLin, &
+                ViscNonnewtonian
 
 !------------------------------------------------------------------------------
 
@@ -229,10 +231,16 @@ MODULE NavierStokes
      P2P1      = .FALSE.
      VMS =  StabilizeFlag == 'vms'
 
-     Isotropic=GetString( GetMaterial(), 'Viscosity Model', Found )/='anisotropic'
+     Material => GetMaterial()
+     Isotropic=GetString( Material, 'Viscosity Model',ViscNonnewtonian )/='anisotropic'
      IF ( .NOT. Isotropic ) THEN
-       CALL ListGetRealArray( GetMaterial(), 'Viscosity', &
+       CALL ListGetRealArray( Material, 'Viscosity', &
             NodalC,n,Element % NodeIndexes,Found )
+     END IF
+
+     IF( ViscNonnewtonian ) THEN
+       ViscConstantCondition = GetCReal( Material, 'Newtonian Viscosity Condition',Found)
+       IF( Found .AND. ViscConstantCondition > 0.0_dp ) ViscNonnewtonian = .FALSE.
      END IF
 
 
@@ -243,7 +251,7 @@ MODULE NavierStokes
      END IF
 
      Compressible = Cmodel /= Incompressible
-     drhodp_n(1:n) = GetReal( GetMaterial(), 'drho/dp', drhodp_found )
+     drhodp_n(1:n) = GetReal( Material, 'drho/dp', drhodp_found )
 
      Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.(Vms .OR. Stabilize) .OR. Compressible ) THEN
@@ -481,11 +489,13 @@ MODULE NavierStokes
       IF ( isotropic ) THEN
         mu = SUM( Nodalmu(1:n) * Basis(1:n) )
 
-        mu = EffectiveViscosity( mu, rho, Ux, Uy, Uz, &
-            Element, Nodes, n, n, u, v, w,  muder0 )
+        IF( ViscNonnewtonian ) THEN
+          mu = EffectiveViscosity( mu, rho, Ux, Uy, Uz, &
+              Element, Nodes, n, n, u, v, w,  muder0 )
 
-        ViscNewtonLin = NewtonLinearization .AND. muder0/=0._dp
-        IF ( ViscNewtonLin )  Strain = (Grad+TRANSPOSE(Grad))/2
+          ViscNewtonLin = NewtonLinearization .AND. muder0/=0._dp
+          IF ( ViscNewtonLin )  Strain = (Grad+TRANSPOSE(Grad))/2
+        END IF
 
       ELSE
         DO i=1,6
