@@ -264,7 +264,9 @@ this ise not in USE
      Velo(2) = SUM( Basis(1:nd) * Uy(1:nd) )
      Velo(3) = SUM( Basis(1:nd) * Uz(1:nd) )
      
-     ss=SecondInvariant(Velo,dVelodx,Metric,Symb)/2
+     ! This is the square of shearrate which results to 1/2 in exponent 
+     ! Also the derivative is taken with respect to the square
+     ss = SecondInvariant(Velo,dVelodx,Metric,Symb)/2
 
      SELECT CASE( ViscosityFlag )
 
@@ -284,6 +286,13 @@ this ise not in USE
            END IF
          END IF
          mu = Viscosity * s**((c2-1)/2)
+
+         c4n = ListGetReal( Material, 'Nominal Shear Rate',n, Element % NodeIndexes,gotIt )
+         IF (GotIt) THEN
+           c4 = SUM( Basis(1:n) * c4n(1:n) )
+           mu = mu / c4**(c2-1)
+           IF (PRESENT(muder)) muder = muder / c4**(c2-1)
+         END IF
 
        CASE('power law too')
          c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
