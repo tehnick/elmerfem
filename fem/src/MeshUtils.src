@@ -6068,7 +6068,7 @@ CONTAINS
     CALL DetermineForbiddenNodes( )
     nsize = COUNT(.NOT. ForbiddenNodes) 
 
-    PRINT *,'Number of allowed Nodes:',nsize
+!   PRINT *,'Number of allowed Nodes:',nsize
 
 
     ! Find the center from the average of node positions
@@ -6109,7 +6109,7 @@ CONTAINS
     AveCoord(3) = Mesh % Nodes % z(k)
     
 
-    PRINT *,'AveCoord:',AveCoord
+!   PRINT *,'AveCoord:',AveCoord
 
     ! Parameters of the search
     !-----------------------------------------------------------
@@ -6238,7 +6238,7 @@ CONTAINS
       ! Mark all interface nodes as forbidden nodes
       !-----------------------------------------------
       IF( ParEnv % PEs > 1 ) THEN
-        ig => Solver % Matrix % ParallelInfo % Interface
+        ig => Solver % Mesh % ParallelInfo % Interface
         ForbiddenNodes = ig
       END IF
 
