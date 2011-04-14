@@ -548,7 +548,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION FetiSendRecvIf(A,f,b) RESULT(nLC)
+  FUNCTION FetiSendRecvIf(A,f,b,g,l_col) RESULT(nLC)
   !
   ! Extract interface values from partition vector b; send and
   ! receive  to/from neighbours.  Only 'owned' interface dofs
@@ -559,10 +559,13 @@ CONTAINS
     TYPE(Matrix_t) :: A
     INTEGER :: nLC
     REAL(KIND=dp) :: f(:),b(:)
+
+    integer,optional :: l_col(0:)
+    real(kind=dp),optional :: g(:,:)
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,m,p,q,n,sz,nrows,proc,lproc,totnLC=0
     TYPE(NeighbourList_t), POINTER :: nb(:)
-    LOGICAL :: Found
+    LOGICAL :: Found, Own
     INTEGER, POINTER :: gtags(:)
     LOGICAL, POINTER :: ig(:)
     INTEGER, ALLOCATABLE :: gdofs(:), ldofs(:), procs(:)
@@ -693,6 +696,7 @@ CONTAINS
 
     ! Extract send & receive dof values: 
     ! ----------------------------------
+
     toSend(:) % n=0
     DO i=1,ninterface
       l = lint(i)
@@ -724,6 +728,13 @@ CONTAINS
 
       DO j=Bmat % Rows(i), Bmat % Rows(i+1)-1
         IF (Bmat % Cols(j)==ParEnv % myPE) THEN
+          if (present(g)) then
+            ! store the B_me*R_me for G'G assembly,
+            ! if requested:
+            ! --------------------------------------
+            if ( l_col(0)>0 ) &
+              g(i,l_col(0))=g(i,l_col(0))+Bmat%values(j)*b(m)
+          end if
           F(i) = F(i) + Bmat % Values(j)*b(m); EXIT
         END IF
       END DO
@@ -749,6 +760,13 @@ CONTAINS
             DO m=1,sz-1
               DO k=Bmat % Rows(q+m),Bmat % Rows(q+m+1)-1
                 IF (Bmat % Cols(k)==gpnum(lproc)) THEN
+                  if(present(g)) then
+                    ! store the B_lproc*R_lproc for G'G assembly,
+                    ! if requested:
+                    ! --------------------------------------------
+                    if ( l_col(lproc)>0 ) &
+                      g(q+m,l_col(lproc))=g(q+m,l_col(lproc))+Bmat%values(k)*Fn(nLC)
+                  end if
                   F(q+m) = F(q+m) + Bmat % Values(k)*Fn(nLC); EXIT
                 END IF
               END DO
@@ -765,8 +783,8 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   ! The projection of the vector T to the set of feasible solutions
-  ! ortohonal to the null space of A, defined by the condition:
-  ! z^T(f-B^T\lamda) (OP=0, 'z' a.k.a. 'R'). Also handle the initial
+  ! orthogonal to the null space of A, defined by the condition:
+  ! z^T(f-B^T\lambda) (OP=0, 'z' a.k.a. 'R'). Also handle the initial
   ! guess and the final extraction of the L.C.'s \alpha related to the
   ! above condition (OP=1,2).
 !------------------------------------------------------------------------------
@@ -782,11 +800,210 @@ CONTAINS
     TYPE(matrix_t) :: A
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: S(n),err1
-    INTEGER :: nrows
+    INTEGER :: i,j,k,nlc,nrows
     REAL(KIND=dp),ALLOCATABLE :: x(:),b(:),P(:),Q(:)
+!------------------------------------------------------------------------------
+    integer :: ierr,stat(mpi_status_size),i0,i1,j0,j1,l_n,g_n, &
+            lwork,pneigh,comm,i_type,d_type,me,mactive
+    logical :: iterative, found
+    integer,allocatable :: l_nz(:),g_nz(:),l_col(:),g_col(:), & 
+                     ipiv(:),neighs(:)
+    real(kind=dp), allocatable :: l_g(:,:),l_gtg(:,:),work(:),g_gtg(:,:)
+
+    save :: g_nz,g_col,g_gtg,ipiv
+!------------------------------------------------------------------------------
 
     nrows = A % NumberOfRows
     ALLOCATE(x(nz),b(nz),P(nrows),Q(nrows));P=0; Q=0
+
+    iterative=getlogical(getsolverparams(), 'Feti CPG Projection Iterative', found)
+
+    if (.not.iterative) then
+      do mactive=0,parenv % pes-1
+        if ( parenv % active(mactive+1) ) exit
+      end do
+      me = parenv % mype
+
+      comm = mpi_comm_world
+      i_type = mpi_integer
+      d_type = mpi_double_precision
+
+      if (op==1) then
+        ! If not using CG, assemble and factorize the G'G matrix:
+        ! -------------------------------------------------------
+
+        ! first get the size of the ker(A_i)'s from the neighbours:
+        ! =========================================================
+        allocate(l_nz(0:nneigh))
+        do i=1,nneigh
+          call mpi_bsend(nz,1,i_type,gpnum(i),400,comm,ierr)
+        end do
+
+        do i=1,nneigh
+          call mpi_recv(l_nz(i),1,i_type,gpnum(i),400,comm,stat,ierr)
+        end do
+        l_nz(0)=nz
+        l_n=sum(l_nz)
+
+        ! Get the 'G' matrix rows corresponding to our set of interface
+        ! conditions (multiply by identity, and assemble the columns):
+        ! ================================================================
+
+        ! local sequential numbering for the \alpha's,
+        ! based on position in the neighbour tables:
+        ! ---------------------------------------------
+        allocate(l_col(0:nneigh+1),g_col(0:nneigh+1))
+        l_col(0)=1
+        do i=1,nneigh+1
+          l_col(i)=l_col(i-1)+l_nz(i-1)
+        end do
+        g_col=l_col  ! g_col used as a temporary below
+
+        ! do the assembly of the (local) 'G' matrix:
+        ! ------------------------------------------
+        allocate(l_g(n,l_n)); l_g=0
+        if (nz>0) x=0
+        do i=1,maxval(l_nz)
+          do j=0,nneigh
+            if (g_col(j)<=0.or.g_col(j)>=l_col(j+1)) g_col(j)=-1
+          end do
+          if (i<=nz) x(i)=1
+          if (nz>0) p=matmul(x,z)
+          nLC = FetiSendRecvIf(A,S,P,l_g,g_col)
+          call parallelactivebarrier()
+          g_col = g_col+1
+          if (i<=nz) x(i)=0
+        end do
+        deallocate(g_col) !
+
+        ! form local part of the G'G:
+        ! ============================
+        allocate(l_gtg(l_n,l_n));l_gtg=0
+        do i=0,nneigh
+          if (l_nz(i)<=0 ) CYCLE
+          i0=l_col(i)
+          i1=l_col(i+1)-1
+          do j=0,nneigh
+            if (l_nz(j)<=0 ) CYCLE
+            j0=l_col(j)
+            j1=l_col(j+1)-1
+            l_gtg(i0:i1,j0:j1) = l_gtg(i0:i1,j0:j1) + &
+               matmul(transpose(l_g(:,i0:i1)),l_g(:,j0:j1))
+          end do
+        end do
+
+        ! form global G'G:
+        ! =================
+        if (me/=mactive) then
+
+          ! send local G'G to 'mactive' task:
+          ! ----------------------------------
+          call mpi_bsend(nz,1,i_type,mactive,401,comm,ierr)
+          call mpi_bsend(nneigh,1,i_type,mactive,402,comm,ierr)
+          call mpi_bsend(gpnum,nneigh,i_type,mactive,403,comm,ierr)
+          call mpi_bsend(l_gtg,l_n**2,d_type,mactive,404,comm,ierr)
+
+        else ! me==mactive
+
+          ! Assemble whole of the G'G from the parts:
+          ! -----------------------------------------
+
+          ! get size of all the ker(A_i)'s:
+          ! -------------------------------
+          if (allocated(g_nz)) deallocate(g_nz)
+          allocate(g_nz(0:parenv % pes-1)); g_nz=0
+          g_nz(me)=nz
+          do i=0,parenv % pes-1
+            if ( i==me .or. .not. parenv % active(i+1)) cycle
+            call mpi_recv(g_nz(i),1,i_type,i,401,comm,stat,ierr)
+          end do
+
+          ! global sequential numbering for the \alpha's,
+          ! based on task id's:
+          ! ---------------------------------------------
+          if(allocated(g_col)) deallocate(g_col)
+          allocate(g_col(0:parenv % pes))
+          g_col(0)=1
+          do j=1,parenv % pes
+            g_col(j)=g_col(j-1)+g_nz(j-1)
+          end do
+          g_n=sum(g_nz)
+
+          ! Get storage for the (global) G'G:
+          ! ---------------------------------
+          if(allocated(g_gtg)) deallocate(g_gtg)
+          allocate(g_gtg(g_n,g_n)); g_gtg=0;
+
+          ! Assemble our own part...
+          ! ------------------------
+          allocate(neighs(0:nneigh))
+          neighs(0)=me; neighs(1:nneigh)=gpnum(1:nneigh)
+
+          do j=0,nneigh
+            if (g_nz(neighs(j))<=0) cycle
+            i0 = g_col(neighs(j))
+            i1 = g_col(neighs(j)+1)-1
+            do k=0,nneigh
+              if (g_nz(neighs(k))<=0) cycle
+              j0 = g_col(neighs(k))
+              j1 = g_col(neighs(k)+1)-1
+              g_gtg(i0:i1,j0:j1) = g_gtg(i0:i1,j0:j1) + &
+                  l_gtg(l_col(j):l_col(j+1)-1,l_col(k):l_col(k+1)-1)
+            end do
+          end do
+          deallocate(l_col,l_gtg,neighs)
+
+          ! ...and the rest of it:
+          ! ----------------------
+          do i=0,parenv % pes-1
+            if (i==me .or. .not. parenv % active(i+1)) cycle
+
+            call mpi_recv(pneigh,1,i_type,i,402,comm,stat,ierr)
+            allocate(neighs(0:pneigh))
+            neighs(0)=i
+            call mpi_recv(neighs(1:),pneigh,i_type,i,403,comm,stat,ierr)
+
+            l_n=sum(g_nz(neighs))
+            allocate(l_gtg(l_n,l_n))
+            call mpi_recv(l_gtg,l_n**2,d_type,i,404,comm,stat,ierr)
+
+            allocate(l_col(0:pneigh+1))
+            l_col(0)=1
+            do j=1,pneigh+1
+              l_col(j)=l_col(j-1)+g_nz(neighs(j-1))
+            end do
+
+            do j=0,pneigh
+              if (g_nz(neighs(j))<=0) cycle
+              i0 = g_col(neighs(j))
+              i1 = g_col(neighs(j)+1)-1
+              do k=0,pneigh
+                if (g_nz(neighs(k))<=0) cycle
+                j0 = g_col(neighs(k))
+                j1 = g_col(neighs(k)+1)-1
+                g_gtg(i0:i1,j0:j1) = g_gtg(i0:i1,j0:j1) + &
+                    l_gtg(l_col(j):l_col(j+1)-1,l_col(k):l_col(k+1)-1)
+              end do
+            end do
+            deallocate(l_col,l_gtg,neighs)
+          end do
+
+          !
+          ! Factorize the G'G, and we are done intializing:
+          ! -----------------------------------------------
+          if (allocated(ipiv)) deallocate(ipiv); allocate(ipiv(g_n));
+
+          allocate(work(1));
+          call dsytrf('u',g_n,g_gtg,g_n,ipiv,work,-1,ierr)
+          lwork=nint(work(1)); deallocate(work)
+
+          allocate(work(lwork));
+          call dsytrf('u',g_n,g_gtg,g_n,ipiv,work,lwork,ierr)    
+          deallocate(work)
+        end if ! task 'mactive' doing the factoring (and later, solving)
+      end if ! the first time G'G assembly and factorizing
+    end if ! direct solver setup
+
 
     IF (OP==1) THEN
       IF (nz>0) b=T(1:nz)
@@ -794,8 +1011,57 @@ CONTAINS
       CALL Gt(b,T)
     END IF
 
-    IF (nz>0) x=b
-    CALL FCG(nz,x,b)
+    !
+    ! Solve x from G'Gx = b:
+    ! -----------------------
+    if (iterative) then
+      IF (nz>0) x=b
+      CALL FCG(nz,x,b)
+    else
+      if (me==mactive) then
+
+        ! assemble the r.h.s. vector:
+        ! ---------------------------
+        g_n=size(g_gtg,1)
+        allocate(work(g_n)); work=0
+
+        if (nz>0) work(1:nz) = b
+        do i=0,parenv % pes-1
+          if (i==me .or. .not. parenv % active(i+1)) cycle
+          if (g_nz(i)>0) &
+            call mpi_recv(work(g_col(i):g_col(i+1)-1), g_nz(i), &
+                    d_type,i,405,comm,stat,ierr)
+        end do
+
+        ! solve x:
+        ! --------
+        call dsytrs('u',g_n,1,g_gtg,g_n,ipiv,work,g_n,ierr)
+
+        ! distribute the result:
+        ! ----------------------
+        do i=0,parenv % pes-1
+          if (i==me .or. .not. parenv % active(i+1)) cycle
+          if (g_nz(i)>0) &
+            call mpi_bsend(work(g_col(i):g_col(i+1)-1), &
+                  g_nz(i),d_type,i,406,comm,ierr)
+        end do
+
+        ! finally my own part:
+        ! --------------------
+        if (nz>0) x(1:nz)=work(1:nz)
+      else
+        ! send r.h.s:
+        ! -----------
+         if (nz>0) &
+           call mpi_bsend(b,nz,d_type,mactive,405,comm,ierr)
+
+        ! receive result:
+        ! --------------
+         if (nz>0) &
+           call mpi_recv(x,nz,d_type,mactive,406,comm,stat,ierr)
+      endif
+      call parallelactivebarrier()
+    endif
 
     IF (OP==2) THEN
       T(1:nz)=x
@@ -929,7 +1195,7 @@ END SUBROUTINE FetiProject
     Restart = GetInteger( Params,'Linear System CPG Restart', Found)
     TOL     = GetConstReal( Params,'Linear System Convergence Tolerance')
 
-    bnorm = SparNorm(n,b,1)
+    bnorm = normfun(n,b,1)
     IF ( bnorm==0 ) THEN
       x=0; RETURN;
     END IF
@@ -938,14 +1204,14 @@ END SUBROUTINE FetiProject
 
     x(1:n)=0
     IF (nz>0) x(1:nz)=MATMUL(z,f)
-    CALL FetiProject(A,n,x,OP=1,TOL=1d-9)
+    CALL FetiProject(A,n,x,OP=1,TOL=1d-12)
 
     HUTI_NDIM=n
     bnorm = normfun(n,b,1)
 
     CALL matvecsubr(x(1:n),T,ipar)
     Ri = -(T - b(1:n))
-    CALL FetiProject(A,n,Ri,OP=0,TOL=1d-9)
+    CALL FetiProject(A,n,Ri,OP=0,TOL=1d-12)
 
     err0 = normfun(n,Ri,1)
     IF (err0<TOL) RETURN
@@ -953,7 +1219,7 @@ END SUBROUTINE FetiProject
     IF ( output /= 0 .AND. ParEnv % MyPE==0 ) THEN
       PRINT*,' '
       PRINT*,'         iter     |ax-b|                    |ax-b|/b';
-      PRINT*,'-------------------------------------------------';flush(6)
+      PRINT*,'      --------------------------------------------------';flush(6)
     END IF
 
     IF (Restart>0) THEN
@@ -967,7 +1233,7 @@ END SUBROUTINE FetiProject
 
        IF (Precondition) THEN
          CALL precsubr(T,Ri,ipar)
-         CALL FetiProject(A,n,T,OP=0,TOL=1d-9)
+         CALL FetiProject(A,n,T,OP=0,TOL=1d-12)
        ELSE
          T=Ri
        END  IF
@@ -999,7 +1265,7 @@ END SUBROUTINE FetiProject
        alpha = rho / dotprodfun(n,S,1,T,1)
        x(1:n) = x(1:n) + alpha*S
 
-       CALL FetiProject(A,n,T,OP=0,TOL=1d-9)
+       CALL FetiProject(A,n,T,OP=0,TOL=1d-12)
        Ri = Ri - alpha*T
 
        err0 = normfun(n,Ri,1)
@@ -1015,7 +1281,7 @@ END SUBROUTINE FetiProject
 
     CALL matvecsubr(x(1:n),T,ipar)
     T = -(T-b(1:n))
-    CALL FetiProject(A,n,T,OP=2,TOL=1d-9)
+    CALL FetiProject(A,n,T,OP=2,TOL=1d-12)
     IF (nz>0) x(n+1:n+nz) = T(1:nz)
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiCPG
@@ -1039,11 +1305,14 @@ END SUBROUTINE FetiProject
     INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(6)
     REAL(KIND=dp), POINTER :: coord_x(:),coord_y(:),coord_z(:), dscale(:)
     LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
     INTEGER, ALLOCATABLE :: floatinds(:)
     CHARACTER(MAX_NAME_LEN) :: Method
     COMPLEX(KIND=dp) :: EigValues(maxnz)
     COMPLEX(KIND=dp), ALLOCATABLE :: EigVectors(:,:)
 !------------------------------------------------------------------------------
+
+    Params => GetSolverParams()
 
     dofs = Solver % Variable % DOFs
     n = A % NumberOfRows
@@ -1056,11 +1325,7 @@ END SUBROUTINE FetiProject
 
     dim = CoordinateSystemDimension()
 
-    CALL FindRigidBodyFixingNodes( Solver, FixNodes, &
-             Solver % Variable % Perm)
-
     NullSpaceLC=.TRUE.
-
     IF(dofs==1) THEN
       !
       ! For Poisson, check if 1 in null space:
@@ -1068,6 +1333,7 @@ END SUBROUTINE FetiProject
 
       m =  Solver % Mesh % NumberOfNodes
       p => Solver % Variable % Perm
+      CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
 
       ! constant 1 (complications due to p-elements):
       ! ---------------------------------------------
@@ -1091,11 +1357,14 @@ END SUBROUTINE FetiProject
 
       NullSpaceLC=.FALSE.
       RETURN
-    ELSE IF (GetLogical(GetSolverParams(),'Feti rot-trans',Found)) THEN
-      NullSpaceLC=.FALSE.
+    ELSE IF (GetLogical(Params,'Feti rot-trans',Found)) THEN
+      !
+      ! If requested, make null(A) using basic translations and rotations:
+      ! ------------------------------------------------------------------
 
       m =  Solver % Mesh % NumberOfNodes
       p => Solver % Variable % Perm
+      CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
 
       coord_x => Solver % Mesh % Nodes % x
       coord_y => Solver % Mesh % Nodes % y
@@ -1105,7 +1374,7 @@ END SUBROUTINE FetiProject
       IF (dim==3) nz=dofs+dim
       ALLOCATE(tz(nz,n)); tz=0
 
-      DO i=1,m
+      DO i=1,m                   ! translations and potential levels
         IF (p(i) <= 0) CYCLE
         DO j=1,dofs
           k=dofs*(p(i)-1)+j
@@ -1116,14 +1385,14 @@ END SUBROUTINE FetiProject
       DO i=1,m
         IF (p(i) <= 0) CYCLE
         j=dofs*(p(i)-1)
-        tz(dofs+1,j+1) = -coord_y(i)  / dscale(j+1)
+        tz(dofs+1,j+1) = -coord_y(i)  / dscale(j+1)  ! rot about z
         tz(dofs+1,j+2) =  coord_x(i)  / dscale(j+2)
 
-        IF (dofs>=3) THEN
-          tz(dofs+2,j+2) = -coord_z(i) / dscale(j+2)
+        IF (dim>=3) THEN
+          tz(dofs+2,j+2) = -coord_z(i) / dscale(j+2) ! rot about x
           tz(dofs+2,j+3) =  coord_y(i) / dscale(j+3)
 
-          tz(dofs+3,j+1) =  coord_z(i) / dscale(j+1)
+          tz(dofs+3,j+1) =  coord_z(i) / dscale(j+1) ! rot about y
           tz(dofs+3,j+3) = -coord_x(i) / dscale(j+3)
         END IF
       END DO
@@ -1131,7 +1400,7 @@ END SUBROUTINE FetiProject
 
       ALLOCATE(x(n),floatinds(nz))
 
-      ! Check which of the translations and rotations & potential
+      ! Check which of the translations & rotations & potential
       ! levels are free:
       ! ---------------------------------------------------------
       j=nz
@@ -1146,9 +1415,8 @@ END SUBROUTINE FetiProject
      
       ! Set the DOFs to fix at FixNodes() nodes:
       ! ----------------------------------------
-      IF (nz<=0) THEN
-        DEALLOCATE(tz);
-      ELSE
+      Floating=nz>0
+      IF (Floating) THEN
         DO i=1,nz
           IF (FloatInds(i)<=dim) THEN  ! x-y-z translation
             FixInds(i) = dofs*(p(FixNodes(2*i-1))-1)+FloatInds(i)
@@ -1165,8 +1433,6 @@ END SUBROUTINE FetiProject
         ALLOCATE(z(nz,n))
         z = tz(floatinds(1:nz),:)
       END IF
-
-      Floating=nz>0
       NullSpaceLC=.FALSE.
       RETURN
     END IF
@@ -1181,51 +1447,46 @@ END SUBROUTINE FetiProject
       Neigs=8
     END IF
 
-    ! use identity as 'mass':
-    ! -----------------------
-    ALLOCATE(A % MassValues(SIZE(A % Values)))
-    ALLOCATE(eigVectors(Neigs,n))
-    A % MassValues = 0._dp
-    A % MassValues(A % Diag) = 1._dp
 
     ! Solution of few lowest eigenmodes:
     ! ----------------------------------
-    method = ListGetString( GetSolverParams(), &
-           'Linear System Direct Method', Found )
+    ALLOCATE(eigVectors(Neigs,n))
+      
+    method = ListGetString( Params, 'Linear System Direct Method', Found )
+    CALL ListAddString( Params, 'Linear System Direct Method', 'umfpack' )
 
-   CALL ListAddString( GetSolverParams(), &
-           'Linear System Direct Method', 'umfpack' )
+    CALL ListAddString( Params, 'Linear System Solver', 'Direct' )
+    CALL ListAddConstReal( Params, &
+               'Eigen System Convergence Tolerance', TOL/100._dp )
 
-    CALL ListAddString( GetSolverParams(), &
-           'Linear System Solver', 'Direct' )
+    ALLOCATE(A % MassValues(SIZE(A % Values)))
+    A % MassValues=0
+    IF (ASSOCIATED(A % DiagScaling)) THEN
+      A % Massvalues(A % Diag)=1/A % DiagScaling
+    ELSE
+      A % Massvalues(A % Diag)=1
+    END IF
+    CALL ArpackEigenSolve(Solver,A,n,NEigs,EigValues,EigVectors)
+    DEALLOCATE(A % MassValues)
 
-    CALL ListAddConstReal( GetSolverParams(), &
-           'Eigen System Convergence Tolerance', TOL/100._dp )
-
-    CALL ArpackEigenSolve(Solver, A, n, neigs, EigValues, EigVectors)
-
-   CALL ListAddString( GetSolverParams(), &
-           'Linear System Direct Method', method )
-
-    CALL ListAddString( GetSolverParams(), &
-           'Linear System Solver', 'Feti' )
+    CALL ListAddString( Params, 'Linear System Solver', 'Feti' )
+    CALL ListAddString( Params, 'Linear System Direct Method', method )
 
     ! Delete factorization as we can't use the same factorization within FETI:
     ! ------------------------------------------------------------------------
     CALL DirectSolver(A,x,x,Solver,Free_Fact=.TRUE.)
 
-    !
     ! Finally create null(A) from zero freq. eigenvectors:
     ! ----------------------------------------------------
     DO nz=0,neigs-1
-      IF (ABS(EigValues(nz+1))>1000*AEPS) EXIT
+      IF (ABS(EigValues(nz+1))>100*AEPS) EXIT
     END DO
 
     IF (nz>0) THEN
       ALLOCATE(z(nz,n))
       z(1:nz,:) = REAL(EigVectors(1:nz,:))
     END IF
-    DEALLOCATE(EigVectors, A % MassValues)
+    DEALLOCATE(EigVectors)
 
     Floating = nz>0
 !------------------------------------------------------------------------------
@@ -1234,7 +1495,8 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-! Solve x from [A z^T; z 0] [x; \lambda] = [b 0] (pseudoinverse solution)
+! Solve x from [A z^T; z 0] [x; \lambda] = [b 0]
+!  or A x  = b, depending on how the system is set up.
 !------------------------------------------------------------------------------
   SUBROUTINE FetiDirectSolver(A,x,b,Solver)
 !------------------------------------------------------------------------------
@@ -1376,7 +1638,7 @@ END SUBROUTINE FetiProject
         ! Fix z=null(A) with Dirichlet conditions on degrees
         ! of freedom given by FloatingDomain():
         ! ---------------------------------------------------
-        ALLOCATE(A % rows(n+1))
+        ALLOCATE(A % Rows(n+1))
         k=SIZE(A % Values/=0)
         ALLOCATE(A % Cols(k), A % Values(k))
 
@@ -1397,17 +1659,8 @@ END SUBROUTINE FetiProject
     x = -x
     nLC = FetiSendRecvIf(A,y,x)
 
-    ! factorizing done & stored, switch back to original system:
-    ! ----------------------------------------------------------
-    IF (Floating) THEN
-      DEALLOCATE(A % Values,A % Rows, A % Cols)
-      A % Values => SaveValues
-      A % Rows => SaveRows
-      A % Cols => SaveCols
-    END IF
-
-    ! add Dirichlet BC contribution to the r.h.s:
-    ! -------------------------------------------
+    ! add Dirichlet BC contribution to the r.h.s, if using Total FETI:
+    ! ----------------------------------------------------------------
     IF (TotalFeti) y(1:nLC)=y(1:nLC)+Bmat % RHS(1:nLC)
 
     ! Add Lagrange coefficient(s) for the projection condition
@@ -1435,7 +1688,7 @@ END SUBROUTINE FetiProject
       dotProc=AddrFunc(SParDotProd)
 
       CALL IterSolver(A,x,y,Solver,ndim=nLC,DotF=dotProc, &
-            NormF=nrmProc, MatvecF=mvProc, precF=precProc ) ! , stopcF=stopcProc )
+          NormF=nrmProc, MatvecF=mvProc, precF=precProc )
     END IF
 
     ! Solve primary unknowns using L.C.'s:
@@ -1456,6 +1709,11 @@ END SUBROUTINE FetiProject
     IF (Floating) THEN
       x = x + MATMUL(alpha(1:nz),z)
       DEALLOCATE(z)
+
+      DEALLOCATE(A % Values,A % Rows, A % Cols)
+      A % Rows => SaveRows
+      A % Cols => SaveCols
+      A % Values => SaveValues
     END IF
 
     IF ( SaveRefactorize ) THEN
@@ -1586,7 +1844,7 @@ END SUBROUTINE FetiProject
      ! ---------------------
      call FetiMV(lx,llx,ipar)
      llx=-(llx-lb)
-     CALL FetiProject(A,HUTI_NDIM,llx,OP=2,TOL=1d-9)
+     CALL FetiProject(A,HUTI_NDIM,llx,OP=2,TOL=1d-12)
 
      IF (nz>0) THEN
        x = x + MATMUL(llx(1:nz),z)
