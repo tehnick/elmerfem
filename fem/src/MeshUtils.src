@@ -6238,8 +6238,8 @@ CONTAINS
       ! Mark all interface nodes as forbidden nodes
       !-----------------------------------------------
       IF( ParEnv % PEs > 1 ) THEN
-        ig => Solver % Mesh % ParallelInfo % Interface
-        ForbiddenNodes = ig
+        ig => Mesh % ParallelInfo % Interface
+        ForbiddenNodes = ig(1:Mesh % NumberOfNodes)
       END IF
 
       ! Mark all nodes on boundary elements as forbidden nodes
@@ -6247,7 +6247,7 @@ CONTAINS
       DO t=Mesh % NumberOfBulkElements + 1, &
           Mesh % NumberOfBoundaryElements + Mesh % NumberOfBulkElements
 
-        Element => Solver % Mesh % Elements( t )
+        Element => Mesh % Elements( t )
         ForbiddenNodes( Element % NodeIndexes ) = .TRUE.
       END DO
 
