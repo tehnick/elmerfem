@@ -802,7 +802,7 @@ CONTAINS
     TYPE(matrix_t) :: A
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: S(n),err1
-    INTEGER :: i,j,k,nlc,nrows
+    INTEGER :: i,j,k,l,nlc,nrows
     REAL(KIND=dp),ALLOCATABLE :: x(:),b(:),P(:),Q(:)
 !------------------------------------------------------------------------------
     integer :: ierr,stat(mpi_status_size),i0,i1,j0,j1,l_n,g_n, &
@@ -833,11 +833,11 @@ CONTAINS
         ! If not using CG, assemble and factorize the G'G matrix:
         !
         ! NOTE for further development: Instead of using one task to do the
-        ! assembling, factorizing & solving we could use parallel direct
-        ! solvers, like SCALAPACK or, for example, MUMPS. Should not be such
-        ! a big deal. This might be favorable, even necessary, when using
+        ! assembling, factorizing & solving we could use parallel Cholesky
+        ! factorization from SCALAPACK or, for example, MUMPS. Should not be
+        ! such a big deal. This might be favorable, even necessary, when using
         ! (tens of) thousands of mpi tasks ...
-        ! -------------------------------------------------------------------
+        ! --------------------------------------------------------------------
 
         ! -------------------------------------------------------
 
@@ -874,24 +874,25 @@ CONTAINS
         allocate(l_g(n,l_n)); l_g=0
         if (nz>0) x=0
         do i=1,maxnz
-          ! have we already consumed some set of alpha's
-          ! (own or neighbours):
-          ! --------------------------------------------
+          ! have we already consumed some set of \alpha's
+          ! (own or neighbours)?
+          ! ---------------------------------------------
           do j=0,nneigh
             if (g_i(j)<=0.or.g_i(j)>=l_i(j+1)) g_i(j)=-1
           end do
 
           if (i<=nz) x(i)=1
           if (nz>0) p=matmul(x,z)
-          nLC = FetiSendRecvIf(A,S,P,l_g,g_i)
-          g_i = g_i+1
           if (i<=nz) x(i)=0
 
-          ! Seems necessary to slow some quys down. Note that
+          nLC = FetiSendRecvIf(A,S,P,l_g,g_i)
+          g_i = g_i+1
+
+          ! Seems necessary to slow some guys down. Note that
           ! everybody needs to iterate the same amount due to
           ! this, hence the overall max for the loopcount
-          ! above). Could check if this is really necessary...
-          ! well, maybe sometime....
+          ! above. Could check if this is really necessary...
+          ! well, maybe someone, sometime....
           ! --------------------------------------------------
           call parallelactivebarrier()
         end do
@@ -979,10 +980,10 @@ CONTAINS
 
           ! ...and the rest of it:
           ! ----------------------
-          do i=0,parenv % pes-1
-            if (i==me .or. .not. parenv % active(i+1)) cycle
+          do l=1,count(parenv % active)-1 ! -1 to count 'me' out
+            call mpi_recv(pneigh,1,i_type,mpi_any_source,402,comm,stat,ierr)
+            i=stat(mpi_source)
 
-            call mpi_recv(pneigh,1,i_type,i,402,comm,stat,ierr)
             allocate(neighs(0:pneigh))
             neighs(0)=i
             call mpi_recv(neighs(1:),pneigh,i_type,i,403,comm,stat,ierr)
@@ -1062,7 +1063,7 @@ CONTAINS
           if (i==me .or. .not. parenv % active(i+1)) cycle
           if (g_nz(i)>0) &
             call mpi_bsend(work(g_i(i):g_i(i+1)-1), &
-                  g_nz(i),d_type,i,406,comm,ierr)
+                 g_nz(i),d_type,i,406,comm,ierr)
         end do
 
         ! finally my own part:
@@ -1096,92 +1097,90 @@ CONTAINS
 CONTAINS
 
 !------------------------------------------------------------------------------
-     SUBROUTINE GtG(u,v)
+  SUBROUTINE GtG(u,v)
 !------------------------------------------------------------------------------
-       INTEGER :: nlc
-       REAL(KIND=dp) :: u(:),v(:)
+    INTEGER :: nlc
+    REAL(KIND=dp) :: u(:),v(:)
 
-       IF (nz>0) P=MATMUL(u,z)
-       nlc = FetiSendRecvIf(A,S,P)
+    IF (nz>0) P=MATMUL(u,z)
+    nlc = FetiSendRecvIf(A,S,P)
 
-       CALL FetiSendRecvLC(A,Q,S)
-       IF (nz>0) v = MATMUL(z,Q)
+    CALL FetiSendRecvLC(A,Q,S)
+    IF (nz>0) v = MATMUL(z,Q)
 !------------------------------------------------------------------------------
-     END SUBROUTINE GtG
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-     SUBROUTINE Gt(v,u)
-!------------------------------------------------------------------------------
-       REAL(KIND=dp) ::v(:),u(:)
-
-       CALL FetiSendRecvLC(A,Q,u)
-       IF (nz>0) v = MATMUL(z,Q)
-!------------------------------------------------------------------------------
-     END SUBROUTINE Gt
+  END SUBROUTINE GtG
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE G(u,v)
+  SUBROUTINE Gt(v,u)
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: u(:),v(:)
-      INTEGER :: n
+    REAL(KIND=dp) ::v(:),u(:)
 
-      IF (nz>0) P=MATMUL(u,z)
-      n = FetiSendRecvIf(A,v,P)
+    CALL FetiSendRecvLC(A,Q,u)
+    IF (nz>0) v = MATMUL(z,Q)
 !------------------------------------------------------------------------------
-    END SUBROUTINE G
+  END SUBROUTINE Gt
 !------------------------------------------------------------------------------
 
-
-!------------------------------------------------------------------------------
-    SUBROUTINE FCG(n,x,b)
-!------------------------------------------------------------------------------
-      INTEGER :: n
-      REAL(KIND=dp) :: x(:),b(:)
-!------------------------------------------------------------------------------
-      REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err
-      INTEGER :: iter
-      REAL(KIND=dp) :: Ri(n),S(n),T(n)
 
 !------------------------------------------------------------------------------
-      bnorm = SparNorm(n,b,1)
-      IF ( bnorm==0 ) THEN
-        x=0; RETURN;
+  SUBROUTINE G(u,v)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: u(:),v(:)
+    INTEGER :: n
+
+    IF (nz>0) P=MATMUL(u,z)
+    n = FetiSendRecvIf(A,v,P)
+!------------------------------------------------------------------------------
+  END SUBROUTINE G
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE FCG(n,x,b)
+!------------------------------------------------------------------------------
+    INTEGER :: n
+    REAL(KIND=dp) :: x(:),b(:)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: beta,alpha,rho,prevrho,bnorm,err
+    INTEGER :: iter
+    REAL(KIND=dp) :: Ri(n),S(n),T(n)
+!------------------------------------------------------------------------------
+    bnorm = SparNorm(n,b,1)
+    IF ( bnorm==0 ) THEN
+      x=0; RETURN;
+    END IF
+
+    CALL GtG(x,T)
+    Ri = -(T - b)
+
+    err = SparNorm(n,Ri,1)
+    IF (err<TOL) RETURN
+
+    beta=0._dp
+    DO iter=1,500
+      rho = SparDotProd(n,Ri,1,Ri,1)
+      IF (iter==1) THEN
+        S = Ri
+      ELSE
+        beta = rho/prevrho
+        S = Ri + beta*S
       END IF
+      prevrho = rho
 
-      CALL GtG(x,T)
-      Ri = -(T - b)
+      CALL GtG(S,T)
+      alpha = rho/SparDotProd(n,S,1,T,1)
+      x = x + alpha*S
 
+      Ri = Ri - alpha*T
       err = SparNorm(n,Ri,1)
-      IF (err<TOL) RETURN
-
-      beta=0._dp
-      DO iter=1,500
-        rho = SparDotProd(n,Ri,1,Ri,1)
-        IF (iter==1) THEN
-          S = Ri
-        ELSE
-          beta = rho/prevrho
-          S = Ri + beta*S
-        END IF
-        prevrho = rho
-
-        CALL GtG(S,T)
-        alpha = rho/SparDotProd(n,S,1,T,1)
-        x = x + alpha*S
-
-        Ri = Ri - alpha*T
-        err = SparNorm(n,Ri,1)
-        IF (err<TOL) EXIT
-      END DO
-      IF ( Parenv % MyPE==0 .AND.  err>=TOL ) print*,'fcg not converged',err
+      IF (err<TOL) EXIT
+    END DO
+    IF ( Parenv % MyPE==0 .AND.  err>=TOL ) print*,'fcg not converged',err
 !------------------------------------------------------------------------------
-    END SUBROUTINE FCG
+  END SUBROUTINE FCG
 !------------------------------------------------------------------------------
-
 !------------------------------------------------------------------------------
 END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
@@ -1421,7 +1420,7 @@ END SUBROUTINE FetiProject
 
       ! Check which of the translations & rotations & potential
       ! levels are free:
-      ! ---------------------------------------------------------
+      ! --------------------------------------------------------
       j=nz
       nz=0
       DO i=1,j
@@ -1438,7 +1437,7 @@ END SUBROUTINE FetiProject
       IF (Floating) THEN
         DO i=1,nz
           IF (FloatInds(i)<=dim) THEN  ! x-y-z translation
-            FixInds(i) = dofs*(p(FixNodes(2*i-1))-1)+FloatInds(i)
+            FixInds(i) = dofs*(p(FixNodes(2*FloatInds(i)-1))-1)+FloatInds(i)
           ELSE IF (FloatInds(i)==dofs+1) THEN ! rot 'bout z
             FixInds(i) = dofs*(p(FixNodes(4))-1)+1
           ELSE IF (FloatInds(i)==dofs+2) THEN ! rot 'bout x
