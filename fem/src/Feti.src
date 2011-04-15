@@ -451,7 +451,7 @@ CONTAINS
         val = Bmat % Values(j) * b(i)
         IF ( Bmat % Cols(j) == ParEnv % MyPE ) THEN
           F(m) = F(m) + val
-        ELSE IF ( l<=SIZE(lint)) THEN
+        ELSE IF (l>0) THEN
           ! fill send buffer position of LC for DOF l (or m):
           ! -------------------------------------------------
           lproc = lpnum(Bmat % Cols(j))
@@ -1606,8 +1606,8 @@ END SUBROUTINE FetiProject
 !   y=b
 !   CALL ParallelInitSolve(A,x,y,y)
 
-    ! Check for floating domains, initialize null space z (a.k.a R):
-    ! --------------------------------------------------------------
+    ! Check for floating domains, initialize null space z (a.k.a. R):
+    ! ---------------------------------------------------------------
     Floating = FetiFloatingDomain(A,Solver,FixInds,TOL)
 
     IF (Floating) THEN
