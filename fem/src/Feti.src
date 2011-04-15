@@ -548,7 +548,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION FetiSendRecvIf(A,f,b,g,l_col) RESULT(nLC)
+  FUNCTION FetiSendRecvIf(A,f,b,g,l_i) RESULT(nLC)
   !
   ! Extract interface values from partition vector b; send and
   ! receive  to/from neighbours.  Only 'owned' interface dofs
@@ -560,7 +560,7 @@ CONTAINS
     INTEGER :: nLC
     REAL(KIND=dp) :: f(:),b(:)
 
-    integer,optional :: l_col(0:)
+    integer,optional :: l_i(0:)
     real(kind=dp),optional :: g(:,:)
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,m,p,q,n,sz,nrows,proc,lproc,totnLC=0
@@ -657,14 +657,16 @@ CONTAINS
             ! u_3 = (u_1+u_2)/2,
             ! u_4 = (u_1+u_2+u_3)/3
             !         ....
+            ! (also normalized below...)
             ! -----------------------------------------------------
             Bmat % Perm(nLC) = i
+            val = 1._dp/(j*SQRT(1+(1._dp/j)**2))
             DO m=1,j
               proc = nb(p) % Neighbours(m)
-              CALL SetMatrixElement(Bmat,nLC,proc,1._dp/(1._dp*j))
+              CALL SetMatrixElement(Bmat,nLC,proc,val)
             END DO
             proc = nb(p) % Neighbours(j+1)
-            CALL SetMatrixElement(Bmat,nLC,proc,-1._dp)
+            CALL SetMatrixElement(Bmat,nLC,proc,-j*val)
           END DO
         ELSE
           lproc = lpnum(proc)
@@ -732,8 +734,8 @@ CONTAINS
             ! store the B_me*R_me for G'G assembly,
             ! if requested:
             ! --------------------------------------
-            if ( l_col(0)>0 ) &
-              g(i,l_col(0))=g(i,l_col(0))+Bmat%values(j)*b(m)
+            if ( l_i(0)>0 ) &
+              g(i,l_i(0))=g(i,l_i(0))+Bmat%values(j)*b(m)
           end if
           F(i) = F(i) + Bmat % Values(j)*b(m); EXIT
         END IF
@@ -764,8 +766,8 @@ CONTAINS
                     ! store the B_lproc*R_lproc for G'G assembly,
                     ! if requested:
                     ! --------------------------------------------
-                    if ( l_col(lproc)>0 ) &
-                      g(q+m,l_col(lproc))=g(q+m,l_col(lproc))+Bmat%values(k)*Fn(nLC)
+                    if ( l_i(lproc)>0 ) &
+                      g(q+m,l_i(lproc))=g(q+m,l_i(lproc))+Bmat%values(k)*Fn(nLC)
                   end if
                   F(q+m) = F(q+m) + Bmat % Values(k)*Fn(nLC); EXIT
                 END IF
@@ -804,13 +806,12 @@ CONTAINS
     REAL(KIND=dp),ALLOCATABLE :: x(:),b(:),P(:),Q(:)
 !------------------------------------------------------------------------------
     integer :: ierr,stat(mpi_status_size),i0,i1,j0,j1,l_n,g_n, &
-            lwork,pneigh,comm,i_type,d_type,me,mactive
+          pneigh,comm,i_type,d_type,me,mactive,maxnz
     logical :: iterative, found
-    integer,allocatable :: l_nz(:),g_nz(:),l_col(:),g_col(:), & 
-                     ipiv(:),neighs(:)
+    integer,allocatable :: l_nz(:),g_nz(:),l_i(:),g_i(:),neighs(:)
     real(kind=dp), allocatable :: l_g(:,:),l_gtg(:,:),work(:),g_gtg(:,:)
 
-    save :: g_nz,g_col,g_gtg,ipiv
+    save :: g_nz,g_i,g_gtg
 !------------------------------------------------------------------------------
 
     nrows = A % NumberOfRows
@@ -830,15 +831,23 @@ CONTAINS
 
       if (op==1) then
         ! If not using CG, assemble and factorize the G'G matrix:
+        !
+        ! NOTE for further development: Instead of using one task to do the
+        ! assembling, factorizing & solving we could use parallel direct
+        ! solvers, like SCALAPACK or, for example, MUMPS. Should not be such
+        ! a big deal. This might be favorable, even necessary, when using
+        ! (tens of) thousands of mpi tasks ...
+        ! -------------------------------------------------------------------
+
         ! -------------------------------------------------------
 
         ! first get the size of the ker(A_i)'s from the neighbours:
         ! =========================================================
-        allocate(l_nz(0:nneigh))
         do i=1,nneigh
           call mpi_bsend(nz,1,i_type,gpnum(i),400,comm,ierr)
         end do
 
+        allocate(l_nz(0:nneigh))
         do i=1,nneigh
           call mpi_recv(l_nz(i),1,i_type,gpnum(i),400,comm,stat,ierr)
         end do
@@ -852,45 +861,59 @@ CONTAINS
         ! local sequential numbering for the \alpha's,
         ! based on position in the neighbour tables:
         ! ---------------------------------------------
-        allocate(l_col(0:nneigh+1),g_col(0:nneigh+1))
-        l_col(0)=1
+        allocate(l_i(0:nneigh+1),g_i(0:nneigh+1))
+        l_i(0)=1
         do i=1,nneigh+1
-          l_col(i)=l_col(i-1)+l_nz(i-1)
+          l_i(i)=l_i(i-1)+l_nz(i-1)
         end do
-        g_col=l_col  ! g_col used as a temporary below
+        g_i=l_i  ! g_i used as a temporary below
 
         ! do the assembly of the (local) 'G' matrix:
         ! ------------------------------------------
+        maxnz = parallelreduction(1._dp*maxval(l_nz),2)
         allocate(l_g(n,l_n)); l_g=0
         if (nz>0) x=0
-        do i=1,maxval(l_nz)
+        do i=1,maxnz
+          ! have we already consumed some set of alpha's
+          ! (own or neighbours):
+          ! --------------------------------------------
           do j=0,nneigh
-            if (g_col(j)<=0.or.g_col(j)>=l_col(j+1)) g_col(j)=-1
+            if (g_i(j)<=0.or.g_i(j)>=l_i(j+1)) g_i(j)=-1
           end do
+
           if (i<=nz) x(i)=1
           if (nz>0) p=matmul(x,z)
-          nLC = FetiSendRecvIf(A,S,P,l_g,g_col)
-          call parallelactivebarrier()
-          g_col = g_col+1
+          nLC = FetiSendRecvIf(A,S,P,l_g,g_i)
+          g_i = g_i+1
           if (i<=nz) x(i)=0
+
+          ! Seems necessary to slow some quys down. Note that
+          ! everybody needs to iterate the same amount due to
+          ! this, hence the overall max for the loopcount
+          ! above). Could check if this is really necessary...
+          ! well, maybe sometime....
+          ! --------------------------------------------------
+          call parallelactivebarrier()
         end do
-        deallocate(g_col) !
+        deallocate(g_i) !
 
         ! form local part of the G'G:
         ! ============================
         allocate(l_gtg(l_n,l_n));l_gtg=0
         do i=0,nneigh
           if (l_nz(i)<=0 ) CYCLE
-          i0=l_col(i)
-          i1=l_col(i+1)-1
+          i0=l_i(i)
+          i1=l_i(i+1)-1
           do j=0,nneigh
             if (l_nz(j)<=0 ) CYCLE
-            j0=l_col(j)
-            j1=l_col(j+1)-1
+            j0=l_i(j)
+            j1=l_i(j+1)-1
             l_gtg(i0:i1,j0:j1) = l_gtg(i0:i1,j0:j1) + &
                matmul(transpose(l_g(:,i0:i1)),l_g(:,j0:j1))
           end do
         end do
+        deallocate(l_g)
+
 
         ! form global G'G:
         ! =================
@@ -902,6 +925,7 @@ CONTAINS
           call mpi_bsend(nneigh,1,i_type,mactive,402,comm,ierr)
           call mpi_bsend(gpnum,nneigh,i_type,mactive,403,comm,ierr)
           call mpi_bsend(l_gtg,l_n**2,d_type,mactive,404,comm,ierr)
+          deallocate(l_gtg, l_i, l_nz)
 
         else ! me==mactive
 
@@ -921,11 +945,11 @@ CONTAINS
           ! global sequential numbering for the \alpha's,
           ! based on task id's:
           ! ---------------------------------------------
-          if(allocated(g_col)) deallocate(g_col)
-          allocate(g_col(0:parenv % pes))
-          g_col(0)=1
+          if(allocated(g_i)) deallocate(g_i)
+          allocate(g_i(0:parenv % pes))
+          g_i(0)=1
           do j=1,parenv % pes
-            g_col(j)=g_col(j-1)+g_nz(j-1)
+            g_i(j)=g_i(j-1)+g_nz(j-1)
           end do
           g_n=sum(g_nz)
 
@@ -941,17 +965,17 @@ CONTAINS
 
           do j=0,nneigh
             if (g_nz(neighs(j))<=0) cycle
-            i0 = g_col(neighs(j))
-            i1 = g_col(neighs(j)+1)-1
+            i0 = g_i(neighs(j))
+            i1 = g_i(neighs(j)+1)-1
             do k=0,nneigh
               if (g_nz(neighs(k))<=0) cycle
-              j0 = g_col(neighs(k))
-              j1 = g_col(neighs(k)+1)-1
+              j0 = g_i(neighs(k))
+              j1 = g_i(neighs(k)+1)-1
               g_gtg(i0:i1,j0:j1) = g_gtg(i0:i1,j0:j1) + &
-                  l_gtg(l_col(j):l_col(j+1)-1,l_col(k):l_col(k+1)-1)
+                  l_gtg(l_i(j):l_i(j+1)-1,l_i(k):l_i(k+1)-1)
             end do
           end do
-          deallocate(l_col,l_gtg,neighs)
+          deallocate(l_nz,l_i,l_gtg,neighs)
 
           ! ...and the rest of it:
           ! ----------------------
@@ -967,39 +991,34 @@ CONTAINS
             allocate(l_gtg(l_n,l_n))
             call mpi_recv(l_gtg,l_n**2,d_type,i,404,comm,stat,ierr)
 
-            allocate(l_col(0:pneigh+1))
-            l_col(0)=1
+            allocate(l_i(0:pneigh+1))
+            l_i(0)=1
             do j=1,pneigh+1
-              l_col(j)=l_col(j-1)+g_nz(neighs(j-1))
+              l_i(j)=l_i(j-1)+g_nz(neighs(j-1))
             end do
 
             do j=0,pneigh
               if (g_nz(neighs(j))<=0) cycle
-              i0 = g_col(neighs(j))
-              i1 = g_col(neighs(j)+1)-1
+              i0 = g_i(neighs(j))
+              i1 = g_i(neighs(j)+1)-1
               do k=0,pneigh
                 if (g_nz(neighs(k))<=0) cycle
-                j0 = g_col(neighs(k))
-                j1 = g_col(neighs(k)+1)-1
+                j0 = g_i(neighs(k))
+                j1 = g_i(neighs(k)+1)-1
                 g_gtg(i0:i1,j0:j1) = g_gtg(i0:i1,j0:j1) + &
-                    l_gtg(l_col(j):l_col(j+1)-1,l_col(k):l_col(k+1)-1)
+                    l_gtg(l_i(j):l_i(j+1)-1,l_i(k):l_i(k+1)-1)
               end do
             end do
-            deallocate(l_col,l_gtg,neighs)
+            deallocate(l_i,l_gtg,neighs)
           end do
 
           !
-          ! Factorize the G'G, and we are done intializing:
-          ! -----------------------------------------------
-          if (allocated(ipiv)) deallocate(ipiv); allocate(ipiv(g_n));
+          ! Factorize the G'G, and we are done intializing  (the call is
+          ! to Lapack full matrix  Cholesky  factorization, at least for
+          ! the time being...):
+          ! ------------------------------------------------------------
+          call dpotrf('u',g_n,g_gtg,g_n,ierr)    
 
-          allocate(work(1));
-          call dsytrf('u',g_n,g_gtg,g_n,ipiv,work,-1,ierr)
-          lwork=nint(work(1)); deallocate(work)
-
-          allocate(work(lwork));
-          call dsytrf('u',g_n,g_gtg,g_n,ipiv,work,lwork,ierr)    
-          deallocate(work)
         end if ! task 'mactive' doing the factoring (and later, solving)
       end if ! the first time G'G assembly and factorizing
     end if ! direct solver setup
@@ -1029,20 +1048,20 @@ CONTAINS
         do i=0,parenv % pes-1
           if (i==me .or. .not. parenv % active(i+1)) cycle
           if (g_nz(i)>0) &
-            call mpi_recv(work(g_col(i):g_col(i+1)-1), g_nz(i), &
+            call mpi_recv(work(g_i(i):g_i(i+1)-1), g_nz(i), &
                     d_type,i,405,comm,stat,ierr)
         end do
 
-        ! solve x:
-        ! --------
-        call dsytrs('u',g_n,1,g_gtg,g_n,ipiv,work,g_n,ierr)
+        ! solve x (lapack routine used here):
+        ! -----------------------------------
+        call dpotrs('u',g_n,1,g_gtg,g_n,work,g_n,ierr)
 
         ! distribute the result:
         ! ----------------------
         do i=0,parenv % pes-1
           if (i==me .or. .not. parenv % active(i+1)) cycle
           if (g_nz(i)>0) &
-            call mpi_bsend(work(g_col(i):g_col(i+1)-1), &
+            call mpi_bsend(work(g_i(i):g_i(i+1)-1), &
                   g_nz(i),d_type,i,406,comm,ierr)
         end do
 
@@ -1213,8 +1232,8 @@ END SUBROUTINE FetiProject
     Ri = -(T - b(1:n))
     CALL FetiProject(A,n,Ri,OP=0,TOL=1d-12)
 
-    err0 = normfun(n,Ri,1)
-    IF (err0<TOL) RETURN
+    err1 = normfun(n,Ri,1)/bnorm
+    IF (err1<TOL) RETURN
     
     IF ( output /= 0 .AND. ParEnv % MyPE==0 ) THEN
       PRINT*,' '
@@ -1276,7 +1295,7 @@ END SUBROUTINE FetiProject
          END IF
        END IF
 
-       IF (err0<TOL) EXIT
+       IF (err1<TOL) EXIT
     END DO
 
     CALL matvecsubr(x(1:n),T,ipar)
@@ -1357,7 +1376,7 @@ END SUBROUTINE FetiProject
 
       NullSpaceLC=.FALSE.
       RETURN
-    ELSE IF (GetLogical(Params,'Feti rot-trans',Found)) THEN
+    ELSE IF (GetLogical(Params,'Feti Kernel Rot-Trans',Found)) THEN
       !
       ! If requested, make null(A) using basic translations and rotations:
       ! ------------------------------------------------------------------
@@ -1598,7 +1617,7 @@ END SUBROUTINE FetiProject
       savecols   => a % cols
       savevalues => a % values
 
-      IF( NullSpaceLC) THEN
+      IF(NullSpaceLC) THEN
         ! Fix z=null(A) with Lagrange coefficients
         ! A_fix = [A z^T; z 0] ([x; \lambda]):
         ! ------------------------------------------
