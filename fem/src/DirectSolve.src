@@ -535,6 +535,8 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE Mumps_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
+ 
+
   LOGICAL, OPTIONAL :: Free_Fact
   TYPE(Matrix_t) :: A
   TYPE(Solver_t) :: Solver
@@ -627,7 +629,7 @@ CONTAINS
     A % MumpsID % icntl(4)  = 1 ! the same as the two above, but doesn't seem to work.
     A % MumpsID % icntl(5)  = 0 ! matrix format 'assembled'
 
-    icntlft=ListGetConstReal(Solver % Values, 'mumps percentage increase working space', stat)
+    icntlft = ListGetInteger(Solver % Values, 'mumps percentage increase working space', stat)
     IF (stat) THEN
        A % MumpsID % icntl(14) = icntlft
     END IF
