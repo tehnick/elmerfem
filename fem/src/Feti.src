@@ -451,7 +451,7 @@ CONTAINS
         val = Bmat % Values(j) * b(i)
         IF ( Bmat % Cols(j) == ParEnv % MyPE ) THEN
           F(m) = F(m) + val
-        ELSE IF (l>0) THEN
+        ELSE IF ( l<=SIZE(lint)) THEN
           ! fill send buffer position of LC for DOF l (or m):
           ! -------------------------------------------------
           lproc = lpnum(Bmat % Cols(j))
@@ -802,17 +802,26 @@ CONTAINS
     TYPE(matrix_t) :: A
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: S(n),err1
-    INTEGER :: i,j,k,l,nlc,nrows
+    INTEGER :: i,j,k,l,m,nlc,nrows
     REAL(KIND=dp),ALLOCATABLE :: x(:),b(:),P(:),Q(:)
 !------------------------------------------------------------------------------
-    integer :: ierr,stat(mpi_status_size),i0,i1,j0,j1,l_n,g_n, &
-          pneigh,comm,i_type,d_type,me,mactive,maxnz
+    integer :: ierr,stat(mpi_status_size),l_n,g_n, &
+          n_nbr,comm,i_type,d_type,me,mactive,maxnz,proc
     logical :: iterative, found
-    integer,allocatable :: l_nz(:),g_nz(:),l_i(:),g_i(:),neighs(:)
+    integer,allocatable :: l_nz(:),g_nz(:),l_i(:),g_i(:),l_nbr(:)
     real(kind=dp), allocatable :: l_g(:,:),l_gtg(:,:),work(:),g_gtg(:,:)
 
     save :: g_nz,g_i,g_gtg
 !------------------------------------------------------------------------------
+
+    maxnz = parallelreduction(1._dp*nz,2)
+
+    ! check whether anything to do:
+    ! -----------------------------
+    if (maxnz<=0) then
+      if (op==2) t=0
+      return
+    end if
 
     nrows = A % NumberOfRows
     ALLOCATE(x(nz),b(nz),P(nrows),Q(nrows));P=0; Q=0
@@ -841,7 +850,7 @@ CONTAINS
 
         ! -------------------------------------------------------
 
-        ! first get the size of the ker(A_i)'s from the neighbours:
+        ! First get the size of the ker(A_i)'s from the neighbours:
         ! =========================================================
         do i=1,nneigh
           call mpi_bsend(nz,1,i_type,gpnum(i),400,comm,ierr)
@@ -870,7 +879,6 @@ CONTAINS
 
         ! do the assembly of the (local) 'G' matrix:
         ! ------------------------------------------
-        maxnz = parallelreduction(1._dp*maxval(l_nz),2)
         allocate(l_g(n,l_n)); l_g=0
         if (nz>0) x=0
         do i=1,maxnz
@@ -892,29 +900,17 @@ CONTAINS
           ! everybody needs to iterate the same amount due to
           ! this, hence the overall max for the loopcount
           ! above. Could check if this is really necessary...
-          ! well, maybe someone, sometime....
+          ! well, maybe someone, someday....
           ! --------------------------------------------------
           call parallelactivebarrier()
         end do
-        deallocate(g_i) !
+        deallocate(l_i,l_nz,g_i) !
 
         ! form local part of the G'G:
         ! ============================
         allocate(l_gtg(l_n,l_n));l_gtg=0
-        do i=0,nneigh
-          if (l_nz(i)<=0 ) CYCLE
-          i0=l_i(i)
-          i1=l_i(i+1)-1
-          do j=0,nneigh
-            if (l_nz(j)<=0 ) CYCLE
-            j0=l_i(j)
-            j1=l_i(j+1)-1
-            l_gtg(i0:i1,j0:j1) = l_gtg(i0:i1,j0:j1) + &
-               matmul(transpose(l_g(:,i0:i1)),l_g(:,j0:j1))
-          end do
-        end do
+        l_gtg=matmul(transpose(l_g),l_g)
         deallocate(l_g)
-
 
         ! form global G'G:
         ! =================
@@ -926,7 +922,7 @@ CONTAINS
           call mpi_bsend(nneigh,1,i_type,mactive,402,comm,ierr)
           call mpi_bsend(gpnum,nneigh,i_type,mactive,403,comm,ierr)
           call mpi_bsend(l_gtg,l_n**2,d_type,mactive,404,comm,ierr)
-          deallocate(l_gtg, l_i, l_nz)
+          deallocate(l_gtg)
 
         else ! me==mactive
 
@@ -961,56 +957,30 @@ CONTAINS
 
           ! Assemble our own part...
           ! ------------------------
-          allocate(neighs(0:nneigh))
-          neighs(0)=me; neighs(1:nneigh)=gpnum(1:nneigh)
 
-          do j=0,nneigh
-            if (g_nz(neighs(j))<=0) cycle
-            i0 = g_i(neighs(j))
-            i1 = g_i(neighs(j)+1)-1
-            do k=0,nneigh
-              if (g_nz(neighs(k))<=0) cycle
-              j0 = g_i(neighs(k))
-              j1 = g_i(neighs(k)+1)-1
-              g_gtg(i0:i1,j0:j1) = g_gtg(i0:i1,j0:j1) + &
-                  l_gtg(l_i(j):l_i(j+1)-1,l_i(k):l_i(k+1)-1)
-            end do
-          end do
-          deallocate(l_nz,l_i,l_gtg,neighs)
+          allocate(l_nbr(0:nneigh))
+          n_nbr=nneigh
+          l_nbr(0)=me; l_nbr(1:n_nbr)=gpnum(1:n_nbr)
+
+          call addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
+          deallocate(l_gtg,l_nbr)
 
           ! ...and the rest of it:
           ! ----------------------
-          do l=1,count(parenv % active)-1 ! -1 to count 'me' out
-            call mpi_recv(pneigh,1,i_type,mpi_any_source,402,comm,stat,ierr)
-            i=stat(mpi_source)
+          do i=1,count(parenv % active)-1 ! -1 to count 'me' out
+            call mpi_recv(n_nbr,1,i_type,mpi_any_source,402,comm,stat,ierr)
+            proc=stat(mpi_source)
 
-            allocate(neighs(0:pneigh))
-            neighs(0)=i
-            call mpi_recv(neighs(1:),pneigh,i_type,i,403,comm,stat,ierr)
+            allocate(l_nbr(0:n_nbr))
+            l_nbr(0)=proc
+            call mpi_recv(l_nbr(1:),n_nbr,i_type,proc,403,comm,stat,ierr)
 
-            l_n=sum(g_nz(neighs))
+            l_n=sum(g_nz(l_nbr))
             allocate(l_gtg(l_n,l_n))
-            call mpi_recv(l_gtg,l_n**2,d_type,i,404,comm,stat,ierr)
+            call mpi_recv(l_gtg,l_n**2,d_type,proc,404,comm,stat,ierr)
 
-            allocate(l_i(0:pneigh+1))
-            l_i(0)=1
-            do j=1,pneigh+1
-              l_i(j)=l_i(j-1)+g_nz(neighs(j-1))
-            end do
-
-            do j=0,pneigh
-              if (g_nz(neighs(j))<=0) cycle
-              i0 = g_i(neighs(j))
-              i1 = g_i(neighs(j)+1)-1
-              do k=0,pneigh
-                if (g_nz(neighs(k))<=0) cycle
-                j0 = g_i(neighs(k))
-                j1 = g_i(neighs(k)+1)-1
-                g_gtg(i0:i1,j0:j1) = g_gtg(i0:i1,j0:j1) + &
-                    l_gtg(l_i(j):l_i(j+1)-1,l_i(k):l_i(k+1)-1)
-              end do
-            end do
-            deallocate(l_i,l_gtg,neighs)
+            call addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
+            deallocate(l_gtg,l_nbr)
           end do
 
           !
@@ -1023,7 +993,6 @@ CONTAINS
         end if ! task 'mactive' doing the factoring (and later, solving)
       end if ! the first time G'G assembly and factorizing
     end if ! direct solver setup
-
 
     IF (OP==1) THEN
       IF (nz>0) b=T(1:nz)
@@ -1070,8 +1039,8 @@ CONTAINS
         ! --------------------
         if (nz>0) x(1:nz)=work(1:nz)
       else
-        ! send r.h.s:
-        ! -----------
+        ! send r.h.s.:
+        ! ------------
          if (nz>0) &
            call mpi_bsend(b,nz,d_type,mactive,405,comm,ierr)
 
@@ -1095,6 +1064,37 @@ CONTAINS
     END IF
 
 CONTAINS
+
+!------------------------------------------------------------------------------
+  subroutine addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
+!------------------------------------------------------------------------------
+    real(kind=dp) :: g_gtg(:,:),l_gtg(:,:)
+    integer :: n_nbr, l_nbr(0:), g_nz(0:), g_i(0:)
+!------------------------------------------------------------------------------
+    integer :: i,j,k,l,g_r,g_c,l_r,l_c,l_i(0:n_nbr+1)
+!------------------------------------------------------------------------------
+    l_i(0)=1
+    do i=1,n_nbr+1
+      l_i(i)=l_i(i-1)+g_nz(l_nbr(i-1))
+    end do
+
+    do i=0,n_nbr
+      do k=0,g_nz(l_nbr(i))-1
+        l_c=l_i(i)+k
+        g_c=g_i(l_nbr(i))+k
+        do j=0,n_nbr
+          do l=0,g_nz(l_nbr(j))-1
+            l_r=l_i(j)+l
+            g_r=g_i(l_nbr(j))+l
+            g_gtg(g_r,g_c) = g_gtg(g_r,g_c) + l_gtg(l_r,l_c)
+          end do
+        end do
+      end do
+    end do
+!------------------------------------------------------------------------------
+  end subroutine addtogtg
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE GtG(u,v)
@@ -1335,6 +1335,10 @@ END SUBROUTINE FetiProject
     dofs = Solver % Variable % DOFs
     n = A % NumberOfRows
 
+    ! We might be operating in a scaled system, i.e. solving
+    ! (DAD)y = Db; x=Dy
+    ! instead of the original system Ax=b, hence the scalings below:
+    ! --------------------------------------------------------------
     IF (ASSOCIATED(A % DiagScaling)) THEN
       dscale => A % DiagScaling
     ELSE
@@ -1353,8 +1357,8 @@ END SUBROUTINE FetiProject
       p => Solver % Variable % Perm
       CALL FindRigidBodyFixingNodes(Solver, FixNodes, p)
 
-      ! constant 1 (complications due to p-elements):
-      ! ---------------------------------------------
+      ! constant 1 (complications due to p-elements)
+      ! --------------------------------------------------
       nz=1
       ALLOCATE(z(nz,n))
       z = 0._dp
@@ -1427,7 +1431,7 @@ END SUBROUTINE FetiProject
         CALL MatrixVectorMultiply(A,tz(i,:),x)
         IF (ALL(ABS(x)<100*AEPS)) THEN
           nz=nz+1
-          floatinds(nz)=i
+          FloatInds(nz)=i
         END IF
       END DO
      
@@ -1455,7 +1459,8 @@ END SUBROUTINE FetiProject
       RETURN
     END IF
 
-    IF (.NOT.ASSOCIATED(A % DiagScaling)) DEALLOCATE(dscale)
+    ! By default assemble the ker(A) from the null frequency eigenmodes:
+    ! ==================================================================
 
     ! max deficiency:
     ! ---------------
@@ -1464,7 +1469,6 @@ END SUBROUTINE FetiProject
     ELSE
       Neigs=8
     END IF
-
 
     ! Solution of few lowest eigenmodes:
     ! ----------------------------------
@@ -1477,15 +1481,15 @@ END SUBROUTINE FetiProject
     CALL ListAddConstReal( Params, &
                'Eigen System Convergence Tolerance', TOL/100._dp )
 
-    ALLOCATE(A % MassValues(SIZE(A % Values)))
-    A % MassValues=0
-    IF (ASSOCIATED(A % DiagScaling)) THEN
-      A % Massvalues(A % Diag)=1/A % DiagScaling
+    IF (.NOT.ASSOCIATED(A % MassValues)) THEN
+      ALLOCATE(A % MassValues(SIZE(A % Values)))
+      A % MassValues=0
+      A % Massvalues(A % Diag)=1/dscale
+      CALL ArpackEigenSolve(Solver,A,n,NEigs,EigValues,EigVectors)
+      DEALLOCATE(A % MassValues)
     ELSE
-      A % Massvalues(A % Diag)=1
+      CALL ArpackEigenSolve(Solver,A,n,NEigs,EigValues,EigVectors)
     END IF
-    CALL ArpackEigenSolve(Solver,A,n,NEigs,EigValues,EigVectors)
-    DEALLOCATE(A % MassValues)
 
     CALL ListAddString( Params, 'Linear System Solver', 'Feti' )
     CALL ListAddString( Params, 'Linear System Direct Method', method )
@@ -1504,7 +1508,9 @@ END SUBROUTINE FetiProject
       ALLOCATE(z(nz,n))
       z(1:nz,:) = REAL(EigVectors(1:nz,:))
     END IF
+
     DEALLOCATE(EigVectors)
+    IF (.NOT.ASSOCIATED(A % DiagScaling)) DEALLOCATE(dscale)
 
     Floating = nz>0
 !------------------------------------------------------------------------------
@@ -1616,7 +1622,7 @@ END SUBROUTINE FetiProject
       savecols   => a % cols
       savevalues => a % values
 
-      IF(NullSpaceLC) THEN
+      IF (NullSpaceLC) THEN
         ! Fix z=null(A) with Lagrange coefficients
         ! A_fix = [A z^T; z 0] ([x; \lambda]):
         ! ------------------------------------------
@@ -1677,8 +1683,8 @@ END SUBROUTINE FetiProject
     x = -x
     nLC = FetiSendRecvIf(A,y,x)
 
-    ! add Dirichlet BC contribution to the r.h.s, if using Total FETI:
-    ! ----------------------------------------------------------------
+    ! add Dirichlet BC contribution to the r.h.s., if using Total FETI:
+    ! ------------------------------------------------------------------
     IF (TotalFeti) y(1:nLC)=y(1:nLC)+Bmat % RHS(1:nLC)
 
     ! Add Lagrange coefficient(s) for the projection condition
