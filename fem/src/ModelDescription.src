@@ -3120,16 +3120,6 @@ CONTAINS
 
         CASE( 'magnetic field 1','magnetic field 2','magnetic field 3')
 
-        CASE( 'electric current' )
-          DOFs = DOFs + 3
-
-        CASE( 'electric current 1','electric current 2','electric current 3')
-
-        CASE( 'magnetic flux density' )
-          DOFs = DOFs + 3
-
-        CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
-
         CASE DEFAULT
 
           nDOFs = 1
@@ -3220,16 +3210,6 @@ CONTAINS
             WRITE(PostFileUnit,'(a)',ADVANCE='NO' ) ' vector: MagField'
 
           CASE( 'magnetic field 1','magnetic field 2','magnetic field 3')
-
-          CASE( 'electric current' )
-            WRITE(PostFileUNit,'(a)',ADVANCE='NO' ) ' vector: Current'
-
-          CASE( 'electric current 1','electric current 2','electric current 3')
-
-          CASE( 'magnetic flux density' )
-            WRITE(PostFileUnit,'(a)',ADVANCE='NO' ) ' vector: MagneticFlux'
-
-          CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
 
           CASE( 'coordinate 1','coordinate 2','coordinate 3' )
 
@@ -3650,35 +3630,7 @@ CONTAINS
               
            CASE( 'magnetic field 1','magnetic field 2','magnetic field 3')
               
-           CASE( 'electric current' )
-              k = i
-              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-              IF ( k > 0 ) THEN
-                 DO j=1,Var % DOFs
-                    WRITE(PostFileUnit,'(ES17.8E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                 END DO
-                 IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(ES17.8E3)',ADVANCE='NO') 0.0D0
-              ELSE
-                 WRITE(PostFileUnit,'(4ES17.8E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-              END IF
-              
-           CASE( 'electric current 1','electric current 2','electric current 3')
-              
            CASE( 'coordinate 1','coordinate 2','coordinate 3' )
-              
-           CASE( 'magnetic flux density' )
-              k = i
-              IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-              IF ( k > 0 ) THEN
-                 DO j=1,Var % DOFs
-                    WRITE(PostFileUnit,'(ES17.8E3)',ADVANCE='NO') Var % Values(Var % DOFs*(k-1)+j)
-                 END DO
-                 IF ( Var % DOFs < 3 ) WRITE(PostFileUnit,'(ES17.8E3)',ADVANCE='NO') 0.0D0
-              ELSE
-                 WRITE(PostFileUnit,'(4ES17.8E3)',ADVANCE='NO') 0.0D0,0.0D0,0.0D0
-              END IF
-              
-           CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
               
            CASE DEFAULT
 
