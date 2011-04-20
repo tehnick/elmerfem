@@ -3646,7 +3646,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
    */
 {
   int noknots,noelements,sumsides,partitions,hit,maxelemdim,elemdim,parent,parent2;
-  int nodesd2,nodesd1,discont,maxelemtype,minelemtype,sidehits,elemsides,side;
+  int nodesd2,nodesd1,discont,maxelemtype,minelemtype,sidehits,elemsides,side,bctype;
   int part,otherpart,part2,part3,elemtype,sideelemtype,*needednodes,*neededtwice;
   int **bulktypes,*sidetypes,tottypes;
   int i,j,k,l,l2,m,ind,ind2,sideind[MAXNODESD1],sidehit[MAXNODESD1],elemhit[MAXNODESD2];
@@ -4083,6 +4083,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],
 		       data,sideind,&sideelemtype);
+	bctype = bound[j].types[i];
 	nodesd1 = sideelemtype%100;
 
 	bcneeded = 0;
@@ -4119,14 +4120,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	if(halo) {
 	  if(trueparent)
 	    fprintf(out,"%d/%d %d %d %d %d",
-		    sumsides,part,bound[j].types[i],parent,parent2,sideelemtype);
+		    sumsides,part,bctype,parent,parent2,sideelemtype);
 	  else
 	    fprintf(out,"%d/%d %d %d %d %d",
-		    sumsides,elempart[bound[j].parent[i]],bound[j].types[i],parent,parent2,sideelemtype);	    
+		    sumsides,elempart[bound[j].parent[i]],bctype,parent,parent2,sideelemtype);	    
 	}
 	else {
 	  fprintf(out,"%d %d %d %d %d",
-		  sumsides,bound[j].types[i],parent,parent2,sideelemtype);	  
+		  sumsides,bctype,parent,parent2,sideelemtype);	  
 	}
 	if(reorder) {
 	  for(l=0;l<nodesd1;l++)
@@ -4140,10 +4141,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	/* Memorize that the node has already been saved as a regular BC. */
 	for(l=0;l<nodesd1;l++) {
 	  k = sideind[l];
-	  if(bcnodesaved[k]) 
-	    bcnodesaved2[k] = bound[j].types[i];
+	  if(bcnodesaved[k] == bctype || bcnodesaved2[k] == bctype ) continue;
+	  
+	  if(!bcnodesaved[k]) 
+	    bcnodesaved[k] = bctype;
+	  else if(!bcnodesaved2[k]) 
+	    bcnodesaved2[k] = bctype;
 	  else 
-	    bcnodesaved[k] = bound[j].types[i];
+	    if(0) printf("Node %d shared by more than two BCs (%d)\n",k,bctype);
 	}
       }
     }
@@ -4158,6 +4163,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],
 		       data,sideind,&sideelemtype);
 	nodesd1 = sideelemtype%100;
+	bctype = bound[j].types[i];
 	
 	for(l=0;l<nodesd1;l++) {
 	  ind = sideind[l];
@@ -4170,14 +4176,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	      if( elempart[bound[j].parent2[i]] == part) continue;
 	      
 	      /* Check whether the nodes was not already saved */
-	      if( bcnodesaved[ind] == bound[j].types[i]) continue;	  
-	      if( bcnodesaved2[ind] == bound[j].types[i]) continue;	  
+	      if( bcnodesaved[ind] == bctype ) continue;	  
+	      if( bcnodesaved2[ind] == bctype ) continue;	  
 
 	      /* Memorize if the node really was saved. */
 	      if(!bcnodesaved[ind]) 
-		bcnodesaved[ind] = bound[j].types[i];
+		bcnodesaved[ind] = bctype;
 	      else if(!bcnodesaved2[ind]) 
-		bcnodesaved2[ind] = bound[j].types[i];
+		bcnodesaved2[ind] = bctype;
 		
 	      orphannodes++;
 	      
@@ -4185,10 +4191,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	      sidetypes[101] += 1;
 
 	      if(reorder) {
-		fprintf(out,"%d %d 0 0 101 %d\n",sumsides,bound[j].types[i],order[ind]);
+		fprintf(out,"%d %d 0 0 101 %d\n",sumsides,bctype,order[ind]);
 	      }
 	      else {
-		fprintf(out,"%d %d 0 0 101 %d\n",sumsides,bound[j].types[i],ind);
+		fprintf(out,"%d %d 0 0 101 %d\n",sumsides,bctype,ind);
 	      }	  
 	    }
 	}
