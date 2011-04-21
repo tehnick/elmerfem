@@ -7,6 +7,8 @@ Simulation
   Coordinate System = Cartesian
   Coordinate Mapping(3) = 1 2 3
 
+  Angular Frequency = 1
+
   Simulation Type = Steady
   Steady State Max Iterations = 1
 End
@@ -34,6 +36,29 @@ Body 2
   Body Force = 1
 End
 
+
+Solver 1
+  Equation = MGDynamics
+  Procedure = "MagnetoDynamics" "WhitneyAVHarmonicSolver"
+  Variable =  P[P re:1 P im:1]
+
+  Steady State Convergence Tolerance = 1.0e-5
+  Nonlinear System Convergence Tolerance = 1.0e-8
+  Nonlinear System Max Iterations = 20
+  Nonlinear System Newton After Iterations = 3
+  Nonlinear System Newton After Tolerance = 1.0e-3
+  Nonlinear System Relaxation Factor = 1
+
+  Linear System Solver = iterative
+  Linear System Symmetric = True
+  Linear System Iterative Method = CG
+  Linear System Max Iterations = 3000
+  Linear System Convergence Tolerance = 1.0e-7
+  Linear System Preconditioning = Ilu
+  Linear System Residual Output = 10
+  Linear System Abort Not Converged = False
+End
+
 Solver 2
   Equation = MGDynamicsCalc
   Procedure = "MagnetoDynamics" "MagnetoDynamicsCalcFields"
@@ -56,30 +81,6 @@ Solver 2
   Linear System Abort Not Converged = False
   Linear System Residual Output = 1
   Linear System Precondition Recompute = 1
-End
-
-Solver 1
-  Equation = MGDynamics
-  Procedure = "MagnetoDynamics" "WhitneyAVHarmonicSolver"
-  Variable =  P[P re:1 P im:1]
-
-  Angular Frequency = 1
-
-  Steady State Convergence Tolerance = 1.0e-5
-  Nonlinear System Convergence Tolerance = 1.0e-8
-  Nonlinear System Max Iterations = 20
-  Nonlinear System Newton After Iterations = 3
-  Nonlinear System Newton After Tolerance = 1.0e-3
-  Nonlinear System Relaxation Factor = 1
-
-  Linear System Solver = iterative
-  Linear System Symmetric = True
-  Linear System Iterative Method = CG
-  Linear System Max Iterations = 3000
-  Linear System Convergence Tolerance = 1.0e-7
-  Linear System Preconditioning = Ilu
-  Linear System Residual Output = 10
-  Linear System Abort Not Converged = False
 End
 
 Equation 1
