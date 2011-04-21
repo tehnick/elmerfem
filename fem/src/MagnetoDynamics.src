@@ -464,6 +464,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   LOGICAL FUNCTION DoSolve() RESULT(Converged)
 !------------------------------------------------------------------------------
+   CHARACTER(LEN=MAX_NAME_LEN) :: potname
 
   !System assembly:
   !----------------
@@ -562,9 +563,29 @@ CONTAINS
   IF ( Transient ) CALL Default1stOrderTimeGlobal()
   CALL DefaultFinishAssembly()
 
-  ! And finally, solve:
-  !--------------------
-  
+
+  ! Check that the auxliary potential fixed somehow:
+  ! ------------------------------------------------
+  IF  (FixJ) THEN
+    Found = .FALSE.
+    potname = Solver % Variable % Name(1:Solver % Variable % NameLen)
+    DO i=1,Model % NumberOfBCs
+      IF (ListCheckPresent(Model % BCs(i) % Values,potname) ) THEN
+        Found = .TRUE.; EXIT
+      END IF
+    END DO
+    IF (.NOT. Found ) THEN
+      DO i=1,GetNOFBoundaryElements()
+        Element => GetBoundaryElement(i)
+        IF(.NOT. ActiveBoundaryElement()) CYCLE
+        BC => GetBC()
+        IF (ASSOCIATED(BC)) THEN
+          CALL ListAddConstReal(BC, potname, 0._dp); EXIT
+        END IF
+      END DO
+    END IF
+  END IF
+
   !
   ! Dirichlet BCs in terms of vector potential A:
   ! ---------------------------------------------
@@ -1067,6 +1088,27 @@ CONTAINS
                  SUM(WBasis(j,:)*dBasisdx(i,:))*detJ*IP % s(t)
            END DO
          END DO
+       ELSE
+         !
+         ! There is free slot here for a scalar equation, so just setup an
+         ! auxliary laplace solver here, and add its gradient to first eq.,
+         ! "Electric Conductivity" may be used to scale the gradient:
+         ! ------------------------------------------------------------------
+         IF (FixJ) THEN
+           DO i=1,np
+             p = i
+             DO j=1,np
+               q = j
+               STIFF(p,q) = STIFF(p,q) + &
+                   SUM(dBasisdx(i,:)*dBasisdx(j,:))*detJ*IP % s(t)
+             END DO
+             DO j=1,nd-np
+               q = j+np
+               STIFF(q,p) = STIFF(q,p) + C * &
+                     SUM(WBasis(j,:)*dBasisdx(i,:))*detJ*IP % s(t)
+             END DO
+           END DO
+         END IF
        END IF
 
        !
@@ -1090,12 +1132,6 @@ CONTAINS
          END DO
        END DO
     END DO
-
-    IF (FixJ )THEN
-      DO i=1,n
-        STIFF(i,i)=1._dp
-      END DO
-    END IF
 
     IF ( Newton ) THEN
       STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + JAC
@@ -1792,10 +1828,6 @@ CONTAINS
        L_R = L_R / SQRT(SUM(L_R**2))
        IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
      END IF
-
-if ( element % boundaryinfo % constraint==0 ) then
-print*,sum(L_r*nrm), 180*acos(sum(l_r*nrm))/pi
-end if
 
      DO j=1,dofs
        DO k=1,n
@@ -3023,9 +3055,10 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
   REAL(KIND=dp) :: dt
   LOGICAL :: Transient
 !------------------------------------------------------------------------------
+  CHARACTER(LEN=MAX_NAME_LEN) :: sname,pname
   LOGICAL :: Found
   INTEGER, POINTER :: Active(:)
-  INTEGER :: mysolver,i,n,m
+  INTEGER :: mysolver,i,j,k,l,n,m,vDOFs
   TYPE(ValueList_t), POINTER :: SolverParams
   TYPE(Solver_t), POINTER :: Solvers(:), PSolver
 
@@ -3044,6 +3077,26 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
            'Active Solvers', m+1, [Active, n+1] )
   END DO
 
+  pname = GetString(GetSolverParams(), 'Potential variable', Found)
+  vdofs = 0
+  DO i=1,Model % NumberOfSolvers
+    sname = GetString(Model % Solvers(i) % Values, 'Variable', Found)
+    J=index(sname,'[')-1
+    IF ( j<=0 ) j=LEN_TRIM(sname)
+    IF ( sname(1:j) == pname(1:j) )THEN
+      k = 0
+      vDofs = 0
+      j=INDEX(sname,':')
+      DO WHILE(j>0)
+        Vdofs=Vdofs+ICHAR(sname(j+k+1:j+k+1))-ICHAR('0')
+        k = k+j
+        IF(k<LEN(sname)) j=INDEX(sname(k+1:),':')
+      END DO
+      EXIT
+    END IF
+  END DO
+  IF ( Vdofs==0 ) Vdofs=1
+
   ALLOCATE(Solvers(n+1))
   Solvers(1:n) = Model % Solvers
   SolverParams => Null()
@@ -3059,38 +3112,64 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
 
 
   i = 1
-  CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
-           "Magnetic Flux Density E[Magnetic Flux Density E:3]" )
+
+  IF ( Vdofs==1 ) THEN
+    CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+         "Magnetic Flux Density E[Magnetic Flux Density E:3]" )
+  ELSE
+    CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+         "Magnetic Flux Density E[Magnetic Flux Density re E:3 Magnetic Flux Density im E:3]" )
+  END IF
 
   IF (GetLogical(Solver % Values,'Calculate Magnetic Field Strength',Found)) THEN
     i = i + 1
-    CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+    IF ( vdofs==1 ) THEN
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
             "Magnetic Field Strength E[Magnetic Field Strength E:3]" )
+    ELSE
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+            "Magnetic Field Strength E[Magnetic Field Strength re E:3 Magnetic Field Strength im E:3]" )
+    END IF
   END IF
 
   IF ( GetLogical( Solver % Values, 'Calculate Maxwell Stress', Found ) ) THEN
     i = i + 1
-    CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
-         "Maxwell Stress E[Maxwell Stress E:6]" )
+    IF ( Vdofs==1 ) THEN
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+           "Maxwell Stress E[Maxwell Stress E:6]" )
+    ELSE
+      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+           "Maxwell Stress E[Maxwell Stress re E:6 Maxwell Stress im E:6]" )
+    END IF
   END IF
 
-  IF ( Transient ) THEN
+  IF ( Transient .OR. Vdofs>1 ) THEN
     IF ( GetLogical( Solver % Values, 'Calculate Electric Field', Found ) ) THEN
       i = i + 1
-      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
-             "Electric Field E[Electric Field E:3]" )
+      IF ( vdofs==1 ) THEN
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Electric Field E[Electric Field E:3]" )
+      ELSE
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Electric Field E[Electric Field re E:3 Electric Field im E:3]" )
+      END IF
     END IF
 
     IF ( GetLogical( Solver % Values, 'Calculate Current Density', Found ) ) THEN
       i = i + 1
-      CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
-             "Current Density E[Current Density E:3]" )
+      IF ( Vdofs==1 ) THEN
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Current Density E[Current Density E:3]" )
+      ELSE
+        CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
+               "Current Density E[Current Density re E:3 Current Density im E:3]" )
+      END IF
     END IF
 
     IF ( GetLogical( Solver % Values, 'Calculate Joule Heating', Found ) ) THEN
       i = i + 1
       CALL ListAddString( SolverParams, "Exported Variable "//TRIM(i2s(i)), &
-               "Joule Field E" )
+                "Joule Field E" )
     END IF
   END IF
 
@@ -3435,7 +3514,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 
        IF ( ASSOCIATED(CD)) THEN
          DO l=1,Vdofs
-           DO k=1,EL_CD % DOFs
+           DO k=1,dim
              EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
                    Element % DGIndexes(j))-1)+dim*(l-1)+k) = C_ip*E(l,k)
            END DO
