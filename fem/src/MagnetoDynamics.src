@@ -564,7 +564,8 @@ CONTAINS
   CALL DefaultFinishAssembly()
 
 
-  ! Check that the auxliary potential fixed somehow:
+  ! Check that the auxliary potential fixed somehow,
+  ! if not disable the variable (set to zero)
   ! ------------------------------------------------
   IF  (FixJ) THEN
     Found = .FALSE.
@@ -575,13 +576,11 @@ CONTAINS
       END IF
     END DO
     IF (.NOT. Found ) THEN
-      DO i=1,GetNOFBoundaryElements()
-        Element => GetBoundaryElement(i)
-        IF(.NOT. ActiveBoundaryElement()) CYCLE
-        BC => GetBC()
-        IF (ASSOCIATED(BC)) THEN
-          CALL ListAddConstReal(BC, potname, 0._dp); EXIT
-        END IF
+      DO i=1,Mesh % NumberOfNodes
+        J = Solver % Variable % Perm(i)
+        CALL ZeroRow(A,j)
+        CALL SetMatrixElement(A,j,j,1._dp)
+        A % RHS(j)=0._dp
       END DO
     END IF
   END IF
