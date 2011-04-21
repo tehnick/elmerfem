@@ -3251,7 +3251,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    TYPE(Variable_t), POINTER :: Var, MFD, MFS, CD, EF, MST, JH
    TYPE(Variable_t), POINTER :: EL_MFD, EL_MFS, EL_CD, EL_EF, EL_MST, EL_JH
 
-   INTEGER :: Active, Indexes(12), i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs
+   INTEGER :: Active, Indexes(12), i,j,k,l,m,n,nd,np,p,q,DOFs,vDOFs,dim
 
    TYPE(Solver_t), POINTER :: pSolver
    CHARACTER(LEN=MAX_NAME_LEN) :: Pname
@@ -3363,89 +3363,128 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
        CALL GetReluctivity(Material,R,n)
      END IF
 
+      dim = CoordinateSystemDimension()
+
      ! Calculate on nodes on elements fields:
      ! --------------------------------------
-     IF ( vDOFs==1 ) THEN
+     DO j=1,n
+       u = Element % Type % NodeU(j)
+       v = Element % Type % NodeV(j)
+       w = Element % Type % NodeW(j)
 
-       ! TODO: add harmonic case...
-       ! --------------------------
-       DO j=1,n
-         u = Element % Type % NodeU(j)
-         v = Element % Type % NodeV(j)
-         w = Element % Type % NodeW(j)
+       stat=ElementInfo(Element,Nodes,u,v,w,detJ,Basis,dBasisdx)
+       CALL EdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
 
-         stat=ElementInfo(Element,Nodes,u,v,w,detJ,Basis,dBasisdx)
-         CALL EdgeBasis(Element,WBasis,RotWBasis,Basis,dBasisdx)
+       DO k=1,vDOFs
+         B(k,:) = MATMUL( SOL(k,np+1:nd), RotWBasis(1:nd-np,:) )
+       END DO
 
-         B(1,:) = MATMUL( SOL(1,np+1:nd), RotWBasis(1:nd-np,:) )
+       IF ( Transient ) THEN
+         E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
+                   MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
+       ELSE
+         DO k=1,vDOFs
+           E(k,:) = -im*Omega*MATMUL(SOL(k,np+1:nd),WBasis(1:nd-np,:)) - &
+                     MATMUL(SOL(k,1:np), dBasisdx(1:np,:))
+         END DO
+       END IF
 
-         IF ( Transient ) THEN
-           E(1,:) = -MATMUL(PSOL(np+1:nd), Wbasis(1:nd-np,:)) - &
-                     MATMUL(SOL(1,1:np), dBasisdx(1:np,:))
-           C_ip  = SUM( Basis(1:n)*C(1:n) )
-         END IF
+       C_ip  = SUM( Basis(1:n)*C(1:n) )
+       PR_ip = SUM( Basis(1:n)*PR(1:n) )
 
-         PR_ip = SUM( Basis(1:n)*PR(1:n) )
-
-         DO k=1,EL_MFD % DOFs
+       DO l=1,vDOFs
+         DO k=1,dim
            EL_MFD % Values( EL_MFD % DOFs*(EL_MFD % Perm( &
-                 Element % DGIndexes(j))-1)+k) = B(1,k)
+                 Element % DGIndexes(j))-1)+dim*(l-1)+k) = B(l,k)
+         END DO
+       END DO
+
+       IF ( ASSOCIATED(MFS) ) THEN
+         DO k=l,dim
+           MG_ip(l) = SUM( Magnetization(l,1:n)*Basis(1:n) )
          END DO
 
-         IF ( ASSOCIATED(MFS) ) THEN
-           DO l=1,3
-             MG_ip(l) = SUM( Magnetization(l,1:n)*Basis(1:n) )
-           END DO
+         IF ( ASSOCIATED(HB) ) THEN
+           Babs=SQRT(SUM(B(1,:)**2))
+             R_ip = InterpolateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)/Babs
+         ELSE
+           R_ip = SUM( Basis(1:n)*R(1:n) )
+         END IF
 
-           IF ( ASSOCIATED(HB) ) THEN
-             Babs=SQRT(SUM(B(1,:)**2))
-               R_ip = InterpolateCurve(HB(:,1),HB(:,2),Babs,CubicCoeff)/Babs
-           ELSE
-             R_ip = SUM( Basis(1:n)*R(1:n) )
-           END IF
+         DO k=1,dim
+           EL_MFS % Values( EL_MFS % DOFs*(EL_MFS % Perm( &
+                 Element % DGIndexes(j))-1)+k) = R_ip*B(1,k)-MG_ip(k)
+         END DO
 
-           DO k=1,EL_MFS % DOFs
+         IF ( Vdofs>1 ) THEN
+           DO k=1,dim
              EL_MFS % Values( EL_MFS % DOFs*(EL_MFS % Perm( &
-                   Element % DGIndexes(j))-1)+k) = R_ip*B(1,k)-MG_ip(k)
+                   Element % DGIndexes(j))-1)+dim+k) = R_ip*B(2,k)-AIMAG(MG_ip(k))
            END DO
          END IF
+       END IF
 
-         IF ( ASSOCIATED(EF)) THEN
-           DO k=1,EL_EF % DOFs
+       IF ( ASSOCIATED(EF)) THEN
+         DO l=1,Vdofs
+           DO k=1,dim
              EL_EF % Values( EL_EF % DOFs*(EL_EF % Perm( &
-                   Element % DGIndexes(j))-1)+k) = E(1,k)
+                   Element % DGIndexes(j))-1)+dim*(l-1)+k) = E(l,k)
            END DO
-         END IF
+         END DO
+       END IF
 
-         IF ( ASSOCIATED(CD)) THEN
+       IF ( ASSOCIATED(CD)) THEN
+         DO l=1,Vdofs
            DO k=1,EL_CD % DOFs
              EL_CD % Values( EL_CD % DOFs*(EL_CD % Perm( &
-                   Element % DGIndexes(j))-1)+k) = C_ip*E(1,k)
+                   Element % DGIndexes(j))-1)+dim*(l-1)+k) = C_ip*E(l,k)
            END DO
-         END IF
+         END DO
+       END IF
 
-         IF ( ASSOCIATED(JH) ) THEN
-           DO k=1,EL_JH % DOFs
-             EL_JH % Values( EL_JH % DOFs*(EL_JH % Perm( &
-                   Element % DGIndexes(j))-1)+k) = SUM(E(1,:)**2)
-           END DO
-         END IF
+       IF ( ASSOCIATED(JH) ) THEN
+         DO k=1,EL_JH % DOFs
+           EL_JH % Values( EL_JH % DOFs*(EL_JH % Perm( &
+                 Element % DGIndexes(j))-1)+k) = SUM(E(1,:)**2)
+         END DO
+       END IF
 
-         IF ( ASSOCIATED(MST)) THEN
+       IF ( ASSOCIATED(MST)) THEN
+         IF ( vDOFS==1) THEN
            DO l=1,3
              DO m=l,3
                ST(l,m)=PR_ip*E(1,l)*E(1,m)+R_ip*B(1,l)*B(1,m)
              END DO
              ST(l,l)=ST(l,l)-(PR_ip*SUM(E(1,:)**2)+R_ip*SUM(B(1,:)**2))/2
            END DO
-           DO k=1,EL_JH % DOFs
+           DO k=1,EL_MST % DOFs
              EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
                    Element % DGIndexes(j))-1)+k) = ST(ind1(l),ind2(l))
            END DO
+         ELSE
+           DO l=1,3
+             DO m=l,3
+               CST(l,m) = PR_ip*CMPLX(E(1,l),E(2,l),KIND=dp) * &
+                                CMPLX(E(1,m),E(2,m),KIND=dp)
+               CST(l,m) = CST(l,m) + &
+                           R_ip*CMPLX(B(1,l),B(2,l),KIND=dp) * &
+                                CMPLX(B(1,m),B(2,m),KIND=dp)
+             END DO
+             CST(l,l) = CST(l,l) - &
+                    (PR_ip*SUM(ABS(CMPLX(E(1,:),E(2,:)))**2)+ &
+                      R_ip*SUM(ABS(CMPLX(B(1,:),B(2,:)))**2))/2
+           END DO
+           DO l=1,6
+             EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
+                   Element % DGIndexes(j))-1)+l) = REAL(CST(ind1(l),ind2(l)))
+           END DO
+           DO l=1,6
+             EL_MST % Values( EL_MST % DOFs*(EL_MST % Perm( &
+                   Element % DGIndexes(j))-1)+l+6) = AIMAG(CST(ind1(l),ind2(l)))
+           END DO
          END IF
-       END DO
-     END IF
-
+       END IF
+     END DO
 
      ! Calculate nodal fields:
      ! -----------------------
