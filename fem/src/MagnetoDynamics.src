@@ -1633,7 +1633,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element, P1,P2
     TYPE(ValueList_t), POINTER ::  BodyForce
 
-    REAL(KIND=dp) :: weight,detJ,Source,L_R(3),Nrm(3)
+    REAL(KIND=dp) :: weight,detJ,Source,L_R(3),Nrm(3), Jfluxeps
     REAL(KIND=dp), ALLOCATABLE :: Load_R(:,:)
 
     COMPLEX(KIND=dp) :: L_C(3)
@@ -1728,6 +1728,9 @@ CONTAINS
       END IF
     END DO
 
+    Jfluxeps = GetCReal(GetSolverParams(), 'J normal eps', Found)
+    IF (.NOT. Found) Jfluxeps = 1.0d-2
+
     ! At outer boundaries, if J has component normal to the
     ! surface, set Fix_pot=0:
     ! ------------------------------------------------------
@@ -1735,6 +1738,7 @@ CONTAINS
      Element => GetBoundaryElement(i)
      n = GetElementNOFNodes()
      IF (.NOT.ActiveBoundaryElement()) CYCLE
+
 
      P1 => Element % BoundaryInfo % Left
      P2 => Element % BoundaryInfo % Right
@@ -1748,6 +1752,7 @@ CONTAINS
      ELSE
        BodyForce => GetBodyForce(P2)
      END IF
+     IF (.NOT. ASSOCIATED(BodyForce)) CYCLE
 
      CALL GetElementNodes(Nodes)
      Nrm = NormalVector(Element,Nodes,0._dp,0._dp)
@@ -1771,10 +1776,10 @@ CONTAINS
 
        L_R = REAL(L_C)
        L_R = L_R / SQRT(SUM(L_R**2))
-       IF (ABS(SUM(L_R*Nrm))<1.d-8) THEN
+       IF (ABS(SUM(L_R*Nrm))<Jfluxeps) THEN
          L_R = AIMAG(L_C)
          L_R = L_R / SQRT(SUM(L_R**2))
-         IF (ABS(SUM(L_R*Nrm))<1.d-8) CYCLE
+         IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
        END IF
      ELSE
        Load_R(1,1:n) = GetReal(BodyForce, 'Current Density 1', Found)
@@ -1785,8 +1790,12 @@ CONTAINS
        L_R(2) = SUM(Load_R(2,1:n))/n
        L_R(3) = SUM(Load_R(3,1:n))/n
        L_R = L_R / SQRT(SUM(L_R**2))
-       IF (ABS(SUM(L_R*Nrm))<1.d-8) CYCLE
+       IF (ABS(SUM(L_R*Nrm))<Jfluxeps) CYCLE
      END IF
+
+if ( element % boundaryinfo % constraint==0 ) then
+print*,sum(L_r*nrm), 180*acos(sum(l_r*nrm))/pi
+end if
 
      DO j=1,dofs
        DO k=1,n
