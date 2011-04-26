@@ -334,7 +334,8 @@ SUBROUTINE WhitneyAVSolver_Init0(Model,Solver,dt,Transient)
     ELSE
       FixJ=GetLogical( SolverParams,'Fix input Current Density',Found)
       IF (.NOT.Found.AND..NOT.Transient) FixJ=.TRUE.
-      IF(FixJ) CALL ListAddString( SolverParams, "Exported Variable 1", "Jfix" )
+      IF(FixJ) CALL ListAddString( SolverParams, &
+              "Exported Variable 1", "-nooutput Jfix" )
 
       IF (Transient.OR.FixJ) THEN
         CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
@@ -1639,7 +1640,7 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
   IF (.NOT.ASSOCIATED(fixJPot)) THEN
     ALLOCATE(fixpot(SIZE(Solver % Variable % Values)))
     CALL VariableAddVector( Mesh % Variables, Mesh, &
-          Solver,'Jfix',dofs,fixpot,Solver % Variable % Perm )
+          Solver,'Jfix',dofs,fixpot,Solver % Variable % Perm,Output=.FALSE. )
     fixJpot => VariableGet(Mesh % Variables, 'Jfix')
   END IF
 
@@ -1781,12 +1782,16 @@ CONTAINS
      IF(ASSOCIATED(P1).AND.ASSOCIATED(P2)) THEN
        IF (ALL(Solver % Variable % Perm(P1 % NodeIndexes)>0).AND.&
            ALL(Solver % Variable % Perm(P2 % NodeIndexes)>0)) CYCLE
+     ELSE IF (.NOT.ASSOCIATED(P1).AND..NOT.ASSOCIATED(P2)) THEN
+       CYCLE
      END IF
  
      IF (ASSOCIATED(P1)) THEN
        BodyForce => GetBodyForce(P1)
+       IF (Element % Type % Dimension<P1 % Type % Dimension-1) CYCLE
      ELSE
        BodyForce => GetBodyForce(P2)
+       IF (Element % Type % Dimension<P2 % Type % Dimension-1) CYCLE
      END IF
      IF (.NOT. ASSOCIATED(BodyForce)) CYCLE
 
@@ -2504,8 +2509,7 @@ CONTAINS
        M = MATMUL( LOAD(4:6,1:n), Basis(1:n) )
        L = MATMUL( LOAD(1:3,1:n), Basis(1:n) )
        L = L - MATMUL(FixJPotC, dBasisdx(1:n,:))
-       L = L-MATMUL(LOAD(7,1:n), dBasisdx(1:n,:))
-
+       L = L-MATMUL(LOAD(7,1:n), dBasisdx(1:n,:)) 
        ! Compute element stiffness matrix and force vector:
        ! --------------------------------------------------
 
