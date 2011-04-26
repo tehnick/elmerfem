@@ -455,6 +455,7 @@ SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
               'Nonlinear System Max Iterations',Found)
   IF(.NOT. Found) NoIterations = 1
 
+print*,noiterations
   DO i=1,NoIterations
     IF( DoSolve() ) EXIT
   END DO
@@ -465,6 +466,7 @@ CONTAINS
   LOGICAL FUNCTION DoSolve() RESULT(Converged)
 !------------------------------------------------------------------------------
    CHARACTER(LEN=MAX_NAME_LEN) :: potname
+   INTEGER :: i,j,t,n,nd
 
   !System assembly:
   !----------------
