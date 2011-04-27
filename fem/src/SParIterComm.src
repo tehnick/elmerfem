@@ -958,82 +958,7 @@ real(kind=dp) :: realtime,tt
       DEALLOCATE(gindices)
     END DO
 
-    DO i = 1, ParEnv % PEs
-       IF( i-1 == ParEnv % MyPE ) CYCLE
-       IF( .NOT. IsNeighbour(i) ) CYCLE
 
-       CALL MPI_RECV( DataSize, 1, MPI_INTEGER, &
-        i-1, 300, MPI_COMM_WORLD, status, ierr )
-
-       IF( datasize > 0 ) THEN
-         ALLOCATE( gindices(DataSize) )
-         CALL MPI_RECV( gindices, DataSize, MPI_INTEGER, &
-            i-1, 301, MPI_COMM_WORLD, status, ierr )
-
-         j=0
-         DO WHILE(j<Datasize)
-           j=j+1
-           k=-gindices(j)
-           Found=.FALSE.
-           DO l=1,n
-             IF (.NOT.Edgen(l) % Interface.OR.Edgen(l) % n==0) CYCLE
-             IF (Edgen(l) % n==k) THEN
-               DO m=j+1,Datasize
-                 IF (gindices(m)<0) EXIT
-               END DO
-               DEALLOCATE(Edgen(l) % Neighbours)
-               ALLOCATE(Edgen(l) % Neighbours(m-j))
-               Edgen(l) % Neighbours(1)=i-1
-               Edgen(l) % Neighbours(2:)=gindices(j+1:m-1)
-               j=m-1
-               Found=.TRUE.
-               EXIT
-             END IF
-           END DO
-         END DO
-         DEALLOCATE(gindices)
-       END IF
-    END DO
-
-    !
-    ! Check that all edges have global numbers. If we haven't
-    ! received a new global number, the 'owner' supposedly
-    ! doesn't have the edge (even if it has the edge nodes!),
-    ! so remove the previous owner and try a new one from the
-    ! list of PEs sharing the edge nodes.
-    !------------------------------------------------------
-    m=0
-    DO i=1,n
-      IF ( Edgen(i) % n == 0 ) THEN
-        m=m+1
-        k = SIZE(Edgen(i) % Neighbours)
-        ALLOCATE(commonlist(k-1))
-        commonlist = Edgen(i) % neighbours(2:)
-        DEALLOCATE( Edgen(i) % neighbours )
-        Edgen(i) % Neighbours => commonlist
-        IF (k<=2) Edgen(i) % Interface=.FALSE.
-      END IF
-    END DO
-
-    CALL MPI_ALLREDUCE( m, retry, 1, &
-        MPI_INTEGER, MPI_SUM, MPI_COMM_WORLD, ierr )
-
-    ! if some of the edges don't have global numbers, retry.
-    ! ------------------------------------------------------
-    IF ( retry>0 ) GOTO 10
-
-20  CONTINUE
-
-    ! Deallocate temp arrays:
-    !------------------------
-
-    DEALLOCATE( owned_edges, owned_edges2, &
-      parentnodes, tosend, toreceive )
-    !-------------------------------------------------------------------
-    ! Now, the numbering should be unique. It remains to sort the edges.
-    !-------------------------------------------------------------------
-
-    !
     ! Sort our own edges according to ascending global order:
     ! -------------------------------------------------------
     ALLOCATE(gdofs(n), grevorder(n), gorder(n))
@@ -1054,14 +979,18 @@ real(kind=dp) :: realtime,tt
     ! --------------------------------------------------
     DO i=1,Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
       Element => Mesh % Elements(i)
-      j = Element % Type % NumberOfEdges
-      Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
+      IF (ASSOCIATED(Element % EdgeIndexes)) THEN
+        j = Element % Type % NumberOfEdges
+        IF ( j>=1 ) &
+          Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
+      END IF
     END DO
 
     DO i=1,Mesh % NumberOfFaces
       Element => Mesh % Faces(i)
-      j = Element % Type % NumberOFEdges
-      Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
+        j = Element % Type % NumberOFEdges
+      IF ( j>=1 ) &
+        Element % EdgeIndexes(1:j)=grevorder(Element % EdgeIndexes(1:j))
     END DO
 
     !
@@ -1083,20 +1012,6 @@ real(kind=dp) :: realtime,tt
       grevorder(k) = j
       gorder(grevorder(k)) = k
     END DO
-
-    ALLOCATE( Mesh % ParallelInfo % EdgeInterface(n), &
-              Mesh % ParallelInfo % EdgeNeighbourList(n) )
-
-    DO i=1,n
-      Mesh % ParallelInfo % EdgeInterface(i) = Edgen(i) % Interface
-      Mesh % ParallelInfo % EdgeNeighbourList(i) % Neighbours => &
-             Edgen(i) % Neighbours
-      Mesh % Edges(i) % ElementIndex = i
-    END DO
-
-    DEALLOCATE( gorder, grevorder, gdofs, edgen )
-    IF ( AllM ) DEALLOCATE(IsNeighbour)
-    CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 !--------------------------------------------------------------------  
   END SUBROUTINE SParEdgeNumbering
 !--------------------------------------------------------------------  
@@ -1129,7 +1044,7 @@ real(kind=dp) :: realtime,tt
 
      INTEGER, POINTER :: commonlist(:), gindices(:), gdofs(:)
 
-     INTEGER :: i,j,k,l,m,n,mm,nd,edofs,maxedofs, &
+     INTEGER :: i,j,k,l,m,n,mm,nd,edofs,maxedofs, lnod(4), gnod(4), &
                 p,q,r,datasize, ierr,status(MPI_STATUS_SIZE)
 
      LOGICAL, POINTER :: ig(:)
@@ -1202,7 +1117,13 @@ real(kind=dp) :: realtime,tt
 
         commonlist => Null() ! intersection of pe lists
         DO j=1,nd
-          l = Element % NodeIndexes(j)
+          lnod(j) = Element % NodeIndexes(j)
+          gnod(j) = gdofs(Element % NodeIndexes(j))
+        END DO
+        CALL Sorti(nd,gnod,lnod)
+
+        DO j=1,nd
+          l = lnod(j)
           parentnodes(i,j) =  l
           list(j) % pes => Mesh % ParallelInfo % NeighbourList(l) % Neighbours
         END DO
@@ -1241,14 +1162,30 @@ real(kind=dp) :: realtime,tt
             q = MAX(q,list(p) % Pes(1))
           END DO
 
-          DO p=1,SIZE(commonlist)
-            IF (commonlist(p)==q) THEN
-              j=commonlist(1)
-              commonlist(1)=commonlist(p)
-              commonlist(p)=j
+          DO j=1,SIZE(commonlist)
+            IF (commonlist(j)==q) THEN
+              p=commonlist(1)
+              commonlist(1)=q
+              commonlist(j)=p
               EXIT
             END IF
           END DO
+
+          IF (commonlist(1)/=q) THEN
+            q = 0
+            DO p=1,nd
+              q = MIN(q,list(p) % Pes(1))
+            END DO
+
+            DO j=1,SIZE(commonlist)
+              IF (commonlist(j)==q) THEN
+                p=commonlist(1)
+                commonlist(1)=q
+                commonlist(j)=p
+                EXIT
+              END IF
+            END DO
+          END IF
           Facen(i) % Neighbours => commonlist
 
           !
@@ -1372,7 +1309,7 @@ real(kind=dp) :: realtime,tt
         DO l = 1, datasize
           m = 4*l-3
           DO k = 1,n
-            IF( .NOT. Facen(k) % Interface .OR. Facen(k) % n>0 ) CYCLE
+            IF( .NOT. Facen(k) % Interface) CYCLE
             IF( gdofs(parentnodes(k,1)) == gindices(m+1) .AND. &
                 gdofs(parentnodes(k,2)) == gindices(m+2) .AND. &
                 gdofs(parentnodes(k,3)) == gindices(m+3) ) THEN
