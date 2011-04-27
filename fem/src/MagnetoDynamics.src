@@ -1626,6 +1626,7 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Matrix_t), POINTER :: A
   REAL(KIND=dp) :: Norm
+  LOGICAL:: Found
   REAL(KIND=dp), POINTER :: fixpot(:)
   TYPE(Variable_t), POINTER :: fixJpot, svar
   
@@ -1647,6 +1648,14 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
   svar => Solver % Variable
   Solver % Variable => fixJpot
 
+  CALL ListSetNameSpace('jfix:')
+  IF (.NOT.ListCheckPresent(SolverParams,'Jfix: Linear System Preconditioning')) &
+    CALL ListAddString(SolverParams,'Jfix: Linear System Preconditioning', 'Ilu')
+
+  IF (.NOT.ListCheckPresent(SolverParams,'Jfix: Linear System Convergence Tolerance')) &
+    CALL ListAddConstReal(SolverParams,'Jfix: Linear System Convergence Tolerance', &
+      0.01_dp*GetCReal(SolverParams,'Linear System Convergence Tolerance', Found))
+
   CALL DefaultInitialize()
   CALL BulkAssembly()
   CALL DefaultFinishAssembly()
@@ -1654,6 +1663,7 @@ SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
 
   Norm = DefaultSolve()
   Solver % Variable => svar
+  CALL ListSetNameSpace('')
   
 CONTAINS
 
@@ -1838,9 +1848,7 @@ CONTAINS
        DO k=1,n
          p = Element % NodeIndexes(k) 
          p = dofs*(Solver % Variable % Perm(p)-1)+j
-         CALL ZeroRow(A,p)
-         CALL SetMatrixElement(A,p,p,1._dp)
-         A % RHS(p)=0._dp
+         CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
        END DO
      END DO
     END DO
@@ -1873,7 +1881,8 @@ SUBROUTINE WhitneyAVHarmonicSolver_Init0(Model,Solver,dt,Transient)
   IF ( .NOT.ListCheckPresent(SolverParams, "Element") ) THEN
     CALL ListAddString( SolverParams, "Element", "n:1 e:1" )
   END IF
-  CALL ListAddString( SolverParams, "Exported Variable 1", "-dofs 2 Jfix" )
+  CALL ListAddString( SolverParams, "Exported Variable 1", &
+               "-dofs 2 -nooutput Jfix" )
 !------------------------------------------------------------------------------
 END SUBROUTINE WhitneyAVHarmonicSolver_Init0
 !------------------------------------------------------------------------------
