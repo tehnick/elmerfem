@@ -1829,11 +1829,12 @@ real(kind=dp) :: s, RealTime
   v(1:n) = 0.0
   DO i = 1, ParEnv % PEs
      CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
-     IfV => GlobalData % SplittedMatrix % IfVecs(i)
-     IfL => GlobalData % SplittedMatrix % IfLCols(i)
-     IfO => GlobalData % SplittedMatrix % IfORows(i)
 
      IF ( CurrIf % NumberOfRows /= 0 ) THEN
+       IfV => GlobalData % SplittedMatrix % IfVecs(i)
+       IfL => GlobalData % SplittedMatrix % IfLCols(i)
+       IfO => GlobalData % SplittedMatrix % IfORows(i)
+
         IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
         DO j = 1, CurrIf % NumberOfRows
            IF ( Currif % RowOwner(j) == ParEnv % MyPE ) THEN
@@ -1941,17 +1942,16 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
      IF ( CurrIf % NumberOfRows /= 0 ) THEN
         IfV => GlobalData % SplittedMatrix % IfVecs(i)
         IfL => GlobalData % SplittedMatrix % IfLCols(i)
+        IfO => GlobalData % SplittedMatrix % IfORows(i)
 
         IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
         DO j = 1, CurrIf % NumberOfRows / 2
-           IF ( Currif % RowOwner(j) == ParEnv % MyPE ) THEN
-             rowind = IfO % IfVec(j)
+          IF ( Currif % RowOwner(2*j-1) == ParEnv % MyPE ) THEN
+             rowind = (IfO % IfVec(2*j-1)+1)/2
              DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1,2
                Colind = (IfL % IfVec(k)+1)/2
                A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
-               A = A * u(ColInd)
-               v(2*rowind-1)=v(2*rowind-1) + REAL(A)
-               v(2*rowind-0)=v(2*rowind-0) + AIMAG(A)
+               v(rowind) = v(rowind) + A * u(ColInd)
              END DO
           ELSE
             DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
