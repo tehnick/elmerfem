@@ -6047,19 +6047,21 @@ CONTAINS
 !---------------------------------------------------------------
 
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL :: MaskExists,GotIt
-    INTEGER :: i,j,k,l,ind,n,dim,dir,nsize,Sweep,MaxSweep
+    LOGICAL :: MaskExists,FixBestDirection,FoundBetter, GotIt
+    INTEGER :: i,j,k,l,ind,n,dim,dir,nsize,Sweep,MaxSweep,DirBest
     INTEGER :: PosMeasureIndex, NegMeasureIndex, FixingNodes(6)
     LOGICAL, ALLOCATABLE :: ForbiddenNodes(:)
     REAL(KIND=dp), POINTER :: Parray(:,:)
     REAL(KIND=dp) :: Normal(3), Tangent1(3), Tangent2(3), Coord(3), &
         SumCoord(3), AveCoord(3), Weights(3), RefScore, Score, &
-        PosMeasure, NegMeasure, OffLineCoeff, &
-        InLine, OffLine, Dist, MinDist, InLineMeasure
+        PosMeasure, NegMeasure, OffLineCoeff, DirDistance, &
+        InLine, OffLine, Dist, MinDist, InLineMeasure, ScoreLimit
     CHARACTER(LEN=MAX_NAME_LEN) :: Method
 !---------------------------------------------------------------
 
     CALL Info('FindRigidBodyFixingNodes','Starting')
+
+
 
     Mesh => Solver % Mesh
     dim = Mesh % MeshDim 
@@ -6069,7 +6071,6 @@ CONTAINS
     nsize = COUNT(.NOT. ForbiddenNodes) 
 
 !   PRINT *,'Number of allowed Nodes:',nsize
-
 
     ! Find the center from the average of node positions
     !-----------------------------------------------------------
@@ -6117,6 +6118,11 @@ CONTAINS
     OffLineCoeff = ListGetConstReal( Solver % Values,'Fixing Nodes Off Line Coefficient',GotIt)
     IF(.NOT. GotIt) OffLineCoeff = 1.0_dp
 
+    ScoreLimit = ListGetConstReal( Solver % Values,'Fixing Nodes Limit Score',GotIt)
+    IF(.NOT. GotIt) ScoreLimit = 0.99_dp
+
+    FixBestDirection = ListGetLogical( Solver % Values,'Fixing Nodes Axis Freeze',GotIt)
+
     Parray => ListGetConstRealArray( Solver % Values,'Fixing Nodes Normal Vector',GotIt )
     IF( GotIt ) THEN
       Normal = Parray(1:3,1)
@@ -6129,6 +6135,8 @@ CONTAINS
     
     ! Find the fixing nodes by looping over all nodes
     !-----------------------------------------------------------
+    DirDistance = 0.0_dp
+    DirBest = 0
     DO dir = 1, dim
       
       ! Use the three principal directions as the weight
@@ -6184,6 +6192,28 @@ CONTAINS
       
       FixingNodes(2*dir-1) = NegMeasureIndex
       FixingNodes(2*dir) = PosMeasureIndex      
+
+      IF( NegMeasureIndex > 0 .AND. PosMeasureIndex > 0 ) THEN
+        IF( PosMeasure + NegMeasure > DirDistance ) THEN
+          DirDistance = PosMeasure + NegMeasure
+          DirBest = dir
+        END IF
+      END IF
+
+    END DO
+
+
+ 
+    ! To be on the safe side check that no node is used twice
+    ! However, do not break the best direction
+    !-----------------------------------------------------------------------------------
+    DO i=1,2*dim
+      DO j=1,2*dim
+        IF( FixBestDirection ) THEN
+          IF( j == 2*DirBest-1 .OR. j == 2*DirBest ) CYCLE
+        END IF        
+        IF( FixingNodes(j) == FixingNodes(i) ) FixingNodes(j) = 0
+      END DO
     END DO
 
 
@@ -6192,22 +6222,40 @@ CONTAINS
     !-----------------------------------------------------------------------------------
     MaxSweep = ListGetInteger( Solver % Values,'Fixing Nodes Search Loops',GotIt)
     DO Sweep = 0,MaxSweep
+      FoundBetter = .FALSE.
       DO j=1,2*dim 
+        RefScore = FixingNodesScore(j,FixingNodes(j)) 
+
         ! The first round set the unfixed nodes
-        IF( Sweep == 0 .AND. FixingNodes(j) /= 0 ) CYCLE
+        IF( Sweep == 0 ) THEN
+          PRINT *,'Initial Score:',j,RefScore
+          IF( FixingNodes(j) /= 0 ) CYCLE
+        END IF
+
+        ! Fir the best direction because otherwise there are too 
+        ! many moving parts.
+        IF( FixBestDirection ) THEN
+          IF( j == 2*DirBest-1 .OR. j == 2*DirBest ) CYCLE
+        END IF
 
         RefScore = FixingNodesScore(j,FixingNodes(j)) 
 
         DO i=1,Mesh % NumberOfNodes
           IF( ForbiddenNodes(i) ) CYCLE
           Score = FixingNodesScore(j,i)
-          IF( Score < RefScore ) THEN
+          IF( Score < ScoreLimit * RefScore ) THEN
             RefScore = Score 
             FixingNodes(j) = i            
+            FoundBetter = .TRUE.
           END IF
         END DO
-
       END DO
+      IF(.NOT. FoundBetter ) EXIT
+    END DO
+
+    DO j=1,2*dim
+      RefScore = FixingNodesScore(j,FixingNodes(j)) 
+      PRINT *,'Final Score:',j,RefScore
     END DO
 
     ! Output the selected nodes
