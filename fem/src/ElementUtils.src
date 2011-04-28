@@ -559,10 +559,16 @@ CONTAINS
      UseOptimized = ListGetLogical( Solver % Values, &
        'Optimize Bandwidth Use Always', GotIt )
 
+     Matrix => Null()
+
+     ! check if matrix structures really need to be created:
+     ! -----------------------------------------------------
+     IF ( ListGetLogical( Solver % Values, 'No matrix',GotIt)) RETURN
+
 !------------------------------------------------------------------------------
 !    Compute matrix structure and do bandwidth optimization if requested
 !------------------------------------------------------------------------------
-     ALLOCATE( Model % RowNonZeros(k) )
+     ALLOCATE( Model % RowNonZeros(k) ); Model % RowNonzeros=0
      NULLIFY( ListMatrix )
 
      IF ( PRESENT(Equation) ) THEN
@@ -575,6 +581,8 @@ CONTAINS
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
                       k, OptimizeBW,UseOptimized, ' ' )
      ENDIF
+
+
 !------------------------------------------------------------------------------
 !    Ok, create and initialize the matrix
 !------------------------------------------------------------------------------
