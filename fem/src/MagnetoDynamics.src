@@ -1848,7 +1848,18 @@ CONTAINS
        DO k=1,n
          p = Element % NodeIndexes(k) 
          p = dofs*(Solver % Variable % Perm(p)-1)+j
-         CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
+
+         ! In parallel apply forcing to zero out the potential as
+         ! there might be single nodes on boundaries in some other
+         ! partitions.
+         ! -------------------------------------------------------
+         IF (Parenv % PEs>1) THEN
+           A % RHS(p)=0._dp
+           A % Values(A % Diag(p)) = SUM(ABS(A % Values( &
+                 A % Rows(p):A % Rows(p+1)-1)))*1d10
+         ELSE
+           CALL CRS_SetSymmDirichlet(A,A % RHS,p,1._dp)
+         END IF
        END DO
      END DO
     END DO
@@ -3118,6 +3129,7 @@ SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
   Solvers(n+1) % Procedure = 0
   Solvers(n+1) % ActiveElements => Null()
   CALL ListAddString( SolverParams, 'Exec Solver', 'never' )
+  CALL ListAddLogical( SolverParams, 'No Matrix',.TRUE.)
   CALL ListAddString( SolverParams, 'Equation', 'never' )
   CALL ListAddString( SolverParams, 'Procedure', &
               'MagnetoDynamics MagnetoDynamics_Dummy',.FALSE. )
