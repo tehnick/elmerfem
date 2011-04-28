@@ -3082,13 +3082,15 @@ CONTAINS
     DO WHILE( ASSOCIATED(Var) )
 
       IF ( .NOT. Var % Output ) THEN
-         Var => Var % Next
-         CYCLE
+         Var => Var % Next; CYCLE
       END IF
 
       IF( SIZE( Var % Values ) == Var % Dofs ) THEN
-        Var => Var % Next
-        CYCLE
+        Var => Var % Next; CYCLE
+      END IF
+
+      IF( Var % Type /= Variable_on_nodes ) THEN
+        Var => Var % Next; CYCLE
       END IF
 
       SELECT CASE(Var % Name(1:Var % NameLen))
@@ -3166,13 +3168,15 @@ CONTAINS
       DO WHILE( ASSOCIATED( Var ) )
 
         IF ( .NOT. Var % Output ) THEN
-           Var => Var % Next
-           CYCLE
+           Var => Var % Next; CYCLE
         END IF
 
         IF( SIZE( Var % Values ) == Var % Dofs ) THEN
-          Var => Var % Next
-          CYCLE
+          Var => Var % Next; CYCLE
+        END IF
+
+        IF( Var % Type /= Variable_on_nodes ) THEN
+          Var => Var % Next; CYCLE
         END IF
 
         SELECT CASE(Var % Name(1:Var % Namelen))
@@ -3518,13 +3522,15 @@ CONTAINS
         Var => Model % Variables
         DO WHILE( ASSOCIATED( Var ) )
            IF ( .NOT. Var % Output ) THEN
-              Var => Var % Next
-              CYCLE
+              Var => Var % Next; CYCLE
            END IF
            
            IF( SIZE( Var % Values ) == Var % DOFs ) THEN
-             Var => Var % Next
-             CYCLE
+             Var => Var % Next; CYCLE
+           END IF
+
+           IF( Var % Type /= Variable_on_nodes ) THEN
+             Var => Var % Next; CYCLE
            END IF
 
            SELECT CASE(Var % Name(1:Var % Namelen))

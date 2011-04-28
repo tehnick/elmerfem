@@ -596,8 +596,8 @@ CONTAINS
         END IF
        
 
-        IF ( Nrows > 0 ) THEN
-          ALLOCATE( Solution( Nrows ) )
+        IF (Nrows>0) THEN
+          ALLOCATE(Solution(Nrows))
           Solution = InitValue
           
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
@@ -614,11 +614,9 @@ CONTAINS
           END IF
         END IF
 
-        IF ( ASSOCIATED(Solver % Matrix) ) THEN
-          Solver % Matrix % Comm = MPI_COMM_WORLD
-          IF ( Solver % Matrix % DGMatrix ) &
-              Solver % Variable % TYPE = Variable_on_nodes_on_elements
-        END IF
+        IF (ASSOCIATED(Solver % Matrix)) Solver % Matrix % Comm = MPI_COMM_WORLD
+        IF ( ListGetLogical( SolverParams, 'Discontinuous Galerkin', Found) ) &
+          Solver % Variable % TYPE = Variable_on_nodes_on_elements
       END IF
       !------------------------------------------------------------------------------
     END IF
