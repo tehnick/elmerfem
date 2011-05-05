@@ -318,15 +318,15 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
     Model % CurrentElement => ParentElement ! we need this in case of the material parameter being a function
     dummyArray  = ListGetReal( ParentMaterial, 'Viscosity', 1, NodeNumberArray, GotIt)
     IF (.NOT. GotIt) THEN
-      WRITE(Message,'(a,i3)' )'No viscosity found in material section no.', material_id
+      WRITE(Message,'(a,i0)' )'No viscosity found in material section no. ', material_id
       CALL FATAL( 'electrokinetics (helmholtz_smoluchowski)',Message )
     ELSE
       viscosity = dummyArray(1)
     END IF
     dummyArray= ListGetReal( ParentMaterial, 'Relative Permittivity', 1, NodeNumberArray, GotIt )
     IF (.NOT. GotIt) THEN
-      WRITE(Message,'(a,i3)' )&
-          'No keyword >Relative Permittivity< found in material section no.', material_id
+      WRITE(Message,'(a,i0)' )&
+          'No keyword >Relative Permittivity< found in material section no. ', material_id
       CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
       CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting to 1', Level=4)
       dielectricConstant = 1.0d00
@@ -340,7 +340,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   ELSE
     dummyArray = ListGetReal( BC, 'EO Mobility', 1, NodeNumberArray, GotIt )
     IF (.NOT.GotIt) THEN
-      WRITE(Message,'(a,i3)' )'Neither zeta potential nor EO mobility found in boundary condition no.', bc_id
+      WRITE(Message,'(a,i0)' )'Neither zeta potential nor EO mobility found in boundary condition no. ', bc_id
       CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
       CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting EO mobility to 0', Level=4)
       eoMobility = 0.0d00
@@ -355,7 +355,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   ElectricFieldMethod = ListGetString( Model % Equations(eq_id) % &
        Values, 'Electric Field', GotIt )
   IF ( .NOT.GotIt ) THEN 
-    WRITE(Message,'(a,i3)' )'No external electric field defined for Equation no.', eq_id
+    WRITE(Message,'(a,i0)' )'No external electric field defined for Equation no. ', eq_id
     CALL Info('electrokinetics (helmholtz_smoluchowski)',Message, level=4)
     ElectricFieldExists = .FALSE.
     hs_velocity = 0.0D00
@@ -365,7 +365,7 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
       ElectricFieldExists = .FALSE.
       ElectricField = 0.0_dp
       
-      DO i=1,3
+      DO i=1,dim
         WRITE(ValueName,'(a,i2)' ) 'Electric Field',i
         dummyArray =  ListGetReal( ParentMaterial,ValueName, 1, NodeNumberArray, GotIt )
         IF( GotIt ) THEN
@@ -375,13 +375,13 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
       END DO
       
       IF (.NOT. ElectricFieldExists) THEN
-        WRITE(Message,'(a,i3)' )'No component for >Electric Field {1,2,3}< found in Material',&
+        WRITE(Message,'(a,i0)' )'No component for >Electric Field {1,2,3}< found in Material ',&
             material_id, ' although defined as constant'
         CALL WARN('electrokinetics (helmholtz_smoluchowski)',Message)
       END IF
     ELSE IF ( ElectricFieldMethod == 'computed') THEN ! get Electric Field from Electrostatic Solver
       electricField = 0.0_dp      
-      DO i=1,3
+      DO i=1,dim
         WRITE(ValueName,'(a,i2)' ) 'Electric Field',i
         EFieldComp => VariableGet( Model % Variables, ValueName ) 
         IF (ASSOCIATED(EFieldComp)) THEN
@@ -390,8 +390,8 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
         END IF
       END DO
     ELSE         
-      WRITE(Message,'(a,a,a,i3)' ) 'Unknown entry, ', ElectricFieldMethod,&
-          ',for keyword >Electric Field< for Equation no.', eq_id
+      WRITE(Message,'(a,a,a,i0)' ) 'Unknown entry, ', ElectricFieldMethod,&
+          ',for keyword >Electric Field< for Equation no. ', eq_id
       CALL WARN('electrokinetics (helmholtz_smoluchowski)',Message)
       ElectricFieldExists = .FALSE.
       hs_velocity = 0.0D00        
