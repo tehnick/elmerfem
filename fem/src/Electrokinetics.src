@@ -236,6 +236,16 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   !-----------------------------------------------------------------
   IF (FirstTime) THEN
      DIM = CoordinateSystemDimension()
+
+     IF( DIM  == 1 ) THEN
+       CALL Fatal('electrokinetics (helmholtz_smoluchowski_comp)',&
+           'The electrokinetic BCs do not make sense in 1D')
+     END IF
+     IF( direction == 0 .AND. Dim > 2) THEN
+       CALL Fatal('electrokinetics (helmholtz_smoluchowski_comp)',&
+           'The tangential velocity may only be defined in 2D')
+     END IF
+
      N = Model % MaxElementNodes 
      ALLOCATE(Nodes % x(N), Nodes % y(N), Nodes % z(N),&
           STAT = istat)
