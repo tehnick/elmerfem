@@ -64,8 +64,6 @@
 !  computes Helmholtz Smoluchowski velocity in x1 direction
 ! ******************************************************************************
 FUNCTION helmholtz_smoluchowski1( Model, NodeNumber, dummyargument) RESULT(hs_velocity1)
-
-
   USE DefUtils
   IMPLICIT NONE
 ! external variables
@@ -73,7 +71,6 @@ FUNCTION helmholtz_smoluchowski1( Model, NodeNumber, dummyargument) RESULT(hs_ve
   TYPE(Model_t) :: Model
   INTEGER :: NodeNumber
   REAL(KIND=dp) :: dummyargument, hs_velocity1
-
 
   INTERFACE 
      FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_velocity_comp)
@@ -92,6 +89,8 @@ FUNCTION helmholtz_smoluchowski1( Model, NodeNumber, dummyargument) RESULT(hs_ve
   ! ---------------------
   hs_velocity1 = helmholtz_smoluchowski_comp( Model, NodeNumber, 1)
 END FUNCTION helmholtz_smoluchowski1
+
+
 !----------------------------------------------------------------------------------
 ! ******************************************************************************
 !  computes Helmholtz Smoluchowski velocity in x2 direction
@@ -104,7 +103,6 @@ FUNCTION helmholtz_smoluchowski2( Model, NodeNumber, dummyargument) RESULT(hs_ve
   TYPE(Model_t) :: Model
   INTEGER :: NodeNumber
   REAL(KIND=dp) :: dummyargument, hs_velocity2
-
 
   INTERFACE 
      FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_velocity_comp)
@@ -139,7 +137,6 @@ FUNCTION helmholtz_smoluchowski3( Model, NodeNumber, dummyargument) RESULT(hs_ve
   INTEGER :: NodeNumber
   REAL(KIND=dp) :: dummyargument, hs_velocity3
 
-
   INTERFACE 
      FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_velocity_comp)
        USE DefUtils
@@ -157,6 +154,36 @@ FUNCTION helmholtz_smoluchowski3( Model, NodeNumber, dummyargument) RESULT(hs_ve
   ! ---------------------
   hs_velocity3 = helmholtz_smoluchowski_comp( Model, NodeNumber, 3)
 END FUNCTION helmholtz_smoluchowski3
+
+
+FUNCTION helmholtz_smoluchowski( Model, NodeNumber, dummyargument) RESULT(hs_velocity_tang)
+  USE DefUtils
+  IMPLICIT NONE
+! external variables
+! ------------------
+  TYPE(Model_t) :: Model
+  INTEGER :: NodeNumber
+  REAL(KIND=dp) :: dummyargument, hs_velocity_tang
+
+  INTERFACE 
+     FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_velocity_comp)
+       USE DefUtils
+       IMPLICIT NONE
+       ! external variables
+       ! ------------------
+       TYPE(Model_t) :: Model
+       INTEGER :: NodeNumber, direction
+       REAL(KIND=dp) :: hs_velocity_comp
+     END FUNCTION helmholtz_smoluchowski_comp
+  END INTERFACE
+
+  ! ---------------------
+  ! HS-velocity component
+  ! ---------------------
+  hs_velocity_tang = helmholtz_smoluchowski_comp( Model, NodeNumber, 0)
+END FUNCTION helmholtz_smoluchowski
+
+
 
 ! ************************************************************************************
 !  computes component of Helmholtz Smoluchowski velocity for given direction
@@ -179,14 +206,14 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   INTEGER, DIMENSION(:), POINTER :: NodeNumberArray
   REAL(KIND=dp) :: dummyArray(1), viscosity, dielectricConstant, vacuumPerm, zetapotential,&
        electricField(3), tang_electricField(3), norm_electricField,&
-       U, V, W, Normal(3), hs_velocity(3), eoMobility
-  CHARACTER(LEN=MAX_NAME_LEN) :: ElectricFieldMethod
+       U, V, W, Normal(3), Tangent(3), Tangent2(3), hs_velocity(3), eoMobility
+  CHARACTER(LEN=MAX_NAME_LEN) :: ElectricFieldMethod, ValueName
   LOGICAL :: GotIt, ElectricFieldExists, FirstTime=.TRUE., SkipThisTime=.FALSE.,& 
        CalcMobility
   TYPE(ValueList_t), POINTER :: ParentMaterial, BC
   TYPE(Element_t), POINTER :: BoundaryElement, ParentElement  
   TYPE(Nodes_t) :: Nodes
-  TYPE(Variable_t), POINTER :: EField1, EField2,EField3 
+  TYPE(Variable_t), POINTER :: EFieldComp
 ! remember this
 ! -------------
   SAVE Nodes, DIM, FirstTime, vacuumPerm, SkipThisTime
@@ -257,12 +284,12 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   !-------------------------------------------
   ! Get normal of the boundary element at node
   !-------------------------------------------
-  Nboundary = BoundaryElement % Type % NumberOfNodes
+  Nboundary = BoundaryElement % TYPE % NumberOfNodes
   DO BoundaryElementNode=1,Nboundary
      IF ( NodeNumber == BoundaryElement % NodeIndexes(BoundaryElementNode) ) EXIT
   END DO
-  U = BoundaryElement % Type % NodeU(BoundaryElementNode)
-  V = BoundaryElement % Type % NodeV(BoundaryElementNode)
+  U = BoundaryElement % TYPE % NodeU(BoundaryElementNode)
+  V = BoundaryElement % TYPE % NodeV(BoundaryElementNode)
   Nodes % x(1:Nboundary) = Model % Nodes % x(BoundaryElement % NodeIndexes)
   Nodes % y(1:Nboundary) = Model % Nodes % y(BoundaryElement % NodeIndexes)
   Nodes % z(1:Nboundary) = Model % Nodes % z(BoundaryElement % NodeIndexes)
@@ -271,46 +298,45 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   !-----------------------------------------------------------------
   ! get material parameters from boundary
   !-----------------------------------------------------------------  
-  dummyArray = ListGetReal( BC, 'Zeta Potential', 1, NodeNumberArray, GotIt )
-  CalcMobility = GotIt
+  dummyArray = ListGetReal( BC, 'Zeta Potential', 1, NodeNumberArray, CalcMobility )
 
-  IF (.NOT.CalcMobility) THEN
-     dummyArray = ListGetReal( BC, 'EO Mobility', 1, NodeNumberArray, GotIt )
-     IF (.NOT.GotIt) THEN
-        WRITE(Message,'(a,i3)' )'Neither zeta potential nor EO mobility found in boundary condition no.', bc_id
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting EO mobility to 0', Level=4)
-        eoMobility = 0.0d00
-     ELSE
-        eoMobility = dummyArray(1)
-     END IF
+  IF( CalcMobility ) THEN
+    zetapotential = dummyArray(1)
+
+    ! get material parameters from bulk 
+    !-----------------------------------------------------------------
+    Model % CurrentElement => ParentElement ! we need this in case of the material parameter being a function
+    dummyArray  = ListGetReal( ParentMaterial, 'Viscosity', 1, NodeNumberArray, GotIt)
+    IF (.NOT. GotIt) THEN
+      WRITE(Message,'(a,i3)' )'No viscosity found in material section no.', material_id
+      CALL FATAL( 'electrokinetics (helmholtz_smoluchowski)',Message )
+    ELSE
+      viscosity = dummyArray(1)
+    END IF
+    dummyArray= ListGetReal( ParentMaterial, 'Relative Permittivity', 1, NodeNumberArray, GotIt )
+    IF (.NOT. GotIt) THEN
+      WRITE(Message,'(a,i3)' )&
+          'No keyword >Relative Permittivity< found in material section no.', material_id
+      CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
+      CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting to 1', Level=4)
+      dielectricConstant = 1.0d00
+    ELSE
+      dielectricConstant = dummyArray(1)
+    END IF
+
+    ! calculate mobility
+    !-----------------------------------------------------------------
+    eoMobility = (zetapotential * dielectricConstant * vacuumPerm)/ viscosity
   ELSE
-     zetapotential = dummyArray(1)
-  END IF
-
-  
-  !-----------------------------------------------------------------
-  ! get material parameters from bulk (if needed)
-  !-----------------------------------------------------------------
-    IF (CalcMobility) THEN
-     Model % CurrentElement => ParentElement ! we need this in case of the material parameter being a function
-     dummyArray  = ListGetReal( ParentMaterial, 'Viscosity', 1, NodeNumberArray, GotIt)
-     IF (.NOT. GotIt) THEN
-        WRITE(Message,'(a,i3)' )'No viscosity found in material section no.', material_id
-        CALL FATAL( 'electrokinetics (helmholtz_smoluchowski)',Message )
-     ELSE
-        viscosity = dummyArray(1)
-     END IF
-     dummyArray= ListGetReal( ParentMaterial, 'Relative Permittivity', 1, NodeNumberArray, GotIt )
-     IF (.NOT. GotIt) THEN
-        WRITE(Message,'(a,i3)' )&
-             'No keyword >Relative Permittivity< found in material section no.', material_id
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting to 1', Level=4)
-        dielectricConstant = 1.0d00
-     ELSE
-        dielectricConstant = dummyArray(1)
-     END IF
+    dummyArray = ListGetReal( BC, 'EO Mobility', 1, NodeNumberArray, GotIt )
+    IF (.NOT.GotIt) THEN
+      WRITE(Message,'(a,i3)' )'Neither zeta potential nor EO mobility found in boundary condition no.', bc_id
+      CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
+      CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting EO mobility to 0', Level=4)
+      eoMobility = 0.0d00
+    ELSE
+      eoMobility = dummyArray(1)
+    END IF
   END IF
 
   !-----------------------------------------------------------------
@@ -319,350 +345,68 @@ FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_ve
   ElectricFieldMethod = ListGetString( Model % Equations(eq_id) % &
        Values, 'Electric Field', GotIt )
   IF ( .NOT.GotIt ) THEN 
-     WRITE(Message,'(a,i3)' )'No external electric field defined for Equation no.', eq_id
-     CALL Info('electrokinetics (helmholtz_smoluchowski)',Message, level=4)
-     ElectricFieldExists = .FALSE.
-     hs_velocity = 0.0D00
+    WRITE(Message,'(a,i3)' )'No external electric field defined for Equation no.', eq_id
+    CALL Info('electrokinetics (helmholtz_smoluchowski)',Message, level=4)
+    ElectricFieldExists = .FALSE.
+    hs_velocity = 0.0D00
   ELSE
-     ElectricFieldExists = .TRUE.
-     IF ( ElectricFieldMethod == 'constant') THEN ! read field components from Material section
-        ElectricFieldExists = .FALSE.
-        dummyArray =  ListGetReal( ParentMaterial, 'Electric Field 1', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(1) = 0.0d00
-        ELSE
-           electricField(1) = dummyArray(1) 
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt)
+    ElectricFieldExists = .TRUE.
+    IF ( ElectricFieldMethod == 'constant') THEN ! read field components from Material section
+      ElectricFieldExists = .FALSE.
+      ElectricField = 0.0_dp
+      
+      DO i=1,3
+        WRITE(ValueName,'(a,i2)' ) 'Electric Field',i
+        dummyArray =  ListGetReal( ParentMaterial,ValueName, 1, NodeNumberArray, GotIt )
+        IF( GotIt ) THEN
+          electricField(i) = dummyArray(1) 
+          ElectricFieldExists = .TRUE.
         END IF
-        dummyArray =  ListGetReal( ParentMaterial, 'Electric Field 2', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(2) = 0.0d00
-        ELSE
-           electricField(2) = dummyArray(1)
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt) 
-        END IF
-        dummyArray =  ListGetReal( ParentMaterial, 'Electric Field 3', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(3) = 0.0d00
-        ELSE
-           electricField(3) = dummyArray(1) 
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt)
-        END IF
-        IF (.NOT. ElectricFieldExists) THEN
-           WRITE(Message,'(a,i3)' )'No component for >Electric Field {1,2,3}< found in Material',&
-                material_id, ' although defined as constant'
-           CALL WARN('electrokinetics (helmholtz_smoluchowski)',Message)
-        END IF
-     ELSE IF ( ElectricFieldMethod == 'computed') THEN ! get Electric Field from Electrostatic Solver
-        electricField = 0.0d00
-        EField1 => VariableGet( Model % Variables, 'Electric Field 1' )
-        IF (ASSOCIATED(EField1)) THEN
-           electricField(1) = EField1%Values(EField1%Perm(NodeNumber))
-           ElectricFieldExists = .TRUE.
-!        ELSE
-!           CALL INFO('electrokinetics (helmholtz_smoluchowski)',&
-!                'No computed electric field 1 found', level=6)
-        END IF
-        IF (DIM .GE. 2) THEN
-           EField2 => VariableGet( Model % Variables, 'Electric Field 2' )
-           IF (ASSOCIATED(EField2)) THEN
-              electricField(2) = EField2%Values(EField2%Perm(NodeNumber))
-              ElectricFieldExists = .TRUE.
-!           ELSE
-!              CALL INFO('electrokinetics (helmholtz_smoluchowski)',&
-!                   'No computed electric field 2 found', level=6)
-           END IF
-        END IF
-        IF (DIM .GE. 3) THEN
-           EField3 => VariableGet( Model % Variables, 'Electric Field 3' )
-           IF (ASSOCIATED(EField3)) THEN
-              electricField(3) = EField3%Values(EField3%Perm(NodeNumber))
-              ElectricFieldExists = .TRUE.
-!           ELSE
-!              CALL INFO('electrokinetics (helmholtz_smoluchowski)',&
-!                   'No computed electric field 3 found', Level=6)
-           END IF
-        END IF
-     ELSE         
-        WRITE(Message,'(a,a,a,i3)' ) 'Unknown entry, ', ElectricFieldMethod,&
-             ',for keyword >Electric Field< for Equation no.', eq_id
+      END DO
+      
+      IF (.NOT. ElectricFieldExists) THEN
+        WRITE(Message,'(a,i3)' )'No component for >Electric Field {1,2,3}< found in Material',&
+            material_id, ' although defined as constant'
         CALL WARN('electrokinetics (helmholtz_smoluchowski)',Message)
-        ElectricFieldExists = .FALSE.
-        hs_velocity = 0.0D00        
-     END IF
+      END IF
+    ELSE IF ( ElectricFieldMethod == 'computed') THEN ! get Electric Field from Electrostatic Solver
+      electricField = 0.0_dp      
+      DO i=1,3
+        WRITE(ValueName,'(a,i2)' ) 'Electric Field',i
+        EFieldComp => VariableGet( Model % Variables, ValueName ) 
+        IF (ASSOCIATED(EFieldComp)) THEN
+          electricField(i) = EFieldComp%Values(EFieldComp%Perm(NodeNumber))
+          ElectricFieldExists = .TRUE.
+        END IF
+      END DO
+    ELSE         
+      WRITE(Message,'(a,a,a,i3)' ) 'Unknown entry, ', ElectricFieldMethod,&
+          ',for keyword >Electric Field< for Equation no.', eq_id
+      CALL WARN('electrokinetics (helmholtz_smoluchowski)',Message)
+      ElectricFieldExists = .FALSE.
+      hs_velocity = 0.0D00        
+    END IF
   END IF
   Model % CurrentElement => BoundaryElement  ! restore correct pointer
+
   !---------------------------------------------
   ! compute the Helmholtz-Smoluchowski velocity
   !---------------------------------------------
   IF (ElectricFieldExists) THEN     
-     norm_electricField = SUM(electricField(1:3)*Normal(1:3))
-     tang_electricField(1:3)=0.0d00   
-     DO i=1,DIM
-        tang_electricField(i) = electricField(i) - norm_electricField*Normal(i)
-     END DO  
-     hs_velocity(1:3) = tang_electricField(1:3)*eoMobility
-     hs_velocity_comp = hs_velocity(direction)
+    norm_electricField = SUM(electricField(1:3)*Normal(1:3))
+    tang_electricField = electricField - norm_electricField * Normal
+    hs_velocity = tang_electricField * eoMobility
+    
+    IF( direction == 0 ) THEN
+      CALL TangentDirections( Normal,Tangent,Tangent2)
+      hs_velocity_comp = SUM(hs_velocity * Tangent )
+    ELSE
+      hs_velocity_comp = hs_velocity(direction)
+    END IF
   END IF
+  
 END FUNCTION helmholtz_smoluchowski_comp
 
-! **********************************************************************************************
-!  computes absolute value of Helmholtz Smoluchowski velocity in tangential direction (2d, only)
-! **********************************************************************************************
-!----------------------------------------------------------------------------------
-FUNCTION helmholtz_smoluchowski( Model, NodeNumber, dummyargument) RESULT(hs_velocity)
-  USE DefUtils
-  IMPLICIT NONE
-! external variables
-! ------------------
-  TYPE(Model_t) :: Model
-  INTEGER :: NodeNumber
-  REAL(KIND=dp) :: dummyargument, hs_velocity
-! internal variables
-! ------------------
-  INTEGER :: i, N, DIM, istat, body_id, material_id, eq_id, other_body_id,&
-       bc_id, Nboundary, BoundaryElementNode, coordinateDirection, &
-       dummyIntegerArray(1)
-  INTEGER, TARGET :: NodeNumberTarget(1)
-  INTEGER, DIMENSION(:), POINTER :: NodeNumberArray
-  REAL(KIND=dp) :: dummyArray(1), viscosity, dielectricConstant, vacuumPerm, zetapotential,&
-       electricField(3), tang_electricField(3), norm_electricField,&
-       U, V, W, Normal(3), Tangent(3), Tangent2(3), eoMobility
-  CHARACTER(LEN=MAX_NAME_LEN) :: ElectricFieldMethod
-  LOGICAL :: GotIt, ElectricFieldExists, FirstTime=.TRUE., SkipThisTime=.FALSE., &
-       CalcMobility
-  TYPE(ValueList_t), POINTER :: ParentMaterial, BC
-  TYPE(Element_t), POINTER :: BoundaryElement, ParentElement  
-  TYPE(Nodes_t) :: Nodes
-  TYPE(Variable_t), POINTER :: EField1, EField2,EField3 
-! remember this
-! -------------
-  SAVE Nodes, DIM, FirstTime, vacuumPerm, SkipThisTime
-! provide arrays to let the ListGetReal/Integer function 
-! work with just a nodal value to be read in
-! -------------------------------------------------------
-  NodeNumberTarget(1) = NodeNumber
-  NodeNumberArray => NodeNumberTarget
-!---------------------End of Header section ------------------------------------
-  !-----------------------------------------------------------------
-  !    return zero in simulation setup
-  !-----------------------------------------------------------------
-  hs_velocity = 0.0d00
-  eoMobility = 0.0d00
-  SkipThisTime = ListGetLogical(Model % Simulation, 'Initializaton Phase', GotIt)  
-  IF (SkipThisTime) RETURN
-  !-----------------------------------------------------------------
-  ! things to be done for the first time only
-  !-----------------------------------------------------------------
-  IF (FirstTime) THEN
-     DIM = CoordinateSystemDimension()
-     N = Model % MaxElementNodes 
-     ALLOCATE(Nodes % x(N), Nodes % y(N), Nodes % z(N),&
-          STAT = istat)
-     IF (istat /= 0) THEN
-        CALL FATAL('electrokinetics (helmholtz_smoluchowski)','Allocations failed')
-     END IF
-     vacuumPerm = ListGetConstReal( Model % Constants, 'Permittivity of Vacuum', GotIt )
-     IF (.NOT. GotIt) THEN
-        CALL WARN('electrokinetics (helmholtz_smoluchowski)',&
-             'No value for >Permittivity of Vacuum< found in section Constants')
-        CALL WARN('electrokinetics (helmholtz_smoluchowski)',&
-             '         Using default SI value 8.8542E-12')
-        vacuumPerm = 8.8542D-12
-     END IF
-     FirstTime = .FALSE.
-  END IF
-  !-------------------------------------------------------------------------
-  ! get some information upon active boundary element and its parent element
-  !-------------------------------------------------------------------------
-  BoundaryElement => Model % CurrentElement
-  IF ( .NOT. ASSOCIATED(BoundaryElement) ) THEN
-     CALL FATAL('electrokinetics (helmholtz_smoluchowski)','No boundary element found')
-  END IF
-  other_body_id = BoundaryElement % BoundaryInfo % outbody
-  IF (other_body_id < 1) THEN ! only one body in calculation
-     ParentElement => BoundaryElement % BoundaryInfo % Right
-     IF ( .NOT. ASSOCIATED(ParentElement) ) ParentElement => BoundaryElement % BoundaryInfo % Left
-  ELSE ! we are dealing with a body-body boundary and asume that the normal is pointing outwards
-     ParentElement => BoundaryElement % BoundaryInfo % Right
-     IF (ParentElement % BodyId == other_body_id) ParentElement => BoundaryElement % BoundaryInfo % Left
-  END IF
-  ! just to be on the save side, check again
-  IF ( .NOT. ASSOCIATED(ParentElement) ) THEN
-     CALL FATAL('electrokinetics (helmholtz_smoluchowski)','No parent element found for boudnary element')
-  END IF
-  body_id = ParentElement % BodyId
-  material_id = ListGetInteger(Model % Bodies(body_id) % Values, 'Material', GotIt)
-  ParentMaterial => Model % Materials(material_id) % Values
-  IF (.NOT. ASSOCIATED(ParentMaterial)) THEN
-     CALL FATAL('electrokinetics (helmholtz_smoluchowski)','No material values could be found')
-  END IF
-  eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
-       minv=1,maxv=Model % NumberOfEquations )
-  bc_id = GetBCId(BoundaryElement)
-  BC => GetBC(BoundaryElement)
-  
-  !-------------------------------------------
-  ! Get normal of the boundary element at node
-  !-------------------------------------------
-  Nboundary = BoundaryElement % Type % NumberOfNodes
-  DO BoundaryElementNode=1,Nboundary
-     IF ( NodeNumber == BoundaryElement % NodeIndexes(BoundaryElementNode) ) EXIT
-  END DO
-  U = BoundaryElement % Type % NodeU(BoundaryElementNode)
-  V = BoundaryElement % Type % NodeV(BoundaryElementNode)
-  Nodes % x(1:Nboundary) = Model % Nodes % x(BoundaryElement % NodeIndexes)
-  Nodes % y(1:Nboundary) = Model % Nodes % y(BoundaryElement % NodeIndexes)
-  Nodes % z(1:Nboundary) = Model % Nodes % z(BoundaryElement % NodeIndexes)
-  Normal = NormalVector( BoundaryElement, Nodes, U, V,.TRUE. )
-  !-------------------------------------------------------
-  ! Get tangential vector of the boundary element at node
-  !-------------------------------------------------------
-  IF (DIM .GE. 2) THEN
-     CALL TangentDirections( Normal,Tangent,Tangent2)
-  ELSE 
-     CALL FATAL('electrokinetics (helmholtz_smoluchowski)',&
-          'It does not make sense to implement a slip condition for one-dimensional flow (on points)')
-  END IF  
-  !-----------------------------------------------------------------
-  ! get material parameters from boundary
-  !-----------------------------------------------------------------
-  
-  dummyArray = ListGetReal( BC, 'Zeta Potential', 1, NodeNumberArray, GotIt )
-  IF (.NOT. GotIt) THEN
-     CalcMobility = .FALSE.
-  ELSE
-     zetapotential = dummyArray(1)
-     CalcMobility = .TRUE.
-  END IF
-
-  IF (.NOT.CalcMobility) THEN
-     dummyArray = ListGetReal( BC, 'EO Mobility', 1, NodeNumberArray, GotIt )
-     IF (.NOT.GotIt) THEN
-        WRITE(Message,'(a,i3)' )'Neither zeta potential nor EO mobility found in boundary condition no.', bc_id
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting EO mobility to 0', Level=4)
-        eoMobility = 0.0d00
-     ELSE
-        eoMobility = dummyArray(1)
-     END IF
-  END IF
-  
-  !-----------------------------------------------------------------
-  ! get material parameters from bulk (if needed)
-  !-----------------------------------------------------------------
-  IF (CalcMobility) THEN
-     Model % CurrentElement => ParentElement ! we need this in case of the material parameter being a function
-     dummyArray  = ListGetReal( ParentMaterial, 'Viscosity', 1, NodeNumberArray, GotIt)
-     IF (.NOT. GotIt) THEN
-        WRITE(Message,'(a,i3)' )'No viscosity found in material section no.', material_id
-        CALL FATAL( 'electrokinetics (helmholtz_smoluchowski)',Message )
-     ELSE
-        viscosity = dummyArray(1)
-     END IF
-     dummyArray= ListGetReal( ParentMaterial, 'Relative Permittivity', 1, NodeNumberArray, GotIt )
-     IF (.NOT. GotIt) THEN
-        WRITE(Message,'(a,i3)' )&
-             'No kmeyword >Relative Permittivity< found in material section no.', material_id
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)',Message,Level=4)
-        CALL INFO('electrokinetics (helmholtz_smoluchowski)','setting to 1', Level=4)
-        dielectricConstant = 1.0d00
-     ELSE
-        dielectricConstant = dummyArray(1)
-     END IF
-  END IF
-
-  !-----------------------------------------------------------------
-  ! get electric field
-  !-----------------------------------------------------------------
-  ElectricFieldMethod = ListGetString( Model % Equations(eq_id) % &
-       Values, 'Electric Field', GotIt )
-  IF ( .NOT.GotIt ) THEN 
-     WRITE(Message,'(a,i3)' )'No external electric field defined for Equation no.', eq_id
-     CALL Info('electrokinetics (helmholtz_smoluchowski)',Message, level=4)
-     ElectricFieldExists = .FALSE.
-     hs_velocity = 0.0D00
-  ELSE
-     ElectricFieldExists = .TRUE.
-     IF ( ElectricFieldMethod == 'constant') THEN ! read field components from Material section
-        ElectricFieldExists = .FALSE.
-        dummyArray =  ListGetReal( ParentMaterial, 'Electric Field 1', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(1) = 0.0d00
-        ELSE
-           electricField(1) = dummyArray(1) 
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt)
-        END IF
-        dummyArray =  ListGetReal( ParentMaterial, 'Electric Field 2', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(2) = 0.0d00
-        ELSE
-           electricField(2) = dummyArray(1)
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt) 
-        END IF
-        dummyArray =  ListGetReal( ParentMaterial, 'Electric Field 3', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(3) = 0.0d00
-        ELSE
-           electricField(3) = dummyArray(1) 
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt)
-        END IF
-        IF (.NOT. ElectricFieldExists) THEN
-           WRITE(Message,'(a,i3)' )'No component for >Electric Field {1,2,3}< found in Material',&
-                material_id, ' although defined as constant'
-           CALL WARN('electrokinetics (helmholtz_smoluchowski)',Message)
-        END IF
-     ELSE IF ( ElectricFieldMethod == 'computed') THEN ! get Electric Field from Electrostatic Solver
-        electricField = 0.0d00
-        EField1 => VariableGet( Model % Variables, 'Electric Field 1' )
-        IF (ASSOCIATED(EField1)) THEN
-           electricField(1) = EField1%Values(EField1%Perm(NodeNumber))
-           ElectricFieldExists = .TRUE.
-!        ELSE
-!           CALL WARN('electrokinetics (helmholtz_smoluchowski)','No computed electric field 1 found')
-        END IF
-        IF (DIM .GE. 2) THEN
-           EField2 => VariableGet( Model % Variables, 'Electric Field 2' )
-           IF (ASSOCIATED(EField2)) THEN
-              electricField(2) = EField2%Values(EField2%Perm(NodeNumber))
-              ElectricFieldExists = .TRUE.
-!           ELSE
-!              CALL WARN('electrokinetics (helmholtz_smoluchowski)','No computed electric field 2 found')
-           END IF
-        END IF
-        IF (DIM .GE. 3) THEN
-           EField3 => VariableGet( Model % Variables, 'Electric Field 3' )
-           IF (ASSOCIATED(EField3)) THEN
-              electricField(3) = EField3%Values(EField3%Perm(NodeNumber))
-              ElectricFieldExists = .TRUE.
-!           ELSE
-!              CALL WARN('electrokinetics (helmholtz_smoluchowski)','No computed electric field 3 found')
-           END IF
-        END IF
-     ELSE         
-        WRITE(Message,'(a,a,a,i3)' ) 'Unknown entry, ', ElectricFieldMethod,&
-             ',for keyword >Electric Field< for Equation no.', eq_id
-        CALL WARN('electrokinetics (helmholtz_smoluchowski)',Message)
-        ElectricFieldExists = .FALSE.
-        hs_velocity = 0.0D00        
-     END IF
-  END IF
-  Model % CurrentElement => BoundaryElement  ! restore correct pointer
-  !---------------------------------------------
-  ! compute the Helmholtz-Smoluchowski velocity
-  !---------------------------------------------
-  IF (ElectricFieldExists) THEN     
-     norm_electricField = SUM(electricField(1:3)*Normal(1:3))
-     tang_electricField(1:3)=0.0d00   
-     DO i=1,DIM
-        tang_electricField(i) = electricField(i) - norm_electricField*Normal(i)
-     END DO  
-     IF (CalcMobility) THEN
-        eoMobility = (zetapotential * dielectricConstant * vacuumPerm)/ viscosity
-     END IF
-     hs_velocity = SUM(tang_electricField(1:3)*Tangent(1:3))*eoMobility
-  END IF
-END FUNCTION helmholtz_smoluchowski
 
 
 ! ******************************************************************************
@@ -682,140 +426,111 @@ FUNCTION getJouleHeat( Model, NodeNumber, realDummy ) RESULT(jouleHeat)
   INTEGER, TARGET :: NodeNumberTarget(1)
   INTEGER, DIMENSION(:), POINTER :: NodeNumberArray
   REAL(KIND=dp) :: dummyArray(1), elConductivity, density, electricField(3), electricField_square
-  INTEGER :: body_id, material_id, eq_id, DIM
-  CHARACTER(LEN=MAX_NAME_LEN) :: ElectricFieldMethod
+  INTEGER :: i, body_id, material_id, eq_id, DIM
+  CHARACTER(LEN=MAX_NAME_LEN) :: ElectricFieldMethod,ValueName
   LOGICAL :: GotIt, ElectricFieldExists
   TYPE(Element_t), POINTER :: Parent
   TYPE(ValueList_t), POINTER :: Material
-  TYPE(Variable_t), POINTER :: EField1, EField2,EField3 
+  TYPE(Variable_t), POINTER :: EFieldComp
 
 
   DIM = CoordinateSystemDimension()
+  jouleHeat = 0.0_dp
+
 ! provide arrays to let the ListGetReal/Integer function 
 ! work with just a nodal value to be read in
 ! -------------------------------------------------------
   NodeNumberTarget(1) = NodeNumber
   NodeNumberArray => NodeNumberTarget
-!---------------------End of Header section ------------------------------------
+
   !-----------------------------------------------------------------
   ! get element info
   !-----------------------------------------------------------------
   body_id = Model % CurrentElement % BodyId
-  eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
-       minv=1,maxv=Model % NumberOfEquations )
-  material_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Material', &
-       minv=1, maxv=Model % NumberOFMaterials)
+  eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation')
+  material_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Material')
   Material => Model % Materials(material_id) % Values
   IF (.NOT. ASSOCIATED(Material)) THEN
      WRITE(Message, '(a,i3)' )'No Material found for body-id ', body_id
      CALL WARN('electrokinetics (getJouleHeat)',Message)
-     jouleHeat = 0.0D00
      RETURN
   END IF
   !-----------------------------------------------------------------
   ! get material parameters
   !-----------------------------------------------------------------
-  dummyArray = ListGetReal( Material, &
-       'Electric Conductivity', 1, NodeNumberArray, GotIt )
+  dummyArray = ListGetReal( Material,&
+      'Electric Conductivity', 1, NodeNumberArray, GotIt )
   IF (.NOT. GotIt) THEN
-     WRITE(Message, '(a,i3)' )&
-          'No value for keyword >Electric Conductivity< found in Material section ',&
-          material_id
-     CALL WARN('electrokinetics (getJouleHeat)',Message)
-     jouleHeat = 0.0D00
-     RETURN
+    WRITE(Message, '(a,i0)' )&
+        'No >Electric Conductivity< found in Material section ',material_id
+    CALL WARN('electrokinetics (getJouleHeat)',Message)
+    RETURN
   ELSE
-     elConductivity = dummyArray(1)
+    elConductivity = dummyArray(1)
   END IF
+
   dummyArray = ListGetReal( Material,'Density', 1, NodeNumberArray, GotIt )
   IF (.NOT. GotIt) THEN
-     WRITE(Message, '(a,i3)' )'No value for keyword >Density< found in Material section ',&
-          material_id 
-     CALL WARN('electrokinetics (getJouleHeat)',Message)
-     CALL WARN('electrokinetics (getJouleHeat)','setting reference density to 1')
-     density = 1.0D00
+    WRITE(Message, '(a,i0)' )'No >Density< found in Material section ',&
+        material_id 
+    CALL WARN('electrokinetics (getJouleHeat)',Message)
+    CALL WARN('electrokinetics (getJouleHeat)','setting reference density to 1')
+    density = 1.0D00
   ELSE
-     density = dummyArray(1) 
+    density = dummyArray(1) 
   END IF
+
   !-----------------------------------------------------------------
   ! get electric field
   !-----------------------------------------------------------------
-  ElectricFieldExists = .FALSE.
-  ElectricFieldMethod = ListGetString( Model % Equations(eq_id) % Values, 'Electric Field', GotIt)
+  ElectricFieldMethod = ListGetString( Model % Equations(eq_id) % &
+      Values, 'Electric Field', GotIt )
   IF ( .NOT.GotIt ) THEN 
-     WRITE(Message,'(a,i3)' )&
-          'No entry (constant,computed) for keyword >Electric Field<  defined in Equation no.',&
-          eq_id
-     CALL WARN('electrokinetics (getJouleHeat)',Message)
-     CALL WARN('electrokinetics (getJouleHeat)','No Joule heating will be computed')
-     ElectricFieldExists = .FALSE.
-  ELSE 
-     IF ( ElectricFieldMethod == 'constant') THEN ! read field components from Material section
-        dummyArray =  ListGetReal( Material, 'Electric Field 1', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(1) = 0.0d00
-        ELSE
-           electricField(1) = dummyArray(1) 
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt)
+    WRITE(Message,'(a,i3)' )'No external electric field defined for Equation no.', eq_id
+    CALL Info('electrokinetics (helmholtz_smoluchowski)',Message, level=4)
+    ElectricFieldExists = .FALSE.
+  ELSE
+    ElectricFieldExists = .TRUE.
+    IF ( ElectricFieldMethod == 'constant') THEN ! read field components from Material section
+      ElectricFieldExists = .FALSE.
+      ElectricField = 0.0_dp
+      
+      DO i=1,dim
+        WRITE(ValueName,'(a,i2)' ) 'Electric Field',i
+        dummyArray =  ListGetReal( Material,ValueName, 1, NodeNumberArray, GotIt )
+        IF( GotIt ) THEN
+          electricField(i) = dummyArray(1) 
+          ElectricFieldExists = .TRUE.
         END IF
-        dummyArray =  ListGetReal( Material, 'Electric Field 2', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(2) = 0.0d00
-        ELSE
-           electricField(2) = dummyArray(1)
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt) 
-        END IF
-        dummyArray =  ListGetReal( Material, 'Electric Field 3', 1, NodeNumberArray, GotIt )
-        IF (.NOT. GotIt) THEN 
-           electricField(3) = 0.0d00
-        ELSE
-           electricField(3) = dummyArray(1) 
-           ElectricFieldExists = (ElectricFieldExists .OR. GotIt)
-        END IF
-        IF (.NOT. ElectricFieldExists) THEN
-           WRITE(Message,'(a,i3)' )'No external electric field component found in Material',&
-                material_id, ' although defined as constant'
-           CALL INFO('electrokinetics (getJouleHeat)',Message,level=4)
-        END IF
-     ELSE IF ( ElectricFieldMethod == 'computed') THEN ! get Electric Field from Electrostatic Solver
-        electricField = 0.0d00
-        EField1 => VariableGet( Model % Variables, 'Electric Field 1' )
-        IF (ASSOCIATED(EField1)) THEN
-           electricField(1) = EField1%Values(EField1%Perm(NodeNumber))
-           ElectricFieldExists = .TRUE.
-!        ELSE
-!           CALL WARN('electrokinetics (getJouleHeat)','No computed electric field 1 found')
-        END IF
-        IF (DIM .GE. 2) THEN
-           EField2 => VariableGet( Model % Variables, 'Electric Field 2' )
-           IF (ASSOCIATED(EField2)) THEN
-              electricField(2) = EField2%Values(EField2%Perm(NodeNumber))
-              ElectricFieldExists = .TRUE.
-!           ELSE
-!              CALL WARN('electrokinetics (getJouleHeat)','No computed electric field 2 found')
-           END IF
-        END IF
-        IF (DIM .GE. 3) THEN
-           EField3 => VariableGet( Model % Variables, 'Electric Field 3' )
-           IF (ASSOCIATED(EField3)) THEN
-              electricField(3) = EField3%Values(EField3%Perm(NodeNumber))
-              ElectricFieldExists = .TRUE.
-!           ELSE
-!              CALL WARN('electrokinetics (getJouleHeat)','No computed electric field 3 found')
-           END IF
-        END IF
-     ELSE         
-        WRITE(Message,'(a,a,a,i3)' ) 'Unknown entry, ', ElectricFieldMethod,&
-             ',for keyword >Electric Field< for Equation no.', eq_id
+      END DO
+      
+      IF (.NOT. ElectricFieldExists) THEN
+        WRITE(Message,'(a,i3)' )'No component for >Electric Field {1,2,3}< found in Material',&
+            material_id, ' although defined as constant'
         CALL WARN('electrokinetics (getJouleHeat)',Message)
-        ElectricFieldExists = .FALSE.
-     END IF
+      END IF
+    ELSE IF ( ElectricFieldMethod == 'computed') THEN ! get Electric Field from Electrostatic Solver
+      electricField = 0.0_dp      
+      DO i=1,dim
+        WRITE(ValueName,'(a,i2)' ) 'Electric Field',i
+        EFieldComp => VariableGet( Model % Variables, ValueName ) 
+        IF (ASSOCIATED(EFieldComp)) THEN
+          electricField(i) = EFieldComp%Values(EFieldComp%Perm(NodeNumber))
+          ElectricFieldExists = .TRUE.
+        END IF
+      END DO
+    ELSE         
+      WRITE(Message,'(a,a,a,i3)' ) 'Unknown entry, ', ElectricFieldMethod,&
+          ',for keyword >Electric Field< for Equation no.', eq_id
+      CALL WARN('electrokinetics (getJouleHeat)',Message)
+      ElectricFieldExists = .FALSE.
+    END IF
   END IF
 
+
   IF (ElectricFieldExists) THEN
-     electricField_square = SUM(electricField(1:3)*electricField(1:3))
-     jouleHeat = elConductivity*electricField_square/density
-  ELSE
-     jouleHeat = 0.0D00
+    electricField_square = SUM(electricField(1:3)*electricField(1:3))
+    jouleHeat = elConductivity * electricField_square / density
   END IF
+
 END FUNCTION getJouleHeat
