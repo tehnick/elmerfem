@@ -445,6 +445,8 @@ END SUBROUTINE ResultOutputSolver
       VarName=ListGetString( Solver % Values, Txt, Found )
       IF ( .NOT. Found ) EXIT
       Var => VariableGet( Solver % Mesh % Variables, Varname )
+      IF(.NOT.ASSOCIATED(Var)) & 
+        Var => VariableGet( Solver % Mesh % Variables, TRIM(Varname)//' 1' )
       IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
         On_Nodes_on_elements=On_Nodes_on_elements+1
         IF ( PRESENT(ONOEfound) ) Dofs=Dofs+3
@@ -486,6 +488,8 @@ END SUBROUTINE ResultOutputSolver
         WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
         VarName = ListGetString( Solver % Values, TRIM(Txt),GotIt)
         Var => VariableGet( Solver % Mesh % Variables,VarName )
+        IF(.NOT.ASSOCIATED(Var)) & 
+          Var => VariableGet( Solver % Mesh % Variables, TRIM(Varname)//' 1' )
         IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
           IF ( .NOT.PRESENT(ONOEfound) ) CYCLE
         ELSE
@@ -809,6 +813,12 @@ END SUBROUTINE ResultOutputSolver
           ! Check for the presence of component vectors given by its components i=1,2,3
           Var => VariableGet( Model % Variables, TRIM(VarName)//' 1' ) 
           IF( ASSOCIATED(Var)) THEN
+            IF ( Var % TYPE == Variable_on_nodes_on_elements ) THEN
+              IF (.NOT.PRESENT(ONOEfound) ) CYCLE
+            ELSE IF ( PRESENT(ONOEfound) ) THEN
+              CYCLE
+            END IF
+
             k = i
             IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
 
