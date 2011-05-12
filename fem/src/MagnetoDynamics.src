@@ -59,12 +59,15 @@ CONTAINS
 !------------------------------------------------------------------------
    SUBROUTINE EdgeBasis( Element, WBasis, RotWBasis, Basis, dBasisdx )
 !------------------------------------------------------------------------
-     TYPE(Element_t) :: Element
+     TYPE(Element_t),TARGET :: Element
      REAL(KIND=dp) :: WBasis(:,:), RotWBasis(:,:), Basis(:), dBasisdx(:,:)
 !------------------------------------------------------------------------
+     TYPE(Element_t),POINTER :: Edge
      TYPE(Mesh_t), POINTER :: Mesh
-     LOGICAL :: Parallel
-     INTEGER :: i,j,k,nj,nk
+     TYPE(Nodes_t), SAVE :: Nodes
+     REAL(KIND=dp) :: LBasis(2),LdBasisdx(2,3),L,v(3)
+     LOGICAL :: Parallel,stat
+     INTEGER :: i,j,k,n,nj,nk,i1,i2
      INTEGER, POINTER :: EdgeMap(:,:)
 !------------------------------------------------------------------------
      Mesh => GetMesh()
@@ -74,16 +77,42 @@ CONTAINS
      DO i=1,SIZE(Edgemap,1)
        j = EdgeMap(i,1); k = EdgeMap(i,2)
 
-       WBasis(i,:) = Basis(j)*dBasisdx(k,:) - Basis(k)*dBasisdx(j,:)
 
-       RotWBasis(i,1) = 2.0_dp * ( dBasisdx(j,2) * dBasisdx(k,3) - &
-                     dBasisdx(j,3) * dBasisdx(k,2) )
+       SELECT CASE(GetElementFamily(Element))
+       CASE(3,5)
+         WBasis(i,:) = Basis(j)*dBasisdx(k,:) - Basis(k)*dBasisdx(j,:)
 
-       RotWBasis(i,2) = 2.0_dp * ( dBasisdx(j,3) * dBasisdx(k,1) - &
-                     dBasisdx(j,1) * dBasisdx(k,3) )
+         RotWBasis(i,1) = 2.0_dp * ( dBasisdx(j,2) * dBasisdx(k,3) - &
+                       dBasisdx(j,3) * dBasisdx(k,2) )
 
-       RotWBasis(i,3) = 2.0_dp * ( dBasisdx(j,1) * dBasisdx(k,2) - &
-                     dBasisdx(j,2) * dBasisdx(k,1) )
+         RotWBasis(i,2) = 2.0_dp * ( dBasisdx(j,3) * dBasisdx(k,1) - &
+                       dBasisdx(j,1) * dBasisdx(k,3) )
+
+         RotWBasis(i,3) = 2.0_dp * ( dBasisdx(j,1) * dBasisdx(k,2) - &
+                       dBasisdx(j,2) * dBasisdx(k,1) )
+       CASE(4,8)
+         Edge => Mesh % Edges(Element % EdgeIndexes(i))
+         CurrentModel % CurrentElement=>Edge
+         CALL GetElementNodes(Nodes)
+         stat=ElementInfo(Edge,Nodes,0._dp,0._dp,0._dp,L,LBasis,LdBasisdx)
+
+         WBasis(i,:) = Basis(j)*LdBasisdx(2,:) - Basis(k)*LdBasisdx(1,:)
+
+         RotWBasis(i,1) = dBasisdx(j,2) * LdBasisdx(2,3) - &
+                          LdBasisdx(1,3) * dBasisdx(k,2) - &
+                          dBasisdx(j,3) * LdBasisdx(2,2) + &
+                          LdBasisdx(1,2) * dBasisdx(k,3)
+
+         RotWBasis(i,2) = dBasisdx(j,3) * LdBasisdx(2,1) - &
+                          LdBasisdx(1,1) * dBasisdx(k,3) - &
+                          dBasisdx(j,1) * LdBasisdx(2,3) + &
+                          LdBasisdx(1,3) * dBasisdx(k,1)
+
+         RotWBasis(i,3) = dBasisdx(j,1) * LdBasisdx(2,2) - &
+                          LdBasisdx(1,2) * dBasisdx(k,1) - &
+                          dBasisdx(j,2) * LdBasisdx(2,1) + &
+                          LdBasisdx(1,1) * dBasisdx(k,2)
+       END SELECT
 
        nj = Element % Nodeindexes(j)
        IF (Parallel) nj=Mesh % ParallelInfo % GlobalDOFs(nj)
@@ -95,6 +124,7 @@ CONTAINS
          WBasis(i,:) = -WBasis(i,:); RotWBasis(i,:) = -RotWBasis(i,:)
        END IF
      END DO
+     CurrentModel % CurrentElement=>Element
 !------------------------------------------------------------------------------
    END SUBROUTINE EdgeBasis
 !------------------------------------------------------------------------------
@@ -3342,10 +3372,10 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 !------------------------------------------------------------------------------
   
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: s,u,v,w,WBasis(16,3), SOL(2,16), PSOL(16), R(16), C(16), Norm
-   REAL(KIND=dp) :: RotWBasis(16,3), Basis(16), dBasisdx(16,3), B(2,3), E(2,3)
+   REAL(KIND=dp) :: s,u,v,w,WBasis(32,3), SOL(2,32), PSOL(32), R(32), C(32), Norm
+   REAL(KIND=dp) :: RotWBasis(32,3), Basis(32), dBasisdx(32,3), B(2,3), E(2,3)
    REAL(KIND=dp) ::  detJ, C_ip, R_ip, PR_ip, PR(16), ST(3,3), Omega, Power,Energy
-   COMPLEX(KIND=dp) ::  Magnetization(3,16), MG_ip(3)
+   COMPLEX(KIND=dp) ::  Magnetization(3,32), MG_ip(3)
 
    COMPLEX(KIND=dp) :: CST(3,3)
 
@@ -3416,7 +3446,7 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
    ALLOCATE( MASS(n,n), FORCE(n,DOFs) ) 
    SOL = 0._dp; PSOL=0._dp
 
-   Omega = GetAngularFrequency()
+   Omega = GetAngularFrequency(Found=Found)
 
    C = 0._dp; R=0._dp; PR=0._dp
    Magnetization = 0._dp
