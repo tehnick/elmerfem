@@ -200,7 +200,7 @@ this ise not in USE
      CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityFlag
      TYPE(ValueList_t), POINTER :: Material
      REAL(KIND=dp) :: x, y, z, c1n(n), c2n(n), c3n(n), c4n(n), &
-         c1, c2, c3, c4, c5, c6, c7, Temp, h
+         c1, c2, c3, c4, c5, c6, c7, Temp, TempCoeff, h
 
      ! Temperature is needed for thermal models
      TYPE(Variable_t), POINTER :: TempSol 
@@ -266,7 +266,9 @@ this ise not in USE
      
      ! This is the square of shearrate which results to 1/2 in exponent 
      ! Also the derivative is taken with respect to the square
+     !-------------------------------------------------------------------
      ss = SecondInvariant(Velo,dVelodx,Metric,Symb)/2
+
 
      SELECT CASE( ViscosityFlag )
 
@@ -343,41 +345,6 @@ this ise not in USE
            IF ( PRESENT(muder) ) muder = &
              c1*(c2/(2*s)+c2**2/(2*SQRT(c2**2*ss+1)))/((c2*s+SQRT(c2*ss+1))*c2*s) - &
                 c1*LOG(c2*s+SQRT(c2**2*ss+1))/(c2*s**3)/2
-         END IF
-
-       CASE ('thermal carreau')
-
-         TempSol => VariableGet( CurrentModel % Variables, 'Temperature' )
-         IF ( ASSOCIATED( TempSol) ) THEN
-           TempPerm    => TempSol % Perm
-           Temperature => TempSol % Values
-         ELSE
-           CALL Warn('EffectiveViscosity','variable Temperature needed in thermal carreau model')
-         END IF
-         
-         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes )
-         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
-         c2 = SUM( Basis * c2n(1:n) )
-         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes )
-         c4 = ListGetConstReal( Material, 'Yasuda Exponent',gotIt)
-         
-         c5 = ListGetConstReal( Material, 'Viscosity Temp Ref')
-         c6 = ListGetConstReal( Material, 'Viscosity Temp Exp')
-         Temp = SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
-         c7 = EXP(c6*(1/Temp-1/c5))
-       
-         c1 = c7 * SUM( Basis(1:n) * c1n(1:n) )
-         c3 = c7 * SUM( Basis(1:n) * c3n(1:n) )
-
-         IF(gotIt) THEN
-           s = SQRT(ss)
-           mu = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
-           IF ( PRESENT(muder) ) muder = &
-             c1*(1+(c3*s)**c4)**((c2-1)/c4-1)*(c2-1)*(c3*s)**c4/(2*ss)
-         ELSE
-           mu = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
-           IF ( PRESENT(muder) ) muder = &
-             c1*(1+c3**2*ss)**((c2-1)/2-1)*(c2-1)/2*c3**2
          END IF
 
        CASE( 'smagorinsky' )
@@ -519,6 +486,29 @@ this ise not in USE
        CALL WARN('EffectiveViscosity','Unknown material model')
 
      END SELECT
+
+
+     ! Add a generic temperature coefficient at the integration point
+     ! for backward compatibility this is activated by an existing keyword
+     !--------------------------------------------------------------------
+     c1 = ListGetConstReal( Material, 'Viscosity Temp Exp',GotIt)
+     IF( GotIt ) THEN 	
+       TempSol => VariableGet( CurrentModel % Variables, 'Temperature' )
+       IF ( ASSOCIATED( TempSol) ) THEN
+         TempPerm    => TempSol % Perm
+         Temperature => TempSol % Values
+       ELSE
+         CALL Warn('EffectiveViscosity','variable Temperature needed for thermal viscosity model')
+       END IF
+       c2 = ListGetConstReal( Material, 'Viscosity Temp Ref')
+       c3 = ListGetConstReal( Material, 'Viscosity Temp Offset',GotIt)
+       Temp = SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
+       TempCoeff = EXP(c1*(1/(Temp+c3)-1/c2))
+	
+       mu = TempCoeff * mu
+     END IF
+
+
 !------------------------------------------------------------------------------
    END FUNCTION EffectiveViscosity
 !------------------------------------------------------------------------------
