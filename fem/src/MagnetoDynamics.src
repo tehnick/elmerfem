@@ -65,7 +65,8 @@ CONTAINS
      TYPE(Element_t),POINTER :: Edge
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Nodes_t), SAVE :: Nodes
-     REAL(KIND=dp) :: u,v,w,dudx(3,3),du(3),Base,dBase(3)
+     REAL(KIND=dp) :: u,v,w,dudx(3,3),du(3),Base,dBase(3),tBase(3), &
+                rBase(3),triBase(3),dtriBase(3,3)
      LOGICAL :: Parallel,stat
      INTEGER :: i,j,k,n,nj,nk,i1,i2
      INTEGER, POINTER :: EdgeMap(:,:)
@@ -74,7 +75,7 @@ CONTAINS
      Parallel = ParEnv % PEs>1
 
      SELECT CASE(GetElementFamily(Element))
-     CASE(4,8)
+     CASE(4,7,8)
        n = Element % Type % NumberOfNodes
        u = SUM(Basis(1:n)*Element % Type % NodeU(1:n))
        v = SUM(Basis(1:n)*Element % Type % NodeV(1:n))
@@ -83,6 +84,14 @@ CONTAINS
        dudx(1,:) = MATMUL(Element % Type % NodeU(1:n),dBasisdx(1:n,:))
        dudx(2,:) = MATMUL(Element % Type % NodeV(1:n),dBasisdx(1:n,:))
        dudx(3,:) = MATMUL(Element % Type % NodeW(1:n),dBasisdx(1:n,:))
+
+       triBase(1) = 1-u-v
+       triBase(2) = u
+       triBase(3) = v
+
+       dtriBase(1,:) = -dudx(1,:)-dudx(2,:) 
+       dtriBase(2,:) =  dudx(1,:)
+       dtriBase(3,:) =  dudx(2,:)
      END SELECT
 
      EdgeMap => GetEdgeMap(GetElementFamily(Element))
@@ -96,12 +105,51 @@ CONTAINS
 
          RotWBasis(i,1) = 2.0_dp * ( dBasisdx(j,2) * dBasisdx(k,3) - &
                        dBasisdx(j,3) * dBasisdx(k,2) )
-
          RotWBasis(i,2) = 2.0_dp * ( dBasisdx(j,3) * dBasisdx(k,1) - &
                        dBasisdx(j,1) * dBasisdx(k,3) )
-
          RotWBasis(i,3) = 2.0_dp * ( dBasisdx(j,1) * dBasisdx(k,2) - &
                        dBasisdx(j,2) * dBasisdx(k,1) )
+       CASE(7)
+         SELECT CASE(i)
+          CASE(1)
+            j=1;k=2; Base=1-w; dBase=-dudx(3,:)
+          CASE(2)
+            j=2;k=3; Base=1-w; dBase=-dudx(3,:)
+          CASE(3)
+            j=3;k=1; Base=1-w; dBase=-dudx(3,:)
+          CASE(4)
+            j=1;k=2; Base=1+w; dBase= dudx(3,:)
+          CASE(5)
+            j=2;k=3; Base=1+w; dBase= dudx(3,:)
+          CASE(6)
+            j=3;k=1; Base=1+w; dBase= dudx(3,:)
+          CASE(7)
+            Base=triBase(1); dBase=dtriBase(1,:); du=dudx(3,:)
+          CASE(8)
+            Base=triBase(2); dBase=dtriBase(2,:); du=dudx(3,:)
+          CASE(9)
+            Base=triBase(3); dBase=dtriBase(3,:); du=dudx(3,:)
+         END SELECT
+
+         IF(i<=6) THEN
+            tBase = (triBase(j)*dtriBase(k,:)-triBase(k)*dtriBase(j,:))
+            rBase(1) = 2*Base*(dtriBase(j,2)*dtriBase(k,3)-dtriBase(k,2)*dtriBase(j,3)) + &
+                              dBase(2)*tBase(3) - dBase(3)*tBase(2)
+
+            rBase(2) = 2*Base*(dtriBase(j,3)*dtriBase(k,1)-dtriBase(k,3)*dtriBase(j,1)) + &
+                              dBase(3)*tBase(1) - dBase(1)*tBase(3)
+
+            rBase(3) = 2*Base*(dtriBase(j,1)*dtriBase(k,2)-dtriBase(k,1)*dtriBase(j,2)) + &
+                              dBase(1)*tBase(2) - dBase(2)*tBase(1)
+
+            RotWBasis(i,:)=rBase
+            WBasis(i,:)=tBase*Base
+         ELSE
+            WBasis(i,:)=Base*du/2
+            RotWBasis(i,1)=(dBase(2)*du(3) - dBase(3)*du(2))/2
+            RotWBasis(i,2)=(dBase(3)*du(1) - dBase(1)*du(3))/2
+            RotWBasis(i,3)=(dBase(1)*du(2) - dBase(2)*du(1))/2
+         END IF
        CASE(4,8)
          SELECT CASE(i)
           CASE(1)
