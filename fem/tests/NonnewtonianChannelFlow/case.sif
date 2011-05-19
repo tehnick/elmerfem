@@ -1,6 +1,6 @@
 ! Ideal 1D flow obtained by periodic BCs for the pressure
 ! This enables testing of nonnewtonian velocity profiles
-! For the first coupled system iteration newtonian model is enforced.
+! For the first nonlinear system iteration newtonian model is enforced.
 
 $ p0 = 0.0
 $ v0 = 1.0
@@ -16,7 +16,7 @@ Simulation
   Max Output Level = 4
   Coordinate System = Cartesian
   Simulation Type = Steady State
-  Steady State Max Iterations = 50
+  Steady State Max Iterations = 1
   Output Intervals = 0
   Post File = case.ep
   Set Dirichlet BCs by BC Numbering = True
@@ -46,8 +46,10 @@ Solver 1
   Steady State Convergence Tolerance = 1.0e-5
 
   Nonlinear System Convergence Tolerance = 1.0e-6
-  Nonlinear System Max Iterations = 1
-  Nonlinear System Newton After Iterations = 50
+  Nonlinear System Max Iterations = 50
+
+! activates also the newtonian linearization of viscosity
+  Nonlinear System Newton After Iterations = 5
   Nonlinear System Relaxation Factor = 1
   Nonlinear System Newton After Tolerance = 1.0e-3
 
@@ -61,6 +63,13 @@ Solver 1
   Linear System Convergence Tolerance = 1.0e-10
   Linear System Residual Output = 10
   Linear System Preconditioning = ILU0
+
+! If this is more than zero the newtonian fluid prevails
+  Newtonian Viscosity Condition = Variable nonlin iter
+    Real 
+      1.0 1.0
+      2.0 -1.0
+    End 
 End
 
 
@@ -76,12 +85,7 @@ Material 1
   Critical Shear Rate = Real 1.0e-8
   Nominal Shear Rate = Real 1.0
 
-! If this is more than zero the newtonian fluid prevails
-  Constant Viscosity Condition = Variable coupled iter
-    Real 
-      1.0 1.0
-      2.0 -1.0
-    End 
+
 End
 
 
@@ -120,5 +124,5 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n")$
 RUN
-$fprintf( stderr,"END TEST CASE 1: Target NRM=  13.357354\n");
+$fprintf( stderr,"END TEST CASE 1: Target NRM=  13.357523990900166\n");
 
