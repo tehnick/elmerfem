@@ -98,6 +98,10 @@ CONTAINS
      DO i=1,SIZE(Edgemap,1)
        j = EdgeMap(i,1); k = EdgeMap(i,2)
 
+       nj = Element % Nodeindexes(j)
+       IF (Parallel) nj=Mesh % ParallelInfo % GlobalDOFs(nj)
+       nk = Element % Nodeindexes(k)
+       IF (Parallel) nk=Mesh % ParallelInfo % GlobalDOFs(nk)
 
        SELECT CASE(GetElementFamily(Element))
        CASE(3,5)
@@ -112,23 +116,23 @@ CONTAINS
        CASE(7)
          SELECT CASE(i)
           CASE(1)
-            j=1;k=2; Base=1-w; dBase=-dudx(3,:)
+            j=1;k=2; Base=(1-w)/2; dBase=-dudx(3,:)/2
           CASE(2)
-            j=2;k=3; Base=1-w; dBase=-dudx(3,:)
+            j=2;k=3; Base=(1-w)/2; dBase=-dudx(3,:)/2
           CASE(3)
-            j=3;k=1; Base=1-w; dBase=-dudx(3,:)
+            j=3;k=1; Base=(1-w)/2; dBase=-dudx(3,:)/2
           CASE(4)
-            j=1;k=2; Base=1+w; dBase= dudx(3,:)
+            j=1;k=2; Base=(1+w)/2; dBase= dudx(3,:)/2
           CASE(5)
-            j=2;k=3; Base=1+w; dBase= dudx(3,:)
+            j=2;k=3; Base=(1+w)/2; dBase= dudx(3,:)/2
           CASE(6)
-            j=3;k=1; Base=1+w; dBase= dudx(3,:)
+            j=3;k=1; Base=(1+w)/2; dBase= dudx(3,:)/2
           CASE(7)
-            Base=triBase(1); dBase=dtriBase(1,:); du=dudx(3,:)
+            Base=triBase(1); dBase=dtriBase(1,:); du=dudx(3,:)/2
           CASE(8)
-            Base=triBase(2); dBase=dtriBase(2,:); du=dudx(3,:)
+            Base=triBase(2); dBase=dtriBase(2,:); du=dudx(3,:)/2
           CASE(9)
-            Base=triBase(3); dBase=dtriBase(3,:); du=dudx(3,:)
+            Base=triBase(3); dBase=dtriBase(3,:); du=dudx(3,:)/2
          END SELECT
 
          IF(i<=6) THEN
@@ -145,10 +149,10 @@ CONTAINS
             RotWBasis(i,:)=rBase
             WBasis(i,:)=tBase*Base
          ELSE
-            WBasis(i,:)=Base*du/2
-            RotWBasis(i,1)=(dBase(2)*du(3) - dBase(3)*du(2))/2
-            RotWBasis(i,2)=(dBase(3)*du(1) - dBase(1)*du(3))/2
-            RotWBasis(i,3)=(dBase(1)*du(2) - dBase(2)*du(1))/2
+            WBasis(i,:)=Base*du
+            RotWBasis(i,1)=(dBase(2)*du(3) - dBase(3)*du(2))
+            RotWBasis(i,2)=(dBase(3)*du(1) - dBase(1)*du(3))
+            RotWBasis(i,3)=(dBase(1)*du(2) - dBase(2)*du(1))
          END IF
        CASE(4,8)
          SELECT CASE(i)
@@ -157,22 +161,22 @@ CONTAINS
              dBase(:)=-dudx(2,:)*(1-w)-(1-v)*dudx(3,:)
           CASE(3)
              du=dudx(1,:); Base=(1+v)*(1-w)
-             dBase(:)=dudx(2,:)*(1-w)-(1+v)*dudx(3,:)
+             dBase(:)= dudx(2,:)*(1-w)-(1+v)*dudx(3,:)
           CASE(5)
              du=dudx(1,:); Base=(1-v)*(1+w)
              dBase(:)=-dudx(2,:)*(1+w)+(1-v)*dudx(3,:)
           CASE(7)
              du=dudx(1,:); Base=(1+v)*(1+w)
-             dBase(:)=dudx(2,:)*(1+w)+(1+v)*dudx(3,:)
+             dBase(:)= dudx(2,:)*(1+w)+(1+v)*dudx(3,:)
           CASE(2)
              du=dudx(2,:); Base=(1+u)*(1-w)
-             dBase(:)=dudx(1,:)*(1-w)-(1+u)*dudx(3,:)
+             dBase(:)= dudx(1,:)*(1-w)-(1+u)*dudx(3,:)
           CASE(4)
              du=dudx(2,:); Base=(1-u)*(1-w)
              dBase(:)=-dudx(1,:)*(1-w)-(1-u)*dudx(3,:)
           CASE(6)
              du=dudx(2,:); Base=(1+u)*(1+w)
-             dBase(:)=dudx(1,:)*(1+w)+(1+u)*dudx(3,:)
+             dBase(:)= dudx(1,:)*(1+w)+(1+u)*dudx(3,:)
           CASE(8)
              du=dudx(2,:); Base=(1-u)*(1+w)
              dBase(:)=-dudx(1,:)*(1+w)+(1-u)*dudx(3,:)
@@ -181,10 +185,10 @@ CONTAINS
              dBase(:)=-dudx(1,:)*(1-v)-(1-u)*dudx(2,:)
           CASE(10)
              du=dudx(3,:); Base=(1+u)*(1-v)
-             dBase(:)=dudx(1,:)*(1-v)-(1+u)*dudx(2,:)
+             dBase(:)= dudx(1,:)*(1-v)-(1+u)*dudx(2,:)
           CASE(11)
              du=dudx(3,:); Base=(1+u)*(1+v)
-             dBase(:)=dudx(1,:)*(1+v)+(1+u)*dudx(2,:)
+             dBase(:)= dudx(1,:)*(1+v)+(1+u)*dudx(2,:)
           CASE(12)
              du=dudx(3,:); Base=(1-u)*(1+v)
              dBase(:)=-dudx(1,:)*(1+v)+(1-u)*dudx(2,:)
@@ -195,12 +199,6 @@ CONTAINS
          RotWBasis(i,2)=(dBase(3)*du(1) - dBase(1)*du(3))/n
          RotWBasis(i,3)=(dBase(1)*du(2) - dBase(2)*du(1))/n
        END SELECT
-
-       nj = Element % Nodeindexes(j)
-       IF (Parallel) nj=Mesh % ParallelInfo % GlobalDOFs(nj)
-
-       nk = Element % Nodeindexes(k)
-       IF (Parallel) nk=Mesh % ParallelInfo % GlobalDOFs(nk)
 
        IF( nk < nj ) THEN
          WBasis(i,:) = -WBasis(i,:); RotWBasis(i,:) = -RotWBasis(i,:)
