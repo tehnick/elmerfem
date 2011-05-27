@@ -1318,6 +1318,7 @@ END SUBROUTINE FetiProject
     INTEGER :: FixInds(:)
     TYPE(Solver_t) :: Solver
 !------------------------------------------------------------------------------
+    REAL(KIND=dp), PARAMETER :: floatEps = 1.0d-12
     REAL(KIND=dp), ALLOCATABLE :: x(:),tz(:,:)
     INTEGER, POINTER :: p(:)
     INTEGER :: i,j,k,n,m,dofs,neigs,dim,FixNodes(6)
@@ -1368,7 +1369,7 @@ END SUBROUTINE FetiProject
 
       ALLOCATE(x(n))
       CALL MatrixVectorMultiply(A,z(1,:),x)
-      Floating = ALL(x<100*AEPS)
+      Floating = ALL(x<floatEps)
 
       IF (.NOT.Floating) THEN
         DEALLOCATE(z); nz=0;
@@ -1429,7 +1430,7 @@ END SUBROUTINE FetiProject
       nz=0
       DO i=1,j
         CALL MatrixVectorMultiply(A,tz(i,:),x)
-        IF (ALL(ABS(x)<100*AEPS)) THEN
+        IF (ALL(ABS(x)<floatEps)) THEN
           nz=nz+1
           FloatInds(nz)=i
         END IF
@@ -1501,7 +1502,7 @@ END SUBROUTINE FetiProject
     ! Finally create null(A) from zero freq. eigenvectors:
     ! ----------------------------------------------------
     DO nz=0,neigs-1
-      IF (ABS(EigValues(nz+1))>100*AEPS) EXIT
+      IF (ABS(EigValues(nz+1))>floatEps) EXIT
     END DO
 
     IF (nz>0) THEN
