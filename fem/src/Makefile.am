@@ -296,6 +296,7 @@ EXTRA_DIST = \
 	SaveData.src \
 	SaveGridData.src \
 	ScalarPotentialSolver.src \
+	ShearrateSolver.src \
 	ShellSolve.src \
 	Smitc.src \
 	Smoothers.src \
