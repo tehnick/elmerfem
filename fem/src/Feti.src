@@ -1103,7 +1103,8 @@ CONTAINS
             l_r=l_i(j)+l
             g_r=g_i(l_nbr(j))+l
 !           g_gtg(g_r,g_c)=g_gtg(g_r,g_c)+l_gtg(l_r,l_c)
-            call addtomatrixelement(gtg_m,g_r,g_c,l_gtg(l_r,l_c))
+            if (abs(l_gtg(l_r,l_c))>aeps) &
+              call addtomatrixelement(gtg_m,g_r,g_c,l_gtg(l_r,l_c))
           end do
         end do
       end do
