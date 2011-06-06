@@ -809,10 +809,13 @@ CONTAINS
           n_nbr,comm,i_type,d_type,me,mactive,maxnz,proc
     logical :: iterative, found
     integer,allocatable :: l_nz(:),g_nz(:),l_i(:),g_i(:),l_nbr(:)
-    real(kind=dp), allocatable :: l_g(:,:),l_gtg(:,:),work(:),g_gtg(:,:)
+    real(kind=dp), allocatable :: l_g(:,:),l_gtg(:,:),g_x(:),g_b(:),g_gtg(:,:)
 
-    save :: g_nz,g_i,g_gtg
+    type(matrix_t), pointer :: gtg_m => null()
+
+    save :: g_nz,g_i,gtg_m,g_gtg
 !------------------------------------------------------------------------------
+!call resettimer('project')
 
     maxnz = parallelreduction(1._dp*nz,2)
 
@@ -839,6 +842,7 @@ CONTAINS
       d_type = mpi_double_precision
 
       if (op==1) then
+!call resettimer('factorize')
         ! If not using CG, assemble and factorize the G'G matrix:
         !
         ! NOTE for further development: Instead of using one task to do the
@@ -952,8 +956,11 @@ CONTAINS
 
           ! Get storage for the (global) G'G:
           ! ---------------------------------
-          if(allocated(g_gtg)) deallocate(g_gtg)
-          allocate(g_gtg(g_n,g_n)); g_gtg=0;
+!         if(allocated(g_gtg)) deallocate(g_gtg)
+!         allocate(g_gtg(g_n,g_n)); g_gtg=0;
+          IF (ASSOCIATED(gtg_m)) CALL FreeMatrix(gtg_m)
+          gtg_m=>AllocateMatrix()
+          gtg_m % format = MATRIX_LIST
 
           ! Assemble our own part...
           ! ------------------------
@@ -962,7 +969,7 @@ CONTAINS
           n_nbr=nneigh
           l_nbr(0)=me; l_nbr(1:n_nbr)=gpnum(1:n_nbr)
 
-          call addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
+          call addtogtg(gtg_m,l_gtg,n_nbr,l_nbr,g_nz,g_i)
           deallocate(l_gtg,l_nbr)
 
           ! ...and the rest of it:
@@ -979,7 +986,7 @@ CONTAINS
             allocate(l_gtg(l_n,l_n))
             call mpi_recv(l_gtg,l_n**2,d_type,proc,404,comm,stat,ierr)
 
-            call addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
+            call addtogtg(gtg_m,l_gtg,n_nbr,l_nbr,g_nz,g_i)
             deallocate(l_gtg,l_nbr)
           end do
 
@@ -988,9 +995,11 @@ CONTAINS
           ! to Lapack full matrix  Cholesky  factorization, at least for
           ! the time being...):
           ! ------------------------------------------------------------
-          call dpotrf('u',g_n,g_gtg,g_n,ierr)    
+          call list_tocrsmatrix(gtg_m)
+!         call dpotrf('u',g_n,g_gtg,g_n,ierr)    
 
         end if ! task 'mactive' doing the factoring (and later, solving)
+!call checktimer('factorize',delete=.true.)
       end if ! the first time G'G assembly and factorizing
     end if ! direct solver setup
 
@@ -1011,33 +1020,36 @@ CONTAINS
 
         ! assemble the r.h.s. vector:
         ! ---------------------------
-        g_n=size(g_gtg,1)
-        allocate(work(g_n)); work=0
+!       g_n=size(g_gtg,1)
+        g_n=gtg_m % numberofrows
+        allocate(g_x(g_n),g_b(g_n)); g_x=0; g_b=0
 
-        if (nz>0) work(1:nz) = b
+        if (nz>0) g_b(1:nz) = b
         do i=0,parenv % pes-1
           if (i==me .or. .not. parenv % active(i+1)) cycle
           if (g_nz(i)>0) &
-            call mpi_recv(work(g_i(i):g_i(i+1)-1), g_nz(i), &
+            call mpi_recv(g_b(g_i(i):g_i(i+1)-1), g_nz(i), &
                     d_type,i,405,comm,stat,ierr)
         end do
 
         ! solve x (lapack routine used here):
         ! -----------------------------------
-        call dpotrs('u',g_n,1,g_gtg,g_n,work,g_n,ierr)
+!       g_x=g_b
+!       call dpotrs('u',g_n,1,g_gtg,g_n,g_x,g_n,ierr)
+        call directsolver(gtg_m,g_x,g_b,getsolver())
 
         ! distribute the result:
         ! ----------------------
         do i=0,parenv % pes-1
           if (i==me .or. .not. parenv % active(i+1)) cycle
           if (g_nz(i)>0) &
-            call mpi_bsend(work(g_i(i):g_i(i+1)-1), &
+            call mpi_bsend(g_x(g_i(i):g_i(i+1)-1), &
                  g_nz(i),d_type,i,406,comm,ierr)
         end do
 
         ! finally my own part:
         ! --------------------
-        if (nz>0) x(1:nz)=work(1:nz)
+        if (nz>0) x(1:nz)=g_x(1:nz)
       else
         ! send r.h.s.:
         ! ------------
@@ -1062,13 +1074,17 @@ CONTAINS
         T=T-S
       END IF
     END IF
+!call checktimer('project',delete=.true.)
 
 CONTAINS
 
 !------------------------------------------------------------------------------
-  subroutine addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
+  subroutine addtogtg(gtg_m,l_gtg,n_nbr,l_nbr,g_nz,g_i)
+! subroutine addtogtg(g_gtg,l_gtg,n_nbr,l_nbr,g_nz,g_i)
 !------------------------------------------------------------------------------
-    real(kind=dp) :: g_gtg(:,:),l_gtg(:,:)
+    real(kind=dp) :: l_gtg(:,:)
+    type(matrix_t), pointer :: gtg_m
+!   real(kind=dp) :: g_gtg(:,:)
     integer :: n_nbr, l_nbr(0:), g_nz(0:), g_i(0:)
 !------------------------------------------------------------------------------
     integer :: i,j,k,l,g_r,g_c,l_r,l_c,l_i(0:n_nbr+1)
@@ -1086,7 +1102,8 @@ CONTAINS
           do l=0,g_nz(l_nbr(j))-1
             l_r=l_i(j)+l
             g_r=g_i(l_nbr(j))+l
-            g_gtg(g_r,g_c) = g_gtg(g_r,g_c) + l_gtg(l_r,l_c)
+!           g_gtg(g_r,g_c)=g_gtg(g_r,g_c)+l_gtg(l_r,l_c)
+            call addtomatrixelement(gtg_m,g_r,g_c,l_gtg(l_r,l_c))
           end do
         end do
       end do
@@ -1204,6 +1221,7 @@ END SUBROUTINE FetiProject
     LOGICAL :: Found,prec
     REAL(KIND=dp), ALLOCATABLE :: Ri(:),S(:),T(:),P(:),Ssave(:,:),Psave(:,:),srho(:)
 !------------------------------------------------------------------------------
+!call resettimer('cpg')
     nrows=A % NumberOfRows
 
     Params => GetSolverParams()
@@ -1247,6 +1265,7 @@ END SUBROUTINE FetiProject
 
     beta=0._dp
     DO iter=1,maxit
+!call resettimer('iter')
        IF (Restart>0) P=T
 
        IF (Precondition) THEN
@@ -1295,12 +1314,14 @@ END SUBROUTINE FetiProject
        END IF
 
        IF (err1<TOL) EXIT
+!call checktimer('iter',delete=.true.)
     END DO
 
     CALL matvecsubr(x(1:n),T,ipar)
     T = -(T-b(1:n))
     CALL FetiProject(A,n,T,OP=2,TOL=1d-12)
     IF (nz>0) x(n+1:n+nz) = T(1:nz)
+!call checktimer('cpg',delete=.true.)
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiCPG
 !------------------------------------------------------------------------------
@@ -1531,7 +1552,7 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
     INTEGER :: n
     REAL(KIND=dp), POINTER CONTIG :: tx(:),tb(:)
-
+!call resettimer('direct')
     n = A % NumberOfRows
     tx=>x
     tb=>b
@@ -1550,6 +1571,7 @@ END SUBROUTINE FetiProject
       x=tx(1:n)
       DEALLOCATE(tx,tb)
     END IF
+!call checktimer('direct')
 !------------------------------------------------------------------------------
   END SUBROUTINE FetiDirectSolver
 !------------------------------------------------------------------------------
@@ -1767,6 +1789,7 @@ END SUBROUTINE FetiProject
     TYPE(Matrix_t), POINTER :: A
     TYPE(Solver_t), POINTER :: Solver
 
+!call resettimer('mv')
     Solver => GetSolver()
     A => GetMatrix()
     n = A % NumberOfRows
@@ -1787,6 +1810,7 @@ END SUBROUTINE FetiProject
       v(1:nLC) = v(1:nLC) + w(1:nLC)
       IF (nz>0) v(nLC+1:nLC+nz) = MATMUL(z,b)
     END IF
+!call checktimer('mv',delete=.true.)
 !------------------------------------------------------------------------------
   END SUBROUTINE  FetiMV
 !------------------------------------------------------------------------------
@@ -1809,6 +1833,7 @@ END SUBROUTINE FetiProject
     INTEGER :: n, nLC
     TYPE(Matrix_t), POINTER :: A
     TYPE(Solver_t), POINTER :: Solver
+!call resettimer('prec')
 
     IF(.NOT.Precondition) THEN
       u=v
@@ -1830,6 +1855,7 @@ END SUBROUTINE FetiProject
     IF (.NOT. CPG .AND. nz>0) THEN
       u(nLC+1:nLC+nz)=v(nLC+1:nLC+nz)
     END IF
+!call checktimer('prec',delete=.true.)
 !------------------------------------------------------------------------------
   END SUBROUTINE  FetiPrec
 !------------------------------------------------------------------------------
