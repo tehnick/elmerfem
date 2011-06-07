@@ -516,10 +516,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         BoundaryFluxes = 0.0_dp         
         CALL BoundaryStatistics(Var, Oper, GotCoeff, &
             CoefficientName, BoundaryFluxes, BoundaryHits)
-        DO j=1,Model % NumberOfBCs
+        		
+		DO j=1,Model % NumberOfBCs
           IF( ListGetLogical(Model % BCs(j) % Values,'Flux Integrate',gotIt ) .OR. &
               ListGetLogical(Model % BCs(j) % Values,'Save Scalars',gotIt ) ) THEN
-            WRITE (Name,'(A,A,A,A,I0)') TRIM(Oper),': ',TRIM(VariableName),' over bc ',j
+            IF( BoundaryHits(j) > 0 .AND. TRIM(Oper) == 'boundary mean' ) THEN
+              BoundaryFluxes(j) = BoundaryFluxes(j) / BoundaryHits(j)
+            END IF
+			WRITE (Name,'(A,A,A,A,I0)') TRIM(Oper),': ',TRIM(VariableName),' over bc ',j
             CALL AddToSaveList( TRIM(Name), BoundaryFluxes(j),.FALSE.,ParOper)
           END IF
         END DO
@@ -2110,11 +2114,9 @@ CONTAINS
 
     SELECT CASE(OperName)
       
-    CASE('boundary sum')             
+    CASE('boundary sum','boundary mean')             
     CASE('boundary dofs') 
       fluxes = 1.0 * fluxescomputed
-    CASE('boundary mean') 
-      fluxes = fluxes / fluxescomputed            
       
     END SELECT
 
