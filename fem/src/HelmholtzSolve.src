@@ -73,7 +73,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE(Element_t),POINTER :: Element
 
-  LOGICAL :: AllocationsDone = .FALSE., Bubbles, Found
+  LOGICAL :: AllocationsDone = .FALSE., Bubbles, Found, UseConvection, &
+      UseDensity
 
   INTEGER :: iter, i, j, k, n, nd, t, istat, eq, LocalNodes
   REAL(KIND=dp) :: Norm, PrevNorm, RelativeChange, AngularFrequency
@@ -85,12 +86,12 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: NonlinearTol,s
 
   REAL(KIND=dp), ALLOCATABLE :: Load(:,:), Work(:), &
-       SoundSpeed(:), Damping(:), Impedance(:,:), ConvVelo(:,:)
+       SoundSpeed(:), Density(:), Damping(:), Impedance(:,:), ConvVelo(:,:)
 
   COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
 
   SAVE STIFF, Work, Load, FORCE, &
-       SoundSpeed, Damping, Impedance, AllocationsDone, ConvVelo
+       SoundSpeed, Density, Damping, Impedance, AllocationsDone, ConvVelo
 
   REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
@@ -103,8 +104,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
   INTEGER, POINTER ::  FlowPerm(:)
   INTEGER :: dim
   TYPE(Element_t),POINTER :: Parent
-  REAL(KIND=dp), ALLOCATABLE :: Density(:), WallVelocity(:,:)
-  SAVE Density, WallVelocity
+  REAL(KIND=dp), ALLOCATABLE :: WallVelocity(:,:)
+  SAVE WallVelocity
 !------------------------------------------------------------------------------
 
 
@@ -119,8 +120,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
              Impedance,        &
              Work,             &
              FORCE,  STIFF,    &
-             SoundSpeed, ConvVelo, Damping, Load, &
-             Density, WallVelocity )
+             SoundSpeed, Density, ConvVelo, Damping, Load, &
+             WallVelocity )
      END IF
 
      ALLOCATE( &
@@ -128,8 +129,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
           Work( N ),           &
           FORCE( 2*N ),        &
           STIFF( 2*N,2*N ),    &
-          SoundSpeed( N ), ConvVelo(3,N), Damping( N ), Load( 2,N ), &
-          Density(N), WallVelocity(6,N), STAT=istat )
+          SoundSpeed( N ), Density( N ), ConvVelo(3,N), Damping( N ), Load( 2,N ), &
+          WallVelocity(6,N), STAT=istat )
 
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'HelmholzSolve', 'Memory allocation error.' )
@@ -151,12 +152,15 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
   IF ( .NOT.Found ) NonlinearIter = 1
   Bubbles = GetLogical( SolverParams, 'Bubbles', Found )
-!
+
+  UseDensity = GetLogical( SolverParams,'Use Density',Found)
+
 ! Figure out angular frequency:
 !------------------------------
 
   n = GetElementNOFNodes()
   Simulation => GetSimulation()
+  dim = CoordinateSystemDimension()     
 
   AngularFrequency = GetAngularFrequency()
 
@@ -166,12 +170,32 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
   FlowSol => VariableGet( Solver % Mesh % Variables, 'Flow')
   IF ( ASSOCIATED(FlowSol) ) THEN
-    dim = CoordinateSystemDimension()     
     Flow => FlowSol % Values
     FlowPerm => FlowSol % Perm
   END IF
 
   Solver % Matrix % COMPLEX = .TRUE.
+
+!
+! Check whether the equation lives on a convection field
+!-------------------------------------------------------
+  UseConvection = .FALSE.
+  ConvVelo = 0.0_dp
+
+  DO i = 1, Model % NumberOfMaterials
+    Material => Model % Materials(i) % Values
+
+    UseConvection = ListCheckPresent( Material,'Convection Velocity 1')
+
+    Found = ListCheckPresent( Material,'Convection Velocity 2')
+    UseConvection = UseConvection .OR. Found
+
+    IF( dim == 3 ) THEN
+      Found = ListCheckPresent( Material,'Convection Velocity 3')
+      UseConvection = UseConvection .OR. Found
+    END IF
+    IF( UseConvection ) EXIT
+  END DO
 
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source
@@ -220,17 +244,15 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         Damping(1:n)    = GetReal( Material, 'Sound Damping', Found )
         SoundSpeed(1:n) = GetReal( Material, 'Sound Speed', Found )
 
-        ConvVelo(1,1:n) = GetReal( Material, 'Convection Velocity 1', Found )
-        IF ( .NOT. Found ) &
-           ConvVelo(1,1:n) = GetReal( Equation, 'Convection Velocity 1', Found )
+        IF( UseDensity) Density(1:n) = GetReal( Material, 'Density', Found )
 
-        ConvVelo(2,1:n) = GetReal( Material, 'Convection Velocity 2', Found )
-        IF ( .NOT. Found ) &
-           ConvVelo(2,1:n) = GetReal( Equation, 'Convection Velocity 2', Found )
-
-        ConvVelo(3,1:n) = GetReal( Material, 'Convection Velocity 3', Found )
-        IF ( .NOT. Found ) &
-           ConvVelo(3,1:n) = GetReal( Equation, 'Convection Velocity 3', Found )
+        IF( UseConvection ) THEN
+          ConvVelo(1,1:n) = GetReal( Material, 'Convection Velocity 1', Found )
+          ConvVelo(2,1:n) = GetReal( Material, 'Convection Velocity 2', Found )
+          IF( dim == 3 ) THEN
+            ConvVelo(3,1:n) = GetReal( Material, 'Convection Velocity 3', Found )
+          END IF
+        END IF
 
 !       The source term on nodes:
 !       -------------------------
@@ -247,10 +269,12 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !       ---------------------------------------------------------------
         CALL DefaultUpdateEquations( STIFF, FORCE )
      END DO
+
 !------------------------------------------------------------------------------
 !
 !    Neumann & Newton BCs:
 !    ---------------------
+
      DO t=1, Solver % Mesh % NumberOfBoundaryElements
         Element => GetBoundaryElement(t)
         IF ( .NOT.ActiveBoundaryElement() ) CYCLE
@@ -265,9 +289,21 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
           Load(2,1:n) = GetReal( BC, 'Wave Flux 2', Found )
           Impedance(1,1:n) = GetReal( BC, 'Wave Impedance 1', Found )
           Impedance(2,1:n) = GetReal( BC, 'Wave Impedance 2', Found )
+                 
+          IF( UseDensity ) THEN
+            Density(1:n) = GetParentMatProp( 'Density', Element, Found )
+          END IF
 
+	  IF( UseConvection ) THEN
+            ConvVelo(1,1:n) = GetParentMatProp( 'Convection Velocity 1', Element, Found )
+            ConvVelo(2,1:n) = GetParentMatProp( 'Convection Velocity 2', Element, Found )
+            IF( dim == 3 ) THEN
+              ConvVelo(3,1:n) = GetParentMatProp( 'Convection Velocity 3', Element, Found )
+            END IF
+          END IF
+          
           CALL LocalMatrixBoundary(  STIFF, FORCE, AngularFrequency, &
-                 Impedance, Load, Element, n, nd, ConvVelo )
+              Impedance, Load, Element, n, nd, ConvVelo )
 
           CALL DefaultUpdateEquations( STIFF, FORCE )
         END IF
@@ -401,8 +437,8 @@ CONTAINS
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(2*nd),dBasisdx(2*nd,3)
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,WaveNumber,M,D,L1,L2
-    REAL(KIND=dp) :: DiffCoef(3,3), Velo(3)
-    COMPLEX(KIND=dp) :: A, ConvCoef
+    REAL(KIND=dp) :: DiffCoef(3,3), Velo(3), Rho
+    COMPLEX(KIND=dp) :: A, B, ConvCoef
     LOGICAL :: Stat
     INTEGER :: i,p,q,t,dim, NBasis, CoordSys
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
@@ -414,13 +450,16 @@ CONTAINS
     dim = CoordinateSystemDimension()
     CoordSys = CurrentCoordinateSystem()
 
-    Metric = 0.0d0
-    Metric(1,1) = 1.0d0
-    Metric(2,2) = 1.0d0
-    Metric(3,3) = 1.0d0
+    Metric = 0.0_dp
+    Metric(1,1) = 1.0_dp
+    Metric(2,2) = 1.0_dp
+    Metric(3,3) = 1.0_dp
 
-    STIFF = 0.0d0
-    FORCE = 0.0d0
+    STIFF = 0.0_dp
+    FORCE = 0.0_dp
+
+    DiffCoef = 0.0_dp
+
 !------------------------------------------------------------------------------
 !   Numerical integration
 !------------------------------------------------------------------------------
@@ -465,39 +504,61 @@ CONTAINS
        L1 = SUM( Load(1,1:n) * Basis(1:n) )
        L2 = SUM( Load(2,1:n) * Basis(1:n) )
 
-!      Scaled convection velocity
-!      --------------------------
-       Velo(1) = SUM( ConvVelo(1,1:n) * Basis(1:n) )
-       Velo(2) = SUM( ConvVelo(2,1:n) * Basis(1:n) )
-       Velo(3) = SUM( ConvVelo(3,1:n) * Basis(1:n) )
-       Velo = Velo / SUM( SoundSpeed(1:n) * Basis(1:n) )
+       IF( UseDensity ) THEN
+         Rho = SUM( Density(1:n) * Basis(1:n) ) 
+       END IF
 
-!      Diffusion and convection coefficients
-!      -------------------------------------
        DO i = 1,dim
-          DO j = 1,dim
-             DiffCoef(i,j) = - Velo(i)*Velo(j)
-          END DO
-          DiffCoef(i,i) = DiffCoef(i,i) + 1.0D0
+         DiffCoef(i,i) = 1.0_dp
        END DO
-       ConvCoef = 2.0D0 * SQRT((-1.0D0,0.0D0)) * WaveNumber
+
+       IF( UseConvection ) THEN 
+         ConvCoef = ConvCoef + 2.0D0 * SQRT((-1.0D0,0.0D0)) * WaveNumber
+
+!        Scaled convection velocity
+!        --------------------------
+         Velo(1) = SUM( ConvVelo(1,1:n) * Basis(1:n) )
+         Velo(2) = SUM( ConvVelo(2,1:n) * Basis(1:n) )
+         Velo(3) = SUM( ConvVelo(3,1:n) * Basis(1:n) )
+         Velo = Velo / SUM( SoundSpeed(1:n) * Basis(1:n) )
+
+!        Diffusion and convection coefficients
+!        -------------------------------------
+      
+         DO i = 1,dim
+           DO j = 1,dim
+             DiffCoef(i,j) = DiffCoef(i,j) - Velo(i)*Velo(j)
+           END DO
+         END DO
+       END IF
+
+
 
 !      Stiffness matrix and load vector
 !      --------------------------------
        DO p=1,NBasis
           DO q=1,NBasis
              A = CMPLX( M, D,KIND=dp ) * Basis(q) * Basis(p)
+
              DO i=1,dim
-                A = A + ConvCoef * Velo(i) * dBasisdx(q,i) * Basis(p)
-                DO j=1,dim
-                   DO k = 1,dim
-                      A = A + Metric(i,j) * DiffCoef(i,k) * dBasisdx(q,k) * dBasisdx(p,j)
-                   END DO
-                END DO
+               IF( UseConvection ) THEN
+                 A = A + ConvCoef * Velo(i) * dBasisdx(q,i) * Basis(p)
+               END IF
+               DO j=1,dim
+                 DO k = 1,dim
+                   A = A + Metric(i,j) * DiffCoef(i,k) * dBasisdx(q,k) * dBasisdx(p,j)
+                 END DO
+               END DO
              END DO
-             STIFF(p,q) = STIFF(p,q) + s*A
+
+             IF( UseDensity ) A = A / Rho
+             STIFF(p,q) = STIFF(p,q) + s * A
+
           END DO
-          FORCE(p) = FORCE(p) + s * Basis(p) * CMPLX( L1,L2,KIND=dp )
+          
+          B = Basis(p) * CMPLX( L1,L2,KIND=dp )
+          IF( UseDensity ) B = B / Rho
+          FORCE(p) = FORCE(p) + s * B
        END DO
     END DO
 !------------------------------------------------------------------------------
@@ -522,8 +583,8 @@ CONTAINS
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,Impedance1,Impedance2,L1,L2
     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),X,Y,Z
-    REAL(KIND=dp) :: Normal(3), Velo(3), NormVelo, TangVelo(3)
-    COMPLEX(KIND=dp) :: A, Admittance
+    REAL(KIND=dp) :: Normal(3), Velo(3), NormVelo, TangVelo(3), Rho
+    COMPLEX(KIND=dp) :: A, B, Admittance
     LOGICAL :: Stat
     INTEGER :: i,p,q,t,dim,CoordSys
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
@@ -551,7 +612,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
-              Basis, dBasisdx )
+              Basis, dBasisdx ) 
 
        s = s * SqrtElementMetric
 
@@ -565,14 +626,21 @@ CONTAINS
          Admittance = CMPLX(0.0d0,1.0d0,KIND=dp) * AngularFrequency / CMPLX(Impedance1, Impedance2,KIND=dp)
        END IF
 
-!      Scaled convection velocity
-!      --------------------------
-       Velo(1) = SUM( ConvVelo(1,1:n) * Basis(1:n) )
-       Velo(2) = SUM( ConvVelo(2,1:n) * Basis(1:n) )
-       Velo(3) = SUM( ConvVelo(3,1:n) * Basis(1:n) )
-       Velo = Velo / SUM( SoundSpeed(1:n) * Basis(1:n) )
-       NormVelo = SUM( Normal(1:dim) * Velo(1:dim) )
-       TangVelo = Velo - Normal * NormVelo
+       IF( UseDensity ) THEN
+         Rho = SUM( Density(1:n) * Basis(1:n) ) 
+       END IF
+
+
+       IF( UseConvection ) THEN
+!        Scaled convection velocity
+!        --------------------------
+         Velo(1) = SUM( ConvVelo(1,1:n) * Basis(1:n) )
+         Velo(2) = SUM( ConvVelo(2,1:n) * Basis(1:n) )
+         Velo(3) = SUM( ConvVelo(3,1:n) * Basis(1:n) )
+         Velo = Velo / SUM( SoundSpeed(1:n) * Basis(1:n) )
+         NormVelo = SUM( Normal(1:dim) * Velo(1:dim) )
+         TangVelo = Velo - Normal * NormVelo
+      END IF
 
 !------------------------------------------------------------------------------
        L1 = SUM( Load(1,1:n) * Basis(1:n) )
@@ -580,11 +648,17 @@ CONTAINS
 !------------------------------------------------------------------------------
        DO p=1,nd
           DO q=1,nd
-             A = (1.0d0-NormVelo) * Admittance * Basis(q)*Basis(p)
-             A = A + SUM( TangVelo(1:dim) * dBasisdx(q,1:dim) ) * Basis(p)
+             A = Admittance * Basis(q)*Basis(p)
+             IF( UseConvection ) THEN
+               A = A - NormVelo * Admittance * Basis(q)*Basis(p)
+               A = A + SUM( TangVelo(1:dim) * dBasisdx(q,1:dim) ) * Basis(p)
+             END IF
+             IF( UseDensity ) A = A / Rho
              STIFF(p,q) = STIFF(p,q) + s * A
           END DO
-          FORCE(p) = FORCE(p) + s * Basis(p) * CMPLX(L1,L2,KIND=dp) 
+          B = Basis(p) * CMPLX(L1,L2,KIND=dp)
+          IF( UseDensity ) B = B / Rho
+          FORCE(p) = FORCE(p) + s * B
        END DO
 !------------------------------------------------------------------------------
     END DO
