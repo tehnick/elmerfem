@@ -304,13 +304,13 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       ElementIndex = GetParticleElement( Particles, No )
       CurrentElement => Mesh % Elements( ElementIndex )
       
-      Rfin = GetParticleCoord( Particles, No, 0 )
-      Velo = GetParticleCoord( Particles, No, 1 )
+      Rfin = GetParticleCoord( Particles, No )
+      Velo = GetParticleVelo( Particles, No )
    
       CALL ParticleFieldInteraction(CurrentElement, dtime, No, Status, &
           Rfin, Velo, Force ) 
 
-      CALL AddParticleCoord( Particles, No, 2, Force )
+      CALL AddParticleForce( Particles, No, Force )
       CALL SetParticleStatus( Particles, No, Status )      
     END DO
 
@@ -345,21 +345,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         IF ( Particles % Status(no) == PARTICLE_GHOST ) EXIT
         IF ( Particles % Status(no) == PARTICLE_LOST  ) CYCLE
 
-        Coord = GetParticleCoord( Particles, No, 0 )
-        Velo  = GetParticleCoord( Particles, No, 1 )
+        Coord = GetParticleCoord( Particles, No )
+        Velo  = GetParticleVelo( Particles, No )
 
         DO WHILE(.TRUE.)
           No2 = GetNextNeighbour( Particles, No )           
           IF( No2 == 0 ) EXIT
-          Coord2 = GetParticleCoord( Particles, No2, 0 )
-          Velo2  = GetParticleCoord( Particles, No2, 1 )
+          Coord2 = GetParticleCoord( Particles, No2 )
+          Velo2  = GetParticleVelo( Particles, No2 )
 
           IF( ParticleParticleCollision(dtime,Coord,Coord2,Velo,Velo2,&
               Force,Force2) ) THEN
-            CALL SetParticleCoord( Particles, No, 0, Coord )
-            CALL SetParticleCoord( Particles, No2, 0, Coord2 )
-            CALL AddParticleCoord( Particles, No, 2, Force )
-            CALL AddParticleCoord( Particles, No2, 2, Force2 )
+            CALL SetParticleCoord( Particles, No, Coord )
+            CALL SetParticleCoord( Particles, No2, Coord2 )
+            CALL AddParticleForce( Particles, No, Force )
+            CALL AddParticleForce( Particles, No2, Force2 )
           END IF
         END DO
       END DO
@@ -373,19 +373,19 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         IF ( Particles % Status(no) == PARTICLE_GHOST ) EXIT
         IF ( Particles % Status(no) == PARTICLE_LOST  ) CYCLE
         
-        Coord = GetParticleCoord( Particles, No, 0 )
-        Velo  = GetParticleCoord( Particles, No, 1 )
+        Coord = GetParticleCoord( Particles, No )
+        Velo  = GetParticleVelo( Particles, No )
 
         DO WHILE(.TRUE.)
           No2 = GetNextNeighbour( Particles, No )           
           IF( No2 == 0 ) EXIT
-          Coord2 = GetParticleCoord( Particles, No2, 0 )
-          Velo2  = GetParticleCoord( Particles, No2, 1 )
+          Coord2 = GetParticleCoord( Particles, No2 )
+          Velo2  = GetParticleVelo( Particles, No2 )
 
           IF ( ParticleParticleContact(dtime,Coord,Coord2,Velo,Velo2,&
               Force,Force2) ) THEN
-            CALL AddParticleCoord( Particles, No, 2, Force )
-            CALL AddParticleCoord( Particles, No2, 2, Force2 )
+            CALL AddParticleForce( Particles, No, Force )
+            CALL AddParticleForce( Particles, No2, Force2 )
           END IF
         END DO
       END DO

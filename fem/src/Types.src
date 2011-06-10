@@ -694,30 +694,35 @@ MODULE Types
 
 
    TYPE Particle_t
-     INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0, TimeOrder=0, &
-	MaxClosestParticles
-     LOGICAL :: NeighbourTable = .FALSE.   
-  
+     INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0, TimeOrder=0
      TYPE(ParticleVariable_t), POINTER :: Variables => Null()	
-	
+     	
+     REAL(KIND=dp) :: dtime
+     
      REAL(KIND=dp), POINTER :: Coordinate(:,:) => Null()
      REAL(KIND=dp), POINTER :: Distance(:) => Null()
      REAL(KIND=dp), POINTER :: Velocity(:,:) => Null()
      REAL(KIND=dp), POINTER :: Force(:,:) => Null()
      REAL(KIND=dp), POINTER :: Dt(:) => Null()     
      REAL(KIND=dp), POINTER :: uvw(:,:) => Null()
-
+     	
      INTEGER, POINTER :: FaceIndex(:) => Null()
      INTEGER, POINTER :: Status(:) => Null()
      INTEGER, POINTER :: ElementIndex(:) => Null()
+     INTEGER, POINTER :: NodeIndex(:) => NULL()
 
+     ! Data structure for the particle-particle interaction 
+     INTEGER :: MaxClosestParticles
+     LOGICAL :: NeighbourTable = .FALSE.   
      INTEGER, POINTER :: ClosestNode(:) => Null()
      INTEGER, POINTER :: ClosestParticle(:) => Null()
      INTEGER, POINTER :: NoClosestParticle(:) => Null()
      INTEGER, POINTER :: CumClosestParticle(:) => Null()
 
+     ! Mark the internal elements without any interface nodes
      LOGICAL, POINTER :: InternalElements(:) => Null()
 
+     ! Local and global bounding boxes
      REAL(KIND=dp) :: LocalMinCoord(3), LocalMaxCoord(3)
      REAL(KIND=dp) :: GlobalMinCoord(3), GlobalMaxCoord(3)
 	 
