@@ -113,13 +113,14 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: RhsVector(:), WeightVector(:), ForceVector(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
 
-  TYPE(Particle_t) :: Particles
+!  TYPE(Particle_t) :: Particles
 
 
   SAVE CollisionInteraction, ContactInteraction, &
       ParticleToField, OutputInterval, ExtOutputInterval, &
       Nstep, VisitedTimes, &
-      RhsVector, WeightVector, ForceVector, TimeOrder, ParticleInBox, Particles, &
+      RhsVector, WeightVector, ForceVector, TimeOrder, ParticleInBox, &
+!Particles, &
       tottime, TimeStepsTaken, ParticleStepsTaken,ParticleWall,StatInfo, &
       TimingInfo
 
@@ -407,6 +408,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     ! v = v0 + at, r = r0 + vt
     !---------------------------------------------------------------
     CALL ParticleAdvanceTime( Particles, dtime )
+    CALL DeleteLostParticles(Particles)
     !---------------------------------------------------------------
 
     IF( OutputInterval > 0 .AND. ExtOutputInterval == 0 ) THEN

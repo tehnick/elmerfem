@@ -54,22 +54,22 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Particle_t) :: Particles
   TYPE(ValueList_t), POINTER :: Params
   LOGICAL :: GotIt, Structured, Visited = .FALSE.
   INTEGER :: Extent(6)
   REAL(KIND=dp) :: Origin(3), Dx(3)
   INTEGER, POINTER :: GridIndex(:,:,:)
-  
+  TYPE( Particle_t), POINTER :: Particles  
 
-  SAVE Visited, GridIndex, Origin, Dx, Extent, Particles
+  SAVE Visited, GridIndex, Origin, Dx, Extent
+!Particles
 
 !------------------------------------------------------------------------------
 
   CALL Info('SaveGridData','-----------------------------------------', Level=4 )
   CALL Info('SaveGridData','Saving data an uniform grid point        ', Level=4 )
 
-  
+  Particles => GlobalParticles
   Params => Solver % Values
   Mesh => Solver % Mesh
   Structured = GetLogical( Params,'VTI Format',GotIt )
@@ -106,7 +106,7 @@ CONTAINS
   !---------------------------------------------------------
   SUBROUTINE AllocateGridParticles(Particles,NoParticles)
     
-    TYPE(Particle_t) :: Particles
+    TYPE(Particle_t), POINTER :: Particles
     INTEGER :: NoParticles   
     REAL(KIND=dp), POINTER :: Coordinate(:,:), UVW(:,:)
     INTEGER, POINTER :: Status(:), ElementIndex(:)
@@ -174,7 +174,7 @@ CONTAINS
 
   SUBROUTINE AddGridParticle(Particles,ElementIndex,GlobalCoords,LocalCoords)
 
-    TYPE(Particle_t) :: Particles
+    TYPE(Particle_t), POINTER :: Particles
     INTEGER :: ElementIndex
     REAL(KIND=dp) :: GlobalCoords(3),LocalCoords(3)
     
@@ -205,7 +205,7 @@ CONTAINS
   !------------------------------------------------------------------     
   SUBROUTINE CreateGridParticles(Particles)
      
-    TYPE(Particle_t) :: Particles
+    TYPE(Particle_t), POINTER :: Particles
 
     TYPE(Mesh_t), POINTER :: Mesh
     REAL(KIND=dp) :: MinCoord(3), MaxCoord(3)
