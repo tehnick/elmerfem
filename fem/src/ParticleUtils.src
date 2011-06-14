@@ -194,7 +194,7 @@ CONTAINS
     Coord(3) = 0.0_dp
     dim = Particles % dim
 
-    IF( .FALSE. .AND. ASSOCIATED( Particles % PrevCoordinate ) ) THEN
+    IF( ASSOCIATED( Particles % PrevCoordinate ) ) THEN
       Coord(1:dim) = Particles % PrevCoordinate(no,:)
     ELSE
       Coord(1:dim) = Particles % Coordinate(no,:) - &
@@ -2471,13 +2471,14 @@ RETURN
   ! Given the element & global coordinates returns the local coordinates.
   ! The idea of this routine is to transparently block the local coordinate
   ! search from the user by directly giving the basis function values related
-  ! to a global coordinate.
+  ! to a global coordinate. Sloppy tolerances are used since we *should* 
+  ! have already located the element.
   !--------------------------------------------------------------------------
   FUNCTION ParticleElementInfo( CurrentElement, GlobalCoord, &
       SqrtElementMetric, Basis, dBasisdx ) RESULT ( stat )
     
     TYPE(Element_t), POINTER :: CurrentElement
-    REAL(KIND=dp) :: GlobalCoord(:), SqrtElementMetric
+    REAL(KIND=dp) :: GlobalCoord(:), SqrtElementMetric, LocalDistance
     REAL(KIND=dp) :: Basis(:)
     REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:)
     LOGICAL :: Stat
@@ -2492,13 +2493,22 @@ RETURN
     CALL GetElementNodes(ElementNodes,CurrentElement)
     
     Stat = PointInElement( CurrentElement, ElementNodes, &
-        GlobalCoord, LocalCoord ) 
-    IF( .NOT. Stat ) THEN
-      CALL Warn('GlobalElementInfo','Should have found the node!')
-      PRINT *,'GlobalCoord:',GlobalCoord,CurrentElement % ElementIndex
+        GlobalCoord, LocalCoord, GlobalEps = 1.0d-1, LocalEps = 1.0d-1, &
+	LocalDistance = LocalDistance ) 
+    IF( .NOT. Stat .OR. LocalDistance > 1.0d-3) THEN
+      IF( .NOT. Stat ) THEN
+        CALL Warn('GlobalElementInfo','Should have found the node!')
+      ELSE
+        CALL Warn('GlobalElementInfo','Distance from element higher than expected!')
+      END IF
+      PRINT *,'LocalDistance:',LocalDistance,'Element:',CurrentElement % ElementIndex
+      PRINT *,'GlobalCoord:',GlobalCoord
+      PRINT *,'Nodes X:',ElementNodes % x(1:n)
+      PRINT *,'Nodes Y:',ElementNodes % y(1:n)
+      PRINT *,'Nodes Z:',ElementNodes % z(1:n)
       RETURN
     END IF
-    
+
     u = LocalCoord(1)
     v = LocalCoord(2)
     w = LocalCoord(3)
