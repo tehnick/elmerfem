@@ -2133,8 +2133,6 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
   int mat1,mat2,par1,par2,mat1old,mat2old,material;
   static int hitsexist=FALSE,hitslength,*hits;
 
-  printf("a1\n");
-
 
   if(boundtype < 0) {
     newbc = TRUE;
@@ -3241,7 +3239,6 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
   newy = Rvector(1,noknots);
   if(data->dim == 3) newz = Rvector(1,noknots);
 
-  printf("a1\n");
 
   for(l=0;l<ncopies[2];l++) {
     for(k=0;k<ncopies[1];k++) {

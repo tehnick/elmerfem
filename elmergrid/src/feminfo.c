@@ -245,7 +245,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->nodes3d = 0;
   eg->metis = 0;
   eg->partopt = 0;
-  eg->partoptim = 0;
+  eg->partoptim = FALSE;
   eg->partjoin = 0;
   eg->partitionhalo = FALSE;
   eg->partitionindirect = FALSE;

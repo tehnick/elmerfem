@@ -504,7 +504,6 @@ int main(int argc, char *argv[])
 
 
   case 19:
-    printf("a1\n");
 
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
@@ -876,6 +875,7 @@ int main(int argc, char *argv[])
       printf("\nElmergrid partitioning meshes:\n");
       printf(  "------------------------------\n");
       timer_show();
+
 
       if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
 	FindPeriodicNodes(&data[k],eg.periodicdim,info);

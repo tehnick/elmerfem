@@ -493,7 +493,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 {
   int noknots,noelements,nosides,maxelemtype;
   int sideind[MAXNODESD1],tottypes,elementtype;
-  int i,j,k,dummyint,cdstat;
+  int i,j,k,l,dummyint,cdstat;
   FILE *in;
   char line[MAXLINESIZE],filename[MAXFILESIZE],directoryname[MAXFILESIZE];
 
@@ -582,8 +582,13 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
       bigerror("Cannot continue with invalid elements");
     }
     data->elementtypes[j] = elementtype;
-    for(k=0;k< elementtype%100 ;k++) 
-      fscanf(in,"%d",&(data->topology[j][k]));
+    for(k=0;k< elementtype%100 ;k++) {
+      fscanf(in,"%d",&l);
+      data->topology[j][k] = l;
+      if(l < 0 || l > noknots ) {
+	printf("node out of range: %d %d %d %d %d\n",i,j,elementtype,k,l);
+      }
+    }
   }
   fclose(in);
 
@@ -2033,8 +2038,8 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
   }
   else {
     cx = 1.0;
-    cy = 0.01;
-    cz = 0.0001;
+    cy = 0.0001;
+    cz = cy*cy;
   }
   z = 0.0;
 
@@ -2269,8 +2274,8 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
   }
   else {
     cx = 1.0;
-    cy = 0.01;
-    cz = 0.0001;
+    cy = 0.0001;
+    cz = cy*cy;
   }
 
   z = 0.0;
@@ -2825,7 +2830,7 @@ int PartitionMetisNodes(struct FemType *data,struct BoundaryType *bound,
 
 static void CheckPartitioning(struct FemType *data,int info)
 {
-  int i,j,partitions,part,part2,noknots,noelements,mini,maxi,sumi,hit,ind,nodesd2,elemtype;
+  int i,j,k,partitions,part,part2,noknots,noelements,mini,maxi,sumi,hit,ind,nodesd2,elemtype;
   int *elempart, *nodepart,*elemsinpart,*nodesinpart,*sharedinpart;
 
   noknots = data->noknots;
@@ -2882,6 +2887,7 @@ static void CheckPartitioning(struct FemType *data,int info)
   }
 
   if(info) {
+    printf("Information on partition bandwidth\n");
     if(partitions <= 4) {
       printf("Distribution of elements, nodes and shared nodes\n");
       printf("     %-10s %-10s %-10s %-10s\n","partition","elements","nodes","shared");
@@ -2894,14 +2900,14 @@ static void CheckPartitioning(struct FemType *data,int info)
 	mini = MIN( elemsinpart[i], mini);
 	maxi = MAX( elemsinpart[i], maxi);
       }
-      printf("There are in average %d elements with range %d in partition\n",noelements/partitions,maxi-mini);
+      printf("Average %d elements with range %d in partition\n",noelements/partitions,maxi-mini);
 
       mini = maxi = nodesinpart[1];
       for(i=1;i<=partitions;i++) {
 	mini = MIN( nodesinpart[i], mini);
 	maxi = MAX( nodesinpart[i], maxi);
       }
-      printf("There are in average %d nodes with range %d in partition\n",noknots/partitions,maxi-mini);
+      printf("Average %d nodes with range %d in partition\n",noknots/partitions,maxi-mini);
 
       sumi = 0;
       mini = maxi = sharedinpart[1];
@@ -2910,7 +2916,7 @@ static void CheckPartitioning(struct FemType *data,int info)
 	maxi = MAX( sharedinpart[i], maxi);
 	sumi += sharedinpart[i];
       }
-      printf("There are in average %d shared nodes with range %d in partition\n",sumi/partitions,maxi-mini);
+      printf("Average %d shared nodes with range %d in partition\n",sumi/partitions,maxi-mini);
     }
   }
 
@@ -2919,21 +2925,25 @@ static void CheckPartitioning(struct FemType *data,int info)
   if(0) printf("Checking that each node in elements belongs to nodes\n");
   for(i=1;i<=data->noelements;i++) {
     part = elempart[i];
-    elemtype = data->elementtypes[j];
-    nodesd2 = elemtype%100;
+    elemtype = data->elementtypes[i];
+    nodesd2 = elemtype % 100;
 
-    for(j=0;j < nodesd2;j++) 
+    for(j=0;j < nodesd2;j++) {
       ind = data->topology[i][j];
-
-    hit = FALSE;
-    for(j=1;j<=data->maxpartitiontable;j++) {
-      part2 = data->partitiontable[j][ind];
-      if( part == part2 ) hit = TRUE;
-      if(hit && !part) break;
-    }
-    if(!hit) {
-      printf("******** Warning *******\n");
-      printf("Node %d in element %d does not belong to partition %d (%d)\n",ind,i,part,j);
+      
+      hit = FALSE;
+      for(k=1;k<=data->maxpartitiontable;k++) {
+	part2 = data->partitiontable[k][ind];
+	if( part == part2 ) hit = TRUE;
+	if(hit && !part) break;
+      }
+      if(!hit) {
+	printf("******** Warning *******\n");
+	printf("Node %d in element %d does not belong to partition %d (%d)\n",ind,i,part,part2);
+	printf("elemtype = %d nodesd2 = %d\n",elemtype,nodesd2);
+	for(k=0;k < nodesd2;k++) 
+	  printf("ind[%d] = %d\n",k,data->topology[i][k]);
+      }
     }
   }
 
@@ -3196,6 +3206,7 @@ static int RenumberCuthillMckee( int nrows, int *rows, int *cols, int *iperm )
     for(i=0; i<nrows; i++ )
       for( j=rows[i]; j<rows[i+1]; j++ )
         bw_aft = MAX( bw_aft, ABS(iperm[cols[j]]-iperm[i])+1 );
+
  printf( "RCM: Bandwidth after: %d\n", bw_aft );
 
    free_Ivector(level,0,nrows-1);
@@ -3287,8 +3298,6 @@ static void RenumberPartitions(struct FemType *data,int info)
     }
   }    
   xadj[partitions] = totcon;
-
-
 
   perm = Ivector(0,partitions-1);
   bw_reduced = RenumberCuthillMckee( partitions, xadj, adjncy, perm );
@@ -3390,30 +3399,33 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   if(partbw) RenumberPartitions(data,info);
 
   /* Check partitioning after table is created for the first time */
+  printf("Checking partitioning before optimization\n");
   CheckPartitioning(data,info);
 
-  /* Distribute the shared nodes as evenly as possible. 
-     These store the load balancing information. */
+  /* Calculate how many nodes is owned by each partition */
   neededvector = Ivector(1,partitions);  
   for(i=1;i<=partitions;i++) 
     neededvector[i] = 0;    
-      
-  /* Make the initial distribution that points the ownerships. */
   for(i=1;i<=noknots;i++) 
     neededvector[nodepart[i]] += 1;
    
-  optimize = 1;
-  probnodes = Ivector(1,noknots);
-  for(i=1;i<=noknots;i++)
-    probnodes[i] = 0;
-
-  if(!noopt) printf("Applying aggressive optimization for load balancing\n");
+  if(!noopt) {
+    optimize = 1;
+    probnodes = Ivector(1,noknots);
+    for(i=1;i<=noknots;i++)
+      probnodes[i] = 0;
+    printf("Applying aggressive optimization for load balancing\n");
+  }
 
  optimizeownership:
 
   dshared = CheckSharedDeviation(neededvector,partitions,info);
 
   if(!noopt) {    
+    
+    /* Distribute the shared nodes as evenly as possible. */
+
+
     int target, same, nochanges, maxrounds, dtarget;
 
     target = noknots / partitions;
@@ -3596,7 +3608,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
 	    ind = data->topology[i][j];
 	    k = nodepart[ind];
 	    if((k == i1 && e1 < e2) || (k == i2 && e1 >= e2)) {
-	      probnodes[ind] += 1;
+	      if(!noopt) probnodes[ind] += 1;
 	      nodepart[ind] = elempart[i];
 	      neededvector[elempart[i]] += 1;
 	      neededvector[k] -= 1;
@@ -3618,10 +3630,6 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
     }
   }
 
-
-  printf("A posteriori checking\n");
-  CheckPartitioning(data,info);
-
   /* This seems to work also iteratively */
   if(!noopt && m+n > 10 && optimize < 50) {
     optimize++;
@@ -3630,9 +3638,15 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   }
 
   free_Ivector(neededvector,1,partitions);
-  free_Ivector(probnodes,1,noknots);
+
+  if(!noopt) free_Ivector(probnodes,1,noknots);
  
   if(info) printf("The partitioning was optimized.\n"); 
+
+
+  printf("Checking partitioning after optimization\n");
+  CheckPartitioning(data,info);
+
   return(0);
 }
 
