@@ -248,10 +248,6 @@ MODULE Interpolation
     CALL GlobalToLocal( ug, vg, wg, Point(1), Point(2), Point(3), &
         Element, ElementNodes )
 
-    LocalCoordinates(1) = ug
-    LocalCoordinates(2) = vg
-    LocalCoordinates(3) = wg
-
 ! Currently the eps of global coordinates is mixed with the eps of local
 ! coordinates which is a bit disturbin. There could be sloppier global
 ! coordinate search and a more rigorous local coordinate search.
@@ -316,6 +312,26 @@ MODULE Interpolation
 !                       vg>=-1.d0-eps2 .AND. vg<=1.d0+eps2 .AND. &
 !                       wg>=-1.d0-eps2 .AND. wg<=1.d0+eps2
 
+    IF (IsPElement(Element)) THEN
+      SELECT CASE(Element % Type % ElementCode/100)
+      CASE(3)
+         ug = 2*ug + vg - 1
+         vg = SQRT(3._dp)*vg
+      CASE(5)
+         ug = 2*ug + vg + wg - 1
+         vg = SQRT(3._dp)*vg + 1/SQRT(3._dp)*wg
+         wg = 2*SQRT(2/3._dp)*wg
+      CASE(6)
+         wg = SQRT(2._dp)*wg
+      CASE(7)
+         ug = 2*ug + vg - 1
+         vg = SQRT(3._dp)*vg
+      END SELECT
+    END IF
+
+    LocalCoordinates(1) = ug
+    LocalCoordinates(2) = vg
+    LocalCoordinates(3) = wg
 !------------------------------------------------------------------------------
     END FUNCTION PointInElement
 !------------------------------------------------------------------------------
