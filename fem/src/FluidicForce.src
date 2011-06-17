@@ -81,8 +81,9 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   REAL(KIND=dp), ALLOCATABLE :: Pressure(:), Velocity(:,:), Viscosity(:)
   REAL(KIND=dp), ALLOCATABLE :: ShearData(:,:)
-  REAL(KIND=dp), ALLOCATABLE :: MomentAbout(:,:), Forces(:,:), Moments(:,:), Areas(:)
-  REAL(KIND=dp) :: Force(3), Moment(3), Area, ShearStress
+  REAL(KIND=dp), ALLOCATABLE :: Forces(:,:), Moments(:,:), Areas(:)
+  REAL(KIND=dp) :: Force(3), Moment(3), MomentAbout(3),Area, ShearStress
+  REAL(KIND=dp), POINTER :: mWork(:,:)	
   LOGICAL :: Stat, CalculateMoment, ViscousForce, Compressible, SumForces
   LOGICAL :: ShearOutput
   INTEGER :: i,j,k,n,pn,t,dim
@@ -93,6 +94,7 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: Material
   TYPE(Nodes_t) :: ElementNodes, ParentNodes
   TYPE(Element_t), POINTER   :: CurrentElement, Parent
+  TYPE(Valuelist_t), POINTER :: BC
   CHARACTER(LEN=MAX_NAME_LEN) :: ShearFilename, MessageL, ViscosityFlag
   CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, BoundaryName, VariableName
 
@@ -113,7 +115,6 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
   ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
   ALLOCATE( ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n) )
   ALLOCATE( Pressure( n ), Viscosity( n ), Velocity( 3, n ) )
-  ALLOCATE( MomentAbout(3,n) )
 
   ALLOCATE( Forces(Model % NumberOfBCs,3)  )
   ALLOCATE( Moments(Model % NumberOfBCs,3)  )
@@ -177,8 +178,9 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
      IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
 
      DO k=1, Model % NumberOfBCs
+	BC => Model % BCs(k) % Values
         IF ( Model % BCs(k) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
-        IF ( .NOT. ListGetLogical(Model % BCs(k) % Values,'Calculate Fluidic Force',stat ) ) CYCLE
+        IF ( .NOT. ListGetLogical(BC,'Calculate Fluidic Force',stat ) ) CYCLE
 
         ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
         ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
@@ -219,16 +221,16 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
 
         Viscosity(1:pn) = ListGetReal( Material, 'Viscosity', pn, Parent % NodeIndexes )
 
-        MomentAbout(1,1:n) = ListGetReal( Model % BCs(k) % Values, &
-            'Moment About 1', n, NodeIndexes, stat )
-        
-        MomentAbout(2,1:n) = ListGetReal( Model % BCs(k) % Values, &
-            'Moment About 2', n, NodeIndexes, CalculateMoment )
-        CalculateMoment = stat .OR. CalculateMoment
-        
-        MomentAbout(3,1:n) = ListGetReal( Model % BCs(k) % Values, &
-            'Moment About 3', n, NodeIndexes, stat )
-        CalculateMoment = stat .OR. CalculateMoment
+	mWork = ListGetConstRealArray( BC,'Moment About',CalculateMoment)
+        IF( CalculateMoment ) THEN
+          MomentAbout(1:dim) = mWork(1:dim,1)
+        ELSE
+          MomentAbout(1) = ListGetCReal( BC,'Moment About 1', stat )        
+          MomentAbout(2) = ListGetCReal( BC,'Moment About 2', CalculateMoment )
+          CalculateMoment = stat .OR. CalculateMoment        
+          MomentAbout(3) = ListGetCReal( BC,'Moment About 3', stat )
+          CalculateMoment = stat .OR. CalculateMoment
+        END IF
 
         Velocity = 0.0d0
         DO i=1,pn
@@ -273,11 +275,7 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
       WRITE( BoundaryName, '("")') 
     ELSE
       IF ( .NOT. ListGetLogical(Model % BCs(k) % Values,'Calculate Fluidic Force',stat ) ) CYCLE
-      IF(Model % NumberOfBCs < 10) THEN
-        WRITE( BoundaryName, '("bc ",I1)') k
-      ELSE
-        WRITE( BoundaryName, '("bc ",I2)') k
-      END IF
+      WRITE( BoundaryName, '("bc ",I0)') k
     END IF
 
     nlen = LEN_TRIM(BoundaryName)
@@ -292,7 +290,7 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
     IF ( CalculateMoment ) THEN
       WRITE( Message, &
           '("Moment about (",ES9.3E1,",",ES9.3E1,",",ES9.3E1,") is:",3Es14.6E2)') &
-          MomentAbout(1:3,1), Moments(k,1:3)
+          MomentAbout(1:3), Moments(k,1:3)
       CALL Info( 'ForceCompute', Message, Level=4 )
       
       CALL ListAddConstReal( Model % Simulation, &
@@ -377,7 +375,7 @@ CONTAINS
   SUBROUTINE ForceIntegrate( Force, Moment, MomentAbout, ViscousForce, &
        Compressible, Area, ShearStress )
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Force(3), Moment(3), MomentAbout(:,:), Area, ShearStress
+     REAL(KIND=dp) :: Force(3), Moment(3), MomentAbout(3), Area, ShearStress
      LOGICAL :: ViscousForce, Compressible
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: LForce(3), LMoment(3), TForce
@@ -511,9 +509,9 @@ CONTAINS
         TForce = TForce + s * (LForce(1)*Normal(2) - LForce(2)*Normal(1))
 
         IF (CalculateMoment) THEN
-          Radius(1) = SUM( (ElementNodes % x(1:n) - MomentAbout(1,1:n)) * Basis )
-          Radius(2) = SUM( (ElementNodes % y(1:n) - MomentAbout(2,1:n)) * Basis )
-          Radius(3) = SUM( (ElementNodes % z(1:n) - MomentAbout(3,1:n)) * Basis )
+          Radius(1) = SUM( (ElementNodes % x(1:n) - MomentAbout(1)) * Basis )
+          Radius(2) = SUM( (ElementNodes % y(1:n) - MomentAbout(2)) * Basis )
+          Radius(3) = SUM( (ElementNodes % z(1:n) - MomentAbout(3)) * Basis )
           
           LMoment(1) = Radius(2) * LForce(3) - Radius(3) * LForce(2)
           LMoment(2) = Radius(3) * LForce(1) - Radius(1) * LForce(3)
