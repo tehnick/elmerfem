@@ -275,6 +275,7 @@ EXTRA_DIST = \
 	NonphysicalMeshSolve.src \
 	NormalSolver.src \
 	ParallelEigenSolve.src \
+	ParticleAdvector.src \
 	ParticleUtils.src \
 	PElementBase.src \
 	PElementMaps.src \

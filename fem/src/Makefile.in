@@ -333,6 +333,7 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
         StructuredFlowLine$(SHL_EXT) \
         StatElecBoundary$(SHL_EXT) \
         ShearrateSolver$(SHL_EXT) \
+        ParticleAdvector$(SHL_EXT) \
         SaveGridData$(SHL_EXT)
 
 SOLVEROBJS = \
@@ -508,6 +509,7 @@ EXTRA_DIST = \
 	NonphysicalMeshSolve.src \
 	NormalSolver.src \
 	ParallelEigenSolve.src \
+	ParticleAdvector.src \
 	ParticleUtils.src \
 	PElementBase.src \
 	PElementMaps.src \
@@ -1031,8 +1033,8 @@ NavierStokes.$(OBJEXT): NavierStokes.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJ
 NonphysicalMeshSolve.$(OBJEXT): NonphysicalMeshSolve.f90 DefUtils.$(OBJEXT)
 NormalSolver.$(OBJEXT): NormalSolver.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 ParallelEigenSolve.$(OBJEXT): ParallelEigenSolve.f90 CRSMatrix.$(OBJEXT) IterSolve.$(OBJEXT) Multigrid.$(OBJEXT) ParallelUtils.$(OBJEXT)
-ParallelUtils.$(OBJEXT): ParallelUtils.f90 SParIterSolver.$(OBJEXT)
-ParticleUtils.$(OBJEXT): ParticleUtils.src DefUtils.$(OBJEXT)
+ParticleAdvector.$(OBJEXT): ParticleAdvector.f90 ParticleUtils.$(OBJEXT)
+ParticleUtils.$(OBJEXT): ParticleUtils.f90 DefUtils.$(OBJEXT)
 PElementBase.$(OBJEXT): PElementBase.f90 PElementMaps.$(OBJEXT) Messages.$(OBJEXT) Types.$(OBJEXT)
 PElementMaps.$(OBJEXT): PElementMaps.f90 Types.$(OBJEXT)
 PhaseChangeSolve.$(OBJEXT): PhaseChangeSolve.f90 DefUtils.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT)
