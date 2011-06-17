@@ -293,7 +293,7 @@ CONTAINS
     INTEGER :: i,j,k,l,n,dim,TimeOrder
     INTEGER, POINTER :: NodeIndexes(:), FieldPerm(:),FieldIndexes(:)
     REAL(KIND=dp) :: SqrtElementMetric, Weight
-    REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:), Coordinate(:,:)
+    REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:), Coordinate(:,:), Velocity(:,:)
     LOGICAL :: GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
     TYPE(Variable_t), POINTER :: VeloVar
@@ -322,6 +322,7 @@ CONTAINS
     END IF
 
     Coordinate => Particles % Coordinate
+    Velocity => Particles % Velocity
     Coord = 0.0_dp
     Velo = 0.0_dp
     FirstGhost = 0
@@ -337,7 +338,6 @@ CONTAINS
       BulkElement => Mesh % Elements( ElementIndex )
       
       Coord(1:dim) = Coordinate( No, 1:dim )
-      Velo(1:dim) = Particles % Velocity( No, 1:dim )
 
       !-------------------------------------------------------------------------
       ! Get velocity from mesh
@@ -349,17 +349,18 @@ CONTAINS
         CALL GetVectorFieldInMesh(VeloVar,BulkElement, Basis, VeloAtPoint, &
             dBasisdx, GradVeloAtPoint )
         DO i=1,dim
-          VeloAtPoint(i) = VeloAtPoint(i) + &
-              0.5_dp * SUM( GradVeloAtPoint(i,1:dim) * Velo(1:dim) ) * dtime        
+          Velo(i) = VeloAtPoint(i) + &
+              0.5_dp * SUM( GradVeloAtPoint(i,1:dim) * VeloAtPoint(1:dim) ) * dtime        
         END DO
       ELSE
         stat = ParticleElementInfo( BulkElement, Coord, &
             SqrtElementMetric, Basis )
         IF(.NOT. Stat ) CYCLE
         CALL GetVectorFieldInMesh(VeloVar, BulkElement, Basis, VeloAtPoint )
+	Velo(1:dim) = VeloAtPoint(1:dim)
       END IF
 
-      Particles % Velocity( No, 1:dim ) = VeloAtPoint(1:dim)
+      Velocity( No, 1:dim ) = Velo(1:dim)
     END DO
     
 

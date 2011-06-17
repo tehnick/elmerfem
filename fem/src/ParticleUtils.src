@@ -2629,7 +2629,9 @@ RETURN
     IF( npos == n ) THEN
       DO i=1,n
         j = LocalPerm(i)
-        LocalVelo(i,1:dim) = Var % Values( VeloFieldDofs*(j-1)+1:dim)
+	DO k=1,dim
+          LocalVelo(i,k) = Var % Values( VeloFieldDofs*(j-1)+k)
+        END DO
       END DO
     ELSE    
       SumBasis = 0.0_dp
@@ -2637,13 +2639,17 @@ RETURN
         j = LocalPerm(i)
         IF( j > 0 ) THEN
           SumBasis = SumBasis + Basis(i)
-          LocalVelo(i,1:dim) = Var % Values( VeloFieldDofs*(j-1)+1:dim)
+          DO k=1,dim
+            LocalVelo(i,k) = Var % Values( VeloFieldDofs*(j-1)+k)
+          END DO
         ELSE
+          Basis(i) = 0.0_dp
           LocalVelo(i,1:dim) = 0.0_dp
         END IF
       END DO
     END IF
     
+
     DO i=1,dim
       Velo(i) = SUM( Basis(1:n) * LocalVelo(1:n,i) )
       IF( PRESENT( GradVelo ) ) THEN
@@ -2654,10 +2660,12 @@ RETURN
     END DO
     
     IF( npos < n ) THEN
-      Velo = Velo / SumBasis
-      GradVelo = GradVelo / SumBasis
+      Velo(1:dim) = Velo(1:dim) / SumBasis
+      IF( PRESENT( GradVelo ) ) THEN
+        GradVelo(:,1:dim) = GradVelo(:,1:dim) / SumBasis
+      END IF
     END IF
-    
+   
   END SUBROUTINE GetVectorFieldInMesh
 
 
@@ -4214,9 +4222,15 @@ RETURN
     INTEGER :: NoParticles
 !------------------------------------------------------------------------------
 
+    NoParticles = Particles % MaxNumberOfParticles
+    IF( NoParticles == 0 ) THEN
+      CALL Warn('CreateParticleVariable','No particles present!')
+    END IF	
+
     Variables => Particles % Variables
     IF ( .NOT.ASSOCIATED(Variables) ) THEN
       ALLOCATE(Variables)
+      Particles % Variables => Variables
       ptr => Variables
     ELSE
       ALLOCATE( ptr )
@@ -4230,9 +4244,11 @@ RETURN
       ptr1 => Variables
       ptr2 => Variables
       DO WHILE( ASSOCIATED( ptr1 ) )
-        IF ( ptr % Name == ptr1 % Name ) THEN
-          DEALLOCATE( ptr )
-          RETURN
+	IF( ptr % NameLen == ptr1 % NameLen ) THEN
+          IF ( ptr % Name == ptr1 % Name ) THEN	
+            DEALLOCATE( ptr )
+            RETURN
+          END IF
         END IF
         ptr2 => ptr1
         ptr1 => ptr1 % Next
@@ -4247,12 +4263,13 @@ RETURN
     ptr % Valid  = .TRUE.
     ptr % Output = .TRUE.
     ptr % ValuesChanged = .TRUE.
-    
+    ptr % Category = 0    
+
     IF( PRESENT( DOFs ) ) ptr % DOFs = DOFs
     IF ( PRESENT( Category ) ) ptr % Category = Category
     IF ( PRESENT( Output ) ) ptr % Output = Output
     
-    NoParticles = Particles % MaxNumberOfParticles
+    NULLIFY( Values )
     ALLOCATE( Values( NoParticles * ptr % Dofs ) )
     Values = 0.0_dp
     ptr % Values => Values
@@ -4279,16 +4296,15 @@ RETURN
     k = StringToLowerCase( str,Name,.TRUE. )
     
     Tmp => Particles % Variables
+
     DO WHILE( ASSOCIATED(tmp) )
       IF ( Tmp % NameLen == k ) THEN
-        IF ( Tmp % Name(1:k) == str(1:k) ) THEN
-          
+        IF ( Tmp % Name(1:k) == str(1:k) ) THEN          
           IF ( Tmp % Valid ) THEN
             Var => Tmp
             RETURN
           END IF
-          EXIT
-          
+          EXIT          
         END IF
       END IF
       Tmp => Tmp % Next
