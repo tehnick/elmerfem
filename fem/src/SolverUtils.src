@@ -4089,16 +4089,23 @@ END FUNCTION SearchNodeL
       b => Solver % Matrix % rhs
       
       IF (ParEnv % Pes > 1) THEN
-        MMatrix => ParallelMatrix( A, Mx, Mb, Mr )
-        CALL ParallelMatrixVector( A,Mx,Mr )
-        Mr(1:MMatrix % NumberOfRows) = Mb(1:MMatrix % NumberOfRows) - Mr(1:MMatrix % NumberOfRows)
-        Change = ParallelNorm( MMatrix % NumberOfRows, Mr )		
+         ALLOCATE(r( A % NumberOfRows ))
+         r = 0.0d0
+
+        CALL ParallelInitSolve( Solver % Matrix, Solver % Variable % Values, &
+             Solver % Matrix % RHS, r, .TRUE.)	
+        
+        CALL ParallelMatrixVector( A, x, r, .TRUE. )
+        r(1:A % NumberOfRows) = b(1:A % NumberOfRows) - r(1:A % NumberOfRows)
+	Change = ComputeNorm(Solver, n, r)	
+
         IF(.NOT. ConvergenceAbsolute) THEN
-          bNorm = ParallelNorm(MMatrix % NumberOfRows, Mb)
+          bNorm = ComputeNorm(Solver, n, b)
           IF(bNorm > 0.0) THEN
             Change = Change / bNorm
           END IF
         END IF
+        DEALLOCATE(r)
       ELSE	
         ALLOCATE(r(n)) 
         CALL MatrixVectorMultiply( A, x, r)
