@@ -1,0 +1,64 @@
+! A Solver Input File for testing the Grid Transform
+! Vili Forsell, 21.6.2011
+
+! Header
+Header
+  Mesh DB "." "."
+End
+
+! Simple simulation
+Simulation
+  Simulation Type = Steady state
+  Steady State Max Iterations = 1
+  Post File = case.ep
+End
+
+Body 1
+  Equation = 1
+End
+
+Equation 1
+  Active Solvers(1) = 1
+End
+
+Solver 1
+
+  !--- An example definition for the GridDataMapper
+
+  Equation = Mapper
+  Variable = Field ! The output variable
+  Procedure = "./GridLib" "GridDataMapper"
+
+  !---- NOTE: File is case sensitive, String is not!
+  File Name = File "./data.nc" ! NetCDF input file
+  X Name = File "x" ! NetCDF variable dimensions
+  Y Name = File "y"
+!  Z Name = File "z" ! (optional)
+  Time Name = File "time"
+  Var Name = File "julytemp" ! The Variable to be opened
+
+  !-------- OPTIONAL CONFIGURATION VARIABLES ------------
+
+  !--- Interpolation variables
+  Epsilon X = Real 1.0e-3 ! Allowed deviation from the bounding box limits (default: 0) (optional)
+  Epsilon Y = Real 1.0e-3 ! (default: 0) (optional)
+  Interpolation Bias = Real 0.0 ! Adds this bias to the final interpolation result (default: 0) (optional)
+  Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
+  Coordinate System = File "" ! Sets the coordinate system as a predefined one (default: none) (optional) (TODO)
+
+  !--- Masking variables
+  Mask Variable = File "ablation" ! The masking NetCDF variable (optional)
+  Mask Limit = Real 0.0 ! The masking NetCDF value to be exceeded (optional) 
+
+  !--- Scaling variable
+  Enable Scaling = LOGICAL TRUE ! Scales the Elmer grid to match the NetCDF grid (default: false) (optional)
+
+  !--- Time variables
+  User Defines Time = LOGICAL FALSE ! True, if uses given time point also in the transient case (default: false) (optional)
+  Is Time Index = LOGICAL TRUE ! True if input Time Point is an index (default: false) (optional)
+  Time Point = Variable Time ; Real MATC "1 + tx"  ! Needs to be scalar (optional, if transient case is used)
+  Time Interpolation Method = File "seasonal" ! Chooses the Fortran time interpolation method implemented in CustomTimeInterpolation.f90 (default: linear) (optional)
+  NetCDF Starting Time = Real 34.0 ! Is summed to either the indices (if "Is Time Index" is TRUE ), or the input values (otherwise),
+                                   ! given by Elmer in transient mode (default: no effect) (optional)
+
+End
