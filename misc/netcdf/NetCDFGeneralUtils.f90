@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 16.6.2011
+! Last Modified: 21.6.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -160,7 +160,7 @@ MODULE NetCDFGeneralUtils
         locs(1:2,1) = locs(1:2,1) - NEIGHBOURS ! This column is also used as NetCDF index vector
         locs(1:2,2) = locs(1:2,2) + NEIGHBOURS
       ELSE
-        locs(1:2,2) = locs(1:2,2) + SLAB ! Stencil takes the whole area starting from lower left indices
+        locs(1:2,2) = locs(1:2,2) + SLAB - 1  ! Stencil takes the whole area starting from lower left indices
       END IF
   
       DO d = 1,size(index_vector,1),1
