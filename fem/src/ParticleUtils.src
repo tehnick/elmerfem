@@ -87,10 +87,21 @@ CONTAINS
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: i,j,NoParticles
     INTEGER :: StatusCount(PARTICLE_GHOST)
-    CHARACTER (len=12), PARAMETER :: StatusString(13) = [CHARACTER(len=12) :: &
-        "Allocated","Waiting","Initiated","Located","FaceBoundary", &
-        "PartBoundary","Hit","Ready","FixedCoord","FixedVelo","WallBoundary",&
-        "Lost","Ghost"]
+!    CHARACTER (len=12), PARAMETER :: StatusString(13) = [CHARACTER(len=12) :: &
+    CHARACTER (len=12), PARAMETER :: StatusString(13) = [ &
+        "Allocated   ", &
+ 	"Waiting     ", &
+	"Initiated   ", &
+	"Located     ", &
+	"FaceBoundary", &
+        "PartBoundary", &
+	"Hit         ", &
+	"Ready       ", &
+	"FixedCoord  ", &
+	"FixedVelo   ", &
+	"WallBoundary", &
+        "Lost        ", &
+	"Ghost       "]
 
     StatusCount = 0
     NoParticles = Particles % NumberOfParticles
@@ -2585,6 +2596,7 @@ RETURN
     REAL(KIND=dp) :: Basis(:), Velo(:) 
     REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:), GradVelo(:,:)
     
+    TYPE(Valuelist_t), POINTER :: Params
     INTEGER, POINTER :: LocalPerm(:)
     REAL(KIND=dp), POINTER :: LocalVelo(:,:)
     INTEGER, POINTER :: NodeIndexes(:)
@@ -2592,16 +2604,20 @@ RETURN
     INTEGER :: VeloFieldDofs
     REAL(KIND=dp) :: SumBasis
     INTEGER :: i,j,k,n,npos,ind,dim
-    LOGICAL :: GotIt
+    LOGICAL :: GotIt, InterfaceNodes
     LOGICAL :: Visited
     
     
-    SAVE :: Visited, Dim, LocalVelo, LocalPerm
+    SAVE :: Visited, Dim, LocalVelo, LocalPerm, InterfaceNodes
     
     IF(.NOT. Visited ) THEN
       Mesh => GetMesh()
+      Params => GetSolverParams()
       n = Mesh % MaxElementNodes
       ALLOCATE( LocalPerm(n), LocalVelo(n,3) )
+      
+      InterfaceNodes = GetLogical( Params,'Interface Nodes',GotIt)
+
       LocalPerm = 0
       LocalVelo = 0.0_dp
       Dim = Mesh % MeshDim
@@ -2634,6 +2650,8 @@ RETURN
         END DO
       END DO
     ELSE    
+      IF(.NOT. InterfaceNodes ) RETURN
+
       SumBasis = 0.0_dp
       DO i=1,n
         j = LocalPerm(i)
