@@ -3907,14 +3907,14 @@ END FUNCTION SearchNodeL
     LOGICAL :: SteadyState
     INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
-    INTEGER :: i, n, RelaxAfter, IterNo
+    INTEGER :: i, n, nn, RelaxAfter, IterNo
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER CONTIG :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER CONTIG :: x0(:)
     REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1),dt, &
         Tolerance, MaxNorm, eps
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
-    INTEGER, TARGET  ::  nn=1, Dnodes(1)
+    INTEGER, TARGET  ::  Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
     TYPE(Variable_t), POINTER :: iterV, VeloVar, TimestepVar
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName, str
@@ -3922,7 +3922,8 @@ END FUNCTION SearchNodeL
 
     TYPE(Matrix_t), POINTER :: MMatrix
     REAL(KIND=dp), POINTER CONTIG :: Mx(:), Mb(:), Mr(:)
-
+    REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRVec, TmpRHSVec
+    INTEGER :: ipar(1)
 
     IF(SteadyState) THEN	
       Skip = ListGetLogical( Solver % Values,'Skip Compute Steady State Change',Stat)
@@ -4089,23 +4090,31 @@ END FUNCTION SearchNodeL
       b => Solver % Matrix % rhs
       
       IF (ParEnv % Pes > 1) THEN
-         ALLOCATE(r( A % NumberOfRows ))
-         r = 0.0d0
 
-        CALL ParallelInitSolve( Solver % Matrix, Solver % Variable % Values, &
-             Solver % Matrix % RHS, r, .TRUE.)	
-        
-        CALL ParallelMatrixVector( A, x, r, .TRUE. )
-        r(1:A % NumberOfRows) = b(1:A % NumberOfRows) - r(1:A % NumberOfRows)
-	Change = ComputeNorm(Solver, n, r)	
+        ALLOCATE( TmpRHSVec(n), TmpXVec(n), TmpRVec(n) )
+        TmpRHSVec(1:n) = b(1:n)
+        TmpXVec(1:n) = x(1:n)
+        TmpRVec(1:n) = 0.0d0
+
+        CALL ParallelVector(A, TmpRHSVec)
+        CALL ParallelVector(A, TmpXVec)       
+        CALL SParMatrixVector( TmpXVec, TmpRVec, ipar )
+ 
+        nn = A % ParMatrix % SplittedMatrix % InsideMatrix % NumberOfRows
+
+        DO i=1, nn
+          TmpRVec(i) = TmpRHSVec(i) - TmpRVec(i)
+        END DO
+
+        Change = ParallelNorm( nn, TmpRVec )
 
         IF(.NOT. ConvergenceAbsolute) THEN
-          bNorm = ComputeNorm(Solver, n, b)
+          bNorm = ParallelNorm( nn, TmpRHSVec )
           IF(bNorm > 0.0) THEN
             Change = Change / bNorm
           END IF
         END IF
-        DEALLOCATE(r)
+        DEALLOCATE( TmpRHSVec, TmpXVec, TmpRVec )
       ELSE	
         ALLOCATE(r(n)) 
         CALL MatrixVectorMultiply( A, x, r)
