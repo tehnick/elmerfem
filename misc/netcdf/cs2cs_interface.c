@@ -27,6 +27,9 @@ void cs2cs_transform( double coord[3], int hasZ, int isRad, char elmer_proj[], c
 
 	printf("(%.2f, %.2f, %.2f) ; hasZ = %d ; isRad = %d \nelmer_proj = %s\nnetcdf_proj = %s\n",coord[0],coord[1],coord[2],hasZ,isRad,elmer_proj,netcdf_proj);
 
+        fprintf(stdout,"\n\"%s\"\n",elmer_proj);
+        fprintf(stdout,"\n\"%s\"\n",netcdf_proj);
+
 	// Input information
 //	double coord[3]; // Contains the coordinates
 //	coord[0] = -16;

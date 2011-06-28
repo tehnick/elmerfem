@@ -23,7 +23,7 @@ MODULE NetCDFInterpolate
       REAL(C_DOUBLE) :: coord(3)
 !      REAL(C_DOUBLE) :: param
       INTEGER(C_INT), VALUE :: hasZ, isRad
-      CHARACTER(C_CHAR) :: elmer_proj(128), netcdf_proj(128)
+      CHARACTER(KIND=C_CHAR) :: elmer_proj(*), netcdf_proj(*)
 
       !--- Output parameters
       REAL(C_DOUBLE) :: res(3)
@@ -170,7 +170,8 @@ MODULE NetCDFInterpolate
     !--- Transforms input coordinates into the given coordinate system
     FUNCTION CoordinateTransformation( Solver, input, coord_system ) RESULT( output )
     !--------------------------------------------------------------
-      USE DefUtils, ONLY: dp, Solver_t, GetSolverParams, GetString, GetLogical
+      USE DefUtils, ONLY: dp, MAX_NAME_LEN, Solver_t, GetSolverParams, GetString, GetLogical
+      USE iso_c_binding, ONLY: C_NULL_CHAR
       USE Messages
       IMPLICIT NONE
       TYPE(Solver_t), INTENT(IN) :: Solver
@@ -180,7 +181,7 @@ MODULE NetCDFInterpolate
       REAL(KIND=dp) :: coord(3), res(3)
       INTEGER :: alloc_stat, hasZcoord
       LOGICAL :: found
-      CHARACTER(len=128) :: elmer, netcdf
+      CHARACTER(len=MAX_NAME_LEN) :: elmer, netcdf
       coord = 0
       res = 0 
 !      coord = (/1,2,3/)
@@ -218,10 +219,11 @@ MODULE NetCDFInterpolate
   'CS2CS Transformation did not find NetCDF projection information "CS2CS NetCDF Projection" from the Solver Input File')
           END IF
 
+          ! //C_NULL_CHAR's terminate the given strings with nulls to enable C compatibility
           IF ( GetLogical(GetSolverParams(Solver), "CS2CS Is Input Radians", found) .AND. found ) THEN
-            CALL cs2cs_transform( coord, hasZcoord, 1, elmer, netcdf, res) ! True; is in radians
+            CALL cs2cs_transform( coord, hasZcoord, 1, elmer//C_NULL_CHAR, netcdf//C_NULL_CHAR, res) ! True; is in radians
           ELSE
-            CALL cs2cs_transform( coord, hasZcoord, 0, elmer, netcdf, res) ! False; is in degrees by default
+            CALL cs2cs_transform( coord, hasZcoord, 0, elmer//C_NULL_CHAR, netcdf//C_NULL_CHAR, res) ! False; is in degrees by default
           END IF
 
           !--- Sends the result as output
