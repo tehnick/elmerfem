@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 21.6.2011
+! Last Modified: 28.6.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -180,8 +180,8 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
     ! NOTE: Collect also other dimension values here, if those are wanted later on
 
     IF ( FLOOR(Time) .NE. CEILING(Time) ) THEN ! Two time values
-      IF ( .NOT. (Interpolate(NCID,x,Var_Name,dim_ids,dim_lens,x0(:,1),dx(:,1),nmax(:,1),x1(:,1),& 
-            GridScales(:,1),GridMove(:,1),Eps(:,1),time_begin,interp_val, Coord_System) .AND. Interpolate(NCID,x,&
+      IF ( .NOT. (Interpolate(Solver,NCID,x,Var_Name,dim_ids,dim_lens,x0(:,1),dx(:,1),nmax(:,1),x1(:,1),& 
+            GridScales(:,1),GridMove(:,1),Eps(:,1),time_begin,interp_val, Coord_System) .AND. Interpolate(Solver,NCID,x,&
             Var_Name,dim_ids,dim_lens, x0(:,2),dx(:,2),nmax(:,2),x1(:,2),GridScales(:,2),GridMove(:,2),Eps(:,2),&
             time_end,interp_val2, Coord_System)) ) THEN
         CYCLE
@@ -196,7 +196,7 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
         output = .FALSE.
       END IF
     ELSE
-      IF (.NOT. Interpolate(NCID,x,Var_Name,dim_ids,dim_lens,x0(:,1),dx(:,1),nmax(:,1),x1(:,1), &
+      IF (.NOT. Interpolate(Solver,NCID,x,Var_Name,dim_ids,dim_lens,x0(:,1),dx(:,1),nmax(:,1),x1(:,1), &
                     GridScales(:,1),GridMove(:,1),Eps(:,1),time_begin,interp_val, Coord_System) ) THEN
         CYCLE ! Ignore values for incompatible interpolation
       END IF

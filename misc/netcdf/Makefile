@@ -7,14 +7,14 @@
 # The modules used by the main program
 MODULES = NetCDFGeneralUtils.f90 NetCDFGridUtils.f90 NetCDFInterpolate.f90 CustomTimeInterpolation.f90
 # The file for the solver
-MAIN = GridDataMapper.f90
+MAIN = GridDataMapper.f90 cs2cs_interface.c
 # The example Solver Input Files:
 # case.sif is the latest example for hands-on experiments
 SIFS = $(WORK_DIRECTORY)case.sif
 # Includes NetCDF and such from the include directory
 INCLUDE_FLAGS = -I/usr/include 
 # NetCDF library path and flags to catch the necessary headers
-LIBRARY_FLAGS = -L/usr/lib -lnetcdff -lnetcdf 
+LIBRARY_FLAGS = -L/usr/lib -lnetcdff -lnetcdf -lproj
 # The shared library (.so) for using in Elmer via a Solver Input File
 OUTFILE = GridLib.so 
 # Compiles it all with Elmer Fortran compiler

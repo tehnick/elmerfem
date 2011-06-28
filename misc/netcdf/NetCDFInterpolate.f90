@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 21.6.2011
+! Last Modified: 28.6.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
@@ -12,6 +12,24 @@ MODULE NetCDFInterpolate
   USE NetCDFGeneralUtils, ONLY: GetFromNetCDF
   USE Messages
   IMPLICIT NONE
+
+
+  INTERFACE
+    !--- For connecting the C code, which accesses the cs2cs
+    SUBROUTINE cs2cs_transform( coord, hasZ, isRad, elmer_proj, netcdf_proj, res ) BIND(c)
+      USE iso_c_binding
+
+      !--- Input parameters
+      REAL(C_DOUBLE) :: coord(3)
+!      REAL(C_DOUBLE) :: param
+      INTEGER(C_INT), VALUE :: hasZ, isRad
+      CHARACTER(C_CHAR) :: elmer_proj(128), netcdf_proj(128)
+
+      !--- Output parameters
+      REAL(C_DOUBLE) :: res(3)
+      
+    END SUBROUTINE cs2cs_transform
+  END INTERFACE
 
   LOGICAL :: DEBUG_INTERP = .FALSE.
   PRIVATE :: GetSolutionInStencil, CoordinateTransformation
@@ -54,9 +72,11 @@ MODULE NetCDFInterpolate
     !--- Takes and interpolates one Elmer grid point to match NetCDF data; includes coordinate transformation
     !--- ASSUMES INPUT DIMENSIONS AGREE
     !--------------------------------------------------------------
-    FUNCTION Interpolate(NCID,X,VAR_NAME,DIM_IDS,DIM_LENS,X0,DX,NMAX,&
+    FUNCTION Interpolate(SOLVER,NCID,X,VAR_NAME,DIM_IDS,DIM_LENS,X0,DX,NMAX,&
             X1,GRID_SCALES,GRID_MOVE,EPS,TIME, interp_val, coord_system) RESULT( success )
+      USE DefUtils, ONLY: Solver_t
       IMPLICIT NONE
+      TYPE(Solver_t), INTENT(IN) :: SOLVER
       INTEGER, INTENT(IN) :: NCID,DIM_IDS(:),DIM_LENS(:),NMAX(:),TIME
       CHARACTER (len = MAX_NAME_LEN), INTENT(IN) :: VAR_NAME
       REAL(KIND=dp), INTENT(IN) :: X(:),X0(:),DX(:),X1(:),GRID_SCALES(:),GRID_MOVE(:),EPS(:)
@@ -82,7 +102,7 @@ MODULE NetCDFInterpolate
       END IF
   
       ! Coordinate mapping from Elmer (x,y) to the one used by NetCDF
-      Xf = CoordinateTransformation( X, coord_system )
+      Xf = CoordinateTransformation( SOLVER, X, coord_system )
 !      WRITE (*,*) 'Xf: ', Xf
 
       ! NOTE! By default the GRID_SCALES consists of 1's, and GRID_MOVE 0's; hence, nothing happens
@@ -148,17 +168,24 @@ MODULE NetCDFInterpolate
 
     !----------------- CoordinateTransformation() -----------------
     !--- Transforms input coordinates into the given coordinate system
-    FUNCTION CoordinateTransformation( input, coord_system ) RESULT( output )
+    FUNCTION CoordinateTransformation( Solver, input, coord_system ) RESULT( output )
     !--------------------------------------------------------------
-      USE DefUtils, ONLY: dp
+      USE DefUtils, ONLY: dp, Solver_t, GetSolverParams, GetString, GetLogical
       USE Messages
       IMPLICIT NONE
+      TYPE(Solver_t), INTENT(IN) :: Solver
       CHARACTER(*), INTENT(IN) :: coord_system ! Some coordinate
       REAL(KIND=dp), INTENT(IN) :: input(:) ! The input coordinates
       REAL(KIND=dp), ALLOCATABLE :: output(:) ! The output coordinates
-      INTEGER :: alloc_stat
+      REAL(KIND=dp) :: coord(3), res(3)
+      INTEGER :: alloc_stat, hasZcoord
+      LOGICAL :: found
+      CHARACTER(len=128) :: elmer, netcdf
+      coord = 0
+      res = 0 
+!      coord = (/1,2,3/)
 
-!      WRITE (*,*) 'Input ', input
+      WRITE (*,*) 'Input ', input !, ' size test ', size(test,1)
 
       ALLOCATE ( output(size(input)), STAT = alloc_stat )
       IF ( alloc_stat .NE. 0 ) THEN
@@ -166,6 +193,45 @@ MODULE NetCDFInterpolate
       END IF
 
       SELECT CASE (coord_system)
+        CASE ('cs2cs')
+
+          !--- Gathers the coordinate information
+          hasZcoord = 0
+          IF ( size(input,1) .GE. 3 ) THEN
+            hasZcoord = 1
+            coord(1:3) = input(1:3)
+          ELSE
+            coord(1:2) = input(1:2)
+          END IF
+!          WRITE (*,*) 'Coordinates ', coord
+
+          !--- Picks up the constant data from the Elmer Solver parameters
+          elmer = GetString(GetSolverParams(Solver),"CS2CS Elmer Projection", found)
+          IF ( .NOT. found ) THEN
+            CALL Fatal('GridDataMapper',&
+  'CS2CS Transformation did not find Elmer projection information "CS2CS Elmer Projection" from the Solver Input File')
+          END IF
+
+          netcdf = GetString(GetSolverParams(Solver), "CS2CS NetCDF Projection", found)
+          IF ( .NOT. found ) THEN
+            CALL Fatal('GridDataMapper',&
+  'CS2CS Transformation did not find NetCDF projection information "CS2CS NetCDF Projection" from the Solver Input File')
+          END IF
+
+          IF ( GetLogical(GetSolverParams(Solver), "CS2CS Is Input Radians", found) .AND. found ) THEN
+            CALL cs2cs_transform( coord, hasZcoord, 1, elmer, netcdf, res) ! True; is in radians
+          ELSE
+            CALL cs2cs_transform( coord, hasZcoord, 0, elmer, netcdf, res) ! False; is in degrees by default
+          END IF
+
+          !--- Sends the result as output
+          IF ( size(output,1) .GE. 3 ) THEN
+            output(1:3) = res(1:3)
+          ELSE
+            output(1:2) = res(1:2)
+          END IF
+          WRITE (*,*) 'Result ', res, ' to out ', output
+
         CASE ('lat-long')
           CALL Info('GridDataMapper','Applies latitude-longitude coordinate transformation; TODO!')
           output(:) = input(:) ! TODO

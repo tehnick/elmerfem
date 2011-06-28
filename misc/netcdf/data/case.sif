@@ -1,9 +1,9 @@
 ! A Solver Input File for testing the Grid Data Mapper
-! Vili Forsell, 21.6.2011
+! Vili Forsell, 28.6.2011
 
 ! Header
 Header
-  Mesh DB "." "."
+  Mesh DB "." "greenland_box3d"
 End
 
 ! Simple simulation
@@ -11,8 +11,8 @@ Simulation
 !  Simulation Type = Steady state
 !  Steady State Max Iterations = 1
   Simulation Type = Transient
-  TimeStep intervals = 24
-  Timestep Sizes = $1/24 
+  TimeStep intervals = 94
+  Timestep Sizes = 1 !$1/24 
 !  Output Intervals = 1
   Post File = case.ep
 End
@@ -49,23 +49,28 @@ Solver 1
   Var Name = File "julytemp" ! The Variable to be opened
 
   !--- Interpolation variables
-  Epsilon X = Real 1.0e-2 ! Allowed deviation from the bounding box limits (default: 0) (optional)
-  Epsilon Y = Real 1.0e-2 ! (default: 0) (optional)
-  Interpolation Bias = Real 0.0 ! Adds this bias to the final interpolation result (default: 0) (optional)
-  Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
-  Coordinate System = File "" ! Sets the coordinate system as a predefined one (default: none) (optional) (TODO)
+!  Epsilon X = Real 1.0e-2 ! Allowed deviation from the bounding box limits (default: 0) (optional)
+!  Epsilon Y = Real 1.0e-2 ! (default: 0) (optional)
+!  Interpolation Bias = Real 0.0 ! Adds this bias to the final interpolation result (default: 0) (optional)
+!  Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
+  Coordinate System = File "cs2cs" ! Sets the coordinate system as a predefined one (default: none) (optional) (TODO)
 
-  !--- Masking variables
-!  Mask Variable = File "ablation" ! The masking NetCDF variable (optional)
-!  Mask Limit = Real 0.0 ! The masking NetCDF value to be exceeded (optional)
-  Enable Scaling = LOGICAL TRUE ! Scales the Elmer grid to match the NetCDF grid (default: false) (optional)
+  CS2CS Is Input Radians = LOGICAL TRUE ! True, if input is given in radians, otherwise degrees (default: false) (optional)
+  CS2CS Elmer Projection = File "+proj=latlong +ellps=clrk66" ! CS2CS definition for the Elmer coordinate system
+  CS2CS NetCDF Projection = File "+proj=merc +ellps=clrk66 +lat_ts=33" ! CS2CS definition for the NetCDF coordinate system
 
-  !--- Time variables
-  User Defines Time = LOGICAL FALSE ! True, if uses given time point also in the transient case (default: false) (optional)
-  Is Time Index = LOGICAL TRUE ! True if input Time Point is an index (default: false) (optional)
-  Time Point = Variable Time ; Real MATC "1 + tx"  ! Needs to be scalar (optional, if transient case is used)
-  Time Interpolation Method = File "seasonal" ! Chooses the Fortran time interpolation method implemented in CustomTimeInterpolation.f90 (default: linear) (optional)
-  NetCDF Starting Time = Real 34 ! Is summed to either the indices (if "Is Time Index" is TRUE ), or the input values (otherwise),
+!
+!  !--- Masking variables
+!!  Mask Variable = File "ablation" ! The masking NetCDF variable (optional)
+!!  Mask Limit = Real 0.0 ! The masking NetCDF value to be exceeded (optional)
+!  Enable Scaling = LOGICAL TRUE ! Scales the Elmer grid to match the NetCDF grid (default: false) (optional)
+!
+!  !--- Time variables
+!  User Defines Time = LOGICAL FALSE ! True, if uses given time point also in the transient case (default: false) (optional)
+!  Is Time Index = LOGICAL TRUE ! True if input Time Point is an index (default: false) (optional)
+!  Time Point = Variable Time ; Real MATC "1 + tx"  ! Needs to be scalar (optional, if transient case is used)
+!  Time Interpolation Method = File "seasonal" ! Chooses the Fortran time interpolation method implemented in CustomTimeInterpolation.f90 (default: linear) (optional)
+!  NetCDF Starting Time = Real 34 ! Is summed to either the indices (if "Is Time Index" is TRUE ), or the input values (otherwise),
                                    ! given by Elmer in transient mode (default: no effect) (optional)
   
 End
