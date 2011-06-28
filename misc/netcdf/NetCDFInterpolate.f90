@@ -5,7 +5,11 @@
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
-! - coordinate transformations for an Elmer grid point (TODO)
+! - coordinate transformations for an Elmer grid point
+!    o none by default (x,y,z) -> (x,y,z)
+!    o cs2cs interface with parameters defined in Solver Input File
+!    o cartesian-to-cylindrical transformation (x,y,z) -> (phi,r,z)
+! - scaling Elmer mesh points to fit NetCDF data
 !------------------------------------------------------------------------------
 MODULE NetCDFInterpolate
   USE DefUtils, ONLY: dp, MAX_NAME_LEN
@@ -182,21 +186,26 @@ MODULE NetCDFInterpolate
       INTEGER :: alloc_stat, hasZcoord
       LOGICAL :: found
       CHARACTER(len=MAX_NAME_LEN) :: elmer, netcdf
+
+      !--- DEBUG printout
+!      WRITE (*,*) 'Input ', input
+
+      !--- Initializations
       coord = 0
-      res = 0 
-!      coord = (/1,2,3/)
-
-      WRITE (*,*) 'Input ', input !, ' size test ', size(test,1)
-
+      res = 0
       ALLOCATE ( output(size(input)), STAT = alloc_stat )
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Coordinate transformation memory allocation failed')
       END IF
 
+      !--- Selects the coordinate system transformation
       SELECT CASE (coord_system)
-        CASE ('cs2cs')
 
-          !--- Gathers the coordinate information
+        !--- CS2CS Coordinate transformation
+        CASE ('cs2cs')
+!          CALL Info('GridDataMapper', 'Applies cs2cs coordinate transformation between the Elmer and NetCDF values!')
+
+          !-- Gathers the coordinate information
           hasZcoord = 0
           IF ( size(input,1) .GE. 3 ) THEN
             hasZcoord = 1
@@ -204,6 +213,8 @@ MODULE NetCDFInterpolate
           ELSE
             coord(1:2) = input(1:2)
           END IF
+
+          !--- DEBUG printout
 !          WRITE (*,*) 'Coordinates ', coord
 
           !--- Picks up the constant data from the Elmer Solver parameters
@@ -232,14 +243,26 @@ MODULE NetCDFInterpolate
           ELSE
             output(1:2) = res(1:2)
           END IF
-          WRITE (*,*) 'Result ', res, ' to out ', output
 
-        CASE ('lat-long')
-          CALL Info('GridDataMapper','Applies latitude-longitude coordinate transformation; TODO!')
-          output(:) = input(:) ! TODO
+          !--- DEBUG printout
+!          WRITE (*,*) 'Result ', res, ' to out ', output
+
+        CASE ('cylindrical')
+ !         CALL Info('GridDataMapper','Applies cylindrical coordinate transformation to cartesian coordinates!')
+
+          !--- Transforms 3D Elmer grid points to cylindrical coordinates (phi,r,z)
+          IF ( size(input,1) .GE. 3) THEN
+            output(1) = atan2( input(2), input(1) ) ! phi angle value
+            output(2) = sqrt(input(1)**2 + input(2)**2) ! radius from the center of cylinder
+            output(3) = input(3) ! Height from zero level
+          ELSE
+            CALL Fatal('GridDataMapper','Cylindrical coordinate transformation requires at least three dimensional Elmer grid.')
+          END IF
+
+        !--- In default case, no coordinate transformation is applied
         CASE DEFAULT
-          WRITE (Message,'(A,A15,A)') 'No coordinate transformation applied: Unknown coordinate system "',&
-                coord_system, '". Check Solver Input File and the variable "Coordinate System"'
+!          WRITE (Message,'(A,A15,A)') 'No coordinate transformation applied: Unknown coordinate system "',&
+!                coord_system, '". Check Solver Input File and the variable "Coordinate System"'
 !          CALL Warn('GridDataMapper', Message)
           output(:) = input(:)
       END SELECT

@@ -1,5 +1,5 @@
 ! A Solver Input File for testing the Grid Transform
-! Vili Forsell, 21.6.2011
+! Vili Forsell, 28.6.2011
 
 ! Header
 Header
@@ -44,7 +44,12 @@ Solver 1
   Epsilon Y = Real 1.0e-3 ! (default: 0) (optional)
   Interpolation Bias = Real 0.0 ! Adds this bias to the final interpolation result (default: 0) (optional)
   Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
-  Coordinate System = File "" ! Sets the coordinate system as a predefined one (default: none) (optional) (TODO)
+
+  !--- Coordinate system variables
+  Coordinate System = File "cs2cs" ! Sets the coordinate system as a predefined one (default: none) (optional)
+  CS2CS Is Input Radians = LOGICAL FALSE ! True, if input is given in radians, otherwise degrees (default: false) (optional) (only for cs2cs)
+  CS2CS Elmer Projection = File "+proj=ups +ellps=WGS84 +inv" ! CS2CS definition for the Elmer coordinate system (only for cs2cs)
+  CS2CS NetCDF Projection = File "+proj=ups +ellps=WGS84" ! CS2CS definition for the NetCDF coordinate system (only for cs2cs)
 
   !--- Masking variables
   Mask Variable = File "ablation" ! The masking NetCDF variable (optional)
