@@ -1366,6 +1366,100 @@ END FUNCTION CRS_RowSum
 
 
 
+
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_BlockMatrixPick(A,B,Blocks,Nrow,Ncol)
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Pics a block from matrix A to build matrix B.
+!------------------------------------------------------------------------------
+
+    TYPE(Matrix_t) :: A, B
+    INTEGER :: Blocks, Nrow,Ncol
+    INTEGER :: i,j,k,l,kb,n,Nrow0,Ncol0,nsub
+    INTEGER :: lsub,isub,istat,modNcol
+    LOGICAL :: NewMatrix, Diagonal
+
+
+    IF(Blocks <= 1) THEN
+      CALL Fatal('CRS_BlockMatrixPick','No applicable to just one block!')
+      RETURN
+    END IF
+
+    N = A % NumberOfRows
+    Nsub = N / Blocks
+    modNcol = MOD( Ncol,Blocks)
+
+    NewMatrix = ( B % NumberOfRows == 0 ) 
+    Diagonal = ( Nrow == Ncol ) 
+
+
+    IF( NewMatrix ) THEN
+      B % ListMatrix => NULL()
+      B % FORMAT = MATRIX_CRS
+
+      B % NumberOfRows = Nsub    
+      kb = 0
+      
+      DO isub=1,Nsub
+        i = Blocks * ( isub - 1 ) + Nrow 
+        DO k= A % Rows(i), A % Rows(i+1)-1
+          l = A % Cols(k)
+          IF( MOD(l,Blocks) == modNcol ) THEN
+            kb = kb + 1
+          END IF
+        END DO
+      END DO
+      
+      IF( kb == 0 ) THEN
+        PRINT *,'Nrow:',Nrow,'Ncol:',Ncol
+        CALL Warn('CRS_BlockMatrixPick','No matrix entries in submatrix')
+        RETURN
+      END IF
+
+      ALLOCATE(B % Rows(nsub+1),B % Cols(kb), B % Values(kb),STAT=istat )
+      IF( istat /= 0 ) CALL Fatal('CRS_BlockMatrixPick','memory allocation error 1')
+
+      IF( Diagonal ) THEN
+        ALLOCATE( B % Diag(nsub), B % rhs(nsub), STAT=istat)
+        IF( istat /= 0 ) CALL Fatal('CRS_BlockMatrixPick','memory allocation error 2')      
+      END IF
+    END IF
+
+
+    kb = 1
+    DO isub=1,Nsub
+
+      IF( NewMatrix ) B % Rows(isub) = kb
+      i = Blocks * ( isub - 1 ) + Nrow 
+
+      DO k = A % Rows(i), A % Rows(i+1)-1
+
+        l = A % Cols(k)
+        IF( MOD( l, Blocks ) == modNcol ) THEN
+          lsub = ( l - 1) / Blocks + 1
+          B % Values(kb) = A % Values(k)
+          IF( NewMatrix ) THEN
+            B % Cols(kb) = lsub
+            IF( Diagonal .AND. isub == lsub ) B % Diag(isub) = kb
+          END IF
+          kb = kb + 1  
+        END IF
+      END DO
+      
+      IF( Diagonal ) B % rhs(isub) = A % rhs(i)
+
+    END DO
+    IF( NewMatrix ) B % Rows(Nsub+1) = kb
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE CRS_BlockMatrixPick
+!------------------------------------------------------------------------------
+
+
+
 !------------------------------------------------------------------------------
   FUNCTION CRS_IncompleteLU(A,ILUn) RESULT(Status)
 !------------------------------------------------------------------------------
@@ -1413,7 +1507,6 @@ END FUNCTION CRS_RowSum
          'ILU(',ILUn,') (Real), Starting Factorization:'
     CALL Info( 'CRS_IncompleteLU', Message, Level = 5 )
     st = CPUTime()
-
 
     N = A % NumberOfRows
     Diag   => A % Diag
@@ -1467,6 +1560,7 @@ END FUNCTION CRS_RowSum
     ALLOCATE( C(n), S(n) )
     C = .FALSE.
     S =  0.0d0
+
 
     IF ( A % Cholesky ) THEN
 
@@ -1534,6 +1628,7 @@ END FUNCTION CRS_RowSum
 
     ELSE
 
+
      ! The factorization row by row:
      ! -----------------------------
      DO i=1,N
@@ -1589,6 +1684,7 @@ END FUNCTION CRS_RowSum
        END IF
      END DO
     END IF
+
 
 !------------------------------------------------------------------------------
     WRITE(Message,'(a,i1,a,i9)') 'ILU(', ILUn, &

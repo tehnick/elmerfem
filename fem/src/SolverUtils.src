@@ -4447,6 +4447,164 @@ END FUNCTION SearchNodeL
 
 
 !------------------------------------------------------------------------------
+!     Scale system Ax = b as:
+!       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
+!------------------------------------------------------------------------------
+  SUBROUTINE ScaleLinearSystem(A,Diag,Solver,ApplyScaling)
+
+    TYPE(Matrix_t) :: A
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp), ALLOCATABLE, TARGET :: Diag(:)
+    LOGICAL, OPTIONAL :: ApplyScaling 
+    INTEGER :: n,i,j
+    REAL(KIND=dp) :: DiagReal, DiagImag
+    LOGICAL :: ComplexMatrix
+    
+    n = A % NumberOfRows
+    
+    IF(.NOT. ALLOCATED(Diag)) ALLOCATE( Diag(n) )
+    A % DiagScaling => Diag
+    
+    ComplexMatrix = Solver % Matrix % Complex
+    
+    IF ( ComplexMatrix ) THEN
+      DO i=1,n,2
+        j = A % Diag(i)
+        Diag(i)   = A % Values(j)
+        Diag(i+1) = A % Values(j+1)
+      END DO
+    ELSE
+      Diag(1:n) = A % Values(A % Diag(1:n))
+    END IF
+      
+    IF ( ParEnv % PEs > 1 ) THEN
+      CALL ParallelSumVector(A, Diag)
+    END IF    
+
+    IF ( ComplexMatrix ) THEN
+      DO i=1,n,2
+        DiagReal  =  Diag(i)
+        DiagImag  = -Diag(i+1)
+        IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp))/=0.0d0 ) THEN
+          Diag(i)   = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
+          Diag(i+1) = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
+        ELSE
+          Diag(i)   = 1.0d0
+          Diag(i+1) = 1.0d0
+        END IF
+      END DO
+    ELSE
+      DO i=1,n
+        IF ( ABS(Diag(i)) /= 0.0_dp ) THEN
+          Diag(i) = 1.0_dp / SQRT(ABS(Diag(i)))
+        ELSE
+          Diag(i) = 1.0_dp
+        END IF
+      END DO
+    END IF
+    
+    ! Optionally we may just create the diag and leave the scaling undone
+    !--------------------------------------------------------------------
+    IF( PRESENT( ApplyScaling ) ) THEN
+      IF(.NOT. ApplyScaling ) RETURN
+    END IF
+    
+    
+    DO i=1,n
+      DO j = A % Rows(i), A % Rows(i+1)-1
+        A % Values(j) = A % Values(j) * &
+            ( Diag(i) * Diag(A % Cols(j)) )
+      END DO
+    END DO
+    
+    IF ( ASSOCIATED( A % MassValues ) ) THEN
+      IF (SIZE(A % Values) == SIZE(A % MassValues)) THEN
+        DO i=1,n
+          DO j=A % Rows(i), A % Rows(i+1)-1
+            A % MassValues(j) = A % MassValues(j) * &
+                ( Diag(i) * Diag(A % Cols(j)) )
+          END DO
+        END DO
+      END IF
+    END IF
+    
+    IF ( ASSOCIATED( A % DampValues ) ) THEN
+      IF (SIZE(A % Values) == SIZE(A % DampValues)) THEN
+        DO i=1,n
+          DO j=A % Rows(i), A % Rows(i+1)-1
+            A % DampValues(j) = A % DampValues(j) * &
+                ( Diag(i) * Diag(A % Cols(j)) )
+          END DO
+        END DO
+      END IF
+    END IF
+    
+  END SUBROUTINE ScaleLinearSystem
+
+
+  
+  !  Scale the system back to original:
+  !--------------------------------------------------------------
+  SUBROUTINE BackScaleLinearSystem(A,Solver) 
+
+    TYPE(Matrix_t) :: A
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp), POINTER :: Diag(:)
+    INTEGER :: n,i,j
+    
+    n = A % NumberOfRows
+    
+    Diag => A % DiagScaling
+    IF(.NOT. ASSOCIATED( Diag ) ) THEN
+      CALL Fatal('BackScaleLinearSystem','Diag not associated!')
+    END IF
+    
+    DO i=1,Solver % NOFEigenValues
+      !
+      !           Solve x:  INV(D)x = y
+      !           --------------------------
+      IF ( Solver % Matrix % COMPLEX ) THEN
+        Solver % Variable % EigenVectors(i,1:n/2) = &
+            Solver % Variable % EigenVectors(i,1:n/2) * Diag(1:n:2)
+      ELSE
+        Solver % Variable % EigenVectors(i,1:n) = &
+            Solver % Variable % EigenVectors(i,1:n) * Diag(1:n)
+      END IF
+    END DO
+    
+    DO i=1,n
+      DO j=A % Rows(i), A % Rows(i+1)-1
+        A % Values(j) = A % Values(j) / (Diag(i) * Diag(A % Cols(j)))
+      END DO
+    END DO
+    
+    IF ( ASSOCIATED( A % MassValues ) ) THEN
+      IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
+        DO i=1,n
+          DO j=A % Rows(i), A % Rows(i+1)-1
+            A % MassValues(j) = A % MassValues(j) / &
+                ( Diag(i) * Diag(A % Cols(j)) )
+          END DO
+        END DO
+      END IF
+    END IF
+    
+    IF ( ASSOCIATED( A % DampValues ) ) THEN
+      IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
+        DO i=1,n
+          DO j=A % Rows(i), A % Rows(i+1)-1
+            A % DampValues(j) = A % DampValues(j) / &
+                ( Diag(i) * Diag(A % Cols(j)) )
+          END DO
+        END DO
+      END IF
+    END IF
+    
+  END SUBROUTINE BackScaleLinearSystem
+
+
+
+!------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
        x, Norm, DOFs, Solver, BulkMatrix )
 !------------------------------------------------------------------------------
@@ -4467,7 +4625,7 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER :: SaveValues(:)
     REAL(KIND=dp), ALLOCATABLE, TARGET :: Px(:), Diag(:), &
                 TempVector(:), TempRHS(:)
-    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag,bnorm,Energy
+    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,bnorm,Energy
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Matrix_t), POINTER :: Aaid, Projector
 
@@ -4524,75 +4682,8 @@ END FUNCTION SearchNodeL
 
     A % DiagScaling => Null()
     IF ( ScaleSystem .AND. .NOT. HarmonicAnalysis ) THEN
-!
-!     Scale system Ax = b as:
-!       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
-!     --------------------------------------------------------
-      ALLOCATE( Diag(n) )
-      A % DiagScaling => Diag
-
-      IF ( Solver % Matrix % COMPLEX ) THEN
-        DO i=1,n,2
-          j = A % Diag(i)
-          Diag(i)   = A % Values(j)
-          Diag(i+1) = A % Values(j+1)
-        END DO
-      ELSE
-        Diag(1:n) = A % Values(A % Diag(1:n))
-      END IF
-
-      IF ( ParEnv % PEs>1 ) CALL ParallelSumVector(A, Diag)
-
-      IF ( Solver % Matrix % COMPLEX ) THEN
-        DO i=1,n,2
-          DiagReal  =  Diag(i)
-          DiagImag  = -Diag(i+1)
-          IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp))/=0.0d0 ) THEN
-            Diag(i)   = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
-            Diag(i+1) = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
-          ELSE
-            Diag(i)   = 1.0d0
-            Diag(i+1) = 1.0d0
-          END IF
-        END DO
-      ELSE
-        DO i=1,n
-          IF ( ABS(Diag(i)) /= 0.0_dp ) THEN
-            Diag(i) = 1.0_dp / SQRT(ABS(Diag(i)))
-          ELSE
-            Diag(i) = 1.0_dp
-          END IF
-        END DO
-      END IF
-
-      DO i=1,n
-         DO j=A % Rows(i), A % Rows(i+1)-1
-            A % Values(j) = A % Values(j) * &
-              ( Diag(i) * Diag(A % Cols(j)) )
-         END DO
-      END DO
-
-      IF ( ASSOCIATED( A % MassValues ) ) THEN
-         IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
-            DO i=1,n
-               DO j=A % Rows(i), A % Rows(i+1)-1
-                  A % MassValues(j) = A % MassValues(j) * &
-                        ( Diag(i) * Diag(A % Cols(j)) )
-               END DO
-            END DO
-         END IF
-      END IF
-
-      IF ( ASSOCIATED( A % DampValues ) ) THEN
-         IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
-            DO i=1,n
-               DO j=A % Rows(i), A % Rows(i+1)-1
-                  A % DampValues(j) = A % DampValues(j) * &
-                        ( Diag(i) * Diag(A % Cols(j)) )
-               END DO
-            END DO
-         END IF
-      END IF
+      ALLOCATE( Diag(n) )	
+      CALL ScaleLinearSystem(A, Diag, Solver )
     END IF
 
     IF ( Solver % MultiGridLevel == -1  ) RETURN
@@ -4614,50 +4705,8 @@ END FUNCTION SearchNodeL
            Solver % Variable % EigenVectors, Solver )
    
        IF ( ScaleSystem ) THEN
-         DO i=1,Solver % NOFEigenValues
-!
-!           Solve x:  INV(D)x = y
-!           --------------------------
-            IF ( Solver % Matrix % COMPLEX ) THEN
-               Solver % Variable % EigenVectors(i,1:n/2) = &
-                   Solver % Variable % EigenVectors(i,1:n/2) * Diag(1:n:2)
-            ELSE
-               Solver % Variable % EigenVectors(i,1:n) = &
-                       Solver % Variable % EigenVectors(i,1:n) * Diag(1:n)
-            END IF
-         END DO
-! 
-!         Scale the system back to original:
-!         ----------------------------------
-         DO i=1,n
-           DO j=A % Rows(i), A % Rows(i+1)-1
-             A % Values(j) = A % Values(j) / (Diag(i) * Diag(A % Cols(j)))
-           END DO
-         END DO
-
-         IF ( ASSOCIATED( A % MassValues ) ) THEN
-            IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
-               DO i=1,n
-                  DO j=A % Rows(i), A % Rows(i+1)-1
-                     A % MassValues(j) = A % MassValues(j) / &
-                           ( Diag(i) * Diag(A % Cols(j)) )
-                  END DO
-               END DO
-            END IF
-         END IF
-
-         IF ( ASSOCIATED( A % DampValues ) ) THEN
-            IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
-               DO i=1,n
-                  DO j=A % Rows(i), A % Rows(i+1)-1
-                     A % DampValues(j) = A % DampValues(j) / &
-                           ( Diag(i) * Diag(A % Cols(j)) )
-                  END DO
-               END DO
-            END IF
-         END IF
-
-         DEALLOCATE( Diag )
+	 CALL BackScaleLinearSystem( A, Solver ) 
+         DEALLOCATE( Diag )	
        END IF
        CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 
