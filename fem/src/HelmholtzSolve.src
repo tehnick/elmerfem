@@ -76,14 +76,14 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Bubbles, Found, UseConvection, &
       UseDensity
 
-  INTEGER :: iter, i, j, k, n, nd, t, istat, eq, LocalNodes
-  REAL(KIND=dp) :: Norm, PrevNorm, RelativeChange, AngularFrequency
+  INTEGER :: iter, i, j, k, l, n, nd, t, istat, eq, LocalNodes
+  REAL(KIND=dp) :: Norm, AngularFrequency, s
+
 
   TYPE(ValueList_t), POINTER :: Equation, Material, BodyForce, &
              BC, SolverParams, Simulation
 
   INTEGER :: NonlinearIter
-  REAL(KIND=dp) :: NonlinearTol,s
 
   REAL(KIND=dp), ALLOCATABLE :: Load(:,:), Work(:), &
        SoundSpeed(:), Density(:), Damping(:), Impedance(:,:), ConvVelo(:,:)
@@ -96,16 +96,22 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
 !-----------------------------------------------------------------------------
-! Local variables for performing analyses with acoustic interfaces
+! Local variables for performing analyses with harmonic interfaces
 !-----------------------------------------------------------------------------
-  TYPE(Variable_t), POINTER :: FlowSol
-  LOGICAL :: AcousticInterface, stat 
-  REAL(KIND=dp), POINTER :: Flow(:)
-  INTEGER, POINTER ::  FlowPerm(:)
-  INTEGER :: dim
+  TYPE(Variable_t), POINTER :: FlowSol, DispSol
+  LOGICAL :: FlowInterface, StructureInterface, stat 
+  LOGICAL :: AnyFlowInterface, AnyStructureInterface, GotFrequency
+  REAL(KIND=dp), POINTER :: Flow(:), Disp(:)
+  COMPLEX(KIND=dp), POINTER :: DispEigen(:)
+  INTEGER, POINTER ::  FlowPerm(:), DispPerm(:), PresPerm(:)
+  INTEGER :: dim, FlowDofs, DispDofs, NoEigen
   TYPE(Element_t),POINTER :: Parent
-  REAL(KIND=dp), ALLOCATABLE :: WallVelocity(:,:)
+  COMPLEX(KIND=dp), ALLOCATABLE :: WallVelocity(:,:)
+  COMPLEX(KIND=dp) :: ImUnit
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+
   SAVE WallVelocity
+
 !------------------------------------------------------------------------------
 
 
@@ -130,7 +136,7 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
           FORCE( 2*N ),        &
           STIFF( 2*N,2*N ),    &
           SoundSpeed( N ), Density( N ), ConvVelo(3,N), Damping( N ), Load( 2,N ), &
-          WallVelocity(6,N), STAT=istat )
+          WallVelocity(3,N), STAT=istat )
 
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'HelmholzSolve', 'Memory allocation error.' )
@@ -144,9 +150,6 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 ! Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
   SolverParams => GetSolverParams()
-  NonlinearTol = GetConstReal( SolverParams, &
-       'Nonlinear System Convergence Tolerance', Found )
-
   NonlinearIter = GetInteger( SolverParams, &
        'Nonlinear System Max Iterations', Found )
 
@@ -155,30 +158,78 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
   UseDensity = GetLogical( SolverParams,'Use Density',Found)
 
-! Figure out angular frequency:
-!------------------------------
-
   n = GetElementNOFNodes()
   Simulation => GetSimulation()
   dim = CoordinateSystemDimension()     
+  Solver % Matrix % COMPLEX = .TRUE.
+  GotFrequency = .FALSE.
 
-  AngularFrequency = GetAngularFrequency()
+  ! Check for flow or strcuture interface
+  !--------------------------------------------------------
+  WallVelocity = 0.0_dp
+  ImUnit = CMPLX(0.0d0,1.0d0,KIND=dp) 
+  PresPerm => Solver % Variable % Perm
 
-  ! This is for Save Data:
-  ! ----------------------
-  CALL ListAddConstReal( Model % Simulation, 'res: Frequency', AngularFrequency /(2*PI) )
+  AnyFlowInterface = ListCheckPresentAnyBC(Model,'Flow Interface')
+  AnyStructureInterface = ListCheckPresentAnyBC(Model,'Structure Interface')
 
-  FlowSol => VariableGet( Solver % Mesh % Variables, 'Flow')
-  IF ( ASSOCIATED(FlowSol) ) THEN
-    Flow => FlowSol % Values
-    FlowPerm => FlowSol % Perm
+  IF( AnyFlowInterface ) THEN
+    VarName = GetString( SolverParams,'Velocity Variable Name',Found)
+    IF(.NOT. Found ) VarName = 'flow'
+    FlowSol => VariableGet( Solver % Mesh % Variables,VarName )
+    IF ( ASSOCIATED(FlowSol) ) THEN
+      Flow => FlowSol % Values
+      FlowPerm => FlowSol % Perm
+      FlowDofs = FlowSol % Dofs
+    ELSE
+      CALL Fatal('HelmholtzSolver','No flow variable associated:'//TRIM(VarName))
+    END IF
+    IF( FlowDofs < 2*dim ) THEN
+      CALL Fatal('HelmholtzSolver','Harmonic flow field should have at least 2*dim components')
+    END IF
   END IF
 
-  Solver % Matrix % COMPLEX = .TRUE.
+  IF( AnyStructureInterface ) THEN
+    VarName = GetString( SolverParams,'Displacement Variable Name',Found)
+    IF(.NOT. Found ) VarName = 'displacement'
+    DispSol => VariableGet( Solver % Mesh % Variables,VarName )
+    IF ( ASSOCIATED(DispSol) ) THEN
+      Disp => DispSol % Values
+      DispPerm => DispSol % Perm
+      DispDofs = DispSol % Dofs
+    ELSE
+      CALL Fatal('HelmholtzSolver','No displacement variable associated:'//TRIM(VarName))
+    END IF
 
-!
-! Check whether the equation lives on a convection field
-!-------------------------------------------------------
+    NoEigen = GetInteger( SolverParams,'Displacement Variable EigenMode',Found)
+    IF( NoEigen > 0 ) THEN
+      IF( NoEigen > SIZE(DispSol % EigenValues)) THEN
+        CALL Fatal('HelmholtzSolver','Requested eigenmode does not exist')
+      END IF
+      DispEigen => DispSol % EigenVectors(NoEigen,:)
+      IF( GetLogical( SolverParams,'Displacement Variable Frequency',Found) ) THEN
+        AngularFrequency = SQRT( DispSol % EigenValues(NoEigen))
+	GotFrequency = .TRUE.
+      END IF
+      IF( DispDofs < dim ) THEN
+        CALL Fatal('HelmholtzSolver','Harmonic displacement field should have at least 2*dim components')
+      END IF
+    ELSE
+      IF( DispDofs < 2*dim ) THEN
+        CALL Fatal('HelmholtzSolver','Harmonic displacement field should have at least 2*dim components')
+      END IF
+    END IF
+  END IF
+
+
+  ! Figure out angular frequency and save it for SaveScalars:
+  !----------------------------------------------------------
+  IF(.NOT. GotFrequency ) AngularFrequency = GetAngularFrequency()
+  CALL ListAddConstReal( Model % Simulation, 'res: Frequency', AngularFrequency /(2*PI) )
+
+
+  ! Check whether the equation lives on a convection field
+  !-------------------------------------------------------
   UseConvection = .FALSE.
   ConvVelo = 0.0_dp
 
@@ -270,10 +321,9 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         CALL DefaultUpdateEquations( STIFF, FORCE )
      END DO
 
-!------------------------------------------------------------------------------
-!
-!    Neumann & Newton BCs:
-!    ---------------------
+!---------------------------------------------------------------------------
+! Standard Neumann & Newton BCs:
+!---------------------------------------------------------------------------
 
      DO t=1, Solver % Mesh % NumberOfBoundaryElements
         Element => GetBoundaryElement(t)
@@ -310,76 +360,90 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
      END DO
 
 !-----------------------------------------------------------------------------
-! Boundary conditions on acoustic interface
+! Boundary conditions on harmonic flow or structure interfaces
 !-----------------------------------------------------------------------------
      
-     DO t=1, Solver % Mesh % NumberOfBoundaryElements
-       Element => GetBoundaryElement(t)
-       IF ( .NOT.ActiveBoundaryElement() ) CYCLE
-       n = GetElementNOFNodes()
-       IF ( GetElementFamily() == 1 ) CYCLE
-       BC => GetBC()
-       IF ( ASSOCIATED( BC ) ) THEN
-         AcousticInterface = ListGetLogical( BC, 'Acoustic Interface', Found )
-         IF ( .NOT. AcousticInterface) CYCLE
+     IF( AnyStructureInterface .OR. AnyFlowInterface ) THEN
+       DO t=1, Solver % Mesh % NumberOfBoundaryElements
+         Element => GetBoundaryElement(t)
+         IF ( .NOT.ActiveBoundaryElement() ) CYCLE
+         n = GetElementNOFNodes()
+         IF ( GetElementFamily() == 1 ) CYCLE
+         BC => GetBC()
+         IF( .NOT. ASSOCIATED( BC ) ) CYCLE
          
-         IF ( ALL( FlowPerm( Element % NodeIndexes(1:n) ) > 0 ) ) THEN
+         FlowInterface = ListGetLogical( BC, 'Flow Interface', Found )
+         StructureInterface = ListGetLogical( BC, 'Structure Interface', Found )
+         
+         IF ( .NOT. (FlowInterface .OR. StructureInterface) ) CYCLE
+         
+         IF( FlowInterface ) THEN
+           IF ( ANY( FlowPerm( Element % NodeIndexes(1:n) ) == 0 ) ) THEN
+             CALL Fatal( 'HelmholtzSolve', 'Flow solution is not available on boundary')
+           END IF           
+           DO j=1,n
+             k = FlowPerm( Element % NodeIndexes(j) ) 
+             DO l=1,dim
+               WallVelocity(l,j) = Flow( (k-1)*FlowDofs + 2*l-1 ) + &
+                   ImUnit * Flow( (k-1)*FlowDofs + 2*l ) 
+             END DO
+           END DO
+         ELSE IF( StructureInterface ) THEN
+           IF ( ANY( DispPerm( Element % NodeIndexes(1:n) ) == 0 ) ) THEN
+             CALL Fatal( 'HelmholtzSolve', 'Displacement solution is not available on boundary')
+           END IF           
+           IF( NoEigen > 0 ) THEN
+             DO j=1,n
+               k = DispPerm( Element % NodeIndexes(j) ) 
+               DO l=1,dim
+                 WallVelocity(l,j) = DispEigen( (k-1)*DispDofs + l )
+               END DO
+             END DO          
+           ELSE
+             DO j=1,n
+               k = DispPerm( Element % NodeIndexes(j) ) 
+               DO l=1,dim
+                 WallVelocity(l,j) = Disp( (k-1)*DispDofs + 2*l-1 ) + &
+                     ImUnit * Disp( (k-1)*DispDofs + 2*l )
+               END DO
+             END DO
+           END IF
+             WallVelocity = ImUnit * AngularFrequency * WallVelocity
+         END IF
+         
+         ! Find the Helmholtz parent to determine the reference density
+         ! If density is used everywhere then is is actually elimited in
+         ! this BC hence one is used instead.
+         !----------------------------------------------------------------
+         IF( UseDensity ) THEN
+           Density = 1.0_dp
+         ELSE
            Parent => Element % BoundaryInfo % Left
            stat = ASSOCIATED( Parent )
-           IF (stat) stat = ALL(FlowPerm(Parent % NodeIndexes(1:n)) > 0)
+           IF (stat) stat = ALL(PresPerm(Parent % NodeIndexes(1:n)) > 0)
            IF ( .NOT. stat) THEN
              Parent => Element % BoundaryInfo % Right
              stat = ASSOCIATED( Parent )
-             IF (stat) stat = ALL(FlowPerm(Parent % NodeIndexes(1:n)) > 0)
+             IF (stat) stat = ALL(PresPerm(Parent % NodeIndexes(1:n)) > 0)
              IF ( .NOT. stat )  CALL Fatal( 'HelmholtzSolve', &
                  'No parent element can be found for given boundary element' )
            END IF
-
+           
            k = ListGetInteger( Model % Bodies(Parent % Bodyid) % Values, &
                'Material' )
            Material => Model % Materials(k) % Values
-           Density(1:n) = ListGetReal( Material, 'Equilibrium Density', &
+           Density(1:n) = ListGetReal( Material, 'Density', &
                n, Element % NodeIndexes(1:n) )
-           
-           DO j=1,n
-             k = FlowPerm( Element % NodeIndexes(j) ) 
-             WallVelocity(1,j) =  Flow( (k-1)*(dim*2+4)+1 )
-             WallVelocity(2,j) =  Flow( (k-1)*(dim*2+4)+2 )
-             WallVelocity(3,j) =  Flow( (k-1)*(dim*2+4)+3 )
-             WallVelocity(4,j) =  Flow( (k-1)*(dim*2+4)+4 )
-             IF (dim > 2) THEN
-               WallVelocity(5,j) =  Flow( (k-1)*(dim*2+4)+5 )
-               WallVelocity(6,j) =  Flow( (k-1)*(dim*2+4)+6 )
-             ELSE
-               WallVelocity(5,j) =  0.0d0
-               WallVelocity(6,j) =  0.0d0
-             END IF
-           END DO
-
-           IF (.TRUE.) THEN
-             CALL LocalInterfaceMatrix(  STIFF, FORCE, AngularFrequency, Density, &
-                 Element, n, WallVelocity )
-
-             CALL DefaultUpdateEquations( STIFF, FORCE )
-           
-           ELSE
-             DO j=1,n
-               k = FlowPerm( Element % NodeIndexes(j) )
-               i = Solver % Variable % Perm( Element % NodeIndexes(j) )
-               CALL ZeroRow( Solver % Matrix, 2*i-1)
-               CALL SetMatrixElement( Solver % Matrix, 2*i-1, 2*i-1, 1.0d0 )
-               Solver % Matrix % RHS(2*i-1) = Flow( (k-1)*(dim*2+4)+dim*2+3 )
-               CALL ZeroRow( Solver % Matrix, 2*i)
-               CALL SetMatrixElement( Solver % Matrix, 2*i, 2*i, 1.0d0 )
-               Solver % Matrix % RHS(2*i) = Flow( (k-1)*(dim*2+4)+dim*2+4 )
-             END DO
-           END IF
-
-         ELSE
-           CALL Fatal( 'HelmholtzSolve', 'NS solution is not available on boundary')
          END IF
-       END IF
-     END DO
+
+         CALL LocalInterfaceMatrix(  STIFF, FORCE, AngularFrequency, Density, &
+             Element, n, WallVelocity )
+         
+         CALL DefaultUpdateEquations( STIFF, FORCE )       
+       END DO
+     END IF
+
+
 !------------------------------------------------------------------------------
 
      CALL DefaultFinishAssembly()
@@ -391,7 +455,6 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !    ---------------------------------
      at = CPUTime() - at
      st = CPUTime()
-     PrevNorm = Norm
      Norm = DefaultSolve()
 
      st = CPUTIme()-st
@@ -403,19 +466,9 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
      CALL Info( 'HelmholtzSolve', Message, Level=4 )
 
 !------------------------------------------------------------------------------
-     IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-        RelativeChange = 2*ABS(PrevNorm - Norm) / (PrevNorm + Norm)
-     ELSE
-        RelativeChange = 0.0d0
-     END IF
 
-     CALL Info( 'HelmholtzSolve', ' ', Level=4 )
-     WRITE( Message, * ) 'Result Norm    : ',Norm
-     CALL Info( 'HelmholtzSolve', Message, Level=4 )
-     WRITE( Message, * ) 'Relative Change: ',RelativeChange
-     CALL Info( 'HelmholtzSolve', Message, Level=4 )
+     IF( Solver % Variable % NonlinConverged == 1 ) EXIT
 
-     IF ( RelativeChange < NonlinearTol ) EXIT
 !------------------------------------------------------------------------------
   END DO ! of nonlinear iteration
 !------------------------------------------------------------------------------
@@ -675,14 +728,15 @@ CONTAINS
               Element, n, WallVelo )
 !------------------------------------------------------------------------------
     COMPLEX(KIND=dp) :: STIFF(:,:), FORCE(:)
-    REAL(KIND=dp) :: AngularFrequency, Density(:), WallVelo(:,:)
+    REAL(KIND=dp) :: AngularFrequency, Density(:)
+    COMPLEX(KIND=dp) :: WallVelo(:,:)
     INTEGER :: n
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,Impedance1,Impedance2,L1,L2
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),X,Y,Z
-    REAL(KIND=dp) :: Normal(3), TangVelo(3), rho
-    COMPLEX(KIND=dp) :: A, Admittance, Velo(3), NormVelo
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),X,Y,Z
+    REAL(KIND=dp) :: Normal(3), rho
+    COMPLEX(KIND=dp) :: A, Admittance, NormVelo
     LOGICAL :: Stat
     INTEGER :: i,p,q,t,dim,CoordSys
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
@@ -710,22 +764,21 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
-              Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+              Basis, dBasisdx )
 
        s = s * SqrtElementMetric
 
        Normal = Normalvector(Element, Nodes, U, V, .TRUE.)
 
-       Velo(1) = CMPLX( SUM( WallVelo(1,1:n) * Basis(1:n) ), SUM( WallVelo(2,1:n) * Basis(1:n) ), kind=dp )
-       Velo(2) = CMPLX( SUM( WallVelo(3,1:n) * Basis(1:n) ), SUM( WallVelo(4,1:n) * Basis(1:n) ), kind=dp )
-       Velo(3) = CMPLX( SUM( WallVelo(5,1:n) * Basis(1:n) ), SUM( WallVelo(6,1:n) * Basis(1:n) ), kind=dp )
-       NormVelo = Velo(1) * CMPLX(Normal(1), 0.0d0, kind=dp) + Velo(2) * CMPLX(Normal(2), 0.0d0, kind=dp) + &
-           Velo(3) * CMPLX(Normal(3), 0.0d0, kind=dp)
-       rho = SUM( Density(1:n)*Basis(1:n) )
+       DO i=1,dim
+         NormVelo = Normal(i) * SUM( WallVelo(i,1:n) * Basis(1:n) )
+       END DO
+
+       rho = SUM( Density(1:n) * Basis(1:n) )
 !------------------------------------------------------------------------------
        DO p=1,n
-         FORCE(p) = FORCE(p) + s * CMPLX(0.0d0, 1.0d0, kind=dp) * rho * AngularFrequency * Basis(p) * &
-             NormVelo
+         FORCE(p) = FORCE(p) + s * Basis(p) * &
+             ImUnit * rho * AngularFrequency * NormVelo
        END DO
 !------------------------------------------------------------------------------
     END DO
