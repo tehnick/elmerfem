@@ -1543,22 +1543,20 @@ CONTAINS
         CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,x,y,z )
         
         s = s * SqrtMetric * SqrtElementMetric * IntegStuff % s(i)
-        vol =  vol + S
+        coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
+        vol =  coeff * vol + S
 
         SELECT CASE(OperName)
           
           CASE ('volume')
-          coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
           integral1 = integral1 + coeff * S
 
           CASE ('int','int mean')
           func = SUM( Var % Values(Var % Perm(NodeIndexes(1:n))) * Basis(1:n) )
-          coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
           integral1 = integral1 + S * coeff * func 
 
           CASE ('int variance')
           func = SUM( Var % Values(Var % Perm(NodeIndexes(1:n))) * Basis(1:n) )
-          coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
           integral1 = integral1 + S * coeff * func 
           integral2 = integral2 + S * coeff * func**2 
 
@@ -1576,7 +1574,6 @@ CONTAINS
 
           CASE ('convective energy')
           func = SUM( Var % Values(Var % Perm(NodeIndexes(1:n))) * Basis(1:n) )
-          coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
 
           IF(NoDofs == 1) THEN
             func = SUM( Var % Values(Var % Perm(NodeIndexes(1:n))) * Basis(1:n) )
@@ -1592,7 +1589,6 @@ CONTAINS
           CASE ('potential energy')
 
           func = SUM( Var % Values(Var % Perm(NodeIndexes(1:n))) * Basis(1:n) )
-          coeff = SUM( EnergyCoeff(1:n) * Basis(1:n))
           integral1 = integral1 + s * coeff * func
 
         CASE DEFAULT 
