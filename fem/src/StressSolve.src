@@ -113,8 +113,7 @@
      INTEGER :: RefDofs, indx
      LOGICAL, ALLOCATABLE :: UpdatePresent(:), UpdateActive(:)
 
-     REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm, &
-              NonlinearTol,s, UzawaParameter
+     REAL(KIND=dp) :: UNorm,s, UzawaParameter
 
      INTEGER ::  MaxIter, MinIter
      TYPE(Variable_t), POINTER :: StressSol, iVar, Var, TimeVar
@@ -229,10 +228,6 @@
      IF ( AllocationsDone .AND. MeshDisplacementActive ) THEN
         CALL DisplaceMesh( Solver % Mesh, Displacement, -1, DisplPerm, STDOFs )
      END IF
-
-     UNorm = Solver % Variable % Norm
-
-!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 !     Allocate some permanent storage, this is done first time only
@@ -466,10 +461,6 @@
      END IF
 
 !------------------------------------------------------------------------------
-
-     NonlinearTol = GetConstReal( SolverParams, &
-        'Nonlinear System Convergence Tolerance', Found )
-
      MaxIter = GetInteger( SolverParams, &
          'Nonlinear System Max Iterations',Found )
      IF ( .NOT.Found ) MaxIter = 1
@@ -614,24 +605,13 @@
 
        ! Solve the system and check for convergence:
        !--------------------------------------------
-       PrevUNorm = UNorm
        UNorm = DefaultSolve()
+
        IF ( Transient .AND. .NOT. Refactorize .AND. dt /= Prevdt ) THEN
          Prevdt = dt
          CALL ListRemove( SolverParams, 'Linear System Free Factorization' )
          CALL ListAddLogical(SolverParams,'Linear System Refactorize',.FALSE.)
        END IF
-
-       IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
-          RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
-       ELSE
-          RelativeChange = 0.0d0
-       END IF
-
-       WRITE( Message, * ) 'Result Norm   : ',UNorm
-       CALL Info( 'StressSolve', Message, Level=4 )
-       WRITE( Message, * ) 'Relative Change : ',RelativeChange
-       CALL Info( 'StressSolve', Message, Level=4 )
 
        ! Update contact pressure:
        !-------------------------
@@ -650,7 +630,7 @@
               + UzawaParameter * NormalDisplacement )
        END IF
 
-       IF ( Iter> MinIter .AND. RelativeChange < NonLinearTol ) EXIT
+       IF ( Iter > MinIter .AND. Solver % Variable % NonlinConverged == 1 ) EXIT
 
        IF ( CalcStress .OR. CalcStressAll ) THEN
           IF( StabilityAnalysis .AND. Iter == 1 ) THEN
@@ -868,12 +848,12 @@ CONTAINS
 !------------------------------------------------------------------------------
      CALL StartAdvanceOutput( 'StressSolve', 'Assembly:')
      body_id = -1
+
+
      DO t=1,Solver % NumberOFActiveElements
 
 !------------------------------------------------------------------------------
-
        CALL AdvanceOutput(t,GetNOFActive())
-
 !------------------------------------------------------------------------------
 
        Element => GetActiveElement(t)
