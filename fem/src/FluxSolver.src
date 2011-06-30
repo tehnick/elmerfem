@@ -89,16 +89,17 @@
     END IF
     
 
-
     FluxName = TRIM(VarName)//' Flux'
     CALL Info('FluxSolver_init','Saving flux to: '//FluxName) 
     IF( CalculateFlux ) THEN
       IF(dim == 2) THEN
         CALL ListAddString( SolverParams,&
-            NextFreeKeyword('Exported Variable',SolverParams),'Flux['//TRIM(FluxName)//':2]')
+            NextFreeKeyword('Exported Variable',SolverParams),&
+	TRIM(FluxName)//'['//TRIM(FluxName)//':2]')
       ELSE IF(dim == 3) THEN
         CALL ListAddString( SolverParams,&
-            NextFreeKeyword('Exported Variable',SolverParams),'Flux['//TRIM(FluxName)//':3]')
+            NextFreeKeyword('Exported Variable',SolverParams),&
+	TRIM(FluxName)//'['//TRIM(FluxName)//':3]')
       END IF
       IF( GetLogical( SolverParams,'Calculate Flux Abs',GotIt) ) THEN
         CALL ListAddString( SolverParams,&
@@ -114,10 +115,12 @@
     IF( CalculateGrad ) THEN
       IF(dim == 2) THEN
         CALL ListAddString( SolverParams,&
-            NextFreeKeyword('Exported Variable',SolverParams),'Grad['//TRIM(GradName)//':2]')
+            NextFreeKeyword('Exported Variable',SolverParams),&
+	TRIM(GradName)//'['//TRIM(GradName)//':2]')
       ELSE IF(dim == 3) THEN
         CALL ListAddString( SolverParams,&
-            NextFreeKeyword('Exported Variable',SolverParams),'Grad['//TRIM(GradName)//':3]')
+            NextFreeKeyword('Exported Variable',SolverParams),&
+	TRIM(GradName)//'['//TRIM(GradName)//':3]')
       END IF
       IF( GetLogical( SolverParams,'Calculate Grad Abs',GotIt) ) THEN
         CALL ListAddString( SolverParams,&
