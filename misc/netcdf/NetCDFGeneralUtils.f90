@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 21.6.2011
+! Last Modified: 30.6.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -9,7 +9,7 @@
 ! - handling NetCDF status errors; G_Error()
 !------------------------------------------------------------------------------
 MODULE NetCDFGeneralUtils
-  USE DefUtils
+  USE DefUtils, ONLY: dp, MAX_NAME_LEN
   USE NetCDF
   USE Messages
   IMPLICIT NONE
@@ -35,13 +35,19 @@ MODULE NetCDFGeneralUtils
     !--- Takes the NetCDF file identifier and dimension name (as in NetCDF) and gets the id and length of the dimension, or abort otherwise
     SUBROUTINE GetDimension( NCID, DIM_NAME, dim_id, dim_len )
     !--------------------------------------------------------
+      USE Messages
       IMPLICIT NONE
+      !--- Arguments
       INTEGER, INTENT(IN) :: NCID
       CHARACTER (*), INTENT(IN) :: DIM_NAME
-      CHARACTER (256) :: mess
+      INTEGER, INTENT(OUT) :: dim_id, dim_len 
+      
+      !--- Variables
       CHARACTER :: tmp_name ! Temporary name
-      INTEGER :: status, dim_id, dim_len ! Results and status information from NetCDF
+      INTEGER :: status ! Results and status information from NetCDF
       INTEGER, PARAMETER :: sentinel = -1 ! Default intial value in case of error
+
+      !--- Initializations      
       dim_id = sentinel
       dim_len = sentinel
       
@@ -60,46 +66,37 @@ MODULE NetCDFGeneralUtils
       END IF
     
     IF ( DEBUG_UTILS ) THEN ! Debug printouts
-      WRITE (mess,'(A,A10,A,I5,A,I10,A)') 'Dimension: ', DIM_NAME,' with id ', dim_id, ' and size ', dim_len, ' read correctly'
-      CALL Info('GridDataMapper',mess)
+      WRITE (Message,'(A,A10,A,I5,A,I10,A)') 'Dimension: ', DIM_NAME,' with id ', dim_id, ' and size ', dim_len, ' read correctly'
+      CALL Info('GridDataMapper',Message)
     END IF
     END SUBROUTINE GetDimension
    
   
     !------------------ GetAllDimensions() ----------------------
     !--- Takes the NetCDF file and name identifiers (as in NetCDF) and gets the ids and lengths of the dimensions, or abort otherwise
-    !--- Z_NAME is optional, and if left out the routine returns smaller dimension vectors
-    SUBROUTINE GetAllDimensions( NCID, X_NAME, Y_NAME, Z_NAME, T_NAME, dim_ids, dim_lens )
+    SUBROUTINE GetAllDimensions( NCID, NAMES, dim_ids, dim_lens )
     !------------------------------------------------------------
-    
-      CHARACTER (len = MAX_NAME_LEN), INTENT(IN) :: X_NAME, Y_NAME, T_NAME
-      CHARACTER (len = MAX_NAME_LEN), INTENT(IN), OPTIONAL :: Z_NAME
+      IMPLICIT NONE
+      CHARACTER (len = MAX_NAME_LEN), INTENT(IN) :: NAMES(:)
       INTEGER, INTENT(IN) :: NCID
-      INTEGER, ALLOCATABLE, INTENT(INOUT) :: dim_ids(:),dim_lens(:)
-      INTEGER :: alloc_stat
-  
-      ! Gets the dimension data
-      IF (PRESENT(Z_NAME) ) THEN
-        ALLOCATE ( dim_ids(4), dim_lens(4), STAT = alloc_stat )
-        IF ( alloc_stat .NE. 0 ) THEN
-          CALL Fatal('GridDataMapper','Memory ran out')
-        END IF
-      ELSE
-        ALLOCATE ( dim_ids(3), dim_lens(3), STAT = alloc_stat )
-        IF ( alloc_stat .NE. 0 ) THEN
-          CALL Fatal('GridDataMapper','Memory ran out',.TRUE.)
-        END IF
+      INTEGER, ALLOCATABLE, INTENT(OUT) :: dim_ids(:),dim_lens(:)
+      INTEGER :: alloc_stat, nm
+
+      IF ( (size(NAMES,1) .NE. size(dim_ids)) .AND. (size(dim_ids) .NE. size(dim_lens)) ) THEN
+        CALL Fatal('GridDataMapper','GetAllDimensions() input dimensions do not agree!')
       END IF
-  
-      CALL GetDimension( NCID,X_NAME,dim_ids(1),dim_lens(1) )
-      CALL GetDimension( NCID,Y_NAME,dim_ids(2),dim_lens(2) )
-      IF ( PRESENT(Z_NAME) ) THEN 
-        CALL GetDimension( NCID,Z_NAME,dim_ids(3),dim_lens(3) )
-        CALL GetDimension( NCID,T_NAME,dim_ids(4),dim_lens(4) )
-      ELSE
-        CALL GetDimension( NCID,T_NAME,dim_ids(3),dim_lens(3) )
+
+      ! Allocates the result vectors
+      ALLOCATE ( dim_ids(size(NAMES,1)), dim_lens(size(NAMES,1)), STAT = alloc_stat )
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out')
       END IF
-    
+
+      ! Collects the data for each name in order
+      DO nm = 1,size(NAMES,1),1
+        CALL GetDimension( NCID,NAMES(nm),dim_ids(nm),dim_lens(nm) )
+      END DO
+!      WRITE(*,*) 'End'
     END SUBROUTINE GetAllDimensions
   
    
@@ -109,11 +106,16 @@ MODULE NetCDFGeneralUtils
     !------------------------------------------------------
       USE NetCDF
       IMPLICIT NONE
+
+      !--- Arguments
       CHARACTER (*), INTENT(IN) :: VAR_NAME
       INTEGER, INTENT(IN) :: DIM_IDS(:), DIM_LENS(:)
       INTEGER, INTENT(IN) :: NCID, LOC_X, LOC_Y, LOC_TIME
       LOGICAL, INTENT(IN) :: IS_STENCIL ! True if collects a stencil of the size outcome with the locations defining the lower left corner
       REAL (KIND=dp), INTENT(INOUT) :: outcome(:,:) ! The result defines the dimensionality of the access; check it's square later on
+      LOGICAL :: success ! Output: TRUE if all ok
+
+       !--- Variables
       INTEGER :: DIM_COUNT
       INTEGER :: SLAB, NEIGHBOURS, alloc_stat ! alloc_stat for allocation status
       INTEGER, ALLOCATABLE :: COUNT_VECTOR(:)
@@ -121,10 +123,9 @@ MODULE NetCDFGeneralUtils
       ! NEIGHBORS is the amount of adjacent nodes taken, COUNT_VECTOR is the amount of nodes taken
       ! starting from corresponding index vector locations (slabs of data)
       INTEGER, ALLOCATABLE :: locs(:,:) ! First column is left limit, second column is right limit
-  
       INTEGER :: d, var_id, status
       REAL (KIND=dp), ALLOCATABLE :: accessed(:,:,:) ! All dimensions have same amount of values 
-      LOGICAL :: success ! TRUE if all ok
+
       
       ! Checks that input makes sense; it should be a square matrix
       IF ( size(outcome,1) .NE. size(outcome,2) ) THEN
@@ -207,20 +208,24 @@ MODULE NetCDFGeneralUtils
 
   !----------------- TimeValueToIndex() ---------------
   !--- Takes a NetCDF time value and converts it into an index
-  FUNCTION TimeValueToIndex(NCID,TIME_NAME,DIM_IDS,DIM_LENS,t_val) RESULT(t_ind)
+  FUNCTION TimeValueToIndex(NCID,TIME_NAME,DIM_ID,DIM_LEN,t_val) RESULT(t_ind)
     IMPLICIT NONE
+
+    !--- Arguments
     CHARACTER(len = MAX_NAME_LEN), INTENT(IN) :: TIME_NAME
     REAL(KIND=dp), INTENT(IN) :: t_val
-    REAL(KIND=dp) :: t_min, t_max, t_tmp1(1),t_tmp2(2), t_diff
-    INTEGER, INTENT(IN) :: NCID, DIM_IDS(:), DIM_LENS(:)
+    INTEGER, INTENT(IN) :: NCID, DIM_ID, DIM_LEN
+    REAL(KIND=dp) :: t_ind ! Output
+
+     !--- Variables
+    REAL(KIND=dp) :: t_min, t_max, t_tmp1(1), t_tmp2(2), t_diff
     INTEGER :: time_id, status
-    REAL(KIND=dp) :: t_ind
     INTEGER :: index_scalar(1), count_scalar(1)
 
     t_ind = -1.0_dp ! Initialization to out of bounds
     index_scalar = 1 ! Initialized to min value
     count_scalar = 2
-    time_id = DIM_IDS(size(DIM_IDS)) ! Last dimension is time
+    time_id = DIM_ID ! Last dimension is time
   
     ! 1) Inquire time variable's id
     status = NF90_INQ_VARID(NCID,TIME_NAME,time_id)
@@ -237,7 +242,7 @@ MODULE NetCDFGeneralUtils
     t_diff = t_tmp2(2) - t_tmp2(1)
 
     count_scalar = 1
-    index_scalar = DIM_LENS(size(DIM_LENS)) ! Pick the last max value
+    index_scalar = DIM_LEN ! Pick the last max value
  
     status = NF90_GET_VAR(NCID,time_id,t_tmp1,index_scalar,count_scalar)
     IF ( G_Error(status,'Last NetCDF time value not found') ) THEN

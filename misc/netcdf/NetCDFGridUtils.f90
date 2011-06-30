@@ -1,36 +1,106 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 20.6.2011
+! Last Modified: 30.6.2011
 !------------------------------------------------------------------------------
 ! Contains tools for
 ! - getting the essential information on the uniform NetCDF grid; GetNetCDFGridParameters()
 ! - adjusting the grid parameters on basis of a mask; Focus2DNetCDFGrid()
 !------------------------------------------------------------------------------
+
 MODULE NetCDFGridUtils
-  USE DefUtils
+  USE DefUtils, ONLY: dp
   USE NetCDF
   USE Messages
   USE NetCDFGeneralUtils, ONLY: G_Error
   IMPLICIT NONE
+ 
+!  INTEGER, PARAMETER :: MAX_DIM = 3
 
+  !--- A type for defining an uniform grid (to simplify parameter passing)
+  TYPE UniformGrid_t
+    REAL(KIND=dp), ALLOCATABLE :: x0(:), & ! Lower left corner of grid
+                     dx(:), & ! Uniform difference between points
+                     x1(:), & ! Upper right corner of grid
+                     Eps(:) ! Error tolerance for overshooting bounds
+    INTEGER, ALLOCATABLE :: nmax(:) ! Amount of points
+    INTEGER :: dims ! Amount of used dimensions
+    REAL(KIND=dp), ALLOCATABLE :: scale(:), & ! Scales an Elmer point into this grid by multiplying with this...
+                     move(:) ! ... and moving by this
+  END TYPE UniformGrid_t
 
   CONTAINS
 
+    !------------------ PrintGrid() ------------------------------------
+    !--- Prints the Uniform Grid contents to stdout
+    SUBROUTINE PrintGrid( GRID, ID )
+    !-------------------------------------------------------------------
+      IMPLICIT NONE
+      TYPE(UniformGrid_t), INTENT(IN) :: GRID
+      INTEGER, INTENT(IN) :: ID ! Numeric name for the grid
+      INTEGER :: loop
+
+      PRINT *, &
+      'x0    ', Grid % x0   , &
+      'dx    ', Grid % dx   , &
+      'nmax  ', Grid % nmax , &
+      'x1    ', Grid % x1   , &
+      'eps   ', Grid % eps  , &
+      'scale ', Grid % scale, &
+      'move  ', Grid % move 
+      
+      PRINT *,'NetCDF (Uniform) Grid Bounding Box ',ID,':'
+      DO loop = 1,size( GRID % x0, 1),1
+        PRINT '(A,I3,A,F6.2,F6.2)','Coordinate ', loop,':',GRID % X0(loop),GRID % X1(loop)
+      END DO
+
+    END SUBROUTINE PrintGrid
+
+
+    !------------------ InitGrid() -------------------------------------
+    !--- Initializes the contents of a grid
+    SUBROUTINE InitGrid( Grid, DIMS )
+    !-------------------------------------------------------------------
+      USE Messages
+      IMPLICIT NONE
+      TYPE(UniformGrid_t), INTENT(INOUT) :: Grid
+      INTEGER, INTENT(IN) :: DIMS
+      INTEGER :: alloc_stat
+
+!      IF (DIMS .GT. MAX_DIMS .OR. DIMS .LT. 1) THEN
+!        CALL Fatal('GridDataMapper','InitGrid() input dimensionality should be within (1,3)')
+!      END IF
+
+      ALLOCATE (Grid % x0(DIMS),Grid % dx(DIMS),Grid % nmax(DIMS),Grid % x1(DIMS),&
+Grid % eps(DIMS),Grid % scale(DIMS),Grid % move(DIMS),STAT=alloc_stat)
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out!')
+      END IF
+
+      Grid % x0    = 0.0_dp 
+      Grid % dx    = 0.0_dp 
+      Grid % nmax  = 0    
+      Grid % x1    = 0.0_dp 
+      Grid % eps   = 0.0_dp 
+      ! With these initializations: 1*x(:) + 0 = x(:) ; i.e. doesn't modify
+      Grid % scale = 1.0_dp ! Default: no effect
+      Grid % move  = 0.0_dp ! Default: no effect
+      Grid % dims = DIMS
+ 
+    END SUBROUTINE InitGrid
+
     !------------------ GetNetCDFGridParameters() ----------------------
     !--- Takes the limits for the uniform grid of NetCDF
-    !--- (x0,y0) is the lower left corner, (dx,dy) contains the associated step sizes,
-    !---  and (nxmax,nymax) are the amounts of steps
-    SUBROUTINE GetNetCDFGridParameters( NCID,x0,dx,nmax,DIM_IDS,DIM_LENS )
+    !--- (x0,y0,z0,...) is the lower left corner, (dx,dy,dz,...) contains the associated step sizes,
+    !---  and (nxmax,nymax,nzmax,...) are the amounts of steps
+    SUBROUTINE GetNetCDFGridParameters( NCID,Grid,DIM_IDS,DIM_LENS )
     !-------------------------------------------------------------------
   
       IMPLICIT NONE
       INTEGER, INTENT(IN) :: NCID
-      REAL(KIND=dp), INTENT(INOUT) :: x0(2), dx(2)
-      INTEGER, INTENT(INOUT) :: nmax(2)
+      TYPE(UniformGrid_t), INTENT(INOUT) :: Grid
       INTEGER, INTENT(IN) :: DIM_IDS(:),DIM_LENS(:)
       INTEGER :: first_two(2), ind, status, ind_vec(1),count_vec(1)
-      REAL(KIND=dp) :: x1(2)
   
       ! Takes the first two values of all grid dimensions to determine the whole grid
       ind_vec = 1
@@ -38,7 +108,7 @@ MODULE NetCDFGridUtils
   
       ! Takes the first two values for each dimension, saves the information necessary for reconstructing the grid
       ! Assumes the NetCDF grid is uniform, the indexing of the dimensions enabled via the usual convention of variables with same names
-      DO ind = 1,(size(DIM_LENS) - 1),1 ! NOTE! Ignores the time dimension, which is last
+      DO ind = 1,size(DIM_LENS),1
   
         first_two = 0
         IF (DIM_LENS(ind) <= 1) THEN
@@ -48,9 +118,9 @@ MODULE NetCDFGridUtils
         IF ( G_ERROR(status,'NetCDF dimension values access failed.') ) THEN
           CALL abort()
         END IF
-        x0(ind) = first_two(1)
-        dx(ind) = first_two(2) - first_two(1)
-        nmax(ind) = DIM_LENS(ind)
+        Grid % x0(ind) = first_two(1)
+        Grid % dx(ind) = first_two(2) - first_two(1)
+        Grid % nmax(ind) = DIM_LENS(ind)
       END DO
       
     END SUBROUTINE GetNetCDFGridParameters
@@ -58,13 +128,11 @@ MODULE NetCDFGridUtils
   
     !------------------ FocusNetCDFGrid ----------------------
     !--- Tightens the original bounding box until it touches the masked area
-    SUBROUTINE Focus2DNetCDFGrid( NCID,MASK_VAR,MASK_LIMIT,x0,DX,nmax,TIME,DIM_IDS,DIM_LENS )
+    SUBROUTINE Focus2DNetCDFGrid( NCID,MASK_VAR,MASK_LIMIT,Grid,TIME,DIM_LENS )
     !-------------------------------------------------------------------
       IMPLICIT NONE
-      INTEGER, INTENT(IN) :: NCID,DIM_IDS(:),DIM_LENS(:)
-      INTEGER, INTENT(INOUT) :: nmax(:)
-      REAL(KIND=dp), INTENT(INOUT) :: x0(:)
-      REAL(KIND=dp), INTENT(IN) :: DX(:)
+      INTEGER, INTENT(IN) :: NCID,DIM_LENS(:)
+      TYPE(UniformGrid_t), INTENT(INOUT) :: Grid
       REAL(KIND=dp) :: i_bl(2), i_br(2), i_ul(2), i_ur(2) ! Indices for the grid boundaries
       CHARACTER(len = *), INTENT(IN) :: MASK_VAR ! The variable for catching the masking data from NetCDF
       REAL(KIND=dp), INTENT(IN) :: MASK_LIMIT ! The limiting value which decides the mask has been reached
@@ -89,7 +157,7 @@ MODULE NetCDFGridUtils
       is_vert(1) = .TRUE. ! left scanning line is vertical
       is_vert(3) = .TRUE. ! right scanning line is vertical
       i0(:) = (/1,1/) ! Indices for lower left corner
-      i1(:) = nmax(:) ! Indices for upper right corner
+      i1(:) = Grid % nmax(1:Grid % DIMS) ! Indices for upper right corner
   
       ! Allocates the scanning lines ; cannot avoid using at most the dimension sizes amount of memory at some point,
       ! and memory allocation/deallocation to accomodate for changing sizes would be slow, so of constant size.
@@ -204,9 +272,7 @@ MODULE NetCDFGridUtils
                 high_limits(2,line) = high_limits(2,line) - 1
               END IF
             END IF
-  
-  
-  
+   
             ! D) Finishing criteria, if no mask found (upper and lower horizontal line reach each other)
             IF ( low_limits(2,2) .EQ. low_limits(2,4) ) THEN
               finished(2) = .TRUE.
@@ -230,14 +296,14 @@ MODULE NetCDFGridUtils
       !---- Finally, updates the values
       i0(:) = low_limits(:,1)
       i1(:) = high_limits(:,4)
-      x0(:) = x0(:) + (i0(:) - 1)*DX(:)
-      nmax(:) = i1(:) - i0(:) + 1
+      Grid % x0(1:Grid % DIMS) = Grid % x0(1:Grid % DIMS) + (i0(:) - 1)* Grid % DX(1:Grid % DIMS)
+      Grid % nmax(1:Grid % DIMS) = i1(:) - i0(:) + 1
   
       WRITE (Message,'(A)') '2D grid focusing complete:'
       CALL Info('GridDataMapper', Message)
       WRITE (Message,'(A,2(I5),A,2(I5))') 'Lower left indices: ', i0, '   upper right indices: ', i1
       CALL Info('GridDataMapper', Message)
-      WRITE (Message,'(A,2(F14.1),A,2(I5))') 'x0: ', x0, '    nmax: ', nmax
+      WRITE (Message,'(A,2(F14.1),A,2(I5))') 'x0: ', Grid % x0, '    nmax: ', Grid % nmax
       CALL Info('GridDataMapper', Message)
   
     END SUBROUTINE Focus2DNetCDFGrid

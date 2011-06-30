@@ -1,9 +1,9 @@
 ! A Solver Input File for testing the Grid Data Mapper
-! Vili Forsell, 28.6.2011
+! Vili Forsell, 30.6.2011
 
 ! Header
 Header
-  Mesh DB "." "greenland_box3d"
+  Mesh DB "." "greenland_box"
 End
 
 ! Simple simulation
@@ -11,8 +11,8 @@ Simulation
 !  Simulation Type = Steady state
 !  Steady State Max Iterations = 1
   Simulation Type = Transient
-  TimeStep intervals = 94
-  Timestep Sizes = 1 !$1/24 
+  TimeStep intervals = 2
+  Timestep Sizes = $1/24 !1
 !  Output Intervals = 1
   Post File = case.ep
 End
@@ -42,9 +42,9 @@ Solver 1
 
   !---- NOTE: File is case sensitive, String is not!
   File Name = File "./data.nc" ! NetCDF input file
-  X Name = File "x" ! NetCDF variable dimensions
-  Y Name = File "y"
-!  Z Name = File "z" ! (optional)
+  Coordinate 1 Name = File "x" ! NetCDF variable dimensions
+  Coordinate 2 Name = File "y"
+!  Coordinate 3 Name = File "z" ! (optional)
   Time Name = File "time"
   Var Name = File "julytemp" ! The Variable to be opened
 
@@ -55,7 +55,7 @@ Solver 1
 !  Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
 
   !--- Coordinate system variables
-  Coordinate System = File "cs2cs" ! Sets the coordinate system as a predefined one (default: none) (optional)
+!  Coordinate System = File "cs2cs" ! Sets the coordinate system as a predefined one (default: none) (optional)
   CS2CS Is Input Radians = LOGICAL FALSE ! True, if input is given in radians, otherwise degrees (default: false) (optional) (only for cs2cs)
   CS2CS Elmer Projection = File "+proj=ups +ellps=WGS84 +inv" ! CS2CS definition for the Elmer coordinate system (only for cs2cs)
   CS2CS NetCDF Projection = File "+proj=ups +ellps=WGS84" ! CS2CS definition for the NetCDF coordinate system (only for cs2cs)

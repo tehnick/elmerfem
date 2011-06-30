@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 28.6.2011
+! Last Modified: 30.6.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
@@ -25,7 +25,6 @@ MODULE NetCDFInterpolate
 
       !--- Input parameters
       REAL(C_DOUBLE) :: coord(3)
-!      REAL(C_DOUBLE) :: param
       INTEGER(C_INT), VALUE :: hasZ, isRad
       CHARACTER(KIND=C_CHAR) :: elmer_proj(*), netcdf_proj(*)
 
@@ -36,7 +35,7 @@ MODULE NetCDFInterpolate
   END INTERFACE
 
   LOGICAL :: DEBUG_INTERP = .FALSE.
-  PRIVATE :: GetSolutionInStencil, CoordinateTransformation
+  PRIVATE :: GetSolutionInStencil, CoordinateTransformation, ScaleMeshPoint
 
   CONTAINS
 
@@ -76,47 +75,46 @@ MODULE NetCDFInterpolate
     !--- Takes and interpolates one Elmer grid point to match NetCDF data; includes coordinate transformation
     !--- ASSUMES INPUT DIMENSIONS AGREE
     !--------------------------------------------------------------
-    FUNCTION Interpolate(SOLVER,NCID,X,VAR_NAME,DIM_IDS,DIM_LENS,X0,DX,NMAX,&
-            X1,GRID_SCALES,GRID_MOVE,EPS,TIME, interp_val, coord_system) RESULT( success )
+    FUNCTION Interpolate(SOLVER,NCID,X,VAR_NAME,DIM_IDS,DIM_LENS,GRID,&
+            TIME, interp_val, COORD_SYSTEM) RESULT( success )
       USE DefUtils, ONLY: Solver_t
+      USE NetCDFGridUtils, ONLY: UniformGrid_t
       IMPLICIT NONE
+
+      !--- Arguments
       TYPE(Solver_t), INTENT(IN) :: SOLVER
-      INTEGER, INTENT(IN) :: NCID,DIM_IDS(:),DIM_LENS(:),NMAX(:),TIME
+      TYPE(UniformGrid_t), INTENT(IN) :: GRID
+      INTEGER, INTENT(IN) :: NCID,DIM_IDS(:),DIM_LENS(:),TIME
       CHARACTER (len = MAX_NAME_LEN), INTENT(IN) :: VAR_NAME
-      REAL(KIND=dp), INTENT(IN) :: X(:),X0(:),DX(:),X1(:),GRID_SCALES(:),GRID_MOVE(:),EPS(:)
+      CHARACTER(len = *), INTENT(IN) :: COORD_SYSTEM
       REAL(KIND=dp), INTENT(INOUT) :: interp_val ! Final Elmer point and interpolated value 
-      LOGICAL :: success
-      REAL(KIND=dp) :: stencil(2,2),weights(2)
+      REAL(KIND=dp), INTENT(IN) :: X(:)
+      LOGICAL :: success ! Return value
+
+      !--- Others
+      REAL(KIND=dp) :: stencil(2,2), weights(2)
       INTEGER :: alloc_stat, i
       INTEGER, ALLOCATABLE :: ind(:)
       REAL(KIND=dp), ALLOCATABLE :: xi(:), Xf(:)
-      CHARACTER(len = *), INTENT(IN) :: coord_system
 
-!      WRITE (*,*) 'X: ', X
-!      WRITE (*,*) 'X0: ', X0
-!      WRITE (*,*) 'DX: ', DX
-!      WRITE (*,*) 'NMAX: ', NMAX
-!      WRITE (*,*) 'X1: ', X1
-!      WRITE (*,*) 'EPS: ', EPS
-!      WRITE (*,*) 'TIME: ', TIME
-
-      ALLOCATE (ind(size(X0)), xi(size(X0)), Xf(size(X)), STAT = alloc_stat)
+      !--- Memory allocation
+      ALLOCATE (ind(GRID % DIMS), xi(GRID % DIMS), Xf(size(X)), STAT = alloc_stat)
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Interpolation vectors memory allocation failed')
       END IF
   
       ! Coordinate mapping from Elmer (x,y) to the one used by NetCDF
-      Xf = CoordinateTransformation( SOLVER, X, coord_system )
+      Xf = CoordinateTransformation( SOLVER, X, COORD_SYSTEM )
 !      WRITE (*,*) 'Xf: ', Xf
 
-      ! NOTE! By default the GRID_SCALES consists of 1's, and GRID_MOVE 0's; hence, nothing happens
+      ! NOTE! By default the SCALE consists of 1's, and MOVE 0's; hence, nothing happens
       !       without user specifically specifying so
-      Xf = GRID_SCALES*Xf + GRID_MOVE ! Scales the mesh point within the NetCDF grid
+      Xf = GRID % SCALE(:)*Xf + GRID % MOVE(:) ! Scales the mesh point within the NetCDF grid
 
       ! Find the (i,j) indices [1,...,max] 
       ! Calculates the normalized difference vector; 
       ! i.e. the distance/indices to Elmer grid point x from the leftmost points of the NetCDF bounding box
-      ind(:) = CEILING( ( Xf(:) - X0(:) ) / DX(:) ) 
+      ind(:) = CEILING( ( Xf(:) - GRID % X0(:) ) / GRID % DX(:) ) 
 !      WRITE (*,*) 'Ind: ', ind 
  
       ! This could be done better, one could apply extrapolation 
@@ -124,17 +122,17 @@ MODULE NetCDFInterpolate
       DO i = 1,size(Xf,1),1
   
         ! Checks that the estimated index is within the bounding box
-        IF( ind(i) < 1 .OR. ind(i) >= NMAX(i) ) THEN
+        IF( ind(i) < 1 .OR. ind(i) >= GRID % NMAX(i) ) THEN
   
           ! If it's smaller than the leftmost index, but within tolerance (Eps), set it to lower bound; and vice versa
-          IF( Xf(i) <= X0(i) .AND. Xf(i) >= X0(i) - EPS(i) ) THEN
+          IF( Xf(i) <= GRID % X0(i) .AND. Xf(i) >= GRID % X0(i) - GRID % EPS(i) ) THEN
             ind(i) = 1
-          ELSE IF( Xf(i) >= X1(i) .AND. Xf(i) <= X1(i) + EPS(i) ) THEN
-            ind(i) = NMAX(i)
+          ELSE IF( Xf(i) >= GRID % X1(i) .AND. Xf(i) <= GRID % X1(i) + GRID % EPS(i) ) THEN
+            ind(i) = GRID % NMAX(i)
           ELSE ! The index is too far to be salvaged
            WRITE (Message, '(A,I20,A,F14.3,A,I2,A,F6.2,A)') 'Index ', ind(i), ', which is estimated from Elmer value ',&
                   Xf(i), ' and over dimension ', i, &
-                  ', is not within the NetCDF grid bounding box nor the value`s error tolerance of ', EPS(i), '.'
+                  ', is not within the NetCDF grid bounding box nor the value`s error tolerance of ', GRID % EPS(i), '.'
            CALL Warn( 'GridDataMapper',Message)
            success = .FALSE.
            RETURN
@@ -143,7 +141,7 @@ MODULE NetCDFInterpolate
       END DO
   
       ! The value of the estimated NetCDF grid point
-      xi(:) = X0(:) + (ind(:)-1) * DX(:)
+      xi(:) = GRID % X0(:) + (ind(:)-1) * GRID % DX(:)
   
       ! Interpolation weights, which are the normalized differences of the estimation from lower left corner values
       ! Can be negative if ceil for indices brings the value of xi higher than x
@@ -157,7 +155,7 @@ MODULE NetCDFInterpolate
       !--------------------------------
       ! p values should be within [0,1]
       ! 0 exactly when x = xi, 1 when (x-x0)/dx = ceil((x-x0)/dx) = ind
-      weights(:) = (Xf(:)-xi(:))/DX(:)
+      weights(:) = (Xf(:)-xi(:))/GRID % DX(:)
   
       ! get data on stencil size(stencil)=(2,2), ind -vector describes the lower left corner
       CALL GetSolutionInStencil(NCID,VAR_NAME,stencil,IND(1),IND(2),TIME,DIM_IDS,DIM_LENS)
@@ -172,16 +170,22 @@ MODULE NetCDFInterpolate
 
     !----------------- CoordinateTransformation() -----------------
     !--- Transforms input coordinates into the given coordinate system
-    FUNCTION CoordinateTransformation( Solver, input, coord_system ) RESULT( output )
+    FUNCTION CoordinateTransformation( SOLVER, INPUT, COORD_SYSTEM ) RESULT( output )
     !--------------------------------------------------------------
       USE DefUtils, ONLY: dp, MAX_NAME_LEN, Solver_t, GetSolverParams, GetString, GetLogical
       USE iso_c_binding, ONLY: C_NULL_CHAR
       USE Messages
       IMPLICIT NONE
-      TYPE(Solver_t), INTENT(IN) :: Solver
-      CHARACTER(*), INTENT(IN) :: coord_system ! Some coordinate
-      REAL(KIND=dp), INTENT(IN) :: input(:) ! The input coordinates
+ 
+      !--- Input arguments
+      TYPE(Solver_t), INTENT(IN) :: SOLVER
+      CHARACTER(*), INTENT(IN) :: COORD_SYSTEM ! Some coordinate
+      REAL(KIND=dp), INTENT(IN) :: INPUT(:) ! The input coordinates
+
+      !--- Return value
       REAL(KIND=dp), ALLOCATABLE :: output(:) ! The output coordinates
+
+      !--- Others
       REAL(KIND=dp) :: coord(3), res(3)
       INTEGER :: alloc_stat, hasZcoord
       LOGICAL :: found
@@ -193,13 +197,13 @@ MODULE NetCDFInterpolate
       !--- Initializations
       coord = 0
       res = 0
-      ALLOCATE ( output(size(input)), STAT = alloc_stat )
+      ALLOCATE ( output(size(INPUT)), STAT = alloc_stat )
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Coordinate transformation memory allocation failed')
       END IF
 
       !--- Selects the coordinate system transformation
-      SELECT CASE (coord_system)
+      SELECT CASE (COORD_SYSTEM)
 
         !--- CS2CS Coordinate transformation
         CASE ('cs2cs')
@@ -207,31 +211,31 @@ MODULE NetCDFInterpolate
 
           !-- Gathers the coordinate information
           hasZcoord = 0
-          IF ( size(input,1) .GE. 3 ) THEN
+          IF ( size(INPUT,1) .GE. 3 ) THEN
             hasZcoord = 1
-            coord(1:3) = input(1:3)
+            coord(1:3) = INPUT(1:3)
           ELSE
-            coord(1:2) = input(1:2)
+            coord(1:2) = INPUT(1:2)
           END IF
 
           !--- DEBUG printout
 !          WRITE (*,*) 'Coordinates ', coord
 
           !--- Picks up the constant data from the Elmer Solver parameters
-          elmer = GetString(GetSolverParams(Solver),"CS2CS Elmer Projection", found)
+          elmer = GetString(GetSolverParams(SOLVER),"CS2CS Elmer Projection", found)
           IF ( .NOT. found ) THEN
             CALL Fatal('GridDataMapper',&
   'CS2CS Transformation did not find Elmer projection information "CS2CS Elmer Projection" from the Solver Input File')
           END IF
 
-          netcdf = GetString(GetSolverParams(Solver), "CS2CS NetCDF Projection", found)
+          netcdf = GetString(GetSolverParams(SOLVER), "CS2CS NetCDF Projection", found)
           IF ( .NOT. found ) THEN
             CALL Fatal('GridDataMapper',&
   'CS2CS Transformation did not find NetCDF projection information "CS2CS NetCDF Projection" from the Solver Input File')
           END IF
 
           ! //C_NULL_CHAR's terminate the given strings with nulls to enable C compatibility
-          IF ( GetLogical(GetSolverParams(Solver), "CS2CS Is Input Radians", found) .AND. found ) THEN
+          IF ( GetLogical(GetSolverParams(SOLVER), "CS2CS Is Input Radians", found) .AND. found ) THEN
             CALL cs2cs_transform( coord, hasZcoord, 1, elmer//C_NULL_CHAR, netcdf//C_NULL_CHAR, res) ! True; is in radians
           ELSE
             CALL cs2cs_transform( coord, hasZcoord, 0, elmer//C_NULL_CHAR, netcdf//C_NULL_CHAR, res) ! False; is in degrees by default
@@ -248,13 +252,13 @@ MODULE NetCDFInterpolate
 !          WRITE (*,*) 'Result ', res, ' to out ', output
 
         CASE ('cylindrical')
- !         CALL Info('GridDataMapper','Applies cylindrical coordinate transformation to cartesian coordinates!')
+!          CALL Info('GridDataMapper','Applies cylindrical coordinate transformation to cartesian coordinates!')
 
           !--- Transforms 3D Elmer grid points to cylindrical coordinates (phi,r,z)
-          IF ( size(input,1) .GE. 3) THEN
-            output(1) = atan2( input(2), input(1) ) ! phi angle value
-            output(2) = sqrt(input(1)**2 + input(2)**2) ! radius from the center of cylinder
-            output(3) = input(3) ! Height from zero level
+          IF ( size(INPUT,1) .GE. 3) THEN
+            output(1) = atan2( INPUT(2), INPUT(1) ) ! phi angle value
+            output(2) = sqrt(INPUT(1)**2 + INPUT(2)**2) ! radius from the center of cylinder
+            output(3) = INPUT(3) ! Height from zero level
           ELSE
             CALL Fatal('GridDataMapper','Cylindrical coordinate transformation requires at least three dimensional Elmer grid.')
           END IF
@@ -264,7 +268,7 @@ MODULE NetCDFInterpolate
 !          WRITE (Message,'(A,A15,A)') 'No coordinate transformation applied: Unknown coordinate system "',&
 !                coord_system, '". Check Solver Input File and the variable "Coordinate System"'
 !          CALL Warn('GridDataMapper', Message)
-          output(:) = input(:)
+          output(:) = INPUT(:)
       END SELECT
 
     END FUNCTION
@@ -319,9 +323,13 @@ MODULE NetCDFInterpolate
     SUBROUTINE GetSolutionInStencil( NCID,VAR_NAME,stencil,X,Y,TIME,DIM_IDS,DIM_LENS )
     !--------------------------------------------------------------
       IMPLICIT NONE
+
+      !--- Arguments
       CHARACTER(LEN=MAX_NAME_LEN), INTENT(IN) :: VAR_NAME
       INTEGER, INTENT(IN) :: NCID,X,Y,TIME,DIM_IDS(:),DIM_LENS(:)
-      REAL(KIND=dp) :: stencil(:,:)
+      REAL(KIND=dp), INTENT(INOUT) :: stencil(:,:)
+
+      !--- Variables
       INTEGER :: i
       LOGICAL :: IS_STENCIL
       CHARACTER(len = 50) :: answ_format
