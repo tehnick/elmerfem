@@ -15,6 +15,17 @@ MODULE NetCDFGeneralUtils
   IMPLICIT NONE
   LOGICAL, PARAMETER :: DEBUG_UTILS = .FALSE.
 
+  !--- A type for time dimension values
+  TYPE TimeType_t
+    LOGICAL :: is_defined
+    REAL(KIND=dp) :: val ! Exact time value
+    INTEGER :: id, & ! Dimension NetCDF id
+              len, & ! Dimension length/size
+              low, & ! Nearest lower index
+              high ! Nearest higher index
+    LOGICAL :: doInterpolation ! True, if the exact value is not an integer and, hence, requires interpolation
+  END TYPE TimeType_t
+
   CONTAINS
   
     !------------------ CloseNetCDF() -----------------------
@@ -102,103 +113,87 @@ MODULE NetCDFGeneralUtils
    
     !----------------- GetFromNetCDF() --------------------
     !--- Reads the given variable name and returns the value from NetCDF grid
-    FUNCTION GetFromNetCDF( NCID, VAR_NAME, outcome, LOC_X, LOC_Y, LOC_TIME, DIM_IDS, DIM_LENS, IS_STENCIL ) RESULT( success )
+    !--- TODO: Generalize this!!!!
+    FUNCTION GetFromNetCDF( NCID, VAR_ID, LOC, LOC_TIME, TIME, DIM_LENS, accessed, OUT_SIZE ) RESULT( success )
     !------------------------------------------------------
       USE NetCDF
       IMPLICIT NONE
 
       !--- Arguments
-      CHARACTER (*), INTENT(IN) :: VAR_NAME
-      INTEGER, INTENT(IN) :: DIM_IDS(:), DIM_LENS(:)
-      INTEGER, INTENT(IN) :: NCID, LOC_X, LOC_Y, LOC_TIME
-      LOGICAL, INTENT(IN) :: IS_STENCIL ! True if collects a stencil of the size outcome with the locations defining the lower left corner
-      REAL (KIND=dp), INTENT(INOUT) :: outcome(:,:) ! The result defines the dimensionality of the access; check it's square later on
+      INTEGER, INTENT(IN) :: DIM_LENS(:), VAR_ID
+      INTEGER, INTENT(IN) :: NCID, LOC(:), LOC_TIME
+      TYPE(TimeType_t), INTENT(IN) :: TIME
+      INTEGER, INTENT(IN) ::  OUT_SIZE(:) ! The sizes of each dimension for the return type
       LOGICAL :: success ! Output: TRUE if all ok
 
-       !--- Variables
-      INTEGER :: DIM_COUNT
-      INTEGER :: SLAB, NEIGHBOURS, alloc_stat ! alloc_stat for allocation status
+      !--- Variables
+      INTEGER :: DIM_COUNT,TOTAL_SIZE
+      INTEGER :: alloc_stat ! alloc_stat for allocation status
       INTEGER, ALLOCATABLE :: COUNT_VECTOR(:)
-      INTEGER, ALLOCATABLE :: index_vector(:)
-      ! NEIGHBORS is the amount of adjacent nodes taken, COUNT_VECTOR is the amount of nodes taken
+      ! COUNT_VECTOR is the amount of nodes taken
       ! starting from corresponding index vector locations (slabs of data)
       INTEGER, ALLOCATABLE :: locs(:,:) ! First column is left limit, second column is right limit
-      INTEGER :: d, var_id, status
-      REAL (KIND=dp), ALLOCATABLE :: accessed(:,:,:) ! All dimensions have same amount of values 
-
-      
-      ! Checks that input makes sense; it should be a square matrix
-      IF ( size(outcome,1) .NE. size(outcome,2) ) THEN
-        CALL Fatal('GridDataMapper','Result array is not square nor scalar.')
-      END IF
-        
-      IF (.NOT. IS_STENCIL) THEN  ! In the case of getting a centered block
-        IF ( mod( (size(outcome,1) - 1), 2 ) .NE. 0 ) THEN
-          CALL Fatal('GridDataMapper', 'Result array ill-sized for neighbouring nodes.')
-        END IF
-      END IF ! In the case of wanting a stencil; any existing result matrix is of good size
-  
-      !--- Now the input & result matrix "outcome" must be a square matrix with an even amount of adjacent nodes in it
+      INTEGER :: loop, status
+      REAL (KIND=dp), ALLOCATABLE, INTENT(INOUT) :: accessed(:) ! Later reshaped to proper dimensions
       
       ! Initializations
-      DIM_COUNT = size(DIM_IDS,1)
+
+      ! Checks if time dimension is taken into account (picks always just one point)
+      DIM_COUNT = size(DIM_LENS,1)
+      IF (TIME % IS_DEFINED) DIM_COUNT = DIM_COUNT + 1 ! Takes one more dimension for time
+
+      ! The same calculations would be done in any case; uses a little memory to save here
+      TOTAL_SIZE = 1
+      DO loop = 1,size(OUT_SIZE,1),1
+        TOTAL_SIZE = TOTAL_SIZE*OUT_SIZE(loop)
+      END DO
+
       success = .FALSE. ! For checking if all went ok (allows later error recuperation)
-      NEIGHBOURS = (size(outcome,1) - 1)/2
-      SLAB = size(outcome,1)
-  
-      ALLOCATE ( accessed(SLAB,SLAB,1), COUNT_VECTOR(DIM_COUNT),index_vector(DIM_COUNT),locs(DIM_COUNT,2), STAT = alloc_stat )
+      
+      ALLOCATE ( accessed(TOTAL_SIZE), COUNT_VECTOR(DIM_COUNT),locs(DIM_COUNT,2), STAT = alloc_stat )
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Memory ran out')
       END IF
   
-      COUNT_VECTOR = SLAB
-      COUNT_VECTOR(3) = 1 ! Takes only over one time value
       accessed = 0
-      locs(:,1) = (/ LOC_X, LOC_Y, LOC_TIME /) ! Possibly infinite dimension first
-      locs(:,2) = (/ LOC_X, LOC_Y, LOC_TIME /)
-  
-      IF (.NOT. IS_STENCIL) THEN
-        locs(1:2,1) = locs(1:2,1) - NEIGHBOURS ! This column is also used as NetCDF index vector
-        locs(1:2,2) = locs(1:2,2) + NEIGHBOURS
-      ELSE
-        locs(1:2,2) = locs(1:2,2) + SLAB - 1  ! Stencil takes the whole area starting from lower left indices
+
+      ! If has time, then the last dimension is time and is set in count vector and locs
+      ! TODO: ADD CHECK: Otherwise size(OUT_SIZE) = size(LOC) = size(DIM_LENS) = DIM_COUNT
+      COUNT_VECTOR(1:size(OUT_SIZE)) = OUT_SIZE(:)
+      locs(1:size(LOC),1) = LOC(:)
+      IF ( TIME % IS_DEFINED ) THEN
+        COUNT_VECTOR(DIM_COUNT) = 1
+        locs(DIM_COUNT,1) = LOC_TIME
       END IF
-  
-      DO d = 1,size(index_vector,1),1
-        index_vector(d) = locs(d,1)
-      END DO
-      
-      ! Checks that arrays have been initialized with proper size (should never fail)
-      IF ( (size(locs,1) .NE. size(dim_ids)) .OR. (NEIGHBOURS .LT. 0) ) THEN
-        CALL Fatal('GridDataMapper','Assumed dimension sizes mismatch')
-      END IF
+
+      locs(:,2) = locs(:,1) + COUNT_VECTOR(:) - 1 ! Covers the stencil area starting from left indices
       
       ! Checks each dimension range (and, hence, access attempt)
-      DO d = 1,DIM_COUNT,1
-      
-        IF ( (locs(d,1) .LT. 1) .OR. (dim_lens(d) .LT. locs(d,2)) ) THEN
+      DO loop = 1,size(DIM_LENS),1
+        IF ( (locs(loop,1) .LT. 1) .OR. (DIM_LENS(loop) .LT. locs(loop,2)) ) THEN
           WRITE (*,'(A,/,3(I10),/,3(I10))') 'Locs: ', locs
-          WRITE (*,'(A,/,3(I10))') 'Dims: ', dim_lens
+          WRITE (*,'(A,/,3(I10))') 'Dims: ', DIM_LENS
           CALL Fatal('GridDataMapper','Indexing parameter(s) out of bounds.')
         END IF
       END DO
       
-      !--- The dimensions and the locations have been read and checked; NetCDF accessing info is a-ok
-      
-      ! Find variable to be accessed
-      status = NF90_INQ_VARID(NCID,VAR_NAME,var_id)
-      IF ( G_Error(status,'NetCDF variable name not found.') ) THEN
-        CALL abort()
-      ELSE
-        ! Access variable and take the values
-        status = NF90_GET_VAR(NCID,var_id,accessed,index_vector,COUNT_VECTOR)
-        IF ( G_ERROR(status,'NetCDF variable access failed.') ) THEN
-          accessed = 0
-          CALL abort()
+      IF ( TIME % IS_DEFINED ) THEN
+        IF ( (locs(DIM_COUNT,1) .LT. 1) .OR. (TIME % LEN .LT. locs(loop,2)) ) THEN
+          WRITE (*,'(A,/,3(I10),/,3(I10))') 'Locs: ', locs
+          WRITE (*,'(A,/,3(I10))') 'Dims: ', DIM_LENS
+          CALL Fatal('GridDataMapper','Indexing parameter(s) out of bounds.')
         END IF
       END IF
+
+      !--- The dimensions and the locations have been read and checked; NetCDF accessing info is a-ok
       
-      outcome = accessed(:,:,1) ! Insert the result
+      ! Access variable and take the values
+      status = NF90_GET_VAR(NCID,var_id,accessed,locs(:,1),COUNT_VECTOR)
+      IF ( G_ERROR(status,'NetCDF variable access failed.') ) THEN
+        accessed = 0
+        CALL abort()
+      END IF
+      
   !    outcome = TRANSPOSE(outcome) TODO: Are dimensions a-ok?
       success = .TRUE. ! Successful
   

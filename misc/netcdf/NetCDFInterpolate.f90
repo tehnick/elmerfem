@@ -17,7 +17,6 @@ MODULE NetCDFInterpolate
   USE Messages
   IMPLICIT NONE
 
-
   INTERFACE
     !--- For connecting the C code, which accesses the cs2cs
     SUBROUTINE cs2cs_transform( coord, hasZ, isRad, elmer_proj, netcdf_proj, res ) BIND(c)
@@ -75,42 +74,44 @@ MODULE NetCDFInterpolate
     !--- Takes and interpolates one Elmer grid point to match NetCDF data; includes coordinate transformation
     !--- ASSUMES INPUT DIMENSIONS AGREE
     !--------------------------------------------------------------
-    FUNCTION Interpolate(SOLVER,NCID,X,VAR_NAME,DIM_IDS,DIM_LENS,GRID,&
-            TIME, interp_val, COORD_SYSTEM) RESULT( success )
+    FUNCTION Interpolate(SOLVER,NCID,X,VAR_ID,DIM_LENS,GRID,&
+            TIME,TIME_IND, interp_val, COORD_SYSTEM) RESULT( success )
       USE DefUtils, ONLY: Solver_t
       USE NetCDFGridUtils, ONLY: UniformGrid_t
+      USE NetCDFGeneralUtils, ONLY: TimeType_t
       IMPLICIT NONE
 
       !--- Arguments
       TYPE(Solver_t), INTENT(IN) :: SOLVER
       TYPE(UniformGrid_t), INTENT(IN) :: GRID
-      INTEGER, INTENT(IN) :: NCID,DIM_IDS(:),DIM_LENS(:),TIME
-      CHARACTER (len = MAX_NAME_LEN), INTENT(IN) :: VAR_NAME
+      TYPE(TimeType_t), INTENT(IN) :: TIME
+      INTEGER, INTENT(IN) :: NCID,DIM_LENS(:),TIME_IND,VAR_ID
       CHARACTER(len = *), INTENT(IN) :: COORD_SYSTEM
       REAL(KIND=dp), INTENT(INOUT) :: interp_val ! Final Elmer point and interpolated value 
       REAL(KIND=dp), INTENT(IN) :: X(:)
       LOGICAL :: success ! Return value
 
       !--- Others
-      REAL(KIND=dp) :: stencil(2,2), weights(2)
       INTEGER :: alloc_stat, i
       INTEGER, ALLOCATABLE :: ind(:)
-      REAL(KIND=dp), ALLOCATABLE :: xi(:), Xf(:)
+      REAL(KIND=dp), ALLOCATABLE :: Xf(:)
 
       !--- Memory allocation
-      ALLOCATE (ind(GRID % DIMS), xi(GRID % DIMS), Xf(size(X)), STAT = alloc_stat)
+      ALLOCATE (ind(GRID % DIMS), Xf(size(X)), STAT = alloc_stat)
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Interpolation vectors memory allocation failed')
       END IF
   
-      ! Coordinate mapping from Elmer (x,y) to the one used by NetCDF
+      !--- 1) Coordinate mapping from Elmer (x,y) to the one used by NetCDF
       Xf = CoordinateTransformation( SOLVER, X, COORD_SYSTEM )
 !      WRITE (*,*) 'Xf: ', Xf
 
+      !--- 2) Scaling, if applicable
       ! NOTE! By default the SCALE consists of 1's, and MOVE 0's; hence, nothing happens
       !       without user specifically specifying so
       Xf = GRID % SCALE(:)*Xf + GRID % MOVE(:) ! Scales the mesh point within the NetCDF grid
 
+      !--- 3) Index estimation
       ! Find the (i,j) indices [1,...,max] 
       ! Calculates the normalized difference vector; 
       ! i.e. the distance/indices to Elmer grid point x from the leftmost points of the NetCDF bounding box
@@ -139,11 +140,46 @@ MODULE NetCDFInterpolate
           END IF
         END IF
       END DO
+ 
+      !--- 4) Choose and perform interpolation 
+      interp_val = ChooseInterpolation(NCID,VAR_ID,GRID,TIME,X,IND,TIME_IND,DIM_LENS)
   
+      success = .TRUE.
+      RETURN
+  
+    END FUNCTION Interpolate
+
+    !----------------- ChooseInterpolation() ----------------------
+    !--- Chooses the appropriate weighting, stencil and interpolation method
+    FUNCTION ChooseInterpolation(NCID,VAR_ID,GRID,TIME,X_VAL,X_IND,TIME_IND,DIM_LENS) RESULT(interp_val)
+    !--------------------------------------------------------------
+      USE NetCDFGridUtils, ONLY: UniformGrid_t
+      USE NetCDFGeneralUtils, ONLY: TimeType_t
+      IMPLICIT NONE
+
+      !--- Arguments
+      INTEGER, INTENT(IN) :: NCID, VAR_ID, X_IND(:), DIM_LENS(:), TIME_IND
+      TYPE(UniformGrid_t), INTENT(IN) :: GRID
+      TYPE(TimeType_t), INTENT(IN) :: TIME
+      REAL(KIND=dp), INTENT(IN) :: X_VAL(:)
+      REAL(KIND=dp) :: interp_val ! The output
+
+      !--- Variables
+      INTEGER :: alloc_stat
+      REAL(KIND=dp), ALLOCATABLE :: xi(:), weights(:)
+      REAL(KIND=dp) :: stencilLine(2),stencilSqr(2,2),stencilCube(2,2,2) ! TODO: Choose these sizes/dimensionalities on basis of input
+
+      !--- Initializations
+      ALLOCATE ( xi(GRID % DIMS), weights(GRID % DIMS), STAT = alloc_stat )
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out!')
+      END IF
+
+      !--- A) Calculating the weights
       ! The value of the estimated NetCDF grid point
-      xi(:) = GRID % X0(:) + (ind(:)-1) * GRID % DX(:)
+      xi(:) = GRID % X0(:) + (X_IND(:)-1) * GRID % DX(:)
   
-      ! Interpolation weights, which are the normalized differences of the estimation from lower left corner values
+      ! Interpolation weights, which are the normalized differences of the estimation from the adjacent grid point
       ! Can be negative if ceil for indices brings the value of xi higher than x
       !----------- Assume xi > x ------
       !  x0 + (ind-1)dx > x, where dx > 0
@@ -155,18 +191,36 @@ MODULE NetCDFInterpolate
       !--------------------------------
       ! p values should be within [0,1]
       ! 0 exactly when x = xi, 1 when (x-x0)/dx = ceil((x-x0)/dx) = ind
-      weights(:) = (Xf(:)-xi(:))/GRID % DX(:)
+      weights(:) = (X_VAL(:)-xi(:))/GRID % DX(:)
   
-      ! get data on stencil size(stencil)=(2,2), ind -vector describes the lower left corner
-      CALL GetSolutionInStencil(NCID,VAR_NAME,stencil,IND(1),IND(2),TIME,DIM_IDS,DIM_LENS)
+      !--- B) Obtaining the stencil, and C) interpolating
+
+      SELECT CASE ( GRID % DIMS )
+        CASE (1) ! 1D 
+          CALL Fatal('GridDataMapper','One dimensional interpolation not implemented!')
+          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine = stencilLine)
+!          interp_val = LinearInterpolation(X_IND,)
+
+        CASE (2)
+          ! get data on stencil size(stencil)=(2,2), ind -vector describes the lower left corner
+          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilSqr = stencilSqr)
      
+          ! bilinear interpolation
+          interp_val = BiLinearInterpolation(stencilSqr,weights)
+
+        CASE (3)
+          CALL Fatal('GridDataMapper','Three dimensional interpolation not implemented!')
+          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilCube = stencilCube)
+
+        CASE DEFAULT
+          CALL Fatal('GridDataMapper','Interpolation defined only up to three dimensions!')
+      END SELECT
+      
+      !--- C) Interpolation
       ! bilinear interpolation
-      interp_val = BiLinearInterpolation(stencil,weights)
-  
-      success = .TRUE.
-      RETURN
-  
-    END FUNCTION Interpolate
+!      interp_val = BiLinearInterpolation(stencil,weights)
+
+    END FUNCTION ChooseInterpolation
 
     !----------------- CoordinateTransformation() -----------------
     !--- Transforms input coordinates into the given coordinate system
@@ -320,33 +374,81 @@ MODULE NetCDFInterpolate
  
     !------------------ GetSolutionStencil() ----------------------
     !--- Gets a square matrix starting from the lower left index, the size is defined by input matrix stencil 
-    SUBROUTINE GetSolutionInStencil( NCID,VAR_NAME,stencil,X,Y,TIME,DIM_IDS,DIM_LENS )
+    SUBROUTINE GetSolutionInStencil( NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine,stencilSqr,stencilCube )
     !--------------------------------------------------------------
+      USE NetCDFGeneralUtils, ONLY: TimeType_t
       IMPLICIT NONE
 
       !--- Arguments
-      CHARACTER(LEN=MAX_NAME_LEN), INTENT(IN) :: VAR_NAME
-      INTEGER, INTENT(IN) :: NCID,X,Y,TIME,DIM_IDS(:),DIM_LENS(:)
-      REAL(KIND=dp), INTENT(INOUT) :: stencil(:,:)
+      INTEGER, INTENT(IN) :: NCID,X_IND(:),TIME_IND,DIM_LENS(:),VAR_ID
+      TYPE(TimeType_t), INTENT(IN) :: TIME
+      REAL(KIND=dp), OPTIONAL, INTENT(INOUT) :: stencilLine(:),stencilSqr(:,:),stencilCube(:,:,:)
+      INTEGER, PARAMETER :: stencil1D(1) = (/2/)
+      INTEGER, PARAMETER :: stencil2D(2) = (/2,2/)
+      INTEGER, PARAMETER :: stencil3D(3) = (/2,2,2/)
 
       !--- Variables
       INTEGER :: i
+      REAL(KIND=dp), ALLOCATABLE :: data(:)
       LOGICAL :: IS_STENCIL
       CHARACTER(len = 50) :: answ_format
 
       IS_STENCIL = .TRUE.
 !      WRITE (*,*) 'Stencil ', stencil(:,1), ' ; ', stencil(:,2) ,' X: ', X,' Y: ', Y   
 
-      ! Queries the stencil from NetCDF with associated error checks
-      IF ( GetFromNetCDF(NCID,VAR_NAME,stencil,X,Y,TIME,DIM_IDS,DIM_LENS,IS_STENCIL) .AND. DEBUG_INTERP ) THEN
+      !--- Checks that the input exists and is unique
+      IF ( PRESENT(stencilLine) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilCube))) ) THEN !--- 1D
+
+        ! Queries the stencil from NetCDF with associated error checks
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil1D) ) THEN
+   
+          stencilLine = RESHAPE(data,stencil1D)
+          IF ( DEBUG_INTERP ) THEN
+            !------ Debug printouts -------------------------
+!            WRITE (*,*) 'LINE:'
+!            DO i = 1,size(stencilSqr,1)
+!              WRITE (answ_format, *) '(', size(stencilSqr,1),'(F10.4))'
+!              WRITE (*,answ_format) stencilSqr(:,i)
+!            END DO
+            !------------------------------------------------
+          END IF
+        END IF
+
+      ELSE IF ( PRESENT(stencilSqr) .AND. (.NOT. (PRESENT(stencilLine) .OR. PRESENT(stencilCube))) ) THEN !--- 2D
+
+        ! Queries the stencil from NetCDF with associated error checks
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil2D) ) THEN
   
-        !------ Debug printouts -------------------------
-        WRITE (*,*) 'STENCIL:'
-        DO i = 1,size(stencil,1)
-          WRITE (answ_format, *) '(', size(stencil,1),'(F10.4))'
-          WRITE (*,answ_format) stencil(:,i)
-        END DO
-        !------------------------------------------------
+          stencilSqr = RESHAPE(data,stencil2D)
+          IF ( DEBUG_INTERP ) THEN
+            !------ Debug printouts -------------------------
+!            WRITE (*,*) 'LINE:'
+!            DO i = 1,size(stencilSqr,1)
+!              WRITE (answ_format, *) '(', size(stencilSqr,1),'(F10.4))'
+!              WRITE (*,answ_format) stencilSqr(:,i)
+!            END DO
+            !------------------------------------------------
+          END IF
+        END IF
+
+      ELSE IF ( PRESENT(stencilCube) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilLine))) ) THEN !--- 3D
+
+        ! Queries the stencil from NetCDF with associated error checks
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil3D) ) THEN
+  
+         stencilCube = RESHAPE(data,stencil3D)
+          IF ( DEBUG_INTERP ) THEN
+            !------ Debug printouts -------------------------
+!            WRITE (*,*) 'LINE:'
+!            DO i = 1,size(stencilSqr,1)
+!              WRITE (answ_format, *) '(', size(stencilSqr,1),'(F10.4))'
+!              WRITE (*,answ_format) stencilSqr(:,i)
+!            END DO
+            !------------------------------------------------
+          END IF
+        END IF
+      ELSE
+        CALL Fatal('GridDataMapper','Multiple, or no, stencils given for GetSolutionInStencil()!')
       END IF
       
     END SUBROUTINE GetSolutionInStencil

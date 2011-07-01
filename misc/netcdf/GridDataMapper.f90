@@ -42,20 +42,10 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   USE NetCDF
   USE NetCDFGridUtils, ONLY: UniformGrid_t
   USE NetCDFInterpolate, ONLY: Interpolate, LinearInterpolation
-  USE NetCDFGeneralUtils, ONLY: CloseNetCDF
+  USE NetCDFGeneralUtils, ONLY: CloseNetCDF, TimeType_t
   USE CustomTimeInterpolation, ONLY: ChooseTimeInterpolation
 
   IMPLICIT NONE
-
-  !--- A type for time dimension values
-  TYPE TimeType_t
-    REAL(KIND=dp) :: val ! Exact time value
-    INTEGER :: id, & ! Dimension NetCDF id
-              len, & ! Dimension length/size
-              low, & ! Nearest lower index
-              high ! Nearest higher index
-    LOGICAL :: doInterpolation ! True, if the exact value is not an integer and, hence, requires interpolation
-  END TYPE TimeType_t
 
   !------------------------------------------------------------------------------
   LOGICAL, PARAMETER :: DEBUG = .FALSE. ! Shows the basic debug info on grids and dimensions
@@ -77,8 +67,8 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: Field(:)
   REAL(KIND=dp) :: x(2),u1(2),u2(2),interp_val,interp_val2,x0e(2),x1e(2)
   INTEGER, ALLOCATABLE :: dim_ids(:), dim_lens(:) ! Ids and lengths for all dimensions
-  INTEGER :: NCID, loop
-  CHARACTER (len = MAX_NAME_LEN) :: Var_Name, Coord_System, TimeInterpolationMethod
+  INTEGER :: NCID, loop, Var_ID
+  CHARACTER (len = MAX_NAME_LEN) :: Coord_System, TimeInterpolationMethod
   REAL(KIND=dp) :: InterpMultiplier, InterpBias
   LOGICAL :: output, tmpBool, ENABLE_SCALING
 
@@ -95,6 +85,7 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   Time % low = -1
   Time % high = -1
   Time % doInterpolation = .FALSE.
+  Time % is_defined = .FALSE.
 
 !  WRITE (*,*) 'val ', Time % val, ' id ', Time % id, ' len ', Time % len,&
 ! ' low ', Time % low, ' high ', Time % high, ' interp ', Time % doInterpolation
@@ -111,7 +102,7 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   FieldPerm => Solver % Variable % Perm
   DIM = CoordinateSystemDimension()
 
-  CALL InitNetCDF(Solver, NCID, Var_Name, dim_ids, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
+  CALL InitNetCDF(Solver, NCID, Var_ID, dim_ids, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
   IF (DIM .NE. size(dim_lens,1)) THEN
     CALL Warn('GridDataMapper','NetCDF dimensions do not match the Elmer dimensions')
   END IF
@@ -183,9 +174,9 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
     ! NOTE: Collect also other dimension values here, if those are wanted later on
 
     IF ( Time % doInterpolation ) THEN ! Two time values
-      IF ( .NOT. (Interpolate(Solver,NCID,x,Var_Name,dim_ids,dim_lens, Grids(1),& 
-          Time % low ,interp_val, Coord_System) .AND. Interpolate(Solver,NCID,x,&
-            Var_Name,dim_ids,dim_lens, Grids(2),Time % high,interp_val2, Coord_System)) ) THEN
+      IF ( .NOT. (Interpolate(Solver,NCID,x,Var_ID,dim_lens, Grids(1),& 
+          Time, Time % low,interp_val, Coord_System) .AND. Interpolate(Solver,NCID,x,&
+            Var_ID,dim_lens, Grids(2),Time,Time % high,interp_val2, Coord_System)) ) THEN
         CYCLE
       ELSE
         ! Time interpolation on already interpolated space values; save result in interp_val, use original time to weigh
@@ -198,8 +189,8 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
         output = .FALSE.
       END IF
     ELSE
-      IF (.NOT. Interpolate(Solver,NCID,x,Var_Name,dim_ids,dim_lens,Grids(1),&
-                Time % low,interp_val, Coord_System) ) THEN
+      IF (.NOT. Interpolate(Solver,NCID,x,Var_ID,dim_lens,Grids(1),&
+                Time,Time % low,interp_val, Coord_System) ) THEN
         CYCLE ! Ignore values for incompatible interpolation
       END IF
     END IF
@@ -393,7 +384,7 @@ CONTAINS
 
   !----------------- InitNetCDF() ---------------------
   !--- Gathers and initializes all the necessary NetCDF information for picking variables
-  SUBROUTINE InitNetCDF(Solver, NCID, Var_Name, dim_ids, dim_lens, Grids, Time,&
+  SUBROUTINE InitNetCDF(Solver, NCID, Var_ID, dim_ids, dim_lens, Grids, Time,&
                                    IS_TRANSIENT, STEP_SIZE, MAX_STEPS, Coord_System )
   !--------------------------------------------------
 
@@ -409,9 +400,9 @@ CONTAINS
     LOGICAL, INTENT(IN) :: IS_TRANSIENT ! For using Elmer time instead of a variable
     REAL(KIND=dp), INTENT(IN) :: STEP_SIZE
     INTEGER, INTENT(IN) :: MAX_STEPS
-    INTEGER, INTENT(OUT) :: NCID  !  NCID is the ID of the opened file
+    INTEGER, INTENT(OUT) :: NCID, Var_ID  !  NCID is the ID of the opened file, Var_ID the accessed variable id
     INTEGER, INTENT(INOUT), ALLOCATABLE :: dim_ids(:), dim_lens(:) ! Ids and lengths for all dimensions
-    CHARACTER (len = MAX_NAME_LEN), INTENT(OUT) :: Var_Name, Coord_System
+    CHARACTER (len = MAX_NAME_LEN), INTENT(OUT) :: Coord_System
 
     !------------------------------------------------------------------------------
     ! NetCDF variables
@@ -419,7 +410,7 @@ CONTAINS
     
     LOGICAL :: Found(8) ! True if SIF definitions found
     CHARACTER (len = MAX_NAME_LEN) :: FileName ! File name for reading the data (of .nc format)
-    CHARACTER (len = MAX_NAME_LEN) :: X_Name, Y_Name, Z_Name, T_Name, Mask_Name
+    CHARACTER (len = MAX_NAME_LEN) :: Var_Name, X_Name, Y_Name, Z_Name, T_Name, Mask_Name
     CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Dim_Names(:)
     REAL(KIND=dp) :: Mask_Limit
     INTEGER :: loop, alloc_stat, dim_count, status ! Status tells whether operations succeed
@@ -438,6 +429,7 @@ CONTAINS
     X_Name = GetString( GetSolverParams(Solver), "Coordinate 1 Name", Found(3) )
     Y_Name = GetString( GetSolverParams(Solver), "Coordinate 2 Name", Found(4) )
     Z_Name = GetString( GetSolverParams(Solver), "Coordinate 3 Name", Found(5) ) ! TODO: Working z dimension
+
 
 !    WRITE(*,*) 'count ', dim_count, 'file ', FileName, ' var ', Var_Name, ' x ', X_Name, ' y ', Y_Name, ' z ', Z_Name
 
@@ -527,6 +519,12 @@ CONTAINS
  
     CALL GetAllDimensions(NCID,Dim_Names,dim_ids,dim_lens) ! Gets dimensions on basis of the given names
  
+    ! Find variable to be accessed
+    status = NF90_INQ_VARID(NCID,Var_Name,Var_ID)
+    IF ( G_Error(status,'NetCDF variable name not found.') ) THEN
+      CALL abort()
+    END IF
+
 !    WRITE(*,*) 'Finished dims'
 
     !----------- Get the definining parameters for the NetCDF grid
@@ -540,6 +538,7 @@ CONTAINS
     IF (IsTimeDependent) THEN
 
 !      WRITE(*,*) 'C'
+      Time % is_defined = .TRUE.
       CALL InitTime( Solver, NCID, T_Name, IS_TRANSIENT, STEP_SIZE, MAX_STEPS, Time )
 
       ! If there'll be interpolation, initialize both of the grids usable

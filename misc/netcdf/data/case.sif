@@ -39,6 +39,7 @@ Solver 1
   Equation = Mapper
   Variable = NetCDF ! Output variable
   Procedure = "./GridLib" "GridDataMapper"
+  Solver Timing = LOGICAL TRUE
 
   !---- NOTE: File is case sensitive, String is not!
   File Name = File "./data.nc" ! NetCDF input file
@@ -107,19 +108,19 @@ End
 !  Linear System Precondition Recompute = 1
 !End 
 !
-!Solver 3
-!  Equation = SaveScalars
-!  Procedure = "SaveData" "SaveScalars"
-!
-!  Filename = f.dat
-!  Echo Values = Logical True
-!
-!! compute properties from the solution
-!  Variable 1 = NetCDF
-!  Operator 1 = min
+Solver 2
+  Equation = SaveScalars
+  Procedure = "SaveData" "SaveScalars"
+
+  Filename = f.dat
+  Echo Values = Logical True
+
+! compute properties from the solution
+!  Variable 1 = CPU TIME
+  Operator 1 = cpu time
 !  Operator 2 = max
 !  Operator 3 = int mean
-!End
+End
  
 Body Force 1
   Heat Source = 1.0
