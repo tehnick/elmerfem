@@ -64,14 +64,15 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
 
   REAL(KIND=dp), POINTER :: StreamFunction(:), FlowSolValues(:)
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:)
-  REAL(KIND=dp) :: Norm
+  REAL(KIND=dp) :: Norm, coeff, val, Anchor
 
   INTEGER, POINTER :: NodeIndexes(:), Perm(:), FlowSolPerm(:)
   INTEGER :: k, t, i, n, istat, NSDOFs, FirstNode
 
   TYPE(ValueList_t), POINTER :: SolverParams
 
-  LOGICAL :: AllocationsDone = .FALSE., Found, Shifting, Scaling, StokesStream
+  LOGICAL :: AllocationsDone = .FALSE., Found, Shifting, Scaling, StokesStream, &
+      DirichletPoint, IsAxis
 
   SAVE STIFF, FORCE, LOAD, AllocationsDone
 
@@ -115,55 +116,52 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Get keyword values
 !------------------------------------------------------------------------------
-  FirstNode = GetInteger( SolverParams, 'Stream Function First Node', Found )
-  IF ( .NOT. Found ) THEN
-     CALL Info( 'StreamSolver', 'Stream Function First Node set to 1.' )
-     FirstNode = 1
-  END IF
-
-  IF ( FirstNode < 1 ) THEN
-     CALL Warn( 'StreamSolver', 'Given Stream Function First Node is non-positive.' )
-     CALL Info( 'StreamSolver', 'Stream Function First Node set to 1.' )
-     FirstNode = 1
-  END IF
-
   n = Solver % Mesh % NumberOfNodes
-  IF ( FirstNode > n ) THEN
-     CALL Warn( 'StreamSolver', 'Given Stream Function First Node is too big.' )
-     WRITE( Message, *) 'Stream Function First Node set to ', n
-     CALL Info( 'StreamSolver', Message )
-     FirstNode = n
+  FirstNode = GetInteger( SolverParams, 'Stream Function First Node', Found )
+  IF ( Found ) THEN
+    IF ( FirstNode > n ) THEN
+      CALL Warn( 'StreamSolver', 'Given > Stream Function First Node < is too big.' )
+      WRITE( Message, *) '> Stream Function First Node < set to ', n
+      CALL Info( 'StreamSolver', Message )
+      FirstNode = n
+    ELSE IF ( FirstNode < 1 ) THEN
+      CALL Warn( 'StreamSolver', 'Given > Stream Function First Node < is non-positive.' )
+      CALL Info( 'StreamSolver', '> Stream Function First Node < set to 1.' )
+      FirstNode = 1
+    END IF
+  ELSE
+    CALL Info( 'StreamSolver', 'Keyword > Stream Function First Node < not given, use Dirichlet conditions!' )
   END IF
 
   Shifting = GetLogical( SolverParams, 'Stream Function Shifting', Found )
   IF ( .NOT. Found ) THEN
-     CALL Info( 'StreamSolver', 'Stream Function Shifting set to .TRUE.' )
+     CALL Info( 'StreamSolver', '> Stream Function Shifting < set to .TRUE.' )
      Shifting = .TRUE.
   END IF
 
   Scaling = GetLogical( SolverParams, 'Stream Function Scaling', Found )
   IF ( .NOT. Found ) THEN
-     CALL Info( 'StreamSolver', 'Stream Function Scaling set to .FALSE.' )
+     CALL Info( 'StreamSolver', '> Stream Function Scaling < set to .FALSE.' )
      Scaling = .FALSE.
   END IF
 
-  StokesStream = GetLogical( SolverParams, 'Stokes Stream Function', Found )
-  IF ( .NOT. Found ) THEN
-     IF ( CurrentCoordinateSystem() == AxisSymmetric .OR. &
-          CurrentCoordinateSystem() == CylindricSymmetric ) THEN
-        CALL Info( 'StreamSolver', 'Stokes Stream Function set to .TRUE.' )
-        StokesStream = .TRUE.
-     ELSE
-        CALL Info( 'StreamSolver', 'Stokes Stream Function set to .FALSE.' )
-        StokesStream = .FALSE.
-     END IF
-  END IF
+  DirichletPoint = GetLogical( SolverParams, 'Dirichlet Point', Found )
+  Coeff = GetConstReal( SolverParams, 'Dirichlet Weight', Found )
+  IF(.NOT. Found) Coeff = 1.0_dp
 
-  IF ( ( CurrentCoordinateSystem() == AxisSymmetric .OR. &
-         CurrentCoordinateSystem() == CylindricSymmetric ) .AND. .NOT. StokesStream ) THEN
-     CALL Warn( 'StreamSolver', 'Using normal stream function in axis symmetric case.' )
-  ELSE IF ( CurrentCoordinateSystem() == Cartesian .AND. StokesStream ) THEN
-     CALL Warn( 'StreamSolver', 'Using Stokes stream function in cartesian case.' )
+  Anchor = GetConstReal( SolverParams, 'Stream Function Penalty', Found )
+
+  StokesStream = GetLogical( SolverParams, 'Stokes Stream Function', Found )
+  IsAxis = CurrentCoordinateSystem() == AxisSymmetric .OR. &
+         CurrentCoordinateSystem() == CylindricSymmetric
+  IF ( Found ) THEN
+    IF( IsAxis .AND. .NOT. StokesStream ) THEN
+      CALL Warn( 'StreamSolver', 'Using normal stream function in axis symmetric case.' )
+    ELSE IF ( .NOT. IsAxis .AND. StokesStream ) THEN
+      CALL Warn( 'StreamSolver', 'Using Stokes stream function in cartesian case.' )
+    END IF
+  ELSE
+    StokesStream = IsAxis
   END IF
   
 !------------------------------------------------------------------------------
@@ -231,10 +229,17 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !  Zero the row corresponding to the 'FirstNode':
 !------------------------------------------------------------------------------
-   k = Solver % Variable % Perm( FirstNode )
-   CALL ZeroRow( StiffMatrix, k )
-   CALL SetMatrixElement( StiffMatrix, k, k, MAXVAL(StiffMatrix % Values) )
-   StiffMatrix % RHS(k) = MAXVAL( StiffMatrix % RHS )
+   IF( FirstNode > 0 ) THEN
+     k = Solver % Variable % Perm( FirstNode )
+     val =  MAXVAL( ABS( StiffMatrix % Values) ) 
+     IF( DirichletPoint ) THEN
+       CALL ZeroRow( StiffMatrix, k )
+       StiffMatrix % RHS(k) = 0.0_dp
+     END IF
+     CALL AddToMatrixElement( StiffMatrix,k,k,val*coeff )
+   ELSE
+     CALL DefaultDirichletBCs()
+   END IF
 !------------------------------------------------------------------------------
 !  Solve the system:
 !------------------------------------------------------------------------------
@@ -248,12 +253,13 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
   END IF
 
   IF ( Scaling ) THEN
-     IF ( MAXVAL( ABS( StreamFunction ) ) < AEPS ) THEN
-        CALL Warn( 'StreamSolver', &
-             'Maximum absolut value smaller than machine epsilon; cannot scale.' )
-     ELSE
-        StreamFunction = StreamFunction / MAXVAL( ABS( StreamFunction ) )
-     END IF
+    coeff = MAXVAL( StreamFunction ) - MINVAL( StreamFunction ) 
+    IF ( coeff < AEPS ) THEN
+      CALL Warn( 'StreamSolver', &
+          'Maximum absolut value smaller than machine epsilon; cannot scale.' )
+    ELSE
+      StreamFunction = StreamFunction / coeff
+    END IF
   END IF
 !------------------------------------------------------------------------------
 
@@ -270,7 +276,7 @@ CONTAINS
     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), LoadAtIp(2)
     REAL(KIND=dp) :: DetJ, U, V, W, S, Radius
     LOGICAL :: Stat
-    INTEGER :: t, p, q, dim, k
+    INTEGER :: t, p, q, dim, i,j,k
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -283,7 +289,7 @@ CONTAINS
 !   Numerical integration
 !------------------------------------------------------------------------------
     IntegStuff = GaussPoints( Element )
-
+    
     DO t=1,IntegStuff % n
        U = IntegStuff % u(t)
        V = IntegStuff % v(t)
@@ -315,6 +321,12 @@ CONTAINS
 !------------------------------------------------------------------------------       
        STIFF(1:n,1:n) = STIFF(1:n,1:n) &
            + s * MATMUL( dBasisdx, TRANSPOSE(dBasisdx) )
+
+       DO i=1,n
+         DO j=1,n
+           STIFF(i,j) = STIFF(i,j) + s * Anchor * Basis(i) * Basis(j)
+         END DO
+       END DO
 
        FORCE(1:n) = FORCE(1:n) + s * SUM(LoadAtIp(1:dim)) * Basis(1:n)
        
