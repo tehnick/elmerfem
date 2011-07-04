@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 30.6.2011
+! Last Modified: 4.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -113,7 +113,6 @@ MODULE NetCDFGeneralUtils
    
     !----------------- GetFromNetCDF() --------------------
     !--- Reads the given variable name and returns the value from NetCDF grid
-    !--- TODO: Generalize this!!!!
     FUNCTION GetFromNetCDF( NCID, VAR_ID, LOC, LOC_TIME, TIME, DIM_LENS, accessed, OUT_SIZE ) RESULT( success )
     !------------------------------------------------------
       USE NetCDF
@@ -125,6 +124,7 @@ MODULE NetCDFGeneralUtils
       TYPE(TimeType_t), INTENT(IN) :: TIME
       INTEGER, INTENT(IN) ::  OUT_SIZE(:) ! The sizes of each dimension for the return type
       LOGICAL :: success ! Output: TRUE if all ok
+      REAL (KIND=dp), ALLOCATABLE, INTENT(INOUT) :: accessed(:) ! Later reshaped to proper dimensions
 
       !--- Variables
       INTEGER :: DIM_COUNT,TOTAL_SIZE
@@ -134,15 +134,21 @@ MODULE NetCDFGeneralUtils
       ! starting from corresponding index vector locations (slabs of data)
       INTEGER, ALLOCATABLE :: locs(:,:) ! First column is left limit, second column is right limit
       INTEGER :: loop, status
-      REAL (KIND=dp), ALLOCATABLE, INTENT(INOUT) :: accessed(:) ! Later reshaped to proper dimensions
+
       
       ! Initializations
+
+      ! Checks input size
+      IF ( (size(OUT_SIZE) .NE. size(LOC)) .OR. (size(LOC) .NE. size(DIM_LENS)) ) THEN
+        CALL Fatal('GridDataMapper','Number of dimensions differs between input coordinates')
+      END IF
 
       ! Checks if time dimension is taken into account (picks always just one point)
       DIM_COUNT = size(DIM_LENS,1)
       IF (TIME % IS_DEFINED) DIM_COUNT = DIM_COUNT + 1 ! Takes one more dimension for time
 
       ! The same calculations would be done in any case; uses a little memory to save here
+      ! The product of all sizes is the size of the one dimensional version of the NetCDF return value
       TOTAL_SIZE = 1
       DO loop = 1,size(OUT_SIZE,1),1
         TOTAL_SIZE = TOTAL_SIZE*OUT_SIZE(loop)
@@ -158,7 +164,6 @@ MODULE NetCDFGeneralUtils
       accessed = 0
 
       ! If has time, then the last dimension is time and is set in count vector and locs
-      ! TODO: ADD CHECK: Otherwise size(OUT_SIZE) = size(LOC) = size(DIM_LENS) = DIM_COUNT
       COUNT_VECTOR(1:size(OUT_SIZE)) = OUT_SIZE(:)
       locs(1:size(LOC),1) = LOC(:)
       IF ( TIME % IS_DEFINED ) THEN

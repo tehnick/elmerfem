@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 30.6.2011
+! Last Modified: 4.7.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -36,11 +36,9 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
   USE DefUtils, ONLY: dp, Solver_t, Model_t, Mesh_t,GetInteger, CoordinateSystemDimension, GetSolverParams, &
                       GetLogical, MAX_NAME_LEN
-  USE Messages, ONLY: Info, Warn, Message
-!  USE MeshUtils
-!  USE ElementUtils
+  USE Messages, ONLY: Info, Warn, Fatal, Message
   USE NetCDF
-  USE NetCDFGridUtils, ONLY: UniformGrid_t
+  USE NetCDFGridUtils, ONLY: UniformGrid_t, PrintGrid
   USE NetCDFInterpolate, ONLY: Interpolate, LinearInterpolation
   USE NetCDFGeneralUtils, ONLY: CloseNetCDF, TimeType_t
   USE CustomTimeInterpolation, ONLY: ChooseTimeInterpolation
@@ -65,9 +63,10 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   INTEGER :: k, node, DIM, MAX_STEPS
   INTEGER, POINTER :: FieldPerm(:)
   REAL(KIND=dp), POINTER :: Field(:)
-  REAL(KIND=dp) :: x(2),u1(2),u2(2),interp_val,interp_val2,x0e(2),x1e(2)
+  REAL(KIND=dp), ALLOCATABLE :: x(:),u1(:),u2(:),x0e(:),x1e(:)
+  REAL(KIND=dp) :: interp_val, interp_val2
   INTEGER, ALLOCATABLE :: dim_ids(:), dim_lens(:) ! Ids and lengths for all dimensions
-  INTEGER :: NCID, loop, Var_ID
+  INTEGER :: NCID, loop, Var_ID, alloc_stat
   CHARACTER (len = MAX_NAME_LEN) :: Coord_System, TimeInterpolationMethod
   REAL(KIND=dp) :: InterpMultiplier, InterpBias
   LOGICAL :: output, tmpBool, ENABLE_SCALING
@@ -103,8 +102,13 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   DIM = CoordinateSystemDimension()
 
   CALL InitNetCDF(Solver, NCID, Var_ID, dim_ids, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
-  IF (DIM .NE. size(dim_lens,1)) THEN
+  IF (DIM .NE. size(dim_lens,1)) THEN ! TODO: What to do about this?!
     CALL Warn('GridDataMapper','NetCDF dimensions do not match the Elmer dimensions')
+  END IF
+
+  ALLOCATE ( x(DIM),u1(DIM),u2(DIM),x0e(DIM),x1e(DIM), STAT = alloc_stat ) 
+  IF ( alloc_stat .NE. 0 ) THEN
+    CALL Fatal('GridDataMapper','Memory ran out')
   END IF
 
   DO loop = 1,size(Grids,1),1
@@ -113,11 +117,10 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   END DO
 
   !--- Collects the range of the Elmer mesh bounding box for scaling
-  x0e(1) = MINVAL(Mesh % Nodes % x)
-  x0e(2) = MINVAL(Mesh % Nodes % y)
-  x1e(1) = MAXVAL(Mesh % Nodes % x)
-  x1e(2) = MAXVAL(Mesh % Nodes % y)
-
+  DO loop = 1,DIM,1
+    x0e(loop) = GetElmerMinMax(Solver,loop,.TRUE.)
+    x1e(loop) = GetElmerMinMax(Solver,loop,.FALSE.)
+  END DO
 
   !--- Calculates the modifications (by default does nothing)
   tmpBool = .FALSE.
@@ -137,8 +140,9 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
   IF (DEBUG) THEN
     PRINT *,'Initial Elmer Grid Bounding Box:'
-    PRINT *,'X:',MINVAL(Mesh % Nodes % x), MAXVAL( Mesh % Nodes % x )
-    PRINT *,'Y:',MINVAL(Mesh % Nodes % y), MAXVAL( Mesh % Nodes % y )
+    DO loop = 1,DIM,1
+      PRINT *,'Coordinate ', loop,':', GetElmerMinMax(Solver,loop,.TRUE.), GetElmerMinMax(Solver,loop,.FALSE.)
+    END DO
 
     DO loop = 1,size(Grids,1),1
       CALL PrintGrid(Grids(loop),loop)
@@ -169,9 +173,9 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
     IF( k == 0 ) CYCLE
     
     ! The point of interest
-    x(1) = Mesh % Nodes % x(node)
-    x(2) = Mesh % Nodes % y(node)
-    ! NOTE: Collect also other dimension values here, if those are wanted later on
+    DO loop = 1,DIM,1
+      x(loop) = GetElmerNodeValue(Solver,node,loop)
+    END DO
 
     IF ( Time % doInterpolation ) THEN ! Two time values
       IF ( .NOT. (Interpolate(Solver,NCID,x,Var_ID,dim_lens, Grids(1),& 
@@ -216,10 +220,74 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
 CONTAINS
 
+  !---------------- GetElmerNodeValue() ---------------
+  !--- Gets the value of the chosen node from the given dimension (1 = x, 2 = y, 3 = z)
+  FUNCTION GetElmerNodeValue( Solver, node, dimE ) RESULT( node_val )
+  !----------------------------------------------------
+    USE DefUtils, ONLY: Solver_t
+    USE Messages, ONLY: Fatal
+    IMPLICIT NONE
+
+    TYPE(Solver_t), INTENT(IN) :: Solver
+    INTEGER, INTENT(IN) :: node, dimE
+    REAL(KIND=dp) :: node_val ! The output
+    SELECT CASE (dimE)
+      CASE (1)
+        node_val = Solver % Mesh % Nodes % x(node)
+      CASE (2)
+        node_val = Solver % Mesh % Nodes % y(node)
+      CASE (3)
+        node_val = Solver % Mesh % Nodes % z(node)
+      CASE DEFAULT
+        CALL Fatal('GridDataMapper','GetElmerNodeValue(): Elmer dimension not found')
+        node_val = 0
+    END SELECT
+     
+  END FUNCTION GetElmerNodeValue
+
+  !---------------- GetElmerMinMax() ---------------
+  !--- Gets the minimum/maximum (chosen) value of the given dimension (1 = x, 2 = y, 3 = z)
+  FUNCTION GetElmerMinMax( Solver, dimE, GET_MIN ) RESULT( node_val )
+  !----------------------------------------------------
+    USE DefUtils, ONLY: Solver_t, CoordinateSystemDimension
+    USE Messages, ONLY: Fatal
+    IMPLICIT NONE
+
+    TYPE(Solver_t), INTENT(IN) :: Solver
+    INTEGER, INTENT(IN) :: dimE
+    LOGICAL, INTENT(IN) :: GET_MIN
+    REAL(KIND=dp) :: node_val ! The output
+
+    SELECT CASE (dimE)
+      CASE (1)
+        IF ( GET_MIN ) THEN 
+          node_val = MINVAL(Solver % Mesh % Nodes % x)
+        ELSE 
+          node_val = MAXVAL(Solver % Mesh % Nodes % x)
+        END IF
+      CASE (2)
+        IF ( GET_MIN ) THEN
+          node_val = MINVAL(Solver % Mesh % Nodes % y)
+        ELSE 
+          node_val = MAXVAL(Solver % Mesh % Nodes % y)
+        END IF
+      CASE (3)
+        IF ( GET_MIN ) THEN
+          node_val = MINVAL(Solver % Mesh % Nodes % z)
+        ELSE 
+          node_val = MAXVAL(Solver % Mesh % Nodes % z)
+        END IF
+      CASE DEFAULT
+        CALL Fatal('GridDataMapper','GetAllElmerNodeValues(): Elmer dimension not found')
+        node_val = 0
+    END SELECT
+     
+  END FUNCTION GetElmerMinMax
+
   !---------------- InitInterpolation() ---------------
   !--- Initializes the information needed for interpolation
   SUBROUTINE InitInterpolation( Solver, Grids, TimeInterpolationMethod, InterpMultiplier, InterpBias )
-    USE DefUtils, ONLY: GetSolverParams, MAX_NAME_LEN, GetConstReal, GetString, GetCReal
+    USE DefUtils, ONLY: GetSolverParams, MAX_NAME_LEN, GetConstReal, GetString, GetCReal, CoordinateSystemDimension
     USE Messages
     IMPLICIT NONE
 
@@ -229,25 +297,29 @@ CONTAINS
     REAL(KIND=dp), INTENT(OUT) :: InterpMultiplier, InterpBias
     CHARACTER(len=MAX_NAME_LEN), INTENT(OUT) :: TimeInterpolationMethod
 
-!    !--- Other variables
+    !--- Other variables
     LOGICAL :: tmpBool
-    REAL(KIND=dp) :: eps(2)
+    REAL(KIND=dp), ALLOCATABLE :: eps(:)
+    INTEGER :: loop, alloc_stat
+
+    ALLOCATE ( eps(CoordinateSystemDimension()), STAT = alloc_stat )
+    IF ( alloc_stat .NE. 0 ) THEN
+      CALL Fatal('GridDataMapper','Memory ran out')
+    END IF
 
     eps = 0
     ! Epsilons are the relative tolerances for the amount 
     ! the Elmer grid point misses the bounds of the NetCDF bounding box
-    eps(1) = GetConstReal(GetSolverParams(Solver), "Epsilon X", tmpBool)
-    IF ( .NOT. tmpBool ) THEN
-       eps(1) = 0
-       CALL Warn('GridDataMapper', 'Variable "Epsilon X" not given in Solver Input File. &
- Using zero tolerance for NetCDF grid mismatches with Elmer mesh.')
-    END IF
-    eps(2) = GetConstReal(GetSolverParams(Solver), "Epsilon Y", tmpBool)
-    IF ( .NOT. tmpBool ) THEN
-       eps(2) = 0
-       CALL Warn('GridDataMapper', 'Variable "Epsilon Y" not given in Solver Input File. &
- Using zero tolerance for NetCDF grid mismatches with Elmer mesh.')
-    END IF
+    DO loop = 1,size(eps),1
+      WRITE(Message, '(A,I1)') 'Epsilon ', loop
+      eps(loop) = GetConstReal(GetSolverParams(Solver), Message, tmpBool)
+      IF ( .NOT. tmpBool ) THEN
+         eps(loop) = 0
+         WRITE(Message,'(A,I1,A,A)') 'Variable "Epsilon ', loop ,'" not given in Solver Input File. ',&
+                                 'Using zero tolerance for NetCDF grid mismatches with Elmer mesh.'
+         CALL Warn('GridDataMapper', Message)
+      END IF
+    END DO
 
     Grids(1) % Eps(:) = eps(:) * Grids(1) % dx(:)
     Grids(2) % Eps(:) = eps(:) * Grids(2) % dx(:)
@@ -554,9 +626,9 @@ CONTAINS
           CALL Focus2DNetCDFGrid(NCID,Mask_Name,Mask_Limit,Grids(1),Time % low,dim_lens)
           IF ( Time % doInterpolation ) THEN ! Need to interpolate, return two different grid parameters
             
-            Grids(2) % x0(1:Grids(2) % DIMS) = Grids(1) % x0(1:Grids(1) % DIMS) ! Copy the same results obtained for all grids
-            Grids(2) % dx(1:Grids(2) % DIMS) = Grids(1) % dx(1:Grids(1) % DIMS)
-            Grids(2) % nmax(1:Grids(2) % DIMS) = Grids(1) % nmax(1:Grids(1) % DIMS)
+            Grids(2) % x0(:) = Grids(1) % x0(:) ! Copy the same results obtained for all grids
+            Grids(2) % dx(:) = Grids(1) % dx(:)
+            Grids(2) % nmax(:) = Grids(1) % nmax(:)
             CALL Focus2DNetCDFGrid(NCID,Mask_Name,Mask_Limit,Grids(2),Time % high,dim_lens)
           END IF
         ELSE

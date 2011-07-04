@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 30.6.2011
+! Last Modified: 4.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
@@ -55,7 +55,7 @@ MODULE NetCDFInterpolate
 
     !------------------- BilinearInterpolation() -------------------
     !--- Performs bilinear interpolation on a stencil (2x2 matrix of corner values)
-    !---  with given weights (2 dimensional vectors)
+    !---  with given weights (a 2 dimensional vector)
     !---------------------------------------------------------------
     FUNCTION BiLinearInterpolation(stencil,weights) RESULT(y)
       USE DefUtils
@@ -69,6 +69,22 @@ MODULE NetCDFInterpolate
           stencil(2,2)*weights(1)*weights(2)
 
     END FUNCTION BiLinearInterpolation
+
+    !------------------- TrilinearInterpolation() -------------------
+    !--- Performs trilinear interpolation on a stencil (2x2x2 matrix of corner values)
+    !---  with given weights (a 3 dimensional vector)
+    !---------------------------------------------------------------
+    FUNCTION TriLinearInterpolation(stencil,weights) RESULT(y)
+      USE DefUtils
+      IMPLICIT NONE
+      REAL(KIND=dp), INTENT(IN) :: stencil(2,2,2), weights(3)
+      REAL(KIND=dp) :: val1,val2,y
+
+      val1 = BiLinearInterpolation(stencil(:,:,1),weights(1:2))
+      val2 = BiLinearInterpolation(stencil(:,:,2),weights(1:2))
+      y = val1*(1-weights(3)) + val2*weights(3)
+
+    END FUNCTION TriLinearInterpolation
 
     !------------------ Interpolate() -----------------------------
     !--- Takes and interpolates one Elmer grid point to match NetCDF data; includes coordinate transformation
@@ -131,18 +147,18 @@ MODULE NetCDFInterpolate
           ELSE IF( Xf(i) >= GRID % X1(i) .AND. Xf(i) <= GRID % X1(i) + GRID % EPS(i) ) THEN
             ind(i) = GRID % NMAX(i)
           ELSE ! The index is too far to be salvaged
-           WRITE (Message, '(A,I20,A,F14.3,A,I2,A,F6.2,A)') 'Index ', ind(i), ', which is estimated from Elmer value ',&
-                  Xf(i), ' and over dimension ', i, &
-                  ', is not within the NetCDF grid bounding box nor the value`s error tolerance of ', GRID % EPS(i), '.'
-           CALL Warn( 'GridDataMapper',Message)
-           success = .FALSE.
-           RETURN
+            WRITE (Message, '(A,I20,A,F14.3,A,I2,A,F6.2,A)') 'Index ', ind(i), ', which is estimated from Elmer value ',&
+                   Xf(i), ' and over dimension ', i, &
+                   ', is not within the NetCDF grid bounding box nor the value`s error tolerance of ', GRID % EPS(i), '.'
+            CALL Warn( 'GridDataMapper',Message)
+            success = .FALSE.
+            RETURN
           END IF
         END IF
       END DO
  
       !--- 4) Choose and perform interpolation 
-      interp_val = ChooseInterpolation(NCID,VAR_ID,GRID,TIME,X,IND,TIME_IND,DIM_LENS)
+      interp_val = ChooseInterpolation(NCID,VAR_ID,GRID,TIME,Xf,IND,TIME_IND,DIM_LENS)
   
       success = .TRUE.
       RETURN
@@ -167,6 +183,7 @@ MODULE NetCDFInterpolate
       !--- Variables
       INTEGER :: alloc_stat
       REAL(KIND=dp), ALLOCATABLE :: xi(:), weights(:)
+      REAL(KIND=dp) :: u1(2),u2(2) ! For 1D (linear) interpolation
       REAL(KIND=dp) :: stencilLine(2),stencilSqr(2,2),stencilCube(2,2,2) ! TODO: Choose these sizes/dimensionalities on basis of input
 
       !--- Initializations
@@ -197,20 +214,25 @@ MODULE NetCDFInterpolate
 
       SELECT CASE ( GRID % DIMS )
         CASE (1) ! 1D 
-          CALL Fatal('GridDataMapper','One dimensional interpolation not implemented!')
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine = stencilLine)
-!          interp_val = LinearInterpolation(X_IND,)
+          ! Note: X_IND is the point in the lower left corner; so, in this case the leftmost point on the line
+          u1(1) = X_IND(1) ! Linear location from scalar x coord (integer),
+          u1(2) = stencilLine(1) ! interpolation for the corresponding value
+          u2(1) = X_IND(1) + 1 ! Same for the adjacent point before interpolation
+          u2(2) = stencilLine(2)
+          interp_val = LinearInterpolation((X_IND(1) + weights(1)),u1,u2)
 
         CASE (2)
           ! get data on stencil size(stencil)=(2,2), ind -vector describes the lower left corner
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilSqr = stencilSqr)
-     
+
           ! bilinear interpolation
           interp_val = BiLinearInterpolation(stencilSqr,weights)
 
         CASE (3)
-          CALL Fatal('GridDataMapper','Three dimensional interpolation not implemented!')
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilCube = stencilCube)
+
+          interp_val = TriLinearInterpolation(stencilCube,weights)
 
         CASE DEFAULT
           CALL Fatal('GridDataMapper','Interpolation defined only up to three dimensions!')
@@ -388,7 +410,7 @@ MODULE NetCDFInterpolate
       INTEGER, PARAMETER :: stencil3D(3) = (/2,2,2/)
 
       !--- Variables
-      INTEGER :: i
+      INTEGER :: i,j
       REAL(KIND=dp), ALLOCATABLE :: data(:)
       LOGICAL :: IS_STENCIL
       CHARACTER(len = 50) :: answ_format
@@ -405,11 +427,9 @@ MODULE NetCDFInterpolate
           stencilLine = RESHAPE(data,stencil1D)
           IF ( DEBUG_INTERP ) THEN
             !------ Debug printouts -------------------------
-!            WRITE (*,*) 'LINE:'
-!            DO i = 1,size(stencilSqr,1)
-!              WRITE (answ_format, *) '(', size(stencilSqr,1),'(F10.4))'
-!              WRITE (*,answ_format) stencilSqr(:,i)
-!            END DO
+            WRITE (*,*) 'STENCIL LINE:'
+            WRITE (answ_format, *) '(', size(stencilLine,1),'(F10.4))'
+            WRITE (*,answ_format) stencilLine(:)
             !------------------------------------------------
           END IF
         END IF
@@ -422,11 +442,11 @@ MODULE NetCDFInterpolate
           stencilSqr = RESHAPE(data,stencil2D)
           IF ( DEBUG_INTERP ) THEN
             !------ Debug printouts -------------------------
-!            WRITE (*,*) 'LINE:'
-!            DO i = 1,size(stencilSqr,1)
-!              WRITE (answ_format, *) '(', size(stencilSqr,1),'(F10.4))'
-!              WRITE (*,answ_format) stencilSqr(:,i)
-!            END DO
+            WRITE (*,*) 'STENCIL SQUARE:'
+            DO i = 1,size(stencilSqr,2)
+              WRITE (answ_format, *) '(', size(stencilSqr,1),'(F10.4))'
+              WRITE (*,answ_format) stencilSqr(:,i)
+            END DO
             !------------------------------------------------
           END IF
         END IF
@@ -439,11 +459,14 @@ MODULE NetCDFInterpolate
          stencilCube = RESHAPE(data,stencil3D)
           IF ( DEBUG_INTERP ) THEN
             !------ Debug printouts -------------------------
-!            WRITE (*,*) 'LINE:'
-!            DO i = 1,size(stencilSqr,1)
-!              WRITE (answ_format, *) '(', size(stencilSqr,1),'(F10.4))'
-!              WRITE (*,answ_format) stencilSqr(:,i)
-!            END DO
+            WRITE (*,*) 'STENCIL CUBE:'
+            DO j = 1,size(stencilCube,3)
+              DO i = 1,size(stencilCube,2)
+                WRITE (answ_format, *) '(', size(stencilCube,1),'(F10.4))'
+                WRITE (*,answ_format) stencilCube(:,i,j)
+              END DO
+              WRITE(*,'(A)') '----'
+            END DO
             !------------------------------------------------
           END IF
         END IF

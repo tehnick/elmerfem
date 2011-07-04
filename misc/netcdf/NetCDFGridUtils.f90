@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 30.6.2011
+! Last Modified: 4.7.2011
 !------------------------------------------------------------------------------
 ! Contains tools for
 ! - getting the essential information on the uniform NetCDF grid; GetNetCDFGridParameters()
@@ -14,8 +14,6 @@ MODULE NetCDFGridUtils
   USE Messages
   USE NetCDFGeneralUtils, ONLY: G_Error
   IMPLICIT NONE
- 
-!  INTEGER, PARAMETER :: MAX_DIM = 3
 
   !--- A type for defining an uniform grid (to simplify parameter passing)
   TYPE UniformGrid_t
