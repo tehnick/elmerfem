@@ -81,7 +81,8 @@
      INTEGER :: i,j,k,l,t,n,n2,istat,Colj,j0,couplings, sym 
 
      REAL (KIND=dp) :: SimulationTime,dt,MinFactor,MaxOmittedFactor, ConsideredSum
-     REAL (KIND=dp) :: s,Norm,PrevNorm,Emissivity,maxds,refds,ds,x,y,z,&
+     REAL (KIND=dp) :: s,Norm,PrevNorm,Emissivity,Transmissivity,Reflectivity,&
+         maxds,refds,ds,x,y,z,&
          dx,dy,dz,x0(1),y0(1),MeshU(TSolver % Mesh % MaxElementNodes)
      REAL (KIND=dp), POINTER :: Vals(:)
      REAL (KIND=dp), ALLOCATABLE :: SOL(:), RHS(:), Fac(:)
@@ -616,6 +617,7 @@
      ImplicitEntries = 0
      Emissivity = ListGetConstReal( TSolver % Values,'Constant Emissivity',GotIt )
      IF(.NOT. GotIt) Emissivity = 0.5_dp
+     Transmissivity = 0.0_dp
 
      ! Fill the matrix for gebhardt factors
      DO t=1,RadiationSurfaces
@@ -637,7 +639,10 @@
 	          WRITE( Message,'(A,I3,I3)') 'In boundary: ',i,k
 	        END IF 
              END IF 
+             Transmissivity = SUM( GetParentMatProp( 'Transmissivity', CurrentElement, Found) ) / n
            END IF
+
+           Reflectivity = 1 - Emissivity - Transmissivity
 
            Vals => ViewFactors(t) % Factors
            Cols => ViewFactors(t) % Elements
@@ -647,11 +652,9 @@
              Colj = InvElementNumbers(Cols(j)-j0)
 
              IF(FullMatrix) THEN
-               GFactorFull(t,Colj) = GFactorFull(t,Colj) - &
-                   (1-Emissivity)*Vals(j)
+               GFactorFull(t,Colj) = GFactorFull(t,Colj) - Reflectivity*Vals(j)
              ELSE
-               CALL CRS_AddToMatrixElement( GFactorSP,t,Colj, &
-                   -(1-Emissivity)*Vals(j) )
+               CALL CRS_AddToMatrixElement( GFactorSP,t,Colj,-Reflectivity*Vals(j) )
              END IF
            END DO
 
@@ -680,7 +683,7 @@
      
      DO t=1,RadiationSurfaces
 
-       RHS    = 0.0_dp
+!       RHS    = 0.0_dp
        RHS(t) = 1.0_dp
 
        ! It may be a good initial start that the Gii is 
@@ -689,6 +692,7 @@
          PrevSelf = SOL(t)
          SOL(t) = SOL(t-1)
          SOL(t-1) = PrevSelf
+         RHS(t-1) = 0.0_dp
        END IF
 
        IF(FullMatrix) THEN
