@@ -633,13 +633,17 @@
            IF(.NOT. ConstantEmissivity) THEN
              Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes, Found) ) / n
-             IF( .NOT. Found ) THEN
+             IF( Found ) THEN
+               Transmissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
+                    'Transmissivity', n, NodeIndexes, Found) ) / n
+             ELSE
                 Emissivity = SUM( GetParentMatProp( 'Emissivity', CurrentElement, Found) ) / n
 	        IF(.NOT. Found) THEN
-	          WRITE( Message,'(A,I3,I3)') 'In boundary: ',i,k
+	          WRITE( Message,'(A,I3,I3)') 'Emissivity not found in BC: ',i,k
+                  CALL Fatal('RadiationFactors',Message)
 	        END IF 
-             END IF 
-             Transmissivity = SUM( GetParentMatProp( 'Transmissivity', CurrentElement, Found) ) / n
+                Transmissivity = SUM( GetParentMatProp( 'Transmissivity', CurrentElement, Found) ) / n
+             END IF  
            END IF
 
            Reflectivity = 1 - Emissivity - Transmissivity
@@ -683,7 +687,6 @@
      
      DO t=1,RadiationSurfaces
 
-!       RHS    = 0.0_dp
        RHS(t) = 1.0_dp
 
        ! It may be a good initial start that the Gii is 
