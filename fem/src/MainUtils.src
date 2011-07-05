@@ -3254,9 +3254,13 @@ ScaleSystem = .FALSE.
     !------------------------------------------------------------------
     SUBROUTINE InitializeBlockMatrix( BlockMatrix, NoVar )
       
+      IMPLICIT NONE
+
       TYPE(BlockMatrix_t) :: BlockMatrix
+      INTEGER :: NoVar
+
       TYPE(Matrix_t), POINTER :: Amat
-      INTEGER :: i,j,NoVar
+      INTEGER :: i,j
 
       IF( BlockMatrix % NoVar == NoVar ) THEN
         CALL Info('InitializeBlockMatrix','Reusing existing blockmatrix')
