@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 4.7.2011
+! Last Modified: 5.7.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -310,6 +310,9 @@ CONTAINS
     eps = 0
     ! Epsilons are the relative tolerances for the amount 
     ! the Elmer grid point misses the bounds of the NetCDF bounding box
+
+    ! TODO: ADD HERE A VARIABLE SIZED AMOUNT OF EPSILONS!!!
+
     DO loop = 1,size(eps),1
       WRITE(Message, '(A,I1)') 'Epsilon ', loop
       eps(loop) = GetConstReal(GetSolverParams(Solver), Message, tmpBool)
@@ -454,6 +457,116 @@ CONTAINS
 
   END SUBROUTINE InitTime
 
+  !----------------------- IntWidth() --------------
+  !--- Finds the width of an integer; ignores sign
+  FUNCTION IntWidth( NR ) RESULT( width )
+  !-------------------------------------------------
+    IMPLICIT NONE
+    INTEGER, INTENT(IN) :: NR
+    INTEGER :: val
+    INTEGER :: width
+    INTEGER :: comp
+
+    width = 1
+    comp = 10
+    val = ABS(NR) + 1 ! Ignores sign; val >= 1
+
+    ! Note that:
+    ! 10^0 - 1 = 0 <= 0..9 <= 10 = 10^1 - 1,
+    ! 10^1 - 1 = 0 <= 10..99 <= 10 = 10^2 - 1,
+    ! 10^2 - 1 = 0 <= 100..999 <= 10 = 10^3 - 1, 
+    ! and so forth,
+    ! where 10 corresponds to width of the number with 10 based numbers (n == width).
+    ! We get: 10^(n-1) <= NR + 1 <= 10^(n)
+
+    ! Width usually small, so logarithmic search is not usually necessary.
+
+    ! P: 10^0 = 1 <= val+1 .AND. width = 1 => For every j; 0 <= j <= i: 10^i <= val+1 .AND. i = 0 .AND. width = i + 1 = 0 + 1 = 1
+    DO WHILE (comp < val)
+      width = width + 1 ! width = i+1
+      comp = 10*comp ! 10*10^(i) = 10^(i+1)
+      ! I: For every j; 0 <= j <= i: 10^j <= val+1 .AND. Exists n; i < n: val+1 <= 10^n .AND. width = i+1
+    END DO
+    ! Q: (For every i; 0 <= i <= n-1: 10^i <= val+1) .AND. val+1 <= 10^n .AND. width = n
+    !    => 10^(n-1) <= val+1 .AND. val+1 <= 10^n .AND. width = n
+
+  END FUNCTION IntWidth
+
+
+  !----------------- ListGetStrings() -----------------
+  !--- Gets all strings defined with prefix "Name" and ending with " NR", where NR is a number in an array
+  SUBROUTINE ListGetStrings( List,Name,Found,CValues )
+  !----------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+
+    !--- Arguments
+    TYPE(ValueList_t), INTENT(IN), POINTER :: List ! A pointer to a list of values
+    CHARACTER(LEN=*), INTENT(IN) :: Name ! Name of the SIF variable
+    LOGICAL, OPTIONAL, INTENT(INOUT) :: Found ! True, if found
+    CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: CValues(:) ! For returned array data
+
+    !--- Variables
+    TYPE(ValueList_t), POINTER :: ptr
+    CHARACTER(LEN=MAX_NAME_LEN) :: tmpStr
+    LOGICAL :: GotIt
+    INTEGER :: loop, amount, alloc_stat
+    CHARACTER(LEN=10) :: tmpFormat
+
+    !--- Initializations
+    NULLIFY(ptr)
+    Found = .FALSE.
+
+    ! Count the amount of defined strings for allocation
+    amount = 0
+    loop = 1
+    GotIt = .TRUE.
+    DO WHILE (GotIt)
+      ! Tries to ensure that the given integer doesn't have extra spaces before it in char format
+      ! Scales until a number with a width of 9 (limited by tmpFormat)
+      WRITE(tmpFormat,'(A,I1,A)') '(A,A,I', IntWidth(loop),')'
+      WRITE(tmpStr,tmpFormat) TRIM(Name),' ',loop
+      ptr => ListFind( List,tmpStr,GotIt )
+
+!      WRITE(*,*) 'TEMP: ', tmpStr
+
+      ! Continues until first name is not found
+      IF (GotIt) THEN
+        IF (.NOT. ASSOCIATED(ptr)) THEN
+          GotIt = .FALSE.
+          RETURN
+        ELSE
+          amount = amount + 1
+          loop = loop + 1
+        END IF
+      END IF
+    END DO
+
+!    WRITE (*,*) 'amount: ', amount
+    ! TODO: Better error message for when amount of found content is not enough or is too much?
+
+    IF ( amount .LE. 0 ) RETURN ! No strings found
+
+    ! Allocation
+    ALLOCATE ( CValues(amount), STAT = alloc_stat )
+    IF ( alloc_stat .NE. 0 ) THEN
+      CALL Fatal('GridDataMapper','Memory ran out')
+    END IF
+
+    ! Getting the strings
+    DO loop = 1,amount,1
+      WRITE(tmpFormat,'(A,I1,A)') '(A,A,I', IntWidth(loop) ,')'
+      WRITE(tmpStr,tmpFormat) TRIM(Name),' ',loop
+      CValues(loop) = GetString( List,tmpStr,GotIt )
+      IF (.NOT. GotIt) THEN
+        CALL Fatal('GridDataMapper','Obtained string did not exist after all')
+      END IF
+    END DO
+   
+    Found = .TRUE.
+
+  END SUBROUTINE ListGetStrings 
+
   !----------------- InitNetCDF() ---------------------
   !--- Gathers and initializes all the necessary NetCDF information for picking variables
   SUBROUTINE InitNetCDF(Solver, NCID, Var_ID, dim_ids, dim_lens, Grids, Time,&
@@ -463,7 +576,7 @@ CONTAINS
     USE NetCDFGridUtils, ONLY: PrintGrid, InitGrid, GetNetCDFGridParameters, Focus2DNetCDFGrid 
     USE NetCDFGeneralUtils, ONLY: GetAllDimensions, G_Error, TimeValueToIndex
     USE NetCDF
-    USE DefUtils, ONLY: dp, MAX_NAME_LEN, GetSolverParams, GetString, GetConstReal
+    USE DefUtils, ONLY: dp, MAX_NAME_LEN, GetSolverParams, GetString, GetConstReal, ListGetString
     USE Messages, ONLY: Fatal, Message
     IMPLICIT NONE
     TYPE(Solver_t), INTENT(IN) :: Solver
@@ -485,25 +598,20 @@ CONTAINS
     CHARACTER (len = MAX_NAME_LEN) :: Var_Name, X_Name, Y_Name, Z_Name, T_Name, Mask_Name
     CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Dim_Names(:)
     REAL(KIND=dp) :: Mask_Limit
-    INTEGER :: loop, alloc_stat, dim_count, status ! Status tells whether operations succeed
+    INTEGER :: loop, alloc_stat, dim_count, NOFCoords,status ! Status tells whether operations succeed
     LOGICAL :: IsTimeDependent
+    CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Coords(:)
   
     !------------------------------------------------------------------------------
     ! NetCDF initializations
     !------------------------------------------------------------------------------
 !    WRITE (*,*) 'NetCDF INIT' 
- 
-    dim_count = 1 ! Minimum of one dimension required for anything
 
     !------- Collects the input information from Solver Input File
     FileName = GetString( GetSolverParams(Solver), "File Name", Found(1) )
     Var_Name = GetString( GetSolverParams(Solver), "Var Name", Found(2) )
-    X_Name = GetString( GetSolverParams(Solver), "Coordinate 1 Name", Found(3) )
-    Y_Name = GetString( GetSolverParams(Solver), "Coordinate 2 Name", Found(4) )
-    Z_Name = GetString( GetSolverParams(Solver), "Coordinate 3 Name", Found(5) ) ! TODO: Working z dimension
-
-
-!    WRITE(*,*) 'count ', dim_count, 'file ', FileName, ' var ', Var_Name, ' x ', X_Name, ' y ', Y_Name, ' z ', Z_Name
+    CALL ListGetStrings( GetSolverParams(Solver), "Coordinate Name", Found(3), Coords )
+    dim_count = size(Coords,1)
 
     !------- Time needs to be given name to be defined
     T_Name = GetString( GetSolverParams(Solver), "Time Name", IsTimeDependent ) ! If given, time is the last dimension
@@ -524,15 +632,6 @@ CONTAINS
       "Unable to find a compulsory NetCDF Name Constant (the name of file, variable or first coordinate)")
       END IF
     END DO
- 
-    !--- Requires that last found coordinate name limits the input size 
-    IF ( Found(5) .AND. (.NOT. Found(4)) ) THEN
-      CALL Fatal('GridDataMapper', 'Coordinate 3 was defined without Coordinate 2.')
-    END IF
-
-    ! Counts the amount of dimensions
-    IF ( Found(4) ) dim_count = 2
-    IF ( Found(5) ) dim_count = 3
 
 !    WRITE(*,*) ' dim count finished ', dim_count
 
@@ -565,16 +664,7 @@ CONTAINS
 !    WRITE(*,*) 'Inits: names ', Dim_Names, ' ids ', dim_ids, ' lens ', dim_lens
 
     ! For now, just an opened little loop
-    Dim_Names(1) = X_Name
-    loop = dim_count - 1
-    IF (loop .GT. 0) THEN
-      Dim_Names(2) = Y_Name
-      loop = loop - 1
-    END IF
-    IF (loop .GT. 0) THEN
-      Dim_Names(3) = Z_Name
-      loop = loop - 1
-    END IF
+    Dim_Names(1:size(Coords)) = Coords(:)
 
 !    WRITE(*,*) 'Names: ', Dim_Names, ' loop ', loop
     
