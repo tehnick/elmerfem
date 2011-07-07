@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 4.7.2011
+! Last Modified: 7.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -113,12 +113,15 @@ MODULE NetCDFGeneralUtils
    
     !----------------- GetFromNetCDF() --------------------
     !--- Reads the given variable name and returns the value from NetCDF grid
+    !--- Does not require time, loc contains indexing
     FUNCTION GetFromNetCDF( NCID, VAR_ID, LOC, LOC_TIME, TIME, DIM_LENS, accessed, OUT_SIZE ) RESULT( success )
     !------------------------------------------------------
       USE NetCDF
       IMPLICIT NONE
 
-      !--- Arguments
+      !------------------------------------------------------------------------------
+      ! ARGUMENTS
+      !------------------------------------------------------------------------------
       INTEGER, INTENT(IN) :: DIM_LENS(:), VAR_ID
       INTEGER, INTENT(IN) :: NCID, LOC(:), LOC_TIME
       TYPE(TimeType_t), INTENT(IN) :: TIME
@@ -126,7 +129,9 @@ MODULE NetCDFGeneralUtils
       LOGICAL :: success ! Output: TRUE if all ok
       REAL (KIND=dp), ALLOCATABLE, INTENT(INOUT) :: accessed(:) ! Later reshaped to proper dimensions
 
-      !--- Variables
+      !------------------------------------------------------------------------------
+      ! VARIABLES
+      !------------------------------------------------------------------------------
       INTEGER :: DIM_COUNT,TOTAL_SIZE
       INTEGER :: alloc_stat ! alloc_stat for allocation status
       INTEGER, ALLOCATABLE :: COUNT_VECTOR(:)
@@ -134,13 +139,16 @@ MODULE NetCDFGeneralUtils
       ! starting from corresponding index vector locations (slabs of data)
       INTEGER, ALLOCATABLE :: locs(:,:) ! First column is left limit, second column is right limit
       INTEGER :: loop, status
-
       
-      !--- Initializations
+      !------------------------------------------------------------------------------
+      ! INITIALIZATIONS
+      !------------------------------------------------------------------------------
 
       ! Checks input size
       IF ( (size(OUT_SIZE) .NE. size(LOC)) .OR. (size(LOC) .NE. size(DIM_LENS)) ) THEN
-        CALL Fatal('GridDataMapper','Number of dimensions differs between input coordinates')
+        WRITE(Message, '(A,I3,A,I3,A,I3)') 'Number of dimensions differs between input coordinates: Output size ',&
+                           size(OUT_SIZE), ', # of locations ', size(LOC), ', # of dimensions ', size(DIM_LENS)
+        CALL Fatal('GridDataMapper',Message)
       END IF
 
       ! Checks if time dimension is taken into account (picks always just one point)

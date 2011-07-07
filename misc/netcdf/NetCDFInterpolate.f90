@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 4.7.2011
+! Last Modified: 7.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
@@ -37,8 +37,6 @@ MODULE NetCDFInterpolate
   PRIVATE :: GetSolutionInStencil, CoordinateTransformation, ScaleMeshPoint
 
   CONTAINS
-
-    !------------------ 
 
     !------------------ LinearInterpolation() ---------------------
     !--- Performs linear interpolation
@@ -90,78 +88,91 @@ MODULE NetCDFInterpolate
     !--- Takes and interpolates one Elmer grid point to match NetCDF data; includes coordinate transformation
     !--- ASSUMES INPUT DIMENSIONS AGREE
     !--------------------------------------------------------------
-    FUNCTION Interpolate(SOLVER,NCID,X,VAR_ID,DIM_LENS,GRID,&
-            TIME,TIME_IND, interp_val, COORD_SYSTEM) RESULT( success )
+    FUNCTION Interpolate(SOLVER,NCID,VAR_ID,DIM_LENS,GRID,&
+            TIME,TIME_IND,interp_val,COORD_SYSTEM,X) RESULT( success )
       USE DefUtils, ONLY: Solver_t
       USE NetCDFGridUtils, ONLY: UniformGrid_t
       USE NetCDFGeneralUtils, ONLY: TimeType_t
       IMPLICIT NONE
 
-      !--- Arguments
+      !------------------------------------------------------------------------------
+      ! ARGUMENTS
+      !------------------------------------------------------------------------------
       TYPE(Solver_t), INTENT(IN) :: SOLVER
       TYPE(UniformGrid_t), INTENT(IN) :: GRID
       TYPE(TimeType_t), INTENT(IN) :: TIME
       INTEGER, INTENT(IN) :: NCID,DIM_LENS(:),TIME_IND,VAR_ID
       CHARACTER(len = *), INTENT(IN) :: COORD_SYSTEM
       REAL(KIND=dp), INTENT(INOUT) :: interp_val ! Final Elmer point and interpolated value 
-      REAL(KIND=dp), INTENT(IN) :: X(:)
+      REAL(KIND=dp), OPTIONAL, INTENT(IN) :: X(:)
       LOGICAL :: success ! Return value
-
-      !--- Others
+      
+      !------------------------------------------------------------------------------
+      ! VARIABLES
+      !------------------------------------------------------------------------------
       INTEGER :: alloc_stat, i
       INTEGER, ALLOCATABLE :: ind(:)
       REAL(KIND=dp), ALLOCATABLE :: Xf(:)
 
-      !--- Memory allocation
-      ALLOCATE (ind(GRID % DIMS), Xf(size(X)), STAT = alloc_stat)
-      IF ( alloc_stat .NE. 0 ) THEN
-        CALL Fatal('GridDataMapper','Interpolation vectors memory allocation failed')
-      END IF
-  
-      !--- 1) Coordinate mapping from Elmer (x,y) to the one used by NetCDF
-      Xf = CoordinateTransformation( SOLVER, X, COORD_SYSTEM )
-!      WRITE (*,*) 'Xf: ', Xf
-
-      !--- 2) Scaling, if applicable
-      ! NOTE! By default the SCALE consists of 1's, and MOVE 0's; hence, nothing happens
-      !       without user specifically specifying so
-      Xf = GRID % SCALE(:)*Xf + GRID % MOVE(:) ! Scales the mesh point within the NetCDF grid
-
-      !--- 3) Index estimation
-      ! Find the (i,j) indices [1,...,max] 
-      ! Calculates the normalized difference vector; 
-      ! i.e. the distance/indices to Elmer grid point x from the leftmost points of the NetCDF bounding box
-      ind(:) = CEILING( ( Xf(:) - GRID % X0(:) ) / GRID % DX(:) ) 
-!      WRITE (*,*) 'Ind: ', ind 
- 
-      ! This could be done better, one could apply extrapolation 
-      ! with a narrow layer.
-      DO i = 1,size(Xf,1),1
-  
-        ! Checks that the estimated index is within the bounding box
-        IF( ind(i) < 1 .OR. ind(i) >= GRID % NMAX(i) ) THEN
-  
-          ! If it's smaller than the leftmost index, but within tolerance (Eps), set it to lower bound; and vice versa
-          IF( Xf(i) <= GRID % X0(i) .AND. Xf(i) >= GRID % X0(i) - GRID % EPS(i) ) THEN
-            ind(i) = 1
-          ELSE IF( Xf(i) >= GRID % X1(i) .AND. Xf(i) <= GRID % X1(i) + GRID % EPS(i) ) THEN
-            ind(i) = GRID % NMAX(i)
-          ELSE ! The index is too far to be salvaged
-            WRITE (Message, '(A,I20,A,F14.3,A,I2,A,F6.2,A)') 'Index ', ind(i), ', which is estimated from Elmer value ',&
-                   Xf(i), ' and over dimension ', i, &
-                   ', is not within the NetCDF grid bounding box nor the value`s error tolerance of ', GRID % EPS(i), '.'
-            CALL Warn( 'GridDataMapper',Message)
-            success = .FALSE.
-            RETURN
-          END IF
+      IF ( PRESENT(X) .AND. GRID % COORD_COUNT .GT. 0 ) THEN
+        !------------------------------------------------------------------------------
+        ! Uses Elmer coordinates
+        !------------------------------------------------------------------------------
+        ALLOCATE (ind(GRID % DIMS), Xf(size(X)), STAT = alloc_stat)
+        IF ( alloc_stat .NE. 0 ) THEN
+          CALL Fatal('GridDataMapper','Interpolation vectors memory allocation failed')
         END IF
-      END DO
- 
-      !--- 4) Choose and perform interpolation 
-      interp_val = ChooseInterpolation(NCID,VAR_ID,GRID,TIME,Xf,IND,TIME_IND,DIM_LENS)
+    
+        !--- 1) Coordinate mapping from Elmer (x,y) to the one used by NetCDF
+        Xf = CoordinateTransformation( SOLVER, X, COORD_SYSTEM )
   
+        !--- 2) Scaling, if applicable
+        ! NOTE! By default the SCALE consists of 1's, and MOVE 0's; hence, nothing happens
+        !       without user specifically specifying so
+        Xf = GRID % SCALE(:)*Xf + GRID % MOVE(:) ! Scales the mesh point within the NetCDF grid
+  
+        !--- 3) Index estimation
+        ! Find the (i,j) indices [1,...,max] 
+        ! Calculates the normalized difference vector; 
+        ! i.e. the distance/indices to Elmer grid point x from the leftmost points of the NetCDF bounding box
+        ind(1:GRID % COORD_COUNT) = CEILING( ( Xf(:) - GRID % X0(:) ) / GRID % DX(:) ) 
+        ind((GRID % COORD_COUNT+1):GRID % DIMS) = GRID % CONST_VALS
+   
+        ! This could be done better, one could apply extrapolation 
+        ! with a narrow layer.
+        DO i = 1,size(Xf,1),1 ! NOTE: Does not modify the constant dimensions
+    
+          ! Checks that the estimated index is within the bounding box
+          IF( ind(i) < 1 .OR. ind(i) >= GRID % NMAX(i) ) THEN
+    
+            ! If it's smaller than the leftmost index, but within tolerance (Eps), set it to lower bound; and vice versa
+            IF( Xf(i) <= GRID % X0(i) .AND. Xf(i) >= GRID % X0(i) - GRID % EPS(i) ) THEN
+              ind(i) = 1
+            ELSE IF( Xf(i) >= GRID % X1(i) .AND. Xf(i) <= GRID % X1(i) + GRID % EPS(i) ) THEN
+              ind(i) = GRID % NMAX(i)
+            ELSE ! The index is too far to be salvaged
+              WRITE (Message, '(A,I20,A,F14.3,A,I2,A,F6.2,A)') 'Index ', ind(i), ', which is estimated from Elmer value ',&
+                     Xf(i), ' and over dimension ', i, &
+                     ', is not within the NetCDF grid bounding box nor the value`s error tolerance of ', GRID % EPS(i), '.'
+              CALL Warn( 'GridDataMapper',Message)
+              success = .FALSE.
+              RETURN
+            END IF
+          END IF
+        END DO
+
+        !--- 4) Choose and perform interpolation 
+        interp_val = ChooseInterpolation(NCID,VAR_ID,GRID,TIME,Xf,IND,TIME_IND,DIM_LENS)
+
+      ELSE
+        !------------------------------------------------------------------------------
+        ! No Elmer coordinates (only constants/time)
+        !------------------------------------------------------------------------------
+        CALL GetScalar(NCID,VAR_ID,GRID,TIME,TIME_IND,DIM_LENS,interp_val)
+
+      END IF  
+ 
       success = .TRUE.
-      RETURN
   
     END FUNCTION Interpolate
 
@@ -194,7 +205,7 @@ MODULE NetCDFInterpolate
 
       !--- A) Calculating the weights
       ! The value of the estimated NetCDF grid point
-      xi(:) = GRID % X0(:) + (X_IND(:)-1) * GRID % DX(:)
+      xi(:) = GRID % X0(:) + (X_IND(1:GRID % COORD_COUNT)-1) * GRID % DX(:)
   
       ! Interpolation weights, which are the normalized differences of the estimation from the adjacent grid point
       ! Can be negative if ceil for indices brings the value of xi higher than x
@@ -232,6 +243,7 @@ MODULE NetCDFInterpolate
         CASE (3)
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilCube = stencilCube)
 
+          ! trilinear interpolation
           interp_val = TriLinearInterpolation(stencilCube,weights)
 
         CASE DEFAULT
@@ -393,36 +405,87 @@ MODULE NetCDFInterpolate
       Xf(:) = scales(:)*X(:) + move(:)
 
     END FUNCTION ScaleMeshPoint
+
+    !------------------ GetScalar() -------------------------------
+    !--- Gets a scalar value from NetCDF
+    SUBROUTINE GetScalar( NCID, VAR_ID, GRID, TIME, TIME_IND, DIM_LENS, scalar )
+    !--------------------------------------------------------------
+      USE NetCDFGeneralUtils, ONLY: TimeType_t, GetFromNetCDF
+      USE NetCDFGridUtils, ONLY: UniformGrid_t
+      USE DefUtils, ONLY: dp
+      IMPLICIT NONE
+
+      !------------------------------------------------------------------------------
+      ! ARGUMENTS
+      !------------------------------------------------------------------------------
+      INTEGER, INTENT(IN) :: NCID, VAR_ID, TIME_IND, DIM_LENS(:)
+      TYPE(UniformGrid_t), INTENT(IN) :: GRID
+      TYPE(TimeType_t), INTENT(IN) :: TIME
+      REAL(KIND=dp), INTENT(OUT) :: scalar
+
+      !------------------------------------------------------------------------------
+      ! VARIABLES
+      !------------------------------------------------------------------------------
+      REAL(KIND=dp), ALLOCATABLE :: data(:)
+      INTEGER, ALLOCATABLE :: singleton(:)
+      INTEGER :: alloc_stat
+
+      !------------------------------------------------------------------------------
+      ! Basic checks and data access with the constant values defined in the Grid
+      !------------------------------------------------------------------------------
+      ALLOCATE ( singleton(size(DIM_LENS)), STAT = alloc_stat )
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out')
+      END IF
+      singleton = 1
+
+      IF ( .NOT. GRID % IS_DEF ) CALL Fatal('GridDataMapper',&
+                     'GetScalar requires a defined grid')
+      IF ( GRID % DIMS .LE. GRID % COORD_COUNT ) CALL Fatal('GridDataMapper',&
+                     'GetScalar requires constant values for accessing NetCDF')
+
+      IF ( GetFromNetCDF(NCID,VAR_ID,GRID % CONST_VALS,TIME % low,TIME,DIM_LENS,data,singleton) ) THEN
+        scalar = data(1)
+      END IF
+
+    END SUBROUTINE GetScalar
  
     !------------------ GetSolutionStencil() ----------------------
     !--- Gets a square matrix starting from the lower left index, the size is defined by input matrix stencil 
     SUBROUTINE GetSolutionInStencil( NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine,stencilSqr,stencilCube )
     !--------------------------------------------------------------
-      USE NetCDFGeneralUtils, ONLY: TimeType_t
+      USE NetCDFGeneralUtils, ONLY: TimeType_t, GetFromNetCDF
       IMPLICIT NONE
 
       !--- Arguments
       INTEGER, INTENT(IN) :: NCID,X_IND(:),TIME_IND,DIM_LENS(:),VAR_ID
       TYPE(TimeType_t), INTENT(IN) :: TIME
       REAL(KIND=dp), OPTIONAL, INTENT(INOUT) :: stencilLine(:),stencilSqr(:,:),stencilCube(:,:,:)
+
+      !--- Variables
+      INTEGER :: i,j,alloc_stat
+      INTEGER, ALLOCATABLE :: stencil(:)
+      REAL(KIND=dp), ALLOCATABLE :: data(:)
+      CHARACTER(len = 50) :: answ_format
       INTEGER, PARAMETER :: stencil1D(1) = (/2/)
       INTEGER, PARAMETER :: stencil2D(2) = (/2,2/)
       INTEGER, PARAMETER :: stencil3D(3) = (/2,2,2/)
 
-      !--- Variables
-      INTEGER :: i,j
-      REAL(KIND=dp), ALLOCATABLE :: data(:)
-      LOGICAL :: IS_STENCIL
-      CHARACTER(len = 50) :: answ_format
+      ALLOCATE (stencil(size(DIM_LENS)), STAT = alloc_stat)
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out')
+      END IF
+      stencil = 1
 
-      IS_STENCIL = .TRUE.
 !      WRITE (*,*) 'Stencil ', stencil(:,1), ' ; ', stencil(:,2) ,' X: ', X,' Y: ', Y   
 
       !--- Checks that the input exists and is unique
       IF ( PRESENT(stencilLine) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilCube))) ) THEN !--- 1D
 
+        stencil(1) = 2
+
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil1D) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil) ) THEN
    
           stencilLine = RESHAPE(data,stencil1D)
           IF ( DEBUG_INTERP ) THEN
@@ -436,8 +499,10 @@ MODULE NetCDFInterpolate
 
       ELSE IF ( PRESENT(stencilSqr) .AND. (.NOT. (PRESENT(stencilLine) .OR. PRESENT(stencilCube))) ) THEN !--- 2D
 
+        stencil(1:2) = 2
+
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil2D) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil) ) THEN
   
           stencilSqr = RESHAPE(data,stencil2D)
           IF ( DEBUG_INTERP ) THEN
@@ -453,8 +518,10 @@ MODULE NetCDFInterpolate
 
       ELSE IF ( PRESENT(stencilCube) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilLine))) ) THEN !--- 3D
 
+        stencil(1:3) = 2
+
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil3D) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil) ) THEN
   
          stencilCube = RESHAPE(data,stencil3D)
           IF ( DEBUG_INTERP ) THEN

@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 6.7.2011
+! Last Modified: 7.7.2011
 !------------------------------------------------------------------------------
 ! Contains tools for
 ! - getting the essential information on the uniform NetCDF grid; GetNetCDFGridParameters()
@@ -51,6 +51,7 @@ MODULE NetCDFGridUtils
         PRINT *, 'eps   ', Grid % eps  
         PRINT *, 'scale ', Grid % scale
         PRINT *, 'move  ', Grid % move 
+        PRINT *, 'const vals', Grid % const_vals
 
         PRINT *,'NetCDF (Uniform) Grid Bounding Box ',ID,':'
         DO loop = 1,size( GRID % x0, 1),1
@@ -79,7 +80,7 @@ MODULE NetCDFGridUtils
         RETURN
       END IF
 
-      ALLOCATE (Grid % x0(DIMS),Grid % dx(DIMS),Grid % nmax(DIMS),Grid % x1(DIMS),&
+      ALLOCATE (Grid % x0(COORDS),Grid % dx(COORDS),Grid % nmax(COORDS),Grid % x1(COORDS),&
                       Grid % eps(COORDS),Grid % scale(COORDS),Grid % move(COORDS),&
                       Grid % const_vals((DIMS-COORDS)),STAT=alloc_stat)
       IF ( alloc_stat .NE. 0 ) THEN
@@ -110,7 +111,7 @@ MODULE NetCDFGridUtils
       TYPE(UniformGrid_t), INTENT(INOUT) :: Grid
       INTEGER, INTENT(IN) :: DIM_IDS(:),DIM_LENS(:)
       INTEGER :: first(1),first_two(2), ind, status, ind_vec(1),count_vec(1)
-  
+ 
       ! Takes the first two values of all grid dimensions to determine the whole grid
       ind_vec = 1
       count_vec = 1
@@ -119,7 +120,7 @@ MODULE NetCDFGridUtils
   
       ! Takes the first two values for each dimension, saves the information necessary for reconstructing the grid
       ! Assumes the NetCDF grid is uniform, the indexing of the dimensions enabled via the usual convention of variables with same names
-      DO ind = 1,size(DIM_LENS),1
+      DO ind = 1,GRID % COORD_COUNT,1
 
         ! If the only value on a dimension, there is no dx and only one value can be taken
         IF (DIM_LENS(ind) .EQ. 1) THEN

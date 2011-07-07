@@ -64,13 +64,13 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   INTEGER :: k, node, DIM, MAX_STEPS
   INTEGER, POINTER :: FieldPerm(:)
   REAL(KIND=dp), POINTER :: Field(:)
-  REAL(KIND=dp), ALLOCATABLE :: x(:),u1(:),u2(:),x0e(:),x1e(:)
-  REAL(KIND=dp) :: interp_val, interp_val2
-  INTEGER, ALLOCATABLE :: dim_ids(:), dim_lens(:) ! Ids and lengths for all dimensions
+  REAL(KIND=dp), ALLOCATABLE :: x(:)
+  REAL(KIND=dp) :: interp_val, interp_val2, u1(2), u2(2)
+  INTEGER, ALLOCATABLE :: dim_lens(:) ! Lengths for all dimensions
   INTEGER :: NCID, loop, Var_ID, alloc_stat
   CHARACTER (len = MAX_NAME_LEN) :: Coord_System, TimeInterpolationMethod
   REAL(KIND=dp) :: InterpMultiplier, InterpBias
-  LOGICAL :: output, tmpBool, ENABLE_SCALING
+  LOGICAL :: output_on
 
   !------------------------------------------------------------------------------
   ! General initializations
@@ -101,45 +101,33 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   Field => Solver % Variable % Values  ! This vector will get the field values now
   FieldPerm => Solver % Variable % Perm
 
-  !-- Initializing NetCDF values
-  CALL InitNetCDF(Solver, NCID, Var_ID, dim, dim_ids, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
-  IF (DIM .NE. size(dim_lens,1)) THEN ! TODO: What to do about this?!
-    CALL Warn('GridDataMapper','NetCDF dimensions do not match the Elmer dimensions')
+  !------------------------------------------------------------------------------
+  ! Initializing NetCDF values
+  !------------------------------------------------------------------------------
+  CALL InitNetCDF(Solver, NCID, Var_ID, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
+  DIM = Grids(1) % COORD_COUNT ! Abbreviation [# of Elmer coordinates .EQ. # of NetCDF coordinates]
+  
+!------------------------------------------------------------------------------
+  ! Initializing Elmer mesh vectors, scaling and interpolation
+  !------------------------------------------------------------------------------
+  IF ( DIM .GT. 0 ) THEN
+    ALLOCATE ( x(DIM), STAT = alloc_stat ) 
+    IF ( alloc_stat .NE. 0 ) THEN
+      CALL Fatal('GridDataMapper','Memory ran out')
+    END IF
+
+    !--- Scales the Grids, if applicable
+    CALL InitScaling(Solver, Grids)
   END IF
-
-  ALLOCATE ( x(DIM),u1(DIM),u2(DIM),x0e(DIM),x1e(DIM), STAT = alloc_stat ) 
-  IF ( alloc_stat .NE. 0 ) THEN
-    CALL Fatal('GridDataMapper','Memory ran out')
-  END IF
-
-  !--- Collects the range of the Elmer mesh bounding box for scaling
-  DO loop = 1,DIM,1
-    x0e(loop) = GetElmerMinMax(Solver,loop,.TRUE.)
-    x1e(loop) = GetElmerMinMax(Solver,loop,.FALSE.)
-  END DO
-  ! TODO: Get constant values for the rest of the dimensions
-
-  !--- Calculates the modifications (by default does nothing)
-  tmpBool = .FALSE.
-  ENABLE_SCALING = GetLogical(GetSolverParams(Solver), "Enable Scaling", tmpBool)
-  IF ( tmpBool .AND. ENABLE_SCALING ) THEN
-    CALL Warn('GridDataMapper','Elmer grid is scaled to match the NetCDF grid')
-
-    DO loop = 1,size(Grids,1),1
-      ! First the scaling to same size (Eq. a( X1E(1)-X0E(1) ) = (X1(1)-X0(1)) ; ranges over a dimension are same. Solved for a, 1 if equal)
-      Grids(loop) % scale(:) = (Grids(loop) % X1(1:DIM) - Grids(loop) % X0(1:DIM))/(X1E(1:DIM)-X0E(1:DIM)) ! Note: "/" and "*" elementwise operations for arrays in Fortran
-      ! Second the vector to reach X0 from the scaled X0E (wherever it is)
-      Grids(loop) % move(:) = Grids(loop) % X0(1:DIM) - Grids(loop) % scale(:)*X0E(1:DIM) ! zero, if equal
-    END DO
-  END IF
-
+ 
   !------ Debug printouts -------------------------
-
   IF (DEBUG) THEN
-    PRINT *,'Initial Elmer Grid Bounding Box:'
-    DO loop = 1,DIM,1
-      PRINT *,'Coordinate ', loop,':', GetElmerMinMax(Solver,loop,.TRUE.), GetElmerMinMax(Solver,loop,.FALSE.)
-    END DO
+    IF ( DIM .GT. 0 ) THEN
+      PRINT *,'Initial Elmer Grid Bounding Box:'
+      DO loop = 1,DIM,1
+        PRINT *,'Coordinate ', loop,':', GetElmerMinMax(Solver,loop,.TRUE.), GetElmerMinMax(Solver,loop,.FALSE.)
+      END DO
+    END IF
 
     DO loop = 1,size(Grids,1),1
       CALL PrintGrid(Grids(loop),loop)
@@ -153,49 +141,73 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   ! INTERPOLATION LOOP
   !------------------------------------------------------------------------------
+  ! NOTE: Interpolate() effectively ignores time, if "Time % is_defined" is .FALSE.
+  !------------------------------------------------------------------------------
 
-  IF ( Time % doInterpolation ) THEN
-    WRITE (Message,'(A,F5.2,A)') 'Given time value ', Time % val , ' is not an integer. Using time interpolation.'
-    CALL Info('GridDataMapper',Message)
-  ELSE
-    WRITE (Message,'(A,F5.1,A)') 'Given time value ', Time % val, ' is an integer. No time interpolation used.'
-    CALL Info('GridDataMapper',Message)
-  END IF
-
-  output = .TRUE. ! If true, outputs some iteration information
-
-  ! TODO: Add data to X(:) also for other locations
-
+  output_on = .TRUE. ! If true, outputs some iteration information
   ! Go through the active nodes and perform interpolation
   DO node=1, Mesh % NumberOfNodes
     k = FieldPerm(node) 
     IF( k == 0 ) CYCLE
-    
-    ! The point of interest
-    DO loop = 1,DIM,1
-      x(loop) = GetElmerNodeValue(Solver,node,loop)
-    END DO
 
-    IF ( Time % doInterpolation ) THEN ! Two time values
-      IF ( .NOT. (Interpolate(Solver,NCID,x,Var_ID,dim_lens, Grids(1),& 
-          Time, Time % low,interp_val, Coord_System) .AND. Interpolate(Solver,NCID,x,&
-            Var_ID,dim_lens, Grids(2),Time,Time % high,interp_val2, Coord_System)) ) THEN
-        CYCLE
-      ELSE
-        ! Time interpolation on already interpolated space values; save result in interp_val, use original time to weigh
-        u1(1) = Time % low
-        u1(2) = interp_val
-        u2(1) = Time % high
-        u2(2) = interp_val2
-        interp_val = ChooseTimeInterpolation(Time % val,u1,u2,TimeInterpolationMethod,output) ! Chooses the time interpolation method
-        ! See: CustomTimeInterpolation.f90
-        output = .FALSE.
+    IF ( DIM .GT. 0 ) THEN
+
+      ! The point of interest
+      DO loop = 1,DIM,1
+        x(loop) = GetElmerNodeValue(Solver,node,loop)
+      END DO
+ 
+      !--- Perform time interpolation, if needed 
+      IF ( Time % doInterpolation ) THEN ! Two time values (otherwise not interpolated)
+        IF ( .NOT. (Interpolate(Solver,NCID,Var_ID,dim_lens,Grids(1),& 
+          Time, Time % low,interp_val,Coord_System,x) .AND. Interpolate(Solver,NCID,&
+          Var_ID,dim_lens,Grids(2),Time,Time % high,interp_val2,Coord_System,x)) ) THEN
+          CYCLE
+        ELSE
+          ! Time interpolation on already interpolated space values; save result in interp_val, use original time to weigh
+          u1(1) = Time % low
+          u1(2) = interp_val
+          u2(1) = Time % high
+          u2(2) = interp_val2
+          interp_val = ChooseTimeInterpolation(Time % val,u1,u2,TimeInterpolationMethod,output_on) ! Chooses the time interpolation method
+          ! See: CustomTimeInterpolation.f90
+          output_on = .FALSE.
+        END IF
+      ELSE ! Holds: Time % low = Time % high = Time % val, also: Time % IS_DEFINED = .FALSE. works!
+        IF (.NOT. Interpolate(Solver,NCID,Var_ID,dim_lens,Grids(1),&
+                  Time,Time % low,interp_val,Coord_System,x) ) THEN
+          CYCLE ! Ignore values for incompatible interpolation
+        END IF
       END IF
     ELSE
-      IF (.NOT. Interpolate(Solver,NCID,x,Var_ID,dim_lens,Grids(1),&
-                Time,Time % low,interp_val, Coord_System) ) THEN
-        CYCLE ! Ignore values for incompatible interpolation
+
+      !------------------------------------------------------------------------------
+      ! No coordinate dimensions; only time and constant dimensions.
+      !------------------------------------------------------------------------------
+      IF ( Time % doInterpolation ) THEN
+        !--- Time interpolation in effect, perform as before
+        IF (.NOT. (Interpolate(Solver,NCID,Var_ID,dim_lens,Grids(1),&
+                     Time,Time % low,interp_val,Coord_System) .AND. &
+                  Interpolate(Solver,NCID,Var_ID,dim_lens,Grids(2),&
+                     Time,Time % high,interp_val2,Coord_System)) ) THEN
+          CYCLE
+        ELSE
+          u1(1) = Time % low
+          u1(2) = interp_val
+          u2(1) = Time % high
+          u2(2) = interp_val2
+          interp_val = ChooseTimeInterpolation(Time % val,u1,u2,TimeInterpolationMethod,output_on)
+          ! See: CustomTimeInterpolation.f90
+          output_on = .FALSE.
+        END IF
+      ELSE
+        !--- No time interpolation
+        IF (.NOT. Interpolate(Solver,NCID,Var_ID,dim_lens,Grids(1),&
+                     Time,Time % low,interp_val,Coord_System) ) THEN
+          CYCLE
+        END IF
       END IF
+  
     END IF
 
     !------ Debug printouts -------------------------
@@ -219,10 +231,65 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
 CONTAINS
 
+  !----------------- InitScaling() --------------------
+  !--- Adds scaling to NetCDF Grids (by default does nothing)
+  SUBROUTINE InitScaling(Solver, Grids)
+  !----------------------------------------------------
+    USE DefUtils, ONLY: Solver_t
+    USE NetCDFGridUtils, ONLY: UniformGrid_t
+    USE MapperUtils, ONLY: GetElmerMinMax
+    IMPLICIT NONE
+    
+    !------------------------------------------------------------------------------
+    ! ARGUMENTS
+    !------------------------------------------------------------------------------
+    TYPE(Solver_t), INTENT(IN) :: Solver
+    TYPE(UniformGrid_t), INTENT(INOUT) :: Grids(:)
+
+    !------------------------------------------------------------------------------
+    ! VARIABLES
+    !------------------------------------------------------------------------------
+    LOGICAL :: Found, ENABLE_SCALING
+    INTEGER :: DIM, alloc_stat
+    REAL(KIND=dp), ALLOCATABLE :: x0e(:), x1e(:)
+
+    !------------------------------------------------------------------------------
+    ! Adds scaling, if it's set on and possible
+    !------------------------------------------------------------------------------
+
+    ENABLE_SCALING = GetLogical(GetSolverParams(Solver), "Enable Scaling", Found)
+    DIM = Grids(1) % COORD_COUNT
+
+    IF ( Found .AND. ENABLE_SCALING .AND. DIM .GT. 0 ) THEN
+
+      CALL Warn('GridDataMapper','Elmer grid is scaled to match the NetCDF grid')
+
+      ALLOCATE (x0e(DIM),x1e(DIM), STAT=alloc_stat)
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out')
+      END IF
+
+      !--- Collects the range of the Elmer mesh bounding box for scaling
+      DO loop = 1,DIM,1
+        x0e(loop) = GetElmerMinMax(Solver,loop,.TRUE.)
+        x1e(loop) = GetElmerMinMax(Solver,loop,.FALSE.)
+      END DO
+
+      !--- Scales
+      DO loop = 1,size(Grids,1),1
+        ! First the scaling to same size (Eq. a( X1E(1)-X0E(1) ) = (X1(1)-X0(1)) ; ranges over a dimension are same. Solved for a, 1 if equal)
+        Grids(loop) % scale(:) = (Grids(loop) % X1(1:DIM) - Grids(loop) % X0(1:DIM))/(X1E(1:DIM)-X0E(1:DIM)) ! Note: "/" and "*" elementwise operations for arrays in Fortran
+        ! Second the vector to reach X0 from the scaled X0E (wherever it is)
+        Grids(loop) % move(:) = Grids(loop) % X0(1:DIM) - Grids(loop) % scale(:)*X0E(1:DIM) ! zero, if equal
+      END DO
+    END IF
+    !------------------------------------------------------------------------------
+
+  END SUBROUTINE InitScaling
 
   !----------------- InitNetCDF() ---------------------
   !--- Gathers and initializes all the necessary NetCDF information for picking variables
-  SUBROUTINE InitNetCDF(Solver, NCID, Var_ID, DIM, dim_ids, dim_lens, Grids, Time,&
+  SUBROUTINE InitNetCDF(Solver, NCID, Var_ID, dim_lens, Grids, Time,&
                                    IS_TRANSIENT, STEP_SIZE, MAX_STEPS, Coord_System )
   !--------------------------------------------------
 
@@ -243,15 +310,16 @@ CONTAINS
     LOGICAL, INTENT(IN) :: IS_TRANSIENT ! For using Elmer time instead of a variable
     REAL(KIND=dp), INTENT(IN) :: STEP_SIZE ! Time step for Elmer transient system
     INTEGER, INTENT(IN) :: MAX_STEPS ! Max steps in Elmer transient system
-    INTEGER, INTENT(INOUT) :: DIM ! Used Elmer dimensions for data accessing
     INTEGER, INTENT(OUT) :: NCID, Var_ID  !  NCID is the ID of the opened file, Var_ID the accessed variable id
-    INTEGER, INTENT(INOUT), ALLOCATABLE :: dim_ids(:), dim_lens(:) ! Ids and lengths for all dimensions
+    INTEGER, INTENT(INOUT), ALLOCATABLE :: dim_lens(:) ! Lengths for all dimensions
     CHARACTER (len = MAX_NAME_LEN), INTENT(OUT) :: Coord_System ! Coordinate system string
 
     !------------------------------------------------------------------------------
     ! NetCDF VARIABLES
     !------------------------------------------------------------------------------
     
+    INTEGER :: DIM ! Used Elmer dimensions for data accessing
+    INTEGER, ALLOCATABLE :: dim_ids(:) ! Ids for all dimensions
     LOGICAL :: Found(7) ! True if SIF definitions found
     CHARACTER (len = MAX_NAME_LEN) :: FileName ! File name for reading the data (of .nc format)
     CHARACTER (len = MAX_NAME_LEN) :: Var_Name, T_Name, Mask_Name
@@ -259,7 +327,7 @@ CONTAINS
     REAL(KIND=dp) :: Mask_Limit ! Value limit where masking starts to take effect
     INTEGER :: loop, alloc_stat,dim_count,status ! Status tells whether operations succeed
     INTEGER :: size_coord, size_const ! Temps for amounts of NetCDF coordinate and constant dimensions
-    LOGICAL :: IsTimeDependent ! True, if time is used when accessing NetCDF
+    LOGICAL :: tmpBool ,IsTimeDependent ! True, if time is used when accessing NetCDF
     CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Coords(:), Constants(:) ! Contains the names for NetCDF coordinate and constant dimensions
     CHARACTER (len = 10) :: tmpFormat
   
@@ -312,7 +380,8 @@ CONTAINS
     ! 3) Restricts the used Elmer coordinate dimensionality (DIM)
     !------------------------------------------------------------------------------
 
-    DIM = FLOOR( GetCReal(GetSolverParams(Solver),"Elmer Coordinate Count",tmpBool) ) ! Truncates the given value
+!    DIM = FLOOR( GetCReal(GetSolverParams(Solver),"Elmer Coordinate Count",tmpBool) ) ! Truncates the given value
+    DIM = GetInteger(GetSolverParams(Solver),"Elmer Coordinate Count",tmpBool)
     IF ( .NOT. tmpBool ) THEN
       DIM = CoordinateSystemDimension() ! Defaults to whatever is defined in coordinate system
     END IF
@@ -339,8 +408,10 @@ CONTAINS
     dim_count = size_coord + size_const
 
     IF ( size_coord .NE. DIM ) THEN
-      CALL Fatal('GridDataMapper','The amount of used Elmer coordinates ("Coordinate Count"),&
- differs from the amount of used NetCDF coordinates. If constant NetCDF coordinates wanted, use "NetCDF Constant"s.')
+      WRITE(Message,'(A,I3,A,I3,A)') 'The amount of used Elmer coordinates ', DIM,' ("Coordinate Count"), &
+ differs from the amount of used NetCDF coordinates ', size_const,&
+ '. If constant NetCDF coordinates wanted, use "NetCDF Constant"s.'
+      CALL Fatal('GridDataMapper', Message)
     END IF
 
     IF ( (dim_count .EQ. 0) .AND. (.NOT. IsTimeDependent) ) THEN
@@ -407,7 +478,8 @@ CONTAINS
       DO loop = 1,size(Grids(1) % const_vals),1
   
         WRITE(tmpFormat,'(A,I1,A)') '(A,I',IntWidth(loop),')'
-        WRITE(Message,tmpFormat) 'NetCDF Constant Value',loop
+        WRITE(Message,tmpFormat) 'NetCDF Constant Value ',loop
+
         Grids(1) % const_vals(loop) = GetInteger(GetSolverParams(Solver),Message,tmpBool)
         IF ( .NOT. tmpBool ) THEN
           WRITE(Message,'(A,I3,A)') 'Declared NetCDF Constant ',loop,&
@@ -476,8 +548,10 @@ CONTAINS
     !> Phase 6: dim_ids, dim_lens
     !> Phase 8: Time
     !> Phase 9: Grids (scale(:), move(:) and eps(:) not touched)
-    CALL PrintGrid(Grids(1),1)
-    CALL PrintGrid(Grids(2),2)
+    IF ( DEBUG ) THEN
+      CALL PrintGrid(Grids(1),1)
+      CALL PrintGrid(Grids(2),2)
+    END IF
  
   END SUBROUTINE InitNetCDF
 
@@ -627,7 +701,17 @@ CONTAINS
     TimeResult % low = FLOOR( Time )
     TimeResult % high = CEILING( Time )
     TimeResult % doInterpolation = (TimeResult % low .NE. TimeResult % high)
+    IF ( TimeResult % len .EQ. 1 ) TimeResult % doInterpolation = .FALSE. ! No need to interpolate unit time
+    IF ( TimeResult % low .LT. 1 ) TimeResult % low = 1
+    IF ( TimeResult % high .GT. TimeResult % len ) TimeResult % high = TimeResult % len
 
+    IF ( TimeResult % doInterpolation ) THEN
+      WRITE (Message,'(A,F5.2,A)') 'Given time value ', TimeResult % val , ' is not an integer. Using time interpolation.'
+      CALL Info('GridDataMapper',Message)
+    ELSE
+      WRITE (Message,'(A,F5.1,A)') 'Given time value ', TimeResult % val, ' is an integer. No time interpolation used.'
+      CALL Info('GridDataMapper',Message)
+    END IF
     !-------------------------------------------------------------------------------
   
   END SUBROUTINE InitTime
