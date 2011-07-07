@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 5.7.2011
+! Last Modified: 7.7.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -35,12 +35,13 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !******************************************************************************
 
   USE DefUtils, ONLY: dp, Solver_t, Model_t, Mesh_t,GetInteger, CoordinateSystemDimension, GetSolverParams, &
-                      GetLogical, MAX_NAME_LEN
+                      GetLogical, MAX_NAME_LEN, GetCReal
   USE Messages, ONLY: Info, Warn, Fatal, Message
   USE NetCDF
   USE NetCDFGridUtils, ONLY: UniformGrid_t, PrintGrid
   USE NetCDFInterpolate, ONLY: Interpolate, LinearInterpolation
   USE NetCDFGeneralUtils, ONLY: CloseNetCDF, TimeType_t
+  USE MapperUtils, ONLY: GetElmerMinMax, GetElmerNodeValue
   USE CustomTimeInterpolation, ONLY: ChooseTimeInterpolation
 
   IMPLICIT NONE
@@ -99,9 +100,9 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   Mesh => Solver % Mesh
   Field => Solver % Variable % Values  ! This vector will get the field values now
   FieldPerm => Solver % Variable % Perm
-  DIM = CoordinateSystemDimension()
 
-  CALL InitNetCDF(Solver, NCID, Var_ID, dim_ids, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
+  !-- Initializing NetCDF values
+  CALL InitNetCDF(Solver, NCID, Var_ID, dim, dim_ids, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
   IF (DIM .NE. size(dim_lens,1)) THEN ! TODO: What to do about this?!
     CALL Warn('GridDataMapper','NetCDF dimensions do not match the Elmer dimensions')
   END IF
@@ -111,16 +112,12 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
     CALL Fatal('GridDataMapper','Memory ran out')
   END IF
 
-  DO loop = 1,size(Grids,1),1
-    Grids(loop) % x1(:) = Grids(loop) % x0(:) +&
-     (Grids(loop) % nmax(:)-1) * Grids(loop) % dx(:) ! In 3D case opposite points of the cube; if only one dimension, will be 0
-  END DO
-
   !--- Collects the range of the Elmer mesh bounding box for scaling
   DO loop = 1,DIM,1
     x0e(loop) = GetElmerMinMax(Solver,loop,.TRUE.)
     x1e(loop) = GetElmerMinMax(Solver,loop,.FALSE.)
   END DO
+  ! TODO: Get constant values for the rest of the dimensions
 
   !--- Calculates the modifications (by default does nothing)
   tmpBool = .FALSE.
@@ -130,9 +127,9 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
     DO loop = 1,size(Grids,1),1
       ! First the scaling to same size (Eq. a( X1E(1)-X0E(1) ) = (X1(1)-X0(1)) ; ranges over a dimension are same. Solved for a, 1 if equal)
-      Grids(loop) % scale(:) = (Grids(loop) % X1(:) - Grids(loop) % X0(:))/(X1E(:)-X0E(:)) ! Note: "/" and "*" elementwise operations for arrays in Fortran
+      Grids(loop) % scale(:) = (Grids(loop) % X1(1:DIM) - Grids(loop) % X0(1:DIM))/(X1E(1:DIM)-X0E(1:DIM)) ! Note: "/" and "*" elementwise operations for arrays in Fortran
       ! Second the vector to reach X0 from the scaled X0E (wherever it is)
-      Grids(loop) % move(:) = Grids(loop) % X0(:) - Grids(loop) % scale(:)*X0E(:) ! zero, if equal
+      Grids(loop) % move(:) = Grids(loop) % X0(1:DIM) - Grids(loop) % scale(:)*X0E(1:DIM) ! zero, if equal
     END DO
   END IF
 
@@ -151,7 +148,7 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------
 
   !--- Initializes the interpolation variables
-  CALL InitInterpolation( Solver, Grids, TimeInterpolationMethod, InterpMultiplier, InterpBias )
+  CALL InitInterpolation( Solver, DIM, Grids, TimeInterpolationMethod, InterpMultiplier, InterpBias )
 
   !------------------------------------------------------------------------------
   ! INTERPOLATION LOOP
@@ -166,6 +163,8 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   END IF
 
   output = .TRUE. ! If true, outputs some iteration information
+
+  ! TODO: Add data to X(:) also for other locations
 
   ! Go through the active nodes and perform interpolation
   DO node=1, Mesh % NumberOfNodes
@@ -220,132 +219,269 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
 CONTAINS
 
-  !---------------- GetElmerNodeValue() ---------------
-  !--- Gets the value of the chosen node from the given dimension (1 = x, 2 = y, 3 = z)
-  FUNCTION GetElmerNodeValue( Solver, node, dimE ) RESULT( node_val )
-  !----------------------------------------------------
-    USE DefUtils, ONLY: Solver_t
-    USE Messages, ONLY: Fatal
+
+  !----------------- InitNetCDF() ---------------------
+  !--- Gathers and initializes all the necessary NetCDF information for picking variables
+  SUBROUTINE InitNetCDF(Solver, NCID, Var_ID, DIM, dim_ids, dim_lens, Grids, Time,&
+                                   IS_TRANSIENT, STEP_SIZE, MAX_STEPS, Coord_System )
+  !--------------------------------------------------
+
+    USE NetCDFGridUtils, ONLY: PrintGrid, InitGrid, GetNetCDFGridParameters, Focus2DNetCDFGrid 
+    USE NetCDFGeneralUtils, ONLY: GetAllDimensions, G_Error, TimeValueToIndex
+    USE MapperUtils, ONLY: IntWidth, ListGetStrings
+    USE NetCDF
+    USE DefUtils, ONLY: dp, MAX_NAME_LEN, GetSolverParams, GetString, GetConstReal, ListGetString
+    USE Messages, ONLY: Fatal, Message
     IMPLICIT NONE
 
-    TYPE(Solver_t), INTENT(IN) :: Solver
-    INTEGER, INTENT(IN) :: node, dimE
-    REAL(KIND=dp) :: node_val ! The output
-    SELECT CASE (dimE)
-      CASE (1)
-        node_val = Solver % Mesh % Nodes % x(node)
-      CASE (2)
-        node_val = Solver % Mesh % Nodes % y(node)
-      CASE (3)
-        node_val = Solver % Mesh % Nodes % z(node)
-      CASE DEFAULT
-        CALL Fatal('GridDataMapper','GetElmerNodeValue(): Elmer dimension not found')
-        node_val = 0
-    END SELECT
-     
-  END FUNCTION GetElmerNodeValue
+    !------------------------------------------------------------------------------
+    ! ARGUMENTS
+    !------------------------------------------------------------------------------
+    TYPE(Solver_t), INTENT(IN) :: Solver ! Elmer solver from SIF
+    TYPE(TimeType_t), INTENT(INOUT) :: Time ! Time information
+    TYPE(UniformGrid_t), INTENT(INOUT) :: Grids(:) ! NetCDF grids
+    LOGICAL, INTENT(IN) :: IS_TRANSIENT ! For using Elmer time instead of a variable
+    REAL(KIND=dp), INTENT(IN) :: STEP_SIZE ! Time step for Elmer transient system
+    INTEGER, INTENT(IN) :: MAX_STEPS ! Max steps in Elmer transient system
+    INTEGER, INTENT(INOUT) :: DIM ! Used Elmer dimensions for data accessing
+    INTEGER, INTENT(OUT) :: NCID, Var_ID  !  NCID is the ID of the opened file, Var_ID the accessed variable id
+    INTEGER, INTENT(INOUT), ALLOCATABLE :: dim_ids(:), dim_lens(:) ! Ids and lengths for all dimensions
+    CHARACTER (len = MAX_NAME_LEN), INTENT(OUT) :: Coord_System ! Coordinate system string
 
-  !---------------- GetElmerMinMax() ---------------
-  !--- Gets the minimum/maximum (chosen) value of the given dimension (1 = x, 2 = y, 3 = z)
-  FUNCTION GetElmerMinMax( Solver, dimE, GET_MIN ) RESULT( node_val )
-  !----------------------------------------------------
-    USE DefUtils, ONLY: Solver_t, CoordinateSystemDimension
-    USE Messages, ONLY: Fatal
-    IMPLICIT NONE
+    !------------------------------------------------------------------------------
+    ! NetCDF VARIABLES
+    !------------------------------------------------------------------------------
+    
+    LOGICAL :: Found(7) ! True if SIF definitions found
+    CHARACTER (len = MAX_NAME_LEN) :: FileName ! File name for reading the data (of .nc format)
+    CHARACTER (len = MAX_NAME_LEN) :: Var_Name, T_Name, Mask_Name
+    CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Dim_Names(:) ! Contains the opened NetCDF dimension variables
+    REAL(KIND=dp) :: Mask_Limit ! Value limit where masking starts to take effect
+    INTEGER :: loop, alloc_stat,dim_count,status ! Status tells whether operations succeed
+    INTEGER :: size_coord, size_const ! Temps for amounts of NetCDF coordinate and constant dimensions
+    LOGICAL :: IsTimeDependent ! True, if time is used when accessing NetCDF
+    CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Coords(:), Constants(:) ! Contains the names for NetCDF coordinate and constant dimensions
+    CHARACTER (len = 10) :: tmpFormat
+  
+    !------------------------------------------------------------------------------
+    ! NetCDF INITIALIZATIONS
+    !------------------------------------------------------------------------------
 
-    TYPE(Solver_t), INTENT(IN) :: Solver
-    INTEGER, INTENT(IN) :: dimE
-    LOGICAL, INTENT(IN) :: GET_MIN
-    REAL(KIND=dp) :: node_val ! The output
+    !-------------------------------------------------------------------------------
+    ! 1) Gathers basic data from SIF
+    !-------------------------------------------------------------------------------
 
-    SELECT CASE (dimE)
-      CASE (1)
-        IF ( GET_MIN ) THEN 
-          node_val = MINVAL(Solver % Mesh % Nodes % x)
-        ELSE 
-          node_val = MAXVAL(Solver % Mesh % Nodes % x)
-        END IF
-      CASE (2)
-        IF ( GET_MIN ) THEN
-          node_val = MINVAL(Solver % Mesh % Nodes % y)
-        ELSE 
-          node_val = MAXVAL(Solver % Mesh % Nodes % y)
-        END IF
-      CASE (3)
-        IF ( GET_MIN ) THEN
-          node_val = MINVAL(Solver % Mesh % Nodes % z)
-        ELSE 
-          node_val = MAXVAL(Solver % Mesh % Nodes % z)
-        END IF
-      CASE DEFAULT
-        CALL Fatal('GridDataMapper','GetAllElmerNodeValues(): Elmer dimension not found')
-        node_val = 0
-    END SELECT
-     
-  END FUNCTION GetElmerMinMax
+    !--- Collects the input information from Solver Input File
+    FileName = GetString( GetSolverParams(Solver), "File Name", Found(1) )
+    Var_Name = GetString( GetSolverParams(Solver), "Var Name", Found(2) )
 
-  !---------------- InitInterpolation() ---------------
-  !--- Initializes the information needed for interpolation
-  SUBROUTINE InitInterpolation( Solver, Grids, TimeInterpolationMethod, InterpMultiplier, InterpBias )
-    USE DefUtils, ONLY: GetSolverParams, MAX_NAME_LEN, GetConstReal, GetString, GetCReal, CoordinateSystemDimension
-    USE Messages
-    IMPLICIT NONE
+    !--- Collects the NetCDF accessing information (coordinates, constant dimensions, time)
+    CALL ListGetStrings( GetSolverParams(Solver), "Coordinate Name", Found(3), Coords )
+    CALL ListGetStrings( GetSolverParams(Solver), "NetCDF Constant", Found(4), Constants )
+    T_Name = GetString( GetSolverParams(Solver), "Time Name", IsTimeDependent ) ! If given, time is the last dimension
+  
+    ! Following parameters are needed for masking and coordinate system
+    Mask_Name = GetString( GetSolverParams(Solver), "Mask Variable", Found(5) )
+    Mask_Limit = GetConstReal( Solver % Values, "Mask Limit", Found(6) )
+    Coord_System = GetString( GetSolverParams(Solver), "Coordinate System", Found(7) ) ! Any input is ok; only valid gives a conversion and error is given otherwise
+    IF ( .NOT. Found(7) ) Coord_System = '' ! Initializes Coord_System, if not given
 
-    !--- Parameters
-    TYPE(Solver_t), INTENT(IN) :: Solver
-    TYPE(UniformGrid_t), INTENT(INOUT) :: Grids(:)
-    REAL(KIND=dp), INTENT(OUT) :: InterpMultiplier, InterpBias
-    CHARACTER(len=MAX_NAME_LEN), INTENT(OUT) :: TimeInterpolationMethod
+    !-------------------------------------------------------------------------------
+    ! 2) Opening the NetCDF file and finding the variable
+    !-------------------------------------------------------------------------------
 
-    !--- Other variables
-    LOGICAL :: tmpBool
-    REAL(KIND=dp), ALLOCATABLE :: eps(:)
-    INTEGER :: loop, alloc_stat
-
-    ALLOCATE ( eps(CoordinateSystemDimension()), STAT = alloc_stat )
-    IF ( alloc_stat .NE. 0 ) THEN
-      CALL Fatal('GridDataMapper','Memory ran out')
-    END IF
-
-    eps = 0
-    ! Epsilons are the relative tolerances for the amount 
-    ! the Elmer grid point misses the bounds of the NetCDF bounding box
-
-    ! TODO: ADD HERE A VARIABLE SIZED AMOUNT OF EPSILONS!!!
-
-    DO loop = 1,size(eps),1
-      WRITE(Message, '(A,I1)') 'Epsilon ', loop
-      eps(loop) = GetConstReal(GetSolverParams(Solver), Message, tmpBool)
-      IF ( .NOT. tmpBool ) THEN
-         eps(loop) = 0
-         WRITE(Message,'(A,I1,A,A)') 'Variable "Epsilon ', loop ,'" not given in Solver Input File. ',&
-                                 'Using zero tolerance for NetCDF grid mismatches with Elmer mesh.'
-         CALL Warn('GridDataMapper', Message)
+    DO loop = 1,2,1
+      IF ( .NOT. Found(loop) ) THEN ! Checks that the constants have been found successfully
+        CALL Fatal('GridDataMapper', &
+      "Unable to find a compulsory NetCDF Name Constant (the name of file or variable)")
       END IF
     END DO
 
-    Grids(1) % Eps(:) = eps(:) * Grids(1) % dx(:)
-    Grids(2) % Eps(:) = eps(:) * Grids(2) % dx(:)
-  
-    !--- Chooses the time interpolation method 
-    TimeInterpolationMethod = GetString( GetSolverParams(Solver), "Time Interpolation Method", tmpBool )
-    IF ( .NOT. tmpBool ) THEN
-      CALL Warn('GridDataMapper', 'SIF variable "Time Interpolation Method" not specified, using default settings.')
-      TimeInterpolationMethod = ''
-    ELSE
-      WRITE (Message,'(A,A)' ) 'Received Time Interpolation Method SIF variable value: ', TimeInterpolationMethod
-      CALL Info('GridDataMapper', Message)
+    status = NF90_OPEN(FileName,NF90_NOWRITE,NCID) ! Read-only
+    IF ( G_Error(status, "NetCDF file could not be opened") ) THEN
+      CALL abort() ! End execution
     END IF
- 
-    !--- If absolute time is relative, the value of the time function is added to the interpolated location; otherwise it is multiplied with it
-    InterpMultiplier = GetCReal( GetSolverParams(Solver), "Interpolation Multiplier", tmpBool ) ! Multiplies the final interpolation result by given number (relative time)
-    IF ( .NOT. tmpBool ) InterpMultiplier = 1.0_dp ! Defaulted to 1, so it doesn't modify the result
+
+    ! Find variable to be accessed
+    status = NF90_INQ_VARID(NCID,Var_Name,Var_ID)
+    IF ( G_Error(status,'NetCDF variable name not found.') ) THEN
+      CALL abort()
+    END IF
+
+    !------------------------------------------------------------------------------
+    ! 3) Restricts the used Elmer coordinate dimensionality (DIM)
+    !------------------------------------------------------------------------------
+
+    DIM = FLOOR( GetCReal(GetSolverParams(Solver),"Elmer Coordinate Count",tmpBool) ) ! Truncates the given value
+    IF ( .NOT. tmpBool ) THEN
+      DIM = CoordinateSystemDimension() ! Defaults to whatever is defined in coordinate system
+    END IF
+
+    ! If the coordinate is out of range, then set it appropriately
+    IF ( DIM .GT. CoordinateSystemDimension() ) THEN
+      DIM = CoordinateSystemDimension()
+      CALL Warn('GridDataMapper','Too large Coordinate Count; automatically set to maximum.')
+    ELSE IF ( DIM .LT. 0 ) THEN
+      DIM = 0
+      CALL Warn('GridDataMapper','Negative Coordinate Count; automatically set to minimum 0.')
+    END IF
+    !> DIM in range ( 0, CoordinateSystemDimension() )
+
+    !-------------------------------------------------------------------------------
+    ! 4) Finds the amounts for used coordinate and constant dimensions
+    !-------------------------------------------------------------------------------
+
+    !--- Defining coordinate, constant dimension and total dimension sizes
+    size_coord = 0
+    size_const = 0
+    IF ( Found(3) ) size_coord = size(Coords,1)
+    IF ( Found(4) ) size_const = size(Constants,1)
+    dim_count = size_coord + size_const
+
+    IF ( size_coord .NE. DIM ) THEN
+      CALL Fatal('GridDataMapper','The amount of used Elmer coordinates ("Coordinate Count"),&
+ differs from the amount of used NetCDF coordinates. If constant NetCDF coordinates wanted, use "NetCDF Constant"s.')
+    END IF
+
+    IF ( (dim_count .EQ. 0) .AND. (.NOT. IsTimeDependent) ) THEN
+      CALL Fatal('GridDataMapper','Expected at least one indexing variable: time, coordinate, or constant.')
+    END IF
+    !> dim_count in range ( 0, (size_coord + size_const) ), and at least one possible NetCDF accessing parameter given
+
+    !-------------------------------------------------------------------------------
+    ! 5) Forms an array of dimension names (constant and coordinate) for accessing
+    !-------------------------------------------------------------------------------
+    WRITE (Message,'(A,I3,A)') 'Using ',dim_count,' input dimensions.'
+    CALL Info('GridDataMapper',Message)
+
+    IF ( dim_count .GT. 0 ) THEN
+   
+      ! Form an array of wanted names for defining the information 
+      ALLOCATE (Dim_Names(dim_count), dim_ids(dim_count), dim_lens(dim_count), STAT = alloc_stat)
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out')
+      END IF
   
-    InterpBias = GetCReal( GetSolverParams(Solver), "Interpolation Bias", tmpBool ) ! Adds the bias to the final interpolation result (absolute time)
-    IF ( .NOT. tmpBool ) InterpBias = 0.0_dp ! Defaulted to 0, so there is no bias on time
+      ! Initialization in case of errors
+      Dim_Names = 'none'
+      dim_ids = -1
+      dim_lens = -1
   
-  END SUBROUTINE InitInterpolation
+      ! Adds the coordinate NetCDF dimension names, if available
+      IF ( size_coord .GT. 0 ) Dim_Names(1:size(Coords)) = Coords(:)
+  
+      ! Adds the constant NetCDF dimension names, if available
+      IF ( size_const .GT. 0 ) THEN
+        IF ( size_coord .GT. 0 ) THEN
+          Dim_Names((size(Coords)+1):size(Dim_Names)) = Constants(:)
+        ELSE
+          Dim_Names(:) = Constants(:)
+        END IF
+      END IF
+  
+    END IF
+    !> If there are dimensions, their names are in Dim_Names = [Coords, Constants]
+
+    !-------------------------------------------------------------------------------
+    ! 6) Gets dimensions on basis of the given names
+    !-------------------------------------------------------------------------------
+    IF ( dim_count .GT. 0 ) CALL GetAllDimensions(NCID,Dim_Names,dim_ids,dim_lens)
+    !> dim_ids & dim_lens collected with the Dim_Names 
+
+    !-------------------------------------------------------------------------------
+    ! 7) Initializes the Grids (1/2)
+    !------------------------------------------------------------------------------
+
+    !--- Default initializations for all cases
+    DO loop = 1,size(Grids,1),1
+      CALL InitGrid(Grids(loop), dim_count, size_coord ) 
+    END DO
+
+    !--- Initializations for the case of having some real content
+    IF ( Grids(1) % IS_DEF ) THEN
+
+      !--- Obtains the preliminary definining parameters for the NetCDF grid
+      CALL GetNetCDFGridParameters(NCID,Grids(1),dim_ids,dim_lens) ! Normal grid parameters don't depend on time
+
+      !--- Finds the index values for the found constant dimensions
+      DO loop = 1,size(Grids(1) % const_vals),1
+  
+        WRITE(tmpFormat,'(A,I1,A)') '(A,I',IntWidth(loop),')'
+        WRITE(Message,tmpFormat) 'NetCDF Constant Value',loop
+        Grids(1) % const_vals(loop) = GetInteger(GetSolverParams(Solver),Message,tmpBool)
+        IF ( .NOT. tmpBool ) THEN
+          WRITE(Message,'(A,I3,A)') 'Declared NetCDF Constant ',loop,&
+          ' has no corresponding index value. Check all NetCDF Constants.'
+          CALL Fatal('GridDataMapper',Message)
+        END IF
+      END DO
+      Grids(2) % const_vals = Grids(1) % const_vals
+    END IF
+    !> Grids initialized with constant values,x0,dx,nmax, and default for others; or Grid % IS_DEF is .FALSE.
+
+    !-------------------------------------------------------------------------------
+    ! 8) Initializes Time (if it is defined)
+    !-------------------------------------------------------------------------------
+
+    IF (IsTimeDependent) THEN
+
+      ! Inform about the fate of time
+      CALL Info('GridDataMapper','Time dimension taken into account.')
+
+      Time % is_defined = .TRUE.
+      CALL InitTime( Solver, NCID, T_Name, IS_TRANSIENT, STEP_SIZE, MAX_STEPS, Time )
+
+      ! If there'll be interpolation, initialize both of the grids usable
+      IF ( Grids(1) % IS_DEF ) THEN
+        IF ( Time % doInterpolation ) THEN
+          Grids(2) % x0(:) = Grids(1) % x0(:)
+          Grids(2) % dx(:) = Grids(1) % dx(:)
+          Grids(2) % nmax(:) = Grids(1) % nmax(:)
+        END IF
+
+        IF ( size_coord .EQ. 2 ) THEN
+          IF ( Found(5) .AND. Found(6) ) THEN
+            CALL Info('GridDataMapper','Two dimensional NetCDF grid focusing on basis of the given mask is in effect.')
+            CALL Focus2DNetCDFGrid(NCID,Mask_Name,Mask_Limit,Grids(1),Time % low,dim_lens)
+            IF ( Time % doInterpolation ) THEN ! Need to interpolate, return two different grid parameters
+              
+              Grids(2) % x0(:) = Grids(1) % x0(:) ! Copy the same results obtained for all grids
+              Grids(2) % dx(:) = Grids(1) % dx(:)
+              Grids(2) % nmax(:) = Grids(1) % nmax(:)
+              CALL Focus2DNetCDFGrid(NCID,Mask_Name,Mask_Limit,Grids(2),Time % high,dim_lens)
+            END IF
+          ELSE
+            ! No mask used
+          END IF
+        END IF
+      END IF
+    END IF
+    !> Time initialized and Grids adjusted, if time-dependent focusing used
+
+    !-------------------------------------------------------------------------------
+    ! 9) Initializes the Grids (2/2) ( depends on Focus2DNetCDFGrid() )
+    !-------------------------------------------------------------------------------
+    IF ( Grids(1) % IS_DEF ) THEN
+      DO loop = 1,size(Grids,1),1
+        Grids(loop) % x1(:) = Grids(loop) % x0(:) +&
+         (Grids(loop) % nmax(:)-1) * Grids(loop) % dx(:) ! In 3D case opposite points of the cube; if only one dimension, will be 0
+      END DO
+    END IF
+    !> Grids initialized with proper x1's
  
+    !-------------------------------------------------------------------------------
+    !> Phase 1: Coord_System
+    !> Phase 2: NCID, Var_ID
+    !> Phase 3: DIM
+    !> Phase 6: dim_ids, dim_lens
+    !> Phase 8: Time
+    !> Phase 9: Grids (scale(:), move(:) and eps(:) not touched)
+    CALL PrintGrid(Grids(1),1)
+    CALL PrintGrid(Grids(2),2)
+ 
+  END SUBROUTINE InitNetCDF
+
+
   !---------------- InitTime() ------------------------
   !--- Initializes the time values
   SUBROUTINE InitTime( Solver, NCID, T_Name, IS_TRANSIENT, STEP_SIZE, MAX_STEPS, TimeResult )
@@ -354,33 +490,43 @@ CONTAINS
     USE DefUtils, ONLY: MAX_NAME_LEN, GetSolverParams, GetLogical, GetCReal, GetTime
     USE Messages, ONLY: Message, Info, Fatal
     IMPLICIT NONE
-    !--- Input
+    !-------------------------------------------------------------------------------
+    ! ARGUMENTS
+    !-------------------------------------------------------------------------------
+    !--- A) Input
     TYPE(Solver_t), INTENT(IN) :: Solver
     INTEGER, INTENT(IN) :: NCID
     LOGICAL, INTENT(IN) :: IS_TRANSIENT
     CHARACTER(len=MAX_NAME_LEN), INTENT(IN) :: T_Name
     REAL(KIND=dp), INTENT(IN) :: STEP_SIZE
     INTEGER, INTENT(IN) :: MAX_STEPS
-
-    !--- Output
+    !--- B) Output
     TYPE(TimeType_t), INTENT(OUT) :: TimeResult
 
-    !--- Others
+    !-------------------------------------------------------------------------------
+    ! VARIABLES
+    !-------------------------------------------------------------------------------
     LOGICAL :: IsTimeIndex, IsUserDefined, Found(4) ! True if SIF definitions found
     REAL(KIND=dp) :: TimeBias, Time ! Biasing for every used Elmer time value/index
 
-    CALL GetDimension(NCID,T_Name, TimeResult % id, TimeResult % len)
-!    WRITE(*,*) 'T id ',TimeResult % id,' T len ', TimeResult % len
-
+    !-------------------------------------------------------------------------------
+    ! 1) Gathers data from SIF, applies default values
+    !-------------------------------------------------------------------------------
     IsUserDefined = GetLogical( GetSolverParams(Solver), "User Defines Time", Found(1) ) ! Set to true, if old definitions are used
-    IF ( .NOT. Found(1) ) IsUserDefined = .FALSE.
     IsTimeIndex = GetLogical( GetSolverParams(Solver), "Is Time Index", Found(2) ) ! If true, then the given time value is an index (Default: value)
-    IF ( .NOT. Found(2) ) IsTimeIndex = .FALSE. ! Defaulted to False for values are more natural, otherwise set as given
     TimeBias = GetCReal( GetSolverParams(Solver), "NetCDF Starting Time", Found(3) ) ! Index, if IsTimeIndex is true; value otherwise
+    
+    !-------------------------------------------------------------------------------
+    ! 2) Collects dimension specific data
+    !-------------------------------------------------------------------------------
+    CALL GetDimension(NCID,T_Name, TimeResult % id, TimeResult % len)
+    !> id and len set for TimeResult
 
-!    WRITE(*,*) 'User def ', IsUserDefined, ' is index ',  IsTimeIndex, ' biased ', TimeBias, ' found ones ', Found
-
-    !--- Set default values or inform the user of what he did
+    !-------------------------------------------------------------------------------
+    ! 3) Sets default values, informs on effect
+    !-------------------------------------------------------------------------------
+    IF ( .NOT. Found(1) ) IsUserDefined = .FALSE.
+    IF ( .NOT. Found(2) ) IsTimeIndex = .FALSE. ! Defaulted to False for values are more natural, otherwise set as given
     IF ( .NOT. Found(3) ) THEN
       IF ( IsTimeIndex ) THEN
         TimeBias = 1.0_dp ! Starts, by default, from index 1
@@ -396,49 +542,72 @@ CONTAINS
       END IF
       CALL Info('GridDataMapper',Message)
     END IF
+    !> Default values set
 
-    !--- In transient cases uses Elmer time if not defined otherwise
+    !-------------------------------------------------------------------------------
+    ! 4) Handles transient cases (uses Elmer time, if not defined otherwise)
+    !-------------------------------------------------------------------------------
     IF ( IS_TRANSIENT .AND. (.NOT. IsUserDefined ) ) THEN
-      Found(4) = .TRUE.
+
+      !-----------------------------------------------------------------------------
+      ! A) Transient with Elmer time points
+      !-----------------------------------------------------------------------------
       WRITE(Message, '(A,A)') 'Simulation is transient and user time input is ignored.',&
       ' (If own time scaling wanted, set SIF variable "User Defines Time" true and use user defined functions)'
       CALL Info('GridDataMapper', Message)
 
-      Time = GetTime() ! Get the time from Elmer
+      !--- Get the time from Elmer
+      Time = GetTime() 
 
-      !--- Bias the given time indices ; time values converted later on
-      IF ( IsTimeIndex ) THEN  ! Indexing starts with step size in Elmer, bias it to first index
-      
-        !--- Check the starting time index is within the NetCDF time range
+      IF ( IsTimeIndex ) THEN  
+        !---------------------------------------------------------------------------
+        ! Bias time indices
+        !---------------------------------------------------------------------------
+        ! Indexing starts with step size in Elmer, bias it to first index
+
+        !--- Check the bias doesn't cause over-indexing the NetCDF time range
         IF ( TimeBias .LT. 1.0_dp .OR. TimeBias .GT. TimeResult % LEN ) THEN
           WRITE (Message, '(A,F6.2,A,I5,A)') 'NetCDF Starting Time index ', TimeBias, &
                               ' does not fit within the NetCDF time index range (1,', TimeResult % LEN,')'
           CALL Fatal('GridDataMapper', Message)
         END IF
 
-        Time = Time + (TimeBias - STEP_SIZE)
-
-        !--- Gives a fatal error for having set too many iterations
+        !--- Checks the bias doesn't indirectly over-index due to iterations
         IF (MAX_STEPS .GT. ((TimeResult % LEN - (TimeBias - STEP_SIZE))/STEP_SIZE) ) THEN
           WRITE (Message, '(A,I5,A,F10.2,A,F6.2,A)') 'Defined amount of timestep intervals ', MAX_STEPS, &
                           ' is more than ', ((TimeResult % LEN - (TimeBias - STEP_SIZE))/STEP_SIZE),&
                           ', which is the maximum number of allowed size ', STEP_SIZE ,' steps on the NetCDF grid.'
           CALL Fatal('GridDataMapper',Message)
         END IF
+
+        !--- Perform biasing (the bias is valid)
+        Time = Time + (TimeBias - STEP_SIZE)
       ELSE
-        Time = Time + TimeBias ! Biasing for time value
+        !---------------------------------------------------------------------------
+        ! Bias time values
+        !---------------------------------------------------------------------------
+        Time = Time + TimeBias
+        ! NOTE: Time value is checked when it's converted to a time index with TimeValueToIndex()
+        ! Does not check for eventual over-indexing!
       END IF
 
     ELSE 
-      !--- For user defined and steady state
-      Time = GetCReal( Solver % Values, "Time Point", Found(3) )
-    END IF
 
-    IF ( .NOT. Found(4) ) THEN
-      WRITE(Message,'(A,I3,A)') 'No time point given; specify it in the Solver Input File with name "Time Point"&
+      !-----------------------------------------------------------------------------
+      ! B) For user defined and steady state
+      !-----------------------------------------------------------------------------
+      ! NOTE: User-defined/steady state never biased!
+      Time = GetCReal( Solver % Values, "Time Point", Found(4) )
+
+      IF ( .NOT. Found(4) ) THEN
+        WRITE(Message,'(A,I3,A)') 'No time point given; specify it in the Solver Input File with name "Time Point"&
  or enable transient simulation!'
-      CALL Fatal('GridDataMapper',Message)
+        CALL Fatal('GridDataMapper',Message)
+      END IF
+
     END IF
+    !> Time automatic and transient => Time biased
+    !> Time user-defined/steady state => Time obtained directly from SIF
 
     !--- Converts the given time value into an appropriate time index
     IF (.NOT. IsTimeIndex) Time = TimeValueToIndex(NCID,T_Name,TimeResult % id,TimeResult % LEN,Time)
@@ -448,288 +617,103 @@ CONTAINS
       WRITE (Message, '(A,F6.2,A,I5,A)') 'Time value ', Time, ' is out of range (1,', TimeResult % LEN, ')'
       CALL Fatal('GridDataMapper',Message)
     END IF
+    !> Time values are converted to indices and checked that they are within range; eventual over-indexing not always checked
+    !> I.e. Time is obtained and checked to be within range
 
-    !--- Sets the rest of the values to the result
+    !-------------------------------------------------------------------------------
+    ! 5) Finalizes TimeResult
+    !-------------------------------------------------------------------------------
     TimeResult % val = Time
     TimeResult % low = FLOOR( Time )
     TimeResult % high = CEILING( Time )
     TimeResult % doInterpolation = (TimeResult % low .NE. TimeResult % high)
 
+    !-------------------------------------------------------------------------------
+  
   END SUBROUTINE InitTime
 
-  !----------------------- IntWidth() --------------
-  !--- Finds the width of an integer; ignores sign
-  FUNCTION IntWidth( NR ) RESULT( width )
-  !-------------------------------------------------
-    IMPLICIT NONE
-    INTEGER, INTENT(IN) :: NR
-    INTEGER :: val
-    INTEGER :: width
-    INTEGER :: comp
 
-    width = 1
-    comp = 10
-    val = ABS(NR) + 1 ! Ignores sign; val >= 1
-
-    ! Note that:
-    ! 10^0 - 1 = 0 <= 0..9 <= 10 = 10^1 - 1,
-    ! 10^1 - 1 = 0 <= 10..99 <= 10 = 10^2 - 1,
-    ! 10^2 - 1 = 0 <= 100..999 <= 10 = 10^3 - 1, 
-    ! and so forth,
-    ! where 10 corresponds to width of the number with 10 based numbers (n == width).
-    ! We get: 10^(n-1) <= NR + 1 <= 10^(n)
-
-    ! Width usually small, so logarithmic search is not usually necessary.
-
-    ! P: 10^0 = 1 <= val+1 .AND. width = 1 => For every j; 0 <= j <= i: 10^i <= val+1 .AND. i = 0 .AND. width = i + 1 = 0 + 1 = 1
-    DO WHILE (comp < val)
-      width = width + 1 ! width = i+1
-      comp = 10*comp ! 10*10^(i) = 10^(i+1)
-      ! I: For every j; 0 <= j <= i: 10^j <= val+1 .AND. Exists n; i < n: val+1 <= 10^n .AND. width = i+1
-    END DO
-    ! Q: (For every i; 0 <= i <= n-1: 10^i <= val+1) .AND. val+1 <= 10^n .AND. width = n
-    !    => 10^(n-1) <= val+1 .AND. val+1 <= 10^n .AND. width = n
-
-  END FUNCTION IntWidth
-
-
-  !----------------- ListGetStrings() -----------------
-  !--- Gets all strings defined with prefix "Name" and ending with " NR", where NR is a number in an array
-  SUBROUTINE ListGetStrings( List,Name,Found,CValues )
-  !----------------------------------------------------
-    USE DefUtils
+  !---------------- InitInterpolation() ---------------
+  !--- Initializes the information needed for interpolation
+  SUBROUTINE InitInterpolation( Solver, DIM, Grids, TimeInterpolationMethod, InterpMultiplier, InterpBias )
+    USE DefUtils, ONLY: GetSolverParams, MAX_NAME_LEN, GetConstReal, GetString, GetCReal, CoordinateSystemDimension
+    USE Messages
     IMPLICIT NONE
 
-    !--- Arguments
-    TYPE(ValueList_t), INTENT(IN), POINTER :: List ! A pointer to a list of values
-    CHARACTER(LEN=*), INTENT(IN) :: Name ! Name of the SIF variable
-    LOGICAL, OPTIONAL, INTENT(INOUT) :: Found ! True, if found
-    CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: CValues(:) ! For returned array data
-
-    !--- Variables
-    TYPE(ValueList_t), POINTER :: ptr
-    CHARACTER(LEN=MAX_NAME_LEN) :: tmpStr
-    LOGICAL :: GotIt
-    INTEGER :: loop, amount, alloc_stat
-    CHARACTER(LEN=10) :: tmpFormat
-
-    !--- Initializations
-    NULLIFY(ptr)
-    Found = .FALSE.
-
-    ! Count the amount of defined strings for allocation
-    amount = 0
-    loop = 1
-    GotIt = .TRUE.
-    DO WHILE (GotIt)
-      ! Tries to ensure that the given integer doesn't have extra spaces before it in char format
-      ! Scales until a number with a width of 9 (limited by tmpFormat)
-      WRITE(tmpFormat,'(A,I1,A)') '(A,A,I', IntWidth(loop),')'
-      WRITE(tmpStr,tmpFormat) TRIM(Name),' ',loop
-      ptr => ListFind( List,tmpStr,GotIt )
-
-!      WRITE(*,*) 'TEMP: ', tmpStr
-
-      ! Continues until first name is not found
-      IF (GotIt) THEN
-        IF (.NOT. ASSOCIATED(ptr)) THEN
-          GotIt = .FALSE.
-          RETURN
-        ELSE
-          amount = amount + 1
-          loop = loop + 1
-        END IF
-      END IF
-    END DO
-
-!    WRITE (*,*) 'amount: ', amount
-    ! TODO: Better error message for when amount of found content is not enough or is too much?
-
-    IF ( amount .LE. 0 ) RETURN ! No strings found
-
-    ! Allocation
-    ALLOCATE ( CValues(amount), STAT = alloc_stat )
-    IF ( alloc_stat .NE. 0 ) THEN
-      CALL Fatal('GridDataMapper','Memory ran out')
-    END IF
-
-    ! Getting the strings
-    DO loop = 1,amount,1
-      WRITE(tmpFormat,'(A,I1,A)') '(A,A,I', IntWidth(loop) ,')'
-      WRITE(tmpStr,tmpFormat) TRIM(Name),' ',loop
-      CValues(loop) = GetString( List,tmpStr,GotIt )
-      IF (.NOT. GotIt) THEN
-        CALL Fatal('GridDataMapper','Obtained string did not exist after all')
-      END IF
-    END DO
-   
-    Found = .TRUE.
-
-  END SUBROUTINE ListGetStrings 
-
-  !----------------- InitNetCDF() ---------------------
-  !--- Gathers and initializes all the necessary NetCDF information for picking variables
-  SUBROUTINE InitNetCDF(Solver, NCID, Var_ID, dim_ids, dim_lens, Grids, Time,&
-                                   IS_TRANSIENT, STEP_SIZE, MAX_STEPS, Coord_System )
-  !--------------------------------------------------
-
-    USE NetCDFGridUtils, ONLY: PrintGrid, InitGrid, GetNetCDFGridParameters, Focus2DNetCDFGrid 
-    USE NetCDFGeneralUtils, ONLY: GetAllDimensions, G_Error, TimeValueToIndex
-    USE NetCDF
-    USE DefUtils, ONLY: dp, MAX_NAME_LEN, GetSolverParams, GetString, GetConstReal, ListGetString
-    USE Messages, ONLY: Fatal, Message
-    IMPLICIT NONE
+    !-------------------------------------------------------------------------------
+    ! ARGUMENTS
+    !-------------------------------------------------------------------------------
     TYPE(Solver_t), INTENT(IN) :: Solver
-    TYPE(TimeType_t), INTENT(INOUT) :: Time
+    INTEGER, INTENT(IN) :: DIM
     TYPE(UniformGrid_t), INTENT(INOUT) :: Grids(:)
-    LOGICAL, INTENT(IN) :: IS_TRANSIENT ! For using Elmer time instead of a variable
-    REAL(KIND=dp), INTENT(IN) :: STEP_SIZE
-    INTEGER, INTENT(IN) :: MAX_STEPS
-    INTEGER, INTENT(OUT) :: NCID, Var_ID  !  NCID is the ID of the opened file, Var_ID the accessed variable id
-    INTEGER, INTENT(INOUT), ALLOCATABLE :: dim_ids(:), dim_lens(:) ! Ids and lengths for all dimensions
-    CHARACTER (len = MAX_NAME_LEN), INTENT(OUT) :: Coord_System
+    REAL(KIND=dp), INTENT(OUT) :: InterpMultiplier, InterpBias
+    CHARACTER(len=MAX_NAME_LEN), INTENT(OUT) :: TimeInterpolationMethod
 
-    !------------------------------------------------------------------------------
-    ! NetCDF variables
-    !------------------------------------------------------------------------------
-    
-    LOGICAL :: Found(8) ! True if SIF definitions found
-    CHARACTER (len = MAX_NAME_LEN) :: FileName ! File name for reading the data (of .nc format)
-    CHARACTER (len = MAX_NAME_LEN) :: Var_Name, X_Name, Y_Name, Z_Name, T_Name, Mask_Name
-    CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Dim_Names(:)
-    REAL(KIND=dp) :: Mask_Limit
-    INTEGER :: loop, alloc_stat, dim_count, NOFCoords,status ! Status tells whether operations succeed
-    LOGICAL :: IsTimeDependent
-    CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Coords(:)
-  
-    !------------------------------------------------------------------------------
-    ! NetCDF initializations
-    !------------------------------------------------------------------------------
-!    WRITE (*,*) 'NetCDF INIT' 
+    !-------------------------------------------------------------------------------
+    ! VARIABLES
+    !-------------------------------------------------------------------------------
+    LOGICAL :: tmpBool
+    REAL(KIND=dp), ALLOCATABLE :: eps(:)
+    INTEGER :: loop, alloc_stat
 
-    !------- Collects the input information from Solver Input File
-    FileName = GetString( GetSolverParams(Solver), "File Name", Found(1) )
-    Var_Name = GetString( GetSolverParams(Solver), "Var Name", Found(2) )
-    CALL ListGetStrings( GetSolverParams(Solver), "Coordinate Name", Found(3), Coords )
-    dim_count = size(Coords,1)
+    !-------------------------------------------------------------------------------
+    ! 1) Adds Epsilon values to Grids (if applicable)
+    !-------------------------------------------------------------------------------
+    IF ( Grids(1) % COORD_COUNT .GT. 0 ) THEN
 
-    !------- Time needs to be given name to be defined
-    T_Name = GetString( GetSolverParams(Solver), "Time Name", IsTimeDependent ) ! If given, time is the last dimension
-  
-    ! Following parameters are needed for masking and usual processing
-    Mask_Name = GetString( GetSolverParams(Solver), "Mask Variable", Found(6) )
-    Mask_Limit = GetConstReal( Solver % Values, "Mask Limit", Found(7) )
-    Coord_System = GetString( GetSolverParams(Solver), "Coordinate System", Found(8) ) ! Any input is ok; only valid gives a conversion and error is given otherwise
-
-!    WRITE(*,*) 't ',T_Name,' found ', IsTimeDependent,' m name ', Mask_Name, &
-!' m limit ', Mask_Limit, ' coords ', Coord_System, ' found ', Found
-
-    IF ( .NOT. Found(8) ) Coord_System = ''
- 
-    DO loop = 1,3,1
-      IF ( .NOT. Found(loop) ) THEN ! Checks that the constants have been found successfully
-        CALL Fatal('GridDataMapper', &
-      "Unable to find a compulsory NetCDF Name Constant (the name of file, variable or first coordinate)")
+      !--- Allocation
+      ALLOCATE ( eps( Grids(1) % COORD_COUNT ), STAT = alloc_stat )
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out')
       END IF
-    END DO
+      eps = 0
 
-!    WRITE(*,*) ' dim count finished ', dim_count
+      ! Epsilons are the relative tolerances for the amount 
+      ! the Elmer grid point misses the bounds of the NetCDF bounding box
+      DO loop = 1,size(eps),1
 
-    ! Inform about the fate of time
-    IF ( IsTimeDependent ) THEN
-      CALL Info('GridDataMapper','Time dimension taken into account.')
-    END IF
-
-    ! Opening the NetCDF file  
-    status = NF90_OPEN(FileName,NF90_NOWRITE,NCID) ! Read-only
-    IF ( G_Error(status, "NetCDF file could not be opened") ) THEN
-      CALL abort() ! End execution
-    END IF
- 
-    ! Form an array of wanted names for defining the information 
-    ALLOCATE (Dim_Names(dim_count), dim_ids(dim_count), dim_lens(dim_count), STAT = alloc_stat)
-    IF ( alloc_stat .NE. 0 ) THEN
-      CALL Fatal('GridDataMapper','Memory ran out')
-    END IF
-
-    Dim_Names = 'none'
-    dim_ids = -1
-    dim_lens = -1
-
-!    WRITE(*,*) 'Allocations: names ', size(Dim_Names), ' ids ', size(dim_ids),' lens ', size(dim_lens)
-
-    WRITE (Message,'(A,I3,A)') 'Using ',dim_count,' input dimensions.'
-    CALL Info('GridDataMapper',Message)
-
-!    WRITE(*,*) 'Inits: names ', Dim_Names, ' ids ', dim_ids, ' lens ', dim_lens
-
-    ! For now, just an opened little loop
-    Dim_Names(1:size(Coords)) = Coords(:)
-
-!    WRITE(*,*) 'Names: ', Dim_Names, ' loop ', loop
-    
-!    WRITE(*,*) 'Grid inits'
-
-    DO loop = 1,size(Grids,1),1
-!      WRITE (*,*) '('
-      CALL InitGrid(Grids(loop), size(Dim_Names,1))
-!      CALL PrintGrid(Grids(loop),loop)
-!      WRITE (*,*) ')'
-    END DO
-
-!    WRITE(*,*) 'Getting dims'
- 
-    CALL GetAllDimensions(NCID,Dim_Names,dim_ids,dim_lens) ! Gets dimensions on basis of the given names
- 
-    ! Find variable to be accessed
-    status = NF90_INQ_VARID(NCID,Var_Name,Var_ID)
-    IF ( G_Error(status,'NetCDF variable name not found.') ) THEN
-      CALL abort()
-    END IF
-
-!    WRITE(*,*) 'Finished dims'
-
-    !----------- Get the definining parameters for the NetCDF grid
-    ! x0 vector: lower left corner 
-    ! dx vector: grid spacings
-    ! nmax vector: amounts of steps
-    CALL GetNetCDFGridParameters(NCID,Grids(1),dim_ids,dim_lens) ! Normal grid parameters don't depend on time
-
-!    WRITE(*,*) 'B'
-    ! Initializes time if it is defined
-    IF (IsTimeDependent) THEN
-
-!      WRITE(*,*) 'C'
-      Time % is_defined = .TRUE.
-      CALL InitTime( Solver, NCID, T_Name, IS_TRANSIENT, STEP_SIZE, MAX_STEPS, Time )
-
-      ! If there'll be interpolation, initialize both of the grids usable
-      IF ( Time % doInterpolation ) THEN
-        Grids(2) % x0(:) = Grids(1) % x0(:)
-        Grids(2) % dx(:) = Grids(1) % dx(:)
-        Grids(2) % nmax(:) = Grids(1) % nmax(:)
-      END IF
-
-      IF ( .NOT. Found(5) ) THEN
-        IF ( Found(6) .AND. Found(7) ) THEN
-          CALL Info('GridDataMapper','Two dimensional NetCDF grid focusing on basis of the given mask is in effect.')
-          CALL Focus2DNetCDFGrid(NCID,Mask_Name,Mask_Limit,Grids(1),Time % low,dim_lens)
-          IF ( Time % doInterpolation ) THEN ! Need to interpolate, return two different grid parameters
-            
-            Grids(2) % x0(:) = Grids(1) % x0(:) ! Copy the same results obtained for all grids
-            Grids(2) % dx(:) = Grids(1) % dx(:)
-            Grids(2) % nmax(:) = Grids(1) % nmax(:)
-            CALL Focus2DNetCDFGrid(NCID,Mask_Name,Mask_Limit,Grids(2),Time % high,dim_lens)
-          END IF
-        ELSE
-          ! No mask used
+        ! NOTE: There won't be more than 9 epsilons, because there can't be enough Elmer coordinates for that!
+        WRITE(Message, '(A,I1)') 'Epsilon ', loop
+        eps(loop) = GetConstReal(GetSolverParams(Solver), Message, tmpBool)
+        IF ( .NOT. tmpBool ) THEN
+           eps(loop) = 0
+           WRITE(Message,'(A,I1,A,A)') 'Variable "Epsilon ', loop ,'" not given in Solver Input File. ',&
+                                   'Using zero tolerance for NetCDF grid mismatches with Elmer mesh.'
+           CALL Warn('GridDataMapper', Message)
         END IF
-      END IF
+      END DO
+ 
+      ! Sets the appropriate values to the Grids 
+      Grids(1) % Eps(:) = eps(:) * Grids(1) % dx(:)
+      Grids(2) % Eps(:) = eps(:) * Grids(2) % dx(:)
     END IF
+  
+    !-------------------------------------------------------------------------------
+    ! 2) Sets the time interpolation method 
+    !-------------------------------------------------------------------------------
+    TimeInterpolationMethod = GetString( GetSolverParams(Solver), "Time Interpolation Method", tmpBool )
+    IF ( .NOT. tmpBool ) THEN
+      CALL Warn('GridDataMapper', 'SIF variable "Time Interpolation Method" not specified, using default settings.')
+      TimeInterpolationMethod = ''
+    ELSE
+      WRITE (Message,'(A,A)' ) 'Received Time Interpolation Method SIF variable value: ', TimeInterpolationMethod
+      CALL Info('GridDataMapper', Message)
+    END IF
+ 
+    !-------------------------------------------------------------------------------
+    ! 3) Sets the final adjustments for the interpolation results (to allow relative/absolute time, f.ex.)
+    !-------------------------------------------------------------------------------
+    
+    ! If absolute time is relative, the value of the time function is added to the interpolated location; otherwise it is multiplied with it
+    InterpMultiplier = GetCReal( GetSolverParams(Solver), "Interpolation Multiplier", tmpBool ) ! Multiplies the final interpolation result by given number (relative time)
+    IF ( .NOT. tmpBool ) InterpMultiplier = 1.0_dp ! Defaulted to 1, so it doesn't modify the result
+  
+    InterpBias = GetCReal( GetSolverParams(Solver), "Interpolation Bias", tmpBool ) ! Adds the bias to the final interpolation result (absolute time)
+    IF ( .NOT. tmpBool ) InterpBias = 0.0_dp ! Defaulted to 0, so there is no bias on time
+  
+    !-------------------------------------------------------------------------------
 
-!    WRITE(*,*) 'D'
-  END SUBROUTINE InitNetCDF
-
+  END SUBROUTINE InitInterpolation
 
 !------------------------------------------------------------------------------
 END SUBROUTINE GridDataMapper

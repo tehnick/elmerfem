@@ -1,5 +1,5 @@
 ! A Solver Input File for testing the Grid Data Mapper
-! Vili Forsell, 5.7.2011
+! Vili Forsell, 6.7.2011
 
 ! Header
 Header
@@ -40,6 +40,7 @@ Solver 1
   Variable = NetCDF ! Output variable
   Procedure = "./GridLib" "GridDataMapper"
   Solver Timing = LOGICAL TRUE
+  Coordinate Count = Integer 0 ! How many coordinates of the coordinate system used for accessing NetCDF
 
   !---- NOTE: File is case sensitive, String is not!
   File Name = File "./data.nc" ! NetCDF input file
@@ -48,6 +49,10 @@ Solver 1
 !  Coordinate Name 3 = File "z" ! (optional)
   Time Name = File "time"
   Var Name = File "julytemp" ! The Variable to be opened
+
+  !--- Constants
+!  NetCDF Constant 1 = File "z"
+!  NetCDF Constant Value 1 = Integer 34
 
   !--- Interpolation variables
   Epsilon 1 = Real 1.0e-2 ! Allowed deviation from the bounding box limits (default: 0) (optional)

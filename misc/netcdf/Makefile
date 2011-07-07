@@ -5,7 +5,7 @@
 ##### MACROS
 
 # The modules used by the main program
-MODULES = NetCDFGeneralUtils.f90 NetCDFGridUtils.f90 NetCDFInterpolate.f90 CustomTimeInterpolation.f90
+MODULES = NetCDFGeneralUtils.f90 NetCDFGridUtils.f90 NetCDFInterpolate.f90 CustomTimeInterpolation.f90 MapperUtils.f90
 # The file for the solver
 MAIN = GridDataMapper.f90 cs2cs_interface.c
 # The example Solver Input Files:

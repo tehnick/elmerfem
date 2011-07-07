@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 4.7.2011
+! Last Modified: 6.7.2011
 !------------------------------------------------------------------------------
 ! Contains tools for
 ! - getting the essential information on the uniform NetCDF grid; GetNetCDFGridParameters()
@@ -21,10 +21,13 @@ MODULE NetCDFGridUtils
                      dx(:), & ! Uniform difference between points
                      x1(:), & ! Upper right corner of grid
                      Eps(:) ! Error tolerance for overshooting bounds
-    INTEGER, ALLOCATABLE :: nmax(:) ! Amount of points
+    INTEGER, ALLOCATABLE :: nmax(:), & ! Amount of points
+                            const_vals(:) ! NetCDF data values for constants
     INTEGER :: dims ! Amount of used dimensions
+    INTEGER :: coord_count ! Amount of used coordinates from the used dimensions
     REAL(KIND=dp), ALLOCATABLE :: scale(:), & ! Scales an Elmer point into this grid by multiplying with this...
                      move(:) ! ... and moving by this
+    LOGICAL :: is_def ! True, if size is non-zero, else not defined and false
   END TYPE UniformGrid_t
 
   CONTAINS
@@ -38,39 +41,47 @@ MODULE NetCDFGridUtils
       INTEGER, INTENT(IN) :: ID ! Numeric name for the grid
       INTEGER :: loop
 
-      PRINT *, &
-      'x0    ', Grid % x0   , &
-      'dx    ', Grid % dx   , &
-      'nmax  ', Grid % nmax , &
-      'x1    ', Grid % x1   , &
-      'eps   ', Grid % eps  , &
-      'scale ', Grid % scale, &
-      'move  ', Grid % move 
-      
-      PRINT *,'NetCDF (Uniform) Grid Bounding Box ',ID,':'
-      DO loop = 1,size( GRID % x0, 1),1
-        PRINT '(A,I3,A,F6.2,F6.2)','Coordinate ', loop,':',GRID % X0(loop),GRID % X1(loop)
-      END DO
+      PRINT *, 'dims  ', Grid % dims 
+      PRINT *, 'coordinate count ', Grid % coord_count
+      IF ( GRID % IS_DEF ) THEN
+        PRINT *, 'x0    ', Grid % x0   
+        PRINT *, 'dx    ', Grid % dx   
+        PRINT *, 'nmax  ', Grid % nmax 
+        PRINT *, 'x1    ', Grid % x1   
+        PRINT *, 'eps   ', Grid % eps  
+        PRINT *, 'scale ', Grid % scale
+        PRINT *, 'move  ', Grid % move 
+
+        PRINT *,'NetCDF (Uniform) Grid Bounding Box ',ID,':'
+        DO loop = 1,size( GRID % x0, 1),1
+          PRINT '(A,I3,A,F20.2,F20.2)','Coordinate ', loop,':',GRID % X0(loop),GRID % X1(loop)
+        END DO
+      END IF
 
     END SUBROUTINE PrintGrid
 
 
     !------------------ InitGrid() -------------------------------------
     !--- Initializes the contents of a grid
-    SUBROUTINE InitGrid( Grid, DIMS )
+    SUBROUTINE InitGrid( Grid, DIMS, COORDS )
     !-------------------------------------------------------------------
       USE Messages
       IMPLICIT NONE
       TYPE(UniformGrid_t), INTENT(INOUT) :: Grid
-      INTEGER, INTENT(IN) :: DIMS
+      INTEGER, INTENT(IN) :: DIMS, COORDS
       INTEGER :: alloc_stat
 
-!      IF (DIMS .GT. MAX_DIMS .OR. DIMS .LT. 1) THEN
-!        CALL Fatal('GridDataMapper','InitGrid() input dimensionality should be within (1,3)')
-!      END IF
+      Grid % is_def = .TRUE.
+      Grid % dims = DIMS
+      Grid % coord_count = COORDS
+      IF ( DIMS .LE. 0 ) THEN
+        Grid % is_def = .FALSE.
+        RETURN
+      END IF
 
       ALLOCATE (Grid % x0(DIMS),Grid % dx(DIMS),Grid % nmax(DIMS),Grid % x1(DIMS),&
-Grid % eps(DIMS),Grid % scale(DIMS),Grid % move(DIMS),STAT=alloc_stat)
+                      Grid % eps(COORDS),Grid % scale(COORDS),Grid % move(COORDS),&
+                      Grid % const_vals((DIMS-COORDS)),STAT=alloc_stat)
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Memory ran out!')
       END IF
@@ -83,7 +94,7 @@ Grid % eps(DIMS),Grid % scale(DIMS),Grid % move(DIMS),STAT=alloc_stat)
       ! With these initializations: 1*x(:) + 0 = x(:) ; i.e. doesn't modify
       Grid % scale = 1.0_dp ! Default: no effect
       Grid % move  = 0.0_dp ! Default: no effect
-      Grid % dims = DIMS
+      Grid % const_vals = 0
  
     END SUBROUTINE InitGrid
 
@@ -98,26 +109,41 @@ Grid % eps(DIMS),Grid % scale(DIMS),Grid % move(DIMS),STAT=alloc_stat)
       INTEGER, INTENT(IN) :: NCID
       TYPE(UniformGrid_t), INTENT(INOUT) :: Grid
       INTEGER, INTENT(IN) :: DIM_IDS(:),DIM_LENS(:)
-      INTEGER :: first_two(2), ind, status, ind_vec(1),count_vec(1)
+      INTEGER :: first(1),first_two(2), ind, status, ind_vec(1),count_vec(1)
   
       ! Takes the first two values of all grid dimensions to determine the whole grid
       ind_vec = 1
-      count_vec = 2
+      count_vec = 1
+      first = 0
+      first_two = 0
   
       ! Takes the first two values for each dimension, saves the information necessary for reconstructing the grid
       ! Assumes the NetCDF grid is uniform, the indexing of the dimensions enabled via the usual convention of variables with same names
       DO ind = 1,size(DIM_LENS),1
-  
-        first_two = 0
-        IF (DIM_LENS(ind) <= 1) THEN
-          CALL Fatal('GridDataMapper','Scalar dimension encountered; No obtainable difference')
+
+        ! If the only value on a dimension, there is no dx and only one value can be taken
+        IF (DIM_LENS(ind) .EQ. 1) THEN
+          CALL Warn('GridDataMapper','Scalar dimension encountered; No obtainable difference')
+          count_vec = 1
+          first = 0
+          Grid % dx(ind) = 0
+          status = NF90_GET_VAR(NCID,DIM_IDS(ind),first,ind_vec,count_vec)
+        ELSE
+          count_vec = 2
+          first_two = 0
+          status = NF90_GET_VAR(NCID,DIM_IDS(ind),first_two,ind_vec,count_vec)
         END IF
-        status = NF90_GET_VAR(NCID,DIM_IDS(ind),first_two,ind_vec,count_vec)
         IF ( G_ERROR(status,'NetCDF dimension values access failed.') ) THEN
           CALL abort()
         END IF
-        Grid % x0(ind) = first_two(1)
-        Grid % dx(ind) = first_two(2) - first_two(1)
+
+        IF ( DIM_LENS(ind) .GT. 1 ) THEN
+          Grid % x0(ind) = first_two(1)
+          Grid % dx(ind) = first_two(2) - first_two(1)
+        ELSE
+          Grid % x0(ind) = first(1)
+          Grid % dx(ind) = 0
+        END IF
         Grid % nmax(ind) = DIM_LENS(ind)
       END DO
       
@@ -155,7 +181,8 @@ Grid % eps(DIMS),Grid % scale(DIMS),Grid % move(DIMS),STAT=alloc_stat)
       is_vert(1) = .TRUE. ! left scanning line is vertical
       is_vert(3) = .TRUE. ! right scanning line is vertical
       i0(:) = (/1,1/) ! Indices for lower left corner
-      i1(:) = Grid % nmax(1:Grid % DIMS) ! Indices for upper right corner
+      i1(:) = Grid % nmax(1:Grid % COORD_COUNT) ! Indices for upper right corner
+      IF ( (i0(1) .EQ. i1(1)) .AND. (i0(2) .EQ. i1(2)) ) RETURN ! Does nothing if there is nothing to mask
   
       ! Allocates the scanning lines ; cannot avoid using at most the dimension sizes amount of memory at some point,
       ! and memory allocation/deallocation to accomodate for changing sizes would be slow, so of constant size.
@@ -294,8 +321,8 @@ Grid % eps(DIMS),Grid % scale(DIMS),Grid % move(DIMS),STAT=alloc_stat)
       !---- Finally, updates the values
       i0(:) = low_limits(:,1)
       i1(:) = high_limits(:,4)
-      Grid % x0(1:Grid % DIMS) = Grid % x0(1:Grid % DIMS) + (i0(:) - 1)* Grid % DX(1:Grid % DIMS)
-      Grid % nmax(1:Grid % DIMS) = i1(:) - i0(:) + 1
+      Grid % x0(1:Grid % COORD_COUNT) = Grid % x0(1:Grid % COORD_COUNT) + (i0(:) - 1)* Grid % DX(1:Grid % COORD_COUNT)
+      Grid % nmax(1:Grid % COORD_COUNT) = i1(:) - i0(:) + 1
   
       WRITE (Message,'(A)') '2D grid focusing complete:'
       CALL Info('GridDataMapper', Message)

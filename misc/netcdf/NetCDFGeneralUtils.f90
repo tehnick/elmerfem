@@ -136,7 +136,7 @@ MODULE NetCDFGeneralUtils
       INTEGER :: loop, status
 
       
-      ! Initializations
+      !--- Initializations
 
       ! Checks input size
       IF ( (size(OUT_SIZE) .NE. size(LOC)) .OR. (size(LOC) .NE. size(DIM_LENS)) ) THEN
