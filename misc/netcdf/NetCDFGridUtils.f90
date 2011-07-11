@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 7.7.2011
+! Last Modified: 11.7.2011
 !------------------------------------------------------------------------------
 ! Contains tools for
 ! - getting the essential information on the uniform NetCDF grid; GetNetCDFGridParameters()
@@ -110,7 +110,8 @@ MODULE NetCDFGridUtils
       INTEGER, INTENT(IN) :: NCID
       TYPE(UniformGrid_t), INTENT(INOUT) :: Grid
       INTEGER, INTENT(IN) :: DIM_IDS(:),DIM_LENS(:)
-      INTEGER :: first(1),first_two(2), ind, status, ind_vec(1),count_vec(1)
+      REAL(KIND=dp) :: first(1),first_two(2)
+      INTEGER :: ind, status, ind_vec(1),count_vec(1)
  
       ! Takes the first two values of all grid dimensions to determine the whole grid
       ind_vec = 1

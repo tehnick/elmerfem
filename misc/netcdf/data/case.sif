@@ -1,20 +1,20 @@
 ! A Solver Input File for testing the Grid Data Mapper
-! Vili Forsell, 7.7.2011
+! Vili Forsell, 11.7.2011
 
 ! Header
 Header
-  Mesh DB "." "greenland_box"
+  Mesh DB "." "vac_grid"
 End
 
 ! Simple simulation
 Simulation
-!  Simulation Type = Steady state
-!  Steady State Max Iterations = 1
-  Simulation Type = Transient
-  TimeStep intervals = 2
-  Timestep Sizes = $1/24 !1
+  Simulation Type = Steady state
+  Steady State Max Iterations = 1
+!  Simulation Type = Transient
+!  TimeStep intervals = 2
+!  Timestep Sizes = $1/24 !1
 !  Output Intervals = 1
-  Post File = case.ep
+  Post File = vac.ep
 End
 
 Body 1
@@ -37,37 +37,36 @@ Solver 1
 !  Exec Solver = before all ! Executes a Solver before all, doesn't work well with transient cases
 
   Equation = Mapper
-  Variable = NetCDF ! Output variable
+  Variable = Bf_Values ! Output variable
   Procedure = "./GridLib" "GridDataMapper"
   Solver Timing = LOGICAL TRUE
-  Elmer Coordinate Count = Integer 1 ! How many coordinates of the Elmer coordinate system used for accessing NetCDF
 
   !---- NOTE: File is case sensitive, String is not!
-  File Name = File "./data.nc" ! NetCDF input file
-  Coordinate Name 1 = File "x" ! NetCDF variable dimensions
-!  Coordinate Name 2 = File "y"
-!  Coordinate Name 3 = File "z" ! (optional)
-  Time Name = File "time"
-  Var Name = File "julytemp" ! The Variable to be opened
+  File Name = File "./vac3d.nc" ! NetCDF input file
+  Coordinate Name 1 = File "phi" ! NetCDF variable dimensions (in order of NetCDF access in the network Common Data form Language (CDL))
+  Coordinate Name 2 = File "rho"
+  Coordinate Name 3 = File "z"
+!  Time Name = File "time"
+  Var Name = File "Bf" ! The Variable to be opened
 
   !--- Constants
-!  NetCDF Constant 1 = File "x" ! Name of the constant dimension
+!  NetCDF Constant 1 = File "z" ! Name of the constant dimension
 !  NetCDF Constant Value 1 = Integer 34 ! Index of the constant dimension
-  NetCDF Constant 1 = File "y"
-  NetCDF Constant Value 1 = Integer 35
+!  NetCDF Constant 1 = File "y"
+!  NetCDF Constant Value 1 = Integer 35
 
   !--- Interpolation variables
-  Epsilon 1 = Real 1.0e-2 ! Allowed deviation from the bounding box limits (default: 0) (optional)
-  Epsilon 2 = Real 1.0e-2 ! (default: 0) (optional)
-  Epsilon 3 = Real 1.0e-2 ! (default: 0) (optional)
+  Epsilon 1 = Real 0.01 ! Allowed deviation from the bounding box limits (default: 0) (optional)
+  Epsilon 2 = Real 0.01 ! (default: 0) (optional)
+  Epsilon 3 = Real 0.01 ! (default: 0) (optional)
 !  Interpolation Bias = Real 0.0 ! Adds this bias to the final interpolation result (default: 0) (optional)
 !  Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
 
   !--- Coordinate system variables
-!  Coordinate System = File "cs2cs" ! Sets the coordinate system as a predefined one (default: none) (optional)
-  CS2CS Is Input Radians = LOGICAL FALSE ! True, if input is given in radians, otherwise degrees (default: false) (optional) (only for cs2cs)
-  CS2CS Elmer Projection = File "+proj=ups +ellps=WGS84 +inv" ! CS2CS definition for the Elmer coordinate system (only for cs2cs)
-  CS2CS NetCDF Projection = File "+proj=ups +ellps=WGS84" ! CS2CS definition for the NetCDF coordinate system (only for cs2cs)
+  Coordinate System = File "cylindrical" ! Sets the coordinate system as a predefined one (default: none) (optional)
+!  CS2CS Is Input Radians = LOGICAL FALSE ! True, if input is given in radians, otherwise degrees (default: false) (optional) (only for cs2cs)
+!  CS2CS Elmer Projection = File "+proj=ups +ellps=WGS84 +inv" ! CS2CS definition for the Elmer coordinate system (only for cs2cs)
+!  CS2CS NetCDF Projection = File "+proj=ups +ellps=WGS84" ! CS2CS definition for the NetCDF coordinate system (only for cs2cs)
 
 !
 !  !--- Masking variables

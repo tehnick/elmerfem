@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 7.7.2011
+! Last Modified: 11.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
@@ -151,9 +151,9 @@ MODULE NetCDFInterpolate
             ELSE IF( Xf(i) >= GRID % X1(i) .AND. Xf(i) <= GRID % X1(i) + GRID % EPS(i) ) THEN
               ind(i) = GRID % NMAX(i)
             ELSE ! The index is too far to be salvaged
-              WRITE (Message, '(A,I20,A,F14.3,A,I2,A,F6.2,A)') 'Index ', ind(i), ', which is estimated from Elmer value ',&
-                     Xf(i), ' and over dimension ', i, &
-                     ', is not within the NetCDF grid bounding box nor the value`s error tolerance of ', GRID % EPS(i), '.'
+              WRITE (Message, '(A,F14.3,A,F14.3,A,F14.3,A,I3,A,F14.3,A,F14.6,A)') 'Adjusted Elmer value is out of NetCDF bounds: ',&
+               GRID % X0(i), ' <= ',Xf(i), ' <= ', GRID % X1(i), &
+              ' over dimension ',i,' and originating from ', X(i),' despite error tolerance epsilon: ', GRID % EPS(i), '.'
               CALL Warn( 'GridDataMapper',Message)
               success = .FALSE.
               RETURN
@@ -192,16 +192,30 @@ MODULE NetCDFInterpolate
       REAL(KIND=dp) :: interp_val ! The output
 
       !--- Variables
-      INTEGER :: alloc_stat
+      INTEGER :: alloc_stat, loop
+      LOGICAL :: changed ! True, if the stencil has been changed
+      INTEGER, ALLOCATABLE :: sizes(:) ! Possibly differing sizes of the stencils
       REAL(KIND=dp), ALLOCATABLE :: xi(:), weights(:)
       REAL(KIND=dp) :: u1(2),u2(2) ! For 1D (linear) interpolation
-      REAL(KIND=dp) :: stencilLine(2),stencilSqr(2,2),stencilCube(2,2,2) ! TODO: Choose these sizes/dimensionalities on basis of input
+      REAL(KIND=dp), ALLOCATABLE :: stencilLine(:),stencilSqr(:,:),stencilCube(:,:,:) ! Adjusted if seems to over-index
+
+      changed = .FALSE.
 
       !--- Initializations
-      ALLOCATE ( xi(GRID % DIMS), weights(GRID % DIMS), STAT = alloc_stat )
+      ALLOCATE ( xi(GRID % DIMS), weights(GRID % DIMS), sizes(GRID % DIMS), STAT = alloc_stat )
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Memory ran out!')
       END IF
+
+      sizes = 2
+
+      !--- Finds the locations which are on the edge of over-indexing, and limits them if necessary
+      DO loop = 1,size(X_IND,1)
+        IF ( X_IND(loop) .EQ. DIM_LENS(loop) ) THEN ! Ignore last dimensions
+          sizes(loop) = 1
+          changed = .TRUE.
+        END IF
+      END DO
 
       !--- A) Calculating the weights
       ! The value of the estimated NetCDF grid point
@@ -225,34 +239,52 @@ MODULE NetCDFInterpolate
 
       SELECT CASE ( GRID % DIMS )
         CASE (1) ! 1D 
+          ALLOCATE ( stencilLine(sizes(1)), STAT = alloc_stat )
+          IF ( alloc_stat .NE. 0 ) THEN
+            CALL Fatal('GridDataMapper','Memory ran out!')
+          END IF
+
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine = stencilLine)
-          ! Note: X_IND is the point in the lower left corner; so, in this case the leftmost point on the line
+          ! Note: X_IND is the point in the lower left corner; so, in this case the leftmost point of the linear line
           u1(1) = X_IND(1) ! Linear location from scalar x coord (integer),
           u1(2) = stencilLine(1) ! interpolation for the corresponding value
           u2(1) = X_IND(1) + 1 ! Same for the adjacent point before interpolation
           u2(2) = stencilLine(2)
           interp_val = LinearInterpolation((X_IND(1) + weights(1)),u1,u2)
 
-        CASE (2)
+        CASE (2) ! 2D
+          ALLOCATE ( stencilSqr(sizes(1),sizes(2)), STAT = alloc_stat )
+          IF ( alloc_stat .NE. 0 ) THEN
+            CALL Fatal('GridDataMapper','Memory ran out!')
+          END IF
+
           ! get data on stencil size(stencil)=(2,2), ind -vector describes the lower left corner
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilSqr = stencilSqr)
 
           ! bilinear interpolation
           interp_val = BiLinearInterpolation(stencilSqr,weights)
 
-        CASE (3)
+        CASE (3) ! 3D
+
+          ALLOCATE ( stencilCube(sizes(1),sizes(2),sizes(3)), STAT = alloc_stat )
+          IF ( alloc_stat .NE. 0 ) THEN
+            CALL Fatal('GridDataMapper','Memory ran out!')
+          END IF
+
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilCube = stencilCube)
 
           ! trilinear interpolation
           interp_val = TriLinearInterpolation(stencilCube,weights)
 
+!          IF ( changed ) THEN ! TODO: Fix adjusted input to interpolation to yield good values!!!
+!            PRINT *, 'Shape: ',SHAPE(stencilCube)
+!            PRINT *, 'Values: ',stencilCube
+!            PRINT *, 'Result: ',interp_val
+!          END IF
+
         CASE DEFAULT
           CALL Fatal('GridDataMapper','Interpolation defined only up to three dimensions!')
       END SELECT
-      
-      !--- C) Interpolation
-      ! bilinear interpolation
-!      interp_val = BiLinearInterpolation(stencil,weights)
 
     END FUNCTION ChooseInterpolation
 
@@ -464,30 +496,18 @@ MODULE NetCDFInterpolate
 
       !--- Variables
       INTEGER :: i,j,alloc_stat
-      INTEGER, ALLOCATABLE :: stencil(:)
       REAL(KIND=dp), ALLOCATABLE :: data(:)
       CHARACTER(len = 50) :: answ_format
-      INTEGER, PARAMETER :: stencil1D(1) = (/2/)
-      INTEGER, PARAMETER :: stencil2D(2) = (/2,2/)
-      INTEGER, PARAMETER :: stencil3D(3) = (/2,2,2/)
-
-      ALLOCATE (stencil(size(DIM_LENS)), STAT = alloc_stat)
-      IF ( alloc_stat .NE. 0 ) THEN
-        CALL Fatal('GridDataMapper','Memory ran out')
-      END IF
-      stencil = 1
 
 !      WRITE (*,*) 'Stencil ', stencil(:,1), ' ; ', stencil(:,2) ,' X: ', X,' Y: ', Y   
 
       !--- Checks that the input exists and is unique
       IF ( PRESENT(stencilLine) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilCube))) ) THEN !--- 1D
 
-        stencil(1) = 2
-
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,SHAPE(stencilLine)) ) THEN
    
-          stencilLine = RESHAPE(data,stencil1D)
+          stencilLine = RESHAPE(data,SHAPE(stencilLine))
           IF ( DEBUG_INTERP ) THEN
             !------ Debug printouts -------------------------
             WRITE (*,*) 'STENCIL LINE:'
@@ -499,12 +519,10 @@ MODULE NetCDFInterpolate
 
       ELSE IF ( PRESENT(stencilSqr) .AND. (.NOT. (PRESENT(stencilLine) .OR. PRESENT(stencilCube))) ) THEN !--- 2D
 
-        stencil(1:2) = 2
-
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,SHAPE(stencilSqr)) ) THEN
   
-          stencilSqr = RESHAPE(data,stencil2D)
+          stencilSqr = RESHAPE(data,SHAPE(stencilSqr))
           IF ( DEBUG_INTERP ) THEN
             !------ Debug printouts -------------------------
             WRITE (*,*) 'STENCIL SQUARE:'
@@ -518,12 +536,10 @@ MODULE NetCDFInterpolate
 
       ELSE IF ( PRESENT(stencilCube) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilLine))) ) THEN !--- 3D
 
-        stencil(1:3) = 2
-
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,stencil) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,SHAPE(stencilCube)) ) THEN
   
-         stencilCube = RESHAPE(data,stencil3D)
+         stencilCube = RESHAPE(data,SHAPE(stencilCube))
           IF ( DEBUG_INTERP ) THEN
             !------ Debug printouts -------------------------
             WRITE (*,*) 'STENCIL CUBE:'

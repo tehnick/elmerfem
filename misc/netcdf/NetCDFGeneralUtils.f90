@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 7.7.2011
+! Last Modified: 11.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -138,7 +138,10 @@ MODULE NetCDFGeneralUtils
       ! COUNT_VECTOR is the amount of nodes taken
       ! starting from corresponding index vector locations (slabs of data)
       INTEGER, ALLOCATABLE :: locs(:,:) ! First column is left limit, second column is right limit
-      INTEGER :: loop, status
+      INTEGER, ALLOCATABLE :: rev_perm(:) ! Reverse permuation for indices; necessary to compensate for the
+      ! NetCDF Fortran access indexing being opposite to the one shown in network Common Data form Language (CDL)
+      INTEGER :: loop, status,timeBias ! timeBias is the change to array indices caused by taking time dimension into account
+      CHARACTER(len=64) :: tmpFormat
       
       !------------------------------------------------------------------------------
       ! INITIALIZATIONS
@@ -152,8 +155,10 @@ MODULE NetCDFGeneralUtils
       END IF
 
       ! Checks if time dimension is taken into account (picks always just one point)
-      DIM_COUNT = size(DIM_LENS,1)
-      IF (TIME % IS_DEFINED) DIM_COUNT = DIM_COUNT + 1 ! Takes one more dimension for time
+      timeBias = 0
+      IF (TIME % IS_DEFINED) timeBias = 1
+
+      DIM_COUNT = size(DIM_LENS,1) + timeBias ! May take one more dimension for time
 
       ! The same calculations would be done in any case; uses a little memory to save here
       ! The product of all sizes is the size of the one dimensional version of the NetCDF return value
@@ -164,45 +169,56 @@ MODULE NetCDFGeneralUtils
 
       success = .FALSE. ! For checking if all went ok (allows later error recuperation)
       
-      ALLOCATE ( accessed(TOTAL_SIZE), COUNT_VECTOR(DIM_COUNT),locs(DIM_COUNT,2), STAT = alloc_stat )
+      ALLOCATE ( accessed(TOTAL_SIZE), COUNT_VECTOR(DIM_COUNT),locs(DIM_COUNT,2),rev_perm(DIM_COUNT), STAT = alloc_stat )
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Memory ran out')
       END IF
   
       accessed = 0
 
-      ! If has time, then the last dimension is time and is set in count vector and locs
-      COUNT_VECTOR(1:size(OUT_SIZE)) = OUT_SIZE(:)
-      locs(1:size(LOC),1) = LOC(:)
-      IF ( TIME % IS_DEFINED ) THEN
-        COUNT_VECTOR(DIM_COUNT) = 1
-        locs(DIM_COUNT,1) = LOC_TIME
-      END IF
+      ! In network Common Data form Language (CDL) notation infinite dimensions are first (f.ex. time)
+      ! However, with Fortran access functions the order is required to be reversed, so it will be last
+      rev_perm = (/ (DIM_COUNT - loop + 1, loop = 1, DIM_COUNT) /)
 
+      ! If has time, then the first dimension is time and is set in count vector and locs
+      ! When using via the mask rev_perm, the time index will then be last
+      IF ( TIME % IS_DEFINED ) THEN
+        COUNT_VECTOR(1) = 1
+        locs(1,1) = LOC_TIME
+      END IF
+      COUNT_VECTOR(1+timeBias:size(OUT_SIZE)+timeBias) = OUT_SIZE(:)
+      locs(1+timeBias:size(LOC)+timeBias,1) = LOC(:)
+      
       locs(:,2) = locs(:,1) + COUNT_VECTOR(:) - 1 ! Covers the stencil area starting from left indices
       
       ! Checks each dimension range (and, hence, access attempt)
-      DO loop = 1,size(DIM_LENS),1
-        IF ( (locs(loop,1) .LT. 1) .OR. (DIM_LENS(loop) .LT. locs(loop,2)) ) THEN
-          WRITE (*,'(A,/,3(I10),/,3(I10))') 'Locs: ', locs
-          WRITE (*,'(A,/,3(I10))') 'Dims: ', DIM_LENS
-          CALL Fatal('GridDataMapper','Indexing parameter(s) out of bounds.')
-        END IF
-      END DO
-      
       IF ( TIME % IS_DEFINED ) THEN
-        IF ( (locs(DIM_COUNT,1) .LT. 1) .OR. (TIME % LEN .LT. locs(loop,2)) ) THEN
-          WRITE (*,'(A,/,3(I10),/,3(I10))') 'Locs: ', locs
-          WRITE (*,'(A,/,3(I10))') 'Dims: ', DIM_LENS
-          CALL Fatal('GridDataMapper','Indexing parameter(s) out of bounds.')
+        IF ( (locs(1,1) .LT. 1) .OR. (TIME % LEN .LT. locs(1,2)) ) THEN
+          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,', size(DIM_LENS),'(I10),/,',size(DIM_LENS),'(I10))'
+          WRITE (*,tmpFormat) 'Locs: ', locs
+          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,',size(DIM_LENS),'(I10))'
+          WRITE (*,tmpFormat) 'Dims: ', DIM_LENS
+          CALL Fatal('GridDataMapper','Indexing time out of bounds.')
         END IF
       END IF
 
+      DO loop = 1+timeBias,size(DIM_LENS)+timeBias,1
+        IF ( (locs(loop,1) .LT. 1) .OR. (DIM_LENS(loop) .LT. locs(loop,2)) ) THEN
+          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,', size(DIM_LENS),'(I10),/,',size(DIM_LENS),'(I10))'
+          WRITE (*,tmpFormat) 'Locs: ', locs
+          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,',size(DIM_LENS),'(I10))'
+          WRITE (*,tmpFormat) 'Dims: ', DIM_LENS
+          CALL Fatal('GridDataMapper','Indexing parameter(s) out of bounds.')
+        END IF
+      END DO
+
       !--- The dimensions and the locations have been read and checked; NetCDF accessing info is a-ok
-      
+ 
       ! Access variable and take the values
-      status = NF90_GET_VAR(NCID,var_id,accessed,locs(:,1),COUNT_VECTOR)
-      IF ( G_ERROR(status,'NetCDF variable access failed.') ) THEN
+      status = NF90_GET_VAR(NCID,var_id,accessed,locs(rev_perm(:),1),COUNT_VECTOR(rev_perm(:)))
+      WRITE(Message,*) 'NetCDF variable access failed. Variable ID: ',var_id,' and taking ',&
+         size(accessed,1), ' elements with true size ', TOTAL_SIZE,'Locs: ',locs,'Dims: ',DIM_LENS
+      IF ( G_ERROR(status,Message) ) THEN
         accessed = 0
         CALL abort()
       END IF

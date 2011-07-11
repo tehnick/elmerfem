@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 7.7.2011
+! Last Modified: 11.7.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -31,7 +31,6 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !		o Remember to see if incremental processing might be possible
 !		o Strive for strong exception guarantee (TODO: Revisit this in the end)
 !		o Some terminology: "nodes" and "edges" used for grid points and the lines connecting the for grid points and the lines connecting them
-!		o Implement Z dimension in data extraction
 !******************************************************************************
 
   USE DefUtils, ONLY: dp, Solver_t, Model_t, Mesh_t,GetInteger, CoordinateSystemDimension, GetSolverParams, &
@@ -106,8 +105,8 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   CALL InitNetCDF(Solver, NCID, Var_ID, dim_lens, Grids, Time, TransientSimulation, dt, MAX_STEPS, Coord_System)
   DIM = Grids(1) % COORD_COUNT ! Abbreviation [# of Elmer coordinates .EQ. # of NetCDF coordinates]
-  
-!------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
   ! Initializing Elmer mesh vectors, scaling and interpolation
   !------------------------------------------------------------------------------
   IF ( DIM .GT. 0 ) THEN
@@ -376,28 +375,10 @@ CONTAINS
       CALL abort()
     END IF
 
-    !------------------------------------------------------------------------------
-    ! 3) Restricts the used Elmer coordinate dimensionality (DIM)
-    !------------------------------------------------------------------------------
 
-!    DIM = FLOOR( GetCReal(GetSolverParams(Solver),"Elmer Coordinate Count",tmpBool) ) ! Truncates the given value
-    DIM = GetInteger(GetSolverParams(Solver),"Elmer Coordinate Count",tmpBool)
-    IF ( .NOT. tmpBool ) THEN
-      DIM = CoordinateSystemDimension() ! Defaults to whatever is defined in coordinate system
-    END IF
-
-    ! If the coordinate is out of range, then set it appropriately
-    IF ( DIM .GT. CoordinateSystemDimension() ) THEN
-      DIM = CoordinateSystemDimension()
-      CALL Warn('GridDataMapper','Too large Coordinate Count; automatically set to maximum.')
-    ELSE IF ( DIM .LT. 0 ) THEN
-      DIM = 0
-      CALL Warn('GridDataMapper','Negative Coordinate Count; automatically set to minimum 0.')
-    END IF
-    !> DIM in range ( 0, CoordinateSystemDimension() )
 
     !-------------------------------------------------------------------------------
-    ! 4) Finds the amounts for used coordinate and constant dimensions
+    ! 3) Finds the amounts for used coordinate and constant dimensions
     !-------------------------------------------------------------------------------
 
     !--- Defining coordinate, constant dimension and total dimension sizes
@@ -407,17 +388,27 @@ CONTAINS
     IF ( Found(4) ) size_const = size(Constants,1)
     dim_count = size_coord + size_const
 
-    IF ( size_coord .NE. DIM ) THEN
-      WRITE(Message,'(A,I3,A,I3,A)') 'The amount of used Elmer coordinates ', DIM,' ("Coordinate Count"), &
- differs from the amount of used NetCDF coordinates ', size_const,&
- '. If constant NetCDF coordinates wanted, use "NetCDF Constant"s.'
-      CALL Fatal('GridDataMapper', Message)
-    END IF
-
     IF ( (dim_count .EQ. 0) .AND. (.NOT. IsTimeDependent) ) THEN
       CALL Fatal('GridDataMapper','Expected at least one indexing variable: time, coordinate, or constant.')
     END IF
     !> dim_count in range ( 0, (size_coord + size_const) ), and at least one possible NetCDF accessing parameter given
+
+    !------------------------------------------------------------------------------
+    ! 4) Restricts the used Elmer coordinate dimensionality (DIM)
+    !------------------------------------------------------------------------------
+
+    DIM = size_coord
+
+    ! If the coordinate is out of range, then complain loudly
+    IF ( DIM .GT. CoordinateSystemDimension() ) THEN
+      WRITE (Message,'(A,I5,A,I5,A)') 'Too many (',size_coord,&
+        ') NetCDF coordinates have been defined; Elmer maximum is ', CoordinateSystemDimension() ,'.'
+      CALL Fatal('GridDataMapper',Message)
+    ELSE IF ( DIM .LT. 0 ) THEN
+      DIM = 0
+      CALL Warn('GridDataMapper','Negative Coordinate Count; automatically set to minimum 0.')
+    END IF
+    !> DIM in range ( 0, CoordinateSystemDimension() )
 
     !-------------------------------------------------------------------------------
     ! 5) Forms an array of dimension names (constant and coordinate) for accessing
@@ -544,7 +535,7 @@ CONTAINS
     !-------------------------------------------------------------------------------
     !> Phase 1: Coord_System
     !> Phase 2: NCID, Var_ID
-    !> Phase 3: DIM
+    !> Phase 4: DIM
     !> Phase 6: dim_ids, dim_lens
     !> Phase 8: Time
     !> Phase 9: Grids (scale(:), move(:) and eps(:) not touched)
@@ -766,7 +757,7 @@ CONTAINS
            CALL Warn('GridDataMapper', Message)
         END IF
       END DO
- 
+
       ! Sets the appropriate values to the Grids 
       Grids(1) % Eps(:) = eps(:) * Grids(1) % dx(:)
       Grids(2) % Eps(:) = eps(:) * Grids(2) % dx(:)
