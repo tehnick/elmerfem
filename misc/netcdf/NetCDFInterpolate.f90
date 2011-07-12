@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 11.7.2011
+! Last Modified: 12.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
@@ -34,7 +34,7 @@ MODULE NetCDFInterpolate
   END INTERFACE
 
   LOGICAL :: DEBUG_INTERP = .FALSE.
-  PRIVATE :: GetSolutionInStencil, CoordinateTransformation, ScaleMeshPoint
+  PRIVATE :: GetSolutionInStencil, CoordinateTransformation, ScaleMeshPoint, ChooseInterpolation, GetScalar
 
   CONTAINS
 
@@ -184,75 +184,107 @@ MODULE NetCDFInterpolate
       USE NetCDFGeneralUtils, ONLY: TimeType_t
       IMPLICIT NONE
 
-      !--- Arguments
+      !------------------------------------------------------------------------------
+      ! ARGUMENTS
+      !------------------------------------------------------------------------------
       INTEGER, INTENT(IN) :: NCID, VAR_ID, X_IND(:), DIM_LENS(:), TIME_IND
       TYPE(UniformGrid_t), INTENT(IN) :: GRID
       TYPE(TimeType_t), INTENT(IN) :: TIME
       REAL(KIND=dp), INTENT(IN) :: X_VAL(:)
       REAL(KIND=dp) :: interp_val ! The output
 
-      !--- Variables
+      !------------------------------------------------------------------------------
+      ! VARIABLES
+      !------------------------------------------------------------------------------
       INTEGER :: alloc_stat, loop
+      INTEGER :: actual_size, & ! The actual amount of stencil values
+                 actual_dims ! How many dimensions remain in use
+      INTEGER :: last_loc ! Latest location on the array
       LOGICAL :: changed ! True, if the stencil has been changed
       INTEGER, ALLOCATABLE :: sizes(:) ! Possibly differing sizes of the stencils
-      REAL(KIND=dp), ALLOCATABLE :: xi(:), weights(:)
+      REAL(KIND=dp), ALLOCATABLE :: xi(:), weights(:), stencil_data(:)
       REAL(KIND=dp) :: u1(2),u2(2) ! For 1D (linear) interpolation
       REAL(KIND=dp), ALLOCATABLE :: stencilLine(:),stencilSqr(:,:),stencilCube(:,:,:) ! Adjusted if seems to over-index
 
+      !------------------------------------------------------------------------------
+      ! INITIALIZATIONS
+      !------------------------------------------------------------------------------
       changed = .FALSE.
+      actual_size = 1
+      actual_dims = GRID % DIMS
 
-      !--- Initializations
-      ALLOCATE ( xi(GRID % DIMS), weights(GRID % DIMS), sizes(GRID % DIMS), STAT = alloc_stat )
+      !--- Finds the locations which are on the edge of over-indexing, and limits them if necessary
+      ALLOCATE ( sizes(GRID % DIMS), STAT = alloc_stat )
+      IF ( alloc_stat .NE. 0 ) THEN
+        CALL Fatal('GridDataMapper','Memory ran out!')
+      END IF
+      sizes = 2
+
+      DO loop = 1,size(X_IND,1)
+        IF ( X_IND(loop) .EQ. DIM_LENS(loop) ) THEN ! Ignore last dimensions
+          sizes(loop) = 1
+          actual_dims = actual_dims - 1
+          changed = .TRUE.
+        END IF
+        actual_size = actual_size * sizes(loop) ! Calculates the actual size of the stencil
+      END DO
+      
+      !--- The sizes will change: need to allocate a temporary array for reshaping into a size suitable for interpolation
+      IF ( changed ) THEN
+        ALLOCATE ( stencil_data(actual_size), STAT = alloc_stat )
+        IF ( alloc_stat .NE. 0 ) THEN
+          CALL Fatal('GridDataMapper','Memory ran out!')
+        END IF
+      END IF
+
+      !--- Allocates the weights and such
+      ALLOCATE ( xi(actual_dims), weights(actual_dims), STAT = alloc_stat )
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Memory ran out!')
       END IF
 
-      sizes = 2
-
-      !--- Finds the locations which are on the edge of over-indexing, and limits them if necessary
-      DO loop = 1,size(X_IND,1)
-        IF ( X_IND(loop) .EQ. DIM_LENS(loop) ) THEN ! Ignore last dimensions
-          sizes(loop) = 1
-          changed = .TRUE.
+      !------------------------------------------------------------------------------
+      ! A) Calculating the weights for each used dimension
+      !------------------------------------------------------------------------------
+      last_loc = 1 ! The latest handled location of the modified vectors
+      DO loop = 1,size(sizes,1),1
+        ! If the dimension is used, its size is larger than one (otherwise doesn't affect actual_size)
+        IF ( sizes(loop) .GT. 1 ) THEN
+          ! The value of the estimated NetCDF grid point
+          xi(last_loc) = GRID % X0(loop) + (X_IND(loop)-1) * GRID % DX(loop)
+  
+          ! Interpolation weights, which are the normalized differences of the estimation from the adjacent grid point
+          ! Can be negative if ceil for indices brings the value of xi higher than x
+          !----------- Assume xi > x ------
+          !  x0 + (ind-1)dx > x, where dx > 0
+          ! <=> (ind-1)dx > x-x0
+          ! <=> ind-1 > (x-x0)/dx
+          ! <=> ceil((x-x0)/dx) > ((x-x0)/dx) + 1
+          ! o Known  (x-x0)/dx  <= ceil((x-x0)/dx) < (x-x0)/dx+1 
+          ! => Contradicts; Ergo, range ok.
+          !--------------------------------
+          ! p values should be within [0,1]
+          ! 0 exactly when x = xi, 1 when (x-x0)/dx = ceil((x-x0)/dx) = ind
+          weights(last_loc) = (X_VAL(loop)-xi(last_loc))/GRID % DX(loop)
+          last_loc = last_loc + 1
         END IF
       END DO
-
-      !--- A) Calculating the weights
-      ! The value of the estimated NetCDF grid point
-      xi(:) = GRID % X0(:) + (X_IND(1:GRID % COORD_COUNT)-1) * GRID % DX(:)
   
-      ! Interpolation weights, which are the normalized differences of the estimation from the adjacent grid point
-      ! Can be negative if ceil for indices brings the value of xi higher than x
-      !----------- Assume xi > x ------
-      !  x0 + (ind-1)dx > x, where dx > 0
-      ! <=> (ind-1)dx > x-x0
-      ! <=> ind-1 > (x-x0)/dx
-      ! <=> ceil((x-x0)/dx) > ((x-x0)/dx) + 1
-      ! o Known  (x-x0)/dx  <= ceil((x-x0)/dx) < (x-x0)/dx+1 
-      ! => Contradicts; Ergo, range ok.
-      !--------------------------------
-      ! p values should be within [0,1]
-      ! 0 exactly when x = xi, 1 when (x-x0)/dx = ceil((x-x0)/dx) = ind
-      weights(:) = (X_VAL(:)-xi(:))/GRID % DX(:)
-  
-      !--- B) Obtaining the stencil, and C) interpolating
-
+      !------------------------------------------------------------------------------
+      ! B) Obtaining the stencil values 
+      !------------------------------------------------------------------------------
+      !--- (Must be in original dimensions for the data acquisition to, f.ex., match the contents of X_IND)
       SELECT CASE ( GRID % DIMS )
-        CASE (1) ! 1D 
+        CASE (1) !-- 1D 
           ALLOCATE ( stencilLine(sizes(1)), STAT = alloc_stat )
           IF ( alloc_stat .NE. 0 ) THEN
             CALL Fatal('GridDataMapper','Memory ran out!')
           END IF
 
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine = stencilLine)
-          ! Note: X_IND is the point in the lower left corner; so, in this case the leftmost point of the linear line
-          u1(1) = X_IND(1) ! Linear location from scalar x coord (integer),
-          u1(2) = stencilLine(1) ! interpolation for the corresponding value
-          u2(1) = X_IND(1) + 1 ! Same for the adjacent point before interpolation
-          u2(2) = stencilLine(2)
-          interp_val = LinearInterpolation((X_IND(1) + weights(1)),u1,u2)
+          IF ( changed ) stencil_data = RESHAPE(stencilLine,SHAPE(stencil_data))
 
-        CASE (2) ! 2D
+        CASE (2) !-- 2D
           ALLOCATE ( stencilSqr(sizes(1),sizes(2)), STAT = alloc_stat )
           IF ( alloc_stat .NE. 0 ) THEN
             CALL Fatal('GridDataMapper','Memory ran out!')
@@ -260,11 +292,9 @@ MODULE NetCDFInterpolate
 
           ! get data on stencil size(stencil)=(2,2), ind -vector describes the lower left corner
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilSqr = stencilSqr)
+          IF ( changed ) stencil_data = RESHAPE(stencilSqr,SHAPE(stencil_data))
 
-          ! bilinear interpolation
-          interp_val = BiLinearInterpolation(stencilSqr,weights)
-
-        CASE (3) ! 3D
+        CASE (3) !-- 3D
 
           ALLOCATE ( stencilCube(sizes(1),sizes(2),sizes(3)), STAT = alloc_stat )
           IF ( alloc_stat .NE. 0 ) THEN
@@ -272,18 +302,77 @@ MODULE NetCDFInterpolate
           END IF
 
           CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilCube = stencilCube)
+          IF ( changed ) stencil_data = RESHAPE(stencilCube,SHAPE(stencil_data))
 
-          ! trilinear interpolation
+        CASE DEFAULT !-- Error
+          CALL Fatal('GridDataMapper','Cannot handle more than three variable dimensions!')
+      END SELECT
+
+      !------------------------------------------------------------------------------
+      ! C) Interpolation
+      !------------------------------------------------------------------------------
+      !--- Allocates the interpolation arrays, if necessary
+      SELECT CASE ( actual_size )
+        CASE (1) ! Scalar
+
+!          PRINT *, 'Scalar: ', stencil_data
+          !-- stencil_data contains it all
+          interp_val = stencil_data(1) ! NOTE: Returning a scalar follows only if changed is .TRUE.
+
+        CASE (2) ! Line
+
+          !--- Adjusts data/weights to proper size
+          IF ( changed ) THEN
+!            PRINT *, 'Line: ', stencil_data
+            ALLOCATE ( stencilLine(2), STAT = alloc_stat )
+            IF ( alloc_stat .NE. 0 ) THEN
+              CALL Fatal('GridDataMapper','Memory ran out!')
+            END IF
+            stencilLine = stencil_data
+          END IF
+
+          !--- Linear interpolation
+          !--- Note: X_IND is the point in the lower left corner; so, in this case the leftmost point of the linear line
+          u1(1) = X_IND(1) ! Linear location from scalar x coord (integer),
+          u1(2) = stencilLine(1) ! interpolation for the corresponding value
+          u2(1) = X_IND(1) + 1 ! Same for the adjacent point before interpolation
+          u2(2) = stencilLine(2)
+          interp_val = LinearInterpolation((X_IND(1) + weights(1)),u1,u2)
+
+        CASE (4) ! Square
+
+          !--- Adjusts data/weights to proper size
+          IF ( changed ) THEN
+!            PRINT *, 'Square: ', stencil_data
+            ALLOCATE ( stencilSqr(2,2), STAT = alloc_stat )
+            IF ( alloc_stat .NE. 0 ) THEN
+              CALL Fatal('GridDataMapper','Memory ran out!')
+            END IF
+            stencilSqr = RESHAPE(stencil_data,SHAPE(stencilSqr))
+          END IF
+
+          !--- Bilinear interpolation
+          interp_val = BiLinearInterpolation(stencilSqr,weights)
+
+        CASE (8) ! Cube
+
+          !--- Adjusts data/weights to proper size
+          IF ( changed ) THEN
+!            PRINT *, 'Cube: ', stencil_data
+            ALLOCATE ( stencilCube(2,2,2), STAT = alloc_stat )
+            IF ( alloc_stat .NE. 0 ) THEN
+              CALL Fatal('GridDataMapper','Memory ran out!')
+            END IF
+            stencilCube = RESHAPE(stencil_data,SHAPE(stencilCube))
+          END IF
+
+          !--- Trilinear interpolation
           interp_val = TriLinearInterpolation(stencilCube,weights)
 
-!          IF ( changed ) THEN ! TODO: Fix adjusted input to interpolation to yield good values!!!
-!            PRINT *, 'Shape: ',SHAPE(stencilCube)
-!            PRINT *, 'Values: ',stencilCube
-!            PRINT *, 'Result: ',interp_val
-!          END IF
+        CASE DEFAULT ! Error
+          WRITE(Message,'(A,I5,A)') 'Cannot interpolate a stencil of size ', actual_size, '.'
+          CALL Fatal('GridDataMapper',Message)
 
-        CASE DEFAULT
-          CALL Fatal('GridDataMapper','Interpolation defined only up to three dimensions!')
       END SELECT
 
     END FUNCTION ChooseInterpolation

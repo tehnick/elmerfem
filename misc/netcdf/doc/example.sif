@@ -1,5 +1,5 @@
 ! A Solver Input File for testing the Grid Transform
-! Vili Forsell, 28.6.2011
+! Vili Forsell, 12.7.2011
 
 ! Header
 Header
@@ -23,42 +23,79 @@ End
 
 Solver 1
 
-  !--- An example definition for the GridDataMapper
+  !--------------------------------------------------------------------------
+  !-------- AN EXAMPLE DEFINITION OF THE GridDataMapper NetCDF ACCESS -------
+  !--------------------------------------------------------------------------
 
   Equation = Mapper
-  Variable = Field ! The output variable
   Procedure = "./GridLib" "GridDataMapper"
 
+  !-------- GENERAL PARAMETERS --------------------------
+  ! The basic input/output parameters
+  !------------------------------------------------------
   !---- NOTE: File is case sensitive, String is not!
   File Name = File "./data.nc" ! NetCDF input file
-  Coordinate 1 Name = File "x" ! NetCDF variable dimensions
-  Coordinate 2 Name = File "y"
-!  Coordinate 3 Name = File "z" ! (optional)
-  Time Name = File "time"
   Var Name = File "julytemp" ! The Variable to be opened
+  Variable = Field ! The output variable name in Elmer
+  
+  !-------- NetCDF ACCESS PARAMETERS --------------------
+  ! GridDataMapper requires at least one usable access parameter.
+  ! In other words, it is enough to define only time, only one coordinate, or only one constant.
+  !
+  ! In all cases, however, the order and amount of the parameters needs to be the same as in the
+  !  network Common Data form Language (CDL) description to access the wanted variable.
+  !
+  ! The indexing automatically obeys the following order:
+  ! [time, coordinates 1-N, constants 1-M]
+  ! 
+  ! Each coordinate must correspond to an Elmer cartesian coordinate, 
+  !  and constant values should be within NetCDF index range
+  !------------------------------------------------------
+
+  !--- Time
+  Time Name = File "time"
+
+  !--- Coordinates
+  Coordinate Name 1 = File "x" ! NetCDF variable dimensions
+  Coordinate Name 2 = File "y"
+
+  !--- Constants
+  NetCDF Constant 1 = File "z" ! Name of the constant dimension
+  NetCDF Constant Value 1 = Integer 34 ! Index of the constant dimension
 
   !-------- OPTIONAL CONFIGURATION VARIABLES ------------
+  ! All optional configuration variables are by default inactive, 
+  ! and can be set such simply by commenting the corresponding line
+  !------------------------------------------------------
 
   !--- Interpolation variables
-  Epsilon X = Real 1.0e-3 ! Allowed deviation from the bounding box limits (default: 0) (optional)
-  Epsilon Y = Real 1.0e-3 ! (default: 0) (optional)
+  ! Each Epsilon corresponds to a above defined Coordinate value with the same number
+  !----------------------
+  Epsilon 1 = Real 1.0e-3 ! Allowed deviation from the bounding box limits (default: 0) (optional)
+  Epsilon 2 = Real 1.0e-3 ! (default: 0) (optional)
   Interpolation Bias = Real 0.0 ! Adds this bias to the final interpolation result (default: 0) (optional)
   Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
 
   !--- Coordinate system variables
+  ! At the moment exist: 'cs2cs' and 'cylindrical'; does nothing by default
+  !----------------------
   Coordinate System = File "cs2cs" ! Sets the coordinate system as a predefined one (default: none) (optional)
   CS2CS Is Input Radians = LOGICAL FALSE ! True, if input is given in radians, otherwise degrees (default: false) (optional) (only for cs2cs)
   CS2CS Elmer Projection = File "+proj=ups +ellps=WGS84 +inv" ! CS2CS definition for the Elmer coordinate system (only for cs2cs)
   CS2CS NetCDF Projection = File "+proj=ups +ellps=WGS84" ! CS2CS definition for the NetCDF coordinate system (only for cs2cs)
 
   !--- Masking variables
+  ! Uses a NetCDF variable to limit the area used in Elmer mesh; only 2D data supported at the moment.
+  !----------------------
   Mask Variable = File "ablation" ! The masking NetCDF variable (optional)
   Mask Limit = Real 0.0 ! The masking NetCDF value to be exceeded (optional) 
 
   !--- Scaling variable
   Enable Scaling = LOGICAL TRUE ! Scales the Elmer grid to match the NetCDF grid (default: false) (optional)
 
-  !--- Time variables
+  !--- Time variables ---
+  ! Options for defining the ways the time is used during the access
+  !----------------------
   User Defines Time = LOGICAL FALSE ! True, if uses given time point also in the transient case (default: false) (optional)
   Is Time Index = LOGICAL TRUE ! True if input Time Point is an index (default: false) (optional)
   Time Point = Variable Time ; Real MATC "1 + tx"  ! Needs to be scalar (optional, if transient case is used)

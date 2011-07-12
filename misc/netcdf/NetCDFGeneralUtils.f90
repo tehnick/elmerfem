@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 11.7.2011
+! Last Modified: 12.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -230,65 +230,65 @@ MODULE NetCDFGeneralUtils
    
 
 
-  !----------------- TimeValueToIndex() ---------------
-  !--- Takes a NetCDF time value and converts it into an index
-  FUNCTION TimeValueToIndex(NCID,TIME_NAME,DIM_ID,DIM_LEN,t_val) RESULT(t_ind)
-    IMPLICIT NONE
-
-    !--- Arguments
-    CHARACTER(len = MAX_NAME_LEN), INTENT(IN) :: TIME_NAME
-    REAL(KIND=dp), INTENT(IN) :: t_val
-    INTEGER, INTENT(IN) :: NCID, DIM_ID, DIM_LEN
-    REAL(KIND=dp) :: t_ind ! Output
-
-     !--- Variables
-    REAL(KIND=dp) :: t_min, t_max, t_tmp1(1), t_tmp2(2), t_diff
-    INTEGER :: time_id, status
-    INTEGER :: index_scalar(1), count_scalar(1)
-
-    t_ind = -1.0_dp ! Initialization to out of bounds
-    index_scalar = 1 ! Initialized to min value
-    count_scalar = 2
-    time_id = DIM_ID ! Last dimension is time
+    !----------------- TimeValueToIndex() ---------------
+    !--- Takes a NetCDF time value and converts it into an index
+    FUNCTION TimeValueToIndex(NCID,TIME_NAME,DIM_ID,DIM_LEN,t_val) RESULT(t_ind)
+      IMPLICIT NONE
   
-    ! 1) Inquire time variable's id
-    status = NF90_INQ_VARID(NCID,TIME_NAME,time_id)
-    IF ( G_Error(status,'NetCDF time variable name not found.') ) THEN
-      RETURN
-    END IF
-
-    ! 2) Get the time range from NetCDF
-    status = NF90_GET_VAR(NCID,time_id,t_tmp2,index_scalar,count_scalar)
-    IF ( G_Error(status,'First NetCDF time value not found') ) THEN
-      RETURN
-    END IF
-    t_min = t_tmp2(1)
-    t_diff = t_tmp2(2) - t_tmp2(1)
-
-    count_scalar = 1
-    index_scalar = DIM_LEN ! Pick the last max value
- 
-    status = NF90_GET_VAR(NCID,time_id,t_tmp1,index_scalar,count_scalar)
-    IF ( G_Error(status,'Last NetCDF time value not found') ) THEN
-      RETURN
-    END IF
-    t_max = t_tmp1(1)
-
-    ! Check that input is within range
-    IF ( t_val < t_min .OR. t_val > t_max ) THEN
-      WRITE (Message,'(A,F7.2,A,F7.2,A,F7.2,A,F7.2)') 'Input value ', t_val, &
-              ' is not within range [',t_min,', ',t_max,'] with step', t_diff
-      CALL Fatal('GridDataMapper', Message)
-    END IF
-
-    ! 3) Use the time range to find the index for the time value (NetCDF variables uniform)
-    t_ind = ((t_val - t_min)/t_diff) + 1 ! Uniform grid: just remove the bias and normalize the difference out
-    ! No rounding for it is interpolated later on
-    WRITE (Message, '(A,F7.2,A,F7.2,A,F7.2,A,F7.2,A,F7.2)') 'Time index for given value ', &
-                        t_val, ' is ', t_ind, ' over range [', t_min,',',t_max,'] with step ', t_diff
-    CALL Info('GridDataMapper', Message)
-
-  END FUNCTION
+      !--- Arguments
+      CHARACTER(len = MAX_NAME_LEN), INTENT(IN) :: TIME_NAME
+      REAL(KIND=dp), INTENT(IN) :: t_val
+      INTEGER, INTENT(IN) :: NCID, DIM_ID, DIM_LEN
+      REAL(KIND=dp) :: t_ind ! Output
+  
+       !--- Variables
+      REAL(KIND=dp) :: t_min, t_max, t_tmp1(1), t_tmp2(2), t_diff
+      INTEGER :: time_id, status
+      INTEGER :: index_scalar(1), count_scalar(1)
+  
+      t_ind = -1.0_dp ! Initialization to out of bounds
+      index_scalar = 1 ! Initialized to min value
+      count_scalar = 2
+      time_id = DIM_ID ! Last dimension is time
+    
+      ! 1) Inquire time variable's id
+      status = NF90_INQ_VARID(NCID,TIME_NAME,time_id)
+      IF ( G_Error(status,'NetCDF time variable name not found.') ) THEN
+        RETURN
+      END IF
+  
+      ! 2) Get the time range from NetCDF
+      status = NF90_GET_VAR(NCID,time_id,t_tmp2,index_scalar,count_scalar)
+      IF ( G_Error(status,'First NetCDF time value not found') ) THEN
+        RETURN
+      END IF
+      t_min = t_tmp2(1)
+      t_diff = t_tmp2(2) - t_tmp2(1)
+  
+      count_scalar = 1
+      index_scalar = DIM_LEN ! Pick the last max value
+   
+      status = NF90_GET_VAR(NCID,time_id,t_tmp1,index_scalar,count_scalar)
+      IF ( G_Error(status,'Last NetCDF time value not found') ) THEN
+        RETURN
+      END IF
+      t_max = t_tmp1(1)
+  
+      ! Check that input is within range
+      IF ( t_val < t_min .OR. t_val > t_max ) THEN
+        WRITE (Message,'(A,F7.2,A,F7.2,A,F7.2,A,F7.2)') 'Input value ', t_val, &
+                ' is not within range [',t_min,', ',t_max,'] with step', t_diff
+        CALL Fatal('GridDataMapper', Message)
+      END IF
+  
+      ! 3) Use the time range to find the index for the time value (NetCDF variables uniform)
+      t_ind = ((t_val - t_min)/t_diff) + 1 ! Uniform grid: just remove the bias and normalize the difference out
+      ! No rounding for it is interpolated later on
+      WRITE (Message, '(A,F7.2,A,F7.2,A,F7.2,A,F7.2,A,F7.2)') 'Time index for given value ', &
+                          t_val, ' is ', t_ind, ' over range [', t_min,',',t_max,'] with step ', t_diff
+      CALL Info('GridDataMapper', Message)
+  
+    END FUNCTION TimeValueToIndex
  
     !-------------------- G_Error() ------------------------
     !----- Checks the status and if failure, prints the error message and returns .TRUE.
