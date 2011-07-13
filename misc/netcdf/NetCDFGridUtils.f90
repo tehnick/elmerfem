@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 11.7.2011
+! Last Modified: 13.7.2011
 !------------------------------------------------------------------------------
 ! Contains tools for
 ! - getting the essential information on the uniform NetCDF grid; GetNetCDFGridParameters()
@@ -28,6 +28,8 @@ MODULE NetCDFGridUtils
     REAL(KIND=dp), ALLOCATABLE :: scale(:), & ! Scales an Elmer point into this grid by multiplying with this...
                      move(:) ! ... and moving by this
     LOGICAL :: is_def ! True, if size is non-zero, else not defined and false
+    INTEGER, ALLOCATABLE :: access_perm(:) ! The proper NetCDF access order, indexed by first coordinates, then constants
+    INTEGER, ALLOCATABLE :: Elmer_perm(:) ! Transforms Elmer coordinate order to the NetCDF Coordinate order
   END TYPE UniformGrid_t
 
   CONTAINS
@@ -51,7 +53,9 @@ MODULE NetCDFGridUtils
         PRINT *, 'eps   ', Grid % eps  
         PRINT *, 'scale ', Grid % scale
         PRINT *, 'move  ', Grid % move 
-        PRINT *, 'const vals', Grid % const_vals
+        PRINT *, 'const vals ', Grid % const_vals
+        PRINT *, 'access perm ', Grid % access_perm
+        PRINT *, 'Elmer perm ', Grid % Elmer_perm
 
         PRINT *,'NetCDF (Uniform) Grid Bounding Box ',ID,':'
         DO loop = 1,size( GRID % x0, 1),1
@@ -82,7 +86,8 @@ MODULE NetCDFGridUtils
 
       ALLOCATE (Grid % x0(COORDS),Grid % dx(COORDS),Grid % nmax(COORDS),Grid % x1(COORDS),&
                       Grid % eps(COORDS),Grid % scale(COORDS),Grid % move(COORDS),&
-                      Grid % const_vals((DIMS-COORDS)),STAT=alloc_stat)
+                      Grid % const_vals((DIMS-COORDS)),Grid % access_perm(DIMS),&
+                      Grid % Elmer_perm(COORDS), STAT=alloc_stat)
       IF ( alloc_stat .NE. 0 ) THEN
         CALL Fatal('GridDataMapper','Memory ran out!')
       END IF
@@ -96,6 +101,8 @@ MODULE NetCDFGridUtils
       Grid % scale = 1.0_dp ! Default: no effect
       Grid % move  = 0.0_dp ! Default: no effect
       Grid % const_vals = 0
+      Grid % access_perm = 0 ! Unusable index
+      Grid % Elmer_perm = 0 ! -"-
  
     END SUBROUTINE InitGrid
 

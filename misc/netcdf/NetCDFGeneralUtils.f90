@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 12.7.2011
+! Last Modified: 13.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -194,18 +194,18 @@ MODULE NetCDFGeneralUtils
       ! Checks each dimension range (and, hence, access attempt)
       IF ( TIME % IS_DEFINED ) THEN
         IF ( (locs(1,1) .LT. 1) .OR. (TIME % LEN .LT. locs(1,2)) ) THEN
-          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,', size(DIM_LENS),'(I10),/,',size(DIM_LENS),'(I10))'
-          WRITE (*,tmpFormat) 'Locs: ', locs
+          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,', size(locs,2),'(I10),/,',size(locs,2),'(I10))'
+          WRITE (*,tmpFormat) 'Locs: ', TRANSPOSE(locs)
           WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,',size(DIM_LENS),'(I10))'
           WRITE (*,tmpFormat) 'Dims: ', DIM_LENS
           CALL Fatal('GridDataMapper','Indexing time out of bounds.')
         END IF
       END IF
 
-      DO loop = 1+timeBias,size(DIM_LENS)+timeBias,1
-        IF ( (locs(loop,1) .LT. 1) .OR. (DIM_LENS(loop) .LT. locs(loop,2)) ) THEN
-          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,', size(DIM_LENS),'(I10),/,',size(DIM_LENS),'(I10))'
-          WRITE (*,tmpFormat) 'Locs: ', locs
+      DO loop = 1+timeBias,size(locs,1),1
+        IF ( (locs(loop,1) .LT. 1) .OR. (DIM_LENS(loop-timeBias) .LT. locs(loop,2)) ) THEN
+          WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,', size(locs,2),'(I10),/,',size(locs,2),'(I10))'
+          WRITE (*,tmpFormat) 'Locs: ', TRANSPOSE(locs)
           WRITE(tmpFormat,'(A,I3,A,I3,A)') '(A,/,',size(DIM_LENS),'(I10))'
           WRITE (*,tmpFormat) 'Dims: ', DIM_LENS
           CALL Fatal('GridDataMapper','Indexing parameter(s) out of bounds.')
@@ -223,7 +223,6 @@ MODULE NetCDFGeneralUtils
         CALL abort()
       END IF
       
-  !    outcome = TRANSPOSE(outcome) TODO: Are dimensions a-ok?
       success = .TRUE. ! Successful
   
     END FUNCTION GetFromNetCDF

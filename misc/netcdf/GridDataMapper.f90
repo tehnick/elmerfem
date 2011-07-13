@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 11.7.2011
+! Last Modified: 13.7.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -153,7 +153,7 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
       ! The point of interest
       DO loop = 1,DIM,1
-        x(loop) = GetElmerNodeValue(Solver,node,loop)
+        x(loop) = GetElmerNodeValue(Solver,node,Grids(1) % Elmer_perm(loop))
       END DO
  
       !--- Perform time interpolation, if needed 
@@ -294,7 +294,7 @@ CONTAINS
 
     USE NetCDFGridUtils, ONLY: PrintGrid, InitGrid, GetNetCDFGridParameters, Focus2DNetCDFGrid 
     USE NetCDFGeneralUtils, ONLY: GetAllDimensions, G_Error, TimeValueToIndex
-    USE MapperUtils, ONLY: IntWidth, ListGetStrings
+    USE MapperUtils, ONLY: IntWidth, GetNetCDFAccessParameters
     USE NetCDF
     USE DefUtils, ONLY: dp, MAX_NAME_LEN, GetSolverParams, GetString, GetConstReal, ListGetString
     USE Messages, ONLY: Fatal, Message
@@ -328,6 +328,7 @@ CONTAINS
     INTEGER :: size_coord, size_const ! Temps for amounts of NetCDF coordinate and constant dimensions
     LOGICAL :: tmpBool ,IsTimeDependent ! True, if time is used when accessing NetCDF
     CHARACTER (len = MAX_NAME_LEN), ALLOCATABLE :: Coords(:), Constants(:) ! Contains the names for NetCDF coordinate and constant dimensions
+    INTEGER, ALLOCATABLE :: Permutation(:) ! Contains the NetCDF Access permutation for Coords and Constants
     CHARACTER (len = 10) :: tmpFormat
   
     !------------------------------------------------------------------------------
@@ -343,8 +344,7 @@ CONTAINS
     Var_Name = GetString( GetSolverParams(Solver), "Var Name", Found(2) )
 
     !--- Collects the NetCDF accessing information (coordinates, constant dimensions, time)
-    CALL ListGetStrings( GetSolverParams(Solver), "Coordinate Name", Found(3), Coords )
-    CALL ListGetStrings( GetSolverParams(Solver), "NetCDF Constant", Found(4), Constants )
+    CALL GetNetCDFAccessParameters( GetSolverParams(Solver), Coords, Constants, Permutation, Found(3:4) )
     T_Name = GetString( GetSolverParams(Solver), "Time Name", IsTimeDependent ) ! If given, time is the last dimension
   
     ! Following parameters are needed for masking and coordinate system
@@ -376,7 +376,6 @@ CONTAINS
     END IF
 
 
-
     !-------------------------------------------------------------------------------
     ! 3) Finds the amounts for used coordinate and constant dimensions
     !-------------------------------------------------------------------------------
@@ -399,15 +398,15 @@ CONTAINS
 
     DIM = size_coord
 
-    ! If the coordinate is out of range, then complain loudly
-    IF ( DIM .GT. CoordinateSystemDimension() ) THEN
-      WRITE (Message,'(A,I5,A,I5,A)') 'Too many (',size_coord,&
-        ') NetCDF coordinates have been defined; Elmer maximum is ', CoordinateSystemDimension() ,'.'
-      CALL Fatal('GridDataMapper',Message)
-    ELSE IF ( DIM .LT. 0 ) THEN
-      DIM = 0
-      CALL Warn('GridDataMapper','Negative Coordinate Count; automatically set to minimum 0.')
-    END IF
+!    ! If the coordinate is out of range, then complain loudly
+!    IF ( DIM .GT. CoordinateSystemDimension() ) THEN
+!      WRITE (Message,'(A,I5,A,I5,A)') 'Too many (',size_coord,&
+!        ') NetCDF coordinates have been defined; Elmer maximum is ', CoordinateSystemDimension() ,'.'
+!      CALL Fatal('GridDataMapper',Message)
+!    ELSE IF ( DIM .LT. 0 ) THEN
+!      DIM = 0
+!      CALL Warn('GridDataMapper','Negative Coordinate Count; automatically set to minimum 0.')
+!    END IF
     !> DIM in range ( 0, CoordinateSystemDimension() )
 
     !-------------------------------------------------------------------------------
@@ -456,8 +455,14 @@ CONTAINS
 
     !--- Default initializations for all cases
     DO loop = 1,size(Grids,1),1
-      CALL InitGrid(Grids(loop), dim_count, size_coord ) 
+      CALL InitGrid(Grids(loop), dim_count, size_coord )
+      Grids(loop) % access_perm = Permutation
     END DO
+
+    !-------------------------------------------------------------------------------
+    ! Connects the Elmer Mesh dimensions to NetCDF access parameters
+    !-------------------------------------------------------------------------------
+
 
     !--- Initializations for the case of having some real content
     IF ( Grids(1) % IS_DEF ) THEN
@@ -465,15 +470,30 @@ CONTAINS
       !--- Obtains the preliminary definining parameters for the NetCDF grid
       CALL GetNetCDFGridParameters(NCID,Grids(1),dim_ids,dim_lens) ! Normal grid parameters don't depend on time
 
+      !--- Connects every NetCDF access coordinate to a Elmer coordinate
+      DO loop = 1,Grids(1) % COORD_COUNT,1
+
+        WRITE(tmpFormat,'(A,I1,A)') '(A,I',IntWidth(loop),',A)'
+        WRITE(Message,tmpFormat) 'Coordinate ', Grids(1) % ACCESS_PERM( loop ), ' To Elmer Dimension'
+
+        Grids(1) % Elmer_perm( loop ) = &
+               GetInteger(GetSolverParams(Solver),Message,tmpBool)
+        IF ( .NOT. tmpBool ) THEN
+          WRITE(Message,'(A,I3,A)') 'Declared Coordinate Name ', Grids(1) % ACCESS_PERM( loop ),&
+          ' is not connected to a Elmer dimension. Check all "Coordinate X To Elmer Dimension" definitions.'
+          CALL Fatal('GridDataMapper',Message)
+        END IF
+      END DO 
+
       !--- Finds the index values for the found constant dimensions
       DO loop = 1,size(Grids(1) % const_vals),1
   
         WRITE(tmpFormat,'(A,I1,A)') '(A,I',IntWidth(loop),')'
-        WRITE(Message,tmpFormat) 'NetCDF Constant Value ',loop
+        WRITE(Message,tmpFormat) 'NetCDF Constant Value ', Grids(1) % ACCESS_PERM( Grids(1) % COORD_COUNT + loop)
 
         Grids(1) % const_vals(loop) = GetInteger(GetSolverParams(Solver),Message,tmpBool)
         IF ( .NOT. tmpBool ) THEN
-          WRITE(Message,'(A,I3,A)') 'Declared NetCDF Constant ',loop,&
+          WRITE(Message,'(A,I3,A)') 'Declared NetCDF Constant ', Grids(1) % ACCESS_PERM( Grids(1) % COORD_COUNT + loop),&
           ' has no corresponding index value. Check all NetCDF Constants.'
           CALL Fatal('GridDataMapper',Message)
         END IF

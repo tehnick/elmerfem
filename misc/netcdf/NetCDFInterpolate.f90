@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 12.7.2011
+! Last Modified: 13.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - interpolating NetCDF data for an Elmer grid point (incl. coordinate transformation); Interpolate()
@@ -137,7 +137,7 @@ MODULE NetCDFInterpolate
         ! i.e. the distance/indices to Elmer grid point x from the leftmost points of the NetCDF bounding box
         ind(1:GRID % COORD_COUNT) = CEILING( ( Xf(:) - GRID % X0(:) ) / GRID % DX(:) ) 
         ind((GRID % COORD_COUNT+1):GRID % DIMS) = GRID % CONST_VALS
-   
+ 
         ! This could be done better, one could apply extrapolation 
         ! with a narrow layer.
         DO i = 1,size(Xf,1),1 ! NOTE: Does not modify the constant dimensions
@@ -151,7 +151,8 @@ MODULE NetCDFInterpolate
             ELSE IF( Xf(i) >= GRID % X1(i) .AND. Xf(i) <= GRID % X1(i) + GRID % EPS(i) ) THEN
               ind(i) = GRID % NMAX(i)
             ELSE ! The index is too far to be salvaged
-              WRITE (Message, '(A,F14.3,A,F14.3,A,F14.3,A,I3,A,F14.3,A,F14.6,A)') 'Adjusted Elmer value is out of NetCDF bounds: ',&
+              WRITE (Message, '(A,F14.3,A,(F14.3),A,F14.3,A,I3,A,F14.3,A,F14.6,A)') &
+                'Adjusted Elmer value is out of NetCDF bounds: ',&
                GRID % X0(i), ' <= ',Xf(i), ' <= ', GRID % X1(i), &
               ' over dimension ',i,' and originating from ', X(i),' despite error tolerance epsilon: ', GRID % EPS(i), '.'
               CALL Warn( 'GridDataMapper',Message)
@@ -281,7 +282,7 @@ MODULE NetCDFInterpolate
             CALL Fatal('GridDataMapper','Memory ran out!')
           END IF
 
-          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine = stencilLine)
+          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,GRID % ACCESS_PERM,stencilLine = stencilLine)
           IF ( changed ) stencil_data = RESHAPE(stencilLine,SHAPE(stencil_data))
 
         CASE (2) !-- 2D
@@ -291,7 +292,7 @@ MODULE NetCDFInterpolate
           END IF
 
           ! get data on stencil size(stencil)=(2,2), ind -vector describes the lower left corner
-          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilSqr = stencilSqr)
+          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,GRID % ACCESS_PERM,stencilSqr = stencilSqr)
           IF ( changed ) stencil_data = RESHAPE(stencilSqr,SHAPE(stencil_data))
 
         CASE (3) !-- 3D
@@ -301,7 +302,7 @@ MODULE NetCDFInterpolate
             CALL Fatal('GridDataMapper','Memory ran out!')
           END IF
 
-          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilCube = stencilCube)
+          CALL GetSolutionInStencil(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,GRID % ACCESS_PERM,stencilCube = stencilCube)
           IF ( changed ) stencil_data = RESHAPE(stencilCube,SHAPE(stencil_data))
 
         CASE DEFAULT !-- Error
@@ -565,7 +566,8 @@ MODULE NetCDFInterpolate
       IF ( GRID % DIMS .LE. GRID % COORD_COUNT ) CALL Fatal('GridDataMapper',&
                      'GetScalar requires constant values for accessing NetCDF')
 
-      IF ( GetFromNetCDF(NCID,VAR_ID,GRID % CONST_VALS,TIME % low,TIME,DIM_LENS,data,singleton) ) THEN
+      IF ( GetFromNetCDF(NCID,VAR_ID,GRID % CONST_VALS(GRID % ACCESS_PERM(:)),&
+               TIME % low,TIME,DIM_LENS(GRID % ACCESS_PERM),data,singleton) ) THEN
         scalar = data(1)
       END IF
 
@@ -573,13 +575,13 @@ MODULE NetCDFInterpolate
  
     !------------------ GetSolutionStencil() ----------------------
     !--- Gets a square matrix starting from the lower left index, the size is defined by input matrix stencil 
-    SUBROUTINE GetSolutionInStencil( NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,stencilLine,stencilSqr,stencilCube )
+    SUBROUTINE GetSolutionInStencil( NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,ACC_PERM,stencilLine,stencilSqr,stencilCube )
     !--------------------------------------------------------------
       USE NetCDFGeneralUtils, ONLY: TimeType_t, GetFromNetCDF
       IMPLICIT NONE
 
       !--- Arguments
-      INTEGER, INTENT(IN) :: NCID,X_IND(:),TIME_IND,DIM_LENS(:),VAR_ID
+      INTEGER, INTENT(IN) :: NCID,X_IND(:),TIME_IND,DIM_LENS(:),VAR_ID,ACC_PERM(:)
       TYPE(TimeType_t), INTENT(IN) :: TIME
       REAL(KIND=dp), OPTIONAL, INTENT(INOUT) :: stencilLine(:),stencilSqr(:,:),stencilCube(:,:,:)
 
@@ -594,7 +596,8 @@ MODULE NetCDFInterpolate
       IF ( PRESENT(stencilLine) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilCube))) ) THEN !--- 1D
 
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,SHAPE(stencilLine)) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND(ACC_PERM(:)),&
+            TIME_IND,TIME,DIM_LENS(ACC_PERM(:)),data,SHAPE(stencilLine)) ) THEN
    
           stencilLine = RESHAPE(data,SHAPE(stencilLine))
           IF ( DEBUG_INTERP ) THEN
@@ -609,7 +612,8 @@ MODULE NetCDFInterpolate
       ELSE IF ( PRESENT(stencilSqr) .AND. (.NOT. (PRESENT(stencilLine) .OR. PRESENT(stencilCube))) ) THEN !--- 2D
 
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,SHAPE(stencilSqr)) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND(ACC_PERM(:)),&
+TIME_IND,TIME,DIM_LENS(ACC_PERM(:)),data,SHAPE(stencilSqr)) ) THEN
   
           stencilSqr = RESHAPE(data,SHAPE(stencilSqr))
           IF ( DEBUG_INTERP ) THEN
@@ -626,7 +630,8 @@ MODULE NetCDFInterpolate
       ELSE IF ( PRESENT(stencilCube) .AND. (.NOT. (PRESENT(stencilSqr) .OR. PRESENT(stencilLine))) ) THEN !--- 3D
 
         ! Queries the stencil from NetCDF with associated error checks
-        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND,TIME_IND,TIME,DIM_LENS,data,SHAPE(stencilCube)) ) THEN
+        IF ( GetFromNetCDF(NCID,VAR_ID,X_IND(ACC_PERM(:)),&
+TIME_IND,TIME,DIM_LENS(ACC_PERM(:)),data,SHAPE(stencilCube)) ) THEN
   
          stencilCube = RESHAPE(data,SHAPE(stencilCube))
           IF ( DEBUG_INTERP ) THEN
