@@ -1221,8 +1221,6 @@
       IF(.NOT. GotIt) PowerSensitivity = 4.0_dp
       PowerScaling = PowerScaling * (1 + PowerSensitivity * PowerRelax * (MeltPoint/yave - 1.0d0) ) 
 
-PRINT *,'MeltPoint',MeltPoint,yave
-
       IF( ListGetLogical( Solver % Values,'Smart Heater Transient Speedup',GotIt ) ) THEN
         Temperature = Temperature * (1 + PowerRelax * (MeltPoint/yave - 1.0d0)   )     
       END IF
@@ -1275,13 +1273,15 @@ CONTAINS
 
 !------------------------------------------------------------------------------
         IF (  RadiationFlag(1:9) == 'idealized' ) THEN
-          AText(1:n) = GetReal( BC, 'External Temperature' )
+          AText(1:n) = GetReal( BC, 'Radiation External Temperature',Found )
+          IF(.NOT. Found) AText(1:n) = GetReal( BC, 'External Temperature' )
         ELSE
           CALL DiffuseGrayRadiation( Model, Solver, Element, & 
               Temperature, TempPerm, ForceVector, VisibleFraction, Text)
 
           IF( GetLogical( BC, 'Radiation Boundary Open', Found) ) THEN
-            AText(1:n) = GetReal( BC, 'External Temperature' )
+            AText(1:n) = GetReal( BC, 'Radiation External Temperature',Found )
+            IF(.NOT. Found) AText(1:n) = GetReal( BC, 'External Temperature' )
             Atext(1:n) = ( (1 - VisibleFraction) * Atext(1:n)**4 + &
                 VisibleFraction * Text**4 ) ** 0.25_dp
           ELSE
@@ -1310,11 +1310,11 @@ CONTAINS
         END DO
       END IF  ! of radition
 !------------------------------------------------------------------------------
-      AText(1:n) = GetReal( BC, 'External Temperature',Found )
-      Work(1:n)  = GetReal( BC, 'Heat Transfer Coefficient',Found )
 
+      Work(1:n)  = GetReal( BC, 'Heat Transfer Coefficient',Found )
       IF ( Found ) THEN
-        DO j=1,n
+       AText(1:n) = GetReal( BC, 'External Temperature',Found )
+       DO j=1,n
 !------------------------------------------------------------------------------
 !         BC: -k@T/@n = \alpha(T - Text)
 !------------------------------------------------------------------------------
