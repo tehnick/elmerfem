@@ -1163,8 +1163,7 @@ USE linearalgebra
         Var => VariableGet( Mesh % Variables, &
                  CurrentModel % Solver % Variable % Name, ThisOnly=.TRUE. )
 
-        NS = .FALSE.
-        IF ( Var % Name=='flow solution' ) NS=.TRUE.
+        NS = ( GetVarName( Var ) == 'flow solution' ) 
         
         elem = Mesh % NumberOfBulkElements
         nsize = Mesh % MaxElementDOFs*DOFs

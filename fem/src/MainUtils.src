@@ -253,7 +253,8 @@ CONTAINS
     IsCoupledSolver = ( Solver % SolverMode == SOLVER_MODE_COUPLED ) 
     IsBlockSolver = ( Solver % SolverMode == SOLVER_MODE_BLOCK ) 
     IsAssemblySolver = ( Solver % SolverMode == SOLVER_MODE_ASSEMBLY ) 
-    IsAssemblySolver = IsAssemblySolver .OR. IsCoupledSolver .OR. &
+    IsAssemblySolver = IsAssemblySolver .OR. &
+	( IsCoupledSolver .AND. .NOT. IsProcedure ) .OR. &
         ( IsBlockSolver .AND. .NOT. IsProcedure ) 
 
     ! Default order of equation
@@ -428,12 +429,12 @@ CONTAINS
       NULLIFY( Solver % Variable % Values )
       
       
-    ELSE IF( IsCoupledSolver ) THEN
-      ! Coupled solvers are treated differently
+    ELSE IF( IsCoupledSolver .AND. Solver % PROCEDURE == 0 ) THEN
+      ! Coupled solver may inherit the matrix only if procedure is given
       !-----------------------------------------------------------------
 
     ELSE IF( IsBlockSolver .AND. Solver % PROCEDURE == 0 ) THEN
-      ! Block solver may inherit the matrix if procedure is given
+      ! Block solver may inherit the matrix only if procedure is given
       !-----------------------------------------------------------------
       
     ELSE
@@ -508,7 +509,7 @@ CONTAINS
         !----------------------------------------------------------------------------------
         eq = ListGetString( SolverParams, 'Equation', Found )
         IF(.NOT. Found) THEN
-          CALL Fatal('AddEquationBasics','Variable exists but equation is not defined')
+          CALL Fatal('AddEquationBasics','Variable exists but > Equation < is not defined')
         END IF
         Found = .FALSE.
         DO i=1, CurrentModel % NumberOfEquations
@@ -927,7 +928,7 @@ CONTAINS
         Solver % Variable % PrevValues = 0.0d0
         
         IF ( Solver % Variable % DOFs > 1 ) THEN
-          IF ( Solver % Variable % Name == 'flow solution' ) THEN
+          IF ( GetVarName( Solver % Variable ) == 'flow solution' ) THEN
             DO k=1,Solver % Variable % DOFs-1
               str = 'Velocity ' // CHAR(k+ICHAR('0'))
               Var => VariableGet( Solver % Mesh % Variables, str, .TRUE. )
@@ -1840,7 +1841,7 @@ CONTAINS
           MASS( AllocRows, AllocCols ), &
           ColInds( N ), RowInds( N ),    &
           STAT=istat )
-      IF ( istat /= 0 ) CALL FATAL('CoupledSolver','Memory allocation error')
+      IF ( istat /= 0 ) CALL FATAL('BlockSystemAssembly','Memory allocation error')
       AllocationsDone = .TRUE.
     END IF
       
@@ -2060,7 +2061,7 @@ CONTAINS
     INTEGER :: i,j,k,l,t,n,nd,NoIterations,NoTests,iter,istat,tests
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), DAMP(:,:), MASS(:,:), FORCE(:)
     LOGICAL :: GotIt, GotIt2, GotProc, BulkMode, ThisConstraint, &
-        IsCoupledSolver, IsAssemblySolver, IsListMatrix
+        IsCoupledSolver, IsAssemblySolver, IsProcedure, IsListMatrix
     INTEGER :: Row, Col, ColDofs, RowDofs, ColInd0, RowInd0, MaxDofs, &
          ColVar, RowVar, Nrow, Ncol, NoVar, NoCons, TotSize, ConDofs, OffSet(20), &
          VarSizes(20),VarDofs(20)
@@ -2098,11 +2099,17 @@ CONTAINS
     END INTERFACE
     
 
+    SolverParams => GetSolverParams()
+
     IsCoupledSolver = .FALSE.
     IsAssemblySolver = .FALSE.
 
+    IsProcedure = ListCheckPresent( SolverParams,'Procedure')
+
     CALL Info('CoupledSolver','---------------------------------------',Level=5)
-    IF( Solver % SolverMode == SOLVER_MODE_COUPLED ) THEN
+    IF( IsProcedure ) THEN
+      CALL Info('CoupledSolver','Inheriting matrix from procedure',Level=5)     
+    ELSE IF( Solver % SolverMode == SOLVER_MODE_COUPLED ) THEN
       CALL Info('CoupledSolver','Solving a system of equations',Level=5)
       IsCoupledSolver = .TRUE.
     ELSE IF( Solver % SolverMode == SOLVER_MODE_ASSEMBLY ) THEN
@@ -2115,7 +2122,6 @@ CONTAINS
 
 
     Mesh => GetMesh()
-    SolverParams => GetSolverParams()
     PSolver => Solver
 
     !------------------------------------------------------------------------------
@@ -2129,7 +2135,21 @@ CONTAINS
     VarDofs = 0
 
     AllDirFlag = .FALSE.
-    IF( IsCoupledSolver ) THEN
+    IF( IsProcedure .OR. IsAssemblySolver ) THEN
+      CALL Info('CoupledSolver','Using existing variable and matrix')
+      IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
+        CALL Fatal('CoupledSolver','In Assembly Solver mode the Matrix should exist!')
+      END IF
+      IF(.NOT. ASSOCIATED(Solver % Variable)) THEN
+        CALL Fatal('CoupledSolver','In Assembly Solver mode the Variable should exist!')
+      END IF
+      NoVar = 1
+      Var => Solver % Variable
+      VarDofs(1) = Var % Dofs
+      VarSizes(1) = SIZE( Var % Values )
+      TotSize = VarSizes(1)
+      MaxDofs = VarDofs(1)
+    ELSE
 
       DO i = 1,9
         WRITE (str,'(A,I0)') 'Variable ',i
@@ -2259,20 +2279,7 @@ CONTAINS
           CALL SingleToCoupledVector()
         END IF
       END IF
-    ELSE
-      CALL Info('CoupledSolver','Using existing variable and matrix')
-      IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
-        CALL Fatal('CoupledSolver','In Assembly Solver mode the Matrix should exist!')
-      END IF
-      IF(.NOT. ASSOCIATED(Solver % Variable)) THEN
-        CALL Fatal('CoupledSolver','In Assembly Solver mode the Variable should exist!')
-      END IF
-      NoVar = 1
-      Var => Solver % Variable
-      VarDofs(1) = Var % Dofs
-      VarSizes(1) = SIZE( Var % Values )
-      TotSize = VarSizes(1)
-      MaxDofs = VarDofs(1)
+
     END IF
       
 
@@ -2293,12 +2300,12 @@ CONTAINS
     NoIterations = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
     IF(.NOT. GotIt) NoIterations = 1
     NonlinearTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',gotIt)
-    Robust = ListGetLogical(Solver % Values,'Nonlinear System Linesearch',GotIt)
+    Robust = ListGetLogical(SolverParams,'Nonlinear System Linesearch',GotIt)
     IF( Robust ) THEN
       NoTests = GetInteger( SolverParams,'Nonlinear System Linesearch Iterations',GotIt)
       IF(.NOT. GotIt) NoTests = NoIterations
-      CALL ListAddString(Solver % Values,'Nonlinear System Convergence Measure','residual')
-      CALL ListAddLogical(Solver % Values,'Skip Compute Nonlinear Change',.TRUE.)
+      CALL ListAddString(SolverParams,'Nonlinear System Convergence Measure','residual')
+      CALL ListAddLogical(SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
     END IF
        
     Amat => GetMatrix()
@@ -2309,6 +2316,7 @@ CONTAINS
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
     CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
+print *,'solving'
     Residual = -1.0_dp
     PrevResidual = -1.0_dp
     IsListMatrix = ( Amat % FORMAT == MATRIX_LIST )
@@ -2319,48 +2327,66 @@ CONTAINS
       CALL Info('CoupledSolver',Message,Level=5)
    
       tests = 0
-100   IF(.NOT. IsListMatrix ) CALL DefaultInitialize()
-      IF( AllDirFlag ) AllDir = .FALSE.
+100   IF( IsProcedure ) THEN
+
+        ! Perform the normal solver procedure with just one iteration 
+        ! linear system solver being disabled i.e. just do the assembly.
+        !---------------------------------------------------------------------
+        CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',1)
+        CALL ListAddLogical( SolverParams,'Linear System Solver Disabled',.TRUE.)
+        CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
+
+        CALL SingleSolver( Model, PSolver, dt, Transient )
+
+        CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',NoIterations)
+        CALL ListRemove( SolverParams,'Linear System Solver Disabled')
+        IF(.NOT. Robust ) THEN
+          CALL ListAddLogical(SolverParams,'Skip Compute Nonlinear Change',.FALSE.)
+        END IF          
+     
+      ELSE
+        IF(.NOT. IsListMatrix ) CALL DefaultInitialize()
+        IF( AllDirFlag ) AllDir = .FALSE.
 
 !----------------------------------------------------------------
 ! Here we use the same assembly for coupled system and block system
 ! approach.
 !----------------------------------------------------------------
-
-      DO RowVar = 1,NoVar 
-        DO ColVar = 1,NoVar          
-          CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar,&
-                   Offset(RowVar),Offset(ColVar))
+        DO RowVar = 1,NoVar 
+          DO ColVar = 1,NoVar          
+            CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar,&
+                    Offset(RowVar),Offset(ColVar))
+          END DO
         END DO
-      END DO
     
 !-------------------------------------------------------------------------
 ! Tailored assembly routines for setting the constraints to the same matrix
 !-------------------------------------------------------------------------
 
-      IF( IsCoupledSolver .AND. NoCons > 0 ) THEN
-        CALL CoupledConstraintAssembly()
-      END IF
-      
+        IF( IsCoupledSolver .AND. NoCons > 0 ) THEN
+          CALL CoupledConstraintAssembly()
+        END IF
+
 !----------------------------------------------------------------------
 ! The CRS matrix may be created only when the matrix structure is known
 ! and some initialization may be done only when the matrix exists
 !----------------------------------------------------------------------
-      IF( IsListMatrix ) THEN
-        CALL List_ToCRSMatrix(Amat)
-        IsListMatrix = .FALSE.
-        CALL AddEquationSolution(PSolver, Transient )
-        GOTO 100  
-      END IF
-      CALL DefaultFinishAssembly()
+        IF( IsListMatrix ) THEN
+          CALL List_ToCRSMatrix(Amat)
+          IsListMatrix = .FALSE.
+          CALL AddEquationSolution(PSolver, Transient )
+          GOTO 100  
+        END IF
+        CALL DefaultFinishAssembly()
       
 !------------------------------------------------------------------------------
 !    Do the Dirichlet conditions using offset
 !------------------------------------------------------------------------------          
-      IF( IsCoupledSolver ) THEN
-        CALL CoupledSystemDirichlet()
-      ELSE      
-        CALL DefaultDirichletBCs()
+        IF( IsCoupledSolver ) THEN
+          CALL CoupledSystemDirichlet()
+        ELSE      
+          CALL DefaultDirichletBCs()
+        END IF
       END IF
 
 !------------------------------------------------------------------------------
@@ -2396,7 +2422,7 @@ CONTAINS
       Norm = DefaultSolve()     
       CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
 
-      IF( IsCoupledSolver ) CALL CoupledToSingleVector()
+      IF( .NOT. IsAssemblySolver .AND. .NOT. IsProcedure ) CALL CoupledToSingleVector()
 
       ! The non-robust solver will use one assembly routine less 
       IF(.NOT. Robust) THEN
@@ -3031,7 +3057,7 @@ CONTAINS
         !---------------------------------------------------------------------
         CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',1)
         CALL ListAddLogical( SolverParams,'Linear System Solver Disabled',.TRUE.)
-        CALL ListAddLogical( SolverParams,'Linear System Skip Compute Nonlinear Change',.TRUE.)
+        CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
 
         CALL SingleSolver( Model, PSolver, dt, Transient )
 

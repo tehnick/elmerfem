@@ -3631,7 +3631,7 @@ END FUNCTION SearchNodeL
         END IF
 
         IF ( PrimVar % DOFs > 1 ) THEN
-          IF ( PrimVar % Name == 'flow solution' ) THEN
+          IF ( .FALSE. .AND. PrimVar % Name == 'flow solution' ) THEN
             Var1 => VariableGet( Mesh % Variables, 'Velocity 1', .TRUE.)
             IF ( ASSOCIATED( Var1 ) ) THEN
                Var1 % Valid = .FALSE.
@@ -3674,7 +3674,7 @@ END FUNCTION SearchNodeL
 
     PrimVar % ValuesChanged = .TRUE.
     IF ( PrimVar % DOFs > 1 ) THEN
-      IF ( PrimVar % Name == 'flow solution' ) THEN
+      IF ( .FALSE. .AND. PrimVar % Name == 'flow solution' ) THEN
         Var => VariableGet( PrimaryMesh % Variables, 'Surface', .TRUE.)
         IF ( ASSOCIATED(Var) ) Var % ValuesChanged = .TRUE.
         Var => VariableGet( PrimaryMesh % Variables, 'Pressure', .TRUE.)
@@ -3924,64 +3924,67 @@ END FUNCTION SearchNodeL
     REAL(KIND=dp), POINTER CONTIG :: Mx(:), Mb(:), Mr(:)
     REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRVec, TmpRHSVec
     INTEGER :: ipar(1)
+    TYPE(ValueList_t), POINTER :: SolverParams
 
+    SolverParams => Solver % Values
+  
     IF(SteadyState) THEN	
-      Skip = ListGetLogical( Solver % Values,'Skip Compute Steady State Change',Stat)
+      Skip = ListGetLogical( SolverParams,'Skip Compute Steady State Change',Stat)
       IF( Skip ) RETURN
 
-      ConvergenceType = ListGetString(Solver % Values,&
+      ConvergenceType = ListGetString(SolverParams,&
           'Steady State Convergence Measure',Stat)
       IF(.NOT. Stat) ConvergenceType = 'norm' 
 
       ConvergenceAbsolute = &
-          ListGetLogical(Solver % Values,'Steady State Convergence Absolute',Stat)
+          ListGetLogical(SolverParams,'Steady State Convergence Absolute',Stat)
       IF(.NOT. Stat) ConvergenceAbsolute = &
-          ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
+          ListGetLogical(SolverParams,'Use Absolute Norm for Convergence',Stat)
 
-      Relaxation = ListGetCReal( Solver % Values, &
+      Relaxation = ListGetCReal( SolverParams, &
           'Steady State Relaxation Factor', Relax )
       Relax = Relax .AND. (Relaxation /= 1.0d0)
 
       iterV => VariableGet( Solver % Mesh % Variables, 'coupled iter' )
       IterNo = iterV % Values(1)
       IF( Relax ) THEN
-        RelaxAfter = ListGetInteger(Solver % Values,'Steady State Relaxation After',Stat)
+        RelaxAfter = ListGetInteger(SolverParams,'Steady State Relaxation After',Stat)
         IF( Stat .AND. RelaxAfter >= IterNo ) Relax = .FALSE.
       END IF	
 
       IF(Relax) THEN
-        RelaxBefore = ListGetLogical( Solver % Values, &
+        RelaxBefore = ListGetLogical( SolverParams, &
             'Steady State Relaxation Before', Stat )      
         IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
     ELSE
-      Skip = ListGetLogical( Solver % Values,'Skip Compute Nonlinear Change',Stat)
+      Skip = ListGetLogical( SolverParams,'Skip Compute Nonlinear Change',Stat)
       IF(Skip) RETURN
 
-      ConvergenceType = ListGetString(Solver % Values,&
+      ConvergenceType = ListGetString(SolverParams,&
           'Nonlinear System Convergence Measure',Stat)
       IF(.NOT. stat) ConvergenceType = 'norm' 
 
       ConvergenceAbsolute = &
-          ListGetLogical(Solver % Values,'Nonlinear System Convergence Absolute',Stat)
+          ListGetLogical(SolverParams,'Nonlinear System Convergence Absolute',Stat)
       IF(.NOT. Stat) ConvergenceAbsolute = &
-          ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
+          ListGetLogical(SolverParams,'Use Absolute Norm for Convergence',Stat)
 
       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
       IterNo = iterV % Values(1)
       Solver % Variable % NonlinIter = iterV % Values(1)
       iterV % Values(1) = iterV % Values(1) + 1 
 
-      Relaxation = ListGetCReal( Solver % Values, &
+      Relaxation = ListGetCReal( SolverParams, &
           'Nonlinear System Relaxation Factor', Relax )
       Relax = Relax .AND. (Relaxation /= 1.0d0)
       IF( Relax ) THEN
-        RelaxAfter = ListGetInteger(Solver % Values,'Nonlinear System Relaxation After',Stat)
+        RelaxAfter = ListGetInteger(SolverParams,'Nonlinear System Relaxation After',Stat)
         IF( Stat .AND. RelaxAfter >= Solver % Variable % NonlinIter ) Relax = .FALSE.
       END IF	
 
       IF(Relax) THEN
-        RelaxBefore = ListGetLogical( Solver % Values, &
+        RelaxBefore = ListGetLogical( SolverParams, &
             'Nonlinear System Relaxation Before', Stat )
         IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
@@ -4045,7 +4048,7 @@ END FUNCTION SearchNodeL
     ! The norm should be bounded in order to reach convergence
     !--------------------------------------------------------------------------
 
-    MaxNorm = ListGetCReal( Solver % Values, &
+    MaxNorm = ListGetCReal( SolverParams, &
         'Nonlinear System Max Norm', Stat )
     IF( .NOT. Stat) MaxNorm = HUGE( Norm )
 
@@ -4156,7 +4159,7 @@ END FUNCTION SearchNodeL
     !--------------------------------------------------------------------------
     IF(SteadyState) THEN
       Solver % Variable % SteadyChange = Change
-      Tolerance = ListGetConstReal( Solver % Values,'Steady State Convergence Tolerance',Stat)
+      Tolerance = ListGetConstReal( SolverParams,'Steady State Convergence Tolerance',Stat)
       IF( Stat ) THEN
         IF( Change <= Tolerance ) THEN
           Solver % Variable % SteadyConverged = 1
@@ -4166,7 +4169,7 @@ END FUNCTION SearchNodeL
       END IF
     ELSE
       Solver % Variable % NonlinChange = Change
-      Tolerance = ListGetConstReal( Solver % Values,'Nonlinear System Convergence Tolerance',Stat)
+      Tolerance = ListGetConstReal( SolverParams,'Nonlinear System Convergence Tolerance',Stat)
       IF( Stat ) THEN
         IF( Change <= Tolerance ) THEN
           Solver % Variable % NonlinConverged = 1
@@ -4182,7 +4185,7 @@ END FUNCTION SearchNodeL
     END IF
 
     ! Steady state output is done in MainUtils
-    SolverName = ListGetString( Solver % Values, 'Equation',Stat)
+    SolverName = ListGetString( SolverParams, 'Equation',Stat)
     IF(.NOT. Stat) SolverName = Solver % Variable % Name
 
     IF(SteadyState) THEN        
@@ -4201,10 +4204,10 @@ END FUNCTION SearchNodeL
     ! or in steady state level to allow coupling to other solvers.
     DoIt = .FALSE.
     IF( SteadyState ) THEN 
-      DoIt = ListGetLogical( Solver % Values,&
+      DoIt = ListGetLogical( SolverParams,&
           'Update Exported Variables',Stat)
     ELSE 
-      DoIt = ListGetLogical( Solver % Values,&
+      DoIt = ListGetLogical( SolverParams,&
           'Nonlinear Update Exported Variables',Stat)
     END IF
     IF( DoIt ) CALL UpdateExportedVariables( Solver )	
@@ -4214,9 +4217,9 @@ END FUNCTION SearchNodeL
     IF ( Solver % TimeOrder == 1 ) THEN
       DoIt = .FALSE.
       IF( SteadyState ) THEN
-        DoIt = ListGetLogical( Solver % Values,'Calculate Velocity',Stat)
+        DoIt = ListGetLogical( SolverParams,'Calculate Velocity',Stat)
       ELSE
-        DoIt = ListGetLogical( Solver % Values,'Nonlinear Calculate Velocity',Stat)
+        DoIt = ListGetLogical( SolverParams,'Nonlinear Calculate Velocity',Stat)
       END IF
       IF( DoIt ) THEN
         TimestepVar => VariableGet( Solver % Mesh % Variables, 'timestep size' )
@@ -4230,7 +4233,7 @@ END FUNCTION SearchNodeL
     ! Calculate derivative a.k.a. sensitivity
     IF( SteadyState ) THEN
 
-      IF( ListGetLogical( Solver % Values,'Calculate Derivative',Stat) ) THEN
+      IF( ListGetLogical( SolverParams,'Calculate Derivative',Stat) ) THEN
 
         IF( IterNo > 1 ) THEN
           TimestepVar => VariableGet( Solver % Mesh % Variables, 'derivative eps' )
@@ -4238,7 +4241,7 @@ END FUNCTION SearchNodeL
             eps = TimestepVar % Values(1)
             Stat = .TRUE.
           ELSE
-            eps = ListGetCReal( Solver % Values,'derivative eps',Stat)
+            eps = ListGetCReal( SolverParams,'derivative eps',Stat)
           END IF
           IF(.NOT. Stat) THEN
             CALL Warn('ComputeChange','Derivative Eps not given, using one')
@@ -4279,6 +4282,7 @@ END FUNCTION SearchNodeL
     TYPE(Variable_t), POINTER :: iterV
     LOGICAL :: Stat
     CHARACTER(LEN=MAX_NAME_LEN) :: SolverName
+    TYPE(ValueList_t), POINTER :: SolverParams
 
 
     SAVE Alpha, Myy, Relaxation
@@ -4317,14 +4321,16 @@ END FUNCTION SearchNodeL
       RETURN
     END IF
 
+    SolverParams => Solver % Values
+
     ! At firs time set the line search parameters
     !-----------------------------------------------------------------------------
     IF( FirstTrial ) THEN
       Alpha = 1.0_dp
-      Myy = ListGetConstReal( Solver % Values, &
+      Myy = ListGetConstReal( SolverParams, &
           'Nonlinear System Linesearch Limit', Stat )
       IF(.NOT. Stat) Myy = 0.5_dp
-      Relaxation = ListGetConstReal( Solver % Values, &
+      Relaxation = ListGetConstReal( SolverParams, &
           'Nonlinear System Linesearch Factor', Stat )
       IF(.NOT. Stat) Relaxation = 0.5_dp
     END IF
@@ -4341,7 +4347,7 @@ END FUNCTION SearchNodeL
       Norm = ComputeNorm(Solver, n, x)
       Solver % Variable % Norm = Norm
 
-      SolverName = ListGetString( Solver % Values, 'Equation',Stat)
+      SolverName = ListGetString( SolverParams, 'Equation',Stat)
       IF(.NOT. Stat) SolverName = Solver % Variable % Name
       
       iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )

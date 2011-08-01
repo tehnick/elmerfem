@@ -1797,7 +1797,7 @@ CONTAINS
     TYPE(Model_t) :: Model 
     LOGICAL, INTENT(IN) :: SubtractDisp
     TYPE(Variable_t), POINTER :: Var,Var1
-    CHARACTER(LEN=512) :: str
+    CHARACTER(LEN=512) :: str, VarName
     INTEGER :: i,j,k
     
     OPEN( UNIT=VtkUnit, FILE=VtkFile, STATUS='UNKNOWN' )
@@ -1818,7 +1818,8 @@ CONTAINS
         CYCLE
       END IF
       
-      SELECT CASE( Var % Name )
+      
+      SELECT CASE( Var % Name(1:Var % NameLen) )
         
       CASE( 'mesh update' )
         Var1 => Model % Variables

@@ -491,7 +491,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = 1.0_dp * SIZE(Var % Values)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.TRUE.,ParOper)
 
-      CASE ('sum','sum abs','mean abs','max','max abs','min','min abs','mean','variance')
+      CASE ('sum','sum abs','mean abs','max','max abs','min','min abs','mean','variance','range')
         Value = VectorStatistics(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value,.FALSE.,ParOper)
 
@@ -1331,6 +1331,9 @@ CONTAINS
     CASE ('min')
       operx = Minimum
       
+    CASE ('range')
+      operx = Maximum - Minimum
+
     CASE ('max abs')
       operx = AbsMaximum
       
