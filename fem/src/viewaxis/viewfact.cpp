@@ -33,7 +33,7 @@ extern "C" void STDCALLBULL FC_FUNC(viewfactorsaxis,VIEWFACTORSAXIS)
   Real a, sum, viewint, viewint2, vf2, sumdvf;
   Real c1, c2;    /* Kiertokulman kosinin ylä- ja alaraja */
   Real _r1, _r2, _r3, _r4, _z1, _z2, _z3, _z4;
-  Real ds1,ds2,dp1,dp2,dz1,dz2,dr1,dr2,err,maxerr;
+  Real ds1,ds2,dp1,dz1,dz2,dr1,dr2,err,maxerr;
   Real epsilon = 1.0e-5;
 
   nsurf = *n;

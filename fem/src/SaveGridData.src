@@ -16,6 +16,54 @@
 ! *
 ! *****************************************************************************/
 
+SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
+
+  !------------------------------------------------------------------------
+  ! Write particles to an external file
+  !-------------------------------------------------------------------------
+  USE DefUtils
+  USE ParticleUtils
+  
+  IMPLICIT NONE
+  !------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+  
+  TYPE(Particle_t), POINTER :: Particles
+  LOGICAL :: Visited = .FALSE.
+  TYPE(ValueList_t), POINTER :: Params     
+  CHARACTER(LEN=MAX_NAME_LEN) :: FileFormat
+  LOGICAL :: VtuFormat, TableFormat, AnyFormat, Found
+  
+  SAVE :: TableFormat, VtuFormat, Visited
+    
+  Particles => GlobalParticles
+  Params => GetSolverParams()
+
+  TableFormat = ListGetLogical( Params,'Table Format',Found)
+  VtuFormat = ListGetLogical( Params,'Vtu Format',Found)
+  FileFormat = ListGetString( Params,'Output Format',Found) 
+  IF( Found ) THEN
+    IF( FileFormat == 'vtu') VtuFormat = .TRUE.
+    IF( FileFormat == 'table') TableFormat = .TRUE.
+  END IF
+
+  AnyFormat = TableFormat .OR. VtuFormat 
+  IF( .NOT. AnyFormat ) THEN
+    CALL Warn('SaveParticleData','No active file format given!')
+    RETURN
+  END IF
+
+  IF(.NOT. ListCheckPresent( Params,'Filename Prefix') ) THEN
+    CALL ListAddString( Params,'Filename Prefix','particles')
+  END IF
+  
+  IF( TableFormat ) CALL ParticleOutputTable( Particles )
+  IF( VtuFormat ) CALL ParticleOutputVtu( Particles ) 
+
+END SUBROUTINE SaveParticleData
 
 
 !------------------------------------------------------------------------------
@@ -24,20 +72,8 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
 !******************************************************************************
 !
 !  This subroutine saves scalar values to a matrix.
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
+!  This is achieved by first creating particles at the positions,
+!  and then saving them with more generic routines.
 !
 !******************************************************************************
   USE DefUtils
@@ -56,13 +92,14 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: Params
   LOGICAL :: GotIt, Structured, Visited = .FALSE.
+  CHARACTER(LEN=MAX_NAME_LEN) :: FileFormat
+  LOGICAL :: Found,VtiFormat, VtuFormat, TableFormat, AnyFormat
   INTEGER :: Extent(6)
   REAL(KIND=dp) :: Origin(3), Dx(3)
   INTEGER, POINTER :: GridIndex(:,:,:)
   TYPE( Particle_t), POINTER :: Particles  
 
   SAVE Visited, GridIndex, Origin, Dx, Extent
-!Particles
 
 !------------------------------------------------------------------------------
 
@@ -72,10 +109,27 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
   Particles => GlobalParticles
   Params => Solver % Values
   Mesh => Solver % Mesh
-  Structured = GetLogical( Params,'VTI Format',GotIt )
+
+  TableFormat = ListGetLogical( Params,'Table Format',Found)
+  VtuFormat = ListGetLogical( Params,'Vtu Format',Found)
+  VtiFormat = GetLogical( Params,'Vti Format',GotIt )
+
+  FileFormat = ListGetString( Params,'Output Format',Found) 
+  IF( Found ) THEN
+    IF( FileFormat == 'vtu') VtuFormat = .TRUE.
+    IF( FileFormat == 'table') TableFormat = .TRUE.
+    IF( FileFormat == 'vti') VtiFormat = .TRUE.
+  END IF
+
+  AnyFormat = VtuFormat .OR. TableFormat .OR. VtiFormat 
+  IF( .NOT. AnyFormat ) THEN
+    CALL Warn('SaveGridData','No active file format given!')
+    RETURN
+  END IF
 
   ! Initialize the particles on the first calling
   !------------------------------------------------------------------------
+  Structured = VtiFormat
   IF( .NOT. Visited ) THEN
     Particles % TimeOrder = 0
     Particles % dim = CoordinateSystemDimension()
@@ -84,15 +138,12 @@ SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
     Visited = .TRUE.
   END IF
   
-
   ! The calling is split to two since the 1st one requires totally different 
-  ! data structure. This could be made prettier...
+  ! data structure. 
   !--------------------------------------------------------------------------
-  IF( GetLogical( Params,'VTI Format',GotIt ) ) THEN
-    CALL ParticleOutputVti( Particles, Extent, Origin, Dx, GridIndex )
-  ELSE
-    CALL ParticleOutput( Particles )     
-  END IF
+  IF( VtiFormat ) CALL ParticleOutputVti( Particles, Extent, Origin, Dx, GridIndex )
+  IF( TableFormat ) CALL ParticleOutputTable( Particles )
+  IF( VtuFormat ) CALL ParticleOutputVtu( Particles ) 
 
   CALL Info('SaveGridData','All done',Level=4)
   CALL Info('SaveGridData', '-----------------------------------------', Level=4 )

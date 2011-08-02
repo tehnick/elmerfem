@@ -8,7 +8,8 @@ MODULE ParticleUtils
   IMPLICIT NONE
 
   TYPE Particle_t
-    INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0, TimeOrder=0
+    INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0, &
+               TimeOrder = 0, FirstGhost = 0
     TYPE(ParticleVariable_t), POINTER :: Variables => Null()	
     
     REAL(KIND=dp) :: dtime
@@ -1380,6 +1381,39 @@ RETURN
   END SUBROUTINE ParticleStatistics
   
 
+  !---------------------------------------------------------
+  ! Echos some information on particle amounts
+  !---------------------------------------------------------
+  SUBROUTINE ParticleInformation( Particles, ParticleStepsTaken, TimestepsTaken, tottime ) 
+    TYPE(Particle_t), POINTER :: Particles
+    INTEGER :: ParticleStepsTaken, TimestepsTaken
+    REAL(KIND=dp) :: tottime
+
+    INTEGER :: TotParticleStepsTaken, TotNoParticles
+
+    CALL ParticleStatusCount( Particles )
+
+    IF( ParEnv % PEs > 1 ) THEN
+      TotNoParticles =  NINT( ParallelReduction( 1.0_dp * Particles % NumberOfParticles ) )
+      TotParticleStepsTaken = NINT( ParallelReduction( 1.0_dp * ParticleStepsTaken) )
+    ELSE
+      TotNoParticles = Particles % NumberOfParticles 
+      TotParticleStepsTaken =  ParticleStepsTaken
+    END IF
+    
+    IF ( ParEnv % mype==0 ) THEN
+      WRITE (Message,'(A,T22,I12)') 'Active particles:',TotNoParticles
+      CALL Info('ParticleAdvector',Message)
+      WRITE (Message,'(A,T22,F12.2)') 'Elapsed time:',tottime
+      CALL Info('ParticleAdvector',Message)
+      WRITE (Message,'(A,T22,I12)') 'Time steps taken:',TimeStepsTaken
+      CALL Info('ParticleAdvector',Message)
+      WRITE (Message,'(A,T22,I12)') 'Particle steps taken:',TotParticleStepsTaken
+      CALL Info('ParticleAdvector',Message)
+    END IF
+  END SUBROUTINE ParticleInformation
+
+
 
   !---------------------------------------------------------
   ! Computes the characterestic speed for time integration.
@@ -2430,34 +2464,30 @@ RETURN
   !------------------------------------------------------------------------
   ! Locate all the new elements of the particles
   !-------------------------------------------------------------------------
-  SUBROUTINE LocateParticles( Particles, PartitionChangesOnly )
+  SUBROUTINE LocateParticles( Particles )
     
     USE Lists
     
     TYPE(Particle_t), POINTER :: Particles
-    LOGICAL, OPTIONAL :: PartitionChangesOnly
-    
-    INTEGER :: Status, ElementIndex, No, NoParticles, dim, ElementIndex0
+
+    LOGICAL :: PartitionChangesOnly 
+    INTEGER :: PartitionChanges, Status, ElementIndex, No, &
+               NoParticles, dim, ElementIndex0
     REAL(KIND=dp) :: Rinit(3), Rfin(3),Rfin0(3)
     LOGICAL :: Stat, InitLocation, AccurateAtFace
-    INTEGER ::VisitedTimes = 0
     INTEGER :: FaceIndex, FaceIndex0, Status0
     REAL(KIND=dp) :: Lambda
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: Params
 
-    SAVE VisitedTimes, dim, AccurateAtFace
     
-    
-    NoParticles = Particles % NumberOfParticles
+    Params => GetSolverParams()
+    dim = Particles % dim      
+    AccurateAtFace = ListGetLogical( Params,'Particle Accurate At Face',Stat)
+    PartitionChangesOnly = .FALSE.
 
-    IF( VisitedTimes == 0 ) THEN
-      Params => GetSolverParams()
-      dim = Particles % dim      
-      AccurateAtFace = ListGetLogical( Params,'Particle Accurate At Face',Stat)
-    END IF
+100 NoParticles = Particles % NumberOfParticles
 
-    
     DO No = 1, NoParticles
       
       Status = Particles % Status( No )
@@ -2466,9 +2496,7 @@ RETURN
       IF( Status < PARTICLE_INITIATED ) CYCLE
       IF( Status == PARTICLE_WALLBOUNDARY ) CYCLE
       
-      IF ( PRESENT(PartitionChangesOnly) ) THEN
-        IF ( PartitionChangesOnly .AND. Status /= PARTICLE_PARTBOUNDARY ) CYCLE
-      END IF
+      IF ( PartitionChangesOnly .AND. Status /= PARTICLE_PARTBOUNDARY ) CYCLE
       
       ! We only need to find the right element, path is not of importance
       InitLocation = ( Status < PARTICLE_LOCATED ) 
@@ -2524,7 +2552,15 @@ RETURN
       Particles % FaceIndex(No) = FaceIndex
     END DO
 
-    VisitedTimes = VisitedTimes + 1
+
+    ! Change the partion in where the particles are located
+    ! Only applies to parallel cases.
+    !------------------------------------------------------------------------
+    PartitionChanges = ChangeParticlePartition( Particles )
+    IF( PartitionChanges > 0 ) THEN
+      PartitionChangesOnly = .TRUE.
+      GOTO 100
+    END IF
     
   END SUBROUTINE LocateParticles
   
@@ -3014,9 +3050,18 @@ RETURN
       Particles % ClosestNode(i) = node
       Particles % NoClosestParticle(node) = Particles % NoClosestParticle(node) + 1
     END DO
-    
-    CALL ExchangeNeighbourParticles(Particles)
-    NoParticles = Particles % NumberOfParticles
+
+
+    ! For parallel computation create a secondary copy of the neighbouring particles
+    ! marked as ghost particle and update the total number.
+    !-------------------------------------------------------------------------------
+    CALL CreateGhostParticles( Particles )
+
+    Particles % FirstGhost = NoParticles + 1
+    IF( Particles % NumberOfParticles > NoParticles ) THEN
+      Particles % FirstGhost = NoParticles + 1
+      NoParticles = Particles % NumberOfParticles
+    END IF
     
     ! Count the cumulative number of closest particles for given node
     !-----------------------------------------------------------------
@@ -3050,7 +3095,7 @@ RETURN
   END SUBROUTINE CreateNeighbourList
   
 
-  SUBROUTINE ExchangeNeighbourParticles(Particles)
+  SUBROUTINE CreateGhostParticles(Particles)
     TYPE(Particle_t), POINTER :: Particles
     !---------------------------------------------------------
     INTEGER i,j,k,l,m,n,dim,NoPartitions, node, &
@@ -3274,10 +3319,29 @@ RETURN
     END DO
     DEALLOCATE(Info, Recv_Parts, Neigh, Requests)
     
-  END SUBROUTINE ExchangeNeighbourParticles
+  END SUBROUTINE CreateGhostParticles
   !------------------------------------------------------------
 
 
+  ! This assumes that the real particles are followed by ghost particles. 
+  ! which are destroyed before leaving this configuration.
+  !---------------------------------------------------------------
+  SUBROUTINE DestroyGhostParticles( Particles ) 
+
+    TYPE(Particle_t), POINTER :: Particles
+    INTEGER :: No, NumberOfParticles, FirstGhost
+
+    NumberOfParticles = Particles % NumberOfParticles
+    FirstGhost = Particles % FirstGhost
+
+    IF ( FirstGhost <= NumberOfParticles ) THEN
+      DO No = FirstGhost, NumberOfParticles
+        Particles % Status(No) = PARTICLE_LOST
+      END DO
+      Particles % NumberOfParticles = FirstGhost - 1
+    END IF
+
+  END SUBROUTINE DestroyGhostParticles
 
 
 
@@ -3360,6 +3424,64 @@ RETURN
   END FUNCTION GetNextNeighbour
   
   
+  SUBROUTINE ParticleParticleInteracation( Particles, dtime, Collision, InteractionKernel ) 
+
+    TYPE(Particle_t), POINTER :: Particles
+    REAL(KIND=dP) :: dtime
+    LOGICAL :: Collision
+
+    INTERFACE 
+      SUBROUTINE InteractionKernel( t, r, r2, v, v2, f, f2, Hit ) 
+        INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(12)
+        REAL(KIND=dp) :: t,r(3),r2(3),v(3),v2(3),f(3),f2(3)
+        LOGICAL :: Hit
+      END SUBROUTINE InteractionKernel
+    END INTERFACE
+    
+
+    INTEGER :: No, No2
+    REAL(KIND=dp) :: Coord(3), Velo(3), Coord2(3), Velo2(3), Force(3), Force2(3)
+    LOGICAL :: Interact
+    
+    Coord = 0.0_dp
+    Velo = 0.0_dp
+    Force = 0.0_dp    
+    Coord2 = 0.0_dp
+    Velo2 = 0.0_dp
+    Force2 = 0.0_dp
+    
+
+    DO No=1,Particles % NumberOfParticles
+      IF ( Particles % Status(no) == PARTICLE_GHOST ) EXIT
+      IF ( Particles % Status(no) == PARTICLE_LOST  ) CYCLE
+      
+      Coord = GetParticleCoord( Particles, No )
+      Velo  = GetParticleVelo( Particles, No )
+
+      DO WHILE(.TRUE.)
+        No2 = GetNextNeighbour( Particles, No )           
+        IF( No2 == 0 ) EXIT
+        Coord2 = GetParticleCoord( Particles, No2 )
+        Velo2  = GetParticleVelo( Particles, No2 )
+        
+        CALL InteractionKernel(dtime,Coord,Coord2,Velo,Velo2,&
+            Force,Force2, Interact) 
+        IF(.NOT. Interact ) CYCLE
+          
+        IF( Collision ) THEN
+          CALL SetParticleCoord( Particles, No, Coord )
+          CALL SetParticleCoord( Particles, No2, Coord2 )
+          CALL AddParticleForce( Particles, No, Force )
+          CALL AddParticleForce( Particles, No2, Force2 )
+        ELSE
+          CALL AddParticleForce( Particles, No, Force )
+          CALL AddParticleForce( Particles, No2, Force2 )
+        END IF
+
+      END DO
+    END DO
+  END SUBROUTINE ParticleParticleInteracation
+
 
   !---------------------------------------------------------
   ! Initialize the time for next time integration step
@@ -3744,162 +3866,340 @@ RETURN
 
 
 
-  !---------------------------------------------------------------    
-  ! Subroutine for getting particle-particle interaction 
-  ! The subroutine may return the new positions and new 
-  ! coordinates, or alternatively the initial coordinates are tampered 
-  ! so that with standard time-integration the final position will
-  ! be the same.
-  !---------------------------------------------------------------    
-  FUNCTION ParticleParticleCollision(dt,Coord,Coord2,Velo,Velo2,&
-      Force,Force2) RESULT ( Collision ) 
-    
-    REAL(KIND=dp):: dt,Coord(3),Coord2(3),Velo(3),Velo2(3),Force(3),Force2(3)
-    LOGICAL :: Collision 
-    
-    REAL(KIND=dp)::  v1na,v2na,v1nb,v2nb
-    REAL(KIND=dp) :: dist,maxdist=0.0_dp
-    REAL(KIND=dp) :: Rad1, Rad2, Mass1, Mass2, Coeff 
-    REAL(KIND=dp) :: a,b,c,d,dr(3),dv(3),dra(3),rn(3),dta,dtb
-    TYPE(ValueList_t), POINTER :: Params
-    LOGICAL :: Found, TrueCollision,SimilarParticles,Debug 
-    LOGICAL :: Visited=.FALSE.
-    
-    SAVE Visited, maxdist, SimilarParticles, Rad1, Rad2, Mass1, Mass2, Coeff, &
-        TrueCollision
-    
-    IF(.NOT. Visited ) THEN
-      Params => GetSolverParams()
-      Rad1 = GetCReal(Params,'Particle Radius',Found)
-      IF(.NOT. Found) THEN
-        CALL Fatal('ParticleParticleCollision','> Particle Radius < needed!')
-      END IF
-      Coeff = GetCReal(Params,'Particle Bounciness',Found)
-      IF(.NOT. Found ) Coeff = 1.0_dp
-      Mass1 = GetCReal(Params,'Particle Mass',Found)  
-      Mass2 = Mass1 
-      IF(.NOT. Found) THEN
-        CALL Fatal('ParticleParticleCollision','> Particle Mass < needed!')
-      END IF
-      TrueCollision = GetLogical( Params,'True Collision Mode')
-      SimilarParticles = .TRUE.
-      Visited = .TRUE.
-    END IF
-    
-    Collision = .FALSE.
-    Debug = .FALSE.
-    
-    ! relative displacement and velocity    
-    dr = Coord - Coord2
-    dv = Velo - Velo2
-    
-    ! the collision time is found from the conditins |r1(t)-r2(t)|=R1+R2
-    ! which results to 2nd order equation for the timestep, here a,b,c
-    ! are the coefficicient in the equation. 
-    b = SUM( dr * dv )
-    
-    ! The distance is only growing, there was a collision in history only
-    IF( b >= 0.0_dp ) RETURN
-    
-    a = SUM( dv * dv ) 
-    IF( SimilarParticles ) THEN
-      c = SUM( dr * dr ) - 4*Rad1**2       
-    ELSE
-      c = SUM( dr * dr ) - ( Rad1 + Rad2 )**2
-    END IF
-    d = b*b - a*c
-    
-    ! negative discriminant means no solution
-    IF( d < 0.0_dp ) RETURN
-    
-    ! time for first collision
-    dta = (-b-SQRT(d))/a
-    
-    ! if time larger than given timestep
-    IF( dta >= dt ) RETURN
-    
-    ! time remaining after the collision
-    dtb = dt - dta
-    
-    ! vector at collision 
-    dra = dr + dta * dv
-    
-    ! normal components at collision 
-    rn = dra / SQRT( SUM( dra*dra ) )
-    v1na = SUM( Velo * rn )
-    v2na = SUM( Velo2 * rn ) 
-    
-    IF( SimilarParticles ) THEN
-      v1nb = ( Coeff * (v2na - v1na) + v1na + v2na ) / 2
-      v2nb = ( Coeff * (v1na - v2na) + v2na + v1na ) / 2
-    ELSE
-      v1nb = ( Coeff * Mass2 * (v2na - v1na) + Mass1 * v1na + Mass2 * v2na ) / ( Mass1 + Mass2 )
-      v2nb = ( Coeff * Mass1 * (v1na - v2na) + Mass2 * v2na + Mass1 * v1na ) / ( Mass1 + Mass2 )
-    END IF
-    
-    ! Set either force or velocity directly 
-    ! only the normal component of velocity/force is affected by collisions    
-    !----------------------------------------------------------------------
-    IF( TrueCollision ) THEN
-      ! compute the path until the collision
-      Coord = Coord + dta * rn * Velo
-      Coord2 = Coord2 + dta * rn * Velo2
-      
-      Velo = Velo + (v1nb-v1na) * rn
-      Velo2 = Velo2 + (v2nb-v2na) * rn
-      
-      ! compute the path after the collision
-      Coord = Coord + dtb * Velo
-      Coord2 = Coord2 + dtb * Velo2
-    ELSE
-      Coord = Coord + (v1na-v1nb) * rn * dta
-      Coord2 = Coord2 + (v2na-v2nb) * rn * dta
-      
-      Force = Mass1 * (v1nb-v1na) * rn / dt
-      Force2 = Mass2 * (v2nb-v2na) * rn / dt
-    END IF
-    
-    Collision = .TRUE.
-    
-  END FUNCTION ParticleParticleCollision
-  
-
-
-
-  !------------------------------------------------------------------------
-  ! Write particles in an ascii format 
-  !-------------------------------------------------------------------------
-  SUBROUTINE ParticleOutput( Particles ) 
+!--------------------------------------------------------------------------
+! Set a the timestep for the particles in two possible modes
+! 1) "No" is given => define step for each particle separately
+! 2) "No" is not given => define the same step size for all particles
+!-------------------------------------------------------------------------
+  FUNCTION GetParticleTimeStep(Particles, InitInterval, No, tinit ) RESULT ( dt )
     
     TYPE(Particle_t), POINTER :: Particles
-    LOGICAL :: Visited = .FALSE.
-    TYPE(ValueList_t), POINTER :: Params     
-    CHARACTER(LEN=MAX_NAME_LEN) :: FileFormat
-    LOGICAL :: VtuFormat, TableFormat, Found
+    LOGICAL :: InitInterval
+    INTEGER, OPTIONAL :: No
+    REAL(KIND=dp), OPTIONAL :: tinit
+    REAL(KIND=dp) :: dt
     
-    SAVE :: TableFormat, VtuFormat, Visited
+    REAL(KIND=dp) :: dt0,tfin,tprev,dsgoal,hgoal,dtmax,dtmin,dtup,dtlow, &
+        CharSpeed, CharTime
+    LOGICAL :: GotIt,TfinIs,NStepIs,DsGoalIs,HgoalIs,DtIs
+    INTEGER :: nstep, TimeStep, PrevTimeStep = -1
+    TYPE(ValueList_t), POINTER :: Params
     
-    IF( .NOT. Visited ) THEN
+    SAVE dt0,dsgoal,hgoal,dtmax,dtmin,DtIs,&
+        tprev,Tfin,TfinIs,DsGoalIs,HgoalIs,PrevTimeStep
+    
+    IF( InitInterval ) THEN
       Params => GetSolverParams()
-      TableFormat = ListGetLogical( Params,'Table Format',Found)
-      VtuFormat = ListGetLogical( Params,'Vtu Format',Found)
-      FileFormat = ListGetString( Params,'Output Format',Found) 
-      IF( Found ) THEN
-        IF( FileFormat == 'vtu') VtuFormat = .TRUE.
-        IF( FileFormat == 'table') TableFormat = .TRUE.
+      
+      ! directly defined timestep
+      dt0 = GetCReal(Params,'Timestep Size',DtIs)
+      
+      ! Constraint by absolute step size taken (in length units)
+      dsgoal = GetCReal( Params,'Timestep Distance',DsGoalIs)
+      
+      ! Constraint by relative step size taken (1 means size of the element)
+      hgoal = GetCReal( Params,'Timestep Courant Number',HGoalIs)
+      
+      Nstep = GetInteger( Params,'Max Timestep Intervals',GotIt)
+      IF(.NOT. GotIt) Nstep = 1
+      
+      ! Constraint timestep directly
+      dtmax = GetCReal( Params,'Max Timestep Size',GotIt)
+      IF(.NOT. GotIt ) dtmax = HUGE( dtmax ) 
+      dtmin = GetCReal( Params,'Min Timestep Size',GotIt)
+      IF(.NOT. GotIt ) dtmin = 0.0 
+      
+      TfinIs = .FALSE.
+      IF( GetLogical(Params,'Simulation Timestep Sizes',GotIt) ) THEN
+        tfin = GetTimeStepsize()
+        TfinIs = .TRUE.
+      ELSE
+        tfin = GetCReal(Params,'Max Cumulative Time',TfinIs)
       END IF
       
-      IF(.NOT. ListCheckPresent( Params,'Filename Prefix') ) THEN
-        CALL ListAddString( Params,'Filename Prefix','particles')
-      END IF
-      Visited = .TRUE.
+      tprev = 0.0_dp
+    END IF
+    
+    IF( TfinIs .AND. ABS( tprev - tfin ) < TINY ( tfin ) ) THEN
+      dt = 0.0_dp
+      RETURN
     END IF
     
     
-    IF( TableFormat ) CALL ParticleOutputTable( Particles )
-    IF( VtuFormat ) CALL ParticleOutputVtu( Particles ) 
+    ! Get upper and lower constraints for timestep size
+    ! These generally depend on the velocity field and mesh
+    !--------------------------------------------------------------------
+    IF( DtIs ) THEN
+      dt = dt0 
+    ELSE IF( DsGoalIs ) THEN
+      CharSpeed = CharacteristicSpeed( Particles, No )     
+      dt = dsgoal / CharSpeed
+    ELSE IF( HgoalIs ) THEN
+      CharTime = CharacteristicElementTime( Particles, No )     
+      dt = Hgoal * CharTime ! ElementH / Speed
+    ELSE IF( tfinIs ) THEN
+      dt = tfin / Nstep
+    ELSE
+      CALL Fatal('GetParticlesTimeStep','Cannot determine timestep size!')
+    END IF
     
-  END SUBROUTINE ParticleOutput
+    ! Constrain the timestep
+    !------------------------------------------------------------------
+    dt = MAX( MIN( dt, dtmax ), dtmin )
+    
+    ! Do not exceed the total integration time
+    !-------------------------------------------
+    IF( PRESENT( tinit ) ) tprev = tinit
+    IF( TfinIs .AND. dt + tprev > tfin ) THEN
+      dt = tfin - tprev
+    END IF
+    tprev = tprev + dt
+    
+  END FUNCTION GetParticleTimeStep
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE CreateParticleVariable( Particles, Name, DOFs, Category, Output ) 
+!------------------------------------------------------------------------------
+    TYPE(Particle_t), POINTER :: Particles
+    CHARACTER(LEN=*) :: Name
+    INTEGER, OPTIONAL :: DOFs
+    INTEGER, OPTIONAL :: Category
+    LOGICAL, OPTIONAL :: Output
+!------------------------------------------------------------------------------
+    TYPE(ParticleVariable_t), POINTER :: Variables
+    REAL(KIND=dp), POINTER :: Values(:)
+    LOGICAL :: stat
+    TYPE(ParticleVariable_t), POINTER :: ptr,ptr1,ptr2
+    INTEGER :: NoParticles
+!------------------------------------------------------------------------------
+
+    NoParticles = Particles % MaxNumberOfParticles
+    IF( NoParticles == 0 ) THEN
+      CALL Warn('CreateParticleVariable','No particles present!')
+    END IF	
+
+    Variables => Particles % Variables
+    IF ( .NOT.ASSOCIATED(Variables) ) THEN
+      ALLOCATE(Variables)
+      Particles % Variables => Variables
+      ptr => Variables
+    ELSE
+      ALLOCATE( ptr )
+    END IF
+    
+    ! note: sets confusinly also ptr % name 
+    ptr % NameLen = StringToLowerCase( ptr % Name,Name )
+    
+    ! get the next free handle?
+    IF ( .NOT. ASSOCIATED(ptr, Variables) ) THEN
+      ptr1 => Variables
+      ptr2 => Variables
+      DO WHILE( ASSOCIATED( ptr1 ) )
+	IF( ptr % NameLen == ptr1 % NameLen ) THEN
+          IF ( ptr % Name == ptr1 % Name ) THEN	
+            DEALLOCATE( ptr )
+            RETURN
+          END IF
+        END IF
+        ptr2 => ptr1
+        ptr1 => ptr1 % Next
+      END DO
+      ptr2 % Next => ptr
+    END IF
+    ptr % Next => Null()
+    
+    ptr % Norm = 0.0d0
+    ptr % PrevNorm = 0.0d0
+    ptr % DOFs = 1
+    ptr % Valid  = .TRUE.
+    ptr % Output = .TRUE.
+    ptr % ValuesChanged = .TRUE.
+    ptr % Category = 0    
+
+    IF( PRESENT( DOFs ) ) ptr % DOFs = DOFs
+    IF ( PRESENT( Category ) ) ptr % Category = Category
+    IF ( PRESENT( Output ) ) ptr % Output = Output
+    
+    NULLIFY( Values )
+    ALLOCATE( Values( NoParticles * ptr % Dofs ) )
+    Values = 0.0_dp
+    ptr % Values => Values
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE CreateParticleVariable
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!  Given a variable name, get handle to it
+!------------------------------------------------------------------------------
+  FUNCTION GetParticleVariable( Particles, Name ) RESULT ( Var )
+    
+    TYPE(Particle_t), POINTER :: Particles
+    CHARACTER(LEN=*) :: Name
+    TYPE(ParticleVariable_t), POINTER :: Var
+!------------------------------------------------------------------------------
+    TYPE(ParticleVariable_t), POINTER :: Tmp
+    CHARACTER(LEN=LEN_TRIM(Name)) :: str
+    INTEGER :: k
+      
+!------------------------------------------------------------------------------
+    k = StringToLowerCase( str,Name,.TRUE. )
+    
+    Tmp => Particles % Variables
+
+    DO WHILE( ASSOCIATED(tmp) )
+      IF ( Tmp % NameLen == k ) THEN
+        IF ( Tmp % Name(1:k) == str(1:k) ) THEN          
+          IF ( Tmp % Valid ) THEN
+            Var => Tmp
+            RETURN
+          END IF
+          EXIT          
+        END IF
+      END IF
+      Tmp => Tmp % Next
+    END DO
+    Var => Tmp
+
+  END FUNCTION GetParticleVariable
+
+
+
+  SUBROUTINE ParticleToFieldSolver( Solver,WeightVector,ForceVector)
+    
+    TYPE(Solver_t), POINTER :: Solver
+    REAL(KIND=dp), POINTER :: WeightVector(:),ForceVector(:)
+    
+    REAL(KIND=dp) :: Norm
+
+
+    CALL DefaultInitialize()  
+    CALL BulkAssembly()
+    CALL DefaultFinishAssembly()
+    CALL DefaultDirichletBCs()
+    Norm = DefaultSolve()
+    
+    
+  CONTAINS 
+    
+    !------------------------------------------------------------------------
+    ! Assemblies by Galerkin method the problem where a continuous field is 
+    ! fitted to the data by discrete particles. The particles have a contribution
+    ! on the r.h.s. There are two different methods
+    ! 1) without normalization it is assumed that the r.h.s is already physically
+    !    relevant sum of the data.
+    ! 2) with normalization it is assumed that the r.h.s. scales with the weight
+    !    and division by weight is needed to obtain a statistical average.
+    ! In both cases regularization by a diffusion coefficient may be used but 
+    ! it is essenitial only in the latter.
+    !-------------------------------------------------------------------------
+    SUBROUTINE BulkAssembly()
+      
+      INTEGER, POINTER :: BoundaryPerm(:), Indexes(:)
+      INTEGER :: i,j,k,t,n,istat,active,BoundaryNodes
+      TYPE(Element_t), POINTER :: Element
+      TYPE(GaussIntegrationPoints_t) :: IP
+      CHARACTER(LEN=MAX_NAME_LEN) :: BoundaryName
+      TYPE(Nodes_t) :: Nodes
+      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+      REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+      REAL(KIND=dp) :: Coeff, detJ, RealWeightSum, IdealWeightSum, WeightCorr, val
+      TYPE(Matrix_t), POINTER :: StiffMatrix 
+      LOGICAL :: stat, Normalize, Visited = .FALSE.
+      
+      
+      SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx
+      
+      IF(.NOT. Visited ) THEN
+        Visited = .TRUE.
+        N = Solver % Mesh % MaxElementNodes 
+        ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), STAT=istat )
+        
+        N = Solver % Mesh % NumberOfNodes
+        ALLOCATE( BoundaryPerm(n) )
+        BoundaryPerm = 0
+        BoundaryNodes = 0
+        BoundaryName = 'Free Point Boundary'
+        CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,BoundaryName, &
+            .FALSE., BoundaryPerm, BoundaryNodes )
+      END IF
+      
+      ! Assembly the diffusion part used for regularization
+      !----------------------------------------------------------
+      Coeff = GetCReal( Solver % Values,'Particle Property Diffusion Coefficient')
+      active = GetNOFActive()
+      StiffMatrix => Solver % Matrix
+
+      Normalize = GetLogical( Solver % Values,'Particle Property Normalize')
+      IdealWeightSum = 0.0_dp
+      
+      DO t=1,active
+        Element => GetActiveElement(t)
+        n = GetElementNOFNodes(Element)
+        Indexes => Element % NodeIndexes
+        
+        CALL GetElementNodes( Nodes, Element )
+        STIFF = 0.0d0
+        FORCE = 0.0d0
+        
+        ! Numerical integration:
+        !----------------------
+        IP = GaussPoints( Element )
+        DO k=1,IP % n
+          ! Basis function values & derivatives at the integration point:
+          !--------------------------------------------------------------
+          stat = ElementInfo( Element, Nodes, IP % U(k), IP % V(k), &
+              IP % W(k),  detJ, Basis, dBasisdx )
+          
+          ! Finally, the elemental matrix & vector:
+          !----------------------------------------
+          DO i=1,n
+            val = IP % s(k) * DetJ * Basis(i) 
+            IdealWeightSum = IdealWeightSum + val
+            IF(.NOT. Normalize ) THEN
+              STIFF(i,i) = STIFF(i,i) + val
+            END IF
+            
+            ! This condition removes the natural boundary condition that would 
+            ! try to fix the normal gradient of the field to zero.
+            !--------------------------------------------------------------------
+            IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
+            DO j=1,n
+              STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
+                  SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
+            END DO
+          END DO
+        END DO
+        
+        CALL DefaultUpdateEquations( STIFF, FORCE )
+      END DO
+
+      IF( Normalize ) THEN
+        ! Set the weight to the diagonal i.e. make the mass matrix contribution  
+        ! The data is normalized so that if it would be constant it would yield the 
+        ! same equation as the normal one and the weights would also be constant.
+        ! This way diffusion will not depend on the amount of data, whether
+        ! that is desirable, or not, I don't know. 
+        !-----------------------------------------------------------------------
+        RealWeightSum = SUM( WeightVector ) 
+        WeightCorr = IdealWeightSum / RealWeightSum 
+        StiffMatrix => Solver % Matrix
+        DO i=1,SIZE( WeightVector ) 
+          val = WeightCorr * WeightVector(i)  
+          CALL AddToMatrixElement( StiffMatrix,i,i,val )
+        END DO
+        StiffMatrix % rhs = WeightCorr * ForceVector        
+      ELSE
+        StiffMatrix % rhs = ForceVector
+      END IF
+
+    END SUBROUTINE BulkAssembly
+
+  END SUBROUTINE ParticleToFieldSolver
+
   
 
   !------------------------------------------------------------------------
@@ -4087,249 +4387,6 @@ RETURN
   END SUBROUTINE ParticleOutputTable
 
 
-
-
-  SUBROUTINE ParticleToFieldSolver( Solver,WeightVector,ForceVector)
-    
-    TYPE(Solver_t), POINTER :: Solver
-    REAL(KIND=dp), POINTER :: WeightVector(:),ForceVector(:)
-    
-    REAL(KIND=dp) :: Norm
-
-
-    CALL DefaultInitialize()  
-    CALL BulkAssembly()
-    CALL DefaultFinishAssembly()
-    CALL DefaultDirichletBCs()
-    Norm = DefaultSolve()
-    
-    
-  CONTAINS 
-    
-    !------------------------------------------------------------------------
-    ! Assemblies by Galerkin method the problem where a continuous field is 
-    ! fitted to the data by discrete particles. The particles have a contribution
-    ! on the r.h.s. There are two different methods
-    ! 1) without normalization it is assumed that the r.h.s is already physically
-    !    relevant sum of the data.
-    ! 2) with normalization it is assumed that the r.h.s. scales with the weight
-    !    and division by weight is needed to obtain a statistical average.
-    ! In both cases regularization by a diffusion coefficient may be used but 
-    ! it is essenitial only in the latter.
-    !-------------------------------------------------------------------------
-    SUBROUTINE BulkAssembly()
-      
-      INTEGER, POINTER :: BoundaryPerm(:), Indexes(:)
-      INTEGER :: i,j,k,t,n,istat,active,BoundaryNodes
-      TYPE(Element_t), POINTER :: Element
-      TYPE(GaussIntegrationPoints_t) :: IP
-      CHARACTER(LEN=MAX_NAME_LEN) :: BoundaryName
-      TYPE(Nodes_t) :: Nodes
-      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
-      REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
-      REAL(KIND=dp) :: Coeff, detJ, RealWeightSum, IdealWeightSum, WeightCorr, val
-      TYPE(Matrix_t), POINTER :: StiffMatrix 
-      LOGICAL :: stat, Normalize, Visited = .FALSE.
-      
-      
-      SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx
-      
-      IF(.NOT. Visited ) THEN
-        Visited = .TRUE.
-        N = Solver % Mesh % MaxElementNodes 
-        ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), STAT=istat )
-        
-        N = Solver % Mesh % NumberOfNodes
-        ALLOCATE( BoundaryPerm(n) )
-        BoundaryPerm = 0
-        BoundaryNodes = 0
-        BoundaryName = 'Free Point Boundary'
-        CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,BoundaryName, &
-            .FALSE., BoundaryPerm, BoundaryNodes )
-      END IF
-      
-      ! Assembly the diffusion part used for regularization
-      !----------------------------------------------------------
-      Coeff = GetCReal( Solver % Values,'Particle Property Diffusion Coefficient')
-      active = GetNOFActive()
-      StiffMatrix => Solver % Matrix
-
-      Normalize = GetLogical( Solver % Values,'Particle Property Normalize')
-      IdealWeightSum = 0.0_dp
-      
-      DO t=1,active
-        Element => GetActiveElement(t)
-        n = GetElementNOFNodes(Element)
-        Indexes => Element % NodeIndexes
-        
-        CALL GetElementNodes( Nodes, Element )
-        STIFF = 0.0d0
-        FORCE = 0.0d0
-        
-        ! Numerical integration:
-        !----------------------
-        IP = GaussPoints( Element )
-        DO k=1,IP % n
-          ! Basis function values & derivatives at the integration point:
-          !--------------------------------------------------------------
-          stat = ElementInfo( Element, Nodes, IP % U(k), IP % V(k), &
-              IP % W(k),  detJ, Basis, dBasisdx )
-          
-          ! Finally, the elemental matrix & vector:
-          !----------------------------------------
-          DO i=1,n
-            val = IP % s(k) * DetJ * Basis(i) 
-            IdealWeightSum = IdealWeightSum + val
-            IF(.NOT. Normalize ) THEN
-              STIFF(i,i) = STIFF(i,i) + val
-            END IF
-            
-            ! This condition removes the natural boundary condition that would 
-            ! try to fix the normal gradient of the field to zero.
-            !--------------------------------------------------------------------
-            IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
-            DO j=1,n
-              STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
-                  SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
-            END DO
-          END DO
-        END DO
-        
-        CALL DefaultUpdateEquations( STIFF, FORCE )
-      END DO
-
-      IF( Normalize ) THEN
-        ! Set the weight to the diagonal i.e. make the mass matrix contribution  
-        ! The data is normalized so that if it would be constant it would yield the 
-        ! same equation as the normal one and the weights would also be constant.
-        ! This way diffusion will not depend on the amount of data, whether
-        ! that is desirable, or not, I don't know. 
-        !-----------------------------------------------------------------------
-        RealWeightSum = SUM( WeightVector ) 
-        WeightCorr = IdealWeightSum / RealWeightSum 
-        StiffMatrix => Solver % Matrix
-        DO i=1,SIZE( WeightVector ) 
-          val = WeightCorr * WeightVector(i)  
-          CALL AddToMatrixElement( StiffMatrix,i,i,val )
-        END DO
-        StiffMatrix % rhs = WeightCorr * ForceVector        
-      ELSE
-        StiffMatrix % rhs = ForceVector
-      END IF
-
-    END SUBROUTINE BulkAssembly
-
-  END SUBROUTINE ParticleToFieldSolver
-
-
-
-
-!------------------------------------------------------------------------------
-  SUBROUTINE CreateParticleVariable( Particles, Name, DOFs, Category, Output ) 
-!------------------------------------------------------------------------------
-    TYPE(Particle_t), POINTER :: Particles
-    CHARACTER(LEN=*) :: Name
-    INTEGER, OPTIONAL :: DOFs
-    INTEGER, OPTIONAL :: Category
-    LOGICAL, OPTIONAL :: Output
-!------------------------------------------------------------------------------
-    TYPE(ParticleVariable_t), POINTER :: Variables
-    REAL(KIND=dp), POINTER :: Values(:)
-    LOGICAL :: stat
-    TYPE(ParticleVariable_t), POINTER :: ptr,ptr1,ptr2
-    INTEGER :: NoParticles
-!------------------------------------------------------------------------------
-
-    NoParticles = Particles % MaxNumberOfParticles
-    IF( NoParticles == 0 ) THEN
-      CALL Warn('CreateParticleVariable','No particles present!')
-    END IF	
-
-    Variables => Particles % Variables
-    IF ( .NOT.ASSOCIATED(Variables) ) THEN
-      ALLOCATE(Variables)
-      Particles % Variables => Variables
-      ptr => Variables
-    ELSE
-      ALLOCATE( ptr )
-    END IF
-    
-    ! note: sets confusinly also ptr % name 
-    ptr % NameLen = StringToLowerCase( ptr % Name,Name )
-    
-    ! get the next free handle?
-    IF ( .NOT. ASSOCIATED(ptr, Variables) ) THEN
-      ptr1 => Variables
-      ptr2 => Variables
-      DO WHILE( ASSOCIATED( ptr1 ) )
-	IF( ptr % NameLen == ptr1 % NameLen ) THEN
-          IF ( ptr % Name == ptr1 % Name ) THEN	
-            DEALLOCATE( ptr )
-            RETURN
-          END IF
-        END IF
-        ptr2 => ptr1
-        ptr1 => ptr1 % Next
-      END DO
-      ptr2 % Next => ptr
-    END IF
-    ptr % Next => Null()
-    
-    ptr % Norm = 0.0d0
-    ptr % PrevNorm = 0.0d0
-    ptr % DOFs = 1
-    ptr % Valid  = .TRUE.
-    ptr % Output = .TRUE.
-    ptr % ValuesChanged = .TRUE.
-    ptr % Category = 0    
-
-    IF( PRESENT( DOFs ) ) ptr % DOFs = DOFs
-    IF ( PRESENT( Category ) ) ptr % Category = Category
-    IF ( PRESENT( Output ) ) ptr % Output = Output
-    
-    NULLIFY( Values )
-    ALLOCATE( Values( NoParticles * ptr % Dofs ) )
-    Values = 0.0_dp
-    ptr % Values => Values
-
-!------------------------------------------------------------------------------
-  END SUBROUTINE CreateParticleVariable
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-!  Given a variable name, get handle to it
-!------------------------------------------------------------------------------
-  FUNCTION GetParticleVariable( Particles, Name ) RESULT ( Var )
-    
-    TYPE(Particle_t), POINTER :: Particles
-    CHARACTER(LEN=*) :: Name
-    TYPE(ParticleVariable_t), POINTER :: Var
-!------------------------------------------------------------------------------
-    TYPE(ParticleVariable_t), POINTER :: Tmp
-    CHARACTER(LEN=LEN_TRIM(Name)) :: str
-    INTEGER :: k
-      
-!------------------------------------------------------------------------------
-    k = StringToLowerCase( str,Name,.TRUE. )
-    
-    Tmp => Particles % Variables
-
-    DO WHILE( ASSOCIATED(tmp) )
-      IF ( Tmp % NameLen == k ) THEN
-        IF ( Tmp % Name(1:k) == str(1:k) ) THEN          
-          IF ( Tmp % Valid ) THEN
-            Var => Tmp
-            RETURN
-          END IF
-          EXIT          
-        END IF
-      END IF
-      Tmp => Tmp % Next
-    END DO
-    Var => Tmp
-
-  END FUNCTION GetParticleVariable
 
 
 
@@ -4842,8 +4899,6 @@ RETURN
       CLOSE( VtuUnit )
 
      DEALLOCATE( Basis, Nodes % x, Nodes % y, Nodes % z )
-
-
       
     END SUBROUTINE WriteVtuFile
     
@@ -4984,99 +5039,6 @@ RETURN
 !------------------------------------------------------------------------------
   END SUBROUTINE ParticleOutputVtu
 !------------------------------------------------------------------------------
-
-
-
-!--------------------------------------------------------------------------
-! Set a the timestep for the particles in two possible modes
-! 1) "No" is given => define step for each particle separately
-! 2) "No" is not given => define the same step size for all particles
-!-------------------------------------------------------------------------
-  FUNCTION GetParticleTimeStep(Particles, InitInterval, No, tinit ) RESULT ( dt )
-    
-    TYPE(Particle_t), POINTER :: Particles
-    LOGICAL :: InitInterval
-    INTEGER, OPTIONAL :: No
-    REAL(KIND=dp), OPTIONAL :: tinit
-    REAL(KIND=dp) :: dt
-    
-    REAL(KIND=dp) :: dt0,tfin,tprev,dsgoal,hgoal,dtmax,dtmin,dtup,dtlow, &
-        CharSpeed, CharTime
-    LOGICAL :: GotIt,TfinIs,NStepIs,DsGoalIs,HgoalIs,DtIs
-    INTEGER :: nstep, TimeStep, PrevTimeStep = -1
-    TYPE(ValueList_t), POINTER :: Params
-    
-    SAVE dt0,dsgoal,hgoal,dtmax,dtmin,DtIs,&
-        tprev,Tfin,TfinIs,DsGoalIs,HgoalIs,PrevTimeStep
-    
-    IF( InitInterval ) THEN
-      Params => GetSolverParams()
-      
-      ! directly defined timestep
-      dt0 = GetCReal(Params,'Timestep Size',DtIs)
-      
-      ! Constraint by absolute step size taken (in length units)
-      dsgoal = GetCReal( Params,'Timestep Distance',DsGoalIs)
-      
-      ! Constraint by relative step size taken (1 means size of the element)
-      hgoal = GetCReal( Params,'Timestep Courant Number',HGoalIs)
-      
-      Nstep = GetInteger( Params,'Max Timestep Intervals',GotIt)
-      IF(.NOT. GotIt) Nstep = 1
-      
-      ! Constraint timestep directly
-      dtmax = GetCReal( Params,'Max Timestep Size',GotIt)
-      IF(.NOT. GotIt ) dtmax = HUGE( dtmax ) 
-      dtmin = GetCReal( Params,'Min Timestep Size',GotIt)
-      IF(.NOT. GotIt ) dtmin = 0.0 
-      
-      TfinIs = .FALSE.
-      IF( GetLogical(Params,'Simulation Timestep Sizes',GotIt) ) THEN
-        tfin = GetTimeStepsize()
-        TfinIs = .TRUE.
-      ELSE
-        tfin = GetCReal(Params,'Max Cumulative Time',TfinIs)
-      END IF
-      
-      tprev = 0.0_dp
-    END IF
-    
-    IF( TfinIs .AND. ABS( tprev - tfin ) < TINY ( tfin ) ) THEN
-      dt = 0.0_dp
-      RETURN
-    END IF
-    
-    
-    ! Get upper and lower constraints for timestep size
-    ! These generally depend on the velocity field and mesh
-    !--------------------------------------------------------------------
-    IF( DtIs ) THEN
-      dt = dt0 
-    ELSE IF( DsGoalIs ) THEN
-      CharSpeed = CharacteristicSpeed( Particles, No )     
-      dt = dsgoal / CharSpeed
-    ELSE IF( HgoalIs ) THEN
-      CharTime = CharacteristicElementTime( Particles, No )     
-      dt = Hgoal * CharTime ! ElementH / Speed
-    ELSE IF( tfinIs ) THEN
-      dt = tfin / Nstep
-    ELSE
-      CALL Fatal('GetParticlesTimeStep','Cannot determine timestep size!')
-    END IF
-    
-    ! Constrain the timestep
-    !------------------------------------------------------------------
-    dt = MAX( MIN( dt, dtmax ), dtmin )
-    
-    ! Do not exceed the total integration time
-    !-------------------------------------------
-    IF( PRESENT( tinit ) ) tprev = tinit
-    IF( TfinIs .AND. dt + tprev > tfin ) THEN
-      dt = tfin - tprev
-    END IF
-    tprev = tprev + dt
-    
-  END FUNCTION GetParticleTimeStep
 
 
 
@@ -5677,7 +5639,220 @@ RETURN
 !------------------------------------------------------------------------------
 
 
+   
+   !--------------------------------------------------------------------------------------    
+   ! Subroutine for getting the force resulting from particle-particle interaction 
+   ! This could be used to give forces on granular flow, for example. 
+   !--------------------------------------------------------------------------------------    
+   SUBROUTINE ParticleParticleContact(dt,Coord,Coord2,Velo,Velo2,&
+       Force,Force2, Contact ) 
+     
+     REAL(KIND=dp):: dt,Coord(3),Coord2(3),Velo(3),Velo2(3),Force(3),Force2(3)
+     LOGICAL :: Contact 
+     
+     REAL(KIND=dp) :: Rad, Mass, Spring, Damping, Friction
+     REAL(KIND=dp) :: dist,dr(3),dv(3),eta,rn(3),vn(3),speed,tn1(3),tn2(3)
+     REAL(KIND=dp) :: damp_force, spring_force
+     TYPE(ValueList_t), POINTER :: Params
+     LOGICAL :: Found, Visited
+     
+     SAVE :: Rad, Mass, Spring, Damping, Friction, Visited
 
+     
+     ! At the first time of calling the particle parameters are set
+     Params => GetSolverParams()
+     IF( .NOT. Visited ) THEN
+       Rad = GetCReal(Params,'Particle Radius')
+       Mass = GetCReal(Params,'Particle Mass')         
+       Spring = GetCReal(Params,'Particle Spring')        
+       Damping = GetCReal(Params,'Particle Damping')
+       Friction = GetCReal(Params,'Particle Friction',Found)
+       Visited =.TRUE.
+     END IF
+
+     Contact = .FALSE.
+     
+     ! relative displacement 
+     dr = Coord - Coord2
+     dist = SQRT( SUM( dr * dr ) ) 
+
+     IF( dist < TINY( dist ) ) THEN
+       CALL Warn('ParticleParticleContact','Particles are at same point!')
+       RETURN
+     END IF
+
+     ! no contact if the distance is too large
+     eta = 2 * Rad - dist
+     IF( eta < 0 ) RETURN
+
+     ! normal vector     
+     rn = dr / dist
+
+     ! avoid division by zero at all cost
+     dv = Velo - Velo2
+     speed = SQRT( SUM( dv * dv ) )
+
+     ! if speed is zero, the damping will also be small so no problem with synthetic normal
+     IF( speed > TINY( speed ) ) THEN
+       vn = dv / speed
+     ELSE
+       vn = 0.0_dp
+       vn(1) = 1.0_dp
+     END IF
+
+     ! if one needs tangent directions, then activate this
+     IF(.FALSE.) THEN
+       CALL TangentDirections( rn, tn1, tn2 )
+     END IF
+     
+     ! Currently a linear spring respect to the displacement is given
+     ! Here is the place to put the force which could be a complicated function
+     ! f=f(r,v,...)
+        
+     spring_force = eta * Spring 
+!     damp_force = MIN( speed * Damping, spring_force * Friction )
+     damp_force = 0.0_dp
+
+
+     Force = spring_force * rn - damp_force * vn     
+     ! law of force and counterforce:
+     Force2 = -Force
+
+
+!     IF( ANY( ISNAN( Force ) ) ) THEN
+!       PRINT *,'Force',Force
+!       PRINT *,'spring force',spring_force
+!       PRINT *,'eta',eta
+!       PRINT *,'spring'
+!       PRINT *,'vn',vn
+!       PRINT *,'damp_force',damp_force
+!     END IF
+
+     Contact = .TRUE.
+     
+   END SUBROUTINE ParticleParticleContact
+   
+
+
+ !---------------------------------------------------------------    
+  ! Subroutine for getting particle-particle interaction 
+  ! The subroutine may return the new positions and new 
+  ! coordinates, or alternatively the initial coordinates are tampered 
+  ! so that with standard time-integration the final position will
+  ! be the same.
+  !---------------------------------------------------------------    
+  SUBROUTINE ParticleParticleCollision(dt,Coord,Coord2,Velo,Velo2,&
+      Force,Force2, Collision ) 
+    
+    REAL(KIND=dp):: dt,Coord(3),Coord2(3),Velo(3),Velo2(3),Force(3),Force2(3)
+    LOGICAL :: Collision 
+    
+    REAL(KIND=dp)::  v1na,v2na,v1nb,v2nb
+    REAL(KIND=dp) :: dist,maxdist=0.0_dp
+    REAL(KIND=dp) :: Rad1, Rad2, Mass1, Mass2, Coeff 
+    REAL(KIND=dp) :: a,b,c,d,dr(3),dv(3),dra(3),rn(3),dta,dtb
+    TYPE(ValueList_t), POINTER :: Params
+    LOGICAL :: Found, TrueCollision,SimilarParticles,Debug 
+    LOGICAL :: Visited=.FALSE.
+    
+    SAVE Visited, maxdist, SimilarParticles, Rad1, Rad2, Mass1, Mass2, Coeff, &
+        TrueCollision
+    
+    IF(.NOT. Visited ) THEN
+      Params => GetSolverParams()
+      Rad1 = GetCReal(Params,'Particle Radius',Found)
+      IF(.NOT. Found) THEN
+        CALL Fatal('ParticleParticleCollision','> Particle Radius < needed!')
+      END IF
+      Coeff = GetCReal(Params,'Particle Bounciness',Found)
+      IF(.NOT. Found ) Coeff = 1.0_dp
+      Mass1 = GetCReal(Params,'Particle Mass',Found)  
+      Mass2 = Mass1 
+      IF(.NOT. Found) THEN
+        CALL Fatal('ParticleParticleCollision','> Particle Mass < needed!')
+      END IF
+      TrueCollision = GetLogical( Params,'True Collision Mode')
+      SimilarParticles = .TRUE.
+      Visited = .TRUE.
+    END IF
+    
+    Collision = .FALSE.
+    Debug = .FALSE.
+    
+    ! relative displacement and velocity    
+    dr = Coord - Coord2
+    dv = Velo - Velo2
+    
+    ! the collision time is found from the conditins |r1(t)-r2(t)|=R1+R2
+    ! which results to 2nd order equation for the timestep, here a,b,c
+    ! are the coefficicient in the equation. 
+    b = SUM( dr * dv )
+    
+    ! The distance is only growing, there was a collision in history only
+    IF( b >= 0.0_dp ) RETURN
+    
+    a = SUM( dv * dv ) 
+    IF( SimilarParticles ) THEN
+      c = SUM( dr * dr ) - 4*Rad1**2       
+    ELSE
+      c = SUM( dr * dr ) - ( Rad1 + Rad2 )**2
+    END IF
+    d = b*b - a*c
+    
+    ! negative discriminant means no solution
+    IF( d < 0.0_dp ) RETURN
+    
+    ! time for first collision
+    dta = (-b-SQRT(d))/a
+    
+    ! if time larger than given timestep
+    IF( dta >= dt ) RETURN
+    
+    ! time remaining after the collision
+    dtb = dt - dta
+    
+    ! vector at collision 
+    dra = dr + dta * dv
+    
+    ! normal components at collision 
+    rn = dra / SQRT( SUM( dra*dra ) )
+    v1na = SUM( Velo * rn )
+    v2na = SUM( Velo2 * rn ) 
+    
+    IF( SimilarParticles ) THEN
+      v1nb = ( Coeff * (v2na - v1na) + v1na + v2na ) / 2
+      v2nb = ( Coeff * (v1na - v2na) + v2na + v1na ) / 2
+    ELSE
+      v1nb = ( Coeff * Mass2 * (v2na - v1na) + Mass1 * v1na + Mass2 * v2na ) / ( Mass1 + Mass2 )
+      v2nb = ( Coeff * Mass1 * (v1na - v2na) + Mass2 * v2na + Mass1 * v1na ) / ( Mass1 + Mass2 )
+    END IF
+    
+    ! Set either force or velocity directly 
+    ! only the normal component of velocity/force is affected by collisions    
+    !----------------------------------------------------------------------
+    IF( TrueCollision ) THEN
+      ! compute the path until the collision
+      Coord = Coord + dta * rn * Velo
+      Coord2 = Coord2 + dta * rn * Velo2
+      
+      Velo = Velo + (v1nb-v1na) * rn
+      Velo2 = Velo2 + (v2nb-v2na) * rn
+      
+      ! compute the path after the collision
+      Coord = Coord + dtb * Velo
+      Coord2 = Coord2 + dtb * Velo2
+    ELSE
+      Coord = Coord + (v1na-v1nb) * rn * dta
+      Coord2 = Coord2 + (v2na-v2nb) * rn * dta
+      
+      Force = Mass1 * (v1nb-v1na) * rn / dt
+      Force2 = Mass2 * (v2nb-v2na) * rn / dt
+    END IF
+    
+    Collision = .TRUE.
+    
+  END SUBROUTINE ParticleParticleCollision
+  
 
 
 
