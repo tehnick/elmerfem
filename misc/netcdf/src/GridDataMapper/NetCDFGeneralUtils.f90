@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 13.7.2011
+! Last Modified: 20.7.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -72,6 +72,12 @@ MODULE NetCDFGeneralUtils
           CALL abort()
         END IF
       ELSE
+        dim_id = sentinel
+        CALL abort()
+      END IF
+      status = NF90_INQ_VARID(NCID,DIM_NAME,dim_id)
+      WRITE(Message,'(A,A,A)') 'No variable corresponding to the dimension ', DIM_NAME ,' could be found.'
+      IF ( G_Error(status, Message) ) THEN
         dim_id = sentinel
         CALL abort()
       END IF

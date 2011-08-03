@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 13.7.2011
+! Last Modified: 20.7.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -393,21 +393,10 @@ CONTAINS
     !> dim_count in range ( 0, (size_coord + size_const) ), and at least one possible NetCDF accessing parameter given
 
     !------------------------------------------------------------------------------
-    ! 4) Restricts the used Elmer coordinate dimensionality (DIM)
+    ! 4) Obtains the used Elmer coordinate dimensionality (DIM)
     !------------------------------------------------------------------------------
 
     DIM = size_coord
-
-!    ! If the coordinate is out of range, then complain loudly
-!    IF ( DIM .GT. CoordinateSystemDimension() ) THEN
-!      WRITE (Message,'(A,I5,A,I5,A)') 'Too many (',size_coord,&
-!        ') NetCDF coordinates have been defined; Elmer maximum is ', CoordinateSystemDimension() ,'.'
-!      CALL Fatal('GridDataMapper',Message)
-!    ELSE IF ( DIM .LT. 0 ) THEN
-!      DIM = 0
-!      CALL Warn('GridDataMapper','Negative Coordinate Count; automatically set to minimum 0.')
-!    END IF
-    !> DIM in range ( 0, CoordinateSystemDimension() )
 
     !-------------------------------------------------------------------------------
     ! 5) Forms an array of dimension names (constant and coordinate) for accessing
@@ -549,6 +538,7 @@ CONTAINS
         Grids(loop) % x1(:) = Grids(loop) % x0(:) +&
          (Grids(loop) % nmax(:)-1) * Grids(loop) % dx(:) ! In 3D case opposite points of the cube; if only one dimension, will be 0
       END DO
+
     END IF
     !> Grids initialized with proper x1's
  
