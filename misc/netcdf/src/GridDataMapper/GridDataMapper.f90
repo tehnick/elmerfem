@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Peter Råback, Vili Forsell
 ! Created: 7.6.2011
-! Last Modified: 20.7.2011
+! Last Modified: 4.8.2011
 !------------------------------------------------------------------------------
 SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -27,9 +27,7 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
 
 !******************************************************************************
 ! Notes:	o Performs a modification from measurements with uniform grid into Elmer with an unstructured grid
-!		o Maintains precipitation energy during the transformation (TODO: formalize, implement, prove)
 !		o Remember to see if incremental processing might be possible
-!		o Strive for strong exception guarantee (TODO: Revisit this in the end)
 !		o Some terminology: "nodes" and "edges" used for grid points and the lines connecting the for grid points and the lines connecting them
 !******************************************************************************
 
@@ -85,7 +83,7 @@ SUBROUTINE GridDataMapper( Model,Solver,dt,TransientSimulation )
   Time % high = -1
   Time % doInterpolation = .FALSE.
   Time % is_defined = .FALSE.
-
+  
 !  WRITE (*,*) 'val ', Time % val, ' id ', Time % id, ' len ', Time % len,&
 ! ' low ', Time % low, ' high ', Time % high, ' interp ', Time % doInterpolation
 
@@ -562,7 +560,7 @@ CONTAINS
   SUBROUTINE InitTime( Solver, NCID, T_Name, IS_TRANSIENT, STEP_SIZE, MAX_STEPS, TimeResult )
   !----------------------------------------------------
     USE NetCDFGeneralUtils, ONLY: TimeValueToIndex, GetDimension
-    USE DefUtils, ONLY: MAX_NAME_LEN, GetSolverParams, GetLogical, GetCReal, GetTime
+    USE DefUtils, ONLY: MAX_NAME_LEN, GetSolverParams, GetLogical, GetCReal, GetTime, GetConstReal
     USE Messages, ONLY: Message, Info, Fatal
     IMPLICIT NONE
     !-------------------------------------------------------------------------------
@@ -581,8 +579,8 @@ CONTAINS
     !-------------------------------------------------------------------------------
     ! VARIABLES
     !-------------------------------------------------------------------------------
-    LOGICAL :: IsTimeIndex, IsUserDefined, Found(4) ! True if SIF definitions found
-    REAL(KIND=dp) :: TimeBias, Time ! Biasing for every used Elmer time value/index
+    LOGICAL :: IsTimeIndex, IsUserDefined, Found(5) ! True if SIF definitions found
+    REAL(KIND=dp) :: TimeBias, Time, TimeEpsilon ! Biasing for every used Elmer time value/index
 
     !-------------------------------------------------------------------------------
     ! 1) Gathers data from SIF, applies default values
@@ -590,6 +588,7 @@ CONTAINS
     IsUserDefined = GetLogical( GetSolverParams(Solver), "User Defines Time", Found(1) ) ! Set to true, if old definitions are used
     IsTimeIndex = GetLogical( GetSolverParams(Solver), "Is Time Index", Found(2) ) ! If true, then the given time value is an index (Default: value)
     TimeBias = GetCReal( GetSolverParams(Solver), "NetCDF Starting Time", Found(3) ) ! Index, if IsTimeIndex is true; value otherwise
+    TimeEpsilon = GetConstReal( GetSolverParams(Solver), "Epsilon Time", Found(5) ) ! The tolerance for the time value
     
     !-------------------------------------------------------------------------------
     ! 2) Collects dimension specific data
@@ -615,6 +614,12 @@ CONTAINS
       ELSE
         WRITE (Message,'(A,F6.2)') 'Input time values are adjusted (summed) by ', TimeBias
       END IF
+      CALL Info('GridDataMapper',Message)
+    END IF
+    IF ( .NOT. Found(5) ) THEN
+      TimeEpsilon = 0.0_dp
+    ELSE 
+      WRITE (Message,'(A,F6.3)') 'Received Time Epsilon with value ', TimeEpsilon
       CALL Info('GridDataMapper',Message)
     END IF
     !> Default values set
@@ -685,7 +690,7 @@ CONTAINS
     !> Time user-defined/steady state => Time obtained directly from SIF
 
     !--- Converts the given time value into an appropriate time index
-    IF (.NOT. IsTimeIndex) Time = TimeValueToIndex(NCID,T_Name,TimeResult % id,TimeResult % LEN,Time)
+    IF (.NOT. IsTimeIndex) Time = TimeValueToIndex(NCID,T_Name,TimeResult % id,TimeResult % LEN,Time, TimeEpsilon)
 
     !--- Final check before letting through
     IF ( Time .LT. 1 .OR. Time .GT. TimeResult % LEN ) THEN
@@ -698,6 +703,19 @@ CONTAINS
     !-------------------------------------------------------------------------------
     ! 5) Finalizes TimeResult
     !-------------------------------------------------------------------------------
+
+    ! Rounds to nearest integer index, if it is within epsilon range, to accomodate for insignificant differences between real values
+    IF ( Found(5) .AND. (FLOOR( Time) .NE. CEILING( Time )) ) THEN
+      WRITE (Message,'(A,F8.5,A,F8.5)') 'The time index with epsilon range: ', Time - FLOOR(Time), ' (+/-) ', TimeEpsilon
+      CALL Info('GridDataMapper',Message)
+      ! FLOOR(Time) < Time < CEILING(TIME) <=> 0 < Time - FLOOR(Time) < CEILING(TIME) - FLOOR(TIME) = 1
+      ! If Epsilon makes the value exceed either limit, then the limit is where it is rounded; otherwise intact
+      IF ( Time - FLOOR( Time ) .LE. TimeEpsilon ) THEN
+        Time = FLOOR( Time )
+      ELSE IF ( Time - FLOOR( Time ) .GE. 1.0_dp - TimeEpsilon ) THEN
+        Time = CEILING( Time )
+      END IF
+    END IF
     TimeResult % val = Time
     TimeResult % low = FLOOR( Time )
     TimeResult % high = CEILING( Time )
@@ -713,6 +731,7 @@ CONTAINS
       WRITE (Message,'(A,F5.1,A)') 'Given time value ', TimeResult % val, ' is an integer. No time interpolation used.'
       CALL Info('GridDataMapper',Message)
     END IF
+
     !-------------------------------------------------------------------------------
   
   END SUBROUTINE InitTime
@@ -772,7 +791,7 @@ CONTAINS
       Grids(1) % Eps(:) = eps(:) * Grids(1) % dx(:)
       Grids(2) % Eps(:) = eps(:) * Grids(2) % dx(:)
     END IF
-  
+
     !-------------------------------------------------------------------------------
     ! 2) Sets the time interpolation method 
     !-------------------------------------------------------------------------------

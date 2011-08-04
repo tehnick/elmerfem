@@ -1,5 +1,5 @@
 ! A Solver Input File for testing the Grid Transform
-! Vili Forsell, 13.7.2011
+! Vili Forsell, 4.8.2011
 
 ! Header
 Header
@@ -90,8 +90,10 @@ Solver 1
   !----------------------
   Epsilon 1 = Real 1.0e-3 ! Allowed deviation from the bounding box limits (default: 0) (optional)
   Epsilon 2 = Real 1.0e-3 ! (default: 0) (optional)
+  Epsilon Time = Real 1.0e-3 ! Rounds to the nearest index if within this tolerance; otherwise exact (default: 0) (optional)
   Interpolation Bias = Real 0.0 ! Adds this bias to the final interpolation result (default: 0) (optional)
   Interpolation Multiplier = Real 1.0 ! Multiplies the final interpolation result with this value (default: 1) (optional)
+  Time Interpolation Method = File "seasonal" ! Chooses the Fortran time interpolation method implemented in CustomTimeInterpolation.f90 (default: linear) (optional)
 
   !--- Coordinate system variables
   ! At the moment exist: 'cs2cs' and 'cylindrical'; does nothing by default
@@ -116,7 +118,6 @@ Solver 1
   User Defines Time = LOGICAL FALSE ! True, if uses given time point also in the transient case (default: false) (optional)
   Is Time Index = LOGICAL TRUE ! True if input Time Point is an index (default: false) (optional)
   Time Point = Variable Time ; Real MATC "1 + tx"  ! Needs to be scalar (optional, if transient case is used)
-  Time Interpolation Method = File "seasonal" ! Chooses the Fortran time interpolation method implemented in CustomTimeInterpolation.f90 (default: linear) (optional)
   NetCDF Starting Time = Real 34.0 ! Is summed to either the indices (if "Is Time Index" is TRUE ), or the input values (otherwise),
                                    ! given by Elmer in transient mode (default: no effect) (optional)
 

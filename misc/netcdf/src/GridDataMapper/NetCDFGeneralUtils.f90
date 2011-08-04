@@ -1,7 +1,7 @@
 !------------------------------------------------------------------------------
 ! Vili Forsell
 ! Created: 13.6.2011
-! Last Modified: 20.7.2011
+! Last Modified: 4.8.2011
 !------------------------------------------------------------------------------
 ! This module contains functions for
 ! - getting dimensions sizes and NetCDF identifiers; GetAllDimensions()
@@ -237,12 +237,13 @@ MODULE NetCDFGeneralUtils
 
     !----------------- TimeValueToIndex() ---------------
     !--- Takes a NetCDF time value and converts it into an index
-    FUNCTION TimeValueToIndex(NCID,TIME_NAME,DIM_ID,DIM_LEN,t_val) RESULT(t_ind)
+    FUNCTION TimeValueToIndex(NCID,TIME_NAME,DIM_ID,DIM_LEN,t_val,t_eps) RESULT(t_ind)
       IMPLICIT NONE
   
       !--- Arguments
       CHARACTER(len = MAX_NAME_LEN), INTENT(IN) :: TIME_NAME
       REAL(KIND=dp), INTENT(IN) :: t_val
+      REAL(KIND=dp), INTENT(IN) :: t_eps ! The rounding for time
       INTEGER, INTENT(IN) :: NCID, DIM_ID, DIM_LEN
       REAL(KIND=dp) :: t_ind ! Output
   
@@ -278,16 +279,22 @@ MODULE NetCDFGeneralUtils
         RETURN
       END IF
       t_max = t_tmp1(1)
-  
-      ! Check that input is within range
-      IF ( t_val < t_min .OR. t_val > t_max ) THEN
-        WRITE (Message,'(A,F7.2,A,F7.2,A,F7.2,A,F7.2)') 'Input value ', t_val, &
-                ' is not within range [',t_min,', ',t_max,'] with step', t_diff
-        CALL Fatal('GridDataMapper', Message)
-      END IF
-  
+
       ! 3) Use the time range to find the index for the time value (NetCDF variables uniform)
-      t_ind = ((t_val - t_min)/t_diff) + 1 ! Uniform grid: just remove the bias and normalize the difference out
+      IF ( t_val < t_min .OR. t_val > t_max ) THEN
+        ! Sets to the nearest value if within tolerance, else error, to better compare real values
+        IF ( t_val < t_min .AND. t_val + (t_eps*t_diff) >= t_min ) THEN
+          t_ind = 1
+        ELSE IF ( t_val > t_max .AND. t_val - (t_eps*t_diff) <= t_max ) THEN
+          t_ind = DIM_LEN
+        ELSE ! If no rounding possible; a real error
+          WRITE (Message,'(A,F7.2,A,F7.2,A,F7.2,A,F7.2)') 'Input value ', t_val, &
+                  ' is not within range [',t_min,', ',t_max,'] with step', t_diff
+          CALL Fatal('GridDataMapper', Message)
+        END IF
+      ELSE  
+        t_ind = ((t_val - t_min)/t_diff) + 1 ! Uniform grid: just remove the bias and normalize the difference out
+      END IF
       ! No rounding for it is interpolated later on
       WRITE (Message, '(A,F7.2,A,F7.2,A,F7.2,A,F7.2,A,F7.2)') 'Time index for given value ', &
                           t_val, ' is ', t_ind, ' over range [', t_min,',',t_max,'] with step ', t_diff
