@@ -5,16 +5,16 @@
 ##### MACROS
 
 # Paths:
-MODULE_PATH = ./src/GridDataMapper/
-GEN_PATH = ./src/Generators/
-POST_PATH = ./src/Postprocess/
+MODULE_PATH =./src/GridDataMapper/
+GEN_PATH =./src/Generators/
+POST_PATH =./src/Postprocess/
 
-TMP_PATH = ./tmp/
-BACKUP_PATH = ./Backup/
-BIN_PATH = ./bin/
-SRC_PATH = ./src/
-TEST_PATH = ./tests/
-DOC_PATH = ./doc/
+TMP_PATH =./tmp/
+BACKUP_PATH =./Backup/
+BIN_PATH =./bin/
+SRC_PATH =./src/
+TEST_PATH =./tests/
+DOC_PATH =./doc/
 
 VPATH = $(MODULE_PATH)
 
@@ -44,13 +44,14 @@ HEADER_PATHS = $(sort $(dir $(ALL_HEADERS))) # sort removes duplicates
 
 # Compilers
 COMPILER_F90 = elmerf90
+COMPILER_F90_2 = gfortran
 COMPILER_CXX = g++
 COMPILER_C = gcc
 
 # Includes NetCDF and such from the include directory
 INCLUDE_FLAGS = -I/usr/include $(foreach hdr, $(HEADER_PATHS), -I$(hdr))
 # NetCDF library path and flags to catch the necessary headers
-LIBRARY_FLAGS = -L/usr/lib -lnetcdff -lnetcdf -lproj -L$(TMP_PATH)
+LIBRARY_FLAGS = -L/usr/lib -lnetcdff -lnetcdf -lproj $(addprefix -L, $(TMP_PATH))
 # The shared library (.so) for using in Elmer via a Solver Input File
 
 # Packaging macros for easily transporting latest backups elsewhere
@@ -62,35 +63,43 @@ TAR_FLAGS = cf
 
 # Builds the shared library for Elmer
 solver: $(SOLVER_OBJS)
-	$(COMPILER_F90) $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) -J$(TMP_PATH) $(addprefix $(TMP_PATH), $^) $(addprefix $(MODULE_PATH), $(SOLVER_MAIN)) -o $(addprefix $(BIN_PATH), $(SOLVER_OUTFILE))
+	@echo COMPILES THE GRID_DATA_MAPPER
+	@$(COMPILER_F90) $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) -J$(TMP_PATH) $(addprefix $(TMP_PATH), $^) $(addprefix $(MODULE_PATH), $(SOLVER_MAIN)) -o $(addprefix $(BIN_PATH), $(SOLVER_OUTFILE))
 
 generator: $(GEN_OBJS)
-	$(foreach file,$(notdir $(GEN_MAIN)), $(COMPILER_F90) $(addprefix $(TMP_PATH), $(file)) -o $(addprefix $(BIN_PATH), $(basename $(file)));)
+	@echo COMPILES THE DATA/TEST GENERATORS
+	@$(foreach file, $(notdir $(wildcard $(GEN_PATH)*.f90)), $(if $(file),$(COMPILER_F90_2) $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $(addprefix $(TMP_PATH), $(addsuffix .o, $(basename $(file)))) -o $(addprefix $(BIN_PATH), $(basename $(file)));))
+	@$(foreach file, $(notdir $(wildcard $(GEN_PATH)*.cc)), $(if $(file), $(COMPILER_CXX) $(addprefix $(TMP_PATH), $(addsuffix .o, $(basename $(file)))) -o $(addprefix $(BIN_PATH), $(basename $(file)));))
+	@$(foreach file, $(notdir $(wildcard $(GEN_PATH)*.c)), $(if $(file), $(COMPILER_C) $(addprefix $(TMP_PATH), $(addsuffix .o, $(basename $(file)))) -o $(addprefix $(BIN_PATH), $(basename $(file)));))
 
 postprocessor: $(POST_OBJS) 
-	$(foreach file,$(notdir $(POST_MAIN)), $(COMPILER_F90) $(addprefix $(TMP_PATH), $(file)) -o $(addprefix $(BIN_PATH), $(basename $(file)));)
+	@echo COMPILES THE POSTPROCESSOR
+	@$(foreach file, $(notdir $(POST_MAIN)), $(COMPILER_CXX) $(addprefix $(TMP_PATH), $(notdir $(POST_OBJS))) -o $(addprefix $(BIN_PATH), $(basename $(file)));)
 
 %.o: %.f90
-	$(COMPILER_F90) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
+	@$(COMPILER_F90) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
 
 %.o: %.cc
-	$(COMPILER_CXX) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
+	@$(COMPILER_CXX) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
 
 %.o: %.c
-	$(COMPILER_C) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
+	@$(COMPILER_C) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
 
 # Cleans extra stuff
 clean:
-	rm $(TMP_PATH)* $(BIN_PATH)*
+	@rm $(TMP_PATH)* $(BIN_PATH)*
 
 # Saves the work in a backup location
 save:	pack
-	- @cp -r $(DOC_PATH) $(SRC_PATH) $(ROOT_FILES) $(BACKUP_PATH)
+	@echo Saving files
+	@- @cp -r $(DOC_PATH) $(SRC_PATH) $(ROOT_FILES) $(BACKUP_PATH)
 
 # Too large to copy just as files; so they're compressed first
 save_tests:
-	tar $(TAR_FLAGS) $(addprefix $(BACKUP_PATH), $(TEST_PACKET)) $(TEST_PATH)
+	@echo Packing all tests
+	@tar $(TAR_FLAGS) $(addprefix $(BACKUP_PATH), $(TEST_PACKET)) $(TEST_PATH)
 
 # Packs the work for transportation
 pack:
-	tar $(TAR_FLAGS) $(addprefix $(BACKUP_PATH), $(PACKET)) $(SRC_PATH) $(DOC_PATH) $(ROOT_FILES)
+	@echo Packing development files
+	@tar $(TAR_FLAGS) $(addprefix $(BACKUP_PATH), $(PACKET)) $(SRC_PATH) $(DOC_PATH) $(ROOT_FILES)
