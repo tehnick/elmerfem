@@ -2316,7 +2316,7 @@ RETURN
     INTEGER :: ElementIndex
     REAL(KIND=dp) :: Rinit(3), Rfin(3)
     LOGICAL :: Init
-    LOGICAL :: AccurateAtFace, ParticleReflect, ParticleWall
+    LOGICAL :: AccurateAtFace, ParticleReflect, ParticleWall, ParticleOutlet
     INTEGER :: ParticleStatus
 
     REAL(KIND=dp), OPTIONAL :: Lambda
@@ -2402,6 +2402,7 @@ RETURN
       
       ParticleReflect = .FALSE.
       ParticleWall = .FALSE.
+      ParticleOutlet = .FALSE.
 
       CALL SegmentElementIntersection(Mesh,Element,&
           Rtmp,Rfin,MinLambda,FaceElement )
@@ -2432,6 +2433,7 @@ RETURN
               BC => CurrentModel % BCs(bc_id) % Values
               ParticleWall = ListGetLogical( BC,'Particle Wall',Stat ) 
               ParticleReflect = ListGetLogical( BC,'Particle Reflect',Stat ) 
+              ParticleOutlet = ListGetLogical( BC,'Particle Outlet',Stat ) 
               EXIT
             END IF
           END DO
@@ -2464,6 +2466,12 @@ RETURN
           CYCLE
         END IF
 
+        IF( ParticleOutlet ) THEN
+          ParticleStatus = PARTICLE_LOST
+          ElementIndex =  0
+          RETURN
+        END IF
+
         IF( ParticleWall ) THEN
           ParticleStatus = PARTICLE_WALLBOUNDARY
         ELSE
@@ -2489,6 +2497,7 @@ RETURN
           StopFaceIndex = FaceElement % ElementIndex
 
           Rfin = Rtmp + MinLambda * (Rfin - Rtmp) 
+          Velo = 0.0_dp
 
           EXIT                      
         END IF
