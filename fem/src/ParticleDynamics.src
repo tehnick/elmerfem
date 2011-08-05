@@ -17,13 +17,247 @@
 ! *****************************************************************************/
 
 
-SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+! The particle-particle interaction for particle dynamics
+! There are placed in a module since a private subroutine may not be passed
+! as a parameter.
+!------------------------------------------------------------------------------
+MODULE ParticleDynamicsStuff
 
   USE DefUtils
   USE Interpolation
   USE MeshUtils
   USE ElementUtils
   USE ParticleUtils
+  
+  IMPLICIT NONE
+  
+CONTAINS
+
+  !--------------------------------------------------------------------------------------    
+  ! Subroutine for getting the force resulting from particle-particle interaction 
+  ! This could be used to give forces on granular flow, for example. 
+  !--------------------------------------------------------------------------------------    
+  SUBROUTINE ParticleParticleContact(dt,Coord,Coord2,Velo,Velo2, &
+      Force,Force2, Contact ) 
+    
+    IMPLICIT NONE
+
+    REAL(KIND=dp):: dt,Coord(3),Coord2(3),Velo(3),Velo2(3),Force(3),Force2(3)
+    LOGICAL :: Contact 
+    
+    REAL(KIND=dp) :: Rad, Mass, Spring, Damping, Friction
+    REAL(KIND=dp) :: dist,dr(3),dv(3),eta,rn(3),vn(3),speed,tn1(3),tn2(3)
+    REAL(KIND=dp) :: damp_force, spring_force
+    TYPE(ValueList_t), POINTER :: Params
+    LOGICAL :: Found, Visited
+    
+    SAVE :: Rad, Mass, Spring, Damping, Friction, Visited
+    
+    
+    IF( .NOT. Visited ) THEN
+      Params => GetSolverParams()
+      Rad = GetCReal(Params,'Particle Radius')
+      Mass = GetCReal(Params,'Particle Mass')         
+      Spring = GetCReal(Params,'Particle Spring')        
+      Damping = GetCReal(Params,'Particle Damping')
+      Friction = GetCReal(Params,'Particle Friction',Found)
+      Visited =.TRUE.
+    END IF
+    
+    Contact = .FALSE.
+    
+    ! relative displacement 
+    dr = Coord - Coord2
+    dist = SQRT( SUM( dr * dr ) ) 
+    
+    IF( dist < TINY( dist ) ) THEN
+      CALL Warn('ParticleParticleContact','Particles are at same point!')
+      RETURN
+    END IF
+    
+    ! no contact if the distance is too large
+    eta = 2 * Rad - dist
+    IF( eta < 0 ) RETURN
+    
+    ! normal vector     
+    rn = dr / dist
+    
+    ! avoid division by zero at all cost
+    dv = Velo - Velo2
+    speed = SQRT( SUM( dv * dv ) )
+    
+    ! if speed is zero, the damping will also be small so no problem with synthetic normal
+    IF( speed > TINY( speed ) ) THEN
+      vn = dv / speed
+    ELSE
+      vn = 0.0_dp
+      vn(1) = 1.0_dp
+    END IF
+    
+    ! if one needs tangent directions, then activate this
+    IF(.FALSE.) THEN
+      CALL TangentDirections( rn, tn1, tn2 )
+    END IF
+    
+    ! Currently a linear spring respect to the displacement is given
+    ! Here is the place to put the force which could be a complicated function
+    ! f=f(r,v,...)
+    
+    spring_force = eta * Spring 
+    !     damp_force = MIN( speed * Damping, spring_force * Friction )
+    damp_force = 0.0_dp
+    
+    
+    Force = spring_force * rn - damp_force * vn     
+    ! law of force and counterforce:
+    Force2 = -Force
+    
+
+!     IF( ANY( ISNAN( Force ) ) ) THEN
+!       PRINT *,'Force',Force
+!       PRINT *,'spring force',spring_force
+!       PRINT *,'eta',eta
+!       PRINT *,'spring'
+!       PRINT *,'vn',vn
+!       PRINT *,'damp_force',damp_force
+!     END IF
+
+    Contact = .TRUE.
+    
+  END SUBROUTINE ParticleParticleContact
+  
+
+  !---------------------------------------------------------------    
+  ! Subroutine for getting particle-particle interaction 
+  ! The subroutine may return the new positions and new 
+  ! coordinates, or alternatively the initial coordinates are tampered 
+  ! so that with standard time-integration the final position will
+  ! be the same.
+  !---------------------------------------------------------------    
+  SUBROUTINE ParticleParticleCollision(dt,Coord,Coord2,Velo,Velo2,&
+      Force,Force2, Collision ) 
+    
+    IMPLICIT NONE
+
+    REAL(KIND=dp):: dt,Coord(3),Coord2(3),Velo(3),Velo2(3),Force(3),Force2(3)
+    LOGICAL :: Collision 
+    
+    REAL(KIND=dp)::  v1na,v2na,v1nb,v2nb
+    REAL(KIND=dp) :: Rad1, Rad2, Mass1, Mass2, Coeff 
+    REAL(KIND=dp) :: a,b,c,d,dr(3),dv(3),dra(3),rn(3),dta,dtb
+    TYPE(ValueList_t), POINTER :: Params
+    LOGICAL :: Found, TrueCollision,SimilarParticles
+    LOGICAL :: Visited=.FALSE.
+    
+    SAVE Visited, SimilarParticles, Rad1, Rad2, Mass1, Mass2, Coeff, &
+        TrueCollision
+    
+    IF(.NOT. Visited ) THEN
+      Params => GetSolverParams()
+      Rad1 = GetCReal(Params,'Particle Radius',Found)
+      IF(.NOT. Found) THEN
+        CALL Fatal('ParticleParticleCollision','> Particle Radius < needed!')
+      END IF
+      Coeff = GetCReal(Params,'Particle Bounciness',Found)
+      IF(.NOT. Found ) Coeff = 1.0_dp
+      Mass1 = GetCReal(Params,'Particle Mass',Found)  
+      Mass2 = Mass1 
+      IF(.NOT. Found) THEN
+        CALL Fatal('ParticleParticleCollision','> Particle Mass < needed!')
+      END IF
+      TrueCollision = GetLogical( Params,'True Collision Mode')
+      SimilarParticles = .TRUE.
+      Visited = .TRUE.
+    END IF
+    
+    Collision = .FALSE.
+    
+    ! relative displacement and velocity    
+    dr = Coord - Coord2
+    dv = Velo - Velo2
+    
+    ! the collision time is found from the conditins |r1(t)-r2(t)|=R1+R2
+    ! which results to 2nd order equation for the timestep, here a,b,c
+    ! are the coefficicient in the equation. 
+    b = SUM( dr * dv )
+    
+    ! The distance is only growing, there was a collision in history only
+    IF( b >= 0.0_dp ) RETURN
+    
+    a = SUM( dv * dv ) 
+    IF( SimilarParticles ) THEN
+      c = SUM( dr * dr ) - 4*Rad1**2       
+    ELSE
+      c = SUM( dr * dr ) - ( Rad1 + Rad2 )**2
+    END IF
+    d = b*b - a*c
+    
+    ! negative discriminant means no solution
+    IF( d < 0.0_dp ) RETURN
+    
+    ! time for first collision
+    dta = (-b-SQRT(d))/a
+    
+    ! if time larger than given timestep
+    IF( dta >= dt ) RETURN
+    
+    ! time remaining after the collision
+    dtb = dt - dta
+    
+    ! vector at collision 
+    dra = dr + dta * dv
+    
+    ! normal components at collision 
+    rn = dra / SQRT( SUM( dra*dra ) )
+    v1na = SUM( Velo * rn )
+    v2na = SUM( Velo2 * rn ) 
+    
+    IF( SimilarParticles ) THEN
+      v1nb = ( Coeff * (v2na - v1na) + v1na + v2na ) / 2
+      v2nb = ( Coeff * (v1na - v2na) + v2na + v1na ) / 2
+    ELSE
+      v1nb = ( Coeff * Mass2 * (v2na - v1na) + Mass1 * v1na + Mass2 * v2na ) / ( Mass1 + Mass2 )
+      v2nb = ( Coeff * Mass1 * (v1na - v2na) + Mass2 * v2na + Mass1 * v1na ) / ( Mass1 + Mass2 )
+    END IF
+    
+    ! Set either force or velocity directly 
+    ! only the normal component of velocity/force is affected by collisions    
+    !----------------------------------------------------------------------
+    IF( TrueCollision ) THEN
+      ! compute the path until the collision
+      Coord = Coord + dta * rn * Velo
+      Coord2 = Coord2 + dta * rn * Velo2
+      
+      Velo = Velo + (v1nb-v1na) * rn
+      Velo2 = Velo2 + (v2nb-v2na) * rn
+      
+      ! compute the path after the collision
+      Coord = Coord + dtb * Velo
+      Coord2 = Coord2 + dtb * Velo2
+    ELSE
+      Coord = Coord + (v1na-v1nb) * rn * dta
+      Coord2 = Coord2 + (v2na-v2nb) * rn * dta
+      
+      Force = Mass1 * (v1nb-v1na) * rn / dt
+      Force2 = Mass2 * (v2nb-v2na) * rn / dt
+    END IF
+    
+    Collision = .TRUE.
+    
+  END SUBROUTINE ParticleParticleCollision
+  
+END MODULE ParticleDynamicsStuff
+
+
+
+!------------------------------------------------------------------------------
+! Initialize the particle dynamics solver with some defaults
+!------------------------------------------------------------------------------
+SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
+
+  USE DefUtils
+  USE Lists
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -40,15 +274,6 @@ SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
 
   Params => Solver % Values
 
-  IF( GetLogical( Params,'Particle To Field',Found ) ) THEN
-    CALL ListAddString( Params,&
-        NextFreeKeyword('Exported Variable',Params),'Particle Trace')
-    CALL ListAddString( Params,&
-        NextFreeKeyword('Exported Variable',Params),'Particle Weight')
-    IF( .NOT. ListCheckPresent( Params,'Variable') ) THEN
-      CALL ListAddString( Params,'Variable','Particle Field')
-    END IF
-  END IF
 
 END SUBROUTINE ParticleDynamics_Init
 
@@ -80,6 +305,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   USE MeshUtils
   USE ElementUtils
   USE ParticleUtils
+  USE ParticleDynamicsStuff
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -96,32 +322,33 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER :: CurrentElement
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Variable_t), POINTER :: Var
-  LOGICAL :: GotIt, Debug, Hit, CollisionInteraction, &
+  LOGICAL :: CollisionInteraction, &
       ContactInteraction, ParticleToField, &
       ParticleInBox, ParticleWall, InitTimestep, &
-      TrueCollision, StatInfo, ParticleInfo, Found
+      TrueCollision, StatInfo, ParticleInfo, TimeInfo, Found
   INTEGER :: i,j,k,n,dim,NoParticles = 0,&
        ElementIndex, VisitedTimes = 0, nstep, OutputInterval, &
        TimeOrder, TimeStepsTaken=0,estindexes(6),&
        ParticleStepsTaken=0
   REAL(KIND=dp) :: dtime, tottime = 0.0, Tchar, Cchar
   REAL(KIND=dp) :: cput1,cput2,dcput,CPUTime
-  REAL(KIND=dp), POINTER :: WeightVector(:), ForceVector(:)
+  REAL(KIND=dp), POINTER :: WeightVector(:), ForceVector(:),TmpValues(:)
+  INTEGER, POINTER :: ForcePerm(:) => NULL()
   TYPE(Particle_t), POINTER :: Particles
 
-
+!  EXTERNAL ParticleParticleCollision, ParticleParticleContact 
 
   SAVE CollisionInteraction, ContactInteraction, &
       ParticleToField, OutputInterval, Nstep, VisitedTimes, &
       WeightVector, ForceVector, TimeOrder, ParticleInBox, &
       tottime, TimeStepsTaken, ParticleStepsTaken,ParticleWall,StatInfo, &
-      ParticleInfo
+      ParticleInfo, TimeInfo
 
 
 !------------------------------------------------------------------------------
 
   CALL Info('ParticleDynamics','-----------------------------------------', Level=4 )
-  CALL Info('ParticleDynamics','Tracking the path of the particle',Level=4) 
+  CALL Info('ParticleDynamics','Tracking the path of the particles',Level=4) 
 
   VisitedTimes = VisitedTimes + 1
 
@@ -131,20 +358,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   Mesh => Solver % Mesh
   DIM = CoordinateSystemDimension()
 
-
   ! Do some initalialization: allocate space, check fields  
   !------------------------------------------------------------------------
   IF( VisitedTimes == 1 ) THEN
-    TimeOrder = GetInteger( Params,'Time Order',GotIt)
-    IF(.NOT. GotIt) TimeOrder = 2
+    TimeOrder = GetInteger( Params,'Time Order',Found)
+    IF(.NOT. Found) TimeOrder = 2
 
     CALL SetParticlePreliminaries( Particles, dim, TimeOrder )
 
-    CollisionInteraction = GetLogical( Params,'Particle Particle Collision')
-    ContactInteraction = GetLogical( Params,'Particle Particle Contact')
-    ParticleToField = GetLogical( Params,'Particle To Field')
+    No = GetInteger( Params,'Random Seed',Found ) 
+    IF( Found ) CALL RANDOM_SEED(No)
 
-    OutputInterval = GetInteger( Params,'Output Intervals')
+    ParticleToField = GetLogical( Params,'Particle To Field',Found)
+    CollisionInteraction = GetLogical( Params,'Particle Particle Collision',Found)
+    ContactInteraction = GetLogical( Params,'Particle Particle Contact',Found)
+    OutputInterval = GetInteger( Params,'Output Interval',Found)
 
     Nstep = GetInteger( Params,'Max Timestep Intervals',Found)
     IF(.NOT. Found) Nstep = 1
@@ -152,24 +380,39 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
         GetLogical( Params,'Box Particle Contact',Found)
 
     ParticleWall = GetLogical( Params,'Wall Particle Contact',Found) 
-    IF(.NOT. Found) ParticleWall = .TRUE.
 
     TrueCollision = .FALSE.
     CALL ListAddLogical( Params,'True Collision Mode',TrueCollision)
 
-    StatInfo = GetLogical( Params,'Statistical Info',GotIt)
-    ParticleInfo = GetLogical( Params,'Particle Info',GotIt)
+    StatInfo = GetLogical( Params,'Statistical Info',Found)
+    ParticleInfo = GetLogical( Params,'Particle Info',Found)
+    TimeInfo = GetLogical( Params,'Timing Info',Found)
     
     IF( ParticleToField ) THEN
       Var => VariableGet( Mesh % Variables,'Particle Trace')      
       IF(.NOT. ASSOCIATED(Var)) THEN
-        CALL Fatal('ParticleDynamics','Trace Variable should exist!')
+        CALL Info('ParticleDynamics','Creating variable > Particle Trace <')
+        n = Mesh % NumberOfNodes
+        NULLIFY(TmpValues)
+        ALLOCATE(TmpValues(n))
+        TmpValues = 0.0_dp         
+        CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,&
+            'Particle Trace',1,TmpValues)
+        Var => VariableGet( Mesh % Variables,'Particle Trace')      
       END IF
       ForceVector => Var % Values
+      ForcePerm => Var % Perm
 
       Var => VariableGet( Mesh % Variables,'Particle Weight')      
       IF(.NOT. ASSOCIATED(Var)) THEN
-        CALL Fatal('ParticleDynamics','Weight Variable should exist!')
+        CALL Info('ParticleDynamics','Creating variable > Particle Weight <')
+        n = Mesh % NumberOfNodes
+        NULLIFY(TmpValues)
+        ALLOCATE(TmpValues(n))
+        TmpValues = 0.0_dp         
+        CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,&
+            'Particle Weight',1,TmpValues)
+        Var => VariableGet( Mesh % Variables,'Particle Weight')      
       END IF
       WeightVector => Var % Values
     END IF
@@ -179,13 +422,13 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   ! Initialize particles at first time visiting, or each time if requested
   !-------------------------------------------------------------------------
   IF( VisitedTimes == 1 .OR. &
-      GetLogical( Params,'Reinitialize Particles',GotIt) ) THEN
+      GetLogical( Params,'Reinitialize Particles',Found) ) THEN
     CALL InitializeParticles( Particles ) 
   END IF
 
   CALL ReleaseWaitingParticles(Particles) 
 
-  IF( ParticleToField .AND. GetLogical( Params,'Reinitialize Field',GotIt) ) THEN
+  IF( ParticleToField .AND. GetLogical( Params,'Reinitialize Field',Found) ) THEN
     WeightVector = 0.0_dp
     ForceVector = 0.0_dp
   END IF
@@ -198,11 +441,13 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
   ! a logaritmic scale of indexes is used to estimate time
   !--------------------------------------------------------
-  cput1 = CPUTime()
-  estindexes(1) = nstep / 2
-  DO i=1,5
-    estindexes(i+1) = estindexes(i) / 10
-  END DO
+  IF( TimeInfo ) THEN
+    cput1 = CPUTime()
+    estindexes(1) = nstep / 2
+    DO i=1,5
+      estindexes(i+1) = estindexes(i) / 10
+    END DO
+  END IF
 
   InitTimestep = .TRUE.
 
@@ -229,8 +474,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     ! If there is a decay time for the trace use it
     !--------------------------------------------------------------
     IF( ParticleToField ) THEN
-      Tchar = GetCReal( Params,'Particle To Field Decay Time',GotIt)
-      IF( GotIt ) THEN
+      Tchar = GetCReal( Params,'Particle Decay Time',Found)
+      IF( Found ) THEN
         Cchar = EXP( -dtime / Tchar ) 
         WeightVector = Cchar * WeightVector 
         ForceVector = Cchar * ForceVector 
@@ -264,11 +509,11 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     IF( ParticleInBox ) THEN
       ! Faster for rectangular and hexahedral domains
       !---------------------------------------------------------------
-      CALL  ParticleBoxContact( Particles ) 
+!      CALL  ParticleBoxContact( Particles ) 
     ELSE IF( ParticleWall ) THEN
       ! Generic version
       !---------------------------------------------------------------
-      CALL ParticleWallContact( Particles, dtime )
+!      CALL ParticleWallContact( Particles, dtime )
     END IF
 
     ! If there is either collisions or contacts between particles
@@ -313,16 +558,18 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
     ! Write estimates of remaining time in log scale
     !---------------------------------------------------------------
-    IF( ANY( estindexes == i ) ) THEN
-      cput2 = CPUTime()
-      dcput = cput2 - cput1
-      IF( dcput > 0.5 ) THEN
-        WRITE( Message,'(A,F8.3)') 'Fraction computed (s)  :',(100.0_dp)*i/nstep
-        CALL Info('ParticleDynamics',Message)
-        WRITE( Message,'(A,F8.3)') 'Consumed time (s)  :',dcput
-        CALL Info('ParticleDynamics',Message)
-        WRITE( Message,'(A,F8.3)') 'Remaining time (s) :',dcput*(nstep-i)/i
-        CALL Info('ParticleDynamics',Message)
+    IF( TimeInfo) THEN
+      IF( ANY( estindexes == i ) ) THEN
+        cput2 = CPUTime()
+        dcput = cput2 - cput1
+        IF( dcput > 0.5 ) THEN
+          WRITE( Message,'(A,F8.3)') 'Fraction computed (s)  :',(100.0_dp)*i/nstep
+          CALL Info('ParticleDynamics',Message)
+          WRITE( Message,'(A,F8.3)') 'Consumed time (s)  :',dcput
+          CALL Info('ParticleDynamics',Message)
+          WRITE( Message,'(A,F8.3)') 'Remaining time (s) :',dcput*(nstep-i)/i
+          CALL Info('ParticleDynamics',Message)
+        END IF
       END IF
     END IF
 
@@ -332,10 +579,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   ! Interaction with the fields is typically with external solvers
   ! so no idea to do it after each timestep.
   !---------------------------------------------------------------   
-
-  IF( ParticleToField ) THEN
-    CALL ParticleToFieldSolver( PSolver, WeightVector, ForceVector )
-  END IF
 
   IF(StatInfo) THEN
     CALL ParticleStatistics( Particles, 0 )
@@ -363,7 +606,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      !-------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: BulkElement
      INTEGER :: No, Status
-     REAL(KIND=dp) :: Coord(3),Velo(3), Force(3),Rfin(3)
+     REAL(KIND=dp) :: Coord(3),Velo(3), Force(3)
      
      TYPE(Element_t), POINTER :: BulkElement2
      TYPE(Mesh_t), POINTER :: Mesh
@@ -377,21 +620,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      REAL(KIND=dp) :: SqrtElementMetric, Weight, Decay, Dist, ParticleVolume, &
          FluidDensity, Rad, VolumeFraction
      REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
-     LOGICAL :: GotIt
      REAL(KIND=dp) :: mass, charge, dragcoeff, val
      REAL(KIND=dp) :: damping, Gravity(3)
      REAL(KIND=dp), POINTER :: gWork(:,:)
      CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, DensityName
      TYPE(Variable_t), POINTER :: VeloVar, PotVar, VeloCondVar, CoordCondVar
-     LOGICAL :: GotGravity, GotDamping, GotBuoyancy, GotField
-
+     LOGICAL :: GotGravity, GotDamping, GotBuoyancy, GotField, GotMass
 
      SAVE :: Visited, dim, Basis, dBasisdx, mass, charge, dragcoeff, FieldPerm, &
          FieldMode, Decay, UseGradVelo, TimeOrder, GotGravity, GotDamping, &
          GotPot, GotVelo, Gravity, Damping, VeloCond, CoordCond, GotBuoyancy, &
          ParticleVolume, GotField, Rad, CoordCondVar, VeloCondVar, DensityName, &
-         PotVar, VeloVar
-  
+         PotVar, VeloVar, Mesh
+
+
+
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
        dim = Mesh % MeshDim
@@ -402,10 +645,10 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        !-------------------------------------------------------------------------
        Params => GetSolverParams()
 
-       mass = GetCReal( Params,'Particle Mass')
+       mass = GetCReal( Params,'Particle Mass',GotMass)
+
        damping = GetCReal( Params,'Particle Damping',GotDamping)
 
-       Params => GetSolverParams()
        GotBuoyancy = GetLogical( Params,'Particle Lift',Found)
        IF( GotBuoyancy ) THEN
          Rad = GetCReal(Params,'Particle Radius')
@@ -425,6 +668,11 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
            CALL Fatal('ParticleFieldInteraction','Gravity and Lift requires gravity!')
          END IF
        END IF
+
+       IF( GotGravity .AND. .NOT. GotMass ) THEN
+         CALL Warn('ParticleFieldInteraction','No > Particle Mass < was given even if gravity is!')
+       END IF
+
 
        VariableName = ListGetString(Params,'Potential Variable Name',GotPot)
        IF( GotPot ) THEN
@@ -466,7 +714,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        END IF
 
        FieldMode = GetInteger( Params,'Particle To Field Mode',Found)
-       IF( FieldMode == 4 ) THEN
+       IF( FieldMode == 6 ) THEN
          Decay = GetCReal( Params,'Particle Decay Distance')
        END IF
 
@@ -486,16 +734,18 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      
 
      NoParticles = Particles % NumberOfParticles
+
+
      DO No = 1, NoParticles
-       
+
        Status = GetParticleStatus( Particles, No )
        IF( Status >= PARTICLE_LOST ) CYCLE
        IF( Status <= PARTICLE_INITIATED ) CYCLE
        
        ElementIndex = GetParticleElement( Particles, No )
-       CurrentElement => Mesh % Elements( ElementIndex )
+       BulkElement => Mesh % Elements( ElementIndex )
        
-       Rfin = GetParticleCoord( Particles, No )
+       Coord = GetParticleCoord( Particles, No )
        Velo = GetParticleVelo( Particles, No )
        Force = 0.0_dp
 
@@ -507,15 +757,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        END IF
        
        ! For 1st order models the velocity is solved implicitely, when drag is known
+       ! Therefore it is a explicit force only for 2nd order models.
+       !----------------------------------------------------------------------------
        IF( GotDamping .AND. TimeOrder == 2 ) THEN
          Force = Force - damping * Velo * Mass 
        END IF
-              
-       IF( GotField ) THEN
-       
+             
+ 
+       IF( GotField ) THEN       
          stat = ParticleElementInfo( BulkElement, Coord, &
              SqrtElementMetric, Basis, dBasisdx )
-         
+         IF( .NOT. stat ) THEN
+           CALL Warn('ParticleFieldInteraction','Particle not in element')
+           CYCLE
+         END IF
+
          !-------------------------------------------------------------------------
          ! Set Dirichlet conditions for velocity / coordinate
          ! The condition is computed from an external field and hence this is the 
@@ -525,6 +781,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
            CALL GetScalarFieldInMesh(VeloCondVar, BulkElement, Basis, val ) 
            IF( val > TINY( val ) ) Status = PARTICLE_FIXEDVELO
          END IF
+
          IF( CoordCond ) THEN
            CALL GetScalarFieldInMesh(CoordCondVar, BulkElement, Basis, val ) 
            IF( val > TINY( val ) ) Status = PARTICLE_FIXEDCOORD
@@ -552,7 +809,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
              Force = Force + dragcoeff * VeloAtPoint 
            END IF
          END IF
-         
+
          IF( GotPot ) THEN
            CALL GetScalarFieldInMesh(PotVar, BulkElement, Basis, PotAtPoint, dBasisdx, GradPotAtPoint )
            Force = Force + charge * GradPotAtPoint 
@@ -569,20 +826,21 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
            Force = Force - Gravity * ParticleVolume * FluidDensity
          END IF
          
-!     IF( ANY( ISNAN( Force ) ) ) THEN
-!       PRINT *,'Gravity',Gravity,ParticleVolume,FluidDensity
-!       PRINT *,'charge',GradPotAtPoint
-!       PRINT *,'dragcoeff',dragcoeff
-!       PRINT *,'Basis',Basis
-!       PRINT *,'VeloAtPoint',VeloAtPoint
-!       IF( UseGradVelo) PRINT *,'GradVelo',GradVeloAtPoint
-!     END IF
-
+         !     IF( ANY( ISNAN( Force ) ) ) THEN
+         !       PRINT *,'Gravity',Gravity,ParticleVolume,FluidDensity
+         !       PRINT *,'charge',GradPotAtPoint
+         !       PRINT *,'dragcoeff',dragcoeff
+         !       PRINT *,'Basis',Basis
+         !       PRINT *,'VeloAtPoint',VeloAtPoint
+         !       IF( UseGradVelo) PRINT *,'GradVelo',GradVeloAtPoint
+         !     END IF
+         
          !-------------------------------------------------------------------------
          ! the value at point is obtained from a property of the particles
          ! which may be accumulated with time. Note that the weight could
          ! be also ~1/r^2 from the nodes etc. 
          !-------------------------------------------------------------------------
+
          IF( ParticleToField ) THEN
            IF( FieldMode == 1) THEN
              ! the kinetic energy
@@ -612,12 +870,15 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
            NodeIndexes => BulkElement % NodeIndexes
            
            DO i = 1,n
-             j = FieldPerm( NodeIndexes(i) )
-             IF( j == 0 ) CYCLE
-             
              ! As the weight should be proporpotional to the particle amount rather than
              ! element volume this is not multiplied with local element size!
              weight = Basis(i)
+             
+             j = NodeIndexes(i) 
+             IF( ASSOCIATED( ForcePerm ) ) THEN
+               j = ForcePerm( j )
+               IF( j == 0 ) CYCLE
+             END IF
              
              WeightVector( j ) = WeightVector( j ) + weight 
              ForceVector( j ) = ForceVector( j ) + weight * val
@@ -653,25 +914,28 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      TYPE(Variable_t), POINTER :: VeloVar, WallVar
      INTEGER :: i,j,k,l,n,dim, imax
      LOGICAL :: Collision,Contact,MovingWall,AnyInteraction,Found,GotVeloVar,Visited = .FALSE., &
-         TrueCollision, Debug, Accumulation, AccumulationLimit, WallTrace, Stat, Hit 
-     INTEGER :: NoParticles, Status, ElementIndex, WallNodes
+         TrueCollision, Accumulation, AccumulationLimit, WallTrace, Stat, Hit 
+     INTEGER :: Status, ElementIndex, WallNodes
      INTEGER, POINTER :: NodeIndexes(:), WallPerm(:)
      TYPE(Element_t), POINTER :: BulkElement, BoundaryElement
      TYPE(Nodes_t) :: BoundaryNodes
      REAL(KIND=dp) :: vn, dta, dtb, rn(3), v1na, v1nb, v2na, eta, AccumulationShear, ShearRate, &
          SqrtElementMetric, Weight, val, SumBasis, s
      REAL(KIND=dp), POINTER :: WallValues(:), Basis(:), dBasisdx(:,:)
+     TYPE(Solver_t), POINTER :: Solver
 
      CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
      
      
      SAVE Visited, dim, Rad, Mass, Mesh, VeloVar, AnyInteraction, BoundaryNodes, &
          TrueCollision, WallVelo, Coeff, Velo, Coord, Spring, WallTrace, &
-         WallVar, Basis, dBasisdx, GotVeloVar
+         WallVar, Basis, dBasisdx, GotVeloVar, Solver
      
      IF( .NOT. Visited ) THEN
        Mesh => GetMesh()
        Params => GetSolverParams()
+       Solver => GetSolver()
+
        dim = Mesh % Meshdim
        n = Mesh % MaxElementNodes
        
@@ -756,7 +1020,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
            CALL Fatal('ParticleWallContact','Velocity field variable does not exist: '//TRIM(VariableName))           
          END IF
        END IF
-       
 
        ! If trace is requested create the variable if it does not exist
        !---------------------------------------------------------------------
@@ -845,9 +1108,6 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
          Coord(1:dim) = Particles % Coordinate(No,1:dim)
          CALL GetElementNodes(BoundaryNodes,BoundaryElement)
          Dist = PointFaceDistance(BoundaryElement,BoundaryNodes,Coord,Normal)
-         
-         Debug = .FALSE.
-         
          
          ! This includes contact models using springs and possible accumulation
          ! which may be controlled by shear rate. 
@@ -1021,6 +1281,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      END DO
 
    END SUBROUTINE ParticleWallContact
+
 
 !------------------------------------------------------------------------------
 END SUBROUTINE ParticleDynamics

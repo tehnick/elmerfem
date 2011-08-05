@@ -16,54 +16,21 @@
 ! *
 ! *****************************************************************************/
 
-SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
 
-  !------------------------------------------------------------------------
-  ! Write particles to an external file
-  !-------------------------------------------------------------------------
+SUBROUTINE ParticleOutputSolver( Model,Solver,dt,TransientSimulation )
   USE DefUtils
   USE ParticleUtils
-  
+
   IMPLICIT NONE
-  !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
-  
-  TYPE(Particle_t), POINTER :: Particles
-  LOGICAL :: Visited = .FALSE.
-  TYPE(ValueList_t), POINTER :: Params     
-  CHARACTER(LEN=MAX_NAME_LEN) :: FileFormat
-  LOGICAL :: VtuFormat, TableFormat, AnyFormat, Found
-  
-  SAVE :: TableFormat, VtuFormat, Visited
-    
-  Particles => GlobalParticles
-  Params => GetSolverParams()
 
-  TableFormat = ListGetLogical( Params,'Table Format',Found)
-  VtuFormat = ListGetLogical( Params,'Vtu Format',Found)
-  FileFormat = ListGetString( Params,'Output Format',Found) 
-  IF( Found ) THEN
-    IF( FileFormat == 'vtu') VtuFormat = .TRUE.
-    IF( FileFormat == 'table') TableFormat = .TRUE.
-  END IF
+  CALL SaveParticleData( Model,Solver,dt,TransientSimulation )
 
-  AnyFormat = TableFormat .OR. VtuFormat 
-  IF( .NOT. AnyFormat ) THEN
-    CALL Warn('SaveParticleData','No active file format given!')
-    RETURN
-  END IF
-
-  IF(.NOT. ListCheckPresent( Params,'Filename Prefix') ) THEN
-    CALL ListAddString( Params,'Filename Prefix','particles')
-  END IF
-  
-  IF( TableFormat ) CALL ParticleOutputTable( Particles )
-  IF( VtuFormat ) CALL ParticleOutputVtu( Particles ) 
-
-END SUBROUTINE SaveParticleData
+END SUBROUTINE ParticleOutputSolver
 
 
 !------------------------------------------------------------------------------

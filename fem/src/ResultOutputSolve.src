@@ -214,7 +214,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF( SaveVTU ) THEN
-      CALL Info( 'ResultOutputSolver','Saving in Unstructured VTK XML (.vtu) format' )               
+      CALL Info( 'ResultOutputSolver','Saving in unstructured VTK XML (.vtu) format' )               
       CALL VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
     IF( SaveOpenDx ) THEN
@@ -3168,6 +3168,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
         WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime+FileIndexOffset
       END IF
     END IF
+    CALL Info('VtuOutputSolver','Saving to file: '//TRIM(VtuFile))
     CALL WriteVtuFile( VtuFile, Model, FixedMesh )
   END IF
 

@@ -1,0 +1,347 @@
+!/******************************************************************************
+! * Solvers by Galerkin method the problem where a continuous field is 
+! * fitted to the data. The data may be created in advance or it may be 
+! * given as a property of discrete particles. The data has a contribution
+! * on the r.h.s. of the equation only. 
+! * 
+! * There are two different variations
+! * 1) without normalization it is assumed that the r.h.s is already physically
+! *    relevant sum of the data.
+! * 2) with normalization it is assumed that the r.h.s. scales with the weight
+! *    and division by weight is needed to obtain a statistical average.
+! *    In both cases regularization by a diffusion coefficient may be used but 
+! *    it is essenitial only in the latter.
+! ******************************************************************************
+! *
+! *  Authors: Peter Råback & Juha Ruokolainen
+! *  Email:   Peter.Raback@csc.fi & Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 16.6.2011
+! *
+! *****************************************************************************/
+
+SUBROUTINE DataToFieldSolver_init( Model,Solver,dt,TransientSimulation )
+
+  USE DefUtils
+  USE Lists
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+  
+! local variables
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Normalize, Found
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+
+  Params => GetSolverParams()
+
+  VarName = GetString( Params,'Data Field Name',Found)
+  IF(.NOT. Found ) THEN
+    CALL ListAddString( Params,&
+        NextFreeKeyword('Exported Variable',Params),'Point Field')
+    CALL ListAddString( Params,'Data Field Name','Point Field')
+    CALL Info('DataToFieldSolver_init','Creating > Point Field < as exported variable')
+  END IF
+
+  Normalize = GetLogical( Params,'Normalize Data by Weight')
+  IF( Normalize ) THEN
+    VarName = GetString( Params,'Weight Field Name',Found)
+    IF(.NOT. Found ) THEN
+      CALL ListAddString( Params,&
+          NextFreeKeyword('Exported Variable',Params),'Point Weight')
+      CALL ListAddString( Params,'Weight Field Name','Point Weight')
+      CALL Info('DataToFieldSolver_init','Creating > Point Weight < as exported variable')
+    END IF
+  END IF
+
+  CALL ListAddInteger( Params, 'Time derivative order', 0 )
+  
+  ! Add some cheap linear system defaults: cg + diagonal
+  !------------------------------------------------------------------------
+  IF(.NOT. ListCheckPresent(Params,'Linear System Solver')) &
+      CALL ListAddString(Params,'Linear System Solver','Iterative')
+  IF(.NOT. ListCheckPresent(Params,'Linear System Iterative Method')) &
+      CALL ListAddString(Params,'Linear System Iterative Method','cg')
+  IF(.NOT. ListCheckPresent(Params,'Linear System Preconditioning')) &
+      CALL ListAddString(Params,'Linear System Preconditioning','diagonal')
+  IF(.NOT. ListCheckPresent(Params,'Linear System Max Iterations')) &
+      CALL ListAddInteger(Params,'Linear System Max Iterations',1000)
+  IF(.NOT. ListCheckPresent(Params,'Linear System Residual Output')) &
+      CALL ListAddInteger(Params,'Linear System Residual Output',10)
+  IF(.NOT. ListCheckPresent(Params,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(Params,'Linear System Convergence Tolerance',1.0e-10_dp)
+  
+END SUBROUTINE DataToFieldSolver_init
+
+
+
+SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
+  
+  USE DefUtils
+  USE Interpolation
+  USE MeshUtils
+  USE ElementUtils
+  USE ParticleUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+  
+! local variables
+!------------------------------------------------------------------------------  
+  TYPE(ValueList_t), POINTER :: Params
+  TYPE(Variable_t), POINTER :: Var 
+  REAL(KIND=dp), POINTER :: WeightVector(:),ForceVector(:)
+  INTEGER, POINTER :: WeightPerm(:),ForcePerm(:)
+  REAL(KIND=dp) :: Norm
+  LOGICAL :: Normalize, Found
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, FileName
+
+
+  CALL Info('DataToFieldSolver','-----------------------------------------', Level=4 )
+  CALL Info('DataToFieldSolver','Resolving field from given data',Level=4) 
+
+  
+  ! The variable containing the field contributions
+  !------------------------------------------------------------------------
+  Params => GetSolverParams()
+  VarName = GetString( Params,'Data Field Name',Found)
+  Var => VariableGet(Solver % Mesh % Variables, VarName )
+  IF( ASSOCIATED( Var ) ) THEN    
+    ForceVector => Var % Values
+    ForcePerm => Var % Perm
+  ELSE
+    CALL Fatal('DataToFieldSolver','Variable not present:'//TRIM(VarName))      
+  END IF
+
+  ! If normalization is requested then need the vector of weights as well
+  !------------------------------------------------------------------------
+  Normalize = GetLogical( Params,'Normalize Data by Weight')
+  IF( Normalize ) THEN
+    VarName = GetString( Params,'Weight Field Name',Found)
+    Var => VariableGet(Solver % Mesh % Variables, VarName )
+    IF( ASSOCIATED( Var ) ) THEN    
+      WeightVector => Var % Values
+      WeightPerm => Var % Perm
+    ELSE
+      CALL Fatal('DataToFieldSolver','Variable not present:'//TRIM(VarName))      
+    END IF
+  END IF
+
+  ! If the data is retrieved from ascii table then map that into mesh
+  ! Only the r.h.s. is assemblied here. 
+  !------------------------------------------------------------------------
+  Filename = GetString( Params,'Point Data Filename',Found)
+  IF( Found ) THEN
+    CALL AsciiPointsToMesh()
+  END IF
+
+
+  ! Create the matrix equation with r.h.s. data and regularization
+  !------------------------------------------------------------------------
+  CALL DefaultInitialize()  
+  CALL BulkAssembly()
+  CALL DefaultFinishAssembly()
+  CALL DefaultDirichletBCs()
+
+  ! Solver the matrix 
+  !------------------------------------------------------------------------
+  Norm = DefaultSolve()
+
+  CALL Info('DataToFieldSolver','All done', Level=4 )
+  CALL Info('DataToFieldSolver','-----------------------------------------', Level=4 )
+  
+  
+CONTAINS 
+  
+
+  !------------------------------------------------------------------------
+  ! Go through a Compute field values at the given points in the FE mesh. 
+  !-------------------------------------------------------------------------
+  SUBROUTINE AsciiPointsToMesh()
+    
+    INTEGER :: i,j,n,dim,No,NoPoints,ElementIndex=0
+    INTEGER, POINTER :: NodeIndexes(:),FieldPerm(:)
+    REAL(KIND=dp) :: SqrtElementMetric, Weight,u,v,w,LocalCoords(3),val,InputData(4)
+    REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+    LOGICAL :: AllocationsDone = .FALSE., Stat
+    TYPE(Nodes_t) :: ElementNodes
+    REAL(KIND=dp) :: GlobalCoords(3)
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Element_t), POINTER :: CurrentElement
+    
+
+    SAVE :: AllocationsDone, ElementIndex, Basis, dBasisdx, ElementNodes
+    
+    Mesh => Solver % Mesh
+    FieldPerm => Solver % Variable % Perm
+
+    n = Mesh % MaxElementNodes
+    ALLOCATE(ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n), &
+        Basis(n), dBasisdx(n,3) )
+
+    
+    NoPoints = ListGetInteger( Params,'Number Of Points' ) 
+    GlobalCoords(3) = 0.0_dp
+    dim = Mesh % MeshDim
+
+    OPEN(10,FILE = Filename)
+     
+    DO No=1, NoPoints     
+      READ(10,*) InputData(1:dim+1)
+
+      val = InputData(3)
+      GlobalCoords(1:dim) = InputData(1:dim)
+      val = InputData(dim+1)
+
+      CALL LocateParticleInMeshOctree( ElementIndex, GlobalCoords, LocalCoords )
+      IF( ElementIndex == 0 ) CYCLE
+    
+      CurrentElement => Mesh % Elements( ElementIndex )
+      n = CurrentElement % TYPE % NumberOfNodes
+      NodeIndexes => CurrentElement % NodeIndexes
+      CALL GetElementNodes(ElementNodes,CurrentElement)
+      
+      u = LocalCoords(1)
+      v = LocalCoords(2)
+      w = LocalCoords(3)
+      
+      stat = ElementInfo( CurrentElement, ElementNodes, U, V, W, SqrtElementMetric, &
+          Basis, dBasisdx )
+      
+      DO i = 1,n
+        j = FieldPerm( NodeIndexes(i) )
+        IF( j == 0 ) CYCLE
+        
+        ! As the weight should be proporpotional to the particle amount rather than
+        ! element volume the weight is not multiplied with local element size!
+        ! Note that the weight could be also ~1/r^2 from the nodes etc. 
+        !-------------------------------------------------------------------------
+        weight = Basis(i)
+        
+        WeightVector( j ) = WeightVector( j ) + weight 
+        ForceVector( j ) = ForceVector( j ) + weight * val
+      END DO      
+    END DO
+
+    CLOSE(10) 
+
+  END SUBROUTINE AsciiPointsToMesh
+   
+
+
+
+  SUBROUTINE BulkAssembly()
+    
+    INTEGER, POINTER :: BoundaryPerm(:), Indexes(:)
+    INTEGER :: i,j,k,t,n,istat,active,BoundaryNodes
+    TYPE(Element_t), POINTER :: Element
+    TYPE(GaussIntegrationPoints_t) :: IP
+    CHARACTER(LEN=MAX_NAME_LEN) :: BoundaryName
+    TYPE(Nodes_t) :: Nodes
+    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+    REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+    REAL(KIND=dp) :: Coeff, detJ, RealWeightSum, IdealWeightSum, WeightCorr, val
+    TYPE(Matrix_t), POINTER :: StiffMatrix 
+    LOGICAL :: stat, Normalize, Visited = .FALSE.
+    
+    
+    SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx
+    
+    IF(.NOT. Visited ) THEN
+      Visited = .TRUE.
+      N = Solver % Mesh % MaxElementNodes 
+      ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), STAT=istat )
+      
+      N = Solver % Mesh % NumberOfNodes
+      ALLOCATE( BoundaryPerm(n) )
+      BoundaryPerm = 0
+      BoundaryNodes = 0
+      BoundaryName = 'Data To Field Boundary'
+      CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,BoundaryName, &
+          .FALSE., BoundaryPerm, BoundaryNodes )
+    END IF
+    
+    ! Assembly the diffusion part used for regularization
+    !----------------------------------------------------------
+    Coeff = GetCReal( Solver % Values,'Diffusion Coefficient')
+    active = GetNOFActive()
+    StiffMatrix => Solver % Matrix
+    
+    IdealWeightSum = 0.0_dp
+    
+    DO t=1,active
+      Element => GetActiveElement(t)
+      n = GetElementNOFNodes(Element)
+      Indexes => Element % NodeIndexes
+      
+      CALL GetElementNodes( Nodes, Element )
+      STIFF = 0.0d0
+      FORCE = 0.0d0
+      
+      ! Numerical integration:
+      !----------------------
+      IP = GaussPoints( Element )
+      DO k=1,IP % n
+        ! Basis function values & derivatives at the integration point:
+        !--------------------------------------------------------------
+        stat = ElementInfo( Element, Nodes, IP % U(k), IP % V(k), &
+            IP % W(k),  detJ, Basis, dBasisdx )
+        
+        ! Finally, the elemental matrix & vector:
+        !----------------------------------------
+        DO i=1,n
+          val = IP % s(k) * DetJ * Basis(i) 
+          IdealWeightSum = IdealWeightSum + val
+          IF(.NOT. Normalize ) THEN
+            STIFF(i,i) = STIFF(i,i) + val
+          END IF
+          
+          ! This condition removes the natural boundary condition that would 
+          ! try to fix the normal gradient of the field to zero.
+          !--------------------------------------------------------------------
+          IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
+          DO j=1,n
+            STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
+                SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
+          END DO
+        END DO
+      END DO
+      
+      CALL DefaultUpdateEquations( STIFF, FORCE )
+    END DO
+    
+    IF( Normalize ) THEN
+      ! Set the weight to the diagonal i.e. make the mass matrix contribution  
+      ! The data is normalized so that if it would be constant it would yield the 
+      ! same equation as the normal one and the weights would also be constant.
+      ! This way diffusion will not depend on the amount of data, whether
+      ! that is desirable, or not, I don't know. 
+      !-----------------------------------------------------------------------
+      RealWeightSum = SUM( WeightVector ) 
+      WeightCorr = IdealWeightSum / RealWeightSum 
+      StiffMatrix => Solver % Matrix
+      DO i=1,SIZE( WeightVector ) 
+        val = WeightCorr * WeightVector(i)  
+        CALL AddToMatrixElement( StiffMatrix,i,i,val )
+      END DO
+      StiffMatrix % rhs = WeightCorr * ForceVector        
+    ELSE
+      StiffMatrix % rhs = ForceVector
+    END IF
+    
+  END SUBROUTINE BulkAssembly
+  
+END SUBROUTINE DataToFieldSolver
