@@ -168,7 +168,7 @@ CONTAINS
   
 
   !------------------------------------------------------------------------
-  ! Go through a Compute field values at the given points in the FE mesh. 
+  ! Go through list of given points and add their contribution to FE mesh.
   !-------------------------------------------------------------------------
   SUBROUTINE AsciiPointsToMesh()
     
@@ -242,6 +242,9 @@ CONTAINS
    
 
 
+  !------------------------------------------------------------------------
+  ! Assemble the matrix equation 
+  !-------------------------------------------------------------------------
 
   SUBROUTINE BulkAssembly()
     
@@ -255,11 +258,12 @@ CONTAINS
     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
     REAL(KIND=dp) :: Coeff, detJ, RealWeightSum, IdealWeightSum, WeightCorr, val
     TYPE(Matrix_t), POINTER :: StiffMatrix 
-    LOGICAL :: stat, Normalize, Visited = .FALSE.
+    LOGICAL :: stat, Visited = .FALSE.
     
     
     SAVE Visited, BoundaryPerm, Nodes, STIFF, FORCE, Basis, dBasisdx
     
+
     IF(.NOT. Visited ) THEN
       Visited = .TRUE.
       N = Solver % Mesh % MaxElementNodes 
@@ -305,7 +309,7 @@ CONTAINS
         DO i=1,n
           val = IP % s(k) * DetJ * Basis(i) 
           IdealWeightSum = IdealWeightSum + val
-          IF(.NOT. Normalize ) THEN
+          IF( .NOT. Normalize ) THEN
             STIFF(i,i) = STIFF(i,i) + val
           END IF
           
@@ -313,6 +317,7 @@ CONTAINS
           ! try to fix the normal gradient of the field to zero.
           !--------------------------------------------------------------------
           IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
+
           DO j=1,n
             STIFF(i,j) = STIFF(i,j) + IP % s(k) * Coeff * DetJ * &
                 SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
@@ -324,6 +329,7 @@ CONTAINS
     END DO
     
     IF( Normalize ) THEN
+      !-----------------------------------------------------------------------
       ! Set the weight to the diagonal i.e. make the mass matrix contribution  
       ! The data is normalized so that if it would be constant it would yield the 
       ! same equation as the normal one and the weights would also be constant.
@@ -332,6 +338,7 @@ CONTAINS
       !-----------------------------------------------------------------------
       RealWeightSum = SUM( WeightVector ) 
       WeightCorr = IdealWeightSum / RealWeightSum 
+
       StiffMatrix => Solver % Matrix
       DO i=1,SIZE( WeightVector ) 
         val = WeightCorr * WeightVector(i)  

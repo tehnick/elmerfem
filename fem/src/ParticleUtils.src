@@ -1294,11 +1294,12 @@ RETURN
     INTEGER :: DerOrder
     
     REAL(KIND=dp) :: Coord(3),MeanCoord(3),AbsCoord(3),VarCoord(3), &
-        MinCoord(3), MaxCoord(3)
-    
+        MinCoord(3), MaxCoord(3),val    
     INTEGER :: i,j,Cnt,NoParticles,TotParticles,dim
     REAL(KIND=dp), POINTER :: TargetVector(:,:)
     INTEGER, POINTER :: Status(:)
+    CHARACTER(LEN=MAX_NAME_LEN) :: DataName
+
     
     MeanCoord = 0.0_dp
     AbsCoord = 0.0_dp
@@ -1313,12 +1314,16 @@ RETURN
     
     IF( DerOrder == -1 ) THEN
       TargetVector => Particles % PrevCoordinate
+      DataName = 'previous coordinate values'
     ELSE IF( DerOrder == 0 ) THEN
       TargetVector => Particles % Coordinate
+      DataName = 'current coordinate values'      
     ELSE IF( DerOrder == 1 ) THEN
       TargetVector => Particles % Velocity
+      DataName = 'current velocity values'
     ELSE IF( DerOrder == 2 ) THEN
       TargetVector => Particles % Force
+      DataName = 'current force values'
     ELSE
       CALL Fatal('ParticleStatistics','Unknown value for DerOrder!')
     END IF
@@ -1343,8 +1348,8 @@ RETURN
     
     TotParticles = NINT( ParallelReduction( 1.0_dp * Cnt ) )
     
-    IF( TotParticles > 0 ) THEN
-      ! Compute parallel sums?
+    IF( TotParticles > Cnt ) THEN
+      ! Compute parallel sums
       DO j=1,dim
         MeanCoord(j) = ParallelReduction( MeanCoord(j) )
         AbsCoord(j) = ParallelReduction( AbsCoord(j) ) 
@@ -1352,22 +1357,24 @@ RETURN
         MinCoord(j) = ParallelReduction( MinCoord(j),1 )
         MaxCoord(j) = ParallelReduction( MaxCoord(j),2 )
       END DO
-      
+    END IF
+
+    IF( TotParticles > 0 ) THEN
       MeanCoord = MeanCoord / TotParticles
       AbsCoord = AbsCoord / TotParticles
-      VarCoord = SQRT( VarCoord / TotParticles - MeanCoord**2 ) 
       
-      IF( ParEnv % myPE == 0 ) THEN
-        IF( DerOrder == -1 ) THEN
-          PRINT *,'Statistical info on previous coordinate values:'
-        ELSE IF( DerOrder == 0 ) THEN
-          PRINT *,'Statistical info on coordinate values:'
-        ELSE IF( DerOrder == 1 ) THEN
-          PRINT *,'Statistical info on velocity values:'
-        ELSE IF( DerOrder == 2 ) THEN
-          PRINT *,'Statistical info on force values:'
+      ! If unlucky with rounding error this could be negative even though it really can't
+      DO j=1,dim
+        val = VarCoord(j) / TotParticles - MeanCoord(j)**2  
+        IF( val <= TINY(val) ) THEN
+          VarCoord(j) = 0.0_dp
+        ELSE
+          VarCoord(j) = SQRT( val )
         END IF
-        
+      END DO
+
+      IF( ParEnv % myPE == 0 ) THEN       
+        PRINT *,'Statistical info on '//TRIM(DataName) 
         PRINT *,'Mean:',MeanCoord(1:dim)
         PRINT *,'Abs: ',AbsCoord(1:dim)
         PRINT *,'Var: ',VarCoord(1:dim)
@@ -2134,7 +2141,7 @@ RETURN
 
   !---------------------------------------------------------------------------
   ! This subroutine finds the possible intersection between elementfaces 
-  ! and a line segment.
+  ! and a line segment defined by two coordinates.
   !---------------------------------------------------------------------------
   SUBROUTINE SegmentElementIntersection(Mesh,BulkElement,&
       Rinit,Rfin,MinLambda,FaceElement)
@@ -2211,6 +2218,7 @@ RETURN
         MinLambda = 0.0_dp
       ELSE
         CALL Warn('SegmentElementIntersection','Could not find any intersection')
+        PRINT *,'dcoord',rinit-rfin
       END IF
     END IF
 
@@ -2326,7 +2334,7 @@ RETURN
 
     TYPE(ValueList_t), POINTER :: Params, BC
     TYPE(Mesh_t), POINTER :: Mesh
-    REAL(KIND=dp) :: Rtmp(3), Normal(3), MinLambda, eps, UnitVector(3) 
+    REAL(KIND=dp) :: Rtmp(3), Normal(3), MinLambda, eps, UnitVector(3), ds2 
     LOGICAL :: Hit, DoInit, Stat, StopAtFace, AtWall, Visited = .FALSE.,&
         Debug,UseCenter
     INTEGER :: i,j,k,n,FaceIndex,MaxTrials,bc_id,cons_id
@@ -2353,18 +2361,6 @@ RETURN
       Visited = .TRUE.
     END IF
     
-
-    IF( Debug ) THEN
-      PRINT *,'Starting'
-      PRINT *,'Rinit:',Rinit
-      PRINT *,'Rfin:',Rfin
-      PRINT *,'Velo:',Velo
-    END IF
-    
-    ParticleStatus = PARTICLE_LOST
-    IF( PRESENT (StopFaceIndex) ) StopFaceIndex = 0
-    IF( PRESENT( Lambda ) ) Lambda = 1.0_dp
-    
     !--------------------------------------------------------------------
     ! This is a recursive algorithm that checks the intersections 
     ! of line segments and points until correct element is found.
@@ -2378,7 +2374,24 @@ RETURN
     ELSE	
       UseCenter = .NOT. AccurateAtFace
     END IF
+
+    IF(.NOT. UseCenter ) THEN
+      ds2 = SUM( (Rinit - Rfin)**2 )
+      IF( ds2 < EPSILON( ds2 ) ) RETURN
+    END IF
+
+
+    IF( Debug ) THEN
+      PRINT *,'Starting'
+      PRINT *,'Rinit:',Rinit
+      PRINT *,'Rfin:',Rfin
+      PRINT *,'Velo:',Velo
+    END IF
     
+    ParticleStatus = PARTICLE_LOST
+    IF( PRESENT (StopFaceIndex) ) StopFaceIndex = 0
+    IF( PRESENT( Lambda ) ) Lambda = 1.0_dp
+        
     Element => Mesh % Elements( ElementIndex ) 
     eps = 1.0d-10
     
@@ -2553,7 +2566,6 @@ RETURN
     AccurateAtFace = ListGetLogical( Params,'Particle Accurate At Face',Stat)
 
 
-
 100 NoParticles = Particles % NumberOfParticles
 
     DO No = 1, NoParticles
@@ -2624,8 +2636,6 @@ RETURN
       Particles % Status(No) = Status
       Particles % FaceIndex(No) = FaceIndex
     END DO
-
-
 
     ! Change the partion in where the particles are located
     ! Only applies to parallel cases.
@@ -3960,7 +3970,7 @@ RETURN
     INTEGER :: nstep, TimeStep, PrevTimeStep = -1
     TYPE(ValueList_t), POINTER :: Params
     
-    SAVE dt0,dsgoal,hgoal,dtmax,dtmin,DtIs,&
+    SAVE dt0,dsgoal,hgoal,dtmax,dtmin,DtIs,Nstep,&
         tprev,Tfin,TfinIs,DsGoalIs,HgoalIs,PrevTimeStep
     
     IF( InitInterval ) THEN
