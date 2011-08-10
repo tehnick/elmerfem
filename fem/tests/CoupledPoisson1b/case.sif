@@ -1,8 +1,5 @@
-!# Solves as normal equation except using compact assembly routine
-!# This is possible only when there is one equation without constraint 
-!# and the matrix structure may be determined externally.
-!# Compared to ver 'a' here the heat equation is used for assemblying the
-!# Poisson equation.
+!# Solves the same case as in case without 'b' but now utilizing the 
+!# standard heat equation in the coupled solver setting. 
 
 Header
   CHECK KEYWORDS Warn
@@ -49,7 +46,6 @@ Equation 1
 End
 
 
-
 Solver 1
   Coupled Solver = Logical True
   Equation = "HeatEq"
@@ -68,8 +64,6 @@ Solver 1
   Linear System Convergence Tolerance = 1.0e-8
   Linear System Max Iterations = 500
   Linear System Preconditioning = ILU1
-
-  Bulk Assembly Procedure = File "./PoissonAssembly" "BulkAssembly"
 End  
 
 Solver 2
