@@ -88,7 +88,7 @@
      TYPE(Nodes_t)   :: ElementNodes, ParentNodes
      TYPE(Element_t),POINTER :: CurrentElement, Parent
  
-     REAL(KIND=dp) :: Norm,PrevNorm,RelativeChange
+     REAL(KIND=dp) :: Norm,RelativeChange
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .FALSE., Bubbles, GotIt, AbsoluteMass = .FALSE.
      LOGICAL :: AllocationsDone = .FALSE., ScaledToSolubility = .FALSE.
@@ -111,8 +111,8 @@
      TYPE(Variable_t), POINTER :: TempSol,PhiSol,FlowSol,MeshSol
 
      INTEGER, POINTER :: TempPerm(:),PotentialPerm(:),FlowPerm(:)
-     INTEGER :: NSDOFs,NewtonIter,NonlinearIter,body_id,lbody,rbody,eq_id,MDOFs
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol,Relax, dt
+     INTEGER :: NSDOFs,NonlinearIter,body_id,lbody,rbody,eq_id,MDOFs
+     REAL(KIND=dp) :: Relax, dt
 
 ! For the moment assume a linear system
 ! LocalMassMatrix also added, since t-dep. possible
@@ -258,16 +258,6 @@
      CASE('bubbles')
        Bubbles = .TRUE.
      END SELECT
-
-
-     NonlinearTol = ListGetConstReal( Solver % Values, &
-           'Nonlinear System Convergence Tolerance',GotIt )
-
-     NewtonTol = ListGetConstReal( Solver % Values, &
-          'Nonlinear System Newton After Tolerance',GotIt )
-
-     NewtonIter = ListGetInteger( Solver % Values, &
-         'Nonlinear System Newton After Iterations',GotIt )
 
      NonlinearIter = ListGetInteger( Solver % Values, &
         'Nonlinear System Max Iterations',GotIt )
@@ -1077,8 +1067,7 @@
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          ComponentName(Solver % Variable), 1,1,SpeciesPerm )
+      CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
       CALL Info( 'AdvectionDiffusion', 'Assembly done', Level=4 )
@@ -1089,13 +1078,11 @@
       at = CPUTime() - at
       st = CPUTime()
 
-      PrevNorm = Norm
 !------------------------------------------------------------------------------
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
 !PRINT*,'Mass before: ',mass
-      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-                   Species, Norm, 1, Solver )
+      Norm = DefaultSolve()
 
       st = CPUTIme()-st
       totat = totat + at
@@ -1105,8 +1092,7 @@
       WRITE(Message,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Solve:    (s)', st, totst
       CALL Info( 'AdvectionDiffusion', Message, Level=4 )
 !------------------------------------------------------------------------------
-!     PRINT*,PrevNorm,Norm 
-      RelativeChange = 2*ABS(PrevNorm-Norm) / (PrevNorm + Norm)
+      RelativeChange = Solver % Variable % NonlinChange 
 
       WRITE( Message, * ) 'Result Norm   : ',Norm
       CALL Info( 'AdvectionDiffusion', Message, Level=4 )
@@ -1114,7 +1100,7 @@
       CALL Info( 'AdvectionDiffusion', Message, Level=4 )
 
 
-      IF ( RelativeChange < NonlinearTol ) EXIT
+      IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 
 !------------------------------------------------------------------------------
     END DO! of the nonlinear iteration

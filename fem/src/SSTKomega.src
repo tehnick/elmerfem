@@ -86,7 +86,7 @@
      INTEGER, POINTER :: KinPerm(:)
 
      INTEGER :: NewtonIter,NonlinearIter
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol
+     REAL(KIND=dp) :: NewtonTol
 
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), &
        STIFF(:,:), LOAD(:,:),FORCE(:), LocalKinEnergy(:), TimeForce(:)
@@ -134,9 +134,6 @@
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
-
-     NonlinearTol = ListGetConstReal( Solver % Values, &
-        'Nonlinear System Convergence Tolerance',gotIt )
 
      NewtonTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Newton After Tolerance',gotIt )
@@ -265,11 +262,12 @@
 
       WRITE( Message,* ) 'Result Norm   : ',Norm
       CALL Info( 'SSTKOmega', Message, Level = 4 )
+
       RelativeChange = Solver % Variable % NonlinChange
       WRITE( Message,* ) 'Relative Change : ',RelativeChange
       CALL Info( 'SSTKOmega', Message, Level = 4 )
 
-      IF ( Solver % Variable % NonlinChange < NonlinearTol ) EXIT
+      IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 !------------------------------------------------------------------------------
     END DO
 !------------------------------------------------------------------------------

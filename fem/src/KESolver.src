@@ -119,7 +119,7 @@
      INTEGER, POINTER :: FlowPerm(:),KinPerm(:)
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol, Clip, V2FCp
+     REAL(KIND=dp) :: NewtonTol, Clip, V2FCp
 
      REAL(KIND=dp), POINTER :: KEpsilon(:),KineticDissipation(:), &
                    FlowSolution(:), ElectricCurrent(:), ForceVector(:)
@@ -204,9 +204,6 @@
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
-     NonlinearTol = ListGetConstReal( Solver % Values, &
-        'Nonlinear System Convergence Tolerance',gotIt )
-
      NewtonTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Newton After Tolerance',gotIt )
 
@@ -496,11 +493,7 @@
          Solver % Variable % Values(2*k-0) = MAX( EVal, 1.0d-10 )
       END DO
 !------------------------------------------------------------------------------
-      IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-         RelativeChange = 2.0d0 * ABS(PrevNorm-Norm) / (PrevNorm + Norm)
-      ELSE
-         RelativeChange = 0.0d0
-      END IF
+      RelativeChange = Solver % Variable % NonlinChange
 
       WRITE( Message,* ) 'Result Norm   : ',Norm
       CALL Info( 'KESolver', Message, Level = 4 )
@@ -510,7 +503,7 @@
       IF ( RelativeChange < NewtonTol .OR. &
               iter > NewtonIter ) NewtonLinearization = .TRUE.
 
-      IF ( RelativeChange < NonlinearTol ) EXIT
+      IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 !------------------------------------------------------------------------------
     END DO
 !------------------------------------------------------------------------------

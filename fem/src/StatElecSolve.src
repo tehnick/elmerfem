@@ -695,20 +695,17 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     END DO   ! Neumann BCs
 !------------------------------------------------------------------------------
 
-    CALL SetNodalLoads( Model,StiffMatrix,ForceVector, &
-        Componentname(Solver % Variable),1,1,PotentialPerm )       
-
 !------------------------------------------------------------------------------
 !    FinishAssembly must be called after all other assembly steps, but before
 !    Dirichlet boundary settings. Actually no need to call it except for
 !    transient simulations.
 !------------------------------------------------------------------------------
     CALL FinishAssembly( Solver,ForceVector )
+
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-    CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-        ComponentName(Solver % Variable),1,1,PotentialPerm )       
+    CALL DefaultDirichletBCs()
    
     IF(CalculateCapMatrix) THEN 
       CALL SetPermutationBoundaries( Model, StiffMatrix, ForceVector, &
@@ -722,8 +719,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
     st = CPUTime()
-!    CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-!        Potential, Norm, 1, Solver )
 
     Norm = DefaultSolve()
     RelativeChange = Solver % Variable % NonlinChange

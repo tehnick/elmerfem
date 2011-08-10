@@ -102,12 +102,12 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
        LrF(:), LrFr(:), LrFz(:), LrFp(:), BRe(:), BIm(:)
 
   INTEGER :: iter, i, j, k, n, t, istat, eq, LocalNodes
-  REAL(KIND=dp) :: Norm, PrevNorm, RelativeChange, AngularFrequency
+  REAL(KIND=dp) :: Norm, RelativeChange, AngularFrequency
 
   TYPE(ValueList_t), POINTER :: Material
 
   INTEGER :: NonlinearIter
-  REAL(KIND=dp) :: NonlinearTol,s
+  REAL(KIND=dp) :: s
 
   REAL(KIND=dp), ALLOCATABLE :: LocalStiffMatrix(:,:), Load(:,:), Work(:), &
        LocalForce(:), Impedance(:,:), Conductivity(:), Permeability(:)
@@ -192,12 +192,8 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
-  NonlinearTol = ListGetConstReal( Solver % Values, &
-       'Nonlinear System Convergence Tolerance',GotIt )
-
   NonlinearIter = ListGetInteger( Solver % Values, &
        'Nonlinear System Max Iterations', GotIt )
-
   IF ( .NOT.GotIt ) NonlinearIter = 1
 
   EquationName = ListGetString( Solver % Values, 'Equation' )
@@ -396,16 +392,8 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
      CALL FinishAssembly( Solver, ForceVector )
-!
-!    Dirichlet BCs:
-!    --------------
-     CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          ComponentName(Solver % Variable,1), 1, &
-             Solver % Variable % DOFs, SomeQuantityPerm )
+     CALL DefaultDirichletBCs()
 
-     CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          ComponentName(Solver % Variable,2), 2, &
-             Solver % Variable % DOFs, SomeQuantityPerm )
 
      CALL Info( 'FourierDiffusionSolve', 'Assembly done', Level=4 )
 
@@ -413,12 +401,11 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !    Solve the system and we are done:
 !    ---------------------------------
 
-     PrevNorm = Norm
      at = CPUTime() - at
      st = CPUTime()
 
-     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-          SomeQuantity, Norm, Solver % Variable % DOFs, Solver )
+     Norm = DefaultSolve()
+     RelativeChange = Solver % Variable % NonlinChange
 
      st = CPUTIme()-st
      totat = totat + at
@@ -430,18 +417,12 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 
 !------------------------------------------------------------------------------
 
-     IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-        RelativeChange = 2*ABS(PrevNorm - Norm) / (PrevNorm + Norm)
-     ELSE
-        RelativeChange = 0.0d0
-     END IF
-
      WRITE( Message, * ) 'Result Norm    : ',Norm
      CALL Info( 'FourierDiffusionSolve', Message, Level=4 )
      WRITE( Message, * ) 'Relative Change: ',RelativeChange
      CALL Info( 'FourierDiffusionSolve', Message, Level=4 )
 
-     IF ( RelativeChange < NonlinearTol ) EXIT
+     IF( Solver % Variable % NonlinConverged == 1 ) EXIT
 !------------------------------------------------------------------------------
   END DO ! of nonlinear iteration
 !------------------------------------------------------------------------------

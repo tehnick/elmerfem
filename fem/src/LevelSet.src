@@ -96,7 +96,7 @@
      REAL(KIND=dp), ALLOCATABLE :: LocalMassMatrix(:,:),&
        LocalStiffMatrix(:,:),Load(:),LocalForce(:),TimeForce(:)
      INTEGER :: NSDOFs,NonlinearIter,body_id,mat_id,dim
-     REAL(KIND=dp) :: NonlinearTol,dt, r, ct, DsMax
+     REAL(KIND=dp) :: dt, r, ct, DsMax
      REAL(KIND=dp), ALLOCATABLE :: ElemVelo(:,:), SurfaceFlux(:)
 
      SAVE LocalMassMatrix,LocalStiffMatrix,Load, &
@@ -158,9 +158,6 @@
 !------------------------------------------------------------------------------
 
      Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
-
-     NonlinearTol = ListGetConstReal( Solver % Values, &
-           'Nonlinear System Convergence Tolerance',GotIt )
 
      NonlinearIter = ListGetInteger( Solver % Values, &
         'Nonlinear System Max Iterations',GotIt )
@@ -271,8 +268,8 @@
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-       CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          ComponentName(Solver % Variable),1,1,SurfPerm )
+       CALL DefaultDirichletBCs()
+
 !------------------------------------------------------------------------------
      CALL Info( 'LevelSetSolver', 'Assembly done', Level=4 )
      at = CPUTime() - at
@@ -283,8 +280,7 @@
 !------------------------------------------------------------------------------
      st = CPUTime()
 
-     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-         Surface, Norm, 1, Solver )
+     Norm = DefaultSolve()
      RelativeChange = Solver % Variable % NonlinChange
 
      st = CPUTIme()-st
@@ -299,7 +295,7 @@
      WRITE( Message, * ) 'Relative Change : ',RelativeChange
      CALL Info( 'LevelSetSolver', Message, Level=4 )
      
-     IF(RelativeChange < NonlinearTol) EXIT
+     IF( Solver % Variable % NonlinConverged == 1 ) EXIT
 
 !------------------------------------------------------------------------------
    END DO ! of the nonlinear iteration

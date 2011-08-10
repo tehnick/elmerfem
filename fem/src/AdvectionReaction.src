@@ -83,7 +83,7 @@
           CorrectedLowerLimit,CorrectedUpperLimit
      INTEGER :: n1,n2, k, n, t, istat, i, j, dummyInt, NumberOfFAces, Indexes(128)
      REAL(KIND=dp) :: Norm,RelativeChange,at,at0,totat,st,totst,CPUTime,RealTime,&
-          LinearTol,NonlinearTol,OriginalValue 
+          OriginalValue 
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), STIFF(:,:), LOAD(:), &
               FORCE(:), Velo(:,:), MeshVelo(:,:), Gamma(:), Ref(:), &
               UpperLimit(:), LowerLimit(:)
@@ -141,17 +141,14 @@
      Constants => GetConstants()
      SolverParams => GetSolverParams()
 
-     LinearTol = GetConstReal( SolverParams, &
-          'Linear System Convergence Tolerance',    Found )
      IF ( .NOT.Found ) THEN
         CALL FATAL(SolverName, 'No >Linear System Convergence Tolerance< found')
      END IF
 
-
      NonlinearIterMax = GetInteger(   SolverParams, &
                      'Nonlinear System Max Iterations', Found )
      IF ( .NOT.Found ) THEN
-        CALL WARN(SolverName,'No >Nonlinear System Max Iterations< found. Setting 1')
+        CALL WARN(SolverName,'No > Nonlinear System Max Iterations < found. Setting 1')
         NonlinearIterMax = 1
      END IF
 
@@ -168,25 +165,19 @@
         NonlinearIterMin = NonlinearIterMax
      END IF
 
-
-     NonlinearTol  = GetConstReal( SolverParams, &
-          'Nonlinear System Convergence Tolerance',    Found )
-
-
      ExpVariableName = GetString(SolverParams , 'Exported Variable 1', Found )
      IF (.NOT.Found) &
-        CALL FATAL(SolverName,'No value >Exported Variable 1< found in Solver')
-
+        CALL FATAL(SolverName,'No value > Exported Variable 1 < found in Solver')
 
      LimitSolution = GetLogical( SolverParams, &
-          'Limit Solution',    Found )
+          'Limit Solution', Found )
      IF ( .NOT.Found ) &
         LimitSolution = .FALSE.
 
      IF (LimitSolution) THEN
-        CALL INFO(SolverName, 'Keyword >Limit Solution< found. Solution will be limited',Level=1)
+        CALL INFO(SolverName, 'Keyword > Limit Solution < found. Solution will be limited',Level=1)
      ELSE
-        CALL INFO(SolverName, 'No keyword >Limit Solution< found. Solution will not be limited',Level=1)
+        CALL INFO(SolverName, 'No keyword > Limit Solution < found. Solution will not be limited',Level=1)
      END IF
 
      !------------------------------------------------------------------------------
@@ -368,7 +359,7 @@
 
         RelativeChange = Solver % Variable % NonlinChange 
         
-        IF (RelativeChange < NonlinearTol)  THEN 
+        IF ( Solver % Variable % NonlinConverged == 1 )  THEN 
            WRITE(Message,'(A,I6,A,I6,A)') &
                 'Nonlinear iteration converged after ', iter, &
                 ' out of max ',NonlinearIterMax,' iterations'
@@ -421,7 +412,6 @@
 
      ! Average the elemental results to nodal values:
      !-----------------------------------------------
-!     Var => VariableGet( Mesh % Variables, TRIM(VariableName) //   ' Nodal Result' )
      Var => VariableGet( Mesh % Variables,TRIM(ExpVariableName))
      IF ( ASSOCIATED( Var ) ) THEN
        n1 = Mesh % NumberOfNodes

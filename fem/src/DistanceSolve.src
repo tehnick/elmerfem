@@ -1,3 +1,25 @@
+SUBROUTINE DistanceSolver_init( Model,Solver,dt,TransientSimulation )
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: SolverParams
+  LOGICAL :: Found
+
+  SolverParams => GetSolverParams()
+
+  IF( .NOT. ListCheckPresent(SolverParams,'Nonlinear System Convergence Tolerance') ) THEN
+    CALL ListAddConstReal(SolverParams,'Nonlinear System Convergence Tolerance',1.0d-8) 
+  END IF	
+
+END SUBROUTINE DistanceSolver_init	
+
+
 SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !/*****************************************************************************/
@@ -70,7 +92,7 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
 
   TYPE(ValueList_t), POINTER :: SolverParams, BC
 
-  REAL(KIND=dp) :: Pnorm,Norm,RelaxDT,TOL,x0,y0,z0,x1,y1,z1
+  REAL(KIND=dp) :: Pnorm,Norm,RelaxDT,x0,y0,z0,x1,y1,z1
   INTEGER :: n, nb, nd, t, i,j,k,istat, active, MaxIter
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: BodyForce
@@ -109,9 +131,6 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
   MaxIter = GetInteger( SolverParams, 'Nonlinear System Max Iterations', Found )
   IF ( .NOT. Found ) MaxIter = 100
 
-  TOL = GetCReal( SolverParams, 'Nonlinear System Convergence Tolerance', Found )
-  IF ( .NOT. Found ) TOL = 1d-8
-
   DO i=1,Model % NumberOFBCs
     BC => Model % BCs(i) % Values
     IF ( GetLogical( BC, 'Noslip Wall BC', Found ) ) &
@@ -142,7 +161,7 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
     ! And finally, solve:
      !--------------------
     Norm = DefaultSolve()
-    IF ( Solver % Variable % NonlinChange <= TOL ) EXIT
+    IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
   END DO
 
   CALL Info('DistanceSolver','All done')

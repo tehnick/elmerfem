@@ -270,7 +270,7 @@ END MODULE PorousMaterials
     INTEGER :: i,j,n, nd, t, istat, iter, dim, Active, NonlinearIterMax, &
         ActiveCoordinate
     REAL(KIND=dp) :: at,st,totst,totat,CPUTime
-    REAL(KIND=dp) :: NonlinearTol, Norm, Relax
+    REAL(KIND=dp) :: Norm, Relax
     TYPE(Variable_t), POINTER :: Var
     
     
@@ -344,10 +344,7 @@ END MODULE PorousMaterials
       CALL WARN('RichardsSolver','No >Nonlinear System Max Iterations< found. Setting 1')
       NonlinearIterMax = 1
     END IF
-    
-    NonlinearTol  = GetConstReal( SolverParams, &
-        'Nonlinear System Convergence Tolerance', Found )
-    
+        
     !------------------------------------------------------------------------------
     !       non-linear system iteration loop
     !------------------------------------------------------------------------------

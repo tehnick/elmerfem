@@ -75,7 +75,7 @@
      TYPE(Nodes_t)   :: ElementNodes
      TYPE(Element_t),POINTER :: Element
 
-     REAL(KIND=dp) :: RelativeChange,Norm,PrevNorm,S,C
+     REAL(KIND=dp) :: RelativeChange,Norm,S,C
 
      LOGICAL :: Stabilize = .TRUE.,NewtonLinearization = .FALSE.,gotIt
 !
@@ -84,7 +84,7 @@
      CHARACTER(LEN=MAX_NAME_LEN) :: KEModel, V2FModel
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol, Clip, V2FCp
+     REAL(KIND=dp) :: NewtonTol, Clip, V2FCp
 
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), &
        STIFF(:,:), LOAD(:,:),FORCE(:),U(:),V(:),W(:), &
@@ -154,9 +154,6 @@
 !------------------------------------------------------------------------------
 !    Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
      Stabilize = .FALSE.
-
-     NonlinearTol = ListGetConstReal( Solver % Values, &
-        'Nonlinear System Convergence Tolerance',gotIt )
 
      NewtonTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Newton After Tolerance',gotIt )
@@ -316,29 +313,23 @@
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
-      PrevNorm = Solver % Variable % Norm
-
       Norm = DefaultSolve()
 
       Solver % Variable % Values(1::2) = &
         MAX( Solver % Variable % Values(1::2), 1.0d-9 )
 
 !------------------------------------------------------------------------------
-      IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-         RelativeChange = 2.0d0 * ABS(PrevNorm-Norm) / (PrevNorm + Norm)
-      ELSE
-         RelativeChange = 0.0d0
-      END IF
-
       WRITE( Message,* ) 'Result Norm   : ',Norm
       CALL Info( 'V2-F-Solver', Message, Level = 4 )
+
+       RelativeChange = Solver % Variable % NonlinChange
       WRITE( Message,* ) 'Relative Change : ',RelativeChange
       CALL Info( 'V2-F-Solver', Message, Level = 4 )
 
       IF ( RelativeChange < NewtonTol .OR. &
               iter > NewtonIter ) NewtonLinearization = .TRUE.
 
-      IF ( RelativeChange < NonlinearTol ) EXIT
+      IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 !------------------------------------------------------------------------------
     END DO
 !------------------------------------------------------------------------------
@@ -641,7 +632,7 @@ CONTAINS
      TYPE(Nodes_t)   :: ElementNodes
      TYPE(Element_t),POINTER :: Element
 
-     REAL(KIND=dp) :: RelativeChange,Norm,PrevNorm,S,C
+     REAL(KIND=dp) :: RelativeChange,Norm,S,C
 
      LOGICAL :: Stabilize = .TRUE.,NewtonLinearization = .FALSE.,gotIt
 !
@@ -650,7 +641,7 @@ CONTAINS
      CHARACTER(LEN=MAX_NAME_LEN) :: KEModel, V2FModel
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol, Clip, V2FCp
+     REAL(KIND=dp) :: NewtonTol, Clip, V2FCp
 
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), &
        STIFF(:,:), LOAD(:,:),FORCE(:),U(:),V(:),W(:), &
@@ -731,9 +722,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 !    Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
      Stabilize = .FALSE.
-
-     NonlinearTol = ListGetConstReal( Solver % Values, &
-        'Nonlinear System Convergence Tolerance',gotIt )
 
      NewtonTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Newton After Tolerance',gotIt )
@@ -888,19 +876,14 @@ CONTAINS
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
-      PrevNorm = Solver % Variable % Norm
-
       Norm = DefaultSolve()
 
       Solver % Variable % Values(1::3) = &
         MAX( Solver % Variable % Values(1::3), 1.0d-9 )
 
 !------------------------------------------------------------------------------
-      IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-         RelativeChange = 2.0d0 * ABS(PrevNorm-Norm) / (PrevNorm + Norm)
-      ELSE
-         RelativeChange = 0.0d0
-      END IF
+
+      RelativeChange = Solver % Variable % NonlinChange
 
       WRITE( Message,* ) 'Result Norm   : ',Norm
       CALL Info( 'V2-F-Solver', Message, Level = 4 )
@@ -910,7 +893,7 @@ CONTAINS
       IF ( RelativeChange < NewtonTol .OR. &
               iter > NewtonIter ) NewtonLinearization = .TRUE.
 
-      IF ( RelativeChange < NonlinearTol ) EXIT
+      IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 !------------------------------------------------------------------------------
     END DO
 !------------------------------------------------------------------------------

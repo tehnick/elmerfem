@@ -64,6 +64,7 @@
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
+     USE DefUtils
      USE Types
      USE Lists
      USE Integration
@@ -438,11 +439,7 @@
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-      DO i = 1, AdvectionVariableComponents
-        VariableName = ComponentName(Solver % Variable,i)
-        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-            VariableName, i, AdvectionVariableComponents, UPerm )
-      END DO
+      CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
       at = CPUTime() - at
@@ -454,11 +451,9 @@
 !    Solve the primary unknown and update velocity and acceleration 
 !    vectors
 !------------------------------------------------------------------------------
-      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-          U, Norm, AdvectionVariableComponents, Solver )
+      Norm = DefaultSolve()
 
       st = CPUTime() - st
-
       WRITE(Message,'(a,F8.2)') ' Assembly: (s)', at
       CALL Info( 'TransportEquationSolver', Message )
       WRITE(Message,'(a,F8.2)') ' Solve:    (s)', st
@@ -680,8 +675,6 @@
 !------------------------------------------------------------------------------
      END SUBROUTINE ModifyBoundaryValues
 !------------------------------------------------------------------------------
-
-
 
 
 

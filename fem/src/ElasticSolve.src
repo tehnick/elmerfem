@@ -110,7 +110,7 @@
      TYPE(Element_t),POINTER :: CurrentElement, ParentElement, FlowElement
 
      REAL(KIND=dp) :: RelativeChange,UNorm,Gravity(3), &
-         Tdiff,Normal(3),NewtonTol,NonlinearTol,s,TOL(1)
+         Tdiff,Normal(3),NewtonTol,s,TOL(1)
 
      INTEGER :: NewtonIter,NonlinearIter, FlowNOFNodes
 
@@ -299,8 +299,6 @@
 !      Gravity(2) = -9.81D0
 !    END IF
 !------------------------------------------------------------------------------
-     NonlinearTol = ListGetConstReal( SolverParams, &
-        'Nonlinear System Convergence Tolerance' )
 
 ! Newton linearization not implemented, it seems
 !     NewtonTol = ListGetConstReal( SolverParams, &
@@ -715,7 +713,7 @@
 !      IF ( RelativeChange < NewtonTol .OR. &
 !             iter > NewtonIter ) NewtonLinearization = .TRUE.
 
-      IF ( RelativeChange < NonLinearTol ) EXIT
+      IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 
 !------------------------------------------------------------------------------
     END DO ! of nonlinear iter

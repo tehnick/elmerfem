@@ -100,7 +100,7 @@
      REAL (KIND=DP) :: at, st, CPUTime
 
      REAL (KIND=DP) :: Cboltz, Ccharge, Cunit, ReferenceTemperature, Npos, Nneg, &
-         NonlinearTol, NewtonTol, Relax, PermittivityOfVacuum, &
+         NewtonTol, PermittivityOfVacuum, &
          Betapos, Betaneg, Alphapos, Alphaneg
      INTEGER :: Zpos, Zneg, NonlinearIter, NewtonIter, iter, LocalNodes
      LOGICAL :: SymmetricCharges, NewtonLinearization = .FALSE., FluxBC
@@ -147,20 +147,12 @@
          'Nonlinear System Max Iterations', Found )
      IF ( .NOT.Found ) NonlinearIter = 1
 
-     NonlinearTol = GetConstReal( SolverParams, &
-         'Nonlinear System Convergence Tolerance',    Found )
-
      NewtonTol = GetConstReal( SolverParams, &
          'Nonlinear System Newton After Tolerance',  Found )
 
      NewtonIter = GetInteger(   SolverParams, &
          'Nonlinear System Newton After Iterations', Found )
      IF ( NewtonIter == 0) NewtonLinearization = .TRUE.
-
-     Relax = GetCReal( SolverParams, &
-         'Nonlinear System Relaxation Factor',Found )
-     IF ( .NOT.Found ) Relax = 1
-
 
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
@@ -480,7 +472,8 @@
        CALL Info( 'PoissonBoltzmannSolve', Message, Level=4 )
        
        IF ( RelativeChange < NewtonTol ) NewtonLinearization = .TRUE.
-       IF ( RelativeChange < NonlinearTol ) EXIT
+
+       IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
 
      END DO
 
