@@ -80,7 +80,7 @@ SUBROUTINE CompressibilityScale( Model,Solver,dt,TransientSimulation )
       Time, PrevTime=0.0d0, MinimumSideVolume=1.0d10, &
       TransitionVolume, dVolume
   LOGICAL :: Stat, GotIt, SubroutineVisited=.False., &
-      ScaleCompressibility
+      ScaleCompressibility, FsiBC
   INTEGER :: i,j,k,n,pn,t,DIM,mat_id,TimeStepVisited
   INTEGER, POINTER :: NodeIndexes(:)
   TYPE(Variable_t), POINTER :: Var,Dvar
@@ -181,7 +181,10 @@ SUBROUTINE CompressibilityScale( Model,Solver,dt,TransientSimulation )
 
      DO k=1, Model % NumberOfBCs
         IF ( Model % BCs(k) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
-        IF ( .NOT.ListGetLogical(Model % BCs(k) % Values,'Force BC',stat ) ) CYCLE
+
+        FsiBC = ListGetLogical(Model % BCs(k) % Values,'Force BC',stat ) .OR. &
+                ListGetLogical(Model % BCs(k) % Values,'Fsi BC',stat ) 
+        IF(.NOT. FsiBC ) CYCLE
 
         ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
         ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
