@@ -1459,6 +1459,139 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_BlockMatrixPick2(A,B,BlockStruct,Nrow,Ncol)
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Pics a block from matrix A to build matrix B.
+!------------------------------------------------------------------------------
+
+    TYPE(Matrix_t) :: A, B
+    INTEGER :: Blocks, Nrow,Ncol
+    INTEGER, POINTER :: BlockStruct(:)
+
+    INTEGER :: i,j,k,l,kb,n,Nrow0,Ncol0,nsub,Mrow,Mcol,mr,mc,imsub,lmsub
+    INTEGER :: lsub,isub,istat,modNcol
+    LOGICAL :: NewMatrix, Allocated, Diagonal, Hit
+    INTEGER, ALLOCATABLE :: Irow(:), Icol(:)
+
+    
+    Blocks = SIZE( BlockStruct )
+
+    IF(Blocks <= 1) THEN
+      CALL Fatal('CRS_BlockMatrixPick','No applicable to just one block!')
+      RETURN
+    END IF
+
+    N = A % NumberOfRows
+
+    Mrow = 0
+    Mcol = 0
+    ALLOCATE( Irow(Blocks), Icol(Blocks) ) 
+    Irow = 0
+    Icol = 0
+
+    DO i=1,Blocks
+      IF( BlockStruct(i) == Nrow ) THEN
+        Mrow = Mrow + 1
+        Irow(Mrow) = i
+      END IF
+      IF( BlockStruct(i) == Ncol ) THEN
+        Mcol = Mcol + 1
+        Icol(Mcol) = i
+      END IF
+    END DO
+
+    IF( Mrow == 0 .OR. Mcol == 0 ) THEN
+      CALL Fatal('CRS_BlockMatrixPick','Nothing to pick!')
+    END IF
+
+    Nsub = N / Blocks
+    modNcol = MOD( Ncol,Blocks)
+
+    NewMatrix = ( B % NumberOfRows == 0 ) 
+    Allocated = .NOT. NewMatrix
+    Diagonal = ( Nrow == Ncol ) 
+
+    IF( .NOT. Allocated ) THEN
+      PRINT *,'block rows no:',Mrow,' inds:',Irow(1:Mrow)
+      PRINT *,'block cols no:',Mcol,' inds:',Icol(1:Mcol)
+      B % ListMatrix => NULL()
+      B % FORMAT = MATRIX_CRS
+      B % NumberOfRows = Mrow *  Nsub    
+    END IF
+
+100 kb = 1      
+    DO isub=1,Nsub
+
+      DO mr=1,Mrow
+        imsub = Mrow*(isub-1)+mr
+        IF( Allocated .AND. NewMatrix ) B % Rows( imsub ) = kb
+        i = Blocks * ( isub - 1 ) + Irow(mr) 
+        
+        DO k= A % Rows(i), A % Rows(i+1)-1
+          l = A % Cols(k)
+          Hit = .FALSE.
+
+          DO mc = 1, Mcol
+            IF( MOD(l,Blocks) == MOD( Icol(mc), Blocks) ) THEN
+              Hit = .TRUE.
+              EXIT
+            END IF
+          END DO
+
+          IF( Hit ) THEN
+            IF( Allocated ) THEN
+              lmsub = Mcol * ( ( l - 1) / Blocks ) + mc
+              B % Values(kb) = A % Values(k)
+              IF( NewMatrix ) THEN
+                B % Cols(kb) = lmsub
+                IF( Diagonal ) THEN
+                  IF( imsub == lmsub ) B % Diag(imsub) = kb
+                END IF
+              END IF            
+              IF( Diagonal ) B % rhs(imsub) = A % rhs(i)              
+            END IF
+            kb = kb + 1
+          END IF
+
+        END DO
+      END DO
+    END DO
+    
+    IF( .NOT. Allocated ) THEN
+      IF( kb == 1 ) THEN
+        CALL Warn('CRS_BlockMatrixPick','No matrix entries in submatrix')
+        RETURN
+      END IF
+
+      ALLOCATE(B % Rows(Mrow*nsub+1),B % Cols(kb-1), B % Values(kb-1),STAT=istat )
+      IF( istat /= 0 ) CALL Fatal('CRS_BlockMatrixPick','memory allocation error 1')
+      
+      B % Rows(Mrow*Nsub+1) = kb
+      
+      IF( Diagonal ) THEN
+        ALLOCATE( B % Diag(Mrow*nsub), B % rhs(Mrow*nsub), STAT=istat)
+        IF( istat /= 0 ) CALL Fatal('CRS_BlockMatrixPick','memory allocation error 2')      
+      END IF
+
+      IF( A % COMPLEX ) THEN
+        IF( MOD( Mrow, 2) == 0 .AND. MOD( Mcol, 2) == 0 ) THEN
+          B % COMPLEX = .TRUE.
+        END IF
+      END IF
+
+      Allocated = .TRUE.
+      GOTO 100
+    END IF
+
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE CRS_BlockMatrixPick2
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   FUNCTION CRS_IncompleteLU(A,ILUn) RESULT(Status)

@@ -1596,26 +1596,44 @@ CONTAINS
   ! that an elementtype is solver specific while this one solver could have a number of
   ! different elementtypes for different equations.
   !-----------------------------------------------------------------------------------
-  FUNCTION CreateBlockVariable( Solver, VariableNo ) RESULT ( Var )
+  FUNCTION CreateBlockVariable( Solver, VariableNo, VarName, ExtDofs, ExtPerm ) RESULT ( Var )
 
     USE DefUtils
 
     TYPE(Solver_t), POINTER :: Solver
     INTEGER :: VariableNo
+    CHARACTER(LEN=max_name_len) :: VarName
+    INTEGER, OPTIONAL :: ExtDofs
+    INTEGER, POINTER, OPTIONAL :: ExtPerm(:)
     TYPE(Variable_t), POINTER :: Var
 
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(Element_t), POINTER :: Element
-    INTEGER :: i,j,t,n,ndeg,body_id,body_id_prev,eq_id,solver_id,Dofs
+    INTEGER :: i,j,t,n,ndeg,body_id,body_id_prev,eq_id,solver_id,Dofs,nsize
     INTEGER, POINTER :: VarPerm(:), ActiveVariables(:)
     INTEGER, ALLOCATABLE :: Indexes(:)
     REAL(KIND=dp), POINTER :: Values(:)
     LOGICAL :: Hit, GotIt
-    CHARACTER(LEN=max_name_len) :: str, VarName, eq
+    CHARACTER(LEN=max_name_len) :: str, eq
 
     LOGICAL :: GlobalBubbles, Found
     INTEGER :: MaxNDOFs, MaxDGDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
+
+
+    IF( PRESENT( ExtDofs ) ) THEN
+      Dofs = ExtDofs
+    ELSE 
+      WRITE (str,'(A,I0,A)') 'Variable ',VariableNo,' Dofs'
+      Dofs = ListGetInteger( Solver % Values, TRIM(str), GotIt )
+      IF(.NOT. GotIt) Dofs = 1
+    END IF
+      
+    IF( PRESENT( ExtPerm ) ) THEN
+      nsize = MAXVAL( ExtPerm ) 
+      varPerm => ExtPerm
+      GOTO 100
+    END IF
 
 
     Mesh => Solver % Mesh
@@ -1658,9 +1676,6 @@ CONTAINS
     ALLOCATE( VarPerm(ndeg) )
     VarPerm = 0
         
-    WRITE (str,'(A,I0)') 'Variable ',VariableNo
-    VarName = ListGetString( Solver % Values, TRIM(str), GotIt )
-
     solver_id = 0
     DO i = 1, CurrentModel % NumberOfSolvers
       PSolver => CurrentModel % Solvers(i)
@@ -1709,24 +1724,27 @@ CONTAINS
         VarPerm(i) = j
       END IF
     END DO
-        
-    IF( j > 0 ) THEN
-      WRITE (str,'(A,I0,A)') 'Variable ',VariableNo,' Dofs'
-      Dofs = ListGetInteger( Solver % Values, TRIM(str), GotIt )
-      IF(.NOT. GotIt) Dofs = 1
-      
-      ALLOCATE(Values(Dofs*j))
-      Values = 0.0_dp
-          
-      CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
-          VarName, Dofs, Values, VarPerm )          
-      WRITE( Message,'(A,I0,A)') 'Creating variable '//TRIM(VarName)//' with ',Dofs,' dofs'
-      CALL Info('BlockSolver',Message)
+    nsize = j
 
-      Var => VariableGet( Mesh % Variables, VarName )         
-    ELSE 
-      CALL Fatal('BlockSolver','Variable '//TRIM(VarName)//' cannot be created')
+100 IF( nsize == 0 ) THEN
+      CALL Fatal('CreateBlockVariable','Variable '//TRIM(VarName)//' cannot be created')      
     END IF
+
+    CALL Info('CreateBlockVariable','Creating variable: '//TRIM(VarName), Level=6 )
+    
+PRINT *,'Dofs',Dofs,nsize
+
+    ALLOCATE(Values(Dofs*nsize))
+    Values = 0.0_dp
+    
+    CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
+        VarName, Dofs, Values, VarPerm )          
+    WRITE( Message,'(A,I0,A)') 'Creating variable '//TRIM(VarName)//' with ',Dofs,' dofs'
+    CALL Info('BlockSolver',Message)
+    
+PRINT *,'a2'
+
+    Var => VariableGet( Mesh % Variables, VarName )         
 
   END FUNCTION CreateBlockVariable
 
@@ -2138,10 +2156,10 @@ CONTAINS
     IF( IsProcedure .OR. IsAssemblySolver ) THEN
       CALL Info('CoupledSolver','Using existing variable and matrix')
       IF(.NOT. ASSOCIATED(Solver % Matrix)) THEN
-        CALL Fatal('CoupledSolver','In Assembly Solver mode the Matrix should exist!')
+        CALL Fatal('CoupledSolver','In legacy solver mode the Matrix should exist!')
       END IF
       IF(.NOT. ASSOCIATED(Solver % Variable)) THEN
-        CALL Fatal('CoupledSolver','In Assembly Solver mode the Variable should exist!')
+        CALL Fatal('CoupledSolver','In legacy solver mode the Variable should exist!')
       END IF
       NoVar = 1
       Var => Solver % Variable
@@ -2160,7 +2178,7 @@ CONTAINS
         IF(.NOT. ASSOCIATED( Var )) THEN
           CALL Info('CoupledSolver','Variable '//TRIM(VarName)//' does not exist, creating')
           PSolver => Solver
-          Var => CreateBlockVariable(PSolver, i)
+          Var => CreateBlockVariable(PSolver, i, VarName )
         END IF
 
         NoVar = NoVar + 1
@@ -2316,7 +2334,6 @@ CONTAINS
 ! Iterate over any nonlinearity of material or source
 !------------------------------------------------------------------------------
     CALL Info('CoupledSolver','-------------------------------------------------',Level=5)
-print *,'solving'
     Residual = -1.0_dp
     PrevResidual = -1.0_dp
     IsListMatrix = ( Amat % FORMAT == MATRIX_LIST )
@@ -2827,10 +2844,11 @@ print *,'solving'
  
 
 
-  
+  ! THIS IS STILL HEAVILY UNDER DEVELOPMENT
 
-
-! THIS IS STILL HEAVILY UNDER DEVELOPMENT
+!------------------------------------------------------------------------------
+! Perform matrix-vector product for block matrices.
+!------------------------------------------------------------------------------
     SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
       INTEGER :: i,j,k,NoVar,ipar(*)
       REAL(KIND=dp) :: u(*), v(*)
@@ -2856,7 +2874,9 @@ print *,'solving'
        END DO
     END SUBROUTINE BlockMatrixVectorProd
 
-
+!------------------------------------------------------------------------------
+! Perform block preconditioning by solving all the individual diagonal problems.
+!------------------------------------------------------------------------------
     SUBROUTINE BlockMatrixPrec( u,v,ipar )
       USE DefUtils
 
@@ -2870,6 +2890,11 @@ print *,'solving'
       LOGICAL :: l
       TYPE(Varying_string) :: namesp
 
+      CALL Info('BlockMatrixPrec','Starting preconditioning',Level=6)
+
+      WRITE(Message,'(A,I0)') 'Number of coupled variables: ',NoVar
+
+
       NoVar = TotMatrix % NoVar
       Solver => TotMatrix % Solver
       offset => TotMatrix % Offset
@@ -2877,6 +2902,9 @@ print *,'solving'
       L = ListGetNameSpace(namesp)
       u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
       DO i=1,NoVar
+	WRITE(Message,'(A,I0)') 'Solving block: ',i
+	CALL Info('BlockMatrixPrec',Message,Level=6)
+
         Solver % Variable => TotMatrix % SubVector(i) % Var
         sol_save => Solver % Variable % Values
         Solver % Variable % Values => u(offset(i)+1:offset(i+1))
@@ -2886,12 +2914,15 @@ print *,'solving'
         Solver % Matrix % Rhs => v(offset(i)+1:offset(i+1))
 
         CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
+
         Norm = DefaultSolve()
 
         Solver % Matrix % rhs => rhs_save
         Solver % Variable % Values  => sol_save
       END DO
       CALL ListSetNameSpace(CHAR(namesp))
+
+      CALL Info('BlockMatrixPrec','Finished preconditioning',Level=6)
 
     END SUBROUTINE BlockMatrixPrec
 
@@ -2915,20 +2946,20 @@ print *,'solving'
 ! Local variables
 !------------------------------------------------------------------------------
 
-
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var, SolverVar
     INTEGER :: i,j,k,l,n,nd,NoIterations,tests,NoTests,iter
     CHARACTER(LEN=MAX_NAME_LEN) :: BlockMethod
     LOGICAL :: GotIt
-    INTEGER :: ColVar, RowVar, NoVar
+    INTEGER :: ColVar, RowVar, NoVar, BlockDofs
 
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
         TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm
     REAL(KIND=dp), POINTER :: rhs_save(:), sol_save(:)
     REAL(KIND=dP), ALLOCATABLE, TARGET :: Diag(:)
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
-    LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem
+    LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,GotBlockStruct
+    INTEGER, POINTER :: BlockStruct(:)
     
     TYPE (Matrix_t), POINTER :: Amat, SolverMatrix
     TYPE(Mesh_t), POINTER :: Mesh
@@ -2957,7 +2988,7 @@ print *,'solving'
     !------------------------------------------------------------------------------
     NoVar = TotMatrix % NoVar
     IsProcedure = ListCheckPresent( SolverParams,'Procedure')
-
+    GotBlockStruct = .FALSE.
 
     ! The matrix is inherited from a monolithic matrix equation
     !------------------------------------------------------------------------------
@@ -2965,9 +2996,23 @@ print *,'solving'
       SolverMatrix => Solver % Matrix
       SolverVar => Solver % Variable
 
-      NoVar = Solver % Variable % Dofs
-      CALL InitializeBlockMatrix( TotMatrix, NoVar )
+      BlockDofs = Solver % Variable % Dofs      
+      BlockStruct => ListGetIntegerArray( SolverParams,'Block Structure',GotBlockStruct)
+      IF( GotBlockStruct ) THEN
+        IF( SIZE( BlockStruct ) /= BlockDofs ) THEN
+          CALL Fatal('BlockSolver','Incompatible size of > Block Structure < given!')
+        END IF
+        IF( MINVAL( BlockStruct ) < 1 .OR. MAXVAL( BlockStruct ) > BlockDofs ) THEN
+          CALL Fatal('BlockSolver','Incompatible values in > Block Structure < given!')          
+        END IF
+        NoVar = MAXVAL( BlockStruct )
+        CALL InitializeBlockMatrix( TotMatrix, NoVar, BlockStruct )
+      ELSE
+        NoVar = BlockDofs
+        CALL InitializeBlockMatrix( TotMatrix, NoVar )
+      END IF
       TotMatrix % Solver => Solver
+
 
     ELSE
       IF( NoVar == 0 ) THEN
@@ -2980,7 +3025,7 @@ print *,'solving'
         CALL InitializeBlockMatrix( TotMatrix, NoVar )
         TotMatrix % Solver => Solver
         
-        WRITE(Message,'(A,T35,I0)') 'Number of coupled variables: ',NoVar
+        WRITE(Message,'(A,I0)') 'Number of coupled variables: ',NoVar
         CALL Info('BlockSolver',Message)
         IF( NoVar == 0 ) CALL Fatal('BlockSolver','No variables, nothing to do!')
 
@@ -3079,7 +3124,11 @@ ScaleSystem = .FALSE.
         DO RowVar=1,NoVar
           DO ColVar=1,NoVar            
             Amat => TotMatrix % Submatrix(RowVar,ColVar) % Mat          
-            CALL CRS_BlockMatrixPick(SolverMatrix,Amat,NoVar,RowVar,ColVar)          
+            IF( GotBlockStruct ) THEN
+              CALL CRS_BlockMatrixPick2(SolverMatrix,Amat,BlockStruct,RowVar,ColVar)
+            ELSE
+              CALL CRS_BlockMatrixPick(SolverMatrix,Amat,NoVar,RowVar,ColVar)          
+            END IF
           END DO
         END DO
 
@@ -3196,7 +3245,7 @@ ScaleSystem = .FALSE.
         END DO
         CALL ListSetNameSpace('')
       ELSE
-!       CALL Fatal('BlockSolver','Unknown block solution method!')
+	CALL Info('BlockSolver','Using default block solver',Level=6)
         CALL IterC()
       END IF
 
@@ -3243,7 +3292,8 @@ ScaleSystem = .FALSE.
       LOGICAL :: Converged, Diverged
       INTEGER :: Rounds, OutputInterval, PolynomialDegree
       INTEGER, POINTER :: Offset(:)
-      LOGICAL :: l
+      INTEGER :: i,j,k,l,ia,ib
+      LOGICAL :: LS
       TYPE(Varying_string) :: namesp
 
       Offset => TotMatrix % Offset
@@ -3259,7 +3309,7 @@ ScaleSystem = .FALSE.
 
       xMaxChange = SQRT(SUM(x**2))
 
-      L = ListGetNameSpace(namesp)
+      LS = ListGetNameSpace(namesp)
       CALL ListSetNameSpace('outer:')
       A => TotMatrix % SubMatrix(1,1) % Mat
       CALL IterSolver( A,x,b,Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
@@ -3267,10 +3317,30 @@ ScaleSystem = .FALSE.
 
       MaxChange = SQRT(SUM(x**2))
       MaxChange = 2*ABS(xMaxChange-MaxChange)/(xMaxChange+MaxChange)
-
+ 
       DO i=1,NoVar
         TotMatrix % SubVector(i) % Var % Values = x(offset(i)+1:offset(i+1))
       END DO
+
+      ! Copy values back since for nontrivial block-matrix structure the
+      ! components do not build the whole solution.
+      !-----------------------------------------------------------------
+      IF( GotBlockStruct ) THEN
+        PRINT *,'Copying solution back'
+
+        l = SIZE(BlockStruct) 
+        DO j=1,l
+          k = BlockStruct(j)
+          ia = COUNT( k == BlockStruct ) 
+          ib = COUNT( k == BlockStruct(1:j) )
+
+          DO i=1,SIZE(x)/l
+            SolverVar % Values(l*(i-1)+j) = &
+                TotMatrix % SubVector(k) % Var % Values( ia*(i-1) + ib )
+          END DO
+        END DO
+      END IF
+
     END SUBROUTINE IterC
 
 
@@ -3278,22 +3348,25 @@ ScaleSystem = .FALSE.
     ! This subroutine initializes the block matrix structure so that the 
     ! matrices and vectors have a natural location to save.
     !------------------------------------------------------------------
-    SUBROUTINE InitializeBlockMatrix( BlockMatrix, NoVar )
+    SUBROUTINE InitializeBlockMatrix( BlockMatrix, NoVar, BlockStruct )
       
       IMPLICIT NONE
 
       TYPE(BlockMatrix_t) :: BlockMatrix
       INTEGER :: NoVar
+      INTEGER, POINTER, OPTIONAL :: BlockStruct(:)
 
       TYPE(Matrix_t), POINTER :: Amat
       INTEGER :: i,j
 
       IF( BlockMatrix % NoVar == NoVar ) THEN
-        CALL Info('InitializeBlockMatrix','Reusing existing blockmatrix')
+        CALL Info('InitializeBlockMatrix','Reusing existing blockmatrix',Level=6)
         RETURN
       ELSE IF( BlockMatrix % Novar /= 0 ) THEN
         PRINT *,'NoVar',NoVar,BlockMatrix % Novar 
         CALL Fatal('InitializeBlockMatrix','Currently only one block matrix may exist!')
+      ELSE
+        CALL Info('InitializeBlockMatrix','Starting',Level=6)
       END IF
 
       BlockMatrix % NoVar = NoVar
@@ -3319,11 +3392,14 @@ ScaleSystem = .FALSE.
 
       DO i = 1,NoVar
         WRITE (str,'(A,I0)') 'Variable ',i
-        
-        IF(.NOT. GotIt ) THEN          
-          VarName = ListGetString( SolverParams, TRIM(str), GotIt )
-        ELSE       
-          VarName = ComponentName(Solver % Variable % Name,i) 
+
+        VarName = ListGetString( SolverParams, TRIM(str), GotIt )
+        IF(.NOT. GotIt ) THEN       
+          IF( PRESENT( BlockStruct ) ) THEN
+            WRITE (VarName,'(A,I0)') 'BlockVar ',i
+          ELSE
+            VarName = ComponentName(Solver % Variable % Name,i)            
+          END IF            
         END IF
         Var => VariableGet( Mesh % Variables, VarName )
 
@@ -3338,9 +3414,17 @@ ScaleSystem = .FALSE.
         ! different elementtypes for different equations.
         !-----------------------------------------------------------------------------------
         IF(.NOT. ASSOCIATED( Var )) THEN
-          CALL Info('BlockSolver','Variable '//TRIM(VarName)//' does not exist, creating')
+          CALL Info('BlockSolver','Variable > '//TRIM(VarName)//' < does not exist, creating')
           PSolver => Solver
-          Var => CreateBlockVariable(PSolver, i)
+          IF( PRESENT( BlockStruct ) ) THEN
+            j = COUNT( BlockStruct == i ) 
+            IF( j == 0 ) THEN
+              CALL Fatal('InitializeBlockMatrix','Invalid > Block Structure < given!')
+            END IF
+            Var => CreateBlockVariable(PSolver, i, VarName, j, Solver % Variable % Perm )
+          ELSE
+            Var => CreateBlockVariable(PSolver, i, VarName )
+          END IF
         END IF
         
         BlockMatrix % SubVector(i) % Var => Var
@@ -3357,7 +3441,6 @@ ScaleSystem = .FALSE.
       END DO
 
       PRINT *,'Offsets:',BlockMatrix % Offset
-
 
       BlockMatrix % TotSize = BlockMatrix % Offset( NoVar + 1 )
 
