@@ -56,7 +56,7 @@ LIBRARY_FLAGS = -L/usr/lib -lnetcdff -lnetcdf -lproj $(addprefix -L, $(TMP_PATH)
 
 # Packaging macros for easily transporting latest backups elsewhere
 PACKET = GridMap.tar
-TEST_PACKET = Tests.tar
+TEST_PACKET = Tests
 TAR_FLAGS = cf
 
 ##### RULES
@@ -77,13 +77,13 @@ postprocessor: $(POST_OBJS)
 	@$(foreach file, $(notdir $(POST_MAIN)), $(COMPILER_CXX) $(addprefix $(TMP_PATH), $(notdir $(POST_OBJS))) -o $(addprefix $(BIN_PATH), $(basename $(file)));)
 
 %.o: %.f90
-	@$(COMPILER_F90) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
+	@$(COMPILER_F90) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $? -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
 
 %.o: %.cc
-	@$(COMPILER_CXX) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
+	@$(COMPILER_CXX) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $? -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
 
 %.o: %.c
-	@$(COMPILER_C) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $^ -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
+	@$(COMPILER_C) -c $(INCLUDE_FLAGS) $(LIBRARY_FLAGS) $? -J$(TMP_PATH) -o $(addprefix $(TMP_PATH), $(notdir $@))
 
 # Cleans extra stuff
 clean:
@@ -97,7 +97,7 @@ save:	pack
 # Too large to copy just as files; so they're compressed first
 save_tests:
 	@echo Packing all tests
-	@tar $(TAR_FLAGS) $(addprefix $(BACKUP_PATH), $(TEST_PACKET)) $(TEST_PATH)
+	$(foreach folder, $(wildcard $(TEST_PATH)*), tar $(TAR_FLAGS) $(addprefix $(BACKUP_PATH), $(TEST_PACKET)_$(notdir $(folder)).tar) $(folder);)
 
 # Packs the work for transportation
 pack:
