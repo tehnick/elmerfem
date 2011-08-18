@@ -1621,6 +1621,8 @@ CONTAINS
     INTEGER :: MaxNDOFs, MaxDGDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
 
 
+    Mesh => Solver % Mesh
+
     IF( PRESENT( ExtDofs ) ) THEN
       Dofs = ExtDofs
     ELSE 
@@ -1636,7 +1638,6 @@ CONTAINS
     END IF
 
 
-    Mesh => Solver % Mesh
 
     Ndeg = 0
     MaxNDOFs  = 0
@@ -1731,18 +1732,16 @@ CONTAINS
     END IF
 
     CALL Info('CreateBlockVariable','Creating variable: '//TRIM(VarName), Level=6 )
-    
-PRINT *,'Dofs',Dofs,nsize
 
+    NULLIFY( Values ) 
     ALLOCATE(Values(Dofs*nsize))
     Values = 0.0_dp
     
     CALL VariableAddVector( Mesh % Variables, Mesh, Solver, &
-        VarName, Dofs, Values, VarPerm )          
+        TRIM(VarName), Dofs, Values, VarPerm )          
+
     WRITE( Message,'(A,I0,A)') 'Creating variable '//TRIM(VarName)//' with ',Dofs,' dofs'
     CALL Info('BlockSolver',Message)
-    
-PRINT *,'a2'
 
     Var => VariableGet( Mesh % Variables, VarName )         
 
@@ -2091,7 +2090,7 @@ PRINT *,'a2'
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName, ConsType
     LOGICAL :: Coupling, Equality, AssemblySymmetric, AssemblyAntisymmetric, &
         AllDirFlag, Robust, ErrorReduced
-    INTEGER, POINTER :: Rows(:),Cols(:),Diag(:),Indexes(:),AllPerm(:)
+    INTEGER, POINTER :: Rows(:),Cols(:),Indexes(:),AllPerm(:)
     TYPE(ListMatrix_t), POINTER :: Alist(:) => NULL()
     REAL(KIND=dp), POINTER :: ForceVector(:),AllValues(:)
     LOGICAL, POINTER :: AllDir(:)
@@ -2956,7 +2955,6 @@ PRINT *,'a2'
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
         TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm
     REAL(KIND=dp), POINTER :: rhs_save(:), sol_save(:)
-    REAL(KIND=dP), ALLOCATABLE, TARGET :: Diag(:)
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
     LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,GotBlockStruct
     INTEGER, POINTER :: BlockStruct(:)
@@ -3111,14 +3109,13 @@ PRINT *,'a2'
         !---------------------------------------------------------------------
         ScaleSystem = ListGetLogical( SolverParams,'Linear System Scaling',GotIt) 
 
-! There seems to be a problem with the scalesystem still...
-!        IF(.NOT. GotIt) ScaleSystem = .TRUE.
-ScaleSystem = .FALSE.
+        ! There might to be a problem with the scalesystem still...
+        IF(.NOT. GotIt) ScaleSystem = .TRUE.
+
         IF( ScaleSystem ) THEN
-          IF( .NOT. ALLOCATED( Diag ) ) THEN
-            ALLOCATE( Diag(SolverMatrix % NumberOfRows) )	
-          END IF
-          CALL ScaleLinearSystem(SolverMatrix, Diag, Solver )
+          CALL ScaleLinearSystem(Solver, SolverMatrix, &
+              SolverMatrix % Rhs, Solver % Variable % Values )
+          CALL ListAddLogical( Solver % Values,'Linear System Scaling',.FALSE.)
         END IF
 
         DO RowVar=1,NoVar
@@ -3134,7 +3131,7 @@ ScaleSystem = .FALSE.
 
         CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',NoIterations)
         CALL ListRemove( SolverParams,'Linear System Solver Disabled')
-               
+
       ELSE
         
         
@@ -3252,7 +3249,11 @@ ScaleSystem = .FALSE.
       IF( IsProcedure ) THEN
         Solver % Matrix => SolverMatrix
         Solver % variable => SolverVar
-        IF( ScaleSystem ) CALL BackScaleLinearSystem(SolverMatrix, Solver) 
+        IF( ScaleSystem ) THEN
+          CALL BackScaleLinearSystem(Solver, SolverMatrix, &
+              SolverMatrix % Rhs, Solver % Variable % Values )
+          CALL ListAddLogical( Solver % Values,'Linear System Scaling',.TRUE.)
+        END IF
       END IF
       
       IF(.NOT. Robust) THEN
@@ -3326,8 +3327,6 @@ ScaleSystem = .FALSE.
       ! components do not build the whole solution.
       !-----------------------------------------------------------------
       IF( GotBlockStruct ) THEN
-        PRINT *,'Copying solution back'
-
         l = SIZE(BlockStruct) 
         DO j=1,l
           k = BlockStruct(j)
@@ -3363,7 +3362,6 @@ ScaleSystem = .FALSE.
         CALL Info('InitializeBlockMatrix','Reusing existing blockmatrix',Level=6)
         RETURN
       ELSE IF( BlockMatrix % Novar /= 0 ) THEN
-        PRINT *,'NoVar',NoVar,BlockMatrix % Novar 
         CALL Fatal('InitializeBlockMatrix','Currently only one block matrix may exist!')
       ELSE
         CALL Info('InitializeBlockMatrix','Starting',Level=6)
@@ -3426,7 +3424,7 @@ ScaleSystem = .FALSE.
             Var => CreateBlockVariable(PSolver, i, VarName )
           END IF
         END IF
-        
+
         BlockMatrix % SubVector(i) % Var => Var
         n = SIZE( Var % Values )
 

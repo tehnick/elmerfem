@@ -3927,6 +3927,7 @@ END FUNCTION SearchNodeL
     TYPE(ValueList_t), POINTER :: SolverParams
 
     SolverParams => Solver % Values
+
   
     IF(SteadyState) THEN	
       Skip = ListGetLogical( SolverParams,'Skip Compute Steady State Change',Stat)
@@ -3989,6 +3990,7 @@ END FUNCTION SearchNodeL
         IF (.NOT. Stat ) RelaxBefore = .TRUE.
       END IF
     END IF
+
 
     IF(PRESENT(values)) THEN
       x => values
@@ -4456,22 +4458,26 @@ END FUNCTION SearchNodeL
 !     Scale system Ax = b as:
 !       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !------------------------------------------------------------------------------
-  SUBROUTINE ScaleLinearSystem(A,Diag,Solver,ApplyScaling)
+  SUBROUTINE ScaleLinearSystem(Solver,A,b,x,ApplyScaling)
 
-    TYPE(Matrix_t) :: A
     TYPE(Solver_t) :: Solver
-    REAL(KIND=dp), ALLOCATABLE, TARGET :: Diag(:)
+    TYPE(Matrix_t) :: A
+    REAL(KIND=dp), OPTIONAL :: b(:),x(:)
     LOGICAL, OPTIONAL :: ApplyScaling 
     INTEGER :: n,i,j
-    REAL(KIND=dp) :: DiagReal, DiagImag
+    REAL(KIND=dp) :: DiagReal, DiagImag, bnorm
     LOGICAL :: ComplexMatrix
-    
+    REAL(KIND=dp), POINTER  :: Diag(:)
+
     n = A % NumberOfRows
+
     
-    IF(.NOT. ALLOCATED(Diag)) ALLOCATE( Diag(n) )
-    A % DiagScaling => Diag
+    IF(.NOT. ASSOCIATED(A % DiagScaling)) THEN
+      ALLOCATE( A % DiagScaling(n) ) 
+    END IF
+    Diag => A % DiagScaling
     
-    ComplexMatrix = Solver % Matrix % Complex
+    ComplexMatrix = Solver % Matrix % COMPLEX
     
     IF ( ComplexMatrix ) THEN
       DO i=1,n,2
@@ -4544,26 +4550,60 @@ END FUNCTION SearchNodeL
         END DO
       END IF
     END IF
-    
+
+    ! Scale r.h.s. and initial guess
+    !--------------------------------
+    IF( PRESENT( b ) ) THEN      
+      b(1:n) = b(1:n) * Diag(1:n)
+      bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+      A % RhsScaling = bnorm
+
+      Diag(1:n) = Diag(1:n) * bnorm
+      b(1:n) = b(1:n) / bnorm
+      IF( PRESENT( x) ) THEN
+        x(1:n) = x(1:n) / Diag(1:n)
+      END IF
+    END IF
+
   END SUBROUTINE ScaleLinearSystem
 
 
   
   !  Scale the system back to original:
   !--------------------------------------------------------------
-  SUBROUTINE BackScaleLinearSystem(A,Solver) 
+  SUBROUTINE BackScaleLinearSystem(Solver,A,b,x) 
 
-    TYPE(Matrix_t) :: A
     TYPE(Solver_t) :: Solver
+    TYPE(Matrix_t) :: A
+    REAL(KIND=dp), OPTIONAL :: b(:),x(:)
+
     REAL(KIND=dp), POINTER :: Diag(:)
+    REAL(KIND=dp) :: bnorm
     INTEGER :: n,i,j
     
     n = A % NumberOfRows
     
     Diag => A % DiagScaling
+
+    IF( PRESENT( b ) ) THEN
+! 
+!      Solve x:  INV(D)x = y, scale b back to orig
+!      -------------------------------------------
+      IF( PRESENT( x ) ) THEN
+        x(1:n) = x(1:n) * Diag(1:n)
+      END IF
+      bnorm = A % RhsScaling
+      Diag(1:n) = Diag(1:n) / bnorm
+      b(1:n) = b(1:n) / Diag(1:n) * bnorm
+    END IF
+
+
     IF(.NOT. ASSOCIATED( Diag ) ) THEN
       CALL Fatal('BackScaleLinearSystem','Diag not associated!')
     END IF
+    IF( SIZE( Diag ) /= n ) THEN
+      CALL Fatal('BackScaleLinearSystem','Diag of wrong size!')
+    END IF 
     
     DO i=1,Solver % NOFEigenValues
       !
@@ -4585,7 +4625,7 @@ END FUNCTION SearchNodeL
     END DO
     
     IF ( ASSOCIATED( A % MassValues ) ) THEN
-      IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
+      IF (SIZE(A % Values) == SIZE(A % MassValues)) THEN
         DO i=1,n
           DO j=A % Rows(i), A % Rows(i+1)-1
             A % MassValues(j) = A % MassValues(j) / &
@@ -4596,7 +4636,7 @@ END FUNCTION SearchNodeL
     END IF
     
     IF ( ASSOCIATED( A % DampValues ) ) THEN
-      IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
+      IF (SIZE(A % Values) == SIZE(A % DampValues)) THEN
         DO i=1,n
           DO j=A % Rows(i), A % Rows(i+1)-1
             A % DampValues(j) = A % DampValues(j) / &
@@ -4624,13 +4664,13 @@ END FUNCTION SearchNodeL
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis
-!NeedSol
     INTEGER :: n,i,j,k,l,ii,m,DOF,istat,this
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp), POINTER :: SaveValues(:)
-    REAL(KIND=dp), ALLOCATABLE, TARGET :: Px(:), Diag(:), &
+    REAL(KIND=dp), ALLOCATABLE, TARGET :: Px(:), &
                 TempVector(:), TempRHS(:)
+    REAL(KIND=dp), POINTER :: Diag(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,bnorm,Energy
     TYPE(ValueList_t), POINTER :: Params
     TYPE(Matrix_t), POINTER :: Aaid, Projector
@@ -4667,31 +4707,35 @@ END FUNCTION SearchNodeL
        END IF
     END IF
     
+!------------------------------------------------------------------------------
+!  These definitions are needed if chanching the iterative solver on-the-fly
+
+    Solver % MultiGridSolver = ( ListGetString( Params, &
+        'Linear System Solver', GotIt ) == 'multigrid' )
+    Solver % MultiGridTotal = MAX( Solver % MultiGridTotal, &
+        ListGetInteger( Params,'MG Levels', GotIt, minv=1 ) )
+    Solver % MultiGridLevel = Solver % MultigridTotal
+!------------------------------------------------------------------------------
+
     ScaleSystem = ListGetLogical( Params, 'Linear System Scaling', GotIt )
     IF ( .NOT. GotIt  ) ScaleSystem = .TRUE.
 
     EigenAnalysis = Solver % NOFEigenValues > 0 .AND. &
-          ListGetLogical( Params, 'Eigen Analysis',GotIt )
-
+        ListGetLogical( Params, 'Eigen Analysis',GotIt )
+    
     HarmonicAnalysis = Solver % NOFEigenValues>0 .AND. &
-          ListGetLogical( Params, 'Harmonic Analysis',GotIt )
-
+        ListGetLogical( Params, 'Harmonic Analysis',GotIt )
 
     IF ( .NOT. HarmonicAnalysis .AND. .NOT. EigenAnalysis ) THEN
       bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
-      IF ( bnorm==0._dp ) THEN
+      IF ( bnorm <= TINY( bnorm) ) THEN
         CALL Info('SolveSystem','Solution trivially zero!')
         x = 0.0d0
         RETURN
       END IF
     END IF
-
-    A % DiagScaling => Null()
-    IF ( ScaleSystem .AND. .NOT. HarmonicAnalysis ) THEN
-      ALLOCATE( Diag(n) )	
-      CALL ScaleLinearSystem(A, Diag, Solver )
-    END IF
-
+    
+    
     IF ( Solver % MultiGridLevel == -1  ) RETURN
 
 !------------------------------------------------------------------------------
@@ -4702,70 +4746,36 @@ END FUNCTION SearchNodeL
       RETURN
     END IF
 
+
 !   If solving eigensystem go there:
 !   --------------------------------
     IF ( EigenAnalysis ) THEN
-       CALL SolveEigenSystem( &
-           A, Solver %  NOFEigenValues, &
-           Solver % Variable % EigenValues,       &
-           Solver % Variable % EigenVectors, Solver )
-   
-       IF ( ScaleSystem ) THEN
-	 CALL BackScaleLinearSystem( A, Solver ) 
-         DEALLOCATE( Diag )	
-       END IF
-       CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+      IF ( ScaleSystem ) CALL ScaleLinearSystem(Solver, A )
+     
+      CALL SolveEigenSystem( &
+          A, Solver %  NOFEigenValues, &
+          Solver % Variable % EigenValues,       &
+          Solver % Variable % EigenVectors, Solver )
+      
+      IF ( ScaleSystem ) CALL BackScaleLinearSystem( Solver, A ) 
+      CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+      
+      Norm = ComputeNorm(Solver,n,x)
+      Solver % Variable % Norm = Norm
+      
+      CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
+          Solver % Variable % Name )
+      RETURN
+    END IF
 
-       Norm = ComputeNorm(Solver,n,x)
-       Solver % Variable % Norm = Norm
 
-       CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-                       Solver % Variable % Name )
-       RETURN
-     END IF
-
-!    Relaxation = ListGetConstReal( Params, &
-!      'Nonlinear System Relaxation Factor', Relax )
-!    Relax = Relax .AND. (Relaxation /= 1.0d0)
-
-!    Method = ListGetString( Params, &
-!        'Nonlinear System Convergence Measure', GotIt ) 
-!    NeedSol = ( Method == 'residual' .OR. Method == 'solution' )
-
-!    IF ( Relax .OR. NeedSol ) THEN
-!      Stat = ASSOCIATED(Solver % Variable % NonlinValues)
-!      IF( Stat ) THEN
-!        IF ( SIZE(Solver % Variable % NonlinValues) /= n) THEN
-!          DEALLOCATE(Solver % Variable % NonlinValues)
-!          Stat = .FALSE.
-!        END IF
-!      END IF
-!      IF(.NOT. Stat) THEN
-!        ALLOCATE( Solver % Variable % NonlinValues(n), STAT=istat ) 
-!        IF ( istat /= 0 ) CALL Fatal( 'SolveSystem', 'Memory allocation error.' )
-!      END IF
-!      Solver % Variable % NonlinValues = x(1:n)
-!    END IF
-
-!------------------------------------------------------------------------------
-!  These definitions are needed if chanching the iterative solver on-the-fly
-
-    Solver % MultiGridSolver = ( ListGetString( Params, &
-                  'Linear System Solver', GotIt ) == 'multigrid' )
-    Solver % MultiGridTotal = MAX( Solver % MultiGridTotal, &
-        ListGetInteger( Params,'MG Levels', GotIt, minv=1 ) )
-    Solver % MultiGridLevel = Solver % MultigridTotal
-!------------------------------------------------------------------------------
 ! 
 !   Convert rhs & initial value to the scaled system:
 !   -------------------------------------------------
-    IF ( ScaleSystem ) b(1:n) = b(1:n) * Diag(1:n)
-    bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+
 
     IF ( ScaleSystem ) THEN
-      Diag(1:n)=Diag(1:n)*bnorm
-      b(1:n) = b(1:n) / bnorm
-      x(1:n) = x(1:n) / Diag(1:n)
+      CALL ScaleLinearSystem(Solver, A, b, x )
     END IF
 
     Method = ListGetString(Params,'Linear System Solver',GotIt)
@@ -4775,74 +4785,36 @@ END FUNCTION SearchNodeL
     END IF
 
     IF ( ParEnv % PEs <= 1 ) THEN
-       SELECT CASE(Method)
-       CASE('multigrid')
-          CALL MultiGridSolve( A, x, b, &
-                  DOFs, Solver, Solver % MultiGridLevel )
-       CASE('iterative')
-          CALL IterSolver( A, x, b, Solver )
-       CASE('feti')
-          CALL Fatal('SolveLinearSystem', &
-               'Feti solver available only in parallel.')
-       CASE DEFAULT
-           CALL DirectSolver( A, x, b, Solver )
-       END SELECT
+      SELECT CASE(Method)
+      CASE('multigrid')
+        CALL MultiGridSolve( A, x, b, &
+            DOFs, Solver, Solver % MultiGridLevel )
+      CASE('iterative')
+        CALL IterSolver( A, x, b, Solver )
+      CASE('feti')
+        CALL Fatal('SolveLinearSystem', &
+            'Feti solver available only in parallel.')
+      CASE DEFAULT
+        CALL DirectSolver( A, x, b, Solver )
+      END SELECT
     ELSE
-       SELECT CASE(Method)
-       CASE('multigrid')
-          CALL MultiGridSolve( A, x, b, &
-                 DOFs, Solver, Solver % MultiGridLevel )
-       CASE('iterative')
-          CALL ParallelIter( A, A % ParallelInfo, DOFs, &
-                   x, b, Solver, A % ParMatrix )
-       CASE('feti')
-          CALL FetiSolver( A, x, b, Solver )
-       CASE DEFAULT
-           CALL DirectSolver( A, x, b, Solver )
-       END SELECT
+      SELECT CASE(Method)
+      CASE('multigrid')
+        CALL MultiGridSolve( A, x, b, &
+            DOFs, Solver, Solver % MultiGridLevel )
+      CASE('iterative')
+        CALL ParallelIter( A, A % ParallelInfo, DOFs, &
+            x, b, Solver, A % ParMatrix )
+      CASE('feti')
+        CALL FetiSolver( A, x, b, Solver )
+      CASE DEFAULT
+        CALL DirectSolver( A, x, b, Solver )
+      END SELECT
     END IF
 
 
     IF ( ScaleSystem ) THEN
-! 
-!      Solve x:  INV(D)x = y, scale b back to orig
-!      -------------------------------------------
-       x(1:n) = x(1:n) * Diag(1:n)
-       Diag(1:n) = Diag(1:n) / bnorm
-       b(1:n) = b(1:n) / Diag(1:n) * bnorm
-
-! 
-!      Scale the system back to original:
-!      ----------------------------------
-       DO i=1,n
-         DO j=A % Rows(i), A % Rows(i+1)-1
-           A % Values(j) = A % Values(j) / ( Diag(i) * Diag(A % Cols(j)) )
-         END DO
-       END DO
-
-       IF ( ASSOCIATED( A % MassValues ) ) THEN
-          IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
-             DO i=1,n
-                DO j=A % Rows(i), A % Rows(i+1)-1
-                   A % MassValues(j) = A % MassValues(j) / &
-                         ( Diag(i) * Diag(A % Cols(j)) )
-                END DO
-             END DO
-          END IF
-       END IF
-
-       IF ( ASSOCIATED( A % DampValues ) ) THEN
-          IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
-             DO i=1,n
-                DO j=A % Rows(i), A % Rows(i+1)-1
-                   A % DampValues(j) = A % DampValues(j) / &
-                         ( Diag(i) * Diag(A % Cols(j)) )
-                END DO
-             END DO
-          END IF
-       END IF
-
-       DEALLOCATE( Diag )
+      CALL BackScaleLinearSystem( Solver, A, b, x ) 
     END IF
 
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
