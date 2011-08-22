@@ -53,7 +53,7 @@ MODULE MainUtils
     TYPE SubVector_t 
       TYPE(Variable_t), POINTER :: Var 
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
-      REAL(KIND=dp), ALLOCATABLE :: r(:),rtmp(:),rhs(:)
+      REAL(KIND=dp), ALLOCATABLE :: r(:),rhs(:),rtmp(:)
     END TYPE SubVector_t
     
     TYPE SubMatrix_t
@@ -2848,82 +2848,143 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Perform matrix-vector product for block matrices.
 !------------------------------------------------------------------------------
-    SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
-      INTEGER :: i,j,k,NoVar,ipar(*)
-      REAL(KIND=dp) :: u(*), v(*)
-      REAL(KIND=dp), ALLOCATABLE :: tmp(:)
-      INTEGER :: maxsize
-      INTEGER, POINTER :: Offset(:)
+  SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
+    INTEGER :: i,j,k,NoVar,ipar(*)
+    REAL(KIND=dp) :: u(*),v(*)
+    REAL(KIND=dp), ALLOCATABLE :: s(:)
+    INTEGER :: maxsize
+    INTEGER, POINTER :: Offset(:)
+    
+    NoVar = TotMatrix % NoVar
+    Offset => TotMatrix % Offset
+    MaxSize = TotMatrix % MaxSize
 
-      NoVar = TotMatrix % NoVar
-      Offset => TotMatrix % Offset
-      MaxSize = TotMatrix % MaxSize
+    ALLOCATE( s(MaxSize) )
 
-      ALLOCATE(tmp(maxsize))
+    
+    v(1:offset(NoVar+1)) = 0
 
-      v(1:offset(NoVar+1)) = 0
-      DO i=1,NoVar
-         DO j=1,NoVar
-           CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
-                    u(offset(j)+1:offset(j+1)), tmp )
-           DO k=1,offset(i+1)-offset(i)
-             v(k+offset(i)) = v(k+offset(i)) + tmp(k)
-           END DO
-         END DO
-       END DO
-    END SUBROUTINE BlockMatrixVectorProd
+    DO i=1,NoVar
+      DO j=1,NoVar
+        CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
+            u(offset(j)+1:offset(j+1)), s )
+        v(1+offset(i):offset(i+1)) =  v(1+offset(i):offset(i+1)) + s(1:offset(i+1)-offset(i))
+      END DO
+    END DO
+
+  END SUBROUTINE BlockMatrixVectorProd
+  
+
 
 !------------------------------------------------------------------------------
 ! Perform block preconditioning by solving all the individual diagonal problems.
 !------------------------------------------------------------------------------
-    SUBROUTINE BlockMatrixPrec( u,v,ipar )
-      USE DefUtils
+  SUBROUTINE BlockMatrixPrec( u,v,ipar )
+    USE DefUtils
+    
+    REAL(KIND=dp), TARGET :: u(*), v(*)
+    REAL(KIND=dp), POINTER :: r(:),s(:)
+    REAL(KIND=dp) :: Norm
+    INTEGER :: i,j,k,l,NoVar,ipar(*)
+    TYPE(Solver_t), POINTER :: Solver
+    REAL(KIND=dp), POINTER :: sol_save(:),rhs_save(:)
+    INTEGER, POINTER :: Offset(:)
+    TYPE(ValueList_t), POINTER :: Params
+    INTEGER, POINTER :: BlockOrder(:)
+    
+    LOGICAL :: GotOrder, BlockGS, Found    
+    LOGICAL :: NS
+    TYPE(Varying_string) :: namesp
+    CHARACTER(LEN=MAX_NAME_LEN) :: str
+    
+    CALL Info('BlockMatrixPrec','Starting preconditioning',Level=6)
+    
+    WRITE(Message,'(A,I0)') 'Number of coupled variables: ',NoVar
+    
+    Params => GetSolverParams()
+    
+    ! Enable user defined order for the solution of blocks
+    !---------------------------------------------------------------
+    BlockOrder => ListGetIntegerArray( Params,'Block Order',GotOrder)
+    BlockGS = ListGetLogical( Params,'Block Gauss-Seidel',Found)
+    
+    IF( BlockGS ) THEN
+      ALLOCATE( s( TotMatrix % TotSize ) )
+      s(1:TotMatrix % TotSize ) = v(1:TotMatrix % TotSize )       
+    END IF
+    
+    NoVar = TotMatrix % NoVar
+    Solver => TotMatrix % Solver
+    offset => TotMatrix % Offset
+    
+    NS = ListGetNameSpace(namesp)
 
-      REAL(KIND=dp), TARGET :: u(*), v(*)
-      REAL(KIND=dp) :: Norm
-      INTEGER :: i,j,NoVar,ipar(*)
-      TYPE(Solver_t), POINTER :: Solver
-      REAL(KIND=dp), POINTER :: sol_save(:),rhs_save(:)
-      INTEGER, POINTER :: Offset(:)
+    u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
 
-      LOGICAL :: l
-      TYPE(Varying_string) :: namesp
+    sol_save => Solver % Variable % Values
+    rhs_save => Solver % Matrix % rhs
+    
+    DO j=1,NoVar
+      IF( GotOrder ) THEN
+        i = BlockOrder(j)
+      ELSE
+        i = j
+      END IF
+      
+      WRITE(Message,'(A,I0)') 'Solving block: ',i
+      CALL Info('BlockMatrixPrec',Message,Level=6)
+      
+      Solver % Variable => TotMatrix % SubVector(i) % Var
+      Solver % Variable % Values => u(offset(i)+1:offset(i+1))
+      Solver % Matrix => TotMatrix % Submatrix(i,i) % Mat
 
-      CALL Info('BlockMatrixPrec','Starting preconditioning',Level=6)
-
-      WRITE(Message,'(A,I0)') 'Number of coupled variables: ',NoVar
-
-
-      NoVar = TotMatrix % NoVar
-      Solver => TotMatrix % Solver
-      offset => TotMatrix % Offset
-
-      L = ListGetNameSpace(namesp)
-      u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
-      DO i=1,NoVar
-	WRITE(Message,'(A,I0)') 'Solving block: ',i
-	CALL Info('BlockMatrixPrec',Message,Level=6)
-
-        Solver % Variable => TotMatrix % SubVector(i) % Var
-        sol_save => Solver % Variable % Values
-        Solver % Variable % Values => u(offset(i)+1:offset(i+1))
-
-        Solver % Matrix => TotMatrix % Submatrix(i,i) % Mat
-        rhs_save => Solver % Matrix % rhs
+      ! As the r.h.s. matrix is updated from the off-diagonal block entries
+      ! the original r.h.s. must be retained and thefore we need a tmp rhs.
+      !-------------------------------------------------------------------
+      IF( BlockGS ) THEN
+        Solver % Matrix % Rhs => s(offset(i)+1:offset(i+1))
+      ELSE      
         Solver % Matrix % Rhs => v(offset(i)+1:offset(i+1))
+      END IF
+    
+      CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
+      
+      Norm = DefaultSolve()
 
-        CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
+      !---------------------------------------------------------------------
+      IF( BlockGS ) THEN        
+        CALL Info('BlockSolver','Computing block r.h.s',Level=5)
+        
+        DO l=j+1,NoVar
+          IF( GotOrder ) THEN
+            k = BlockOrder(l)
+          ELSE
+            k = l
+          END IF
+          
+          WRITE( str,'(A,I0,I0)') 'Block Gauss-Seidel Passive ',k,i
+          IF( ListGetLogical( Params, str, Found ) ) CYCLE
 
-        Norm = DefaultSolve()
+          ! The residual is used only as a temporary vector
+          r => TotMatrix % SubVector(k) % r
+          r = 0.0_dp
+          
+          CALL MatrixVectorMultiply( TotMatrix % SubMatrix(k,i) % Mat, &
+              Solver % Variable % Values, r )
 
-        Solver % Matrix % rhs => rhs_save
-        Solver % Variable % Values  => sol_save
-      END DO
-      CALL ListSetNameSpace(CHAR(namesp))
+          s(offset(k)+1:offset(k+1)) = s(offset(k)+1:offset(k+1)) - r
+        END DO
+      END IF
+      
+    END DO
+    
+    Solver % Matrix % rhs => rhs_save
+    Solver % Variable % Values  => sol_save
+    CALL ListSetNameSpace(CHAR(namesp))
 
-      CALL Info('BlockMatrixPrec','Finished preconditioning',Level=6)
-
-    END SUBROUTINE BlockMatrixPrec
+    CALL Info('BlockMatrixPrec','Finished preconditioning',Level=6)
+    
+  END SUBROUTINE BlockMatrixPrec
 
 
 !------------------------------------------------------------------------------
@@ -2948,16 +3009,16 @@ CONTAINS
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var, SolverVar
     INTEGER :: i,j,k,l,n,nd,NoIterations,tests,NoTests,iter
-    CHARACTER(LEN=MAX_NAME_LEN) :: BlockMethod
-    LOGICAL :: GotIt
+    LOGICAL :: GotIt, BlockPrec, BlockGaussSeidel
     INTEGER :: ColVar, RowVar, NoVar, BlockDofs
 
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
         TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm
     REAL(KIND=dp), POINTER :: rhs_save(:), sol_save(:)
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
-    LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,GotBlockStruct
-    INTEGER, POINTER :: BlockStruct(:)
+    LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,&
+        GotBlockStruct, GotBlockOrder
+    INTEGER, POINTER :: BlockStruct(:), BlockOrder(:)
     
     TYPE (Matrix_t), POINTER :: Amat, SolverMatrix
     TYPE(Mesh_t), POINTER :: Mesh
@@ -2977,8 +3038,10 @@ CONTAINS
     SolverParams => GetSolverParams()
     PSolver => Solver
     
-    BlockMethod = GetString( SolverParams,'Linear System Block Method',GotIt)
-    IF(.NOT. GotIt ) BlockMethod = 'jacobi'
+    BlockPrec = GetLogical( SolverParams,'Block Preconditioner',GotIt)
+    IF(.NOT. GotIt ) BlockPrec = .TRUE.
+
+    BlockGaussSeidel = GetLogical( SolverParams,'Block Gauss-Seidel',GotIt)
 
     !------------------------------------------------------------------------------
     ! Check out which variables the coupled model includes
@@ -3010,8 +3073,6 @@ CONTAINS
         CALL InitializeBlockMatrix( TotMatrix, NoVar )
       END IF
       TotMatrix % Solver => Solver
-
-
     ELSE
       IF( NoVar == 0 ) THEN
         DO i = 1,9
@@ -3133,8 +3194,7 @@ CONTAINS
         CALL ListRemove( SolverParams,'Linear System Solver Disabled')
 
       ELSE
-        
-        
+                
         DO RowVar=1,NoVar
           
           Solver % Variable => TotMatrix % SubVector(RowVar) % Var
@@ -3196,11 +3256,10 @@ CONTAINS
       TotNorm = 0.0_dp
       MaxChange = 0.0_dp
 
-      
-      CALL Info('BlockSolver','Using block method: '//TRIM(BlockMethod))
-
 
       IF( NoVar == 1 ) THEN
+	CALL Info('BlockSolver','Solving in standard manner',Level=6)
+
         Solver % Variable => TotMatrix % SubVector(1) % Var
         Solver % Matrix => TotMatrix % Submatrix(1,1) % Mat
 
@@ -3208,21 +3267,35 @@ CONTAINS
         MaxChange = Solver % Variable % NonlinChange 
        
 
-      ELSE IF( BlockMethod == 'jacobi' .OR. BlockMethod == 'gauss-seidel') THEN
-        
+      ELSE IF( BlockPrec ) THEN
+
+	CALL Info('BlockSolver','Using block precontioning strategy',Level=6)
+        CALL IterC()
+
+      ELSE
+	CALL Info('BlockSolver','Using block solution strategy',Level=6)
+        BlockOrder => ListGetIntegerArray( SolverParams,'Block Order',GotBlockOrder)
+
         ! In block Jacobi the r.h.s. is not updated during the iteration cycle
         !----------------------------------------------------------------------
-        IF( BlockMethod == 'jacobi') THEN
+        IF( .NOT. BlockGaussSeidel ) THEN
           CALL UpdateBlockRhs(TotMatrix)
         END IF
         
-        DO RowVar=1,NoVar
+        DO i=1,NoVar
+          
+          IF( GotBlockOrder ) THEN
+            RowVar = BlockOrder(i)
+          ELSE
+            RowVar = i
+          END IF
+
           Solver % Variable => TotMatrix % SubVector(RowVar) % Var
           Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
 
           ! In gauss-seidel the partial update is immediately taken into account
           !---------------------------------------------------------------------
-          IF( BlockMethod == 'gauss-seidel') THEN
+          IF( BlockGaussSeidel ) THEN
             CALL UpdateBlockRhs(TotMatrix,RowVar)
           END IF
           
@@ -3231,19 +3304,12 @@ CONTAINS
           CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(RowVar))//':')
 
           Norm = DefaultSolve()
-
           Solver % Matrix % rhs => rhs_save
 
           TotNorm = TotNorm + Norm
           MaxChange = MAX( MaxChange, Solver % Variable % NonlinChange )
-
-	  ! PRINT *,'LocalChange:',MaxChange,Solver % Variable % NonlinChange,&
-	  !                  Norm, TotNorm
         END DO
         CALL ListSetNameSpace('')
-      ELSE
-	CALL Info('BlockSolver','Using default block solver',Level=6)
-        CALL IterC()
       END IF
 
       IF( IsProcedure ) THEN
@@ -3313,6 +3379,7 @@ CONTAINS
       LS = ListGetNameSpace(namesp)
       CALL ListSetNameSpace('outer:')
       A => TotMatrix % SubMatrix(1,1) % Mat
+
       CALL IterSolver( A,x,b,Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
       CALL ListSetNameSpace(CHAR(namesp))
 
@@ -3411,7 +3478,9 @@ CONTAINS
         ! that an elementtype is solver specific while this one solver could have a number of
         ! different elementtypes for different equations.
         !-----------------------------------------------------------------------------------
-        IF(.NOT. ASSOCIATED( Var )) THEN
+        IF(ASSOCIATED( Var ) ) THEN
+          CALL Info('BlockSolver','Using existing variable > '//TRIM(VarName)//' <')		
+        ELSE		
           CALL Info('BlockSolver','Variable > '//TRIM(VarName)//' < does not exist, creating')
           PSolver => Solver
           IF( PRESENT( BlockStruct ) ) THEN
@@ -3445,6 +3514,67 @@ CONTAINS
             
     END SUBROUTINE InitializeBlockMatrix
 
+
+    !------------------------------------------------------------------------------          
+    ! Compute the rhs for the block matrix system which is solved
+    ! accounting only the diagonal entries i.e. subtract the non-diagonal 
+    ! matrix-vector results from the original r.h.s. vectors.
+    ! After this the block diagonal problem Ax=b may be solved.
+    !----------------------------------------------------------------------------------
+    SUBROUTINE UpdateBlockRhs( BlockMatrix, ThisRow )
+      
+      TYPE(BlockMatrix_t), TARGET :: BlockMatrix
+      INTEGER, OPTIONAL :: ThisRow
+      
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: n, NoRow,NoCol, NoVar
+      REAL(KIND=dp), POINTER :: x(:),r(:),rhs(:)
+      TYPE(Variable_t), POINTER :: Var
+      
+      CALL Info('BlockSolver','Computing block r.h.s',Level=5)
+      
+      
+      NoVar = BlockMatrix % NoVar
+      
+      DO NoRow = 1,NoVar 
+        
+        ! Optionally only one diagonal block may be updated for
+        IF( PRESENT( ThisRow ) ) THEN
+          IF( NoRow /= ThisRow ) CYCLE 
+        END IF
+        
+        Var => BlockMatrix % SubVector(NoRow) % Var
+        x => Var % Values
+        n = SIZE( x )
+        
+        ! The residual is used only as a temporary vector
+        r => BlockMatrix % SubVector(NoRow) % r
+        r = 0.0_dp
+        
+        ! The r.h.s. of the initial system
+        rhs => BlockMatrix % SubVector(NoRow) % rhs
+        
+        A => BlockMatrix % SubMatrix( NoRow, NoRow ) % Mat
+        rhs = A % rhs
+        
+        DO NoCol = 1,NoVar           
+          ! This ensures that the diagonal itself is not subtracted
+          ! Otherwise the linear system should be solved for dx rather than x
+          IF( NoCol == NoRow ) CYCLE
+          
+          Var => BlockMatrix % SubVector(NoCol) % Var
+          x => Var % Values
+          A => BlockMatrix % SubMatrix( NoRow, NoCol ) % Mat
+          IF( A % NumberOfRows == 0 ) CYCLE
+          
+          CALL MatrixVectorMultiply( A, x, r)      
+          
+          rhs = rhs - r
+        END DO
+        
+      END DO
+    
+    END SUBROUTINE UpdateBlockRhs
 
 
     !------------------------------------------------------------------------------          
@@ -3548,7 +3678,6 @@ CONTAINS
 
         ! PRINT *,'comp norms:',NoRow,Rnorm,Xnorm
 
-
         BlockMatrix % SubVector(NoRow) % rnorm = rnorm
         BlockMatrix % SubVector(NoRow) % xnorm = xnorm
         BlockMatrix % SubVector(NoRow) % bnorm = bnorm
@@ -3573,64 +3702,6 @@ CONTAINS
     END FUNCTION ComputeBlockNorm
     
 
-    !------------------------------------------------------------------------------          
-    ! Compute the rhs for the block matrix system which is solved
-    ! accounting only the diagonal entries i.e. subtract the non-diagonal 
-    ! matrix-vector results from the original r.h.s. vectors.
-    ! After this the block diagonal problem Ax=b may be solved.
-    !----------------------------------------------------------------------------------
-    SUBROUTINE UpdateBlockRhs( BlockMatrix, ThisRow )
-      
-      TYPE(BlockMatrix_t), TARGET :: BlockMatrix
-      INTEGER, OPTIONAL :: ThisRow
-      
-      TYPE(Matrix_t), POINTER :: A
-      INTEGER :: n, NoRow,NoCol, NoVar
-      REAL(KIND=dp), POINTER :: x(:),r(:),rhs(:)
-      
-      CALL Info('BlockSolver','Computing block r.h.s',Level=5)
-      
-      
-      NoVar = BlockMatrix % NoVar
-
-      DO NoRow = 1,NoVar 
-
-        ! Optionally only one diagonal block may be updated for
-        IF( PRESENT( ThisRow ) ) THEN
-          IF( NoRow /= ThisRow ) CYCLE 
-        END IF
-
-        Var => BlockMatrix % SubVector(NoRow) % Var
-        x => Var % Values
-        n = SIZE( x )
-        
-        ! The residual is used only as a temporary vector
-        r => BlockMatrix % SubVector(NoRow) % r
-        r = 0.0_dp
-        
-        ! The r.h.s. of the initial system
-        rhs => BlockMatrix % SubVector(NoRow) % rhs
-
-        A => BlockMatrix % SubMatrix( NoRow, NoRow ) % Mat
-        rhs = A % rhs
-
-        DO NoCol = 1,NoVar           
-          ! This ensures that the diagonal itself is not subtracted
-          ! Otherwise the linear system should be solved for dx rather than x
-          IF( NoCol == NoRow ) CYCLE
-          
-          Var => BlockMatrix % SubVector(NoCol) % Var
-          x => Var % Values
-          A => BlockMatrix % SubMatrix( NoRow, NoCol ) % Mat
-          IF( A % NumberOfRows == 0 ) CYCLE
-          
-          CALL MatrixVectorMultiply( A, x, r)      
-          rhs = rhs - r
-        END DO
-
-      END DO
-
-    END SUBROUTINE UpdateBlockRhs
 
 
 !------------------------------------------------------------------------------

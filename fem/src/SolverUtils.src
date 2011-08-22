@@ -4458,11 +4458,12 @@ END FUNCTION SearchNodeL
 !     Scale system Ax = b as:
 !       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !------------------------------------------------------------------------------
-  SUBROUTINE ScaleLinearSystem(Solver,A,b,x,ApplyScaling)
+  SUBROUTINE ScaleLinearSystem(Solver,A,b,x,DiagScaling,ApplyScaling)
 
     TYPE(Solver_t) :: Solver
     TYPE(Matrix_t) :: A
     REAL(KIND=dp), OPTIONAL :: b(:),x(:)
+    REAL(KIND=dp), OPTIONAL, TARGET :: DiagScaling(:)
     LOGICAL, OPTIONAL :: ApplyScaling 
     INTEGER :: n,i,j
     REAL(KIND=dp) :: DiagReal, DiagImag, bnorm
@@ -4472,49 +4473,53 @@ END FUNCTION SearchNodeL
     n = A % NumberOfRows
 
     
-    IF(.NOT. ASSOCIATED(A % DiagScaling)) THEN
-      ALLOCATE( A % DiagScaling(n) ) 
-    END IF
-    Diag => A % DiagScaling
-    
-    ComplexMatrix = Solver % Matrix % COMPLEX
-    
-    IF ( ComplexMatrix ) THEN
-      DO i=1,n,2
-        j = A % Diag(i)
-        Diag(i)   = A % Values(j)
-        Diag(i+1) = A % Values(j+1)
-      END DO
+    IF( PRESENT( DiagScaling ) ) THEN
+      Diag => DiagScaling 
     ELSE
-      Diag(1:n) = A % Values(A % Diag(1:n))
-    END IF
+      IF(.NOT. ASSOCIATED(A % DiagScaling)) THEN
+        ALLOCATE( A % DiagScaling(n) ) 
+      END IF
+      Diag => A % DiagScaling
+    
+      ComplexMatrix = Solver % Matrix % COMPLEX
+    
+      IF ( ComplexMatrix ) THEN
+        DO i=1,n,2
+          j = A % Diag(i)
+          Diag(i)   = A % Values(j)
+          Diag(i+1) = A % Values(j+1)
+        END DO
+      ELSE
+        Diag(1:n) = A % Values(A % Diag(1:n))
+      END IF
       
-    IF ( ParEnv % PEs > 1 ) THEN
-      CALL ParallelSumVector(A, Diag)
+      IF ( ParEnv % PEs > 1 ) THEN
+        CALL ParallelSumVector(A, Diag)
+      END IF    
+
+      IF ( ComplexMatrix ) THEN
+        DO i=1,n,2
+          DiagReal  =  Diag(i)
+          DiagImag  = -Diag(i+1)
+          IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp))/=0.0d0 ) THEN
+            Diag(i)   = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
+            Diag(i+1) = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
+          ELSE
+            Diag(i)   = 1.0d0
+            Diag(i+1) = 1.0d0
+          END IF
+        END DO
+      ELSE
+        DO i=1,n
+          IF ( ABS(Diag(i)) /= 0.0_dp ) THEN
+            Diag(i) = 1.0_dp / SQRT(ABS(Diag(i)))
+          ELSE
+            Diag(i) = 1.0_dp
+          END IF
+        END DO
+      END IF
     END IF    
 
-    IF ( ComplexMatrix ) THEN
-      DO i=1,n,2
-        DiagReal  =  Diag(i)
-        DiagImag  = -Diag(i+1)
-        IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp))/=0.0d0 ) THEN
-          Diag(i)   = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
-          Diag(i+1) = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
-        ELSE
-          Diag(i)   = 1.0d0
-          Diag(i+1) = 1.0d0
-        END IF
-      END DO
-    ELSE
-      DO i=1,n
-        IF ( ABS(Diag(i)) /= 0.0_dp ) THEN
-          Diag(i) = 1.0_dp / SQRT(ABS(Diag(i)))
-        ELSE
-          Diag(i) = 1.0_dp
-        END IF
-      END DO
-    END IF
-    
     ! Optionally we may just create the diag and leave the scaling undone
     !--------------------------------------------------------------------
     IF( PRESENT( ApplyScaling ) ) THEN
@@ -4571,11 +4576,12 @@ END FUNCTION SearchNodeL
   
   !  Scale the system back to original:
   !--------------------------------------------------------------
-  SUBROUTINE BackScaleLinearSystem(Solver,A,b,x) 
+  SUBROUTINE BackScaleLinearSystem(Solver,A,b,x,DiagScaling) 
 
     TYPE(Solver_t) :: Solver
     TYPE(Matrix_t) :: A
     REAL(KIND=dp), OPTIONAL :: b(:),x(:)
+    REAL(KIND=dp), OPTIONAL, TARGET :: DiagScaling(:)
 
     REAL(KIND=dp), POINTER :: Diag(:)
     REAL(KIND=dp) :: bnorm
@@ -4583,7 +4589,18 @@ END FUNCTION SearchNodeL
     
     n = A % NumberOfRows
     
-    Diag => A % DiagScaling
+    IF( PRESENT( DiagScaling ) ) THEN
+      Diag => DiagScaling
+    ELSE  
+      Diag => A % DiagScaling
+    END IF
+
+    IF(.NOT. ASSOCIATED( Diag ) ) THEN
+      CALL Fatal('BackScaleLinearSystem','Diag not associated!')
+    END IF
+    IF( SIZE( Diag ) /= n ) THEN
+      CALL Fatal('BackScaleLinearSystem','Diag of wrong size!')
+    END IF 
 
     IF( PRESENT( b ) ) THEN
 ! 
@@ -4596,14 +4613,6 @@ END FUNCTION SearchNodeL
       Diag(1:n) = Diag(1:n) / bnorm
       b(1:n) = b(1:n) / Diag(1:n) * bnorm
     END IF
-
-
-    IF(.NOT. ASSOCIATED( Diag ) ) THEN
-      CALL Fatal('BackScaleLinearSystem','Diag not associated!')
-    END IF
-    IF( SIZE( Diag ) /= n ) THEN
-      CALL Fatal('BackScaleLinearSystem','Diag of wrong size!')
-    END IF 
     
     DO i=1,Solver % NOFEigenValues
       !
