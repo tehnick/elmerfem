@@ -53,7 +53,7 @@ MODULE MainUtils
     TYPE SubVector_t 
       TYPE(Variable_t), POINTER :: Var 
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
-      REAL(KIND=dp), ALLOCATABLE :: r(:),rhs(:),rtmp(:)
+      REAL(KIND=dp), ALLOCATABLE :: rhs(:)
     END TYPE SubVector_t
     
     TYPE SubMatrix_t
@@ -1637,8 +1637,6 @@ CONTAINS
       GOTO 100
     END IF
 
-
-
     Ndeg = 0
     MaxNDOFs  = 0
     MaxBDOFs = 0
@@ -2843,10 +2841,9 @@ CONTAINS
  
 
 
-  ! THIS IS STILL HEAVILY UNDER DEVELOPMENT
-
 !------------------------------------------------------------------------------
 ! Perform matrix-vector product for block matrices.
+! Has to be callab outside the module bt Krylov methods.
 !------------------------------------------------------------------------------
   SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
     INTEGER :: i,j,k,NoVar,ipar(*)
@@ -2860,8 +2857,6 @@ CONTAINS
     MaxSize = TotMatrix % MaxSize
 
     ALLOCATE( s(MaxSize) )
-
-    
     v(1:offset(NoVar+1)) = 0
 
     DO i=1,NoVar
@@ -2878,12 +2873,13 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 ! Perform block preconditioning by solving all the individual diagonal problems.
+! Has to be called outside the module by Krylov methods.
 !------------------------------------------------------------------------------
   SUBROUTINE BlockMatrixPrec( u,v,ipar )
     USE DefUtils
     
     REAL(KIND=dp), TARGET :: u(*), v(*)
-    REAL(KIND=dp), POINTER :: r(:),s(:)
+    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:)
     REAL(KIND=dp) :: Norm
     INTEGER :: i,j,k,l,NoVar,ipar(*)
     TYPE(Solver_t), POINTER :: Solver
@@ -2909,8 +2905,8 @@ CONTAINS
     BlockGS = ListGetLogical( Params,'Block Gauss-Seidel',Found)
     
     IF( BlockGS ) THEN
-      ALLOCATE( s( TotMatrix % TotSize ) )
-      s(1:TotMatrix % TotSize ) = v(1:TotMatrix % TotSize )       
+      ALLOCATE( vtmp( TotMatrix % TotSize ), rtmp( TotMatrix % MaxSize) )
+      vtmp(1:TotMatrix % TotSize ) = v(1:TotMatrix % TotSize )       
     END IF
     
     NoVar = TotMatrix % NoVar
@@ -2942,7 +2938,7 @@ CONTAINS
       ! the original r.h.s. must be retained and thefore we need a tmp rhs.
       !-------------------------------------------------------------------
       IF( BlockGS ) THEN
-        Solver % Matrix % Rhs => s(offset(i)+1:offset(i+1))
+        Solver % Matrix % Rhs => vtmp(offset(i)+1:offset(i+1))
       ELSE      
         Solver % Matrix % Rhs => v(offset(i)+1:offset(i+1))
       END IF
@@ -2966,13 +2962,13 @@ CONTAINS
           IF( ListGetLogical( Params, str, Found ) ) CYCLE
 
           ! The residual is used only as a temporary vector
-          r => TotMatrix % SubVector(k) % r
-          r = 0.0_dp
+          rtmp(1:offset(k+1)-offset(k)) = 0.0_dp
           
           CALL MatrixVectorMultiply( TotMatrix % SubMatrix(k,i) % Mat, &
-              Solver % Variable % Values, r )
+              Solver % Variable % Values, rtmp )
 
-          s(offset(k)+1:offset(k+1)) = s(offset(k)+1:offset(k+1)) - r
+          vtmp(offset(k)+1:offset(k+1)) = vtmp(offset(k)+1:offset(k+1)) &
+	     - rtmp(1:offset(k+1)-offset(k))
         END DO
       END IF
       
@@ -2981,6 +2977,10 @@ CONTAINS
     Solver % Matrix % rhs => rhs_save
     Solver % Variable % Values  => sol_save
     CALL ListSetNameSpace(CHAR(namesp))
+
+    IF( BlockGS ) THEN
+      DEALLOCATE( vtmp, rtmp ) 
+    END IF
 
     CALL Info('BlockMatrixPrec','Finished preconditioning',Level=6)
     
@@ -3175,6 +3175,7 @@ CONTAINS
         IF(.NOT. GotIt) ScaleSystem = .TRUE.
 
         IF( ScaleSystem ) THEN
+	  CALL Info('BlockSolver','Applying scaling')
           CALL ScaleLinearSystem(Solver, SolverMatrix, &
               SolverMatrix % Rhs, Solver % Variable % Values )
           CALL ListAddLogical( Solver % Values,'Linear System Scaling',.FALSE.)
@@ -3186,6 +3187,8 @@ CONTAINS
             IF( GotBlockStruct ) THEN
               CALL CRS_BlockMatrixPick2(SolverMatrix,Amat,BlockStruct,RowVar,ColVar)
             ELSE
+              ! One needs more complicated tests to reuse the matrix structure in a generic case
+              !---------------------------------------------------------------------------------
 	      IF( ReuseMatrix .AND. RowVar + ColVar > 2 ) THEN
 	        CALL CRS_CopyMatrixTopology( TotMatrix % Submatrix(1,1) % Mat, Amat )
               END IF
@@ -3384,6 +3387,10 @@ CONTAINS
       CALL ListSetNameSpace('outer:')
       A => TotMatrix % SubMatrix(1,1) % Mat
 
+      !----------------------------------------------------------------------
+      ! Solve matrix equation solver with the redefined block matrix operations
+      !----------------------------------------------------------------------
+
       CALL IterSolver( A,x,b,Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
       CALL ListSetNameSpace(CHAR(namesp))
 
@@ -3503,12 +3510,9 @@ CONTAINS
 
         BlockMatrix % Offset(i+1) = BlockMatrix % Offset(i) + n
         BlockMatrix % MaxSize = MAX( BlockMatrix % MaxSize, n )
-        ALLOCATE( BlockMatrix % SubVector(i) % r(n) )
-        ALLOCATE( BlockMatrix % SubVector(i) % rtmp(n) )
-        ALLOCATE( BlockMatrix % SubVector(i) % rhs(n) )
-        BlockMatrix % SubVector(i) % r = 0.0_dp
-        BlockMatrix % SubVector(i) % rtmp = 0.0_dp
-        BlockMatrix % SubVector(i) % rhs = 0.0_dp
+
+!        ALLOCATE( BlockMatrix % SubVector(i) % rhs(n) )
+!        BlockMatrix % SubVector(i) % rhs = 0.0_dp
       END DO
 
       PRINT *,'Offsets:',BlockMatrix % Offset
@@ -3532,14 +3536,18 @@ CONTAINS
       
       TYPE(Matrix_t), POINTER :: A
       INTEGER :: n, NoRow,NoCol, NoVar
-      REAL(KIND=dp), POINTER :: x(:),r(:),rhs(:)
+      REAL(KIND=dp), POINTER :: x(:),rtmp(:),rhs(:)
       TYPE(Variable_t), POINTER :: Var
       
       CALL Info('BlockSolver','Computing block r.h.s',Level=5)
       
       
       NoVar = BlockMatrix % NoVar
-      
+
+      ! The residual is used only as a temporary vector
+      ALLOCATE( rtmp(BlockMatrix % MaxSize) )
+            
+
       DO NoRow = 1,NoVar 
         
         ! Optionally only one diagonal block may be updated for
@@ -3550,12 +3558,12 @@ CONTAINS
         Var => BlockMatrix % SubVector(NoRow) % Var
         x => Var % Values
         n = SIZE( x )
-        
-        ! The residual is used only as a temporary vector
-        r => BlockMatrix % SubVector(NoRow) % r
-        r = 0.0_dp
-        
+                
         ! The r.h.s. of the initial system
+	IF(.NOT. ALLOCATED( BlockMatrix % SubVector(NoRow) % rhs )) THEN
+          ALLOCATE( BlockMatrix % SubVector(NoRow) % rhs(n) )
+          BlockMatrix % SubVector(NoRow) % rhs = 0.0_dp
+        END IF 
         rhs => BlockMatrix % SubVector(NoRow) % rhs
         
         A => BlockMatrix % SubMatrix( NoRow, NoRow ) % Mat
@@ -3571,12 +3579,14 @@ CONTAINS
           A => BlockMatrix % SubMatrix( NoRow, NoCol ) % Mat
           IF( A % NumberOfRows == 0 ) CYCLE
           
-          CALL MatrixVectorMultiply( A, x, r)      
+          CALL MatrixVectorMultiply( A, x, rtmp)      
           
-          rhs = rhs - r
+          rhs(1:n) = rhs(1:n) - rtmp(1:n)
         END DO
         
       END DO
+
+      DEALLOCATE( rtmp )
     
     END SUBROUTINE UpdateBlockRhs
 
@@ -3625,7 +3635,7 @@ CONTAINS
       REAL(KIND=dp) :: Residual
 
       REAL(KIND=dp) :: rnorm, xnorm, bnorm, TotXnorm, TotRnorm, TotBnorm, TotRelNorm
-      REAL(KIND=dp), POINTER :: x(:),r(:),b(:),rtmp(:)
+      REAL(KIND=dp), POINTER :: x(:),res(:),b(:),rtmp(:)
       INTEGER :: n, NoRow,NoCol, NoVar
       TYPE(Matrix_t), POINTER :: A
 
@@ -3633,6 +3643,7 @@ CONTAINS
       CALL Info('BlockSolver','Computing block matrix norm',Level=5)
       
       NoVar = BlockMatrix % NoVar
+      ALLOCATE( rtmp( BlockMatrix % MaxSize ), res( BlockMatrix % MaxSize) )
 
       DO NoRow = 1,NoVar 
         Var => BlockMatrix % SubVector(NoRow) % Var
@@ -3648,18 +3659,7 @@ CONTAINS
         xNorm = ComputeNorm(Solver, n, x)
         bNorm = ComputeNorm(Solver, n, b)
 
-        r => BlockMatrix % SubVector(NoRow) % r
-        IF( PRESENT( MatrixOnly ) ) THEN
-          IF( MatrixOnly ) THEN              
-            r = 0.0_dp
-          ELSE
-            r = r - b
-          END IF
-        ELSE
-          r = r - b
-        END IF
-                
-        rtmp => BlockMatrix % SubVector(NoRow) % rtmp
+	res = 0.0_dp        
         rtmp = 0.0_dp  
         
         DO NoCol = 1,NoVar           
@@ -3675,10 +3675,18 @@ CONTAINS
           b => A % rhs
           
           CALL MatrixVectorMultiply( A, x, rtmp)      
-          r = r + rtmp
+          res = res + rtmp
         END DO
         
-        rNorm = ComputeNorm(Solver, n, r)
+        IF( PRESENT( MatrixOnly ) ) THEN
+          IF( .NOT. MatrixOnly ) THEN              
+            res = res - b
+          END IF
+        ELSE
+          res = res - b
+        END IF
+	
+        rNorm = ComputeNorm(Solver, n, res)
 
         ! PRINT *,'comp norms:',NoRow,Rnorm,Xnorm
 
@@ -3700,6 +3708,7 @@ CONTAINS
       BlockMatrix % Bnorm = TotBnorm
 
       ! PRINT *,'tot norms:',TotRnorm,TotXnorm
+      DEALLOCATE( rtmp, res )
 
       Residual = BlockMatrix % Rnorm
 
