@@ -3017,7 +3017,7 @@ CONTAINS
     REAL(KIND=dp), POINTER :: rhs_save(:), sol_save(:)
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
     LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,&
-        GotBlockStruct, GotBlockOrder
+        GotBlockStruct, GotBlockOrder, ReuseMatrix
     INTEGER, POINTER :: BlockStruct(:), BlockOrder(:)
     
     TYPE (Matrix_t), POINTER :: Amat, SolverMatrix
@@ -3169,6 +3169,7 @@ CONTAINS
         ! picking procedure.
         !---------------------------------------------------------------------
         ScaleSystem = ListGetLogical( SolverParams,'Linear System Scaling',GotIt) 
+	ReuseMatrix = ListGetLogical( SolverParams,'Block Matrix Reuse',GotIt)
 
         ! There might to be a problem with the scalesystem still...
         IF(.NOT. GotIt) ScaleSystem = .TRUE.
@@ -3185,6 +3186,9 @@ CONTAINS
             IF( GotBlockStruct ) THEN
               CALL CRS_BlockMatrixPick2(SolverMatrix,Amat,BlockStruct,RowVar,ColVar)
             ELSE
+	      IF( ReuseMatrix .AND. RowVar + ColVar > 2 ) THEN
+	        CALL CRS_CopyMatrixTopology( TotMatrix % Submatrix(1,1) % Mat, Amat )
+              END IF
               CALL CRS_BlockMatrixPick(SolverMatrix,Amat,NoVar,RowVar,ColVar)          
             END IF
           END DO

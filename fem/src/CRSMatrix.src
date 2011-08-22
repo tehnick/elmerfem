@@ -1363,8 +1363,62 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_BlockDiagonal
 !------------------------------------------------------------------------------
+ 
+
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_CopyMatrixTopology(A,B)
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Pics a block from matrix A to build matrix B.
+!------------------------------------------------------------------------------
+
+    TYPE(Matrix_t) :: A, B
+
+    INTEGER :: kb,n,istat
 
 
+    N = A % NumberOfRows
+
+    IF ( n == 0 ) THEN
+      CALL Fatal('CRS_CopyMatrixTopology','The first matrix is assumed to exist')
+    END IF
+    
+    IF ( A % FORMAT /= MATRIX_CRS ) THEN
+      CALL Fatal('CRS_CopyMatrixTopology','The matrix structure should be CRS!')
+    END IF
+    IF ( B % NumberOfRows /= 0 ) THEN
+      CALL Fatal('CRS_CopyMatrixTopology','The other matrix is assumed not to exist')
+    END IF
+
+    CALL Info('CRS_CopyMatrixTopology','Reusing matrix topology')
+
+
+    B % NumberOfRows = n
+    B % ListMatrix => NULL()
+    B % FORMAT = A % Format
+
+    B % Rows => A % Rows
+    B % Cols => A % Cols
+    IF( ASSOCIATED( A % Diag ) ) THEN
+      B % Diag => A % Diag
+    END IF
+
+!    IF( ASSOCIATED( A % rhs ) ) THEN
+!      ALLOCATE( B % rhs(n), STAT = istat )
+!      IF( istat /= 0 ) CALL Fatal('CRS_CopyMatrixTopology','memory allocation error 1')
+!      B % rhs = 0.0_dp
+!    END IF
+
+    kb = A % Rows(n+1) 
+    ALLOCATE( B % Values(kb), STAT=istat )
+    IF( istat /= 0 ) CALL Fatal('CRS_CopyMatrixTopology','memory allocation error 2')
+    B % Values = 0.0_dp
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE CRS_CopyMatrixTopology
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -1395,7 +1449,6 @@ END FUNCTION CRS_RowSum
     NewMatrix = ( B % NumberOfRows == 0 ) 
     Diagonal = ( Nrow == Ncol ) 
 
-
     IF( NewMatrix ) THEN
       B % ListMatrix => NULL()
       B % FORMAT = MATRIX_CRS
@@ -1421,10 +1474,16 @@ END FUNCTION CRS_RowSum
 
       ALLOCATE(B % Rows(nsub+1),B % Cols(kb), B % Values(kb),STAT=istat )
       IF( istat /= 0 ) CALL Fatal('CRS_BlockMatrixPick','memory allocation error 1')
+    END IF
 
-      IF( Diagonal ) THEN
-        ALLOCATE( B % Diag(nsub), B % rhs(nsub), STAT=istat)
+    IF( Diagonal ) THEN
+      IF( .NOT. ASSOCIATED( B % Diag ) ) THEN
+        ALLOCATE( B % Diag(nsub), STAT=istat)
         IF( istat /= 0 ) CALL Fatal('CRS_BlockMatrixPick','memory allocation error 2')      
+      END IF
+      IF( .NOT. ASSOCIATED( B % Rhs ) ) THEN
+        ALLOCATE( B % rhs(nsub), STAT=istat)
+        IF( istat /= 0 ) CALL Fatal('CRS_BlockMatrixPick','memory allocation error 3')      
       END IF
     END IF
 
