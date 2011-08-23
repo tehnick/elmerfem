@@ -2861,6 +2861,7 @@ CONTAINS
 
     DO i=1,NoVar
       DO j=1,NoVar
+        s = 0.0_dp
         CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
             u(offset(j)+1:offset(j+1)), s )
         v(1+offset(i):offset(i+1)) =  v(1+offset(i):offset(i+1)) + s(1:offset(i+1)-offset(i))
@@ -2879,15 +2880,16 @@ CONTAINS
     USE DefUtils
     
     REAL(KIND=dp), TARGET :: u(*), v(*)
-    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:)
+    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),val_save(:)
     REAL(KIND=dp) :: Norm
     INTEGER :: i,j,k,l,NoVar,ipar(*)
     TYPE(Solver_t), POINTER :: Solver
-    REAL(KIND=dp), POINTER :: sol_save(:),rhs_save(:)
     INTEGER, POINTER :: Offset(:)
     TYPE(ValueList_t), POINTER :: Params
     INTEGER, POINTER :: BlockOrder(:)
-    
+    TYPE(Matrix_t), POINTER :: Matrix_save
+    TYPE(Variable_t), POINTER :: Var_save
+
     LOGICAL :: GotOrder, BlockGS, Found    
     LOGICAL :: NS
     TYPE(Varying_string) :: namesp
@@ -2897,7 +2899,8 @@ CONTAINS
     
     WRITE(Message,'(A,I0)') 'Number of coupled variables: ',NoVar
     
-    Params => GetSolverParams()
+    Solver => CurrentModel % Solver
+    Params => Solver % Values
     
     ! Enable user defined order for the solution of blocks
     !---------------------------------------------------------------
@@ -2915,11 +2918,13 @@ CONTAINS
     
     NS = ListGetNameSpace(namesp)
 
+    Var_save => Solver % Variable
+    Matrix_save => Solver % Matrix
+
+    ! Initial guess 
+    !-----------------------------------------
     u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
 
-    sol_save => Solver % Variable % Values
-    rhs_save => Solver % Matrix % rhs
-    
     DO j=1,NoVar
       IF( GotOrder ) THEN
         i = BlockOrder(j)
@@ -2929,8 +2934,11 @@ CONTAINS
       
       WRITE(Message,'(A,I0)') 'Solving block: ',i
       CALL Info('BlockMatrixPrec',Message,Level=6)
+
       
       Solver % Variable => TotMatrix % SubVector(i) % Var
+      val_save => Solver % Variable % Values
+
       Solver % Variable % Values => u(offset(i)+1:offset(i+1))
       Solver % Matrix => TotMatrix % Submatrix(i,i) % Mat
 
@@ -2944,7 +2952,7 @@ CONTAINS
       END IF
     
       CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
-      
+
       Norm = DefaultSolve()
 
       !---------------------------------------------------------------------
@@ -2962,8 +2970,7 @@ CONTAINS
           IF( ListGetLogical( Params, str, Found ) ) CYCLE
 
           ! The residual is used only as a temporary vector
-          rtmp(1:offset(k+1)-offset(k)) = 0.0_dp
-          
+          !-------------------------------------------------------------
           CALL MatrixVectorMultiply( TotMatrix % SubMatrix(k,i) % Mat, &
               Solver % Variable % Values, rtmp )
 
@@ -2971,12 +2978,16 @@ CONTAINS
 	     - rtmp(1:offset(k+1)-offset(k))
         END DO
       END IF
-      
+
+      Solver % Variable % Values => val_save
+
     END DO
-    
-    Solver % Matrix % rhs => rhs_save
-    Solver % Variable % Values  => sol_save
+
     CALL ListSetNameSpace(CHAR(namesp))
+    
+    Solver % Variable => Var_save
+    Solver % Matrix => Matrix_save
+
 
     IF( BlockGS ) THEN
       DEALLOCATE( vtmp, rtmp ) 
@@ -3008,21 +3019,21 @@ CONTAINS
 
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var, SolverVar
-    INTEGER :: i,j,k,l,n,nd,NoIterations,tests,NoTests,iter
-    LOGICAL :: GotIt, BlockPrec, BlockGaussSeidel
+    INTEGER :: i,j,k,l,n,nd,NonLinIter,tests,NoTests,iter
+    LOGICAL :: GotIt, BlockPrec, BlockGS
     INTEGER :: ColVar, RowVar, NoVar, BlockDofs
 
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
         TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm
-    REAL(KIND=dp), POINTER :: rhs_save(:), sol_save(:)
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
     LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,&
-        GotBlockStruct, GotBlockOrder, ReuseMatrix
-    INTEGER, POINTER :: BlockStruct(:), BlockOrder(:)
+        GotBlockStruct, ReuseMatrix, LS
+    INTEGER, POINTER :: BlockStruct(:)
     
     TYPE (Matrix_t), POINTER :: Amat, SolverMatrix
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: SolverParams
+    TYPE(Varying_string) :: namesp
 
 
     CALL Info('BlockSolver','---------------------------------------',Level=5)
@@ -3033,30 +3044,24 @@ CONTAINS
     END IF
     CALL Info('BlockSolver','---------------------------------------',Level=5)
 
-
-    Mesh => GetMesh()
-    SolverParams => GetSolverParams()
+    SolverParams => Solver % Values
+    Mesh => Solver % Mesh
     PSolver => Solver
-    
+         
+    ! Determine some parameters related to the block strategy
+    !------------------------------------------------------------------------------
     BlockPrec = GetLogical( SolverParams,'Block Preconditioner',GotIt)
     IF(.NOT. GotIt ) BlockPrec = .TRUE.
-
-    BlockGaussSeidel = GetLogical( SolverParams,'Block Gauss-Seidel',GotIt)
-
-    !------------------------------------------------------------------------------
-    ! Check out which variables the coupled model includes
-    ! and compure size information related to the new coupled dof.
-    !------------------------------------------------------------------------------
+    BlockGS = GetLogical( SolverParams,'Block Gauss-Seidel',GotIt)    
     NoVar = TotMatrix % NoVar
     IsProcedure = ListCheckPresent( SolverParams,'Procedure')
     GotBlockStruct = .FALSE.
 
-    ! The matrix is inherited from a monolithic matrix equation
+    ! Initialize the matrix
+    ! 1) Matrix is inherited from a monolithic matrix equation, or
+    ! 2) Matrix is assemblied using the compact assembly process
     !------------------------------------------------------------------------------
     IF( IsProcedure ) THEN 
-      SolverMatrix => Solver % Matrix
-      SolverVar => Solver % Variable
-
       BlockDofs = Solver % Variable % Dofs      
       BlockStruct => ListGetIntegerArray( SolverParams,'Block Structure',GotBlockStruct)
       IF( GotBlockStruct ) THEN
@@ -3073,6 +3078,10 @@ CONTAINS
         CALL InitializeBlockMatrix( TotMatrix, NoVar )
       END IF
       TotMatrix % Solver => Solver
+
+      SolverMatrix => Solver % Matrix
+      SolverVar => Solver % Variable
+
     ELSE
       IF( NoVar == 0 ) THEN
         DO i = 1,9
@@ -3088,9 +3097,7 @@ CONTAINS
         CALL Info('BlockSolver',Message)
         IF( NoVar == 0 ) CALL Fatal('BlockSolver','No variables, nothing to do!')
 
-        !------------------------------------------------------------------------------
-        ! On the first round create the matrix structures using the list structure as 
-        ! the aid. 
+        ! Create the matrix structures using the list structure as 
         !------------------------------------------------------------------------------    
         CALL Info('BlockSolver','Creating matrix structured using list matrices')
         DO RowVar=1,NoVar
@@ -3116,22 +3123,30 @@ CONTAINS
           END DO
         END DO
       END IF
+
+      ! The variable and solver pointer should direct somewhere as they are used to 
+      ! monitor the steady-state solution, for example. Therefore the user may
+      ! choose the component if not preferring one. 
+      !---------------------------------------------------------------------------
+      RowVar = ListGetInteger( SolverParams,'Primary Variable',GotIt)
+      IF(.NOT. GotIt) RowVar = 1
+      SolverVar => TotMatrix % SubVector(RowVar) % Var
+      SolverMatrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
     END IF
 
-
-!------------------------------------------------------------------------------
-! Get some parameters
-!------------------------------------------------------------------------------
-      
-    NoIterations = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
-    IF(.NOT. GotIt) NoIterations = 1
+    !------------------------------------------------------------------------------
+    ! This is the nonlinear loop that may be used either for true 
+    ! nonlinearities.
+    !------------------------------------------------------------------------------    
+    NonLinIter = GetInteger( SolverParams,'Nonlinear System Max Iterations',GotIt)
+    IF(.NOT. GotIt) NonLinIter = 1
     NonlinearTol = GetCReal( SolverParams,'Nonlinear System Convergence Tolerance',gotIt)
 
     Robust = ListGetLogical(SolverParams,'Nonlinear System Linesearch',GotIt)
     IF( Robust ) THEN
       LinearSearch = ListGetLogical( SolverParams,'Nonlinear System Linesearch Linear')
       NoTests = GetInteger( SolverParams,'Nonlinear System Linesearch Iterations',GotIt)
-      IF(.NOT. GotIt) NoTests = NoIterations
+      IF(.NOT. GotIt) NoTests = NonLinIter
       CALL ListAddString(SolverParams,'Nonlinear System Convergence Measure','residual')
       CALL ListAddLogical(SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
     END IF       
@@ -3139,21 +3154,16 @@ CONTAINS
     CALL Info('BlockSolver','-------------------------------------------------',Level=5)
     Residual = -1.0_dp
     PrevResidual = -1.0_dp
-
-
-    !------------------------------------------------------------------------------
-    ! This is the nonlinear loop that may currently be used either for true 
-    ! nonlinearities or to those iterative features stemming up from the block
-    ! solution strategy
-    !------------------------------------------------------------------------------    
     
-    DO iter = 1,NoIterations
+    DO iter = 1,NonLinIter
       
       WRITE(Message,'(A,T35,I0)') 'Coupled iteration: ',iter
       CALL Info('BlockSolver',Message,Level=5)
 
       tests = 0
 
+      ! Assembly of matrices either using legacy or compact strategy
+      !------------------------------------------------------------------
 100   IF( IsProcedure ) THEN
 
         ! Perform the normal solver procedure with just one iteration 
@@ -3161,7 +3171,7 @@ CONTAINS
         !---------------------------------------------------------------------
         CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',1)
         CALL ListAddLogical( SolverParams,'Linear System Solver Disabled',.TRUE.)
-        CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
+!        CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
 
         CALL SingleSolver( Model, PSolver, dt, Transient )
 
@@ -3169,11 +3179,8 @@ CONTAINS
         ! picking procedure.
         !---------------------------------------------------------------------
         ScaleSystem = ListGetLogical( SolverParams,'Linear System Scaling',GotIt) 
-	ReuseMatrix = ListGetLogical( SolverParams,'Block Matrix Reuse',GotIt)
-
-        ! There might to be a problem with the scalesystem still...
         IF(.NOT. GotIt) ScaleSystem = .TRUE.
-
+        
         IF( ScaleSystem ) THEN
 	  CALL Info('BlockSolver','Applying scaling')
           CALL ScaleLinearSystem(Solver, SolverMatrix, &
@@ -3181,6 +3188,7 @@ CONTAINS
           CALL ListAddLogical( Solver % Values,'Linear System Scaling',.FALSE.)
         END IF
 
+	ReuseMatrix = ListGetLogical( SolverParams,'Block Matrix Reuse',GotIt)
         DO RowVar=1,NoVar
           DO ColVar=1,NoVar            
             Amat => TotMatrix % Submatrix(RowVar,ColVar) % Mat          
@@ -3197,24 +3205,20 @@ CONTAINS
           END DO
         END DO
 
-        CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',NoIterations)
+        CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',NonLinIter)
         CALL ListRemove( SolverParams,'Linear System Solver Disabled')
-
       ELSE
                 
-        DO RowVar=1,NoVar
-          
-          Solver % Variable => TotMatrix % SubVector(RowVar) % Var
-          
+        DO RowVar=1,NoVar          
+          Solver % Variable => TotMatrix % SubVector(RowVar) % Var          
           DO ColVar=1,NoVar            
             
             Solver % Matrix => TotMatrix % Submatrix(RowVar,ColVar) % Mat
             IF( Solver % Matrix % NumberOfRows == 0 ) CYCLE
-            
-            CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(ColVar))//':')
-            
             Solver % Variable => TotMatrix % SubVector(ColVar) % Var
             CALL InitializeToZero(Solver % Matrix, Solver % Matrix % rhs)
+            
+            CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(ColVar))//':')
             CALL BlockSystemAssembly(PSolver,dt,Transient,RowVar,ColVar)
             
             ! Mainly sets the r.h.s. in transient case correctly
@@ -3228,7 +3232,7 @@ CONTAINS
     
 !------------------------------------------------------------------------------
 !    Check the stepsize of nonlinear iteration using the Armijo-GoldStein 
-!    criterion for the stepsize.
+!    criterion for the stepsize, if requested
 !------------------------------------------------------------------------------          
       IF( Robust  ) THEN   
 200     ErrorReduced = CheckStepSizeBlock(TotMatrix,tests==0,PrevResidual,Residual)
@@ -3254,15 +3258,18 @@ CONTAINS
           END IF
         END IF
       END IF
+      
 
-
-!------------------------------------------------------------------------------
-!   Finally solve the system
-!------------------------------------------------------------------------------          
-
+      !------------------------------------------------------------------------------
+      ! Finally solve the system using 'outer: ' as the optional namespace
+      ! for the linear system setting.
+      !------------------------------------------------------------------------------          
+      
       TotNorm = 0.0_dp
       MaxChange = 0.0_dp
 
+      LS = ListGetNameSpace(namesp)
+      CALL ListSetNameSpace('outer:')
 
       IF( NoVar == 1 ) THEN
 	CALL Info('BlockSolver','Solving in standard manner',Level=6)
@@ -3272,53 +3279,23 @@ CONTAINS
 
         TotNorm = DefaultSolve()
         MaxChange = Solver % Variable % NonlinChange 
-       
 
       ELSE IF( BlockPrec ) THEN
-
-	CALL Info('BlockSolver','Using block precontioning strategy',Level=6)
-        CALL IterC()
+	CALL Info('BlockSolver','Using block precontioning strategy',Level=6)        
+        CALL KrylovIter()
 
       ELSE
+        Solver % Variable => TotMatrix % SubVector(1) % Var
+        Solver % Matrix => TotMatrix % Submatrix(1,1) % Mat
+
+
 	CALL Info('BlockSolver','Using block solution strategy',Level=6)
-        BlockOrder => ListGetIntegerArray( SolverParams,'Block Order',GotBlockOrder)
+        CALL StandardIter()
+      END IF      
+      CALL ListSetNameSpace('')
 
-        ! In block Jacobi the r.h.s. is not updated during the iteration cycle
-        !----------------------------------------------------------------------
-        IF( .NOT. BlockGaussSeidel ) THEN
-          CALL UpdateBlockRhs(TotMatrix)
-        END IF
-        
-        DO i=1,NoVar
-          
-          IF( GotBlockOrder ) THEN
-            RowVar = BlockOrder(i)
-          ELSE
-            RowVar = i
-          END IF
-
-          Solver % Variable => TotMatrix % SubVector(RowVar) % Var
-          Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
-
-          ! In gauss-seidel the partial update is immediately taken into account
-          !---------------------------------------------------------------------
-          IF( BlockGaussSeidel ) THEN
-            CALL UpdateBlockRhs(TotMatrix,RowVar)
-          END IF
-          
-          rhs_save => Solver % Matrix % rhs
-          Solver % Matrix % rhs => TotMatrix % SubVector(RowVar) % rhs
-          CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(RowVar))//':')
-
-          Norm = DefaultSolve()
-          Solver % Matrix % rhs => rhs_save
-
-          TotNorm = TotNorm + Norm
-          MaxChange = MAX( MaxChange, Solver % Variable % NonlinChange )
-        END DO
-        CALL ListSetNameSpace('')
-      END IF
-
+      ! For legacy matrices do the backmapping 
+      !------------------------------------------
       IF( IsProcedure ) THEN
         Solver % Matrix => SolverMatrix
         Solver % variable => SolverVar
@@ -3329,23 +3306,15 @@ CONTAINS
         END IF
       END IF
       
-      IF(.NOT. Robust) THEN
+      IF(.NOT. Robust ) THEN
         IF( MaxChange < NonlinearTol) EXIT
       END IF
     END DO
-
-   
-    ! The variable and solver pointer should direct somewhere as they are used to 
-    ! monitor the steady-state solution, for example. Therefore the user may
-    ! choose the component if not preferring one. This does not apply to 
-    ! the splitted monolithic case when a proper primary variable exists.
+       
+    ! Before returning set the pointers appropriately as saved before
     !---------------------------------------------------------------------------
-    IF( .NOT. IsProcedure ) THEN
-      RowVar = ListGetInteger( SolverParams,'Primary Variable',GotIt)
-      IF(.NOT. GotIt) RowVar = 1
-      Solver % Variable => TotMatrix % SubVector(RowVar) % Var
-      Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
-    END IF
+    Solver % Variable => SolverVar
+    Solver % Matrix => SolverMatrix
 
     CALL Info('BlockSolver','All done')
     CALL Info('BlockSolver','-------------------------------------------------',Level=5)
@@ -3353,11 +3322,15 @@ CONTAINS
 
   CONTAINS 
 
-    SUBROUTINE IterC
+
+    ! This call takes care of the iterative Krylov methods for block systems
+    ! which can still be preconditioned by block Jacobi or Gauss-Seidel methods
+    !---------------------------------------------------------------------------
+    SUBROUTINE KrylovIter()
       USE IterSolve
 
       INTEGER(KIND=AddrInt) :: AddrFunc, iterProc,precProc, mvProc,dotProc,nmrProc, zero=0
-      REAL(KIND=dp) :: dpar(20), xMaxChange
+      REAL(KIND=dp) :: dpar(20), xnorm,prevxnorm
       REAL(KIND=dp), ALLOCATABLE :: x(:),b(:)
 
       TYPE(Matrix_t), POINTER :: A
@@ -3368,7 +3341,6 @@ CONTAINS
       INTEGER, POINTER :: Offset(:)
       INTEGER :: i,j,k,l,ia,ib
       LOGICAL :: LS
-      TYPE(Varying_string) :: namesp
 
       Offset => TotMatrix % Offset
       ndim = TotMatrix % TotSize 
@@ -3380,27 +3352,24 @@ CONTAINS
 
       precProc = AddrFunc(BlockMatrixPrec)
       mvProc = AddrFunc(BlockMatrixVectorProd)
-
-      xMaxChange = SQRT(SUM(x**2))
-
-      LS = ListGetNameSpace(namesp)
-      CALL ListSetNameSpace('outer:')
       A => TotMatrix % SubMatrix(1,1) % Mat
 
       !----------------------------------------------------------------------
       ! Solve matrix equation solver with the redefined block matrix operations
       !----------------------------------------------------------------------
-
+      prevXnorm = SQRT( SUM( x**2 ) )
       CALL IterSolver( A,x,b,Solver,ndim=ndim,MatvecF=mvProc,PrecF=precProc )
       CALL ListSetNameSpace(CHAR(namesp))
+      Xnorm = SQRT( SUM( x**2) )
 
-      MaxChange = SQRT(SUM(x**2))
-      MaxChange = 2*ABS(xMaxChange-MaxChange)/(xMaxChange+MaxChange)
- 
+      MaxChange = 2*ABS(Xnorm-PrevXnorm)/(Xnorm+PrevXnorm)
+
       DO i=1,NoVar
-        TotMatrix % SubVector(i) % Var % Values = x(offset(i)+1:offset(i+1))
+        TotMatrix % SubVector(i) % Var % Values(1:offset(i+1)-offset(i)) = & 
+            x(offset(i)+1:offset(i+1))
       END DO
 
+      
       ! Copy values back since for nontrivial block-matrix structure the
       ! components do not build the whole solution.
       !-----------------------------------------------------------------
@@ -3416,9 +3385,81 @@ CONTAINS
                 TotMatrix % SubVector(k) % Var % Values( ia*(i-1) + ib )
           END DO
         END DO
+      ELSE IF(.FALSE.) THEN
+! Not needed after bug was found 
+        DO j=1,NoVar
+          DO i=1,SIZE(x)
+            SolverVar % Values(NoVar*(i-1)+j) = &
+                TotMatrix % SubVector(j) % Var % Values( i )
+          END DO
+        END DO       
       END IF
 
-    END SUBROUTINE IterC
+    END SUBROUTINE KrylovIter
+
+
+    ! This call takes care of Jacobi & Gauss Seidel block methods 
+    !-----------------------------------------------------------------
+    SUBROUTINE StandardIter()
+
+      INTEGER :: i,RowVar,iter,LinIter
+      INTEGER, POINTER :: BlockOrder(:)
+      LOGICAL :: GotIt, GotBlockOrder
+      REAL(KIND=dp), POINTER :: rhs_save(:)
+      REAL(KIND=dp) :: LinTol, MaxChange
+
+      BlockOrder => ListGetIntegerArray( SolverParams,'Block Order',GotBlockOrder)
+      LinIter = ListGetInteger( SolverParams,'Linear System Max Iterations',GotIt)
+      LinTol = ListGetConstReal( SolverParams,'Linear System Convergence Tolerance',GotIt)
+
+      DO iter = 1, LinIter
+        
+        ! In block Jacobi the r.h.s. is not updated during the iteration cycle
+        !----------------------------------------------------------------------
+        IF( BlockGS ) THEN
+          WRITE( Message,'(A,I0)') 'Block Gauss-Seidel iteration: ',iter
+        ELSE
+          WRITE( Message,'(A,I0)') 'Block Jacobi iteration: ',iter
+          CALL UpdateBlockRhs(TotMatrix)
+        END IF
+        CALL Info('BlockSolver',Message,Level=6)
+        MaxChange = 0.0_dp
+
+        DO i=1,NoVar
+          IF( GotBlockOrder ) THEN
+            RowVar = BlockOrder(i)
+          ELSE
+            RowVar = i
+          END IF
+          
+           ! In gauss-seidel the partial update is immediately taken into account
+          !---------------------------------------------------------------------
+          IF( BlockGS ) THEN
+            CALL UpdateBlockRhs(TotMatrix,RowVar)
+          END IF
+
+          Solver % Variable => TotMatrix % SubVector(RowVar) % Var
+          Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
+          rhs_save => Solver % Matrix % rhs
+          Solver % Matrix % rhs => TotMatrix % SubVector(RowVar) % rhs
+
+          ! Solving the subsystem
+          !-----------------------------------
+          CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(RowVar))//':')          
+          Norm = DefaultSolve()
+
+          Solver % Matrix % rhs => rhs_save
+          TotNorm = TotNorm + Norm
+          MaxChange = MAX( MaxChange, Solver % Variable % NonlinChange )
+        END DO
+
+        IF( MaxChange < LinTol ) THEN
+          EXIT
+        END IF
+
+      END DO
+
+    END SUBROUTINE StandardIter
 
 
     !-------------------------------------------------------------------
@@ -3515,8 +3556,6 @@ CONTAINS
 !        BlockMatrix % SubVector(i) % rhs = 0.0_dp
       END DO
 
-      PRINT *,'Offsets:',BlockMatrix % Offset
-
       BlockMatrix % TotSize = BlockMatrix % Offset( NoVar + 1 )
 
             
@@ -3559,7 +3598,8 @@ CONTAINS
         x => Var % Values
         n = SIZE( x )
                 
-        ! The r.h.s. of the initial system
+        ! The r.h.s. of the initial system is stored in the Matrix
+        !-----------------------------------------------------------
 	IF(.NOT. ALLOCATED( BlockMatrix % SubVector(NoRow) % rhs )) THEN
           ALLOCATE( BlockMatrix % SubVector(NoRow) % rhs(n) )
           BlockMatrix % SubVector(NoRow) % rhs = 0.0_dp
@@ -3583,7 +3623,6 @@ CONTAINS
           
           rhs(1:n) = rhs(1:n) - rtmp(1:n)
         END DO
-        
       END DO
 
       DEALLOCATE( rtmp )
