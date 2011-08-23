@@ -2880,15 +2880,14 @@ CONTAINS
     USE DefUtils
     
     REAL(KIND=dp), TARGET :: u(*), v(*)
-    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),val_save(:)
-    REAL(KIND=dp) :: Norm
+    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),b(:), x(:)
     INTEGER :: i,j,k,l,NoVar,ipar(*)
     TYPE(Solver_t), POINTER :: Solver
     INTEGER, POINTER :: Offset(:)
     TYPE(ValueList_t), POINTER :: Params
     INTEGER, POINTER :: BlockOrder(:)
-    TYPE(Matrix_t), POINTER :: Matrix_save
-    TYPE(Variable_t), POINTER :: Var_save
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(Variable_t), POINTER :: Var, SolverVar
 
     LOGICAL :: GotOrder, BlockGS, Found    
     LOGICAL :: NS
@@ -2915,15 +2914,14 @@ CONTAINS
     NoVar = TotMatrix % NoVar
     Solver => TotMatrix % Solver
     offset => TotMatrix % Offset
-    
-    NS = ListGetNameSpace(namesp)
+    SolverVar => Solver % Variable
 
-    Var_save => Solver % Variable
-    Matrix_save => Solver % Matrix
+    NS = ListGetNameSpace(namesp)
 
     ! Initial guess 
     !-----------------------------------------
     u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
+
 
     DO j=1,NoVar
       IF( GotOrder ) THEN
@@ -2935,25 +2933,32 @@ CONTAINS
       WRITE(Message,'(A,I0)') 'Solving block: ',i
       CALL Info('BlockMatrixPrec',Message,Level=6)
 
-      
-      Solver % Variable => TotMatrix % SubVector(i) % Var
-      val_save => Solver % Variable % Values
 
-      Solver % Variable % Values => u(offset(i)+1:offset(i+1))
-      Solver % Matrix => TotMatrix % Submatrix(i,i) % Mat
-
-      ! As the r.h.s. matrix is updated from the off-diagonal block entries
-      ! the original r.h.s. must be retained and thefore we need a tmp rhs.
+      ! Set pointers to the new linear system
       !-------------------------------------------------------------------
+      A => TotMatrix % Submatrix(i,i) % Mat
+      x => u(offset(i)+1:offset(i+1))
+      Var => TotMatrix % SubVector(i) % Var
+      Solver % Variable => Var
       IF( BlockGS ) THEN
-        Solver % Matrix % Rhs => vtmp(offset(i)+1:offset(i+1))
+        b => vtmp(offset(i)+1:offset(i+1))
       ELSE      
-        Solver % Matrix % Rhs => v(offset(i)+1:offset(i+1))
+        b => v(offset(i)+1:offset(i+1))
       END IF
     
-      CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
 
-      Norm = DefaultSolve()
+      IF( ListGetLogical( Params,'Block Prec Reuse',Found) ) THEN
+        PRINT *,'BlockPrecReuse'
+        DO k = 1, NoVar
+          IF( k == i ) CYCLE
+          IF( CRS_CopyMatrixPrec( TotMatrix % Submatrix(k,k) % Mat, A ) ) EXIT
+        END DO
+      END IF
+
+
+      CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
+      CALL SolveSystem( A, ParMatrix, b, &
+          x, Var % Norm, Var % DOFs, Solver )
 
       !---------------------------------------------------------------------
       IF( BlockGS ) THEN        
@@ -2968,26 +2973,19 @@ CONTAINS
           
           WRITE( str,'(A,I0,I0)') 'Block Gauss-Seidel Passive ',k,i
           IF( ListGetLogical( Params, str, Found ) ) CYCLE
-
+          
           ! The residual is used only as a temporary vector
           !-------------------------------------------------------------
-          CALL MatrixVectorMultiply( TotMatrix % SubMatrix(k,i) % Mat, &
-              Solver % Variable % Values, rtmp )
+          CALL MatrixVectorMultiply( TotMatrix % SubMatrix(k,i) % Mat, x, rtmp )
 
           vtmp(offset(k)+1:offset(k+1)) = vtmp(offset(k)+1:offset(k+1)) &
 	     - rtmp(1:offset(k+1)-offset(k))
         END DO
       END IF
-
-      Solver % Variable % Values => val_save
-
     END DO
 
     CALL ListSetNameSpace(CHAR(namesp))
-    
-    Solver % Variable => Var_save
-    Solver % Matrix => Matrix_save
-
+    Solver % Variable => SolverVar
 
     IF( BlockGS ) THEN
       DEALLOCATE( vtmp, rtmp ) 
@@ -3271,6 +3269,9 @@ CONTAINS
       LS = ListGetNameSpace(namesp)
       CALL ListSetNameSpace('outer:')
 
+      ! The case with one block is mainly for testing and developing features
+      ! related to nonlinearity and assembly.
+      !----------------------------------------------------------------------
       IF( NoVar == 1 ) THEN
 	CALL Info('BlockSolver','Solving in standard manner',Level=6)
 
@@ -3287,7 +3288,6 @@ CONTAINS
       ELSE
         Solver % Variable => TotMatrix % SubVector(1) % Var
         Solver % Matrix => TotMatrix % Submatrix(1,1) % Mat
-
 
 	CALL Info('BlockSolver','Using block solution strategy',Level=6)
         CALL StandardIter()
@@ -3405,12 +3405,15 @@ CONTAINS
       INTEGER :: i,RowVar,iter,LinIter
       INTEGER, POINTER :: BlockOrder(:)
       LOGICAL :: GotIt, GotBlockOrder
-      REAL(KIND=dp), POINTER :: rhs_save(:)
+      REAL(KIND=dp), POINTER :: b(:)
+      TYPE(Matrix_t), POINTER :: A
+      TYPE(Variable_t), POINTER :: Var, SolverVar
       REAL(KIND=dp) :: LinTol, MaxChange
 
       BlockOrder => ListGetIntegerArray( SolverParams,'Block Order',GotBlockOrder)
       LinIter = ListGetInteger( SolverParams,'Linear System Max Iterations',GotIt)
       LinTol = ListGetConstReal( SolverParams,'Linear System Convergence Tolerance',GotIt)
+      SolverVar => Solver % Variable
 
       DO iter = 1, LinIter
         
@@ -3432,25 +3435,33 @@ CONTAINS
             RowVar = i
           END IF
           
-           ! In gauss-seidel the partial update is immediately taken into account
+          ! In gauss-seidel the partial update is immediately taken into account
           !---------------------------------------------------------------------
           IF( BlockGS ) THEN
             CALL UpdateBlockRhs(TotMatrix,RowVar)
           END IF
 
-          Solver % Variable => TotMatrix % SubVector(RowVar) % Var
-          Solver % Matrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
-          rhs_save => Solver % Matrix % rhs
-          Solver % Matrix % rhs => TotMatrix % SubVector(RowVar) % rhs
+          IF( ListGetLogical( SolverParams,'Block Prec Reuse',GotIt) ) THEN
+PRINT *,'BlockPrecReuse'
+            DO j = 1, NoVar
+              IF( j == RowVar ) CYCLE
+              IF( CRS_CopyMatrixPrec( TotMatrix % Submatrix(j,j) % Mat, A ) ) EXIT
+            END DO
+          END IF
+
+          A => TotMatrix % Submatrix( RowVar,RowVar ) % Mat
+          b => TotMatrix % SubVector(RowVar) % rhs
+          Var => TotMatrix % SubVector(RowVar) % Var
+          Solver % Variable => Var
 
           ! Solving the subsystem
           !-----------------------------------
           CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(RowVar))//':')          
-          Norm = DefaultSolve()
-
-          Solver % Matrix % rhs => rhs_save
-          TotNorm = TotNorm + Norm
-          MaxChange = MAX( MaxChange, Solver % Variable % NonlinChange )
+          CALL SolveSystem( A, ParMatrix, b, &
+              Var % Values, Var % Norm, Var % DOFs, Solver )
+          
+          TotNorm = TotNorm + Var % Norm
+          MaxChange = MAX( MaxChange, Var % NonlinChange )
         END DO
 
         IF( MaxChange < LinTol ) THEN
@@ -3458,6 +3469,8 @@ CONTAINS
         END IF
 
       END DO
+      Solver % Variable => SolverVar
+
 
     END SUBROUTINE StandardIter
 

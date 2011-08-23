@@ -1411,7 +1411,7 @@ END FUNCTION CRS_RowSum
 !      B % rhs = 0.0_dp
 !    END IF
 
-    kb = A % Rows(n+1) 
+    kb = SIZE( A % Values )
     ALLOCATE( B % Values(kb), STAT=istat )
     IF( istat /= 0 ) CALL Fatal('CRS_CopyMatrixTopology','memory allocation error 2')
     B % Values = 0.0_dp
@@ -1650,6 +1650,60 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_BlockMatrixPick2
 !------------------------------------------------------------------------------
+
+  FUNCTION CRS_CopyMatrixPrec(A,B) RESULT(Status)
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t) :: A, B
+    LOGICAL :: Status
+
+    INTEGER :: n
+!------------------------------------------------------------------------------
+
+    Status = .FALSE.
+
+    IF( ASSOCIATED( B % IluValues ) ) THEN
+!      CALL Info('CRS_CopyMatrixPrec','ILU preconditioner already exists')
+      Status = .TRUE.
+    END IF
+
+    IF( ASSOCIATED( B % Ematrix ) ) THEN
+!      CALL Info('CRS_CopyMatrixPrec','AMG preconditioner already exists')
+      Status = .TRUE.      
+    END IF
+    
+    IF( Status ) RETURN
+
+    IF( SIZE( A % Values ) /= SIZE( B % Values ) ) THEN
+      PRINT *,'sizes',SIZE( A % Values ), SIZE( B % Values )
+      CALL Info('CRS_CopyMatrixPrec','Mismatch in size, returning')            
+      RETURN
+    END IF
+    
+    IF( ASSOCIATED( A % IluValues ) ) THEN
+      CALL Info('CRS_CopyMatrixPrec','Reusing ILU preconditioner topology')      
+      B % IluRows => A % IluRows
+      B % IluCols => A % IluCols
+      B % IluDiag => A % IluDiag
+
+      n = SIZE( A % ILUValues ) 
+      ALLOCATE( B % IluValues(n) )
+      B % IluValues = 0.0_dp
+      Status = .TRUE.
+      RETURN
+    END IF
+
+    RETURN
+
+    ! This should be still worked on....
+    !------------------------------------------------
+    IF( ASSOCIATED( A % Ematrix ) ) THEN
+      CALL Info('CRS_CopyMatrixPrec','Reusing AMG preconditioner topology')      
+      B % Ematrix => A % Ematrix
+    END IF
+ 
+
+  END FUNCTION CRS_CopyMatrixPrec
+
 
 
 !------------------------------------------------------------------------------
