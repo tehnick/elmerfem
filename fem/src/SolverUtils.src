@@ -6096,4 +6096,171 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 !------------------------------------------------------------------------------
       
 
+!------------------------------------------------------------------------------
+! Assemble Laplace matrix related to a solver and permutation vector. 
+!------------------------------------------------------------------------------
+  SUBROUTINE LaplaceMatrixAssembly( Solver, Perm, A )
+    
+    TYPE(Solver_t) :: Solver
+    INTEGER, POINTER :: Perm(:)
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(Mesh_t), POINTER :: Mesh
+    !------------------------------------------------------------------------------
+
+    INTEGER, POINTER :: BoundaryPerm(:), Indexes(:)
+    INTEGER :: i,j,k,n,t,istat,BoundaryNodes
+    TYPE(Element_t), POINTER :: Element
+    TYPE(GaussIntegrationPoints_t) :: IP
+    CHARACTER(LEN=MAX_NAME_LEN) :: BoundaryName
+    TYPE(Nodes_t) :: Nodes
+    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+    REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:)
+    REAL(KIND=dp) :: detJ, val
+    LOGICAL :: Stat
+    
+    
+    Mesh => Solver % Mesh
+        
+    N = Mesh % MaxElementNodes 
+    ALLOCATE( Basis(n), dBasisdx(n, 3), FORCE(N), STIFF(N,N), &
+        Nodes % x(n), Nodes % y(n), Nodes % z(n), &
+        STAT=istat)
+    
+    IF(.FALSE.) THEN
+      N = Mesh % NumberOfNodes
+      ALLOCATE( BoundaryPerm(n) )
+      BoundaryPerm = 0
+      BoundaryNodes = 0
+      BoundaryName = 'Laplace Boundary'
+      CALL MakePermUsingMask( CurrentModel,Solver,Mesh,BoundaryName, &
+          .FALSE., BoundaryPerm, BoundaryNodes )
+    END IF
+
+
+    DO t=1,Mesh % NumberOfBulkElements
+      Element => Mesh % Elements(t)
+      n = Element % TYPE % NumberOfNodes
+      Indexes => Element % NodeIndexes
+      IF( ANY( Perm(Indexes) == 0 ) ) CYCLE
+
+      Nodes % x(1:n) = Mesh % Nodes % x(Indexes)
+      Nodes % y(1:n) = Mesh % Nodes % y(Indexes)
+      Nodes % z(1:n) = Mesh % Nodes % z(Indexes)
+
+      STIFF = 0.0d0
+      FORCE = 0.0d0
+      
+      ! Numerical integration:
+      !----------------------
+      IP = GaussPoints( Element )
+      DO k=1,IP % n
+        ! Basis function values & derivatives at the integration point:
+        !--------------------------------------------------------------
+        stat = ElementInfo( Element, Nodes, IP % U(k), IP % V(k), &
+            IP % W(k),  detJ, Basis, dBasisdx )
+        
+        ! Finally, the elemental matrix & vector:
+        !----------------------------------------
+        DO i=1,n
+          val = IP % s(k) * DetJ 
+          
+          ! This condition removes the natural boundary condition that would 
+          ! try to fix the normal gradient of the field to zero.
+          !--------------------------------------------------------------------
+          IF(.FALSE.) THEN
+            IF( BoundaryPerm( Indexes(i) ) > 0 ) CYCLE
+          END IF
+
+          DO j=1,n
+            STIFF(i,j) = STIFF(i,j) + val * &
+                SUM( dBasisdx(i,:) * dBasisdx(j,:) ) 
+          END DO
+        END DO
+      END DO
+      
+      CALL UpdateGlobalEquations( A,STIFF,A % rhs,FORCE,n,1,Perm(Indexes(1:n)) )
+    END DO
+    
+    DEALLOCATE( Basis, dBasisdx, FORCE, STIFF, & 
+        Nodes % x, Nodes % y, Nodes % z)
+
+  END SUBROUTINE LaplaceMatrixAssembly
+
+ 
+!------------------------------------------------------------------------------
+! Assemble mass matrix related to a solver and permutation vector. 
+!------------------------------------------------------------------------------
+  SUBROUTINE MassMatrixAssembly( Solver, Perm, A )
+    
+    TYPE(Solver_t) :: Solver
+    INTEGER, POINTER :: Perm(:)
+    TYPE(Matrix_t), POINTER :: A
+    TYPE(Mesh_t), POINTER :: Mesh
+    !------------------------------------------------------------------------------
+
+    INTEGER, POINTER :: Indexes(:)
+    INTEGER :: i,j,k,n,t,istat
+    TYPE(Element_t), POINTER :: Element
+    TYPE(GaussIntegrationPoints_t) :: IP
+    TYPE(Nodes_t) :: Nodes
+    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+    REAL(KIND=dp), POINTER :: Basis(:),rhs(:)
+    REAL(KIND=dp) :: detJ, val
+    LOGICAL :: Stat
+    
+    
+    Mesh => Solver % Mesh
+        
+    N = Mesh % MaxElementNodes 
+    ALLOCATE( Basis(n), FORCE(N), STIFF(N,N), &
+        Nodes % x(n), Nodes % y(n), Nodes % z(n), &
+        STAT=istat)
+
+    ALLOCATE( rhs(A % NumberOfRows) )
+    rhs = 0.0_dp
+
+    DO t=1,Mesh % NumberOfBulkElements
+      Element => Mesh % Elements(t)
+      n = Element % TYPE % NumberOfNodes
+      Indexes => Element % NodeIndexes
+      IF( ANY( Perm(Indexes) == 0 ) ) CYCLE
+
+      Nodes % x(1:n) = Mesh % Nodes % x(Indexes)
+      Nodes % y(1:n) = Mesh % Nodes % y(Indexes)
+      Nodes % z(1:n) = Mesh % Nodes % z(Indexes)
+
+      STIFF = 0.0d0
+      FORCE = 0.0d0
+      
+      ! Numerical integration:
+      !----------------------
+      IP = GaussPoints( Element )
+
+      DO k=1,IP % n
+
+        ! Basis function values & derivatives at the integration point:
+        !--------------------------------------------------------------
+        stat = ElementInfo( Element, Nodes, IP % U(k), IP % V(k), &
+            IP % W(k),  detJ, Basis )
+        
+        ! Finally, the elemental matrix & vector:
+        !----------------------------------------
+        DO i=1,n
+          val = IP % s(k) * DetJ 
+          DO j=1,n
+            STIFF(i,j) = STIFF(i,j) + val * Basis(i) * Basis(j)
+          END DO
+        END DO
+      END DO
+
+      CALL UpdateGlobalEquations( A,STIFF,rhs,FORCE,n,1,Perm(Indexes(1:n)) )
+    END DO
+
+    DEALLOCATE( Basis, FORCE, STIFF, & 
+        Nodes % x, Nodes % y, Nodes % z)
+    DEALLOCATE( rhs )
+
+  END SUBROUTINE MassMatrixAssembly
+
+
 END MODULE SolverUtils

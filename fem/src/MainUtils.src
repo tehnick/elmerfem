@@ -58,6 +58,7 @@ MODULE MainUtils
     
     TYPE SubMatrix_t
        TYPE(Matrix_t), POINTER :: Mat
+       TYPE(Matrix_t), POINTER :: PrecMat
     END TYPE SubMatrix_t
 
     TYPE BlockMatrix_t
@@ -2936,7 +2937,12 @@ CONTAINS
 
       ! Set pointers to the new linear system
       !-------------------------------------------------------------------
-      A => TotMatrix % Submatrix(i,i) % Mat
+      A => TotMatrix % Submatrix(i,i) % PrecMat
+      IF( A % NumberOfRows == 0 ) THEN
+        A => TotMatrix % Submatrix(i,i) % Mat
+      ELSE
+        PRINT *,'Using tailored preconditioning matrix'
+      END IF
       x => u(offset(i)+1:offset(i+1))
       Var => TotMatrix % SubVector(i) % Var
       Solver % Variable => Var
@@ -3018,15 +3024,16 @@ CONTAINS
     TYPE(Solver_t), POINTER :: PSolver
     TYPE(Variable_t), POINTER :: Var, SolverVar
     INTEGER :: i,j,k,l,n,nd,NonLinIter,tests,NoTests,iter
-    LOGICAL :: GotIt, BlockPrec, BlockGS
+    LOGICAL :: GotIt, GotIt2, BlockPrec, BlockGS
     INTEGER :: ColVar, RowVar, NoVar, BlockDofs
 
     REAL(KIND=dp) :: NonlinearTol, Norm, PrevNorm, Residual, PrevResidual, &
-        TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm
+        TotNorm, MaxChange, alpha, beta, omega, rho, oldrho, s, r, PrevTotNorm, &
+        Coeff
     CHARACTER(LEN=max_name_len) :: str, VarName, ColName, RowName
     LOGICAL :: Robust, LinearSearch, ErrorReduced, IsProcedure, ScaleSystem,&
         GotBlockStruct, ReuseMatrix, LS
-    INTEGER, POINTER :: BlockStruct(:)
+    INTEGER, POINTER :: BlockStruct(:), VarPerm(:)
     
     TYPE (Matrix_t), POINTER :: Amat, SolverMatrix
     TYPE(Mesh_t), POINTER :: Mesh
@@ -3132,6 +3139,10 @@ CONTAINS
       SolverMatrix => TotMatrix % Submatrix(RowVar,RowVar) % Mat
     END IF
 
+
+
+
+
     !------------------------------------------------------------------------------
     ! This is the nonlinear loop that may be used either for true 
     ! nonlinearities.
@@ -3228,6 +3239,39 @@ CONTAINS
         CALL ListSetNameSpace('')
       END IF
     
+
+      ! The user may give a user defined preconditioner matrix
+      !-----------------------------------------------------------
+      DO RowVar=1,NoVar
+        i = TotMatrix % Submatrix(RowVar,RowVar) % PrecMat % NumberOfRows 
+        IF( i > 0 ) CYCLE
+        
+        WRITE (str,'(A,I0)') 'Prec Matrix Diffusion ',RowVar
+        Coeff = ListGetCReal( SolverParams, TRIM(str), GotIt)
+        
+        WRITE (str,'(A,I0)') 'Prec Matrix Density ',RowVar
+        Coeff = ListGetCReal( SolverParams, TRIM(str), GotIt2)
+        
+        IF( GotIt .OR. GotIt2 ) THEN
+          CALL Info('BlockSolver','Creating simple preconditioning matrix')
+          
+          CALL CRS_CopyMatrixTopology( TotMatrix % Submatrix(RowVar,RowVar) % Mat, &
+              TotMatrix % Submatrix(RowVar,RowVar) % PrecMat )   
+
+          Amat => TotMatrix % Submatrix(RowVar,RowVar) % PrecMat
+          VarPerm => TotMatrix % Subvector(RowVar) % Var % Perm
+          IF( GotIt ) THEN
+            CALL LaplaceMatrixAssembly( Solver, VarPerm, Amat )
+            Amat % Values = Coeff * Amat % Values
+          ELSE 
+            CALL MassMatrixAssembly( Solver, VarPerm, Amat )
+            Amat % Values = Coeff * Amat % Values
+          END IF
+        END IF
+      END DO
+      
+
+
 !------------------------------------------------------------------------------
 !    Check the stepsize of nonlinear iteration using the Armijo-GoldStein 
 !    criterion for the stepsize, if requested
@@ -3442,7 +3486,6 @@ CONTAINS
           END IF
 
           IF( ListGetLogical( SolverParams,'Block Prec Reuse',GotIt) ) THEN
-PRINT *,'BlockPrecReuse'
             DO j = 1, NoVar
               IF( j == RowVar ) CYCLE
               IF( CRS_CopyMatrixPrec( TotMatrix % Submatrix(j,j) % Mat, A ) ) EXIT
@@ -3509,6 +3552,10 @@ PRINT *,'BlockPrecReuse'
           Amat % FORMAT = MATRIX_LIST      
           Amat % NumberOfRows = 0
           BlockMatrix % Submatrix(i,j) % Mat => Amat
+
+          ALLOCATE( BlockMatrix % Submatrix(i,j) % PrecMat )
+          Amat => BlockMatrix % Submatrix(i,j) % PrecMat
+          CALL ClearMatrix( Amat )
         END DO
       END DO
       
