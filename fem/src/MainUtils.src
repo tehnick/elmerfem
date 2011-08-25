@@ -2870,13 +2870,12 @@ CONTAINS
     v(1:offset(NoVar+1)) = 0
     DO i=1,NoVar
       DO j=1,NoVar
-        IF (ParEnv % PEs<=1) THEN
-          CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
-                   u(offset(j)+1:offset(j+1)), s )
-
-        ELSE
+        IF (isParallel) THEN
           CALL ParallelMatrixVector( TotMatrix % SubMatrix(i,j) % Mat, &
                u(offset(j)+1:offset(j+1)), s  )
+        ELSE
+          CALL CRS_MatrixVectorMultiply( TotMatrix % SubMatrix(i,j) % Mat, &
+                   u(offset(j)+1:offset(j+1)), s )
         END IF
 
         DO k=1,offset(i+1)-offset(i)
@@ -2923,11 +2922,6 @@ CONTAINS
     BlockOrder => ListGetIntegerArray( Params,'Block Order',GotOrder)
     BlockGS = ListGetLogical( Params,'Block Gauss-Seidel',Found)
     
-    IF( BlockGS ) THEN
-      ALLOCATE( vtmp( TotMatrix % TotSize ), rtmp( TotMatrix % MaxSize) )
-      vtmp(1:TotMatrix % TotSize ) = v(1:TotMatrix % TotSize )       
-    END IF
-    
     NoVar = TotMatrix % NoVar
     Solver => TotMatrix % Solver
     offset => TotMatrix % Offset
@@ -2938,6 +2932,11 @@ CONTAINS
     ! Initial guess 
     !-----------------------------------------
     u(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
+
+    IF( BlockGS ) THEN
+      ALLOCATE( vtmp(offset(NoVar+1)), rtmp(offset(NoVar+1)) )
+      vtmp(1:offset(NoVar+1)) = v(1:offset(NoVar+1))
+    END IF
 
 
     DO j=1,NoVar
@@ -2977,7 +2976,6 @@ CONTAINS
         END DO
       END IF
 
-
       CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
 
       IF (isParallel) THEN
@@ -2987,35 +2985,38 @@ CONTAINS
         GlobalMatrix % Ematrix => Solver % Matrix
         GlobalMatrix % Complex = Solver % Matrix % Complex
 
-        CALL IterSolver( GlobalMatrix, &
-           u(offset(i)+1:offset(i+1)), v(offset(i)+1:offset(i+1)), &
+        CALL IterSolver( GlobalMatrix, x,b, &
             Solver,MatvecF=AddrFunc(SParMatrixVector), &
                 DotF=AddrFunc(SParDotProd), NormF=AddrFunc(SParNorm))
       ELSE
         CALL SolveSystem( A, ParMatrix, b, &
             x, Var % Norm, Var % DOFs, Solver )
+      END IF
 
-        !---------------------------------------------------------------------
-        IF( BlockGS ) THEN        
-          CALL Info('BlockSolver','Computing block r.h.s',Level=5)
+      !---------------------------------------------------------------------
+      IF( BlockGS ) THEN        
+        CALL Info('BlockSolver','Computing block r.h.s',Level=5)
+      
+        DO l=j+1,NoVar
+          IF( GotOrder ) THEN
+            k = BlockOrder(l)
+          ELSE
+            k = l
+          END IF
         
-          DO l=j+1,NoVar
-            IF( GotOrder ) THEN
-              k = BlockOrder(l)
-            ELSE
-              k = l
-            END IF
-          
-            WRITE( str,'(A,I0,I0)') 'Block Gauss-Seidel Passive ',k,i
-            IF( ListGetLogical( Params, str, Found ) ) CYCLE
-          
-            ! The residual is used only as a temporary vector
-            !-------------------------------------------------------------
-            CALL MatrixVectorMultiply( TotMatrix % SubMatrix(k,i) % Mat, x, rtmp )
-            vtmp(offset(k)+1:offset(k+1)) = vtmp(offset(k)+1:offset(k+1)) &
-                     - rtmp(1:offset(k+1)-offset(k))
-          END DO
-        END IF
+          WRITE( str,'(A,I0,I0)') 'Block Gauss-Seidel Passive ',k,i
+          IF( ListGetLogical( Params, str, Found ) ) CYCLE
+        
+          ! The residual is used only as a temporary vector
+          !-------------------------------------------------------------
+          IF (isParallel) THEN
+            CALL ParallelMatrixVector(TotMatrix % SubMatrix(k,j) % Mat,x,rtmp )
+          ELSE
+            CALL MatrixVectorMultiply(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
+          END IF
+          vtmp(offset(k)+1:offset(k+1)) = vtmp(offset(k)+1:offset(k+1)) &
+                   - rtmp(1:offset(k+1)-offset(k))
+        END DO
       END IF
     END DO
     CALL ListSetNameSpace(CHAR(namesp))
@@ -3157,18 +3158,6 @@ CONTAINS
               CALL AddEquationSolution(PSolver, Transient )            
             END IF
 
-            IF (isParallel) THEN
-              CALL ParallelActive( .TRUE.)
-              Amat % Comm = MPI_COMM_WORLD
-              Parenv % ActiveComm = Amat % Comm
-              CALL ParallelInitMatrix(Solver,Solver % Matrix)
-
-              IF(ASSOCIATED(Amat % ParMatrix )) THEN
-                Amat % ParMatrix % ParEnv % ActiveComm = &
-                         Amat % Comm
-                ParEnv = Amat % ParMatrix % ParEnv
-              END IF
-            END IF
           END DO
         END DO
       END IF
@@ -3282,7 +3271,6 @@ CONTAINS
         END DO
         CALL ListSetNameSpace('')
       END IF
-    
 
       ! The user may give a user defined preconditioner matrix
       !-----------------------------------------------------------
@@ -3314,6 +3302,23 @@ CONTAINS
         END IF
       END DO
       
+      IF (isParallel) THEN
+        DO RowVar=1,NoVar
+          DO ColVar=1,NoVar
+            CALL ParallelActive( .TRUE.)
+            Amat => TotMatrix % SubMatrix(RowVar,ColVar) % Mat
+            Amat % Comm = MPI_COMM_WORLD
+            Parenv % ActiveComm = Amat % Comm
+            CALL ParallelInitMatrix(Solver,Amat)
+
+            IF(ASSOCIATED(Amat % ParMatrix )) THEN
+              Amat % ParMatrix % ParEnv % ActiveComm = &
+                       Amat % Comm
+              ParEnv = Amat % ParMatrix % ParEnv
+            END IF
+          END DO
+        END DO
+     END IF
 
 
 !------------------------------------------------------------------------------
