@@ -85,12 +85,17 @@ CONTAINS
       REAL(KIND=dp) :: UnitVector(3)
       INTEGER, POINTER :: TopPointer(:), TopPerm(:)
       INTEGER :: TopNodes, i, j, nsize
+      TYPE(Variable_t), POINTER :: ExtVar
+      TYPE(Solver_t), POINTER :: Psolver
 
       UnitVector = 0.0_dp
       UnitVector( Mesh % MeshDim ) = 1.0_dp
 
-      CALL DetectExtrudedStructure( Mesh, UnitVector, MaskPerm = MaskPerm, &
-          TopNodePointer = TopPointer)
+      PSolver => Solver
+      
+
+      CALL DetectExtrudedStructure( Mesh, PSolver, ExtVar, &
+          TopNodePointer = TopPointer )
 
       nsize = SIZE( MaskPerm )
 

@@ -5585,43 +5585,104 @@ CONTAINS
 ! The extrusion is found for a given direction and for each node the corresponding 
 ! up and down, and thereafter top and bottom node is computed.
 !-----------------------------------------------------------------------------
-  SUBROUTINE DetectExtrudedStructure( Mesh, Direction, Tolerance, MaskPerm, &
+  SUBROUTINE DetectExtrudedStructure( Mesh, Solver, ExtVar, &
       TopNodePointer, BotNodePointer, UpNodePointer, DownNodePointer )
     
     USE CoordinateSystems
 
     TYPE(Mesh_t), POINTER :: Mesh
-    REAL(KIND=dp) :: Direction(3)
-    REAL(KIND=dp), OPTIONAL :: Tolerance
-    INTEGER, POINTER, OPTIONAL :: MaskPerm(:)
+    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Variable_t), POINTER :: ExtVar
     INTEGER, POINTER, OPTIONAL :: TopNodePointer(:), BotNodePointer(:), &
         UpNodePointer(:), DownNodePointer(:)
 !-----------------------------------------------------------------------------
+    REAL(KIND=dp) :: Direction(3)
+    TYPE(ValueList_t), POINTER :: Params
+    TYPE(Variable_t), POINTER :: Var
+    REAL(KIND=dp) :: Tolerance
     TYPE(Element_t), POINTER :: Element
     TYPE(Nodes_t) :: Nodes
-    INTEGER :: i,j,k,n,ii,jj,dim, nsize, elem, TopNodes, BotNodes, Rounds
-    INTEGER, POINTER :: NodeIndexes(:)
-    LOGICAL :: MaskExists, UpActive, DownActive, GotIt, Found
-    REAL(KIND=dp) :: at0, at1, Length, UnitVector(3), ElemVector(3), DotPro, Eps, CPUTime
+    INTEGER :: i,j,k,n,ii,jj,dim, nsize, elem, TopNodes, BotNodes, Rounds, ActiveDirection
+    INTEGER, POINTER :: NodeIndexes(:), MaskPerm(:)
+    LOGICAL :: MaskExists, UpActive, DownActive, GotIt, Found, DoCoordTransform
+    REAL(KIND=dp) :: at0, at1, Length, UnitVector(3), Vector(3), Vector2(3), &
+	             ElemVector(3), DotPro, Eps, CPUTime
+    REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: TopPointer(:), BotPointer(:), UpPointer(:), DownPointer(:)
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CoordTransform
 
    
     CALL Info('DetectExtrudedStructure','Determining extruded structure')
     at0 = CPUTime()
 
-    ! Choose active direction coordinate and set corresponding unit vector
-    !---------------------------------------------------------------------
-    
-    Length = SQRT( SUM( Direction ** 2 ) )
-    IF( Length < EPSILON(Length) ) THEN
-      CALL Warn('DetectExtrudedStructure','Invalid direction vector, exiting...')
-      RETURN
-    END IF
-    UnitVector = Direction / Length
-    
+    DIM = Mesh % MeshDim
+    Params => Solver % Values
+
+
+    ActiveDirection = ListGetInteger(Params,'Active Coordinate')
+    UnitVector = 0.0_dp
+    UnitVector(ActiveDirection) = 1.0_dp
+
+    IF( ListGetLogical(Params,'Project To Bottom',GotIt) ) &
+        UnitVector = -1.0_dp * UnitVector
+
     WRITE(Message,'(A,3F8.3)') 'Unit vector of direction:',UnitVector
     CALL Info('DetectExtrudedStructure',Message)
 
+    ! Set the dot product tolerance
+    !-----------------------------------------------------------------
+    Eps = ListGetConstReal( Params,'Dot Product Tolerance',GotIt)
+    IF(.NOT. GotIt) Eps = 0.01_dp
+
+    VarName = ListGetString(Params,'Mapping Mask Variable',GotIt )
+    MaskExists = .FALSE.
+    IF(GotIt) THEN
+      Var => VariableGet( Mesh % Variables,  VarName )
+      IF(ASSOCIATED(Var)) THEN
+        MaskPerm => Var % Perm
+        MaskExists = ASSOCIATED(MaskPerm)
+      END IF
+    END IF
+
+    IF( MaskExists ) THEN
+      nsize = MAXVAL( MaskPerm ) 
+      WRITE(Message,'(A,I8)') 'Applying mask of size:',nsize
+      CALL Info('DetectExtrudedStructure',Message)
+    ELSE
+      nsize = Mesh % NumberOfNodes
+    END IF 
+	
+    IF( ActiveDirection == 1 ) THEN
+      Var => VariableGet( Mesh % Variables,'Coordinate 1')
+    ELSE IF(ActiveDirection == 2) THEN
+      Var => VariableGet( Mesh % Variables,'Coordinate 2')
+    ELSE IF(ActiveDirection == 3) THEN 
+      Var => VariableGet( Mesh % Variables,'Coordinate 3')
+    ELSE 
+      CALL Fatal('StructuredMeshMapper','Invalid value for Active Coordinate')
+    END IF
+
+    CoordTransform = ListGetString(Params,'Mapping Coordinate Transformation',DoCoordTransform )
+    IF( MaskExists .OR. DoCoordTransform) THEN
+      ALLOCATE( Values( MAXVAL( MaskPerm) ) )
+      DO i=1,Mesh % NumberOfNodes
+        j = i
+	IF( MaskExists ) j = MaskPerm(i)
+	IF( DoCoordTransform ) THEN
+	  Vector(1) = Mesh % Nodes % x(i)
+	  Vector(2) = Mesh % Nodes % y(i)
+	  Vector(3) = Mesh % Nodes % z(i)
+          CALL CoordinateTransformation( CoordTransform, Vector )
+        ELSE
+          Values(j) = Var % Values(i)
+        END IF
+      END DO
+      CALL VariableAdd( Mesh % Variables, Mesh, Solver,'Extruded Coordinate',1,Values, MaskPerm)
+      Var => VariableGet( Mesh % Variables,'Extruded Coordinate')
+    END IF
+    ExtVar => Var
+
+    
     ! Check which direction is active
     !---------------------------------------------------------------------
     UpActive = PRESENT( UpNodePointer) .OR. PRESENT ( TopNodePointer )
@@ -5632,19 +5693,6 @@ CONTAINS
 
     ! Allocate pointers to top and bottom, and temporary pointers up and down
     !------------------------------------------------------------------------
-    n = Mesh % MaxElementNodes
-    ALLOCATE( Nodes % x(n), Nodes % y(n),Nodes % z(n) )
-
-    DIM = Mesh % MeshDim
-    MaskExists = PRESENT( MaskPerm )
-    IF( MaskExists ) THEN
-      nsize = MAXVAL( MaskPerm ) 
-      WRITE(Message,'(A,I8)') 'Applying mask of size:',nsize
-      CALL Info('DetectExtrudedStructure',Message)
-    ELSE
-      nsize = Mesh % NumberOfNodes
-    END IF
-    
     IF( UpActive ) THEN
       ALLOCATE(TopPointer(nsize),UpPointer(nsize))
       DO i=1,nsize
@@ -5660,19 +5708,14 @@ CONTAINS
       END DO
     END IF
 
-    ! Set the dot product tolerance
-    !-----------------------------------------------------------------
-    IF( PRESENT( Tolerance ) ) THEN
-      Eps = Tolerance 
-    ELSE
-      Eps = ListGetConstReal(CurrentModel % Solver % Values,'Dot Product Tolerance',GotIt)
-      IF(.NOT. GotIt) Eps = 0.01_dp
-    END IF
 
     CALL Info('DetectExtrudedStructure','determine up and down pointers')
 
     ! Determine the up and down pointers using dot product as criterion
     !-----------------------------------------------------------------
+    n = Mesh % MaxElementNodes
+    ALLOCATE( Nodes % x(n), Nodes % y(n),Nodes % z(n) )
+    
     DO elem = 1,Mesh % NumberOfBulkElements      
       Element => Mesh % Elements(elem)
       NodeIndexes => Element % NodeIndexes
@@ -5694,9 +5737,21 @@ CONTAINS
         DO j=i+1,n
           jj = NodeIndexes(j)
 
-          ElemVector(1) = Nodes % x(j) - Nodes % x(i)
-          ElemVector(2) = Nodes % y(j) - Nodes % y(i)
-          ElemVector(3) = Nodes % z(j) - Nodes % z(i)
+	  Vector(1) = Nodes % x(i)
+	  Vector(2) = Nodes % y(i)
+	  Vector(3) = Nodes % z(i)
+
+	  Vector2(1) = Nodes % x(j)
+	  Vector2(2) = Nodes % y(j)
+	  Vector2(3) = Nodes % z(j)
+
+	  IF( DoCoordTransform ) THEN
+            CALL CoordinateTransformation( CoordTransform, Vector )
+            CALL CoordinateTransformation( CoordTransform, Vector2 )
+          END IF
+
+          ElemVector = Vector2 - Vector
+
           Length = SQRT(SUM(ElemVector*ElemVector))
           DotPro = SUM(ElemVector * UnitVector) / Length
 
@@ -5710,6 +5765,8 @@ CONTAINS
         END DO
       END DO
     END DO
+    DEALLOCATE( Nodes % x, Nodes % y,Nodes % z )
+
     
     ! Pointer to top and bottom are found recursively using up and down
     !------------------------------------------------------------------
@@ -5741,30 +5798,24 @@ CONTAINS
       IF( Found ) Rounds = Rounds + 1
     END DO
 
-    ! Count the number of nodes, for information only
+    ! Count the number of top and bottom nodes, for information only
     !---------------------------------------------------------------
     IF( UpActive ) THEN
       TopNodes = 0
       DO i=1,nsize
-        IF(TopPointer(i) == i) THEN
-          TopNodes = TopNodes + 1
-        END IF
+        IF(TopPointer(i) == i) TopNodes = TopNodes + 1
       END DO
     END IF
 
     IF( DownActive ) THEN
       BotNodes = 0
       DO i=1,nsize
-        IF(BotPointer(i) == i) THEN
-          BotNodes = BotNodes + 1
-        END IF
+        IF(BotPointer(i) == i) BotNodes = BotNodes + 1
       END DO
     END IF
 
     ! Return the requested pointer structures, otherwise deallocate
     !---------------------------------------------------------------
-    DEALLOCATE( Nodes % x, Nodes % y,Nodes % z )
-
     IF( UpActive ) THEN
       IF( PRESENT( TopNodePointer ) ) THEN
         TopNodePointer => TopPointer 
@@ -5808,6 +5859,49 @@ CONTAINS
       WRITE(Message,* ) 'Number of nodes at the bottom: ',BotNodes
       CALL Info('DetectExtrudedStructure',Message)
     END IF
+
+
+  CONTAINS
+    
+    
+    !---------------------------------------------------------------
+    SUBROUTINE CoordinateTransformation( CoordTransform, R )
+      CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CoordTransform
+      REAL(KIND=dp) :: R(3)
+      !---------------------------------------------------------------
+      REAL(KIND=dp) :: Rtmp(3),Coeff
+      LOGICAL, SAVE :: Visited = .FALSE.
+      
+      IF( .NOT. Visited ) THEN
+        IF( ListGetLogical( Params,'Angles in Degrees') ) THEN
+          Coeff = 180.0_dp / PI
+        ELSE
+          Coeff = 1.0_dp
+        END IF
+        Visited = .TRUE.
+      END IF
+      
+      SELECT CASE ( CoordTransform )
+        
+      CASE('cartesian to cylindrical')
+        Rtmp(1) = Coeff * ATAN2( R(2), R(1)  ) 
+        Rtmp(2) = SQRT( R(1)**2 + R(2)**2)
+        Rtmp(3) = R(3) 
+        
+      CASE('cylindrical to cartesian')
+        Rtmp(1) = COS( R(1) / Coeff ) * R(2)
+        Rtmp(2) = SIN( R(1) / Coeff ) * R(2)
+        Rtmp(3) = R(3)
+        
+      CASE DEFAULT
+        CALL Fatal('CoordinateTransformation','Unknown transformation: '//TRIM(CoordTransform) )
+        
+      END SELECT
+      
+      R = Rtmp
+      
+    END SUBROUTINE CoordinateTransformation
+   
 
   END SUBROUTINE DetectExtrudedStructure
  !---------------------------------------------------------------
@@ -6286,7 +6380,7 @@ CONTAINS
       ! Mark all interface nodes as forbidden nodes
       !-----------------------------------------------
       IF( ParEnv % PEs > 1 ) THEN
-        ig => Mesh % ParallelInfo % Interface
+        ig => Mesh % ParallelInfo % INTERFACE
         ForbiddenNodes = ig(1:Mesh % NumberOfNodes)
       END IF
 

@@ -78,6 +78,8 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
 !    Local variables
 !------------------------------------------------------------------------------
   TYPE(ValueList_t),POINTER :: SolverParams
+  TYPE(Mesh_t),POINTER :: Mesh
+  TYPE(Solver_t), POINTER :: PSolver
   CHARACTER(LEN=MAX_NAME_LEN) :: VarName
   INTEGER :: i,j,k,n,dim,DOFs,itop,ibot,ii,jj,Rounds,BotMode,TopMode,nsize, &
       ActiveDirection,elem
@@ -106,54 +108,21 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
 !   Initialize the pointers to top and bottom nodes 
 !------------------------------------------------------------------------------
 
-  SolverParams => GetSolverParams()
-
+  SolverParams => Solver % Values
+  PSolver => Solver
+  Mesh => Solver % Mesh
 
   IF( .NOT. Initialized ) THEN
     NULLIFY(Field)
-    
-    ! Choose active direction coordinate and set corresponding unit vector
-    !---------------------------------------------------------------------
-    DIM = CoordinateSystemDimension()
-    ActiveDirection = GetInteger(SolverParams,'Active Coordinate')
-    UnitVector = 0.0_dp
-    UnitVector(ActiveDirection) = 1.0_dp
-
-    VarName = GetString(SolverParams,'Mapping Mask Variable',GotIt )
-    MaskExists = .FALSE.
-    IF(GotIt) THEN
-      Var => VariableGet( Model % Variables,  VarName )
-      IF(ASSOCIATED(Var)) THEN
-        MaskPerm => Var % Perm
-        MaskExists = ASSOCIATED(MaskPerm)
-      END IF
-    END IF
-    
-    IF( MaskExists ) THEN
-      CALL DetectExtrudedStructure( Solver % Mesh, UnitVector, MaskPerm = MaskPerm, &
-          TopNodePointer = TopPointer, BotNodePointer = BotPointer )
-    ELSE
-      CALL DetectExtrudedStructure( Solver % Mesh, UnitVector, &
-          TopNodePointer = TopPointer, BotNodePointer = BotPointer )
-    END IF
-
-    IF(ActiveDirection == 1) THEN
-      Var => VariableGet( Solver % Mesh % Variables,'Coordinate 1')
-    ELSE IF(ActiveDirection == 2) THEN
-      Var => VariableGet( Solver % Mesh % Variables,'Coordinate 2')
-    ELSE IF(ActiveDirection == 3) THEN 
-      Var => VariableGet( Solver % Mesh % Variables,'Coordinate 3')
-    ELSE 
-      CALL Fatal('StructuredMeshMapper','Invalid value for Active Coordinate')
-    END IF
-
+    CALL DetectExtrudedStructure( Mesh, PSolver, Var, &
+        TopNodePointer = TopPointer, BotNodePointer = BotPointer )
+    MaskExists = ASSOCIATED( Var % Perm ) 
+    IF( MaskExists ) MaskPerm => Var % Perm
     Coord => Var % Values
     nsize = SIZE( Coord )
-
     Initialized = .TRUE.
   END IF
   at0 = CPUTime()
-
 
   ! End of initialization
   !-------------------------------------------------------
@@ -253,8 +222,10 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   !-------------------------------------------------------------------
   IF(.FALSE.) PRINT *,'perform linear mapping'
   DO i=1,nsize
+    j = i
     IF( MaskExists ) THEN
-      IF( MaskPerm(i) == 0) CYCLE
+      j = MaskPerm(i) 
+      IF( j == 0) CYCLE
     END IF
     itop = TopPointer(i)
     ibot = BotPointer(i)
@@ -279,6 +250,7 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     END IF
 
     xloc = wtop * TopVal + (1.0_dp - wtop) * BotVal
+
     IF(DisplacementMode) THEN
       Coord(i) = Coord(i) + xloc
     ELSE
