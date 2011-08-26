@@ -265,16 +265,17 @@
                        'Timestep Intervals', GotIt )
 
          IF ( .NOT.GotIt ) THEN
-           CALL Fatal( ' ', 'Keyword [Timestep Intervals] MUST be ' //  &
-                   'defined for time dependent simulations' )
+           CALL Fatal( ' ', 'Keyword > Timestep Intervals < MUST be ' //  &
+                   'defined for transient and scanning simulations' )
          END IF 
 
          TimestepSizes => ListGetConstRealArray( CurrentModel % Simulation, &
                                'Timestep Sizes', GotIt )
+
          IF ( .NOT.GotIt ) THEN
-           IF( Scanning ) THEN
-             ALLOCATE(TimestepSizes(1,1))
-             TimestepSizes(1,1) = 1.0_dp
+           IF( Scanning .OR. ListCheckPresent( CurrentModel % Simulation,'Timestep Size') ) THEN
+             ALLOCATE(TimestepSizes(SIZE(Timesteps),1))
+             TimestepSizes = 1.0_dp
            ELSE
              CALL Fatal( ' ', 'Keyword [Timestep Sizes] MUST be ' //  &
                  'defined for time dependent simulations' )
@@ -953,6 +954,12 @@
 
          dtfunc = ListGetConstReal( CurrentModel % Simulation, &
                   'Timestep Function', gotIt)
+         IF(GotIt) THEN
+	   CALL Warn('ExecSimulation','Obsolite keyword > Timestep Function < , use > Timestep Size < instead')
+         ELSE	
+           dtfunc = ListGetCReal( CurrentModel % Simulation, &
+                  'Timestep Size', gotIt)
+         END IF
          IF(GotIt) dt = dtfunc
 
 !------------------------------------------------------------------------------
