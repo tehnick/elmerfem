@@ -268,7 +268,6 @@
            CALL Fatal( ' ', 'Keyword > Timestep Intervals < MUST be ' //  &
                    'defined for transient and scanning simulations' )
          END IF 
-
          TimestepSizes => ListGetConstRealArray( CurrentModel % Simulation, &
                                'Timestep Sizes', GotIt )
 
@@ -952,6 +951,9 @@
        RealTimestep = 1
        DO timestep = 1,Timesteps(interval)
 
+         cum_Timestep = cum_Timestep + 1
+         sStep(1) = cum_Timestep
+
          dtfunc = ListGetConstReal( CurrentModel % Simulation, &
                   'Timestep Function', gotIt)
          IF(GotIt) THEN
@@ -963,9 +965,7 @@
          IF(GotIt) dt = dtfunc
 
 !------------------------------------------------------------------------------
-         cum_Timestep = cum_Timestep + 1
          sTime(1) = sTime(1) + dt
-         sStep(1) = cum_Timestep
 
          ! Move the old timesteps one step down the ladder
          IF(timestep > 1 .OR. interval > 1) THEN
