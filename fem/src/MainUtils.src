@@ -2979,11 +2979,11 @@ CONTAINS
       CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
 
       IF (isParallel) THEN
-        GlobalData => Solver % Matrix % ParMatrix
+        GlobalData => A % ParMatrix
         GlobalMatrix => GlobalData % SplittedMatrix % InsideMatrix
-        GlobalMatrix % MatVecSubr = Solver % Matrix % MatVecSubr
-        GlobalMatrix % Ematrix => Solver % Matrix
-        GlobalMatrix % Complex = Solver % Matrix % Complex
+        GlobalMatrix % MatVecSubr = A % MatVecSubr
+        GlobalMatrix % Ematrix => A
+        GlobalMatrix % Complex = A % Complex
 
         CALL IterSolver( GlobalMatrix, x,b, &
             Solver,MatvecF=AddrFunc(SParMatrixVector), &
@@ -3309,6 +3309,7 @@ CONTAINS
             Amat => TotMatrix % SubMatrix(RowVar,ColVar) % Mat
             Amat % Comm = MPI_COMM_WORLD
             Parenv % ActiveComm = Amat % Comm
+            Solver % Variable => TotMatrix % SubVector(ColVar) % Var
             CALL ParallelInitMatrix(Solver,Amat)
 
             IF(ASSOCIATED(Amat % ParMatrix )) THEN
@@ -3611,7 +3612,7 @@ CONTAINS
             END DO
           END IF
 
-          A => TotMatrix % Submatrix( RowVar,RowVar ) % Mat
+          A => TotMatrix % Submatrix(RowVar,RowVar) % Mat
           b => TotMatrix % SubVector(RowVar) % rhs
           Var => TotMatrix % SubVector(RowVar) % Var
           Solver % Variable => Var
