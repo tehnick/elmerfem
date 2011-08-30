@@ -88,7 +88,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       NodeIndexes(:),TargetPointer(:),BotPerm(:),&
       PermOut(:),PermIn(:),LevelsetPerm(:),TopPerm(:)
   LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
-      Debug, MaskExist, GotVar, GotOper, BottomTarget
+      Debug, MaskExist, GotVar, GotOper, BottomTarget, TemporalLayer
   REAL(KIND=dp) :: dx,UnitVector(3),ElemVector(3),DotPro,Eps,Length,Level,val
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: FieldOut(:), FieldIn(:), Levelset(:), Coord(:),TopField(:)
@@ -141,6 +141,10 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
         TopPerm(i) = TopNodes
       END IF
     END DO
+    IF( TopNodes > 0 ) THEN
+      ALLOCATE( TopField( TopNodes ) ) 
+      TopField = 0.0_dp
+    END IF
 
     BotNodes = 0
     ALLOCATE( BotPerm( Mesh % NumberOfNodes ) )
@@ -151,8 +155,6 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
         BotPerm(i) = BotNodes
       END IF
     END DO
-    
-    ALLOCATE( TopField( TopNodes ) ) 
 
   END IF
   at0 = CPUTime()
@@ -196,6 +198,39 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     FieldIn => Var % Values
     PermIn => Var % Perm
 
+    ! Create the projected variable if needed
+    !-----------------------------------------------
+    WRITE (Name,'(A,I0)') 'Target Variable ',NoVar
+    TargetName = ListGetString( Params, TRIM(Name), GotIt )
+    IF( .NOT. GotIt ) THEN
+      WRITE (TargetName,'(A,A)') TRIM(Oper)//' '//TRIM(VarName)
+    END IF
+
+    Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
+    IF ( .NOT. ASSOCIATED( Var ) )  THEN      
+      NULLIFY(FieldOut)
+      WRITE (Name,'(A,I0,A)') 'Target Variable ',NoVar,' At Bottom'
+      IF( ListGetLogical( Params, TRIM(Name), GotIt ) ) THEN
+        ALLOCATE( FieldOut(BotNodes) )
+        CALL VariableAdd( Mesh % Variables, Solver % Mesh, PSolver, &
+            TargetName, 1, FieldOut, BotPerm)           
+        Var => VariableGet( Mesh % Variables, TRIM(TargetName) )        
+      ELSE
+        ALLOCATE( FieldOut(TopNodes) )
+        CALL VariableAdd( Mesh % Variables, Solver % Mesh, PSolver, &
+            TargetName, 1, FieldOut, TopPerm)           
+      END IF
+      Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
+      PRINT *,'Created Target Variable:',TRIM(Var % Name)
+    END IF
+    FieldOut => Var % Values
+    PermOut => Var % Perm    
+    FieldOut = 0.0_dp
+
+    TemporalLayer = .TRUE.
+
+
+
    
     WRITE (Name,'(A,I0)') 'Operator ',NoVar
     Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
@@ -224,10 +259,10 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 
     ! Operators for dimensional reduction
     !-----------------------------------------------
-    TopField = 0.0_dp
     SELECT CASE(Oper)      
       
     CASE ('sum')      
+      TopField = 0.0_dp
       DO i=1,nsize
         itop = TopPointer(i)
         j = i
@@ -258,6 +293,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END DO
 
     CASE ('bottom')
+      TopField = 0.0_dp
       DO i=1,nsize
         IF( i == BotPointer(i) ) THEN
           j = i
@@ -267,6 +303,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END DO
 
     CASE ('top')
+      TopField = 0.0_dp
       DO i=1,nsize
         IF( i == TopPointer(i) ) THEN
           j = i
@@ -276,6 +313,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END DO
 
     CASE ('layer below top')
+      TopField = 0.0_dp
       DO i=1,nsize
         IF( i == TopPointer(i) ) THEN
            l = i
@@ -288,6 +326,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END DO
 
     CASE ('layer above bottom')
+      TopField = 0.0_dp
       DO i=1,nsize
         IF( i == BotPointer(i) ) THEN
            l = i
@@ -298,8 +337,9 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
            TopField(TopPerm(i)) = FieldIn(l)
         END IF
       END DO
-     
+
     CASE ('isosurface')
+      TopField = 0.0_dp
       DO i=1,nsize
         iup = UpPointer(i)
         j = i
@@ -326,6 +366,7 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END DO
       
     CASE ('int')
+      TopField = 0.0_dp
       DO i=1,nsize
         itop = TopPointer(i)
         ! Note for top and bottom this will automatically reduce the distance to half
@@ -337,11 +378,30 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
       END DO
 
     CASE ('dist')
+      TopField = 0.0_dp
       DO i=1,nsize
         itop = TopPointer(i)
         dx = 0.5*(Coord(UpPointer(i)) - Coord(DownPointer(i)))
         TopField(TopPerm(itop)) = TopField(TopPerm(itop)) + dx 
       END DO
+
+    CASE ('index')
+      FieldOut = 0.0_dp
+      DO i=1,nsize
+        IF( i == TopPointer(i) ) THEN
+          l = i
+          DO k=1,nsize
+            IF( ASSOCIATED(PermOut)) THEN
+              FieldOut(PermOut(l)) = 1.0_dp * k
+            ELSE
+              FieldOut(l) = 1.0_dp * k
+            END IF
+            IF( l == BotPointer(l)) EXIT
+            l = DownPointer(l)            
+          END DO
+        END IF
+      END DO
+      TemporalLayer = .FALSE.
 
     CASE default
       CALL Fatal('StructuredProjectToPlane','Unknown operator: '//TRIM(Oper))
@@ -349,48 +409,22 @@ SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
     END SELECT
 
 
-    ! Create the projected variable if needed
-    !-----------------------------------------------
-    WRITE (Name,'(A,I0)') 'Target Variable ',NoVar
-    TargetName = ListGetString( Params, TRIM(Name), GotIt )
-    IF( .NOT. GotIt ) THEN
-      WRITE (TargetName,'(A,A)') TRIM(Oper)//' '//TRIM(VarName)
-    END IF
-
-    Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
-
-    IF ( .NOT. ASSOCIATED( Var ) )  THEN      
-      NULLIFY(FieldOut)
-      WRITE (Name,'(A,I0,A)') 'Target Variable ',NoVar,' At Bottom'
-      IF( ListGetLogical( Params, TRIM(Name), GotIt ) ) THEN
-        ALLOCATE( FieldOut(BotNodes) )
-        CALL VariableAdd( Mesh % Variables, Solver % Mesh, PSolver, &
-            TargetName, 1, FieldOut, BotPerm)           
-        Var => VariableGet( Mesh % Variables, TRIM(TargetName) )        
-      ELSE
-        ALLOCATE( FieldOut(TopNodes) )
-        CALL VariableAdd( Mesh % Variables, Solver % Mesh, PSolver, &
-            TargetName, 1, FieldOut, TopPerm)           
-      END IF
-      Var => VariableGet( Mesh % Variables, TRIM(TargetName) )
-    END IF
-    FieldOut => Var % Values
-    PermOut => Var % Perm    
-    FieldOut = 0.0_dp
-
-
     ! Finally copy the projected values to the target variable
     ! It could be at the top, but it could also be at the bottom, or everywhere
     !----------------------------------------------------------------------------
-    FieldOut = 0.0_dp
-    DO i=1,nsize
-      j = i
-      IF( ASSOCIATED( PermOut ) ) THEN
-        j = PermOut(i)
-        IF( j == 0 ) CYCLE
-      END IF
-      FieldOut(j) = TopField(TopPerm(TopPointer(i)))
-    END DO
+    IF( TemporalLayer ) THEN
+      k = 0
+      DO i=1,nsize
+        j = i
+        IF( ASSOCIATED( PermOut ) ) THEN
+          j = PermOut(i)
+          IF( j == 0 ) CYCLE
+        END IF
+        k = TopPerm( TopPointer(i) )
+        FieldOut(j) = TopField(k)
+      END DO    
+    END IF
+
   END DO
 
   at1 = CPUTime()

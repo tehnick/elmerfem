@@ -5602,7 +5602,8 @@ CONTAINS
     REAL(KIND=dp) :: Tolerance
     TYPE(Element_t), POINTER :: Element
     TYPE(Nodes_t) :: Nodes
-    INTEGER :: i,j,k,n,ii,jj,dim, nsize, elem, TopNodes, BotNodes, Rounds, ActiveDirection
+    INTEGER :: i,j,k,n,ii,jj,dim, nsize, elem, TopNodes, BotNodes, Rounds, ActiveDirection, &
+	UpHit, DownHit
     INTEGER, POINTER :: NodeIndexes(:), MaskPerm(:)
     LOGICAL :: MaskExists, UpActive, DownActive, GotIt, Found, DoCoordTransform
     REAL(KIND=dp) :: at0, at1, Length, UnitVector(3), Vector(3), Vector2(3), &
@@ -5620,8 +5621,12 @@ CONTAINS
 
 
     ActiveDirection = ListGetInteger(Params,'Active Coordinate')
+    IF( ActiveDirection < 1 .OR. ActiveDirection > 3 ) THEN
+      CALL Fatal('StructuredMeshMapper','Invalid value for Active Coordinate')
+    END IF  
     UnitVector = 0.0_dp
     UnitVector(ActiveDirection) = 1.0_dp
+
 
     IF( ListGetLogical(Params,'Project To Bottom',GotIt) ) &
         UnitVector = -1.0_dp * UnitVector
@@ -5632,7 +5637,7 @@ CONTAINS
     ! Set the dot product tolerance
     !-----------------------------------------------------------------
     Eps = ListGetConstReal( Params,'Dot Product Tolerance',GotIt)
-    IF(.NOT. GotIt) Eps = 0.01_dp
+    IF(.NOT. GotIt) Eps = 1.0e-4_dp
 
     VarName = ListGetString(Params,'Mapping Mask Variable',GotIt )
     MaskExists = .FALSE.
@@ -5651,38 +5656,41 @@ CONTAINS
     ELSE
       nsize = Mesh % NumberOfNodes
     END IF 
-	
-    IF( ActiveDirection == 1 ) THEN
-      Var => VariableGet( Mesh % Variables,'Coordinate 1')
-    ELSE IF(ActiveDirection == 2) THEN
-      Var => VariableGet( Mesh % Variables,'Coordinate 2')
-    ELSE IF(ActiveDirection == 3) THEN 
-      Var => VariableGet( Mesh % Variables,'Coordinate 3')
-    ELSE 
-      CALL Fatal('StructuredMeshMapper','Invalid value for Active Coordinate')
-    END IF
 
     CoordTransform = ListGetString(Params,'Mapping Coordinate Transformation',DoCoordTransform )
+    IF( DoCoordTransform .OR. MaskExists) THEN
+      NULLIFY( Values )
+      ALLOCATE( Values( nsize ) )
+      Values = 0.0_dp
+      IF( MaskExists ) THEN
+        CALL VariableAdd( Mesh % Variables, Mesh, Solver,'Extruded Coordinate',1,Values, MaskPerm)
+      ELSE
+        CALL VariableAdd( Mesh % Variables, Mesh, Solver,'Extruded Coordinate',1,Values)
+      END IF
+      Var => VariableGet( Mesh % Variables,'Extruded Coordinate')
+    ELSE IF( ActiveDirection == 1 ) THEN
+      Var => VariableGet( Mesh % Variables,'Coordinate 1')
+    ELSE IF( ActiveDirection == 2 ) THEN
+      Var => VariableGet( Mesh % Variables,'Coordinate 2')
+    ELSE 
+      Var => VariableGet( Mesh % Variables,'Coordinate 3')
+    END IF	      
+
     IF( MaskExists .OR. DoCoordTransform) THEN
-      ALLOCATE( Values( MAXVAL( MaskPerm) ) )
       DO i=1,Mesh % NumberOfNodes
         j = i
 	IF( MaskExists ) j = MaskPerm(i)
+        Vector(1) = Mesh % Nodes % x(i)
+	Vector(2) = Mesh % Nodes % y(i)
+	Vector(3) = Mesh % Nodes % z(i)
 	IF( DoCoordTransform ) THEN
-	  Vector(1) = Mesh % Nodes % x(i)
-	  Vector(2) = Mesh % Nodes % y(i)
-	  Vector(3) = Mesh % Nodes % z(i)
           CALL CoordinateTransformation( CoordTransform, Vector )
-        ELSE
-          Values(j) = Var % Values(i)
         END IF
+        Values(j) = Vector( ActiveDirection )
       END DO
-      CALL VariableAdd( Mesh % Variables, Mesh, Solver,'Extruded Coordinate',1,Values, MaskPerm)
-      Var => VariableGet( Mesh % Variables,'Extruded Coordinate')
     END IF
     ExtVar => Var
 
-    
     ! Check which direction is active
     !---------------------------------------------------------------------
     UpActive = PRESENT( UpNodePointer) .OR. PRESENT ( TopNodePointer )
@@ -5734,19 +5742,22 @@ CONTAINS
 
       DO i=1,n
         ii = NodeIndexes(i)
+        Vector(1) = Nodes % x(i)
+	Vector(2) = Nodes % y(i)
+	Vector(3) = Nodes % z(i)
+	
+ 	IF( DoCoordTransform ) THEN
+          CALL CoordinateTransformation( CoordTransform, Vector )
+        END IF
+
         DO j=i+1,n
           jj = NodeIndexes(j)
-
-	  Vector(1) = Nodes % x(i)
-	  Vector(2) = Nodes % y(i)
-	  Vector(3) = Nodes % z(i)
 
 	  Vector2(1) = Nodes % x(j)
 	  Vector2(2) = Nodes % y(j)
 	  Vector2(3) = Nodes % z(j)
 
 	  IF( DoCoordTransform ) THEN
-            CALL CoordinateTransformation( CoordTransform, Vector )
             CALL CoordinateTransformation( CoordTransform, Vector2 )
           END IF
 
@@ -5772,10 +5783,10 @@ CONTAINS
     !------------------------------------------------------------------
     CALL Info('DetectExtrudedStructure','determine top and bottom pointers')
 
-    Found = .TRUE.
-    Rounds = 0
-    DO WHILE(Found) 
-      Found = .FALSE.
+
+    DO Rounds = 1, nsize
+      DownHit = 0
+      UpHit = 0
       DO i=1,nsize
         IF( MaskExists ) THEN
           IF( MaskPerm(i) == 0) CYCLE
@@ -5783,20 +5794,21 @@ CONTAINS
         IF( UpActive ) THEN
           j = UpPointer(i)
           IF( TopPointer(i) /= TopPointer( j ) ) THEN
-            Found = .TRUE.
+            UpHit = UpHit + 1
             TopPointer(i) = TopPointer( j )
           END IF
         END IF
         IF( DownActive ) THEN
           j = DownPointer(i)
           IF( BotPointer(i) /= BotPointer( j ) ) THEN
-            Found = .TRUE.
+	    DownHit = DownHit + 1
             BotPointer(i) = BotPointer( j )
           END IF
         END IF
       END DO
-      IF( Found ) Rounds = Rounds + 1
+      IF( UpHit == 0 .AND. DownHit == 0 ) EXIT
     END DO
+    PRINT *,'Extruded Structure Layers:',Rounds-1	
 
     ! Count the number of top and bottom nodes, for information only
     !---------------------------------------------------------------
@@ -5869,9 +5881,11 @@ CONTAINS
       CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CoordTransform
       REAL(KIND=dp) :: R(3)
       !---------------------------------------------------------------
-      REAL(KIND=dp) :: Rtmp(3),Coeff
+      REAL(KIND=dp) :: Rtmp(3)
+      REAL(KIND=dp), SAVE :: Coeff 
       LOGICAL, SAVE :: Visited = .FALSE.
       
+
       IF( .NOT. Visited ) THEN
         IF( ListGetLogical( Params,'Angles in Degrees') ) THEN
           Coeff = 180.0_dp / PI
@@ -5884,13 +5898,13 @@ CONTAINS
       SELECT CASE ( CoordTransform )
         
       CASE('cartesian to cylindrical')
-        Rtmp(1) = Coeff * ATAN2( R(2), R(1)  ) 
-        Rtmp(2) = SQRT( R(1)**2 + R(2)**2)
+        Rtmp(1) = SQRT( R(1)**2 + R(2)**2)
+        Rtmp(2) = Coeff * ATAN2( R(2), R(1)  ) 
         Rtmp(3) = R(3) 
         
       CASE('cylindrical to cartesian')
-        Rtmp(1) = COS( R(1) / Coeff ) * R(2)
-        Rtmp(2) = SIN( R(1) / Coeff ) * R(2)
+        Rtmp(1) = COS( R(2) / Coeff ) * R(1)
+        Rtmp(2) = SIN( R(2) / Coeff ) * R(1)
         Rtmp(3) = R(3)
         
       CASE DEFAULT
@@ -5899,7 +5913,7 @@ CONTAINS
       END SELECT
       
       R = Rtmp
-      
+
     END SUBROUTINE CoordinateTransformation
    
 
@@ -6552,7 +6566,7 @@ CONTAINS
     Mesh % MaxElementNodes = 1 + Order
     Mesh % MaxElementDOFs = 1 + Order
 
-
+ 
     PRINT *,'NoNodes:',NoNodes
     PRINT *,'NoElements:',NoElements
  
