@@ -68,7 +68,7 @@ MODULE MainUtils
       REAL(KIND=dp) :: rnorm, bnorm, xnorm
       TYPE(SubMatrix_t), ALLOCATABLE :: SubMatrix(:,:)
       LOGICAL, ALLOCATABLE :: SubMatrixActive(:,:)
-      TYPE(SubVector_t), ALLOCATABLE :: SubVector(:)
+      TYPE(SubVector_t), POINTER :: SubVector(:) => Null()
     END TYPE BlockMatrix_t
     
     TYPE(BlockMatrix_t), TARGET, SAVE :: TotMatrix
@@ -2870,6 +2870,7 @@ CONTAINS
     v(1:offset(NoVar+1)) = 0
     DO i=1,NoVar
       DO j=1,NoVar
+        s = 0._dp
         IF (isParallel) THEN
           CALL ParallelMatrixVector( TotMatrix % SubMatrix(i,j) % Mat, &
                u(offset(j)+1:offset(j+1)), s  )
@@ -2894,13 +2895,13 @@ CONTAINS
     USE DefUtils
     
     REAL(KIND=dp), TARGET :: u(*), v(*)
-    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),b(:), x(:)
+    REAL(KIND=dp), POINTER :: rtmp(:),vtmp(:),b(:), x(:), rhs_save(:)
     INTEGER :: i,j,k,l,NoVar,ipar(*)
     TYPE(Solver_t), POINTER :: Solver
     INTEGER, POINTER :: Offset(:)
     TYPE(ValueList_t), POINTER :: Params
     INTEGER, POINTER :: BlockOrder(:)
-    TYPE(Matrix_t), POINTER :: A
+    TYPE(Matrix_t), POINTER :: A, mat_save
     TYPE(Variable_t), POINTER :: Var, SolverVar
 
     LOGICAL :: GotOrder, BlockGS, Found    
@@ -2966,6 +2967,10 @@ CONTAINS
       ELSE      
         b => v(offset(i)+1:offset(i+1))
       END IF
+      mat_save => Solver % Matrix
+      Solver % Matrix => A
+      rhs_save => Solver % Matrix % RHS
+      Solver % Matrix % RHS => b
     
 
       IF( ListGetLogical( Params,'Block Prec Reuse',Found) ) THEN
@@ -2992,6 +2997,9 @@ CONTAINS
         CALL SolveSystem( A, ParMatrix, b, &
             x, Var % Norm, Var % DOFs, Solver )
       END IF
+
+      Solver % Matrix % RHS => rhs_save
+      Solver % Matrix => mat_save
 
       !---------------------------------------------------------------------
       IF( BlockGS ) THEN        
@@ -3569,8 +3577,8 @@ CONTAINS
       INTEGER :: i,RowVar,iter,LinIter
       INTEGER, POINTER :: BlockOrder(:)
       LOGICAL :: GotIt, GotBlockOrder
-      REAL(KIND=dp), POINTER :: b(:)
-      TYPE(Matrix_t), POINTER :: A
+      REAL(KIND=dp), POINTER :: b(:), rhs_save(:)
+      TYPE(Matrix_t), POINTER :: A, mat_save
       TYPE(Variable_t), POINTER :: Var, SolverVar
       REAL(KIND=dp) :: LinTol, MaxChange
 
@@ -3617,11 +3625,19 @@ CONTAINS
           Var => TotMatrix % SubVector(RowVar) % Var
           Solver % Variable => Var
 
+          mat_Save => Solver % Matrix
+          Solver % Matrix => A
+          rhs_save => Solver % Matrix % RHS
+          Solver % Matrix % RHS => b
+
           ! Solving the subsystem
           !-----------------------------------
           CALL ListSetNameSpace('block '//TRIM(i2s(RowVar))//TRIM(i2s(RowVar))//':')          
           CALL SolveSystem( A, ParMatrix, b, &
               Var % Values, Var % Norm, Var % DOFs, Solver )
+
+          Solver % Matrix % RHS => rhs_save
+          Solver % Matrix => mat_save
           
           TotNorm = TotNorm + Var % Norm
           MaxChange = MAX( MaxChange, Var % NonlinChange )
@@ -3800,6 +3816,7 @@ CONTAINS
           A => BlockMatrix % SubMatrix( NoRow, NoCol ) % Mat
           IF( A % NumberOfRows == 0 ) CYCLE
           
+          rtmp = 0._dp
           CALL MatrixVectorMultiply( A, x, rtmp)      
           
           rhs(1:n) = rhs(1:n) - rtmp(1:n)
