@@ -2904,8 +2904,7 @@ CONTAINS
     TYPE(Matrix_t), POINTER :: A, mat_save
     TYPE(Variable_t), POINTER :: Var, SolverVar
 
-    LOGICAL :: GotOrder, BlockGS, Found    
-    LOGICAL :: NS
+    LOGICAL :: GotOrder, BlockGS, Found, NS, SkipCompChange
     TYPE(Varying_string) :: namesp
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 
@@ -2959,6 +2958,8 @@ CONTAINS
       ELSE
         PRINT *,'Using tailored preconditioning matrix'
       END IF
+
+
       x => u(offset(i)+1:offset(i+1))
       Var => TotMatrix % SubVector(i) % Var
       Solver % Variable => Var
@@ -2967,6 +2968,7 @@ CONTAINS
       ELSE      
         b => v(offset(i)+1:offset(i+1))
       END IF
+
       mat_save => Solver % Matrix
       Solver % Matrix => A
       rhs_save => Solver % Matrix % RHS
@@ -2982,13 +2984,15 @@ CONTAINS
       END IF
 
       CALL ListSetNameSpace('block '//TRIM(i2s(i))//TRIM(i2s(i))//':')
+      SkipCompChange = ListGetLogical( Params,'Skip Compute Nonlinear Change')
+      CALL ListAddLogical( Params,'Skip Compute Nonlinear Change',.TRUE.)
 
       IF (isParallel) THEN
         GlobalData => A % ParMatrix
         GlobalMatrix => GlobalData % SplittedMatrix % InsideMatrix
         GlobalMatrix % MatVecSubr = A % MatVecSubr
         GlobalMatrix % Ematrix => A
-        GlobalMatrix % Complex = A % Complex
+        GlobalMatrix % COMPLEX = A % COMPLEX
 
         CALL IterSolver( GlobalMatrix, x,b, &
             Solver,MatvecF=AddrFunc(SParMatrixVector), &
@@ -3018,7 +3022,7 @@ CONTAINS
           ! The residual is used only as a temporary vector
           !-------------------------------------------------------------
           IF (isParallel) THEN
-            CALL ParallelMatrixVector(TotMatrix % SubMatrix(k,j) % Mat,x,rtmp )
+            CALL ParallelMatrixVector(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
           ELSE
             CALL MatrixVectorMultiply(TotMatrix % SubMatrix(k,i) % Mat,x,rtmp )
           END IF
@@ -3028,6 +3032,7 @@ CONTAINS
       END IF
     END DO
     CALL ListSetNameSpace(CHAR(namesp))
+    CALL ListAddLogical( Params,'Skip Compute Nonlinear Change',SkipCompChange)
     Solver % Variable => SolverVar
 
     IF( BlockGS ) THEN
@@ -3181,9 +3186,6 @@ CONTAINS
     END IF
 
 
-
-
-
     !------------------------------------------------------------------------------
     ! This is the nonlinear loop that may be used either for true 
     ! nonlinearities.
@@ -3221,7 +3223,7 @@ CONTAINS
         !---------------------------------------------------------------------
         CALL ListAddInteger( SolverParams,'Nonlinear System Max Iterations',1)
         CALL ListAddLogical( SolverParams,'Linear System Solver Disabled',.TRUE.)
-!        CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
+
 
         CALL SingleSolver( Model, PSolver, dt, Transient )
 
@@ -3452,7 +3454,7 @@ CONTAINS
       IF (isParallel) THEN
         DO i=1,NoVar
           DO j=1,NoVar
-             IF (i/=j) THEN
+             IF ( i /= j ) THEN
                CALL ParallelInitSolve( TotMatrix % SubMatrix(i,j) % Mat, &
                   r,r,r)
              ELSE 
@@ -3576,7 +3578,7 @@ CONTAINS
 
       INTEGER :: i,RowVar,iter,LinIter
       INTEGER, POINTER :: BlockOrder(:)
-      LOGICAL :: GotIt, GotBlockOrder
+      LOGICAL :: GotIt, GotBlockOrder, SkipCompChange
       REAL(KIND=dp), POINTER :: b(:), rhs_save(:)
       TYPE(Matrix_t), POINTER :: A, mat_save
       TYPE(Variable_t), POINTER :: Var, SolverVar
@@ -3586,6 +3588,9 @@ CONTAINS
       LinIter = ListGetInteger( SolverParams,'Linear System Max Iterations',GotIt)
       LinTol = ListGetConstReal( SolverParams,'Linear System Convergence Tolerance',GotIt)
       SolverVar => Solver % Variable
+
+!      SkipCompChange = ListGetLogical( SolverParams,'Skip Compute Nonlinear Change',GotIt)
+!      CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
 
       DO iter = 1, LinIter
         
@@ -3649,6 +3654,7 @@ CONTAINS
 
       END DO
       Solver % Variable => SolverVar
+!      CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',SkipCompChange)
 
 
     END SUBROUTINE StandardIter
