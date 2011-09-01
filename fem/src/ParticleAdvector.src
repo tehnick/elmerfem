@@ -96,6 +96,7 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: Params
   TYPE(Solver_t), POINTER :: PSolver
   TYPE(Variable_t), POINTER :: Var
+  TYPE(ParticleVariable_t), POINTER :: AgeVar
   LOGICAL :: GotIt, Debug, Hit, InitLocation, InitTimestep, Found, ParticleInfo, &
       RungeKutta
   INTEGER :: i,j,k,n,dim,No,nodims,&
@@ -143,6 +144,10 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
   CALL InitializeParticles( Particles ) 
   CALL ReleaseWaitingParticles(Particles) 
   Particles % Status = PARTICLE_LOCATED
+
+  IF( GetLogical( Params,'Particle Time',Found) ) THEN
+    CALL CreateParticleVariable( Particles,'particle time')
+  END IF
 
   InitTimestep = .TRUE.
   IF( RungeKutta ) THEN
@@ -331,6 +336,7 @@ CONTAINS
         UsePerm,InternalVariable
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, ResultName, OperName, Name
     TYPE(Variable_t), POINTER :: TargetVar, ResultVar, Var
+    TYPE(ParticleVariable_t), POINTER :: ParticleVar
     REAL(KIND=dp), ALLOCATABLE :: NewValues(:)
     REAL(KIND=dp), POINTER :: TmpValues(:)
     INTEGER, POINTER :: TmpPerm(:)
@@ -364,7 +370,8 @@ CONTAINS
           VariableName == 'particle number' .OR. &
           VariableName == 'particle distance' .OR. &
           VariableName == 'particle coordinate_abs' .OR. &
-          VariableName == 'particle velocity_abs') THEN
+          VariableName == 'particle velocity_abs' .OR. &
+	  VariableName == 'particle time' ) THEN
         dofs = 1
         InternalVariable = .TRUE.
       ELSE IF( VariableName == 'particle coordinate' .OR. &
@@ -490,7 +497,14 @@ CONTAINS
             END DO
             ResultVar % Values(i) = SQRT( ResultVar % Values(i) )
           END DO
-        ELSE
+        ELSE IF( VariableName == 'particle time') THEN
+          ParticleVar => GetParticleVariable( Particles, VariableName )
+          IF( ASSOCIATED( ParticleVar ) ) THEN
+            ResultVar % Values = -ParticleVar % Values
+          ELSE
+            CALL Warn('ParticleAdvector','Field does not exist:'//TRIM(VariableName))
+          END IF
+        ELSE	
           CALL Warn('ParticleAdvector','Unknown field:'//TRIM(VariableName))
         END IF
       ELSE 

@@ -3591,12 +3591,14 @@ RETURN
   !-------------------------------------------------------------
   SUBROUTINE ParticleAdvanceFraction( Particles, dtime, ind )
     TYPE(Particle_t), POINTER :: Particles
+    TYPE(ParticleVariable_t), POINTER :: TimeVar, DistVar
+    LOGICAL :: GotTimeVar, GotDistVar
     REAL(KIND=dp) :: dtime
     INTEGER, OPTIONAL :: ind
     
     REAL(KIND=dp) :: dCoord(3), ds
     INTEGER :: dim, Status, No, NoStart, NoFin
-
+    
     dim = Particles % dim
     IF( PRESENT( ind ) ) THEN
       NoStart = ind
@@ -3605,6 +3607,9 @@ RETURN
       NoStart = 1
       NoFin = Particles % NumberOfParticles
     END IF
+
+    TimeVar => GetParticleVariable( Particles,'particle time')
+    GotTimeVar = ASSOCIATED( TimeVar )
 
     DO No=NoStart,NoFin
       Status = Particles % Status(No)
@@ -3622,6 +3627,10 @@ RETURN
 
       ds = SQRT( SUM( dCoord(1:dim)**2 ) )
       Particles % Distance(No) = Particles % Distance(No) + ds    
+
+      IF( GotTimeVar ) THEN
+        TimeVar % Values(No) = TimeVar % Values(No) + dtime
+      END IF 
     END DO
 
   END SUBROUTINE ParticleAdvanceFraction
@@ -3637,7 +3646,8 @@ RETURN
     LOGICAL, OPTIONAL :: RungeKutta
     INTEGER, OPTIONAL :: ind
     INTEGER :: TimeCount = 0
-
+    TYPE(ParticleVariable_t), POINTER :: TimeVar, DistVar
+    LOGICAL :: GotTimeVar, GotDistVar
     REAL(KIND=dp) :: Drag, Mass, ds, dCoord(3),Coord(3)
     INTEGER :: dim
     INTEGER :: Status, TimeOrder, No
@@ -3645,7 +3655,8 @@ RETURN
     INTEGER :: NoStart, NoFin
     LOGICAL :: Found, Visited = .FALSE.,RK2
     
-    SAVE TimeOrder, dim, Mass, Drag, Visited, dCoord, Coord, TimeCount
+    SAVE TimeOrder, dim, Mass, Drag, Visited, dCoord, Coord, TimeCount, GotTimeVar, &
+	GotDistVar, TimeVar, DistVar
 
     
     Particles % dtime = dtime 
@@ -3668,6 +3679,12 @@ RETURN
       dCoord = 0.0_dp
       Coord = 0.0_dp
       Visited = .TRUE.
+
+      TimeVar => GetParticleVariable( Particles,'particle time')
+      GotTimeVar = ASSOCIATED( TimeVar )
+ 
+      DistVar => GetParticleVariable( Particles,'particle distance')
+      GotDistVar = ASSOCIATED( DistVar )
     END IF
 
     IF( PRESENT( ind ) ) THEN
@@ -3721,6 +3738,14 @@ RETURN
 
       ds = SQRT( SUM( dCoord(1:dim)**2 ) )
       Particles % Distance(No) = Particles % Distance(No) + ds    
+
+      IF( GotTimeVar ) THEN
+        IF( RK2 ) THEN
+          TimeVar % Values(No) = TimeVar % Values(No) + 0.5_dp * dtime
+        ELSE
+          TimeVar % Values(No) = TimeVar % Values(No) + dtime
+        END IF
+      END IF 
       
       Particles % Force(No,:)= 0.0_dp
       Particles % Status(No) = PARTICLE_READY
@@ -4060,6 +4085,8 @@ RETURN
     INTEGER :: NoParticles
 !------------------------------------------------------------------------------
 
+    CALL Info('CreateParticleVariable','Creating variable: '//TRIM(Name))
+
     NoParticles = Particles % MaxNumberOfParticles
     IF( NoParticles == 0 ) THEN
       CALL Warn('CreateParticleVariable','No particles present!')
@@ -4112,6 +4139,8 @@ RETURN
     Values = 0.0_dp
     ptr % Values => Values
 
+print *,'all done'
+
 !------------------------------------------------------------------------------
   END SUBROUTINE CreateParticleVariable
 !------------------------------------------------------------------------------
@@ -4132,7 +4161,6 @@ RETURN
       
 !------------------------------------------------------------------------------
     k = StringToLowerCase( str,Name,.TRUE. )
-    
     Tmp => Particles % Variables
 
     DO WHILE( ASSOCIATED(tmp) )
