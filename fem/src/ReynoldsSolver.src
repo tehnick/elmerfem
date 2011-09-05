@@ -56,11 +56,14 @@ SUBROUTINE ReynoldsSolver_init( Model,Solver,dt,TransientSimulation )
 
 
   Params => GetSolverParams()
+
+! This is the old way of setting the cavitation set
+!-----------------------------------------------------
   Cavitation = ListGetLogical( Params,'Cavitation',Found)
   IF(.NOT. Found ) THEN
     Cavitation = ListCheckPresent(Params,'Cavitation Pressure')
     IF( Cavitation ) THEN
-      CALL Warn('ReynoldsSolver_init','If you want to activate cavitation set >Cavitation = True<')
+      CALL Warn('ReynoldsSolver_init','If you want to activate cavitation set > Cavitation = True <')
       CALL ListAddLogical(Params,'Cavitation',.TRUE.)
     END IF
   END IF
@@ -74,6 +77,12 @@ SUBROUTINE ReynoldsSolver_init( Model,Solver,dt,TransientSimulation )
 	TRIM(VarName)//' Cavitation')
     CALL ListAddLogical( Params,'Calculate Loads',.TRUE.)
   END IF
+
+! The new way with generic limiters is a library functionality.
+! The Poisson equation is assembled using different sign that the 
+! typical convention. Hence the load sign for limiters is opposite
+!----------------------------------------------------------------
+  CALL ListAddLogical( Params,'Limiter Load Sign Negative',.TRUE.)
 
 END SUBROUTINE ReynoldsSolver_init
 
@@ -116,7 +125,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       UseVelocity, SideCorrection, Bubbles, PartIntSliding, Cavitation, Converged
   REAL(KIND=dp), POINTER :: Pressure(:), CavitationValues(:), LoadValues(:)
   REAL(KIND=dp) :: Norm, ReferencePressure, HeatRatio, BulkModulus, &
-      mfp0, Pres, Dens, CavitationPressure
+      mfp0, Pres, Dens, CavitationPressure, CavLoadTol, CavPresTol
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:), TimeForce(:), &
       Viscosity(:), GapHeight(:), NormalVelocity(:), Velocity(:,:), &
       Admittance(:), Impedance(:), ElemPressure(:)
@@ -148,8 +157,12 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
   Cavitation = GetLogical( Params,'Cavitation',GotIt) 
   IF(Cavitation) THEN
     CavitationPressure = GetCReal( Params,'Cavitation Pressure')
+    CavLoadTol = GetCReal( Params,'Cavitation Load Tolerance',GotIt)
+    IF(.NOT. GotIt ) CavLoadTol = 1.0e-20
+    CavPresTol = GetCReal( Params,'Cavitation Pressure Tolerance',GotIt)
+    IF(.NOT. GotIt ) CavPresTol = 1.0e-6   
   END IF
-  
+
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
   IF(Solver % Variable % Dofs /= 1) THEN
     CALL Fatal('ReynoldsSolver','Impossible number of dofs! (should be 1)')    
@@ -293,8 +306,8 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------        
 
       GapHeight(1:n) = GetReal( Material,'Gap Height')
-      Viscosity(1:n) = GetReal( Material, 'Viscosity')
       Admittance(1:n) = GetReal( Material, 'Flow Admittance', GotIt)
+      Viscosity(1:n) = GetReal( Material, 'Viscosity')
 
       IF(mat_id /= mat_idold) THEN                  
 
@@ -359,7 +372,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         CALL Condensate( N, STIFF, FORCE, TimeForce )
       END IF
 
-      CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate = Cavitation )
+      CALL DefaultUpdateEquations( STIFF, FORCE )
 
 !------------------------------------------------------------------------------
     END DO 
@@ -430,7 +443,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
           CALL Default1stOrderTime( MASS, STIFF, FORCE )
         END IF
         
-        CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate = Cavitation )
+        CALL DefaultUpdateEquations( STIFF, FORCE )
 
 !------------------------------------------------------------------------------
       END DO
@@ -455,12 +468,12 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !          CavitationValues(i) = -1.0
 !        ELSE IF( CavitationValues(i) > 0.0 ) THEN
         IF( CavitationValues(i) > 0.0 ) THEN
-          IF( LoadValues(i) > 1.0d-20 ) THEN
+          IF( LoadValues(i) > CavLoadTol ) THEN
             removed = removed + 1
             CavitationValues(i) = -1.0
           END IF
         ELSE
-          IF( Pressure(i) < CavitationPressure - 1.0d-6) THEN
+          IF( Pressure(i) < CavitationPressure - CavPresTol ) THEN
             added = added + 1
             CavitationValues(i) = 1.0
           END IF
@@ -468,11 +481,11 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       END DO
 
       IF(added > 0) THEN
-        WRITE(Message,'(A,I7,A)') 'Added',added,' nodes from the cavitation set'
+        WRITE(Message,'(A,I0,A)') 'Added ',added,' nodes to the cavitation set'
         CALL Info('ReynoldsSolver',Message,Level=5)
       END IF
       IF(removed > 0) THEN
-        WRITE(Message,'(A,I5,A)') 'Removed',removed,' nodes from the cavitation set'
+        WRITE(Message,'(A,I0,A)') 'Removed ',removed,' nodes from the cavitation set'
         CALL Info('ReynoldsSolver',Message,Level=5)
       END IF      
 
