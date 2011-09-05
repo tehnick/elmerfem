@@ -428,7 +428,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       GetLogical( Params,'Reinitialize Particles',Found) ) THEN
     CALL InitializeParticles( Particles ) 
     IF( GetLogical( Params,'Particle Distance',Found) ) THEN
-      CALL CreateParticleVariable( Particles,'Particle Distance' )
+      CALL ParticleVariableCreate( Particles,'Particle Distance' )
     END IF
   END IF
 
@@ -648,7 +648,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
      TYPE(Variable_t), POINTER :: VeloVar, PotVar, VeloCondVar, CoordCondVar
      LOGICAL :: GotGravity, GotDamping, GotBuoyancy, GotField, GotMass, &
          GotTimeDecay, GotDistDecay, GotFieldMode, GotFieldWeight
-     TYPE(ParticleVariable_t), POINTER :: DistVar
+     TYPE(Variable_t), POINTER :: DistVar
 
      SAVE :: Visited, dim, Basis, dBasisdx, mass, charge, dragcoeff, &
          FieldMode, FieldWeight, TimeDecay, DistDecay, UseGradVelo, TimeOrder, &
@@ -749,7 +749,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        DensityName = 'Density'
 
        IF( GotDistDecay ) THEN
-         DistVar => GetParticleVariable( Particles,'Particle Distance' )
+         DistVar => ParticleVariableGet( Particles,'Particle Distance' )
          IF( .NOT. ASSOCIATED( DistVar ) ) THEN
            CALL Fatal('ParticleDynamics','> Particle Distance < should exist as variable!')
          END IF
