@@ -44,7 +44,6 @@
 
       </Equation>
 
-
       <Solver>
          <Parameter Widget="Edit" >
             <Name > Procedure </Name>
@@ -58,23 +57,11 @@
        <Parameter Widget="Label"> <Name>Definitions for cavitation</Name> </Parameter>
 
          <Parameter Widget="CheckBox">
-           <Name> Cavitation </Name>
-           <Whatis> If checked the cavitation model is accounted for. </Whatis>
-           <Activate> /Reynolds Equation/Solver/Cavitation Pressure</Activate>
-           <Activate> /Reynolds Equation/Solver/Exported Variable 1</Activate>
-           <Activate> /Reynolds Equation/Solver/Exported Variable 2</Activate>
+           <Name> Apply Limiter </Name>
+           <Whatis> If checked the pressure may be given a soft limit as in cavitation. </Whatis>
+           <StatusTip> If checked the pressure may be given a soft limit as in cavitation. </StatusTip>
+           <Activate> /Reynolds Equation/BodyForce/Filmpressure Lower Limit</Activate>
          </Parameter>
-         <Parameter Widget="Edit" Enabled="False" Visible="False">
-           <Name> Cavitation Pressure </Name>
-         </Parameter>
-         <Parameter Widget="Edit" Enabled="False" Visible="False">
-           <Name> Exported Variable 1 </Name>
-           <DefaultValue> FilmPressure Loads </DefaultValue>
-         </Parameter>
-         <Parameter Widget="Edit" Enabled="False" Visible="False">
-             <Name> Exported Variable 2 </Name>
-            <DefaultValue> FilmPressure Cavitation</DefaultValue>
-          </Parameter>
 
          <Parameter Widget="Label">
            <Name> Free text input </Name>
@@ -92,9 +79,6 @@
           <Parameter  Widget="Edit">
            <Name> FilmPressure  </Name>
          </Parameter>
-         <Parameter  Widget="Edit"> 
-           <Name> FilmPressure Condition </Name>
-         </Parameter>
       </InitialCondition>
 
       <BodyForce>
@@ -106,7 +90,12 @@
 
          <Parameter  Widget="Edit" Enabled="False">
            <Name> FilmPressure Condition </Name>
-           <DefaultValue> Variable "FilmPressure Cavitation"; Real MATC "tx" </DefaultValue>
+         </Parameter>
+
+         <Parameter  Widget="Edit" Enabled="False">
+           <Name> Filmpressure Lower Limit </Name>
+           <Whatis> Soft limit for pressure that may be used to model cavitation</Whatis>
+           <StatusTip> Soft limit for pressure that may be used to model cavitation</StatusTip>
          </Parameter>
 
          <Parameter Widget="Label">
