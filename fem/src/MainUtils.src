@@ -787,13 +787,13 @@ CONTAINS
   END SUBROUTINE AddEquationBasics
 
 
-  !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------  
+!> Add information that is typically only needed if there's a matrix equation
+!> to work with. This should be called only after both the solution vector and
+!> matrix have been created.
+!------------------------------------------------------------------------------
   SUBROUTINE AddEquationSolution(Solver, Transient )
-    !------------------------------------------------------------------------------
-    ! Add information that is typically only needed if there's a matrix equation
-    ! to work with. This should be called only after both the solution vector and
-    ! matrix have been created.
-    !------------------------------------------------------------------------------  
+!------------------------------------------------------------------------------
     TYPE(Solver_t), POINTER :: Solver
     LOGICAL :: Transient
 !------------------------------------------------------------------------------
@@ -815,7 +815,6 @@ CONTAINS
     IF ( .NOT. ASSOCIATED( Solver % Variable ) ) RETURN
     IF ( .NOT. ASSOCIATED(Solver % Variable % Values) ) RETURN
     !------------------------------------------------------------------------------
-
 	
     !------------------------------------------------------------------------------
     ! If soft limiters are applied then also loads must be computed
@@ -1595,14 +1594,14 @@ CONTAINS
 
 
   !-----------------------------------------------------------------------------------
-  ! If a block variable does not exist it will be created. 
-  ! Here only normal nodal elements are supported for the moment. 
-  ! Then also the creation of permutation vector is straight-forward.
-  ! Note that no reordering is currently performed.
+  !> If a block variable does not exist it will be created. 
+  !> Here only normal nodal elements are supported for the moment. 
+  !> Then also the creation of permutation vector is straight-forward.
+  !> Note that no reordering is currently performed.
   !
-  ! There is limitation regarding non-nodal elements which stems partly from the fact
-  ! that an elementtype is solver specific while this one solver could have a number of
-  ! different elementtypes for different equations.
+  !> There is limitation regarding non-nodal elements which stems partly from the fact
+  !> that an elementtype is solver specific while this one solver could have a number of
+  !> different elementtypes for different equations.
   !-----------------------------------------------------------------------------------
   FUNCTION CreateBlockVariable( Solver, VariableNo, VarName, ExtDofs, ExtPerm ) RESULT ( Var )
 
@@ -1756,12 +1755,12 @@ CONTAINS
 
 
 !---------------------------------------------------
+! Perform assembly for the block system linear
+! system of equations.
+!---------------------------------------------------
   SUBROUTINE BlockSystemAssembly(Solver,dt,Transient,RowVar,ColVar,&
       RowIndOffset,ColIndOffset)
-    !---------------------------------------------------
-    ! Perform normal assembly for the coupled system linear
-    ! system of equations.
-    !---------------------------------------------------
+!---------------------------------------------------
     USE DefUtils
 
     TYPE(Solver_t), POINTER :: Solver
@@ -2036,28 +2035,19 @@ CONTAINS
   !-----------------------------------------------------------------------------------
   
 
-
-
-
-
 !------------------------------------------------------------------------------
-! This is a line of monolithic solvers where different physics and constraints 
-! are assemblied to the same matrix.
-!------------------------------------------------------------------------------
-  SUBROUTINE CoupledSolver( Model, Solver, dt, Transient )
-!------------------------------------------------------------------------------
-! Provide assembly loop and solution of linear and nonlinear systems
-! This routine uses minimalistic assmebly routines to create the 
-! matrices. Often the results to less labour in coding which may be 
-! comprimized by less flexibility.
+!> This is a line of monolithic solvers where different physics and constraints 
+!> are assemblied to the same matrix.
+!> Provide assembly loop and solution of linear and nonlinear systems
+!> This routine uses minimalistic assmebly routines to create the 
+!> matrices. Often the results to less labour in coding which may be 
+!> comprimized by less flexibility.
 ! 
 ! There are currently two modes
 ! IsCoupledSolver:  the variable consists of several pieces and the matrix equation
 !                   is created within this solver.
 ! IsAssemblySolver: only one assembly routine is used and the matrix equation may
 !                   be formed externally using standard procedures.
-!------------------------------------------------------------------------------
-
 ! TODO:
 ! non-nodal elements (internal allocation & right elementtype)
 ! solution (and perm) vectors could be reused by setting pointers to correct positions
@@ -2065,8 +2055,9 @@ CONTAINS
 ! check for eigenmode analysis
 ! different lumped functionalities (energy,...)
 ! bandwidth optimization for coupled system
-
-    
+!------------------------------------------------------------------------------
+  SUBROUTINE CoupledSolver( Model, Solver, dt, Transient )
+!------------------------------------------------------------------------------    
     USE DefUtils
     
     IMPLICIT NONE
@@ -2464,10 +2455,10 @@ CONTAINS
   CONTAINS 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE IntegralConstraint( Mass, Damp, Stiff, Force, Element, n )
+!> Integration routine for integral type of constraints i.e. body or boundary
+!> integral of some dof is known a priori.
 !------------------------------------------------------------------------------
-! Integration routine for integral type of constraints i.e. body or boundary
-! integral of some dof is known a priori.
+   SUBROUTINE IntegralConstraint( Mass, Damp, Stiff, Force, Element, n )
 !------------------------------------------------------------------------------
      
       IMPLICIT NONE
@@ -2506,8 +2497,8 @@ CONTAINS
  
    
     !------------------------------------------------------------------------------          
-    ! Subroutine sets the Dirichlet conditions for the coupled system 
-    ! using the single system vector names and sizes.
+    !> Subroutine sets the Dirichlet conditions for the coupled system 
+    !> using the single system vector names and sizes.
     !----------------------------------------------------------------------------------
     SUBROUTINE CoupledSystemDirichlet()
       CALL Info( 'CoupledSolver', 'Setting coupled system Dirichlet conditions', Level=4 )
@@ -2554,8 +2545,8 @@ CONTAINS
 
 
     !------------------------------------------------------------------------------          
-    ! Subroutine copies results from the coupled system vector back to the 
-    ! original vectors.
+    !> Subroutine copies results from the coupled system vector back to the 
+    !> original vectors.
     !----------------------------------------------------------------------------------
     SUBROUTINE CoupledToSingleVector()
       CALL Info('CoupledSolver','Copying results into original variables',Level=5)
@@ -2582,11 +2573,11 @@ CONTAINS
 
 
     !-----------------------------------------------------------------------------------
+    !> Perform constraints assembly
+    !> Some constraints are assembled by integration while others are done by elimination.
+    !> It is important that constraints are applied after the normal assembly process. 
+    !-----------------------------------------------------------------------------------
     SUBROUTINE CoupledConstraintAssembly()
-      !-----------------------------------------------------------------------------------
-      ! Perform constraints assembly
-      ! Some constraints are assembled by integration while others are done by elimination.
-      ! It is important that constraints are applied after the normal assembly process. 
       !-----------------------------------------------------------------------------------
       INTEGER :: TargetDof, TmpInds(4) 
 
@@ -2851,8 +2842,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Perform matrix-vector product for block matrices.
-! Has to be callab outside the module bt Krylov methods.
+!> Perform matrix-vector product for block matrices.
+!> Has to be callab outside the module bt Krylov methods.
 !------------------------------------------------------------------------------
   SUBROUTINE BlockMatrixVectorProd( u,v,ipar )
     INTEGER :: i,j,k,NoVar,ipar(*)
@@ -2888,8 +2879,8 @@ CONTAINS
   
 
 !------------------------------------------------------------------------------
-! Perform block preconditioning by solving all the individual diagonal problems.
-! Has to be called outside the module by Krylov methods.
+!> Perform block preconditioning by solving all the individual diagonal problems.
+!> Has to be called outside the module by Krylov methods.
 !------------------------------------------------------------------------------
   SUBROUTINE BlockMatrixPrec( u,v,ipar )
     USE DefUtils
@@ -3045,8 +3036,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! This is a line of solvers where a matrix is matrices and a vector of vectors 
-! are created to allow different kinds of block strategies for the solvers.
+!> This is a line of solvers where a matrix is matrices and a vector of vectors 
+!> are created to allow different kinds of block strategies for the solvers.
 !------------------------------------------------------------------------------
   SUBROUTINE BlockSolver( Model, Solver, dt, Transient )
 !------------------------------------------------------------------------------
@@ -3427,8 +3418,9 @@ CONTAINS
   CONTAINS 
 
 
-    ! This call takes care of the iterative Krylov methods for block systems
-    ! which can still be preconditioned by block Jacobi or Gauss-Seidel methods
+    !---------------------------------------------------------------------------
+    !> This call takes care of the iterative Krylov methods for block systems
+    !> which can still be preconditioned by block Jacobi or Gauss-Seidel methods
     !---------------------------------------------------------------------------
     SUBROUTINE KrylovIter()
       USE IterSolve
@@ -3572,7 +3564,8 @@ CONTAINS
     END SUBROUTINE KrylovIter
 
 
-    ! This call takes care of Jacobi & Gauss Seidel block methods 
+    !-----------------------------------------------------------------
+    !> This call takes care of Jacobi & Gauss Seidel block methods. 
     !-----------------------------------------------------------------
     SUBROUTINE StandardIter()
 
@@ -3661,8 +3654,8 @@ CONTAINS
 
 
     !-------------------------------------------------------------------
-    ! This subroutine initializes the block matrix structure so that the 
-    ! matrices and vectors have a natural location to save.
+    !> This subroutine initializes the block matrix structure so that the 
+    !> matrices and vectors have a natural location to save.
     !------------------------------------------------------------------
     SUBROUTINE InitializeBlockMatrix( BlockMatrix, NoVar, BlockStruct )
       
@@ -3766,10 +3759,10 @@ CONTAINS
 
 
     !------------------------------------------------------------------------------          
-    ! Compute the rhs for the block matrix system which is solved
-    ! accounting only the diagonal entries i.e. subtract the non-diagonal 
-    ! matrix-vector results from the original r.h.s. vectors.
-    ! After this the block diagonal problem Ax=b may be solved.
+    !> Compute the rhs for the block matrix system which is solved
+    !> accounting only the diagonal entries i.e. subtract the non-diagonal 
+    !> matrix-vector results from the original r.h.s. vectors.
+    !> After this the block diagonal problem Ax=b may be solved.
     !----------------------------------------------------------------------------------
     SUBROUTINE UpdateBlockRhs( BlockMatrix, ThisRow )
       
@@ -3835,12 +3828,12 @@ CONTAINS
 
 
     !------------------------------------------------------------------------------          
-    ! Subroutine sets the Dirichlet conditions for the block system 
-    ! using the single system vector names and sizes. For that aim there is an 
-    ! additional flag that is used to detect that the matrix cannot have the digonal 
-    ! entry that is by default set to unity and the r.h.s. to the target value.
-    ! Now for off-diagonal matrices they will be both omitted. 
-    ! The routine assumes that the r.h.s. of the off diagonal matrices is zero.
+    !> Subroutine sets the Dirichlet conditions for the block system 
+    !> using the single system vector names and sizes. For that aim there is an 
+    !> additional flag that is used to detect that the matrix cannot have the digonal 
+    !> entry that is by default set to unity and the r.h.s. to the target value.
+    !> Now for off-diagonal matrices they will be both omitted. 
+    !> The routine assumes that the r.h.s. of the off diagonal matrices is zero.
     !----------------------------------------------------------------------------------
     SUBROUTINE BlockSystemDirichlet(BlockMatrix,NoRow,NoCol)
 
@@ -3869,7 +3862,7 @@ CONTAINS
 
 
     !------------------------------------------------------------------------------          
-    ! Compute the block norm, optionally 
+    !> Compute the block norm, optionally. 
     !----------------------------------------------------------------------------------
     FUNCTION ComputeBlockNorm(BlockMatrix, DiagonalOnly, MatrixOnly ) RESULT ( Residual )
       
@@ -4076,8 +4069,8 @@ CONTAINS
   
 
 !------------------------------------------------------------------------------
-! This is the original line of solvers where each solver includes looping over 
-! elements and the convergence control. 
+!> This is the original line of solvers where each solver includes looping over 
+!> elements and the convergence control. 
 !------------------------------------------------------------------------------
   SUBROUTINE SingleSolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
