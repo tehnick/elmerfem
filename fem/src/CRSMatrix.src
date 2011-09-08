@@ -292,7 +292,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_AddToMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), INTENT(IN,OUT):: A     !< Structure holding the matrix
+    TYPE(Matrix_t) :: A     !< Structure holding the matrix
     INTEGER, INTENT(IN) :: i         !< row number of the matrix element
     INTEGER, INTENT(IN) :: j         !< column number of the matrix element
     REAL(KIND=dp), INTENT(IN) :: value   !< value to be added to the matrix element
@@ -327,7 +327,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_SetMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), INTENT(IN,OUT):: A     !< Structure holding the matrix
+    TYPE(Matrix_t) :: A     !< Structure holding the matrix
     INTEGER, INTENT(IN) :: i         !< row number of the matrix element
     INTEGER, INTENT(IN) :: j         !< column number of the matrix element
     REAL(KIND=dp), INTENT(IN) :: value   !< new value of the matrix element
@@ -365,7 +365,7 @@ CONTAINS
     TYPE(Matrix_t), INTENT(IN):: A     !< Structure holding the matrix
     INTEGER, INTENT(IN) :: i         !< row number of the matrix element
     INTEGER, INTENT(IN) :: j         !< column number of the matrix element
-    REAL(KIND=dp), INTENT(OUT) :: value   !< obtained value of the matrix element
+    REAL(KIND=dp) :: value   !< obtained value of the matrix element
 !------------------------------------------------------------------------------ 
     INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
@@ -400,7 +400,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: i         !< row number of the matrix element
     INTEGER, INTENT(IN) :: j         !< column number of the matrix element
     REAL(KIND=dp), INTENT(IN) :: NewValue  !< Value to be set   
-    REAL(KIND=dp), INTENT(OUT) :: OldValue !< Value to be gotten  
+    REAL(KIND=dp) :: OldValue !< Value to be gotten  
 !------------------------------------------------------------------------------
  
     INTEGER :: k
@@ -470,8 +470,8 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_GlueLocalMatrix( A,N,Dofs,Indeces,LocalMatrix )
 !------------------------------------------------------------------------------
+     TYPE(Matrix_t) :: A  !< Structure holding matrix
      REAL(KIND=dp), INTENT(IN) :: LocalMatrix(:,:)  !< A (N x Dofs) x ( N x Dofs) matrix holding the values to be added to the CRS format matrix
-     TYPE(Matrix_t), INTENT(IN,OUT) :: A  !< Structure holding matrix
      INTEGER, INTENT(IN) :: N             !< Number of nodes in element
      INTEGER, INTENT(IN) :: Dofs          !< Number of degrees of freedom for one node
      INTEGER, INTENT(IN) :: Indeces(:)    !< Maps element node numbers to global (or partition) node numbers 
@@ -704,7 +704,7 @@ FUNCTION CRS_RowSum( A,k ) RESULT(rsum)
 !------------------------------------------------------------------------------
    TYPE(Matrix_t), INTENT(IN) :: A       !< Structure holding matrix
    INTEGER, INTENT(IN) :: k              !< Row index 
-   REAL(KIND=dp), INTENT(OUT) :: rsum    !< Sum of the entries on the row
+   REAL(KIND=dp) :: rsum    !< Sum of the entries on the row
 !------------------------------------------------------------------------------
    INTEGER :: i
    
@@ -729,7 +729,7 @@ END FUNCTION CRS_RowSum
     INTEGER, INTENT(IN) :: RowNonzeros(:)  !< Number of nonzero entries in rows of the matrix
     INTEGER, INTENT(IN) :: Reorder(:)      !< Permutation index for bandwidth reduction
     LOGICAL, INTENT(IN) :: AllocValues     !< Should the values arrays be allocated ?
-    TYPE(Matrix_t), POINTER, INTENT(OUT) :: A  !>  Pointer to the created Matrix_t structure.
+    TYPE(Matrix_t), POINTER :: A  !>  Pointer to the created Matrix_t structure.
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,istat
     INTEGER, POINTER :: InvPerm(:)
@@ -1065,7 +1065,7 @@ END FUNCTION CRS_RowSum
   SUBROUTINE CRS_BlockDiagonal(A,B,Blocks) 
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), INTENT(IN) :: A      !< The initial matrix
-    TYPE(Matrix_t), INTENT(IN,OUT) :: B  !< The block diagonal matrix
+    TYPE(Matrix_t) :: B  !< The block diagonal matrix
     INTEGER, INTENT(IN) :: Blocks        !< Number of blocks used in the decomposition
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,kb,n
@@ -1263,10 +1263,10 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), INTENT(IN) :: A   !< Initial matrix
     TYPE(Matrix_t) :: B   !< Submatrix picked from the larger matrix
-    INTEGER, POINTER, INTENT(IN) :: BlocksStruct(:)     !< Block decomposition structure of the initial matrix
+    INTEGER, POINTER, INTENT(IN) :: BlockStruct(:)     !< Block decomposition structure of the initial matrix
     INTEGER, INTENT(IN) :: Nrow       !< Row to be picked
     INTEGER, INTENT(IN) :: Ncol       !< Column to be picked
-------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,kb,n,Nrow0,Ncol0,nsub,Mrow,Mcol,mr,mc,imsub,lmsub
     INTEGER :: lsub,isub,istat,modNcol,Blocks
     LOGICAL :: NewMatrix, Allocated, Diagonal, Hit
@@ -1395,7 +1395,7 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), INTENT(IN) :: A  !< Initial matrix
     TYPE(Matrix_t) :: B  !< New matrix with the same preconditioner
-    LOGICAL, INTENT(OUT) :: Status  !< Returns true if copying was successful or unnecessary
+    LOGICAL :: Status  !< Returns true if copying was successful or unnecessary
 !------------------------------------------------------------------------------
     INTEGER :: n
 
@@ -1451,9 +1451,9 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
   FUNCTION CRS_IncompleteLU(A,ILUn) RESULT(Status)
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), INTENT(IN,OUT) :: A  !< Strcture holding input matrix, will also hold the factorization on exit.
+    TYPE(Matrix_t) :: A  !< Strcture holding input matrix, will also hold the factorization on exit.
     INTEGER, INTENT(IN) :: ILUn   !< Order of fills allowed 0-9
-    LOGICAL, INTENT(OUT) :: Status  !< Whether or not the factorization succeeded.
+    LOGICAL :: Status  !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
     LOGICAL :: Warned
     INTEGER :: i,j,k,l,m,n,istat
@@ -1779,9 +1779,9 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
   FUNCTION CRS_ComplexIncompleteLU(A,ILUn) RESULT(Status)
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), INTENT(IN,OUT) :: A  !< Strcture holding input matrix, will also hold the factorization on exit.
+    TYPE(Matrix_t) :: A  !< Strcture holding input matrix, will also hold the factorization on exit.
     INTEGER, INTENT(IN) :: ILUn   !< Order of fills allowed 0-9
-    LOGICAL, INTENT(OUT) :: Status  !< Whether or not the factorization succeeded.
+    LOGICAL :: Status  !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,m,n,istat
 
@@ -2119,7 +2119,7 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A  !< Structure holding input matrix, will also hold the factorization on exit.
     REAL(KIND=dp), INTENT(IN) :: TOL  !< Drop toleranece: if ILUT(i,j) <= NORM(A(i,:))*TOL the value is dropped.
-    LOGICAL, INTENT(OUT) :: Status    !< Whether or not the factorization succeeded.
+    LOGICAL :: Status    !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
     INTEGER :: n
     REAL(KIND=dp) :: CPUTime, t
@@ -2319,7 +2319,7 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A  !< Structure holding input matrix, will also hold the factorization on exit.
     REAL(KIND=dp), INTENT(IN) :: TOL  !< Drop toleranece: if ILUT(i,j) <= NORM(A(i,:))*TOL the value is dropped.
-    LOGICAL, INTENT(OUT) :: Status    !< Whether or not the factorization succeeded.
+    LOGICAL :: Status    !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
     INTEGER :: n
     REAL(KIND=dp) :: CPUTime, t
@@ -2794,8 +2794,8 @@ END FUNCTION CRS_RowSum
   SUBROUTINE CRS_MatrixVectorProd( u,v,ipar )
 !------------------------------------------------------------------------------
     INTEGER, DIMENSION(*), INTENT(IN) :: ipar      !< Structure holding info HUTIter-iterative solver package
-    REAL(KIND=dp) :: u(HUTI_NDIM), INTENT(IN)      !< vector to multiply u
-	REAL(KIND=dp) :: v(HUTI_NDIM), INTENT(IN,OUT)  !< result vector
+    REAL(KIND=dp), INTENT(IN) :: u(HUTI_NDIM)  !< vector to multiply u
+    REAL(KIND=dp) :: v(HUTI_NDIM)  !< result vector
 
 !------------------------------------------------------------------------------
     INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
@@ -2913,8 +2913,8 @@ PRINT*,globalmatrix % spMV
 !------------------------------------------------------------------------------
 
     INTEGER, DIMENSION(*), INTENT(IN) :: ipar      !< Structure holding info HUTIter-iterative solver package
-    COMPLEX(KIND=dp) :: u(HUTI_NDIM), INTENT(IN)      !< vector to multiply u
-	COMPLEX(KIND=dp) :: v(HUTI_NDIM), INTENT(IN,OUT)  !< result vector
+    COMPLEX(KIND=dp), INTENT(IN) :: u(HUTI_NDIM)      !< vector to multiply u
+    COMPLEX(KIND=dp) :: v(HUTI_NDIM)  !< result vector
 
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: Cols(:),Rows(:)
