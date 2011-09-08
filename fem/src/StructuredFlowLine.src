@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for solving steady-state free surface problems for structured meshes.
-! *  Intended applications include drawing and extrusion processes.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -39,81 +34,23 @@
 ! *
 ! *****************************************************************************/
 
-
 !------------------------------------------------------------------------------
-SUBROUTINE StructuredFlowLine_init( Model,Solver,dt,Transient )
-!------------------------------------------------------------------------------
-  USE Types
-  USE DefUtils
-  USE Lists
-
-  IMPLICIT NONE
-
-  TYPE(Model_t)  :: Model
-  TYPE(Solver_t), TARGET :: Solver
-  LOGICAL ::  Transient
-  REAL(KIND=dp) :: dt
-!------------------------------------------------------------------------------
-  INTEGER :: dim
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
-  TYPE(ValueList_t),POINTER :: SolverParams
-  LOGICAL :: GotIt
-
-
-  DIM = CoordinateSystemDimension()
-  SolverParams => GetSolverParams()
-  
-  CALL ListAddLogical( SolverParams,'No Matrix',.TRUE.)
-  
-  VarName = GetString(SolverParams,'Flow Line Displacement Name',GotIt )
-  IF(.NOT. GotIt) VarName = 'FlowLineDisp'
-
-  CALL ListAddString( SolverParams,'Variable',VarName )
-  CALL ListAddInteger( SolverParams,'Variable Dofs',dim )
-
-END SUBROUTINE StructuredFlowLine_init
-!------------------------------------------------------------------------------
-
-
+!> Subroutine for solving steady-state free surface problems for structured meshes.
+!> Intended applications include drawing and extrusion processes.
+!>  This solver assumes that the mesh is structural so that it could have 
+!>  been obtained by extrusion in the direction of interest. For the given 
+!>  direction the corresponding top and bottom node is computed for every node
+!>  and this information is used to perform linear mapping in between.  
 !------------------------------------------------------------------------------
 SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
   USE Types
   USE Lists
-!  USE Integration
-!  USE ElementDescription
-!  USE ElementUtils
-!  USE SolverUtils
-!  USE MeshUtils
-!  USE BandwidthOptimize
-
-!  USE CoordinateSystems
   USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  This solver assumes that the mesh is structural so that it could have 
-!  been obtained by extrusion in the direction of interest. For the given 
-!  direction the corresponding top and bottom node is computed for every node
-!  and this information is used to perform linear mapping in between.  
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient
@@ -566,7 +503,7 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
    CONTAINS
   
   !------------------------------------------------------------------------
-  ! Compute field values at the given points in the FE mesh. 
+  !> Compute field values at the given points in the FE mesh. 
   !-------------------------------------------------------------------------
   SUBROUTINE ComputeVeloAtPoint(GlobalCoords, node, OutOfScope, VeloAtPoint, &
        GradVeloAtPoint, ElementSize ) 
@@ -750,4 +687,41 @@ SUBROUTINE StructuredFlowLine( Model,Solver,dt,Transient )
  
 !------------------------------------------------------------------------------
 END SUBROUTINE StructuredFlowLine
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Initialization of the primary solver, i.e. StrcuturedFlowLine. 
+!------------------------------------------------------------------------------
+SUBROUTINE StructuredFlowLine_init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+  USE Types
+  USE DefUtils
+  USE Lists
+
+  IMPLICIT NONE
+
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL ::  Transient
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+  INTEGER :: dim
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  TYPE(ValueList_t),POINTER :: SolverParams
+  LOGICAL :: GotIt
+
+
+  DIM = CoordinateSystemDimension()
+  SolverParams => GetSolverParams()
+  
+  CALL ListAddLogical( SolverParams,'No Matrix',.TRUE.)
+  
+  VarName = GetString(SolverParams,'Flow Line Displacement Name',GotIt )
+  IF(.NOT. GotIt) VarName = 'FlowLineDisp'
+
+  CALL ListAddString( SolverParams,'Variable',VarName )
+  CALL ListAddInteger( SolverParams,'Variable Dofs',dim )
+
+END SUBROUTINE StructuredFlowLine_init
 !------------------------------------------------------------------------------

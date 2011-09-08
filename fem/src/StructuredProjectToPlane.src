@@ -23,12 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for projecting results in structured 3d mesh to a 2d surface.
-! *  The procedure is limited structured meshes where nodes are aligned with 
-! *  a given coordinate direction. 
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -41,36 +35,20 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Subroutine for projecting results in structured 3d mesh to a 2d surface.
+!>  This solver assumes that the mesh is structural so that it could have 
+!>  been obtained by extrusion in the direction of interest. For the given 
+!>  direction the corresponding top and bottom node is computed for every node
+!>  and this information is used to perform projection to the top or bottom
+!>  plane.
+!------------------------------------------------------------------------------
 SUBROUTINE StructuredProjectToPlane( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
-
   USE CoordinateSystems
   USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  This solver assumes that the mesh is structural so that it could have 
-!  been obtained by extrusion in the direction of interest. For the given 
-!  direction the corresponding top and bottom node is computed for every node
-!  and this information is used to perform projection to the top or bottom
-!  plane.
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient

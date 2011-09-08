@@ -35,8 +35,8 @@ MODULE ParticleDynamicsStuff
 CONTAINS
 
   !--------------------------------------------------------------------------------------    
-  ! Subroutine for getting the force resulting from particle-particle interaction 
-  ! This could be used to give forces on granular flow, for example. 
+  !> Subroutine for getting the force resulting from particle-particle interaction 
+  !> This could be used to give forces on granular flow, for example. 
   !--------------------------------------------------------------------------------------    
   SUBROUTINE ParticleParticleContact(dt,Coord,Coord2,Velo,Velo2, &
       Force,Force2, Contact ) 
@@ -129,11 +129,11 @@ CONTAINS
   
 
   !---------------------------------------------------------------    
-  ! Subroutine for getting particle-particle interaction 
-  ! The subroutine may return the new positions and new 
-  ! coordinates, or alternatively the initial coordinates are tampered 
-  ! so that with standard time-integration the final position will
-  ! be the same.
+  !> Subroutine for getting particle-particle interaction 
+  !> The subroutine may return the new positions and new 
+  !> coordinates, or alternatively the initial coordinates are tampered 
+  !> so that with standard time-integration the final position will
+  !> be the same.
   !---------------------------------------------------------------    
   SUBROUTINE ParticleParticleCollision(dt,Coord,Coord2,Velo,Velo2,&
       Force,Force2, Collision ) 
@@ -250,56 +250,12 @@ CONTAINS
 END MODULE ParticleDynamicsStuff
 
 
-
 !------------------------------------------------------------------------------
-! Initialize the particle dynamics solver with some defaults
-!------------------------------------------------------------------------------
-SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
-
-  USE DefUtils
-  USE Lists
-
-  IMPLICIT NONE
-!------------------------------------------------------------------------------
-  TYPE(Solver_t), TARGET :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
-! Local variables
-!------------------------
-  
-  TYPE(ValueList_t), POINTER :: Params
-  LOGICAL :: Found
-
-  Params => Solver % Values
-
-
-END SUBROUTINE ParticleDynamics_Init
-
-
+!> Solver particle dynamics equations by utilizing many library functionalities.
+!> This solver may take into account interaction between particles. 
 !------------------------------------------------------------------------------
 SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  This subroutine saves scalar values to a matrix.
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   USE Interpolation
   USE MeshUtils
@@ -1406,5 +1362,29 @@ END SUBROUTINE ParticleDynamics
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Initialize the particle dynamics solver with some defaults.
+!------------------------------------------------------------------------------
+SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
+
+  USE DefUtils
+  USE Lists
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------
+  
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Found
+
+  Params => Solver % Values
+
+END SUBROUTINE ParticleDynamics_Init
 
 

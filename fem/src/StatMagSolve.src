@@ -23,12 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Solver for static or harmonic magnetic field with vector potential
-! *  formulation. Note that this solver has a long history and all choices
-! *  do not reflect the current best practices.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen, Ville Savolainen, Jussi Heikonen,
 ! *           Peter Råback, Antti Pursula
 ! *  Email:   Juha.Ruokolainen@csc.fi
@@ -42,72 +36,12 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
-   SUBROUTINE StatMagSolver_Init( Model, Solver, dt, Transient )
-
-!------------------------------------------------------------------------------
-    USE DefUtils
-
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t) :: Solver
-    REAL(KIND=dp) :: dt
-    LOGICAL :: Transient
-!------------------------------------------------------------------------------
-    TYPE(ValueList_t), POINTER :: Params
-    LOGICAL :: Found, Calculate, CalculateAbs
-    INTEGER :: Dim,GivenDim
-!------------------------------------------------------------------------------
-    Params => GetSolverParams()
-    Dim = CoordinateSystemDimension()
-
-    Calculate = ListGetLogical(Params,'Calculate Magnetic Flux',Found)
-    CalculateAbs = ListGetLogical( Params, 'Calculate Magnetic Flux Abs',Found)
-  
-    IF( CalculateAbs .AND. .NOT. Calculate ) THEN
-      CALL Warn('StatMagSolver_init','Cannot compute Abs without computing field')
-    END IF
-
-    IF( Calculate ) THEN
-      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-          '-dofs 3 Magnetic Flux Density' )
-      IF( CalculateAbs ) THEN
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-            'Magnetic Flux Density_abs' )	
-      END IF
-    END IF
-    Calculate = ListGetLogical( Params, 'Calculate Joule Heating', Found )
-    IF( Calculate ) THEN
-      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-          'Joule Heating' )
-      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-          'Joule Field' )
-    END IF
-
-  END SUBROUTINE StatMagSolver_Init
-
-
+!>  Solver for static or harmonic magnetic field with vector potential
+!>  formulation. Note that this solver has a long history and all choices
+!>  do not reflect the current best practices.
 !------------------------------------------------------------------------------
    SUBROUTINE StatMagSolver( Model, Solver, dt, Transient )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve magnetic field for one time step
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL (KIND=DP) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: Transient
-!     INPUT: Flag for time dependent simulation
-!
-!******************************************************************************
-
 
     USE DefUtils
     USE Differentials
@@ -118,11 +52,9 @@
     TYPE(Solver_t), TARGET :: Solver
     REAL (KIND=DP) :: dt 
     LOGICAL :: Transient
-
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-
     TYPE(Matrix_t),POINTER :: StiffMatrix
     REAL (KIND=DP), POINTER :: ForceVector(:),MVP(:),MFD(:), PhaseAngle(:)
     REAL (KIND=DP), POINTER :: A(:), Br(:), Bz(:), Bp(:), Brim(:), Bzim(:), Babs(:), &
@@ -569,22 +501,16 @@
 
 CONTAINS
 
-!/*******************************************************************************
-! *
-! * Subroutine for computing local matrices for static magnetic field
-! * in cylindrical coordinates with axisymmetry.
-! *
-! *                     Author:       Jussi Heikonen
-! *
-! ******************************************************************************/
-
+!------------------------------------------------------------------------------
+!> Subroutine for computing local matrices for static magnetic field
+!> in cylindrical coordinates with axisymmetry.
+!  Author:       Jussi Heikonen
 !------------------------------------------------------------------------------
   SUBROUTINE StatMagAxisCompose( &
       MassMatrix,StiffMatrix,ForceVector,LoadVector,NodalReluctivity, &
       Ap,Element,n,Nodes)
 
 !------------------------------------------------------------------------------
-!******************************************************************************
 !
 !  Return element local matrices and RHS vector for static magnetic field
 !
@@ -619,7 +545,6 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
       USE Types
       USE Integration
@@ -652,9 +577,8 @@ CONTAINS
       REAL (KIND=DP), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,&
           S_Integ
       LOGICAL :: stat
-
-!***********************************************************************!
-
+!------------------------------------------------------------------------------
+	  
      DIM = 2
 
      ForceVector = 0.0D0
@@ -738,22 +662,16 @@ CONTAINS
    END SUBROUTINE StatMagAxisCompose
 
 
-!/*******************************************************************************
-! *
-! * Subroutine for computing local matrices for harmonic magnetic field
-! * in cylindrical coordinates with axisymmetry.
-! *
-! *                     Author: Peter Råback
-! *
-! ******************************************************************************/
-
+!------------------------------------------------------------------------------
+!> Subroutine for computing local matrices for harmonic magnetic field
+!> in cylindrical coordinates with axisymmetry.
+! Author: Peter Råback
 !------------------------------------------------------------------------------
    SUBROUTINE HarmMagAxisCompose( &
        StiffMatrix,ForceVector,CurrentDensity,NodalAngle,NodalReluctivity, NodalConductivity,&
        Wang,Element,n,Nodes)
 
 !------------------------------------------------------------------------------
-
      USE Types
      USE Integration
      USE ElementDescription
@@ -788,7 +706,7 @@ CONTAINS
      
      LOGICAL :: stat
 
-!***********************************************************************!
+!------------------------------------------------------------------------------
 
      DIM = 2
 
@@ -913,7 +831,7 @@ CONTAINS
      
      LOGICAL :: stat
 
-!***********************************************************************!
+!------------------------------------------------------------------------------
 
      DIM = 2
 
@@ -963,15 +881,10 @@ CONTAINS
    END SUBROUTINE JouleIntegrate
 !------------------------------------------------------------------------------
 
-!/*******************************************************************************
-! *
-! * Subroutine for computing local matrices for static magnetic field
-! * in 3D cartesian coordinates.
-! *
-! *                     Author:       Antti Pursula
-! *
-! ******************************************************************************/
-
+!------------------------------------------------------------------------------
+!> Subroutine for computing local matrices for static magnetic field
+!> in 3D cartesian coordinates. Makes some heavy assumptions.
+! Author:       Antti Pursula
 !------------------------------------------------------------------------------
     SUBROUTINE StatMagCartesianCompose( &
         StiffMatrix,ForceVector,LoadVector,NodalReluctivity, &
@@ -1118,3 +1031,47 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE StatMagSolver
 !------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver, i.e. StatMagSolver.
+!------------------------------------------------------------------------------
+   SUBROUTINE StatMagSolver_Init( Model, Solver, dt, Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: dt
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: Params
+    LOGICAL :: Found, Calculate, CalculateAbs
+    INTEGER :: Dim,GivenDim
+!------------------------------------------------------------------------------
+    Params => GetSolverParams()
+    Dim = CoordinateSystemDimension()
+
+    Calculate = ListGetLogical(Params,'Calculate Magnetic Flux',Found)
+    CalculateAbs = ListGetLogical( Params, 'Calculate Magnetic Flux Abs',Found)
+  
+    IF( CalculateAbs .AND. .NOT. Calculate ) THEN
+      CALL Warn('StatMagSolver_init','Cannot compute Abs without computing field')
+    END IF
+
+    IF( Calculate ) THEN
+      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+          '-dofs 3 Magnetic Flux Density' )
+      IF( CalculateAbs ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+            'Magnetic Flux Density_abs' )	
+      END IF
+    END IF
+    Calculate = ListGetLogical( Params, 'Calculate Joule Heating', Found )
+    IF( Calculate ) THEN
+      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+          'Joule Heating' )
+      CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+          'Joule Field' )
+    END IF
+
+  END SUBROUTINE StatMagSolver_Init

@@ -42,29 +42,12 @@
 
 
 !------------------------------------------------------------------------------
+!>  Solve the advection equation for the Levelset-function using stabilization
+!>  or bubbless. For the accuracy it is advisable to use 2nd order time-stepping
+!>  and courant number smaller than one. 
+!------------------------------------------------------------------------------
    SUBROUTINE LevelSetSolver( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the advection equation for the Levelset-function using stabilization
-!  or bubbless. For the accuracy it is advisable to use 2nd order time-stepping
-!  and courant number smaller than one. 
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: Timestep,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
      USE Types
      USE DefUtils
      USE SolverUtils
@@ -72,13 +55,11 @@
      USE Integration
 
      IMPLICIT NONE
-!------------------------------------------------------------------------------
- 
+!------------------------------------------------------------------------------ 
      TYPE(Model_t), TARGET :: Model
      TYPE(Solver_t) :: Solver
      REAL(KIND=dp) :: Timestep
      LOGICAL :: TransientSimulation
- 
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
@@ -113,7 +94,6 @@
      CALL Info( 'LevelSetSolver','-------------------------------------', Level=4 )
      CALL Info( 'LevelSetSolver', 'Solving for the levelset function', Level=4 )
      CALL Info( 'LevelSetSolver','-------------------------------------', Level=4 )
-
 
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
@@ -521,37 +501,28 @@ CONTAINS
    END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
 
-
 !------------------------------------------------------------------------------
  END SUBROUTINE LevelSetSolver
 !------------------------------------------------------------------------------
 
 
-
-
+!------------------------------------------------------------------------------
+!>  Renormalizes the levelset function using straight-forward geometric search
+!>  Also includes an option to do the covection at the same time as an alternavtive
+!>  for using a separate solver for the advection.
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetDistance( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Renormalizes the levelset function using straight-forward geometric search
-!  Also includes an option to do the covection at the same time as an alternavtive
-!  for using a separate solver for the advection.
-!
-!******************************************************************************
-
      USE SolverUtils
      USE MaterialModels
      USE Integration
 
      IMPLICIT NONE
-!------------------------------------------------------------------------------
- 
+!------------------------------------------------------------------------------ 
      TYPE(Model_t), TARGET :: Model
      TYPE(Solver_t) :: Solver 
      REAL(KIND=dp) :: Timestep
      LOGICAL :: TransientSimulation
- 
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
@@ -1259,16 +1230,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>  Compute the volume and area in 3D or area and line intgral in 2D over the 
+!>  levelset function. This is better done within a dedicated solver since 
+!>  it is crucial for the accuracy that the Heaviside and Delta function are
+!>  computed at Gaussian integration points.
+!------------------------------------------------------------------------------
    SUBROUTINE LevelSetIntegrate( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Compute the volume and area in 3D or area and line intgral in 2D over the 
-!  levelset function. This is better done within a dedicated solver since 
-!  it is crucial for the accuracy that the Heaviside and Delta function are
-!  computed at Gaussian integration points.
-!
-!******************************************************************************
      USE SolverUtils
      USE MaterialModels
      USE Integration
@@ -1544,25 +1512,20 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>  Computes the curvature from the level set function. Additional diffusion may 
+!>  be added in order to limit the singular curvature peaks.
+!------------------------------------------------------------------------------
    SUBROUTINE LevelSetCurvature( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Computes the curvature from the level set function. Additional diffusion may 
-!  be added in order to limit the singular curvature peaks.
-!
-!******************************************************************************
      USE SolverUtils
      USE Integration
 
      IMPLICIT NONE
-!------------------------------------------------------------------------------
- 
+!------------------------------------------------------------------------------ 
      TYPE(Model_t), TARGET :: Model
      TYPE(Solver_t) :: Solver
      REAL(KIND=dp) :: Timestep
      LOGICAL :: TransientSimulation
- 
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
@@ -1998,8 +1961,9 @@ END SUBROUTINE LevelSetCurvature
 !------------------------------------------------------------------------------
 
 
-
-
+!------------------------------------------------------------------------------
+!> Determines a timestep based on the maximum local Courant number. 
+!------------------------------------------------------------------------------
 FUNCTION LevelSetTimestep( Model ) RESULT( dt )
   USE Types
   USE Lists

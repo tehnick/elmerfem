@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Solver for static current coduction.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen, Antti Pursula
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -39,39 +35,19 @@
 ! *****************************************************************************/
     
 !------------------------------------------------------------------------------
+!>  Solve the Poisson equation for the electric potential and compute the 
+!>  volume current and Joule heating
+!------------------------------------------------------------------------------
   SUBROUTINE StatCurrentSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the Poisson equation for the electric potential and compute the 
-!  volume current and Joule heating
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  DOUBLE PRECISION :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
      USE DefUtils
      USE Differentials
-
      IMPLICIT NONE
-!------------------------------------------------------------------------------
- 
+!------------------------------------------------------------------------------ 
      TYPE(Model_t) :: Model
      TYPE(Solver_t), TARGET:: Solver
      REAL (KIND=DP) :: dt
      LOGICAL :: TransientSimulation
- 
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
@@ -506,7 +482,7 @@
    CONTAINS
 
 !------------------------------------------------------------------------------
-! Compute the Current and Joule Heating at model nodes
+!> Compute the Current and Joule Heating at model nodes.
 !------------------------------------------------------------------------------
   SUBROUTINE GeneralCurrent( Model, Potential, Reorder )
 !------------------------------------------------------------------------------
@@ -811,13 +787,12 @@
 
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RHS vector for boundary conditions
+!>  of diffusion equation: 
+!------------------------------------------------------------------------------
    SUBROUTINE StatCurrentBoundary( BoundaryMatrix, BoundaryVector, &
         LoadVector, Element, n, Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for boundary conditions
-!  of diffusion equation: 
 !
 !  ARGUMENTS:
 !
@@ -837,7 +812,7 @@
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: BoundaryMatrix(:,:), BoundaryVector(:), LoadVector(:)
 

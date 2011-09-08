@@ -40,90 +40,15 @@
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
-!------------------------------------------------------------------------------
-    USE DefUtils
-    IMPLICIT NONE
-!------------------------------------------------------------------------------
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t), TARGET :: Solver
-    LOGICAL ::  TransientSimulation
-    REAL(KIND=dp) :: dt
-!------------------------------------------------------------------------------
-    LOGICAL :: Found, Calculate
-    TYPE(ValueList_t), POINTER :: Params
-    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
-    INTEGER :: dim
-
-    Params => GetSolverParams()
-    dim = CoordinateSystemDimension()
-
-    IF (ListGetLogical(Params,'Calculate Electric Energy',Found)) &
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-        'Electric Energy Density' )
-    
-    IF (ListGetLogical(Params,'Calculate Surface Charge',Found)) &
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-        'Surface Charge Density' )
-    
-    Calculate = ListGetLogical(Params,'Calculate Electric Field',Found)
-    IF( Calculate ) THEN
-      IF( Dim == 2 ) THEN
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elfield[Electric Field:2]' )
-      ELSE
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elfield[Electric Field:3]' )
-      END IF
-    END IF
-    
-    Calculate = ListGetLogical(Params,'Calculate Electric Flux',Found)
-    IF( Calculate ) THEN
-      IF( Dim == 2 ) THEN
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elflux[Electric Flux:2]' )
-      ELSE
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            'elflux[Electric Flux:3]' )
-      END IF
-    END IF
-
-!------------------------------------------------------------------------------
-END SUBROUTINE StatElecSolver_Init
-!------------------------------------------------------------------------------
-
-
-
-
-
-SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the Poisson equation for the electric potential and compute the 
-!  electric field, flux, energy and capacitance
+!>  Solves the Poisson equation for the electric potential and compute the 
+!>  electric field, flux, energy and capacitance as requested.
 !
 !  NOTE: The permittivity of vacuum is divided into the right hand side of the 
 !        equation. This has to be accounted for in setting the body forces and
 !        assigning flux boundary conditions
-!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  DOUBLE PRECISION :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
-
+!------------------------------------------------------------------------------
+SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
   USE Types
   USE Lists 
   USE Integration
@@ -1693,6 +1618,63 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
  END SUBROUTINE StatElecSolver
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Initialization of the primary solver, i.e. StatElecSolver.
+!------------------------------------------------------------------------------
+SUBROUTINE StatElecSolver_Init( Model,Solver,dt,TransientSimulation)
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL ::  TransientSimulation
+    REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+    LOGICAL :: Found, Calculate
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+    INTEGER :: dim
+
+    Params => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF (ListGetLogical(Params,'Calculate Electric Energy',Found)) &
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+        'Electric Energy Density' )
+    
+    IF (ListGetLogical(Params,'Calculate Surface Charge',Found)) &
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+        'Surface Charge Density' )
+    
+    Calculate = ListGetLogical(Params,'Calculate Electric Field',Found)
+    IF( Calculate ) THEN
+      IF( Dim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elfield[Electric Field:2]' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elfield[Electric Field:3]' )
+      END IF
+    END IF
+    
+    Calculate = ListGetLogical(Params,'Calculate Electric Flux',Found)
+    IF( Calculate ) THEN
+      IF( Dim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elflux[Electric Flux:2]' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            'elflux[Electric Flux:3]' )
+      END IF
+    END IF
+
+!------------------------------------------------------------------------------
+END SUBROUTINE StatElecSolver_Init
+!------------------------------------------------------------------------------
+
 
 
 !------------------------------------------------------------------------------

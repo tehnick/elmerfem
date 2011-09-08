@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Solves the transient/steady state Reynolds Equation that is a dimensinally 
-! *  reduced form of the Stokes equation in the case of narrow channels.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Web:     http://www.csc.fi/elmer
 ! *  Address: CSC - IT Center for Science Ltd.
@@ -40,57 +35,15 @@
 ! *
 ! *****************************************************************************/
 
-SUBROUTINE ReynoldsSolver_init( Model,Solver,dt,TransientSimulation )
 
-  USE DefUtils
-  IMPLICIT NONE
+
 !------------------------------------------------------------------------------
-  TYPE(Solver_t), TARGET :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+!> Solves the transient/steady state Reynolds Equation that is a dimensinally 
+!> reduced form of the Stokes equation in the case of narrow channels.
+!> The possible uses are in modeling of lubrication and squeezed-film damping, for example.
 !------------------------------------------------------------------------------
-  LOGICAL :: Cavitation, Found
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
-  TYPE(ValueList_t), POINTER :: Params 
-
-
-  Params => GetSolverParams()
-
-! This is the old way of setting the cavitation set
-!-----------------------------------------------------
-  Cavitation = ListGetLogical( Params,'Cavitation',Found)
-  IF(.NOT. Found ) THEN
-    Cavitation = ListCheckPresent(Params,'Cavitation Pressure')
-    IF( Cavitation ) THEN
-      CALL Warn('ReynoldsSolver_init','If you want to activate cavitation set > Cavitation = True <')
-      CALL ListAddLogical(Params,'Cavitation',.TRUE.)
-    END IF
-  END IF
-  IF( Cavitation ) THEN
-    VarName = ListGetString( Params,'Variable',Found)
-    IF(.NOT. Found) THEN
-      CALL Warn('ReynoldsSolver_init','Variable is required!')
-      RETURN
-    END IF
-    CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-	TRIM(VarName)//' Cavitation')
-    CALL ListAddLogical( Params,'Calculate Loads',.TRUE.)
-  END IF
-
-! The new way with generic limiters is a library functionality.
-! The Poisson equation is assembled using different sign that the 
-! typical convention. Hence the load sign for limiters is opposite
-!----------------------------------------------------------------
-  CALL ListAddLogical( Params,'Limiter Load Sign Negative',.TRUE.)
-
-END SUBROUTINE ReynoldsSolver_init
-
-
-
 SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-
   USE DefUtils
   USE Types
   USE Lists
@@ -792,88 +745,65 @@ END SUBROUTINE ReynoldsSolver
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver, i.e. ReynoldsSolver.
+!------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-  SUBROUTINE ReynoldsPostprocess_Init( Model,Solver,dt,Transient )
-!------------------------------------------------------------------------------
-    USE DefUtils
+SUBROUTINE ReynoldsSolver_init( Model,Solver,dt,TransientSimulation )
 
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t) :: Solver
-    REAL(KIND=dp) :: DT
-    LOGICAL :: Transient
+  USE DefUtils
+  IMPLICIT NONE
 !------------------------------------------------------------------------------
-    TYPE(ValueList_t), POINTER :: Params
-    LOGICAL :: Found, Calculate
-    INTEGER :: Dim,GivenDim
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
-    Params => GetSolverParams()
-    Dim = CoordinateSystemDimension()
+  LOGICAL :: Cavitation, Found
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  TYPE(ValueList_t), POINTER :: Params 
 
-    ! If the heating is not computed use a temp variable for the scalar equations
-    !-------------------------------------------------------------------
-    Calculate = ListGetLogical(Params,'Calculate Heating',Found)
-    IF( Calculate ) THEN
-      CALL ListAddString( Params,'Variable', &
-          'FilmPressure Heating' )
-    ELSE
-      CALL ListAddString( Params,'Variable', &
-          '-nooutput ReynoldsPost' )      
+
+  Params => GetSolverParams()
+
+! This is the old way of setting the cavitation set
+!-----------------------------------------------------
+  Cavitation = ListGetLogical( Params,'Cavitation',Found)
+  IF(.NOT. Found ) THEN
+    Cavitation = ListCheckPresent(Params,'Cavitation Pressure')
+    IF( Cavitation ) THEN
+      CALL Warn('ReynoldsSolver_init','If you want to activate cavitation set > Cavitation = True <')
+      CALL ListAddLogical(Params,'Cavitation',.TRUE.)
     END IF
-
-    ! The dofs of force is fixed by default to 3 since there is a normal component
-    ! as well as tangential components of force.
-    !-------------------------------------------------------------------
-    Calculate = ListGetLogical(Params,'Calculate Force',Found)
-  
-    IF( Calculate ) THEN
-      GivenDim = ListGetInteger(Params,'Calculate Force Dim',Found)
-      IF( Dim == 1 .OR. GivenDim == 2 ) THEN
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-            '-dofs 2 FilmPressure Force' )
-      ELSE
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
-            '-dofs 3 FilmPressure Force' )
-      END IF
+  END IF
+  IF( Cavitation ) THEN
+    VarName = ListGetString( Params,'Variable',Found)
+    IF(.NOT. Found) THEN
+      CALL Warn('ReynoldsSolver_init','Variable is required!')
+      RETURN
     END IF
+    CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+	TRIM(VarName)//' Cavitation')
+    CALL ListAddLogical( Params,'Calculate Loads',.TRUE.)
+  END IF
 
-    ! The dofs of flux is fixed by default 3 since there can be leakage 
-    ! due to perforation even in 2d case.
-    !-------------------------------------------------------------------
-    Calculate = ListGetLogical(Params,'Calculate Flux',Found)
-    IF( Calculate ) THEN
-      GivenDim = ListGetInteger(Params,'Calculate Flux Dim',Found)
-      IF( Dim == 1 .OR. GivenDim == 2 ) THEN
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            '-dofs 2 FilmPressure Flux' )
-      ELSE
-        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-            '-dofs 3 FilmPressure Flux' )
-      END IF
-    END IF
+! The new way with generic limiters is a library functionality.
+! The Poisson equation is assembled using different sign that the 
+! typical convention. Hence the load sign for limiters is opposite
+!----------------------------------------------------------------
+  CALL ListAddLogical( Params,'Limiter Load Sign Negative',.TRUE.)
 
-    CALL ListAddInteger( Params, 'Time derivative order', 0 )
+END SUBROUTINE ReynoldsSolver_init
 
-    ! Add linear system defaults: cg+diagonal
-    IF(.NOT. ListCheckPresent(Params,'Linear System Solver')) &
-      CALL ListAddString(Params,'Linear System Solver','Iterative')
-    IF(.NOT. ListCheckPresent(Params,'Linear System Iterative Method')) &
-      CALL ListAddString(Params,'Linear System Iterative Method','cg')
-    IF(.NOT. ListCheckPresent(Params,'Linear System Preconditioning')) &
-      CALL ListAddString(Params,'Linear System Preconditioning','diagonal')
-    IF(.NOT. ListCheckPresent(Params,'Linear System Max Iterations')) &
-      CALL ListAddInteger(Params,'Linear System Max Iterations',500)
-    IF(.NOT. ListCheckPresent(Params,'Linear System Residual Output')) &
-      CALL ListAddInteger(Params,'Linear System Residual Output',10)
-    IF(.NOT. ListCheckPresent(Params,'Linear System Convergence Tolerance')) &
-      CALL ListAddConstReal(Params,'Linear System Convergence Tolerance',1.0e-10_dp)
+
+
+
+
+
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE ReynoldsPostprocess_Init
-!------------------------------------------------------------------------------
-
-
-
+!> Solver various postprocessing fields from the solution of the Reynolds 
+!> equation. These include heating, forces, and flux. 
 !------------------------------------------------------------------------------
 SUBROUTINE ReynoldsPostprocess( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -1304,9 +1234,10 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
-  SUBROUTINE ReynoldsHeatingSolver_Init( Model,Solver,dt,Transient )
+!> Initialization of the primary solver, i.e. ReynoldsPostprocess
+!------------------------------------------------------------------------------
+  SUBROUTINE ReynoldsPostprocess_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
 
@@ -1315,38 +1246,83 @@ CONTAINS
     REAL(KIND=dp) :: DT
     LOGICAL :: Transient
 !------------------------------------------------------------------------------
-    TYPE(ValueList_t), POINTER :: SolverParams
-    INTEGER :: dim
+    TYPE(ValueList_t), POINTER :: Params
+    LOGICAL :: Found, Calculate
+    INTEGER :: Dim,GivenDim
 !------------------------------------------------------------------------------
-    SolverParams => GetSolverParams()
-    dim = CoordinateSystemDimension()
+    Params => GetSolverParams()
+    Dim = CoordinateSystemDimension()
 
-    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
-      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
-      CALL ListAddString( SolverParams, 'Variable','Film Heating' )
+    ! If the heating is not computed use a temp variable for the scalar equations
+    !-------------------------------------------------------------------
+    Calculate = ListGetLogical(Params,'Calculate Heating',Found)
+    IF( Calculate ) THEN
+      CALL ListAddString( Params,'Variable', &
+          'FilmPressure Heating' )
+    ELSE
+      CALL ListAddString( Params,'Variable', &
+          '-nooutput ReynoldsPost' )      
     END IF
-    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
+
+    ! The dofs of force is fixed by default to 3 since there is a normal component
+    ! as well as tangential components of force.
+    !-------------------------------------------------------------------
+    Calculate = ListGetLogical(Params,'Calculate Force',Found)
+  
+    IF( Calculate ) THEN
+      GivenDim = ListGetInteger(Params,'Calculate Force Dim',Found)
+      IF( Dim == 1 .OR. GivenDim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+            '-dofs 2 FilmPressure Force' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable',Params), &
+            '-dofs 3 FilmPressure Force' )
+      END IF
+    END IF
+
+    ! The dofs of flux is fixed by default 3 since there can be leakage 
+    ! due to perforation even in 2d case.
+    !-------------------------------------------------------------------
+    Calculate = ListGetLogical(Params,'Calculate Flux',Found)
+    IF( Calculate ) THEN
+      GivenDim = ListGetInteger(Params,'Calculate Flux Dim',Found)
+      IF( Dim == 1 .OR. GivenDim == 2 ) THEN
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 2 FilmPressure Flux' )
+      ELSE
+        CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+            '-dofs 3 FilmPressure Flux' )
+      END IF
+    END IF
+
+    CALL ListAddInteger( Params, 'Time derivative order', 0 )
 
     ! Add linear system defaults: cg+diagonal
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
-      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
-      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
-      CALL ListAddString(SolverParams,'Linear System Preconditioning','diagonal')
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
-      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Residual Output')) &
-      CALL ListAddInteger(SolverParams,'Linear System Residual Output',10)
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
-      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
+    IF(.NOT. ListCheckPresent(Params,'Linear System Solver')) &
+      CALL ListAddString(Params,'Linear System Solver','Iterative')
+    IF(.NOT. ListCheckPresent(Params,'Linear System Iterative Method')) &
+      CALL ListAddString(Params,'Linear System Iterative Method','cg')
+    IF(.NOT. ListCheckPresent(Params,'Linear System Preconditioning')) &
+      CALL ListAddString(Params,'Linear System Preconditioning','diagonal')
+    IF(.NOT. ListCheckPresent(Params,'Linear System Max Iterations')) &
+      CALL ListAddInteger(Params,'Linear System Max Iterations',500)
+    IF(.NOT. ListCheckPresent(Params,'Linear System Residual Output')) &
+      CALL ListAddInteger(Params,'Linear System Residual Output',10)
+    IF(.NOT. ListCheckPresent(Params,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(Params,'Linear System Convergence Tolerance',1.0e-10_dp)
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE ReynoldsHeatingSolver_Init
+  END SUBROUTINE ReynoldsPostprocess_Init
 !------------------------------------------------------------------------------
 
 
 
+
+
+
+!------------------------------------------------------------------------------
+!> Solves the heating field resulting from the solution of the Reynolds equation.
+!> This solver is obsolite.
 !------------------------------------------------------------------------------
 SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -1707,13 +1683,17 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
+
 !------------------------------------------------------------------------------
 END SUBROUTINE ReynoldsHeatingSolver
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE ReynoldsFluxSolver_Init( Model,Solver,dt,Transient )
+!> Initialization for the primary solver, i.e. ReynoldsHeatingSolver. 
+!------------------------------------------------------------------------------
+  SUBROUTINE ReynoldsHeatingSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
 
@@ -1730,20 +1710,8 @@ END SUBROUTINE ReynoldsHeatingSolver
 
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
-      CALL ListAddString( SolverParams, 'Variable','-nooutput flux_temp' )
-      CALL ListAddString(SolverParams, 'Flux Result Variable','F')
-      IF(dim == 2) THEN
-         CALL ListAddString(SolverParams, 'Exported Variable 1','F[Film Flux:2]')
-      ELSE IF(dim == 3) THEN
-         CALL ListAddString(SolverParams, 'Exported Variable 1','F[Film Flux:3]')
-      ELSE
-         CALL Fatal('VortictySolver_init','Flux computation makes sense only in 2D and 3D')
-      END IF
+      CALL ListAddString( SolverParams, 'Variable','Film Heating' )
     END IF
-
-    IF(.NOT. ListCheckPresent(SolverParams,'Flux Variable')) &
-      CALL ListAddString(SolverParams,'Flux Variable','FilmPressure')
-
     CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
 
     ! Add linear system defaults: cg+diagonal
@@ -1761,11 +1729,18 @@ END SUBROUTINE ReynoldsHeatingSolver
       CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
 
 !------------------------------------------------------------------------------
-  END SUBROUTINE ReynoldsFluxSolver_Init
+  END SUBROUTINE ReynoldsHeatingSolver_Init
 !------------------------------------------------------------------------------
 
 
 
+
+
+
+
+
+!------------------------------------------------------------------------------
+!> Computes fluxes related to the solution of the Reynolds equation.
 !------------------------------------------------------------------------------
   SUBROUTINE ReynoldsFluxSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -2105,4 +2080,56 @@ END SUBROUTINE ReynoldsHeatingSolver
 END SUBROUTINE ReynoldsFluxSolver
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Initalization for the primary solver, i.e. ReynoldsFluxSolver. 
+!------------------------------------------------------------------------------
+  SUBROUTINE ReynoldsFluxSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
 
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: SolverParams
+    INTEGER :: dim
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
+      CALL ListAddString( SolverParams, 'Variable','-nooutput flux_temp' )
+      CALL ListAddString(SolverParams, 'Flux Result Variable','F')
+      IF(dim == 2) THEN
+         CALL ListAddString(SolverParams, 'Exported Variable 1','F[Film Flux:2]')
+      ELSE IF(dim == 3) THEN
+         CALL ListAddString(SolverParams, 'Exported Variable 1','F[Film Flux:3]')
+      ELSE
+         CALL Fatal('VortictySolver_init','Flux computation makes sense only in 2D and 3D')
+      END IF
+    END IF
+
+    IF(.NOT. ListCheckPresent(SolverParams,'Flux Variable')) &
+      CALL ListAddString(SolverParams,'Flux Variable','FilmPressure')
+
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
+
+    ! Add linear system defaults: cg+diagonal
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
+      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
+      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
+      CALL ListAddString(SolverParams,'Linear System Preconditioning','diagonal')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
+      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Residual Output')) &
+      CALL ListAddInteger(SolverParams,'Linear System Residual Output',10)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE ReynoldsFluxSolver_Init
+!------------------------------------------------------------------------------

@@ -23,18 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Lagrangian & transient phase change solver for the liquid/solid interface.
-! *  
-! *  The equation is solved in two phases. First the velocity of the interface is
-! *  computed and then the displacement. This enables independent smoothing of
-! *  either velocity or displacement. There are also two different options for the 
-! *  flux computations: internally or externally using the loads from the matrix
-! *  residual. The latter one gives the more accurate approximation. The solver 
-! *  includes some tailored pull control features that are originally intended
-! *  for the modeling of Cz crystal growth but may also find other uses.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -50,53 +38,21 @@
 
 
 !------------------------------------------------------------------------------
-SUBROUTINE TransientPhaseChange_Init( Model,Solver,dt,TransientSimulation)
-!------------------------------------------------------------------------------
-    USE DefUtils
-    IMPLICIT NONE
-!------------------------------------------------------------------------------
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t), TARGET :: Solver
-    LOGICAL ::  TransientSimulation
-    REAL(KIND=dp) :: dt
-!------------------------------------------------------------------------------
-    LOGICAL :: Found
-    TYPE(ValueList_t), POINTER :: Params
-    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
-
-    Params => GetSolverParams()
-
-    VariableName = GetString(Params,'Variable')
-    CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
-          '-nooutput '//TRIM(ComponentName(VariableName))//' Velo' )
-!------------------------------------------------------------------------------
-END SUBROUTINE TransientPhaseChange_Init
-!------------------------------------------------------------------------------
-
-
+!>  Lagrangian & transient phase change solver for the liquid/solid interface.
+!>  The equation is solved in two phases. First the velocity of the interface is
+!>  computed and then the displacement. This enables independent smoothing of
+!>  either velocity or displacement. There are also two different options for the 
+!>  flux computations: internally or externally using the loads from the matrix
+!>  residual. The latter one gives the more accurate approximation. The solver 
+!>  includes some tailored pull control features that are originally intended
+!>  for the modeling of Cz crystal growth but may also find other uses.
+!>  Solve the free surface in the phase change problem using a transient algorithm. 
 !------------------------------------------------------------------------------
 SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   USE DefUtils
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the free surface in the phase change problem using a transient algorithm. 
-!
-!  ARGUMENTS:
-
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations 
-!
-!******************************************************************************
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  TransientSimulation
@@ -792,3 +748,28 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver, i.e. TransientPhaseChange.
+!------------------------------------------------------------------------------
+SUBROUTINE TransientPhaseChange_Init( Model,Solver,dt,TransientSimulation)
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL ::  TransientSimulation
+    REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+    LOGICAL :: Found
+    TYPE(ValueList_t), POINTER :: Params
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+
+    Params => GetSolverParams()
+
+    VariableName = GetString(Params,'Variable')
+    CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
+          '-nooutput '//TRIM(ComponentName(VariableName))//' Velo' )
+!------------------------------------------------------------------------------
+END SUBROUTINE TransientPhaseChange_Init
+!------------------------------------------------------------------------------
