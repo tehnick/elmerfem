@@ -6,7 +6,11 @@ MODULE ClusteringMethods
 CONTAINS
   
 !------------------------------------------------------------------------------
-! Create the clusters 
+!> Subroutine creates clusters of connections in different ways. The default method
+!> uses only information from the matrix connectios. The geometric version makes
+!> clusters using recursive splitting in each coordinate direction. There is also
+!> a version that assumes that the initial mesh was created using extrusion and 
+!> this extrusion may be taken back in clustering.
 !------------------------------------------------------------------------------
 
   SUBROUTINE ChooseClusterNodes(Amat, Solver, Components, EliminateDir, CF)
@@ -127,10 +131,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Mark the strong connections based on the relative absolute magnitude of the 
-! matrix element.
+!> Mark the strong connections based on the relative absolute magnitude of the 
+!> matrix element.
 !------------------------------------------------------------------------------
-
     SUBROUTINE CMGBonds(Amat, Bonds, Fixed, Components, Component1)
       
       LOGICAL, POINTER :: Bonds(:), Fixed(:)
@@ -254,12 +257,11 @@ CONTAINS
     
 
     !------------------------------------------------------------------------------
-    ! Creates clusters of nodes using the given list of strong connections. 
-    ! Only nodes assigned by the Cands vector may be included in the 
-    ! clusters - others are ignored. The subroutine returns the vector CF which tells
-    ! to which cluster each node belongs to.
+    !> Creates clusters of nodes using the given list of strong connections. 
+    !> Only nodes assigned by the Cands vector may be included in the 
+    !> clusters - others are ignored. The subroutine returns the vector CF which tells
+    !> to which cluster each node belongs to.
     !------------------------------------------------------------------------------
-    
     SUBROUTINE CMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
       
       TYPE(Matrix_t), POINTER :: Amat

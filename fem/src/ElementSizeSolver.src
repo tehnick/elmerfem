@@ -1,27 +1,9 @@
-SUBROUTINE ElementSizeSolver( Model,Solver,dt,TransientSimulation )
-
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the ElementSize equation!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
+! Solves a simple equation for the elementsize using the Galerkin method. 
+!------------------------------------------------------------------------------
+SUBROUTINE ElementSizeSolver( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
   USE DefUtils
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
@@ -72,7 +54,6 @@ SUBROUTINE ElementSizeSolver( Model,Solver,dt,TransientSimulation )
   IF(.NOT. GotIt ) Power = 1.0_dp
   NoWeight = ListGetLogical( Solver % Values,'No Integration Weight',GotIt)
   
-
   active = GetNOFActive()
   DO t=1,active
     Element => GetActiveElement(t)

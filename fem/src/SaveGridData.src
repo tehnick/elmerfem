@@ -34,24 +34,21 @@ END SUBROUTINE ParticleOutputSolver
 
 
 !------------------------------------------------------------------------------
+!>  This subroutine is used to save results in a uniform grid.
+!>  This is achieved by first creating particles at the positions,
+!>  and then saving them with more generic routines.
+!------------------------------------------------------------------------------
 SUBROUTINE SaveGridData( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  This subroutine saves scalar values to a matrix.
-!  This is achieved by first creating particles at the positions,
-!  and then saving them with more generic routines.
-!
-!******************************************************************************
   USE DefUtils
   USE ParticleUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-  TYPE(Solver_t), TARGET :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+  TYPE(Solver_t) :: Solver  !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model    !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt       !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation      !< Steady state or transient simulation
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------

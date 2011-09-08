@@ -39,39 +39,21 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Subroutine for solving the energy a.k.a. heat equation in various coordinate systems.
+!------------------------------------------------------------------------------
    SUBROUTINE HeatSolver( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the heat equation !
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: Timestep
-!     INPUT: Timestep size for time dependent simulations
-!
-!******************************************************************************
-
      USE DiffuseConvective
      USE DiffuseConvectiveGeneral
-
      USE Differentials
      USE Radiation
      USE MaterialModels
-
      USE Adaptive
      USE DefUtils
 
 !------------------------------------------------------------------------------
      IMPLICIT NONE
 !------------------------------------------------------------------------------
-
      INTEGER, PARAMETER :: PHASE_SPATIAL_1 = 1
      INTEGER, PARAMETER :: PHASE_SPATIAL_2 = 2
      INTEGER, PARAMETER :: PHASE_TEMPORAL  = 3

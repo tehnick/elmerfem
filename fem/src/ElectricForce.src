@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Calculate force due to static electric field by integrating 
-! *  Maxwell stress tensor over specified boundaries
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen, Antti Pursula
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -41,43 +36,25 @@
  
 
 !------------------------------------------------------------------------------
+!>  Calculates the force due to static electric field by integrating 
+!>  Maxwell stress tensor over specified boundaries.
+!------------------------------------------------------------------------------
 SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
-
   USE Types
   USE Lists
   USE MeshUtils
-
   USE Integration
   USE ElementDescription
-
   USE SolverUtils
   USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-  TYPE(Solver_t), TARGET :: Solver
-  TYPE(Model_t) :: Model
-
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+  TYPE(Solver_t), TARGET :: Solver  !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model            !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt               !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation    !< Steady state or transient simulation
 
 !------------------------------------------------------------------------------
 ! Local variables

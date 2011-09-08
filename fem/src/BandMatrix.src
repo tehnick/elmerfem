@@ -55,21 +55,11 @@ CONTAINS
 #define SBAND_INDEX(i,j) (((j)-1)*(A % Subband+1) + (i)-(j)+1)
 
 !------------------------------------------------------------------------------
+!> Zero a Band format matrix
+!------------------------------------------------------------------------------
   SUBROUTINE Band_ZeroMatrix(A)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Zero a Band format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
+    TYPE(Matrix_t), POINTER :: A   !< Structure holding matrix
 
     A % Values = 0.0D0
     IF ( ASSOCIATED( A % MassValues ) ) A % MassValues = 0.0d0
@@ -79,25 +69,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Zero given row from a Band format matrix
+!------------------------------------------------------------------------------
   SUBROUTINE Band_ZeroRow( A,n )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Zero given row from a Band format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i
-!     INPUT: Row number to be zerod
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-    INTEGER :: n
+    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    INTEGER :: n                  !< Row number to be zerod
 !------------------------------------------------------------------------------
  
     INTEGER :: j,k
@@ -114,31 +91,15 @@ CONTAINS
   END SUBROUTINE Band_ZeroRow
 !------------------------------------------------------------------------------
   
-
+!------------------------------------------------------------------------------
+!> Add a given element to the band matrix.
 !------------------------------------------------------------------------------
   SUBROUTINE Band_AddToMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Add a given value to an element of a  Band format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!  REAL(KIND=dp) :: value
-!     INPUT: Value to be added
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-    INTEGER :: i,j
-    REAL(KIND=dp) :: value
+    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    INTEGER :: i  !< row number of the matrix element
+    INTEGER :: j  !< column number of the matrix element
+    REAL(KIND=dp) :: value  !< Value to be added
 !------------------------------------------------------------------------------
     INTEGER :: k
 !------------------------------------------------------------------------------
@@ -156,29 +117,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Set a given element in the band matrix.
+!------------------------------------------------------------------------------
   SUBROUTINE Band_SetMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Set a given value to an element of a  Band format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!  REAL(KIND=dp) :: value
-!     INPUT: Value to be set
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-    INTEGER :: i,j
-    REAL(KIND=dp) :: value
+    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    INTEGER :: i  !< row number of the matrix element
+    INTEGER :: j  !< column number of the matrix element
+    REAL(KIND=dp) :: value  !< Value to be set
 !------------------------------------------------------------------------------
 
     IF ( A % Format == MATRIX_BAND ) THEN
@@ -189,33 +135,16 @@ CONTAINS
   END SUBROUTINE Band_SetMatrixElement
 !------------------------------------------------------------------------------
 
-
+!------------------------------------------------------------------------------
+!> Get a given matrix element of a band matrix format.
 !------------------------------------------------------------------------------
   FUNCTION Band_GetMatrixElement( A,i,j ) RESULT ( value )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Set a given value to an element of a  Band format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!  REAL(KIND=dp) :: value
-!     INPUT: Value to be gotten
-!
-!******************************************************************************
+    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix
+    INTEGER :: i  !< row number of the matrix element
+    INTEGER :: j  !< column number of the matrix element
+    REAL(KIND=dp) :: value  !< Value to be obtained
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-    INTEGER :: i,j
-    REAL(KIND=dp) :: value
-!------------------------------------------------------------------------------
-
     IF ( A % Format == MATRIX_BAND ) THEN
       Value = A % Values(BAND_INDEX(i,j))  
     ELSE
@@ -226,48 +155,22 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Add a set of values (.i.e. element stiffness matrix) to a Band format matrix. 
+!------------------------------------------------------------------------------
   SUBROUTINE Band_GlueLocalMatrix( A,N,Dofs,Indeces,LocalMatrix )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Add a set of values (.i.e. element stiffness matrix) to a Band format
-!    matrix. 
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INOUT: Structure holding matrix, values are affected in the process
-!
-!  INTEGER :: N
-!     INPUT: Number of nodes in element
-!
-!  INTEGER :: Dofs
-!     INPUT: Number of degrees of freedom for one node
-!
-!  INTEGER :: Indeces
-!     INPUT: Maps element node numbers to global (or partition) node numbers
-!            (to matrix rows and columns, if Dofs = 1)
-!
-!  REAL(KIND=dp) :: LocalMatrix(:,:)
-!     INPUT: A (N x Dofs) x ( N x Dofs) matrix holding the values to be
-!            added to the Band format matrix
-!          
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
- 
-     REAL(KIND=dp) :: LocalMatrix(:,:)
-     TYPE(Matrix_t), POINTER :: A
-     INTEGER :: N,Dofs,Indeces(:)
-
+!------------------------------------------------------------------------------ 
+     REAL(KIND=dp) :: LocalMatrix(:,:)  !< A (N x Dofs) x ( N x Dofs) matrix holding the values to be
+                                        !! added to the Band format matrix
+     TYPE(Matrix_t), POINTER :: A   !< Structure holding matrix, values are affected in the process
+     INTEGER :: N                   !< Number of nodes in element
+     INTEGER :: Dofs                !< Number of degrees of freedom for one node
+     INTEGER :: Indeces(:)          !< Maps element node numbers to global (or partition) node numbers
+                                    !! (to matrix rows and columns, if Dofs = 1)
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
- 
      INTEGER :: i,j,k,l,c,ind,Row,Col
      REAL(KIND=dp), POINTER :: Values(:)
- 
 !------------------------------------------------------------------------------
 
       Values => A % Values
@@ -308,40 +211,20 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
+!------------------------------------------------------------------------------
+!>    Set value of unkown x_n to given value for symmetric band matrix. This is
+!>    done by replacing the equation of the unknown by  x_n = Value (i.e.
+!>    zeroing the row of the unkown in the matrix, and setting diagonal to
+!>    identity). Also the respective column is set to zero (except for the
+!>    diagonal) to preserve symmetry, while also substituting the rhs by
+!>    by rhs(i) = rhs(i) - A(i,n) * Value.
 !------------------------------------------------------------------------------
   SUBROUTINE SBand_SetDirichlet( A, b, n, Value )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Set value of unkown x_n to given value for symmetric band matrix. This is
-!    done by replacing the equation of the unknown by  x_n = Value (i.e.
-!    zeroing the row of the unkown in the matrix, and setting diagonal to
-!    identity). Also the respective column is set to zero (except for the
-!    diagonal) to preserve symmetry, while also substituting the rhs by
-!    by rhs(i) = rhs(i) - A(i,n) * Value.
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INOUT: Structure holding matrix, values are affected in the process
-!
-!  REAL(KIND=dp) :: b(:)
-!     INOUT: RHS vector
-!
-!  INTEGER :: n
-!     INPUT: odered number of the unkown (i.e. matrix row and column number)
-!
-!  REAL(KIND=dp) :: Value
-!     INPUT: Value for the unknown
-!          
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-    REAL(KIND=dp) :: b(:),Value
-    INTEGER :: n 
+    TYPE(Matrix_t), POINTER :: A  !< Structure holding matrix, values are affected in the process
+    REAL(KIND=dp) :: b(:)         !< RHS vector
+    REAL(KIND=dp), INTENT(IN) :: Value        !< Value for the unknown
+    INTEGER, INTENT(IN) :: n                  !< Ordered number of the unkown (i.e. matrix row and column number)
 !------------------------------------------------------------------------------
 
     INTEGER :: j
@@ -366,39 +249,16 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Create the structures required for a Band format matrix.
+!------------------------------------------------------------------------------
   FUNCTION Band_CreateMatrix( N,Subband,Symmetric,AllocValues ) RESULT(A)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Create the structures required for a Band format matrix.
-!
-!  ARGUMENTS:
-!
-!  INTEGER :: N
-!     INPUT: Number of rows for the matrix
-!
-!  INTEGER :: Subband
-!     INPUT: Max(ABS(Col-Diag(Row))) of the matrix
-!
-!  LOGICAL :: Symmetric
-!     INPUT: Symmetric or not
-!
-!  LOGICAL :: AllocValues
-!     INPUT: Should the values arrays be allocated ?
-!
-!  FUNCTION RETURN VALUE:
-!     TYPE(Matrix_t) :: A
-!       Pointer to the created Matrix_t structure.
-!
-!******************************************************************************
+    INTEGER :: N        !< Number of rows for the matrix
+    INTEGER :: Subband  !< Max(ABS(Col-Diag(Row))) of the matrix
+    LOGICAL :: Symmetric !< Symmetric or not
+    LOGICAL :: AllocValues  !< Should the values arrays be allocated ?
+    TYPE(Matrix_t), POINTER :: A  !< Pointer to the created Matrix_t structure.
 !------------------------------------------------------------------------------
-    INTEGER :: N,Subband
-    LOGICAL :: Symmetric,AllocValues
-
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-
     INTEGER :: i,j,k,istat
 !------------------------------------------------------------------------------
 
@@ -425,23 +285,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Matrix vector product (v = Au) for a matrix given in Band format.
+!------------------------------------------------------------------------------
   SUBROUTINE Band_MatrixVectorMultiply( A,u,v )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Matrix vector product (v = Au) for a matrix given in Band format.
-!
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u,v
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-    REAL(KIND=dp), DIMENSION(*) :: u,v
-    TYPE(Matrix_t), POINTER :: A
-
+    REAL(KIND=dp), DIMENSION(*) :: u  !< vector to be multiplied
+    REAL(KIND=dp), DIMENSION(*) :: v  !< result vector
+    TYPE(Matrix_t), POINTER :: A      !< Structure holding the matrix
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: Values(:)
 
@@ -479,27 +329,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Matrix vector product (v = Au) for a matrix given in Band format. The
+!> matrix is accessed from a global variable GlobalMatrix.
+!------------------------------------------------------------------------------
   SUBROUTINE Band_MatrixVectorProd( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Matrix vector product (v = Au) for a matrix given in Band format. The
-!    matrix is accessed from a global variable GlobalMatrix.
-!
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-    REAL(KIND=dp), DIMENSION(*) :: u,v
-    INTEGER, DIMENSION(*) :: ipar
-
+    REAL(KIND=dp), DIMENSION(*) :: u !< Vector to be multiplied
+    REAL(KIND=dp), DIMENSION(*) :: v !< Result vector of the multiplication
+    INTEGER, DIMENSION(*) :: ipar  !< structure holding info from (HUTIter-iterative solver package)
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: Values(:)
 
@@ -550,23 +387,16 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Diagonal preconditioning of a Band format matrix.
+!------------------------------------------------------------------------------
   SUBROUTINE Band_DiagPrecondition( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Diagonal preconditioning of a Band format matrix.
-!
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u(*),v(*)
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
+    REAL(KIND=dp), DIMENSION(*) :: u !< Vector to be multiplied
+    REAL(KIND=dp), DIMENSION(*) :: v !< Result vector of the multiplication
+    INTEGER, DIMENSION(*) :: ipar  !< structure holding info from (HUTIter-iterative solver package)
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), DIMENSION(*) :: u,v
+    REAL(KIND=dp), DIMENSION(*) :: u
+    REAL(KIND=dp), DIMENSION(*) :: v
     INTEGER, DIMENSION(*) :: ipar
 
     INTEGER :: i,j,k,n

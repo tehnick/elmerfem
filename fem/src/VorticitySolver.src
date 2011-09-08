@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for computing vorticity of vector fields. May be used to compute 
-! *  either the whole vorticity vector (3D) or just its z-component (2D).
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -105,32 +100,16 @@
 
 
 !------------------------------------------------------------------------------
+!>  Subroutine for computing vorticity of vector fields. May be used to compute 
+!>  either the whole vorticity vector (3D) or just its z-component (2D).
+!------------------------------------------------------------------------------
 SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
-
   USE CoordinateSystems
   USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for one timestep
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient
@@ -150,9 +129,8 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
   
   SAVE Visited
 
- 
   CALL Info( 'VorticitySolver', '-------------------------------------',Level=4 )
-  CALL Info( 'VorticitySolver','Computing the vorticity field',Level=4 )
+  CALL Info( 'VorticitySolver', 'Computing the vorticity field',Level=4 )
   CALL Info( 'VorticitySolver', '-------------------------------------',Level=4 )
 
   dim = CoordinateSystemDimension()

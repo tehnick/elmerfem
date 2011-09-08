@@ -52,10 +52,13 @@ MODULE Multigrid
 CONTAINS
 
 !------------------------------------------------------------------------------
+!> Multigrid solution subroutine common for all different multilevel strategies.
+!> Multigrid methods include own developments of geometric, algebraic, clustering
+!> and p-element versions.
+!------------------------------------------------------------------------------
     RECURSIVE SUBROUTINE MultiGridSolve( Matrix1, Solution, &
         ForceVector, DOFs, Solver, Level, NewSystem )
 !------------------------------------------------------------------------------
-
        USE ModelDescription
        IMPLICIT NONE
 
@@ -96,6 +99,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Geometric multigrid solution procedure.
 !------------------------------------------------------------------------------
     RECURSIVE SUBROUTINE GMGSolve( Matrix1, Solution, &
         ForceVector, DOFs, Solver, Level, NewSystem )
@@ -568,15 +573,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE ProjectMatrix( A, PermA, P, Q, B, PermB, DOFs )
+!>     Project matrix A to B: B = PAQ^T.
+!
+!>     The code is a little complicated by the fact that there might be
+!>     three different  numbering schemes for  the DOFs: one  for both
+!>     matrices and the nodal numbering of the projectors.
 !------------------------------------------------------------------------------
-!
-!     Project matrix A to B: B = PAQ^T
-!
-!     The code is a little complicated by the fact that there might be
-!     three different  numbering schemes for  the DOFs: one  for both
-!     matrices and the nodal numbering of the projectors.
-!
+    SUBROUTINE ProjectMatrix( A, PermA, P, Q, B, PermB, DOFs )
 !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A,P,Q,B
       INTEGER :: DOFs
@@ -826,6 +829,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Multigrid solution in the case when different levels are different 
+!> power of element basis functions. 
 !------------------------------------------------------------------------------
     RECURSIVE SUBROUTINE PMGSolve( Matrix1, Solution, &
         ForceVector, DOFs, Solver, Level, NewSystem )
@@ -1382,20 +1388,14 @@ CONTAINS
 
 
 
-!/*****************************************************************************
-! *
-! * Subroutine containing algebraic multigrid solver.
-! *
-! *****************************************************************************
-! *
-! *       Author: Peter Råback
-! *
-! *       Modified by: 
-! *
-! *       Date of modification: 30.10.2003
-! *
-! ****************************************************************************/
-
+!------------------------------------------------------------------------------
+!> Subroutine containing algebraic multigrid solver using roughly the standard Ruge-Stuben interpolation.
+!> Also some ideas of compatible relaxation have been tested within the context but their usability has
+!> so far been rather limited.
+!
+!        Author: Peter Råback
+!        Modified by: 
+!        Date of modification: 30.10.2003
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE AMGSolve( Matrix1, Solution, &
     ForceVector, DOFs, Solver, Level, NewSystem )
@@ -1860,8 +1860,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Apply compatible relaxation for the current C/F split and based on the 
-! convergence behavior include some of the F nodes to the new candidate list.
+!> Apply compatible relaxation for the current C/F split and based on the 
+!> convergence behavior include some of the F nodes to the new candidate list.
 !------------------------------------------------------------------------------
 
      SUBROUTINE CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
@@ -1981,10 +1981,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Create a coarse mesh given the fine mesh and the stiffness matrix. 
-! The coarse nodes may be selected in a number of ways and after the 
-! selection a new mesh is made of them. This mesh is then used to create
-! a projection between the coarse and fine degrees of freedom. 
+!> Create a coarse mesh given the fine mesh and the stiffness matrix. 
+!> The coarse nodes may be selected in a number of ways and after the 
+!> selection a new mesh is made of them. This mesh is then used to create
+!> a projection between the coarse and fine degrees of freedom. 
 !------------------------------------------------------------------------------
 
   SUBROUTINE ChooseCoarseNodes(Amat, Solver, Projector, Components, CF, InvCF) 
@@ -2112,8 +2112,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Create the initial list for measure of importance and
-! make the inverse table for important connections
+!> Create the initial list for measure of importance and
+!> make the inverse table for important connections.
 !------------------------------------------------------------------------------
 
   SUBROUTINE AMGBonds(Amat, Bonds, Cands, Components)
@@ -2331,9 +2331,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Mark the Dirichlet bonds
+!> Mark the Dirichlet bonds in the AMG target matrix.
 !------------------------------------------------------------------------------
-
   SUBROUTINE AMGBondsDirichlet(Amat, Bonds, Cands)
     
     LOGICAL, POINTER :: Bonds(:)
@@ -2396,8 +2395,8 @@ CONTAINS
   END SUBROUTINE AMGBondsDirichlet
 
 !------------------------------------------------------------------------------
-! Create the initial list for measure of importance using geometric distance 
-! information and topology information from the matrix..
+!> Create the initial list for measure of importance using geometric distance 
+!> information and topology information from the matrix..
 !------------------------------------------------------------------------------
 
   SUBROUTINE AMGBondsGeometric(Amat, Bonds, Cands, Components)
@@ -2582,7 +2581,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Create the initial list for measure of importance for a complex matrix.
+!> Create the initial list for measure of importance for a complex matrix.
 !------------------------------------------------------------------------------
 
   SUBROUTINE AMGBondsComplex(Amat, Bonds, Cands)
@@ -2735,10 +2734,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Add a posteriori some nodes to be coarse nodes which have 
-! strong positive-positive connections
+!> Add a posteriori some nodes to be coarse nodes which have 
+!> strong positive-positive connections
 !------------------------------------------------------------------------------
-
   SUBROUTINE AMGPositiveBonds(Amat, Bonds, Cands, CF)
     
     LOGICAL, POINTER :: Bonds(:)    
@@ -2813,11 +2811,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Creates a coarse mesh using the given list of strong connections. 
-! Only nodes assigned by the Cands vector may be included in the 
-! coarse set - others are ignored. The subroutine returns the vector CF which is 
-! nonzero for coarse nodes. The nodes are chosen using a heuristics which
-! takes into account the strength of the coupling.
+!> Creates a coarse mesh using the given list of strong connections. 
+!> Only nodes assigned by the Cands vector may be included in the 
+!> coarse set - others are ignored. The subroutine returns the vector CF which is 
+!> nonzero for coarse nodes. The nodes are chosen using a heuristics which
+!> takes into account the strength of the coupling.
 !
 ! There are three possible coarsening modes
 ! 0) find a new start only in dire need
@@ -3258,9 +3256,9 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------------
-!     make a matrix projection such that fine nodes are expressed with coarse nodes
-!     Xf = P Xc, with given set of coarse nodes, CF, and the stiffness matrix
-!     used in the projection.
+!>     make a matrix projection such that fine nodes are expressed with coarse nodes
+!>     Xf = P Xc, with given set of coarse nodes, CF, and the stiffness matrix
+!>     used in the projection.
 !------------------------------------------------------------------------------
      FUNCTION InterpolateF2C( Fmat, CF, DOFs) RESULT (Projector)
 !------------------------------------------------------------------------------
@@ -3775,9 +3773,9 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------------
-!     A pseudo geometric version of the previous
-!     Here the stregth of connections is assumed to be inversily proportional
-!     to the distance between nodes. 
+!>     A pseudo geometric version of the previous
+!>     Here the stregth of connections is assumed to be inversily proportional
+!>     to the distance between nodes. 
 !------------------------------------------------------------------------------
      FUNCTION InterpolateF2CDistance( Fmat, CF, DOFs) RESULT (Projector)
 !------------------------------------------------------------------------------
@@ -4026,8 +4024,8 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------------
-!     As the previous one but expects complex valued equation.
-!     The projector is built using only the absolute values. 
+!>     As the previous one but expects complex valued equation.
+!>     The projector is built using only the absolute values. 
 !------------------------------------------------------------------------------
      FUNCTION ComplexInterpolateF2C( Fmat, CF ) RESULT (Projector)
 !------------------------------------------------------------------------------
@@ -4338,9 +4336,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-!   This subroutine may be used to check that mapping Xf = P Xc is accurate.
-!   The list of original nodes for each level is stored in the Cnodes vector.
-!   For the momont this only works for cases with one DOF and no permutation!
+!>   This subroutine may be used to check that mapping Xf = P Xc is accurate.
+!>   The list of original nodes for each level is stored in the Cnodes vector.
+!>   For the momont this only works for cases with one DOF and no permutation!
 !------------------------------------------------------------------------------
     SUBROUTINE AMGTest(direction) 
 !------------------------------------------------------------------------------
@@ -4473,9 +4471,9 @@ CONTAINS
 
 
 !----------------------------------------------------------------------------
-!   The following subroutines are CR (Compatible Relaxation) versions of the
-!   simple relaxation schemes. The relaxation speed of equation Ax = 0 to x=0
-!   may be used as a measure of the goodness of the chosen coarse node set.
+!>   The following subroutines are CR (Compatible Relaxation) versions of the
+!>   simple relaxation schemes. The relaxation speed of equation Ax = 0 to x=0
+!>   may be used as a measure of the goodness of the chosen coarse node set.
 !-----------------------------------------------------------------------------
     SUBROUTINE CR_Jacobi( A, x0, x1, f, Rounds )
 !-----------------------------------------------------------------------------
@@ -4778,11 +4776,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-     FUNCTION CRS_Transpose( A ) RESULT(B)
+!>  Calculate transpose of A in CRS format: B = A^T
 !------------------------------------------------------------------------------
-!
-!  Calculate transpose of A in CRS format: B = A^T
-!
+     FUNCTION CRS_Transpose( A ) RESULT(B)
 !------------------------------------------------------------------------------
        USE CRSMatrix
        IMPLICIT NONE
@@ -4845,11 +4841,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE CRS_ProjectMatrixCreate( A, P, R, B, DOFs ) 
+!>     Project matrix A to B: B = PAR
 !------------------------------------------------------------------------------
-!
-!     Project matrix A to B: B = PAR
-!
+    SUBROUTINE CRS_ProjectMatrixCreate( A, P, R, B, DOFs ) 
 !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A,P,R,B
       INTEGER :: DOFs
@@ -5031,20 +5025,14 @@ CONTAINS
 
 
 
-!/*****************************************************************************
-! *
-! * Subroutine containing agglomeration or cluster multigrid solver.
-! *
-! *****************************************************************************
-! *
-! *       Author: Peter Råback
-! *
-! *       Modified by: 
-! *
-! *       Date of modification: 30.10.2007
-! *
-! ****************************************************************************/
-
+!------------------------------------------------------------------------------
+!> Subroutine containing agglomeration or cluster multigrid solver.
+!> This provides in princinple an economical approach to multilevel schemes.
+!> The utilization of the routines are still not complete.
+! 
+!       Author: Peter Råback
+!       Modified by: 
+!       Date of modification: 30.10.2007
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE CMGSolve( Matrix1, Solution, &
     ForceVector, DOFs, Solver, Level, NewSystem )
@@ -5543,12 +5531,11 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
+!>     Project the residuals from coarse to fine and restrict from fine to coarse
+!>     in the clustering multigrid method.
+!-------------------------------------------------------------------------------
   SUBROUTINE CRS_ClusterProject( CF, u, v, DOFs, Trans )
 !------------------------------------------------------------------------------
-!
-!     Project the residuals from coarse to fine and restrict from fine to coarse.
-!
-!-------------------------------------------------------------------------------
     INTEGER, POINTER :: CF(:)
     REAL(KIND=dp), POINTER :: u(:),v(:)
     INTEGER :: DOFs
@@ -5605,20 +5592,17 @@ CONTAINS
       END IF
     END IF
 
-
 !-------------------------------------------------------------------------------
   END SUBROUTINE CRS_ClusterProject
 !-------------------------------------------------------------------------------
 
 
 
- !------------------------------------------------------------------------------
-   SUBROUTINE CRS_ClusterMatrixCreate( A, CF, B, Components ) 
 !------------------------------------------------------------------------------
-!
-!     Project cluster matrix A to B: B = PAR
-!     The projector is formed implicitely.
-!
+!>     Project cluster matrix A to B: B = PAR
+!>     The projector is formed implicitely.
+!------------------------------------------------------------------------------
+   SUBROUTINE CRS_ClusterMatrixCreate( A, CF, B, Components ) 
 !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A,B
       INTEGER, POINTER :: CF(:)

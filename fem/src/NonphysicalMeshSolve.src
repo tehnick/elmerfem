@@ -41,33 +41,19 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!>  An alternativesolver for mesh update solver. The intended use for this
+!>  is, for example, in geometry optimization when the normal MeshUpdate is
+!>  not always suitable as it may be needed to extent real physical displacements.
+!> This is a dynamically loaded solver with a standard interface.
+!------------------------------------------------------------------------------
  SUBROUTINE MeshSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for mesh update. This is intended for mesh morfing 
-!  that does not include ALE velocity field. 
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
-
   LOGICAL ::  TransientSimulation
   REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------

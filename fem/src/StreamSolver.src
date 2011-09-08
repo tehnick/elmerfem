@@ -21,40 +21,19 @@
 ! *
 ! *****************************************************************************/
 !
-!/******************************************************************************
-! *
-! *  Solve the StreamFunction of the flow field.
-! *
-! *****************************************************************************/
-
+!-------------------------------------------------------------------------------
+!> Solve the StreamFunction of a two-dimensional steady state flow field.
+!> The intended usage of the solver is mainly for postprocessing purposes. 
+!-------------------------------------------------------------------------------
 SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
-! Local variables
+  TYPE(Solver_t) :: Solver  !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model    !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt       !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation !< Steady state or transient simulation
 !------------------------------------------------------------------------------
   TYPE(Matrix_t), POINTER  :: StiffMatrix
   TYPE(Variable_t), POINTER :: FlowSol

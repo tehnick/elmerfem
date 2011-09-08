@@ -40,54 +40,7 @@
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE DivergenceSolver_Init( Model,Solver,dt,Transient )
-!------------------------------------------------------------------------------
-    USE DefUtils
-    IMPLICIT NONE
-
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t) :: Solver
-    REAL(KIND=dp) :: DT
-    LOGICAL :: Transient
-!------------------------------------------------------------------------------
-    TYPE(ValueList_t), POINTER :: SolverParams
-    INTEGER :: dim
-    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, DivName
-    LOGICAL :: GotIt
-!------------------------------------------------------------------------------
-    SolverParams => GetSolverParams()
-    dim = CoordinateSystemDimension()
-
-    VarName = GetString(SolverParams,'Divergence Variable',GotIt )
-    IF(gotIt) THEN
-      DivName = 'Div '//TRIM(VarName)
-    ELSE
-      DivName = 'Divergence'
-    END IF
-
-    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
-      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
-      CALL ListAddString( SolverParams, 'Variable', DivName )
-    END IF
-    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
-
-    ! Add linear system defaults: cg+ILU0
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
-      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
-      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
-      CALL ListAddString(SolverParams,'Linear System Preconditioning','ILU0')
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
-      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
-    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
-      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-8_dp)
-
-!------------------------------------------------------------------------------
-  END SUBROUTINE DivergenceSolver_Init
-!------------------------------------------------------------------------------
-
-
+!> Subroutine computes the divergence of vector fields using Galerkin method. 
 !------------------------------------------------------------------------------
 SUBROUTINE DivergenceSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -97,24 +50,6 @@ SUBROUTINE DivergenceSolver( Model,Solver,dt,Transient )
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for one timestep
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient
@@ -132,7 +67,6 @@ SUBROUTINE DivergenceSolver( Model,Solver,dt,Transient )
   TYPE(Variable_t), POINTER :: DivergenceSol
   
   SAVE Visited
-
  
   CALL Info( 'DivergenceSolver', '-------------------------------------',Level=4 )
   CALL Info( 'DivergenceSolver','Computing the divergence field',Level=4 )
@@ -295,5 +229,57 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 END SUBROUTINE DivergenceSolver
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver.
+!------------------------------------------------------------------------------
+  SUBROUTINE DivergenceSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+    IMPLICIT NONE
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: SolverParams
+    INTEGER :: dim
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName, DivName
+    LOGICAL :: GotIt
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    VarName = GetString(SolverParams,'Divergence Variable',GotIt )
+    IF(gotIt) THEN
+      DivName = 'Div '//TRIM(VarName)
+    ELSE
+      DivName = 'Divergence'
+    END IF
+
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
+      CALL ListAddString( SolverParams, 'Variable', DivName )
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
+
+    ! Add linear system defaults: cg+ILU0
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
+      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
+      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
+      CALL ListAddString(SolverParams,'Linear System Preconditioning','ILU0')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
+      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-8_dp)
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE DivergenceSolver_Init
 !------------------------------------------------------------------------------
 

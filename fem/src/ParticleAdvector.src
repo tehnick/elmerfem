@@ -1,11 +1,5 @@
 !/******************************************************************************
 ! *
-! * Subroutine for advecting fields in time using particles to follow them (-dt) 
-! * in time, and taking the field value from the given point. This should overcome
-! * all problems with diffusion. 
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback & Juha Ruokolainen
 ! *  Email:   Peter.Raback@csc.fi & Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -17,66 +11,14 @@
 ! *
 ! *****************************************************************************/
 
-
-SUBROUTINE ParticleAdvector_Init( Model,Solver,dt,TransientSimulation )
-
-  USE DefUtils
-  USE Interpolation
-  USE MeshUtils
-  USE ElementUtils
-  USE ParticleUtils
-
-  IMPLICIT NONE
-!------------------------------------------------------------------------------
-  TYPE(Solver_t), TARGET :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
-! Local variables
-!------------------------
-  
-  TYPE(ValueList_t), POINTER :: Params
-  LOGICAL :: Found
-
-  Params => Solver % Values
-
-  ! These are default setting that make the operation of the advection solver 
-  ! possible. There should always be one passive particle for each active node.
-  !---------------------------------------------------------------------------
-  CALL ListAddString( Params,'Coordinate Initialization Method','nodal ordered')
-  CALL ListAddString( Params,'Velocity Initialization Method','nodal velocity')
-  CALL ListAddInteger( Params,'Time Order',0 )
-  CALL ListAddConstReal( Params,'Particle Node Fraction',1.0_dp)
-  IF(.NOT. ListCheckPresent( Params,'Particle Accurate At Face') ) &
-      CALL ListAddLogical( Params,'Particle Accurate At Face',.TRUE.)  
-  CALL ListAddLogical( Params,'Particle Dt Negative',.TRUE.)
-
-END SUBROUTINE ParticleAdvector_Init
-
-
-!------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+!> Subroutine for advecting fields in time using particles to follow them  
+!> backwards in time, and taking the field value from the given point. This should overcome
+!> all problems with diffusion. 
+!> This is a dynamically loaded solver with a standard interface. 
+!-------------------------------------------------------------------------------
 SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  This subroutine saves scalar values to a matrix.
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   USE Interpolation
   USE MeshUtils
@@ -612,3 +554,41 @@ END SUBROUTINE ParticleAdvector
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver. 
+!------------------------------------------------------------------------------
+SUBROUTINE ParticleAdvector_Init( Model,Solver,dt,TransientSimulation )
+
+  USE DefUtils
+  USE Interpolation
+  USE MeshUtils
+  USE ElementUtils
+  USE ParticleUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------
+  
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Found
+
+  Params => Solver % Values
+
+  ! These are default setting that make the operation of the advection solver 
+  ! possible. There should always be one passive particle for each active node.
+  !---------------------------------------------------------------------------
+  CALL ListAddString( Params,'Coordinate Initialization Method','nodal ordered')
+  CALL ListAddString( Params,'Velocity Initialization Method','nodal velocity')
+  CALL ListAddInteger( Params,'Time Order',0 )
+  CALL ListAddConstReal( Params,'Particle Node Fraction',1.0_dp)
+  IF(.NOT. ListCheckPresent( Params,'Particle Accurate At Face') ) &
+      CALL ListAddLogical( Params,'Particle Accurate At Face',.TRUE.)  
+  CALL ListAddLogical( Params,'Particle Dt Negative',.TRUE.)
+
+END SUBROUTINE ParticleAdvector_Init

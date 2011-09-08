@@ -41,33 +41,18 @@
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
+!> Subroutine that may be used to normalize the amplitude of artificial compressibility for
+!> optimal fluid-structure coupling.
+!------------------------------------------------------------------------------
 SUBROUTINE CompressibilityScale( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+  TYPE(Solver_t) :: Solver   !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model     !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt        !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation !< Steady state or transient simulation
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------
@@ -415,36 +400,20 @@ END SUBROUTINE CompressibilityScale
 
 
 
-
+!------------------------------------------------------------------------------
+!> Subroutine for computing the artificial compressibility from the volume change 
+!> of elements. The volume change is obtained by extending the displacement field
+!> of a test load to the fluid domain.
 !------------------------------------------------------------------------------
 SUBROUTINE CompressibilitySolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the artificial compressibility from the volume change of elements
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
+  TYPE(Solver_t) :: Solver   !< Linear & nonlinear equation solver options
+  TYPE(Model_t) :: Model     !< All model information (mesh, materials, BCs, etc...)
+  REAL(KIND=dp) :: dt        !< Timestep size for time dependent simulations
+  LOGICAL :: TransientSimulation !< Steady state or transient simulation
 !------------------------------------------------------------------------------
 ! Local variables
 !------------------------------------------------------------------------------

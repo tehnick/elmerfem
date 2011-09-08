@@ -39,27 +39,11 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!>  This subroutine saves scalar values in ascii format to an external file.
+!> This is a dynamically loaded solver with a standard interface.
+!------------------------------------------------------------------------------
 SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  This subroutine saves scalar values to a matrix.
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   USE Interpolation
 
@@ -2555,12 +2539,11 @@ END SUBROUTINE SaveScalars
 
 
 !------------------------------------------------------------------------------
-! Saves line data in different formats.
-! 1) Saves the 1D boundaries with keyword 'Save Line'
-! 2) Saves the principle axis (This might be obsolite)
-! 3) Saves polyline defined by coordinates in 2D or 3D  
+!>  This subroutine saves 1D or 2D data in different formats.
+!> Data on existing boundaries and polylines defined by set of coordinates 
+!> may be saved.
+!> This is a dynamically loaded solver with a standard interface.
 !------------------------------------------------------------------------------
-
 SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
   USE Types
@@ -3581,10 +3564,9 @@ END SUBROUTINE SaveLine
 
 
 !------------------------------------------------------------------------------
-! Additional routine for saving material parameters. 
+!> Routine for saving material parameters as fields.
 ! Written by Thomas Zwinger 
 !------------------------------------------------------------------------------
-
 SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   USE DefUtils
   USE Types
@@ -3765,6 +3747,9 @@ END SUBROUTINE SaveMaterials
 
 
 
+!------------------------------------------------------------------------------
+!> Routine for saving boundary values as fields.
+!------------------------------------------------------------------------------
 SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   USE DefUtils
   USE Types

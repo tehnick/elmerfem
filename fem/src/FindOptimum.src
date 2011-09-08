@@ -23,13 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  This solver may be used for optimization. It is not intended to provide
-! *  a full featured solution for optimization problems. However, sometimes
-! *  its nice that the optimization may be performed in one sweep without the
-! *  need for restarting the solver for each optimization trial. 
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -43,26 +36,14 @@
  
 
 !------------------------------------------------------------------------------
+!>  This solver may be used for optimization. It is not intended to provide
+!>  a full featured solution for optimization problems. However, sometimes
+!>  its nice that the optimization may be performed in one sweep without the
+!>  need for restarting the solver for each optimization trial. 
+!> This is a dynamically loaded solver with a standard interface.
+!------------------------------------------------------------------------------
 SUBROUTINE FindOptimum( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
-
   USE Types
   USE Lists
   USE MeshUtils
@@ -321,7 +302,7 @@ CONTAINS
   END FUNCTION idx
 
 !-------------------------------------------------------------------------------
-! Choose next parameter set from genetic optimization procedure
+!> Choose next parameter set from genetic optimization procedure
 !-------------------------------------------------------------------------------
 
   SUBROUTINE GeneticOptimize(parsize, parameters, func)
@@ -401,7 +382,7 @@ CONTAINS
   END SUBROUTINE GeneticOptimize
 
 !-------------------------------------------------------------------------------
-! Choose next parameter set from even random distribution
+!> Choose next parameter set from even random distribution
 !-------------------------------------------------------------------------------
 
   SUBROUTINE RandomParameter()
@@ -417,7 +398,7 @@ CONTAINS
   END SUBROUTINE RandomParameter
 
 !-------------------------------------------------------------------------------
-! Choose next parameter from 1D parameter scanning
+!> Choose next parameter from 1D parameter scanning
 !-------------------------------------------------------------------------------
 
   SUBROUTINE ScanParameter()
@@ -448,7 +429,7 @@ CONTAINS
   END SUBROUTINE ScanParameter
 
 !-------------------------------------------------------------------------------
-! Choose next parameter set from 1D bisection search
+!> Choose next parameter set from 1D bisection search
 !-------------------------------------------------------------------------------
 
   SUBROUTINE BisectOptimize()
@@ -530,8 +511,8 @@ CONTAINS
   END SUBROUTINE BisectOptimize
 
 !-------------------------------------------------------------------------------
-! Choose next parameter set from secant method
-! This only works for design problems where the target cost is known.
+!> Choose next parameter set from secant method
+!> This only works for design problems where the target cost is known.
 !-------------------------------------------------------------------------------
 
   SUBROUTINE SecantSearch()
@@ -583,8 +564,8 @@ CONTAINS
 
 
 !--------------------------------------------------------------------------------------
-! Find the optimum using the Simplex method (Nelder-Mead algorithm)
-! Note that constraint box is taken into account only when creating the initial simplex.
+!> Find the optimum using the Simplex method (Nelder-Mead algorithm)
+!> Note that constraint box is taken into account only when creating the initial simplex.
 !--------------------------------------------------------------------------------------
   SUBROUTINE SimplexOptimize( nx, x, cost, minx, maxx, diffx )
 
@@ -821,7 +802,7 @@ CONTAINS
 
 
 !--------------------------------------------------------------------------------------
-! This subroutine may be used to continue the optimization from the previous best value
+!> This subroutine may be used to continue the optimization from the previous best value.
 !--------------------------------------------------------------------------------------
   SUBROUTINE GuessOptimum( )
 !------------------------------------------------------------------------------
@@ -855,7 +836,6 @@ CONTAINS
     param(1:n) = guessparam(1:n)
 
   END SUBROUTINE GuessOptimum
-
 
 
 END SUBROUTINE FindOptimum

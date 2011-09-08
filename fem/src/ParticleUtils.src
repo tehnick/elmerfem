@@ -71,7 +71,9 @@ MODULE ParticleUtils
 CONTAINS
 
 
-
+!----------------------------------------------------------------------------
+!> Counts particles in different categories.
+!----------------------------------------------------------------------------
   SUBROUTINE ParticleStatusCount(Particles)
     
     TYPE(Particle_t), POINTER :: Particles
@@ -115,9 +117,10 @@ CONTAINS
 
 
   !---------------------------------------------------------
-  ! The following subroutines make the data structure 
+  !The following subroutines make the data structure 
   ! transparent in the user subrouines and thereby make
   ! them more recilient to time.
+  !> Returns coordinates of the particle.
   !---------------------------------------------------------
   FUNCTION GetParticleCoord(Particles,No) RESULT ( Coord )
     TYPE(Particle_t), POINTER :: Particles
@@ -131,7 +134,8 @@ CONTAINS
     Coord(1:dim) = Particles % Coordinate(no,:)
   END FUNCTION GetParticleCoord
 
-  FUNCTION GetParticleVelo(Particles,No) RESULT ( Coord )
+!> Returns velocity of the particle.
+    FUNCTION GetParticleVelo(Particles,No) RESULT ( Coord )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
     REAL(KIND=dp) :: Coord(3) 
@@ -143,6 +147,7 @@ CONTAINS
     Coord(1:dim) = Particles % Velocity(no,:)
   END FUNCTION GetParticleVelo
 
+!> Returns force acting on the particle.
   FUNCTION GetParticleForce(Particles,No) RESULT ( Coord )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -155,7 +160,7 @@ CONTAINS
     Coord(1:dim) = Particles % Force(no,:)
   END FUNCTION GetParticleForce
 
-
+!> Sets the particle coordinates.
   SUBROUTINE SetParticleCoord(Particles,No,Coord)
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -166,6 +171,7 @@ CONTAINS
     Particles % Coordinate(no,:) = Coord(1:dim)
   END SUBROUTINE SetParticleCoord
 
+  !> Sets the particle velocity.
   SUBROUTINE SetParticleVelo(Particles,No,Coord)
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -176,6 +182,7 @@ CONTAINS
     Particles % Velocity(no,:) = Coord(1:dim)
   END SUBROUTINE SetParticleVelo
 
+  !> Sets the particle force.
   SUBROUTINE SetParticleForce(Particles,No,Coord)
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -187,6 +194,7 @@ CONTAINS
   END SUBROUTINE SetParticleForce
 
 
+  !> Gets the previous particle coordinate.
   FUNCTION GetParticlePrevCoord(Particles,No) RESULT ( Coord )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -201,7 +209,7 @@ CONTAINS
 
   END FUNCTION GetParticlePrevCoord
  
-
+!> Gets the local coordinates of the element of the given particle.
   SUBROUTINE GetParticleUVW(Particles,No, u, v, w )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -222,7 +230,7 @@ CONTAINS
     END IF
   END SUBROUTINE GetParticleUVW
   
-
+!> Sets the local coordinates of the element of the given particle.
   SUBROUTINE SetParticleUVW(Particles,No,u,v,w)
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -243,7 +251,7 @@ CONTAINS
   END SUBROUTINE SetParticleUVW
 
 
-  
+!> Adds a displacement to the particle coordinates.  
   SUBROUTINE AddParticleCoord(Particles,No,Coord)
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No, DerOrder
@@ -254,6 +262,7 @@ CONTAINS
         Particles % Coordinate(no,:) + Coord(1:dim)
   END SUBROUTINE AddParticleCoord
   
+!> Adds a velocity difference to the particle velocity.  
   SUBROUTINE AddParticleVelo(Particles,No,Coord)
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No, DerOrder
@@ -264,7 +273,7 @@ CONTAINS
         Particles % Velocity(no,:) + Coord(1:dim)
   END SUBROUTINE AddParticleVelo
  
-
+!> Adds to the force acting on the particle.
    SUBROUTINE AddParticleForce(Particles,No,Coord)
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No, DerOrder
@@ -275,7 +284,7 @@ CONTAINS
         Particles % Force(no,:) + Coord(1:dim)
   END SUBROUTINE AddParticleForce
 
-  
+!> Gets the status of the particle.  
   FUNCTION GetParticleStatus(Particles,No) RESULT ( Status )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -284,7 +293,7 @@ CONTAINS
     Status = Particles % Status(No)
   END FUNCTION GetParticleStatus
   
-  
+!> Sets the status of the particle.  
   SUBROUTINE SetParticleStatus(Particles,No,Status )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -293,7 +302,7 @@ CONTAINS
     Particles % Status(No) = Status
   END SUBROUTINE SetParticleStatus
   
-  
+!> Gets the elements where the particle is located in, or was located last time.  
   FUNCTION GetParticleElement(Particles,No) RESULT ( Index ) 
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -302,7 +311,7 @@ CONTAINS
     Index = Particles % ElementIndex(No)
   END FUNCTION GetParticleElement
   
-  
+!> Sets the element where the particle is located.   
   SUBROUTINE SetParticleElement(Particles,No,Index )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -311,6 +320,7 @@ CONTAINS
     Particles % ElementIndex(No) = Index
   END SUBROUTINE SetParticleElement
   
+!> Gets the closest node related to the particle.  
   FUNCTION GetParticleNode(Particles,No) RESULT ( Index ) 
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -319,7 +329,7 @@ CONTAINS
     Index = Particles % NodeIndex(No)
   END FUNCTION GetParticleNode
   
-  
+!> Sets the closest node related to the particle.  
   SUBROUTINE SetParticleNode(Particles,No,Index )
     TYPE(Particle_t), POINTER :: Particles
     INTEGER :: No
@@ -330,10 +340,10 @@ CONTAINS
  
 
   !---------------------------------------------------------
-  ! The subroutine marks the elements which are not on the 
-  ! boundary, either internal or external one. 
-  ! This information may be used to speed up different 
-  ! loops where particle-boundary interaction is needed.
+  !> The subroutine marks the elements which are not on the 
+  !> boundary, either internal or external one. 
+  !> This information may be used to speed up different 
+  !> loops where particle-boundary interaction is needed.
   !---------------------------------------------------------
   SUBROUTINE MarkInternalElements( Particles )
     
@@ -445,9 +455,9 @@ CONTAINS
 
 
   !---------------------------------------------------------
-  ! Set up some preliminary information needed for the 
-  ! particler tracker: timeorder, space dimension, 
-  ! bounding box, and mesh edges/faces.
+  !> Subroutine sets up some preliminary information needed for the 
+  !> particler tracker: timeorder, space dimension, 
+  !> bounding box, and mesh edges/faces.
   !---------------------------------------------------------
   SUBROUTINE SetParticlePreliminaries(Particles,dim,TimeOrder)
     
@@ -525,7 +535,7 @@ CONTAINS
 
 
   !---------------------------------------------------------
-  ! Allocate particles before launching them
+  !> Subroutine allocate particles before launching them.
   !---------------------------------------------------------
   SUBROUTINE AllocateParticles(Particles,NoParticles)
     
@@ -676,7 +686,8 @@ CONTAINS
   
 
   !----------------------------------------------------
-  ! Delete lost particles:
+  !> Subroutine deletes lost particles. The reason for losing
+  !> particles may be that they go to a neighbouring partition.
   !----------------------------------------------------
   SUBROUTINE DeleteLostParticles(Particles)
     TYPE(Particle_t), POINTER :: Particles
@@ -743,8 +754,8 @@ CONTAINS
 
 
   !----------------------------------------------------
-  ! Set particles that are still sitting on boundary to 
-  ! leave the premises and call for their delition.
+  !> Subroutine sets particles that are still sitting on boundary to 
+  !> leave the premises and call for their delition.
   !----------------------------------------------------
   SUBROUTINE EliminateExitingParticles( Particles )
     
@@ -808,7 +819,7 @@ RETURN
   
 
   !----------------------------------------------------
-  ! Increase particle array size by given amount:
+  !> Increase particle array size by given amount.
   !----------------------------------------------------
   SUBROUTINE IncreaseParticles(Particles,NoParticles)
     
@@ -863,7 +874,7 @@ RETURN
 
 
   !---------------------------------------------------------
-  ! Subroutine for releaseing initiated but waiting particles.
+  !> Subroutine for releaseing initiated but waiting particles.
   !---------------------------------------------------------
   SUBROUTINE ReleaseWaitingParticles(Particles) 
     TYPE(Particle_t), POINTER :: Particles
@@ -917,8 +928,8 @@ RETURN
   
 
   !---------------------------------------------------------
-  ! Subroutine for chanching the partition of particles that
-  ! cross the partition boundary.
+  !> Subroutine for chanching the partition of particles that
+  !> cross the partition boundary.
   !---------------------------------------------------------
   FUNCTION ChangeParticlePartition(Particles) RESULT(nReceived)
     !---------------------------------------------------------
@@ -1267,7 +1278,7 @@ RETURN
   
 
   !---------------------------------------------------------
-  ! Computes the means of coordinates / velocities / force
+  !> Subroutine computes the means of coordinates / velocities / force.
   ! The statistics could be made more detailed...
   !---------------------------------------------------------
   SUBROUTINE ParticleStatistics( Particles, DerOrder ) 
@@ -1370,7 +1381,7 @@ RETURN
   
 
   !---------------------------------------------------------
-  ! Echos some information on particle amounts
+  !> Echos some information on particle amounts to standard output.
   !---------------------------------------------------------
   SUBROUTINE ParticleInformation( Particles, ParticleStepsTaken, TimestepsTaken, tottime ) 
     TYPE(Particle_t), POINTER :: Particles
@@ -1404,9 +1415,9 @@ RETURN
 
 
   !---------------------------------------------------------
-  ! Computes the characterestic speed for time integration.
-  ! The speed may be either computed for the whole set or
-  ! alternatively to just one particle.
+  !> Computes the characterestic speed for time integration.
+  !> The speed may be either computed for the whole set or
+  !> alternatively to just one particle.
   !---------------------------------------------------------
   FUNCTION CharacteristicSpeed( Particles, No ) RESULT ( CharSpeed )
     TYPE(Particle_t), POINTER :: Particles
@@ -1479,9 +1490,9 @@ RETURN
 
 
   !---------------------------------------------------------
-  ! Computes the characterestic time spent in an element
-  ! Currently computed just for one element as computing the 
-  ! size of element is a timeconsuming operation.
+  !> Computes the characterestic time spent in an element
+  !> Currently computed just for one element as computing the 
+  !> size of element is a timeconsuming operation.
   !---------------------------------------------------------
   FUNCTION CharacteristicElementTime( Particles, No ) RESULT ( CharTime )
     
@@ -1546,7 +1557,8 @@ RETURN
 
 
   !------------------------------------------------------------------------
-  ! Initialize particle positions and velocities.
+  !> Initialize particle positions and velocities with a number of different
+  !> methods, both random and uniform.
   !-------------------------------------------------------------------------
   SUBROUTINE InitializeParticles( Particles, InitParticles, AppendParticles ) 
     
@@ -2137,8 +2149,8 @@ RETURN
  
 
   !---------------------------------------------------------------------------
-  ! This subroutine finds the possible intersection between elementfaces 
-  ! and a line segment defined by two coordinates.
+  !> This subroutine finds the possible intersection between elementfaces 
+  !> and a line segment defined by two coordinates.
   !---------------------------------------------------------------------------
   SUBROUTINE SegmentElementIntersection(Mesh,BulkElement,&
       Rinit,Rfin,MinLambda,FaceElement)
@@ -2224,10 +2236,10 @@ RETURN
   
   
   !------------------------------------------------------------------------
-  ! Find the particle in the mesh using actree based search. 
-  ! This could be preferred in the initial finding of the correct elements.
-  ! The major downside of the method is that there is no controlled face
-  ! detection needed for wall interaction, for example.
+  !> Find the particle in the mesh using actree based search. 
+  !> This could be preferred in the initial finding of the correct elements.
+  !> The major downside of the method is that there is no controlled face
+  !> detection needed for wall interaction, for example.
   !------------------------------------------------------------------------
   SUBROUTINE LocateParticleInMeshOctree( ElementIndex, GlobalCoords, &
       LocalCoords )
@@ -2310,10 +2322,10 @@ RETURN
 
 
   !------------------------------------------------------------------------
-  ! Locate the particle using controlled marching from element to element.
-  ! The crossing point between given trajectory and all face elements is 
-  ! computed. The one that is passed at first is associated to the next 
-  ! bulk element.
+  !> Locate the particle using controlled marching from element to element.
+  !> The crossing point between given trajectory and all face elements is 
+  !> computed. The one that is passed at first is associated to the next 
+  !> bulk element.
   !-------------------------------------------------------------------------
   SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
       ParticleStatus, AccurateAtFace, StopFaceIndex, Lambda, Velo )
@@ -2531,7 +2543,7 @@ RETURN
 
 
   !------------------------------------------------------------------------
-  ! Locate all the new elements of the particles
+  !> Locate the particles in their new positions in the mesh.
   !-------------------------------------------------------------------------
   SUBROUTINE LocateParticles( Particles )
     
@@ -2664,11 +2676,11 @@ RETURN
   
   
   !--------------------------------------------------------------------------
-  ! Given the element & global coordinates returns the local coordinates.
-  ! The idea of this routine is to transparently block the local coordinate
-  ! search from the user by directly giving the basis function values related
-  ! to a global coordinate. Sloppy tolerances are used since we *should* 
-  ! have already located the element.
+  !> Given the element & global coordinates returns the local coordinates.
+  !> The idea of this routine is to transparently block the local coordinate
+  !> search from the user by directly giving the basis function values related
+  !> to a global coordinate. Sloppy tolerances are used since we *should* 
+  !> have already located the element.
   !--------------------------------------------------------------------------
   FUNCTION ParticleElementInfo( CurrentElement, GlobalCoord, &
       SqrtElementMetric, Basis, dBasisdx ) RESULT ( stat )
@@ -2717,9 +2729,9 @@ RETURN
 
 
   !-------------------------------------------------------------------------
-  ! The routine returns velocity and optionally a gradient of velocity.
-  ! These kind of functions are needed repeated and therefore to reduced the 
-  ! size of individual solvers it has been hard coded here. 
+  !> The routine returns velocity and optionally a gradient of velocity.
+  !> These kind of functions are needed repeated and therefore to reduced the 
+  !> size of individual solvers it has been hard coded here. 
   !--------------------------------------------------------------------------
   
   SUBROUTINE GetVectorFieldInMesh(Var, CurrentElement, Basis, Velo, dBasisdx, GradVelo )
@@ -2821,7 +2833,7 @@ RETURN
 
 
   !-------------------------------------------------------------------------
-  ! The routine returns a potential and its gradient.
+  !> The routine returns a potential and its gradient.
   !--------------------------------------------------------------------------
   
   SUBROUTINE GetScalarFieldInMesh(Var, CurrentElement, Basis, Pot, dBasisdx, GradPot )
@@ -2878,10 +2890,10 @@ RETURN
 
   
   !-------------------------------------------------------------------------
-  ! The routine returns the possible intersection of a secondary element 
-  ! with a different material property and the circle / sphere.
-  ! For example, the buoyancy at the interface will depend on the weighted
-  ! sum of the densities of the two materials. 
+  !> The routine returns the possible intersection of a secondary element 
+  !> with a different material property and the circle / sphere.
+  !> For example, the buoyancy at the interface will depend on the weighted
+  !> sum of the densities of the two materials. 
   !--------------------------------------------------------------------------
   
   FUNCTION GetParticleElementIntersection(Particles,BulkElement, Basis, Coord, &
@@ -3004,9 +3016,9 @@ RETURN
 
 
   !-------------------------------------------------------------
-  ! This subroutine may be used to enquire position dependent material data.
-  ! Also if the particle is splitted between two elements then this 
-  ! routine can assess the data on the secondary mesh.
+  !> This subroutine may be used to enquire position dependent material data.
+  !> Also if the particle is splitted between two elements then this 
+  !> routine can assess the data on the secondary mesh.
   !-------------------------------------------------------------
   FUNCTION GetMaterialPropertyInMesh(PropertyName, BulkElement, Basis, &
       BulkElement2, VolumeFraction ) RESULT ( Property )
@@ -3082,9 +3094,9 @@ RETURN
 
 
   !-------------------------------------------------------------
-  ! This routine cretates the nearest neighbours for all nodes
-  ! The particle-particle connections may then be found by going
-  ! through all the nodes of elements
+  !> This routine creates the nearest neighbours for all nodes.
+  !> The particle-particle connections may then be found by going
+  !> through all the nodes of elements.
   !-------------------------------------------------------------
   SUBROUTINE CreateNeighbourList( Particles ) 
     
@@ -3420,8 +3432,9 @@ RETURN
   !------------------------------------------------------------
 
 
-  ! This assumes that the real particles are followed by ghost particles. 
-  ! which are destroyed before leaving this configuration.
+  !---------------------------------------------------------------
+  !> This assumes that the real particles are followed by ghost particles. 
+  !> which are destroyed before leaving this configuration.
   !---------------------------------------------------------------
   SUBROUTINE DestroyGhostParticles( Particles ) 
 
@@ -3443,8 +3456,8 @@ RETURN
 
 
   !------------------------------------------------------------
-  ! For the first call of given node do the list, thereafter 
-  ! Return the index until the list is finished
+  !> For the first call of given node do the list, thereafter 
+  !> Return the index until the list is finished.
   !------------------------------------------------------------
   FUNCTION GetNextNeighbour( Particles, No ) RESULT ( No2 )
     IMPLICIT NONE
@@ -3521,6 +3534,12 @@ RETURN
   END FUNCTION GetNextNeighbour
   
   
+!------------------------------------------------------------
+!> Computes interaction between particles given an interaction 
+!> kernel that that is the pointer to the function that computes
+!> the effect of the interaction in terms of forces or new coordinate
+!> values (for collision models). 
+!------------------------------------------------------------ 
   SUBROUTINE ParticleParticleInteraction( Particles, dtime, Collision, InteractionKernel ) 
 
     IMPLICIT NONE
@@ -3583,7 +3602,7 @@ RETURN
 
 
   !---------------------------------------------------------
-  ! Initialize the time for next time integration step
+  !> Initialize the time for next time integration step
   !---------------------------------------------------------
   SUBROUTINE ParticleInitializeTime( Particles, No )
     TYPE(Particle_t), POINTER :: Particles
@@ -3600,7 +3619,8 @@ RETURN
  
 
   !---------------------------------------------------------
-  ! Take a time step
+  !> Advance the particles with a time step. The timestep may
+  !> also be an intermediate Runge-Kutta step.
   !---------------------------------------------------------
   SUBROUTINE ParticleAdvanceTimestep( Particles, RKstep )
     TYPE(Particle_t), POINTER :: Particles
@@ -3728,9 +3748,9 @@ RETURN
 
 
   !---------------------------------------------------------------    
-  ! Checks the boundaries for rectangular and hexahedral shapes and 
-  ! enforces periodic BCs. Currently the only supported way
-  ! for setting periodic BCs.
+  !> Checks the boundaries for rectangular and hexahedral shapes and 
+  !> enforces periodic BCs. Currently the only supported way
+  !> for setting periodic BCs.
   !---------------------------------------------------------------    
   SUBROUTINE ParticleBoxPeriodic( Particles )
     
@@ -3810,10 +3830,10 @@ RETURN
   
   
   !---------------------------------------------------------------    
-  ! Checks the boundaries for rectangular and hexahedral shapes and 
-  ! enforces elastic reflection. This is alternative and 
-  ! computationally more economic way and is ideal for testing
-  ! purposes, at least.
+  !> Checks the boundaries for rectangular and hexahedral shapes and 
+  !> enforces elastic reflection. This is alternative and 
+  !> computationally more economic way and is ideal for testing
+  !> purposes, at least.
   !---------------------------------------------------------------    
   SUBROUTINE ParticleBoxContact(Particles)
     
@@ -3936,9 +3956,9 @@ RETURN
 
 
 !--------------------------------------------------------------------------
-! Set a the timestep for the particles in two possible modes
-! 1) "No" is given => define step for each particle separately
-! 2) "No" is not given => define the same step size for all particles
+!> Set a the timestep for the particles.
+!> Depending on the definitions the timestep may be the same for all 
+!> particles, or may be defined independently for each particle.
 !-------------------------------------------------------------------------
   FUNCTION GetParticleTimeStep(Particles, InitInterval, tinit ) RESULT ( dtout )
     
@@ -4087,6 +4107,9 @@ RETURN
 
 
 !------------------------------------------------------------------------------
+!> Creates a variable related to the particles. The normal variabletype without
+!> the permutation vector is used. 
+!------------------------------------------------------------------------------
   SUBROUTINE ParticleVariableCreate( Particles, Name, DOFs, Output, &
              Secondary, Type ) 
 !------------------------------------------------------------------------------
@@ -4135,7 +4158,7 @@ RETURN
 
 
 !------------------------------------------------------------------------------
-!  Given a variable name, get handle to it
+!>  Given a variable name, get a handle to it.
 !------------------------------------------------------------------------------
   FUNCTION ParticleVariableGet( Particles, Name ) RESULT ( Var )
     
@@ -4154,7 +4177,7 @@ RETURN
   
 
   !------------------------------------------------------------------------
-  ! Write particles in an ascii format 
+  !> Write particles to an external file in simple ascii format matrix.
   !-------------------------------------------------------------------------
   SUBROUTINE ParticleOutputTable( Particles ) 
     
@@ -4242,8 +4265,8 @@ RETURN
   CONTAINS
 
     !------------------------------------------------------------------------
-    ! Write the names file for user information. Remember to update this if 
-    ! SaveParticleStep is modified.
+    !> Write the names file for user information. Remember to update this if 
+    !> SaveParticleStep is modified.
     !-------------------------------------------------------------------------
     SUBROUTINE WriteParticleFileNames( Prefix, Dim ) 
       
@@ -4286,8 +4309,8 @@ RETURN
 
 
     !------------------------------------------------------------------------
-    ! Open a numbered file for each particle. These must be separate since the 
-    ! number of steps for each particle may vary greatly
+    !> Open a numbered file for each particle. These must be separate since the 
+    !> number of steps for each particle may vary greatly
     !-------------------------------------------------------------------------
     SUBROUTINE OpenParticleFile( Prefix, FileNo ) 
       
@@ -4326,7 +4349,7 @@ RETURN
     
     
     !------------------------------------------------------------------------
-    ! Save one line in the particle file
+    !> Save one line in the particle file
     !-------------------------------------------------------------------------
     SUBROUTINE WriteParticleLine( Dim, No )
       INTEGER :: Dim, No
@@ -4361,7 +4384,9 @@ RETURN
 
 
 
-
+!------------------------------------------------------------------------------
+!> Saves particles in unstructured XML VTK format (VTU) to an external file. 
+!------------------------------------------------------------------------------
   SUBROUTINE ParticleOutputVtu( Particles )
 !------------------------------------------------------------------------------
 
@@ -5031,13 +5056,12 @@ RETURN
 
 
 
-
+!------------------------------------------------------------------------------
+!> Writes data out in XML VTK ImageData format (VTI) which assumes a uniform grid where
+!> the position of each point is defined by the origin and the grid density. 
+!> Also binary output and single precision therein is supported. 
 !------------------------------------------------------------------------------
   SUBROUTINE ParticleOutputVti( Particles, GridExtent, GridOrigin, GridDx, GridIndex )
-!------------------------------------------------------------------------------
-! Writes data out in XML VTK ImageData format which assumes a uniform grid where
-! the position of each point is defined by the origin and the grid density. 
-! Also binary output and single precision therein is supported. 
 !------------------------------------------------------------------------------
 
     USE DefUtils 
@@ -5628,12 +5652,12 @@ RETURN
 !------------------------------------------------------------------------------
 
 
+ !------------------------------------------------------------------------
+ !> Write particles to an external file in various formats.
+ !-------------------------------------------------------------------------
 
   SUBROUTINE SaveParticleData( Model,Solver,dt,TransientSimulation )
     
-    !------------------------------------------------------------------------
-    ! Write particles to an external file
-    !-------------------------------------------------------------------------
     
     IMPLICIT NONE
     !------------------------------------------------------------------------------

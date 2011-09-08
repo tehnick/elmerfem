@@ -39,29 +39,13 @@
 ! ****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Solver for the Navier-Stokes equation in various different coordinate systems.
+!------------------------------------------------------------------------------
    SUBROUTINE FlowSolver( Model,Solver,dt,TransientSimulation)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve Navier-Stokes equations for one timestep
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!******************************************************************************
-
     USE NavierStokes
     USE NavierStokesGeneral
     USE NavierStokesCylindrical
-
     USE Adaptive
     USE DefUtils
     USE FreeSurface
@@ -1306,6 +1290,7 @@
 CONTAINS
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
    SUBROUTINE CheckCircleBoundary()
 !------------------------------------------------------------------------------
@@ -1360,11 +1345,12 @@ CONTAINS
    END SUBROUTINE CheckCircleBoundary
 !------------------------------------------------------------------------------
 
-
 !------------------------------------------------------------------------------
   END SUBROUTINE FlowSolver
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Compute the residual of the Navier-Stokes equation for the boundary elements.
 !------------------------------------------------------------------------------
   FUNCTION FlowBoundaryResidual( Model, Edge, Mesh, &
         Quant, Perm, Gnorm ) RESULT( Indicator )
@@ -1732,6 +1718,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Compute the residual of the Navier-Stokes equation for the edge elements.
+!------------------------------------------------------------------------------
   FUNCTION FlowEdgeResidual( Model,Edge,Mesh,Quant,Perm ) RESULT( Indicator )
 !------------------------------------------------------------------------------
      USE DefUtils
@@ -1962,6 +1950,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Compute the residual of the Navier-Stokes equation for the bulk elements.
 !------------------------------------------------------------------------------
    FUNCTION FlowInsideResidual( Model, Element,  &
           Mesh, Quant, Perm, Fnorm ) RESULT( Indicator )

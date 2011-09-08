@@ -38,33 +38,12 @@
 ! *
 ! *****************************************************************************/
 
-!------------------------------------------------------------------------------
-  SUBROUTINE NormalSolver_Init( Model,Solver,dt,Transient )
-!------------------------------------------------------------------------------
-    USE DefUtils
 
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t) :: Solver
-    REAL(KIND=dp) :: DT
-    LOGICAL :: Transient
 !------------------------------------------------------------------------------
-    INTEGER :: dim
-    TYPE(ValueList_t), POINTER :: SolverParams
-!------------------------------------------------------------------------------
-    SolverParams => GetSolverParams()
-    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
-      dim = CoordinateSystemDimension()
-      CALL ListAddString( SolverParams,  'Variable', '-nooutput Nrm_tmp' )
-      CALL ListAddString( SolverParams,  'Exported Variable 1', 'Normals' )
-      CALL ListAddInteger( SolverParams, 'Exported Variable 1 DOFs', dim )
-      CALL ListAddString( SolverParams,  'Normals Result Variable', 'Normals')
-    END IF
-    CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
-!------------------------------------------------------------------------------
-  END SUBROUTINE NormalSolver_Init
-!------------------------------------------------------------------------------
-
-
+!> Solver for computing average normals for nodes using the Galerkin method.
+!> For real meshes the direction of the normal is discrete for curved surfaces
+!> and this solution should give a smoother normal direction. 
+!> This is a dynamically loaded solver with a standard interface.
 !------------------------------------------------------------------------------
 SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -74,24 +53,6 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for one timestep
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient
@@ -116,7 +77,7 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
 
  
   CALL Info( 'NormalSolver', '-------------------------------------',Level=4 )
-  CALL Info( 'NormalSolver','Computing the normals',Level=4 )
+  CALL Info( 'NormalSolver', 'Computing the normals',Level=4 )
   CALL Info( 'NormalSolver', '-------------------------------------',Level=4 )
 
   dim = CoordinateSystemDimension()
@@ -300,4 +261,33 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 END SUBROUTINE NormalSolver
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver.
+!------------------------------------------------------------------------------
+  SUBROUTINE NormalSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    INTEGER :: dim
+    TYPE(ValueList_t), POINTER :: SolverParams
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      dim = CoordinateSystemDimension()
+      CALL ListAddString( SolverParams,  'Variable', '-nooutput Nrm_tmp' )
+      CALL ListAddString( SolverParams,  'Exported Variable 1', 'Normals' )
+      CALL ListAddInteger( SolverParams, 'Exported Variable 1 DOFs', dim )
+      CALL ListAddString( SolverParams,  'Normals Result Variable', 'Normals')
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
+!------------------------------------------------------------------------------
+  END SUBROUTINE NormalSolver_Init
 !------------------------------------------------------------------------------

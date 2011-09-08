@@ -1,27 +1,3 @@
-SUBROUTINE DistanceSolver_init( Model,Solver,dt,TransientSimulation )
-  USE DefUtils
-
-  IMPLICIT NONE
-!------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
-  TYPE(ValueList_t), POINTER :: SolverParams
-  LOGICAL :: Found
-
-  SolverParams => GetSolverParams()
-
-  IF( .NOT. ListCheckPresent(SolverParams,'Nonlinear System Convergence Tolerance') ) THEN
-    CALL ListAddConstReal(SolverParams,'Nonlinear System Convergence Tolerance',1.0d-8) 
-  END IF	
-
-END SUBROUTINE DistanceSolver_init	
-
-
-SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
-!------------------------------------------------------------------------------
 !/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
@@ -43,12 +19,8 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
 ! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 ! *  Boston, MA 02110-1301, USA.
 ! *
-! *****************************************************************************/
+!/*****************************************************************************/
 !
-
-!******************************************************************************
-!
-!  Solve the equation: (grad(d),grad(d))=1
 !
 !  
 !    Authors: Juha Ruokolainen
@@ -59,29 +31,21 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
 !             02101 Espoo, Finland
 !  
 !    Original Date: 09 Nov 2007
-!  
-!  ARGUMENTS:
 !
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
-  USE DefUtils
+!/*****************************************************************************/
 
+
+!------------------------------------------------------------------------------
+!> Solves the equation: (grad(d),grad(d))=1. The solution of this 
+!> gives the closest distance a to boundary where distance is forced to zero.
+!------------------------------------------------------------------------------
+SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
   IMPLICIT NONE
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
-
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
@@ -270,6 +234,34 @@ CONTAINS
 END SUBROUTINE DistanceSolver
 !------------------------------------------------------------------------------
 
+!--------------------------------------------------------------------
+!> Initialization for the primary solver
+!--------------------------------------------------------------------
+SUBROUTINE DistanceSolver_init( Model,Solver,dt,TransientSimulation )
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: SolverParams
+  LOGICAL :: Found
+
+  SolverParams => GetSolverParams()
+
+  IF( .NOT. ListCheckPresent(SolverParams,'Nonlinear System Convergence Tolerance') ) THEN
+    CALL ListAddConstReal(SolverParams,'Nonlinear System Convergence Tolerance',1.0d-8) 
+  END IF	
+
+END SUBROUTINE DistanceSolver_init	
+
+
+
+!------------------------------------------------------------------------------
+!> Geometric variant of the DistanceSolver.
 !------------------------------------------------------------------------------
 SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -514,3 +506,5 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE DistanceSolver1
 !------------------------------------------------------------------------------
+
+

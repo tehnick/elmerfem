@@ -39,35 +39,18 @@
 ! ****************************************************************************
 
 !------------------------------------------------------------------------------
+!>  Advection-reaction equation solver for scalar fields with discontinous Galerkin method.
+!------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE AdvectionReactionSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Solves the advection-reaction equation with discontinous Galerkin method!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  DOUBLE PRECISION :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: Transient
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
      USE DefUtils
 
      IMPLICIT NONE
 !------------------------------------------------------------------------------
-     TYPE(Model_t) :: Model
-     TYPE(Solver_t), TARGET :: Solver
-     REAL(KIND=dp) :: dt
-     LOGICAL :: Transient
+     TYPE(Model_t) :: Model            !< All model information (mesh, materials, BCs, etc...)
+     TYPE(Solver_t), TARGET :: Solver  !< Linear & nonlinear equation solver options
+     REAL(KIND=dp) :: dt               !< Timestep size for time dependent simulations
+     LOGICAL :: Transient    !< Steady state or transient simulation
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------

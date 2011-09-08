@@ -66,6 +66,8 @@ MODULE BandwidthOptimize
 CONTAINS
 
 !-------------------------------------------------------------------------------
+!> Subroutine for computing the bandwidth of a sparse matrix.
+!-------------------------------------------------------------------------------
    FUNCTION ComputeBandwidth( N, List, Reorder, &
                InvInitialReorder ) RESULT(HalfBandWidth)
 !-------------------------------------------------------------------------------
@@ -98,6 +100,10 @@ CONTAINS
 !-------------------------------------------------------------------------------
 
 
+!-------------------------------------------------------------------------------
+!> Subroutine for reordering variables for bandwidth and/or gaussian elimination
+!> fillin optimization. Also computes node to element connections (which
+!>  implies node to node connections, and thus the global matrix structure).
 !-------------------------------------------------------------------------------
    FUNCTION OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, LocalNodes, &
              Optimize, UseOptimized, Equation ) RESULT( HalfBandWidth )

@@ -39,32 +39,19 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Subroutine for extending displacement in mesh smoothly over 
+!> the domain. The intended use of the solver is in fluid-structure interaction, 
+!> for example. In transient cases the solver also computes the mesh velocity. 
+!> This is a dynamically loaded solver with a standard interface.
+!> May be also loaded internally to mimic the old static implementation. 
+!------------------------------------------------------------------------------
  SUBROUTINE MeshSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   USE DefUtils
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for mesh update
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
-
   LOGICAL ::  TransientSimulation
   REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------

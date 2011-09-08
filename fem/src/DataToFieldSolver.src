@@ -24,66 +24,16 @@
 ! *
 ! *****************************************************************************/
 
-SUBROUTINE DataToFieldSolver_init( Model,Solver,dt,TransientSimulation )
 
-  USE DefUtils
-  USE Lists
 
-  IMPLICIT NONE
+
 !------------------------------------------------------------------------------
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-  
-! local variables
+!> Solvers by Galerkin method the problem where a continuous field is 
+!> fitted to data. The data may be created in advance or it may be 
+!> given as a property of discrete particles. The data has a contribution
+!> on the r.h.s. of the equation only. Regularization (i.e. diffusion) may be
+!> added to reduce noice from the fitting of the data.
 !------------------------------------------------------------------------------
-  TYPE(ValueList_t), POINTER :: Params
-  LOGICAL :: Normalize, Found
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
-
-  Params => GetSolverParams()
-
-  VarName = GetString( Params,'Data Field Name',Found)
-  IF(.NOT. Found ) THEN
-    CALL ListAddString( Params,&
-        NextFreeKeyword('Exported Variable',Params),'Point Field')
-    CALL ListAddString( Params,'Data Field Name','Point Field')
-    CALL Info('DataToFieldSolver_init','Creating > Point Field < as exported variable')
-  END IF
-
-  Normalize = GetLogical( Params,'Normalize Data by Weight')
-  IF( Normalize ) THEN
-    VarName = GetString( Params,'Weight Field Name',Found)
-    IF(.NOT. Found ) THEN
-      CALL ListAddString( Params,&
-          NextFreeKeyword('Exported Variable',Params),'Point Weight')
-      CALL ListAddString( Params,'Weight Field Name','Point Weight')
-      CALL Info('DataToFieldSolver_init','Creating > Point Weight < as exported variable')
-    END IF
-  END IF
-
-  CALL ListAddInteger( Params, 'Time derivative order', 0 )
-  
-  ! Add some cheap linear system defaults: cg + diagonal
-  !------------------------------------------------------------------------
-  IF(.NOT. ListCheckPresent(Params,'Linear System Solver')) &
-      CALL ListAddString(Params,'Linear System Solver','Iterative')
-  IF(.NOT. ListCheckPresent(Params,'Linear System Iterative Method')) &
-      CALL ListAddString(Params,'Linear System Iterative Method','cg')
-  IF(.NOT. ListCheckPresent(Params,'Linear System Preconditioning')) &
-      CALL ListAddString(Params,'Linear System Preconditioning','diagonal')
-  IF(.NOT. ListCheckPresent(Params,'Linear System Max Iterations')) &
-      CALL ListAddInteger(Params,'Linear System Max Iterations',1000)
-  IF(.NOT. ListCheckPresent(Params,'Linear System Residual Output')) &
-      CALL ListAddInteger(Params,'Linear System Residual Output',10)
-  IF(.NOT. ListCheckPresent(Params,'Linear System Convergence Tolerance')) &
-      CALL ListAddConstReal(Params,'Linear System Convergence Tolerance',1.0e-10_dp)
-  
-END SUBROUTINE DataToFieldSolver_init
-
-
-
 SUBROUTINE DataToFieldSolver( Model,Solver,dt,TransientSimulation )
   
   USE DefUtils
@@ -352,3 +302,66 @@ CONTAINS
   END SUBROUTINE BulkAssembly
   
 END SUBROUTINE DataToFieldSolver
+
+
+
+!-------------------------------------------------------------------
+!> Default initialization for the primary solver.
+!-------------------------------------------------------------------
+SUBROUTINE DataToFieldSolver_init( Model,Solver,dt,TransientSimulation )
+
+  USE DefUtils
+  USE Lists
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+  
+! local variables
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t), POINTER :: Params
+  LOGICAL :: Normalize, Found
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+
+  Params => GetSolverParams()
+
+  VarName = GetString( Params,'Data Field Name',Found)
+  IF(.NOT. Found ) THEN
+    CALL ListAddString( Params,&
+        NextFreeKeyword('Exported Variable',Params),'Point Field')
+    CALL ListAddString( Params,'Data Field Name','Point Field')
+    CALL Info('DataToFieldSolver_init','Creating > Point Field < as exported variable')
+  END IF
+
+  Normalize = GetLogical( Params,'Normalize Data by Weight')
+  IF( Normalize ) THEN
+    VarName = GetString( Params,'Weight Field Name',Found)
+    IF(.NOT. Found ) THEN
+      CALL ListAddString( Params,&
+          NextFreeKeyword('Exported Variable',Params),'Point Weight')
+      CALL ListAddString( Params,'Weight Field Name','Point Weight')
+      CALL Info('DataToFieldSolver_init','Creating > Point Weight < as exported variable')
+    END IF
+  END IF
+
+  CALL ListAddInteger( Params, 'Time derivative order', 0 )
+  
+  ! Add some cheap linear system defaults: cg + diagonal
+  !------------------------------------------------------------------------
+  IF(.NOT. ListCheckPresent(Params,'Linear System Solver')) &
+      CALL ListAddString(Params,'Linear System Solver','Iterative')
+  IF(.NOT. ListCheckPresent(Params,'Linear System Iterative Method')) &
+      CALL ListAddString(Params,'Linear System Iterative Method','cg')
+  IF(.NOT. ListCheckPresent(Params,'Linear System Preconditioning')) &
+      CALL ListAddString(Params,'Linear System Preconditioning','diagonal')
+  IF(.NOT. ListCheckPresent(Params,'Linear System Max Iterations')) &
+      CALL ListAddInteger(Params,'Linear System Max Iterations',1000)
+  IF(.NOT. ListCheckPresent(Params,'Linear System Residual Output')) &
+      CALL ListAddInteger(Params,'Linear System Residual Output',10)
+  IF(.NOT. ListCheckPresent(Params,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(Params,'Linear System Convergence Tolerance',1.0e-10_dp)
+  
+END SUBROUTINE DataToFieldSolver_init

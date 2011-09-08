@@ -22,9 +22,6 @@
 ! *****************************************************************************/
 !
 !/******************************************************************************
-! *
-! *  Advection-diffusion equation solver
-! *
 ! ******************************************************************************
 ! *
 ! *  Authors: Juha Ruokolainen, Ville Savolainen, Antti Pursula
@@ -39,10 +36,10 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!>  Advection-diffusion equation solver for scalar fields. 
+!------------------------------------------------------------------------------
    SUBROUTINE AdvectionDiffusionSolver( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
 !  Solve the advection-diffusion equation for a given (u^i,T) Cz gas field
 !
 !  ARGUMENTS:
@@ -73,11 +70,10 @@
      IMPLICIT NONE
 !------------------------------------------------------------------------------
  
-     TYPE(Model_t), TARGET :: Model
-     TYPE(Solver_t) :: Solver
- 
-     REAL(KIND=dp) :: Timestep
-     LOGICAL :: TransientSimulation
+     TYPE(Solver_t) :: Solver  !< Linear & nonlinear equation solver options
+     TYPE(Model_t), TARGET :: Model            !< All model information (mesh, materials, BCs, etc...)
+     REAL(KIND=dp) :: Timestep               !< Timestep size for time dependent simulations
+     LOGICAL :: TransientSimulation    !< Steady state or transient simulation
  
 !------------------------------------------------------------------------------
 !    Local variables
