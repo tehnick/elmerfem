@@ -130,13 +130,13 @@ CONTAINS
      val => Store( thread*MAX_ELEMENT_NODES+1:thread*MAX_ELEMENT_NODES+n )
   END FUNCTION GetStore
 
-
+!> Resturns handle to the active solver
   FUNCTION GetSolver() RESULT( Solver )
      TYPE(Solver_t), POINTER :: Solver
      Solver => CurrentModel % Solver
   END FUNCTION GetSolver
 
-
+!> Returns handle to the active matrix 
   FUNCTION GetMatrix( USolver ) RESULT( Matrix )
      TYPE(Matrix_t), POINTER :: Matrix 
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
@@ -148,7 +148,7 @@ CONTAINS
      END IF
   END FUNCTION GetMatrix
 
-
+!> Returns handle to the active mesh
   FUNCTION GetMesh( USolver ) RESULT( Mesh )
      TYPE(Mesh_t), POINTER :: Mesh 
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
@@ -160,7 +160,7 @@ CONTAINS
      END IF
   END FUNCTION GetMesh
 
-
+!> Returns handle to the active element
   FUNCTION GetCurrentElement(Element) RESULT(Ret_Element)
     TYPE(Element_t), POINTER :: Ret_Element
     TYPE(Element_t), OPTIONAL, TARGET :: Element
@@ -172,7 +172,7 @@ CONTAINS
     END IF
   END FUNCTION GetCurrentElement
 
-
+!> Returns handle to the index of the current element
   FUNCTION GetElementIndex(Element) RESULT(Indx)
      TYPE(Element_t), OPTIONAL :: Element
      INTEGER :: Indx
@@ -182,7 +182,7 @@ CONTAINS
      Indx = CurrElement % ElementIndex
   END FUNCTION GetElementIndex
 
-
+!> Returns the number of active elements for the current solver
   FUNCTION GetNOFActive( USolver ) RESULT(n)
      INTEGER :: n
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
@@ -194,7 +194,7 @@ CONTAINS
      END IF
   END FUNCTION GetNOFActive
 
-
+!> Returns the current time
   FUNCTION GetTime() RESULT(st)
      REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: v
@@ -204,6 +204,7 @@ CONTAINS
      st = v % Values(1)
   END FUNCTION GetTime
 
+!> Returns the current timestep  
   FUNCTION GetTimeStep() RESULT(st)
      INTEGER :: st
      TYPE(Variable_t), POINTER :: v
@@ -213,6 +214,7 @@ CONTAINS
      st = NINT(v % Values(1))
   END FUNCTION GetTimestep
 
+!> Returns the current timestep interval
   FUNCTION GetTimeStepInterval() RESULT(st)
      INTEGER :: st
      TYPE(Variable_t), POINTER :: v
@@ -222,6 +224,7 @@ CONTAINS
      st = NINT(v % Values(1))
   END FUNCTION GetTimestepInterval
 
+!> Returns the current timestep size  
   FUNCTION GetTimestepSize() RESULT(st)
      REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: v
@@ -230,7 +233,8 @@ CONTAINS
      v => VariableGet( v, 'timestep size')
      st = v % Values(1)
   END FUNCTION GetTimestepSize
-  
+ 
+!> Returns the angular frequency  
   FUNCTION GetAngularFrequency(ValueList,Found) RESULT(w)
     REAL(KIND=dp) :: w
     TYPE(ValueList_t), POINTER, OPTIONAL :: ValueList
@@ -285,7 +289,7 @@ CONTAINS
 
   END FUNCTION GetAngularFrequency
 
-
+!> Returns the current coupled system iteration loop count
   FUNCTION GetCoupledIter() RESULT(st)
      INTEGER :: st
      TYPE(Variable_t), POINTER :: v
@@ -295,6 +299,7 @@ CONTAINS
      st = NINT(v % Values(1))
   END FUNCTION GetCoupledIter
 
+!> Returns the current nonlinear system iteration loop count
   FUNCTION GetNonlinIter() RESULT(st)
      INTEGER :: st
      TYPE(Variable_t), POINTER :: v
@@ -304,6 +309,7 @@ CONTAINS
      st = NINT(v % Values(1))
   END FUNCTION GetNonlinIter
 
+!> Returns the number of boundary elements  
   FUNCTION GetNOFBoundaryElements( UMesh ) RESULT(n)
     INTEGER :: n
     TYPE(Mesh_t), OPTIONAL :: UMesh
@@ -315,8 +321,7 @@ CONTAINS
     END IF
   END FUNCTION GetNOFBoundaryElements
 
-
-
+!> Returns a scalar field in the nodes of the element
   SUBROUTINE GetScalarLocalSolution( x,name,UElement,USolver,tStep )
      REAL(KIND=dp) :: x(:)
      CHARACTER(LEN=*), OPTIONAL :: name
@@ -381,6 +386,7 @@ CONTAINS
 
 
 
+!> Returns a vector field in the nodes of the element
   SUBROUTINE GetVectorLocalSolution( x,name,UElement,USolver,tStep )
      REAL(KIND=dp) :: x(:,:)
      CHARACTER(LEN=*), OPTIONAL :: name
@@ -452,6 +458,7 @@ CONTAINS
 ! then these subroutines may be used to obtain the local eigenmodes
 !-------------------------------------------------------------------------------
 
+!> Returns the number of eigenmodes
   FUNCTION GetNofEigenModes( name,USolver) RESULT (NofEigenModes)
 
      CHARACTER(LEN=*), OPTIONAL :: name
@@ -479,7 +486,7 @@ CONTAINS
   END FUNCTION
 
 
-
+!> Returns the desired eigenmode as a scalar field in an element
   SUBROUTINE GetScalarLocalEigenmode( x,name,UElement,USolver,NoEigen,ComplexPart )
      REAL(KIND=dp) :: x(:)
      CHARACTER(LEN=*), OPTIONAL :: name
@@ -547,6 +554,7 @@ CONTAINS
 
 
 
+!> Returns the desired eigenmode as a vector field in an element
   SUBROUTINE GetVectorLocalEigenmode( x,name,UElement,USolver,NoEigen,ComplexPart )
      REAL(KIND=dp) :: x(:,:)
      CHARACTER(LEN=*), OPTIONAL :: name
@@ -619,7 +627,7 @@ CONTAINS
     
 
 
-
+!> Returns a string by its name if found in the list structure
   FUNCTION GetString( List, Name, Found ) RESULT(str)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -636,7 +644,7 @@ CONTAINS
   END FUNCTION
 
 
-
+!> Returns an integer by its name if found in the list structure
   FUNCTION GetInteger( List, Name, Found ) RESULT(i)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -652,7 +660,7 @@ CONTAINS
   END FUNCTION
 
 
-
+!> Returns a logical flag by its name if found in the list structure, otherwise false
   FUNCTION GetLogical( List, Name, Found ) RESULT(l)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -668,7 +676,7 @@ CONTAINS
   END FUNCTION
 
 
-
+!> Returns a constant real by its name if found in the list structure
   RECURSIVE FUNCTION GetConstReal( List, Name, Found,x,y,z ) RESULT(r)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -692,6 +700,8 @@ CONTAINS
   END FUNCTION
 
 
+!> Returns a real that may depend on global variables such as time, or timestep size, 
+!! by its name if found in the list structure
   RECURSIVE FUNCTION GetCReal( List, Name, Found ) RESULT(s)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -724,7 +734,7 @@ CONTAINS
   END FUNCTION GetCReal
 
 
- 
+!> Returns a real by its name if found in the list structure, and in the active element. 
   RECURSIVE FUNCTION GetReal( List, Name, Found, UElement ) RESULT(x)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -763,7 +773,7 @@ CONTAINS
   END FUNCTION GetReal
 
 
-
+!> Returns a material property from either of the parents of the current boundary element
   RECURSIVE FUNCTION GetParentMatProp( Name, UElement, Found, UParent ) RESULT(x)
     CHARACTER(LEN=*) :: Name
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -814,9 +824,7 @@ CONTAINS
      
   END FUNCTION GetParentMatProp
 
-
-
-
+!> Returns a constant real array by its name if found in the list structure. 
   RECURSIVE SUBROUTINE GetConstRealArray( List, x, Name, Found, UElement )
      TYPE(ValueList_t), POINTER :: List
      REAL(KIND=dp), POINTER :: x(:,:)
@@ -834,9 +842,7 @@ CONTAINS
      END IF
   END SUBROUTINE GetConstRealArray
 
-
-
-
+!> Returns a real array by its name if found in the list structure, and in the active element. 
   RECURSIVE SUBROUTINE GetRealArray( List, x, Name, Found, UElement )
      REAL(KIND=dp), POINTER :: x(:,:,:)
      TYPE(ValueList_t), POINTER :: List
@@ -862,7 +868,7 @@ CONTAINS
      END IF
   END SUBROUTINE GetRealArray
 
-
+!> Set some property elementwise to the active element
   SUBROUTINE SetElementProperty( Name, Values, UElement )
     CHARACTER(LEN=*) :: Name
     REAL(KIND=dp) :: Values(:)
@@ -898,7 +904,7 @@ CONTAINS
     END IF
   END SUBROUTINE SetElementProperty
 
-
+!> Get some property elementwise from the active element
   FUNCTION GetElementProperty( Name, UElement ) RESULT(Values)
     CHARACTER(LEN=*) :: Name
     REAL(KIND=dp), POINTER :: Values(:)
@@ -923,7 +929,7 @@ CONTAINS
   END FUNCTION GetElementProperty
 
 
-
+!> Get a handle to the active element from the list of all active elements
   FUNCTION GetActiveElement(t,USolver) RESULT(Element)
      INTEGER :: t
      TYPE(Element_t), POINTER :: Element
@@ -944,7 +950,7 @@ CONTAINS
   END FUNCTION GetActiveElement
 
 
-
+!> Get a handle to a boundary element from the list of all boundary elements
   FUNCTION GetBoundaryElement(t,USolver) RESULT(Element)
      INTEGER :: t
      TYPE(Element_t), POINTER :: Element
@@ -964,7 +970,7 @@ CONTAINS
   END FUNCTION GetBoundaryElement
 
 
-
+!> Check if the boundary element is active in the current solve 
   FUNCTION ActiveBoundaryElement(UElement,USolver) RESULT(l)
      TYPE(Element_t), OPTIONAL,  TARGET :: UElement
      TYPE(Solver_t),  OPTIONAL,  TARGET :: USolver
@@ -989,7 +995,7 @@ CONTAINS
   END FUNCTION ActiveBoundaryElement
 
 
-
+!> Return the element code in Elmer convention of the active element
   FUNCTION GetElementCode( Element )  RESULT(etype)
      INTEGER :: etype
      TYPE(Element_t), OPTIONAL :: Element
@@ -1000,7 +1006,7 @@ CONTAINS
   END FUNCTION GetElementCode
 
 
-
+!> Return the element family in Elmer convention of the active element
   FUNCTION GetElementFamily( Element )  RESULT(family)
      INTEGER :: family
      TYPE(Element_t), OPTIONAL :: Element
@@ -1011,7 +1017,7 @@ CONTAINS
   END FUNCTION GetElementFamily
 
 
-
+!> Return the number of nodes in the active element
   FUNCTION GetElementNOFNodes( Element ) RESULT(n)
      INTEGER :: n
      TYPE(Element_t), OPTIONAL :: Element
@@ -1022,7 +1028,7 @@ CONTAINS
   END FUNCTION GetELementNOFNodes
 
 
-
+!> Return the number of element degrees of freedom 
   FUNCTION GetElementNOFDOFs( UElement,USolver ) RESULT(n)
      INTEGER :: n
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
@@ -1083,7 +1089,7 @@ CONTAINS
   END FUNCTION GetElementNOFDOFs
 
 
-
+!> Returns the number of element degrees of freedom
   FUNCTION GetElementDOFs( Indexes, UElement, USolver )  RESULT(NB)
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
@@ -1246,7 +1252,7 @@ CONTAINS
   END FUNCTION GetElementDOFs
 
 
-
+!> Returns the number of bubble degree of freedom in the active element
   FUNCTION GetElementNOFBDOFs( Element, USolver ) RESULT(n)
     INTEGER :: n
     TYPE(Solver_t), OPTIONAL, POINTER :: USolver
@@ -1275,7 +1281,7 @@ CONTAINS
   END FUNCTION GetElementNOFBDOFs
 
 
-
+!> Returns the nodal coordinate values in the active element
   SUBROUTINE GetElementNodes( ElementNodes, UElement, USolver )
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
@@ -1325,15 +1331,11 @@ CONTAINS
            END IF
         END DO
      END IF
-!------------------------------------------------------------------------------
   END SUBROUTINE GetElementNodes
-!------------------------------------------------------------------------------
 
   
-
-!------------------------------------------------------------------------------
+!> Get the body force index of the active element
   FUNCTION GetBodyForceId(  Element, Found ) RESULT(bf_id)
-!------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
      TYPE(Element_t), POINTER :: CurrElement
@@ -1357,6 +1359,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Returns the material index of the active element
   FUNCTION GetMaterialId( Element, Found ) RESULT(mat_id)
 !------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Found
@@ -1382,6 +1385,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Returns the equation index of the active element
   FUNCTION GetEquationId( Element, Found ) RESULT(eq_id)
 !------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Found
@@ -1407,6 +1411,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Returns handle to the Simulation value list
   FUNCTION GetSimulation() RESULT(Simulation)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: Simulation
@@ -1418,6 +1423,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Returns handle to the Constants value list
   FUNCTION GetConstants() RESULT(Constants)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: Constants
@@ -1429,6 +1435,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Returns handle to the Solver value list of the active solver
   FUNCTION GetSolverParams(Solver) RESULT(SolverParam)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: SolverParam
@@ -1446,6 +1453,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Returns handle to Material value list of the active element
   FUNCTION GetMaterial(  Element, Found ) RESULT(Material)
 !------------------------------------------------------------------------------
     TYPE(Element_t), OPTIONAL :: Element
@@ -1472,6 +1480,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Return handle to the Body Force value list of the active element
   FUNCTION GetBodyForce( Element, Found ) RESULT(BodyForce)
 !------------------------------------------------------------------------------
     TYPE(Element_t), OPTIONAL :: Element
@@ -1496,6 +1505,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Is the actice solver solved in the frequency space
 !------------------------------------------------------------------------------
   FUNCTION EigenOrHarmonicAnalysis(Usolver) RESULT(L)
     LOGICAL :: L
@@ -1514,6 +1524,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Returns the handle to the equation where the active element belongs to 
 !------------------------------------------------------------------------------
   FUNCTION GetEquation( Element, Found ) RESULT(Equation)
 !------------------------------------------------------------------------------
@@ -1541,6 +1552,7 @@ CONTAINS
 
 
 
+!> Returns the Boundary Condition index of the active element
 !------------------------------------------------------------------------------
   FUNCTION GetBCId( UElement ) RESULT(bc_id)
 !------------------------------------------------------------------------------
@@ -1562,7 +1574,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
+!> Returns handle to the value list of the Boundary Condition where the active element belongs to
 !------------------------------------------------------------------------------
   FUNCTION GetBC( UElement ) RESULT(bc)
 !------------------------------------------------------------------------------
@@ -1584,7 +1596,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
+!> Returns the index of the Initial Condition of the active element
 !------------------------------------------------------------------------------
   FUNCTION GetICId( Element, Found ) RESULT(ic_id)
 !------------------------------------------------------------------------------
@@ -1610,7 +1622,7 @@ CONTAINS
   END FUNCTION GetIcId
 !------------------------------------------------------------------------------
 
-
+!> Returns handle to the value list of the Initial Condition where the active element belongs to
 !------------------------------------------------------------------------------
   FUNCTION GetIC(  Element, Found ) RESULT(IC)
 !------------------------------------------------------------------------------
@@ -1635,7 +1647,7 @@ CONTAINS
   END FUNCTION GetIC
 !------------------------------------------------------------------------------
 
-
+!> Add the local matrix entries to for real valued equations that are of first order in time
 !------------------------------------------------------------------------------
   SUBROUTINE Default1stOrderTimeR( M, A, F, UElement, USolver )
 !------------------------------------------------------------------------------
@@ -1669,7 +1681,7 @@ CONTAINS
   END SUBROUTINE Default1stOrderTimeR
 !------------------------------------------------------------------------------
 
-
+!> Add the local matrix entries to for complex valued equations that are of first order in time
 !------------------------------------------------------------------------------
   SUBROUTINE Default1stOrderTimeC( MC, AC, FC, UElement, USolver )
 !------------------------------------------------------------------------------
@@ -1982,6 +1994,7 @@ CONTAINS
 
 
 
+!> Performs initialization for matrix equation related to the active solver
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultInitialize( Solver )
 !------------------------------------------------------------------------------
@@ -1999,6 +2012,7 @@ CONTAINS
 
 
 
+!> Solver the matrix equation related to the active solver
 !------------------------------------------------------------------------------
   FUNCTION DefaultSolve( USolver ) RESULT(Norm)
 !------------------------------------------------------------------------------
@@ -2281,7 +2295,7 @@ CONTAINS
   END SUBROUTINE DefaultUpdateEquationsC
 !------------------------------------------------------------------------------
 
-
+!> Adds the elementwise contribution the right-hand-side of the real valued matrix equation 
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultUpdateForceR( F, UElement, USolver, BulkUpdate )
 !------------------------------------------------------------------------------
@@ -2355,6 +2369,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Adds the elementwise contribution the right-hand-side of the complex valued matrix equation 
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultUpdateForceC( FC, UElement, USolver )
 !------------------------------------------------------------------------------
@@ -3006,7 +3021,7 @@ CONTAINS
 
 
 
-
+!> Sets the Dirichlet conditions related to the variables of the active solver.
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultDirichletBCs( USolver,Ux,UOffset,OffDiagonalMatrix )
 !------------------------------------------------------------------------------
@@ -3390,7 +3405,7 @@ CONTAINS
   END SUBROUTINE DefaultDirichletBCs
 !------------------------------------------------------------------------------
 
-
+! Solves a small dense linear system using Lapack routines
 !------------------------------------------------------------------------------
   SUBROUTINE SolveLinSys( A, x, n )
 !------------------------------------------------------------------------------
@@ -3599,6 +3614,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Finished the assembly of the matrix equation, mainly effects in transient simulation
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishAssembly( Solver )
 !------------------------------------------------------------------------------
@@ -3615,7 +3631,7 @@ CONTAINS
 
 
 
-  ! Return integration points for edge or face of p element
+!> Returns integration points for edge or face of p element
 !------------------------------------------------------------------------------
    FUNCTION GaussPointsBoundary(Element, boundary, np) RESULT(gaussP)
 !------------------------------------------------------------------------------
@@ -3742,14 +3758,10 @@ CONTAINS
    END SUBROUTINE MapGaussPoints
 !------------------------------------------------------------------------------
 
-
+!> Calculate global indexes of boundary dofs for given element and its boundary.
 !------------------------------------------------------------------------------
    SUBROUTINE getBoundaryIndexes( Mesh, Element, Parent, Indexes, indSize )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Calculate global indexes of boundary dofs for given element and 
-!     its boundary. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !
@@ -3768,8 +3780,6 @@ CONTAINS
 !    INTEGER :: indSize
 !      OUTPUT: Size of created index vector, i.e. how many indexes were created
 !        starting from index 1
-!    
-!******************************************************************************
 !------------------------------------------------------------------------------
      IMPLICIT NONE
 
@@ -3854,13 +3864,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!>     Calculate global AND local indexes of boundary dofs for given element and 
+!>     its boundary. 
 !------------------------------------------------------------------------------
    SUBROUTINE getBoundaryIndexesGL( Mesh, Element, BElement, lIndexes, gIndexes, indSize )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Calculate global AND local indexes of boundary dofs for given element and 
-!     its boundary. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !
@@ -3881,7 +3889,6 @@ CONTAINS
 !      OUTPUT: Size of created index vector, i.e. how many indexes were created
 !        starting from index 1
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
      IMPLICIT NONE
 

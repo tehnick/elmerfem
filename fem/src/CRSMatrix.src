@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module defining utility routines & matrix storage for sparse
-! *  matrix in Compressed Row Storage (CRS) format.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -41,6 +36,8 @@
 
 #include "huti_fdefs.h"
 
+!>  Module defining utility routines & matrix storage for sparse
+!>  matrix in Compressed Row Storage (CRS) format.
 MODULE CRSMatrix
 
   USE GeneralUtils
@@ -50,8 +47,7 @@ MODULE CRSMatrix
 CONTAINS
 
 
-  !********************************************************************
-  !
+!********************************************************************
   FUNCTION CRS_Search( N,Array,Value ) RESULT ( Index )
 
     INTEGER :: N,Value,Array(:)
@@ -100,21 +96,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Zero a CRS format matrix
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_ZeroMatrix(A)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Zero a CRS format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!******************************************************************************
+    TYPE(Matrix_t) :: A  !< Structure holding the matrix
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
     A % Values = 0.0d0
   END SUBROUTINE CRS_ZeroMatrix
 !------------------------------------------------------------------------------
@@ -122,25 +109,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Zero given row from a CRS format matrix
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_ZeroRow( A,n )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Zero given row from a CRS format matrix
-!
-!  ARGUMENTS:
-!
-
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: n
-!     INPUT: Row number to be zerod
-!
-!******************************************************************************
+    TYPE(Matrix_t) :: A !< Structure holding the matrix
+    INTEGER :: n        !< Row number to be zeroed
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: n
  
     INTEGER :: i
 
@@ -170,25 +145,16 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Sort columns to ascending order for rows of a CRS format matrix-
+!>    Optionally also sort the corresponging values of the matrix.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_SortMatrix( A, ValuesToo )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Sort columns to ascending order for rows of a CRS format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!******************************************************************************
+    TYPE(Matrix_t) :: A   !< Structure holding the matrix
+    LOGICAL, OPTIONAL, INTENT(IN) :: ValuesToo  !< Should the values be sorted as well?
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    LOGICAL, OPTIONAL :: ValuesToo
 
     INTEGER :: i,j,n
-
     LOGICAL :: SortValues
     REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
@@ -232,22 +198,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Sort columns to ascending order for rows of a CRS format matrix-
+!>    Optionally also sort the corresponging values of the matrix.
+!>    This operates just on a basic matrix type. 
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_SortBasicMatrix( A, ValuesToo )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Sort columns to ascending order for rows of a CRS format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!******************************************************************************
+    TYPE(BasicMatrix_t), TARGET :: A  !< Structure holding the matrix
+    LOGICAL, OPTIONAL, INTENT(IN) :: ValuesToo    !< Should the values be sorted as well?
 !------------------------------------------------------------------------------
-    TYPE(BasicMatrix_t), TARGET :: A
-    LOGICAL, OPTIONAL :: ValuesToo
 
     INTEGER :: i,j,n
 
@@ -290,26 +249,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Fill in the column number to a CRS format matrix (values are not 
+!>    affected in any way).
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_MakeMatrixIndex( A,i,j )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Fill in the column number to a CRS format matrix (values are not 
-!    affected in any way...)
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!******************************************************************************
+    TYPE(Matrix_t) :: A  !< Structure holding matrix
+    INTEGER, INTENT(IN) :: i         !< row number of the matrix element
+    INTEGER, INTENT(IN) :: j         !< column number of the matrix element
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: i,j
 
     INTEGER :: k,n
     INTEGER, POINTER :: Cols(:),Rows(:)
@@ -340,33 +288,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Add a given value to an element of a  CRS format matrix.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_AddToMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Add a given value to an element of a  CRS format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!  REAL(KIND=dp) :: value
-!     INPUT: Value to be added
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t):: A
-    INTEGER :: i,j
-    REAL(KIND=dp) :: value
- 
-!------------------------------------------------------------------------------
-!   Local variables
-!------------------------------------------------------------------------------
+    TYPE(Matrix_t), INTENT(IN,OUT):: A     !< Structure holding the matrix
+    INTEGER, INTENT(IN) :: i         !< row number of the matrix element
+    INTEGER, INTENT(IN) :: j         !< column number of the matrix element
+    REAL(KIND=dp), INTENT(IN) :: value   !< value to be added to the matrix element
+ !------------------------------------------------------------------------------
     INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
@@ -393,34 +323,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Set a given value to an element of a  CRS format matrix.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_SetMatrixElement( A,i,j,value )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Set a given value to an element of a  CRS format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!  REAL(KIND=dp) :: value
-!     INPUT: Value to be set
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: i,j
-    REAL(KIND=dp) :: value
-
-!------------------------------------------------------------------------------
-!   Local variables
-!------------------------------------------------------------------------------
- 
+    TYPE(Matrix_t), INTENT(IN,OUT):: A     !< Structure holding the matrix
+    INTEGER, INTENT(IN) :: i         !< row number of the matrix element
+    INTEGER, INTENT(IN) :: j         !< column number of the matrix element
+    REAL(KIND=dp), INTENT(IN) :: value   !< new value of the matrix element
+!------------------------------------------------------------------------------ 
     INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
@@ -447,39 +358,19 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Get a given matrix entry from CRS format matrix.
+!------------------------------------------------------------------------------
   FUNCTION CRS_GetMatrixElement( A,i,j ) RESULT ( Value )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Get a given matrix entry from CRS format matrix
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!  REAL(KIND=dp) :: value
-!     INPUT: Value to be gotten
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: i,j
-    REAL(KIND=dp) :: value
-
-!------------------------------------------------------------------------------
-!   Local variables
-!------------------------------------------------------------------------------
- 
+    TYPE(Matrix_t), INTENT(IN):: A     !< Structure holding the matrix
+    INTEGER, INTENT(IN) :: i         !< row number of the matrix element
+    INTEGER, INTENT(IN) :: j         !< column number of the matrix element
+    REAL(KIND=dp), INTENT(OUT) :: value   !< obtained value of the matrix element
+!------------------------------------------------------------------------------ 
     INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
 !------------------------------------------------------------------------------
-
     Rows   => A % Rows
     Cols   => A % Cols
     Diag   => A % Diag
@@ -501,35 +392,15 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!>    Get a given matrix entry from CRS format matrix and replace it with a new value
+!------------------------------------------------------------------------------
   FUNCTION CRS_ChangeMatrixElement( A,i,j, NewValue ) RESULT ( OldValue )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Get a given matrix entry from CRS format matrix and replace it with a new value
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: i,j
-!     INPUT: row and column numbers, respectively, of the matrix element
-!
-!  REAL(KIND=dp) :: OldValue
-!     INPUT: Value to be gotten
-!
-!  REAL(KIND=dp) :: NewValue
-!     INPUT: Value to be set
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: i,j
-    REAL(KIND=dp) :: NewValue, OldValue
-
-!------------------------------------------------------------------------------
-!   Local variables
+    TYPE(Matrix_t), INTENT(IN):: A     !< Structure holding the matrix
+    INTEGER, INTENT(IN) :: i         !< row number of the matrix element
+    INTEGER, INTENT(IN) :: j         !< column number of the matrix element
+    REAL(KIND=dp), INTENT(IN) :: NewValue  !< Value to be set   
+    REAL(KIND=dp), INTENT(OUT) :: OldValue !< Value to be gotten  
 !------------------------------------------------------------------------------
  
     INTEGER :: k
@@ -562,29 +433,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Add a row together with another row of a CRS matrix, and thereafter zero it.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_MoveRow( A,n1,n2,coeff )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Zero given row from a CRS format matrix
-!
-!  ARGUMENTS:
-!
-
-!     INPUT: Structure holding matrix
-!
-!  INTEGER :: n1
-!     INPUT: Row number to be copied and zerod
-!
-!  INTEGER :: n2
-!     INPUT: Row number to added
-!
-!******************************************************************************
+    TYPE(Matrix_t), INTENT(IN):: A    !< Structure holding the matrix
+    INTEGER, INTENT(IN) :: n1         !< Row number to be copied and zerod
+    INTEGER, INTENT(IN) :: n2         !< Row number to be added
+    REAL(KIND=dp),OPTIONAL :: coeff   !< Optional coefficient to multiply the row to be copied with
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: n1,n2
-    REAL(KIND=dp),OPTIONAL :: coeff 
 
     REAL(KIND=dp) :: Value, c
     INTEGER :: i,j
@@ -608,50 +465,21 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Add a set of values (.i.e. element stiffness matrix) to a CRS format
+!>    matrix. 
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_GlueLocalMatrix( A,N,Dofs,Indeces,LocalMatrix )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Add a set of values (.i.e. element stiffness matrix) to a CRS format
-!    matrix. 
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INOUT: Structure holding matrix, values are affected in the process
-!
-!  INTEGER :: N
-!     INPUT: Number of nodes in element
-!
-!  INTEGER :: Dofs
-!     INPUT: Number of degrees of freedom for one node
-!
-!  INTEGER :: Indeces
-!     INPUT: Maps element node numbers to global (or partition) node numbers
-!            (to matrix rows and columns, if Dofs = 1)
-!
-!  REAL(KIND=dp) :: LocalMatrix(:,:)
-!     INPUT: A (N x Dofs) x ( N x Dofs) matrix holding the values to be
-!            added to the CRS format matrix
-!          
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
- 
-     REAL(KIND=dp) :: LocalMatrix(:,:)
-     TYPE(Matrix_t) :: A
-     INTEGER :: N,Dofs,Indeces(:)
-
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
- 
+     REAL(KIND=dp), INTENT(IN) :: LocalMatrix(:,:)  !< A (N x Dofs) x ( N x Dofs) matrix holding the values to be added to the CRS format matrix
+     TYPE(Matrix_t), INTENT(IN,OUT) :: A  !< Structure holding matrix
+     INTEGER, INTENT(IN) :: N             !< Number of nodes in element
+     INTEGER, INTENT(IN) :: Dofs          !< Number of degrees of freedom for one node
+     INTEGER, INTENT(IN) :: Indeces(:)    !< Maps element node numbers to global (or partition) node numbers 
+	                                      !! (to matrix rows and columns, if Dofs = 1)
+!------------------------------------------------------------------------------ 
      INTEGER :: i,j,k,l,c,Row,Col
- 
      INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
      REAL(KIND=dp), POINTER :: Values(:)
-
 !------------------------------------------------------------------------------
 
      Diag   => A % Diag
@@ -722,54 +550,31 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Add a set of values (.i.e. element stiffness matrix) to a CRS format
+!>    matrix. For this matrix the entries are ordered so that first for one
+!>    dof you got all nodes, and then for second etc. There may be on offset
+!>    to the entries making the subroutine suitable for coupled monolithic
+!>    matrix assembly.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_GlueLocalSubMatrix( A,row0,col0,Nrow,Ncol,RowInds,ColInds,&
                   RowDofs,ColDofs,LocalMatrix )
+!------------------------------------------------------------------------------ 
+     REAL(KIND=dp), INTENT(IN) :: LocalMatrix(:,:)  !< A (Nrow x RowDofs) x ( Ncol x ColDofs) matrix holding the values to be
+                                                    !!            added to the CRS format matrix
+     TYPE(Matrix_t) :: A           !< Structure holding matrix
+     INTEGER, INTENT(IN) :: Nrow   !< Number of nodes for the row variable
+     INTEGER, INTENT(IN) :: Ncol   !< Number of nodes for the column variable
+     INTEGER, INTENT(IN) :: RowDofs  !< Number of dofs for row variable
+     INTEGER, INTENT(IN) :: ColDofs  !< Number of dofs for column variable
+     INTEGER, INTENT(IN) :: Col0     !< Offset for column variable
+	 INTEGER, INTENT(IN) :: Row0     !< Offset for row variable
+     INTEGER, INTENT(IN) :: RowInds(:)  !< Permutation of the row dofs
+	 INTEGER, INTENT(IN) :: ColInds(:)  !< Permutation of the column dofs
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Add a set of values (.i.e. element stiffness matrix) to a CRS format
-!    matrix. For this matrix the entries are ordered so that 1st for one
-!    dof you got all nodes, and then for second etc. 
-!
-!  ARGUMENTS:
-!
-!  TYPE(Matrix_t) :: A
-!     INOUT: Structure holding matrix, values are affected in the process
-!
-!  INTEGER :: Nrow, Ncol
-!     INPUT: Number of nodes in element, or other dofs
-!
-!  INTEGER :: row0, col0
-!     INPUT: Offset of the matrix resulting from other blocks
-!
-!  INTEGER :: row0, col0
-!     INPUT: Offset of the matrix resulting from other blocks
-!
-!  INTEGER :: RowInds, ColInds
-!     INPUT: Permutation of the rows and column dofs
-!
-!  REAL(KIND=dp) :: LocalMatrix(:,:)
-!     INPUT: A (Nrow x RowDofs) x ( Ncol x ColDofs) matrix holding the values to be
-!            added to the CRS format matrix
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
- 
-     REAL(KIND=dp) :: LocalMatrix(:,:)
-     TYPE(Matrix_t) :: A
-     INTEGER :: Nrow,Ncol,RowDofs,ColDofs,Col0,Row0,RowInds(:),ColInds(:)
-
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
- 
      INTEGER :: i,j,k,l,c,Row,Col
      INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
      REAL(KIND=dp), POINTER :: Values(:)
-
 !------------------------------------------------------------------------------
-
      Diag   => A % Diag
      Rows   => A % Rows
      Cols   => A % Cols
@@ -824,13 +629,17 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
+!------------------------------------------------------------------------------
+!> When Dirichlet conditions are set by zeroing the row except for setting 
+!> the diagonal entry to one, the matrix symmetry is broken. This routine 
+!> maintains the symmetric structure of the matrix equation.
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_SetSymmDirichlet( A,b,n,val )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: n
-    REAL(KIND=dp) :: b(:),val
+    TYPE(Matrix_t) :: A       !< Structure holding matrix
+    INTEGER, INTENT(IN) :: n              !< Index of the dofs to be fixed   
+    REAL(KIND=dp) :: b(:)     !< right-hand-side of the matrix equation
+    REAL(KIND=dp), INTENT(IN) :: val      !< Dirichlet value to be set
 !------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,k1,k2
     REAL(KIND=dp) :: t
@@ -889,13 +698,16 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Computes the rowsoum of a given row in a CRS matrix.
+!------------------------------------------------------------------------------
 FUNCTION CRS_RowSum( A,k ) RESULT(rsum)
 !------------------------------------------------------------------------------
-   TYPE(Matrix_t) :: A
-   INTEGER :: i,k
-
-   REAL(KIND=dp) :: rsum
-
+   TYPE(Matrix_t), INTENT(IN) :: A       !< Structure holding matrix
+   INTEGER, INTENT(IN) :: k              !< Row index 
+   REAL(KIND=dp), INTENT(OUT) :: rsum    !< Sum of the entries on the row
+!------------------------------------------------------------------------------
+   INTEGER :: i
+   
    rsum = 0.0D0
    DO i=1,A % Rows(k), A % Rows(k+1)-1
      rsum  = rsum + A % Values( A % Cols(i) )
@@ -907,44 +719,18 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Create the structures required for a CRS format matrix.
+!------------------------------------------------------------------------------
   FUNCTION CRS_CreateMatrix( N,Total,RowNonzeros,Ndeg,Reorder,AllocValues ) RESULT(A)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Create the structures required for a CRS format matrix.
-!
-!  ARGUMENTS:
-!
-!  INTEGER :: N
-!     INPUT: Number of rows for the matrix
-!
-!  INTEGER :: Total
-!     INPUT: Total number of nonzero entries in the matrix
-!
-!  INTEGER :: RowNonzeros(:)
-!     INPUT: Number of nonzero entries in rows of the matrix
-!
-!  INTEGER :: Reorder(:)
-!     INPUT: Permutation index for bandwidth reduction
-!
-!  LOGICAL :: AllocValues
-!     INPUT: Should the values arrays be allocated ?
-!
-!  FUNCTION RETURN VALUE:
-!     TYPE(Matrix_t) :: A
-!       Pointer to the created Matrix_t structure.
-!
-!******************************************************************************
+    INTEGER, INTENT(IN) :: N    !< Number of rows in the matrix
+    INTEGER, INTENT(IN) :: Total  !< Total number of nonzero entries in the matrix
+    INTEGER, INTENT(IN) :: Ndeg   !< Negrees of freedom
+    INTEGER, INTENT(IN) :: RowNonzeros(:)  !< Number of nonzero entries in rows of the matrix
+    INTEGER, INTENT(IN) :: Reorder(:)      !< Permutation index for bandwidth reduction
+    LOGICAL, INTENT(IN) :: AllocValues     !< Should the values arrays be allocated ?
+    TYPE(Matrix_t), POINTER, INTENT(OUT) :: A  !>  Pointer to the created Matrix_t structure.
 !------------------------------------------------------------------------------
-    INTEGER :: N,Total,Ndeg
-    INTEGER :: RowNonzeros(:),Reorder(:)
-
-    LOGICAL :: AllocValues
-
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t), POINTER :: A
-
     INTEGER :: i,j,k,istat
     INTEGER, POINTER :: InvPerm(:)
 !------------------------------------------------------------------------------
@@ -994,12 +780,14 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!> Prints the values of the CRS matrix to standard output.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_PrintMatrix( A )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-
+    TYPE(Matrix_t) :: A !< Structure holding matrix
+!------------------------------------------------------------------------------
     INTEGER :: i,j
-
+	
     DO i=1,A % NumberOfRows
       DO j=A % Rows(i),A % Rows(i+1)-1
         WRITE(1,*) i,A % Cols(j),A % Values(j)
@@ -1010,11 +798,14 @@ END FUNCTION CRS_RowSum
   END SUBROUTINE CRS_PrintMatrix
 
 !------------------------------------------------------------------------------
+!> Prints the values of the right-hand-side vector to standard output.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_PrintRHS( A )
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
+    TYPE(Matrix_t) :: A  !< Structure holding matrix
+!------------------------------------------------------------------------------
     INTEGER :: i
-
+	
     DO i=1,A % NumberOfRows
        WRITE(1,*) i,A % RHS(i)
     END DO
@@ -1022,33 +813,17 @@ END FUNCTION CRS_RowSum
   END SUBROUTINE CRS_PrintRHS
 !------------------------------------------------------------------------------
 
-
-
+!------------------------------------------------------------------------------
+!>    Matrix vector product (v = Au) for a matrix given in CRS format.
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_MatrixVectorMultiply( A,u,v )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Matrix vector product (v = Au) for a matrix given in CRS format.
-!
-!  ARGUMENTS:
-!
-!    TYPE(Matrix_t) :: A
-!    REAL(KIND=dp) :: u(*),v(*)
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-    REAL(KIND=dp), DIMENSION(*) :: u,v
-    TYPE(Matrix_t) :: A
-
+    REAL(KIND=dp), DIMENSION(*), INTENT(IN) :: u   !< Vector to be multiplied
+    REAL(KIND=dp), DIMENSION(*), INTENT(OUT) :: v  !< Result vector
+    TYPE(Matrix_t), INTENT(IN) :: A                !< Structure holding matrix
 !------------------------------------------------------------------------------
      INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
-!    INTEGER, POINTER :: Cols(:),Rows(:)
-
      REAL(KIND=dp), POINTER  CONTIG :: Values(:)
-!    REAL(KIND=dp), POINTER :: Values(:)
 
      INTEGER :: i,j,n
      REAL(KIND=dp) :: rsum
@@ -1079,28 +854,17 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Matrix vector product (v = Au) for a matrix given in CRS format
+!>    assuming complex valued matrix equation.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_ComplexMatrixVectorMultiply( A,u,v )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Matrix vector product (v = Au) for a matrix given in CRS format.
-!
-!  ARGUMENTS:
-!
-!    TYPE(Matrix_t) :: A
-!    COMPLEX(KIND=dp) :: u(*),v(*)
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-    COMPLEX(KIND=dp), DIMENSION(*) :: u,v
-    TYPE(Matrix_t) :: A
-
+    COMPLEX(KIND=dp), DIMENSION(*), INTENT(IN) :: u   !< Vector to be multiplied
+    COMPLEX(KIND=dp), DIMENSION(*), INTENT(OUT) :: v  !< Result vector
+    TYPE(Matrix_t), INTENT(IN) :: A                !< Structure holding matrix
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: Cols(:),Rows(:)
     REAL(KIND=dp), POINTER :: Values(:)
-
     INTEGER :: i,j,n
     COMPLEX(KIND=dp) :: s,rsum
 !------------------------------------------------------------------------------
@@ -1197,28 +961,17 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Diagonal preconditioning of a CRS format matrix. Matrix is accessed
+!>    from a global variable GlobalMatrix. Note that if the matrix has been 
+!> scaled so that the diagonal entries are already ones, this subroutine is obsolite.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_DiagPrecondition( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Diagonal preconditioning of a CRS format matrix... Matrix is accessed
-!    from a global variable GlobalMatrix.
-!
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
+    REAL(KIND=dp), DIMENSION(*), INTENT(OUT) :: u  !< Resulting approximate solution after preconditioning
+    REAL(KIND=dp), DIMENSION(*), INTENT(IN) :: v  !< Given right-hand-side
+    INTEGER, DIMENSION(*) :: ipar   !< structure holding info from (HUTIter-iterative solver package)
 !------------------------------------------------------------------------------
-    REAL(KIND=dp), DIMENSION(*) :: u,v
-    INTEGER, DIMENSION(*) :: ipar
-
     INTEGER :: i,j,n
-
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     REAL(KIND=dp), POINTER :: Values(:)
 
@@ -1259,28 +1012,16 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Diagonal preconditioning of a CRS format matrix for complex valued matrix equations. 
+!>    Matrix is accessed from a global variable GlobalMatrix.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_ComplexDiagPrecondition( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Diagonal preconditioning of a CRS format matrix... Matrix is accessed
-!    from a global variable GlobalMatrix.
-!
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
+    COMPLEX(KIND=dp), DIMENSION(*), INTENT(OUT) :: u  !< Resulting approximate solution after preconditioning
+    COMPLEX(KIND=dp), DIMENSION(*), INTENT(IN) :: v  !< Given right-hand-side
+    INTEGER, DIMENSION(*) :: ipar   !< structure holding info from (HUTIter-iterative solver package)
 !------------------------------------------------------------------------------
-    COMPLEX(KIND=dp), DIMENSION(*) :: u,v
-    INTEGER, DIMENSION(*) :: ipar
-
     INTEGER :: i,j,n
-
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     COMPLEX(KIND=dp) :: A
     REAL(KIND=dp), POINTER :: Values(:)
@@ -1319,16 +1060,14 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Pics the block diagonal entries from matrix A to build matrix B.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_BlockDiagonal(A,B,Blocks) 
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Pics the block diagonal entries from matrix A to build matrix B.
+    TYPE(Matrix_t), INTENT(IN) :: A      !< The initial matrix
+    TYPE(Matrix_t), INTENT(IN,OUT) :: B  !< The block diagonal matrix
+    INTEGER, INTENT(IN) :: Blocks        !< Number of blocks used in the decomposition
 !------------------------------------------------------------------------------
-
-    TYPE(Matrix_t) :: A, B
-    INTEGER :: Blocks
     INTEGER :: i,j,k,l,kb,n
 
     IF(Blocks <= 1) RETURN
@@ -1366,19 +1105,16 @@ END FUNCTION CRS_RowSum
  
 
 !------------------------------------------------------------------------------
+!>    Copies the matrix topology from matrix A to build matrix B. Note that the 
+!> topology is really reused, so that if matrix A is destroyed also matrix B 
+!> becomes unusable.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_CopyMatrixTopology(A,B)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Pics a block from matrix A to build matrix B.
+    TYPE(Matrix_t), INTENT(IN) :: A  !< Initial matrix
+    TYPE(Matrix_t) :: B              !< New matrix with same matrix topology
 !------------------------------------------------------------------------------
-
-    TYPE(Matrix_t) :: A, B
-
     INTEGER :: kb,n,istat
-
-
     N = A % NumberOfRows
 
     IF ( n == 0 ) THEN
@@ -1422,20 +1158,20 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Pics a block from matrix A to build matrix B. It is assumed that the 
+!> matrix is split into given number of equally sized blocks.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_BlockMatrixPick(A,B,Blocks,Nrow,Ncol)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Pics a block from matrix A to build matrix B.
-!------------------------------------------------------------------------------
-
-    TYPE(Matrix_t) :: A, B
-    INTEGER :: Blocks, Nrow,Ncol
-    INTEGER :: i,j,k,l,kb,n,Nrow0,Ncol0,nsub
+    TYPE(Matrix_t), INTENT(IN) :: A   !< Initial matrix
+    TYPE(Matrix_t) :: B   !< Submatrix picked from the larger matrix
+    INTEGER, INTENT(IN) :: Blocks     !< Number of blocks in the initial matrix
+    INTEGER, INTENT(IN) :: Nrow       !< Row to be picked
+    INTEGER, INTENT(IN) :: Ncol       !< Column to be picked
+!------------------------------------------------------------------------------    
+	INTEGER :: i,j,k,l,kb,n,Nrow0,Ncol0,nsub
     INTEGER :: lsub,isub,istat,modNcol
     LOGICAL :: NewMatrix, Diagonal
-
 
     IF(Blocks <= 1) THEN
       CALL Fatal('CRS_BlockMatrixPick','No applicable to just one block!')
@@ -1519,23 +1255,22 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Pics a block from matrix A to build matrix B. 
+!> This subroutine enables the use of 
+!> nontrivial block decompositions. 
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_BlockMatrixPick2(A,B,BlockStruct,Nrow,Ncol)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Pics a block from matrix A to build matrix B.
-!------------------------------------------------------------------------------
-
-    TYPE(Matrix_t) :: A, B
-    INTEGER :: Blocks, Nrow,Ncol
-    INTEGER, POINTER :: BlockStruct(:)
-
+    TYPE(Matrix_t), INTENT(IN) :: A   !< Initial matrix
+    TYPE(Matrix_t) :: B   !< Submatrix picked from the larger matrix
+    INTEGER, POINTER, INTENT(IN) :: BlocksStruct(:)     !< Block decomposition structure of the initial matrix
+    INTEGER, INTENT(IN) :: Nrow       !< Row to be picked
+    INTEGER, INTENT(IN) :: Ncol       !< Column to be picked
+------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,kb,n,Nrow0,Ncol0,nsub,Mrow,Mcol,mr,mc,imsub,lmsub
-    INTEGER :: lsub,isub,istat,modNcol
+    INTEGER :: lsub,isub,istat,modNcol,Blocks
     LOGICAL :: NewMatrix, Allocated, Diagonal, Hit
     INTEGER, ALLOCATABLE :: Irow(:), Icol(:)
-
     
     Blocks = SIZE( BlockStruct )
 
@@ -1651,13 +1386,18 @@ END FUNCTION CRS_RowSum
   END SUBROUTINE CRS_BlockMatrixPick2
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Copies some preconditioning structures from matrix A to B. 
+!> The intent is to allow saving of memory and CPU time for cases
+!> where similar preconditioning could be used for many components.
+!------------------------------------------------------------------------------
   FUNCTION CRS_CopyMatrixPrec(A,B) RESULT(Status)
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A, B
-    LOGICAL :: Status
-
-    INTEGER :: n
+    TYPE(Matrix_t), INTENT(IN) :: A  !< Initial matrix
+    TYPE(Matrix_t) :: B  !< New matrix with the same preconditioner
+    LOGICAL, INTENT(OUT) :: Status  !< Returns true if copying was successful or unnecessary
 !------------------------------------------------------------------------------
+    INTEGER :: n
 
     Status = .FALSE.
 
@@ -1700,41 +1440,22 @@ END FUNCTION CRS_RowSum
       CALL Info('CRS_CopyMatrixPrec','Reusing AMG preconditioner topology')      
       B % Ematrix => A % Ematrix
     END IF
- 
 
   END FUNCTION CRS_CopyMatrixPrec
 
 
 
 !------------------------------------------------------------------------------
+!>    Builds an incomplete (ILU(n)) factorization for a iterative solver
+!>    preconditioner. Real matrix version.
+!------------------------------------------------------------------------------
   FUNCTION CRS_IncompleteLU(A,ILUn) RESULT(Status)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Buids an incomplete (ILU(n)) factorization for a iterative solver
-!    preconditioner. Real matrix version.
-!
-!  ARGUMENTS:
-!
-!    TYPE(Matrix_t) :: A
-!      INOUT: Strcture holding input matrix, will also hold the factorization
-!             on exit.
-!
-!    INTEGER :: N
-!      INPUT: Order of fills allowed 0-9
-!
-!  FUNCTIN RETURN VALUE:
-!    LOGICAL :: Status
-!      Whether or not the factorization succeeded.
-!
-!******************************************************************************
+    TYPE(Matrix_t), INTENT(IN,OUT) :: A  !< Strcture holding input matrix, will also hold the factorization on exit.
+    INTEGER, INTENT(IN) :: ILUn   !< Order of fills allowed 0-9
+    LOGICAL, INTENT(OUT) :: Status  !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: ILUn
-!------------------------------------------------------------------------------
-    LOGICAL :: Status, Warned
-
+    LOGICAL :: Warned
     INTEGER :: i,j,k,l,m,n,istat
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
@@ -2052,37 +1773,16 @@ END FUNCTION CRS_RowSum
   END FUNCTION CRS_IncompleteLU
 !------------------------------------------------------------------------------
 
-
+!------------------------------------------------------------------------------
+!>    Buids an incomplete (ILU(n)) factorization for an iterative solver
+!>    preconditioner. Complex matrix version.
 !------------------------------------------------------------------------------
   FUNCTION CRS_ComplexIncompleteLU(A,ILUn) RESULT(Status)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Buids an incomplete (ILU(n)) factorization for an iterative solver
-!    preconditioner. Complex matrix version.
-!
-!  ARGUMENTS:
-!
-!    TYPE(Matrix_t) :: A
-!      INOUT: Strcture holding input matrix, will also hold the factorization
-!             on exit.
-!
-!    INTEGER :: N
-!      INPUT: Order of fills allowed 0-9
-!
-!  FUNCTIN RETURN VALUE:
-!    LOGICAL :: Status
-!      Whether or not the factorization succeeded.
-!
-!******************************************************************************
+    TYPE(Matrix_t), INTENT(IN,OUT) :: A  !< Strcture holding input matrix, will also hold the factorization on exit.
+    INTEGER, INTENT(IN) :: ILUn   !< Order of fills allowed 0-9
+    LOGICAL, INTENT(OUT) :: Status  !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    INTEGER :: ILUn
-!------------------------------------------------------------------------------
-
-    LOGICAL :: Status
-
     INTEGER :: i,j,k,l,m,n,istat
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
@@ -2412,34 +2112,15 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Buids an incomplete (ILUT) factorization for an iterative solver
+!>    preconditioner. Real matrix version.
+!------------------------------------------------------------------------------
   FUNCTION CRS_ILUT(A,TOL) RESULT(Status)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Buids an incomplete (ILUT) factorization for an iterative solver
-!    preconditioner. Real matrix version.
-!
-!  ARGUMENTS:
-!
-!    TYPE(Matrix_t) :: A
-!      INOUT: Strcture holding input matrix, will also hold the factorization
-!             on exit.
-!
-!    REAL :: TOL
-!      INPUT: Drop toleranece: if ILUT(i,j) <= NORM(A(i,:))*TOL the value
-!             is dropped.
-!
-!  FUNCTIN RETURN VALUE:
-!    LOGICAL :: Status
-!      Whether or not the factorization succeeded.
-!
-!******************************************************************************
+    TYPE(Matrix_t) :: A  !< Structure holding input matrix, will also hold the factorization on exit.
+    REAL(KIND=dp), INTENT(IN) :: TOL  !< Drop toleranece: if ILUT(i,j) <= NORM(A(i,:))*TOL the value is dropped.
+    LOGICAL, INTENT(OUT) :: Status    !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    REAL(KIND=dp) :: TOL
-!------------------------------------------------------------------------------
-    LOGICAL :: Status
     INTEGER :: n
     REAL(KIND=dp) :: CPUTime, t
 !------------------------------------------------------------------------------
@@ -2631,35 +2312,16 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Buids an incomplete (ILUT) factorization for an iterative solver
+!>    preconditioner. Complex matrix version.
+!------------------------------------------------------------------------------
   FUNCTION CRS_ComplexILUT(A,TOL) RESULT(Status)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Buids an incomplete (ILUT) factorization for an iterative solver
-!    preconditioner. Complex matrix version.
-!
-!  ARGUMENTS:
-!
-!    TYPE(Matrix_t) :: A
-!      INOUT: Strcture holding input matrix, will also hold the factorization
-!             on exit.
-!
-!    REAL :: TOL
-!      INPUT: Drop toleranece: if ABS(ILUT(i,j)) <= NORM(A(i,:))*TOL the value
-!             is dropped.
-!
-!  FUNCTIN RETURN VALUE:
-!    LOGICAL :: Status
-!      Whether or not the factorization succeeded.
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-    TYPE(Matrix_t) :: A
-    REAL(KIND=dp) :: TOL
+    TYPE(Matrix_t) :: A  !< Structure holding input matrix, will also hold the factorization on exit.
+    REAL(KIND=dp), INTENT(IN) :: TOL  !< Drop toleranece: if ILUT(i,j) <= NORM(A(i,:))*TOL the value is dropped.
+    LOGICAL, INTENT(OUT) :: Status    !< Whether or not the factorization succeeded.
 !------------------------------------------------------------------------------
     INTEGER :: n
-    LOGICAL :: Status
     REAL(KIND=dp) :: CPUTime, t
 !------------------------------------------------------------------------------
 
@@ -2852,24 +2514,23 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Incomplete factorization preconditioner solver for a CRS format matrix.
+!>    Matrix is accessed from a global variable GlobalMatrix. The real version.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_LUPrecondition( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
 ! 
-!  DESCRIPTION:
-!    Incomplete factorization preconditioner solver for a CRS format matrix.
-!    Matrix is accessed from a global variable GlobalMatrix.
-!
 !  ARGUMENTS:
 !
 !    REAL(KIND=dp) :: u,v
 !
 !    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
+!      INPUT: 
 !
-!******************************************************************************
-    INTEGER, DIMENSION(*) :: ipar
-    REAL(KIND=dp), DIMENSION(HUTI_NDIM) :: u,v
+!------------------------------------------------------------------------------
+    INTEGER, DIMENSION(*), INTENT(IN) :: ipar  !< structure holding info from (HUTIter-iterative solver package)
+    REAL(KIND=dp), DIMENSION(HUTI_NDIM), INTENT(IN) :: v   !< Right-hand-side vector
+    REAL(KIND=dp), DIMENSION(HUTI_NDIM), INTENT(OUT) :: u   !< Solution vector
 
     u = v
     CALL CRS_LUSolve( HUTI_NDIM,GlobalMatrix,u )
@@ -2879,24 +2540,14 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Incomplete factorization preconditioner solver for a CRS format matrix.
+!>    Matrix is accessed from a global variable GlobalMatrix. The Complex version.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_ComplexLUPrecondition( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-!  DESCRIPTION:
-!    Incomplete factorization preconditioner solver for a CRS format matrix.
-!    Matrix is accessed from a global variable GlobalMatrix.
-!
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
-    INTEGER, DIMENSION(*) :: ipar
-    COMPLEX(KIND=dp), DIMENSION(HUTI_NDIM) :: u,v
+    INTEGER, DIMENSION(*), INTENT(IN) :: ipar  !< structure holding info from (HUTIter-iterative solver package)
+    COMPLEX(KIND=dp), DIMENSION(HUTI_NDIM), INTENT(IN) :: v !< Right-hand-side vector
+    COMPLEX(KIND=dp), DIMENSION(HUTI_NDIM), INTENT(OUT) :: u !< Solution vector
 
     u = v
     CALL CRS_ComplexLUSolve( HUTI_NDIM,GlobalMatrix,u )
@@ -2906,37 +2557,17 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Solve a system (Ax=b) after factorization A=LUD has been done. This
+!>    routine is meant as a part of  a preconditioner for an iterative solver.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_LUSolve( N,A,b )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Solve a system (Ax=b) after factorization A=LUD has been done. This
-!    routine is meant as a part of  a preconditioner for an iterative solver.
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: N
-!      INPUT: Size of the system
-!
-!    TYPE(Matrix_t) :: A
-!      INPUT: Structure holding input matrix
-!
-!    DOUBLE PRECISION :: b
-!      INOUT: on entry the RHS vector, on exit the solution vector.
-!
-!******************************************************************************
+    TYPE(Matrix_t), INTENT(IN) :: A  !< Structure holding input matrix
+    INTEGER, INTENT(IN) :: N   !< Size of the system
+    DOUBLE PRECISION :: b(n)   !< on entry the RHS vector, on exit the solution vector.
 !------------------------------------------------------------------------------
- 
-    TYPE(Matrix_t) :: A
-    INTEGER :: N
-    DOUBLE PRECISION :: b(n)
-
-!------------------------------------------------------------------------------
-
     INTEGER :: i,j,k,l,row,col,nn
     DOUBLE PRECISION :: s
-
     DOUBLE PRECISION, POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
 !------------------------------------------------------------------------------
@@ -3040,40 +2671,20 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Solve a complex system Ax=b after factorization A=LUD has been
+!>    done. This routine is meant as a part of  a preconditioner for an
+!>    iterative solver.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_ComplexLUSolve( N,A,b )
+!------------------------------------------------------------------------------ 
+    TYPE(Matrix_t), INTENT(IN) :: A   !< Structure holding input matrix
+    INTEGER, INTENT(IN) :: N          !< Size of the system
+    COMPLEX(KIND=dp) :: b(N)          !< on entry the RHS vector, on exit the solution vector.
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Solve a (complex9 system (Ax=b) after factorization A=LUD has been
-!    done. This routine is meant as a part of  a preconditioner for an
-!    iterative solver.
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: N
-!      INPUT: Size of the system
-!
-!    TYPE(Matrix_t) :: A
-!      INPUT: Structure holding input matrix
-!
-!    DOUBLE PRECISION :: b
-!      INOUT: on entry the RHS vector, on exit the solution vector.
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
- 
-    TYPE(Matrix_t) :: A
-    INTEGER :: N
-    COMPLEX(KIND=dp) :: b(N)
-
-!------------------------------------------------------------------------------
-
     COMPLEX(KIND=dp), POINTER :: Values(:)
     INTEGER :: i,j
     COMPLEX(KIND=dp) :: x, s
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
-    
 !------------------------------------------------------------------------------
 
     Diag => A % ILUDiag
@@ -3177,26 +2788,14 @@ END FUNCTION CRS_RowSum
 
 
 !------------------------------------------------------------------------------
+!>    Matrix vector product (v = Au) for a matrix given in CRS format. The
+!>    matrix is accessed from a global variable GlobalMatrix.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_MatrixVectorProd( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Matrix vector product (v = Au) for a matrix given in CRS format. The
-!    matrix is accessed from a global variable GlobalMatrix.
-!
-!  ARGUMENTS:
-!
-!    DOUBLE PRECISION :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-    INTEGER, DIMENSION(*) :: ipar
-    REAL(KIND=dp) :: u(HUTI_NDIM),v(HUTI_NDIM)
+    INTEGER, DIMENSION(*), INTENT(IN) :: ipar      !< Structure holding info HUTIter-iterative solver package
+    REAL(KIND=dp) :: u(HUTI_NDIM), INTENT(IN)      !< vector to multiply u
+	REAL(KIND=dp) :: v(HUTI_NDIM), INTENT(IN,OUT)  !< result vector
 
 !------------------------------------------------------------------------------
     INTEGER, POINTER  CONTIG :: Cols(:),Rows(:)
@@ -3306,27 +2905,16 @@ PRINT*,globalmatrix % spMV
 
 
 !------------------------------------------------------------------------------
+!>    Complex matrix vector product (v = Au) for a matrix given in
+!>    CRS format. The matrix is accessed from a global variable
+!>    GlobalMatrix.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_ComplexMatrixVectorProd( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Complex matrix vector product (v = Au) for a matrix given in
-!    CRS format. The matrix is accessed from a global variable
-!    GlobalMatrix.
-!
-!  ARGUMENTS:
-!
-!    DOUBLE PRECISION :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
 
-    INTEGER, DIMENSION(*) :: ipar
-    COMPLEX(KIND=dp) :: u(HUTI_NDIM),v(HUTI_NDIM)
+    INTEGER, DIMENSION(*), INTENT(IN) :: ipar      !< Structure holding info HUTIter-iterative solver package
+    COMPLEX(KIND=dp) :: u(HUTI_NDIM), INTENT(IN)      !< vector to multiply u
+	COMPLEX(KIND=dp) :: v(HUTI_NDIM), INTENT(IN,OUT)  !< result vector
 
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: Cols(:),Rows(:)
