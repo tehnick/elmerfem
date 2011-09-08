@@ -5182,7 +5182,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE MakePermUsingMask( Model,Solver,Mesh,MaskName, &
-       OptimizeBW, Perm, LocalNodes, MaskOnBulk )
+       OptimizeBW, Perm, LocalNodes, MaskOnBulk, RequireLogical )
 !------------------------------------------------------------------------------
 ! Creates a permutation table for bodies or boundaries using a free chosen string
 ! as mask. The resulting permutation is optimized in order, if requested. The
@@ -5198,11 +5198,12 @@ CONTAINS
     INTEGER :: Perm(:)
     CHARACTER(LEN=*) :: MaskName
     LOGICAL, OPTIONAL :: MaskOnBulk
+    LOGICAL, OPTIONAL :: RequireLogical
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: InvPerm(:)
     TYPE(ListMatrix_t), POINTER :: ListMatrix(:)
     INTEGER :: t,i,j,k,l,m,k1,k2,n,p,q,e1,e2,f1,f2,This,bf_id   
-    LOGICAL :: Flag, Found, FirstRound
+    LOGICAL :: Flag, Found, FirstRound, MaskIsLogical, Hit
     INTEGER :: Indexes(30), ElemStart, ElemFin, Width
     TYPE(ListMatrixEntry_t), POINTER :: CList, Lptr
     TYPE(Element_t), POINTER :: CurrentElement,Elm
@@ -5211,10 +5212,21 @@ CONTAINS
     
     ! First check if there are active elements for this mask
     IF( PRESENT( MaskOnBulk ) ) MaskOnBulk = .FALSE.
+    IF( PRESENT( RequireLogical ) ) THEN
+      MaskIsLogical = RequireLogical
+    ELSE
+      MaskIsLogical = .FALSE.
+    END IF
+
     ElemStart = HUGE(ElemStart) 
     ElemFin = 0     
     DO l = 1, Model % NumberOfBodyForces
-       IF(ListCheckPresent( Model % BodyForces(l) % Values,MaskName) ) THEN
+       IF( MaskIsLogical ) THEN
+         Hit = ListGetLogical( Model % BodyForces(l) % Values,MaskName,Found) 
+       ELSE
+         Hit = ListCheckPresent( Model % BodyForces(l) % Values,MaskName)
+       END IF 
+       IF( Hit ) THEN
           ElemStart = 1
           ElemFin = Mesh % NumberOfBulkElements
           IF( PRESENT( MaskOnBulk ) ) MaskOnBulk = .TRUE.
@@ -5222,7 +5234,12 @@ CONTAINS
        END IF
     END DO
     DO l = 1, Model % NumberOfBCs
-       IF( ListCheckPresent(Model % BCs(l) % Values,MaskName ) ) THEN
+       IF( MaskIsLogical ) THEN
+         Hit = ListGetLogical(Model % BCs(l) % Values,MaskName,Found )
+       ELSE
+         Hit = ListCheckPresent(Model % BCs(l) % Values,MaskName )
+       END IF
+       IF( Hit ) THEN
           ElemStart = MIN( ElemStart, Mesh % NumberOfBulkElements + 1)
           ElemFin = Mesh % NumberOfBulkElements + Mesh % NumberOFBoundaryElements
           EXIT
@@ -5247,20 +5264,29 @@ CONTAINS
        
        CurrentElement => Mesh % Elements(t)
        
-       Found = .FALSE.
+       Hit = .FALSE.
        IF(t <= Mesh % NumberOfBulkElements) THEN
           l = CurrentElement % BodyId
 	  bf_id = ListGetInteger( Model % Bodies(l) % Values, 'Body Force',Found)
 	  IF( bf_id>0 ) THEN
-            IF(ListCheckPresent( Model % BodyForces(bf_id) % Values, MaskName )) Found = .TRUE.
+            IF( MaskIsLogical ) THEN
+              Hit = ListGetLogical( Model % BodyForces(bf_id) % Values, MaskName, Found )
+            ELSE
+              Hit = ListCheckPresent( Model % BodyForces(bf_id) % Values, MaskName )
+            END IF
 	  END IF 
        ELSE
           DO l=1, Model % NumberOfBCs
-             IF ( Model % BCs(l) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
-             IF( ListCheckPresent(Model % BCs(l) % Values,MaskName ) ) Found = .TRUE.
+            IF ( Model % BCs(l) % Tag /= CurrentElement % BoundaryInfo % Constraint ) CYCLE
+            IF( MaskIsLogical ) THEN
+              Hit = ListGetLogical(Model % BCs(l) % Values,MaskName, Found ) 
+            ELSE
+              Hit = ListCheckPresent(Model % BCs(l) % Values,MaskName ) 
+            END IF
+            EXIT
           END DO
        END IF       
-       IF( .NOT. Found ) CYCLE       
+       IF( .NOT. Hit ) CYCLE       
        
        n = CurrentElement % NDOFs               
        Indexes(1:n) = CurrentElement % NodeIndexes(1:n)
