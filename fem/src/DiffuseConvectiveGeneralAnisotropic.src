@@ -21,10 +21,6 @@
 ! *
 ! *****************************************************************************/
 !
-!/******************************************************************************
-! *
-! *  Diffuse-convective local matrix computing (general euclidian coordinates)
-! *
 ! ******************************************************************************
 ! *
 ! *  Authors: Juha Ruokolainen
@@ -38,6 +34,9 @@
 ! *
 ! ******************************************************************************/
 
+!---------------------------------------------------------------------------------
+!>  Diffuse-convective local matrix computing in general euclidian coordinates.
+!---------------------------------------------------------------------------------
 MODULE DiffuseConvectiveGeneral
 
   USE Integration
@@ -49,15 +48,14 @@ MODULE DiffuseConvectiveGeneral
   CONTAINS
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RSH vector for diffusion-convection
+!>  equation (genaral euclidian coordinate system): 
+!------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveGenCompose( MassMatrix,StiffMatrix,ForceVector,  &
     LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,PhaseChange,Temperature,Enthalpy,&
        Ux,Uy,Uz,MUx,MUy, MUz, NodalViscosity,NodalDensity,NodalPressure,        &
          NodaldPressureDt,NodalPressureCoeff,Compressible, Stabilize,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for diffusion-convection
-!  equation (genaral euclidian coordinate system): 
 !
 !  ARGUMENTS:
 !
@@ -109,7 +107,7 @@ MODULE DiffuseConvectiveGeneral
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
 
      REAL(KIND=dp), DIMENSION(:) :: ForceVector,Ux,Uy,Uz,MUx,MUy,MUz,LoadVector
      REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix
@@ -510,13 +508,12 @@ MODULE DiffuseConvectiveGeneral
 
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RHS vector for boundary conditions
+!>  of diffusion convection equation.
+!------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveGenBoundary( BoundaryMatrix,BoundaryVector, &
               LoadVector,NodalAlpha,Element,n,Nodes)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for boundary conditions
-!  of diffusion convection equation: 
 !
 !  ARGUMENTS:
 !
@@ -542,8 +539,6 @@ MODULE DiffuseConvectiveGeneral
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
-
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:)

@@ -23,12 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Linear Algebra: LU-Decomposition & matrix inverse & nonsysmmetric full 
-! *  matrix eigenvalues  (don't use this for anything big, use for example 
-! *  LAPACK routines instead...)
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -40,6 +34,11 @@
 ! *
 ! *****************************************************************************/
 
+!------------------------------------------------------------------------------
+!> Linear Algebra: LU-Decomposition & matrix inverse & nonsysmmetric full 
+!>  matrix eigenvalues  (don't use this for anything big, use for example 
+!>  LAPACK routines instead...)
+!------------------------------------------------------------------------------
 MODULE LinearAlgebra
 
   USE Types
@@ -180,15 +179,14 @@ MODULE LinearAlgebra
   END SUBROUTINE LUSolve
 
 
-!/*
-! * LU- decomposition by gaussian elimination. Row pivoting is used.
-! * 
-! * result : AP = L'U ; L' = LD; pivot[i] is the swapped column number
-! * for column i.
-! *
-! * Result is stored in place of original matrix.
-! *
-! */
+!----------------------------------------------------------------------
+!> LU- decomposition by gaussian elimination. Row pivoting is used.
+!  
+!> result : AP = L'U ; L' = LD; pivot[i] is the swapped column number
+!> for column i.
+! 
+!> Result is stored in place of original matrix.
+!----------------------------------------------------------------------
   SUBROUTINE LUDecomp( a,n,pivot )
 
     REAL(KIND=dp), DIMENSION (:,:) :: a
@@ -325,15 +323,15 @@ MODULE LinearAlgebra
 
  END SUBROUTINE ComplexInvertMatrix
 
-!/*
-! * LU- decomposition by gaussian elimination. Row pivoting is used.
-! * 
-! * result : AP = L'U ; L' = LD; pivot[i] is the swapped column number
-! * for column i.
-! *
-! * Result is stored in place of original matrix.
-! *
-! */
+!-------------------------------------------------------------------------
+!> LU- decomposition by gaussian elimination for complex valued linear system.
+!> Row pivoting is used.
+! 
+!> result : AP = L'U ; L' = LD; pivot[i] is the swapped column number
+!> for column i.
+!
+!> Result is stored in place of original matrix.
+!-------------------------------------------------------------------------
 
   SUBROUTINE ComplexLUDecomp( a,n,pivot )
 
@@ -388,9 +386,9 @@ MODULE LinearAlgebra
     END IF
   END SUBROUTINE ComplexLUDecomp
 
-  !
-  ! Solve eigenvalues of a nonsymmetric matrix A(n,n)
-  ! The matrix is modified in the process:
+  ! --------------------------------------------------
+  !> Solve eigenvalues of a nonsymmetric matrix A(n,n)
+  !> The matrix is modified in the process.
   ! --------------------------------------------------
   SUBROUTINE EigenValues( A, n, Vals )
     IMPLICIT NONE

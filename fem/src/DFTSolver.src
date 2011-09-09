@@ -1,28 +1,11 @@
 
+!------------------------------------------------------------------------------
+!>  Calculate the charge density using the eigenvectors of variable 
+!>  "Wavefunctions" of eigenproblem solver 
+!------------------------------------------------------------------------------
 SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Calculate the charge density using the eigenvectors of variable 
-!  "Wavefunctions" of eigenproblem solver 
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
@@ -229,28 +212,11 @@ END SUBROUTINE ChargeDensitySolver
 
 
 !------------------------------------------------------------------------------
+!>  Solve the eigenproblem -(1/2) * Lap(phi_i) + U * phi_i = e_i * phi_i
+!>  of Kohn Sham equations. Calculating the XC potential here!
+!------------------------------------------------------------------------------
 SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the eigenproblem -(1/2) * Lap(phi_i) + U * phi_i = e_i * phi_i
-!  of Kohn Sham equations. Calculating the XC potential here!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   USE ExchangeCorrelations
 
@@ -282,7 +248,6 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
   CALL INFO('WavefunctionSolver','............')
   CALL INFO('WavefunctionSolver','EigenSolver')
   CALL INFO('WavefunctionSolver','............')
-
 
   ! Allocate some permanent storage and define the shift parameter, 
   ! this is done first time only:
@@ -542,30 +507,12 @@ END SUBROUTINE WaveFunctionSolver
 !------------------------------------------------------------------------------
 
 
-
+!------------------------------------------------------------------------------
+!>  Solve the (Hartree) potential via Poisson equation using the 
+!>  variable "Charge density" multiplied by 4 Pi as a load.
 !------------------------------------------------------------------------------
 SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the (Hartree) potential via Poisson equation using the 
-!  variable "Charge density" multiplied by 4 Pi as a load.
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   USE LinearAlgebra
 

@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Message output routines.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +34,9 @@
 ! *
 ! *****************************************************************************/
 
+!-------------------------------------------------------------------------------
+!>  Message output routines for sending information and dealing with exceptions.
+!-------------------------------------------------------------------------------
 MODULE Messages
 
    IMPLICIT NONE
@@ -49,6 +48,9 @@ MODULE Messages
 
 CONTAINS
 
+!-----------------------------------------------------------------------
+!> Prints information on the standard output if the requested or 
+!> default output level does not surpass the maximum output level.
 !-----------------------------------------------------------------------
    SUBROUTINE Info( Caller, String, noAdvance, Level )
 !-----------------------------------------------------------------------
@@ -95,6 +97,9 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------
+!> When a suspicious incident takes place this subroutine may be used
+!> to inform the user.
+!-----------------------------------------------------------------------
    SUBROUTINE Warn( Caller, String, noAdvance )
 !-----------------------------------------------------------------------
      CHARACTER(LEN=*) :: Caller, String
@@ -130,6 +135,8 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------
+!> This routine may be used to inform the user of an error.
+!-----------------------------------------------------------------------
    SUBROUTINE Error( Caller, String, noAdvance )
 !-----------------------------------------------------------------------
      CHARACTER(LEN=*) :: Caller, String
@@ -162,8 +169,8 @@ CONTAINS
    END SUBROUTINE Error
 !-----------------------------------------------------------------------
 
-
-
+!-----------------------------------------------------------------------
+!> This routine may be used to terminate the program in the case of an error.
 !-----------------------------------------------------------------------
    SUBROUTINE Fatal( Caller, String, noAdvance )
 !-----------------------------------------------------------------------

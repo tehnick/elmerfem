@@ -23,14 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! * This module performs a single GCR step to solve the fully coupled incompressible
-! * Navier-Stokes system. The search direction is obtained by solving decoupled
-! * equations which arise from the consistent splitting algorithm. This solver
-! * assumes that such equations are already solved. The search direction 
-! * can thus be constructed without performing linear solves in this module. 
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen, Mika  Malinen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -42,26 +34,15 @@
 ! *
 ! *****************************************************************************/
 
+!------------------------------------------------------------------------------
+!> This subroutine performs a single GCR step to solve the fully coupled incompressible
+!> Navier-Stokes system. The search direction is obtained by solving decoupled
+!> equations which arise from the consistent splitting algorithm. This solver
+!> assumes that such equations are already solved. The search direction 
+!> can thus be constructed without performing linear solves in this module. 
+!------------------------------------------------------------------------------
 SUBROUTINE OptimalSolutionUpdate( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   USE SolverUtils
   USE ElementUtils
@@ -1414,12 +1395,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE SetBoundaryConditions
 !------------------------------------------------------------------------------
-
-
-
-
-
-
 
 
 !------------------------------------------------------------------------------

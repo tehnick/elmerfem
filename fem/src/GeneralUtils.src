@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Misc utilities
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -40,6 +36,10 @@
 
 #include "../config.h"
 
+
+!-----------------------------------------------------------------------------
+!>  Miscallenous utilities.
+!-----------------------------------------------------------------------------
 MODULE GeneralUtils
 
 USE Types
@@ -216,6 +216,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Sort an array of integer values. 
+!------------------------------------------------------------------------------
    SUBROUTINE Sort( n,a )
 !------------------------------------------------------------------------------
      INTEGER :: n,a(:)
@@ -263,8 +265,8 @@ CONTAINS
    END SUBROUTINE Sort
 !------------------------------------------------------------------------------
 
-!
-! Sort int array?
+!------------------------------------------------------------------------------
+!> Sort an interger array, together with an another integer array.
 !------------------------------------------------------------------------------
    SUBROUTINE SortI( n,a,b )
 !------------------------------------------------------------------------------
@@ -319,6 +321,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Sort an real array, and organize an index table accordingly.
 !------------------------------------------------------------------------------
    SUBROUTINE SortF( n,a,b )
 !------------------------------------------------------------------------------
@@ -377,6 +381,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Sort an complex array, and organize an index table accordingly.
+!------------------------------------------------------------------------------
    SUBROUTINE SortC( n,a,b )
 !------------------------------------------------------------------------------
      INTEGER :: n,b(:)
@@ -433,8 +439,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Order real components in b in a decreasing order and return the new order
-! of indexes in a.
+!> Order real components in b in a decreasing order and return the new order
+!> of indexes in a.
 !------------------------------------------------------------------------------
    SUBROUTINE SortR( n,a,b )
 !------------------------------------------------------------------------------
@@ -602,14 +608,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>  Read a (logical) line from FORTRAN device Unit and remove leading, trailing,
+!>  and multiple blanks between words. Also convert uppercase characters to
+!>  lowercase.The logical line can continue the several physical lines by adding
+!>  the backslash (\) mark at the end of a physical line. 
+!------------------------------------------------------------------------------
    RECURSIVE FUNCTION ReadAndTrim( Unit,str,echo,literal ) RESULT(l)
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-!  Read a (logical) line from FORTRAN device Unit and remove leading, trailing,
-!  and multiple blanks between words. Also convert uppercase characters to
-!  lowercase.The logical line can continue the several physical lines by adding
-!  the backslash (\) mark at the end of a physical line. 
 !
 !  ARGUMENTS:
 !
@@ -954,6 +961,8 @@ END FUNCTION ComponentNameVar
 
 
 !------------------------------------------------------------------------------
+!> Solves a tridiagonal linear system. 
+!------------------------------------------------------------------------------
     SUBROUTINE SolveTriDiag( n, y, h, r )
 !------------------------------------------------------------------------------
        INTEGER :: n
@@ -983,6 +992,8 @@ END FUNCTION ComponentNameVar
 
 
 !------------------------------------------------------------------------------
+!> Solver for the coefficients of a cubic spline.
+!------------------------------------------------------------------------------
     SUBROUTINE CubicSpline( n,x,y,r )
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: x(:),y(:),r(:)
@@ -1003,6 +1014,8 @@ END FUNCTION ComponentNameVar
     END SUBROUTINE CubicSpline
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Evalulate a cubic spline.
 !------------------------------------------------------------------------------
    FUNCTION CubicSplineVal(x,y,r,t) RESULT(s)
 !------------------------------------------------------------------------------
@@ -1041,6 +1054,8 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Interpolate values in a curve given by linear table or splines.
 !------------------------------------------------------------------------------
    FUNCTION InterpolateCurve( TValues,FValues,T, CubicCoeff) RESULT( F )
 !------------------------------------------------------------------------------
@@ -1082,6 +1097,8 @@ END FUNCTION ComponentNameVar
 
 
 !------------------------------------------------------------------------------
+!> Derivate a curve given by linear table or splines.
+!------------------------------------------------------------------------------
    FUNCTION DerivateCurve( TValues,FValues,T,CubicCoeff ) RESULT( F )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: TValues(:),FValues(:),T,F
@@ -1091,8 +1108,6 @@ END FUNCTION ComponentNameVar
      LOGICAL :: Cubic
 !------------------------------------------------------------------------------
      n = SIZE(TValues)
-
-
 
      DO i=1,n
        IF ( TValues(i) >= T ) EXIT
@@ -1116,6 +1131,8 @@ END FUNCTION ComponentNameVar
 
 
 !------------------------------------------------------------------------------
+!> Solves a 2 x 2 linear system.
+!------------------------------------------------------------------------------
    SUBROUTINE SolveLinSys2x2( A, x, b )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: A(:,:),x(:),b(:),detA
@@ -1136,6 +1153,8 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Solves a 3 x 3 linear system.
 !------------------------------------------------------------------------------
    SUBROUTINE SolveLinSys3x3( A, x, b )
 !------------------------------------------------------------------------------
@@ -1197,6 +1216,9 @@ END FUNCTION ComponentNameVar
    END SUBROUTINE SolveLinSys3x3
 !------------------------------------------------------------------------------
 
+
+
+!------------------------------------------------------------------------------
    SUBROUTINE ClearMatrix( Matrix ) 
      TYPE(Matrix_t), POINTER :: Matrix
   
@@ -1589,8 +1611,8 @@ END FUNCTION ComponentNameVar
 
 
 !------------------------------------------------------------------------------
-! Given the filename0 (and suffix0) find the 1st free filename
-! that does not exist in the current working directory
+!> Given the filename0 (and suffix0) find the 1st free filename
+!> that does not exist in the current working directory
 !------------------------------------------------------------------------------
 
   FUNCTION NextFreeFilename(Filename0,Suffix0,LastExisting) RESULT (Filename)
@@ -1642,10 +1664,9 @@ END FUNCTION ComponentNameVar
 
 
   !---------------------------------------------------------
-  ! Returns values from a normal distribution to be used in 
-  ! thermal velocity distribution, for example.
+  !> Returns values from a normal distribution to be used in 
+  !> thermal velocity distribution, for example.
   !---------------------------------------------------------
-  
   FUNCTION NormalRandom() RESULT ( normalrand ) 
     
     REAL(KIND=dp) :: normalrand,mean
@@ -1678,9 +1699,8 @@ END FUNCTION ComponentNameVar
 
 
   !---------------------------------------------------------
-  ! Returns values from a even distribution [0,1]
+  !> Returns values from a even distribution [0,1]
   !---------------------------------------------------------
-  
   FUNCTION EvenRandom() RESULT ( rand )     
     REAL(KIND=dp) :: rand
     CALL RANDOM_NUMBER(rand)

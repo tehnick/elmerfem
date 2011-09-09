@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module defining Gauss integration points and
-! *  containing various integration routines
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -39,6 +34,11 @@
 ! *
 ! ****************************************************************************/
 
+
+!-----------------------------------------------------------------------------
+!>  Module defining Gauss integration points and
+!>  containing various integration routines
+!-----------------------------------------------------------------------------
 MODULE Integration
    USE Types
    USE LinearAlgebra
@@ -352,9 +352,9 @@ MODULE Integration
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE ComputeFejerPoints1D( Points,Weights,n )
+!> Subroutine to compute Fejer integration points by FFT.
 !------------------------------------------------------------------------------
-! Subroutine to compute Fejer integration points by FFT
+   SUBROUTINE ComputeFejerPoints1D( Points,Weights,n )
 !------------------------------------------------------------------------------
     INTEGER :: n
     REAL(KIND=dp) :: Points(n),Weights(n)
@@ -397,10 +397,10 @@ MODULE Integration
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE ComputeGaussPoints1D( Points,Weights,n )
+!> Subroutine to compute gaussian integration points and weights in [-1,1]
+!> as roots of Legendre polynomials.
 !------------------------------------------------------------------------------
-! Subroutine to compute gaussian integration points and weights in [-1,1]
-! as roots of Legendre polynomials.
+   SUBROUTINE ComputeGaussPoints1D( Points,Weights,n )
 !------------------------------------------------------------------------------
      INTEGER :: n
      REAL(KIND=dp) :: Points(n),Weights(n)
@@ -632,23 +632,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Return gaussian integration points for 1D line element
+!------------------------------------------------------------------------------
    FUNCTION GaussPoints1D( n ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 1D line element
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: n
-!      INPUT: number of points in the requested rule
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-      INTEGER :: n
+      INTEGER :: n   !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
+!------------------------------------------------------------------------------
       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
@@ -702,25 +692,16 @@ CONTAINS
       p % w(1:n) = 0.0d0
     END FUNCTION GaussPointsPTriangle
 
+
+!------------------------------------------------------------------------------
+!>    Return gaussian integration points for 2D triangle element
 !------------------------------------------------------------------------------
    FUNCTION GaussPointsTriangle( n ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 2D triangle element
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: n
-!      INPUT: number of points in the requested rule
-!
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-      INTEGER :: i,n
+      INTEGER :: n    !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
-      INTEGER :: thread, omp_get_thread_num
+!------------------------------------------------------------------------------
+      INTEGER :: i,thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
       thread = 1
@@ -826,26 +807,17 @@ CONTAINS
    END DO
 END FUNCTION GaussPointsPTetra
 
+
+!------------------------------------------------------------------------------
+!>    Return gaussian integration points for 3D tetra element
 !------------------------------------------------------------------------------
    FUNCTION GaussPointsTetra( n ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 3D tetra element
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: n
-!      INPUT: number of points in the requested rule
-!
-!******************************************************************************
-
-      INTEGER :: i,n
+      INTEGER :: n      !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
-
+!------------------------------------------------------------------------------
       REAL( KIND=dp ) :: ScaleFactor
-      INTEGER :: thread, omp_get_thread_num
+      INTEGER :: i, thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
       thread = 1
@@ -939,24 +911,17 @@ END FUNCTION GaussPointsPTetra
 
    END FUNCTION GaussPointsPPyramid
 
+
+   
+!------------------------------------------------------------------------------
+!>    Return gaussian integration points for 3D prism element.
 !------------------------------------------------------------------------------
    FUNCTION GaussPointsPyramid( np ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 3D prism element
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: n
-!      INPUT: number of points in the requested rule
-!
-!******************************************************************************
-      INTEGER :: np
-
-      INTEGER :: i,j,k,n,t
+      INTEGER :: np     !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
+!------------------------------------------------------------------------------
+      INTEGER :: i,j,k,n,t
       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
@@ -1030,23 +995,14 @@ END FUNCTION GaussPointsPTetra
    END FUNCTION GaussPointsPWedge
 
 !------------------------------------------------------------------------------
+!>    Return gaussian integration points for 3D wedge element
+!------------------------------------------------------------------------------
    FUNCTION GaussPointsWedge( np ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 3D wedge element
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: n
-!      INPUT: number of points in the requested rule
-!
-!******************************************************************************
-      INTEGER :: np
-
-      INTEGER :: i,j,k,n,t
+      INTEGER :: np     !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
+!------------------------------------------------------------------------------
+      INTEGER :: i,j,k,n,t
       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
@@ -1088,23 +1044,14 @@ END FUNCTION GaussPointsPTetra
 
 
 !------------------------------------------------------------------------------
+!>    Return gaussian integration points for 2D quad element
+!------------------------------------------------------------------------------
    FUNCTION GaussPointsQuad( np ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 2D quad element
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: n
-!      INPUT: number of points in the requested rule
-!
-!******************************************************************************
-      INTEGER :: np
-
-      INTEGER i,j,n,t
+      INTEGER :: np     !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
+!------------------------------------------------------------------------------
+      INTEGER i,j,n,t
       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
@@ -1138,28 +1085,18 @@ END FUNCTION GaussPointsPTetra
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!>    Return gaussian integration points for 3D brick element for
+!>    composite rule 
+!>    sum_i=1^nx(sum_j=1^ny(sum_k=1^nz w_ijk f(x_{i,j,k},y_{i,j,k},z_{i,j,k}))).
+!------------------------------------------------------------------------------
    FUNCTION GaussPointsPBrick( nx, ny, nz ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 3D brick element for
-!    composite rule 
-!    sum_i=1^nx(sum_j=1^ny(sum_k=1^nz w_ijk f(x_{i,j,k},y_{i,j,k},z_{i,j,k})))
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: nx
-!      INPUT: number of points in the requested rule in x direction
-!
-!    INTEGER :: ny
-!      INPUR: number of points in the requested rule in y direction
-!
-!******************************************************************************
-      INTEGER :: nx, ny,nz
-
-      INTEGER i,j,k,t
+      INTEGER :: nx    !< number of points in the requested rule in x direction
+      INTEGER :: ny    !< number of points in the requested rule in y direction
+      INTEGER :: nz    !< number of points in the requested rule in z direction
       TYPE(GaussIntegrationPoints_t), POINTER :: p
+!------------------------------------------------------------------------------
+      INTEGER i,j,k,t
       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
@@ -1196,23 +1133,14 @@ END FUNCTION GaussPointsPTetra
 
 
 !------------------------------------------------------------------------------
+!>    Return gaussian integration points for 3D brick element
+!------------------------------------------------------------------------------
    FUNCTION GaussPointsBrick( np ) RESULT(p)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Return gaussian integration points for 3D brick element
-!
-!  ARGUMENTS:
-!
-!    INTEGER :: n
-!      INPUT: number of points in the requested rule
-!
-!******************************************************************************
-      INTEGER :: np
-
-      INTEGER i,j,k,n,t
+      INTEGER :: np     !< number of points in the requested rule
       TYPE(GaussIntegrationPoints_t), POINTER :: p
+!------------------------------------------------------------------------------
+      INTEGER i,j,k,n,t
       INTEGER :: thread, omp_get_thread_num
 
       IF ( .NOT. GInit ) CALL GaussPointsInit
@@ -1248,30 +1176,15 @@ END FUNCTION GaussPointsPTetra
 
 
 !------------------------------------------------------------------------------
+!>    Given element structure return gauss integration points for the element.
+!------------------------------------------------------------------------------
    FUNCTION GaussPoints( elm,np ) RESULT(IntegStuff)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Given element structure return gauss integration points for the element
-!
-!  ARGUMENTS:
-!
-!  TYPE(Element_t) :: elm
-!     INPUT: Structure holding element description
-!
-!  FUNCTION RETURN VALUE:
-!    TYPE(GaussIntegrationPoints_t) :: IntegStuff
-!      Structure holding the integration points...
-!******************************************************************************
-
+     TYPE( Element_t ) :: elm   !< Structure holding element description
+     INTEGER, OPTIONAL :: np    !< Number of requested points
+     TYPE( GaussIntegrationPoints_t ) :: IntegStuff   !< Structure holding the integration points
 !------------------------------------------------------------------------------
-     TYPE( Element_t ) :: elm
-     INTEGER, OPTIONAL :: np
-     TYPE( GaussIntegrationPoints_t ) :: IntegStuff
      LOGICAL :: pElement
-
-!------------------------------------------------------------------------------
      INTEGER :: n
      TYPE(ElementType_t), POINTER :: elmt
 !------------------------------------------------------------------------------

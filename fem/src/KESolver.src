@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing a solver for the KE-turbulence model.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -37,36 +33,9 @@
 ! *  Original Date: 08 Jun 1997
 ! *
 ! ****************************************************************************/
-!------------------------------------------------------------------------------
-   SUBROUTINE KESolver_Init( Model,Solver,dt,TransientSimulation )
-!------------------------------------------------------------------------------
-     USE DefUtils
 
-     IMPLICIT NONE
 !------------------------------------------------------------------------------
-
-     TYPE(Model_t)  :: Model
-     TYPE(Solver_t) :: Solver
-
-     REAL(KIND=dp) :: dt
-     LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: SolverParams
-     LOGICAL :: Found
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
-!------------------------------------------------------------------------------
-     SolverParams => GetSolverParams()
-
-     str = GetString( SolverParams,'Variable', Found )
-     IF ( .NOT. Found ) str = 'K-eps'
-     IF ( INDEX( str, '[' ) <= 0 ) THEN
-       CALL ListAddString( SolverParams, 'Variable', &
-             TRIM(str) // '[Kinetic Energy:1 Kinetic Dissipation:1]' )
-     END IF
-!------------------------------------------------------------------------------
-   END SUBROUTINE KESolver_Init
-!------------------------------------------------------------------------------
-
+!>  Subroutine for the k-e turbulence model.
 !------------------------------------------------------------------------------
    SUBROUTINE KESolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -74,25 +43,8 @@
 
      IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the K-Epsilon model equations !
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!******************************************************************************
      TYPE(Model_t)  :: Model
      TYPE(Solver_t) :: Solver
-
      REAL(KIND=dp) :: dt
      LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
@@ -863,6 +815,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Wall law for the k-e turbulence model.
+!------------------------------------------------------------------------------
    SUBROUTINE EpsilonWall( Element, n, STIFF, FORCE )
 !------------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: Element
@@ -981,3 +935,36 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE KESolver
 !------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver: KESolver
+!------------------------------------------------------------------------------
+   SUBROUTINE KESolver_Init( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+     USE DefUtils
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+
+     TYPE(Model_t)  :: Model
+     TYPE(Solver_t) :: Solver
+
+     REAL(KIND=dp) :: dt
+     LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: SolverParams
+     LOGICAL :: Found
+     CHARACTER(LEN=MAX_NAME_LEN) :: str
+!------------------------------------------------------------------------------
+     SolverParams => GetSolverParams()
+
+     str = GetString( SolverParams,'Variable', Found )
+     IF ( .NOT. Found ) str = 'K-eps'
+     IF ( INDEX( str, '[' ) <= 0 ) THEN
+       CALL ListAddString( SolverParams, 'Variable', &
+             TRIM(str) // '[Kinetic Energy:1 Kinetic Dissipation:1]' )
+     END IF
+!------------------------------------------------------------------------------
+   END SUBROUTINE KESolver_Init
+!------------------------------------------------------------------------------
+

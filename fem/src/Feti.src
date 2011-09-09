@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Basic FETI solver, for Poisson & Navier style of equations.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -37,6 +33,10 @@
 ! *  Original Date: 30 Mar 2011
 ! *
 ! *****************************************************************************/
+
+!-------------------------------------------------------------------------------
+!>  Basic FETI solver, for Poisson & Navier style of equations.
+!-------------------------------------------------------------------------------
 MODULE FetiSolve
 
   USE DefUtils
@@ -84,8 +84,8 @@ MODULE FetiSolve
 
 CONTAINS
  
-  ! Send given buffer to given neighbour, either 'tags' in 'ifg' 
-  ! (when initializing) or the interface values in 'buf':
+  !> Send given buffer to given neighbour, either 'tags' in 'ifg' 
+  !> (when initializing) or the interface values in 'buf':
   ! ------------------------------------------------------------
 !------------------------------------------------------------------------------
   SUBROUTINE FetiSend(proc, nin, buf, ifg, tag)
@@ -121,9 +121,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-  ! Receive given buffer from a neighbour, either 'tags' to 'ifg'
-  ! (when initializing) or the interface values to 'buf', the id
-  ! of the sender returned in 'proc':
+  !> Receive given buffer from a neighbour, either 'tags' to 'ifg'
+  !> (when initializing) or the interface values to 'buf', the id
+  !> of the sender returned in 'proc':
   ! ---------------------------------------------------------------
 !------------------------------------------------------------------------------
    SUBROUTINE FetiRecv(proc, n, buf, ifg, tag)
@@ -183,8 +183,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-  ! First time communication with all neighbours where local
-  ! addresses of global tags are identified:
+  !> First time communication with all neighbours where local
+  !> addresses of global tags are identified:
   ! --------------------------------------------------------
 !------------------------------------------------------------------------------
    SUBROUTINE FetiSendReceiveInit(sndLC, gdofs, ldofs, &
@@ -261,7 +261,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-  ! The neighbour send/receive communication, after initializations:
+  !> The neighbour send/receive communication, after initializations.
   ! ----------------------------------------------------------------
 !------------------------------------------------------------------------------
    SUBROUTINE FetiSendReceive(toSend, toReceive, tag, Fsum)
@@ -317,9 +317,9 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     !
-    ! Given local (owned L.C.'s) interface vector b, send and receive
-    ! all partition interface L.C's to/from neighbours. Place result
-    ! to partitionwise vector f. In effect f=B^Tb.
+    !> Given local (owned L.C.'s) interface vector b, send and receive
+    !> all partition interface L.C's to/from neighbours. Place result
+    !> to partitionwise vector f. In effect f=B^Tb.
     ! ---------------------------------------------------------------
  SUBROUTINE FetiSendRecvLC(A,f,b)
 !------------------------------------------------------------------------------
@@ -471,8 +471,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Add Dirichlet BCs to set of Lagrange coefficients described by the 'B' matrix
-! (the total FETI scheme).
+!> Add Dirichlet BCs to set of Lagrange coefficients described by the 'B' matrix
+!> (the total FETI scheme).
 !
 ! Some thoughts:
 !
@@ -547,13 +547,13 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-!------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------
+  !> Extract interface values from partition vector b; send and
+  !> receive  to/from neighbours.  Only 'owned' interface dofs
+  !> placed to result vector f. At intialization also assemble
+  !> the 'B' connectivity matrix. In effect f=Bb;
+  !------------------------------------------------------------------------------
   FUNCTION FetiSendRecvIf(A,f,b,g,l_i) RESULT(nLC)
-  !
-  ! Extract interface values from partition vector b; send and
-  ! receive  to/from neighbours.  Only 'owned' interface dofs
-  ! placed to result vector f. At intialization also assemble
-  ! the 'B' connectivity matrix. In effect f=Bb;
   ! ----------------------------------------------------------
     IMPLICIT NONE
     TYPE(Matrix_t) :: A
@@ -784,11 +784,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  ! The projection of the vector T to the set of feasible solutions
-  ! orthogonal to the null space of A, defined by the condition:
-  ! z^T(f-B^T\lambda) (OP=0, 'z' a.k.a. 'R'). Also handle the initial
-  ! guess and the final extraction of the L.C.'s \alpha related to the
-  ! above condition (OP=1,2).
+  !> The projection of the vector T to the set of feasible solutions
+  !> orthogonal to the null space of A, defined by the condition:
+  !> z^T(f-B^T\lambda) (OP=0, 'z' a.k.a. 'R'). Also handle the initial
+  !> guess and the final extraction of the L.C.'s \alpha related to the
+  !> above condition (OP=1,2).
 !------------------------------------------------------------------------------
   SUBROUTINE FetiProject(A,n,T,OP,TOL)
 !------------------------------------------------------------------------------
@@ -1205,7 +1205,7 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-! The C(onjugate) P(rojected) G(radient) iterative solver:
+!> The C(onjugate) P(rojected) G(radient) iterative solver.
 !------------------------------------------------------------------------------
   SUBROUTINE FetiCPG(A,n,x,b,f,Solver,matvecsubr,precsubr,dotprodfun,normfun)
 !------------------------------------------------------------------------------
@@ -1329,7 +1329,7 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-! Compute null(A), return value is whether null(A) is nonempty.
+!> Compute null(A), return value is whether null(A) is nonempty.
 !------------------------------------------------------------------------------
   FUNCTION FetiFloatingDomain(A,Solver,FixInds,TOL) RESULT(Floating)
 !------------------------------------------------------------------------------
@@ -1542,8 +1542,8 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-! Solve x from [A z^T; z 0] [x; \lambda] = [b 0]
-!  or A x  = b, depending on how the system is set up.
+!> Solve x from [A z^T; z 0] [x; \lambda] = [b 0]
+!>  or A x  = b, depending on how the system is set up.
 !------------------------------------------------------------------------------
   SUBROUTINE FetiDirectSolver(A,x,b,Solver)
 !------------------------------------------------------------------------------
@@ -1579,8 +1579,8 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-! The FETI main routine: solve x from Ax=b using the F(inite) E(lement)
-! T(earing) and I(nterconnect) method.
+!> The FETI main routine: solve x from Ax=b using the F(inite) E(lement)
+!> T(earing) and I(nterconnect) method.
 !------------------------------------------------------------------------------
   SUBROUTINE  Feti(A,x,b,Solver)
     ! Just basic feti so far...
@@ -1775,10 +1775,9 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-  ! Matrix-vector prod. for the L.C. equations:
-  ! v_i = SUM_part(B_i A_i^-1 B_i^T u_i)
-  !
-  ! Called from the CG iterator.
+  !> Matrix-vector prod. for the L.C. equations:
+  !> v_i = SUM_part(B_i A_i^-1 B_i^T u_i).
+  !> Called from the CG iterator.
   ! -------------------------------------------------------------------------
   SUBROUTINE  FetiMV(u,v,ipar)
 !------------------------------------------------------------------------------
@@ -1818,12 +1817,10 @@ END SUBROUTINE FetiProject
 
 
 !------------------------------------------------------------------------------
-  ! Peconditioning for feti:
-  ! u_i = SUM_part(B_i A_i B_i^T v_i)
-  !
-  ! (the m-v could be written for the interface dofs only...)
-  !
-  ! Called from the CG iterator.
+  !> Peconditioning for feti:
+  !> u_i = SUM_part(B_i A_i B_i^T v_i)
+  !> (the m-v could be written for the interface dofs only...)
+  !> Called from the CG iterator.
   ! -------------------------------------------------------------------------
   SUBROUTINE  FetiPrec(u,v,ipar)
 !------------------------------------------------------------------------------
@@ -1862,14 +1859,13 @@ END SUBROUTINE FetiProject
 !------------------------------------------------------------------------------
 
 
+  ! -------------------------------------------------------------------------
+  !> Stop condition for the iteration. Use ||Ax-b||/||b|| from the
+  !> originating system.
+  !> Called from the CG iterator.
 !------------------------------------------------------------------------------
   FUNCTION FetiStopc(lx,lb,lr,ipar,dpar) RESULT(err)
 !------------------------------------------------------------------------------
-  ! Stop condition for the iteration. Use ||Ax-b||/||b|| from the
-  ! originating system.
-  !
-  ! Called from the CG iterator.
-  ! -------------------------------------------------------------------------
      INTEGER :: ipar(*)
      REAL(KIND=dp) :: lx(HUTI_NDIM),lb(HUTI_NDIM),lr(HUTI_NDIM),dpar(*),err
   ! -------------------------------------------------------------------------
@@ -1918,8 +1914,8 @@ END MODULE FetiSolve
 !------------------------------------------------------------------------------
 
 
-!
-! Just a handle for SolveLinearSystem():
+!------------------------------------------------------------------------------
+!> Just a handle for SolveLinearSystem():
 !------------------------------------------------------------------------------
 SUBROUTINE FetiSolver(A,x,b,Solver)
 !------------------------------------------------------------------------------

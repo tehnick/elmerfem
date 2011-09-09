@@ -34,28 +34,10 @@
 ! *
 ! *****************************************************************************/
 
-!------------------------------------------------------------------------------
-  SUBROUTINE IsosurfaceSolver_Init( Model,Solver,dt,Transient )
-!------------------------------------------------------------------------------
-    USE DefUtils
-
-    TYPE(Model_t)  :: Model
-    TYPE(Solver_t) :: Solver
-    REAL(KIND=dp) :: DT
-    LOGICAL :: Transient
-!------------------------------------------------------------------------------
-    INTEGER :: dim
-    TYPE(ValueList_t), POINTER :: SolverParams
-!------------------------------------------------------------------------------
-    SolverParams => GetSolverParams()
-
-!------------------------------------------------------------------------------
-  END SUBROUTINE IsosurfaceSolver_Init
-!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-!> Module for extracting isosurfaces in 3d and isolines in 2d.
+!> Subroutine for extracting isosurfaces in 3d and isolines in 2d.
 !> The result will be a new mesh which will be added to the list of meshes.
 !------------------------------------------------------------------------------
 SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
@@ -428,7 +410,7 @@ SUBROUTINE IsosurfaceSolver( Model,Solver,dt,Transient )
 CONTAINS
 
   !----------------------------------------------------------------
-  ! Create nodes for the isosurface / isoline
+  !> Create nodes for the isosurface / isoline.
   !----------------------------------------------------------------
   FUNCTION CreateNodes() RESULT ( NoIsoNodes )
 
@@ -635,7 +617,7 @@ CONTAINS
 
 
   !----------------------------------------------------------------
-  ! Remap the field values 
+  !> Remap the field values to the isosurface.
   !----------------------------------------------------------------
   SUBROUTINE ReMap()
 
@@ -727,7 +709,7 @@ CONTAINS
   END SUBROUTINE ReMap
 
   !----------------------------------------------------------------
-  ! Create the isosurfaces or isolines
+  !> Create the isosurfaces or isolines.
   !----------------------------------------------------------------
   FUNCTION CreateSurfaces() RESULT ( NoSurfaces )
      INTEGER :: NoSurfaces
@@ -828,7 +810,7 @@ CONTAINS
 
 
   !----------------------------------------------------------------
-  ! Create isosurfaces related to one tetrahedral element
+  !> Create isosurfaces related to one tetrahedral element.
   !----------------------------------------------------------------
   FUNCTION CreateSurfaceFromTetra(Tetra,F,Surf) RESULT(scount)
     TYPE(Element_t) :: Tetra
@@ -910,7 +892,7 @@ CONTAINS
 
   
   !----------------------------------------------------------------
-  ! Create isoline related to one triangular element
+  !> Create isoline related to one triangular element.
   !----------------------------------------------------------------
   FUNCTION CreateLineFromTriangle(Triangle,F,Line) RESULT(GotLine)
     TYPE(Element_t) :: Triangle
@@ -966,3 +948,26 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE IsosurfaceSolver
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!> Initilization for the primary solver: IsosurfaceSolver
+!------------------------------------------------------------------------------
+  SUBROUTINE IsosurfaceSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    INTEGER :: dim
+    TYPE(ValueList_t), POINTER :: SolverParams
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE IsosurfaceSolver_Init
+!------------------------------------------------------------------------------
+

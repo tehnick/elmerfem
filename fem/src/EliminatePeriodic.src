@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for eliminating DOFs corresponding to periodic BCs.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -39,9 +35,10 @@
 ! ****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Subroutine for eliminating DOFs related to periodic BCs.
+!------------------------------------------------------------------------------
 INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
 !------------------------------------------------------------------------------
-!******************************************************************************
 !
 !  ARGUMENTS:
 !
@@ -69,8 +66,7 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
 !  REAL(KIND=dp) :: Norm
 !     INPUT: The norm to determine the convergence of the nonlinear system
 !
-!******************************************************************************
-
+!------------------------------------------------------------------------------
 
   USE Types
   USE Lists
@@ -492,19 +488,16 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>   Sort columns and values to ascending order for rows of a CRS format matrix
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_SortMatrixValues( A )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!   Sort columns and values to ascending order for rows of a CRS format matrix
 !
 !  ARGUMENTS:
 !
 !  TYPE(Matrix_t) :: A
 !     INPUT: Structure holding matrix
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
     USE CRSMatrix
     USE GeneralUtils
@@ -547,11 +540,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  FUNCTION CRS_Transpose( A, MVal ) RESULT(B)
+!>  Calculate transpose of A in CRS format: B = A^T.
 !------------------------------------------------------------------------------
-!
-!  Calculate transpose of A in CRS format: B = A^T
-!
+  FUNCTION CRS_Transpose( A, MVal ) RESULT(B)
 !------------------------------------------------------------------------------
     USE CRSMatrix
     IMPLICIT NONE
@@ -628,17 +619,16 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>   If Mval is true the product C should have MassValues array.
+!>   Then, if the input matrices A and B contain MassValues arrays, use them
+!>   to calculate product MassValues, otherwise use the Values array.
+!------------------------------------------------------------------------------
   SUBROUTINE CRS_MatrixMatrixMultiply( C, A, B, MVal )
 !------------------------------------------------------------------------------
     USE CRSMatrix
     IMPLICIT NONE
-
     TYPE(Matrix_t), POINTER :: A, B, C
     LOGICAL :: Mval
-!------------------------------------------------------------------------------
-!   If Mval is true the product C should have MassValues array.
-!   Then, if the input matrices A and B contain MassValues arrays, use them
-!   to calculate product MassValues, otherwise use the Values array.
 !------------------------------------------------------------------------------
     REAL(KIND=dp) , POINTER :: AMassVals(:), BMassVals(:)
     LOGICAL, ALLOCATABLE :: Row(:)

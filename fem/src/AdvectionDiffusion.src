@@ -40,23 +40,6 @@
 !------------------------------------------------------------------------------
    SUBROUTINE AdvectionDiffusionSolver( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
-!  Solve the advection-diffusion equation for a given (u^i,T) Cz gas field
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: Timestep,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
 
      USE SolverUtils
      USE Differentials
@@ -1165,24 +1148,16 @@
 
 CONTAINS
 
-!*******************************************************************************
-! *
-! * Diffuse-convective local matrix computing (cartesian coordinates)
-! *
-! *******************************************************************************
-
+!------------------------------------------------------------------------------
+!> Diffuse-convective local matrix computing (cartesian coordinates)
+!>  Returns element local matrices and RSH vector for diffusion-convection
+!>  equation. 
 !------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveCompose( MassMatrix,StiffMatrix,ForceVector,  &
       LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,Temperature,EPotential, &
          Ux,Uy,Uz,MUx,MUy,MUz,SoretD,NEC,Compressible,AbsoluteMass, &
            Stabilize,UseBubbles,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for diffusion-convection
-!  equation: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MassMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -1578,15 +1553,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>  Returns element local matrices for a discontinuous flux boundary conditions
+!>  of diffusion equation.
+!------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveBBoundary( BoundaryMatrix, Parent, &
                pn, ParentNodes, Ratio, Element, n, Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices for a discontinuous flux boundary conditions
-!  of diffusion equation: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !      OUTPUT: coefficient matrix if equations
@@ -1614,7 +1586,7 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
 
      TYPE(Nodes_t) :: Nodes, ParentNodes
      TYPE(Element_t), POINTER :: Element, Parent
@@ -1711,15 +1683,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!>  Returns element local matrices and RSH vector for boundary conditions
+!>  of diffusion convection equation.
+!------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveBoundary( BoundaryMatrix,BoundaryVector, &
                LoadVector,NodalAlpha,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for boundary conditions
-!  of diffusion convection equation: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !     OUTPUT: coefficient matrix if equations
@@ -1743,7 +1712,7 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:), &
                     LoadVector(:),NodalAlpha(:)
@@ -1812,23 +1781,16 @@ CONTAINS
    END SUBROUTINE DiffuseConvectiveBoundary
 !------------------------------------------------------------------------------
 
-!*******************************************************************************
-! *
-! *  Diffuse-convective local matrix computing (general euclidian coordinates)
-! *
-! *******************************************************************************
+!------------------------------------------------------------------------------
+!>  Diffuse-convective local matrix computing for general euclidian coordinates.
+!>  Returns element local matrices and RSH vector for diffusion-convection
+!>  equation.
 !------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveGenCompose( MassMatrix,StiffMatrix,ForceVector, &
        LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,Temperature,EPotential, &
          Ux,Uy,Uz,MUx,MUy, MUz,SoretD,NEC, Compressible,AbsoluteMass, &
              Stabilize,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for diffusion-convection
-!  equation (genaral euclidian coordinate system): 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MassMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -1878,7 +1840,7 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
 
      REAL(KIND=dp), DIMENSION(:) :: ForceVector,Ux,Uy,Uz,MUx,MUy,MUz,LoadVector
      REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix
@@ -2289,15 +2251,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices for a discontinuous flux boundary conditions
+!>  of diffusion equation in general coordinate system: 
+!------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveGenBBoundary( BoundaryMatrix, Parent, &
                pn, ParentNodes, Ratio, Element, n, Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices for a discontinuous flux boundary conditions
-!  of diffusion equation in general coordinate system: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !      OUTPUT: coefficient matrix if equations
@@ -2431,15 +2390,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RSH vector for boundary conditions
+!>  of diffusion convection equation in general euclidian coordinates.
+!------------------------------------------------------------------------------
    SUBROUTINE DiffuseConvectiveGenBoundary( BoundaryMatrix,BoundaryVector, &
               LoadVector,NodalAlpha,Element,n,Nodes)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for boundary conditions
-!  of diffusion convection equation: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !     OUTPUT: coefficient matrix if equations
@@ -2463,8 +2419,6 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
-
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:)

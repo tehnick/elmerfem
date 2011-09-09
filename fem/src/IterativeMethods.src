@@ -23,12 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing iterative methods. Uses the calling procedure of the 
-! *  HUTIter package for similar interfacing. The idea is that the future 
-! *  development of iterative methods could be placed in this module. 
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen, Peter Råback
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -41,6 +35,11 @@
 ! ****************************************************************************/
 
 
+!------------------------------------------------------------------------------
+!>  Module containing iterative methods. Uses the calling procedure of the 
+!>  HUTIter package for similar interfacing. The idea is that the future 
+!>  development of iterative methods could be placed in this module. 
+!------------------------------------------------------------------------------
 
 
 #include "huti_fdefs.h"
@@ -73,6 +72,9 @@ MODULE IterativeMethods
 CONTAINS
   
 
+!------------------------------------------------------------------------------
+!> Symmetric Gauss-Seidel iterative method for linear systems. This is not really of practical
+!> use but may be used for testing, for example. 
 !------------------------------------------------------------------------------
   SUBROUTINE itermethod_sgs( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
@@ -183,7 +185,10 @@ CONTAINS
  
 
 
- !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
+!> Jacobi iterative method for linear systems. This is not really of practical
+!> use but may be used for testing, for example. 
+!------------------------------------------------------------------------------
  SUBROUTINE itermethod_jacobi( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
@@ -285,6 +290,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>   This routine solves real linear systems Ax = b by using the BiCGStab(l) algorithm 
+!>   with l >= 2 and the right-oriented ILU(n) preconditioning. 
+!------------------------------------------------------------------------------
   SUBROUTINE itermethod_bicgstabl( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
@@ -325,18 +333,15 @@ CONTAINS
 
   CONTAINS
 
+
+!-----------------------------------------------------------------------------------
+!>   The subroutine has been written using as a starting point the work of D.R. Fokkema 
+!>   (subroutine zbistbl v1.1 1998). Dr. Fokkema has given the right to distribute
+!>   the derived work under GPL and hence the original more conservative 
+!> copyright notice of the subroutine has been removed accordingly.  
 !-----------------------------------------------------------------------------------
     SUBROUTINE RealBiCGStabl( n, A, x, b, MaxRounds, Tol, MaxTol, Converged, &
         Diverged, OutputInterval, l, StoppingCriterionType )
-!-----------------------------------------------------------------------------------
-!   This subroutine solves real linear systems Ax = b by using the BiCGStab(l) algorithm 
-!   with l >= 2 and the right-oriented ILU(n) preconditioning. 
-!
-!   The subroutine has been written using as a starting point the work of D.R. Fokkema 
-!   (subroutine zbistbl v1.1 1998). Dr. Fokkema has given the right to distribute
-!   the derived work under GPL and hence the original copyright notice of the subroutine
-!   has been removed accordingly.  
-!
 !----------------------------------------------------------------------------------- 
       INTEGER :: l   ! polynomial degree
       INTEGER :: n, MaxRounds, OutputInterval   
@@ -584,9 +589,10 @@ CONTAINS
 
 
 
-
-
- !------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
+!>   This routine solves real linear systems Ax = b by using the GCR algorithm 
+!> (Generalized Conjugate Residual).
+!------------------------------------------------------------------------------
  SUBROUTINE itermethod_gcr( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
@@ -737,6 +743,8 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
+!> This routine provides the complex version to the GCR linear solver.
 !------------------------------------------------------------------------------
  SUBROUTINE itermethod_z_gcr( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
@@ -908,6 +916,8 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
+!> This routine provides a complex version of the BiCGstab(l) solver for linear systems.
 !------------------------------------------------------------------------------
   SUBROUTINE itermethod_z_bicgstabl( xvec, rhsvec, &
        ipar, dpar, work, matvecsubr, pcondlsubr, &
@@ -1217,11 +1227,6 @@ CONTAINS
 !--------------------------------------------------------------
   end SUBROUTINE itermethod_z_bicgstabl
 !--------------------------------------------------------------
-
-
-
-
-
 
 
 

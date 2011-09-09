@@ -21,10 +21,6 @@
 ! *
 ! *****************************************************************************/
 !
-!/******************************************************************************
-! *
-! *  Module containing a iterative solver for linear systems.
-! *
 ! ******************************************************************************
 ! *
 ! *  Authors: Juha Ruokolainen
@@ -40,6 +36,9 @@
 
 #include "huti_fdefs.h"
 
+
+!------------------------------------------------------------------------------
+!>  Module containing a the control for iterative solvers for linear systems.
 !------------------------------------------------------------------------------
 MODULE IterSolve
 
@@ -81,8 +80,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! We DON'T use the backward error estimate e = ||Ax-b||/(||A|| ||x|| + ||b||)
-! as stopping criteriation.
+!> We don't use the backward error estimate e = ||Ax-b||/(||A|| ||x|| + ||b||)
+!> as stopping criteriation.
 !------------------------------------------------------------------------------
   FUNCTION STOPC( x,b,r,ipar,dpar ) RESULT(err)
 !------------------------------------------------------------------------------
@@ -119,17 +118,22 @@ CONTAINS
 #endif
 
 !------------------------------------------------------------------------------
+!> Dummy preconditioner, if linear system scaling is active this corresponds
+!> to diagonal preconditioning.
+!------------------------------------------------------------------------------
   SUBROUTINE pcond_dummy(u,v,ipar )
 !------------------------------------------------------------------------------
     INTEGER :: ipar(*)
     REAL(KIND=dp) :: u(HUTI_NDIM), v(HUTI_NDIM)
 !------------------------------------------------------------------------------
-    u=v 
+    u = v 
 !------------------------------------------------------------------------------
   END SUBROUTINE pcond_dummy
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> The routine that decides which linear system solver to call, and calls it.
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE IterSolver( A,x,b,SolverParam,ndim,DotF, &
               NormF,MatvecF,PrecF,StopcF )

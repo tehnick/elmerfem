@@ -60,9 +60,9 @@
 ! *                       parameter input
 !----------------------------------------------------------------------------------
 
-! ******************************************************************************
-!  computes Helmholtz Smoluchowski velocity in x1 direction
-! ******************************************************************************
+!----------------------------------------------------------------------------------
+!>  computes Helmholtz Smoluchowski velocity in x1 direction.
+!----------------------------------------------------------------------------------
 FUNCTION helmholtz_smoluchowski1( Model, NodeNumber, dummyargument) RESULT(hs_velocity1)
   USE DefUtils
   IMPLICIT NONE
@@ -92,9 +92,8 @@ END FUNCTION helmholtz_smoluchowski1
 
 
 !----------------------------------------------------------------------------------
-! ******************************************************************************
-!  computes Helmholtz Smoluchowski velocity in x2 direction
-! ******************************************************************************
+!>  computes Helmholtz Smoluchowski velocity in x2 direction.
+!----------------------------------------------------------------------------------
 FUNCTION helmholtz_smoluchowski2( Model, NodeNumber, dummyargument) RESULT(hs_velocity2)
   USE DefUtils
   IMPLICIT NONE
@@ -124,9 +123,8 @@ END FUNCTION helmholtz_smoluchowski2
 
 
 !----------------------------------------------------------------------------------
-! ******************************************************************************
-!  computes Helmholtz Smoluchowski velocity in x3 direction
-! ******************************************************************************
+!>  computes Helmholtz Smoluchowski velocity in x3 direction
+!----------------------------------------------------------------------------------
 FUNCTION helmholtz_smoluchowski3( Model, NodeNumber, dummyargument) RESULT(hs_velocity3)
 
   USE DefUtils
@@ -185,9 +183,8 @@ END FUNCTION helmholtz_smoluchowski
 
 
 
-! ************************************************************************************
-!  computes component of Helmholtz Smoluchowski velocity for given direction
-! ************************************************************************************
+!----------------------------------------------------------------------------------
+!>  computes component of Helmholtz Smoluchowski velocity for given direction
 !----------------------------------------------------------------------------------
 FUNCTION helmholtz_smoluchowski_comp( Model, NodeNumber, direction) RESULT(hs_velocity_comp)
   USE DefUtils
@@ -419,11 +416,12 @@ END FUNCTION helmholtz_smoluchowski_comp
 
 
 
-! ******************************************************************************
-! Joule heat source as a function of electric field
-! This subroutine is basically obsolite. A more accurate version is build
-! inside the Differentials for the field Potential.  
-! ******************************************************************************
+!------------------------------------------------------------------------------
+!> Joule heat source as a function of electric field
+!> This subroutine is basically obsolite. A more accurate version is build
+!> inside the Differentials for the field Potential.  
+!> \deprecated Is this used any more?
+!-------------------------------------------------------------------------------
 FUNCTION getJouleHeat( Model, NodeNumber, realDummy ) RESULT(jouleHeat)
   USE Types
   USE Lists
@@ -444,7 +442,6 @@ FUNCTION getJouleHeat( Model, NodeNumber, realDummy ) RESULT(jouleHeat)
   TYPE(Element_t), POINTER :: Parent
   TYPE(ValueList_t), POINTER :: Material
   TYPE(Variable_t), POINTER :: EFieldComp
-
 
   DIM = CoordinateSystemDimension()
   jouleHeat = 0.0_dp

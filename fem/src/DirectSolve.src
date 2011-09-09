@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing a band matrix solver for linear system given in
-! *  CRS format.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +33,13 @@
 ! *  Original Date: 08 Jun 1997
 ! *
 ! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+!>  Module containing the direct solvers for linear systems given in CRS format.
+!> Included are Lapack band matrix solver, multifrontal Umfpack, MUMPS, SuperLU, 
+!> and Pardiso. Note that many of these are linked in with ElmerSolver only 
+!> if they are made available at the compilation time. 
+!------------------------------------------------------------------------------
 
 MODULE DirectSolve
 
@@ -52,6 +54,8 @@ MODULE DirectSolve
 CONTAINS
 
 
+!------------------------------------------------------------------------------
+!> Solver the complex linear system using direct band matrix solver from of Lapack.
 !------------------------------------------------------------------------------
    SUBROUTINE ComplexBandSolver( A,x,b, Free_fact )
 !------------------------------------------------------------------------------
@@ -169,6 +173,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Solver the real linear system using direct band matrix solver from of Lapack.
+!------------------------------------------------------------------------------
    SUBROUTINE BandSolver( A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
      LOGICAL, OPTIONAL :: Free_Fact
@@ -285,6 +291,10 @@ CONTAINS
   END SUBROUTINE BandSolver 
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+!> Solves a linear system using Umfpack multifrontal direct solver courtesy
+!> of University of Florida.
 !------------------------------------------------------------------------------
   SUBROUTINE UMFPack_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
@@ -470,6 +480,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Solves a linear system using Cholmod multifrontal direct solver courtesy
+!> of University of Florida.
+!------------------------------------------------------------------------------
   SUBROUTINE Cholmod_SolveSystem( Solver,A,x,b,Free_fact)
 !------------------------------------------------------------------------------
   LOGICAL, OPTIONAL :: Free_Fact
@@ -533,10 +546,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Solves a linear system using MUMPS direct solver. This is a legacy solver
+!> with complicated dependencies. This is only available in parallel. 
+!------------------------------------------------------------------------------
   SUBROUTINE Mumps_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
  
-
   LOGICAL, OPTIONAL :: Free_Fact
   TYPE(Matrix_t) :: A
   TYPE(Solver_t) :: Solver
@@ -707,6 +722,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Solves a linear system using SuperLU direct solver.
+!------------------------------------------------------------------------------
   SUBROUTINE SuperLU_SolveSystem( Solver,A,x,b,Free_Fact )
 !------------------------------------------------------------------------------
   LOGICAL, OPTIONAL :: Free_fact
@@ -803,6 +820,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Solves a linear system using Pardiso direct solver.
 !------------------------------------------------------------------------------
   SUBROUTINE Pardiso_SolveSystem( Solver,A,x,b,Free_fact )
 !------------------------------------------------------------------------------

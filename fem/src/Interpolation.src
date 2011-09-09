@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing interpolation and quadrant tree routines
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen, Ville Savolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -37,6 +33,10 @@
 ! *  Original Date: 01 Oct 1996
 ! *
 ! ****************************************************************************/
+
+!------------------------------------------------------------------------------
+!>  Module containing interpolation and quadrant tree routines
+!------------------------------------------------------------------------------
 
 MODULE Interpolation
 
@@ -126,16 +126,14 @@ MODULE Interpolation
 
  
 !------------------------------------------------------------------------------
+!>    Checks whether a given point belongs to a given bulk element
+!>    If it does, returns the local coordinates in the bulk element
+!------------------------------------------------------------------------------
      FUNCTION PointInElement( Element, ElementNodes, Point, &
 	  LocalCoordinates, GlobalEps, LocalEps, NumericEps, &
           GlobalDistance, LocalDistance ) RESULT(IsInElement)
 !------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-!******************************************************************************
 !
-!  DESCRIPTION:
-!    Checks whether a given point belongs to a given bulk element
-!    If it does, returns the local coordinates in the bulk element
 !  ARGUMENTS:
 !
 !   Type(Element_t) :: Element
@@ -153,7 +151,7 @@ MODULE Interpolation
 !  FUNCTION RETURN VALUE:
 !    LOGICAL :: IsInBulkElement
 !      
-!******************************************************************************
+!------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: Element
     TYPE(Nodes_t) :: ElementNodes
     LOGICAL :: IsInElement
@@ -175,7 +173,6 @@ MODULE Interpolation
 
     IsInElement = .FALSE.
     n = Element % TYPE % NumberOfNodes
-
 
     ! The numberic precision 
     IF ( PRESENT(NumericEps) ) THEN
@@ -240,8 +237,6 @@ MODULE Interpolation
       IF( zdist > eps0 + eps1 * (maxz - minz) ) RETURN 
     END IF
 
-
-!
 !   Get element local coordinates from global
 !   coordinates of the point:
 !   -----------------------------------------
@@ -338,15 +333,12 @@ MODULE Interpolation
 
 
 !------------------------------------------------------------------------------
+!>    Builds a tree hierarchy recursively bisectioning the geometry
+!>    bounding box, and partitioning the bulk elements in the
+!>    last level of the tree hierarchy
+!------------------------------------------------------------------------------
     SUBROUTINE BuildQuadrantTree(Mesh, BoundingBox, RootQuadrant)
 !------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Builds a tree hierarchy recursively bisectioning the geometry
-!    bounding box, and partitioning the bulk elements in the
-!    last level of the tree hierarchy
 !
 !  ARGUMENTS:
 !
@@ -359,7 +351,6 @@ MODULE Interpolation
 !  TYPE(Quadrant_t), POINTER :: RootQuadrant
 !     OUTPUT: Quadrant tree structure root
 !      
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Mesh_t) :: Mesh
     REAL(KIND=dp), DIMENSION(6) :: BoundingBox
@@ -510,11 +501,11 @@ MODULE Interpolation
 
 
 !-------------------------------------------------------------------------------
+!> Loop over all elements in the MotherQuadrant, placing them
+!> in one of the 2^dim child quadrants.
+!-------------------------------------------------------------------------------
     RECURSIVE SUBROUTINE PutElementsInChildQuadrants( ChildQuadrant, &
                    MotherQuadrant, dim )
-!-------------------------------------------------------------------------------
-! Loop over all elements in the MotherQuadrant, placing them
-! in one of the 2^dim child quadrants
 !-------------------------------------------------------------------------------
       TYPE(QuadrantPointer_t) :: ChildQuadrant(8)
       TYPE(Quadrant_t), POINTER :: MotherQuadrant

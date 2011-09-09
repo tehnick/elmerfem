@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  This module contains some vector utilities, curl, dot, cross, etc...
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +34,11 @@
 ! *
 ! *****************************************************************************/
 
+!-----------------------------------------------------------------------------
+!>  This module contains some built-in material laws, and also some 
+!> vector utilities, curl, dot, cross, etc. Some of these may be 
+!> of no use currently.
+!-----------------------------------------------------------------------------
 MODULE Differentials
 
   USE Types
@@ -49,6 +50,9 @@ MODULE Differentials
 
 CONTAINS
 
+!------------------------------------------------------------------------------
+!> Computes the Lorentz force resulting from a magnetic field at 
+!> integration point (u,v,w).
 !------------------------------------------------------------------------------
   FUNCTION LorentzForce( Element,Nodes,u,v,w,n ) RESULT(L)
 !------------------------------------------------------------------------------
@@ -268,6 +272,10 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Compute the Joule heating at integration point (u,v,w) given the 
+!> appropriate electrostatic or magnetic field that initiates the 
+!> current through a conductor. 
 !------------------------------------------------------------------------------
   FUNCTION JouleHeat( Element,Nodes,u,v,w,n ) RESULT(JouleH)
 !------------------------------------------------------------------------------
@@ -517,7 +525,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Compute the curl vector B = curl(A) at model nodes
+!> Compute the curl vector B = curl(A) at all nodes.
+!> \deprecated Is this used anywhere?
 !------------------------------------------------------------------------------
   SUBROUTINE Curl( Ax,Ay,Az,Bx,By,Bz,Reorder )
 !------------------------------------------------------------------------------
@@ -678,6 +687,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Compute the curl in axisymmetric coordinates.
+!> \deprecated Is this used anywhere?
+!------------------------------------------------------------------------------
 SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
 !------------------------------------------------------------------------------
   IMPLICIT NONE
@@ -696,12 +708,9 @@ SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
 
   REAL(KIND=dp) :: SqrtElementMetric
   REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
-  
 !------------------------------------------
-
   ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
 
- 
   n = CurrentModel % Mesh % MaxElementDOFs
   ALLOCATE( Basis(n), dBasisdx(n,3) )
   ALLOCATE(Nodes % x(n),Nodes % y(n),Nodes % z(n))
@@ -723,9 +732,7 @@ SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
      Nodes % z(1:n) = CurrentModel % Nodes % z( NodeIndexes )
 
      IF ( MINVAL(Reorder(NodeIndexes)) > 0 ) THEN
-
         DO p=1,n
-
            q = Reorder(NodeIndexes(p))
            u = Element % TYPE % NodeU(p)
            v = Element % TYPE % NodeV(p)
@@ -754,8 +761,7 @@ SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
               Bz(q) = Bz(q) + SUM( dBasisdx(1:n,1)*Ap(Reorder(NodeIndexes)) )
            END IF
 
-           Visited(q) = Visited(q) + 1
-           
+           Visited(q) = Visited(q) + 1           
         END DO
      END IF
   END DO
@@ -777,7 +783,8 @@ END SUBROUTINE AxiSCurl
 
 
 !------------------------------------------------------------------------------
-!  Compute cross product of given vectors
+!>  Compute cross product of given vectors: C = A x B in generalized coordinates.
+!> \deprecated Is this used anywhere?
 !------------------------------------------------------------------------------
   SUBROUTINE Cross( Ax,Ay,Az,Bx,By,Bz,Cx,Cy,Cz,n )
 !------------------------------------------------------------------------------
@@ -816,7 +823,9 @@ END SUBROUTINE AxiSCurl
 
 
 !------------------------------------------------------------------------------
-!  Compute dot product of given vectors
+!>  Compute dot product of given vectors: L=A \cdot B in orthogonal 
+!> coordinate system.
+!> \deprecated Is this used anywhere?
 !------------------------------------------------------------------------------
   FUNCTION Dot( Ax,Ay,Az,Bx,By,Bz,n ) RESULT(L)
 !------------------------------------------------------------------------------

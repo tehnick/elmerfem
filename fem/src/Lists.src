@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  List handling utilities ...
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,8 +34,12 @@
 ! *
 ! *****************************************************************************/
 
-!------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!>  List handling utilities. In Elmer all the keywords are saved to a list,
+!> and later accessed from it repeatedly. Therefore these subroutines are 
+!> essential in Elmer programming.
+!------------------------------------------------------------------------------
 MODULE Lists
 
    USE Messages
@@ -403,8 +403,8 @@ CONTAINS
 
 
 !---------------------------------------------------------------------------
-!   Check if given element belongs to a body for which given equation
-!   should be solved
+!>   Check if given element belongs to a body for which given equation
+!>   should be solved.
 !---------------------------------------------------------------------------
     FUNCTION CheckElementEquation( Model,Element,Equation ) RESULT(Flag)
       TYPE(Element_t), POINTER :: Element
@@ -465,6 +465,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Adds a new variable to the list of variables. 
+!> The structures need to be allocated externally beforehand. 
 !------------------------------------------------------------------------------
     SUBROUTINE VariableAdd( Variables,Mesh,Solver,Name,DOFs,Values,&
       Perm,Output,Secondary, TYPE )
@@ -551,6 +554,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> For vectors the individual components are added also to the list 
+!> of variables. This routine makes the addition of vectors less laborious.
+!------------------------------------------------------------------------------
     SUBROUTINE VariableAddVector( Variables,Mesh,Solver,Name,DOFs,Values,&
       Perm,Output,Secondary )
 !------------------------------------------------------------------------------
@@ -586,6 +592,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Map results from mesh to mesh. The from-Mesh is stored in an octree from 
+!> which it is relatively fast to find the to-nodes. When the node is found
+!> interpolation is performed. Optionally there may be an existing projector
+!> that speeds up the interpolation.
 !------------------------------------------------------------------------------
      SUBROUTINE InterpolateMeshToMesh( OldMesh, NewMesh, OldVariables, &
             NewVariables, UseQuadrantTree, Projector, MaskName )
@@ -1020,13 +1031,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Interpolates values of all variables from a mesh associated with
+!>    the old model to the mesh of the new model
+!------------------------------------------------------------------------------
      SUBROUTINE InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
             NewVariables, UseQuadrantTree, Projector, MaskName, FoundNodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!  DESCRIPTION:
-!    Interpolates values of all variables from a mesh associated with
-!    the old model to the mesh of the new model
 !  ARGUMENTS:
 !
 !   TYPE(Mesh_t) :: OldMesh, NewMesh
@@ -1516,6 +1526,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Find a variable by its name from the list of variables. 
+!> If it not to be found in the current mesh, interpolation between
+!> meshes is automatically requested for.
+!------------------------------------------------------------------------------
     RECURSIVE FUNCTION VariableGet( Variables, Name, ThisOnly, MaskName ) RESULT(Var)
 !------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
@@ -1532,7 +1546,7 @@ CONTAINS
       LOGICAL :: Found, GlobalBubbles
       CHARACTER(LEN=LEN_TRIM(Name)) :: str
       CHARACTER(LEN=MAX_NAME_LEN) :: tmpname
-DOUBLE PRECISION :: t1,CPUTime
+      DOUBLE PRECISION :: t1,CPUTime
 !------------------------------------------------------------------------------
       k = StringToLowerCase( str,Name,.TRUE. )
 
@@ -1790,6 +1804,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Allocates a new value list.
+!------------------------------------------------------------------------------
   FUNCTION ListAllocate() RESULT(ptr)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
@@ -1812,6 +1828,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Deletes a value list.
+!------------------------------------------------------------------------------
   SUBROUTINE ListDelete( ptr )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
@@ -1826,6 +1844,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Removes an entry from the list by its name.
 !------------------------------------------------------------------------------
   SUBROUTINE ListRemove( List, Name )
 !------------------------------------------------------------------------------
@@ -1862,6 +1882,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Adds an entry to the list by its name and returns a handle to the new entry. If the entry is 
+!> already existing return the existing one. 
 !------------------------------------------------------------------------------
   FUNCTION ListAdd( List, Name ) RESULT(NEW)
 !------------------------------------------------------------------------------
@@ -1917,6 +1940,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Sets a namespace string that is used in all list get commands 
+!> to check for an entry with the namespace, and then continuing to check the one without.
+!------------------------------------------------------------------------------
    SUBROUTINE ListSetNamespace(str)
 !------------------------------------------------------------------------------
      CHARACTER(LEN=*) :: str
@@ -1926,6 +1952,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END SUBROUTINE ListSetNamespace
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Returns the active namespace.
 !------------------------------------------------------------------------------
    FUNCTION ListGetNamespace(str) RESULT(l)
 !------------------------------------------------------------------------------
@@ -1941,6 +1969,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END FUNCTION ListGetNamespace
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Finds an entry in the list by its name and returns a handle to it.
 !------------------------------------------------------------------------------
    FUNCTION ListFind( list, name, Found) RESULT(ptr)
 !------------------------------------------------------------------------------
@@ -1994,6 +2024,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Just checks if a entry is present in the list.
+!------------------------------------------------------------------------------
    FUNCTION ListCheckPresent( List,Name ) RESULT(Found)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
@@ -2008,6 +2040,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Adds a string to the list.
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddString( List,Name,CValue,CaseConversion )
 !------------------------------------------------------------------------------
@@ -2040,6 +2074,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Adds a logical entry to the list.
+!------------------------------------------------------------------------------
     SUBROUTINE ListAddLogical( List,Name,LValue )
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
@@ -2057,6 +2093,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Adds an integer to the list.
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddInteger( List,Name,IValue,Proc )
 !------------------------------------------------------------------------------
@@ -2079,6 +2117,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Adds an integer array to the list.
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddIntegerArray( List,Name,N,IValues,Proc )
 !------------------------------------------------------------------------------
@@ -2103,7 +2143,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
     END SUBROUTINE ListAddIntegerArray
 !------------------------------------------------------------------------------
 
-
+!------------------------------------------------------------------------------
+!> Adds a constant real value to the list.
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddConstReal( List,Name,FValue,Proc,CValue )
 !------------------------------------------------------------------------------
@@ -2135,6 +2176,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Adds a linear dependency defined by a table of values, [x,y] to the list.
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddDepReal(List,Name,DependName,N,TValues, &
                FValues,Proc,CValue,CubicTable)
@@ -2180,6 +2223,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Adds a constant real valued array to the list.
+!------------------------------------------------------------------------------
     SUBROUTINE ListAddConstRealArray( List,Name,N,M,FValues,Proc,CValue )
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
@@ -2211,6 +2256,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Adds a real array where the components are linearly dependent.
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddDepRealArray(List,Name,DependName, &
                N,TValues,N1,N2,FValues,Proc,Cvalue)
@@ -2247,6 +2294,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Gets a integer value from the list.
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetInteger( List,Name,Found,minv,maxv ) RESULT(L)
 !------------------------------------------------------------------------------
@@ -2296,6 +2345,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Gets a integer array from the list.
+!------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetIntegerArray( List,Name,Found ) RESULT( IValues )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
@@ -2330,7 +2381,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END FUNCTION ListGetIntegerArray
 !------------------------------------------------------------------------------
 
-
+!------------------------------------------------------------------------------
+!> Gets a logical value from the list, if not found return False.
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetLogical( List,Name,Found ) RESULT(L)
 !------------------------------------------------------------------------------
@@ -2351,6 +2403,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Gets a string from the list by its name, if not found return empty string.
+!------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetString( List,Name,Found ) RESULT(S)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
@@ -2369,6 +2423,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Get a constant real from the list by its name. 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetConstReal( List,Name,Found,x,y,z,minv,maxv ) RESULT(F)
 !------------------------------------------------------------------------------
@@ -2432,6 +2488,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Returns a scalar real value, that may depend on other scalar values such as 
+!> time or timestep size etc.
 !------------------------------------------------------------------------------
   RECURSIVE FUNCTION ListGetCReal( List, Name, Found ) RESULT(s)
 !------------------------------------------------------------------------------
@@ -2569,6 +2628,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Gets a real valued parameter in each node of an element.
+!------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetReal( List,Name,N,NodeIndexes,Found,minv,maxv ) RESULT(F)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
@@ -2687,6 +2748,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Gets a constant real array from the list by its name.
+!------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetConstRealArray( List,Name,Found ) RESULT( F )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
@@ -2724,6 +2787,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Gets a real array from the list by its name,
 !------------------------------------------------------------------------------
    RECURSIVE SUBROUTINE ListGetRealArray( List,Name,F,N,NodeIndexes,Found )
 !------------------------------------------------------------------------------
@@ -2829,6 +2894,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Gets a real derivative from. This is only available for tables with dependencies.
+!------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetDerivValue(List,Name,N,NodeIndexes) RESULT(F)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER ::  List
@@ -2871,11 +2938,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-! Given the body of a keyword find the 1st free keyword in the list structure.
-! The intended use for this is in Solver_init to decleare exported variables
-! without the risk of running over some existing ones. 
+!> Given the body of a keyword find the 1st free keyword in the list structure.
+!> The intended use for this is in Solver_init to decleare exported variables
+!> without the risk of running over some existing ones. 
 !------------------------------------------------------------------------------
-
   FUNCTION NextFreeKeyword(keyword0,List) RESULT (Keyword)
 
     CHARACTER(LEN=*) :: Keyword0
@@ -2893,6 +2959,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
  
 
+!------------------------------------------------------------------------------
+!> Check if the keyword is present in any boundary condition.
 !------------------------------------------------------------------------------
    FUNCTION ListCheckPresentAnyBC( Model, Name ) RESULT(Found)
 !------------------------------------------------------------------------------
@@ -2913,6 +2981,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
+!> Check if the keyword is present in any body force.
+!------------------------------------------------------------------------------
    FUNCTION ListCheckPresentAnyBodyForce( Model, Name ) RESULT(Found)
 !------------------------------------------------------------------------------
      TYPE(Model_t) :: Model
@@ -2930,6 +3000,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END FUNCTION ListCheckPresentAnyBodyForce
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+!> Check if the keyword is present in any material.
 !------------------------------------------------------------------------------
    FUNCTION ListCheckPresentAnyMaterial( Model, Name ) RESULT(Found)
 !------------------------------------------------------------------------------
@@ -2950,14 +3022,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 
-
-
-
 !------------------------------------------------------------------------------
-! Elmer may include scalar and vector variables which may be known by their
-! original name or have an alias. For historical reasons they are introduced
-! by two quite separate ways. This subroutine tries to make the definition of
-! variables for saving more straight-forward.
+!> Elmer may include scalar and vector variables which may be known by their
+!> original name or have an alias. For historical reasons they are introduced
+!> by two quite separate ways. This subroutine tries to make the definition of
+!> variables for saving more straight-forward.
 !------------------------------------------------------------------------------
   SUBROUTINE CreateListForSaving( Model, List, ShowVariables, ClearList )
 !------------------------------------------------------------------------------
@@ -3171,6 +3240,12 @@ CALL Info( 'VariableGet', Message, Level=7 )
   END SUBROUTINE CreateListForSaving
   
 
+!------------------------------------------------------------------------------
+!> A timer that uses a list structure to store the times making in 
+!> generally applicable without any upper limit on the number of timers.
+!> This resets the timer.
+!-----------------------------------------------------------------------------
+
   SUBROUTINE ResetTimer(TimerName)
     CHARACTER(*) :: TimerName
     REAL(KIND=dp) :: ct, rt
@@ -3192,6 +3267,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
   END SUBROUTINE ResetTimer
 
+  
+!-----------------------------------------------------------------------------
+!> Delete an existing timer.
+!----------------------------------------------------------------------------
   SUBROUTINE DeleteTimer(TimerName) 
     CHARACTER(*) :: TimerName
     
@@ -3202,7 +3281,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
   END SUBROUTINE DeleteTimer
  
-
+!-----------------------------------------------------------------------------
+!> Check current time of the timer.
+!----------------------------------------------------------------------------
   SUBROUTINE CheckTimer(TimerName, Level, Delete, Reset) 
     CHARACTER(*) :: TimerName
     INTEGER, OPTIONAL :: Level
@@ -3247,8 +3328,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
     END IF
 
   END SUBROUTINE CheckTimer
-
-
 
 
 END MODULE Lists

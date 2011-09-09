@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Some utilities for the basic FEM
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +34,9 @@
 ! *
 ! ******************************************************************************/
 
+!--------------------------------------------------------------------------------
+!>  Some utilities for the basic FEM
+!--------------------------------------------------------------------------------
 MODULE ElementUtils
 
     USE DirectSolve
@@ -51,6 +50,8 @@ MODULE ElementUtils
 
 CONTAINS
 
+!------------------------------------------------------------------------------
+!> Frees structures of the matrix.
 !------------------------------------------------------------------------------
    RECURSIVE SUBROUTINE FreeMatrix(Matrix)
 !------------------------------------------------------------------------------
@@ -84,7 +85,6 @@ CONTAINS
         DEALLOCATE( Matrix % Diag )
      END IF
 
-  
      IF ( ASSOCIATED( Matrix % RHS   ) )       DEALLOCATE( Matrix % RHS )
      IF ( ASSOCIATED( Matrix % Force ) )       DEALLOCATE( Matrix % Force )
      IF ( ASSOCIATED( Matrix % RHS_im ) )      DEALLOCATE( Matrix % RHS_im )
@@ -121,13 +121,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Create a list matrix given the mesh, the active domains and the elementtype 
+!> related to the solver. The list matrix is flexible since it can account 
+!> for any entries. Also constraints and periodic BCs may give rise to entries
+!> in the list matrix topology.
+!------------------------------------------------------------------------------
   SUBROUTINE MakeListMatrix( Model,Solver,Mesh,List,Reorder, &
         LocalNodes,Equation, DGSolver, GlobalBubbles )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t)  :: Model
     TYPE(Mesh_t)   :: Mesh
@@ -433,17 +433,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Initialize a CRS format matrix to the effect that it will be ready to
+!>    accept values when CRS_GlueLocalMatrix is called (build up the index
+!>    tables of a CRS format matrix)....
+!------------------------------------------------------------------------------
   SUBROUTINE InitializeMatrix( Matrix, n, List, Reorder, &
                  InvInitialReorder, DOFs )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Initialize a CRS format matrix to the effect that it will be ready to
-!    accept values when CRS_GlueLocalMatrix is called (build up the index
-!    tables of a CRS format matrix)....
-!
-!******************************************************************************
 !------------------------------------------------------------------------------
     INTEGER :: Reorder(:), InvInitialReorder(:)
     INTEGER :: DOFs, n
@@ -792,6 +787,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Given the normal return the tangent directions. The 
+!> First tangent direction will always be on the xy-plane if
+!> also the normal is in the xy-plane.
+!------------------------------------------------------------------------------
   SUBROUTINE TangentDirections( Normal,Tangent1,Tangent2 )
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Normal(3),Tangent1(3),Tangent2(3)
@@ -824,13 +823,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Integrates a user-defined function over the specified bulk elements.
+!> \deprecated Is this used for something?
+!------------------------------------------------------------------------------
    FUNCTION VolumeIntegrate( Model, ElementList, IntegrandFunctionName ) &
        RESULT(Integral)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Integrates a user-defined function over the specified bulk elements
 !
 !  ARGUMENTS:
 !
@@ -847,7 +845,7 @@ CONTAINS
 !    REAL(KIND=dp) :: Integral
 !     The value of the volume integral
 !      
-!******************************************************************************
+!------------------------------------------------------------------------------
    TYPE(Model_t) :: Model
    INTEGER, DIMENSION(:) :: ElementList
    CHARACTER(LEN=*) :: IntegrandFunctionName
@@ -954,15 +952,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Integrates the normal component of a user-defined vector function
+!>    over the specified boundary elements. 
+!>  \deprecated Is this used for something?
+!------------------------------------------------------------------------------
    FUNCTION FluxIntegrate( Model, ElementList, IntegrandFunctionName ) &
 !------------------------------------------------------------------------------
        RESULT(Integral)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Integrates the normal component of a user-defined vector function
-!    over the specified boundary elements
 !
 !  ARGUMENTS:
 !
@@ -979,7 +976,7 @@ CONTAINS
 !    REAL(KIND=dp) :: Integral
 !     The value of the flux integral
 !      
-!******************************************************************************
+!------------------------------------------------------------------------------
    TYPE(Model_t) :: Model
    INTEGER, DIMENSION(:) :: ElementList
    CHARACTER(LEN=*) :: IntegrandFunctionName
@@ -1127,14 +1124,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Integrates A user-defined vector function 
+!>    over the specified boundary elements.
+!> \deprecated Is this used for something?
+!------------------------------------------------------------------------------
    FUNCTION SurfaceIntegrate( Model, ElementList, IntegrandFunctionName ) &
        RESULT(Integral)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Integrates A user-defined vector function 
-!    over the specified boundary elements
 !
 !  ARGUMENTS:
 !
@@ -1151,7 +1147,7 @@ CONTAINS
 !    REAL(KIND=dp), DIMENSION(3) :: Integral
 !     The vector value of the integral
 !      
-!******************************************************************************
+!------------------------------------------------------------------------------
    TYPE(Model_t) :: Model
    INTEGER, DIMENSION(:) :: ElementList
    CHARACTER(LEN=*) :: IntegrandFunctionName
@@ -1297,15 +1293,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Integrates the normal component of a user-defined vector function
+!>    over a specified line element.
+!> \deprecated Is this used for something?
+!------------------------------------------------------------------------------
    FUNCTION LineIntegrate( Model, LineElement, LineElementNodes, &
        IntegrandFunctionName, QuadrantTreeExists, RootQuadrant ) &
        RESULT(Integral)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Integrates the normal component of a user-defined vector function
-!    over a specified line element
 !
 !  ARGUMENTS:
 !
@@ -1328,12 +1323,11 @@ CONTAINS
 !  TYPE(Quadrant_t), POINTER :: RootQuadrant
 !     OUTPUT: Quadrant tree structure root
 !
-!
 !  FUNCTION RETURN VALUE:
 !    REAL(KIND=dp) :: Integral
 !     The value of the flux integral
 !      
-!******************************************************************************
+!------------------------------------------------------------------------------
    TYPE(Model_t) :: Model
 ! TARGET only for CurrentElement
    TYPE(Element_t), TARGET :: LineElement
@@ -1622,7 +1616,5 @@ CONTAINS
 
    END FUNCTION ElementArea
 !------------------------------------------------------------------------------
-
-
 
 END MODULE ElementUtils
