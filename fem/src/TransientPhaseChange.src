@@ -69,27 +69,30 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t), POINTER :: PSolver 
 
   REAL(KIND=dp) :: Normal(3), u, v, w, UPull, PrevUpull, &
-      Update, MaxUpdate, VelocityRelax, &
+      Update, MaxUpdate, VelocityRelax, DispRelax, &
       surf, xx, yy, r, detJ, Temp, NonlinearTol, &
       d, HeatCond, s, CoordMin(3), CoordMax(3), RelativeChange, area, &
-      Norm, maxds, maxds0, ds, &
+      Norm, maxds, maxds0, ds, MaxLoad, MinLoad, &
       pos0=0.0, prevpos0, Coeff, &
-      MeanSurface, SpeedUp
-  REAL(KIND=dp), POINTER :: Surface(:), Temperature(:), ForceVector(:),  &
+      MeanSurface, SpeedUp, LoadsRelax
+  REAL(KIND=dp), POINTER :: Surface(:), PrevSurface(:), Temperature(:), ForceVector(:),  &
       x(:), y(:), z(:), Basis(:), dBasisdx(:,:), NodalTemp(:), &
       Conductivity(:), LatentHeat(:), Density(:), &
-      Normals(:), Weights(:), SurfaceVelo(:), PrevSurfaceVelo(:)
+      Normals(:), Weights(:), SurfaceVelo(:), PrevSurfaceVelo(:), &
+      CurrentLoads(:), PrevLoads(:), PrevPrevLoads(:)
 
   REAL(KIND=dp), ALLOCATABLE :: &          
       LocalStiffMatrix(:,:), LocalForceVector(:), LocalMassMatrix(:,:)  
   INTEGER :: i,j,k,t,n,nn,nd,pn,DIM,kl,kr,l, bc, Trip_node, axis_node, NonlinearIter, istat, &
        NElems,ElementCode,Next,Vertex,ii,imin,Node, iter, LiquidInd, Visited = -1, &
-       SubroutineVisited = 0, NormalDirection, CoordMini(3), CoordMaxi(3)
+       SubroutineVisited = 0, NormalDirection, CoordMini(3), CoordMaxi(3), CoupledIter, &
+       TimeStep, LoadsOrder
   INTEGER, POINTER :: NodeIndexes(:),TempPerm(:),SurfPerm(:),NormalsPerm(:)
 
   LOGICAL :: Stat, FirstTime = .TRUE., Debug, DoVelocityRelax, &
       PullControl, PullVelocitySet = .FALSE., IsoSurfAllocated, AllocationsDone = .FALSE., &
-      UseLoads, AverageNormal, SurfaceVelocitySet = .FALSE., TriplePointFixed
+      UseLoads, AverageNormal, SurfaceVelocitySet = .FALSE., TriplePointFixed, &
+      UseAverageLoads, UseFirstLoads
   LOGICAL, POINTER :: IsBoundaryNode(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, TemperatureName, str
   TYPE(ValueList_t), POINTER :: ValueList
@@ -101,7 +104,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
       x, y, z, Basis, dBasisdx, norm, PullVelocitySet, &
       Normals, Weights, NormalsPerm, AverageNormal, SurfaceVelo, &
       SurfaceVelocitySet, CoordMax, CoordMin, CoordMaxi, CoordMini, UPull, &
-      IsBoundaryNode, DoVelocityRelax
+      IsBoundaryNode, DoVelocityRelax, CurrentLoads, PrevLoads, PrevPrevLoads
   
 
   !------------------------------------------------------------------------------
@@ -125,6 +128,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   PSolver => Solver
   SurfSol  => Solver % Variable
   Surface  => SurfSol % Values
+  PrevSurface => SurfSol % PrevValues(:,1)
   SurfPerm => SurfSol % Perm
   IF(.NOT. ASSOCIATED (Surface) .OR. ALL(SurfPerm <= 0) ) THEN
     CALL Fatal('TransientPhaseChange','Surface field needed for Phase Change')
@@ -154,6 +158,15 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   TriplePointFixed = ListGetLogical( Solver % Values,'Triple Point Fixed',stat)
   IF( DIM == 3 .AND. TriplePointFixed ) THEN
     CALL Fatal('TransientPhaseChange','Fixed triple point not implemented in 3D')
+  END IF
+
+  HelpSol => VariableGet( Solver % Mesh % Variables, 'coupled iter')
+  CoupledIter = HelpSol % Values(1)
+
+  HelpSol => VariableGet( Solver % Mesh % Variables, 'timestep')
+  TimeStep = HelpSol % Values(1)
+
+  IF( CoupledIter == 1 .AND. Timestep > 1 ) THEN
   END IF
   
 !---------------------------------------------------------------------------------
@@ -296,11 +309,52 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   ! Loads may be provided externally by using the 'Calculate Loads' flag in heat eq.
   !----------------------------------------------------------------------------------
   UseLoads = ListGetLogical( Solver % Values,'Use Nodal Loads',Stat) 
+
   IF(UseLoads) THEN
     LoadsSol => VariableGet( Solver % Mesh % Variables,TRIM(TemperatureName)//' Loads')
     IF(.NOT. ASSOCIATED(LoadsSol)) THEN
       CALL Fatal('TransientPhaseChange','Loads are requested to be used but missing!')
     END IF
+    IF(.NOT. ASSOCIATED( PrevLoads ) ) THEN
+      ALLOCATE( PrevLoads( SIZE( Surface ) ) )
+      PrevLoads = 0.0_dp
+    END IF
+!    IF(.NOT. ASSOCIATED( PrevPrevLoads ) ) THEN
+!      ALLOCATE( PrevPrevLoads( SIZE( Surface ) ) )
+!      PrevPrevLoads = 0.0_dp
+!    END IF
+    IF(.NOT. ASSOCIATED( CurrentLoads ) ) THEN
+      ALLOCATE( CurrentLoads( SIZE( Surface ) ) ) 
+      CurrentLoads = 0.0_dp
+    END IF
+
+    UseFirstLoads = ListGetLogical( Solver % Values,'Use First Loads',Stat) 
+    IF( .NOT. UseFirstLoads ) THEN
+      IF( TimeStep > 1 .AND. CoupledIter == 1 ) THEN
+!        PrevPrevLoads = PrevLoads
+        PrevLoads = CurrentLoads
+      END IF
+    END IF
+
+    DO t=1,Solver % Mesh % NumberOfNodes
+      i = SurfPerm(t)
+      IF( i == 0) CYCLE
+      j = LoadsSol % Perm(t)
+      IF( j == 0 ) CYCLE
+
+      CurrentLoads(i) = LoadsSol % Values(j)
+    END DO
+
+    IF( UseFirstLoads ) THEN
+      IF( CoupledIter == 1 ) THEN
+!        PrevPrevLoads = CurrentLoads
+        PrevLoads = CurrentLoads 
+      END IF
+    END IF
+
+    PRINT *,'Range of Loads:',TimeStep,CoupledIter,MINVAL(CurrentLoads),MAXVAL(CurrentLoads)
+!    PRINT *,'Range of PrevLoads:',MINVAL(PrevLoads),MAXVAL(PrevLoads)
+
   END IF
 
   PrevUpull = Upull
@@ -308,6 +362,15 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
 
   StiffMatrix => Solver % Matrix
   ForceVector => Solver % Matrix % RHS
+
+
+  LoadsRelax = GetCReal(Solver % Values,'Loads Relaxation Factor',UseAverageLoads) 
+
+  LoadsOrder = 0
+  IF( UseAverageLoads .AND. ( .NOT. UseFirstLoads .OR. CoupledIter > 1 ) ) THEN
+    LoadsOrder = MIN( 2, TimeStep - 1 ) 
+  END IF
+
 
   DO iter = 1, NonlinearIter
 
@@ -318,8 +381,18 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
       DO t=1,Solver % Mesh % NumberOfNodes
         i = SurfPerm(t)
         IF( i <= 0) CYCLE
-        ForceVector(i) = LoadsSol % Values(LoadsSol % Perm(t))
+
+        IF( LoadsOrder == 2 ) THEN
+          ForceVector(i) = LoadsRelax * CurrentLoads(i) + &
+              ( 1.0-LoadsRelax ) * PrevLoads(i)
+        ELSE IF( LoadsOrder == 1 ) THEN
+          ForceVector(i) = LoadsRelax * CurrentLoads(i) + &
+              ( 1.0-LoadsRelax ) * PrevLoads(i)
+        ELSE
+          ForceVector(i) = CurrentLoads(i)
+        END IF
       END DO
+
     END IF
 
     DO t = 1, Solver % NumberOfActiveElements         
@@ -347,6 +420,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
     ! The Dirichlet conditions here are intended to enable periodic BCs only
     ! Actively setting the phase change to a specific value may be unphysical
     ! Feedback routines for pull velocity should be used instead.
+    !-----------------------------------------------------------------------------
     CALL DefaultDirichletBCs()
     
     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, SurfaceVelo, Norm, 1, Solver )        
@@ -358,7 +432,7 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
     WRITE( Message, * ) 'Relative Change : ',RelativeChange
     CALL Info( 'TransientPhaseChange', Message, Level=4 )
     
-    IF ( RelativeChange < NonLinearTol ) EXIT
+    IF ( Solver % Variable % NonlinConverged == 1 ) EXIT
   END DO
   
   IF( DoVelocityRelax ) THEN
@@ -382,8 +456,12 @@ SUBROUTINE TransientPhaseChange( Model,Solver,dt,TransientSimulation )
   ! If no smoothing is applied directly to the free surface then its update may be computed
   ! directly from the velocity field.
   !-----------------------------------------------------------------------------------------
-  IF( ListGetConstReal(Solver % Values,'Surface Smoothing Factor',Stat) < 1.0d-20) THEN
-    Surface = Surface + SpeedUp * dt * ( SurfaceVelo + Upull )
+  DispRelax = ListGetCReal(Solver % Values,'Surface Smoothing Factor',Stat) 
+
+! Currently this is disabled since without this one can used higher order time discreatization
+  IF( Solver % Order <= 1 .AND. .NOT. Stat ) THEN
+    Surface = PrevSurface + SpeedUp * dt * ( SurfaceVelo + Upull )
+    PRINT *,'Range of SurfaceVelo: ',TimeStep,CoupledIter,MINVAL(SurfaceVelo),MAXVAL(SurfaceVelo)
   ELSE
     CALL DefaultInitialize()
     
@@ -770,6 +848,11 @@ SUBROUTINE TransientPhaseChange_Init( Model,Solver,dt,TransientSimulation)
     VariableName = GetString(Params,'Variable')
     CALL ListAddString( Params,NextFreeKeyword('Exported Variable ',Params), &
           '-nooutput '//TRIM(ComponentName(VariableName))//' Velo' )
+
+    IF(.NOT. ListCheckPresent( Params,'Time Derivative Order') ) &
+        CALL ListAddInteger( Params,'Time Derivative Order',1)
+
+
 !------------------------------------------------------------------------------
 END SUBROUTINE TransientPhaseChange_Init
 !------------------------------------------------------------------------------
