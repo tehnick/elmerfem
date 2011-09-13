@@ -101,14 +101,13 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
   END IF
 
 
-
-
   DO i=1,nstep
 
     ! Get the timestep size, initialize at 1st round
     !--------------------------------------------------------------
     maxdt = GetParticleTimeStep( Particles, InitTimestep )
 
+ 
 ! CALL ParticleStatusCount(Particles)
 
     ! If size of timestep goes to zero then no more steps are needed
@@ -145,7 +144,12 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
       !------------------------------------------------------------------------    
       CALL LocateParticles( Particles ) 
       InitTimestep = .FALSE.
-    END DO
+    END DO 
+
+    WRITE (Message,'(A,I0,A,I0,A)') 'Timestep ',i,' with ',&
+	Particles % NumberOfMovingParticles,' moving particles'
+    CALL Info('ParticleAdvector',Message,Level=6)
+
 
   END DO
 
@@ -545,6 +549,9 @@ CONTAINS
         END IF
         ResultVar % Values(1:j) = NewValues(1:j)
       END IF
+
+
+
     END DO
 
     NoVar = NoVar - 1

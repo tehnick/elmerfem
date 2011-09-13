@@ -9,6 +9,7 @@ MODULE ParticleUtils
 
   TYPE Particle_t
     INTEGER :: Dim, NumberOfParticles=0, MaxNumberOfParticles=0, &
+               NumberOfMovingParticles = 0, &
                TimeOrder = 0, FirstGhost = 0
     TYPE(Variable_t), POINTER :: Variables => Null()	
     
@@ -3658,8 +3659,7 @@ RETURN
     TYPE(Variable_t), POINTER :: TimeVar, DistVar, DtVar
     LOGICAL :: GotTimeVar, GotDistVar, MovingMesh
     REAL(KIND=dp) :: Drag, Mass, ds, dCoord(3),Coord(3)
-    INTEGER :: dim
-    INTEGER :: Status, TimeOrder, No
+    INTEGER :: dim, Status, TimeOrder, No, NoMoving
     TYPE(ValueList_t), POINTER :: Params
     INTEGER :: NoParticles
     LOGICAL :: Found, Visited = .FALSE.,RK2,FixFrozen
@@ -3708,6 +3708,7 @@ RETURN
     END IF
 
     NoParticles = Particles % NumberOfParticles
+    NoMoving = 0
     RK2 = Particles % RK2
 
     TimeCount = TimeCount + 1
@@ -3764,6 +3765,8 @@ RETURN
 	  IF( Status == PARTICLE_HIT ) CYCLE	
         END IF
       END IF
+ 
+      NoMoving = NoMoving + 1
 
       Particles % Status(No) = PARTICLE_READY
       Particles % Coordinate(No,:) = Particles % Coordinate(No,:) + dCoord(1:dim)
@@ -3776,6 +3779,8 @@ RETURN
     IF( Particles % DtConstant ) THEN
       Particles % Time = Particles % Time + Particles % dTime
     END IF
+
+    Particles % NumberOfMovingParticles = NoMoving
 
 
  END SUBROUTINE ParticleAdvanceTimestep
