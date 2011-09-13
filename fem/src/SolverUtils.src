@@ -911,8 +911,8 @@ CONTAINS
      IF ( PRESENT(RotateNT) ) Rotate = RotateNT
 
      Element => CurrentModel % CurrentElement
+     dim = CoordinateSystemDimension()	
      IF ( Rotate .AND. NormalTangentialNOFNodes > 0 .and. ndofs>=dim) THEN
-       dim = CoordinateSystemDimension()
        Indexes = 0
        Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
