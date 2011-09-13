@@ -163,7 +163,7 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
                        IF ( m > 0 )  THEN
                           m = DOFs * (m-1) + DOF
 
-                          IF ( Projector % Values(k) == 1.0d0  ) THEN
+                          IF ( ABS(1-Projector % Values(k))<=1.d-12 ) THEN
                              PeriodicNodes = PeriodicNodes + 1
                              IF ( PeriodicNodes > SIZE(R,1) ) THEN
                                 TmpR => R
