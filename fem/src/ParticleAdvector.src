@@ -100,14 +100,16 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
     iorder = 1
   END IF
 
+
+
+
   DO i=1,nstep
+
     ! Get the timestep size, initialize at 1st round
     !--------------------------------------------------------------
     maxdt = GetParticleTimeStep( Particles, InitTimestep )
 
 ! CALL ParticleStatusCount(Particles)
-
-    InitTimestep = .FALSE.
 
     ! If size of timestep goes to zero then no more steps are needed
     !---------------------------------------------------------------
@@ -121,18 +123,18 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
 
     ! If there are periodic BCs apply them just before locating the particles
     !------------------------------------------------------------------------
-    CALL ParticleBoxPeriodic( Particles )
+    ! CALL ParticleBoxPeriodic( Particles )
+
 
     ! Loop over possible runge-kutta steps
     !------------------------------------------------------------------------
 
     DO istep = 1, iorder
-      ! Set velocity field at points
+
+      ! Set velocity field at points.
+      ! This is not done the first time. 
       !------------------------------------------------------------------
-      IF( i > 1 .OR. istep > 1 ) THEN
-        CALL SetParticleVelocities()
-        CALL LocateParticles( Particles ) 
-      END IF
+      IF( .NOT. InitTimestep ) CALL SetParticleVelocities()
 
       ! Advance the coordinate, r = r0 + v * dt
       ! either with 2nd order Runge-Kutta, or with 1st order explicit scheme.
@@ -142,7 +144,9 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
       ! Find the elements (and only the elements) in which the particles are in. 
       !------------------------------------------------------------------------    
       CALL LocateParticles( Particles ) 
+      InitTimestep = .FALSE.
     END DO
+
   END DO
 
   ! Set the advected field giving the final locations of the particles backward in time
@@ -156,7 +160,6 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
 	TimeStepsTaken, tottime )
   END IF
     
-
   CALL Info('ParticleAdvector','All done',Level=4)
   CALL Info('ParticleAdvector', '-----------------------------------------', Level=4 )
   
@@ -474,7 +477,6 @@ CONTAINS
           NewValues = 0.0_dp
         END IF
 
-
         DO No = 1, NoParticles
           Status = GetParticleStatus( Particles, No )
           
@@ -482,6 +484,8 @@ CONTAINS
           IF( Status <= PARTICLE_INITIATED ) CYCLE
           
           ElementIndex = GetParticleElement( Particles, No )
+	  IF( ElementIndex == 0 ) CYCLE
+
           BulkElement => Mesh % Elements( ElementIndex )      
           
           Coord(1:dim) = Particles % Coordinate(No, 1:dim) 
@@ -533,7 +537,13 @@ CONTAINS
         ! There most be a temporal vector for the values in case it would point 
         ! to itself. 
         !---------------------------------------------------------------
-        ResultVar % Values = NewValues        
+        j = SIZE( NewValues )
+        k = SIZE( ResultVar % Values )
+	IF( j /= k ) THEN
+	  CALL Warn('ParticleAdvector','Vectors of different size!')
+          j = MIN(j,k)
+        END IF
+        ResultVar % Values(1:j) = NewValues(1:j)
       END IF
     END DO
 
@@ -590,5 +600,6 @@ SUBROUTINE ParticleAdvector_Init( Model,Solver,dt,TransientSimulation )
   IF(.NOT. ListCheckPresent( Params,'Particle Accurate At Face') ) &
       CALL ListAddLogical( Params,'Particle Accurate At Face',.TRUE.)  
   CALL ListAddLogical( Params,'Particle Dt Negative',.TRUE.)
+  CALL ListAddLogical( Params,'Particle Fix Frozen',.TRUE.)
 
 END SUBROUTINE ParticleAdvector_Init

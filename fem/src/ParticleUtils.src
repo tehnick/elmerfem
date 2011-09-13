@@ -1514,12 +1514,18 @@ RETURN
     IF( .NOT. Visited ) THEN
       Visited = .TRUE.      
       Mesh => GetMesh()
+      n = Mesh % MaxElementNodes
       dim = Mesh % MeshDim
       ALLOCATE( Basis(n) )
-   END IF
+   END IF	
 
    IF( PRESENT( No ) ) THEN
-     t = No
+     t = Particles % ElementIndex(No)
+     IF( t == 0 ) THEN
+       CALL Warn('CharacteristicElementTime','ElementIndex not defined!')
+       CharTime = 1.0_dp 
+       RETURN
+     END IF
    ELSE 
      ! Note: the elements are assumed to be of equal size!!!
      t = 1
@@ -2169,6 +2175,7 @@ RETURN
     LOGICAL :: Success, AtBoundary, AtFace, Visited = .FALSE.
     LOGICAL :: Set1, Set2
         
+   
     MinLambda = HUGE( MinLambda ) 
     Eps = 1.0e-10
 !100 * EPSILON( Lambda ) 
@@ -2197,14 +2204,25 @@ RETURN
         END IF
       END DO
     ELSE
+
       DO i=1, BulkElement % TYPE % NumberOfEdges  
         j = BulkElement % EdgeIndexes(i)
         BoundaryElement => Mesh % Edges(j)
+        IF( ANY( BoundaryElement % NodeIndexes > Mesh % NumberOfNodes ) .OR. &
+	    ANY( BoundaryElement % NodeIndexes < 1 ) ) THEN
+	  print *,'BulkElement:',BulkElement % ElementIndex
+	  print *,'EdgeElement:',BoundaryElement % ElementIndex
+          print *,'NodeIndexes:',BoundaryElement % NodeIndexes
+	  print *,'ij',i,j,ASSOCIATED(BoundaryElement),ASSOCIATED(BulkElement)
+	  CALL Fatal('SegmentElementIntersection','Index too large!')
+          CYCLE
+	END IF	
+
         CALL GetElementNodes(BoundaryNodes,BoundaryElement)
-        
+
         Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
             Rinit,Rfin) 
-        
+
         IF( Lambda > Eps ) THEN
           IF( Lambda < MinLambda ) THEN
 	    Set1 = .TRUE.
@@ -2389,7 +2407,6 @@ RETURN
       IF( ds2 < EPSILON( ds2 ) ) RETURN
     END IF
 
-
     IF( Debug ) THEN
       PRINT *,'Starting'
       PRINT *,'Rinit:',Rinit
@@ -2404,6 +2421,7 @@ RETURN
     Element => Mesh % Elements( ElementIndex ) 
     eps = 1.0d-10
     
+
     DO i=1,MaxTrials
 
       ! Use the previous element center if the true path is of no importance
@@ -2524,10 +2542,15 @@ RETURN
           EXIT                      
         END IF
       END IF
-      
+
       ! continue the search to new elements
       Element => NextElement
+      IF( .NOT. ASSOCIATED( Element ) ) THEN
+        CALL Warn('LocateParticleInMeshMarch','Element not associated!')
+      END IF
+
     END DO
+
     ElementIndex = Element % ElementIndex
 
 
@@ -2560,6 +2583,8 @@ RETURN
     REAL(KIND=dp) :: Lambda
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: Params
+
+! print *,'Locating Particles'
 
     
     Params => GetSolverParams()
@@ -2603,7 +2628,7 @@ RETURN
       
       CALL LocateParticleInMeshMarch(ElementIndex, Rinit, Rfin, InitLocation, &
           Status,AccurateNow, FaceIndex, Lambda, Velo )
-      
+
       ! If a boundary face is passed then repeat the process more diligently. 
       ! Note that if we want proper collisions they should be implemented below
       !----------------------------------------------------------------------------
@@ -2626,7 +2651,7 @@ RETURN
         ! Currently it is assumed that if success with the second method is not obtained then
         ! the particle is already sitting on the face observed by the more robust method. 
         !-------------------------------------------------------------------------------------
-        IF( .TRUE. ) THEN
+        IF( .FALSE. ) THEN
           CALL Warn('LocateParticles','Difference between robust and accurate?')
         END IF   
 
@@ -2643,8 +2668,10 @@ RETURN
         PRINT *,'Velo:',GetParticleVelo(Particles,No), Velo(1:dim)
       END IF
 
+
       CALL SetParticleCoord( Particles, No, Rfin  )                
       CALL SetParticleVelo( Particles, No, Velo  )                
+
       Particles % ElementIndex(No) = ElementIndex       
       Particles % Status(No) = Status
       Particles % FaceIndex(No) = FaceIndex
@@ -3635,10 +3662,10 @@ RETURN
     INTEGER :: Status, TimeOrder, No
     TYPE(ValueList_t), POINTER :: Params
     INTEGER :: NoParticles
-    LOGICAL :: Found, Visited = .FALSE.,RK2
+    LOGICAL :: Found, Visited = .FALSE.,RK2,FixFrozen
     
     SAVE TimeOrder, dim, Mass, Drag, Visited, dCoord, Coord, TimeCount, GotTimeVar, &
-	GotDistVar, TimeVar, DtVar, DistVar, MovingMesh
+	GotDistVar, TimeVar, DtVar, DistVar, MovingMesh, FixFrozen
 
     
     IF(.NOT. Visited ) THEN
@@ -3676,6 +3703,8 @@ RETURN
  
       DistVar => ParticleVariableGet( Particles,'particle distance')
       GotDistVar = ASSOCIATED( DistVar )
+
+      FixFrozen = ListGetLogical( Params,'Particle Fix Frozen',Found)
     END IF
 
     NoParticles = Particles % NumberOfParticles
@@ -3727,8 +3756,13 @@ RETURN
       Particles % PrevVelocity(No,:) = Particles % Velocity(No,:)
       Particles % Force(No,:)= 0.0_dp
 
-      IF( ds < TINY( ds ) .AND. .NOT. MovingMesh ) THEN
-        IF( Status == PARTICLE_HIT ) CYCLE	
+      IF( ds < TINY( ds ) ) THEN
+	IF( FixFrozen ) THEN
+ 	  Particles % Status(No) = PARTICLE_WALLBOUNDARY
+	  CYCLE
+        ELSE 
+	  IF( Status == PARTICLE_HIT ) CYCLE	
+        END IF
       END IF
 
       Particles % Status(No) = PARTICLE_READY
@@ -3977,7 +4011,7 @@ RETURN
     
     SAVE dt0,dsgoal,hgoal,dtmax,dtmin,DtIs,Nstep,&
         tprev,Tfin,TfinIs,DsGoalIs,HgoalIs,PrevTimeStep, &
-	DtConstant,DtVar
+	DtConstant,DtVar,TimeVar
     
     IF( InitInterval ) THEN
       Params => GetSolverParams()
@@ -4014,11 +4048,16 @@ RETURN
           CALL ParticleVariableCreate( Particles,'particle dt')
           DtVar => ParticleVariableGet( Particles,'particle dt')       
         END IF
+
+        TimeVar => ParticleVariableGet( Particles,'particle time')       
+        IF( .NOT. ASSOCIATED( TimeVar ) ) THEN
+          CALL Fatal('GetParticleTimestep','Variable > Particle time < does not exist!')
+        END IF
       END IF
 
       tprev = 0.0_dp
     END IF
-    
+
     
     ! Get upper and lower constraints for timestep size
     ! These generally depend on the velocity field and mesh
