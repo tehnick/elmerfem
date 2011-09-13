@@ -911,7 +911,7 @@ CONTAINS
      IF ( PRESENT(RotateNT) ) Rotate = RotateNT
 
      Element => CurrentModel % CurrentElement
-     IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
+     IF ( Rotate .AND. NormalTangentialNOFNodes > 0 .and. ndofs>=dim) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
        Indexes(1:Element % TYPE % NumberOfNodes) = &
@@ -3746,7 +3746,6 @@ END FUNCTION SearchNodeL
      INTEGER :: i,j,k, dim
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
 !------------------------------------------------------------------------------
-
      IF ( NormalTangentialNOFNodes <= 0 ) RETURN
 
      dim = CoordinateSystemDimension()
@@ -4672,7 +4671,8 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis
+    LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis,&
+               BackRotation
     INTEGER :: n,i,j,k,l,ii,m,DOF,istat,this
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, Prec, ProcName
     INTEGER(KIND=AddrInt) :: Proc
@@ -4703,6 +4703,9 @@ END FUNCTION SearchNodeL
     Params => Solver % Values
     n = A % NumberOfRows
 
+    BackRotation = ListGetLogical(Params,'Back Rotate N-T Solution',GotIt)
+    IF (.NOT.GotIt) BackRotation=.TRUE.
+
     IF ( Solver % Matrix % Lumped .AND. Solver % TimeOrder == 1 ) THEN
        Method = ListGetString( Params, 'Timestepping Method', GotIt)
        IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
@@ -4710,7 +4713,7 @@ END FUNCTION SearchNodeL
              IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) &
                   x(i) = b(i) / A % Values(A % Diag(i))
           END DO
-          CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+          IF (BackRotation) CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
           Norm = ComputeNorm(Solver, n, x) 
           RETURN
        END IF
@@ -4767,7 +4770,7 @@ END FUNCTION SearchNodeL
           Solver % Variable % EigenVectors, Solver )
       
       IF ( ScaleSystem ) CALL BackScaleLinearSystem( Solver, A ) 
-      CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+      IF (BackRotation) CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
       
       Norm = ComputeNorm(Solver,n,x)
       Solver % Variable % Norm = Norm
@@ -4919,9 +4922,9 @@ END FUNCTION SearchNodeL
       END DO
       DEALLOCATE( TempVector )
 
-      CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
+      IF (BackRotation) CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
     END IF
-   CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+    IF (BackRotation) CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 !------------------------------------------------------------------------------
 
 
