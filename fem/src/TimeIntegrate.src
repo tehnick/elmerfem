@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Time integration module
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +34,8 @@
 ! *
 ! *****************************************************************************/
 
+!> Time integration schemes for first and second order partial differential
+!> equation with in time. 
 !------------------------------------------------------------------------------
 MODULE TimeIntegrate
 
@@ -47,6 +45,9 @@ MODULE TimeIntegrate
 
 CONTAINS
 
+!> Apply newmark beta scheme to local matrix equation.
+!> This is used also for Implicit Euler with beta=1.0 and
+!> Crank-Nicolson with beta=0.5.
 !------------------------------------------------------------------------------
    SUBROUTINE NewmarkBeta( N, dt, MassMatrix, StiffMatrix, &
                    Force, PrevSolution, Beta )
@@ -79,6 +80,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Apply constant timestep BDF integration scheme to elementwise matrix entry.
 !------------------------------------------------------------------------------
    SUBROUTINE BDFLocal( N, dt, MassMatrix, StiffMatrix, &
                    Force, PrevSolution, Order )
@@ -187,8 +189,7 @@ CONTAINS
    END SUBROUTINE BDFLocal
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-!  Variable timestep BDF 
+!> Apply variable timestep BDF integration scheme to elementwise matrix entry.
 !------------------------------------------------------------------------------
    SUBROUTINE VBDFLocal( N, dts, MassMatrix, StiffMatrix, &
                    Force, PrevSolution, Order )
@@ -245,6 +246,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Apply second order Bossok time integration scheme to the elementwise matrix
+!> entry.
 !------------------------------------------------------------------------------
    SUBROUTINE Bossak2ndOrder( N, dt, MassMatrix, DampMatrix, StiffMatrix, &
                         Force, X,V,A,Alpha )
@@ -288,6 +291,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Apply fraction step integration scheme.
 !------------------------------------------------------------------------------
    SUBROUTINE FractionalStep( N, dt, MassMatrix, StiffMatrix, &
                    Force, PrevSolution, Beta, Solver )
@@ -346,6 +350,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Apply 2nd order Newmark time integration scheme.
 !------------------------------------------------------------------------------
    SUBROUTINE Newmark2ndOrder( N, dt, MassMatrix, DampMatrix, StiffMatrix, &
                         Force, PrevSol0,PrevSol1, Avarage )

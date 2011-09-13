@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for mapping the mesh between given top and bottom surfaces for 
-! *  structured meshes where nodes are aligned with a given coordinate direction. 
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -40,6 +35,12 @@
 ! *****************************************************************************/
   
 !------------------------------------------------------------------------------
+!>  Subroutine for mapping the mesh between given top and bottom surfaces.
+!>  This solver assumes that the mesh is structural so that it could have 
+!>  been obtained by extrusion in the direction of interest. For the given 
+!>  direction the corresponding top and bottom node is computed for every node
+!>  and this information is used to perform linear mapping in between.  
+!------------------------------------------------------------------------------
 SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
@@ -49,27 +50,6 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  This solver assumes that the mesh is structural so that it could have 
-!  been obtained by extrusion in the direction of interest. For the given 
-!  direction the corresponding top and bottom node is computed for every node
-!  and this information is used to perform linear mapping in between.  
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient

@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Mesh manipulation utilities for *Solver - routines
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen, Peter Råback
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -37,6 +33,10 @@
 ! *  Original Date: 02 Apr 2001
 ! *
 ! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+!>  Mesh manipulation utilities for *Solver - routines
+!------------------------------------------------------------------------------
 
 MODULE MeshUtils
 
@@ -106,6 +106,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Allocate mesh structure and return handle to it.
 !------------------------------------------------------------------------------
    FUNCTION AllocateMesh() RESULT(Mesh)
 !------------------------------------------------------------------------------
@@ -261,7 +262,7 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-! Function to load mesh from disk
+!> Function to load mesh from disk.
 !------------------------------------------------------------------------------
   FUNCTION LoadMesh( Model, MeshDirPar, MeshNamePar,&
     BoundariesOnly, NumProcs,MyPE, Def_Dofs ) RESULT( Mesh )
@@ -1140,10 +1141,9 @@ END SUBROUTINE GetMaxDefs
 !------------------------------------------------------------------------------
 
 
+
 !------------------------------------------------------------------------------
   FUNCTION PeriodicProjector( Model, Mesh, This, Trgt, cdim ) RESULT(Projector)
-!------------------------------------------------------------------------------
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     INTEGER :: This, Trgt
@@ -1617,9 +1617,9 @@ END SUBROUTINE GetMaxDefs
 
 
 !------------------------------------------------------------------------------
-! Generate element edge (faces in 3D) tables for given mesh.
-! Currently only for triangles and tetras. If mesh already
-! has edges do nothing.
+!> Generate element edge (faces in 3D) tables for given mesh.
+!> Currently only for triangles and tetras. If mesh already
+!> has edges do nothing.
 !------------------------------------------------------------------------------
   SUBROUTINE FindMeshEdges( Mesh, FindEdges)
 !------------------------------------------------------------------------------
@@ -1701,7 +1701,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-! 2D mesh edges.
+!> Find 2D mesh edges.
 !------------------------------------------------------------------------------
   SUBROUTINE FindMeshEdges2D( Mesh )
 !------------------------------------------------------------------------------
@@ -1876,7 +1876,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! 3D mesh faces.
+!> Find 3D mesh faces.
 !------------------------------------------------------------------------------
   SUBROUTINE FindMeshFaces3D( Mesh )
     USE PElementMaps, ONLY : GetElementFaceMap
@@ -2189,7 +2189,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! 3D mesh edges.
+!> Find 3D mesh edges.
 !------------------------------------------------------------------------------
   SUBROUTINE FindMeshEdges3D( Mesh )
     USE PElementMaps, ONLY : GetElementEdgeMap, GetElementFaceEdgeMap
@@ -2538,11 +2538,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE FindNeighbourNodes( Mesh,Direction,Neighbours,EndNeighbours)
+!> Finds neigbours of the nodes in given direction.
+!> The algorithm finds the neighbour that within 45 degrees of the 
+!> given direction has the smallest distance.
 !------------------------------------------------------------------------------
-! Finds neigbours of the nodes in given direction.
-! The algorithm finds the neighbour that within 45 degrees of the 
-! given direction has the smallest distance.
+  SUBROUTINE FindNeighbourNodes( Mesh,Direction,Neighbours,EndNeighbours)
 !------------------------------------------------------------------------------
 
   TYPE(Mesh_t) , POINTER :: Mesh 
@@ -2747,10 +2747,13 @@ END SUBROUTINE FindNeighbourNodes
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  FUNCTION SplitMeshEqual( Mesh,h ) RESULT( NewMesh )
+!> Split a mesh equally to smaller pieces by performing a uniform split.
+!> Also known as mesh multiplication. A 2D element splits into 4 elements of
+!> same form, and 3D element into 8 elements. 
+!> Currently works only
+!>   for linear elements.
 !------------------------------------------------------------------------------
-!   h/2 split of  given mesh, currently works only
-!   for linear and bilinear elements
+  FUNCTION SplitMeshEqual( Mesh,h ) RESULT( NewMesh )
 !------------------------------------------------------------------------------
     REAL(KIND=dp), OPTIONAL :: h(:)
     TYPE(Mesh_t), POINTER :: Mesh, NewMesh
@@ -4908,22 +4911,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>     Convert tetrahedral element to Ainsworth & Coyle type tetrahedron.
+!------------------------------------------------------------------------------
   SUBROUTINE ConvertToACTetra( Tetra )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Convert tetrahedral element to Ainsworth & Coyle type tetrahedron.
-!
-!  ARGUMENTS:
-!    Type(Element_t) :: Tetra
-!      INOUT: Tetrahedral element to convert
-!    
-!******************************************************************************
 !------------------------------------------------------------------------------
     USE PElementMaps, ONLY : getTetraEdgeMap, getTetraFaceMap
     IMPLICIT NONE
     
-    TYPE(Element_t), POINTER :: Tetra
+    TYPE(Element_t), POINTER :: Tetra  !< Tetrahedral element to convert
+!------------------------------------------------------------------------------
     INTEGER :: i, globalMin, globalMax, globalMinI
     INTEGER, DIMENSION(3) :: face, globalFace
     INTRINSIC MIN, MAX, CSHIFT
@@ -4993,29 +4989,20 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>     Assign local number of edge to given boundary element. Also copies all 
+!>     p element attributes from element edge to boundary edge.
+!------------------------------------------------------------------------------
   SUBROUTINE AssignLocalNumber( EdgeElement, Element, Mesh )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Assign local number of edge to given boundary element. Also copies all 
-!     p element attributes from element edge to boundary edge.
-!
-!  ARGUMENTS:
-!    Type(Element_t), POINTER :: EdgeElement, Element
-!      INOUT: Edge element to which assign local number and element 
-!        with some global numbering to use to assign local number.
-!    
-!    Type(Mesh_t), POINTER :: Mesh
-!      INPUT: Finite element mesh containing faces and edges.
-!
-!******************************************************************************
 !------------------------------------------------------------------------------
     USE PElementMaps, ONLY : getFaceEdgeMap 
     IMPLICIT NONE
+
     ! Parameters
-    TYPE(Element_t), POINTER :: EdgeElement, Element 
-    TYPE(Mesh_t), POINTER :: Mesh
-    ! Variables
+    TYPE(Element_t), POINTER :: EdgeElement  !< Edge element to which assign local number
+    TYPE(Element_t), POINTER :: Element      !< Bulk element with some global numbering to use to assign local number
+    TYPE(Mesh_t), POINTER :: Mesh            !< Finite element mesh containing faces and edges.
+!------------------------------------------------------------------------------
+    ! Local variables
     INTEGER i,j,n,edgeNumber, numEdges, bMap(4)
     TYPE(Element_t), POINTER :: Edge
     
@@ -5128,33 +5115,20 @@ CONTAINS
     
 
 !------------------------------------------------------------------------------
+!>     Based on element degrees of freedom, return the sum of element
+!>     degrees of freedom.
+!------------------------------------------------------------------------------
   FUNCTION getElementMaxDOFs( Mesh, Element ) RESULT(dofs)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Based on element degrees of freedom, return the sum of element
-!     degrees of freedom.
-!
-!  ARGUMENTS:
-!
-!    Type(Mesh_t), POINTER :: Mesh
-!      INPUT: Finite element mesh
-!
-!    Type(Element_t), POINTER :: Element
-!      INPUT: Element to get maximum dofs for
-!
-!  FUNCTION VALUE:
-!    REAL(KIND=dp) :: dofs
-!       maximum number of dofs for Element
-!    
-!******************************************************************************
 !------------------------------------------------------------------------------
     IMPLICIT NONE
 
-    TYPE(Mesh_t), POINTER :: Mesh
-    TYPE(Element_t), POINTER :: Element
+    TYPE(Mesh_t), POINTER :: Mesh        !< Finite element mesh
+    TYPE(Element_t), POINTER :: Element  !< Element to get maximum dofs for
+    INTEGER :: dofs                      !< maximum number of dofs for Element
+!------------------------------------------------------------------------------
+
     TYPE(ELement_t), POINTER :: Edge, Face
-    INTEGER :: i, edgeDofs, faceDofs, dofs
+    INTEGER :: i, edgeDofs, faceDofs
     
     ! Get sum of edge dofs if any
     edgeDofs = 0
@@ -5183,14 +5157,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Creates a permutation table for bodies or boundaries using a free chosen string
+!> as mask. The resulting permutation is optimized in order, if requested. The
+!> subroutine is intended to help in saving boundary data in an ordered manner,
+!> but it can find other uses as well. Currently the implementation is limited
+!> to normal Lagrangian elements.
+!------------------------------------------------------------------------------
   SUBROUTINE MakePermUsingMask( Model,Solver,Mesh,MaskName, &
        OptimizeBW, Perm, LocalNodes, MaskOnBulk, RequireLogical )
-!------------------------------------------------------------------------------
-! Creates a permutation table for bodies or boundaries using a free chosen string
-! as mask. The resulting permutation is optimized in order, if requested. The
-! subroutine is intended to help in saving boundary data in an ordered manner,
-! but it can find other uses as well. Currently the implementation is limited
-! to normal Lagrangian elements.
 !------------------------------------------------------------------------------
     TYPE(Model_t)  :: Model
     TYPE(Mesh_t)   :: Mesh
@@ -5379,14 +5353,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------
-! Find a point in the mesh structure
-! There are two strategies:
-! 1) Recursive where the same routine is repeated with sloppier criteria
-! 2) One-sweep strategy where the best hit is registered and used if of 
-!    acceptable accuracy. 
-! There are two different epsilons that control the search. One for the 
-! rough test in absolute coordinates and another one for the more accurate
-! test in local coordinates.   
+!> Find a point in the mesh structure
+!> There are two strategies:
+!> 1) Recursive where the same routine is repeated with sloppier criteria
+!> 2) One-sweep strategy where the best hit is registered and used if of 
+!>    acceptable accuracy. 
+!> There are two different epsilons that control the search. One for the 
+!> rough test in absolute coordinates and another one for the more accurate
+!> test in local coordinates.   
 !-------------------------------------------------------------------------
   FUNCTION PointInMesh(Solver, GlobalCoords, LocalCoords, HitElement, &
       CandElement, ExtInitialize ) RESULT ( Hit )
@@ -5607,11 +5581,11 @@ CONTAINS
 
 
 !--------------------------------------------------------------------------
-!  This subroutine finds the structure of an extruded mesh even though it is 
-! given in an unstructured format. The routine may be used by some special
-! solvers that employ the special character of the mesh.
-! The extrusion is found for a given direction and for each node the corresponding 
-! up and down, and thereafter top and bottom node is computed.
+!>  This subroutine finds the structure of an extruded mesh even though it is 
+!> given in an unstructured format. The routine may be used by some special
+!> solvers that employ the special character of the mesh.
+!> The extrusion is found for a given direction and for each node the corresponding 
+!> up and down, and thereafter top and bottom node is computed.
 !-----------------------------------------------------------------------------
   SUBROUTINE DetectExtrudedStructure( Mesh, Solver, ExtVar, &
       TopNodePointer, BotNodePointer, UpNodePointer, DownNodePointer )
@@ -5952,10 +5926,10 @@ CONTAINS
 
 
 !---------------------------------------------------------------
-! This partitions the mesh into a given number of partitions in each 
-! direction. It may be used in clustering multigrid or similar. 
-! It is not easily applicable to parallel computation as this 
-! partitioning should be done outside ElmerSolver in advance.
+!> This partitions the mesh into a given number of partitions in each 
+!> direction. It may be used in clustering multigrid or similar. 
+!> It is not easily applicable to parallel computation as this 
+!> partitioning should be done outside ElmerSolver in advance.
 !---------------------------------------------------------------
   SUBROUTINE ClusterNodesByDirection(Solver,Mesh,Clustering,MaskPerm)
  
@@ -6168,10 +6142,9 @@ CONTAINS
 
 
 !---------------------------------------------------------------
-! This find two fixing nodes for each coordinate direction
-! The indexes are returned in order: x1 x2 y1 y2 z1 z2
+!> This find two fixing nodes for each coordinate direction
+!> The indexes are returned in order: x1 x2 y1 y2 z1 z2.
 !---------------------------------------------------------------
-!------------------------------------------------------------------------------
   SUBROUTINE FindRigidBodyFixingNodes(Solver,FixingDofs,MaskPerm)
 !------------------------------------------------------------------------------
     USE GeneralUtils
@@ -6196,8 +6169,6 @@ CONTAINS
 !---------------------------------------------------------------
 
     CALL Info('FindRigidBodyFixingNodes','Starting')
-
-
 
     Mesh => Solver % Mesh
     dim = Mesh % MeshDim 
@@ -6411,7 +6382,7 @@ CONTAINS
 
   CONTAINS
 
-    ! Find the nodes that are either on interface, boundary or do not belong to the field
+    !> Find the nodes that are either on interface, boundary or do not belong to the field.
     !-----------------------------------------------------------------------------------
     SUBROUTINE DetermineForbiddenNodes()
 
@@ -6446,7 +6417,7 @@ CONTAINS
     END SUBROUTINE DetermineForbiddenNodes
 
 
-    ! Give a value of goodness to the chosen fixing node
+    !> Give a value of goodness to the chosen fixing node.
     !-----------------------------------------------------------------------------------
     FUNCTION FixingNodesScore(direction,cand) RESULT ( Score )
 
@@ -6496,9 +6467,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION CreateLineMesh( Params ) RESULT( Mesh )
+!>   Create a 1D mesh, may be used in 1D outlet conditions, for example.
 !------------------------------------------------------------------------------
-!   Create a 1D mesh, may be used in 1D outlet conditions
+  FUNCTION CreateLineMesh( Params ) RESULT( Mesh )
 !------------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: Params 
     TYPE(Mesh_t), POINTER :: Mesh
@@ -6515,7 +6486,6 @@ CONTAINS
     Mesh => AllocateMesh()
 
     CALL Info('CreateLineMesh','Starting')
-
 
 !   Read in the parameters defining a uniform 1D mesh
 !--------------------------------------------------------------    

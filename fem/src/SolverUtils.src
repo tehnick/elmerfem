@@ -38,6 +38,10 @@
 ! *
 ! *****************************************************************************/
 
+!> Basic utilities used by individual solvers. 
+!------------------------------------------------------------------------------
+
+
 MODULE SolverUtils
 
    USE DirectSolve
@@ -67,24 +71,12 @@ MODULE SolverUtils
 
 CONTAINS
 
+!> Initialize matrix structure and vector to zero initial value.
 !------------------------------------------------------------------------------
    SUBROUTINE InitializeToZero( StiffMatrix, ForceVector )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-! Initialize matrix structure and vector to zero initial value
-!
-! TYPE(Matrix_t), POINTER :: StiffMatrix
-!   INOUT: Matrix to be initialized
-!
-! REAL(KIND=dp) :: ForceVector(:)
-!   INOUT: vector to be initialized
-! 
-!******************************************************************************
-!------------------------------------------------------------------------------
-
-     TYPE(Matrix_t), POINTER :: StiffMatrix
-     REAL(KIND=dp) :: ForceVector(:)
+     TYPE(Matrix_t), POINTER :: StiffMatrix  !< Matrix to be initialized
+     REAL(KIND=dp) :: ForceVector(:)         !< vector to be initialized
 !------------------------------------------------------------------------------
      INTEGER :: i,dim
      TYPE(Solver_t), POINTER :: Solver
@@ -151,12 +143,14 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Sets the matrix element to a desired value. 
 !------------------------------------------------------------------------------
    SUBROUTINE SetMatrixElement( StiffMatrix, i, j, Value )
 !------------------------------------------------------------------------------
-     TYPE(Matrix_t), POINTER :: StiffMatrix
-     INTEGER :: i,j
-     REAL(KIND=dp) :: Value
+     TYPE(Matrix_t), POINTER :: StiffMatrix  !< Structure holding the matrix
+     INTEGER :: i                            !< Row index
+     INTEGER :: j                            !< Column index
+     REAL(KIND=dp) :: Value                  !< Value to be obtained
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
@@ -173,12 +167,14 @@ CONTAINS
    END SUBROUTINE SetMatrixElement
 !------------------------------------------------------------------------------
 
+!> Gets a matrix element. 
 !------------------------------------------------------------------------------
    FUNCTION GetMatrixElement( StiffMatrix, i, j ) RESULT ( Value )
 !------------------------------------------------------------------------------
-     TYPE(Matrix_t), POINTER :: StiffMatrix
-     INTEGER :: i,j
-     REAL(KIND=dp) :: Value
+     TYPE(Matrix_t), POINTER :: StiffMatrix  !< Structure holding the matrix
+     INTEGER :: i                            !< Row index
+     INTEGER :: j                            !< Column index
+     REAL(KIND=dp) :: Value                  !< Value to be obtained
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
@@ -195,6 +191,7 @@ CONTAINS
    END FUNCTION GetMatrixElement
 !------------------------------------------------------------------------------
 
+!> Changes the value of a given matrix element.
 !------------------------------------------------------------------------------
    FUNCTION ChangeMatrixElement( StiffMatrix, i, j, NewValue ) RESULT ( OldValue )
 !------------------------------------------------------------------------------
@@ -216,6 +213,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Adds to the value of a given matrix element.
 !------------------------------------------------------------------------------
    SUBROUTINE AddToMatrixElement( StiffMatrix, i, j,Value )
 !------------------------------------------------------------------------------
@@ -239,6 +237,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Moves a matrix element from one position adding it to the value of another one.
 !------------------------------------------------------------------------------
    SUBROUTINE MoveMatrixElement( StiffMatrix, i1, j1, i2, j2 )
 !------------------------------------------------------------------------------
@@ -255,11 +254,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Zeros a row in matrix.
 !------------------------------------------------------------------------------
    SUBROUTINE ZeroRow( StiffMatrix, n )
 !------------------------------------------------------------------------------
-     TYPE(Matrix_t), POINTER :: StiffMatrix
-      INTEGER :: n
+     TYPE(Matrix_t), POINTER :: StiffMatrix  !< Structure holding the matrix 
+      INTEGER :: n                           !< Row to be zerored.
 !------------------------------------------------------------------------------
 
      SELECT CASE( StiffMatrix % FORMAT )
@@ -276,6 +276,8 @@ CONTAINS
    END SUBROUTINE ZeroRow
 !------------------------------------------------------------------------------
 
+!> Moves a row and and sumes it with the values of a second one, optionally 
+!> multiplying with a constant.
 !------------------------------------------------------------------------------
    SUBROUTINE MoveRow( StiffMatrix, n1, n2, Coeff )
 !------------------------------------------------------------------------------
@@ -308,6 +310,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Glues a local matrix to the global one.
 !------------------------------------------------------------------------------
    SUBROUTINE GlueLocalSubMatrix( StiffMatrix,row0,col0,Nrow,Ncol,RowInds,ColInds,&
        RowDofs,ColDofs,LocalMatrix )
@@ -336,7 +339,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
+!> Matrix vector multiplication of sparse matrices.
 !------------------------------------------------------------------------------
    SUBROUTINE MatrixVectorMultiply( StiffMatrix,u,v )
 !------------------------------------------------------------------------------
@@ -361,10 +364,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
-!
-! Search faces between passive / non-passive domains; add to boundary
-! elements with given bc-id.
+!> Search faces between passive / non-passive domains; add to boundary
+!> elements with given bc-id.
 !------------------------------------------------------------------------------
   SUBROUTINE GetPassiveBoundary(Model,Mesh,BcId)
 !------------------------------------------------------------------------------
@@ -457,12 +458,16 @@ CONTAINS
 !------------------------------------------------------------------------------
 
    
+!>    Check if the current element has been defined passive.
+!> This is done by inspecting a looking an the values of "varname Passive"
+!> in the Body Force section. It is determined to be passive if it has 
+!> more positive than negative hits in an element.
 !------------------------------------------------------------------------------
    FUNCTION CheckPassiveElement( UElement )  RESULT( IsPassive )
 !------------------------------------------------------------------------------
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      LOGICAL :: IsPassive
-
+!------------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: Element
      REAL(KIND=dp), ALLOCATABLE :: Passive(:)
      INTEGER :: body_id, bf_id, nlen, NbrNodes
@@ -471,12 +476,6 @@ CONTAINS
 
      SAVE Passive
 !------------------------------------------------------------------------------
-     
-!------------------------------------------------------------------------------
-!    Check if the current element has been defined passive
-!    Note: so far this is done elementwise
-!------------------------------------------------------------------------------
-
      IsPassive = .FALSE.
 
      IF ( PRESENT( UElement ) ) THEN
@@ -517,14 +516,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!>  For time dependent simulations add the time derivative coefficient terms
+!>  to the matrix containing other coefficients.
 !------------------------------------------------------------------------------
    SUBROUTINE Add1stOrderTime( MassMatrix, StiffMatrix,  &
           Force, dt, n, DOFs, NodeIndexes, Solver )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-!  For time dependent simulations add the time derivative coefficient terms
-!  to the matrix containing other coefficients.
 !
 ! REAL(KIND=dp) :: MassMatrix(:,:)
 !   INPUT:
@@ -547,7 +544,6 @@ CONTAINS
 ! TYPE(Solver_t), POINTER :: Solver
 !   INPUT: solver parameter list (used to get some options for time integration)
 ! 
-!******************************************************************************
 !------------------------------------------------------------------------------
      TYPE(Solver_t) :: Solver
      REAL(KIND=dp) :: MassMatrix(:,:),StiffMatrix(:,:),Force(:),dt
@@ -659,14 +655,12 @@ CONTAINS
 
 
 
+!>  For time dependent simulations add the time derivative coefficient terms
+!>  to the matrix containing other coefficients.
 !------------------------------------------------------------------------------
    SUBROUTINE Add2ndOrderTime( MassMatrix, DampMatrix, StiffMatrix,  &
          Force, dt, n, DOFs, NodeIndexes, Solver )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-!  For time dependent simulations add the time derivative coefficient terms
-!  to the matrix containing other coefficients.
 !
 ! REAL(KIND=dp) :: MassMatrix(:,:)
 !   INPUT:
@@ -692,7 +686,6 @@ CONTAINS
 ! TYPE(Solver_t) :: Solver
 !   INPUT: solver parameter list (used to get some options for time integration)
 ! 
-!******************************************************************************
 !------------------------------------------------------------------------------
      TYPE(Solver_t) :: Solver
 
@@ -820,7 +813,6 @@ CONTAINS
    SUBROUTINE UpdateTimeForce( StiffMatrix, &
            ForceVector, LocalForce, n, NDOFs, NodeIndexes )
 !------------------------------------------------------------------------------
-!******************************************************************************
 ! 
 ! TYPE(Matrix_t), POINTER :: StiffMatrix
 !   INOUT: The global matrix
@@ -837,7 +829,6 @@ CONTAINS
 ! INTEGER :: NodeIndexes(:)
 !   INPUT: Element node to global node numbering mapping
 ! 
-!******************************************************************************
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
 
@@ -858,13 +849,11 @@ CONTAINS
 
 
 
+!> Add element local matrices & vectors to global matrices and vectors.
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
       ForceVector, LocalForce, n, NDOFs, NodeIndexes, RotateNT )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-! Add element local matrices & vectors to global matrices and vectors
 !
 ! TYPE(Matrix_t), POINTER :: StiffMatrix
 !   INOUT: The global matrix
@@ -884,7 +873,6 @@ CONTAINS
 ! INTEGER :: NodeIndexes(:)
 !   INPUT: Element node to global node numbering mapping
 ! 
-!******************************************************************************
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
 
@@ -946,13 +934,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Update the global vector with the local vector entry.
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalForce(ForceVector, LocalForce, n, &
              NDOFs, NodeIndexes, RotateNT )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-! Add element local matrices & vectors to global matrices and vectors
 !
 ! TYPE(Matrix_t), POINTER :: StiffMatrix
 !   INOUT: The global matrix
@@ -972,7 +958,6 @@ CONTAINS
 ! INTEGER :: NodeIndexes(:)
 !   INPUT: Element node to global node numbering mapping
 ! 
-!******************************************************************************
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: LocalForce(:),ForceVector(:)
      LOGICAL, OPTIONAL :: RotateNT
@@ -1020,29 +1005,11 @@ CONTAINS
    SUBROUTINE UpdateMassMatrix( StiffMatrix, LocalMassMatrix, &
                   n, NDOFs, NodeIndexes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-! Add element local mass matrix to global mass matrix.
-! 
-! TYPE(Matrix_t), POINTER :: StiffMatrix
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: LocalMassMatrix(:,:)
-!   INPUT: Local matrix to be added to the global matrix
-!
-! INTEGER :: n, NDOFs
-!   INPUT :: number of nodes / element and number of DOFs / node
-!
-! INTEGER :: NodeIndexes(:)
-!   INPUT: Element node to global node numbering mapping
-! 
-!******************************************************************************
-!------------------------------------------------------------------------------
-     TYPE(Matrix_t), POINTER :: StiffMatrix
-
-     REAL(KIND=dp) :: LocalMassMatrix(:,:)
-
-     INTEGER :: n, NDOFs, NodeIndexes(:)
+     TYPE(Matrix_t), POINTER :: StiffMatrix  !< The global matrix
+     REAL(KIND=dp) :: LocalMassMatrix(:,:)   !< Local matrix to be added to the global matrix
+     INTEGER :: n                            !<  number of nodes in element
+     INTEGER :: NDOFs                        !< number of DOFs per node
+     INTEGER :: NodeIndexes(:)               !< Element node to global node numbering mapping
 !------------------------------------------------------------------------------
      INTEGER :: i,j,k
      REAL(KIND=dp) :: s,t
@@ -1090,12 +1057,11 @@ CONTAINS
    END SUBROUTINE UpdateMassMatrix
 !------------------------------------------------------------------------------
  
+!> Determine soft limiters set.
+!> Currently the implementation is nonideal as almost the same thing is done
+!> twice: the second time in setting the Dirichlet conditions.
 !------------------------------------------------------------------------------
    SUBROUTINE DetermineSoftLimiter( Solver )
-!------------------------------------------------------------------------------
-! Determine soft limiters set
-! Currently the implementation is nonideal as almost the same thing is done
-! twice: the second time in setting the Dirichlet conditions.
 !------------------------------------------------------------------------------
      TYPE(Solver_t) :: Solver
 
@@ -1334,13 +1300,15 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Set dirichlet boundary condition for given dof. The conditions are
+!> set based on the given name and applied directly to the matrix structure
+!> so that a row is zeroed except for the diagonal which is set to one. 
+!> Then the r.h.s. value determines the value of the field variable 
+!> in the solution of the linear system.
 !------------------------------------------------------------------------------
    SUBROUTINE SetDirichletBoundaries( Model, A, b, Name, DOF, NDOFs, Perm, &
        PermOffSet, OffDiagonalMatrix )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Set dirichlet boundary condition for given dof
 !
 ! TYPE(Model_t) :: Model
 !   INPUT: the current model structure
@@ -1371,7 +1339,6 @@ CONTAINS
 !         entries for matrix and r.h.s., for off-diagonal matrices just set the row
 !         to zero.
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     TYPE(Matrix_t), POINTER :: A
@@ -1381,7 +1348,6 @@ CONTAINS
     INTEGER, OPTIONAL :: PermOffSet
     LOGICAL, OPTIONAL :: OffDiagonalMatrix
 !------------------------------------------------------------------------------
-
     TYPE(Element_t), POINTER :: Element
     INTEGER, POINTER :: NodeIndexes(:), IndNodes(:)
     INTEGER, ALLOCATABLE :: Indexes(:), PassPerm(:)
@@ -1864,7 +1830,7 @@ CONTAINS
 
  
 !------------------------------------------------------------------------------
-! Set values related to a specific boundary or bulk element
+!> Set values related to a specific boundary or bulk element.
 !------------------------------------------------------------------------------
     SUBROUTINE SetElementValues(n,elno)
       INTEGER :: n,elno
@@ -1968,7 +1934,7 @@ CONTAINS
     END SUBROUTINE SetElementValues
   
 !------------------------------------------------------------------------------
-! Set values related to individual points
+!> Set values related to individual points.
 !------------------------------------------------------------------------------
   
     SUBROUTINE SetPointValues(n)
@@ -2039,7 +2005,7 @@ CONTAINS
     END SUBROUTINE SetPointValues
 
 !------------------------------------------------------------------------------
-! Set values related to upper and lower limiters
+!> Set values related to upper and lower limiters.
 !------------------------------------------------------------------------------
   
     SUBROUTINE SetLimiterValues(n)
@@ -2077,6 +2043,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Sets just one Dirichlet point in contrast to setting the whole field.
+!> This is a lower order routine that the previous one. 
 !------------------------------------------------------------------------------
   SUBROUTINE SetDirichletPoint( StiffMatrix, ForceVector,DOF, NDOFs, &
       Perm, NodeIndex, NodeValue) 
@@ -2125,13 +2093,11 @@ CONTAINS
 
 
 
+!> At fisrt pass sum together the rows related to the periodic dofs.
 !------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass1( Model, StiffMatrix, ForceVector, &
                       Name, DOF, NDOFs, Perm, This, Done )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! At fisrt pass sum together the rows related to the periodic dofs.
 !
 ! TYPE(Model_t) :: Model
 !   INPUT: the current model structure
@@ -2152,7 +2118,6 @@ CONTAINS
 ! INTEGER :: Perm(:)
 !   INPUT: The node reordering info, this has been generated at the
 !          beginning of the simulation for bandwidth optimization
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     TYPE(Matrix_t), POINTER :: StiffMatrix
@@ -2336,14 +2301,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> At second pass add the [...1 .. -1 ...] row structure that results to the 
+!> equality of the periodic dofs. 
 !------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass2( Model, StiffMatrix, ForceVector, &
                       Name, DOF, NDOFs, Perm, This, Done )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! At second pass add the [...1 .. -1 ...] row structure that results to the 
-! equality of the periodic dofs. 
 !
 ! TYPE(Model_t) :: Model
 !   INPUT: the current model structure
@@ -2364,7 +2327,6 @@ CONTAINS
 ! INTEGER :: Perm(:)
 !   INPUT: The node reordering info, this has been generated at the
 !          beginning of the simulation for bandwidth optimization
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     TYPE(Matrix_t), POINTER :: StiffMatrix
@@ -2436,12 +2398,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Sets nodal loads directly to the matrix structure. 
+!> The intended use for this, is for example, in multiphysics coupling where
+!> the nodal loads may have been computed by another solver. 
 !------------------------------------------------------------------------------
    SUBROUTINE SetNodalLoads( Model, A, b, Name, DOF, NDOFs, Perm )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Set nodal load for given dof
 !
 ! TYPE(Model_t) :: Model
 !   INPUT: the current model structure
@@ -2462,7 +2424,6 @@ CONTAINS
 ! INTEGER :: Perm(:)
 !   INPUT: The node reordering info, this has been generated at the
 !          beginning of the simulation for bandwidth optimization
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     TYPE(Matrix_t), POINTER :: A
@@ -2840,17 +2801,13 @@ CONTAINS
 
 
 
+!> Check if Normal / Tangential vector boundary conditions present and
+!> allocate space for normals, and if in 3D for two tangent direction
+!> vectors.
 !------------------------------------------------------------------------------
    SUBROUTINE CheckNormalTangentialBoundary( Model, VariableName, &
      NumberOfBoundaryNodes, BoundaryReorder, BoundaryNormals,     &
         BoundaryTangent1, BoundaryTangent2, dim )
-!******************************************************************************
-!
-! Check if Normal / Tangential vector boundary conditions present and
-! allocate space for normals, and if in 3D for two tangent direction
-! vectors.
-!
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
 
@@ -3050,16 +3007,13 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!> Average boundary normals for nodes. The average boundary normals
+!> may be beneficial as they provide more continuous definition of normal
+!> over curved boundaries. 
 !------------------------------------------------------------------------------
    SUBROUTINE AverageBoundaryNormals( Model, VariableName,    &
      NumberOfBoundaryNodes, BoundaryReorder, BoundaryNormals, &
        BoundaryTangent1, BoundaryTangent2, dim )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Average boundary normals for nodes
-!
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
 
@@ -3367,13 +3321,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
-!*********************************************************************
-!
-! Search an element QueriedNode from an ordered set Nodes and return
-! Index to Nodes structure. Return value -1 means QueriedNode was
-! not found.
-!
+!------------------------------------------------------------------------------
+!> Search an element QueriedNode from an ordered set Nodes and return
+!> Index to Nodes structure. Return value -1 means QueriedNode was
+!> not found.
+!------------------------------------------------------------------------------
 FUNCTION SearchNodeL( ParallelInfo, QueriedNode ) RESULT(Indx)
 
   USE Types
@@ -3386,7 +3338,7 @@ FUNCTION SearchNodeL( ParallelInfo, QueriedNode ) RESULT(Indx)
 
   INTEGER :: Lower, Upper, Lou, i
 
-  !*********************************************************************
+!------------------------------------------------------------------------------
 
   Indx = -1
   Upper = SIZE(ParallelInfo % GlobalDOFs)
@@ -3417,23 +3369,20 @@ FUNCTION SearchNodeL( ParallelInfo, QueriedNode ) RESULT(Indx)
   END IF
 
   RETURN
-!*********************************************************************
+!------------------------------------------------------------------------------
 END FUNCTION SearchNodeL
-!*********************************************************************
+!------------------------------------------------------------------------------
 
 
 
+!> Rotate previous force and solution vectors.
 !------------------------------------------------------------------------------
   SUBROUTINE InitializeTimestep( Solver )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Rotate previous force and solution vectors
 !
 ! TYPE(Solver_t) :: Solver
 !   INPUT:
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
      TYPE(Solver_t) :: Solver
 !------------------------------------------------------------------------------
@@ -3566,21 +3515,10 @@ END FUNCTION SearchNodeL
 
 
 
+!> Update force vector AFTER ALL OTHER ASSEMBLY STEPS BUT BEFORE SETTING
+!> DIRICHLET CONDITIONS. Required only for time dependent simulations..
 !------------------------------------------------------------------------------
   SUBROUTINE FinishAssembly( Solver, ForceVector )
-!------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Update force vector AFTER ALL OTHER ASSEMBLY STEPS BUT BEFORE SETTING
-! DIRICHLET CONDITIONS. Required only for time dependent simulations..
-!
-! TYPE(Solver_t) :: Solver
-!   INPUT:
-!
-! REAL(KIND=dp) :: ForceVector(:)
-!   INOUT:
-!
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Solver_t) :: Solver
     REAL(KIND=dp) :: ForceVector(:)
@@ -3899,6 +3837,9 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
   
+!> When a new field has been computed compare it to the previous one.
+!> Different convergence measures may be used. 
+!> Also performs relaxation if a non-unity relaxation factor is given.
 !------------------------------------------------------------------------------
   SUBROUTINE ComputeChange(Solver,SteadyState,nsize,values,values0)
 !------------------------------------------------------------------------------
@@ -4265,6 +4206,7 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
     
 
+!> Checks stepsize of a linear system so that the error has decreased.
 !------------------------------------------------------------------------------
   FUNCTION CheckStepSize(Solver,FirstTrial,PrevResidual,Residual,&
       nsize,values,values0) RESULT (Success) 
@@ -4299,7 +4241,6 @@ END FUNCTION SearchNodeL
     ELSE
       n = SIZE(x)
     END IF
-
 
     !--------------------------------------------------------------------------
     ! This is the real residual r=b-Ax
@@ -4380,9 +4321,9 @@ END FUNCTION SearchNodeL
     
 
 !------------------------------------------------------------------------------
-! Computing nodal weight may be good when one needs to transform nodal 
-! information back to continous fields by dividing with the nodal weight. 
-! Only active if the variable with name Variable % Name // ' Weights' exist.
+!> Computing nodal weight may be good when one needs to transform nodal 
+!> information back to continous fields by dividing with the nodal weight. 
+!> Only active if the variable with name Variable % Name // ' Weights' exist.
 !------------------------------------------------------------------------------
 
   SUBROUTINE CalculateNodalWeights(Solver)
@@ -4454,8 +4395,8 @@ END FUNCTION SearchNodeL
 
 
 !------------------------------------------------------------------------------
-!     Scale system Ax = b as:
-!       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
+!>     Scale system Ax = b as:
+!>       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !------------------------------------------------------------------------------
   SUBROUTINE ScaleLinearSystem(Solver,A,b,x,DiagScaling,ApplyScaling)
 
@@ -4573,7 +4514,7 @@ END FUNCTION SearchNodeL
 
 
   
-  !  Scale the system back to original:
+  !>  Scale the system back to original.
   !--------------------------------------------------------------
   SUBROUTINE BackScaleLinearSystem(Solver,A,b,x,DiagScaling) 
 
@@ -4658,6 +4599,7 @@ END FUNCTION SearchNodeL
 
 
 
+!> Solves a linear system and also calls the necessary preconditioning routines.
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
        x, Norm, DOFs, Solver, BulkMatrix )
@@ -4978,12 +4920,11 @@ END FUNCTION SearchNodeL
 !------------------------------------------------------------------------------
 
 
+!> Solve a system. Various additional utilities are included and 
+!> naturally a call to the linear system solver.
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveSystem( A,ParA,b,x,Norm,DOFs,Solver )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Solve a linear system
 !
 ! TYPE(Matrix_t), POINTER :: A
 !   INPUT: The coefficient matrix
@@ -5007,7 +4948,6 @@ END FUNCTION SearchNodeL
 ! TYPE(Solver_t) :: Solver
 !   INPUT: Holds various solver options
 ! 
-!******************************************************************************
 !------------------------------------------------------------------------------
     REAL(KIND=dp) CONTIG :: b(:), x(:)
     REAL(KIND=dp) :: Norm
@@ -5050,7 +4990,6 @@ END FUNCTION SearchNodeL
 
     n = A % NumberOfRows
 
-
 !------------------------------------------------------------------------------
 ! The allocation of previous values has to be here in order to 
 ! work properly with the Dirichlet elimination.
@@ -5080,14 +5019,11 @@ END FUNCTION SearchNodeL
       Solver % Variable % NonlinValues = x(1:n)
     END IF
 
-
-
     IF ( Solver % LinBeforeProc /= 0 ) THEN
        istat = ExecLinSolveProcs( Solver % LinBeforeProc,CurrentModel,Solver, &
                        A, b, x, n, DOFs, Norm )
        IF ( istat /= 0 ) GOTO 10
     END IF
-
 !------------------------------------------------------------------------------
 !   If parallel execution, check for parallel matrix initializations
 !------------------------------------------------------------------------------
@@ -5104,7 +5040,6 @@ END FUNCTION SearchNodeL
 
     IF ( ConstrainedSolve ) THEN
 
-      ! 
       ! if there are several constraint matrices unify:
       ! -----------------------------------------------
       Btmp => NULL()
@@ -5212,15 +5147,11 @@ END FUNCTION SearchNodeL
 END SUBROUTINE SolveSystem
 !------------------------------------------------------------------------------
 
+!> Solve a linear eigen system.
 !------------------------------------------------------------------------------
 SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
         EigenValues, EigenVectors,Solver )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Solve a linear eigen system
-!
-!******************************************************************************
     USE EigenSolve
 !------------------------------------------------------------------------------
     COMPLEX(KIND=dp) :: EigenValues(:),EigenVectors(:,:)
@@ -5253,6 +5184,9 @@ END SUBROUTINE SolveEigenSystem
 !------------------------------------------------------------------------------
 
 
+!> A parser of the variable name that returns the true variablename
+!> where the inline options have been interpreted.
+!------------------------------------------------------------------------------
 SUBROUTINE VariableNameParser(var_name, NoOutput, Global, Dofs )
 
   CHARACTER(LEN=MAX_NAME_LEN) :: var_name
@@ -5293,12 +5227,11 @@ END SUBROUTINE VariableNameParser
 
 
 
-SUBROUTINE UpdateExportedVariables( Solver )
-  
-  !------------------------------------------------------------------------------
-  ! Add values for exported variables which are typically auxiliary variables derived
-  ! from the solution.
-  !------------------------------------------------------------------------------
+!> Updates values for exported variables which are typically auxiliary variables derived
+!> from the solution.
+!------------------------------------------------------------------------------
+  SUBROUTINE UpdateExportedVariables( Solver )  
+!------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
   
   INTEGER :: i,j,k,l,n,m,t,bf_id,dofs,nsize
@@ -5313,10 +5246,7 @@ SUBROUTINE UpdateExportedVariables( Solver )
 
   SAVE AllocationsDone
 
-
   AllocationsDone = .FALSE.
-
-
 
   l = 0
   DO WHILE( .TRUE. )
@@ -5441,6 +5371,7 @@ SUBROUTINE UpdateExportedVariables( Solver )
 END SUBROUTINE UpdateExportedVariables
 
 
+!> Eliminates bubble degrees of freedom from a local linear system.
 !------------------------------------------------------------------------------
 SUBROUTINE NSCondensate( N, Nb, dim, K, F, F1 )
 !------------------------------------------------------------------------------
@@ -5513,14 +5444,11 @@ SUBROUTINE Condensate( N, K, F, F1 )
 END SUBROUTINE Condensate
 !------------------------------------------------------------------------------
 
+!>     Subroutine for condensation of p element bubbles from linear problem.
+!>     Modifies given stiffness matrix and force vector(s) 
 !------------------------------------------------------------------------------
 SUBROUTINE CondensateP( N, Nb, K, F, F1 )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Subroutine for condensation of p element bubbles from linear problem.
-!     Modifies given stiffness matrix and force vector(s) 
 !
 !  ARGUMENTS:
 !    INTEGER :: N
@@ -5538,7 +5466,6 @@ SUBROUTINE CondensateP( N, Nb, K, F, F1 )
 !    REAL(Kind=dp), OPTIONAL :: F1(:)
 !      INOUT: Local second force vector 
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
 
     USE LinearAlgebra
@@ -5700,17 +5627,15 @@ SUBROUTINE SolveHarmonicSystem( G, Solver )
 
 
 !------------------------------------------------------------------------------
+!>  This subroutine will solve the system with some linear restriction.
+!>  The restriction matrix is assumed to be in the ConstraintMatrix-field of 
+!>  the StiffMatrix. The restriction vector is the RHS-field of the
+!>  ConstraintMatrix.
+!>  NOTE: Only serial solver implemented so far ...
+!------------------------------------------------------------------------------
 SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
         Norm, DOFs, Solver )
 !------------------------------------------------------------------------------  
-!******************************************************************************
-!  This subroutine will solve the system with some linear restriction.
-!  The restriction matrix is assumed to be in the ConstraintMatrix-field of 
-!  the StiffMatrix. The restriction vector is the RHS-field of the
-!  ConstraintMatrix.
-!  NOTE: Only serial solver implemented so far ...
-!
-!  ARGUMENTS:
 !
 !  TYPE(Matrix_t), POINTER :: StiffMatrix
 !     INPUT: Linear equation matrix information. 
@@ -5731,7 +5656,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 !  TYPE(Solver_t), TARGET :: Solver
 !     INPUT: Linear equation solver options.
 !
-!******************************************************************************
+!------------------------------------------------------------------------------  
 
   IMPLICIT NONE
   TYPE(Matrix_t), POINTER :: StiffMatrix
@@ -6100,7 +6025,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
       
 
 !------------------------------------------------------------------------------
-! Assemble Laplace matrix related to a solver and permutation vector. 
+!> Assemble Laplace matrix related to a solver and permutation vector. 
 !------------------------------------------------------------------------------
   SUBROUTINE LaplaceMatrixAssembly( Solver, Perm, A )
     
@@ -6191,7 +6116,7 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
 
  
 !------------------------------------------------------------------------------
-! Assemble mass matrix related to a solver and permutation vector. 
+!> Assemble mass matrix related to a solver and permutation vector. 
 !------------------------------------------------------------------------------
   SUBROUTINE MassMatrixAssembly( Solver, Perm, A )
     

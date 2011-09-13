@@ -23,12 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Solve Maxwell equations in vector potential formulation (or the A-V
-! *  formulation) and (relatively)low frequency approximation using lowest
-! *  order Withney 1-forms (edge elements).
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -40,6 +34,10 @@
 ! *
 ! *****************************************************************************/
     
+!>  Solve Maxwell equations in vector potential formulation (or the A-V
+!>  formulation) and (relatively)low frequency approximation using lowest
+!>  order Withney 1-forms (edge elements).
+!-------------------------------------------------------------------------------
 MODULE MagnetoDynamicsUtils
 
    USE DefUtils
@@ -459,32 +457,15 @@ END SUBROUTINE WhitneyAVSolver_Init0
 
 
 !------------------------------------------------------------------------------
+!>  Solve vector potential A
+! 
+!> sigma @A/@t + rot (1/mu) rot A = J^s + curl(M^s) - sigma grad(V^s)
+!>   -div(sigma*(@A/@t+grad(V))=0 .
+!
+!>  using edge elements (Nedelec/Whitney basis of lowest degree)+nodal basis for V.
+!------------------------------------------------------------------------------
 SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve vector potential A
-! 
-!   sigma @A/@t + rot (1/mu) rot A = J^s + curl(M^s) - sigma grad(V^s)
-!   -div(sigma*(@A/@t+grad(V))=0
-!
-!  using edge elements (Nedelec/Whitney basis of lowest degree)+nodal basis for V
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: Transient
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE MagnetoDynamicsUtils
 
   IMPLICIT NONE
@@ -2009,32 +1990,15 @@ END SUBROUTINE WhitneyAVHarmonicSolver_Init0
 
 
 !------------------------------------------------------------------------------
+!>  Solve vector potential A, scale potential V
+! 
+!>  j omega sigma A+rot (1/mu) rot A+sigma grad(V) = J^s+rot M^s-sigma grad(V^s)
+!>  -div(sigma (j omega A+grad(V)))=0
+!
+!>  using edge elements (Nedelec/W basis of lowest degree) + nodal basis for V.
+!------------------------------------------------------------------------------
 SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve vector potential A, scale potential V
-! 
-!  j omega sigma A+rot (1/mu) rot A+sigma grad(V) = J^s+rot M^s-sigma grad(V^s)
-!  -div(sigma (j omega A+grad(V)))=0
-!
-!  using edge elements (Nedelec/W basis of lowest degree) + nodal basis for V
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: Transient
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE MagnetoDynamicsUtils
 
   IMPLICIT NONE
