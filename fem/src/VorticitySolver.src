@@ -106,7 +106,8 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
       CurrentCoordinateSystem() == CylindricSymmetric
   
   VarName = GetString(SolverParams,'Vorticity Variable',GotIt )
-  IF(.NOT. gotIt) VarName = TRIM('Velocity')
+  IF(.NOT. GotIt) VarName = GetString(SolverParams,'Target Variable',GotIt )
+  IF(.NOT. GotIt) VarName = TRIM('Velocity')
 
   ! For future use
   CondName = ListGetString(SolverParams,'Vorticity Coefficient',GotCoeff )
