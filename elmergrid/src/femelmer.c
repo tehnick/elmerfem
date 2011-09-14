@@ -531,6 +531,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     sscanf(line,"%d",&dummyint);
     if(dummyint > maxelemtype) maxelemtype = dummyint;
   }
+  printf("Maximum elementtype index is: %d\n",maxelemtype);
   fclose(in);
 
   data->dim = GetElementDimension(maxelemtype);
