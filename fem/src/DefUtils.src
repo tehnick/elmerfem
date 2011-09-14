@@ -2015,17 +2015,19 @@ CONTAINS
 
 !> Solver the matrix equation related to the active solver
 !------------------------------------------------------------------------------
-  FUNCTION DefaultSolve( USolver ) RESULT(Norm)
+  FUNCTION DefaultSolve( USolver, BackRotNT ) RESULT(Norm)
 !------------------------------------------------------------------------------
-    TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+    TYPE(Solver_t), OPTIONAL, TARGET, INTENT(in) :: USolver
     REAL(KIND=dp) :: Norm
+    LOGICAL, OPTIONAL, INTENT(in) :: BackRotNT
 
     TYPE(Matrix_t), POINTER   :: A
     TYPE(Variable_t), POINTER :: x
     REAL(KIND=dp), POINTER CONTIG    :: b(:), SOL(:)
 
-    LOGICAL :: Found
+    LOGICAL :: Found, BackRot
 
+    TYPE(ValueList_t), POINTER :: Params
     TYPE(Solver_t), POINTER :: Solver
     CHARACTER(LEN=MAX_NAME_LEN) :: linsolver, precond, dumpfile
 
@@ -2039,20 +2041,35 @@ CONTAINS
     x => Solver % Variable
     SOL => x % Values
 
-    dumpfile=GetString( GetSolverParams(), 'Dump system matrix', Found)
+    Params => GetSolverParams(Solver)
+
+    dumpfile=GetString( Params, 'Dump system matrix', Found)
     IF ( Found ) THEN
       OPEN(1,FILE=dumpfile, STATUS='Unknown')
       CALL CRS_PrintMatrix(A)
       CLOSE(1)
     END IF
-    dumpfile=GetString( GetSolverParams(), 'Dump system RHS', Found)
+    dumpfile=GetString( Params, 'Dump system RHS', Found)
     IF ( Found ) THEN
       OPEN(1,FILE=dumpfile, STATUS='Unknown')
       CALL CRS_PrintRHS(A)
       CLOSE(1)
     END IF
 
-    CALL SolveSystem( A, ParMatrix, b, x % Values, x % Norm, x % DOFs, Solver )
+    IF (PRESENT(BackRotNT)) THEN
+      BackRot=GetLogical(Params,'Back Rotate N-T Solution',Found)
+      IF(.NOT.Found) BackRot=.TRUE.
+
+      IF (BackRot.NEQV.BackRotNT) &
+        CALL ListAddLogical(Params,'Back Rotate N-T Solution',BackRotNT)
+    END IF
+
+    CALL SolveSystem(A,ParMatrix,b,x % Values,x % Norm,x % DOFs,Solver)
+
+    IF (PRESENT(BackRotNT)) THEN
+      IF (BackRot.NEQV.BackRotNT) &
+        CALL ListAddLogical(Params,'Back Rotate N-T Solution',BackRot)
+    END IF
 
     Norm = x % Norm
 

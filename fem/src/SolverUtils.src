@@ -3684,9 +3684,9 @@ END FUNCTION SearchNodeL
      INTEGER :: i,j,k, dim
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
 !------------------------------------------------------------------------------
-     IF ( NormalTangentialNOFNodes <= 0 ) RETURN
-
      dim = CoordinateSystemDimension()
+
+     IF ( NormalTangentialNOFNodes<=0.OR.ndofs<dim ) RETURN
 
      DO i=1,SIZE(BoundaryReorder)
        k = BoundaryReorder(i)
