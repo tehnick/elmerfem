@@ -312,8 +312,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   EquationName = ListGetString( Params, 'Equation' )
   Norm = Solver % Variable % Norm
   
-  at  = CPUTime()
-  at0 = RealTime()
   CALL InitializeToZero( StiffMatrix, ForceVector )
 !------------------------------------------------------------------------------
   CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
@@ -321,6 +319,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
 
   DO iter = 1, NonlinearIter
+
+     at  = CPUTime()
+     at0 = RealTime()
 
      IF ( NonlinearIter > 1 ) THEN
         WRITE( Message, '(a,I4)' ) 'Electrostatic iteration', iter
