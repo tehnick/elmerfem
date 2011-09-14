@@ -23,17 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  This is the wave equation solver for the convective transport equation. 
-! *  As initial data one has to specify the field subject to the convection
-! *  operator. This field should be declared using the sif-file flag Advection 
-! *  Variable.  The rate of change of the field subject to the convection
-! *  operator which is needed as initial condition at the beginning of time step
-! *  is solved using RateOfChangeSolver and should be available to the solver
-! *  (the name of this variable should be declared using the flag Rate Of Change
-! *  Equation Variable).
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Mika Malinen, Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -46,24 +35,18 @@
 ! *****************************************************************************/
  
 !------------------------------------------------------------------------------
+!>  This is the wave equation solver for the convective transport equation. 
+!>  As initial data one has to specify the field subject to the convection
+!>  operator. This field should be declared using the sif-file flag Advection 
+!>  Variable.  The rate of change of the field subject to the convection
+!>  operator which is needed as initial condition at the beginning of time step
+!>  is solved using RateOfChangeSolver and should be available to the solver
+!>  (the name of this variable should be declared using the flag Rate Of Change
+!>  Equation Variable).
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
    SUBROUTINE TransportEquationSolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
-
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
      USE DefUtils
      USE Types
      USE Lists
@@ -680,13 +663,12 @@
 
 
 !------------------------------------------------------------------------------
+!>  For time dependent simulations add the time derivative coefficient terms
+!>  to the matrix containing other coefficients.
+!------------------------------------------------------------------------------
      SUBROUTINE Add2ndOrderTime2( MassMatrix, DampMatrix, StiffMatrix,  &
          Force, dt, n, DOFs, NodeIndexes, Solver )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-!  For time dependent simulations add the time derivative coefficient terms
-!  to the matrix containing other coefficients.
 !
 ! REAL(KIND=dp) :: MassMatrix(:,:)
 !   INPUT:
@@ -712,7 +694,6 @@
 ! TYPE(Solver_t) :: Solver
 !   INPUT: solver parameter list (used to get some options for time integration)
 ! 
-!******************************************************************************
 !------------------------------------------------------------------------------
        TYPE(Solver_t) :: Solver
 

@@ -35,7 +35,10 @@
 ! ****************************************************************************/
    
 !------------------------------------------------------------------------------
-!> Solve the equation resulting from drawing of viscous fibers or sheets
+!> Solve the equation resulting from 1D drawing process. 
+!> May be applied to 2D and axisymetric cases. Possible uses include drawing of 
+!> viscous fibers or sheets.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -160,6 +163,7 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
        UpwindPoints = 0
 
        ! use simple decision rules to decide in which direction the free surface goes
+       !-----------------------------------------------------------------------------
        GotIt = .FALSE.
        DO t=1,Model%NumberOfNodes
          IF(FreeSurfacePoints(t) <= 0) CYCLE
@@ -272,7 +276,8 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
        tfirst = UpwindPoints(Surface)
 
        ! Go through all the free surface points
-       DO t=tfirst,Model%NumberOfNodes+tfirst-1
+       !------------------------------------------
+	   DO t=tfirst,Model%NumberOfNodes+tfirst-1
          
          iend = t
          IF(iend > Model%NumberOfNodes) iend = iend - Model%NumberOfNodes
@@ -316,7 +321,7 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
          END IF
 
          k = Var % PERM(istart)
-         IF(k==0) CALL Warn('FreeSurfaceReduced','no flow solution for given point')
+         IF(k == 0) CALL Warn('FreeSurfaceReduced','no flow solution for given point')
 
          v2x = Var % Values(Var % DOFs * (k-1)+ABS(DrawDirection))
          v2y = Var % Values(Var % DOFs * (k-1)+3-ABS(DrawDirection))
@@ -324,7 +329,8 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
          y2 = coords2(istart)
          fsum = 0.0d0
 
-         ! Integrate from the fixed boundary until the desired flus is exceeded
+         ! Integrate from the fixed boundary until the desired flux is exceeded
+         !----------------------------------------------------------------------
          i = istart
          DO 
            v1x = v2x
@@ -342,6 +348,7 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
            
          
            ! Correct the speed in case the elements are not aligned so that dy is zero
+           !---------------------------------------------------------------------------
            IF(ABS(x2-x1) < 1.0d-10) CALL Warn('FreeSurfaceReduced','Integration path has dx=0')
            
            ! Correct speeds by taking in account the angle of integration
@@ -352,6 +359,7 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
            b = (v2-v1)/(x2-x1)
            
            ! These fluxes are based on analytical integration over linear elements
+           !----------------------------------------------------------------------
            IF(axisymmetric) THEN
              df = a*(x2**2-x1**2)/2.0d0 + b*(x2**3-x1**3)/3.0d0
            ELSE
@@ -370,8 +378,9 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
          END DO
 
          ! For the first node set the desired flux, 
-         ! For other nodes move the whole chain to the corrected positions
-         IF(DonePoints == 0) THEN
+         ! For other nodes move the whole chain to the corrected positions.
+         !-----------------------------------------------------------------
+		 IF(DonePoints == 0) THEN
            fsum0 = fsum
            
            xnew = x2 
@@ -452,7 +461,6 @@ SUBROUTINE FreeSurfaceReduced( Model,Solver,dt,TransientSimulation )
      CALL ListAddConstReal( Model % Simulation, 'res: Free thickness max',thickmax)
      
      SubroutineVisited = SubroutineVisited + 1
-
 
 END SUBROUTINE FreeSurfaceReduced
 

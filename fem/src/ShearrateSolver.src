@@ -23,7 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for the shearrate of a velocity field
 ! *
 ! ******************************************************************************
 ! *
@@ -39,6 +38,9 @@
 ! *****************************************************************************/
 
 
+!------------------------------------------------------------------------------
+!> Initilization for the primary solver: ShearrateSolver
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
   SUBROUTINE ShearrateSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -60,7 +62,6 @@
 
     VarName = GetString(SolverParams,'Target Variable',GotIt )
     IF(.NOT. gotIt) VarName = TRIM('Velocity')
-
 
     IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       FieldName = 'Shearrate '//TRIM(VarName)
@@ -93,34 +94,17 @@
 
 
 !------------------------------------------------------------------------------
+!> Subroutine for computing the shearrate of a given velocity field
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE ShearrateSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
-
   USE CoordinateSystems
   USE DefUtils
   USE Materialmodels
 
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for one timestep
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient
@@ -139,9 +123,7 @@ SUBROUTINE ShearrateSolver( Model,Solver,dt,Transient )
   TYPE(Variable_t), POINTER :: ShearrateSol, ViscSol
   LOGICAL :: AllocationsDone = .FALSE. 
 
-
   SAVE ViscVector, AllocationsDone 
-
  
   CALL Info( 'ShearrateSolver', '-------------------------------------',Level=4 )
   CALL Info( 'ShearrateSolver','Computing the shearrate field',Level=4 )

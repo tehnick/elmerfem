@@ -38,6 +38,9 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Initialization for the primary solver: ShellSolver
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
   SUBROUTINE ShellSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
@@ -61,28 +64,11 @@
 
  
 !------------------------------------------------------------------------------
+!>  Solve the Reissner-Mindlin facet shell equations!
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
    SUBROUTINE ShellSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the Reissner-Mindlin facet shell equations!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
-
      USE DefUtils
      IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -304,7 +290,7 @@
        WRITE( Message,'(A,I4)') 'Newton iteration',nonliniter
        CALL Info('ShellSolver',Message)
        CALL Info('ShellSolver','********************************************************')
-
+	   
        IF ( StabilityAnalysis ) THEN
          SELECT CASE( NonLinIter )
          CASE( 1 )

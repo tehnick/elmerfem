@@ -45,6 +45,7 @@
 !>  Solve the advection equation for the Levelset-function using stabilization
 !>  or bubbless. For the accuracy it is advisable to use 2nd order time-stepping
 !>  and courant number smaller than one. 
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetSolver( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -510,6 +511,7 @@ CONTAINS
 !>  Renormalizes the levelset function using straight-forward geometric search
 !>  Also includes an option to do the covection at the same time as an alternavtive
 !>  for using a separate solver for the advection.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetDistance( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -728,6 +730,8 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Extract the zero levelset as defined by the levelset function.
+!------------------------------------------------------------------------------
   SUBROUTINE ExtractZeroLevel()
 !------------------------------------------------------------------------------
 
@@ -945,9 +949,9 @@ CONTAINS
  
 
 !------------------------------------------------------------------------------
-   SUBROUTINE TriangleIsoLineWeights( NX,NY,NZ,S,w0,w1,Found )
+!> This subroutine extracts the zero line of one triangular element. 
 !------------------------------------------------------------------------------
-! This subroutine extracts the zero line of one triangular element 
+   SUBROUTINE TriangleIsoLineWeights( NX,NY,NZ,S,w0,w1,Found )
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       REAL(KIND=dp) :: NX(:),NY(:),NZ(:),S(:),w0(3),w1(3)
@@ -1009,9 +1013,9 @@ CONTAINS
 
  
 !------------------------------------------------------------------------------
-   FUNCTION ComputeDistance(xp,yp,zp) RESULT(dist)
+!> Computes the distance from the given zero levelset given by ZeroNodes. 
 !------------------------------------------------------------------------------
-! Computes the distance from the given zero levelset given by ZeroNodes. 
+   FUNCTION ComputeDistance(xp,yp,zp) RESULT(dist)
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: xp,yp,zp,dist
 !------------------------------------------------------------------------------
@@ -1048,9 +1052,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   FUNCTION ComputeDistanceWithDirection(xp,yp,zp,prevdist) RESULT(mindist)
+!> Computes the signed distance from the given zero levelset given by ZeroNodes. 
 !------------------------------------------------------------------------------
-! Computes the distance from the given zero levelset given by ZeroNodes. 
+   FUNCTION ComputeDistanceWithDirection(xp,yp,zp,prevdist) RESULT(mindist)
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: xp,yp,zp,prevdist,mindist
 !------------------------------------------------------------------------------
@@ -1234,6 +1238,7 @@ CONTAINS
 !>  levelset function. This is better done within a dedicated solver since 
 !>  it is crucial for the accuracy that the Heaviside and Delta function are
 !>  computed at Gaussian integration points.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetIntegrate( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -1514,6 +1519,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !>  Computes the curvature from the level set function. Additional diffusion may 
 !>  be added in order to limit the singular curvature peaks.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
    SUBROUTINE LevelSetCurvature( Model,Solver,Timestep,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -1963,6 +1969,7 @@ END SUBROUTINE LevelSetCurvature
 
 !------------------------------------------------------------------------------
 !> Determines a timestep based on the maximum local Courant number. 
+!> \ingroup UDF
 !------------------------------------------------------------------------------
 FUNCTION LevelSetTimestep( Model ) RESULT( dt )
   USE Types

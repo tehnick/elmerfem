@@ -21,16 +21,6 @@
 ! *
 ! *****************************************************************************/
 !
-!******************************************************************************
-!
-! A consistent splitting scheme for the incompressible Navier-Stokes equations:
-! The computation of the velocity update.
-!
-! It is assumed by default that this solver is used for preconditioning purposes,
-! i.e. this module is used to generate search directions for minimal residual
-! methods. In this connection the convection term is expressed in the standard
-! form.
-!
 ! ******************************************************************************
 ! *
 ! *  Authors: Juha Ruokolainen, Mika  Malinen
@@ -45,26 +35,18 @@
 ! *****************************************************************************/
 
 
-
-
+!------------------------------------------------------------------------------
+!> A consistent splitting scheme for the incompressible Navier-Stokes equations:
+!> The computation of the velocity update.
+!
+!> It is assumed by default that this solver is used for preconditioning purposes,
+!> i.e. this module is used to generate search directions for minimal residual
+!> methods. In this connection the convection term is expressed in the standard
+!> form.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE VelocitySolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -900,8 +882,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
-
 !------------------------------------------------------------------------------
     FUNCTION Pnorm( n, x ) RESULT(s)
 !------------------------------------------------------------------------------
@@ -912,7 +892,6 @@ CONTAINS
 !------------------------------------------------------------------------------
     END FUNCTION Pnorm
 !------------------------------------------------------------------------------
-
 
 
 !------------------------------------------------------------------------------

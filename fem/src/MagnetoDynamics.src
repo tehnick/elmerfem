@@ -34,9 +34,11 @@
 ! *
 ! *****************************************************************************/
     
+!------------------------------------------------------------------------------
 !>  Solve Maxwell equations in vector potential formulation (or the A-V
 !>  formulation) and (relatively)low frequency approximation using lowest
 !>  order Withney 1-forms (edge elements).
+!> \ingroup Solvers
 !-------------------------------------------------------------------------------
 MODULE MagnetoDynamicsUtils
 
@@ -413,11 +415,10 @@ CONTAINS
   END SUBROUTINE GetPermittivity
 !------------------------------------------------------------------------------
 
-
-
 END MODULE MagnetoDynamicsUtils
 
 
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE WhitneyAVSolver_Init0(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------
@@ -463,6 +464,7 @@ END SUBROUTINE WhitneyAVSolver_Init0
 !>   -div(sigma*(@A/@t+grad(V))=0 .
 !
 !>  using edge elements (Nedelec/Whitney basis of lowest degree)+nodal basis for V.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE WhitneyAVSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -1697,6 +1699,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> The current density given as a source must be divergence free to allow a 
+!> hope for a solution. This solver may be used to enforce a given current 
+!> density to be divergence free by solving for an equivalent potential
+!> so that the vector field is a gradient of the potential.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE JfixPotentialSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
@@ -1962,7 +1970,7 @@ CONTAINS
 END SUBROUTINE JfixPotentialSolver
 !------------------------------------------------------------------------------
 
-
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE WhitneyAVHarmonicSolver_Init0(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------
@@ -1996,6 +2004,7 @@ END SUBROUTINE WhitneyAVHarmonicSolver_Init0
 !>  -div(sigma (j omega A+grad(V)))=0
 !
 !>  using edge elements (Nedelec/W basis of lowest degree) + nodal basis for V.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE WhitneyAVHarmonicSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -3139,6 +3148,7 @@ CONTAINS
  END SUBROUTINE WhitneyAVHarmonicSolver
 !------------------------------------------------------------------------------
 
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE MagnetoDynamicsCalcFields_Init0(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------
@@ -3297,6 +3307,8 @@ END SUBROUTINE MagnetoDynamics_Dummy
 
 
 !------------------------------------------------------------------------------
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE MagnetoDynamicsCalcFields_Init(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------
   USE MagnetoDynamicsUtils
@@ -3400,6 +3412,10 @@ END SUBROUTINE MagnetoDynamicsCalcFields_Init
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Calculate fields resulting from the edge element formulation of the magnetic 
+!> field equations. 
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
  SUBROUTINE MagnetoDynamicsCalcFields(Model,Solver,dt,Transient)
 !------------------------------------------------------------------------------

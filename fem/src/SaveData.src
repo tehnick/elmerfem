@@ -41,6 +41,7 @@
 !------------------------------------------------------------------------------
 !>  This subroutine saves scalar values in ascii format to an external file.
 !> This is a dynamically loaded solver with a standard interface.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -2493,9 +2494,11 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> This subroutine tests whether the line segment goes through the current
+!> face of the element. 
+!------------------------------------------------------------------------------
   SUBROUTINE LineIntersectionCoords(Plane,Line,Inside,x0,y0,z0,frac)
-! This subroutine tests whether the line segment goes through the current
-! face of the element. 
 
     TYPE(Nodes_t) :: Plane, Line
     LOGICAL :: Inside
@@ -2542,7 +2545,7 @@ END SUBROUTINE SaveScalars
 !>  This subroutine saves 1D or 2D data in different formats.
 !> Data on existing boundaries and polylines defined by set of coordinates 
 !> may be saved.
-!> This is a dynamically loaded solver with a standard interface.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
@@ -3191,13 +3194,13 @@ CONTAINS
   
 
 
+!---------------------------------------------------------------------------
+!> This subroutine tests whether the line segment goes through the current
+!> face of the element. If true the weights and index to the closest node 
+!> are returned. 
+!---------------------------------------------------------------------------
   SUBROUTINE GlobalToLocalCoords(Element,Plane,n,Line,Eps, &
       Inside,Weights,maxind)
-!---------------------------------------------------------------------------
-! This subroutine tests whether the line segment goes through the current
-! face of the element. If true the weights and index to the closest node 
-! are returned. 
-!---------------------------------------------------------------------------
 
     TYPE(Nodes_t) :: Plane, Line
     TYPE(Element_t), POINTER   :: Element
@@ -3390,6 +3393,15 @@ CONTAINS
   END SUBROUTINE GlobalToLocalCoords
   
 
+!-----------------------------------------------------------------------
+!>   Compuation of normal flux.
+!> Note that this is calculated on the nodal points only
+!>   using a single boundary element. The direction of the normal
+!>   may be somewhat different on the nodal point when calculated using 
+!>   a neighboring boundary element.
+!>   Thus normal flow calculation is useful only when the boundary 
+!>   is relatively smooth. Also quadratic elements are recommended.
+!-----------------------------------------------------------------------
    
   SUBROUTINE BoundaryFlux( Model, Node, VarName, CoeffName, f1, f2, fn, weight, MaxN) 
     USE Types
@@ -3414,15 +3426,6 @@ CONTAINS
     REAL(KIND=DP), POINTER :: Pwrk(:,:,:)
     REAL(KIND=DP) :: CoeffTensor(3,3,Model % MaxElementNodes), Flow(3)
 
-!-----------------------------------------------------------------------
-!   Note that normal flux is calculated on the nodal points only
-!   using a single boundary element. The direction of the normal
-!   may be different on the nodal point when calculated using 
-!   a neighboring boundary element.
-!   Thus normal flow calculation is useful only when the boundary 
-!   is relatively smooth. Also quadratic elements are recommended.
-!   ( added by Antti )
-!-----------------------------------------------------------------------
 
     Tvar => VariableGet( Model % Variables, TRIM(VarName) )
 
@@ -3555,8 +3558,6 @@ CONTAINS
 
   END SUBROUTINE BoundaryFlux
 
-
-
 !------------------------------------------------------------------------------
 END SUBROUTINE SaveLine
 !------------------------------------------------------------------------------
@@ -3565,6 +3566,7 @@ END SUBROUTINE SaveLine
 
 !------------------------------------------------------------------------------
 !> Routine for saving material parameters as fields.
+!> \ingroup Solvers
 ! Written by Thomas Zwinger 
 !------------------------------------------------------------------------------
 SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
@@ -3749,6 +3751,7 @@ END SUBROUTINE SaveMaterials
 
 !------------------------------------------------------------------------------
 !> Routine for saving boundary values as fields.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   USE DefUtils

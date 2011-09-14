@@ -34,7 +34,9 @@
 ! *
 ! *****************************************************************************/
 
+!------------------------------------------------------------------------------
 !> A solver for the incompressible Navier-Stokes equations in rotation form.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -1747,9 +1749,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE BiCGStab( n, A, x, b, Rounds, TOL )
+!>     This is an internal ILU preconditioned BiCGStab method.
 !------------------------------------------------------------------------------
-!     This is the ILU preconditioned BiCGStab method
+    SUBROUTINE BiCGStab( n, A, x, b, Rounds, TOL )
 !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A,M
       INTEGER :: n,Rounds
@@ -1886,11 +1888,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!> Sets internally Dirichlet boundary condition for given dof.
+!------------------------------------------------------------------------------
    SUBROUTINE SetBoundaryConditions( Model, StiffMatrix, &
                    Name, DOF, NDOFs, Perm, rhs )
 !------------------------------------------------------------------------------
-!
-! Set dirichlet boundary condition for given dof
 !
 ! TYPE(Model_t) :: Model
 !   INPUT: the current model structure
@@ -1908,7 +1910,6 @@ CONTAINS
 ! INTEGER :: Perm(:)
 !   INPUT: The node reordering info, this has been generated at the
 !          beginning of the simulation for bandwidth optimization
-!******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     TYPE(Matrix_t), POINTER :: StiffMatrix
@@ -1974,8 +1975,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE SetBoundaryConditions
 !------------------------------------------------------------------------------
-
-
 
 
 !------------------------------------------------------------------------------

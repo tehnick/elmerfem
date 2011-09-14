@@ -21,13 +21,6 @@
 ! *
 ! *****************************************************************************/
 !
-!/******************************************************************************
-! * This module may be used to convert field computed in cartesian 3D coordinates on a 2D 
-! * axisymmetric or cartesian mesh. There are currently a serial and a parallel version of 
-! * this subroutine which are both located in this module. The reason for the fork is that 
-! * the parallel version uses techniques that are not optimal in the serial problem. Therefore 
-! * the user should herself choose the correct version. Optimally these two approaches should 
-! * of course be fused.
 ! ******************************************************************************************/
 ! *
 ! *  Authors: Juha Ruokolainen & Peter Raback
@@ -42,6 +35,15 @@
 ! *****************************************************************************/
 
 
+!-------------------------------------------------------------------------------------------- 
+!> This subroutine may be used to convert field computed in cartesian 3D coordinates on a 2D 
+!> axisymmetric or cartesian mesh. There are currently a serial and a parallel version of 
+!> this subroutine - this is the serial one. The reason for the fork is that 
+!> the parallel version uses techniques that are not optimal in the serial problem. Therefore 
+!> the user should herself choose the correct version. Optimally these two approaches should 
+!> of course be fused.
+!> \ingroup Solvers
+!-------------------------------------------------------------------------------------------- 
 SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -808,25 +810,14 @@ SUBROUTINE ParallelProjectToPlane_init( Model,Solver,dt,TransientSimulation )
 END SUBROUTINE ParallelProjectToPlane_init
 
 
+!-------------------------------------------------------------------------------------------- 
+!> This subroutine may be used to convert field computed in cartesian 3D coordinates on a 2D 
+!> axisymmetric or cartesian mesh. There are currently a serial and a parallel version of 
+!> this subroutine - this is the parallel one. 
+!> \ingroup Solvers
+!-------------------------------------------------------------------------------------------- 
 SUBROUTINE ParallelProjectToPlane( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE DefUtils
   USE GeneralUtils
   USE ElementDescription

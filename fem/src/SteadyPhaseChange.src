@@ -1,18 +1,26 @@
-!/******************************************************************************
+!/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
-! *  Module for computing the position of the growth interface in Czochralski 
-! *  growth of silicon crystals.
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
 ! *
-! ******************************************************************************
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
 ! *
-! *  Lagrangian & steady-state phase change solver for the liquid/solid interface.
-! *  
-! *  This phase change solver is based on the finding of a isotherm and mapping the 
-! *  interface to the new isotherm. Also the previous temperature gradient may be 
-! *  used to estimate the distance from the interface.
-! *
+! *****************************************************************************/
+! 
 ! ******************************************************************************
 ! *
 ! *  Authors: Peter Råback
@@ -31,8 +39,13 @@
 
 
 !------------------------------------------------------------------------------
+!>  Lagrangian steady-state phase change solver for the liquid/solid interface.
+!>  This phase change solver is based on the finding of a isotherm and mapping the 
+!>  interface to the new isotherm. Also the previous temperature gradient may be 
+!>  used to estimate the distance from the interface.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: SteadyPhaseChange
 !------------------------------------------------------------------------------
   USE DefUtils
   IMPLICIT NONE
@@ -680,7 +693,10 @@ SUBROUTINE SteadyPhaseChange( Model,Solver,dt,TransientSimulation )
 CONTAINS 
 
 
-  
+
+!-------------------------------------------------------------------------------------------  
+!> Subroutine creates isotherm where the tempereature coinsides with the melting temperature
+!-------------------------------------------------------------------------------------------  
   SUBROUTINE CreateIsotherm()
 
     IsoSurfAllocated = .FALSE.
@@ -808,7 +824,9 @@ CONTAINS
 
 
 
-
+!-------------------------------------------------------------------------------------------  
+!> Internal mesh update strategy suitable for some simple geometries.
+!-------------------------------------------------------------------------------------------  
   SUBROUTINE BoxMoveMesh()
     
     REAL(KIND=dp) :: x0, y0, ytop, ybot, coeff, &
@@ -929,10 +947,12 @@ END SUBROUTINE BoxMoveMesh
 
 
 !-------------------------------------------------------------------------------
-  FUNCTION MeltingHeat(Model, Node, t) RESULT(Flux)
+!> This subroutine computes the heat flux resulting from solidification.
+!> It may be computed when the velocity of the solification front is known a priori
+!> as is the case for various steady state pulling techniques. 
+!> \ingroup UDF 
 !-------------------------------------------------------------------------------
-! This subroutine computes the heat flux resulting from solidification 
-! This 
+  FUNCTION MeltingHeat(Model, Node, t) RESULT(Flux)
 !-------------------------------------------------------------------------------
   USE Types
   USE Lists

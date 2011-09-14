@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing a solver for the Spalart-Allmaras-turbulence model.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -39,34 +35,19 @@
 ! ****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Solver for the Spalart-Allmaras-turbulence model.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
    SUBROUTINE SpalartAllmaras( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
      USE DefUtils
 
      IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the Spalart-Allmaras model equation !
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!******************************************************************************
      TYPE(Model_t)  :: Model
      TYPE(Solver_t) :: Solver
-
      REAL(KIND=dp) :: dt
      LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
@@ -239,12 +220,6 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, LOAD, Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for diffusion-convection
-!  equation: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MASS(:,:)
 !     OUTPUT: time derivative coefficient matrix

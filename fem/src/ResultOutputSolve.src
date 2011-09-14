@@ -22,11 +22,11 @@
 ! *****************************************************************************/
 
 
-
 !------------------------------------------------------------------------------
 !>  Exports data to other suitable postprocessing software.
 !>  Currently supported formats are ElmerPost, GiD, VTK legacy, VTK XML, and Open DX.
 !> This is a dynamically loaded solver with a standard interface.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -231,6 +231,7 @@ END SUBROUTINE ResultOutputSolver
 
 !------------------------------------------------------------------------------
 !> A fork of the ElmerPost output utility which also includes use of masks.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE ElmerPostOutputSolver( Model, Solver,dt,TransientSimulation,ONOEfound )
 !------------------------------------------------------------------------------
@@ -861,6 +862,7 @@ END SUBROUTINE ResultOutputSolver
 
 !------------------------------------------------------------------------------
 !> Saves results in a format understood by the pre-/postprocessing software GiD.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -1346,6 +1348,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
 !------------------------------------------------------------------------------
 !> Saves results in ascii format understood by the pre-/postprocessing software Gmsh.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -2239,6 +2242,10 @@ END MODULE VtkLegacyFile
 
 
 !------------------------------------------------------------------------------
+!> Subroutine for legacy VTK output. 
+!> Note that this has been replaced by the more concurrent XML VTK cased formats.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE VtkOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   
@@ -2336,10 +2343,6 @@ SUBROUTINE VtkOutputSolver( Model,Solver,dt,TransientSimulation )
     END SUBROUTINE VtkOutputSolver
 
 
-!------------------------------------------------------------------------------
-!> Subroutine for saving the result in an ascii format understood by the 
-!> visualization software DX.
-!------------------------------------------------------------------------------
     MODULE DXFile
 
       USE MeshUtils
@@ -2900,6 +2903,8 @@ SUBROUTINE VtkOutputSolver( Model,Solver,dt,TransientSimulation )
       
       
 !------------------------------------------------------------------------------
+!> Module for the DX result writer.
+!------------------------------------------------------------------------------
       SUBROUTINE DXOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
@@ -2997,6 +3002,7 @@ END SUBROUTINE DXOutputSolver
 !> Subroutine for saving the results in XML based VTK format (VTU). Both ascii and binary
 !> output is available, in single or double precision. The format is understood by 
 !> visualization softwares Paraview and ViSit, for example.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------

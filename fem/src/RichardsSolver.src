@@ -39,6 +39,11 @@
 ! ****************************************************************************
 
 
+!--------------------------------------------------------------------
+!> This module contains porosity models that are computed at the 
+!> integration point given the value of matric suction, psy.
+!> More materials models could be added.
+!--------------------------------------------------------------------
 MODULE PorousMaterials
 
   USE Types
@@ -51,11 +56,6 @@ MODULE PorousMaterials
 
 CONTAINS
 
-!--------------------------------------------------------------------
-! This library contains porosity parameters that are computed at the 
-! integration point given the value of matric suction, psy.
-! More materials models could be added.
-!--------------------------------------------------------------------
 
   FUNCTION HydraulicConductivity(Element,Material,Basis,elempsy) RESULT ( kw )
     TYPE(Element_t), POINTER :: Element
@@ -196,9 +196,11 @@ END MODULE PorousMaterials
 
 
 
-
 !------------------------------------------------------------------------------
-  RECURSIVE SUBROUTINE RichardsSolver_Init( Model,Solver,dt,Transient )
+!> Initialization for the primary solver: RichardsSolver
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
+  SUBROUTINE RichardsSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
     USE DefUtils
@@ -232,14 +234,14 @@ END MODULE PorousMaterials
     
   END SUBROUTINE RichardsSolver_Init
 
+
 !------------------------------------------------------------------------------
-  RECURSIVE SUBROUTINE RichardsSolver( Model,Solver,dt,Transient )
+!> Solves the Richards equation for porous flow.
+!> A variably saturated formulation is used. 
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-! Solves the Richards equation for porous flow.
-!
-!******************************************************************************
+  SUBROUTINE RichardsSolver( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
     USE DefUtils
     USE PorousMaterials
     USE Types
@@ -510,10 +512,9 @@ END MODULE PorousMaterials
 
 
 !------------------------------------------------------------------------------------
-! The water content derivative is computed using the real differential. This way the 
-! differential of water content with time will be consistant.
+!> The water content derivative is computed using the real differential. This way the 
+!> differential of water content with time will be consistant.
 !------------------------------------------------------------------------------------
-
     FUNCTION WaterContentDerivative( Element, Material, Basis, elemMatric, elemPrevMatric ) RESULT ( dtetadmatric )
       
       TYPE(Element_t), POINTER :: Element
@@ -693,6 +694,9 @@ END MODULE PorousMaterials
 
 
 !------------------------------------------------------------------------------
+!> Initialization for the primary solver: RichardsPostprocess
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
   SUBROUTINE RichardsPostprocess_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
@@ -740,6 +744,11 @@ END MODULE PorousMaterials
 
 
 !------------------------------------------------------------------------------
+!>  Solve the flux resulting from the solution of the Richards equation using
+!>  the Galerkin method. The solver is somewhat complicated because the components
+!>  of the flux (f_x,f_y,f_z) are computed one-by-one.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
 
@@ -747,17 +756,8 @@ SUBROUTINE RichardsPostprocess( Model,Solver,dt,Transient )
   USE DefUtils
   USE PorousMaterials
 
-
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the flux resulting from the solution of the Richards equation using
-!  the Galerkin method. The solver is somewhat complicated because the components
-!  of the flux (f_x,f_y,f_z) are computed one-by-one.
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient

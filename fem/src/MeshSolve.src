@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing a solver for mesh update
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -44,6 +40,7 @@
 !> for example. In transient cases the solver also computes the mesh velocity. 
 !> This is a dynamically loaded solver with a standard interface.
 !> May be also loaded internally to mimic the old static implementation. 
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
  SUBROUTINE MeshSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -324,9 +321,13 @@
       IF ( ComputeMeshVelocity ) THEN
          k = MIN( SIZE(Solver % Variable % PrevValues,2), Solver % DoneTime )
 
-	 j = ListGetInteger( Solver % Values,'Compute Mesh Velocity Order', Found)
-	 IF( Found ) k = MIN( k, j )        
-
+	     j = ListGetInteger( Solver % Values,'Compute Mesh Velocity Order', Found)
+	     IF( Found ) THEN
+	       k = MIN( k, j )        
+         ELSE
+	       k = 1
+	     END IF
+	   
          SELECT CASE(k)
          CASE(0)
             MeshVelocity = 0._dp

@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for computing the potential corresponding to a given flux.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback, Juha Ruokolainen
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +34,9 @@
 ! *
 ! *****************************************************************************/
 
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver: ScalarPotentialSolver
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
   SUBROUTINE ScalarPotentialSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -81,8 +80,9 @@
 !------------------------------------------------------------------------------
 
 
-
-
+!------------------------------------------------------------------------------
+!> Subroutine for computing the potential corresponding to a given flux.
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE ScalarPotentialSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -92,24 +92,6 @@ SUBROUTINE ScalarPotentialSolver( Model,Solver,dt,Transient )
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve stress equations for one timestep
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
-!            currently)
-!
-!******************************************************************************
-
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  Transient

@@ -1,9 +1,7 @@
-!
+!/*****************************************************************************/
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
-! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
-! * 
 ! *  This program is free software; you can redistribute it and/or
 ! *  modify it under the terms of the GNU General Public License
 ! *  as published by the Free Software Foundation; either version 2
@@ -20,9 +18,10 @@
 ! *  Boston, MA 02110-1301, USA.
 ! *
 ! *****************************************************************************/
-!
-!
 
+
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver: SmitcSolver
 !------------------------------------------------------------------------------
   SUBROUTINE SmitcSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -47,27 +46,12 @@
 
  
 !------------------------------------------------------------------------------
+!>  Solve the Reissner-Mindlin equations i.e. displacement equations for
+!> elastic plates. 
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
  SUBROUTINE SmitcSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the Reissner-Mindlin equations!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
      USE DefUtils
 
      IMPLICIT NONE
@@ -463,12 +447,13 @@
      END SUBROUTINE IsotropicElasticity
 
 
-!==============================================================================
-! The elastic model for perforated plates is taken directly from
-! M. Pedersen, W. Olthuis, P. BergWald:
-! 'On the mechanical behavior of thin perforated plates and their application
-!  in silicon condenser microphones', Sensors and Actuators A 54 (1996) 499-504.
+!------------------------------------------------------------------------------
+!> The elastic model for perforated plates is taken directly from
+!> M. Pedersen, W. Olthuis, P. BergWald:
+!> 'On the mechanical behavior of thin perforated plates and their application
+!>  in silicon condenser microphones', Sensors and Actuators A 54 (1996) 499-504.
 ! The model in verified in the special assignment of Jani Paavilainen 
+!------------------------------------------------------------------------------
 
      SUBROUTINE PerforatedElasticity(Ematrix, &
          Gmatrix,Poisson,Young,Thickness,HoleFraction, &

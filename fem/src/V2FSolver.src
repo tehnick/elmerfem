@@ -39,34 +39,20 @@
 ! ****************************************************************************/
 
 !------------------------------------------------------------------------------
+!> Solve the V^2-F turbulence model equations. Is this some other variant of it?
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
    SUBROUTINE V2F_LDM( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
      USE DefUtils
 
      IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the K-Epsilon model equations !
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!******************************************************************************
      TYPE(Model_t)  :: Model
      TYPE(Solver_t) :: Solver
-
      REAL(KIND=dp) :: dt
      LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
@@ -340,12 +326,6 @@ CONTAINS
    SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, &
             LOAD,UX,UY,UZ,Element,n,nd,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for diffusion-convection
-!  equation: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MASS(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -377,7 +357,7 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
      USE MaterialModels
      IMPLICIT NONE
 
@@ -596,34 +576,19 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>  Solve the V^2-F turbulence model equations.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
    SUBROUTINE V2F( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
      USE DefUtils
-
      IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the K-Epsilon model equations !
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!******************************************************************************
      TYPE(Model_t)  :: Model
      TYPE(Solver_t) :: Solver
 
      REAL(KIND=dp) :: dt
      LOGICAL :: TransientSimulation
-!------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
@@ -904,12 +869,6 @@ CONTAINS
    SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, &
             LOAD,UX,UY,UZ,Element,n,nd,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for diffusion-convection
-!  equation: 
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MASS(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -941,7 +900,7 @@ CONTAINS
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
      USE MaterialModels
 
      IMPLICIT NONE

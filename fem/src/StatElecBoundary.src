@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for 1d electrostatic BCs
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -37,15 +33,13 @@
 ! *  Original Date: 2.1.2011
 ! *
 ! *****************************************************************************/
-!
-! ******************************************************************************
-! * Computes electrostatic force, energy, charge and spring density on the boundary
-! * assuming a 1-dimensional electrostatic model. The model may be complicated 
-! * by holes or thin dielectric layer. 
-! ******************************************************************************
+
 !----------------------------------------------------------------------------------
-
-
+!> Module for 1D electrostatics boundary conditions. 
+!> Computes electrostatic force, energy, charge and spring density on the boundary
+!> assuming a 1-dimensional electrostatic model. The model may be complicated 
+!> by holes or thin dielectric layer. 
+!----------------------------------------------------------------------------------
 
 MODULE StatElecBoundaryUtils
 
@@ -186,10 +180,9 @@ CONTAINS
   CONTAINS
 
     !------------------------------------------------------------------------------
-    ! Computes the hole correction for the 1D electrostatic equation 
-    ! from experimentally fitted numerical results.
+    !> Computes the hole correction for the 1D electrostatic equation 
+    !> from experimentally fitted numerical results.
     !------------------------------------------------------------------------------
-
     SUBROUTINE ElectrostaticHoleCorrection(holemodel, r, b, p, d, alpha, beta, gamma)
       ! r=radius, b=hole length, d=aperture, p=hole fraction
       CHARACTER(LEN=*) :: holemodel
@@ -241,7 +234,8 @@ END MODULE StatElecBoundaryUtils
 
 
 !------------------------------------------------------------------------------
-! Compute the electrostatic energy density on boundary using 1D model
+!> Computes the electrostatic energy density on boundary using 1D model.
+!> \ingroup UDF
 !------------------------------------------------------------------------------
 FUNCTION StatElecBoundaryEnergy( Model, NodeNumber, Gap ) RESULT( value )
   USE Types
@@ -257,7 +251,8 @@ END FUNCTION StatElecBoundaryEnergy
 
 
 !------------------------------------------------------------------------------
-! Compute the electrostatic force density on boundary using 1D model
+!> Computes the electrostatic force density on boundary using 1D model.
+!> \ingroup UDF
 !------------------------------------------------------------------------------
 FUNCTION StatElecBoundaryForce( Model, NodeNumber, Gap ) RESULT( value )
   USE Types
@@ -272,7 +267,8 @@ END FUNCTION StatElecBoundaryForce
 
 
 !------------------------------------------------------------------------------
-! Compute the electrostatic charge density on boundary using 1D model
+!> Computes the electrostatic charge density on boundary using 1D model.
+!> \ingroup UDF
 !------------------------------------------------------------------------------
 FUNCTION StatElecBoundaryCharge( Model, NodeNumber, Gap ) RESULT( value )
   USE Types
@@ -287,7 +283,8 @@ END FUNCTION StatElecBoundaryCharge
 
 
 !------------------------------------------------------------------------------
-! Compute the electrostatic spring density on boundary using 1D model
+!> Computes the electrostatic spring density on boundary using 1D model.
+!> \ingroup UDF
 !------------------------------------------------------------------------------
 FUNCTION StatElecBoundarySpring( Model, NodeNumber, Gap ) RESULT( value )
   USE Types

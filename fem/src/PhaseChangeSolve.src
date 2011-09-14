@@ -21,10 +21,6 @@
 ! *
 ! *****************************************************************************/
 !
-!/******************************************************************************
-! *
-! *  Lagrangian phase change solver for the interface
-! *
 ! ******************************************************************************
 ! *
 ! *  Authors: Juha Ruokolainen
@@ -41,6 +37,9 @@
 ! *****************************************************************************/
 
 
+!------------------------------------------------------------------------------
+!> Initialization for the primary solver: PhaseChangeSolve
+!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE PhaseChangeSolve_Init( Model,Solver,dt,TransientSimulation)
 !------------------------------------------------------------------------------
@@ -70,28 +69,16 @@ END SUBROUTINE PhaseChangeSolve_Init
 
 
 !------------------------------------------------------------------------------
+!>  Solve the free surface in the phase change problem using Lagrangian techniques. 
+!> \obsolite This had been replaced by separate versions for transient and steady state phase change.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the free surface in the phase change problem. 
-!
-!  ARGUMENTS:
-
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh,materials,BCs,etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations 
-!
-!******************************************************************************
   TYPE(Model_t)  :: Model
   TYPE(Solver_t), TARGET :: Solver
   LOGICAL ::  TransientSimulation

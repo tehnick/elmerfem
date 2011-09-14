@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for mapping the mesh using analytical commands of scaling, 
-! *  rotation, translation and smoothing.
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Peter Råback
 ! *  Email:   Peter.Raback@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -42,9 +37,14 @@
 
 
 !------------------------------------------------------------------------------
+!>  Subroutine for mapping the mesh using analytical commands of scaling, 
+!> rotation, translation and smoothing. Additionally may include a grading field in [0,1]
+!> that may be solved from a Laplace equation. Provides often the most economical way
+!> of distorting the mesh.
+!> \ingroup Solvers
+!------------------------------------------------------------------------------
 SUBROUTINE RigidMeshMapper( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
-
   USE CoordinateSystems
   USE ElementUtils
   USE ElementDescription
