@@ -1973,18 +1973,7 @@ CONTAINS
         END IF
 
          DO l=1,dim
-           ind = dim * (k-1) + l
-           IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
-             CALL SBand_SetDirichlet( StiffMatrix,ForceVector,ind,dCoords(l) )             
-           ELSE IF ( StiffMatrix % FORMAT == MATRIX_CRS .AND. &
-              StiffMatrix % Symmetric ) THEN 
-             CALL CRS_SetSymmDirichlet(StiffMatrix,ForceVector,ind,dCoords(l) )
-           ELSE
-             s = StiffMatrix % Values(StiffMatrix % Diag(ind))
-             ForceVector(ind) = dCoords(l) * s
-             CALL ZeroRow( StiffMatrix,ind )
-             CALL SetMatrixElement( StiffMatrix,ind,ind,1.0d0*s )
-           END IF
+           CALL SetDirichletPoint( StiffMatrix, ForceVector, l, dim, Perm, NodeIndexes(j), dCoords(l) )
          END DO
        END DO
      END DO

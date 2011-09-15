@@ -90,8 +90,8 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
   REAL(KIND=dp), POINTER :: LocalEigenVectors(:,:), ElimDiriEigenVectors(:,:)
   REAL(KIND=dp), POINTER :: CenterOfRigidBody(:,:), NodeOutput(:), NodeTypes(:)
   REAL(KIND=dp), POINTER :: FVector(:), XVector(:)
-  REAL(KIND=dp), POINTER :: f(:), u(:), u2(:), Work(:)
-  REAL(KIND=dp) :: CPUtime, TotTime, at, s
+  REAL(KIND=dp), POINTER :: f(:), u(:), u2(:)
+  REAL(KIND=dp) :: CPUtime, TotTime, at, s, val
   LOGICAL, ALLOCATABLE :: Visited(:)
   LOGICAL :: GotIt, Rigid, EigAnal, Verbose
   INTEGER, ALLOCATABLE :: RealNodeTypes(:), RigidIndex(:), FixedIndex(:)
@@ -239,7 +239,6 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
 !------------------------------------------------------------------------------
 
      ALLOCATE( Visited( Model % NumberOfBCs ) )
-     ALLOCATE( Work( Solver % Mesh % MaxElementNodes ) )
      ALLOCATE( FixedIndex( NbrRigids ) )
 
      Visited = .FALSE.
@@ -263,14 +262,14 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
            IF ( CurrentElement % BoundaryInfo % Constraint == &
                 Model % BCs(i) % Tag ) THEN
 
-              Work(1:m) = ListGetReal( Model % BCs(i) % Values, &
-                   ComponentName(Solver % Variable,1),m,NodeIndexes, gotIt )
-              IF ( .NOT. GotIt )   Work(1:m) = &
-                   ListGetReal( Model % BCs(i) % Values, &
-                   ComponentName(Solver % Variable,1),m,NodeIndexes, gotIt )
-              IF ( .NOT. GotIt )   Work(1:m) = &
-                   ListGetReal( Model % BCs(i) % Values, &
-                   ComponentName(Solver % Variable,3),m,NodeIndexes, gotIt )
+              GotIt = ListCheckPresent( Model % BCs(i) % Values, &
+                   ComponentName(Solver % Variable,1))
+              IF( .NOT. GotIt ) &
+                 GotIt = ListCheckPresent( Model % BCs(i) % Values, &
+                   ComponentName(Solver % Variable,2) )
+              IF ( .NOT. GotIt )  &
+                 GotIt = ListCheckPresent( Model % BCs(i) % Values, &
+                   ComponentName(Solver % Variable,3) )
               IF ( .NOT. GotIt )  CYCLE
 
 
@@ -283,9 +282,7 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
                  RBody = CurrentElement % BoundaryInfo % Right % BodyID
 
 
-              IF ( ANY( RigidIndex == LBody ) .OR. ANY( RigidIndex == RBody )) &
-                   THEN
-                 
+              IF ( ANY( RigidIndex == LBody ) .OR. ANY( RigidIndex == RBody )) THEN
                  NbrRigids = NbrRigids - 1
                  NbrFixed = NbrFixed + 1
                  DO j = 1, NbrRigids + 1
@@ -333,7 +330,7 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
 
               m = CurrentElement % TYPE % NumberOfNodes
               NodeIndexes => CurrentElement % NodeIndexes(1:m)
-              Work = 0.0d0
+              val = 0.0_dp
            
               DO j = 1, m
 
@@ -343,21 +340,8 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
                  k = Perm(NodeIndexes(j))
 
                  IF ( k > 0 ) THEN
-                    k = DOFs * (k-1)
                     DO i = 1, DOFs
-
-                       IF ( A % FORMAT == MATRIX_SBAND ) THEN
-                          CALL SBand_SetDirichlet( A, b, k+i, Work(1) )
-                       ELSE IF ( A % FORMAT == MATRIX_CRS .AND. &
-                            A % Symmetric ) THEN
-                          CALL CRS_SetSymmDirichlet( A, b, k+i, Work(1))
-                       ELSE
-                          s = A % Values( A % Diag(k+i) )
-                          b(k+i) = Work(1) * s
-                          CALL ZeroRow( A, k+i )
-                          CALL SetMatrixElement( A, k+i, k+i, 1.0d0 * s )
-                       END IF
-
+                      CALL SetDirichletPoint( A, b, i, DOFs, Perm, NodeIndexes(j), val )
                     END DO
                  END IF
 
@@ -368,7 +352,6 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
      END IF
 
 
-     DEALLOCATE( Work )
      DEALLOCATE( FixedIndex )
 
 
