@@ -1440,7 +1440,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     INTEGER, POINTER :: NodeIndexes(:)
     INTEGER :: i,j,k,n,t,k1,k2, Body
     LOGICAL :: GotIt
-    REAL(KIND=dp) :: Work(Model % MaxElementNodes),s
+    REAL(KIND=dp) :: val,s
 
 !------------------------------------------------------------------------------
     
@@ -1466,33 +1466,13 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
           
           IF ( gotIt ) THEN           
             IF(Body == Permutation) THEN
-              Work = 1.0d0
+              val = 1.0_dp
             ELSE 
-              Work(1:n) = 0.0d0
+              val = 0.0d0
             END IF
 
             DO j=1,n
-              k = Perm(NodeIndexes(j))
-              IF ( k > 0 ) THEN
-
-                IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
-                  
-                  CALL SBand_SetDirichlet( StiffMatrix,ForceVector,k,Work(j) )
-                  
-                ELSE IF ( StiffMatrix % FORMAT == MATRIX_CRS .AND. &
-                    StiffMatrix % Symmetric ) THEN
-                  
-                  CALL CRS_SetSymmDirichlet(StiffMatrix,ForceVector,k,Work(j))
-                  
-                ELSE
-                  
-                  s = StiffMatrix % Values(StiffMatrix % Diag(k))
-                  ForceVector(k) = Work(j) * s
-                  CALL ZeroRow( StiffMatrix,k )
-                  CALL SetMatrixElement( StiffMatrix,k,k,1.0d0*s )
-                  
-                END IF
-              END IF
+	      CALL SetDirichletPoint( StiffMatrix, ForceVector, 1, 1, Perm, NodeIndexes(j), val )
             END DO
 
           END IF
