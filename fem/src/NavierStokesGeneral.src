@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module computing Navier-stokes local matrices (general coordinates)
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -37,6 +33,14 @@
 ! *  Original Date: 01 Oct 1996
 ! *
 ! *****************************************************************************/
+
+!> \ingroup Solvers
+!> \{
+
+!------------------------------------------------------------------------------
+!>  Module computing Navier-stokes local matrices in general coordinate system 
+!> (i.e. not cartesian, axisymmetric or cylindrically symmetric.
+!------------------------------------------------------------------------------
 
 MODULE NavierStokesGeneral
 
@@ -50,16 +54,13 @@ MODULE NavierStokesGeneral
   CONTAINS
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RSH vector for Navier-Stokes-Equations
+!>  in general Euclidian coordinate system.
+!------------------------------------------------------------------------------
    SUBROUTINE NavierStokesGeneralCompose  (                               &
             MassMatrix,StiffMatrix,ForceVector,LoadVector,NodalViscosity, &
         NodalDensity,Ux,Uy,Uz,MUx,MUy,MUz,Stabilize,NewtonLinearization,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for Navier-Stokes-Equations
-!  (general Euclidian coordinate system)
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MassMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -99,7 +100,7 @@ MODULE NavierStokesGeneral
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
 
      REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix,LoadVector
      REAL(KIND=dp), DIMENSION(:)   :: ForceVector,Ux,Uy,Uz,MUx,MUy,MUz
@@ -637,16 +638,13 @@ MODULE NavierStokesGeneral
 
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RSH vector for Navier-Stokes-equations
+!>  boundary conditions. (No velocity dependent velocity BC:s ("Newton BCs")
+!>  at the moment, so BoundaryMatrix will contain only zeros at exit...)
+!------------------------------------------------------------------------------
  SUBROUTINE NavierStokesGeneralBoundary( BoundaryMatrix,BoundaryVector, &
    LoadVector,NodalAlpha,NodalBeta,NodalExtPressure,NodalSlipCoeff,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for Navier-Stokes-equations
-!  boundary conditions. (No velocity dependent velocity BC:s ("Newton BCs")
-!  at the moment, so BoundaryMatrix will contain only zeros at exit...)
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -674,7 +672,6 @@ MODULE NavierStokesGeneral
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
 
    IMPLICIT NONE
@@ -812,3 +809,5 @@ MODULE NavierStokesGeneral
 
 
 END MODULE NavierStokesGeneral
+
+!> \}

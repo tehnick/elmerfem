@@ -34,8 +34,11 @@
 ! *
 ! ****************************************************************************/
 
+!> \ingroup ElmerLib 
+!> \{
+
 !------------------------------------------------------------------------------
-!>  Module containing interpolation and quadrant tree routines
+!>  Module containing interpolation and quadrant tree routines.
 !------------------------------------------------------------------------------
 
 MODULE Interpolation
@@ -344,22 +347,9 @@ MODULE Interpolation
 !------------------------------------------------------------------------------
     SUBROUTINE BuildQuadrantTree(Mesh, BoundingBox, RootQuadrant)
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
-!
-!  TYPE(Mesh_t), POINTER :: Mesh
-!     INPUT: 
-!
-!  INTEGER, DIMENSION(6) :: BoundingBox
-!     INPUT:  XMin, YMin, ZMin, XMax, YMax, ZMax
-!
-!  TYPE(Quadrant_t), POINTER :: RootQuadrant
-!     OUTPUT: Quadrant tree structure root
-!      
-!------------------------------------------------------------------------------
-    TYPE(Mesh_t) :: Mesh
-    REAL(KIND=dp), DIMENSION(6) :: BoundingBox
-    TYPE(Quadrant_t), POINTER :: RootQuadrant
+    TYPE(Mesh_t) :: Mesh                        !< Finite elememt mesh
+    REAL(KIND=dp), DIMENSION(6) :: BoundingBox  !< XMin, YMin, ZMin, XMax, YMax, ZMax
+    TYPE(Quadrant_t), POINTER :: RootQuadrant   !< Quadrant tree structure root
 !------------------------------------------------------------------------------
     INTEGER :: dim, Generation, i
     REAL(KIND=dp) :: XMin, XMax, YMin, YMax, ZMin, ZMax
@@ -615,3 +605,5 @@ MODULE Interpolation
 !-------------------------------------------------------------------------------
 END MODULE Interpolation
 !-------------------------------------------------------------------------------
+
+!> \} ElmerLib

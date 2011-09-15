@@ -23,14 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module defining mappings for p elements. These include nodal points 
-! *  contained by faces and edges, element boundary maps (edges for 2d elements,
-! *  faces for 3d) and mappings from faces to edge numbers. Mappings defined in 
-! *  this module are compatible with basis functions defined in module 
-! *  PElementBase 
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Mikko Byckling, Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -41,6 +33,17 @@
 ! *  Original Date: 23 Aug 2004
 ! *
 ! *****************************************************************************/
+
+!> \ingroup ElmerLib
+!> \{
+
+!-------------------------------------------------------------------------------
+!>  Module defining mappings for p elements. These include nodal points 
+!>  contained by faces and edges, element boundary maps (edges for 2d elements,
+!>  faces for 3d) and mappings from faces to edge numbers. Mappings defined in 
+!>  this module are compatible with basis functions defined in module 
+!>  PElementBase.
+!-------------------------------------------------------------------------------
 
 MODULE PElementMaps
   USE Types
@@ -256,12 +259,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>     Mapping from element local edge or face number to nodes contained in 
+!>     that edge or face. 
+!------------------------------------------------------------------------------
     FUNCTION getElementBoundaryMap(Element, i) RESULT(map)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Mapping from element local edge or face number to nodes contained in 
-!     that edge or face. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -274,7 +276,6 @@ CONTAINS
 !    INTEGER :: map(4)
 !       Map containing local node numbers of given local edge or face
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -312,13 +313,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>     Mapping from element local face to local edges contained in face. Given
+!>     element and local face number this routine returns numbers of local edges
+!>     on face. 
+!------------------------------------------------------------------------------
     FUNCTION getFaceEdgeMap( Element, i) RESULT(map)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Mapping from element local face to local edges contained in face. Given
-!     element and local face number this routine returns numbers of local edges
-!     on face. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -331,7 +331,6 @@ CONTAINS
 !    INTEGER :: map(4)
 !       Map containing local numbers of edges on face
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -375,13 +374,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>     Get mappings for given element to element edges and their nodes. Given 
+!>     element, this routine returns a map containing nodes (endpoints) of
+!>     elements edges. 
+!------------------------------------------------------------------------------
     SUBROUTINE GetElementEdgeMap( Element, map )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Get mappings for given element to element edges and their nodes. Given 
-!     element, this routine returns a map containing nodes (endpoints) of
-!     elements edges. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -390,7 +388,6 @@ CONTAINS
 !    INTEGER :: map(:,:)
 !       OUTPUT: Map containing local node numbers of local edges
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       Type(Element_t) :: Element
@@ -432,13 +429,12 @@ CONTAINS
    
 
 !------------------------------------------------------------------------------
+!>     Get mappings for given element to element faces and their nodes. Given 
+!>     element, this routine returns a map containing nodes (endpoints) of
+!>     elements face. 
+!------------------------------------------------------------------------------
     SUBROUTINE GetElementFaceMap( Element, faceMap )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Get mappings for given element to element faces and their nodes. Given 
-!     element, this routine returns a map containing nodes (endpoints) of
-!     elements face. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -447,7 +443,6 @@ CONTAINS
 !    INTEGER :: map(:,:)
 !       OUTPUT: Map containing local node numbers of local faces
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -486,13 +481,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------    
+!>     Get mappings for given element to elements faces and their edge. Given 
+!>     element, this routine returns a map containing local edge numbers of
+!>     elements faces. 
+!------------------------------------------------------------------------------    
     SUBROUTINE GetElementFaceEdgeMap( Element, faceEdgeMap )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Get mappings for given element to elements faces and their edge. Given 
-!     element, this routine returns a map containing local edge numbers of
-!     elements faces. 
+!------------------------------------------------------------------------------    
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -501,7 +495,6 @@ CONTAINS
 !    INTEGER :: map(:,:)
 !       OUTPUT: Map containing local edge numbers of local faces
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -539,9 +532,10 @@ CONTAINS
     END SUBROUTINE GetElementFaceEdgeMap
 
 
-    SUBROUTINE InitializeMappings() 
 !------------------------------------------------------------------------------
-!   This subroutine initializes element mappings
+!>   This subroutine initializes element mappings.
+!------------------------------------------------------------------------------
+    SUBROUTINE InitializeMappings() 
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -701,12 +695,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>     Based on element face polynomial degree p, return degrees of freedom for
+!>     given face. 
+!------------------------------------------------------------------------------
   FUNCTION getFaceDOFs( Element, p, faceNumber ) RESULT(faceDOFs)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Based on element face polynomial degree p, return degrees of freedom for
-!     given face 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t), POINTER :: Element
@@ -723,7 +716,6 @@ CONTAINS
 !    REAL(KIND=dp) :: faceDOFs
 !       number of face dofs for Element
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     
@@ -772,12 +764,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>     Based on element bubble polynomial degree p, return degrees of freedom for
+!>     given elements bubbles. 
+!------------------------------------------------------------------------------
   FUNCTION getBubbleDOFs( Element, p) RESULT(bubbleDOFs)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Based on element bubble polynomial degree p, return degrees of freedom for
-!     given elements bubbles 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t), POINTER :: Element
@@ -790,7 +781,6 @@ CONTAINS
 !    REAL(KIND=dp) :: bubbleDOFs
 !       number of bubble dofs for Element
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     
@@ -838,14 +828,11 @@ CONTAINS
 
 
 
-    ! FUNCTION isPElement checks if given element is a p element
-    
+!------------------------------------------------------------------------------
+!> Checks if given element is a p element.   
 !------------------------------------------------------------------------------
     FUNCTION isPElement( Element ) RESULT(retVal)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function checks if given element is p element triangle
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -855,7 +842,6 @@ CONTAINS
 !    LOGICAL :: retVal
 !       .TRUE. if given element is a p triangle, .FALSE. otherwise
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -868,11 +854,10 @@ CONTAINS
     
 
 !------------------------------------------------------------------------------
+!>    Function checks if given element is p element triangle
+!------------------------------------------------------------------------------
     FUNCTION isPTriangle( Element ) RESULT(retVal)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function checks if given element is p element triangle
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -881,8 +866,7 @@ CONTAINS
 !  FUNCTION VALUE:
 !    LOGICAL :: retVal
 !       .TRUE. if given element is a p triangle, .FALSE. otherwise
-!    
-!******************************************************************************
+!
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -897,11 +881,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Function checks if given element is p element quad
+!------------------------------------------------------------------------------
     FUNCTION isPQuad( Element ) RESULT(retVal)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function checks if given element is p element quad
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -911,7 +894,6 @@ CONTAINS
 !    LOGICAL :: retVal
 !       .TRUE. if given element is a p quad, .FALSE. otherwise
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -926,11 +908,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Function checks if given element is p element tetra
+!------------------------------------------------------------------------------
     FUNCTION isPTetra( Element ) RESULT(retVal)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function checks if given element is p element tetra
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -940,7 +921,6 @@ CONTAINS
 !    LOGICAL :: retVal
 !       .TRUE. if given element is a p tetra, .FALSE. otherwise
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -954,11 +934,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Function checks if given element is p element wedge
+!------------------------------------------------------------------------------
     FUNCTION isPWedge( Element ) RESULT(retVal)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function checks if given element is p element wedge
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -968,7 +947,6 @@ CONTAINS
 !    LOGICAL :: retVal
 !       .TRUE. if given element is a p wedge, .FALSE. otherwise
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -982,11 +960,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+!>    Function checks if given element is p element pyramid
+!------------------------------------------------------------------------------
     FUNCTION isPPyramid( Element ) RESULT(retVal)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function checks if given element is p element pyramid
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -996,7 +973,6 @@ CONTAINS
 !    LOGICAL :: retVal
 !       .TRUE. if given element is a p pyramid, .FALSE. otherwise
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -1009,11 +985,10 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!>    Function checks if given element is p element brick
+!------------------------------------------------------------------------------
     FUNCTION isPBrick( Element ) RESULT(retVal)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function checks if given element is p element brick
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    Type(Element_t) :: Element
@@ -1023,7 +998,6 @@ CONTAINS
 !    LOGICAL :: retVal
 !       .TRUE. if given element is a p brick, .FALSE. otherwise
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -1034,8 +1008,6 @@ CONTAINS
 !------------------------------------------------------------------------------
     END FUNCTION isPBrick
 !------------------------------------------------------------------------------
-
-
 
 !------------------------------------------------------------------------------
     FUNCTION getNumberOfGaussPoints( Element, Mesh ) RESULT(ngp)
@@ -1200,12 +1172,11 @@ CONTAINS
  
   
 !------------------------------------------------------------------------------
+!>     Subroutine for getting reference p element nodes (because these are NOT
+!>     yet defined in element description files)
+!------------------------------------------------------------------------------
   SUBROUTINE GetRefPElementNodes( Element, U,V,W )
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Subroutine for getting reference p element nodes (because these are NOT
-!     yet defined in element description files)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !
@@ -1215,7 +1186,6 @@ CONTAINS
 !    Type(Element_t) :: Element
 !      INPUT: Element to get nodes for
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     
@@ -1274,3 +1244,5 @@ CONTAINS
 
 
 END MODULE
+
+!> \}

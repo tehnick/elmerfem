@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module computing Navier-Stokes local matrices (cartesian coordinates)
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -37,6 +33,13 @@
 ! *  Original Date: 01 Oct 1996
 ! *
 ! *****************************************************************************/
+
+!> \ingroup Solvers
+!> \{
+
+!------------------------------------------------------------------------------
+!>  Module computing Navier-Stokes local matrices (cartesian coordinates)
+!------------------------------------------------------------------------------
 
 MODULE NavierStokes
 
@@ -49,6 +52,9 @@ MODULE NavierStokes
   CONTAINS
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RHS vector for Navier-Stokes-Equations
+!> in cartesian coordinates.
+!------------------------------------------------------------------------------
    SUBROUTINE NavierStokesCompose  (                                            &
        MassMatrix, StiffMatrix, ForceVector, LoadVector, Nodalmu,        &
        Nodalrho, Ux, Uy, Uz, MUx, MUy, MUz, NodalPressure, NodalTemperature,&
@@ -59,11 +65,6 @@ MODULE NavierStokes
        DivDiscretization,  gradPDiscretization, NewtonLinearization,            &
        Element, n, Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for Navier-Stokes-Equations
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MassMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -124,7 +125,6 @@ MODULE NavierStokes
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp),TARGET :: MassMatrix(:,:),StiffMatrix(:,:),ForceVector(:)
@@ -1009,16 +1009,13 @@ MODULE NavierStokes
 
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RHS vector for Navier-Stokes-equations
+!>  boundary conditions in cartesian coordinates.
+!------------------------------------------------------------------------------
  SUBROUTINE NavierStokesBoundary( BoundaryMatrix,BoundaryVector,LoadVector,   &
     NodalAlpha, NodalBeta, NodalExtPressure, NodalSlipCoeff, NormalTangential, Element, n, Nodes )
              
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for Navier-Stokes-equations
-!  boundary conditions.
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -1047,7 +1044,6 @@ MODULE NavierStokes
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
    USE ElementUtils
 
@@ -1439,15 +1435,11 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
+!> Return the local matrices and RHS contrbution for the wall law.
+!------------------------------------------------------------------------------
  SUBROUTINE NavierStokesWallLaw( BoundaryMatrix,BoundaryVector,LayerThickness,&
     SurfaceRoughness,Nodalmu,Nodalrho,Ux,Uy,Uz,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for Navier-Stokes-equations
-!  boundary conditions.
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -1480,7 +1472,6 @@ MODULE NavierStokes
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
 
    IMPLICIT NONE
@@ -1648,3 +1639,4 @@ MODULE NavierStokes
 
 END MODULE NavierStokes
 
+!> \}

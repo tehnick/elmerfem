@@ -23,10 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module computing Navier-stokes local matrices (cylindrical coordinates)
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +34,12 @@
 ! *
 ! *****************************************************************************/
 
+!> \ingroup Solvers
+!> \{
+
+!------------------------------------------------------------------------------
+!>  Module computing Navier-stokes local matrices in cylindrical coordinates.
+!------------------------------------------------------------------------------
 MODULE NavierStokesCylindrical
 
   USE DefUtils
@@ -49,6 +51,9 @@ MODULE NavierStokesCylindrical
   CONTAINS
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RSH vector for Navier-Stokes-Equations
+!>  in axisymmetric, cylindric symmetric or cylindrical coordinates.
+!------------------------------------------------------------------------------
    SUBROUTINE NavierStokesCylindricalCompose  (                             &
        MassMatrix,StiffMatrix,ForceVector,LoadVector,NodalViscosity,   &
        NodalDensity,Ux,Uy,Uz,MUx,MUy,MUz,NodalPressure,NodalTemperature, &
@@ -57,12 +62,6 @@ MODULE NavierStokesCylindrical
        PotentialCoefficient, MagneticForce, divDiscretization, gradPDiscretization, &
        NewtonLinearization,Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for Navier-Stokes-Equations
-!  (in axisymmetric, cylindric symmetric or cylindrical coordinates)
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: MassMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -117,7 +116,7 @@ MODULE NavierStokesCylindrical
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
+!------------------------------------------------------------------------------
 
      REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix
      REAL(KIND=dp), DIMENSION(:)   :: ForceVector,Ux,Uy,Uz,MUx,MUy,MUz, &
@@ -895,17 +894,14 @@ MODULE NavierStokesCylindrical
 
 
 !------------------------------------------------------------------------------
+!>  Return element local matrices and RSH vector for Navier-Stokes-equations
+!>  boundary conditions. (No velocity dependent velocity BC:s ("Newton BCs")
+!>  at the moment, so BoundaryMatrix will contain only zeros at exit...).
+!------------------------------------------------------------------------------
  SUBROUTINE NavierStokesCylindricalBoundary( BoundaryMatrix,BoundaryVector, &
      LoadVector,NodalAlpha,NodalBeta,NodalExtPressure,NodalSlipCoeff,NormalTangential, &
          Element,n,Nodes )
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Return element local matrices and RSH vector for Navier-Stokes-equations
-!  boundary conditions. (No velocity dependent velocity BC:s ("Newton BCs")
-!  at the moment, so BoundaryMatrix will contain only zeros at exit...)
-!
-!  ARGUMENTS:
 !
 !  REAL(KIND=dp) :: BoundaryMatrix(:,:)
 !     OUTPUT: time derivative coefficient matrix
@@ -933,7 +929,6 @@ MODULE NavierStokesCylindrical
 !  TYPE(Nodes_t) :: Nodes
 !       INPUT: Element node coordinates
 !
-!******************************************************************************
 !------------------------------------------------------------------------------
 
    USE ElementUtils
@@ -1130,3 +1125,5 @@ MODULE NavierStokesCylindrical
 !------------------------------------------------------------------------------
 
 END MODULE NavierStokesCylindrical
+
+!> \}

@@ -23,25 +23,15 @@
 
 #include "huti_fdefs.h"
 
+!> \ingroup ElmerLib
 !------------------------------------------------------------------------------
   SUBROUTINE MultigridPrec( u,v,ipar )
 !------------------------------------------------------------------------------
-!******************************************************************************
-! 
-!  DESCRIPTION:
-!
-!  ARGUMENTS:
-!
-!    REAL(KIND=dp) :: u,v
-!
-!    INTEGER :: ipar(:)
-!      INPUT: structure holding info from (HUTIter-iterative solver package)
-!
-!******************************************************************************
     USE Multigrid
 
-    INTEGER, DIMENSION(*) :: ipar
-    REAL(KIND=dp), TARGET :: u(*),v(*)
+    INTEGER, DIMENSION(*) :: ipar  !< structure holding info from (HUTIter-iterative solver package)
+    REAL(KIND=dp), TARGET :: u(*)
+    REAL(KIND=dp), TARGET :: v(*)
 
     INTEGER :: i,j,k,me,n, DOFs
     TYPE(Solver_t), POINTER :: PSolver

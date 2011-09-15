@@ -34,6 +34,8 @@
 ! *
 ! *****************************************************************************/
 
+!> \ingroup ElmerLib 
+!> \{
 
 !------------------------------------------------------------------------------
 !>  List handling utilities. In Elmer all the keywords are saved to a list,
@@ -429,6 +431,8 @@ CONTAINS
 !---------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!> Changes the string to all lower case to allow string comparison.
 !------------------------------------------------------------------------------
     FUNCTION StringToLowerCase( to,from,same_len ) RESULT(n)
 !------------------------------------------------------------------------------
@@ -1032,38 +1036,23 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 !>    Interpolates values of all variables from a mesh associated with
-!>    the old model to the mesh of the new model
+!>    the old model to the mesh of the new model.
 !------------------------------------------------------------------------------
      SUBROUTINE InterpolateMeshToMeshQ( OldMesh, NewMesh, OldVariables, &
             NewVariables, UseQuadrantTree, Projector, MaskName, FoundNodes )
 !------------------------------------------------------------------------------
-!  ARGUMENTS:
-!
-!   TYPE(Mesh_t) :: OldMesh, NewMesh
-!     INPUT: Old and new mesh structures
-!   TYPE(Variable_t), POINTER :: OldVariables, NewVariables
-!     INPUT, OUTPUT: Old and new model variable structures
-!            NB. NewVariables defines the variables to be interpolated
-!   TYPE(Quadrant_t), POINTER :: RootQuadrant
-!     INPUT: RootQuadrant of the old mesh
-!            NB. If RoodQuadrant is associated (and QuadrantTree thus
-!            exists), QuadrantTree is used
-!   INTEGER :: dim
-!     INPUT: CoordinateSystemDimension of the old mesh.
-!            NB. Currently it s assumed that the new system has same dim,
-!            but this could be generalized.
-!
-!******************************************************************************
        USE Interpolation
        USE CRSMatrix
        USE CoordinateSystems
 !-------------------------------------------------------------------------------
-       TYPE(Mesh_t), TARGET  :: OldMesh, NewMesh
-       TYPE(Variable_t), POINTER, OPTIONAL :: OldVariables, NewVariables
-       LOGICAL, OPTIONAL :: UseQuadrantTree
-       TYPE(Projector_t), POINTER, OPTIONAL :: Projector
-       CHARACTER(LEN=*),OPTIONAL :: MaskName
-       LOGICAL, OPTIONAL :: FoundNodes(:)
+       TYPE(Mesh_t), TARGET  :: OldMesh   !< Old mesh structure
+       TYPE(Mesh_t), TARGET  :: NewMesh   !< New mesh structure
+       TYPE(Variable_t), POINTER, OPTIONAL :: OldVariables  !< Old model variable structure
+       TYPE(Variable_t), POINTER, OPTIONAL :: NewVariables  !< New model variable structure. NewVariables defines the variables to be interpolated
+       LOGICAL, OPTIONAL :: UseQuadrantTree  !< If true use the RootQuadrant of the old mesh in interpolation.
+       TYPE(Projector_t), POINTER, OPTIONAL :: Projector  !< Use projector between meshes for interpolation, if available
+       CHARACTER(LEN=*),OPTIONAL :: MaskName  !< Mask the old variable set by the given MaskName when trying to define the interpolation.
+       LOGICAL, OPTIONAL :: FoundNodes(:)     !< List of nodes where the interpolation was a success
 !------------------------------------------------------------------------------
        INTEGER :: dim
        TYPE(Nodes_t) :: ElementNodes
@@ -3331,3 +3320,5 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 END MODULE Lists
+
+!> \} ElmerLib

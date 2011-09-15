@@ -23,13 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module defining p element basis functions. All p basis (and related) 
-! *  functions are defined here, as well as few helper routines for determining 
-! *  if an element is p element. For mappings related to p elements see 
-! *  module PElementMaps
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Mikko Byckling, Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -40,6 +33,16 @@
 ! *  Original Date: 20 Aug 2004
 ! *
 ! *****************************************************************************/
+
+!> \ingroup ElmerLib
+!> \{
+
+!-----------------------------------------------------------------------------
+!>  Module defining p element basis functions. All p basis (and related) 
+!>  functions are defined here, as well as few helper routines for determining 
+!>  if an element is p element. For mappings related to p elements see 
+!>  module PElementMaps.
+!-----------------------------------------------------------------------------
 
 MODULE PElementBase
   USE PElementMaps
@@ -53,7 +56,7 @@ MODULE PElementBase
 
 !------------------------------------------------------------------------------
     FUNCTION LineNodalPBasis(node, u) RESULT(value)
-!******************************************************************************
+!------------------------------------------------------------------------------
 !
 !  DESCRIPTION:
 !     Nodal basis of line element at point (u)
@@ -70,7 +73,6 @@ MODULE PElementBase
 !       value of lines nodal function i at point u, i.e.
 !       value = N_i(u)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -91,13 +93,11 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Derivative of line elements nodal basis at point (u).
+!------------------------------------------------------------------------------
     FUNCTION dLineNodalPBasis(node, u) RESULT(grad)
-!******************************************************************************
+!------------------------------------------------------------------------------
 !
-!  DESCRIPTION:
-!     Derivative of line elements nodal basis at point (u)
-!
-!  ARGUMENTS:
 !    INTEGER :: node
 !      INPUT: number of nodal function to calculate, node = {1,2}
 !
@@ -109,7 +109,6 @@ MODULE PElementBase
 !       value of derivative of lines nodal function i at point u, i.e.
 !       value = dN_i(u)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -130,11 +129,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Bubble function i of line element.
+!------------------------------------------------------------------------------
     FUNCTION LineBubblePBasis(i, u, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Bubble function i of line element.
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i
@@ -154,7 +152,6 @@ MODULE PElementBase
 !       value of lines bubble function i at point u, i.e.
 !       value = N_i^(0)(u)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -176,11 +173,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Derivative of bubble function i of line element.
+!------------------------------------------------------------------------------
     FUNCTION dLineBubblePBasis(i, u, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Derivative of bubble function i of line element.
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i
@@ -200,7 +196,6 @@ MODULE PElementBase
 !       value of derivative of lines bubble function i at point u, i.e.
 !       value = dN_i^(0)(u)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -225,11 +220,10 @@ MODULE PElementBase
     ! 2D ELEMENTS
 
 !------------------------------------------------------------------------------
+!>     Quadrilateral nodal basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION QuadNodalPBasis(node, u, v) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Quadrilateral nodal basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -244,7 +238,6 @@ MODULE PElementBase
 !       value of quadrilaterals nodal function at point (u,v), i.e.
 !       value = N_i(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -270,11 +263,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of quadrilateral nodal basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION dQuadNodalPBasis(node, u, v) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of quadrilateral nodal basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -289,7 +281,6 @@ MODULE PElementBase
 !       gradient of quadrilaterals nodal function at point (u,v),
 !       i.e. value = dN_i(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -319,11 +310,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Quadrilateral edge basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION QuadEdgePBasis(edge, i, u, v, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Quadrilateral edge basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -346,7 +336,6 @@ MODULE PElementBase
 !       value of quadrilaterals edge function i at point (u,v), i.e.
 !       value = N_i^{edge}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE 
       
@@ -392,12 +381,11 @@ MODULE PElementBase
     END FUNCTION QuadEdgePBasis
 
 !------------------------------------------------------------------------------
+!>     Quadrilateral edge basis at point (u,v), which is compatible with
+!>     basis for pyramidal 3d element square face
+!------------------------------------------------------------------------------
     FUNCTION QuadPyraEdgePBasis(edge, i, u, v, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Quadrilateral edge basis at point (u,v), which is compatible with
-!     basis for pyramidal 3d element square face
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -420,7 +408,6 @@ MODULE PElementBase
 !       value of quadrilaterals edge function i at point (u,v), i.e.
 !       value = N_i^{edge}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE 
       
@@ -462,11 +449,10 @@ MODULE PElementBase
     END FUNCTION QuadPyraEdgePBasis
 
 !------------------------------------------------------------------------------
+!>     Gradient of quadrilateral edge basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION dQuadEdgePBasis(edge, i, u, v, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of quadrilateral edge basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -489,7 +475,6 @@ MODULE PElementBase
 !       gradient of quadrilaterals edge function i at point (u,v), i.e.
 !       grad = dN_i^{edge}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE 
       
@@ -544,12 +529,11 @@ MODULE PElementBase
     END FUNCTION dQuadEdgePBasis
 
 !------------------------------------------------------------------------------
+!>     Gradient of quadrilateral edge basis at point (u,v) which is
+!>     compatible with pyramidal 3d element square face edges.
+!------------------------------------------------------------------------------
     FUNCTION dQuadPyraEdgePBasis(edge, i, u, v, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of quadrilateral edge basis at point (u,v) which is
-!     compatible with pyramidal 3d element square face edges
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -572,7 +556,6 @@ MODULE PElementBase
 !       gradient of quadrilaterals edge function i at point (u,v), i.e.
 !       grad = dN_i^{edge}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE 
       
@@ -624,11 +607,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Quadrilateral bubble basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION QuadBubblePBasis(i,j,u,v,localNumbers) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Quadrilateral bubble basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j
@@ -647,7 +629,6 @@ MODULE PElementBase
 !       value of quadrilaterals bubble function (i,j) at point (u,v), 
 !       i.e. value = N_{m(i,j)}^{0}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -674,11 +655,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of quadrilateral bubble basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION dQuadBubblePBasis(i,j,u,v, localNumbers) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of quadrilateral bubble basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j
@@ -697,7 +677,6 @@ MODULE PElementBase
 !       gradient of quadrilaterals bubble function (i,j) at point (u,v), 
 !       i.e. grad = dN_{m(i,j)}^{0}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -730,13 +709,12 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Defines linear functions for quadrilateral nodes. These are used in 
+!>     calculation of changing parameters for bubbles of quadrilateral if 
+!>     directional function values are requested. 
+!------------------------------------------------------------------------------
     FUNCTION QuadL(which, u, v) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Defines linear functions for quadrilateral nodes. These are used in 
-!     calculation of changing parameters for bubbles of quadrilateral if 
-!     directional function values are requested. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: which
@@ -750,7 +728,6 @@ MODULE PElementBase
 !       value of quadrilaterals linear nodal function at point (u,v), 
 !       i.e. value = N_i^l(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -775,12 +752,11 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Defines gradients of linear functions for quadrilateral nodes. For use 
+!>     see QuadL. 
+!------------------------------------------------------------------------------
     FUNCTION dQuadL(which, u, v) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Defines gradients of linear functions for quadrilateral nodes. For use 
-!     see QuadL. 
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: which
@@ -794,7 +770,6 @@ MODULE PElementBase
 !       gradient of quadrilaterals linear nodal function at point (u,v), 
 !       i.e. value = dN_i^l(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -818,11 +793,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Triangle nodal basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION TriangleNodalPBasis(node, u, v) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Triangle nodal basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -837,7 +811,6 @@ MODULE PElementBase
 !       value of triangles nodal function at point (u,v), i.e.
 !       value = N_i(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -860,11 +833,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of triangle nodal basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION dTriangleNodalPBasis(node, u, v) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of triangle nodal basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -879,7 +851,6 @@ MODULE PElementBase
 !       gradient of triangles nodal function at point (u,v), i.e.
 !       grad = dN_i(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -907,11 +878,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Triangle edge basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION TriangleEdgePBasis(edge, i, u, v, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Triangle edge basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -934,7 +904,6 @@ MODULE PElementBase
 !       value of triangles edge function i at point (u,v), i.e.
 !       value = N_i^{edge}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -989,11 +958,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of triangle edge basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION dTriangleEdgePBasis(edge, i, u, v, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of triangle edge basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -1016,7 +984,6 @@ MODULE PElementBase
 !       gradient of triangles edge function i at point (u,v), i.e.
 !       grad = dN_i^{edge}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1090,11 +1057,10 @@ MODULE PElementBase
       
 
 !------------------------------------------------------------------------------
+!>     Triangle bubble basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION TriangleBubblePBasis(j,n,u,v,localNumbers) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Triangle bubble basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j
@@ -1113,7 +1079,6 @@ MODULE PElementBase
 !       value of triangles bubble function (i,j) at point (u,v), 
 !       i.e. value = dN_{m(i,j)}^{0}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1166,11 +1131,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of triangles bubble basis at point (u,v).
+!------------------------------------------------------------------------------
     FUNCTION dTriangleBubblePBasis(j,n,u,v,localNumbers) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of triangles bubble basis at point (u,v)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j
@@ -1189,7 +1153,6 @@ MODULE PElementBase
 !       gradient of triangles bubble function (i,j) at point (u,v), 
 !       i.e. grad = dN_{m(i,j)}^{0}(u,v)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -1350,11 +1313,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Brick edge basis at point (u,v,w).
+!------------------------------------------------------------------------------
     FUNCTION BrickEdgePBasis(edge, i , u, v, w, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Brick edge basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -1377,7 +1339,6 @@ MODULE PElementBase
 !       value of bricks edge function i at point (u,v,w), i.e.
 !       value = N_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1444,11 +1405,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of brick edge basis at point (u,v,w).
+!------------------------------------------------------------------------------
     FUNCTION dBrickEdgePBasis(edge, i , u, v, w, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of brick edge basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -1471,7 +1431,6 @@ MODULE PElementBase
 !       gradient of bricks edge function i at point (u,v,w), i.e.
 !       grad = dN_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1590,11 +1549,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Brick edge basis at point (u,v,w). Compatible with pyramidal edge basis.
+!------------------------------------------------------------------------------
     FUNCTION BrickPyraEdgePBasis(edge, i , u, v, w, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Brick edge basis at point (u,v,w). Compatible with pyramidal edge basis.
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -1617,7 +1575,6 @@ MODULE PElementBase
 !       value of bricks edge function i at point (u,v,w), i.e.
 !       value = N_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1662,11 +1619,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of brick edge basis at point (u,v,w).
+!------------------------------------------------------------------------------
     FUNCTION dBrickPyraEdgePBasis(edge, i, u, v, w, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of brick edge basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -1689,7 +1645,6 @@ MODULE PElementBase
 !       gradient of bricks edge function i at point (u,v,w), i.e.
 !       grad = dN_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1741,11 +1696,10 @@ MODULE PElementBase
     END FUNCTION dBrickPyraEdgePBasis
 
 !------------------------------------------------------------------------------    
+!>     Brick face basis at point (u,v,w)
+!------------------------------------------------------------------------------    
     FUNCTION BrickFacePBasis(face, i, j, u, v, w, localNumbers) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Brick face basis at point (u,v,w)
+!------------------------------------------------------------------------------    
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -1767,7 +1721,6 @@ MODULE PElementBase
 !       value of bricks face function m(i,j) at point (u,v,w), i.e.
 !       value = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1814,11 +1767,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of brick face basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dBrickFacePBasis(face, i, j, u, v, w, localNumbers) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of brick face basis at point (u,v,w)
+!------------------------------------------------------------------------------    
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -1840,7 +1792,6 @@ MODULE PElementBase
 !       gradient of bricks face function m(i,j) at point (u,v,w), i.e.
 !       grad = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE 
 
@@ -1903,11 +1854,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Brick bubble basis at point (u,v,w).
+!------------------------------------------------------------------------------
     FUNCTION BrickBubblePBasis(i, j, k, u, v, w) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Brick bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -1921,7 +1871,6 @@ MODULE PElementBase
 !       value of bricks bubble function (i,j,k) at point (u,v,w), 
 !       i.e. value = N_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -1936,11 +1885,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Gradient of brick bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dBrickBubblePBasis(i, j, k, u, v, w) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Gradient of brick bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -1954,7 +1902,6 @@ MODULE PElementBase
 !       gradient of bricks bubble function (i,j,k) at point (u,v,w), 
 !       i.e. grad = dN_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2056,11 +2003,10 @@ MODULE PElementBase
 
     
 !------------------------------------------------------------------------------
+!>     Tetrahedron nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION TetraNodalPBasis(node, u, v, w) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Tetrahedron nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -2075,7 +2021,6 @@ MODULE PElementBase
 !       value of tetras nodal function at point (u,v,w), i.e.
 !       value = N_i(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2102,11 +2047,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of tetrahedrons nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dTetraNodalPBasis(node, u, v, w) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of tetrahedrons nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -2121,7 +2065,6 @@ MODULE PElementBase
 !       gradient of tetras nodal function at point (u,v,w), i.e.
 !       grad = dN_i(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2156,11 +2099,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------    
+!>     Tetra edge basis at point (u,v,w)
+!------------------------------------------------------------------------------    
     FUNCTION TetraEdgePBasis(edge, i, u, v, w, tetratype) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Tetra edge basis at point (u,v,w)
+!------------------------------------------------------------------------------    
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -2182,7 +2124,6 @@ MODULE PElementBase
 !       value of tetras edge function i at point (u,v,w), i.e.
 !       value = N_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -2241,11 +2182,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of tetrahedrons edge basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dTetraEdgePBasis(edge, i, u, v, w, tetratype) RESULT(grad)
 !******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of tetrahedrons edge basis at point (u,v,w)
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -2267,7 +2207,6 @@ MODULE PElementBase
 !       gradient of tetras edge function i at point (u,v,w), i.e.
 !       grad = dN_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -2369,11 +2308,10 @@ MODULE PElementBase
       
 
 !------------------------------------------------------------------------------    
+!>     Tetra face basis at point (u,v,w)
+!------------------------------------------------------------------------------    
     FUNCTION TetraFacePBasis(face, i, j, u, v, w, tetratype) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Tetra face basis at point (u,v,w)
+!------------------------------------------------------------------------------    
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -2395,7 +2333,6 @@ MODULE PElementBase
 !       value of tetras face function m(i,j) at point (u,v,w), i.e.
 !       value = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2457,11 +2394,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of tetra face basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dTetraFacePBasis(face, i, j, u, v, w, tetratype) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of tetra face basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -2483,7 +2419,6 @@ MODULE PElementBase
 !       gradient of tetras face function m(i,j) at point (u,v,w), i.e.
 !       grad = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2609,11 +2544,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Tetra bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION TetraBubblePBasis(i, j, k, u, v, w) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Tetra bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -2627,7 +2561,6 @@ MODULE PElementBase
 !       value of tetras bubble function (i,j,k) at point (u,v,w), 
 !       i.e. value = N_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2648,11 +2581,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Gradient of tetra bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dTetraBubblePBasis(i,j,k,u,v,w) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Gradient of tetra bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -2666,7 +2598,6 @@ MODULE PElementBase
 !       gradient of tetras bubble function (i,j,k) at point (u,v,w), 
 !       i.e. grad = dN_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2700,11 +2631,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Wedge nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION WedgeNodalPBasis(node, u, v, w) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Wedge nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -2719,7 +2649,6 @@ MODULE PElementBase
 !       value of wedges nodal function at point (u,v,w), i.e.
 !       value = N_i(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -2750,11 +2679,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of wedges nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dWedgeNodalPBasis(node, u,v,w) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of wedges nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -2769,7 +2697,6 @@ MODULE PElementBase
 !       gradient of wedges nodal function at point (u,v,w), i.e.
 !       grad = dN_i(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -2799,11 +2726,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------      
+!>     Wedge edge basis at point (u,v,w)
+!------------------------------------------------------------------------------      
     FUNCTION WedgeEdgePBasis(edge, i, u, v, w, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Wedge edge basis at point (u,v,w)
+!------------------------------------------------------------------------------      
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -2826,7 +2752,6 @@ MODULE PElementBase
 !       value of wedges edge function i at point (u,v,w), i.e.
 !       value = N_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -2888,11 +2813,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of wedge edge basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dWedgeEdgePBasis(edge, i, u, v, w, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of wedge edge basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -2915,7 +2839,6 @@ MODULE PElementBase
 !       gradient of wedges edge function i at point (u,v,w), i.e.
 !       grad = dN_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3001,11 +2924,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Wedge face basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION WedgeFacePBasis(face, i, j, u, v, w, localNumbers) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Wedge face basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -3028,7 +2950,6 @@ MODULE PElementBase
 !       value of wedges face function m(i,j) at point (u,v,w), i.e.
 !       value = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3078,11 +2999,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of wedge face basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dWedgeFacePBasis(face, i, j, u, v, w, localNumbers) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of wedge face basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -3105,7 +3025,6 @@ MODULE PElementBase
 !       gradient of wedges face function m(i,j) at point (u,v,w), i.e.
 !       grad = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3183,11 +3102,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Wedge bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION WedgeBubblePBasis(i,j,k,u,v,w) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Wedge bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -3201,7 +3119,6 @@ MODULE PElementBase
 !       value of wedges bubble function (i,j,k) at point (u,v,w), 
 !       i.e. value = N_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3221,11 +3138,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Gradient of wedge bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dWedgeBubblePBasis(i,j,k,u,v,w) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Gradient of wedge bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -3239,7 +3155,6 @@ MODULE PElementBase
 !       gradient of wedges bubble function (i,j,k) at point (u,v,w), 
 !       i.e. grad = dN_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3359,11 +3274,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Pyramid nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION PyramidNodalPBasis(node, u, v, w) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Pyramid nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -3378,7 +3292,6 @@ MODULE PElementBase
 !       value of pyramids nodal function at point (u,v,w), i.e.
 !       value = N_i(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3414,11 +3327,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>     Gradient of pyramids nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dPyramidNodalPBasis(node, u, v, w) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of pyramids nodal basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: node
@@ -3433,7 +3345,6 @@ MODULE PElementBase
 !       gradient of pyramids nodal function at point (u,v,w), i.e.
 !       grad = dN_i(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       ! Parameters
@@ -3492,11 +3403,13 @@ MODULE PElementBase
       grad = dTa*Tb*Tc + Ta*dTb*Tc + Ta*Tb*dTc
     END FUNCTION dPyramidNodalPBasis
 
+
+	
+!-----------------------------------------------------------------------------
+!>     Pyramid edge basis at point (u,v,w)
+!-----------------------------------------------------------------------------
     FUNCTION PyramidEdgePBasis(edge, i, u, v, w, invertEdge) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Pyramid edge basis at point (u,v,w)
+!-----------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -3519,7 +3432,6 @@ MODULE PElementBase
 !       value of pyramids edge function i at point (u,v,w), i.e.
 !       value = N_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3582,12 +3494,14 @@ MODULE PElementBase
       ! Calculate value of edge function
       value = Pa*Pb*varPhi(i,phiPar)
     END FUNCTION PyramidEdgePBasis
+
+
     
+!-------------------------------------------------------------------------------
+!>     Gradient of pyramid edge basis at point (u,v,w)
+!-------------------------------------------------------------------------------
     FUNCTION dPyramidEdgePBasis(edge, i, u, v, w, invertEdge) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of pyramid edge basis at point (u,v,w)
+!-------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: edge
@@ -3610,7 +3524,6 @@ MODULE PElementBase
 !       gradient of pyramids edge function i at point (u,v,w), i.e.
 !       grad = dN_i^{edge}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -3710,11 +3623,12 @@ MODULE PElementBase
       grad = dPa*Pb*vPhiI + Pa*dPb*vPhiI + Pa*Pb*dVarPhi(i,phiPar)*dPhiPar
     END FUNCTION dPyramidEdgePBasis
 
+	
+!-----------------------------------------------------------------------------	
+!>     Pyramid face basis at point (u,v,w)
+!-----------------------------------------------------------------------------	
     FUNCTION PyramidFacePBasis(face, i, j, u, v, w, localNumbers) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Pyramid face basis at point (u,v,w)
+!-----------------------------------------------------------------------------	
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -3737,7 +3651,6 @@ MODULE PElementBase
 !       value of pyramids face function m(i,j) at point (u,v,w), i.e.
 !       value = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3774,11 +3687,11 @@ MODULE PElementBase
       END SELECT
     END FUNCTION PyramidFacePBasis
 
+!-----------------------------------------------------------------------------	
+!>     Gradient of pyramid face basis at point (u,v,w)
+!-----------------------------------------------------------------------------		
     FUNCTION dPyramidFacePBasis(face, i, j, u, v, w, localNumbers) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!     Gradient of pyramid face basis at point (u,v,w)
+!-----------------------------------------------------------------------------	
 !
 !  ARGUMENTS:
 !    INTEGER :: face
@@ -3801,7 +3714,6 @@ MODULE PElementBase
 !       gradient of pyramids face function m(i,j) at point (u,v,w), i.e.
 !       grad = N_{m(i,j)}^{face}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -3859,11 +3771,13 @@ MODULE PElementBase
       END SELECT
     END FUNCTION dPyramidFacePBasis
 
+	
+	
+!------------------------------------------------------------------------------
+!>    Pyramid bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION PyramidBubblePBasis(i,j,k,u,v,w) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Pyramid bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -3877,7 +3791,6 @@ MODULE PElementBase
 !       value of pyramids bubble function (i,j,k) at point (u,v,w), 
 !       i.e. value = N_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -3893,11 +3806,12 @@ MODULE PElementBase
            LegendreP(j,v/(1-w/SQRT(2d0)))*LegendreP(k,w/SQRT(2d0))
     END FUNCTION PyramidBubblePBasis
 
+
+!------------------------------------------------------------------------------
+!>    Gradient of pyramid bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
     FUNCTION dPyramidBubblePBasis(i,j,k,u,v,w) RESULT(grad)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Gradient of pyramid bubble basis at point (u,v,w)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER :: i,j,k
@@ -3911,7 +3825,6 @@ MODULE PElementBase
 !       gradient of pyramids bubble function (i,j,k) at point (u,v,w), 
 !       i.e. grad = dN_{m(i,j,k)}^{0}(u,v,w)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       ! Parameters
@@ -4036,12 +3949,13 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Phi function value at point x. Phi is defined as (Szabo & Babuska: Finite
+!>    Element Analysis, p.38). 
+!------------------------------------------------------------------------------
     FUNCTION Phi(i,x) RESULT(value)
-!******************************************************************************
+!------------------------------------------------------------------------------
 !
 !  DESCRIPTION:
-!    Phi function value at point x. Phi is defined as (Szabo & Babuska: Finite
-!    Element Analysis, p.38). 
 !    
 !    Phi(i,x)=SQRT(1/(2*(2*i-1)))(P(i,x)-P(i-2,x)), i=2,3,...
 !
@@ -4059,7 +3973,6 @@ MODULE PElementBase
 !       value of phi function i at point x i.e
 !       value = Phi(i,x)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -4084,15 +3997,12 @@ MODULE PElementBase
    
  
 !------------------------------------------------------------------------------
+!>    Derivative of phi function value at point x.   
+!>    Phi,(i,x)=SQRT(1/(2*(2*i-1)))(P,(i,x)-P,(i-2,x)), i=2,3,... 
+!>    where P,(i,x) are derivatives of legendre polynomials.
+!------------------------------------------------------------------------------
     FUNCTION dPhi(i,x) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Derivative of phi function value at point x.
-!   
-!    Phi,(i,x)=SQRT(1/(2*(2*i-1)))(P,(i,x)-P,(i-2,x)), i=2,3,... 
-!
-!    where P,(i,x) are derivatives of legendre polynomials,
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER, INTENT(IN) :: i
@@ -4106,7 +4016,6 @@ MODULE PElementBase
 !       value of derivated phi function i at point x i.e
 !       value = Phi,(i,x)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -4195,14 +4104,12 @@ MODULE PElementBase
 
     
 !------------------------------------------------------------------------------
+!>    varPhi function value at point x. Phi is defined as (Szabo & Babuska: Finite
+!>    Element Analysis, p. 103).     
+!>    Phi(i,x)=1/4*(1-x^2)*varPhi(i,x)
+!------------------------------------------------------------------------------
     FUNCTION varPhi(i,x) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    varPhi function value at point x. Phi is defined as (Szabo & Babuska: Finite
-!    Element Analysis, p. 103). 
-!    
-!    Phi(i,x)=1/4*(1-x^2)*varPhi(i,x)
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER, INTENT(IN) :: i
@@ -4216,7 +4123,6 @@ MODULE PElementBase
 !       value of varPhi function i at point x i.e
 !       value = varPhi(i,x)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -4305,11 +4211,10 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Derivative of varPhi function at point x.
+!------------------------------------------------------------------------------
     FUNCTION dVarPhi(i,x) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Derivative of varPhi function at point x.
+!------------------------------------------------------------------------------
 !
 !  ARGUMENTS:
 !    INTEGER, INTENT(IN) :: i
@@ -4323,7 +4228,6 @@ MODULE PElementBase
 !       value of derivative of varPhi function i at point x i.e
 !       value = dVarPhi(i,x)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -4424,18 +4328,17 @@ MODULE PElementBase
 
     
 !------------------------------------------------------------------------------
+!>    Function LegendreP returns value of l,th Legendre polynomial
+!>    for point x.
+!
+!>    Value of legendre polynomial is precalculated for l=<20 and calculated from 
+!>    recursion for l>20,
+!
+!>    P(i+1,x)=1/(1+i)*((2*i+1)*x*P(i,x)+i*P(i-1,x)), 
+!>    where P(0,x)=1, P(1,x)=x.
+!------------------------------------------------------------------------------
     RECURSIVE FUNCTION LegendreP(l,x) RESULT(value) 
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function LegendreP returns value of l,th Legendre polynomial
-!    for point x
-!
-!    Value of legendre polynomial is precalculated for l=<20 and calculated from 
-!    recursion for l>20,
-!
-!    P(i+1,x)=1/(1+i)*((2*i+1)*x*P(i,x)+i*P(i-1,x)), 
-!    where P(0,x)=1, P(1,x)=x
+!------------------------------------------------------------------------------
 ! 
 !  ARGUMENTS:
 !    INTEGER, INTENT(IN) :: l
@@ -4449,7 +4352,6 @@ MODULE PElementBase
 !       value of legendre polynomial l at point x i.e
 !       value = P(i,x)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -4575,18 +4477,17 @@ MODULE PElementBase
 
 
 !------------------------------------------------------------------------------
+!>    Function dLegendreP returns value of derivative of l:th Legendre polynomial
+!>    at point x.
+!
+!>    Value of legendre polynomial is precalculated for l=<20 and calculated from 
+!>    recursion for l>20,
+!
+!>    P,(l+1,x)=x*P,(l,x)+(l+1)*P(l,x), 
+!>    where P,(0,x)=0, P(1,x)=1.
+!------------------------------------------------------------------------------
     RECURSIVE FUNCTION dLegendreP(l,x) RESULT(value)
-!******************************************************************************
-!
-!  DESCRIPTION:
-!    Function dLegendreP returns value of derivative of l:th Legendre polynomial
-!    at point x
-!
-!    Value of legendre polynomial is precalculated for l=<20 and calculated from 
-!    recursion for l>20,
-!
-!    P,(l+1,x)=x*P,(l,x)+(l+1)*P(l,x), 
-!    where P,(0,x)=0, P(1,x)=1
+!------------------------------------------------------------------------------
 ! 
 !  ARGUMENTS:
 !    INTEGER, INTENT(IN) :: l
@@ -4600,7 +4501,6 @@ MODULE PElementBase
 !       value of derivative of legendre polynomial l at point x i.e
 !       value = P,(i,x)
 !    
-!******************************************************************************
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       
@@ -4741,3 +4641,5 @@ MODULE PElementBase
     END FUNCTION toExp
 
 END MODULE PElementBase
+
+!> \}

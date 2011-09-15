@@ -34,8 +34,11 @@
 ! *
 ! ******************************************************************************/
 
+!> \ingroup ElmerLib
+!> \}
+
 !--------------------------------------------------------------------------------
-!>  Some utilities for the basic FEM
+!>  Some basic finite element utilities.
 !--------------------------------------------------------------------------------
 MODULE ElementUtils
 
@@ -829,28 +832,10 @@ CONTAINS
    FUNCTION VolumeIntegrate( Model, ElementList, IntegrandFunctionName ) &
        RESULT(Integral)
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t), POINTER :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  INTEGER, DIMENSION(:) :: ElementList
-!     INPUT: List of elements that belong to the integration volume
-!
-!  CHARACTER(LEN=MAX_NAME_LEN) :: IntegrandFunctionName
-!     INPUT: Name the function has in the .sif file
-!
-!  FUNCTION RETURN VALUE:
-!    REAL(KIND=dp) :: Integral
-!     The value of the volume integral
-!      
-!------------------------------------------------------------------------------
-   TYPE(Model_t) :: Model
-   INTEGER, DIMENSION(:) :: ElementList
-   CHARACTER(LEN=*) :: IntegrandFunctionName
-   REAL(KIND=dp) :: Integral
-
+   TYPE(Model_t) :: Model                     !< All model information (mesh, materials, BCs, etc...)
+   INTEGER, DIMENSION(:) :: ElementList       !< List of elements that belong to the integration volume
+   CHARACTER(LEN=*) :: IntegrandFunctionName  !< Name the function has in the .sif file
+   REAL(KIND=dp) :: Integral                  !< The value of the volume integral
 !------------------------------------------------------------------------------
      INTEGER :: n
      TYPE(Element_t), POINTER :: CurrentElement
@@ -960,28 +945,10 @@ CONTAINS
 !------------------------------------------------------------------------------
        RESULT(Integral)
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  INTEGER, DIMENSION(:) :: ElementList
-!     INPUT: List of elements that belong to the integration boundary
-!
-!  CHARACTER(LEN=MAX_NAME_LEN) :: IntegrandFunctionName
-!     INPUT: Name the function has in the .sif file
-!
-!  FUNCTION RETURN VALUE:
-!    REAL(KIND=dp) :: Integral
-!     The value of the flux integral
-!      
-!------------------------------------------------------------------------------
-   TYPE(Model_t) :: Model
-   INTEGER, DIMENSION(:) :: ElementList
-   CHARACTER(LEN=*) :: IntegrandFunctionName
-   REAL(KIND=dp) :: Integral
-
+   TYPE(Model_t) :: Model                     !< All model information (mesh, materials, BCs, etc...)
+   INTEGER, DIMENSION(:) :: ElementList       !< List of elements that belong to the integration boundary
+   CHARACTER(LEN=*) :: IntegrandFunctionName  !< Name the function has in the .sif file
+   REAL(KIND=dp) :: Integral                  !< The value of the boundary integral
 !------------------------------------------------------------------------------
      INTEGER :: n
      TYPE(Element_t), POINTER :: CurrentElement
@@ -1131,28 +1098,10 @@ CONTAINS
    FUNCTION SurfaceIntegrate( Model, ElementList, IntegrandFunctionName ) &
        RESULT(Integral)
 !------------------------------------------------------------------------------
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t), POINTER :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  INTEGER, DIMENSION(:) :: ElementList
-!     INPUT: List of elements that belong to the integration boundary
-!
-!  CHARACTER(LEN=MAX_NAME_LEN) :: IntegrandFunctionName
-!     INPUT: Name the function has in the .sif file
-!
-!  FUNCTION RETURN VALUE:
-!    REAL(KIND=dp), DIMENSION(3) :: Integral
-!     The vector value of the integral
-!      
-!------------------------------------------------------------------------------
-   TYPE(Model_t) :: Model
-   INTEGER, DIMENSION(:) :: ElementList
-   CHARACTER(LEN=*) :: IntegrandFunctionName
-   REAL(KIND=dp), DIMENSION(3) :: Integral
-
+   TYPE(Model_t) :: Model                     !< All model information (mesh, materials, BCs, etc...)
+   INTEGER, DIMENSION(:) :: ElementList       !< List of elements that belong to the integration boundary
+   CHARACTER(LEN=*) :: IntegrandFunctionName  !< Name the function has in the .sif file
+   REAL(KIND=dp), DIMENSION(3) :: Integral    !< The vector value of the integral
 !------------------------------------------------------------------------------
      INTEGER :: n
      TYPE(Element_t), POINTER :: CurrentElement
@@ -1618,3 +1567,5 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 END MODULE ElementUtils
+
+!> \} ElmerLib

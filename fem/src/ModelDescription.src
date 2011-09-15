@@ -23,11 +23,6 @@
 !
 !/******************************************************************************
 ! *
-! *  Module defining model type and operations on this type (that was a bold 
-! *  statement, at the moment just the Model I/O routines are here ...)
-! *
-! ******************************************************************************
-! *
 ! *  Authors: Juha Ruokolainen
 ! *  Email:   Juha.Ruokolainen@csc.fi
 ! *  Web:     http://www.csc.fi/elmer
@@ -38,6 +33,13 @@
 ! *  Original Date: 01 Oct 1996
 ! *
 ! *****************************************************************************/
+
+!> \ingroup ElmerLib
+!> \{
+
+!-----------------------------------------------------------------------------
+!>  Module that defined the Model: reads in the command file, mesh and results etc.
+!-----------------------------------------------------------------------------
 
 MODULE ModelDescription
 
@@ -3756,27 +3758,14 @@ END SUBROUTINE WritePostFile
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+!>  Solve the ElementSize equation using Galerkin discretization where 
+!> at each integration point the element size is the size of the element 
+!> in question. The nodal elementsize may be used when defining the 
+!> new mesh density after inheritance.
+!------------------------------------------------------------------------------
 SUBROUTINE GetNodalElementSize(Model,expo,noweight,h)
 !------------------------------------------------------------------------------
-!******************************************************************************
-!
-!  Solve the ElementSize equation!
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
   USE IterSolve
   USE Integration
   USE ElementDescription
@@ -3984,3 +3973,5 @@ END SUBROUTINE GetNodalElementSize
 !------------------------------------------------------------------------------
 
 END MODULE ModelDescription
+
+!> \}
