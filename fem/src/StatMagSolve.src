@@ -272,7 +272,7 @@
            Conductivity(1:n) = ListGetReal(Material, &
                'Electrical Conductivity',n,NodeIndexes,GotIt)
            IF( GotIt ) THEN
-             CALL Warn('StatMagSolve','Use electric conductivity instead of electrial')
+             CALL Warn('StatMagSolve','Use > Electric Conductivity < instead of electrial')
            ELSE
              Conductivity(1:n) = ListGetReal(Material, &
                  'Electric Conductivity',n,NodeIndexes)
@@ -1045,6 +1045,10 @@ CONTAINS
 !------------------------------------------------------------------------------
     Params => GetSolverParams()
     Dim = CoordinateSystemDimension()
+
+    IF( GetLogical( Params,'Harmonic Simulation',Found ) ) THEN
+      CALL ListAddInteger( Params,'Variable Dofs',2 )
+    END IF
 
     Calculate = ListGetLogical(Params,'Calculate Magnetic Flux',Found)
     CalculateAbs = ListGetLogical( Params, 'Calculate Magnetic Flux Abs',Found)
