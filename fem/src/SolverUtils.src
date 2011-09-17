@@ -1057,13 +1057,15 @@ CONTAINS
    END SUBROUTINE UpdateMassMatrix
 !------------------------------------------------------------------------------
  
-!> Determine soft limiters set.
-!> Currently the implementation is nonideal as almost the same thing is done
-!> twice: the second time in setting the Dirichlet conditions.
+
+!------------------------------------------------------------------------------
+!> Determine soft limiters set. This is called after the solution.
+!> and can therefore be active only on the 2nd nonlinear iteration round.
 !------------------------------------------------------------------------------
    SUBROUTINE DetermineSoftLimiter( Solver )
 !------------------------------------------------------------------------------
      TYPE(Solver_t) :: Solver
+     LOGICAL :: NewLimiter 
 
      TYPE(Model_t), POINTER :: Model
      TYPE(variable_t), POINTER :: Var, LoadVar
@@ -1071,7 +1073,7 @@ CONTAINS
      INTEGER :: i,j,k,n,t,ind,dofs, dof, bf, bc, Upper, Removed, Added, &
          ElemFirst, ElemLast, totsize
      REAL(KIND=dp), POINTER :: FieldValues(:), LoadValues(:), ElemLimit(:)
-     REAL(KIND=dp) :: LimitSign, Eps
+     REAL(KIND=dp) :: LimitSign, Eps, val
      INTEGER, POINTER :: FieldPerm(:), NodeIndexes(:)
      LOGICAL :: Found,AnyLimitBC, AnyLimitBF, Set, AnyDofActive
      LOGICAL, ALLOCATABLE :: LimitDone(:)
@@ -1099,6 +1101,7 @@ CONTAINS
      FieldValues => Var % Values
      FieldPerm => Var % Perm
      totsize = SIZE( FieldValues )
+     NewLimiter = .FALSE.
 
      Params => Solver % Values
      
@@ -1113,13 +1116,23 @@ CONTAINS
        ! to determine whether the node needs to be released from the set.
        !------------------------------------------------------------------------
        NULLIFY( LimitActive ) 
-       IF( Upper == 0 ) THEN
-         IF( ASSOCIATED( Var % LowerLimitActive ) ) LimitActive => Var % LowerLimitActive
-       ELSE
-         IF( ASSOCIATED( Var % UpperLimitActive ) ) LimitActive => Var % UpperLimitActive
-       END IF
  
-       IF( ASSOCIATED( LimitActive) ) THEN
+        ! Check that active set vectors for limiters exist, otherwise allocate
+        !---------------------------------------------------------------------
+         IF( Upper == 0 ) THEN
+           IF( .NOT. ASSOCIATED(Var % LowerLimitActive ) ) THEN
+             ALLOCATE( Var % LowerLimitActive( totsize ) )
+             Var % LowerLimitActive = .FALSE.
+           END IF
+           LimitActive => Var % LowerLimitActive
+         ELSE
+           IF( .NOT. ASSOCIATED( Var % UpperLimitActive ) ) THEN
+             ALLOCATE( Var % UpperLimitActive( totsize ) )
+             Var % UpperLimitActive = .FALSE.
+           END IF
+           LimitActive => Var % UpperLimitActive
+         END IF
+ 
          Eps = ListGetConstReal(Params,'Limiter Load Tolerance',Found ) 
          IF(.NOT. Found ) Eps = EPSILON( Eps )
          
@@ -1154,7 +1167,6 @@ CONTAINS
              END IF
            END IF
          END DO
-       END IF
        
        
        ! Go through the field variables one dof at a time since 
@@ -1179,22 +1191,6 @@ CONTAINS
          IF( .NOT. ( AnyLimitBC .OR. AnyLimitBF ) ) CYCLE
          AnyDofActive = .TRUE.
 
-         ! Check that active set vectors for limiters exist, otherwise allocate
-         !---------------------------------------------------------------------
-         IF( Upper == 0 ) THEN
-           IF( .NOT. ASSOCIATED(Var % LowerLimitActive ) ) THEN
-             ALLOCATE( Var % LowerLimitActive( totsize ) )
-             Var % LowerLimitActive = .FALSE.
-           END IF
-           LimitActive => Var % LowerLimitActive
-         ELSE
-           IF( .NOT. ASSOCIATED( Var % UpperLimitActive ) ) THEN
-             ALLOCATE( Var % UpperLimitActive( totsize ) )
-             Var % UpperLimitActive = .FALSE.
-           END IF
-           LimitActive => Var % UpperLimitActive
-         END IF
-
          IF(.NOT. ALLOCATED( LimitDone) ) THEN
            n = Model % MaxElementNodes
            ALLOCATE( LimitDone( totsize ), ElemLimit(n) )
@@ -1210,7 +1206,7 @@ CONTAINS
          ElemFirst = Model % NumberOfBulkElements + 1           
          ElemLast = Model % NumberOfBulkElements 
         
-         IF( AnyLimitBF) ElemFirst = 1
+         IF( AnyLimitBF ) ElemFirst = 1
          IF( AnyLimitBC ) ElemLast = Model % NumberOfBulkElements + &
              Model % NumberOfBoundaryElements 
 
@@ -1223,7 +1219,6 @@ CONTAINS
            Model % CurrentElement => Element
            n = Element % TYPE % NumberOfNodes
            NodeIndexes => Element % NodeIndexes
-
 
            IF( t > Model % NumberOfBulkElements ) THEN
              Found = .FALSE.
@@ -1251,16 +1246,26 @@ CONTAINS
              
              IF( LimitDone(ind) ) CYCLE
 
+             val = Var % Values(ind) 
              IF( Upper == 0 ) THEN
-               Set = ( Var % Values(ind) < ElemLimit(i) - Eps )
+               Set = ( val < ElemLimit(i) - Eps )
              ELSE
-               Set = ( Var % Values(ind) > ElemLimit(i) + Eps )
+               Set = ( val > ElemLimit(i) + Eps )
              END IF
 
              IF( Set ) THEN
                IF( .NOT. LimitActive(ind)) added = added + 1
                LimitActive(ind) = .TRUE.
                LimitDone(ind) = .TRUE.
+             END IF
+
+             ! Enforce the values to limits because nonlinear material models
+             ! may otherwise lead to divergence of the iteration
+             !--------------------------------------------------------------
+             IF( Upper == 0 ) THEN
+               Var % Values(ind) = MAX( val, ElemLimit(i) )
+             ELSE
+               Var % Values(ind) = MIN( val, ElemLimit(i) )
              END IF
 
            END DO
@@ -1300,6 +1305,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
 !> Set dirichlet boundary condition for given dof. The conditions are
 !> set based on the given name and applied directly to the matrix structure
 !> so that a row is zeroed except for the diagonal which is set to one. 
@@ -1691,6 +1697,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     Params => Model % Solver % Values
     IF( Dof/=0 .AND. ListGetLogical( Params,'Apply Limiter',GotIt) ) THEN
+
       DO Upper=0,1
         
         ! The limiters have been implemented only componentwise
@@ -3868,6 +3875,10 @@ END FUNCTION SearchNodeL
 
     SolverParams => Solver % Values
 
+
+
+
+
   
     IF(SteadyState) THEN	
       Skip = ListGetLogical( SolverParams,'Skip Compute Steady State Change',Stat)
@@ -4794,6 +4805,8 @@ END FUNCTION SearchNodeL
       END IF
 
 
+
+
       IF( ListGetLogical(Params, 'Calculate Energy Norm', gotIt) ) THEN
         Energy = 0._dp
         DO i=1,Aaid % NumberOfRows
@@ -4819,7 +4832,7 @@ END FUNCTION SearchNodeL
         DO i=1,Aaid % NumberOfRows
           j = AAid % Invperm(i)
           IF ( AAid % ParallelInfo % NeighbourList(j) % Neighbours(1) == ParEnv % Mype ) THEN
-            TempVector(i)=TempVector(i)-TempRHS(i)
+            TempVector(i) = TempVector(i)-TempRHS(i)
           ELSE
             TempVector(i) = 0
           END IF
@@ -4865,6 +4878,8 @@ END FUNCTION SearchNodeL
       DEALLOCATE( TempVector )
 
       IF (BackRotation) CALL BackRotateNTSystem(NodalLoads % Values,NodalLoads % Perm,DOFs)
+
+
     END IF
     IF (BackRotation) CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 !------------------------------------------------------------------------------
@@ -4876,6 +4891,15 @@ END FUNCTION SearchNodeL
    CALL ComputeChange(Solver,.FALSE.,n, x)
    Norm = Solver % Variable % Norm
 
+ ! Create soft limiters to be later applied by the Dirichlet conditions
+ ! in the next round. Within apply a hard limiter after the set is
+ ! determined.
+ !---------------------------------------------------------------------
+   IF( ListGetLogical( Params,'Apply Limiter',GotIt) ) THEN
+     CALL DetermineSoftLimiter( Solver ) 	
+   END IF
+
+ 
 !------------------------------------------------------------------------------
  
    Solver % Variable % PrimaryMesh => Solver % Mesh
@@ -4886,6 +4910,7 @@ END FUNCTION SearchNodeL
      NodalLoads % PrimaryMesh => Solver % Mesh
      CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
                   GetVarName(NodalLoads) )
+
    END IF
 
 !------------------------------------------------------------------------------
