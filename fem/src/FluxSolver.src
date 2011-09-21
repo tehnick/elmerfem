@@ -78,7 +78,7 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
 
  
   CALL Info( 'FluxSolver', '-------------------------------------',Level=4 )
-  CALL Info( 'FluxSolver','Computing the flux',Level=4 )
+  CALL Info( 'FluxSolver', 'Computing the flux and/or gradient',Level=4 )
   CALL Info( 'FluxSolver', '-------------------------------------',Level=4 )
 
   dim = CoordinateSystemDimension()
@@ -536,6 +536,8 @@ END SUBROUTINE FluxSolver
 
     CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
       
+    CALL ListAddLogical( SolverParams,'Skip Compute Nonlinear Change',.TRUE.)
+
     ! Add linear system defaults: cg+diagonal
     IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
         CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
