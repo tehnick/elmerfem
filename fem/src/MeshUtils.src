@@ -5174,7 +5174,7 @@ CONTAINS
     TYPE(SOlver_t) :: Solver
     INTEGER :: LocalNodes
     LOGICAL :: OptimizeBW
-    INTEGER :: Perm(:)
+    INTEGER, POINTER :: Perm(:)
     CHARACTER(LEN=*) :: MaskName
     LOGICAL, OPTIONAL :: MaskOnBulk
     LOGICAL, OPTIONAL :: RequireLogical
@@ -5195,6 +5195,11 @@ CONTAINS
       MaskIsLogical = RequireLogical
     ELSE
       MaskIsLogical = .FALSE.
+    END IF
+
+    IF(.NOT. ASSOCIATED( Perm ) ) THEN
+      ALLOCATE( Perm( Mesh % NumberOfNodes ) )
+      Perm = 0
     END IF
 
     ElemStart = HUGE(ElemStart) 

@@ -4337,11 +4337,15 @@ END FUNCTION SearchNodeL
 !> Only active if the variable with name Variable % Name // ' Weights' exist.
 !------------------------------------------------------------------------------
 
-  SUBROUTINE CalculateNodalWeights(Solver)
-    TYPE(Solver_t) :: Solver
+  SUBROUTINE CalculateNodalWeights(Solver,MaskName)
 
+    IMPLICIT NONE 
+    TYPE(Solver_t) :: Solver
+    CHARACTER(*), OPTIONAL :: MaskName
+
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName
     TYPE(Variable_t), POINTER :: WeightsVar
-    REAL(KIND=dp), POINTER :: Weights(:)    
+    REAL(KIND=dp), POINTER :: Weights(:), Solution(:)    
     TYPE(Nodes_t) :: ElementNodes
     TYPE(Element_t), POINTER :: Element
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
@@ -4349,22 +4353,50 @@ END FUNCTION SearchNodeL
     INTEGER, POINTER :: Perm(:), Indexes(:)
     REAL(KIND=dp) :: u,v,w,s,detJ
     REAL(KIND=dp), ALLOCATABLE :: Basis(:)
-    LOGICAL :: GotIt, stat
+    LOGICAL :: GotIt, stat, VariableOutput
 
 
-    NULLIFY(WeightsVar)
-    WeightsVar => VariableGet( Solver % Mesh % Variables, &
-        GetVarName(Solver % Variable) // ' Weights' )
-    IF ( .NOT. ASSOCIATED(WeightsVar) ) RETURN
+    NULLIFY( Perm ) 
+    IF( PRESENT( MaskName ) ) THEN
+      VarName = TRIM(MaskName)//' Weights'
+    ELSE
+      VarName = GetVarName(Solver % Variable) // ' Weights'
+    END IF
+    WeightsVar => VariableGet( Solver % Mesh % Variables, VarName )
+    IF ( .NOT. ASSOCIATED(WeightsVar) ) THEN
+      IF( PRESENT( MaskName ) ) THEN
+        CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,MaskName, &
+             .FALSE., Perm, n, RequireLogical = .TRUE. )
+        IF( n == 0 ) THEN
+          CALL Warn('CalculateNodalWeights','Mask > '//TRIM( MaskName )//' < not found')
+	  RETURN
+        END IF
+      ELSE
+        Perm => Solver % Variable % Perm
+	n = MAXVAL( Perm ) 
+      END IF
+      IF( ASSOCIATED( Perm ) ) THEN
+	NULLIFY( Solution )
+        ALLOCATE( Solution(n))
+        Solution = 0.0d0        
+        VariableOutput = Solver % Variable % Output
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+            VarName, 1, Solution, &
+            Solver % Variable % Perm, Output=VariableOutput )
+        NULLIFY( Solution )
+      ELSE
+        CALL Fatal('CalculateNodalWeights','Permutation vector no present?')
+      END IF
+      WeightsVar => VariableGet( Solver % Mesh % Variables, VarName )
+    END IF
 
-    NULLIFY(Weights)
     Weights => WeightsVar % Values
+    Perm => WeightsVar % Perm
     IF ( .NOT. ASSOCIATED(Weights) ) RETURN
 
     CALL Info('ComputeNodalWeights',&
-        'Computing weights for solver '//Solver % Variable % Name)
+        'Computing weights for solver to variable: '//TRIM(VarName))
 
-    Perm => Solver % Variable % Perm
     n = Solver % Mesh % MaxElementNodes
     ALLOCATE(Basis(n), ElementNodes % x(n), ElementNodes % y(n), &
         ElementNodes % z(n))

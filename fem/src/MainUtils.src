@@ -4110,7 +4110,10 @@ CONTAINS
              END IF
           END DO
           CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
-          IF (ASSOCIATED(Solver % Variable)) CALL CalculateNodalWeights(Solver)
+
+          IF( ListGetLogical( Solver % Values,'Calculate Weights',Found )) THEN
+            CALL CalculateNodalWeights(Solver)
+          END IF
        END IF
      END IF
 !------------------------------------------------------------------------------
