@@ -431,6 +431,7 @@ END SUBROUTINE FluxSolver
   SUBROUTINE FluxSolver_Init( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
     USE DefUtils
+    IMPLICIT NONE
 
     TYPE(Model_t)  :: Model
     TYPE(Solver_t) :: Solver
@@ -445,6 +446,7 @@ END SUBROUTINE FluxSolver
     SolverParams => GetSolverParams()
     dim = CoordinateSystemDimension()
 
+
     IF( dim < 2 .OR. dim > 3 ) THEN
       CALL Fatal('FluxSolver_init','Flux computation makes sense only in 2D and 3D')
     END IF
@@ -454,6 +456,7 @@ END SUBROUTINE FluxSolver
 
     CalculateFluxMag = GetLogical(SolverParams,'Calculate Flux Magnitude',GotIt)
     CalculateFlux = GetLogical(SolverParams,'Calculate Flux',GotIt) 
+
 
     IF(.NOT. (CalculateFlux .OR. CalculateFluxMag .OR. CalculateGrad .OR. CalculateGradMag) ) THEN 
       IF(.NOT. GotIt ) THEN
@@ -478,9 +481,9 @@ END SUBROUTINE FluxSolver
     END IF
     
 
-    FluxName = TRIM(VarName)//' Flux'
-    CALL Info('FluxSolver_init','Saving flux to: '//FluxName) 
     IF( CalculateFlux ) THEN
+      FluxName = TRIM(VarName)//' Flux'
+      CALL Info('FluxSolver_init','Saving flux to: '//FluxName) 
       IF(dim == 2) THEN
         CALL ListAddString( SolverParams,&
             NextFreeKeyword('Exported Variable',SolverParams),&
@@ -491,17 +494,22 @@ END SUBROUTINE FluxSolver
 	TRIM(FluxName)//'['//TRIM(FluxName)//':3]')
       END IF
       IF( GetLogical( SolverParams,'Calculate Flux Abs',GotIt) ) THEN
+        FluxName = TRIM(VarName)//' Flux_abs'
+        CALL Info('FluxSolver_init','Saving flux abs to: '//FluxName) 
         CALL ListAddString( SolverParams,&
-            NextFreeKeyword('Exported Variable',SolverParams),TRIM(FluxName)//'_abs')        
+            NextFreeKeyword('Exported Variable',SolverParams),TRIM(FluxName))
       END IF
     END IF
     IF( CalculateFluxMag ) THEN
+      FluxName = TRIM(VarName)//' Flux_mag'
+      CALL Info('FluxSolver_init','Saving flux magnitude to: '//FluxName) 
       CALL ListAddString( SolverParams,&
           NextFreeKeyword('Exported Variable',SolverParams),TRIM(FluxName)//'_mag')
     END IF
 
-    GradName = TRIM(VarName)//' Grad'
     IF( CalculateGrad ) THEN
+      GradName = TRIM(VarName)//' Grad'
+      CALL Info('FluxSolver_init','Saving gradient to: '//GradName) 	
       IF(dim == 2) THEN
         CALL ListAddString( SolverParams,&
             NextFreeKeyword('Exported Variable',SolverParams),&
@@ -512,13 +520,17 @@ END SUBROUTINE FluxSolver
 	TRIM(GradName)//'['//TRIM(GradName)//':3]')
       END IF
       IF( GetLogical( SolverParams,'Calculate Grad Abs',GotIt) ) THEN
+        GradName = TRIM(VarName)//' Grad_abs'
+        CALL Info('FluxSolver_init','Saving gradient abs to: '//GradName) 	
         CALL ListAddString( SolverParams,&
-            NextFreeKeyword('Exported Variable',SolverParams),TRIM(GradName)//'_abs')        
+            NextFreeKeyword('Exported Variable',SolverParams),TRIM(GradName))
       END IF
     END IF
     IF( CalculateGradMag ) THEN
+      GradName = TRIM(VarName)//' Grad_mag'
+      CALL Info('FluxSolver_init','Saving gradient magnitude to: '//GradName) 		
       CALL ListAddString( SolverParams,&
-          NextFreeKeyword('Exported Variable',SolverParams),TRIM(GradName)//'_mag')
+          NextFreeKeyword('Exported Variable',SolverParams),TRIM(GradName))
     END IF
 
 
