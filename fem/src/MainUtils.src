@@ -861,22 +861,20 @@ CONTAINS
     !------------------------------------------------------------------------------
     ! Add computation of the weights resulting from Galerkin integration
     !------------------------------------------------------------------------------
-    IF ( ListGetLogical( Solver % Values,'Calculate Weights', Found ) ) THEN
-      Var_name = GetVarName(Solver % Variable) // ' Weights'
-      Var => VariableGet( Solver % Mesh % Variables, var_name )
-      IF ( .NOT. ASSOCIATED(Var) ) THEN
-        Perm => Solver % Variable % Perm
-        IF( ASSOCIATED( Perm ) ) THEN
-          ALLOCATE( Solution(SIZE(Solver % Variable % Perm)) )
-          Solution = 0.0d0        
-          VariableOutput = Solver % Variable % Output
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-              var_name, 1, Solution, &
-              Solver % Variable % Perm, Output=VariableOutput )
-          NULLIFY( Solution )
-        END IF
-      END IF
-    END IF
+!    IF ( ListGetLogical( Solver % Values,'Calculate Weights', Found ) ) THEN
+!      Var_name = GetVarName(Solver % Variable) // ' Weights'
+!      Var => VariableGet( Solver % Mesh % Variables, var_name )
+!      IF ( .NOT. ASSOCIATED(Var) ) THEN
+!        Perm => Solver % Variable % Perm
+!        IF( ASSOCIATED( Perm ) ) THEN
+!          ALLOCATE( Solution(SIZE(Solver % Variable % Perm)) )
+!          Solution = 0.0d0        
+!          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+!              var_name, 1, Solution, Solver % Variable % Perm )
+!          NULLIFY( Solution )
+!        END IF
+!      END IF
+!    END IF
     !------------------------------------------------------------------------------
 
     Solver % NOFEigenValues = 0
@@ -4112,7 +4110,10 @@ CONTAINS
           CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
 
           IF( ListGetLogical( Solver % Values,'Calculate Weights',Found )) THEN
-            CALL CalculateNodalWeights(Solver)
+            CALL CalculateNodalWeights(Solver,.FALSE.)
+          END IF
+          IF( ListGetLogical( Solver % Values,'Calculate Boundary Weights',Found )) THEN
+            CALL CalculateNodalWeights(Solver,.TRUE.) 
           END IF
        END IF
      END IF

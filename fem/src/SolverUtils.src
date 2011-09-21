@@ -4339,80 +4339,99 @@ END FUNCTION SearchNodeL
 !> is used as a mask to define the set of active nodes.
 !------------------------------------------------------------------------------
 
-  SUBROUTINE CalculateNodalWeights(Solver,MaskName)
+  SUBROUTINE CalculateNodalWeights(Solver,WeightAtBoundary,Perm,VarName)
 
     IMPLICIT NONE 
     TYPE(Solver_t) :: Solver
-    CHARACTER(*), OPTIONAL :: MaskName
+    LOGICAL :: WeightAtBoundary
+    INTEGER, POINTER, OPTIONAL :: Perm(:)
+    CHARACTER(*), OPTIONAL :: VarName
 
-    CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+
+    CHARACTER(LEN=MAX_NAME_LEN) :: IntVarName
+    TYPE(Mesh_t), POINTER :: Mesh
     TYPE(Variable_t), POINTER :: WeightsVar
     REAL(KIND=dp), POINTER :: Weights(:), Solution(:)    
     TYPE(Nodes_t) :: ElementNodes
     TYPE(Element_t), POINTER :: Element
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-    INTEGER ::e, t, n
-    INTEGER, POINTER :: Perm(:), Indexes(:)
+    INTEGER ::e, t, n, ElemStart, ElemFin
+    INTEGER, POINTER :: IntPerm(:), Indexes(:),LocalIndexes(:)
     REAL(KIND=dp) :: u,v,w,s,detJ
     REAL(KIND=dp), ALLOCATABLE :: Basis(:)
     LOGICAL :: GotIt, stat, VariableOutput
 
 
-    NULLIFY( Perm ) 
-    IF( PRESENT( MaskName ) ) THEN
-      VarName = TRIM(MaskName)//' Weights'
+    Mesh => Solver % Mesh
+
+    NULLIFY( WeightsVar ) 
+    IF( PRESENT( VarName ) ) THEN
+      IntVarName = VarName
+    ELSE IF ( WeightAtBoundary ) THEN
+      IntVarName = GetVarName(Solver % Variable) // ' Boundary Weights'
     ELSE
-      VarName = GetVarName(Solver % Variable) // ' Weights'
+      IntVarName = GetVarName(Solver % Variable) // ' Weights'
     END IF
-    WeightsVar => VariableGet( Solver % Mesh % Variables, VarName )
+    WeightsVar => VariableGet( Mesh % Variables, IntVarName )
+
+    IF( WeightAtBoundary ) THEN
+      ElemStart = Mesh % NumberOfBulkElements + 1
+      ElemFin = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+    ELSE
+      ElemStart = 1
+      ElemFin = Mesh % NumberOfBulkElements 
+    END IF
+
+    NULLIFY( IntPerm ) 
     IF ( .NOT. ASSOCIATED(WeightsVar) ) THEN
-      IF( PRESENT( MaskName ) ) THEN
-        CALL MakePermUsingMask( CurrentModel,Solver,Solver % Mesh,MaskName, &
-             .FALSE., Perm, n, RequireLogical = .TRUE. )
-        IF( n == 0 ) THEN
-          CALL Warn('CalculateNodalWeights','Mask > '//TRIM( MaskName )//' < not found')
-	  RETURN
-        END IF
+      IF( PRESENT( Perm ) ) THEN
+        IntPerm => Perm 
       ELSE
-        Perm => Solver % Variable % Perm
-	n = MAXVAL( Perm ) 
+        IntPerm => Solver % Variable % Perm
       END IF
-      IF( ASSOCIATED( Perm ) ) THEN
+      IF( ASSOCIATED( IntPerm ) ) THEN
 	NULLIFY( Solution )
+	n = MAXVAL( IntPerm ) 
         ALLOCATE( Solution(n))
         Solution = 0.0d0        
-        VariableOutput = Solver % Variable % Output
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-            VarName, 1, Solution, &
-            Solver % Variable % Perm, Output=VariableOutput )
+        CALL VariableAdd( Mesh % Variables, Mesh, Solver,&
+            IntVarName, 1, Solution, IntPerm )
         NULLIFY( Solution )
       ELSE
-        CALL Fatal('CalculateNodalWeights','Permutation vector no present?')
+        CALL Warn('CalculateNodalWeights','Permutation vector not present?')
+        RETURN
       END IF
-      WeightsVar => VariableGet( Solver % Mesh % Variables, VarName )
+      WeightsVar => VariableGet( Mesh % Variables, IntVarName )
     END IF
 
     Weights => WeightsVar % Values
-    Perm => WeightsVar % Perm
-    IF ( .NOT. ASSOCIATED(Weights) ) RETURN
+    IntPerm => WeightsVar % Perm
+    IF ( .NOT. ASSOCIATED(Weights) ) THEN
+      CALL Warn('CalculateNodalWeights','Solution vector not present?')
+      RETURN
+    END IF
 
     CALL Info('ComputeNodalWeights',&
-        'Computing weights for solver to variable: '//TRIM(VarName))
+        'Computing weights for solver to variable: '//TRIM(IntVarName))
+    n = Mesh % MaxElementNodes
 
-    n = Solver % Mesh % MaxElementNodes
     ALLOCATE(Basis(n), ElementNodes % x(n), ElementNodes % y(n), &
-        ElementNodes % z(n))
+        ElementNodes % z(n), LocalIndexes(n) )
     Weights = 0.0_dp
 
-    DO e=1,Solver % NumberOfActiveElements
+    DO e=ElemStart,ElemFin
 
-      Element => Solver % Mesh % Elements( Solver % ActiveElements( e ) )
-      n = Element % TYPE % NumberOfNodes
+      Element => Mesh % Elements( e )
       Indexes => Element % NodeIndexes
 
-      ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(Indexes)
-      ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(Indexes)
-      ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(Indexes)
+      n = Element % TYPE % NumberOfNodes
+      LocalIndexes(1:n) = IntPerm( Indexes ) 
+      IF( ANY( LocalIndexes(1:n) == 0 ) ) CYCLE
+
+      n = Element % TYPE % NumberOfNodes
+      ElementNodes % x(1:n) = Mesh % Nodes % x(Indexes)
+      ElementNodes % y(1:n) = Mesh % Nodes % y(Indexes)
+      ElementNodes % z(1:n) = Mesh % Nodes % z(Indexes)
 
       IntegStuff = GaussPoints( Element )
 
@@ -4424,14 +4443,14 @@ END FUNCTION SearchNodeL
 
         stat = ElementInfo( Element, ElementNodes, U, V, W, detJ, Basis )
 
-        Weights( Perm(Indexes) ) = &
-            Weights( Perm(Indexes) ) + s * detJ * Basis(1:n)
+        Weights( LocalIndexes(1:n) ) = &
+            Weights( LocalIndexes(1:n) ) + s * detJ * Basis(1:n)
       END DO
 
     END DO
 
     DEALLOCATE(Basis, ElementNodes % x, ElementNodes % y, &
-        ElementNodes % z)
+        ElementNodes % z, LocalIndexes )
 
     CALL Info('ComputeNodalWeights','All done')
 
@@ -4837,8 +4856,6 @@ END FUNCTION SearchNodeL
       ELSE
         CALL MatrixVectorMultiply( Aaid, x, TempVector )
       END IF
-
-
 
 
       IF( ListGetLogical(Params, 'Calculate Energy Norm', gotIt) ) THEN

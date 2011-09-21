@@ -2796,6 +2796,10 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
      CALL MakePermUsingMask( Model,Solver,Mesh,MaskName, &
           OptimizeOrder, SavePerm, SaveNodes, RequireLogical = .TRUE. )
 
+     IF( ListGetLogical( SolverParams,'Calculate Weights',GotIt ) ) THEN
+       CALL CalculateNodalWeights( Solver, .TRUE., SavePerm, TRIM(MaskName)//' Weights')
+     END IF
+
      WRITE( Message, * ) 'Number of nodes in specified boundary ', SaveNodes
      CALL Info('SaveLine',Message)
   END IF
