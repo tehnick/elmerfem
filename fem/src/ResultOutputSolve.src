@@ -3216,7 +3216,8 @@ CONTAINS
     CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, &
         FieldName, FieldName2, OutStr
     CHARACTER :: lf
-    LOGICAL :: ScalarsExist, VectorsExist, Found, ComponentVector, ComplementExists, Use2
+    LOGICAL :: ElementalSolutionsExist, ScalarsExist, VectorsExist, Found,&
+              ComponentVector, ComplementExists, Use2
     LOGICAL :: WriteData, WriteXML, L
     TYPE(Variable_t), POINTER :: Solution
     INTEGER, POINTER :: Perm(:), Perm2(:), DispPerm(:), Disp2Perm(:)
@@ -3277,18 +3278,11 @@ CONTAINS
     !-------------------------------------
     ScalarFieldName = GetString( Params,'Scalar Field 1',ScalarsExist)
     VectorFieldName = GetString( Params,'Vector Field 1',VectorsExist)
-    IF( ScalarsExist .AND. VectorsExist) THEN
-      WRITE( OutStr,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
-          //'" Vectors="'//TRIM(VectorFieldName)//'">'//lf
-    ELSE IF( ScalarsExist ) THEN
-      WRITE( OutStr,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'//lf
-    ELSE IF( VectorsExist ) THEN
-      WRITE( OutStr,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'//lf
+    IF( ScalarsExist .OR. VectorsExist) THEN
+      WRITE( OutStr,'(A)') '      <PointData>'//lf
+      CALL StrWrite( OutStr )
     ELSE
       CALL Warn('WriteVtuFile','Are there really no scalars or vectors?')
-    END IF
-    IF( ScalarsExist .OR. VectorsExist ) THEN
-      CALL StrWrite( OutStr )
     END IF
 
 
@@ -3321,6 +3315,7 @@ CONTAINS
     !------------------------------------------------------------------------------------
 100 Offset = 0
     
+    ElementalSolutionsExist=.FALSE.
     DO Rank = 0,2
       DO Vari = 1, 99
         IF(Rank==0) WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
@@ -3494,120 +3489,128 @@ CONTAINS
     
     ! Elementwise information
     !-------------------------------------
-    FieldName = GetString( Params,'Vector Field Elemental 1',VectorsExist)
-    FieldName = GetString( Params,'Scalar Field Elemental 1',ScalarsExist)
+    IF( WriteXML ) THEN
+      WRITE( OutStr,'(A)') '      <CellData>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF
     
-    IF( VectorsExist .OR. ScalarsExist ) THEN
-      IF( WriteXML ) THEN
-        WRITE( OutStr,'(A)') '      <CellData>'//lf
-        CALL StrWrite( OutStr ) 
-      END IF
-      
-      DO Rank = 0,1
-        DO Vari = 1, 99
+    DO Rank = 0,1
+      DO Vari = 1, 99
+        IF( Rank == 0 ) THEN
+          WRITE(Txt,'(A,I0)') 'Scalar Field ',Vari
+        ELSE
+          WRITE(Txt,'(A,I0)') 'Vector Field ',Vari
+        END IF
+        
+        FieldName = GetString( Params, TRIM(Txt), Found )
+        IF(.NOT. Found) THEN
           IF( Rank == 0 ) THEN
             WRITE(Txt,'(A,I0)') 'Scalar Field Elemental ',Vari
           ELSE
             WRITE(Txt,'(A,I0)') 'Vector Field Elemental ',Vari
           END IF
-          
           FieldName = GetString( Params, TRIM(Txt), Found )
           IF(.NOT. Found) EXIT
+        END IF
+        
+        !---------------------------------------------------------------------
+        ! Find the variable with the given name in the normal manner 
+        !---------------------------------------------------------------------
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
+        
+        IF(.NOT. ASSOCIATED(Solution)) THEN
+          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+          CALL Warn('WriteVtuXMLFile', Txt)
+          CYCLE
+        END IF
+        
+        IF (Solution % Type /= Variable_on_nodes_on_elements ) CYCLE
+
+        Perm => Solution % Perm
+        Dofs = Solution % DOFs
+        Values => Solution % Values
+        
+        IF( dofs > 1 ) THEN
+          sdofs = MAX(dofs,dim)
+        ELSE
+          sdofs = 1
+        END IF
+        
+        !---------------------------------------------------------------------
+        ! Finally save the field values 
+        !---------------------------------------------------------------------
+        IF( WriteXML ) THEN
+          CALL Info('WriteVtuFile','Writing variable: '//TRIM(FieldName) )
+          WRITE( OutStr,'(A,I0,A)') '        <DataArray type="Float',PrecBits,'" Name="'//TRIM(FieldName)
+          CALL StrWrite( OutStr )
           
-          !---------------------------------------------------------------------
-          ! Find the variable with the given name in the normal manner 
-          !---------------------------------------------------------------------
-          Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName))
+          WRITE( OutStr,'(A,I0,A)') '" NumberOfComponents="',sdofs,'"'          
+          CALL StrWrite( OutStr ) 
           
-          IF(.NOT. ASSOCIATED(Solution)) THEN
-            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
-            CALL Warn('WriteVtuXMLFile', Txt)
-            CYCLE
-          END IF
-          
-          Perm => Solution % Perm
-          Dofs = Solution % DOFs
-          Values => Solution % Values
-          
-          IF( dofs > 1 ) THEN
-            sdofs = MAX(dofs,dim)
-          ELSE
-            sdofs = 1
-          END IF
-          
-          !---------------------------------------------------------------------
-          ! Finally save the field values 
-          !---------------------------------------------------------------------
-          IF( WriteXML ) THEN
-            CALL Info('WriteVtuFile','Writing variable: '//TRIM(FieldName) )
-            WRITE( OutStr,'(A,I0,A)') '        <DataArray type="Float',PrecBits,'" Name="'//TRIM(FieldName)
-            CALL StrWrite( OutStr )
-            
-            WRITE( OutStr,'(A,I0,A)') '" NumberOfComponents="',sdofs,'"'          
+          IF( AsciiOutput ) THEN
+            WRITE( OutStr,'(A)') ' format="ascii">'//lf
             CALL StrWrite( OutStr ) 
-            
-            IF( AsciiOutput ) THEN
-              WRITE( OutStr,'(A)') ' format="ascii">'//lf
-              CALL StrWrite( OutStr ) 
-            ELSE
-              WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
-              CALL StrWrite( OutStr ) 
+          ELSE
+            WRITE( OutStr,'(A,I0,A)') ' format="appended" offset="',Offset,'"/>'//lf
+            CALL StrWrite( OutStr ) 
+          END IF
+        END IF
+        
+        IF( BinaryOutput ) THEN
+          k = PrecSize * sdofs * NumberOfElements
+          Offset = Offset + SIZEOF( i ) + k
+        END IF
+
+        
+        IF( WriteData ) THEN
+
+          IF( BinaryOutput ) WRITE( VtuUnit ) k
+
+          DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+            ElemVectVal = 0.0
+
+            CurrentElement => Model % Elements(i)
+            IF( MaskExists ) THEN
+              IF( ANY(MaskPerm(CurrentElement % NodeIndexes) == 0) ) CYCLE
             END IF
-          END IF
-          
-          IF( BinaryOutput ) THEN
-            k = PrecSize * sdofs * NumberOfElements
-            Offset = Offset + SIZEOF( i ) + k
-          END IF
 
-          
-          IF( WriteData ) THEN
-
-            IF( BinaryOutput ) WRITE( VtuUnit ) k
-
-            DO i = 1, Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-              ElemVectVal = 0.0
-
-              CurrentElement => Model % Elements(i)
-              IF( MaskExists ) THEN
-                IF( ANY(MaskPerm(CurrentElement % NodeIndexes) == 0) ) CYCLE
-              END IF
+            IF (i<=Model % NumberOfBulkElements) THEN
               IF ( ALL(Perm(CurrentElement % DGIndexes)>0)) THEN
                 n = GetElementNOFNodes()
                 DO j=1,dofs
                   ElemVectVal(j) = SUM(Values(dofs*(perm(CurrentElement % DGIndexes)-1)+j))/n
                 END DO
               END IF
-              
-              DO j=1,sdofs                
-                IF( BinaryOutput ) THEN
-                  IF( SinglePrec ) THEN
-                    fvalue = ElemVectVal(j)
-                    WRITE( VtuUnit ) fvalue
-                  ELSE
-                    WRITE( VtuUnit ) ElemVectVal(j) 	
-                  END IF
+            END IF
+            
+            DO j=1,sdofs                
+              IF( BinaryOutput ) THEN
+                IF( SinglePrec ) THEN
+                  fvalue = ElemVectVal(j)
+                  WRITE( VtuUnit ) fvalue
                 ELSE
-                  WRITE( OutStr,'(ES16.7E3)') ElemVectVal(j)
-                  CALL StrWrite( OutStr ) 
+                  WRITE( VtuUnit ) ElemVectVal(j) 	
                 END IF
-              END DO
-              
+              ELSE
+                WRITE( OutStr,'(ES16.7E3)') ElemVectVal(j)
+                CALL StrWrite( OutStr ) 
+              END IF
             END DO
-          END IF
-          
-          IF( AsciiOutput ) THEN
-            WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
-            CALL StrWrite( OutStr ) 
-          END IF
-        END DO
+            
+          END DO
+        END IF
+        
+        IF( AsciiOutput ) THEN
+          WRITE( OutStr,'(A)') lf//'        </DataArray>'//lf
+          CALL StrWrite( OutStr ) 
+        END IF
       END DO
+    END DO
 
-      IF( WriteXML ) THEN
-        WRITE( OutStr,'(A)') '      </CellData>'//lf
-        CALL StrWrite( OutStr ) 
-      END IF        
-    END IF
+    IF( WriteXML ) THEN
+      WRITE( OutStr,'(A)') '      </CellData>'//lf
+      CALL StrWrite( OutStr ) 
+    END IF        
 
     ! Coordinates of each point
     !-------------------------------------
