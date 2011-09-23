@@ -415,7 +415,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
 
-     TYPE(Element_t),POINTER :: LeftParent,RightParent,Face,Faces(:)
+     TYPE(Element_t),POINTER :: P1,P2,Face,Faces(:)
      INTEGER ::t,n,n1,n2,NumberOfFaces,dim
 
      dim = CoordinateSystemDimension()
@@ -432,16 +432,16 @@ CONTAINS
        Face => Faces(t)
        IF ( .NOT. ActiveBoundaryElement(Face) ) CYCLE
 
-       LeftParent  => Face % BoundaryInfo % Left
-       RightParent => Face % BoundaryInfo % Right
-       IF ( ASSOCIATED(RightParent) .AND. ASSOCIATED(LeftParent) ) THEN
-          IF(.NOT.ASSOCIATED(GetMaterial(LeftParent),GetMaterial(RightParent))) CYCLE
+       P1 => Face % BoundaryInfo % Left
+       P2 => Face % BoundaryInfo % Right
+       IF ( ASSOCIATED(P2) .AND. ASSOCIATED(P1) ) THEN
+          IF(.NOT.ASSOCIATED(GetMaterial(P1),GetMaterial(P2))) CYCLE
 
-          n  = GetElementNOFNodes( Face )
-          n1 = GetElementNOFNodes( LeftParent )
-          n2 = GetElementNOFNodes( RightParent )
+          n  = GetElementNOFNodes(Face)
+          n1 = GetElementNOFNodes(P1)
+          n2 = GetElementNOFNodes(P2)
 
-          CALL LocalJumps( STIFF,Face,n,LeftParent,n1,RightParent,n2)
+          CALL LocalJumps( STIFF,Face,n,P1,n1,P2,n2)
           CALL DefaultUpdateEquations( STIFF, FORCE, Face )
        END IF
      END DO
@@ -479,32 +479,27 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE LocalJumps( STIFF,Face,n,LeftParent,n1,RightParent,n2)
+    SUBROUTINE LocalJumps( STIFF,Face,n,P1,n1,P2,n2)
 !------------------------------------------------------------------------------
       IMPLICIT NONE
       REAL(KIND=dp) :: STIFF(:,:)
       INTEGER :: n,n1,n2
-      TYPE(Element_t), POINTER :: Face, LeftParent, RightParent
+      TYPE(Element_t), POINTER :: Face, P1, P2
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: FaceBasis(n), FacedBasisdx(n,3)
-      REAL(KIND=dp) :: LeftBasis(n1), LeftdBasisdx(n1,3)
-      REAL(KIND=dp) :: RightBasis(n2), RightdBasisdx(n2,3)
-      REAL(KIND=dp) :: Jump(n1+n2), Average(n1+n2)
-      REAL(KIND=dp) :: detJ, U, V, W, S, Udotn, xx, yy
+      REAL(KIND=dp) :: FaceBasis(n), P1Basis(n1), P2Basis(n2)
+      REAL(KIND=dp) :: Jump(n1+n2), detJ, U, V, W, S
       LOGICAL :: Stat
-      INTEGER :: i, j, p, q, dim, t, nFace, nParent
+      INTEGER :: i, j, p, q, t, nFace, nParent
       TYPE(GaussIntegrationPoints_t) :: IntegStuff
-      REAL(KIND=dp) :: hE, Normal(3), cu(3), LeftOut(3)
 
-      TYPE(Nodes_t) :: FaceNodes, LeftParentNodes, RightParentNodes
-      SAVE FaceNodes, LeftParentNodes, RightParentNodes
+      TYPE(Nodes_t) :: FaceNodes, P1Nodes, P2Nodes
+      SAVE FaceNodes, P1Nodes, P2Nodes
 !------------------------------------------------------------------------------
-      dim = CoordinateSystemDimension()
-      STIFF = 0.0d0
+      STIFF = 0._dp
 
-      CALL GetElementNodes( FaceNodes, Face )
-      CALL GetElementNodes( LeftParentNodes,  LeftParent )
-      CALL GetElementNodes( RightParentNodes, RightParent )
+      CALL GetElementNodes(FaceNodes, Face)
+      CALL GetElementNodes(P1Nodes, P1)
+      CALL GetElementNodes(P2Nodes, P2)
 !------------------------------------------------------------------------------
 !     Numerical integration over the edge
 !------------------------------------------------------------------------------
@@ -518,29 +513,26 @@ CONTAINS
 
         ! Basis function values & derivatives at the integration point:
         !--------------------------------------------------------------
-        stat = ElementInfo( Face, FaceNodes, U, V, W, detJ, &
-             FaceBasis, FacedBasisdx )
+        stat = ElementInfo(Face, FaceNodes, U, V, W, detJ, FaceBasis)
 
         S = S * detJ
 
         ! Find basis functions for the parent elements:
         ! ---------------------------------------------
-        CALL FindParentUVW( Face,n,LeftParent,n1,U,V,W,FaceBasis )
-        stat = ElementInfo( LeftParent, LeftParentNodes, U, V, W, detJ, &
-                LeftBasis, LeftdBasisdx )
+        CALL FindParentUVW(Face, n, P1, n1, U, V, W, FaceBasis)
+        stat = ElementInfo(P1, P1Nodes, U, V, W, detJ, P1Basis)
 
-        CALL FindParentUVW( Face,n,RightParent,n2,U,V,W,FaceBasis )
-        stat = ElementInfo( RightParent, RightParentNodes, U, V, W, detJ, &
-              RightBasis, RightdBasisdx )
+        CALL FindParentUVW(Face, n, P2, n2, U, V, W, FaceBasis)
+        stat = ElementInfo(P2, P2Nodes, U, V, W, detJ, P2Basis)
 
         ! Integrate jump terms:
         ! ---------------------
-        Jump(1:n1) = LeftBasis(1:n1)
-        Jump(n1+1:n1+n2) = -RightBasis(1:n2)
+        Jump(1:n1) = P1Basis(1:n1)
+        Jump(n1+1:n1+n2) = -P2Basis(1:n2)
 
         DO p=1,n1+n2
           DO q=1,n1+n2
-            STIFF(p,q) = STIFF(p,q) + s * Jump(q)* Jump(p)
+            STIFF(p,q) = STIFF(p,q) + s * Jump(q)*Jump(p)
           END DO
         END DO
       END DO
