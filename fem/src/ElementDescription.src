@@ -3345,6 +3345,7 @@ END IF
 !------------------------------------------------------------------------------
 
 
+
 !------------------------------------------------------------------------------
 !>    Compute contravariant metric tensor (=J^TJ)^-1 of element coordinate
 !>    system, and square root of determinant of covariant metric tensor
@@ -3352,38 +3353,17 @@ END IF
 !------------------------------------------------------------------------------
    FUNCTION ElementMetric(nDOFs,Elm,Nodes,Metric,DetG,dLBasisdx,LtoGMap) RESULT(Success)
 !------------------------------------------------------------------------------
-!   
-!  ARGUMENTS:
-!   Type(Element_t) :: element
-!     INPUT: element structure
-!     
-!   Type(Nodes_t) :: Nodes
-!     INPUT: element nodal coordinates
-!
-!   REAL(KIND=dp) :: Metric(:,:)
-!     OUTPUT: Contravariant metric tensor
-!
-!   REAL(KIND=dp) :: DetG
-!     OUTPUT: SQRT of determinant of element coordinate metric
-!
-!   REAL(KIND=dp) :: dLBasisdx(:)
-!     INPUT: Derivatives of element basis function with respect to local
-!            coordinates
-!
-!  FUNCTION VALUE:
-!     LOGICAL :: stat
-!       If .FALSE. element is degenerate.
-!    
-!------------------------------------------------------------------------------
-
-      INTEGER :: nDOFs
-      TYPE(Element_t)  :: Elm
-      TYPE(Nodes_t)    :: Nodes
-      REAL(KIND=dp) :: Metric(:,:),dLBasisdx(:,:),DetG, LtoGMap(3,3)
+     INTEGER :: nDOFs                !< Number of active nodes in element
+     TYPE(Element_t)  :: Elm         !< Element structure
+     TYPE(Nodes_t)    :: Nodes       !< element nodal coordinates
+     REAL(KIND=dp) :: Metric(:,:)    !< Contravariant metric tensor
+     REAL(KIND=dp) :: dLBasisdx(:,:) !< Derivatives of element basis function with respect to local coordinates
+     REAL(KIND=dp) :: DetG           !< SQRT of determinant of element coordinate metric
+     REAL(KIND=dp) :: LtoGMap(3,3)   !< Mapping between local and global coordinates
+     LOGICAL :: Success              !< Returns .FALSE. if element is degenerate
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-     LOGICAL :: Success
 
      REAL(KIND=dp) :: dx(3,3),G(3,3),GI(3,3),s
      REAL(KIND=dp), DIMENSION(:), POINTER :: x,y,z
@@ -3404,9 +3384,9 @@ END IF
 !    Partial derivatives of global coordinates with respect to local coordinates
 !------------------------------------------------------------------------------
      DO i=1,dim
-       dx(1,i) = SUM( x(1:n)*dLBasisdx(1:n,i) )
-       dx(2,i) = SUM( y(1:n)*dLBasisdx(1:n,i) )
-       dx(3,i) = SUM( z(1:n)*dLBasisdx(1:n,i) )
+       dx(1,i) = SUM( x(1:n) * dLBasisdx(1:n,i) )
+       dx(2,i) = SUM( y(1:n) * dLBasisdx(1:n,i) )
+       dx(3,i) = SUM( z(1:n) * dLBasisdx(1:n,i) )
      END DO
 !------------------------------------------------------------------------------
 !    Compute the covariant metric tensor of the element coordinate system
@@ -3430,12 +3410,7 @@ END IF
        CASE (1)
          DetG  = G(1,1)
 
-         IF ( DetG <= 0.0d0 ) THEN
-           WRITE( Message, * ) 'Degenerate 1D element: ', DetG
-           CALL Error( 'ElementMetric', Message )
-           success = .FALSE.
-           RETURN
-         END IF
+         IF ( DetG <= TINY( DetG ) ) GOTO 100
 
          Metric(1,1) = 1.0d0 / DetG
          DetG  = SQRT( DetG )
@@ -3446,16 +3421,7 @@ END IF
        CASE (2)
          DetG = ( G(1,1)*G(2,2) - G(1,2)*G(2,1) )
 
-         IF ( DetG <= 0.0d0 ) THEN
-           WRITE( Message, * ) 'Degenerate 2D element: ', DetG
-           CALL Error( 'ElementMetric', Message )
-           IF ( cdim < dim ) THEN
-              WRITE( Message, * ) '2d element in 1d coordinate system?'
-              CALL Error( 'ElementMetric', Message )
-           END IF
-           success = .FALSE.
-           RETURN
-         END IF
+         IF ( DetG <= TINY( DetG ) ) GOTO 100
 
          Metric(1,1) =  G(2,2) / DetG
          Metric(1,2) = -G(1,2) / DetG
@@ -3471,17 +3437,7 @@ END IF
                 G(1,2) * ( G(2,3)*G(3,1) - G(2,1)*G(3,3) ) + &
                 G(1,3) * ( G(2,1)*G(3,2) - G(2,2)*G(3,1) )
 
-         IF ( DetG <= 0.0d0 ) THEN
-           WRITE( Message, * ) 'Degenerate 3D element: ', DetG
-           CALL Error( 'ElementMetric', Message )
-           IF ( cdim < dim ) THEN
-            WRITE( Message, * ) &
-                   '2d/3d element in 1d/2d coordinate system?'
-            CALL Error( 'ElementMetric', Message )
-           END IF
-           success = .FALSE.
-           RETURN
-         END IF
+         IF ( DetG <= TINY( DetG ) ) GOTO 100
 
          CALL InvertMatrix3x3( G,GI,detG )
          Metric = GI
@@ -3497,10 +3453,25 @@ END IF
          LtoGMap(i,j) = s
        END DO
      END DO
+
+! Return here also implies success = .TRUE.
+     RETURN
+  
+
+100  Success = .FALSE.
+     WRITE( Message,'(A,I0,A,I0)') 'Degenerate ',dim,'D element: ',Elm % ElementIndex
+     CALL Error( 'ElementMetric', Message )
+     WRITE( Message,'(A,G10.3,A,3G10.3)') 'DetG:',DetG,' Coord:',&
+         SUM(x(1:n))/n, SUM(y(1:n))/n, SUM(z(1:n))/n
+     CALL Info( 'ElementMetric', Message, Level=3 )
+     IF ( cdim < dim ) THEN
+       WRITE( Message,'(A,I0,A,I0)') 'Element dim larger than meshdim: ',dim,' vs. ',cdim
+       CALL Info( 'ElementMetric', Message, Level=3 )
+     END IF
+     
 !------------------------------------------------------------------------------
    END FUNCTION ElementMetric
 !------------------------------------------------------------------------------
-
 
 
 !------------------------------------------------------------------------------
