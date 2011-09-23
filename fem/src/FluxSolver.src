@@ -398,9 +398,10 @@ CONTAINS
     !----------------------------
 
     IF (GetLogical(GetSolverParams(),'Discontinuous Galerkin',Found)) THEN
-      IF (GetLogical(GetSolverParams(),'Average Within Materials',Found)) &
+      IF (GetLogical(GetSolverParams(),'Average Within Materials',Found)) THEN
         FORCE = 0.0d0
         CALL AddLocalFaceTerms( STIFF, FORCE(1,:) )
+      END IF
     END IF
 
     DEALLOCATE( LocalPotential, STIFF, FORCE, Basis, dBasisdx )
