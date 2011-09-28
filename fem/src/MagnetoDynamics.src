@@ -74,6 +74,10 @@ CONTAINS
      Mesh => GetMesh()
      Parallel = ParEnv % PEs>1
 
+     IF (Element % Type % BasisFunctionDegree>1) THEN
+       CALL Fatal('EdgeBasis',"Can't handle but linear elements, sorry.") 
+     END IF
+
      SELECT CASE(GetElementFamily(Element))
      CASE(4,7,8)
        n = Element % Type % NumberOfNodes
