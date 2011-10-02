@@ -555,11 +555,12 @@ CONTAINS
     END SUBROUTINE VariableAdd
 !------------------------------------------------------------------------------
 
-
+ 
 
 !------------------------------------------------------------------------------
 !> For vectors the individual components are added also to the list 
 !> of variables. This routine makes the addition of vectors less laborious.
+!> Also allocates the field values if not given in the parameter list. 
 !------------------------------------------------------------------------------
     SUBROUTINE VariableAddVector( Variables,Mesh,Solver,Name,DOFs,Values,&
       Perm,Output,Secondary )
@@ -568,27 +569,47 @@ CONTAINS
       TYPE(Mesh_t),   TARGET :: Mesh
       TYPE(Solver_t), TARGET :: Solver
       CHARACTER(LEN=*) :: Name
-      INTEGER :: DOFs
-      REAL(KIND=dp), POINTER :: Values(:)
+      INTEGER, OPTIONAL :: DOFs
+      REAL(KIND=dp), OPTIONAL, POINTER :: Values(:)
       LOGICAL, OPTIONAL :: Output
       INTEGER, OPTIONAL, POINTER :: Perm(:)
       LOGICAL, OPTIONAL :: Secondary
 !------------------------------------------------------------------------------
       CHARACTER(LEN=MAX_NAME_LEN) :: tmpname
-      REAL(KIND=dp), POINTER :: Component(:)
-      INTEGER :: i
+      REAL(KIND=dp), POINTER :: Component(:), TmpValues(:)
+      INTEGER :: i,nsize, ndofs
 !------------------------------------------------------------------------------
 
-      IF( DOFs > 1 ) THEN
-        DO i=1,DOFs
+      IF( PRESENT( DOFs ) ) THEN
+        ndofs = Dofs
+      ELSE
+        ndofs = 1
+      END IF
+
+      IF(PRESENT(Values)) THEN
+        TmpValues => Values
+      ELSE
+        IF( PRESENT( Perm ) ) THEN 
+          nsize = MAXVAL( Perm ) 
+        ELSE
+          nsize = Mesh % NumberOfNodes
+        END IF
+        NULLIFY(TmpValues)
+        ALLOCATE(TmpValues(nsize))
+        TmpValues = 0.0_dp         
+      END IF
+
+
+      IF( nDOFs > 1 ) THEN
+        DO i=1,nDOFs
           tmpname = ComponentName(Name,i)
-          Component => Values(i::DOFs)
+          Component => TmpValues(i::nDOFs)
           CALL VariableAdd( Variables,Mesh,Solver,TmpName,1,Component,&
               Perm,Output,Secondary)
         END DO
       END IF
 
-      CALL VariableAdd( Variables,Mesh,Solver,Name,DOFs,Values,&
+      CALL VariableAdd( Variables,Mesh,Solver,Name,nDOFs,TmpValues,&
             Perm,Output,Secondary )
 
 !------------------------------------------------------------------------------
