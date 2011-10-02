@@ -20,6 +20,21 @@
 ! *  Boston, MA 02110-1301, USA.
 ! *
 ! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Authors: Peter Råback & Juha Ruokolainen
+! *  Email:   Peter.Raback@csc.fi & Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - IT Center for Science Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 16.6.2011
+! *
+! *****************************************************************************/
+
+
 
 !> \ingroup ElmerLib
 !> \{
@@ -279,7 +294,6 @@ CONTAINS
       END IF
     END IF
   END SUBROUTINE SetParticleUVW
-
 
 !> Adds a displacement to the particle coordinates.  
   SUBROUTINE AddParticleCoord(Particles,No,Coord)
@@ -574,7 +588,8 @@ CONTAINS
     
     REAL(KIND=dp), POINTER :: Velocity(:,:), Force(:,:), &
         Coordinate(:,:), PrevCoordinate(:,:), PrevVelocity(:,:),Dt(:)
-    INTEGER, POINTER :: Status(:), ElementIndex(:), FaceIndex(:), NodeIndex(:), Closest(:)
+    INTEGER, POINTER :: Status(:), ElementIndex(:), FaceIndex(:), NodeIndex(:), &
+	Closest(:)
     INTEGER :: PrevNoParticles, dofs, No, n, dim, TimeOrder
     
     IF( NoParticles <= Particles % MaxNumberOfParticles ) THEN
@@ -624,7 +639,6 @@ CONTAINS
       Velocity => Particles % Velocity
       Force => Particles % Force
       Status => Particles % Status
-!      Dt => Particles % Dt
       FaceIndex => Particles % FaceIndex
       ElementIndex => Particles % ElementIndex
       NodeIndex => Particles % NodeIndex
@@ -646,13 +660,11 @@ CONTAINS
         Closest => Particles % ClosestNode        
         ALLOCATE( Particles % ClosestNode(NoParticles) )
       END IF 	
-
       
       IF( ASSOCIATED( NodeIndex ) ) &
           ALLOCATE( Particles % NodeIndex(NoParticles) )
 
       ALLOCATE( Particles % Status(NoParticles) )
-!      ALLOCATE( Particles % Dt(NoParticles) )
       ALLOCATE( Particles % FaceIndex(NoParticles))
       ALLOCATE( Particles % ElementIndex(NoParticles) )
       
@@ -668,11 +680,11 @@ CONTAINS
         IF ( ASSOCIATED(PrevCoordinate) ) Particles % PrevCoordinate(n,:)=PrevCoordinate(No,:)
         IF ( ASSOCIATED(PrevVelocity) ) Particles % PrevVelocity(n,:)=PrevVelocity(No,:)
         IF ( ASSOCIATED(NodeIndex) ) Particles % NodeIndex(n)=NodeIndex(No)
+
         IF( Particles % NeighbourTable ) THEN
           Particles % ClosestNode(n)=Closest(No)
         END IF
         Particles % Status(n) = Status(No)
-!        Particles % Dt(n) = Dt(No)
         Particles % FaceIndex(n) = FaceIndex(No)
         Particles % ElementIndex(n) = ElementIndex(No)
       END DO
@@ -748,7 +760,6 @@ CONTAINS
       IF ( ASSOCIATED(Particles % NodeIndex) ) &
           Particles % NodeIndex(n) = Particles % NodeIndex(No)
       Particles % Status(n) = Particles % Status(No)
-!      Particles % Dt(n) = Particles % Dt(No)
       Particles % FaceIndex(n) = Particles % FaceIndex(No)
       Particles % ElementIndex(n) = Particles % ElementIndex(No)
     END DO
@@ -891,7 +902,6 @@ RETURN
         DEALLOCATE( Particles % NodeIndex )
     
     DEALLOCATE( Particles % Coordinate ) 
-!    DEALLOCATE( Particles % Dt ) 
     DEALLOCATE( Particles % Status ) 
     DEALLOCATE( Particles % FaceIndex )
     DEALLOCATE( Particles % ElementIndex ) 
@@ -2238,14 +2248,10 @@ RETURN
       DO i=1, BulkElement % TYPE % NumberOfEdges  
         j = BulkElement % EdgeIndexes(i)
         BoundaryElement => Mesh % Edges(j)
+
         IF( ANY( BoundaryElement % NodeIndexes > Mesh % NumberOfNodes ) .OR. &
 	    ANY( BoundaryElement % NodeIndexes < 1 ) ) THEN
-	  print *,'BulkElement:',BulkElement % ElementIndex
-	  print *,'EdgeElement:',BoundaryElement % ElementIndex
-          print *,'NodeIndexes:',BoundaryElement % NodeIndexes
-	  print *,'ij',i,j,ASSOCIATED(BoundaryElement),ASSOCIATED(BulkElement)
 	  CALL Fatal('SegmentElementIntersection','Index too large!')
-          CYCLE
 	END IF	
 
         CALL GetElementNodes(BoundaryNodes,BoundaryElement)
@@ -2376,29 +2382,44 @@ RETURN
   !> bulk element.
   !-------------------------------------------------------------------------
   SUBROUTINE LocateParticleInMeshMarch( ElementIndex, Rinit, Rfin, Init, &
-      ParticleStatus, AccurateAtFace, StopFaceIndex, Lambda, Velo )
+      ParticleStatus, AccurateAtFace, StopFaceIndex, Lambda, Velo, &
+      No, ParticleWallKernel )
     
     INTEGER :: ElementIndex
     REAL(KIND=dp) :: Rinit(3), Rfin(3)
     LOGICAL :: Init
-    LOGICAL :: AccurateAtFace, ParticleReflect, ParticleWall, ParticleOutlet
+    LOGICAL :: AccurateAtFace
     INTEGER :: ParticleStatus
+    REAL(KIND=dp) :: Lambda
+    INTEGER :: StopFaceIndex
+    REAL(KIND=dp) :: Velo(3)
+  
+    INTEGER, OPTIONAL :: No
+    OPTIONAL :: ParticleWallKernel
 
-    REAL(KIND=dp), OPTIONAL :: Lambda
-    INTEGER, OPTIONAL :: StopFaceIndex
-    REAL(KIND=dp), OPTIONAL :: Velo(3)
-    
+    INTERFACE
+      SUBROUTINE ParticleWallKernel( No, r, r2, v, v2, Lambda, &
+          FaceIndex, ParticleStatus ) 
+        INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(12)
+        INTEGER :: No
+        REAL(KIND=dp) :: r(3),r2(3),v(3),v2(3),Lambda
+        INTEGER :: FaceIndex, ParticleStatus
+      END SUBROUTINE ParticleWallKernel
+    END INTERFACE
 
+
+  !-------------------------------------------------------------------------
     TYPE(ValueList_t), POINTER :: Params, BC
     TYPE(Mesh_t), POINTER :: Mesh
-    REAL(KIND=dp) :: Rtmp(3), Normal(3), MinLambda, eps, UnitVector(3), ds2 
+    REAL(KIND=dp) :: Rtmp(3), Normal(3), MinLambda, eps, UnitVector(3), ds2, &
+	LocalCoord(3),Velo0(3)
     LOGICAL :: Hit, DoInit, Stat, StopAtFace, AtWall, Visited = .FALSE.,&
-        Debug,UseCenter
-    INTEGER :: i,j,k,n,FaceIndex,MaxTrials,bc_id,cons_id
+        Debug,UseCenter,GotBC,GotBC2,ParticleBounce
+    INTEGER :: i,j,k,n,FaceIndex,MaxTrials,bc_id,cons_id,ElementIndex0,ParticleStatus0
     TYPE(Nodes_t), SAVE :: ElementNodes
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: Element, FaceElement, LeftElement, RightElement, &
-        NextElement
+        NextElement, PrevElement
     
     INTEGER, POINTER :: Neighbours(:)
     INTEGER :: NextPartition, Counter = 0
@@ -2409,7 +2430,7 @@ RETURN
     Mesh => GetMesh()
     Counter = Counter + 1
     Debug = .FALSE.
-    
+
     IF( .NOT. Visited ) THEN
       Params => GetSolverParams()
       StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
@@ -2417,7 +2438,7 @@ RETURN
       IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements      
       Visited = .TRUE.
     END IF
-    
+
     !--------------------------------------------------------------------
     ! This is a recursive algorithm that checks the intersections 
     ! of line segments and points until correct element is found.
@@ -2431,6 +2452,7 @@ RETURN
     ELSE	
       UseCenter = .NOT. AccurateAtFace
     END IF
+    ElementIndex0 = ElementIndex
 
     IF(.NOT. UseCenter ) THEN
       ds2 = SUM( (Rinit - Rfin)**2 )
@@ -2444,12 +2466,14 @@ RETURN
       PRINT *,'Velo:',Velo
     END IF
     
+    NULLIFY( PrevElement ) 
+
     ParticleStatus = PARTICLE_LOST
-    IF( PRESENT (StopFaceIndex) ) StopFaceIndex = 0
-    IF( PRESENT( Lambda ) ) Lambda = 1.0_dp
+    StopFaceIndex = 0
+    Lambda = 1.0_dp
         
     Element => Mesh % Elements( ElementIndex ) 
-    eps = 1.0d-10
+    eps = 1.0d-12
     
 
     DO i=1,MaxTrials
@@ -2465,17 +2489,15 @@ RETURN
       ELSE 
         IF( i == 1 ) THEN
           Rtmp = Rinit 
-        ELSE IF( .NOT. ParticleReflect ) THEN
+        ELSE IF( .NOT. ParticleBounce ) THEN
           Rtmp = Rtmp + MinLambda * (Rfin - Rtmp) 
         END IF
       END IF
       
-      ParticleReflect = .FALSE.
-      ParticleWall = .FALSE.
-      ParticleOutlet = .FALSE.
-
       CALL SegmentElementIntersection(Mesh,Element,&
           Rtmp,Rfin,MinLambda,FaceElement )
+      ParticleBounce = .FALSE.
+
 
       IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
         ! One likely cause for unsuccessful operation is that the 
@@ -2491,19 +2513,17 @@ RETURN
           END IF
           EXIT
         END IF
-      ELSE IF( MinLambda > 1.0 - eps ) THEN
+      ELSE IF( MinLambda > 1.0_dp - eps ) THEN
         ParticleStatus = PARTICLE_HIT
-        Rtmp = Rfin
         EXIT
       ELSE 
         cons_id = FaceElement % BoundaryInfo % Constraint
+        GotBC = .FALSE.
         IF ( cons_id > 0 ) THEN
           DO bc_id=1,CurrentModel % NumberOfBCs
             IF ( cons_id == CurrentModel % BCs(bc_id) % Tag ) THEN
               BC => CurrentModel % BCs(bc_id) % Values
-              ParticleWall = ListGetLogical( BC,'Particle Wall',Stat ) 
-              ParticleReflect = ListGetLogical( BC,'Particle Reflect',Stat ) 
-              ParticleOutlet = ListGetLogical( BC,'Particle Outlet',Stat ) 
+              GotBC = .TRUE.
               EXIT
             END IF
           END DO
@@ -2511,40 +2531,58 @@ RETURN
 
         ! Reflect particle from face and continue the search in the same element
         !-----------------------------------------------------------------------
-        IF( ParticleReflect ) THEN
-          ! First advance the particle to the point of collision
-          Rtmp = Rtmp + (1.0_dp - 0.0_dp) * MinLambda * (Rfin - Rtmp) 
+        GotBC2 = GotBC
+        IF( GotBC ) THEN
+          IF( ListGetLogical( BC,'Particle Outlet',Stat ) ) THEN
+            ParticleStatus = PARTICLE_LOST
+            EXIT
 
-          ! Then reflect the rest assuming fully elastic collision where the 
-          ! normal component switches sign.
-          CALL GetElementNodes(ElementNodes, FaceElement )
-          Normal = NormalVector( FaceElement, ElementNodes )
-          Rfin = Rfin - 2*SUM((Rfin-Rtmp)*Normal)*Normal
+          ELSE IF( ListGetLogical( BC,'Particle Wall',Stat ) ) THEN
+            ParticleStatus = PARTICLE_WALLBOUNDARY
+            
+          ELSE IF( ListGetLogical( BC,'Particle Reflect',Stat ) ) THEN
+            ! First advance the particle to the point of collision
+            Rtmp = Rtmp + MinLambda * (Rfin - Rtmp) 
+            
+            ! Then reflect the rest assuming fully elastic collision where the 
+            ! normal component switches sign.
+            CALL GetElementNodes(ElementNodes, FaceElement )
+            Normal = NormalVector( FaceElement, ElementNodes )
+            Rfin = Rfin - 2*SUM((Rfin-Rtmp)*Normal)*Normal
+            
+            ! Reorient the velocity vector
+            UnitVector = Rfin - Rtmp
+            UnitVector = UnitVector / SQRT( SUM( UnitVector** 2 ) )
+            Velo = UnitVector * SQRT( SUM( Velo**2) )
+                        
+            IF( Debug ) THEN
+              PRINT *,'Reflected',i,MinLambda,EPSILON(MinLambda)
+              PRINT *,'Rtmp:',Rtmp
+              PRINT *,'Rfin:',Rfin
+              PRINT *,'Velo:',Velo
+            END IF
+            ParticleBounce = .TRUE.
 
-          ! Reorient the velocity vector
-          UnitVector = Rfin - Rtmp
-          UnitVector = UnitVector / SQRT( SUM( UnitVector** 2 ) )
-          Velo = UnitVector * SQRT( SUM( Velo**2) )
+            CYCLE
+          ELSE IF( ListGetLogical( BC,'Particle Interact',Stat ) ) THEN
+            ParticleStatus0 = ParticleStatus
+            Velo0 = Velo
 
-          IF( Debug ) THEN
-            PRINT *,'Reflected',i,MinLambda,EPSILON(MinLambda)
-            PRINT *,'Rtmp:',Rtmp
-            PRINT *,'Rfin:',Rfin
-            PRINT *,'Velo:',Velo
+            CurrentModel % CurrentElement => FaceElement
+            CALL ParticleWallKernel(No,Rtmp,Rfin,Velo0,Velo,MinLambda,&
+                FaceElement % ElementIndex,ParticleStatus)
+
+            ! if the particle status stays the same we are still in the same element
+            IF(ParticleStatus == ParticleStatus0 ) THEN
+              ParticleBounce = .TRUE.
+              CYCLE
+            END IF
+          ELSE
+            GotBC2 = .FALSE. 
           END IF
-
-          CYCLE
         END IF
 
-        IF( ParticleOutlet ) THEN
-          ParticleStatus = PARTICLE_LOST
-          ElementIndex =  0
-          RETURN
-        END IF
-
-        IF( ParticleWall ) THEN
-          ParticleStatus = PARTICLE_WALLBOUNDARY
-        ELSE
+        IF( .NOT. GotBC2 ) THEN
           LeftElement  => FaceElement % BoundaryInfo % Left
           RightElement => FaceElement % BoundaryInfo % Right
           
@@ -2563,32 +2601,51 @@ RETURN
         ! There are different reasons why the particle is only integrated until the face
         IF( ParticleStatus == PARTICLE_WALLBOUNDARY .OR. &
             ParticleStatus == PARTICLE_FACEBOUNDARY ) THEN
-          IF( PRESENT( Lambda ) ) Lambda = MinLambda
+          Lambda = MinLambda
           StopFaceIndex = FaceElement % ElementIndex
 
           Rfin = Rtmp + MinLambda * (Rfin - Rtmp) 
           Velo = 0.0_dp
-
           EXIT                      
         END IF
       END IF
 
       ! continue the search to new elements
-      Element => NextElement
-      IF( .NOT. ASSOCIATED( Element ) ) THEN
+      IF( .NOT. ASSOCIATED( NextElement ) ) THEN
         CALL Warn('LocateParticleInMeshMarch','Element not associated!')
       END IF
 
+      IF( ASSOCIATED( NextElement, Element ) ) THEN
+        CALL Warn('LocateParticleInMeshMarch','Elements are the same!')
+      END IF
+
+      IF( ASSOCIATED( NextElement, PrevElement ) ) THEN
+        CALL Warn('LocateParticleInMeshMarch','Elements are same, this is going nowhere!')
+        CALL GetElementNodes(ElementNodes,NextElement)
+        IF ( PointInElement( NextElement, ElementNodes, &
+            Rfin, LocalCoord, GlobalEps = -1.0d-1, LocalEps = 1.0d-3) ) THEN
+	  Element => NextElement
+          ParticleStatus = PARTICLE_HIT	  
+        ELSE
+          CALL GetElementNodes(ElementNodes,Element)
+          IF( PointInElement( Element, ElementNodes, &
+              Rfin, LocalCoord, GlobalEps = -1.0d-1, LocalEps = 1.0d-3) ) THEN
+            ParticleStatus = PARTICLE_HIT
+          ELSE 
+            CALL Warn('LocateParticleInMeshMarch','Elements are same, this is going nowhere!')          
+            EXIT
+          END IF
+        END IF
+      END IF
+
+      PrevElement => Element
+      Element => NextElement
     END DO
 
-    ElementIndex = Element % ElementIndex
-
-
-    IF( Debug ) THEN
-      PRINT *,'Counter:',Counter
-      PRINT *,'i',i,'Element',ElementIndex,'Face',FaceIndex,'Status',ParticleStatus
-      PRINT *,'Init:    ',Rinit(1:2),Rfin(1:2)
-      PRINT *,'Velo:',Velo(1:2)
+    IF( ParticleStatus == PARTICLE_LOST ) THEN
+      ElementIndex = 0
+    ELSE	
+      ElementIndex = Element % ElementIndex
     END IF
 
   END SUBROUTINE LocateParticleInMeshMarch
@@ -2598,12 +2655,25 @@ RETURN
   !------------------------------------------------------------------------
   !> Locate the particles in their new positions in the mesh.
   !-------------------------------------------------------------------------
-  SUBROUTINE LocateParticles( Particles )
+  SUBROUTINE LocateParticles( Particles, ParticleWallKernel )
     
     USE Lists
     
     TYPE(Particle_t), POINTER :: Particles
+    OPTIONAL :: ParticleWallKernel
 
+    INTERFACE 
+      SUBROUTINE ParticleWallKernel( No, r, r2, v, v2, Lambda, &
+          FaceIndex, ParticleStatus ) 
+        INTEGER, PARAMETER :: dp = SELECTED_REAL_KIND(12)
+        INTEGER :: No
+        REAL(KIND=dp) :: r(3),r2(3),v(3),v2(3),Lambda
+        INTEGER :: FaceIndex, ParticleStatus
+      END SUBROUTINE ParticleWallKernel
+    END INTERFACE
+
+
+    !-----------------------------------------------------------------------
     LOGICAL :: PartitionChangesOnly 
     INTEGER :: PartitionChanges, Status, ElementIndex, No, &
                NoParticles, dim, ElementIndex0
@@ -2613,6 +2683,7 @@ RETURN
     REAL(KIND=dp) :: Lambda
     TYPE(Mesh_t), POINTER :: Mesh
     TYPE(ValueList_t), POINTER :: Params
+
 
 ! print *,'Locating Particles'
 
@@ -2640,9 +2711,7 @@ RETURN
       IF( Status >= PARTICLE_LOST ) CYCLE
       IF( Status < PARTICLE_INITIATED ) CYCLE
       IF( Status == PARTICLE_WALLBOUNDARY ) CYCLE
-
-      ! Particles with zero velocity stay constant
-      IF( Status == PARTICLE_HIT ) CYCLE
+      IF( Status == PARTICLE_FIXEDCOORD ) CYCLE
       
       IF ( PartitionChangesOnly .AND. Status /= PARTICLE_PARTBOUNDARY ) CYCLE
       
@@ -2657,7 +2726,7 @@ RETURN
       IF( AccurateNow ) Rinit = GetParticlePrevCoord( Particles, No )        
       
       CALL LocateParticleInMeshMarch(ElementIndex, Rinit, Rfin, InitLocation, &
-          Status,AccurateNow, FaceIndex, Lambda, Velo )
+          Status,AccurateNow, FaceIndex, Lambda, Velo, No, ParticleWallKernel )
 
       ! If a boundary face is passed then repeat the process more diligently. 
       ! Note that if we want proper collisions they should be implemented below
@@ -2696,15 +2765,17 @@ RETURN
         PRINT *,'No',No,'Element',ElementIndex,'Face',FaceIndex,'Status',Status
         PRINT *,'Init:    ',Rinit(1:dim),Rfin(1:dim)
         PRINT *,'Velo:',GetParticleVelo(Particles,No), Velo(1:dim)
+        Status = PARTICLE_LOST
       END IF
-
-
-      CALL SetParticleCoord( Particles, No, Rfin  )                
-      CALL SetParticleVelo( Particles, No, Velo  )                
 
       Particles % ElementIndex(No) = ElementIndex       
       Particles % Status(No) = Status
       Particles % FaceIndex(No) = FaceIndex
+
+      CALL SetParticleCoord( Particles, No, Rfin  )                
+      IF( ElementIndex == 0 ) CYCLE
+
+      CALL SetParticleVelo( Particles, No, Velo  )                
 
 !      IF( GotTimeVar ) THEN
 !        IF( RK2 ) THEN
@@ -2713,8 +2784,7 @@ RETURN
 !          TimeVar % Values(No) = TimeVar % Values(No) + dtime
 !        END IF
 !      END IF 
-
-
+!
 !     print *,'Status:',InitStatus,Status
 
     END DO
@@ -2746,7 +2816,7 @@ RETURN
     REAL(KIND=dp) :: GlobalCoord(:), SqrtElementMetric, LocalDistance
     REAL(KIND=dp) :: Basis(:)
     REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:)
-    LOGICAL :: Stat
+    LOGICAL :: Stat, Debug
     
     TYPE(Nodes_t) :: ElementNodes
     REAL(KIND=dp) :: LocalCoord(3),u,v,w
@@ -2758,19 +2828,21 @@ RETURN
     CALL GetElementNodes(ElementNodes,CurrentElement)
     
     Stat = PointInElement( CurrentElement, ElementNodes, &
-        GlobalCoord, LocalCoord, GlobalEps = 1.0d-1, LocalEps = 1.0d-1, &
+        GlobalCoord, LocalCoord, GlobalEps = -1.0_dp, LocalEps = 1.0d-1, &
 	LocalDistance = LocalDistance ) 
-    IF( .NOT. Stat .OR. LocalDistance > 1.0d-2) THEN
-      IF( .NOT. Stat ) THEN
-        CALL Warn('GlobalElementInfo','Should have found the node!')
-      ELSE
-        CALL Warn('GlobalElementInfo','Distance from element higher than expected!')
+
+    IF( .NOT. Stat ) THEN
+      IF( .FALSE.) THEN
+        IF( .NOT. Stat ) THEN
+          CALL Warn('ParticleElementInfo','Should have found the node!')
+        ELSE
+          CALL Warn('ParticleElementInfo','Distance from element higher than expected!')
+        END IF
+        PRINT *,'LocalDistance:',LocalDistance,'Element:',CurrentElement % ElementIndex
+        PRINT *,'Nodes X:',ElementNodes % x(1:n) - GlobalCoord(1)
+        PRINT *,'Nodes Y:',ElementNodes % y(1:n) - GlobalCoord(2)
+        PRINT *,'Nodes Z:',ElementNodes % z(1:n) - GlobalCoord(3)
       END IF
-      PRINT *,'LocalDistance:',LocalDistance,'Element:',CurrentElement % ElementIndex
-      PRINT *,'GlobalCoord:',GlobalCoord
-      PRINT *,'Nodes X:',ElementNodes % x(1:n)
-      PRINT *,'Nodes Y:',ElementNodes % y(1:n)
-      PRINT *,'Nodes Z:',ElementNodes % z(1:n)
       RETURN
     END IF
 
@@ -3691,10 +3763,10 @@ RETURN
     INTEGER :: dim, Status, TimeOrder, No, NoMoving
     TYPE(ValueList_t), POINTER :: Params
     INTEGER :: NoParticles
-    LOGICAL :: Found, Visited = .FALSE.,RK2,FixFrozen
+    LOGICAL :: Found, Visited = .FALSE.,RK2
     
     SAVE TimeOrder, dim, Mass, Drag, Visited, dCoord, Coord, TimeCount, GotTimeVar, &
-	GotDistVar, TimeVar, DtVar, DistVar, MovingMesh, FixFrozen
+	GotDistVar, TimeVar, DtVar, DistVar, MovingMesh
 
     
     IF(.NOT. Visited ) THEN
@@ -3732,8 +3804,6 @@ RETURN
  
       DistVar => ParticleVariableGet( Particles,'particle distance')
       GotDistVar = ASSOCIATED( DistVar )
-
-      FixFrozen = ListGetLogical( Params,'Particle Fix Frozen',Found)
     END IF
 
     NoParticles = Particles % NumberOfParticles
@@ -3753,8 +3823,17 @@ RETURN
       IF ( Status <= PARTICLE_INITIATED ) CYCLE
       IF ( Status == PARTICLE_WALLBOUNDARY ) CYCLE
 
+      ! Cumulate the time
+      !-----------------------------------------------------------------       
+      IF( .NOT. Particles % DtConstant ) THEN
+        dtime = Particles % DtSign * DtVar % Values(No)
+        TimeVar % Values(No) = TimeVar % Values(No) + DtVar % Values(No)
+      END IF
+
+
       IF ( Status == PARTICLE_FIXEDCOORD ) THEN
         Particles % Velocity(No,:) = 0.0_dp
+	CYCLE
       ELSE IF( Status == PARTICLE_FIXEDVELO ) THEN
         CONTINUE
       ELSE IF( TimeOrder == 2 ) THEN
@@ -3769,10 +3848,6 @@ RETURN
         CALL Fatal('ParticleAdvanceTimestep','Unknown time order')
       END IF
 
-      IF( .NOT. Particles % DtConstant ) THEN
-        dtime = Particles % DtSign * DtVar % Values(No)
-        TimeVar % Values(No) = TimeVar % Values(No) + DtVar % Values(No)
-      END IF
 
       IF( RK2 .AND. RKStep == 2 ) THEN
         dCoord(1:dim) = dtime * & 
@@ -3785,15 +3860,6 @@ RETURN
       Particles % PrevCoordinate(No,:) = Particles % Coordinate(No,:)
       Particles % PrevVelocity(No,:) = Particles % Velocity(No,:)
       Particles % Force(No,:)= 0.0_dp
-
-      IF( ds < TINY( ds ) ) THEN
-	IF( FixFrozen ) THEN
- 	  Particles % Status(No) = PARTICLE_WALLBOUNDARY
-	  CYCLE
-        ELSE 
-	  IF( Status == PARTICLE_HIT ) CYCLE	
-        END IF
-      END IF
  
       NoMoving = NoMoving + 1
 
@@ -3861,6 +3927,10 @@ RETURN
       
       MinCoord = Particles % GlobalMinCoord
       MaxCoord = Particles % GlobalMaxCoord
+
+PRINT *,'MinCoord',MinCoord
+PRINT *,'MaxCoord',MaxCoord
+PRINT *,'NoPeriodic',NoPeriodic
     END IF
     
     IF( NoPeriodic == 0 ) RETURN
@@ -3884,12 +3954,13 @@ RETURN
             coord = MaxCoord(k) - MinCoord(k) + coord
             Particles % Coordinate(No,k) = coord
             Mapped = .TRUE.
-          ELSE IF ( coord > MaxCoord(k) ) THEN
+         ELSE IF ( coord > MaxCoord(k) ) THEN
             Coord = MinCoord(k) - MaxCoord(k) + Coord
             Particles % Coordinate(No,k) = coord           
             Mapped = .TRUE.
-          END IF
+         END IF
         END DO
+
         IF(.NOT. Mapped ) EXIT
       END DO
     END DO
@@ -4184,7 +4255,7 @@ RETURN
 !> the permutation vector is used. 
 !------------------------------------------------------------------------------
   SUBROUTINE ParticleVariableCreate( Particles, Name, DOFs, Output, &
-             Secondary, Type ) 
+             Secondary, TYPE ) 
 !------------------------------------------------------------------------------
     TYPE(Particle_t), POINTER :: Particles
     CHARACTER(LEN=*) :: Name
@@ -4223,7 +4294,7 @@ RETURN
     Mesh => CurrentModel % Solver % Mesh
 
     CALL VariableAdd( Particles % Variables,Mesh,Solver,Name,DOFs2,Values,&
-         Output=Output, Secondary=Secondary, Type=Type )
+         Output=Output, Secondary=Secondary, TYPE=TYPE )
 
 !------------------------------------------------------------------------------
   END SUBROUTINE ParticleVariableCreate
@@ -5779,3 +5850,4 @@ END MODULE ParticleUtils
 !------------------------------------------------------------------------------
 
 !> \}
+

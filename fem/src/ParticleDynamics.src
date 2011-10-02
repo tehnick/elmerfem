@@ -1,3 +1,25 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
 !/******************************************************************************
 ! *
 ! * Subroutine for tracking a particle under the influence of collisions,
@@ -16,11 +38,13 @@
 ! *
 ! *****************************************************************************/
 
+!> \ingroup{Solvers} 
+!> \{
 
 !------------------------------------------------------------------------------
-! The particle-particle interaction for particle dynamics
-! There are placed in a module since a private subroutine may not be passed
-! as a parameter.
+!> The particle-particle and particle-wall interaction for particle dynamics
+!> These are placed in a module since a private subroutine may not be passed
+!> as a parameter.
 !------------------------------------------------------------------------------
 MODULE ParticleDynamicsStuff
 
@@ -246,6 +270,161 @@ CONTAINS
     Collision = .TRUE.
     
   END SUBROUTINE ParticleParticleCollision
+
+
+  !---------------------------------------------------------------    
+  !> Subroutine for oding the particle-wall physics at the same time
+  !> when locating the particles in the mesh.
+  !---------------------------------------------------------------    
+  SUBROUTINE ParticleWallProc(No,Rinit,Rfin,Vinit,Vfin,Lambda,FaceIndex,ParticleStatus)
+
+    INTEGER :: No
+    REAL(KIND=dp) :: Rinit(3)
+    REAL(KIND=dp) :: Rfin(3)
+    REAL(KIND=dp) :: Vinit(3)
+    REAL(KIND=dp) :: Vfin(3)
+    REAL(KIND=dp) :: Lambda
+    INTEGER :: FaceIndex
+    INTEGER :: ParticleStatus
+!------------------------------------------------------------------
+    TYPE(Particle_t), POINTER :: Particles
+    REAL(KIND=dp) :: UnitVector(3), Normal(3)
+    TYPE(Element_t), POINTER :: FaceElement
+    TYPE(Nodes_t) :: ElementNodes
+    TYPE(Mesh_t), POINTER :: Mesh
+    INTEGER :: MeshDim
+    LOGICAL :: Visited, Found, Stat
+    TYPE(ValueList_t), POINTER :: Params
+    TYPE(Variable_t), POINTER :: Var 
+    TYPE(Solver_t), POINTER :: Solver
+    REAL(KIND=dp), POINTER :: ParticleEnergy(:), CollisionEnergy(:), &
+        ParticleCollisions(:),Basis(:),Reflectivity(:)
+    REAL(KIND=dp) :: u,v,w,detJ,TotEnergy,LocalReflectivity,dEnergy
+    INTEGER, POINTER :: CollisionPerm(:), NodeIndexes(:),Indexes(:)
+    INTEGER :: n,istat,NoParticles
+    LOGICAL :: ParticleBunch
+    TYPE(ValueList_t), POINTER :: BC
+
+    SAVE Params, Solver, Mesh, MeshDim, ParticleBunch, ElementNodes, Particles, &
+        Basis, Reflectivity, Indexes
+
+    ! when photon reflection visited the first time, do some initialization
+    IF ( .NOT. Visited ) THEN 
+      Params => GetSolverParams()
+      Solver => GetSolver()
+      Mesh => GetMesh()
+      Particles => GlobalParticles
+      MeshDim = Mesh % MeshDim      
+
+      ParticleBunch = GetLogical( Params,'Particle Bunch',Found)
+
+      IF( ParticleBunch ) THEN
+        ! get the initial total energy of the photons 
+        ! (number of particles times the initial bunch energy)
+        ! if it is not found set it 1.0
+        !------------------------------------------------------------
+        TOTEnergy = ListGetConstReal( Params,'Initial Total Energy',Found)
+        IF ( .NOT. found ) TOTEnergy = 1.0_dp
+        NoParticles = ListGetInteger( Params,'Number of Particles',Found)
+        IF ( .NOT. found ) NoParticles = 1
+        
+        !------------------------------------------------------------
+        CALL ParticleVariableCreate( Particles,'particle energy')
+        Var => ParticleVariableGet( Particles,'particle energy')
+        ParticleEnergy => Var % Values
+        ParticleEnergy = TotEnergy / NoParticles
+
+        !------------------------------------------------------------
+        CALL ParticleVariableCreate( Particles,'particle collisions')
+        Var => ParticleVariableGet( Particles,'particle collisions')
+        ParticleCollisions => Var % Values
+        ParticleCollisions = 0
+
+        ! Fetch the Collision energy variable, which is the energy flux 
+        ! into the wall provided by the reflected photons
+        !---------------------------------------------------------------------
+        Var => VariableGet( Mesh % Variables,'Collision Energy')
+        IF(.NOT. ASSOCIATED(Var)) THEN
+          CALL Info('ParticleDynamics','Creating variable > Collision Energy <')
+          CALL VariableAddVector( Mesh % Variables,Mesh,Solver,'Collision Energy')
+          Var => VariableGet( Mesh % Variables,'Collision Energy')      
+        END IF        
+        CollisionEnergy => Var % Values
+        CollisionPerm => Var % Perm
+      
+        n = Mesh % MaxElementNodes
+        ALLOCATE( Reflectivity(n), Basis(n), Indexes(n), STAT=istat )
+        Reflectivity = 0.0_dp
+      
+        IF ( istat /= 0 ) THEN
+          CALL Fatal( 'ParticleUtils', 'PhotonBunchivity, Memory allocation error' )
+        END IF
+      END IF
+    END IF
+
+    IF( MeshDim == 2 ) THEN
+      FaceElement => Mesh % Edges( FaceIndex ) 
+    ELSE
+      FaceElement => Mesh % Faces( FaceIndex )
+    END IF
+
+    ! First advance the particle to the point of collision
+    Rinit = Rinit + Lambda * (Rfin - Rinit) 
+            
+    ! Then reflect the rest assuming fully elastic collision where the 
+    ! normal component just switches sign.
+    !-----------------------------------------------------------------
+    CALL GetElementNodes(ElementNodes, FaceElement )
+    Normal = NormalVector( FaceElement, ElementNodes )
+    Rfin = Rfin - 2*SUM((Rfin-Rinit)*Normal)*Normal
+            
+    ! Reorient the velocity vector
+    UnitVector = Rfin - Rinit
+    UnitVector = UnitVector / SQRT( SUM( UnitVector** 2 ) )
+    Vfin = UnitVector * SQRT( SUM( Vinit**2) )    
+    
+    IF( .FALSE. ) THEN
+      PRINT *,'Reflected',No,Lambda
+      PRINT *,'Rinit:',Rinit
+      PRINT *,'Rfin:',Rfin
+      PRINT *,'Vinit:',Vinit
+      PRINT *,'Vfin:',Vfin
+    END IF
+
+    IF( .NOT. ParticleBunch ) RETURN
+
+
+    CALL GlobalToLocal( u, v, w, Rinit(1), Rinit(2), Rinit(3), &
+        FaceElement, ElementNodes ) 
+    stat = ElementInfo( FaceElement, ElementNodes, u, v, w, DetJ, Basis )
+    
+    ! The BC list is obtained by the fact that that the current element is set    
+    BC => GetBC()
+    n = FaceElement % TYPE % NumberOfNodes
+    NodeIndexes => FaceElement % NodeIndexes
+    
+    Reflectivity(1:n) = GetReal( BC,'Particle Reflectivity', Stat)
+    LocalReflectivity = SUM( Basis(1:n) * Reflectivity(1:n) )
+
+   
+    ! Add reflection count and reduce the bunch energy
+    !-----------------------------------------------------
+    ParticleCollisions(No) = ParticleCollisions(No) + 1
+    dEnergy = ( 1 - LocalReflectivity ) * ParticleEnergy(No)
+    ParticleEnergy(No) = ParticleEnergy(No) - dEnergy
+       
+    ! The energy is dumped into the collision node
+    !-----------------------------------------------------
+    IF( ASSOCIATED( CollisionPerm ) ) THEN
+      Indexes(1:n) = CollisionPerm( NodeIndexes(1:n) ) 
+    ELSE
+      Indexes(1:n) = NodeIndexes(1:n)
+    END IF
+    CollisionEnergy(Indexes) = CollisionEnergy(Indexes) + dEnergy
+  
+    
+  END SUBROUTINE ParticleWallProc
+
   
 END MODULE ParticleDynamicsStuff
 
@@ -253,7 +432,6 @@ END MODULE ParticleDynamicsStuff
 !------------------------------------------------------------------------------
 !> Solver particle dynamics equations by utilizing many library functionalities.
 !> This solver may take into account interaction between particles. 
-!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -281,9 +459,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: Var
   LOGICAL :: WorkLoop, AssemblyLoop, CollisionInteraction, &
       ContactInteraction, ParticleToField, &
-      ParticleInBox, ParticleWall, InitTimestep, &
+      ParticleInBox, ParticleWall, &
       TrueCollision, StatInfo, ParticleInfo, TimeInfo, Found, &
-      FieldReset, ParticlesLocated
+      FieldReset, ParticlesLocated, ParticleBunch
   INTEGER :: i,j,k,n,dim,NoParticles = 0,&
        ElementIndex, VisitedTimes = 0, nstep, istep, OutputInterval, &
        TimeOrder, TimeStepsTaken=0,estindexes(6),&
@@ -350,12 +528,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       Var => VariableGet( Mesh % Variables,'Particle Trace')      
       IF(.NOT. ASSOCIATED(Var)) THEN
         CALL Info('ParticleDynamics','Creating variable > Particle Trace <')
-        n = Mesh % NumberOfNodes
-        NULLIFY(TmpValues)
-        ALLOCATE(TmpValues(n))
-        TmpValues = 0.0_dp         
         CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,&
-            'Particle Trace',1,TmpValues)
+            'Particle Trace')
         Var => VariableGet( Mesh % Variables,'Particle Trace')      
       END IF
       ForceVector => Var % Values
@@ -364,12 +538,8 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
       Var => VariableGet( Mesh % Variables,'Particle Weight')      
       IF(.NOT. ASSOCIATED(Var)) THEN
         CALL Info('ParticleDynamics','Creating variable > Particle Weight <')
-        n = Mesh % NumberOfNodes
-        NULLIFY(TmpValues)
-        ALLOCATE(TmpValues(n))
-        TmpValues = 0.0_dp         
         CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,&
-            'Particle Weight',1,TmpValues)
+            'Particle Weight')
         Var => VariableGet( Mesh % Variables,'Particle Weight')      
       END IF
       WeightVector => Var % Values
@@ -384,6 +554,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
   IF( VisitedTimes == 1 .OR. &
       GetLogical( Params,'Reinitialize Particles',Found) ) THEN
     CALL InitializeParticles( Particles ) 
+    ParticlesLocated = .FALSE.
     IF( GetLogical( Params,'Particle Distance',Found) ) THEN
       CALL ParticleVariableCreate( Particles,'Particle Distance' )
     END IF
@@ -406,16 +577,14 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     END DO
   END IF
 
-  InitTimestep = .TRUE.
-
 
   DO i=1,nstep
 
     ! Get the timestep size, initialize at 1st round
     !--------------------------------------------------------------
-    dtime = GetParticleTimeStep( Particles, InitTimestep )
+    dtime = GetParticleTimeStep( Particles, i == 1 )
+!.NOT. ParticlesLocated )
 
-    InitTimeStep = .FALSE.
     IF( ParticleToField .AND. i > 1) THEN      
       AssemblyLoop = .NOT. FieldReset
     ELSE
@@ -427,22 +596,22 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     IF( dtime < TINY( dtime ) ) EXIT
     tottime = tottime + dtime
 
+
     ! Initialize the timestep, in practive just set force to zero
     !--------------------------------------------------------------
     CALL ParticleInitializeTime( Particles )
 
     ! If there are periodic BCs apply them just before locating the particles
     !------------------------------------------------------------------------
-    !    IF( .NOT. ( ParticleToField .AND. VisitedTimes == 1 ) ) THEN
     CALL ParticleBoxPeriodic( Particles )
-      !    END IF
 
     ! Find the elements (and only the elements) in which the particles are in 
     ! This might also not be done for some particle-only problems but those 
     ! are probably not relevant in conjunction with Elmer.
     !------------------------------------------------------------------------
-    IF( i > 1 .OR. .NOT. ParticlesLocated ) THEN
-      CALL LocateParticles(Particles) 
+    IF( .NOT. ( i==1 .AND. ParticlesLocated ) ) THEN
+      CALL LocateParticles(Particles, ParticleWallProc ) 
+      ParticlesLocated = .TRUE.
     END IF
 
     ! Eliminate the particles that sit on the wall but are not on
@@ -453,7 +622,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     ! Calculate the force resulting from external fields in mesh
     ! and / or cumpulate the r.h.s. of matrix equation with data 
     !------------------------------------------------------------------
-    CALL ParticleFieldInteraction( Particles, dtime, WorkLoop, AssemblyLoop ) 
+    CALL ParticleFieldInteraction( Particles, dtime, .TRUE. , AssemblyLoop ) 
 
     NoParticles = Particles % NumberOfParticles
     ParticleStepsTaken = ParticleStepsTaken + NoParticles
@@ -464,11 +633,11 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
     IF( ParticleInBox ) THEN
       ! Faster for rectangular and hexahedral domains
       !---------------------------------------------------------------
-!      CALL  ParticleBoxContact( Particles ) 
+      CALL  ParticleBoxContact( Particles ) 
     ELSE IF( ParticleWall ) THEN
       ! Generic version
       !---------------------------------------------------------------
-!      CALL ParticleWallContact( Particles, dtime )
+      CALL ParticleWallContact( Particles, dtime )
     END IF
 
     ! If there is either collisions or contacts between particles
@@ -530,13 +699,13 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
   END DO
 
-
   ! Do one last assembly if particle field is requested
   !------------------------------------------------------------------------
   IF( ParticleToField ) THEN
-    CALL LocateParticles(Particles) 
-!    CALL EliminateExitingParticles( Particles )
-!    CALL ParticleFieldInteraction( Particles, dtime, .FALSE., .TRUE. )
+    CALL ParticleBoxPeriodic( Particles )
+    CALL LocateParticles(Particles, ParticleWallProc ) 
+    CALL EliminateExitingParticles( Particles )
+    CALL ParticleFieldInteraction( Particles, dtime, .FALSE., .TRUE. )
     ParticlesLocated = .TRUE.
   END IF
 
@@ -718,6 +887,7 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        Visited = .TRUE.
      END IF
 
+
      ! Normalization and resetting of particle effect on fields
      !-------------------------------------------------------------------------     
      IF( ParticleToField ) THEN       
@@ -755,6 +925,9 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
        Coord = GetParticleCoord( Particles, No )
        Velo = GetParticleVelo( Particles, No )
        Force = 0.0_dp       
+
+
+!       PRINT *,'No',No,ElementIndex,Coord
 
        !-------------------------------------------------------------------------
        ! Add constant fields i.e. gravity and constant damping force
@@ -1109,9 +1282,10 @@ SUBROUTINE ParticleDynamics( Model,Solver,dt,TransientSimulation )
 
            PRINT *,'WallNodes:',WallNodes
            IF( WallNodes > 0 ) THEN
-             ALLOCATE( WallValues( WallNodes ) )
-             WallValues = 0.0_dp
-             CALL VariableAdd( Mesh % Variables, Mesh, Solver, VariableName, 1, WallValues, WallPerm )
+!             ALLOCATE( WallValues( WallNodes ) )
+!             WallValues = 0.0_dp
+             CALL VariableAddVector( Mesh % Variables, Mesh, Solver, VariableName, Perm = WallPerm )
+!1, WallValues, WallPerm )
            END IF
          END IF
          WallVar => VariableGet( Mesh % Variables,VariableName)
@@ -1365,7 +1539,6 @@ END SUBROUTINE ParticleDynamics
 
 !------------------------------------------------------------------------------
 !> Initialize the particle dynamics solver with some defaults.
-!> \ingroup Solvers
 !------------------------------------------------------------------------------
 SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
 
@@ -1389,4 +1562,5 @@ SUBROUTINE ParticleDynamics_Init( Model,Solver,dt,TransientSimulation )
 
 END SUBROUTINE ParticleDynamics_Init
 
+!> \}
 

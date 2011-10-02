@@ -1,3 +1,26 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - IT Center for Science Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
 !/******************************************************************************
 ! *
 ! *  Authors: Peter Råback & Juha Ruokolainen
@@ -87,6 +110,12 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
   CALL ReleaseWaitingParticles(Particles) 
   Particles % Status = PARTICLE_LOCATED
 
+
+  ! Freeze particles that are on no-slip walls 
+  !---------------------------------------------
+  CALL SetFixedParticles( )
+
+
   IF( GetLogical( Params,'Particle Time',Found) ) THEN
     CALL ParticleVariableCreate( Particles,'particle time')
   END IF
@@ -101,15 +130,14 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
     iorder = 1
   END IF
 
+!  CALL ParticleStatusCount( Particles )
+
 
   DO i=1,nstep
 
     ! Get the timestep size, initialize at 1st round
     !--------------------------------------------------------------
     maxdt = GetParticleTimeStep( Particles, InitTimestep )
-
- 
-! CALL ParticleStatusCount(Particles)
 
     ! If size of timestep goes to zero then no more steps are needed
     !---------------------------------------------------------------
@@ -141,9 +169,12 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
       !------------------------------------------------------------------
       CALL ParticleAdvanceTimestep( Particles, istep )
 
+!    CALL ParticleStatusCount( Particles )
+
       ! Find the elements (and only the elements) in which the particles are in. 
       !------------------------------------------------------------------------    
       CALL LocateParticles( Particles ) 
+
       InitTimestep = .FALSE.
     END DO 
 
@@ -151,6 +182,8 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
 	Particles % NumberOfMovingParticles,' moving particles'
     CALL Info('ParticleAdvector',Message,Level=6)
 
+!    CALL ParticleInformation(Particles, ParticleStepsTaken, &
+!	TimeStepsTaken, tottime )
 
   END DO
 
@@ -171,7 +204,29 @@ SUBROUTINE ParticleAdvector( Model,Solver,dt,TransientSimulation )
 
 CONTAINS
 
-   
+  !> Eliminate particles that sit an fixed boundaries.
+  !-------------------------------------------------------------------------
+  SUBROUTINE SetFixedParticles( )
+
+    INTEGER :: i
+    TYPE( ValueList_t), POINTER :: BC
+    TYPE( Element_t ), POINTER :: Element
+
+    DO i=Mesh % NumberOfBulkElements+1,&
+	Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+      Element => Mesh % Elements(i)
+      BC => GetBC( Element )
+      IF( GetLogical( BC,'Particle Fixed',Found) ) THEN
+        Particles % Status( Element % NodeIndexes ) = PARTICLE_FIXEDCOORD
+      END IF
+    END DO
+
+   i = COUNT( Particles % Status == PARTICLE_FIXEDCOORD )
+   WRITE( Message,'(A,I0)') 'Number of fixed particles: ',i 
+   CALL Info('SetFixedParticles',Message)
+
+  END SUBROUTINE SetFixedParticles 
+
   
   !------------------------------------------------------------------------
   !> Compute field values at the given points in the FE mesh. 
@@ -186,9 +241,9 @@ CONTAINS
     TYPE(Valuelist_t), POINTER :: Params
     REAL(KIND=dp) :: VeloAtPoint(3), GradVeloAtPoint(3,3),dtime
     LOGICAL :: Stat, UseGradVelo, Visited = .FALSE.
-    INTEGER :: i,j,k,l,n,dim,TimeOrder
+    INTEGER :: i,j,k,l,n,dim,TimeOrder, NewLost, OldLost, FixedLost
     INTEGER, POINTER :: NodeIndexes(:), FieldPerm(:),FieldIndexes(:)
-    REAL(KIND=dp) :: SqrtElementMetric, Weight
+    REAL(KIND=dp) :: SqrtElementMetric, Weight, Speed, SpeedMin
     REAL(KIND=dp), POINTER :: Basis(:), dBasisdx(:,:), Coordinate(:,:), Velocity(:,:)
     LOGICAL :: GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
@@ -196,7 +251,8 @@ CONTAINS
     TYPE(Variable_t), POINTER :: DtVar	
     
     
-    SAVE :: Visited, Mesh, dim, Basis, dBasisdx, Params, VeloVar, UseGradvelo, DtVar
+    SAVE :: Visited, Mesh, dim, Basis, dBasisdx, Params, VeloVar, UseGradvelo, DtVar, &
+	SpeedMin
 
     IF( .NOT. Visited ) THEN
       Mesh => GetMesh()
@@ -221,6 +277,9 @@ CONTAINS
         END IF
       END IF      
 
+      SpeedMin = ListGetConstReal( Params,'Particle Min Speed',Found)
+      IF(.NOT. Found) SpeedMin = EPSILON( SpeedMin )
+
       Visited = .TRUE.
     END IF 
 
@@ -229,17 +288,32 @@ CONTAINS
     Coord = 0.0_dp
     Velo = 0.0_dp
 
+    OldLost = 0
+    NewLost = 0
+    FixedLost = 0
+
     IF( Particles % DtConstant ) THEN
       dtime = Particles % DtSign * Particles % dtime
     END IF
 
     DO No = 1, Particles % NumberOfParticles
       Status = GetParticleStatus( Particles, No )
-      IF( Status >= PARTICLE_LOST ) CYCLE
-      IF( Status <= PARTICLE_INITIATED ) CYCLE
-      IF( Status == PARTICLE_WALLBOUNDARY ) CYCLE
+      IF( Status >= PARTICLE_LOST .OR. &
+          Status <= PARTICLE_INITIATED .OR. &
+          Status == PARTICLE_FIXEDCOORD .OR. &
+          Status == PARTICLE_WALLBOUNDARY ) THEN
+        OldLost = OldLost + 1
+	CYCLE
+      END IF
       
       ElementIndex = GetParticleElement( Particles, No )
+      IF( ElementIndex == 0 ) THEN
+PRINT *,'elemindex  = 0'
+        Particles % Status(No) = PARTICLE_LOST
+        NewLost = NewLost + 1
+        CYCLE       
+      END IF
+
       BulkElement => Mesh % Elements( ElementIndex )
       
       Coord(1:dim) = Coordinate( No, 1:dim )
@@ -250,28 +324,51 @@ CONTAINS
       IF( UseGradVelo ) THEN
         stat = ParticleElementInfo( BulkElement, Coord, &
             SqrtElementMetric, Basis, dBasisdx )
-        IF(.NOT. Stat ) CYCLE
+      ELSE
+        stat = ParticleElementInfo( BulkElement, Coord, &
+            SqrtElementMetric, Basis )
+      END IF
+
+      IF(.NOT. Stat ) THEN
+!	print *,'Particle not in element!',No,Coord
+        Particles % Status(No) = PARTICLE_LOST
+        NewLost = NewLost + 1
+        CYCLE
+      END IF
+
+
+      IF( UseGradVelo ) THEN
         CALL GetVectorFieldInMesh(VeloVar,BulkElement, Basis, VeloAtPoint, &
             dBasisdx, GradVeloAtPoint )
-
 	IF( .NOT. Particles % DtConstant ) THEN
           dtime = Particles % DtSign * DtVar % Values(No)
         END IF
-
         DO i=1,dim
           Velo(i) = VeloAtPoint(i) + &
               0.5_dp * SUM( GradVeloAtPoint(i,1:dim) * VeloAtPoint(1:dim) ) * dtime        
         END DO
       ELSE
-        stat = ParticleElementInfo( BulkElement, Coord, &
-            SqrtElementMetric, Basis )
-        IF(.NOT. Stat ) CYCLE
         CALL GetVectorFieldInMesh(VeloVar, BulkElement, Basis, VeloAtPoint )
 	Velo(1:dim) = VeloAtPoint(1:dim)
       END IF
 
-      Velocity( No, 1:dim ) = Velo(1:dim)
+      Speed = SQRT( SUM( Velo(1:dim) ** 2 ) )
+      IF( Speed < SpeedMin ) THEN
+ 	Particles % Status(No) = PARTICLE_FIXEDCOORD
+        Velocity( No, 1:dim ) = 0.0_dp
+        FixedLost = FixedLost + 1
+      ELSE
+        Velocity( No, 1:dim ) = Velo(1:dim)
+      END IF
     END DO
+
+    IF( .FALSE. ) THEN
+      IF( NewLost > 0 ) CALL Warn('SetParticleVelocities','Some particles could not be located')
+      PRINT *,'Total number of particles:',Particles % NumberOfParticles
+      PRINT *,'Passive particles:',OldLost
+      PRINT *,'New lost particles:',NewLost
+      PRINT *,'New fixed velo particles:',FixedLost
+    END IF
     
   END SUBROUTINE SetParticleVelocities
    
@@ -376,18 +473,20 @@ CONTAINS
         END IF
 
         IF(UsePerm) THEN
-          n = SIZE(TargetVar % Values)
-          NULLIFY(TmpValues)
-          ALLOCATE(TmpValues(n))
-          TmpValues = 0.0_dp         
+!          n = SIZE(TargetVar % Values)
+!          NULLIFY(TmpValues)
+!          ALLOCATE(TmpValues(n))
+!          TmpValues = 0.0_dp         
           CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,ResultName,dofs,&
-              TmpValues,TargetVar % Perm)
+!              TmpValues,&
+              Perm = TargetVar % Perm)
         ELSE
           n = NoParticles
-          NULLIFY(TmpValues)
-          ALLOCATE(TmpValues(n*dofs))
-          TmpValues = 0.0_dp
-          CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,ResultName,dofs,TmpValues)          
+!          NULLIFY(TmpValues)
+!          ALLOCATE(TmpValues(n*dofs))
+!          TmpValues = 0.0_dp
+          CALL VariableAddVector( Mesh % Variables,Mesh,PSolver,ResultName,dofs)
+!,TmpValues)          
         END IF
         IF( dofs == 1 ) THEN
           CALL Info('ParticleAdvector','Created a scalar variable: '//TRIM(ResultName) )
@@ -565,7 +664,6 @@ CONTAINS
     Visited = .TRUE.
 
   END SUBROUTINE SetAdvectedField
-
 
 !------------------------------------------------------------------------------
 END SUBROUTINE ParticleAdvector
