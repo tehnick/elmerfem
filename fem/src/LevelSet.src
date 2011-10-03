@@ -735,49 +735,36 @@ CONTAINS
   SUBROUTINE ExtractZeroLevel()
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,n,div,onetwo,corners, &
+    INTEGER :: i,j,k,l,m,n,div,onetwo,corners, &
         TriangleIndexes(3), mat_id, body_id, LocalInd(3)
     TYPE(Variable_t), POINTER :: Var
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp) :: x0,y0,x1,y1,t,nx(3),ny(3),nz(3),srf(3),w0(3),w1(3),Value,dt, &
         r1x, r1y, r2x, r2y, aid, Maxsrf, ds1, ds2
-    LOGICAL :: FileCreated = .FALSE., FileAppend, GotIt, FileSave, Found
+    LOGICAL :: FileCreated = .FALSE., FileAppend, GotIt, FileSave, Found, FileNumber
     TYPE(ValueList_t),POINTER :: Material
     CHARACTER(LEN=MAX_NAME_LEN) :: Filename, Filename2
-    
-    SAVE FileCreated
+    INTEGER :: VisitedTimes = 0, NumberOfFields=0
+
+    SAVE VisitedTimes, NumberOfFields
 !------------------------------------------------------------------------------
 
+    VisitedTimes = VisitedTimes + 1
     Filename = ListGetString(Solver % Values,'Filename',FileSave )
     
-    IF(FileSave) THEN
-      IF(.NOT. FileCreated) THEN        
-        OPEN (10, FILE=TRIM(Filename)//TRIM(".names") )
-        WRITE(10,'(A,A)') 'Variables in file: ',TRIM(Filename)
-        j = 1
-        WRITE(10,'(I3,": ",A)') j,'timestep'
-        
-        Var => Model % Variables
-        DO WHILE( ASSOCIATED( Var ) )          
-          IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. (Var % DOFs /= 1) ) THEN
-            Var => Var % Next        
-            CYCLE
-          END IF          
-          j = j + 1
-          WRITE(10,'(I3,": ",A)') j,TRIM(Var % Name)
-          Var => Var % Next          
-        END DO
-        CLOSE(10)
-      END IF
-      
+    IF(FileSave) THEN         
+      FileNumber = ListGetLogical(Solver % Values,'Filename Numbering',GotIt)     
       FileAppend = ListGetLogical(Solver % Values,'File Append',GotIt)
-      IF(FileCreated .AND. FileAppend) THEN 
+
+      IF( FileNumber ) THEN
+        WRITE( Filename,'(A,I0)') TRIM(Filename),VisitedTimes
+        OPEN (10,FILE=Filename)
+      ELSE IF(FileAppend .AND. VisitedTimes == 1) THEN 
         OPEN (10, FILE=Filename,POSITION='APPEND')
       ELSE 
         OPEN (10,FILE=Filename)
       END IF      
-      FileCreated = .TRUE.
     END IF
     
     Surface => SurfSol % Values
@@ -904,8 +891,11 @@ CONTAINS
           
           DO onetwo = 1,2
             
-            WRITE(10,'(I4)',ADVANCE='NO') Solver % DoneTime
-            
+            IF( FileAppend ) THEN
+              WRITE(10,'(I4)',ADVANCE='NO') Solver % DoneTime
+            END IF            
+
+	    m = 0
             Var => Model % Variables
             DO WHILE( ASSOCIATED( Var ) )
               
@@ -913,7 +903,8 @@ CONTAINS
                 Var => Var % Next        
                 CYCLE
               END IF
-              
+	      m = m + 1              
+
               Value = 0.0d0
               DO k=1,3
                 l = TriangleIndexes(k)
@@ -933,14 +924,42 @@ CONTAINS
             WRITE(10,'(A)') ' '
             
           END DO
-        END IF        
+	END IF        
+
       END DO
 
     END DO ! of elements
 
     
+
+
     IF(FileSave) THEN
       CLOSE(10)
+
+      IF( m /= NumberOfFields ) THEN
+	IF( NumberOfFields > 0 ) THEN
+  	  CALL Warn('ExtractZeroLevel','Mismacth in number of fields')
+          PRINT *,j,' vs. ',NumberOfFields
+	END IF
+	NumberOfFields = m
+
+        OPEN (10, FILE=TRIM(Filename)//TRIM(".names") )
+        WRITE(10,'(A,A)') 'Variables in file: ',TRIM(Filename)
+        j = 1
+        WRITE(10,'(I3,": ",A)') j,'timestep'
+        
+        Var => Model % Variables
+        DO WHILE( ASSOCIATED( Var ) )          
+          IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. (Var % DOFs /= 1) ) THEN
+            Var => Var % Next        
+            CYCLE 
+          END IF          
+          j = j + 1
+          WRITE(10,'(I3,": ",A)') j,TRIM(Var % Name)
+          Var => Var % Next          
+        END DO
+        CLOSE(10)
+      END IF  
     END  IF
 
 !------------------------------------------------------------------------------
