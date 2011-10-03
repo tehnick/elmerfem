@@ -3670,11 +3670,11 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
            NodeIndexes => CurrentElement % NodeIndexes           
            Model % CurrentElement => CurrentElement
 
-		   IF( ParamNo > BodyForceParams ) THEN
+           IF( ParamNo > BodyForceParams ) THEN
              ValueList => GetMaterial(CurrentElement)
-		   ELSE
-		     ValueList => GetBodyForce(CurrentElement)
-		   END IF
+           ELSE
+	     ValueList => GetBodyForce(CurrentElement)
+           END IF
            IF( ListCheckPresent(ValueList, TRIM(ParamName(ParamNo))) ) THEN
              FieldPerm( NodeIndexes ) = 1
            END IF
@@ -3742,10 +3742,10 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
 
       Model % CurrentElement => CurrentElement
 
-	  IF( ParamNo > BodyForceParams ) THEN
+      IF( ParamNo > BodyForceParams ) THEN
         ValueList => GetMaterial(CurrentElement)
-	  ELSE
-		ValueList => GetBodyForce(CurrentElement)
+      ELSE
+        ValueList => GetBodyForce(CurrentElement)
       END IF
       LocalParam(1:n) = ListGetReal(ValueList, TRIM(ParamName(ParamNo)), &
           n, NodeIndexes, GotIt)
