@@ -201,6 +201,7 @@ EXTRA_DIST = \
 	CoordinateSystems.src \
 	CPUTime.c \
 	CRSMatrix.src \
+	DataToFieldSolver.src \
 	DCRComplexSolve.src \
 	DefUtils.src \
 	DFTSolver.src \
@@ -276,6 +277,7 @@ EXTRA_DIST = \
 	NormalSolver.src \
 	ParallelEigenSolve.src \
 	ParticleAdvector.src \
+	ParticleDynamics.src \
 	ParticleUtils.src \
 	PElementBase.src \
 	PElementMaps.src \

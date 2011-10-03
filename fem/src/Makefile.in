@@ -334,7 +334,9 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
         StatElecBoundary$(SHL_EXT) \
         ShearrateSolver$(SHL_EXT) \
         ParticleAdvector$(SHL_EXT) \
-        SaveGridData$(SHL_EXT)
+        SaveGridData$(SHL_EXT) \
+	DataToFieldSolver$(SHL_EXT) \
+	ParticleDynamics$(SHL_EXT)
 
 SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
@@ -435,6 +437,7 @@ EXTRA_DIST = \
 	CoordinateSystems.src \
 	CPUTime.c \
 	CRSMatrix.src \
+	DataToFieldSolver.src \
 	DCRComplexSolve.src \
 	DefUtils.src \
 	DFTSolver.src \
@@ -510,6 +513,7 @@ EXTRA_DIST = \
 	NormalSolver.src \
 	ParallelEigenSolve.src \
 	ParticleAdvector.src \
+	ParticleDynamics.src \
 	ParticleUtils.src \
 	PElementBase.src \
 	PElementMaps.src \
@@ -1099,6 +1103,8 @@ VelocityPrecond.$(OBJEXT): VelocityPrecond.f90 DefUtils.$(OBJEXT) ElementUtils.$
 ViewFactors.$(OBJEXT): ViewFactors.f90 DefUtils.$(OBJEXT) Types.$(OBJEXT)
 VorticitySolver.$(OBJEXT): VorticitySolver.f90 DefUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 Walls.$(OBJEXT): Walls.f90
+ParticleDynamics.$(OBJEXT): ParticleDynamics.f90 DefUtils.$(OBJEXT)
+DataToFieldSolver.$(OBJEXT): DataToFieldSolver.f90 DefUtils.$(OBJEXT)
 
 all-local: $(ELMER_TARGETS)
 
