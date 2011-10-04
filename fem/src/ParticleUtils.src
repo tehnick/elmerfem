@@ -48,6 +48,7 @@ MODULE ParticleUtils
   USE DefUtils
   USE Lists
   USE MeshUtils
+  USE GeneralUtils
   
   IMPLICIT NONE
 
@@ -2209,80 +2210,77 @@ RETURN
     TYPE(Element_t), POINTER :: FaceElement2
     TYPE(Element_t), POINTER   :: BoundaryElement
     TYPE(Nodes_t), SAVE :: BoundaryNodes
-    REAL(KIND=dp) :: Lambda, Eps, Dist
-    INTEGER :: i,j,n
+    REAL(KIND=dp) :: Lambda(6), PosEps, NegEps, Dist
+    INTEGER :: ElemDim, NoFaces, FaceIndex(6), i,j,n
     INTEGER, POINTER :: NodeIndexes(:)
     LOGICAL :: Success, AtBoundary, AtFace, Visited = .FALSE.
-    LOGICAL :: Set1, Set2
         
    
-    MinLambda = HUGE( MinLambda ) 
-    Eps = 1.0e-10
-!100 * EPSILON( Lambda ) 
-    FaceElement => Null()
-    Set1 = .FALSE.
-    Set2 = .FALSE.    
+    PosEps = 1.0e-10
+    NegEps = -1.0e-7
 
-    IF( BulkElement % TYPE % DIMENSION == 3 ) THEN
-      DO i=1, BulkElement % TYPE % NumberOfFaces  
+    ElemDim = BulkElement % TYPE % DIMENSION
+
+    IF( ElemDim == 3 ) THEN
+      NoFaces = BulkElement % TYPE % NumberOfFaces 
+      DO i=1, NoFaces  
         j = BulkElement % FaceIndexes(i)
         BoundaryElement => Mesh % Faces( j )
         CALL GetElementNodes(BoundaryNodes,BoundaryElement)
         
-        Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
+        Lambda(i) = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
             Rinit,Rfin) 
-
-        IF( Lambda > Eps ) THEN
-          IF( Lambda < MinLambda ) THEN
-	    Set1 = .TRUE.
-            MinLambda = Lambda
-            FaceElement => BoundaryElement
-          END IF
-        ELSE IF( Lambda > -Eps ) THEN
-          Set2 = .TRUE.
-          FaceElement2 => BoundaryElement
-        END IF
-      END DO
+	FaceIndex(i) = j
+      END DO	    
     ELSE
-
-      DO i=1, BulkElement % TYPE % NumberOfEdges  
+      NoFaces = BulkElement % TYPE % NumberOfEdges 
+      DO i=1, NoFaces
         j = BulkElement % EdgeIndexes(i)
         BoundaryElement => Mesh % Edges(j)
 
-        IF( ANY( BoundaryElement % NodeIndexes > Mesh % NumberOfNodes ) .OR. &
-	    ANY( BoundaryElement % NodeIndexes < 1 ) ) THEN
-	  CALL Fatal('SegmentElementIntersection','Index too large!')
-	END IF	
-
         CALL GetElementNodes(BoundaryNodes,BoundaryElement)
 
-        Lambda = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
+        Lambda(i) = LineFaceIntersection(BoundaryElement,BoundaryNodes,&
             Rinit,Rfin) 
-
-        IF( Lambda > Eps ) THEN
-          IF( Lambda < MinLambda ) THEN
-	    Set1 = .TRUE.
-            MinLambda = Lambda
-            FaceElement => BoundaryElement
-          END IF
-        ELSE IF( Lambda > -Eps ) THEN
-          Set2 = .TRUE.
-          FaceElement2 => BoundaryElement
-        END IF
+	FaceIndex(i) = j
       END DO
     END IF
+
+    ! Sort the lambdas so that the best intersection is easily found
+    !-----------------------------------------------------------------------
+    CALL SortR( NoFaces, FaceIndex, Lambda ) 
 
     ! Either there must be a positive lambda, or then the initial node must 
     ! already sit on the face.
     !------------------------------------------------------------------------
-    IF( .NOT. Set1 ) THEN
-      IF( Set2 ) THEN
-        FaceElement => FaceElement2
-        MinLambda = 0.0_dp
-      ELSE
-        CALL Warn('SegmentElementIntersection','Could not find any intersection')
-        PRINT *,'dcoord',rinit-rfin
+    j = 0
+    DO i=1,NoFaces
+      IF( Lambda(i) >= PosEps ) THEN
+        j = i
+      ELSE 
+        IF( j > 0 ) THEN
+	  MinLambda = Lambda( j ) 
+          EXIT
+        ELSE IF( Lambda(i) >= NegEps ) THEN
+	  MinLambda = MAX( Lambda( i ), 0.0_dp )
+          j = i
+        END IF
+        EXIT
       END IF
+    END DO
+
+    IF( j > 0 ) THEN
+      IF( ElemDim == 3 ) THEN
+        FaceElement => Mesh % Faces( FaceIndex(j) )
+      ELSE
+        FaceElement => Mesh % Edges( FaceIndex(j) )
+      END IF
+    ELSE 
+      MinLambda = HUGE( MinLambda ) 
+      FaceElement => Null()
+
+      CALL Warn('SegmentElementIntersection','Could not find any intersection')
+      print *,'Lambda: ',NoFaces,Lambda(1:NoFaces)
     END IF
 
     
@@ -2416,6 +2414,7 @@ RETURN
     LOGICAL :: Hit, DoInit, Stat, StopAtFace, AtWall, Visited = .FALSE.,&
         Debug,UseCenter,GotBC,GotBC2,ParticleBounce
     INTEGER :: i,j,k,n,FaceIndex,MaxTrials,bc_id,cons_id,ElementIndex0,ParticleStatus0
+    INTEGER :: Problems(3), PrevNo 
     TYPE(Nodes_t), SAVE :: ElementNodes
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: Element, FaceElement, LeftElement, RightElement, &
@@ -2425,7 +2424,7 @@ RETURN
     INTEGER :: NextPartition, Counter = 0
     LOGICAL, POINTER :: FaceInterface(:)
     
-    SAVE :: Mesh, StopAtFace, Debug, MaxTrials, Counter
+    SAVE :: Mesh, StopAtFace, Debug, MaxTrials, Counter, Problems, PrevNo, Eps
     
     Mesh => GetMesh()
     Counter = Counter + 1
@@ -2436,6 +2435,10 @@ RETURN
       StopAtFace = ListGetLogical( Params,'Particle Stop At Face',Stat)
       MaxTrials = ListGetInteger( Params,'Max Particle Search Trials',Stat)
       IF(.NOT. Stat) MaxTrials = Mesh % NumberOfBulkElements      
+
+      Eps = ListGetConstReal( Params,'Particle Hit Tolerance',Stat)
+      IF(.NOT. Stat) Eps = 1.0e-10
+      Problems = 0
       Visited = .TRUE.
     END IF
 
@@ -2456,7 +2459,7 @@ RETURN
 
     IF(.NOT. UseCenter ) THEN
       ds2 = SUM( (Rinit - Rfin)**2 )
-      IF( ds2 < EPSILON( ds2 ) ) RETURN
+      IF( ds2 < EPSILON( ds2 ) ) GOTO 100
     END IF
 
     IF( Debug ) THEN
@@ -2473,7 +2476,6 @@ RETURN
     Lambda = 1.0_dp
         
     Element => Mesh % Elements( ElementIndex ) 
-    eps = 1.0d-12
     
 
     DO i=1,MaxTrials
@@ -2502,7 +2504,8 @@ RETURN
       IF( .NOT. ASSOCIATED( FaceElement ) ) THEN
         ! One likely cause for unsuccessful operation is that the 
         ! initial node and target node are the same
-        IF( SUM ( ( Rtmp - Rfin )**2 ) < eps**2 ) THEN
+        ds2 = SUM ( ( Rtmp - Rfin )**2 )
+        IF( ds2 < EPSILON( ds2 ) ) THEN
           ParticleStatus = PARTICLE_HIT
           EXIT
         ELSE
@@ -2620,19 +2623,24 @@ RETURN
       END IF
 
       IF( ASSOCIATED( NextElement, PrevElement ) ) THEN
-        CALL Warn('LocateParticleInMeshMarch','Elements are same, this is going nowhere!')
         CALL GetElementNodes(ElementNodes,NextElement)
-        IF ( PointInElement( NextElement, ElementNodes, &
-            Rfin, LocalCoord, GlobalEps = -1.0d-1, LocalEps = 1.0d-3) ) THEN
+        IF ( PointInElement( NextElement, ElementNodes, Rfin, LocalCoord ) ) THEN
+	  Problems(1) = Problems(1) + 1
+!          CALL Warn('LocateParticleInMeshMarch','Elements are same, found in NextElement!')          
 	  Element => NextElement
           ParticleStatus = PARTICLE_HIT	  
+          EXIT
         ELSE
           CALL GetElementNodes(ElementNodes,Element)
-          IF( PointInElement( Element, ElementNodes, &
-              Rfin, LocalCoord, GlobalEps = -1.0d-1, LocalEps = 1.0d-3) ) THEN
+          IF( PointInElement( Element, ElementNodes, Rfin, LocalCoord ) ) THEN
+	    Problems(2) = Problems(2) + 1
+!            CALL Warn('LocateParticleInMeshMarch','Elements are same, found in Element!')          
             ParticleStatus = PARTICLE_HIT
+	    EXIT
           ELSE 
-            CALL Warn('LocateParticleInMeshMarch','Elements are same, this is going nowhere!')          
+            Problems(3) = Problems(3) + 1
+!            CALL Warn('LocateParticleInMeshMarch','Elements are same, this is going nowhere!')          
+	    ParticleStatus = PARTICLE_LOST
             EXIT
           END IF
         END IF
@@ -2647,6 +2655,16 @@ RETURN
     ELSE	
       ElementIndex = Element % ElementIndex
     END IF
+
+100 CONTINUE
+
+    ! This is just for debugging 
+    IF( No < PrevNo ) THEN
+      IF( Problems(3) >  0 ) print *,'Problems:',Problems
+      problems = 0
+    END IF
+    PrevNo = No
+     
 
   END SUBROUTINE LocateParticleInMeshMarch
 
