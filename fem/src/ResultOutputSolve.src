@@ -3023,7 +3023,8 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Variable_t), POINTER :: Var
-  INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, PrecSize
+  INTEGER :: i, j, k, Partitions, Part, ExtCount, FileindexOffSet, MeshDim, PrecBits, &
+             PrecSize, IntSize
   CHARACTER(MAX_NAME_LEN) :: Dir
   LOGICAL :: Visited = .FALSE.
   REAL(KIND=dp) :: DoubleWrk
@@ -3055,13 +3056,17 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL Warn('VtuOutputSolver','Single precision is associated only with binary output!')
     SinglePrec = .FALSE.
   END IF
+
+
   IF( SinglePrec ) THEN
     PrecBits = 32
-    PrecSize = sizeof( SingleWrk ) 
+    PrecSize = KIND( SingleWrk ) 
   ELSE
     PrecBits = 64
-    PrecSize = sizeof( DoubleWrk ) 
+    PrecSize = KIND( DoubleWrk ) 
   END IF
+  IntSize = KIND(i)
+
   NoFileindex = GetLogical( Params,'No Fileindex',GotIt)
 
   IF ( nTime == 1 ) THEN
@@ -3418,7 +3423,7 @@ CONTAINS
 
         IF( BinaryOutput ) THEN
           k = NumberOfNodes * PrecSize * sdofs
-          Offset = Offset + SIZEOF( i ) + k
+          Offset = Offset + IntSize + k
         END IF
          
         !---------------------------------------------------------------------
@@ -3558,7 +3563,7 @@ CONTAINS
         
         IF( BinaryOutput ) THEN
           k = PrecSize * sdofs * NumberOfElements
-          Offset = Offset + SIZEOF( i ) + k
+          Offset = Offset + IntSize + k
         END IF
 
         
@@ -3632,7 +3637,7 @@ CONTAINS
 
     IF( BinaryOutput ) THEN
       k = dim * NumberOfNodes * PrecSize
-      Offset = Offset + SIZEOF( i ) + k
+      Offset = Offset + IntSize + k
     END IF
 
 
@@ -3730,9 +3735,9 @@ CONTAINS
         IF(MaskExists) THEN
           IF( .NOT. ALL(MaskPerm(CurrentElement % NodeIndexes) /= 0)) CYCLE
         END IF
-        k = k + CurrentElement % TYPE % NumberOfNodes * SIZEOF( i ) 
+        k = k + CurrentElement % TYPE % NumberOfNodes * IntSize
       END DO
-      Offset = Offset + k + SIZEOF( i ) 
+      Offset = Offset + k + IntSize
     END IF
 
 
@@ -3782,8 +3787,8 @@ CONTAINS
     END IF
 
     IF( BinaryOutput ) THEN
-      k = NumberOfElements * SIZEOF( i ) 
-      Offset = Offset + SIZEOF( i ) + k
+      k = NumberOfElements * IntSize
+      Offset = Offset + IntSize + k
     END IF
 
 
@@ -3825,8 +3830,8 @@ CONTAINS
     END IF
 
     IF( BinaryOutput ) THEN
-      k = NumberOfElements * SIZEOF( i )
-      Offset = Offset + SIZEOF( i ) + k
+      k = NumberOfElements * IntSize
+      Offset = Offset + IntSize + k
     END IF
 
 
