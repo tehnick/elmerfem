@@ -1371,7 +1371,7 @@ CONTAINS
 
     INTEGER :: NoNodes,NoDims,bf_id,nlen, NOFNodesFound, dim, &
         bndry_start, bndry_end, Upper
-    REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:)
+    REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:),DiagScaling(:)
     REAL(KIND=dp) :: MinDist,Dist, Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
     TYPE(ValueList_t), POINTER :: ValueList, Params
@@ -1382,6 +1382,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! These logical vectors are used to minimize extra effort in setting up different BCs
 !------------------------------------------------------------------------------
+
+    DiagScaling => A % DiagScaling
+    IF (.NOT.ASSOCIATED(DiagScaling)) THEN
+      ALLOCATE(DiagScaling(A % NumberOFRows))
+      DiagScaling = 1._dp
+    END IF
 
     nlen = LEN_TRIM(Name)
     n = MAX( Model % NumberOfBodyForces,Model % NumberOfBCs)
@@ -1780,13 +1786,16 @@ CONTAINS
               m=NDOFs*(k-1)+l
               CALL ZeroRow(A,m)
               A % Values(A % Diag(m))=1._dp
-              b(m)=Solver % Variable % Values(m)
+              b(m)=Solver % Variable % Values(m)/DiagScaling(m)
             END DO
           END DO
         END IF
       END DO
     END IF
+
+    IF(.NOT.ASSOCIATED(A % DiagScaling,DiagScaling)) DEALLOCATE(DiagScaling)
     
+
 !------------------------------------------------------------------------------
 
   CONTAINS
@@ -1897,7 +1906,7 @@ CONTAINS
                         NTZeroing_done(m,k) = .TRUE.
                       END IF
 	              IF( .NOT. OffDiagonal ) THEN
-                        b(l) = b(l) + RotVec(k) * Work(j)
+                        b(l) = b(l) + RotVec(k) * Work(j)/DiagScaling(l)
 	              END IF
                     END IF
                   END IF
@@ -1907,12 +1916,12 @@ CONTAINS
                 IF ( A % FORMAT == MATRIX_SBAND ) THEN
                   CALL SBand_SetDirichlet( A,b,k,Work(j) )
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-                  CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
+                  CALL CRS_SetSymmDirichlet( A,b,k,Work(j)/DiagScaling(k) )
                 ELSE
                   CALL ZeroRow( A,k )
                   IF( .NOT. OffDiagonal ) THEN
                     CALL SetMatrixElement( A,k,k,1.0d0 )
-                    b(k) = Work(j)
+                    b(k) = Work(j)/DiagScaling(k)
                   END IF
                 END IF
               END IF
@@ -1923,13 +1932,13 @@ CONTAINS
                   CALL SBand_SetDirichlet( A,b,k1,WorkA(l,1,j) )
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
                   IF( .NOT. OffDiagonal ) THEN
-                    CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
+                    CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j)/DiagScaling(k1) )
                   END IF
                 ELSE
                   CALL ZeroRow( A,k1 )
 	          IF( .NOT. OffDiagonal ) THEN
                     CALL SetMatrixElement( A,k1,k1,1.0d0 )
-                    b(k1) = WorkA(l,1,j)
+                    b(k1) = WorkA(l,1,j)/DiagScaling(k1)
                   END IF
                 END IF
               END DO
@@ -1979,12 +1988,12 @@ CONTAINS
               IF ( A % FORMAT == MATRIX_SBAND ) THEN
                 CALL SBand_SetDirichlet( A,b,k,Work(j) )
               ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-                CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
+                CALL CRS_SetSymmDirichlet( A,b,k,Work(j)/DiagScaling(k) )
               ELSE
                 CALL ZeroRow( A,k )
                 IF( .NOT. OffDiagonal ) THEN
                   CALL SetMatrixElement( A,k,k,1.0d0 )
-                  b(k) = Work(j)
+                  b(k) = Work(j)/DiagScaling(k)
                 END IF
               END IF
             ELSE
@@ -1994,13 +2003,13 @@ CONTAINS
                   CALL SBand_SetDirichlet( A,b,k1,WorkA(l,1,j) )
                 ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
                   IF( .NOT. OffDiagonal ) THEN
-                    CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j) )
+                    CALL CRS_SetSymmDirichlet( A,b,k1,WorkA(l,1,j)/DiagScaling(k1))
                   END IF
                 ELSE
                   CALL ZeroRow( A,k1 )
                   IF(.NOT. OffDiagonal ) THEN
                     CALL SetMatrixElement( A,k1,k1,1.0d0 )
-                    b(k1) = WorkA(l,1,j)
+                    b(k1) = WorkA(l,1,j)/DiagScaling(k1)
                   END IF
                 END IF
               END DO
@@ -2032,18 +2041,327 @@ CONTAINS
           IF ( A % FORMAT == MATRIX_SBAND ) THEN
             CALL SBand_SetDirichlet( A,b,k,Work(j) )
           ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-            CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
+            CALL CRS_SetSymmDirichlet( A,b,k,Work(j)/DiagScaling(k) )
           ELSE
             CALL ZeroRow( A,k )
             IF( .NOT. OffDiagonal ) THEN
               CALL SetMatrixElement( A,k,k,1.0d0 )
-              b(k) = Work(j)
+              b(k) = Work(j)/DiagScaling(k)
             END IF
           END IF
         END DO
       END IF
 
     END SUBROUTINE SetLimiterValues
+
+
+!> At fisrt pass sum together the rows related to the periodic dofs.
+!------------------------------------------------------------------------------
+   SUBROUTINE SetPeriodicBoundariesPass1( Model, A, b, &
+                      Name, DOF, NDOFs, Perm, This, Done )
+!------------------------------------------------------------------------------
+!
+! TYPE(Model_t) :: Model
+!   INPUT: the current model structure
+!
+! TYPE(Matrix_t), POINTER :: A
+!   INOUT: The global matrix
+!
+! REAL(KIND=dp) :: b(:)
+!   INOUT: The global RHS vector
+! 
+! CHARACTER(LEN=*) :: Name
+!   INPUT: name of the dof to be set
+!
+! INTEGER :: DOF, NDOFs
+!   INPUT: The order number of the dof and the total number of DOFs for
+!          this equation
+!
+! INTEGER :: Perm(:)
+!   INPUT: The node reordering info, this has been generated at the
+!          beginning of the simulation for bandwidth optimization
+!------------------------------------------------------------------------------
+    TYPE(Model_t) :: Model
+    TYPE(Matrix_t), POINTER :: A
+
+    REAL(KIND=dp) :: b(:)
+
+    CHARACTER(LEN=*) :: Name
+    LOGICAL :: Done(:)
+    INTEGER :: This, DOF, NDOFs, Perm(:)
+!------------------------------------------------------------------------------
+
+    INTEGER :: p,q,i,j,k,l,m,n,nn,ii,nlen
+    LOGICAL :: GotIt, Found
+    REAL(KIND=dp) :: Scale
+    TYPE(Matrix_t), POINTER :: F, G, Projector, Projector1
+    TYPE(Variable_t), POINTER :: Var
+!------------------------------------------------------------------------------
+
+    nlen = LEN_TRIM(Name)
+
+    IF ( ListGetLogical( Model % BCs(This) % Values, &
+       'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
+      Scale = -1.0_dp
+    ELSE IF ( ListGetLogical( Model % BCs(This) % Values, &
+        'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
+      Scale = 1.0d0
+    ELSE 
+      Scale = ListGetConstReal( Model % BCs(This) % Values, &
+          'Periodic BC Scale ' // Name(1:nlen), GotIt) 
+      IF(.NOT. GotIt ) RETURN      
+    END IF
+
+    Projector => Model % BCs(This) % PMatrix
+    IF ( .NOT. ASSOCIATED(Projector) ) RETURN
+
+!   For explicit conditions just create the dependency almost like a normal Dirichlet BC, 
+!   For implicit one (otherwise) do the assembly of the projector:
+!   ---------------------------------
+    IF ( ListGetLogical( Model % BCs(This) % Values,  &
+        'Periodic BC Explicit', Found ) ) THEN
+
+      Var => VariableGet( Model % Variables,Name(1:nlen) ) 
+
+      DO i=1,Projector % NumberOfRows
+        ii = Projector % InvPerm(i)
+        k = Perm(ii)
+        IF ( .NOT. Done(ii) .AND. k>0 ) THEN
+          k = NDOFs * (k-1) + DOF
+          CALL ZeroRow( A,k )
+
+          CALL AddToMatrixElement( A, k, k, 1.0_dp )
+          b(k) = 0.0_dp
+
+          DO l = Projector % Rows(i), Projector % Rows(i+1)-1
+            IF ( Projector % Cols(l) <= 0 ) CYCLE
+            m = Perm( Projector % Cols(l) )
+            IF ( m > 0 ) THEN
+              m = NDOFs * (m-1) + DOF
+              b(k) = b(k) - Scale * Projector % Values(l) * &
+                  Var % Values(m)/DiagScaling(k)
+             END IF
+          END DO
+        END IF
+      END DO
+
+    ELSE IF ( ListGetLogical( Model % BCs(This) % Values,  &
+         'Periodic BC Use Lagrange Coefficient', Found ) ) THEN
+
+      G => NULL()
+      F => A % ConstraintMatrix
+      DO WHILE(ASSOCIATED(A))
+        G => Projector % Child
+        DO WHILE(ASSOCIATED(G))
+          IF (ASSOCIATED(F,G)) EXIT
+          G => G % Child
+        END DO
+        IF (ASSOCIATED(F,G)) EXIT
+        F => F % ConstraintMatrix
+      END DO
+
+      IF ( .NOT.ASSOCIATED(F,G) ) THEN
+        F => AllocateMatrix()
+        F % ConstraintMatrix => A % ConstraintMatrix
+        A % ConstraintMatrix => F
+
+        F % Child => Projector % Child
+        Projector % Child => F
+
+        n = NDOFs*Projector % NumberOfRows
+        F % NumberOfRows = n
+
+        ALLOCATE( F % RHS(n), F % Rows(n+1), &
+            F % Cols(SIZE(Projector % Cols)*NDOFs**2+n),  &
+            F % Values(SIZE(Projector % Values)*NDOFs**2+n) )
+
+         F % Rows(1) = 1
+         DO i=1,Projector % NumberOfRows
+           n = Projector % Rows(i+1)-Projector % Rows(i)
+           DO j=1,NDOFs
+             k = NDOFs*(i-1)+j
+             F % Rows(k+1)=F % Rows(k)+NDOFs*n+1
+           END DO
+         END DO
+
+         DO i=1,Projector % NumberOfRows
+           k = Perm(Projector % InvPerm(i))
+           DO p=1,NDOFs
+             n = F % Rows(NDOFs*(i-1)+p)
+             F % Cols(n) = NDOFs*(k-1)+p
+
+             DO j=Projector % Rows(i),Projector % Rows(i+1)-1
+               m = Perm(Projector % Cols(j))
+               IF ( m>0 ) THEN
+                 DO q=1,NDOFs
+                   n = n + 1
+                   F % Cols(n) = NDOFs*(m-1)+q
+                 END DO
+               END IF
+             END DO
+           END DO
+         END DO
+         CALL CRS_SortMatrix(F)
+
+         F % RHS = 0._dp
+         F % Values = 0._dp
+      END IF
+
+      DO i=1,Projector % NumberOfRows
+        k = Perm(Projector % InvPerm(i))
+        IF ( k<=0 ) CYCLE
+
+        CALL ZeroRow(F,NDOFS*(i-1)+DOF)
+        CALL SetMatrixElement( F, NDOFs*(i-1)+DOF, &
+               NDOFs*(k-1)+DOF, Scale )
+
+        DO j=Projector % Rows(i),Projector % Rows(i+1)-1
+          m = Perm(Projector % Cols(j))
+          IF ( m>0 ) THEN
+            CALL SetMatrixElement( F, NDOFs*(i-1)+DOF, &
+               NDOFs*(m-1)+DOF, Projector % Values(j) )
+          END IF
+        END DO
+      END DO
+    ELSE
+      ALLOCATE(F)
+      F = A
+      F % RHS => F % BulkRHS
+      F % Values => F % BulkValues
+      DO i=1,Projector % NumberOfRows
+         ii = Projector % InvPerm(i)
+         k = Perm(ii)
+         IF ( .NOT. Done(ii) .AND. k>0 ) THEN
+            k = NDOFs * (k-1) + DOF
+            DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+              IF ( Projector % Cols(l) <= 0 .OR. Projector % Values(l)==0.0d0 ) CYCLE
+
+              m = Perm(Projector % Cols(l))
+              IF ( m > 0 ) THEN
+                m = NDOFs*(m-1) + DOF
+                DO nn=A % Rows(k),A % Rows(k+1)-1
+                   CALL AddToMatrixElement( A, m, A % Cols(nn), &
+                          Projector % Values(l) * A % Values(nn) / &
+                          DiagScaling(k) * DiagScaling(m))
+                   IF (ASSOCIATED(F % Values)) THEN
+                     CALL AddToMatrixElement( F, m, F % Cols(nn), &
+                          Projector % Values(l) * F % Values(nn) )
+                   END IF
+                END DO
+                b(m)=b(m)+Projector % Values(l)*b(k)*&
+                   DiagScaling(m) / DiagScaling(k)
+                IF (ASSOCIATED(F % RHS)) THEN
+                  F % RHS(m) = F % RHS(m) + Projector % Values(l)*F % RHS(k)
+                END IF
+              END IF
+            END DO
+         END IF
+         Done(ii) = .TRUE.
+      END DO
+      DEALLOCATE(F)
+    END IF
+!------------------------------------------------------------------------------
+   END SUBROUTINE SetPeriodicBoundariesPass1
+!------------------------------------------------------------------------------
+
+
+!> At second pass add the [...1 .. -1 ...] row structure that results to the 
+!> equality of the periodic dofs. 
+!------------------------------------------------------------------------------
+   SUBROUTINE SetPeriodicBoundariesPass2( Model, A, b, &
+                      Name, DOF, NDOFs, Perm, This, Done )
+!------------------------------------------------------------------------------
+!
+! TYPE(Model_t) :: Model
+!   INPUT: the current model structure
+!
+! TYPE(Matrix_t), POINTER :: A
+!   INOUT: The global matrix
+!
+! REAL(KIND=dp) :: b(:)
+!   INOUT: The global RHS vector
+! 
+! CHARACTER(LEN=*) :: Name
+!   INPUT: name of the dof to be set
+!
+! INTEGER :: DOF, NDOFs
+!   INPUT: The order number of the dof and the total number of DOFs for
+!          this equation
+!
+! INTEGER :: Perm(:)
+!   INPUT: The node reordering info, this has been generated at the
+!          beginning of the simulation for bandwidth optimization
+!------------------------------------------------------------------------------
+    TYPE(Model_t) :: Model
+    TYPE(Matrix_t), POINTER :: A
+
+    REAL(KIND=dp) :: b(:)
+
+    CHARACTER(LEN=*) :: Name
+    LOGICAL :: Done(:)
+    INTEGER :: This, DOF, NDOFs, Perm(:)
+!------------------------------------------------------------------------------
+
+    INTEGER :: i,j,k,l,m,n,nn,ii,nlen
+    LOGICAL :: GotIt
+    REAL(KIND=dp) :: Scale,s,ValueOffset
+    TYPE(Matrix_t), POINTER :: Projector
+!------------------------------------------------------------------------------
+
+    nlen = LEN_TRIM(Name)
+
+    IF ( ListGetLogical( Model % BCs(This) % Values, &
+       'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
+      Scale = -1.0_dp
+    ELSE IF ( ListGetLogical( Model % BCs(This) % Values, &
+        'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
+      Scale = 1.0d0
+    ELSE 
+      Scale = ListGetCReal( Model % BCs(This) % Values, &
+          'Periodic BC Scale ' // Name(1:nlen), GotIt) 
+      IF(.NOT. GotIt ) RETURN      
+    END IF
+
+    ValueOffset = ListGetCReal( Model % BCs(This) % Values, &
+          'Periodic BC Offset ' // Name(1:nlen), GotIt) 
+
+    Projector => Model % BCs(This) % PMatrix
+    IF ( .NOT. ASSOCIATED(Projector) ) RETURN
+
+    IF ( ListGetLogical( Model % BCs(This) % Values,  &
+         'Periodic BC Use Lagrange Coefficient', GotIt ) ) RETURN
+
+    IF ( ListGetLogical( Model % BCs(This) % Values,  &
+         'Periodic BC Explicit', GotIt ) ) RETURN
+
+!   Do the assembly of the projector:
+!   ---------------------------------
+    DO i=1,Projector % NumberOfRows
+       ii = Projector % InvPerm(i)
+
+       k = Perm( ii )
+       IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
+          k = NDOFs * (k-1) + DOF
+          CALL ZeroRow( A,k )
+          DO l = Projector % Rows(i), Projector % Rows(i+1)-1
+             IF ( Projector % Cols(l) <= 0 ) CYCLE
+             m = Perm( Projector % Cols(l) )
+             IF ( m > 0 ) THEN
+               m = NDOFs * (m-1) + DOF
+               CALL AddToMatrixElement( A,k,m,Projector % Values(l) * &
+                    DiagScaling(m) / DiagScaling(k))
+             END IF
+          END DO
+
+          b(k) = -ValueOffset / DiagScaling(k)
+          CALL AddToMatrixElement( A,k,k,scale )
+       END IF
+       Done(ii) = .TRUE.
+    END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE SetPeriodicBoundariesPass2
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   END SUBROUTINE SetDirichletBoundaries
@@ -2099,312 +2417,6 @@ CONTAINS
 
 
 
-
-!> At fisrt pass sum together the rows related to the periodic dofs.
-!------------------------------------------------------------------------------
-   SUBROUTINE SetPeriodicBoundariesPass1( Model, StiffMatrix, ForceVector, &
-                      Name, DOF, NDOFs, Perm, This, Done )
-!------------------------------------------------------------------------------
-!
-! TYPE(Model_t) :: Model
-!   INPUT: the current model structure
-!
-! TYPE(Matrix_t), POINTER :: StiffMatrix
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: ForceVector(:)
-!   INOUT: The global RHS vector
-! 
-! CHARACTER(LEN=*) :: Name
-!   INPUT: name of the dof to be set
-!
-! INTEGER :: DOF, NDOFs
-!   INPUT: The order number of the dof and the total number of DOFs for
-!          this equation
-!
-! INTEGER :: Perm(:)
-!   INPUT: The node reordering info, this has been generated at the
-!          beginning of the simulation for bandwidth optimization
-!------------------------------------------------------------------------------
-    TYPE(Model_t) :: Model
-    TYPE(Matrix_t), POINTER :: StiffMatrix
-
-    REAL(KIND=dp) :: ForceVector(:)
-
-    CHARACTER(LEN=*) :: Name
-    LOGICAL :: Done(:)
-    INTEGER :: This, DOF, NDOFs, Perm(:)
-!------------------------------------------------------------------------------
-
-    INTEGER :: p,q,i,j,k,l,m,n,nn,ii,nlen
-    LOGICAL :: GotIt, Found
-    REAL(KIND=dp) :: Scale
-    TYPE(Matrix_t), POINTER :: A, B, Projector, Projector1
-    TYPE(Variable_t), POINTER :: Var
-!------------------------------------------------------------------------------
-
-    nlen = LEN_TRIM(Name)
-
-    IF ( ListGetLogical( Model % BCs(This) % Values, &
-       'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
-      Scale = -1.0_dp
-    ELSE IF ( ListGetLogical( Model % BCs(This) % Values, &
-        'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
-      Scale = 1.0d0
-    ELSE 
-      Scale = ListGetConstReal( Model % BCs(This) % Values, &
-          'Periodic BC Scale ' // Name(1:nlen), GotIt) 
-      IF(.NOT. GotIt ) RETURN      
-    END IF
-
-    Projector => Model % BCs(This) % PMatrix
-    IF ( .NOT. ASSOCIATED(Projector) ) RETURN
-
-!   For explicit conditions just create the dependency almost like a normal Dirichlet BC, 
-!   For implicit one (otherwise) do the assembly of the projector:
-!   ---------------------------------
-    IF ( ListGetLogical( Model % BCs(This) % Values,  &
-        'Periodic BC Explicit', Found ) ) THEN
-
-      Var => VariableGet( Model % Variables,Name(1:nlen) ) 
-
-      DO i=1,Projector % NumberOfRows
-        ii = Projector % InvPerm(i)
-        k = Perm(ii)
-        IF ( .NOT. Done(ii) .AND. k>0 ) THEN
-          k = NDOFs * (k-1) + DOF
-          CALL ZeroRow( StiffMatrix,k )
-
-          CALL AddToMatrixElement( StiffMatrix, k, k, 1.0_dp )
-          ForceVector(k) = 0.0_dp
-
-          DO l = Projector % Rows(i), Projector % Rows(i+1)-1
-            IF ( Projector % Cols(l) <= 0 ) CYCLE
-            m = Perm( Projector % Cols(l) )
-            IF ( m > 0 ) THEN
-              m = NDOFs * (m-1) + DOF
-              ForceVector(k) = ForceVector(k) - Scale * Projector % Values(l) * &
-                  Var % Values( m  )
-             END IF
-          END DO
-        END IF
-      END DO
-
-    ELSE IF ( ListGetLogical( Model % BCs(This) % Values,  &
-         'Periodic BC Use Lagrange Coefficient', Found ) ) THEN
-
-      B => NULL()
-      A => StiffMatrix % ConstraintMatrix
-      DO WHILE(ASSOCIATED(A))
-        B => Projector % Child
-        DO WHILE(ASSOCIATED(B))
-          IF (ASSOCIATED(A,B)) EXIT
-          B => B % Child
-        END DO
-        IF (ASSOCIATED(A,B)) EXIT
-        A => A % ConstraintMatrix
-      END DO
-
-      IF ( .NOT.ASSOCIATED(A,B) ) THEN
-        A => AllocateMatrix()
-        A % ConstraintMatrix => StiffMatrix % ConstraintMatrix
-        StiffMatrix % ConstraintMatrix => A
-
-        A % Child => Projector % Child
-        Projector % Child => A
-
-        n = NDOFs*Projector % NumberOfRows
-        A % NumberOfRows = n
-
-        ALLOCATE( A % RHS(n), A % Rows(n+1), &
-            A % Cols(SIZE(Projector % Cols)*NDOFs**2+n),  &
-            A % Values(SIZE(Projector % Values)*NDOFs**2+n) )
-
-         A % Rows(1) = 1
-         DO i=1,Projector % NumberOfRows
-           n = Projector % Rows(i+1)-Projector % Rows(i)
-           DO j=1,NDOFs
-             k = NDOFs*(i-1)+j
-             A % Rows(k+1)=A % Rows(k)+NDOFs*n+1
-           END DO
-         END DO
-
-         DO i=1,Projector % NumberOfRows
-           k = Perm(Projector % InvPerm(i))
-           DO p=1,NDOFs
-             n = A % Rows(NDOFs*(i-1)+p)
-             A % Cols(n) = NDOFs*(k-1)+p
-
-             DO j=Projector % Rows(i),Projector % Rows(i+1)-1
-               m = Perm(Projector % Cols(j))
-               IF ( m>0 ) THEN
-                 DO q=1,NDOFs
-                   n = n + 1
-                   A % Cols(n) = NDOFs*(m-1)+q
-                 END DO
-               END IF
-             END DO
-           END DO
-         END DO
-         CALL CRS_SortMatrix(A)
-
-         A % RHS = 0._dp
-         A % Values = 0._dp
-      END IF
-
-      DO i=1,Projector % NumberOfRows
-        k = Perm(Projector % InvPerm(i))
-        IF ( k<=0 ) CYCLE
-
-        CALL ZeroRow(A,NDOFS*(i-1)+DOF)
-        CALL SetMatrixElement( A, NDOFs*(i-1)+DOF, &
-               NDOFs*(k-1)+DOF, Scale )
-
-        DO j=Projector % Rows(i),Projector % Rows(i+1)-1
-          m = Perm(Projector % Cols(j))
-          IF ( m>0 ) THEN
-            CALL SetMatrixElement( A, NDOFs*(i-1)+DOF, &
-               NDOFs*(m-1)+DOF, Projector % Values(j) )
-          END IF
-        END DO
-      END DO
-    ELSE
-      ALLOCATE(A)
-      A = StiffMatrix
-      A % RHS => A % BulkRHS
-      A % Values => A % BulkValues
-      DO i=1,Projector % NumberOfRows
-         ii = Projector % InvPerm(i)
-         k = Perm(ii)
-         IF ( .NOT. Done(ii) .AND. k>0 ) THEN
-            k = NDOFs * (k-1) + DOF
-            DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-              IF ( Projector % Cols(l) <= 0 .OR. Projector % Values(l)==0.0d0 ) CYCLE
-
-              m = Perm(Projector % Cols(l))
-              IF ( m > 0 ) THEN
-                m = NDOFs*(m-1) + DOF
-                DO nn=StiffMatrix % Rows(k),StiffMatrix % Rows(k+1)-1
-                   CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
-                          Projector % Values(l) * StiffMatrix % Values(nn) )
-                   IF (ASSOCIATED(A % Values)) THEN
-                     CALL AddToMatrixElement( A, m, A % Cols(nn), &
-                           Projector % Values(l) * A % Values(nn) )
-                   END IF
-                END DO
-                ForceVector(m)=ForceVector(m)+Projector % Values(l)*ForceVector(k)
-                IF (ASSOCIATED(A % RHS)) THEN
-                  A % RHS(m) = A % RHS(m) + Projector % Values(l)*A % RHS(k)
-                END IF
-              END IF
-            END DO
-         END IF
-         Done(ii) = .TRUE.
-      END DO
-      DEALLOCATE(A)
-    END IF
-!------------------------------------------------------------------------------
-   END SUBROUTINE SetPeriodicBoundariesPass1
-!------------------------------------------------------------------------------
-
-
-!> At second pass add the [...1 .. -1 ...] row structure that results to the 
-!> equality of the periodic dofs. 
-!------------------------------------------------------------------------------
-   SUBROUTINE SetPeriodicBoundariesPass2( Model, StiffMatrix, ForceVector, &
-                      Name, DOF, NDOFs, Perm, This, Done )
-!------------------------------------------------------------------------------
-!
-! TYPE(Model_t) :: Model
-!   INPUT: the current model structure
-!
-! TYPE(Matrix_t), POINTER :: StiffMatrix
-!   INOUT: The global matrix
-!
-! REAL(KIND=dp) :: ForceVector(:)
-!   INOUT: The global RHS vector
-! 
-! CHARACTER(LEN=*) :: Name
-!   INPUT: name of the dof to be set
-!
-! INTEGER :: DOF, NDOFs
-!   INPUT: The order number of the dof and the total number of DOFs for
-!          this equation
-!
-! INTEGER :: Perm(:)
-!   INPUT: The node reordering info, this has been generated at the
-!          beginning of the simulation for bandwidth optimization
-!------------------------------------------------------------------------------
-    TYPE(Model_t) :: Model
-    TYPE(Matrix_t), POINTER :: StiffMatrix
-
-    REAL(KIND=dp) :: ForceVector(:)
-
-    CHARACTER(LEN=*) :: Name
-    LOGICAL :: Done(:)
-    INTEGER :: This, DOF, NDOFs, Perm(:)
-!------------------------------------------------------------------------------
-
-    INTEGER :: i,j,k,l,m,n,nn,ii,nlen
-    LOGICAL :: GotIt
-    REAL(KIND=dp) :: Scale,s,ValueOffset
-    TYPE(Matrix_t), POINTER :: Projector
-!------------------------------------------------------------------------------
-
-    nlen = LEN_TRIM(Name)
-
-    IF ( ListGetLogical( Model % BCs(This) % Values, &
-       'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
-      Scale = -1.0_dp
-    ELSE IF ( ListGetLogical( Model % BCs(This) % Values, &
-        'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
-      Scale = 1.0d0
-    ELSE 
-      Scale = ListGetCReal( Model % BCs(This) % Values, &
-          'Periodic BC Scale ' // Name(1:nlen), GotIt) 
-      IF(.NOT. GotIt ) RETURN      
-    END IF
-
-    ValueOffset = ListGetCReal( Model % BCs(This) % Values, &
-          'Periodic BC Offset ' // Name(1:nlen), GotIt) 
-
-    Projector => Model % BCs(This) % PMatrix
-    IF ( .NOT. ASSOCIATED(Projector) ) RETURN
-
-    IF ( ListGetLogical( Model % BCs(This) % Values,  &
-         'Periodic BC Use Lagrange Coefficient', GotIt ) ) RETURN
-
-    IF ( ListGetLogical( Model % BCs(This) % Values,  &
-         'Periodic BC Explicit', GotIt ) ) RETURN
-
-!   Do the assembly of the projector:
-!   ---------------------------------
-    DO i=1,Projector % NumberOfRows
-       ii = Projector % InvPerm(i)
-
-       k = Perm( ii )
-       IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
-          k = NDOFs * (k-1) + DOF
-          CALL ZeroRow( StiffMatrix,k )
-          DO l = Projector % Rows(i), Projector % Rows(i+1)-1
-             IF ( Projector % Cols(l) <= 0 ) CYCLE
-             m = Perm( Projector % Cols(l) )
-             IF ( m > 0 ) THEN
-               m = NDOFs * (m-1) + DOF
-               CALL AddToMatrixElement( StiffMatrix,k,m,Projector % Values(l) )
-             END IF
-          END DO
-
-          ForceVector(k) = -ValueOffset 
-          CALL AddToMatrixElement( StiffMatrix,k,k,scale )
-       END IF
-       Done(ii) = .TRUE.
-    END DO
-!------------------------------------------------------------------------------
-   END SUBROUTINE SetPeriodicBoundariesPass2
-!------------------------------------------------------------------------------
-
-
 !> Sets nodal loads directly to the matrix structure. 
 !> The intended use for this, is for example, in multiphysics coupling where
 !> the nodal loads may have been computed by another solver. 
@@ -2452,7 +2464,7 @@ CONTAINS
 
     INTEGER, POINTER :: IndNodes(:)
     INTEGER :: NoNodes,NoDims,bf_id,nlen
-    REAL(KIND=dp), POINTER :: CoordNodes(:,:)
+    REAL(KIND=dp), POINTER :: CoordNodes(:,:), DiagScaling(:)
     REAL(KIND=dp) :: MinDist,Dist
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActivePartAll(:), DoneLoad(:)
     LOGICAL :: NodesFound
@@ -2468,6 +2480,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Go through the boundaries
 !------------------------------------------------------------------------------
+
+    DiagScaling => A % DiagScaling
+    IF (.NOT.ASSOCIATED(DiagScaling)) THEN
+      ALLOCATE(DiagScaling(A % NumberOFRows))
+      DiagScaling=1._dp
+    END IF
 
     ActivePart = .FALSE.
     ActivePartAll = .FALSE.
@@ -2598,6 +2616,7 @@ CONTAINS
     END DO
 
     DEALLOCATE( Indexes )
+    IF(.NOT.ASSOCIATED(A % DiagScaling,DiagScaling)) DEALLOCATE(DiagScaling)
 
 
 CONTAINS
@@ -2628,11 +2647,11 @@ CONTAINS
            IF ( k > 0 ) THEN
              IF ( DOF>0 ) THEN
                k = NDOFs * (k-1) + DOF
-               b(k) = b(k) + Work(j)
+               b(k) = b(k) + Work(j) * DiagScaling(k)
              ELSE
                DO l=1,MIN( NDOFs, SIZE(Worka,1) )
                  k1 = NDOFs * (k-1) + l
-                 b(k1) = b(k1) + WorkA(l,1,j)
+                 b(k1) = b(k1) + WorkA(l,1,j) * DiagScaling(k1)
                END DO
              END IF
            END IF
@@ -2663,11 +2682,11 @@ CONTAINS
            IF ( k > 0 ) THEN
              IF ( DOF>0 ) THEN
                k = NDOFs * (k-1) + DOF
-               b(k) = b(k) + Work(j)
+               b(k) = b(k) + Work(j) * DiagScaling(k)
              ELSE
                DO l=1,MIN( NDOFs, SIZE(WorkA,1) )
                  k1 = NDOFs * (k-1) + l
-                 b(k1) = b(k1) + WorkA(l,1,j)
+                 b(k1) = b(k1) + WorkA(l,1,j) * DiagScaling(k1)
                END DO
              END IF
            END IF
@@ -4462,16 +4481,17 @@ END FUNCTION SearchNodeL
 !>     Scale system Ax = b as:
 !>       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !------------------------------------------------------------------------------
-  SUBROUTINE ScaleLinearSystem(Solver,A,b,x,DiagScaling,ApplyScaling)
+  SUBROUTINE ScaleLinearSystem(Solver,A,b,x,DiagScaling,ApplyScaling,RhsScaling)
 
     TYPE(Solver_t) :: Solver
     TYPE(Matrix_t) :: A
     REAL(KIND=dp), OPTIONAL :: b(:),x(:)
     REAL(KIND=dp), OPTIONAL, TARGET :: DiagScaling(:)
-    LOGICAL, OPTIONAL :: ApplyScaling 
+    LOGICAL, OPTIONAL :: ApplyScaling, RhsScaling
     INTEGER :: n,i,j
-    REAL(KIND=dp) :: DiagReal, DiagImag, bnorm
-    LOGICAL :: ComplexMatrix
+    REAL(KIND=dp) :: bnorm
+    COMPLEX(KIND=dp) :: DiagC
+    LOGICAL :: ComplexMatrix, DoRHS
     REAL(KIND=dp), POINTER  :: Diag(:)
 
     n = A % NumberOfRows
@@ -4503,14 +4523,12 @@ END FUNCTION SearchNodeL
 
       IF ( ComplexMatrix ) THEN
         DO i=1,n,2
-          DiagReal  =  Diag(i)
-          DiagImag  = -Diag(i+1)
-          IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp))/=0.0d0 ) THEN
-            Diag(i)   = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
-            Diag(i+1) = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
+          DiagC = CMPLX(Diag(i),-Diag(i+1),KIND=dp)
+          IF (ABS(DiagC)/=0._dp) THEN
+            Diag(i)   = 1.0_dp/SQRT(ABS(DiagC))
+            Diag(i+1) = 1.0_dp/SQRT(ABS(DiagC))
           ELSE
-            Diag(i)   = 1.0d0
-            Diag(i+1) = 1.0d0
+            Diag(i)   = 1.0_dp; Diag(i+1) = 1.0_dp
           END IF
         END DO
       ELSE
@@ -4564,7 +4582,13 @@ END FUNCTION SearchNodeL
     !--------------------------------
     IF( PRESENT( b ) ) THEN      
       b(1:n) = b(1:n) * Diag(1:n)
-      bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+      DoRHS = .TRUE.
+      IF (PRESENT(RhsScaling)) DoRHS = RhsScaling
+      IF (DoRHS) THEN
+        bnorm = ParallelReduction(SQRT(SUM(b(1:n)**2)))
+      ELSE
+        bnorm = 1._dp
+      END IF
       A % RhsScaling = bnorm
 
       Diag(1:n) = Diag(1:n) * bnorm
@@ -4658,6 +4682,8 @@ END FUNCTION SearchNodeL
         END DO
       END IF
     END IF
+
+    DEALLOCATE(A % DiagScaling); A % DiagScaling=>Null()
     
   END SUBROUTINE BackScaleLinearSystem
 

@@ -3061,13 +3061,14 @@ CONTAINS
      REAL(KIND=dp), POINTER    :: b(:)
 
      REAL(KIND=dp) :: xx
+     REAL(KIND=dp), POINTER :: DiagScaling(:)
      REAL(KIND=dp), ALLOCATABLE :: Work(:), STIFF(:,:)
 
      INTEGER, ALLOCATABLE :: lInd(:), gInd(:)
      INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, ni, nj, &
           DOF, local, numEdgeDofs,istat, n_start, Offset
 
-     LOGICAL :: Flag,Found, ConstantValue
+     LOGICAL :: Flag,Found, ConstantValue, ScaleSystem
      TYPE(ValueList_t), POINTER :: BC, ptr, Params
      TYPE(Element_t), POINTER :: Element, Parent, Edge, Face, SaveElement
 
@@ -3092,6 +3093,16 @@ CONTAINS
        x => Ux
      ELSE
        x => Solver % Variable
+     END IF
+
+     ScaleSystem=GetLogical(Params,'Linear System Scaling',Found)
+     IF(.NOT.Found) ScaleSystem=.TRUE.
+     IF (ScaleSystem) THEN
+       CALL ScaleLinearSystem(Solver,A,b,RHSscaling=.FALSE.)
+       DiagScaling => A % DiagScaling
+     ELSE
+       ALLOCATE(DiagScaling(A % NumberOfRows))
+       DiagScaling=1._dp
      END IF
 
      Offset = 0
@@ -3239,10 +3250,10 @@ CONTAINS
                    IF ( nb <= 0 ) CYCLE
                    nb = Offset + x % DOFs*(nb-1) + DOF
                    IF ( A % Symmetric ) THEN
-                     CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1))
+                     CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1)/DiagScaling(nb))
                    ELSE
                      CALL ZeroRow( A, nb )
-                     A % RHS(nb) = Work(1)
+                     A % RHS(nb) = Work(1)/DiagScaling(nb)
                      CALL SetMatrixElement(A,nb,nb,1._dp)
                    END IF
                  END DO
@@ -3273,10 +3284,10 @@ CONTAINS
                      IF ( nb <= 0 ) CYCLE
                      nb = Offset + x % DOFs*(nb-1) + DOF
                      IF ( A % Symmetric ) THEN
-                       CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1))
+                       CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(1)/DiagScaling(nb))
                      ELSE
                        CALL ZeroRow( A, nb )
-                       A % RHS(nb) = Work(1)
+                       A % RHS(nb) = Work(1)/DiagScaling(nb)
                        CALL SetMatrixElement(A,nb,nb,1._dp)
                      END IF
                    END DO
@@ -3295,7 +3306,7 @@ CONTAINS
 
                CALL ZeroRow( A, nb )
                CALL SetMatrixElement(A,nb,nb,1._dp)
-               A % RHS(nb) = Work(1)
+               A % RHS(nb) = Work(1)/DiagScaling(nb)
              END DO
            END IF
 
@@ -3328,7 +3339,7 @@ CONTAINS
                   IF ( nb <= 0 ) CYCLE
                   nb = Offset + x % DOFs * (nb-1) + DOF
                   DO k=n+1,numEdgeDOFs
-                    Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)
+                    Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)*DiagScaling(nb)
                   END DO
                 END DO
 
@@ -3348,7 +3359,7 @@ CONTAINS
                   nb = x % Perm( gInd(k) )
                   IF ( nb <= 0 ) CYCLE
                   nb = Offset + x % DOFs * (nb-1) + DOF
-                  CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(k-n))
+                  CALL CRS_SetSymmDirichlet(A,A % RHS,nb,Work(k-n)/DiagScaling(nb))
                 END DO 
               ELSE
                 ! Contribute this boundary to global system
@@ -3357,14 +3368,15 @@ CONTAINS
                    nb = x % Perm( gInd(k) )
                    IF ( nb <= 0 ) CYCLE
                    nb = Offset + x % DOFs * (nb-1) + DOF
-                   A % RHS(nb) = A % RHS(nb) + Work(k)
+                   A % RHS(nb) = A % RHS(nb) + Work(k)/DiagScaling(nb)
                    DO l=1,numEdgeDofs
                       mb = x % Perm( gInd(l) )
                       IF ( mb <= 0 ) CYCLE
                       mb = Offset + x % DOFs * (mb-1) + DOF
                       DO kk=A % Rows(nb)+DOF-1,A % Rows(nb+1)-1,x % DOFs
                         IF ( A % Cols(kk) == mb ) THEN
-                          A % Values(kk) = A % Values(kk) + STIFF(k,l)
+                          A % Values(kk) = A % Values(kk) + STIFF(k,l) * &
+                             DiagScaling(mb) / DiagScaling(nb)
                           EXIT
                         END IF
                       END DO
@@ -3396,7 +3408,7 @@ CONTAINS
                   IF ( nb <= 0 ) CYCLE
                   nb = Offset + x % DOFs * (nb-1) + DOF
                   DO k=n+1,numEdgeDOFs
-                    Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)
+                    Work(k) = Work(k) - STIFF(k,l)*A % RHS(nb)*DiagScaling(nb)
                   END DO
                 END DO
                 n_start=n+1
@@ -3407,14 +3419,15 @@ CONTAINS
                 nb = x % Perm( gInd(k) )
                 IF ( nb <= 0 ) CYCLE
                 nb = Offset + x % DOFs * (nb-1) + DOF
-                A % RHS(nb) = A % RHS(nb) + Work(k)
+                A % RHS(nb) = A % RHS(nb) + Work(k)/DiagScaling(nb)
                 DO l=n_start,numEdgeDOFs
                   mb = x % Perm( gInd(l) )
                   IF ( mb <= 0 ) CYCLE
                   mb = Offset + x % DOFs * (mb-1) + DOF
                   DO kk=A % Rows(nb)+DOF-1,A % Rows(nb+1)-1,x % DOFs
                     IF ( A % Cols(kk) == mb ) THEN
-                      A % Values(kk) = A % Values(kk) + STIFF(k,l)
+                      A % Values(kk) = A % Values(kk) + STIFF(k,l) * &
+                          DiagScaling(mb) / DiagScaling(nb)
                       EXIT
                     END IF
                   END DO
@@ -3424,6 +3437,12 @@ CONTAINS
         END DO
         CurrentModel % CurrentElement => SaveElement
      END DO
+
+     IF (ScaleSystem) THEN
+       CALL BackScaleLinearSystem(Solver,A,b)
+     ELSE
+       DEALLOCATE(DiagScaling)
+     END IF
 
      CALL Info('DefUtils::DefaultDirichletBCs','Dirichlet boundary conditions set', Level=5)
 !------------------------------------------------------------------------------

@@ -289,7 +289,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE SetDOFToValueR(Solver,k,value)
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Value
+    REAL(KIND=dp) :: Value,v
     TYPE(Solver_t) :: Solver
     INTEGER :: n,k
     TYPE(Matrix_t), POINTER :: A
@@ -1641,7 +1641,8 @@ CONTAINS
       ! if so, substract from integral:
       ! ---------------------------------------------------------
       DO k=j-1,1,-1
-        R = Smat % RHS(Perm(dMap(k)+nNodes))
+        l = Perm(dMap(k)+nNodes)
+        R = Smat % RHS(l)/Smat % Values(Smat % Diag(l))
         IF ( R==0 ) CYCLE
 
         Edge1 => Mesh % Edges(dMap(k))
