@@ -69,7 +69,7 @@
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
 
-     INTEGER :: i,j,k,l,m,n,t,tt,iter,k1,k2,body_id,eq_id,istat,LocalNodes,bf_id
+     INTEGER :: i,j,k,l,m,n,nd,t,tt,iter,k1,k2,body_id,eq_id,istat,LocalNodes,bf_id
 
      TYPE(Nodes_t)   :: ElementNodes
      TYPE(Element_t),POINTER :: Element,Parent,RadiationElement
@@ -244,7 +244,7 @@
 !    Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed ) THEN
-        N = Solver % Mesh % MaxElementNodes
+        N = Solver % Mesh % MaxElementDOFs
 
         IF ( AllocationsDone ) THEN
           DEALLOCATE(  &
@@ -992,6 +992,18 @@
 
         BC => GetBC()
         IF ( .NOT. ASSOCIATED(BC) ) CYCLE
+
+        ! This checks whether there are any Dirichlet conditions on the 
+        ! smart heater boundary. If there are the r.h.s. must be zero as 
+        ! there can possibly not be any effect on temperature.
+        !-----------------------------------------------------------------
+	IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
+          IF( ListCheckPresent(BC, TempSol % Name) ) THEN
+             nd = GetElementDOFs(Indexes)
+             ForceHeater(TempPerm(Indexes(1:nd))) = 0.0_dp
+          END IF
+        END IF
+
         HeatFluxBC = GetLogical( BC, 'Heat Flux BC', Found )
         IF ( Found .AND. .NOT. HeatFluxBC ) CYCLE
 
@@ -1004,16 +1016,6 @@
           Element % NodeIndexes = Indexes(1:n)
           CALL AddHeatFluxBC()
           Element % NodeIndexes = SaveIndexes(1:n)
-        END IF
-
-        ! This checks whether there are any Dirichlet conditions on the 
-        ! smart heater boundary. If there are the r.h.s. must be zero as 
-        ! there can possibly not be any effect on temperature.
-        !-----------------------------------------------------------------
-	IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
-          IF( ListCheckPresent( BC, TRIM( TempSol % Name ) ) ) THEN
-             ForceHeater( TempPerm( Element % NodeIndexes ) ) = 0.0_dp
-          END IF
         END IF
 
       END DO   ! Neumann & Newton BCs
