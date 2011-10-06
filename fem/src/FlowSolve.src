@@ -1154,40 +1154,11 @@
         END IF
       END DO
 
-      IF ( VarName  == 'flow solution' ) THEN
-         CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
-                  'Velocity 1', 1, NSDOFs, FlowPerm )
-        CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
-                  'Velocity 2', 2, NSDOFs, FlowPerm )
-        IF ( NSDOFs > 3 ) THEN
-          CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
-                  'Velocity 3', 3, NSDOFs, FlowPerm )
-        END IF
-        CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
-                  'Pressure', NSDOFs, NSDOFs, FlowPerm )
-      END IF
-
-      CALL FinishAssembly( Solver, ForceVector )
+      CALL DefaultFinishAssembly()
 
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-      IF ( VarName  == 'flow solution' ) THEN
-        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                  'Velocity', -1, NSDOFs, FlowPerm )
-
-        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                  'Velocity 1', 1, NSDOFs, FlowPerm )
-
-        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                  'Velocity 2', 2, NSDOFs, FlowPerm )
-        IF ( NSDOFs > 3 ) THEN
-          CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                  'Velocity 3', 3, NSDOFs, FlowPerm )
-        END IF
-        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                  'Pressure', NSDOFs, NSDOFs, FlowPerm )
-      END IF
       CALL DefaultDirichletBCs()
       CALL Info( 'FlowSolve', 'Dirichlet conditions done', Level=4 )
 
