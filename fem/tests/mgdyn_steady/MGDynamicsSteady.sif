@@ -14,7 +14,7 @@ Simulation
   Timestep Intervals = 10
   Steady State Max Iterations = 1
 
-! Post File = MGDynamics.ep
+  Post File = MGDynamics.ep
   Output Intervals(1) = 1
 End
 
@@ -50,11 +50,13 @@ Solver 1
   Linear System Solver = "Direct"
   Linear System Direct Method = Umfpack
 
+! Linear System Scaling=False
+
   Linear System Solver = "Iterative"
   Linear System Preconditioning = Ilu
   Linear System Residual Output = 10
   Linear System Max Iterations = 5000
-  Linear System Iterative Method = CG
+  Linear System Iterative Method = Bicgstab
   Linear System Convergence Tolerance = 1.0e-6
 
 ! USE Tree Gauge = Logical TRUE
@@ -130,4 +132,4 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=1.4153818\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=1.41535\n" );
