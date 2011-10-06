@@ -225,19 +225,20 @@
      DensitySol => VariableGet( Solver % Mesh % Variables, 'Density' )
 
      ! Check whether we have some heater controls. This will affect initialization stuff. 
-     SmartHeaterControl = .FALSE.
-     IntegralHeaterControl = .FALSE.
-     IF ( Model % NumberOfBodyForces > 0 ) THEN
-        DO i = 1,Model % NumberOfBodyForces
-           IF( ListGetLogical( Model % BodyForces(i) % Values, &
-                'Smart Heater Control', Found ) ) THEN
-              SmartHeaterControl = .TRUE.
-           ELSE IF( ListCheckPresent( Model % BodyForces(i) % Values, &
-                   'Integral Heat Source' ) ) THEN
-              IntegralHeaterControl = .TRUE.
-           END IF
-        END DO
-     END IF
+     SmartHeaterControl = ListCheckPresentAnyBodyForce( Model,'Smart Heater Control')
+     IntegralHeaterControl = ListCheckPresentAnyBodyForce( Model,'Integral Heat Source')
+
+!     IF ( Model % NumberOfBodyForces > 0 ) THEN
+!        DO i = 1,Model % NumberOfBodyForces
+!           IF( ListGetLogical( Model % BodyForces(i) % Values, &
+!                'Smart Heater Control', Found ) ) THEN
+!              SmartHeaterControl = .TRUE.
+!           ELSE IF( ListCheckPresent( Model % BodyForces(i) % Values, &
+!                   'Integral Heat Source' ) ) THEN
+!              IntegralHeaterControl = .TRUE.
+!           END IF
+!        END DO
+!     END IF
    
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
@@ -1004,6 +1005,17 @@
           CALL AddHeatFluxBC()
           Element % NodeIndexes = SaveIndexes(1:n)
         END IF
+
+        ! This checks whether there are any Dirichlet conditions on the 
+        ! smart heater boundary. If there are the r.h.s. must be zero as 
+        ! there can possibly not be any effect on temperature.
+        !-----------------------------------------------------------------
+	IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
+          IF( ListCheckPresent( BC, TRIM( TempSol % Name ) ) ) THEN
+             ForceHeater( TempPerm( Element % NodeIndexes ) ) = 0.0_dp
+          END IF
+        END IF
+
       END DO   ! Neumann & Newton BCs
 !------------------------------------------------------------------------------
 
